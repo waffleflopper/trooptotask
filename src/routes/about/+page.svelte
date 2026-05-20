@@ -20,7 +20,7 @@
 	const feedback = [
 		'TroopToTask is independently built by me, not by a defense contractor or large corporate team. I think that matters because the product is shaped close to the problem. Feedback from leaders actively using TroopToTask across multiple Army locations directly influences what gets built, what gets simplified, and what needs to work better next.',
 		'It is still evolving, but the direction is clear: reduce admin drag, keep important work visible, and help leaders spend less time chasing the same information through five different places.',
-		'I will never forget walking into a brigade headquarters just in time to hear CSM Moran, then Command Sergeant Major of 1st Medical Brigade, tell his team, "Never lose sight of the fact that every decision we make in these meetings has to be carried out by a Soldier."',
+		'I will never forget walking into a brigade headquarters just in time to hear CSM Moran, then Command Sergeant Major of 1st Medical Brigade, tell his team, "Never lose sight of the fact that every decision we make in these meetings is executed by a Soldier."',
 		'That idea has followed me from place to place and shaped the way I approach problems. TroopToTask is built for the leaders who have to make the plan work after the meeting ends.'
 	];
 
@@ -76,10 +76,7 @@
 			</article>
 
 			<aside class="quote-panel">
-				<p>
-					"Never lose sight of the fact that every decision we make in these meetings has to be carried out by a
-					Soldier."
-				</p>
+				<p>"Never lose sight of the fact that every decision we make in these meetings is executed by a Soldier."</p>
 				<span>CSM Moran, Command Sergeant Major of 1st Medical Brigade, retired</span>
 			</aside>
 
@@ -167,7 +164,7 @@
 
 	h1 {
 		max-width: 12ch;
-		font-size: clamp(3.6rem, 7.6vw, 6.8rem);
+		font-size: clamp(3.35rem, 7.1vw, 6.35rem);
 		font-weight: 800;
 	}
 

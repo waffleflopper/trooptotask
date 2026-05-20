@@ -18,6 +18,7 @@ describe('isPublicRoute', () => {
 	it('allows the existing public site and auth routes', () => {
 		expect(isPublicRoute('/')).toBe(true);
 		expect(isPublicRoute('/auth/login')).toBe(true);
+		expect(isPublicRoute('/about')).toBe(true);
 		expect(isPublicRoute('/security')).toBe(true);
 		expect(isPublicRoute('/help')).toBe(true);
 	});

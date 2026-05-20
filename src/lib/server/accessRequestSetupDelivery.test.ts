@@ -108,6 +108,21 @@ function makeService(store: AccessRequestSetupDeliveryStore) {
 	return { service, sendSetupEmail };
 }
 
+function makeSubmission(
+	overrides: Partial<Parameters<ReturnType<typeof makeService>['service']['submitAccessRequest']>[0]> = {}
+) {
+	return {
+		email: 'test@example.com',
+		firstName: 'Test',
+		lastName: 'Requester',
+		reason: null,
+		heardAbout: 'search_engine',
+		heardAboutDetails: null,
+		origin: 'https://trooptotask.test',
+		...overrides
+	};
+}
+
 describe('access request setup delivery', () => {
 	it('creates a pending Access Request for a new email', async () => {
 		const store = makeStore();
@@ -115,14 +130,24 @@ describe('access request setup delivery', () => {
 
 		const result = await service.submitAccessRequest({
 			email: 'New.User@Example.com',
-			name: 'New User',
+			firstName: 'New',
+			lastName: 'User',
 			reason: 'Testing beta',
+			heardAbout: 'search_engine',
+			heardAboutDetails: null,
 			origin: 'https://trooptotask.test'
 		});
 
 		expect(result).toEqual({ status: 'pending-created' });
 		expect(store.insertedRequests).toEqual([
-			{ email: 'new.user@example.com', name: 'New User', reason: 'Testing beta' }
+			{
+				email: 'new.user@example.com',
+				firstName: 'New',
+				lastName: 'User',
+				reason: 'Testing beta',
+				heardAbout: 'search_engine',
+				heardAboutDetails: null
+			}
 		]);
 		expect(sendSetupEmail).not.toHaveBeenCalled();
 	});
@@ -131,12 +156,7 @@ describe('access request setup delivery', () => {
 		const store = makeStore([makeRequest({ status: 'pending' })]);
 		const { service, sendSetupEmail } = makeService(store);
 
-		const result = await service.submitAccessRequest({
-			email: 'test@example.com',
-			name: 'Duplicate User',
-			reason: null,
-			origin: 'https://trooptotask.test'
-		});
+		const result = await service.submitAccessRequest(makeSubmission());
 
 		expect(result).toEqual({ status: 'already-pending' });
 		expect(store.insertedRequests).toEqual([]);
@@ -149,8 +169,11 @@ describe('access request setup delivery', () => {
 
 		const result = await service.submitAccessRequest({
 			email: 'Test@Example.com',
-			name: 'Approved User',
+			firstName: 'Approved',
+			lastName: 'User',
 			reason: null,
+			heardAbout: 'search_engine',
+			heardAboutDetails: null,
 			origin: 'https://trooptotask.test'
 		});
 
@@ -180,8 +203,11 @@ describe('access request setup delivery', () => {
 
 			const result = await service.submitAccessRequest({
 				email: request.email,
-				name: 'Duplicate User',
+				firstName: 'Duplicate',
+				lastName: 'User',
 				reason: null,
+				heardAbout: 'search_engine',
+				heardAboutDetails: null,
 				origin: 'https://trooptotask.test'
 			});
 

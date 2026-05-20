@@ -5,6 +5,10 @@ import { isBillingEnabled } from '$lib/config/billing';
 import { TIER_CONFIG } from '$lib/types/subscription';
 import { completeDataExport, failDataExport, startDataExport } from '$lib/server/core/useCases/dataExportLifecycle';
 import {
+	ORGANIZATION_EXPORT_SECTIONS,
+	loadOrganizationExportPayload
+} from '$lib/server/core/useCases/organizationExport';
+import {
 	addTableSheet,
 	createWorkbook,
 	workbookBufferResponse,
@@ -52,363 +56,26 @@ export const _postConfig: RouteConfig<ExcelExportInput, ExcelExportOutput> = {
 		const exportRecord = await startDataExport({ auth: ctx.auth, store: ctx.rawStore }, { requestedBy: userId });
 
 		try {
-			const [
-				personnel,
-				groups,
-				availabilityEntries,
-				trainingTypes,
-				personnelTrainings,
-				statusTypes,
-				assignmentTypes,
-				dailyAssignments,
-				counselingRecords,
-				specialDays,
-				onboardingTemplateSteps,
-				personnelOnboardings,
-				ratingSchemeEntries,
-				personnelExtendedInfo,
-				leaderNotes,
-				personnelFollowUps,
-				personnelDocuments
-			] = await Promise.all([
-				ctx.rawStore.findMany<Record<string, unknown>>('personnel', orgId, undefined, {
-					isNull: { archived_at: true }
-				}),
-				ctx.rawStore.findMany<Record<string, unknown>>('groups', orgId),
-				ctx.rawStore.findMany<Record<string, unknown>>('availability_entries', orgId),
-				ctx.rawStore.findMany<Record<string, unknown>>('training_types', orgId),
-				ctx.rawStore.findMany<Record<string, unknown>>('personnel_trainings', orgId),
-				ctx.rawStore.findMany<Record<string, unknown>>('status_types', orgId),
-				ctx.rawStore.findMany<Record<string, unknown>>('assignment_types', orgId),
-				ctx.rawStore.findMany<Record<string, unknown>>('daily_assignments', orgId),
-				ctx.rawStore.findMany<Record<string, unknown>>('counseling_records', orgId),
-				ctx.rawStore.findMany<Record<string, unknown>>('special_days', orgId),
-				ctx.rawStore.findMany<Record<string, unknown>>('onboarding_template_steps', orgId),
-				ctx.rawStore.findMany<Record<string, unknown>>('personnel_onboardings', orgId),
-				ctx.rawStore.findMany<Record<string, unknown>>('rating_scheme_entries', orgId),
-				ctx.rawStore.findMany<Record<string, unknown>>('personnel_extended_info', orgId),
-				ctx.rawStore.findMany<Record<string, unknown>>('leader_notes', orgId),
-				ctx.rawStore.findMany<Record<string, unknown>>('personnel_follow_ups', orgId),
-				ctx.rawStore.findMany<Record<string, unknown>>('personnel_documents', orgId)
-			]);
-
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			const personnelRows = personnel as any[];
-
-			const personnelMap = new Map<string, string>();
-			for (const p of personnelRows)
-				personnelMap.set(p.id, `${p.rank ?? ''} ${p.last_name ?? ''}, ${p.first_name ?? ''}`.trim());
-			const groupMap = new Map<string, string>();
-			for (const g of groups as { id: string; name: string }[]) groupMap.set(g.id, g.name);
-			const trainingTypeMap = new Map<string, string>();
-			for (const t of trainingTypes as { id: string; name: string }[]) trainingTypeMap.set(t.id, t.name);
-			const statusTypeMap = new Map<string, string>();
-			for (const s of statusTypes as { id: string; name: string }[]) statusTypeMap.set(s.id, s.name);
-			const assignmentTypeMap = new Map<string, string>();
-			for (const a of assignmentTypes as { id: string; name: string }[]) assignmentTypeMap.set(a.id, a.name);
-			const extendedMap = new Map<string, Record<string, unknown>>();
-			for (const e of personnelExtendedInfo as (Record<string, unknown> & {
-				personnel_id: string;
-			})[])
-				extendedMap.set(e.personnel_id, e);
-
+			const exportData = await loadOrganizationExportPayload(ctx.rawStore, orgId);
 			const workbook = await createWorkbook();
 
 			addTableSheet(workbook, {
-				name: 'Personnel',
+				name: 'Export Inventory',
 				columns: [
-					{ header: 'Rank', key: 'rank', width: 10 },
-					{ header: 'Last Name', key: 'last_name', width: 18 },
-					{ header: 'First Name', key: 'first_name', width: 18 },
-					{ header: 'MOS', key: 'mos', width: 12 },
-					{ header: 'Duty Role', key: 'clinic_role', width: 12 },
-					{ header: 'Group', key: 'group', width: 20 },
-					{ header: 'ETS', key: 'ets', width: 14 },
-					{ header: 'PCS / DEROS', key: 'deros', width: 14 },
-					{ header: 'Emergency Contact', key: 'emergency_contact', width: 25 },
-					{ header: 'Emergency Phone', key: 'emergency_phone', width: 18 },
-					{ header: 'Phone', key: 'phone', width: 18 },
-					{ header: 'Email', key: 'email', width: 25 },
-					{ header: 'Address', key: 'address', width: 35 },
-					{ header: 'Leader Notes', key: 'leader_notes', width: 30 }
+					{ header: 'Area', key: 'area', width: 22 },
+					{ header: 'Section', key: 'title', width: 34 },
+					{ header: 'Raw Table', key: 'table', width: 38 },
+					{ header: 'JSON Key', key: 'key', width: 34 },
+					{ header: 'Rows', key: 'rowCount', width: 10 }
 				],
-				rows: toWorkbookRows(
-					personnelRows.map((p) => {
-						const ext = extendedMap.get(p.id) as Record<string, unknown> | undefined;
-						return {
-							rank: p.rank,
-							last_name: p.last_name,
-							first_name: p.first_name,
-							mos: p.mos,
-							clinic_role: p.clinic_role,
-							group: lookup(groupMap, p.group_id),
-							ets: p.ets ?? '',
-							deros: p.deros ?? '',
-							emergency_contact: ext?.emergency_contact_name ?? '',
-							emergency_phone: ext?.emergency_contact_phone ?? '',
-							phone: ext?.personal_phone ?? '',
-							email: ext?.personal_email ?? '',
-							address: ext
-								? [ext.address_street, ext.address_city, ext.address_state, ext.address_zip].filter(Boolean).join(', ')
-								: '',
-							leader_notes: ext?.leader_notes ?? ''
-						};
-					})
-				)
+				rows: toWorkbookRows(exportData.sectionInventory.map((section) => ({ ...section })))
 			});
 
-			addSimpleSheet(
-				workbook,
-				'Groups',
-				[
-					{ header: 'Name', key: 'name', width: 25 },
-					{ header: 'Sort Order', key: 'sort_order', width: 12 }
-				],
-				groups
-			);
-			addMappedSheet(
-				workbook,
-				'Calendar',
-				availabilityEntries,
-				[
-					{ header: 'Person', key: 'person', width: 25 },
-					{ header: 'Status', key: 'status', width: 18 },
-					{ header: 'Start Date', key: 'start_date', width: 14 },
-					{ header: 'End Date', key: 'end_date', width: 14 }
-				],
-				(a) => ({
-					person: lookup(personnelMap, a.personnel_id),
-					status: lookup(statusTypeMap, a.status_type_id),
-					start_date: a.start_date,
-					end_date: a.end_date
-				})
-			);
-			addSimpleSheet(
-				workbook,
-				'Training Types',
-				[
-					{ header: 'Name', key: 'name', width: 25 },
-					{ header: 'Color', key: 'color', width: 12 },
-					{ header: 'Expiration Days', key: 'expiration_days', width: 16 }
-				],
-				trainingTypes
-			);
-			addMappedSheet(
-				workbook,
-				'Training Records',
-				personnelTrainings,
-				[
-					{ header: 'Person', key: 'person', width: 25 },
-					{ header: 'Training Type', key: 'training_type', width: 25 },
-					{ header: 'Completed Date', key: 'completion_date', width: 16 },
-					{ header: 'Expiration Date', key: 'expiration_date', width: 16 },
-					{ header: 'Notes', key: 'notes', width: 30 }
-				],
-				(t) => ({
-					person: lookup(personnelMap, t.personnel_id),
-					training_type: lookup(trainingTypeMap, t.training_type_id),
-					completion_date: t.completion_date,
-					expiration_date: t.expiration_date,
-					notes: t.notes
-				})
-			);
-			addSimpleSheet(
-				workbook,
-				'Status Types',
-				[
-					{ header: 'Name', key: 'name', width: 25 },
-					{ header: 'Color', key: 'color', width: 12 },
-					{ header: 'Text Color', key: 'text_color', width: 12 }
-				],
-				statusTypes
-			);
-			addSimpleSheet(
-				workbook,
-				'Assignment Types',
-				[
-					{ header: 'Name', key: 'name', width: 25 },
-					{ header: 'Color', key: 'color', width: 12 }
-				],
-				assignmentTypes
-			);
-			addMappedSheet(
-				workbook,
-				'Daily Assignments',
-				dailyAssignments,
-				[
-					{ header: 'Date', key: 'date', width: 14 },
-					{ header: 'Person', key: 'person', width: 25 },
-					{ header: 'Assignment Type', key: 'assignment_type', width: 25 }
-				],
-				(d) => ({
-					date: d.date,
-					person: lookup(personnelMap, d.assignee_id),
-					assignment_type: lookup(assignmentTypeMap, d.assignment_type_id)
-				})
-			);
-			addMappedSheet(
-				workbook,
-				'Counseling Records',
-				counselingRecords,
-				[
-					{ header: 'Person', key: 'person', width: 25 },
-					{ header: 'Date', key: 'date_conducted', width: 14 },
-					{ header: 'Subject', key: 'subject', width: 35 },
-					{ header: 'Key Points', key: 'key_points', width: 40 },
-					{ header: 'Plan of Action', key: 'plan_of_action', width: 40 },
-					{ header: 'Status', key: 'status', width: 14 },
-					{ header: 'Notes', key: 'notes', width: 30 }
-				],
-				(c) => ({
-					person: lookup(personnelMap, c.personnel_id),
-					date_conducted: c.date_conducted,
-					subject: c.subject,
-					key_points: c.key_points,
-					plan_of_action: c.plan_of_action,
-					status: c.status,
-					notes: c.notes
-				})
-			);
-			addMappedSheet(
-				workbook,
-				'Leader Notes',
-				leaderNotes,
-				[
-					{ header: 'Person', key: 'person', width: 25 },
-					{ header: 'Author', key: 'author', width: 25 },
-					{ header: 'Note', key: 'text', width: 45 },
-					{ header: 'Created At', key: 'created_at', width: 20 },
-					{ header: 'Archived At', key: 'archived_at', width: 20 }
-				],
-				(note) => ({
-					person: lookup(personnelMap, note.personnel_id),
-					author: note.author,
-					text: note.text,
-					created_at: note.created_at,
-					archived_at: note.archived_at
-				})
-			);
-			addMappedSheet(
-				workbook,
-				'Personnel Follow-ups',
-				personnelFollowUps,
-				[
-					{ header: 'Person', key: 'person', width: 25 },
-					{ header: 'Title', key: 'title', width: 35 },
-					{ header: 'Notes', key: 'notes', width: 40 },
-					{ header: 'Due Date', key: 'due_date', width: 14 },
-					{ header: 'Status', key: 'status', width: 14 },
-					{ header: 'Created At', key: 'created_at', width: 20 },
-					{ header: 'Completed At', key: 'completed_at', width: 20 },
-					{ header: 'Archived At', key: 'archived_at', width: 20 }
-				],
-				(followUp) => ({
-					person: lookup(personnelMap, followUp.personnel_id),
-					title: followUp.title,
-					notes: followUp.notes,
-					due_date: followUp.due_date,
-					status: followUp.status,
-					created_at: followUp.created_at,
-					completed_at: followUp.completed_at,
-					archived_at: followUp.archived_at
-				})
-			);
-			addMappedSheet(
-				workbook,
-				'Personnel Documents',
-				personnelDocuments,
-				[
-					{ header: 'Person', key: 'person', width: 25 },
-					{ header: 'Title', key: 'title', width: 35 },
-					{ header: 'File Name', key: 'file_name', width: 35 },
-					{ header: 'File Size Bytes', key: 'file_size_bytes', width: 18 },
-					{ header: 'Content Type', key: 'content_type', width: 18 },
-					{ header: 'Uploaded By', key: 'uploaded_by', width: 25 },
-					{ header: 'Created At', key: 'created_at', width: 20 },
-					{ header: 'Archived At', key: 'archived_at', width: 20 }
-				],
-				(document) => ({
-					person: lookup(personnelMap, document.personnel_id),
-					title: document.title,
-					file_name:
-						String(document.file_path ?? '')
-							.split(/[\\/]/)
-							.pop() ?? '',
-					file_size_bytes: document.file_size_bytes,
-					content_type: document.content_type,
-					uploaded_by: document.uploaded_by,
-					created_at: document.created_at,
-					archived_at: document.archived_at
-				})
-			);
-			addSimpleSheet(
-				workbook,
-				'Special Days',
-				[
-					{ header: 'Date', key: 'date', width: 14 },
-					{ header: 'Name', key: 'name', width: 30 },
-					{ header: 'Type', key: 'type', width: 14 }
-				],
-				specialDays
-			);
-			addSimpleSheet(
-				workbook,
-				'Onboarding Templates',
-				[
-					{ header: 'Step Name', key: 'name', width: 30 },
-					{ header: 'Description', key: 'description', width: 40 },
-					{ header: 'Order', key: 'sort_order', width: 10 }
-				],
-				onboardingTemplateSteps
-			);
-			addMappedSheet(
-				workbook,
-				'Onboarding Progress',
-				personnelOnboardings,
-				[
-					{ header: 'Person', key: 'person', width: 25 },
-					{ header: 'Status', key: 'status', width: 14 },
-					{ header: 'Started', key: 'started_at', width: 20 },
-					{ header: 'Completed', key: 'completed_at', width: 20 }
-				],
-				(o) => ({
-					person: lookup(personnelMap, o.personnel_id),
-					status: o.status,
-					started_at: o.started_at,
-					completed_at: o.completed_at
-				})
-			);
-			addMappedSheet(
-				workbook,
-				'Rating Scheme',
-				ratingSchemeEntries,
-				[
-					{ header: 'Rated Person', key: 'person', width: 25 },
-					{ header: 'Eval Type', key: 'eval_type', width: 14 },
-					{ header: 'Report Type', key: 'report_type', width: 14 },
-					{ header: 'Rater', key: 'rater_name', width: 25 },
-					{ header: 'Senior Rater', key: 'senior_rater_name', width: 25 },
-					{ header: 'Intermediate Rater', key: 'intermediate_rater_name', width: 25 },
-					{ header: 'Reviewer', key: 'reviewer_name', width: 25 },
-					{ header: 'Rating Period Start', key: 'rating_period_start', width: 18 },
-					{ header: 'Rating Period End', key: 'rating_period_end', width: 18 },
-					{ header: 'Status', key: 'status', width: 14 },
-					{ header: 'Notes', key: 'notes', width: 30 }
-				],
-				(r) => ({
-					person: lookup(personnelMap, r.rated_person_id),
-					eval_type: r.eval_type,
-					report_type: r.report_type,
-					rater_name: r.rater_name,
-					senior_rater_name: r.senior_rater_name,
-					intermediate_rater_name: r.intermediate_rater_name,
-					reviewer_name: r.reviewer_name,
-					rating_period_start: r.rating_period_start,
-					rating_period_end: r.rating_period_end,
-					status: r.status,
-					notes: r.notes
-				})
-			);
+			const sheetNames = new Set<string>(['Export Inventory']);
+			addReadableSheets(workbook, sheetNames, exportData.sections);
+			for (const section of ORGANIZATION_EXPORT_SECTIONS) {
+				addSectionSheet(workbook, sheetNames, `Raw - ${section.title}`, exportData.sections[section.key] ?? []);
+			}
 			const buffer = await writeWorkbookBuffer(workbook);
 
 			await completeDataExport(
@@ -447,27 +114,282 @@ export const _postConfig: RouteConfig<ExcelExportInput, ExcelExportOutput> = {
 
 export const POST = handle(_postConfig);
 
-function addSimpleSheet(workbook: Workbook, name: string, columns: WorkbookColumn[], data: Record<string, unknown>[]) {
-	addTableSheet(workbook, { name, columns, rows: toWorkbookRows(data) });
-}
-
-function addMappedSheet(
+function addReadableSheets(
 	workbook: Workbook,
-	name: string,
-	data: Record<string, unknown>[],
-	columns: WorkbookColumn[],
-	mapper: (row: Record<string, unknown>) => Record<string, unknown>
+	sheetNames: Set<string>,
+	sections: Record<string, Record<string, unknown>[]>
 ) {
-	addTableSheet(workbook, { name, columns, rows: toWorkbookRows(data.map(mapper)) });
+	const personnel = sections.personnel ?? [];
+	const personnelExtendedInfo = sections.personnelExtendedInfo ?? [];
+	const groups = sections.groups ?? [];
+	const statusTypes = sections.statusTypes ?? [];
+	const assignmentTypes = sections.assignmentTypes ?? [];
+	const trainingTypes = sections.trainingTypes ?? [];
+	const ictTasks = sections.ictTasks ?? [];
+
+	const personnelLabels = buildPersonnelLabels(personnel);
+	const groupLabels = buildLabelMap(groups, 'name');
+	const statusLabels = buildLabelMap(statusTypes, 'name');
+	const assignmentLabels = buildLabelMap(assignmentTypes, 'name');
+	const trainingLabels = buildLabelMap(trainingTypes, 'name');
+	const criticalTaskLabels = buildLabelMap(ictTasks, 'title');
+	const extendedInfoByPerson = new Map(
+		personnelExtendedInfo
+			.filter((row) => typeof row.personnel_id === 'string')
+			.map((row) => [row.personnel_id as string, row])
+	);
+
+	addSectionSheet(
+		workbook,
+		sheetNames,
+		'Personnel',
+		personnel.map((person) => {
+			const ext = typeof person.id === 'string' ? extendedInfoByPerson.get(person.id) : undefined;
+			return {
+				rank: person.rank,
+				last_name: person.last_name,
+				first_name: person.first_name,
+				mos: person.mos,
+				clinic_role: person.clinic_role,
+				group: lookup(groupLabels, person.group_id),
+				ets: person.ets ?? '',
+				deros: person.deros ?? '',
+				archived_at: person.archived_at ?? '',
+				emergency_contact: ext?.emergency_contact_name ?? '',
+				emergency_phone: ext?.emergency_contact_phone ?? '',
+				phone: ext?.personal_phone ?? '',
+				email: ext?.personal_email ?? '',
+				address: ext
+					? [ext.address_street, ext.address_city, ext.address_state, ext.address_zip].filter(Boolean).join(', ')
+					: '',
+				leader_notes: ext?.leader_notes ?? ''
+			};
+		})
+	);
+	addSectionSheet(workbook, sheetNames, 'Groups', groups);
+	addSectionSheet(
+		workbook,
+		sheetNames,
+		'Calendar',
+		(sections.availabilityEntries ?? []).map((entry) => ({
+			person: lookup(personnelLabels, entry.personnel_id),
+			status: lookup(statusLabels, entry.status_type_id),
+			start_date: entry.start_date,
+			end_date: entry.end_date,
+			note: entry.note ?? ''
+		}))
+	);
+	addSectionSheet(workbook, sheetNames, 'Training Types', trainingTypes);
+	addSectionSheet(
+		workbook,
+		sheetNames,
+		'Training Records',
+		(sections.personnelTrainings ?? []).map((training) => ({
+			person: lookup(personnelLabels, training.personnel_id),
+			training_type: lookup(trainingLabels, training.training_type_id),
+			completion_date: training.completion_date,
+			expiration_date: training.expiration_date,
+			notes: training.notes,
+			certificate_url: training.certificate_url
+		}))
+	);
+	addSectionSheet(workbook, sheetNames, 'Status Types', statusTypes);
+	addSectionSheet(workbook, sheetNames, 'Assignment Types', assignmentTypes);
+	addSectionSheet(
+		workbook,
+		sheetNames,
+		'Daily Assignments',
+		(sections.dailyAssignments ?? []).map((assignment) => ({
+			date: assignment.date,
+			person: lookup(personnelLabels, assignment.assignee_id),
+			assignment_type: lookup(assignmentLabels, assignment.assignment_type_id)
+		}))
+	);
+	addSectionSheet(
+		workbook,
+		sheetNames,
+		'Counseling Records',
+		(sections.counselingRecords ?? []).map((record) => ({
+			person: lookup(personnelLabels, record.personnel_id),
+			date_conducted: record.date_conducted,
+			subject: record.subject,
+			key_points: record.key_points,
+			plan_of_action: record.plan_of_action,
+			status: record.status,
+			notes: record.notes
+		}))
+	);
+	addSectionSheet(
+		workbook,
+		sheetNames,
+		'Leader Notes',
+		(sections.leaderNotes ?? []).map((note) => ({
+			person: lookup(personnelLabels, note.personnel_id),
+			author: note.author,
+			text: note.text,
+			created_at: note.created_at,
+			archived_at: note.archived_at
+		}))
+	);
+	addSectionSheet(
+		workbook,
+		sheetNames,
+		'Personnel Follow-ups',
+		(sections.personnelFollowUps ?? []).map((followUp) => ({
+			person: lookup(personnelLabels, followUp.personnel_id),
+			title: followUp.title,
+			notes: followUp.notes,
+			due_date: followUp.due_date,
+			status: followUp.status,
+			created_at: followUp.created_at,
+			completed_at: followUp.completed_at,
+			archived_at: followUp.archived_at
+		}))
+	);
+	addSectionSheet(
+		workbook,
+		sheetNames,
+		'Personnel Documents',
+		(sections.personnelDocuments ?? []).map((document) => ({
+			person: lookup(personnelLabels, document.personnel_id),
+			title: document.title,
+			file_name:
+				String(document.file_path ?? '')
+					.split(/[\\/]/)
+					.pop() ?? '',
+			file_size_bytes: document.file_size_bytes,
+			content_type: document.content_type,
+			uploaded_by: document.uploaded_by,
+			created_at: document.created_at,
+			archived_at: document.archived_at
+		}))
+	);
+	addSectionSheet(workbook, sheetNames, 'Special Days', sections.specialDays ?? []);
+	addSectionSheet(workbook, sheetNames, 'Onboarding Templates', sections.onboardingTemplates ?? []);
+	addSectionSheet(
+		workbook,
+		sheetNames,
+		'Onboarding Progress',
+		(sections.personnelOnboardings ?? []).map((onboarding) => ({
+			person: lookup(personnelLabels, onboarding.personnel_id),
+			status: onboarding.status,
+			started_at: onboarding.started_at,
+			completed_at: onboarding.completed_at,
+			cancelled_at: onboarding.cancelled_at
+		}))
+	);
+	addSectionSheet(
+		workbook,
+		sheetNames,
+		'Rating Scheme',
+		(sections.ratingSchemeEntries ?? []).map((entry) => ({
+			person: lookup(personnelLabels, entry.rated_person_id),
+			eval_type: entry.eval_type,
+			report_type: entry.report_type,
+			rater: lookup(personnelLabels, entry.rater_person_id) || entry.rater_name,
+			senior_rater: lookup(personnelLabels, entry.senior_rater_person_id) || entry.senior_rater_name,
+			intermediate_rater: lookup(personnelLabels, entry.intermediate_rater_person_id) || entry.intermediate_rater_name,
+			reviewer: lookup(personnelLabels, entry.reviewer_person_id) || entry.reviewer_name,
+			rating_period_start: entry.rating_period_start,
+			rating_period_end: entry.rating_period_end,
+			status: entry.status,
+			workflow_status: entry.workflow_status,
+			notes: entry.notes
+		}))
+	);
+	addSectionSheet(workbook, sheetNames, 'Critical Tasks', ictTasks);
+	addSectionSheet(
+		workbook,
+		sheetNames,
+		'Critical Task Completions',
+		(sections.personnelIctCompletions ?? []).map((completion) => ({
+			person: lookup(personnelLabels, completion.personnel_id),
+			task: lookup(criticalTaskLabels, completion.ict_task_id),
+			completed_at: completion.completed_at,
+			validation_method: completion.validation_method,
+			validated_by: completion.validated_by,
+			notes: completion.notes
+		}))
+	);
+	addSectionSheet(workbook, sheetNames, 'Duty Roster Templates', sections.dutyRosterTemplates ?? []);
+	addSectionSheet(workbook, sheetNames, 'Duty Roster Template Runs', sections.dutyRosterTemplateRuns ?? []);
+	addSectionSheet(
+		workbook,
+		sheetNames,
+		'Duty Roster Template Run Corrections',
+		sections.dutyRosterTemplateRunCorrections ?? []
+	);
 }
 
-function toWorkbookRows(rows: Record<string, unknown>[]): WorkbookRow[] {
-	return rows.map((row) => Object.fromEntries(Object.entries(row).map(([key, value]) => [key, toWorkbookCell(value)])));
+function buildPersonnelLabels(rows: Record<string, unknown>[]): Map<string, string> {
+	const labels = new Map<string, string>();
+	for (const row of rows) {
+		if (typeof row.id !== 'string') continue;
+		const label = [row.rank, `${row.last_name ?? ''},`, row.first_name].filter(Boolean).join(' ').trim();
+		labels.set(row.id, label || row.id);
+	}
+	return labels;
+}
+
+function buildLabelMap(rows: Record<string, unknown>[], labelKey: string): Map<string, string> {
+	const labels = new Map<string, string>();
+	for (const row of rows) {
+		if (typeof row.id === 'string' && typeof row[labelKey] === 'string') {
+			labels.set(row.id, row[labelKey]);
+		}
+	}
+	return labels;
 }
 
 function lookup(labels: Map<string, string>, value: unknown): string {
 	const key = typeof value === 'string' ? value : String(value ?? '');
 	return labels.get(key) ?? key;
+}
+
+function addSectionSheet(workbook: Workbook, sheetNames: Set<string>, title: string, rows: Record<string, unknown>[]) {
+	const columns = buildColumns(rows);
+	addTableSheet(workbook, {
+		name: toWorksheetName(title, sheetNames),
+		columns,
+		rows: rows.length > 0 ? toWorkbookRows(rows) : []
+	});
+}
+
+function buildColumns(rows: Record<string, unknown>[]): WorkbookColumn[] {
+	const keys = [...new Set(rows.flatMap((row) => Object.keys(row)))];
+	if (keys.length === 0) return [{ header: 'No records', key: 'empty', width: 16 }];
+	return keys.map((key) => ({
+		header: toColumnHeader(key),
+		key,
+		width: Math.min(Math.max(key.length + 4, 12), 40)
+	}));
+}
+
+function toColumnHeader(key: string): string {
+	if (key === 'clinic_role') return 'Duty Role';
+	if (key === 'deros') return 'PCS / DEROS';
+	if (key === 'ets') return 'ETS';
+	return key
+		.replace(/_/g, ' ')
+		.replace(/([a-z])([A-Z])/g, '$1 $2')
+		.replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function toWorksheetName(name: string, sheetNames: Set<string>): string {
+	const base = name.replace(/[\\/*?:[\]]/g, ' ').slice(0, 31) || 'Sheet';
+	let candidate = base;
+	let counter = 2;
+	while (sheetNames.has(candidate)) {
+		const suffix = ` ${counter}`;
+		candidate = `${base.slice(0, 31 - suffix.length)}${suffix}`;
+		counter += 1;
+	}
+	sheetNames.add(candidate);
+	return candidate;
+}
+
+function toWorkbookRows(rows: Record<string, unknown>[]): WorkbookRow[] {
+	return rows.map((row) => Object.fromEntries(Object.entries(row).map(([key, value]) => [key, toWorkbookCell(value)])));
 }
 
 function toWorkbookCell(value: unknown): WorkbookRow[string] {

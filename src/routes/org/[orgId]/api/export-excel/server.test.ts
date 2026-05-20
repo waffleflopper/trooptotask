@@ -111,6 +111,19 @@ describe('POST /api/export-excel', () => {
 				uploaded_by: ctx.auth.userId
 			}
 		]);
+		ctx.rawStore.seed('personnel_extended_info', [
+			{
+				id: 'ext-1',
+				organization_id: ctx.auth.orgId,
+				personnel_id: 'p-1',
+				emergency_contact_name: 'Taylor Smith',
+				personal_phone: '555-0101',
+				address_street: '123 Main St',
+				address_city: 'Anchorage',
+				address_state: 'AK',
+				address_zip: '99505'
+			}
+		]);
 
 		const result = await handleUseCaseRequest(_postConfig, ctx, {
 			email: 'leader@example.com'
@@ -122,15 +135,175 @@ describe('POST /api/export-excel', () => {
 		const leaderNotes = workbook.getWorksheet('Leader Notes');
 		const followUps = workbook.getWorksheet('Personnel Follow-ups');
 		const documents = workbook.getWorksheet('Personnel Documents');
+		const personnel = workbook.getWorksheet('Personnel');
 
 		expect(leaderNotes).toBeDefined();
 		expect(followUps).toBeDefined();
 		expect(documents).toBeDefined();
-		if (!leaderNotes || !followUps || !documents) throw new Error('Personnel artifact worksheets missing');
+		expect(personnel).toBeDefined();
+		if (!leaderNotes || !followUps || !documents || !personnel)
+			throw new Error('Personnel artifact worksheets missing');
 
 		expect(rowValues(leaderNotes, 2)).toContain('Follow up after range week');
 		expect(rowValues(followUps, 2)).toContain('Review packet');
 		expect(rowValues(documents, 2)).toContain('orders.pdf');
+		expect(rowValues(personnel, 2)).toContain('Taylor Smith');
+		expect(rowValues(personnel, 2)).toContain('555-0101');
+		expect(rowValues(personnel, 2)).toContain('123 Main St, Anchorage, AK, 99505');
+	});
+
+	it('resolves foreign keys to human-readable labels in the Excel workbook', async () => {
+		const ctx = createTestContext();
+		ctx.rawStore.seed('groups', [{ id: 'group-1', organization_id: ctx.auth.orgId, name: 'Alpha' }]);
+		ctx.rawStore.seed('personnel', [
+			{
+				id: 'p-1',
+				organization_id: ctx.auth.orgId,
+				rank: 'SGT',
+				last_name: 'Smith',
+				first_name: 'Jamie',
+				group_id: 'group-1',
+				archived_at: null
+			}
+		]);
+		ctx.rawStore.seed('status_types', [
+			{ id: 'status-1', organization_id: ctx.auth.orgId, name: 'TDY', color: '#000000', text_color: '#ffffff' }
+		]);
+		ctx.rawStore.seed('assignment_types', [
+			{ id: 'assignment-1', organization_id: ctx.auth.orgId, name: 'CQ', color: '#000000' }
+		]);
+		ctx.rawStore.seed('training_types', [
+			{ id: 'training-1', organization_id: ctx.auth.orgId, name: 'Weapons Qual', color: '#000000' }
+		]);
+		ctx.rawStore.seed('availability_entries', [
+			{
+				id: 'availability-1',
+				organization_id: ctx.auth.orgId,
+				personnel_id: 'p-1',
+				status_type_id: 'status-1',
+				start_date: '2026-05-20',
+				end_date: '2026-05-21'
+			}
+		]);
+		ctx.rawStore.seed('daily_assignments', [
+			{
+				id: 'daily-1',
+				organization_id: ctx.auth.orgId,
+				assignee_id: 'p-1',
+				assignment_type_id: 'assignment-1',
+				date: '2026-05-20'
+			}
+		]);
+		ctx.rawStore.seed('personnel_trainings', [
+			{
+				id: 'ptr-1',
+				organization_id: ctx.auth.orgId,
+				personnel_id: 'p-1',
+				training_type_id: 'training-1',
+				completion_date: '2026-05-01'
+			}
+		]);
+
+		const result = await handleUseCaseRequest(_postConfig, ctx, {
+			email: 'leader@example.com'
+		});
+
+		const workbook = new ExcelJS.Workbook();
+		await workbook.xlsx.load(toWorkbookBuffer(result._buffer as ArrayBuffer));
+
+		const calendar = workbook.getWorksheet('Calendar');
+		const dailyAssignments = workbook.getWorksheet('Daily Assignments');
+		const trainingRecords = workbook.getWorksheet('Training Records');
+		const rawTraining = workbook.getWorksheet('Raw - Personnel Trainings');
+
+		expect(calendar).toBeDefined();
+		expect(dailyAssignments).toBeDefined();
+		expect(trainingRecords).toBeDefined();
+		expect(rawTraining).toBeDefined();
+		if (!calendar || !dailyAssignments || !trainingRecords || !rawTraining) {
+			throw new Error('Expected export worksheets missing');
+		}
+
+		expect(rowValues(calendar, 2)).toContain('SGT Smith, Jamie');
+		expect(rowValues(calendar, 2)).toContain('TDY');
+		expect(rowValues(dailyAssignments, 2)).toContain('SGT Smith, Jamie');
+		expect(rowValues(dailyAssignments, 2)).toContain('CQ');
+		expect(rowValues(trainingRecords, 2)).toContain('SGT Smith, Jamie');
+		expect(rowValues(trainingRecords, 2)).toContain('Weapons Qual');
+		expect(rowValues(rawTraining, 2)).toContain('training-1');
+	});
+
+	it('exports duty roster sections and archived personnel in named worksheets', async () => {
+		const ctx = createTestContext();
+		ctx.rawStore.seed('personnel', [
+			{
+				id: 'p-archived',
+				organization_id: ctx.auth.orgId,
+				rank: 'SSG',
+				last_name: 'Archived',
+				first_name: 'Alex',
+				archived_at: '2026-05-01T00:00:00Z'
+			}
+		]);
+		ctx.rawStore.seed('duty_roster_templates', [
+			{
+				id: 'template-1',
+				organization_id: ctx.auth.orgId,
+				name: 'Staff Duty',
+				slug: 'staff-duty',
+				status: 'active'
+			}
+		]);
+		ctx.rawStore.seed('duty_roster_template_runs', [
+			{
+				id: 'run-1',
+				organization_id: ctx.auth.orgId,
+				template_id: 'template-1',
+				template_name: 'Staff Duty',
+				snapshot_payload: { rows: [{ date: '2026-05-20', da6: 'D1' }] }
+			}
+		]);
+		ctx.rawStore.seed('duty_roster_template_run_corrections', [
+			{
+				id: 'correction-1',
+				organization_id: ctx.auth.orgId,
+				run_id: 'run-1',
+				run_row_date: '2026-05-20',
+				reason: 'Manual swap'
+			}
+		]);
+
+		const result = await handleUseCaseRequest(_postConfig, ctx, {
+			email: 'leader@example.com'
+		});
+
+		const workbook = new ExcelJS.Workbook();
+		await workbook.xlsx.load(toWorkbookBuffer(result._buffer as ArrayBuffer));
+
+		const inventory = workbook.getWorksheet('Export Inventory');
+		const personnel = workbook.getWorksheet('Personnel');
+		const rawPersonnel = workbook.getWorksheet('Raw - Personnel');
+		const templates = workbook.getWorksheet('Duty Roster Templates');
+		const runs = workbook.getWorksheet('Duty Roster Template Runs');
+		const corrections = workbook.worksheets.find((sheet) => sheet.name.startsWith('Duty Roster Template Run Cor'));
+
+		expect(inventory).toBeDefined();
+		expect(personnel).toBeDefined();
+		expect(rawPersonnel).toBeDefined();
+		expect(templates).toBeDefined();
+		expect(runs).toBeDefined();
+		expect(corrections).toBeDefined();
+		if (!inventory || !personnel || !rawPersonnel || !templates || !runs || !corrections) {
+			throw new Error('Duty roster export worksheets missing');
+		}
+
+		expect(rowValues(inventory, 1)).toEqual(['Area', 'Section', 'Raw Table', 'JSON Key', 'Rows']);
+		expect(rowValues(personnel, 2)).toContain('Archived');
+		expect(rowValues(personnel, 2)).toContain('2026-05-01T00:00:00Z');
+		expect(rowValues(rawPersonnel, 2)).toContain('p-archived');
+		expect(rowValues(templates, 2)).toContain('template-1');
+		expect(rowValues(runs, 2)).toContain('run-1');
+		expect(rowValues(corrections, 2)).toContain('correction-1');
 	});
 
 	it('still returns the workbook when the export status write fails', async () => {

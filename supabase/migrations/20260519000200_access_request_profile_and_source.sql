@@ -8,8 +8,12 @@ DO $$
 BEGIN
 	IF NOT EXISTS (
 		SELECT 1
-		FROM "pg_constraint"
-		WHERE "conname" = 'access_requests_first_name_check'
+		FROM "pg_constraint" "constraint"
+		JOIN "pg_class" "table" ON "table"."oid" = "constraint"."conrelid"
+		JOIN "pg_namespace" "schema" ON "schema"."oid" = "table"."relnamespace"
+		WHERE "constraint"."conname" = 'access_requests_first_name_check'
+			AND "schema"."nspname" = 'public'
+			AND "table"."relname" = 'access_requests'
 	) THEN
 		ALTER TABLE "public"."access_requests"
 			ADD CONSTRAINT "access_requests_first_name_check"
@@ -21,8 +25,12 @@ DO $$
 BEGIN
 	IF NOT EXISTS (
 		SELECT 1
-		FROM "pg_constraint"
-		WHERE "conname" = 'access_requests_last_name_check'
+		FROM "pg_constraint" "constraint"
+		JOIN "pg_class" "table" ON "table"."oid" = "constraint"."conrelid"
+		JOIN "pg_namespace" "schema" ON "schema"."oid" = "table"."relnamespace"
+		WHERE "constraint"."conname" = 'access_requests_last_name_check'
+			AND "schema"."nspname" = 'public'
+			AND "table"."relname" = 'access_requests'
 	) THEN
 		ALTER TABLE "public"."access_requests"
 			ADD CONSTRAINT "access_requests_last_name_check"
@@ -34,8 +42,12 @@ DO $$
 BEGIN
 	IF NOT EXISTS (
 		SELECT 1
-		FROM "pg_constraint"
-		WHERE "conname" = 'access_requests_heard_about_check'
+		FROM "pg_constraint" "constraint"
+		JOIN "pg_class" "table" ON "table"."oid" = "constraint"."conrelid"
+		JOIN "pg_namespace" "schema" ON "schema"."oid" = "table"."relnamespace"
+		WHERE "constraint"."conname" = 'access_requests_heard_about_check'
+			AND "schema"."nspname" = 'public'
+			AND "table"."relname" = 'access_requests'
 	) THEN
 		ALTER TABLE "public"."access_requests"
 			ADD CONSTRAINT "access_requests_heard_about_check"

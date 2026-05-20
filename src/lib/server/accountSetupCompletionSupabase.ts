@@ -80,7 +80,7 @@ export function createSupabaseAccountSetupCompletionStore(client: SupabaseClient
 					first_name: input.firstName,
 					last_name: input.lastName
 				},
-				{ onConflict: 'user_id' }
+				{ onConflict: 'user_id', ignoreDuplicates: true }
 			);
 
 			if (error) {

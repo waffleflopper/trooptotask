@@ -28,6 +28,11 @@
 		if (loading) return;
 
 		errorMsg = '';
+		if (!heardAbout) {
+			errorMsg = 'Select how you heard about TroopToTask';
+			return;
+		}
+
 		loading = true;
 
 		try {
@@ -167,7 +172,7 @@
 				/>
 
 				<div class="flex flex-col gap-3">
-					<Button type="submit" disabled={loading} class="w-full">
+					<Button type="submit" disabled={loading || !heardAbout} class="w-full">
 						{#if loading}
 							<Spinner />
 							Submitting...

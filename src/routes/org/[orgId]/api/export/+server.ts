@@ -4,6 +4,7 @@ import { fail } from '$lib/server/core/errors';
 import { isBillingEnabled } from '$lib/config/billing';
 import { TIER_CONFIG } from '$lib/types/subscription';
 import { completeDataExport, failDataExport, startDataExport } from '$lib/server/core/useCases/dataExportLifecycle';
+import { loadOrganizationExportPayload } from '$lib/server/core/useCases/organizationExport';
 
 interface ExportInput {
 	email: string | undefined;
@@ -13,7 +14,7 @@ interface ExportOutput {
 	_rateLimited?: boolean;
 	error?: string;
 	_json?: string;
-	_orgId?: string;
+	_filename?: string;
 }
 
 export const _postConfig: RouteConfig<ExportInput, ExportOutput> = {
@@ -43,81 +44,9 @@ export const _postConfig: RouteConfig<ExportInput, ExportOutput> = {
 		const exportRecord = await startDataExport({ auth: ctx.auth, store: ctx.rawStore }, { requestedBy: userId });
 
 		try {
-			const [
-				personnel,
-				groups,
-				availabilityEntries,
-				trainingTypes,
-				personnelTrainings,
-				statusTypes,
-				assignmentTypes,
-				dailyAssignments,
-				counselingRecords,
-				specialDays,
-				onboardingTemplateSteps,
-				personnelOnboardings,
-				ratingSchemeEntries,
-				personnelExtendedInfo,
-				leaderNotes,
-				personnelFollowUps,
-				personnelDocuments,
-				dutyRosterHistory
-			] = await Promise.all([
-				ctx.rawStore.findMany<Record<string, unknown>>('personnel', orgId, undefined, {
-					isNull: { archived_at: true }
-				}),
-				ctx.rawStore.findMany<Record<string, unknown>>('groups', orgId),
-				ctx.rawStore.findMany<Record<string, unknown>>('availability_entries', orgId),
-				ctx.rawStore.findMany<Record<string, unknown>>('training_types', orgId),
-				ctx.rawStore.findMany<Record<string, unknown>>('personnel_trainings', orgId),
-				ctx.rawStore.findMany<Record<string, unknown>>('status_types', orgId),
-				ctx.rawStore.findMany<Record<string, unknown>>('assignment_types', orgId),
-				ctx.rawStore.findMany<Record<string, unknown>>('daily_assignments', orgId),
-				ctx.rawStore.findMany<Record<string, unknown>>('counseling_records', orgId),
-				ctx.rawStore.findMany<Record<string, unknown>>('special_days', orgId),
-				ctx.rawStore.findMany<Record<string, unknown>>('onboarding_template_steps', orgId),
-				ctx.rawStore.findMany<Record<string, unknown>>('personnel_onboardings', orgId),
-				ctx.rawStore.findMany<Record<string, unknown>>('rating_scheme_entries', orgId),
-				ctx.rawStore.findMany<Record<string, unknown>>('personnel_extended_info', orgId),
-				ctx.rawStore.findMany<Record<string, unknown>>('leader_notes', orgId),
-				ctx.rawStore.findMany<Record<string, unknown>>('personnel_follow_ups', orgId),
-				ctx.rawStore.findMany<Record<string, unknown>>('personnel_documents', orgId),
-				ctx.rawStore.findMany<Record<string, unknown>>('duty_roster_history', orgId)
-			]);
-
-			const onboardingIds = personnelOnboardings.map((o) => (o as { id: string }).id);
-			const onboardingStepProgress =
-				onboardingIds.length > 0
-					? await ctx.rawStore.findMany<Record<string, unknown>>('onboarding_step_progress', orgId, undefined, {
-							inFilters: { onboarding_id: onboardingIds }
-						})
-					: [];
-
-			const exportData = {
-				exportedAt: new Date().toISOString(),
-				organizationId: orgId,
-				personnel,
-				groups,
-				availabilityEntries,
-				trainingTypes,
-				personnelTrainings,
-				statusTypes,
-				assignmentTypes,
-				dailyAssignments,
-				counselingRecords,
-				specialDays,
-				onboardingTemplateSteps,
-				personnelOnboardings,
-				onboardingStepProgress,
-				ratingSchemeEntries,
-				personnelExtendedInfo,
-				leaderNotes,
-				personnelFollowUps,
-				personnelDocuments,
-				dutyRosterHistory
-			};
-
+			const exportData = await loadOrganizationExportPayload(ctx.rawStore, orgId);
 			const jsonStr = JSON.stringify(exportData, null, 2);
+			const dateStr = exportData.exportedAt.split('T')[0] || new Date().toISOString().split('T')[0];
 
 			await completeDataExport(
 				{ auth: ctx.auth, store: ctx.rawStore },
@@ -135,7 +64,7 @@ export const _postConfig: RouteConfig<ExportInput, ExportOutput> = {
 				message: `"${input.email ?? 'A user'}" exported organization data.`
 			});
 
-			return { _json: jsonStr, _orgId: orgId };
+			return { _json: jsonStr, _filename: `org-export-${orgId}-${dateStr}.json` };
 		} catch (err) {
 			await failDataExport({ auth: ctx.auth, store: ctx.rawStore }, { exportId: exportRecord.exportId });
 			throw err;
@@ -151,7 +80,7 @@ export const _postConfig: RouteConfig<ExportInput, ExportOutput> = {
 		return new Response(result._json as string, {
 			headers: {
 				'Content-Type': 'application/json',
-				'Content-Disposition': `attachment; filename="org-export-${result._orgId}-${new Date().toISOString().split('T')[0]}.json"`
+				'Content-Disposition': `attachment; filename="${result._filename}"`
 			}
 		});
 	}

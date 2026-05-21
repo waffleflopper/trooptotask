@@ -9,7 +9,7 @@ export type EditablePreset = StoredMemberPreset | 'admin';
 export type AccessLaneConfig = { id: DurableFeatureLane; label: string };
 export type AccessOption = { value: EditablePreset; label: string; helper: string };
 
-const ACCESS_LANE_LABELS: Record<DurableFeatureLane, string> = {
+export const ACCESS_LANE_LABELS: Record<DurableFeatureLane, string> = {
 	calendar: 'Calendar',
 	personnel: 'Personnel',
 	training: 'Training',

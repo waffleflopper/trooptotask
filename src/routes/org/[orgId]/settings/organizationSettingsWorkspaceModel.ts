@@ -25,7 +25,7 @@ export type SettingsMemberRow = SettingsMemberAccessRow & {
 };
 
 export type SettingsInvitationRow = SettingsInvitationAccessRow & {
-	accessBadge: 'viewer' | 'operator' | 'editor' | 'custom';
+	accessBadge: 'admin' | 'viewer' | 'operator' | 'editor' | 'custom';
 	scopeDisplayLabel: string;
 };
 

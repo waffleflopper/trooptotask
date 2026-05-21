@@ -153,4 +153,24 @@ describe('settings member access read model', () => {
 		expect(invitation.membershipRole).toBe('member');
 		expect(invitation.access.scopeSet).toEqual({ kind: 'organization' });
 	});
+
+	it('preserves admin invitation role when shaping pending access', () => {
+		const invitation = buildSettingsInvitationAccessRow({
+			id: 'invite-admin',
+			email: 'admin-invite@example.com',
+			status: 'pending',
+			role: 'admin',
+			created_at: '2026-05-20T12:00:00Z',
+			...legacyAccessRow,
+			member_preset: 'viewer',
+			capability_overrides: { calendar: 'none' },
+			access_scope_kind: 'groups',
+			access_scope_group_ids: ['legacy-group']
+		});
+
+		expect(invitation.membershipRole).toBe('admin');
+		expect(invitation.access.memberPreset).toBe('editor');
+		expect(invitation.access.scopeSet).toEqual({ kind: 'organization' });
+		expect(invitation.access.organizationGovernanceActions).toContain('organization.updateMemberAccess');
+	});
 });

@@ -32,13 +32,14 @@ export function buildSettingsMemberAccessRow(row: LegacySettingsAccessRow): Sett
 }
 
 export function buildSettingsInvitationAccessRow(row: LegacySettingsAccessRow): SettingsInvitationAccessRow {
+	const membershipRole = parseMembershipRole(row.role);
 	return {
 		id: asString(row.id),
 		email: asString(row.email),
 		status: asString(row.status),
-		membershipRole: 'member',
+		membershipRole,
 		createdAt: asString(row.created_at),
-		access: buildSettingsAccessShape(row, 'member')
+		access: buildSettingsAccessShape(row, membershipRole)
 	};
 }
 

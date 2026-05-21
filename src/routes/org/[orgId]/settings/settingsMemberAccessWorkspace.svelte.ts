@@ -104,7 +104,7 @@ export class SettingsMemberAccessWorkspace {
 			case 'owner':
 				return 'Owner';
 			case 'admin':
-				return 'Admin governance';
+				return 'Admin';
 			case 'editor':
 				return 'Editor';
 			case 'operator':
@@ -138,7 +138,7 @@ export class SettingsMemberAccessWorkspace {
 	}
 
 	formatCapability(level: CapabilityLevel): string {
-		return level[0].toUpperCase() + level.slice(1);
+		return SETTINGS_CAPABILITY_OPTIONS.find((option) => option.value === level)?.label ?? level;
 	}
 
 	overriddenCapabilityLabels(member: SettingsMemberAccessRow): string[] {

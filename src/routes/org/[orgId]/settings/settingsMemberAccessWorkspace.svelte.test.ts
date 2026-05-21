@@ -99,7 +99,10 @@ describe('settings member access workspace', () => {
 		expect(workspace.getSelectedPreset(editableMember)).toBe('viewer');
 		expect(workspace.getSelectedScopeKind(editableMember)).toBe('groups');
 		expect(workspace.getSelectedScopeGroupIds(editableMember)).toEqual(['group-alpha']);
-		expect(workspace.overriddenCapabilityLabels(editableMember)).toEqual(['Calendar: Operate', 'Rating Scheme: None']);
+		expect(workspace.overriddenCapabilityLabels(editableMember)).toEqual([
+			'Calendar: Can update',
+			'Rating Scheme: No access'
+		]);
 		expect(workspace.formatScopeSet(workspace.getMemberAccessShape(editableMember).scopeSet)).toBe('1st Platoon');
 
 		workspace.toggleMemberScopeGroup('member-1', 'group-bravo', true);
@@ -150,7 +153,7 @@ describe('settings member access workspace', () => {
 		expect(ownerWorkspace.getMemberAccessBadge(adminMember, ownerWorkspace.getMemberAccessShape(adminMember))).toBe(
 			'admin'
 		);
-		expect(ownerWorkspace.getAccessLabel('admin')).toBe('Admin governance');
+		expect(ownerWorkspace.getAccessLabel('admin')).toBe('Admin');
 
 		const adminWorkspace = makeWorkspace({ isOwner: false });
 		expect(adminWorkspace.availablePresetOptions.map((option) => option.value)).not.toContain('admin');

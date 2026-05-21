@@ -9,6 +9,7 @@
 	import * as AppDialog from '$lib/components/ui/app-dialog/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
 	import { Label } from '$lib/components/ui/label/index.js';
+	import * as PageShell from '$lib/components/ui/page-shell/index.js';
 	import { Separator } from '$lib/components/ui/separator/index.js';
 	import * as Tabs from '$lib/components/ui/tabs/index.js';
 	import { toastStore } from '$lib/stores/toast.svelte';
@@ -157,7 +158,7 @@
 	function getSectionDescription(sectionId: SectionId): string | null {
 		switch (sectionId) {
 			case 'members':
-				return 'Manage member presets, lane overrides, and shared scope without changing governance roles.';
+				return 'Control who can view, update, and manage each part of the organization. Admin authority stays separate.';
 			case 'policies':
 				return 'Retention windows, warning lead times, and shared expiration thresholds.';
 			case 'archived':
@@ -338,53 +339,61 @@
 	<title>Settings - {organizationSection.name} - Troop to Task</title>
 </svelte:head>
 
-<main class="flex flex-1 flex-col gap-6 p-4 md:p-6">
-	<header class="grid gap-3">
-		<div class="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-			<div class="grid gap-1">
-				<p class="text-sm text-muted-foreground">{isOwner ? 'Owner access' : 'Admin access'}</p>
-				<h1 class="text-2xl font-semibold tracking-tight">Organization Settings</h1>
-				<p class="max-w-3xl text-sm text-muted-foreground">
-					{organizationSection.name} governance, access, policies, retention, and export controls.
-				</p>
-			</div>
+<PageShell.Root width="wide" bodyClass="gap-5">
+	<PageShell.Header
+		title="Organization Settings"
+		subtitle={`${organizationSection.name} governance, access, policies, retention, and export controls.`}
+	>
+		{#snippet meta()}
+			<Badge variant="outline">{isOwner ? 'Owner access' : 'Admin access'}</Badge>
+		{/snippet}
+		{#snippet actions()}
 			{#if activeSection === 'members' && membersSection.canInvite}
 				<Button href="#invite-member-section">
 					<UserPlus />
 					Invite Member
 				</Button>
 			{/if}
-		</div>
-	</header>
+		{/snippet}
+	</PageShell.Header>
 
-	<section class="grid gap-3 md:grid-cols-4" aria-label="Organization settings summary">
-		{#each summaryRows as row (row.label)}
-			<button
-				type="button"
-				class="grid gap-2 rounded-lg border bg-card p-4 text-left text-card-foreground"
-				onclick={() => (activeSection = row.target)}
-			>
-				<p class="text-sm font-medium">{row.label}</p>
-				<p class="text-2xl font-semibold tracking-tight">{row.value}</p>
-				<p class="text-sm text-muted-foreground">{row.detail}</p>
-			</button>
-		{/each}
+	<section class="rounded-lg border bg-border p-px" aria-label="Organization settings summary">
+		<div class="grid grid-cols-2 gap-px overflow-hidden rounded-[calc(var(--radius-lg)-1px)] md:grid-cols-4">
+			{#each summaryRows as row (row.label)}
+				<button
+					type="button"
+					aria-pressed={activeSection === row.target}
+					aria-label={`${row.label} ${row.value}. ${row.detail}. Show settings section.`}
+					class={[
+						'grid min-h-24 gap-1 bg-card p-3 text-left text-card-foreground transition-colors hover:bg-muted/50 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-ring',
+						activeSection === row.target && 'bg-muted'
+					]}
+					onclick={() => (activeSection = row.target)}
+				>
+					<span class="text-sm font-medium">{row.label}</span>
+					<strong class="text-2xl font-semibold tracking-tight">{row.value}</strong>
+					<span class="text-xs text-muted-foreground">{row.detail}</span>
+				</button>
+			{/each}
+		</div>
 	</section>
 
 	<Tabs.Root bind:value={activeSection} class="grid gap-4">
-		<Tabs.List class="w-full justify-start">
-			{#each sections as section (section.id)}
-				<Tabs.Trigger value={section.id}>{section.label}</Tabs.Trigger>
-			{/each}
-		</Tabs.List>
+		<div class="-mx-4 overflow-x-auto overflow-y-hidden px-4 py-0.5 md:mx-0 md:px-0">
+			<Tabs.List class="w-max min-w-full justify-start">
+				{#each sections as section (section.id)}
+					<Tabs.Trigger value={section.id} class="flex-none px-3">{section.label}</Tabs.Trigger>
+				{/each}
+			</Tabs.List>
+		</div>
 
-		<section class="grid gap-1" aria-labelledby="settings-section-title">
-			<p class="text-sm text-muted-foreground">{activeSectionConfig.eyebrow}</p>
-			<h2 id="settings-section-title" class="text-xl font-semibold tracking-tight">{activeSectionConfig.label}</h2>
-			{#if activeSectionDescription}
+		{#if activeSectionDescription}
+			<section class="grid gap-1" aria-labelledby="settings-section-title">
+				<p class="text-sm text-muted-foreground">{activeSectionConfig.eyebrow}</p>
+				<h2 id="settings-section-title" class="text-xl font-semibold tracking-tight">{activeSectionConfig.label}</h2>
 				<p class="max-w-3xl text-sm text-muted-foreground">{activeSectionDescription}</p>
-			{/if}
-		</section>
+			</section>
+		{/if}
 
 		<Tabs.Content value="organization" class="grid gap-4">
 			<OrganizationSettingsSection
@@ -408,7 +417,7 @@
 					<div class="grid gap-1">
 						<h3 id="roster-access-heading" class="text-lg font-semibold tracking-tight">Access Management</h3>
 						<p class="text-sm text-muted-foreground">
-							Viewer, Operator, and Editor shape feature access. {governanceRoleExplanation}
+							Set each member's access level, then narrow it to specific groups when needed. {governanceRoleExplanation}
 						</p>
 					</div>
 					<Badge variant="outline">{membersSection.rows.length} {pluralize('Member', membersSection.rows.length)}</Badge
@@ -416,7 +425,7 @@
 				</div>
 				<Separator />
 				<div class="rounded-md border bg-muted/30 p-3 text-sm">
-					<strong>Member presets do not grant admin authority.</strong>
+					<strong>Viewer, Operator, and Editor do not make someone an Admin.</strong>
 				</div>
 
 				<div class="grid gap-3" role="list" aria-label="Organization members">
@@ -500,7 +509,7 @@
 									<input type="hidden" name="membershipId" value={member.id} />
 									<div class="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto]">
 										<label class="grid gap-2">
-											<span class="text-sm font-medium">Access assignment</span>
+											<span class="text-sm font-medium">Access level</span>
 											<select
 												name="preset"
 												class="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
@@ -547,9 +556,9 @@
 												aria-labelledby="capability-overrides-{member.id}"
 											>
 												<div class="grid gap-1">
-													<h4 id="capability-overrides-{member.id}" class="font-medium">Capability Overrides</h4>
+													<h4 id="capability-overrides-{member.id}" class="font-medium">Area-by-area access</h4>
 													<p class="text-sm text-muted-foreground">
-														Override individual lanes only when the preset default is not enough.
+														Use this only when the access level is too broad or too limited for one area.
 													</p>
 												</div>
 												<div class="grid gap-3 sm:grid-cols-2">
@@ -560,7 +569,7 @@
 																name="capability:{lane.id}"
 																class="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
 																value={memberAccess.getEditorCapabilityValue(member, lane.id, selectedPreset)}
-																aria-label="{lane.label} capability for {member.email ?? 'member'}"
+																aria-label="{lane.label} access for {member.email ?? 'member'}"
 															>
 																{#each capabilityOptions as option (option.value)}
 																	<option value={option.value}>{option.label}</option>
@@ -572,9 +581,9 @@
 											</section>
 											<section class="grid gap-3 rounded-md border bg-card p-3" aria-labelledby="scope-set-{member.id}">
 												<div class="grid gap-1">
-													<h4 id="scope-set-{member.id}" class="font-medium">Scope Set</h4>
+													<h4 id="scope-set-{member.id}" class="font-medium">Group access</h4>
 													<p class="text-sm text-muted-foreground">
-														Scope is shared across scoped feature lanes. It is not configured per feature.
+														Choose whether this access applies to every group or only selected groups.
 													</p>
 												</div>
 												<div class="flex flex-wrap gap-4">
@@ -641,7 +650,7 @@
 					<div class="grid gap-1">
 						<h3 id="invite-member-heading" class="text-lg font-semibold tracking-tight">Invite Member</h3>
 						<p class="text-sm text-muted-foreground">
-							Invitee logs in to T2T to accept. No email is sent automatically.
+							Create an invite they can accept after signing in. T2T does not send an email automatically.
 						</p>
 					</div>
 					<Separator />
@@ -663,7 +672,7 @@
 						{/if}
 						<div class="grid gap-4 md:grid-cols-[minmax(0,1fr)_14rem_auto]">
 							<div class="grid gap-2">
-								<Label for="invite-email">Send invitation</Label>
+								<Label for="invite-email">Email address</Label>
 								<Input
 									id="invite-email"
 									name="email"
@@ -674,12 +683,12 @@
 								/>
 							</div>
 							<label class="grid gap-2">
-								<span class="text-sm font-medium">Preset</span>
+								<span class="text-sm font-medium">Access level</span>
 								<select
 									name="preset"
 									class="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
 									bind:value={memberAccess.invitePreset}
-									aria-label="Invite member preset"
+									aria-label="Invite member access level"
 								>
 									{#each availablePresetOptions as option (option.value)}
 										<option value={option.value}>{option.label}</option>
@@ -830,7 +839,7 @@
 			{/if}
 		</Tabs.Content>
 	</Tabs.Root>
-</main>
+</PageShell.Root>
 
 {#if settingsState.dangerZone.showDeleteConfirm}
 	<AppDialog.Root

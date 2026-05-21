@@ -4,10 +4,11 @@
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Separator } from '$lib/components/ui/separator/index.js';
 	import { Spinner } from '$lib/components/ui/spinner/index.js';
+	import type { OrganizationSettingsWorkspace } from './organizationSettingsWorkspaceModel';
 
 	let {
 		orgId,
-		exportInfo,
+		section,
 		exportError,
 		exportSuccess,
 		exportingOrgJson,
@@ -15,11 +16,7 @@
 		onExportOrganization
 	}: {
 		orgId: string;
-		exportInfo: {
-			exportsUsed: number;
-			exportsLimit: number;
-			isLimited: boolean;
-		};
+		section: OrganizationSettingsWorkspace['sections']['dataExport'];
 		exportError: string;
 		exportSuccess: boolean;
 		exportingOrgJson: boolean;
@@ -27,7 +24,8 @@
 		onExportOrganization: (format: 'json' | 'excel') => void;
 	} = $props();
 
-	const exportLimitReached = $derived(exportInfo.isLimited && exportInfo.exportsUsed >= exportInfo.exportsLimit);
+	const exportInfo = $derived(section.exportInfo);
+	const exportLimitReached = $derived(exportInfo.limitReached);
 	const settingsHref = $derived(resolve(`/org/${orgId}/settings`));
 </script>
 
@@ -58,7 +56,7 @@
 				<Button
 					size="sm"
 					onclick={() => onExportOrganization('json')}
-					disabled={exportingOrgJson || exportingOrgExcel || exportLimitReached}
+					disabled={exportingOrgJson || exportingOrgExcel || exportLimitReached || !section.commands.canExportJson}
 				>
 					{#if exportingOrgJson}<Spinner />{/if}
 					{exportingOrgJson ? 'Generating...' : 'Export JSON'}
@@ -67,7 +65,7 @@
 					variant="outline"
 					size="sm"
 					onclick={() => onExportOrganization('excel')}
-					disabled={exportingOrgJson || exportingOrgExcel || exportLimitReached}
+					disabled={exportingOrgJson || exportingOrgExcel || exportLimitReached || !section.commands.canExportExcel}
 				>
 					{#if exportingOrgExcel}<Spinner />{/if}
 					{exportingOrgExcel ? 'Generating...' : 'Export Excel'}

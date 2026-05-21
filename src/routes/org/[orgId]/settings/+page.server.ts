@@ -1,19 +1,15 @@
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
-import type { OrganizationMember, OrganizationMemberPermissions } from '$lib/types';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import { projectStoredMemberAccessPresentation } from '$lib/access/memberAccessProjection';
-import { normalizeCriticalTasksSettings } from '$features/critical-tasks/utils/ictStatus';
 import { isBillingEnabled } from '$lib/config/billing';
 import { TIER_CONFIG } from '$lib/types/subscription';
 import { buildRouteContext, loadWithContext } from '$lib/server/adapters/httpAdapter';
 import { createSupabaseDataStore } from '$lib/server/adapters/supabaseDataStore';
 import { createSupabaseOrgSettingsAdministrationPort } from '$lib/server/adapters/supabaseOrgSettingsAdministration';
 import { createSupabaseOrgSettingsMemberManagementPort } from '$lib/server/adapters/supabaseOrgSettingsMemberManagement';
-import { GroupEntity } from '$lib/server/entities/group';
-import { PersonnelEntity } from '$lib/server/entities/personnel';
 import { getAdminClient } from '$lib/server/supabase';
 import { fetchAuditLogPreview } from '$lib/server/core/useCases/auditLogQuery';
+import type { SubscriptionPort } from '$lib/server/core/ports';
 import {
 	clearOrganizationUrlSlug,
 	deleteOrganization as deleteOrganizationUseCase,
@@ -29,11 +25,14 @@ import {
 	updateOrganizationMemberPermissions
 } from '$lib/server/core/useCases/orgSettingsMemberManagement';
 import { requireGovernancePolicy } from '$lib/server/core/useCases/governancePolicy';
-import type { DeletionRequestRow, OrganizationSettingsRow } from './settingsRows.server';
+import {
+	loadOrganizationSettingsWorkspace,
+	type SettingsExportInfoSource
+} from './organizationSettingsWorkspace.server';
 
 export const load: PageServerLoad = async ({ locals, cookies, parent }) => {
 	const parentData = await parent();
-	const { orgId, orgName, orgUrlSegment, userRole, allOrgs, isAdmin, effectiveTier } = parentData;
+	const { orgId, orgName, orgUrlSegment, allOrgs, isAdmin, effectiveTier } = parentData;
 	const permissions = parentData.permissions!;
 
 	return loadWithContext(locals, cookies, orgId, {
@@ -45,104 +44,18 @@ export const load: PageServerLoad = async ({ locals, cookies, parent }) => {
 			);
 
 			const adminStore = createSupabaseDataStore(getAdminClient());
-			const [
-				membershipRows,
-				invitationRows,
-				groupRows,
-				organizationSettings,
-				archivedPersonnelRows,
-				approvalRequests,
-				auditLog
-			] = await Promise.all([
-				ctx.store.findMany<Record<string, unknown>>('organization_memberships', ctx.auth.orgId),
-				ctx.store.findMany<Record<string, unknown>>('organization_invitations', ctx.auth.orgId, {
-					status: 'pending'
-				}),
-				ctx.store.findMany<Record<string, unknown>>('groups', ctx.auth.orgId, undefined, {
-					orderBy: [{ column: 'sort_order', ascending: true }]
-				}),
-				ctx.rawStore.findOne<OrganizationSettingsRow>(
-					'organizations',
-					ctx.auth.orgId,
-					{},
-					'archive_retention_months, loss_warning_window_days, critical_tasks_default_expiration_months, critical_tasks_expiring_soon_warning_days'
-				),
-				ctx.store.findMany<Record<string, unknown>>('personnel', ctx.auth.orgId, undefined, {
-					select: PersonnelEntity.select,
-					isNull: { archived_at: false },
-					orderBy: [{ column: 'archived_at', ascending: false }]
-				}),
-				ctx.store.findMany<DeletionRequestRow>('deletion_requests', ctx.auth.orgId, undefined, {
-					orderBy: [{ column: 'created_at', ascending: false }]
-				}),
-				fetchAuditLogPreview(ctx, adminStore, { limit: 9 })
-			]);
-
-			const members = membershipRows.map((m) => {
-				const access = projectStoredMemberAccessPresentation(toAccessPresentationRow(m));
-				return {
-					id: m.id as string,
-					organizationId: orgId,
-					userId: m.user_id as string,
-					email: m.email as string,
-					role: m.role as string,
-					scopedGroupId: access.scopedGroupId,
-					memberPreset: access.memberPreset,
-					capabilityOverrides: access.capabilityOverrides,
-					accessScopeKind: access.accessScopeKind,
-					accessScopeGroupIds: access.accessScopeGroupIds,
-					createdAt: m.created_at as string,
-					...access.permissions
-				};
-			}) as OrganizationMember[];
-
-			const invitations = invitationRows.map((inv) => {
-				const access = projectStoredMemberAccessPresentation(toAccessPresentationRow(inv));
-				return {
-					id: inv.id as string,
-					email: inv.email as string,
-					status: inv.status as string,
-					createdAt: inv.created_at as string,
-					scopedGroupId: access.scopedGroupId,
-					memberPreset: access.memberPreset,
-					capabilityOverrides: access.capabilityOverrides,
-					accessScopeKind: access.accessScopeKind,
-					accessScopeGroupIds: access.accessScopeGroupIds,
-					...access.permissions
-				};
+			const workspace = await loadOrganizationSettingsWorkspace(ctx, {
+				isAdmin: Boolean(isAdmin),
+				organization: {
+					id: orgId,
+					name: orgName,
+					urlSlug: orgUrlSegment && orgUrlSegment !== orgId ? orgUrlSegment : null,
+					urlSegment: orgUrlSegment ?? orgId,
+					effectiveTier: effectiveTier ?? null
+				},
+				exportInfo: loadExportInfo(ctx),
+				auditLog: fetchAuditLogPreview(ctx, adminStore, { limit: 9 })
 			});
-
-			let exportInfo: { exportsUsed: number; exportsLimit: number; isLimited: boolean } = {
-				exportsUsed: 0,
-				exportsLimit: Infinity,
-				isLimited: false
-			};
-
-			if (isBillingEnabled) {
-				const [tier, exportCount] = await Promise.all([
-					ctx.subscription.getEffectiveTier(),
-					ctx.subscription.getMonthlyExportCount()
-				]);
-				const config = TIER_CONFIG[tier.tier];
-				exportInfo = {
-					exportsUsed: exportCount,
-					exportsLimit: config.bulkExportsPerMonth,
-					isLimited: config.bulkExportsPerMonth !== Infinity
-				};
-			}
-
-			const retentionMonths = organizationSettings?.archive_retention_months ?? 36;
-			const archivedPersonnel = PersonnelEntity.fromDbArray(archivedPersonnelRows).map((p) => ({
-				id: p.id,
-				rank: p.rank,
-				firstName: p.firstName,
-				lastName: p.lastName,
-				mos: p.mos,
-				groupName: p.groupName,
-				archivedAt: p.archivedAt as string,
-				groupId: p.groupId
-			}));
-			const pendingApprovalsCount = approvalRequests.filter((request) => request.status === 'pending').length;
 
 			return {
 				orgId,
@@ -152,29 +65,32 @@ export const load: PageServerLoad = async ({ locals, cookies, parent }) => {
 				effectiveTier,
 				permissions,
 				allOrgs,
-				members,
-				invitations,
-				isOwner: userRole === 'owner',
-				isAdmin,
-				canManageMembers: userRole === 'owner' || userRole === 'admin',
-				groups: GroupEntity.fromDbArray(groupRows).map((g) => ({ id: g.id, name: g.name })),
-				exportInfo,
-				policies: {
-					retentionMonths,
-					lossWarningWindowDays: organizationSettings?.loss_warning_window_days ?? 180,
-					criticalTasksSettings: normalizeCriticalTasksSettings({
-						defaultExpirationMonths: organizationSettings?.critical_tasks_default_expiration_months ?? null,
-						expiringSoonWarningDays: organizationSettings?.critical_tasks_expiring_soon_warning_days ?? null
-					})
-				},
-				archivedPersonnel,
-				approvalRequests,
-				pendingApprovalsCount,
-				auditLog
+				workspace
 			};
 		}
 	});
 };
+
+async function loadExportInfo(ctx: { subscription: SubscriptionPort }): Promise<SettingsExportInfoSource> {
+	if (!isBillingEnabled) {
+		return {
+			exportsUsed: 0,
+			exportsLimit: Infinity,
+			isLimited: false
+		};
+	}
+
+	const [tier, exportCount] = await Promise.all([
+		ctx.subscription.getEffectiveTier(),
+		ctx.subscription.getMonthlyExportCount()
+	]);
+	const config = TIER_CONFIG[tier.tier];
+	return {
+		exportsUsed: exportCount,
+		exportsLimit: config.bulkExportsPerMonth,
+		isLimited: config.bulkExportsPerMonth !== Infinity
+	};
+}
 
 export const actions: Actions = {
 	updateName: async (event) => {
@@ -273,7 +189,6 @@ export const actions: Actions = {
 				{
 					email: (formData.get('email') as string) ?? '',
 					preset: (formData.get('preset') as string) ?? '',
-					scopedGroupId: ((formData.get('scopedGroupId') as string) || null) ?? null,
 					capabilityOverrides: parseCapabilityOverrides(formData),
 					accessScopeKind: (formData.get('accessScopeKind') as 'organization' | 'groups' | null) ?? null,
 					accessScopeGroupIds: formData.getAll('accessScopeGroupIds').map(String),
@@ -353,8 +268,7 @@ export const actions: Actions = {
 				{
 					membershipId: (formData.get('membershipId') as string) ?? '',
 					preset: (formData.get('preset') as string) ?? '',
-					scopedGroupId: ((formData.get('scopedGroupId') as string) || null) ?? null,
-					customPermissions: parseCustomPermissions(formData),
+					customPermissions: null,
 					capabilityOverrides: parseCapabilityOverrides(formData),
 					accessScopeKind: (formData.get('accessScopeKind') as 'organization' | 'groups' | null) ?? null,
 					accessScopeGroupIds: formData.getAll('accessScopeGroupIds').map(String),
@@ -418,47 +332,6 @@ export const actions: Actions = {
 		throw redirect(303, '/dashboard?show=all');
 	}
 };
-
-function parseCustomPermissions(formData: FormData): OrganizationMemberPermissions {
-	return {
-		canViewCalendar: formData.get('canViewCalendar') === 'on',
-		canEditCalendar: formData.get('canEditCalendar') === 'on',
-		canViewPersonnel: formData.get('canViewPersonnel') === 'on',
-		canEditPersonnel: formData.get('canEditPersonnel') === 'on',
-		canViewTraining: formData.get('canViewTraining') === 'on',
-		canEditTraining: formData.get('canEditTraining') === 'on',
-		canViewCriticalTasks: formData.get('canViewCriticalTasks') === 'on',
-		canEditCriticalTasks: formData.get('canEditCriticalTasks') === 'on',
-		canViewOnboarding: formData.get('canViewOnboarding') === 'on',
-		canEditOnboarding: formData.get('canEditOnboarding') === 'on',
-		canViewRatingScheme: formData.get('canViewRatingScheme') === 'on',
-		canEditRatingScheme: formData.get('canEditRatingScheme') === 'on',
-		canManageMembers: formData.get('canManageMembers') === 'on'
-	};
-}
-
-function toAccessPresentationRow(row: Record<string, unknown>) {
-	return {
-		scoped_group_id: row.scoped_group_id as string | null,
-		can_view_calendar: row.can_view_calendar as boolean,
-		can_edit_calendar: row.can_edit_calendar as boolean,
-		can_view_personnel: row.can_view_personnel as boolean,
-		can_edit_personnel: row.can_edit_personnel as boolean,
-		can_view_training: row.can_view_training as boolean,
-		can_edit_training: row.can_edit_training as boolean,
-		can_view_critical_tasks: row.can_view_critical_tasks as boolean | null | undefined,
-		can_edit_critical_tasks: row.can_edit_critical_tasks as boolean | null | undefined,
-		can_view_onboarding: row.can_view_onboarding as boolean,
-		can_edit_onboarding: row.can_edit_onboarding as boolean,
-		can_view_rating_scheme: row.can_view_rating_scheme as boolean | null | undefined,
-		can_edit_rating_scheme: row.can_edit_rating_scheme as boolean | null | undefined,
-		can_manage_members: row.can_manage_members as boolean,
-		member_preset: row.member_preset,
-		capability_overrides: row.capability_overrides,
-		access_scope_kind: row.access_scope_kind,
-		access_scope_group_ids: row.access_scope_group_ids
-	};
-}
 
 function toActionFailure(errorKey: string, error: unknown) {
 	if (error instanceof Error && typeof Reflect.get(error, 'status') === 'number') {

@@ -155,7 +155,12 @@ describe('org settings page server actions', () => {
 								}
 							];
 						}
-						if (table === 'organization_invitations') return [{ id: 'invite-1', email: 'new@example.com' }];
+						if (table === 'organization_invitations') {
+							return [
+								{ id: 'invite-1', email: 'new@example.com' },
+								{ id: 'invite-2', email: 'other@example.com' }
+							];
+						}
 						if (table === 'groups') return [{ id: 'group-1', name: 'HQ', organization_id: 'org-1' }];
 						if (table === 'personnel') {
 							return [
@@ -172,7 +177,12 @@ describe('org settings page server actions', () => {
 								}
 							];
 						}
-						if (table === 'deletion_requests') return [{ id: 'request-1', status: 'pending' }];
+						if (table === 'deletion_requests') {
+							return [
+								{ id: 'request-1', status: 'approved', created_at: '2026-04-30T12:00:00Z' },
+								{ id: 'request-2', status: 'pending', created_at: '2026-05-01T12:00:00Z' }
+							];
+						}
 						return [];
 					})
 				},
@@ -248,27 +258,167 @@ describe('org settings page server actions', () => {
 				giftExpiresAt: null,
 				giftTier: null
 			},
-			members: [{ email: 'owner@example.com' }],
-			invitations: [{ id: 'invite-1' }],
-			groups: [{ id: 'group-1', name: 'HQ' }],
-			policies: {
-				retentionMonths: 42,
-				lossWarningWindowDays: 150,
-				criticalTasksSettings: {
-					defaultExpirationMonths: 18,
-					expiringSoonWarningDays: 45
+			workspace: {
+				currentMember: {
+					role: 'owner',
+					isOwner: true,
+					canManageMembers: true
+				},
+				sections: {
+					organization: {
+						id: 'org-1',
+						name: 'Test Org',
+						urlSlug: '1-11-bde',
+						urlSegment: '1-11-bde',
+						tier: {
+							tier: 'unit',
+							source: 'subscription',
+							personnelCount: 4,
+							personnelCap: 500,
+							isReadOnly: false,
+							giftExpiresAt: null,
+							giftTier: null
+						}
+					},
+					members: {
+						rows: [{ email: 'owner@example.com' }],
+						invitations: [expect.objectContaining({ id: 'invite-1' }), expect.objectContaining({ id: 'invite-2' })],
+						groups: [{ id: 'group-1', name: 'HQ' }],
+						pendingApprovalSummary: {
+							count: 1,
+							oldestCreatedAt: '2026-05-01T12:00:00Z'
+						}
+					},
+					policies: {
+						archiveRetention: { savedMonths: 42 },
+						lossWarning: { savedDays: 150 },
+						criticalTasks: {
+							savedDefaultExpirationMonths: 18,
+							savedExpiringSoonWarningDays: 45
+						}
+					},
+					archivedPersonnel: {
+						rows: [{ id: 'person-1', displayName: 'SGT Jones, Avery' }],
+						retention: { months: 42, purgeSummary: '1 archived record' }
+					},
+					dataExport: {
+						activity: {
+							approvalRequests: [
+								expect.objectContaining({ id: 'request-1', status: 'approved' }),
+								expect.objectContaining({ id: 'request-2', status: 'pending' })
+							],
+							pendingApprovalsCount: 1,
+							auditLog: {
+								totalCount: 1,
+								last30DaysCount: 1,
+								availableActions: []
+							}
+						},
+						exportInfo: {
+							exportsUsed: 0,
+							isLimited: false,
+							limitReached: false
+						}
+					},
+					dangerZone: {
+						commands: {
+							canDeleteOrganization: true
+						}
+					}
 				}
-			},
-			archivedPersonnel: [{ id: 'person-1' }],
-			approvalRequests: [{ id: 'request-1', status: 'pending' }],
-			pendingApprovalsCount: 1,
-			auditLog: {
-				totalCount: 1,
-				last30DaysCount: 1,
-				availableActions: []
 			}
 		});
 		expect(fetchAuditLogPreviewMock).toHaveBeenCalledWith(expect.anything(), { kind: 'admin-store' }, { limit: 9 });
+	});
+
+	it('starts workspace source reads before audit preview resolves', async () => {
+		let resolveAuditLog!: (value: Awaited<ReturnType<typeof fetchAuditLogPreviewMock>>) => void;
+		const auditLogPromise = new Promise<Awaited<ReturnType<typeof fetchAuditLogPreviewMock>>>((resolve) => {
+			resolveAuditLog = resolve;
+		});
+		const findMany = vi.fn(async (table: string) => {
+			if (table === 'organization_memberships') return [];
+			if (table === 'organization_invitations') return [];
+			if (table === 'groups') return [];
+			if (table === 'personnel') return [];
+			if (table === 'deletion_requests') return [];
+			return [];
+		});
+
+		fetchAuditLogPreviewMock.mockReturnValueOnce(auditLogPromise);
+		loadWithContextMock.mockImplementationOnce(async (_locals, _cookies, _orgId, config) =>
+			config.fn({
+				auth: { orgId: 'org-1', role: 'owner' },
+				audit: { log: vi.fn() },
+				store: { findMany },
+				rawStore: {
+					findOne: vi.fn(async () => ({
+						archive_retention_months: 42,
+						loss_warning_window_days: 150,
+						critical_tasks_default_expiration_months: 18,
+						critical_tasks_expiring_soon_warning_days: 45
+					}))
+				},
+				subscription: {
+					getEffectiveTier: vi.fn(async () => ({ tier: 'free' })),
+					getMonthlyExportCount: vi.fn(async () => 0)
+				}
+			})
+		);
+
+		const loadPromise = load({
+			params: { orgId: 'org-1' },
+			locals: {},
+			cookies: {},
+			parent: async () => ({
+				orgId: 'org-1',
+				orgUrlSegment: 'org-1',
+				orgName: 'Test Org',
+				userRole: 'owner',
+				allOrgs: [],
+				isAdmin: true,
+				effectiveTier: {
+					tier: 'unit',
+					source: 'subscription',
+					personnelCount: 4,
+					personnelCap: 500,
+					isReadOnly: false,
+					giftExpiresAt: null,
+					giftTier: null
+				},
+				permissions: { canManageMembers: true }
+			})
+		} as never);
+
+		await new Promise((resolve) => setTimeout(resolve, 0));
+
+		expect(findMany).toHaveBeenCalledWith('organization_memberships', 'org-1');
+
+		resolveAuditLog({
+			logs: [],
+			totalCount: 7,
+			last30DaysCount: 3,
+			page: 1,
+			limit: 9,
+			actionFilter: '',
+			availableActions: []
+		});
+		const result = await loadPromise;
+
+		expect(result).toMatchObject({
+			workspace: {
+				sections: {
+					dataExport: {
+						activity: {
+							auditLog: {
+								totalCount: 7,
+								last30DaysCount: 3
+							}
+						}
+					}
+				}
+			}
+		});
 	});
 
 	it('denies governance workspace access through policy before loading settings data', async () => {
@@ -328,7 +478,36 @@ describe('org settings page server actions', () => {
 		});
 	});
 
-	it('keeps member-management hints tied to governance role instead of legacy access flags', async () => {
+	it('derives member-management hints from the authorized route context', async () => {
+		loadWithContextMock.mockImplementationOnce(async (_locals, _cookies, _orgId, config) =>
+			config.fn({
+				auth: { orgId: 'org-1', role: 'admin' },
+				audit: { log: vi.fn() },
+				store: {
+					findMany: vi.fn(async (table: string) => {
+						if (table === 'organization_memberships') return [];
+						if (table === 'organization_invitations') return [];
+						if (table === 'groups') return [];
+						if (table === 'personnel') return [];
+						if (table === 'deletion_requests') return [];
+						return [];
+					})
+				},
+				rawStore: {
+					findOne: vi.fn(async () => ({
+						archive_retention_months: 42,
+						loss_warning_window_days: 150,
+						critical_tasks_default_expiration_months: 18,
+						critical_tasks_expiring_soon_warning_days: 45
+					}))
+				},
+				subscription: {
+					getEffectiveTier: vi.fn(async () => ({ tier: 'free' })),
+					getMonthlyExportCount: vi.fn(async () => 0)
+				}
+			})
+		);
+
 		const result = await load({
 			params: { orgId: 'org-1' },
 			locals: {},
@@ -349,11 +528,14 @@ describe('org settings page server actions', () => {
 					giftExpiresAt: null,
 					giftTier: null
 				},
-				permissions: { canManageMembers: true }
+				permissions: { canManageMembers: false }
 			})
 		} as never);
 
-		expect(result).toMatchObject({ canManageMembers: false });
+		expect(result).toMatchObject({ workspace: { currentMember: { role: 'admin', canManageMembers: true } } });
+		expect(
+			(result as Awaited<ReturnType<typeof load>> & { workspace: { currentMember: object } }).workspace.currentMember
+		).not.toMatchObject({ canManageMembers: false });
 	});
 
 	it('returns a name-specific success flag for organization rename', async () => {
@@ -622,11 +804,10 @@ describe('org settings page server actions', () => {
 				headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
 				body: new URLSearchParams({
 					membershipId: '11111111-1111-4111-8111-111111111111',
-					preset: 'custom',
-					scopedGroupId: 'group-1',
-					canViewCalendar: 'on',
-					canEditPersonnel: 'on',
-					canManageMembers: 'on'
+					preset: 'editor',
+					'capability:calendar': 'operate',
+					accessScopeKind: 'groups',
+					accessScopeGroupIds: 'group-1'
 				})
 			}),
 			locals: {
@@ -649,26 +830,11 @@ describe('org settings page server actions', () => {
 			},
 			{
 				membershipId: '11111111-1111-4111-8111-111111111111',
-				preset: 'custom',
-				scopedGroupId: 'group-1',
-				customPermissions: {
-					canViewCalendar: true,
-					canEditCalendar: false,
-					canViewPersonnel: false,
-					canEditPersonnel: true,
-					canViewTraining: false,
-					canEditTraining: false,
-					canViewCriticalTasks: false,
-					canEditCriticalTasks: false,
-					canViewOnboarding: false,
-					canEditOnboarding: false,
-					canViewRatingScheme: false,
-					canEditRatingScheme: false,
-					canManageMembers: true
-				},
-				capabilityOverrides: {},
-				accessScopeKind: null,
-				accessScopeGroupIds: [],
+				preset: 'editor',
+				customPermissions: null,
+				capabilityOverrides: { calendar: 'operate' },
+				accessScopeKind: 'groups',
+				accessScopeGroupIds: ['group-1'],
 				actorEmail: 'user@example.com'
 			}
 		);

@@ -15,6 +15,7 @@ This glossary captures the canonical v1 language for TroopToTask as it exists to
 | **Member Preset**             | The approved replacement default member-access bundle; the starter presets are **Viewer**, **Operator**, and **Editor**.                                                                | Role, admin                                                                  |
 | **Group Scope**               | The current single-group restriction stored today via `scoped_group_id`.                                                                                                                | Team leader role, future scope set                                           |
 | **Scope Set**                 | The approved replacement positive-grant member scope model shared across all scoped feature lanes: organization-wide, one or more **Group**s, and later selected **Personnel Records**. | Per-feature scope matrix, negative grants                                    |
+| **Organization Data Export**  | An **Organization**-scoped export of operational data for leader review, backup, or migration support. It may include readable review sheets and raw archive sheets.                    | Feature export, database dump, generic spreadsheet                           |
 
 ## Product Shell And Navigation
 

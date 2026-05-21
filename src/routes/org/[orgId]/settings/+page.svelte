@@ -13,7 +13,6 @@
 	import { Separator } from '$lib/components/ui/separator/index.js';
 	import * as Tabs from '$lib/components/ui/tabs/index.js';
 	import { toastStore } from '$lib/stores/toast.svelte';
-	import type { OrganizationMember } from '$lib/types';
 	import { TIER_CONFIG, type EffectiveTier } from '$lib/types/subscription';
 	import { addMonths, formatRelativeDate } from '$lib/utils/dates';
 	import { downloadBlob } from './settingsDownloads';
@@ -28,11 +27,11 @@
 		formatCap,
 		formatExportLimit,
 		formatPrice,
-		getPresetLabel,
 		normalizeOrganizationName,
 		pluralize
 	} from './settingsWorkspaceFormatters';
 	import { createSettingsMemberAccessWorkspace, type EditablePreset } from './settingsMemberAccessWorkspace.svelte';
+	import type { SettingsMemberAccessRow } from './settingsMemberAccessModel';
 
 	let { data, form } = $props();
 	const orgId = $derived($page.params.orgId);
@@ -115,7 +114,9 @@
 	}));
 	const sortedMembers = $derived(memberAccess.sortedMembers);
 	const transferOwnershipCandidates = $derived(
-		sortedMembers.filter((member: OrganizationMember) => data.isOwner && member.role !== 'owner' && member.userId)
+		sortedMembers.filter(
+			(member: SettingsMemberAccessRow) => data.isOwner && member.membershipRole !== 'owner' && member.userId
+		)
 	);
 	const availablePresetOptions = $derived(memberAccess.availablePresetOptions);
 	const accessLanes = memberAccess.accessLanes;
@@ -126,8 +127,13 @@
 	const activeSectionDescription = $derived(getSectionDescription(activeSection));
 	const roleCounts = $derived.by(() =>
 		data.members.reduce(
-			(counts: RoleCount, member: { role: string }) => {
-				if (member.role === 'owner' || member.role === 'admin' || member.role === 'member') counts[member.role] += 1;
+			(counts: RoleCount, member: SettingsMemberAccessRow) => {
+				if (
+					member.membershipRole === 'owner' ||
+					member.membershipRole === 'admin' ||
+					member.membershipRole === 'member'
+				)
+					counts[member.membershipRole] += 1;
 				return counts;
 			},
 			{ owner: 0, admin: 0, member: 0 }
@@ -262,9 +268,9 @@
 		}
 	}
 
-	function isCurrentMember(member: OrganizationMember): boolean {
+	function isCurrentMember(member: SettingsMemberAccessRow): boolean {
 		if (sessionEmail && member.email === sessionEmail) return true;
-		return Boolean(data.isOwner && member.role === 'owner');
+		return Boolean(data.isOwner && member.membershipRole === 'owner');
 	}
 
 	function closeDeleteOrganizationDialog() {
@@ -528,15 +534,15 @@
 									{#each overrides as override (override)}
 										<Badge variant="outline">{override}</Badge>
 									{/each}
-									{#if overrides.length === 0 && member.role !== 'owner' && member.role !== 'admin'}
+									{#if overrides.length === 0 && member.membershipRole !== 'owner' && member.membershipRole !== 'admin'}
 										<Badge variant="outline">Preset defaults</Badge>
 									{/if}
 								</div>
 							</div>
 							<div class="flex flex-wrap items-start justify-end gap-2">
-								{#if member.role === 'owner'}
+								{#if member.membershipRole === 'owner'}
 									{#if isCurrentMember(member)}<Badge>You</Badge>{/if}
-								{:else if data.canManageMembers && (member.role !== 'admin' || data.isOwner)}
+								{:else if data.canManageMembers && (member.membershipRole !== 'admin' || data.isOwner)}
 									<Button
 										type="button"
 										variant="outline"
@@ -838,7 +844,7 @@
 								<div>
 									<p class="font-medium">{invite.email}</p>
 									<p class="text-sm text-muted-foreground">
-										{getPresetLabel(invitePermissionPreset)} · Sent {formatRelativeDate(invite.createdAt)}
+										{memberAccess.getAccessLabel(invitePermissionPreset)} · Sent {formatRelativeDate(invite.createdAt)}
 									</p>
 								</div>
 								<form method="POST" action="?/revokeInvite" use:enhance>

@@ -622,11 +622,10 @@ describe('org settings page server actions', () => {
 				headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
 				body: new URLSearchParams({
 					membershipId: '11111111-1111-4111-8111-111111111111',
-					preset: 'custom',
-					scopedGroupId: 'group-1',
-					canViewCalendar: 'on',
-					canEditPersonnel: 'on',
-					canManageMembers: 'on'
+					preset: 'editor',
+					'capability:calendar': 'operate',
+					accessScopeKind: 'groups',
+					accessScopeGroupIds: 'group-1'
 				})
 			}),
 			locals: {
@@ -649,26 +648,11 @@ describe('org settings page server actions', () => {
 			},
 			{
 				membershipId: '11111111-1111-4111-8111-111111111111',
-				preset: 'custom',
-				scopedGroupId: 'group-1',
-				customPermissions: {
-					canViewCalendar: true,
-					canEditCalendar: false,
-					canViewPersonnel: false,
-					canEditPersonnel: true,
-					canViewTraining: false,
-					canEditTraining: false,
-					canViewCriticalTasks: false,
-					canEditCriticalTasks: false,
-					canViewOnboarding: false,
-					canEditOnboarding: false,
-					canViewRatingScheme: false,
-					canEditRatingScheme: false,
-					canManageMembers: true
-				},
-				capabilityOverrides: {},
-				accessScopeKind: null,
-				accessScopeGroupIds: [],
+				preset: 'editor',
+				customPermissions: null,
+				capabilityOverrides: { calendar: 'operate' },
+				accessScopeKind: 'groups',
+				accessScopeGroupIds: ['group-1'],
 				actorEmail: 'user@example.com'
 			}
 		);

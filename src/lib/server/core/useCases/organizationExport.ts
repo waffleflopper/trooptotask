@@ -16,6 +16,14 @@ export type OrganizationExportPayload = {
 	sections: OrganizationExportSections;
 } & Record<string, unknown>;
 
+export const ORGANIZATION_EXPORT_QUERY_BATCH_SIZE = 12;
+const ORGANIZATION_EXPORT_RESERVED_PAYLOAD_KEYS = new Set([
+	'exportedAt',
+	'organizationId',
+	'sectionInventory',
+	'sections'
+]);
+
 export const ORGANIZATION_EXPORT_SECTIONS = [
 	{ key: 'organizationProfile', title: 'Organization Profile', table: 'organizations', area: 'Settings' },
 	{ key: 'memberships', title: 'Organization Memberships', table: 'organization_memberships', area: 'Settings' },
@@ -142,12 +150,18 @@ export async function loadOrganizationExportPayload(
 	store: DataStore,
 	orgId: string
 ): Promise<OrganizationExportPayload> {
-	const entries = await Promise.all(
-		ORGANIZATION_EXPORT_SECTIONS.map(async (section) => {
-			const rows = await store.findMany<Record<string, unknown>>(section.table, orgId);
-			return [section.key, rows] as const;
-		})
-	);
+	assertOrganizationExportSectionKeysAreSafe();
+	const entries: Array<readonly [string, Record<string, unknown>[]]> = [];
+	for (const batch of chunkArray(ORGANIZATION_EXPORT_SECTIONS, ORGANIZATION_EXPORT_QUERY_BATCH_SIZE)) {
+		entries.push(
+			...(await Promise.all(
+				batch.map(async (section) => {
+					const rows = await store.findMany<Record<string, unknown>>(section.table, orgId);
+					return [section.key, rows] as const;
+				})
+			))
+		);
+	}
 	const sections = Object.fromEntries(entries) as OrganizationExportSections;
 	const sectionInventory = ORGANIZATION_EXPORT_SECTIONS.map((section) => ({
 		...section,
@@ -161,4 +175,25 @@ export async function loadOrganizationExportPayload(
 		sections,
 		...sections
 	};
+}
+
+function assertOrganizationExportSectionKeysAreSafe() {
+	const seen = new Set<string>();
+	for (const section of ORGANIZATION_EXPORT_SECTIONS) {
+		if (ORGANIZATION_EXPORT_RESERVED_PAYLOAD_KEYS.has(section.key)) {
+			throw new Error(`Organization export section key "${section.key}" conflicts with payload metadata`);
+		}
+		if (seen.has(section.key)) {
+			throw new Error(`Organization export section key "${section.key}" is duplicated`);
+		}
+		seen.add(section.key);
+	}
+}
+
+function chunkArray<T>(items: readonly T[], size: number): T[][] {
+	const chunks: T[][] = [];
+	for (let index = 0; index < items.length; index += size) {
+		chunks.push(items.slice(index, index + size));
+	}
+	return chunks;
 }

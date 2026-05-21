@@ -14,7 +14,7 @@ interface ExportOutput {
 	_rateLimited?: boolean;
 	error?: string;
 	_json?: string;
-	_orgId?: string;
+	_filename?: string;
 }
 
 export const _postConfig: RouteConfig<ExportInput, ExportOutput> = {
@@ -46,6 +46,7 @@ export const _postConfig: RouteConfig<ExportInput, ExportOutput> = {
 		try {
 			const exportData = await loadOrganizationExportPayload(ctx.rawStore, orgId);
 			const jsonStr = JSON.stringify(exportData, null, 2);
+			const dateStr = exportData.exportedAt.split('T')[0] || new Date().toISOString().split('T')[0];
 
 			await completeDataExport(
 				{ auth: ctx.auth, store: ctx.rawStore },
@@ -63,7 +64,7 @@ export const _postConfig: RouteConfig<ExportInput, ExportOutput> = {
 				message: `"${input.email ?? 'A user'}" exported organization data.`
 			});
 
-			return { _json: jsonStr, _orgId: orgId };
+			return { _json: jsonStr, _filename: `org-export-${orgId}-${dateStr}.json` };
 		} catch (err) {
 			await failDataExport({ auth: ctx.auth, store: ctx.rawStore }, { exportId: exportRecord.exportId });
 			throw err;
@@ -79,7 +80,7 @@ export const _postConfig: RouteConfig<ExportInput, ExportOutput> = {
 		return new Response(result._json as string, {
 			headers: {
 				'Content-Type': 'application/json',
-				'Content-Disposition': `attachment; filename="org-export-${result._orgId}-${new Date().toISOString().split('T')[0]}.json"`
+				'Content-Disposition': `attachment; filename="${result._filename}"`
 			}
 		});
 	}

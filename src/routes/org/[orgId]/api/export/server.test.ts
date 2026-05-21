@@ -29,6 +29,7 @@ describe('POST /api/export', () => {
 		const result = await handleUseCaseRequest(_postConfig, ctx, {
 			email: 'leader@example.com'
 		});
+		const response = _postConfig.formatOutput?.(result);
 
 		const payload = JSON.parse(result._json as string) as {
 			personnel: Array<Record<string, unknown>>;
@@ -47,6 +48,9 @@ describe('POST /api/export', () => {
 				status: 'completed'
 			})
 		]);
+		expect(response?.headers.get('Content-Disposition')).toMatch(
+			/^attachment; filename="org-export-test-org-\d{4}-\d{2}-\d{2}\.json"$/
+		);
 	});
 
 	it('includes personnel detail artifact tables in the organization export payload', async () => {

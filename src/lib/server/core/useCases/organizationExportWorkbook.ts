@@ -380,7 +380,10 @@ function buildPersonnelLabels(rows: Record<string, unknown>[]): Map<string, stri
 	const labels = new Map<string, string>();
 	for (const row of rows) {
 		if (typeof row.id !== 'string') continue;
-		const label = [row.rank, `${row.last_name ?? ''},`, row.first_name].filter(Boolean).join(' ').trim();
+		const label = [row.rank, row.last_name ? `${row.last_name},` : null, row.first_name]
+			.filter(Boolean)
+			.join(' ')
+			.trim();
 		labels.set(row.id, label || row.id);
 	}
 	return labels;
@@ -449,5 +452,5 @@ function toWorkbookCell(value: unknown): WorkbookRow[string] {
 	) {
 		return value;
 	}
-	return String(value);
+	return JSON.stringify(value);
 }

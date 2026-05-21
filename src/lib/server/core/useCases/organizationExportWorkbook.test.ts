@@ -106,6 +106,42 @@ describe('Organization Data Export workbook', () => {
 		expect(leaderNotes?.rows).toEqual([]);
 	});
 
+	it('preserves structured raw archive values as JSON strings', () => {
+		const plan = buildOrganizationDataExportWorkbookPlan({
+			payload: payload({
+				dutyRosterTemplateRuns: [
+					{
+						id: 'run-1',
+						snapshot_payload: { rows: [{ date: '2026-05-20', da6: 'D1' }] }
+					}
+				]
+			}),
+			selection: { mode: 'areas', areas: ['duty-rosters'] }
+		});
+		const rawRuns = plan.rawArchiveSheets.find((sheet) => sheet.name === 'Raw - Duty Roster Template Runs');
+
+		expect(rawRuns?.rows[0]?.snapshot_payload).toBe('{"rows":[{"date":"2026-05-20","da6":"D1"}]}');
+	});
+
+	it('falls back to personnel id when a malformed person has no label fields', () => {
+		const plan = buildOrganizationDataExportWorkbookPlan({
+			payload: payload({
+				personnel: [{ id: 'person-without-name' }],
+				availabilityEntries: [
+					{
+						id: 'availability-1',
+						personnel_id: 'person-without-name',
+						status_type_id: 'status-1'
+					}
+				]
+			}),
+			selection: { mode: 'areas', areas: ['calendar'] }
+		});
+		const calendar = plan.readableSheets.find((sheet) => sheet.name === 'Calendar');
+
+		expect(calendar?.rows[0]?.person).toBe('person-without-name');
+	});
+
 	it('returns a dated workbook filename owned by the export use case', async () => {
 		const result = await buildOrganizationDataExportWorkbook({
 			payload: payload(),

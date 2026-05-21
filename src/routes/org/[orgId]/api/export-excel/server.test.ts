@@ -303,6 +303,7 @@ describe('POST /api/export-excel', () => {
 		expect(rowValues(rawPersonnel, 2)).toContain('p-archived');
 		expect(rowValues(templates, 2)).toContain('template-1');
 		expect(rowValues(runs, 2)).toContain('run-1');
+		expect(rowValues(runs, 2)).toContain('{"rows":[{"date":"2026-05-20","da6":"D1"}]}');
 		expect(rowValues(corrections, 2)).toContain('correction-1');
 	});
 

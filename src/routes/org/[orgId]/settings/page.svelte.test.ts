@@ -26,20 +26,13 @@ afterEach(() => {
 	billingEnabledMock.mockReturnValue(false);
 });
 
-const fullEditorPermissions = {
-	canViewCalendar: true,
-	canEditCalendar: true,
-	canViewPersonnel: true,
-	canEditPersonnel: true,
-	canViewTraining: true,
-	canEditTraining: true,
-	canViewCriticalTasks: true,
-	canEditCriticalTasks: true,
-	canViewOnboarding: true,
-	canEditOnboarding: true,
-	canViewRatingScheme: true,
-	canEditRatingScheme: true,
-	canManageMembers: false
+const editorCapabilityMap = {
+	calendar: 'configure',
+	personnel: 'configure',
+	training: 'configure',
+	criticalTasks: 'configure',
+	onboarding: 'configure',
+	ratingScheme: 'configure'
 };
 
 function member(id: string, email: string, role: 'owner' | 'admin' | 'member', overrides = {}) {
@@ -48,15 +41,15 @@ function member(id: string, email: string, role: 'owner' | 'admin' | 'member', o
 		organizationId: 'org-1',
 		userId: `user-${id}`,
 		email,
-		role,
+		membershipRole: role,
 		createdAt: '2026-04-01T00:00:00Z',
-		memberPreset: role === 'member' ? 'editor' : 'editor',
-		capabilityOverrides: {},
-		accessScopeKind: 'organization',
-		accessScopeGroupIds: [],
-		...fullEditorPermissions,
-		...(role === 'admin' || role === 'owner' ? { canManageMembers: true } : {}),
-		...overrides
+		access: {
+			memberPreset: 'editor',
+			capabilityMap: editorCapabilityMap,
+			scopeSet: { kind: 'organization' },
+			organizationGovernanceActions: role === 'admin' || role === 'owner' ? ['organization.accessGovernance'] : [],
+			...overrides
+		}
 	};
 }
 
@@ -65,6 +58,8 @@ const baseData = {
 	allOrgs: [],
 	orgId: 'org-1',
 	orgName: 'Test Org',
+	orgUrlSegment: 'org-1',
+	orgUrlSlug: null,
 	isOwner: true,
 	isAdmin: false,
 	canManageMembers: true,
@@ -138,11 +133,163 @@ const baseData = {
 	}
 };
 
+type SettingsPageTestData = Omit<
+	typeof baseData,
+	'members' | 'invitations' | 'groups' | 'archivedPersonnel' | 'approvalRequests'
+> & {
+	members: Array<ReturnType<typeof member>>;
+	invitations: unknown[];
+	groups: Array<{ id: string; name: string }>;
+	archivedPersonnel: Array<Record<string, unknown>>;
+	approvalRequests: Array<{ created_at?: string; status?: string }>;
+};
+
+function workspaceFor(data: SettingsPageTestData) {
+	const roleCounts = data.members.reduce(
+		(counts: { owner: number; admin: number; member: number }, row: { membershipRole: string }) => {
+			counts[row.membershipRole as 'owner' | 'admin' | 'member'] += 1;
+			return counts;
+		},
+		{ owner: 0, admin: 0, member: 0 }
+	);
+	const pendingApprovalRequests = data.approvalRequests.filter((request) => request.status === 'pending');
+	const transferOwnershipCandidates = data.isOwner
+		? data.members
+				.filter((row) => row.membershipRole !== 'owner' && row.userId)
+				.map((row) => ({
+					id: row.id,
+					userId: row.userId,
+					email: row.email,
+					membershipRole: row.membershipRole
+				}))
+		: [];
+	return {
+		...data,
+		workspace: {
+			currentMember: {
+				role: data.isOwner ? 'owner' : 'admin',
+				isOwner: data.isOwner,
+				isAdmin: data.isAdmin,
+				canManageMembers: data.canManageMembers
+			},
+			sections: {
+				organization: {
+					id: data.orgId,
+					name: data.orgName,
+					urlSlug: data.orgUrlSlug ?? null,
+					urlSegment: data.orgUrlSegment ?? data.orgId,
+					tier: data.effectiveTier,
+					canUpdateProfile: data.canManageMembers,
+					canUpdateUrlSlug: data.canManageMembers
+				},
+				members: {
+					rows: data.members,
+					invitations: data.invitations,
+					groups: data.groups,
+					roleCounts,
+					memberRoleSummary: `${roleCounts.owner} ${roleCounts.owner === 1 ? 'Owner' : 'Owners'} · ${roleCounts.admin} ${roleCounts.admin === 1 ? 'Admin' : 'Admins'} · ${roleCounts.member} ${roleCounts.member === 1 ? 'Member' : 'Members'}`,
+					pendingApprovalSummary: {
+						count: pendingApprovalRequests.length,
+						oldestCreatedAt: pendingApprovalRequests[0]?.created_at ?? null
+					},
+					availableAccessLanes: [
+						{ id: 'calendar', label: 'Calendar' },
+						{ id: 'personnel', label: 'Personnel' },
+						{ id: 'training', label: 'Training' },
+						{ id: 'criticalTasks', label: 'Critical Tasks' },
+						{ id: 'onboarding', label: 'Onboarding' },
+						{ id: 'ratingScheme', label: 'Rating Scheme' }
+					],
+					capabilityOptions: [
+						{ value: 'none', label: 'None' },
+						{ value: 'view', label: 'View' },
+						{ value: 'operate', label: 'Operate' },
+						{ value: 'configure', label: 'Configure' }
+					],
+					canInvite: data.canManageMembers,
+					canManageMemberAccess: data.canManageMembers
+				},
+				policies: {
+					archiveRetention: {
+						savedMonths: data.policies.retentionMonths,
+						constraints: { min: 1, max: 120, unit: 'months' }
+					},
+					lossWarning: {
+						savedDays: data.policies.lossWarningWindowDays,
+						constraints: { min: 1, max: 365, unit: 'days' }
+					},
+					criticalTasks: {
+						savedDefaultExpirationMonths: data.policies.criticalTasksSettings.defaultExpirationMonths,
+						savedExpiringSoonWarningDays: data.policies.criticalTasksSettings.expiringSoonWarningDays,
+						defaultExpirationConstraints: { min: 1, max: 120, unit: 'months' },
+						expiringSoonWarningConstraints: { min: 1, max: 365, unit: 'days' }
+					},
+					canUpdateRetention: data.canManageMembers,
+					canUpdateCriticalTasksSettings: data.canManageMembers
+				},
+				archivedPersonnel: {
+					rows: data.archivedPersonnel.map((person) => ({
+						id: String(person.id),
+						rank: String(person.rank),
+						firstName: String(person.firstName),
+						lastName: String(person.lastName),
+						mos: (person.mos as string | null) ?? null,
+						groupName: (person.groupName as string | null) ?? null,
+						archivedAt: String(person.archivedAt),
+						groupId: (person.groupId as string | null) ?? null,
+						displayName: `${person.rank} ${person.lastName}, ${person.firstName}`,
+						exportFileStem: `${person.rank}-${person.lastName}`
+					})),
+					retention: {
+						months: data.policies.retentionMonths,
+						purgeSummary:
+							data.archivedPersonnel.length === 0
+								? `Retention ${data.policies.retentionMonths} months`
+								: `${data.archivedPersonnel.length} archived ${data.archivedPersonnel.length === 1 ? 'record' : 'records'}`
+					},
+					commands: {
+						canRestore: data.canManageMembers,
+						canExport: data.canManageMembers,
+						canPermanentlyDelete: data.canManageMembers
+					}
+				},
+				dataExport: {
+					exportInfo: {
+						...data.exportInfo,
+						limitReached: data.exportInfo.isLimited && data.exportInfo.exportsUsed >= data.exportInfo.exportsLimit,
+						planBadge: data.exportInfo.isLimited ? 'Plan limited' : 'Unlimited exports'
+					},
+					commands: {
+						canExportJson: !(data.exportInfo.isLimited && data.exportInfo.exportsUsed >= data.exportInfo.exportsLimit),
+						canExportExcel: !(data.exportInfo.isLimited && data.exportInfo.exportsUsed >= data.exportInfo.exportsLimit)
+					},
+					activity: {
+						pendingApprovalsCount: pendingApprovalRequests.length,
+						approvalRequests: data.approvalRequests,
+						auditLog: data.auditLog
+					}
+				},
+				dangerZone: {
+					transferOwnershipCandidates,
+					deleteConfirmation: {
+						organizationName: data.orgName,
+						normalizedOrganizationName: data.orgName.trim().replace(/\s+/g, ' ')
+					},
+					commands: {
+						canTransferOwnership: data.isOwner && transferOwnershipCandidates.length > 0,
+						canDeleteOrganization: data.isOwner
+					}
+				}
+			}
+		}
+	};
+}
+
 describe('org settings page', () => {
 	it('renders the shadcn settings shell with summary metrics and shared tabs', () => {
 		render(Page, {
 			props: {
-				data: baseData as never,
+				data: workspaceFor(baseData) as never,
 				form: null as never
 			}
 		});
@@ -167,18 +314,27 @@ describe('org settings page', () => {
 		render(Page, {
 			props: {
 				data: {
-					...baseData,
-					members: [
-						member('member-1', 'owner@example.com', 'owner'),
-						member('member-2', 'admin@example.com', 'admin'),
-						member('member-3', 'member-a@example.com', 'member', {
-							memberPreset: 'viewer',
-							capabilityOverrides: { calendar: 'operate', ratingScheme: 'none' },
-							accessScopeKind: 'groups',
-							accessScopeGroupIds: ['group-alpha', 'group-bravo']
-						}),
-						member('member-4', 'member-b@example.com', 'member')
-					]
+					...workspaceFor({
+						...baseData,
+						members: [
+							member('member-1', 'owner@example.com', 'owner'),
+							member('member-2', 'admin@example.com', 'admin'),
+							member('member-3', 'member-a@example.com', 'member', {
+								memberPreset: 'viewer',
+								capabilityMap: {
+									...editorCapabilityMap,
+									calendar: 'operate',
+									personnel: 'view',
+									training: 'view',
+									criticalTasks: 'view',
+									onboarding: 'view',
+									ratingScheme: 'none'
+								},
+								scopeSet: { kind: 'groups', groupIds: ['group-alpha', 'group-bravo'] }
+							}),
+							member('member-4', 'member-b@example.com', 'member')
+						]
+					})
 				} as never,
 				form: null as never
 			}
@@ -187,28 +343,29 @@ describe('org settings page', () => {
 		await fireEvent.click(screen.getByRole('tab', { name: 'Members' }));
 
 		expect(screen.getByRole('heading', { name: 'Access Management' })).toBeTruthy();
-		expect(screen.getByText('Member presets do not grant admin authority.')).toBeTruthy();
+		expect(screen.getByText('Viewer, Operator, and Editor do not make someone an Admin.')).toBeTruthy();
 		expect(screen.getAllByText('member-a@example.com').length).toBeGreaterThanOrEqual(1);
 		expect(screen.getAllByText('Viewer').length).toBeGreaterThanOrEqual(1);
-		expect(screen.getByText('Calendar: Operate')).toBeTruthy();
-		expect(screen.getByText('Rating Scheme: None')).toBeTruthy();
+		expect(screen.getByText('Calendar: Can update')).toBeTruthy();
+		expect(screen.getByText('Rating Scheme: No access')).toBeTruthy();
 		expect(screen.getByText('1st Platoon, 2nd Platoon')).toBeTruthy();
 		expect(screen.getAllByRole('button', { name: /Manage Access/ })).toHaveLength(3);
 
 		await fireEvent.click(screen.getAllByRole('button', { name: /Manage Access/ }).at(-1)!);
-		const accessPreset = screen.getByRole('combobox', { name: /Access assignment/ }) as HTMLSelectElement;
-		const calendarCapability = screen.getByLabelText(
-			'Calendar capability for member-b@example.com'
-		) as HTMLSelectElement;
+		const accessPreset = screen.getAllByRole('button', { name: /Access level/ })[0];
+		const editorForm = accessPreset.closest('form')!;
+		const calendarCapability = within(editorForm).getByRole('button', { name: 'Calendar' });
 
-		expect(accessPreset.value).toBe('editor');
-		expect(calendarCapability.value).toBe('configure');
+		expect(accessPreset.textContent).toContain('Editor');
+		expect((editorForm.querySelector('input[name="preset"]') as HTMLInputElement).value).toBe('editor');
+		expect(calendarCapability.textContent).toContain('Can manage');
+		expect((editorForm.querySelector('input[name="capability:calendar"]') as HTMLInputElement).value).toBe('configure');
 	});
 
 	it('renders policies with shared controls and validation copy', async () => {
 		render(Page, {
 			props: {
-				data: baseData as never,
+				data: workspaceFor(baseData) as never,
 				form: null as never
 			}
 		});
@@ -231,19 +388,21 @@ describe('org settings page', () => {
 		render(Page, {
 			props: {
 				data: {
-					...baseData,
-					archivedPersonnel: [
-						{
-							id: 'archived-1',
-							rank: 'PV2',
-							firstName: 'Henry',
-							lastName: 'Abbott',
-							mos: '11B',
-							groupName: '2nd Platoon',
-							archivedAt: '2026-04-14T12:00:00Z',
-							groupId: 'group-1'
-						}
-					]
+					...workspaceFor({
+						...baseData,
+						archivedPersonnel: [
+							{
+								id: 'archived-1',
+								rank: 'PV2',
+								firstName: 'Henry',
+								lastName: 'Abbott',
+								mos: '11B',
+								groupName: '2nd Platoon',
+								archivedAt: '2026-04-14T12:00:00Z',
+								groupId: 'group-1'
+							}
+						]
+					})
 				} as never,
 				form: null as never
 			}
@@ -257,12 +416,56 @@ describe('org settings page', () => {
 		expect(within(archivedTable).getByRole('button', { name: 'Restore' })).toBeTruthy();
 		expect(within(archivedTable).getByRole('button', { name: 'Export' })).toBeTruthy();
 		expect(within(archivedTable).getByRole('button', { name: 'Delete' })).toBeTruthy();
+
+		await fireEvent.click(within(archivedTable).getByRole('button', { name: 'Delete' }));
+		const dialog = screen.getByRole('dialog', { name: 'Permanently Delete Personnel' });
+		expect(within(dialog).getByText('Export the record first if it may be needed later.')).toBeTruthy();
+		expect(within(dialog).getByRole('button', { name: 'Permanently Delete' }).hasAttribute('disabled')).toBe(true);
+		await fireEvent.input(within(dialog).getByLabelText('Type PV2 Abbott, Henry to confirm'), {
+			target: { value: 'PV2 Abbott, Henry' }
+		});
+		expect(within(dialog).getByRole('button', { name: 'Permanently Delete' }).hasAttribute('disabled')).toBe(false);
+	});
+
+	it('disables archived personnel commands when workspace command eligibility denies them', async () => {
+		render(Page, {
+			props: {
+				data: {
+					...workspaceFor({
+						...baseData,
+						isOwner: false,
+						isAdmin: true,
+						canManageMembers: false,
+						archivedPersonnel: [
+							{
+								id: 'archived-1',
+								rank: 'PV2',
+								firstName: 'Henry',
+								lastName: 'Abbott',
+								mos: '11B',
+								groupName: '2nd Platoon',
+								archivedAt: '2026-04-14T12:00:00Z',
+								groupId: 'group-1'
+							}
+						]
+					})
+				} as never,
+				form: null as never
+			}
+		});
+
+		await fireEvent.click(screen.getByRole('tab', { name: 'Archived Personnel' }));
+
+		const archivedTable = screen.getByRole('region', { name: 'Archived personnel records' });
+		expect(within(archivedTable).getByRole('button', { name: 'Restore' }).hasAttribute('disabled')).toBe(true);
+		expect(within(archivedTable).getByRole('button', { name: 'Export' }).hasAttribute('disabled')).toBe(true);
+		expect(within(archivedTable).getByRole('button', { name: 'Delete' }).hasAttribute('disabled')).toBe(true);
 	});
 
 	it('renders data export controls and the activity panel', async () => {
 		render(Page, {
 			props: {
-				data: baseData as never,
+				data: workspaceFor(baseData) as never,
 				form: null as never
 			}
 		});
@@ -283,7 +486,7 @@ describe('org settings page', () => {
 	it('renders owner danger controls and guarded delete confirmation', async () => {
 		render(Page, {
 			props: {
-				data: baseData as never,
+				data: workspaceFor(baseData) as never,
 				form: null as never
 			}
 		});
@@ -293,6 +496,25 @@ describe('org settings page', () => {
 		expect(screen.getByRole('heading', { name: 'Destructive Actions' })).toBeTruthy();
 		expect(screen.getByText('Hand the Owner role to another member. You will become Admin.')).toBeTruthy();
 		expect(screen.getByRole('button', { name: /Purge Archived/ }).hasAttribute('disabled')).toBe(true);
+
+		await fireEvent.pointerDown(screen.getByRole('button', { name: 'Transfer ownership' }));
+		const adminOption = await screen.findByRole('option', { name: 'admin@example.com' });
+		await fireEvent.pointerDown(adminOption);
+		await fireEvent.pointerUp(adminOption);
+		await fireEvent.click(screen.getByRole('button', { name: 'Transfer Ownership' }));
+		const transferDialog = screen.getByRole('dialog', { name: 'Transfer Ownership' });
+		expect(within(transferDialog).getByText(/Transfer owner authority to admin@example.com/)).toBeTruthy();
+		expect(within(transferDialog).getByRole('button', { name: 'Transfer Ownership' }).hasAttribute('disabled')).toBe(
+			true
+		);
+		await fireEvent.input(within(transferDialog).getByLabelText('Type admin@example.com to confirm'), {
+			target: { value: 'admin@example.com' }
+		});
+		expect(within(transferDialog).getByRole('button', { name: 'Transfer Ownership' }).hasAttribute('disabled')).toBe(
+			false
+		);
+		await fireEvent.click(within(transferDialog).getByRole('button', { name: 'Cancel' }));
+
 		await fireEvent.click(screen.getByRole('button', { name: 'Delete Test Org' }));
 		const dialog = screen.getByRole('dialog', { name: 'Delete Organization' });
 		expect(within(dialog).getByRole('button', { name: 'Close' })).toBeTruthy();
@@ -311,7 +533,7 @@ describe('org settings page', () => {
 
 		render(Page, {
 			props: {
-				data: baseData as never,
+				data: workspaceFor(baseData) as never,
 				form: null as never
 			}
 		});

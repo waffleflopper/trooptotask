@@ -1,25 +1,33 @@
 <script lang="ts">
-	import type { OrganizationMember } from '$lib/types';
 	import { Badge } from '$lib/components/ui/badge/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Label } from '$lib/components/ui/label/index.js';
 	import { Separator } from '$lib/components/ui/separator/index.js';
+	import * as Select from '$lib/components/ui/select/index.js';
+	import type { OrganizationSettingsWorkspace } from './organizationSettingsWorkspaceModel';
 
 	let {
 		orgName,
 		form,
-		transferOwnershipCandidates,
+		section,
 		transferTargetId = $bindable(null),
 		onTransferConfirm,
 		onDeleteConfirm
 	}: {
 		orgName: string | null;
 		form: { [key: string]: unknown; deleteError?: string } | null;
-		transferOwnershipCandidates: OrganizationMember[];
+		section: OrganizationSettingsWorkspace['sections']['dangerZone'];
 		transferTargetId?: string | null;
 		onTransferConfirm: () => void;
 		onDeleteConfirm: () => void;
 	} = $props();
+
+	const transferOwnershipCandidates = $derived(section.transferOwnershipCandidates);
+	const noTransferTargetValue = 'none';
+	const selectedTransferTargetValue = $derived(transferTargetId ?? noTransferTargetValue);
+	const selectedTransferTargetLabel = $derived(
+		transferOwnershipCandidates.find((member) => member.userId === transferTargetId)?.email ?? 'Select member...'
+	);
 </script>
 
 <div class="grid gap-4">
@@ -42,17 +50,21 @@
 				<p class="text-sm text-muted-foreground">Hand the Owner role to another member. You will become Admin.</p>
 			</div>
 			<div class="flex flex-wrap items-center gap-2">
-				<select
-					id="transfer-owner-target"
-					class="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
-					value={transferTargetId ?? ''}
-					onchange={(event) => (transferTargetId = event.currentTarget.value || null)}
+				<Select.Root
+					type="single"
+					value={selectedTransferTargetValue}
+					onValueChange={(value) => (transferTargetId = value === noTransferTargetValue ? null : value)}
 				>
-					<option value="">Select member...</option>
-					{#each transferOwnershipCandidates as member (member.id)}
-						<option value={member.userId}>{member.email}</option>
-					{/each}
-				</select>
+					<Select.Trigger id="transfer-owner-target" class="w-full min-w-56 md:w-64">
+						{selectedTransferTargetLabel}
+					</Select.Trigger>
+					<Select.Content>
+						<Select.Item value={noTransferTargetValue} label="Select member..." />
+						{#each transferOwnershipCandidates as member (member.id)}
+							<Select.Item value={member.userId} label={member.email ?? 'Unknown member'} />
+						{/each}
+					</Select.Content>
+				</Select.Root>
 				<Button type="button" variant="outline" size="sm" disabled={!transferTargetId} onclick={onTransferConfirm}>
 					Transfer Ownership
 				</Button>

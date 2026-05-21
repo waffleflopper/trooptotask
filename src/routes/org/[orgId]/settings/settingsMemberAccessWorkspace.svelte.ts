@@ -1,66 +1,35 @@
-import { sortMembers } from '$features/groups/utils/sortMembers';
 import {
-	DURABLE_FEATURE_LANES,
-	resolveMemberAccessShapeFromStoredOrCurrent,
 	TARGET_MEMBER_PRESET_CAPABILITIES,
 	type CapabilityLevel,
 	type DurableFeatureLane,
-	type MemberAccessShape,
 	type MemberPreset,
 	type ScopeSet,
 	type StoredMemberPreset
 } from '$lib/access/memberAccessShape';
-import type { OrganizationMember, OrganizationMemberPermissions, PermissionPreset } from '$lib/types';
-import { getPermissionPreset } from '$lib/types';
+import type {
+	SettingsAccessShape,
+	SettingsInvitationAccessRow,
+	SettingsMemberAccessRow
+} from './settingsMemberAccessModel';
+import {
+	SETTINGS_ACCESS_LANES,
+	SETTINGS_ACCESS_OPTIONS,
+	SETTINGS_CAPABILITY_OPTIONS,
+	type AccessLaneConfig,
+	type AccessOption,
+	type EditablePreset
+} from './settingsMemberAccessConstants';
 
-export type EditablePreset = StoredMemberPreset | 'admin';
 export type MemberAccessBadge = MemberPreset | 'admin' | 'owner';
 export type ScopeKind = ScopeSet['kind'];
-export type AccessLaneConfig = { id: DurableFeatureLane; label: string };
-export type AccessOption = { value: EditablePreset; label: string; helper: string };
-export type SettingsInvitationAccessRow = Partial<OrganizationMemberPermissions> & {
-	id: string;
-	email: string;
-	status: string;
-	createdAt: string;
-	scopedGroupId: string | null;
-	permissions?: Partial<OrganizationMemberPermissions>;
-};
+export type { AccessLaneConfig, AccessOption, EditablePreset };
 
 export interface SettingsMemberAccessData {
-	members: OrganizationMember[];
+	members: SettingsMemberAccessRow[];
 	invitations: SettingsInvitationAccessRow[];
 	groups: Array<{ id: string; name: string }>;
 	isOwner: boolean;
 }
-
-export const SETTINGS_ACCESS_OPTIONS: AccessOption[] = [
-	{ value: 'admin', label: 'Admin', helper: 'Governance role. Can manage organization access.' },
-	{ value: 'editor', label: 'Editor', helper: 'Configure feature lanes without admin governance.' },
-	{ value: 'operator', label: 'Operator', helper: 'Day-to-day work across granted lanes.' },
-	{ value: 'viewer', label: 'Viewer', helper: 'Read-oriented access across granted lanes.' }
-];
-
-const ACCESS_LANE_LABELS: Record<DurableFeatureLane, string> = {
-	calendar: 'Calendar',
-	personnel: 'Personnel',
-	training: 'Training',
-	criticalTasks: 'Critical Tasks',
-	onboarding: 'Onboarding',
-	ratingScheme: 'Rating Scheme'
-};
-
-export const SETTINGS_ACCESS_LANES: AccessLaneConfig[] = DURABLE_FEATURE_LANES.map((id) => ({
-	id,
-	label: ACCESS_LANE_LABELS[id]
-}));
-
-export const SETTINGS_CAPABILITY_OPTIONS: Array<{ value: CapabilityLevel; label: string }> = [
-	{ value: 'none', label: 'None' },
-	{ value: 'view', label: 'View' },
-	{ value: 'operate', label: 'Operate' },
-	{ value: 'configure', label: 'Configure' }
-];
 
 export class SettingsMemberAccessWorkspace {
 	readonly #getData: () => SettingsMemberAccessData;
@@ -71,6 +40,7 @@ export class SettingsMemberAccessWorkspace {
 	inviteScopeKind = $state<ScopeKind>('organization');
 	inviteScopeGroupIds = $state<string[]>([]);
 	memberSelectedPreset = $state<Record<string, EditablePreset>>({});
+	memberSelectedCapabilities = $state<Record<string, Partial<Record<DurableFeatureLane, CapabilityLevel>>>>({});
 	memberSelectedScopeKind = $state<Record<string, ScopeKind>>({});
 	memberSelectedScopeGroupIds = $state<Record<string, string[]>>({});
 
@@ -82,8 +52,12 @@ export class SettingsMemberAccessWorkspace {
 		return this.#getData();
 	}
 
-	get sortedMembers(): OrganizationMember[] {
-		return sortMembers(this.#data.members);
+	get sortedMembers(): SettingsMemberAccessRow[] {
+		return [...this.#data.members].sort((a, b) => {
+			if (a.membershipRole === 'owner' && b.membershipRole !== 'owner') return -1;
+			if (b.membershipRole === 'owner' && a.membershipRole !== 'owner') return 1;
+			return (a.email ?? '').localeCompare(b.email ?? '', undefined, { sensitivity: 'base' });
+		});
 	}
 
 	get availablePresetOptions(): AccessOption[] {
@@ -115,31 +89,14 @@ export class SettingsMemberAccessWorkspace {
 		return this.#data.groups.find((group) => group.id === groupId)?.name ?? 'Unknown group';
 	}
 
-	getInvitePreset(invite: SettingsInvitationAccessRow): PermissionPreset {
-		const permissions = invite.permissions ?? invite;
-		return getPermissionPreset(
-			{
-				canViewCalendar: permissions.canViewCalendar === true,
-				canEditCalendar: permissions.canEditCalendar === true,
-				canViewPersonnel: permissions.canViewPersonnel === true,
-				canEditPersonnel: permissions.canEditPersonnel === true,
-				canViewTraining: permissions.canViewTraining === true,
-				canEditTraining: permissions.canEditTraining === true,
-				canViewCriticalTasks: permissions.canViewCriticalTasks === true,
-				canEditCriticalTasks: permissions.canEditCriticalTasks === true,
-				canViewOnboarding: permissions.canViewOnboarding === true,
-				canEditOnboarding: permissions.canEditOnboarding === true,
-				canViewRatingScheme: permissions.canViewRatingScheme,
-				canEditRatingScheme: permissions.canEditRatingScheme,
-				canManageMembers: permissions.canManageMembers === true
-			},
-			invite.scopedGroupId
-		);
+	getInvitePreset(invite: SettingsInvitationAccessRow): MemberAccessBadge {
+		if (invite.membershipRole === 'admin') return 'admin';
+		return invite.access.memberPreset;
 	}
 
-	getMemberAccessBadge(member: OrganizationMember, accessShape: MemberAccessShape): MemberAccessBadge {
-		if (member.role === 'owner') return 'owner';
-		if (member.role === 'admin') return 'admin';
+	getMemberAccessBadge(member: SettingsMemberAccessRow, accessShape: SettingsAccessShape): MemberAccessBadge {
+		if (member.membershipRole === 'owner') return 'owner';
+		if (member.membershipRole === 'admin') return 'admin';
 		return accessShape.memberPreset;
 	}
 
@@ -148,7 +105,7 @@ export class SettingsMemberAccessWorkspace {
 			case 'owner':
 				return 'Owner';
 			case 'admin':
-				return 'Admin governance';
+				return 'Admin';
 			case 'editor':
 				return 'Editor';
 			case 'operator':
@@ -172,16 +129,8 @@ export class SettingsMemberAccessWorkspace {
 			: 'editor';
 	}
 
-	getMemberAccessShape(member: OrganizationMember): MemberAccessShape {
-		return resolveMemberAccessShapeFromStoredOrCurrent({
-			membershipRole: member.role,
-			permissions: member,
-			scopedGroupId: member.scopedGroupId,
-			memberPreset: member.memberPreset,
-			capabilityOverrides: member.capabilityOverrides,
-			accessScopeKind: member.accessScopeKind,
-			accessScopeGroupIds: member.accessScopeGroupIds
-		});
+	getMemberAccessShape(member: SettingsMemberAccessRow): SettingsAccessShape {
+		return member.access;
 	}
 
 	formatScopeSet(scopeSet: ScopeSet): string {
@@ -190,10 +139,10 @@ export class SettingsMemberAccessWorkspace {
 	}
 
 	formatCapability(level: CapabilityLevel): string {
-		return level[0].toUpperCase() + level.slice(1);
+		return SETTINGS_CAPABILITY_OPTIONS.find((option) => option.value === level)?.label ?? level;
 	}
 
-	overriddenCapabilityLabels(member: OrganizationMember): string[] {
+	overriddenCapabilityLabels(member: SettingsMemberAccessRow): string[] {
 		const shape = this.getMemberAccessShape(member);
 		const memberPreset = this.editablePresetForMemberPreset(shape.memberPreset);
 		return SETTINGS_ACCESS_LANES.filter(
@@ -202,10 +151,13 @@ export class SettingsMemberAccessWorkspace {
 	}
 
 	getEditorCapabilityValue(
-		member: OrganizationMember,
+		member: SettingsMemberAccessRow,
 		lane: DurableFeatureLane,
 		selectedPreset: EditablePreset
 	): CapabilityLevel {
+		const selectedCapability = this.memberSelectedCapabilities[member.id]?.[lane];
+		if (selectedCapability) return selectedCapability;
+
 		const accessShape = this.getMemberAccessShape(member);
 		if (selectedPreset === 'admin') return TARGET_MEMBER_PRESET_CAPABILITIES.editor[lane];
 
@@ -217,31 +169,32 @@ export class SettingsMemberAccessWorkspace {
 		return accessShape.capabilityMap[lane];
 	}
 
-	getSelectedPreset(member: OrganizationMember): EditablePreset {
+	getSelectedPreset(member: SettingsMemberAccessRow): EditablePreset {
 		const accessShape = this.getMemberAccessShape(member);
 		return (
 			this.memberSelectedPreset[member.id] ??
-			(member.role === 'admin' ? 'admin' : this.editablePresetForMemberPreset(accessShape.memberPreset))
+			(member.membershipRole === 'admin' ? 'admin' : this.editablePresetForMemberPreset(accessShape.memberPreset))
 		);
 	}
 
-	getSelectedScopeKind(member: OrganizationMember): ScopeKind {
+	getSelectedScopeKind(member: SettingsMemberAccessRow): ScopeKind {
 		return this.memberSelectedScopeKind[member.id] ?? this.getMemberAccessShape(member).scopeSet.kind;
 	}
 
-	getSelectedScopeGroupIds(member: OrganizationMember): string[] {
+	getSelectedScopeGroupIds(member: SettingsMemberAccessRow): string[] {
 		const current = this.getMemberAccessShape(member).scopeSet;
 		return this.memberSelectedScopeGroupIds[member.id] ?? (current.kind === 'groups' ? current.groupIds : []);
 	}
 
-	openMemberEditor(member: OrganizationMember): void {
-		if (member.role === 'owner') return;
+	openMemberEditor(member: SettingsMemberAccessRow): void {
+		if (member.membershipRole === 'owner') return;
 		const accessShape = this.getMemberAccessShape(member);
 		const scopeGroupIds = accessShape.scopeSet.kind === 'groups' ? accessShape.scopeSet.groupIds : [];
 		this.memberEditorId = member.id;
 		this.memberSelectedPreset = {
 			...this.memberSelectedPreset,
-			[member.id]: member.role === 'admin' ? 'admin' : this.editablePresetForMemberPreset(accessShape.memberPreset)
+			[member.id]:
+				member.membershipRole === 'admin' ? 'admin' : this.editablePresetForMemberPreset(accessShape.memberPreset)
 		};
 		this.memberSelectedScopeKind = {
 			...this.memberSelectedScopeKind,
@@ -256,12 +209,15 @@ export class SettingsMemberAccessWorkspace {
 	closeMemberEditor(memberId: string): void {
 		this.memberEditorId = null;
 		const remainingPresets = { ...this.memberSelectedPreset };
+		const remainingCapabilities = { ...this.memberSelectedCapabilities };
 		const remainingScopeKinds = { ...this.memberSelectedScopeKind };
 		const remainingScopeGroups = { ...this.memberSelectedScopeGroupIds };
 		delete remainingPresets[memberId];
+		delete remainingCapabilities[memberId];
 		delete remainingScopeKinds[memberId];
 		delete remainingScopeGroups[memberId];
 		this.memberSelectedPreset = remainingPresets;
+		this.memberSelectedCapabilities = remainingCapabilities;
 		this.memberSelectedScopeKind = remainingScopeKinds;
 		this.memberSelectedScopeGroupIds = remainingScopeGroups;
 	}
@@ -277,6 +233,16 @@ export class SettingsMemberAccessWorkspace {
 		this.memberSelectedScopeKind = {
 			...this.memberSelectedScopeKind,
 			[memberId]: scopeKind
+		};
+	}
+
+	setMemberCapability(memberId: string, lane: DurableFeatureLane, capability: CapabilityLevel): void {
+		this.memberSelectedCapabilities = {
+			...this.memberSelectedCapabilities,
+			[memberId]: {
+				...this.memberSelectedCapabilities[memberId],
+				[lane]: capability
+			}
 		};
 	}
 

@@ -1,6 +1,12 @@
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { fail } from '$lib/server/core/errors';
 import type { UseCaseContext } from '$lib/server/core/ports';
+import {
+	ARCHIVE_RETENTION_CONSTRAINT,
+	CRITICAL_TASKS_DEFAULT_EXPIRATION_CONSTRAINT,
+	CRITICAL_TASKS_EXPIRING_SOON_WARNING_CONSTRAINT,
+	LOSS_WARNING_CONSTRAINT
+} from '../../../settings/settingsPolicyConstraints';
 
 interface OrganizationSettingsInput {
 	archiveRetentionMonths?: number;
@@ -43,22 +49,22 @@ export const _postConfig: RouteConfig<OrganizationSettingsInput, { success: true
 		const archiveRetentionMonths = parseWholeNumber(
 			input.archiveRetentionMonths,
 			'Retention months must be between 1 and 120',
-			{ min: 1, max: 120 }
+			ARCHIVE_RETENTION_CONSTRAINT
 		);
 		const lossWarningWindowDays = parseWholeNumber(
 			input.lossWarningWindowDays,
 			'Warning window must be between 1 and 365 days',
-			{ min: 1, max: 365 }
+			LOSS_WARNING_CONSTRAINT
 		);
 		const criticalTasksDefaultExpirationMonths = parseNullableWholeNumber(
 			input.criticalTasksDefaultExpirationMonths,
 			'Critical Tasks default expiration months must be between 1 and 120',
-			{ min: 1, max: 120 }
+			CRITICAL_TASKS_DEFAULT_EXPIRATION_CONSTRAINT
 		);
 		const criticalTasksExpiringSoonWarningDays = parseNullableWholeNumber(
 			input.criticalTasksExpiringSoonWarningDays,
 			'Critical Tasks expiring-soon warning days must be between 1 and 365',
-			{ min: 1, max: 365 }
+			CRITICAL_TASKS_EXPIRING_SOON_WARNING_CONSTRAINT
 		);
 		const personnelDocumentStorageCapMb = parseWholeNumber(
 			input.personnelDocumentStorageCapMb,

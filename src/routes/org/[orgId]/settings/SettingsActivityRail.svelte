@@ -8,44 +8,20 @@
 	import { Spinner } from '$lib/components/ui/spinner/index.js';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { formatRelativeDate } from '$lib/utils/dates';
+	import type { OrganizationSettingsWorkspace } from './organizationSettingsWorkspaceModel';
 	import { formatAuditTimestamp, getAuditActionParts } from './settingsWorkspaceFormatters';
 
 	type ActivityTab = 'approvals' | 'audit';
 
-	type ApprovalRequest = {
-		id: string;
-		status: string;
-		requester_email: string | null;
-		resource_description: string | null;
-		resource_type: string;
-		resource_url: string | null;
-		created_at: string;
-		denial_reason?: string | null;
-	};
-
-	type AuditLog = {
-		id: string;
-		actor: string | null;
-		action: string;
-		createdAt: string;
-	};
-
-	type AuditLogData = {
-		logs: AuditLog[];
-		totalCount: number;
-	};
+	type Activity = OrganizationSettingsWorkspace['sections']['dataExport']['activity'];
 
 	let {
 		orgId,
-		pendingApprovalsCount,
-		approvalRequests,
-		auditLog,
+		activity,
 		collapsed = $bindable(false)
 	}: {
 		orgId: string;
-		pendingApprovalsCount: number;
-		approvalRequests: ApprovalRequest[];
-		auditLog: AuditLogData;
+		activity: Activity;
 		collapsed?: boolean;
 	} = $props();
 
@@ -54,6 +30,9 @@
 	let denialReason = $state('');
 	let processingApproval = $state<string | null>(null);
 
+	const approvalRequests = $derived(activity.approvalRequests);
+	const auditLog = $derived(activity.auditLog);
+	const pendingApprovalsCount = $derived(activity.pendingApprovalsCount);
 	const pendingApprovals = $derived(approvalRequests.filter((request) => request.status === 'pending'));
 	const visibleApprovals = $derived(pendingApprovals.slice(0, 4));
 	const visibleAuditLogs = $derived(auditLog.logs.slice(0, 9));
@@ -88,18 +67,16 @@
 			Activity
 		</Button>
 	{:else}
-		<div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-			<Tabs.Root bind:value={activityTab}>
+		<Tabs.Root bind:value={activityTab} class="grid gap-4">
+			<div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
 				<Tabs.List>
 					<Tabs.Trigger value="approvals">Approvals {pendingApprovalsCount}</Tabs.Trigger>
 					<Tabs.Trigger value="audit">Audit Log</Tabs.Trigger>
 				</Tabs.List>
-			</Tabs.Root>
-			<Button type="button" variant="outline" size="sm" aria-label="Collapse" onclick={() => (collapsed = true)}>
-				Hide
-			</Button>
-		</div>
-		<Tabs.Root bind:value={activityTab} class="grid gap-4">
+				<Button type="button" variant="outline" size="sm" aria-label="Collapse" onclick={() => (collapsed = true)}>
+					Hide
+				</Button>
+			</div>
 			<Tabs.Content value="approvals" class="grid gap-3">
 				<div class="grid gap-3" aria-label="Pending approval requests">
 					{#each visibleApprovals as request (request.id)}

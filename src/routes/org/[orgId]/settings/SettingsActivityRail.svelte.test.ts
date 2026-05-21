@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
 
 import SettingsActivityRail from './SettingsActivityRail.svelte';
+import type { DeletionRequestRow } from './settingsRows.server';
 
 vi.mock('$app/navigation', () => ({
 	invalidateAll: vi.fn()
@@ -13,7 +14,7 @@ afterEach(() => {
 	vi.restoreAllMocks();
 });
 
-const approvalRequests = [
+const approvalRequests: DeletionRequestRow[] = [
 	{
 		id: 'request-1',
 		status: 'pending',
@@ -52,9 +53,11 @@ describe('SettingsActivityRail', () => {
 		render(SettingsActivityRail, {
 			props: {
 				orgId: 'org-1',
-				pendingApprovalsCount: 1,
-				approvalRequests,
-				auditLog
+				activity: {
+					pendingApprovalsCount: 1,
+					approvalRequests,
+					auditLog
+				}
 			}
 		});
 

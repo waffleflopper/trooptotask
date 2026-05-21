@@ -58,6 +58,8 @@ const baseData = {
 	allOrgs: [],
 	orgId: 'org-1',
 	orgName: 'Test Org',
+	orgUrlSegment: 'org-1',
+	orgUrlSlug: null,
 	isOwner: true,
 	isAdmin: false,
 	canManageMembers: true,
@@ -160,6 +162,15 @@ function workspaceFor(data: SettingsPageTestData) {
 				canManageMembers: data.canManageMembers
 			},
 			sections: {
+				organization: {
+					id: data.orgId,
+					name: data.orgName,
+					urlSlug: data.orgUrlSlug ?? null,
+					urlSegment: data.orgUrlSegment ?? data.orgId,
+					tier: data.effectiveTier,
+					canUpdateProfile: data.canManageMembers,
+					canUpdateUrlSlug: data.canManageMembers
+				},
 				members: {
 					rows: data.members,
 					invitations: data.invitations,
@@ -204,6 +215,32 @@ function workspaceFor(data: SettingsPageTestData) {
 					},
 					canUpdateRetention: data.canManageMembers,
 					canUpdateCriticalTasksSettings: data.canManageMembers
+				},
+				archivedPersonnel: {
+					rows: data.archivedPersonnel.map((person) => ({
+						id: String(person.id),
+						rank: String(person.rank),
+						firstName: String(person.firstName),
+						lastName: String(person.lastName),
+						mos: (person.mos as string | null) ?? null,
+						groupName: (person.groupName as string | null) ?? null,
+						archivedAt: String(person.archivedAt),
+						groupId: (person.groupId as string | null) ?? null,
+						displayName: `${person.rank} ${person.lastName}, ${person.firstName}`,
+						exportFileStem: `${person.rank}-${person.lastName}`
+					})),
+					retention: {
+						months: data.policies.retentionMonths,
+						purgeSummary:
+							data.archivedPersonnel.length === 0
+								? `Retention ${data.policies.retentionMonths} months`
+								: `${data.archivedPersonnel.length} archived ${data.archivedPersonnel.length === 1 ? 'record' : 'records'}`
+					},
+					commands: {
+						canRestore: data.canManageMembers,
+						canExport: data.canManageMembers,
+						canPermanentlyDelete: data.canManageMembers
+					}
 				}
 			}
 		}
@@ -340,6 +377,41 @@ describe('org settings page', () => {
 		expect(within(archivedTable).getByRole('button', { name: 'Restore' })).toBeTruthy();
 		expect(within(archivedTable).getByRole('button', { name: 'Export' })).toBeTruthy();
 		expect(within(archivedTable).getByRole('button', { name: 'Delete' })).toBeTruthy();
+	});
+
+	it('disables archived personnel commands when workspace command eligibility denies them', async () => {
+		render(Page, {
+			props: {
+				data: {
+					...workspaceFor({
+						...baseData,
+						isOwner: false,
+						isAdmin: true,
+						canManageMembers: false,
+						archivedPersonnel: [
+							{
+								id: 'archived-1',
+								rank: 'PV2',
+								firstName: 'Henry',
+								lastName: 'Abbott',
+								mos: '11B',
+								groupName: '2nd Platoon',
+								archivedAt: '2026-04-14T12:00:00Z',
+								groupId: 'group-1'
+							}
+						]
+					})
+				} as never,
+				form: null as never
+			}
+		});
+
+		await fireEvent.click(screen.getByRole('tab', { name: 'Archived Personnel' }));
+
+		const archivedTable = screen.getByRole('region', { name: 'Archived personnel records' });
+		expect(within(archivedTable).getByRole('button', { name: 'Restore' }).hasAttribute('disabled')).toBe(true);
+		expect(within(archivedTable).getByRole('button', { name: 'Export' }).hasAttribute('disabled')).toBe(true);
+		expect(within(archivedTable).getByRole('button', { name: 'Delete' }).hasAttribute('disabled')).toBe(true);
 	});
 
 	it('renders data export controls and the activity panel', async () => {

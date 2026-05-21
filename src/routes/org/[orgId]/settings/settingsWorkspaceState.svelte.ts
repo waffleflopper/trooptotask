@@ -1,6 +1,6 @@
 import type { CriticalTasksSettings } from '$features/critical-tasks/criticalTasks.types';
 import { createSettingsMemberAccessWorkspace } from './settingsMemberAccessWorkspace.svelte';
-import type { OrganizationSettingsWorkspace } from './organizationSettingsWorkspaceModel';
+import type { OrganizationSettingsWorkspace, SettingsArchivedPersonnelRow } from './organizationSettingsWorkspaceModel';
 
 export class SettingsPoliciesState {
 	readonly #getWorkspace: () => OrganizationSettingsWorkspace;
@@ -129,11 +129,45 @@ export class SettingsPoliciesState {
 	}
 }
 
+export class SettingsArchivedPersonnelState {
+	readonly #getWorkspace: () => OrganizationSettingsWorkspace;
+
+	confirmPermanentDelete = $state<{ id: string; name: string } | null>(null);
+
+	constructor(workspace: OrganizationSettingsWorkspace | (() => OrganizationSettingsWorkspace)) {
+		this.#getWorkspace = typeof workspace === 'function' ? workspace : () => workspace;
+	}
+
+	get rows(): OrganizationSettingsWorkspace['sections']['archivedPersonnel']['rows'] {
+		return this.#getWorkspace().sections.archivedPersonnel.rows;
+	}
+
+	get retention(): OrganizationSettingsWorkspace['sections']['archivedPersonnel']['retention'] {
+		return this.#getWorkspace().sections.archivedPersonnel.retention;
+	}
+
+	get commands(): OrganizationSettingsWorkspace['sections']['archivedPersonnel']['commands'] {
+		return this.#getWorkspace().sections.archivedPersonnel.commands;
+	}
+
+	openPermanentDeleteConfirmation(person: Pick<SettingsArchivedPersonnelRow, 'id' | 'displayName'>): void {
+		this.confirmPermanentDelete = {
+			id: person.id,
+			name: person.displayName
+		};
+	}
+
+	clearPermanentDeleteConfirmation(): void {
+		this.confirmPermanentDelete = null;
+	}
+}
+
 export class SettingsWorkspaceState {
 	readonly #getWorkspace: () => OrganizationSettingsWorkspace;
 
 	members: ReturnType<typeof createSettingsMemberAccessWorkspace>;
 	policies: SettingsPoliciesState;
+	archivedPersonnel: SettingsArchivedPersonnelState;
 
 	constructor(workspace: OrganizationSettingsWorkspace | (() => OrganizationSettingsWorkspace)) {
 		this.#getWorkspace = typeof workspace === 'function' ? workspace : () => workspace;
@@ -147,6 +181,7 @@ export class SettingsWorkspaceState {
 			};
 		});
 		this.policies = new SettingsPoliciesState(() => this.#getWorkspace());
+		this.archivedPersonnel = new SettingsArchivedPersonnelState(() => this.#getWorkspace());
 	}
 }
 

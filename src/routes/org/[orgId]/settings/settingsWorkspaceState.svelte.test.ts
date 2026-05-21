@@ -74,6 +74,40 @@ function makeWorkspace(): OrganizationSettingsWorkspace {
 				},
 				canUpdateRetention: true,
 				canUpdateCriticalTasksSettings: true
+			},
+			organization: {
+				id: 'org-1',
+				name: 'Test Org',
+				urlSlug: '1-11-bde',
+				urlSegment: '1-11-bde',
+				tier: null,
+				canUpdateProfile: true,
+				canUpdateUrlSlug: true
+			},
+			archivedPersonnel: {
+				rows: [
+					{
+						id: 'person-1',
+						rank: 'SGT',
+						firstName: 'Avery',
+						lastName: 'Jones',
+						mos: '11B',
+						groupName: 'HQ',
+						archivedAt: '2026-04-01T12:00:00Z',
+						groupId: 'group-1',
+						displayName: 'SGT Jones, Avery',
+						exportFileStem: 'SGT-Jones'
+					}
+				],
+				retention: {
+					months: 36,
+					purgeSummary: '1 archived record'
+				},
+				commands: {
+					canRestore: true,
+					canExport: true,
+					canPermanentlyDelete: true
+				}
 			}
 		}
 	};
@@ -106,5 +140,21 @@ describe('settings workspace state', () => {
 
 		expect(state.members.memberEditorId).toBe('member-1');
 		expect(state.members.getSelectedPreset(member)).toBe('editor');
+	});
+
+	it('owns archived personnel delete confirmation command state', () => {
+		const state = createSettingsWorkspaceState(makeWorkspace());
+		const archivedPerson = state.archivedPersonnel.rows[0];
+
+		state.archivedPersonnel.openPermanentDeleteConfirmation(archivedPerson);
+
+		expect(state.archivedPersonnel.confirmPermanentDelete).toEqual({
+			id: 'person-1',
+			name: 'SGT Jones, Avery'
+		});
+
+		state.archivedPersonnel.clearPermanentDeleteConfirmation();
+
+		expect(state.archivedPersonnel.confirmPermanentDelete).toBeNull();
 	});
 });

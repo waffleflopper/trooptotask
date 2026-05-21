@@ -6,9 +6,10 @@
 	import { Label } from '$lib/components/ui/label/index.js';
 	import { Separator } from '$lib/components/ui/separator/index.js';
 	import { isBillingEnabled } from '$lib/config/billing';
+	import type { OrganizationSettingsWorkspace } from './organizationSettingsWorkspaceModel';
 
 	let {
-		data,
+		organization,
 		form,
 		loading = $bindable(false),
 		planBadge,
@@ -17,12 +18,7 @@
 		billingStatus,
 		personnelCount
 	} = $props<{
-		data: {
-			orgId: string;
-			orgName: string | null;
-			orgUrlSegment?: string | null;
-			orgUrlSlug?: string | null;
-		};
+		organization: OrganizationSettingsWorkspace['sections']['organization'];
 		form: {
 			[key: string]: unknown;
 			nameSuccess?: boolean;
@@ -67,10 +63,10 @@
 			<div class="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto]">
 				<div class="grid gap-2">
 					<Label for="name">Organization name</Label>
-					<Input id="name" name="name" type="text" value={data.orgName ?? ''} required />
+					<Input id="name" name="name" type="text" value={organization.name ?? ''} required />
 				</div>
 				<div class="flex items-end">
-					<Button type="submit" disabled={loading}>
+					<Button type="submit" disabled={loading || !organization.canUpdateProfile}>
 						{loading ? 'Saving...' : 'Update'}
 					</Button>
 				</div>
@@ -91,7 +87,7 @@
 			<div class="grid gap-1">
 				<p class="text-sm font-medium">Organization URL slug</p>
 				<p class="text-sm text-muted-foreground">
-					Used in app links like /org/{data.orgUrlSlug ?? '1-11-bde'}/calendar. Letters, numbers, and hyphens only.
+					Used in app links like /org/{organization.urlSlug ?? '1-11-bde'}/calendar. Letters, numbers, and hyphens only.
 				</p>
 			</div>
 			{#if form?.slugError}<p class="text-sm text-destructive">{form.slugError}</p>{/if}
@@ -102,23 +98,28 @@
 						id="urlSlug"
 						name="urlSlug"
 						type="text"
-						value={data.orgUrlSlug ?? ''}
+						value={organization.urlSlug ?? ''}
 						placeholder="1-11-bde"
 						autocomplete="off"
 						aria-describedby="url-slug-help"
 					/>
 					<p id="url-slug-help" class="text-sm text-muted-foreground">
-						Current app path: /org/{data.orgUrlSegment ?? data.orgId}
+						Current app path: /org/{organization.urlSegment}
 					</p>
 				</div>
 				<div class="flex items-end">
-					<Button type="submit" disabled={loading}>
-						{loading ? 'Saving...' : data.orgUrlSlug ? 'Update Slug' : 'Set Slug'}
+					<Button type="submit" disabled={loading || !organization.canUpdateUrlSlug}>
+						{loading ? 'Saving...' : organization.urlSlug ? 'Update Slug' : 'Set Slug'}
 					</Button>
 				</div>
-				{#if data.orgUrlSlug}
+				{#if organization.urlSlug}
 					<div class="flex items-end">
-						<Button type="submit" variant="outline" formaction="?/clearSlug" disabled={loading}>Clear</Button>
+						<Button
+							type="submit"
+							variant="outline"
+							formaction="?/clearSlug"
+							disabled={loading || !organization.canUpdateUrlSlug}>Clear</Button
+						>
 					</div>
 				{/if}
 			</div>
@@ -139,7 +140,7 @@
 				<p class="text-sm font-medium">Plan</p>
 				<p class="text-sm text-muted-foreground">{billingStatus}</p>
 				{#if isBillingEnabled}
-					<Button href={`/org/${data.orgUrlSegment ?? data.orgId}/billing`} size="sm">Manage Billing</Button>
+					<Button href={`/org/${organization.urlSegment}/billing`} size="sm">Manage Billing</Button>
 				{/if}
 			</div>
 			<div>

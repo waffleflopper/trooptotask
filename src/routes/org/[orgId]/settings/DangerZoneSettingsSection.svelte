@@ -3,23 +3,25 @@
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Label } from '$lib/components/ui/label/index.js';
 	import { Separator } from '$lib/components/ui/separator/index.js';
-	import type { SettingsMemberAccessRow } from './settingsMemberAccessModel';
+	import type { OrganizationSettingsWorkspace } from './organizationSettingsWorkspaceModel';
 
 	let {
 		orgName,
 		form,
-		transferOwnershipCandidates,
+		section,
 		transferTargetId = $bindable(null),
 		onTransferConfirm,
 		onDeleteConfirm
 	}: {
 		orgName: string | null;
 		form: { [key: string]: unknown; deleteError?: string } | null;
-		transferOwnershipCandidates: SettingsMemberAccessRow[];
+		section: OrganizationSettingsWorkspace['sections']['dangerZone'];
 		transferTargetId?: string | null;
 		onTransferConfirm: () => void;
 		onDeleteConfirm: () => void;
 	} = $props();
+
+	const transferOwnershipCandidates = $derived(section.transferOwnershipCandidates);
 </script>
 
 <div class="grid gap-4">

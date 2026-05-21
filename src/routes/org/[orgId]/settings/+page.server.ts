@@ -9,6 +9,7 @@ import { createSupabaseOrgSettingsAdministrationPort } from '$lib/server/adapter
 import { createSupabaseOrgSettingsMemberManagementPort } from '$lib/server/adapters/supabaseOrgSettingsMemberManagement';
 import { getAdminClient } from '$lib/server/supabase';
 import { fetchAuditLogPreview } from '$lib/server/core/useCases/auditLogQuery';
+import type { SubscriptionPort } from '$lib/server/core/ports';
 import {
 	clearOrganizationUrlSlug,
 	deleteOrganization as deleteOrganizationUseCase,
@@ -24,11 +25,9 @@ import {
 	updateOrganizationMemberPermissions
 } from '$lib/server/core/useCases/orgSettingsMemberManagement';
 import { requireGovernancePolicy } from '$lib/server/core/useCases/governancePolicy';
-import type { DeletionRequestRow } from './settingsRows.server';
 import {
-	buildPendingApprovalSummary,
 	loadOrganizationSettingsWorkspace,
-	withOrganizationSettingsPendingApprovalSummary
+	type SettingsExportInfoSource
 } from './organizationSettingsWorkspace.server';
 
 export const load: PageServerLoad = async ({ locals, cookies, parent }) => {
@@ -45,47 +44,22 @@ export const load: PageServerLoad = async ({ locals, cookies, parent }) => {
 			);
 
 			const adminStore = createSupabaseDataStore(getAdminClient());
-			const [workspace, approvalRequests, auditLog] = await Promise.all([
-				loadOrganizationSettingsWorkspace(ctx, {
-					isAdmin: Boolean(isAdmin),
-					organization: {
-						id: orgId,
-						name: orgName,
-						urlSlug: orgUrlSegment && orgUrlSegment !== orgId ? orgUrlSegment : null,
-						urlSegment: orgUrlSegment ?? orgId,
-						effectiveTier: effectiveTier ?? null
-					}
-				}),
-				ctx.store.findMany<DeletionRequestRow>('deletion_requests', ctx.auth.orgId, undefined, {
-					orderBy: [{ column: 'created_at', ascending: false }]
-				}),
+			const [exportInfo, auditLog] = await Promise.all([
+				loadExportInfo(ctx),
 				fetchAuditLogPreview(ctx, adminStore, { limit: 9 })
 			]);
-
-			let exportInfo: { exportsUsed: number; exportsLimit: number; isLimited: boolean } = {
-				exportsUsed: 0,
-				exportsLimit: Infinity,
-				isLimited: false
-			};
-
-			if (isBillingEnabled) {
-				const [tier, exportCount] = await Promise.all([
-					ctx.subscription.getEffectiveTier(),
-					ctx.subscription.getMonthlyExportCount()
-				]);
-				const config = TIER_CONFIG[tier.tier];
-				exportInfo = {
-					exportsUsed: exportCount,
-					exportsLimit: config.bulkExportsPerMonth,
-					isLimited: config.bulkExportsPerMonth !== Infinity
-				};
-			}
-
-			const pendingApprovalSummary = buildPendingApprovalSummary(approvalRequests);
-			const workspaceWithApprovalSummary = withOrganizationSettingsPendingApprovalSummary(
-				workspace,
-				pendingApprovalSummary
-			);
+			const workspace = await loadOrganizationSettingsWorkspace(ctx, {
+				isAdmin: Boolean(isAdmin),
+				organization: {
+					id: orgId,
+					name: orgName,
+					urlSlug: orgUrlSegment && orgUrlSegment !== orgId ? orgUrlSegment : null,
+					urlSegment: orgUrlSegment ?? orgId,
+					effectiveTier: effectiveTier ?? null
+				},
+				exportInfo,
+				auditLog
+			});
 
 			return {
 				orgId,
@@ -95,15 +69,32 @@ export const load: PageServerLoad = async ({ locals, cookies, parent }) => {
 				effectiveTier,
 				permissions,
 				allOrgs,
-				workspace: workspaceWithApprovalSummary,
-				exportInfo,
-				approvalRequests,
-				pendingApprovalsCount: pendingApprovalSummary.count,
-				auditLog
+				workspace
 			};
 		}
 	});
 };
+
+async function loadExportInfo(ctx: { subscription: SubscriptionPort }): Promise<SettingsExportInfoSource> {
+	if (!isBillingEnabled) {
+		return {
+			exportsUsed: 0,
+			exportsLimit: Infinity,
+			isLimited: false
+		};
+	}
+
+	const [tier, exportCount] = await Promise.all([
+		ctx.subscription.getEffectiveTier(),
+		ctx.subscription.getMonthlyExportCount()
+	]);
+	const config = TIER_CONFIG[tier.tier];
+	return {
+		exportsUsed: exportCount,
+		exportsLimit: config.bulkExportsPerMonth,
+		isLimited: config.bulkExportsPerMonth !== Infinity
+	};
+}
 
 export const actions: Actions = {
 	updateName: async (event) => {

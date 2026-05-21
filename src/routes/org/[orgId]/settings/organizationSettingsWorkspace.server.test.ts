@@ -95,6 +95,43 @@ describe('organization settings workspace read model', () => {
 				critical_tasks_default_expiration_months: 18,
 				critical_tasks_expiring_soon_warning_days: 45
 			},
+			exportInfo: {
+				exportsUsed: 3,
+				exportsLimit: 10,
+				isLimited: true
+			},
+			approvalRequests: [
+				{
+					id: 'approval-1',
+					status: 'pending',
+					requester_email: 'requester@example.com',
+					resource_description: 'Archived record',
+					resource_type: 'personnel',
+					resource_url: '/org/org-1/personnel/person-1',
+					created_at: '2026-05-20T12:00:00Z',
+					denial_reason: null
+				}
+			],
+			auditLog: {
+				logs: [
+					{
+						id: 'audit-1',
+						userId: 'user-a',
+						actor: 'member@example.com',
+						action: 'organization.export.created',
+						resourceType: 'organization',
+						resourceId: 'org-1',
+						details: null,
+						createdAt: '2026-05-21T12:00:00Z'
+					}
+				],
+				totalCount: 7,
+				last30DaysCount: 4,
+				page: 1,
+				limit: 9,
+				actionFilter: '',
+				availableActions: []
+			},
 			archivedPersonnel: [
 				{
 					id: 'person-1',
@@ -120,8 +157,8 @@ describe('organization settings workspace read model', () => {
 		expect(workspace.sections.members.roleCounts).toEqual({ owner: 1, admin: 0, member: 1 });
 		expect(workspace.sections.members.memberRoleSummary).toBe('1 Owner · 0 Admins · 1 Member');
 		expect(workspace.sections.members.pendingApprovalSummary).toEqual({
-			count: 0,
-			oldestCreatedAt: null
+			count: 1,
+			oldestCreatedAt: '2026-05-20T12:00:00Z'
 		});
 		expect(workspace.sections.members.availableAccessLanes.map((lane) => lane.id)).toEqual([
 			'calendar',
@@ -200,6 +237,96 @@ describe('organization settings workspace read model', () => {
 				canPermanentlyDelete: true
 			}
 		});
+		expect(workspace.sections.dataExport.exportInfo).toEqual({
+			exportsUsed: 3,
+			exportsLimit: 10,
+			isLimited: true,
+			limitReached: false,
+			planBadge: 'Plan limited'
+		});
+		expect(workspace.sections.dataExport.commands).toEqual({
+			canExportJson: true,
+			canExportExcel: true
+		});
+		expect(workspace.sections.dataExport.activity.pendingApprovalsCount).toBe(1);
+		expect(workspace.sections.dataExport.activity.approvalRequests).toHaveLength(1);
+		expect(workspace.sections.dataExport.activity.auditLog.last30DaysCount).toBe(4);
+		expect(workspace.sections.dangerZone).toEqual({
+			transferOwnershipCandidates: [],
+			deleteConfirmation: {
+				organizationName: 'Test Org',
+				normalizedOrganizationName: 'Test Org'
+			},
+			commands: {
+				canTransferOwnership: false,
+				canDeleteOrganization: false
+			}
+		});
+	});
+
+	it('exposes owner-only Danger Zone data with transfer candidates', () => {
+		const workspace = buildOrganizationSettingsWorkspace({
+			currentMemberRole: 'owner',
+			isAdmin: false,
+			organization: {
+				id: 'org-1',
+				name: 'Test Org',
+				urlSlug: null,
+				urlSegment: 'org-1',
+				effectiveTier: null
+			},
+			members: [
+				{
+					id: 'member-owner',
+					organization_id: 'org-1',
+					user_id: 'user-owner',
+					email: 'owner@example.com',
+					role: 'owner',
+					created_at: '2026-05-20T12:00:00Z',
+					...legacyAccessFlags,
+					member_preset: 'editor',
+					capability_overrides: null,
+					access_scope_kind: 'organization',
+					access_scope_group_ids: []
+				},
+				{
+					id: 'member-a',
+					organization_id: 'org-1',
+					user_id: 'user-a',
+					email: 'member@example.com',
+					role: 'member',
+					created_at: '2026-05-20T12:00:00Z',
+					...legacyAccessFlags,
+					member_preset: 'editor',
+					capability_overrides: null,
+					access_scope_kind: 'organization',
+					access_scope_group_ids: []
+				}
+			],
+			invitations: [],
+			groups: [],
+			organizationSettings: null,
+			archivedPersonnel: []
+		});
+
+		expect(workspace.sections.dangerZone).toMatchObject({
+			transferOwnershipCandidates: [
+				{
+					id: 'member-a',
+					userId: 'user-a',
+					email: 'member@example.com',
+					membershipRole: 'member'
+				}
+			],
+			deleteConfirmation: {
+				organizationName: 'Test Org',
+				normalizedOrganizationName: 'Test Org'
+			},
+			commands: {
+				canTransferOwnership: true,
+				canDeleteOrganization: true
+			}
+		});
 	});
 
 	it('does not count pending invitations as pending approvals', () => {
@@ -244,6 +371,11 @@ describe('organization settings workspace read model', () => {
 			},
 			groups: [],
 			organizationSettings: null,
+			exportInfo: {
+				exportsUsed: 5,
+				exportsLimit: 5,
+				isLimited: true
+			},
 			archivedPersonnel: []
 		});
 
@@ -256,14 +388,16 @@ describe('organization settings workspace read model', () => {
 			months: 36,
 			purgeSummary: 'Retention 36 months'
 		});
+		expect(workspace.sections.dataExport.exportInfo.limitReached).toBe(true);
 	});
 
-	it('loads Members, Policies, and Archived Personnel source tables for this workspace slice', async () => {
+	it('loads source tables for the completed visible settings workspace', async () => {
 		const findMany = vi.fn(async (table: string) => {
 			if (table === 'organization_memberships') return [];
 			if (table === 'organization_invitations') return [];
 			if (table === 'groups') return [];
 			if (table === 'personnel') return [];
+			if (table === 'deletion_requests') return [];
 			throw new Error(`Unexpected table: ${table}`);
 		});
 		const findOne = vi.fn(async () => ({
@@ -295,7 +429,8 @@ describe('organization settings workspace read model', () => {
 			'organization_memberships',
 			'organization_invitations',
 			'groups',
-			'personnel'
+			'personnel',
+			'deletion_requests'
 		]);
 		expect(findOne).toHaveBeenCalledWith(
 			'organizations',
@@ -303,6 +438,5 @@ describe('organization settings workspace read model', () => {
 			{},
 			'archive_retention_months, loss_warning_window_days, critical_tasks_default_expiration_months, critical_tasks_expiring_soon_warning_days'
 		);
-		expect(findMany.mock.calls.map((call) => call[0])).not.toContain('deletion_requests');
 	});
 });

@@ -108,6 +108,50 @@ function makeWorkspace(): OrganizationSettingsWorkspace {
 					canExport: true,
 					canPermanentlyDelete: true
 				}
+			},
+			dataExport: {
+				exportInfo: {
+					exportsUsed: 0,
+					exportsLimit: Infinity,
+					isLimited: false,
+					limitReached: false,
+					planBadge: 'Unlimited exports'
+				},
+				commands: {
+					canExportJson: true,
+					canExportExcel: true
+				},
+				activity: {
+					pendingApprovalsCount: 0,
+					approvalRequests: [],
+					auditLog: {
+						logs: [],
+						totalCount: 0,
+						last30DaysCount: 0,
+						page: 1,
+						limit: 9,
+						actionFilter: '',
+						availableActions: []
+					}
+				}
+			},
+			dangerZone: {
+				transferOwnershipCandidates: [
+					{
+						id: 'member-1',
+						userId: 'user-1',
+						email: 'member@example.com',
+						membershipRole: 'member'
+					}
+				],
+				deleteConfirmation: {
+					organizationName: 'Test Org',
+					normalizedOrganizationName: 'Test Org'
+				},
+				commands: {
+					canTransferOwnership: true,
+					canDeleteOrganization: true
+				}
 			}
 		}
 	};
@@ -156,5 +200,40 @@ describe('settings workspace state', () => {
 		state.archivedPersonnel.clearPermanentDeleteConfirmation();
 
 		expect(state.archivedPersonnel.confirmPermanentDelete).toBeNull();
+	});
+
+	it('owns data export command transition state', () => {
+		const state = createSettingsWorkspaceState(makeWorkspace());
+
+		state.dataExport.beginExport('json');
+
+		expect(state.dataExport.exportingOrgJson).toBe(true);
+		expect(state.dataExport.exportingOrgExcel).toBe(false);
+		expect(state.dataExport.exportSuccess).toBe(false);
+
+		state.dataExport.markExportSucceeded();
+		state.dataExport.finishExport();
+
+		expect(state.dataExport.exportingOrgJson).toBe(false);
+		expect(state.dataExport.exportSuccess).toBe(true);
+	});
+
+	it('owns danger zone delete confirmation transition state', () => {
+		const state = createSettingsWorkspaceState(makeWorkspace());
+
+		state.dangerZone.openDeleteConfirmation();
+		state.dangerZone.deleteConfirmText = 'test org';
+
+		expect(state.dangerZone.showDeleteConfirm).toBe(true);
+		expect(state.dangerZone.deleteConfirmMatches).toBe(false);
+
+		state.dangerZone.deleteConfirmText = 'Test Org';
+
+		expect(state.dangerZone.deleteConfirmMatches).toBe(true);
+
+		state.dangerZone.closeDeleteConfirmation();
+
+		expect(state.dangerZone.showDeleteConfirm).toBe(false);
+		expect(state.dangerZone.deleteConfirmText).toBe('');
 	});
 });

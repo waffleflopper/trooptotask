@@ -300,18 +300,32 @@ describe('org settings page server actions', () => {
 					archivedPersonnel: {
 						rows: [{ id: 'person-1', displayName: 'SGT Jones, Avery' }],
 						retention: { months: 42, purgeSummary: '1 archived record' }
+					},
+					dataExport: {
+						activity: {
+							approvalRequests: [
+								expect.objectContaining({ id: 'request-1', status: 'approved' }),
+								expect.objectContaining({ id: 'request-2', status: 'pending' })
+							],
+							pendingApprovalsCount: 1,
+							auditLog: {
+								totalCount: 1,
+								last30DaysCount: 1,
+								availableActions: []
+							}
+						},
+						exportInfo: {
+							exportsUsed: 0,
+							isLimited: false,
+							limitReached: false
+						}
+					},
+					dangerZone: {
+						commands: {
+							canDeleteOrganization: true
+						}
 					}
 				}
-			},
-			approvalRequests: [
-				{ id: 'request-1', status: 'approved' },
-				{ id: 'request-2', status: 'pending' }
-			],
-			pendingApprovalsCount: 1,
-			auditLog: {
-				totalCount: 1,
-				last30DaysCount: 1,
-				availableActions: []
 			}
 		});
 		expect(fetchAuditLogPreviewMock).toHaveBeenCalledWith(expect.anything(), { kind: 'admin-store' }, { limit: 9 });

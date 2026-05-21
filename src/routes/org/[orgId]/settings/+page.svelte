@@ -26,7 +26,6 @@
 		formatCap,
 		formatExportLimit,
 		formatPrice,
-		normalizeOrganizationName,
 		pluralize
 	} from './settingsWorkspaceFormatters';
 	import { createSettingsWorkspaceState } from './settingsWorkspaceState.svelte';
@@ -37,7 +36,6 @@
 	const orgId = $derived($page.params.orgId);
 
 	type SectionId = 'organization' | 'members' | 'policies' | 'archived' | 'data-export' | 'danger';
-	type AuditLog = (typeof data.auditLog.logs)[number];
 	type SectionConfig = { id: SectionId; label: string; eyebrow: string; danger?: boolean };
 
 	const standardSections: SectionConfig[] = [
@@ -57,6 +55,8 @@
 		retention: settingsState.archivedPersonnel.retention,
 		commands: settingsState.archivedPersonnel.commands
 	});
+	const dataExportSection = $derived(settingsState.dataExport.section);
+	const dangerZoneSection = $derived(settingsState.dangerZone.section);
 	const currentMember = $derived(data.workspace.currentMember);
 	const isOwner = $derived(currentMember.isOwner);
 	const sections = $derived(isOwner ? [...standardSections, ownerSection] : standardSections);
@@ -64,32 +64,14 @@
 	let activeSection = $state<SectionId>('organization');
 	let activityCollapsed = $state(false);
 	let loading = $state(false);
-	let showTransferConfirm = $state(false);
-	let transferTargetId = $state<string | null>(null);
 	let pendingRemoveMemberForm = $state<HTMLFormElement | null>(null);
 	let pendingRemoveMemberEmail = $state('');
-
-	let showDeleteConfirm = $state(false);
-	let deleteConfirmText = $state('');
-	const normalizedOrgName = $derived(normalizeOrganizationName(organizationSection.name ?? ''));
-	const deleteConfirmMatches = $derived(normalizeOrganizationName(deleteConfirmText) === normalizedOrgName);
-	const deleteOrganizationCloseBlocked = $derived(loading || deleteConfirmText.trim() !== '');
-
-	let exportingOrgJson = $state(false);
-	let exportingOrgExcel = $state(false);
-	let exportError = $state('');
-	let exportSuccess = $state(false);
 
 	let restoring = $state<string | null>(null);
 	let exportingPerson = $state<string | null>(null);
 
 	const memberAccess = settingsState.members;
 	const sortedMembers = $derived(memberAccess.sortedMembers);
-	const transferOwnershipCandidates = $derived(
-		sortedMembers.filter(
-			(member: SettingsMemberAccessRow) => isOwner && member.membershipRole !== 'owner' && member.userId
-		)
-	);
 	const availablePresetOptions = $derived(memberAccess.availablePresetOptions);
 	const accessLanes = memberAccess.accessLanes;
 	const capabilityOptions = memberAccess.capabilityOptions;
@@ -105,9 +87,11 @@
 		return new Date(Math.min(...purgeTimes));
 	});
 	const auditEntriesLast30Days = $derived.by(() => {
-		if (typeof data.auditLog.last30DaysCount === 'number') return data.auditLog.last30DaysCount;
+		if (typeof dataExportSection.activity.auditLog.last30DaysCount === 'number') {
+			return dataExportSection.activity.auditLog.last30DaysCount;
+		}
 		const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
-		return data.auditLog.logs.filter((log: AuditLog) => new Date(log.createdAt).getTime() >= cutoff).length;
+		return dataExportSection.activity.auditLog.logs.filter((log) => new Date(log.createdAt).getTime() >= cutoff).length;
 	});
 	const summaryRows = $derived([
 		{
@@ -118,7 +102,7 @@
 		},
 		{
 			label: 'Pending approvals',
-			value: String(membersSection.pendingApprovalSummary.count),
+			value: String(dataExportSection.activity.pendingApprovalsCount),
 			detail: membersSection.pendingApprovalSummary.oldestCreatedAt
 				? `Oldest ${formatRelativeDate(membersSection.pendingApprovalSummary.oldestCreatedAt)}`
 				: 'No pending requests',
@@ -193,8 +177,7 @@
 	}
 
 	function closeDeleteOrganizationDialog() {
-		showDeleteConfirm = false;
-		deleteConfirmText = '';
+		settingsState.dangerZone.closeDeleteConfirmation();
 	}
 
 	async function saveSettings(body: Record<string, number | null>) {
@@ -267,11 +250,8 @@
 	}
 
 	async function handleOrganizationExport(format: 'json' | 'excel') {
-		if (exportingOrgJson || exportingOrgExcel) return;
-		exportError = '';
-		exportSuccess = false;
-		exportingOrgJson = format === 'json';
-		exportingOrgExcel = format === 'excel';
+		if (settingsState.dataExport.isExporting || settingsState.dataExport.exportLimitReached) return;
+		settingsState.dataExport.beginExport(format);
 		const endpoint = format === 'json' ? 'export' : 'export-excel';
 		const fallbackName = `org-export-${data.orgId}.${format === 'json' ? 'json' : 'xlsx'}`;
 
@@ -281,9 +261,9 @@
 			if (!res.ok) {
 				if (res.headers.get('Content-Type')?.includes('application/json')) {
 					const body = await res.json();
-					exportError = body.error || 'Export failed. Please try again.';
+					settingsState.dataExport.markExportFailed(body.error || 'Export failed. Please try again.');
 				} else {
-					exportError = 'Export failed. Please try again.';
+					settingsState.dataExport.markExportFailed('Export failed. Please try again.');
 				}
 				return;
 			}
@@ -293,12 +273,11 @@
 			const filenameMatch = disposition?.match(/filename="(.+)"/);
 			const filename = filenameMatch?.[1] ?? fallbackName;
 			downloadBlob(blob, filename);
-			exportSuccess = true;
+			settingsState.dataExport.markExportSucceeded();
 		} catch {
-			exportError = 'Export failed. Please try again.';
+			settingsState.dataExport.markExportFailed('Export failed. Please try again.');
 		} finally {
-			exportingOrgJson = false;
-			exportingOrgExcel = false;
+			settingsState.dataExport.finishExport();
 		}
 	}
 
@@ -552,10 +531,7 @@
 													type="button"
 													variant="outline"
 													size="sm"
-													onclick={() => {
-														transferTargetId = member.userId;
-														showTransferConfirm = true;
-													}}
+													onclick={() => settingsState.dangerZone.openTransferConfirmation(member.userId)}
 												>
 													Transfer Ownership
 												</Button>
@@ -827,18 +803,16 @@
 		<Tabs.Content value="data-export" class="grid gap-4">
 			<DataExportSettingsSection
 				orgId={data.orgId}
-				exportInfo={data.exportInfo}
-				{exportError}
-				{exportSuccess}
-				{exportingOrgJson}
-				{exportingOrgExcel}
+				section={dataExportSection}
+				exportError={settingsState.dataExport.exportError}
+				exportSuccess={settingsState.dataExport.exportSuccess}
+				exportingOrgJson={settingsState.dataExport.exportingOrgJson}
+				exportingOrgExcel={settingsState.dataExport.exportingOrgExcel}
 				onExportOrganization={handleOrganizationExport}
 			/>
 			<SettingsActivityRail
 				orgId={data.orgId}
-				pendingApprovalsCount={data.pendingApprovalsCount}
-				approvalRequests={data.approvalRequests}
-				auditLog={data.auditLog}
+				activity={dataExportSection.activity}
 				bind:collapsed={activityCollapsed}
 			/>
 		</Tabs.Content>
@@ -848,23 +822,23 @@
 				<DangerZoneSettingsSection
 					orgName={organizationSection.name}
 					{form}
-					{transferOwnershipCandidates}
-					bind:transferTargetId
-					onTransferConfirm={() => (showTransferConfirm = true)}
-					onDeleteConfirm={() => (showDeleteConfirm = true)}
+					section={dangerZoneSection}
+					bind:transferTargetId={settingsState.dangerZone.transferTargetId}
+					onTransferConfirm={() => settingsState.dangerZone.openTransferConfirmation()}
+					onDeleteConfirm={() => settingsState.dangerZone.openDeleteConfirmation()}
 				/>
 			{/if}
 		</Tabs.Content>
 	</Tabs.Root>
 </main>
 
-{#if showDeleteConfirm}
+{#if settingsState.dangerZone.showDeleteConfirm}
 	<AppDialog.Root
-		bind:open={showDeleteConfirm}
-		closeBlocked={deleteOrganizationCloseBlocked}
+		bind:open={settingsState.dangerZone.showDeleteConfirm}
+		closeBlocked={loading || settingsState.dangerZone.deleteOrganizationCloseBlocked}
 		onClose={closeDeleteOrganizationDialog}
 	>
-		<AppDialog.Content closeBlocked={deleteOrganizationCloseBlocked}>
+		<AppDialog.Content closeBlocked={loading || settingsState.dangerZone.deleteOrganizationCloseBlocked}>
 			<AppDialog.Header>
 				<AppDialog.Title>Delete Organization</AppDialog.Title>
 				<AppDialog.Description>
@@ -886,7 +860,7 @@
 						};
 					}}
 					onsubmit={(event) => {
-						if (!deleteConfirmMatches) event.preventDefault();
+						if (!settingsState.dangerZone.deleteConfirmMatches) event.preventDefault();
 					}}
 				>
 					<Label for="confirmDelete">Type {organizationSection.name} to confirm</Label>
@@ -894,7 +868,7 @@
 						id="confirmDelete"
 						name="confirmName"
 						type="text"
-						bind:value={deleteConfirmText}
+						bind:value={settingsState.dangerZone.deleteConfirmText}
 						placeholder="Enter organization name"
 						autocomplete="off"
 					/>
@@ -903,7 +877,12 @@
 
 			<AppDialog.Footer>
 				<Button type="button" variant="outline" onclick={closeDeleteOrganizationDialog}>Cancel</Button>
-				<Button type="submit" form="delete-org-form" variant="destructive" disabled={loading || !deleteConfirmMatches}>
+				<Button
+					type="submit"
+					form="delete-org-form"
+					variant="destructive"
+					disabled={loading || !settingsState.dangerZone.deleteConfirmMatches}
+				>
 					{loading ? 'Deleting...' : 'Delete Permanently'}
 				</Button>
 			</AppDialog.Footer>
@@ -911,8 +890,8 @@
 	</AppDialog.Root>
 {/if}
 
-{#if showTransferConfirm && transferTargetId}
-	<AppDialog.Root bind:open={showTransferConfirm} closeBlocked={loading}>
+{#if settingsState.dangerZone.showTransferConfirm && settingsState.dangerZone.transferTargetId}
+	<AppDialog.Root bind:open={settingsState.dangerZone.showTransferConfirm} closeBlocked={loading}>
 		<AppDialog.Content closeBlocked={loading}>
 			<AppDialog.Header>
 				<AppDialog.Title>Transfer Ownership</AppDialog.Title>
@@ -932,17 +911,19 @@
 						loading = true;
 						return async ({ update }) => {
 							loading = false;
-							showTransferConfirm = false;
+							settingsState.dangerZone.closeTransferConfirmation();
 							await update();
 						};
 					}}
 				>
-					<input type="hidden" name="newOwnerId" value={transferTargetId} />
+					<input type="hidden" name="newOwnerId" value={settingsState.dangerZone.transferTargetId} />
 				</form>
 			</AppDialog.Body>
 
 			<AppDialog.Footer>
-				<Button type="button" variant="outline" onclick={() => (showTransferConfirm = false)}>Cancel</Button>
+				<Button type="button" variant="outline" onclick={() => settingsState.dangerZone.closeTransferConfirmation()}
+					>Cancel</Button
+				>
 				<Button type="submit" form="transfer-ownership-form" variant="destructive" disabled={loading}>
 					{loading ? 'Transferring...' : 'Transfer Ownership'}
 				</Button>

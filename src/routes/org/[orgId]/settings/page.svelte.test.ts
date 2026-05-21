@@ -343,19 +343,17 @@ describe('org settings page', () => {
 		await fireEvent.click(screen.getByRole('tab', { name: 'Members' }));
 
 		expect(screen.getByRole('heading', { name: 'Access Management' })).toBeTruthy();
-		expect(screen.getByText('Member presets do not grant admin authority.')).toBeTruthy();
+		expect(screen.getByText('Viewer, Operator, and Editor do not make someone an Admin.')).toBeTruthy();
 		expect(screen.getAllByText('member-a@example.com').length).toBeGreaterThanOrEqual(1);
 		expect(screen.getAllByText('Viewer').length).toBeGreaterThanOrEqual(1);
-		expect(screen.getByText('Calendar: Operate')).toBeTruthy();
-		expect(screen.getByText('Rating Scheme: None')).toBeTruthy();
+		expect(screen.getByText('Calendar: Can update')).toBeTruthy();
+		expect(screen.getByText('Rating Scheme: No access')).toBeTruthy();
 		expect(screen.getByText('1st Platoon, 2nd Platoon')).toBeTruthy();
 		expect(screen.getAllByRole('button', { name: /Manage Access/ })).toHaveLength(3);
 
 		await fireEvent.click(screen.getAllByRole('button', { name: /Manage Access/ }).at(-1)!);
-		const accessPreset = screen.getByRole('combobox', { name: /Access assignment/ }) as HTMLSelectElement;
-		const calendarCapability = screen.getByLabelText(
-			'Calendar capability for member-b@example.com'
-		) as HTMLSelectElement;
+		const accessPreset = screen.getByRole('combobox', { name: /Access level/ }) as HTMLSelectElement;
+		const calendarCapability = screen.getByLabelText('Calendar access for member-b@example.com') as HTMLSelectElement;
 
 		expect(accessPreset.value).toBe('editor');
 		expect(calendarCapability.value).toBe('configure');

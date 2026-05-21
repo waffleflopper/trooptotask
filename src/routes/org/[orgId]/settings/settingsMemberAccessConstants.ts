@@ -19,10 +19,10 @@ export const ACCESS_LANE_LABELS: Record<DurableFeatureLane, string> = {
 };
 
 export const SETTINGS_ACCESS_OPTIONS: AccessOption[] = [
-	{ value: 'admin', label: 'Admin', helper: 'Governance role. Can manage organization access.' },
-	{ value: 'editor', label: 'Editor', helper: 'Configure feature lanes without admin governance.' },
-	{ value: 'operator', label: 'Operator', helper: 'Day-to-day work across granted lanes.' },
-	{ value: 'viewer', label: 'Viewer', helper: 'Read-oriented access across granted lanes.' }
+	{ value: 'admin', label: 'Admin', helper: 'Can manage members and organization-level settings.' },
+	{ value: 'editor', label: 'Editor', helper: 'Can view and manage work in the selected areas.' },
+	{ value: 'operator', label: 'Operator', helper: 'Can view work and complete daily tasks in the selected areas.' },
+	{ value: 'viewer', label: 'Viewer', helper: 'Can view work in the selected areas, but cannot make changes.' }
 ];
 
 export const SETTINGS_ACCESS_LANES: AccessLaneConfig[] = DURABLE_FEATURE_LANES.map((id) => ({
@@ -31,8 +31,8 @@ export const SETTINGS_ACCESS_LANES: AccessLaneConfig[] = DURABLE_FEATURE_LANES.m
 }));
 
 export const SETTINGS_CAPABILITY_OPTIONS: Array<{ value: CapabilityLevel; label: string }> = [
-	{ value: 'none', label: 'None' },
-	{ value: 'view', label: 'View' },
-	{ value: 'operate', label: 'Operate' },
-	{ value: 'configure', label: 'Configure' }
+	{ value: 'none', label: 'No access' },
+	{ value: 'view', label: 'View only' },
+	{ value: 'operate', label: 'Can update' },
+	{ value: 'configure', label: 'Can manage' }
 ];

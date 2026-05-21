@@ -331,6 +331,96 @@ describe('org settings page server actions', () => {
 		expect(fetchAuditLogPreviewMock).toHaveBeenCalledWith(expect.anything(), { kind: 'admin-store' }, { limit: 9 });
 	});
 
+	it('starts workspace source reads before audit preview resolves', async () => {
+		let resolveAuditLog!: (value: Awaited<ReturnType<typeof fetchAuditLogPreviewMock>>) => void;
+		const auditLogPromise = new Promise<Awaited<ReturnType<typeof fetchAuditLogPreviewMock>>>((resolve) => {
+			resolveAuditLog = resolve;
+		});
+		const findMany = vi.fn(async (table: string) => {
+			if (table === 'organization_memberships') return [];
+			if (table === 'organization_invitations') return [];
+			if (table === 'groups') return [];
+			if (table === 'personnel') return [];
+			if (table === 'deletion_requests') return [];
+			return [];
+		});
+
+		fetchAuditLogPreviewMock.mockReturnValueOnce(auditLogPromise);
+		loadWithContextMock.mockImplementationOnce(async (_locals, _cookies, _orgId, config) =>
+			config.fn({
+				auth: { orgId: 'org-1', role: 'owner' },
+				audit: { log: vi.fn() },
+				store: { findMany },
+				rawStore: {
+					findOne: vi.fn(async () => ({
+						archive_retention_months: 42,
+						loss_warning_window_days: 150,
+						critical_tasks_default_expiration_months: 18,
+						critical_tasks_expiring_soon_warning_days: 45
+					}))
+				},
+				subscription: {
+					getEffectiveTier: vi.fn(async () => ({ tier: 'free' })),
+					getMonthlyExportCount: vi.fn(async () => 0)
+				}
+			})
+		);
+
+		const loadPromise = load({
+			params: { orgId: 'org-1' },
+			locals: {},
+			cookies: {},
+			parent: async () => ({
+				orgId: 'org-1',
+				orgUrlSegment: 'org-1',
+				orgName: 'Test Org',
+				userRole: 'owner',
+				allOrgs: [],
+				isAdmin: true,
+				effectiveTier: {
+					tier: 'unit',
+					source: 'subscription',
+					personnelCount: 4,
+					personnelCap: 500,
+					isReadOnly: false,
+					giftExpiresAt: null,
+					giftTier: null
+				},
+				permissions: { canManageMembers: true }
+			})
+		} as never);
+
+		await new Promise((resolve) => setTimeout(resolve, 0));
+
+		expect(findMany).toHaveBeenCalledWith('organization_memberships', 'org-1');
+
+		resolveAuditLog({
+			logs: [],
+			totalCount: 7,
+			last30DaysCount: 3,
+			page: 1,
+			limit: 9,
+			actionFilter: '',
+			availableActions: []
+		});
+		const result = await loadPromise;
+
+		expect(result).toMatchObject({
+			workspace: {
+				sections: {
+					dataExport: {
+						activity: {
+							auditLog: {
+								totalCount: 7,
+								last30DaysCount: 3
+							}
+						}
+					}
+				}
+			}
+		});
+	});
+
 	it('denies governance workspace access through policy before loading settings data', async () => {
 		const auditLog = vi.fn();
 		const findMany = vi.fn();

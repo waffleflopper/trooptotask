@@ -407,7 +407,7 @@ describe('organization settings workspace read model', () => {
 			critical_tasks_expiring_soon_warning_days: null
 		}));
 
-		await loadOrganizationSettingsWorkspace(
+		const workspace = await loadOrganizationSettingsWorkspace(
 			{
 				auth: { orgId: 'org-1', role: 'owner' },
 				store: { findMany },
@@ -421,7 +421,21 @@ describe('organization settings workspace read model', () => {
 					urlSlug: null,
 					urlSegment: 'org-1',
 					effectiveTier: null
-				}
+				},
+				exportInfo: Promise.resolve({
+					exportsUsed: 2,
+					exportsLimit: 5,
+					isLimited: true
+				}),
+				auditLog: Promise.resolve({
+					logs: [],
+					totalCount: 4,
+					last30DaysCount: 1,
+					page: 1,
+					limit: 9,
+					actionFilter: '',
+					availableActions: []
+				})
 			}
 		);
 
@@ -438,5 +452,14 @@ describe('organization settings workspace read model', () => {
 			{},
 			'archive_retention_months, loss_warning_window_days, critical_tasks_default_expiration_months, critical_tasks_expiring_soon_warning_days'
 		);
+		expect(workspace.sections.dataExport.exportInfo).toMatchObject({
+			exportsUsed: 2,
+			exportsLimit: 5,
+			limitReached: false
+		});
+		expect(workspace.sections.dataExport.activity.auditLog).toMatchObject({
+			totalCount: 4,
+			last30DaysCount: 1
+		});
 	});
 });

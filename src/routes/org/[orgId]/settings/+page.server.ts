@@ -44,10 +44,6 @@ export const load: PageServerLoad = async ({ locals, cookies, parent }) => {
 			);
 
 			const adminStore = createSupabaseDataStore(getAdminClient());
-			const [exportInfo, auditLog] = await Promise.all([
-				loadExportInfo(ctx),
-				fetchAuditLogPreview(ctx, adminStore, { limit: 9 })
-			]);
 			const workspace = await loadOrganizationSettingsWorkspace(ctx, {
 				isAdmin: Boolean(isAdmin),
 				organization: {
@@ -57,8 +53,8 @@ export const load: PageServerLoad = async ({ locals, cookies, parent }) => {
 					urlSegment: orgUrlSegment ?? orgId,
 					effectiveTier: effectiveTier ?? null
 				},
-				exportInfo,
-				auditLog
+				exportInfo: loadExportInfo(ctx),
+				auditLog: fetchAuditLogPreview(ctx, adminStore, { limit: 9 })
 			});
 
 			return {

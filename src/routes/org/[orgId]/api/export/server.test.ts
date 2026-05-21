@@ -29,6 +29,7 @@ describe('POST /api/export', () => {
 		const result = await handleUseCaseRequest(_postConfig, ctx, {
 			email: 'leader@example.com'
 		});
+		const response = _postConfig.formatOutput?.(result);
 
 		const payload = JSON.parse(result._json as string) as {
 			personnel: Array<Record<string, unknown>>;
@@ -47,6 +48,9 @@ describe('POST /api/export', () => {
 				status: 'completed'
 			})
 		]);
+		expect(response?.headers.get('Content-Disposition')).toMatch(
+			/^attachment; filename="org-export-test-org-\d{4}-\d{2}-\d{2}\.json"$/
+		);
 	});
 
 	it('includes personnel detail artifact tables in the organization export payload', async () => {
@@ -103,6 +107,69 @@ describe('POST /api/export', () => {
 		expect(payload.leaderNotes).toEqual([expect.objectContaining({ id: 'note-1' })]);
 		expect(payload.personnelFollowUps).toEqual([expect.objectContaining({ id: 'follow-up-1' })]);
 		expect(payload.personnelDocuments).toEqual([expect.objectContaining({ id: 'document-1' })]);
+	});
+
+	it('exports archived personnel and new duty roster sections from the shared inventory', async () => {
+		const ctx = createTestContext();
+		ctx.rawStore.seed('personnel', [
+			{
+				id: 'p-archived',
+				organization_id: ctx.auth.orgId,
+				rank: 'SSG',
+				last_name: 'Archived',
+				first_name: 'Alex',
+				archived_at: '2026-05-01T00:00:00Z'
+			}
+		]);
+		ctx.rawStore.seed('duty_roster_templates', [
+			{
+				id: 'template-1',
+				organization_id: ctx.auth.orgId,
+				name: 'Staff Duty',
+				slug: 'staff-duty',
+				status: 'active'
+			}
+		]);
+		ctx.rawStore.seed('duty_roster_template_runs', [
+			{
+				id: 'run-1',
+				organization_id: ctx.auth.orgId,
+				template_id: 'template-1',
+				template_name: 'Staff Duty',
+				snapshot_payload: { rows: [{ date: '2026-05-20', da6: 'D1' }] }
+			}
+		]);
+		ctx.rawStore.seed('duty_roster_template_run_corrections', [
+			{
+				id: 'correction-1',
+				organization_id: ctx.auth.orgId,
+				run_id: 'run-1',
+				run_row_date: '2026-05-20',
+				reason: 'Manual swap'
+			}
+		]);
+
+		const result = await handleUseCaseRequest(_postConfig, ctx, {
+			email: 'leader@example.com'
+		});
+
+		const payload = JSON.parse(result._json as string) as {
+			personnel: Array<Record<string, unknown>>;
+			dutyRosterTemplates: Array<Record<string, unknown>>;
+			dutyRosterTemplateRuns: Array<Record<string, unknown>>;
+			dutyRosterTemplateRunCorrections: Array<Record<string, unknown>>;
+			sectionInventory: Array<Record<string, unknown>>;
+			sections: Record<string, Array<Record<string, unknown>>>;
+		};
+
+		expect(payload.personnel).toEqual([expect.objectContaining({ id: 'p-archived', archived_at: expect.any(String) })]);
+		expect(payload.dutyRosterTemplates).toEqual([expect.objectContaining({ id: 'template-1' })]);
+		expect(payload.dutyRosterTemplateRuns).toEqual([expect.objectContaining({ id: 'run-1' })]);
+		expect(payload.dutyRosterTemplateRunCorrections).toEqual([expect.objectContaining({ id: 'correction-1' })]);
+		expect(payload.sections.dutyRosterTemplateRuns).toEqual(payload.dutyRosterTemplateRuns);
+		expect(payload.sectionInventory).toContainEqual(
+			expect.objectContaining({ key: 'dutyRosterTemplateRuns', table: 'duty_roster_template_runs', rowCount: 1 })
+		);
 	});
 
 	it('still returns the export payload when the export status write fails', async () => {

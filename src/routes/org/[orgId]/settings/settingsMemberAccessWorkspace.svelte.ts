@@ -40,6 +40,7 @@ export class SettingsMemberAccessWorkspace {
 	inviteScopeKind = $state<ScopeKind>('organization');
 	inviteScopeGroupIds = $state<string[]>([]);
 	memberSelectedPreset = $state<Record<string, EditablePreset>>({});
+	memberSelectedCapabilities = $state<Record<string, Partial<Record<DurableFeatureLane, CapabilityLevel>>>>({});
 	memberSelectedScopeKind = $state<Record<string, ScopeKind>>({});
 	memberSelectedScopeGroupIds = $state<Record<string, string[]>>({});
 
@@ -154,6 +155,9 @@ export class SettingsMemberAccessWorkspace {
 		lane: DurableFeatureLane,
 		selectedPreset: EditablePreset
 	): CapabilityLevel {
+		const selectedCapability = this.memberSelectedCapabilities[member.id]?.[lane];
+		if (selectedCapability) return selectedCapability;
+
 		const accessShape = this.getMemberAccessShape(member);
 		if (selectedPreset === 'admin') return TARGET_MEMBER_PRESET_CAPABILITIES.editor[lane];
 
@@ -205,12 +209,15 @@ export class SettingsMemberAccessWorkspace {
 	closeMemberEditor(memberId: string): void {
 		this.memberEditorId = null;
 		const remainingPresets = { ...this.memberSelectedPreset };
+		const remainingCapabilities = { ...this.memberSelectedCapabilities };
 		const remainingScopeKinds = { ...this.memberSelectedScopeKind };
 		const remainingScopeGroups = { ...this.memberSelectedScopeGroupIds };
 		delete remainingPresets[memberId];
+		delete remainingCapabilities[memberId];
 		delete remainingScopeKinds[memberId];
 		delete remainingScopeGroups[memberId];
 		this.memberSelectedPreset = remainingPresets;
+		this.memberSelectedCapabilities = remainingCapabilities;
 		this.memberSelectedScopeKind = remainingScopeKinds;
 		this.memberSelectedScopeGroupIds = remainingScopeGroups;
 	}
@@ -226,6 +233,16 @@ export class SettingsMemberAccessWorkspace {
 		this.memberSelectedScopeKind = {
 			...this.memberSelectedScopeKind,
 			[memberId]: scopeKind
+		};
+	}
+
+	setMemberCapability(memberId: string, lane: DurableFeatureLane, capability: CapabilityLevel): void {
+		this.memberSelectedCapabilities = {
+			...this.memberSelectedCapabilities,
+			[memberId]: {
+				...this.memberSelectedCapabilities[memberId],
+				[lane]: capability
+			}
 		};
 	}
 

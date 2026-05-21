@@ -196,10 +196,16 @@ describe('settings workspace state', () => {
 			id: 'person-1',
 			name: 'SGT Jones, Avery'
 		});
+		expect(state.archivedPersonnel.permanentDeleteConfirmMatches).toBe(false);
+
+		state.archivedPersonnel.permanentDeleteConfirmText = 'SGT Jones, Avery';
+
+		expect(state.archivedPersonnel.permanentDeleteConfirmMatches).toBe(true);
 
 		state.archivedPersonnel.clearPermanentDeleteConfirmation();
 
 		expect(state.archivedPersonnel.confirmPermanentDelete).toBeNull();
+		expect(state.archivedPersonnel.permanentDeleteConfirmText).toBe('');
 	});
 
 	it('owns data export command transition state', () => {
@@ -235,5 +241,40 @@ describe('settings workspace state', () => {
 
 		expect(state.dangerZone.showDeleteConfirm).toBe(false);
 		expect(state.dangerZone.deleteConfirmText).toBe('');
+	});
+
+	it('owns ownership transfer confirmation transition state', () => {
+		const state = createSettingsWorkspaceState(makeWorkspace());
+
+		state.dangerZone.openTransferConfirmation('user-1');
+
+		expect(state.dangerZone.showTransferConfirm).toBe(true);
+		expect(state.dangerZone.selectedTransferCandidate?.email).toBe('member@example.com');
+		expect(state.dangerZone.transferConfirmMatches).toBe(false);
+
+		state.dangerZone.transferConfirmText = 'MEMBER@EXAMPLE.COM';
+
+		expect(state.dangerZone.transferConfirmMatches).toBe(true);
+		expect(state.dangerZone.transferCloseBlocked).toBe(true);
+
+		state.dangerZone.closeTransferConfirmation();
+
+		expect(state.dangerZone.showTransferConfirm).toBe(false);
+		expect(state.dangerZone.transferConfirmText).toBe('');
+	});
+
+	it('owns member capability edits while the editor is open', () => {
+		const state = createSettingsWorkspaceState(makeWorkspace());
+		const member = state.members.sortedMembers.find((row) => row.id === 'member-1');
+		expect(member).toBeTruthy();
+
+		state.members.openMemberEditor(member!);
+		state.members.setMemberCapability(member!.id, 'calendar', 'view');
+
+		expect(state.members.getEditorCapabilityValue(member!, 'calendar', 'editor')).toBe('view');
+
+		state.members.closeMemberEditor(member!.id);
+
+		expect(state.members.getEditorCapabilityValue(member!, 'calendar', 'editor')).toBe('configure');
 	});
 });

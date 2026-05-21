@@ -141,7 +141,7 @@ type SettingsPageTestData = Omit<
 	invitations: unknown[];
 	groups: Array<{ id: string; name: string }>;
 	archivedPersonnel: Array<Record<string, unknown>>;
-	approvalRequests: Array<{ created_at?: string }>;
+	approvalRequests: Array<{ created_at?: string; status?: string }>;
 };
 
 function workspaceFor(data: SettingsPageTestData) {
@@ -152,6 +152,17 @@ function workspaceFor(data: SettingsPageTestData) {
 		},
 		{ owner: 0, admin: 0, member: 0 }
 	);
+	const pendingApprovalRequests = data.approvalRequests.filter((request) => request.status === 'pending');
+	const transferOwnershipCandidates = data.isOwner
+		? data.members
+				.filter((row) => row.membershipRole !== 'owner' && row.userId)
+				.map((row) => ({
+					id: row.id,
+					userId: row.userId,
+					email: row.email,
+					membershipRole: row.membershipRole
+				}))
+		: [];
 	return {
 		...data,
 		workspace: {
@@ -178,8 +189,8 @@ function workspaceFor(data: SettingsPageTestData) {
 					roleCounts,
 					memberRoleSummary: `${roleCounts.owner} ${roleCounts.owner === 1 ? 'Owner' : 'Owners'} · ${roleCounts.admin} ${roleCounts.admin === 1 ? 'Admin' : 'Admins'} · ${roleCounts.member} ${roleCounts.member === 1 ? 'Member' : 'Members'}`,
 					pendingApprovalSummary: {
-						count: data.pendingApprovalsCount,
-						oldestCreatedAt: data.approvalRequests[0]?.created_at ?? null
+						count: pendingApprovalRequests.length,
+						oldestCreatedAt: pendingApprovalRequests[0]?.created_at ?? null
 					},
 					availableAccessLanes: [
 						{ id: 'calendar', label: 'Calendar' },
@@ -240,6 +251,33 @@ function workspaceFor(data: SettingsPageTestData) {
 						canRestore: data.canManageMembers,
 						canExport: data.canManageMembers,
 						canPermanentlyDelete: data.canManageMembers
+					}
+				},
+				dataExport: {
+					exportInfo: {
+						...data.exportInfo,
+						limitReached: data.exportInfo.isLimited && data.exportInfo.exportsUsed >= data.exportInfo.exportsLimit,
+						planBadge: data.exportInfo.isLimited ? 'Plan limited' : 'Unlimited exports'
+					},
+					commands: {
+						canExportJson: !(data.exportInfo.isLimited && data.exportInfo.exportsUsed >= data.exportInfo.exportsLimit),
+						canExportExcel: !(data.exportInfo.isLimited && data.exportInfo.exportsUsed >= data.exportInfo.exportsLimit)
+					},
+					activity: {
+						pendingApprovalsCount: pendingApprovalRequests.length,
+						approvalRequests: data.approvalRequests,
+						auditLog: data.auditLog
+					}
+				},
+				dangerZone: {
+					transferOwnershipCandidates,
+					deleteConfirmation: {
+						organizationName: data.orgName,
+						normalizedOrganizationName: data.orgName.trim().replace(/\s+/g, ' ')
+					},
+					commands: {
+						canTransferOwnership: data.isOwner && transferOwnershipCandidates.length > 0,
+						canDeleteOrganization: data.isOwner
 					}
 				}
 			}

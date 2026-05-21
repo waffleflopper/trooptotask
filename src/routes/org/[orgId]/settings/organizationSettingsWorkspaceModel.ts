@@ -1,5 +1,7 @@
 import type { CapabilityLevel, DurableFeatureLane, MembershipRole, ScopeSet } from '$lib/access/memberAccessShape';
+import type { AuditLogQueryResult } from '$lib/server/core/useCases/auditLogQuery';
 import type { EffectiveTier } from '$lib/types/subscription';
+import type { DeletionRequestRow } from './settingsRows.server';
 import type { EditablePreset } from './settingsMemberAccessConstants';
 import type { SettingsInvitationAccessRow, SettingsMemberAccessRow } from './settingsMemberAccessModel';
 
@@ -39,6 +41,16 @@ export type SettingsArchivedPersonnelRow = {
 	displayName: string;
 	exportFileStem: string;
 };
+
+export type SettingsExportInfo = {
+	exportsUsed: number;
+	exportsLimit: number;
+	isLimited: boolean;
+	limitReached: boolean;
+	planBadge: string;
+};
+
+export type SettingsOwnershipTransferCandidate = Pick<SettingsMemberRow, 'id' | 'userId' | 'email' | 'membershipRole'>;
 
 export interface OrganizationSettingsWorkspace {
 	currentMember: {
@@ -97,6 +109,29 @@ export interface OrganizationSettingsWorkspace {
 				canRestore: boolean;
 				canExport: boolean;
 				canPermanentlyDelete: boolean;
+			};
+		};
+		dataExport: {
+			exportInfo: SettingsExportInfo;
+			commands: {
+				canExportJson: boolean;
+				canExportExcel: boolean;
+			};
+			activity: {
+				pendingApprovalsCount: number;
+				approvalRequests: DeletionRequestRow[];
+				auditLog: AuditLogQueryResult;
+			};
+		};
+		dangerZone: {
+			transferOwnershipCandidates: SettingsOwnershipTransferCandidate[];
+			deleteConfirmation: {
+				organizationName: string | null;
+				normalizedOrganizationName: string;
+			};
+			commands: {
+				canTransferOwnership: boolean;
+				canDeleteOrganization: boolean;
 			};
 		};
 	};

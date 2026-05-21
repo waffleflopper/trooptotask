@@ -7,6 +7,7 @@ import {
 	type MembershipRole,
 	type StoredMemberPreset
 } from '$lib/access/memberAccessShape';
+import type { AuditLogQueryResult } from '$lib/server/core/useCases/auditLogQuery';
 import type { EffectiveTier } from '$lib/types/subscription';
 import type { UseCaseContext } from '$lib/server/core/ports';
 import { GroupEntity } from '$lib/server/entities/group';
@@ -24,11 +25,13 @@ import {
 	buildSettingsMemberAccessRow,
 	type LegacySettingsAccessRow
 } from './settingsMemberAccessReadModel.server';
+import { normalizeOrganizationName } from './settingsWorkspaceFormatters';
 import type {
 	OrganizationSettingsWorkspace,
 	SettingsArchivedPersonnelRow,
 	SettingsInvitationRow,
-	SettingsMemberRow
+	SettingsMemberRow,
+	SettingsExportInfo
 } from './organizationSettingsWorkspaceModel';
 import {
 	SETTINGS_ACCESS_LANES,
@@ -42,6 +45,8 @@ export type { OrganizationSettingsWorkspace } from './organizationSettingsWorksp
 export interface LoadOrganizationSettingsWorkspaceInput {
 	isAdmin: boolean;
 	organization: OrganizationSettingsSource;
+	exportInfo?: SettingsExportInfoSource;
+	auditLog?: AuditLogQueryResult;
 }
 
 export interface BuildOrganizationSettingsWorkspaceInput {
@@ -51,6 +56,9 @@ export interface BuildOrganizationSettingsWorkspaceInput {
 	members: LegacySettingsAccessRow[];
 	invitations: LegacySettingsAccessRow[];
 	pendingApprovalSummary?: PendingApprovalSummary;
+	approvalRequests?: DeletionRequestRow[];
+	exportInfo?: SettingsExportInfoSource;
+	auditLog?: AuditLogQueryResult;
 	groups: Record<string, unknown>[];
 	organizationSettings: OrganizationSettingsRow | null;
 	archivedPersonnel: SettingsArchivedPersonnelSourceRow[];
@@ -68,6 +76,8 @@ export interface OrganizationSettingsSource {
 	urlSegment: string;
 	effectiveTier: EffectiveTier | null;
 }
+
+export type SettingsExportInfoSource = Pick<SettingsExportInfo, 'exportsUsed' | 'exportsLimit' | 'isLimited'>;
 
 export type SettingsArchivedPersonnelSourceRow = Pick<
 	SettingsArchivedPersonnelRow,
@@ -87,26 +97,30 @@ export async function loadOrganizationSettingsWorkspace(
 	ctx: Pick<UseCaseContext, 'auth' | 'store' | 'rawStore'>,
 	input: LoadOrganizationSettingsWorkspaceInput
 ): Promise<OrganizationSettingsWorkspace> {
-	const [membershipRows, invitationRows, groupRows, organizationSettings, archivedPersonnelRows] = await Promise.all([
-		ctx.store.findMany<LegacySettingsAccessRow>('organization_memberships', ctx.auth.orgId),
-		ctx.store.findMany<LegacySettingsAccessRow>('organization_invitations', ctx.auth.orgId, {
-			status: 'pending'
-		}),
-		ctx.store.findMany<Record<string, unknown>>('groups', ctx.auth.orgId, undefined, {
-			orderBy: [{ column: 'sort_order', ascending: true }]
-		}),
-		ctx.rawStore.findOne<OrganizationSettingsRow>(
-			'organizations',
-			ctx.auth.orgId,
-			{},
-			'archive_retention_months, loss_warning_window_days, critical_tasks_default_expiration_months, critical_tasks_expiring_soon_warning_days'
-		),
-		ctx.store.findMany<Record<string, unknown>>('personnel', ctx.auth.orgId, undefined, {
-			select: PersonnelEntity.select,
-			isNull: { archived_at: false },
-			orderBy: [{ column: 'archived_at', ascending: false }]
-		})
-	]);
+	const [membershipRows, invitationRows, groupRows, organizationSettings, archivedPersonnelRows, approvalRequests] =
+		await Promise.all([
+			ctx.store.findMany<LegacySettingsAccessRow>('organization_memberships', ctx.auth.orgId),
+			ctx.store.findMany<LegacySettingsAccessRow>('organization_invitations', ctx.auth.orgId, {
+				status: 'pending'
+			}),
+			ctx.store.findMany<Record<string, unknown>>('groups', ctx.auth.orgId, undefined, {
+				orderBy: [{ column: 'sort_order', ascending: true }]
+			}),
+			ctx.rawStore.findOne<OrganizationSettingsRow>(
+				'organizations',
+				ctx.auth.orgId,
+				{},
+				'archive_retention_months, loss_warning_window_days, critical_tasks_default_expiration_months, critical_tasks_expiring_soon_warning_days'
+			),
+			ctx.store.findMany<Record<string, unknown>>('personnel', ctx.auth.orgId, undefined, {
+				select: PersonnelEntity.select,
+				isNull: { archived_at: false },
+				orderBy: [{ column: 'archived_at', ascending: false }]
+			}),
+			ctx.store.findMany<DeletionRequestRow>('deletion_requests', ctx.auth.orgId, undefined, {
+				orderBy: [{ column: 'created_at', ascending: false }]
+			})
+		]);
 
 	return buildOrganizationSettingsWorkspace({
 		currentMemberRole: ctx.auth.role,
@@ -114,7 +128,10 @@ export async function loadOrganizationSettingsWorkspace(
 		organization: input.organization,
 		members: membershipRows,
 		invitations: invitationRows,
-		pendingApprovalSummary: { count: 0, oldestCreatedAt: null },
+		pendingApprovalSummary: buildPendingApprovalSummary(approvalRequests),
+		approvalRequests,
+		exportInfo: input.exportInfo,
+		auditLog: input.auditLog,
 		groups: groupRows,
 		organizationSettings,
 		archivedPersonnel: PersonnelEntity.fromDbArray(archivedPersonnelRows).map((p) => ({
@@ -159,6 +176,18 @@ export function buildOrganizationSettingsWorkspace(
 	const archiveRetentionMonths =
 		input.organizationSettings?.archive_retention_months ?? DEFAULT_ARCHIVE_RETENTION_MONTHS;
 	const archivedPersonnelRows = input.archivedPersonnel.map(shapeArchivedPersonnelRow);
+	const approvalRequests = input.approvalRequests ?? [];
+	const pendingApprovalSummary =
+		input.approvalRequests === undefined
+			? (input.pendingApprovalSummary ?? { count: 0, oldestCreatedAt: null })
+			: buildPendingApprovalSummary(approvalRequests);
+	const exportInfo = shapeExportInfo(input.exportInfo ?? defaultExportInfo());
+	const auditLog = input.auditLog ?? emptyAuditLog();
+	const dangerZone = shapeDangerZone({
+		isOwner,
+		organizationName: input.organization.name,
+		members
+	});
 
 	return {
 		currentMember: {
@@ -183,7 +212,7 @@ export function buildOrganizationSettingsWorkspace(
 				groups,
 				roleCounts,
 				memberRoleSummary: `${roleCounts.owner} ${pluralize('Owner', roleCounts.owner)} · ${roleCounts.admin} ${pluralize('Admin', roleCounts.admin)} · ${roleCounts.member} ${pluralize('Member', roleCounts.member)}`,
-				pendingApprovalSummary: input.pendingApprovalSummary ?? { count: 0, oldestCreatedAt: null },
+				pendingApprovalSummary,
 				availableAccessLanes: SETTINGS_ACCESS_LANES,
 				capabilityOptions: SETTINGS_CAPABILITY_OPTIONS,
 				canInvite: canManageMembers,
@@ -221,7 +250,20 @@ export function buildOrganizationSettingsWorkspace(
 					canExport: canManageMembers,
 					canPermanentlyDelete: canManageMembers
 				}
-			}
+			},
+			dataExport: {
+				exportInfo,
+				commands: {
+					canExportJson: !exportInfo.limitReached,
+					canExportExcel: !exportInfo.limitReached
+				},
+				activity: {
+					pendingApprovalsCount: pendingApprovalSummary.count,
+					approvalRequests,
+					auditLog
+				}
+			},
+			dangerZone
 		}
 	};
 }
@@ -238,22 +280,6 @@ export function buildPendingApprovalSummary(
 	return {
 		count: pendingCreatedDates.length,
 		oldestCreatedAt: pendingCreatedDates[0] ?? null
-	};
-}
-
-export function withOrganizationSettingsPendingApprovalSummary(
-	workspace: OrganizationSettingsWorkspace,
-	pendingApprovalSummary: PendingApprovalSummary
-): OrganizationSettingsWorkspace {
-	return {
-		...workspace,
-		sections: {
-			...workspace.sections,
-			members: {
-				...workspace.sections.members,
-				pendingApprovalSummary
-			}
-		}
 	};
 }
 
@@ -301,6 +327,64 @@ function shapeArchivedPersonnelRow(row: SettingsArchivedPersonnelSourceRow): Set
 		...row,
 		displayName: `${row.rank} ${row.lastName}, ${row.firstName}`,
 		exportFileStem: `${row.rank}-${row.lastName}`
+	};
+}
+
+function shapeExportInfo(source: SettingsExportInfoSource): SettingsExportInfo {
+	const limitReached = source.isLimited && source.exportsUsed >= source.exportsLimit;
+	return {
+		...source,
+		limitReached,
+		planBadge: source.isLimited ? 'Plan limited' : 'Unlimited exports'
+	};
+}
+
+function shapeDangerZone(input: {
+	isOwner: boolean;
+	organizationName: string | null;
+	members: SettingsMemberRow[];
+}): OrganizationSettingsWorkspace['sections']['dangerZone'] {
+	const transferOwnershipCandidates = input.isOwner
+		? input.members
+				.filter((member) => member.membershipRole !== 'owner' && member.userId)
+				.map((member) => ({
+					id: member.id,
+					userId: member.userId,
+					email: member.email,
+					membershipRole: member.membershipRole
+				}))
+		: [];
+
+	return {
+		transferOwnershipCandidates,
+		deleteConfirmation: {
+			organizationName: input.organizationName,
+			normalizedOrganizationName: normalizeOrganizationName(input.organizationName ?? '')
+		},
+		commands: {
+			canTransferOwnership: input.isOwner && transferOwnershipCandidates.length > 0,
+			canDeleteOrganization: input.isOwner
+		}
+	};
+}
+
+function defaultExportInfo(): SettingsExportInfoSource {
+	return {
+		exportsUsed: 0,
+		exportsLimit: Infinity,
+		isLimited: false
+	};
+}
+
+function emptyAuditLog(): AuditLogQueryResult {
+	return {
+		logs: [],
+		totalCount: 0,
+		last30DaysCount: 0,
+		page: 1,
+		limit: 9,
+		actionFilter: '',
+		availableActions: []
 	};
 }
 

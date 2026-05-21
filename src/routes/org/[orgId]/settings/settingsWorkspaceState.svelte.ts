@@ -1,6 +1,10 @@
 import type { CriticalTasksSettings } from '$features/critical-tasks/criticalTasks.types';
 import { createSettingsMemberAccessWorkspace } from './settingsMemberAccessWorkspace.svelte';
-import type { OrganizationSettingsWorkspace, SettingsArchivedPersonnelRow } from './organizationSettingsWorkspaceModel';
+import type {
+	OrganizationSettingsWorkspace,
+	SettingsArchivedPersonnelRow,
+	SettingsOwnershipTransferCandidate
+} from './organizationSettingsWorkspaceModel';
 
 export class SettingsPoliciesState {
 	readonly #getWorkspace: () => OrganizationSettingsWorkspace;
@@ -162,12 +166,120 @@ export class SettingsArchivedPersonnelState {
 	}
 }
 
+export class SettingsDataExportState {
+	readonly #getWorkspace: () => OrganizationSettingsWorkspace;
+
+	exportingOrgJson = $state(false);
+	exportingOrgExcel = $state(false);
+	exportError = $state('');
+	exportSuccess = $state(false);
+
+	constructor(workspace: OrganizationSettingsWorkspace | (() => OrganizationSettingsWorkspace)) {
+		this.#getWorkspace = typeof workspace === 'function' ? workspace : () => workspace;
+	}
+
+	get section(): OrganizationSettingsWorkspace['sections']['dataExport'] {
+		return this.#getWorkspace().sections.dataExport;
+	}
+
+	get exportInfo(): OrganizationSettingsWorkspace['sections']['dataExport']['exportInfo'] {
+		return this.section.exportInfo;
+	}
+
+	get commands(): OrganizationSettingsWorkspace['sections']['dataExport']['commands'] {
+		return this.section.commands;
+	}
+
+	get activity(): OrganizationSettingsWorkspace['sections']['dataExport']['activity'] {
+		return this.section.activity;
+	}
+
+	get exportLimitReached(): boolean {
+		return this.exportInfo.limitReached;
+	}
+
+	get isExporting(): boolean {
+		return this.exportingOrgJson || this.exportingOrgExcel;
+	}
+
+	beginExport(format: 'json' | 'excel'): void {
+		this.exportError = '';
+		this.exportSuccess = false;
+		this.exportingOrgJson = format === 'json';
+		this.exportingOrgExcel = format === 'excel';
+	}
+
+	markExportFailed(message: string): void {
+		this.exportError = message;
+	}
+
+	markExportSucceeded(): void {
+		this.exportSuccess = true;
+	}
+
+	finishExport(): void {
+		this.exportingOrgJson = false;
+		this.exportingOrgExcel = false;
+	}
+}
+
+export class SettingsDangerZoneState {
+	readonly #getWorkspace: () => OrganizationSettingsWorkspace;
+
+	showTransferConfirm = $state(false);
+	transferTargetId = $state<string | null>(null);
+	showDeleteConfirm = $state(false);
+	deleteConfirmText = $state('');
+
+	constructor(workspace: OrganizationSettingsWorkspace | (() => OrganizationSettingsWorkspace)) {
+		this.#getWorkspace = typeof workspace === 'function' ? workspace : () => workspace;
+	}
+
+	get section(): OrganizationSettingsWorkspace['sections']['dangerZone'] {
+		return this.#getWorkspace().sections.dangerZone;
+	}
+
+	get transferOwnershipCandidates(): SettingsOwnershipTransferCandidate[] {
+		return this.section.transferOwnershipCandidates;
+	}
+
+	get deleteConfirmMatches(): boolean {
+		return (
+			this.deleteConfirmText.trim().replace(/\s+/g, ' ') === this.section.deleteConfirmation.normalizedOrganizationName
+		);
+	}
+
+	get deleteOrganizationCloseBlocked(): boolean {
+		return this.deleteConfirmText.trim() !== '';
+	}
+
+	openTransferConfirmation(candidateId?: string | null): void {
+		if (candidateId !== undefined) this.transferTargetId = candidateId;
+		this.showTransferConfirm = true;
+	}
+
+	closeTransferConfirmation(): void {
+		this.showTransferConfirm = false;
+	}
+
+	openDeleteConfirmation(): void {
+		this.showDeleteConfirm = true;
+	}
+
+	closeDeleteConfirmation(): void {
+		this.showDeleteConfirm = false;
+		this.deleteConfirmText = '';
+	}
+}
+
 export class SettingsWorkspaceState {
 	readonly #getWorkspace: () => OrganizationSettingsWorkspace;
 
 	members: ReturnType<typeof createSettingsMemberAccessWorkspace>;
 	policies: SettingsPoliciesState;
 	archivedPersonnel: SettingsArchivedPersonnelState;
+	dataExport: SettingsDataExportState;
+	dangerZone: SettingsDangerZoneState;
 
 	constructor(workspace: OrganizationSettingsWorkspace | (() => OrganizationSettingsWorkspace)) {
 		this.#getWorkspace = typeof workspace === 'function' ? workspace : () => workspace;
@@ -182,6 +294,8 @@ export class SettingsWorkspaceState {
 		});
 		this.policies = new SettingsPoliciesState(() => this.#getWorkspace());
 		this.archivedPersonnel = new SettingsArchivedPersonnelState(() => this.#getWorkspace());
+		this.dataExport = new SettingsDataExportState(() => this.#getWorkspace());
+		this.dangerZone = new SettingsDangerZoneState(() => this.#getWorkspace());
 	}
 }
 

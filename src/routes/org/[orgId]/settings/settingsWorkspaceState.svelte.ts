@@ -137,6 +137,7 @@ export class SettingsArchivedPersonnelState {
 	readonly #getWorkspace: () => OrganizationSettingsWorkspace;
 
 	confirmPermanentDelete = $state<{ id: string; name: string } | null>(null);
+	permanentDeleteConfirmText = $state('');
 
 	constructor(workspace: OrganizationSettingsWorkspace | (() => OrganizationSettingsWorkspace)) {
 		this.#getWorkspace = typeof workspace === 'function' ? workspace : () => workspace;
@@ -159,10 +160,16 @@ export class SettingsArchivedPersonnelState {
 			id: person.id,
 			name: person.displayName
 		};
+		this.permanentDeleteConfirmText = '';
 	}
 
 	clearPermanentDeleteConfirmation(): void {
 		this.confirmPermanentDelete = null;
+		this.permanentDeleteConfirmText = '';
+	}
+
+	get permanentDeleteConfirmMatches(): boolean {
+		return this.permanentDeleteConfirmText.trim().replace(/\s+/g, ' ') === this.confirmPermanentDelete?.name;
 	}
 }
 
@@ -228,6 +235,7 @@ export class SettingsDangerZoneState {
 
 	showTransferConfirm = $state(false);
 	transferTargetId = $state<string | null>(null);
+	transferConfirmText = $state('');
 	showDeleteConfirm = $state(false);
 	deleteConfirmText = $state('');
 
@@ -241,6 +249,19 @@ export class SettingsDangerZoneState {
 
 	get transferOwnershipCandidates(): SettingsOwnershipTransferCandidate[] {
 		return this.section.transferOwnershipCandidates;
+	}
+
+	get selectedTransferCandidate(): SettingsOwnershipTransferCandidate | null {
+		return this.transferOwnershipCandidates.find((candidate) => candidate.userId === this.transferTargetId) ?? null;
+	}
+
+	get transferConfirmMatches(): boolean {
+		const email = this.selectedTransferCandidate?.email;
+		return Boolean(email && this.transferConfirmText.trim().toLowerCase() === email.toLowerCase());
+	}
+
+	get transferCloseBlocked(): boolean {
+		return this.transferConfirmText.trim() !== '';
 	}
 
 	get deleteConfirmMatches(): boolean {
@@ -260,6 +281,7 @@ export class SettingsDangerZoneState {
 
 	closeTransferConfirmation(): void {
 		this.showTransferConfirm = false;
+		this.transferConfirmText = '';
 	}
 
 	openDeleteConfirmation(): void {

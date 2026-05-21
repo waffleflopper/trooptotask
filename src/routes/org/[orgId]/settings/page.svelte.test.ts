@@ -352,11 +352,14 @@ describe('org settings page', () => {
 		expect(screen.getAllByRole('button', { name: /Manage Access/ })).toHaveLength(3);
 
 		await fireEvent.click(screen.getAllByRole('button', { name: /Manage Access/ }).at(-1)!);
-		const accessPreset = screen.getByRole('combobox', { name: /Access level/ }) as HTMLSelectElement;
-		const calendarCapability = screen.getByLabelText('Calendar access for member-b@example.com') as HTMLSelectElement;
+		const accessPreset = screen.getAllByRole('button', { name: /Access level/ })[0];
+		const calendarCapability = screen.getByLabelText('Calendar access for member-b@example.com');
+		const editorForm = accessPreset.closest('form')!;
 
-		expect(accessPreset.value).toBe('editor');
-		expect(calendarCapability.value).toBe('configure');
+		expect(accessPreset.textContent).toContain('Editor');
+		expect((editorForm.querySelector('input[name="preset"]') as HTMLInputElement).value).toBe('editor');
+		expect(calendarCapability.textContent).toContain('Can manage');
+		expect((editorForm.querySelector('input[name="capability:calendar"]') as HTMLInputElement).value).toBe('configure');
 	});
 
 	it('renders policies with shared controls and validation copy', async () => {
@@ -413,6 +416,15 @@ describe('org settings page', () => {
 		expect(within(archivedTable).getByRole('button', { name: 'Restore' })).toBeTruthy();
 		expect(within(archivedTable).getByRole('button', { name: 'Export' })).toBeTruthy();
 		expect(within(archivedTable).getByRole('button', { name: 'Delete' })).toBeTruthy();
+
+		await fireEvent.click(within(archivedTable).getByRole('button', { name: 'Delete' }));
+		const dialog = screen.getByRole('dialog', { name: 'Permanently Delete Personnel' });
+		expect(within(dialog).getByText('Export the record first if it may be needed later.')).toBeTruthy();
+		expect(within(dialog).getByRole('button', { name: 'Permanently Delete' }).hasAttribute('disabled')).toBe(true);
+		await fireEvent.input(within(dialog).getByLabelText('Type PV2 Abbott, Henry to confirm'), {
+			target: { value: 'PV2 Abbott, Henry' }
+		});
+		expect(within(dialog).getByRole('button', { name: 'Permanently Delete' }).hasAttribute('disabled')).toBe(false);
 	});
 
 	it('disables archived personnel commands when workspace command eligibility denies them', async () => {
@@ -484,6 +496,22 @@ describe('org settings page', () => {
 		expect(screen.getByRole('heading', { name: 'Destructive Actions' })).toBeTruthy();
 		expect(screen.getByText('Hand the Owner role to another member. You will become Admin.')).toBeTruthy();
 		expect(screen.getByRole('button', { name: /Purge Archived/ }).hasAttribute('disabled')).toBe(true);
+
+		await fireEvent.change(screen.getByLabelText('Transfer ownership'), { target: { value: 'user-member-2' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Transfer Ownership' }));
+		const transferDialog = screen.getByRole('dialog', { name: 'Transfer Ownership' });
+		expect(within(transferDialog).getByText(/Transfer owner authority to admin@example.com/)).toBeTruthy();
+		expect(within(transferDialog).getByRole('button', { name: 'Transfer Ownership' }).hasAttribute('disabled')).toBe(
+			true
+		);
+		await fireEvent.input(within(transferDialog).getByLabelText('Type admin@example.com to confirm'), {
+			target: { value: 'admin@example.com' }
+		});
+		expect(within(transferDialog).getByRole('button', { name: 'Transfer Ownership' }).hasAttribute('disabled')).toBe(
+			false
+		);
+		await fireEvent.click(within(transferDialog).getByRole('button', { name: 'Cancel' }));
+
 		await fireEvent.click(screen.getByRole('button', { name: 'Delete Test Org' }));
 		const dialog = screen.getByRole('dialog', { name: 'Delete Organization' });
 		expect(within(dialog).getByRole('button', { name: 'Close' })).toBeTruthy();

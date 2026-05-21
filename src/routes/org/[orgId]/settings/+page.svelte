@@ -7,10 +7,14 @@
 	import { Badge } from '$lib/components/ui/badge/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import * as AppDialog from '$lib/components/ui/app-dialog/index.js';
+	import { Checkbox } from '$lib/components/ui/checkbox/index.js';
+	import * as Field from '$lib/components/ui/field/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
 	import { Label } from '$lib/components/ui/label/index.js';
+	import * as RadioGroup from '$lib/components/ui/radio-group/index.js';
 	import * as PageShell from '$lib/components/ui/page-shell/index.js';
 	import { Separator } from '$lib/components/ui/separator/index.js';
+	import * as Select from '$lib/components/ui/select/index.js';
 	import * as Tabs from '$lib/components/ui/tabs/index.js';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { TIER_CONFIG, type EffectiveTier } from '$lib/types/subscription';
@@ -175,6 +179,14 @@
 	function isCurrentMember(member: SettingsMemberAccessRow): boolean {
 		if (sessionEmail && member.email === sessionEmail) return true;
 		return Boolean(isOwner && member.membershipRole === 'owner');
+	}
+
+	function getPresetLabel(value: string | null | undefined): string {
+		return availablePresetOptions.find((option) => option.value === value)?.label ?? 'Select access level';
+	}
+
+	function getCapabilityLabel(value: string): string {
+		return capabilityOptions.find((option) => option.value === value)?.label ?? value;
 	}
 
 	function closeDeleteOrganizationDialog() {
@@ -508,21 +520,25 @@
 								>
 									<input type="hidden" name="membershipId" value={member.id} />
 									<div class="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto]">
-										<label class="grid gap-2">
-											<span class="text-sm font-medium">Access level</span>
-											<select
-												name="preset"
-												class="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+										<Field.Root>
+											<Field.Label id="access-level-label-{member.id}">Access level</Field.Label>
+											<input type="hidden" name="preset" value={selectedPreset} />
+											<Select.Root
+												type="single"
 												value={selectedPreset}
-												onchange={(event) =>
-													memberAccess.setMemberPreset(member.id, event.currentTarget.value as EditablePreset)}
+												onValueChange={(value) => memberAccess.setMemberPreset(member.id, value as EditablePreset)}
 											>
-												{#each availablePresetOptions as option (option.value)}
-													<option value={option.value}>{option.label}</option>
-												{/each}
-											</select>
-											<p class="text-sm text-muted-foreground">{memberAccess.getAccessOptionHelper(selectedPreset)}</p>
-										</label>
+												<Select.Trigger aria-labelledby="access-level-label-{member.id}" class="w-full md:min-w-56">
+													{getPresetLabel(selectedPreset)}
+												</Select.Trigger>
+												<Select.Content>
+													{#each availablePresetOptions as option (option.value)}
+														<Select.Item value={option.value} label={option.label} />
+													{/each}
+												</Select.Content>
+											</Select.Root>
+											<Field.Description>{memberAccess.getAccessOptionHelper(selectedPreset)}</Field.Description>
+										</Field.Root>
 										<div class="flex flex-wrap items-end gap-2">
 											<Button type="submit" size="sm" disabled={loading}>
 												{loading ? 'Saving...' : 'Save Access'}
@@ -563,19 +579,34 @@
 												</div>
 												<div class="grid gap-3 sm:grid-cols-2">
 													{#each accessLanes as lane (lane.id)}
-														<label class="grid gap-2">
-															<span class="text-sm font-medium">{lane.label}</span>
-															<select
-																name="capability:{lane.id}"
-																class="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
-																value={memberAccess.getEditorCapabilityValue(member, lane.id, selectedPreset)}
-																aria-label="{lane.label} access for {member.email ?? 'member'}"
+														{@const capabilityValue = memberAccess.getEditorCapabilityValue(
+															member,
+															lane.id,
+															selectedPreset
+														)}
+														<Field.Root>
+															<Field.Label id="capability-{member.id}-{lane.id}">{lane.label}</Field.Label>
+															<input type="hidden" name="capability:{lane.id}" value={capabilityValue} />
+															<Select.Root
+																type="single"
+																value={capabilityValue}
+																onValueChange={(value) =>
+																	memberAccess.setMemberCapability(member.id, lane.id, value as typeof capabilityValue)}
 															>
-																{#each capabilityOptions as option (option.value)}
-																	<option value={option.value}>{option.label}</option>
-																{/each}
-															</select>
-														</label>
+																<Select.Trigger
+																	aria-labelledby="capability-{member.id}-{lane.id}"
+																	aria-label="{lane.label} access for {member.email ?? 'member'}"
+																	class="w-full"
+																>
+																	{getCapabilityLabel(capabilityValue)}
+																</Select.Trigger>
+																<Select.Content>
+																	{#each capabilityOptions as option (option.value)}
+																		<Select.Item value={option.value} label={option.label} />
+																	{/each}
+																</Select.Content>
+															</Select.Root>
+														</Field.Root>
 													{/each}
 												</div>
 											</section>
@@ -586,44 +617,35 @@
 														Choose whether this access applies to every group or only selected groups.
 													</p>
 												</div>
-												<div class="flex flex-wrap gap-4">
-													<label class="flex items-center gap-2 text-sm">
-														<input
-															type="radio"
-															name="scope-choice-{member.id}"
-															checked={selectedScopeKind === 'organization'}
-															onchange={() => memberAccess.setMemberScopeKind(member.id, 'organization')}
-														/>
-														All groups
-													</label>
-													<label class="flex items-center gap-2 text-sm">
-														<input
-															type="radio"
-															name="scope-choice-{member.id}"
-															checked={selectedScopeKind === 'groups'}
-															onchange={() => memberAccess.setMemberScopeKind(member.id, 'groups')}
-														/>
-														Selected groups
-													</label>
-												</div>
+												<RadioGroup.Root
+													value={selectedScopeKind}
+													onValueChange={(value) =>
+														memberAccess.setMemberScopeKind(member.id, value as 'organization' | 'groups')}
+													class="sm:grid-cols-2"
+												>
+													<Field.Root orientation="horizontal">
+														<RadioGroup.Item id="scope-all-{member.id}" value="organization" />
+														<Field.Label for="scope-all-{member.id}">All groups</Field.Label>
+													</Field.Root>
+													<Field.Root orientation="horizontal">
+														<RadioGroup.Item id="scope-groups-{member.id}" value="groups" />
+														<Field.Label for="scope-groups-{member.id}">Selected groups</Field.Label>
+													</Field.Root>
+												</RadioGroup.Root>
 												{#if selectedScopeKind === 'groups'}
 													<div class="grid gap-2">
 														{#each membersSection.groups as group (group.id)}
-															<label class="flex items-center gap-2 text-sm">
-																<input
-																	type="checkbox"
-																	name="accessScopeGroupIds"
-																	value={group.id}
-																	checked={selectedScopeGroupIds.includes(group.id)}
-																	onchange={(event) =>
-																		memberAccess.toggleMemberScopeGroup(
-																			member.id,
-																			group.id,
-																			event.currentTarget.checked
-																		)}
+															{@const checked = selectedScopeGroupIds.includes(group.id)}
+															{#if checked}<input type="hidden" name="accessScopeGroupIds" value={group.id} />{/if}
+															<Field.Root orientation="horizontal">
+																<Checkbox
+																	id="scope-group-{member.id}-{group.id}"
+																	{checked}
+																	onCheckedChange={(value) =>
+																		memberAccess.toggleMemberScopeGroup(member.id, group.id, value === true)}
 																/>
-																{group.name}
-															</label>
+																<Field.Label for="scope-group-{member.id}-{group.id}">{group.name}</Field.Label>
+															</Field.Root>
 														{/each}
 													</div>
 												{/if}
@@ -682,19 +704,20 @@
 									required
 								/>
 							</div>
-							<label class="grid gap-2">
-								<span class="text-sm font-medium">Access level</span>
-								<select
-									name="preset"
-									class="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
-									bind:value={memberAccess.invitePreset}
-									aria-label="Invite member access level"
-								>
-									{#each availablePresetOptions as option (option.value)}
-										<option value={option.value}>{option.label}</option>
-									{/each}
-								</select>
-							</label>
+							<Field.Root>
+								<Field.Label id="invite-access-level-label">Access level</Field.Label>
+								<input type="hidden" name="preset" value={memberAccess.invitePreset} />
+								<Select.Root type="single" bind:value={memberAccess.invitePreset}>
+									<Select.Trigger aria-label="Invite member access level" class="w-full">
+										{getPresetLabel(memberAccess.invitePreset)}
+									</Select.Trigger>
+									<Select.Content>
+										{#each availablePresetOptions as option (option.value)}
+											<Select.Item value={option.value} label={option.label} />
+										{/each}
+									</Select.Content>
+								</Select.Root>
+							</Field.Root>
 							<div class="flex items-end">
 								<Button type="submit" disabled={loading}>
 									{loading ? 'Inviting...' : 'Invite'}
@@ -704,40 +727,33 @@
 						{#if memberAccess.invitePreset !== 'admin'}
 							<div class="mt-4 grid gap-3 rounded-md border bg-muted/30 p-3">
 								<input type="hidden" name="accessScopeKind" value={memberAccess.inviteScopeKind} />
-								<div class="flex flex-wrap gap-4">
-									<label class="flex items-center gap-2 text-sm">
-										<input
-											type="radio"
-											name="inviteScopeChoice"
-											checked={memberAccess.inviteScopeKind === 'organization'}
-											onchange={() => memberAccess.setInviteScopeKind('organization')}
-										/>
-										All groups
-									</label>
-									<label class="flex items-center gap-2 text-sm">
-										<input
-											type="radio"
-											name="inviteScopeChoice"
-											checked={memberAccess.inviteScopeKind === 'groups'}
-											onchange={() => memberAccess.setInviteScopeKind('groups')}
-										/>
-										Selected groups
-									</label>
-								</div>
+								<RadioGroup.Root
+									value={memberAccess.inviteScopeKind}
+									onValueChange={(value) => memberAccess.setInviteScopeKind(value as 'organization' | 'groups')}
+									class="sm:grid-cols-2"
+								>
+									<Field.Root orientation="horizontal">
+										<RadioGroup.Item id="invite-scope-all" value="organization" />
+										<Field.Label for="invite-scope-all">All groups</Field.Label>
+									</Field.Root>
+									<Field.Root orientation="horizontal">
+										<RadioGroup.Item id="invite-scope-groups" value="groups" />
+										<Field.Label for="invite-scope-groups">Selected groups</Field.Label>
+									</Field.Root>
+								</RadioGroup.Root>
 								{#if memberAccess.inviteScopeKind === 'groups'}
 									<div class="grid gap-2">
 										{#each membersSection.groups as group (group.id)}
-											<label class="flex items-center gap-2 text-sm">
-												<input
-													type="checkbox"
-													name="accessScopeGroupIds"
-													value={group.id}
-													checked={memberAccess.inviteScopeGroupIds.includes(group.id)}
-													onchange={(event) =>
-														memberAccess.toggleInviteScopeGroup(group.id, event.currentTarget.checked)}
+											{@const checked = memberAccess.inviteScopeGroupIds.includes(group.id)}
+											{#if checked}<input type="hidden" name="accessScopeGroupIds" value={group.id} />{/if}
+											<Field.Root orientation="horizontal">
+												<Checkbox
+													id="invite-scope-group-{group.id}"
+													{checked}
+													onCheckedChange={(value) => memberAccess.toggleInviteScopeGroup(group.id, value === true)}
 												/>
-												{group.name}
-											</label>
+												<Field.Label for="invite-scope-group-{group.id}">{group.name}</Field.Label>
+											</Field.Root>
 										{/each}
 									</div>
 								{/if}
@@ -900,22 +916,35 @@
 {/if}
 
 {#if settingsState.dangerZone.showTransferConfirm && settingsState.dangerZone.transferTargetId}
-	<AppDialog.Root bind:open={settingsState.dangerZone.showTransferConfirm} closeBlocked={loading}>
-		<AppDialog.Content closeBlocked={loading}>
+	<AppDialog.Root
+		bind:open={settingsState.dangerZone.showTransferConfirm}
+		closeBlocked={loading || settingsState.dangerZone.transferCloseBlocked}
+		onClose={() => settingsState.dangerZone.closeTransferConfirmation()}
+	>
+		<AppDialog.Content closeBlocked={loading || settingsState.dangerZone.transferCloseBlocked}>
 			<AppDialog.Header>
 				<AppDialog.Title>Transfer Ownership</AppDialog.Title>
 				<AppDialog.Description>
-					You will become an Admin member and lose owner privileges. This action cannot be undone by you.
+					Transfer owner authority to {settingsState.dangerZone.selectedTransferCandidate?.email ??
+						'the selected member'}. You will become an Admin member and lose owner privileges.
 				</AppDialog.Description>
 			</AppDialog.Header>
 
 			<AppDialog.Body>
 				{#if form?.transferError}<p class="text-sm text-destructive">{form.transferError}</p>{/if}
+				<div class="grid gap-3 rounded-md border bg-muted/30 p-3 text-sm">
+					<p class="font-medium">This action cannot be undone by you.</p>
+					<p class="text-muted-foreground">
+						Confirm the target before transferring ownership. The new owner can remove owner-only controls from your
+						account.
+					</p>
+				</div>
 
 				<form
 					id="transfer-ownership-form"
 					method="POST"
 					action="?/transferOwnership"
+					class="grid gap-2"
 					use:enhance={() => {
 						loading = true;
 						return async ({ update }) => {
@@ -926,6 +955,16 @@
 					}}
 				>
 					<input type="hidden" name="newOwnerId" value={settingsState.dangerZone.transferTargetId} />
+					<Label for="confirmTransferOwner"
+						>Type {settingsState.dangerZone.selectedTransferCandidate?.email ?? 'the member email'} to confirm</Label
+					>
+					<Input
+						id="confirmTransferOwner"
+						type="text"
+						bind:value={settingsState.dangerZone.transferConfirmText}
+						placeholder={settingsState.dangerZone.selectedTransferCandidate?.email ?? 'member@example.com'}
+						autocomplete="off"
+					/>
 				</form>
 			</AppDialog.Body>
 
@@ -933,7 +972,12 @@
 				<Button type="button" variant="outline" onclick={() => settingsState.dangerZone.closeTransferConfirmation()}
 					>Cancel</Button
 				>
-				<Button type="submit" form="transfer-ownership-form" variant="destructive" disabled={loading}>
+				<Button
+					type="submit"
+					form="transfer-ownership-form"
+					variant="destructive"
+					disabled={loading || !settingsState.dangerZone.transferConfirmMatches}
+				>
 					{loading ? 'Transferring...' : 'Transfer Ownership'}
 				</Button>
 			</AppDialog.Footer>
@@ -950,10 +994,30 @@
 			<AppDialog.Header>
 				<AppDialog.Title>Permanently Delete Personnel</AppDialog.Title>
 				<AppDialog.Description>
-					Are you sure you want to permanently delete {settingsState.archivedPersonnel.confirmPermanentDelete.name}?
-					This action cannot be undone and all associated records will be lost.
+					Permanently delete {settingsState.archivedPersonnel.confirmPermanentDelete.name}. This action cannot be undone
+					and all associated records will be lost.
 				</AppDialog.Description>
 			</AppDialog.Header>
+			<AppDialog.Body>
+				<div class="grid gap-3 rounded-md border bg-muted/30 p-3 text-sm">
+					<p class="font-medium">Export the record first if it may be needed later.</p>
+					<p class="text-muted-foreground">
+						Deleting removes the archived personnel record and its associated records from TroopToTask.
+					</p>
+				</div>
+				<div class="grid gap-2">
+					<Label for="confirmPermanentDeletePersonnel"
+						>Type {settingsState.archivedPersonnel.confirmPermanentDelete.name} to confirm</Label
+					>
+					<Input
+						id="confirmPermanentDeletePersonnel"
+						type="text"
+						bind:value={settingsState.archivedPersonnel.permanentDeleteConfirmText}
+						placeholder="Enter archived personnel name"
+						autocomplete="off"
+					/>
+				</div>
+			</AppDialog.Body>
 			<AppDialog.Footer>
 				<Button
 					type="button"
@@ -963,6 +1027,7 @@
 				<Button
 					type="button"
 					variant="destructive"
+					disabled={!settingsState.archivedPersonnel.permanentDeleteConfirmMatches}
 					onclick={() => handlePermanentDelete(settingsState.archivedPersonnel.confirmPermanentDelete!.id)}
 				>
 					Permanently Delete

@@ -45,8 +45,8 @@ export type { OrganizationSettingsWorkspace } from './organizationSettingsWorksp
 export interface LoadOrganizationSettingsWorkspaceInput {
 	isAdmin: boolean;
 	organization: OrganizationSettingsSource;
-	exportInfo?: SettingsExportInfoSource;
-	auditLog?: AuditLogQueryResult;
+	exportInfo?: SettingsExportInfoSource | Promise<SettingsExportInfoSource>;
+	auditLog?: AuditLogQueryResult | Promise<AuditLogQueryResult>;
 }
 
 export interface BuildOrganizationSettingsWorkspaceInput {
@@ -88,30 +88,40 @@ export async function loadOrganizationSettingsWorkspace(
 	ctx: Pick<UseCaseContext, 'auth' | 'store' | 'rawStore'>,
 	input: LoadOrganizationSettingsWorkspaceInput
 ): Promise<OrganizationSettingsWorkspace> {
-	const [membershipRows, invitationRows, groupRows, organizationSettings, archivedPersonnelRows, approvalRequests] =
-		await Promise.all([
-			ctx.store.findMany<LegacySettingsAccessRow>('organization_memberships', ctx.auth.orgId),
-			ctx.store.findMany<LegacySettingsAccessRow>('organization_invitations', ctx.auth.orgId, {
-				status: 'pending'
-			}),
-			ctx.store.findMany<Record<string, unknown>>('groups', ctx.auth.orgId, undefined, {
-				orderBy: [{ column: 'sort_order', ascending: true }]
-			}),
-			ctx.rawStore.findOne<OrganizationSettingsRow>(
-				'organizations',
-				ctx.auth.orgId,
-				{},
-				'archive_retention_months, loss_warning_window_days, critical_tasks_default_expiration_months, critical_tasks_expiring_soon_warning_days'
-			),
-			ctx.store.findMany<Record<string, unknown>>('personnel', ctx.auth.orgId, undefined, {
-				select: PersonnelEntity.select,
-				isNull: { archived_at: false },
-				orderBy: [{ column: 'archived_at', ascending: false }]
-			}),
-			ctx.store.findMany<DeletionRequestRow>('deletion_requests', ctx.auth.orgId, undefined, {
-				orderBy: [{ column: 'created_at', ascending: false }]
-			})
-		]);
+	const [
+		membershipRows,
+		invitationRows,
+		groupRows,
+		organizationSettings,
+		archivedPersonnelRows,
+		approvalRequests,
+		exportInfo,
+		auditLog
+	] = await Promise.all([
+		ctx.store.findMany<LegacySettingsAccessRow>('organization_memberships', ctx.auth.orgId),
+		ctx.store.findMany<LegacySettingsAccessRow>('organization_invitations', ctx.auth.orgId, {
+			status: 'pending'
+		}),
+		ctx.store.findMany<Record<string, unknown>>('groups', ctx.auth.orgId, undefined, {
+			orderBy: [{ column: 'sort_order', ascending: true }]
+		}),
+		ctx.rawStore.findOne<OrganizationSettingsRow>(
+			'organizations',
+			ctx.auth.orgId,
+			{},
+			'archive_retention_months, loss_warning_window_days, critical_tasks_default_expiration_months, critical_tasks_expiring_soon_warning_days'
+		),
+		ctx.store.findMany<Record<string, unknown>>('personnel', ctx.auth.orgId, undefined, {
+			select: PersonnelEntity.select,
+			isNull: { archived_at: false },
+			orderBy: [{ column: 'archived_at', ascending: false }]
+		}),
+		ctx.store.findMany<DeletionRequestRow>('deletion_requests', ctx.auth.orgId, undefined, {
+			orderBy: [{ column: 'created_at', ascending: false }]
+		}),
+		Promise.resolve(input.exportInfo),
+		Promise.resolve(input.auditLog)
+	]);
 
 	return buildOrganizationSettingsWorkspace({
 		currentMemberRole: ctx.auth.role,
@@ -121,8 +131,8 @@ export async function loadOrganizationSettingsWorkspace(
 		invitations: invitationRows,
 		pendingApprovalSummary: buildPendingApprovalSummary(approvalRequests),
 		approvalRequests,
-		exportInfo: input.exportInfo,
-		auditLog: input.auditLog,
+		exportInfo,
+		auditLog,
 		groups: groupRows,
 		organizationSettings,
 		archivedPersonnel: PersonnelEntity.fromDbArray(archivedPersonnelRows).map((p) => ({

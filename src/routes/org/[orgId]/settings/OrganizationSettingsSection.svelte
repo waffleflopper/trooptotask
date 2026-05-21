@@ -20,12 +20,8 @@
 		data: {
 			orgId: string;
 			orgName: string | null;
-			members: unknown[];
-			pendingApprovalsCount: number;
-			archivedPersonnel: unknown[];
 			orgUrlSegment?: string | null;
 			orgUrlSlug?: string | null;
-			policies: { retentionMonths: number };
 		};
 		form: {
 			[key: string]: unknown;

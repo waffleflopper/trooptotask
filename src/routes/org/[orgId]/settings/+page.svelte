@@ -3,7 +3,6 @@
 	import { invalidateAll } from '$app/navigation';
 	import { page } from '$app/stores';
 	import { Edit, Trash2, UserPlus } from '@lucide/svelte';
-	import type { CriticalTasksSettings } from '$features/critical-tasks/criticalTasks.types';
 	import { explainPolicyReasonCode } from '$lib/access/policyDecisionExplanations';
 	import { Badge } from '$lib/components/ui/badge/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
@@ -30,7 +29,8 @@
 		normalizeOrganizationName,
 		pluralize
 	} from './settingsWorkspaceFormatters';
-	import { createSettingsMemberAccessWorkspace, type EditablePreset } from './settingsMemberAccessWorkspace.svelte';
+	import { createSettingsWorkspaceState } from './settingsWorkspaceState.svelte';
+	import type { EditablePreset } from './settingsMemberAccessWorkspace.svelte';
 	import type { SettingsMemberAccessRow } from './settingsMemberAccessModel';
 
 	let { data, form } = $props();
@@ -38,9 +38,7 @@
 
 	type SectionId = 'organization' | 'members' | 'policies' | 'archived' | 'data-export' | 'danger';
 	type ArchivedPerson = (typeof data.archivedPersonnel)[number];
-	type ApprovalRequest = (typeof data.approvalRequests)[number];
 	type AuditLog = (typeof data.auditLog.logs)[number];
-	type RoleCount = { owner: number; admin: number; member: number };
 	type SectionConfig = { id: SectionId; label: string; eyebrow: string; danger?: boolean };
 
 	const standardSections: SectionConfig[] = [
@@ -51,7 +49,13 @@
 		{ id: 'data-export', label: 'Data & Export', eyebrow: 'Backup & Migration' }
 	];
 	const ownerSection: SectionConfig = { id: 'danger', label: 'Danger Zone', eyebrow: 'Owner Authority', danger: true };
-	const sections = $derived(data.isOwner ? [...standardSections, ownerSection] : standardSections);
+	const settingsState = createSettingsWorkspaceState(() => data.workspace);
+	const syncPoliciesFromWorkspace = () => settingsState.policies.syncFromWorkspace();
+	const membersSection = $derived(data.workspace.sections.members);
+	const policiesSection = $derived(data.workspace.sections.policies);
+	const currentMember = $derived(data.workspace.currentMember);
+	const isOwner = $derived(currentMember.isOwner);
+	const sections = $derived(isOwner ? [...standardSections, ownerSection] : standardSections);
 
 	let activeSection = $state<SectionId>('organization');
 	let activityCollapsed = $state(false);
@@ -72,50 +76,15 @@
 	let exportError = $state('');
 	let exportSuccess = $state(false);
 
-	const serverRetention = $derived(data.policies.retentionMonths);
-	const serverWarningWindow = $derived(data.policies.lossWarningWindowDays);
-	const serverCriticalTasksSettings = $derived(data.policies.criticalTasksSettings as CriticalTasksSettings);
-	let retentionMonths = $state(0);
-	let savedRetentionMonths = $state(0);
-	let warningWindowDays = $state(0);
-	let savedWarningWindowDays = $state(0);
-	let criticalTasksDefaultExpirationMonths = $state(0);
-	let savedCriticalTasksDefaultExpirationMonths = $state(0);
-	let criticalTasksExpiringSoonWarningDays = $state(0);
-	let savedCriticalTasksExpiringSoonWarningDays = $state(0);
-	let savingRetention = $state(false);
-	let savingWarningWindow = $state(false);
-	let savingCriticalTasks = $state(false);
-	let syncedPolicySnapshot = $state('');
-	const hasRetentionChanges = $derived(retentionMonths !== savedRetentionMonths);
-	const isRetentionValid = $derived(retentionMonths >= 1 && retentionMonths <= 120);
-	const hasLossWarningChanges = $derived(warningWindowDays !== savedWarningWindowDays);
-	const isLossWarningValid = $derived(warningWindowDays >= 1 && warningWindowDays <= 365);
-	const hasCriticalTasksChanges = $derived(
-		criticalTasksDefaultExpirationMonths !== savedCriticalTasksDefaultExpirationMonths ||
-			criticalTasksExpiringSoonWarningDays !== savedCriticalTasksExpiringSoonWarningDays
-	);
-	const isCriticalTasksValid = $derived(
-		criticalTasksDefaultExpirationMonths >= 1 &&
-			criticalTasksDefaultExpirationMonths <= 120 &&
-			criticalTasksExpiringSoonWarningDays >= 1 &&
-			criticalTasksExpiringSoonWarningDays <= 365
-	);
-
 	let restoring = $state<string | null>(null);
 	let exportingPerson = $state<string | null>(null);
 	let confirmPermanentDelete = $state<{ id: string; name: string } | null>(null);
 
-	const memberAccess = createSettingsMemberAccessWorkspace(() => ({
-		members: data.members,
-		invitations: data.invitations,
-		groups: data.groups,
-		isOwner: data.isOwner
-	}));
+	const memberAccess = settingsState.members;
 	const sortedMembers = $derived(memberAccess.sortedMembers);
 	const transferOwnershipCandidates = $derived(
 		sortedMembers.filter(
-			(member: SettingsMemberAccessRow) => data.isOwner && member.membershipRole !== 'owner' && member.userId
+			(member: SettingsMemberAccessRow) => isOwner && member.membershipRole !== 'owner' && member.userId
 		)
 	);
 	const availablePresetOptions = $derived(memberAccess.availablePresetOptions);
@@ -125,35 +94,10 @@
 
 	const activeSectionConfig = $derived(sections.find((section) => section.id === activeSection) ?? sections[0]);
 	const activeSectionDescription = $derived(getSectionDescription(activeSection));
-	const roleCounts = $derived.by(() =>
-		data.members.reduce(
-			(counts: RoleCount, member: SettingsMemberAccessRow) => {
-				if (
-					member.membershipRole === 'owner' ||
-					member.membershipRole === 'admin' ||
-					member.membershipRole === 'member'
-				)
-					counts[member.membershipRole] += 1;
-				return counts;
-			},
-			{ owner: 0, admin: 0, member: 0 }
-		)
-	);
-	const memberRoleSummary = $derived(
-		`${roleCounts.owner} ${pluralize('Owner', roleCounts.owner)} · ${roleCounts.admin} ${pluralize('Admin', roleCounts.admin)} · ${roleCounts.member} ${pluralize('Member', roleCounts.member)}`
-	);
-	const oldestPendingApproval = $derived.by(() => {
-		const pending = data.approvalRequests
-			.filter((request: ApprovalRequest) => request.status === 'pending')
-			.sort(
-				(a: ApprovalRequest, b: ApprovalRequest) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-			);
-		return pending[0] ?? null;
-	});
 	const nextPurgeDate = $derived.by(() => {
 		if (data.archivedPersonnel.length === 0) return null;
 		const purgeTimes = data.archivedPersonnel.map((person: ArchivedPerson) =>
-			addMonths(new Date(person.archivedAt), data.policies.retentionMonths).getTime()
+			addMonths(new Date(person.archivedAt), policiesSection.archiveRetention.savedMonths).getTime()
 		);
 		return new Date(Math.min(...purgeTimes));
 	});
@@ -165,15 +109,15 @@
 	const summaryRows = $derived([
 		{
 			label: 'Members',
-			value: String(data.members.length),
-			detail: memberRoleSummary,
+			value: String(membersSection.rows.length),
+			detail: membersSection.memberRoleSummary,
 			target: 'members' as SectionId
 		},
 		{
 			label: 'Pending approvals',
-			value: String(data.pendingApprovalsCount),
-			detail: oldestPendingApproval
-				? `Oldest ${formatRelativeDate(oldestPendingApproval.created_at)}`
+			value: String(membersSection.pendingApprovalSummary.count),
+			detail: membersSection.pendingApprovalSummary.oldestCreatedAt
+				? `Oldest ${formatRelativeDate(membersSection.pendingApprovalSummary.oldestCreatedAt)}`
 				: 'No pending requests',
 			target: 'members' as SectionId
 		},
@@ -182,7 +126,7 @@
 			value: String(data.archivedPersonnel.length),
 			detail: nextPurgeDate
 				? `Next purge ${formatCompactDate(nextPurgeDate)}`
-				: `Retention ${data.policies.retentionMonths} months`,
+				: `Retention ${policiesSection.archiveRetention.savedMonths} months`,
 			target: 'archived' as SectionId
 		},
 		{
@@ -197,7 +141,7 @@
 			({
 				tier: 'free',
 				source: 'default',
-				personnelCount: data.members.length,
+				personnelCount: membersSection.rows.length,
 				personnelCap: TIER_CONFIG.free.personnelCap,
 				isReadOnly: false,
 				giftExpiresAt: null,
@@ -215,35 +159,7 @@
 	const billingStatus = $derived(getBillingStatus(tier));
 	const sessionEmail = $derived((data.session as { user?: { email?: string | null } } | null | undefined)?.user?.email);
 
-	const serverPolicySnapshot = $derived(
-		JSON.stringify({
-			retentionMonths: serverRetention,
-			warningWindowDays: serverWarningWindow,
-			criticalTasksDefaultExpirationMonths: serverCriticalTasksSettings.defaultExpirationMonths,
-			criticalTasksExpiringSoonWarningDays: serverCriticalTasksSettings.expiringSoonWarningDays
-		})
-	);
-	const hasUnsavedPolicyEdits = $derived(
-		retentionMonths !== savedRetentionMonths ||
-			warningWindowDays !== savedWarningWindowDays ||
-			criticalTasksDefaultExpirationMonths !== savedCriticalTasksDefaultExpirationMonths ||
-			criticalTasksExpiringSoonWarningDays !== savedCriticalTasksExpiringSoonWarningDays
-	);
-
-	$effect.pre(() => {
-		if (serverPolicySnapshot === syncedPolicySnapshot) return;
-		if (syncedPolicySnapshot && hasUnsavedPolicyEdits) return;
-
-		retentionMonths = serverRetention;
-		savedRetentionMonths = serverRetention;
-		warningWindowDays = serverWarningWindow;
-		savedWarningWindowDays = serverWarningWindow;
-		criticalTasksDefaultExpirationMonths = serverCriticalTasksSettings.defaultExpirationMonths;
-		savedCriticalTasksDefaultExpirationMonths = serverCriticalTasksSettings.defaultExpirationMonths;
-		criticalTasksExpiringSoonWarningDays = serverCriticalTasksSettings.expiringSoonWarningDays;
-		savedCriticalTasksExpiringSoonWarningDays = serverCriticalTasksSettings.expiringSoonWarningDays;
-		syncedPolicySnapshot = serverPolicySnapshot;
-	});
+	$effect.pre(syncPoliciesFromWorkspace);
 
 	function getBillingStatus(tier: EffectiveTier): string {
 		if (tier.isReadOnly) return 'Read-only';
@@ -270,7 +186,7 @@
 
 	function isCurrentMember(member: SettingsMemberAccessRow): boolean {
 		if (sessionEmail && member.email === sessionEmail) return true;
-		return Boolean(data.isOwner && member.membershipRole === 'owner');
+		return Boolean(isOwner && member.membershipRole === 'owner');
 	}
 
 	function closeDeleteOrganizationDialog() {
@@ -288,48 +204,62 @@
 	}
 
 	async function handleRetentionSave() {
-		if (!hasRetentionChanges || !isRetentionValid || savingRetention) return;
-		savingRetention = true;
+		if (
+			!settingsState.policies.hasRetentionChanges ||
+			!settingsState.policies.isRetentionValid ||
+			settingsState.policies.savingRetention
+		)
+			return;
+		settingsState.policies.savingRetention = true;
 		try {
-			await saveSettings({ archiveRetentionMonths: retentionMonths });
-			savedRetentionMonths = retentionMonths;
+			await saveSettings({ archiveRetentionMonths: settingsState.policies.retentionMonths });
+			settingsState.policies.markRetentionSaved();
 			toastStore.success('Retention policy saved');
 		} catch {
 			toastStore.error('Failed to save retention policy');
 		} finally {
-			savingRetention = false;
+			settingsState.policies.savingRetention = false;
 		}
 	}
 
 	async function handleLossWarningSave() {
-		if (!hasLossWarningChanges || !isLossWarningValid || savingWarningWindow) return;
-		savingWarningWindow = true;
+		if (
+			!settingsState.policies.hasLossWarningChanges ||
+			!settingsState.policies.isLossWarningValid ||
+			settingsState.policies.savingWarningWindow
+		)
+			return;
+		settingsState.policies.savingWarningWindow = true;
 		try {
-			await saveSettings({ lossWarningWindowDays: warningWindowDays });
-			savedWarningWindowDays = warningWindowDays;
+			await saveSettings({ lossWarningWindowDays: settingsState.policies.warningWindowDays });
+			settingsState.policies.markLossWarningSaved();
 			toastStore.success('Warning window saved');
 		} catch {
 			toastStore.error('Failed to save warning window');
 		} finally {
-			savingWarningWindow = false;
+			settingsState.policies.savingWarningWindow = false;
 		}
 	}
 
 	async function handleCriticalTasksSave() {
-		if (!hasCriticalTasksChanges || !isCriticalTasksValid || savingCriticalTasks) return;
-		savingCriticalTasks = true;
+		if (
+			!settingsState.policies.hasCriticalTasksChanges ||
+			!settingsState.policies.isCriticalTasksValid ||
+			settingsState.policies.savingCriticalTasks
+		)
+			return;
+		settingsState.policies.savingCriticalTasks = true;
 		try {
 			await saveSettings({
-				criticalTasksDefaultExpirationMonths,
-				criticalTasksExpiringSoonWarningDays
+				criticalTasksDefaultExpirationMonths: settingsState.policies.criticalTasksDefaultExpirationMonths,
+				criticalTasksExpiringSoonWarningDays: settingsState.policies.criticalTasksExpiringSoonWarningDays
 			});
-			savedCriticalTasksDefaultExpirationMonths = criticalTasksDefaultExpirationMonths;
-			savedCriticalTasksExpiringSoonWarningDays = criticalTasksExpiringSoonWarningDays;
+			settingsState.policies.markCriticalTasksSaved();
 			toastStore.success('Critical Tasks settings saved');
 		} catch {
 			toastStore.error('Failed to save Critical Tasks settings');
 		} finally {
-			savingCriticalTasks = false;
+			settingsState.policies.savingCriticalTasks = false;
 		}
 	}
 
@@ -430,13 +360,13 @@
 	<header class="grid gap-3">
 		<div class="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
 			<div class="grid gap-1">
-				<p class="text-sm text-muted-foreground">{data.isOwner ? 'Owner access' : 'Admin access'}</p>
+				<p class="text-sm text-muted-foreground">{isOwner ? 'Owner access' : 'Admin access'}</p>
 				<h1 class="text-2xl font-semibold tracking-tight">Organization Settings</h1>
 				<p class="max-w-3xl text-sm text-muted-foreground">
 					{data.orgName} governance, access, policies, retention, and export controls.
 				</p>
 			</div>
-			{#if activeSection === 'members' && data.canManageMembers}
+			{#if activeSection === 'members' && membersSection.canInvite}
 				<Button href="#invite-member-section">
 					<UserPlus />
 					Invite Member
@@ -499,7 +429,8 @@
 							Viewer, Operator, and Editor shape feature access. {governanceRoleExplanation}
 						</p>
 					</div>
-					<Badge variant="outline">{data.members.length} {pluralize('Member', data.members.length)}</Badge>
+					<Badge variant="outline">{membersSection.rows.length} {pluralize('Member', membersSection.rows.length)}</Badge
+					>
 				</div>
 				<Separator />
 				<div class="rounded-md border bg-muted/30 p-3 text-sm">
@@ -542,7 +473,7 @@
 							<div class="flex flex-wrap items-start justify-end gap-2">
 								{#if member.membershipRole === 'owner'}
 									{#if isCurrentMember(member)}<Badge>You</Badge>{/if}
-								{:else if data.canManageMembers && (member.membershipRole !== 'admin' || data.isOwner)}
+								{:else if membersSection.canManageMemberAccess && (member.membershipRole !== 'admin' || isOwner)}
 									<Button
 										type="button"
 										variant="outline"
@@ -613,7 +544,7 @@
 											>
 												Cancel
 											</Button>
-											{#if data.isOwner}
+											{#if isOwner}
 												<Button
 													type="button"
 													variant="outline"
@@ -689,7 +620,7 @@
 												</div>
 												{#if selectedScopeKind === 'groups'}
 													<div class="grid gap-2">
-														{#each data.groups as group (group.id)}
+														{#each membersSection.groups as group (group.id)}
 															<label class="flex items-center gap-2 text-sm">
 																<input
 																	type="checkbox"
@@ -722,7 +653,7 @@
 				{#if form?.permissionSuccess}<p class="text-sm text-muted-foreground">Permissions updated.</p>{/if}
 			</section>
 
-			{#if data.canManageMembers}
+			{#if membersSection.canInvite}
 				<section
 					id="invite-member-section"
 					class="grid gap-4 rounded-lg border bg-card p-4 text-card-foreground"
@@ -807,7 +738,7 @@
 								</div>
 								{#if memberAccess.inviteScopeKind === 'groups'}
 									<div class="grid gap-2">
-										{#each data.groups as group (group.id)}
+										{#each membersSection.groups as group (group.id)}
 											<label class="flex items-center gap-2 text-sm">
 												<input
 													type="checkbox"
@@ -828,17 +759,17 @@
 				</section>
 			{/if}
 
-			{#if data.invitations.length > 0}
+			{#if membersSection.invitations.length > 0}
 				<section
 					class="grid gap-4 rounded-lg border bg-card p-4 text-card-foreground"
 					aria-labelledby="pending-invites-heading"
 				>
 					<div class="flex items-center justify-between gap-3">
 						<h3 id="pending-invites-heading" class="text-lg font-semibold tracking-tight">Pending Invitations</h3>
-						<Badge variant="outline">{data.invitations.length} Pending</Badge>
+						<Badge variant="outline">{membersSection.invitations.length} Pending</Badge>
 					</div>
 					<div class="grid gap-3">
-						{#each data.invitations as invite (invite.id)}
+						{#each membersSection.invitations as invite (invite.id)}
 							{@const invitePermissionPreset = memberAccess.getInvitePreset(invite)}
 							<div class="flex flex-col gap-3 rounded-md border p-3 md:flex-row md:items-center md:justify-between">
 								<div>
@@ -860,19 +791,19 @@
 
 		<Tabs.Content value="policies" class="grid gap-4">
 			<PoliciesSettingsSection
-				bind:retentionMonths
-				bind:warningWindowDays
-				bind:criticalTasksDefaultExpirationMonths
-				bind:criticalTasksExpiringSoonWarningDays
-				{hasRetentionChanges}
-				{isRetentionValid}
-				{hasLossWarningChanges}
-				{isLossWarningValid}
-				{hasCriticalTasksChanges}
-				{isCriticalTasksValid}
-				{savingRetention}
-				{savingWarningWindow}
-				{savingCriticalTasks}
+				bind:retentionMonths={settingsState.policies.retentionMonths}
+				bind:warningWindowDays={settingsState.policies.warningWindowDays}
+				bind:criticalTasksDefaultExpirationMonths={settingsState.policies.criticalTasksDefaultExpirationMonths}
+				bind:criticalTasksExpiringSoonWarningDays={settingsState.policies.criticalTasksExpiringSoonWarningDays}
+				hasRetentionChanges={settingsState.policies.hasRetentionChanges}
+				isRetentionValid={settingsState.policies.isRetentionValid}
+				hasLossWarningChanges={settingsState.policies.hasLossWarningChanges}
+				isLossWarningValid={settingsState.policies.isLossWarningValid}
+				hasCriticalTasksChanges={settingsState.policies.hasCriticalTasksChanges}
+				isCriticalTasksValid={settingsState.policies.isCriticalTasksValid}
+				savingRetention={settingsState.policies.savingRetention}
+				savingWarningWindow={settingsState.policies.savingWarningWindow}
+				savingCriticalTasks={settingsState.policies.savingCriticalTasks}
 				onSaveRetention={handleRetentionSave}
 				onSaveLossWarning={handleLossWarningSave}
 				onSaveCriticalTasks={handleCriticalTasksSave}
@@ -882,7 +813,7 @@
 		<Tabs.Content value="archived" class="grid gap-4">
 			<ArchivedPersonnelSettingsSection
 				archivedPersonnel={data.archivedPersonnel}
-				retentionMonths={data.policies.retentionMonths}
+				retentionMonths={policiesSection.archiveRetention.savedMonths}
 				{restoring}
 				{exportingPerson}
 				onRestore={handleRestore}
@@ -911,7 +842,7 @@
 		</Tabs.Content>
 
 		<Tabs.Content value="danger" class="grid gap-4">
-			{#if data.isOwner}
+			{#if isOwner}
 				<DangerZoneSettingsSection
 					orgName={data.orgName}
 					{form}

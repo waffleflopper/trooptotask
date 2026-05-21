@@ -347,30 +347,14 @@
 			]
 		},
 		{
-			"path": "src/routes/org/[orgId]/settings/+page.server.ts",
+			"path": "src/routes/org/[orgId]/settings/settingsMemberAccessReadModel.server.ts",
 			"classification": "compatibility-adapter",
 			"patterns": [
-				"canEdit*",
 				"scopedGroupId",
-				"scoped_group_id",
-				"can_view_*",
-				"can_edit_*"
+				"scoped_group_id"
 			],
-			"ownerIssue": "#757",
-			"reason": "Settings page load maps legacy member access fields for the member-management compatibility surface.",
-			"driftIds": [
-				"D-01"
-			]
-		},
-		{
-			"path": "src/routes/org/[orgId]/settings/settingsMemberAccessWorkspace.svelte.ts",
-			"classification": "compatibility-adapter",
-			"patterns": [
-				"canEdit*",
-				"scopedGroupId"
-			],
-			"ownerIssue": "#757",
-			"reason": "Settings member-access workspace projects legacy member and invite access fields only for the member-management compatibility UI.",
+			"ownerIssue": "#976",
+			"reason": "Settings member-access read model translates legacy single-Group scope into the shaped Organization Settings workspace Scope Set before route data reaches the page.",
 			"driftIds": [
 				"D-01"
 			]

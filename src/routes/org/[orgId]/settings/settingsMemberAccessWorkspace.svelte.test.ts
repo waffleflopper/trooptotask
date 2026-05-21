@@ -1,43 +1,63 @@
 import { describe, expect, it } from 'vitest';
-import type { OrganizationInvitation, OrganizationMember } from '$lib/types';
+import type { MembershipRole, MemberPreset } from '$lib/access/memberAccessShape';
+import type { SettingsInvitationAccessRow, SettingsMemberAccessRow } from './settingsMemberAccessModel';
 import { createSettingsMemberAccessWorkspace } from './settingsMemberAccessWorkspace.svelte';
 
-const fullEditorPermissions = {
-	canViewCalendar: true,
-	canEditCalendar: true,
-	canViewPersonnel: true,
-	canEditPersonnel: true,
-	canViewTraining: true,
-	canEditTraining: true,
-	canViewCriticalTasks: true,
-	canEditCriticalTasks: true,
-	canViewOnboarding: true,
-	canEditOnboarding: true,
-	canViewRatingScheme: true,
-	canEditRatingScheme: true,
-	canManageMembers: false
-};
-
-function member(id: string, email: string, role: OrganizationMember['role'], overrides = {}): OrganizationMember {
+function member(
+	id: string,
+	email: string,
+	membershipRole: MembershipRole,
+	overrides: Partial<SettingsMemberAccessRow['access']> = {}
+): SettingsMemberAccessRow {
 	return {
 		id,
 		organizationId: 'org-1',
 		userId: `user-${id}`,
 		email,
-		role,
-		scopedGroupId: null,
-		memberPreset: 'editor',
-		capabilityOverrides: {},
-		accessScopeKind: 'organization',
-		accessScopeGroupIds: [],
+		membershipRole,
 		createdAt: '2026-04-01T00:00:00Z',
-		...fullEditorPermissions,
-		...(role === 'admin' || role === 'owner' ? { canManageMembers: true } : {}),
-		...overrides
+		access: {
+			memberPreset: 'editor',
+			capabilityMap: {
+				calendar: 'configure',
+				personnel: 'configure',
+				training: 'configure',
+				criticalTasks: 'configure',
+				onboarding: 'configure',
+				ratingScheme: 'configure'
+			},
+			scopeSet: { kind: 'organization' },
+			organizationGovernanceActions:
+				membershipRole === 'owner' || membershipRole === 'admin' ? ['organization.accessGovernance'] : [],
+			...overrides
+		}
 	};
 }
 
-function makeWorkspace(overrides: Partial<{ members: OrganizationMember[]; isOwner: boolean }> = {}) {
+function invite(memberPreset: MemberPreset): SettingsInvitationAccessRow {
+	return {
+		id: 'invite-1',
+		email: 'invite@example.com',
+		status: 'pending',
+		membershipRole: 'member',
+		createdAt: '2026-04-01T00:00:00Z',
+		access: {
+			memberPreset,
+			capabilityMap: {
+				calendar: 'view',
+				personnel: 'view',
+				training: 'view',
+				criticalTasks: 'view',
+				onboarding: 'view',
+				ratingScheme: 'view'
+			},
+			scopeSet: { kind: 'organization' },
+			organizationGovernanceActions: []
+		}
+	};
+}
+
+function makeWorkspace(overrides: Partial<{ members: SettingsMemberAccessRow[]; isOwner: boolean }> = {}) {
 	return createSettingsMemberAccessWorkspace({
 		members: overrides.members ?? [
 			member('owner', 'owner@example.com', 'owner'),
@@ -59,9 +79,15 @@ describe('settings member access workspace', () => {
 			members: [
 				member('member-1', 'member-a@example.com', 'member', {
 					memberPreset: 'viewer',
-					capabilityOverrides: { calendar: 'operate', ratingScheme: 'none' },
-					accessScopeKind: 'groups',
-					accessScopeGroupIds: ['group-alpha']
+					capabilityMap: {
+						calendar: 'operate',
+						personnel: 'view',
+						training: 'view',
+						criticalTasks: 'view',
+						onboarding: 'view',
+						ratingScheme: 'none'
+					},
+					scopeSet: { kind: 'groups', groupIds: ['group-alpha'] }
 				})
 			]
 		});
@@ -92,7 +118,14 @@ describe('settings member access workspace', () => {
 			members: [
 				member('member-1', 'member-a@example.com', 'member', {
 					memberPreset: 'custom',
-					capabilityOverrides: { calendar: 'operate' }
+					capabilityMap: {
+						calendar: 'operate',
+						personnel: 'configure',
+						training: 'configure',
+						criticalTasks: 'configure',
+						onboarding: 'configure',
+						ratingScheme: 'configure'
+					}
 				})
 			]
 		});
@@ -107,7 +140,7 @@ describe('settings member access workspace', () => {
 
 	it('keeps admin preset choices owner-only and uses editor capabilities for admin drafts', () => {
 		const ownerWorkspace = makeWorkspace({ isOwner: true });
-		const adminMember = ownerWorkspace.sortedMembers.find((candidate) => candidate.role === 'admin');
+		const adminMember = ownerWorkspace.sortedMembers.find((candidate) => candidate.membershipRole === 'admin');
 		if (!adminMember) throw new Error('Expected admin member');
 
 		expect(ownerWorkspace.availablePresetOptions.map((option) => option.value)).toContain('admin');
@@ -149,47 +182,8 @@ describe('settings member access workspace', () => {
 		expect(workspace.inviteScopeGroupIds).toEqual([]);
 	});
 
-	it('projects pending invitation legacy permissions through the existing preset labels', () => {
+	it('reads pending invitation presets from shaped access data', () => {
 		const workspace = makeWorkspace();
-		const invite: OrganizationInvitation = {
-			id: 'invite-1',
-			organizationId: 'org-1',
-			email: 'invite@example.com',
-			status: 'pending',
-			permissions: {
-				...fullEditorPermissions,
-				canEditCalendar: false,
-				canEditPersonnel: false,
-				canEditTraining: false,
-				canEditCriticalTasks: false,
-				canEditOnboarding: false,
-				canEditRatingScheme: false
-			},
-			scopedGroupId: null,
-			createdAt: '2026-04-01T00:00:00Z'
-		};
-
-		expect(workspace.getInvitePreset(invite)).toBe('viewer');
-	});
-
-	it('projects flat pending invitation permissions through the existing preset labels', () => {
-		const workspace = makeWorkspace();
-
-		expect(
-			workspace.getInvitePreset({
-				id: 'invite-1',
-				email: 'invite@example.com',
-				status: 'pending',
-				...fullEditorPermissions,
-				canEditCalendar: false,
-				canEditPersonnel: false,
-				canEditTraining: false,
-				canEditCriticalTasks: false,
-				canEditOnboarding: false,
-				canEditRatingScheme: false,
-				scopedGroupId: null,
-				createdAt: '2026-04-01T00:00:00Z'
-			})
-		).toBe('viewer');
+		expect(workspace.getInvitePreset(invite('viewer'))).toBe('viewer');
 	});
 });

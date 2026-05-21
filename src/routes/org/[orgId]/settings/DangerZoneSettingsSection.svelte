@@ -1,9 +1,9 @@
 <script lang="ts">
-	import type { OrganizationMember } from '$lib/types';
 	import { Badge } from '$lib/components/ui/badge/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Label } from '$lib/components/ui/label/index.js';
 	import { Separator } from '$lib/components/ui/separator/index.js';
+	import type { SettingsMemberAccessRow } from './settingsMemberAccessModel';
 
 	let {
 		orgName,
@@ -15,7 +15,7 @@
 	}: {
 		orgName: string | null;
 		form: { [key: string]: unknown; deleteError?: string } | null;
-		transferOwnershipCandidates: OrganizationMember[];
+		transferOwnershipCandidates: SettingsMemberAccessRow[];
 		transferTargetId?: string | null;
 		onTransferConfirm: () => void;
 		onDeleteConfirm: () => void;

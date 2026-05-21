@@ -26,20 +26,13 @@ afterEach(() => {
 	billingEnabledMock.mockReturnValue(false);
 });
 
-const fullEditorPermissions = {
-	canViewCalendar: true,
-	canEditCalendar: true,
-	canViewPersonnel: true,
-	canEditPersonnel: true,
-	canViewTraining: true,
-	canEditTraining: true,
-	canViewCriticalTasks: true,
-	canEditCriticalTasks: true,
-	canViewOnboarding: true,
-	canEditOnboarding: true,
-	canViewRatingScheme: true,
-	canEditRatingScheme: true,
-	canManageMembers: false
+const editorCapabilityMap = {
+	calendar: 'configure',
+	personnel: 'configure',
+	training: 'configure',
+	criticalTasks: 'configure',
+	onboarding: 'configure',
+	ratingScheme: 'configure'
 };
 
 function member(id: string, email: string, role: 'owner' | 'admin' | 'member', overrides = {}) {
@@ -48,15 +41,15 @@ function member(id: string, email: string, role: 'owner' | 'admin' | 'member', o
 		organizationId: 'org-1',
 		userId: `user-${id}`,
 		email,
-		role,
+		membershipRole: role,
 		createdAt: '2026-04-01T00:00:00Z',
-		memberPreset: role === 'member' ? 'editor' : 'editor',
-		capabilityOverrides: {},
-		accessScopeKind: 'organization',
-		accessScopeGroupIds: [],
-		...fullEditorPermissions,
-		...(role === 'admin' || role === 'owner' ? { canManageMembers: true } : {}),
-		...overrides
+		access: {
+			memberPreset: 'editor',
+			capabilityMap: editorCapabilityMap,
+			scopeSet: { kind: 'organization' },
+			organizationGovernanceActions: role === 'admin' || role === 'owner' ? ['organization.accessGovernance'] : [],
+			...overrides
+		}
 	};
 }
 
@@ -173,9 +166,16 @@ describe('org settings page', () => {
 						member('member-2', 'admin@example.com', 'admin'),
 						member('member-3', 'member-a@example.com', 'member', {
 							memberPreset: 'viewer',
-							capabilityOverrides: { calendar: 'operate', ratingScheme: 'none' },
-							accessScopeKind: 'groups',
-							accessScopeGroupIds: ['group-alpha', 'group-bravo']
+							capabilityMap: {
+								...editorCapabilityMap,
+								calendar: 'operate',
+								personnel: 'view',
+								training: 'view',
+								criticalTasks: 'view',
+								onboarding: 'view',
+								ratingScheme: 'none'
+							},
+							scopeSet: { kind: 'groups', groupIds: ['group-alpha', 'group-bravo'] }
 						}),
 						member('member-4', 'member-b@example.com', 'member')
 					]

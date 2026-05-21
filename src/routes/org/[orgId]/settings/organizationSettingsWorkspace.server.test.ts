@@ -25,6 +25,21 @@ describe('organization settings workspace read model', () => {
 		const workspace = buildOrganizationSettingsWorkspace({
 			currentMemberRole: 'admin',
 			isAdmin: true,
+			organization: {
+				id: 'org-1',
+				name: 'Test Org',
+				urlSlug: '1-11-bde',
+				urlSegment: '1-11-bde',
+				effectiveTier: {
+					tier: 'unit',
+					source: 'subscription',
+					personnelCount: 4,
+					personnelCap: 500,
+					isReadOnly: false,
+					giftExpiresAt: null,
+					giftTier: null
+				}
+			},
 			members: [
 				{
 					id: 'member-owner',
@@ -79,7 +94,19 @@ describe('organization settings workspace read model', () => {
 				loss_warning_window_days: 150,
 				critical_tasks_default_expiration_months: 18,
 				critical_tasks_expiring_soon_warning_days: 45
-			}
+			},
+			archivedPersonnel: [
+				{
+					id: 'person-1',
+					rank: 'SGT',
+					firstName: 'Avery',
+					lastName: 'Jones',
+					mos: '11B',
+					groupName: 'HQ',
+					archivedAt: '2026-04-01T12:00:00Z',
+					groupId: 'group-1'
+				}
+			]
 		});
 
 		expect(workspace.currentMember).toEqual({
@@ -131,12 +158,61 @@ describe('organization settings workspace read model', () => {
 			defaultExpirationConstraints: { min: 1, max: 120, unit: 'months' },
 			expiringSoonWarningConstraints: { min: 1, max: 365, unit: 'days' }
 		});
+		expect(workspace.sections.organization).toEqual({
+			id: 'org-1',
+			name: 'Test Org',
+			urlSlug: '1-11-bde',
+			urlSegment: '1-11-bde',
+			tier: {
+				tier: 'unit',
+				source: 'subscription',
+				personnelCount: 4,
+				personnelCap: 500,
+				isReadOnly: false,
+				giftExpiresAt: null,
+				giftTier: null
+			},
+			canUpdateProfile: true,
+			canUpdateUrlSlug: true
+		});
+		expect(workspace.sections.archivedPersonnel).toEqual({
+			rows: [
+				{
+					id: 'person-1',
+					rank: 'SGT',
+					firstName: 'Avery',
+					lastName: 'Jones',
+					mos: '11B',
+					groupName: 'HQ',
+					archivedAt: '2026-04-01T12:00:00Z',
+					groupId: 'group-1',
+					displayName: 'SGT Jones, Avery',
+					exportFileStem: 'SGT-Jones'
+				}
+			],
+			retention: {
+				months: 42,
+				purgeSummary: '1 archived record'
+			},
+			commands: {
+				canRestore: true,
+				canExport: true,
+				canPermanentlyDelete: true
+			}
+		});
 	});
 
 	it('does not count pending invitations as pending approvals', () => {
 		const workspace = buildOrganizationSettingsWorkspace({
 			currentMemberRole: 'owner',
 			isAdmin: false,
+			organization: {
+				id: 'org-1',
+				name: 'Test Org',
+				urlSlug: null,
+				urlSegment: 'org-1',
+				effectiveTier: null
+			},
 			members: [],
 			invitations: [
 				{
@@ -167,7 +243,8 @@ describe('organization settings workspace read model', () => {
 				oldestCreatedAt: '2026-05-20T12:00:00Z'
 			},
 			groups: [],
-			organizationSettings: null
+			organizationSettings: null,
+			archivedPersonnel: []
 		});
 
 		expect(workspace.sections.members.invitations).toHaveLength(2);
@@ -175,13 +252,18 @@ describe('organization settings workspace read model', () => {
 			count: 1,
 			oldestCreatedAt: '2026-05-20T12:00:00Z'
 		});
+		expect(workspace.sections.archivedPersonnel.retention).toEqual({
+			months: 36,
+			purgeSummary: 'Retention 36 months'
+		});
 	});
 
-	it('loads only Members and Policies source tables for this workspace slice', async () => {
+	it('loads Members, Policies, and Archived Personnel source tables for this workspace slice', async () => {
 		const findMany = vi.fn(async (table: string) => {
 			if (table === 'organization_memberships') return [];
 			if (table === 'organization_invitations') return [];
 			if (table === 'groups') return [];
+			if (table === 'personnel') return [];
 			throw new Error(`Unexpected table: ${table}`);
 		});
 		const findOne = vi.fn(async () => ({
@@ -197,13 +279,23 @@ describe('organization settings workspace read model', () => {
 				store: { findMany },
 				rawStore: { findOne }
 			} as never,
-			{ isAdmin: false }
+			{
+				isAdmin: false,
+				organization: {
+					id: 'org-1',
+					name: 'Test Org',
+					urlSlug: null,
+					urlSegment: 'org-1',
+					effectiveTier: null
+				}
+			}
 		);
 
 		expect(findMany.mock.calls.map((call) => call[0])).toEqual([
 			'organization_memberships',
 			'organization_invitations',
-			'groups'
+			'groups',
+			'personnel'
 		]);
 		expect(findOne).toHaveBeenCalledWith(
 			'organizations',
@@ -211,7 +303,6 @@ describe('organization settings workspace read model', () => {
 			{},
 			'archive_retention_months, loss_warning_window_days, critical_tasks_default_expiration_months, critical_tasks_expiring_soon_warning_days'
 		);
-		expect(findMany.mock.calls.map((call) => call[0])).not.toContain('personnel');
 		expect(findMany.mock.calls.map((call) => call[0])).not.toContain('deletion_requests');
 	});
 });

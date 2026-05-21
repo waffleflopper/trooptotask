@@ -1,4 +1,5 @@
 import type { CapabilityLevel, DurableFeatureLane, MembershipRole, ScopeSet } from '$lib/access/memberAccessShape';
+import type { EffectiveTier } from '$lib/types/subscription';
 import type { EditablePreset } from './settingsMemberAccessConstants';
 import type { SettingsInvitationAccessRow, SettingsMemberAccessRow } from './settingsMemberAccessModel';
 
@@ -26,6 +27,19 @@ export type SettingsInvitationRow = SettingsInvitationAccessRow & {
 	scopeDisplayLabel: string;
 };
 
+export type SettingsArchivedPersonnelRow = {
+	id: string;
+	rank: string;
+	firstName: string;
+	lastName: string;
+	mos: string | null;
+	groupName: string | null;
+	archivedAt: string;
+	groupId: string | null;
+	displayName: string;
+	exportFileStem: string;
+};
+
 export interface OrganizationSettingsWorkspace {
 	currentMember: {
 		role: MembershipRole;
@@ -34,6 +48,15 @@ export interface OrganizationSettingsWorkspace {
 		canManageMembers: boolean;
 	};
 	sections: {
+		organization: {
+			id: string;
+			name: string | null;
+			urlSlug: string | null;
+			urlSegment: string;
+			tier: EffectiveTier | null;
+			canUpdateProfile: boolean;
+			canUpdateUrlSlug: boolean;
+		};
 		members: {
 			rows: SettingsMemberRow[];
 			invitations: SettingsInvitationRow[];
@@ -63,6 +86,18 @@ export interface OrganizationSettingsWorkspace {
 			};
 			canUpdateRetention: boolean;
 			canUpdateCriticalTasksSettings: boolean;
+		};
+		archivedPersonnel: {
+			rows: SettingsArchivedPersonnelRow[];
+			retention: {
+				months: number;
+				purgeSummary: string;
+			};
+			commands: {
+				canRestore: boolean;
+				canExport: boolean;
+				canPermanentlyDelete: boolean;
+			};
 		};
 	};
 }

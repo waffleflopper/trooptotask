@@ -37,7 +37,6 @@
 	const orgId = $derived($page.params.orgId);
 
 	type SectionId = 'organization' | 'members' | 'policies' | 'archived' | 'data-export' | 'danger';
-	type ArchivedPerson = (typeof data.archivedPersonnel)[number];
 	type AuditLog = (typeof data.auditLog.logs)[number];
 	type SectionConfig = { id: SectionId; label: string; eyebrow: string; danger?: boolean };
 
@@ -51,8 +50,13 @@
 	const ownerSection: SectionConfig = { id: 'danger', label: 'Danger Zone', eyebrow: 'Owner Authority', danger: true };
 	const settingsState = createSettingsWorkspaceState(() => data.workspace);
 	const syncPoliciesFromWorkspace = () => settingsState.policies.syncFromWorkspace();
+	const organizationSection = $derived(data.workspace.sections.organization);
 	const membersSection = $derived(data.workspace.sections.members);
-	const policiesSection = $derived(data.workspace.sections.policies);
+	const archivedPersonnelSection = $derived({
+		rows: settingsState.archivedPersonnel.rows,
+		retention: settingsState.archivedPersonnel.retention,
+		commands: settingsState.archivedPersonnel.commands
+	});
 	const currentMember = $derived(data.workspace.currentMember);
 	const isOwner = $derived(currentMember.isOwner);
 	const sections = $derived(isOwner ? [...standardSections, ownerSection] : standardSections);
@@ -67,7 +71,7 @@
 
 	let showDeleteConfirm = $state(false);
 	let deleteConfirmText = $state('');
-	const normalizedOrgName = $derived(normalizeOrganizationName(data.orgName ?? ''));
+	const normalizedOrgName = $derived(normalizeOrganizationName(organizationSection.name ?? ''));
 	const deleteConfirmMatches = $derived(normalizeOrganizationName(deleteConfirmText) === normalizedOrgName);
 	const deleteOrganizationCloseBlocked = $derived(loading || deleteConfirmText.trim() !== '');
 
@@ -78,7 +82,6 @@
 
 	let restoring = $state<string | null>(null);
 	let exportingPerson = $state<string | null>(null);
-	let confirmPermanentDelete = $state<{ id: string; name: string } | null>(null);
 
 	const memberAccess = settingsState.members;
 	const sortedMembers = $derived(memberAccess.sortedMembers);
@@ -95,9 +98,9 @@
 	const activeSectionConfig = $derived(sections.find((section) => section.id === activeSection) ?? sections[0]);
 	const activeSectionDescription = $derived(getSectionDescription(activeSection));
 	const nextPurgeDate = $derived.by(() => {
-		if (data.archivedPersonnel.length === 0) return null;
-		const purgeTimes = data.archivedPersonnel.map((person: ArchivedPerson) =>
-			addMonths(new Date(person.archivedAt), policiesSection.archiveRetention.savedMonths).getTime()
+		if (archivedPersonnelSection.rows.length === 0) return null;
+		const purgeTimes = archivedPersonnelSection.rows.map((person) =>
+			addMonths(new Date(person.archivedAt), archivedPersonnelSection.retention.months).getTime()
 		);
 		return new Date(Math.min(...purgeTimes));
 	});
@@ -123,10 +126,10 @@
 		},
 		{
 			label: 'Archived personnel',
-			value: String(data.archivedPersonnel.length),
+			value: String(archivedPersonnelSection.rows.length),
 			detail: nextPurgeDate
 				? `Next purge ${formatCompactDate(nextPurgeDate)}`
-				: `Retention ${policiesSection.archiveRetention.savedMonths} months`,
+				: archivedPersonnelSection.retention.purgeSummary,
 			target: 'archived' as SectionId
 		},
 		{
@@ -330,7 +333,7 @@
 			});
 			if (!res.ok) throw new Error();
 			toastStore.success('Personnel permanently deleted');
-			confirmPermanentDelete = null;
+			settingsState.archivedPersonnel.clearPermanentDeleteConfirmation();
 			await invalidateAll();
 		} catch {
 			toastStore.error('Failed to permanently delete');
@@ -353,7 +356,7 @@
 </script>
 
 <svelte:head>
-	<title>Settings - {data.orgName} - Troop to Task</title>
+	<title>Settings - {organizationSection.name} - Troop to Task</title>
 </svelte:head>
 
 <main class="flex flex-1 flex-col gap-6 p-4 md:p-6">
@@ -363,7 +366,7 @@
 				<p class="text-sm text-muted-foreground">{isOwner ? 'Owner access' : 'Admin access'}</p>
 				<h1 class="text-2xl font-semibold tracking-tight">Organization Settings</h1>
 				<p class="max-w-3xl text-sm text-muted-foreground">
-					{data.orgName} governance, access, policies, retention, and export controls.
+					{organizationSection.name} governance, access, policies, retention, and export controls.
 				</p>
 			</div>
 			{#if activeSection === 'members' && membersSection.canInvite}
@@ -406,7 +409,7 @@
 
 		<Tabs.Content value="organization" class="grid gap-4">
 			<OrganizationSettingsSection
-				{data}
+				organization={organizationSection}
 				{form}
 				bind:loading
 				{planBadge}
@@ -812,13 +815,12 @@
 
 		<Tabs.Content value="archived" class="grid gap-4">
 			<ArchivedPersonnelSettingsSection
-				archivedPersonnel={data.archivedPersonnel}
-				retentionMonths={policiesSection.archiveRetention.savedMonths}
+				section={archivedPersonnelSection}
 				{restoring}
 				{exportingPerson}
 				onRestore={handleRestore}
 				onExport={handlePersonnelExport}
-				onConfirmPermanentDelete={(person) => (confirmPermanentDelete = person)}
+				onConfirmPermanentDelete={(person) => settingsState.archivedPersonnel.openPermanentDeleteConfirmation(person)}
 			/>
 		</Tabs.Content>
 
@@ -844,7 +846,7 @@
 		<Tabs.Content value="danger" class="grid gap-4">
 			{#if isOwner}
 				<DangerZoneSettingsSection
-					orgName={data.orgName}
+					orgName={organizationSection.name}
 					{form}
 					{transferOwnershipCandidates}
 					bind:transferTargetId
@@ -866,7 +868,7 @@
 			<AppDialog.Header>
 				<AppDialog.Title>Delete Organization</AppDialog.Title>
 				<AppDialog.Description>
-					This will permanently delete {data.orgName} and all associated data. This action cannot be undone.
+					This will permanently delete {organizationSection.name} and all associated data. This action cannot be undone.
 				</AppDialog.Description>
 			</AppDialog.Header>
 
@@ -887,7 +889,7 @@
 						if (!deleteConfirmMatches) event.preventDefault();
 					}}
 				>
-					<Label for="confirmDelete">Type {data.orgName} to confirm</Label>
+					<Label for="confirmDelete">Type {organizationSection.name} to confirm</Label>
 					<Input
 						id="confirmDelete"
 						name="confirmName"
@@ -949,19 +951,30 @@
 	</AppDialog.Root>
 {/if}
 
-{#if confirmPermanentDelete}
-	<AppDialog.Root open={Boolean(confirmPermanentDelete)} onClose={() => (confirmPermanentDelete = null)}>
+{#if settingsState.archivedPersonnel.confirmPermanentDelete}
+	<AppDialog.Root
+		open={Boolean(settingsState.archivedPersonnel.confirmPermanentDelete)}
+		onClose={() => settingsState.archivedPersonnel.clearPermanentDeleteConfirmation()}
+	>
 		<AppDialog.Content>
 			<AppDialog.Header>
 				<AppDialog.Title>Permanently Delete Personnel</AppDialog.Title>
 				<AppDialog.Description>
-					Are you sure you want to permanently delete {confirmPermanentDelete.name}? This action cannot be undone and
-					all associated records will be lost.
+					Are you sure you want to permanently delete {settingsState.archivedPersonnel.confirmPermanentDelete.name}?
+					This action cannot be undone and all associated records will be lost.
 				</AppDialog.Description>
 			</AppDialog.Header>
 			<AppDialog.Footer>
-				<Button type="button" variant="outline" onclick={() => (confirmPermanentDelete = null)}>Cancel</Button>
-				<Button type="button" variant="destructive" onclick={() => handlePermanentDelete(confirmPermanentDelete!.id)}>
+				<Button
+					type="button"
+					variant="outline"
+					onclick={() => settingsState.archivedPersonnel.clearPermanentDeleteConfirmation()}>Cancel</Button
+				>
+				<Button
+					type="button"
+					variant="destructive"
+					onclick={() => handlePermanentDelete(settingsState.archivedPersonnel.confirmPermanentDelete!.id)}
+				>
 					Permanently Delete
 				</Button>
 			</AppDialog.Footer>

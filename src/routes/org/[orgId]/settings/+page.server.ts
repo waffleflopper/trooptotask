@@ -7,7 +7,6 @@ import { buildRouteContext, loadWithContext } from '$lib/server/adapters/httpAda
 import { createSupabaseDataStore } from '$lib/server/adapters/supabaseDataStore';
 import { createSupabaseOrgSettingsAdministrationPort } from '$lib/server/adapters/supabaseOrgSettingsAdministration';
 import { createSupabaseOrgSettingsMemberManagementPort } from '$lib/server/adapters/supabaseOrgSettingsMemberManagement';
-import { PersonnelEntity } from '$lib/server/entities/personnel';
 import { getAdminClient } from '$lib/server/supabase';
 import { fetchAuditLogPreview } from '$lib/server/core/useCases/auditLogQuery';
 import {
@@ -46,12 +45,16 @@ export const load: PageServerLoad = async ({ locals, cookies, parent }) => {
 			);
 
 			const adminStore = createSupabaseDataStore(getAdminClient());
-			const [workspace, archivedPersonnelRows, approvalRequests, auditLog] = await Promise.all([
-				loadOrganizationSettingsWorkspace(ctx, { isAdmin: Boolean(isAdmin) }),
-				ctx.store.findMany<Record<string, unknown>>('personnel', ctx.auth.orgId, undefined, {
-					select: PersonnelEntity.select,
-					isNull: { archived_at: false },
-					orderBy: [{ column: 'archived_at', ascending: false }]
+			const [workspace, approvalRequests, auditLog] = await Promise.all([
+				loadOrganizationSettingsWorkspace(ctx, {
+					isAdmin: Boolean(isAdmin),
+					organization: {
+						id: orgId,
+						name: orgName,
+						urlSlug: orgUrlSegment && orgUrlSegment !== orgId ? orgUrlSegment : null,
+						urlSegment: orgUrlSegment ?? orgId,
+						effectiveTier: effectiveTier ?? null
+					}
 				}),
 				ctx.store.findMany<DeletionRequestRow>('deletion_requests', ctx.auth.orgId, undefined, {
 					orderBy: [{ column: 'created_at', ascending: false }]
@@ -78,16 +81,6 @@ export const load: PageServerLoad = async ({ locals, cookies, parent }) => {
 				};
 			}
 
-			const archivedPersonnel = PersonnelEntity.fromDbArray(archivedPersonnelRows).map((p) => ({
-				id: p.id,
-				rank: p.rank,
-				firstName: p.firstName,
-				lastName: p.lastName,
-				mos: p.mos,
-				groupName: p.groupName,
-				archivedAt: p.archivedAt as string,
-				groupId: p.groupId
-			}));
 			const pendingApprovalSummary = buildPendingApprovalSummary(approvalRequests);
 			const workspaceWithApprovalSummary = withOrganizationSettingsPendingApprovalSummary(
 				workspace,
@@ -104,7 +97,6 @@ export const load: PageServerLoad = async ({ locals, cookies, parent }) => {
 				allOrgs,
 				workspace: workspaceWithApprovalSummary,
 				exportInfo,
-				archivedPersonnel,
 				approvalRequests,
 				pendingApprovalsCount: pendingApprovalSummary.count,
 				auditLog

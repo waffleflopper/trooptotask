@@ -7,8 +7,10 @@ import {
 	type MembershipRole,
 	type StoredMemberPreset
 } from '$lib/access/memberAccessShape';
+import type { EffectiveTier } from '$lib/types/subscription';
 import type { UseCaseContext } from '$lib/server/core/ports';
 import { GroupEntity } from '$lib/server/entities/group';
+import { PersonnelEntity } from '$lib/server/entities/personnel';
 import {
 	ARCHIVE_RETENTION_CONSTRAINT,
 	CRITICAL_TASKS_DEFAULT_EXPIRATION_CONSTRAINT,
@@ -24,6 +26,7 @@ import {
 } from './settingsMemberAccessReadModel.server';
 import type {
 	OrganizationSettingsWorkspace,
+	SettingsArchivedPersonnelRow,
 	SettingsInvitationRow,
 	SettingsMemberRow
 } from './organizationSettingsWorkspaceModel';
@@ -38,22 +41,38 @@ export type { OrganizationSettingsWorkspace } from './organizationSettingsWorksp
 
 export interface LoadOrganizationSettingsWorkspaceInput {
 	isAdmin: boolean;
+	organization: OrganizationSettingsSource;
 }
 
 export interface BuildOrganizationSettingsWorkspaceInput {
 	currentMemberRole: MembershipRole;
 	isAdmin: boolean;
+	organization: OrganizationSettingsSource;
 	members: LegacySettingsAccessRow[];
 	invitations: LegacySettingsAccessRow[];
 	pendingApprovalSummary?: PendingApprovalSummary;
 	groups: Record<string, unknown>[];
 	organizationSettings: OrganizationSettingsRow | null;
+	archivedPersonnel: SettingsArchivedPersonnelSourceRow[];
 }
 
 export interface PendingApprovalSummary {
 	count: number;
 	oldestCreatedAt: string | null;
 }
+
+export interface OrganizationSettingsSource {
+	id: string;
+	name: string | null;
+	urlSlug: string | null;
+	urlSegment: string;
+	effectiveTier: EffectiveTier | null;
+}
+
+export type SettingsArchivedPersonnelSourceRow = Pick<
+	SettingsArchivedPersonnelRow,
+	'id' | 'rank' | 'firstName' | 'lastName' | 'mos' | 'groupName' | 'archivedAt' | 'groupId'
+>;
 
 const ACCESS_LANE_LABELS: Record<DurableFeatureLane, string> = {
 	calendar: 'Calendar',
@@ -68,7 +87,7 @@ export async function loadOrganizationSettingsWorkspace(
 	ctx: Pick<UseCaseContext, 'auth' | 'store' | 'rawStore'>,
 	input: LoadOrganizationSettingsWorkspaceInput
 ): Promise<OrganizationSettingsWorkspace> {
-	const [membershipRows, invitationRows, groupRows, organizationSettings] = await Promise.all([
+	const [membershipRows, invitationRows, groupRows, organizationSettings, archivedPersonnelRows] = await Promise.all([
 		ctx.store.findMany<LegacySettingsAccessRow>('organization_memberships', ctx.auth.orgId),
 		ctx.store.findMany<LegacySettingsAccessRow>('organization_invitations', ctx.auth.orgId, {
 			status: 'pending'
@@ -81,17 +100,33 @@ export async function loadOrganizationSettingsWorkspace(
 			ctx.auth.orgId,
 			{},
 			'archive_retention_months, loss_warning_window_days, critical_tasks_default_expiration_months, critical_tasks_expiring_soon_warning_days'
-		)
+		),
+		ctx.store.findMany<Record<string, unknown>>('personnel', ctx.auth.orgId, undefined, {
+			select: PersonnelEntity.select,
+			isNull: { archived_at: false },
+			orderBy: [{ column: 'archived_at', ascending: false }]
+		})
 	]);
 
 	return buildOrganizationSettingsWorkspace({
 		currentMemberRole: ctx.auth.role,
 		isAdmin: input.isAdmin,
+		organization: input.organization,
 		members: membershipRows,
 		invitations: invitationRows,
 		pendingApprovalSummary: { count: 0, oldestCreatedAt: null },
 		groups: groupRows,
-		organizationSettings
+		organizationSettings,
+		archivedPersonnel: PersonnelEntity.fromDbArray(archivedPersonnelRows).map((p) => ({
+			id: p.id,
+			rank: p.rank,
+			firstName: p.firstName,
+			lastName: p.lastName,
+			mos: p.mos,
+			groupName: p.groupName,
+			archivedAt: p.archivedAt as string,
+			groupId: p.groupId
+		}))
 	});
 }
 
@@ -121,6 +156,9 @@ export function buildOrganizationSettingsWorkspace(
 		defaultExpirationMonths: input.organizationSettings?.critical_tasks_default_expiration_months ?? null,
 		expiringSoonWarningDays: input.organizationSettings?.critical_tasks_expiring_soon_warning_days ?? null
 	});
+	const archiveRetentionMonths =
+		input.organizationSettings?.archive_retention_months ?? DEFAULT_ARCHIVE_RETENTION_MONTHS;
+	const archivedPersonnelRows = input.archivedPersonnel.map(shapeArchivedPersonnelRow);
 
 	return {
 		currentMember: {
@@ -130,6 +168,15 @@ export function buildOrganizationSettingsWorkspace(
 			canManageMembers
 		},
 		sections: {
+			organization: {
+				id: input.organization.id,
+				name: input.organization.name,
+				urlSlug: input.organization.urlSlug,
+				urlSegment: input.organization.urlSegment,
+				tier: input.organization.effectiveTier,
+				canUpdateProfile: canManageMembers,
+				canUpdateUrlSlug: canManageMembers
+			},
 			members: {
 				rows: members,
 				invitations,
@@ -144,7 +191,7 @@ export function buildOrganizationSettingsWorkspace(
 			},
 			policies: {
 				archiveRetention: {
-					savedMonths: input.organizationSettings?.archive_retention_months ?? DEFAULT_ARCHIVE_RETENTION_MONTHS,
+					savedMonths: archiveRetentionMonths,
 					constraints: ARCHIVE_RETENTION_CONSTRAINT
 				},
 				lossWarning: {
@@ -159,6 +206,21 @@ export function buildOrganizationSettingsWorkspace(
 				},
 				canUpdateRetention: canManageMembers,
 				canUpdateCriticalTasksSettings: canManageMembers
+			},
+			archivedPersonnel: {
+				rows: archivedPersonnelRows,
+				retention: {
+					months: archiveRetentionMonths,
+					purgeSummary:
+						archivedPersonnelRows.length === 0
+							? `Retention ${archiveRetentionMonths} months`
+							: `${archivedPersonnelRows.length} archived ${pluralize('record', archivedPersonnelRows.length)}`
+				},
+				commands: {
+					canRestore: canManageMembers,
+					canExport: canManageMembers,
+					canPermanentlyDelete: canManageMembers
+				}
 			}
 		}
 	};
@@ -231,6 +293,14 @@ function shapeInvitationRow(
 		...invitation,
 		accessBadge: invitation.access.memberPreset,
 		scopeDisplayLabel: formatScopeSet(invitation.access.scopeSet, groups)
+	};
+}
+
+function shapeArchivedPersonnelRow(row: SettingsArchivedPersonnelSourceRow): SettingsArchivedPersonnelRow {
+	return {
+		...row,
+		displayName: `${row.rank} ${row.lastName}, ${row.firstName}`,
+		exportFileStem: `${row.rank}-${row.lastName}`
 	};
 }
 

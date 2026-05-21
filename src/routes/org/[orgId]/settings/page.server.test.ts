@@ -265,6 +265,21 @@ describe('org settings page server actions', () => {
 					canManageMembers: true
 				},
 				sections: {
+					organization: {
+						id: 'org-1',
+						name: 'Test Org',
+						urlSlug: '1-11-bde',
+						urlSegment: '1-11-bde',
+						tier: {
+							tier: 'unit',
+							source: 'subscription',
+							personnelCount: 4,
+							personnelCap: 500,
+							isReadOnly: false,
+							giftExpiresAt: null,
+							giftTier: null
+						}
+					},
 					members: {
 						rows: [{ email: 'owner@example.com' }],
 						invitations: [expect.objectContaining({ id: 'invite-1' }), expect.objectContaining({ id: 'invite-2' })],
@@ -281,10 +296,13 @@ describe('org settings page server actions', () => {
 							savedDefaultExpirationMonths: 18,
 							savedExpiringSoonWarningDays: 45
 						}
+					},
+					archivedPersonnel: {
+						rows: [{ id: 'person-1', displayName: 'SGT Jones, Avery' }],
+						retention: { months: 42, purgeSummary: '1 archived record' }
 					}
 				}
 			},
-			archivedPersonnel: [{ id: 'person-1' }],
 			approvalRequests: [
 				{ id: 'request-1', status: 'approved' },
 				{ id: 'request-2', status: 'pending' }

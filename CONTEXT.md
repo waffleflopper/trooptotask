@@ -42,6 +42,10 @@ _Avoid_: Team leader, viewer, editor
 An action that changes organization access, settings, billing, or destructive organization state.
 _Avoid_: Feature edit
 
+**Organization Data Export**:
+An **Organization**-scoped export of operational data for leader review, backup, or migration support. The export may include readable review sheets and raw archive sheets, but it is not itself a **Feature Lane** and should not own feature-specific business rules.
+_Avoid_: Feature export, database dump, generic spreadsheet
+
 ### People And Roster
 
 **Personnel Record**:

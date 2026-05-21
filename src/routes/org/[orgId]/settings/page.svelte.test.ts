@@ -131,11 +131,90 @@ const baseData = {
 	}
 };
 
+type SettingsPageTestData = Omit<
+	typeof baseData,
+	'members' | 'invitations' | 'groups' | 'archivedPersonnel' | 'approvalRequests'
+> & {
+	members: Array<ReturnType<typeof member>>;
+	invitations: unknown[];
+	groups: Array<{ id: string; name: string }>;
+	archivedPersonnel: Array<Record<string, unknown>>;
+	approvalRequests: Array<{ created_at?: string }>;
+};
+
+function workspaceFor(data: SettingsPageTestData) {
+	const roleCounts = data.members.reduce(
+		(counts: { owner: number; admin: number; member: number }, row: { membershipRole: string }) => {
+			counts[row.membershipRole as 'owner' | 'admin' | 'member'] += 1;
+			return counts;
+		},
+		{ owner: 0, admin: 0, member: 0 }
+	);
+	return {
+		...data,
+		workspace: {
+			currentMember: {
+				role: data.isOwner ? 'owner' : 'admin',
+				isOwner: data.isOwner,
+				isAdmin: data.isAdmin,
+				canManageMembers: data.canManageMembers
+			},
+			sections: {
+				members: {
+					rows: data.members,
+					invitations: data.invitations,
+					groups: data.groups,
+					roleCounts,
+					memberRoleSummary: `${roleCounts.owner} ${roleCounts.owner === 1 ? 'Owner' : 'Owners'} · ${roleCounts.admin} ${roleCounts.admin === 1 ? 'Admin' : 'Admins'} · ${roleCounts.member} ${roleCounts.member === 1 ? 'Member' : 'Members'}`,
+					pendingApprovalSummary: {
+						count: data.pendingApprovalsCount,
+						oldestCreatedAt: data.approvalRequests[0]?.created_at ?? null
+					},
+					availableAccessLanes: [
+						{ id: 'calendar', label: 'Calendar' },
+						{ id: 'personnel', label: 'Personnel' },
+						{ id: 'training', label: 'Training' },
+						{ id: 'criticalTasks', label: 'Critical Tasks' },
+						{ id: 'onboarding', label: 'Onboarding' },
+						{ id: 'ratingScheme', label: 'Rating Scheme' }
+					],
+					capabilityOptions: [
+						{ value: 'none', label: 'None' },
+						{ value: 'view', label: 'View' },
+						{ value: 'operate', label: 'Operate' },
+						{ value: 'configure', label: 'Configure' }
+					],
+					canInvite: data.canManageMembers,
+					canManageMemberAccess: data.canManageMembers
+				},
+				policies: {
+					archiveRetention: {
+						savedMonths: data.policies.retentionMonths,
+						constraints: { min: 1, max: 120, unit: 'months' }
+					},
+					lossWarning: {
+						savedDays: data.policies.lossWarningWindowDays,
+						constraints: { min: 1, max: 365, unit: 'days' }
+					},
+					criticalTasks: {
+						savedDefaultExpirationMonths: data.policies.criticalTasksSettings.defaultExpirationMonths,
+						savedExpiringSoonWarningDays: data.policies.criticalTasksSettings.expiringSoonWarningDays,
+						defaultExpirationConstraints: { min: 1, max: 120, unit: 'months' },
+						expiringSoonWarningConstraints: { min: 1, max: 365, unit: 'days' }
+					},
+					canUpdateRetention: data.canManageMembers,
+					canUpdateCriticalTasksSettings: data.canManageMembers
+				}
+			}
+		}
+	};
+}
+
 describe('org settings page', () => {
 	it('renders the shadcn settings shell with summary metrics and shared tabs', () => {
 		render(Page, {
 			props: {
-				data: baseData as never,
+				data: workspaceFor(baseData) as never,
 				form: null as never
 			}
 		});
@@ -160,25 +239,27 @@ describe('org settings page', () => {
 		render(Page, {
 			props: {
 				data: {
-					...baseData,
-					members: [
-						member('member-1', 'owner@example.com', 'owner'),
-						member('member-2', 'admin@example.com', 'admin'),
-						member('member-3', 'member-a@example.com', 'member', {
-							memberPreset: 'viewer',
-							capabilityMap: {
-								...editorCapabilityMap,
-								calendar: 'operate',
-								personnel: 'view',
-								training: 'view',
-								criticalTasks: 'view',
-								onboarding: 'view',
-								ratingScheme: 'none'
-							},
-							scopeSet: { kind: 'groups', groupIds: ['group-alpha', 'group-bravo'] }
-						}),
-						member('member-4', 'member-b@example.com', 'member')
-					]
+					...workspaceFor({
+						...baseData,
+						members: [
+							member('member-1', 'owner@example.com', 'owner'),
+							member('member-2', 'admin@example.com', 'admin'),
+							member('member-3', 'member-a@example.com', 'member', {
+								memberPreset: 'viewer',
+								capabilityMap: {
+									...editorCapabilityMap,
+									calendar: 'operate',
+									personnel: 'view',
+									training: 'view',
+									criticalTasks: 'view',
+									onboarding: 'view',
+									ratingScheme: 'none'
+								},
+								scopeSet: { kind: 'groups', groupIds: ['group-alpha', 'group-bravo'] }
+							}),
+							member('member-4', 'member-b@example.com', 'member')
+						]
+					})
 				} as never,
 				form: null as never
 			}
@@ -208,7 +289,7 @@ describe('org settings page', () => {
 	it('renders policies with shared controls and validation copy', async () => {
 		render(Page, {
 			props: {
-				data: baseData as never,
+				data: workspaceFor(baseData) as never,
 				form: null as never
 			}
 		});
@@ -231,19 +312,21 @@ describe('org settings page', () => {
 		render(Page, {
 			props: {
 				data: {
-					...baseData,
-					archivedPersonnel: [
-						{
-							id: 'archived-1',
-							rank: 'PV2',
-							firstName: 'Henry',
-							lastName: 'Abbott',
-							mos: '11B',
-							groupName: '2nd Platoon',
-							archivedAt: '2026-04-14T12:00:00Z',
-							groupId: 'group-1'
-						}
-					]
+					...workspaceFor({
+						...baseData,
+						archivedPersonnel: [
+							{
+								id: 'archived-1',
+								rank: 'PV2',
+								firstName: 'Henry',
+								lastName: 'Abbott',
+								mos: '11B',
+								groupName: '2nd Platoon',
+								archivedAt: '2026-04-14T12:00:00Z',
+								groupId: 'group-1'
+							}
+						]
+					})
 				} as never,
 				form: null as never
 			}
@@ -262,7 +345,7 @@ describe('org settings page', () => {
 	it('renders data export controls and the activity panel', async () => {
 		render(Page, {
 			props: {
-				data: baseData as never,
+				data: workspaceFor(baseData) as never,
 				form: null as never
 			}
 		});
@@ -283,7 +366,7 @@ describe('org settings page', () => {
 	it('renders owner danger controls and guarded delete confirmation', async () => {
 		render(Page, {
 			props: {
-				data: baseData as never,
+				data: workspaceFor(baseData) as never,
 				form: null as never
 			}
 		});
@@ -311,7 +394,7 @@ describe('org settings page', () => {
 
 		render(Page, {
 			props: {
-				data: baseData as never,
+				data: workspaceFor(baseData) as never,
 				form: null as never
 			}
 		});

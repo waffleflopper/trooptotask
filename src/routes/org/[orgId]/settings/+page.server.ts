@@ -1,14 +1,12 @@
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import { normalizeCriticalTasksSettings } from '$features/critical-tasks/utils/ictStatus';
 import { isBillingEnabled } from '$lib/config/billing';
 import { TIER_CONFIG } from '$lib/types/subscription';
 import { buildRouteContext, loadWithContext } from '$lib/server/adapters/httpAdapter';
 import { createSupabaseDataStore } from '$lib/server/adapters/supabaseDataStore';
 import { createSupabaseOrgSettingsAdministrationPort } from '$lib/server/adapters/supabaseOrgSettingsAdministration';
 import { createSupabaseOrgSettingsMemberManagementPort } from '$lib/server/adapters/supabaseOrgSettingsMemberManagement';
-import { GroupEntity } from '$lib/server/entities/group';
 import { PersonnelEntity } from '$lib/server/entities/personnel';
 import { getAdminClient } from '$lib/server/supabase';
 import { fetchAuditLogPreview } from '$lib/server/core/useCases/auditLogQuery';
@@ -27,16 +25,16 @@ import {
 	updateOrganizationMemberPermissions
 } from '$lib/server/core/useCases/orgSettingsMemberManagement';
 import { requireGovernancePolicy } from '$lib/server/core/useCases/governancePolicy';
-import type { DeletionRequestRow, OrganizationSettingsRow } from './settingsRows.server';
+import type { DeletionRequestRow } from './settingsRows.server';
 import {
-	buildSettingsInvitationAccessRow,
-	buildSettingsMemberAccessRow,
-	type LegacySettingsAccessRow
-} from './settingsMemberAccessReadModel.server';
+	buildPendingApprovalSummary,
+	loadOrganizationSettingsWorkspace,
+	withOrganizationSettingsPendingApprovalSummary
+} from './organizationSettingsWorkspace.server';
 
 export const load: PageServerLoad = async ({ locals, cookies, parent }) => {
 	const parentData = await parent();
-	const { orgId, orgName, orgUrlSegment, userRole, allOrgs, isAdmin, effectiveTier } = parentData;
+	const { orgId, orgName, orgUrlSegment, allOrgs, isAdmin, effectiveTier } = parentData;
 	const permissions = parentData.permissions!;
 
 	return loadWithContext(locals, cookies, orgId, {
@@ -48,28 +46,8 @@ export const load: PageServerLoad = async ({ locals, cookies, parent }) => {
 			);
 
 			const adminStore = createSupabaseDataStore(getAdminClient());
-			const [
-				membershipRows,
-				invitationRows,
-				groupRows,
-				organizationSettings,
-				archivedPersonnelRows,
-				approvalRequests,
-				auditLog
-			] = await Promise.all([
-				ctx.store.findMany<LegacySettingsAccessRow>('organization_memberships', ctx.auth.orgId),
-				ctx.store.findMany<LegacySettingsAccessRow>('organization_invitations', ctx.auth.orgId, {
-					status: 'pending'
-				}),
-				ctx.store.findMany<Record<string, unknown>>('groups', ctx.auth.orgId, undefined, {
-					orderBy: [{ column: 'sort_order', ascending: true }]
-				}),
-				ctx.rawStore.findOne<OrganizationSettingsRow>(
-					'organizations',
-					ctx.auth.orgId,
-					{},
-					'archive_retention_months, loss_warning_window_days, critical_tasks_default_expiration_months, critical_tasks_expiring_soon_warning_days'
-				),
+			const [workspace, archivedPersonnelRows, approvalRequests, auditLog] = await Promise.all([
+				loadOrganizationSettingsWorkspace(ctx, { isAdmin: Boolean(isAdmin) }),
 				ctx.store.findMany<Record<string, unknown>>('personnel', ctx.auth.orgId, undefined, {
 					select: PersonnelEntity.select,
 					isNull: { archived_at: false },
@@ -80,9 +58,6 @@ export const load: PageServerLoad = async ({ locals, cookies, parent }) => {
 				}),
 				fetchAuditLogPreview(ctx, adminStore, { limit: 9 })
 			]);
-
-			const members = membershipRows.map(buildSettingsMemberAccessRow);
-			const invitations = invitationRows.map(buildSettingsInvitationAccessRow);
 
 			let exportInfo: { exportsUsed: number; exportsLimit: number; isLimited: boolean } = {
 				exportsUsed: 0,
@@ -103,7 +78,6 @@ export const load: PageServerLoad = async ({ locals, cookies, parent }) => {
 				};
 			}
 
-			const retentionMonths = organizationSettings?.archive_retention_months ?? 36;
 			const archivedPersonnel = PersonnelEntity.fromDbArray(archivedPersonnelRows).map((p) => ({
 				id: p.id,
 				rank: p.rank,
@@ -114,7 +88,11 @@ export const load: PageServerLoad = async ({ locals, cookies, parent }) => {
 				archivedAt: p.archivedAt as string,
 				groupId: p.groupId
 			}));
-			const pendingApprovalsCount = approvalRequests.filter((request) => request.status === 'pending').length;
+			const pendingApprovalSummary = buildPendingApprovalSummary(approvalRequests);
+			const workspaceWithApprovalSummary = withOrganizationSettingsPendingApprovalSummary(
+				workspace,
+				pendingApprovalSummary
+			);
 
 			return {
 				orgId,
@@ -124,24 +102,11 @@ export const load: PageServerLoad = async ({ locals, cookies, parent }) => {
 				effectiveTier,
 				permissions,
 				allOrgs,
-				members,
-				invitations,
-				isOwner: userRole === 'owner',
-				isAdmin,
-				canManageMembers: userRole === 'owner' || userRole === 'admin',
-				groups: GroupEntity.fromDbArray(groupRows).map((g) => ({ id: g.id, name: g.name })),
+				workspace: workspaceWithApprovalSummary,
 				exportInfo,
-				policies: {
-					retentionMonths,
-					lossWarningWindowDays: organizationSettings?.loss_warning_window_days ?? 180,
-					criticalTasksSettings: normalizeCriticalTasksSettings({
-						defaultExpirationMonths: organizationSettings?.critical_tasks_default_expiration_months ?? null,
-						expiringSoonWarningDays: organizationSettings?.critical_tasks_expiring_soon_warning_days ?? null
-					})
-				},
 				archivedPersonnel,
 				approvalRequests,
-				pendingApprovalsCount,
+				pendingApprovalsCount: pendingApprovalSummary.count,
 				auditLog
 			};
 		}

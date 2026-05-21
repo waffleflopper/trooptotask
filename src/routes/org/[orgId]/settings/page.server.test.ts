@@ -155,7 +155,12 @@ describe('org settings page server actions', () => {
 								}
 							];
 						}
-						if (table === 'organization_invitations') return [{ id: 'invite-1', email: 'new@example.com' }];
+						if (table === 'organization_invitations') {
+							return [
+								{ id: 'invite-1', email: 'new@example.com' },
+								{ id: 'invite-2', email: 'other@example.com' }
+							];
+						}
 						if (table === 'groups') return [{ id: 'group-1', name: 'HQ', organization_id: 'org-1' }];
 						if (table === 'personnel') {
 							return [
@@ -172,7 +177,12 @@ describe('org settings page server actions', () => {
 								}
 							];
 						}
-						if (table === 'deletion_requests') return [{ id: 'request-1', status: 'pending' }];
+						if (table === 'deletion_requests') {
+							return [
+								{ id: 'request-1', status: 'approved', created_at: '2026-04-30T12:00:00Z' },
+								{ id: 'request-2', status: 'pending', created_at: '2026-05-01T12:00:00Z' }
+							];
+						}
 						return [];
 					})
 				},
@@ -248,19 +258,37 @@ describe('org settings page server actions', () => {
 				giftExpiresAt: null,
 				giftTier: null
 			},
-			members: [{ email: 'owner@example.com' }],
-			invitations: [{ id: 'invite-1' }],
-			groups: [{ id: 'group-1', name: 'HQ' }],
-			policies: {
-				retentionMonths: 42,
-				lossWarningWindowDays: 150,
-				criticalTasksSettings: {
-					defaultExpirationMonths: 18,
-					expiringSoonWarningDays: 45
+			workspace: {
+				currentMember: {
+					role: 'owner',
+					isOwner: true,
+					canManageMembers: true
+				},
+				sections: {
+					members: {
+						rows: [{ email: 'owner@example.com' }],
+						invitations: [expect.objectContaining({ id: 'invite-1' }), expect.objectContaining({ id: 'invite-2' })],
+						groups: [{ id: 'group-1', name: 'HQ' }],
+						pendingApprovalSummary: {
+							count: 1,
+							oldestCreatedAt: '2026-05-01T12:00:00Z'
+						}
+					},
+					policies: {
+						archiveRetention: { savedMonths: 42 },
+						lossWarning: { savedDays: 150 },
+						criticalTasks: {
+							savedDefaultExpirationMonths: 18,
+							savedExpiringSoonWarningDays: 45
+						}
+					}
 				}
 			},
 			archivedPersonnel: [{ id: 'person-1' }],
-			approvalRequests: [{ id: 'request-1', status: 'pending' }],
+			approvalRequests: [
+				{ id: 'request-1', status: 'approved' },
+				{ id: 'request-2', status: 'pending' }
+			],
 			pendingApprovalsCount: 1,
 			auditLog: {
 				totalCount: 1,
@@ -328,7 +356,36 @@ describe('org settings page server actions', () => {
 		});
 	});
 
-	it('keeps member-management hints tied to governance role instead of legacy access flags', async () => {
+	it('derives member-management hints from the authorized route context', async () => {
+		loadWithContextMock.mockImplementationOnce(async (_locals, _cookies, _orgId, config) =>
+			config.fn({
+				auth: { orgId: 'org-1', role: 'admin' },
+				audit: { log: vi.fn() },
+				store: {
+					findMany: vi.fn(async (table: string) => {
+						if (table === 'organization_memberships') return [];
+						if (table === 'organization_invitations') return [];
+						if (table === 'groups') return [];
+						if (table === 'personnel') return [];
+						if (table === 'deletion_requests') return [];
+						return [];
+					})
+				},
+				rawStore: {
+					findOne: vi.fn(async () => ({
+						archive_retention_months: 42,
+						loss_warning_window_days: 150,
+						critical_tasks_default_expiration_months: 18,
+						critical_tasks_expiring_soon_warning_days: 45
+					}))
+				},
+				subscription: {
+					getEffectiveTier: vi.fn(async () => ({ tier: 'free' })),
+					getMonthlyExportCount: vi.fn(async () => 0)
+				}
+			})
+		);
+
 		const result = await load({
 			params: { orgId: 'org-1' },
 			locals: {},
@@ -349,11 +406,14 @@ describe('org settings page server actions', () => {
 					giftExpiresAt: null,
 					giftTier: null
 				},
-				permissions: { canManageMembers: true }
+				permissions: { canManageMembers: false }
 			})
 		} as never);
 
-		expect(result).toMatchObject({ canManageMembers: false });
+		expect(result).toMatchObject({ workspace: { currentMember: { role: 'admin', canManageMembers: true } } });
+		expect(
+			(result as Awaited<ReturnType<typeof load>> & { workspace: { currentMember: object } }).workspace.currentMember
+		).not.toMatchObject({ canManageMembers: false });
 	});
 
 	it('returns a name-specific success flag for organization rename', async () => {

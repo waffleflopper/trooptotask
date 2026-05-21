@@ -593,11 +593,7 @@
 																onValueChange={(value) =>
 																	memberAccess.setMemberCapability(member.id, lane.id, value as typeof capabilityValue)}
 															>
-																<Select.Trigger
-																	aria-labelledby="capability-{member.id}-{lane.id}"
-																	aria-label="{lane.label} access for {member.email ?? 'member'}"
-																	class="w-full"
-																>
+																<Select.Trigger aria-labelledby="capability-{member.id}-{lane.id}" class="w-full">
 																	{getCapabilityLabel(capabilityValue)}
 																</Select.Trigger>
 																<Select.Content>
@@ -901,7 +897,9 @@
 			</AppDialog.Body>
 
 			<AppDialog.Footer>
-				<Button type="button" variant="outline" onclick={closeDeleteOrganizationDialog}>Cancel</Button>
+				<Button type="button" variant="outline" disabled={loading} onclick={closeDeleteOrganizationDialog}
+					>Cancel</Button
+				>
 				<Button
 					type="submit"
 					form="delete-org-form"
@@ -969,8 +967,11 @@
 			</AppDialog.Body>
 
 			<AppDialog.Footer>
-				<Button type="button" variant="outline" onclick={() => settingsState.dangerZone.closeTransferConfirmation()}
-					>Cancel</Button
+				<Button
+					type="button"
+					variant="outline"
+					disabled={loading}
+					onclick={() => settingsState.dangerZone.closeTransferConfirmation()}>Cancel</Button
 				>
 				<Button
 					type="submit"

@@ -46,7 +46,7 @@
 			</Badge>
 		</div>
 
-		<div class="rounded-md border" role="region" aria-label="Archived personnel records">
+		<div class="overflow-x-auto rounded-md border" role="region" aria-label="Archived personnel records">
 			<Table.Root>
 				<Table.Header>
 					<Table.Row>

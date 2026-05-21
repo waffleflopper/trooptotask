@@ -67,18 +67,16 @@
 			Activity
 		</Button>
 	{:else}
-		<div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-			<Tabs.Root bind:value={activityTab}>
+		<Tabs.Root bind:value={activityTab} class="grid gap-4">
+			<div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
 				<Tabs.List>
 					<Tabs.Trigger value="approvals">Approvals {pendingApprovalsCount}</Tabs.Trigger>
 					<Tabs.Trigger value="audit">Audit Log</Tabs.Trigger>
 				</Tabs.List>
-			</Tabs.Root>
-			<Button type="button" variant="outline" size="sm" aria-label="Collapse" onclick={() => (collapsed = true)}>
-				Hide
-			</Button>
-		</div>
-		<Tabs.Root bind:value={activityTab} class="grid gap-4">
+				<Button type="button" variant="outline" size="sm" aria-label="Collapse" onclick={() => (collapsed = true)}>
+					Hide
+				</Button>
+			</div>
 			<Tabs.Content value="approvals" class="grid gap-3">
 				<div class="grid gap-3" aria-label="Pending approval requests">
 					{#each visibleApprovals as request (request.id)}

@@ -353,8 +353,8 @@ describe('org settings page', () => {
 
 		await fireEvent.click(screen.getAllByRole('button', { name: /Manage Access/ }).at(-1)!);
 		const accessPreset = screen.getAllByRole('button', { name: /Access level/ })[0];
-		const calendarCapability = screen.getByLabelText('Calendar access for member-b@example.com');
 		const editorForm = accessPreset.closest('form')!;
+		const calendarCapability = within(editorForm).getByRole('button', { name: 'Calendar' });
 
 		expect(accessPreset.textContent).toContain('Editor');
 		expect((editorForm.querySelector('input[name="preset"]') as HTMLInputElement).value).toBe('editor');
@@ -497,7 +497,10 @@ describe('org settings page', () => {
 		expect(screen.getByText('Hand the Owner role to another member. You will become Admin.')).toBeTruthy();
 		expect(screen.getByRole('button', { name: /Purge Archived/ }).hasAttribute('disabled')).toBe(true);
 
-		await fireEvent.change(screen.getByLabelText('Transfer ownership'), { target: { value: 'user-member-2' } });
+		await fireEvent.pointerDown(screen.getByRole('button', { name: 'Transfer ownership' }));
+		const adminOption = await screen.findByRole('option', { name: 'admin@example.com' });
+		await fireEvent.pointerDown(adminOption);
+		await fireEvent.pointerUp(adminOption);
 		await fireEvent.click(screen.getByRole('button', { name: 'Transfer Ownership' }));
 		const transferDialog = screen.getByRole('dialog', { name: 'Transfer Ownership' });
 		expect(within(transferDialog).getByText(/Transfer owner authority to admin@example.com/)).toBeTruthy();

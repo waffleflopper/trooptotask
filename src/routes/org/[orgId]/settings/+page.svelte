@@ -102,7 +102,7 @@
 		},
 		{
 			label: 'Pending approvals',
-			value: String(dataExportSection.activity.pendingApprovalsCount),
+			value: String(membersSection.pendingApprovalSummary.count),
 			detail: membersSection.pendingApprovalSummary.oldestCreatedAt
 				? `Oldest ${formatRelativeDate(membersSection.pendingApprovalSummary.oldestCreatedAt)}`
 				: 'No pending requests',

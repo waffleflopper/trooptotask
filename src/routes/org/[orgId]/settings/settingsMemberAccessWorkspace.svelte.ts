@@ -88,7 +88,8 @@ export class SettingsMemberAccessWorkspace {
 		return this.#data.groups.find((group) => group.id === groupId)?.name ?? 'Unknown group';
 	}
 
-	getInvitePreset(invite: SettingsInvitationAccessRow): MemberPreset {
+	getInvitePreset(invite: SettingsInvitationAccessRow): MemberAccessBadge {
+		if (invite.membershipRole === 'admin') return 'admin';
 		return invite.access.memberPreset;
 	}
 

@@ -3,7 +3,6 @@ import {
 	DURABLE_FEATURE_LANES,
 	TARGET_MEMBER_PRESET_CAPABILITIES,
 	type CapabilityLevel,
-	type DurableFeatureLane,
 	type MembershipRole,
 	type StoredMemberPreset
 } from '$lib/access/memberAccessShape';
@@ -34,6 +33,7 @@ import type {
 	SettingsExportInfo
 } from './organizationSettingsWorkspaceModel';
 import {
+	ACCESS_LANE_LABELS,
 	SETTINGS_ACCESS_LANES,
 	SETTINGS_ACCESS_OPTIONS,
 	SETTINGS_CAPABILITY_OPTIONS
@@ -83,15 +83,6 @@ export type SettingsArchivedPersonnelSourceRow = Pick<
 	SettingsArchivedPersonnelRow,
 	'id' | 'rank' | 'firstName' | 'lastName' | 'mos' | 'groupName' | 'archivedAt' | 'groupId'
 >;
-
-const ACCESS_LANE_LABELS: Record<DurableFeatureLane, string> = {
-	calendar: 'Calendar',
-	personnel: 'Personnel',
-	training: 'Training',
-	criticalTasks: 'Critical Tasks',
-	onboarding: 'Onboarding',
-	ratingScheme: 'Rating Scheme'
-};
 
 export async function loadOrganizationSettingsWorkspace(
 	ctx: Pick<UseCaseContext, 'auth' | 'store' | 'rawStore'>,
@@ -317,7 +308,7 @@ function shapeInvitationRow(
 ): SettingsInvitationRow {
 	return {
 		...invitation,
-		accessBadge: invitation.access.memberPreset,
+		accessBadge: invitation.membershipRole === 'admin' ? 'admin' : invitation.access.memberPreset,
 		scopeDisplayLabel: formatScopeSet(invitation.access.scopeSet, groups)
 	};
 }

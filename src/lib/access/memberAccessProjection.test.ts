@@ -185,6 +185,28 @@ describe('member access projection', () => {
 		expect(projection.permissions.canManageMembers).toBe(true);
 	});
 
+	it('infers admin invitation access when nullable rating-scheme flags inherit personnel access', () => {
+		const projection = projectEffectiveInvitationAccess({
+			can_view_calendar: true,
+			can_edit_calendar: true,
+			can_view_personnel: true,
+			can_edit_personnel: true,
+			can_view_training: true,
+			can_edit_training: true,
+			can_view_critical_tasks: true,
+			can_edit_critical_tasks: true,
+			can_view_onboarding: true,
+			can_edit_onboarding: true,
+			can_view_rating_scheme: null,
+			can_edit_rating_scheme: null,
+			can_manage_members: true
+		});
+
+		expect(projection.role).toBe('admin');
+		expect(projection.permissions.canViewRatingScheme).toBe(true);
+		expect(projection.permissions.canEditRatingScheme).toBe(true);
+	});
+
 	it('does not infer admin invitation access from nullable compatibility flags', () => {
 		const projection = projectEffectiveInvitationAccess({
 			can_view_calendar: null,

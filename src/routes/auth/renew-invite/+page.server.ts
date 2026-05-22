@@ -33,7 +33,7 @@ export const actions: Actions = {
 			return fail(400, { error: 'Enter a valid email address', email });
 		}
 
-		const rateLimit = checkAccountSetupRenewalRateLimit({
+		const rateLimit = await checkAccountSetupRenewalRateLimit({
 			email,
 			ip: getClientAddress()
 		});

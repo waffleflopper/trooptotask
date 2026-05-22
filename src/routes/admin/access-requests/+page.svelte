@@ -43,6 +43,14 @@
 
 		return `Delivery ${req.setup_delivery_status}${outboxReference}, ${req.setup_delivery_attempt_count} ${attemptLabel}`;
 	}
+
+	function setupRevocationSummary(req: PageData['reviewed'][number]): string {
+		const reason = req.setup_link_revocation_reason;
+		const action = reason === 'replaced' ? 'replaced' : 'revoked';
+		const reasonLabel = reason ? ` (${reason})` : '';
+
+		return `Latest known setup link ${action}${reasonLabel} ${formatDisplayDateTime(req.setup_link_replaced_at)}`;
+	}
 </script>
 
 <svelte:head>
@@ -204,7 +212,7 @@
 											<p>Current setup link expires {formatDisplayDateTime(req.setup_link_expires_at)}</p>
 										{/if}
 										{#if req.setup_link_replaced_at}
-											<p>Latest known setup link replaced {formatDisplayDateTime(req.setup_link_replaced_at)}</p>
+											<p>{setupRevocationSummary(req)}</p>
 										{:else if req.has_replaced_setup_link}
 											<p>Older setup links have been replaced.</p>
 										{/if}

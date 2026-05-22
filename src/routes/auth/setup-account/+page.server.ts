@@ -196,7 +196,7 @@ export const actions: Actions = {
 		const adminClient = getAdminClient();
 		const store = createSupabaseAccountSetupCompletionStore(adminClient);
 		const accessRequest = await store.getAccessRequest(setupSession.accessRequestId);
-		const rateLimit = checkAccountSetupCompletionRateLimit({
+		const rateLimit = await checkAccountSetupCompletionRateLimit({
 			setupLinkId: setupSession.setupLinkId,
 			accessRequestId: setupSession.accessRequestId,
 			email: accessRequest?.email ?? null,

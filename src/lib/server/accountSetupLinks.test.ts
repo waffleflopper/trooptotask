@@ -10,6 +10,7 @@ function makeStore(accessRequests: AccountSetupLinkAccessRequest[] = []): Accoun
 	links: AccountSetupLinkRecord[];
 	deletedAccessRequestIds: string[];
 	deletedUserAccountIds: string[];
+	failInsertUnique?: boolean;
 } {
 	const requests = new Map(accessRequests.map((request) => [request.id, request]));
 	const links: AccountSetupLinkRecord[] = [];
@@ -32,6 +33,12 @@ function makeStore(accessRequests: AccountSetupLinkAccessRequest[] = []): Accoun
 			}
 		},
 		async insertSetupLink(input) {
+			if (this.failInsertUnique) {
+				throw {
+					code: '23505',
+					message: 'duplicate key value violates unique constraint "account_setup_links_one_active_per_request_idx"'
+				};
+			}
 			const link: AccountSetupLinkRecord = {
 				id: `link-${links.length + 1}`,
 				accessRequestId: input.accessRequestId,
@@ -151,6 +158,18 @@ describe('Account Setup Links', () => {
 		expect(store.links[0].revokedAt).toEqual(new Date('2026-05-19T12:00:00.000Z'));
 		expect(store.links[0].revocationReason).toBe('replaced');
 		expect(store.links[1].revokedAt).toBeNull();
+	});
+
+	it('returns a supportable concurrent-create state when another request wins active-link creation', async () => {
+		const store = makeStore([approvedRequest]);
+		store.failInsertUnique = true;
+		const service = createAccountSetupLinkService(store, {
+			now: () => new Date('2026-05-18T12:00:00.000Z'),
+			generateToken: () => 'setup-token'
+		});
+
+		await expect(service.createForAccessRequest('request-1')).resolves.toEqual({ status: 'concurrent-create' });
+		expect(store.links).toEqual([]);
 	});
 
 	it('does not revoke claimed in-flight links when creating a fresh link', async () => {

@@ -226,6 +226,28 @@ describe('admin access request account setup delivery', () => {
 				auth_email_outbox: [makeOutbox({ setup_link_id: 'link-replaced' })]
 			}),
 			makeAccessRequestRow({
+				id: 'manual-revoked',
+				account_setup_links: [
+					makeSetupLink({
+						id: 'link-manual-revoked',
+						revoked_at: '2026-05-19T12:00:00.000Z',
+						revocation_reason: 'manual'
+					})
+				],
+				auth_email_outbox: [makeOutbox({ setup_link_id: 'link-manual-revoked' })]
+			}),
+			makeAccessRequestRow({
+				id: 'cleanup-revoked',
+				account_setup_links: [
+					makeSetupLink({
+						id: 'link-cleanup-revoked',
+						revoked_at: '2026-05-19T12:00:00.000Z',
+						revocation_reason: 'cleanup'
+					})
+				],
+				auth_email_outbox: [makeOutbox({ setup_link_id: 'link-cleanup-revoked' })]
+			}),
+			makeAccessRequestRow({
 				id: 'claimed',
 				account_setup_links: [makeSetupLink({ id: 'link-claimed', claimed_at: '2026-05-19T12:00:00.000Z' })],
 				auth_email_outbox: [makeOutbox({ setup_link_id: 'link-claimed' })]
@@ -270,6 +292,8 @@ describe('admin access request account setup delivery', () => {
 			expired: 'expired',
 			'expired-delivery-failed': 'expired',
 			replaced: 'replaced',
+			'manual-revoked': 'replaced',
+			'cleanup-revoked': 'replaced',
 			claimed: 'claimed',
 			failed: 'failed',
 			completed: 'completed'
@@ -282,6 +306,23 @@ describe('admin access request account setup delivery', () => {
 		expect(reviewedById['delivery-failed']).toMatchObject({
 			setup_delivery_id: 'outbox-delivery-failed',
 			setup_delivery_last_error: 'mail provider unavailable'
+		});
+		expect(reviewedById.replaced).toMatchObject({
+			setup_state_label: 'Replaced',
+			setup_state_detail: 'The latest known setup link was replaced by a newer setup email.',
+			setup_link_revocation_reason: 'replaced'
+		});
+		expect(reviewedById['manual-revoked']).toMatchObject({
+			setup_state_label: 'Revoked manually',
+			setup_state_detail:
+				'The latest known setup link was manually revoked. Send a fresh setup link if setup is still needed.',
+			setup_link_revocation_reason: 'manual'
+		});
+		expect(reviewedById['cleanup-revoked']).toMatchObject({
+			setup_state_label: 'Revoked by cleanup',
+			setup_state_detail:
+				'The latest known setup link was revoked by cleanup after it expired. Send a fresh setup link if setup is still needed.',
+			setup_link_revocation_reason: 'cleanup'
 		});
 		expect(JSON.stringify(result)).not.toContain('token=');
 		expect(JSON.stringify(result)).not.toContain('/auth/setup-account');
@@ -384,6 +425,38 @@ describe('admin access request account setup delivery', () => {
 			'access_request.approved',
 			'access_request.account_setup_link_delivery_failed'
 		]);
+	});
+
+	it('returns a conflict when another setup-link creation wins during approval', async () => {
+		const accessRequest = {
+			id: 'request-1',
+			email: 'Soldier@Example.mil',
+			status: 'pending'
+		};
+		const selectAccessRequest = makeSelectAccessRequest(accessRequest);
+		const updateAccessRequest = makeUpdateAccessRequest();
+		const adminClient = makeAdminClient({
+			select: selectAccessRequest.select,
+			update: updateAccessRequest.update
+		});
+		createServiceMock.mockReturnValue({
+			createForAccessRequest: vi.fn().mockResolvedValue({ status: 'concurrent-create' })
+		});
+
+		const result = await actions.approve({
+			__ctx: makeContext(adminClient),
+			request: makeRequest({ requestId: 'request-1' }),
+			url: new URL('http://localhost/admin/access-requests')
+		} as unknown as Parameters<(typeof actions)['approve']>[0]);
+
+		expect(result).toMatchObject({
+			status: 409,
+			data: {
+				error:
+					'Another setup link is being created for this request. Refresh and try again if a fresh link does not appear.'
+			}
+		});
+		expect(sendOutboxDeliveryMock).not.toHaveBeenCalled();
 	});
 
 	it('uses the public app origin for setup links created from the production admin host', async () => {

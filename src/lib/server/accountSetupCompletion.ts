@@ -106,6 +106,11 @@ export function createAccountSetupCompletionService(store: AccountSetupCompletio
 			return { status: 'access-request-completed' };
 		}
 
+		if (accessRequest.status !== 'approved') {
+			await markClaimFailedSafely(setupLinks, input.claim.link.id, 'access-request-not-approved');
+			return { status: 'access-request-not-approved' };
+		}
+
 		const email = normalizeEmail(accessRequest.email);
 		let userId: string;
 		try {

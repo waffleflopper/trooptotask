@@ -16,11 +16,7 @@ interface AccountSetupSessionPayload extends AccountSetupSession {
 }
 
 function getSessionSecret(): string {
-	const secret =
-		env.ACCOUNT_SETUP_SESSION_SECRET ??
-		process.env.ACCOUNT_SETUP_SESSION_SECRET ??
-		env.SUPABASE_SERVICE_ROLE_KEY ??
-		process.env.SUPABASE_SERVICE_ROLE_KEY;
+	const secret = env.ACCOUNT_SETUP_SESSION_SECRET ?? process.env.ACCOUNT_SETUP_SESSION_SECRET;
 
 	if (secret) return secret;
 	if (import.meta.env.DEV) return 'dev-account-setup-session-secret';

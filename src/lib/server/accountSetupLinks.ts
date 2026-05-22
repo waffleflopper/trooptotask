@@ -12,6 +12,7 @@ export type AccountSetupLinkRevocationReason = 'manual' | 'replaced' | 'cleanup'
 export type AccountSetupLinkFailureReason =
 	| 'access-request-missing'
 	| 'access-request-completed'
+	| 'access-request-not-approved'
 	| 'account-create-failed'
 	| 'completion-tracking-failed';
 
@@ -111,7 +112,8 @@ export type CreateAccountSetupLinkResult =
 	  }
 	| { status: 'access-request-missing' }
 	| { status: 'access-request-not-approved' }
-	| { status: 'access-request-completed' };
+	| { status: 'access-request-completed' }
+	| { status: 'concurrent-create' };
 
 export type ValidateAccountSetupLinkResult =
 	| { status: 'valid'; accessRequestId: string; link: AccountSetupLinkRecord }
@@ -198,6 +200,19 @@ function throwSupabaseError(error: unknown): asserts error is null | undefined {
 	if (error) {
 		throw error;
 	}
+}
+
+function isUniqueConstraintError(error: unknown): boolean {
+	if (!error || typeof error !== 'object') {
+		return false;
+	}
+
+	const candidate = error as { code?: unknown; message?: unknown };
+	return (
+		candidate.code === '23505' ||
+		(typeof candidate.message === 'string' &&
+			candidate.message.includes('account_setup_links_one_active_per_request_idx'))
+	);
 }
 
 function getValidationStatus(link: AccountSetupLinkRecord | null, now: Date): ValidateAccountSetupLinkResult {
@@ -370,13 +385,21 @@ export function createAccountSetupLinkService(
 			const tokenHash = hashSetupToken(rawToken);
 			const expiresAt = addUtcDays(createdAt, ACCOUNT_SETUP_LINK_EXPIRY_DAYS);
 
-			await store.revokeUnusedLinksForAccessRequest(accessRequestId, createdAt);
-			const link = await store.insertSetupLink({
-				accessRequestId,
-				tokenHash,
-				expiresAt,
-				createdAt
-			});
+			let link: AccountSetupLinkRecord;
+			try {
+				await store.revokeUnusedLinksForAccessRequest(accessRequestId, createdAt);
+				link = await store.insertSetupLink({
+					accessRequestId,
+					tokenHash,
+					expiresAt,
+					createdAt
+				});
+			} catch (error) {
+				if (isUniqueConstraintError(error)) {
+					return { status: 'concurrent-create' };
+				}
+				throw error;
+			}
 
 			return {
 				status: 'created',

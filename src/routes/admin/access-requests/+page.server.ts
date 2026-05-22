@@ -79,6 +79,7 @@ interface AccessRequestItem {
 	setup_link_failed_at: string | null;
 	setup_link_failure_reason: AccountSetupLinkFailureReason | null;
 	setup_link_replaced_at: string | null;
+	setup_link_revocation_reason: AccountSetupLinkRevocationReason | null;
 	has_replaced_setup_link: boolean;
 	setup_delivery_id: string | null;
 	setup_delivery_status: AuthEmailOutboxStatus | null;
@@ -109,6 +110,31 @@ function normalizeOutboxRows(rows: AccessRequestRow['auth_email_outbox']): Acces
 	if (!rows) return [];
 	const normalized = Array.isArray(rows) ? rows : [rows];
 	return normalized.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+}
+
+function getRevokedSetupState(link: AccessRequestSetupLink): {
+	label: string;
+	detail: string;
+} {
+	switch (link.revocation_reason) {
+		case 'manual':
+			return {
+				label: 'Revoked manually',
+				detail: 'The latest known setup link was manually revoked. Send a fresh setup link if setup is still needed.'
+			};
+		case 'cleanup':
+			return {
+				label: 'Revoked by cleanup',
+				detail:
+					'The latest known setup link was revoked by cleanup after it expired. Send a fresh setup link if setup is still needed.'
+			};
+		case 'replaced':
+		default:
+			return {
+				label: 'Replaced',
+				detail: 'The latest known setup link was replaced by a newer setup email.'
+			};
+	}
 }
 
 function resolveSetupState(
@@ -142,7 +168,8 @@ function resolveSetupState(
 		setup_link_claimed_at: latestLink?.claimed_at ?? null,
 		setup_link_failed_at: latestLink?.failed_at ?? null,
 		setup_link_failure_reason: latestLink?.failure_reason ?? null,
-		setup_link_replaced_at: latestLink?.revoked_at ?? null
+		setup_link_replaced_at: latestLink?.revoked_at ?? null,
+		setup_link_revocation_reason: latestLink?.revocation_reason ?? null
 	};
 	const deliveryFields = {
 		setup_delivery_id: latestDelivery?.id ?? null,
@@ -206,11 +233,11 @@ function resolveSetupState(
 	}
 
 	if (latestLink.revoked_at) {
+		const revokedState = getRevokedSetupState(latestLink);
 		return {
 			setup_state: 'replaced',
-			setup_state_label: 'Replaced',
-			setup_state_detail:
-				'The latest known setup link was revoked or replaced. Send a fresh setup link if setup is still needed.',
+			setup_state_label: revokedState.label,
+			setup_state_detail: revokedState.detail,
 			setup_completed_at_display: null,
 			has_replaced_setup_link: true,
 			...linkFields,
@@ -280,6 +307,11 @@ function mapSetupLinkResultToFailure(result: CreateAccountSetupLinkResult) {
 		case 'access-request-completed':
 			return fail(400, {
 				error: 'This user has already completed account setup. They can sign in or use reset password if needed.'
+			});
+		case 'concurrent-create':
+			return fail(409, {
+				error:
+					'Another setup link is being created for this request. Refresh and try again if a fresh link does not appear.'
 			});
 		case 'created':
 			return null;

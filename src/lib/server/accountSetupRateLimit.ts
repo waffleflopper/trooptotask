@@ -1,8 +1,10 @@
 import { createHash } from 'node:crypto';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { getAdminClient } from '$lib/server/supabase';
 
-interface RateLimitBucket {
-	count: number;
-	resetAt: number;
+interface AccountSetupRateLimitRpcRow {
+	limited: boolean;
+	retry_after_ms: number;
 }
 
 export const ACCOUNT_SETUP_RENEWAL_RATE_LIMIT_MESSAGE =
@@ -15,14 +17,13 @@ const RENEWAL_MAX_REQUESTS = 3;
 const SETUP_ATTEMPT_WINDOW_MS = 15 * 60 * 1000;
 const SETUP_ATTEMPT_MAX_REQUESTS = 5;
 
-const buckets = new Map<string, RateLimitBucket>();
-
-function sweepExpiredBuckets(nowMs: number): void {
-	for (const [key, bucket] of buckets.entries()) {
-		if (nowMs > bucket.resetAt) {
-			buckets.delete(key);
-		}
-	}
+export interface AccountSetupRateLimitStore {
+	checkBucket(input: {
+		key: string;
+		windowMs: number;
+		maxRequests: number;
+		now: Date;
+	}): Promise<{ limited: false } | { limited: true; retryAfterMs: number }>;
 }
 
 function normalizeEmail(email: string): string {
@@ -33,37 +34,49 @@ function hashDimension(value: string): string {
 	return createHash('sha256').update(value).digest('hex');
 }
 
-function checkBucket(
-	key: string,
-	windowMs: number,
-	maxRequests: number,
-	nowMs: number
-): { limited: false } | { limited: true; retryAfterMs: number } {
-	const existing = buckets.get(key);
-	if (!existing || nowMs > existing.resetAt) {
-		buckets.set(key, { count: 1, resetAt: nowMs + windowMs });
-		return { limited: false };
-	}
+export function createSupabaseAccountSetupRateLimitStore(
+	supabase: SupabaseClient = getAdminClient()
+): AccountSetupRateLimitStore {
+	return {
+		async checkBucket(input) {
+			const { data, error } = (await supabase.rpc('check_account_setup_rate_limit', {
+				p_bucket_key: input.key,
+				p_window_seconds: Math.ceil(input.windowMs / 1000),
+				p_max_requests: input.maxRequests,
+				p_checked_at: input.now.toISOString()
+			})) as unknown as {
+				data: AccountSetupRateLimitRpcRow[] | AccountSetupRateLimitRpcRow | null;
+				error: unknown;
+			};
 
-	existing.count += 1;
-	if (existing.count > maxRequests) {
-		return { limited: true, retryAfterMs: existing.resetAt - nowMs };
-	}
+			if (error) {
+				throw error;
+			}
 
-	return { limited: false };
+			const row = Array.isArray(data) ? data[0] : data;
+			if (!row) {
+				throw new Error('Account setup rate limit check returned no result');
+			}
+
+			if (row.limited) {
+				return { limited: true, retryAfterMs: row.retry_after_ms };
+			}
+
+			return { limited: false };
+		}
+	};
 }
 
-function checkDimensions(
+async function checkDimensions(
 	keys: string[],
 	windowMs: number,
 	maxRequests: number,
-	nowMs: number
-): { limited: false } | { limited: true; retryAfterMs: number } {
-	sweepExpiredBuckets(nowMs);
-
+	now: Date,
+	store: AccountSetupRateLimitStore
+): Promise<{ limited: false } | { limited: true; retryAfterMs: number }> {
 	let retryAfterMs = 0;
 	for (const key of keys) {
-		const result = checkBucket(key, windowMs, maxRequests, nowMs);
+		const result = await store.checkBucket({ key, windowMs, maxRequests, now });
 		if (result.limited) {
 			retryAfterMs = Math.max(retryAfterMs, result.retryAfterMs);
 		}
@@ -80,13 +93,20 @@ export function checkAccountSetupRenewalRateLimit(input: {
 	email: string;
 	ip?: string | null;
 	now?: Date;
-}): { limited: false } | { limited: true; retryAfterMs: number } {
+	store?: AccountSetupRateLimitStore;
+}): Promise<{ limited: false } | { limited: true; retryAfterMs: number }> {
 	const keys = [`account-setup-renewal:email:${hashDimension(normalizeEmail(input.email))}`];
 	if (input.ip) {
 		keys.push(`account-setup-renewal:ip:${hashDimension(input.ip)}`);
 	}
 
-	return checkDimensions(keys, RENEWAL_WINDOW_MS, RENEWAL_MAX_REQUESTS, input.now?.getTime() ?? Date.now());
+	return checkDimensions(
+		keys,
+		RENEWAL_WINDOW_MS,
+		RENEWAL_MAX_REQUESTS,
+		input.now ?? new Date(),
+		input.store ?? createSupabaseAccountSetupRateLimitStore()
+	);
 }
 
 export function checkAccountSetupCompletionRateLimit(input: {
@@ -95,7 +115,8 @@ export function checkAccountSetupCompletionRateLimit(input: {
 	email?: string | null;
 	ip?: string | null;
 	now?: Date;
-}): { limited: false } | { limited: true; retryAfterMs: number } {
+	store?: AccountSetupRateLimitStore;
+}): Promise<{ limited: false } | { limited: true; retryAfterMs: number }> {
 	const keys = [
 		`account-setup-completion:link:${input.setupLinkId}`,
 		`account-setup-completion:request:${input.accessRequestId}`
@@ -107,9 +128,11 @@ export function checkAccountSetupCompletionRateLimit(input: {
 		keys.push(`account-setup-completion:ip:${hashDimension(input.ip)}`);
 	}
 
-	return checkDimensions(keys, SETUP_ATTEMPT_WINDOW_MS, SETUP_ATTEMPT_MAX_REQUESTS, input.now?.getTime() ?? Date.now());
-}
-
-export function resetAccountSetupRateLimits(): void {
-	buckets.clear();
+	return checkDimensions(
+		keys,
+		SETUP_ATTEMPT_WINDOW_MS,
+		SETUP_ATTEMPT_MAX_REQUESTS,
+		input.now ?? new Date(),
+		input.store ?? createSupabaseAccountSetupRateLimitStore()
+	);
 }

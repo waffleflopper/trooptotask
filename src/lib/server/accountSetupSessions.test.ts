@@ -1,3 +1,4 @@
+import { createHmac } from 'node:crypto';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
 	ACCOUNT_SETUP_SESSION_COOKIE,
@@ -23,6 +24,7 @@ function makeCookieJar() {
 describe('Account Setup sessions', () => {
 	beforeEach(() => {
 		process.env.ACCOUNT_SETUP_SESSION_SECRET = 'test-account-setup-session-secret';
+		delete process.env.SUPABASE_SERVICE_ROLE_KEY;
 	});
 
 	it('round-trips a signed setup session through the HTTP-only cookie value', () => {
@@ -85,5 +87,26 @@ describe('Account Setup sessions', () => {
 			jar.values.set(ACCOUNT_SETUP_SESSION_COOKIE, value);
 			expect(readAccountSetupSessionCookie(jar.cookies, new Date('2026-05-18T12:01:00.000Z'))).toBeNull();
 		}
+	});
+
+	it('does not accept Supabase service role key as a setup session signing fallback', () => {
+		delete process.env.ACCOUNT_SETUP_SESSION_SECRET;
+		process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role-key-must-not-sign-setup-sessions';
+		const jar = makeCookieJar();
+		const payload = Buffer.from(
+			JSON.stringify({
+				version: 1,
+				setupLinkId: 'link-1',
+				accessRequestId: 'request-1',
+				expiresAt: new Date('2026-05-18T12:10:00.000Z').getTime()
+			}),
+			'utf8'
+		).toString('base64url');
+		const serviceRoleSignature = createHmac('sha256', process.env.SUPABASE_SERVICE_ROLE_KEY)
+			.update(payload)
+			.digest('base64url');
+		jar.values.set(ACCOUNT_SETUP_SESSION_COOKIE, `${payload}.${serviceRoleSignature}`);
+
+		expect(readAccountSetupSessionCookie(jar.cookies, new Date('2026-05-18T12:01:00.000Z'))).toBeNull();
 	});
 });

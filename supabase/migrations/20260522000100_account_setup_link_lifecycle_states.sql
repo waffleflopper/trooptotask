@@ -45,10 +45,11 @@ ALTER TABLE "public"."account_setup_links"
 			AND (
 				"failure_reason" = ANY (
 					ARRAY[
-						'access-request-missing'::text,
-						'access-request-completed'::text,
-						'account-create-failed'::text,
-						'completion-tracking-failed'::text
+							'access-request-missing'::text,
+							'access-request-completed'::text,
+							'access-request-not-approved'::text,
+							'account-create-failed'::text,
+							'completion-tracking-failed'::text
 					]
 				)
 			)

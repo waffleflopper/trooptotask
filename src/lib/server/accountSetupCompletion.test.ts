@@ -240,6 +240,26 @@ describe('Account Setup completion', () => {
 		expect(store.links[0].usedAt).toBeNull();
 	});
 
+	it('marks the claimed setup link failed when approval is withdrawn after claim starts', async () => {
+		const request = { ...approvedRequest };
+		const store = makeStore(request);
+		store.onClaim = () => {
+			request.status = 'rejected';
+		};
+		await addSetupToken(store);
+		const auth = makeAuth();
+		const service = createAccountSetupCompletionService(store, auth);
+
+		const result = await service.complete({ rawToken: 'setup-token', password: 'ValidPassword123!' });
+
+		expect(result).toEqual({ status: 'access-request-not-approved' });
+		expect(store.links[0].claimedAt).toBeInstanceOf(Date);
+		expect(store.links[0].failedAt).toBeInstanceOf(Date);
+		expect(store.links[0].failureReason).toBe('access-request-not-approved');
+		expect(auth.createOrActivateConfirmedUser).not.toHaveBeenCalled();
+		expect(store.completions).toEqual([]);
+	});
+
 	it('preserves the original account creation failure response when failure-state tracking also fails', async () => {
 		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
 		const store = makeStore(approvedRequest);

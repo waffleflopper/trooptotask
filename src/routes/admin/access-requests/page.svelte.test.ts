@@ -39,6 +39,7 @@ function makeReviewedRequest(overrides: Partial<ReviewedRequest>): ReviewedReque
 		setup_link_failed_at: null,
 		setup_link_failure_reason: null,
 		setup_link_replaced_at: null,
+		setup_link_revocation_reason: null,
 		has_replaced_setup_link: false,
 		setup_delivery_id: 'outbox-1',
 		setup_delivery_status: 'sent',
@@ -139,6 +140,74 @@ describe('admin access request setup support UI', () => {
 		expect(scope.getByText('Setup Failed')).toBeTruthy();
 		expect(scope.getByText(/The old link is no longer usable/)).toBeTruthy();
 		expect(scope.getByText(/account-create-failed/)).toBeTruthy();
+		expect(scope.getByRole('button', { name: 'Send Fresh Setup' })).toBeTruthy();
+	});
+
+	it('surfaces replaced setup-link revocation reason with replacement-oriented copy', async () => {
+		await renderReviewed([
+			makeReviewedRequest({
+				id: 'replaced',
+				setup_state: 'replaced',
+				setup_state_label: 'Replaced',
+				setup_state_detail: 'The latest known setup link was replaced by a newer setup email.',
+				setup_link_replaced_at: '2026-05-19T12:00:00.000Z',
+				setup_link_revocation_reason: 'replaced'
+			})
+		]);
+
+		const card = screen.getByText('Test Soldier').closest('[data-slot="card"]');
+		expect(card).toBeTruthy();
+		const scope = within(card as HTMLElement);
+
+		expect(scope.getByText('Setup Replaced')).toBeTruthy();
+		expect(scope.getByText('The latest known setup link was replaced by a newer setup email.')).toBeTruthy();
+		expect(scope.getByText(/Latest known setup link replaced \(replaced\)/)).toBeTruthy();
+		expect(scope.getByRole('button', { name: 'Send Fresh Setup' })).toBeTruthy();
+	});
+
+	it('surfaces manual setup-link revocation reason with distinct support copy', async () => {
+		await renderReviewed([
+			makeReviewedRequest({
+				id: 'manual',
+				setup_state: 'replaced',
+				setup_state_label: 'Revoked manually',
+				setup_state_detail:
+					'The latest known setup link was manually revoked. Send a fresh setup link if setup is still needed.',
+				setup_link_replaced_at: '2026-05-19T12:00:00.000Z',
+				setup_link_revocation_reason: 'manual'
+			})
+		]);
+
+		const card = screen.getByText('Test Soldier').closest('[data-slot="card"]');
+		expect(card).toBeTruthy();
+		const scope = within(card as HTMLElement);
+
+		expect(scope.getByText('Setup Revoked manually')).toBeTruthy();
+		expect(scope.getByText(/manually revoked/)).toBeTruthy();
+		expect(scope.getByText(/Latest known setup link revoked \(manual\)/)).toBeTruthy();
+		expect(scope.getByRole('button', { name: 'Send Fresh Setup' })).toBeTruthy();
+	});
+
+	it('surfaces cleanup setup-link revocation reason with distinct support copy', async () => {
+		await renderReviewed([
+			makeReviewedRequest({
+				id: 'cleanup',
+				setup_state: 'replaced',
+				setup_state_label: 'Revoked by cleanup',
+				setup_state_detail:
+					'The latest known setup link was revoked by cleanup after it expired. Send a fresh setup link if setup is still needed.',
+				setup_link_replaced_at: '2026-05-19T12:00:00.000Z',
+				setup_link_revocation_reason: 'cleanup'
+			})
+		]);
+
+		const card = screen.getByText('Test Soldier').closest('[data-slot="card"]');
+		expect(card).toBeTruthy();
+		const scope = within(card as HTMLElement);
+
+		expect(scope.getByText('Setup Revoked by cleanup')).toBeTruthy();
+		expect(scope.getByText(/revoked by cleanup after it expired/)).toBeTruthy();
+		expect(scope.getByText(/Latest known setup link revoked \(cleanup\)/)).toBeTruthy();
 		expect(scope.getByRole('button', { name: 'Send Fresh Setup' })).toBeTruthy();
 	});
 

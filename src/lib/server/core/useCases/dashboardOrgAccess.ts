@@ -5,6 +5,7 @@ import {
 	type OrganizationInvitationAccessShape,
 	type OrganizationMembershipDraft
 } from './organizationInvitationMembership';
+import { normalizeInvitationEmail } from './invitationEmail';
 
 export interface DashboardOrganizationSummary {
 	id: string;
@@ -139,7 +140,7 @@ export async function acceptDashboardInvitation(
 	await ports.notifications.notifyAdmins(invitation.organizationId, input.userId, {
 		type: 'member_joined',
 		title: 'New Member Joined',
-		message: `"${input.email}" has joined the organization.`,
+		message: `"${normalizedEmail}" has joined the organization.`,
 		link: `/org/${invitation.organizationId}/settings`
 	});
 
@@ -160,7 +161,7 @@ export async function declineDashboardInvitation(
 }
 
 function normalizeEmail(email?: string | null): string {
-	return email?.toLowerCase() ?? '';
+	return normalizeInvitationEmail(email);
 }
 
 async function cleanupInvitation(

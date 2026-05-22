@@ -9,8 +9,9 @@ import {
 import { type CapabilityOverrideMap, type StoredMemberPreset } from '$lib/access/memberAccessShape';
 import { fail } from '$lib/server/core/errors';
 import type { AuthContext, AuditPort, NotificationPort, ReadOnlyGuard } from '$lib/server/core/ports';
-import { sanitizeString, validateEmail, validateUUID } from '$lib/server/validation';
+import { validateEmail, validateUUID } from '$lib/server/validation';
 import { requireGovernancePolicy } from './governancePolicy';
+import { normalizeInvitationEmail } from './invitationEmail';
 import { evaluateAuthoritativePolicyDecision } from './policyAdapter';
 import { denyPolicyDecision, policyDenialAuditDetails } from './policyDenial';
 
@@ -397,7 +398,7 @@ function identityPolicyDenialMessage(reasonCode: PolicyReasonCode): string {
 }
 
 function normalizeEmail(email: string): string {
-	return sanitizeString(email, 254).toLowerCase();
+	return normalizeInvitationEmail(email);
 }
 
 function buildMemberAccessStorageCommand(command: {

@@ -4,7 +4,10 @@ import { autoAcceptOrgInvites } from './auto-accept-org-invites';
 
 function createMockSupabase(invitations: Record<string, unknown>[] = []) {
 	const insertedRows: Record<string, unknown>[] = [];
-	const updatedInvitations = { called: false };
+	const updatedInvitations: { called: boolean; payload: Record<string, unknown> | null } = {
+		called: false,
+		payload: null
+	};
 
 	const mock = {
 		from: vi.fn((table: string) => {
@@ -17,13 +20,16 @@ function createMockSupabase(invitations: Record<string, unknown>[] = []) {
 							})
 						})
 					}),
-					update: vi.fn().mockReturnValue({
-						eq: vi.fn().mockReturnValue({
-							in: vi.fn().mockImplementation(() => {
-								updatedInvitations.called = true;
-								return Promise.resolve({ error: null });
+					update: vi.fn().mockImplementation((payload: Record<string, unknown>) => {
+						updatedInvitations.payload = payload;
+						return {
+							eq: vi.fn().mockReturnValue({
+								in: vi.fn().mockImplementation(() => {
+									updatedInvitations.called = true;
+									return Promise.resolve({ error: null });
+								})
 							})
-						})
+						};
 					})
 				};
 			}
@@ -87,6 +93,11 @@ describe('autoAcceptOrgInvites', () => {
 			can_manage_members: false
 		});
 		expect(supabase._updatedInvitations.called).toBe(true);
+		expect(supabase._updatedInvitations.payload).toMatchObject({
+			status: 'accepted',
+			accepted_by: 'user-123'
+		});
+		expect(supabase._updatedInvitations.payload?.accepted_at).toEqual(expect.any(String));
 	});
 
 	it('creates admin membership when all 13 permissions are true', async () => {
@@ -221,6 +232,13 @@ describe('autoAcceptOrgInvites', () => {
 				}
 				if (table === 'organization_memberships') {
 					return {
+						select: vi.fn().mockReturnValue({
+							eq: vi.fn().mockReturnValue({
+								eq: vi.fn().mockReturnValue({
+									maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null })
+								})
+							})
+						}),
 						insert: vi.fn().mockImplementation(() => {
 							insertCount++;
 							// Fail the first insert
@@ -238,6 +256,74 @@ describe('autoAcceptOrgInvites', () => {
 		const result = await autoAcceptOrgInvites(mock as any, 'user-123', 'test@example.com');
 
 		expect(result).toEqual({ accepted: 1 });
+	});
+
+	it('marks a pending invitation accepted when membership already exists after an insert conflict', async () => {
+		const invitation = {
+			organization_id: 'org-1',
+			can_view_calendar: true,
+			can_edit_calendar: false,
+			can_view_personnel: true,
+			can_edit_personnel: false,
+			can_view_training: true,
+			can_edit_training: false,
+			can_view_critical_tasks: true,
+			can_edit_critical_tasks: false,
+			can_view_onboarding: false,
+			can_edit_onboarding: false,
+			can_manage_members: false,
+			scoped_group_id: null
+		};
+		const acceptedOrgIds: string[] = [];
+		let updatePayload: Record<string, unknown> | null = null;
+		const mock = {
+			from: vi.fn((table: string) => {
+				if (table === 'organization_invitations') {
+					return {
+						select: vi.fn().mockReturnValue({
+							eq: vi.fn().mockReturnValue({
+								eq: vi.fn().mockReturnValue({
+									range: vi.fn().mockResolvedValue({ data: [invitation], error: null })
+								})
+							})
+						}),
+						update: vi.fn().mockImplementation((payload: Record<string, unknown>) => {
+							updatePayload = payload;
+							return {
+								eq: vi.fn().mockReturnValue({
+									in: vi.fn().mockImplementation((_col: string, ids: string[]) => {
+										acceptedOrgIds.push(...ids);
+										return Promise.resolve({ error: null });
+									})
+								})
+							};
+						})
+					};
+				}
+				if (table === 'organization_memberships') {
+					return {
+						insert: vi.fn().mockResolvedValue({ error: { message: 'duplicate key' } }),
+						select: vi.fn().mockReturnValue({
+							eq: vi.fn().mockReturnValue({
+								eq: vi.fn().mockReturnValue({
+									maybeSingle: vi.fn().mockResolvedValue({ data: { id: 'membership-1' }, error: null })
+								})
+							})
+						})
+					};
+				}
+				return {};
+			})
+		};
+
+		const result = await autoAcceptOrgInvites(mock as any, 'user-123', ' USER@EXAMPLE.COM ');
+
+		expect(result).toEqual({ accepted: 1 });
+		expect(acceptedOrgIds).toEqual(['org-1']);
+		expect(updatePayload).toMatchObject({
+			status: 'accepted',
+			accepted_by: 'user-123'
+		});
 	});
 
 	it('defaults null permission flags correctly', async () => {

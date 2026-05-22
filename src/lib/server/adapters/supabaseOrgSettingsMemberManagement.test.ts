@@ -33,6 +33,34 @@ function createMembershipLookupBuilder() {
 	return { builder, calls };
 }
 
+function createInvitationLookupBuilder() {
+	const calls: Call[] = [];
+	const result = {
+		data: {
+			id: 'invite-1'
+		},
+		error: null
+	};
+
+	function track(method: string) {
+		return (...args: unknown[]) => {
+			calls.push({ method, args });
+			return builder;
+		};
+	}
+
+	const builder: Record<string, unknown> = {
+		select: track('select'),
+		eq: track('eq'),
+		single: (...args: unknown[]) => {
+			calls.push({ method: 'single', args });
+			return result;
+		}
+	};
+
+	return { builder, calls };
+}
+
 function createMembershipRemovalBuilder(result: { data: unknown[] | null; error: { message: string } | null }) {
 	const calls: Call[] = [];
 
@@ -56,6 +84,24 @@ function createMembershipRemovalBuilder(result: { data: unknown[] | null; error:
 }
 
 describe('createSupabaseOrgSettingsMemberManagementPort', () => {
+	it('looks up duplicate pending invitations by normalized email inside the organization', async () => {
+		const { builder, calls } = createInvitationLookupBuilder();
+		const supabase = {
+			from: vi.fn(() => builder)
+		};
+		const port = createSupabaseOrgSettingsMemberManagementPort({
+			supabase
+		} as never);
+
+		const result = await port.findPendingInvitation('org-1', 'user@example.com');
+
+		expect(result).toEqual({ id: 'invite-1' });
+		expect(supabase.from).toHaveBeenCalledWith('organization_invitations');
+		expect(calls).toContainEqual({ method: 'eq', args: ['organization_id', 'org-1'] });
+		expect(calls).toContainEqual({ method: 'eq', args: ['normalized_email', 'user@example.com'] });
+		expect(calls).toContainEqual({ method: 'eq', args: ['status', 'pending'] });
+	});
+
 	it('scopes membership lookups by both membership id and organization id', async () => {
 		const { builder, calls } = createMembershipLookupBuilder();
 		const supabase = {

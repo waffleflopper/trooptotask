@@ -32,7 +32,7 @@ export function createSupabaseOrgSettingsMemberManagementPort(
 				.from('organization_invitations')
 				.select('id')
 				.eq('organization_id', orgId)
-				.eq('email', email)
+				.eq('normalized_email', email)
 				.eq('status', 'pending')
 				.single<OrganizationInvitationLookupRow>();
 

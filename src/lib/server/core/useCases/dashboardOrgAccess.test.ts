@@ -93,7 +93,7 @@ describe('loadDashboardOrgAccess', () => {
 
 		const result = await loadDashboardOrgAccess(port, {
 			userId: 'user-1',
-			email: 'USER@EXAMPLE.COM',
+			email: ' USER@EXAMPLE.COM ',
 			forceShow: false
 		});
 
@@ -226,7 +226,7 @@ describe('acceptDashboardInvitation', () => {
 
 		const result = await acceptDashboardInvitation(
 			{ dashboard: port, notifications },
-			{ invitationId: 'invite-1', userId: 'user-1', email: 'USER@EXAMPLE.COM' }
+			{ invitationId: 'invite-1', userId: 'user-1', email: ' USER@EXAMPLE.COM ' }
 		);
 
 		expect(result).toEqual({ success: true, accepted: true });
@@ -247,7 +247,7 @@ describe('acceptDashboardInvitation', () => {
 				notification: {
 					type: 'member_joined',
 					title: 'New Member Joined',
-					message: '"USER@EXAMPLE.COM" has joined the organization.',
+					message: '"user@example.com" has joined the organization.',
 					link: '/org/org-1/settings'
 				}
 			}
@@ -353,7 +353,7 @@ describe('declineDashboardInvitation', () => {
 
 		const result = await declineDashboardInvitation(port, {
 			invitationId: 'invite-1',
-			email: 'USER@EXAMPLE.COM'
+			email: ' USER@EXAMPLE.COM '
 		});
 
 		expect(result).toEqual({ success: true, declined: true });

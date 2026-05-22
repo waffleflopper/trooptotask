@@ -91,7 +91,7 @@ export function createSupabaseDashboardOrgAccessPort(locals: Pick<App.Locals, 's
 					supabase
 						.from('organization_invitations')
 						.select('id, organization_id, created_at, organizations(id, name)')
-						.eq('email', email)
+						.eq('normalized_email', email)
 						.eq('status', 'pending')
 						.order('created_at', { ascending: false })
 						.range(from, to) as unknown as Promise<{
@@ -121,7 +121,8 @@ export function createSupabaseDashboardOrgAccessPort(locals: Pick<App.Locals, 's
 					'id, organization_id, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_view_critical_tasks, can_edit_critical_tasks, can_view_onboarding, can_edit_onboarding, can_view_rating_scheme, can_edit_rating_scheme, can_manage_members, scoped_group_id, member_preset, capability_overrides, access_scope_kind, access_scope_group_ids'
 				)
 				.eq('id', invitationId)
-				.eq('email', email)
+				.eq('normalized_email', email)
+				.eq('status', 'pending')
 				.single<OrganizationInvitationRow>();
 
 			if (error || !data) {
@@ -203,7 +204,8 @@ export function createSupabaseDashboardOrgAccessPort(locals: Pick<App.Locals, 's
 				.from('organization_invitations')
 				.delete()
 				.eq('id', invitationId)
-				.eq('email', email);
+				.eq('normalized_email', email)
+				.eq('status', 'pending');
 
 			return !error;
 		}

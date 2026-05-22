@@ -27,7 +27,9 @@ export default defineConfig({
 		port,
 		reuseExistingServer: false,
 		env: {
-			E2E_TESTING: 'true'
+			APP_PUBLIC_ORIGIN: baseURL,
+			E2E_TESTING: 'true',
+			MAILPIT_URL: process.env.MAILPIT_URL || 'http://127.0.0.1:54324'
 		}
 	}
 });

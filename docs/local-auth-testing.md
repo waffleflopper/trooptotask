@@ -64,6 +64,8 @@ Run the access-request approval and resend flow with:
 npm run test:e2e:access-requests
 ```
 
+That suite is the focused Account Setup Link regression suite. It runs against local Supabase and Mailpit only, sets `APP_PUBLIC_ORIGIN` to the Playwright app origin, and covers approval delivery, tokenless setup, newest-link-only replacement, setup races, failed-after-claim recovery, and outbox retry support states.
+
 These two focused suites are more reliable than a single giant auth run because local Supabase auth can get temperamental when many invite and recovery emails are created back to back in one process.
 
 ## Manual Account Setup Link check

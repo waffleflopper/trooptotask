@@ -4,6 +4,11 @@ ALTER TABLE "public"."account_setup_links"
 	ADD COLUMN IF NOT EXISTS "failure_reason" text,
 	ADD COLUMN IF NOT EXISTS "revocation_reason" text;
 
+UPDATE "public"."account_setup_links"
+SET "claimed_at" = "used_at"
+WHERE "used_at" IS NOT NULL
+	AND "claimed_at" IS NULL;
+
 ALTER TABLE "public"."account_setup_links"
 	DROP CONSTRAINT IF EXISTS "account_setup_links_failure_requires_claim_check";
 

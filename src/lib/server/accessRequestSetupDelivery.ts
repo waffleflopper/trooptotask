@@ -5,6 +5,11 @@ import {
 	sendAccountSetupLinkEmail,
 	type AccountSetupLinkStore
 } from './accountSetupLinks';
+import {
+	createSupabaseAuthEmailOutboxStore,
+	sendAccountSetupOutboxDelivery,
+	type AuthEmailOutboxStore
+} from './authEmailOutbox';
 import { addUtcDays } from './accountSetupDates';
 import { makePublicAppUrl } from './publicAppOrigin';
 
@@ -28,7 +33,7 @@ export interface CreatePendingAccessRequestInput {
 	heardAboutDetails: string | null;
 }
 
-export interface AccessRequestSetupDeliveryStore extends AccountSetupLinkStore {
+export interface AccessRequestSetupDeliveryStore extends AccountSetupLinkStore, AuthEmailOutboxStore {
 	listAccessRequestsByEmail(email: string): Promise<AccessRequestSetupRequest[]>;
 	insertPendingAccessRequest(input: CreatePendingAccessRequestInput): Promise<void>;
 }
@@ -117,11 +122,17 @@ export function createAccessRequestSetupDeliveryService(
 			return { status: 'no-public-action' };
 		}
 
-		await sendSetupEmail({
+		const delivery = await sendAccountSetupOutboxDelivery(store, sendSetupEmail, {
+			accessRequestId: request.id,
+			setupLinkId: setupResult.link.id,
 			email: normalizeEmail(request.email),
 			setupUrl: makeSetupUrl(origin, setupResult.setupPath),
 			expiresAt: setupResult.expiresAt
 		});
+
+		if (delivery.status === 'failed') {
+			return { status: 'no-public-action' };
+		}
 
 		return {
 			status: 'fresh-setup-sent',
@@ -186,9 +197,11 @@ export function createAccessRequestSetupDeliveryService(
 
 export function createSupabaseAccessRequestSetupDeliveryStore(client: SupabaseClient): AccessRequestSetupDeliveryStore {
 	const setupLinkStore = createSupabaseAccountSetupLinkStore(client);
+	const outboxStore = createSupabaseAuthEmailOutboxStore(client);
 
 	return {
 		...setupLinkStore,
+		...outboxStore,
 
 		async listAccessRequestsByEmail(email) {
 			const { data, error } = await client

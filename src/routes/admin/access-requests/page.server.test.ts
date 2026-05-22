@@ -1,10 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { createServiceMock, createStoreMock, sendSetupEmailMock } = vi.hoisted(() => ({
-	createServiceMock: vi.fn(),
-	createStoreMock: vi.fn(),
-	sendSetupEmailMock: vi.fn()
-}));
+const { createServiceMock, createStoreMock, createOutboxStoreMock, sendSetupEmailMock, sendOutboxDeliveryMock } =
+	vi.hoisted(() => ({
+		createServiceMock: vi.fn(),
+		createStoreMock: vi.fn(),
+		createOutboxStoreMock: vi.fn(),
+		sendSetupEmailMock: vi.fn(),
+		sendOutboxDeliveryMock: vi.fn()
+	}));
 
 vi.mock('$lib/server/adapters/adminAdapter', () => ({
 	adminAction: (config: { fn: (ctx: unknown, event: unknown) => unknown }) => (event: { __ctx: unknown }) =>
@@ -22,6 +25,11 @@ vi.mock('$lib/server/accountSetupLinks', async (importOriginal) => {
 		sendAccountSetupLinkEmail: sendSetupEmailMock
 	};
 });
+
+vi.mock('$lib/server/authEmailOutbox', () => ({
+	createSupabaseAuthEmailOutboxStore: createOutboxStoreMock,
+	sendAccountSetupOutboxDelivery: sendOutboxDeliveryMock
+}));
 
 import { actions } from './+page.server';
 
@@ -91,7 +99,12 @@ describe('admin access request account setup delivery', () => {
 		vi.clearAllMocks();
 		vi.unstubAllEnvs();
 		createStoreMock.mockReturnValue({ store: 'account-setup-store' });
+		createOutboxStoreMock.mockReturnValue({ store: 'auth-email-outbox-store' });
 		sendSetupEmailMock.mockResolvedValue(undefined);
+		sendOutboxDeliveryMock.mockResolvedValue({
+			status: 'sent',
+			outbox: { id: 'outbox-1', status: 'sent' }
+		});
 	});
 
 	it('approving a pending request creates and emails an app-owned Account Setup Link without Supabase invite delivery', async () => {
@@ -124,7 +137,7 @@ describe('admin access request account setup delivery', () => {
 			url: new URL('http://localhost/admin/access-requests')
 		} as unknown as Parameters<(typeof actions)['approve']>[0]);
 
-		expect(result).toEqual({ success: true, action: 'approve' });
+		expect(result).toEqual({ success: true, action: 'approve', setupDeliveryStatus: 'sent' });
 		expect(updateAccessRequest.update).toHaveBeenCalledWith(
 			expect.objectContaining({
 				status: 'approved',
@@ -132,7 +145,9 @@ describe('admin access request account setup delivery', () => {
 			})
 		);
 		expect(createForAccessRequest).toHaveBeenCalledWith('request-1');
-		expect(sendSetupEmailMock).toHaveBeenCalledWith({
+		expect(sendOutboxDeliveryMock).toHaveBeenCalledWith({ store: 'auth-email-outbox-store' }, sendSetupEmailMock, {
+			accessRequestId: 'request-1',
+			setupLinkId: 'link-1',
 			email: 'Soldier@Example.mil',
 			setupUrl: 'http://localhost/auth/setup-account?token=raw-token',
 			expiresAt: new Date('2026-06-01T12:00:00.000Z')
@@ -141,6 +156,53 @@ describe('admin access request account setup delivery', () => {
 		expect((ctx.audit as ReturnType<typeof vi.fn>).mock.calls.map(([event]) => event.action)).toEqual([
 			'access_request.approved',
 			'access_request.account_setup_link_sent'
+		]);
+	});
+
+	it('keeps an approved request approved when Account Setup email delivery fails', async () => {
+		const accessRequest = {
+			id: 'request-1',
+			email: 'Soldier@Example.mil',
+			status: 'pending'
+		};
+		const selectAccessRequest = makeSelectAccessRequest(accessRequest);
+		const updateAccessRequest = makeUpdateAccessRequest();
+		const adminClient = makeAdminClient({
+			select: selectAccessRequest.select,
+			update: updateAccessRequest.update
+		});
+		createServiceMock.mockReturnValue({
+			createForAccessRequest: vi.fn().mockResolvedValue({
+				status: 'created',
+				accessRequestId: 'request-1',
+				setupPath: '/auth/setup-account?token=raw-token',
+				expiresAt: new Date('2026-06-01T12:00:00.000Z'),
+				link: { id: 'link-1' }
+			})
+		});
+		sendOutboxDeliveryMock.mockResolvedValueOnce({
+			status: 'failed',
+			error: 'mail provider unavailable',
+			outbox: { id: 'outbox-1', status: 'failed' }
+		});
+		const ctx = makeContext(adminClient);
+
+		const result = await actions.approve({
+			__ctx: ctx,
+			request: makeRequest({ requestId: 'request-1' }),
+			url: new URL('http://localhost/admin/access-requests')
+		} as unknown as Parameters<(typeof actions)['approve']>[0]);
+
+		expect(result).toEqual({ success: true, action: 'approve', setupDeliveryStatus: 'failed' });
+		expect(updateAccessRequest.update).toHaveBeenCalledWith(
+			expect.objectContaining({
+				status: 'approved',
+				reviewed_by: 'admin-1'
+			})
+		);
+		expect((ctx.audit as ReturnType<typeof vi.fn>).mock.calls.map(([event]) => event.action)).toEqual([
+			'access_request.approved',
+			'access_request.account_setup_link_delivery_failed'
 		]);
 	});
 
@@ -173,7 +235,9 @@ describe('admin access request account setup delivery', () => {
 			url: new URL('https://admin.trooptotask.org/access-requests')
 		} as unknown as Parameters<(typeof actions)['approve']>[0]);
 
-		expect(sendSetupEmailMock).toHaveBeenCalledWith(
+		expect(sendOutboxDeliveryMock).toHaveBeenCalledWith(
+			{ store: 'auth-email-outbox-store' },
+			sendSetupEmailMock,
 			expect.objectContaining({
 				setupUrl: 'https://trooptotask.org/auth/setup-account?token=raw-token'
 			})
@@ -209,9 +273,11 @@ describe('admin access request account setup delivery', () => {
 			url: new URL('http://localhost/admin/access-requests')
 		} as unknown as Parameters<(typeof actions)['resend']>[0]);
 
-		expect(result).toEqual({ success: true, action: 'resend' });
+		expect(result).toEqual({ success: true, action: 'resend', setupDeliveryStatus: 'sent' });
 		expect(createForAccessRequest).toHaveBeenCalledWith('request-1');
-		expect(sendSetupEmailMock).toHaveBeenCalledWith({
+		expect(sendOutboxDeliveryMock).toHaveBeenCalledWith({ store: 'auth-email-outbox-store' }, sendSetupEmailMock, {
+			accessRequestId: 'request-1',
+			setupLinkId: 'link-2',
 			email: 'soldier@example.mil',
 			setupUrl: 'http://localhost/auth/setup-account?token=fresh-token',
 			expiresAt: new Date('2026-06-02T12:00:00.000Z')
@@ -219,6 +285,52 @@ describe('admin access request account setup delivery', () => {
 		expect(inviteUserByEmail).not.toHaveBeenCalled();
 		expect((ctx.audit as ReturnType<typeof vi.fn>).mock.calls.map(([event]) => event.action)).toEqual([
 			'access_request.account_setup_link_resent'
+		]);
+	});
+
+	it('records failed resend delivery without requiring another approval', async () => {
+		const accessRequest = {
+			id: 'request-1',
+			email: 'soldier@example.mil',
+			status: 'approved',
+			setup_completed_at: null
+		};
+		const selectAccessRequest = makeSelectAccessRequest(accessRequest);
+		const adminClient = makeAdminClient({
+			select: selectAccessRequest.select
+		});
+		const createForAccessRequest = vi.fn().mockResolvedValue({
+			status: 'created',
+			accessRequestId: 'request-1',
+			setupPath: '/auth/setup-account?token=fresh-token',
+			expiresAt: new Date('2026-06-02T12:00:00.000Z'),
+			link: { id: 'link-2' }
+		});
+		createServiceMock.mockReturnValue({ createForAccessRequest });
+		sendOutboxDeliveryMock.mockResolvedValueOnce({
+			status: 'failed',
+			error: 'mail provider unavailable',
+			outbox: { id: 'outbox-2', status: 'failed' }
+		});
+		const ctx = makeContext(adminClient);
+
+		const result = await actions.resend({
+			__ctx: ctx,
+			request: makeRequest({ requestId: 'request-1' }),
+			url: new URL('http://localhost/admin/access-requests')
+		} as unknown as Parameters<(typeof actions)['resend']>[0]);
+
+		expect(result).toEqual({ success: true, action: 'resend', setupDeliveryStatus: 'failed' });
+		expect(createForAccessRequest).toHaveBeenCalledWith('request-1');
+		expect(sendOutboxDeliveryMock).toHaveBeenCalledWith({ store: 'auth-email-outbox-store' }, sendSetupEmailMock, {
+			accessRequestId: 'request-1',
+			setupLinkId: 'link-2',
+			email: 'soldier@example.mil',
+			setupUrl: 'http://localhost/auth/setup-account?token=fresh-token',
+			expiresAt: new Date('2026-06-02T12:00:00.000Z')
+		});
+		expect((ctx.audit as ReturnType<typeof vi.fn>).mock.calls.map(([event]) => event.action)).toEqual([
+			'access_request.account_setup_link_delivery_failed'
 		]);
 	});
 

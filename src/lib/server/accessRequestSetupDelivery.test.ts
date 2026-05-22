@@ -6,6 +6,7 @@ import {
 	type CreatePendingAccessRequestInput
 } from './accessRequestSetupDelivery';
 import type { AccountSetupLinkRecord, CreateAccountSetupLinkInput } from './accountSetupLinks';
+import type { AuthEmailOutboxRecord } from './authEmailOutbox';
 
 const NOW = new Date('2026-05-18T12:00:00.000Z');
 
@@ -23,6 +24,7 @@ function makeRequest(overrides: Partial<AccessRequestSetupRequest> = {}): Access
 
 function makeStore(requests: AccessRequestSetupRequest[] = []) {
 	const setupLinks: AccountSetupLinkRecord[] = [];
+	const outboxRecords: AuthEmailOutboxRecord[] = [];
 	const insertedRequests: CreatePendingAccessRequestInput[] = [];
 	const revokedAccessRequestIds: string[] = [];
 	let linkId = 0;
@@ -31,10 +33,12 @@ function makeStore(requests: AccessRequestSetupRequest[] = []) {
 		insertedRequests: CreatePendingAccessRequestInput[];
 		revokedAccessRequestIds: string[];
 		setupLinks: AccountSetupLinkRecord[];
+		outboxRecords: AuthEmailOutboxRecord[];
 	} = {
 		insertedRequests,
 		revokedAccessRequestIds,
 		setupLinks,
+		outboxRecords,
 
 		async listAccessRequestsByEmail(email) {
 			return requests.filter((request) => request.email.toLowerCase() === email.toLowerCase());
@@ -42,6 +46,46 @@ function makeStore(requests: AccessRequestSetupRequest[] = []) {
 
 		async insertPendingAccessRequest(input) {
 			insertedRequests.push(input);
+		},
+
+		async insertSetupEmailDelivery(input) {
+			const record: AuthEmailOutboxRecord = {
+				id: `outbox-${outboxRecords.length + 1}`,
+				accessRequestId: input.accessRequestId,
+				setupLinkId: input.setupLinkId,
+				recipient: input.recipient,
+				purpose: 'account_setup',
+				status: 'pending',
+				attemptCount: 0,
+				lastError: null,
+				createdAt: input.createdAt,
+				updatedAt: input.createdAt,
+				sentAt: null
+			};
+			outboxRecords.push(record);
+			return record;
+		},
+
+		async markSetupEmailDeliverySent(id, sentAt) {
+			const record = outboxRecords.find((item) => item.id === id);
+			if (!record) throw new Error('missing outbox');
+			record.status = 'sent';
+			record.attemptCount = 1;
+			record.lastError = null;
+			record.updatedAt = sentAt;
+			record.sentAt = sentAt;
+			return record;
+		},
+
+		async markSetupEmailDeliveryFailed(id, failedAt, lastError) {
+			const record = outboxRecords.find((item) => item.id === id);
+			if (!record) throw new Error('missing outbox');
+			record.status = 'failed';
+			record.attemptCount = 1;
+			record.lastError = lastError;
+			record.updatedAt = failedAt;
+			record.sentAt = null;
+			return record;
 		},
 
 		async getAccessRequest(id) {
@@ -213,6 +257,17 @@ describe('access request setup delivery', () => {
 				expiresAt: new Date('2026-06-01T12:00:00.000Z')
 			})
 		);
+		expect(store.outboxRecords).toEqual([
+			expect.objectContaining({
+				accessRequestId: 'request-1',
+				setupLinkId: 'setup-link-1',
+				recipient: 'test@example.com',
+				purpose: 'account_setup',
+				status: 'sent',
+				attemptCount: 1
+			})
+		]);
+		expect(JSON.stringify(store.outboxRecords)).not.toContain('token=');
 	});
 
 	it('uses the configured public app origin for renewed setup URLs instead of the inbound host', async () => {
@@ -275,6 +330,32 @@ describe('access request setup delivery', () => {
 		expect(result).toEqual({ status: 'fresh-setup-sent', accessRequestId: 'request-1' });
 		expect(store.revokedAccessRequestIds).toEqual(['request-1']);
 		expect(sendSetupEmail).toHaveBeenCalledOnce();
+	});
+
+	it('records failed public setup delivery without storing the raw token or corrupting the setup link', async () => {
+		vi.stubEnv('APP_PUBLIC_ORIGIN_ALLOWLIST', 'https://trooptotask.test');
+		const store = makeStore([makeRequest()]);
+		const { service, sendSetupEmail } = makeService(store);
+		sendSetupEmail.mockRejectedValueOnce(new Error('mail provider unavailable'));
+
+		const result = await service.requestFreshSetupLink({
+			email: 'test@example.com',
+			origin: 'https://trooptotask.test'
+		});
+
+		expect(result).toEqual({ status: 'no-public-action' });
+		expect(store.setupLinks).toHaveLength(1);
+		expect(store.setupLinks[0].revokedAt).toBeNull();
+		expect(store.outboxRecords).toEqual([
+			expect.objectContaining({
+				accessRequestId: 'request-1',
+				setupLinkId: 'setup-link-1',
+				status: 'failed',
+				attemptCount: 1,
+				lastError: 'mail provider unavailable'
+			})
+		]);
+		expect(JSON.stringify(store.outboxRecords)).not.toContain('token=');
 	});
 
 	it('treats concurrent completion during renewal as a quiet no-op', async () => {

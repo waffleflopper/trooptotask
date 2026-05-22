@@ -2,7 +2,15 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { complete, completeSetupSession, validateToken, getAccessRequest, getSetupLink, setupStore } = vi.hoisted(() => {
+const {
+	complete,
+	completeSetupSession,
+	validateToken,
+	getAccessRequest,
+	getSetupLink,
+	checkCompletionRateLimit,
+	setupStore
+} = vi.hoisted(() => {
 	const setupStore = {
 		getAccessRequest: vi.fn(),
 		findByTokenHash: vi.fn(),
@@ -14,6 +22,7 @@ const { complete, completeSetupSession, validateToken, getAccessRequest, getSetu
 		validateToken: vi.fn(),
 		getAccessRequest: setupStore.getAccessRequest,
 		getSetupLink: setupStore.getSetupLink,
+		checkCompletionRateLimit: vi.fn(),
 		setupStore
 	};
 });
@@ -34,6 +43,12 @@ vi.mock('$lib/server/accountSetupCompletion', () => ({
 vi.mock('$lib/server/accountSetupCompletionSupabase', () => ({
 	createSupabaseAccountSetupCompletionStore: vi.fn(() => setupStore),
 	createSupabaseAccountSetupAuthAdapter: vi.fn(() => ({}))
+}));
+
+vi.mock('$lib/server/accountSetupRateLimit', () => ({
+	ACCOUNT_SETUP_ATTEMPT_RATE_LIMIT_MESSAGE:
+		'Too many setup attempts. Please wait before trying again, or request a fresh setup link if this one no longer works.',
+	checkAccountSetupCompletionRateLimit: checkCompletionRateLimit
 }));
 
 import { actions, load } from './+page.server';
@@ -109,6 +124,7 @@ function makeLoadEvent(input: { token?: string; session?: unknown; cookies?: Ret
 beforeEach(() => {
 	vi.clearAllMocks();
 	vi.stubEnv('ACCOUNT_SETUP_SESSION_SECRET', 'test-account-setup-session-secret');
+	checkCompletionRateLimit.mockReturnValue({ limited: false });
 });
 
 afterEach(() => {
@@ -257,6 +273,7 @@ describe('/auth/setup-account actions', () => {
 				makeCookies({
 					[ACCOUNT_SETUP_SESSION_COOKIE]: makeSetupSessionCookie()
 				}),
+			getClientAddress: vi.fn(() => '203.0.113.10'),
 			request: input.request ?? makeRequest({}),
 			locals: { supabase: {} }
 		} as unknown as Parameters<(typeof actions)['default']>[0];
@@ -336,6 +353,54 @@ describe('/auth/setup-account actions', () => {
 			accessRequestId: 'request-1',
 			password: 'ValidPassword123!'
 		});
+	});
+
+	it('rate-limits setup completion attempts by setup session and email before account mutation', async () => {
+		getAccessRequest.mockResolvedValueOnce({
+			id: 'request-1',
+			email: 'soldier@example.mil',
+			setupCompletedAt: null
+		});
+		checkCompletionRateLimit.mockReturnValueOnce({ limited: true, retryAfterMs: 60_000 });
+
+		const result = await actions.default(makeActionEvent());
+
+		expect(result).toMatchObject({
+			status: 429,
+			data: {
+				error:
+					'Too many setup attempts. Please wait before trying again, or request a fresh setup link if this one no longer works.'
+			}
+		});
+		expect(checkCompletionRateLimit).toHaveBeenCalledWith({
+			setupLinkId: 'link-1',
+			accessRequestId: 'request-1',
+			email: 'soldier@example.mil',
+			ip: '203.0.113.10'
+		});
+		expect(completeSetupSession).not.toHaveBeenCalled();
+	});
+
+	it('rate-limits setup completion attempts when request email lookup is unavailable', async () => {
+		getAccessRequest.mockResolvedValueOnce(null);
+		checkCompletionRateLimit.mockReturnValueOnce({ limited: true, retryAfterMs: 60_000 });
+
+		const result = await actions.default(makeActionEvent());
+
+		expect(result).toMatchObject({
+			status: 429,
+			data: {
+				error:
+					'Too many setup attempts. Please wait before trying again, or request a fresh setup link if this one no longer works.'
+			}
+		});
+		expect(checkCompletionRateLimit).toHaveBeenCalledWith({
+			setupLinkId: 'link-1',
+			accessRequestId: 'request-1',
+			email: null,
+			ip: '203.0.113.10'
+		});
+		expect(completeSetupSession).not.toHaveBeenCalled();
 	});
 
 	it('returns recovery copy when setup finalization fails after claim', async () => {

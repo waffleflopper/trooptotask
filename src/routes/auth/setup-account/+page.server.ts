@@ -12,6 +12,10 @@ import {
 	readAccountSetupSessionCookie,
 	setAccountSetupSessionCookie
 } from '$lib/server/accountSetupSessions';
+import {
+	ACCOUNT_SETUP_ATTEMPT_RATE_LIMIT_MESSAGE,
+	checkAccountSetupCompletionRateLimit
+} from '$lib/server/accountSetupRateLimit';
 import { getAuthenticatedRedirectPath } from '$lib/server/mfaGate';
 import { getAdminClient, getSupabaseClient } from '$lib/server/supabase';
 import { validatePassword } from '$lib/server/validation';
@@ -151,7 +155,7 @@ export const load: PageServerLoad = async ({ cookies, locals, url }) => {
 };
 
 export const actions: Actions = {
-	default: async ({ cookies, request, locals }) => {
+	default: async ({ cookies, getClientAddress, request, locals }) => {
 		const formData = await request.formData();
 		const password = String(formData.get('password') ?? '');
 		const confirmPassword = String(formData.get('confirmPassword') ?? '');
@@ -173,6 +177,17 @@ export const actions: Actions = {
 
 		const adminClient = getAdminClient();
 		const store = createSupabaseAccountSetupCompletionStore(adminClient);
+		const accessRequest = await store.getAccessRequest(setupSession.accessRequestId);
+		const rateLimit = checkAccountSetupCompletionRateLimit({
+			setupLinkId: setupSession.setupLinkId,
+			accessRequestId: setupSession.accessRequestId,
+			email: accessRequest?.email ?? null,
+			ip: getClientAddress()
+		});
+		if (rateLimit.limited) {
+			return fail(429, { error: ACCOUNT_SETUP_ATTEMPT_RATE_LIMIT_MESSAGE });
+		}
+
 		const auth = createSupabaseAccountSetupAuthAdapter(adminClient, getSupabaseClient(locals));
 		const completion = await createAccountSetupCompletionService(store, auth).completeSetupSession({
 			setupLinkId: setupSession.setupLinkId,

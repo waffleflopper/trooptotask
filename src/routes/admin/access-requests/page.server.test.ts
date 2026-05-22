@@ -96,7 +96,7 @@ function makeLoadAdminClient(rows: Record<string, unknown>[]) {
 		return { select };
 	});
 
-	return { client: { from }, select, range };
+	return { client: { from, auth: { admin: { getUserById: vi.fn() } } }, select, range };
 }
 
 function makeContext(adminClient: unknown) {
@@ -121,6 +121,7 @@ function makeAccessRequestRow(overrides: Record<string, unknown>) {
 		setup_completed_at: null,
 		account_setup_links: null,
 		auth_email_outbox: null,
+		access_request_organization_invitation_links: null,
 		...overrides
 	};
 }
@@ -326,6 +327,62 @@ describe('admin access request account setup delivery', () => {
 		});
 		expect(JSON.stringify(result)).not.toContain('token=');
 		expect(JSON.stringify(result)).not.toContain('/auth/setup-account');
+	});
+
+	it('server-shapes organization invitation origin context for platform review', async () => {
+		const rows = [
+			makeAccessRequestRow({
+				id: 'invite-origin',
+				status: 'pending',
+				access_request_organization_invitation_links: [
+					{
+						id: 'link-1',
+						organization_invitation_id: 'invite-1',
+						organization_id: 'org-1',
+						invited_by: '11111111-1111-4111-8111-111111111111',
+						invited_at: '2026-05-18T13:00:00.000Z',
+						intended_membership_role: 'member',
+						intended_member_preset: 'viewer',
+						organizations: { id: 'org-1', name: 'Alpha Company' }
+					}
+				]
+			}),
+			makeAccessRequestRow({
+				id: 'ordinary',
+				status: 'pending',
+				access_request_organization_invitation_links: null
+			})
+		];
+		const getUserById = vi.fn().mockResolvedValue({
+			data: { user: { id: '11111111-1111-4111-8111-111111111111', email: 'leader@example.mil' } },
+			error: null
+		});
+		const { client, select } = makeLoadAdminClient(rows);
+		const ctx = makeContext({
+			...client,
+			auth: { admin: { getUserById } }
+		});
+
+		const result = (await load({
+			__ctx: ctx
+		} as unknown as Parameters<typeof load>[0])) as PageData;
+
+		expect(select).toHaveBeenCalledWith(expect.stringContaining('access_request_organization_invitation_links'));
+		expect(result.pending.find((request) => request.id === 'invite-origin')?.invitation_origins).toEqual([
+			expect.objectContaining({
+				link_id: 'link-1',
+				invitation_id: 'invite-1',
+				organization_id: 'org-1',
+				organization_name: 'Alpha Company',
+				inviter_user_id: '11111111-1111-4111-8111-111111111111',
+				inviter_label: 'leader@example.mil',
+				invited_at: '2026-05-18T13:00:00.000Z',
+				membership_role_label: 'Member',
+				member_preset_label: 'Viewer',
+				intended_access_label: 'Member preset: Viewer'
+			})
+		]);
+		expect(result.pending.find((request) => request.id === 'ordinary')?.invitation_origins).toEqual([]);
 	});
 
 	it('approving a pending request creates and emails an app-owned Account Setup Link without Supabase invite delivery', async () => {

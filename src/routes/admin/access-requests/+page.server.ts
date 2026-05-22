@@ -16,6 +16,12 @@ import {
 	sendAccountSetupOutboxDelivery,
 	type AuthEmailOutboxStatus
 } from '$lib/server/authEmailOutbox';
+import {
+	ACCESS_REQUEST_INVITATION_ORIGIN_SELECT,
+	resolveAccessRequestInvitationOrigins,
+	type AccessRequestInvitationOrigin,
+	type AccessRequestInvitationOriginRow
+} from '$lib/server/accessRequestInvitationOrigin';
 import { makePublicAppUrl } from '$lib/server/publicAppOrigin';
 
 interface AccessRequestSetupLink {
@@ -54,6 +60,10 @@ interface AccessRequestRow {
 	setup_completed_at: string | null;
 	account_setup_links: AccessRequestSetupLink | AccessRequestSetupLink[] | null;
 	auth_email_outbox: AccessRequestAuthEmailOutbox | AccessRequestAuthEmailOutbox[] | null;
+	access_request_organization_invitation_links:
+		| AccessRequestInvitationOriginRow
+		| AccessRequestInvitationOriginRow[]
+		| null;
 }
 
 interface AccessRequestItem {
@@ -87,6 +97,7 @@ interface AccessRequestItem {
 	setup_delivery_last_error: string | null;
 	setup_delivery_updated_at: string | null;
 	setup_delivery_sent_at: string | null;
+	invitation_origins: AccessRequestInvitationOrigin[];
 }
 
 type AccessRequestSetupState =
@@ -153,6 +164,7 @@ function resolveSetupState(
 	| 'created_at'
 	| 'reviewed_at'
 	| 'setup_completed_at'
+	| 'invitation_origins'
 > {
 	const links = normalizeSetupLinks(request.account_setup_links);
 	const deliveries = normalizeOutboxRows(request.auth_email_outbox);
@@ -328,7 +340,7 @@ export const load: PageServerLoad = loadWithAdminContext({
 				supabase
 					.from('access_requests')
 					.select(
-						'id, name, email, reason, heard_about, heard_about_details, status, created_at, reviewed_at, setup_completed_at, account_setup_links(id, created_at, expires_at, claimed_at, failed_at, failure_reason, used_at, revoked_at, revocation_reason), auth_email_outbox(id, setup_link_id, status, attempt_count, last_error, created_at, updated_at, sent_at)'
+						`id, name, email, reason, heard_about, heard_about_details, status, created_at, reviewed_at, setup_completed_at, account_setup_links(id, created_at, expires_at, claimed_at, failed_at, failure_reason, used_at, revoked_at, revocation_reason), auth_email_outbox(id, setup_link_id, status, attempt_count, last_error, created_at, updated_at, sent_at), ${ACCESS_REQUEST_INVITATION_ORIGIN_SELECT}`
 					)
 					.order('created_at', { ascending: false })
 					.range(from, to) as unknown as Promise<{
@@ -342,6 +354,10 @@ export const load: PageServerLoad = loadWithAdminContext({
 		}
 
 		const now = new Date();
+		const invitationOriginsByRequestId = await resolveAccessRequestInvitationOrigins(
+			requests ?? [],
+			supabase.auth.admin
+		);
 		const allRequests: AccessRequestItem[] = (requests ?? []).map((request) => ({
 			id: request.id,
 			name: request.name,
@@ -354,6 +370,7 @@ export const load: PageServerLoad = loadWithAdminContext({
 			created_at: request.created_at,
 			reviewed_at: request.reviewed_at,
 			setup_completed_at: request.setup_completed_at,
+			invitation_origins: invitationOriginsByRequestId[request.id] ?? [],
 			...resolveSetupState(request, now)
 		}));
 

@@ -14,6 +14,7 @@ afterEach(() => {
 });
 
 type ReviewedRequest = PageData['reviewed'][number];
+type PendingRequest = PageData['pending'][number];
 
 function makeReviewedRequest(overrides: Partial<ReviewedRequest>): ReviewedRequest {
 	return {
@@ -47,6 +48,7 @@ function makeReviewedRequest(overrides: Partial<ReviewedRequest>): ReviewedReque
 		setup_delivery_last_error: null,
 		setup_delivery_updated_at: '2026-05-18T13:01:00.000Z',
 		setup_delivery_sent_at: '2026-05-18T13:01:00.000Z',
+		invitation_origins: [],
 		...overrides
 	};
 }
@@ -69,6 +71,41 @@ async function renderReviewed(requests: ReviewedRequest[]) {
 	});
 
 	await fireEvent.click(screen.getByRole('tab', { name: /Reviewed/ }));
+}
+
+function makePendingRequest(overrides: Partial<PendingRequest>): PendingRequest {
+	return {
+		...makeReviewedRequest({
+			status: 'pending',
+			reviewed_at: null,
+			setup_link_id: null,
+			setup_link_created_at: null,
+			setup_link_expires_at: null,
+			setup_delivery_id: null,
+			setup_delivery_status: null,
+			setup_delivery_updated_at: null,
+			setup_delivery_sent_at: null
+		}),
+		...overrides
+	};
+}
+
+function renderPending(requests: PendingRequest[]) {
+	render(Page, {
+		props: {
+			data: {
+				session: null,
+				adminUserId: 'admin-1',
+				adminEmail: 'admin@example.mil',
+				adminRole: 'super_admin',
+				accessiblePages: ['access-requests'],
+				visibleNavGroups: [],
+				pending: requests,
+				reviewed: []
+			},
+			form: null
+		}
+	});
 }
 
 describe('admin access request setup support UI', () => {
@@ -230,5 +267,82 @@ describe('admin access request setup support UI', () => {
 		expect(scope.getByText('Setup Completed')).toBeTruthy();
 		expect(scope.getByText(/sign in or reset their password/)).toBeTruthy();
 		expect(scope.queryByRole('button', { name: /Setup/ })).toBeNull();
+	});
+
+	it('shows organization invitation context during platform access review', async () => {
+		await renderReviewed([
+			makeReviewedRequest({
+				id: 'invite-origin',
+				invitation_origins: [
+					{
+						link_id: 'link-1',
+						invitation_id: 'invite-1',
+						organization_id: 'org-1',
+						organization_name: 'Alpha Company',
+						inviter_user_id: '11111111-1111-4111-8111-111111111111',
+						inviter_email: 'leader@example.mil',
+						inviter_label: 'leader@example.mil',
+						invited_at: '2026-05-18T13:00:00.000Z',
+						membership_role: 'member',
+						membership_role_label: 'Member',
+						member_preset: 'viewer',
+						member_preset_label: 'Viewer',
+						intended_access_label: 'Member preset: Viewer'
+					}
+				]
+			})
+		]);
+
+		const card = screen.getByText('Test Soldier').closest('[data-slot="card"]');
+		expect(card).toBeTruthy();
+		const scope = within(card as HTMLElement);
+
+		expect(scope.getByText('Organization Invitation')).toBeTruthy();
+		expect(scope.getByText('Alpha Company')).toBeTruthy();
+		expect(scope.getByText(/Invited by leader@example\.mil/)).toBeTruthy();
+		expect(scope.getByText('Member preset: Viewer')).toBeTruthy();
+		expect(scope.getByText(/approval enables User Account setup only/i)).toBeTruthy();
+		expect(scope.getByText(/does not create Organization Membership/i)).toBeTruthy();
+	});
+
+	it('shows organization invitation context in the pending request list', () => {
+		renderPending([
+			makePendingRequest({
+				id: 'pending-invite-origin',
+				invitation_origins: [
+					{
+						link_id: 'link-1',
+						invitation_id: 'invite-1',
+						organization_id: 'org-1',
+						organization_name: 'Alpha Company',
+						inviter_user_id: '11111111-1111-4111-8111-111111111111',
+						inviter_email: null,
+						inviter_label: 'User 11111111...',
+						invited_at: '2026-05-18T13:00:00.000Z',
+						membership_role: 'admin',
+						membership_role_label: 'Admin',
+						member_preset: null,
+						member_preset_label: null,
+						intended_access_label: 'Membership Role: Admin'
+					}
+				]
+			})
+		]);
+
+		const card = screen.getByText('Test Soldier').closest('[data-slot="card"]');
+		expect(card).toBeTruthy();
+		const scope = within(card as HTMLElement);
+
+		expect(scope.getByText('Organization Invitation')).toBeTruthy();
+		expect(scope.getAllByText('Membership Role: Admin').length).toBeGreaterThan(0);
+		expect(scope.getByRole('button', { name: 'Approve' })).toBeTruthy();
+		expect(scope.getByRole('button', { name: 'Reject' })).toBeTruthy();
+	});
+
+	it('does not show invitation-origin context for ordinary access requests', async () => {
+		await renderReviewed([makeReviewedRequest({ id: 'ordinary', invitation_origins: [] })]);
+
+		expect(screen.queryByText('Organization Invitation')).toBeNull();
+		expect(screen.queryByText(/does not create Organization Membership/i)).toBeNull();
 	});
 });

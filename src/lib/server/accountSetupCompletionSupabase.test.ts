@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createSupabaseAccountSetupAuthAdapter } from './accountSetupCompletionSupabase';
+import {
+	createSupabaseAccountSetupAuthAdapter,
+	createSupabaseAccountSetupCompletionStore
+} from './accountSetupCompletionSupabase';
 
 function makeAdminClient() {
 	return {
@@ -87,5 +90,59 @@ describe('Supabase Account Setup auth adapter', () => {
 			password: 'ValidPassword123!',
 			email_confirm: true
 		});
+	});
+
+	it('surfaces password update failures for existing User Accounts', async () => {
+		const adminClient = makeAdminClient();
+		adminClient.auth.admin.updateUserById.mockResolvedValueOnce({
+			data: { user: null },
+			error: { message: 'Password should be at least 12 characters' }
+		});
+		const adapter = createSupabaseAccountSetupAuthAdapter(adminClient as never, makeSessionClient() as never);
+
+		await expect(
+			adapter.createOrActivateConfirmedUser({
+				email: 'soldier@example.mil',
+				password: 'short'
+			})
+		).rejects.toEqual({ message: 'Password should be at least 12 characters' });
+		expect(adminClient.auth.admin.updateUserById).toHaveBeenCalledWith('existing-user-1', {
+			password: 'short',
+			email_confirm: true
+		});
+	});
+
+	it('records setup completion without creating an Organization Membership', async () => {
+		const from = vi.fn((table: string) => {
+			if (table === 'access_requests') {
+				return {
+					update: vi.fn(() => ({
+						eq: vi.fn(() => ({
+							is: vi.fn().mockResolvedValue({ error: null })
+						}))
+					}))
+				};
+			}
+
+			if (table === 'user_profiles') {
+				return {
+					upsert: vi.fn().mockResolvedValue({ error: null })
+				};
+			}
+
+			return {
+				insert: vi.fn().mockResolvedValue({ error: null }),
+				update: vi.fn().mockResolvedValue({ error: null }),
+				upsert: vi.fn().mockResolvedValue({ error: null })
+			};
+		});
+		const store = createSupabaseAccountSetupCompletionStore({ from } as never);
+
+		await store.upsertUserProfile({ userId: 'user-123', firstName: 'Person', lastName: 'Example' });
+		await store.markAccessRequestSetupCompleted('request-1', 'user-123', new Date('2026-05-22T12:00:00.000Z'));
+
+		expect(from).toHaveBeenCalledWith('user_profiles');
+		expect(from).toHaveBeenCalledWith('access_requests');
+		expect(from).not.toHaveBeenCalledWith('organization_memberships');
 	});
 });

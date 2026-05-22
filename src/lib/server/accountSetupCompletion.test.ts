@@ -12,6 +12,8 @@ function makeStore(accessRequest: AccountSetupLinkAccessRequest): AccountSetupCo
 	completions: Array<{ accessRequestId: string; userId: string }>;
 	profiles: Array<{ userId: string; firstName: string; lastName: string }>;
 	failCompletion?: boolean;
+	failProfile?: boolean;
+	failMarkCompleted?: boolean;
 	failMarkFailed?: boolean;
 	revokeBeforeMarkUsed?: boolean;
 	onClaim?: () => void;
@@ -68,6 +70,9 @@ function makeStore(accessRequest: AccountSetupLinkAccessRequest): AccountSetupCo
 			return link;
 		},
 		async markCompleted(id, completedAt) {
+			if (this.failMarkCompleted) {
+				throw new Error('link completion write failed');
+			}
 			const link = links.find((candidate) => candidate.id === id);
 			if (this.revokeBeforeMarkUsed && link && !link.usedAt && !link.revokedAt) {
 				link.revokedAt = completedAt;
@@ -103,6 +108,9 @@ function makeStore(accessRequest: AccountSetupLinkAccessRequest): AccountSetupCo
 			completions.push({ accessRequestId, userId });
 		},
 		async upsertUserProfile(input) {
+			if (this.failProfile) {
+				throw new Error('profile write failed');
+			}
 			profiles.push(input);
 		}
 	};
@@ -181,7 +189,11 @@ describe('Account Setup completion', () => {
 
 		const result = await service.complete({ rawToken: 'setup-token', password: 'ValidPassword123!' });
 
-		expect(result).toEqual({ status: 'used' });
+		expect(result).toEqual({
+			status: 'setup-finalization-failed',
+			message:
+				'Account setup could not finish after this link was claimed. Request a fresh setup link or ask an admin to resend setup.'
+		});
 		expect(auth.signInWithPassword).not.toHaveBeenCalled();
 		expect(store.completions).toEqual([{ accessRequestId: 'request-1', userId: 'user-123' }]);
 	});
@@ -251,19 +263,88 @@ describe('Account Setup completion', () => {
 		consoleError.mockRestore();
 	});
 
-	it('marks the claimed setup link failed when completion tracking fails', async () => {
+	it('marks the claimed setup link failed and returns recovery when profile setup fails', async () => {
 		const store = makeStore(approvedRequest);
-		store.failCompletion = true;
+		store.failProfile = true;
 		await addSetupToken(store);
-		const service = createAccountSetupCompletionService(store, makeAuth());
+		const auth = makeAuth();
+		const service = createAccountSetupCompletionService(store, auth);
 
-		await expect(service.complete({ rawToken: 'setup-token', password: 'ValidPassword123!' })).rejects.toThrow(
-			'completion write failed'
-		);
+		const result = await service.complete({ rawToken: 'setup-token', password: 'ValidPassword123!' });
+
+		expect(result).toEqual({
+			status: 'setup-finalization-failed',
+			message:
+				'Account setup could not finish after this link was claimed. Request a fresh setup link or ask an admin to resend setup.'
+		});
+		expect(auth.signInWithPassword).not.toHaveBeenCalled();
 		expect(store.links[0].claimedAt).toBeInstanceOf(Date);
 		expect(store.links[0].failedAt).toBeInstanceOf(Date);
 		expect(store.links[0].failureReason).toBe('completion-tracking-failed');
 		expect(store.links[0].usedAt).toBeNull();
+		expect(store.completions).toEqual([]);
+	});
+
+	it('marks the claimed setup link failed and returns recovery when completion tracking fails', async () => {
+		const store = makeStore(approvedRequest);
+		store.failCompletion = true;
+		await addSetupToken(store);
+		const auth = makeAuth();
+		const service = createAccountSetupCompletionService(store, auth);
+
+		const result = await service.complete({ rawToken: 'setup-token', password: 'ValidPassword123!' });
+
+		expect(result).toEqual({
+			status: 'setup-finalization-failed',
+			message:
+				'Account setup could not finish after this link was claimed. Request a fresh setup link or ask an admin to resend setup.'
+		});
+		expect(auth.signInWithPassword).not.toHaveBeenCalled();
+		expect(store.links[0].claimedAt).toBeInstanceOf(Date);
+		expect(store.links[0].failedAt).toBeInstanceOf(Date);
+		expect(store.links[0].failureReason).toBe('completion-tracking-failed');
+		expect(store.links[0].usedAt).toBeNull();
+	});
+
+	it('marks the claimed setup link failed and returns recovery when link completion cannot be recorded', async () => {
+		const store = makeStore(approvedRequest);
+		store.failMarkCompleted = true;
+		await addSetupToken(store);
+		const auth = makeAuth();
+		const service = createAccountSetupCompletionService(store, auth);
+
+		const result = await service.complete({ rawToken: 'setup-token', password: 'ValidPassword123!' });
+
+		expect(result).toEqual({
+			status: 'setup-finalization-failed',
+			message:
+				'Account setup could not finish after this link was claimed. Request a fresh setup link or ask an admin to resend setup.'
+		});
+		expect(auth.signInWithPassword).not.toHaveBeenCalled();
+		expect(store.links[0].claimedAt).toBeInstanceOf(Date);
+		expect(store.links[0].failedAt).toBeInstanceOf(Date);
+		expect(store.links[0].failureReason).toBe('completion-tracking-failed');
+		expect(store.links[0].usedAt).toBeNull();
+		expect(store.completions).toEqual([{ accessRequestId: 'request-1', userId: 'user-123' }]);
+	});
+
+	it('leaves completed setup durable when automatic sign-in fails and returns manual sign-in guidance', async () => {
+		const store = makeStore(approvedRequest);
+		await addSetupToken(store);
+		const auth = makeAuth({
+			signInWithPassword: vi.fn().mockRejectedValue(new Error('Invalid login credentials'))
+		});
+		const service = createAccountSetupCompletionService(store, auth);
+
+		const result = await service.complete({ rawToken: 'setup-token', password: 'ValidPassword123!' });
+
+		expect(result).toEqual({
+			status: 'sign-in-failed',
+			message: 'Invalid login credentials'
+		});
+		expect(store.links[0].usedAt).toBeInstanceOf(Date);
+		expect(store.links[0].failedAt).toBeNull();
+		expect(store.completions).toEqual([{ accessRequestId: 'request-1', userId: 'user-123' }]);
 	});
 
 	it('prevents a second completion attempt from mutating the User Account after the token is claimed', async () => {

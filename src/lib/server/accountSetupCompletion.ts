@@ -25,7 +25,11 @@ export type AccountSetupCompletionResult =
 	| { status: 'access-request-missing' }
 	| { status: 'access-request-completed' }
 	| { status: 'account-create-failed'; message: string }
+	| { status: 'setup-finalization-failed'; message: string }
 	| { status: 'sign-in-failed'; message: string };
+
+const SETUP_FINALIZATION_FAILED_MESSAGE =
+	'Account setup could not finish after this link was claimed. Request a fresh setup link or ask an admin to resend setup.';
 
 function normalizeEmail(email: string): string {
 	return email.trim().toLowerCase();
@@ -119,19 +123,45 @@ export function createAccountSetupCompletionService(store: AccountSetupCompletio
 
 		const completedAt = new Date();
 		const profileName = resolveProfileName(accessRequest);
-		try {
-			if (profileName) {
+		if (profileName) {
+			try {
 				await store.upsertUserProfile({ userId, ...profileName });
+			} catch {
+				await markClaimFailedSafely(setupLinks, input.claim.link.id, 'completion-tracking-failed');
+				return {
+					status: 'setup-finalization-failed',
+					message: SETUP_FINALIZATION_FAILED_MESSAGE
+				};
 			}
-			await store.markAccessRequestSetupCompleted(input.claim.accessRequestId, userId, completedAt);
-		} catch (error) {
-			await markClaimFailedSafely(setupLinks, input.claim.link.id, 'completion-tracking-failed');
-			throw error;
 		}
 
-		const completed = await setupLinks.markClaimCompleted(input.claim.link.id);
+		try {
+			await store.markAccessRequestSetupCompleted(input.claim.accessRequestId, userId, completedAt);
+		} catch {
+			await markClaimFailedSafely(setupLinks, input.claim.link.id, 'completion-tracking-failed');
+			return {
+				status: 'setup-finalization-failed',
+				message: SETUP_FINALIZATION_FAILED_MESSAGE
+			};
+		}
+
+		let completed: Awaited<ReturnType<typeof setupLinks.markClaimCompleted>>;
+		try {
+			completed = await setupLinks.markClaimCompleted(input.claim.link.id);
+		} catch {
+			await markClaimFailedSafely(setupLinks, input.claim.link.id, 'completion-tracking-failed');
+			return {
+				status: 'setup-finalization-failed',
+				message: SETUP_FINALIZATION_FAILED_MESSAGE
+			};
+		}
+
 		if (completed.status !== 'completed') {
-			return { status: completed.status };
+			await markClaimFailedSafely(setupLinks, input.claim.link.id, 'completion-tracking-failed');
+			return {
+				status: 'setup-finalization-failed',
+				message: SETUP_FINALIZATION_FAILED_MESSAGE
+			};
 		}
 
 		try {

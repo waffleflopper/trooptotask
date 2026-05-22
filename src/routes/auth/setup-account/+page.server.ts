@@ -48,6 +48,14 @@ function getSetupLinkState(link: AccountSetupLinkRecord, now: Date): string {
 	return 'valid';
 }
 
+function claimedSetupFailureMessage(): string {
+	return 'We could not finish account setup after claiming this link. Request a fresh setup link or ask an admin to resend setup.';
+}
+
+function manualSignInMessage(): string {
+	return 'Your account was created successfully, but automatic sign-in could not finish. Please sign in manually.';
+}
+
 export const load: PageServerLoad = async ({ cookies, locals, url }) => {
 	if (locals.session) {
 		redirect(303, getAuthenticatedRedirectPath(locals.authFlow, locals.mfaPending));
@@ -177,9 +185,14 @@ export const actions: Actions = {
 			redirect(303, '/dashboard');
 		}
 
-		if (completion.status === 'account-create-failed' || completion.status === 'sign-in-failed') {
+		if (completion.status === 'account-create-failed' || completion.status === 'setup-finalization-failed') {
 			clearAccountSetupSessionCookie(cookies);
-			return fail(500, { error: completion.message });
+			return fail(500, { error: claimedSetupFailureMessage() });
+		}
+
+		if (completion.status === 'sign-in-failed') {
+			clearAccountSetupSessionCookie(cookies);
+			return fail(500, { error: manualSignInMessage() });
 		}
 
 		clearAccountSetupSessionCookie(cookies);

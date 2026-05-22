@@ -326,12 +326,49 @@ describe('/auth/setup-account actions', () => {
 
 		expect(result).toMatchObject({
 			status: 500,
-			data: { error: 'Supabase unavailable' }
+			data: {
+				error:
+					'We could not finish account setup after claiming this link. Request a fresh setup link or ask an admin to resend setup.'
+			}
 		});
 		expect(completeSetupSession).toHaveBeenCalledWith({
 			setupLinkId: 'link-1',
 			accessRequestId: 'request-1',
 			password: 'ValidPassword123!'
+		});
+	});
+
+	it('returns recovery copy when setup finalization fails after claim', async () => {
+		completeSetupSession.mockResolvedValueOnce({
+			status: 'setup-finalization-failed',
+			message:
+				'Account setup could not finish after this link was claimed. Request a fresh setup link or ask an admin to resend setup.'
+		});
+
+		const result = await actions.default(makeActionEvent());
+
+		expect(result).toMatchObject({
+			status: 500,
+			data: {
+				error:
+					'We could not finish account setup after claiming this link. Request a fresh setup link or ask an admin to resend setup.'
+			}
+		});
+	});
+
+	it('returns manual sign-in guidance when setup succeeds but automatic sign-in fails', async () => {
+		completeSetupSession.mockResolvedValueOnce({
+			status: 'sign-in-failed',
+			message: 'Invalid login credentials'
+		});
+
+		const result = await actions.default(makeActionEvent());
+
+		expect(result).toMatchObject({
+			status: 500,
+			data: {
+				error: 'Your account was created successfully, but automatic sign-in could not finish. Please sign in manually.'
+			}
 		});
 	});
 });

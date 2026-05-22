@@ -32,6 +32,7 @@ describe('createSupabaseDashboardOrgAccessPort', () => {
 			data: {
 				id: 'invite-1',
 				organization_id: 'org-1',
+				role: 'member',
 				can_view_calendar: true,
 				can_edit_calendar: false,
 				can_view_personnel: true,
@@ -58,7 +59,7 @@ describe('createSupabaseDashboardOrgAccessPort', () => {
 
 		const result = await port.findInvitation('invite-1', 'user@example.com');
 
-		expect(result).toMatchObject({ id: 'invite-1', organizationId: 'org-1' });
+		expect(result).toMatchObject({ id: 'invite-1', organizationId: 'org-1', role: 'member' });
 		expect(supabase.from).toHaveBeenCalledWith('organization_invitations');
 		expect(calls).toContainEqual({ method: 'eq', args: ['id', 'invite-1'] });
 		expect(calls).toContainEqual({ method: 'eq', args: ['normalized_email', 'user@example.com'] });

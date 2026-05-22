@@ -8,6 +8,7 @@ import { normalizeInvitationEmail } from '$lib/server/core/useCases/invitationEm
 
 interface PendingOrgInvitation {
 	organization_id: string;
+	role: OrganizationMembershipDraft['role'] | null;
 	can_view_calendar: boolean | null;
 	can_edit_calendar: boolean | null;
 	can_view_personnel: boolean | null;
@@ -40,7 +41,7 @@ export async function autoAcceptOrgInvites(
 			supabase
 				.from('organization_invitations')
 				.select(
-					'organization_id, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_view_critical_tasks, can_edit_critical_tasks, can_view_onboarding, can_edit_onboarding, can_view_rating_scheme, can_edit_rating_scheme, can_manage_members, scoped_group_id, member_preset, capability_overrides, access_scope_kind, access_scope_group_ids'
+					'organization_id, role, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_view_critical_tasks, can_edit_critical_tasks, can_view_onboarding, can_edit_onboarding, can_view_rating_scheme, can_edit_rating_scheme, can_manage_members, scoped_group_id, member_preset, capability_overrides, access_scope_kind, access_scope_group_ids'
 				)
 				.eq('normalized_email', normalizedEmail)
 				.eq('status', 'pending')
@@ -59,6 +60,7 @@ export async function autoAcceptOrgInvites(
 		const membership = deriveMembershipFromInvitation({
 			invitation: {
 				organizationId: inv.organization_id,
+				role: inv.role,
 				canViewCalendar: inv.can_view_calendar,
 				canEditCalendar: inv.can_edit_calendar,
 				canViewPersonnel: inv.can_view_personnel,

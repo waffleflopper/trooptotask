@@ -442,6 +442,19 @@
 			]
 		},
 		{
+			"path": "supabase/migrations/20260522000500_organization_invitation_membership_role_snapshot.sql",
+			"classification": "historical-migration",
+			"patterns": [
+				"can_view_*",
+				"can_edit_*"
+			],
+			"ownerIssue": "#1009",
+			"reason": "Organization invitation role snapshot migration intentionally backfills Membership Role from legacy compatibility permission flags before future acceptance copies the stored snapshot.",
+			"driftIds": [
+				"D-01"
+			]
+		},
+		{
 			"path": "supabase/migrations/20260502000100_remove_legacy_authorization_from_rls_helpers.sql",
 			"classification": "compatibility-adapter",
 			"patterns": [

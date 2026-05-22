@@ -48,6 +48,7 @@ export function createSupabaseOrgSettingsMemberManagementPort(
 				organization_id: input.organizationId,
 				email: input.email,
 				invited_by: input.invitedBy,
+				role: input.role,
 				scoped_group_id: input.singleGroupCompatibilityId,
 				can_view_calendar: input.permissions.canViewCalendar,
 				can_edit_calendar: input.permissions.canEditCalendar,

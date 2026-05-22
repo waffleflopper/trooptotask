@@ -83,6 +83,18 @@ function createMembershipRemovalBuilder(result: { data: unknown[] | null; error:
 	return { builder, calls };
 }
 
+function createInvitationInsertBuilder(result: { error: { message: string } | null }) {
+	const calls: Call[] = [];
+	const builder: Record<string, unknown> = {
+		insert: (...args: unknown[]) => {
+			calls.push({ method: 'insert', args });
+			return result;
+		}
+	};
+
+	return { builder, calls };
+}
+
 describe('createSupabaseOrgSettingsMemberManagementPort', () => {
 	it('looks up duplicate pending invitations by normalized email inside the organization', async () => {
 		const { builder, calls } = createInvitationLookupBuilder();
@@ -100,6 +112,64 @@ describe('createSupabaseOrgSettingsMemberManagementPort', () => {
 		expect(calls).toContainEqual({ method: 'eq', args: ['organization_id', 'org-1'] });
 		expect(calls).toContainEqual({ method: 'eq', args: ['normalized_email', 'user@example.com'] });
 		expect(calls).toContainEqual({ method: 'eq', args: ['status', 'pending'] });
+	});
+
+	it('persists the intended invitation role with the access snapshot', async () => {
+		const { builder, calls } = createInvitationInsertBuilder({ error: null });
+		const supabase = {
+			from: vi.fn(() => builder)
+		};
+		const port = createSupabaseOrgSettingsMemberManagementPort({
+			supabase
+		} as never);
+
+		const result = await port.createInvitation({
+			organizationId: 'org-1',
+			email: 'user@example.com',
+			invitedBy: 'owner-1',
+			role: 'member',
+			singleGroupCompatibilityId: null,
+			permissions: {
+				canViewCalendar: true,
+				canEditCalendar: false,
+				canViewPersonnel: true,
+				canEditPersonnel: false,
+				canViewTraining: true,
+				canEditTraining: false,
+				canViewCriticalTasks: true,
+				canEditCriticalTasks: false,
+				canViewOnboarding: true,
+				canEditOnboarding: false,
+				canViewRatingScheme: true,
+				canEditRatingScheme: false,
+				canManageMembers: true
+			},
+			memberPreset: 'viewer',
+			capabilityOverrides: { personnel: 'configure' },
+			accessScopeKind: 'organization',
+			accessScopeGroupIds: []
+		});
+
+		expect(result).toBeNull();
+		expect(supabase.from).toHaveBeenCalledWith('organization_invitations');
+		expect(calls).toEqual([
+			{
+				method: 'insert',
+				args: [
+					expect.objectContaining({
+						organization_id: 'org-1',
+						email: 'user@example.com',
+						invited_by: 'owner-1',
+						role: 'member',
+						can_manage_members: true,
+						member_preset: 'viewer',
+						capability_overrides: { personnel: 'configure' },
+						access_scope_kind: 'organization',
+						access_scope_group_ids: []
+					})
+				]
+			}
+		]);
 	});
 
 	it('scopes membership lookups by both membership id and organization id', async () => {

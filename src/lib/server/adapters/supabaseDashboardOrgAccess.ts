@@ -31,6 +31,7 @@ interface OrganizationInvitationSummaryRow {
 interface OrganizationInvitationRow {
 	id: string;
 	organization_id: string;
+	role: 'admin' | 'member' | null;
 	can_view_calendar: boolean | null;
 	can_edit_calendar: boolean | null;
 	can_view_personnel: boolean | null;
@@ -118,7 +119,7 @@ export function createSupabaseDashboardOrgAccessPort(locals: Pick<App.Locals, 's
 			const { data, error } = await supabase
 				.from('organization_invitations')
 				.select(
-					'id, organization_id, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_view_critical_tasks, can_edit_critical_tasks, can_view_onboarding, can_edit_onboarding, can_view_rating_scheme, can_edit_rating_scheme, can_manage_members, scoped_group_id, member_preset, capability_overrides, access_scope_kind, access_scope_group_ids'
+					'id, organization_id, role, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_view_critical_tasks, can_edit_critical_tasks, can_view_onboarding, can_edit_onboarding, can_view_rating_scheme, can_edit_rating_scheme, can_manage_members, scoped_group_id, member_preset, capability_overrides, access_scope_kind, access_scope_group_ids'
 				)
 				.eq('id', invitationId)
 				.eq('normalized_email', email)
@@ -132,6 +133,7 @@ export function createSupabaseDashboardOrgAccessPort(locals: Pick<App.Locals, 's
 			return {
 				id: data.id,
 				organizationId: data.organization_id,
+				role: data.role,
 				canViewCalendar: data.can_view_calendar,
 				canEditCalendar: data.can_edit_calendar,
 				canViewPersonnel: data.can_view_personnel,

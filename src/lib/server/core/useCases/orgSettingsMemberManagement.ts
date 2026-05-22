@@ -19,6 +19,7 @@ export interface OrganizationInvitationCreateInput {
 	organizationId: string;
 	email: string;
 	invitedBy: string;
+	role: EditableMembershipRole;
 	singleGroupCompatibilityId: string | null;
 	permissions: OrganizationMemberPermissions;
 	memberPreset: StoredMemberPreset;
@@ -102,7 +103,8 @@ export async function inviteOrganizationMember(
 }> {
 	await requireGovernancePolicy(ports, POLICY_ACTION_CATALOG.organization.inviteMember);
 	const membershipRole = input.membershipRole ?? 'member';
-	if (membershipRole === 'admin') {
+	const invitesAdminRole = membershipRole === 'admin';
+	if (invitesAdminRole) {
 		await requireGovernancePolicy(ports, POLICY_ACTION_CATALOG.organization.updateAdminAccess);
 	}
 
@@ -113,19 +115,24 @@ export async function inviteOrganizationMember(
 		fail(400, 'Please enter a valid email address');
 	}
 
+	const accessCommand = buildMemberAccessStorageCommand({
+		membershipRole,
+		memberAccess: input.memberAccess
+	});
+	if (!invitesAdminRole && accessCommand.permissions.canManageMembers) {
+		await requireGovernancePolicy(ports, POLICY_ACTION_CATALOG.organization.updateAdminAccess);
+	}
+
 	const existing = await ports.settings.findPendingInvitation(ports.auth.orgId, email);
 	if (existing) {
 		fail(400, 'An invitation for this email is already pending');
 	}
 
-	const accessCommand = buildMemberAccessStorageCommand({
-		membershipRole,
-		memberAccess: input.memberAccess
-	});
 	const errorMessage = await ports.settings.createInvitation({
 		organizationId: ports.auth.orgId,
 		email,
 		invitedBy: actorUserId,
+		role: accessCommand.role,
 		singleGroupCompatibilityId: accessCommand.singleGroupCompatibilityId,
 		permissions: accessCommand.permissions,
 		memberPreset: accessCommand.memberPreset,
@@ -297,8 +304,8 @@ export async function updateOrganizationMemberPermissions(
 		fail(400, 'Cannot modify owner permissions');
 	}
 
-	const updatesAdminAccess = input.membershipRole === 'admin' || targetMembership?.role === 'admin';
-	if (updatesAdminAccess) {
+	const updatesAdminRole = input.membershipRole === 'admin' || targetMembership?.role === 'admin';
+	if (updatesAdminRole) {
 		await requireGovernancePolicy(ports, POLICY_ACTION_CATALOG.organization.updateAdminAccess);
 	} else {
 		await requireGovernancePolicy(ports, POLICY_ACTION_CATALOG.organization.updateMemberAccess);
@@ -308,6 +315,10 @@ export async function updateOrganizationMemberPermissions(
 		membershipRole: input.membershipRole,
 		memberAccess: input.memberAccess
 	});
+	if (!updatesAdminRole && accessCommand.permissions.canManageMembers) {
+		await requireGovernancePolicy(ports, POLICY_ACTION_CATALOG.organization.updateAdminAccess);
+	}
+
 	const errorMessage = await ports.settings.updateMembership({
 		organizationId: ports.auth.orgId,
 		membershipId: input.membershipId,

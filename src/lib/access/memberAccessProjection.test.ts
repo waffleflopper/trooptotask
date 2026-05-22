@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+	projectEffectiveInvitationAccess,
 	projectEffectiveMemberAccess,
 	projectMemberPermissions,
 	projectStoredMemberAccessPresentation,
@@ -129,5 +130,112 @@ describe('member access projection', () => {
 			canViewRatingScheme: true,
 			canEditRatingScheme: false
 		});
+	});
+
+	it('projects legacy invitation access through the shared compatibility defaults', () => {
+		const projection = projectEffectiveInvitationAccess({
+			scoped_group_id: 'group-alpha',
+			can_view_calendar: null,
+			can_edit_calendar: null,
+			can_view_personnel: null,
+			can_edit_personnel: null,
+			can_view_training: null,
+			can_edit_training: null,
+			can_view_critical_tasks: null,
+			can_edit_critical_tasks: null,
+			can_view_onboarding: null,
+			can_edit_onboarding: null,
+			can_view_rating_scheme: null,
+			can_edit_rating_scheme: null,
+			can_manage_members: null
+		});
+
+		expect(projection.role).toBe('member');
+		expect(projection.memberPreset).toBe('operator');
+		expect(projection.permissions.canEditCalendar).toBe(true);
+		expect(projection.permissions.canEditRatingScheme).toBe(true);
+		expect(projection.scopedGroupId).toBe('group-alpha');
+		expect(projection.scopeSet).toEqual({ kind: 'groups', groupIds: ['group-alpha'] });
+	});
+
+	it('infers admin invitation access only from full compatibility authority plus member management', () => {
+		const projection = projectEffectiveInvitationAccess({
+			can_view_calendar: true,
+			can_edit_calendar: true,
+			can_view_personnel: true,
+			can_edit_personnel: true,
+			can_view_training: true,
+			can_edit_training: true,
+			can_view_critical_tasks: true,
+			can_edit_critical_tasks: true,
+			can_view_onboarding: true,
+			can_edit_onboarding: true,
+			can_view_rating_scheme: true,
+			can_edit_rating_scheme: true,
+			can_manage_members: true,
+			member_preset: 'viewer',
+			capability_overrides: { calendar: 'none' },
+			access_scope_kind: 'groups',
+			access_scope_group_ids: ['legacy-group']
+		});
+
+		expect(projection.role).toBe('admin');
+		expect(projection.memberPreset).toBe('editor');
+		expect(projection.scopeSet).toEqual({ kind: 'organization' });
+		expect(projection.permissions.canManageMembers).toBe(true);
+	});
+
+	it('infers admin invitation access when nullable rating-scheme flags inherit personnel access', () => {
+		const projection = projectEffectiveInvitationAccess({
+			can_view_calendar: true,
+			can_edit_calendar: true,
+			can_view_personnel: true,
+			can_edit_personnel: true,
+			can_view_training: true,
+			can_edit_training: true,
+			can_view_critical_tasks: true,
+			can_edit_critical_tasks: true,
+			can_view_onboarding: true,
+			can_edit_onboarding: true,
+			can_view_rating_scheme: null,
+			can_edit_rating_scheme: null,
+			can_manage_members: true
+		});
+
+		expect(projection.role).toBe('admin');
+		expect(projection.permissions.canViewRatingScheme).toBe(true);
+		expect(projection.permissions.canEditRatingScheme).toBe(true);
+	});
+
+	it('does not infer admin invitation access from nullable compatibility flags', () => {
+		const projection = projectEffectiveInvitationAccess({
+			can_view_calendar: null,
+			can_edit_calendar: true,
+			can_view_personnel: true,
+			can_edit_personnel: true,
+			can_view_training: true,
+			can_edit_training: true,
+			can_view_critical_tasks: true,
+			can_edit_critical_tasks: true,
+			can_view_onboarding: true,
+			can_edit_onboarding: true,
+			can_view_rating_scheme: true,
+			can_edit_rating_scheme: true,
+			can_manage_members: true
+		});
+
+		expect(projection.role).toBe('member');
+		expect(projection.permissions.canViewCalendar).toBe(true);
+		expect(projection.permissions.canManageMembers).toBe(true);
+	});
+
+	it('does not project owner access from invitation role values', () => {
+		const projection = projectEffectiveInvitationAccess({
+			role: 'owner',
+			can_manage_members: true
+		});
+
+		expect(projection.role).toBe('member');
+		expect(projection.isOwner).toBe(false);
 	});
 });

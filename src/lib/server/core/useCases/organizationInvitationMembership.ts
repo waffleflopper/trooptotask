@@ -1,3 +1,4 @@
+import { projectEffectiveInvitationCompatibilityAccess } from '$lib/access/memberAccessProjection';
 import type { CapabilityOverrideMap, StoredMemberPreset } from '$lib/access/memberAccessShape';
 
 export interface OrganizationInvitationAccessShape {
@@ -53,28 +54,28 @@ export function deriveMembershipFromInvitation(input: {
 	email: string;
 }): OrganizationMembershipDraft {
 	const { invitation, userId, email } = input;
-	const canViewRatingScheme = invitation.canViewRatingScheme ?? invitation.canViewPersonnel ?? true;
-	const canEditRatingScheme = invitation.canEditRatingScheme ?? invitation.canEditPersonnel ?? true;
+	const projection = projectEffectiveInvitationCompatibilityAccess(invitation);
+	const permissions = projection.permissions;
 
 	return {
 		organizationId: invitation.organizationId,
 		userId,
 		email,
-		role: isAdminInvitation(invitation) ? 'admin' : 'member',
-		canViewCalendar: invitation.canViewCalendar ?? true,
-		canEditCalendar: invitation.canEditCalendar ?? true,
-		canViewPersonnel: invitation.canViewPersonnel ?? true,
-		canEditPersonnel: invitation.canEditPersonnel ?? true,
-		canViewTraining: invitation.canViewTraining ?? true,
-		canEditTraining: invitation.canEditTraining ?? true,
-		canViewCriticalTasks: invitation.canViewCriticalTasks ?? true,
-		canEditCriticalTasks: invitation.canEditCriticalTasks ?? true,
-		canViewOnboarding: invitation.canViewOnboarding ?? true,
-		canEditOnboarding: invitation.canEditOnboarding ?? true,
-		canViewRatingScheme,
-		canEditRatingScheme,
-		canManageMembers: invitation.canManageMembers ?? false,
-		scopedGroupId: invitation.scopedGroupId ?? null,
+		role: projection.role === 'admin' ? 'admin' : 'member',
+		canViewCalendar: permissions.canViewCalendar,
+		canEditCalendar: permissions.canEditCalendar,
+		canViewPersonnel: permissions.canViewPersonnel,
+		canEditPersonnel: permissions.canEditPersonnel,
+		canViewTraining: permissions.canViewTraining,
+		canEditTraining: permissions.canEditTraining,
+		canViewCriticalTasks: permissions.canViewCriticalTasks,
+		canEditCriticalTasks: permissions.canEditCriticalTasks,
+		canViewOnboarding: permissions.canViewOnboarding,
+		canEditOnboarding: permissions.canEditOnboarding,
+		canViewRatingScheme: permissions.canViewRatingScheme,
+		canEditRatingScheme: permissions.canEditRatingScheme,
+		canManageMembers: permissions.canManageMembers,
+		scopedGroupId: projection.scopedGroupId,
 		memberPreset: invitation.memberPreset ?? null,
 		capabilityOverrides: invitation.capabilityOverrides ?? {},
 		accessScopeKind: invitation.accessScopeKind ?? null,
@@ -83,22 +84,5 @@ export function deriveMembershipFromInvitation(input: {
 }
 
 export function isAdminInvitation(invitation: OrganizationInvitationAccessShape): boolean {
-	const canViewRatingScheme = invitation.canViewRatingScheme ?? invitation.canViewPersonnel ?? true;
-	const canEditRatingScheme = invitation.canEditRatingScheme ?? invitation.canEditPersonnel ?? true;
-
-	return (
-		!!invitation.canViewCalendar &&
-		!!invitation.canEditCalendar &&
-		!!invitation.canViewPersonnel &&
-		!!invitation.canEditPersonnel &&
-		!!invitation.canViewTraining &&
-		!!invitation.canEditTraining &&
-		!!invitation.canViewCriticalTasks &&
-		!!invitation.canEditCriticalTasks &&
-		!!invitation.canViewOnboarding &&
-		!!invitation.canEditOnboarding &&
-		!!canViewRatingScheme &&
-		!!canEditRatingScheme &&
-		!!invitation.canManageMembers
-	);
+	return projectEffectiveInvitationCompatibilityAccess(invitation).role === 'admin';
 }

@@ -39,6 +39,7 @@ describe('member access projection', () => {
 		});
 
 		expect(projection.isPrivileged).toBe(true);
+		expect(projection.memberPreset).toBe('editor');
 		expect(projection.scopedGroupId).toBeNull();
 		expect(projection.scopeSet).toEqual({ kind: 'organization' });
 		expect(Object.values(projection.capabilityMap)).toEqual([
@@ -85,6 +86,7 @@ describe('member access projection', () => {
 
 		expect(projection.scopedGroupId).toBe('legacy-group');
 		expect(projection.scopeSet).toEqual({ kind: 'groups', groupIds: ['stored-group', 'other-group'] });
+		expect(projection.memberPreset).toBe('viewer');
 		expect(projection.capabilityMap.calendar).toBe('operate');
 		expect(projection.capabilityMap.ratingScheme).toBe('none');
 	});

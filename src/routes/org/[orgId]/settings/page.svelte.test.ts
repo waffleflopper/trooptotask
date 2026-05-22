@@ -357,9 +357,11 @@ describe('org settings page', () => {
 		const calendarCapability = within(editorForm).getByRole('button', { name: 'Calendar' });
 
 		expect(accessPreset.textContent).toContain('Editor');
-		expect((editorForm.querySelector('input[name="preset"]') as HTMLInputElement).value).toBe('editor');
+		expect((editorForm.querySelector('input[name="memberPreset"]') as HTMLInputElement).value).toBe('editor');
 		expect(calendarCapability.textContent).toContain('Can manage');
-		expect((editorForm.querySelector('input[name="capability:calendar"]') as HTMLInputElement).value).toBe('configure');
+		expect((editorForm.querySelector('input[name="capabilityOverride:calendar"]') as HTMLInputElement).value).toBe(
+			'configure'
+		);
 	});
 
 	it('renders policies with shared controls and validation copy', async () => {

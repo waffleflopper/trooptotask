@@ -6,6 +6,7 @@ import {
 	resolveRatingSchemePermissions,
 	type CapabilityMap,
 	type CompatibilityLaneMap,
+	type MemberPreset,
 	type ScopeSet
 } from './memberAccessShape';
 
@@ -71,6 +72,7 @@ export interface EffectiveMemberAccessProjection {
 	canEdit: Record<MemberAccessFeatureArea, boolean>;
 	canManageMembers: boolean;
 	scopedGroupId: string | null;
+	memberPreset: MemberPreset;
 	capabilityMap: CapabilityMap;
 	compatibilityLanes: CompatibilityLaneMap;
 	scopeSet: ScopeSet;
@@ -93,6 +95,7 @@ export function projectEffectiveMemberAccess(row: MemberAccessProjectionRow): Ef
 	const permissions = projectMemberPermissions(row, { privileged: isPrivileged });
 	const accessShape = isPrivileged
 		? {
+				memberPreset: 'editor' as const,
 				capabilityMap: createCapabilityMap('configure'),
 				compatibilityLanes: createCompatibilityLaneMap(),
 				scopeSet: { kind: 'organization' } as ScopeSet
@@ -131,6 +134,7 @@ export function projectEffectiveMemberAccess(row: MemberAccessProjectionRow): Ef
 		},
 		canManageMembers: permissions.canManageMembers,
 		scopedGroupId: isPrivileged ? null : (row.scoped_group_id ?? null),
+		memberPreset: accessShape.memberPreset,
 		capabilityMap: accessShape.capabilityMap,
 		compatibilityLanes: accessShape.compatibilityLanes,
 		scopeSet: accessShape.scopeSet

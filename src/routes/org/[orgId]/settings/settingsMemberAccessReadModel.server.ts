@@ -1,6 +1,10 @@
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import { resolveMemberAccessShapeFromStoredOrCurrent, type MembershipRole } from '$lib/access/memberAccessShape';
-import { projectMemberPermissions, type MemberAccessPresentationRow } from '$lib/access/memberAccessProjection';
+import {
+	projectEffectiveMemberAccess,
+	type MemberAccessPresentationRow,
+	type MemberAccessProjectionRow
+} from '$lib/access/memberAccessProjection';
+import type { MembershipRole } from '$lib/access/memberAccessShape';
 import type {
 	OrganizationGovernanceActionId,
 	SettingsAccessShape,
@@ -47,34 +51,16 @@ export function buildSettingsAccessShape(
 	row: MemberAccessPresentationRow,
 	membershipRole: MembershipRole
 ): SettingsAccessShape {
-	const permissions = projectMemberPermissions(row);
-	// Fixed governance roles own privileged workspace access. Stored member-access columns remain compatibility inputs
-	// for member rows, but should not make admins or owners appear group-scoped or lower than Editor in settings.
-	const accessShape =
-		membershipRole === 'owner' || membershipRole === 'admin'
-			? resolveMemberAccessShapeFromStoredOrCurrent({
-					membershipRole,
-					permissions,
-					scopedGroupId: null,
-					memberPreset: 'editor',
-					capabilityOverrides: {},
-					accessScopeKind: 'organization',
-					accessScopeGroupIds: []
-				})
-			: resolveMemberAccessShapeFromStoredOrCurrent({
-					membershipRole,
-					permissions,
-					scopedGroupId: row.scoped_group_id ?? null,
-					memberPreset: row.member_preset,
-					capabilityOverrides: row.capability_overrides,
-					accessScopeKind: row.access_scope_kind,
-					accessScopeGroupIds: row.access_scope_group_ids
-				});
+	const projection = projectEffectiveMemberAccess({
+		...row,
+		role: membershipRole,
+		scoped_group_id: row.scoped_group_id ?? null
+	} satisfies MemberAccessProjectionRow);
 
 	return {
-		memberPreset: accessShape.memberPreset,
-		capabilityMap: accessShape.capabilityMap,
-		scopeSet: accessShape.scopeSet,
+		memberPreset: projection.memberPreset,
+		capabilityMap: projection.capabilityMap,
+		scopeSet: projection.scopeSet,
 		organizationGovernanceActions: getOrganizationGovernanceActions(membershipRole)
 	};
 }

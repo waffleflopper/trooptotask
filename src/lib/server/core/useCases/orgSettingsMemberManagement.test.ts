@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
+import type { TargetMemberAccessCommand } from '$lib/access/memberAccessCommands';
 import { createTestContext } from '$lib/server/adapters/inMemory';
-import { PERMISSION_PRESETS, type OrganizationMemberPermissions } from '$lib/types';
+import type { OrganizationMemberPermissions } from '$lib/types';
 import {
 	inviteOrganizationMember,
 	leaveOrganization,
@@ -14,7 +15,28 @@ import {
 
 function buildPermissions(overrides: Partial<OrganizationMemberPermissions> = {}): OrganizationMemberPermissions {
 	return {
-		...PERMISSION_PRESETS['full-editor'],
+		canViewCalendar: true,
+		canEditCalendar: true,
+		canViewPersonnel: true,
+		canEditPersonnel: true,
+		canViewTraining: true,
+		canEditTraining: true,
+		canViewCriticalTasks: true,
+		canEditCriticalTasks: true,
+		canViewOnboarding: true,
+		canEditOnboarding: true,
+		canViewRatingScheme: true,
+		canEditRatingScheme: true,
+		canManageMembers: false,
+		...overrides
+	};
+}
+
+function memberAccess(overrides: Partial<TargetMemberAccessCommand> = {}): TargetMemberAccessCommand {
+	return {
+		memberPreset: 'editor',
+		capabilityOverrides: {},
+		scopeSet: { kind: 'organization' },
 		...overrides
 	};
 }
@@ -108,7 +130,7 @@ describe('inviteOrganizationMember', () => {
 				},
 				{
 					email: 'new.user@example.com',
-					preset: 'full-editor',
+					membershipRole: 'admin',
 					actorEmail: 'actor@example.com'
 				}
 			)
@@ -148,7 +170,8 @@ describe('inviteOrganizationMember', () => {
 				{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
 				{
 					email: 'new.user@example.com',
-					preset: 'full-editor',
+					membershipRole: 'member',
+					memberAccess: memberAccess(),
 					actorEmail: 'actor@example.com'
 				}
 			)
@@ -181,7 +204,8 @@ describe('inviteOrganizationMember', () => {
 				{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
 				{
 					email: 'not-an-email',
-					preset: 'full-editor',
+					membershipRole: 'member',
+					memberAccess: memberAccess(),
 					actorEmail: 'actor@example.com'
 				}
 			)
@@ -202,7 +226,8 @@ describe('inviteOrganizationMember', () => {
 				{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
 				{
 					email: 'USER@EXAMPLE.COM ',
-					preset: 'full-editor',
+					membershipRole: 'member',
+					memberAccess: memberAccess(),
 					actorEmail: 'actor@example.com'
 				}
 			)
@@ -215,7 +240,7 @@ describe('inviteOrganizationMember', () => {
 		expect(port.createdInvitations).toEqual([]);
 	});
 
-	it('rejects invitations without a submitted Member Preset before writing compatibility fields', async () => {
+	it('rejects member invitations without a submitted Member Preset before writing compatibility fields', async () => {
 		const ctx = createTestContext({
 			auth: {
 				userId: 'actor-1',
@@ -229,6 +254,7 @@ describe('inviteOrganizationMember', () => {
 				{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
 				{
 					email: 'new.user@example.com',
+					membershipRole: 'member',
 					actorEmail: 'actor@example.com'
 				}
 			)
@@ -240,7 +266,7 @@ describe('inviteOrganizationMember', () => {
 		expect(port.createdInvitations).toEqual([]);
 	});
 
-	it('creates the invitation with preset permissions, logs the audit event, and notifies admins', async () => {
+	it('creates the invitation with target member access, logs the audit event, and notifies admins', async () => {
 		const ctx = createTestContext({
 			auth: {
 				userId: 'actor-1',
@@ -253,8 +279,12 @@ describe('inviteOrganizationMember', () => {
 			{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
 			{
 				email: 'NEW.USER@EXAMPLE.COM',
-				memberPreset: 'team-leader',
-				scopedGroupId: 'group-1',
+				membershipRole: 'member',
+				memberAccess: memberAccess({
+					memberPreset: 'operator',
+					capabilityOverrides: { calendar: 'configure' },
+					scopeSet: { kind: 'groups', groupIds: ['group-1'] }
+				}),
 				actorEmail: 'actor@example.com'
 			}
 		);
@@ -270,17 +300,24 @@ describe('inviteOrganizationMember', () => {
 				organizationId: 'org-1',
 				email: 'new.user@example.com',
 				invitedBy: 'actor-1',
-				scopedGroupId: 'group-1',
-				permissions: PERMISSION_PRESETS['team-leader'],
-				memberPreset: 'operator',
-				capabilityOverrides: {
-					calendar: 'configure',
-					personnel: 'configure',
-					training: 'configure',
-					criticalTasks: 'configure',
-					onboarding: 'configure',
-					ratingScheme: 'configure'
+				singleGroupCompatibilityId: 'group-1',
+				permissions: {
+					canViewCalendar: true,
+					canEditCalendar: true,
+					canViewPersonnel: true,
+					canEditPersonnel: false,
+					canViewTraining: true,
+					canEditTraining: false,
+					canViewCriticalTasks: true,
+					canEditCriticalTasks: false,
+					canViewOnboarding: true,
+					canEditOnboarding: false,
+					canViewRatingScheme: true,
+					canEditRatingScheme: false,
+					canManageMembers: false
 				},
+				memberPreset: 'operator',
+				capabilityOverrides: { calendar: 'configure' },
 				accessScopeKind: 'groups',
 				accessScopeGroupIds: ['group-1']
 			}
@@ -699,7 +736,7 @@ describe('leaveOrganization', () => {
 });
 
 describe('updateOrganizationMemberPermissions', () => {
-	it('rejects permission updates without a submitted Member Preset before writing compatibility fields', async () => {
+	it('rejects member access updates without a submitted Member Preset before writing compatibility fields', async () => {
 		const ctx = createTestContext({
 			auth: {
 				userId: 'actor-1',
@@ -720,6 +757,7 @@ describe('updateOrganizationMemberPermissions', () => {
 				{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
 				{
 					membershipId: '11111111-1111-4111-8111-111111111111',
+					membershipRole: 'member',
 					actorEmail: 'actor@example.com'
 				}
 			)
@@ -753,8 +791,7 @@ describe('updateOrganizationMemberPermissions', () => {
 				{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
 				{
 					membershipId: '11111111-1111-4111-8111-111111111111',
-					preset: 'admin',
-					customPermissions: buildPermissions(),
+					membershipRole: 'admin',
 					actorEmail: 'actor@example.com'
 				}
 			)
@@ -799,8 +836,8 @@ describe('updateOrganizationMemberPermissions', () => {
 				{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
 				{
 					membershipId: '11111111-1111-4111-8111-111111111111',
-					preset: 'full-editor',
-					customPermissions: buildPermissions(),
+					membershipRole: 'member',
+					memberAccess: memberAccess(),
 					actorEmail: 'actor@example.com'
 				}
 			)
@@ -845,8 +882,7 @@ describe('updateOrganizationMemberPermissions', () => {
 				{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
 				{
 					membershipId: '11111111-1111-4111-8111-111111111111',
-					preset: 'admin',
-					customPermissions: buildPermissions(),
+					membershipRole: 'admin',
 					actorEmail: 'actor@example.com'
 				}
 			)
@@ -884,8 +920,7 @@ describe('updateOrganizationMemberPermissions', () => {
 			{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
 			{
 				membershipId: '11111111-1111-4111-8111-111111111111',
-				preset: 'admin',
-				customPermissions: buildPermissions(),
+				membershipRole: 'admin',
 				actorEmail: 'actor@example.com'
 			}
 		);
@@ -899,8 +934,8 @@ describe('updateOrganizationMemberPermissions', () => {
 				organizationId: 'org-1',
 				membershipId: '11111111-1111-4111-8111-111111111111',
 				role: 'admin',
-				scopedGroupId: null,
-				permissions: PERMISSION_PRESETS.admin,
+				singleGroupCompatibilityId: null,
+				permissions: buildPermissions({ canManageMembers: true }),
 				memberPreset: 'editor',
 				capabilityOverrides: {},
 				accessScopeKind: 'organization',
@@ -913,7 +948,8 @@ describe('updateOrganizationMemberPermissions', () => {
 				resourceType: 'organization',
 				details: {
 					membershipId: '11111111-1111-4111-8111-111111111111',
-					preset: 'admin'
+					membershipRole: 'admin',
+					memberPreset: 'editor'
 				},
 				severity: 'warning'
 			}
@@ -951,17 +987,14 @@ describe('updateOrganizationMemberPermissions', () => {
 			},
 			orgName: 'Alpha Company'
 		});
-		const customPermissions = buildPermissions({
-			canEditPersonnel: false,
-			canManageMembers: false
-		});
-
 		const result = await updateOrganizationMemberPermissions(
 			{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
 			{
 				membershipId: '11111111-1111-4111-8111-111111111111',
-				preset: 'custom',
-				customPermissions,
+				membershipRole: 'member',
+				memberAccess: memberAccess({
+					capabilityOverrides: { personnel: 'view' }
+				}),
 				actorEmail: 'actor@example.com'
 			}
 		);
@@ -974,16 +1007,10 @@ describe('updateOrganizationMemberPermissions', () => {
 				organizationId: 'org-1',
 				membershipId: '11111111-1111-4111-8111-111111111111',
 				role: 'member',
-				scopedGroupId: null,
-				permissions: customPermissions,
-				memberPreset: 'viewer',
-				capabilityOverrides: {
-					calendar: 'configure',
-					training: 'configure',
-					criticalTasks: 'configure',
-					onboarding: 'configure',
-					ratingScheme: 'configure'
-				},
+				singleGroupCompatibilityId: null,
+				permissions: buildPermissions({ canEditPersonnel: false }),
+				memberPreset: 'editor',
+				capabilityOverrides: { personnel: 'view' },
 				accessScopeKind: 'organization',
 				accessScopeGroupIds: []
 			}
@@ -1006,7 +1033,8 @@ describe('updateOrganizationMemberPermissions', () => {
 				resourceType: 'organization',
 				details: {
 					membershipId: '11111111-1111-4111-8111-111111111111',
-					preset: 'custom'
+					membershipRole: 'member',
+					memberPreset: 'editor'
 				},
 				severity: 'warning'
 			}
@@ -1033,13 +1061,18 @@ describe('updateOrganizationMemberPermissions', () => {
 			{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
 			{
 				membershipId: '11111111-1111-4111-8111-111111111111',
-				memberPreset: 'operator',
-				capabilityOverrides: {
-					calendar: 'configure',
-					ratingScheme: 'none'
-				},
-				accessScopeKind: 'groups',
-				accessScopeGroupIds: ['22222222-2222-4222-8222-222222222222', '33333333-3333-4333-8333-333333333333'],
+				membershipRole: 'member',
+				memberAccess: memberAccess({
+					memberPreset: 'operator',
+					capabilityOverrides: {
+						calendar: 'configure',
+						ratingScheme: 'none'
+					},
+					scopeSet: {
+						kind: 'groups',
+						groupIds: ['22222222-2222-4222-8222-222222222222', '33333333-3333-4333-8333-333333333333']
+					}
+				}),
 				actorEmail: 'actor@example.com'
 			}
 		);
@@ -1050,7 +1083,7 @@ describe('updateOrganizationMemberPermissions', () => {
 				organizationId: 'org-1',
 				membershipId: '11111111-1111-4111-8111-111111111111',
 				role: 'member',
-				scopedGroupId: '22222222-2222-4222-8222-222222222222',
+				singleGroupCompatibilityId: '22222222-2222-4222-8222-222222222222',
 				permissions: {
 					canViewCalendar: true,
 					canEditCalendar: true,

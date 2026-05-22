@@ -34,7 +34,7 @@
 		pluralize
 	} from './settingsWorkspaceFormatters';
 	import { createSettingsWorkspaceState } from './settingsWorkspaceState.svelte';
-	import type { EditablePreset } from './settingsMemberAccessWorkspace.svelte';
+	import type { EditableMembershipRole, EditablePreset } from './settingsMemberAccessWorkspace.svelte';
 	import type { SettingsMemberAccessRow } from './settingsMemberAccessModel';
 
 	let { data, form } = $props();
@@ -78,6 +78,7 @@
 	const memberAccess = settingsState.members;
 	const sortedMembers = $derived(memberAccess.sortedMembers);
 	const availablePresetOptions = $derived(memberAccess.availablePresetOptions);
+	const availableMembershipRoleOptions = $derived(memberAccess.availableMembershipRoleOptions);
 	const accessLanes = memberAccess.accessLanes;
 	const capabilityOptions = memberAccess.capabilityOptions;
 	const governanceRoleExplanation = explainPolicyReasonCode('denied:governance-role');
@@ -437,13 +438,14 @@
 				</div>
 				<Separator />
 				<div class="rounded-md border bg-muted/30 p-3 text-sm">
-					<strong>Viewer, Operator, and Editor do not make someone an Admin.</strong>
+					<strong>Admin authority is separate from member access.</strong>
 				</div>
 
 				<div class="grid gap-3" role="list" aria-label="Organization members">
 					{#each sortedMembers as member (member.id)}
 						{@const accessShape = memberAccess.getMemberAccessShape(member)}
 						{@const accessBadge = memberAccess.getMemberAccessBadge(member, accessShape)}
+						{@const selectedMembershipRole = memberAccess.getSelectedMembershipRole(member)}
 						{@const selectedPreset = memberAccess.getSelectedPreset(member)}
 						{@const selectedScopeKind = memberAccess.getSelectedScopeKind(member)}
 						{@const selectedScopeGroupIds = memberAccess.getSelectedScopeGroupIds(member)}
@@ -484,7 +486,7 @@
 										onclick={() => memberAccess.openMemberEditor(member)}
 									>
 										<Edit />
-										Manage Access
+										{isOwner ? 'Manage Role & Access' : 'Manage Access'}
 									</Button>
 									<form method="POST" action="?/removeMember" use:enhance>
 										<input type="hidden" name="membershipId" value={member.id} />
@@ -519,29 +521,64 @@
 									}}
 								>
 									<input type="hidden" name="membershipId" value={member.id} />
-									<div class="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto]">
+									<input type="hidden" name="membershipRole" value={selectedMembershipRole} />
+									<div class="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
 										<Field.Root>
-											<Field.Label id="access-level-label-{member.id}">Access level</Field.Label>
-											<input type="hidden" name="memberPreset" value={selectedPreset} />
-											<Select.Root
-												type="single"
-												value={selectedPreset}
-												onValueChange={(value) => memberAccess.setMemberPreset(member.id, value as EditablePreset)}
+											<Field.Label id="membership-role-label-{member.id}">Membership Role</Field.Label>
+											{#if isOwner}
+												<Select.Root
+													type="single"
+													value={selectedMembershipRole}
+													onValueChange={(value) =>
+														memberAccess.setMemberMembershipRole(member.id, value as EditableMembershipRole)}
+												>
+													<Select.Trigger
+														aria-labelledby="membership-role-label-{member.id}"
+														class="w-full md:min-w-56"
+													>
+														{memberAccess.getGovernanceRoleLabel(selectedMembershipRole)}
+													</Select.Trigger>
+													<Select.Content>
+														{#each availableMembershipRoleOptions as option (option.value)}
+															<Select.Item value={option.value} label={option.label} />
+														{/each}
+													</Select.Content>
+												</Select.Root>
+											{:else}
+												<p class="rounded-md border bg-background px-3 py-2 text-sm">
+													{memberAccess.getGovernanceRoleLabel(selectedMembershipRole)}
+												</p>
+											{/if}
+											<Field.Description
+												>{memberAccess.getGovernanceRoleHelper(selectedMembershipRole)}</Field.Description
 											>
-												<Select.Trigger aria-labelledby="access-level-label-{member.id}" class="w-full md:min-w-56">
-													{getPresetLabel(selectedPreset)}
-												</Select.Trigger>
-												<Select.Content>
-													{#each availablePresetOptions as option (option.value)}
-														<Select.Item value={option.value} label={option.label} />
-													{/each}
-												</Select.Content>
-											</Select.Root>
-											<Field.Description>{memberAccess.getAccessOptionHelper(selectedPreset)}</Field.Description>
 										</Field.Root>
+										{#if selectedMembershipRole === 'member'}
+											<Field.Root>
+												<Field.Label id="access-level-label-{member.id}">Member Preset</Field.Label>
+												<input type="hidden" name="memberPreset" value={selectedPreset} />
+												<Select.Root
+													type="single"
+													value={selectedPreset}
+													onValueChange={(value) => memberAccess.setMemberPreset(member.id, value as EditablePreset)}
+												>
+													<Select.Trigger aria-labelledby="access-level-label-{member.id}" class="w-full md:min-w-56">
+														{getPresetLabel(selectedPreset)}
+													</Select.Trigger>
+													<Select.Content>
+														{#each availablePresetOptions as option (option.value)}
+															<Select.Item value={option.value} label={option.label} />
+														{/each}
+													</Select.Content>
+												</Select.Root>
+												<Field.Description>{memberAccess.getAccessOptionHelper(selectedPreset)}</Field.Description>
+											</Field.Root>
+										{:else}
+											<input type="hidden" name="memberPreset" value={selectedPreset} />
+										{/if}
 										<div class="flex flex-wrap items-end gap-2">
 											<Button type="submit" size="sm" disabled={loading}>
-												{loading ? 'Saving...' : 'Save Access'}
+												{loading ? 'Saving...' : 'Save Member'}
 											</Button>
 											<Button
 												type="button"
@@ -564,7 +601,7 @@
 										</div>
 									</div>
 
-									{#if selectedPreset !== 'admin'}
+									{#if selectedMembershipRole === 'member'}
 										<input type="hidden" name="scopeSetKind" value={selectedScopeKind} />
 										<div class="grid gap-4 md:grid-cols-2">
 											<section
@@ -688,7 +725,8 @@
 						{#if form?.inviteSuccess}
 							<p class="text-sm text-muted-foreground">{form.inviteMessage ?? 'Invitation created.'}</p>
 						{/if}
-						<div class="grid gap-4 md:grid-cols-[minmax(0,1fr)_14rem_auto]">
+						<input type="hidden" name="membershipRole" value={memberAccess.inviteMembershipRole} />
+						<div class="grid gap-4 md:grid-cols-[minmax(0,1fr)_12rem_14rem_auto]">
 							<div class="grid gap-2">
 								<Label for="invite-email">Email address</Label>
 								<Input
@@ -700,19 +738,42 @@
 									required
 								/>
 							</div>
+							{#if isOwner}
+								<Field.Root>
+									<Field.Label id="invite-membership-role-label">Membership Role</Field.Label>
+									<Select.Root
+										type="single"
+										value={memberAccess.inviteMembershipRole}
+										onValueChange={(value) => memberAccess.setInviteMembershipRole(value as EditableMembershipRole)}
+									>
+										<Select.Trigger aria-labelledby="invite-membership-role-label" class="w-full">
+											{memberAccess.getGovernanceRoleLabel(memberAccess.inviteMembershipRole)}
+										</Select.Trigger>
+										<Select.Content>
+											{#each availableMembershipRoleOptions as option (option.value)}
+												<Select.Item value={option.value} label={option.label} />
+											{/each}
+										</Select.Content>
+									</Select.Root>
+								</Field.Root>
+							{/if}
 							<Field.Root>
-								<Field.Label id="invite-access-level-label">Access level</Field.Label>
+								<Field.Label id="invite-access-level-label">Member Preset</Field.Label>
 								<input type="hidden" name="memberPreset" value={memberAccess.invitePreset} />
-								<Select.Root type="single" bind:value={memberAccess.invitePreset}>
-									<Select.Trigger aria-label="Invite member access level" class="w-full">
-										{getPresetLabel(memberAccess.invitePreset)}
-									</Select.Trigger>
-									<Select.Content>
-										{#each availablePresetOptions as option (option.value)}
-											<Select.Item value={option.value} label={option.label} />
-										{/each}
-									</Select.Content>
-								</Select.Root>
+								{#if memberAccess.inviteMembershipRole === 'member'}
+									<Select.Root type="single" bind:value={memberAccess.invitePreset}>
+										<Select.Trigger aria-label="Invite member preset" class="w-full">
+											{getPresetLabel(memberAccess.invitePreset)}
+										</Select.Trigger>
+										<Select.Content>
+											{#each availablePresetOptions as option (option.value)}
+												<Select.Item value={option.value} label={option.label} />
+											{/each}
+										</Select.Content>
+									</Select.Root>
+								{:else}
+									<p class="rounded-md border bg-background px-3 py-2 text-sm">Uses Admin authority</p>
+								{/if}
 							</Field.Root>
 							<div class="flex items-end">
 								<Button type="submit" disabled={loading}>
@@ -720,7 +781,7 @@
 								</Button>
 							</div>
 						</div>
-						{#if memberAccess.invitePreset !== 'admin'}
+						{#if memberAccess.inviteMembershipRole === 'member'}
 							<div class="mt-4 grid gap-3 rounded-md border bg-muted/30 p-3">
 								<input type="hidden" name="scopeSetKind" value={memberAccess.inviteScopeKind} />
 								<RadioGroup.Root

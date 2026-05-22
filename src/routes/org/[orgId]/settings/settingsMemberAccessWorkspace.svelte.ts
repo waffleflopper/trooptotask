@@ -14,15 +14,18 @@ import type {
 import {
 	SETTINGS_ACCESS_LANES,
 	SETTINGS_ACCESS_OPTIONS,
+	SETTINGS_GOVERNANCE_ROLE_OPTIONS,
 	SETTINGS_CAPABILITY_OPTIONS,
 	type AccessLaneConfig,
 	type AccessOption,
-	type EditablePreset
+	type EditablePreset,
+	type EditableMembershipRole,
+	type GovernanceRoleOption
 } from './settingsMemberAccessConstants';
 
 export type MemberAccessBadge = MemberPreset | 'admin' | 'owner';
 export type ScopeKind = ScopeSet['kind'];
-export type { AccessLaneConfig, AccessOption, EditablePreset };
+export type { AccessLaneConfig, AccessOption, EditablePreset, EditableMembershipRole, GovernanceRoleOption };
 
 export interface SettingsMemberAccessData {
 	members: SettingsMemberAccessRow[];
@@ -36,9 +39,11 @@ export class SettingsMemberAccessWorkspace {
 
 	memberEditorId = $state<string | null>(null);
 	inviteEmail = $state('');
+	inviteMembershipRole = $state<EditableMembershipRole>('member');
 	invitePreset = $state<EditablePreset>('editor');
 	inviteScopeKind = $state<ScopeKind>('organization');
 	inviteScopeGroupIds = $state<string[]>([]);
+	memberSelectedMembershipRole = $state<Record<string, EditableMembershipRole>>({});
 	memberSelectedPreset = $state<Record<string, EditablePreset>>({});
 	memberSelectedCapabilities = $state<Record<string, Partial<Record<DurableFeatureLane, CapabilityLevel>>>>({});
 	memberSelectedScopeKind = $state<Record<string, ScopeKind>>({});
@@ -61,9 +66,13 @@ export class SettingsMemberAccessWorkspace {
 	}
 
 	get availablePresetOptions(): AccessOption[] {
+		return SETTINGS_ACCESS_OPTIONS;
+	}
+
+	get availableMembershipRoleOptions(): GovernanceRoleOption[] {
 		return this.#data.isOwner
-			? SETTINGS_ACCESS_OPTIONS
-			: SETTINGS_ACCESS_OPTIONS.filter((option) => option.value !== 'admin');
+			? SETTINGS_GOVERNANCE_ROLE_OPTIONS
+			: SETTINGS_GOVERNANCE_ROLE_OPTIONS.filter((option) => option.value === 'member');
 	}
 
 	get accessLanes(): AccessLaneConfig[] {
@@ -123,6 +132,14 @@ export class SettingsMemberAccessWorkspace {
 		return SETTINGS_ACCESS_OPTIONS.find((option) => option.value === preset)?.helper ?? '';
 	}
 
+	getGovernanceRoleHelper(role: EditableMembershipRole): string {
+		return SETTINGS_GOVERNANCE_ROLE_OPTIONS.find((option) => option.value === role)?.helper ?? '';
+	}
+
+	getGovernanceRoleLabel(role: EditableMembershipRole): string {
+		return SETTINGS_GOVERNANCE_ROLE_OPTIONS.find((option) => option.value === role)?.label ?? 'Member';
+	}
+
 	editablePresetForMemberPreset(memberPreset: MemberPreset): StoredMemberPreset {
 		return memberPreset === 'viewer' || memberPreset === 'operator' || memberPreset === 'editor'
 			? memberPreset
@@ -159,8 +176,6 @@ export class SettingsMemberAccessWorkspace {
 		if (selectedCapability) return selectedCapability;
 
 		const accessShape = this.getMemberAccessShape(member);
-		if (selectedPreset === 'admin') return TARGET_MEMBER_PRESET_CAPABILITIES.editor[lane];
-
 		const currentPreset = this.editablePresetForMemberPreset(accessShape.memberPreset);
 		if (selectedPreset !== currentPreset) {
 			return TARGET_MEMBER_PRESET_CAPABILITIES[selectedPreset][lane];
@@ -169,12 +184,13 @@ export class SettingsMemberAccessWorkspace {
 		return accessShape.capabilityMap[lane];
 	}
 
+	getSelectedMembershipRole(member: SettingsMemberAccessRow): EditableMembershipRole {
+		return this.memberSelectedMembershipRole[member.id] ?? (member.membershipRole === 'admin' ? 'admin' : 'member');
+	}
+
 	getSelectedPreset(member: SettingsMemberAccessRow): EditablePreset {
 		const accessShape = this.getMemberAccessShape(member);
-		return (
-			this.memberSelectedPreset[member.id] ??
-			(member.membershipRole === 'admin' ? 'admin' : this.editablePresetForMemberPreset(accessShape.memberPreset))
-		);
+		return this.memberSelectedPreset[member.id] ?? this.editablePresetForMemberPreset(accessShape.memberPreset);
 	}
 
 	getSelectedScopeKind(member: SettingsMemberAccessRow): ScopeKind {
@@ -191,10 +207,13 @@ export class SettingsMemberAccessWorkspace {
 		const accessShape = this.getMemberAccessShape(member);
 		const scopeGroupIds = accessShape.scopeSet.kind === 'groups' ? accessShape.scopeSet.groupIds : [];
 		this.memberEditorId = member.id;
+		this.memberSelectedMembershipRole = {
+			...this.memberSelectedMembershipRole,
+			[member.id]: member.membershipRole === 'admin' ? 'admin' : 'member'
+		};
 		this.memberSelectedPreset = {
 			...this.memberSelectedPreset,
-			[member.id]:
-				member.membershipRole === 'admin' ? 'admin' : this.editablePresetForMemberPreset(accessShape.memberPreset)
+			[member.id]: this.editablePresetForMemberPreset(accessShape.memberPreset)
 		};
 		this.memberSelectedScopeKind = {
 			...this.memberSelectedScopeKind,
@@ -208,18 +227,28 @@ export class SettingsMemberAccessWorkspace {
 
 	closeMemberEditor(memberId: string): void {
 		this.memberEditorId = null;
+		const remainingRoles = { ...this.memberSelectedMembershipRole };
 		const remainingPresets = { ...this.memberSelectedPreset };
 		const remainingCapabilities = { ...this.memberSelectedCapabilities };
 		const remainingScopeKinds = { ...this.memberSelectedScopeKind };
 		const remainingScopeGroups = { ...this.memberSelectedScopeGroupIds };
+		delete remainingRoles[memberId];
 		delete remainingPresets[memberId];
 		delete remainingCapabilities[memberId];
 		delete remainingScopeKinds[memberId];
 		delete remainingScopeGroups[memberId];
+		this.memberSelectedMembershipRole = remainingRoles;
 		this.memberSelectedPreset = remainingPresets;
 		this.memberSelectedCapabilities = remainingCapabilities;
 		this.memberSelectedScopeKind = remainingScopeKinds;
 		this.memberSelectedScopeGroupIds = remainingScopeGroups;
+	}
+
+	setMemberMembershipRole(memberId: string, role: EditableMembershipRole): void {
+		this.memberSelectedMembershipRole = {
+			...this.memberSelectedMembershipRole,
+			[memberId]: role
+		};
 	}
 
 	setMemberPreset(memberId: string, preset: EditablePreset): void {
@@ -260,6 +289,10 @@ export class SettingsMemberAccessWorkspace {
 		this.inviteScopeKind = scopeKind;
 	}
 
+	setInviteMembershipRole(role: EditableMembershipRole): void {
+		this.inviteMembershipRole = role;
+	}
+
 	toggleInviteScopeGroup(groupId: string, checked: boolean): void {
 		this.inviteScopeGroupIds = checked
 			? this.inviteScopeGroupIds.includes(groupId)
@@ -270,6 +303,7 @@ export class SettingsMemberAccessWorkspace {
 
 	clearInviteEmail(): void {
 		this.inviteEmail = '';
+		this.inviteMembershipRole = 'member';
 		this.inviteScopeKind = 'organization';
 		this.inviteScopeGroupIds = [];
 	}

@@ -96,6 +96,7 @@ describe('settings member access workspace', () => {
 		workspace.openMemberEditor(editableMember);
 
 		expect(workspace.memberEditorId).toBe('member-1');
+		expect(workspace.getSelectedMembershipRole(editableMember)).toBe('member');
 		expect(workspace.getSelectedPreset(editableMember)).toBe('viewer');
 		expect(workspace.getSelectedScopeKind(editableMember)).toBe('groups');
 		expect(workspace.getSelectedScopeGroupIds(editableMember)).toEqual(['group-alpha']);
@@ -111,6 +112,7 @@ describe('settings member access workspace', () => {
 		workspace.closeMemberEditor('member-1');
 
 		expect(workspace.memberEditorId).toBeNull();
+		expect(workspace.memberSelectedMembershipRole).toEqual({});
 		expect(workspace.memberSelectedPreset).toEqual({});
 		expect(workspace.memberSelectedScopeKind).toEqual({});
 		expect(workspace.memberSelectedScopeGroupIds).toEqual({});
@@ -141,32 +143,39 @@ describe('settings member access workspace', () => {
 		expect(workspace.getSelectedPreset(editableMember)).toBe('editor');
 	});
 
-	it('keeps admin preset choices owner-only and uses editor capabilities for admin drafts', () => {
+	it('keeps membership role controls separate from member preset choices', () => {
 		const ownerWorkspace = makeWorkspace({ isOwner: true });
 		const adminMember = ownerWorkspace.sortedMembers.find((candidate) => candidate.membershipRole === 'admin');
 		if (!adminMember) throw new Error('Expected admin member');
 
-		expect(ownerWorkspace.availablePresetOptions.map((option) => option.value)).toContain('admin');
+		expect(ownerWorkspace.availablePresetOptions.map((option) => option.value)).toEqual([
+			'editor',
+			'operator',
+			'viewer'
+		]);
+		expect(ownerWorkspace.availableMembershipRoleOptions.map((option) => option.value)).toEqual(['member', 'admin']);
 		ownerWorkspace.openMemberEditor(adminMember);
-		expect(ownerWorkspace.getSelectedPreset(adminMember)).toBe('admin');
-		expect(ownerWorkspace.getEditorCapabilityValue(adminMember, 'calendar', 'admin')).toBe('configure');
+		expect(ownerWorkspace.getSelectedMembershipRole(adminMember)).toBe('admin');
+		expect(ownerWorkspace.getSelectedPreset(adminMember)).toBe('editor');
 		expect(ownerWorkspace.getMemberAccessBadge(adminMember, ownerWorkspace.getMemberAccessShape(adminMember))).toBe(
 			'admin'
 		);
 		expect(ownerWorkspace.getAccessLabel('admin')).toBe('Admin');
 
 		const adminWorkspace = makeWorkspace({ isOwner: false });
-		expect(adminWorkspace.availablePresetOptions.map((option) => option.value)).not.toContain('admin');
+		expect(adminWorkspace.availableMembershipRoleOptions.map((option) => option.value)).toEqual(['member']);
 	});
 
 	it('owns invite preset and Scope Set draft state alongside member access state', () => {
 		const workspace = makeWorkspace();
 
 		expect(workspace.invitePreset).toBe('editor');
+		expect(workspace.inviteMembershipRole).toBe('member');
 		expect(workspace.inviteScopeKind).toBe('organization');
 		expect(workspace.inviteScopeGroupIds).toEqual([]);
 
 		workspace.inviteEmail = 'leader@example.com';
+		workspace.setInviteMembershipRole('admin');
 		workspace.invitePreset = 'operator';
 		workspace.setInviteScopeKind('groups');
 		workspace.toggleInviteScopeGroup('group-alpha', true);
@@ -175,12 +184,14 @@ describe('settings member access workspace', () => {
 		workspace.toggleInviteScopeGroup('group-alpha', false);
 
 		expect(workspace.inviteEmail).toBe('leader@example.com');
+		expect(workspace.inviteMembershipRole).toBe('admin');
 		expect(workspace.invitePreset).toBe('operator');
 		expect(workspace.inviteScopeKind).toBe('groups');
 		expect(workspace.inviteScopeGroupIds).toEqual(['group-bravo']);
 
 		workspace.clearInviteEmail();
 		expect(workspace.inviteEmail).toBe('');
+		expect(workspace.inviteMembershipRole).toBe('member');
 		expect(workspace.inviteScopeKind).toBe('organization');
 		expect(workspace.inviteScopeGroupIds).toEqual([]);
 	});

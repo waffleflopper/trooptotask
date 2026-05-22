@@ -48,7 +48,7 @@ export function createSupabaseOrgSettingsMemberManagementPort(
 				organization_id: input.organizationId,
 				email: input.email,
 				invited_by: input.invitedBy,
-				scoped_group_id: input.scopedGroupId,
+				scoped_group_id: input.singleGroupCompatibilityId,
 				can_view_calendar: input.permissions.canViewCalendar,
 				can_edit_calendar: input.permissions.canEditCalendar,
 				can_view_personnel: input.permissions.canViewPersonnel,
@@ -145,7 +145,7 @@ export function createSupabaseOrgSettingsMemberManagementPort(
 function serializeMembershipUpdate(input: OrganizationMembershipUpdateInput) {
 	return {
 		role: input.role,
-		scoped_group_id: input.scopedGroupId,
+		scoped_group_id: input.singleGroupCompatibilityId,
 		can_view_calendar: input.permissions.canViewCalendar,
 		can_edit_calendar: input.permissions.canEditCalendar,
 		can_view_personnel: input.permissions.canViewPersonnel,

@@ -1,6 +1,8 @@
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import {
+	projectEffectiveInvitationAccess,
 	projectEffectiveMemberAccess,
+	type EffectiveMemberAccessProjection,
 	type MemberAccessPresentationRow,
 	type MemberAccessProjectionRow
 } from '$lib/access/memberAccessProjection';
@@ -36,14 +38,14 @@ export function buildSettingsMemberAccessRow(row: LegacySettingsAccessRow): Sett
 }
 
 export function buildSettingsInvitationAccessRow(row: LegacySettingsAccessRow): SettingsInvitationAccessRow {
-	const membershipRole = parseMembershipRole(row.role);
+	const projection = projectEffectiveInvitationAccess(row);
 	return {
 		id: asString(row.id),
 		email: asString(row.email),
 		status: asString(row.status),
-		membershipRole,
+		membershipRole: projection.role,
 		createdAt: asString(row.created_at),
-		access: buildSettingsAccessShape(row, membershipRole)
+		access: buildSettingsAccessShapeFromProjection(projection)
 	};
 }
 
@@ -57,11 +59,15 @@ export function buildSettingsAccessShape(
 		scoped_group_id: row.scoped_group_id ?? null
 	} satisfies MemberAccessProjectionRow);
 
+	return buildSettingsAccessShapeFromProjection(projection);
+}
+
+function buildSettingsAccessShapeFromProjection(projection: EffectiveMemberAccessProjection): SettingsAccessShape {
 	return {
 		memberPreset: projection.memberPreset,
 		capabilityMap: projection.capabilityMap,
 		scopeSet: projection.scopeSet,
-		organizationGovernanceActions: getOrganizationGovernanceActions(membershipRole)
+		organizationGovernanceActions: getOrganizationGovernanceActions(projection.role)
 	};
 }
 

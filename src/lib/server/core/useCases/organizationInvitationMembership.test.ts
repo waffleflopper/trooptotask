@@ -30,7 +30,7 @@ describe('organizationInvitationMembership', () => {
 		});
 	});
 
-	it('defaults nullable invitation flags to the current full-view/full-edit compatibility behavior', () => {
+	it('defaults nullable invitation flags to the shared full-view/full-edit compatibility behavior', () => {
 		const membership = deriveMembershipFromInvitation({
 			invitation: {
 				organizationId: 'org-1',
@@ -74,6 +74,79 @@ describe('organizationInvitationMembership', () => {
 			capabilityOverrides: {},
 			accessScopeKind: null,
 			accessScopeGroupIds: []
+		});
+	});
+
+	it('derives admin invitation membership through the shared invitation projection', () => {
+		const invitation = {
+			organizationId: 'org-1',
+			canViewCalendar: true,
+			canEditCalendar: true,
+			canViewPersonnel: true,
+			canEditPersonnel: true,
+			canViewTraining: true,
+			canEditTraining: true,
+			canViewCriticalTasks: true,
+			canEditCriticalTasks: true,
+			canViewOnboarding: true,
+			canEditOnboarding: true,
+			canViewRatingScheme: true,
+			canEditRatingScheme: true,
+			canManageMembers: true,
+			scopedGroupId: 'group-alpha',
+			memberPreset: 'viewer' as const,
+			capabilityOverrides: { calendar: 'none' as const },
+			accessScopeKind: 'groups' as const,
+			accessScopeGroupIds: ['group-alpha']
+		};
+
+		expect(isAdminInvitation(invitation)).toBe(true);
+		expect(
+			deriveMembershipFromInvitation({
+				invitation,
+				userId: 'user-1',
+				email: 'user@example.com'
+			})
+		).toMatchObject({
+			role: 'admin',
+			canManageMembers: true,
+			scopedGroupId: 'group-alpha',
+			memberPreset: 'viewer',
+			capabilityOverrides: { calendar: 'none' },
+			accessScopeKind: 'groups',
+			accessScopeGroupIds: ['group-alpha']
+		});
+	});
+
+	it('does not infer admin when nullable legacy flags are not explicitly granted', () => {
+		const invitation = {
+			organizationId: 'org-1',
+			canViewCalendar: null,
+			canEditCalendar: true,
+			canViewPersonnel: true,
+			canEditPersonnel: true,
+			canViewTraining: true,
+			canEditTraining: true,
+			canViewCriticalTasks: true,
+			canEditCriticalTasks: true,
+			canViewOnboarding: true,
+			canEditOnboarding: true,
+			canViewRatingScheme: true,
+			canEditRatingScheme: true,
+			canManageMembers: true
+		};
+
+		expect(isAdminInvitation(invitation)).toBe(false);
+		expect(
+			deriveMembershipFromInvitation({
+				invitation,
+				userId: 'user-1',
+				email: 'user@example.com'
+			})
+		).toMatchObject({
+			role: 'member',
+			canViewCalendar: true,
+			canManageMembers: true
 		});
 	});
 

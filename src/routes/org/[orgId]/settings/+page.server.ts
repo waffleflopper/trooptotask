@@ -342,12 +342,19 @@ function toActionFailure(errorKey: string, error: unknown) {
 }
 
 function readStringField(formData: FormData, primaryName: string, fallbackName: string): string {
-	return String(formData.get(primaryName) ?? formData.get(fallbackName) ?? '');
+	const primaryValue = formData.get(primaryName);
+	if (typeof primaryValue === 'string') {
+		return primaryValue;
+	}
+
+	const fallbackValue = formData.get(fallbackName);
+	return typeof fallbackValue === 'string' ? fallbackValue : '';
 }
 
 function readStringListField(formData: FormData, primaryName: string, fallbackName: string): string[] {
 	const primaryValues = formData.getAll(primaryName);
-	return (primaryValues.length > 0 ? primaryValues : formData.getAll(fallbackName)).map(String);
+	const selectedValues = primaryValues.length > 0 ? primaryValues : formData.getAll(fallbackName);
+	return selectedValues.filter((value): value is string => typeof value === 'string');
 }
 
 function readScopeKindField(formData: FormData): 'organization' | 'groups' | null {

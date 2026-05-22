@@ -3,6 +3,7 @@ import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import type { CapabilityMap, ScopeSet } from '$lib/access/memberAccessShape';
 import type { ReadOnlyGuard } from '$lib/server/core/ports';
 import {
+	buildAuthoritativePolicyInput,
 	evaluateAuthoritativePolicyDecision,
 	NO_FEATURE_CAPABILITIES,
 	resolveAuthoritativePolicyOverlays
@@ -20,6 +21,37 @@ const noCapabilities: CapabilityMap = {
 const organizationScope: ScopeSet = { kind: 'organization' };
 
 describe('policy adapter', () => {
+	it('builds the authoritative policy input behind the adapter seam', async () => {
+		const input = await buildAuthoritativePolicyInput(
+			{
+				auth: {
+					userId: 'user-1',
+					role: 'member',
+					capabilityMap: { ...noCapabilities, personnel: 'operate' },
+					compatibilityLanes: {},
+					scopeSet: { kind: 'groups', groupIds: ['group-alpha'] }
+				},
+				readOnlyGuard: readOnlyGuard(true)
+			},
+			POLICY_ACTION_CATALOG.personnel.manageRecords,
+			{ kind: 'group', groupId: 'group-alpha' }
+		);
+
+		expect(input).toMatchObject({
+			decisionKind: 'server-authoritative',
+			actor: {
+				membershipRole: 'member',
+				userId: 'user-1'
+			},
+			action: POLICY_ACTION_CATALOG.personnel.manageRecords,
+			capabilityMap: { personnel: 'operate' },
+			compatibilityLanes: {},
+			scopeSet: { kind: 'groups', groupIds: ['group-alpha'] },
+			resource: { kind: 'group', groupId: 'group-alpha' },
+			overlays: [{ id: 'read-only-mode', kind: 'read-only-mode', label: 'Organization read-only mode' }]
+		});
+	});
+
 	it('evaluates authoritative feature decisions from auth facts', async () => {
 		const decision = await evaluateAuthoritativePolicyDecision(
 			{

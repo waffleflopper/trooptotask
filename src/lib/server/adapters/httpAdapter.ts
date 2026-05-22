@@ -39,14 +39,19 @@ import { createSupabaseAdvancedDutyPersistenceAdapter } from './advancedDutyPers
 import { createSupabaseCriticalTasksReadModelAdapter } from './criticalTasksReadModel';
 import { createSupabaseRatingSchemePersonnelLookupPort } from './supabaseRatingSchemePersonnelLookup';
 import { resolveOrganizationRouteIdentity } from '$lib/server/core/useCases/organizationUrlSlug';
-import type { UseCaseContext, FeatureArea, AuthContext } from '$lib/server/core/ports';
+import type { UseCaseContext, AuthContext } from '$lib/server/core/ports';
 import type {
 	FeatureLanePolicyAction,
 	OrganizationGovernancePolicyAction,
 	PolicyResource
 } from '$lib/access/policyEvaluator';
 import { fail } from '$lib/server/core/errors';
-import { requirePolicyDecision } from '$lib/server/core/useCases/policyAuthorization';
+import {
+	enforceLoadAuthorization,
+	enforceRouteAuthorization,
+	enforceRouteReadOnlyOverlay,
+	type LegacyRoutePermission
+} from '$lib/server/core/useCases/routeAuthorization';
 import { createCrudUseCases, type CrudConfig } from '$lib/server/core/useCases/crud';
 import { getEntityAuditResource, type EntityDefinition } from '$lib/server/entitySchema';
 
@@ -303,7 +308,7 @@ export function crudHandlers(config: CrudConfig): {
 // ---------------------------------------------------------------------------
 
 export interface RouteConfig<TInput = void, TOutput = unknown> {
-	permission: FeatureArea | 'manageMembers' | 'privileged' | 'owner' | 'none';
+	permission: LegacyRoutePermission;
 	mutation?: boolean;
 	allowReadOnlyMutation?: boolean;
 	policyAction?: FeatureLanePolicyAction | OrganizationGovernancePolicyAction;
@@ -320,39 +325,6 @@ export interface RouteConfig<TInput = void, TOutput = unknown> {
 	};
 }
 
-async function enforcePermission(ctx: UseCaseContext, config: RouteConfig<unknown, unknown>): Promise<void> {
-	if (config.deferPolicyToUseCase) {
-		return;
-	}
-
-	if (config.policyAction) {
-		await requirePolicyDecision(ctx, config.policyAction, config.policyResource ?? { kind: 'organization' });
-		return;
-	}
-
-	const { permission, mutation } = config;
-
-	switch (permission) {
-		case 'none':
-			break;
-		case 'privileged':
-			ctx.auth.requirePrivileged();
-			break;
-		case 'owner':
-			ctx.auth.requireOwner();
-			break;
-		case 'manageMembers':
-			ctx.auth.requireManageMembers();
-			break;
-		default:
-			if (mutation) {
-				throw new Error(`Mutation route for ${permission} must declare policyAction or deferPolicyToUseCase`);
-			} else {
-				ctx.auth.requireView(permission);
-			}
-	}
-}
-
 /**
  * Testable core of handle() — no HTTP/RequestEvent dependency.
  * Called by handle() after building context and parsing input from the request.
@@ -363,15 +335,10 @@ export async function handleUseCaseRequest<TInput, TOutput>(
 	rawInput: unknown
 ): Promise<TOutput> {
 	// 1. Permission check
-	await enforcePermission(ctx, config as RouteConfig<unknown, unknown>);
+	await enforceRouteAuthorization(ctx, config as RouteConfig<unknown, unknown>);
 
 	// 2. Read-only guard for mutations
-	if (shouldRunLegacyReadOnlyGuard(config)) {
-		const isReadOnly = await ctx.readOnlyGuard.check();
-		if (isReadOnly) {
-			fail(403, 'Organization is in read-only mode');
-		}
-	}
+	await enforceRouteReadOnlyOverlay(ctx, config);
 
 	// 3. Zod input validation
 	let input: TInput;
@@ -400,18 +367,12 @@ export async function handleUseCaseRequest<TInput, TOutput>(
 	return output;
 }
 
-function shouldRunLegacyReadOnlyGuard<TInput, TOutput>(config: RouteConfig<TInput, TOutput>): boolean {
-	return Boolean(
-		config.mutation && !config.allowReadOnlyMutation && !config.deferPolicyToUseCase && !config.policyAction
-	);
-}
-
 // ---------------------------------------------------------------------------
 // loadWithContext() — page loader wrapper
 // ---------------------------------------------------------------------------
 
 interface LoadConfig<T> {
-	permission: FeatureArea | 'manageMembers' | 'privileged' | 'owner' | 'none';
+	permission: LegacyRoutePermission;
 	policyAction?: FeatureLanePolicyAction | OrganizationGovernancePolicyAction;
 	policyResource?: PolicyResource;
 	fn: (ctx: UseCaseContext) => Promise<T>;
@@ -419,30 +380,7 @@ interface LoadConfig<T> {
 }
 
 function enforceLoadPermission(ctx: UseCaseContext, config: LoadConfig<unknown>): void | Promise<void> {
-	if (config.policyAction) {
-		return requirePolicyDecision(ctx, config.policyAction, config.policyResource ?? { kind: 'organization' });
-	}
-
-	enforceLegacyLoadPermission(ctx, config.permission);
-}
-
-function enforceLegacyLoadPermission(ctx: UseCaseContext, permission: LoadConfig<unknown>['permission']): void {
-	if (permission === 'none') {
-		return;
-	}
-	switch (permission) {
-		case 'privileged':
-			ctx.auth.requirePrivileged();
-			break;
-		case 'owner':
-			ctx.auth.requireOwner();
-			break;
-		case 'manageMembers':
-			ctx.auth.requireManageMembers();
-			break;
-		default:
-			ctx.auth.requireView(permission);
-	}
+	return enforceLoadAuthorization(ctx, config);
 }
 
 /**

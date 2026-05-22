@@ -2,6 +2,7 @@ import {
 	evaluatePolicyDecision,
 	type PolicyAction,
 	type PolicyDecision,
+	type PolicyEvaluationInput,
 	type PolicyOverlay,
 	type PolicyResource
 } from '$lib/access/policyEvaluator';
@@ -39,7 +40,16 @@ export async function evaluateAuthoritativePolicyDecision(
 	resource: PolicyResource,
 	options: AuthoritativePolicyDecisionOptions = {}
 ): Promise<PolicyDecision> {
-	return evaluatePolicyDecision({
+	return evaluatePolicyDecision(await buildAuthoritativePolicyInput(ports, action, resource, options));
+}
+
+export async function buildAuthoritativePolicyInput(
+	ports: PolicyAdapterPorts,
+	action: PolicyAction,
+	resource: PolicyResource,
+	options: AuthoritativePolicyDecisionOptions = {}
+): Promise<PolicyEvaluationInput> {
+	return {
 		decisionKind: 'server-authoritative',
 		actor: {
 			membershipRole: ports.auth.role,
@@ -51,7 +61,7 @@ export async function evaluateAuthoritativePolicyDecision(
 		scopeSet: options.scopeSet ?? ports.auth.scopeSet,
 		resource,
 		overlays: await resolveAuthoritativePolicyOverlays(ports.readOnlyGuard, options)
-	});
+	};
 }
 
 export async function resolveAuthoritativePolicyOverlays(

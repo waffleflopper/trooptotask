@@ -154,11 +154,7 @@ export function buildOrganizationSettingsWorkspace(
 	const isOwner = input.currentMemberRole === 'owner';
 	const canManageMembers = isOwner || input.currentMemberRole === 'admin';
 	const groups = GroupEntity.fromDbArray(input.groups).map((group) => ({ id: group.id, name: group.name }));
-	const availablePresetOptions = canManageMembers
-		? isOwner
-			? [...SETTINGS_ACCESS_OPTIONS]
-			: SETTINGS_ACCESS_OPTIONS.filter((option) => option.value !== 'admin')
-		: [];
+	const availablePresetOptions = canManageMembers ? [...SETTINGS_ACCESS_OPTIONS] : [];
 	const members = input.members.map((row) =>
 		shapeMemberRow(buildSettingsMemberAccessRow(row), groups, availablePresetOptions)
 	);
@@ -289,8 +285,7 @@ function shapeMemberRow(
 	groups: Array<{ id: string; name: string }>,
 	availablePresetOptions: OrganizationSettingsWorkspace['sections']['members']['rows'][number]['editor']['availablePresetOptions']
 ): SettingsMemberRow {
-	const editorPreset =
-		member.membershipRole === 'admin' ? 'admin' : editablePresetForMemberPreset(member.access.memberPreset);
+	const editorPreset = editablePresetForMemberPreset(member.access.memberPreset);
 	const scopeGroupIds = member.access.scopeSet.kind === 'groups' ? member.access.scopeSet.groupIds : [];
 	const accessBadge =
 		member.membershipRole === 'owner' || member.membershipRole === 'admin'

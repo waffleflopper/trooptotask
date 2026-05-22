@@ -1,5 +1,6 @@
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
+import { parseMemberAccessEditFormData } from '$lib/access/memberAccessCommands';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { isBillingEnabled } from '$lib/config/billing';
 import { TIER_CONFIG } from '$lib/types/subscription';
@@ -19,7 +20,6 @@ import {
 } from '$lib/server/core/useCases/orgSettingsAdministration';
 import {
 	inviteOrganizationMember,
-	parseCapabilityOverrides,
 	removeOrganizationMember,
 	revokeOrganizationInvitation,
 	updateOrganizationMemberPermissions
@@ -178,6 +178,7 @@ export const actions: Actions = {
 		const formData = await request.formData();
 		try {
 			const ctx = await buildRouteContext(event);
+			const accessCommand = parseMemberAccessEditFormData(formData);
 			return await inviteOrganizationMember(
 				{
 					auth: ctx.auth,
@@ -188,10 +189,8 @@ export const actions: Actions = {
 				},
 				{
 					email: (formData.get('email') as string) ?? '',
-					memberPreset: readStringField(formData, 'memberPreset', 'preset'),
-					capabilityOverrides: parseCapabilityOverrides(formData),
-					accessScopeKind: readScopeKindField(formData),
-					accessScopeGroupIds: readStringListField(formData, 'scopeSetGroupIds', 'accessScopeGroupIds'),
+					membershipRole: accessCommand.membershipRole,
+					memberAccess: accessCommand.memberAccess,
 					actorEmail: user.email
 				}
 			);
@@ -257,6 +256,7 @@ export const actions: Actions = {
 		const formData = await request.formData();
 		try {
 			const ctx = await buildRouteContext(event);
+			const accessCommand = parseMemberAccessEditFormData(formData);
 			return await updateOrganizationMemberPermissions(
 				{
 					auth: ctx.auth,
@@ -267,11 +267,8 @@ export const actions: Actions = {
 				},
 				{
 					membershipId: (formData.get('membershipId') as string) ?? '',
-					memberPreset: readStringField(formData, 'memberPreset', 'preset'),
-					customPermissions: null,
-					capabilityOverrides: parseCapabilityOverrides(formData),
-					accessScopeKind: readScopeKindField(formData),
-					accessScopeGroupIds: readStringListField(formData, 'scopeSetGroupIds', 'accessScopeGroupIds'),
+					membershipRole: accessCommand.membershipRole,
+					memberAccess: accessCommand.memberAccess,
 					actorEmail: user.email
 				}
 			);
@@ -339,25 +336,4 @@ function toActionFailure(errorKey: string, error: unknown) {
 	}
 
 	throw error;
-}
-
-function readStringField(formData: FormData, primaryName: string, fallbackName: string): string {
-	const primaryValue = formData.get(primaryName);
-	if (typeof primaryValue === 'string') {
-		return primaryValue;
-	}
-
-	const fallbackValue = formData.get(fallbackName);
-	return typeof fallbackValue === 'string' ? fallbackValue : '';
-}
-
-function readStringListField(formData: FormData, primaryName: string, fallbackName: string): string[] {
-	const primaryValues = formData.getAll(primaryName);
-	const selectedValues = primaryValues.length > 0 ? primaryValues : formData.getAll(fallbackName);
-	return selectedValues.filter((value): value is string => typeof value === 'string');
-}
-
-function readScopeKindField(formData: FormData): 'organization' | 'groups' | null {
-	const value = formData.get('scopeSetKind') ?? formData.get('accessScopeKind');
-	return value === 'organization' || value === 'groups' ? value : null;
 }

@@ -204,7 +204,7 @@ export function projectEffectiveInvitationAccess(
 	const normalized = normalizeInvitationProjectionRow(row);
 	return projectEffectiveMemberAccess({
 		...normalized,
-		role: parseMembershipRole(row.role) ?? inferInvitationMembershipRole(normalized)
+		role: parseInvitationMembershipRole(row.role) ?? inferInvitationMembershipRole(row)
 	});
 }
 
@@ -288,26 +288,29 @@ function normalizeInvitationProjectionRow(
 	};
 }
 
-function inferInvitationMembershipRole(row: Omit<MemberAccessProjectionRow, 'role'>): MembershipRole {
-	return row.can_view_calendar &&
-		row.can_edit_calendar &&
-		row.can_view_personnel &&
-		row.can_edit_personnel &&
-		row.can_view_training &&
-		row.can_edit_training &&
+function inferInvitationMembershipRole(row: MemberAccessInvitationProjectionRow): MembershipRole {
+	const canViewRatingScheme = row.can_view_rating_scheme ?? row.can_view_personnel ?? true;
+	const canEditRatingScheme = row.can_edit_rating_scheme ?? row.can_edit_personnel ?? true;
+
+	return !!row.can_view_calendar &&
+		!!row.can_edit_calendar &&
+		!!row.can_view_personnel &&
+		!!row.can_edit_personnel &&
+		!!row.can_view_training &&
+		!!row.can_edit_training &&
 		!!row.can_view_critical_tasks &&
 		!!row.can_edit_critical_tasks &&
-		row.can_view_onboarding &&
-		row.can_edit_onboarding &&
-		!!row.can_view_rating_scheme &&
-		!!row.can_edit_rating_scheme &&
-		row.can_manage_members
+		!!row.can_view_onboarding &&
+		!!row.can_edit_onboarding &&
+		!!canViewRatingScheme &&
+		!!canEditRatingScheme &&
+		!!row.can_manage_members
 		? 'admin'
 		: 'member';
 }
 
-function parseMembershipRole(value: unknown): MembershipRole | null {
-	return value === 'owner' || value === 'admin' || value === 'member' ? value : null;
+function parseInvitationMembershipRole(value: unknown): MembershipRole | null {
+	return value === 'admin' || value === 'member' ? value : null;
 }
 
 function toRecord(value: unknown): Record<string, unknown> {

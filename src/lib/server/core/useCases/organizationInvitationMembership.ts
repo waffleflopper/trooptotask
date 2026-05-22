@@ -75,7 +75,7 @@ export function deriveMembershipFromInvitation(input: {
 		canViewRatingScheme: permissions.canViewRatingScheme,
 		canEditRatingScheme: permissions.canEditRatingScheme,
 		canManageMembers: permissions.canManageMembers,
-		scopedGroupId: projection.scopedGroupId,
+		scopedGroupId: invitation.scopedGroupId ?? null,
 		memberPreset: invitation.memberPreset ?? null,
 		capabilityOverrides: invitation.capabilityOverrides ?? {},
 		accessScopeKind: invitation.accessScopeKind ?? null,

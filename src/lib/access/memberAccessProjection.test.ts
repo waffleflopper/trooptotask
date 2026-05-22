@@ -184,4 +184,36 @@ describe('member access projection', () => {
 		expect(projection.scopeSet).toEqual({ kind: 'organization' });
 		expect(projection.permissions.canManageMembers).toBe(true);
 	});
+
+	it('does not infer admin invitation access from nullable compatibility flags', () => {
+		const projection = projectEffectiveInvitationAccess({
+			can_view_calendar: null,
+			can_edit_calendar: true,
+			can_view_personnel: true,
+			can_edit_personnel: true,
+			can_view_training: true,
+			can_edit_training: true,
+			can_view_critical_tasks: true,
+			can_edit_critical_tasks: true,
+			can_view_onboarding: true,
+			can_edit_onboarding: true,
+			can_view_rating_scheme: true,
+			can_edit_rating_scheme: true,
+			can_manage_members: true
+		});
+
+		expect(projection.role).toBe('member');
+		expect(projection.permissions.canViewCalendar).toBe(true);
+		expect(projection.permissions.canManageMembers).toBe(true);
+	});
+
+	it('does not project owner access from invitation role values', () => {
+		const projection = projectEffectiveInvitationAccess({
+			role: 'owner',
+			can_manage_members: true
+		});
+
+		expect(projection.role).toBe('member');
+		expect(projection.isOwner).toBe(false);
+	});
 });

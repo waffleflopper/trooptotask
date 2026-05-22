@@ -8,16 +8,20 @@ describe('parseMemberAccessEditFormData', () => {
 		formData.set('memberPreset', 'operator');
 		formData.set('capabilityOverride:calendar', 'configure');
 		formData.set('scopeSetKind', 'groups');
-		formData.append('scopeSetGroupIds', 'group-alpha');
-		formData.append('scopeSetGroupIds', 'group-alpha');
-		formData.append('scopeSetGroupIds', 'group-bravo');
+		formData.append('scopeSetGroupIds', '11111111-1111-4111-8111-111111111111');
+		formData.append('scopeSetGroupIds', '11111111-1111-4111-8111-111111111111');
+		formData.append('scopeSetGroupIds', 'not-a-uuid');
+		formData.append('scopeSetGroupIds', '22222222-2222-4222-8222-222222222222');
 
 		expect(parseMemberAccessEditFormData(formData)).toEqual({
 			membershipRole: 'member',
 			memberAccess: {
 				memberPreset: 'operator',
 				capabilityOverrides: { calendar: 'configure' },
-				scopeSet: { kind: 'groups', groupIds: ['group-alpha', 'group-bravo'] }
+				scopeSet: {
+					kind: 'groups',
+					groupIds: ['11111111-1111-4111-8111-111111111111', '22222222-2222-4222-8222-222222222222']
+				}
 			}
 		});
 	});
@@ -56,12 +60,15 @@ describe('memberAccessCommandToStorage', () => {
 				memberAccess: {
 					memberPreset: 'operator',
 					capabilityOverrides: { calendar: 'configure', ratingScheme: 'none' },
-					scopeSet: { kind: 'groups', groupIds: ['group-alpha', 'group-bravo'] }
+					scopeSet: {
+						kind: 'groups',
+						groupIds: ['11111111-1111-4111-8111-111111111111', 'not-a-uuid', '22222222-2222-4222-8222-222222222222']
+					}
 				}
 			})
 		).toEqual({
 			role: 'member',
-			singleGroupCompatibilityId: 'group-alpha',
+			singleGroupCompatibilityId: '11111111-1111-4111-8111-111111111111',
 			permissions: {
 				canViewCalendar: true,
 				canEditCalendar: true,
@@ -80,7 +87,7 @@ describe('memberAccessCommandToStorage', () => {
 			memberPreset: 'operator',
 			capabilityOverrides: { calendar: 'configure', ratingScheme: 'none' },
 			accessScopeKind: 'groups',
-			accessScopeGroupIds: ['group-alpha', 'group-bravo']
+			accessScopeGroupIds: ['11111111-1111-4111-8111-111111111111', '22222222-2222-4222-8222-222222222222']
 		});
 	});
 

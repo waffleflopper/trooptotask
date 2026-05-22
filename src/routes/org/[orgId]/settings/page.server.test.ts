@@ -808,7 +808,7 @@ describe('org settings page server actions', () => {
 					memberPreset: 'viewer',
 					'capabilityOverride:calendar': 'operate',
 					scopeSetKind: 'groups',
-					scopeSetGroupIds: 'group-alpha'
+					scopeSetGroupIds: '11111111-1111-4111-8111-111111111111'
 				})
 			}),
 			locals: {
@@ -827,7 +827,7 @@ describe('org settings page server actions', () => {
 			memberAccess: {
 				memberPreset: 'viewer',
 				capabilityOverrides: { calendar: 'operate' },
-				scopeSet: { kind: 'groups', groupIds: ['group-alpha'] }
+				scopeSet: { kind: 'groups', groupIds: ['11111111-1111-4111-8111-111111111111'] }
 			},
 			actorEmail: 'user@example.com'
 		});
@@ -844,7 +844,7 @@ describe('org settings page server actions', () => {
 					memberPreset: 'editor',
 					'capabilityOverride:calendar': 'operate',
 					scopeSetKind: 'groups',
-					scopeSetGroupIds: 'group-1'
+					scopeSetGroupIds: '22222222-2222-4222-8222-222222222222'
 				})
 			}),
 			locals: {
@@ -871,7 +871,7 @@ describe('org settings page server actions', () => {
 				memberAccess: {
 					memberPreset: 'editor',
 					capabilityOverrides: { calendar: 'operate' },
-					scopeSet: { kind: 'groups', groupIds: ['group-1'] }
+					scopeSet: { kind: 'groups', groupIds: ['22222222-2222-4222-8222-222222222222'] }
 				},
 				actorEmail: 'user@example.com'
 			}

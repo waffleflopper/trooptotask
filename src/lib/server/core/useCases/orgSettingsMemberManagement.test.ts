@@ -195,6 +195,51 @@ describe('inviteOrganizationMember', () => {
 		]);
 	});
 
+	it('requires owner rights before creating admin invitations', async () => {
+		const ctx = createTestContext({
+			auth: {
+				userId: 'actor-1',
+				orgId: 'org-1',
+				role: 'admin'
+			}
+		});
+		const port = createOrganizationSettingsMemberManagementPort();
+
+		await expect(
+			inviteOrganizationMember(
+				{
+					auth: ctx.auth,
+					audit: ctx.audit,
+					notifications: ctx.notifications,
+					readOnlyGuard: ctx.readOnlyGuard,
+					settings: port
+				},
+				{
+					email: 'new.admin@example.com',
+					membershipRole: 'admin',
+					actorEmail: 'actor@example.com'
+				}
+			)
+		).rejects.toMatchObject({
+			status: 403,
+			message: 'Only the organization owner can perform this action'
+		});
+
+		expect(port.invitationLookups).toEqual([]);
+		expect(port.createdInvitations).toEqual([]);
+		expect(ctx.auditPort.events).toEqual([
+			{
+				action: 'policy.denied',
+				resourceType: 'organization',
+				details: {
+					policyAction: 'organization.updateAdminAccess',
+					reasonCode: 'denied:owner-only'
+				},
+				severity: 'warning'
+			}
+		]);
+	});
+
 	it('rejects invalid invitation emails before querying pending invites', async () => {
 		const ctx = createTestContext();
 		const port = createOrganizationSettingsMemberManagementPort();
@@ -283,7 +328,7 @@ describe('inviteOrganizationMember', () => {
 				memberAccess: memberAccess({
 					memberPreset: 'operator',
 					capabilityOverrides: { calendar: 'configure' },
-					scopeSet: { kind: 'groups', groupIds: ['group-1'] }
+					scopeSet: { kind: 'groups', groupIds: ['11111111-1111-4111-8111-111111111111'] }
 				}),
 				actorEmail: 'actor@example.com'
 			}
@@ -300,7 +345,7 @@ describe('inviteOrganizationMember', () => {
 				organizationId: 'org-1',
 				email: 'new.user@example.com',
 				invitedBy: 'actor-1',
-				singleGroupCompatibilityId: 'group-1',
+				singleGroupCompatibilityId: '11111111-1111-4111-8111-111111111111',
 				permissions: {
 					canViewCalendar: true,
 					canEditCalendar: true,
@@ -319,7 +364,7 @@ describe('inviteOrganizationMember', () => {
 				memberPreset: 'operator',
 				capabilityOverrides: { calendar: 'configure' },
 				accessScopeKind: 'groups',
-				accessScopeGroupIds: ['group-1']
+				accessScopeGroupIds: ['11111111-1111-4111-8111-111111111111']
 			}
 		]);
 		expect(ctx.auditPort.events).toEqual([

@@ -11,6 +11,8 @@ import {
 	type StoredMemberPreset
 } from './memberAccessShape';
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export type EditableMembershipRole = Exclude<MembershipRole, 'owner'>;
 
 export interface TargetMemberAccessCommand {
@@ -63,17 +65,18 @@ export function memberAccessCommandToStorage(command: {
 		(command.membershipRole === 'admin'
 			? defaultMemberAccessForRole(command.membershipRole)
 			: throwBadRequest('Member preset is required'));
+	const scopeSet = normalizeScopeSet(memberAccess.scopeSet);
 	const permissions = targetMemberAccessToCurrentPermissionFlags({
 		membershipRole: command.membershipRole,
 		memberPreset: memberAccess.memberPreset,
 		capabilityOverrides: memberAccess.capabilityOverrides,
-		scopeSet: memberAccess.scopeSet
+		scopeSet
 	});
 	const accessStorage = targetMemberAccessToStorage({
 		membershipRole: command.membershipRole,
 		memberPreset: memberAccess.memberPreset,
 		capabilityOverrides: memberAccess.capabilityOverrides,
-		scopeSet: memberAccess.scopeSet
+		scopeSet
 	});
 	const serializedScope = serializeScopeSetForStorage(accessStorage.scopeSet);
 
@@ -130,10 +133,23 @@ function parseScopeSet(formData: FormData): ScopeSet {
 
 	const groupIds = Array.from(
 		new Set(
-			formData.getAll('scopeSetGroupIds').filter((value): value is string => typeof value === 'string' && value !== '')
+			formData.getAll('scopeSetGroupIds').filter((value): value is string => typeof value === 'string' && isUuid(value))
 		)
 	);
 	return groupIds.length > 0 ? { kind: 'groups', groupIds } : { kind: 'organization' };
+}
+
+function normalizeScopeSet(scopeSet: ScopeSet): ScopeSet {
+	if (scopeSet.kind !== 'groups') {
+		return { kind: 'organization' };
+	}
+
+	const groupIds = Array.from(new Set(scopeSet.groupIds.filter(isUuid)));
+	return groupIds.length > 0 ? { kind: 'groups', groupIds } : { kind: 'organization' };
+}
+
+function isUuid(value: string): boolean {
+	return UUID_REGEX.test(value);
 }
 
 function throwBadRequest(message: string): never {

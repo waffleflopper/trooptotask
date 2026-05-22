@@ -7,7 +7,8 @@ export type AccountSetupCompletionInvalidStatus =
 	| 'replaced'
 	| 'used'
 	| 'claimed'
-	| 'failed';
+	| 'failed'
+	| 'access-request-not-approved';
 
 export interface AccountSetupCompletionStore extends AccountSetupLinkStore {
 	markAccessRequestSetupCompleted(accessRequestId: string, userId: string, completedAt: Date): Promise<void>;
@@ -198,10 +199,23 @@ export function createAccountSetupCompletionService(store: AccountSetupCompletio
 			accessRequestId: string;
 			password: string;
 		}): Promise<AccountSetupCompletionResult> {
+			const accessRequest = await store.getAccessRequest(input.accessRequestId);
+			if (!accessRequest) {
+				return { status: 'missing' };
+			}
+
+			if (accessRequest.setupCompletedAt) {
+				return { status: 'access-request-completed' };
+			}
+
+			if (accessRequest.status !== 'approved') {
+				return { status: 'access-request-not-approved' };
+			}
+
 			const claimedAt = new Date();
 			const claimedLink = await store.claimPendingLink(input.setupLinkId, claimedAt);
 			if (!claimedLink) {
-				const currentLink = store.getSetupLink ? await store.getSetupLink(input.setupLinkId) : null;
+				const currentLink = await store.getSetupLink(input.setupLinkId);
 				if (!currentLink) return { status: 'missing' };
 				if (currentLink.usedAt) return { status: 'used' };
 				if (currentLink.failedAt) return { status: 'failed' };

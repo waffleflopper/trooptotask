@@ -51,6 +51,9 @@ function makeStore(accessRequests: AccountSetupLinkAccessRequest[] = []): Accoun
 		async findByTokenHash(tokenHash) {
 			return links.find((link) => link.tokenHash === tokenHash) ?? null;
 		},
+		async getSetupLink(id) {
+			return links.find((link) => link.id === id) ?? null;
+		},
 		async claimPendingLink(id, claimedAt) {
 			const link = links.find((candidate) => candidate.id === id);
 			if (!link || link.claimedAt || link.failedAt || link.usedAt || link.revokedAt || link.expiresAt <= claimedAt) {
@@ -80,6 +83,7 @@ function makeStore(accessRequests: AccountSetupLinkAccessRequest[] = []): Accoun
 			return links.filter((link) => {
 				if (link.usedAt && link.usedAt <= cutoff) return true;
 				if (link.revokedAt && link.revokedAt <= cutoff) return true;
+				if (link.failedAt && link.failedAt <= cutoff) return true;
 				return link.expiresAt <= cutoff;
 			});
 		},
@@ -208,6 +212,30 @@ describe('Account Setup Links', () => {
 		expect(await service.validateToken('valid-token')).toEqual({ status: 'completed' });
 	});
 
+	it('does not validate or claim setup links when the Access Request is no longer approved', async () => {
+		const store = makeStore([{ ...approvedRequest, status: 'rejected' }]);
+		const service = createAccountSetupLinkService(store, {
+			now: () => new Date('2026-05-18T12:00:00.000Z')
+		});
+		store.links.push({
+			id: 'link-1',
+			accessRequestId: 'request-1',
+			tokenHash: '8997ec9a3da1e44792b936f9baffd674262900d5af8bfdeab23512d11766de09',
+			expiresAt: new Date('2026-06-01T12:00:00.000Z'),
+			createdAt: new Date('2026-05-18T12:00:00.000Z'),
+			claimedAt: null,
+			failedAt: null,
+			failureReason: null,
+			usedAt: null,
+			revokedAt: null,
+			revocationReason: null
+		});
+
+		expect(await service.validateToken('setup-token')).toEqual({ status: 'access-request-not-approved' });
+		expect(await service.claimToken('setup-token')).toEqual({ status: 'access-request-not-approved' });
+		expect(store.links[0].claimedAt).toBeNull();
+	});
+
 	it('claims and completes a valid token once and exposes cleanup eligibility without deleting User Accounts or Access Requests', async () => {
 		const store = makeStore([approvedRequest]);
 		const service = createAccountSetupLinkService(store, {
@@ -301,6 +329,19 @@ describe('Account Setup Links', () => {
 				revocationReason: null
 			},
 			{
+				id: 'failed-link',
+				accessRequestId: 'request-1',
+				tokenHash: 'failed-link-hash',
+				expiresAt: new Date('2026-06-20T12:00:00.000Z'),
+				createdAt: new Date('2026-05-18T12:00:00.000Z'),
+				claimedAt: new Date('2026-05-19T11:59:00.000Z'),
+				failedAt: new Date('2026-05-19T12:00:00.000Z'),
+				failureReason: 'account-create-failed',
+				usedAt: null,
+				revokedAt: null,
+				revocationReason: null
+			},
+			{
 				id: 'active-link',
 				accessRequestId: 'request-1',
 				tokenHash: 'active-link-hash',
@@ -323,6 +364,7 @@ describe('Account Setup Links', () => {
 			revokedExpiredUnusedCount: 1,
 			staleRevokedCount: 2,
 			completedSetupHistoryCount: 1,
+			failedSetupHistoryCount: 1,
 			activeLinkCount: 1,
 			deletedAccessRequestCount: 0,
 			deletedUserAccountCount: 0
@@ -334,6 +376,9 @@ describe('Account Setup Links', () => {
 			new Date('2026-06-02T12:00:00.000Z')
 		);
 		expect(store.links.find((link) => link.id === 'used-link')?.usedAt).toEqual(new Date('2026-05-19T12:00:00.000Z'));
+		expect(store.links.find((link) => link.id === 'failed-link')?.failedAt).toEqual(
+			new Date('2026-05-19T12:00:00.000Z')
+		);
 		expect(store.links.find((link) => link.id === 'active-link')?.revokedAt).toBeNull();
 		expect(store.deletedAccessRequestIds).toEqual([]);
 		expect(store.deletedUserAccountIds).toEqual([]);
@@ -341,6 +386,7 @@ describe('Account Setup Links', () => {
 			'expired-unused',
 			'already-revoked',
 			'used-link',
+			'failed-link',
 			'active-link'
 		]);
 	});

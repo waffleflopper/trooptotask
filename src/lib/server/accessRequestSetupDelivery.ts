@@ -98,7 +98,7 @@ function isApprovedIncompleteRenewable(request: AccessRequestSetupRequest, now: 
 	}
 
 	const renewalStartedAt = request.reviewedAt ?? request.createdAt;
-	return now < addUtcDays(renewalStartedAt, ACCESS_REQUEST_SETUP_RENEWAL_DAYS);
+	return now <= addUtcDays(renewalStartedAt, ACCESS_REQUEST_SETUP_RENEWAL_DAYS);
 }
 
 export function createAccessRequestSetupDeliveryService(

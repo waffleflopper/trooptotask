@@ -164,6 +164,7 @@ describe('/auth/setup-account load', () => {
 		getAccessRequest.mockResolvedValueOnce({
 			id: 'request-1',
 			email: 'soldier@example.mil',
+			status: 'approved',
 			setupCompletedAt: null
 		});
 
@@ -191,6 +192,7 @@ describe('/auth/setup-account load', () => {
 		getAccessRequest.mockResolvedValueOnce({
 			id: 'request-1',
 			email: 'soldier@example.mil',
+			status: 'approved',
 			setupCompletedAt: null
 		});
 		getSetupLink.mockResolvedValueOnce(makeSetupLink());
@@ -214,6 +216,7 @@ describe('/auth/setup-account load', () => {
 		getAccessRequest.mockResolvedValueOnce({
 			id: 'request-1',
 			email: 'soldier@example.mil',
+			status: 'approved',
 			setupCompletedAt: '2026-05-18T12:00:00.000Z'
 		});
 
@@ -225,6 +228,31 @@ describe('/auth/setup-account load', () => {
 		});
 	});
 
+	it('refuses a valid token when the Access Request is no longer approved', async () => {
+		const cookies = makeCookies();
+		validateToken.mockResolvedValueOnce({
+			status: 'valid',
+			accessRequestId: 'request-1',
+			link: makeSetupLink()
+		});
+		getAccessRequest.mockResolvedValueOnce({
+			id: 'request-1',
+			email: 'soldier@example.mil',
+			status: 'rejected',
+			setupCompletedAt: null
+		});
+
+		const result = await load(makeLoadEvent({ token: 'valid-token', cookies }));
+
+		expect(result).toEqual({
+			state: 'access-request-not-approved',
+			message: 'This Account Setup Link is no longer approved. Request access again or contact support.'
+		});
+		expect(cookies.delete).toHaveBeenCalledWith(ACCOUNT_SETUP_SESSION_COOKIE, {
+			path: '/auth/setup-account'
+		});
+	});
+
 	it('maps replaced tokenless setup-session links to recovery copy and clears the session', async () => {
 		const cookies = makeCookies({
 			[ACCOUNT_SETUP_SESSION_COOKIE]: makeSetupSessionCookie()
@@ -232,6 +260,7 @@ describe('/auth/setup-account load', () => {
 		getAccessRequest.mockResolvedValueOnce({
 			id: 'request-1',
 			email: 'soldier@example.mil',
+			status: 'approved',
 			setupCompletedAt: null
 		});
 		getSetupLink.mockResolvedValueOnce(
@@ -247,6 +276,29 @@ describe('/auth/setup-account load', () => {
 			state: 'replaced',
 			message: 'This Account Setup Link was replaced. Check your inbox for the newest setup email.'
 		});
+		expect(cookies.delete).toHaveBeenCalledWith(ACCOUNT_SETUP_SESSION_COOKIE, {
+			path: '/auth/setup-account'
+		});
+	});
+
+	it('refuses a tokenless setup session when the Access Request is no longer approved', async () => {
+		const cookies = makeCookies({
+			[ACCOUNT_SETUP_SESSION_COOKIE]: makeSetupSessionCookie()
+		});
+		getAccessRequest.mockResolvedValueOnce({
+			id: 'request-1',
+			email: 'soldier@example.mil',
+			status: 'rejected',
+			setupCompletedAt: null
+		});
+
+		const result = await load(makeLoadEvent({ cookies }));
+
+		expect(result).toEqual({
+			state: 'access-request-not-approved',
+			message: 'This Account Setup Link is no longer approved. Request access again or contact support.'
+		});
+		expect(getSetupLink).not.toHaveBeenCalled();
 		expect(cookies.delete).toHaveBeenCalledWith(ACCOUNT_SETUP_SESSION_COOKIE, {
 			path: '/auth/setup-account'
 		});
@@ -323,6 +375,19 @@ describe('/auth/setup-account actions', () => {
 		});
 	});
 
+	it('maps no-longer-approved setup-session completion to support copy', async () => {
+		completeSetupSession.mockResolvedValueOnce({ status: 'access-request-not-approved' });
+
+		const result = await actions.default(makeActionEvent());
+
+		expect(result).toMatchObject({
+			status: 400,
+			data: {
+				error: 'This Account Setup Link is no longer approved. Request access again or contact support.'
+			}
+		});
+	});
+
 	it('does not treat an already-completed link response as a successful setup redirect', async () => {
 		completeSetupSession.mockResolvedValueOnce({ status: 'completed' });
 
@@ -359,6 +424,7 @@ describe('/auth/setup-account actions', () => {
 		getAccessRequest.mockResolvedValueOnce({
 			id: 'request-1',
 			email: 'soldier@example.mil',
+			status: 'approved',
 			setupCompletedAt: null
 		});
 		checkCompletionRateLimit.mockReturnValueOnce({ limited: true, retryAfterMs: 60_000 });

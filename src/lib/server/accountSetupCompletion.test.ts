@@ -218,7 +218,7 @@ describe('Account Setup completion', () => {
 		const service = createAccountSetupCompletionService(store, auth);
 
 		await expect(service.complete({ rawToken: 'setup-token', password: 'ValidPassword123!' })).resolves.toEqual({
-			status: 'access-request-completed'
+			status: 'used'
 		});
 		expect(auth.createOrActivateConfirmedUser).not.toHaveBeenCalled();
 	});
@@ -423,6 +423,26 @@ describe('Account Setup completion', () => {
 			expect(auth.createOrActivateConfirmedUser).not.toHaveBeenCalled();
 		});
 
+		it('does not claim or mutate auth when the session Access Request is no longer approved', async () => {
+			const request = { ...approvedRequest };
+			const store = makeStore(request);
+			await addSetupToken(store);
+			request.status = 'rejected';
+			const auth = makeAuth();
+			const service = createAccountSetupCompletionService(store, auth);
+
+			const result = await service.completeSetupSession({
+				setupLinkId: 'link-1',
+				accessRequestId: 'request-1',
+				password: 'ValidPassword123!'
+			});
+
+			expect(result).toEqual({ status: 'access-request-not-approved' });
+			expect(store.links[0].claimedAt).toBeNull();
+			expect(auth.createOrActivateConfirmedUser).not.toHaveBeenCalled();
+			expect(store.completions).toEqual([]);
+		});
+
 		it('returns fallback link states when the session claim cannot start', async () => {
 			const store = makeStore(approvedRequest);
 			await addSetupToken(store);
@@ -454,11 +474,11 @@ describe('Account Setup completion', () => {
 				password: 'ValidPassword123!'
 			});
 
-			expect(result).toEqual({ status: 'access-request-missing' });
+			expect(result).toEqual({ status: 'missing' });
 			expect(auth.createOrActivateConfirmedUser).not.toHaveBeenCalled();
-			expect(store.links[0].claimedAt).toBeInstanceOf(Date);
-			expect(store.links[0].failedAt).toBeInstanceOf(Date);
-			expect(store.links[0].failureReason).toBe('access-request-missing');
+			expect(store.links[0].claimedAt).toBeNull();
+			expect(store.links[0].failedAt).toBeNull();
+			expect(store.links[0].failureReason).toBeNull();
 		});
 	});
 });

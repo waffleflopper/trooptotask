@@ -512,6 +512,14 @@ test.describe('Account Setup Link E2E hardening', () => {
 			await expect(failingPage.getByText('This Account Setup Link could not finish setup.')).toBeVisible();
 			await failingContext.close();
 
+			const retryContext = await browser.newContext();
+			const retryPage = await retryContext.newPage();
+			await retryPage.goto(failingSetupLink.setupUrl);
+			await expect(retryPage.getByText('This Account Setup Link could not finish setup.')).toBeVisible();
+			await expect(retryPage.locator('input#password')).toHaveCount(0);
+			await expect(retryPage.getByRole('button', { name: 'Set Up Account' })).toHaveCount(0);
+			await retryContext.close();
+
 			const adminPage = await admin.context.newPage();
 			await adminPage.goto('/admin/access-requests');
 			const deliveryCard = await findReviewedCard(adminPage, deliveryEmail);

@@ -125,6 +125,10 @@ function makeStore(requests: AccessRequestSetupRequest[] = []) {
 			return setupLinks.find((link) => link.tokenHash === tokenHash) ?? null;
 		},
 
+		async getSetupLink(id) {
+			return setupLinks.find((link) => link.id === id) ?? null;
+		},
+
 		async claimPendingLink(id, claimedAt) {
 			const link = setupLinks.find((item) => item.id === id);
 			if (!link || link.claimedAt || link.failedAt || link.usedAt || link.revokedAt || link.expiresAt <= claimedAt) {
@@ -330,6 +334,48 @@ describe('access request setup delivery', () => {
 		expect(result).toEqual({ status: 'fresh-setup-sent', accessRequestId: 'request-1' });
 		expect(store.revokedAccessRequestIds).toEqual(['request-1']);
 		expect(sendSetupEmail).toHaveBeenCalledOnce();
+	});
+
+	it('allows renewal at exactly 90 days and denies it after the window closes', async () => {
+		vi.stubEnv('APP_PUBLIC_ORIGIN_ALLOWLIST', 'https://trooptotask.test');
+
+		const boundaryStore = makeStore([
+			makeRequest({
+				createdAt: new Date('2026-01-01T00:00:00.000Z'),
+				reviewedAt: new Date('2026-01-01T00:00:00.000Z')
+			})
+		]);
+		const boundaryDelivery = createAccessRequestSetupDeliveryService(
+			boundaryStore,
+			vi.fn().mockResolvedValue(undefined),
+			{ now: () => new Date('2026-04-01T00:00:00.000Z') }
+		);
+
+		expect(
+			await boundaryDelivery.requestFreshSetupLink({
+				email: 'test@example.com',
+				origin: 'https://trooptotask.test'
+			})
+		).toEqual({ status: 'fresh-setup-sent', accessRequestId: 'request-1' });
+
+		const expiredStore = makeStore([
+			makeRequest({
+				createdAt: new Date('2026-01-01T00:00:00.000Z'),
+				reviewedAt: new Date('2026-01-01T00:00:00.000Z')
+			})
+		]);
+		const expiredSender = vi.fn().mockResolvedValue(undefined);
+		const expiredDelivery = createAccessRequestSetupDeliveryService(expiredStore, expiredSender, {
+			now: () => new Date('2026-04-01T00:00:01.000Z')
+		});
+
+		expect(
+			await expiredDelivery.requestFreshSetupLink({
+				email: 'test@example.com',
+				origin: 'https://trooptotask.test'
+			})
+		).toEqual({ status: 'no-public-action' });
+		expect(expiredSender).not.toHaveBeenCalled();
 	});
 
 	it('records failed public setup delivery without storing the raw token or corrupting the setup link', async () => {

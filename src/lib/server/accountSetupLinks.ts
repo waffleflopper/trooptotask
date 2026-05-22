@@ -24,6 +24,7 @@ export type AccountSetupLinkValidationStatus =
 	| 'completed'
 	| 'claimed'
 	| 'failed'
+	| 'access-request-not-approved'
 	| 'missing';
 
 export interface AccountSetupLinkAccessRequest {
@@ -62,7 +63,7 @@ export interface AccountSetupLinkStore {
 	revokeUnusedLinksForAccessRequest(accessRequestId: string, revokedAt: Date): Promise<void>;
 	insertSetupLink(input: CreateAccountSetupLinkInput): Promise<AccountSetupLinkRecord>;
 	findByTokenHash(tokenHash: string): Promise<AccountSetupLinkRecord | null>;
-	getSetupLink?(id: string): Promise<AccountSetupLinkRecord | null>;
+	getSetupLink(id: string): Promise<AccountSetupLinkRecord | null>;
 	claimPendingLink(id: string, claimedAt: Date): Promise<AccountSetupLinkRecord | null>;
 	markCompleted(id: string, completedAt: Date): Promise<AccountSetupLinkRecord | null>;
 	markFailed(
@@ -132,6 +133,7 @@ export interface AccountSetupLinkCleanupResult {
 	revokedExpiredUnusedCount: number;
 	staleRevokedCount: number;
 	completedSetupHistoryCount: number;
+	failedSetupHistoryCount: number;
 	activeLinkCount: number;
 	deletedAccessRequestCount: 0;
 	deletedUserAccountCount: 0;
@@ -388,7 +390,25 @@ export function createAccountSetupLinkService(
 
 		async validateToken(rawToken: string): Promise<ValidateAccountSetupLinkResult> {
 			const link = await store.findByTokenHash(hashSetupToken(rawToken));
-			return getValidationStatus(link, now());
+			const validation = getValidationStatus(link, now());
+			if (validation.status !== 'valid') {
+				return validation;
+			}
+
+			const accessRequest = await store.getAccessRequest(validation.accessRequestId);
+			if (!accessRequest) {
+				return { status: 'missing' };
+			}
+
+			if (accessRequest.setupCompletedAt) {
+				return { status: 'completed' };
+			}
+
+			if (accessRequest.status !== 'approved') {
+				return { status: 'access-request-not-approved' };
+			}
+
+			return validation;
 		},
 
 		async claimToken(rawToken: string): Promise<ClaimAccountSetupLinkResult> {
@@ -458,6 +478,7 @@ export function createAccountSetupLinkService(
 				revokedExpiredUnusedCount: revokedExpiredUnusedLinks.length,
 				staleRevokedCount: cleanupEligibleLinks.filter((link) => link.revokedAt).length,
 				completedSetupHistoryCount: cleanupEligibleLinks.filter((link) => link.usedAt).length,
+				failedSetupHistoryCount: cleanupEligibleLinks.filter((link) => link.failedAt).length,
 				activeLinkCount,
 				deletedAccessRequestCount: 0,
 				deletedUserAccountCount: 0
@@ -593,7 +614,9 @@ export function createSupabaseAccountSetupLinkStore(client: SupabaseClient): Acc
 			const { data, error } = await client
 				.from('account_setup_links')
 				.select(SETUP_LINK_SELECT)
-				.or(`used_at.lte.${cutoffIso},revoked_at.lte.${cutoffIso},expires_at.lte.${cutoffIso}`);
+				.or(
+					`used_at.lte.${cutoffIso},revoked_at.lte.${cutoffIso},failed_at.lte.${cutoffIso},expires_at.lte.${cutoffIso}`
+				);
 
 			throwSupabaseError(error);
 			return ((data ?? []) as AccountSetupLinkRow[]).map(mapSetupLinkRow);

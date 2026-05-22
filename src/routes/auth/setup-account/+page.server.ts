@@ -36,6 +36,8 @@ function tokenStateMessage(state: string): string {
 		case 'used':
 		case 'access-request-completed':
 			return 'This setup link has already been used. Sign in or reset your password if you need access.';
+		case 'access-request-not-approved':
+			return 'This Account Setup Link is no longer approved. Request access again or contact support.';
 		case 'session-expired':
 			return 'This setup session has expired. Open the newest setup email or request a fresh setup link.';
 		default:
@@ -95,6 +97,14 @@ export const load: PageServerLoad = async ({ cookies, locals, url }) => {
 			};
 		}
 
+		if (accessRequest.status !== 'approved') {
+			clearAccountSetupSessionCookie(cookies);
+			return {
+				state: 'access-request-not-approved' as const,
+				message: tokenStateMessage('access-request-not-approved')
+			};
+		}
+
 		setAccountSetupSessionCookie(
 			cookies,
 			createAccountSetupSession({
@@ -130,7 +140,15 @@ export const load: PageServerLoad = async ({ cookies, locals, url }) => {
 		};
 	}
 
-	const setupLink = store.getSetupLink ? await store.getSetupLink(setupSession.setupLinkId) : null;
+	if (accessRequest.status !== 'approved') {
+		clearAccountSetupSessionCookie(cookies);
+		return {
+			state: 'access-request-not-approved' as const,
+			message: tokenStateMessage('access-request-not-approved')
+		};
+	}
+
+	const setupLink = await store.getSetupLink(setupSession.setupLinkId);
 	if (!setupLink || setupLink.accessRequestId !== setupSession.accessRequestId) {
 		clearAccountSetupSessionCookie(cookies);
 		return {

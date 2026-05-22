@@ -26,4 +26,12 @@ describe('organization invitation email outbox migration', () => {
 			'grant select on table "public"."organization_invitation_email_outbox" to "authenticated"'
 		);
 	});
+
+	it('can be rerun after a partial local migration creates constraints', () => {
+		expect(migration).toContain('drop constraint if exists "organization_invitation_email_outbox_pkey"');
+		expect(migration).toContain(
+			'drop constraint if exists "organization_invitation_email_outbox_organization_id_fkey"'
+		);
+		expect(migration).toContain('drop constraint if exists "organization_invitation_email_outbox_invitation_id_fkey"');
+	});
 });

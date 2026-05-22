@@ -14,12 +14,21 @@ CREATE TABLE IF NOT EXISTS "public"."organization_invitation_email_outbox" (
 
 ALTER TABLE "public"."organization_invitation_email_outbox" OWNER TO "postgres";
 
+ALTER TABLE "public"."organization_invitation_email_outbox"
+	DROP CONSTRAINT IF EXISTS "organization_invitation_email_outbox_pkey";
+
 ALTER TABLE ONLY "public"."organization_invitation_email_outbox"
 	ADD CONSTRAINT "organization_invitation_email_outbox_pkey" PRIMARY KEY ("id");
+
+ALTER TABLE "public"."organization_invitation_email_outbox"
+	DROP CONSTRAINT IF EXISTS "organization_invitation_email_outbox_organization_id_fkey";
 
 ALTER TABLE ONLY "public"."organization_invitation_email_outbox"
 	ADD CONSTRAINT "organization_invitation_email_outbox_organization_id_fkey"
 	FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("id") ON DELETE CASCADE;
+
+ALTER TABLE "public"."organization_invitation_email_outbox"
+	DROP CONSTRAINT IF EXISTS "organization_invitation_email_outbox_invitation_id_fkey";
 
 ALTER TABLE ONLY "public"."organization_invitation_email_outbox"
 	ADD CONSTRAINT "organization_invitation_email_outbox_invitation_id_fkey"

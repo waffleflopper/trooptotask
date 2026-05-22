@@ -228,7 +228,7 @@ describe('inviteOrganizationMember', () => {
 			{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
 			{
 				email: 'NEW.USER@EXAMPLE.COM',
-				preset: 'team-leader',
+				memberPreset: 'team-leader',
 				scopedGroupId: 'group-1',
 				actorEmail: 'actor@example.com'
 			}
@@ -976,7 +976,7 @@ describe('updateOrganizationMemberPermissions', () => {
 			{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
 			{
 				membershipId: '11111111-1111-4111-8111-111111111111',
-				preset: 'operator',
+				memberPreset: 'operator',
 				capabilityOverrides: {
 					calendar: 'configure',
 					ratingScheme: 'none'

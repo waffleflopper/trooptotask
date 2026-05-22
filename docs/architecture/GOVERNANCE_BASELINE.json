@@ -350,7 +350,6 @@
 			"path": "src/routes/org/[orgId]/settings/settingsMemberAccessReadModel.server.ts",
 			"classification": "compatibility-adapter",
 			"patterns": [
-				"scopedGroupId",
 				"scoped_group_id"
 			],
 			"ownerIssue": "#976",

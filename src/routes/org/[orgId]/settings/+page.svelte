@@ -522,7 +522,7 @@
 									<div class="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto]">
 										<Field.Root>
 											<Field.Label id="access-level-label-{member.id}">Access level</Field.Label>
-											<input type="hidden" name="preset" value={selectedPreset} />
+											<input type="hidden" name="memberPreset" value={selectedPreset} />
 											<Select.Root
 												type="single"
 												value={selectedPreset}
@@ -565,7 +565,7 @@
 									</div>
 
 									{#if selectedPreset !== 'admin'}
-										<input type="hidden" name="accessScopeKind" value={selectedScopeKind} />
+										<input type="hidden" name="scopeSetKind" value={selectedScopeKind} />
 										<div class="grid gap-4 md:grid-cols-2">
 											<section
 												class="grid gap-3 rounded-md border bg-card p-3"
@@ -586,7 +586,7 @@
 														)}
 														<Field.Root>
 															<Field.Label id="capability-{member.id}-{lane.id}">{lane.label}</Field.Label>
-															<input type="hidden" name="capability:{lane.id}" value={capabilityValue} />
+															<input type="hidden" name="capabilityOverride:{lane.id}" value={capabilityValue} />
 															<Select.Root
 																type="single"
 																value={capabilityValue}
@@ -632,7 +632,7 @@
 													<div class="grid gap-2">
 														{#each membersSection.groups as group (group.id)}
 															{@const checked = selectedScopeGroupIds.includes(group.id)}
-															{#if checked}<input type="hidden" name="accessScopeGroupIds" value={group.id} />{/if}
+															{#if checked}<input type="hidden" name="scopeSetGroupIds" value={group.id} />{/if}
 															<Field.Root orientation="horizontal">
 																<Checkbox
 																	id="scope-group-{member.id}-{group.id}"
@@ -702,7 +702,7 @@
 							</div>
 							<Field.Root>
 								<Field.Label id="invite-access-level-label">Access level</Field.Label>
-								<input type="hidden" name="preset" value={memberAccess.invitePreset} />
+								<input type="hidden" name="memberPreset" value={memberAccess.invitePreset} />
 								<Select.Root type="single" bind:value={memberAccess.invitePreset}>
 									<Select.Trigger aria-label="Invite member access level" class="w-full">
 										{getPresetLabel(memberAccess.invitePreset)}
@@ -722,7 +722,7 @@
 						</div>
 						{#if memberAccess.invitePreset !== 'admin'}
 							<div class="mt-4 grid gap-3 rounded-md border bg-muted/30 p-3">
-								<input type="hidden" name="accessScopeKind" value={memberAccess.inviteScopeKind} />
+								<input type="hidden" name="scopeSetKind" value={memberAccess.inviteScopeKind} />
 								<RadioGroup.Root
 									value={memberAccess.inviteScopeKind}
 									onValueChange={(value) => memberAccess.setInviteScopeKind(value as 'organization' | 'groups')}
@@ -741,7 +741,7 @@
 									<div class="grid gap-2">
 										{#each membersSection.groups as group (group.id)}
 											{@const checked = memberAccess.inviteScopeGroupIds.includes(group.id)}
-											{#if checked}<input type="hidden" name="accessScopeGroupIds" value={group.id} />{/if}
+											{#if checked}<input type="hidden" name="scopeSetGroupIds" value={group.id} />{/if}
 											<Field.Root orientation="horizontal">
 												<Checkbox
 													id="invite-scope-group-{group.id}"

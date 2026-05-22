@@ -751,7 +751,7 @@ describe('org settings page server actions', () => {
 				request: new Request('http://localhost/org/org-1/settings?/invite', {
 					method: 'POST',
 					headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-					body: new URLSearchParams({ email: 'user@example.com', preset: 'viewer' })
+					body: new URLSearchParams({ email: 'user@example.com', memberPreset: 'viewer' })
 				}),
 				locals: {},
 				params: { orgId: 'org-1' },
@@ -776,7 +776,7 @@ describe('org settings page server actions', () => {
 			request: new Request('http://localhost/org/org-1/settings?/invite', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-				body: new URLSearchParams({ email: 'bad-email', preset: 'viewer' })
+				body: new URLSearchParams({ email: 'bad-email', memberPreset: 'viewer' })
 			}),
 			locals: {
 				user: { id: 'user-1', email: 'user@example.com' },
@@ -804,10 +804,10 @@ describe('org settings page server actions', () => {
 				headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
 				body: new URLSearchParams({
 					membershipId: '11111111-1111-4111-8111-111111111111',
-					preset: 'editor',
-					'capability:calendar': 'operate',
-					accessScopeKind: 'groups',
-					accessScopeGroupIds: 'group-1'
+					memberPreset: 'editor',
+					'capabilityOverride:calendar': 'operate',
+					scopeSetKind: 'groups',
+					scopeSetGroupIds: 'group-1'
 				})
 			}),
 			locals: {
@@ -830,7 +830,7 @@ describe('org settings page server actions', () => {
 			},
 			{
 				membershipId: '11111111-1111-4111-8111-111111111111',
-				preset: 'editor',
+				memberPreset: 'editor',
 				customPermissions: null,
 				capabilityOverrides: { calendar: 'operate' },
 				accessScopeKind: 'groups',

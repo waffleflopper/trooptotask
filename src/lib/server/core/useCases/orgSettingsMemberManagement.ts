@@ -69,7 +69,8 @@ interface OrganizationSettingsMemberManagementPorts {
 
 interface InviteOrganizationMemberInput {
 	email: string;
-	preset: string;
+	memberPreset?: string | null;
+	preset?: string | null;
 	scopedGroupId?: string | null;
 	capabilityOverrides?: CapabilityOverrideMap | null;
 	accessScopeKind?: 'organization' | 'groups' | null;
@@ -101,7 +102,8 @@ interface LeaveOrganizationInput {
 
 interface UpdateOrganizationMemberPermissionsInput {
 	membershipId: string;
-	preset: string;
+	memberPreset?: string | null;
+	preset?: string | null;
 	scopedGroupId?: string | null;
 	customPermissions?: Partial<OrganizationMemberPermissions> | null;
 	capabilityOverrides?: CapabilityOverrideMap | null;
@@ -132,14 +134,15 @@ export async function inviteOrganizationMember(
 		fail(400, 'An invitation for this email is already pending');
 	}
 
-	const permissions = isTargetMemberPreset(input.preset)
+	const submittedMemberPreset = getSubmittedMemberPreset(input);
+	const permissions = isTargetMemberPreset(submittedMemberPreset)
 		? targetMemberAccessToCurrentPermissionFlags({
 				membershipRole: 'member',
-				memberPreset: input.preset,
+				memberPreset: submittedMemberPreset,
 				capabilityOverrides: input.capabilityOverrides,
 				scopeSet: buildScopeSet(input)
 			})
-		: resolveCurrentPresetPermissions(input.preset);
+		: resolveCurrentPresetPermissions(submittedMemberPreset);
 	const accessStorage = buildCurrentPresetStorageFields(input);
 	const errorMessage = await ports.settings.createInvitation({
 		organizationId: ports.auth.orgId,
@@ -309,23 +312,24 @@ export async function updateOrganizationMemberPermissions(
 		fail(400, 'Cannot modify owner permissions');
 	}
 
-	const updatesAdminAccess = input.preset === 'admin' || targetMembership?.role === 'admin';
+	const submittedMemberPreset = getSubmittedMemberPreset(input);
+	const updatesAdminAccess = submittedMemberPreset === 'admin' || targetMembership?.role === 'admin';
 	if (updatesAdminAccess) {
 		await requireGovernancePolicy(ports, POLICY_ACTION_CATALOG.organization.updateAdminAccess);
 	} else {
 		await requireGovernancePolicy(ports, POLICY_ACTION_CATALOG.organization.updateMemberAccess);
 	}
 
-	const permissions = isTargetMemberPreset(input.preset)
+	const permissions = isTargetMemberPreset(submittedMemberPreset)
 		? targetMemberAccessToCurrentPermissionFlags({
 				membershipRole: 'member',
-				memberPreset: input.preset,
+				memberPreset: submittedMemberPreset,
 				capabilityOverrides: input.capabilityOverrides,
 				scopeSet: buildScopeSet(input)
 			})
-		: resolveCurrentUpdatePermissions(input.preset, input.customPermissions);
+		: resolveCurrentUpdatePermissions(submittedMemberPreset, input.customPermissions);
 	const accessStorage = buildCurrentPresetStorageFields(input);
-	const role = input.preset === 'admin' ? 'admin' : 'member';
+	const role = submittedMemberPreset === 'admin' ? 'admin' : 'member';
 	const errorMessage = await ports.settings.updateMembership({
 		organizationId: ports.auth.orgId,
 		membershipId: input.membershipId,
@@ -342,7 +346,7 @@ export async function updateOrganizationMemberPermissions(
 	ports.audit.log({
 		action: 'member.permissions_changed',
 		resourceType: 'organization',
-		details: { membershipId: input.membershipId, preset: input.preset },
+		details: { membershipId: input.membershipId, preset: submittedMemberPreset },
 		severity: 'warning'
 	});
 
@@ -413,21 +417,27 @@ function normalizeEmail(email: string): string {
 }
 
 function buildCurrentPresetStorageFields(input: {
-	preset: string;
+	memberPreset?: string | null;
+	preset?: string | null;
 	scopedGroupId?: string | null;
 	customPermissions?: Partial<OrganizationMemberPermissions> | null;
 	capabilityOverrides?: CapabilityOverrideMap | null;
 	accessScopeKind?: 'organization' | 'groups' | null;
 	accessScopeGroupIds?: string[] | null;
 }): MemberAccessStorageFields {
-	const accessStorage = isTargetMemberPreset(input.preset)
+	const submittedMemberPreset = getSubmittedMemberPreset(input);
+	const accessStorage = isTargetMemberPreset(submittedMemberPreset)
 		? targetMemberAccessToStorage({
 				membershipRole: 'member',
-				memberPreset: input.preset,
+				memberPreset: submittedMemberPreset,
 				capabilityOverrides: input.capabilityOverrides,
 				scopeSet: buildScopeSet(input)
 			})
-		: currentPresetToMemberAccessStorage(input);
+		: currentPresetToMemberAccessStorage({
+				preset: submittedMemberPreset,
+				scopedGroupId: input.scopedGroupId,
+				customPermissions: input.customPermissions
+			});
 	const serializedScope = serializeScopeSetForStorage(accessStorage.scopeSet);
 
 	return {
@@ -452,26 +462,32 @@ function buildScopeSet(input: {
 }
 
 function getLegacyScopedGroupId(input: {
-	preset: string;
+	memberPreset?: string | null;
+	preset?: string | null;
 	scopedGroupId?: string | null;
 	accessScopeKind?: 'organization' | 'groups' | null;
 	accessScopeGroupIds?: string[] | null;
 }): string | null {
-	if (isTargetMemberPreset(input.preset)) {
+	const submittedMemberPreset = getSubmittedMemberPreset(input);
+	if (isTargetMemberPreset(submittedMemberPreset)) {
 		const scopeSet = buildScopeSet(input);
 		return scopeSet.kind === 'groups' ? (scopeSet.groupIds[0] ?? null) : null;
 	}
-	return input.preset === 'team-leader' ? (input.scopedGroupId ?? null) : null;
+	return submittedMemberPreset === 'team-leader' ? (input.scopedGroupId ?? null) : null;
 }
 
 function isTargetMemberPreset(preset: string): preset is StoredMemberPreset {
 	return preset === 'viewer' || preset === 'operator' || preset === 'editor';
 }
 
+function getSubmittedMemberPreset(input: { memberPreset?: string | null; preset?: string | null }): string {
+	return input.memberPreset ?? input.preset ?? '';
+}
+
 export function parseCapabilityOverrides(formData: FormData): CapabilityOverrideMap {
 	const overrides: CapabilityOverrideMap = {};
 	for (const lane of DURABLE_FEATURE_LANES) {
-		const value = formData.get(`capability:${lane}`);
+		const value = formData.get(`capabilityOverride:${lane}`) ?? formData.get(`capability:${lane}`);
 		if (isCapabilityLevel(value)) {
 			overrides[lane] = value;
 		}

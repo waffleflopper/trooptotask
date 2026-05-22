@@ -797,6 +797,40 @@ describe('org settings page server actions', () => {
 		});
 	});
 
+	it('keeps legacy invite field names as server-side compatibility input', async () => {
+		const result = await actions.invite({
+			request: new Request('http://localhost/org/org-1/settings?/invite', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+				body: new URLSearchParams({
+					email: 'legacy@example.com',
+					preset: 'viewer',
+					accessScopeKind: 'groups',
+					accessScopeGroupIds: 'group-legacy'
+				})
+			}),
+			locals: {
+				user: { id: 'user-1', email: 'user@example.com' },
+				supabase: {}
+			},
+			params: { orgId: 'org-1' },
+			cookies: {},
+			getClientAddress: () => '127.0.0.1'
+		} as never);
+
+		expect(result).toEqual({ inviteSuccess: true });
+		expect(inviteOrganizationMemberMock).toHaveBeenLastCalledWith(
+			expect.anything(),
+			expect.objectContaining({
+				email: 'legacy@example.com',
+				memberPreset: 'viewer',
+				accessScopeKind: 'groups',
+				accessScopeGroupIds: ['group-legacy'],
+				actorEmail: 'user@example.com'
+			})
+		);
+	});
+
 	it('translates the update-permissions form into the use-case input shape', async () => {
 		const result = await actions.updatePermissions({
 			request: new Request('http://localhost/org/org-1/settings?/updatePermissions', {
@@ -837,6 +871,42 @@ describe('org settings page server actions', () => {
 				accessScopeGroupIds: ['group-1'],
 				actorEmail: 'user@example.com'
 			}
+		);
+	});
+
+	it('keeps legacy update-permissions field names as server-side compatibility input', async () => {
+		const result = await actions.updatePermissions({
+			request: new Request('http://localhost/org/org-1/settings?/updatePermissions', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+				body: new URLSearchParams({
+					membershipId: '11111111-1111-4111-8111-111111111111',
+					preset: 'viewer',
+					'capability:ratingScheme': 'none',
+					accessScopeKind: 'groups',
+					accessScopeGroupIds: 'group-legacy'
+				})
+			}),
+			locals: {
+				user: { id: 'user-1', email: 'user@example.com' },
+				supabase: {}
+			},
+			params: { orgId: 'org-1' },
+			cookies: {},
+			getClientAddress: () => '127.0.0.1'
+		} as never);
+
+		expect(result).toEqual({ permissionSuccess: true });
+		expect(updateOrganizationMemberPermissionsMock).toHaveBeenLastCalledWith(
+			expect.anything(),
+			expect.objectContaining({
+				membershipId: '11111111-1111-4111-8111-111111111111',
+				memberPreset: 'viewer',
+				capabilityOverrides: { ratingScheme: 'none' },
+				accessScopeKind: 'groups',
+				accessScopeGroupIds: ['group-legacy'],
+				actorEmail: 'user@example.com'
+			})
 		);
 	});
 

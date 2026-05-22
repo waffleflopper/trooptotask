@@ -154,6 +154,23 @@ describe('settings member access read model', () => {
 		expect(invitation.access.scopeSet).toEqual({ kind: 'organization' });
 	});
 
+	it('infers admin invitation role when shaping pending access', () => {
+		const invitation = buildSettingsInvitationAccessRow({
+			id: 'invite-admin',
+			email: 'admin-invite@example.com',
+			status: 'pending',
+			created_at: '2026-05-20T12:00:00Z',
+			...legacyAccessRow,
+			can_edit_training: true,
+			can_manage_members: true
+		});
+
+		expect(invitation.membershipRole).toBe('admin');
+		expect(invitation.access.memberPreset).toBe('editor');
+		expect(invitation.access.scopeSet).toEqual({ kind: 'organization' });
+		expect(invitation.access.organizationGovernanceActions).toContain('organization.updateMemberAccess');
+	});
+
 	it('preserves admin invitation role when shaping pending access', () => {
 		const invitation = buildSettingsInvitationAccessRow({
 			id: 'invite-admin',

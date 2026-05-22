@@ -390,7 +390,14 @@ describe('org settings page', () => {
 							createdAt: '2026-05-20T12:00:00Z',
 							access: invitationAccess,
 							accessBadge: 'viewer',
-							scopeDisplayLabel: 'All groups'
+							scopeDisplayLabel: 'All groups',
+							deliveryStatus: 'failed',
+							deliveryStatusLabel: 'Email failed',
+							deliveryAttemptCount: 1,
+							deliveryLastError: 'mail provider unavailable',
+							deliveryUpdatedAt: '2026-05-20T12:05:00Z',
+							deliverySentAt: null,
+							canResend: true
 						}
 					],
 					invitationHistory: [
@@ -417,6 +424,8 @@ describe('org settings page', () => {
 
 		expect(screen.getByRole('heading', { name: 'Pending Invitations' })).toBeTruthy();
 		expect(screen.getByText('pending@example.com')).toBeTruthy();
+		expect(screen.getByText(/Email failed/)).toBeTruthy();
+		expect(screen.getByRole('button', { name: /Resend/ })).toBeTruthy();
 		expect(screen.getByRole('heading', { name: 'Invitation History' })).toBeTruthy();
 		expect(screen.getByText('declined@example.com')).toBeTruthy();
 		expect(screen.getAllByText('Declined').length).toBeGreaterThanOrEqual(1);

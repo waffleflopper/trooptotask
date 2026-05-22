@@ -81,6 +81,17 @@ describe('organization settings workspace read model', () => {
 					access_scope_group_ids: []
 				}
 			],
+			invitationDeliveries: [
+				{
+					id: 'outbox-1',
+					invitation_id: 'invite-a',
+					status: 'failed',
+					attempt_count: 1,
+					last_error: 'mail provider unavailable',
+					updated_at: '2026-05-21T12:05:00Z',
+					sent_at: null
+				}
+			],
 			pendingApprovalSummary: {
 				count: 0,
 				oldestCreatedAt: null
@@ -154,6 +165,13 @@ describe('organization settings workspace read model', () => {
 		});
 		expect(workspace.sections.members.rows).toHaveLength(2);
 		expect(workspace.sections.members.invitations).toHaveLength(1);
+		expect(workspace.sections.members.invitations[0]).toMatchObject({
+			deliveryStatus: 'failed',
+			deliveryStatusLabel: 'Email failed',
+			deliveryAttemptCount: 1,
+			deliveryLastError: 'mail provider unavailable',
+			canResend: true
+		});
 		expect(workspace.sections.members.invitationHistory).toHaveLength(0);
 		expect(workspace.sections.members.roleCounts).toEqual({ owner: 1, admin: 0, member: 1 });
 		expect(workspace.sections.members.memberRoleSummary).toBe('1 Owner · 0 Admins · 1 Member');
@@ -478,6 +496,7 @@ describe('organization settings workspace read model', () => {
 		const findMany = vi.fn(async (table: string) => {
 			if (table === 'organization_memberships') return [];
 			if (table === 'organization_invitations') return [];
+			if (table === 'organization_invitation_email_outbox') return [];
 			if (table === 'groups') return [];
 			if (table === 'personnel') return [];
 			if (table === 'deletion_requests') return [];
@@ -525,6 +544,7 @@ describe('organization settings workspace read model', () => {
 		expect(findMany.mock.calls.map((call) => call[0])).toEqual([
 			'organization_memberships',
 			'organization_invitations',
+			'organization_invitation_email_outbox',
 			'groups',
 			'personnel',
 			'deletion_requests'

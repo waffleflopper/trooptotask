@@ -27,6 +27,13 @@ export type SettingsMemberRow = SettingsMemberAccessRow & {
 export type SettingsInvitationRow = SettingsInvitationAccessRow & {
 	accessBadge: 'admin' | 'viewer' | 'operator' | 'editor' | 'custom';
 	scopeDisplayLabel: string;
+	deliveryStatus: 'not_sent' | 'pending' | 'sent' | 'failed';
+	deliveryStatusLabel: string;
+	deliveryAttemptCount: number;
+	deliveryLastError: string | null;
+	deliveryUpdatedAt: string | null;
+	deliverySentAt: string | null;
+	canResend: boolean;
 };
 
 export type SettingsInvitationHistoryRow = SettingsInvitationRow & {

@@ -85,11 +85,54 @@ function createMembershipRemovalBuilder(result: { data: unknown[] | null; error:
 	return { builder, calls };
 }
 
-function createInvitationInsertBuilder(result: { error: { message: string } | null }) {
+function createInvitationInsertBuilder(result: { data?: { id: string } | null; error: { message: string } | null }) {
 	const calls: Call[] = [];
+
+	function track(method: string) {
+		return (...args: unknown[]) => {
+			calls.push({ method, args });
+			return builder;
+		};
+	}
+
 	const builder: Record<string, unknown> = {
-		insert: (...args: unknown[]) => {
-			calls.push({ method: 'insert', args });
+		insert: track('insert'),
+		select: track('select'),
+		single: (...args: unknown[]) => {
+			calls.push({ method: 'single', args });
+			return {
+				data: result.data ?? { id: 'invite-created' },
+				error: result.error
+			};
+		}
+	};
+
+	return { builder, calls };
+}
+
+function createPendingInvitationByIdBuilder() {
+	const calls: Call[] = [];
+	const result = {
+		data: {
+			id: 'invite-1',
+			email: 'invitee@example.com'
+		},
+		error: null
+	};
+
+	function track(method: string) {
+		return (...args: unknown[]) => {
+			calls.push({ method, args });
+			return builder;
+		};
+	}
+
+	const builder: Record<string, unknown> = {
+		select: track('select'),
+		eq: track('eq'),
+		gt: track('gt'),
+		single: (...args: unknown[]) => {
+			calls.push({ method: 'single', args });
 			return result;
 		}
 	};
@@ -188,7 +231,7 @@ describe('createSupabaseOrgSettingsMemberManagementPort', () => {
 			accessScopeGroupIds: []
 		});
 
-		expect(result).toBeNull();
+		expect(result).toEqual({ status: 'created', invitationId: 'invite-created' });
 		expect(supabase.from).toHaveBeenCalledWith('organization_invitations');
 		expect(expireCalls).toContainEqual({
 			method: 'update',
@@ -214,8 +257,30 @@ describe('createSupabaseOrgSettingsMemberManagementPort', () => {
 						access_scope_group_ids: []
 					})
 				]
-			}
+			},
+			{ method: 'select', args: ['id'] },
+			{ method: 'single', args: [] }
 		]);
+	});
+
+	it('finds pending invitations by id inside the organization without reading access snapshot fields', async () => {
+		const { builder, calls } = createPendingInvitationByIdBuilder();
+		const supabase = {
+			from: vi.fn(() => builder)
+		};
+		const port = createSupabaseOrgSettingsMemberManagementPort({
+			supabase
+		} as never);
+
+		const result = await port.findPendingInvitationById('org-1', 'invite-1');
+
+		expect(result).toEqual({ id: 'invite-1', email: 'invitee@example.com' });
+		expect(supabase.from).toHaveBeenCalledWith('organization_invitations');
+		expect(calls).toContainEqual({ method: 'select', args: ['id, email'] });
+		expect(calls).toContainEqual({ method: 'eq', args: ['id', 'invite-1'] });
+		expect(calls).toContainEqual({ method: 'eq', args: ['organization_id', 'org-1'] });
+		expect(calls).toContainEqual({ method: 'eq', args: ['status', 'pending'] });
+		expect(calls).toContainEqual({ method: 'gt', args: ['expires_at', expect.any(String)] });
 	});
 
 	it('revokes invitations through the lifecycle transition RPC', async () => {

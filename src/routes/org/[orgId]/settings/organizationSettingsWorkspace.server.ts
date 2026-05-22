@@ -56,6 +56,7 @@ export interface BuildOrganizationSettingsWorkspaceInput {
 	organization: OrganizationSettingsSource;
 	members: LegacySettingsAccessRow[];
 	invitations: LegacySettingsAccessRow[];
+	invitationDeliveries?: SettingsInvitationDeliverySourceRow[];
 	pendingApprovalSummary?: PendingApprovalSummary;
 	approvalRequests?: DeletionRequestRow[];
 	exportInfo?: SettingsExportInfoSource;
@@ -80,6 +81,16 @@ export interface OrganizationSettingsSource {
 
 export type SettingsExportInfoSource = Pick<SettingsExportInfo, 'exportsUsed' | 'exportsLimit' | 'isLimited'>;
 
+export interface SettingsInvitationDeliverySourceRow {
+	id: string;
+	invitation_id: string;
+	status: 'pending' | 'sent' | 'failed';
+	attempt_count: number;
+	last_error: string | null;
+	updated_at: string;
+	sent_at: string | null;
+}
+
 export type SettingsArchivedPersonnelSourceRow = Pick<
 	SettingsArchivedPersonnelRow,
 	'id' | 'rank' | 'firstName' | 'lastName' | 'mos' | 'groupName' | 'archivedAt' | 'groupId'
@@ -92,6 +103,7 @@ export async function loadOrganizationSettingsWorkspace(
 	const [
 		membershipRows,
 		invitationRows,
+		invitationDeliveryRows,
 		groupRows,
 		organizationSettings,
 		archivedPersonnelRows,
@@ -103,6 +115,15 @@ export async function loadOrganizationSettingsWorkspace(
 		ctx.store.findMany<LegacySettingsAccessRow>('organization_invitations', ctx.auth.orgId, undefined, {
 			orderBy: [{ column: 'created_at', ascending: false }]
 		}),
+		ctx.store.findMany<SettingsInvitationDeliverySourceRow>(
+			'organization_invitation_email_outbox',
+			ctx.auth.orgId,
+			undefined,
+			{
+				select: 'id, invitation_id, status, attempt_count, last_error, updated_at, sent_at',
+				orderBy: [{ column: 'created_at', ascending: false }]
+			}
+		),
 		ctx.store.findMany<Record<string, unknown>>('groups', ctx.auth.orgId, undefined, {
 			orderBy: [{ column: 'sort_order', ascending: true }]
 		}),
@@ -130,6 +151,7 @@ export async function loadOrganizationSettingsWorkspace(
 		organization: input.organization,
 		members: membershipRows,
 		invitations: invitationRows,
+		invitationDeliveries: invitationDeliveryRows,
 		pendingApprovalSummary: buildPendingApprovalSummary(approvalRequests),
 		approvalRequests,
 		exportInfo,
@@ -160,8 +182,9 @@ export function buildOrganizationSettingsWorkspace(
 		shapeMemberRow(buildSettingsMemberAccessRow(row), groups, availablePresetOptions)
 	);
 	const now = new Date();
+	const latestDeliveryByInvitationId = buildLatestDeliveryByInvitationId(input.invitationDeliveries ?? []);
 	const shapedInvitations = input.invitations.map((row) =>
-		shapeInvitationRow(buildSettingsInvitationAccessRow(row), groups)
+		shapeInvitationRow(buildSettingsInvitationAccessRow(row), groups, latestDeliveryByInvitationId)
 	);
 	const invitations = shapedInvitations.filter((invitation) => isActionableInvitation(invitation, now));
 	const invitationHistory = shapedInvitations
@@ -318,13 +341,47 @@ function shapeMemberRow(
 
 function shapeInvitationRow(
 	invitation: ReturnType<typeof buildSettingsInvitationAccessRow>,
-	groups: Array<{ id: string; name: string }>
+	groups: Array<{ id: string; name: string }>,
+	deliveryByInvitationId: Map<string, SettingsInvitationDeliverySourceRow>
 ): SettingsInvitationRow {
+	const delivery = deliveryByInvitationId.get(invitation.id) ?? null;
 	return {
 		...invitation,
 		accessBadge: invitation.membershipRole === 'admin' ? 'admin' : invitation.access.memberPreset,
-		scopeDisplayLabel: formatScopeSet(invitation.access.scopeSet, groups)
+		scopeDisplayLabel: formatScopeSet(invitation.access.scopeSet, groups),
+		deliveryStatus: delivery?.status ?? 'not_sent',
+		deliveryStatusLabel: invitationDeliveryStatusLabel(delivery?.status ?? 'not_sent'),
+		deliveryAttemptCount: delivery?.attempt_count ?? 0,
+		deliveryLastError: delivery?.last_error ?? null,
+		deliveryUpdatedAt: delivery?.updated_at ?? null,
+		deliverySentAt: delivery?.sent_at ?? null,
+		canResend: invitation.status === 'pending'
 	};
+}
+
+function buildLatestDeliveryByInvitationId(
+	deliveries: SettingsInvitationDeliverySourceRow[]
+): Map<string, SettingsInvitationDeliverySourceRow> {
+	const latest = new Map<string, SettingsInvitationDeliverySourceRow>();
+	for (const delivery of deliveries) {
+		if (!latest.has(delivery.invitation_id)) {
+			latest.set(delivery.invitation_id, delivery);
+		}
+	}
+	return latest;
+}
+
+function invitationDeliveryStatusLabel(status: SettingsInvitationRow['deliveryStatus']): string {
+	switch (status) {
+		case 'sent':
+			return 'Email sent';
+		case 'failed':
+			return 'Email failed';
+		case 'pending':
+			return 'Email pending';
+		case 'not_sent':
+			return 'Email not sent';
+	}
 }
 
 function shapeInvitationHistoryRow(invitation: SettingsInvitationRow, now: Date): SettingsInvitationHistoryRow {

@@ -8,6 +8,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 interface OrganizationInvitationLookupRow {
 	id: string;
+	email?: string;
 }
 
 interface OrganizationMembershipLookupRow {
@@ -50,35 +51,60 @@ export function createSupabaseOrgSettingsMemberManagementPort(
 			return { id: data.id };
 		},
 
+		async findPendingInvitationById(orgId, inviteId) {
+			const { data, error } = await supabase
+				.from('organization_invitations')
+				.select('id, email')
+				.eq('id', inviteId)
+				.eq('organization_id', orgId)
+				.eq('status', 'pending')
+				.gt('expires_at', new Date().toISOString())
+				.single<OrganizationInvitationLookupRow>();
+
+			if (error || !data) {
+				return null;
+			}
+
+			return { id: data.id, email: data.email ?? '' };
+		},
+
 		async createInvitation(input) {
 			await expirePendingInvitationForEmail(supabase, input.organizationId, input.email);
 
-			const { error } = await supabase.from('organization_invitations').insert({
-				organization_id: input.organizationId,
-				email: input.email,
-				invited_by: input.invitedBy,
-				role: input.role,
-				scoped_group_id: input.singleGroupCompatibilityId,
-				can_view_calendar: input.permissions.canViewCalendar,
-				can_edit_calendar: input.permissions.canEditCalendar,
-				can_view_personnel: input.permissions.canViewPersonnel,
-				can_edit_personnel: input.permissions.canEditPersonnel,
-				can_view_training: input.permissions.canViewTraining,
-				can_edit_training: input.permissions.canEditTraining,
-				can_view_critical_tasks: input.permissions.canViewCriticalTasks,
-				can_edit_critical_tasks: input.permissions.canEditCriticalTasks,
-				can_view_onboarding: input.permissions.canViewOnboarding,
-				can_edit_onboarding: input.permissions.canEditOnboarding,
-				can_view_rating_scheme: input.permissions.canViewRatingScheme,
-				can_edit_rating_scheme: input.permissions.canEditRatingScheme,
-				can_manage_members: input.permissions.canManageMembers,
-				member_preset: input.memberPreset,
-				capability_overrides: input.capabilityOverrides,
-				access_scope_kind: input.accessScopeKind,
-				access_scope_group_ids: input.accessScopeGroupIds
-			});
+			const { data, error } = await supabase
+				.from('organization_invitations')
+				.insert({
+					organization_id: input.organizationId,
+					email: input.email,
+					invited_by: input.invitedBy,
+					role: input.role,
+					scoped_group_id: input.singleGroupCompatibilityId,
+					can_view_calendar: input.permissions.canViewCalendar,
+					can_edit_calendar: input.permissions.canEditCalendar,
+					can_view_personnel: input.permissions.canViewPersonnel,
+					can_edit_personnel: input.permissions.canEditPersonnel,
+					can_view_training: input.permissions.canViewTraining,
+					can_edit_training: input.permissions.canEditTraining,
+					can_view_critical_tasks: input.permissions.canViewCriticalTasks,
+					can_edit_critical_tasks: input.permissions.canEditCriticalTasks,
+					can_view_onboarding: input.permissions.canViewOnboarding,
+					can_edit_onboarding: input.permissions.canEditOnboarding,
+					can_view_rating_scheme: input.permissions.canViewRatingScheme,
+					can_edit_rating_scheme: input.permissions.canEditRatingScheme,
+					can_manage_members: input.permissions.canManageMembers,
+					member_preset: input.memberPreset,
+					capability_overrides: input.capabilityOverrides,
+					access_scope_kind: input.accessScopeKind,
+					access_scope_group_ids: input.accessScopeGroupIds
+				})
+				.select('id')
+				.single<OrganizationInvitationLookupRow>();
 
-			return error?.message ?? null;
+			if (error || !data) {
+				return { status: 'failed', message: error?.message ?? 'Invitation could not be created' };
+			}
+
+			return { status: 'created', invitationId: data.id };
 		},
 
 		async revokeInvitation(orgId, inviteId) {

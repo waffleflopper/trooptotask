@@ -9,6 +9,7 @@ import { createSupabaseDataStore } from '$lib/server/adapters/supabaseDataStore'
 import { createSupabaseOrgSettingsAdministrationPort } from '$lib/server/adapters/supabaseOrgSettingsAdministration';
 import { createSupabaseOrgSettingsMemberManagementPort } from '$lib/server/adapters/supabaseOrgSettingsMemberManagement';
 import { getAdminClient } from '$lib/server/supabase';
+import { createSupabaseOrganizationInvitationDeliveryPort } from '$lib/server/organizationInvitationDelivery';
 import { fetchAuditLogPreview } from '$lib/server/core/useCases/auditLogQuery';
 import type { SubscriptionPort } from '$lib/server/core/ports';
 import {
@@ -21,6 +22,7 @@ import {
 import {
 	inviteOrganizationMember,
 	removeOrganizationMember,
+	resendOrganizationInvitation,
 	revokeOrganizationInvitation,
 	updateOrganizationMemberPermissions
 } from '$lib/server/core/useCases/orgSettingsMemberManagement';
@@ -178,6 +180,7 @@ export const actions: Actions = {
 		const formData = await request.formData();
 		try {
 			const ctx = await buildRouteContext(event);
+			const origin = event.url?.origin ?? new URL(request.url).origin;
 			const accessCommand = parseMemberAccessEditFormData(formData);
 			return await inviteOrganizationMember(
 				{
@@ -185,13 +188,44 @@ export const actions: Actions = {
 					audit: ctx.audit,
 					notifications: ctx.notifications,
 					readOnlyGuard: ctx.readOnlyGuard,
-					settings: createSupabaseOrgSettingsMemberManagementPort(locals)
+					settings: createSupabaseOrgSettingsMemberManagementPort(locals),
+					invitationDelivery: createSupabaseOrganizationInvitationDeliveryPort(getAdminClient())
 				},
 				{
 					email: (formData.get('email') as string) ?? '',
 					membershipRole: accessCommand.membershipRole,
 					memberAccess: accessCommand.memberAccess,
-					actorEmail: user.email
+					actorEmail: user.email,
+					origin
+				}
+			);
+		} catch (error) {
+			return toActionFailure('inviteError', error);
+		}
+	},
+
+	resendInvite: async (event) => {
+		const { request, locals } = event;
+		const user = locals.user;
+		if (!user) throw redirect(303, '/auth/login');
+
+		const formData = await request.formData();
+		try {
+			const ctx = await buildRouteContext(event);
+			const origin = event.url?.origin ?? new URL(request.url).origin;
+			return await resendOrganizationInvitation(
+				{
+					auth: ctx.auth,
+					audit: ctx.audit,
+					notifications: ctx.notifications,
+					readOnlyGuard: ctx.readOnlyGuard,
+					settings: createSupabaseOrgSettingsMemberManagementPort(locals),
+					invitationDelivery: createSupabaseOrganizationInvitationDeliveryPort(getAdminClient())
+				},
+				{
+					inviteId: (formData.get('inviteId') as string) ?? '',
+					actorEmail: user.email,
+					origin
 				}
 			);
 		} catch (error) {

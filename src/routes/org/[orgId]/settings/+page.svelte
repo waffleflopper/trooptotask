@@ -2,7 +2,7 @@
 	import { enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
 	import { page } from '$app/stores';
-	import { Edit, Trash2, UserPlus } from '@lucide/svelte';
+	import { Edit, RefreshCw, Trash2, UserPlus } from '@lucide/svelte';
 	import { explainPolicyReasonCode } from '$lib/access/policyDecisionExplanations';
 	import { Badge } from '$lib/components/ui/badge/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
@@ -705,7 +705,7 @@
 					<div class="grid gap-1">
 						<h3 id="invite-member-heading" class="text-lg font-semibold tracking-tight">Invite Member</h3>
 						<p class="text-sm text-muted-foreground">
-							Create an invite they can accept after signing in. T2T does not send an email automatically.
+							Create an invite they can accept after signing in. T2T sends the invitation email.
 						</p>
 					</div>
 					<Separator />
@@ -838,11 +838,28 @@
 									<p class="text-sm text-muted-foreground">
 										{memberAccess.getAccessLabel(invitePermissionPreset)} · Sent {formatRelativeDate(invite.createdAt)}
 									</p>
+									<p class="text-sm text-muted-foreground">
+										{invite.deliveryStatusLabel}
+										{#if invite.deliverySentAt}
+											{formatRelativeDate(invite.deliverySentAt)}
+										{:else if invite.deliveryUpdatedAt}
+											{formatRelativeDate(invite.deliveryUpdatedAt)}
+										{/if}
+									</p>
 								</div>
-								<form method="POST" action="?/revokeInvite" use:enhance>
-									<input type="hidden" name="inviteId" value={invite.id} />
-									<Button type="submit" variant="outline" size="sm">Revoke</Button>
-								</form>
+								<div class="flex flex-wrap gap-2">
+									<form method="POST" action="?/resendInvite" use:enhance>
+										<input type="hidden" name="inviteId" value={invite.id} />
+										<Button type="submit" variant="outline" size="sm" disabled={!invite.canResend}>
+											<RefreshCw class="mr-2 size-4" />
+											Resend
+										</Button>
+									</form>
+									<form method="POST" action="?/revokeInvite" use:enhance>
+										<input type="hidden" name="inviteId" value={invite.id} />
+										<Button type="submit" variant="outline" size="sm">Revoke</Button>
+									</form>
+								</div>
 							</div>
 						{/each}
 					</div>

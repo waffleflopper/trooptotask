@@ -64,6 +64,13 @@ export const ORGANIZATION_DATA_EXPORT_SECTIONS = [
 	section('organizationProfile', 'Organization Profile', 'organizations', 'settings', 'Settings'),
 	section('memberships', 'Organization Memberships', 'organization_memberships', 'settings', 'Settings'),
 	section('invitations', 'Organization Invitations', 'organization_invitations', 'settings', 'Settings'),
+	section(
+		'invitationEmailOutbox',
+		'Organization Invitation Email Outbox',
+		'organization_invitation_email_outbox',
+		'settings',
+		'Settings'
+	),
 	section('dashboardConfigs', 'Dashboard Configs', 'dashboard_configs', 'settings', 'Settings'),
 	section('deletionRequests', 'Deletion Requests', 'deletion_requests', 'settings', 'Settings'),
 	section('gettingStartedProgress', 'Getting Started Progress', 'getting_started_progress', 'settings', 'Settings'),

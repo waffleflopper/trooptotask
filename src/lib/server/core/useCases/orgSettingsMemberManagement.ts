@@ -28,6 +28,10 @@ export interface OrganizationInvitationCreateInput {
 	accessScopeGroupIds: string[];
 }
 
+export type OrganizationInvitationCreateResult =
+	| { status: 'created'; invitationId: string }
+	| { status: 'failed'; message: string };
+
 export interface OrganizationMembershipUpdateInput {
 	organizationId: string;
 	membershipId: string;
@@ -61,12 +65,24 @@ export interface OrganizationInvitationRevokeResult {
 
 export interface OrganizationSettingsMemberManagementPort {
 	findPendingInvitation(orgId: string, email: string): Promise<{ id: string } | null>;
-	createInvitation(input: OrganizationInvitationCreateInput): Promise<string | null>;
+	findPendingInvitationById(orgId: string, inviteId: string): Promise<{ id: string; email: string } | null>;
+	createInvitation(input: OrganizationInvitationCreateInput): Promise<OrganizationInvitationCreateResult>;
 	revokeInvitation(orgId: string, inviteId: string): Promise<OrganizationInvitationRevokeResult>;
 	findMembershipById(orgId: string, membershipId: string): Promise<OrganizationMembershipRecord | null>;
 	removeMembership(orgId: string, membershipId: string): Promise<string | null>;
 	updateMembership(input: OrganizationMembershipUpdateInput): Promise<string | null>;
 	getOrganizationName(orgId: string): Promise<string | null>;
+}
+
+export interface OrganizationInvitationDeliveryPort {
+	sendInvitationEmail(input: {
+		organizationId: string;
+		invitationId: string;
+		email: string;
+		organizationName: string;
+		invitedByEmail: string | null;
+		origin: string;
+	}): Promise<{ status: 'sent'; outbox: { id: string } } | { status: 'failed'; outbox: { id: string }; error: string }>;
 }
 
 interface OrganizationSettingsMemberManagementPorts {
@@ -75,6 +91,7 @@ interface OrganizationSettingsMemberManagementPorts {
 	notifications: NotificationPort;
 	readOnlyGuard?: ReadOnlyGuard;
 	settings: OrganizationSettingsMemberManagementPort;
+	invitationDelivery?: OrganizationInvitationDeliveryPort;
 }
 
 interface InviteOrganizationMemberInput {
@@ -82,10 +99,17 @@ interface InviteOrganizationMemberInput {
 	membershipRole?: EditableMembershipRole | null;
 	memberAccess?: TargetMemberAccessCommand | null;
 	actorEmail?: string | null;
+	origin?: string | null;
 }
 
 interface RevokeOrganizationInvitationInput {
 	inviteId: string;
+}
+
+interface ResendOrganizationInvitationInput {
+	inviteId: string;
+	actorEmail?: string | null;
+	origin: string;
 }
 
 interface RemoveOrganizationMemberInput {
@@ -141,7 +165,7 @@ export async function inviteOrganizationMember(
 		fail(400, 'An invitation for this email is already pending');
 	}
 
-	const errorMessage = await ports.settings.createInvitation({
+	const createResult = await ports.settings.createInvitation({
 		organizationId: ports.auth.orgId,
 		email,
 		invitedBy: actorUserId,
@@ -154,8 +178,8 @@ export async function inviteOrganizationMember(
 		accessScopeGroupIds: accessCommand.accessScopeGroupIds
 	});
 
-	if (errorMessage) {
-		fail(500, errorMessage);
+	if (createResult.status === 'failed') {
+		fail(500, createResult.message);
 	}
 
 	ports.audit.log({
@@ -166,6 +190,14 @@ export async function inviteOrganizationMember(
 			membershipRole: accessCommand.role,
 			memberPreset: accessCommand.memberPreset
 		}
+	});
+
+	const deliveryStatus = await deliverInvitationEmail(ports, {
+		invitationId: createResult.invitationId,
+		email,
+		actorEmail: input.actorEmail ?? null,
+		origin: input.origin ?? '',
+		mode: 'initial'
 	});
 
 	await ports.notifications.notifyAdmins(ports.auth.orgId, actorUserId, {
@@ -179,8 +211,117 @@ export async function inviteOrganizationMember(
 		inviteSuccess: true,
 		inviteEmail: email,
 		inviteMessage:
-			'Invitation created! Tell the user to log in to Troop to Task - they will see the invitation on their dashboard.'
+			deliveryStatus === 'failed'
+				? 'Invitation created, but email delivery failed. You can resend it from Pending Invitations.'
+				: deliveryStatus === 'sent'
+					? 'Invitation created and email delivery was queued.'
+					: 'Invitation created! Tell the user to log in to Troop to Task - they will see the invitation on their dashboard.'
 	};
+}
+
+export async function resendOrganizationInvitation(
+	ports: OrganizationSettingsMemberManagementPorts,
+	input: ResendOrganizationInvitationInput
+): Promise<{ success: true; inviteDeliveryStatus: 'sent' | 'failed' | 'not_configured'; inviteMessage: string }> {
+	await requireGovernancePolicy(ports, POLICY_ACTION_CATALOG.organization.inviteMember);
+
+	if (!validateUUID(input.inviteId)) {
+		fail(400, 'Invalid invitation ID');
+	}
+
+	const invitation = await ports.settings.findPendingInvitationById(ports.auth.orgId, input.inviteId);
+	if (!invitation) {
+		fail(404, 'Pending invitation not found');
+	}
+
+	const deliveryStatus = await deliverInvitationEmail(ports, {
+		invitationId: invitation.id,
+		email: invitation.email,
+		actorEmail: input.actorEmail ?? null,
+		origin: input.origin,
+		mode: 'resend'
+	});
+
+	return {
+		success: true,
+		inviteDeliveryStatus: deliveryStatus,
+		inviteMessage:
+			deliveryStatus === 'failed'
+				? 'Invitation email delivery failed. The pending invitation is still intact and can be resent.'
+				: deliveryStatus === 'not_configured'
+					? 'Invitation email delivery is not configured.'
+					: 'Invitation email resent.'
+	};
+}
+
+async function deliverInvitationEmail(
+	ports: OrganizationSettingsMemberManagementPorts,
+	input: {
+		invitationId: string;
+		email: string;
+		actorEmail: string | null;
+		origin: string;
+		mode: 'initial' | 'resend';
+	}
+): Promise<'sent' | 'failed' | 'not_configured'> {
+	if (!ports.invitationDelivery || !input.origin) {
+		return 'not_configured';
+	}
+
+	const organizationName = (await ports.settings.getOrganizationName(ports.auth.orgId)) ?? 'your organization';
+	let delivery: Awaited<ReturnType<OrganizationInvitationDeliveryPort['sendInvitationEmail']>>;
+	try {
+		delivery = await ports.invitationDelivery.sendInvitationEmail({
+			organizationId: ports.auth.orgId,
+			invitationId: input.invitationId,
+			email: input.email,
+			organizationName,
+			invitedByEmail: input.actorEmail,
+			origin: input.origin
+		});
+	} catch (error) {
+		ports.audit.log({
+			action:
+				input.mode === 'resend' ? 'member.invite_email_resend_delivery_failed' : 'member.invite_email_delivery_failed',
+			resourceType: 'organization',
+			details: {
+				email: input.email,
+				invitationId: input.invitationId,
+				deliveryMode: input.mode,
+				reason: 'outbox-write-failed'
+			},
+			severity: 'warning'
+		});
+		console.error('[org-settings-member-management]', {
+			status: 'invitation-email-delivery-failed',
+			organizationId: ports.auth.orgId,
+			invitationId: input.invitationId,
+			mode: input.mode,
+			error
+		});
+		return 'failed';
+	}
+
+	ports.audit.log({
+		action:
+			delivery.status === 'sent'
+				? input.mode === 'resend'
+					? 'member.invite_email_resent'
+					: 'member.invite_email_sent'
+				: input.mode === 'resend'
+					? 'member.invite_email_resend_delivery_failed'
+					: 'member.invite_email_delivery_failed',
+		resourceType: 'organization',
+		details: {
+			email: input.email,
+			invitationId: input.invitationId,
+			outboxId: delivery.outbox.id,
+			deliveryMode: input.mode
+		},
+		severity: delivery.status === 'sent' ? 'info' : 'warning'
+	});
+
+	return delivery.status;
 }
 
 export async function revokeOrganizationInvitation(

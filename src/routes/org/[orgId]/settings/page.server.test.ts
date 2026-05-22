@@ -6,6 +6,7 @@ const {
 	clearOrganizationUrlSlugMock,
 	createSupabaseDataStoreMock,
 	createSupabaseOrgSettingsAdministrationPortMock,
+	createSupabaseOrganizationInvitationDeliveryPortMock,
 	createSupabaseOrgSettingsMemberManagementPortMock,
 	deleteOrganizationUseCaseMock,
 	fetchAuditLogPreviewMock,
@@ -13,6 +14,7 @@ const {
 	inviteOrganizationMemberMock,
 	loadWithContextMock,
 	renameOrganizationMock,
+	resendOrganizationInvitationMock,
 	revokeOrganizationInvitationMock,
 	removeOrganizationMemberMock,
 	transferOrganizationOwnershipMock,
@@ -24,6 +26,7 @@ const {
 	clearOrganizationUrlSlugMock: vi.fn(),
 	createSupabaseDataStoreMock: vi.fn(),
 	createSupabaseOrgSettingsAdministrationPortMock: vi.fn(),
+	createSupabaseOrganizationInvitationDeliveryPortMock: vi.fn(),
 	createSupabaseOrgSettingsMemberManagementPortMock: vi.fn(),
 	deleteOrganizationUseCaseMock: vi.fn(),
 	fetchAuditLogPreviewMock: vi.fn(),
@@ -31,6 +34,7 @@ const {
 	inviteOrganizationMemberMock: vi.fn(),
 	loadWithContextMock: vi.fn(),
 	renameOrganizationMock: vi.fn(),
+	resendOrganizationInvitationMock: vi.fn(),
 	revokeOrganizationInvitationMock: vi.fn(),
 	removeOrganizationMemberMock: vi.fn(),
 	transferOrganizationOwnershipMock: vi.fn(),
@@ -71,6 +75,10 @@ vi.mock('$lib/server/adapters/supabaseOrgSettingsAdministration', () => ({
 	createSupabaseOrgSettingsAdministrationPort: createSupabaseOrgSettingsAdministrationPortMock
 }));
 
+vi.mock('$lib/server/organizationInvitationDelivery', () => ({
+	createSupabaseOrganizationInvitationDeliveryPort: createSupabaseOrganizationInvitationDeliveryPortMock
+}));
+
 vi.mock('$lib/server/core/useCases/orgSettingsMemberManagement', async () => {
 	const actual = await vi.importActual<typeof import('$lib/server/core/useCases/orgSettingsMemberManagement')>(
 		'$lib/server/core/useCases/orgSettingsMemberManagement'
@@ -79,6 +87,7 @@ vi.mock('$lib/server/core/useCases/orgSettingsMemberManagement', async () => {
 	return {
 		...actual,
 		inviteOrganizationMember: inviteOrganizationMemberMock,
+		resendOrganizationInvitation: resendOrganizationInvitationMock,
 		revokeOrganizationInvitation: revokeOrganizationInvitationMock,
 		removeOrganizationMember: removeOrganizationMemberMock,
 		updateOrganizationMemberPermissions: updateOrganizationMemberPermissionsMock
@@ -214,9 +223,11 @@ describe('org settings page server actions', () => {
 		);
 		createSupabaseOrgSettingsAdministrationPortMock.mockReturnValue({ kind: 'admin-port' });
 		createSupabaseOrgSettingsMemberManagementPortMock.mockReturnValue({ kind: 'settings-port' });
+		createSupabaseOrganizationInvitationDeliveryPortMock.mockReturnValue({ kind: 'invitation-delivery-port' });
 		clearOrganizationUrlSlugMock.mockResolvedValue({ slugSuccess: true, orgUrlSlug: null });
 		deleteOrganizationUseCaseMock.mockResolvedValue({ success: true });
 		inviteOrganizationMemberMock.mockResolvedValue({ inviteSuccess: true });
+		resendOrganizationInvitationMock.mockResolvedValue({ success: true });
 		revokeOrganizationInvitationMock.mockResolvedValue({ success: true });
 		removeOrganizationMemberMock.mockResolvedValue({ success: true });
 		renameOrganizationMock.mockResolvedValue({ nameSuccess: true });
@@ -841,7 +852,8 @@ describe('org settings page server actions', () => {
 				capabilityOverrides: { calendar: 'operate' },
 				scopeSet: { kind: 'groups', groupIds: ['11111111-1111-4111-8111-111111111111'] }
 			},
-			actorEmail: 'user@example.com'
+			actorEmail: 'user@example.com',
+			origin: 'http://localhost'
 		});
 	});
 
@@ -914,5 +926,40 @@ describe('org settings page server actions', () => {
 			status: 400,
 			data: { inviteError: 'Invalid invitation ID' }
 		});
+	});
+
+	it('translates resend-invite form data into the resend use-case without creating another invitation', async () => {
+		const result = await actions.resendInvite({
+			request: new Request('http://localhost/org/org-1/settings?/resendInvite', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+				body: new URLSearchParams({ inviteId: '11111111-1111-4111-8111-111111111111' })
+			}),
+			locals: {
+				user: { id: 'user-1', email: 'user@example.com' },
+				supabase: {}
+			},
+			params: { orgId: 'org-1' },
+			cookies: {},
+			getClientAddress: () => '127.0.0.1'
+		} as never);
+
+		expect(result).toEqual({ success: true });
+		expect(resendOrganizationInvitationMock).toHaveBeenCalledWith(
+			{
+				auth: { kind: 'auth', orgId: 'org-1' },
+				audit: { kind: 'audit' },
+				notifications: { kind: 'notifications' },
+				readOnlyGuard: undefined,
+				settings: { kind: 'settings-port' },
+				invitationDelivery: { kind: 'invitation-delivery-port' }
+			},
+			{
+				inviteId: '11111111-1111-4111-8111-111111111111',
+				actorEmail: 'user@example.com',
+				origin: 'http://localhost'
+			}
+		);
+		expect(inviteOrganizationMemberMock).not.toHaveBeenCalled();
 	});
 });

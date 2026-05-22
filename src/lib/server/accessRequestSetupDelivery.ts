@@ -6,6 +6,7 @@ import {
 	type AccountSetupLinkStore
 } from './accountSetupLinks';
 import { addUtcDays } from './accountSetupDates';
+import { makePublicAppUrl } from './publicAppOrigin';
 
 export const ACCESS_REQUEST_SETUP_RENEWAL_DAYS = 90;
 
@@ -79,7 +80,7 @@ function mapAccessRequest(row: AccessRequestRow): AccessRequestSetupRequest {
 }
 
 function makeSetupUrl(origin: string, setupPath: string): string {
-	return new URL(setupPath, origin).toString();
+	return makePublicAppUrl(setupPath, { inboundOrigin: origin });
 }
 
 function latestFirst(a: AccessRequestSetupRequest, b: AccessRequestSetupRequest): number {

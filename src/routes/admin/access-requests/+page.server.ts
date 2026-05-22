@@ -9,6 +9,7 @@ import {
 	sendAccountSetupLinkEmail,
 	type CreateAccountSetupLinkResult
 } from '$lib/server/accountSetupLinks';
+import { makePublicAppUrl } from '$lib/server/publicAppOrigin';
 
 interface AccessRequestSetupLink {
 	id: string;
@@ -143,16 +144,8 @@ function resolveSetupState(
 	};
 }
 
-function getAccountSetupOrigin(origin: string): string {
-	const url = new URL(origin);
-	if (url.hostname === 'admin.trooptotask.org') {
-		return 'https://trooptotask.org';
-	}
-	return origin;
-}
-
 function makeSetupUrl(origin: string, setupPath: string): string {
-	return new URL(setupPath, getAccountSetupOrigin(origin)).toString();
+	return makePublicAppUrl(setupPath, { inboundOrigin: origin });
 }
 
 function mapSetupLinkResultToFailure(result: CreateAccountSetupLinkResult) {

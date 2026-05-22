@@ -1,6 +1,7 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import crypto from 'crypto';
+import { makePublicAppUrl } from '$lib/server/publicAppOrigin';
 
 // Generate a readable invite code
 function generateInviteCode(): string {
@@ -45,12 +46,9 @@ export const POST: RequestHandler = async ({ request, locals, url }) => {
 		throw error(500, 'Failed to create invite');
 	}
 
-	// Generate the registration URL using the current origin
-	const baseUrl = url.origin;
-	let registrationUrl = `${baseUrl}/auth/register?code=${code}`;
-	if (email) {
-		registrationUrl += `&email=${encodeURIComponent(email)}`;
-	}
+	const registrationPath = new URLSearchParams({ code });
+	if (email) registrationPath.set('email', email);
+	const registrationUrl = makePublicAppUrl(`/auth/register?${registrationPath}`, { inboundOrigin: url.origin });
 
 	return json({
 		id: data.id,

@@ -17,6 +17,7 @@ describe('admin user auth email actions', () => {
 
 	beforeEach(() => {
 		vi.clearAllMocks();
+		vi.unstubAllEnvs();
 
 		getUserById.mockResolvedValue({
 			data: {
@@ -73,6 +74,30 @@ describe('admin user auth email actions', () => {
 		expect(result).toEqual({ success: true, message: 'Password reset email sent' });
 		expect(resetPasswordForEmail).toHaveBeenCalledWith('soldier@example.mil', {
 			redirectTo: 'http://localhost:4173/auth/confirm?type=recovery&next=%2Fauth%2Freset-password'
+		});
+	});
+
+	it('uses the configured public app origin for admin-triggered auth emails', async () => {
+		vi.stubEnv('APP_PUBLIC_ORIGIN', 'https://trooptotask.org');
+
+		await actions.resendInvite({
+			__ctx: {
+				adminClient: {
+					auth: {
+						admin: {
+							getUserById,
+							inviteUserByEmail
+						}
+					}
+				},
+				audit
+			},
+			params: { userId: 'user-1' },
+			url: new URL('https://admin.trooptotask.org/admin/users/user-1')
+		} as unknown as Parameters<(typeof actions)['resendInvite']>[0]);
+
+		expect(inviteUserByEmail).toHaveBeenCalledWith('soldier@example.mil', {
+			redirectTo: 'https://trooptotask.org/auth/confirm?type=invite&next=%2Fauth%2Faccept-invite'
 		});
 	});
 });

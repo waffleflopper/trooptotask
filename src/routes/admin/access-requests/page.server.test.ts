@@ -89,6 +89,7 @@ function makeContext(adminClient: unknown) {
 describe('admin access request account setup delivery', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		vi.unstubAllEnvs();
 		createStoreMock.mockReturnValue({ store: 'account-setup-store' });
 		sendSetupEmailMock.mockResolvedValue(undefined);
 	});
@@ -144,6 +145,7 @@ describe('admin access request account setup delivery', () => {
 	});
 
 	it('uses the public app origin for setup links created from the production admin host', async () => {
+		vi.stubEnv('APP_PUBLIC_ORIGIN', 'https://trooptotask.org');
 		const accessRequest = {
 			id: 'request-1',
 			email: 'Soldier@Example.mil',

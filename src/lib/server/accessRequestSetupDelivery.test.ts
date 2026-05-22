@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
 	createAccessRequestSetupDeliveryService,
 	type AccessRequestSetupDeliveryStore,
@@ -145,6 +145,10 @@ function makeSubmission(
 }
 
 describe('access request setup delivery', () => {
+	afterEach(() => {
+		vi.unstubAllEnvs();
+	});
+
 	it('creates a pending Access Request for a new email', async () => {
 		const store = makeStore();
 		const { service, sendSetupEmail } = makeService(store);
@@ -185,6 +189,7 @@ describe('access request setup delivery', () => {
 	});
 
 	it('sends a fresh Account Setup Link for an approved incomplete duplicate', async () => {
+		vi.stubEnv('APP_PUBLIC_ORIGIN_ALLOWLIST', 'https://trooptotask.test');
 		const store = makeStore([makeRequest()]);
 		const { service, sendSetupEmail } = makeService(store);
 
@@ -206,6 +211,24 @@ describe('access request setup delivery', () => {
 				email: 'test@example.com',
 				setupUrl: expect.stringMatching(/^https:\/\/trooptotask\.test\/auth\/setup-account\?token=/),
 				expiresAt: new Date('2026-06-01T12:00:00.000Z')
+			})
+		);
+	});
+
+	it('uses the configured public app origin for renewed setup URLs instead of the inbound host', async () => {
+		vi.stubEnv('APP_PUBLIC_ORIGIN', 'https://trooptotask.org');
+		const store = makeStore([makeRequest()]);
+		const { service, sendSetupEmail } = makeService(store);
+
+		const result = await service.requestFreshSetupLink({
+			email: 'test@example.com',
+			origin: 'https://evil.example'
+		});
+
+		expect(result).toEqual({ status: 'fresh-setup-sent', accessRequestId: 'request-1' });
+		expect(sendSetupEmail).toHaveBeenCalledWith(
+			expect.objectContaining({
+				setupUrl: expect.stringMatching(/^https:\/\/trooptotask\.org\/auth\/setup-account\?token=/)
 			})
 		);
 	});
@@ -240,6 +263,7 @@ describe('access request setup delivery', () => {
 	});
 
 	it('renews only approved incomplete requests inside the 90-day window', async () => {
+		vi.stubEnv('APP_PUBLIC_ORIGIN_ALLOWLIST', 'https://trooptotask.test');
 		const store = makeStore([makeRequest()]);
 		const { service, sendSetupEmail } = makeService(store);
 

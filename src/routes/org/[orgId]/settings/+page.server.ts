@@ -188,10 +188,10 @@ export const actions: Actions = {
 				},
 				{
 					email: (formData.get('email') as string) ?? '',
-					preset: (formData.get('preset') as string) ?? '',
+					memberPreset: readStringField(formData, 'memberPreset', 'preset'),
 					capabilityOverrides: parseCapabilityOverrides(formData),
-					accessScopeKind: (formData.get('accessScopeKind') as 'organization' | 'groups' | null) ?? null,
-					accessScopeGroupIds: formData.getAll('accessScopeGroupIds').map(String),
+					accessScopeKind: readScopeKindField(formData),
+					accessScopeGroupIds: readStringListField(formData, 'scopeSetGroupIds', 'accessScopeGroupIds'),
 					actorEmail: user.email
 				}
 			);
@@ -267,11 +267,11 @@ export const actions: Actions = {
 				},
 				{
 					membershipId: (formData.get('membershipId') as string) ?? '',
-					preset: (formData.get('preset') as string) ?? '',
+					memberPreset: readStringField(formData, 'memberPreset', 'preset'),
 					customPermissions: null,
 					capabilityOverrides: parseCapabilityOverrides(formData),
-					accessScopeKind: (formData.get('accessScopeKind') as 'organization' | 'groups' | null) ?? null,
-					accessScopeGroupIds: formData.getAll('accessScopeGroupIds').map(String),
+					accessScopeKind: readScopeKindField(formData),
+					accessScopeGroupIds: readStringListField(formData, 'scopeSetGroupIds', 'accessScopeGroupIds'),
 					actorEmail: user.email
 				}
 			);
@@ -339,4 +339,25 @@ function toActionFailure(errorKey: string, error: unknown) {
 	}
 
 	throw error;
+}
+
+function readStringField(formData: FormData, primaryName: string, fallbackName: string): string {
+	const primaryValue = formData.get(primaryName);
+	if (typeof primaryValue === 'string') {
+		return primaryValue;
+	}
+
+	const fallbackValue = formData.get(fallbackName);
+	return typeof fallbackValue === 'string' ? fallbackValue : '';
+}
+
+function readStringListField(formData: FormData, primaryName: string, fallbackName: string): string[] {
+	const primaryValues = formData.getAll(primaryName);
+	const selectedValues = primaryValues.length > 0 ? primaryValues : formData.getAll(fallbackName);
+	return selectedValues.filter((value): value is string => typeof value === 'string');
+}
+
+function readScopeKindField(formData: FormData): 'organization' | 'groups' | null {
+	const value = formData.get('scopeSetKind') ?? formData.get('accessScopeKind');
+	return value === 'organization' || value === 'groups' ? value : null;
 }

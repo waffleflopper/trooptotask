@@ -106,6 +106,10 @@ _Avoid_: Permission flag
 The lane-by-lane set of **Capability Level** values assigned to a member after preset defaults and overrides are applied.
 _Avoid_: Role permissions blob
 
+**Member Access Projection**:
+The app-side read model that translates current and replacement member-access storage into a member's **Membership Role**, **Member Preset**, **Capability Map**, **Scope Set**, and compatibility presentation fields. It is the seam callers should use when they need to display or reason about effective member access without knowing legacy **Permission Flag** storage details.
+_Avoid_: Settings-only access helper, raw permission row
+
 **Feature Lane**:
 The permission surface for one product feature area.
 _Avoid_: Shared permission bucket

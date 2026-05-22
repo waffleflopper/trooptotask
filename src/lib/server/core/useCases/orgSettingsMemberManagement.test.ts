@@ -215,6 +215,31 @@ describe('inviteOrganizationMember', () => {
 		expect(port.createdInvitations).toEqual([]);
 	});
 
+	it('rejects invitations without a submitted Member Preset before writing compatibility fields', async () => {
+		const ctx = createTestContext({
+			auth: {
+				userId: 'actor-1',
+				orgId: 'org-1'
+			}
+		});
+		const port = createOrganizationSettingsMemberManagementPort();
+
+		await expect(
+			inviteOrganizationMember(
+				{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
+				{
+					email: 'new.user@example.com',
+					actorEmail: 'actor@example.com'
+				}
+			)
+		).rejects.toMatchObject({
+			status: 400,
+			message: 'Member preset is required'
+		});
+
+		expect(port.createdInvitations).toEqual([]);
+	});
+
 	it('creates the invitation with preset permissions, logs the audit event, and notifies admins', async () => {
 		const ctx = createTestContext({
 			auth: {

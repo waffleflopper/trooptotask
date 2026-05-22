@@ -481,7 +481,11 @@ function isTargetMemberPreset(preset: string): preset is StoredMemberPreset {
 }
 
 function getSubmittedMemberPreset(input: { memberPreset?: string | null; preset?: string | null }): string {
-	return input.memberPreset ?? input.preset ?? '';
+	const submittedMemberPreset = input.memberPreset ?? input.preset;
+	if (!submittedMemberPreset) {
+		fail(400, 'Member preset is required');
+	}
+	return submittedMemberPreset;
 }
 
 export function parseCapabilityOverrides(formData: FormData): CapabilityOverrideMap {

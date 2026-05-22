@@ -70,9 +70,9 @@ export function getPresetLabel(preset: PermissionPreset): string {
 		case 'admin':
 			return 'Admin';
 		case 'full-editor':
-			return 'Full Editor';
+			return 'Editor';
 		case 'team-leader':
-			return 'Team Leader';
+			return 'Operator';
 		case 'viewer':
 			return 'Viewer';
 		case 'custom':

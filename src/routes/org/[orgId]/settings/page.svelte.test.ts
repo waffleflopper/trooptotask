@@ -343,19 +343,22 @@ describe('org settings page', () => {
 		await fireEvent.click(screen.getByRole('tab', { name: 'Members' }));
 
 		expect(screen.getByRole('heading', { name: 'Access Management' })).toBeTruthy();
-		expect(screen.getByText('Viewer, Operator, and Editor do not make someone an Admin.')).toBeTruthy();
+		expect(screen.getByText('Admin authority is separate from member access.')).toBeTruthy();
 		expect(screen.getAllByText('member-a@example.com').length).toBeGreaterThanOrEqual(1);
 		expect(screen.getAllByText('Viewer').length).toBeGreaterThanOrEqual(1);
 		expect(screen.getByText('Calendar: Can update')).toBeTruthy();
 		expect(screen.getByText('Rating Scheme: No access')).toBeTruthy();
 		expect(screen.getByText('1st Platoon, 2nd Platoon')).toBeTruthy();
-		expect(screen.getAllByRole('button', { name: /Manage Access/ })).toHaveLength(3);
+		expect(screen.getAllByRole('button', { name: /Manage Role & Access/ })).toHaveLength(3);
 
-		await fireEvent.click(screen.getAllByRole('button', { name: /Manage Access/ }).at(-1)!);
-		const accessPreset = screen.getAllByRole('button', { name: /Access level/ })[0];
+		await fireEvent.click(screen.getAllByRole('button', { name: /Manage Role & Access/ }).at(-1)!);
+		const roleControl = screen.getAllByRole('button', { name: /Membership Role/ })[0];
+		const accessPreset = screen.getAllByRole('button', { name: /Member Preset/ })[0];
 		const editorForm = accessPreset.closest('form')!;
 		const calendarCapability = within(editorForm).getByRole('button', { name: 'Calendar' });
 
+		expect(roleControl.textContent).toContain('Member');
+		expect((editorForm.querySelector('input[name="membershipRole"]') as HTMLInputElement).value).toBe('member');
 		expect(accessPreset.textContent).toContain('Editor');
 		expect((editorForm.querySelector('input[name="memberPreset"]') as HTMLInputElement).value).toBe('editor');
 		expect(calendarCapability.textContent).toContain('Can manage');

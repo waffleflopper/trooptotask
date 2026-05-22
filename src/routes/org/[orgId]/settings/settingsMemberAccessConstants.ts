@@ -4,10 +4,13 @@ import {
 	type DurableFeatureLane,
 	type StoredMemberPreset
 } from '$lib/access/memberAccessShape';
+import type { EditableMembershipRole } from '$lib/access/memberAccessCommands';
 
-export type EditablePreset = StoredMemberPreset | 'admin';
+export type { EditableMembershipRole };
+export type EditablePreset = StoredMemberPreset;
 export type AccessLaneConfig = { id: DurableFeatureLane; label: string };
 export type AccessOption = { value: EditablePreset; label: string; helper: string };
+export type GovernanceRoleOption = { value: EditableMembershipRole; label: string; helper: string };
 
 export const ACCESS_LANE_LABELS: Record<DurableFeatureLane, string> = {
 	calendar: 'Calendar',
@@ -19,10 +22,14 @@ export const ACCESS_LANE_LABELS: Record<DurableFeatureLane, string> = {
 };
 
 export const SETTINGS_ACCESS_OPTIONS: AccessOption[] = [
-	{ value: 'admin', label: 'Admin', helper: 'Can manage members and organization-level settings.' },
 	{ value: 'editor', label: 'Editor', helper: 'Can view and manage work in the selected areas.' },
 	{ value: 'operator', label: 'Operator', helper: 'Can view work and complete daily tasks in the selected areas.' },
 	{ value: 'viewer', label: 'Viewer', helper: 'Can view work in the selected areas, but cannot make changes.' }
+];
+
+export const SETTINGS_GOVERNANCE_ROLE_OPTIONS: GovernanceRoleOption[] = [
+	{ value: 'member', label: 'Member', helper: 'Receives access through presets, capabilities, and group scope.' },
+	{ value: 'admin', label: 'Admin', helper: 'Can manage members and organization-level settings.' }
 ];
 
 export const SETTINGS_ACCESS_LANES: AccessLaneConfig[] = DURABLE_FEATURE_LANES.map((id) => ({

@@ -31,7 +31,7 @@ Each entry separates:
   - do not invent partial-admin member shapes or per-feature scope matrices
   - do not reintroduce legacy permission flags or `scoped_group_id` as active authorization checks for migrated Policy Decision workflows
 - Recommended next slice:
-  - staged implementation of the approved member-access model while preserving initial single-group compatibility
+  - after the Organization Settings member-access command slice lands, re-run `improve-codebase-architecture` on the member-access storage deletion seam: verify stored preset backfill completion, isolate or delete the remaining compatibility adapter, remove legacy permission booleans and `scoped_group_id` from active code paths, and plan database-column removal through the normal migration/release process
 
 ## D-02 Provider-Boundary Leaks
 

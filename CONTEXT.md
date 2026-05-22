@@ -523,9 +523,11 @@ _Avoid_: Training type
 - **Group** is the canonical v1 subdivision term. Do not silently replace it with **Element** in current-state v1 docs.
 - **Membership Role**, **Current Permission Preset**, and **Member Preset** are different concepts.
 - **Admin** is a fixed governance role, not a member preset.
+- Settings-facing interfaces and UI should treat **Membership Role** changes separately from **Member Preset**, **Capability Map**, and **Scope Set** edits. A compact screen is fine, but "make admin" must not be modeled or explained as an access preset change.
 - **Team Leader** is a current UI label and a future composed state, not a canonical replacement preset.
 - **Permission Flag** is the current implementation concept. **Capability Level** and **Capability Map** describe the approved replacement model.
 - **Group Scope** is the current single-group implementation. **Scope Set** is the approved replacement target and should support multiple Groups, with future room for **Personnel Scope** entries.
+- Legacy access labels and fields such as Full Editor, Team Leader, Permission Flags, `scoped_group_id`, and route-level permission booleans are compatibility-only. They must not appear in settings-facing interfaces, UI copy, or new access tests except inside explicitly named legacy adapter tests that prove old rows map into **Member Preset**, **Capability Map**, and **Scope Set**.
 - **Scope Set** is shared across features. Do not treat scope as a per-feature matrix.
 - **Scope Set** is positive-grant only. Do not model negative grants, deny exceptions, or "all except person X" semantics in the first replacement model.
 - Do not model selected people across Groups as a fake **Group**. Use future **Personnel Scope** language for person-level access inside a **Scope Set**.

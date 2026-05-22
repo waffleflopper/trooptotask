@@ -52,6 +52,8 @@ describe('organization export inventory', () => {
 		expect(calls).toBe(ORGANIZATION_EXPORT_SECTIONS.length);
 		expect(maxActiveReads).toBeLessThanOrEqual(ORGANIZATION_EXPORT_QUERY_BATCH_SIZE);
 		expect(payload.sectionInventory.length).toBe(ORGANIZATION_EXPORT_SECTIONS.length);
+		expect(payload.sectionInventory[0]).toHaveProperty('areaKey');
+		expect(typeof payload.sectionInventory[0]?.areaKey).toBe('string');
 	});
 
 	it('accounts for every organization-owned table declared in migrations', () => {

@@ -71,7 +71,7 @@
 		"formsnap": "^2.0.1",
 		"headroom-ai": "^0.1.0",
 		"jspdf": "^4.2.1",
-		"jspdf-autotable": "^5.0.7",
+		"jspdf-autotable": "^5.0.8",
 		"layerchart": "^1.0.13",
 		"mode-watcher": "^1.1.0",
 		"paneforge": "^1.0.0-next.6",

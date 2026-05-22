@@ -55,6 +55,9 @@ function makeStore(accessRequest: AccountSetupLinkAccessRequest): AccountSetupCo
 		async findByTokenHash(tokenHash) {
 			return links.find((link) => link.tokenHash === tokenHash) ?? null;
 		},
+		async getSetupLink(id) {
+			return links.find((link) => link.id === id) ?? null;
+		},
 		async claimPendingLink(id, claimedAt) {
 			this.onClaim?.();
 			const link = links.find((candidate) => candidate.id === id);
@@ -279,5 +282,102 @@ describe('Account Setup completion', () => {
 		expect(firstAuth.createOrActivateConfirmedUser).toHaveBeenCalledTimes(1);
 		expect(secondAuth.createOrActivateConfirmedUser).not.toHaveBeenCalled();
 		expect(store.completions).toEqual([{ accessRequestId: 'request-1', userId: 'user-123' }]);
+	});
+
+	describe('completeSetupSession', () => {
+		it('claims a pending setup link by session scope and completes setup', async () => {
+			const store = makeStore(approvedRequest);
+			await addSetupToken(store);
+			const auth = makeAuth();
+			const service = createAccountSetupCompletionService(store, auth);
+
+			const result = await service.completeSetupSession({
+				setupLinkId: 'link-1',
+				accessRequestId: 'request-1',
+				password: 'ValidPassword123!'
+			});
+
+			expect(result).toEqual({ status: 'completed', accessRequestId: 'request-1', userId: 'user-123' });
+			expect(auth.createOrActivateConfirmedUser).toHaveBeenCalledWith({
+				email: 'person@example.com',
+				password: 'ValidPassword123!'
+			});
+			expect(store.links[0].claimedAt).toBeInstanceOf(Date);
+			expect(store.links[0].usedAt).toBeInstanceOf(Date);
+			expect(store.completions).toEqual([{ accessRequestId: 'request-1', userId: 'user-123' }]);
+		});
+
+		it('does not mutate auth when the scoped setup link is already claimed', async () => {
+			const store = makeStore(approvedRequest);
+			await addSetupToken(store);
+			store.links[0].claimedAt = new Date('2026-05-18T12:01:00.000Z');
+			const auth = makeAuth();
+			const service = createAccountSetupCompletionService(store, auth);
+
+			const result = await service.completeSetupSession({
+				setupLinkId: 'link-1',
+				accessRequestId: 'request-1',
+				password: 'ValidPassword123!'
+			});
+
+			expect(result).toEqual({ status: 'claimed' });
+			expect(auth.createOrActivateConfirmedUser).not.toHaveBeenCalled();
+			expect(store.completions).toEqual([]);
+		});
+
+		it('reports expiration when the scoped setup link expires before submit', async () => {
+			const store = makeStore(approvedRequest);
+			await addSetupToken(store);
+			store.links[0].expiresAt = new Date('2000-01-01T00:00:00.000Z');
+			const auth = makeAuth();
+			const service = createAccountSetupCompletionService(store, auth);
+
+			const result = await service.completeSetupSession({
+				setupLinkId: 'link-1',
+				accessRequestId: 'request-1',
+				password: 'ValidPassword123!'
+			});
+
+			expect(result).toEqual({ status: 'expired' });
+			expect(auth.createOrActivateConfirmedUser).not.toHaveBeenCalled();
+		});
+
+		it('returns fallback link states when the session claim cannot start', async () => {
+			const store = makeStore(approvedRequest);
+			await addSetupToken(store);
+			const auth = makeAuth();
+			const service = createAccountSetupCompletionService(store, auth);
+
+			store.links[0].revokedAt = new Date('2026-05-18T12:01:00.000Z');
+			store.links[0].revocationReason = 'replaced';
+
+			const result = await service.completeSetupSession({
+				setupLinkId: 'link-1',
+				accessRequestId: 'request-1',
+				password: 'ValidPassword123!'
+			});
+
+			expect(result).toEqual({ status: 'replaced' });
+			expect(auth.createOrActivateConfirmedUser).not.toHaveBeenCalled();
+		});
+
+		it('fails a claimed link whose session access request scope does not match', async () => {
+			const store = makeStore(approvedRequest);
+			await addSetupToken(store);
+			const auth = makeAuth();
+			const service = createAccountSetupCompletionService(store, auth);
+
+			const result = await service.completeSetupSession({
+				setupLinkId: 'link-1',
+				accessRequestId: 'other-request',
+				password: 'ValidPassword123!'
+			});
+
+			expect(result).toEqual({ status: 'access-request-missing' });
+			expect(auth.createOrActivateConfirmedUser).not.toHaveBeenCalled();
+			expect(store.links[0].claimedAt).toBeInstanceOf(Date);
+			expect(store.links[0].failedAt).toBeInstanceOf(Date);
+			expect(store.links[0].failureReason).toBe('access-request-missing');
+		});
 	});
 });

@@ -1,11 +1,17 @@
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
-import { createAccountSetupLinkService } from '$lib/server/accountSetupLinks';
+import { createAccountSetupLinkService, type AccountSetupLinkRecord } from '$lib/server/accountSetupLinks';
 import {
 	createSupabaseAccountSetupAuthAdapter,
 	createSupabaseAccountSetupCompletionStore
 } from '$lib/server/accountSetupCompletionSupabase';
 import { createAccountSetupCompletionService } from '$lib/server/accountSetupCompletion';
+import {
+	clearAccountSetupSessionCookie,
+	createAccountSetupSession,
+	readAccountSetupSessionCookie,
+	setAccountSetupSessionCookie
+} from '$lib/server/accountSetupSessions';
 import { getAuthenticatedRedirectPath } from '$lib/server/mfaGate';
 import { getAdminClient, getSupabaseClient } from '$lib/server/supabase';
 import { validatePassword } from '$lib/server/validation';
@@ -26,69 +32,126 @@ function tokenStateMessage(state: string): string {
 		case 'used':
 		case 'access-request-completed':
 			return 'This setup link has already been used. Sign in or reset your password if you need access.';
+		case 'session-expired':
+			return 'This setup session has expired. Open the newest setup email or request a fresh setup link.';
 		default:
 			return 'This Account Setup Link is invalid. Request a fresh setup link and try again.';
 	}
 }
 
-export const load: PageServerLoad = async ({ locals, url }) => {
+function getSetupLinkState(link: AccountSetupLinkRecord, now: Date): string {
+	if (link.usedAt) return 'used';
+	if (link.failedAt) return 'failed';
+	if (link.claimedAt) return 'claimed';
+	if (link.revokedAt) return link.revocationReason === 'replaced' ? 'replaced' : 'revoked';
+	if (link.expiresAt <= now) return 'expired';
+	return 'valid';
+}
+
+export const load: PageServerLoad = async ({ cookies, locals, url }) => {
 	if (locals.session) {
 		redirect(303, getAuthenticatedRedirectPath(locals.authFlow, locals.mfaPending));
 	}
 
-	const rawToken = url.searchParams.get('token') ?? '';
-	if (!rawToken) {
-		return {
-			state: 'missing' as const,
-			message: tokenStateMessage('missing'),
-			token: ''
-		};
-	}
-
 	const store = createSupabaseAccountSetupCompletionStore(getAdminClient());
 	const setupLinks = createAccountSetupLinkService(store);
-	const validation = await setupLinks.validateToken(rawToken);
-	if (validation.status !== 'valid') {
+	const rawToken = url.searchParams.get('token') ?? '';
+	if (rawToken) {
+		const validation = await setupLinks.validateToken(rawToken);
+		if (validation.status !== 'valid') {
+			clearAccountSetupSessionCookie(cookies);
+			return {
+				state: validation.status,
+				message: tokenStateMessage(validation.status)
+			};
+		}
+
+		const accessRequest = await store.getAccessRequest(validation.accessRequestId);
+		if (!accessRequest?.email) {
+			clearAccountSetupSessionCookie(cookies);
+			return {
+				state: 'missing' as const,
+				message: tokenStateMessage('missing')
+			};
+		}
+
+		if (accessRequest.setupCompletedAt) {
+			clearAccountSetupSessionCookie(cookies);
+			return {
+				state: 'used' as const,
+				message: tokenStateMessage('access-request-completed')
+			};
+		}
+
+		setAccountSetupSessionCookie(
+			cookies,
+			createAccountSetupSession({
+				setupLinkId: validation.link.id,
+				accessRequestId: validation.accessRequestId
+			})
+		);
+		redirect(303, '/auth/setup-account');
+	}
+
+	const setupSession = readAccountSetupSessionCookie(cookies);
+	if (!setupSession) {
 		return {
-			state: validation.status,
-			message: tokenStateMessage(validation.status),
-			token: rawToken
+			state: 'missing' as const,
+			message: tokenStateMessage('session-expired')
 		};
 	}
 
-	const accessRequest = await store.getAccessRequest(validation.accessRequestId);
+	const accessRequest = await store.getAccessRequest(setupSession.accessRequestId);
 	if (!accessRequest?.email) {
+		clearAccountSetupSessionCookie(cookies);
 		return {
 			state: 'missing' as const,
-			message: tokenStateMessage('missing'),
-			token: rawToken
+			message: tokenStateMessage('missing')
 		};
 	}
 
 	if (accessRequest.setupCompletedAt) {
+		clearAccountSetupSessionCookie(cookies);
 		return {
 			state: 'used' as const,
-			message: tokenStateMessage('access-request-completed'),
-			token: rawToken
+			message: tokenStateMessage('access-request-completed')
+		};
+	}
+
+	const setupLink = store.getSetupLink ? await store.getSetupLink(setupSession.setupLinkId) : null;
+	if (!setupLink || setupLink.accessRequestId !== setupSession.accessRequestId) {
+		clearAccountSetupSessionCookie(cookies);
+		return {
+			state: 'missing' as const,
+			message: tokenStateMessage('missing')
+		};
+	}
+
+	const setupLinkState = getSetupLinkState(setupLink, new Date());
+	if (setupLinkState !== 'valid') {
+		clearAccountSetupSessionCookie(cookies);
+		return {
+			state: setupLinkState,
+			message: tokenStateMessage(setupLinkState)
 		};
 	}
 
 	return {
 		state: 'valid' as const,
-		email: accessRequest.email,
-		token: rawToken
+		email: accessRequest.email
 	};
 };
 
 export const actions: Actions = {
-	default: async ({ request, locals }) => {
+	default: async ({ cookies, request, locals }) => {
 		const formData = await request.formData();
-		const rawToken = String(formData.get('token') ?? '');
 		const password = String(formData.get('password') ?? '');
 		const confirmPassword = String(formData.get('confirmPassword') ?? '');
+		const setupSession = readAccountSetupSessionCookie(cookies);
 
-		if (!rawToken) {
-			return fail(400, { error: tokenStateMessage('missing') });
+		if (!setupSession) {
+			clearAccountSetupSessionCookie(cookies);
+			return fail(400, { error: tokenStateMessage('session-expired') });
 		}
 
 		const passwordError = validatePassword(password);
@@ -103,19 +166,23 @@ export const actions: Actions = {
 		const adminClient = getAdminClient();
 		const store = createSupabaseAccountSetupCompletionStore(adminClient);
 		const auth = createSupabaseAccountSetupAuthAdapter(adminClient, getSupabaseClient(locals));
-		const completion = await createAccountSetupCompletionService(store, auth).complete({
-			rawToken,
+		const completion = await createAccountSetupCompletionService(store, auth).completeSetupSession({
+			setupLinkId: setupSession.setupLinkId,
+			accessRequestId: setupSession.accessRequestId,
 			password
 		});
 
 		if (completion.status === 'completed' && 'userId' in completion) {
+			clearAccountSetupSessionCookie(cookies);
 			redirect(303, '/dashboard');
 		}
 
 		if (completion.status === 'account-create-failed' || completion.status === 'sign-in-failed') {
+			clearAccountSetupSessionCookie(cookies);
 			return fail(500, { error: completion.message });
 		}
 
+		clearAccountSetupSessionCookie(cookies);
 		return fail(400, { error: tokenStateMessage(completion.status) });
 	}
 };

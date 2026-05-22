@@ -62,6 +62,7 @@ export interface AccountSetupLinkStore {
 	revokeUnusedLinksForAccessRequest(accessRequestId: string, revokedAt: Date): Promise<void>;
 	insertSetupLink(input: CreateAccountSetupLinkInput): Promise<AccountSetupLinkRecord>;
 	findByTokenHash(tokenHash: string): Promise<AccountSetupLinkRecord | null>;
+	getSetupLink?(id: string): Promise<AccountSetupLinkRecord | null>;
 	claimPendingLink(id: string, claimedAt: Date): Promise<AccountSetupLinkRecord | null>;
 	markCompleted(id: string, completedAt: Date): Promise<AccountSetupLinkRecord | null>;
 	markFailed(
@@ -490,6 +491,17 @@ export function createSupabaseAccountSetupLinkStore(client: SupabaseClient): Acc
 				.from('account_setup_links')
 				.select(SETUP_LINK_SELECT)
 				.eq('token_hash', tokenHash)
+				.maybeSingle();
+
+			throwSupabaseError(error);
+			return data ? mapSetupLinkRow(data as AccountSetupLinkRow) : null;
+		},
+
+		async getSetupLink(id) {
+			const { data, error } = await client
+				.from('account_setup_links')
+				.select(SETUP_LINK_SELECT)
+				.eq('id', id)
 				.maybeSingle();
 
 			throwSupabaseError(error);

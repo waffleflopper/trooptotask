@@ -58,7 +58,7 @@
 		"@fontsource/source-serif-4": "^5.2.9",
 		"@internationalized/date": "^3.12.1",
 		"@lucide/svelte": "^1.14.0",
-		"@supabase/ssr": "^0.10.2",
+		"@supabase/ssr": "^0.10.3",
 		"@supabase/supabase-js": "^2.94.1",
 		"@sveltejs/adapter-vercel": "^6.3.2",
 		"@tailwindcss/vite": "^4.2.4",

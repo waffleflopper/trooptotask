@@ -1,6 +1,14 @@
 import { createAccountSetupLinkService, type AccountSetupLinkStore } from './accountSetupLinks';
 
-export type AccountSetupCompletionInvalidStatus = 'missing' | 'expired' | 'revoked' | 'used';
+export type AccountSetupCompletionInvalidStatus =
+	| 'missing'
+	| 'expired'
+	| 'revoked'
+	| 'replaced'
+	| 'used'
+	| 'claimed'
+	| 'failed'
+	| 'access-request-not-approved';
 
 export interface AccountSetupCompletionStore extends AccountSetupLinkStore {
 	markAccessRequestSetupCompleted(accessRequestId: string, userId: string, completedAt: Date): Promise<void>;
@@ -18,7 +26,11 @@ export type AccountSetupCompletionResult =
 	| { status: 'access-request-missing' }
 	| { status: 'access-request-completed' }
 	| { status: 'account-create-failed'; message: string }
+	| { status: 'setup-finalization-failed'; message: string }
 	| { status: 'sign-in-failed'; message: string };
+
+const SETUP_FINALIZATION_FAILED_MESSAGE =
+	'Account setup could not finish after this link was claimed. Request a fresh setup link or ask an admin to resend setup.';
 
 function normalizeEmail(email: string): string {
 	return email.trim().toLowerCase();
@@ -60,67 +72,174 @@ function resolveProfileName(accessRequest: {
 	return splitLegacyFullName(accessRequest.name);
 }
 
+async function markClaimFailedSafely(
+	setupLinks: ReturnType<typeof createAccountSetupLinkService>,
+	linkId: string,
+	failureReason: Parameters<ReturnType<typeof createAccountSetupLinkService>['markClaimFailed']>[1]
+): Promise<void> {
+	try {
+		await setupLinks.markClaimFailed(linkId, failureReason);
+	} catch (error) {
+		console.error('Failed to mark Account Setup Link failure state:', {
+			setupLinkId: linkId,
+			failureReason,
+			error: errorMessage(error, 'Unknown setup failure persistence error')
+		});
+	}
+}
+
 export function createAccountSetupCompletionService(store: AccountSetupCompletionStore, auth: AccountSetupAuthAdapter) {
 	const setupLinks = createAccountSetupLinkService(store);
 
+	async function finishClaim(input: {
+		claim: { accessRequestId: string; link: { id: string } };
+		password: string;
+	}): Promise<AccountSetupCompletionResult> {
+		const accessRequest = await store.getAccessRequest(input.claim.accessRequestId);
+		if (!accessRequest?.email) {
+			await markClaimFailedSafely(setupLinks, input.claim.link.id, 'access-request-missing');
+			return { status: 'access-request-missing' };
+		}
+
+		if (accessRequest.setupCompletedAt) {
+			await markClaimFailedSafely(setupLinks, input.claim.link.id, 'access-request-completed');
+			return { status: 'access-request-completed' };
+		}
+
+		if (accessRequest.status !== 'approved') {
+			await markClaimFailedSafely(setupLinks, input.claim.link.id, 'access-request-not-approved');
+			return { status: 'access-request-not-approved' };
+		}
+
+		const email = normalizeEmail(accessRequest.email);
+		let userId: string;
+		try {
+			const user = await auth.createOrActivateConfirmedUser({
+				email,
+				password: input.password
+			});
+			userId = user.userId;
+		} catch (error) {
+			await markClaimFailedSafely(setupLinks, input.claim.link.id, 'account-create-failed');
+			return {
+				status: 'account-create-failed',
+				message: errorMessage(error, 'Could not create your User Account. Please try again.')
+			};
+		}
+
+		const completedAt = new Date();
+		const profileName = resolveProfileName(accessRequest);
+		if (profileName) {
+			try {
+				await store.upsertUserProfile({ userId, ...profileName });
+			} catch {
+				await markClaimFailedSafely(setupLinks, input.claim.link.id, 'completion-tracking-failed');
+				return {
+					status: 'setup-finalization-failed',
+					message: SETUP_FINALIZATION_FAILED_MESSAGE
+				};
+			}
+		}
+
+		try {
+			await store.markAccessRequestSetupCompleted(input.claim.accessRequestId, userId, completedAt);
+		} catch {
+			await markClaimFailedSafely(setupLinks, input.claim.link.id, 'completion-tracking-failed');
+			return {
+				status: 'setup-finalization-failed',
+				message: SETUP_FINALIZATION_FAILED_MESSAGE
+			};
+		}
+
+		let completed: Awaited<ReturnType<typeof setupLinks.markClaimCompleted>>;
+		try {
+			completed = await setupLinks.markClaimCompleted(input.claim.link.id);
+		} catch {
+			await markClaimFailedSafely(setupLinks, input.claim.link.id, 'completion-tracking-failed');
+			return {
+				status: 'setup-finalization-failed',
+				message: SETUP_FINALIZATION_FAILED_MESSAGE
+			};
+		}
+
+		if (completed.status !== 'completed') {
+			await markClaimFailedSafely(setupLinks, input.claim.link.id, 'completion-tracking-failed');
+			return {
+				status: 'setup-finalization-failed',
+				message: SETUP_FINALIZATION_FAILED_MESSAGE
+			};
+		}
+
+		try {
+			await auth.signInWithPassword({ email, password: input.password });
+		} catch (error) {
+			return {
+				status: 'sign-in-failed',
+				message: errorMessage(error, 'Your account was created, but sign-in did not finish. Please sign in manually.')
+			};
+		}
+
+		return {
+			status: 'completed',
+			accessRequestId: input.claim.accessRequestId,
+			userId
+		};
+	}
+
 	return {
 		async complete(input: { rawToken: string; password: string }): Promise<AccountSetupCompletionResult> {
-			const validation = await setupLinks.validateToken(input.rawToken);
-			if (validation.status !== 'valid') {
-				return validation;
+			const claim = await setupLinks.claimToken(input.rawToken);
+			if (claim.status === 'completed') {
+				return { status: 'used' };
+			}
+			if (claim.status !== 'claim-started') {
+				return { status: claim.status };
 			}
 
-			const accessRequest = await store.getAccessRequest(validation.accessRequestId);
-			if (!accessRequest?.email) {
-				return { status: 'access-request-missing' };
+			return finishClaim({ claim, password: input.password });
+		},
+
+		async completeSetupSession(input: {
+			setupLinkId: string;
+			accessRequestId: string;
+			password: string;
+		}): Promise<AccountSetupCompletionResult> {
+			const accessRequest = await store.getAccessRequest(input.accessRequestId);
+			if (!accessRequest) {
+				return { status: 'missing' };
 			}
 
 			if (accessRequest.setupCompletedAt) {
 				return { status: 'access-request-completed' };
 			}
 
-			const email = normalizeEmail(accessRequest.email);
-			let userId: string;
-			try {
-				const user = await auth.createOrActivateConfirmedUser({
-					email,
-					password: input.password
-				});
-				userId = user.userId;
-			} catch (error) {
-				return {
-					status: 'account-create-failed',
-					message: errorMessage(error, 'Could not create your User Account. Please try again.')
-				};
+			if (accessRequest.status !== 'approved') {
+				return { status: 'access-request-not-approved' };
 			}
 
-			const completedAt = new Date();
-			const profileName = resolveProfileName(accessRequest);
-			if (profileName) {
-				await store.upsertUserProfile({ userId, ...profileName });
-			}
-			await store.markAccessRequestSetupCompleted(validation.accessRequestId, userId, completedAt);
-
-			// After account creation and completion are recorded, token races should not block sign-in.
-			const consumed = await setupLinks.consumeToken(input.rawToken);
-			if (consumed.status !== 'consumed' && consumed.status !== 'used' && consumed.status !== 'revoked') {
-				return consumed;
-			}
-
-			try {
-				await auth.signInWithPassword({ email, password: input.password });
-			} catch (error) {
-				return {
-					status: 'sign-in-failed',
-					message: errorMessage(error, 'Your account was created, but sign-in did not finish. Please sign in manually.')
-				};
+			const claimedAt = new Date();
+			const claimedLink = await store.claimPendingLink(input.setupLinkId, claimedAt);
+			if (!claimedLink) {
+				const currentLink = await store.getSetupLink(input.setupLinkId);
+				if (!currentLink) return { status: 'missing' };
+				if (currentLink.usedAt) return { status: 'used' };
+				if (currentLink.failedAt) return { status: 'failed' };
+				if (currentLink.claimedAt) return { status: 'claimed' };
+				if (currentLink.revokedAt)
+					return { status: currentLink.revocationReason === 'replaced' ? 'replaced' : 'revoked' };
+				if (currentLink.expiresAt <= claimedAt) return { status: 'expired' };
+				return { status: 'claimed' };
 			}
 
-			return {
-				status: 'completed',
-				accessRequestId: validation.accessRequestId,
-				userId
-			};
+			if (claimedLink.accessRequestId !== input.accessRequestId) {
+				await markClaimFailedSafely(setupLinks, claimedLink.id, 'access-request-missing');
+				return { status: 'access-request-missing' };
+			}
+
+			return finishClaim({
+				claim: { accessRequestId: claimedLink.accessRequestId, link: claimedLink },
+				password: input.password
+			});
 		}
 	};
 }

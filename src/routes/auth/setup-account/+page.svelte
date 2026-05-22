@@ -70,8 +70,6 @@
 				}}
 				class="flex flex-col gap-5"
 			>
-				<input type="hidden" name="token" value={data.token} />
-
 				<AuthField label="Email Address" id="email" name="email" type="email" value={data.email} disabled />
 
 				<AuthField

@@ -1,4 +1,5 @@
 import type { EmailOtpType } from '@supabase/supabase-js';
+import { makePublicAppUrl } from './publicAppOrigin';
 
 const authConfirmDestinations = {
 	invite: '/auth/accept-invite',
@@ -45,8 +46,8 @@ export function getAuthConfirmState(
 	};
 }
 
-export function getAuthConfirmRedirectTo(origin: string, type: SupportedAuthConfirmType): string {
-	const confirmUrl = new URL('/auth/confirm', origin);
+export function getAuthConfirmRedirectTo(inboundOrigin: string, type: SupportedAuthConfirmType): string {
+	const confirmUrl = new URL(makePublicAppUrl('/auth/confirm', { inboundOrigin }));
 	confirmUrl.searchParams.set('type', type);
 	confirmUrl.searchParams.set('next', authConfirmDestinations[type]);
 	return confirmUrl.toString();

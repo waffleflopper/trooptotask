@@ -67,6 +67,16 @@ describe('Organization Data Export workbook', () => {
 		expect(plan.rawArchiveSheets.map((sheet) => sheet.name)).toContain('Raw - Personnel Trainings');
 	});
 
+	it('includes area keys in the workbook inventory sheet', () => {
+		const plan = buildOrganizationDataExportWorkbookPlan({
+			payload: payload(),
+			selection: { mode: 'areas', areas: ['personnel'] }
+		});
+
+		expect(plan.inventorySheet.columns.map((column) => column.key)).toContain('areaKey');
+		expect(new Set(plan.inventorySheet.rows.map((row) => row.areaKey))).toEqual(new Set(['personnel']));
+	});
+
 	it('can narrow the workbook plan to a selected export area', () => {
 		const plan = buildOrganizationDataExportWorkbookPlan({
 			payload: payload(),

@@ -297,7 +297,7 @@ describe('POST /api/export-excel', () => {
 			throw new Error('Duty roster export worksheets missing');
 		}
 
-		expect(rowValues(inventory, 1)).toEqual(['Area', 'Section', 'Raw Table', 'JSON Key', 'Rows']);
+		expect(rowValues(inventory, 1)).toEqual(['Area', 'Area Key', 'Section', 'Raw Table', 'JSON Key', 'Rows']);
 		expect(rowValues(personnel, 2)).toContain('Archived');
 		expect(rowValues(personnel, 2)).toContain('2026-05-01T00:00:00Z');
 		expect(rowValues(rawPersonnel, 2)).toContain('p-archived');

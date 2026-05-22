@@ -22,6 +22,7 @@ import {
 	type AccessRequestInvitationOrigin,
 	type AccessRequestInvitationOriginRow
 } from '$lib/server/accessRequestInvitationOrigin';
+import { rejectAccessRequestAndBlockLinkedInvitations } from '$lib/server/accessRequestInvitationBlocking';
 import { makePublicAppUrl } from '$lib/server/publicAppOrigin';
 
 interface AccessRequestSetupLink {
@@ -482,25 +483,27 @@ export const actions: Actions = {
 
 			if (!requestId) return fail(400, { error: 'Missing request ID' });
 
-			const { error: updateErr } = await supabase
-				.from('access_requests')
-				.update({
-					status: 'rejected',
-					reviewed_by: ctx.adminUser.id,
-					reviewed_at: new Date().toISOString()
-				})
-				.eq('id', requestId)
-				.eq('status', 'pending');
+			const rejectResult = await rejectAccessRequestAndBlockLinkedInvitations(supabase, {
+				accessRequestId: requestId,
+				reviewerId: ctx.adminUser.id
+			});
 
-			if (updateErr) {
-				console.error('Failed to reject access request:', updateErr);
+			if (rejectResult.status === 'not_found') {
+				return fail(404, { error: 'Request not found or already reviewed' });
+			}
+
+			if (rejectResult.status === 'failed') {
+				console.error('Failed to reject access request:', rejectResult.message);
 				return fail(500, { error: 'Failed to reject request' });
 			}
 
 			ctx.audit({
 				action: 'access_request.rejected',
 				resourceType: 'access_request',
-				resourceId: requestId
+				resourceId: requestId,
+				details: {
+					blockedInvitationCount: rejectResult.blockedInvitations.length
+				}
 			});
 
 			return { success: true, action: 'reject' };

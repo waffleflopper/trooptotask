@@ -39,6 +39,7 @@ export type SettingsInvitationRow = SettingsInvitationAccessRow & {
 export type SettingsInvitationHistoryRow = SettingsInvitationRow & {
 	lifecycleStatus: 'accepted' | 'declined' | 'revoked' | 'expired' | 'blocked' | 'closed';
 	lifecycleStatusLabel: string;
+	lifecycleDetail: string | null;
 	lifecycleAt: string;
 };
 

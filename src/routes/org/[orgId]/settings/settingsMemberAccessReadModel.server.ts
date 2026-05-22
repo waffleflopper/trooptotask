@@ -27,6 +27,7 @@ export type LegacySettingsAccessRow = MemberAccessPresentationRow & {
 	declined_at?: unknown;
 	revoked_at?: unknown;
 	expired_at?: unknown;
+	blocked_at?: unknown;
 };
 
 export function buildSettingsMemberAccessRow(row: LegacySettingsAccessRow): SettingsMemberAccessRow {
@@ -55,6 +56,7 @@ export function buildSettingsInvitationAccessRow(row: LegacySettingsAccessRow): 
 		declinedAt: optionalString(row.declined_at),
 		revokedAt: optionalString(row.revoked_at),
 		expiredAt: optionalString(row.expired_at),
+		blockedAt: optionalString(row.blocked_at),
 		access: buildSettingsAccessShapeFromProjection(projection)
 	};
 }

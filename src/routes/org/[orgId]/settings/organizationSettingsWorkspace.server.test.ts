@@ -471,6 +471,18 @@ describe('organization settings workspace read model', () => {
 					capability_overrides: null,
 					access_scope_kind: 'organization',
 					access_scope_group_ids: []
+				},
+				{
+					id: 'invite-blocked',
+					email: 'blocked@example.com',
+					status: 'blocked',
+					created_at: '2026-05-21T12:00:00Z',
+					blocked_at: '2026-05-22T12:00:00Z',
+					...legacyAccessFlags,
+					member_preset: 'viewer',
+					capability_overrides: null,
+					access_scope_kind: 'organization',
+					access_scope_group_ids: []
 				}
 			],
 			groups: [],
@@ -482,14 +494,21 @@ describe('organization settings workspace read model', () => {
 		expect(workspace.sections.members.invitationHistory.map((invite) => invite.id)).toEqual([
 			'invite-declined',
 			'invite-revoked',
-			'invite-expired'
+			'invite-expired',
+			'invite-blocked'
 		]);
 		expect(workspace.sections.members.invitationHistory.map((invite) => invite.lifecycleStatusLabel)).toEqual([
 			'Declined',
 			'Revoked',
-			'Expired'
+			'Expired',
+			'Blocked'
 		]);
 		expect(workspace.sections.members.invitationHistory[2].lifecycleAt).toBe('2020-05-28T12:00:00Z');
+		expect(workspace.sections.members.invitationHistory[3]).toMatchObject({
+			canResend: false,
+			lifecycleAt: '2026-05-22T12:00:00Z',
+			lifecycleDetail: 'Linked platform access was rejected or closed before account setup finished.'
+		});
 	});
 
 	it('loads source tables for the completed visible settings workspace', async () => {

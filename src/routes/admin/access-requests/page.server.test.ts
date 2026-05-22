@@ -57,15 +57,9 @@ function makeUpdateAccessRequest() {
 	return { update, eq };
 }
 
-function makeRejectAccessRequestUpdate() {
-	const eqStatus = vi.fn().mockResolvedValue({ error: null });
-	const eqId = vi.fn(() => ({ eq: eqStatus }));
-	const update = vi.fn(() => ({ eq: eqId }));
-
-	return { update, eqId, eqStatus };
-}
-
-function makeAdminClient(parts: { select?: unknown; update?: unknown; inviteUserByEmail?: unknown } = {}) {
+function makeAdminClient(
+	parts: { select?: unknown; update?: unknown; rpc?: unknown; inviteUserByEmail?: unknown } = {}
+) {
 	const from = vi.fn((table: string) => {
 		if (table === 'access_requests') {
 			return {
@@ -79,6 +73,7 @@ function makeAdminClient(parts: { select?: unknown; update?: unknown; inviteUser
 
 	return {
 		from,
+		rpc: parts.rpc ?? vi.fn(),
 		auth: {
 			admin: {
 				inviteUserByEmail: parts.inviteUserByEmail ?? vi.fn()
@@ -672,9 +667,20 @@ describe('admin access request account setup delivery', () => {
 		expect(sendSetupEmailMock).not.toHaveBeenCalled();
 	});
 
-	it('rejects pending requests through the admin client instead of the session client', async () => {
-		const rejectUpdate = makeRejectAccessRequestUpdate();
-		const adminClient = makeAdminClient({ update: rejectUpdate.update });
+	it('rejects pending requests and blocks linked invitations through the admin client transition', async () => {
+		const rpc = vi.fn().mockResolvedValue({
+			data: [
+				{
+					reject_status: 'rejected',
+					organization_invitation_id: 'invite-1',
+					organization_id: 'org-1',
+					invitation_email: 'invitee@example.com',
+					blocked_at: '2026-05-22T12:00:00.000Z'
+				}
+			],
+			error: null
+		});
+		const adminClient = makeAdminClient({ rpc });
 		const sessionClient = makeAdminClient({ update: vi.fn(() => ({ eq: vi.fn() })) });
 		const ctx = makeContext(adminClient);
 
@@ -685,15 +691,51 @@ describe('admin access request account setup delivery', () => {
 		} as unknown as Parameters<(typeof actions)['reject']>[0]);
 
 		expect(result).toEqual({ success: true, action: 'reject' });
-		expect(adminClient.from).toHaveBeenCalledWith('access_requests');
+		expect(rpc).toHaveBeenCalledWith('reject_access_request_and_block_linked_invitations', {
+			p_access_request_id: 'request-1',
+			p_reviewer_id: 'admin-1'
+		});
+		expect(adminClient.from).not.toHaveBeenCalled();
 		expect(sessionClient.from).not.toHaveBeenCalled();
-		expect(rejectUpdate.update).toHaveBeenCalledWith(
+		expect(ctx.audit).toHaveBeenCalledWith(
 			expect.objectContaining({
-				status: 'rejected',
-				reviewed_by: 'admin-1'
+				action: 'access_request.rejected',
+				details: { blockedInvitationCount: 1 }
 			})
 		);
-		expect(rejectUpdate.eqId).toHaveBeenCalledWith('id', 'request-1');
-		expect(rejectUpdate.eqStatus).toHaveBeenCalledWith('status', 'pending');
+	});
+
+	it('returns not found when rejecting an already reviewed request', async () => {
+		const adminClient = makeAdminClient({
+			rpc: vi.fn().mockResolvedValue({
+				data: [{ reject_status: 'not_found' }],
+				error: null
+			})
+		});
+
+		const result = await actions.reject({
+			__ctx: makeContext(adminClient),
+			locals: { supabase: makeAdminClient() },
+			request: makeRequest({ requestId: 'request-1' })
+		} as unknown as Parameters<(typeof actions)['reject']>[0]);
+
+		expect(result).toEqual({ status: 404, data: { error: 'Request not found or already reviewed' } });
+	});
+
+	it('maps access request rejection transition failures to a server error', async () => {
+		const adminClient = makeAdminClient({
+			rpc: vi.fn().mockResolvedValue({
+				data: null,
+				error: { message: 'rpc unavailable' }
+			})
+		});
+
+		const result = await actions.reject({
+			__ctx: makeContext(adminClient),
+			locals: { supabase: makeAdminClient() },
+			request: makeRequest({ requestId: 'request-1' })
+		} as unknown as Parameters<(typeof actions)['reject']>[0]);
+
+		expect(result).toEqual({ status: 500, data: { error: 'Failed to reject request' } });
 	});
 });

@@ -885,6 +885,9 @@
 										{memberAccess.getAccessLabel(invitePermissionPreset)} · {invite.lifecycleStatusLabel}
 										{formatRelativeDate(invite.lifecycleAt)}
 									</p>
+									{#if invite.lifecycleDetail}
+										<p class="text-sm text-muted-foreground">{invite.lifecycleDetail}</p>
+									{/if}
 								</div>
 								<Badge variant="outline">{invite.lifecycleStatusLabel}</Badge>
 							</div>

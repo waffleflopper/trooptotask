@@ -391,6 +391,7 @@ function shapeInvitationHistoryRow(invitation: SettingsInvitationRow, now: Date)
 		...invitation,
 		lifecycleStatus: historyStatus,
 		lifecycleStatusLabel: invitationLifecycleStatusLabel(historyStatus),
+		lifecycleDetail: invitationLifecycleDetail(historyStatus),
 		lifecycleAt: getInvitationLifecycleAt(invitation, historyStatus)
 	};
 }
@@ -436,6 +437,7 @@ function getInvitationLifecycleAt(
 	if (lifecycleStatus === 'declined') return invitation.declinedAt ?? invitation.createdAt;
 	if (lifecycleStatus === 'revoked') return invitation.revokedAt ?? invitation.createdAt;
 	if (lifecycleStatus === 'expired') return invitation.expiredAt ?? invitation.expiresAt ?? invitation.createdAt;
+	if (lifecycleStatus === 'blocked') return invitation.blockedAt ?? invitation.createdAt;
 	return invitation.createdAt;
 }
 
@@ -446,6 +448,14 @@ function invitationLifecycleStatusLabel(lifecycleStatus: SettingsInvitationHisto
 	if (lifecycleStatus === 'expired') return 'Expired';
 	if (lifecycleStatus === 'blocked') return 'Blocked';
 	return 'Closed';
+}
+
+function invitationLifecycleDetail(lifecycleStatus: SettingsInvitationHistoryRow['lifecycleStatus']): string | null {
+	if (lifecycleStatus === 'blocked') {
+		return 'Linked platform access was rejected or closed before account setup finished.';
+	}
+
+	return null;
 }
 
 function shapeArchivedPersonnelRow(row: SettingsArchivedPersonnelSourceRow): SettingsArchivedPersonnelRow {

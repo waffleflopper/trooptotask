@@ -31,5 +31,6 @@ export interface SettingsInvitationAccessRow {
 	declinedAt?: string;
 	revokedAt?: string;
 	expiredAt?: string;
+	blockedAt?: string;
 	access: SettingsAccessShape;
 }

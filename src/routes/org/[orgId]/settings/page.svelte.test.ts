@@ -412,7 +412,22 @@ describe('org settings page', () => {
 							scopeDisplayLabel: 'All groups',
 							lifecycleStatus: 'declined',
 							lifecycleStatusLabel: 'Declined',
+							lifecycleDetail: null,
 							lifecycleAt: '2026-05-21T12:00:00Z'
+						},
+						{
+							id: 'invite-blocked',
+							email: 'blocked@example.com',
+							status: 'blocked',
+							membershipRole: 'member',
+							createdAt: '2026-05-18T12:00:00Z',
+							access: invitationAccess,
+							accessBadge: 'viewer',
+							scopeDisplayLabel: 'All groups',
+							lifecycleStatus: 'blocked',
+							lifecycleStatusLabel: 'Blocked',
+							lifecycleDetail: 'Linked platform access was rejected or closed before account setup finished.',
+							lifecycleAt: '2026-05-22T12:00:00Z'
 						}
 					]
 				}) as never,
@@ -429,6 +444,10 @@ describe('org settings page', () => {
 		expect(screen.getByRole('heading', { name: 'Invitation History' })).toBeTruthy();
 		expect(screen.getByText('declined@example.com')).toBeTruthy();
 		expect(screen.getAllByText('Declined').length).toBeGreaterThanOrEqual(1);
+		expect(screen.getByText('blocked@example.com')).toBeTruthy();
+		expect(
+			screen.getByText('Linked platform access was rejected or closed before account setup finished.')
+		).toBeTruthy();
 	});
 
 	it('renders policies with shared controls and validation copy', async () => {

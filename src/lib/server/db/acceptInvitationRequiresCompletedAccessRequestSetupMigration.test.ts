@@ -26,4 +26,9 @@ describe('accept organization invitation access request setup guard migration', 
 			'grant execute on function "public"."accept_organization_invitation"("uuid") to "authenticated"'
 		);
 	});
+
+	it('keeps blocked and other terminal invitations non-actionable through the pending-status gate', () => {
+		expect(migration).toContain('"invitation"."status" <> \'pending\'::"public"."invitation_status"');
+		expect(migration).toContain('return query select \'not_found\'::"text", null::"uuid"');
+	});
 });

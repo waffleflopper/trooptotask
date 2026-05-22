@@ -1,6 +1,13 @@
 import { createAccountSetupLinkService, type AccountSetupLinkStore } from './accountSetupLinks';
 
-export type AccountSetupCompletionInvalidStatus = 'missing' | 'expired' | 'revoked' | 'used';
+export type AccountSetupCompletionInvalidStatus =
+	| 'missing'
+	| 'expired'
+	| 'revoked'
+	| 'replaced'
+	| 'used'
+	| 'claimed'
+	| 'failed';
 
 export interface AccountSetupCompletionStore extends AccountSetupLinkStore {
 	markAccessRequestSetupCompleted(accessRequestId: string, userId: string, completedAt: Date): Promise<void>;
@@ -60,22 +67,43 @@ function resolveProfileName(accessRequest: {
 	return splitLegacyFullName(accessRequest.name);
 }
 
+async function markClaimFailedSafely(
+	setupLinks: ReturnType<typeof createAccountSetupLinkService>,
+	linkId: string,
+	failureReason: Parameters<ReturnType<typeof createAccountSetupLinkService>['markClaimFailed']>[1]
+): Promise<void> {
+	try {
+		await setupLinks.markClaimFailed(linkId, failureReason);
+	} catch (error) {
+		console.error('Failed to mark Account Setup Link failure state:', {
+			setupLinkId: linkId,
+			failureReason,
+			error: errorMessage(error, 'Unknown setup failure persistence error')
+		});
+	}
+}
+
 export function createAccountSetupCompletionService(store: AccountSetupCompletionStore, auth: AccountSetupAuthAdapter) {
 	const setupLinks = createAccountSetupLinkService(store);
 
 	return {
 		async complete(input: { rawToken: string; password: string }): Promise<AccountSetupCompletionResult> {
-			const validation = await setupLinks.validateToken(input.rawToken);
-			if (validation.status !== 'valid') {
-				return validation;
+			const claim = await setupLinks.claimToken(input.rawToken);
+			if (claim.status === 'completed') {
+				return { status: 'used' };
+			}
+			if (claim.status !== 'claim-started') {
+				return { status: claim.status };
 			}
 
-			const accessRequest = await store.getAccessRequest(validation.accessRequestId);
+			const accessRequest = await store.getAccessRequest(claim.accessRequestId);
 			if (!accessRequest?.email) {
+				await markClaimFailedSafely(setupLinks, claim.link.id, 'access-request-missing');
 				return { status: 'access-request-missing' };
 			}
 
 			if (accessRequest.setupCompletedAt) {
+				await markClaimFailedSafely(setupLinks, claim.link.id, 'access-request-completed');
 				return { status: 'access-request-completed' };
 			}
 
@@ -88,6 +116,7 @@ export function createAccountSetupCompletionService(store: AccountSetupCompletio
 				});
 				userId = user.userId;
 			} catch (error) {
+				await markClaimFailedSafely(setupLinks, claim.link.id, 'account-create-failed');
 				return {
 					status: 'account-create-failed',
 					message: errorMessage(error, 'Could not create your User Account. Please try again.')
@@ -96,15 +125,19 @@ export function createAccountSetupCompletionService(store: AccountSetupCompletio
 
 			const completedAt = new Date();
 			const profileName = resolveProfileName(accessRequest);
-			if (profileName) {
-				await store.upsertUserProfile({ userId, ...profileName });
+			try {
+				if (profileName) {
+					await store.upsertUserProfile({ userId, ...profileName });
+				}
+				await store.markAccessRequestSetupCompleted(claim.accessRequestId, userId, completedAt);
+			} catch (error) {
+				await markClaimFailedSafely(setupLinks, claim.link.id, 'completion-tracking-failed');
+				throw error;
 			}
-			await store.markAccessRequestSetupCompleted(validation.accessRequestId, userId, completedAt);
 
-			// After account creation and completion are recorded, token races should not block sign-in.
-			const consumed = await setupLinks.consumeToken(input.rawToken);
-			if (consumed.status !== 'consumed' && consumed.status !== 'used' && consumed.status !== 'revoked') {
-				return consumed;
+			const completed = await setupLinks.markClaimCompleted(claim.link.id);
+			if (completed.status !== 'completed') {
+				return { status: completed.status };
 			}
 
 			try {
@@ -118,7 +151,7 @@ export function createAccountSetupCompletionService(store: AccountSetupCompletio
 
 			return {
 				status: 'completed',
-				accessRequestId: validation.accessRequestId,
+				accessRequestId: claim.accessRequestId,
 				userId
 			};
 		}

@@ -5,8 +5,26 @@ import { addUtcDays } from './accountSetupDates';
 
 export const ACCOUNT_SETUP_LINK_EXPIRY_DAYS = 14;
 const RESEND_EMAILS_URL = 'https://api.resend.com/emails';
+const SETUP_LINK_SELECT =
+	'id, access_request_id, token_hash, expires_at, created_at, claimed_at, failed_at, failure_reason, used_at, revoked_at, revocation_reason';
 
-export type AccountSetupLinkValidationStatus = 'valid' | 'expired' | 'revoked' | 'used' | 'missing';
+export type AccountSetupLinkRevocationReason = 'manual' | 'replaced' | 'cleanup';
+export type AccountSetupLinkFailureReason =
+	| 'access-request-missing'
+	| 'access-request-completed'
+	| 'account-create-failed'
+	| 'completion-tracking-failed';
+
+export type AccountSetupLinkValidationStatus =
+	| 'valid'
+	| 'expired'
+	| 'revoked'
+	| 'replaced'
+	| 'used'
+	| 'completed'
+	| 'claimed'
+	| 'failed'
+	| 'missing';
 
 export interface AccountSetupLinkAccessRequest {
 	id: string;
@@ -24,8 +42,12 @@ export interface AccountSetupLinkRecord {
 	tokenHash: string;
 	expiresAt: Date;
 	createdAt: Date;
+	claimedAt: Date | null;
+	failedAt: Date | null;
+	failureReason: AccountSetupLinkFailureReason | null;
 	usedAt: Date | null;
 	revokedAt: Date | null;
+	revocationReason: AccountSetupLinkRevocationReason | null;
 }
 
 export interface CreateAccountSetupLinkInput {
@@ -40,7 +62,13 @@ export interface AccountSetupLinkStore {
 	revokeUnusedLinksForAccessRequest(accessRequestId: string, revokedAt: Date): Promise<void>;
 	insertSetupLink(input: CreateAccountSetupLinkInput): Promise<AccountSetupLinkRecord>;
 	findByTokenHash(tokenHash: string): Promise<AccountSetupLinkRecord | null>;
-	markUsed(id: string, usedAt: Date): Promise<AccountSetupLinkRecord | null>;
+	claimPendingLink(id: string, claimedAt: Date): Promise<AccountSetupLinkRecord | null>;
+	markCompleted(id: string, completedAt: Date): Promise<AccountSetupLinkRecord | null>;
+	markFailed(
+		id: string,
+		failedAt: Date,
+		failureReason: AccountSetupLinkFailureReason
+	): Promise<AccountSetupLinkRecord | null>;
 	listCleanupEligible(cutoff: Date): Promise<AccountSetupLinkRecord[]>;
 	revokeExpiredUnusedLinks(cutoff: Date, revokedAt: Date): Promise<AccountSetupLinkRecord[]>;
 	countActiveLinks(referenceTime: Date): Promise<number>;
@@ -52,8 +80,12 @@ interface AccountSetupLinkRow {
 	token_hash: string;
 	expires_at: string;
 	created_at: string;
+	claimed_at: string | null;
+	failed_at: string | null;
+	failure_reason: AccountSetupLinkFailureReason | null;
 	used_at: string | null;
 	revoked_at: string | null;
+	revocation_reason: AccountSetupLinkRevocationReason | null;
 }
 
 interface AccessRequestRow {
@@ -83,9 +115,17 @@ export type ValidateAccountSetupLinkResult =
 	| { status: 'valid'; accessRequestId: string; link: AccountSetupLinkRecord }
 	| { status: Exclude<AccountSetupLinkValidationStatus, 'valid'> };
 
-export type ConsumeAccountSetupLinkResult =
-	| { status: 'consumed'; accessRequestId: string; link: AccountSetupLinkRecord }
+export type ClaimAccountSetupLinkResult =
+	| { status: 'claim-started'; accessRequestId: string; link: AccountSetupLinkRecord }
 	| { status: Exclude<AccountSetupLinkValidationStatus, 'valid'> };
+
+export type CompleteClaimedAccountSetupLinkResult =
+	| { status: 'completed'; accessRequestId: string; link: AccountSetupLinkRecord }
+	| { status: Exclude<AccountSetupLinkValidationStatus, 'valid' | 'claimed'> };
+
+export type FailClaimedAccountSetupLinkResult =
+	| { status: 'failed'; accessRequestId: string; link: AccountSetupLinkRecord }
+	| { status: Exclude<AccountSetupLinkValidationStatus, 'valid' | 'claimed'> };
 
 export interface AccountSetupLinkCleanupResult {
 	revokedExpiredUnusedCount: number;
@@ -130,8 +170,12 @@ function mapSetupLinkRow(row: AccountSetupLinkRow): AccountSetupLinkRecord {
 		tokenHash: row.token_hash,
 		expiresAt: new Date(row.expires_at),
 		createdAt: new Date(row.created_at),
+		claimedAt: row.claimed_at ? new Date(row.claimed_at) : null,
+		failedAt: row.failed_at ? new Date(row.failed_at) : null,
+		failureReason: row.failure_reason,
 		usedAt: row.used_at ? new Date(row.used_at) : null,
-		revokedAt: row.revoked_at ? new Date(row.revoked_at) : null
+		revokedAt: row.revoked_at ? new Date(row.revoked_at) : null,
+		revocationReason: row.revocation_reason
 	};
 }
 
@@ -159,10 +203,21 @@ function getValidationStatus(link: AccountSetupLinkRecord | null, now: Date): Va
 	}
 
 	if (link.usedAt) {
-		return { status: 'used' };
+		return { status: 'completed' };
+	}
+
+	if (link.failedAt) {
+		return { status: 'failed' };
+	}
+
+	if (link.claimedAt) {
+		return { status: 'claimed' };
 	}
 
 	if (link.revokedAt) {
+		if (link.revocationReason === 'replaced') {
+			return { status: 'replaced' };
+		}
 		return { status: 'revoked' };
 	}
 
@@ -304,22 +359,55 @@ export function createAccountSetupLinkService(
 			return getValidationStatus(link, now());
 		},
 
-		async consumeToken(rawToken: string): Promise<ConsumeAccountSetupLinkResult> {
+		async claimToken(rawToken: string): Promise<ClaimAccountSetupLinkResult> {
 			const validation = await this.validateToken(rawToken);
 			if (validation.status !== 'valid') {
 				return validation;
 			}
 
-			const usedAt = now();
-			const consumedLink = await store.markUsed(validation.link.id, usedAt);
-			if (!consumedLink) {
+			const claimedAt = now();
+			const claimedLink = await store.claimPendingLink(validation.link.id, claimedAt);
+			if (!claimedLink) {
+				const current = await store.findByTokenHash(hashSetupToken(rawToken));
+				const currentState = getValidationStatus(current, claimedAt);
+				return currentState.status === 'valid' ? { status: 'claimed' } : currentState;
+			}
+
+			return {
+				status: 'claim-started',
+				accessRequestId: validation.accessRequestId,
+				link: claimedLink
+			};
+		},
+
+		async markClaimCompleted(linkId: string): Promise<CompleteClaimedAccountSetupLinkResult> {
+			const completedAt = now();
+			const completedLink = await store.markCompleted(linkId, completedAt);
+			if (!completedLink) {
 				return { status: 'used' };
 			}
 
 			return {
-				status: 'consumed',
-				accessRequestId: validation.accessRequestId,
-				link: consumedLink
+				status: 'completed',
+				accessRequestId: completedLink.accessRequestId,
+				link: completedLink
+			};
+		},
+
+		async markClaimFailed(
+			linkId: string,
+			failureReason: AccountSetupLinkFailureReason
+		): Promise<FailClaimedAccountSetupLinkResult> {
+			const failedAt = now();
+			const failedLink = await store.markFailed(linkId, failedAt, failureReason);
+			if (!failedLink) {
+				return { status: 'used' };
+			}
+
+			return {
+				status: 'failed',
+				accessRequestId: failedLink.accessRequestId,
+				link: failedLink
 			};
 		},
 
@@ -366,8 +454,9 @@ export function createSupabaseAccountSetupLinkStore(client: SupabaseClient): Acc
 		async revokeUnusedLinksForAccessRequest(accessRequestId, revokedAt) {
 			const { error } = await client
 				.from('account_setup_links')
-				.update({ revoked_at: revokedAt.toISOString() })
+				.update({ revoked_at: revokedAt.toISOString(), revocation_reason: 'replaced' })
 				.eq('access_request_id', accessRequestId)
+				.is('claimed_at', null)
 				.is('used_at', null)
 				.is('revoked_at', null);
 
@@ -382,10 +471,14 @@ export function createSupabaseAccountSetupLinkStore(client: SupabaseClient): Acc
 					token_hash: input.tokenHash,
 					expires_at: input.expiresAt.toISOString(),
 					created_at: input.createdAt.toISOString(),
+					claimed_at: null,
+					failed_at: null,
+					failure_reason: null,
 					used_at: null,
-					revoked_at: null
+					revoked_at: null,
+					revocation_reason: null
 				})
-				.select('id, access_request_id, token_hash, expires_at, created_at, used_at, revoked_at')
+				.select(SETUP_LINK_SELECT)
 				.single();
 
 			throwSupabaseError(error);
@@ -395,7 +488,7 @@ export function createSupabaseAccountSetupLinkStore(client: SupabaseClient): Acc
 		async findByTokenHash(tokenHash) {
 			const { data, error } = await client
 				.from('account_setup_links')
-				.select('id, access_request_id, token_hash, expires_at, created_at, used_at, revoked_at')
+				.select(SETUP_LINK_SELECT)
 				.eq('token_hash', tokenHash)
 				.maybeSingle();
 
@@ -403,14 +496,49 @@ export function createSupabaseAccountSetupLinkStore(client: SupabaseClient): Acc
 			return data ? mapSetupLinkRow(data as AccountSetupLinkRow) : null;
 		},
 
-		async markUsed(id, usedAt) {
+		async claimPendingLink(id, claimedAt) {
 			const { data, error } = await client
 				.from('account_setup_links')
-				.update({ used_at: usedAt.toISOString() })
+				.update({ claimed_at: claimedAt.toISOString() })
 				.eq('id', id)
+				.gt('expires_at', claimedAt.toISOString())
+				.is('claimed_at', null)
+				.is('failed_at', null)
 				.is('used_at', null)
 				.is('revoked_at', null)
-				.select('id, access_request_id, token_hash, expires_at, created_at, used_at, revoked_at')
+				.select(SETUP_LINK_SELECT)
+				.maybeSingle();
+
+			throwSupabaseError(error);
+			return data ? mapSetupLinkRow(data as AccountSetupLinkRow) : null;
+		},
+
+		async markCompleted(id, completedAt) {
+			const { data, error } = await client
+				.from('account_setup_links')
+				.update({ used_at: completedAt.toISOString() })
+				.eq('id', id)
+				.not('claimed_at', 'is', null)
+				.is('failed_at', null)
+				.is('used_at', null)
+				.is('revoked_at', null)
+				.select(SETUP_LINK_SELECT)
+				.maybeSingle();
+
+			throwSupabaseError(error);
+			return data ? mapSetupLinkRow(data as AccountSetupLinkRow) : null;
+		},
+
+		async markFailed(id, failedAt, failureReason) {
+			const { data, error } = await client
+				.from('account_setup_links')
+				.update({ failed_at: failedAt.toISOString(), failure_reason: failureReason })
+				.eq('id', id)
+				.not('claimed_at', 'is', null)
+				.is('failed_at', null)
+				.is('used_at', null)
+				.is('revoked_at', null)
+				.select(SETUP_LINK_SELECT)
 				.maybeSingle();
 
 			throwSupabaseError(error);
@@ -421,7 +549,7 @@ export function createSupabaseAccountSetupLinkStore(client: SupabaseClient): Acc
 			const cutoffIso = cutoff.toISOString();
 			const { data, error } = await client
 				.from('account_setup_links')
-				.select('id, access_request_id, token_hash, expires_at, created_at, used_at, revoked_at')
+				.select(SETUP_LINK_SELECT)
 				.or(`used_at.lte.${cutoffIso},revoked_at.lte.${cutoffIso},expires_at.lte.${cutoffIso}`);
 
 			throwSupabaseError(error);
@@ -431,11 +559,12 @@ export function createSupabaseAccountSetupLinkStore(client: SupabaseClient): Acc
 		async revokeExpiredUnusedLinks(cutoff, revokedAt) {
 			const { data, error } = await client
 				.from('account_setup_links')
-				.update({ revoked_at: revokedAt.toISOString() })
+				.update({ revoked_at: revokedAt.toISOString(), revocation_reason: 'cleanup' })
 				.lte('expires_at', cutoff.toISOString())
+				.is('claimed_at', null)
 				.is('used_at', null)
 				.is('revoked_at', null)
-				.select('id, access_request_id, token_hash, expires_at, created_at, used_at, revoked_at');
+				.select(SETUP_LINK_SELECT);
 
 			throwSupabaseError(error);
 			return ((data ?? []) as AccountSetupLinkRow[]).map(mapSetupLinkRow);
@@ -446,6 +575,8 @@ export function createSupabaseAccountSetupLinkStore(client: SupabaseClient): Acc
 				.from('account_setup_links')
 				.select('id', { count: 'exact', head: true })
 				.gt('expires_at', referenceTime.toISOString())
+				.is('claimed_at', null)
+				.is('failed_at', null)
 				.is('used_at', null)
 				.is('revoked_at', null);
 

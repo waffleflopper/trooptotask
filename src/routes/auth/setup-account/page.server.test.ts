@@ -160,6 +160,22 @@ describe('/auth/setup-account actions', () => {
 		});
 	});
 
+	it('does not treat an already-completed link response as a successful setup redirect', async () => {
+		complete.mockResolvedValueOnce({ status: 'completed' });
+
+		const result = await actions.default({
+			request: makeRequest({}),
+			locals: { supabase: {} }
+		} as unknown as Parameters<(typeof actions)['default']>[0]);
+
+		expect(result).toMatchObject({
+			status: 400,
+			data: {
+				error: 'This setup link has already been used. Sign in or reset your password if you need access.'
+			}
+		});
+	});
+
 	it('returns provider-edge failures without accepting an Organization Invitation', async () => {
 		complete.mockResolvedValueOnce({ status: 'account-create-failed', message: 'Supabase unavailable' });
 

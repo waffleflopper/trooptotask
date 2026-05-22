@@ -16,6 +16,13 @@ function tokenStateMessage(state: string): string {
 			return 'This Account Setup Link has expired. Request a fresh setup link and use the newest email.';
 		case 'revoked':
 			return 'This Account Setup Link was replaced. Check your inbox for the newest setup email.';
+		case 'replaced':
+			return 'This Account Setup Link was replaced. Check your inbox for the newest setup email.';
+		case 'claimed':
+			return 'This Account Setup Link is already being used. Request a fresh setup link if setup does not finish.';
+		case 'failed':
+			return 'This Account Setup Link could not finish setup. Request a fresh setup link and try again.';
+		case 'completed':
 		case 'used':
 		case 'access-request-completed':
 			return 'This setup link has already been used. Sign in or reset your password if you need access.';
@@ -101,7 +108,7 @@ export const actions: Actions = {
 			password
 		});
 
-		if (completion.status === 'completed') {
+		if (completion.status === 'completed' && 'userId' in completion) {
 			redirect(303, '/dashboard');
 		}
 

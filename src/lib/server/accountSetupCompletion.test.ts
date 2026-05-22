@@ -12,7 +12,9 @@ function makeStore(accessRequest: AccountSetupLinkAccessRequest): AccountSetupCo
 	completions: Array<{ accessRequestId: string; userId: string }>;
 	profiles: Array<{ userId: string; firstName: string; lastName: string }>;
 	failCompletion?: boolean;
+	failMarkFailed?: boolean;
 	revokeBeforeMarkUsed?: boolean;
+	onClaim?: () => void;
 } {
 	const links: AccountSetupLinkRecord[] = [];
 	const completions: Array<{ accessRequestId: string; userId: string }> = [];
@@ -29,6 +31,7 @@ function makeStore(accessRequest: AccountSetupLinkAccessRequest): AccountSetupCo
 			for (const link of links) {
 				if (link.accessRequestId === accessRequestId && !link.usedAt && !link.revokedAt) {
 					link.revokedAt = revokedAt;
+					link.revocationReason = 'replaced';
 				}
 			}
 		},
@@ -39,8 +42,12 @@ function makeStore(accessRequest: AccountSetupLinkAccessRequest): AccountSetupCo
 				tokenHash: input.tokenHash,
 				expiresAt: input.expiresAt,
 				createdAt: input.createdAt,
+				claimedAt: null,
+				failedAt: null,
+				failureReason: null,
 				usedAt: null,
-				revokedAt: null
+				revokedAt: null,
+				revocationReason: null
 			};
 			links.push(link);
 			return link;
@@ -48,13 +55,33 @@ function makeStore(accessRequest: AccountSetupLinkAccessRequest): AccountSetupCo
 		async findByTokenHash(tokenHash) {
 			return links.find((link) => link.tokenHash === tokenHash) ?? null;
 		},
-		async markUsed(id, usedAt) {
+		async claimPendingLink(id, claimedAt) {
+			this.onClaim?.();
+			const link = links.find((candidate) => candidate.id === id);
+			if (!link || link.claimedAt || link.failedAt || link.usedAt || link.revokedAt || link.expiresAt <= claimedAt) {
+				return null;
+			}
+			link.claimedAt = claimedAt;
+			return link;
+		},
+		async markCompleted(id, completedAt) {
 			const link = links.find((candidate) => candidate.id === id);
 			if (this.revokeBeforeMarkUsed && link && !link.usedAt && !link.revokedAt) {
-				link.revokedAt = usedAt;
+				link.revokedAt = completedAt;
+				link.revocationReason = 'manual';
 			}
-			if (!link || link.usedAt || link.revokedAt) return null;
-			link.usedAt = usedAt;
+			if (!link || !link.claimedAt || link.failedAt || link.usedAt || link.revokedAt) return null;
+			link.usedAt = completedAt;
+			return link;
+		},
+		async markFailed(id, failedAt, failureReason) {
+			if (this.failMarkFailed) {
+				throw new Error('failed-state write failed');
+			}
+			const link = links.find((candidate) => candidate.id === id);
+			if (!link || !link.claimedAt || link.failedAt || link.usedAt || link.revokedAt) return null;
+			link.failedAt = failedAt;
+			link.failureReason = failureReason;
 			return link;
 		},
 		async listCleanupEligible() {
@@ -142,7 +169,7 @@ describe('Account Setup completion', () => {
 		expect(store.profiles).toEqual([{ userId: 'user-123', firstName: 'Legacy', lastName: 'Requester' }]);
 	});
 
-	it('still signs in when a setup link is revoked after completion is recorded', async () => {
+	it('does not sign in when a setup link is revoked after completion is recorded', async () => {
 		const store = makeStore(approvedRequest);
 		store.revokeBeforeMarkUsed = true;
 		await addSetupToken(store);
@@ -151,11 +178,8 @@ describe('Account Setup completion', () => {
 
 		const result = await service.complete({ rawToken: 'setup-token', password: 'ValidPassword123!' });
 
-		expect(result).toEqual({ status: 'completed', accessRequestId: 'request-1', userId: 'user-123' });
-		expect(auth.signInWithPassword).toHaveBeenCalledWith({
-			email: 'person@example.com',
-			password: 'ValidPassword123!'
-		});
+		expect(result).toEqual({ status: 'used' });
+		expect(auth.signInWithPassword).not.toHaveBeenCalled();
 		expect(store.completions).toEqual([{ accessRequestId: 'request-1', userId: 'user-123' }]);
 	});
 
@@ -184,7 +208,7 @@ describe('Account Setup completion', () => {
 		expect(auth.createOrActivateConfirmedUser).not.toHaveBeenCalled();
 	});
 
-	it('does not consume the setup link when Supabase account creation fails', async () => {
+	it('claims the setup link before Supabase account creation and leaves the token unavailable when creation fails', async () => {
 		const store = makeStore(approvedRequest);
 		await addSetupToken(store);
 		const auth = makeAuth({
@@ -195,10 +219,36 @@ describe('Account Setup completion', () => {
 		const result = await service.complete({ rawToken: 'setup-token', password: 'ValidPassword123!' });
 
 		expect(result).toEqual({ status: 'account-create-failed', message: 'Supabase unavailable' });
+		expect(store.links[0].claimedAt).toBeInstanceOf(Date);
+		expect(store.links[0].failedAt).toBeInstanceOf(Date);
+		expect(store.links[0].failureReason).toBe('account-create-failed');
 		expect(store.links[0].usedAt).toBeNull();
 	});
 
-	it('does not consume the setup link when completion tracking fails', async () => {
+	it('preserves the original account creation failure response when failure-state tracking also fails', async () => {
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+		const store = makeStore(approvedRequest);
+		store.failMarkFailed = true;
+		await addSetupToken(store);
+		const auth = makeAuth({
+			createOrActivateConfirmedUser: vi.fn().mockRejectedValue(new Error('Supabase unavailable'))
+		});
+		const service = createAccountSetupCompletionService(store, auth);
+
+		const result = await service.complete({ rawToken: 'setup-token', password: 'ValidPassword123!' });
+
+		expect(result).toEqual({ status: 'account-create-failed', message: 'Supabase unavailable' });
+		expect(store.links[0].claimedAt).toBeInstanceOf(Date);
+		expect(store.links[0].failedAt).toBeNull();
+		expect(store.links[0].usedAt).toBeNull();
+		expect(consoleError).toHaveBeenCalledWith(
+			'Failed to mark Account Setup Link failure state:',
+			expect.objectContaining({ setupLinkId: 'link-1', failureReason: 'account-create-failed' })
+		);
+		consoleError.mockRestore();
+	});
+
+	it('marks the claimed setup link failed when completion tracking fails', async () => {
 		const store = makeStore(approvedRequest);
 		store.failCompletion = true;
 		await addSetupToken(store);
@@ -207,6 +257,27 @@ describe('Account Setup completion', () => {
 		await expect(service.complete({ rawToken: 'setup-token', password: 'ValidPassword123!' })).rejects.toThrow(
 			'completion write failed'
 		);
+		expect(store.links[0].claimedAt).toBeInstanceOf(Date);
+		expect(store.links[0].failedAt).toBeInstanceOf(Date);
+		expect(store.links[0].failureReason).toBe('completion-tracking-failed');
 		expect(store.links[0].usedAt).toBeNull();
+	});
+
+	it('prevents a second completion attempt from mutating the User Account after the token is claimed', async () => {
+		const store = makeStore(approvedRequest);
+		await addSetupToken(store);
+		const firstAuth = makeAuth();
+		const secondAuth = makeAuth();
+		const firstService = createAccountSetupCompletionService(store, firstAuth);
+		const secondService = createAccountSetupCompletionService(store, secondAuth);
+
+		const first = await firstService.complete({ rawToken: 'setup-token', password: 'ValidPassword123!' });
+		const second = await secondService.complete({ rawToken: 'setup-token', password: 'DifferentPassword123!' });
+
+		expect(first).toEqual({ status: 'completed', accessRequestId: 'request-1', userId: 'user-123' });
+		expect(second).toEqual({ status: 'used' });
+		expect(firstAuth.createOrActivateConfirmedUser).toHaveBeenCalledTimes(1);
+		expect(secondAuth.createOrActivateConfirmedUser).not.toHaveBeenCalled();
+		expect(store.completions).toEqual([{ accessRequestId: 'request-1', userId: 'user-123' }]);
 	});
 });

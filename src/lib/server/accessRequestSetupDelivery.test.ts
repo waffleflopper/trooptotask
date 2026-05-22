@@ -66,8 +66,12 @@ function makeStore(requests: AccessRequestSetupRequest[] = []) {
 				tokenHash: input.tokenHash,
 				expiresAt: input.expiresAt,
 				createdAt: input.createdAt,
+				claimedAt: null,
+				failedAt: null,
+				failureReason: null,
 				usedAt: null,
-				revokedAt: null
+				revokedAt: null,
+				revocationReason: null
 			};
 			setupLinks.push(record);
 			return record;
@@ -77,10 +81,27 @@ function makeStore(requests: AccessRequestSetupRequest[] = []) {
 			return setupLinks.find((link) => link.tokenHash === tokenHash) ?? null;
 		},
 
-		async markUsed(id, usedAt) {
+		async claimPendingLink(id, claimedAt) {
 			const link = setupLinks.find((item) => item.id === id);
-			if (!link || link.usedAt || link.revokedAt) return null;
-			link.usedAt = usedAt;
+			if (!link || link.claimedAt || link.failedAt || link.usedAt || link.revokedAt || link.expiresAt <= claimedAt) {
+				return null;
+			}
+			link.claimedAt = claimedAt;
+			return link;
+		},
+
+		async markCompleted(id, completedAt) {
+			const link = setupLinks.find((item) => item.id === id);
+			if (!link || !link.claimedAt || link.failedAt || link.usedAt || link.revokedAt) return null;
+			link.usedAt = completedAt;
+			return link;
+		},
+
+		async markFailed(id, failedAt, failureReason) {
+			const link = setupLinks.find((item) => item.id === id);
+			if (!link || !link.claimedAt || link.failedAt || link.usedAt || link.revokedAt) return null;
+			link.failedAt = failedAt;
+			link.failureReason = failureReason;
 			return link;
 		},
 

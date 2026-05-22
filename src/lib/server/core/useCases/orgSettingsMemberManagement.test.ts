@@ -699,6 +699,38 @@ describe('leaveOrganization', () => {
 });
 
 describe('updateOrganizationMemberPermissions', () => {
+	it('rejects permission updates without a submitted Member Preset before writing compatibility fields', async () => {
+		const ctx = createTestContext({
+			auth: {
+				userId: 'actor-1',
+				orgId: 'org-1',
+				role: 'admin'
+			}
+		});
+		const port = createOrganizationSettingsMemberManagementPort({
+			membership: {
+				userId: 'member-1',
+				role: 'member',
+				email: 'member@example.com'
+			}
+		});
+
+		await expect(
+			updateOrganizationMemberPermissions(
+				{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
+				{
+					membershipId: '11111111-1111-4111-8111-111111111111',
+					actorEmail: 'actor@example.com'
+				}
+			)
+		).rejects.toMatchObject({
+			status: 400,
+			message: 'Member preset is required'
+		});
+
+		expect(port.updatedMemberships).toEqual([]);
+	});
+
 	it('denies admins before granting another member admin access', async () => {
 		const ctx = createTestContext({
 			auth: {

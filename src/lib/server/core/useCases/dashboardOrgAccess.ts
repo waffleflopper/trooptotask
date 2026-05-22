@@ -1,10 +1,5 @@
 import type { NotificationPort } from '$lib/server/core/ports';
 import { fail } from '$lib/server/core/errors';
-import {
-	deriveMembershipFromInvitation,
-	type OrganizationInvitationAccessShape,
-	type OrganizationMembershipDraft
-} from './organizationInvitationMembership';
 import { normalizeInvitationEmail } from './invitationEmail';
 
 export interface DashboardOrganizationSummary {
@@ -21,19 +16,29 @@ export interface DashboardPendingInvitationSummary {
 	createdAt: string;
 }
 
-export interface DashboardInvitationRecord extends OrganizationInvitationAccessShape {
-	id: string;
+export type DashboardInvitationAcceptStatus =
+	| 'accepted'
+	| 'not_found'
+	| 'expired'
+	| 'already_member'
+	| 'already_accepted'
+	| 'failed';
+
+export interface DashboardInvitationAcceptInput {
+	invitationId: string;
+	userId: string;
+	email: string;
 }
 
-export type DashboardMembershipCreateInput = OrganizationMembershipDraft;
+export interface DashboardInvitationAcceptResult {
+	status: DashboardInvitationAcceptStatus;
+	organizationId: string | null;
+}
 
 export interface DashboardOrgAccessPort {
 	listOrganizationsForUser(userId: string): Promise<DashboardOrganizationSummary[]>;
 	listPendingInvitationsForEmail(email: string): Promise<DashboardPendingInvitationSummary[]>;
-	findInvitation(invitationId: string, email: string): Promise<DashboardInvitationRecord | null>;
-	hasMembership(organizationId: string, userId: string): Promise<boolean>;
-	createMembership(input: DashboardMembershipCreateInput): Promise<boolean>;
-	deleteInvitation(invitationId: string): Promise<boolean>;
+	acceptInvitation(input: DashboardInvitationAcceptInput): Promise<DashboardInvitationAcceptResult>;
 	deleteInvitationForEmail(invitationId: string, email: string): Promise<boolean>;
 }
 
@@ -100,48 +105,32 @@ export async function acceptDashboardInvitation(
 	input: AcceptDashboardInvitationInput
 ): Promise<{ success: true; accepted: true }> {
 	const normalizedEmail = normalizeEmail(input.email);
-	const invitation = await ports.dashboard.findInvitation(input.invitationId, normalizedEmail);
+	const accepted = await ports.dashboard.acceptInvitation({
+		invitationId: input.invitationId,
+		userId: input.userId,
+		email: normalizedEmail
+	});
 
-	if (!invitation) {
+	if (accepted.status === 'not_found') {
 		fail(404, 'Invitation not found');
 	}
-
-	const existingMembership = await ports.dashboard.hasMembership(invitation.organizationId, input.userId);
-
-	if (existingMembership) {
-		await cleanupInvitation(ports.dashboard, {
-			invitationId: input.invitationId,
-			organizationId: invitation.organizationId,
-			userId: input.userId,
-			reason: 'duplicate-membership-cleanup'
-		});
+	if (accepted.status === 'expired') {
+		fail(400, 'Invitation has expired');
+	}
+	if (accepted.status === 'already_member') {
 		fail(400, 'You are already a member of this organization');
 	}
-
-	const created = await ports.dashboard.createMembership(
-		deriveMembershipFromInvitation({
-			invitation,
-			userId: input.userId,
-			email: normalizedEmail
-		})
-	);
-
-	if (!created) {
+	if (accepted.status === 'already_accepted') {
+		fail(400, 'Invitation has already been accepted');
+	}
+	if (accepted.status !== 'accepted' || !accepted.organizationId) {
 		fail(500, 'Failed to accept invitation');
 	}
 
-	await cleanupInvitation(ports.dashboard, {
-		invitationId: input.invitationId,
-		organizationId: invitation.organizationId,
+	await notifyAdminsOfAcceptedInvitation(ports, {
+		organizationId: accepted.organizationId,
 		userId: input.userId,
-		reason: 'accepted-membership-cleanup'
-	});
-
-	await ports.notifications.notifyAdmins(invitation.organizationId, input.userId, {
-		type: 'member_joined',
-		title: 'New Member Joined',
-		message: `"${normalizedEmail}" has joined the organization.`,
-		link: `/org/${invitation.organizationId}/settings`
+		email: normalizedEmail
 	});
 
 	return { success: true, accepted: true };
@@ -164,21 +153,23 @@ function normalizeEmail(email?: string | null): string {
 	return normalizeInvitationEmail(email);
 }
 
-async function cleanupInvitation(
-	port: DashboardOrgAccessPort,
-	input: {
-		invitationId: string;
-		organizationId: string;
-		userId: string;
-		reason: 'accepted-membership-cleanup' | 'duplicate-membership-cleanup';
-	}
+async function notifyAdminsOfAcceptedInvitation(
+	ports: AcceptDashboardInvitationPorts,
+	input: { organizationId: string; userId: string; email: string }
 ): Promise<void> {
-	const deleted = await port.deleteInvitation(input.invitationId);
-
-	if (!deleted) {
+	try {
+		await ports.notifications.notifyAdmins(input.organizationId, input.userId, {
+			type: 'member_joined',
+			title: 'New Member Joined',
+			message: `"${input.email}" has joined the organization.`,
+			link: `/org/${input.organizationId}/settings`
+		});
+	} catch (error) {
 		console.error('[dashboard-org-access]', {
-			status: 'invitation-delete-failed',
-			...input
+			status: 'accepted-notification-failed',
+			organizationId: input.organizationId,
+			userId: input.userId,
+			error
 		});
 	}
 }

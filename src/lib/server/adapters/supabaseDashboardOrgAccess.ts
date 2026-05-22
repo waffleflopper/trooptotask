@@ -1,7 +1,6 @@
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination';
 import type {
-	DashboardInvitationRecord,
-	DashboardMembershipCreateInput,
+	DashboardInvitationAcceptResult,
 	DashboardOrgAccessPort,
 	DashboardOrganizationSummary,
 	DashboardPendingInvitationSummary
@@ -28,28 +27,9 @@ interface OrganizationInvitationSummaryRow {
 	} | null;
 }
 
-interface OrganizationInvitationRow {
-	id: string;
-	organization_id: string;
-	role: 'admin' | 'member' | null;
-	can_view_calendar: boolean | null;
-	can_edit_calendar: boolean | null;
-	can_view_personnel: boolean | null;
-	can_edit_personnel: boolean | null;
-	can_view_training: boolean | null;
-	can_edit_training: boolean | null;
-	can_view_critical_tasks: boolean | null;
-	can_edit_critical_tasks: boolean | null;
-	can_view_onboarding: boolean | null;
-	can_edit_onboarding: boolean | null;
-	can_view_rating_scheme?: boolean | null;
-	can_edit_rating_scheme?: boolean | null;
-	can_manage_members: boolean | null;
-	scoped_group_id: string | null;
-	member_preset: DashboardInvitationRecord['memberPreset'];
-	capability_overrides: DashboardInvitationRecord['capabilityOverrides'];
-	access_scope_kind: DashboardInvitationRecord['accessScopeKind'];
-	access_scope_group_ids: DashboardInvitationRecord['accessScopeGroupIds'];
+interface AcceptOrganizationInvitationRpcRow {
+	accept_status: DashboardInvitationAcceptResult['status'] | null;
+	accepted_organization_id: string | null;
 }
 
 export function createSupabaseDashboardOrgAccessPort(locals: Pick<App.Locals, 'supabase'>): DashboardOrgAccessPort {
@@ -94,6 +74,7 @@ export function createSupabaseDashboardOrgAccessPort(locals: Pick<App.Locals, 's
 						.select('id, organization_id, created_at, organizations(id, name)')
 						.eq('normalized_email', email)
 						.eq('status', 'pending')
+						.gt('expires_at', new Date().toISOString())
 						.order('created_at', { ascending: false })
 						.range(from, to) as unknown as Promise<{
 						data: OrganizationInvitationSummaryRow[] | null;
@@ -115,90 +96,21 @@ export function createSupabaseDashboardOrgAccessPort(locals: Pick<App.Locals, 's
 				}));
 		},
 
-		async findInvitation(invitationId: string, email: string): Promise<DashboardInvitationRecord | null> {
+		async acceptInvitation(input): Promise<DashboardInvitationAcceptResult> {
 			const { data, error } = await supabase
-				.from('organization_invitations')
-				.select(
-					'id, organization_id, role, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_view_critical_tasks, can_edit_critical_tasks, can_view_onboarding, can_edit_onboarding, can_view_rating_scheme, can_edit_rating_scheme, can_manage_members, scoped_group_id, member_preset, capability_overrides, access_scope_kind, access_scope_group_ids'
-				)
-				.eq('id', invitationId)
-				.eq('normalized_email', email)
-				.eq('status', 'pending')
-				.single<OrganizationInvitationRow>();
+				.rpc('accept_organization_invitation', {
+					p_invitation_id: input.invitationId
+				})
+				.single<AcceptOrganizationInvitationRpcRow>();
 
 			if (error || !data) {
-				return null;
+				return { status: 'failed', organizationId: null };
 			}
 
 			return {
-				id: data.id,
-				organizationId: data.organization_id,
-				role: data.role,
-				canViewCalendar: data.can_view_calendar,
-				canEditCalendar: data.can_edit_calendar,
-				canViewPersonnel: data.can_view_personnel,
-				canEditPersonnel: data.can_edit_personnel,
-				canViewTraining: data.can_view_training,
-				canEditTraining: data.can_edit_training,
-				canViewCriticalTasks: data.can_view_critical_tasks,
-				canEditCriticalTasks: data.can_edit_critical_tasks,
-				canViewOnboarding: data.can_view_onboarding,
-				canEditOnboarding: data.can_edit_onboarding,
-				canViewRatingScheme: data.can_view_rating_scheme,
-				canEditRatingScheme: data.can_edit_rating_scheme,
-				canManageMembers: data.can_manage_members,
-				scopedGroupId: data.scoped_group_id,
-				memberPreset: data.member_preset,
-				capabilityOverrides: data.capability_overrides,
-				accessScopeKind: data.access_scope_kind,
-				accessScopeGroupIds: data.access_scope_group_ids
+				status: normalizeAcceptStatus(data.accept_status),
+				organizationId: data.accepted_organization_id
 			};
-		},
-
-		async hasMembership(organizationId: string, userId: string): Promise<boolean> {
-			const { data } = await supabase
-				.from('organization_memberships')
-				.select('id')
-				.eq('organization_id', organizationId)
-				.eq('user_id', userId)
-				.single();
-
-			return !!data;
-		},
-
-		async createMembership(input: DashboardMembershipCreateInput): Promise<boolean> {
-			const { error } = await supabase.from('organization_memberships').insert({
-				organization_id: input.organizationId,
-				user_id: input.userId,
-				email: input.email,
-				role: input.role,
-				can_view_calendar: input.canViewCalendar,
-				can_edit_calendar: input.canEditCalendar,
-				can_view_personnel: input.canViewPersonnel,
-				can_edit_personnel: input.canEditPersonnel,
-				can_view_training: input.canViewTraining,
-				can_edit_training: input.canEditTraining,
-				can_view_critical_tasks: input.canViewCriticalTasks,
-				can_edit_critical_tasks: input.canEditCriticalTasks,
-				can_view_onboarding: input.canViewOnboarding,
-				can_edit_onboarding: input.canEditOnboarding,
-				can_view_rating_scheme: input.canViewRatingScheme,
-				can_edit_rating_scheme: input.canEditRatingScheme,
-				can_manage_members: input.canManageMembers,
-				scoped_group_id: input.scopedGroupId,
-				member_preset: input.memberPreset,
-				capability_overrides: input.capabilityOverrides,
-				access_scope_kind: input.accessScopeKind,
-				access_scope_group_ids: input.accessScopeGroupIds
-			});
-
-			return !error;
-		},
-
-		async deleteInvitation(invitationId: string): Promise<boolean> {
-			const { error } = await supabase.from('organization_invitations').delete().eq('id', invitationId);
-
-			return !error;
 		},
 
 		async deleteInvitationForEmail(invitationId: string, email: string): Promise<boolean> {
@@ -212,4 +124,20 @@ export function createSupabaseDashboardOrgAccessPort(locals: Pick<App.Locals, 's
 			return !error;
 		}
 	};
+}
+
+function normalizeAcceptStatus(
+	status: AcceptOrganizationInvitationRpcRow['accept_status']
+): DashboardInvitationAcceptResult['status'] {
+	if (
+		status === 'accepted' ||
+		status === 'not_found' ||
+		status === 'expired' ||
+		status === 'already_member' ||
+		status === 'already_accepted'
+	) {
+		return status;
+	}
+
+	return 'failed';
 }

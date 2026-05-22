@@ -26,44 +26,122 @@ function createInvitationBuilder(result: unknown) {
 	return { builder, calls };
 }
 
+function createRpcBuilder(result: unknown) {
+	const calls: Call[] = [];
+	const builder: Record<string, unknown> = {
+		single: (...args: unknown[]) => {
+			calls.push({ method: 'single', args });
+			return result;
+		}
+	};
+
+	return { builder, calls };
+}
+
+function createPendingInvitationListBuilder(result: unknown) {
+	const calls: Call[] = [];
+
+	function track(method: string) {
+		return (...args: unknown[]) => {
+			calls.push({ method, args });
+			return builder;
+		};
+	}
+
+	const builder: Record<string, unknown> = {
+		select: track('select'),
+		eq: track('eq'),
+		gt: track('gt'),
+		order: track('order'),
+		range: (...args: unknown[]) => {
+			calls.push({ method: 'range', args });
+			return result;
+		}
+	};
+
+	return { builder, calls };
+}
+
 describe('createSupabaseDashboardOrgAccessPort', () => {
-	it('finds invitations by normalized email for invitee visibility', async () => {
-		const { builder, calls } = createInvitationBuilder({
-			data: {
+	it('lists only pending, unexpired invitations for the normalized email while preserving organization names', async () => {
+		const { builder, calls } = createPendingInvitationListBuilder({
+			data: [
+				{
+					id: 'invite-1',
+					organization_id: 'org-1',
+					created_at: '2026-05-22T00:00:00.000Z',
+					organizations: { id: 'org-1', name: 'Alpha Company' }
+				}
+			],
+			error: null
+		});
+		const supabase = {
+			from: vi.fn(() => builder)
+		};
+		const port = createSupabaseDashboardOrgAccessPort({ supabase } as never);
+
+		const result = await port.listPendingInvitationsForEmail('user@example.com');
+
+		expect(result).toEqual([
+			{
 				id: 'invite-1',
-				organization_id: 'org-1',
-				role: 'member',
-				can_view_calendar: true,
-				can_edit_calendar: false,
-				can_view_personnel: true,
-				can_edit_personnel: false,
-				can_view_training: true,
-				can_edit_training: false,
-				can_view_critical_tasks: true,
-				can_edit_critical_tasks: false,
-				can_view_onboarding: true,
-				can_edit_onboarding: false,
-				can_view_rating_scheme: true,
-				can_edit_rating_scheme: false,
-				can_manage_members: false,
-				scoped_group_id: null,
-				member_preset: 'viewer',
-				capability_overrides: {},
-				access_scope_kind: 'organization',
-				access_scope_group_ids: []
+				organizationId: 'org-1',
+				organizationName: 'Alpha Company',
+				createdAt: '2026-05-22T00:00:00.000Z'
+			}
+		]);
+		expect(calls).toContainEqual({ method: 'eq', args: ['normalized_email', 'user@example.com'] });
+		expect(calls).toContainEqual({ method: 'eq', args: ['status', 'pending'] });
+		expect(calls).toContainEqual({ method: 'gt', args: ['expires_at', expect.any(String)] });
+	});
+
+	it('accepts invitations through the atomic database transition', async () => {
+		const { builder, calls } = createRpcBuilder({
+			data: {
+				accept_status: 'accepted',
+				accepted_organization_id: 'org-1'
 			},
 			error: null
 		});
-		const supabase = { from: vi.fn(() => builder) };
+		const supabase = {
+			rpc: vi.fn(() => builder),
+			from: vi.fn()
+		};
 		const port = createSupabaseDashboardOrgAccessPort({ supabase } as never);
 
-		const result = await port.findInvitation('invite-1', 'user@example.com');
+		const result = await port.acceptInvitation({
+			invitationId: 'invite-1',
+			userId: 'user-1',
+			email: 'user@example.com'
+		});
 
-		expect(result).toMatchObject({ id: 'invite-1', organizationId: 'org-1', role: 'member' });
-		expect(supabase.from).toHaveBeenCalledWith('organization_invitations');
-		expect(calls).toContainEqual({ method: 'eq', args: ['id', 'invite-1'] });
-		expect(calls).toContainEqual({ method: 'eq', args: ['normalized_email', 'user@example.com'] });
-		expect(calls).toContainEqual({ method: 'eq', args: ['status', 'pending'] });
+		expect(result).toEqual({ status: 'accepted', organizationId: 'org-1' });
+		expect(supabase.rpc).toHaveBeenCalledWith('accept_organization_invitation', {
+			p_invitation_id: 'invite-1'
+		});
+		expect(supabase.from).not.toHaveBeenCalled();
+		expect(calls).toContainEqual({ method: 'single', args: [] });
+	});
+
+	it('maps provider errors from the accept transition to a failed status', async () => {
+		const { builder } = createRpcBuilder({
+			data: null,
+			error: { message: 'rpc unavailable' }
+		});
+		const port = createSupabaseDashboardOrgAccessPort({
+			supabase: {
+				rpc: vi.fn(() => builder),
+				from: vi.fn()
+			}
+		} as never);
+
+		const result = await port.acceptInvitation({
+			invitationId: 'invite-1',
+			userId: 'user-1',
+			email: 'user@example.com'
+		});
+
+		expect(result).toEqual({ status: 'failed', organizationId: null });
 	});
 
 	it('declines invitations by normalized email until decline becomes a lifecycle update', async () => {

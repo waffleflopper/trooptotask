@@ -167,22 +167,6 @@
 			]
 		},
 		{
-			"path": "src/lib/server/adapters/supabaseDashboardOrgAccess.ts",
-			"classification": "compatibility-adapter",
-			"patterns": [
-				"canEdit*",
-				"scopedGroupId",
-				"scoped_group_id",
-				"can_view_*",
-				"can_edit_*"
-			],
-			"ownerIssue": "#757",
-			"reason": "Dashboard org access reads legacy membership columns only to translate them into Capability Map and Scope Set data.",
-			"driftIds": [
-				"D-01"
-			]
-		},
-		{
 			"path": "src/lib/server/adapters/supabaseOrgSettingsMemberManagement.ts",
 			"classification": "compatibility-adapter",
 			"patterns": [
@@ -450,6 +434,20 @@
 			],
 			"ownerIssue": "#1009",
 			"reason": "Organization invitation role snapshot migration intentionally backfills Membership Role from legacy compatibility permission flags before future acceptance copies the stored snapshot.",
+			"driftIds": [
+				"D-01"
+			]
+		},
+		{
+			"path": "supabase/migrations/20260522000600_accept_organization_invitation_transition.sql",
+			"classification": "historical-migration",
+			"patterns": [
+				"can_view_*",
+				"can_edit_*",
+				"scoped_group_id"
+			],
+			"ownerIssue": "#1010",
+			"reason": "Atomic invitation acceptance transition intentionally copies stored compatibility permission flags from Organization Invitation snapshots into Organization Membership rows.",
 			"driftIds": [
 				"D-01"
 			]

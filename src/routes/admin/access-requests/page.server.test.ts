@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { PageData } from './$types';
 
 const { createServiceMock, createStoreMock, createOutboxStoreMock, sendSetupEmailMock, sendOutboxDeliveryMock } =
 	vi.hoisted(() => ({
@@ -31,7 +32,7 @@ vi.mock('$lib/server/authEmailOutbox', () => ({
 	sendAccountSetupOutboxDelivery: sendOutboxDeliveryMock
 }));
 
-import { actions } from './+page.server';
+import { actions, load } from './+page.server';
 
 function makeRequest(form: Record<string, string>): Request {
 	return new Request('http://localhost/admin/access-requests', {
@@ -86,11 +87,70 @@ function makeAdminClient(parts: { select?: unknown; update?: unknown; inviteUser
 	};
 }
 
+function makeLoadAdminClient(rows: Record<string, unknown>[]) {
+	const range = vi.fn().mockResolvedValue({ data: rows, error: null });
+	const order = vi.fn(() => ({ range }));
+	const select = vi.fn(() => ({ order }));
+	const from = vi.fn((table: string) => {
+		if (table !== 'access_requests') throw new Error(`Unexpected table ${table}`);
+		return { select };
+	});
+
+	return { client: { from }, select, range };
+}
+
 function makeContext(adminClient: unknown) {
 	return {
 		adminClient,
 		adminUser: { id: 'admin-1', role: 'super_admin' },
 		audit: vi.fn()
+	};
+}
+
+function makeAccessRequestRow(overrides: Record<string, unknown>) {
+	return {
+		id: 'request-1',
+		name: 'Test Soldier',
+		email: 'soldier@example.mil',
+		reason: 'Needs beta access',
+		heard_about: 'other',
+		heard_about_details: null,
+		status: 'approved',
+		created_at: '2026-05-18T12:00:00.000Z',
+		reviewed_at: '2026-05-18T13:00:00.000Z',
+		setup_completed_at: null,
+		account_setup_links: null,
+		auth_email_outbox: null,
+		...overrides
+	};
+}
+
+function makeSetupLink(overrides: Record<string, unknown>) {
+	return {
+		id: 'link-1',
+		created_at: '2026-05-18T13:00:00.000Z',
+		expires_at: '2099-06-01T12:00:00.000Z',
+		claimed_at: null,
+		failed_at: null,
+		failure_reason: null,
+		used_at: null,
+		revoked_at: null,
+		revocation_reason: null,
+		...overrides
+	};
+}
+
+function makeOutbox(overrides: Record<string, unknown>) {
+	return {
+		id: 'outbox-1',
+		setup_link_id: 'link-1',
+		status: 'sent',
+		attempt_count: 1,
+		last_error: null,
+		created_at: '2026-05-18T13:01:00.000Z',
+		updated_at: '2026-05-18T13:01:00.000Z',
+		sent_at: '2026-05-18T13:01:00.000Z',
+		...overrides
 	};
 }
 
@@ -105,6 +165,126 @@ describe('admin access request account setup delivery', () => {
 			status: 'sent',
 			outbox: { id: 'outbox-1', status: 'sent' }
 		});
+	});
+
+	it('summarizes setup support states from setup links and delivery records', async () => {
+		const rows = [
+			makeAccessRequestRow({ id: 'not-sent', account_setup_links: null, auth_email_outbox: null }),
+			makeAccessRequestRow({
+				id: 'delivery-pending',
+				account_setup_links: [makeSetupLink({ id: 'link-delivery-pending' })],
+				auth_email_outbox: [
+					makeOutbox({ id: 'outbox-delivery-pending', setup_link_id: 'link-delivery-pending', status: 'pending' })
+				]
+			}),
+			makeAccessRequestRow({
+				id: 'delivery-failed',
+				account_setup_links: [makeSetupLink({ id: 'link-delivery-failed' })],
+				auth_email_outbox: [
+					makeOutbox({
+						id: 'outbox-delivery-failed',
+						setup_link_id: 'link-delivery-failed',
+						status: 'failed',
+						last_error: 'mail provider unavailable',
+						sent_at: null
+					})
+				]
+			}),
+			makeAccessRequestRow({
+				id: 'setup-pending',
+				account_setup_links: [makeSetupLink({ id: 'link-pending' })],
+				auth_email_outbox: [makeOutbox({ setup_link_id: 'link-pending' })]
+			}),
+			makeAccessRequestRow({
+				id: 'expired',
+				account_setup_links: [makeSetupLink({ id: 'link-expired', expires_at: '2020-06-01T12:00:00.000Z' })],
+				auth_email_outbox: [makeOutbox({ setup_link_id: 'link-expired' })]
+			}),
+			makeAccessRequestRow({
+				id: 'expired-delivery-failed',
+				account_setup_links: [
+					makeSetupLink({ id: 'link-expired-delivery-failed', expires_at: '2020-06-01T12:00:00.000Z' })
+				],
+				auth_email_outbox: [
+					makeOutbox({
+						setup_link_id: 'link-expired-delivery-failed',
+						status: 'failed',
+						last_error: 'mail provider unavailable',
+						sent_at: null
+					})
+				]
+			}),
+			makeAccessRequestRow({
+				id: 'replaced',
+				account_setup_links: [
+					makeSetupLink({
+						id: 'link-replaced',
+						revoked_at: '2026-05-19T12:00:00.000Z',
+						revocation_reason: 'replaced'
+					})
+				],
+				auth_email_outbox: [makeOutbox({ setup_link_id: 'link-replaced' })]
+			}),
+			makeAccessRequestRow({
+				id: 'claimed',
+				account_setup_links: [makeSetupLink({ id: 'link-claimed', claimed_at: '2026-05-19T12:00:00.000Z' })],
+				auth_email_outbox: [makeOutbox({ setup_link_id: 'link-claimed' })]
+			}),
+			makeAccessRequestRow({
+				id: 'failed',
+				account_setup_links: [
+					makeSetupLink({
+						id: 'link-failed',
+						claimed_at: '2026-05-19T12:00:00.000Z',
+						failed_at: '2026-05-19T12:05:00.000Z',
+						failure_reason: 'account-create-failed'
+					})
+				],
+				auth_email_outbox: [makeOutbox({ setup_link_id: 'link-failed' })]
+			}),
+			makeAccessRequestRow({
+				id: 'completed',
+				setup_completed_at: '2026-05-20T12:00:00.000Z',
+				account_setup_links: [makeSetupLink({ id: 'link-completed', used_at: '2026-05-20T12:00:00.000Z' })],
+				auth_email_outbox: [makeOutbox({ setup_link_id: 'link-completed' })]
+			})
+		];
+		const { client, select } = makeLoadAdminClient(rows);
+
+		const result = (await load({
+			__ctx: makeContext(client)
+		} as unknown as Parameters<typeof load>[0])) as PageData;
+		const reviewedById = Object.fromEntries(result.reviewed.map((request) => [request.id, request]));
+
+		expect(select).toHaveBeenCalledWith(expect.stringContaining('claimed_at'));
+		expect(select).toHaveBeenCalledWith(expect.stringContaining('failed_at'));
+		expect(select).toHaveBeenCalledWith(expect.stringContaining('failure_reason'));
+		expect(select).toHaveBeenCalledWith(expect.stringContaining('auth_email_outbox'));
+		expect(
+			Object.fromEntries(Object.entries(reviewedById).map(([id, request]) => [id, request.setup_state]))
+		).toMatchObject({
+			'not-sent': 'not_sent',
+			'delivery-pending': 'delivery_pending',
+			'delivery-failed': 'delivery_failed',
+			'setup-pending': 'pending',
+			expired: 'expired',
+			'expired-delivery-failed': 'expired',
+			replaced: 'replaced',
+			claimed: 'claimed',
+			failed: 'failed',
+			completed: 'completed'
+		});
+		expect(reviewedById.failed).toMatchObject({
+			setup_link_id: 'link-failed',
+			setup_link_failed_at: '2026-05-19T12:05:00.000Z',
+			setup_link_failure_reason: 'account-create-failed'
+		});
+		expect(reviewedById['delivery-failed']).toMatchObject({
+			setup_delivery_id: 'outbox-delivery-failed',
+			setup_delivery_last_error: 'mail provider unavailable'
+		});
+		expect(JSON.stringify(result)).not.toContain('token=');
+		expect(JSON.stringify(result)).not.toContain('/auth/setup-account');
 	});
 
 	it('approving a pending request creates and emails an app-owned Account Setup Link without Supabase invite delivery', async () => {

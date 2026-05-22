@@ -5,7 +5,8 @@ import { describe, expect, it } from 'vitest';
 const migrationPaths = [
 	join(process.cwd(), 'supabase/migrations/20260518000100_account_setup_links.sql'),
 	join(process.cwd(), 'supabase/migrations/20260518000200_access_request_setup_user_id.sql'),
-	join(process.cwd(), 'supabase/migrations/20260519000200_access_request_profile_and_source.sql')
+	join(process.cwd(), 'supabase/migrations/20260519000200_access_request_profile_and_source.sql'),
+	join(process.cwd(), 'supabase/migrations/20260522000100_account_setup_link_lifecycle_states.sql')
 ];
 const sql = migrationPaths.map((migrationPath) => readFileSync(migrationPath, 'utf8')).join('\n');
 
@@ -62,5 +63,12 @@ describe('Account Setup Links migration', () => {
 		expect(normalized).toContain(
 			'alter table only "public"."account_setup_links" add constraint "account_setup_links_access_request_id_fkey" foreign key ("access_request_id") references "public"."access_requests"("id") on delete cascade'
 		);
+	});
+
+	it('allows no-longer-approved claimed setup failures as a durable lifecycle outcome', () => {
+		const normalized = normalizedSql();
+
+		expect(normalized).toContain("'access-request-not-approved'::text");
+		expect(normalized).toContain('constraint "account_setup_links_failure_reason_check"');
 	});
 });

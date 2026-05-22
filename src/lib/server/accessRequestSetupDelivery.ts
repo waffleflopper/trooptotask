@@ -5,7 +5,13 @@ import {
 	sendAccountSetupLinkEmail,
 	type AccountSetupLinkStore
 } from './accountSetupLinks';
+import {
+	createSupabaseAuthEmailOutboxStore,
+	sendAccountSetupOutboxDelivery,
+	type AuthEmailOutboxStore
+} from './authEmailOutbox';
 import { addUtcDays } from './accountSetupDates';
+import { makePublicAppUrl } from './publicAppOrigin';
 
 export const ACCESS_REQUEST_SETUP_RENEWAL_DAYS = 90;
 
@@ -27,7 +33,7 @@ export interface CreatePendingAccessRequestInput {
 	heardAboutDetails: string | null;
 }
 
-export interface AccessRequestSetupDeliveryStore extends AccountSetupLinkStore {
+export interface AccessRequestSetupDeliveryStore extends AccountSetupLinkStore, AuthEmailOutboxStore {
 	listAccessRequestsByEmail(email: string): Promise<AccessRequestSetupRequest[]>;
 	insertPendingAccessRequest(input: CreatePendingAccessRequestInput): Promise<void>;
 }
@@ -79,7 +85,7 @@ function mapAccessRequest(row: AccessRequestRow): AccessRequestSetupRequest {
 }
 
 function makeSetupUrl(origin: string, setupPath: string): string {
-	return new URL(setupPath, origin).toString();
+	return makePublicAppUrl(setupPath, { inboundOrigin: origin });
 }
 
 function latestFirst(a: AccessRequestSetupRequest, b: AccessRequestSetupRequest): number {
@@ -92,7 +98,7 @@ function isApprovedIncompleteRenewable(request: AccessRequestSetupRequest, now: 
 	}
 
 	const renewalStartedAt = request.reviewedAt ?? request.createdAt;
-	return now < addUtcDays(renewalStartedAt, ACCESS_REQUEST_SETUP_RENEWAL_DAYS);
+	return now <= addUtcDays(renewalStartedAt, ACCESS_REQUEST_SETUP_RENEWAL_DAYS);
 }
 
 export function createAccessRequestSetupDeliveryService(
@@ -116,11 +122,17 @@ export function createAccessRequestSetupDeliveryService(
 			return { status: 'no-public-action' };
 		}
 
-		await sendSetupEmail({
+		const delivery = await sendAccountSetupOutboxDelivery(store, sendSetupEmail, {
+			accessRequestId: request.id,
+			setupLinkId: setupResult.link.id,
 			email: normalizeEmail(request.email),
 			setupUrl: makeSetupUrl(origin, setupResult.setupPath),
 			expiresAt: setupResult.expiresAt
 		});
+
+		if (delivery.status === 'failed') {
+			return { status: 'no-public-action' };
+		}
 
 		return {
 			status: 'fresh-setup-sent',
@@ -185,9 +197,11 @@ export function createAccessRequestSetupDeliveryService(
 
 export function createSupabaseAccessRequestSetupDeliveryStore(client: SupabaseClient): AccessRequestSetupDeliveryStore {
 	const setupLinkStore = createSupabaseAccountSetupLinkStore(client);
+	const outboxStore = createSupabaseAuthEmailOutboxStore(client);
 
 	return {
 		...setupLinkStore,
+		...outboxStore,
 
 		async listAccessRequestsByEmail(email) {
 			const { data, error } = await client

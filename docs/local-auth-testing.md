@@ -37,6 +37,8 @@ Use local Supabase plus Mailpit to test Account Setup Link delivery, legacy invi
 - Supabase invite and recovery templates are legacy/provider emails. Recovery still builds app-owned confirmation links with `{{ .RedirectTo }}` and `{{ .TokenHash }}`.
 - The visible email link should start with the active app origin, land on `/auth/confirm`, include `token_hash=`, and never expose `/auth/v1/verify`.
 - After opening the email link, the browser should stop on the confirmation page until you press the button to continue into invite setup or password reset.
+- Account Setup Link email links remain valid for 14 days, but the token-bearing URL is exchanged for a 10-minute setup session before the password form is shown.
+- Public renewal and setup attempt rate limits use shared Supabase-backed buckets for email, setup-link/access-request, and IP dimensions.
 - The Playwright auth suites use their own isolated app server on `127.0.0.1:4173` so they do not inherit whatever state or rate-limiting conditions your normal dev server might already have.
 - If you change `supabase/config.toml` or `supabase/templates/*.html`, restart Supabase so GoTrue reloads the auth config.
 
@@ -63,6 +65,8 @@ Run the access-request approval and resend flow with:
 ```bash
 npm run test:e2e:access-requests
 ```
+
+That suite is the focused Account Setup Link regression suite. It runs against local Supabase and Mailpit only, sets `APP_PUBLIC_ORIGIN` to the Playwright app origin, and covers approval delivery, tokenless setup, newest-link-only replacement, setup races, failed-after-claim recovery, and outbox retry support states.
 
 These two focused suites are more reliable than a single giant auth run because local Supabase auth can get temperamental when many invite and recovery emails are created back to back in one process.
 

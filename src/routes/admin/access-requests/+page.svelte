@@ -11,6 +11,7 @@
 	import { formatDisplayDateTime } from '$lib/utils/dates';
 	import { adminBadgeVariant, formatAdminLabel } from '$lib/components/admin/adminTheme';
 	import type { BadgeVariant } from '$lib/components/ui/badge';
+	import type { PageData } from './$types';
 
 	let { data, form } = $props();
 	let activeTab = $state<'pending' | 'reviewed'>('pending');
@@ -18,10 +19,37 @@
 
 	function setupStateVariant(state: string): BadgeVariant {
 		if (state === 'completed') return 'success';
+		if (state === 'failed' || state === 'delivery_failed') return 'danger';
 		if (state === 'expired') return 'warning';
-		if (state === 'replaced') return 'info';
+		if (state === 'replaced' || state === 'claimed' || state === 'delivery_pending') return 'info';
 		if (state === 'pending') return 'secondary';
 		return 'outline';
+	}
+
+	function setupActionLabel(state: string): string {
+		if (state === 'not_sent') return 'Send Setup';
+		return 'Send Fresh Setup';
+	}
+
+	function canSendSetup(state: string): boolean {
+		return state !== 'completed' && state !== 'delivery_pending';
+	}
+
+	function setupDeliverySummary(req: PageData['reviewed'][number]): string | null {
+		if (!req.setup_delivery_status) return null;
+
+		const outboxReference = req.setup_delivery_id ? ` (${req.setup_delivery_id})` : '';
+		const attemptLabel = req.setup_delivery_attempt_count === 1 ? 'attempt' : 'attempts';
+
+		return `Delivery ${req.setup_delivery_status}${outboxReference}, ${req.setup_delivery_attempt_count} ${attemptLabel}`;
+	}
+
+	function setupRevocationSummary(req: PageData['reviewed'][number]): string {
+		const reason = req.setup_link_revocation_reason;
+		const action = reason === 'replaced' ? 'replaced' : 'revoked';
+		const reasonLabel = reason ? ` (${reason})` : '';
+
+		return `Latest known setup link ${action}${reasonLabel} ${formatDisplayDateTime(req.setup_link_replaced_at)}`;
 	}
 </script>
 
@@ -167,18 +195,42 @@
 								{#if req.status === 'approved'}
 									<div class="grid gap-1 text-xs text-muted-foreground">
 										<p>{req.setup_state_detail}</p>
+										{#if req.setup_link_id}
+											<p>Setup link ID {req.setup_link_id}</p>
+										{/if}
+										{#if req.setup_link_claimed_at}
+											<p>Claimed {formatDisplayDateTime(req.setup_link_claimed_at)}</p>
+										{/if}
+										{#if req.setup_link_failed_at}
+											<p>
+												Failed {formatDisplayDateTime(req.setup_link_failed_at)}
+												{#if req.setup_link_failure_reason}
+													({req.setup_link_failure_reason}){/if}
+											</p>
+										{/if}
 										{#if req.setup_link_expires_at && req.setup_state !== 'completed'}
 											<p>Current setup link expires {formatDisplayDateTime(req.setup_link_expires_at)}</p>
 										{/if}
 										{#if req.setup_link_replaced_at}
-											<p>Latest known setup link replaced {formatDisplayDateTime(req.setup_link_replaced_at)}</p>
+											<p>{setupRevocationSummary(req)}</p>
 										{:else if req.has_replaced_setup_link}
 											<p>Older setup links have been replaced.</p>
+										{/if}
+										{#if req.setup_delivery_status}
+											<p>{setupDeliverySummary(req)}</p>
+										{/if}
+										{#if req.setup_delivery_sent_at}
+											<p>Delivered {formatDisplayDateTime(req.setup_delivery_sent_at)}</p>
+										{:else if req.setup_delivery_updated_at}
+											<p>Delivery updated {formatDisplayDateTime(req.setup_delivery_updated_at)}</p>
+										{/if}
+										{#if req.setup_delivery_last_error}
+											<p class="text-danger-foreground">Delivery error: {req.setup_delivery_last_error}</p>
 										{/if}
 									</div>
 								{/if}
 							</div>
-							{#if req.status === 'approved' && req.setup_state !== 'completed'}
+							{#if req.status === 'approved' && canSendSetup(req.setup_state)}
 								<form
 									method="POST"
 									action="?/resend"
@@ -193,7 +245,7 @@
 									<input type="hidden" name="requestId" value={req.id} />
 									<Button type="submit" variant="outline" disabled={loadingId !== null}>
 										{#if loadingId === `${req.id}-resend`}<Spinner />{/if}
-										Resend Setup
+										{setupActionLabel(req.setup_state)}
 									</Button>
 								</form>
 							{:else if req.status === 'approved' && req.setup_state === 'completed'}

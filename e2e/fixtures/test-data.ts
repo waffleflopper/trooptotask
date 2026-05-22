@@ -34,9 +34,27 @@ export const TEST_GROUP = {
 
 // Seed personnel for predictable assertions
 export const TEST_PERSONNEL = [
-	{ id: '00000000-e2e0-7e57-0000-000000000010', first_name: 'John', last_name: 'Doe', rank: 'SGT' },
-	{ id: '00000000-e2e0-7e57-0000-000000000011', first_name: 'Jane', last_name: 'Smith', rank: 'SPC' },
-	{ id: '00000000-e2e0-7e57-0000-000000000012', first_name: 'Bob', last_name: 'Jones', rank: 'PFC' }
+	{
+		id: '00000000-e2e0-7e57-0000-000000000010',
+		first_name: 'John',
+		last_name: 'Doe',
+		rank: 'SGT',
+		slug: 'john-doe'
+	},
+	{
+		id: '00000000-e2e0-7e57-0000-000000000011',
+		first_name: 'Jane',
+		last_name: 'Smith',
+		rank: 'SPC',
+		slug: 'jane-smith'
+	},
+	{
+		id: '00000000-e2e0-7e57-0000-000000000012',
+		first_name: 'Bob',
+		last_name: 'Jones',
+		rank: 'PFC',
+		slug: 'bob-jones'
+	}
 ];
 
 export const TEST_STATUS_TYPES = [

@@ -19,6 +19,7 @@ export interface DashboardPendingInvitationSummary {
 export type DashboardInvitationAcceptStatus =
 	| 'accepted'
 	| 'not_found'
+	| 'setup_required'
 	| 'expired'
 	| 'already_member'
 	| 'already_accepted'
@@ -139,6 +140,9 @@ export async function acceptDashboardInvitation(
 
 	if (accepted.status === 'not_found') {
 		fail(404, 'Invitation not found');
+	}
+	if (accepted.status === 'setup_required') {
+		fail(400, 'Complete account setup before accepting this organization invitation');
 	}
 	if (accepted.status === 'expired') {
 		fail(400, 'Invitation has expired');

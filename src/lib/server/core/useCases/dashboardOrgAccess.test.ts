@@ -196,6 +196,24 @@ describe('acceptDashboardInvitation', () => {
 		expect(port.deletedInvitationIds).toEqual([]);
 	});
 
+	it('requires completed account setup before accepting an invitation linked from an Access Request', async () => {
+		const port = createDashboardOrgAccessPort({
+			acceptResult: { status: 'setup_required', organizationId: null }
+		});
+
+		await expect(
+			acceptDashboardInvitation(
+				{ dashboard: port, notifications: createTestNotificationPort() },
+				{ invitationId: 'invite-1', userId: 'user-1', email: 'user@example.com' }
+			)
+		).rejects.toMatchObject({
+			status: 400,
+			message: 'Complete account setup before accepting this organization invitation'
+		});
+
+		expect(port.deletedInvitationIds).toEqual([]);
+	});
+
 	it('returns a deterministic already-accepted failure for double accepts', async () => {
 		const port = createDashboardOrgAccessPort({
 			acceptResult: { status: 'already_accepted', organizationId: 'org-1' }

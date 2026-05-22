@@ -71,6 +71,13 @@ export const ORGANIZATION_DATA_EXPORT_SECTIONS = [
 		'settings',
 		'Settings'
 	),
+	section(
+		'invitationAccessRequestLinks',
+		'Organization Invitation Access Request Links',
+		'access_request_organization_invitation_links',
+		'settings',
+		'Settings'
+	),
 	section('dashboardConfigs', 'Dashboard Configs', 'dashboard_configs', 'settings', 'Settings'),
 	section('deletionRequests', 'Deletion Requests', 'deletion_requests', 'settings', 'Settings'),
 	section('gettingStartedProgress', 'Getting Started Progress', 'getting_started_progress', 'settings', 'Settings'),

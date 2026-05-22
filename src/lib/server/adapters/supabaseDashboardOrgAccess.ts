@@ -145,6 +145,7 @@ function normalizeAcceptStatus(
 	if (
 		status === 'accepted' ||
 		status === 'not_found' ||
+		status === 'setup_required' ||
 		status === 'expired' ||
 		status === 'already_member' ||
 		status === 'already_accepted'

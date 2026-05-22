@@ -453,6 +453,20 @@
 			]
 		},
 		{
+			"path": "supabase/migrations/20260522001000_accept_invitation_requires_completed_access_request_setup.sql",
+			"classification": "historical-migration",
+			"patterns": [
+				"can_view_*",
+				"can_edit_*",
+				"scoped_group_id"
+			],
+			"ownerIssue": "#1013",
+			"reason": "Access-request-gated invitation acceptance redefines the existing atomic transition and intentionally preserves stored compatibility permission snapshot copying while adding the account-setup guard.",
+			"driftIds": [
+				"D-01"
+			]
+		},
+		{
 			"path": "supabase/migrations/20260502000100_remove_legacy_authorization_from_rls_helpers.sql",
 			"classification": "compatibility-adapter",
 			"patterns": [

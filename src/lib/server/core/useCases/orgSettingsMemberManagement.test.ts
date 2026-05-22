@@ -9,6 +9,7 @@ import {
 	resendOrganizationInvitation,
 	revokeOrganizationInvitation,
 	updateOrganizationMemberPermissions,
+	type OrganizationInvitationAccessRequestBridgeInput,
 	type OrganizationInvitationCreateInput,
 	type OrganizationMembershipUpdateInput,
 	type OrganizationSettingsMemberManagementPort
@@ -46,6 +47,11 @@ function createOrganizationSettingsMemberManagementPort(
 	options: {
 		existingInvitationId?: string | null;
 		createInvitationError?: string | null;
+		existingUserAccount?: { id: string; email: string } | null;
+		accessRequestBridgeResult?:
+			| { status: 'created' | 'linked' | 'already-linked'; accessRequestId: string }
+			| { status: 'failed'; message: string }
+			| null;
 		revokeInvitationResult?: {
 			status: 'revoked' | 'not_found' | 'expired' | 'already_accepted' | 'already_declined' | 'failed';
 			email: string | null;
@@ -62,7 +68,9 @@ function createOrganizationSettingsMemberManagementPort(
 	} = {}
 ): OrganizationSettingsMemberManagementPort & {
 	invitationLookups: Array<{ orgId: string; email: string }>;
+	userAccountLookups: string[];
 	createdInvitations: OrganizationInvitationCreateInput[];
+	accessRequestBridges: OrganizationInvitationAccessRequestBridgeInput[];
 	revokedInvitations: Array<{ orgId: string; inviteId: string }>;
 	pendingInvitationByIdLookups: Array<{ orgId: string; inviteId: string }>;
 	membershipLookups: Array<{ orgId: string; membershipId: string }>;
@@ -70,7 +78,9 @@ function createOrganizationSettingsMemberManagementPort(
 	updatedMemberships: OrganizationMembershipUpdateInput[];
 } {
 	const invitationLookups: Array<{ orgId: string; email: string }> = [];
+	const userAccountLookups: string[] = [];
 	const createdInvitations: OrganizationInvitationCreateInput[] = [];
+	const accessRequestBridges: OrganizationInvitationAccessRequestBridgeInput[] = [];
 	const revokedInvitations: Array<{ orgId: string; inviteId: string }> = [];
 	const pendingInvitationByIdLookups: Array<{ orgId: string; inviteId: string }> = [];
 	const membershipLookups: Array<{ orgId: string; membershipId: string }> = [];
@@ -79,7 +89,9 @@ function createOrganizationSettingsMemberManagementPort(
 
 	return {
 		invitationLookups,
+		userAccountLookups,
 		createdInvitations,
+		accessRequestBridges,
 		revokedInvitations,
 		pendingInvitationByIdLookups,
 		membershipLookups,
@@ -95,11 +107,23 @@ function createOrganizationSettingsMemberManagementPort(
 				? { id: inviteId, email: 'invitee@example.com' }
 				: options.pendingInvitationById;
 		},
+		async findUserAccountByEmail(email) {
+			userAccountLookups.push(email);
+			return options.existingUserAccount === undefined ? { id: 'user-1', email } : options.existingUserAccount;
+		},
 		async createInvitation(input) {
 			createdInvitations.push(input);
 			return options.createInvitationError
 				? { status: 'failed', message: options.createInvitationError }
-				: { status: 'created', invitationId: 'invite-created' };
+				: {
+						status: 'created',
+						invitationId: 'invite-created',
+						createdAt: '2026-05-22T12:00:00.000Z'
+					};
+		},
+		async createOrLinkPendingAccessRequestForInvitation(input) {
+			accessRequestBridges.push(input);
+			return options.accessRequestBridgeResult ?? { status: 'created', accessRequestId: 'access-request-1' };
 		},
 		async revokeInvitation(orgId, inviteId) {
 			revokedInvitations.push({ orgId, inviteId });
@@ -497,6 +521,187 @@ describe('inviteOrganizationMember', () => {
 				}
 			}
 		]);
+	});
+
+	it('creates a pending Access Request bridge for a non-user invitation without granting membership', async () => {
+		const ctx = createTestContext({
+			auth: {
+				userId: 'actor-1',
+				orgId: 'org-1'
+			}
+		});
+		const port = createOrganizationSettingsMemberManagementPort({ existingUserAccount: null });
+
+		await inviteOrganizationMember(
+			{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
+			{
+				email: 'NEW.USER@EXAMPLE.COM',
+				membershipRole: 'member',
+				memberAccess: memberAccess({
+					memberPreset: 'operator',
+					capabilityOverrides: { calendar: 'configure' },
+					scopeSet: { kind: 'groups', groupIds: ['11111111-1111-4111-8111-111111111111'] }
+				}),
+				actorEmail: 'actor@example.com'
+			}
+		);
+
+		expect(port.userAccountLookups).toEqual(['new.user@example.com']);
+		expect(port.accessRequestBridges).toEqual([
+			{
+				organizationId: 'org-1',
+				invitationId: 'invite-created',
+				email: 'new.user@example.com',
+				invitedBy: 'actor-1',
+				invitedAt: '2026-05-22T12:00:00.000Z',
+				role: 'member',
+				permissions: {
+					canViewCalendar: true,
+					canEditCalendar: true,
+					canViewPersonnel: true,
+					canEditPersonnel: false,
+					canViewTraining: true,
+					canEditTraining: false,
+					canViewCriticalTasks: true,
+					canEditCriticalTasks: false,
+					canViewOnboarding: true,
+					canEditOnboarding: false,
+					canViewRatingScheme: true,
+					canEditRatingScheme: false,
+					canManageMembers: false
+				},
+				memberPreset: 'operator',
+				capabilityOverrides: { calendar: 'configure' },
+				accessScopeKind: 'groups',
+				accessScopeGroupIds: ['11111111-1111-4111-8111-111111111111']
+			}
+		]);
+		expect(ctx.auditPort.events).toContainEqual({
+			action: 'member.invite_access_request_created',
+			resourceType: 'organization',
+			details: {
+				email: 'new.user@example.com',
+				invitationId: 'invite-created',
+				accessRequestId: 'access-request-1'
+			},
+			severity: 'info'
+		});
+		expect(ctx.notificationPort.notifications).toHaveLength(1);
+	});
+
+	it('links an existing pending Access Request for a non-user duplicate request instead of creating another request', async () => {
+		const ctx = createTestContext();
+		const port = createOrganizationSettingsMemberManagementPort({
+			existingUserAccount: null,
+			accessRequestBridgeResult: { status: 'linked', accessRequestId: 'pending-request-1' }
+		});
+
+		await inviteOrganizationMember(
+			{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
+			{
+				email: 'pending@example.com',
+				membershipRole: 'member',
+				memberAccess: memberAccess({ memberPreset: 'viewer' }),
+				actorEmail: 'actor@example.com'
+			}
+		);
+
+		expect(port.accessRequestBridges).toHaveLength(1);
+		expect(ctx.auditPort.events).toContainEqual({
+			action: 'member.invite_access_request_linked',
+			resourceType: 'organization',
+			details: {
+				email: 'pending@example.com',
+				invitationId: 'invite-created',
+				accessRequestId: 'pending-request-1'
+			},
+			severity: 'info'
+		});
+	});
+
+	it('records idempotent Access Request invitation links without treating them as duplicate invitation rows', async () => {
+		const ctx = createTestContext();
+		const port = createOrganizationSettingsMemberManagementPort({
+			existingUserAccount: null,
+			accessRequestBridgeResult: { status: 'already-linked', accessRequestId: 'pending-request-1' }
+		});
+
+		await inviteOrganizationMember(
+			{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
+			{
+				email: 'pending@example.com',
+				membershipRole: 'member',
+				memberAccess: memberAccess({ memberPreset: 'viewer' }),
+				actorEmail: 'actor@example.com'
+			}
+		);
+
+		expect(port.createdInvitations).toHaveLength(1);
+		expect(ctx.auditPort.events).toContainEqual({
+			action: 'member.invite_access_request_already_linked',
+			resourceType: 'organization',
+			details: {
+				email: 'pending@example.com',
+				invitationId: 'invite-created',
+				accessRequestId: 'pending-request-1'
+			},
+			severity: 'info'
+		});
+	});
+
+	it('does not create or link an Access Request when the invite email already has a User Account', async () => {
+		const ctx = createTestContext();
+		const port = createOrganizationSettingsMemberManagementPort({
+			existingUserAccount: { id: 'existing-user-1', email: 'member@example.com' }
+		});
+
+		await inviteOrganizationMember(
+			{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
+			{
+				email: 'member@example.com',
+				membershipRole: 'member',
+				memberAccess: memberAccess({ memberPreset: 'viewer' }),
+				actorEmail: 'actor@example.com'
+			}
+		);
+
+		expect(port.userAccountLookups).toEqual(['member@example.com']);
+		expect(port.accessRequestBridges).toEqual([]);
+	});
+
+	it('keeps the invitation pending and audit-visible when non-user Access Request linking fails', async () => {
+		const ctx = createTestContext();
+		const port = createOrganizationSettingsMemberManagementPort({
+			existingUserAccount: null,
+			accessRequestBridgeResult: { status: 'failed', message: 'access request store unavailable' }
+		});
+
+		const result = await inviteOrganizationMember(
+			{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
+			{
+				email: 'new.user@example.com',
+				membershipRole: 'member',
+				memberAccess: memberAccess({ memberPreset: 'viewer' }),
+				actorEmail: 'actor@example.com'
+			}
+		);
+
+		expect(result).toEqual({
+			inviteSuccess: true,
+			inviteEmail: 'new.user@example.com',
+			inviteMessage: 'Invitation created, but Access Request linking failed. The invitation remains pending.'
+		});
+		expect(port.createdInvitations).toHaveLength(1);
+		expect(ctx.auditPort.events).toContainEqual({
+			action: 'member.invite_access_request_link_failed',
+			resourceType: 'organization',
+			details: {
+				email: 'new.user@example.com',
+				invitationId: 'invite-created',
+				reason: 'access request store unavailable'
+			},
+			severity: 'warning'
+		});
 	});
 
 	it('allows owners to create member-management invitations with an immutable access snapshot', async () => {

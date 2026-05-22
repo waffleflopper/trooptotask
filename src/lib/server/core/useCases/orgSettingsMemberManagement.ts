@@ -29,8 +29,28 @@ export interface OrganizationInvitationCreateInput {
 }
 
 export type OrganizationInvitationCreateResult =
-	| { status: 'created'; invitationId: string }
+	| { status: 'created'; invitationId: string; createdAt: string }
 	| { status: 'failed'; message: string };
+
+export type OrganizationInvitationAccessRequestBridgeResult =
+	| { status: 'created'; accessRequestId: string }
+	| { status: 'linked'; accessRequestId: string }
+	| { status: 'already-linked'; accessRequestId: string }
+	| { status: 'failed'; message: string };
+
+export interface OrganizationInvitationAccessRequestBridgeInput {
+	organizationId: string;
+	invitationId: string;
+	email: string;
+	invitedBy: string;
+	invitedAt: string;
+	role: EditableMembershipRole;
+	permissions: OrganizationMemberPermissions;
+	memberPreset: StoredMemberPreset;
+	capabilityOverrides: CapabilityOverrideMap;
+	accessScopeKind: 'organization' | 'groups';
+	accessScopeGroupIds: string[];
+}
 
 export interface OrganizationMembershipUpdateInput {
 	organizationId: string;
@@ -66,7 +86,11 @@ export interface OrganizationInvitationRevokeResult {
 export interface OrganizationSettingsMemberManagementPort {
 	findPendingInvitation(orgId: string, email: string): Promise<{ id: string } | null>;
 	findPendingInvitationById(orgId: string, inviteId: string): Promise<{ id: string; email: string } | null>;
+	findUserAccountByEmail(email: string): Promise<{ id: string; email: string } | null>;
 	createInvitation(input: OrganizationInvitationCreateInput): Promise<OrganizationInvitationCreateResult>;
+	createOrLinkPendingAccessRequestForInvitation(
+		input: OrganizationInvitationAccessRequestBridgeInput
+	): Promise<OrganizationInvitationAccessRequestBridgeResult>;
 	revokeInvitation(orgId: string, inviteId: string): Promise<OrganizationInvitationRevokeResult>;
 	findMembershipById(orgId: string, membershipId: string): Promise<OrganizationMembershipRecord | null>;
 	removeMembership(orgId: string, membershipId: string): Promise<string | null>;
@@ -165,6 +189,8 @@ export async function inviteOrganizationMember(
 		fail(400, 'An invitation for this email is already pending');
 	}
 
+	const existingUserAccount = await ports.settings.findUserAccountByEmail(email);
+
 	const createResult = await ports.settings.createInvitation({
 		organizationId: ports.auth.orgId,
 		email,
@@ -181,6 +207,22 @@ export async function inviteOrganizationMember(
 	if (createResult.status === 'failed') {
 		fail(500, createResult.message);
 	}
+
+	const accessRequestBridgeStatus = existingUserAccount
+		? 'existing-user'
+		: await bridgeInvitationToAccessRequest(ports, {
+				organizationId: ports.auth.orgId,
+				invitationId: createResult.invitationId,
+				email,
+				invitedBy: actorUserId,
+				invitedAt: createResult.createdAt,
+				role: accessCommand.role,
+				permissions: accessCommand.permissions,
+				memberPreset: accessCommand.memberPreset,
+				capabilityOverrides: accessCommand.capabilityOverrides,
+				accessScopeKind: accessCommand.accessScopeKind,
+				accessScopeGroupIds: accessCommand.accessScopeGroupIds
+			});
 
 	ports.audit.log({
 		action: 'member.invite',
@@ -211,12 +253,52 @@ export async function inviteOrganizationMember(
 		inviteSuccess: true,
 		inviteEmail: email,
 		inviteMessage:
-			deliveryStatus === 'failed'
-				? 'Invitation created, but email delivery failed. You can resend it from Pending Invitations.'
-				: deliveryStatus === 'sent'
-					? 'Invitation created and email delivery was queued.'
-					: 'Invitation created! Tell the user to log in to Troop to Task - they will see the invitation on their dashboard.'
+			accessRequestBridgeStatus === 'failed'
+				? 'Invitation created, but Access Request linking failed. The invitation remains pending.'
+				: deliveryStatus === 'failed'
+					? 'Invitation created, but email delivery failed. You can resend it from Pending Invitations.'
+					: deliveryStatus === 'sent'
+						? 'Invitation created and email delivery was queued.'
+						: 'Invitation created! Tell the user to log in to Troop to Task - they will see the invitation on their dashboard.'
 	};
+}
+
+async function bridgeInvitationToAccessRequest(
+	ports: OrganizationSettingsMemberManagementPorts,
+	input: OrganizationInvitationAccessRequestBridgeInput
+): Promise<'created' | 'linked' | 'already-linked' | 'failed'> {
+	const result = await ports.settings.createOrLinkPendingAccessRequestForInvitation(input);
+	if (result.status === 'failed') {
+		ports.audit.log({
+			action: 'member.invite_access_request_link_failed',
+			resourceType: 'organization',
+			details: {
+				email: input.email,
+				invitationId: input.invitationId,
+				reason: result.message
+			},
+			severity: 'warning'
+		});
+		return 'failed';
+	}
+
+	ports.audit.log({
+		action:
+			result.status === 'created'
+				? 'member.invite_access_request_created'
+				: result.status === 'linked'
+					? 'member.invite_access_request_linked'
+					: 'member.invite_access_request_already_linked',
+		resourceType: 'organization',
+		details: {
+			email: input.email,
+			invitationId: input.invitationId,
+			accessRequestId: result.accessRequestId
+		},
+		severity: 'info'
+	});
+
+	return result.status;
 }
 
 export async function resendOrganizationInvitation(

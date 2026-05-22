@@ -848,6 +848,33 @@
 					</div>
 				</section>
 			{/if}
+
+			{#if membersSection.invitationHistory.length > 0}
+				<section
+					class="grid gap-4 rounded-lg border bg-card p-4 text-card-foreground"
+					aria-labelledby="invitation-history-heading"
+				>
+					<div class="flex items-center justify-between gap-3">
+						<h3 id="invitation-history-heading" class="text-lg font-semibold tracking-tight">Invitation History</h3>
+						<Badge variant="secondary">{membersSection.invitationHistory.length} Closed</Badge>
+					</div>
+					<div class="grid gap-3">
+						{#each membersSection.invitationHistory as invite (invite.id)}
+							{@const invitePermissionPreset = memberAccess.getInvitePreset(invite)}
+							<div class="flex flex-col gap-2 rounded-md border p-3 md:flex-row md:items-center md:justify-between">
+								<div>
+									<p class="font-medium">{invite.email}</p>
+									<p class="text-sm text-muted-foreground">
+										{memberAccess.getAccessLabel(invitePermissionPreset)} · {invite.lifecycleStatusLabel}
+										{formatRelativeDate(invite.lifecycleAt)}
+									</p>
+								</div>
+								<Badge variant="outline">{invite.lifecycleStatusLabel}</Badge>
+							</div>
+						{/each}
+					</div>
+				</section>
+			{/if}
 		</Tabs.Content>
 
 		<Tabs.Content value="policies" class="grid gap-4">

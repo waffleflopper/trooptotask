@@ -5,6 +5,7 @@ import {
 	declineDashboardInvitation,
 	loadDashboardOrgAccess,
 	type DashboardInvitationAcceptResult,
+	type DashboardInvitationDeclineResult,
 	type DashboardOrgAccessPort,
 	type DashboardOrganizationSummary,
 	type DashboardPendingInvitationSummary
@@ -15,16 +16,16 @@ function createDashboardOrgAccessPort(
 		organizations?: DashboardOrganizationSummary[];
 		pendingInvitations?: DashboardPendingInvitationSummary[];
 		acceptResult?: DashboardInvitationAcceptResult;
-		declineSucceeds?: boolean;
+		declineResult?: DashboardInvitationDeclineResult;
 	} = {}
 ): DashboardOrgAccessPort & {
 	deletedInvitationIds: string[];
-	declinedInvitations: Array<{ invitationId: string; email: string }>;
+	declinedInvitations: Array<{ invitationId: string; userId: string; email: string }>;
 	requestedInvitationEmails: string[];
 	acceptedInvitations: Array<{ invitationId: string; userId: string; email: string }>;
 } {
 	const deletedInvitationIds: string[] = [];
-	const declinedInvitations: Array<{ invitationId: string; email: string }> = [];
+	const declinedInvitations: Array<{ invitationId: string; userId: string; email: string }> = [];
 	const requestedInvitationEmails: string[] = [];
 	const acceptedInvitations: Array<{ invitationId: string; userId: string; email: string }> = [];
 
@@ -44,9 +45,9 @@ function createDashboardOrgAccessPort(
 			acceptedInvitations.push(input);
 			return options.acceptResult ?? { status: 'accepted', organizationId: 'org-1' };
 		},
-		async deleteInvitationForEmail(invitationId, email) {
-			declinedInvitations.push({ invitationId, email });
-			return options.declineSucceeds ?? true;
+		async declineInvitation(input) {
+			declinedInvitations.push(input);
+			return options.declineResult ?? { status: 'declined', organizationId: 'org-1' };
 		}
 	};
 }
@@ -288,26 +289,138 @@ describe('acceptDashboardInvitation', () => {
 });
 
 describe('declineDashboardInvitation', () => {
-	it('deletes the invitation for the current email and returns the success payload', async () => {
+	it('marks the invitation declined for the authenticated invitee and notifies admins', async () => {
 		const port = createDashboardOrgAccessPort();
+		const notifications = createTestNotificationPort();
 
-		const result = await declineDashboardInvitation(port, {
-			invitationId: 'invite-1',
-			email: ' USER@EXAMPLE.COM '
-		});
+		const result = await declineDashboardInvitation(
+			{ dashboard: port, notifications },
+			{
+				invitationId: 'invite-1',
+				userId: 'user-1',
+				email: ' USER@EXAMPLE.COM '
+			}
+		);
 
 		expect(result).toEqual({ success: true, declined: true });
-		expect(port.declinedInvitations).toEqual([{ invitationId: 'invite-1', email: 'user@example.com' }]);
+		expect(port.declinedInvitations).toEqual([
+			{ invitationId: 'invite-1', userId: 'user-1', email: 'user@example.com' }
+		]);
+		expect(port.deletedInvitationIds).toEqual([]);
+		expect(notifications.notifications).toEqual([
+			{
+				target: 'admins',
+				orgId: 'org-1',
+				excludeUserId: 'user-1',
+				notification: {
+					type: 'member_invite_declined',
+					title: 'Invitation Declined',
+					message: '"user@example.com" declined their organization invitation.',
+					link: '/org/org-1/settings'
+				}
+			}
+		]);
 	});
 
-	it('fails with the current generic error when the decline delete errors', async () => {
-		const port = createDashboardOrgAccessPort({ declineSucceeds: false });
+	it('fails when the decline transition cannot find an invitation for the current email', async () => {
+		const port = createDashboardOrgAccessPort({ declineResult: { status: 'not_found', organizationId: null } });
 
 		await expect(
-			declineDashboardInvitation(port, {
+			declineDashboardInvitation(
+				{ dashboard: port, notifications: createTestNotificationPort() },
+				{
+					invitationId: 'invite-1',
+					userId: 'user-1',
+					email: 'user@example.com'
+				}
+			)
+		).rejects.toMatchObject({
+			status: 404,
+			message: 'Invitation not found'
+		});
+	});
+
+	it('returns a clear expired state instead of deleting invitation history', async () => {
+		const port = createDashboardOrgAccessPort({ declineResult: { status: 'expired', organizationId: 'org-1' } });
+
+		await expect(
+			declineDashboardInvitation(
+				{ dashboard: port, notifications: createTestNotificationPort() },
+				{
+					invitationId: 'invite-1',
+					userId: 'user-1',
+					email: 'user@example.com'
+				}
+			)
+		).rejects.toMatchObject({
+			status: 400,
+			message: 'Invitation has expired'
+		});
+		expect(port.deletedInvitationIds).toEqual([]);
+	});
+
+	it.each([
+		['already_accepted', 'Invitation has already been accepted'],
+		['already_declined', 'Invitation has already been declined'],
+		['revoked', 'Invitation has been revoked']
+	] as const)('maps %s decline statuses to deterministic action failures', async (status, message) => {
+		const port = createDashboardOrgAccessPort({ declineResult: { status, organizationId: 'org-1' } });
+
+		await expect(
+			declineDashboardInvitation(
+				{ dashboard: port, notifications: createTestNotificationPort() },
+				{
+					invitationId: 'invite-1',
+					userId: 'user-1',
+					email: 'user@example.com'
+				}
+			)
+		).rejects.toMatchObject({
+			status: 400,
+			message
+		});
+	});
+
+	it('keeps declined response when governor notification delivery fails after the transition committed', async () => {
+		const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+		const port = createDashboardOrgAccessPort();
+		const notifications = createTestNotificationPort();
+		vi.spyOn(notifications, 'notifyAdmins').mockRejectedValue(new Error('notification unavailable'));
+
+		const result = await declineDashboardInvitation(
+			{ dashboard: port, notifications },
+			{
 				invitationId: 'invite-1',
-				email: 'user@example.com'
+				userId: 'user-1',
+				email: ' USER@EXAMPLE.COM '
+			}
+		);
+
+		expect(result).toEqual({ success: true, declined: true });
+		expect(consoleErrorSpy).toHaveBeenCalledWith(
+			'[dashboard-org-access]',
+			expect.objectContaining({
+				status: 'declined-notification-failed',
+				organizationId: 'org-1',
+				userId: 'user-1'
 			})
+		);
+
+		consoleErrorSpy.mockRestore();
+	});
+
+	it('fails with the current generic error when the decline transition fails', async () => {
+		const port = createDashboardOrgAccessPort({ declineResult: { status: 'failed', organizationId: null } });
+
+		await expect(
+			declineDashboardInvitation(
+				{ dashboard: port, notifications: createTestNotificationPort() },
+				{
+					invitationId: 'invite-1',
+					userId: 'user-1',
+					email: 'user@example.com'
+				}
+			)
 		).rejects.toMatchObject({
 			status: 500,
 			message: 'Failed to decline invitation'

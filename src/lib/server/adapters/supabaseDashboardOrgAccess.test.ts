@@ -3,29 +3,6 @@ import { createSupabaseDashboardOrgAccessPort } from './supabaseDashboardOrgAcce
 
 type Call = { method: string; args: unknown[] };
 
-function createInvitationBuilder(result: unknown) {
-	const calls: Call[] = [];
-
-	function track(method: string) {
-		return (...args: unknown[]) => {
-			calls.push({ method, args });
-			return builder;
-		};
-	}
-
-	const builder: Record<string, unknown> = {
-		select: track('select'),
-		delete: track('delete'),
-		eq: track('eq'),
-		single: (...args: unknown[]) => {
-			calls.push({ method: 'single', args });
-			return result;
-		}
-	};
-
-	return { builder, calls };
-}
-
 function createRpcBuilder(result: unknown) {
 	const calls: Call[] = [];
 	const builder: Record<string, unknown> = {
@@ -144,17 +121,49 @@ describe('createSupabaseDashboardOrgAccessPort', () => {
 		expect(result).toEqual({ status: 'failed', organizationId: null });
 	});
 
-	it('declines invitations by normalized email until decline becomes a lifecycle update', async () => {
-		const { builder, calls } = createInvitationBuilder({ error: null });
-		const supabase = { from: vi.fn(() => builder) };
+	it('declines invitations through the lifecycle transition RPC', async () => {
+		const { builder, calls } = createRpcBuilder({
+			data: {
+				decline_status: 'declined',
+				declined_organization_id: 'org-1'
+			},
+			error: null
+		});
+		const supabase = { rpc: vi.fn(() => builder), from: vi.fn() };
 		const port = createSupabaseDashboardOrgAccessPort({ supabase } as never);
 
-		const result = await port.deleteInvitationForEmail('invite-1', 'user@example.com');
+		const result = await port.declineInvitation({
+			invitationId: 'invite-1',
+			userId: 'user-1',
+			email: 'user@example.com'
+		});
 
-		expect(result).toBe(true);
-		expect(calls).toContainEqual({ method: 'delete', args: [] });
-		expect(calls).toContainEqual({ method: 'eq', args: ['id', 'invite-1'] });
-		expect(calls).toContainEqual({ method: 'eq', args: ['normalized_email', 'user@example.com'] });
-		expect(calls).toContainEqual({ method: 'eq', args: ['status', 'pending'] });
+		expect(result).toEqual({ status: 'declined', organizationId: 'org-1' });
+		expect(supabase.rpc).toHaveBeenCalledWith('decline_organization_invitation', {
+			p_invitation_id: 'invite-1'
+		});
+		expect(supabase.from).not.toHaveBeenCalled();
+		expect(calls).toContainEqual({ method: 'single', args: [] });
+	});
+
+	it('maps provider errors from the decline transition to a failed status', async () => {
+		const { builder } = createRpcBuilder({
+			data: null,
+			error: { message: 'rpc unavailable' }
+		});
+		const port = createSupabaseDashboardOrgAccessPort({
+			supabase: {
+				rpc: vi.fn(() => builder),
+				from: vi.fn()
+			}
+		} as never);
+
+		const result = await port.declineInvitation({
+			invitationId: 'invite-1',
+			userId: 'user-1',
+			email: 'user@example.com'
+		});
+
+		expect(result).toEqual({ status: 'failed', organizationId: null });
 	});
 });

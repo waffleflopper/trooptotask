@@ -154,6 +154,7 @@ describe('organization settings workspace read model', () => {
 		});
 		expect(workspace.sections.members.rows).toHaveLength(2);
 		expect(workspace.sections.members.invitations).toHaveLength(1);
+		expect(workspace.sections.members.invitationHistory).toHaveLength(0);
 		expect(workspace.sections.members.roleCounts).toEqual({ owner: 1, admin: 0, member: 1 });
 		expect(workspace.sections.members.memberRoleSummary).toBe('1 Owner · 0 Admins · 1 Member');
 		expect(workspace.sections.members.pendingApprovalSummary).toEqual({
@@ -380,6 +381,7 @@ describe('organization settings workspace read model', () => {
 		});
 
 		expect(workspace.sections.members.invitations).toHaveLength(2);
+		expect(workspace.sections.members.invitationHistory).toHaveLength(0);
 		expect(workspace.sections.members.pendingApprovalSummary).toEqual({
 			count: 1,
 			oldestCreatedAt: '2026-05-20T12:00:00Z'
@@ -389,6 +391,87 @@ describe('organization settings workspace read model', () => {
 			purgeSummary: 'Retention 36 months'
 		});
 		expect(workspace.sections.dataExport.exportInfo.limitReached).toBe(true);
+	});
+
+	it('separates actionable pending invitations from terminal invitation history', () => {
+		const workspace = buildOrganizationSettingsWorkspace({
+			currentMemberRole: 'owner',
+			isAdmin: false,
+			organization: {
+				id: 'org-1',
+				name: 'Test Org',
+				urlSlug: null,
+				urlSegment: 'org-1',
+				effectiveTier: null
+			},
+			members: [],
+			invitations: [
+				{
+					id: 'invite-pending',
+					email: 'pending@example.com',
+					status: 'pending',
+					created_at: '2026-05-21T12:00:00Z',
+					expires_at: '2999-05-21T12:00:00Z',
+					...legacyAccessFlags,
+					member_preset: 'operator',
+					capability_overrides: null,
+					access_scope_kind: 'organization',
+					access_scope_group_ids: []
+				},
+				{
+					id: 'invite-declined',
+					email: 'declined@example.com',
+					status: 'declined',
+					created_at: '2026-05-21T12:00:00Z',
+					declined_at: '2026-05-22T12:00:00Z',
+					...legacyAccessFlags,
+					member_preset: 'viewer',
+					capability_overrides: null,
+					access_scope_kind: 'organization',
+					access_scope_group_ids: []
+				},
+				{
+					id: 'invite-revoked',
+					email: 'revoked@example.com',
+					status: 'revoked',
+					created_at: '2026-05-21T12:00:00Z',
+					revoked_at: '2026-05-23T12:00:00Z',
+					...legacyAccessFlags,
+					member_preset: 'viewer',
+					capability_overrides: null,
+					access_scope_kind: 'organization',
+					access_scope_group_ids: []
+				},
+				{
+					id: 'invite-expired',
+					email: 'expired@example.com',
+					status: 'pending',
+					created_at: '2020-05-21T12:00:00Z',
+					expires_at: '2020-05-28T12:00:00Z',
+					...legacyAccessFlags,
+					member_preset: 'viewer',
+					capability_overrides: null,
+					access_scope_kind: 'organization',
+					access_scope_group_ids: []
+				}
+			],
+			groups: [],
+			organizationSettings: null,
+			archivedPersonnel: []
+		});
+
+		expect(workspace.sections.members.invitations.map((invite) => invite.id)).toEqual(['invite-pending']);
+		expect(workspace.sections.members.invitationHistory.map((invite) => invite.id)).toEqual([
+			'invite-declined',
+			'invite-revoked',
+			'invite-expired'
+		]);
+		expect(workspace.sections.members.invitationHistory.map((invite) => invite.lifecycleStatusLabel)).toEqual([
+			'Declined',
+			'Revoked',
+			'Expired'
+		]);
+		expect(workspace.sections.members.invitationHistory[2].lifecycleAt).toBe('2020-05-28T12:00:00Z');
 	});
 
 	it('loads source tables for the completed visible settings workspace', async () => {

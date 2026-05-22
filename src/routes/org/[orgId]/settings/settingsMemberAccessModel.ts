@@ -26,5 +26,10 @@ export interface SettingsInvitationAccessRow {
 	status: string;
 	membershipRole: MembershipRole;
 	createdAt: string;
+	expiresAt?: string;
+	acceptedAt?: string;
+	declinedAt?: string;
+	revokedAt?: string;
+	expiredAt?: string;
 	access: SettingsAccessShape;
 }

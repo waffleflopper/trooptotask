@@ -24,6 +24,15 @@ export type DashboardInvitationAcceptStatus =
 	| 'already_accepted'
 	| 'failed';
 
+export type DashboardInvitationDeclineStatus =
+	| 'declined'
+	| 'not_found'
+	| 'expired'
+	| 'already_accepted'
+	| 'already_declined'
+	| 'revoked'
+	| 'failed';
+
 export interface DashboardInvitationAcceptInput {
 	invitationId: string;
 	userId: string;
@@ -35,11 +44,22 @@ export interface DashboardInvitationAcceptResult {
 	organizationId: string | null;
 }
 
+export interface DashboardInvitationDeclineInput {
+	invitationId: string;
+	userId: string;
+	email: string;
+}
+
+export interface DashboardInvitationDeclineResult {
+	status: DashboardInvitationDeclineStatus;
+	organizationId: string | null;
+}
+
 export interface DashboardOrgAccessPort {
 	listOrganizationsForUser(userId: string): Promise<DashboardOrganizationSummary[]>;
 	listPendingInvitationsForEmail(email: string): Promise<DashboardPendingInvitationSummary[]>;
 	acceptInvitation(input: DashboardInvitationAcceptInput): Promise<DashboardInvitationAcceptResult>;
-	deleteInvitationForEmail(invitationId: string, email: string): Promise<boolean>;
+	declineInvitation(input: DashboardInvitationDeclineInput): Promise<DashboardInvitationDeclineResult>;
 }
 
 export interface DashboardOrgAccessResult {
@@ -65,8 +85,14 @@ interface AcceptDashboardInvitationInput {
 	email?: string | null;
 }
 
+interface DeclineDashboardInvitationPorts {
+	dashboard: DashboardOrgAccessPort;
+	notifications: NotificationPort;
+}
+
 interface DeclineDashboardInvitationInput {
 	invitationId: string;
+	userId: string;
 	email?: string | null;
 }
 
@@ -137,14 +163,40 @@ export async function acceptDashboardInvitation(
 }
 
 export async function declineDashboardInvitation(
-	port: DashboardOrgAccessPort,
+	ports: DeclineDashboardInvitationPorts,
 	input: DeclineDashboardInvitationInput
 ): Promise<{ success: true; declined: true }> {
-	const declined = await port.deleteInvitationForEmail(input.invitationId, normalizeEmail(input.email));
+	const normalizedEmail = normalizeEmail(input.email);
+	const declined = await ports.dashboard.declineInvitation({
+		invitationId: input.invitationId,
+		userId: input.userId,
+		email: normalizedEmail
+	});
 
-	if (!declined) {
+	if (declined.status === 'not_found') {
+		fail(404, 'Invitation not found');
+	}
+	if (declined.status === 'expired') {
+		fail(400, 'Invitation has expired');
+	}
+	if (declined.status === 'already_accepted') {
+		fail(400, 'Invitation has already been accepted');
+	}
+	if (declined.status === 'already_declined') {
+		fail(400, 'Invitation has already been declined');
+	}
+	if (declined.status === 'revoked') {
+		fail(400, 'Invitation has been revoked');
+	}
+	if (declined.status !== 'declined' || !declined.organizationId) {
 		fail(500, 'Failed to decline invitation');
 	}
+
+	await notifyAdminsOfDeclinedInvitation(ports, {
+		organizationId: declined.organizationId,
+		userId: input.userId,
+		email: normalizedEmail
+	});
 
 	return { success: true, declined: true };
 }
@@ -167,6 +219,27 @@ async function notifyAdminsOfAcceptedInvitation(
 	} catch (error) {
 		console.error('[dashboard-org-access]', {
 			status: 'accepted-notification-failed',
+			organizationId: input.organizationId,
+			userId: input.userId,
+			error
+		});
+	}
+}
+
+async function notifyAdminsOfDeclinedInvitation(
+	ports: DeclineDashboardInvitationPorts,
+	input: { organizationId: string; userId: string; email: string }
+): Promise<void> {
+	try {
+		await ports.notifications.notifyAdmins(input.organizationId, input.userId, {
+			type: 'member_invite_declined',
+			title: 'Invitation Declined',
+			message: `"${input.email}" declined their organization invitation.`,
+			link: `/org/${input.organizationId}/settings`
+		});
+	} catch (error) {
+		console.error('[dashboard-org-access]', {
+			status: 'declined-notification-failed',
 			organizationId: input.organizationId,
 			userId: input.userId,
 			error

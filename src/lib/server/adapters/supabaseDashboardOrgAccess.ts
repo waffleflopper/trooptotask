@@ -1,6 +1,7 @@
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination';
 import type {
 	DashboardInvitationAcceptResult,
+	DashboardInvitationDeclineResult,
 	DashboardOrgAccessPort,
 	DashboardOrganizationSummary,
 	DashboardPendingInvitationSummary
@@ -30,6 +31,11 @@ interface OrganizationInvitationSummaryRow {
 interface AcceptOrganizationInvitationRpcRow {
 	accept_status: DashboardInvitationAcceptResult['status'] | null;
 	accepted_organization_id: string | null;
+}
+
+interface DeclineOrganizationInvitationRpcRow {
+	decline_status: DashboardInvitationDeclineResult['status'] | null;
+	declined_organization_id: string | null;
 }
 
 export function createSupabaseDashboardOrgAccessPort(locals: Pick<App.Locals, 'supabase'>): DashboardOrgAccessPort {
@@ -113,15 +119,22 @@ export function createSupabaseDashboardOrgAccessPort(locals: Pick<App.Locals, 's
 			};
 		},
 
-		async deleteInvitationForEmail(invitationId: string, email: string): Promise<boolean> {
-			const { error } = await supabase
-				.from('organization_invitations')
-				.delete()
-				.eq('id', invitationId)
-				.eq('normalized_email', email)
-				.eq('status', 'pending');
+		async declineInvitation(input): Promise<DashboardInvitationDeclineResult> {
+			// The RPC derives actor id and email from the Supabase JWT, not spoofable app-provided fields.
+			const { data, error } = await supabase
+				.rpc('decline_organization_invitation', {
+					p_invitation_id: input.invitationId
+				})
+				.single<DeclineOrganizationInvitationRpcRow>();
 
-			return !error;
+			if (error || !data) {
+				return { status: 'failed', organizationId: null };
+			}
+
+			return {
+				status: normalizeDeclineStatus(data.decline_status),
+				organizationId: data.declined_organization_id
+			};
 		}
 	};
 }
@@ -135,6 +148,23 @@ function normalizeAcceptStatus(
 		status === 'expired' ||
 		status === 'already_member' ||
 		status === 'already_accepted'
+	) {
+		return status;
+	}
+
+	return 'failed';
+}
+
+function normalizeDeclineStatus(
+	status: DeclineOrganizationInvitationRpcRow['decline_status']
+): DashboardInvitationDeclineResult['status'] {
+	if (
+		status === 'declined' ||
+		status === 'not_found' ||
+		status === 'expired' ||
+		status === 'already_accepted' ||
+		status === 'already_declined' ||
+		status === 'revoked'
 	) {
 		return status;
 	}

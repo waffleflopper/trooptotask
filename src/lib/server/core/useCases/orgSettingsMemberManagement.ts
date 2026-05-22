@@ -46,10 +46,23 @@ interface OrganizationMembershipRecord {
 	email: string | null;
 }
 
+export type OrganizationInvitationRevokeStatus =
+	| 'revoked'
+	| 'not_found'
+	| 'expired'
+	| 'already_accepted'
+	| 'already_declined'
+	| 'failed';
+
+export interface OrganizationInvitationRevokeResult {
+	status: OrganizationInvitationRevokeStatus;
+	email: string | null;
+}
+
 export interface OrganizationSettingsMemberManagementPort {
 	findPendingInvitation(orgId: string, email: string): Promise<{ id: string } | null>;
 	createInvitation(input: OrganizationInvitationCreateInput): Promise<string | null>;
-	revokeInvitation(orgId: string, inviteId: string): Promise<string | null>;
+	revokeInvitation(orgId: string, inviteId: string): Promise<OrganizationInvitationRevokeResult>;
 	findMembershipById(orgId: string, membershipId: string): Promise<OrganizationMembershipRecord | null>;
 	removeMembership(orgId: string, membershipId: string): Promise<string | null>;
 	updateMembership(input: OrganizationMembershipUpdateInput): Promise<string | null>;
@@ -180,15 +193,32 @@ export async function revokeOrganizationInvitation(
 		fail(400, 'Invalid invitation ID');
 	}
 
-	const errorMessage = await ports.settings.revokeInvitation(ports.auth.orgId, input.inviteId);
-	if (errorMessage) {
-		fail(500, errorMessage);
+	const revoked = await ports.settings.revokeInvitation(ports.auth.orgId, input.inviteId);
+	if (revoked.status === 'not_found') {
+		fail(404, 'Invitation not found');
+	}
+	if (revoked.status === 'expired') {
+		fail(400, 'Invitation has expired');
+	}
+	if (revoked.status === 'already_accepted') {
+		fail(400, 'Invitation has already been accepted');
+	}
+	if (revoked.status === 'already_declined') {
+		fail(400, 'Invitation has already been declined');
+	}
+	if (revoked.status !== 'revoked') {
+		fail(500, 'Failed to revoke invitation');
 	}
 
 	ports.audit.log({
 		action: 'member.invite_revoked',
 		resourceType: 'organization',
 		details: { inviteId: input.inviteId }
+	});
+
+	await notifyAdminsOfRevokedInvitation(ports, {
+		actorUserId: requireActorUserId(ports.auth),
+		email: revoked.email
 	});
 
 	return { success: true };
@@ -373,6 +403,29 @@ function requireActorUserId(auth: AuthContext): string {
 	}
 
 	return auth.userId;
+}
+
+async function notifyAdminsOfRevokedInvitation(
+	ports: OrganizationSettingsMemberManagementPorts,
+	input: { actorUserId: string; email: string | null }
+): Promise<void> {
+	try {
+		await ports.notifications.notifyAdmins(ports.auth.orgId, input.actorUserId, {
+			type: 'member_invite_revoked',
+			title: 'Invitation Revoked',
+			message: input.email
+				? `"${input.email}" can no longer use the revoked organization invitation.`
+				: 'An organization invitation was revoked.',
+			link: `/org/${ports.auth.orgId}/settings`
+		});
+	} catch (error) {
+		console.error('[org-settings-member-management]', {
+			status: 'revoked-notification-failed',
+			organizationId: ports.auth.orgId,
+			userId: input.actorUserId,
+			error
+		});
+	}
 }
 
 async function requireIdentityPolicy(

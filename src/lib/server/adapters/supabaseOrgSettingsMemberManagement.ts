@@ -1,4 +1,5 @@
 import type {
+	OrganizationInvitationRevokeResult,
 	OrganizationMembershipUpdateInput,
 	OrganizationSettingsMemberManagementPort
 } from '$lib/server/core/useCases/orgSettingsMemberManagement';
@@ -19,6 +20,11 @@ interface OrganizationRow {
 	name: string | null;
 }
 
+interface RevokeOrganizationInvitationRpcRow {
+	revoke_status: OrganizationInvitationRevokeResult['status'] | null;
+	revoked_email: string | null;
+}
+
 export function createSupabaseOrgSettingsMemberManagementPort(
 	locals: Pick<App.Locals, 'supabase'>,
 	deps: { getAdminClient?: () => SupabaseClient } = {}
@@ -34,6 +40,7 @@ export function createSupabaseOrgSettingsMemberManagementPort(
 				.eq('organization_id', orgId)
 				.eq('normalized_email', email)
 				.eq('status', 'pending')
+				.gt('expires_at', new Date().toISOString())
 				.single<OrganizationInvitationLookupRow>();
 
 			if (error || !data) {
@@ -44,6 +51,8 @@ export function createSupabaseOrgSettingsMemberManagementPort(
 		},
 
 		async createInvitation(input) {
+			await expirePendingInvitationForEmail(supabase, input.organizationId, input.email);
+
 			const { error } = await supabase.from('organization_invitations').insert({
 				organization_id: input.organizationId,
 				email: input.email,
@@ -73,13 +82,21 @@ export function createSupabaseOrgSettingsMemberManagementPort(
 		},
 
 		async revokeInvitation(orgId, inviteId) {
-			const { error } = await supabase
-				.from('organization_invitations')
-				.delete()
-				.eq('id', inviteId)
-				.eq('organization_id', orgId);
+			const { data, error } = await supabase
+				.rpc('revoke_organization_invitation', {
+					p_invitation_id: inviteId,
+					p_organization_id: orgId
+				})
+				.single<RevokeOrganizationInvitationRpcRow>();
 
-			return error?.message ?? null;
+			if (error || !data) {
+				return { status: 'failed', email: null };
+			}
+
+			return {
+				status: normalizeRevokeStatus(data.revoke_status),
+				email: data.revoked_email
+			};
 		},
 
 		async findMembershipById(orgId, membershipId) {
@@ -141,6 +158,40 @@ export function createSupabaseOrgSettingsMemberManagementPort(
 			return data.name ?? null;
 		}
 	};
+}
+
+async function expirePendingInvitationForEmail(
+	supabase: SupabaseClient,
+	organizationId: string,
+	email: string
+): Promise<void> {
+	const now = new Date().toISOString();
+	await supabase
+		.from('organization_invitations')
+		.update({
+			status: 'expired',
+			expired_at: now
+		})
+		.eq('organization_id', organizationId)
+		.eq('normalized_email', email)
+		.eq('status', 'pending')
+		.lte('expires_at', now);
+}
+
+function normalizeRevokeStatus(
+	status: RevokeOrganizationInvitationRpcRow['revoke_status']
+): OrganizationInvitationRevokeResult['status'] {
+	if (
+		status === 'revoked' ||
+		status === 'not_found' ||
+		status === 'expired' ||
+		status === 'already_accepted' ||
+		status === 'already_declined'
+	) {
+		return status;
+	}
+
+	return 'failed';
 }
 
 function serializeMembershipUpdate(input: OrganizationMembershipUpdateInput) {

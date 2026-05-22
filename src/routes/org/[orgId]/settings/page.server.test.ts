@@ -157,8 +157,20 @@ describe('org settings page server actions', () => {
 						}
 						if (table === 'organization_invitations') {
 							return [
-								{ id: 'invite-1', email: 'new@example.com' },
-								{ id: 'invite-2', email: 'other@example.com' }
+								{
+									id: 'invite-1',
+									email: 'new@example.com',
+									status: 'pending',
+									created_at: '2026-04-26T12:00:00Z',
+									expires_at: '2026-06-26T12:00:00Z'
+								},
+								{
+									id: 'invite-2',
+									email: 'other@example.com',
+									status: 'pending',
+									created_at: '2026-04-27T12:00:00Z',
+									expires_at: '2026-06-27T12:00:00Z'
+								}
 							];
 						}
 						if (table === 'groups') return [{ id: 'group-1', name: 'HQ', organization_id: 'org-1' }];

@@ -45,7 +45,10 @@ function createOrganizationSettingsMemberManagementPort(
 	options: {
 		existingInvitationId?: string | null;
 		createInvitationError?: string | null;
-		revokeInvitationError?: string | null;
+		revokeInvitationResult?: {
+			status: 'revoked' | 'not_found' | 'expired' | 'already_accepted' | 'already_declined' | 'failed';
+			email: string | null;
+		};
 		membership?: {
 			userId: string | null;
 			role: string | null;
@@ -87,7 +90,7 @@ function createOrganizationSettingsMemberManagementPort(
 		},
 		async revokeInvitation(orgId, inviteId) {
 			revokedInvitations.push({ orgId, inviteId });
-			return options.revokeInvitationError ?? null;
+			return options.revokeInvitationResult ?? { status: 'revoked', email: 'invitee@example.com' };
 		},
 		async findMembershipById(orgId, membershipId) {
 			membershipLookups.push({ orgId, membershipId });
@@ -560,12 +563,25 @@ describe('revokeOrganizationInvitation', () => {
 				details: { inviteId: '11111111-1111-4111-8111-111111111111' }
 			}
 		]);
+		expect(ctx.notificationPort.notifications).toEqual([
+			{
+				target: 'admins',
+				orgId: 'org-1',
+				excludeUserId: ctx.auth.userId,
+				notification: {
+					type: 'member_invite_revoked',
+					title: 'Invitation Revoked',
+					message: '"invitee@example.com" can no longer use the revoked organization invitation.',
+					link: '/org/org-1/settings'
+				}
+			}
+		]);
 	});
 
 	it('fails when invitation revocation returns a provider error', async () => {
 		const ctx = createTestContext();
 		const port = createOrganizationSettingsMemberManagementPort({
-			revokeInvitationError: 'Failed to revoke invitation'
+			revokeInvitationResult: { status: 'failed', email: null }
 		});
 
 		await expect(
@@ -577,6 +593,68 @@ describe('revokeOrganizationInvitation', () => {
 			status: 500,
 			message: 'Failed to revoke invitation'
 		});
+	});
+
+	it('surfaces expired invitations without revoking terminal history', async () => {
+		const ctx = createTestContext();
+		const port = createOrganizationSettingsMemberManagementPort({
+			revokeInvitationResult: { status: 'expired', email: 'invitee@example.com' }
+		});
+
+		await expect(
+			revokeOrganizationInvitation(
+				{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
+				{ inviteId: '11111111-1111-4111-8111-111111111111' }
+			)
+		).rejects.toMatchObject({
+			status: 400,
+			message: 'Invitation has expired'
+		});
+	});
+
+	it.each([
+		['not_found', 404, 'Invitation not found'],
+		['already_accepted', 400, 'Invitation has already been accepted'],
+		['already_declined', 400, 'Invitation has already been declined']
+	] as const)('maps %s revoke statuses to clear action failures', async (status, expectedStatus, message) => {
+		const ctx = createTestContext();
+		const port = createOrganizationSettingsMemberManagementPort({
+			revokeInvitationResult: { status, email: 'invitee@example.com' }
+		});
+
+		await expect(
+			revokeOrganizationInvitation(
+				{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
+				{ inviteId: '11111111-1111-4111-8111-111111111111' }
+			)
+		).rejects.toMatchObject({
+			status: expectedStatus,
+			message
+		});
+	});
+
+	it('keeps the revoke response when governor notification delivery fails after the transition committed', async () => {
+		const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+		const ctx = createTestContext();
+		vi.spyOn(ctx.notifications, 'notifyAdmins').mockRejectedValue(new Error('notification unavailable'));
+		const port = createOrganizationSettingsMemberManagementPort();
+
+		const result = await revokeOrganizationInvitation(
+			{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
+			{ inviteId: '11111111-1111-4111-8111-111111111111' }
+		);
+
+		expect(result).toEqual({ success: true });
+		expect(consoleErrorSpy).toHaveBeenCalledWith(
+			'[org-settings-member-management]',
+			expect.objectContaining({
+				status: 'revoked-notification-failed',
+				organizationId: ctx.auth.orgId,
+				userId: ctx.auth.userId
+			})
+		);
+
+		consoleErrorSpy.mockRestore();
 	});
 });
 

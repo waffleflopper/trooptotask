@@ -29,6 +29,12 @@ export type SettingsInvitationRow = SettingsInvitationAccessRow & {
 	scopeDisplayLabel: string;
 };
 
+export type SettingsInvitationHistoryRow = SettingsInvitationRow & {
+	lifecycleStatus: 'accepted' | 'declined' | 'revoked' | 'expired' | 'blocked' | 'closed';
+	lifecycleStatusLabel: string;
+	lifecycleAt: string;
+};
+
 export type SettingsArchivedPersonnelRow = {
 	id: string;
 	rank: string;
@@ -72,6 +78,7 @@ export interface OrganizationSettingsWorkspace {
 		members: {
 			rows: SettingsMemberRow[];
 			invitations: SettingsInvitationRow[];
+			invitationHistory: SettingsInvitationHistoryRow[];
 			groups: Array<{ id: string; name: string }>;
 			roleCounts: Record<'owner' | 'admin' | 'member', number>;
 			memberRoleSummary: string;

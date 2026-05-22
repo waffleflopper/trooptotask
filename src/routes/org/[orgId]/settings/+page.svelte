@@ -759,8 +759,8 @@
 							{/if}
 							<Field.Root>
 								<Field.Label id="invite-access-level-label">Member Preset</Field.Label>
-								<input type="hidden" name="memberPreset" value={memberAccess.invitePreset} />
 								{#if memberAccess.inviteMembershipRole === 'member'}
+									<input type="hidden" name="memberPreset" value={memberAccess.invitePreset} />
 									<Select.Root type="single" bind:value={memberAccess.invitePreset}>
 										<Select.Trigger aria-label="Invite member preset" class="w-full">
 											{getPresetLabel(memberAccess.invitePreset)}

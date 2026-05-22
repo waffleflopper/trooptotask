@@ -371,7 +371,11 @@ describe('inviteOrganizationMember', () => {
 			{
 				action: 'member.invite',
 				resourceType: 'organization',
-				details: { email: 'new.user@example.com' }
+				details: {
+					email: 'new.user@example.com',
+					membershipRole: 'member',
+					memberPreset: 'operator'
+				}
 			}
 		]);
 		expect(ctx.notificationPort.notifications).toEqual([

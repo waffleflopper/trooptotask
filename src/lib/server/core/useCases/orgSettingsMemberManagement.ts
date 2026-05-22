@@ -140,7 +140,11 @@ export async function inviteOrganizationMember(
 	ports.audit.log({
 		action: 'member.invite',
 		resourceType: 'organization',
-		details: { email }
+		details: {
+			email,
+			membershipRole: accessCommand.role,
+			memberPreset: accessCommand.memberPreset
+		}
 	});
 
 	await ports.notifications.notifyAdmins(ports.auth.orgId, actorUserId, {

@@ -44,6 +44,17 @@ describe('parseMemberAccessEditFormData', () => {
 		});
 	});
 
+	it('falls back to organization scope when all group IDs are invalid UUIDs', () => {
+		const formData = new FormData();
+		formData.set('membershipRole', 'member');
+		formData.set('memberPreset', 'editor');
+		formData.set('scopeSetKind', 'groups');
+		formData.append('scopeSetGroupIds', 'not-a-uuid');
+		formData.append('scopeSetGroupIds', 'also-not-a-uuid');
+
+		expect(parseMemberAccessEditFormData(formData).memberAccess.scopeSet).toEqual({ kind: 'organization' });
+	});
+
 	it('rejects member access edits without a target member preset', () => {
 		const formData = new FormData();
 		formData.set('membershipRole', 'member');

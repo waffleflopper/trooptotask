@@ -93,6 +93,7 @@ describe('organizationInvitationMembership', () => {
 			canViewRatingScheme: true,
 			canEditRatingScheme: true,
 			canManageMembers: true,
+			scopedGroupId: 'group-alpha',
 			memberPreset: 'viewer' as const,
 			capabilityOverrides: { calendar: 'none' as const },
 			accessScopeKind: 'groups' as const,
@@ -109,10 +110,43 @@ describe('organizationInvitationMembership', () => {
 		).toMatchObject({
 			role: 'admin',
 			canManageMembers: true,
+			scopedGroupId: 'group-alpha',
 			memberPreset: 'viewer',
 			capabilityOverrides: { calendar: 'none' },
 			accessScopeKind: 'groups',
 			accessScopeGroupIds: ['group-alpha']
+		});
+	});
+
+	it('does not infer admin when nullable legacy flags are not explicitly granted', () => {
+		const invitation = {
+			organizationId: 'org-1',
+			canViewCalendar: null,
+			canEditCalendar: true,
+			canViewPersonnel: true,
+			canEditPersonnel: true,
+			canViewTraining: true,
+			canEditTraining: true,
+			canViewCriticalTasks: true,
+			canEditCriticalTasks: true,
+			canViewOnboarding: true,
+			canEditOnboarding: true,
+			canViewRatingScheme: true,
+			canEditRatingScheme: true,
+			canManageMembers: true
+		};
+
+		expect(isAdminInvitation(invitation)).toBe(false);
+		expect(
+			deriveMembershipFromInvitation({
+				invitation,
+				userId: 'user-1',
+				email: 'user@example.com'
+			})
+		).toMatchObject({
+			role: 'member',
+			canViewCalendar: true,
+			canManageMembers: true
 		});
 	});
 

@@ -18,6 +18,7 @@ import {
 } from '$lib/server/authEmailOutbox';
 import {
 	ACCESS_REQUEST_INVITATION_ORIGIN_SELECT,
+	listSupabaseInviterProfiles,
 	resolveAccessRequestInvitationOrigins,
 	type AccessRequestInvitationOrigin,
 	type AccessRequestInvitationOriginRow
@@ -381,7 +382,10 @@ export const load: PageServerLoad = loadWithAdminContext({
 		const now = new Date();
 		const invitationOriginsByRequestId = await resolveAccessRequestInvitationOrigins(
 			requests ?? [],
-			supabase.auth.admin
+			supabase.auth.admin,
+			{
+				listUserProfilesByIds: (userIds) => listSupabaseInviterProfiles(supabase, userIds)
+			}
 		);
 		const allRequests: AccessRequestItem[] = (requests ?? []).map((request) => ({
 			id: request.id,

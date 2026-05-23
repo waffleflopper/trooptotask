@@ -19,7 +19,7 @@ function makeLink(overrides: Partial<AccessRequestInvitationOriginRow>): AccessR
 }
 
 describe('access request invitation origin read model', () => {
-	it('falls back to inviter user id when auth lookup is unavailable', async () => {
+	it('falls back to unknown inviter copy when identity lookups are unavailable', async () => {
 		const result = await resolveAccessRequestInvitationOrigins(
 			[
 				{
@@ -33,13 +33,21 @@ describe('access request invitation origin read model', () => {
 		expect(result['request-1']).toEqual([
 			expect.objectContaining({
 				inviter_email: null,
-				inviter_label: 'User 11111111...'
+				inviter_label: 'Unknown inviter'
 			})
 		]);
 	});
 
-	it('keeps rendering fallback context when auth lookup fails', async () => {
-		const getUserById = vi.fn().mockRejectedValue(new Error('auth unavailable'));
+	it('prefers inviter profile name over auth email when both are available', async () => {
+		const getUserById = vi.fn().mockResolvedValue({
+			data: { user: { email: 'leader@example.mil' } },
+			error: null
+		});
+		const listUserProfilesByIds = vi
+			.fn()
+			.mockResolvedValue(
+				new Map([['11111111-1111-4111-8111-111111111111', { firstName: 'Avery', lastName: 'Jones' }]])
+			);
 
 		const result = await resolveAccessRequestInvitationOrigins(
 			[
@@ -48,14 +56,39 @@ describe('access request invitation origin read model', () => {
 					access_request_organization_invitation_links: [makeLink({})]
 				}
 			],
-			{ getUserById }
+			{ getUserById },
+			{ listUserProfilesByIds }
+		);
+
+		expect(listUserProfilesByIds).toHaveBeenCalledWith(['11111111-1111-4111-8111-111111111111']);
+		expect(result['request-1']).toEqual([
+			expect.objectContaining({
+				inviter_email: 'leader@example.mil',
+				inviter_label: 'Avery Jones'
+			})
+		]);
+	});
+
+	it('keeps rendering fallback context when auth and profile lookup fail', async () => {
+		const getUserById = vi.fn().mockRejectedValue(new Error('auth unavailable'));
+		const listUserProfilesByIds = vi.fn().mockRejectedValue(new Error('profiles unavailable'));
+
+		const result = await resolveAccessRequestInvitationOrigins(
+			[
+				{
+					id: 'request-1',
+					access_request_organization_invitation_links: [makeLink({})]
+				}
+			],
+			{ getUserById },
+			{ listUserProfilesByIds }
 		);
 
 		expect(getUserById).toHaveBeenCalledWith('11111111-1111-4111-8111-111111111111');
 		expect(result['request-1']).toEqual([
 			expect.objectContaining({
 				organization_name: 'Alpha Company',
-				inviter_label: 'User 11111111...'
+				inviter_label: 'Unknown inviter'
 			})
 		]);
 	});

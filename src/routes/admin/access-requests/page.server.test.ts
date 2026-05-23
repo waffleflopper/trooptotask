@@ -97,12 +97,15 @@ function makeLoadAdminClient(rows: Record<string, unknown>[]) {
 	const range = vi.fn().mockResolvedValue({ data: rows, error: null });
 	const order = vi.fn(() => ({ range }));
 	const select = vi.fn(() => ({ order }));
+	const profileIn = vi.fn().mockResolvedValue({ data: [], error: null });
+	const profileSelect = vi.fn(() => ({ in: profileIn }));
 	const from = vi.fn((table: string) => {
-		if (table !== 'access_requests') throw new Error(`Unexpected table ${table}`);
-		return { select };
+		if (table === 'access_requests') return { select };
+		if (table === 'user_profiles') return { select: profileSelect };
+		throw new Error(`Unexpected table ${table}`);
 	});
 
-	return { client: { from, auth: { admin: { getUserById: vi.fn() } } }, select, range };
+	return { client: { from, auth: { admin: { getUserById: vi.fn() } } }, select, range, profileIn };
 }
 
 function makeContext(adminClient: unknown) {
@@ -364,7 +367,11 @@ describe('admin access request account setup delivery', () => {
 			data: { user: { id: '11111111-1111-4111-8111-111111111111', email: 'leader@example.mil' } },
 			error: null
 		});
-		const { client, select } = makeLoadAdminClient(rows);
+		const { client, select, profileIn } = makeLoadAdminClient(rows);
+		profileIn.mockResolvedValue({
+			data: [{ user_id: '11111111-1111-4111-8111-111111111111', first_name: 'Avery', last_name: 'Jones' }],
+			error: null
+		});
 		const ctx = makeContext({
 			...client,
 			auth: { admin: { getUserById } }
@@ -382,7 +389,7 @@ describe('admin access request account setup delivery', () => {
 				organization_id: 'org-1',
 				organization_name: 'Alpha Company',
 				inviter_user_id: '11111111-1111-4111-8111-111111111111',
-				inviter_label: 'leader@example.mil',
+				inviter_label: 'Avery Jones',
 				invited_at: '2026-05-18T13:00:00.000Z',
 				membership_role_label: 'Member',
 				member_preset_label: 'Viewer',

@@ -178,7 +178,8 @@ describe('organization invitation delivery', () => {
 		);
 
 		const body = fetchImpl.mock.calls[0][1].body as string;
-		expect(body).toContain('account setup must be approved and completed');
+		expect(body).toContain('submitted a platform access request for this email on your behalf');
+		expect(body).toContain('You do not need to submit another access request');
 		expect(body).toContain('Account Setup Link email');
 		expect(body).not.toContain('Sign in to view and accept');
 	});

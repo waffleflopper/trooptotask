@@ -1,9 +1,26 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
+
 type AuthUserLookup = {
 	getUserById?: (userId: string) => Promise<{
 		data?: { user?: { id?: string; email?: string | null } | null } | null;
 		error?: unknown;
 	}>;
 };
+
+type InviterProfileLookup = {
+	listUserProfilesByIds?: (userIds: string[]) => Promise<Map<string, InviterProfile>>;
+};
+
+type InviterProfile = {
+	firstName: string | null;
+	lastName: string | null;
+};
+
+interface UserProfileRow {
+	user_id: string;
+	first_name: string | null;
+	last_name: string | null;
+}
 
 interface OrganizationReferenceRow {
 	id: string;
@@ -50,7 +67,8 @@ export const ACCESS_REQUEST_INVITATION_ORIGIN_SELECT =
 
 export async function resolveAccessRequestInvitationOrigins(
 	requests: AccessRequestInvitationOriginSource[],
-	authAdmin: AuthUserLookup | undefined
+	authAdmin: AuthUserLookup | undefined,
+	profileLookup?: InviterProfileLookup
 ): Promise<Record<string, AccessRequestInvitationOrigin[]>> {
 	const linksByRequestId = Object.fromEntries(
 		requests.map((request) => [
@@ -62,11 +80,42 @@ export async function resolveAccessRequestInvitationOrigins(
 		new Set(Object.values(linksByRequestId).flatMap((links) => links.map((link) => link.invited_by)))
 	);
 	const inviterEmails = await resolveInviterEmails(inviterIds, authAdmin);
+	const inviterProfiles = await resolveInviterProfiles(inviterIds, profileLookup);
 
 	return Object.fromEntries(
 		Object.entries(linksByRequestId).map(([requestId, links]) => [
 			requestId,
-			links.map((link) => shapeInvitationOrigin(link, inviterEmails.get(link.invited_by) ?? null))
+			links.map((link) =>
+				shapeInvitationOrigin(
+					link,
+					inviterEmails.get(link.invited_by) ?? null,
+					inviterProfiles.get(link.invited_by) ?? null
+				)
+			)
+		])
+	);
+}
+
+export async function listSupabaseInviterProfiles(
+	client: SupabaseClient,
+	userIds: string[]
+): Promise<Map<string, InviterProfile>> {
+	if (userIds.length === 0) return new Map();
+
+	const { data, error } = await client
+		.from('user_profiles')
+		.select('user_id, first_name, last_name')
+		.in('user_id', userIds);
+
+	if (error) throw error;
+
+	return new Map(
+		((data ?? []) as UserProfileRow[]).map((profile) => [
+			profile.user_id,
+			{
+				firstName: profile.first_name,
+				lastName: profile.last_name
+			}
 		])
 	);
 }
@@ -102,10 +151,28 @@ async function resolveInviterEmails(
 	return result;
 }
 
-function shapeInvitationOrigin(link: AccessRequestInvitationOriginRow, inviterEmail: string | null) {
+async function resolveInviterProfiles(
+	inviterIds: string[],
+	profileLookup: InviterProfileLookup | undefined
+): Promise<Map<string, InviterProfile>> {
+	if (!profileLookup?.listUserProfilesByIds || inviterIds.length === 0) return new Map();
+
+	try {
+		return await profileLookup.listUserProfilesByIds(inviterIds);
+	} catch {
+		return new Map();
+	}
+}
+
+function shapeInvitationOrigin(
+	link: AccessRequestInvitationOriginRow,
+	inviterEmail: string | null,
+	inviterProfile: InviterProfile | null
+) {
 	const organization = Array.isArray(link.organizations) ? link.organizations[0] : link.organizations;
 	const membershipRole = link.intended_membership_role === 'admin' ? 'admin' : 'member';
 	const memberPresetLabel = membershipRole === 'member' ? formatMemberPreset(link.intended_member_preset) : null;
+	const inviterProfileLabel = formatInviterProfileLabel(inviterProfile);
 
 	return {
 		link_id: link.id,
@@ -114,7 +181,7 @@ function shapeInvitationOrigin(link: AccessRequestInvitationOriginRow, inviterEm
 		organization_name: organization?.name ?? 'Unknown organization',
 		inviter_user_id: link.invited_by,
 		inviter_email: inviterEmail,
-		inviter_label: inviterEmail ?? shortUserId(link.invited_by),
+		inviter_label: inviterProfileLabel ?? inviterEmail ?? 'Unknown inviter',
 		invited_at: link.invited_at,
 		membership_role: membershipRole,
 		membership_role_label: membershipRole === 'admin' ? 'Admin' : 'Member',
@@ -125,14 +192,19 @@ function shapeInvitationOrigin(link: AccessRequestInvitationOriginRow, inviterEm
 	} satisfies AccessRequestInvitationOrigin;
 }
 
+function formatInviterProfileLabel(profile: InviterProfile | null): string | null {
+	if (!profile) return null;
+	const fullName = [profile.firstName, profile.lastName]
+		.map((part) => part?.trim() ?? '')
+		.filter(Boolean)
+		.join(' ');
+	return fullName || null;
+}
+
 function formatMemberPreset(preset: string | null): string | null {
 	if (preset === 'editor') return 'Editor';
 	if (preset === 'operator') return 'Operator';
 	if (preset === 'viewer') return 'Viewer';
 	if (!preset) return null;
 	return preset;
-}
-
-function shortUserId(userId: string): string {
-	return `User ${userId.slice(0, 8)}...`;
 }

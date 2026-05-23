@@ -140,9 +140,12 @@ function buildOrganizationInvitationEmail(input: SendOrganizationInvitationEmail
 		? [
 				`${inviter} to join ${input.organizationName} on TroopToTask.`,
 				'',
-				`Before you can accept this organization invitation, your TroopToTask account setup must be approved and completed: ${input.inviteUrl}`,
+				'Because you do not have a TroopToTask account yet, we submitted a platform access request for this email on your behalf.',
+				'You do not need to submit another access request.',
 				'',
-				'After platform approval, use the Account Setup Link email to create your account. Then sign in to accept this organization invitation from your dashboard.'
+				`You can review the request here: ${input.inviteUrl}`,
+				'',
+				'After platform approval, use the separate Account Setup Link email to create your account. Then sign in to accept this organization invitation from your dashboard.'
 			].join('\n')
 		: [
 				`${inviter} to join ${input.organizationName} on TroopToTask.`,
@@ -155,8 +158,9 @@ function buildOrganizationInvitationEmail(input: SendOrganizationInvitationEmail
 		? `
 		<p>${escapeHtmlAttribute(inviter)} to join ${escapeHtmlAttribute(input.organizationName)} on TroopToTask.</p>
 		<p><a href="${inviteUrlAttribute}">Review your platform access setup</a></p>
-		<p>Before you can accept this organization invitation, your TroopToTask account setup must be approved and completed.</p>
-		<p>After platform approval, use the Account Setup Link email to create your account. Then sign in to accept this organization invitation from your dashboard.</p>
+		<p>Because you do not have a TroopToTask account yet, we submitted a platform access request for this email on your behalf.</p>
+		<p>You do not need to submit another access request.</p>
+		<p>After platform approval, use the separate Account Setup Link email to create your account. Then sign in to accept this organization invitation from your dashboard.</p>
 	`
 		: `
 		<p>${escapeHtmlAttribute(inviter)} to join ${escapeHtmlAttribute(input.organizationName)} on TroopToTask.</p>

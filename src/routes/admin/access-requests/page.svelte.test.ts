@@ -317,7 +317,7 @@ describe('admin access request setup support UI', () => {
 						organization_name: 'Alpha Company',
 						inviter_user_id: '11111111-1111-4111-8111-111111111111',
 						inviter_email: null,
-						inviter_label: 'User 11111111...',
+						inviter_label: 'leader@example.mil',
 						invited_at: '2026-05-18T13:00:00.000Z',
 						membership_role: 'admin',
 						membership_role_label: 'Admin',
@@ -334,6 +334,7 @@ describe('admin access request setup support UI', () => {
 		const scope = within(card as HTMLElement);
 
 		expect(scope.getByText('Organization Invitation')).toBeTruthy();
+		expect(scope.getByText(/Invited by leader@example\.mil/)).toBeTruthy();
 		expect(scope.getAllByText('Membership Role: Admin').length).toBeGreaterThan(0);
 		expect(scope.getByRole('button', { name: 'Approve' })).toBeTruthy();
 		expect(scope.getByRole('button', { name: 'Reject' })).toBeTruthy();

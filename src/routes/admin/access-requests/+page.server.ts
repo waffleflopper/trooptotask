@@ -32,6 +32,14 @@ import {
 	platformAccessRequestRateLimitMessage,
 	type PlatformAccessRequestSetupAction
 } from '$lib/server/platformAccessRequestRateLimit';
+import {
+	createSupabaseSensitiveActionAuthorizer,
+	PLATFORM_ACCESS_REQUEST_APPROVE_ACTION,
+	PLATFORM_ACCESS_REQUEST_RESEND_SETUP_ACTION,
+	sensitiveActionDecisionAuditDetails,
+	sensitiveActionDenialMessage,
+	sensitiveActionStepUpPath
+} from '$lib/server/sensitiveActionAuthorizer';
 
 interface AccessRequestSetupLink {
 	id: string;
@@ -400,6 +408,54 @@ async function checkSetupSendRateLimit(input: {
 	return { ok: true as const, decision, details };
 }
 
+async function authorizeSetupSend(input: {
+	ctx: AdminContext;
+	action: PlatformAccessRequestSetupAction;
+	requestId: string;
+	email: string;
+}) {
+	const sensitiveAction =
+		input.action === 'approval' ? PLATFORM_ACCESS_REQUEST_APPROVE_ACTION : PLATFORM_ACCESS_REQUEST_RESEND_SETUP_ACTION;
+	const authorizer = createSupabaseSensitiveActionAuthorizer({
+		supabase: input.ctx.sessionClient,
+		session: input.ctx.session
+	});
+	const decision = await authorizer.authorize({
+		action: sensitiveAction,
+		actorUserId: input.ctx.adminUser.id,
+		target: { type: 'access_request', id: input.requestId }
+	});
+
+	if (decision.allowed) {
+		return { ok: true as const, decision };
+	}
+
+	const details = sensitiveActionDecisionAuditDetails(decision);
+	input.ctx.audit({
+		action:
+			input.action === 'approval'
+				? 'access_request.account_setup_approval_authorization_denied'
+				: 'access_request.account_setup_resend_authorization_denied',
+		resourceType: 'access_request',
+		resourceId: input.requestId,
+		details: {
+			email: input.email,
+			sensitiveAction: details
+		},
+		severity: 'warning'
+	});
+
+	return {
+		ok: false as const,
+		failure: fail(403, {
+			error: sensitiveActionDenialMessage(decision),
+			reason: decision.reason,
+			requiresStepUp: decision.requiresStepUp,
+			stepUpPath: sensitiveActionStepUpPath(decision)
+		})
+	};
+}
+
 export const load: PageServerLoad = loadWithAdminContext({
 	page: 'access-requests',
 	fn: async (ctx) => {
@@ -476,6 +532,17 @@ export const actions: Actions = {
 				return fail(404, { error: 'Request not found or already reviewed' });
 			}
 
+			const authorization = await authorizeSetupSend({
+				ctx,
+				action: 'approval',
+				requestId,
+				email: accessRequest.email
+			});
+			if (!authorization.ok) {
+				return authorization.failure;
+			}
+			const sensitiveAction = sensitiveActionDecisionAuditDetails(authorization.decision);
+
 			const rateLimit = await checkSetupSendRateLimit({
 				ctx,
 				action: 'approval',
@@ -534,6 +601,7 @@ export const actions: Actions = {
 						setupLinkId: setupResult.link.id,
 						outboxId: delivery.outbox.id,
 						expiresAt: setupResult.expiresAt.toISOString(),
+						sensitiveAction,
 						rateLimit: rateLimit.details
 					},
 					severity: 'info'
@@ -547,6 +615,7 @@ export const actions: Actions = {
 						email: accessRequest.email,
 						setupLinkId: setupResult.link.id,
 						outboxId: delivery.outbox.id,
+						sensitiveAction,
 						rateLimit: rateLimit.details
 					},
 					severity: 'warning'
@@ -626,6 +695,17 @@ export const actions: Actions = {
 				});
 			}
 
+			const authorization = await authorizeSetupSend({
+				ctx,
+				action: 'resend',
+				requestId,
+				email: accessRequest.email
+			});
+			if (!authorization.ok) {
+				return authorization.failure;
+			}
+			const sensitiveAction = sensitiveActionDecisionAuditDetails(authorization.decision);
+
 			const rateLimit = await checkSetupSendRateLimit({
 				ctx,
 				action: 'resend',
@@ -666,6 +746,7 @@ export const actions: Actions = {
 					setupLinkId: setupResult.link.id,
 					outboxId: delivery.outbox.id,
 					expiresAt: setupResult.expiresAt.toISOString(),
+					sensitiveAction,
 					rateLimit: rateLimit.details
 				},
 				severity: delivery.status === 'sent' ? 'info' : 'warning'

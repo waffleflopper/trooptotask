@@ -9,6 +9,12 @@ import {
 import { type CapabilityOverrideMap, type StoredMemberPreset } from '$lib/access/memberAccessShape';
 import { fail } from '$lib/server/core/errors';
 import type { AuthContext, AuditPort, NotificationPort, ReadOnlyGuard } from '$lib/server/core/ports';
+import {
+	organizationInvitationRateLimitAuditDetails,
+	organizationInvitationRateLimitMessage,
+	type OrganizationInvitationRateLimitAction,
+	type OrganizationInvitationRateLimiter
+} from '$lib/server/organizationInvitationRateLimit';
 import { validateEmail, validateUUID } from '$lib/server/validation';
 import { requireGovernancePolicy } from './governancePolicy';
 import { normalizeInvitationEmail } from './invitationEmail';
@@ -130,6 +136,7 @@ interface OrganizationSettingsMemberManagementPorts {
 	readOnlyGuard?: ReadOnlyGuard;
 	settings: OrganizationSettingsMemberManagementPort;
 	invitationDelivery?: OrganizationInvitationDeliveryPort;
+	invitationRateLimiter?: OrganizationInvitationRateLimiter;
 }
 
 interface InviteOrganizationMemberInput {
@@ -204,6 +211,11 @@ export async function inviteOrganizationMember(
 	}
 
 	const existingUserAccount = await ports.settings.findUserAccountByEmail(email);
+	const rateLimit = await checkInvitationRateLimit(ports, {
+		action: 'create',
+		actorUserId,
+		email
+	});
 
 	const createResult = await ports.settings.createInvitation({
 		organizationId: ports.auth.orgId,
@@ -248,7 +260,8 @@ export async function inviteOrganizationMember(
 		details: {
 			email,
 			membershipRole: accessCommand.role,
-			memberPreset: accessCommand.memberPreset
+			memberPreset: accessCommand.memberPreset,
+			...(rateLimit ? { rateLimit } : {})
 		}
 	});
 
@@ -258,7 +271,8 @@ export async function inviteOrganizationMember(
 		actorEmail: input.actorEmail ?? null,
 		origin: input.origin ?? '',
 		requiresAccountSetup: !existingUserAccount,
-		mode: 'initial'
+		mode: 'initial',
+		rateLimit
 	});
 
 	await ports.notifications.notifyAdmins(ports.auth.orgId, actorUserId, {
@@ -360,13 +374,21 @@ export async function resendOrganizationInvitation(
 		fail(400, 'Invitation has expired. Create a new invitation instead.');
 	}
 
+	const rateLimit = await checkInvitationRateLimit(ports, {
+		action: 'resend',
+		actorUserId: requireActorUserId(ports.auth),
+		email: invitation.email,
+		invitationId: invitation.id
+	});
+
 	const deliveryStatus = await deliverInvitationEmail(ports, {
 		invitationId: invitation.id,
 		email: invitation.email,
 		actorEmail: input.actorEmail ?? null,
 		origin: input.origin,
 		requiresAccountSetup: invitation.requiresAccountSetup,
-		mode: 'resend'
+		mode: 'resend',
+		rateLimit
 	});
 
 	return {
@@ -391,6 +413,7 @@ async function deliverInvitationEmail(
 		origin: string;
 		requiresAccountSetup: boolean;
 		mode: 'initial' | 'resend';
+		rateLimit?: Record<string, unknown> | null;
 	}
 ): Promise<'sent' | 'failed' | 'not_configured'> {
 	if (!ports.invitationDelivery || !input.origin) {
@@ -418,7 +441,8 @@ async function deliverInvitationEmail(
 				email: input.email,
 				invitationId: input.invitationId,
 				deliveryMode: input.mode,
-				reason: 'outbox-write-failed'
+				reason: 'outbox-write-failed',
+				...(input.rateLimit ? { rateLimit: input.rateLimit } : {})
 			},
 			severity: 'warning'
 		});
@@ -446,7 +470,8 @@ async function deliverInvitationEmail(
 			email: input.email,
 			invitationId: input.invitationId,
 			outboxId: delivery.outbox.id,
-			deliveryMode: input.mode
+			deliveryMode: input.mode,
+			...(input.rateLimit ? { rateLimit: input.rateLimit } : {})
 		},
 		severity: delivery.status === 'sent' ? 'info' : 'warning'
 	});
@@ -678,6 +703,44 @@ function requireActorUserId(auth: AuthContext): string {
 	}
 
 	return auth.userId;
+}
+
+async function checkInvitationRateLimit(
+	ports: OrganizationSettingsMemberManagementPorts,
+	input: {
+		action: OrganizationInvitationRateLimitAction;
+		actorUserId: string;
+		email: string;
+		invitationId?: string | null;
+	}
+): Promise<Record<string, unknown> | null> {
+	if (!ports.invitationRateLimiter) {
+		return null;
+	}
+
+	const decision = await ports.invitationRateLimiter.check({
+		action: input.action,
+		actorUserId: input.actorUserId,
+		organizationId: ports.auth.orgId,
+		recipientEmail: input.email,
+		invitationId: input.invitationId
+	});
+	const details = organizationInvitationRateLimitAuditDetails(decision);
+	if (!decision.limited) {
+		return details;
+	}
+
+	ports.audit.log({
+		action: input.action === 'create' ? 'member.invite_rate_limited' : 'member.invite_resend_rate_limited',
+		resourceType: 'organization',
+		details: {
+			email: input.email,
+			...(input.invitationId ? { invitationId: input.invitationId } : {}),
+			rateLimit: details
+		},
+		severity: 'warning'
+	});
+	fail(429, organizationInvitationRateLimitMessage(input.action, decision.retryAfterMs));
 }
 
 async function notifyAdminsOfRevokedInvitation(

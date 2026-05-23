@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { TargetMemberAccessCommand } from '$lib/access/memberAccessCommands';
 import { createTestContext } from '$lib/server/adapters/inMemory';
+import type {
+	OrganizationInvitationRateLimitAction,
+	OrganizationInvitationRateLimiter
+} from '$lib/server/organizationInvitationRateLimit';
 import type { OrganizationMemberPermissions } from '$lib/types';
 import {
 	inviteOrganizationMember,
@@ -175,6 +179,45 @@ function createInvitationDeliveryPort(status: 'sent' | 'failed' = 'sent') {
 			return status === 'sent'
 				? { status: 'sent' as const, outbox: { id: 'outbox-1' } }
 				: { status: 'failed' as const, outbox: { id: 'outbox-1' }, error: 'mail provider unavailable' };
+		}
+	};
+}
+
+function createInvitationRateLimiter(
+	decision: { limited: boolean; retryAfterMs?: number; action?: OrganizationInvitationRateLimitAction } = {
+		limited: false
+	}
+): OrganizationInvitationRateLimiter & { checks: unknown[] } {
+	const checks: unknown[] = [];
+	return {
+		checks,
+		async check(input) {
+			checks.push(input);
+			const action = decision.action ?? input.action;
+			const durableDecision = decision.limited
+				? {
+						limited: true as const,
+						namespace: `organization-invitation-${action}-recipient`,
+						dimensions: ['recipient'],
+						limitedDimensions: ['recipient'],
+						windowMs: 900_000,
+						maxRequests: 3,
+						retryAfterMs: decision.retryAfterMs ?? 90_000
+					}
+				: {
+						limited: false as const,
+						namespace: `organization-invitation-${action}-recipient`,
+						dimensions: ['recipient'],
+						limitedDimensions: [],
+						windowMs: 900_000,
+						maxRequests: 3
+					};
+			return {
+				limited: decision.limited,
+				retryAfterMs: decision.retryAfterMs,
+				action,
+				checks: [durableDecision]
+			};
 		}
 	};
 }
@@ -808,6 +851,7 @@ describe('inviteOrganizationMember', () => {
 		});
 		const port = createOrganizationSettingsMemberManagementPort({ orgName: 'Alpha Company' });
 		const delivery = createInvitationDeliveryPort('sent');
+		const rateLimiter = createInvitationRateLimiter({ limited: false, action: 'create' });
 
 		const result = await inviteOrganizationMember(
 			{
@@ -815,7 +859,8 @@ describe('inviteOrganizationMember', () => {
 				audit: ctx.audit,
 				notifications: ctx.notifications,
 				settings: port,
-				invitationDelivery: delivery
+				invitationDelivery: delivery,
+				invitationRateLimiter: rateLimiter
 			},
 			{
 				email: 'new.user@example.com',
@@ -842,6 +887,24 @@ describe('inviteOrganizationMember', () => {
 				requiresAccountSetup: false
 			}
 		]);
+		expect(rateLimiter.checks).toEqual([
+			{
+				action: 'create',
+				actorUserId: 'actor-1',
+				organizationId: 'org-1',
+				recipientEmail: 'new.user@example.com',
+				invitationId: undefined
+			}
+		]);
+		expect(ctx.auditPort.events).toContainEqual(
+			expect.objectContaining({
+				action: 'member.invite',
+				details: expect.objectContaining({
+					email: 'new.user@example.com',
+					rateLimit: expect.objectContaining({ action: 'create' })
+				})
+			})
+		);
 		expect(ctx.auditPort.events).toContainEqual({
 			action: 'member.invite_email_sent',
 			resourceType: 'organization',
@@ -849,9 +912,70 @@ describe('inviteOrganizationMember', () => {
 				email: 'new.user@example.com',
 				invitationId: 'invite-created',
 				outboxId: 'outbox-1',
-				deliveryMode: 'initial'
+				deliveryMode: 'initial',
+				rateLimit: expect.objectContaining({ action: 'create' })
 			},
 			severity: 'info'
+		});
+	});
+
+	it('rate-limits invitation creation before creating another invitation or sending email', async () => {
+		const ctx = createTestContext({
+			auth: {
+				userId: 'actor-1',
+				orgId: 'org-1'
+			}
+		});
+		const port = createOrganizationSettingsMemberManagementPort({ orgName: 'Alpha Company' });
+		const delivery = createInvitationDeliveryPort('sent');
+		const rateLimiter = createInvitationRateLimiter({ limited: true, retryAfterMs: 120_000, action: 'create' });
+
+		await expect(
+			inviteOrganizationMember(
+				{
+					auth: ctx.auth,
+					audit: ctx.audit,
+					notifications: ctx.notifications,
+					settings: port,
+					invitationDelivery: delivery,
+					invitationRateLimiter: rateLimiter
+				},
+				{
+					email: ' New.User@Example.Mil ',
+					membershipRole: 'member',
+					memberAccess: memberAccess({ memberPreset: 'viewer' }),
+					actorEmail: 'actor@example.com',
+					origin: 'https://trooptotask.test'
+				}
+			)
+		).rejects.toMatchObject({
+			status: 429,
+			message:
+				'Too many organization invitation attempts. Please wait before inviting this recipient again. Try again in about 2 minutes.'
+		});
+
+		expect(rateLimiter.checks).toEqual([
+			{
+				action: 'create',
+				actorUserId: 'actor-1',
+				organizationId: 'org-1',
+				recipientEmail: 'new.user@example.mil',
+				invitationId: undefined
+			}
+		]);
+		expect(port.createdInvitations).toEqual([]);
+		expect(delivery.deliveries).toEqual([]);
+		expect(ctx.auditPort.events).toContainEqual({
+			action: 'member.invite_rate_limited',
+			resourceType: 'organization',
+			details: expect.objectContaining({
+				email: 'new.user@example.mil',
+				rateLimit: expect.objectContaining({
+					action: 'create',
+					retryAfterMs: 120_000
+				})
+			}),
+			severity: 'warning'
 		});
 	});
 
@@ -978,6 +1102,7 @@ describe('inviteOrganizationMember', () => {
 		const ctx = createTestContext();
 		const port = createOrganizationSettingsMemberManagementPort({ orgName: 'Alpha Company' });
 		const delivery = createInvitationDeliveryPort('sent');
+		const rateLimiter = createInvitationRateLimiter({ limited: false, action: 'resend' });
 
 		const result = await resendOrganizationInvitation(
 			{
@@ -985,7 +1110,8 @@ describe('inviteOrganizationMember', () => {
 				audit: ctx.audit,
 				notifications: ctx.notifications,
 				settings: port,
-				invitationDelivery: delivery
+				invitationDelivery: delivery,
+				invitationRateLimiter: rateLimiter
 			},
 			{
 				inviteId: '11111111-1111-4111-8111-111111111111',
@@ -1008,6 +1134,15 @@ describe('inviteOrganizationMember', () => {
 				organizationName: 'Alpha Company'
 			})
 		]);
+		expect(rateLimiter.checks).toEqual([
+			{
+				action: 'resend',
+				actorUserId: 'test-user',
+				organizationId: 'test-org',
+				recipientEmail: 'invitee@example.com',
+				invitationId: '11111111-1111-4111-8111-111111111111'
+			}
+		]);
 		expect(ctx.auditPort.events).toContainEqual({
 			action: 'member.invite_email_resent',
 			resourceType: 'organization',
@@ -1015,9 +1150,64 @@ describe('inviteOrganizationMember', () => {
 				email: 'invitee@example.com',
 				invitationId: '11111111-1111-4111-8111-111111111111',
 				outboxId: 'outbox-1',
-				deliveryMode: 'resend'
+				deliveryMode: 'resend',
+				rateLimit: expect.objectContaining({ action: 'resend' })
 			},
 			severity: 'info'
+		});
+	});
+
+	it('rate-limits invitation resend before enqueueing another invitation email', async () => {
+		const ctx = createTestContext();
+		const port = createOrganizationSettingsMemberManagementPort({ orgName: 'Alpha Company' });
+		const delivery = createInvitationDeliveryPort('sent');
+		const rateLimiter = createInvitationRateLimiter({ limited: true, retryAfterMs: 90_000, action: 'resend' });
+
+		await expect(
+			resendOrganizationInvitation(
+				{
+					auth: ctx.auth,
+					audit: ctx.audit,
+					notifications: ctx.notifications,
+					settings: port,
+					invitationDelivery: delivery,
+					invitationRateLimiter: rateLimiter
+				},
+				{
+					inviteId: '11111111-1111-4111-8111-111111111111',
+					actorEmail: 'actor@example.com',
+					origin: 'https://trooptotask.test'
+				}
+			)
+		).rejects.toMatchObject({
+			status: 429,
+			message:
+				'Too many organization invitation resend attempts. Please wait before trying again. Try again in about 2 minutes.'
+		});
+
+		expect(rateLimiter.checks).toEqual([
+			{
+				action: 'resend',
+				actorUserId: 'test-user',
+				organizationId: 'test-org',
+				recipientEmail: 'invitee@example.com',
+				invitationId: '11111111-1111-4111-8111-111111111111'
+			}
+		]);
+		expect(port.createdInvitations).toEqual([]);
+		expect(delivery.deliveries).toEqual([]);
+		expect(ctx.auditPort.events).toContainEqual({
+			action: 'member.invite_resend_rate_limited',
+			resourceType: 'organization',
+			details: expect.objectContaining({
+				email: 'invitee@example.com',
+				invitationId: '11111111-1111-4111-8111-111111111111',
+				rateLimit: expect.objectContaining({
+					action: 'resend',
+					retryAfterMs: 90_000
+				})
+			}),
+			severity: 'warning'
 		});
 	});
 

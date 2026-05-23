@@ -10,6 +10,7 @@ import { createSupabaseOrgSettingsAdministrationPort } from '$lib/server/adapter
 import { createSupabaseOrgSettingsMemberManagementPort } from '$lib/server/adapters/supabaseOrgSettingsMemberManagement';
 import { getAdminClient } from '$lib/server/supabase';
 import { createSupabaseOrganizationInvitationDeliveryPort } from '$lib/server/organizationInvitationDelivery';
+import { createSupabaseOrganizationInvitationRateLimiter } from '$lib/server/organizationInvitationRateLimit';
 import { fetchAuditLogPreview } from '$lib/server/core/useCases/auditLogQuery';
 import type { SubscriptionPort } from '$lib/server/core/ports';
 import {
@@ -189,7 +190,8 @@ export const actions: Actions = {
 					notifications: ctx.notifications,
 					readOnlyGuard: ctx.readOnlyGuard,
 					settings: createSupabaseOrgSettingsMemberManagementPort(locals),
-					invitationDelivery: createSupabaseOrganizationInvitationDeliveryPort(getAdminClient())
+					invitationDelivery: createSupabaseOrganizationInvitationDeliveryPort(getAdminClient()),
+					invitationRateLimiter: createSupabaseOrganizationInvitationRateLimiter(getAdminClient())
 				},
 				{
 					email: (formData.get('email') as string) ?? '',
@@ -220,7 +222,8 @@ export const actions: Actions = {
 					notifications: ctx.notifications,
 					readOnlyGuard: ctx.readOnlyGuard,
 					settings: createSupabaseOrgSettingsMemberManagementPort(locals),
-					invitationDelivery: createSupabaseOrganizationInvitationDeliveryPort(getAdminClient())
+					invitationDelivery: createSupabaseOrganizationInvitationDeliveryPort(getAdminClient()),
+					invitationRateLimiter: createSupabaseOrganizationInvitationRateLimiter(getAdminClient())
 				},
 				{
 					inviteId: (formData.get('inviteId') as string) ?? '',

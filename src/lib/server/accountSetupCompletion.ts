@@ -204,40 +204,16 @@ export function createAccountSetupCompletionService(store: AccountSetupCompletio
 			accessRequestId: string;
 			password: string;
 		}): Promise<AccountSetupCompletionResult> {
-			const accessRequest = await store.getAccessRequest(input.accessRequestId);
-			if (!accessRequest) {
-				return { status: 'missing' };
-			}
-
-			if (accessRequest.setupCompletedAt) {
-				return { status: 'access-request-completed' };
-			}
-
-			if (accessRequest.status !== 'approved') {
-				return { status: 'access-request-not-approved' };
-			}
-
-			const claimedAt = new Date();
-			const claimedLink = await store.claimPendingLink(input.setupLinkId, claimedAt);
-			if (!claimedLink) {
-				const currentLink = await store.getSetupLink(input.setupLinkId);
-				if (!currentLink) return { status: 'missing' };
-				if (currentLink.usedAt) return { status: 'used' };
-				if (currentLink.failedAt) return { status: 'failed' };
-				if (currentLink.claimedAt) return { status: 'claimed' };
-				if (currentLink.revokedAt)
-					return { status: currentLink.revocationReason === 'replaced' ? 'replaced' : 'revoked' };
-				if (currentLink.expiresAt <= claimedAt) return { status: 'expired' };
-				return { status: 'claimed' };
-			}
-
-			if (claimedLink.accessRequestId !== input.accessRequestId) {
-				await markClaimFailedSafely(setupLinks, claimedLink.id, 'access-request-missing');
-				return { status: 'access-request-missing' };
-			}
+			const claim = await store.claimSetupLinkForSession({
+				setupLinkId: input.setupLinkId,
+				accessRequestId: input.accessRequestId,
+				claimedAt: new Date()
+			});
+			if (claim.status === 'completed') return { status: 'used' };
+			if (claim.status !== 'claim-started') return { status: claim.status };
 
 			return finishClaim({
-				claim: { accessRequestId: claimedLink.accessRequestId, link: claimedLink },
+				claim,
 				password: input.password
 			});
 		}

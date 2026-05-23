@@ -180,6 +180,9 @@ export function createAuthEmailOutboxStore() {
 	const records: AuthEmailOutboxRecord[] = [];
 	const store: AuthEmailOutboxStore & { records: AuthEmailOutboxRecord[] } = {
 		records,
+		async getSetupEmailDelivery(id) {
+			return records.find((record) => record.id === id) ?? null;
+		},
 		async insertSetupEmailDelivery(input) {
 			const record = authEmailOutboxRecordFixture(input, { id: `outbox-${records.length + 1}` });
 			records.push(record);
@@ -211,6 +214,9 @@ export function createOrganizationInvitationEmailOutboxStore() {
 	const records: OrganizationInvitationEmailOutboxRecord[] = [];
 	const store: OrganizationInvitationEmailOutboxStore & { records: OrganizationInvitationEmailOutboxRecord[] } = {
 		records,
+		async getInvitationEmailDelivery(id) {
+			return records.find((record) => record.id === id) ?? null;
+		},
 		async insertInvitationEmailDelivery(input) {
 			const record = organizationInvitationEmailOutboxRecordFixture(input, { id: `outbox-${records.length + 1}` });
 			records.push(record);
@@ -219,7 +225,7 @@ export function createOrganizationInvitationEmailOutboxStore() {
 		async markInvitationEmailDeliverySent(id, sentAt) {
 			const record = findOutboxRecord(records, id);
 			record.status = 'sent';
-			record.attemptCount = 1;
+			record.attemptCount += 1;
 			record.lastError = null;
 			record.updatedAt = sentAt;
 			record.sentAt = sentAt;
@@ -228,7 +234,7 @@ export function createOrganizationInvitationEmailOutboxStore() {
 		async markInvitationEmailDeliveryFailed(id, failedAt, lastError) {
 			const record = findOutboxRecord(records, id);
 			record.status = 'failed';
-			record.attemptCount = 1;
+			record.attemptCount += 1;
 			record.lastError = lastError;
 			record.updatedAt = failedAt;
 			record.sentAt = null;
@@ -314,6 +320,20 @@ export function createAccessRequestSetupDeliveryStore(requests: AccessRequestSet
 			}
 			link.claimedAt = claimedAt;
 			return link;
+		},
+		async claimSetupLinkForSession(input) {
+			const link = setupLinks.find((item) => item.id === input.setupLinkId);
+			const request = requests.find((item) => item.id === input.accessRequestId);
+			if (!link || link.accessRequestId !== input.accessRequestId || !request) return { status: 'missing' };
+			if (request.setupCompletedAt) return { status: 'access-request-completed' };
+			if (request.status !== 'approved') return { status: 'access-request-not-approved' };
+			if (link.usedAt) return { status: 'used' };
+			if (link.failedAt) return { status: 'failed' };
+			if (link.claimedAt) return { status: 'claimed' };
+			if (link.revokedAt) return { status: link.revocationReason === 'replaced' ? 'replaced' : 'revoked' };
+			if (link.expiresAt <= input.claimedAt) return { status: 'expired' };
+			link.claimedAt = input.claimedAt;
+			return { status: 'claim-started', accessRequestId: link.accessRequestId, link };
 		},
 		async markCompleted(id, completedAt) {
 			const link = setupLinks.find((item) => item.id === id);

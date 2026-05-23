@@ -22,7 +22,13 @@ Use local Supabase plus Mailpit to test Account Setup Link delivery, legacy invi
    PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
    PUBLIC_SUPABASE_ANON_KEY=...
    SUPABASE_SERVICE_ROLE_KEY=...
+   ACCOUNT_SETUP_SESSION_SECRET=local-dev-only-secret
+   APP_PUBLIC_ORIGIN=http://localhost:5173
    ```
+
+   Production must set `ACCOUNT_SETUP_SESSION_SECRET` and one official public origin variable:
+   `APP_PUBLIC_ORIGIN`, `PUBLIC_APP_ORIGIN`, or `PUBLIC_SITE_URL`. Preview and local-like hosts can
+   be listed in `APP_PUBLIC_ORIGIN_ALLOWLIST`.
 
 4. Start the app:
 
@@ -34,6 +40,8 @@ Use local Supabase plus Mailpit to test Account Setup Link delivery, legacy invi
 
 - Supabase local auth emails are captured by Mailpit at [http://127.0.0.1:54324](http://127.0.0.1:54324).
 - Beta approval emails are app-owned Account Setup Link emails. They point directly at `/auth/setup-account?token=...`, expire after 14 days, and should never expose raw token hashes in storage.
+- Account Setup Link failed delivery recovery creates a fresh replacement setup link. It does not retry, store, or reconstruct the old raw token or token-bearing setup URL.
+- Organization Invitation emails can be retried safely because they point to sign-in or access-request pages and do not contain bearer tokens.
 - Supabase invite and recovery templates are legacy/provider emails. Recovery still builds app-owned confirmation links with `{{ .RedirectTo }}` and `{{ .TokenHash }}`.
 - The visible email link should start with the active app origin, land on `/auth/confirm`, include `token_hash=`, and never expose `/auth/v1/verify`.
 - After opening the email link, the browser should stop on the confirmation page until you press the button to continue into invite setup or password reset.
@@ -41,6 +49,7 @@ Use local Supabase plus Mailpit to test Account Setup Link delivery, legacy invi
 - Public renewal and setup attempt rate limits use shared Supabase-backed buckets for email, setup-link/access-request, and IP dimensions.
 - The Playwright auth suites use their own isolated app server on `127.0.0.1:4173` so they do not inherit whatever state or rate-limiting conditions your normal dev server might already have.
 - If you change `supabase/config.toml` or `supabase/templates/*.html`, restart Supabase so GoTrue reloads the auth config.
+- CI may be manual-only in private or solo-dev mode while GitHub Actions quota is constrained. Do not re-enable push or pull-request triggers only to run these local auth checks.
 
 ## Run the auth smoke tests
 

@@ -145,4 +145,46 @@ describe('Supabase Account Setup auth adapter', () => {
 		expect(from).toHaveBeenCalledWith('access_requests');
 		expect(from).not.toHaveBeenCalledWith('organization_memberships');
 	});
+
+	it('claims setup sessions through the database-owned transition RPC', async () => {
+		const rpc = vi.fn().mockReturnValue({
+			single: vi.fn().mockResolvedValue({
+				data: {
+					claim_status: 'claim-started',
+					setup_link_id: 'link-1',
+					access_request_id: 'request-1',
+					expires_at: '2026-06-05T12:00:00.000Z',
+					created_at: '2026-05-22T12:00:00.000Z',
+					claimed_at: '2026-05-22T12:01:00.000Z',
+					failed_at: null,
+					failure_reason: null,
+					used_at: null,
+					revoked_at: null,
+					revocation_reason: null
+				},
+				error: null
+			})
+		});
+		const store = createSupabaseAccountSetupCompletionStore({
+			rpc,
+			from: vi.fn()
+		} as never);
+
+		const result = await store.claimSetupLinkForSession({
+			setupLinkId: 'link-1',
+			accessRequestId: 'request-1',
+			claimedAt: new Date('2026-05-22T12:01:00.000Z')
+		});
+
+		expect(result).toMatchObject({
+			status: 'claim-started',
+			accessRequestId: 'request-1',
+			link: { id: 'link-1', accessRequestId: 'request-1' }
+		});
+		expect(rpc).toHaveBeenCalledWith('claim_account_setup_link_for_session', {
+			p_setup_link_id: 'link-1',
+			p_access_request_id: 'request-1',
+			p_claimed_at: '2026-05-22T12:01:00.000Z'
+		});
+	});
 });

@@ -72,6 +72,22 @@ function makeStore(accessRequest: AccountSetupLinkAccessRequest): AccountSetupCo
 			link.claimedAt = claimedAt;
 			return link;
 		},
+		async claimSetupLinkForSession(input) {
+			this.onClaim?.();
+			const link = links.find((candidate) => candidate.id === input.setupLinkId);
+			if (!link || link.accessRequestId !== input.accessRequestId) {
+				return { status: 'missing' };
+			}
+			if (accessRequest.setupCompletedAt) return { status: 'access-request-completed' };
+			if (accessRequest.status !== 'approved') return { status: 'access-request-not-approved' };
+			if (link.usedAt) return { status: 'used' };
+			if (link.failedAt) return { status: 'failed' };
+			if (link.claimedAt) return { status: 'claimed' };
+			if (link.revokedAt) return { status: link.revocationReason === 'replaced' ? 'replaced' : 'revoked' };
+			if (link.expiresAt <= input.claimedAt) return { status: 'expired' };
+			link.claimedAt = input.claimedAt;
+			return { status: 'claim-started', accessRequestId: link.accessRequestId, link };
+		},
 		async markCompleted(id, completedAt) {
 			if (this.failMarkCompleted) {
 				throw new Error('link completion write failed');
@@ -411,6 +427,29 @@ describe('Account Setup completion', () => {
 			expect(store.completions).toEqual([{ accessRequestId: 'request-1', userId: 'user-123' }]);
 		});
 
+		it('uses the database-owned session claim before mutating the User Account', async () => {
+			const store = makeStore(approvedRequest);
+			await addSetupToken(store);
+			const claimSpy = vi.spyOn(store, 'claimSetupLinkForSession');
+			const legacyClaimSpy = vi.spyOn(store, 'claimPendingLink');
+			const auth = makeAuth();
+			const service = createAccountSetupCompletionService(store, auth);
+
+			const result = await service.completeSetupSession({
+				setupLinkId: 'link-1',
+				accessRequestId: 'request-1',
+				password: 'ValidPassword123!'
+			});
+
+			expect(result.status).toBe('completed');
+			expect(claimSpy).toHaveBeenCalledWith({
+				setupLinkId: 'link-1',
+				accessRequestId: 'request-1',
+				claimedAt: expect.any(Date)
+			});
+			expect(legacyClaimSpy).not.toHaveBeenCalled();
+		});
+
 		it('does not mutate auth when the scoped setup link is already claimed', async () => {
 			const store = makeStore(approvedRequest);
 			await addSetupToken(store);
@@ -464,6 +503,25 @@ describe('Account Setup completion', () => {
 			expect(store.links[0].claimedAt).toBeNull();
 			expect(auth.createOrActivateConfirmedUser).not.toHaveBeenCalled();
 			expect(store.completions).toEqual([]);
+		});
+
+		it('does not claim or mutate auth when the session Access Request completed before submit', async () => {
+			const request = { ...approvedRequest };
+			const store = makeStore(request);
+			await addSetupToken(store);
+			request.setupCompletedAt = '2026-05-18T12:01:00.000Z';
+			const auth = makeAuth();
+			const service = createAccountSetupCompletionService(store, auth);
+
+			const result = await service.completeSetupSession({
+				setupLinkId: 'link-1',
+				accessRequestId: 'request-1',
+				password: 'ValidPassword123!'
+			});
+
+			expect(result).toEqual({ status: 'access-request-completed' });
+			expect(store.links[0].claimedAt).toBeNull();
+			expect(auth.createOrActivateConfirmedUser).not.toHaveBeenCalled();
 		});
 
 		it('returns fallback link states when the session claim cannot start', async () => {

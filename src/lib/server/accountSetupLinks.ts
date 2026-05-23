@@ -66,6 +66,11 @@ export interface AccountSetupLinkStore {
 	findByTokenHash(tokenHash: string): Promise<AccountSetupLinkRecord | null>;
 	getSetupLink(id: string): Promise<AccountSetupLinkRecord | null>;
 	claimPendingLink(id: string, claimedAt: Date): Promise<AccountSetupLinkRecord | null>;
+	claimSetupLinkForSession(input: {
+		setupLinkId: string;
+		accessRequestId: string;
+		claimedAt: Date;
+	}): Promise<ClaimAccountSetupLinkResult>;
 	markCompleted(id: string, completedAt: Date): Promise<AccountSetupLinkRecord | null>;
 	markFailed(
 		id: string,
@@ -101,6 +106,20 @@ interface AccessRequestRow {
 	setup_completed_at: string | null;
 }
 
+interface ClaimAccountSetupLinkRpcRow {
+	claim_status: ClaimAccountSetupLinkResult['status'] | 'completed' | null;
+	setup_link_id: string | null;
+	access_request_id: string | null;
+	expires_at: string | null;
+	created_at: string | null;
+	claimed_at: string | null;
+	failed_at: string | null;
+	failure_reason: AccountSetupLinkFailureReason | null;
+	used_at: string | null;
+	revoked_at: string | null;
+	revocation_reason: AccountSetupLinkRevocationReason | null;
+}
+
 export type CreateAccountSetupLinkResult =
 	| {
 			status: 'created';
@@ -122,7 +141,7 @@ export type ValidateAccountSetupLinkResult =
 
 export type ClaimAccountSetupLinkResult =
 	| { status: 'claim-started'; accessRequestId: string; link: AccountSetupLinkRecord }
-	| { status: Exclude<AccountSetupLinkValidationStatus, 'valid'> };
+	| { status: Exclude<AccountSetupLinkValidationStatus, 'valid'> | 'access-request-completed' };
 
 export type CompleteClaimedAccountSetupLinkResult =
 	| { status: 'completed'; accessRequestId: string; link: AccountSetupLinkRecord }
@@ -194,6 +213,35 @@ function mapAccessRequestRow(row: AccessRequestRow): AccountSetupLinkAccessReque
 		lastName: row.last_name,
 		status: row.status,
 		setupCompletedAt: row.setup_completed_at
+	};
+}
+
+function mapClaimRpcRow(row: ClaimAccountSetupLinkRpcRow): ClaimAccountSetupLinkResult {
+	const status = row.claim_status === 'completed' ? 'used' : row.claim_status;
+	if (!status || status !== 'claim-started') {
+		return { status: status ?? 'failed' } as ClaimAccountSetupLinkResult;
+	}
+
+	if (!row.setup_link_id || !row.access_request_id || !row.expires_at || !row.created_at) {
+		return { status: 'failed' };
+	}
+
+	return {
+		status: 'claim-started',
+		accessRequestId: row.access_request_id,
+		link: mapSetupLinkRow({
+			id: row.setup_link_id,
+			access_request_id: row.access_request_id,
+			token_hash: '',
+			expires_at: row.expires_at,
+			created_at: row.created_at,
+			claimed_at: row.claimed_at,
+			failed_at: row.failed_at,
+			failure_reason: row.failure_reason,
+			used_at: row.used_at,
+			revoked_at: row.revoked_at,
+			revocation_reason: row.revocation_reason
+		})
 	};
 }
 
@@ -603,6 +651,19 @@ export function createSupabaseAccountSetupLinkStore(client: SupabaseClient): Acc
 
 			throwSupabaseError(error);
 			return data ? mapSetupLinkRow(data as AccountSetupLinkRow) : null;
+		},
+
+		async claimSetupLinkForSession(input) {
+			const { data, error } = await client
+				.rpc('claim_account_setup_link_for_session', {
+					p_setup_link_id: input.setupLinkId,
+					p_access_request_id: input.accessRequestId,
+					p_claimed_at: input.claimedAt.toISOString()
+				})
+				.single<ClaimAccountSetupLinkRpcRow>();
+
+			throwSupabaseError(error);
+			return mapClaimRpcRow(data as ClaimAccountSetupLinkRpcRow);
 		},
 
 		async markCompleted(id, completedAt) {

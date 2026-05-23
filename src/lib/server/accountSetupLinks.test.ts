@@ -72,6 +72,20 @@ function makeStore(accessRequests: AccountSetupLinkAccessRequest[] = []): Accoun
 			link.claimedAt = claimedAt;
 			return link;
 		},
+		async claimSetupLinkForSession(input) {
+			const request = requests.get(input.accessRequestId);
+			const link = links.find((candidate) => candidate.id === input.setupLinkId);
+			if (!link || link.accessRequestId !== input.accessRequestId || !request) return { status: 'missing' };
+			if (request.setupCompletedAt) return { status: 'access-request-completed' };
+			if (request.status !== 'approved') return { status: 'access-request-not-approved' };
+			if (link.usedAt) return { status: 'used' };
+			if (link.failedAt) return { status: 'failed' };
+			if (link.claimedAt) return { status: 'claimed' };
+			if (link.revokedAt) return { status: link.revocationReason === 'replaced' ? 'replaced' : 'revoked' };
+			if (link.expiresAt <= input.claimedAt) return { status: 'expired' };
+			link.claimedAt = input.claimedAt;
+			return { status: 'claim-started', accessRequestId: link.accessRequestId, link };
+		},
 		async markCompleted(id, completedAt) {
 			const link = links.find((candidate) => candidate.id === id);
 			if (!link || !link.claimedAt || link.failedAt || link.usedAt || link.revokedAt) {

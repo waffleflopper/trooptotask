@@ -1,12 +1,14 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
 	makeOrganizationInvitationUrl,
+	retryOrganizationInvitationOutboxDelivery,
 	sendOrganizationInvitationEmail,
 	sendOrganizationInvitationOutboxDelivery
 } from './organizationInvitationDelivery';
 import {
 	AUTH_WORKFLOW_NOW,
-	createOrganizationInvitationEmailOutboxStore
+	createOrganizationInvitationEmailOutboxStore,
+	organizationInvitationFixture
 } from '$lib/test-support/authWorkflowFixtures';
 
 describe('organization invitation delivery', () => {
@@ -156,5 +158,127 @@ describe('organization invitation delivery', () => {
 				vi.fn()
 			)
 		).rejects.toThrow('Organization invitation email URL must use HTTPS outside local development');
+	});
+
+	it('retries a pending unexpired organization invitation delivery on the existing outbox row', async () => {
+		vi.stubEnv('APP_PUBLIC_ORIGIN_ALLOWLIST', 'https://trooptotask.test');
+		const store = createOrganizationInvitationEmailOutboxStore();
+		const sendEmail = vi.fn().mockResolvedValue(undefined);
+		await store.insertInvitationEmailDelivery({
+			organizationId: 'org-1',
+			invitationId: 'invite-1',
+			recipient: 'Invitee@Example.mil',
+			createdAt: AUTH_WORKFLOW_NOW
+		});
+
+		const result = await retryOrganizationInvitationOutboxDelivery(store, sendEmail, {
+			outboxId: 'outbox-1',
+			origin: 'https://trooptotask.test',
+			invitation: organizationInvitationFixture({
+				id: 'invite-1',
+				organizationId: 'org-1',
+				email: 'invitee@example.mil',
+				status: 'pending',
+				expiresAt: new Date('2026-06-01T12:00:00.000Z')
+			}),
+			organizationName: 'Alpha Company',
+			invitedByEmail: 'admin@example.mil',
+			now: AUTH_WORKFLOW_NOW
+		});
+
+		expect(result.status).toBe('sent');
+		expect(store.records).toHaveLength(1);
+		expect(store.records[0]).toMatchObject({ id: 'outbox-1', status: 'sent', attemptCount: 1, lastError: null });
+		expect(sendEmail).toHaveBeenCalledWith({
+			email: 'invitee@example.mil',
+			organizationName: 'Alpha Company',
+			invitedByEmail: 'admin@example.mil',
+			inviteUrl: 'https://trooptotask.test/auth/login?next=%2Fdashboard',
+			requiresAccountSetup: false
+		});
+	});
+
+	it.each(['accepted', 'declined', 'revoked', 'blocked', 'expired'] as const)(
+		'refuses to retry %s organization invitations',
+		async (status) => {
+			const store = createOrganizationInvitationEmailOutboxStore();
+			await store.insertInvitationEmailDelivery({
+				organizationId: 'org-1',
+				invitationId: 'invite-1',
+				recipient: 'invitee@example.mil',
+				createdAt: AUTH_WORKFLOW_NOW
+			});
+
+			const result = await retryOrganizationInvitationOutboxDelivery(store, vi.fn(), {
+				outboxId: 'outbox-1',
+				origin: 'https://trooptotask.test',
+				invitation: organizationInvitationFixture({ status }),
+				organizationName: 'Alpha Company',
+				invitedByEmail: null,
+				now: AUTH_WORKFLOW_NOW
+			});
+
+			expect(result).toEqual({ status: 'not-retryable' });
+			expect(store.records[0].attemptCount).toBe(0);
+		}
+	);
+
+	it('refuses to retry pending organization invitations after expiration', async () => {
+		const store = createOrganizationInvitationEmailOutboxStore();
+		await store.insertInvitationEmailDelivery({
+			organizationId: 'org-1',
+			invitationId: 'invite-1',
+			recipient: 'invitee@example.mil',
+			createdAt: AUTH_WORKFLOW_NOW
+		});
+
+		const result = await retryOrganizationInvitationOutboxDelivery(store, vi.fn(), {
+			outboxId: 'outbox-1',
+			origin: 'https://trooptotask.test',
+			invitation: organizationInvitationFixture({
+				status: 'pending',
+				expiresAt: new Date('2026-05-01T12:00:00.000Z')
+			}),
+			organizationName: 'Alpha Company',
+			invitedByEmail: null,
+			now: AUTH_WORKFLOW_NOW
+		});
+
+		expect(result).toEqual({ status: 'expired' });
+		expect(store.records[0].attemptCount).toBe(0);
+	});
+
+	it('increments organization invitation retry attempts and redacts retry URL failures', async () => {
+		vi.stubEnv('APP_PUBLIC_ORIGIN_ALLOWLIST', 'https://trooptotask.test');
+		const store = createOrganizationInvitationEmailOutboxStore();
+		await store.insertInvitationEmailDelivery({
+			organizationId: 'org-1',
+			invitationId: 'invite-1',
+			recipient: 'invitee@example.mil',
+			createdAt: AUTH_WORKFLOW_NOW
+		});
+		await store.markInvitationEmailDeliveryFailed('outbox-1', AUTH_WORKFLOW_NOW, 'first failure');
+		const sendEmail = vi
+			.fn()
+			.mockRejectedValue(new Error('provider rejected https://trooptotask.test/auth/login?next=%2Fdashboard'));
+
+		const result = await retryOrganizationInvitationOutboxDelivery(store, sendEmail, {
+			outboxId: 'outbox-1',
+			origin: 'https://trooptotask.test',
+			invitation: organizationInvitationFixture(),
+			organizationName: 'Alpha Company',
+			invitedByEmail: null,
+			now: AUTH_WORKFLOW_NOW
+		});
+
+		expect(result).toMatchObject({
+			status: 'failed',
+			error: 'provider rejected [redacted invitation url]'
+		});
+		expect(store.records[0]).toMatchObject({
+			status: 'failed',
+			attemptCount: 2,
+			lastError: 'provider rejected [redacted invitation url]'
+		});
 	});
 });

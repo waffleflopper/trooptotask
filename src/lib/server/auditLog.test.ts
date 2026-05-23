@@ -115,4 +115,37 @@ describe('auditLog', () => {
 			}
 		});
 	});
+
+	it('preserves supportable auth workflow audit labels', async () => {
+		await auditLog(
+			{
+				action: 'account_setup.completion_failed',
+				resourceType: 'account_setup_link',
+				resourceId: 'setup-link-1',
+				details: {
+					stateTransition: 'pending.replaced',
+					outcome: 'blocked',
+					failureCategory: 'access-request-not-approved',
+					rawStatus: 'This freeform status should still redact'
+				}
+			},
+			{
+				userId: 'user-123',
+				userEmail: 'owner@example.mil',
+				ip: '127.0.0.1',
+				userAgent: 'Vitest'
+			}
+		);
+
+		expect(insert).toHaveBeenCalledTimes(1);
+		expect(insert.mock.calls[0]?.[0]).toMatchObject({
+			details: {
+				stateTransition: 'pending.replaced',
+				outcome: 'blocked',
+				failureCategory: 'access-request-not-approved',
+				rawStatus: '[redacted]',
+				redacted_fields: ['rawStatus']
+			}
+		});
+	});
 });

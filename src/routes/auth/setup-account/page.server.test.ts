@@ -337,6 +337,51 @@ describe('/auth/setup-account actions', () => {
 		} as unknown as Parameters<(typeof actions)['default']>[0];
 	}
 
+	function expectClaimedAudit() {
+		expect(auditLogMock).toHaveBeenCalledWith(
+			{
+				action: 'account_setup.claimed',
+				resourceType: 'account_setup_link',
+				resourceId: 'link-1',
+				details: {
+					accessRequestId: 'request-1',
+					stateTransition: 'pending.claimed'
+				}
+			},
+			{
+				userId: null,
+				ip: '203.0.113.10',
+				userAgent: 'vitest-agent'
+			}
+		);
+	}
+
+	function expectFailedAudit(failureCategory: string) {
+		expect(auditLogMock).toHaveBeenCalledWith(
+			{
+				action: 'account_setup.failed',
+				resourceType: 'account_setup_link',
+				resourceId: 'link-1',
+				severity: 'warning',
+				details: {
+					accessRequestId: 'request-1',
+					failureCategory,
+					outcome: 'failed'
+				}
+			},
+			{
+				userId: null,
+				ip: '203.0.113.10',
+				userAgent: 'vitest-agent'
+			}
+		);
+	}
+
+	function expectNoClaimedAudit() {
+		const auditActions = auditLogMock.mock.calls.map(([event]) => (event as { action?: string }).action);
+		expect(auditActions).not.toContain('account_setup.claimed');
+	}
+
 	it('rejects expired or missing setup sessions before password handling', async () => {
 		const result = await actions.default(
 			makeActionEvent({
@@ -383,17 +428,23 @@ describe('/auth/setup-account actions', () => {
 		expect(completeSetupSession).not.toHaveBeenCalled();
 	});
 
-	it('maps invalid setup-session link states to user-facing recovery copy', async () => {
-		completeSetupSession.mockResolvedValueOnce({ status: 'revoked' });
+	it.each([
+		['revoked', 'This Account Setup Link was replaced. Check your inbox for the newest setup email.'],
+		['expired', 'This Account Setup Link has expired. Request a fresh setup link and use the newest email.'],
+		['used', 'This setup link has already been used. Sign in or reset your password if you need access.'],
+		['claimed', 'This Account Setup Link is already being used. Request a fresh setup link if setup does not finish.'],
+		['missing', 'This Account Setup Link is invalid. Request a fresh setup link and try again.']
+	] as const)('maps pre-claim %s setup-session states without claimed audit', async (status, message) => {
+		completeSetupSession.mockResolvedValueOnce({ status });
 
 		const result = await actions.default(makeActionEvent());
 
 		expect(result).toMatchObject({
 			status: 400,
-			data: {
-				error: 'This Account Setup Link was replaced. Check your inbox for the newest setup email.'
-			}
+			data: { error: message }
 		});
+		expectFailedAudit(status);
+		expectNoClaimedAudit();
 	});
 
 	it('maps no-longer-approved setup-session completion to support copy', async () => {
@@ -407,6 +458,8 @@ describe('/auth/setup-account actions', () => {
 				error: 'This Account Setup Link is no longer approved. Request access again or contact support.'
 			}
 		});
+		expectFailedAudit('access-request-not-approved');
+		expectNoClaimedAudit();
 	});
 
 	it('does not treat an already-completed link response as a successful setup redirect', async () => {
@@ -420,6 +473,48 @@ describe('/auth/setup-account actions', () => {
 				error: 'This setup link has already been used. Sign in or reset your password if you need access.'
 			}
 		});
+	});
+
+	it('audits completed setup with safe lifecycle metadata before redirecting', async () => {
+		completeSetupSession.mockResolvedValueOnce({
+			status: 'completed',
+			accessRequestId: 'request-1',
+			userId: 'user-123'
+		});
+
+		await expect(
+			actions.default(
+				makeActionEvent({
+					request: makeRequest({ password: 'ValidPassword123!', confirmPassword: 'ValidPassword123!' })
+				})
+			)
+		).rejects.toMatchObject({
+			status: 303,
+			location: '/dashboard'
+		});
+
+		expectClaimedAudit();
+		expect(auditLogMock).toHaveBeenCalledWith(
+			{
+				action: 'account_setup.completed',
+				resourceType: 'account_setup_link',
+				resourceId: 'link-1',
+				details: {
+					accessRequestId: 'request-1',
+					userId: 'user-123',
+					outcome: 'completed'
+				}
+			},
+			{
+				userId: null,
+				ip: '203.0.113.10',
+				userAgent: 'vitest-agent'
+			}
+		);
+		const auditPayload = JSON.stringify(auditLogMock.mock.calls);
+		expect(auditPayload).not.toContain('ValidPassword123!');
+		expect(auditPayload).not.toContain('/auth/setup-account?token=');
+		expect(auditPayload).not.toContain(ACCOUNT_SETUP_SESSION_COOKIE);
 	});
 
 	it('returns provider-edge failures without accepting an Organization Invitation', async () => {
@@ -439,6 +534,12 @@ describe('/auth/setup-account actions', () => {
 			accessRequestId: 'request-1',
 			password: 'ValidPassword123!'
 		});
+		expectClaimedAudit();
+		expectFailedAudit('account-create-failed');
+		const auditPayload = JSON.stringify(auditLogMock.mock.calls);
+		expect(auditPayload).not.toContain('ValidPassword123!');
+		expect(auditPayload).not.toContain('Supabase unavailable');
+		expect(auditPayload).not.toContain('/auth/setup-account?token=');
 	});
 
 	it('returns clear policy copy when Supabase rejects the setup password after app validation', async () => {
@@ -553,6 +654,8 @@ describe('/auth/setup-account actions', () => {
 					'We could not finish account setup after claiming this link. Request a fresh setup link or ask an admin to resend setup.'
 			}
 		});
+		expectClaimedAudit();
+		expectFailedAudit('setup-finalization-failed');
 	});
 
 	it('returns manual sign-in guidance when setup succeeds but automatic sign-in fails', async () => {
@@ -569,6 +672,8 @@ describe('/auth/setup-account actions', () => {
 				error: 'Your account was created successfully, but automatic sign-in could not finish. Please sign in manually.'
 			}
 		});
+		expectClaimedAudit();
+		expectFailedAudit('sign-in-failed');
 	});
 });
 

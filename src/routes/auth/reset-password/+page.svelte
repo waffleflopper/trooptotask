@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
+	import { goto, replaceState } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { page } from '$app/stores';
 	import AuthField from '$lib/components/auth/AuthField.svelte';
 	import AuthNotice from '$lib/components/auth/AuthNotice.svelte';
@@ -111,7 +112,7 @@
 						const result = await readJsonResult(response);
 						if (result.ok) {
 							const mfaLoaded = await loadMfaStatus();
-							window.history.replaceState(null, '', window.location.pathname);
+							replaceState(resolve('/auth/reset-password'), $page.state);
 							if (!mfaLoaded) {
 								return;
 							}
@@ -166,7 +167,7 @@
 			}
 
 			success = true;
-			setTimeout(() => goto('/auth/login'), 3000);
+			setTimeout(() => goto(resolve('/auth/login')), 3000);
 		} finally {
 			loading = false;
 		}
@@ -352,7 +353,7 @@
 
 		<div class="flex flex-col gap-2 text-sm leading-relaxed text-muted-foreground">
 			<p>
-				Stop this recovery session and <a href="/auth/logout">sign out</a>.
+				Stop this recovery session and <a href={resolve('/auth/logout')}>sign out</a>.
 			</p>
 		</div>
 	</div>

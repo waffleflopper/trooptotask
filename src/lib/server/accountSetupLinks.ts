@@ -61,7 +61,7 @@ export interface CreateAccountSetupLinkInput {
 
 export interface AccountSetupLinkStore {
 	getAccessRequest(id: string): Promise<AccountSetupLinkAccessRequest | null>;
-	revokeUnusedLinksForAccessRequest(accessRequestId: string, revokedAt: Date): Promise<void>;
+	revokeUnusedLinksForAccessRequest(accessRequestId: string, revokedAt: Date): Promise<AccountSetupLinkRecord[]>;
 	insertSetupLink(input: CreateAccountSetupLinkInput): Promise<AccountSetupLinkRecord>;
 	findByTokenHash(tokenHash: string): Promise<AccountSetupLinkRecord | null>;
 	getSetupLink(id: string): Promise<AccountSetupLinkRecord | null>;
@@ -109,6 +109,7 @@ export type CreateAccountSetupLinkResult =
 			setupPath: string;
 			expiresAt: Date;
 			link: AccountSetupLinkRecord;
+			revokedLinks: AccountSetupLinkRecord[];
 	  }
 	| { status: 'access-request-missing' }
 	| { status: 'access-request-not-approved' }
@@ -386,8 +387,9 @@ export function createAccountSetupLinkService(
 			const expiresAt = addUtcDays(createdAt, ACCOUNT_SETUP_LINK_EXPIRY_DAYS);
 
 			let link: AccountSetupLinkRecord;
+			let revokedLinks: AccountSetupLinkRecord[];
 			try {
-				await store.revokeUnusedLinksForAccessRequest(accessRequestId, createdAt);
+				revokedLinks = await store.revokeUnusedLinksForAccessRequest(accessRequestId, createdAt);
 				link = await store.insertSetupLink({
 					accessRequestId,
 					tokenHash,
@@ -407,7 +409,8 @@ export function createAccountSetupLinkService(
 				rawToken,
 				setupPath: `/auth/setup-account?token=${encodeURIComponent(rawToken)}`,
 				expiresAt,
-				link
+				link,
+				revokedLinks
 			};
 		},
 
@@ -508,8 +511,8 @@ export function createAccountSetupLinkService(
 			};
 		},
 
-		async revokeUnusedForAccessRequest(accessRequestId: string): Promise<void> {
-			await store.revokeUnusedLinksForAccessRequest(accessRequestId, now());
+		async revokeUnusedForAccessRequest(accessRequestId: string): Promise<AccountSetupLinkRecord[]> {
+			return store.revokeUnusedLinksForAccessRequest(accessRequestId, now());
 		}
 	};
 }
@@ -528,15 +531,17 @@ export function createSupabaseAccountSetupLinkStore(client: SupabaseClient): Acc
 		},
 
 		async revokeUnusedLinksForAccessRequest(accessRequestId, revokedAt) {
-			const { error } = await client
+			const { data, error } = await client
 				.from('account_setup_links')
 				.update({ revoked_at: revokedAt.toISOString(), revocation_reason: 'replaced' })
 				.eq('access_request_id', accessRequestId)
 				.is('claimed_at', null)
 				.is('used_at', null)
-				.is('revoked_at', null);
+				.is('revoked_at', null)
+				.select(SETUP_LINK_SELECT);
 
 			throwSupabaseError(error);
+			return ((data ?? []) as AccountSetupLinkRow[]).map(mapSetupLinkRow);
 		},
 
 		async insertSetupLink(input) {

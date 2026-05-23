@@ -41,7 +41,7 @@ export const actions: Actions = {
 			ip: clientIp
 		});
 		if (rateLimit.limited) {
-			auditLog(
+			await auditLog(
 				{
 					action: 'account_setup.renewal_rate_limited',
 					resourceType: 'access_request',
@@ -61,10 +61,33 @@ export const actions: Actions = {
 		}
 
 		try {
-			await createSupabaseAccessRequestSetupDeliveryService(getAdminClient()).requestFreshSetupLink({
+			const renewal = await createSupabaseAccessRequestSetupDeliveryService(getAdminClient()).requestFreshSetupLink({
 				email,
 				origin: url.origin
 			});
+			if (renewal.status === 'fresh-setup-sent' || renewal.status === 'fresh-setup-delivery-failed') {
+				await Promise.all(
+					renewal.revokedLinkIds.map((revokedLinkId) =>
+						auditLog(
+							{
+								action: 'account_setup.link_revoked',
+								resourceType: 'account_setup_link',
+								resourceId: revokedLinkId,
+								details: {
+									accessRequestId: renewal.accessRequestId,
+									replacementSetupLinkId: renewal.setupLinkId,
+									stateTransition: 'pending.replaced'
+								}
+							},
+							{
+								userId: null,
+								ip: clientIp,
+								userAgent: request.headers.get('user-agent') ?? ''
+							}
+						)
+					)
+				);
+			}
 		} catch (error) {
 			console.error('Failed to renew approved access request setup link:', error);
 			return fail(500, {

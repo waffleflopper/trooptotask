@@ -1,17 +1,23 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
+	createSupabaseAuditAdapterMock,
 	createSupabaseDashboardOrgAccessPortMock,
 	createSupabaseNotificationAdapterMock,
 	loadDashboardOrgAccessMock,
 	acceptDashboardInvitationMock,
 	declineDashboardInvitationMock
 } = vi.hoisted(() => ({
+	createSupabaseAuditAdapterMock: vi.fn(),
 	createSupabaseDashboardOrgAccessPortMock: vi.fn(),
 	createSupabaseNotificationAdapterMock: vi.fn(),
 	loadDashboardOrgAccessMock: vi.fn(),
 	acceptDashboardInvitationMock: vi.fn(),
 	declineDashboardInvitationMock: vi.fn()
+}));
+
+vi.mock('$lib/server/adapters/supabaseAudit', () => ({
+	createSupabaseAuditAdapter: createSupabaseAuditAdapterMock
 }));
 
 vi.mock('$lib/server/adapters/supabaseDashboardOrgAccess', () => ({
@@ -40,6 +46,7 @@ import { actions, load } from './+page.server';
 describe('dashboard page server', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		createSupabaseAuditAdapterMock.mockReturnValue({ log: vi.fn() });
 		createSupabaseDashboardOrgAccessPortMock.mockReturnValue({ kind: 'dashboard-port' });
 		createSupabaseNotificationAdapterMock.mockReturnValue({ notifyAdmins: vi.fn(), notifyUser: vi.fn() });
 		loadDashboardOrgAccessMock.mockResolvedValue({
@@ -128,7 +135,8 @@ describe('dashboard page server', () => {
 			}),
 			locals: {
 				user: { id: 'user-1', email: 'user@example.com' }
-			}
+			},
+			getClientAddress: () => '203.0.113.10'
 		} as never);
 
 		expect(result).toMatchObject({
@@ -136,6 +144,41 @@ describe('dashboard page server', () => {
 			data: { error: 'Invitation not found' }
 		});
 		expect(createSupabaseNotificationAdapterMock).toHaveBeenCalledOnce();
+	});
+
+	it('delegates acceptInvitation with an org-scoped audit adapter factory', async () => {
+		const result = await actions.acceptInvitation({
+			request: new Request('http://localhost/dashboard?/acceptInvitation', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/x-www-form-urlencoded',
+					'user-agent': 'vitest-agent'
+				},
+				body: new URLSearchParams({ invitationId: 'invite-1' })
+			}),
+			locals: {
+				user: { id: 'user-1', email: 'user@example.com' }
+			},
+			getClientAddress: () => '203.0.113.10'
+		} as never);
+
+		expect(result).toEqual({ success: true, accepted: true });
+		expect(acceptDashboardInvitationMock).toHaveBeenCalledWith(
+			{
+				dashboard: { kind: 'dashboard-port' },
+				notifications: { notifyAdmins: expect.any(Function), notifyUser: expect.any(Function) },
+				audit: expect.any(Function)
+			},
+			{ invitationId: 'invite-1', userId: 'user-1', email: 'user@example.com' }
+		);
+		const [{ audit }] = acceptDashboardInvitationMock.mock.calls[0];
+		audit('org-1');
+		expect(createSupabaseAuditAdapterMock).toHaveBeenCalledWith('org-1', {
+			userId: 'user-1',
+			userEmail: 'user@example.com',
+			ip: '203.0.113.10',
+			userAgent: 'vitest-agent'
+		});
 	});
 
 	it('delegates declineInvitation through the dashboard org-access boundary', async () => {
@@ -147,16 +190,26 @@ describe('dashboard page server', () => {
 			}),
 			locals: {
 				user: { id: 'user-1', email: 'user@example.com' }
-			}
+			},
+			getClientAddress: () => '203.0.113.10'
 		} as never);
 
 		expect(result).toEqual({ success: true, declined: true });
 		expect(declineDashboardInvitationMock).toHaveBeenCalledWith(
 			{
 				dashboard: { kind: 'dashboard-port' },
-				notifications: { notifyAdmins: expect.any(Function), notifyUser: expect.any(Function) }
+				notifications: { notifyAdmins: expect.any(Function), notifyUser: expect.any(Function) },
+				audit: expect.any(Function)
 			},
 			{ invitationId: 'invite-1', userId: 'user-1', email: 'user@example.com' }
 		);
+		const [{ audit }] = declineDashboardInvitationMock.mock.calls[0];
+		audit('org-1');
+		expect(createSupabaseAuditAdapterMock).toHaveBeenCalledWith('org-1', {
+			userId: 'user-1',
+			userEmail: 'user@example.com',
+			ip: '203.0.113.10',
+			userAgent: ''
+		});
 	});
 });

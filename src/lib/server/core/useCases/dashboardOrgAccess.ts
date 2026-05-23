@@ -1,4 +1,4 @@
-import type { NotificationPort } from '$lib/server/core/ports';
+import type { AuditPort, NotificationPort } from '$lib/server/core/ports';
 import { fail } from '$lib/server/core/errors';
 import { normalizeInvitationEmail } from './invitationEmail';
 
@@ -80,6 +80,7 @@ interface DashboardOrgAccessInput {
 interface AcceptDashboardInvitationPorts {
 	dashboard: DashboardOrgAccessPort;
 	notifications: NotificationPort;
+	audit?: DashboardInvitationAuditFactory;
 }
 
 interface AcceptDashboardInvitationInput {
@@ -91,6 +92,7 @@ interface AcceptDashboardInvitationInput {
 interface DeclineDashboardInvitationPorts {
 	dashboard: DashboardOrgAccessPort;
 	notifications: NotificationPort;
+	audit?: DashboardInvitationAuditFactory;
 }
 
 interface DeclineDashboardInvitationInput {
@@ -98,6 +100,8 @@ interface DeclineDashboardInvitationInput {
 	userId: string;
 	email?: string | null;
 }
+
+type DashboardInvitationAuditFactory = (organizationId: string) => AuditPort;
 
 export async function loadDashboardOrgAccess(
 	port: DashboardOrgAccessPort,
@@ -174,6 +178,16 @@ export async function acceptDashboardInvitation(
 		userId: input.userId,
 		email: normalizedEmail
 	});
+	ports.audit?.(accepted.organizationId).log({
+		action: 'organization_invitation.accepted',
+		resourceType: 'organization_invitation',
+		resourceId: input.invitationId,
+		details: {
+			organizationId: accepted.organizationId,
+			userId: input.userId,
+			stateTransition: 'pending.accepted'
+		}
+	});
 
 	return { success: true, accepted: true };
 }
@@ -222,6 +236,16 @@ export async function declineDashboardInvitation(
 		organizationId: declined.organizationId,
 		userId: input.userId,
 		email: normalizedEmail
+	});
+	ports.audit?.(declined.organizationId).log({
+		action: 'organization_invitation.declined',
+		resourceType: 'organization_invitation',
+		resourceId: input.invitationId,
+		details: {
+			organizationId: declined.organizationId,
+			userId: input.userId,
+			stateTransition: 'pending.declined'
+		}
 	});
 
 	return { success: true, declined: true };

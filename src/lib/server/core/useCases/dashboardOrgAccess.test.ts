@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createTestNotificationPort } from '$lib/server/adapters/inMemory';
+import type { AuditPort } from '$lib/server/core/ports';
 import {
 	acceptDashboardInvitation,
 	declineDashboardInvitation,
@@ -49,6 +50,22 @@ function createDashboardOrgAccessPort(
 			declinedInvitations.push(input);
 			return options.declineResult ?? { status: 'declined', organizationId: 'org-1' };
 		}
+	};
+}
+
+function createRecordingAuditFactory(): {
+	auditFor: (organizationId: string) => AuditPort;
+	events: Array<{ organizationId: string; event: Parameters<AuditPort['log']>[0] }>;
+} {
+	const events: Array<{ organizationId: string; event: Parameters<AuditPort['log']>[0] }> = [];
+
+	return {
+		events,
+		auditFor: (organizationId) => ({
+			log(event) {
+				events.push({ organizationId, event });
+			}
+		})
 	};
 }
 
@@ -269,9 +286,10 @@ describe('acceptDashboardInvitation', () => {
 			acceptResult: { status: 'accepted', organizationId: 'org-1' }
 		});
 		const notifications = createTestNotificationPort();
+		const audit = createRecordingAuditFactory();
 
 		const result = await acceptDashboardInvitation(
-			{ dashboard: port, notifications },
+			{ dashboard: port, notifications, audit: audit.auditFor },
 			{ invitationId: 'invite-1', userId: 'user-1', email: ' USER@EXAMPLE.COM ' }
 		);
 
@@ -293,6 +311,27 @@ describe('acceptDashboardInvitation', () => {
 				}
 			}
 		]);
+		expect(audit.events).toEqual([
+			{
+				organizationId: 'org-1',
+				event: {
+					action: 'organization_invitation.accepted',
+					resourceType: 'organization_invitation',
+					resourceId: 'invite-1',
+					details: {
+						organizationId: 'org-1',
+						userId: 'user-1',
+						stateTransition: 'pending.accepted'
+					}
+				}
+			}
+		]);
+		const auditPayload = JSON.stringify(audit.events);
+		expect(auditPayload).not.toContain('USER@EXAMPLE.COM');
+		expect(auditPayload).not.toContain('user@example.com');
+		expect(auditPayload).not.toContain('/auth/setup-account?token=');
+		expect(auditPayload).not.toContain('password');
+		expect(auditPayload).not.toContain('service_role');
 	});
 
 	it('keeps accepted response when governor notification delivery fails after the transition committed', async () => {
@@ -342,9 +381,10 @@ describe('declineDashboardInvitation', () => {
 	it('marks the invitation declined for the authenticated invitee and notifies admins', async () => {
 		const port = createDashboardOrgAccessPort();
 		const notifications = createTestNotificationPort();
+		const audit = createRecordingAuditFactory();
 
 		const result = await declineDashboardInvitation(
-			{ dashboard: port, notifications },
+			{ dashboard: port, notifications, audit: audit.auditFor },
 			{
 				invitationId: 'invite-1',
 				userId: 'user-1',
@@ -370,6 +410,27 @@ describe('declineDashboardInvitation', () => {
 				}
 			}
 		]);
+		expect(audit.events).toEqual([
+			{
+				organizationId: 'org-1',
+				event: {
+					action: 'organization_invitation.declined',
+					resourceType: 'organization_invitation',
+					resourceId: 'invite-1',
+					details: {
+						organizationId: 'org-1',
+						userId: 'user-1',
+						stateTransition: 'pending.declined'
+					}
+				}
+			}
+		]);
+		const auditPayload = JSON.stringify(audit.events);
+		expect(auditPayload).not.toContain('USER@EXAMPLE.COM');
+		expect(auditPayload).not.toContain('user@example.com');
+		expect(auditPayload).not.toContain('/auth/setup-account?token=');
+		expect(auditPayload).not.toContain('password');
+		expect(auditPayload).not.toContain('service_role');
 	});
 
 	it('fails when the decline transition cannot find an invitation for the current email', async () => {

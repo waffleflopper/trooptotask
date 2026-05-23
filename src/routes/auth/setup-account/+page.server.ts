@@ -64,6 +64,83 @@ function manualSignInMessage(): string {
 	return 'Your account was created successfully, but automatic sign-in could not finish. Please sign in manually.';
 }
 
+function auditAccountSetupClaimed(input: {
+	setupLinkId: string;
+	accessRequestId: string;
+	clientIp: string;
+	userAgent: string;
+}): void {
+	auditLog(
+		{
+			action: 'account_setup.claimed',
+			resourceType: 'account_setup_link',
+			resourceId: input.setupLinkId,
+			details: {
+				accessRequestId: input.accessRequestId,
+				stateTransition: 'pending.claimed'
+			}
+		},
+		{
+			userId: null,
+			ip: input.clientIp,
+			userAgent: input.userAgent
+		}
+	);
+}
+
+function auditAccountSetupCompleted(input: {
+	setupLinkId: string;
+	accessRequestId: string;
+	userId: string;
+	clientIp: string;
+	userAgent: string;
+}): void {
+	auditLog(
+		{
+			action: 'account_setup.completed',
+			resourceType: 'account_setup_link',
+			resourceId: input.setupLinkId,
+			details: {
+				accessRequestId: input.accessRequestId,
+				userId: input.userId,
+				outcome: 'completed'
+			}
+		},
+		{
+			userId: null,
+			ip: input.clientIp,
+			userAgent: input.userAgent
+		}
+	);
+}
+
+function auditAccountSetupFailed(input: {
+	setupLinkId: string;
+	accessRequestId: string;
+	failureCategory: string;
+	clientIp: string;
+	userAgent: string;
+}): void {
+	auditLog(
+		{
+			action: 'account_setup.failed',
+			resourceType: 'account_setup_link',
+			resourceId: input.setupLinkId,
+			severity: 'warning',
+			details: {
+				accessRequestId: input.accessRequestId,
+				failureCategory: input.failureCategory,
+				outcome: 'failed'
+			}
+		},
+		{
+			userId: null,
+			ip: input.clientIp,
+			userAgent: input.userAgent
+		}
+	);
+}
+
 export const load: PageServerLoad = async ({ cookies, locals, url }) => {
 	if (locals.session) {
 		redirect(303, getAuthenticatedRedirectPath(locals.authFlow, locals.mfaPending));
@@ -199,6 +276,7 @@ export const actions: Actions = {
 		const store = createSupabaseAccountSetupCompletionStore(adminClient);
 		const accessRequest = await store.getAccessRequest(setupSession.accessRequestId);
 		const clientIp = getClientAddress();
+		const userAgent = request.headers.get('user-agent') ?? '';
 		const rateLimit = await checkAccountSetupCompletionRateLimit({
 			setupLinkId: setupSession.setupLinkId,
 			accessRequestId: setupSession.accessRequestId,
@@ -220,7 +298,7 @@ export const actions: Actions = {
 				{
 					userId: null,
 					ip: clientIp,
-					userAgent: request.headers.get('user-agent') ?? ''
+					userAgent
 				}
 			);
 			return fail(429, { error: ACCOUNT_SETUP_ATTEMPT_RATE_LIMIT_MESSAGE });
@@ -233,12 +311,42 @@ export const actions: Actions = {
 			password
 		});
 
+		const setupAuditContext = {
+			setupLinkId: setupSession.setupLinkId,
+			accessRequestId: setupSession.accessRequestId,
+			clientIp,
+			userAgent
+		};
+		const postClaimOutcome =
+			(completion.status === 'completed' && 'userId' in completion) ||
+			completion.status === 'account-create-failed' ||
+			completion.status === 'setup-finalization-failed' ||
+			completion.status === 'sign-in-failed';
+
+		if (postClaimOutcome) {
+			auditAccountSetupClaimed(setupAuditContext);
+		}
+
 		if (completion.status === 'completed' && 'userId' in completion) {
+			auditAccountSetupCompleted({
+				setupLinkId: setupSession.setupLinkId,
+				accessRequestId: setupSession.accessRequestId,
+				userId: completion.userId,
+				clientIp,
+				userAgent
+			});
 			clearAccountSetupSessionCookie(cookies);
 			redirect(303, '/dashboard');
 		}
 
 		if (completion.status === 'account-create-failed') {
+			auditAccountSetupFailed({
+				setupLinkId: setupSession.setupLinkId,
+				accessRequestId: setupSession.accessRequestId,
+				failureCategory: 'account-create-failed',
+				clientIp,
+				userAgent
+			});
 			clearAccountSetupSessionCookie(cookies);
 			const providerPasswordError = mapProviderPasswordError(completion.message);
 			if (providerPasswordError) {
@@ -250,15 +358,36 @@ export const actions: Actions = {
 		}
 
 		if (completion.status === 'setup-finalization-failed') {
+			auditAccountSetupFailed({
+				setupLinkId: setupSession.setupLinkId,
+				accessRequestId: setupSession.accessRequestId,
+				failureCategory: 'setup-finalization-failed',
+				clientIp,
+				userAgent
+			});
 			clearAccountSetupSessionCookie(cookies);
 			return fail(500, { error: claimedSetupFailureMessage() });
 		}
 
 		if (completion.status === 'sign-in-failed') {
+			auditAccountSetupFailed({
+				setupLinkId: setupSession.setupLinkId,
+				accessRequestId: setupSession.accessRequestId,
+				failureCategory: 'sign-in-failed',
+				clientIp,
+				userAgent
+			});
 			clearAccountSetupSessionCookie(cookies);
 			return fail(500, { error: manualSignInMessage() });
 		}
 
+		auditAccountSetupFailed({
+			setupLinkId: setupSession.setupLinkId,
+			accessRequestId: setupSession.accessRequestId,
+			failureCategory: completion.status,
+			clientIp,
+			userAgent
+		});
 		clearAccountSetupSessionCookie(cookies);
 		return fail(400, { error: tokenStateMessage(completion.status) });
 	}

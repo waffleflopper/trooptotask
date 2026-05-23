@@ -19,19 +19,19 @@ function normalizeOrigin(origin: string | null | undefined): string | null {
 }
 
 function configuredOfficialOrigin(): string | null {
-	return normalizeOrigin(
-		env.APP_PUBLIC_ORIGIN ??
-			process.env.APP_PUBLIC_ORIGIN ??
-			env.PUBLIC_APP_ORIGIN ??
-			process.env.PUBLIC_APP_ORIGIN ??
-			env.PUBLIC_SITE_URL ??
-			process.env.PUBLIC_SITE_URL
+	return (
+		normalizeOrigin(env.APP_PUBLIC_ORIGIN) ??
+		normalizeOrigin(process.env.APP_PUBLIC_ORIGIN) ??
+		normalizeOrigin(env.PUBLIC_APP_ORIGIN) ??
+		normalizeOrigin(process.env.PUBLIC_APP_ORIGIN) ??
+		normalizeOrigin(env.PUBLIC_SITE_URL) ??
+		normalizeOrigin(process.env.PUBLIC_SITE_URL)
 	);
 }
 
 function configuredAllowedOrigins(): Set<string> {
 	return new Set(
-		(env.APP_PUBLIC_ORIGIN_ALLOWLIST ?? process.env.APP_PUBLIC_ORIGIN_ALLOWLIST ?? '')
+		([env.APP_PUBLIC_ORIGIN_ALLOWLIST, process.env.APP_PUBLIC_ORIGIN_ALLOWLIST].find((value) => value?.trim()) ?? '')
 			.split(',')
 			.map((origin) => normalizeOrigin(origin))
 			.filter((origin): origin is string => !!origin)

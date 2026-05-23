@@ -3,6 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { makePublicAppUrl } from './publicAppOrigin';
 
 const RESEND_EMAILS_URL = 'https://api.resend.com/emails';
+export const ORGANIZATION_INVITATION_EMAIL_MAX_ATTEMPTS = 3;
 
 export type OrganizationInvitationDeliveryStatus = 'pending' | 'sent' | 'failed';
 
@@ -20,6 +21,7 @@ export interface OrganizationInvitationEmailOutboxRecord {
 }
 
 export interface OrganizationInvitationEmailOutboxStore {
+	getInvitationEmailDelivery(id: string): Promise<OrganizationInvitationEmailOutboxRecord | null>;
 	insertInvitationEmailDelivery(input: {
 		organizationId: string;
 		invitationId: string;
@@ -47,6 +49,15 @@ export type OrganizationInvitationEmailSender = (input: SendOrganizationInvitati
 export type SendOrganizationInvitationOutboxDeliveryResult =
 	| { status: 'sent'; outbox: OrganizationInvitationEmailOutboxRecord }
 	| { status: 'failed'; outbox: OrganizationInvitationEmailOutboxRecord; error: string };
+
+export interface OrganizationInvitationRetryRecord {
+	id: string;
+	organizationId: string;
+	email: string;
+	status: 'pending' | 'accepted' | 'declined' | 'expired' | 'revoked' | 'blocked';
+	requiresAccountSetup: boolean;
+	expiresAt: Date;
+}
 
 interface OrganizationInvitationEmailOutboxRow {
 	id: string;
@@ -278,10 +289,88 @@ export async function sendOrganizationInvitationOutboxDelivery(
 	}
 }
 
+export type RetryOrganizationInvitationOutboxDeliveryResult =
+	| { status: 'sent'; outbox: OrganizationInvitationEmailOutboxRecord }
+	| { status: 'failed'; outbox: OrganizationInvitationEmailOutboxRecord; error: string }
+	| { status: 'missing' | 'not-retryable' | 'expired' | 'max-attempts' };
+
+export async function retryOrganizationInvitationOutboxDelivery(
+	store: OrganizationInvitationEmailOutboxStore,
+	sendEmail: OrganizationInvitationEmailSender,
+	input: {
+		outboxId: string;
+		origin: string;
+		invitation: OrganizationInvitationRetryRecord;
+		organizationName: string;
+		invitedByEmail: string | null;
+		now?: Date;
+	}
+): Promise<RetryOrganizationInvitationOutboxDeliveryResult> {
+	const outbox = await store.getInvitationEmailDelivery(input.outboxId);
+	if (
+		!outbox ||
+		outbox.invitationId !== input.invitation.id ||
+		outbox.organizationId !== input.invitation.organizationId
+	) {
+		return { status: 'missing' };
+	}
+
+	if (outbox.status !== 'pending' && outbox.status !== 'failed') {
+		return { status: 'not-retryable' };
+	}
+
+	if (outbox.attemptCount >= ORGANIZATION_INVITATION_EMAIL_MAX_ATTEMPTS) {
+		return { status: 'max-attempts' };
+	}
+
+	if (input.invitation.status !== 'pending') {
+		return { status: 'not-retryable' };
+	}
+
+	const now = input.now ?? new Date();
+	if (input.invitation.expiresAt <= now) {
+		return { status: 'expired' };
+	}
+
+	try {
+		await sendEmail({
+			email: normalizeEmail(input.invitation.email),
+			organizationName: input.organizationName,
+			invitedByEmail: input.invitedByEmail,
+			inviteUrl: makeOrganizationInvitationUrl(input.origin, {
+				requiresAccountSetup: input.invitation.requiresAccountSetup
+			}),
+			requiresAccountSetup: input.invitation.requiresAccountSetup
+		});
+		return {
+			status: 'sent',
+			outbox: await store.markInvitationEmailDeliverySent(outbox.id, now)
+		};
+	} catch (error) {
+		const message = errorMessage(error);
+		return {
+			status: 'failed',
+			error: message,
+			outbox: await store.markInvitationEmailDeliveryFailed(outbox.id, now, message)
+		};
+	}
+}
+
 export function createSupabaseOrganizationInvitationEmailOutboxStore(
 	client: SupabaseClient
 ): OrganizationInvitationEmailOutboxStore {
 	return {
+		async getInvitationEmailDelivery(id) {
+			const { data, error } = await client
+				.from('organization_invitation_email_outbox')
+				.select('*')
+				.eq('id', id)
+				.maybeSingle();
+
+			if (error) throw error;
+			return data ? mapOutboxRow(data as OrganizationInvitationEmailOutboxRow) : null;
+		},
+
 		async insertInvitationEmailDelivery(input) {
 			const { data, error } = await client
 				.from('organization_invitation_email_outbox')
@@ -304,16 +393,12 @@ export function createSupabaseOrganizationInvitationEmailOutboxStore(
 
 		async markInvitationEmailDeliverySent(id, sentAt) {
 			const { data, error } = await client
-				.from('organization_invitation_email_outbox')
-				.update({
-					status: 'sent',
-					attempt_count: 1,
-					last_error: null,
-					updated_at: sentAt.toISOString(),
-					sent_at: sentAt.toISOString()
+				.rpc('mark_organization_invitation_email_outbox_delivery', {
+					p_outbox_id: id,
+					p_status: 'sent',
+					p_marked_at: sentAt.toISOString(),
+					p_last_error: null
 				})
-				.eq('id', id)
-				.select('*')
 				.single();
 
 			if (error) throw error;
@@ -322,16 +407,12 @@ export function createSupabaseOrganizationInvitationEmailOutboxStore(
 
 		async markInvitationEmailDeliveryFailed(id, failedAt, lastError) {
 			const { data, error } = await client
-				.from('organization_invitation_email_outbox')
-				.update({
-					status: 'failed',
-					attempt_count: 1,
-					last_error: lastError,
-					updated_at: failedAt.toISOString(),
-					sent_at: null
+				.rpc('mark_organization_invitation_email_outbox_delivery', {
+					p_outbox_id: id,
+					p_status: 'failed',
+					p_marked_at: failedAt.toISOString(),
+					p_last_error: lastError
 				})
-				.eq('id', id)
-				.select('*')
 				.single();
 
 			if (error) throw error;

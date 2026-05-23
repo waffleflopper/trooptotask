@@ -6,12 +6,18 @@ export const PLATFORM_ACCESS_REQUEST_APPROVE_ACTION = 'platform.accessRequest.ap
 export const PLATFORM_ACCESS_REQUEST_RESEND_SETUP_ACTION = 'platform.accessRequest.resendSetup';
 export const ORGANIZATION_TRANSFER_OWNERSHIP_ACTION = 'organization.transferOwnership';
 export const ORGANIZATION_DELETE_ACTION = 'organization.deleteOrganization';
+export const BILLING_CHECKOUT_ACTION = 'billing.checkout';
+export const BILLING_PORTAL_ACTION = 'billing.portal';
+export const BILLING_CANCEL_ACTION = 'billing.cancel';
 
 export type SensitiveAction =
 	| typeof PLATFORM_ACCESS_REQUEST_APPROVE_ACTION
 	| typeof PLATFORM_ACCESS_REQUEST_RESEND_SETUP_ACTION
 	| typeof ORGANIZATION_TRANSFER_OWNERSHIP_ACTION
 	| typeof ORGANIZATION_DELETE_ACTION
+	| typeof BILLING_CHECKOUT_ACTION
+	| typeof BILLING_PORTAL_ACTION
+	| typeof BILLING_CANCEL_ACTION
 	| (string & {});
 
 export type SensitiveActionDecisionReason =

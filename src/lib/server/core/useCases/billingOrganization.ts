@@ -1,5 +1,6 @@
-import type { AuthContext, DataStore } from '$lib/server/core/ports';
+import type { AuditPort, AuthContext, DataStore } from '$lib/server/core/ports';
 import type { BillingPort } from '$lib/server/core/ports';
+import type { SensitiveActionAuthorizer } from '$lib/server/sensitiveActionAuthorizer';
 import type { CancelResult } from './billing';
 import { cancel } from './billing';
 import { fail } from '$lib/server/core/errors';
@@ -10,9 +11,11 @@ interface BillingOrganizationPorts {
 }
 
 interface BillingCancellationPorts {
-	auth: Pick<AuthContext, 'orgId'>;
+	auth: Pick<AuthContext, 'orgId' | 'userId'>;
 	rawStore: DataStore;
 	billing: BillingPort;
+	audit: AuditPort;
+	sensitiveActionAuthorizer: SensitiveActionAuthorizer;
 }
 
 interface BillingOrganizationRow {

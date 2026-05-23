@@ -11,6 +11,7 @@ export type SubscriptionStatus =
 	| 'paused';
 export type BillingSnapshotSource = 'stripe' | 'gift' | 'billing_disabled' | 'legacy_organization';
 export type BillingSyncStatus = 'not_configured' | 'synced' | 'pending' | 'needs_reconciliation' | 'billing_disabled';
+export type ReadOnlyReason = 'payment_failure' | 'billing_state' | 'personnel_limit';
 
 export interface BillingSnapshot {
 	organizationId: string;
@@ -51,6 +52,7 @@ export interface EffectiveTier {
 	personnelCount: number;
 	personnelCap: number;
 	isReadOnly: boolean;
+	readOnlyReason?: ReadOnlyReason | null;
 	giftExpiresAt: string | null;
 	giftTier: Tier | null;
 }

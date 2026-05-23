@@ -24,6 +24,7 @@
 		personnelCount: 0,
 		personnelCap: 20,
 		isReadOnly: false,
+		readOnlyReason: null,
 		giftExpiresAt: null,
 		giftTier: null
 	};
@@ -32,6 +33,7 @@
 	const tierComparison = $derived(data.tierComparison ?? []);
 	const source = $derived(tier.source);
 	const isReadOnly = $derived(tier.isReadOnly);
+	const readOnlyReason = $derived(tier.readOnlyReason ?? null);
 	const personnelCount = $derived(tier.personnelCount);
 	const personnelCap = $derived(tier.personnelCap);
 	const giftExpiresAt = $derived(tier.giftExpiresAt);
@@ -112,6 +114,26 @@
 			default:
 				return 'secondary';
 		}
+	}
+
+	function readOnlyTitle(): string {
+		if (readOnlyReason === 'payment_failure') return 'Payment failed. Your organization is in grace mode.';
+		if (readOnlyReason === 'billing_state') return 'Subscription access needs attention.';
+		return 'Your organization is in read-only mode.';
+	}
+
+	function readOnlyDescription(): string {
+		if (readOnlyReason === 'payment_failure') {
+			return 'A renewal payment failed, so paid access is temporarily read-only. Update the payment method in the billing portal to restore full access.';
+		}
+
+		if (readOnlyReason === 'billing_state') {
+			return 'The subscription is not currently active. Existing organization data is preserved, but paid writes are blocked until billing is restored.';
+		}
+
+		return `You have ${personnelCount} personnel but your plan allows ${
+			personnelCap === Infinity ? 'unlimited' : personnelCap
+		}. Subscribe to a higher tier, contact support for enterprise access, or remove personnel to restore full access.`;
 	}
 
 	async function handleSubscribe(selectedTier: string) {
@@ -228,12 +250,8 @@
 	{#if isReadOnly}
 		<Alert.Root variant="warning">
 			<TriangleAlert />
-			<Alert.Title>Your organization is in read-only mode.</Alert.Title>
-			<Alert.Description>
-				You have <strong>{personnelCount}</strong> personnel but your plan allows
-				<strong>{personnelCap === Infinity ? 'unlimited' : personnelCap}</strong>. Subscribe to a higher tier, contact
-				support for enterprise access, or remove personnel to restore full access.
-			</Alert.Description>
+			<Alert.Title>{readOnlyTitle()}</Alert.Title>
+			<Alert.Description>{readOnlyDescription()}</Alert.Description>
 		</Alert.Root>
 	{/if}
 

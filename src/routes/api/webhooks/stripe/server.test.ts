@@ -46,7 +46,7 @@ interface WebhookRow {
 
 interface WebhookSupabaseOptions {
 	existingWebhookEvent?: WebhookRow | null;
-	existingBillingSnapshot?: { last_stripe_event_created_at: string | null } | null;
+	existingBillingSnapshot?: Record<string, unknown> | null;
 	paymentFailedOrgId?: string;
 	failOrganizationUpdate?: string;
 	failLedgerRecord?: string;
@@ -147,9 +147,17 @@ function createWebhookSupabaseStub(options: WebhookSupabaseOptions = {}) {
 						select: (columns: string) => ({
 							eq: () => ({
 								single: async () => {
-									if (columns === 'id') {
+									if (columns.includes('stripe_subscription_id')) {
 										return options.paymentFailedOrgId
-											? { data: { id: options.paymentFailedOrgId }, error: null }
+											? {
+													data: {
+														id: options.paymentFailedOrgId,
+														tier: 'team',
+														stripe_customer_id: 'cus_123',
+														stripe_subscription_id: 'sub_123'
+													},
+													error: null
+												}
 											: { data: null, error: null };
 									}
 									return { data: { gift_tier: null, gift_expires_at: null }, error: null };
@@ -552,6 +560,47 @@ describe('POST /api/webhooks/stripe', () => {
 		expect(invalidateTierCacheMock).toHaveBeenCalledWith('org-1');
 	});
 
+	it('keeps past-due subscriptions on their paid plan with payment-failure grace state', async () => {
+		const supabase = createWebhookSupabaseStub();
+		getAdminClientMock.mockReturnValue(supabase.client);
+
+		const response = await postWebhook({
+			id: 'evt_subscription_past_due',
+			type: 'customer.subscription.updated',
+			created: 1,
+			data: {
+				object: {
+					id: 'sub_123',
+					status: 'past_due',
+					metadata: { orgId: 'org-1', tier: 'team' },
+					customer: 'cus_123',
+					items: { data: [{ price: { id: 'price_team', product: 'prod_team' } }] },
+					current_period_end: 1_800_000_000,
+					cancel_at_period_end: false,
+					pause_collection: null
+				}
+			}
+		});
+
+		expect(response.status).toBe(200);
+		expect(supabase.billingSnapshotUpserts).toContainEqual(
+			expect.objectContaining({
+				commercial_plan: 'team',
+				subscription_status: 'past_due',
+				collection_status: 'payment_failed_grace'
+			})
+		);
+		expect(supabase.orgUpdates).toContainEqual(
+			expect.objectContaining({
+				values: expect.objectContaining({
+					tier: 'team',
+					subscription_status: 'past_due'
+				})
+			})
+		);
+		expect(invalidateTierCacheMock).toHaveBeenCalledWith('org-1');
+	});
+
 	it('keeps paused subscriptions on their paid billing snapshot', async () => {
 		const supabase = createWebhookSupabaseStub();
 		getAdminClientMock.mockReturnValue(supabase.client);
@@ -628,6 +677,50 @@ describe('POST /api/webhooks/stripe', () => {
 				values: expect.objectContaining({
 					tier: 'free',
 					subscription_status: null
+				})
+			})
+		);
+		expect(invalidateTierCacheMock).toHaveBeenCalledWith('org-1');
+	});
+
+	it('revokes paid access for unpaid subscription updates without deleting organization data', async () => {
+		const supabase = createWebhookSupabaseStub();
+		getAdminClientMock.mockReturnValue(supabase.client);
+
+		const response = await postWebhook({
+			id: 'evt_subscription_unpaid',
+			type: 'customer.subscription.updated',
+			created: 1,
+			data: {
+				object: {
+					id: 'sub_123',
+					status: 'unpaid',
+					metadata: { orgId: 'org-1', tier: 'team' },
+					customer: 'cus_123',
+					items: { data: [{ price: { id: 'price_team', product: 'prod_team' } }] },
+					current_period_end: 1_800_000_000,
+					cancel_at_period_end: false,
+					pause_collection: null
+				}
+			}
+		});
+
+		expect(response.status).toBe(200);
+		expect(supabase.billingSnapshotUpserts).toContainEqual(
+			expect.objectContaining({
+				commercial_plan: 'free',
+				stripe_subscription_id: 'sub_123',
+				subscription_status: 'unpaid',
+				collection_status: 'payment_failed_terminal'
+			})
+		);
+		expect(supabase.orgUpdates).toContainEqual(
+			expect.objectContaining({
+				value: 'org-1',
+				values: expect.objectContaining({
+					tier: 'free',
+					stripe_subscription_id: 'sub_123',
+					subscription_status: 'past_due'
 				})
 			})
 		);
@@ -786,7 +879,17 @@ describe('POST /api/webhooks/stripe', () => {
 	});
 
 	it('invalidates the effective-tier cache after subscription deletion', async () => {
-		const supabase = createWebhookSupabaseStub();
+		const supabase = createWebhookSupabaseStub({
+			existingBillingSnapshot: {
+				commercial_plan: 'team',
+				stripe_customer_id: 'cus_123',
+				stripe_subscription_id: 'sub_123',
+				stripe_product_id: 'prod_team',
+				stripe_price_id: 'price_team',
+				current_period_end: '2027-01-15T08:00:00.000Z',
+				last_stripe_event_created_at: null
+			}
+		});
 		getAdminClientMock.mockReturnValue(supabase.client);
 
 		const response = await postWebhook({
@@ -796,17 +899,91 @@ describe('POST /api/webhooks/stripe', () => {
 			data: {
 				object: {
 					id: 'sub_123',
-					metadata: { orgId: 'org-1' }
+					metadata: { orgId: 'org-1' },
+					customer: 'cus_123',
+					canceled_at: 1
 				}
 			}
 		});
 
 		expect(response.status).toBe(200);
+		expect(supabase.billingSnapshotUpserts).toContainEqual(
+			expect.objectContaining({
+				organization_id: 'org-1',
+				commercial_plan: 'free',
+				stripe_customer_id: 'cus_123',
+				stripe_subscription_id: null,
+				stripe_product_id: 'prod_team',
+				stripe_price_id: 'price_team',
+				subscription_status: 'canceled',
+				collection_status: 'canceled',
+				current_period_end: null,
+				canceled_at: '1970-01-01T00:00:01.000Z',
+				last_stripe_event_id: 'evt_subscription_deleted'
+			})
+		);
+		expect(supabase.orgUpdates).toContainEqual(
+			expect.objectContaining({
+				value: 'org-1',
+				values: expect.objectContaining({
+					tier: 'free',
+					stripe_subscription_id: null,
+					subscription_status: 'canceled',
+					current_period_end: null
+				})
+			})
+		);
+		expect(invalidateTierCacheMock).toHaveBeenCalledWith('org-1');
+	});
+
+	it('records payment failure grace from organization fields when no billing snapshot exists yet', async () => {
+		const supabase = createWebhookSupabaseStub({ paymentFailedOrgId: 'org-1' });
+		getAdminClientMock.mockReturnValue(supabase.client);
+
+		const response = await postWebhook({
+			id: 'evt_payment_failed_cold',
+			type: 'invoice.payment_failed',
+			created: 1,
+			data: {
+				object: {
+					id: 'in_123',
+					parent: {
+						subscription_details: {
+							subscription: 'sub_123'
+						}
+					}
+				}
+			}
+		});
+
+		expect(response.status).toBe(200);
+		expect(supabase.billingSnapshotUpserts).toContainEqual(
+			expect.objectContaining({
+				organization_id: 'org-1',
+				commercial_plan: 'team',
+				stripe_customer_id: 'cus_123',
+				stripe_subscription_id: 'sub_123',
+				subscription_status: 'past_due',
+				collection_status: 'payment_failed_grace',
+				last_stripe_event_id: 'evt_payment_failed_cold'
+			})
+		);
 		expect(invalidateTierCacheMock).toHaveBeenCalledWith('org-1');
 	});
 
 	it('invalidates the effective-tier cache after payment failure marks an org past due', async () => {
-		const supabase = createWebhookSupabaseStub({ paymentFailedOrgId: 'org-1' });
+		const supabase = createWebhookSupabaseStub({
+			paymentFailedOrgId: 'org-1',
+			existingBillingSnapshot: {
+				commercial_plan: 'team',
+				stripe_customer_id: 'cus_123',
+				stripe_subscription_id: 'sub_123',
+				stripe_product_id: 'prod_team',
+				stripe_price_id: 'price_team',
+				current_period_end: '2027-01-15T08:00:00.000Z',
+				last_stripe_event_created_at: null
+			}
+		});
 		getAdminClientMock.mockReturnValue(supabase.client);
 
 		const response = await postWebhook({
@@ -826,6 +1003,27 @@ describe('POST /api/webhooks/stripe', () => {
 		});
 
 		expect(response.status).toBe(200);
+		expect(supabase.billingSnapshotUpserts).toContainEqual(
+			expect.objectContaining({
+				organization_id: 'org-1',
+				commercial_plan: 'team',
+				stripe_customer_id: 'cus_123',
+				stripe_subscription_id: 'sub_123',
+				stripe_product_id: 'prod_team',
+				stripe_price_id: 'price_team',
+				subscription_status: 'past_due',
+				collection_status: 'payment_failed_grace',
+				last_stripe_event_id: 'evt_payment_failed'
+			})
+		);
+		expect(supabase.orgUpdates).toContainEqual(
+			expect.objectContaining({
+				value: 'org-1',
+				values: expect.objectContaining({
+					subscription_status: 'past_due'
+				})
+			})
+		);
 		expect(invalidateTierCacheMock).toHaveBeenCalledWith('org-1');
 	});
 });

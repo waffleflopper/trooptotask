@@ -1,11 +1,29 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { isBillingEnabled } from '$lib/config/billing';
-import { TIER_CONFIG, type EffectiveTier, type Tier } from '$lib/types/subscription';
+import { TIER_CONFIG, type EffectiveTier, type ReadOnlyReason, type Tier } from '$lib/types/subscription';
 import { selectAllSupabaseRows } from './supabasePagination';
 
 /** In-memory TTL cache for tier queries (per-process, resets on cold start) */
 const tierCache = new Map<string, { data: EffectiveTier; expiresAt: number }>();
 const TIER_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+export interface OrgReadOnlyState {
+	isReadOnly: boolean;
+	reason: ReadOnlyReason | null;
+	message: string | null;
+}
+
+export function readOnlyMessage(reason: ReadOnlyReason | null | undefined): string {
+	switch (reason) {
+		case 'payment_failure':
+			return 'Organization is in billing grace mode because a payment failed. Update the payment method to restore full access.';
+		case 'billing_state':
+			return 'Organization billing is not currently active. Restore the subscription to regain paid write access.';
+		case 'personnel_limit':
+		default:
+			return 'Organization is in read-only mode. Please subscribe or remove personnel.';
+	}
+}
 
 /**
  * Get the effective tier for an org.
@@ -19,6 +37,7 @@ export async function getEffectiveTier(supabase: SupabaseClient, orgId: string):
 			personnelCount: 0, // Not fetched when billing disabled — UI hidden in this mode
 			personnelCap: Infinity,
 			isReadOnly: false,
+			readOnlyReason: null,
 			giftExpiresAt: null,
 			giftTier: null
 		};
@@ -57,7 +76,7 @@ export async function canAddPersonnel(
 	if (tier.isReadOnly) {
 		return {
 			allowed: false,
-			message: 'Organization is in read-only mode. Please subscribe or remove personnel.'
+			message: readOnlyMessage(tier.readOnlyReason)
 		};
 	}
 	if (tier.personnelCount >= tier.personnelCap) {
@@ -76,6 +95,18 @@ export async function isOrgReadOnly(supabase: SupabaseClient, orgId: string): Pr
 	if (!isBillingEnabled) return false;
 	const tier = await getEffectiveTier(supabase, orgId);
 	return tier.isReadOnly;
+}
+
+export async function getOrgReadOnlyState(supabase: SupabaseClient, orgId: string): Promise<OrgReadOnlyState> {
+	if (!isBillingEnabled) return { isReadOnly: false, reason: null, message: null };
+
+	const tier = await getEffectiveTier(supabase, orgId);
+	const reason = tier.readOnlyReason ?? null;
+	return {
+		isReadOnly: tier.isReadOnly,
+		reason,
+		message: tier.isReadOnly ? readOnlyMessage(reason) : null
+	};
 }
 
 /**

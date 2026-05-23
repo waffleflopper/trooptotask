@@ -1,4 +1,4 @@
-import type { EffectiveTier } from '$lib/types/subscription';
+import type { EffectiveTier, ReadOnlyReason } from '$lib/types/subscription';
 import type { CapabilityMap, CompatibilityLaneMap, ScopeSet } from '$lib/access/memberAccessShape';
 import type { SensitiveActionAuthorizer } from '$lib/server/sensitiveActionAuthorizer';
 
@@ -143,8 +143,15 @@ export interface AuditPort {
 }
 
 /** Subscription/billing state checks */
+export interface ReadOnlyGuardState {
+	isReadOnly: boolean;
+	reason: ReadOnlyReason | null;
+	message: string | null;
+}
+
 export interface ReadOnlyGuard {
 	check(): Promise<boolean>;
+	checkState?(): Promise<ReadOnlyGuardState>;
 }
 
 /** Subscription/billing cap checks and cache management */

@@ -48,6 +48,16 @@ interface SubscriptionWebhookData {
 
 interface ExistingBillingSnapshot {
 	id?: string;
+	commercial_plan?: Tier | null;
+	stripe_customer_id?: string | null;
+	stripe_subscription_id?: string | null;
+	stripe_product_id?: string | null;
+	stripe_price_id?: string | null;
+	current_period_start?: string | null;
+	current_period_end?: string | null;
+	cancel_at_period_end?: boolean | null;
+	canceled_at?: string | null;
+	trial_end?: string | null;
 	last_stripe_event_created_at: string | null;
 }
 
@@ -129,7 +139,9 @@ async function readBillingSnapshotForTransition(
 ): Promise<ExistingBillingSnapshot | null> {
 	const { data, error } = await supabase
 		.from('organization_billing_snapshots')
-		.select('id, last_stripe_event_created_at')
+		.select(
+			'id, commercial_plan, stripe_customer_id, stripe_subscription_id, stripe_product_id, stripe_price_id, current_period_start, current_period_end, cancel_at_period_end, canceled_at, trial_end, last_stripe_event_created_at'
+		)
 		.eq('organization_id', orgId)
 		.single<ExistingBillingSnapshot>();
 
@@ -160,8 +172,9 @@ function subscriptionCollectionStatus(status: Stripe.Subscription.Status): strin
 		case 'paused':
 			return 'current';
 		case 'past_due':
+			return 'payment_failed_grace';
 		case 'unpaid':
-			return 'past_due';
+			return 'payment_failed_terminal';
 		case 'canceled':
 			return 'canceled';
 		case 'incomplete':
@@ -321,15 +334,16 @@ async function handleSubscriptionUpdated(
 	const catalogLookup = lookupPriceCatalogEntry(configuredPriceCatalog, priceId);
 	const grantsPaidAccess =
 		subscription.status === 'active' || subscription.status === 'trialing' || subscription.status === 'paused';
+	const retainsCommercialPlan = grantsPaidAccess || subscription.status === 'past_due';
 
-	if (grantsPaidAccess && !catalogLookup.ok) {
+	if (retainsCommercialPlan && !catalogLookup.ok) {
 		throw new PermanentWebhookProcessingError(
 			`customer.subscription.updated cannot grant access for ${orgId}: ${catalogLookup.reason}`
 		);
 	}
 
 	if (
-		grantsPaidAccess &&
+		retainsCommercialPlan &&
 		catalogLookup.ok &&
 		subscription.metadata?.tier &&
 		subscription.metadata.tier !== catalogLookup.entry.commercialPlan
@@ -339,7 +353,7 @@ async function handleSubscriptionUpdated(
 		);
 	}
 
-	const commercialPlan = grantsPaidAccess && catalogLookup.ok ? catalogLookup.entry.commercialPlan : 'free';
+	const commercialPlan = retainsCommercialPlan && catalogLookup.ok ? catalogLookup.entry.commercialPlan : 'free';
 	const legacyStatus = legacyOrganizationStatus(subscription.status);
 
 	const snapshotUpdated = await upsertBillingSnapshot(supabase, {
@@ -388,11 +402,55 @@ async function handleSubscriptionUpdated(
 	};
 }
 
-async function handleSubscriptionDeleted(supabase: SupabaseClient, subscription: Stripe.Subscription): Promise<string> {
+async function handleSubscriptionDeleted(
+	supabase: SupabaseClient,
+	subscription: Stripe.Subscription,
+	event: Stripe.Event
+): Promise<WebhookProcessingResult> {
 	const orgId = subscription.metadata?.orgId;
+	const eventCreatedAt = new Date(event.created * 1000).toISOString();
 
 	if (!orgId) {
 		throw new PermanentWebhookProcessingError('customer.subscription.deleted missing orgId metadata');
+	}
+
+	const snapshot = await readBillingSnapshotForTransition(supabase, orgId);
+	if (isStaleBillingEvent(snapshot, eventCreatedAt)) {
+		return {
+			state: 'superseded',
+			result: `subscription deletion for organization ${orgId} is older than the current billing snapshot`
+		};
+	}
+
+	const snapshotUpdated = await upsertBillingSnapshot(supabase, {
+		organization_id: orgId,
+		source: 'stripe',
+		commercial_plan: 'free',
+		stripe_customer_id:
+			snapshot?.stripe_customer_id ??
+			(typeof subscription.customer === 'string' ? subscription.customer : subscription.customer?.id),
+		stripe_subscription_id: null,
+		stripe_product_id: snapshot?.stripe_product_id ?? null,
+		stripe_price_id: snapshot?.stripe_price_id ?? null,
+		subscription_status: 'canceled',
+		collection_status: 'canceled',
+		current_period_start: snapshot?.current_period_start ?? null,
+		current_period_end: null,
+		cancel_at_period_end: false,
+		canceled_at: isoFromStripeTimestamp(subscription.canceled_at) ?? eventCreatedAt,
+		trial_end: snapshot?.trial_end ?? null,
+		sync_status: 'synced',
+		last_stripe_event_id: event.id,
+		last_stripe_event_type: event.type,
+		last_stripe_event_created_at: eventCreatedAt,
+		last_processed_at: new Date().toISOString(),
+		drift_detected: false
+	});
+	if (!snapshotUpdated) {
+		return {
+			state: 'superseded',
+			result: `subscription deletion for organization ${orgId} lost a concurrent billing snapshot update`
+		};
 	}
 
 	const { error } = await supabase
@@ -410,11 +468,19 @@ async function handleSubscriptionDeleted(supabase: SupabaseClient, subscription:
 	}
 
 	invalidateTierCache(orgId);
-	return `subscription deleted for organization ${orgId}`;
+	return {
+		state: 'processed',
+		result: `subscription deleted for organization ${orgId}`
+	};
 }
 
-async function handlePaymentFailed(supabase: SupabaseClient, invoice: Stripe.Invoice): Promise<string> {
+async function handlePaymentFailed(
+	supabase: SupabaseClient,
+	invoice: Stripe.Invoice,
+	event: Stripe.Event
+): Promise<WebhookProcessingResult> {
 	const subscriptionId = getSubscriptionIdFromInvoice(invoice);
+	const eventCreatedAt = new Date(event.created * 1000).toISOString();
 
 	if (!subscriptionId) {
 		throw new PermanentWebhookProcessingError('invoice.payment_failed missing subscription ID');
@@ -423,12 +489,54 @@ async function handlePaymentFailed(supabase: SupabaseClient, invoice: Stripe.Inv
 	// Find the org by its stripe_subscription_id
 	const { data: org } = await supabase
 		.from('organizations')
-		.select('id')
+		.select('id, tier, stripe_customer_id, stripe_subscription_id')
 		.eq('stripe_subscription_id', subscriptionId)
-		.single();
+		.single<{
+			id: string;
+			tier: Tier | null;
+			stripe_customer_id: string | null;
+			stripe_subscription_id: string | null;
+		}>();
 
 	if (!org) {
 		throw new PermanentWebhookProcessingError(`No organization found for subscription ${subscriptionId}`);
+	}
+
+	const snapshot = await readBillingSnapshotForTransition(supabase, org.id);
+	if (isStaleBillingEvent(snapshot, eventCreatedAt)) {
+		return {
+			state: 'superseded',
+			result: `payment failure for organization ${org.id} is older than the current billing snapshot`
+		};
+	}
+
+	const snapshotUpdated = await upsertBillingSnapshot(supabase, {
+		organization_id: org.id,
+		source: 'stripe',
+		commercial_plan: snapshot?.commercial_plan ?? org.tier ?? 'free',
+		stripe_customer_id: snapshot?.stripe_customer_id ?? org.stripe_customer_id,
+		stripe_subscription_id: snapshot?.stripe_subscription_id ?? org.stripe_subscription_id ?? subscriptionId,
+		stripe_product_id: snapshot?.stripe_product_id ?? null,
+		stripe_price_id: snapshot?.stripe_price_id ?? null,
+		subscription_status: 'past_due',
+		collection_status: 'payment_failed_grace',
+		current_period_start: snapshot?.current_period_start ?? null,
+		current_period_end: snapshot?.current_period_end ?? null,
+		cancel_at_period_end: snapshot?.cancel_at_period_end ?? false,
+		canceled_at: snapshot?.canceled_at ?? null,
+		trial_end: snapshot?.trial_end ?? null,
+		sync_status: 'synced',
+		last_stripe_event_id: event.id,
+		last_stripe_event_type: event.type,
+		last_stripe_event_created_at: eventCreatedAt,
+		last_processed_at: new Date().toISOString(),
+		drift_detected: false
+	});
+	if (!snapshotUpdated) {
+		return {
+			state: 'superseded',
+			result: `payment failure for organization ${org.id} lost a concurrent billing snapshot update`
+		};
 	}
 
 	const { error } = await supabase.from('organizations').update({ subscription_status: 'past_due' }).eq('id', org.id);
@@ -438,7 +546,10 @@ async function handlePaymentFailed(supabase: SupabaseClient, invoice: Stripe.Inv
 	}
 
 	invalidateTierCache(org.id);
-	return `payment failure marked past due for organization ${org.id}`;
+	return {
+		state: 'processed',
+		result: `payment failure marked past due for organization ${org.id}`
+	};
 }
 
 async function processWebhookEvent(supabase: SupabaseClient, event: Stripe.Event): Promise<WebhookProcessingResult> {
@@ -455,16 +566,10 @@ async function processWebhookEvent(supabase: SupabaseClient, event: Stripe.Event
 		}
 
 		case 'customer.subscription.deleted':
-			return {
-				state: 'processed',
-				result: await handleSubscriptionDeleted(supabase, event.data.object as Stripe.Subscription)
-			};
+			return handleSubscriptionDeleted(supabase, event.data.object as Stripe.Subscription, event);
 
 		case 'invoice.payment_failed':
-			return {
-				state: 'processed',
-				result: await handlePaymentFailed(supabase, event.data.object as Stripe.Invoice)
-			};
+			return handlePaymentFailed(supabase, event.data.object as Stripe.Invoice, event);
 
 		default:
 			return {

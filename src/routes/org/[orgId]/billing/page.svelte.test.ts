@@ -19,6 +19,7 @@ const baseData = {
 		personnelCount: 12,
 		personnelCap: 75,
 		isReadOnly: false,
+		readOnlyReason: null,
 		giftExpiresAt: null,
 		giftTier: null
 	},
@@ -101,5 +102,24 @@ describe('billing page toolbar', () => {
 
 		await fireEvent.click(within(actions).getByRole('button', { name: 'Cancel Subscription' }));
 		expect((within(actions).getByRole('button', { name: 'Canceling...' }) as HTMLButtonElement).disabled).toBe(true);
+	});
+
+	it('shows payment-failure grace messaging separately from personnel limits', () => {
+		render(Page, {
+			props: {
+				data: {
+					...baseData,
+					effectiveTier: {
+						...baseData.effectiveTier,
+						isReadOnly: true,
+						readOnlyReason: 'payment_failure'
+					}
+				} as never
+			}
+		});
+
+		expect(screen.getByText('Payment failed. Your organization is in grace mode.')).toBeTruthy();
+		expect(screen.getByText(/A renewal payment failed/)).toBeTruthy();
+		expect(screen.queryByText(/your plan allows/)).toBeNull();
 	});
 });

@@ -56,6 +56,14 @@ export async function enforceRouteReadOnlyOverlay(
 		return;
 	}
 
+	const state = await ports.readOnlyGuard.checkState?.();
+	if (state) {
+		if (state.isReadOnly) {
+			fail(403, state.message ?? 'Organization is in read-only mode');
+		}
+		return;
+	}
+
 	const isReadOnly = await ports.readOnlyGuard.check();
 	if (isReadOnly) {
 		fail(403, 'Organization is in read-only mode');

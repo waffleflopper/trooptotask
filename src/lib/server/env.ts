@@ -129,7 +129,7 @@ function validateEnv(): void {
 	const result = validateEnvironmentConfig({ mode: currentMode(), env: currentEnv() });
 	const optionalNames = result.warnings.map((warning) => warning.split(' ')[0]);
 	const missingNames = result.errors
-		.map((error) => error.split(' ')[0])
+		.flatMap((error) => error.match(/[A-Z][A-Z0-9_]+/g) ?? [])
 		.filter((name, index, names) => names.indexOf(name) === index);
 
 	if (result.errors.length > 0) {

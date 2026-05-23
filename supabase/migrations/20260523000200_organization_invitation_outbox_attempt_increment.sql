@@ -9,6 +9,7 @@ LANGUAGE sql
 SECURITY DEFINER
 SET search_path = public
 AS $$
+	-- Keep invitation delivery retries capped even if a caller bypasses the app-level guard.
 	UPDATE public.organization_invitation_email_outbox
 	SET
 		status = p_status,
@@ -18,6 +19,7 @@ AS $$
 		sent_at = CASE WHEN p_status = 'sent' THEN p_marked_at ELSE NULL END
 	WHERE id = p_outbox_id
 		AND p_status = ANY (ARRAY['sent'::text, 'failed'::text])
+		AND attempt_count < 3
 	RETURNING *;
 $$;
 

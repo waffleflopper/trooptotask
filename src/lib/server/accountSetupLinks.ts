@@ -232,6 +232,7 @@ function mapClaimRpcRow(row: ClaimAccountSetupLinkRpcRow): ClaimAccountSetupLink
 		link: mapSetupLinkRow({
 			id: row.setup_link_id,
 			access_request_id: row.access_request_id,
+			// The claim RPC intentionally excludes token_hash so raw setup-token material stays database-only.
 			token_hash: '',
 			expires_at: row.expires_at,
 			created_at: row.created_at,

@@ -19,6 +19,7 @@ describe('organization invitation outbox attempt increment migration', () => {
 			'create or replace function "public"."mark_organization_invitation_email_outbox_delivery"'
 		);
 		expect(normalized).toContain('attempt_count = attempt_count + 1');
+		expect(normalized).toContain('and attempt_count < 3');
 		expect(normalized).toContain('returning *');
 	});
 

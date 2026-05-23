@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+	ORGANIZATION_INVITATION_EMAIL_MAX_ATTEMPTS,
 	makeOrganizationInvitationUrl,
 	retryOrganizationInvitationOutboxDelivery,
 	sendOrganizationInvitationEmail,
@@ -280,5 +281,31 @@ describe('organization invitation delivery', () => {
 			attemptCount: 2,
 			lastError: 'provider rejected [redacted invitation url]'
 		});
+	});
+
+	it('caps organization invitation retry attempts before sending another email', async () => {
+		const store = createOrganizationInvitationEmailOutboxStore();
+		await store.insertInvitationEmailDelivery({
+			organizationId: 'org-1',
+			invitationId: 'invite-1',
+			recipient: 'invitee@example.mil',
+			createdAt: AUTH_WORKFLOW_NOW
+		});
+		store.records[0].status = 'failed';
+		store.records[0].attemptCount = ORGANIZATION_INVITATION_EMAIL_MAX_ATTEMPTS;
+		const sendEmail = vi.fn();
+
+		const result = await retryOrganizationInvitationOutboxDelivery(store, sendEmail, {
+			outboxId: 'outbox-1',
+			origin: 'https://trooptotask.test',
+			invitation: organizationInvitationFixture(),
+			organizationName: 'Alpha Company',
+			invitedByEmail: null,
+			now: AUTH_WORKFLOW_NOW
+		});
+
+		expect(result).toEqual({ status: 'max-attempts' });
+		expect(sendEmail).not.toHaveBeenCalled();
+		expect(store.records[0].attemptCount).toBe(ORGANIZATION_INVITATION_EMAIL_MAX_ATTEMPTS);
 	});
 });

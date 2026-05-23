@@ -325,6 +325,7 @@ export function createAccessRequestSetupDeliveryStore(requests: AccessRequestSet
 			const link = setupLinks.find((item) => item.id === input.setupLinkId);
 			const request = requests.find((item) => item.id === input.accessRequestId);
 			if (!link || link.accessRequestId !== input.accessRequestId || !request) return { status: 'missing' };
+			// This fake prioritizes access-request outcomes for focused service tests; the database RPC owns exact status ordering.
 			if (request.setupCompletedAt) return { status: 'access-request-completed' };
 			if (request.status !== 'approved') return { status: 'access-request-not-approved' };
 			if (link.usedAt) return { status: 'used' };

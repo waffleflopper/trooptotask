@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { CreateAccountSetupLinkResult } from './accountSetupLinks';
+import { makePublicAppUrl } from './publicAppOrigin';
 
 export type AuthEmailPurpose = 'account_setup';
 export type AuthEmailOutboxStatus = 'pending' | 'sent' | 'failed';
@@ -164,7 +165,7 @@ export async function recoverAccountSetupEmailDelivery(
 		accessRequestId: existing.accessRequestId,
 		setupLinkId: replacement.link.id,
 		email: existing.recipient,
-		setupUrl: new URL(replacement.setupPath, input.publicOrigin).toString(),
+		setupUrl: makePublicAppUrl(replacement.setupPath, { inboundOrigin: input.publicOrigin }),
 		expiresAt: replacement.expiresAt,
 		now: input.now
 	});

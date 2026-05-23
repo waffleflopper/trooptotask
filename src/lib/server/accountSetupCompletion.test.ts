@@ -78,6 +78,7 @@ function makeStore(accessRequest: AccountSetupLinkAccessRequest): AccountSetupCo
 			if (!link || link.accessRequestId !== input.accessRequestId) {
 				return { status: 'missing' };
 			}
+			// This fake prioritizes access-request outcomes for focused service tests; the database RPC owns exact status ordering.
 			if (accessRequest.setupCompletedAt) return { status: 'access-request-completed' };
 			if (accessRequest.status !== 'approved') return { status: 'access-request-not-approved' };
 			if (link.usedAt) return { status: 'used' };

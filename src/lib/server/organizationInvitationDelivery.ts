@@ -3,6 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { makePublicAppUrl } from './publicAppOrigin';
 
 const RESEND_EMAILS_URL = 'https://api.resend.com/emails';
+export const ORGANIZATION_INVITATION_EMAIL_MAX_ATTEMPTS = 3;
 
 export type OrganizationInvitationDeliveryStatus = 'pending' | 'sent' | 'failed';
 
@@ -291,7 +292,7 @@ export async function sendOrganizationInvitationOutboxDelivery(
 export type RetryOrganizationInvitationOutboxDeliveryResult =
 	| { status: 'sent'; outbox: OrganizationInvitationEmailOutboxRecord }
 	| { status: 'failed'; outbox: OrganizationInvitationEmailOutboxRecord; error: string }
-	| { status: 'missing' | 'not-retryable' | 'expired' };
+	| { status: 'missing' | 'not-retryable' | 'expired' | 'max-attempts' };
 
 export async function retryOrganizationInvitationOutboxDelivery(
 	store: OrganizationInvitationEmailOutboxStore,
@@ -316,6 +317,10 @@ export async function retryOrganizationInvitationOutboxDelivery(
 
 	if (outbox.status !== 'pending' && outbox.status !== 'failed') {
 		return { status: 'not-retryable' };
+	}
+
+	if (outbox.attemptCount >= ORGANIZATION_INVITATION_EMAIL_MAX_ATTEMPTS) {
+		return { status: 'max-attempts' };
 	}
 
 	if (input.invitation.status !== 'pending') {

@@ -40,7 +40,7 @@ Use local Supabase plus Mailpit to test Account Setup Link delivery, legacy invi
 
 - Supabase local auth emails are captured by Mailpit at [http://127.0.0.1:54324](http://127.0.0.1:54324).
 - Beta approval emails are app-owned Account Setup Link emails. They point directly at `/auth/setup-account?token=...`, expire after 14 days, and should never expose raw token hashes in storage.
-- Account Setup Link failed delivery recovery creates a fresh replacement setup link. It does not retry, store, or reconstruct the old raw token or token-bearing setup URL.
+- Account Setup Link failed or stuck-pending delivery recovery creates a fresh replacement setup link. It does not retry, store, or reconstruct the old raw token or token-bearing setup URL.
 - Organization Invitation emails can be retried safely because they point to sign-in or access-request pages and do not contain bearer tokens.
 - Supabase invite and recovery templates are legacy/provider emails. Recovery still builds app-owned confirmation links with `{{ .RedirectTo }}` and `{{ .TokenHash }}`.
 - The visible email link should start with the active app origin, land on `/auth/confirm`, include `token_hash=`, and never expose `/auth/v1/verify`.

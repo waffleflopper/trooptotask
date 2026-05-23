@@ -1,8 +1,12 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { recoverAccountSetupEmailDelivery, sendAccountSetupOutboxDelivery } from './authEmailOutbox';
 import { AUTH_WORKFLOW_NOW, createAuthEmailOutboxStore } from '$lib/test-support/authWorkflowFixtures';
 
 describe('auth email outbox delivery', () => {
+	afterEach(() => {
+		vi.unstubAllEnvs();
+	});
+
 	it('records a sent Account Setup delivery without persisting raw tokens or setup URLs', async () => {
 		const store = createAuthEmailOutboxStore();
 		const sendSetupEmail = vi.fn().mockResolvedValue(undefined);
@@ -96,6 +100,7 @@ describe('auth email outbox delivery', () => {
 	});
 
 	it('recovers a failed Account Setup delivery by creating a fresh replacement setup link', async () => {
+		vi.stubEnv('APP_PUBLIC_ORIGIN_ALLOWLIST', 'https://app.example');
 		const store = createAuthEmailOutboxStore();
 		const setupLinks = {
 			createForAccessRequest: vi.fn().mockResolvedValue({
@@ -138,7 +143,44 @@ describe('auth email outbox delivery', () => {
 		expect(JSON.stringify(store.records)).not.toContain('/auth/setup-account?token=');
 	});
 
+	it('uses the trusted app origin resolver for recovered Account Setup delivery URLs', async () => {
+		vi.stubEnv('APP_PUBLIC_ORIGIN', 'https://official.example');
+		const store = createAuthEmailOutboxStore();
+		const setupLinks = {
+			createForAccessRequest: vi.fn().mockResolvedValue({
+				status: 'created',
+				accessRequestId: 'request-1',
+				rawToken: 'fresh-raw-token',
+				setupPath: '/auth/setup-account?token=fresh-raw-token',
+				expiresAt: new Date('2026-06-05T12:00:00.000Z'),
+				link: { id: 'new-link-1' },
+				revokedLinks: [{ id: 'old-link-1' }]
+			})
+		};
+		const sendSetupEmail = vi.fn().mockResolvedValue(undefined);
+		await store.insertSetupEmailDelivery({
+			accessRequestId: 'request-1',
+			setupLinkId: 'old-link-1',
+			recipient: 'soldier@example.mil',
+			createdAt: AUTH_WORKFLOW_NOW
+		});
+		await store.markSetupEmailDeliveryFailed('outbox-1', AUTH_WORKFLOW_NOW, 'mail provider unavailable');
+
+		await recoverAccountSetupEmailDelivery(store, setupLinks, sendSetupEmail, {
+			outboxId: 'outbox-1',
+			publicOrigin: 'https://evil.example',
+			now: AUTH_WORKFLOW_NOW
+		});
+
+		expect(sendSetupEmail).toHaveBeenCalledWith(
+			expect.objectContaining({
+				setupUrl: 'https://official.example/auth/setup-account?token=fresh-raw-token'
+			})
+		);
+	});
+
 	it('does not recover already sent Account Setup deliveries', async () => {
+		vi.stubEnv('APP_PUBLIC_ORIGIN_ALLOWLIST', 'https://app.example');
 		const store = createAuthEmailOutboxStore();
 		await store.insertSetupEmailDelivery({
 			accessRequestId: 'request-1',

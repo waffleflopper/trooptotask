@@ -2,6 +2,7 @@ import { isBillingEnabled } from '$lib/config/billing';
 import type { DataStore } from '$lib/server/core/ports';
 import type {
 	BillingSnapshot,
+	BillingCancellationSummary,
 	BillingSnapshotSource,
 	BillingSyncStatus,
 	SubscriptionStatus,
@@ -184,4 +185,51 @@ export async function readCurrentBillingSnapshot(ports: BillingStatePorts): Prom
 	}
 
 	return base;
+}
+
+export function summarizeBillingCancellation(snapshot: BillingSnapshot): BillingCancellationSummary {
+	const status = snapshot.subscriptionStatus;
+	const currentPeriodEnd = snapshot.currentPeriodEnd;
+	const canceledAt = snapshot.canceledAt;
+
+	if (status === 'canceled') {
+		return {
+			state: 'canceled',
+			label: 'Canceled',
+			description: currentPeriodEnd
+				? 'Subscription has ended. The paid-through date is retained for support reference.'
+				: 'Subscription has ended.',
+			currentPeriodEnd,
+			canceledAt
+		};
+	}
+
+	if (snapshot.cancelAtPeriodEnd && currentPeriodEnd) {
+		return {
+			state: 'canceling_at_period_end',
+			label: 'Cancels at period end',
+			description:
+				'Paid access remains active until the paid-through date unless Stripe reports an earlier terminal state.',
+			currentPeriodEnd,
+			canceledAt
+		};
+	}
+
+	if (snapshot.cancelAtPeriodEnd) {
+		return {
+			state: 'canceling_at_period_end',
+			label: 'Cancellation scheduled',
+			description: 'Stripe reports cancellation at period end, but the paid-through date has not synced yet.',
+			currentPeriodEnd,
+			canceledAt
+		};
+	}
+
+	return {
+		state: 'none',
+		label: 'Not scheduled',
+		description: 'No cancellation is currently scheduled in the billing snapshot.',
+		currentPeriodEnd,
+		canceledAt
+	};
 }

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { Button } from '$lib/components/ui/button';
 	import { invalidateAll } from '$app/navigation';
 	import GiftTierModal from '$lib/components/admin/GiftTierModal.svelte';
@@ -38,6 +39,10 @@
 	async function handleGiftComplete() {
 		showGiftModal = false;
 		await invalidateAll();
+	}
+
+	function formatOptionalDateTime(value: string | null | undefined): string {
+		return value ? formatDisplayDateTime(value) : '-';
 	}
 </script>
 
@@ -150,7 +155,7 @@
 				{#each data.members as member (member.userId)}
 					<div class="flex items-center justify-between gap-3 border-t pt-3 first:border-t-0 first:pt-0">
 						<a
-							href="/admin/users/{member.userId}"
+							href={resolve(`/admin/users/${member.userId}` as `/admin/users/${string}`)}
 							class="break-words text-sm font-medium underline-offset-4 hover:underline"
 						>
 							{member.email}
@@ -163,6 +168,69 @@
 			</Card.Content>
 		</Card.Root>
 	</div>
+
+	<Card.Root>
+		<Card.Header>
+			<Card.Title>Billing Diagnostics</Card.Title>
+			<Card.Description>Support-safe billing snapshot fields for cancellation and sync questions.</Card.Description>
+		</Card.Header>
+		<Card.Content>
+			{#if data.billingSnapshot}
+				<dl class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+					<div class="grid gap-1">
+						<dt class="text-xs font-medium text-muted-foreground">Stripe Customer</dt>
+						<dd class="break-words font-mono text-xs">{data.billingSnapshot.stripeCustomerId ?? '-'}</dd>
+					</div>
+					<div class="grid gap-1">
+						<dt class="text-xs font-medium text-muted-foreground">Stripe Subscription</dt>
+						<dd class="break-words font-mono text-xs">{data.billingSnapshot.stripeSubscriptionId ?? '-'}</dd>
+					</div>
+					<div class="grid gap-1">
+						<dt class="text-xs font-medium text-muted-foreground">Stripe Price</dt>
+						<dd class="break-words font-mono text-xs">{data.billingSnapshot.stripePriceId ?? '-'}</dd>
+					</div>
+					<div class="grid gap-1">
+						<dt class="text-xs font-medium text-muted-foreground">Subscription Status</dt>
+						<dd>{formatAdminLabel(data.billingSnapshot.subscriptionStatus ?? 'unknown')}</dd>
+					</div>
+					<div class="grid gap-1">
+						<dt class="text-xs font-medium text-muted-foreground">Collection Status</dt>
+						<dd>{formatAdminLabel(data.billingSnapshot.collectionStatus ?? 'unknown')}</dd>
+					</div>
+					<div class="grid gap-1">
+						<dt class="text-xs font-medium text-muted-foreground">Sync Status</dt>
+						<dd>{formatAdminLabel(data.billingSnapshot.syncStatus)}</dd>
+					</div>
+					<div class="grid gap-1">
+						<dt class="text-xs font-medium text-muted-foreground">Cancellation</dt>
+						<dd>{data.cancellationSummary?.label ?? 'Not scheduled'}</dd>
+					</div>
+					<div class="grid gap-1">
+						<dt class="text-xs font-medium text-muted-foreground">Paid Through</dt>
+						<dd>{formatOptionalDateTime(data.billingSnapshot.currentPeriodEnd)}</dd>
+					</div>
+					<div class="grid gap-1">
+						<dt class="text-xs font-medium text-muted-foreground">Canceled At</dt>
+						<dd>{formatOptionalDateTime(data.billingSnapshot.canceledAt)}</dd>
+					</div>
+					<div class="grid gap-1">
+						<dt class="text-xs font-medium text-muted-foreground">Last Stripe Event</dt>
+						<dd class="break-words font-mono text-xs">{data.billingSnapshot.lastStripeEventId ?? '-'}</dd>
+					</div>
+					<div class="grid gap-1">
+						<dt class="text-xs font-medium text-muted-foreground">Last Event Type</dt>
+						<dd class="break-words font-mono text-xs">{data.billingSnapshot.lastStripeEventType ?? '-'}</dd>
+					</div>
+					<div class="grid gap-1">
+						<dt class="text-xs font-medium text-muted-foreground">Last Processed</dt>
+						<dd>{formatOptionalDateTime(data.billingSnapshot.lastProcessedAt)}</dd>
+					</div>
+				</dl>
+			{:else}
+				<Empty.Root class="border-0">No billing snapshot has been recorded for this organization.</Empty.Root>
+			{/if}
+		</Card.Content>
+	</Card.Root>
 
 	<Card.Root>
 		<Card.Header>

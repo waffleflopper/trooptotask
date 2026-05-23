@@ -11,7 +11,8 @@ vi.mock('$lib/config/billing', () => ({
 	}
 }));
 
-import { readCurrentBillingSnapshot } from './billingState';
+import { readCurrentBillingSnapshot, summarizeBillingCancellation } from './billingState';
+import type { BillingSnapshot } from '$lib/types/subscription';
 
 describe('billing state use cases', () => {
 	it('returns persisted Stripe billing snapshot defaults through one read interface', async () => {
@@ -301,6 +302,56 @@ describe('billing state use cases', () => {
 			source: 'billing_disabled',
 			commercialPlan: 'unit',
 			syncStatus: 'billing_disabled'
+		});
+	});
+
+	it('summarizes period-end cancellation timing without exposing raw Stripe payloads', () => {
+		const snapshot = {
+			subscriptionStatus: 'active',
+			cancelAtPeriodEnd: true,
+			currentPeriodEnd: '2026-06-01T00:00:00.000Z',
+			canceledAt: null
+		} as BillingSnapshot;
+
+		expect(summarizeBillingCancellation(snapshot)).toEqual({
+			state: 'canceling_at_period_end',
+			label: 'Cancels at period end',
+			description:
+				'Paid access remains active until the paid-through date unless Stripe reports an earlier terminal state.',
+			currentPeriodEnd: '2026-06-01T00:00:00.000Z',
+			canceledAt: null
+		});
+	});
+
+	it('summarizes terminal cancellation timing for support diagnostics', () => {
+		const snapshot = {
+			subscriptionStatus: 'canceled',
+			cancelAtPeriodEnd: false,
+			currentPeriodEnd: '2026-06-01T00:00:00.000Z',
+			canceledAt: '2026-06-01T00:01:00.000Z'
+		} as BillingSnapshot;
+
+		expect(summarizeBillingCancellation(snapshot)).toMatchObject({
+			state: 'canceled',
+			label: 'Canceled',
+			currentPeriodEnd: '2026-06-01T00:00:00.000Z',
+			canceledAt: '2026-06-01T00:01:00.000Z'
+		});
+	});
+
+	it('summarizes scheduled cancellation when Stripe has not synced the paid-through date yet', () => {
+		const snapshot = {
+			subscriptionStatus: 'active',
+			cancelAtPeriodEnd: true,
+			currentPeriodEnd: null,
+			canceledAt: null
+		} as BillingSnapshot;
+
+		expect(summarizeBillingCancellation(snapshot)).toMatchObject({
+			state: 'canceling_at_period_end',
+			label: 'Cancellation scheduled',
+			currentPeriodEnd: null,
+			canceledAt: null
 		});
 	});
 });

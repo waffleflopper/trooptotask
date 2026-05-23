@@ -409,6 +409,9 @@ async function handleSubscriptionDeleted(
 ): Promise<WebhookProcessingResult> {
 	const orgId = subscription.metadata?.orgId;
 	const eventCreatedAt = new Date(event.created * 1000).toISOString();
+	const rawSub = subscription as unknown as SubscriptionWebhookData;
+	const periodStart = isoFromStripeTimestamp(rawSub.current_period_start);
+	const periodEnd = isoFromStripeTimestamp(rawSub.current_period_end);
 
 	if (!orgId) {
 		throw new PermanentWebhookProcessingError('customer.subscription.deleted missing orgId metadata');
@@ -434,8 +437,8 @@ async function handleSubscriptionDeleted(
 		stripe_price_id: snapshot?.stripe_price_id ?? null,
 		subscription_status: 'canceled',
 		collection_status: 'canceled',
-		current_period_start: snapshot?.current_period_start ?? null,
-		current_period_end: null,
+		current_period_start: periodStart ?? snapshot?.current_period_start ?? null,
+		current_period_end: periodEnd ?? snapshot?.current_period_end ?? null,
 		cancel_at_period_end: false,
 		canceled_at: isoFromStripeTimestamp(subscription.canceled_at) ?? eventCreatedAt,
 		trial_end: snapshot?.trial_end ?? null,
@@ -459,6 +462,7 @@ async function handleSubscriptionDeleted(
 			tier: 'free',
 			stripe_subscription_id: null,
 			subscription_status: 'canceled',
+			// The legacy org mirror is cleared for access decisions; the billing snapshot keeps period timing for support.
 			current_period_end: null
 		})
 		.eq('id', orgId);

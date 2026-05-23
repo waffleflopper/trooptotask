@@ -40,6 +40,16 @@ export interface BillingSnapshot {
 	giftExpiresAt: string | null;
 }
 
+export type BillingCancellationState = 'none' | 'canceling_at_period_end' | 'canceled';
+
+export interface BillingCancellationSummary {
+	state: BillingCancellationState;
+	label: string;
+	description: string;
+	currentPeriodEnd: string | null;
+	canceledAt: string | null;
+}
+
 export interface PriceCatalogEntry {
 	priceId: string;
 	commercialPlan: Exclude<Tier, 'free'>;

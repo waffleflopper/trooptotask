@@ -48,7 +48,14 @@ const baseData = {
 			bulkExportsPerMonth: null,
 			priceMonthly: 1200
 		}
-	]
+	],
+	cancellationSummary: {
+		state: 'none',
+		label: 'Not scheduled',
+		description: 'No cancellation is currently scheduled in the billing snapshot.',
+		currentPeriodEnd: null,
+		canceledAt: null
+	}
 };
 
 describe('billing page toolbar', () => {
@@ -121,5 +128,76 @@ describe('billing page toolbar', () => {
 		expect(screen.getByText('Payment failed. Your organization is in grace mode.')).toBeTruthy();
 		expect(screen.getByText(/A renewal payment failed/)).toBeTruthy();
 		expect(screen.queryByText(/your plan allows/)).toBeNull();
+	});
+
+	it('shows period-end cancellation timing without ending current paid access copy', () => {
+		render(Page, {
+			props: {
+				data: {
+					...baseData,
+					cancellationSummary: {
+						state: 'canceling_at_period_end',
+						label: 'Cancels at period end',
+						description:
+							'Paid access remains active until the paid-through date unless Stripe reports an earlier terminal state.',
+						currentPeriodEnd: '2026-06-01T00:00:00.000Z',
+						canceledAt: null
+					}
+				} as never
+			}
+		});
+
+		expect(screen.getByText('Your subscription is scheduled to cancel.')).toBeTruthy();
+		expect(screen.getByText(/Paid access remains active through June 1, 2026/)).toBeTruthy();
+		expect(screen.getByText('Cancellation Timing')).toBeTruthy();
+		expect(screen.getByText('Cancels at period end')).toBeTruthy();
+	});
+
+	it('shows terminal cancellation timing after paid access ends', () => {
+		render(Page, {
+			props: {
+				data: {
+					...baseData,
+					cancellationSummary: {
+						state: 'canceled',
+						label: 'Canceled',
+						description: 'Subscription has ended.',
+						currentPeriodEnd: '2026-06-01T00:00:00.000Z',
+						canceledAt: '2026-05-23T00:01:00.000Z'
+					}
+				} as never
+			}
+		});
+
+		expect(screen.getByText('Your subscription has been canceled.')).toBeTruthy();
+		expect(screen.getByText(/Access ended on May 23, 2026/)).toBeTruthy();
+		expect(screen.getByText('Canceled')).toBeTruthy();
+	});
+
+	it('does not show owner cancellation warnings when an active gift is the access source', () => {
+		render(Page, {
+			props: {
+				data: {
+					...baseData,
+					effectiveTier: {
+						...baseData.effectiveTier,
+						source: 'gift',
+						giftTier: 'team',
+						giftExpiresAt: '2026-07-01T00:00:00.000Z'
+					},
+					cancellationSummary: {
+						state: 'canceled',
+						label: 'Canceled',
+						description: 'Subscription has ended.',
+						currentPeriodEnd: '2026-06-01T00:00:00.000Z',
+						canceledAt: '2026-05-23T00:01:00.000Z'
+					}
+				} as never
+			}
+		});
+
+		expect(screen.queryByText('Your subscription has been canceled.')).toBeNull();
+		expect(screen.queryByText('Cancellation Timing')).toBeNull();
+		expect(screen.getAllByText('Admin Gift').length).toBeGreaterThan(0);
 	});
 });

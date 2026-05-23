@@ -38,6 +38,10 @@
 	const personnelCap = $derived(tier.personnelCap);
 	const giftExpiresAt = $derived(tier.giftExpiresAt);
 	const giftTier = $derived(tier.giftTier);
+	const cancellationSummary = $derived(data.cancellationSummary ?? null);
+	const showCancellationTiming = $derived(
+		!!cancellationSummary && cancellationSummary.state !== 'none' && source !== 'gift'
+	);
 
 	const giftDaysRemaining = $derived.by(() => {
 		if (!giftExpiresAt) return null;
@@ -134,6 +138,16 @@
 		return `You have ${personnelCount} personnel but your plan allows ${
 			personnelCap === Infinity ? 'unlimited' : personnelCap
 		}. Subscribe to a higher tier, contact support for enterprise access, or remove personnel to restore full access.`;
+	}
+
+	function formatBillingDate(value: string | null | undefined): string {
+		if (!value) return 'Not available';
+		return new Date(value).toLocaleDateString('en-US', {
+			year: 'numeric',
+			month: 'long',
+			day: 'numeric',
+			timeZone: 'UTC'
+		});
 	}
 
 	async function handleSubscribe(selectedTier: string) {
@@ -261,6 +275,25 @@
 		</Alert.Root>
 	{/if}
 
+	{#if showCancellationTiming && cancellationSummary?.state === 'canceling_at_period_end'}
+		<Alert.Root variant="warning">
+			<TriangleAlert />
+			<Alert.Title>Your subscription is scheduled to cancel.</Alert.Title>
+			<Alert.Description>
+				Paid access remains active through {formatBillingDate(cancellationSummary.currentPeriodEnd)}. You can manage or
+				resume the subscription from the billing portal before that date.
+			</Alert.Description>
+		</Alert.Root>
+	{:else if showCancellationTiming && cancellationSummary?.state === 'canceled'}
+		<Alert.Root variant="warning">
+			<TriangleAlert />
+			<Alert.Title>Your subscription has been canceled.</Alert.Title>
+			<Alert.Description>
+				Access ended on {formatBillingDate(cancellationSummary.canceledAt ?? cancellationSummary.currentPeriodEnd)}.
+			</Alert.Description>
+		</Alert.Root>
+	{/if}
+
 	<PageShell.FactGrid layout="three">
 		<PageShell.Metric
 			label="Current Plan"
@@ -281,6 +314,31 @@
 				: 'How this subscription is currently being applied'}
 		/>
 	</PageShell.FactGrid>
+
+	{#if showCancellationTiming}
+		<Card.Root>
+			<Card.Header>
+				<Card.Title>Cancellation Timing</Card.Title>
+				<Card.Description>{cancellationSummary.description}</Card.Description>
+			</Card.Header>
+			<Card.Content>
+				<dl class="grid gap-3 sm:grid-cols-3">
+					<div class="grid gap-1">
+						<dt class="text-xs font-medium text-muted-foreground">Status</dt>
+						<dd>{cancellationSummary.label}</dd>
+					</div>
+					<div class="grid gap-1">
+						<dt class="text-xs font-medium text-muted-foreground">Paid Through</dt>
+						<dd>{formatBillingDate(cancellationSummary.currentPeriodEnd)}</dd>
+					</div>
+					<div class="grid gap-1">
+						<dt class="text-xs font-medium text-muted-foreground">Canceled At</dt>
+						<dd>{formatBillingDate(cancellationSummary.canceledAt)}</dd>
+					</div>
+				</dl>
+			</Card.Content>
+		</Card.Root>
+	{/if}
 
 	<Card.Root>
 		<Card.Header>

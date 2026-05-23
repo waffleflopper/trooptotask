@@ -5,8 +5,64 @@ import { validateUUID } from '$lib/server/validation';
 import { pauseSubscription, resumeSubscription } from '$lib/server/stripe';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination';
 import { invalidateTierCache } from '$lib/server/subscription';
+import { summarizeBillingCancellation } from '$lib/server/core/useCases/billingState';
+import type { BillingSnapshot } from '$lib/types/subscription';
 
 const TIER_RANK: Record<string, number> = { free: 1, team: 2, unit: 3 };
+
+type AdminOrganizationBillingSnapshotRow = {
+	organization_id: string;
+	source: BillingSnapshot['source'];
+	commercial_plan: BillingSnapshot['commercialPlan'];
+	stripe_customer_id: string | null;
+	stripe_subscription_id: string | null;
+	stripe_product_id: string | null;
+	stripe_price_id: string | null;
+	subscription_status: BillingSnapshot['subscriptionStatus'];
+	collection_status: string | null;
+	current_period_start: string | null;
+	current_period_end: string | null;
+	cancel_at_period_end: boolean | null;
+	canceled_at: string | null;
+	trial_end: string | null;
+	sync_status: BillingSnapshot['syncStatus'];
+	last_stripe_event_id: string | null;
+	last_stripe_event_type: string | null;
+	last_stripe_event_created_at: string | null;
+	last_processed_at: string | null;
+	last_reconciled_at: string | null;
+	reconciliation_result: string | null;
+	drift_detected: boolean | null;
+};
+
+function mapAdminOrganizationBillingSnapshot(row: AdminOrganizationBillingSnapshotRow): BillingSnapshot {
+	return {
+		organizationId: row.organization_id,
+		source: row.source,
+		commercialPlan: row.commercial_plan,
+		stripeCustomerId: row.stripe_customer_id,
+		stripeSubscriptionId: row.stripe_subscription_id,
+		stripeProductId: row.stripe_product_id,
+		stripePriceId: row.stripe_price_id,
+		subscriptionStatus: row.subscription_status,
+		collectionStatus: row.collection_status,
+		currentPeriodStart: row.current_period_start,
+		currentPeriodEnd: row.current_period_end,
+		cancelAtPeriodEnd: row.cancel_at_period_end ?? false,
+		canceledAt: row.canceled_at,
+		trialEnd: row.trial_end,
+		syncStatus: row.sync_status,
+		lastStripeEventId: row.last_stripe_event_id,
+		lastStripeEventType: row.last_stripe_event_type,
+		lastStripeEventCreatedAt: row.last_stripe_event_created_at,
+		lastProcessedAt: row.last_processed_at,
+		lastReconciledAt: row.last_reconciled_at,
+		reconciliationResult: row.reconciliation_result,
+		driftDetected: row.drift_detected ?? false,
+		giftTier: null,
+		giftExpiresAt: null
+	};
+}
 
 export const load: PageServerLoad = loadWithAdminContext({
 	page: 'organizations',
@@ -55,6 +111,15 @@ export const load: PageServerLoad = loadWithAdminContext({
 			.order('timestamp', { ascending: false })
 			.limit(10);
 
+		const { data: billingSnapshotRow } = await adminClient
+			.from('organization_billing_snapshots')
+			.select(
+				'organization_id, source, commercial_plan, stripe_customer_id, stripe_subscription_id, stripe_product_id, stripe_price_id, subscription_status, collection_status, current_period_start, current_period_end, cancel_at_period_end, canceled_at, trial_end, sync_status, last_stripe_event_id, last_stripe_event_type, last_stripe_event_created_at, last_processed_at, last_reconciled_at, reconciliation_result, drift_detected'
+			)
+			.eq('organization_id', orgId)
+			.maybeSingle<AdminOrganizationBillingSnapshotRow>();
+		const billingSnapshot = billingSnapshotRow ? mapAdminOrganizationBillingSnapshot(billingSnapshotRow) : null;
+
 		const effectiveTier = (org.gift_tier ?? org.tier ?? 'free') as string;
 
 		return {
@@ -69,6 +134,8 @@ export const load: PageServerLoad = loadWithAdminContext({
 				effectiveTier,
 				isSuspended: !!org.suspended_at
 			},
+			billingSnapshot,
+			cancellationSummary: billingSnapshot ? summarizeBillingCancellation(billingSnapshot) : null,
 			members,
 			personnelCount: personnelCount ?? 0,
 			auditEvents: (auditEvents ?? []).map((e) => ({

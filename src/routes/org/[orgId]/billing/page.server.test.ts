@@ -21,9 +21,16 @@ vi.mock('$lib/server/core/useCases/billingOrganization', async () => {
 	};
 });
 
-vi.mock('$lib/server/core/useCases/billingState', () => ({
-	readCurrentBillingSnapshot: readCurrentBillingSnapshotMock
-}));
+vi.mock('$lib/server/core/useCases/billingState', async () => {
+	const actual = await vi.importActual<typeof import('$lib/server/core/useCases/billingState')>(
+		'$lib/server/core/useCases/billingState'
+	);
+
+	return {
+		...actual,
+		readCurrentBillingSnapshot: readCurrentBillingSnapshotMock
+	};
+});
 
 import { _loadBillingPageData } from './+page.server';
 
@@ -87,7 +94,11 @@ describe('_loadBillingPageData', () => {
 		readCurrentBillingSnapshotMock.mockResolvedValue({
 			organizationId: 'org-1',
 			source: 'stripe',
-			commercialPlan: 'team'
+			commercialPlan: 'team',
+			subscriptionStatus: 'active',
+			cancelAtPeriodEnd: true,
+			currentPeriodEnd: '2026-06-01T00:00:00.000Z',
+			canceledAt: null
 		});
 		canManageBillingSubscriptionMock.mockReturnValue(true);
 
@@ -130,7 +141,19 @@ describe('_loadBillingPageData', () => {
 				billingSnapshot: {
 					organizationId: 'org-1',
 					source: 'stripe',
-					commercialPlan: 'team'
+					commercialPlan: 'team',
+					subscriptionStatus: 'active',
+					cancelAtPeriodEnd: true,
+					currentPeriodEnd: '2026-06-01T00:00:00.000Z',
+					canceledAt: null
+				},
+				cancellationSummary: {
+					state: 'canceling_at_period_end',
+					label: 'Cancels at period end',
+					description:
+						'Paid access remains active until the paid-through date unless Stripe reports an earlier terminal state.',
+					currentPeriodEnd: '2026-06-01T00:00:00.000Z',
+					canceledAt: null
 				},
 				canManageSubscription: true
 			})

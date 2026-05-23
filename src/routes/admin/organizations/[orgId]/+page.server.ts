@@ -2,10 +2,13 @@ import { error, fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 import { loadWithAdminContext, adminAction } from '$lib/server/adapters/adminAdapter';
 import { validateUUID } from '$lib/server/validation';
-import { pauseSubscription, resumeSubscription } from '$lib/server/stripe';
+import { createStripeBillingReconciliationProvider, pauseSubscription, resumeSubscription } from '$lib/server/stripe';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination';
 import { invalidateTierCache } from '$lib/server/subscription';
 import { summarizeBillingCancellation } from '$lib/server/core/useCases/billingState';
+import { reconcileOrganizationBilling } from '$lib/server/core/useCases/billingReconciliation';
+import { configuredPriceCatalog } from '$lib/server/billing/priceCatalog';
+import { createSupabaseBillingReconciliationStore } from '$lib/server/adapters/supabaseBillingReconciliation';
 import type { BillingSnapshot } from '$lib/types/subscription';
 
 const TIER_RANK: Record<string, number> = { free: 1, team: 2, unit: 3 };
@@ -363,6 +366,55 @@ export const actions: Actions = {
 			});
 			invalidateTierCache(orgId);
 			return { success: true };
+		}
+	}),
+
+	reconcileBilling: adminAction({
+		page: 'organizations',
+		fn: async (ctx, event) => {
+			const orgId = event.params.orgId as string;
+			if (!validateUUID(orgId)) return fail(400, { error: { message: 'Invalid organization ID' } });
+
+			const result = await reconcileOrganizationBilling({
+				orgId,
+				store: createSupabaseBillingReconciliationStore(ctx.adminClient),
+				provider: createStripeBillingReconciliationProvider(),
+				priceCatalog: configuredPriceCatalog
+			});
+
+			ctx.audit({
+				action: 'admin.org.billing_reconcile',
+				resourceType: 'organization',
+				resourceId: orgId,
+				severity: result.ok ? 'info' : 'warning',
+				details: {
+					status: result.status,
+					result: result.result,
+					driftDetected: result.driftDetected,
+					snapshotUpdated: result.snapshotUpdated,
+					diagnostics: result.diagnostics
+				}
+			});
+
+			if (!result.ok) {
+				return fail(400, {
+					billingReconciliation: {
+						success: false,
+						message: result.result,
+						diagnostics: result.diagnostics
+					}
+				});
+			}
+
+			return {
+				billingReconciliation: {
+					success: true,
+					status: result.status,
+					message:
+						result.status === 'matched' ? 'Billing already matched Stripe.' : 'Billing snapshot refreshed from Stripe.',
+					diagnostics: result.diagnostics
+				}
+			};
 		}
 	})
 };

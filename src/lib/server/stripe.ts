@@ -5,6 +5,7 @@ import {
 	STRIPE_TEAM_PRICE_ID,
 	STRIPE_UNIT_PRICE_ID
 } from '$env/static/private';
+import type { BillingReconciliationProviderSubscription } from '$lib/server/core/useCases/billingReconciliation';
 
 function getStripe(): Stripe {
 	if (!STRIPE_SECRET_KEY) throw new Error('STRIPE_SECRET_KEY not set');
@@ -80,6 +81,58 @@ export async function resumeSubscription(subscriptionId: string): Promise<void> 
 export async function cancelSubscription(subscriptionId: string): Promise<void> {
 	const stripe = getStripe();
 	await stripe.subscriptions.cancel(subscriptionId);
+}
+
+function isoFromStripeTimestamp(value: number | null | undefined): string | null {
+	return typeof value === 'number' ? new Date(value * 1000).toISOString() : null;
+}
+
+function mapProviderSubscription(subscription: Stripe.Subscription): BillingReconciliationProviderSubscription {
+	const raw = subscription as unknown as {
+		current_period_start?: number;
+		current_period_end?: number;
+	};
+	const price = subscription.items?.data?.[0]?.price;
+	const product = price?.product;
+	const customer = subscription.customer;
+
+	return {
+		id: subscription.id,
+		customerId: typeof customer === 'string' ? customer : (customer?.id ?? null),
+		status: subscription.status as BillingReconciliationProviderSubscription['status'],
+		priceId: price?.id ?? null,
+		productId: typeof product === 'string' ? product : (product?.id ?? null),
+		currentPeriodStart: isoFromStripeTimestamp(raw.current_period_start),
+		currentPeriodEnd: isoFromStripeTimestamp(raw.current_period_end),
+		cancelAtPeriodEnd: subscription.cancel_at_period_end,
+		canceledAt: isoFromStripeTimestamp(subscription.canceled_at),
+		trialEnd: isoFromStripeTimestamp(subscription.trial_end),
+		metadata: subscription.metadata ?? {}
+	};
+}
+
+export function createStripeBillingReconciliationProvider() {
+	const stripe = getStripe();
+	return {
+		async retrieveSubscription(subscriptionId: string): Promise<BillingReconciliationProviderSubscription | null> {
+			try {
+				const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+				return mapProviderSubscription(subscription);
+			} catch (err) {
+				if (err instanceof Stripe.errors.StripeInvalidRequestError && err.statusCode === 404) return null;
+				throw err;
+			}
+		},
+
+		async listSubscriptionsForCustomer(customerId: string): Promise<BillingReconciliationProviderSubscription[]> {
+			const subscriptions = await stripe.subscriptions.list({
+				customer: customerId,
+				status: 'all',
+				limit: 100
+			});
+			return subscriptions.data.map(mapProviderSubscription);
+		}
+	};
 }
 
 export function verifyWebhookSignature(payload: string, signature: string): Stripe.Event {

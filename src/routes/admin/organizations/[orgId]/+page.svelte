@@ -14,7 +14,7 @@
 	import * as PageShell from '$lib/components/ui/page-shell';
 	import * as Table from '$lib/components/ui/table';
 
-	let { data } = $props();
+	let { data, form } = $props();
 
 	function formatPersonnelCap(tier: string): string {
 		const config = TIER_CONFIG[tier as Tier];
@@ -171,10 +171,32 @@
 
 	<Card.Root>
 		<Card.Header>
-			<Card.Title>Billing Diagnostics</Card.Title>
-			<Card.Description>Support-safe billing snapshot fields for cancellation and sync questions.</Card.Description>
+			<div class="flex flex-wrap items-start justify-between gap-3">
+				<div class="grid gap-1">
+					<Card.Title>Billing Diagnostics</Card.Title>
+					<Card.Description>Support-safe billing snapshot fields for cancellation and sync questions.</Card.Description>
+				</div>
+				<form method="POST" action="?/reconcileBilling">
+					<Button type="submit" variant="outline" size="sm">Refresh from Stripe</Button>
+				</form>
+			</div>
 		</Card.Header>
-		<Card.Content>
+		<Card.Content class="grid gap-4">
+			{#if form?.billingReconciliation}
+				<div
+					class={[
+						'rounded-md border px-3 py-2 text-sm',
+						form.billingReconciliation.success
+							? 'border-emerald-200 bg-emerald-50 text-emerald-900'
+							: 'border-amber-200 bg-amber-50 text-amber-900'
+					]}
+				>
+					<p class="font-medium">{form.billingReconciliation.message}</p>
+					{#if form.billingReconciliation.diagnostics.length}
+						<p class="mt-1 font-mono text-xs">{form.billingReconciliation.diagnostics.join(', ')}</p>
+					{/if}
+				</div>
+			{/if}
 			{#if data.billingSnapshot}
 				<dl class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
 					<div class="grid gap-1">
@@ -224,6 +246,18 @@
 					<div class="grid gap-1">
 						<dt class="text-xs font-medium text-muted-foreground">Last Processed</dt>
 						<dd>{formatOptionalDateTime(data.billingSnapshot.lastProcessedAt)}</dd>
+					</div>
+					<div class="grid gap-1">
+						<dt class="text-xs font-medium text-muted-foreground">Last Reconciled</dt>
+						<dd>{formatOptionalDateTime(data.billingSnapshot.lastReconciledAt)}</dd>
+					</div>
+					<div class="grid gap-1">
+						<dt class="text-xs font-medium text-muted-foreground">Reconciliation Result</dt>
+						<dd class="break-words font-mono text-xs">{data.billingSnapshot.reconciliationResult ?? '-'}</dd>
+					</div>
+					<div class="grid gap-1">
+						<dt class="text-xs font-medium text-muted-foreground">Drift Detected</dt>
+						<dd>{data.billingSnapshot.driftDetected ? 'Yes' : 'No'}</dd>
 					</div>
 				</dl>
 			{:else}

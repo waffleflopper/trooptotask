@@ -38,7 +38,10 @@ describe('admin organization detail page', () => {
 						canceledAt: '2026-05-15T00:00:00.000Z',
 						lastStripeEventId: 'evt_123',
 						lastStripeEventType: 'customer.subscription.updated',
-						lastProcessedAt: '2026-05-15T00:01:00.000Z'
+						lastProcessedAt: '2026-05-15T00:01:00.000Z',
+						lastReconciledAt: '2026-05-23T00:00:00.000Z',
+						reconciliationResult: 'matched',
+						driftDetected: false
 					},
 					cancellationSummary: {
 						state: 'canceling_at_period_end',
@@ -48,7 +51,8 @@ describe('admin organization detail page', () => {
 						currentPeriodEnd: '2026-06-01T00:00:00.000Z',
 						canceledAt: '2026-05-15T00:00:00.000Z'
 					}
-				} as never
+				} as never,
+				form: null
 			}
 		});
 
@@ -57,5 +61,43 @@ describe('admin organization detail page', () => {
 		expect(screen.getByText('sub_123')).toBeTruthy();
 		expect(screen.getByText('Cancels at period end')).toBeTruthy();
 		expect(screen.getByText('customer.subscription.updated')).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Refresh from Stripe' })).toBeTruthy();
+		expect(screen.getByText('matched')).toBeTruthy();
+	});
+
+	it('shows support-safe manual reconciliation feedback', () => {
+		render(Page, {
+			props: {
+				data: {
+					org: {
+						id: 'org-1',
+						name: 'Alpha Company',
+						subscriptionTier: 'team',
+						giftTier: null,
+						giftExpiresAt: null,
+						suspendedAt: null,
+						createdAt: '2026-05-01T00:00:00.000Z',
+						effectiveTier: 'team',
+						isSuspended: false
+					},
+					members: [],
+					personnelCount: 12,
+					auditEvents: [],
+					billingSnapshot: null,
+					cancellationSummary: null
+				} as never,
+				form: {
+					billingReconciliation: {
+						success: false,
+						message: 'Stripe subscription is missing orgId metadata.',
+						diagnostics: ['missing_org_metadata']
+					}
+				}
+			}
+		});
+
+		expect(screen.getByText('Stripe subscription is missing orgId metadata.')).toBeTruthy();
+		expect(screen.getByText('missing_org_metadata')).toBeTruthy();
+		expect(document.body.textContent).not.toContain('sk_');
 	});
 });

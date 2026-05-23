@@ -9,6 +9,7 @@ const {
 	getAccessRequest,
 	getSetupLink,
 	checkCompletionRateLimit,
+	auditLogMock,
 	setupStore
 } = vi.hoisted(() => {
 	const setupStore = {
@@ -23,6 +24,7 @@ const {
 		getAccessRequest: setupStore.getAccessRequest,
 		getSetupLink: setupStore.getSetupLink,
 		checkCompletionRateLimit: vi.fn(),
+		auditLogMock: vi.fn(),
 		setupStore
 	};
 });
@@ -51,6 +53,10 @@ vi.mock('$lib/server/accountSetupRateLimit', () => ({
 	checkAccountSetupCompletionRateLimit: checkCompletionRateLimit
 }));
 
+vi.mock('$lib/server/auditLog', () => ({
+	auditLog: auditLogMock
+}));
+
 import { actions, load } from './+page.server';
 import {
 	ACCOUNT_SETUP_SESSION_COOKIE,
@@ -62,7 +68,7 @@ function makeRequest(input: { password?: string; confirmPassword?: string }) {
 	const formData = new FormData();
 	formData.set('password', input.password ?? 'ValidPassword123!');
 	formData.set('confirmPassword', input.confirmPassword ?? input.password ?? 'ValidPassword123!');
-	return { formData: vi.fn().mockResolvedValue(formData) };
+	return { formData: vi.fn().mockResolvedValue(formData), headers: new Headers({ 'user-agent': 'vitest-agent' }) };
 }
 
 function makeCookies(initial: Record<string, string> = {}) {
@@ -362,6 +368,21 @@ describe('/auth/setup-account actions', () => {
 		expect(completeSetupSession).not.toHaveBeenCalled();
 	});
 
+	it('validates weak setup passwords before claiming the setup session', async () => {
+		const result = await actions.default(
+			makeActionEvent({
+				request: makeRequest({ password: 'short', confirmPassword: 'short' })
+			})
+		);
+
+		expect(result).toMatchObject({
+			status: 400,
+			data: { error: 'Password must be at least 12 characters' }
+		});
+		expect(checkCompletionRateLimit).not.toHaveBeenCalled();
+		expect(completeSetupSession).not.toHaveBeenCalled();
+	});
+
 	it('maps invalid setup-session link states to user-facing recovery copy', async () => {
 		completeSetupSession.mockResolvedValueOnce({ status: 'revoked' });
 
@@ -420,6 +441,23 @@ describe('/auth/setup-account actions', () => {
 		});
 	});
 
+	it('returns clear policy copy when Supabase rejects the setup password after app validation', async () => {
+		completeSetupSession.mockResolvedValueOnce({
+			status: 'account-create-failed',
+			message: 'Password should be at least 12 characters'
+		});
+
+		const result = await actions.default(makeActionEvent());
+
+		expect(result).toMatchObject({
+			status: 400,
+			data: {
+				error:
+					'That password was rejected by account security rules. Use at least 12 characters with uppercase, lowercase, and a number. Request a fresh setup link, then try again.'
+			}
+		});
+	});
+
 	it('rate-limits setup completion attempts by setup session and email before account mutation', async () => {
 		getAccessRequest.mockResolvedValueOnce({
 			id: 'request-1',
@@ -427,7 +465,15 @@ describe('/auth/setup-account actions', () => {
 			status: 'approved',
 			setupCompletedAt: null
 		});
-		checkCompletionRateLimit.mockReturnValueOnce({ limited: true, retryAfterMs: 60_000 });
+		checkCompletionRateLimit.mockReturnValueOnce({
+			limited: true,
+			retryAfterMs: 60_000,
+			namespace: 'account-setup-completion',
+			dimensions: ['link', 'request', 'email', 'ip'],
+			limitedDimensions: ['link'],
+			windowMs: 900_000,
+			maxRequests: 5
+		});
 
 		const result = await actions.default(makeActionEvent());
 
@@ -444,6 +490,28 @@ describe('/auth/setup-account actions', () => {
 			email: 'soldier@example.mil',
 			ip: '203.0.113.10'
 		});
+		expect(auditLogMock).toHaveBeenCalledWith(
+			{
+				action: 'account_setup.completion_rate_limited',
+				resourceType: 'account_setup_link',
+				resourceId: 'link-1',
+				severity: 'warning',
+				details: {
+					accessRequestId: 'request-1',
+					rateLimit: expect.objectContaining({
+						namespace: 'account-setup-completion',
+						limitedDimensions: ['link'],
+						retryAfterMs: 60_000
+					})
+				}
+			},
+			{
+				userId: null,
+				ip: '203.0.113.10',
+				userAgent: 'vitest-agent'
+			}
+		);
+		expect(JSON.stringify(auditLogMock.mock.calls)).not.toContain('/auth/setup-account?token=');
 		expect(completeSetupSession).not.toHaveBeenCalled();
 	});
 

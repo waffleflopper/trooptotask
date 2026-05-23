@@ -76,6 +76,8 @@ function makeCtx(role: AdminContext['adminUser']['role'] = 'super_admin'): Admin
 	return {
 		adminUser: { id: 'user-1', role },
 		adminClient: {} as AdminContext['adminClient'],
+		sessionClient: {} as AdminContext['sessionClient'],
+		session: null,
 		audit() {}
 	};
 }

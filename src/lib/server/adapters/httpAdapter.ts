@@ -38,6 +38,7 @@ import { createSupabaseStorageAdapter } from './supabaseStorage';
 import { createSupabaseAdvancedDutyPersistenceAdapter } from './advancedDutyPersistence';
 import { createSupabaseCriticalTasksReadModelAdapter } from './criticalTasksReadModel';
 import { createSupabaseRatingSchemePersonnelLookupPort } from './supabaseRatingSchemePersonnelLookup';
+import { createSupabaseSensitiveActionAuthorizer } from '$lib/server/sensitiveActionAuthorizer';
 import { resolveOrganizationRouteIdentity } from '$lib/server/core/useCases/organizationUrlSlug';
 import type { UseCaseContext, AuthContext } from '$lib/server/core/ports';
 import type {
@@ -103,6 +104,10 @@ async function buildContextInternal(event: RequestEvent): Promise<BuildContextRe
 	const advancedDutyPersistence = createSupabaseAdvancedDutyPersistenceAdapter(supabase);
 	const criticalTasksReadModel = createSupabaseCriticalTasksReadModelAdapter(supabase);
 	const ratingSchemePersonnelLookup = createSupabaseRatingSchemePersonnelLookupPort(supabase);
+	const sensitiveActionAuthorizer = createSupabaseSensitiveActionAuthorizer({
+		supabase,
+		session: event.locals.session
+	});
 	const scopedStore = createScopedDataStore(store, policyScopeGroupIds(auth), defaultScopeRules);
 	return {
 		ctx: {
@@ -115,6 +120,7 @@ async function buildContextInternal(event: RequestEvent): Promise<BuildContextRe
 			notifications,
 			billing,
 			storage: createSupabaseStorageAdapter(supabase),
+			sensitiveActionAuthorizer,
 			criticalTasksReadModel,
 			ratingSchemePersonnelLookup,
 			rawStore: store
@@ -165,6 +171,10 @@ export async function buildLayoutContext(locals: App.Locals, cookies: Cookies, o
 	const advancedDutyPersistence = createSupabaseAdvancedDutyPersistenceAdapter(supabase);
 	const criticalTasksReadModel = createSupabaseCriticalTasksReadModelAdapter(supabase);
 	const ratingSchemePersonnelLookup = createSupabaseRatingSchemePersonnelLookupPort(supabase);
+	const sensitiveActionAuthorizer = createSupabaseSensitiveActionAuthorizer({
+		supabase,
+		session: locals.session
+	});
 	const scopedStore = createScopedDataStore(store, policyScopeGroupIds(auth), defaultScopeRules);
 	return {
 		store: scopedStore,
@@ -176,6 +186,7 @@ export async function buildLayoutContext(locals: App.Locals, cookies: Cookies, o
 		notifications,
 		billing,
 		storage,
+		sensitiveActionAuthorizer,
 		criticalTasksReadModel,
 		ratingSchemePersonnelLookup,
 		rawStore: store
@@ -213,6 +224,10 @@ export async function buildLayoutContextFromMembership(
 	const advancedDutyPersistence = createSupabaseAdvancedDutyPersistenceAdapter(supabase);
 	const criticalTasksReadModel = createSupabaseCriticalTasksReadModelAdapter(supabase);
 	const ratingSchemePersonnelLookup = createSupabaseRatingSchemePersonnelLookupPort(supabase);
+	const sensitiveActionAuthorizer = createSupabaseSensitiveActionAuthorizer({
+		supabase,
+		session: locals.session
+	});
 	const scopedStore = createScopedDataStore(store, policyScopeGroupIds(auth), defaultScopeRules);
 	return {
 		store: scopedStore,
@@ -224,6 +239,7 @@ export async function buildLayoutContextFromMembership(
 		notifications,
 		billing,
 		storage,
+		sensitiveActionAuthorizer,
 		criticalTasksReadModel,
 		ratingSchemePersonnelLookup,
 		rawStore: store

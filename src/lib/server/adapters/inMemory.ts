@@ -35,6 +35,11 @@ import type {
 	QueryPorts,
 	QueryWithRawStorePorts
 } from '../core/ports';
+import type {
+	SensitiveActionAuthorizeInput,
+	SensitiveActionDecision,
+	SensitiveActionAuthorizer
+} from '$lib/server/sensitiveActionAuthorizer';
 import type { EffectiveTier } from '$lib/types/subscription';
 import {
 	createCompatibilityLaneMap,
@@ -408,6 +413,7 @@ export function createTestContext(overrides?: {
 	auth?: Parameters<typeof createTestAuthContext>[0];
 	readOnly?: boolean;
 	subscriptionAllowed?: boolean;
+	sensitiveActionDecision?: Partial<SensitiveActionDecision>;
 }): UseCaseContext & {
 	store: ReturnType<typeof createInMemoryDataStore>;
 	rawStore: ReturnType<typeof createInMemoryDataStore>;
@@ -417,6 +423,7 @@ export function createTestContext(overrides?: {
 	notificationPort: ReturnType<typeof createTestNotificationPort>;
 	billingPort: ReturnType<typeof createTestBillingPort>;
 	storagePort: ReturnType<typeof createTestStoragePort>;
+	sensitiveActionAuthorizer: ReturnType<typeof createTestSensitiveActionAuthorizer>;
 } {
 	const auth = createTestAuthContext(overrides?.auth);
 	const { store, rawStore } = createScopedTestStores(auth);
@@ -425,6 +432,7 @@ export function createTestContext(overrides?: {
 	const notificationPort = createTestNotificationPort();
 	const billingPort = createTestBillingPort();
 	const storagePort = createTestStoragePort();
+	const sensitiveActionAuthorizer = createTestSensitiveActionAuthorizer(overrides?.sensitiveActionDecision);
 	const advancedDutyPersistence = createInMemoryAdvancedDutyPersistenceAdapter(rawStore);
 	const criticalTasksReadModel = createInMemoryCriticalTasksReadModelAdapter(rawStore);
 	return {
@@ -442,7 +450,33 @@ export function createTestContext(overrides?: {
 		billingPort,
 		storage: storagePort,
 		storagePort,
+		sensitiveActionAuthorizer,
 		criticalTasksReadModel
+	};
+}
+
+export function createTestSensitiveActionAuthorizer(
+	decisionOverrides: Partial<SensitiveActionDecision> = {}
+): SensitiveActionAuthorizer & { requests: SensitiveActionAuthorizeInput[] } {
+	const requests: SensitiveActionAuthorizeInput[] = [];
+	return {
+		requests,
+		async authorize(input) {
+			requests.push(input);
+			return {
+				allowed: true,
+				action: input.action,
+				reason: 'allowed.recentSession',
+				actorUserId: input.actorUserId,
+				target: input.target,
+				currentAssuranceLevel: 'aal1',
+				nextAssuranceLevel: 'aal1',
+				sessionAgeMs: 60_000,
+				recentSessionWindowMs: 15 * 60 * 1000,
+				requiresStepUp: false,
+				...decisionOverrides
+			};
+		}
 	};
 }
 

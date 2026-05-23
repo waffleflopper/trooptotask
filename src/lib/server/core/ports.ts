@@ -1,5 +1,6 @@
 import type { EffectiveTier } from '$lib/types/subscription';
 import type { CapabilityMap, CompatibilityLaneMap, ScopeSet } from '$lib/access/memberAccessShape';
+import type { SensitiveActionAuthorizer } from '$lib/server/sensitiveActionAuthorizer';
 
 export type FeatureArea = 'calendar' | 'personnel' | 'training' | 'critical-tasks' | 'onboarding' | 'rating-scheme';
 
@@ -247,6 +248,7 @@ export interface UseCaseContext {
 	notifications: NotificationPort;
 	billing: BillingPort;
 	storage: StoragePort;
+	sensitiveActionAuthorizer: SensitiveActionAuthorizer;
 	criticalTasksReadModel: CriticalTasksReadModelPort;
 	ratingSchemePersonnelLookup?: RatingSchemePersonnelLookupPort;
 	/** Unscoped DataStore — use only when business logic requires org-wide data (e.g. allPersonnel for dropdowns) */

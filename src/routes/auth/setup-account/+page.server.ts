@@ -16,9 +16,11 @@ import {
 	ACCOUNT_SETUP_ATTEMPT_RATE_LIMIT_MESSAGE,
 	checkAccountSetupCompletionRateLimit
 } from '$lib/server/accountSetupRateLimit';
+import { auditLog } from '$lib/server/auditLog';
+import { durableRateLimitAuditDetails } from '$lib/server/durableRateLimit';
 import { getAuthenticatedRedirectPath } from '$lib/server/mfaGate';
 import { getAdminClient, getSupabaseClient } from '$lib/server/supabase';
-import { validatePassword } from '$lib/server/validation';
+import { mapProviderPasswordError, validatePassword } from '$lib/server/validation';
 
 function tokenStateMessage(state: string): string {
 	switch (state) {
@@ -196,13 +198,31 @@ export const actions: Actions = {
 		const adminClient = getAdminClient();
 		const store = createSupabaseAccountSetupCompletionStore(adminClient);
 		const accessRequest = await store.getAccessRequest(setupSession.accessRequestId);
+		const clientIp = getClientAddress();
 		const rateLimit = await checkAccountSetupCompletionRateLimit({
 			setupLinkId: setupSession.setupLinkId,
 			accessRequestId: setupSession.accessRequestId,
 			email: accessRequest?.email ?? null,
-			ip: getClientAddress()
+			ip: clientIp
 		});
 		if (rateLimit.limited) {
+			auditLog(
+				{
+					action: 'account_setup.completion_rate_limited',
+					resourceType: 'account_setup_link',
+					resourceId: setupSession.setupLinkId,
+					severity: 'warning',
+					details: {
+						accessRequestId: setupSession.accessRequestId,
+						rateLimit: durableRateLimitAuditDetails(rateLimit)
+					}
+				},
+				{
+					userId: null,
+					ip: clientIp,
+					userAgent: request.headers.get('user-agent') ?? ''
+				}
+			);
 			return fail(429, { error: ACCOUNT_SETUP_ATTEMPT_RATE_LIMIT_MESSAGE });
 		}
 
@@ -218,7 +238,18 @@ export const actions: Actions = {
 			redirect(303, '/dashboard');
 		}
 
-		if (completion.status === 'account-create-failed' || completion.status === 'setup-finalization-failed') {
+		if (completion.status === 'account-create-failed') {
+			clearAccountSetupSessionCookie(cookies);
+			const providerPasswordError = mapProviderPasswordError(completion.message);
+			if (providerPasswordError) {
+				return fail(400, {
+					error: `${providerPasswordError} Request a fresh setup link, then try again.`
+				});
+			}
+			return fail(500, { error: claimedSetupFailureMessage() });
+		}
+
+		if (completion.status === 'setup-finalization-failed') {
 			clearAccountSetupSessionCookie(cookies);
 			return fail(500, { error: claimedSetupFailureMessage() });
 		}

@@ -1,11 +1,17 @@
-import { json, error } from '@sveltejs/kit';
+import { error, isHttpError, json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { isAccessRequestHeardAbout } from '$lib/accessRequests';
+import {
+	ACCESS_REQUEST_RATE_LIMIT_MESSAGE,
+	checkAccessRequestSubmissionRateLimit
+} from '$lib/server/accessRequestRateLimit';
+import { auditLog } from '$lib/server/auditLog';
+import { durableRateLimitAuditDetails } from '$lib/server/durableRateLimit';
 import { getAdminClient } from '$lib/server/supabase';
 import { sanitizeString, validateEmail } from '$lib/server/validation';
 import { createSupabaseAccessRequestSetupDeliveryService } from '$lib/server/accessRequestSetupDelivery';
 
-export const POST: RequestHandler = async ({ request }) => {
+export const POST: RequestHandler = async ({ getClientAddress, request }) => {
 	const body = await request.json();
 	const email = sanitizeString(body.email, 254);
 	const firstName = sanitizeString(body.firstName, 80);
@@ -26,6 +32,40 @@ export const POST: RequestHandler = async ({ request }) => {
 		throw error(400, 'Select how you heard about TroopToTask');
 	}
 
+	const clientIp = getClientAddress();
+	const rateLimit = await checkAccessRequestSubmissionRateLimit({
+		email,
+		ip: clientIp
+	});
+	if (rateLimit.limited) {
+		const retryAfterSeconds = Math.ceil(rateLimit.retryAfterMs / 1000);
+		auditLog(
+			{
+				action: 'security.rate_limit_exceeded',
+				resourceType: 'access_request',
+				severity: 'warning',
+				details: durableRateLimitAuditDetails(rateLimit)
+			},
+			{
+				userId: null,
+				ip: clientIp,
+				userAgent: request.headers.get('user-agent') ?? ''
+			}
+		);
+		return json(
+			{
+				error: ACCESS_REQUEST_RATE_LIMIT_MESSAGE,
+				retryAfterSeconds
+			},
+			{
+				status: 429,
+				headers: {
+					'Retry-After': String(retryAfterSeconds)
+				}
+			}
+		);
+	}
+
 	const adminClient = getAdminClient();
 	const service = createSupabaseAccessRequestSetupDeliveryService(adminClient);
 
@@ -41,10 +81,10 @@ export const POST: RequestHandler = async ({ request }) => {
 		});
 
 		if (result.status === 'already-pending') {
-			throw error(409, 'A request for this email is already pending');
+			return json({ success: true });
 		}
 	} catch (submitError) {
-		if (submitError && typeof submitError === 'object' && 'status' in submitError) {
+		if (isHttpError(submitError)) {
 			throw submitError;
 		}
 		console.error('Failed to submit access request:', submitError);

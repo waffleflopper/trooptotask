@@ -7,6 +7,7 @@ const {
 	createSupabaseDataStoreMock,
 	createSupabaseOrgSettingsAdministrationPortMock,
 	createSupabaseOrganizationInvitationDeliveryPortMock,
+	createSupabaseOrganizationInvitationRateLimiterMock,
 	createSupabaseOrgSettingsMemberManagementPortMock,
 	deleteOrganizationUseCaseMock,
 	fetchAuditLogPreviewMock,
@@ -27,6 +28,7 @@ const {
 	createSupabaseDataStoreMock: vi.fn(),
 	createSupabaseOrgSettingsAdministrationPortMock: vi.fn(),
 	createSupabaseOrganizationInvitationDeliveryPortMock: vi.fn(),
+	createSupabaseOrganizationInvitationRateLimiterMock: vi.fn(),
 	createSupabaseOrgSettingsMemberManagementPortMock: vi.fn(),
 	deleteOrganizationUseCaseMock: vi.fn(),
 	fetchAuditLogPreviewMock: vi.fn(),
@@ -79,6 +81,17 @@ vi.mock('$lib/server/organizationInvitationDelivery', () => ({
 	createSupabaseOrganizationInvitationDeliveryPort: createSupabaseOrganizationInvitationDeliveryPortMock
 }));
 
+vi.mock('$lib/server/organizationInvitationRateLimit', async () => {
+	const actual = await vi.importActual<typeof import('$lib/server/organizationInvitationRateLimit')>(
+		'$lib/server/organizationInvitationRateLimit'
+	);
+
+	return {
+		...actual,
+		createSupabaseOrganizationInvitationRateLimiter: createSupabaseOrganizationInvitationRateLimiterMock
+	};
+});
+
 vi.mock('$lib/server/core/useCases/orgSettingsMemberManagement', async () => {
 	const actual = await vi.importActual<typeof import('$lib/server/core/useCases/orgSettingsMemberManagement')>(
 		'$lib/server/core/useCases/orgSettingsMemberManagement'
@@ -120,7 +133,8 @@ describe('org settings page server actions', () => {
 		buildRouteContextMock.mockResolvedValue({
 			auth: { kind: 'auth', orgId: 'org-1' },
 			audit: { kind: 'audit' },
-			notifications: { kind: 'notifications' }
+			notifications: { kind: 'notifications' },
+			sensitiveActionAuthorizer: { kind: 'sensitive-action-authorizer' }
 		});
 		getAdminClientMock.mockReturnValue({ kind: 'admin-client' });
 		createSupabaseDataStoreMock.mockReturnValue({ kind: 'admin-store' });
@@ -224,6 +238,7 @@ describe('org settings page server actions', () => {
 		createSupabaseOrgSettingsAdministrationPortMock.mockReturnValue({ kind: 'admin-port' });
 		createSupabaseOrgSettingsMemberManagementPortMock.mockReturnValue({ kind: 'settings-port' });
 		createSupabaseOrganizationInvitationDeliveryPortMock.mockReturnValue({ kind: 'invitation-delivery-port' });
+		createSupabaseOrganizationInvitationRateLimiterMock.mockReturnValue({ kind: 'invitation-rate-limiter' });
 		clearOrganizationUrlSlugMock.mockResolvedValue({ slugSuccess: true, orgUrlSlug: null });
 		deleteOrganizationUseCaseMock.mockResolvedValue({ success: true });
 		inviteOrganizationMemberMock.mockResolvedValue({ inviteSuccess: true });
@@ -684,7 +699,8 @@ describe('org settings page server actions', () => {
 				auth: { kind: 'auth', orgId: 'org-1' },
 				audit: { kind: 'audit' },
 				notifications: { kind: 'notifications' },
-				administration: { kind: 'admin-port' }
+				administration: { kind: 'admin-port' },
+				sensitiveActionAuthorizer: { kind: 'sensitive-action-authorizer' }
 			},
 			{ newOwnerId: '11111111-1111-4111-8111-111111111111' }
 		);
@@ -744,7 +760,8 @@ describe('org settings page server actions', () => {
 				auth: { kind: 'auth', orgId: 'org-1' },
 				audit: { kind: 'audit' },
 				notifications: { kind: 'notifications' },
-				administration: { kind: 'admin-port' }
+				administration: { kind: 'admin-port' },
+				sensitiveActionAuthorizer: { kind: 'sensitive-action-authorizer' }
 			},
 			{ confirmName: '  Test Org  ' }
 		);
@@ -852,17 +869,29 @@ describe('org settings page server actions', () => {
 		} as never);
 
 		expect(result).toEqual({ inviteSuccess: true });
-		expect(inviteOrganizationMemberMock).toHaveBeenLastCalledWith(expect.anything(), {
-			email: 'new.member@example.com',
-			membershipRole: 'member',
-			memberAccess: {
-				memberPreset: 'viewer',
-				capabilityOverrides: { calendar: 'operate' },
-				scopeSet: { kind: 'groups', groupIds: ['11111111-1111-4111-8111-111111111111'] }
+		expect(inviteOrganizationMemberMock).toHaveBeenLastCalledWith(
+			{
+				auth: { kind: 'auth', orgId: 'org-1' },
+				audit: { kind: 'audit' },
+				notifications: { kind: 'notifications' },
+				readOnlyGuard: undefined,
+				settings: { kind: 'settings-port' },
+				invitationDelivery: { kind: 'invitation-delivery-port' },
+				invitationRateLimiter: { kind: 'invitation-rate-limiter' },
+				sensitiveActionAuthorizer: { kind: 'sensitive-action-authorizer' }
 			},
-			actorEmail: 'user@example.com',
-			origin: 'http://localhost'
-		});
+			{
+				email: 'new.member@example.com',
+				membershipRole: 'member',
+				memberAccess: {
+					memberPreset: 'viewer',
+					capabilityOverrides: { calendar: 'operate' },
+					scopeSet: { kind: 'groups', groupIds: ['11111111-1111-4111-8111-111111111111'] }
+				},
+				actorEmail: 'user@example.com',
+				origin: 'http://localhost'
+			}
+		);
 	});
 
 	it('translates the update-permissions form into the use-case input shape', async () => {
@@ -895,7 +924,8 @@ describe('org settings page server actions', () => {
 				audit: { kind: 'audit' },
 				notifications: { kind: 'notifications' },
 				readOnlyGuard: undefined,
-				settings: { kind: 'settings-port' }
+				settings: { kind: 'settings-port' },
+				sensitiveActionAuthorizer: { kind: 'sensitive-action-authorizer' }
 			},
 			{
 				membershipId: '11111111-1111-4111-8111-111111111111',
@@ -964,7 +994,8 @@ describe('org settings page server actions', () => {
 				notifications: { kind: 'notifications' },
 				readOnlyGuard: undefined,
 				settings: { kind: 'settings-port' },
-				invitationDelivery: { kind: 'invitation-delivery-port' }
+				invitationDelivery: { kind: 'invitation-delivery-port' },
+				invitationRateLimiter: { kind: 'invitation-rate-limiter' }
 			},
 			{
 				inviteId: '11111111-1111-4111-8111-111111111111',

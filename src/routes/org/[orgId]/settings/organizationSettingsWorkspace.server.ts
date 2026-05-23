@@ -28,6 +28,7 @@ import { normalizeOrganizationName } from './settingsWorkspaceFormatters';
 import type {
 	OrganizationSettingsWorkspace,
 	SettingsArchivedPersonnelRow,
+	SettingsInvitationHistoryRow,
 	SettingsInvitationRow,
 	SettingsMemberRow,
 	SettingsExportInfo
@@ -55,6 +56,7 @@ export interface BuildOrganizationSettingsWorkspaceInput {
 	organization: OrganizationSettingsSource;
 	members: LegacySettingsAccessRow[];
 	invitations: LegacySettingsAccessRow[];
+	invitationDeliveries?: SettingsInvitationDeliverySourceRow[];
 	pendingApprovalSummary?: PendingApprovalSummary;
 	approvalRequests?: DeletionRequestRow[];
 	exportInfo?: SettingsExportInfoSource;
@@ -79,6 +81,16 @@ export interface OrganizationSettingsSource {
 
 export type SettingsExportInfoSource = Pick<SettingsExportInfo, 'exportsUsed' | 'exportsLimit' | 'isLimited'>;
 
+export interface SettingsInvitationDeliverySourceRow {
+	id: string;
+	invitation_id: string;
+	status: 'pending' | 'sent' | 'failed';
+	attempt_count: number;
+	last_error: string | null;
+	updated_at: string;
+	sent_at: string | null;
+}
+
 export type SettingsArchivedPersonnelSourceRow = Pick<
 	SettingsArchivedPersonnelRow,
 	'id' | 'rank' | 'firstName' | 'lastName' | 'mos' | 'groupName' | 'archivedAt' | 'groupId'
@@ -91,6 +103,7 @@ export async function loadOrganizationSettingsWorkspace(
 	const [
 		membershipRows,
 		invitationRows,
+		invitationDeliveryRows,
 		groupRows,
 		organizationSettings,
 		archivedPersonnelRows,
@@ -99,9 +112,18 @@ export async function loadOrganizationSettingsWorkspace(
 		auditLog
 	] = await Promise.all([
 		ctx.store.findMany<LegacySettingsAccessRow>('organization_memberships', ctx.auth.orgId),
-		ctx.store.findMany<LegacySettingsAccessRow>('organization_invitations', ctx.auth.orgId, {
-			status: 'pending'
+		ctx.store.findMany<LegacySettingsAccessRow>('organization_invitations', ctx.auth.orgId, undefined, {
+			orderBy: [{ column: 'created_at', ascending: false }]
 		}),
+		ctx.store.findMany<SettingsInvitationDeliverySourceRow>(
+			'organization_invitation_email_outbox',
+			ctx.auth.orgId,
+			undefined,
+			{
+				select: 'id, invitation_id, status, attempt_count, last_error, updated_at, sent_at',
+				orderBy: [{ column: 'created_at', ascending: false }]
+			}
+		),
 		ctx.store.findMany<Record<string, unknown>>('groups', ctx.auth.orgId, undefined, {
 			orderBy: [{ column: 'sort_order', ascending: true }]
 		}),
@@ -129,6 +151,7 @@ export async function loadOrganizationSettingsWorkspace(
 		organization: input.organization,
 		members: membershipRows,
 		invitations: invitationRows,
+		invitationDeliveries: invitationDeliveryRows,
 		pendingApprovalSummary: buildPendingApprovalSummary(approvalRequests),
 		approvalRequests,
 		exportInfo,
@@ -158,7 +181,15 @@ export function buildOrganizationSettingsWorkspace(
 	const members = input.members.map((row) =>
 		shapeMemberRow(buildSettingsMemberAccessRow(row), groups, availablePresetOptions)
 	);
-	const invitations = input.invitations.map((row) => shapeInvitationRow(buildSettingsInvitationAccessRow(row), groups));
+	const now = new Date();
+	const latestDeliveryByInvitationId = buildLatestDeliveryByInvitationId(input.invitationDeliveries ?? []);
+	const shapedInvitations = input.invitations.map((row) =>
+		shapeInvitationRow(buildSettingsInvitationAccessRow(row), groups, latestDeliveryByInvitationId)
+	);
+	const invitations = shapedInvitations.filter((invitation) => isActionableInvitation(invitation, now));
+	const invitationHistory = shapedInvitations
+		.filter((invitation) => !isActionableInvitation(invitation, now))
+		.map((invitation) => shapeInvitationHistoryRow(invitation, now));
 	const roleCounts = members.reduce(
 		(counts, member) => {
 			counts[member.membershipRole] += 1;
@@ -206,6 +237,7 @@ export function buildOrganizationSettingsWorkspace(
 			members: {
 				rows: members,
 				invitations,
+				invitationHistory,
 				groups,
 				roleCounts,
 				memberRoleSummary: `${roleCounts.owner} ${pluralize('Owner', roleCounts.owner)} · ${roleCounts.admin} ${pluralize('Admin', roleCounts.admin)} · ${roleCounts.member} ${pluralize('Member', roleCounts.member)}`,
@@ -309,13 +341,121 @@ function shapeMemberRow(
 
 function shapeInvitationRow(
 	invitation: ReturnType<typeof buildSettingsInvitationAccessRow>,
-	groups: Array<{ id: string; name: string }>
+	groups: Array<{ id: string; name: string }>,
+	deliveryByInvitationId: Map<string, SettingsInvitationDeliverySourceRow>
 ): SettingsInvitationRow {
+	const delivery = deliveryByInvitationId.get(invitation.id) ?? null;
 	return {
 		...invitation,
 		accessBadge: invitation.membershipRole === 'admin' ? 'admin' : invitation.access.memberPreset,
-		scopeDisplayLabel: formatScopeSet(invitation.access.scopeSet, groups)
+		scopeDisplayLabel: formatScopeSet(invitation.access.scopeSet, groups),
+		deliveryStatus: delivery?.status ?? 'not_sent',
+		deliveryStatusLabel: invitationDeliveryStatusLabel(delivery?.status ?? 'not_sent'),
+		deliveryAttemptCount: delivery?.attempt_count ?? 0,
+		deliveryLastError: delivery?.last_error ?? null,
+		deliveryUpdatedAt: delivery?.updated_at ?? null,
+		deliverySentAt: delivery?.sent_at ?? null,
+		canResend: invitation.status === 'pending'
 	};
+}
+
+function buildLatestDeliveryByInvitationId(
+	deliveries: SettingsInvitationDeliverySourceRow[]
+): Map<string, SettingsInvitationDeliverySourceRow> {
+	const latest = new Map<string, SettingsInvitationDeliverySourceRow>();
+	for (const delivery of deliveries) {
+		if (!latest.has(delivery.invitation_id)) {
+			latest.set(delivery.invitation_id, delivery);
+		}
+	}
+	return latest;
+}
+
+function invitationDeliveryStatusLabel(status: SettingsInvitationRow['deliveryStatus']): string {
+	switch (status) {
+		case 'sent':
+			return 'Email sent';
+		case 'failed':
+			return 'Email failed';
+		case 'pending':
+			return 'Email pending';
+		case 'not_sent':
+			return 'Email not sent';
+	}
+}
+
+function shapeInvitationHistoryRow(invitation: SettingsInvitationRow, now: Date): SettingsInvitationHistoryRow {
+	const lifecycleStatus = getInvitationLifecycleStatus(invitation, now);
+	const historyStatus = lifecycleStatus === 'pending' ? 'closed' : lifecycleStatus;
+	return {
+		...invitation,
+		lifecycleStatus: historyStatus,
+		lifecycleStatusLabel: invitationLifecycleStatusLabel(historyStatus),
+		lifecycleDetail: invitationLifecycleDetail(historyStatus),
+		lifecycleAt: getInvitationLifecycleAt(invitation, historyStatus)
+	};
+}
+
+function isActionableInvitation(invitation: SettingsInvitationRow, now: Date): boolean {
+	return getInvitationLifecycleStatus(invitation, now) === 'pending';
+}
+
+function getInvitationLifecycleStatus(
+	invitation: SettingsInvitationRow,
+	now: Date
+): SettingsInvitationHistoryRow['lifecycleStatus'] | 'pending' {
+	if (
+		invitation.status === 'pending' &&
+		invitation.expiresAt &&
+		new Date(invitation.expiresAt).getTime() <= now.getTime()
+	) {
+		return 'expired';
+	}
+
+	if (
+		invitation.status === 'accepted' ||
+		invitation.status === 'declined' ||
+		invitation.status === 'revoked' ||
+		invitation.status === 'expired' ||
+		invitation.status === 'blocked'
+	) {
+		return invitation.status;
+	}
+
+	if (invitation.status === 'pending') {
+		return 'pending';
+	}
+
+	return 'closed';
+}
+
+function getInvitationLifecycleAt(
+	invitation: SettingsInvitationRow,
+	lifecycleStatus: SettingsInvitationHistoryRow['lifecycleStatus']
+): string {
+	if (lifecycleStatus === 'accepted') return invitation.acceptedAt ?? invitation.createdAt;
+	if (lifecycleStatus === 'declined') return invitation.declinedAt ?? invitation.createdAt;
+	if (lifecycleStatus === 'revoked') return invitation.revokedAt ?? invitation.createdAt;
+	if (lifecycleStatus === 'expired') return invitation.expiredAt ?? invitation.expiresAt ?? invitation.createdAt;
+	if (lifecycleStatus === 'blocked') return invitation.blockedAt ?? invitation.createdAt;
+	return invitation.createdAt;
+}
+
+function invitationLifecycleStatusLabel(lifecycleStatus: SettingsInvitationHistoryRow['lifecycleStatus']): string {
+	if (lifecycleStatus === 'accepted') return 'Accepted';
+	if (lifecycleStatus === 'declined') return 'Declined';
+	if (lifecycleStatus === 'revoked') return 'Revoked';
+	if (lifecycleStatus === 'expired') return 'Expired';
+	if (lifecycleStatus === 'blocked') return 'Blocked';
+	return 'Closed';
+}
+
+function invitationLifecycleDetail(lifecycleStatus: SettingsInvitationHistoryRow['lifecycleStatus']): string | null {
+	if (lifecycleStatus === 'blocked') {
+		return 'Linked platform access was rejected or closed before account setup finished.';
+	}
+
+	return null;
 }
 
 function shapeArchivedPersonnelRow(row: SettingsArchivedPersonnelSourceRow): SettingsArchivedPersonnelRow {

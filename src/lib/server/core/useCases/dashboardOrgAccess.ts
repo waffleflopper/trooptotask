@@ -1,10 +1,6 @@
 import type { NotificationPort } from '$lib/server/core/ports';
 import { fail } from '$lib/server/core/errors';
-import {
-	deriveMembershipFromInvitation,
-	type OrganizationInvitationAccessShape,
-	type OrganizationMembershipDraft
-} from './organizationInvitationMembership';
+import { normalizeInvitationEmail } from './invitationEmail';
 
 export interface DashboardOrganizationSummary {
 	id: string;
@@ -20,20 +16,53 @@ export interface DashboardPendingInvitationSummary {
 	createdAt: string;
 }
 
-export interface DashboardInvitationRecord extends OrganizationInvitationAccessShape {
-	id: string;
+export type DashboardInvitationAcceptStatus =
+	| 'accepted'
+	| 'not_found'
+	| 'setup_required'
+	| 'expired'
+	| 'blocked'
+	| 'already_member'
+	| 'already_accepted'
+	| 'failed';
+
+export type DashboardInvitationDeclineStatus =
+	| 'declined'
+	| 'not_found'
+	| 'expired'
+	| 'blocked'
+	| 'already_accepted'
+	| 'already_declined'
+	| 'revoked'
+	| 'failed';
+
+export interface DashboardInvitationAcceptInput {
+	invitationId: string;
+	userId: string;
+	email: string;
 }
 
-export type DashboardMembershipCreateInput = OrganizationMembershipDraft;
+export interface DashboardInvitationAcceptResult {
+	status: DashboardInvitationAcceptStatus;
+	organizationId: string | null;
+}
+
+export interface DashboardInvitationDeclineInput {
+	invitationId: string;
+	userId: string;
+	email: string;
+}
+
+export interface DashboardInvitationDeclineResult {
+	status: DashboardInvitationDeclineStatus;
+	organizationId: string | null;
+}
 
 export interface DashboardOrgAccessPort {
 	listOrganizationsForUser(userId: string): Promise<DashboardOrganizationSummary[]>;
 	listPendingInvitationsForEmail(email: string): Promise<DashboardPendingInvitationSummary[]>;
-	findInvitation(invitationId: string, email: string): Promise<DashboardInvitationRecord | null>;
-	hasMembership(organizationId: string, userId: string): Promise<boolean>;
-	createMembership(input: DashboardMembershipCreateInput): Promise<boolean>;
-	deleteInvitation(invitationId: string): Promise<boolean>;
-	deleteInvitationForEmail(invitationId: string, email: string): Promise<boolean>;
+	acceptInvitation(input: DashboardInvitationAcceptInput): Promise<DashboardInvitationAcceptResult>;
+	declineInvitation(input: DashboardInvitationDeclineInput): Promise<DashboardInvitationDeclineResult>;
 }
 
 export interface DashboardOrgAccessResult {
@@ -59,8 +88,14 @@ interface AcceptDashboardInvitationInput {
 	email?: string | null;
 }
 
+interface DeclineDashboardInvitationPorts {
+	dashboard: DashboardOrgAccessPort;
+	notifications: NotificationPort;
+}
+
 interface DeclineDashboardInvitationInput {
 	invitationId: string;
+	userId: string;
 	email?: string | null;
 }
 
@@ -99,85 +134,162 @@ export async function acceptDashboardInvitation(
 	input: AcceptDashboardInvitationInput
 ): Promise<{ success: true; accepted: true }> {
 	const normalizedEmail = normalizeEmail(input.email);
-	const invitation = await ports.dashboard.findInvitation(input.invitationId, normalizedEmail);
+	const accepted = await ports.dashboard.acceptInvitation({
+		invitationId: input.invitationId,
+		userId: input.userId,
+		email: normalizedEmail
+	});
 
-	if (!invitation) {
+	if (accepted.status === 'not_found') {
 		fail(404, 'Invitation not found');
 	}
-
-	const existingMembership = await ports.dashboard.hasMembership(invitation.organizationId, input.userId);
-
-	if (existingMembership) {
-		await cleanupInvitation(ports.dashboard, {
-			invitationId: input.invitationId,
-			organizationId: invitation.organizationId,
-			userId: input.userId,
-			reason: 'duplicate-membership-cleanup'
-		});
+	if (accepted.status === 'setup_required') {
+		fail(400, 'Complete account setup before accepting this organization invitation');
+	}
+	if (accepted.status === 'expired') {
+		if (accepted.organizationId) {
+			await notifyAdminsOfExpiredInvitation(ports, {
+				organizationId: accepted.organizationId,
+				userId: input.userId,
+				email: normalizedEmail
+			});
+		}
+		fail(400, 'Invitation has expired');
+	}
+	if (accepted.status === 'blocked') {
+		fail(400, 'This organization invitation is no longer available because platform access was rejected');
+	}
+	if (accepted.status === 'already_member') {
 		fail(400, 'You are already a member of this organization');
 	}
-
-	const created = await ports.dashboard.createMembership(
-		deriveMembershipFromInvitation({
-			invitation,
-			userId: input.userId,
-			email: normalizedEmail
-		})
-	);
-
-	if (!created) {
+	if (accepted.status === 'already_accepted') {
+		fail(400, 'Invitation has already been accepted');
+	}
+	if (accepted.status !== 'accepted' || !accepted.organizationId) {
 		fail(500, 'Failed to accept invitation');
 	}
 
-	await cleanupInvitation(ports.dashboard, {
-		invitationId: input.invitationId,
-		organizationId: invitation.organizationId,
+	await notifyAdminsOfAcceptedInvitation(ports, {
+		organizationId: accepted.organizationId,
 		userId: input.userId,
-		reason: 'accepted-membership-cleanup'
-	});
-
-	await ports.notifications.notifyAdmins(invitation.organizationId, input.userId, {
-		type: 'member_joined',
-		title: 'New Member Joined',
-		message: `"${input.email}" has joined the organization.`,
-		link: `/org/${invitation.organizationId}/settings`
+		email: normalizedEmail
 	});
 
 	return { success: true, accepted: true };
 }
 
 export async function declineDashboardInvitation(
-	port: DashboardOrgAccessPort,
+	ports: DeclineDashboardInvitationPorts,
 	input: DeclineDashboardInvitationInput
 ): Promise<{ success: true; declined: true }> {
-	const declined = await port.deleteInvitationForEmail(input.invitationId, normalizeEmail(input.email));
+	const normalizedEmail = normalizeEmail(input.email);
+	const declined = await ports.dashboard.declineInvitation({
+		invitationId: input.invitationId,
+		userId: input.userId,
+		email: normalizedEmail
+	});
 
-	if (!declined) {
+	if (declined.status === 'not_found') {
+		fail(404, 'Invitation not found');
+	}
+	if (declined.status === 'expired') {
+		if (declined.organizationId) {
+			await notifyAdminsOfExpiredInvitation(ports, {
+				organizationId: declined.organizationId,
+				userId: input.userId,
+				email: normalizedEmail
+			});
+		}
+		fail(400, 'Invitation has expired');
+	}
+	if (declined.status === 'blocked') {
+		fail(400, 'This organization invitation is no longer available because platform access was rejected');
+	}
+	if (declined.status === 'already_accepted') {
+		fail(400, 'Invitation has already been accepted');
+	}
+	if (declined.status === 'already_declined') {
+		fail(400, 'Invitation has already been declined');
+	}
+	if (declined.status === 'revoked') {
+		fail(400, 'Invitation has been revoked');
+	}
+	if (declined.status !== 'declined' || !declined.organizationId) {
 		fail(500, 'Failed to decline invitation');
 	}
+
+	await notifyAdminsOfDeclinedInvitation(ports, {
+		organizationId: declined.organizationId,
+		userId: input.userId,
+		email: normalizedEmail
+	});
 
 	return { success: true, declined: true };
 }
 
 function normalizeEmail(email?: string | null): string {
-	return email?.toLowerCase() ?? '';
+	return normalizeInvitationEmail(email);
 }
 
-async function cleanupInvitation(
-	port: DashboardOrgAccessPort,
-	input: {
-		invitationId: string;
-		organizationId: string;
-		userId: string;
-		reason: 'accepted-membership-cleanup' | 'duplicate-membership-cleanup';
-	}
+async function notifyAdminsOfAcceptedInvitation(
+	ports: AcceptDashboardInvitationPorts,
+	input: { organizationId: string; userId: string; email: string }
 ): Promise<void> {
-	const deleted = await port.deleteInvitation(input.invitationId);
-
-	if (!deleted) {
+	try {
+		await ports.notifications.notifyAdmins(input.organizationId, input.userId, {
+			type: 'member_joined',
+			title: 'New Member Joined',
+			message: `"${input.email}" has joined the organization.`,
+			link: `/org/${input.organizationId}/settings`
+		});
+	} catch (error) {
 		console.error('[dashboard-org-access]', {
-			status: 'invitation-delete-failed',
-			...input
+			status: 'accepted-notification-failed',
+			organizationId: input.organizationId,
+			userId: input.userId,
+			error
+		});
+	}
+}
+
+async function notifyAdminsOfDeclinedInvitation(
+	ports: DeclineDashboardInvitationPorts,
+	input: { organizationId: string; userId: string; email: string }
+): Promise<void> {
+	try {
+		await ports.notifications.notifyAdmins(input.organizationId, input.userId, {
+			type: 'member_invite_declined',
+			title: 'Invitation Declined',
+			message: `"${input.email}" declined their organization invitation.`,
+			link: `/org/${input.organizationId}/settings`
+		});
+	} catch (error) {
+		console.error('[dashboard-org-access]', {
+			status: 'declined-notification-failed',
+			organizationId: input.organizationId,
+			userId: input.userId,
+			error
+		});
+	}
+}
+
+async function notifyAdminsOfExpiredInvitation(
+	ports: AcceptDashboardInvitationPorts | DeclineDashboardInvitationPorts,
+	input: { organizationId: string; userId: string; email: string }
+): Promise<void> {
+	try {
+		await ports.notifications.notifyAdmins(input.organizationId, input.userId, {
+			type: 'member_invite_expired',
+			title: 'Invitation Expired',
+			message: `"${input.email}" tried to use an expired organization invitation.`,
+			link: `/org/${input.organizationId}/settings`
+		});
+	} catch (error) {
+		console.error('[dashboard-org-access]', {
+			status: 'expired-notification-failed',
+			organizationId: input.organizationId,
+			userId: input.userId,
+			error
 		});
 	}
 }

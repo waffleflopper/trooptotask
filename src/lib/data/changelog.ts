@@ -7,6 +7,16 @@ export type ChangelogEntry = {
 
 export const changelog: ChangelogEntry[] = [
 	{
+		id: '2026-05-23-organization-invite-setup-flow',
+		date: '2026-05-23',
+		title: 'Clearer Organization Invites',
+		items: [
+			'Organization invites can now start the platform access request for new users, so invitees do not have to figure out that step on their own',
+			'Invite emails now explain when an access request has already been submitted on the invitee’s behalf and what happens after approval',
+			'Platform admins can see clearer invitation context during access review, including who sent the organization invite'
+		]
+	},
+	{
 		id: '2026-05-15-account-settings-and-organization-exit',
 		date: '2026-05-15',
 		title: 'Account Settings and Organization Exit',

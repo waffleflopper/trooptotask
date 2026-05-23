@@ -13,6 +13,8 @@
 	import type { BadgeVariant } from '$lib/components/ui/badge';
 	import type { PageData } from './$types';
 
+	type AccessRequestCard = PageData['pending'][number] | PageData['reviewed'][number];
+
 	let { data, form } = $props();
 	let activeTab = $state<'pending' | 'reviewed'>('pending');
 	let loadingId = $state<string | null>(null);
@@ -56,6 +58,36 @@
 <svelte:head>
 	<title>Access Requests - Admin - Troop to Task</title>
 </svelte:head>
+
+{#snippet invitationOriginContext(req: AccessRequestCard)}
+	{#if req.invitation_origins.length > 0}
+		<section class="grid gap-2 rounded-md border bg-muted/30 p-3" aria-label="Organization invitation origin context">
+			<div class="flex flex-wrap items-start gap-2">
+				<Badge variant="info">Organization Invitation</Badge>
+				<p class="max-w-2xl text-xs leading-5 text-muted-foreground">
+					Platform approval enables User Account setup only and does not create Organization Membership.
+				</p>
+			</div>
+			<div class="grid gap-2">
+				{#each req.invitation_origins as origin (origin.link_id)}
+					<div class="grid gap-1 rounded-md border bg-background p-3 text-sm">
+						<div class="flex min-w-0 flex-wrap items-center gap-2">
+							<strong class="truncate">{origin.organization_name}</strong>
+							<span class="text-xs text-muted-foreground">{origin.intended_access_label}</span>
+						</div>
+						<p class="text-xs text-muted-foreground">
+							Invited by {origin.inviter_label} on {formatDisplayDateTime(origin.invited_at)}
+						</p>
+						<p class="text-xs text-muted-foreground">
+							Membership Role: {origin.membership_role_label}{#if origin.member_preset_label}
+								/ Member Preset: {origin.member_preset_label}{/if}
+						</p>
+					</div>
+				{/each}
+			</div>
+		</section>
+	{/if}
+{/snippet}
 
 <PageShell.Root width="content" density="compact">
 	<PageShell.Header title="Access Requests" subtitle="Review inbound requests before users enter the platform." />
@@ -113,6 +145,7 @@
 										Source: {req.heard_about_label}{req.heard_about_details ? ` - ${req.heard_about_details}` : ''}
 									</p>
 								{/if}
+								{@render invitationOriginContext(req)}
 								<p class="text-xs text-muted-foreground">Submitted {formatDisplayDateTime(req.created_at)}</p>
 							</div>
 							<div class="flex flex-wrap gap-2 md:justify-end">
@@ -187,6 +220,7 @@
 										Source: {req.heard_about_label}{req.heard_about_details ? ` - ${req.heard_about_details}` : ''}
 									</p>
 								{/if}
+								{@render invitationOriginContext(req)}
 								<p class="text-xs text-muted-foreground">
 									Submitted {formatDisplayDateTime(req.created_at)}
 									{#if req.reviewed_at}

@@ -6,8 +6,10 @@ import {
 	inviteOrganizationMember,
 	leaveOrganization,
 	removeOrganizationMember,
+	resendOrganizationInvitation,
 	revokeOrganizationInvitation,
 	updateOrganizationMemberPermissions,
+	type OrganizationInvitationAccessRequestBridgeInput,
 	type OrganizationInvitationCreateInput,
 	type OrganizationMembershipUpdateInput,
 	type OrganizationSettingsMemberManagementPort
@@ -45,7 +47,19 @@ function createOrganizationSettingsMemberManagementPort(
 	options: {
 		existingInvitationId?: string | null;
 		createInvitationError?: string | null;
-		revokeInvitationError?: string | null;
+		existingUserAccount?: { id: string; email: string } | null;
+		accessRequestBridgeResult?:
+			| { status: 'created' | 'linked' | 'already-linked'; accessRequestId: string }
+			| { status: 'failed'; message: string }
+			| null;
+		revokeInvitationResult?: {
+			status: 'revoked' | 'not_found' | 'expired' | 'already_accepted' | 'already_declined' | 'failed';
+			email: string | null;
+		};
+		pendingInvitationById?: { id: string; email: string } | null;
+		pendingInvitationByIdStatus?: 'pending' | 'expired';
+		pendingInvitationRequiresAccountSetup?: boolean;
+		blockInvitationResult?: { status: 'blocked' } | { status: 'failed'; message: string };
 		membership?: {
 			userId: string | null;
 			role: string | null;
@@ -57,23 +71,36 @@ function createOrganizationSettingsMemberManagementPort(
 	} = {}
 ): OrganizationSettingsMemberManagementPort & {
 	invitationLookups: Array<{ orgId: string; email: string }>;
+	userAccountLookups: string[];
 	createdInvitations: OrganizationInvitationCreateInput[];
+	accessRequestBridges: OrganizationInvitationAccessRequestBridgeInput[];
+	blockedInvitations: Array<{ organizationId: string; invitationId: string; blockedBy: string; reason: string }>;
 	revokedInvitations: Array<{ orgId: string; inviteId: string }>;
+	pendingInvitationByIdLookups: Array<{ orgId: string; inviteId: string }>;
 	membershipLookups: Array<{ orgId: string; membershipId: string }>;
 	removedMemberships: Array<{ orgId: string; membershipId: string }>;
 	updatedMemberships: OrganizationMembershipUpdateInput[];
 } {
 	const invitationLookups: Array<{ orgId: string; email: string }> = [];
+	const userAccountLookups: string[] = [];
 	const createdInvitations: OrganizationInvitationCreateInput[] = [];
+	const accessRequestBridges: OrganizationInvitationAccessRequestBridgeInput[] = [];
+	const blockedInvitations: Array<{ organizationId: string; invitationId: string; blockedBy: string; reason: string }> =
+		[];
 	const revokedInvitations: Array<{ orgId: string; inviteId: string }> = [];
+	const pendingInvitationByIdLookups: Array<{ orgId: string; inviteId: string }> = [];
 	const membershipLookups: Array<{ orgId: string; membershipId: string }> = [];
 	const removedMemberships: Array<{ orgId: string; membershipId: string }> = [];
 	const updatedMemberships: OrganizationMembershipUpdateInput[] = [];
 
 	return {
 		invitationLookups,
+		userAccountLookups,
 		createdInvitations,
+		accessRequestBridges,
+		blockedInvitations,
 		revokedInvitations,
+		pendingInvitationByIdLookups,
 		membershipLookups,
 		removedMemberships,
 		updatedMemberships,
@@ -81,13 +108,45 @@ function createOrganizationSettingsMemberManagementPort(
 			invitationLookups.push({ orgId, email });
 			return options.existingInvitationId ? { id: options.existingInvitationId } : null;
 		},
+		async findPendingInvitationById(orgId, inviteId) {
+			pendingInvitationByIdLookups.push({ orgId, inviteId });
+			const invitation =
+				options.pendingInvitationById === undefined
+					? { id: inviteId, email: 'invitee@example.com' }
+					: options.pendingInvitationById;
+			return invitation
+				? {
+						...invitation,
+						status: options.pendingInvitationByIdStatus ?? 'pending',
+						requiresAccountSetup: options.pendingInvitationRequiresAccountSetup ?? false
+					}
+				: null;
+		},
+		async findUserAccountByEmail(email) {
+			userAccountLookups.push(email);
+			return options.existingUserAccount === undefined ? { id: 'user-1', email } : options.existingUserAccount;
+		},
 		async createInvitation(input) {
 			createdInvitations.push(input);
-			return options.createInvitationError ?? null;
+			return options.createInvitationError
+				? { status: 'failed', message: options.createInvitationError }
+				: {
+						status: 'created',
+						invitationId: 'invite-created',
+						createdAt: '2026-05-22T12:00:00.000Z'
+					};
+		},
+		async createOrLinkPendingAccessRequestForInvitation(input) {
+			accessRequestBridges.push(input);
+			return options.accessRequestBridgeResult ?? { status: 'created', accessRequestId: 'access-request-1' };
+		},
+		async blockInvitationAfterAccessRequestBridgeFailure(input) {
+			blockedInvitations.push(input);
+			return options.blockInvitationResult ?? { status: 'blocked' };
 		},
 		async revokeInvitation(orgId, inviteId) {
 			revokedInvitations.push({ orgId, inviteId });
-			return options.revokeInvitationError ?? null;
+			return options.revokeInvitationResult ?? { status: 'revoked', email: 'invitee@example.com' };
 		},
 		async findMembershipById(orgId, membershipId) {
 			membershipLookups.push({ orgId, membershipId });
@@ -103,6 +162,19 @@ function createOrganizationSettingsMemberManagementPort(
 		},
 		async getOrganizationName() {
 			return options.orgName ?? null;
+		}
+	};
+}
+
+function createInvitationDeliveryPort(status: 'sent' | 'failed' = 'sent') {
+	const deliveries: unknown[] = [];
+	return {
+		deliveries,
+		async sendInvitationEmail(input: unknown) {
+			deliveries.push(input);
+			return status === 'sent'
+				? { status: 'sent' as const, outbox: { id: 'outbox-1' } }
+				: { status: 'failed' as const, outbox: { id: 'outbox-1' }, error: 'mail provider unavailable' };
 		}
 	};
 }
@@ -240,6 +312,52 @@ describe('inviteOrganizationMember', () => {
 		]);
 	});
 
+	it('requires owner rights before granting member-management authority through a member invitation', async () => {
+		const ctx = createTestContext({
+			auth: {
+				userId: 'actor-1',
+				orgId: 'org-1',
+				role: 'admin'
+			}
+		});
+		const port = createOrganizationSettingsMemberManagementPort();
+
+		await expect(
+			inviteOrganizationMember(
+				{
+					auth: ctx.auth,
+					audit: ctx.audit,
+					notifications: ctx.notifications,
+					readOnlyGuard: ctx.readOnlyGuard,
+					settings: port
+				},
+				{
+					email: 'new.manager@example.com',
+					membershipRole: 'member',
+					memberAccess: memberAccess({ canManageMembers: true }),
+					actorEmail: 'actor@example.com'
+				}
+			)
+		).rejects.toMatchObject({
+			status: 403,
+			message: 'Only the organization owner can perform this action'
+		});
+
+		expect(port.invitationLookups).toEqual([]);
+		expect(port.createdInvitations).toEqual([]);
+		expect(ctx.auditPort.events).toEqual([
+			{
+				action: 'policy.denied',
+				resourceType: 'organization',
+				details: {
+					policyAction: 'organization.updateAdminAccess',
+					reasonCode: 'denied:owner-only'
+				},
+				severity: 'warning'
+			}
+		]);
+	});
+
 	it('rejects invalid invitation emails before querying pending invites', async () => {
 		const ctx = createTestContext();
 		const port = createOrganizationSettingsMemberManagementPort();
@@ -311,6 +429,36 @@ describe('inviteOrganizationMember', () => {
 		expect(port.createdInvitations).toEqual([]);
 	});
 
+	it('allows admins to create ordinary member invitations without member-management authority', async () => {
+		const ctx = createTestContext({
+			auth: {
+				userId: 'admin-1',
+				orgId: 'org-1',
+				role: 'admin'
+			}
+		});
+		const port = createOrganizationSettingsMemberManagementPort();
+
+		await inviteOrganizationMember(
+			{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
+			{
+				email: 'member@example.com',
+				membershipRole: 'member',
+				memberAccess: memberAccess({ memberPreset: 'viewer' }),
+				actorEmail: 'admin@example.com'
+			}
+		);
+
+		expect(port.createdInvitations).toHaveLength(1);
+		expect(port.createdInvitations[0]).toMatchObject({
+			role: 'member',
+			permissions: expect.objectContaining({
+				canManageMembers: false
+			}),
+			memberPreset: 'viewer'
+		});
+	});
+
 	it('creates the invitation with target member access, logs the audit event, and notifies admins', async () => {
 		const ctx = createTestContext({
 			auth: {
@@ -345,6 +493,7 @@ describe('inviteOrganizationMember', () => {
 				organizationId: 'org-1',
 				email: 'new.user@example.com',
 				invitedBy: 'actor-1',
+				role: 'member',
 				singleGroupCompatibilityId: '11111111-1111-4111-8111-111111111111',
 				permissions: {
 					canViewCalendar: true,
@@ -392,6 +541,609 @@ describe('inviteOrganizationMember', () => {
 			}
 		]);
 	});
+
+	it('creates a pending Access Request bridge for a non-user invitation without granting membership', async () => {
+		const ctx = createTestContext({
+			auth: {
+				userId: 'actor-1',
+				orgId: 'org-1'
+			}
+		});
+		const port = createOrganizationSettingsMemberManagementPort({ existingUserAccount: null });
+
+		await inviteOrganizationMember(
+			{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
+			{
+				email: 'NEW.USER@EXAMPLE.COM',
+				membershipRole: 'member',
+				memberAccess: memberAccess({
+					memberPreset: 'operator',
+					capabilityOverrides: { calendar: 'configure' },
+					scopeSet: { kind: 'groups', groupIds: ['11111111-1111-4111-8111-111111111111'] }
+				}),
+				actorEmail: 'actor@example.com'
+			}
+		);
+
+		expect(port.userAccountLookups).toEqual(['new.user@example.com']);
+		expect(port.accessRequestBridges).toEqual([
+			{
+				organizationId: 'org-1',
+				invitationId: 'invite-created',
+				email: 'new.user@example.com',
+				invitedBy: 'actor-1',
+				invitedAt: '2026-05-22T12:00:00.000Z',
+				role: 'member',
+				permissions: {
+					canViewCalendar: true,
+					canEditCalendar: true,
+					canViewPersonnel: true,
+					canEditPersonnel: false,
+					canViewTraining: true,
+					canEditTraining: false,
+					canViewCriticalTasks: true,
+					canEditCriticalTasks: false,
+					canViewOnboarding: true,
+					canEditOnboarding: false,
+					canViewRatingScheme: true,
+					canEditRatingScheme: false,
+					canManageMembers: false
+				},
+				memberPreset: 'operator',
+				capabilityOverrides: { calendar: 'configure' },
+				accessScopeKind: 'groups',
+				accessScopeGroupIds: ['11111111-1111-4111-8111-111111111111']
+			}
+		]);
+		expect(ctx.auditPort.events).toContainEqual({
+			action: 'member.invite_access_request_created',
+			resourceType: 'organization',
+			details: {
+				email: 'new.user@example.com',
+				invitationId: 'invite-created',
+				accessRequestId: 'access-request-1'
+			},
+			severity: 'info'
+		});
+		expect(ctx.notificationPort.notifications).toHaveLength(1);
+	});
+
+	it('links an existing pending Access Request for a non-user duplicate request instead of creating another request', async () => {
+		const ctx = createTestContext();
+		const port = createOrganizationSettingsMemberManagementPort({
+			existingUserAccount: null,
+			accessRequestBridgeResult: { status: 'linked', accessRequestId: 'pending-request-1' }
+		});
+
+		await inviteOrganizationMember(
+			{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
+			{
+				email: 'pending@example.com',
+				membershipRole: 'member',
+				memberAccess: memberAccess({ memberPreset: 'viewer' }),
+				actorEmail: 'actor@example.com'
+			}
+		);
+
+		expect(port.accessRequestBridges).toHaveLength(1);
+		expect(ctx.auditPort.events).toContainEqual({
+			action: 'member.invite_access_request_linked',
+			resourceType: 'organization',
+			details: {
+				email: 'pending@example.com',
+				invitationId: 'invite-created',
+				accessRequestId: 'pending-request-1'
+			},
+			severity: 'info'
+		});
+	});
+
+	it('records idempotent Access Request invitation links without treating them as duplicate invitation rows', async () => {
+		const ctx = createTestContext();
+		const port = createOrganizationSettingsMemberManagementPort({
+			existingUserAccount: null,
+			accessRequestBridgeResult: { status: 'already-linked', accessRequestId: 'pending-request-1' }
+		});
+
+		await inviteOrganizationMember(
+			{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
+			{
+				email: 'pending@example.com',
+				membershipRole: 'member',
+				memberAccess: memberAccess({ memberPreset: 'viewer' }),
+				actorEmail: 'actor@example.com'
+			}
+		);
+
+		expect(port.createdInvitations).toHaveLength(1);
+		expect(ctx.auditPort.events).toContainEqual({
+			action: 'member.invite_access_request_already_linked',
+			resourceType: 'organization',
+			details: {
+				email: 'pending@example.com',
+				invitationId: 'invite-created',
+				accessRequestId: 'pending-request-1'
+			},
+			severity: 'info'
+		});
+	});
+
+	it('does not create or link an Access Request when the invite email already has a User Account', async () => {
+		const ctx = createTestContext();
+		const port = createOrganizationSettingsMemberManagementPort({
+			existingUserAccount: { id: 'existing-user-1', email: 'member@example.com' }
+		});
+
+		await inviteOrganizationMember(
+			{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
+			{
+				email: 'member@example.com',
+				membershipRole: 'member',
+				memberAccess: memberAccess({ memberPreset: 'viewer' }),
+				actorEmail: 'actor@example.com'
+			}
+		);
+
+		expect(port.userAccountLookups).toEqual(['member@example.com']);
+		expect(port.accessRequestBridges).toEqual([]);
+	});
+
+	it('blocks the created invitation and fails when non-user Access Request linking fails', async () => {
+		const ctx = createTestContext();
+		const port = createOrganizationSettingsMemberManagementPort({
+			existingUserAccount: null,
+			accessRequestBridgeResult: { status: 'failed', message: 'access request store unavailable' }
+		});
+
+		await expect(
+			inviteOrganizationMember(
+				{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
+				{
+					email: 'new.user@example.com',
+					membershipRole: 'member',
+					memberAccess: memberAccess({ memberPreset: 'viewer' }),
+					actorEmail: 'actor@example.com'
+				}
+			)
+		).rejects.toMatchObject({
+			status: 500,
+			message: 'Invitation could not be created because platform access setup could not be linked'
+		});
+
+		expect(port.createdInvitations).toHaveLength(1);
+		expect(port.blockedInvitations).toEqual([
+			{
+				organizationId: 'test-org',
+				invitationId: 'invite-created',
+				blockedBy: 'test-user',
+				reason: 'access request store unavailable'
+			}
+		]);
+		expect(ctx.auditPort.events).toContainEqual({
+			action: 'member.invite_access_request_link_failed',
+			resourceType: 'organization',
+			details: {
+				email: 'new.user@example.com',
+				invitationId: 'invite-created',
+				reason: 'access request store unavailable',
+				blocked: true
+			},
+			severity: 'warning'
+		});
+		expect(ctx.notificationPort.notifications).toEqual([]);
+	});
+
+	it('allows owners to create member-management invitations with an immutable access snapshot', async () => {
+		const ctx = createTestContext({
+			auth: {
+				userId: 'owner-1',
+				orgId: 'org-1',
+				role: 'owner'
+			}
+		});
+		const port = createOrganizationSettingsMemberManagementPort();
+
+		await inviteOrganizationMember(
+			{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
+			{
+				email: 'manager@example.com',
+				membershipRole: 'member',
+				memberAccess: memberAccess({
+					memberPreset: 'viewer',
+					capabilityOverrides: { personnel: 'configure' },
+					scopeSet: { kind: 'groups', groupIds: ['22222222-2222-4222-8222-222222222222'] },
+					canManageMembers: true
+				}),
+				actorEmail: 'owner@example.com'
+			}
+		);
+
+		expect(port.createdInvitations).toEqual([
+			{
+				organizationId: 'org-1',
+				email: 'manager@example.com',
+				invitedBy: 'owner-1',
+				role: 'member',
+				singleGroupCompatibilityId: '22222222-2222-4222-8222-222222222222',
+				permissions: {
+					canViewCalendar: true,
+					canEditCalendar: false,
+					canViewPersonnel: true,
+					canEditPersonnel: true,
+					canViewTraining: true,
+					canEditTraining: false,
+					canViewCriticalTasks: true,
+					canEditCriticalTasks: false,
+					canViewOnboarding: true,
+					canEditOnboarding: false,
+					canViewRatingScheme: true,
+					canEditRatingScheme: false,
+					canManageMembers: true
+				},
+				memberPreset: 'viewer',
+				capabilityOverrides: { personnel: 'configure' },
+				accessScopeKind: 'groups',
+				accessScopeGroupIds: ['22222222-2222-4222-8222-222222222222']
+			}
+		]);
+		expect(ctx.auditPort.events).toEqual([
+			{
+				action: 'member.invite',
+				resourceType: 'organization',
+				details: {
+					email: 'manager@example.com',
+					membershipRole: 'member',
+					memberPreset: 'viewer'
+				}
+			}
+		]);
+	});
+
+	it('queues invitation email delivery after creating the invitation without granting membership', async () => {
+		const ctx = createTestContext({
+			auth: {
+				userId: 'actor-1',
+				orgId: 'org-1'
+			}
+		});
+		const port = createOrganizationSettingsMemberManagementPort({ orgName: 'Alpha Company' });
+		const delivery = createInvitationDeliveryPort('sent');
+
+		const result = await inviteOrganizationMember(
+			{
+				auth: ctx.auth,
+				audit: ctx.audit,
+				notifications: ctx.notifications,
+				settings: port,
+				invitationDelivery: delivery
+			},
+			{
+				email: 'new.user@example.com',
+				membershipRole: 'member',
+				memberAccess: memberAccess({ memberPreset: 'viewer' }),
+				actorEmail: 'actor@example.com',
+				origin: 'https://trooptotask.test'
+			}
+		);
+
+		expect(result).toMatchObject({
+			inviteSuccess: true,
+			inviteEmail: 'new.user@example.com',
+			inviteMessage: 'Invitation created and email delivery was queued.'
+		});
+		expect(delivery.deliveries).toEqual([
+			{
+				organizationId: 'org-1',
+				invitationId: 'invite-created',
+				email: 'new.user@example.com',
+				organizationName: 'Alpha Company',
+				invitedByEmail: 'actor@example.com',
+				origin: 'https://trooptotask.test',
+				requiresAccountSetup: false
+			}
+		]);
+		expect(ctx.auditPort.events).toContainEqual({
+			action: 'member.invite_email_sent',
+			resourceType: 'organization',
+			details: {
+				email: 'new.user@example.com',
+				invitationId: 'invite-created',
+				outboxId: 'outbox-1',
+				deliveryMode: 'initial'
+			},
+			severity: 'info'
+		});
+	});
+
+	it('passes account setup context to invitation email delivery for non-user invitees', async () => {
+		const ctx = createTestContext();
+		const port = createOrganizationSettingsMemberManagementPort({
+			existingUserAccount: null,
+			orgName: 'Alpha Company'
+		});
+		const delivery = createInvitationDeliveryPort('sent');
+
+		await inviteOrganizationMember(
+			{
+				auth: ctx.auth,
+				audit: ctx.audit,
+				notifications: ctx.notifications,
+				settings: port,
+				invitationDelivery: delivery
+			},
+			{
+				email: 'new.user@example.com',
+				membershipRole: 'member',
+				memberAccess: memberAccess({ memberPreset: 'viewer' }),
+				actorEmail: 'actor@example.com',
+				origin: 'https://trooptotask.test'
+			}
+		);
+
+		expect(delivery.deliveries).toEqual([
+			expect.objectContaining({
+				email: 'new.user@example.com',
+				requiresAccountSetup: true
+			})
+		]);
+	});
+
+	it('leaves the invitation intact and audit-visible when initial email delivery fails', async () => {
+		const ctx = createTestContext();
+		const port = createOrganizationSettingsMemberManagementPort({ orgName: 'Alpha Company' });
+		const delivery = createInvitationDeliveryPort('failed');
+
+		const result = await inviteOrganizationMember(
+			{
+				auth: ctx.auth,
+				audit: ctx.audit,
+				notifications: ctx.notifications,
+				settings: port,
+				invitationDelivery: delivery
+			},
+			{
+				email: 'new.user@example.com',
+				membershipRole: 'member',
+				memberAccess: memberAccess({ memberPreset: 'viewer' }),
+				actorEmail: 'actor@example.com',
+				origin: 'https://trooptotask.test'
+			}
+		);
+
+		expect(result).toMatchObject({
+			inviteSuccess: true,
+			inviteMessage: 'Invitation created, but email delivery failed. You can resend it from Pending Invitations.'
+		});
+		expect(port.createdInvitations).toHaveLength(1);
+		expect(ctx.auditPort.events).toContainEqual({
+			action: 'member.invite_email_delivery_failed',
+			resourceType: 'organization',
+			details: {
+				email: 'new.user@example.com',
+				invitationId: 'invite-created',
+				outboxId: 'outbox-1',
+				deliveryMode: 'initial'
+			},
+			severity: 'warning'
+		});
+	});
+
+	it('keeps a created invitation retryable when outbox persistence throws during initial delivery', async () => {
+		const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+		const ctx = createTestContext();
+		const port = createOrganizationSettingsMemberManagementPort({ orgName: 'Alpha Company' });
+		const delivery = {
+			async sendInvitationEmail() {
+				throw new Error('outbox unavailable');
+			}
+		};
+
+		const result = await inviteOrganizationMember(
+			{
+				auth: ctx.auth,
+				audit: ctx.audit,
+				notifications: ctx.notifications,
+				settings: port,
+				invitationDelivery: delivery
+			},
+			{
+				email: 'new.user@example.com',
+				membershipRole: 'member',
+				memberAccess: memberAccess({ memberPreset: 'viewer' }),
+				actorEmail: 'actor@example.com',
+				origin: 'https://trooptotask.test'
+			}
+		);
+
+		expect(result).toMatchObject({
+			inviteSuccess: true,
+			inviteMessage: 'Invitation created, but email delivery failed. You can resend it from Pending Invitations.'
+		});
+		expect(port.createdInvitations).toHaveLength(1);
+		expect(ctx.auditPort.events).toContainEqual({
+			action: 'member.invite_email_delivery_failed',
+			resourceType: 'organization',
+			details: {
+				email: 'new.user@example.com',
+				invitationId: 'invite-created',
+				deliveryMode: 'initial',
+				reason: 'outbox-write-failed'
+			},
+			severity: 'warning'
+		});
+		consoleErrorSpy.mockRestore();
+	});
+
+	it('resends a pending invitation without creating another pending invitation or changing the access snapshot', async () => {
+		const ctx = createTestContext();
+		const port = createOrganizationSettingsMemberManagementPort({ orgName: 'Alpha Company' });
+		const delivery = createInvitationDeliveryPort('sent');
+
+		const result = await resendOrganizationInvitation(
+			{
+				auth: ctx.auth,
+				audit: ctx.audit,
+				notifications: ctx.notifications,
+				settings: port,
+				invitationDelivery: delivery
+			},
+			{
+				inviteId: '11111111-1111-4111-8111-111111111111',
+				actorEmail: 'actor@example.com',
+				origin: 'https://trooptotask.test'
+			}
+		);
+
+		expect(result).toEqual({
+			success: true,
+			inviteSuccess: true,
+			inviteDeliveryStatus: 'sent',
+			inviteMessage: 'Invitation email resent.'
+		});
+		expect(port.createdInvitations).toEqual([]);
+		expect(delivery.deliveries).toEqual([
+			expect.objectContaining({
+				invitationId: '11111111-1111-4111-8111-111111111111',
+				email: 'invitee@example.com',
+				organizationName: 'Alpha Company'
+			})
+		]);
+		expect(ctx.auditPort.events).toContainEqual({
+			action: 'member.invite_email_resent',
+			resourceType: 'organization',
+			details: {
+				email: 'invitee@example.com',
+				invitationId: '11111111-1111-4111-8111-111111111111',
+				outboxId: 'outbox-1',
+				deliveryMode: 'resend'
+			},
+			severity: 'info'
+		});
+	});
+
+	it('returns not found when resending a missing or non-actionable pending invitation', async () => {
+		const ctx = createTestContext();
+		const port = createOrganizationSettingsMemberManagementPort({ pendingInvitationById: null });
+		const delivery = createInvitationDeliveryPort('sent');
+
+		await expect(
+			resendOrganizationInvitation(
+				{
+					auth: ctx.auth,
+					audit: ctx.audit,
+					notifications: ctx.notifications,
+					settings: port,
+					invitationDelivery: delivery
+				},
+				{
+					inviteId: '11111111-1111-4111-8111-111111111111',
+					actorEmail: 'actor@example.com',
+					origin: 'https://trooptotask.test'
+				}
+			)
+		).rejects.toMatchObject({
+			status: 404,
+			message: 'Pending invitation not found'
+		});
+
+		expect(port.pendingInvitationByIdLookups).toEqual([
+			{ orgId: 'test-org', inviteId: '11111111-1111-4111-8111-111111111111' }
+		]);
+		expect(delivery.deliveries).toEqual([]);
+	});
+
+	it('returns a clear expired failure when resending a stale pending invitation', async () => {
+		const ctx = createTestContext();
+		const port = createOrganizationSettingsMemberManagementPort({ pendingInvitationByIdStatus: 'expired' });
+		const delivery = createInvitationDeliveryPort('sent');
+
+		await expect(
+			resendOrganizationInvitation(
+				{
+					auth: ctx.auth,
+					audit: ctx.audit,
+					notifications: ctx.notifications,
+					settings: port,
+					invitationDelivery: delivery
+				},
+				{
+					inviteId: '11111111-1111-4111-8111-111111111111',
+					actorEmail: 'actor@example.com',
+					origin: 'https://trooptotask.test'
+				}
+			)
+		).rejects.toMatchObject({
+			status: 400,
+			message: 'Invitation has expired. Create a new invitation instead.'
+		});
+
+		expect(delivery.deliveries).toEqual([]);
+	});
+
+	it('distinguishes resend delivery failures in audit details', async () => {
+		const ctx = createTestContext();
+		const port = createOrganizationSettingsMemberManagementPort({ orgName: 'Alpha Company' });
+		const delivery = createInvitationDeliveryPort('failed');
+
+		const result = await resendOrganizationInvitation(
+			{
+				auth: ctx.auth,
+				audit: ctx.audit,
+				notifications: ctx.notifications,
+				settings: port,
+				invitationDelivery: delivery
+			},
+			{
+				inviteId: '11111111-1111-4111-8111-111111111111',
+				actorEmail: 'actor@example.com',
+				origin: 'https://trooptotask.test'
+			}
+		);
+
+		expect(result).toEqual({
+			success: true,
+			inviteSuccess: true,
+			inviteDeliveryStatus: 'failed',
+			inviteMessage: 'Invitation email delivery failed. The pending invitation is still intact and can be resent.'
+		});
+		expect(ctx.auditPort.events).toContainEqual({
+			action: 'member.invite_email_resend_delivery_failed',
+			resourceType: 'organization',
+			details: {
+				email: 'invitee@example.com',
+				invitationId: '11111111-1111-4111-8111-111111111111',
+				outboxId: 'outbox-1',
+				deliveryMode: 'resend'
+			},
+			severity: 'warning'
+		});
+	});
+
+	it('does not claim resend delivery succeeded when the delivery port is not configured', async () => {
+		const ctx = createTestContext();
+		const port = createOrganizationSettingsMemberManagementPort({ orgName: 'Alpha Company' });
+
+		const result = await resendOrganizationInvitation(
+			{
+				auth: ctx.auth,
+				audit: ctx.audit,
+				notifications: ctx.notifications,
+				settings: port
+			},
+			{
+				inviteId: '11111111-1111-4111-8111-111111111111',
+				actorEmail: 'actor@example.com',
+				origin: 'https://trooptotask.test'
+			}
+		);
+
+		expect(result).toEqual({
+			success: true,
+			inviteSuccess: true,
+			inviteDeliveryStatus: 'not_configured',
+			inviteMessage: 'Invitation email delivery is not configured.'
+		});
+	});
 });
 
 describe('revokeOrganizationInvitation', () => {
@@ -408,7 +1160,7 @@ describe('revokeOrganizationInvitation', () => {
 			{ inviteId: '11111111-1111-4111-8111-111111111111' }
 		);
 
-		expect(result).toEqual({ success: true });
+		expect(result).toEqual({ success: true, inviteSuccess: true, inviteMessage: 'Invitation revoked.' });
 		expect(port.revokedInvitations).toEqual([{ orgId: 'org-1', inviteId: '11111111-1111-4111-8111-111111111111' }]);
 		expect(ctx.auditPort.events).toEqual([
 			{
@@ -417,12 +1169,25 @@ describe('revokeOrganizationInvitation', () => {
 				details: { inviteId: '11111111-1111-4111-8111-111111111111' }
 			}
 		]);
+		expect(ctx.notificationPort.notifications).toEqual([
+			{
+				target: 'admins',
+				orgId: 'org-1',
+				excludeUserId: ctx.auth.userId,
+				notification: {
+					type: 'member_invite_revoked',
+					title: 'Invitation Revoked',
+					message: '"invitee@example.com" can no longer use the revoked organization invitation.',
+					link: '/org/org-1/settings'
+				}
+			}
+		]);
 	});
 
 	it('fails when invitation revocation returns a provider error', async () => {
 		const ctx = createTestContext();
 		const port = createOrganizationSettingsMemberManagementPort({
-			revokeInvitationError: 'Failed to revoke invitation'
+			revokeInvitationResult: { status: 'failed', email: null }
 		});
 
 		await expect(
@@ -434,6 +1199,81 @@ describe('revokeOrganizationInvitation', () => {
 			status: 500,
 			message: 'Failed to revoke invitation'
 		});
+	});
+
+	it('surfaces expired invitations without revoking terminal history', async () => {
+		const ctx = createTestContext();
+		const port = createOrganizationSettingsMemberManagementPort({
+			revokeInvitationResult: { status: 'expired', email: 'invitee@example.com' }
+		});
+
+		await expect(
+			revokeOrganizationInvitation(
+				{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
+				{ inviteId: '11111111-1111-4111-8111-111111111111' }
+			)
+		).rejects.toMatchObject({
+			status: 400,
+			message: 'Invitation has expired'
+		});
+		expect(ctx.notificationPort.notifications).toEqual([
+			{
+				target: 'admins',
+				orgId: ctx.auth.orgId,
+				excludeUserId: ctx.auth.userId,
+				notification: {
+					type: 'member_invite_expired',
+					title: 'Invitation Expired',
+					message: '"invitee@example.com" can no longer use the expired organization invitation.',
+					link: `/org/${ctx.auth.orgId}/settings`
+				}
+			}
+		]);
+	});
+
+	it.each([
+		['not_found', 404, 'Invitation not found'],
+		['already_accepted', 400, 'Invitation has already been accepted'],
+		['already_declined', 400, 'Invitation has already been declined']
+	] as const)('maps %s revoke statuses to clear action failures', async (status, expectedStatus, message) => {
+		const ctx = createTestContext();
+		const port = createOrganizationSettingsMemberManagementPort({
+			revokeInvitationResult: { status, email: 'invitee@example.com' }
+		});
+
+		await expect(
+			revokeOrganizationInvitation(
+				{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
+				{ inviteId: '11111111-1111-4111-8111-111111111111' }
+			)
+		).rejects.toMatchObject({
+			status: expectedStatus,
+			message
+		});
+	});
+
+	it('keeps the revoke response when governor notification delivery fails after the transition committed', async () => {
+		const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+		const ctx = createTestContext();
+		vi.spyOn(ctx.notifications, 'notifyAdmins').mockRejectedValue(new Error('notification unavailable'));
+		const port = createOrganizationSettingsMemberManagementPort();
+
+		const result = await revokeOrganizationInvitation(
+			{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
+			{ inviteId: '11111111-1111-4111-8111-111111111111' }
+		);
+
+		expect(result).toEqual({ success: true, inviteSuccess: true, inviteMessage: 'Invitation revoked.' });
+		expect(consoleErrorSpy).toHaveBeenCalledWith(
+			'[org-settings-member-management]',
+			expect.objectContaining({
+				status: 'revoked-notification-failed',
+				organizationId: ctx.auth.orgId,
+				userId: ctx.auth.userId
+			})
+		);
+
+		consoleErrorSpy.mockRestore();
 	});
 });
 
@@ -903,6 +1743,51 @@ describe('updateOrganizationMemberPermissions', () => {
 				details: {
 					policyAction: 'organization.updateMemberAccess',
 					reasonCode: 'denied:governance-role'
+				},
+				severity: 'warning'
+			}
+		]);
+	});
+
+	it('requires owner rights before granting member-management authority through a member update', async () => {
+		const ctx = createTestContext({
+			auth: {
+				userId: 'actor-1',
+				orgId: 'org-1',
+				role: 'admin'
+			}
+		});
+		const port = createOrganizationSettingsMemberManagementPort({
+			membership: {
+				userId: 'member-1',
+				role: 'member',
+				email: 'member@example.com'
+			}
+		});
+
+		await expect(
+			updateOrganizationMemberPermissions(
+				{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
+				{
+					membershipId: '11111111-1111-4111-8111-111111111111',
+					membershipRole: 'member',
+					memberAccess: memberAccess({ canManageMembers: true }),
+					actorEmail: 'actor@example.com'
+				}
+			)
+		).rejects.toMatchObject({
+			status: 403,
+			message: 'Only the organization owner can perform this action'
+		});
+
+		expect(port.updatedMemberships).toEqual([]);
+		expect(ctx.auditPort.events).toEqual([
+			{
+				action: 'policy.denied',
+				resourceType: 'organization',
+				details: {
+					policyAction: 'organization.updateAdminAccess',
+					reasonCode: 'denied:owner-only'
 				},
 				severity: 'warning'
 			}

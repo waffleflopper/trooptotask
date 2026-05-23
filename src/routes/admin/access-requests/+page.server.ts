@@ -16,7 +16,16 @@ import {
 	sendAccountSetupOutboxDelivery,
 	type AuthEmailOutboxStatus
 } from '$lib/server/authEmailOutbox';
+import {
+	ACCESS_REQUEST_INVITATION_ORIGIN_SELECT,
+	listSupabaseInviterProfiles,
+	resolveAccessRequestInvitationOrigins,
+	type AccessRequestInvitationOrigin,
+	type AccessRequestInvitationOriginRow
+} from '$lib/server/accessRequestInvitationOrigin';
+import { rejectAccessRequestAndBlockLinkedInvitations } from '$lib/server/accessRequestInvitationBlocking';
 import { makePublicAppUrl } from '$lib/server/publicAppOrigin';
+import { notifyAdmins } from '$lib/server/notifications';
 
 interface AccessRequestSetupLink {
 	id: string;
@@ -54,6 +63,10 @@ interface AccessRequestRow {
 	setup_completed_at: string | null;
 	account_setup_links: AccessRequestSetupLink | AccessRequestSetupLink[] | null;
 	auth_email_outbox: AccessRequestAuthEmailOutbox | AccessRequestAuthEmailOutbox[] | null;
+	access_request_organization_invitation_links:
+		| AccessRequestInvitationOriginRow
+		| AccessRequestInvitationOriginRow[]
+		| null;
 }
 
 interface AccessRequestItem {
@@ -87,6 +100,7 @@ interface AccessRequestItem {
 	setup_delivery_last_error: string | null;
 	setup_delivery_updated_at: string | null;
 	setup_delivery_sent_at: string | null;
+	invitation_origins: AccessRequestInvitationOrigin[];
 }
 
 type AccessRequestSetupState =
@@ -153,6 +167,7 @@ function resolveSetupState(
 	| 'created_at'
 	| 'reviewed_at'
 	| 'setup_completed_at'
+	| 'invitation_origins'
 > {
 	const links = normalizeSetupLinks(request.account_setup_links);
 	const deliveries = normalizeOutboxRows(request.auth_email_outbox);
@@ -298,6 +313,29 @@ function makeSetupUrl(origin: string, setupPath: string): string {
 	return makePublicAppUrl(setupPath, { inboundOrigin: origin });
 }
 
+async function notifyGovernorsOfBlockedInvitations(input: {
+	adminUserId: string;
+	blockedInvitations: Array<{ organizationId: string; email: string }>;
+}): Promise<void> {
+	for (const invitation of input.blockedInvitations) {
+		try {
+			await notifyAdmins(invitation.organizationId, input.adminUserId, {
+				type: 'member_invite_blocked',
+				title: 'Invitation Blocked',
+				message: `"${invitation.email}" can no longer use the organization invitation because platform access was rejected.`,
+				link: `/org/${invitation.organizationId}/settings`
+			});
+		} catch (error) {
+			console.error('[admin-access-requests]', {
+				status: 'blocked-invitation-notification-failed',
+				organizationId: invitation.organizationId,
+				email: invitation.email,
+				error
+			});
+		}
+	}
+}
+
 function mapSetupLinkResultToFailure(result: CreateAccountSetupLinkResult) {
 	switch (result.status) {
 		case 'access-request-missing':
@@ -328,7 +366,7 @@ export const load: PageServerLoad = loadWithAdminContext({
 				supabase
 					.from('access_requests')
 					.select(
-						'id, name, email, reason, heard_about, heard_about_details, status, created_at, reviewed_at, setup_completed_at, account_setup_links(id, created_at, expires_at, claimed_at, failed_at, failure_reason, used_at, revoked_at, revocation_reason), auth_email_outbox(id, setup_link_id, status, attempt_count, last_error, created_at, updated_at, sent_at)'
+						`id, name, email, reason, heard_about, heard_about_details, status, created_at, reviewed_at, setup_completed_at, account_setup_links(id, created_at, expires_at, claimed_at, failed_at, failure_reason, used_at, revoked_at, revocation_reason), auth_email_outbox(id, setup_link_id, status, attempt_count, last_error, created_at, updated_at, sent_at), ${ACCESS_REQUEST_INVITATION_ORIGIN_SELECT}`
 					)
 					.order('created_at', { ascending: false })
 					.range(from, to) as unknown as Promise<{
@@ -342,6 +380,13 @@ export const load: PageServerLoad = loadWithAdminContext({
 		}
 
 		const now = new Date();
+		const invitationOriginsByRequestId = await resolveAccessRequestInvitationOrigins(
+			requests ?? [],
+			supabase.auth.admin,
+			{
+				listUserProfilesByIds: (userIds) => listSupabaseInviterProfiles(supabase, userIds)
+			}
+		);
 		const allRequests: AccessRequestItem[] = (requests ?? []).map((request) => ({
 			id: request.id,
 			name: request.name,
@@ -354,6 +399,7 @@ export const load: PageServerLoad = loadWithAdminContext({
 			created_at: request.created_at,
 			reviewed_at: request.reviewed_at,
 			setup_completed_at: request.setup_completed_at,
+			invitation_origins: invitationOriginsByRequestId[request.id] ?? [],
 			...resolveSetupState(request, now)
 		}));
 
@@ -465,25 +511,32 @@ export const actions: Actions = {
 
 			if (!requestId) return fail(400, { error: 'Missing request ID' });
 
-			const { error: updateErr } = await supabase
-				.from('access_requests')
-				.update({
-					status: 'rejected',
-					reviewed_by: ctx.adminUser.id,
-					reviewed_at: new Date().toISOString()
-				})
-				.eq('id', requestId)
-				.eq('status', 'pending');
+			const rejectResult = await rejectAccessRequestAndBlockLinkedInvitations(supabase, {
+				accessRequestId: requestId,
+				reviewerId: ctx.adminUser.id
+			});
 
-			if (updateErr) {
-				console.error('Failed to reject access request:', updateErr);
+			if (rejectResult.status === 'not_found') {
+				return fail(404, { error: 'Request not found or already reviewed' });
+			}
+
+			if (rejectResult.status === 'failed') {
+				console.error('Failed to reject access request:', rejectResult.message);
 				return fail(500, { error: 'Failed to reject request' });
 			}
 
 			ctx.audit({
 				action: 'access_request.rejected',
 				resourceType: 'access_request',
-				resourceId: requestId
+				resourceId: requestId,
+				details: {
+					blockedInvitationCount: rejectResult.blockedInvitations.length
+				}
+			});
+
+			await notifyGovernorsOfBlockedInvitations({
+				adminUserId: ctx.adminUser.id,
+				blockedInvitations: rejectResult.blockedInvitations
 			});
 
 			return { success: true, action: 'reject' };

@@ -1,14 +1,21 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PageData } from './$types';
 
-const { createServiceMock, createStoreMock, createOutboxStoreMock, sendSetupEmailMock, sendOutboxDeliveryMock } =
-	vi.hoisted(() => ({
-		createServiceMock: vi.fn(),
-		createStoreMock: vi.fn(),
-		createOutboxStoreMock: vi.fn(),
-		sendSetupEmailMock: vi.fn(),
-		sendOutboxDeliveryMock: vi.fn()
-	}));
+const {
+	createServiceMock,
+	createStoreMock,
+	createOutboxStoreMock,
+	sendSetupEmailMock,
+	sendOutboxDeliveryMock,
+	notifyAdminsMock
+} = vi.hoisted(() => ({
+	createServiceMock: vi.fn(),
+	createStoreMock: vi.fn(),
+	createOutboxStoreMock: vi.fn(),
+	sendSetupEmailMock: vi.fn(),
+	sendOutboxDeliveryMock: vi.fn(),
+	notifyAdminsMock: vi.fn()
+}));
 
 vi.mock('$lib/server/adapters/adminAdapter', () => ({
 	adminAction: (config: { fn: (ctx: unknown, event: unknown) => unknown }) => (event: { __ctx: unknown }) =>
@@ -30,6 +37,10 @@ vi.mock('$lib/server/accountSetupLinks', async (importOriginal) => {
 vi.mock('$lib/server/authEmailOutbox', () => ({
 	createSupabaseAuthEmailOutboxStore: createOutboxStoreMock,
 	sendAccountSetupOutboxDelivery: sendOutboxDeliveryMock
+}));
+
+vi.mock('$lib/server/notifications', () => ({
+	notifyAdmins: notifyAdminsMock
 }));
 
 import { actions, load } from './+page.server';
@@ -57,15 +68,9 @@ function makeUpdateAccessRequest() {
 	return { update, eq };
 }
 
-function makeRejectAccessRequestUpdate() {
-	const eqStatus = vi.fn().mockResolvedValue({ error: null });
-	const eqId = vi.fn(() => ({ eq: eqStatus }));
-	const update = vi.fn(() => ({ eq: eqId }));
-
-	return { update, eqId, eqStatus };
-}
-
-function makeAdminClient(parts: { select?: unknown; update?: unknown; inviteUserByEmail?: unknown } = {}) {
+function makeAdminClient(
+	parts: { select?: unknown; update?: unknown; rpc?: unknown; inviteUserByEmail?: unknown } = {}
+) {
 	const from = vi.fn((table: string) => {
 		if (table === 'access_requests') {
 			return {
@@ -79,6 +84,7 @@ function makeAdminClient(parts: { select?: unknown; update?: unknown; inviteUser
 
 	return {
 		from,
+		rpc: parts.rpc ?? vi.fn(),
 		auth: {
 			admin: {
 				inviteUserByEmail: parts.inviteUserByEmail ?? vi.fn()
@@ -91,12 +97,15 @@ function makeLoadAdminClient(rows: Record<string, unknown>[]) {
 	const range = vi.fn().mockResolvedValue({ data: rows, error: null });
 	const order = vi.fn(() => ({ range }));
 	const select = vi.fn(() => ({ order }));
+	const profileIn = vi.fn().mockResolvedValue({ data: [], error: null });
+	const profileSelect = vi.fn(() => ({ in: profileIn }));
 	const from = vi.fn((table: string) => {
-		if (table !== 'access_requests') throw new Error(`Unexpected table ${table}`);
-		return { select };
+		if (table === 'access_requests') return { select };
+		if (table === 'user_profiles') return { select: profileSelect };
+		throw new Error(`Unexpected table ${table}`);
 	});
 
-	return { client: { from }, select, range };
+	return { client: { from, auth: { admin: { getUserById: vi.fn() } } }, select, range, profileIn };
 }
 
 function makeContext(adminClient: unknown) {
@@ -121,6 +130,7 @@ function makeAccessRequestRow(overrides: Record<string, unknown>) {
 		setup_completed_at: null,
 		account_setup_links: null,
 		auth_email_outbox: null,
+		access_request_organization_invitation_links: null,
 		...overrides
 	};
 }
@@ -161,6 +171,7 @@ describe('admin access request account setup delivery', () => {
 		createStoreMock.mockReturnValue({ store: 'account-setup-store' });
 		createOutboxStoreMock.mockReturnValue({ store: 'auth-email-outbox-store' });
 		sendSetupEmailMock.mockResolvedValue(undefined);
+		notifyAdminsMock.mockResolvedValue(undefined);
 		sendOutboxDeliveryMock.mockResolvedValue({
 			status: 'sent',
 			outbox: { id: 'outbox-1', status: 'sent' }
@@ -326,6 +337,66 @@ describe('admin access request account setup delivery', () => {
 		});
 		expect(JSON.stringify(result)).not.toContain('token=');
 		expect(JSON.stringify(result)).not.toContain('/auth/setup-account');
+	});
+
+	it('server-shapes organization invitation origin context for platform review', async () => {
+		const rows = [
+			makeAccessRequestRow({
+				id: 'invite-origin',
+				status: 'pending',
+				access_request_organization_invitation_links: [
+					{
+						id: 'link-1',
+						organization_invitation_id: 'invite-1',
+						organization_id: 'org-1',
+						invited_by: '11111111-1111-4111-8111-111111111111',
+						invited_at: '2026-05-18T13:00:00.000Z',
+						intended_membership_role: 'member',
+						intended_member_preset: 'viewer',
+						organizations: { id: 'org-1', name: 'Alpha Company' }
+					}
+				]
+			}),
+			makeAccessRequestRow({
+				id: 'ordinary',
+				status: 'pending',
+				access_request_organization_invitation_links: null
+			})
+		];
+		const getUserById = vi.fn().mockResolvedValue({
+			data: { user: { id: '11111111-1111-4111-8111-111111111111', email: 'leader@example.mil' } },
+			error: null
+		});
+		const { client, select, profileIn } = makeLoadAdminClient(rows);
+		profileIn.mockResolvedValue({
+			data: [{ user_id: '11111111-1111-4111-8111-111111111111', first_name: 'Avery', last_name: 'Jones' }],
+			error: null
+		});
+		const ctx = makeContext({
+			...client,
+			auth: { admin: { getUserById } }
+		});
+
+		const result = (await load({
+			__ctx: ctx
+		} as unknown as Parameters<typeof load>[0])) as PageData;
+
+		expect(select).toHaveBeenCalledWith(expect.stringContaining('access_request_organization_invitation_links'));
+		expect(result.pending.find((request) => request.id === 'invite-origin')?.invitation_origins).toEqual([
+			expect.objectContaining({
+				link_id: 'link-1',
+				invitation_id: 'invite-1',
+				organization_id: 'org-1',
+				organization_name: 'Alpha Company',
+				inviter_user_id: '11111111-1111-4111-8111-111111111111',
+				inviter_label: 'Avery Jones',
+				invited_at: '2026-05-18T13:00:00.000Z',
+				membership_role_label: 'Member',
+				member_preset_label: 'Viewer',
+				intended_access_label: 'Member preset: Viewer'
+			})
+		]);
+		expect(result.pending.find((request) => request.id === 'ordinary')?.invitation_origins).toEqual([]);
 	});
 
 	it('approving a pending request creates and emails an app-owned Account Setup Link without Supabase invite delivery', async () => {
@@ -615,9 +686,20 @@ describe('admin access request account setup delivery', () => {
 		expect(sendSetupEmailMock).not.toHaveBeenCalled();
 	});
 
-	it('rejects pending requests through the admin client instead of the session client', async () => {
-		const rejectUpdate = makeRejectAccessRequestUpdate();
-		const adminClient = makeAdminClient({ update: rejectUpdate.update });
+	it('rejects pending requests and blocks linked invitations through the admin client transition', async () => {
+		const rpc = vi.fn().mockResolvedValue({
+			data: [
+				{
+					reject_status: 'rejected',
+					organization_invitation_id: 'invite-1',
+					organization_id: 'org-1',
+					invitation_email: 'invitee@example.com',
+					blocked_at: '2026-05-22T12:00:00.000Z'
+				}
+			],
+			error: null
+		});
+		const adminClient = makeAdminClient({ rpc });
 		const sessionClient = makeAdminClient({ update: vi.fn(() => ({ eq: vi.fn() })) });
 		const ctx = makeContext(adminClient);
 
@@ -628,15 +710,58 @@ describe('admin access request account setup delivery', () => {
 		} as unknown as Parameters<(typeof actions)['reject']>[0]);
 
 		expect(result).toEqual({ success: true, action: 'reject' });
-		expect(adminClient.from).toHaveBeenCalledWith('access_requests');
+		expect(rpc).toHaveBeenCalledWith('reject_access_request_and_block_linked_invitations', {
+			p_access_request_id: 'request-1',
+			p_reviewer_id: 'admin-1'
+		});
+		expect(adminClient.from).not.toHaveBeenCalled();
 		expect(sessionClient.from).not.toHaveBeenCalled();
-		expect(rejectUpdate.update).toHaveBeenCalledWith(
+		expect(ctx.audit).toHaveBeenCalledWith(
 			expect.objectContaining({
-				status: 'rejected',
-				reviewed_by: 'admin-1'
+				action: 'access_request.rejected',
+				details: { blockedInvitationCount: 1 }
 			})
 		);
-		expect(rejectUpdate.eqId).toHaveBeenCalledWith('id', 'request-1');
-		expect(rejectUpdate.eqStatus).toHaveBeenCalledWith('status', 'pending');
+		expect(notifyAdminsMock).toHaveBeenCalledWith('org-1', 'admin-1', {
+			type: 'member_invite_blocked',
+			title: 'Invitation Blocked',
+			message:
+				'"invitee@example.com" can no longer use the organization invitation because platform access was rejected.',
+			link: '/org/org-1/settings'
+		});
+	});
+
+	it('returns not found when rejecting an already reviewed request', async () => {
+		const adminClient = makeAdminClient({
+			rpc: vi.fn().mockResolvedValue({
+				data: [{ reject_status: 'not_found' }],
+				error: null
+			})
+		});
+
+		const result = await actions.reject({
+			__ctx: makeContext(adminClient),
+			locals: { supabase: makeAdminClient() },
+			request: makeRequest({ requestId: 'request-1' })
+		} as unknown as Parameters<(typeof actions)['reject']>[0]);
+
+		expect(result).toEqual({ status: 404, data: { error: 'Request not found or already reviewed' } });
+	});
+
+	it('maps access request rejection transition failures to a server error', async () => {
+		const adminClient = makeAdminClient({
+			rpc: vi.fn().mockResolvedValue({
+				data: null,
+				error: { message: 'rpc unavailable' }
+			})
+		});
+
+		const result = await actions.reject({
+			__ctx: makeContext(adminClient),
+			locals: { supabase: makeAdminClient() },
+			request: makeRequest({ requestId: 'request-1' })
+		} as unknown as Parameters<(typeof actions)['reject']>[0]);
+
+		expect(result).toEqual({ status: 500, data: { error: 'Failed to reject request' } });
 	});
 });

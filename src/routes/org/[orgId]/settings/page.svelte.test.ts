@@ -80,6 +80,7 @@ const baseData = {
 		member('member-4', 'member-b@example.com', 'member')
 	],
 	invitations: [],
+	invitationHistory: [],
 	groups: [
 		{ id: 'group-alpha', name: '1st Platoon' },
 		{ id: 'group-bravo', name: '2nd Platoon' }
@@ -135,10 +136,11 @@ const baseData = {
 
 type SettingsPageTestData = Omit<
 	typeof baseData,
-	'members' | 'invitations' | 'groups' | 'archivedPersonnel' | 'approvalRequests'
+	'members' | 'invitations' | 'invitationHistory' | 'groups' | 'archivedPersonnel' | 'approvalRequests'
 > & {
 	members: Array<ReturnType<typeof member>>;
 	invitations: unknown[];
+	invitationHistory: unknown[];
 	groups: Array<{ id: string; name: string }>;
 	archivedPersonnel: Array<Record<string, unknown>>;
 	approvalRequests: Array<{ created_at?: string; status?: string }>;
@@ -185,6 +187,7 @@ function workspaceFor(data: SettingsPageTestData) {
 				members: {
 					rows: data.members,
 					invitations: data.invitations,
+					invitationHistory: data.invitationHistory,
 					groups: data.groups,
 					roleCounts,
 					memberRoleSummary: `${roleCounts.owner} ${roleCounts.owner === 1 ? 'Owner' : 'Owners'} · ${roleCounts.admin} ${roleCounts.admin === 1 ? 'Admin' : 'Admins'} · ${roleCounts.member} ${roleCounts.member === 1 ? 'Member' : 'Members'}`,
@@ -365,6 +368,86 @@ describe('org settings page', () => {
 		expect((editorForm.querySelector('input[name="capabilityOverride:calendar"]') as HTMLInputElement).value).toBe(
 			'configure'
 		);
+	});
+
+	it('renders pending invitations separately from terminal invitation history', async () => {
+		const invitationAccess = {
+			memberPreset: 'viewer',
+			capabilityMap: editorCapabilityMap,
+			scopeSet: { kind: 'organization' },
+			organizationGovernanceActions: []
+		};
+		render(Page, {
+			props: {
+				data: workspaceFor({
+					...baseData,
+					invitations: [
+						{
+							id: 'invite-pending',
+							email: 'pending@example.com',
+							status: 'pending',
+							membershipRole: 'member',
+							createdAt: '2026-05-20T12:00:00Z',
+							access: invitationAccess,
+							accessBadge: 'viewer',
+							scopeDisplayLabel: 'All groups',
+							deliveryStatus: 'failed',
+							deliveryStatusLabel: 'Email failed',
+							deliveryAttemptCount: 1,
+							deliveryLastError: 'mail provider unavailable',
+							deliveryUpdatedAt: '2026-05-20T12:05:00Z',
+							deliverySentAt: null,
+							canResend: true
+						}
+					],
+					invitationHistory: [
+						{
+							id: 'invite-declined',
+							email: 'declined@example.com',
+							status: 'declined',
+							membershipRole: 'member',
+							createdAt: '2026-05-18T12:00:00Z',
+							access: invitationAccess,
+							accessBadge: 'viewer',
+							scopeDisplayLabel: 'All groups',
+							lifecycleStatus: 'declined',
+							lifecycleStatusLabel: 'Declined',
+							lifecycleDetail: null,
+							lifecycleAt: '2026-05-21T12:00:00Z'
+						},
+						{
+							id: 'invite-blocked',
+							email: 'blocked@example.com',
+							status: 'blocked',
+							membershipRole: 'member',
+							createdAt: '2026-05-18T12:00:00Z',
+							access: invitationAccess,
+							accessBadge: 'viewer',
+							scopeDisplayLabel: 'All groups',
+							lifecycleStatus: 'blocked',
+							lifecycleStatusLabel: 'Blocked',
+							lifecycleDetail: 'Linked platform access was rejected or closed before account setup finished.',
+							lifecycleAt: '2026-05-22T12:00:00Z'
+						}
+					]
+				}) as never,
+				form: null as never
+			}
+		});
+
+		await fireEvent.click(screen.getByRole('tab', { name: 'Members' }));
+
+		expect(screen.getByRole('heading', { name: 'Pending Invitations' })).toBeTruthy();
+		expect(screen.getByText('pending@example.com')).toBeTruthy();
+		expect(screen.getByText(/Email failed/)).toBeTruthy();
+		expect(screen.getByRole('button', { name: /Resend/ })).toBeTruthy();
+		expect(screen.getByRole('heading', { name: 'Invitation History' })).toBeTruthy();
+		expect(screen.getByText('declined@example.com')).toBeTruthy();
+		expect(screen.getAllByText('Declined').length).toBeGreaterThanOrEqual(1);
+		expect(screen.getByText('blocked@example.com')).toBeTruthy();
+		expect(
+			screen.getByText('Linked platform access was rejected or closed before account setup finished.')
+		).toBeTruthy();
 	});
 
 	it('renders policies with shared controls and validation copy', async () => {

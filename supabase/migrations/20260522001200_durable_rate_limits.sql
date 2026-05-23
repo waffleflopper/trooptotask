@@ -35,8 +35,10 @@ BEGIN
 		RAISE EXCEPTION 'window_seconds and max_requests must be positive';
 	END IF;
 
-	DELETE FROM "public"."durable_rate_limits"
-	WHERE "reset_at" < ("p_checked_at" - interval '1 day');
+	IF random() < 0.01 THEN
+		DELETE FROM "public"."durable_rate_limits"
+		WHERE "reset_at" < ("p_checked_at" - interval '1 day');
+	END IF;
 
 	next_reset_at := "p_checked_at" + make_interval(secs => "p_window_seconds");
 

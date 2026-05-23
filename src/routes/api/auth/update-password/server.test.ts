@@ -254,27 +254,29 @@ describe('POST /api/auth/update-password', () => {
 		});
 		const cookies = { delete: vi.fn() };
 
-		const response = await POST({
-			request: new Request('http://localhost/api/auth/update-password', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ password: 'SecurePass12' })
-			}),
-			locals: {
-				session: { user: { id: 'user-123' } },
-				authFlow: 'recovery',
-				supabase: {
-					auth: {
-						updateUser
+		const response = await POST(
+			makeEvent({
+				body: { password: 'SecurePass12' },
+				locals: {
+					session: { user: { id: 'user-123', email: 'user@example.test' } },
+					authFlow: 'recovery',
+					supabase: {
+						auth: {
+							updateUser
+						}
 					}
-				}
-			},
-			cookies
-		} as unknown as Parameters<typeof POST>[0]);
+				},
+				cookies
+			})
+		);
 
 		expect(response.status).toBe(401);
 		expect(await response.json()).toEqual({
 			error: 'Password update failed'
+		});
+		expect(checkPasswordUpdateRateLimitMock).toHaveBeenCalledWith({
+			userId: 'user-123',
+			ip: '203.0.113.10'
 		});
 		expect(cookies.delete).not.toHaveBeenCalled();
 	});
@@ -285,23 +287,21 @@ describe('POST /api/auth/update-password', () => {
 		});
 		const cookies = { delete: vi.fn() };
 
-		const response = await POST({
-			request: new Request('http://localhost/api/auth/update-password', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ password: 'SecurePass12' })
-			}),
-			locals: {
-				session: { user: { id: 'user-123' } },
-				authFlow: 'recovery',
-				supabase: {
-					auth: {
-						updateUser
+		const response = await POST(
+			makeEvent({
+				body: { password: 'SecurePass12' },
+				locals: {
+					session: { user: { id: 'user-123', email: 'user@example.test' } },
+					authFlow: 'recovery',
+					supabase: {
+						auth: {
+							updateUser
+						}
 					}
-				}
-			},
-			cookies
-		} as unknown as Parameters<typeof POST>[0]);
+				},
+				cookies
+			})
+		);
 
 		expect(response.status).toBe(400);
 		expect(await response.json()).toEqual({
@@ -315,28 +315,80 @@ describe('POST /api/auth/update-password', () => {
 		const updateUser = vi.fn().mockResolvedValue({ error: null });
 		const cookies = { delete: vi.fn() };
 
-		const response = await POST({
-			request: new Request('http://localhost/api/auth/update-password', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ password: 'SecurePass12' })
-			}),
-			locals: {
-				session: { user: { id: 'user-123' } },
-				authFlow: 'recovery',
-				supabase: {
-					auth: {
-						updateUser
+		const response = await POST(
+			makeEvent({
+				body: { password: 'SecurePass12' },
+				locals: {
+					session: { user: { id: 'user-123', email: 'user@example.test' } },
+					authFlow: 'recovery',
+					supabase: {
+						auth: {
+							updateUser
+						}
 					}
-				}
-			},
-			cookies
-		} as unknown as Parameters<typeof POST>[0]);
+				},
+				cookies
+			})
+		);
 
 		expect(response.status).toBe(200);
 		expect(await response.json()).toEqual({ ok: true });
+		expect(checkPasswordUpdateRateLimitMock).toHaveBeenCalledWith({
+			userId: 'user-123',
+			ip: '203.0.113.10'
+		});
 		expect(updateUser).toHaveBeenCalledWith({ password: 'SecurePass12' });
 		expect(cookies.delete).toHaveBeenCalledWith('ttt_pending_auth_flow', { path: '/' });
+	});
+
+	it('rate-limits recovery password updates before provider mutation', async () => {
+		const updateUser = vi.fn();
+		checkPasswordUpdateRateLimitMock.mockResolvedValueOnce({
+			limited: true,
+			namespace: 'password-update',
+			dimensions: ['user', 'ip'],
+			limitedDimensions: ['ip'],
+			windowMs: 15 * 60 * 1000,
+			maxRequests: 5,
+			retryAfterMs: 45_000
+		});
+
+		const response = await POST(
+			makeEvent({
+				body: { password: 'SecurePass12' },
+				locals: {
+					session: { user: { id: 'user-123', email: 'user@example.test' } },
+					authFlow: 'recovery',
+					supabase: {
+						auth: {
+							updateUser
+						}
+					}
+				}
+			})
+		);
+
+		expect(response.status).toBe(429);
+		expect(response.headers.get('Retry-After')).toBe('45');
+		expect(await response.json()).toEqual({
+			error: 'Too many password update attempts. Please wait before trying again.',
+			retryAfterSeconds: 45
+		});
+		expect(updateUser).not.toHaveBeenCalled();
+		expect(auditLogMock).toHaveBeenCalledWith(
+			expect.objectContaining({
+				action: 'auth.password_update_rate_limited',
+				resourceType: 'user',
+				resourceId: 'user-123',
+				severity: 'warning'
+			}),
+			{
+				userId: 'user-123',
+				userEmail: 'user@example.test',
+				ip: '203.0.113.10',
+				userAgent: 'vitest-agent'
+			}
+		);
 	});
 
 	it('returns an auth error when the recovery or invite session is missing', async () => {
@@ -371,26 +423,28 @@ describe('POST /api/auth/update-password', () => {
 		const updateUser = vi.fn().mockResolvedValue({ error: null });
 		const cookies = { delete: vi.fn() };
 
-		const response = await POST({
-			request: new Request('http://localhost/api/auth/update-password', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ password: 'SecurePass12' })
-			}),
-			locals: {
-				session: { user: { id: 'user-123' } },
-				authFlow: 'invite',
-				supabase: {
-					auth: {
-						updateUser
+		const response = await POST(
+			makeEvent({
+				body: { password: 'SecurePass12' },
+				locals: {
+					session: { user: { id: 'user-123', email: 'user@example.test' } },
+					authFlow: 'invite',
+					supabase: {
+						auth: {
+							updateUser
+						}
 					}
-				}
-			},
-			cookies
-		} as unknown as Parameters<typeof POST>[0]);
+				},
+				cookies
+			})
+		);
 
 		expect(response.status).toBe(200);
 		expect(await response.json()).toEqual({ ok: true });
+		expect(checkPasswordUpdateRateLimitMock).toHaveBeenCalledWith({
+			userId: 'user-123',
+			ip: '203.0.113.10'
+		});
 		expect(updateUser).toHaveBeenCalledWith({ password: 'SecurePass12' });
 		expect(cookies.delete).not.toHaveBeenCalled();
 	});

@@ -23,7 +23,7 @@ describe('Durable rate limits migration', () => {
 		const normalized = normalizedSql();
 
 		expect(normalized).toContain('create or replace function "public"."check_durable_rate_limit"');
-		expect(normalized).toContain('delete from "public"."durable_rate_limits" where "reset_at" <');
+		expect(normalized).toContain('if random() < 0.01 then delete from "public"."durable_rate_limits"');
 		expect(normalized).toContain('on conflict ("bucket_key") do update');
 		expect(normalized).toContain('when "durable_rate_limits"."reset_at" < "p_checked_at" then 1');
 		expect(normalized).toContain(

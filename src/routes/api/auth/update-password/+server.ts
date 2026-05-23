@@ -15,6 +15,8 @@ export const POST: RequestHandler = async ({ request, locals, cookies, getClient
 		password?: string;
 		confirmPassword?: string;
 	};
+	const userId = locals.user?.id ?? locals.session?.user.id ?? null;
+	const userEmail = locals.user?.email ?? locals.session?.user.email ?? null;
 
 	const passwordError = validatePassword(password ?? '');
 	if (passwordError) {
@@ -51,40 +53,14 @@ export const POST: RequestHandler = async ({ request, locals, cookies, getClient
 			return json({ error: 'Current user email is unavailable' }, { status: 401 });
 		}
 
-		const clientIp = getClientAddress();
-		const rateLimit = await checkPasswordUpdateRateLimit({
-			userId: locals.user?.id ?? locals.session.user.id,
-			ip: clientIp
+		const limitedResponse = await checkAndAuditPasswordUpdateLimit({
+			request,
+			getClientAddress,
+			userId,
+			userEmail: email
 		});
-		if (rateLimit.limited) {
-			const retryAfterSeconds = Math.max(1, Math.ceil(rateLimit.retryAfterMs / 1000));
-			auditLog(
-				{
-					action: 'auth.password_update_rate_limited',
-					resourceType: 'user',
-					resourceId: locals.user?.id ?? locals.session.user.id,
-					severity: 'warning',
-					details: passwordUpdateRateLimitAuditDetails(rateLimit)
-				},
-				{
-					userId: locals.user?.id ?? locals.session.user.id,
-					userEmail: email,
-					ip: clientIp,
-					userAgent: request.headers.get('user-agent') ?? ''
-				}
-			);
-			return json(
-				{
-					error: PASSWORD_UPDATE_RATE_LIMIT_MESSAGE,
-					retryAfterSeconds
-				},
-				{
-					status: 429,
-					headers: {
-						'Retry-After': String(retryAfterSeconds)
-					}
-				}
-			);
+		if (limitedResponse) {
+			return limitedResponse;
 		}
 
 		const { error: signInError } = await locals.supabase.auth.signInWithPassword({
@@ -94,6 +70,16 @@ export const POST: RequestHandler = async ({ request, locals, cookies, getClient
 
 		if (signInError) {
 			return json({ error: 'Current password is incorrect' }, { status: 401 });
+		}
+	} else {
+		const limitedResponse = await checkAndAuditPasswordUpdateLimit({
+			request,
+			getClientAddress,
+			userId,
+			userEmail
+		});
+		if (limitedResponse) {
+			return limitedResponse;
 		}
 	}
 
@@ -118,3 +104,52 @@ export const POST: RequestHandler = async ({ request, locals, cookies, getClient
 
 	return json({ ok: true });
 };
+
+async function checkAndAuditPasswordUpdateLimit(input: {
+	request: Request;
+	getClientAddress: () => string;
+	userId: string | null;
+	userEmail?: string | null;
+}): Promise<Response | null> {
+	if (!input.userId) {
+		return json({ error: 'Current user is unavailable' }, { status: 401 });
+	}
+
+	const clientIp = input.getClientAddress();
+	const rateLimit = await checkPasswordUpdateRateLimit({
+		userId: input.userId,
+		ip: clientIp
+	});
+	if (!rateLimit.limited) {
+		return null;
+	}
+
+	const retryAfterSeconds = Math.max(1, Math.ceil(rateLimit.retryAfterMs / 1000));
+	auditLog(
+		{
+			action: 'auth.password_update_rate_limited',
+			resourceType: 'user',
+			resourceId: input.userId,
+			severity: 'warning',
+			details: passwordUpdateRateLimitAuditDetails(rateLimit)
+		},
+		{
+			userId: input.userId,
+			userEmail: input.userEmail ?? null,
+			ip: clientIp,
+			userAgent: input.request.headers.get('user-agent') ?? ''
+		}
+	);
+	return json(
+		{
+			error: PASSWORD_UPDATE_RATE_LIMIT_MESSAGE,
+			retryAfterSeconds
+		},
+		{
+			status: 429,
+			headers: {
+				'Retry-After': String(retryAfterSeconds)
+			}
+		}
+	);
+}

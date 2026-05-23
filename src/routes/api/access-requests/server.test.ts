@@ -155,4 +155,25 @@ describe('POST /api/access-requests', () => {
 		expect(JSON.stringify(auditLogMock.mock.calls[0])).not.toContain('Soldier@Example.mil');
 		expect(JSON.stringify(auditLogMock.mock.calls[0])).not.toContain('I need a planning tool');
 	});
+
+	it('treats non-HTTP service failures with status-like fields as generic server errors', async () => {
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+		submitAccessRequestMock.mockRejectedValueOnce({
+			status: 409,
+			message: 'provider-specific service failure'
+		});
+
+		await expect(POST(makeEvent())).rejects.toMatchObject({
+			status: 500,
+			body: {
+				message: 'Failed to submit request'
+			}
+		});
+		expect(consoleError).toHaveBeenCalledWith(
+			'Failed to submit access request:',
+			expect.objectContaining({ status: 409 })
+		);
+
+		consoleError.mockRestore();
+	});
 });

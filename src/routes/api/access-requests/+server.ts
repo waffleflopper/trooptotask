@@ -1,4 +1,4 @@
-import { json, error } from '@sveltejs/kit';
+import { error, isHttpError, json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { isAccessRequestHeardAbout } from '$lib/accessRequests';
 import {
@@ -84,7 +84,7 @@ export const POST: RequestHandler = async ({ getClientAddress, request }) => {
 			return json({ success: true });
 		}
 	} catch (submitError) {
-		if (submitError && typeof submitError === 'object' && 'status' in submitError) {
+		if (isHttpError(submitError)) {
 			throw submitError;
 		}
 		console.error('Failed to submit access request:', submitError);

@@ -69,10 +69,17 @@ export const actions: Actions = {
 		}
 
 		try {
-			return await declineDashboardInvitation(createSupabaseDashboardOrgAccessPort(locals), {
-				invitationId,
-				email: user.email
-			});
+			return await declineDashboardInvitation(
+				{
+					dashboard: createSupabaseDashboardOrgAccessPort(locals),
+					notifications: createSupabaseNotificationAdapter()
+				},
+				{
+					invitationId,
+					userId: user.id,
+					email: user.email
+				}
+			);
 		} catch (error) {
 			return toActionFailure(error);
 		}

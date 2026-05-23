@@ -27,6 +27,20 @@ export type SettingsMemberRow = SettingsMemberAccessRow & {
 export type SettingsInvitationRow = SettingsInvitationAccessRow & {
 	accessBadge: 'admin' | 'viewer' | 'operator' | 'editor' | 'custom';
 	scopeDisplayLabel: string;
+	deliveryStatus: 'not_sent' | 'pending' | 'sent' | 'failed';
+	deliveryStatusLabel: string;
+	deliveryAttemptCount: number;
+	deliveryLastError: string | null;
+	deliveryUpdatedAt: string | null;
+	deliverySentAt: string | null;
+	canResend: boolean;
+};
+
+export type SettingsInvitationHistoryRow = SettingsInvitationRow & {
+	lifecycleStatus: 'accepted' | 'declined' | 'revoked' | 'expired' | 'blocked' | 'closed';
+	lifecycleStatusLabel: string;
+	lifecycleDetail: string | null;
+	lifecycleAt: string;
 };
 
 export type SettingsArchivedPersonnelRow = {
@@ -72,6 +86,7 @@ export interface OrganizationSettingsWorkspace {
 		members: {
 			rows: SettingsMemberRow[];
 			invitations: SettingsInvitationRow[];
+			invitationHistory: SettingsInvitationHistoryRow[];
 			groups: Array<{ id: string; name: string }>;
 			roleCounts: Record<'owner' | 'admin' | 'member', number>;
 			memberRoleSummary: string;

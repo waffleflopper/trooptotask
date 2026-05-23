@@ -2,7 +2,7 @@
 	import { enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
 	import { page } from '$app/stores';
-	import { Edit, Trash2, UserPlus } from '@lucide/svelte';
+	import { Edit, RefreshCw, Trash2, UserPlus } from '@lucide/svelte';
 	import { explainPolicyReasonCode } from '$lib/access/policyDecisionExplanations';
 	import { Badge } from '$lib/components/ui/badge/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
@@ -705,7 +705,7 @@
 					<div class="grid gap-1">
 						<h3 id="invite-member-heading" class="text-lg font-semibold tracking-tight">Invite Member</h3>
 						<p class="text-sm text-muted-foreground">
-							Create an invite they can accept after signing in. T2T does not send an email automatically.
+							Create an invite they can accept after signing in. T2T sends the invitation email.
 						</p>
 					</div>
 					<Separator />
@@ -838,11 +838,58 @@
 									<p class="text-sm text-muted-foreground">
 										{memberAccess.getAccessLabel(invitePermissionPreset)} · Sent {formatRelativeDate(invite.createdAt)}
 									</p>
+									<p class="text-sm text-muted-foreground">
+										{invite.deliveryStatusLabel}
+										{#if invite.deliverySentAt}
+											{formatRelativeDate(invite.deliverySentAt)}
+										{:else if invite.deliveryUpdatedAt}
+											{formatRelativeDate(invite.deliveryUpdatedAt)}
+										{/if}
+									</p>
 								</div>
-								<form method="POST" action="?/revokeInvite" use:enhance>
-									<input type="hidden" name="inviteId" value={invite.id} />
-									<Button type="submit" variant="outline" size="sm">Revoke</Button>
-								</form>
+								<div class="flex flex-wrap gap-2">
+									<form method="POST" action="?/resendInvite" use:enhance>
+										<input type="hidden" name="inviteId" value={invite.id} />
+										<Button type="submit" variant="outline" size="sm" disabled={!invite.canResend}>
+											<RefreshCw class="mr-2 size-4" />
+											Resend
+										</Button>
+									</form>
+									<form method="POST" action="?/revokeInvite" use:enhance>
+										<input type="hidden" name="inviteId" value={invite.id} />
+										<Button type="submit" variant="outline" size="sm">Revoke</Button>
+									</form>
+								</div>
+							</div>
+						{/each}
+					</div>
+				</section>
+			{/if}
+
+			{#if membersSection.invitationHistory.length > 0}
+				<section
+					class="grid gap-4 rounded-lg border bg-card p-4 text-card-foreground"
+					aria-labelledby="invitation-history-heading"
+				>
+					<div class="flex items-center justify-between gap-3">
+						<h3 id="invitation-history-heading" class="text-lg font-semibold tracking-tight">Invitation History</h3>
+						<Badge variant="secondary">{membersSection.invitationHistory.length} Closed</Badge>
+					</div>
+					<div class="grid gap-3">
+						{#each membersSection.invitationHistory as invite (invite.id)}
+							{@const invitePermissionPreset = memberAccess.getInvitePreset(invite)}
+							<div class="flex flex-col gap-2 rounded-md border p-3 md:flex-row md:items-center md:justify-between">
+								<div>
+									<p class="font-medium">{invite.email}</p>
+									<p class="text-sm text-muted-foreground">
+										{memberAccess.getAccessLabel(invitePermissionPreset)} · {invite.lifecycleStatusLabel}
+										{formatRelativeDate(invite.lifecycleAt)}
+									</p>
+									{#if invite.lifecycleDetail}
+										<p class="text-sm text-muted-foreground">{invite.lifecycleDetail}</p>
+									{/if}
+								</div>
+								<Badge variant="outline">{invite.lifecycleStatusLabel}</Badge>
 							</div>
 						{/each}
 					</div>

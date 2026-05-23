@@ -48,6 +48,7 @@ function makeWorkspace(): OrganizationSettingsWorkspace {
 					}
 				],
 				invitations: [],
+				invitationHistory: [],
 				groups: [],
 				roleCounts: { owner: 0, admin: 0, member: 1 },
 				memberRoleSummary: '0 Owners · 0 Admins · 1 Member',

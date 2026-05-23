@@ -3,6 +3,7 @@ import type { CapabilityOverrideMap, StoredMemberPreset } from '$lib/access/memb
 
 export interface OrganizationInvitationAccessShape {
 	organizationId: string;
+	role?: 'admin' | 'member' | null;
 	canViewCalendar: boolean | null;
 	canEditCalendar: boolean | null;
 	canViewPersonnel: boolean | null;

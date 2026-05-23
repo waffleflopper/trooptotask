@@ -80,6 +80,7 @@ describe('organizationInvitationMembership', () => {
 	it('derives admin invitation membership through the shared invitation projection', () => {
 		const invitation = {
 			organizationId: 'org-1',
+			role: 'admin' as const,
 			canViewCalendar: true,
 			canEditCalendar: true,
 			canViewPersonnel: true,
@@ -115,6 +116,44 @@ describe('organizationInvitationMembership', () => {
 			capabilityOverrides: { calendar: 'none' },
 			accessScopeKind: 'groups',
 			accessScopeGroupIds: ['group-alpha']
+		});
+	});
+
+	it('uses the stored invitation role instead of recomputing it from compatibility flags', () => {
+		const invitation = {
+			organizationId: 'org-1',
+			role: 'member' as const,
+			canViewCalendar: true,
+			canEditCalendar: true,
+			canViewPersonnel: true,
+			canEditPersonnel: true,
+			canViewTraining: true,
+			canEditTraining: true,
+			canViewCriticalTasks: true,
+			canEditCriticalTasks: true,
+			canViewOnboarding: true,
+			canEditOnboarding: true,
+			canViewRatingScheme: true,
+			canEditRatingScheme: true,
+			canManageMembers: true,
+			memberPreset: 'editor' as const,
+			capabilityOverrides: {},
+			accessScopeKind: 'organization' as const,
+			accessScopeGroupIds: []
+		};
+
+		expect(isAdminInvitation(invitation)).toBe(false);
+		expect(
+			deriveMembershipFromInvitation({
+				invitation,
+				userId: 'user-1',
+				email: 'user@example.com'
+			})
+		).toMatchObject({
+			role: 'member',
+			canManageMembers: true,
+			memberPreset: 'editor',
+			accessScopeKind: 'organization'
 		});
 	});
 

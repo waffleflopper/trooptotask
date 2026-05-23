@@ -19,6 +19,7 @@ export interface TargetMemberAccessCommand {
 	memberPreset: StoredMemberPreset;
 	capabilityOverrides: CapabilityOverrideMap;
 	scopeSet: ScopeSet;
+	canManageMembers?: boolean;
 }
 
 export interface MemberAccessEditCommand {
@@ -70,13 +71,15 @@ export function memberAccessCommandToStorage(command: {
 		membershipRole: command.membershipRole,
 		memberPreset: memberAccess.memberPreset,
 		capabilityOverrides: memberAccess.capabilityOverrides,
-		scopeSet
+		scopeSet,
+		canManageMembers: memberAccess.canManageMembers
 	});
 	const accessStorage = targetMemberAccessToStorage({
 		membershipRole: command.membershipRole,
 		memberPreset: memberAccess.memberPreset,
 		capabilityOverrides: memberAccess.capabilityOverrides,
-		scopeSet
+		scopeSet,
+		canManageMembers: memberAccess.canManageMembers
 	});
 	const serializedScope = serializeScopeSetForStorage(accessStorage.scopeSet);
 

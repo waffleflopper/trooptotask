@@ -41,7 +41,7 @@ describe('dashboard page server', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		createSupabaseDashboardOrgAccessPortMock.mockReturnValue({ kind: 'dashboard-port' });
-		createSupabaseNotificationAdapterMock.mockReturnValue({ notifyAdmins: vi.fn() });
+		createSupabaseNotificationAdapterMock.mockReturnValue({ notifyAdmins: vi.fn(), notifyUser: vi.fn() });
 		loadDashboardOrgAccessMock.mockResolvedValue({
 			organizations: [],
 			pendingInvitations: [],
@@ -152,8 +152,11 @@ describe('dashboard page server', () => {
 
 		expect(result).toEqual({ success: true, declined: true });
 		expect(declineDashboardInvitationMock).toHaveBeenCalledWith(
-			{ kind: 'dashboard-port' },
-			{ invitationId: 'invite-1', email: 'user@example.com' }
+			{
+				dashboard: { kind: 'dashboard-port' },
+				notifications: { notifyAdmins: expect.any(Function), notifyUser: expect.any(Function) }
+			},
+			{ invitationId: 'invite-1', userId: 'user-1', email: 'user@example.com' }
 		);
 	});
 });

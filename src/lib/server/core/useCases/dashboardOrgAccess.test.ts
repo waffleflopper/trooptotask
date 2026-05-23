@@ -4,58 +4,36 @@ import {
 	acceptDashboardInvitation,
 	declineDashboardInvitation,
 	loadDashboardOrgAccess,
-	type DashboardInvitationRecord,
-	type DashboardMembershipCreateInput,
+	type DashboardInvitationAcceptResult,
+	type DashboardInvitationDeclineResult,
 	type DashboardOrgAccessPort,
 	type DashboardOrganizationSummary,
 	type DashboardPendingInvitationSummary
 } from './dashboardOrgAccess';
 
-function buildInvitation(overrides: Partial<DashboardInvitationRecord> = {}): DashboardInvitationRecord {
-	return {
-		id: 'invite-1',
-		organizationId: 'org-1',
-		canViewCalendar: true,
-		canEditCalendar: false,
-		canViewPersonnel: true,
-		canEditPersonnel: false,
-		canViewTraining: true,
-		canEditTraining: false,
-		canViewCriticalTasks: true,
-		canEditCriticalTasks: false,
-		canViewOnboarding: false,
-		canEditOnboarding: false,
-		canManageMembers: false,
-		...overrides
-	};
-}
-
 function createDashboardOrgAccessPort(
 	options: {
 		organizations?: DashboardOrganizationSummary[];
 		pendingInvitations?: DashboardPendingInvitationSummary[];
-		invitation?: DashboardInvitationRecord | null;
-		hasMembership?: boolean;
-		createMembershipSucceeds?: boolean;
-		deleteInvitationSucceeds?: boolean;
-		declineSucceeds?: boolean;
+		acceptResult?: DashboardInvitationAcceptResult;
+		declineResult?: DashboardInvitationDeclineResult;
 	} = {}
 ): DashboardOrgAccessPort & {
-	createdMemberships: DashboardMembershipCreateInput[];
 	deletedInvitationIds: string[];
-	declinedInvitations: Array<{ invitationId: string; email: string }>;
+	declinedInvitations: Array<{ invitationId: string; userId: string; email: string }>;
 	requestedInvitationEmails: string[];
+	acceptedInvitations: Array<{ invitationId: string; userId: string; email: string }>;
 } {
-	const createdMemberships: DashboardMembershipCreateInput[] = [];
 	const deletedInvitationIds: string[] = [];
-	const declinedInvitations: Array<{ invitationId: string; email: string }> = [];
+	const declinedInvitations: Array<{ invitationId: string; userId: string; email: string }> = [];
 	const requestedInvitationEmails: string[] = [];
+	const acceptedInvitations: Array<{ invitationId: string; userId: string; email: string }> = [];
 
 	return {
-		createdMemberships,
 		deletedInvitationIds,
 		declinedInvitations,
 		requestedInvitationEmails,
+		acceptedInvitations,
 		async listOrganizationsForUser() {
 			return options.organizations ?? [];
 		},
@@ -63,24 +41,13 @@ function createDashboardOrgAccessPort(
 			requestedInvitationEmails.push(email);
 			return options.pendingInvitations ?? [];
 		},
-		async findInvitation(invitationId, email) {
-			requestedInvitationEmails.push(email);
-			return options.invitation?.id === invitationId ? options.invitation : null;
+		async acceptInvitation(input) {
+			acceptedInvitations.push(input);
+			return options.acceptResult ?? { status: 'accepted', organizationId: 'org-1' };
 		},
-		async hasMembership() {
-			return options.hasMembership ?? false;
-		},
-		async createMembership(input) {
-			createdMemberships.push(input);
-			return options.createMembershipSucceeds ?? true;
-		},
-		async deleteInvitation(invitationId) {
-			deletedInvitationIds.push(invitationId);
-			return options.deleteInvitationSucceeds ?? true;
-		},
-		async deleteInvitationForEmail(invitationId, email) {
-			declinedInvitations.push({ invitationId, email });
-			return options.declineSucceeds ?? true;
+		async declineInvitation(input) {
+			declinedInvitations.push(input);
+			return options.declineResult ?? { status: 'declined', organizationId: 'org-1' };
 		}
 	};
 }
@@ -93,7 +60,7 @@ describe('loadDashboardOrgAccess', () => {
 
 		const result = await loadDashboardOrgAccess(port, {
 			userId: 'user-1',
-			email: 'USER@EXAMPLE.COM',
+			email: ' USER@EXAMPLE.COM ',
 			forceShow: false
 		});
 
@@ -175,7 +142,9 @@ describe('loadDashboardOrgAccess', () => {
 
 describe('acceptDashboardInvitation', () => {
 	it('fails when the invitation cannot be found for the current user email', async () => {
-		const port = createDashboardOrgAccessPort();
+		const port = createDashboardOrgAccessPort({
+			acceptResult: { status: 'not_found', organizationId: null }
+		});
 
 		await expect(
 			acceptDashboardInvitation(
@@ -186,12 +155,14 @@ describe('acceptDashboardInvitation', () => {
 			status: 404,
 			message: 'Invitation not found'
 		});
+		expect(port.acceptedInvitations).toEqual([
+			{ invitationId: 'missing', userId: 'user-1', email: 'user@example.com' }
+		]);
 	});
 
-	it('deletes the invitation and preserves the current duplicate-membership failure', async () => {
+	it('preserves the duplicate-membership failure without deleting invitation history', async () => {
 		const port = createDashboardOrgAccessPort({
-			invitation: buildInvitation(),
-			hasMembership: true
+			acceptResult: { status: 'already_member', organizationId: 'org-1' }
 		});
 
 		await expect(
@@ -204,41 +175,111 @@ describe('acceptDashboardInvitation', () => {
 			message: 'You are already a member of this organization'
 		});
 
-		expect(port.deletedInvitationIds).toEqual(['invite-1']);
-		expect(port.createdMemberships).toHaveLength(0);
+		expect(port.deletedInvitationIds).toEqual([]);
 	});
 
-	it('creates an admin membership when every invitation permission is granted', async () => {
+	it('returns an expired-invitation failure from the acceptance transition', async () => {
 		const port = createDashboardOrgAccessPort({
-			invitation: buildInvitation({
-				canEditCalendar: true,
-				canEditPersonnel: true,
-				canViewTraining: true,
-				canEditTraining: true,
-				canViewCriticalTasks: true,
-				canEditCriticalTasks: true,
-				canViewOnboarding: true,
-				canEditOnboarding: true,
-				canManageMembers: true
-			})
+			acceptResult: { status: 'expired', organizationId: 'org-1' }
+		});
+		const notifications = createTestNotificationPort();
+
+		await expect(
+			acceptDashboardInvitation(
+				{ dashboard: port, notifications },
+				{ invitationId: 'invite-1', userId: 'user-1', email: 'user@example.com' }
+			)
+		).rejects.toMatchObject({
+			status: 400,
+			message: 'Invitation has expired'
+		});
+
+		expect(port.deletedInvitationIds).toEqual([]);
+		expect(notifications.notifications).toEqual([
+			{
+				target: 'admins',
+				orgId: 'org-1',
+				excludeUserId: 'user-1',
+				notification: {
+					type: 'member_invite_expired',
+					title: 'Invitation Expired',
+					message: '"user@example.com" tried to use an expired organization invitation.',
+					link: '/org/org-1/settings'
+				}
+			}
+		]);
+	});
+
+	it('requires completed account setup before accepting an invitation linked from an Access Request', async () => {
+		const port = createDashboardOrgAccessPort({
+			acceptResult: { status: 'setup_required', organizationId: null }
+		});
+
+		await expect(
+			acceptDashboardInvitation(
+				{ dashboard: port, notifications: createTestNotificationPort() },
+				{ invitationId: 'invite-1', userId: 'user-1', email: 'user@example.com' }
+			)
+		).rejects.toMatchObject({
+			status: 400,
+			message: 'Complete account setup before accepting this organization invitation'
+		});
+
+		expect(port.deletedInvitationIds).toEqual([]);
+	});
+
+	it('returns a deterministic already-accepted failure for double accepts', async () => {
+		const port = createDashboardOrgAccessPort({
+			acceptResult: { status: 'already_accepted', organizationId: 'org-1' }
+		});
+
+		await expect(
+			acceptDashboardInvitation(
+				{ dashboard: port, notifications: createTestNotificationPort() },
+				{ invitationId: 'invite-1', userId: 'user-1', email: 'user@example.com' }
+			)
+		).rejects.toMatchObject({
+			status: 400,
+			message: 'Invitation has already been accepted'
+		});
+
+		expect(port.deletedInvitationIds).toEqual([]);
+	});
+
+	it('returns a clear blocked failure when platform access rejection blocks acceptance', async () => {
+		const port = createDashboardOrgAccessPort({
+			acceptResult: { status: 'blocked', organizationId: 'org-1' }
+		});
+
+		await expect(
+			acceptDashboardInvitation(
+				{ dashboard: port, notifications: createTestNotificationPort() },
+				{ invitationId: 'invite-1', userId: 'user-1', email: 'user@example.com' }
+			)
+		).rejects.toMatchObject({
+			status: 400,
+			message: 'This organization invitation is no longer available because platform access was rejected'
+		});
+
+		expect(port.deletedInvitationIds).toEqual([]);
+	});
+
+	it('accepts through the atomic transition and notifies admins', async () => {
+		const port = createDashboardOrgAccessPort({
+			acceptResult: { status: 'accepted', organizationId: 'org-1' }
 		});
 		const notifications = createTestNotificationPort();
 
 		const result = await acceptDashboardInvitation(
 			{ dashboard: port, notifications },
-			{ invitationId: 'invite-1', userId: 'user-1', email: 'USER@EXAMPLE.COM' }
+			{ invitationId: 'invite-1', userId: 'user-1', email: ' USER@EXAMPLE.COM ' }
 		);
 
 		expect(result).toEqual({ success: true, accepted: true });
-		expect(port.createdMemberships).toEqual([
-			expect.objectContaining({
-				organizationId: 'org-1',
-				userId: 'user-1',
-				email: 'user@example.com',
-				role: 'admin'
-			})
+		expect(port.acceptedInvitations).toEqual([
+			{ invitationId: 'invite-1', userId: 'user-1', email: 'user@example.com' }
 		]);
-		expect(port.deletedInvitationIds).toEqual(['invite-1']);
+		expect(port.deletedInvitationIds).toEqual([]);
 		expect(notifications.notifications).toEqual([
 			{
 				target: 'admins',
@@ -247,92 +288,42 @@ describe('acceptDashboardInvitation', () => {
 				notification: {
 					type: 'member_joined',
 					title: 'New Member Joined',
-					message: '"USER@EXAMPLE.COM" has joined the organization.',
+					message: '"user@example.com" has joined the organization.',
 					link: '/org/org-1/settings'
 				}
 			}
 		]);
 	});
 
-	it('logs invitation cleanup failures after accepting while preserving the success response', async () => {
+	it('keeps accepted response when governor notification delivery fails after the transition committed', async () => {
 		const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 		const port = createDashboardOrgAccessPort({
-			invitation: buildInvitation(),
-			deleteInvitationSucceeds: false
+			acceptResult: { status: 'accepted', organizationId: 'org-1' }
 		});
+		const notifications = createTestNotificationPort();
+		vi.spyOn(notifications, 'notifyAdmins').mockRejectedValue(new Error('notification unavailable'));
 
 		const result = await acceptDashboardInvitation(
-			{ dashboard: port, notifications: createTestNotificationPort() },
-			{ invitationId: 'invite-1', userId: 'user-1', email: 'user@example.com' }
+			{ dashboard: port, notifications },
+			{ invitationId: 'invite-1', userId: 'user-1', email: ' USER@EXAMPLE.COM ' }
 		);
 
 		expect(result).toEqual({ success: true, accepted: true });
 		expect(consoleErrorSpy).toHaveBeenCalledWith(
 			'[dashboard-org-access]',
 			expect.objectContaining({
-				status: 'invitation-delete-failed',
-				reason: 'accepted-membership-cleanup',
-				invitationId: 'invite-1',
+				status: 'accepted-notification-failed',
 				organizationId: 'org-1',
 				userId: 'user-1'
 			})
 		);
-	});
 
-	it('preserves the current membership defaults for nullable invitation flags', async () => {
-		const port = createDashboardOrgAccessPort({
-			invitation: buildInvitation({
-				canViewCalendar: null,
-				canEditCalendar: null,
-				canViewPersonnel: null,
-				canEditPersonnel: null,
-				canViewTraining: null,
-				canEditTraining: null,
-				canViewCriticalTasks: null,
-				canEditCriticalTasks: null,
-				canViewOnboarding: null,
-				canEditOnboarding: null,
-				canManageMembers: null
-			})
-		});
-
-		await acceptDashboardInvitation(
-			{ dashboard: port, notifications: createTestNotificationPort() },
-			{ invitationId: 'invite-1', userId: 'user-1', email: 'user@example.com' }
-		);
-
-		expect(port.createdMemberships).toEqual([
-			{
-				organizationId: 'org-1',
-				userId: 'user-1',
-				email: 'user@example.com',
-				role: 'member',
-				scopedGroupId: null,
-				canViewCalendar: true,
-				canEditCalendar: true,
-				canViewPersonnel: true,
-				canEditPersonnel: true,
-				canViewTraining: true,
-				canEditTraining: true,
-				canViewCriticalTasks: true,
-				canEditCriticalTasks: true,
-				canViewOnboarding: true,
-				canEditOnboarding: true,
-				canViewRatingScheme: true,
-				canEditRatingScheme: true,
-				canManageMembers: false,
-				memberPreset: null,
-				capabilityOverrides: {},
-				accessScopeKind: null,
-				accessScopeGroupIds: []
-			}
-		]);
+		consoleErrorSpy.mockRestore();
 	});
 
 	it('fails with the current generic error when membership creation fails', async () => {
 		const port = createDashboardOrgAccessPort({
-			invitation: buildInvitation(),
-			createMembershipSucceeds: false
+			acceptResult: { status: 'failed', organizationId: null }
 		});
 
 		await expect(
@@ -348,26 +339,153 @@ describe('acceptDashboardInvitation', () => {
 });
 
 describe('declineDashboardInvitation', () => {
-	it('deletes the invitation for the current email and returns the success payload', async () => {
+	it('marks the invitation declined for the authenticated invitee and notifies admins', async () => {
 		const port = createDashboardOrgAccessPort();
+		const notifications = createTestNotificationPort();
 
-		const result = await declineDashboardInvitation(port, {
-			invitationId: 'invite-1',
-			email: 'USER@EXAMPLE.COM'
-		});
+		const result = await declineDashboardInvitation(
+			{ dashboard: port, notifications },
+			{
+				invitationId: 'invite-1',
+				userId: 'user-1',
+				email: ' USER@EXAMPLE.COM '
+			}
+		);
 
 		expect(result).toEqual({ success: true, declined: true });
-		expect(port.declinedInvitations).toEqual([{ invitationId: 'invite-1', email: 'user@example.com' }]);
+		expect(port.declinedInvitations).toEqual([
+			{ invitationId: 'invite-1', userId: 'user-1', email: 'user@example.com' }
+		]);
+		expect(port.deletedInvitationIds).toEqual([]);
+		expect(notifications.notifications).toEqual([
+			{
+				target: 'admins',
+				orgId: 'org-1',
+				excludeUserId: 'user-1',
+				notification: {
+					type: 'member_invite_declined',
+					title: 'Invitation Declined',
+					message: '"user@example.com" declined their organization invitation.',
+					link: '/org/org-1/settings'
+				}
+			}
+		]);
 	});
 
-	it('fails with the current generic error when the decline delete errors', async () => {
-		const port = createDashboardOrgAccessPort({ declineSucceeds: false });
+	it('fails when the decline transition cannot find an invitation for the current email', async () => {
+		const port = createDashboardOrgAccessPort({ declineResult: { status: 'not_found', organizationId: null } });
 
 		await expect(
-			declineDashboardInvitation(port, {
+			declineDashboardInvitation(
+				{ dashboard: port, notifications: createTestNotificationPort() },
+				{
+					invitationId: 'invite-1',
+					userId: 'user-1',
+					email: 'user@example.com'
+				}
+			)
+		).rejects.toMatchObject({
+			status: 404,
+			message: 'Invitation not found'
+		});
+	});
+
+	it('returns a clear expired state instead of deleting invitation history', async () => {
+		const port = createDashboardOrgAccessPort({ declineResult: { status: 'expired', organizationId: 'org-1' } });
+		const notifications = createTestNotificationPort();
+
+		await expect(
+			declineDashboardInvitation(
+				{ dashboard: port, notifications },
+				{
+					invitationId: 'invite-1',
+					userId: 'user-1',
+					email: 'user@example.com'
+				}
+			)
+		).rejects.toMatchObject({
+			status: 400,
+			message: 'Invitation has expired'
+		});
+		expect(port.deletedInvitationIds).toEqual([]);
+		expect(notifications.notifications).toEqual([
+			{
+				target: 'admins',
+				orgId: 'org-1',
+				excludeUserId: 'user-1',
+				notification: {
+					type: 'member_invite_expired',
+					title: 'Invitation Expired',
+					message: '"user@example.com" tried to use an expired organization invitation.',
+					link: '/org/org-1/settings'
+				}
+			}
+		]);
+	});
+
+	it.each([
+		['already_accepted', 'Invitation has already been accepted'],
+		['already_declined', 'Invitation has already been declined'],
+		['revoked', 'Invitation has been revoked'],
+		['blocked', 'This organization invitation is no longer available because platform access was rejected']
+	] as const)('maps %s decline statuses to deterministic action failures', async (status, message) => {
+		const port = createDashboardOrgAccessPort({ declineResult: { status, organizationId: 'org-1' } });
+
+		await expect(
+			declineDashboardInvitation(
+				{ dashboard: port, notifications: createTestNotificationPort() },
+				{
+					invitationId: 'invite-1',
+					userId: 'user-1',
+					email: 'user@example.com'
+				}
+			)
+		).rejects.toMatchObject({
+			status: 400,
+			message
+		});
+	});
+
+	it('keeps declined response when governor notification delivery fails after the transition committed', async () => {
+		const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+		const port = createDashboardOrgAccessPort();
+		const notifications = createTestNotificationPort();
+		vi.spyOn(notifications, 'notifyAdmins').mockRejectedValue(new Error('notification unavailable'));
+
+		const result = await declineDashboardInvitation(
+			{ dashboard: port, notifications },
+			{
 				invitationId: 'invite-1',
-				email: 'user@example.com'
+				userId: 'user-1',
+				email: ' USER@EXAMPLE.COM '
+			}
+		);
+
+		expect(result).toEqual({ success: true, declined: true });
+		expect(consoleErrorSpy).toHaveBeenCalledWith(
+			'[dashboard-org-access]',
+			expect.objectContaining({
+				status: 'declined-notification-failed',
+				organizationId: 'org-1',
+				userId: 'user-1'
 			})
+		);
+
+		consoleErrorSpy.mockRestore();
+	});
+
+	it('fails with the current generic error when the decline transition fails', async () => {
+		const port = createDashboardOrgAccessPort({ declineResult: { status: 'failed', organizationId: null } });
+
+		await expect(
+			declineDashboardInvitation(
+				{ dashboard: port, notifications: createTestNotificationPort() },
+				{
+					invitationId: 'invite-1',
+					userId: 'user-1',
+					email: 'user@example.com'
+				}
+			)
 		).rejects.toMatchObject({
 			status: 500,
 			message: 'Failed to decline invitation'

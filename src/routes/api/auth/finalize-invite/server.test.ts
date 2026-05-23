@@ -21,6 +21,7 @@ vi.mock('$lib/server/userProfile', async (importOriginal) => {
 });
 
 import { upsertCurrentUserProfile } from '$lib/server/userProfile';
+import { autoAcceptOrgInvites } from '$lib/server/auto-accept-org-invites';
 import { POST } from './+server';
 
 describe('POST /api/auth/finalize-invite', () => {
@@ -54,6 +55,7 @@ describe('POST /api/auth/finalize-invite', () => {
 			lastName: 'Smith',
 			rank: 'SGT'
 		});
+		expect(autoAcceptOrgInvites).toHaveBeenCalledWith(expect.any(Object), 'person@example.com');
 		expect(cookies.delete).toHaveBeenCalledWith('ttt_pending_auth_flow', { path: '/' });
 	});
 

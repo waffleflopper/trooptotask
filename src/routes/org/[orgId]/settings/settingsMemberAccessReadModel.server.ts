@@ -22,6 +22,12 @@ export type LegacySettingsAccessRow = MemberAccessPresentationRow & {
 	role?: unknown;
 	status?: unknown;
 	created_at?: unknown;
+	expires_at?: unknown;
+	accepted_at?: unknown;
+	declined_at?: unknown;
+	revoked_at?: unknown;
+	expired_at?: unknown;
+	blocked_at?: unknown;
 };
 
 export function buildSettingsMemberAccessRow(row: LegacySettingsAccessRow): SettingsMemberAccessRow {
@@ -45,6 +51,12 @@ export function buildSettingsInvitationAccessRow(row: LegacySettingsAccessRow): 
 		status: asString(row.status),
 		membershipRole: projection.role,
 		createdAt: asString(row.created_at),
+		expiresAt: optionalString(row.expires_at),
+		acceptedAt: optionalString(row.accepted_at),
+		declinedAt: optionalString(row.declined_at),
+		revokedAt: optionalString(row.revoked_at),
+		expiredAt: optionalString(row.expired_at),
+		blockedAt: optionalString(row.blocked_at),
 		access: buildSettingsAccessShapeFromProjection(projection)
 	};
 }

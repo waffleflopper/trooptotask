@@ -1,7 +1,7 @@
 import { fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 import { getAccessRequestHeardAboutLabel } from '$lib/accessRequests';
-import { loadWithAdminContext, adminAction } from '$lib/server/adapters/adminAdapter';
+import { loadWithAdminContext, adminAction, type AdminContext } from '$lib/server/adapters/adminAdapter';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination';
 import {
 	createAccountSetupLinkService,
@@ -26,6 +26,12 @@ import {
 import { rejectAccessRequestAndBlockLinkedInvitations } from '$lib/server/accessRequestInvitationBlocking';
 import { makePublicAppUrl } from '$lib/server/publicAppOrigin';
 import { notifyAdmins } from '$lib/server/notifications';
+import {
+	checkPlatformAccessRequestSetupRateLimit,
+	platformAccessRequestRateLimitAuditDetails,
+	platformAccessRequestRateLimitMessage,
+	type PlatformAccessRequestSetupAction
+} from '$lib/server/platformAccessRequestRateLimit';
 
 interface AccessRequestSetupLink {
 	id: string;
@@ -356,6 +362,44 @@ function mapSetupLinkResultToFailure(result: CreateAccountSetupLinkResult) {
 	}
 }
 
+async function checkSetupSendRateLimit(input: {
+	ctx: AdminContext;
+	action: PlatformAccessRequestSetupAction;
+	requestId: string;
+	email: string;
+}) {
+	const decision = await checkPlatformAccessRequestSetupRateLimit({
+		action: input.action,
+		adminUserId: input.ctx.adminUser.id,
+		accessRequestId: input.requestId
+	});
+	const details = platformAccessRequestRateLimitAuditDetails(decision);
+	if (decision.limited) {
+		input.ctx.audit({
+			action:
+				input.action === 'approval'
+					? 'access_request.account_setup_approval_rate_limited'
+					: 'access_request.account_setup_resend_rate_limited',
+			resourceType: 'access_request',
+			resourceId: input.requestId,
+			details: {
+				email: input.email,
+				rateLimit: details
+			},
+			severity: 'warning'
+		});
+		return {
+			ok: false as const,
+			failure: fail(429, {
+				error: platformAccessRequestRateLimitMessage(input.action),
+				retryAfterSeconds: Math.max(1, Math.ceil((decision.retryAfterMs ?? 0) / 1000))
+			})
+		};
+	}
+
+	return { ok: true as const, decision, details };
+}
+
 export const load: PageServerLoad = loadWithAdminContext({
 	page: 'access-requests',
 	fn: async (ctx) => {
@@ -432,6 +476,16 @@ export const actions: Actions = {
 				return fail(404, { error: 'Request not found or already reviewed' });
 			}
 
+			const rateLimit = await checkSetupSendRateLimit({
+				ctx,
+				action: 'approval',
+				requestId,
+				email: accessRequest.email
+			});
+			if (!rateLimit.ok) {
+				return rateLimit.failure;
+			}
+
 			const { error: updateErr } = await adminClient
 				.from('access_requests')
 				.update({
@@ -479,7 +533,8 @@ export const actions: Actions = {
 						email: accessRequest.email,
 						setupLinkId: setupResult.link.id,
 						outboxId: delivery.outbox.id,
-						expiresAt: setupResult.expiresAt.toISOString()
+						expiresAt: setupResult.expiresAt.toISOString(),
+						rateLimit: rateLimit.details
 					},
 					severity: 'info'
 				});
@@ -491,7 +546,8 @@ export const actions: Actions = {
 					details: {
 						email: accessRequest.email,
 						setupLinkId: setupResult.link.id,
-						outboxId: delivery.outbox.id
+						outboxId: delivery.outbox.id,
+						rateLimit: rateLimit.details
 					},
 					severity: 'warning'
 				});
@@ -570,6 +626,16 @@ export const actions: Actions = {
 				});
 			}
 
+			const rateLimit = await checkSetupSendRateLimit({
+				ctx,
+				action: 'resend',
+				requestId,
+				email: accessRequest.email
+			});
+			if (!rateLimit.ok) {
+				return rateLimit.failure;
+			}
+
 			const setupLinks = createAccountSetupLinkService(createSupabaseAccountSetupLinkStore(adminClient));
 			const setupResult = await setupLinks.createForAccessRequest(requestId);
 			if (setupResult.status !== 'created') {
@@ -599,7 +665,8 @@ export const actions: Actions = {
 					email: accessRequest.email,
 					setupLinkId: setupResult.link.id,
 					outboxId: delivery.outbox.id,
-					expiresAt: setupResult.expiresAt.toISOString()
+					expiresAt: setupResult.expiresAt.toISOString(),
+					rateLimit: rateLimit.details
 				},
 				severity: delivery.status === 'sent' ? 'info' : 'warning'
 			});

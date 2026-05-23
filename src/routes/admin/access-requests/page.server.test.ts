@@ -7,14 +7,18 @@ const {
 	createOutboxStoreMock,
 	sendSetupEmailMock,
 	sendOutboxDeliveryMock,
-	notifyAdminsMock
+	notifyAdminsMock,
+	checkSetupRateLimitMock,
+	rateLimitAuditDetailsMock
 } = vi.hoisted(() => ({
 	createServiceMock: vi.fn(),
 	createStoreMock: vi.fn(),
 	createOutboxStoreMock: vi.fn(),
 	sendSetupEmailMock: vi.fn(),
 	sendOutboxDeliveryMock: vi.fn(),
-	notifyAdminsMock: vi.fn()
+	notifyAdminsMock: vi.fn(),
+	checkSetupRateLimitMock: vi.fn(),
+	rateLimitAuditDetailsMock: vi.fn()
 }));
 
 vi.mock('$lib/server/adapters/adminAdapter', () => ({
@@ -41,6 +45,15 @@ vi.mock('$lib/server/authEmailOutbox', () => ({
 
 vi.mock('$lib/server/notifications', () => ({
 	notifyAdmins: notifyAdminsMock
+}));
+
+vi.mock('$lib/server/platformAccessRequestRateLimit', () => ({
+	checkPlatformAccessRequestSetupRateLimit: checkSetupRateLimitMock,
+	platformAccessRequestRateLimitAuditDetails: rateLimitAuditDetailsMock,
+	platformAccessRequestRateLimitMessage: (action: 'approval' | 'resend') =>
+		action === 'approval'
+			? 'Too many approval setup sends for this Access Request. Please wait before trying again.'
+			: 'Too many setup email resends for this Access Request. Please wait before trying again.'
 }));
 
 import { actions, load } from './+page.server';
@@ -176,6 +189,15 @@ describe('admin access request account setup delivery', () => {
 			status: 'sent',
 			outbox: { id: 'outbox-1', status: 'sent' }
 		});
+		checkSetupRateLimitMock.mockImplementation((input: { action: 'approval' | 'resend' }) => ({
+			limited: false,
+			action: input.action,
+			checks: []
+		}));
+		rateLimitAuditDetailsMock.mockImplementation((decision: { action: 'approval' | 'resend' }) => ({
+			action: decision.action,
+			checks: []
+		}));
 	});
 
 	it('summarizes setup support states from setup links and delivery records', async () => {
@@ -449,6 +471,72 @@ describe('admin access request account setup delivery', () => {
 			'access_request.approved',
 			'access_request.account_setup_link_sent'
 		]);
+		expect(checkSetupRateLimitMock).toHaveBeenCalledWith({
+			action: 'approval',
+			adminUserId: 'admin-1',
+			accessRequestId: 'request-1'
+		});
+		const auditPayload = JSON.stringify((ctx.audit as ReturnType<typeof vi.fn>).mock.calls);
+		expect(auditPayload).toContain('"rateLimit"');
+		expect(auditPayload).not.toContain('raw-token');
+		expect(auditPayload).not.toContain('/auth/setup-account');
+	});
+
+	it('rate-limits approval before reviewing the request or sending setup email', async () => {
+		const accessRequest = {
+			id: 'request-1',
+			email: 'Soldier@Example.mil',
+			status: 'pending'
+		};
+		const selectAccessRequest = makeSelectAccessRequest(accessRequest);
+		const updateAccessRequest = makeUpdateAccessRequest();
+		const adminClient = makeAdminClient({
+			select: selectAccessRequest.select,
+			update: updateAccessRequest.update
+		});
+		const createForAccessRequest = vi.fn();
+		createServiceMock.mockReturnValue({ createForAccessRequest });
+		checkSetupRateLimitMock.mockResolvedValueOnce({
+			limited: true,
+			retryAfterMs: 120_000,
+			action: 'approval',
+			checks: []
+		});
+		rateLimitAuditDetailsMock.mockReturnValueOnce({
+			action: 'approval',
+			checks: [{ namespace: 'platform-access-request-setup-approval-request' }],
+			retryAfterMs: 120_000
+		});
+		const ctx = makeContext(adminClient);
+
+		const result = await actions.approve({
+			__ctx: ctx,
+			request: makeRequest({ requestId: 'request-1' }),
+			url: new URL('http://localhost/admin/access-requests')
+		} as unknown as Parameters<(typeof actions)['approve']>[0]);
+
+		expect(result).toMatchObject({
+			status: 429,
+			data: {
+				error: 'Too many approval setup sends for this Access Request. Please wait before trying again.',
+				retryAfterSeconds: 120
+			}
+		});
+		expect(updateAccessRequest.update).not.toHaveBeenCalled();
+		expect(createForAccessRequest).not.toHaveBeenCalled();
+		expect(sendOutboxDeliveryMock).not.toHaveBeenCalled();
+		expect(ctx.audit).toHaveBeenCalledWith(
+			expect.objectContaining({
+				action: 'access_request.account_setup_approval_rate_limited',
+				resourceId: 'request-1',
+				severity: 'warning',
+				details: expect.objectContaining({
+					email: 'Soldier@Example.mil',
+					rateLimit: expect.objectContaining({ retryAfterMs: 120_000 })
+				})
+			})
+		);
+		expect(JSON.stringify((ctx.audit as ReturnType<typeof vi.fn>).mock.calls)).not.toContain('/auth/setup-account');
 	});
 
 	it('keeps an approved request approved when Account Setup email delivery fails', async () => {
@@ -610,6 +698,70 @@ describe('admin access request account setup delivery', () => {
 		expect((ctx.audit as ReturnType<typeof vi.fn>).mock.calls.map(([event]) => event.action)).toEqual([
 			'access_request.account_setup_link_resent'
 		]);
+		expect(checkSetupRateLimitMock).toHaveBeenCalledWith({
+			action: 'resend',
+			adminUserId: 'admin-1',
+			accessRequestId: 'request-1'
+		});
+		const auditPayload = JSON.stringify((ctx.audit as ReturnType<typeof vi.fn>).mock.calls);
+		expect(auditPayload).toContain('"rateLimit"');
+		expect(auditPayload).not.toContain('fresh-token');
+		expect(auditPayload).not.toContain('/auth/setup-account');
+	});
+
+	it('rate-limits setup resend before replacing links or sending setup email', async () => {
+		const accessRequest = {
+			id: 'request-1',
+			email: 'soldier@example.mil',
+			status: 'approved',
+			setup_completed_at: null
+		};
+		const selectAccessRequest = makeSelectAccessRequest(accessRequest);
+		const adminClient = makeAdminClient({
+			select: selectAccessRequest.select
+		});
+		const createForAccessRequest = vi.fn();
+		createServiceMock.mockReturnValue({ createForAccessRequest });
+		checkSetupRateLimitMock.mockResolvedValueOnce({
+			limited: true,
+			retryAfterMs: 90_000,
+			action: 'resend',
+			checks: []
+		});
+		rateLimitAuditDetailsMock.mockReturnValueOnce({
+			action: 'resend',
+			checks: [{ namespace: 'platform-access-request-setup-resend-request' }],
+			retryAfterMs: 90_000
+		});
+		const ctx = makeContext(adminClient);
+
+		const result = await actions.resend({
+			__ctx: ctx,
+			request: makeRequest({ requestId: 'request-1' }),
+			url: new URL('http://localhost/admin/access-requests')
+		} as unknown as Parameters<(typeof actions)['resend']>[0]);
+
+		expect(result).toMatchObject({
+			status: 429,
+			data: {
+				error: 'Too many setup email resends for this Access Request. Please wait before trying again.',
+				retryAfterSeconds: 90
+			}
+		});
+		expect(createForAccessRequest).not.toHaveBeenCalled();
+		expect(sendOutboxDeliveryMock).not.toHaveBeenCalled();
+		expect(ctx.audit).toHaveBeenCalledWith(
+			expect.objectContaining({
+				action: 'access_request.account_setup_resend_rate_limited',
+				resourceId: 'request-1',
+				severity: 'warning',
+				details: expect.objectContaining({
+					email: 'soldier@example.mil',
+					rateLimit: expect.objectContaining({ retryAfterMs: 90_000 })
+				})
+			})
+		);
+		expect(JSON.stringify((ctx.audit as ReturnType<typeof vi.fn>).mock.calls)).not.toContain('/auth/setup-account');
 	});
 
 	it('records failed resend delivery without requiring another approval', async () => {

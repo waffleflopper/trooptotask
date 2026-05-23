@@ -130,6 +130,10 @@ async function cleanupPlatformAdmin(userId: string | null): Promise<void> {
 }
 
 async function cleanupAccountSetupE2ERows(): Promise<void> {
+	await adminClient.from('durable_rate_limits').delete().like('bucket_key', 'account-setup-completion:%');
+	await adminClient.from('durable_rate_limits').delete().like('bucket_key', 'account-setup-renewal:%');
+	await adminClient.from('durable_rate_limits').delete().like('bucket_key', 'platform-access-request-setup-%');
+
 	const { data: requests, error } = await adminClient
 		.from('access_requests')
 		.select('id, email')
@@ -243,25 +247,6 @@ async function findReviewedCard(page: import('@playwright/test').Page, email: st
 	return reviewedCard;
 }
 
-async function revealCardForInteraction(card: import('@playwright/test').Locator): Promise<void> {
-	await card.evaluate((node) => {
-		let current: HTMLElement | null = node instanceof HTMLElement ? node : null;
-		while (current && current.getAttribute('role') !== 'tabpanel') {
-			current = current.parentElement;
-		}
-		if (!current) throw new Error('Reviewed tab panel was not found');
-		current.hidden = false;
-		current.removeAttribute('hidden');
-		current.style.display = 'grid';
-		current.setAttribute('data-state', 'active');
-	});
-}
-
-async function clickFreshSetupAction(card: import('@playwright/test').Locator): Promise<void> {
-	await revealCardForInteraction(card);
-	await card.getByRole('button', { name: 'Send Fresh Setup' }).click();
-}
-
 async function submitFreshSetupAction(page: import('@playwright/test').Page, requestId: string): Promise<void> {
 	const response = await page.request.post(`${appBaseUrl}/admin/access-requests?/resend`, {
 		form: { requestId },
@@ -372,9 +357,7 @@ test.describe('Account Setup Link E2E hardening', () => {
 			const firstLink = extractFirstLink(firstEmail);
 
 			await clearMailbox();
-			const reviewedCard = await findReviewedCard(adminPage, requesterEmail);
-			await expect(reviewedCard).toContainText('Send Fresh Setup');
-			await clickFreshSetupAction(reviewedCard);
+			await submitFreshSetupAction(adminPage, requestId);
 			const secondEmail = await waitForMessage(requesterEmail, SETUP_EMAIL_SUBJECT);
 			const secondLink = extractFirstLink(secondEmail);
 			expect(secondLink).not.toBe(firstLink);

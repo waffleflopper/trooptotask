@@ -65,7 +65,7 @@ describe('POST /api/access-requests', () => {
 			windowMs: 60 * 60 * 1000,
 			maxRequests: 5
 		});
-		submitAccessRequestMock.mockResolvedValue({ status: 'submitted' });
+		submitAccessRequestMock.mockResolvedValue({ status: 'pending-created' });
 	});
 
 	it('checks durable email and IP limits before submitting the access request', async () => {
@@ -95,6 +95,68 @@ describe('POST /api/access-requests', () => {
 		expect(response.status).toBe(200);
 		await expect(response.json()).resolves.toEqual({ success: true });
 		expect(checkRateLimitMock).toHaveBeenCalled();
+	});
+
+	it('audits setup link revocations when a duplicate approved request gets a fresh setup link', async () => {
+		submitAccessRequestMock.mockResolvedValueOnce({
+			status: 'fresh-setup-sent',
+			accessRequestId: 'request-1',
+			setupLinkId: 'setup-link-2',
+			revokedLinkIds: ['setup-link-1']
+		});
+
+		const response = await POST(makeEvent());
+
+		expect(response.status).toBe(200);
+		await expect(response.json()).resolves.toEqual({ success: true });
+		expect(auditLogMock).toHaveBeenCalledWith(
+			{
+				action: 'account_setup.link_revoked',
+				resourceType: 'account_setup_link',
+				resourceId: 'setup-link-1',
+				details: {
+					accessRequestId: 'request-1',
+					replacementSetupLinkId: 'setup-link-2',
+					stateTransition: 'pending.replaced'
+				}
+			},
+			{
+				userId: null,
+				ip: '203.0.113.10',
+				userAgent: 'Vitest'
+			}
+		);
+	});
+
+	it('audits setup link revocations even when duplicate approved setup delivery fails', async () => {
+		submitAccessRequestMock.mockResolvedValueOnce({
+			status: 'fresh-setup-delivery-failed',
+			accessRequestId: 'request-1',
+			setupLinkId: 'setup-link-2',
+			revokedLinkIds: ['setup-link-1']
+		});
+
+		const response = await POST(makeEvent());
+
+		expect(response.status).toBe(200);
+		await expect(response.json()).resolves.toEqual({ success: true });
+		expect(auditLogMock).toHaveBeenCalledWith(
+			expect.objectContaining({
+				action: 'account_setup.link_revoked',
+				resourceType: 'account_setup_link',
+				resourceId: 'setup-link-1',
+				details: expect.objectContaining({
+					accessRequestId: 'request-1',
+					replacementSetupLinkId: 'setup-link-2',
+					stateTransition: 'pending.replaced'
+				})
+			}),
+			expect.objectContaining({
+				userId: null,
+				ip: '203.0.113.10',
+				userAgent: 'Vitest'
+			})
+		);
 	});
 
 	it('returns generic retry guidance and skips submission when the durable limiter denies', async () => {

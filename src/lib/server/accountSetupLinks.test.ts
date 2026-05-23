@@ -25,12 +25,15 @@ function makeStore(accessRequests: AccountSetupLinkAccessRequest[] = []): Accoun
 			return requests.get(id) ?? null;
 		},
 		async revokeUnusedLinksForAccessRequest(accessRequestId, revokedAt) {
+			const revoked: AccountSetupLinkRecord[] = [];
 			for (const link of links) {
 				if (link.accessRequestId === accessRequestId && !link.claimedAt && !link.usedAt && !link.revokedAt) {
 					link.revokedAt = revokedAt;
 					link.revocationReason = 'replaced';
+					revoked.push(link);
 				}
 			}
+			return revoked;
 		},
 		async insertSetupLink(input) {
 			if (this.failInsertUnique) {
@@ -152,9 +155,13 @@ describe('Account Setup Links', () => {
 			generateToken: () => 'second-token'
 		});
 
-		await replacementService.createForAccessRequest('request-1');
+		const result = await replacementService.createForAccessRequest('request-1');
 
 		expect(store.links).toHaveLength(2);
+		expect(result).toMatchObject({
+			status: 'created',
+			revokedLinks: [expect.objectContaining({ id: store.links[0].id, revocationReason: 'replaced' })]
+		});
 		expect(store.links[0].revokedAt).toEqual(new Date('2026-05-19T12:00:00.000Z'));
 		expect(store.links[0].revocationReason).toBe('replaced');
 		expect(store.links[1].revokedAt).toBeNull();

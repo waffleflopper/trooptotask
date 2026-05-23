@@ -1,178 +1,21 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
 	createAccessRequestSetupDeliveryService,
-	type AccessRequestSetupDeliveryStore,
-	type AccessRequestSetupRequest,
-	type CreatePendingAccessRequestInput
+	type AccessRequestSetupDeliveryStore
 } from './accessRequestSetupDelivery';
-import type { AccountSetupLinkRecord, CreateAccountSetupLinkInput } from './accountSetupLinks';
-import type { AuthEmailOutboxRecord } from './authEmailOutbox';
+import {
+	accountSetupLinkFixture,
+	accessRequestFixture,
+	createAccessRequestSetupDeliveryStore,
+	fixedAuthWorkflowTime
+} from '$lib/test-support/authWorkflowFixtures';
 
-const NOW = new Date('2026-05-18T12:00:00.000Z');
-
-function makeRequest(overrides: Partial<AccessRequestSetupRequest> = {}): AccessRequestSetupRequest {
-	return {
-		id: 'request-1',
-		email: 'test@example.com',
-		status: 'approved',
-		createdAt: new Date('2026-05-01T12:00:00.000Z'),
-		reviewedAt: new Date('2026-05-02T12:00:00.000Z'),
-		setupCompletedAt: null,
-		...overrides
-	};
-}
-
-function makeStore(requests: AccessRequestSetupRequest[] = []) {
-	const setupLinks: AccountSetupLinkRecord[] = [];
-	const outboxRecords: AuthEmailOutboxRecord[] = [];
-	const insertedRequests: CreatePendingAccessRequestInput[] = [];
-	const revokedAccessRequestIds: string[] = [];
-	let linkId = 0;
-
-	const store: AccessRequestSetupDeliveryStore & {
-		insertedRequests: CreatePendingAccessRequestInput[];
-		revokedAccessRequestIds: string[];
-		setupLinks: AccountSetupLinkRecord[];
-		outboxRecords: AuthEmailOutboxRecord[];
-	} = {
-		insertedRequests,
-		revokedAccessRequestIds,
-		setupLinks,
-		outboxRecords,
-
-		async listAccessRequestsByEmail(email) {
-			return requests.filter((request) => request.email.toLowerCase() === email.toLowerCase());
-		},
-
-		async insertPendingAccessRequest(input) {
-			insertedRequests.push(input);
-		},
-
-		async insertSetupEmailDelivery(input) {
-			const record: AuthEmailOutboxRecord = {
-				id: `outbox-${outboxRecords.length + 1}`,
-				accessRequestId: input.accessRequestId,
-				setupLinkId: input.setupLinkId,
-				recipient: input.recipient,
-				purpose: 'account_setup',
-				status: 'pending',
-				attemptCount: 0,
-				lastError: null,
-				createdAt: input.createdAt,
-				updatedAt: input.createdAt,
-				sentAt: null
-			};
-			outboxRecords.push(record);
-			return record;
-		},
-
-		async markSetupEmailDeliverySent(id, sentAt) {
-			const record = outboxRecords.find((item) => item.id === id);
-			if (!record) throw new Error('missing outbox');
-			record.status = 'sent';
-			record.attemptCount = 1;
-			record.lastError = null;
-			record.updatedAt = sentAt;
-			record.sentAt = sentAt;
-			return record;
-		},
-
-		async markSetupEmailDeliveryFailed(id, failedAt, lastError) {
-			const record = outboxRecords.find((item) => item.id === id);
-			if (!record) throw new Error('missing outbox');
-			record.status = 'failed';
-			record.attemptCount = 1;
-			record.lastError = lastError;
-			record.updatedAt = failedAt;
-			record.sentAt = null;
-			return record;
-		},
-
-		async getAccessRequest(id) {
-			const request = requests.find((item) => item.id === id);
-			if (!request) return null;
-			return {
-				id: request.id,
-				email: request.email,
-				status: request.status,
-				setupCompletedAt: request.setupCompletedAt
-			};
-		},
-
-		async revokeUnusedLinksForAccessRequest(accessRequestId) {
-			revokedAccessRequestIds.push(accessRequestId);
-		},
-
-		async insertSetupLink(input: CreateAccountSetupLinkInput) {
-			const record: AccountSetupLinkRecord = {
-				id: `setup-link-${++linkId}`,
-				accessRequestId: input.accessRequestId,
-				tokenHash: input.tokenHash,
-				expiresAt: input.expiresAt,
-				createdAt: input.createdAt,
-				claimedAt: null,
-				failedAt: null,
-				failureReason: null,
-				usedAt: null,
-				revokedAt: null,
-				revocationReason: null
-			};
-			setupLinks.push(record);
-			return record;
-		},
-
-		async findByTokenHash(tokenHash) {
-			return setupLinks.find((link) => link.tokenHash === tokenHash) ?? null;
-		},
-
-		async getSetupLink(id) {
-			return setupLinks.find((link) => link.id === id) ?? null;
-		},
-
-		async claimPendingLink(id, claimedAt) {
-			const link = setupLinks.find((item) => item.id === id);
-			if (!link || link.claimedAt || link.failedAt || link.usedAt || link.revokedAt || link.expiresAt <= claimedAt) {
-				return null;
-			}
-			link.claimedAt = claimedAt;
-			return link;
-		},
-
-		async markCompleted(id, completedAt) {
-			const link = setupLinks.find((item) => item.id === id);
-			if (!link || !link.claimedAt || link.failedAt || link.usedAt || link.revokedAt) return null;
-			link.usedAt = completedAt;
-			return link;
-		},
-
-		async markFailed(id, failedAt, failureReason) {
-			const link = setupLinks.find((item) => item.id === id);
-			if (!link || !link.claimedAt || link.failedAt || link.usedAt || link.revokedAt) return null;
-			link.failedAt = failedAt;
-			link.failureReason = failureReason;
-			return link;
-		},
-
-		async listCleanupEligible() {
-			return [];
-		},
-
-		async revokeExpiredUnusedLinks() {
-			return [];
-		},
-
-		async countActiveLinks() {
-			return 0;
-		}
-	};
-
-	return store;
-}
+const { nowFn } = fixedAuthWorkflowTime(new Date('2026-05-18T12:00:00.000Z'));
 
 function makeService(store: AccessRequestSetupDeliveryStore) {
 	const sendSetupEmail = vi.fn().mockResolvedValue(undefined);
 	const service = createAccessRequestSetupDeliveryService(store, sendSetupEmail, {
-		now: () => NOW
+		now: nowFn
 	});
 	return { service, sendSetupEmail };
 }
@@ -198,7 +41,7 @@ describe('access request setup delivery', () => {
 	});
 
 	it('creates a pending Access Request for a new email', async () => {
-		const store = makeStore();
+		const store = createAccessRequestSetupDeliveryStore();
 		const { service, sendSetupEmail } = makeService(store);
 
 		const result = await service.submitAccessRequest({
@@ -226,7 +69,7 @@ describe('access request setup delivery', () => {
 	});
 
 	it('acknowledges duplicate pending requests without creating another request', async () => {
-		const store = makeStore([makeRequest({ status: 'pending' })]);
+		const store = createAccessRequestSetupDeliveryStore([accessRequestFixture({ status: 'pending' })]);
 		const { service, sendSetupEmail } = makeService(store);
 
 		const result = await service.submitAccessRequest(makeSubmission());
@@ -238,7 +81,7 @@ describe('access request setup delivery', () => {
 
 	it('sends a fresh Account Setup Link for an approved incomplete duplicate', async () => {
 		vi.stubEnv('APP_PUBLIC_ORIGIN_ALLOWLIST', 'https://trooptotask.test');
-		const store = makeStore([makeRequest()]);
+		const store = createAccessRequestSetupDeliveryStore([accessRequestFixture()]);
 		const { service, sendSetupEmail } = makeService(store);
 
 		const result = await service.submitAccessRequest({
@@ -251,7 +94,11 @@ describe('access request setup delivery', () => {
 			origin: 'https://trooptotask.test'
 		});
 
-		expect(result).toEqual({ status: 'fresh-setup-sent', accessRequestId: 'request-1' });
+		expect(result).toMatchObject({
+			status: 'fresh-setup-sent',
+			accessRequestId: 'request-1',
+			setupLinkId: 'setup-link-1'
+		});
 		expect(store.insertedRequests).toEqual([]);
 		expect(store.revokedAccessRequestIds).toEqual(['request-1']);
 		expect(sendSetupEmail).toHaveBeenCalledWith(
@@ -276,7 +123,7 @@ describe('access request setup delivery', () => {
 
 	it('uses the configured public app origin for renewed setup URLs instead of the inbound host', async () => {
 		vi.stubEnv('APP_PUBLIC_ORIGIN', 'https://trooptotask.org');
-		const store = makeStore([makeRequest()]);
+		const store = createAccessRequestSetupDeliveryStore([accessRequestFixture()]);
 		const { service, sendSetupEmail } = makeService(store);
 
 		const result = await service.requestFreshSetupLink({
@@ -284,7 +131,11 @@ describe('access request setup delivery', () => {
 			origin: 'https://evil.example'
 		});
 
-		expect(result).toEqual({ status: 'fresh-setup-sent', accessRequestId: 'request-1' });
+		expect(result).toMatchObject({
+			status: 'fresh-setup-sent',
+			accessRequestId: 'request-1',
+			setupLinkId: 'setup-link-1'
+		});
 		expect(sendSetupEmail).toHaveBeenCalledWith(
 			expect.objectContaining({
 				setupUrl: expect.stringMatching(/^https:\/\/trooptotask\.org\/auth\/setup-account\?token=/)
@@ -294,14 +145,14 @@ describe('access request setup delivery', () => {
 
 	it('does not create a request or setup link for completed, rejected, or stale duplicates', async () => {
 		for (const request of [
-			makeRequest({ setupCompletedAt: new Date('2026-05-03T12:00:00.000Z') }),
-			makeRequest({ status: 'rejected' }),
-			makeRequest({
+			accessRequestFixture({ setupCompletedAt: new Date('2026-05-03T12:00:00.000Z') }),
+			accessRequestFixture({ status: 'rejected' }),
+			accessRequestFixture({
 				createdAt: new Date('2026-01-01T12:00:00.000Z'),
 				reviewedAt: new Date('2026-01-02T12:00:00.000Z')
 			})
 		]) {
-			const store = makeStore([request]);
+			const store = createAccessRequestSetupDeliveryStore([request]);
 			const { service, sendSetupEmail } = makeService(store);
 
 			const result = await service.submitAccessRequest({
@@ -323,7 +174,7 @@ describe('access request setup delivery', () => {
 
 	it('renews only approved incomplete requests inside the 90-day window', async () => {
 		vi.stubEnv('APP_PUBLIC_ORIGIN_ALLOWLIST', 'https://trooptotask.test');
-		const store = makeStore([makeRequest()]);
+		const store = createAccessRequestSetupDeliveryStore([accessRequestFixture()]);
 		const { service, sendSetupEmail } = makeService(store);
 
 		const result = await service.requestFreshSetupLink({
@@ -331,7 +182,11 @@ describe('access request setup delivery', () => {
 			origin: 'https://trooptotask.test'
 		});
 
-		expect(result).toEqual({ status: 'fresh-setup-sent', accessRequestId: 'request-1' });
+		expect(result).toMatchObject({
+			status: 'fresh-setup-sent',
+			accessRequestId: 'request-1',
+			setupLinkId: 'setup-link-1'
+		});
 		expect(store.revokedAccessRequestIds).toEqual(['request-1']);
 		expect(sendSetupEmail).toHaveBeenCalledOnce();
 	});
@@ -339,8 +194,8 @@ describe('access request setup delivery', () => {
 	it('allows renewal at exactly 90 days and denies it after the window closes', async () => {
 		vi.stubEnv('APP_PUBLIC_ORIGIN_ALLOWLIST', 'https://trooptotask.test');
 
-		const boundaryStore = makeStore([
-			makeRequest({
+		const boundaryStore = createAccessRequestSetupDeliveryStore([
+			accessRequestFixture({
 				createdAt: new Date('2026-01-01T00:00:00.000Z'),
 				reviewedAt: new Date('2026-01-01T00:00:00.000Z')
 			})
@@ -356,10 +211,10 @@ describe('access request setup delivery', () => {
 				email: 'test@example.com',
 				origin: 'https://trooptotask.test'
 			})
-		).toEqual({ status: 'fresh-setup-sent', accessRequestId: 'request-1' });
+		).toMatchObject({ status: 'fresh-setup-sent', accessRequestId: 'request-1', setupLinkId: 'setup-link-1' });
 
-		const expiredStore = makeStore([
-			makeRequest({
+		const expiredStore = createAccessRequestSetupDeliveryStore([
+			accessRequestFixture({
 				createdAt: new Date('2026-01-01T00:00:00.000Z'),
 				reviewedAt: new Date('2026-01-01T00:00:00.000Z')
 			})
@@ -380,7 +235,16 @@ describe('access request setup delivery', () => {
 
 	it('records failed public setup delivery without storing the raw token or corrupting the setup link', async () => {
 		vi.stubEnv('APP_PUBLIC_ORIGIN_ALLOWLIST', 'https://trooptotask.test');
-		const store = makeStore([makeRequest()]);
+		const store = createAccessRequestSetupDeliveryStore([accessRequestFixture()]);
+		store.setupLinks.push(
+			accountSetupLinkFixture({
+				id: 'setup-link-previous',
+				accessRequestId: 'request-1',
+				tokenHash: 'previous-token-hash',
+				createdAt: new Date('2026-05-17T12:00:00.000Z'),
+				expiresAt: new Date('2026-05-31T12:00:00.000Z')
+			})
+		);
 		const { service, sendSetupEmail } = makeService(store);
 		sendSetupEmail.mockRejectedValueOnce(new Error('mail provider unavailable'));
 
@@ -389,9 +253,17 @@ describe('access request setup delivery', () => {
 			origin: 'https://trooptotask.test'
 		});
 
-		expect(result).toEqual({ status: 'no-public-action' });
-		expect(store.setupLinks).toHaveLength(1);
-		expect(store.setupLinks[0].revokedAt).toBeNull();
+		expect(result).toEqual({
+			status: 'fresh-setup-delivery-failed',
+			accessRequestId: 'request-1',
+			setupLinkId: 'setup-link-1',
+			revokedLinkIds: ['setup-link-previous']
+		});
+		expect(store.setupLinks).toHaveLength(2);
+		expect(store.setupLinks.find((link) => link.id === 'setup-link-previous')?.revokedAt).toEqual(
+			new Date('2026-05-18T12:00:00.000Z')
+		);
+		expect(store.setupLinks.find((link) => link.id === 'setup-link-1')?.revokedAt).toBeNull();
 		expect(store.outboxRecords).toEqual([
 			expect.objectContaining({
 				accessRequestId: 'request-1',
@@ -405,7 +277,7 @@ describe('access request setup delivery', () => {
 	});
 
 	it('treats concurrent completion during renewal as a quiet no-op', async () => {
-		const store = makeStore([makeRequest()]);
+		const store = createAccessRequestSetupDeliveryStore([accessRequestFixture()]);
 		store.getAccessRequest = vi.fn().mockResolvedValue({
 			id: 'request-1',
 			email: 'test@example.com',
@@ -427,17 +299,17 @@ describe('access request setup delivery', () => {
 	it('keeps missing, completed, rejected, pending, and no-longer-renewable renewal states quiet', async () => {
 		for (const requests of [
 			[],
-			[makeRequest({ setupCompletedAt: new Date('2026-05-03T12:00:00.000Z') })],
-			[makeRequest({ status: 'rejected' })],
-			[makeRequest({ status: 'pending' })],
+			[accessRequestFixture({ setupCompletedAt: new Date('2026-05-03T12:00:00.000Z') })],
+			[accessRequestFixture({ status: 'rejected' })],
+			[accessRequestFixture({ status: 'pending' })],
 			[
-				makeRequest({
+				accessRequestFixture({
 					createdAt: new Date('2026-01-01T12:00:00.000Z'),
 					reviewedAt: new Date('2026-01-02T12:00:00.000Z')
 				})
 			]
 		]) {
-			const store = makeStore(requests);
+			const store = createAccessRequestSetupDeliveryStore(requests);
 			const { service, sendSetupEmail } = makeService(store);
 
 			const result = await service.requestFreshSetupLink({

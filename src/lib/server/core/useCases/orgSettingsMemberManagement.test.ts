@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { TargetMemberAccessCommand } from '$lib/access/memberAccessCommands';
 import { createTestContext } from '$lib/server/adapters/inMemory';
-import type {
-	OrganizationInvitationRateLimitAction,
-	OrganizationInvitationRateLimiter
-} from '$lib/server/organizationInvitationRateLimit';
+import {
+	createFakeOrganizationInvitationDeliveryPort as createInvitationDeliveryPort,
+	createFakeOrganizationInvitationRateLimiter as createInvitationRateLimiter,
+	memberAccessFixture as memberAccess
+} from '$lib/test-support/authWorkflowFixtures';
 import type { OrganizationMemberPermissions } from '$lib/types';
 import {
 	inviteOrganizationMember,
@@ -34,15 +34,6 @@ function buildPermissions(overrides: Partial<OrganizationMemberPermissions> = {}
 		canViewRatingScheme: true,
 		canEditRatingScheme: true,
 		canManageMembers: false,
-		...overrides
-	};
-}
-
-function memberAccess(overrides: Partial<TargetMemberAccessCommand> = {}): TargetMemberAccessCommand {
-	return {
-		memberPreset: 'editor',
-		capabilityOverrides: {},
-		scopeSet: { kind: 'organization' },
 		...overrides
 	};
 }
@@ -169,58 +160,6 @@ function createOrganizationSettingsMemberManagementPort(
 		},
 		async getOrganizationName() {
 			return options.orgName ?? null;
-		}
-	};
-}
-
-function createInvitationDeliveryPort(status: 'sent' | 'failed' = 'sent') {
-	const deliveries: unknown[] = [];
-	return {
-		deliveries,
-		async sendInvitationEmail(input: unknown) {
-			deliveries.push(input);
-			return status === 'sent'
-				? { status: 'sent' as const, outbox: { id: 'outbox-1' } }
-				: { status: 'failed' as const, outbox: { id: 'outbox-1' }, error: 'mail provider unavailable' };
-		}
-	};
-}
-
-function createInvitationRateLimiter(
-	decision: { limited: boolean; retryAfterMs?: number; action?: OrganizationInvitationRateLimitAction } = {
-		limited: false
-	}
-): OrganizationInvitationRateLimiter & { checks: unknown[] } {
-	const checks: unknown[] = [];
-	return {
-		checks,
-		async check(input) {
-			checks.push(input);
-			const action = decision.action ?? input.action;
-			const durableDecision = decision.limited
-				? {
-						limited: true as const,
-						namespace: `organization-invitation-${action}-recipient`,
-						dimensions: ['recipient'],
-						limitedDimensions: ['recipient'],
-						windowMs: 900_000,
-						maxRequests: 3,
-						retryAfterMs: decision.retryAfterMs ?? 90_000
-					}
-				: {
-						limited: false as const,
-						namespace: `organization-invitation-${action}-recipient`,
-						dimensions: ['recipient'],
-						limitedDimensions: [],
-						windowMs: 900_000,
-						maxRequests: 3
-					};
-			return {
-				limited: decision.limited,
-				retryAfterMs: decision.retryAfterMs,
-				action,
-				checks: [durableDecision]
-			};
 		}
 	};
 }

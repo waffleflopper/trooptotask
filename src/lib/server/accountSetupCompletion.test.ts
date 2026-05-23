@@ -30,12 +30,15 @@ function makeStore(accessRequest: AccountSetupLinkAccessRequest): AccountSetupCo
 			return id === accessRequest.id ? accessRequest : null;
 		},
 		async revokeUnusedLinksForAccessRequest(accessRequestId, revokedAt) {
+			const revoked: AccountSetupLinkRecord[] = [];
 			for (const link of links) {
 				if (link.accessRequestId === accessRequestId && !link.usedAt && !link.revokedAt) {
 					link.revokedAt = revokedAt;
 					link.revocationReason = 'replaced';
+					revoked.push(link);
 				}
 			}
+			return revoked;
 		},
 		async insertSetupLink(input) {
 			const link: AccountSetupLinkRecord = {

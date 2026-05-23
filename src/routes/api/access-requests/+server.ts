@@ -39,7 +39,7 @@ export const POST: RequestHandler = async ({ getClientAddress, request }) => {
 	});
 	if (rateLimit.limited) {
 		const retryAfterSeconds = Math.ceil(rateLimit.retryAfterMs / 1000);
-		auditLog(
+		await auditLog(
 			{
 				action: 'security.rate_limit_exceeded',
 				resourceType: 'access_request',
@@ -82,6 +82,29 @@ export const POST: RequestHandler = async ({ getClientAddress, request }) => {
 
 		if (result.status === 'already-pending') {
 			return json({ success: true });
+		}
+		if (result.status === 'fresh-setup-sent' || result.status === 'fresh-setup-delivery-failed') {
+			await Promise.all(
+				result.revokedLinkIds.map((revokedLinkId) =>
+					auditLog(
+						{
+							action: 'account_setup.link_revoked',
+							resourceType: 'account_setup_link',
+							resourceId: revokedLinkId,
+							details: {
+								accessRequestId: result.accessRequestId,
+								replacementSetupLinkId: result.setupLinkId,
+								stateTransition: 'pending.replaced'
+							}
+						},
+						{
+							userId: null,
+							ip: clientIp,
+							userAgent: request.headers.get('user-agent') ?? ''
+						}
+					)
+				)
+			);
 		}
 	} catch (submitError) {
 		if (isHttpError(submitError)) {

@@ -1,65 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
-import {
-	sendAccountSetupOutboxDelivery,
-	type AuthEmailOutboxRecord,
-	type AuthEmailOutboxStore,
-	type CreateSetupEmailOutboxInput
-} from './authEmailOutbox';
-
-const NOW = new Date('2026-05-22T12:00:00.000Z');
-
-function makeRecord(input: CreateSetupEmailOutboxInput): AuthEmailOutboxRecord {
-	return {
-		id: 'outbox-1',
-		accessRequestId: input.accessRequestId,
-		setupLinkId: input.setupLinkId,
-		recipient: input.recipient,
-		purpose: 'account_setup',
-		status: 'pending',
-		attemptCount: 0,
-		lastError: null,
-		createdAt: input.createdAt,
-		updatedAt: input.createdAt,
-		sentAt: null
-	};
-}
-
-function makeStore() {
-	const records: AuthEmailOutboxRecord[] = [];
-	const store: AuthEmailOutboxStore & { records: AuthEmailOutboxRecord[] } = {
-		records,
-		async insertSetupEmailDelivery(input) {
-			const record = makeRecord(input);
-			records.push(record);
-			return record;
-		},
-		async markSetupEmailDeliverySent(id, sentAt) {
-			const record = records.find((item) => item.id === id);
-			if (!record) throw new Error('outbox missing');
-			record.status = 'sent';
-			record.attemptCount = 1;
-			record.lastError = null;
-			record.updatedAt = sentAt;
-			record.sentAt = sentAt;
-			return record;
-		},
-		async markSetupEmailDeliveryFailed(id, failedAt, lastError) {
-			const record = records.find((item) => item.id === id);
-			if (!record) throw new Error('outbox missing');
-			record.status = 'failed';
-			record.attemptCount = 1;
-			record.lastError = lastError;
-			record.updatedAt = failedAt;
-			record.sentAt = null;
-			return record;
-		}
-	};
-	return store;
-}
+import { sendAccountSetupOutboxDelivery } from './authEmailOutbox';
+import { AUTH_WORKFLOW_NOW, createAuthEmailOutboxStore } from '$lib/test-support/authWorkflowFixtures';
 
 describe('auth email outbox delivery', () => {
 	it('records a sent Account Setup delivery without persisting raw tokens or setup URLs', async () => {
-		const store = makeStore();
+		const store = createAuthEmailOutboxStore();
 		const sendSetupEmail = vi.fn().mockResolvedValue(undefined);
 
 		const result = await sendAccountSetupOutboxDelivery(store, sendSetupEmail, {
@@ -68,7 +13,7 @@ describe('auth email outbox delivery', () => {
 			email: 'Soldier@Example.mil',
 			setupUrl: 'https://app.example/auth/setup-account?token=raw-token',
 			expiresAt: new Date('2026-06-05T12:00:00.000Z'),
-			now: NOW
+			now: AUTH_WORKFLOW_NOW
 		});
 
 		expect(result.status).toBe('sent');
@@ -86,7 +31,7 @@ describe('auth email outbox delivery', () => {
 				status: 'sent',
 				attemptCount: 1,
 				lastError: null,
-				sentAt: NOW
+				sentAt: AUTH_WORKFLOW_NOW
 			})
 		]);
 		expect(JSON.stringify(store.records)).not.toContain('raw-token');
@@ -94,7 +39,7 @@ describe('auth email outbox delivery', () => {
 	});
 
 	it('records a failed Account Setup delivery while preserving the setup link state', async () => {
-		const store = makeStore();
+		const store = createAuthEmailOutboxStore();
 		const sendSetupEmail = vi.fn().mockRejectedValue(new Error('mail provider unavailable'));
 
 		const result = await sendAccountSetupOutboxDelivery(store, sendSetupEmail, {
@@ -103,7 +48,7 @@ describe('auth email outbox delivery', () => {
 			email: 'soldier@example.mil',
 			setupUrl: 'https://app.example/auth/setup-account?token=raw-token',
 			expiresAt: new Date('2026-06-05T12:00:00.000Z'),
-			now: NOW
+			now: AUTH_WORKFLOW_NOW
 		});
 
 		expect(result).toEqual({
@@ -122,7 +67,7 @@ describe('auth email outbox delivery', () => {
 	});
 
 	it('redacts setup tokens and full setup URLs from stored delivery errors', async () => {
-		const store = makeStore();
+		const store = createAuthEmailOutboxStore();
 		const sendSetupEmail = vi
 			.fn()
 			.mockRejectedValue(
@@ -135,7 +80,7 @@ describe('auth email outbox delivery', () => {
 			email: 'soldier@example.mil',
 			setupUrl: 'https://app.example/auth/setup-account?token=raw-token',
 			expiresAt: new Date('2026-06-05T12:00:00.000Z'),
-			now: NOW
+			now: AUTH_WORKFLOW_NOW
 		});
 
 		expect(result).toEqual({

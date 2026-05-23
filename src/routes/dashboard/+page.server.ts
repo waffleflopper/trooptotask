@@ -1,5 +1,6 @@
 import { redirect, fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
+import { createSupabaseAuditAdapter } from '$lib/server/adapters/supabaseAudit';
 import { createSupabaseNotificationAdapter } from '$lib/server/adapters/supabaseNotification';
 import { createSupabaseDashboardOrgAccessPort } from '$lib/server/adapters/supabaseDashboardOrgAccess';
 import {
@@ -29,7 +30,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 };
 
 export const actions: Actions = {
-	acceptInvitation: async ({ request, locals }) => {
+	acceptInvitation: async ({ request, locals, getClientAddress }) => {
 		const user = locals.user;
 		if (!user) throw redirect(303, '/auth/login');
 
@@ -44,7 +45,14 @@ export const actions: Actions = {
 			return await acceptDashboardInvitation(
 				{
 					dashboard: createSupabaseDashboardOrgAccessPort(locals),
-					notifications: createSupabaseNotificationAdapter()
+					notifications: createSupabaseNotificationAdapter(),
+					audit: (organizationId) =>
+						createSupabaseAuditAdapter(organizationId, {
+							userId: user.id,
+							userEmail: user.email ?? null,
+							ip: getClientAddress(),
+							userAgent: request.headers.get('user-agent') ?? ''
+						})
 				},
 				{
 					invitationId,
@@ -57,7 +65,7 @@ export const actions: Actions = {
 		}
 	},
 
-	declineInvitation: async ({ request, locals }) => {
+	declineInvitation: async ({ request, locals, getClientAddress }) => {
 		const user = locals.user;
 		if (!user) throw redirect(303, '/auth/login');
 
@@ -72,7 +80,14 @@ export const actions: Actions = {
 			return await declineDashboardInvitation(
 				{
 					dashboard: createSupabaseDashboardOrgAccessPort(locals),
-					notifications: createSupabaseNotificationAdapter()
+					notifications: createSupabaseNotificationAdapter(),
+					audit: (organizationId) =>
+						createSupabaseAuditAdapter(organizationId, {
+							userId: user.id,
+							userEmail: user.email ?? null,
+							ip: getClientAddress(),
+							userAgent: request.headers.get('user-agent') ?? ''
+						})
 				},
 				{
 					invitationId,

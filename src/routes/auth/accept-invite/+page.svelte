@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
+	import { goto, replaceState } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { page } from '$app/stores';
 	import AuthField from '$lib/components/auth/AuthField.svelte';
 	import AuthNotice from '$lib/components/auth/AuthNotice.svelte';
@@ -79,7 +80,7 @@
 				const result = await readJsonResult(response);
 				if (result.ok) {
 					sessionReady = true;
-					window.history.replaceState(null, '', window.location.pathname);
+					replaceState(resolve('/auth/accept-invite'), $page.state);
 					return;
 				}
 				error = result.error ?? 'We could not verify your invite session. Please try the invite link again.';
@@ -130,7 +131,7 @@
 			}
 
 			success = true;
-			setTimeout(() => goto('/dashboard'), 2000);
+			setTimeout(() => goto(resolve('/dashboard')), 2000);
 		} finally {
 			loading = false;
 		}
@@ -178,7 +179,7 @@
 		{:else if tokenError}
 			<AuthNotice tone="error" title="Invite unavailable" centered>
 				<p>This invite link is invalid or has expired.</p>
-				<p><a href="/auth/renew-invite">Need a fresh invite? Renew it here.</a></p>
+				<p><a href={resolve('/auth/renew-invite')}>Need a fresh invite? Renew it here.</a></p>
 			</AuthNotice>
 		{:else if !sessionReady}
 			<div class="flex flex-col items-center gap-3 py-8 text-center text-muted-foreground">
@@ -253,7 +254,7 @@
 
 		<div class="flex flex-col gap-2 text-sm leading-relaxed text-muted-foreground">
 			<p>
-				Leave this invite flow and <a href="/auth/logout">sign out</a>.
+				Leave this invite flow and <a href={resolve('/auth/logout')}>sign out</a>.
 			</p>
 		</div>
 	</div>

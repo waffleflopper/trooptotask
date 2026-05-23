@@ -145,6 +145,13 @@ export async function acceptDashboardInvitation(
 		fail(400, 'Complete account setup before accepting this organization invitation');
 	}
 	if (accepted.status === 'expired') {
+		if (accepted.organizationId) {
+			await notifyAdminsOfExpiredInvitation(ports, {
+				organizationId: accepted.organizationId,
+				userId: input.userId,
+				email: normalizedEmail
+			});
+		}
 		fail(400, 'Invitation has expired');
 	}
 	if (accepted.status === 'already_member') {
@@ -181,6 +188,13 @@ export async function declineDashboardInvitation(
 		fail(404, 'Invitation not found');
 	}
 	if (declined.status === 'expired') {
+		if (declined.organizationId) {
+			await notifyAdminsOfExpiredInvitation(ports, {
+				organizationId: declined.organizationId,
+				userId: input.userId,
+				email: normalizedEmail
+			});
+		}
 		fail(400, 'Invitation has expired');
 	}
 	if (declined.status === 'already_accepted') {
@@ -244,6 +258,27 @@ async function notifyAdminsOfDeclinedInvitation(
 	} catch (error) {
 		console.error('[dashboard-org-access]', {
 			status: 'declined-notification-failed',
+			organizationId: input.organizationId,
+			userId: input.userId,
+			error
+		});
+	}
+}
+
+async function notifyAdminsOfExpiredInvitation(
+	ports: AcceptDashboardInvitationPorts | DeclineDashboardInvitationPorts,
+	input: { organizationId: string; userId: string; email: string }
+): Promise<void> {
+	try {
+		await ports.notifications.notifyAdmins(input.organizationId, input.userId, {
+			type: 'member_invite_expired',
+			title: 'Invitation Expired',
+			message: `"${input.email}" tried to use an expired organization invitation.`,
+			link: `/org/${input.organizationId}/settings`
+		});
+	} catch (error) {
+		console.error('[dashboard-org-access]', {
+			status: 'expired-notification-failed',
 			organizationId: input.organizationId,
 			userId: input.userId,
 			error

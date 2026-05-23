@@ -933,6 +933,7 @@ describe('inviteOrganizationMember', () => {
 
 		expect(result).toEqual({
 			success: true,
+			inviteSuccess: true,
 			inviteDeliveryStatus: 'sent',
 			inviteMessage: 'Invitation email resent.'
 		});
@@ -1010,6 +1011,7 @@ describe('inviteOrganizationMember', () => {
 
 		expect(result).toEqual({
 			success: true,
+			inviteSuccess: true,
 			inviteDeliveryStatus: 'failed',
 			inviteMessage: 'Invitation email delivery failed. The pending invitation is still intact and can be resent.'
 		});
@@ -1046,6 +1048,7 @@ describe('inviteOrganizationMember', () => {
 
 		expect(result).toEqual({
 			success: true,
+			inviteSuccess: true,
 			inviteDeliveryStatus: 'not_configured',
 			inviteMessage: 'Invitation email delivery is not configured.'
 		});
@@ -1066,7 +1069,7 @@ describe('revokeOrganizationInvitation', () => {
 			{ inviteId: '11111111-1111-4111-8111-111111111111' }
 		);
 
-		expect(result).toEqual({ success: true });
+		expect(result).toEqual({ success: true, inviteSuccess: true, inviteMessage: 'Invitation revoked.' });
 		expect(port.revokedInvitations).toEqual([{ orgId: 'org-1', inviteId: '11111111-1111-4111-8111-111111111111' }]);
 		expect(ctx.auditPort.events).toEqual([
 			{
@@ -1122,6 +1125,19 @@ describe('revokeOrganizationInvitation', () => {
 			status: 400,
 			message: 'Invitation has expired'
 		});
+		expect(ctx.notificationPort.notifications).toEqual([
+			{
+				target: 'admins',
+				orgId: ctx.auth.orgId,
+				excludeUserId: ctx.auth.userId,
+				notification: {
+					type: 'member_invite_expired',
+					title: 'Invitation Expired',
+					message: '"invitee@example.com" can no longer use the expired organization invitation.',
+					link: `/org/${ctx.auth.orgId}/settings`
+				}
+			}
+		]);
 	});
 
 	it.each([
@@ -1156,7 +1172,7 @@ describe('revokeOrganizationInvitation', () => {
 			{ inviteId: '11111111-1111-4111-8111-111111111111' }
 		);
 
-		expect(result).toEqual({ success: true });
+		expect(result).toEqual({ success: true, inviteSuccess: true, inviteMessage: 'Invitation revoked.' });
 		expect(consoleErrorSpy).toHaveBeenCalledWith(
 			'[org-settings-member-management]',
 			expect.objectContaining({

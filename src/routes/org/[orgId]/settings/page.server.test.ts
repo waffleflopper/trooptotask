@@ -227,8 +227,16 @@ describe('org settings page server actions', () => {
 		clearOrganizationUrlSlugMock.mockResolvedValue({ slugSuccess: true, orgUrlSlug: null });
 		deleteOrganizationUseCaseMock.mockResolvedValue({ success: true });
 		inviteOrganizationMemberMock.mockResolvedValue({ inviteSuccess: true });
-		resendOrganizationInvitationMock.mockResolvedValue({ success: true });
-		revokeOrganizationInvitationMock.mockResolvedValue({ success: true });
+		resendOrganizationInvitationMock.mockResolvedValue({
+			success: true,
+			inviteSuccess: true,
+			inviteMessage: 'Invitation email resent.'
+		});
+		revokeOrganizationInvitationMock.mockResolvedValue({
+			success: true,
+			inviteSuccess: true,
+			inviteMessage: 'Invitation revoked.'
+		});
 		removeOrganizationMemberMock.mockResolvedValue({ success: true });
 		renameOrganizationMock.mockResolvedValue({ nameSuccess: true });
 		transferOrganizationOwnershipMock.mockResolvedValue({ transferSuccess: true });
@@ -944,7 +952,11 @@ describe('org settings page server actions', () => {
 			getClientAddress: () => '127.0.0.1'
 		} as never);
 
-		expect(result).toEqual({ success: true });
+		expect(result).toEqual({
+			success: true,
+			inviteSuccess: true,
+			inviteMessage: 'Invitation email resent.'
+		});
 		expect(resendOrganizationInvitationMock).toHaveBeenCalledWith(
 			{
 				auth: { kind: 'auth', orgId: 'org-1' },

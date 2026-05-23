@@ -304,7 +304,12 @@ async function bridgeInvitationToAccessRequest(
 export async function resendOrganizationInvitation(
 	ports: OrganizationSettingsMemberManagementPorts,
 	input: ResendOrganizationInvitationInput
-): Promise<{ success: true; inviteDeliveryStatus: 'sent' | 'failed' | 'not_configured'; inviteMessage: string }> {
+): Promise<{
+	success: true;
+	inviteSuccess: true;
+	inviteDeliveryStatus: 'sent' | 'failed' | 'not_configured';
+	inviteMessage: string;
+}> {
 	await requireGovernancePolicy(ports, POLICY_ACTION_CATALOG.organization.inviteMember);
 
 	if (!validateUUID(input.inviteId)) {
@@ -326,6 +331,7 @@ export async function resendOrganizationInvitation(
 
 	return {
 		success: true,
+		inviteSuccess: true,
 		inviteDeliveryStatus: deliveryStatus,
 		inviteMessage:
 			deliveryStatus === 'failed'
@@ -409,7 +415,7 @@ async function deliverInvitationEmail(
 export async function revokeOrganizationInvitation(
 	ports: OrganizationSettingsMemberManagementPorts,
 	input: RevokeOrganizationInvitationInput
-): Promise<{ success: true }> {
+): Promise<{ success: true; inviteSuccess: true; inviteMessage: string }> {
 	await requireGovernancePolicy(ports, POLICY_ACTION_CATALOG.organization.revokeInvitation);
 
 	if (!validateUUID(input.inviteId)) {
@@ -421,6 +427,10 @@ export async function revokeOrganizationInvitation(
 		fail(404, 'Invitation not found');
 	}
 	if (revoked.status === 'expired') {
+		await notifyAdminsOfExpiredInvitation(ports, {
+			actorUserId: requireActorUserId(ports.auth),
+			email: revoked.email
+		});
 		fail(400, 'Invitation has expired');
 	}
 	if (revoked.status === 'already_accepted') {
@@ -444,7 +454,7 @@ export async function revokeOrganizationInvitation(
 		email: revoked.email
 	});
 
-	return { success: true };
+	return { success: true, inviteSuccess: true, inviteMessage: 'Invitation revoked.' };
 }
 
 export async function removeOrganizationMember(
@@ -644,6 +654,27 @@ async function notifyAdminsOfRevokedInvitation(
 	} catch (error) {
 		console.error('[org-settings-member-management]', {
 			status: 'revoked-notification-failed',
+			organizationId: ports.auth.orgId,
+			userId: input.actorUserId,
+			error
+		});
+	}
+}
+
+async function notifyAdminsOfExpiredInvitation(
+	ports: OrganizationSettingsMemberManagementPorts,
+	input: { actorUserId: string; email: string | null }
+): Promise<void> {
+	try {
+		await ports.notifications.notifyAdmins(ports.auth.orgId, input.actorUserId, {
+			type: 'member_invite_expired',
+			title: 'Invitation Expired',
+			message: `"${input.email ?? 'An invitee'}" can no longer use the expired organization invitation.`,
+			link: `/org/${ports.auth.orgId}/settings`
+		});
+	} catch (error) {
+		console.error('[org-settings-member-management]', {
+			status: 'expired-notification-failed',
 			organizationId: ports.auth.orgId,
 			userId: input.actorUserId,
 			error

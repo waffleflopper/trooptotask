@@ -58,6 +58,7 @@ describe('organization invitation lifecycle storage migration', () => {
 			'"normalized_email" = lower(btrim((( select "auth"."jwt"() as "jwt") ->> \'email\'::text)))'
 		);
 		expect(normalized).toContain('drop policy if exists "members can view invitations for their organizations"');
+		expect(normalized).toContain('drop policy if exists "governors can view invitations for their organizations"');
 		expect(normalized).toContain('create policy "governors can view invitations for their organizations"');
 		expect(normalized).toContain('"public"."can_manage_org_members"("organization_id")');
 		expect(normalized).toContain('create policy "users can delete invitations addressed to them"');

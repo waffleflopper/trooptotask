@@ -182,10 +182,11 @@ describe('acceptDashboardInvitation', () => {
 		const port = createDashboardOrgAccessPort({
 			acceptResult: { status: 'expired', organizationId: 'org-1' }
 		});
+		const notifications = createTestNotificationPort();
 
 		await expect(
 			acceptDashboardInvitation(
-				{ dashboard: port, notifications: createTestNotificationPort() },
+				{ dashboard: port, notifications },
 				{ invitationId: 'invite-1', userId: 'user-1', email: 'user@example.com' }
 			)
 		).rejects.toMatchObject({
@@ -194,6 +195,19 @@ describe('acceptDashboardInvitation', () => {
 		});
 
 		expect(port.deletedInvitationIds).toEqual([]);
+		expect(notifications.notifications).toEqual([
+			{
+				target: 'admins',
+				orgId: 'org-1',
+				excludeUserId: 'user-1',
+				notification: {
+					type: 'member_invite_expired',
+					title: 'Invitation Expired',
+					message: '"user@example.com" tried to use an expired organization invitation.',
+					link: '/org/org-1/settings'
+				}
+			}
+		]);
 	});
 
 	it('requires completed account setup before accepting an invitation linked from an Access Request', async () => {
@@ -360,10 +374,11 @@ describe('declineDashboardInvitation', () => {
 
 	it('returns a clear expired state instead of deleting invitation history', async () => {
 		const port = createDashboardOrgAccessPort({ declineResult: { status: 'expired', organizationId: 'org-1' } });
+		const notifications = createTestNotificationPort();
 
 		await expect(
 			declineDashboardInvitation(
-				{ dashboard: port, notifications: createTestNotificationPort() },
+				{ dashboard: port, notifications },
 				{
 					invitationId: 'invite-1',
 					userId: 'user-1',
@@ -375,6 +390,19 @@ describe('declineDashboardInvitation', () => {
 			message: 'Invitation has expired'
 		});
 		expect(port.deletedInvitationIds).toEqual([]);
+		expect(notifications.notifications).toEqual([
+			{
+				target: 'admins',
+				orgId: 'org-1',
+				excludeUserId: 'user-1',
+				notification: {
+					type: 'member_invite_expired',
+					title: 'Invitation Expired',
+					message: '"user@example.com" tried to use an expired organization invitation.',
+					link: '/org/org-1/settings'
+				}
+			}
+		]);
 	});
 
 	it.each([

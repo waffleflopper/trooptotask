@@ -197,22 +197,6 @@
 			]
 		},
 		{
-			"path": "src/lib/server/auto-accept-org-invites.ts",
-			"classification": "compatibility-adapter",
-			"patterns": [
-				"canEdit*",
-				"scopedGroupId",
-				"scoped_group_id",
-				"can_view_*",
-				"can_edit_*"
-			],
-			"ownerIssue": "#757",
-			"reason": "Invite acceptance still transfers legacy permission columns and single-Group scope during compatibility migration.",
-			"driftIds": [
-				"D-01"
-			]
-		},
-		{
 			"path": "src/lib/server/core/orgShell.ts",
 			"classification": "compatibility-adapter",
 			"patterns": [

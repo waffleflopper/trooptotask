@@ -167,6 +167,7 @@ CREATE POLICY "Admins can delete invitations"
 	);
 
 DROP POLICY IF EXISTS "Members can view invitations for their organizations" ON "public"."organization_invitations";
+DROP POLICY IF EXISTS "Governors can view invitations for their organizations" ON "public"."organization_invitations";
 
 CREATE POLICY "Governors can view invitations for their organizations"
 	ON "public"."organization_invitations"

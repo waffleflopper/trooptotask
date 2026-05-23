@@ -1,37 +1,19 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { selectAllSupabaseRows } from './supabasePagination';
-import {
-	deriveMembershipFromInvitation,
-	type OrganizationMembershipDraft
-} from '$lib/server/core/useCases/organizationInvitationMembership';
 import { normalizeInvitationEmail } from '$lib/server/core/useCases/invitationEmail';
 
 interface PendingOrgInvitation {
-	organization_id: string;
-	role: OrganizationMembershipDraft['role'] | null;
-	can_view_calendar: boolean | null;
-	can_edit_calendar: boolean | null;
-	can_view_personnel: boolean | null;
-	can_edit_personnel: boolean | null;
-	can_view_training: boolean | null;
-	can_edit_training: boolean | null;
-	can_view_critical_tasks: boolean | null;
-	can_edit_critical_tasks: boolean | null;
-	can_view_onboarding: boolean | null;
-	can_edit_onboarding: boolean | null;
-	can_view_rating_scheme?: boolean | null;
-	can_edit_rating_scheme?: boolean | null;
-	can_manage_members: boolean | null;
-	scoped_group_id: string | null;
-	member_preset: OrganizationMembershipDraft['memberPreset'];
-	capability_overrides: OrganizationMembershipDraft['capabilityOverrides'];
-	access_scope_kind: OrganizationMembershipDraft['accessScopeKind'];
-	access_scope_group_ids: OrganizationMembershipDraft['accessScopeGroupIds'];
+	id: string;
+}
+
+interface AcceptOrganizationInvitationRpcRow {
+	accept_status: 'accepted' | 'not_found' | 'setup_required' | 'expired' | 'already_member' | 'already_accepted' | null;
+	accepted_organization_id: string | null;
 }
 
 export async function autoAcceptOrgInvites(
 	supabase: SupabaseClient,
-	userId: string,
+	_userId: string,
 	email: string
 ): Promise<{ accepted: number }> {
 	const normalizedEmail = normalizeInvitationEmail(email);
@@ -40,9 +22,7 @@ export async function autoAcceptOrgInvites(
 		(from, to) =>
 			supabase
 				.from('organization_invitations')
-				.select(
-					'organization_id, role, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_view_critical_tasks, can_edit_critical_tasks, can_view_onboarding, can_edit_onboarding, can_view_rating_scheme, can_edit_rating_scheme, can_manage_members, scoped_group_id, member_preset, capability_overrides, access_scope_kind, access_scope_group_ids'
-				)
+				.select('id')
 				.eq('normalized_email', normalizedEmail)
 				.eq('status', 'pending')
 				.range(from, to) as unknown as Promise<{
@@ -51,97 +31,20 @@ export async function autoAcceptOrgInvites(
 			}>
 	);
 
-	if (!invitations || invitations.length === 0) {
+	if (!invitations?.length) {
 		return { accepted: 0 };
 	}
-	const acceptedOrgIds: string[] = [];
 
-	for (const inv of invitations) {
-		const membership = deriveMembershipFromInvitation({
-			invitation: {
-				organizationId: inv.organization_id,
-				role: inv.role,
-				canViewCalendar: inv.can_view_calendar,
-				canEditCalendar: inv.can_edit_calendar,
-				canViewPersonnel: inv.can_view_personnel,
-				canEditPersonnel: inv.can_edit_personnel,
-				canViewTraining: inv.can_view_training,
-				canEditTraining: inv.can_edit_training,
-				canViewCriticalTasks: inv.can_view_critical_tasks,
-				canEditCriticalTasks: inv.can_edit_critical_tasks,
-				canViewOnboarding: inv.can_view_onboarding,
-				canEditOnboarding: inv.can_edit_onboarding,
-				canViewRatingScheme: inv.can_view_rating_scheme,
-				canEditRatingScheme: inv.can_edit_rating_scheme,
-				canManageMembers: inv.can_manage_members,
-				scopedGroupId: inv.scoped_group_id,
-				memberPreset: inv.member_preset,
-				capabilityOverrides: inv.capability_overrides,
-				accessScopeKind: inv.access_scope_kind,
-				accessScopeGroupIds: inv.access_scope_group_ids
-			},
-			userId,
-			email: normalizedEmail
-		});
+	let accepted = 0;
+	for (const invitation of invitations) {
+		const { data, error } = await supabase
+			.rpc('accept_organization_invitation', { p_invitation_id: invitation.id })
+			.single<AcceptOrganizationInvitationRpcRow>();
 
-		const { error: insertError } = await supabase.from('organization_memberships').insert({
-			organization_id: membership.organizationId,
-			user_id: membership.userId,
-			email: membership.email,
-			role: membership.role,
-			can_view_calendar: membership.canViewCalendar,
-			can_edit_calendar: membership.canEditCalendar,
-			can_view_personnel: membership.canViewPersonnel,
-			can_edit_personnel: membership.canEditPersonnel,
-			can_view_training: membership.canViewTraining,
-			can_edit_training: membership.canEditTraining,
-			can_view_critical_tasks: membership.canViewCriticalTasks,
-			can_edit_critical_tasks: membership.canEditCriticalTasks,
-			can_view_onboarding: membership.canViewOnboarding,
-			can_edit_onboarding: membership.canEditOnboarding,
-			can_view_rating_scheme: membership.canViewRatingScheme,
-			can_edit_rating_scheme: membership.canEditRatingScheme,
-			can_manage_members: membership.canManageMembers,
-			scoped_group_id: membership.scopedGroupId,
-			member_preset: membership.memberPreset,
-			capability_overrides: membership.capabilityOverrides,
-			access_scope_kind: membership.accessScopeKind,
-			access_scope_group_ids: membership.accessScopeGroupIds
-		});
-
-		if (!insertError) {
-			acceptedOrgIds.push(inv.organization_id);
-			continue;
-		}
-
-		if (await hasOrganizationMembership(supabase, inv.organization_id, userId)) {
-			acceptedOrgIds.push(inv.organization_id);
+		if (!error && data?.accept_status === 'accepted') {
+			accepted += 1;
 		}
 	}
 
-	if (acceptedOrgIds.length > 0) {
-		const acceptedAt = new Date().toISOString();
-		await supabase
-			.from('organization_invitations')
-			.update({ status: 'accepted', accepted_at: acceptedAt, accepted_by: userId })
-			.eq('normalized_email', normalizedEmail)
-			.in('organization_id', acceptedOrgIds);
-	}
-
-	return { accepted: acceptedOrgIds.length };
-}
-
-async function hasOrganizationMembership(
-	supabase: SupabaseClient,
-	organizationId: string,
-	userId: string
-): Promise<boolean> {
-	const { data, error } = await supabase
-		.from('organization_memberships')
-		.select('id')
-		.eq('organization_id', organizationId)
-		.eq('user_id', userId)
-		.maybeSingle();
-
-	return !error && !!data;
+	return { accepted };
 }

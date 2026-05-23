@@ -69,8 +69,8 @@ function auditAccountSetupClaimed(input: {
 	accessRequestId: string;
 	clientIp: string;
 	userAgent: string;
-}): void {
-	auditLog(
+}): Promise<void> {
+	return auditLog(
 		{
 			action: 'account_setup.claimed',
 			resourceType: 'account_setup_link',
@@ -94,8 +94,8 @@ function auditAccountSetupCompleted(input: {
 	userId: string;
 	clientIp: string;
 	userAgent: string;
-}): void {
-	auditLog(
+}): Promise<void> {
+	return auditLog(
 		{
 			action: 'account_setup.completed',
 			resourceType: 'account_setup_link',
@@ -120,8 +120,8 @@ function auditAccountSetupFailed(input: {
 	failureCategory: string;
 	clientIp: string;
 	userAgent: string;
-}): void {
-	auditLog(
+}): Promise<void> {
+	return auditLog(
 		{
 			action: 'account_setup.failed',
 			resourceType: 'account_setup_link',
@@ -284,7 +284,7 @@ export const actions: Actions = {
 			ip: clientIp
 		});
 		if (rateLimit.limited) {
-			auditLog(
+			await auditLog(
 				{
 					action: 'account_setup.completion_rate_limited',
 					resourceType: 'account_setup_link',
@@ -324,11 +324,11 @@ export const actions: Actions = {
 			completion.status === 'sign-in-failed';
 
 		if (postClaimOutcome) {
-			auditAccountSetupClaimed(setupAuditContext);
+			await auditAccountSetupClaimed(setupAuditContext);
 		}
 
 		if (completion.status === 'completed' && 'userId' in completion) {
-			auditAccountSetupCompleted({
+			await auditAccountSetupCompleted({
 				setupLinkId: setupSession.setupLinkId,
 				accessRequestId: setupSession.accessRequestId,
 				userId: completion.userId,
@@ -340,7 +340,7 @@ export const actions: Actions = {
 		}
 
 		if (completion.status === 'account-create-failed') {
-			auditAccountSetupFailed({
+			await auditAccountSetupFailed({
 				setupLinkId: setupSession.setupLinkId,
 				accessRequestId: setupSession.accessRequestId,
 				failureCategory: 'account-create-failed',
@@ -358,7 +358,7 @@ export const actions: Actions = {
 		}
 
 		if (completion.status === 'setup-finalization-failed') {
-			auditAccountSetupFailed({
+			await auditAccountSetupFailed({
 				setupLinkId: setupSession.setupLinkId,
 				accessRequestId: setupSession.accessRequestId,
 				failureCategory: 'setup-finalization-failed',
@@ -370,7 +370,7 @@ export const actions: Actions = {
 		}
 
 		if (completion.status === 'sign-in-failed') {
-			auditAccountSetupFailed({
+			await auditAccountSetupFailed({
 				setupLinkId: setupSession.setupLinkId,
 				accessRequestId: setupSession.accessRequestId,
 				failureCategory: 'sign-in-failed',
@@ -381,7 +381,7 @@ export const actions: Actions = {
 			return fail(500, { error: manualSignInMessage() });
 		}
 
-		auditAccountSetupFailed({
+		await auditAccountSetupFailed({
 			setupLinkId: setupSession.setupLinkId,
 			accessRequestId: setupSession.accessRequestId,
 			failureCategory: completion.status,

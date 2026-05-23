@@ -41,11 +41,11 @@ export interface AccessRequestSetupDeliveryStore extends AccountSetupLinkStore, 
 export type AccessRequestSubmissionResult =
 	| { status: 'pending-created' }
 	| { status: 'already-pending' }
-	| { status: 'fresh-setup-sent'; accessRequestId: string }
+	| { status: 'fresh-setup-sent'; accessRequestId: string; setupLinkId: string; revokedLinkIds: string[] }
 	| { status: 'no-public-action' };
 
 export type AccessRequestRenewalResult =
-	| { status: 'fresh-setup-sent'; accessRequestId: string }
+	| { status: 'fresh-setup-sent'; accessRequestId: string; setupLinkId: string; revokedLinkIds: string[] }
 	| { status: 'no-public-action' };
 
 interface AccessRequestSetupDeliveryOptions {
@@ -136,7 +136,9 @@ export function createAccessRequestSetupDeliveryService(
 
 		return {
 			status: 'fresh-setup-sent',
-			accessRequestId: request.id
+			accessRequestId: request.id,
+			setupLinkId: setupResult.link.id,
+			revokedLinkIds: setupResult.revokedLinks.map((link) => link.id)
 		};
 	}
 

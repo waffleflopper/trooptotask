@@ -56,7 +56,9 @@ describe('/auth/renew-invite actions', () => {
 
 		requestFreshSetupLinkMock.mockResolvedValueOnce({
 			status: 'fresh-setup-sent',
-			accessRequestId: 'request-1'
+			accessRequestId: 'request-1',
+			setupLinkId: 'setup-link-2',
+			revokedLinkIds: ['setup-link-1']
 		});
 		const deliveredResult = await actions.default(makeActionEvent({ email: 'approved@example.mil' }));
 
@@ -66,6 +68,23 @@ describe('/auth/renew-invite actions', () => {
 			email: 'missing@example.mil',
 			origin: 'https://trooptotask.test'
 		});
+		expect(auditLogMock).toHaveBeenCalledWith(
+			{
+				action: 'account_setup.link_revoked',
+				resourceType: 'account_setup_link',
+				resourceId: 'setup-link-1',
+				details: {
+					accessRequestId: 'request-1',
+					replacementSetupLinkId: 'setup-link-2',
+					stateTransition: 'pending.replaced'
+				}
+			},
+			{
+				userId: null,
+				ip: '203.0.113.10',
+				userAgent: 'vitest-agent'
+			}
+		);
 	});
 
 	it('returns generic recovery copy when fresh-link renewal is rate-limited', async () => {

@@ -790,7 +790,8 @@ describe('admin access request account setup delivery', () => {
 			accessRequestId: 'request-1',
 			setupPath: '/auth/setup-account?token=fresh-token',
 			expiresAt: new Date('2026-06-02T12:00:00.000Z'),
-			link: { id: 'link-2' }
+			link: { id: 'link-2' },
+			revokedLinks: [{ id: 'link-1' }]
 		});
 		createServiceMock.mockReturnValue({ createForAccessRequest });
 		const ctx = makeContext(adminClient);
@@ -812,8 +813,19 @@ describe('admin access request account setup delivery', () => {
 		});
 		expect(inviteUserByEmail).not.toHaveBeenCalled();
 		expect((ctx.audit as ReturnType<typeof vi.fn>).mock.calls.map(([event]) => event.action)).toEqual([
+			'account_setup.link_revoked',
 			'access_request.account_setup_link_resent'
 		]);
+		expect((ctx.audit as ReturnType<typeof vi.fn>).mock.calls[0][0]).toMatchObject({
+			action: 'account_setup.link_revoked',
+			resourceType: 'account_setup_link',
+			resourceId: 'link-1',
+			details: {
+				accessRequestId: 'request-1',
+				replacementSetupLinkId: 'link-2',
+				stateTransition: 'pending.replaced'
+			}
+		});
 		expect(checkSetupRateLimitMock).toHaveBeenCalledWith({
 			action: 'resend',
 			adminUserId: 'admin-1',

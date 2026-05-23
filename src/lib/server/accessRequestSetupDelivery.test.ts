@@ -93,7 +93,11 @@ describe('access request setup delivery', () => {
 			origin: 'https://trooptotask.test'
 		});
 
-		expect(result).toEqual({ status: 'fresh-setup-sent', accessRequestId: 'request-1' });
+		expect(result).toMatchObject({
+			status: 'fresh-setup-sent',
+			accessRequestId: 'request-1',
+			setupLinkId: 'setup-link-1'
+		});
 		expect(store.insertedRequests).toEqual([]);
 		expect(store.revokedAccessRequestIds).toEqual(['request-1']);
 		expect(sendSetupEmail).toHaveBeenCalledWith(
@@ -126,7 +130,11 @@ describe('access request setup delivery', () => {
 			origin: 'https://evil.example'
 		});
 
-		expect(result).toEqual({ status: 'fresh-setup-sent', accessRequestId: 'request-1' });
+		expect(result).toMatchObject({
+			status: 'fresh-setup-sent',
+			accessRequestId: 'request-1',
+			setupLinkId: 'setup-link-1'
+		});
 		expect(sendSetupEmail).toHaveBeenCalledWith(
 			expect.objectContaining({
 				setupUrl: expect.stringMatching(/^https:\/\/trooptotask\.org\/auth\/setup-account\?token=/)
@@ -173,7 +181,11 @@ describe('access request setup delivery', () => {
 			origin: 'https://trooptotask.test'
 		});
 
-		expect(result).toEqual({ status: 'fresh-setup-sent', accessRequestId: 'request-1' });
+		expect(result).toMatchObject({
+			status: 'fresh-setup-sent',
+			accessRequestId: 'request-1',
+			setupLinkId: 'setup-link-1'
+		});
 		expect(store.revokedAccessRequestIds).toEqual(['request-1']);
 		expect(sendSetupEmail).toHaveBeenCalledOnce();
 	});
@@ -198,7 +210,7 @@ describe('access request setup delivery', () => {
 				email: 'test@example.com',
 				origin: 'https://trooptotask.test'
 			})
-		).toEqual({ status: 'fresh-setup-sent', accessRequestId: 'request-1' });
+		).toMatchObject({ status: 'fresh-setup-sent', accessRequestId: 'request-1', setupLinkId: 'setup-link-1' });
 
 		const expiredStore = createAccessRequestSetupDeliveryStore([
 			accessRequestFixture({

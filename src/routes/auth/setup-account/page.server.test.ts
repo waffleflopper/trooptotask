@@ -428,18 +428,22 @@ describe('/auth/setup-account actions', () => {
 		expect(completeSetupSession).not.toHaveBeenCalled();
 	});
 
-	it('maps invalid setup-session link states to user-facing recovery copy', async () => {
-		completeSetupSession.mockResolvedValueOnce({ status: 'revoked' });
+	it.each([
+		['revoked', 'This Account Setup Link was replaced. Check your inbox for the newest setup email.'],
+		['expired', 'This Account Setup Link has expired. Request a fresh setup link and use the newest email.'],
+		['used', 'This setup link has already been used. Sign in or reset your password if you need access.'],
+		['claimed', 'This Account Setup Link is already being used. Request a fresh setup link if setup does not finish.'],
+		['missing', 'This Account Setup Link is invalid. Request a fresh setup link and try again.']
+	] as const)('maps pre-claim %s setup-session states without claimed audit', async (status, message) => {
+		completeSetupSession.mockResolvedValueOnce({ status });
 
 		const result = await actions.default(makeActionEvent());
 
 		expect(result).toMatchObject({
 			status: 400,
-			data: {
-				error: 'This Account Setup Link was replaced. Check your inbox for the newest setup email.'
-			}
+			data: { error: message }
 		});
-		expectFailedAudit('revoked');
+		expectFailedAudit(status);
 		expectNoClaimedAudit();
 	});
 
@@ -454,6 +458,8 @@ describe('/auth/setup-account actions', () => {
 				error: 'This Account Setup Link is no longer approved. Request access again or contact support.'
 			}
 		});
+		expectFailedAudit('access-request-not-approved');
+		expectNoClaimedAudit();
 	});
 
 	it('does not treat an already-completed link response as a successful setup redirect', async () => {

@@ -370,6 +370,24 @@ function mapSetupLinkResultToFailure(result: CreateAccountSetupLinkResult) {
 	}
 }
 
+function auditRevokedSetupLinks(
+	audit: AdminContext['audit'],
+	input: { accessRequestId: string; replacementSetupLinkId: string; revokedLinks: Array<{ id: string }> }
+): void {
+	for (const revokedLink of input.revokedLinks) {
+		audit({
+			action: 'account_setup.link_revoked',
+			resourceType: 'account_setup_link',
+			resourceId: revokedLink.id,
+			details: {
+				accessRequestId: input.accessRequestId,
+				replacementSetupLinkId: input.replacementSetupLinkId,
+				stateTransition: 'pending.replaced'
+			}
+		});
+	}
+}
+
 async function checkSetupSendRateLimit(input: {
 	ctx: AdminContext;
 	action: PlatformAccessRequestSetupAction;
@@ -572,6 +590,11 @@ export const actions: Actions = {
 			if (setupResult.status !== 'created') {
 				return mapSetupLinkResultToFailure(setupResult);
 			}
+			auditRevokedSetupLinks(ctx.audit, {
+				accessRequestId: requestId,
+				replacementSetupLinkId: setupResult.link.id,
+				revokedLinks: setupResult.revokedLinks ?? []
+			});
 
 			const delivery = await sendAccountSetupOutboxDelivery(
 				createSupabaseAuthEmailOutboxStore(adminClient),
@@ -721,6 +744,11 @@ export const actions: Actions = {
 			if (setupResult.status !== 'created') {
 				return mapSetupLinkResultToFailure(setupResult);
 			}
+			auditRevokedSetupLinks(ctx.audit, {
+				accessRequestId: requestId,
+				replacementSetupLinkId: setupResult.link.id,
+				revokedLinks: setupResult.revokedLinks ?? []
+			});
 
 			const delivery = await sendAccountSetupOutboxDelivery(
 				createSupabaseAuthEmailOutboxStore(adminClient),

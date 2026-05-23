@@ -272,8 +272,23 @@ export function createAccessRequestSetupDeliveryStore(requests: AccessRequestSet
 				setupCompletedAt: request.setupCompletedAt
 			};
 		},
-		async revokeUnusedLinksForAccessRequest(accessRequestId) {
+		async revokeUnusedLinksForAccessRequest(accessRequestId, revokedAt) {
+			const revoked: AccountSetupLinkRecord[] = [];
 			revokedAccessRequestIds.push(accessRequestId);
+			for (const link of setupLinks) {
+				if (
+					link.accessRequestId === accessRequestId &&
+					!link.claimedAt &&
+					!link.failedAt &&
+					!link.usedAt &&
+					!link.revokedAt
+				) {
+					link.revokedAt = revokedAt;
+					link.revocationReason = 'replaced';
+					revoked.push(link);
+				}
+			}
+			return revoked;
 		},
 		async insertSetupLink(input: CreateAccountSetupLinkInput) {
 			const record = accountSetupLinkFixture({

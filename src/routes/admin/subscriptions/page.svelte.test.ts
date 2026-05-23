@@ -75,6 +75,8 @@ describe('admin subscriptions page', () => {
 							gift_expires_at: null,
 							created_at: '2026-05-01T00:00:00.000Z',
 							billingSnapshot: {
+								source: 'stripe',
+								subscriptionStatus: 'unpaid',
 								driftDetected: true,
 								syncStatus: 'needs_reconciliation',
 								lastReconciledAt: '2026-05-23T00:00:00.000Z',
@@ -88,6 +90,7 @@ describe('admin subscriptions page', () => {
 
 		expect(screen.getByText('Alpha Company')).toBeTruthy();
 		expect(screen.getAllByText('Drifted').length).toBeGreaterThan(0);
+		expect(screen.getByText(/Stripe \/ Unpaid/)).toBeTruthy();
 		expect(screen.getByText(/Last checked/)).toBeTruthy();
 		expect(screen.getByText('repaired_drift:subscription_status')).toBeTruthy();
 	});

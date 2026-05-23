@@ -9,7 +9,13 @@
 	import { Spinner } from '$lib/components/ui/spinner';
 	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
 	import type { WorkspaceToolbarAction } from '$lib/components/ui/workspace-toolbar';
-	import type { EffectiveTier, Tier } from '$lib/types/subscription';
+	import type {
+		BillingSnapshot,
+		BillingSnapshotSource,
+		EffectiveTier,
+		SubscriptionStatus,
+		Tier
+	} from '$lib/types/subscription';
 
 	let { data } = $props();
 
@@ -38,10 +44,13 @@
 	const personnelCap = $derived(tier.personnelCap);
 	const giftExpiresAt = $derived(tier.giftExpiresAt);
 	const giftTier = $derived(tier.giftTier);
+	const billingSnapshot = $derived<BillingSnapshot | null>(data.billingSnapshot ?? null);
 	const cancellationSummary = $derived(data.cancellationSummary ?? null);
 	const showCancellationTiming = $derived(
 		!!cancellationSummary && cancellationSummary.state !== 'none' && source !== 'gift'
 	);
+	const billingStatus = $derived(buildBillingStatus(billingSnapshot, tier));
+	const billingActionsDisabled = $derived(billingSnapshot?.source === 'billing_disabled');
 
 	const giftDaysRemaining = $derived.by(() => {
 		if (!giftExpiresAt) return null;
@@ -49,7 +58,7 @@
 		return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
 	});
 	const billingToolbarActions = $derived.by(() => {
-		if (!data.canManageSubscription) return [];
+		if (!data.canManageSubscription || billingActionsDisabled) return [];
 
 		const actions: WorkspaceToolbarAction[] = [
 			{
@@ -102,10 +111,169 @@
 				return 'Stripe Subscription';
 			case 'gift':
 				return 'Admin Gift';
+			case 'billing_disabled':
+				return 'Billing Disabled';
 			case 'default':
 				return 'Free Plan';
 			default:
 				return src;
+		}
+	}
+
+	function snapshotSourceLabel(src: BillingSnapshotSource | null | undefined): string {
+		switch (src) {
+			case 'stripe':
+				return 'Stripe';
+			case 'gift':
+				return 'Admin Gift';
+			case 'billing_disabled':
+				return 'Billing Disabled';
+			case 'legacy_organization':
+				return 'Legacy Organization';
+			default:
+				return 'Not Configured';
+		}
+	}
+
+	function subscriptionStatusLabel(status: SubscriptionStatus | null | undefined): string {
+		switch (status) {
+			case 'active':
+				return 'Active';
+			case 'trialing':
+				return 'Trialing';
+			case 'past_due':
+				return 'Past Due';
+			case 'unpaid':
+				return 'Unpaid';
+			case 'canceled':
+				return 'Canceled';
+			case 'incomplete':
+				return 'Payment Pending';
+			case 'incomplete_expired':
+				return 'Checkout Expired';
+			case 'paused':
+				return 'Paused';
+			default:
+				return 'Free';
+		}
+	}
+
+	function buildBillingStatus(
+		snapshot: BillingSnapshot | null,
+		effective: EffectiveTier
+	): {
+		title: string;
+		description: string;
+		statusLabel: string;
+		variant: BadgeVariant;
+		actionHint: string;
+	} {
+		if (snapshot?.source === 'billing_disabled') {
+			return {
+				title: 'Billing is disabled in this environment.',
+				description: 'This organization is using the billing-disabled fallback, so Stripe recovery actions are hidden.',
+				statusLabel: 'Billing Disabled',
+				variant: 'secondary',
+				actionHint: 'No billing action is available while billing is disabled.'
+			};
+		}
+
+		if (effective.source === 'gift') {
+			return {
+				title: 'Gifted access is active.',
+				description: 'An admin gift is currently granting this organization access outside Stripe billing.',
+				statusLabel: 'Gifted',
+				variant: 'success',
+				actionHint: 'No payment recovery is needed while gifted access is active.'
+			};
+		}
+
+		switch (snapshot?.subscriptionStatus) {
+			case 'active':
+				return {
+					title: 'Subscription active.',
+					description: 'Stripe reports this subscription as active and TroopToTask is applying the paid plan.',
+					statusLabel: 'Active',
+					variant: 'success',
+					actionHint: 'Use Manage Subscription for invoices, payment methods, and portal self-service.'
+				};
+			case 'trialing':
+				return {
+					title: 'Trial active.',
+					description: `Stripe reports this subscription is trialing${
+						snapshot.trialEnd ? ` until ${formatBillingDate(snapshot.trialEnd)}` : ''
+					}.`,
+					statusLabel: 'Trialing',
+					variant: 'success',
+					actionHint: 'Use Manage Subscription to review payment details before the trial ends.'
+				};
+			case 'past_due':
+				return {
+					title:
+						effective.tier === 'free'
+							? 'Payment failed. Paid access has been suspended.'
+							: 'Payment failed. Grace access is active.',
+					description:
+						effective.tier === 'free'
+							? 'Stripe reports a past-due subscription. Access has been downgraded to the free plan until billing is restored.'
+							: 'Stripe reports a past-due subscription. Paid access may be read-only until the payment method is updated.',
+					statusLabel: 'Past Due',
+					variant: 'warning',
+					actionHint: 'Open the billing portal to update the payment method and recover full access.'
+				};
+			case 'unpaid':
+				return {
+					title: 'Payment required to restore paid access.',
+					description:
+						effective.tier === 'free'
+							? 'Stripe reports this subscription as unpaid, so this organization is on the free plan until billing is restored.'
+							: 'Stripe reports this subscription as unpaid, so TroopToTask is blocking paid writes.',
+					statusLabel: 'Unpaid',
+					variant: 'destructive',
+					actionHint: 'Use the billing portal or choose a plan below to recover service.'
+				};
+			case 'canceled':
+				return {
+					title: 'Subscription canceled.',
+					description:
+						'Stripe reports this subscription as canceled, so paid access has ended unless another source applies.',
+					statusLabel: 'Canceled',
+					variant: 'warning',
+					actionHint: 'Choose a plan below to start a new checkout, or use the portal if Stripe still allows recovery.'
+				};
+			case 'incomplete':
+				return {
+					title: 'Payment is pending.',
+					description:
+						'Stripe has not finished activating this subscription. Complete checkout to activate paid access.',
+					statusLabel: 'Payment Pending',
+					variant: 'warning',
+					actionHint: 'Return to checkout or manage billing if a portal session is available.'
+				};
+			case 'incomplete_expired':
+				return {
+					title: 'Checkout expired.',
+					description: 'The pending Stripe checkout expired before payment completed.',
+					statusLabel: 'Checkout Expired',
+					variant: 'warning',
+					actionHint: 'Choose a plan below to start a new checkout.'
+				};
+			case 'paused':
+				return {
+					title: 'Subscription paused.',
+					description: 'Stripe reports this subscription is paused. Access depends on the current billing policy.',
+					statusLabel: 'Paused',
+					variant: 'warning',
+					actionHint: 'Open the billing portal to resume or update the subscription.'
+				};
+			default:
+				return {
+					title: 'Free plan active.',
+					description: 'No active Stripe subscription is currently applied to this organization.',
+					statusLabel: 'Free',
+					variant: 'secondary',
+					actionHint: 'Choose a paid plan below to activate more capacity.'
+				};
 		}
 	}
 
@@ -118,6 +286,12 @@
 			default:
 				return 'secondary';
 		}
+	}
+
+	function billingAlertVariant(variant: BadgeVariant): 'default' | 'destructive' | 'warning' {
+		if (variant === 'destructive') return 'destructive';
+		if (variant === 'warning') return 'warning';
+		return 'default';
 	}
 
 	function readOnlyTitle(): string {
@@ -315,6 +489,48 @@
 		/>
 	</PageShell.FactGrid>
 
+	<Card.Root>
+		<Card.Header>
+			<div class="flex flex-wrap items-center gap-2">
+				<Card.Title>Billing Status</Card.Title>
+				<Badge variant={billingStatus.variant}>{billingStatus.statusLabel}</Badge>
+			</div>
+			<Card.Description>{billingStatus.description}</Card.Description>
+		</Card.Header>
+		<Card.Content class="grid gap-4">
+			<Alert.Root variant={billingAlertVariant(billingStatus.variant)}>
+				<Alert.Title>{billingStatus.title}</Alert.Title>
+				<Alert.Description>{billingStatus.actionHint}</Alert.Description>
+			</Alert.Root>
+			<dl class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+				<div class="grid gap-1">
+					<dt class="text-xs font-medium text-muted-foreground">Subscription Status</dt>
+					<dd>{subscriptionStatusLabel(billingSnapshot?.subscriptionStatus)}</dd>
+				</div>
+				<div class="grid gap-1">
+					<dt class="text-xs font-medium text-muted-foreground">Entitlement Source</dt>
+					<dd>{snapshotSourceLabel(billingSnapshot?.source)}</dd>
+				</div>
+				<div class="grid gap-1">
+					<dt class="text-xs font-medium text-muted-foreground">Paid Through</dt>
+					<dd>{formatBillingDate(billingSnapshot?.currentPeriodEnd)}</dd>
+				</div>
+				<div class="grid gap-1">
+					<dt class="text-xs font-medium text-muted-foreground">Sync Health</dt>
+					<dd>{billingSnapshot?.driftDetected ? 'Needs support review' : 'Current'}</dd>
+				</div>
+			</dl>
+			{#if data.canManageSubscription && !billingActionsDisabled}
+				<div>
+					<Button variant="outline" onclick={handleManageSubscription} disabled={portalLoading}>
+						{#if portalLoading}<Spinner />{/if}
+						{portalLoading ? 'Opening...' : 'Manage Subscription'}
+					</Button>
+				</div>
+			{/if}
+		</Card.Content>
+	</Card.Root>
+
 	{#if showCancellationTiming}
 		<Card.Root>
 			<Card.Header>
@@ -418,7 +634,9 @@
 					</Card.Content>
 
 					<Card.Footer>
-						{#if isCurrent}
+						{#if billingActionsDisabled}
+							<Button class="w-full" variant="outline" disabled>Billing Disabled</Button>
+						{:else if isCurrent}
 							<Button class="w-full" variant="outline" disabled>Current Plan</Button>
 						{:else if plan.tier === 'free'}
 							{#if isDowngrade && data.canManageSubscription}

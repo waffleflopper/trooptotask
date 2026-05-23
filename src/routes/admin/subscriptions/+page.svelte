@@ -210,6 +210,10 @@
 											{sub.billingSnapshot.driftDetected ? 'Drifted' : formatAdminLabel(sub.billingSnapshot.syncStatus)}
 										</Badge>
 										<span class="text-muted-foreground">
+											{formatAdminLabel(sub.billingSnapshot.source)} /
+											{formatAdminLabel(sub.billingSnapshot.subscriptionStatus ?? 'unknown')}
+										</span>
+										<span class="text-muted-foreground">
 											Last checked {formatOptionalDateTime(sub.billingSnapshot.lastReconciledAt)}
 										</span>
 										{#if sub.billingSnapshot.reconciliationResult}

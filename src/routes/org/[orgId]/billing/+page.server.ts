@@ -1,8 +1,6 @@
-import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import { isBillingEnabled } from '$lib/config/billing';
 import { TIER_CONFIG, type EffectiveTier, type Tier } from '$lib/types/subscription';
 import { canManageBillingSubscription, readBillingOrganization } from '$lib/server/core/useCases/billingOrganization';
 import type { UseCaseContext } from '$lib/server/core/ports';
@@ -46,11 +44,6 @@ export async function _loadBillingPageData(
 export const load: PageServerLoad = async ({ params, locals, cookies, parent }) => {
 	const { orgId } = params;
 	const parentData = await parent();
-
-	// If billing is disabled, redirect to settings — there's nothing to manage
-	if (!isBillingEnabled) {
-		throw redirect(303, `/org/${orgId}/settings`);
-	}
 
 	return loadWithContext(locals, cookies, orgId, {
 		permission: 'owner',

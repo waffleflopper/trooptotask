@@ -23,6 +23,32 @@ const baseData = {
 		giftExpiresAt: null,
 		giftTier: null
 	},
+	billingSnapshot: {
+		organizationId: 'org-1',
+		source: 'stripe',
+		commercialPlan: 'team',
+		stripeCustomerId: 'cus_123',
+		stripeSubscriptionId: 'sub_123',
+		stripeProductId: 'prod_team',
+		stripePriceId: 'price_team',
+		subscriptionStatus: 'active',
+		collectionStatus: 'current',
+		currentPeriodStart: '2026-05-01T00:00:00.000Z',
+		currentPeriodEnd: '2026-06-01T00:00:00.000Z',
+		cancelAtPeriodEnd: false,
+		canceledAt: null,
+		trialEnd: null,
+		syncStatus: 'synced',
+		lastStripeEventId: 'evt_123',
+		lastStripeEventType: 'customer.subscription.updated',
+		lastStripeEventCreatedAt: '2026-05-01T00:00:00.000Z',
+		lastProcessedAt: '2026-05-01T00:00:01.000Z',
+		lastReconciledAt: null,
+		reconciliationResult: null,
+		driftDetected: false,
+		giftTier: null,
+		giftExpiresAt: null
+	},
 	tierComparison: [
 		{
 			tier: 'free',
@@ -59,6 +85,117 @@ const baseData = {
 };
 
 describe('billing page toolbar', () => {
+	it.each([
+		['active', 'Subscription active.', 'Use Manage Subscription for invoices'],
+		['trialing', 'Trial active.', 'review payment details before the trial ends'],
+		['past_due', 'Payment failed. Grace access is active.', 'update the payment method'],
+		['unpaid', 'Payment required to restore paid access.', 'recover service'],
+		['canceled', 'Subscription canceled.', 'start a new checkout'],
+		['incomplete', 'Payment is pending.', 'Complete checkout'],
+		['incomplete_expired', 'Checkout expired.', 'start a new checkout'],
+		['paused', 'Subscription paused.', 'Open the billing portal']
+	])('shows owner-safe status copy for %s subscriptions', (subscriptionStatus, title, detail) => {
+		render(Page, {
+			props: {
+				data: {
+					...baseData,
+					billingSnapshot: {
+						...baseData.billingSnapshot,
+						subscriptionStatus
+					}
+				} as never
+			}
+		});
+
+		expect(screen.getByText(title)).toBeTruthy();
+		expect(screen.getByText(new RegExp(detail))).toBeTruthy();
+	});
+
+	it('uses the effective tier when past-due access has already been downgraded', () => {
+		render(Page, {
+			props: {
+				data: {
+					...baseData,
+					effectiveTier: {
+						...baseData.effectiveTier,
+						tier: 'free',
+						isReadOnly: true,
+						readOnlyReason: 'billing_state'
+					},
+					billingSnapshot: {
+						...baseData.billingSnapshot,
+						subscriptionStatus: 'past_due'
+					}
+				} as never
+			}
+		});
+
+		expect(screen.getByText('Payment failed. Paid access has been suspended.')).toBeTruthy();
+		expect(screen.getByText(/downgraded to the free plan/)).toBeTruthy();
+	});
+
+	it('shows owner-visible drift health when reconciliation found drift', () => {
+		render(Page, {
+			props: {
+				data: {
+					...baseData,
+					billingSnapshot: {
+						...baseData.billingSnapshot,
+						driftDetected: true
+					}
+				} as never
+			}
+		});
+
+		expect(screen.getByText('Needs support review')).toBeTruthy();
+	});
+
+	it('shows gifted billing source copy without payment recovery pressure', () => {
+		render(Page, {
+			props: {
+				data: {
+					...baseData,
+					effectiveTier: {
+						...baseData.effectiveTier,
+						source: 'gift',
+						giftTier: 'team',
+						giftExpiresAt: '2026-07-01T00:00:00.000Z'
+					}
+				} as never
+			}
+		});
+
+		expect(screen.getByText('Gifted access is active.')).toBeTruthy();
+		expect(screen.getAllByText(/outside Stripe billing/).length).toBeGreaterThan(0);
+	});
+
+	it('shows billing-disabled fallback state and hides Stripe recovery actions', () => {
+		render(Page, {
+			props: {
+				data: {
+					...baseData,
+					canManageSubscription: true,
+					effectiveTier: {
+						...baseData.effectiveTier,
+						tier: 'unit',
+						source: 'billing_disabled'
+					},
+					billingSnapshot: {
+						...baseData.billingSnapshot,
+						source: 'billing_disabled',
+						commercialPlan: 'unit',
+						subscriptionStatus: null,
+						syncStatus: 'billing_disabled'
+					}
+				} as never
+			}
+		});
+
+		expect(screen.getByText('Billing is disabled in this environment.')).toBeTruthy();
+		expect(screen.queryByRole('toolbar', { name: 'Billing controls' })).toBeNull();
+		expect(screen.getAllByRole('button', { name: 'Billing Disabled' }).length).toBeGreaterThan(0);
+	});
+
 	it('exposes subscription controls as a named toolbar action group', () => {
 		render(Page, {
 			props: {
@@ -71,6 +208,7 @@ describe('billing page toolbar', () => {
 
 		expect(within(actions).getByRole('button', { name: 'Cancel Subscription' })).toBeTruthy();
 		expect(within(actions).getByRole('button', { name: 'Manage Subscription' })).toBeTruthy();
+		expect(screen.getAllByRole('button', { name: 'Manage Subscription' }).length).toBeGreaterThan(1);
 	});
 
 	it('keeps subscription controls hidden when subscription management is not allowed', () => {

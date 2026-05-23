@@ -31,6 +31,8 @@ describe('admin organization detail page', () => {
 						stripeCustomerId: 'cus_123',
 						stripeSubscriptionId: 'sub_123',
 						stripePriceId: 'price_team',
+						stripeProductId: 'prod_team',
+						source: 'stripe',
 						subscriptionStatus: 'active',
 						collectionStatus: 'current',
 						syncStatus: 'synced',
@@ -59,6 +61,8 @@ describe('admin organization detail page', () => {
 		expect(screen.getByText('Billing Diagnostics')).toBeTruthy();
 		expect(screen.getByText('cus_123')).toBeTruthy();
 		expect(screen.getByText('sub_123')).toBeTruthy();
+		expect(screen.getByText('prod_team')).toBeTruthy();
+		expect(screen.getByText('Stripe')).toBeTruthy();
 		expect(screen.getByText('Cancels at period end')).toBeTruthy();
 		expect(screen.getByText('customer.subscription.updated')).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Refresh from Stripe' })).toBeTruthy();

@@ -212,6 +212,14 @@
 						<dd class="break-words font-mono text-xs">{data.billingSnapshot.stripePriceId ?? '-'}</dd>
 					</div>
 					<div class="grid gap-1">
+						<dt class="text-xs font-medium text-muted-foreground">Stripe Product</dt>
+						<dd class="break-words font-mono text-xs">{data.billingSnapshot.stripeProductId ?? '-'}</dd>
+					</div>
+					<div class="grid gap-1">
+						<dt class="text-xs font-medium text-muted-foreground">Entitlement Source</dt>
+						<dd>{formatAdminLabel(data.billingSnapshot.source)}</dd>
+					</div>
+					<div class="grid gap-1">
 						<dt class="text-xs font-medium text-muted-foreground">Subscription Status</dt>
 						<dd>{formatAdminLabel(data.billingSnapshot.subscriptionStatus ?? 'unknown')}</dd>
 					</div>

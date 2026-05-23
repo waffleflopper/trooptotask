@@ -18,7 +18,7 @@ import type { RequestEvent, RequestHandler } from '@sveltejs/kit';
 import { canAccessPage, getAdminRole, type AdminRole } from '$lib/server/admin';
 import { getAdminClient } from '$lib/server/supabase';
 import { auditLog, getRequestInfo } from '$lib/server/auditLog';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Session, SupabaseClient } from '@supabase/supabase-js';
 
 // ---------------------------------------------------------------------------
 // AdminContext — the admin equivalent of UseCaseContext
@@ -27,6 +27,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 export interface AdminContext {
 	adminUser: { id: string; role: AdminRole };
 	adminClient: SupabaseClient;
+	sessionClient: SupabaseClient;
+	session: Session | null;
 	audit(event: {
 		action: string;
 		resourceType: string;
@@ -53,6 +55,9 @@ interface BuildAdminContextParams {
 	requiredPage?: string;
 	/** Override for tests — avoids calling getAdminClient() which needs real env vars */
 	adminClient?: SupabaseClient;
+	/** Session-scoped auth client for provider-adjacent auth checks such as MFA assurance. */
+	sessionClient?: SupabaseClient;
+	session?: Session | null;
 }
 
 export async function buildAdminContextCore(params: BuildAdminContextParams): Promise<AdminContext> {
@@ -69,6 +74,8 @@ export async function buildAdminContextCore(params: BuildAdminContextParams): Pr
 	return {
 		adminUser: { id: params.userId, role },
 		adminClient: params.adminClient ?? getAdminClient(),
+		sessionClient: params.sessionClient ?? params.adminClient ?? getAdminClient(),
+		session: params.session ?? null,
 		audit(event) {
 			auditLog(event, reqInfo);
 		}
@@ -139,7 +146,9 @@ async function resolveAdminContext(
 		userId: user.id,
 		lookupRole: (userId) => getAdminRole(locals.supabase, userId),
 		requestInfo: getRequestInfo(event),
-		requiredPage
+		requiredPage,
+		sessionClient: locals.supabase,
+		session: locals.session
 	});
 }
 

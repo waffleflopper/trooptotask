@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { getAdminClientMock, requestFreshSetupLinkMock, checkRenewalRateLimitMock } = vi.hoisted(() => ({
+const { getAdminClientMock, requestFreshSetupLinkMock, checkRenewalRateLimitMock, auditLogMock } = vi.hoisted(() => ({
 	getAdminClientMock: vi.fn(),
 	requestFreshSetupLinkMock: vi.fn(),
-	checkRenewalRateLimitMock: vi.fn()
+	checkRenewalRateLimitMock: vi.fn(),
+	auditLogMock: vi.fn()
 }));
 
 vi.mock('$lib/server/supabase', () => ({
@@ -22,6 +23,10 @@ vi.mock('$lib/server/accountSetupRateLimit', () => ({
 	checkAccountSetupRenewalRateLimit: checkRenewalRateLimitMock
 }));
 
+vi.mock('$lib/server/auditLog', () => ({
+	auditLog: auditLogMock
+}));
+
 import { actions } from './+page.server';
 
 function makeActionEvent(input: { email?: string; ip?: string; origin?: string } = {}) {
@@ -31,7 +36,8 @@ function makeActionEvent(input: { email?: string; ip?: string; origin?: string }
 	return {
 		getClientAddress: vi.fn(() => input.ip ?? '203.0.113.10'),
 		request: {
-			formData: vi.fn().mockResolvedValue(formData)
+			formData: vi.fn().mockResolvedValue(formData),
+			headers: new Headers({ 'user-agent': 'vitest-agent' })
 		},
 		url: new URL(input.origin ?? 'https://trooptotask.test/auth/renew-invite')
 	} as unknown as Parameters<(typeof actions)['default']>[0];
@@ -63,7 +69,15 @@ describe('/auth/renew-invite actions', () => {
 	});
 
 	it('returns generic recovery copy when fresh-link renewal is rate-limited', async () => {
-		checkRenewalRateLimitMock.mockReturnValueOnce({ limited: true, retryAfterMs: 60_000 });
+		checkRenewalRateLimitMock.mockReturnValueOnce({
+			limited: true,
+			retryAfterMs: 60_000,
+			namespace: 'account-setup-renewal',
+			dimensions: ['email', 'ip'],
+			limitedDimensions: ['email'],
+			windowMs: 3_600_000,
+			maxRequests: 3
+		});
 
 		const result = await actions.default(makeActionEvent({ email: 'soldier@example.mil' }));
 
@@ -80,6 +94,24 @@ describe('/auth/renew-invite actions', () => {
 			ip: '203.0.113.10'
 		});
 		expect(requestFreshSetupLinkMock).not.toHaveBeenCalled();
+		expect(auditLogMock).toHaveBeenCalledWith(
+			{
+				action: 'account_setup.renewal_rate_limited',
+				resourceType: 'access_request',
+				severity: 'warning',
+				details: expect.objectContaining({
+					namespace: 'account-setup-renewal',
+					limitedDimensions: ['email'],
+					retryAfterMs: 60_000
+				})
+			},
+			{
+				userId: null,
+				ip: '203.0.113.10',
+				userAgent: 'vitest-agent'
+			}
+		);
+		expect(JSON.stringify(auditLogMock.mock.calls)).not.toContain('/auth/setup-account?token=');
 	});
 
 	it('returns generic retry copy when setup delivery fails unexpectedly', async () => {

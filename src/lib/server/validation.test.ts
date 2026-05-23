@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, it, expect } from 'vitest';
 import {
 	sanitizeString,
@@ -5,7 +7,13 @@ import {
 	validateUUID,
 	validateEnum,
 	requireString,
-	validatePassword
+	validatePassword,
+	mapProviderPasswordError,
+	PASSWORD_PROVIDER_REJECTION_MESSAGE,
+	PASSWORD_MIN_LENGTH,
+	PASSWORD_MIN_LENGTH_MESSAGE,
+	PASSWORD_MAX_LENGTH_MESSAGE,
+	PASSWORD_REQUIREMENTS_MESSAGE
 } from './validation';
 
 describe('sanitizeString', () => {
@@ -116,27 +124,52 @@ describe('validatePassword', () => {
 	});
 
 	it('rejects password shorter than 12 characters', () => {
-		expect(validatePassword('Short1Aa')).toBe('Password must be at least 12 characters');
+		expect(validatePassword('Short1Aa')).toBe(PASSWORD_MIN_LENGTH_MESSAGE);
 	});
 
 	it('rejects password without lowercase letter', () => {
-		expect(validatePassword('ALLUPPERCASE1')).toBe('Password must include uppercase, lowercase, and a number');
+		expect(validatePassword('ALLUPPERCASE1')).toBe(PASSWORD_REQUIREMENTS_MESSAGE);
 	});
 
 	it('rejects password without uppercase letter', () => {
-		expect(validatePassword('alllowercase1')).toBe('Password must include uppercase, lowercase, and a number');
+		expect(validatePassword('alllowercase1')).toBe(PASSWORD_REQUIREMENTS_MESSAGE);
 	});
 
 	it('rejects password without digit', () => {
-		expect(validatePassword('NoDigitsHereAbc')).toBe('Password must include uppercase, lowercase, and a number');
+		expect(validatePassword('NoDigitsHereAbc')).toBe(PASSWORD_REQUIREMENTS_MESSAGE);
 	});
 
 	it('rejects password longer than 128 characters', () => {
 		const longPassword = 'Aa1' + 'x'.repeat(126);
-		expect(validatePassword(longPassword)).toBe('Password must be 128 characters or fewer');
+		expect(validatePassword(longPassword)).toBe(PASSWORD_MAX_LENGTH_MESSAGE);
 	});
 
 	it('rejects empty password', () => {
-		expect(validatePassword('')).toBe('Password must be at least 12 characters');
+		expect(validatePassword('')).toBe(PASSWORD_MIN_LENGTH_MESSAGE);
+	});
+
+	it('maps provider-side password policy errors to stable user-facing copy', () => {
+		expect(mapProviderPasswordError({ name: 'AuthWeakPasswordError', message: 'Rejected' })).toBe(
+			PASSWORD_PROVIDER_REJECTION_MESSAGE
+		);
+		expect(mapProviderPasswordError({ code: 'weak_password', message: 'Rejected' })).toBe(
+			PASSWORD_PROVIDER_REJECTION_MESSAGE
+		);
+		expect(mapProviderPasswordError({ message: 'Password should be at least 12 characters' })).toBe(
+			PASSWORD_PROVIDER_REJECTION_MESSAGE
+		);
+		expect(mapProviderPasswordError('Weak password: password does not meet requirement')).toBe(
+			PASSWORD_PROVIDER_REJECTION_MESSAGE
+		);
+		expect(mapProviderPasswordError(null)).toBeNull();
+		expect(mapProviderPasswordError(undefined)).toBeNull();
+		expect(mapProviderPasswordError({ message: 'Database is temporarily unavailable' })).toBeNull();
+	});
+
+	it('keeps local Supabase Auth password rules aligned with the app policy', () => {
+		const config = readFileSync(join(process.cwd(), 'supabase/config.toml'), 'utf8');
+
+		expect(config).toContain(`minimum_password_length = ${PASSWORD_MIN_LENGTH}`);
+		expect(config).toContain('password_requirements = "lower_upper_letters_digits"');
 	});
 });

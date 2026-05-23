@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
-import { applyBillingCancellation, persistBillingCustomerId, readBillingOrganization } from './billingOrganization';
+import {
+	applyBillingCancellation,
+	cancelBillingSubscriptionForOrganization,
+	persistBillingCustomerId,
+	readBillingOrganization
+} from './billingOrganization';
 
 describe('billingOrganization use cases', () => {
 	it('reads the current billing organization summary through the app-owned store', async () => {
@@ -82,5 +87,52 @@ describe('billingOrganization use cases', () => {
 			stripe_subscription_id: null,
 			subscription_status: null
 		});
+	});
+
+	it('denies stale-session cancellation before provider cancellation or local subscription reset', async () => {
+		const ctx = createTestContext({
+			sensitiveActionDecision: {
+				allowed: false,
+				reason: 'denied.staleSession',
+				sessionAgeMs: 3_600_000,
+				requiresStepUp: true
+			}
+		});
+		ctx.rawStore.seed('organizations', [
+			{
+				id: ctx.auth.orgId,
+				name: 'Alpha Company',
+				stripe_customer_id: 'cus_123',
+				stripe_subscription_id: 'sub_123',
+				subscription_status: 'active',
+				tier: 'team'
+			}
+		]);
+
+		await expect(cancelBillingSubscriptionForOrganization(ctx)).rejects.toMatchObject({ status: 403 });
+
+		const saved = await ctx.rawStore.findOne<Record<string, unknown>>('organizations', ctx.auth.orgId, {
+			id: ctx.auth.orgId
+		});
+		expect(ctx.billingPort.calls).toEqual([]);
+		expect(saved).toMatchObject({
+			tier: 'team',
+			stripe_subscription_id: 'sub_123',
+			subscription_status: 'active'
+		});
+		expect(ctx.auditPort.events).toEqual([
+			{
+				action: 'billing.cancel_authorization_denied',
+				resourceType: 'organization',
+				resourceId: 'test-org',
+				details: {
+					sensitiveAction: expect.objectContaining({
+						action: 'billing.cancel',
+						reason: 'denied.staleSession'
+					})
+				},
+				severity: 'warning'
+			}
+		]);
 	});
 });

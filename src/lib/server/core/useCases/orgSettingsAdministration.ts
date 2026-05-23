@@ -2,6 +2,16 @@ import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import type { AuthContext, AuditPort, NotificationPort, ReadOnlyGuard } from '$lib/server/core/ports';
 import { fail } from '$lib/server/core/errors';
 import { sanitizeString, validateUUID } from '$lib/server/validation';
+import {
+	ORGANIZATION_DELETE_ACTION,
+	ORGANIZATION_TRANSFER_OWNERSHIP_ACTION,
+	checkSensitiveAction,
+	sensitiveActionDecisionAuditDetails,
+	sensitiveActionDenialMessage,
+	type SensitiveAction,
+	type SensitiveActionAuthorizer,
+	type SensitiveActionDecision
+} from '$lib/server/sensitiveActionAuthorizer';
 import { requireGovernancePolicy } from './governancePolicy';
 import { isDuplicateOrganizationSlugError, validateOrganizationUrlSlug } from './organizationUrlSlug';
 
@@ -21,6 +31,10 @@ interface OrganizationSettingsAdministrationPorts {
 	readOnlyGuard?: ReadOnlyGuard;
 	administration: OrganizationSettingsAdministrationPort;
 }
+
+type OrganizationSensitiveActionPorts = OrganizationSettingsAdministrationPorts & {
+	sensitiveActionAuthorizer: SensitiveActionAuthorizer;
+};
 
 interface TransferOrganizationOwnershipInput {
 	newOwnerId: string;
@@ -111,7 +125,7 @@ export async function clearOrganizationUrlSlug(
 }
 
 export async function transferOrganizationOwnership(
-	ports: OrganizationSettingsAdministrationPorts,
+	ports: OrganizationSensitiveActionPorts,
 	input: TransferOrganizationOwnershipInput
 ): Promise<{ transferSuccess: true }> {
 	await requireGovernancePolicy(ports, POLICY_ACTION_CATALOG.organization.transferOwnership);
@@ -119,6 +133,12 @@ export async function transferOrganizationOwnership(
 	if (!validateUUID(input.newOwnerId)) {
 		fail(400, 'Invalid user ID');
 	}
+
+	const sensitiveAction = await authorizeOrganizationSensitiveAction(ports, {
+		action: ORGANIZATION_TRANSFER_OWNERSHIP_ACTION,
+		deniedAuditAction: 'org.ownership_transfer_authorization_denied',
+		details: { newOwnerId: input.newOwnerId }
+	});
 
 	const errorMessage = await ports.administration.transferOwnership(ports.auth.orgId, input.newOwnerId);
 	if (errorMessage) {
@@ -128,7 +148,7 @@ export async function transferOrganizationOwnership(
 	ports.audit.log({
 		action: 'org.ownership_transferred',
 		resourceType: 'organization',
-		details: { newOwnerId: input.newOwnerId },
+		details: { newOwnerId: input.newOwnerId, sensitiveAction },
 		severity: 'critical'
 	});
 
@@ -145,7 +165,7 @@ export async function transferOrganizationOwnership(
 }
 
 export async function deleteOrganization(
-	ports: OrganizationSettingsAdministrationPorts,
+	ports: OrganizationSensitiveActionPorts,
 	input: DeleteOrganizationInput
 ): Promise<{ success: true }> {
 	await requireGovernancePolicy(ports, POLICY_ACTION_CATALOG.organization.deleteOrganization);
@@ -160,6 +180,11 @@ export async function deleteOrganization(
 		fail(400, 'Organization name does not match');
 	}
 
+	const sensitiveAction = await authorizeOrganizationSensitiveAction(ports, {
+		action: ORGANIZATION_DELETE_ACTION,
+		deniedAuditAction: 'org.delete_authorization_denied'
+	});
+
 	const errorMessage = await ports.administration.deleteOrganization(ports.auth.orgId);
 	if (errorMessage) {
 		fail(500, errorMessage);
@@ -168,8 +193,57 @@ export async function deleteOrganization(
 	ports.audit.log({
 		action: 'org.deleted',
 		resourceType: 'organization',
+		details: { sensitiveAction },
 		severity: 'critical'
 	});
 
 	return { success: true };
+}
+
+async function authorizeOrganizationSensitiveAction(
+	ports: OrganizationSensitiveActionPorts,
+	input: { action: SensitiveAction; deniedAuditAction: string; details?: Record<string, unknown> }
+): Promise<Record<string, unknown>> {
+	const target = { type: 'organization', id: ports.auth.orgId };
+	if (!ports.auth.userId) {
+		const decision = checkSensitiveAction({
+			action: input.action,
+			target,
+			actor: { userId: null }
+		});
+		auditDeniedSensitiveAction(ports, input.deniedAuditAction, decision, input.details);
+		fail(403, sensitiveActionDenialMessage(decision));
+	}
+
+	const decision = await ports.sensitiveActionAuthorizer.authorize({
+		action: input.action,
+		actorUserId: ports.auth.userId,
+		target
+	});
+	const sensitiveAction = sensitiveActionDecisionAuditDetails(decision);
+
+	if (!decision.allowed) {
+		auditDeniedSensitiveAction(ports, input.deniedAuditAction, decision, input.details);
+		fail(403, sensitiveActionDenialMessage(decision));
+	}
+
+	return sensitiveAction;
+}
+
+function auditDeniedSensitiveAction(
+	ports: OrganizationSettingsAdministrationPorts,
+	action: string,
+	decision: SensitiveActionDecision,
+	details: Record<string, unknown> = {}
+): void {
+	ports.audit.log({
+		action,
+		resourceType: 'organization',
+		resourceId: ports.auth.orgId,
+		details: {
+			...details,
+			sensitiveAction: sensitiveActionDecisionAuditDetails(decision)
+		},
+		severity: 'warning'
+	});
 }

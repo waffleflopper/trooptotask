@@ -6,6 +6,8 @@ import {
 	ACCOUNT_SETUP_RENEWAL_RATE_LIMIT_MESSAGE,
 	checkAccountSetupRenewalRateLimit
 } from '$lib/server/accountSetupRateLimit';
+import { auditLog } from '$lib/server/auditLog';
+import { durableRateLimitAuditDetails } from '$lib/server/durableRateLimit';
 import { sanitizeString, validateEmail } from '$lib/server/validation';
 import { getAuthenticatedRedirectPath } from '$lib/server/mfaGate';
 
@@ -33,11 +35,25 @@ export const actions: Actions = {
 			return fail(400, { error: 'Enter a valid email address', email });
 		}
 
+		const clientIp = getClientAddress();
 		const rateLimit = await checkAccountSetupRenewalRateLimit({
 			email,
-			ip: getClientAddress()
+			ip: clientIp
 		});
 		if (rateLimit.limited) {
+			auditLog(
+				{
+					action: 'account_setup.renewal_rate_limited',
+					resourceType: 'access_request',
+					severity: 'warning',
+					details: durableRateLimitAuditDetails(rateLimit)
+				},
+				{
+					userId: null,
+					ip: clientIp,
+					userAgent: request.headers.get('user-agent') ?? ''
+				}
+			);
 			return fail(429, {
 				error: ACCOUNT_SETUP_RENEWAL_RATE_LIMIT_MESSAGE,
 				email

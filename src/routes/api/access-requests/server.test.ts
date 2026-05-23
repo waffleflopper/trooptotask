@@ -87,6 +87,16 @@ describe('POST /api/access-requests', () => {
 		});
 	});
 
+	it('returns the same success response for duplicate pending requests', async () => {
+		submitAccessRequestMock.mockResolvedValueOnce({ status: 'already-pending' });
+
+		const response = await POST(makeEvent());
+
+		expect(response.status).toBe(200);
+		await expect(response.json()).resolves.toEqual({ success: true });
+		expect(checkRateLimitMock).toHaveBeenCalled();
+	});
+
 	it('returns generic retry guidance and skips submission when the durable limiter denies', async () => {
 		checkRateLimitMock.mockResolvedValueOnce({
 			limited: true,

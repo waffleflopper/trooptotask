@@ -9,6 +9,7 @@ const {
 	getAccessRequest,
 	getSetupLink,
 	checkCompletionRateLimit,
+	auditLogMock,
 	setupStore
 } = vi.hoisted(() => {
 	const setupStore = {
@@ -23,6 +24,7 @@ const {
 		getAccessRequest: setupStore.getAccessRequest,
 		getSetupLink: setupStore.getSetupLink,
 		checkCompletionRateLimit: vi.fn(),
+		auditLogMock: vi.fn(),
 		setupStore
 	};
 });
@@ -51,6 +53,10 @@ vi.mock('$lib/server/accountSetupRateLimit', () => ({
 	checkAccountSetupCompletionRateLimit: checkCompletionRateLimit
 }));
 
+vi.mock('$lib/server/auditLog', () => ({
+	auditLog: auditLogMock
+}));
+
 import { actions, load } from './+page.server';
 import {
 	ACCOUNT_SETUP_SESSION_COOKIE,
@@ -62,7 +68,7 @@ function makeRequest(input: { password?: string; confirmPassword?: string }) {
 	const formData = new FormData();
 	formData.set('password', input.password ?? 'ValidPassword123!');
 	formData.set('confirmPassword', input.confirmPassword ?? input.password ?? 'ValidPassword123!');
-	return { formData: vi.fn().mockResolvedValue(formData) };
+	return { formData: vi.fn().mockResolvedValue(formData), headers: new Headers({ 'user-agent': 'vitest-agent' }) };
 }
 
 function makeCookies(initial: Record<string, string> = {}) {
@@ -459,7 +465,15 @@ describe('/auth/setup-account actions', () => {
 			status: 'approved',
 			setupCompletedAt: null
 		});
-		checkCompletionRateLimit.mockReturnValueOnce({ limited: true, retryAfterMs: 60_000 });
+		checkCompletionRateLimit.mockReturnValueOnce({
+			limited: true,
+			retryAfterMs: 60_000,
+			namespace: 'account-setup-completion',
+			dimensions: ['link', 'request', 'email', 'ip'],
+			limitedDimensions: ['link'],
+			windowMs: 900_000,
+			maxRequests: 5
+		});
 
 		const result = await actions.default(makeActionEvent());
 
@@ -476,6 +490,28 @@ describe('/auth/setup-account actions', () => {
 			email: 'soldier@example.mil',
 			ip: '203.0.113.10'
 		});
+		expect(auditLogMock).toHaveBeenCalledWith(
+			{
+				action: 'account_setup.completion_rate_limited',
+				resourceType: 'account_setup_link',
+				resourceId: 'link-1',
+				severity: 'warning',
+				details: {
+					accessRequestId: 'request-1',
+					rateLimit: expect.objectContaining({
+						namespace: 'account-setup-completion',
+						limitedDimensions: ['link'],
+						retryAfterMs: 60_000
+					})
+				}
+			},
+			{
+				userId: null,
+				ip: '203.0.113.10',
+				userAgent: 'vitest-agent'
+			}
+		);
+		expect(JSON.stringify(auditLogMock.mock.calls)).not.toContain('/auth/setup-account?token=');
 		expect(completeSetupSession).not.toHaveBeenCalled();
 	});
 

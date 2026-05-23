@@ -81,7 +81,7 @@ export const POST: RequestHandler = async ({ getClientAddress, request }) => {
 		});
 
 		if (result.status === 'already-pending') {
-			throw error(409, 'A request for this email is already pending');
+			return json({ success: true });
 		}
 	} catch (submitError) {
 		if (submitError && typeof submitError === 'object' && 'status' in submitError) {

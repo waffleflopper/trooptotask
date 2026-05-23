@@ -16,6 +16,8 @@ import {
 	ACCOUNT_SETUP_ATTEMPT_RATE_LIMIT_MESSAGE,
 	checkAccountSetupCompletionRateLimit
 } from '$lib/server/accountSetupRateLimit';
+import { auditLog } from '$lib/server/auditLog';
+import { durableRateLimitAuditDetails } from '$lib/server/durableRateLimit';
 import { getAuthenticatedRedirectPath } from '$lib/server/mfaGate';
 import { getAdminClient, getSupabaseClient } from '$lib/server/supabase';
 import { mapProviderPasswordError, validatePassword } from '$lib/server/validation';
@@ -196,13 +198,31 @@ export const actions: Actions = {
 		const adminClient = getAdminClient();
 		const store = createSupabaseAccountSetupCompletionStore(adminClient);
 		const accessRequest = await store.getAccessRequest(setupSession.accessRequestId);
+		const clientIp = getClientAddress();
 		const rateLimit = await checkAccountSetupCompletionRateLimit({
 			setupLinkId: setupSession.setupLinkId,
 			accessRequestId: setupSession.accessRequestId,
 			email: accessRequest?.email ?? null,
-			ip: getClientAddress()
+			ip: clientIp
 		});
 		if (rateLimit.limited) {
+			auditLog(
+				{
+					action: 'account_setup.completion_rate_limited',
+					resourceType: 'account_setup_link',
+					resourceId: setupSession.setupLinkId,
+					severity: 'warning',
+					details: {
+						accessRequestId: setupSession.accessRequestId,
+						rateLimit: durableRateLimitAuditDetails(rateLimit)
+					}
+				},
+				{
+					userId: null,
+					ip: clientIp,
+					userAgent: request.headers.get('user-agent') ?? ''
+				}
+			);
 			return fail(429, { error: ACCOUNT_SETUP_ATTEMPT_RATE_LIMIT_MESSAGE });
 		}
 

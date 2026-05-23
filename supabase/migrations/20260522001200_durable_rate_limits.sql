@@ -35,6 +35,9 @@ BEGIN
 		RAISE EXCEPTION 'window_seconds and max_requests must be positive';
 	END IF;
 
+	DELETE FROM "public"."durable_rate_limits"
+	WHERE "reset_at" < ("p_checked_at" - interval '1 day');
+
 	next_reset_at := "p_checked_at" + make_interval(secs => "p_window_seconds");
 
 	INSERT INTO "public"."durable_rate_limits" ("bucket_key", "request_count", "reset_at", "updated_at")

@@ -1,9 +1,15 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
+import { auditLog } from '$lib/server/auditLog';
+import {
+	checkPasswordUpdateRateLimit,
+	PASSWORD_UPDATE_RATE_LIMIT_MESSAGE,
+	passwordUpdateRateLimitAuditDetails
+} from '$lib/server/passwordUpdateRateLimit';
 import { mapProviderPasswordError, validatePassword } from '$lib/server/validation';
 import { getPendingAuthFlowCookieName } from '$lib/server/mfaGate';
 
-export const POST: RequestHandler = async ({ request, locals, cookies }) => {
+export const POST: RequestHandler = async ({ request, locals, cookies, getClientAddress }) => {
 	const { currentPassword, password, confirmPassword } = (await request.json()) as {
 		currentPassword?: string;
 		password?: string;
@@ -45,6 +51,42 @@ export const POST: RequestHandler = async ({ request, locals, cookies }) => {
 			return json({ error: 'Current user email is unavailable' }, { status: 401 });
 		}
 
+		const clientIp = getClientAddress();
+		const rateLimit = await checkPasswordUpdateRateLimit({
+			userId: locals.user?.id ?? locals.session.user.id,
+			ip: clientIp
+		});
+		if (rateLimit.limited) {
+			const retryAfterSeconds = Math.max(1, Math.ceil(rateLimit.retryAfterMs / 1000));
+			auditLog(
+				{
+					action: 'auth.password_update_rate_limited',
+					resourceType: 'user',
+					resourceId: locals.user?.id ?? locals.session.user.id,
+					severity: 'warning',
+					details: passwordUpdateRateLimitAuditDetails(rateLimit)
+				},
+				{
+					userId: locals.user?.id ?? locals.session.user.id,
+					userEmail: email,
+					ip: clientIp,
+					userAgent: request.headers.get('user-agent') ?? ''
+				}
+			);
+			return json(
+				{
+					error: PASSWORD_UPDATE_RATE_LIMIT_MESSAGE,
+					retryAfterSeconds
+				},
+				{
+					status: 429,
+					headers: {
+						'Retry-After': String(retryAfterSeconds)
+					}
+				}
+			);
+		}
+
 		const { error: signInError } = await locals.supabase.auth.signInWithPassword({
 			email,
 			password: currentPassword
@@ -64,7 +106,7 @@ export const POST: RequestHandler = async ({ request, locals, cookies }) => {
 		}
 		return json(
 			{
-				error: error.message
+				error: 'Password update failed'
 			},
 			{ status: 401 }
 		);

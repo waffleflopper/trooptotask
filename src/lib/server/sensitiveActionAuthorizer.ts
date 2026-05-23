@@ -23,8 +23,7 @@ export type SensitiveAction =
 	| typeof BILLING_CANCEL_ACTION
 	| typeof ORGANIZATION_MEMBER_INVITE_HIGH_PRIVILEGE_ACTION
 	| typeof ORGANIZATION_MEMBER_UPDATE_HIGH_PRIVILEGE_ACTION
-	| typeof ORGANIZATION_MEMBER_REMOVE_HIGH_PRIVILEGE_ACTION
-	| (string & {});
+	| typeof ORGANIZATION_MEMBER_REMOVE_HIGH_PRIVILEGE_ACTION;
 
 export type SensitiveActionDecisionReason =
 	| 'allowed.recentSession'

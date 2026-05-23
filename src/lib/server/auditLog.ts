@@ -46,7 +46,10 @@ const SAFE_STRING_KEYS = new Set([
 	'revieweruserid',
 	'reviewer_user_id',
 	'noteauthoruserid',
-	'note_author_user_id'
+	'note_author_user_id',
+	'statetransition',
+	'outcome',
+	'failurecategory'
 ]);
 const REDACTED_KEY_PARTS = [
 	'phone',

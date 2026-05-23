@@ -4,6 +4,7 @@ import {
 	type AccessRequestSetupDeliveryStore
 } from './accessRequestSetupDelivery';
 import {
+	accountSetupLinkFixture,
 	accessRequestFixture,
 	createAccessRequestSetupDeliveryStore,
 	fixedAuthWorkflowTime
@@ -235,6 +236,15 @@ describe('access request setup delivery', () => {
 	it('records failed public setup delivery without storing the raw token or corrupting the setup link', async () => {
 		vi.stubEnv('APP_PUBLIC_ORIGIN_ALLOWLIST', 'https://trooptotask.test');
 		const store = createAccessRequestSetupDeliveryStore([accessRequestFixture()]);
+		store.setupLinks.push(
+			accountSetupLinkFixture({
+				id: 'setup-link-previous',
+				accessRequestId: 'request-1',
+				tokenHash: 'previous-token-hash',
+				createdAt: new Date('2026-05-17T12:00:00.000Z'),
+				expiresAt: new Date('2026-05-31T12:00:00.000Z')
+			})
+		);
 		const { service, sendSetupEmail } = makeService(store);
 		sendSetupEmail.mockRejectedValueOnce(new Error('mail provider unavailable'));
 
@@ -243,9 +253,17 @@ describe('access request setup delivery', () => {
 			origin: 'https://trooptotask.test'
 		});
 
-		expect(result).toEqual({ status: 'no-public-action' });
-		expect(store.setupLinks).toHaveLength(1);
-		expect(store.setupLinks[0].revokedAt).toBeNull();
+		expect(result).toEqual({
+			status: 'fresh-setup-delivery-failed',
+			accessRequestId: 'request-1',
+			setupLinkId: 'setup-link-1',
+			revokedLinkIds: ['setup-link-previous']
+		});
+		expect(store.setupLinks).toHaveLength(2);
+		expect(store.setupLinks.find((link) => link.id === 'setup-link-previous')?.revokedAt).toEqual(
+			new Date('2026-05-18T12:00:00.000Z')
+		);
+		expect(store.setupLinks.find((link) => link.id === 'setup-link-1')?.revokedAt).toBeNull();
 		expect(store.outboxRecords).toEqual([
 			expect.objectContaining({
 				accessRequestId: 'request-1',

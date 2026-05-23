@@ -65,7 +65,7 @@ export const actions: Actions = {
 				email,
 				origin: url.origin
 			});
-			if (renewal.status === 'fresh-setup-sent') {
+			if (renewal.status === 'fresh-setup-sent' || renewal.status === 'fresh-setup-delivery-failed') {
 				await Promise.all(
 					renewal.revokedLinkIds.map((revokedLinkId) =>
 						auditLog(

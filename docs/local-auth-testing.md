@@ -70,6 +70,21 @@ That suite is the focused Account Setup Link regression suite. It runs against l
 
 These two focused suites are more reliable than a single giant auth run because local Supabase auth can get temperamental when many invite and recovery emails are created back to back in one process.
 
+## Run the auth workflow database authorization contract
+
+The auth workflow storage authorization checks live in `supabase/tests/auth_workflow_authorization.sql`.
+They use pgTAP against local Supabase and wrap all fixture rows in a transaction that rolls back at the
+end. They do not reset, delete, or migrate local tables.
+
+Run them with:
+
+```bash
+supabase start
+supabase test db supabase/tests/auth_workflow_authorization.sql
+```
+
+Use only a local or disposable database URL for this contract. Do not run it against production.
+
 ## Manual Account Setup Link check
 
 Use this when validating the beta setup path from approval through first sign-in:

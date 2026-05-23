@@ -42,10 +42,12 @@ export type AccessRequestSubmissionResult =
 	| { status: 'pending-created' }
 	| { status: 'already-pending' }
 	| { status: 'fresh-setup-sent'; accessRequestId: string; setupLinkId: string; revokedLinkIds: string[] }
+	| { status: 'fresh-setup-delivery-failed'; accessRequestId: string; setupLinkId: string; revokedLinkIds: string[] }
 	| { status: 'no-public-action' };
 
 export type AccessRequestRenewalResult =
 	| { status: 'fresh-setup-sent'; accessRequestId: string; setupLinkId: string; revokedLinkIds: string[] }
+	| { status: 'fresh-setup-delivery-failed'; accessRequestId: string; setupLinkId: string; revokedLinkIds: string[] }
 	| { status: 'no-public-action' };
 
 interface AccessRequestSetupDeliveryOptions {
@@ -131,7 +133,12 @@ export function createAccessRequestSetupDeliveryService(
 		});
 
 		if (delivery.status === 'failed') {
-			return { status: 'no-public-action' };
+			return {
+				status: 'fresh-setup-delivery-failed',
+				accessRequestId: request.id,
+				setupLinkId: setupResult.link.id,
+				revokedLinkIds: setupResult.revokedLinks.map((link) => link.id)
+			};
 		}
 
 		return {
@@ -162,7 +169,7 @@ export function createAccessRequestSetupDeliveryService(
 			const renewableRequest = existingRequests.find((request) => isApprovedIncompleteRenewable(request, now()));
 			if (renewableRequest) {
 				const delivered = await deliverFreshSetupLink(renewableRequest, input.origin);
-				if (delivered.status === 'fresh-setup-sent') {
+				if (delivered.status === 'fresh-setup-sent' || delivered.status === 'fresh-setup-delivery-failed') {
 					return delivered;
 				}
 			}

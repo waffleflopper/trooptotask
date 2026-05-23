@@ -87,6 +87,36 @@ describe('/auth/renew-invite actions', () => {
 		);
 	});
 
+	it('audits setup link revocations even when fresh-link renewal delivery fails', async () => {
+		requestFreshSetupLinkMock.mockResolvedValueOnce({
+			status: 'fresh-setup-delivery-failed',
+			accessRequestId: 'request-1',
+			setupLinkId: 'setup-link-2',
+			revokedLinkIds: ['setup-link-1']
+		});
+
+		const result = await actions.default(makeActionEvent({ email: 'approved@example.mil' }));
+
+		expect(result).toEqual({ success: true, email: 'approved@example.mil' });
+		expect(auditLogMock).toHaveBeenCalledWith(
+			{
+				action: 'account_setup.link_revoked',
+				resourceType: 'account_setup_link',
+				resourceId: 'setup-link-1',
+				details: {
+					accessRequestId: 'request-1',
+					replacementSetupLinkId: 'setup-link-2',
+					stateTransition: 'pending.replaced'
+				}
+			},
+			{
+				userId: null,
+				ip: '203.0.113.10',
+				userAgent: 'vitest-agent'
+			}
+		);
+	});
+
 	it('returns generic recovery copy when fresh-link renewal is rate-limited', async () => {
 		checkRenewalRateLimitMock.mockReturnValueOnce({
 			limited: true,

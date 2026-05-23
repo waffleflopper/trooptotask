@@ -83,7 +83,7 @@ export const POST: RequestHandler = async ({ getClientAddress, request }) => {
 		if (result.status === 'already-pending') {
 			return json({ success: true });
 		}
-		if (result.status === 'fresh-setup-sent') {
+		if (result.status === 'fresh-setup-sent' || result.status === 'fresh-setup-delivery-failed') {
 			await Promise.all(
 				result.revokedLinkIds.map((revokedLinkId) =>
 					auditLog(

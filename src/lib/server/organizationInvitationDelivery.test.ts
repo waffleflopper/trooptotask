@@ -2,56 +2,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
 	makeOrganizationInvitationUrl,
 	sendOrganizationInvitationEmail,
-	sendOrganizationInvitationOutboxDelivery,
-	type OrganizationInvitationEmailOutboxRecord,
-	type OrganizationInvitationEmailOutboxStore
+	sendOrganizationInvitationOutboxDelivery
 } from './organizationInvitationDelivery';
-
-const NOW = new Date('2026-05-22T12:00:00.000Z');
-
-function makeStore() {
-	const records: OrganizationInvitationEmailOutboxRecord[] = [];
-	const store: OrganizationInvitationEmailOutboxStore & { records: OrganizationInvitationEmailOutboxRecord[] } = {
-		records,
-		async insertInvitationEmailDelivery(input) {
-			const record: OrganizationInvitationEmailOutboxRecord = {
-				id: `outbox-${records.length + 1}`,
-				organizationId: input.organizationId,
-				invitationId: input.invitationId,
-				recipient: input.recipient,
-				status: 'pending',
-				attemptCount: 0,
-				lastError: null,
-				createdAt: input.createdAt,
-				updatedAt: input.createdAt,
-				sentAt: null
-			};
-			records.push(record);
-			return record;
-		},
-		async markInvitationEmailDeliverySent(id, sentAt) {
-			const record = records.find((item) => item.id === id);
-			if (!record) throw new Error('missing outbox');
-			record.status = 'sent';
-			record.attemptCount = 1;
-			record.lastError = null;
-			record.updatedAt = sentAt;
-			record.sentAt = sentAt;
-			return record;
-		},
-		async markInvitationEmailDeliveryFailed(id, failedAt, lastError) {
-			const record = records.find((item) => item.id === id);
-			if (!record) throw new Error('missing outbox');
-			record.status = 'failed';
-			record.attemptCount = 1;
-			record.lastError = lastError;
-			record.updatedAt = failedAt;
-			record.sentAt = null;
-			return record;
-		}
-	};
-	return store;
-}
+import {
+	AUTH_WORKFLOW_NOW,
+	createOrganizationInvitationEmailOutboxStore
+} from '$lib/test-support/authWorkflowFixtures';
 
 describe('organization invitation delivery', () => {
 	afterEach(() => {
@@ -59,7 +15,7 @@ describe('organization invitation delivery', () => {
 	});
 
 	it('records sent delivery without storing the sign-in destination URL', async () => {
-		const store = makeStore();
+		const store = createOrganizationInvitationEmailOutboxStore();
 		const sendEmail = vi.fn().mockResolvedValue(undefined);
 
 		const result = await sendOrganizationInvitationOutboxDelivery(store, sendEmail, {
@@ -70,7 +26,7 @@ describe('organization invitation delivery', () => {
 			invitedByEmail: 'admin@example.mil',
 			inviteUrl: 'https://trooptotask.test/auth/login?next=%2Fdashboard',
 			requiresAccountSetup: false,
-			now: NOW
+			now: AUTH_WORKFLOW_NOW
 		});
 
 		expect(result.status).toBe('sent');
@@ -94,7 +50,7 @@ describe('organization invitation delivery', () => {
 	});
 
 	it('records failed delivery as retryable history without deleting the invitation', async () => {
-		const store = makeStore();
+		const store = createOrganizationInvitationEmailOutboxStore();
 		const sendEmail = vi.fn().mockRejectedValue(new Error('mail provider unavailable'));
 
 		const result = await sendOrganizationInvitationOutboxDelivery(store, sendEmail, {
@@ -105,7 +61,7 @@ describe('organization invitation delivery', () => {
 			invitedByEmail: null,
 			inviteUrl: 'https://trooptotask.test/auth/login?next=%2Fdashboard',
 			requiresAccountSetup: false,
-			now: NOW
+			now: AUTH_WORKFLOW_NOW
 		});
 
 		expect(result).toMatchObject({

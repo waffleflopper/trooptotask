@@ -5,6 +5,7 @@ import { verifyWebhookSignature, pauseSubscription, resumeSubscription } from '$
 import { getAdminClient } from '$lib/server/supabase';
 import { invalidateTierCache } from '$lib/server/subscription';
 import type { Tier } from '$lib/types/subscription';
+import { configuredPriceCatalog, lookupPriceCatalogEntry } from '$lib/server/billing/priceCatalog';
 
 const TIER_RANK: Record<string, number> = { free: 1, team: 2, unit: 3 };
 const FINAL_PROCESSING_STATES = new Set(['processed', 'ignored', 'permanently_failed', 'superseded']);
@@ -24,7 +25,7 @@ interface WebhookProcessingResult {
 }
 
 interface SubscriptionUpdateResult {
-	state: 'processed' | 'ignored';
+	state: 'processed' | 'ignored' | 'superseded';
 	result: string;
 }
 
@@ -41,7 +42,13 @@ class PermanentWebhookProcessingError extends Error {
  * access the field safely via the raw event data object.
  */
 interface SubscriptionWebhookData {
+	current_period_start?: number;
 	current_period_end?: number;
+}
+
+interface ExistingBillingSnapshot {
+	id?: string;
+	last_stripe_event_created_at: string | null;
 }
 
 /**
@@ -81,6 +88,99 @@ function sanitizeWebhookError(err: unknown): string {
 		.replace(/stripe-signature[:=]\s*\S+/gi, 'stripe-signature=[redacted]');
 }
 
+function isoFromStripeTimestamp(value: number | null | undefined): string | null {
+	return typeof value === 'number' ? new Date(value * 1000).toISOString() : null;
+}
+
+function getSubscriptionPriceDetails(subscription: Stripe.Subscription): {
+	priceId: string | null;
+	productId: string | null;
+} {
+	const price = subscription.items?.data?.[0]?.price;
+	const product = price?.product;
+	return {
+		priceId: price?.id ?? null,
+		productId: typeof product === 'string' ? product : (product?.id ?? null)
+	};
+}
+
+function legacyOrganizationStatus(status: Stripe.Subscription.Status): string | null {
+	switch (status) {
+		case 'active':
+		case 'trialing':
+		case 'paused':
+			return 'active';
+		case 'past_due':
+		case 'unpaid':
+			return 'past_due';
+		case 'canceled':
+			return 'canceled';
+		case 'incomplete':
+		case 'incomplete_expired':
+			return null;
+		default:
+			return null;
+	}
+}
+
+async function readBillingSnapshotForTransition(
+	supabase: SupabaseClient,
+	orgId: string
+): Promise<ExistingBillingSnapshot | null> {
+	const { data, error } = await supabase
+		.from('organization_billing_snapshots')
+		.select('id, last_stripe_event_created_at')
+		.eq('organization_id', orgId)
+		.single<ExistingBillingSnapshot>();
+
+	if (error && 'code' in error && error.code === 'PGRST116') return null;
+	if (error) throw new Error(`Failed to read billing snapshot for org ${orgId}: ${error.message}`);
+	return data ?? null;
+}
+
+function isStaleBillingEvent(snapshot: ExistingBillingSnapshot | null, eventCreatedAt: string): boolean {
+	return !!(
+		snapshot?.last_stripe_event_created_at &&
+		new Date(snapshot.last_stripe_event_created_at).getTime() > new Date(eventCreatedAt).getTime()
+	);
+}
+
+async function upsertBillingSnapshot(supabase: SupabaseClient, values: Record<string, unknown>): Promise<boolean> {
+	const { data, error } = await supabase.rpc('upsert_organization_billing_snapshot_if_current', {
+		p_snapshot: values
+	});
+	if (error) throw new Error(`Failed to update billing snapshot: ${error.message}`);
+	return data === true;
+}
+
+function subscriptionCollectionStatus(status: Stripe.Subscription.Status): string {
+	switch (status) {
+		case 'active':
+		case 'trialing':
+		case 'paused':
+			return 'current';
+		case 'past_due':
+		case 'unpaid':
+			return 'past_due';
+		case 'canceled':
+			return 'canceled';
+		case 'incomplete':
+		case 'incomplete_expired':
+			return 'pending_activation';
+		default:
+			return 'pending_activation';
+	}
+}
+
+async function updateLegacyOrganizationBillingMirror(
+	supabase: SupabaseClient,
+	orgId: string,
+	values: Record<string, unknown>
+): Promise<void> {
+	const { error } = await supabase.from('organizations').update(values).eq('id', orgId);
+	if (error) throw new Error(`Failed to update org ${orgId}: ${error.message}`);
+}
+
 /**
  * After updating an org's subscription, check if an active gift should
  * pause or resume the Stripe subscription.
@@ -116,10 +216,15 @@ async function checkGiftPause(
 // Event handlers
 // ---------------------------------------------------------------------------
 
-async function handleCheckoutCompleted(supabase: SupabaseClient, session: Stripe.Checkout.Session): Promise<string> {
+async function handleCheckoutCompleted(
+	supabase: SupabaseClient,
+	session: Stripe.Checkout.Session,
+	event: Stripe.Event
+): Promise<WebhookProcessingResult> {
 	const orgId = session.metadata?.orgId;
 	const tier = session.metadata?.tier as Tier | undefined;
 	const subscriptionId = session.subscription as string | null;
+	const eventCreatedAt = new Date(event.created * 1000).toISOString();
 
 	if (!orgId || !tier || !subscriptionId) {
 		throw new PermanentWebhookProcessingError('checkout.session.completed missing orgId, tier, or subscriptionId');
@@ -134,77 +239,149 @@ async function handleCheckoutCompleted(supabase: SupabaseClient, session: Stripe
 	// we'll set current_period_end to null and let the subscription.updated
 	// event (which Stripe always fires after checkout) fill it in.
 
-	const { error } = await supabase
-		.from('organizations')
-		.update({
-			stripe_customer_id: session.customer as string,
-			stripe_subscription_id: subscriptionId,
-			tier,
-			subscription_status: 'active',
-			current_period_end: null // will be set by subscription.updated
-		})
-		.eq('id', orgId);
-
-	if (error) {
-		throw new Error(`Failed to update org ${orgId}: ${error.message}`);
+	const snapshot = await readBillingSnapshotForTransition(supabase, orgId);
+	if (isStaleBillingEvent(snapshot, eventCreatedAt)) {
+		return {
+			state: 'superseded',
+			result: `checkout completion for organization ${orgId} is older than the current billing snapshot`
+		};
 	}
 
+	const snapshotUpdated = await upsertBillingSnapshot(supabase, {
+		organization_id: orgId,
+		source: 'stripe',
+		commercial_plan: tier,
+		stripe_customer_id: session.customer as string,
+		stripe_subscription_id: subscriptionId,
+		stripe_product_id: null,
+		stripe_price_id: null,
+		subscription_status: 'incomplete',
+		collection_status: 'pending_activation',
+		current_period_start: null,
+		current_period_end: null,
+		cancel_at_period_end: false,
+		canceled_at: null,
+		trial_end: null,
+		sync_status: 'pending',
+		last_stripe_event_id: event.id,
+		last_stripe_event_type: event.type,
+		last_stripe_event_created_at: eventCreatedAt,
+		last_processed_at: new Date().toISOString(),
+		drift_detected: false
+	});
+	if (!snapshotUpdated) {
+		return {
+			state: 'superseded',
+			result: `checkout completion for organization ${orgId} lost a concurrent billing snapshot update`
+		};
+	}
+
+	await updateLegacyOrganizationBillingMirror(supabase, orgId, {
+		stripe_customer_id: session.customer as string,
+		stripe_subscription_id: subscriptionId,
+		subscription_status: 'incomplete',
+		current_period_end: null
+	});
+
 	invalidateTierCache(orgId);
-	return `checkout completed for organization ${orgId}`;
+	return {
+		state: 'processed',
+		result: `checkout pending activation recorded for organization ${orgId}`
+	};
 }
 
 async function handleSubscriptionUpdated(
 	supabase: SupabaseClient,
-	subscription: Stripe.Subscription
+	subscription: Stripe.Subscription,
+	event: Stripe.Event
 ): Promise<SubscriptionUpdateResult> {
 	const orgId = subscription.metadata?.orgId;
-	const tier = (subscription.metadata?.tier ?? 'free') as Tier;
+	const eventCreatedAt = new Date(event.created * 1000).toISOString();
 
 	if (!orgId) {
 		throw new PermanentWebhookProcessingError('customer.subscription.updated missing orgId metadata');
 	}
 
-	const STATUS_MAP: Record<string, string | null> = {
-		active: 'active',
-		past_due: 'past_due',
-		canceled: 'canceled',
-		paused: 'active',
-		trialing: 'active',
-		incomplete: null,
-		incomplete_expired: null,
-		unpaid: 'past_due'
-	};
-	const status = STATUS_MAP[subscription.status];
-	if (!status) {
+	const snapshot = await readBillingSnapshotForTransition(supabase, orgId);
+	if (isStaleBillingEvent(snapshot, eventCreatedAt)) {
 		return {
-			state: 'ignored',
-			result: `subscription status ${subscription.status} is not mapped to local billing access`
+			state: 'superseded',
+			result: `subscription update for organization ${orgId} is older than the current billing snapshot`
 		};
 	}
 
 	// current_period_end was removed from Stripe SDK v20 types but is
 	// still present in the webhook payload.
 	const rawSub = subscription as unknown as SubscriptionWebhookData;
-	const periodEnd = rawSub.current_period_end ? new Date(rawSub.current_period_end * 1000).toISOString() : null;
+	const periodStart = isoFromStripeTimestamp(rawSub.current_period_start);
+	const periodEnd = isoFromStripeTimestamp(rawSub.current_period_end);
+	const trialEnd = isoFromStripeTimestamp(subscription.trial_end);
+	const canceledAt = isoFromStripeTimestamp(subscription.canceled_at);
+	const { priceId, productId } = getSubscriptionPriceDetails(subscription);
+	const catalogLookup = lookupPriceCatalogEntry(configuredPriceCatalog, priceId);
+	const grantsPaidAccess =
+		subscription.status === 'active' || subscription.status === 'trialing' || subscription.status === 'paused';
 
-	const { error } = await supabase
-		.from('organizations')
-		.update({
-			tier,
-			stripe_subscription_id: subscription.id,
-			subscription_status: status,
-			current_period_end: periodEnd
-		})
-		.eq('id', orgId);
-
-	if (error) {
-		throw new Error(`Failed to update org ${orgId}: ${error.message}`);
+	if (grantsPaidAccess && !catalogLookup.ok) {
+		throw new PermanentWebhookProcessingError(
+			`customer.subscription.updated cannot grant access for ${orgId}: ${catalogLookup.reason}`
+		);
 	}
+
+	if (
+		grantsPaidAccess &&
+		catalogLookup.ok &&
+		subscription.metadata?.tier &&
+		subscription.metadata.tier !== catalogLookup.entry.commercialPlan
+	) {
+		throw new PermanentWebhookProcessingError(
+			`customer.subscription.updated metadata tier ${subscription.metadata.tier} does not match price catalog plan ${catalogLookup.entry.commercialPlan}`
+		);
+	}
+
+	const commercialPlan = grantsPaidAccess && catalogLookup.ok ? catalogLookup.entry.commercialPlan : 'free';
+	const legacyStatus = legacyOrganizationStatus(subscription.status);
+
+	const snapshotUpdated = await upsertBillingSnapshot(supabase, {
+		organization_id: orgId,
+		source: 'stripe',
+		commercial_plan: commercialPlan,
+		stripe_customer_id: typeof subscription.customer === 'string' ? subscription.customer : subscription.customer?.id,
+		stripe_subscription_id: subscription.id,
+		stripe_product_id: productId,
+		stripe_price_id: priceId,
+		subscription_status: subscription.status,
+		collection_status: subscriptionCollectionStatus(subscription.status),
+		current_period_start: periodStart,
+		current_period_end: periodEnd,
+		cancel_at_period_end: subscription.cancel_at_period_end,
+		canceled_at: canceledAt,
+		trial_end: trialEnd,
+		sync_status: 'synced',
+		last_stripe_event_id: event.id,
+		last_stripe_event_type: event.type,
+		last_stripe_event_created_at: eventCreatedAt,
+		last_processed_at: new Date().toISOString(),
+		drift_detected: false
+	});
+	if (!snapshotUpdated) {
+		return {
+			state: 'superseded',
+			result: `subscription update for organization ${orgId} lost a concurrent billing snapshot update`
+		};
+	}
+
+	await updateLegacyOrganizationBillingMirror(supabase, orgId, {
+		tier: commercialPlan,
+		stripe_subscription_id: subscription.id,
+		subscription_status: legacyStatus,
+		current_period_end: periodEnd
+	});
 
 	invalidateTierCache(orgId);
 
 	// Check if a gift should pause/resume this subscription
-	await checkGiftPause(supabase, orgId, tier, subscription);
+	await checkGiftPause(supabase, orgId, commercialPlan, subscription);
 	return {
 		state: 'processed',
 		result: `subscription updated for organization ${orgId}`
@@ -267,13 +444,10 @@ async function handlePaymentFailed(supabase: SupabaseClient, invoice: Stripe.Inv
 async function processWebhookEvent(supabase: SupabaseClient, event: Stripe.Event): Promise<WebhookProcessingResult> {
 	switch (event.type) {
 		case 'checkout.session.completed':
-			return {
-				state: 'processed',
-				result: await handleCheckoutCompleted(supabase, event.data.object as Stripe.Checkout.Session)
-			};
+			return handleCheckoutCompleted(supabase, event.data.object as Stripe.Checkout.Session, event);
 
 		case 'customer.subscription.updated': {
-			const result = await handleSubscriptionUpdated(supabase, event.data.object as Stripe.Subscription);
+			const result = await handleSubscriptionUpdated(supabase, event.data.object as Stripe.Subscription, event);
 			return {
 				state: result.state,
 				result: result.result

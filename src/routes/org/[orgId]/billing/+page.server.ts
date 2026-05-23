@@ -7,6 +7,7 @@ import { TIER_CONFIG, type EffectiveTier, type Tier } from '$lib/types/subscript
 import { canManageBillingSubscription, readBillingOrganization } from '$lib/server/core/useCases/billingOrganization';
 import type { UseCaseContext } from '$lib/server/core/ports';
 import { requireGovernancePolicy } from '$lib/server/core/useCases/governancePolicy';
+import { readCurrentBillingSnapshot } from '$lib/server/core/useCases/billingState';
 
 export async function _loadBillingPageData(
 	ctx: Pick<UseCaseContext, 'auth' | 'audit' | 'rawStore'>,
@@ -15,6 +16,7 @@ export async function _loadBillingPageData(
 	await requireGovernancePolicy({ auth: ctx.auth, audit: ctx.audit }, POLICY_ACTION_CATALOG.organization.accessBilling);
 
 	const org = await readBillingOrganization({ auth: ctx.auth, store: ctx.rawStore });
+	const billingSnapshot = await readCurrentBillingSnapshot({ auth: ctx.auth, store: ctx.rawStore });
 	const canManageSubscription = canManageBillingSubscription(org);
 
 	const tierComparison = (['free', 'team', 'unit'] as Tier[]).map((tier) => {
@@ -34,6 +36,7 @@ export async function _loadBillingPageData(
 		orgName: org.name,
 		stripeCustomerId: org.stripeCustomerId,
 		subscriptionStripeId: org.stripeSubscriptionId,
+		billingSnapshot,
 		canManageSubscription,
 		tierComparison
 	};

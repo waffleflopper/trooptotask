@@ -258,7 +258,13 @@ describe('transferOrganizationOwnership', () => {
 
 		await expect(
 			transferOrganizationOwnership(
-				{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, administration: port },
+				{
+					auth: ctx.auth,
+					audit: ctx.audit,
+					notifications: ctx.notifications,
+					administration: port,
+					sensitiveActionAuthorizer: ctx.sensitiveActionAuthorizer
+				},
 				{ newOwnerId: '11111111-1111-4111-8111-111111111111' }
 			)
 		).rejects.toMatchObject({
@@ -267,6 +273,7 @@ describe('transferOrganizationOwnership', () => {
 		});
 
 		expect(port.transferRequests).toEqual([]);
+		expect(ctx.sensitiveActionAuthorizer.requests).toEqual([]);
 		expect(ctx.auditPort.events).toEqual([
 			{
 				action: 'policy.denied',
@@ -291,7 +298,13 @@ describe('transferOrganizationOwnership', () => {
 
 		await expect(
 			transferOrganizationOwnership(
-				{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, administration: port },
+				{
+					auth: ctx.auth,
+					audit: ctx.audit,
+					notifications: ctx.notifications,
+					administration: port,
+					sensitiveActionAuthorizer: ctx.sensitiveActionAuthorizer
+				},
 				{ newOwnerId: 'bad-id' }
 			)
 		).rejects.toMatchObject({
@@ -301,8 +314,67 @@ describe('transferOrganizationOwnership', () => {
 
 		expect(requireOwner).not.toHaveBeenCalled();
 		expect(port.transferRequests).toEqual([]);
+		expect(ctx.sensitiveActionAuthorizer.requests).toEqual([]);
 		expect(ctx.auditPort.events).toEqual([]);
 		expect(ctx.notificationPort.notifications).toEqual([]);
+	});
+
+	it('denies stale-session ownership transfers after governance and before provider mutation', async () => {
+		const ctx = createTestContext({
+			auth: {
+				orgId: 'org-1',
+				userId: 'owner-1'
+			},
+			sensitiveActionDecision: {
+				allowed: false,
+				reason: 'denied.staleSession',
+				sessionAgeMs: 3_600_000,
+				requiresStepUp: true
+			}
+		});
+		const port = createOrganizationSettingsAdministrationPort();
+
+		await expect(
+			transferOrganizationOwnership(
+				{
+					auth: ctx.auth,
+					audit: ctx.audit,
+					notifications: ctx.notifications,
+					administration: port,
+					sensitiveActionAuthorizer: ctx.sensitiveActionAuthorizer
+				},
+				{ newOwnerId: '11111111-1111-4111-8111-111111111111' }
+			)
+		).rejects.toMatchObject({
+			status: 403,
+			message: 'Please confirm your identity before continuing. Sign in again or complete MFA, then try again.'
+		});
+
+		expect(ctx.sensitiveActionAuthorizer.requests).toEqual([
+			{
+				action: 'organization.transferOwnership',
+				actorUserId: 'owner-1',
+				target: { type: 'organization', id: 'org-1' }
+			}
+		]);
+		expect(port.transferRequests).toEqual([]);
+		expect(ctx.notificationPort.notifications).toEqual([]);
+		expect(ctx.auditPort.events).toEqual([
+			{
+				action: 'org.ownership_transfer_authorization_denied',
+				resourceType: 'organization',
+				resourceId: 'org-1',
+				details: {
+					newOwnerId: '11111111-1111-4111-8111-111111111111',
+					sensitiveAction: expect.objectContaining({
+						action: 'organization.transferOwnership',
+						reason: 'denied.staleSession',
+						requiresStepUp: true
+					})
+				},
+				severity: 'warning'
+			}
+		]);
 	});
 
 	it('transfers ownership through the administration boundary, audits it, and notifies the new owner', async () => {
@@ -316,7 +388,13 @@ describe('transferOrganizationOwnership', () => {
 		});
 
 		const result = await transferOrganizationOwnership(
-			{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, administration: port },
+			{
+				auth: ctx.auth,
+				audit: ctx.audit,
+				notifications: ctx.notifications,
+				administration: port,
+				sensitiveActionAuthorizer: ctx.sensitiveActionAuthorizer
+			},
 			{ newOwnerId: '11111111-1111-4111-8111-111111111111' }
 		);
 
@@ -332,7 +410,13 @@ describe('transferOrganizationOwnership', () => {
 			{
 				action: 'org.ownership_transferred',
 				resourceType: 'organization',
-				details: { newOwnerId: '11111111-1111-4111-8111-111111111111' },
+				details: {
+					newOwnerId: '11111111-1111-4111-8111-111111111111',
+					sensitiveAction: expect.objectContaining({
+						action: 'organization.transferOwnership',
+						reason: 'allowed.recentSession'
+					})
+				},
 				severity: 'critical'
 			}
 		]);
@@ -351,6 +435,102 @@ describe('transferOrganizationOwnership', () => {
 		]);
 	});
 
+	it('transfers ownership when MFA assurance satisfies the sensitive-action check', async () => {
+		const ctx = createTestContext({
+			auth: {
+				orgId: 'org-1',
+				userId: 'owner-1'
+			},
+			sensitiveActionDecision: {
+				reason: 'allowed.mfaAssurance',
+				currentAssuranceLevel: 'aal2',
+				nextAssuranceLevel: 'aal2',
+				sessionAgeMs: 3_600_000
+			}
+		});
+		const port = createOrganizationSettingsAdministrationPort({
+			organizationName: 'Alpha Company'
+		});
+
+		const result = await transferOrganizationOwnership(
+			{
+				auth: ctx.auth,
+				audit: ctx.audit,
+				notifications: ctx.notifications,
+				administration: port,
+				sensitiveActionAuthorizer: ctx.sensitiveActionAuthorizer
+			},
+			{ newOwnerId: '11111111-1111-4111-8111-111111111111' }
+		);
+
+		expect(result).toEqual({ transferSuccess: true });
+		expect(port.transferRequests).toEqual([
+			{
+				orgId: 'org-1',
+				newOwnerId: '11111111-1111-4111-8111-111111111111'
+			}
+		]);
+		expect(ctx.auditPort.events).toEqual([
+			{
+				action: 'org.ownership_transferred',
+				resourceType: 'organization',
+				details: {
+					newOwnerId: '11111111-1111-4111-8111-111111111111',
+					sensitiveAction: expect.objectContaining({
+						action: 'organization.transferOwnership',
+						reason: 'allowed.mfaAssurance',
+						currentAssuranceLevel: 'aal2'
+					})
+				},
+				severity: 'critical'
+			}
+		]);
+	});
+
+	it('denies ownership transfer without a signed-in actor before calling the authorizer port', async () => {
+		const ctx = createTestContext({
+			auth: {
+				orgId: 'org-1',
+				userId: null
+			}
+		});
+		const port = createOrganizationSettingsAdministrationPort();
+
+		await expect(
+			transferOrganizationOwnership(
+				{
+					auth: ctx.auth,
+					audit: ctx.audit,
+					notifications: ctx.notifications,
+					administration: port,
+					sensitiveActionAuthorizer: ctx.sensitiveActionAuthorizer
+				},
+				{ newOwnerId: '11111111-1111-4111-8111-111111111111' }
+			)
+		).rejects.toMatchObject({
+			status: 403,
+			message: 'Please sign in again before continuing.'
+		});
+
+		expect(ctx.sensitiveActionAuthorizer.requests).toEqual([]);
+		expect(port.transferRequests).toEqual([]);
+		expect(ctx.auditPort.events).toEqual([
+			{
+				action: 'org.ownership_transfer_authorization_denied',
+				resourceType: 'organization',
+				resourceId: 'org-1',
+				details: {
+					newOwnerId: '11111111-1111-4111-8111-111111111111',
+					sensitiveAction: expect.objectContaining({
+						action: 'organization.transferOwnership',
+						reason: 'denied.unauthenticated'
+					})
+				},
+				severity: 'warning'
+			}
+		]);
+	});
+
 	it('preserves transfer provider failures without auditing or notifying', async () => {
 		const ctx = createTestContext();
 		const port = createOrganizationSettingsAdministrationPort({
@@ -359,7 +539,13 @@ describe('transferOrganizationOwnership', () => {
 
 		await expect(
 			transferOrganizationOwnership(
-				{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, administration: port },
+				{
+					auth: ctx.auth,
+					audit: ctx.audit,
+					notifications: ctx.notifications,
+					administration: port,
+					sensitiveActionAuthorizer: ctx.sensitiveActionAuthorizer
+				},
 				{ newOwnerId: '11111111-1111-4111-8111-111111111111' }
 			)
 		).rejects.toMatchObject({
@@ -383,7 +569,13 @@ describe('transferOrganizationOwnership', () => {
 		});
 
 		const result = await transferOrganizationOwnership(
-			{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, administration: port },
+			{
+				auth: ctx.auth,
+				audit: ctx.audit,
+				notifications: ctx.notifications,
+				administration: port,
+				sensitiveActionAuthorizer: ctx.sensitiveActionAuthorizer
+			},
 			{ newOwnerId: '11111111-1111-4111-8111-111111111111' }
 		);
 
@@ -419,7 +611,13 @@ describe('deleteOrganization', () => {
 
 		await expect(
 			deleteOrganization(
-				{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, administration: port },
+				{
+					auth: ctx.auth,
+					audit: ctx.audit,
+					notifications: ctx.notifications,
+					administration: port,
+					sensitiveActionAuthorizer: ctx.sensitiveActionAuthorizer
+				},
 				{ confirmName: 'Test Org' }
 			)
 		).rejects.toMatchObject({
@@ -429,6 +627,7 @@ describe('deleteOrganization', () => {
 
 		expect(port.organizationLookups).toEqual([]);
 		expect(port.deletedOrganizations).toEqual([]);
+		expect(ctx.sensitiveActionAuthorizer.requests).toEqual([]);
 		expect(ctx.auditPort.events).toEqual([
 			{
 				action: 'policy.denied',
@@ -455,7 +654,13 @@ describe('deleteOrganization', () => {
 		});
 
 		const result = await deleteOrganization(
-			{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, administration: port },
+			{
+				auth: ctx.auth,
+				audit: ctx.audit,
+				notifications: ctx.notifications,
+				administration: port,
+				sensitiveActionAuthorizer: ctx.sensitiveActionAuthorizer
+			},
 			{ confirmName: '  Test Org  ' }
 		);
 
@@ -467,6 +672,58 @@ describe('deleteOrganization', () => {
 			{
 				action: 'org.deleted',
 				resourceType: 'organization',
+				details: {
+					sensitiveAction: expect.objectContaining({
+						action: 'organization.deleteOrganization',
+						reason: 'allowed.recentSession'
+					})
+				},
+				severity: 'critical'
+			}
+		]);
+	});
+
+	it('deletes organizations when MFA assurance satisfies the sensitive-action check', async () => {
+		const ctx = createTestContext({
+			auth: {
+				orgId: 'org-1',
+				userId: 'owner-1'
+			},
+			sensitiveActionDecision: {
+				reason: 'allowed.mfaAssurance',
+				currentAssuranceLevel: 'aal2',
+				nextAssuranceLevel: 'aal2',
+				sessionAgeMs: 3_600_000
+			}
+		});
+		const port = createOrganizationSettingsAdministrationPort({
+			organizationName: 'Test Org'
+		});
+
+		const result = await deleteOrganization(
+			{
+				auth: ctx.auth,
+				audit: ctx.audit,
+				notifications: ctx.notifications,
+				administration: port,
+				sensitiveActionAuthorizer: ctx.sensitiveActionAuthorizer
+			},
+			{ confirmName: 'Test Org' }
+		);
+
+		expect(result).toEqual({ success: true });
+		expect(port.deletedOrganizations).toEqual(['org-1']);
+		expect(ctx.auditPort.events).toEqual([
+			{
+				action: 'org.deleted',
+				resourceType: 'organization',
+				details: {
+					sensitiveAction: expect.objectContaining({
+						action: 'organization.deleteOrganization',
+						reason: 'allowed.mfaAssurance',
+						currentAssuranceLevel: 'aal2'
+					})
+				},
 				severity: 'critical'
 			}
 		]);
@@ -484,7 +741,13 @@ describe('deleteOrganization', () => {
 
 		await expect(
 			deleteOrganization(
-				{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, administration: port },
+				{
+					auth: ctx.auth,
+					audit: ctx.audit,
+					notifications: ctx.notifications,
+					administration: port,
+					sensitiveActionAuthorizer: ctx.sensitiveActionAuthorizer
+				},
 				{ confirmName: 'Other Org' }
 			)
 		).rejects.toMatchObject({
@@ -493,7 +756,67 @@ describe('deleteOrganization', () => {
 		});
 
 		expect(port.deletedOrganizations).toEqual([]);
+		expect(ctx.sensitiveActionAuthorizer.requests).toEqual([]);
 		expect(ctx.auditPort.events).toEqual([]);
+	});
+
+	it('denies stale-session organization deletion after confirmation and before deleting', async () => {
+		const ctx = createTestContext({
+			auth: {
+				orgId: 'org-1',
+				userId: 'owner-1'
+			},
+			sensitiveActionDecision: {
+				allowed: false,
+				reason: 'denied.staleSession',
+				sessionAgeMs: 3_600_000,
+				requiresStepUp: true
+			}
+		});
+		const port = createOrganizationSettingsAdministrationPort({
+			organizationName: 'Test Org'
+		});
+
+		await expect(
+			deleteOrganization(
+				{
+					auth: ctx.auth,
+					audit: ctx.audit,
+					notifications: ctx.notifications,
+					administration: port,
+					sensitiveActionAuthorizer: ctx.sensitiveActionAuthorizer
+				},
+				{ confirmName: 'Test Org' }
+			)
+		).rejects.toMatchObject({
+			status: 403,
+			message: 'Please confirm your identity before continuing. Sign in again or complete MFA, then try again.'
+		});
+
+		expect(ctx.sensitiveActionAuthorizer.requests).toEqual([
+			{
+				action: 'organization.deleteOrganization',
+				actorUserId: 'owner-1',
+				target: { type: 'organization', id: 'org-1' }
+			}
+		]);
+		expect(port.organizationLookups).toEqual(['org-1']);
+		expect(port.deletedOrganizations).toEqual([]);
+		expect(ctx.auditPort.events).toEqual([
+			{
+				action: 'org.delete_authorization_denied',
+				resourceType: 'organization',
+				resourceId: 'org-1',
+				details: {
+					sensitiveAction: expect.objectContaining({
+						action: 'organization.deleteOrganization',
+						reason: 'denied.staleSession',
+						requiresStepUp: true
+					})
+				},
+				severity: 'warning'
+			}
+		]);
 	});
 
 	it('preserves organization lookup failures before the destructive step', async () => {
@@ -504,7 +827,13 @@ describe('deleteOrganization', () => {
 
 		await expect(
 			deleteOrganization(
-				{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, administration: port },
+				{
+					auth: ctx.auth,
+					audit: ctx.audit,
+					notifications: ctx.notifications,
+					administration: port,
+					sensitiveActionAuthorizer: ctx.sensitiveActionAuthorizer
+				},
 				{ confirmName: 'Test Org' }
 			)
 		).rejects.toMatchObject({
@@ -529,7 +858,13 @@ describe('deleteOrganization', () => {
 
 		await expect(
 			deleteOrganization(
-				{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, administration: port },
+				{
+					auth: ctx.auth,
+					audit: ctx.audit,
+					notifications: ctx.notifications,
+					administration: port,
+					sensitiveActionAuthorizer: ctx.sensitiveActionAuthorizer
+				},
 				{ confirmName: 'Test Org' }
 			)
 		).rejects.toMatchObject({

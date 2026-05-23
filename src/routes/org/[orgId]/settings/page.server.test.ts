@@ -133,7 +133,8 @@ describe('org settings page server actions', () => {
 		buildRouteContextMock.mockResolvedValue({
 			auth: { kind: 'auth', orgId: 'org-1' },
 			audit: { kind: 'audit' },
-			notifications: { kind: 'notifications' }
+			notifications: { kind: 'notifications' },
+			sensitiveActionAuthorizer: { kind: 'sensitive-action-authorizer' }
 		});
 		getAdminClientMock.mockReturnValue({ kind: 'admin-client' });
 		createSupabaseDataStoreMock.mockReturnValue({ kind: 'admin-store' });
@@ -698,7 +699,8 @@ describe('org settings page server actions', () => {
 				auth: { kind: 'auth', orgId: 'org-1' },
 				audit: { kind: 'audit' },
 				notifications: { kind: 'notifications' },
-				administration: { kind: 'admin-port' }
+				administration: { kind: 'admin-port' },
+				sensitiveActionAuthorizer: { kind: 'sensitive-action-authorizer' }
 			},
 			{ newOwnerId: '11111111-1111-4111-8111-111111111111' }
 		);
@@ -758,7 +760,8 @@ describe('org settings page server actions', () => {
 				auth: { kind: 'auth', orgId: 'org-1' },
 				audit: { kind: 'audit' },
 				notifications: { kind: 'notifications' },
-				administration: { kind: 'admin-port' }
+				administration: { kind: 'admin-port' },
+				sensitiveActionAuthorizer: { kind: 'sensitive-action-authorizer' }
 			},
 			{ confirmName: '  Test Org  ' }
 		);

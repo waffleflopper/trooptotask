@@ -4,10 +4,14 @@ export const DEFAULT_SENSITIVE_ACTION_RECENT_SESSION_WINDOW_MS = 15 * 60 * 1000;
 
 export const PLATFORM_ACCESS_REQUEST_APPROVE_ACTION = 'platform.accessRequest.approve';
 export const PLATFORM_ACCESS_REQUEST_RESEND_SETUP_ACTION = 'platform.accessRequest.resendSetup';
+export const ORGANIZATION_TRANSFER_OWNERSHIP_ACTION = 'organization.transferOwnership';
+export const ORGANIZATION_DELETE_ACTION = 'organization.deleteOrganization';
 
 export type SensitiveAction =
 	| typeof PLATFORM_ACCESS_REQUEST_APPROVE_ACTION
 	| typeof PLATFORM_ACCESS_REQUEST_RESEND_SETUP_ACTION
+	| typeof ORGANIZATION_TRANSFER_OWNERSHIP_ACTION
+	| typeof ORGANIZATION_DELETE_ACTION
 	| (string & {});
 
 export type SensitiveActionDecisionReason =

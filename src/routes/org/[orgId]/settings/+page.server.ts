@@ -328,7 +328,8 @@ export const actions: Actions = {
 					audit: ctx.audit,
 					notifications: ctx.notifications,
 					readOnlyGuard: ctx.readOnlyGuard,
-					administration: createSupabaseOrgSettingsAdministrationPort(locals)
+					administration: createSupabaseOrgSettingsAdministrationPort(locals),
+					sensitiveActionAuthorizer: ctx.sensitiveActionAuthorizer
 				},
 				{
 					newOwnerId: (formData.get('newOwnerId') as string) ?? ''
@@ -353,7 +354,8 @@ export const actions: Actions = {
 					audit: ctx.audit,
 					notifications: ctx.notifications,
 					readOnlyGuard: ctx.readOnlyGuard,
-					administration: createSupabaseOrgSettingsAdministrationPort(locals)
+					administration: createSupabaseOrgSettingsAdministrationPort(locals),
+					sensitiveActionAuthorizer: ctx.sensitiveActionAuthorizer
 				},
 				{
 					confirmName: (formData.get('confirmName') as string) ?? ''

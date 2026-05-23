@@ -24,6 +24,7 @@ import {
 } from '$lib/server/accessRequestInvitationOrigin';
 import { rejectAccessRequestAndBlockLinkedInvitations } from '$lib/server/accessRequestInvitationBlocking';
 import { makePublicAppUrl } from '$lib/server/publicAppOrigin';
+import { notifyAdmins } from '$lib/server/notifications';
 
 interface AccessRequestSetupLink {
 	id: string;
@@ -311,6 +312,29 @@ function makeSetupUrl(origin: string, setupPath: string): string {
 	return makePublicAppUrl(setupPath, { inboundOrigin: origin });
 }
 
+async function notifyGovernorsOfBlockedInvitations(input: {
+	adminUserId: string;
+	blockedInvitations: Array<{ organizationId: string; email: string }>;
+}): Promise<void> {
+	for (const invitation of input.blockedInvitations) {
+		try {
+			await notifyAdmins(invitation.organizationId, input.adminUserId, {
+				type: 'member_invite_blocked',
+				title: 'Invitation Blocked',
+				message: `"${invitation.email}" can no longer use the organization invitation because platform access was rejected.`,
+				link: `/org/${invitation.organizationId}/settings`
+			});
+		} catch (error) {
+			console.error('[admin-access-requests]', {
+				status: 'blocked-invitation-notification-failed',
+				organizationId: invitation.organizationId,
+				email: invitation.email,
+				error
+			});
+		}
+	}
+}
+
 function mapSetupLinkResultToFailure(result: CreateAccountSetupLinkResult) {
 	switch (result.status) {
 		case 'access-request-missing':
@@ -504,6 +528,11 @@ export const actions: Actions = {
 				details: {
 					blockedInvitationCount: rejectResult.blockedInvitations.length
 				}
+			});
+
+			await notifyGovernorsOfBlockedInvitations({
+				adminUserId: ctx.adminUser.id,
+				blockedInvitations: rejectResult.blockedInvitations
 			});
 
 			return { success: true, action: 'reject' };

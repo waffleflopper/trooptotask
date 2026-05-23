@@ -69,6 +69,7 @@ describe('organization invitation delivery', () => {
 			organizationName: 'Alpha Company',
 			invitedByEmail: 'admin@example.mil',
 			inviteUrl: 'https://trooptotask.test/auth/login?next=%2Fdashboard',
+			requiresAccountSetup: false,
 			now: NOW
 		});
 
@@ -77,7 +78,8 @@ describe('organization invitation delivery', () => {
 			email: 'invitee@example.mil',
 			organizationName: 'Alpha Company',
 			invitedByEmail: 'admin@example.mil',
-			inviteUrl: 'https://trooptotask.test/auth/login?next=%2Fdashboard'
+			inviteUrl: 'https://trooptotask.test/auth/login?next=%2Fdashboard',
+			requiresAccountSetup: false
 		});
 		expect(store.records).toEqual([
 			expect.objectContaining({
@@ -102,6 +104,7 @@ describe('organization invitation delivery', () => {
 			organizationName: 'Alpha Company',
 			invitedByEmail: null,
 			inviteUrl: 'https://trooptotask.test/auth/login?next=%2Fdashboard',
+			requiresAccountSetup: false,
 			now: NOW
 		});
 
@@ -124,6 +127,14 @@ describe('organization invitation delivery', () => {
 		);
 	});
 
+	it('builds a request-access destination for invitees who still need account setup', () => {
+		vi.stubEnv('APP_PUBLIC_ORIGIN_ALLOWLIST', 'https://trooptotask.test');
+
+		expect(makeOrganizationInvitationUrl('https://trooptotask.test', { requiresAccountSetup: true })).toBe(
+			'https://trooptotask.test/auth/request-access'
+		);
+	});
+
 	it('sends email through the configured provider with sign-in acceptance copy', async () => {
 		vi.stubEnv('RESEND_API_KEY', 'resend-key');
 		vi.stubEnv('RESEND_FROM_EMAIL', 'noreply@trooptotask.test');
@@ -134,7 +145,8 @@ describe('organization invitation delivery', () => {
 				email: 'invitee@example.mil',
 				organizationName: 'Alpha Company',
 				invitedByEmail: 'admin@example.mil',
-				inviteUrl: 'https://trooptotask.test/auth/login?next=%2Fdashboard'
+				inviteUrl: 'https://trooptotask.test/auth/login?next=%2Fdashboard',
+				requiresAccountSetup: false
 			},
 			fetchImpl
 		);
@@ -147,5 +159,45 @@ describe('organization invitation delivery', () => {
 			})
 		);
 		expect(fetchImpl.mock.calls[0][1].body).toContain('Membership is created only after you sign in and accept');
+	});
+
+	it('sends account setup guidance for invitees without a User Account', async () => {
+		vi.stubEnv('RESEND_API_KEY', 'resend-key');
+		vi.stubEnv('RESEND_FROM_EMAIL', 'noreply@trooptotask.test');
+		const fetchImpl = vi.fn().mockResolvedValue({ ok: true, status: 202, text: async () => '' });
+
+		await sendOrganizationInvitationEmail(
+			{
+				email: 'invitee@example.mil',
+				organizationName: 'Alpha Company',
+				invitedByEmail: 'admin@example.mil',
+				inviteUrl: 'https://trooptotask.test/auth/request-access',
+				requiresAccountSetup: true
+			},
+			fetchImpl
+		);
+
+		const body = fetchImpl.mock.calls[0][1].body as string;
+		expect(body).toContain('account setup must be approved and completed');
+		expect(body).toContain('Account Setup Link email');
+		expect(body).not.toContain('Sign in to view and accept');
+	});
+
+	it('rejects non-local HTTP invitation URLs before sending mail', async () => {
+		vi.stubEnv('RESEND_API_KEY', 'resend-key');
+		vi.stubEnv('RESEND_FROM_EMAIL', 'noreply@trooptotask.test');
+
+		await expect(
+			sendOrganizationInvitationEmail(
+				{
+					email: 'invitee@example.mil',
+					organizationName: 'Alpha Company',
+					invitedByEmail: null,
+					inviteUrl: 'http://trooptotask.test/auth/login?next=%2Fdashboard',
+					requiresAccountSetup: false
+				},
+				vi.fn()
+			)
+		).rejects.toThrow('Organization invitation email URL must use HTTPS outside local development');
 	});
 });

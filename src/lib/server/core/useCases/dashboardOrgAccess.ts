@@ -21,6 +21,7 @@ export type DashboardInvitationAcceptStatus =
 	| 'not_found'
 	| 'setup_required'
 	| 'expired'
+	| 'blocked'
 	| 'already_member'
 	| 'already_accepted'
 	| 'failed';
@@ -29,6 +30,7 @@ export type DashboardInvitationDeclineStatus =
 	| 'declined'
 	| 'not_found'
 	| 'expired'
+	| 'blocked'
 	| 'already_accepted'
 	| 'already_declined'
 	| 'revoked'
@@ -154,6 +156,9 @@ export async function acceptDashboardInvitation(
 		}
 		fail(400, 'Invitation has expired');
 	}
+	if (accepted.status === 'blocked') {
+		fail(400, 'This organization invitation is no longer available because platform access was rejected');
+	}
 	if (accepted.status === 'already_member') {
 		fail(400, 'You are already a member of this organization');
 	}
@@ -196,6 +201,9 @@ export async function declineDashboardInvitation(
 			});
 		}
 		fail(400, 'Invitation has expired');
+	}
+	if (declined.status === 'blocked') {
+		fail(400, 'This organization invitation is no longer available because platform access was rejected');
 	}
 	if (declined.status === 'already_accepted') {
 		fail(400, 'Invitation has already been accepted');

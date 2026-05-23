@@ -10,6 +10,8 @@ interface OrganizationInvitationLookupRow {
 	id: string;
 	email?: string;
 	created_at?: string;
+	expires_at?: string;
+	access_request_organization_invitation_links?: Array<{ id: string }> | { id: string } | null;
 }
 
 interface AccessRequestLookupRow {
@@ -114,18 +116,33 @@ export function createSupabaseOrgSettingsMemberManagementPort(
 		async findPendingInvitationById(orgId, inviteId) {
 			const { data, error } = await supabase
 				.from('organization_invitations')
-				.select('id, email')
+				.select('id, email, expires_at, access_request_organization_invitation_links(id)')
 				.eq('id', inviteId)
 				.eq('organization_id', orgId)
 				.eq('status', 'pending')
-				.gt('expires_at', new Date().toISOString())
 				.single<OrganizationInvitationLookupRow>();
 
 			if (error || !data) {
 				return null;
 			}
 
-			return { id: data.id, email: data.email ?? '' };
+			const now = new Date();
+			if (data.expires_at && new Date(data.expires_at) <= now) {
+				await expirePendingInvitationById(supabase, orgId, inviteId, now);
+				return {
+					id: data.id,
+					email: data.email ?? '',
+					status: 'expired',
+					requiresAccountSetup: hasAccessRequestInvitationLink(data)
+				};
+			}
+
+			return {
+				id: data.id,
+				email: data.email ?? '',
+				status: 'pending',
+				requiresAccountSetup: hasAccessRequestInvitationLink(data)
+			};
 		},
 
 		async createInvitation(input) {
@@ -205,6 +222,28 @@ export function createSupabaseOrgSettingsMemberManagementPort(
 			}
 
 			return { status, accessRequestId: accessRequest.id };
+		},
+
+		async blockInvitationAfterAccessRequestBridgeFailure(input) {
+			const now = new Date().toISOString();
+			const { data, error } = await getAdminClientFn()
+				.from('organization_invitations')
+				.update({
+					status: 'blocked',
+					blocked_at: now,
+					blocked_by: input.blockedBy
+				})
+				.eq('id', input.invitationId)
+				.eq('organization_id', input.organizationId)
+				.eq('status', 'pending')
+				.select('id')
+				.single<OrganizationInvitationLookupRow>();
+
+			if (error || !data) {
+				return { status: 'failed', message: error?.message ?? 'Invitation could not be blocked' };
+			}
+
+			return { status: 'blocked' };
 		},
 
 		async revokeInvitation(orgId, inviteId) {
@@ -302,6 +341,29 @@ async function expirePendingInvitationForEmail(
 		.eq('normalized_email', email)
 		.eq('status', 'pending')
 		.lte('expires_at', now);
+}
+
+async function expirePendingInvitationById(
+	supabase: SupabaseClient,
+	organizationId: string,
+	invitationId: string,
+	now: Date
+): Promise<void> {
+	await supabase
+		.from('organization_invitations')
+		.update({
+			status: 'expired',
+			expired_at: now.toISOString()
+		})
+		.eq('id', invitationId)
+		.eq('organization_id', organizationId)
+		.eq('status', 'pending')
+		.lte('expires_at', now.toISOString());
+}
+
+function hasAccessRequestInvitationLink(row: OrganizationInvitationLookupRow): boolean {
+	const links = row.access_request_organization_invitation_links;
+	return Array.isArray(links) ? links.length > 0 : Boolean(links);
 }
 
 async function findPendingAccessRequest(client: SupabaseClient, email: string): Promise<AccessRequestLookupRow | null> {

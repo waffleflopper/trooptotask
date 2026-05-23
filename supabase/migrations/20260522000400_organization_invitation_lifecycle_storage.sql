@@ -147,24 +147,7 @@ CREATE POLICY "Users can view invitations addressed to them"
 	USING ("normalized_email" = lower(btrim((( SELECT "auth"."jwt"() AS "jwt") ->> 'email'::text))));
 
 DROP POLICY IF EXISTS "Users can delete invitations addressed to them" ON "public"."organization_invitations";
-
-CREATE POLICY "Users can delete invitations addressed to them"
-	ON "public"."organization_invitations"
-	FOR DELETE
-	USING (
-		("normalized_email" = lower(btrim((( SELECT "auth"."jwt"() AS "jwt") ->> 'email'::text))))
-		AND ("status" = 'pending'::"public"."invitation_status")
-	);
-
 DROP POLICY IF EXISTS "Admins can delete invitations" ON "public"."organization_invitations";
-
-CREATE POLICY "Admins can delete invitations"
-	ON "public"."organization_invitations"
-	FOR DELETE
-	USING (
-		"public"."can_manage_org_members"("organization_id")
-		AND ("status" = 'pending'::"public"."invitation_status")
-	);
 
 DROP POLICY IF EXISTS "Members can view invitations for their organizations" ON "public"."organization_invitations";
 DROP POLICY IF EXISTS "Governors can view invitations for their organizations" ON "public"."organization_invitations";

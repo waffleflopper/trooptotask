@@ -40,7 +40,7 @@ describe('autoAcceptOrgInvites', () => {
 	it('returns accepted: 0 when no pending invitations exist', async () => {
 		const supabase = createMockSupabase([]);
 
-		const result = await autoAcceptOrgInvites(supabase as any, 'user-123', 'test@example.com');
+		const result = await autoAcceptOrgInvites(supabase as any, 'test@example.com');
 
 		expect(result).toEqual({ accepted: 0 });
 		expect(supabase.rpc).not.toHaveBeenCalled();
@@ -49,7 +49,7 @@ describe('autoAcceptOrgInvites', () => {
 	it('accepts pending invitations through the hardened invitation RPC', async () => {
 		const supabase = createMockSupabase([{ id: 'invite-1' }, { id: 'invite-2' }]);
 
-		const result = await autoAcceptOrgInvites(supabase as any, 'user-123', ' TEST@Example.com ');
+		const result = await autoAcceptOrgInvites(supabase as any, ' TEST@Example.com ');
 
 		expect(result).toEqual({ accepted: 2 });
 		expect(supabase.from).toHaveBeenCalledWith('organization_invitations');
@@ -59,20 +59,21 @@ describe('autoAcceptOrgInvites', () => {
 		]);
 	});
 
-	it('does not count expired, setup-gated, or already-member invitations as accepted', async () => {
+	it('does not count expired, blocked, setup-gated, or already-member invitations as accepted', async () => {
 		const supabase = createMockSupabase(
-			[{ id: 'accepted' }, { id: 'expired' }, { id: 'setup-required' }, { id: 'already-member' }],
+			[{ id: 'accepted' }, { id: 'expired' }, { id: 'blocked' }, { id: 'setup-required' }, { id: 'already-member' }],
 			{
 				accepted: 'accepted',
 				expired: 'expired',
+				blocked: 'blocked',
 				'setup-required': 'setup_required',
 				'already-member': 'already_member'
 			}
 		);
 
-		const result = await autoAcceptOrgInvites(supabase as any, 'user-123', 'test@example.com');
+		const result = await autoAcceptOrgInvites(supabase as any, 'test@example.com');
 
 		expect(result).toEqual({ accepted: 1 });
-		expect(supabase.rpc).toHaveBeenCalledTimes(4);
+		expect(supabase.rpc).toHaveBeenCalledTimes(5);
 	});
 });

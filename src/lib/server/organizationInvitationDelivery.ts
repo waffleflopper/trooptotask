@@ -39,6 +39,7 @@ export interface SendOrganizationInvitationEmailInput {
 	organizationName: string;
 	invitedByEmail: string | null;
 	inviteUrl: string;
+	requiresAccountSetup: boolean;
 }
 
 export type OrganizationInvitationEmailSender = (input: SendOrganizationInvitationEmailInput) => Promise<void>;
@@ -88,7 +89,10 @@ function assertSafeInvitationUrl(inviteUrl: string): void {
 }
 
 function redactInviteUrls(message: string): string {
-	return message.replace(/https?:\/\/[^\s"'<>]+\/auth\/login\?next=[^\s"'<>]+/gi, '[redacted invitation url]');
+	return message.replace(
+		/https?:\/\/[^\s"'<>]+\/auth\/(?:login\?next=[^\s"'<>]+|request-access[^\s"'<>]*)/gi,
+		'[redacted invitation url]'
+	);
 }
 
 function errorMessage(error: unknown): string {
@@ -114,8 +118,13 @@ function mapOutboxRow(row: OrganizationInvitationEmailOutboxRow): OrganizationIn
 	};
 }
 
-export function makeOrganizationInvitationUrl(origin: string): string {
-	return makePublicAppUrl('/auth/login?next=%2Fdashboard', { inboundOrigin: origin });
+export function makeOrganizationInvitationUrl(
+	origin: string,
+	options: { requiresAccountSetup?: boolean } = {}
+): string {
+	return makePublicAppUrl(options.requiresAccountSetup ? '/auth/request-access' : '/auth/login?next=%2Fdashboard', {
+		inboundOrigin: origin
+	});
 }
 
 function buildOrganizationInvitationEmail(input: SendOrganizationInvitationEmailInput): {
@@ -127,14 +136,29 @@ function buildOrganizationInvitationEmail(input: SendOrganizationInvitationEmail
 	const inviter = input.invitedByEmail ? `${input.invitedByEmail} invited you` : 'You have been invited';
 	const subject = `Invitation to join ${input.organizationName} on TroopToTask`;
 	const inviteUrlAttribute = escapeHtmlAttribute(input.inviteUrl);
-	const text = [
-		`${inviter} to join ${input.organizationName} on TroopToTask.`,
-		'',
-		`Sign in to view and accept the organization invitation: ${input.inviteUrl}`,
-		'',
-		'This email does not grant membership by itself. Membership is created only after you sign in and accept the invitation.'
-	].join('\n');
-	const html = `
+	const text = input.requiresAccountSetup
+		? [
+				`${inviter} to join ${input.organizationName} on TroopToTask.`,
+				'',
+				`Before you can accept this organization invitation, your TroopToTask account setup must be approved and completed: ${input.inviteUrl}`,
+				'',
+				'After platform approval, use the Account Setup Link email to create your account. Then sign in to accept this organization invitation from your dashboard.'
+			].join('\n')
+		: [
+				`${inviter} to join ${input.organizationName} on TroopToTask.`,
+				'',
+				`Sign in to view and accept the organization invitation: ${input.inviteUrl}`,
+				'',
+				'This email does not grant membership by itself. Membership is created only after you sign in and accept the invitation.'
+			].join('\n');
+	const html = input.requiresAccountSetup
+		? `
+		<p>${escapeHtmlAttribute(inviter)} to join ${escapeHtmlAttribute(input.organizationName)} on TroopToTask.</p>
+		<p><a href="${inviteUrlAttribute}">Review your platform access setup</a></p>
+		<p>Before you can accept this organization invitation, your TroopToTask account setup must be approved and completed.</p>
+		<p>After platform approval, use the Account Setup Link email to create your account. Then sign in to accept this organization invitation from your dashboard.</p>
+	`
+		: `
 		<p>${escapeHtmlAttribute(inviter)} to join ${escapeHtmlAttribute(input.organizationName)} on TroopToTask.</p>
 		<p><a href="${inviteUrlAttribute}">Sign in to view and accept the invitation</a></p>
 		<p>This email does not grant membership by itself. Membership is created only after you sign in and accept the invitation.</p>
@@ -216,6 +240,7 @@ export async function sendOrganizationInvitationOutboxDelivery(
 		organizationName: string;
 		invitedByEmail: string | null;
 		inviteUrl: string;
+		requiresAccountSetup: boolean;
 		now?: Date;
 	}
 ): Promise<SendOrganizationInvitationOutboxDeliveryResult> {
@@ -232,7 +257,8 @@ export async function sendOrganizationInvitationOutboxDelivery(
 			email: normalizeEmail(input.email),
 			organizationName: input.organizationName,
 			invitedByEmail: input.invitedByEmail,
-			inviteUrl: input.inviteUrl
+			inviteUrl: input.inviteUrl,
+			requiresAccountSetup: input.requiresAccountSetup
 		});
 		return {
 			status: 'sent',
@@ -325,6 +351,7 @@ export function createSupabaseOrganizationInvitationDeliveryPort(
 			organizationName: string;
 			invitedByEmail: string | null;
 			origin: string;
+			requiresAccountSetup: boolean;
 		}) {
 			return sendOrganizationInvitationOutboxDelivery(store, sendEmail, {
 				organizationId: input.organizationId,
@@ -332,7 +359,8 @@ export function createSupabaseOrganizationInvitationDeliveryPort(
 				email: input.email,
 				organizationName: input.organizationName,
 				invitedByEmail: input.invitedByEmail,
-				inviteUrl: makeOrganizationInvitationUrl(input.origin)
+				inviteUrl: makeOrganizationInvitationUrl(input.origin, { requiresAccountSetup: input.requiresAccountSetup }),
+				requiresAccountSetup: input.requiresAccountSetup
 			});
 		}
 	};

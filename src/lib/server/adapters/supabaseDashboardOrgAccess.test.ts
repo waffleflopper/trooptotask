@@ -145,6 +145,30 @@ describe('createSupabaseDashboardOrgAccessPort', () => {
 		expect(result).toEqual({ status: 'setup_required', organizationId: null });
 	});
 
+	it('preserves blocked invitation acceptance status from the database transition', async () => {
+		const { builder } = createRpcBuilder({
+			data: {
+				accept_status: 'blocked',
+				accepted_organization_id: 'org-1'
+			},
+			error: null
+		});
+		const port = createSupabaseDashboardOrgAccessPort({
+			supabase: {
+				rpc: vi.fn(() => builder),
+				from: vi.fn()
+			}
+		} as never);
+
+		await expect(
+			port.acceptInvitation({
+				invitationId: 'invite-1',
+				userId: 'user-1',
+				email: 'user@example.com'
+			})
+		).resolves.toEqual({ status: 'blocked', organizationId: 'org-1' });
+	});
+
 	it('declines invitations through the lifecycle transition RPC', async () => {
 		const { builder, calls } = createRpcBuilder({
 			data: {
@@ -189,5 +213,29 @@ describe('createSupabaseDashboardOrgAccessPort', () => {
 		});
 
 		expect(result).toEqual({ status: 'failed', organizationId: null });
+	});
+
+	it('preserves blocked invitation decline status from the database transition', async () => {
+		const { builder } = createRpcBuilder({
+			data: {
+				decline_status: 'blocked',
+				declined_organization_id: 'org-1'
+			},
+			error: null
+		});
+		const port = createSupabaseDashboardOrgAccessPort({
+			supabase: {
+				rpc: vi.fn(() => builder),
+				from: vi.fn()
+			}
+		} as never);
+
+		await expect(
+			port.declineInvitation({
+				invitationId: 'invite-1',
+				userId: 'user-1',
+				email: 'user@example.com'
+			})
+		).resolves.toEqual({ status: 'blocked', organizationId: 'org-1' });
 	});
 });

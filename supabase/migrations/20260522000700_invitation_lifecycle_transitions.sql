@@ -42,6 +42,11 @@ BEGIN
 		RETURN;
 	END IF;
 
+	IF "invitation_record"."status" = 'blocked'::"public"."invitation_status" THEN
+		RETURN QUERY SELECT 'blocked'::text, "invitation_record"."organization_id";
+		RETURN;
+	END IF;
+
 	IF
 		"invitation_record"."status" = 'expired'::"public"."invitation_status"
 		OR "invitation_record"."expires_at" <= now()

@@ -61,9 +61,8 @@ describe('organization invitation lifecycle storage migration', () => {
 		expect(normalized).toContain('drop policy if exists "governors can view invitations for their organizations"');
 		expect(normalized).toContain('create policy "governors can view invitations for their organizations"');
 		expect(normalized).toContain('"public"."can_manage_org_members"("organization_id")');
-		expect(normalized).toContain('create policy "users can delete invitations addressed to them"');
 		expect(normalized).toContain('drop policy if exists "admins can delete invitations"');
-		expect(normalized).toContain('create policy "admins can delete invitations"');
-		expect(normalized).toContain('and ("status" = \'pending\'::"public"."invitation_status")');
+		expect(normalized).not.toContain('create policy "users can delete invitations addressed to them"');
+		expect(normalized).not.toContain('create policy "admins can delete invitations"');
 	});
 });

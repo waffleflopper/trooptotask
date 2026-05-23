@@ -52,6 +52,13 @@ export interface OrganizationInvitationAccessRequestBridgeInput {
 	accessScopeGroupIds: string[];
 }
 
+export interface OrganizationInvitationResendLookupResult {
+	id: string;
+	email: string;
+	status: 'pending' | 'expired';
+	requiresAccountSetup: boolean;
+}
+
 export interface OrganizationMembershipUpdateInput {
 	organizationId: string;
 	membershipId: string;
@@ -85,12 +92,18 @@ export interface OrganizationInvitationRevokeResult {
 
 export interface OrganizationSettingsMemberManagementPort {
 	findPendingInvitation(orgId: string, email: string): Promise<{ id: string } | null>;
-	findPendingInvitationById(orgId: string, inviteId: string): Promise<{ id: string; email: string } | null>;
+	findPendingInvitationById(orgId: string, inviteId: string): Promise<OrganizationInvitationResendLookupResult | null>;
 	findUserAccountByEmail(email: string): Promise<{ id: string; email: string } | null>;
 	createInvitation(input: OrganizationInvitationCreateInput): Promise<OrganizationInvitationCreateResult>;
 	createOrLinkPendingAccessRequestForInvitation(
 		input: OrganizationInvitationAccessRequestBridgeInput
 	): Promise<OrganizationInvitationAccessRequestBridgeResult>;
+	blockInvitationAfterAccessRequestBridgeFailure(input: {
+		organizationId: string;
+		invitationId: string;
+		blockedBy: string;
+		reason: string;
+	}): Promise<{ status: 'blocked' } | { status: 'failed'; message: string }>;
 	revokeInvitation(orgId: string, inviteId: string): Promise<OrganizationInvitationRevokeResult>;
 	findMembershipById(orgId: string, membershipId: string): Promise<OrganizationMembershipRecord | null>;
 	removeMembership(orgId: string, membershipId: string): Promise<string | null>;
@@ -106,6 +119,7 @@ export interface OrganizationInvitationDeliveryPort {
 		organizationName: string;
 		invitedByEmail: string | null;
 		origin: string;
+		requiresAccountSetup: boolean;
 	}): Promise<{ status: 'sent'; outbox: { id: string } } | { status: 'failed'; outbox: { id: string }; error: string }>;
 }
 
@@ -224,6 +238,10 @@ export async function inviteOrganizationMember(
 				accessScopeGroupIds: accessCommand.accessScopeGroupIds
 			});
 
+	if (accessRequestBridgeStatus === 'failed') {
+		fail(500, 'Invitation could not be created because platform access setup could not be linked');
+	}
+
 	ports.audit.log({
 		action: 'member.invite',
 		resourceType: 'organization',
@@ -239,6 +257,7 @@ export async function inviteOrganizationMember(
 		email,
 		actorEmail: input.actorEmail ?? null,
 		origin: input.origin ?? '',
+		requiresAccountSetup: !existingUserAccount,
 		mode: 'initial'
 	});
 
@@ -253,13 +272,11 @@ export async function inviteOrganizationMember(
 		inviteSuccess: true,
 		inviteEmail: email,
 		inviteMessage:
-			accessRequestBridgeStatus === 'failed'
-				? 'Invitation created, but Access Request linking failed. The invitation remains pending.'
-				: deliveryStatus === 'failed'
-					? 'Invitation created, but email delivery failed. You can resend it from Pending Invitations.'
-					: deliveryStatus === 'sent'
-						? 'Invitation created and email delivery was queued.'
-						: 'Invitation created! Tell the user to log in to Troop to Task - they will see the invitation on their dashboard.'
+			deliveryStatus === 'failed'
+				? 'Invitation created, but email delivery failed. You can resend it from Pending Invitations.'
+				: deliveryStatus === 'sent'
+					? 'Invitation created and email delivery was queued.'
+					: 'Invitation created! Tell the user to log in to Troop to Task - they will see the invitation on their dashboard.'
 	};
 }
 
@@ -269,16 +286,35 @@ async function bridgeInvitationToAccessRequest(
 ): Promise<'created' | 'linked' | 'already-linked' | 'failed'> {
 	const result = await ports.settings.createOrLinkPendingAccessRequestForInvitation(input);
 	if (result.status === 'failed') {
+		const blockResult = await ports.settings.blockInvitationAfterAccessRequestBridgeFailure({
+			organizationId: input.organizationId,
+			invitationId: input.invitationId,
+			blockedBy: input.invitedBy,
+			reason: result.message
+		});
 		ports.audit.log({
 			action: 'member.invite_access_request_link_failed',
 			resourceType: 'organization',
 			details: {
 				email: input.email,
 				invitationId: input.invitationId,
-				reason: result.message
+				reason: result.message,
+				blocked: blockResult.status === 'blocked'
 			},
-			severity: 'warning'
+			severity: blockResult.status === 'blocked' ? 'warning' : 'critical'
 		});
+		if (blockResult.status === 'failed') {
+			ports.audit.log({
+				action: 'member.invite_access_request_link_block_failed',
+				resourceType: 'organization',
+				details: {
+					email: input.email,
+					invitationId: input.invitationId,
+					reason: blockResult.message
+				},
+				severity: 'critical'
+			});
+		}
 		return 'failed';
 	}
 
@@ -320,12 +356,16 @@ export async function resendOrganizationInvitation(
 	if (!invitation) {
 		fail(404, 'Pending invitation not found');
 	}
+	if (invitation.status === 'expired') {
+		fail(400, 'Invitation has expired. Create a new invitation instead.');
+	}
 
 	const deliveryStatus = await deliverInvitationEmail(ports, {
 		invitationId: invitation.id,
 		email: invitation.email,
 		actorEmail: input.actorEmail ?? null,
 		origin: input.origin,
+		requiresAccountSetup: invitation.requiresAccountSetup,
 		mode: 'resend'
 	});
 
@@ -349,6 +389,7 @@ async function deliverInvitationEmail(
 		email: string;
 		actorEmail: string | null;
 		origin: string;
+		requiresAccountSetup: boolean;
 		mode: 'initial' | 'resend';
 	}
 ): Promise<'sent' | 'failed' | 'not_configured'> {
@@ -365,7 +406,8 @@ async function deliverInvitationEmail(
 			email: input.email,
 			organizationName,
 			invitedByEmail: input.actorEmail,
-			origin: input.origin
+			origin: input.origin,
+			requiresAccountSetup: input.requiresAccountSetup
 		});
 	} catch (error) {
 		ports.audit.log({

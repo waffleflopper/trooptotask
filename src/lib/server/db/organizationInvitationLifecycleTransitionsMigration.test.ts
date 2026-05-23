@@ -32,6 +32,7 @@ describe('organization invitation lifecycle transition migration', () => {
 		expect(migration).toContain('"revoked_by" = "current_user_id"');
 		expect(migration).toContain('"status" = \'expired\'::"public"."invitation_status"');
 		expect(migration).toContain('"expired_at" = COALESCE("expired_at", now())');
+		expect(migration).toContain('RETURN QUERY SELECT \'blocked\'::text, "invitation_record"."organization_id"');
 		expect(migration).toContain('DROP POLICY IF EXISTS "Users can delete invitations addressed to them"');
 		expect(migration).toContain('DROP POLICY IF EXISTS "Admins can delete invitations"');
 	});

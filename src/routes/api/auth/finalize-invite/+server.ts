@@ -33,7 +33,7 @@ export const POST: RequestHandler = async ({ locals, cookies }) => {
 			await upsertCurrentUserProfile(locals, profile);
 		}
 
-		const accepted = await autoAcceptOrgInvites(locals.supabase, user.id, user.email);
+		const accepted = await autoAcceptOrgInvites(locals.supabase, user.email);
 		const completion = await markApprovedAccessRequestCompleted(getAdminClient(), user.email, user.id);
 		cookies.delete(getPendingAuthFlowCookieName(), { path: '/' });
 

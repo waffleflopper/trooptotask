@@ -27,7 +27,13 @@ describe('accept organization invitation access request setup guard migration', 
 		);
 	});
 
-	it('keeps blocked and other terminal invitations non-actionable through the pending-status gate', () => {
+	it('returns blocked explicitly before the generic pending-status gate', () => {
+		const blockedCheck = '"invitation"."status" = \'blocked\'::"public"."invitation_status"';
+		const expiredCheck = '"invitation"."status" = \'expired\'::"public"."invitation_status"';
+
+		expect(migration.indexOf(blockedCheck)).toBeGreaterThanOrEqual(0);
+		expect(migration.indexOf(blockedCheck)).toBeLessThan(migration.indexOf(expiredCheck));
+		expect(migration).toContain('return query select \'blocked\'::"text", "invitation"."organization_id"');
 		expect(migration).toContain('"invitation"."status" <> \'pending\'::"public"."invitation_status"');
 		expect(migration).toContain('return query select \'not_found\'::"text", null::"uuid"');
 	});

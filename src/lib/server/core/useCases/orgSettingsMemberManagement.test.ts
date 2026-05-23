@@ -57,6 +57,9 @@ function createOrganizationSettingsMemberManagementPort(
 			email: string | null;
 		};
 		pendingInvitationById?: { id: string; email: string } | null;
+		pendingInvitationByIdStatus?: 'pending' | 'expired';
+		pendingInvitationRequiresAccountSetup?: boolean;
+		blockInvitationResult?: { status: 'blocked' } | { status: 'failed'; message: string };
 		membership?: {
 			userId: string | null;
 			role: string | null;
@@ -71,6 +74,7 @@ function createOrganizationSettingsMemberManagementPort(
 	userAccountLookups: string[];
 	createdInvitations: OrganizationInvitationCreateInput[];
 	accessRequestBridges: OrganizationInvitationAccessRequestBridgeInput[];
+	blockedInvitations: Array<{ organizationId: string; invitationId: string; blockedBy: string; reason: string }>;
 	revokedInvitations: Array<{ orgId: string; inviteId: string }>;
 	pendingInvitationByIdLookups: Array<{ orgId: string; inviteId: string }>;
 	membershipLookups: Array<{ orgId: string; membershipId: string }>;
@@ -81,6 +85,8 @@ function createOrganizationSettingsMemberManagementPort(
 	const userAccountLookups: string[] = [];
 	const createdInvitations: OrganizationInvitationCreateInput[] = [];
 	const accessRequestBridges: OrganizationInvitationAccessRequestBridgeInput[] = [];
+	const blockedInvitations: Array<{ organizationId: string; invitationId: string; blockedBy: string; reason: string }> =
+		[];
 	const revokedInvitations: Array<{ orgId: string; inviteId: string }> = [];
 	const pendingInvitationByIdLookups: Array<{ orgId: string; inviteId: string }> = [];
 	const membershipLookups: Array<{ orgId: string; membershipId: string }> = [];
@@ -92,6 +98,7 @@ function createOrganizationSettingsMemberManagementPort(
 		userAccountLookups,
 		createdInvitations,
 		accessRequestBridges,
+		blockedInvitations,
 		revokedInvitations,
 		pendingInvitationByIdLookups,
 		membershipLookups,
@@ -103,9 +110,17 @@ function createOrganizationSettingsMemberManagementPort(
 		},
 		async findPendingInvitationById(orgId, inviteId) {
 			pendingInvitationByIdLookups.push({ orgId, inviteId });
-			return options.pendingInvitationById === undefined
-				? { id: inviteId, email: 'invitee@example.com' }
-				: options.pendingInvitationById;
+			const invitation =
+				options.pendingInvitationById === undefined
+					? { id: inviteId, email: 'invitee@example.com' }
+					: options.pendingInvitationById;
+			return invitation
+				? {
+						...invitation,
+						status: options.pendingInvitationByIdStatus ?? 'pending',
+						requiresAccountSetup: options.pendingInvitationRequiresAccountSetup ?? false
+					}
+				: null;
 		},
 		async findUserAccountByEmail(email) {
 			userAccountLookups.push(email);
@@ -124,6 +139,10 @@ function createOrganizationSettingsMemberManagementPort(
 		async createOrLinkPendingAccessRequestForInvitation(input) {
 			accessRequestBridges.push(input);
 			return options.accessRequestBridgeResult ?? { status: 'created', accessRequestId: 'access-request-1' };
+		},
+		async blockInvitationAfterAccessRequestBridgeFailure(input) {
+			blockedInvitations.push(input);
+			return options.blockInvitationResult ?? { status: 'blocked' };
 		},
 		async revokeInvitation(orgId, inviteId) {
 			revokedInvitations.push({ orgId, inviteId });
@@ -669,39 +688,49 @@ describe('inviteOrganizationMember', () => {
 		expect(port.accessRequestBridges).toEqual([]);
 	});
 
-	it('keeps the invitation pending and audit-visible when non-user Access Request linking fails', async () => {
+	it('blocks the created invitation and fails when non-user Access Request linking fails', async () => {
 		const ctx = createTestContext();
 		const port = createOrganizationSettingsMemberManagementPort({
 			existingUserAccount: null,
 			accessRequestBridgeResult: { status: 'failed', message: 'access request store unavailable' }
 		});
 
-		const result = await inviteOrganizationMember(
-			{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
-			{
-				email: 'new.user@example.com',
-				membershipRole: 'member',
-				memberAccess: memberAccess({ memberPreset: 'viewer' }),
-				actorEmail: 'actor@example.com'
-			}
-		);
-
-		expect(result).toEqual({
-			inviteSuccess: true,
-			inviteEmail: 'new.user@example.com',
-			inviteMessage: 'Invitation created, but Access Request linking failed. The invitation remains pending.'
+		await expect(
+			inviteOrganizationMember(
+				{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
+				{
+					email: 'new.user@example.com',
+					membershipRole: 'member',
+					memberAccess: memberAccess({ memberPreset: 'viewer' }),
+					actorEmail: 'actor@example.com'
+				}
+			)
+		).rejects.toMatchObject({
+			status: 500,
+			message: 'Invitation could not be created because platform access setup could not be linked'
 		});
+
 		expect(port.createdInvitations).toHaveLength(1);
+		expect(port.blockedInvitations).toEqual([
+			{
+				organizationId: 'test-org',
+				invitationId: 'invite-created',
+				blockedBy: 'test-user',
+				reason: 'access request store unavailable'
+			}
+		]);
 		expect(ctx.auditPort.events).toContainEqual({
 			action: 'member.invite_access_request_link_failed',
 			resourceType: 'organization',
 			details: {
 				email: 'new.user@example.com',
 				invitationId: 'invite-created',
-				reason: 'access request store unavailable'
+				reason: 'access request store unavailable',
+				blocked: true
 			},
 			severity: 'warning'
 		});
+		expect(ctx.notificationPort.notifications).toEqual([]);
 	});
 
 	it('allows owners to create member-management invitations with an immutable access snapshot', async () => {
@@ -809,7 +838,8 @@ describe('inviteOrganizationMember', () => {
 				email: 'new.user@example.com',
 				organizationName: 'Alpha Company',
 				invitedByEmail: 'actor@example.com',
-				origin: 'https://trooptotask.test'
+				origin: 'https://trooptotask.test',
+				requiresAccountSetup: false
 			}
 		]);
 		expect(ctx.auditPort.events).toContainEqual({
@@ -823,6 +853,39 @@ describe('inviteOrganizationMember', () => {
 			},
 			severity: 'info'
 		});
+	});
+
+	it('passes account setup context to invitation email delivery for non-user invitees', async () => {
+		const ctx = createTestContext();
+		const port = createOrganizationSettingsMemberManagementPort({
+			existingUserAccount: null,
+			orgName: 'Alpha Company'
+		});
+		const delivery = createInvitationDeliveryPort('sent');
+
+		await inviteOrganizationMember(
+			{
+				auth: ctx.auth,
+				audit: ctx.audit,
+				notifications: ctx.notifications,
+				settings: port,
+				invitationDelivery: delivery
+			},
+			{
+				email: 'new.user@example.com',
+				membershipRole: 'member',
+				memberAccess: memberAccess({ memberPreset: 'viewer' }),
+				actorEmail: 'actor@example.com',
+				origin: 'https://trooptotask.test'
+			}
+		);
+
+		expect(delivery.deliveries).toEqual([
+			expect.objectContaining({
+				email: 'new.user@example.com',
+				requiresAccountSetup: true
+			})
+		]);
 	});
 
 	it('leaves the invitation intact and audit-visible when initial email delivery fails', async () => {
@@ -986,6 +1049,34 @@ describe('inviteOrganizationMember', () => {
 		expect(port.pendingInvitationByIdLookups).toEqual([
 			{ orgId: 'test-org', inviteId: '11111111-1111-4111-8111-111111111111' }
 		]);
+		expect(delivery.deliveries).toEqual([]);
+	});
+
+	it('returns a clear expired failure when resending a stale pending invitation', async () => {
+		const ctx = createTestContext();
+		const port = createOrganizationSettingsMemberManagementPort({ pendingInvitationByIdStatus: 'expired' });
+		const delivery = createInvitationDeliveryPort('sent');
+
+		await expect(
+			resendOrganizationInvitation(
+				{
+					auth: ctx.auth,
+					audit: ctx.audit,
+					notifications: ctx.notifications,
+					settings: port,
+					invitationDelivery: delivery
+				},
+				{
+					inviteId: '11111111-1111-4111-8111-111111111111',
+					actorEmail: 'actor@example.com',
+					origin: 'https://trooptotask.test'
+				}
+			)
+		).rejects.toMatchObject({
+			status: 400,
+			message: 'Invitation has expired. Create a new invitation instead.'
+		});
+
 		expect(delivery.deliveries).toEqual([]);
 	});
 

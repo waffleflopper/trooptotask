@@ -246,6 +246,24 @@ describe('acceptDashboardInvitation', () => {
 		expect(port.deletedInvitationIds).toEqual([]);
 	});
 
+	it('returns a clear blocked failure when platform access rejection blocks acceptance', async () => {
+		const port = createDashboardOrgAccessPort({
+			acceptResult: { status: 'blocked', organizationId: 'org-1' }
+		});
+
+		await expect(
+			acceptDashboardInvitation(
+				{ dashboard: port, notifications: createTestNotificationPort() },
+				{ invitationId: 'invite-1', userId: 'user-1', email: 'user@example.com' }
+			)
+		).rejects.toMatchObject({
+			status: 400,
+			message: 'This organization invitation is no longer available because platform access was rejected'
+		});
+
+		expect(port.deletedInvitationIds).toEqual([]);
+	});
+
 	it('accepts through the atomic transition and notifies admins', async () => {
 		const port = createDashboardOrgAccessPort({
 			acceptResult: { status: 'accepted', organizationId: 'org-1' }
@@ -408,7 +426,8 @@ describe('declineDashboardInvitation', () => {
 	it.each([
 		['already_accepted', 'Invitation has already been accepted'],
 		['already_declined', 'Invitation has already been declined'],
-		['revoked', 'Invitation has been revoked']
+		['revoked', 'Invitation has been revoked'],
+		['blocked', 'This organization invitation is no longer available because platform access was rejected']
 	] as const)('maps %s decline statuses to deterministic action failures', async (status, message) => {
 		const port = createDashboardOrgAccessPort({ declineResult: { status, organizationId: 'org-1' } });
 

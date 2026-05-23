@@ -57,6 +57,11 @@ BEGIN
 		RETURN;
 	END IF;
 
+	IF "invitation"."status" = 'blocked'::"public"."invitation_status" THEN
+		RETURN QUERY SELECT 'blocked'::"text", "invitation"."organization_id";
+		RETURN;
+	END IF;
+
 	IF "invitation"."status" = 'expired'::"public"."invitation_status" OR "invitation"."expires_at" <= now() THEN
 		UPDATE "public"."organization_invitations"
 		SET

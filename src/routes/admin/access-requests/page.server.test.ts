@@ -1,14 +1,21 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PageData } from './$types';
 
-const { createServiceMock, createStoreMock, createOutboxStoreMock, sendSetupEmailMock, sendOutboxDeliveryMock } =
-	vi.hoisted(() => ({
-		createServiceMock: vi.fn(),
-		createStoreMock: vi.fn(),
-		createOutboxStoreMock: vi.fn(),
-		sendSetupEmailMock: vi.fn(),
-		sendOutboxDeliveryMock: vi.fn()
-	}));
+const {
+	createServiceMock,
+	createStoreMock,
+	createOutboxStoreMock,
+	sendSetupEmailMock,
+	sendOutboxDeliveryMock,
+	notifyAdminsMock
+} = vi.hoisted(() => ({
+	createServiceMock: vi.fn(),
+	createStoreMock: vi.fn(),
+	createOutboxStoreMock: vi.fn(),
+	sendSetupEmailMock: vi.fn(),
+	sendOutboxDeliveryMock: vi.fn(),
+	notifyAdminsMock: vi.fn()
+}));
 
 vi.mock('$lib/server/adapters/adminAdapter', () => ({
 	adminAction: (config: { fn: (ctx: unknown, event: unknown) => unknown }) => (event: { __ctx: unknown }) =>
@@ -30,6 +37,10 @@ vi.mock('$lib/server/accountSetupLinks', async (importOriginal) => {
 vi.mock('$lib/server/authEmailOutbox', () => ({
 	createSupabaseAuthEmailOutboxStore: createOutboxStoreMock,
 	sendAccountSetupOutboxDelivery: sendOutboxDeliveryMock
+}));
+
+vi.mock('$lib/server/notifications', () => ({
+	notifyAdmins: notifyAdminsMock
 }));
 
 import { actions, load } from './+page.server';
@@ -157,6 +168,7 @@ describe('admin access request account setup delivery', () => {
 		createStoreMock.mockReturnValue({ store: 'account-setup-store' });
 		createOutboxStoreMock.mockReturnValue({ store: 'auth-email-outbox-store' });
 		sendSetupEmailMock.mockResolvedValue(undefined);
+		notifyAdminsMock.mockResolvedValue(undefined);
 		sendOutboxDeliveryMock.mockResolvedValue({
 			status: 'sent',
 			outbox: { id: 'outbox-1', status: 'sent' }
@@ -703,6 +715,13 @@ describe('admin access request account setup delivery', () => {
 				details: { blockedInvitationCount: 1 }
 			})
 		);
+		expect(notifyAdminsMock).toHaveBeenCalledWith('org-1', 'admin-1', {
+			type: 'member_invite_blocked',
+			title: 'Invitation Blocked',
+			message:
+				'"invitee@example.com" can no longer use the organization invitation because platform access was rejected.',
+			link: '/org/org-1/settings'
+		});
 	});
 
 	it('returns not found when rejecting an already reviewed request', async () => {

@@ -7,15 +7,19 @@ interface PendingOrgInvitation {
 }
 
 interface AcceptOrganizationInvitationRpcRow {
-	accept_status: 'accepted' | 'not_found' | 'setup_required' | 'expired' | 'already_member' | 'already_accepted' | null;
+	accept_status:
+		| 'accepted'
+		| 'not_found'
+		| 'setup_required'
+		| 'expired'
+		| 'blocked'
+		| 'already_member'
+		| 'already_accepted'
+		| null;
 	accepted_organization_id: string | null;
 }
 
-export async function autoAcceptOrgInvites(
-	supabase: SupabaseClient,
-	_userId: string,
-	email: string
-): Promise<{ accepted: number }> {
+export async function autoAcceptOrgInvites(supabase: SupabaseClient, email: string): Promise<{ accepted: number }> {
 	const normalizedEmail = normalizeInvitationEmail(email);
 
 	const { data: invitations } = await selectAllSupabaseRows<PendingOrgInvitation>(

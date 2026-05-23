@@ -147,6 +147,7 @@ function normalizeAcceptStatus(
 		status === 'not_found' ||
 		status === 'setup_required' ||
 		status === 'expired' ||
+		status === 'blocked' ||
 		status === 'already_member' ||
 		status === 'already_accepted'
 	) {
@@ -163,6 +164,7 @@ function normalizeDeclineStatus(
 		status === 'declined' ||
 		status === 'not_found' ||
 		status === 'expired' ||
+		status === 'blocked' ||
 		status === 'already_accepted' ||
 		status === 'already_declined' ||
 		status === 'revoked'

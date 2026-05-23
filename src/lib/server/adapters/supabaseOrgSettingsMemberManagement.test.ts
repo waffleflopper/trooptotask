@@ -131,14 +131,22 @@ function createInvitationInsertBuilder(result: {
 	return { builder, calls };
 }
 
-function createPendingInvitationByIdBuilder() {
+function createPendingInvitationByIdBuilder(
+	result: {
+		data?: Record<string, unknown> | null;
+		error?: unknown;
+	} = {}
+) {
 	const calls: Call[] = [];
-	const result = {
+	const resolvedResult = {
 		data: {
 			id: 'invite-1',
-			email: 'invitee@example.com'
+			email: 'invitee@example.com',
+			expires_at: '2099-05-23T12:00:00.000Z',
+			access_request_organization_invitation_links: []
 		},
-		error: null
+		error: null,
+		...result
 	};
 
 	function track(method: string) {
@@ -154,7 +162,7 @@ function createPendingInvitationByIdBuilder() {
 		gt: track('gt'),
 		single: (...args: unknown[]) => {
 			calls.push({ method: 'single', args });
-			return result;
+			return resolvedResult;
 		}
 	};
 
@@ -174,6 +182,11 @@ function createInvitationExpiryBuilder() {
 	const builder: Record<string, unknown> = {
 		update: track('update'),
 		eq: track('eq'),
+		select: track('select'),
+		single: (...args: unknown[]) => {
+			calls.push({ method: 'single', args });
+			return { data: { id: 'invite-1' }, error: null };
+		},
 		lte: (...args: unknown[]) => {
 			calls.push({ method: 'lte', args });
 			return { error: null };
@@ -359,13 +372,75 @@ describe('createSupabaseOrgSettingsMemberManagementPort', () => {
 
 		const result = await port.findPendingInvitationById('org-1', 'invite-1');
 
-		expect(result).toEqual({ id: 'invite-1', email: 'invitee@example.com' });
+		expect(result).toEqual({
+			id: 'invite-1',
+			email: 'invitee@example.com',
+			status: 'pending',
+			requiresAccountSetup: false
+		});
 		expect(supabase.from).toHaveBeenCalledWith('organization_invitations');
-		expect(calls).toContainEqual({ method: 'select', args: ['id, email'] });
+		expect(calls).toContainEqual({
+			method: 'select',
+			args: ['id, email, expires_at, access_request_organization_invitation_links(id)']
+		});
 		expect(calls).toContainEqual({ method: 'eq', args: ['id', 'invite-1'] });
 		expect(calls).toContainEqual({ method: 'eq', args: ['organization_id', 'org-1'] });
 		expect(calls).toContainEqual({ method: 'eq', args: ['status', 'pending'] });
-		expect(calls).toContainEqual({ method: 'gt', args: ['expires_at', expect.any(String)] });
+		expect(calls).not.toContainEqual({ method: 'gt', args: ['expires_at', expect.any(String)] });
+	});
+
+	it('marks resend lookups as account-setup invitations when an access-request link exists', async () => {
+		const { builder } = createPendingInvitationByIdBuilder({
+			data: {
+				id: 'invite-1',
+				email: 'invitee@example.com',
+				expires_at: '2099-05-23T12:00:00.000Z',
+				access_request_organization_invitation_links: [{ id: 'link-1' }]
+			}
+		});
+		const port = createSupabaseOrgSettingsMemberManagementPort({
+			supabase: {
+				from: vi.fn(() => builder)
+			}
+		} as never);
+
+		await expect(port.findPendingInvitationById('org-1', 'invite-1')).resolves.toEqual({
+			id: 'invite-1',
+			email: 'invitee@example.com',
+			status: 'pending',
+			requiresAccountSetup: true
+		});
+	});
+
+	it('materializes stale pending invitations as expired during resend lookup', async () => {
+		const { builder: lookupBuilder } = createPendingInvitationByIdBuilder({
+			data: {
+				id: 'invite-1',
+				email: 'invitee@example.com',
+				expires_at: '2000-05-21T12:00:00.000Z',
+				access_request_organization_invitation_links: []
+			}
+		});
+		const { builder: expireBuilder, calls: expireCalls } = createInvitationExpiryBuilder();
+		const supabase = {
+			from: vi.fn().mockReturnValueOnce(lookupBuilder).mockReturnValueOnce(expireBuilder)
+		};
+		const port = createSupabaseOrgSettingsMemberManagementPort({ supabase } as never);
+
+		await expect(port.findPendingInvitationById('org-1', 'invite-1')).resolves.toEqual({
+			id: 'invite-1',
+			email: 'invitee@example.com',
+			status: 'expired',
+			requiresAccountSetup: false
+		});
+		expect(expireCalls).toContainEqual({
+			method: 'update',
+			args: [expect.objectContaining({ status: 'expired', expired_at: expect.any(String) })]
+		});
+		expect(expireCalls).toContainEqual({ method: 'eq', args: ['id', 'invite-1'] });
+		expect(expireCalls).toContainEqual({ method: 'eq', args: ['organization_id', 'org-1'] });
+		expect(expireCalls).toContainEqual({ method: 'eq', args: ['status', 'pending'] });
+		expect(expireCalls).toContainEqual({ method: 'lte', args: ['expires_at', expect.any(String)] });
 	});
 
 	it('looks up existing User Accounts through the admin auth boundary before bridging access requests', async () => {
@@ -518,6 +593,45 @@ describe('createSupabaseOrgSettingsMemberManagementPort', () => {
 
 		expect(adminSupabase.from).toHaveBeenCalledTimes(2);
 		expect(adminSupabase.from).not.toHaveBeenNthCalledWith(2, 'access_requests');
+	});
+
+	it('blocks a just-created invitation when the non-user Access Request bridge fails', async () => {
+		const { builder, calls } = createInvitationExpiryBuilder();
+		const adminSupabase = {
+			from: vi.fn(() => builder)
+		};
+		const port = createSupabaseOrgSettingsMemberManagementPort(
+			{
+				supabase: { from: vi.fn() }
+			} as never,
+			{ getAdminClient: () => adminSupabase as never }
+		);
+
+		await expect(
+			port.blockInvitationAfterAccessRequestBridgeFailure({
+				organizationId: 'org-1',
+				invitationId: 'invite-1',
+				blockedBy: 'owner-1',
+				reason: 'access request store unavailable'
+			})
+		).resolves.toEqual({ status: 'blocked' });
+
+		expect(adminSupabase.from).toHaveBeenCalledWith('organization_invitations');
+		expect(calls).toContainEqual({
+			method: 'update',
+			args: [
+				expect.objectContaining({
+					status: 'blocked',
+					blocked_at: expect.any(String),
+					blocked_by: 'owner-1'
+				})
+			]
+		});
+		expect(calls).toContainEqual({ method: 'eq', args: ['id', 'invite-1'] });
+		expect(calls).toContainEqual({ method: 'eq', args: ['organization_id', 'org-1'] });
+		expect(calls).toContainEqual({ method: 'eq', args: ['status', 'pending'] });
+		expect(calls).toContainEqual({ method: 'select', args: ['id'] });
+		expect(calls).toContainEqual({ method: 'single', args: [] });
 	});
 
 	it('does not swallow unrelated unique constraint failures while creating invite-origin Access Requests', async () => {

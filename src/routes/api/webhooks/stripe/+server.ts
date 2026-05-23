@@ -8,9 +8,9 @@ import type { Tier } from '$lib/types/subscription';
 import { configuredPriceCatalog, lookupPriceCatalogEntry } from '$lib/server/billing/priceCatalog';
 
 const TIER_RANK: Record<string, number> = { free: 1, team: 2, unit: 3 };
-const FINAL_PROCESSING_STATES = new Set(['processed', 'ignored', 'permanently_failed', 'superseded']);
+export const FINAL_PROCESSING_STATES = new Set(['processed', 'ignored', 'permanently_failed', 'superseded']);
 
-type WebhookProcessingState = 'processed' | 'ignored' | 'retryable_failed' | 'permanently_failed' | 'superseded';
+export type WebhookProcessingState = 'processed' | 'ignored' | 'retryable_failed' | 'permanently_failed' | 'superseded';
 
 interface ExistingWebhookEvent {
 	id: string;
@@ -19,9 +19,17 @@ interface ExistingWebhookEvent {
 	attempt_count?: number | null;
 }
 
-interface WebhookProcessingResult {
+export interface WebhookProcessingResult {
 	state: Exclude<WebhookProcessingState, 'retryable_failed'>;
 	result: string;
+}
+
+export interface RecordedWebhookProcessingResult {
+	ok: boolean;
+	state: WebhookProcessingState;
+	result: string;
+	status: number;
+	error?: string;
 }
 
 interface SubscriptionUpdateResult {
@@ -29,7 +37,7 @@ interface SubscriptionUpdateResult {
 	result: string;
 }
 
-class PermanentWebhookProcessingError extends Error {
+export class PermanentWebhookProcessingError extends Error {
 	constructor(message: string) {
 		super(message);
 		this.name = 'PermanentWebhookProcessingError';
@@ -79,18 +87,18 @@ function getSubscriptionIdFromInvoice(invoice: Stripe.Invoice): string | null {
 	return null;
 }
 
-function getStripeObjectId(object: unknown): string | null {
+export function getStripeObjectId(object: unknown): string | null {
 	if (!object || typeof object !== 'object') return null;
 	const id = (object as { id?: unknown }).id;
 	return typeof id === 'string' && id.length > 0 ? id : null;
 }
 
-function buildSecondaryDedupeKey(event: Stripe.Event): string {
+export function buildSecondaryDedupeKey(event: Stripe.Event): string {
 	const objectId = getStripeObjectId(event.data.object);
 	return objectId ? `${event.type}:${objectId}` : `${event.type}:${event.id}`;
 }
 
-function sanitizeWebhookError(err: unknown): string {
+export function sanitizeWebhookError(err: unknown): string {
 	const message = err instanceof Error ? err.message : 'Unknown webhook processing error';
 	return message
 		.replace(/sk_(live|test)_[A-Za-z0-9_]+/g, '[redacted_stripe_key]')
@@ -556,7 +564,10 @@ async function handlePaymentFailed(
 	};
 }
 
-async function processWebhookEvent(supabase: SupabaseClient, event: Stripe.Event): Promise<WebhookProcessingResult> {
+export async function processWebhookEvent(
+	supabase: SupabaseClient,
+	event: Stripe.Event
+): Promise<WebhookProcessingResult> {
 	switch (event.type) {
 		case 'checkout.session.completed':
 			return handleCheckoutCompleted(supabase, event.data.object as Stripe.Checkout.Session, event);
@@ -580,6 +591,132 @@ async function processWebhookEvent(supabase: SupabaseClient, event: Stripe.Event
 				state: 'ignored',
 				result: `unsupported event type ${event.type}`
 			};
+	}
+}
+
+export async function recordStripeWebhookEventAttempt(
+	supabase: SupabaseClient,
+	event: Stripe.Event,
+	metadata: {
+		objectId?: string | null;
+		secondaryDedupeKey?: string;
+		eventCreatedAt?: string;
+	} = {}
+): Promise<void> {
+	const objectId = metadata.objectId ?? getStripeObjectId(event.data.object);
+	const secondaryDedupeKey = metadata.secondaryDedupeKey ?? buildSecondaryDedupeKey(event);
+	const eventCreatedAt = metadata.eventCreatedAt ?? new Date(event.created * 1000).toISOString();
+
+	const { error: ledgerError } = await supabase.rpc('record_stripe_webhook_event_attempt', {
+		p_id: event.id,
+		p_type: event.type,
+		p_data: event.data,
+		p_object_id: objectId,
+		p_secondary_dedupe_key: secondaryDedupeKey,
+		p_event_created_at: eventCreatedAt
+	});
+	if (ledgerError) {
+		throw new Error(`Failed to record webhook attempt: ${sanitizeWebhookError(ledgerError)}`);
+	}
+}
+
+export async function recordRetryableStripeWebhookEventAttempt(
+	supabase: SupabaseClient,
+	event: Stripe.Event,
+	metadata: {
+		objectId?: string | null;
+		secondaryDedupeKey?: string;
+		eventCreatedAt?: string;
+	} = {}
+): Promise<number> {
+	const objectId = metadata.objectId ?? getStripeObjectId(event.data.object);
+	const secondaryDedupeKey = metadata.secondaryDedupeKey ?? buildSecondaryDedupeKey(event);
+	const eventCreatedAt = metadata.eventCreatedAt ?? new Date(event.created * 1000).toISOString();
+
+	const { data: attemptCount, error: ledgerError } = await supabase.rpc(
+		'record_retryable_stripe_webhook_event_attempt',
+		{
+			p_id: event.id,
+			p_type: event.type,
+			p_data: event.data,
+			p_object_id: objectId,
+			p_secondary_dedupe_key: secondaryDedupeKey,
+			p_event_created_at: eventCreatedAt
+		}
+	);
+	if (ledgerError) {
+		throw new Error(`Failed to record webhook retry attempt: ${sanitizeWebhookError(ledgerError)}`);
+	}
+	if (typeof attemptCount !== 'number') {
+		throw new PermanentWebhookProcessingError('billing event is no longer retryable');
+	}
+
+	return attemptCount;
+}
+
+export async function processRecordedStripeWebhookEvent(
+	supabase: SupabaseClient,
+	event: Stripe.Event,
+	metadata: {
+		secondaryDedupeKey?: string;
+		eventCreatedAt?: string;
+	} = {}
+): Promise<RecordedWebhookProcessingResult> {
+	const secondaryDedupeKey = metadata.secondaryDedupeKey ?? buildSecondaryDedupeKey(event);
+	const eventCreatedAt = metadata.eventCreatedAt ?? new Date(event.created * 1000).toISOString();
+
+	try {
+		const result = await processWebhookEvent(supabase, event);
+
+		await supabase
+			.from('stripe_webhook_events')
+			.update({
+				processed: result.state === 'processed',
+				processed_at: result.state === 'processed' ? new Date().toISOString() : null,
+				processing_state: result.state,
+				processing_result: result.result,
+				last_error: null
+			})
+			.eq('id', event.id);
+
+		if (result.state === 'processed') {
+			await supabase
+				.from('stripe_webhook_events')
+				.update({
+					processing_state: 'superseded',
+					processing_result: `superseded by ${event.id}`,
+					last_error: null
+				})
+				.eq('secondary_dedupe_key', secondaryDedupeKey)
+				.lt('event_created_at', eventCreatedAt)
+				.not('processing_state', 'in', '("processed","permanently_failed")')
+				.neq('id', event.id);
+		}
+
+		return { ok: true, state: result.state, result: result.result, status: 200 };
+	} catch (err) {
+		const permanent = err instanceof PermanentWebhookProcessingError;
+		const message = sanitizeWebhookError(err);
+		console.error(`Error processing webhook ${event.id} (${event.type}):`, message);
+
+		await supabase
+			.from('stripe_webhook_events')
+			.update({
+				processed: false,
+				processing_state: permanent ? 'permanently_failed' : 'retryable_failed',
+				last_error: message,
+				error: message,
+				processing_result: permanent ? 'permanent processing failure' : 'retryable processing failure'
+			})
+			.eq('id', event.id);
+
+		return {
+			ok: false,
+			state: permanent ? 'permanently_failed' : 'retryable_failed',
+			result: permanent ? 'permanent processing failure' : 'retryable processing failure',
+			status: permanent ? 200 : 500,
+			error: message
+		};
 	}
 }
 
@@ -620,64 +757,17 @@ export const POST: RequestHandler = async ({ request }) => {
 		return new Response('Already processed', { status: 200 });
 	}
 
-	const { error: ledgerError } = await supabase.rpc('record_stripe_webhook_event_attempt', {
-		p_id: event.id,
-		p_type: event.type,
-		p_data: event.data,
-		p_object_id: objectId,
-		p_secondary_dedupe_key: secondaryDedupeKey,
-		p_event_created_at: eventCreatedAt
-	});
-	if (ledgerError) {
-		console.error(`Error recording webhook ${event.id} (${event.type}):`, sanitizeWebhookError(ledgerError));
+	try {
+		await recordStripeWebhookEventAttempt(supabase, event, { objectId, secondaryDedupeKey, eventCreatedAt });
+	} catch (err) {
+		console.error(`Error recording webhook ${event.id} (${event.type}):`, sanitizeWebhookError(err));
 		return new Response('Ledger error', { status: 500 });
 	}
 
-	try {
-		const result = await processWebhookEvent(supabase, event);
-
-		await supabase
-			.from('stripe_webhook_events')
-			.update({
-				processed: result.state === 'processed',
-				processed_at: result.state === 'processed' ? new Date().toISOString() : null,
-				processing_state: result.state,
-				processing_result: result.result,
-				last_error: null
-			})
-			.eq('id', event.id);
-
-		if (result.state === 'processed') {
-			await supabase
-				.from('stripe_webhook_events')
-				.update({
-					processing_state: 'superseded',
-					processing_result: `superseded by ${event.id}`,
-					last_error: null
-				})
-				.eq('secondary_dedupe_key', secondaryDedupeKey)
-				.lt('event_created_at', eventCreatedAt)
-				.not('processing_state', 'in', '("processed","permanently_failed")')
-				.neq('id', event.id);
-		}
-	} catch (err) {
-		const permanent = err instanceof PermanentWebhookProcessingError;
-		const message = sanitizeWebhookError(err);
-		console.error(`Error processing webhook ${event.id} (${event.type}):`, message);
-
-		await supabase
-			.from('stripe_webhook_events')
-			.update({
-				processed: false,
-				processing_state: permanent ? 'permanently_failed' : 'retryable_failed',
-				last_error: message,
-				error: message,
-				processing_result: permanent ? 'permanent processing failure' : 'retryable processing failure'
-			})
-			.eq('id', event.id);
-
-		return new Response(permanent ? 'Permanent processing error' : 'Processing error', {
-			status: permanent ? 200 : 500
+	const result = await processRecordedStripeWebhookEvent(supabase, event, { secondaryDedupeKey, eventCreatedAt });
+	if (!result.ok) {
+		return new Response(result.state === 'permanently_failed' ? 'Permanent processing error' : 'Processing error', {
+			status: result.status
 		});
 	}
 

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { page } from '$app/stores';
 	import {
 		BadgeCheck,
@@ -8,8 +9,10 @@
 		CreditCard,
 		FileText,
 		Gauge,
+		Gift,
 		LogOut,
 		Moon,
+		RefreshCcw,
 		ShieldCheck,
 		Sun,
 		UsersRound
@@ -30,6 +33,8 @@
 		'access-requests': ShieldCheck,
 		feedback: ClipboardList,
 		subscriptions: CreditCard,
+		'billing-events': RefreshCcw,
+		gifting: Gift,
 		audit: FileText,
 		announcements: Bell
 	};
@@ -77,7 +82,7 @@
 								<Sidebar.MenuItem>
 									<Sidebar.MenuButton isActive={isActive(item.href)} tooltipContent={item.label}>
 										{#snippet child({ props })}
-											<a {...props} href={item.href}>
+											<a {...props} href={resolve(item.href as '/')}>
 												<Icon />
 												<span>{item.label}</span>
 											</a>
@@ -105,7 +110,7 @@
 				<Sidebar.MenuItem>
 					<Sidebar.MenuButton tooltipContent="Exit Admin">
 						{#snippet child({ props })}
-							<a {...props} href="/dashboard">
+							<a {...props} href={resolve('/dashboard')}>
 								<LogOut />
 								<span>Exit Admin</span>
 							</a>

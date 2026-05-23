@@ -38,6 +38,7 @@
 		if (statusFilter === 'canceling')
 			result = result.filter((sub) => sub.cancellationSummary?.state === 'canceling_at_period_end');
 		if (statusFilter === 'canceled') result = result.filter((sub) => sub.cancellationSummary?.state === 'canceled');
+		if (statusFilter === 'drifted') result = result.filter((sub) => sub.billingSnapshot?.driftDetected);
 
 		return result;
 	});
@@ -90,7 +91,7 @@
 		{/snippet}
 	</PageShell.Header>
 
-	<PageShell.FactGrid layout="two">
+	<PageShell.FactGrid layout="three">
 		<PageShell.Metric
 			label="Tracked Orgs"
 			value={data.subscriptions.length}
@@ -100,6 +101,11 @@
 			label="Filtered"
 			value={filteredSubs.length}
 			detail="Organizations matching the current billing filters."
+		/>
+		<PageShell.Metric
+			label="Drifted"
+			value={data.subscriptions.filter((sub) => sub.billingSnapshot?.driftDetected).length}
+			detail="Organizations whose last reconciliation found local billing drift."
 		/>
 	</PageShell.FactGrid>
 
@@ -149,6 +155,7 @@
 							<option value="gifted">Gifted</option>
 							<option value="canceling">Canceling</option>
 							<option value="canceled">Canceled</option>
+							<option value="drifted">Drifted</option>
 						</NativeSelect>
 					</Field.Control>
 				</Field.Root>
@@ -164,6 +171,7 @@
 						<Table.Head>Status</Table.Head>
 						<Table.Head>Personnel</Table.Head>
 						<Table.Head>Owner</Table.Head>
+						<Table.Head>Sync Health</Table.Head>
 						<Table.Head>Cancellation</Table.Head>
 						<Table.Head>Gift</Table.Head>
 						<Table.Head>Created</Table.Head>
@@ -195,6 +203,25 @@
 								{formatPersonnelCap(sub.personnelCount, sub.personnelCap)}
 							</Table.Cell>
 							<Table.Cell class="max-w-60 break-words text-muted-foreground">{sub.ownerEmail || '-'}</Table.Cell>
+							<Table.Cell>
+								{#if sub.billingSnapshot}
+									<div class="grid gap-1">
+										<Badge variant={sub.billingSnapshot.driftDetected ? 'warning' : 'secondary'}>
+											{sub.billingSnapshot.driftDetected ? 'Drifted' : formatAdminLabel(sub.billingSnapshot.syncStatus)}
+										</Badge>
+										<span class="text-muted-foreground">
+											Last checked {formatOptionalDateTime(sub.billingSnapshot.lastReconciledAt)}
+										</span>
+										{#if sub.billingSnapshot.reconciliationResult}
+											<span class="max-w-52 break-words font-mono text-xs text-muted-foreground">
+												{sub.billingSnapshot.reconciliationResult}
+											</span>
+										{/if}
+									</div>
+								{:else}
+									<span class="text-muted-foreground">-</span>
+								{/if}
+							</Table.Cell>
 							<Table.Cell>
 								{#if sub.cancellationSummary?.state === 'canceling_at_period_end'}
 									<div class="grid gap-1">
@@ -230,7 +257,7 @@
 						</Table.Row>
 					{:else}
 						<Table.Row>
-							<Table.Cell colspan={8}>
+							<Table.Cell colspan={9}>
 								<Empty.Root class="border-0">No subscriptions found.</Empty.Root>
 							</Table.Cell>
 						</Table.Row>

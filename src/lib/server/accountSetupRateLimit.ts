@@ -1,11 +1,11 @@
-import { createHash } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { getAdminClient } from '$lib/server/supabase';
-
-interface AccountSetupRateLimitRpcRow {
-	limited: boolean;
-	retry_after_ms: number;
-}
+import {
+	checkDurableRateLimit,
+	createSupabaseDurableRateLimitStore,
+	normalizeRateLimitEmail,
+	type DurableRateLimitDecision,
+	type DurableRateLimitStore
+} from './durableRateLimit';
 
 export const ACCOUNT_SETUP_RENEWAL_RATE_LIMIT_MESSAGE =
 	'Too many fresh-link requests. Please wait before trying again, or contact support if you still need access.';
@@ -17,76 +17,18 @@ const RENEWAL_MAX_REQUESTS = 3;
 const SETUP_ATTEMPT_WINDOW_MS = 15 * 60 * 1000;
 const SETUP_ATTEMPT_MAX_REQUESTS = 5;
 
-export interface AccountSetupRateLimitStore {
-	checkBucket(input: {
-		key: string;
-		windowMs: number;
-		maxRequests: number;
-		now: Date;
-	}): Promise<{ limited: false } | { limited: true; retryAfterMs: number }>;
+export type AccountSetupRateLimitStore = DurableRateLimitStore;
+
+export function createSupabaseAccountSetupRateLimitStore(supabase?: SupabaseClient): AccountSetupRateLimitStore {
+	return createSupabaseDurableRateLimitStore(supabase);
 }
 
-function normalizeEmail(email: string): string {
-	return email.trim().toLowerCase();
-}
-
-function hashDimension(value: string): string {
-	return createHash('sha256').update(value).digest('hex');
-}
-
-export function createSupabaseAccountSetupRateLimitStore(
-	supabase: SupabaseClient = getAdminClient()
-): AccountSetupRateLimitStore {
-	return {
-		async checkBucket(input) {
-			const { data, error } = (await supabase.rpc('check_account_setup_rate_limit', {
-				p_bucket_key: input.key,
-				p_window_seconds: Math.ceil(input.windowMs / 1000),
-				p_max_requests: input.maxRequests,
-				p_checked_at: input.now.toISOString()
-			})) as unknown as {
-				data: AccountSetupRateLimitRpcRow[] | AccountSetupRateLimitRpcRow | null;
-				error: unknown;
-			};
-
-			if (error) {
-				throw error;
-			}
-
-			const row = Array.isArray(data) ? data[0] : data;
-			if (!row) {
-				throw new Error('Account setup rate limit check returned no result');
-			}
-
-			if (row.limited) {
-				return { limited: true, retryAfterMs: row.retry_after_ms };
-			}
-
-			return { limited: false };
-		}
-	};
-}
-
-async function checkDimensions(
-	keys: string[],
-	windowMs: number,
-	maxRequests: number,
-	now: Date,
-	store: AccountSetupRateLimitStore
-): Promise<{ limited: false } | { limited: true; retryAfterMs: number }> {
-	let retryAfterMs = 0;
-	for (const key of keys) {
-		const result = await store.checkBucket({ key, windowMs, maxRequests, now });
-		if (result.limited) {
-			retryAfterMs = Math.max(retryAfterMs, result.retryAfterMs);
-		}
+function requireRateLimitDimension(value: string, name: string): string {
+	const trimmedValue = value.trim();
+	if (!trimmedValue) {
+		throw new Error(`${name} is required for account setup rate limiting`);
 	}
-
-	if (retryAfterMs > 0) {
-		return { limited: true, retryAfterMs };
-	}
-
-	return { limited: false };
+	return trimmedValue;
 }
 
 export function checkAccountSetupRenewalRateLimit(input: {
@@ -94,19 +36,19 @@ export function checkAccountSetupRenewalRateLimit(input: {
 	ip?: string | null;
 	now?: Date;
 	store?: AccountSetupRateLimitStore;
-}): Promise<{ limited: false } | { limited: true; retryAfterMs: number }> {
-	const keys = [`account-setup-renewal:email:${hashDimension(normalizeEmail(input.email))}`];
-	if (input.ip) {
-		keys.push(`account-setup-renewal:ip:${hashDimension(input.ip)}`);
-	}
-
-	return checkDimensions(
-		keys,
-		RENEWAL_WINDOW_MS,
-		RENEWAL_MAX_REQUESTS,
-		input.now ?? new Date(),
-		input.store ?? createSupabaseAccountSetupRateLimitStore()
-	);
+}): Promise<DurableRateLimitDecision> {
+	const email = requireRateLimitDimension(normalizeRateLimitEmail(input.email), 'email');
+	return checkDurableRateLimit({
+		namespace: 'account-setup-renewal',
+		dimensions: [
+			{ name: 'email', value: email },
+			{ name: 'ip', value: input.ip ?? null }
+		],
+		windowMs: RENEWAL_WINDOW_MS,
+		maxRequests: RENEWAL_MAX_REQUESTS,
+		now: input.now,
+		store: input.store ?? createSupabaseAccountSetupRateLimitStore()
+	});
 }
 
 export function checkAccountSetupCompletionRateLimit(input: {
@@ -116,23 +58,20 @@ export function checkAccountSetupCompletionRateLimit(input: {
 	ip?: string | null;
 	now?: Date;
 	store?: AccountSetupRateLimitStore;
-}): Promise<{ limited: false } | { limited: true; retryAfterMs: number }> {
-	const keys = [
-		`account-setup-completion:link:${input.setupLinkId}`,
-		`account-setup-completion:request:${input.accessRequestId}`
-	];
-	if (input.email) {
-		keys.push(`account-setup-completion:email:${hashDimension(normalizeEmail(input.email))}`);
-	}
-	if (input.ip) {
-		keys.push(`account-setup-completion:ip:${hashDimension(input.ip)}`);
-	}
-
-	return checkDimensions(
-		keys,
-		SETUP_ATTEMPT_WINDOW_MS,
-		SETUP_ATTEMPT_MAX_REQUESTS,
-		input.now ?? new Date(),
-		input.store ?? createSupabaseAccountSetupRateLimitStore()
-	);
+}): Promise<DurableRateLimitDecision> {
+	const setupLinkId = requireRateLimitDimension(input.setupLinkId, 'setupLinkId');
+	const accessRequestId = requireRateLimitDimension(input.accessRequestId, 'accessRequestId');
+	return checkDurableRateLimit({
+		namespace: 'account-setup-completion',
+		dimensions: [
+			{ name: 'link', value: setupLinkId },
+			{ name: 'request', value: accessRequestId },
+			{ name: 'email', value: input.email ? normalizeRateLimitEmail(input.email) : null },
+			{ name: 'ip', value: input.ip ?? null }
+		],
+		windowMs: SETUP_ATTEMPT_WINDOW_MS,
+		maxRequests: SETUP_ATTEMPT_MAX_REQUESTS,
+		now: input.now,
+		store: input.store ?? createSupabaseAccountSetupRateLimitStore()
+	});
 }

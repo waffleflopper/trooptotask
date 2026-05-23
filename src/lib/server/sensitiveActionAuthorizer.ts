@@ -9,6 +9,9 @@ export const ORGANIZATION_DELETE_ACTION = 'organization.deleteOrganization';
 export const BILLING_CHECKOUT_ACTION = 'billing.checkout';
 export const BILLING_PORTAL_ACTION = 'billing.portal';
 export const BILLING_CANCEL_ACTION = 'billing.cancel';
+export const ORGANIZATION_MEMBER_INVITE_HIGH_PRIVILEGE_ACTION = 'organization.member.inviteHighPrivilege';
+export const ORGANIZATION_MEMBER_UPDATE_HIGH_PRIVILEGE_ACTION = 'organization.member.updateHighPrivilege';
+export const ORGANIZATION_MEMBER_REMOVE_HIGH_PRIVILEGE_ACTION = 'organization.member.removeHighPrivilege';
 
 export type SensitiveAction =
 	| typeof PLATFORM_ACCESS_REQUEST_APPROVE_ACTION
@@ -18,6 +21,9 @@ export type SensitiveAction =
 	| typeof BILLING_CHECKOUT_ACTION
 	| typeof BILLING_PORTAL_ACTION
 	| typeof BILLING_CANCEL_ACTION
+	| typeof ORGANIZATION_MEMBER_INVITE_HIGH_PRIVILEGE_ACTION
+	| typeof ORGANIZATION_MEMBER_UPDATE_HIGH_PRIVILEGE_ACTION
+	| typeof ORGANIZATION_MEMBER_REMOVE_HIGH_PRIVILEGE_ACTION
 	| (string & {});
 
 export type SensitiveActionDecisionReason =

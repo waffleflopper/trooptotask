@@ -68,6 +68,7 @@ function createOrganizationSettingsMemberManagementPort(
 			userId: string | null;
 			role: string | null;
 			email: string | null;
+			canManageMembers?: boolean | null;
 		} | null;
 		removeMembershipError?: string | null;
 		updateMembershipError?: string | null;
@@ -154,7 +155,9 @@ function createOrganizationSettingsMemberManagementPort(
 		},
 		async findMembershipById(orgId, membershipId) {
 			membershipLookups.push({ orgId, membershipId });
-			return options.membership ?? null;
+			return options.membership
+				? { ...options.membership, canManageMembers: options.membership.canManageMembers ?? null }
+				: null;
 		},
 		async removeMembership(orgId, membershipId) {
 			removedMemberships.push({ orgId, membershipId });
@@ -401,6 +404,67 @@ describe('inviteOrganizationMember', () => {
 		]);
 	});
 
+	it('requires recent assurance before creating high-privilege invitations', async () => {
+		const ctx = createTestContext({
+			auth: {
+				userId: 'owner-1',
+				orgId: 'org-1',
+				role: 'owner'
+			},
+			sensitiveActionDecision: {
+				allowed: false,
+				reason: 'denied.staleSession',
+				requiresStepUp: true,
+				sessionAgeMs: 60 * 60 * 1000
+			}
+		});
+		const port = createOrganizationSettingsMemberManagementPort();
+		const delivery = createInvitationDeliveryPort('sent');
+
+		await expect(
+			inviteOrganizationMember(
+				{
+					auth: ctx.auth,
+					audit: ctx.audit,
+					notifications: ctx.notifications,
+					settings: port,
+					invitationDelivery: delivery,
+					sensitiveActionAuthorizer: ctx.sensitiveActionAuthorizer
+				},
+				{
+					email: 'new.admin@example.com',
+					membershipRole: 'admin',
+					actorEmail: 'owner@example.com',
+					origin: 'https://trooptotask.test'
+				}
+			)
+		).rejects.toMatchObject({
+			status: 403,
+			message: 'Please confirm your identity before continuing. Sign in again or complete MFA, then try again.'
+		});
+
+		expect(port.createdInvitations).toEqual([]);
+		expect(delivery.deliveries).toEqual([]);
+		expect(ctx.auditPort.events).toEqual([
+			{
+				action: 'member.high_privilege_invite_authorization_denied',
+				resourceType: 'organization',
+				resourceId: 'new.admin@example.com',
+				details: {
+					email: 'new.admin@example.com',
+					membershipRole: 'admin',
+					memberPreset: 'editor',
+					sensitiveAction: expect.objectContaining({
+						action: 'organization.member.inviteHighPrivilege',
+						reason: 'denied.staleSession',
+						requiresStepUp: true
+					})
+				},
+				severity: 'warning'
+			}
+		]);
+	});
+
 	it('rejects invalid invitation emails before querying pending invites', async () => {
 		const ctx = createTestContext();
 		const port = createOrganizationSettingsMemberManagementPort();
@@ -483,7 +547,13 @@ describe('inviteOrganizationMember', () => {
 		const port = createOrganizationSettingsMemberManagementPort();
 
 		await inviteOrganizationMember(
-			{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
+			{
+				auth: ctx.auth,
+				audit: ctx.audit,
+				notifications: ctx.notifications,
+				settings: port,
+				sensitiveActionAuthorizer: ctx.sensitiveActionAuthorizer
+			},
 			{
 				email: 'member@example.com',
 				membershipRole: 'member',
@@ -500,6 +570,7 @@ describe('inviteOrganizationMember', () => {
 			}),
 			memberPreset: 'viewer'
 		});
+		expect(ctx.sensitiveActionAuthorizer.requests).toEqual([]);
 	});
 
 	it('creates the invitation with target member access, logs the audit event, and notifies admins', async () => {
@@ -787,7 +858,13 @@ describe('inviteOrganizationMember', () => {
 		const port = createOrganizationSettingsMemberManagementPort();
 
 		await inviteOrganizationMember(
-			{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
+			{
+				auth: ctx.auth,
+				audit: ctx.audit,
+				notifications: ctx.notifications,
+				settings: port,
+				sensitiveActionAuthorizer: ctx.sensitiveActionAuthorizer
+			},
 			{
 				email: 'manager@example.com',
 				membershipRole: 'member',
@@ -836,8 +913,19 @@ describe('inviteOrganizationMember', () => {
 				details: {
 					email: 'manager@example.com',
 					membershipRole: 'member',
-					memberPreset: 'viewer'
+					memberPreset: 'viewer',
+					sensitiveAction: expect.objectContaining({
+						action: 'organization.member.inviteHighPrivilege',
+						reason: 'allowed.recentSession'
+					})
 				}
+			}
+		]);
+		expect(ctx.sensitiveActionAuthorizer.requests).toEqual([
+			{
+				action: 'organization.member.inviteHighPrivilege',
+				actorUserId: 'owner-1',
+				target: { type: 'organization_invitation', id: 'manager@example.com' }
 			}
 		]);
 	});
@@ -1543,6 +1631,114 @@ describe('removeOrganizationMember', () => {
 		expect(port.removedMemberships).toEqual([]);
 	});
 
+	it('requires recent assurance before removing high-privilege members', async () => {
+		const ctx = createTestContext({
+			auth: {
+				userId: 'owner-1',
+				orgId: 'org-1',
+				role: 'owner'
+			},
+			sensitiveActionDecision: {
+				allowed: false,
+				reason: 'denied.staleSession',
+				requiresStepUp: true
+			}
+		});
+		const port = createOrganizationSettingsMemberManagementPort({
+			membership: {
+				userId: 'admin-1',
+				role: 'admin',
+				email: 'admin@example.com',
+				canManageMembers: true
+			}
+		});
+
+		await expect(
+			removeOrganizationMember(
+				{
+					auth: ctx.auth,
+					audit: ctx.audit,
+					notifications: ctx.notifications,
+					settings: port,
+					sensitiveActionAuthorizer: ctx.sensitiveActionAuthorizer
+				},
+				{
+					membershipId: '11111111-1111-4111-8111-111111111111',
+					actorEmail: 'owner@example.com'
+				}
+			)
+		).rejects.toMatchObject({
+			status: 403,
+			message: 'Please confirm your identity before continuing. Sign in again or complete MFA, then try again.'
+		});
+
+		expect(port.removedMemberships).toEqual([]);
+		expect(ctx.auditPort.events).toEqual([
+			{
+				action: 'member.high_privilege_remove_authorization_denied',
+				resourceType: 'organization',
+				resourceId: '11111111-1111-4111-8111-111111111111',
+				details: {
+					membershipId: '11111111-1111-4111-8111-111111111111',
+					targetRole: 'admin',
+					targetCanManageMembers: true,
+					sensitiveAction: expect.objectContaining({
+						action: 'organization.member.removeHighPrivilege',
+						reason: 'denied.staleSession',
+						requiresStepUp: true
+					})
+				},
+				severity: 'warning'
+			}
+		]);
+	});
+
+	it('allows recent high-privilege member removal and audits the sensitive action', async () => {
+		const ctx = createTestContext({
+			auth: {
+				userId: 'owner-1',
+				orgId: 'org-1',
+				role: 'owner'
+			}
+		});
+		const port = createOrganizationSettingsMemberManagementPort({
+			membership: {
+				userId: 'manager-1',
+				role: 'member',
+				email: 'manager@example.com',
+				canManageMembers: true
+			}
+		});
+
+		const result = await removeOrganizationMember(
+			{
+				auth: ctx.auth,
+				audit: ctx.audit,
+				notifications: ctx.notifications,
+				settings: port,
+				sensitiveActionAuthorizer: ctx.sensitiveActionAuthorizer
+			},
+			{
+				membershipId: '11111111-1111-4111-8111-111111111111',
+				actorEmail: 'owner@example.com'
+			}
+		);
+
+		expect(result).toEqual({ success: true });
+		expect(port.removedMemberships).toEqual([{ orgId: 'org-1', membershipId: '11111111-1111-4111-8111-111111111111' }]);
+		expect(ctx.auditPort.events).toContainEqual({
+			action: 'member.removed',
+			resourceType: 'organization',
+			details: {
+				membershipId: '11111111-1111-4111-8111-111111111111',
+				sensitiveAction: expect.objectContaining({
+					action: 'organization.member.removeHighPrivilege',
+					reason: 'allowed.recentSession'
+				})
+			}
+		});
+	});
+
 	it('removes the membership, audits it, and sends the existing notifications', async () => {
 		const ctx = createTestContext({
 			auth: {
@@ -2020,6 +2216,176 @@ describe('updateOrganizationMemberPermissions', () => {
 		expect(port.updatedMemberships).toEqual([]);
 	});
 
+	it('requires recent assurance before granting admin access', async () => {
+		const ctx = createTestContext({
+			auth: {
+				userId: 'owner-1',
+				orgId: 'org-1',
+				role: 'owner'
+			},
+			sensitiveActionDecision: {
+				allowed: false,
+				reason: 'denied.staleSession',
+				requiresStepUp: true,
+				sessionAgeMs: 60 * 60 * 1000
+			}
+		});
+		const port = createOrganizationSettingsMemberManagementPort({
+			membership: {
+				userId: 'member-1',
+				role: 'member',
+				email: 'member@example.com'
+			}
+		});
+
+		await expect(
+			updateOrganizationMemberPermissions(
+				{
+					auth: ctx.auth,
+					audit: ctx.audit,
+					notifications: ctx.notifications,
+					settings: port,
+					sensitiveActionAuthorizer: ctx.sensitiveActionAuthorizer
+				},
+				{
+					membershipId: '11111111-1111-4111-8111-111111111111',
+					membershipRole: 'admin',
+					actorEmail: 'owner@example.com'
+				}
+			)
+		).rejects.toMatchObject({
+			status: 403,
+			message: 'Please confirm your identity before continuing. Sign in again or complete MFA, then try again.'
+		});
+
+		expect(port.updatedMemberships).toEqual([]);
+		expect(ctx.auditPort.events).toEqual([
+			{
+				action: 'member.high_privilege_update_authorization_denied',
+				resourceType: 'organization',
+				resourceId: '11111111-1111-4111-8111-111111111111',
+				details: {
+					membershipId: '11111111-1111-4111-8111-111111111111',
+					currentRole: 'member',
+					targetRole: 'admin',
+					currentCanManageMembers: null,
+					targetCanManageMembers: true,
+					sensitiveAction: expect.objectContaining({
+						action: 'organization.member.updateHighPrivilege',
+						reason: 'denied.staleSession',
+						requiresStepUp: true
+					})
+				},
+				severity: 'warning'
+			}
+		]);
+	});
+
+	it('requires recent assurance before revoking admin access', async () => {
+		const ctx = createTestContext({
+			auth: {
+				userId: 'owner-1',
+				orgId: 'org-1',
+				role: 'owner'
+			},
+			sensitiveActionDecision: {
+				allowed: false,
+				reason: 'denied.staleSession',
+				requiresStepUp: true
+			}
+		});
+		const port = createOrganizationSettingsMemberManagementPort({
+			membership: {
+				userId: 'admin-1',
+				role: 'admin',
+				email: 'admin@example.com',
+				canManageMembers: true
+			}
+		});
+
+		await expect(
+			updateOrganizationMemberPermissions(
+				{
+					auth: ctx.auth,
+					audit: ctx.audit,
+					notifications: ctx.notifications,
+					settings: port,
+					sensitiveActionAuthorizer: ctx.sensitiveActionAuthorizer
+				},
+				{
+					membershipId: '11111111-1111-4111-8111-111111111111',
+					membershipRole: 'member',
+					memberAccess: memberAccess({ memberPreset: 'viewer' }),
+					actorEmail: 'owner@example.com'
+				}
+			)
+		).rejects.toMatchObject({ status: 403 });
+
+		expect(port.updatedMemberships).toEqual([]);
+		expect(ctx.auditPort.events).toContainEqual(
+			expect.objectContaining({
+				action: 'member.high_privilege_update_authorization_denied',
+				details: expect.objectContaining({
+					currentRole: 'admin',
+					targetRole: 'member',
+					sensitiveAction: expect.objectContaining({
+						action: 'organization.member.updateHighPrivilege',
+						reason: 'denied.staleSession'
+					})
+				})
+			})
+		);
+	});
+
+	it('requires recent assurance before granting member-management authority without changing role', async () => {
+		const ctx = createTestContext({
+			auth: {
+				userId: 'owner-1',
+				orgId: 'org-1',
+				role: 'owner'
+			}
+		});
+		const port = createOrganizationSettingsMemberManagementPort({
+			membership: {
+				userId: 'member-1',
+				role: 'member',
+				email: 'member@example.com',
+				canManageMembers: false
+			}
+		});
+
+		const result = await updateOrganizationMemberPermissions(
+			{
+				auth: ctx.auth,
+				audit: ctx.audit,
+				notifications: ctx.notifications,
+				settings: port,
+				sensitiveActionAuthorizer: ctx.sensitiveActionAuthorizer
+			},
+			{
+				membershipId: '11111111-1111-4111-8111-111111111111',
+				membershipRole: 'member',
+				memberAccess: memberAccess({ canManageMembers: true }),
+				actorEmail: 'owner@example.com'
+			}
+		);
+
+		expect(result).toEqual({ permissionSuccess: true });
+		expect(ctx.sensitiveActionAuthorizer.requests).toEqual([
+			{
+				action: 'organization.member.updateHighPrivilege',
+				actorUserId: 'owner-1',
+				target: { type: 'organization_membership', id: '11111111-1111-4111-8111-111111111111' }
+			}
+		]);
+		expect(port.updatedMemberships).toEqual([
+			expect.objectContaining({
+				role: 'member',
+				permissions: expect.objectContaining({ canManageMembers: true })
+			})
+		]);
+	});
+
 	it('requires owner rights for admin changes, updates the membership, and sends the role-change notification', async () => {
 		const requireOwner = vi.fn();
 		const requireManageMembers = vi.fn();
@@ -2041,7 +2407,13 @@ describe('updateOrganizationMemberPermissions', () => {
 		});
 
 		const result = await updateOrganizationMemberPermissions(
-			{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
+			{
+				auth: ctx.auth,
+				audit: ctx.audit,
+				notifications: ctx.notifications,
+				settings: port,
+				sensitiveActionAuthorizer: ctx.sensitiveActionAuthorizer
+			},
 			{
 				membershipId: '11111111-1111-4111-8111-111111111111',
 				membershipRole: 'admin',
@@ -2073,7 +2445,11 @@ describe('updateOrganizationMemberPermissions', () => {
 				details: {
 					membershipId: '11111111-1111-4111-8111-111111111111',
 					membershipRole: 'admin',
-					memberPreset: 'editor'
+					memberPreset: 'editor',
+					sensitiveAction: expect.objectContaining({
+						action: 'organization.member.updateHighPrivilege',
+						reason: 'allowed.recentSession'
+					})
 				},
 				severity: 'warning'
 			}

@@ -877,7 +877,8 @@ describe('org settings page server actions', () => {
 				readOnlyGuard: undefined,
 				settings: { kind: 'settings-port' },
 				invitationDelivery: { kind: 'invitation-delivery-port' },
-				invitationRateLimiter: { kind: 'invitation-rate-limiter' }
+				invitationRateLimiter: { kind: 'invitation-rate-limiter' },
+				sensitiveActionAuthorizer: { kind: 'sensitive-action-authorizer' }
 			},
 			{
 				email: 'new.member@example.com',
@@ -923,7 +924,8 @@ describe('org settings page server actions', () => {
 				audit: { kind: 'audit' },
 				notifications: { kind: 'notifications' },
 				readOnlyGuard: undefined,
-				settings: { kind: 'settings-port' }
+				settings: { kind: 'settings-port' },
+				sensitiveActionAuthorizer: { kind: 'sensitive-action-authorizer' }
 			},
 			{
 				membershipId: '11111111-1111-4111-8111-111111111111',

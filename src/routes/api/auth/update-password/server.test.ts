@@ -164,6 +164,38 @@ describe('POST /api/auth/update-password', () => {
 		expect(cookies.delete).not.toHaveBeenCalled();
 	});
 
+	it('returns stable policy copy when Supabase rejects the new password as weak', async () => {
+		const updateUser = vi.fn().mockResolvedValue({
+			error: { message: 'Password should be at least 12 characters' }
+		});
+		const cookies = { delete: vi.fn() };
+
+		const response = await POST({
+			request: new Request('http://localhost/api/auth/update-password', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ password: 'SecurePass12' })
+			}),
+			locals: {
+				session: { user: { id: 'user-123' } },
+				authFlow: 'recovery',
+				supabase: {
+					auth: {
+						updateUser
+					}
+				}
+			},
+			cookies
+		} as unknown as Parameters<typeof POST>[0]);
+
+		expect(response.status).toBe(400);
+		expect(await response.json()).toEqual({
+			error:
+				'That password was rejected by account security rules. Use at least 12 characters with uppercase, lowercase, and a number.'
+		});
+		expect(cookies.delete).not.toHaveBeenCalled();
+	});
+
 	it('updates the password for an active recovery session and clears the recovery flow marker', async () => {
 		const updateUser = vi.fn().mockResolvedValue({ error: null });
 		const cookies = { delete: vi.fn() };

@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { validatePassword } from '$lib/server/validation';
+import { mapProviderPasswordError, validatePassword } from '$lib/server/validation';
 import { getPendingAuthFlowCookieName } from '$lib/server/mfaGate';
 
 export const POST: RequestHandler = async ({ request, locals, cookies }) => {
@@ -58,6 +58,10 @@ export const POST: RequestHandler = async ({ request, locals, cookies }) => {
 	const { error } = await locals.supabase.auth.updateUser({ password });
 
 	if (error) {
+		const providerPasswordError = mapProviderPasswordError(error);
+		if (providerPasswordError) {
+			return json({ error: providerPasswordError }, { status: 400 });
+		}
 		return json(
 			{
 				error: error.message

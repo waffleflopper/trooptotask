@@ -362,6 +362,21 @@ describe('/auth/setup-account actions', () => {
 		expect(completeSetupSession).not.toHaveBeenCalled();
 	});
 
+	it('validates weak setup passwords before claiming the setup session', async () => {
+		const result = await actions.default(
+			makeActionEvent({
+				request: makeRequest({ password: 'short', confirmPassword: 'short' })
+			})
+		);
+
+		expect(result).toMatchObject({
+			status: 400,
+			data: { error: 'Password must be at least 12 characters' }
+		});
+		expect(checkCompletionRateLimit).not.toHaveBeenCalled();
+		expect(completeSetupSession).not.toHaveBeenCalled();
+	});
+
 	it('maps invalid setup-session link states to user-facing recovery copy', async () => {
 		completeSetupSession.mockResolvedValueOnce({ status: 'revoked' });
 
@@ -417,6 +432,23 @@ describe('/auth/setup-account actions', () => {
 			setupLinkId: 'link-1',
 			accessRequestId: 'request-1',
 			password: 'ValidPassword123!'
+		});
+	});
+
+	it('returns clear policy copy when Supabase rejects the setup password after app validation', async () => {
+		completeSetupSession.mockResolvedValueOnce({
+			status: 'account-create-failed',
+			message: 'Password should be at least 12 characters'
+		});
+
+		const result = await actions.default(makeActionEvent());
+
+		expect(result).toMatchObject({
+			status: 400,
+			data: {
+				error:
+					'That password was rejected by account security rules. Use at least 12 characters with uppercase, lowercase, and a number. Request a fresh setup link, then try again.'
+			}
 		});
 	});
 

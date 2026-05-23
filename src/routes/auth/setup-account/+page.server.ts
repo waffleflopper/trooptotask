@@ -18,7 +18,7 @@ import {
 } from '$lib/server/accountSetupRateLimit';
 import { getAuthenticatedRedirectPath } from '$lib/server/mfaGate';
 import { getAdminClient, getSupabaseClient } from '$lib/server/supabase';
-import { validatePassword } from '$lib/server/validation';
+import { mapProviderPasswordError, validatePassword } from '$lib/server/validation';
 
 function tokenStateMessage(state: string): string {
 	switch (state) {
@@ -218,7 +218,18 @@ export const actions: Actions = {
 			redirect(303, '/dashboard');
 		}
 
-		if (completion.status === 'account-create-failed' || completion.status === 'setup-finalization-failed') {
+		if (completion.status === 'account-create-failed') {
+			clearAccountSetupSessionCookie(cookies);
+			const providerPasswordError = mapProviderPasswordError(completion.message);
+			if (providerPasswordError) {
+				return fail(400, {
+					error: `${providerPasswordError} Request a fresh setup link, then try again.`
+				});
+			}
+			return fail(500, { error: claimedSetupFailureMessage() });
+		}
+
+		if (completion.status === 'setup-finalization-failed') {
 			clearAccountSetupSessionCookie(cookies);
 			return fail(500, { error: claimedSetupFailureMessage() });
 		}

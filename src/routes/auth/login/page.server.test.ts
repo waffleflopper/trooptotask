@@ -52,6 +52,22 @@ describe('GET /auth/login', () => {
 		});
 	});
 
+	it('drops malformed return paths during load', async () => {
+		const result = await load({
+			locals: {
+				session: null,
+				authFlow: null,
+				mfaPending: false
+			},
+			url: new URL('http://localhost/auth/login?next=/..//admin')
+		} as unknown as Parameters<typeof load>[0]);
+
+		expect(result).toEqual({
+			reauth: false,
+			nextPath: null
+		});
+	});
+
 	it('redirects to the safe return path after a successful reauth login', async () => {
 		const signInWithPassword = vi.fn().mockResolvedValue({ error: null });
 		const getAuthenticatorAssuranceLevel = vi.fn().mockResolvedValue({
@@ -97,6 +113,37 @@ describe('GET /auth/login', () => {
 		formData.set('email', 'owner@example.com');
 		formData.set('password', 'correct-password');
 		formData.set('next', '//evil.example/phish');
+
+		await expect(
+			actions.login({
+				request: new Request('http://localhost/auth/login?/login', {
+					method: 'POST',
+					body: formData
+				}),
+				locals: {
+					supabase: {
+						auth: {
+							signInWithPassword,
+							mfa: { getAuthenticatorAssuranceLevel }
+						}
+					}
+				}
+			} as never)
+		).rejects.toMatchObject({
+			status: 303,
+			location: '/dashboard'
+		});
+	});
+
+	it('redirects to dashboard instead of form next values that normalize to protocol-relative paths', async () => {
+		const signInWithPassword = vi.fn().mockResolvedValue({ error: null });
+		const getAuthenticatorAssuranceLevel = vi.fn().mockResolvedValue({
+			data: { currentLevel: 'aal1', nextLevel: 'aal1' }
+		});
+		const formData = new FormData();
+		formData.set('email', 'owner@example.com');
+		formData.set('password', 'correct-password');
+		formData.set('next', '/..//admin');
 
 		await expect(
 			actions.login({

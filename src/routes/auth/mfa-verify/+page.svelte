@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import { sanitizeAuthNextPath } from '$lib/auth/redirects';
 	import AuthField from '$lib/components/auth/AuthField.svelte';
 	import AuthNotice from '$lib/components/auth/AuthNotice.svelte';
 	import AuthShell from '$lib/components/auth/AuthShell.svelte';
@@ -13,14 +14,7 @@
 
 	function getNextPath(): string | null {
 		const next = new URL(window.location.href).searchParams.get('next');
-		if (!next?.startsWith('/') || next.startsWith('//')) return null;
-
-		try {
-			const url = new URL(next, window.location.origin);
-			return `${url.pathname}${url.search}${url.hash}`;
-		} catch {
-			return null;
-		}
+		return sanitizeAuthNextPath(next);
 	}
 
 	function handleCodeInput(e: Event) {

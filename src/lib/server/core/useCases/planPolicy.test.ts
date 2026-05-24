@@ -453,6 +453,18 @@ describe('plan policy', () => {
 		});
 	});
 
+	it('pins commercial member-seat caps in the central plan policy contract', () => {
+		expect(buildEffectivePlanPolicy(snapshot({ commercialPlan: 'free' })).limits.activeOrganizationMembers.limit).toBe(
+			2
+		);
+		expect(buildEffectivePlanPolicy(snapshot({ commercialPlan: 'team' })).limits.activeOrganizationMembers.limit).toBe(
+			10
+		);
+		expect(buildEffectivePlanPolicy(snapshot({ commercialPlan: 'unit' })).limits.activeOrganizationMembers.limit).toBe(
+			50
+		);
+	});
+
 	it('uses the billing-state read interface instead of provider-specific billing APIs', async () => {
 		billingEnabledMock.mockReturnValue(true);
 		const ctx = createTestContext({ auth: { orgId: 'org-1' } });

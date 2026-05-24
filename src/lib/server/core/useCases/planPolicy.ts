@@ -127,6 +127,8 @@ export interface PlanLimitAvailability {
 }
 
 const MEMBER_CAPS: Record<Tier, number | null> = {
+	// Authoritative commercial member-seat caps for PRD 02. Keep these in the
+	// plan policy contract so enforcement, usage summaries, and previews agree.
 	free: 2,
 	team: 10,
 	unit: 50

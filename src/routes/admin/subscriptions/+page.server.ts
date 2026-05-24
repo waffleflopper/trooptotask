@@ -8,7 +8,7 @@ import { createSupabaseDataStore } from '$lib/server/adapters/supabaseDataStore'
 import { buildPlanAdminDiagnostics, type PlanAdminDiagnostics } from '$lib/server/core/useCases/planAdminDiagnostics';
 import { readOrganizationPlanUsage } from '$lib/server/core/useCases/organizationPlanUsage';
 import { readEffectivePlanPolicy } from '$lib/server/core/useCases/planPolicy';
-import type { AdminRole } from '$lib/server/admin';
+import { visibleBillingSnapshotForAdminRole } from '$lib/server/adminBillingVisibility';
 import {
 	type AdminMetricsClient,
 	displayOwnerMembership,
@@ -93,21 +93,10 @@ async function mapWithConcurrency<T, U>(items: T[], limit: number, mapper: (item
 }
 
 export function _visibleBillingSnapshotForRole(
-	role: AdminRole,
+	role: Parameters<typeof visibleBillingSnapshotForAdminRole>[0],
 	snapshot: BillingSnapshot | null
 ): BillingSnapshot | null {
-	if (!snapshot || role !== 'support') return snapshot;
-	return {
-		...snapshot,
-		stripeCustomerId: null,
-		stripeSubscriptionId: null,
-		stripeProductId: null,
-		stripePriceId: null,
-		lastStripeEventId: null,
-		lastStripeEventType: null,
-		lastStripeEventCreatedAt: null,
-		lastProcessedAt: null
-	};
+	return visibleBillingSnapshotForAdminRole(role, snapshot);
 }
 
 export const load: PageServerLoad = loadWithAdminContext({
@@ -204,7 +193,10 @@ export const load: PageServerLoad = loadWithAdminContext({
 
 		const enrichedOrgs = (orgs ?? []).map((org) => {
 			const ownerEmail = displayOwnerMembership(ownerMemberships.get(org.id));
-			const billingSnapshot = _visibleBillingSnapshotForRole(ctx.adminUser.role, snapshotsByOrgId.get(org.id) ?? null);
+			const billingSnapshot = visibleBillingSnapshotForAdminRole(
+				ctx.adminUser.role,
+				snapshotsByOrgId.get(org.id) ?? null
+			);
 
 			const effectiveTier = (org.gift_tier ?? org.tier ?? 'free') as string;
 

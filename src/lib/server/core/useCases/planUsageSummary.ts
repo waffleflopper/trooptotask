@@ -120,7 +120,7 @@ export function buildPlanUsageSummary(policy: EffectivePlanPolicy, usage: Organi
 			used: usage.activePersonnelCount,
 			limit: policy.limits.activePersonnel.limit,
 			limitLabel: formatLimit(policy.limits.activePersonnel.limit),
-			status: limitStatus(usage.activePersonnelCount, policy.limits.activePersonnel.limit),
+			status: limitStatus(usage.activePersonnelCount, policy.limits.activePersonnel.limit, true),
 			message: `Personnel usage is ${usage.activePersonnelCount} of ${formatLimit(policy.limits.activePersonnel.limit)}.`,
 			remediation: personnelRemediation(policy.limits.activePersonnel.upgradeTarget),
 			upgradeTarget: policy.limits.activePersonnel.upgradeTarget
@@ -131,7 +131,7 @@ export function buildPlanUsageSummary(policy: EffectivePlanPolicy, usage: Organi
 			used: usage.activeOrganizationMemberCount,
 			limit: memberLimit,
 			limitLabel: formatLimit(memberLimit),
-			status: limitStatus(usage.activeOrganizationMemberCount, memberLimit),
+			status: limitStatus(usage.activeOrganizationMemberCount, memberLimit, true),
 			message: `Member usage is ${usage.activeOrganizationMemberCount} of ${formatLimit(memberLimit)}.`,
 			remediation: memberRemediation(policy.limits.activeOrganizationMembers.upgradeTarget),
 			upgradeTarget: policy.limits.activeOrganizationMembers.upgradeTarget

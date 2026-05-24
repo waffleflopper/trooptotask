@@ -22,6 +22,7 @@ import {
 } from '$lib/server/core/useCases/planPolicy';
 import { readOrganizationPlanUsage } from '$lib/server/core/useCases/organizationPlanUsage';
 import { buildPlanAdminDiagnostics } from '$lib/server/core/useCases/planAdminDiagnostics';
+import { visibleBillingSnapshotForAdminRole } from '$lib/server/adminBillingVisibility';
 import type { BillingSnapshot } from '$lib/types/subscription';
 
 const TIER_RANK: Record<string, number> = { free: 1, team: 2, unit: 3 };
@@ -159,7 +160,10 @@ export const load: PageServerLoad = loadWithAdminContext({
 			)
 			.eq('organization_id', orgId)
 			.maybeSingle<AdminOrganizationBillingSnapshotRow>();
-		const billingSnapshot = billingSnapshotRow ? mapAdminOrganizationBillingSnapshot(billingSnapshotRow) : null;
+		const billingSnapshot = visibleBillingSnapshotForAdminRole(
+			ctx.adminUser.role,
+			billingSnapshotRow ? mapAdminOrganizationBillingSnapshot(billingSnapshotRow) : null
+		);
 		const dataStore = createSupabaseDataStore(adminClient);
 		const [planPolicy, planUsage] = await Promise.all([
 			readEffectivePlanPolicy({

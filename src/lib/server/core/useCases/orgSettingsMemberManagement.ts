@@ -282,6 +282,11 @@ export async function inviteOrganizationMember(
 		fail(500, createResult.message);
 	}
 
+	await blockCreatedInvitationIfOverPlanLimit(ports, {
+		invitationId: createResult.invitationId,
+		actorUserId
+	});
+
 	const accessRequestBridgeStatus = existingUserAccount
 		? 'existing-user'
 		: await bridgeInvitationToAccessRequest(ports, {
@@ -376,6 +381,50 @@ async function requireMemberInviteWithinPlanLimit(ports: InviteOrganizationMembe
 		},
 		severity: 'warning'
 	});
+
+	fail(403, message);
+}
+
+async function blockCreatedInvitationIfOverPlanLimit(
+	ports: InviteOrganizationMemberPorts,
+	input: { invitationId: string; actorUserId: string }
+): Promise<void> {
+	const planReads = getPlanPolicyReads(ports);
+	const [policy, usage] = await Promise.all([
+		planReads.readEffectivePlanPolicy(),
+		planReads.readOrganizationPlanUsage()
+	]);
+	const memberLimit = policy.limits.activeOrganizationMembers.limit;
+	if (memberLimit === null) return;
+
+	const usedSeats = usage.activeOrganizationMemberCount + usage.pendingUnexpiredInvitationCount;
+	if (usedSeats <= memberLimit) return;
+
+	const message = `This organization exceeded its plan member limit of ${memberLimit} seats while creating the invitation. Revoke a pending invitation or upgrade before inviting another member.`;
+	const blockResult = await ports.settings.blockInvitationAfterAccessRequestBridgeFailure({
+		organizationId: ports.auth.orgId,
+		invitationId: input.invitationId,
+		blockedBy: input.actorUserId,
+		reason: 'plan_member_limit_overcap'
+	});
+
+	ports.audit.log({
+		action: 'member.invite_plan_limit_overcap',
+		resourceType: 'organization',
+		resourceId: ports.auth.orgId,
+		details: {
+			commercialPlan: policy.commercialPlan,
+			memberLimit,
+			activeOrganizationMemberCount: usage.activeOrganizationMemberCount,
+			pendingUnexpiredInvitationCount: usage.pendingUnexpiredInvitationCount,
+			blocked: blockResult.status === 'blocked'
+		},
+		severity: 'warning'
+	});
+
+	if (blockResult.status === 'failed') {
+		fail(500, 'Invitation could not be canceled after the plan member limit was exceeded');
+	}
 
 	fail(403, message);
 }

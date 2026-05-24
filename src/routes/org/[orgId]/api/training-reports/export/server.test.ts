@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import ExcelJS from 'exceljs';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { WORKBOOK_MIME_TYPE } from '$lib/export/workbook';
@@ -6,79 +6,15 @@ import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { _getConfig } from './+server';
 
-const { billingEnabledMock } = vi.hoisted(() => ({
-	billingEnabledMock: vi.fn(() => true)
-}));
-
-vi.mock('$lib/config/billing', () => ({
-	get isBillingEnabled() {
-		return billingEnabledMock();
-	}
-}));
-
 type WorkbookLoadBuffer = Parameters<ExcelJS.Workbook['xlsx']['load']>[0];
-
-afterEach(() => {
-	billingEnabledMock.mockReturnValue(true);
-	vi.restoreAllMocks();
-});
 
 function toWorkbookBuffer(buffer: ArrayBuffer): WorkbookLoadBuffer {
 	return buffer;
 }
 
 describe('GET /api/training-reports/export', () => {
-	it('returns structured plan denial when advanced reporting is unavailable', async () => {
+	it('keeps training report export available through the existing training permission', async () => {
 		const ctx = createTestContext();
-
-		const result = await handleUseCaseRequest(_getConfig, ctx, {
-			sortColumn: 'name',
-			sortDirection: 'asc'
-		});
-		const response = _getConfig.formatOutput?.(result);
-		const payload = await response?.json();
-
-		expect(response?.status).toBe(403);
-		expect(payload).toEqual({
-			error: 'Advanced reporting is not available on your current plan.',
-			denial: {
-				code: 'denied.plan_feature_unavailable',
-				dimension: 'billing_state',
-				featureKey: 'advanced_reporting',
-				featureLabel: 'Advanced reporting',
-				message: 'Advanced reporting is not available on your current plan.',
-				remediation: 'Upgrade to unit to use this feature.',
-				upgradeTarget: 'unit'
-			}
-		});
-	});
-
-	it('allows training report export when billing is disabled', async () => {
-		billingEnabledMock.mockReturnValue(false);
-		const ctx = createTestContext();
-
-		const result = await handleUseCaseRequest(_getConfig, ctx, {
-			sortColumn: 'name',
-			sortDirection: 'asc'
-		});
-
-		expect('_planDenied' in result).toBe(false);
-	});
-
-	it('uses training read permission and returns workbook download output', async () => {
-		const ctx = createTestContext();
-		ctx.rawStore.seed('organizations', [
-			{
-				id: ctx.auth.orgId,
-				tier: 'unit',
-				stripe_customer_id: null,
-				stripe_subscription_id: null,
-				subscription_status: null,
-				current_period_end: null,
-				gift_tier: null,
-				gift_expires_at: null
-			}
-		]);
 
 		ctx.store.seed('personnel', [
 			{
@@ -126,7 +62,6 @@ describe('GET /api/training-reports/export', () => {
 			sortColumn: 'name',
 			sortDirection: 'asc'
 		});
-		if ('_planDenied' in result) throw new Error('Expected training report workbook');
 		const response = _getConfig.formatOutput?.(result);
 		const workbook = new ExcelJS.Workbook();
 		await workbook.xlsx.load(toWorkbookBuffer(result.buffer));

@@ -408,6 +408,105 @@ describe('inviteOrganizationMember', () => {
 		);
 	});
 
+	it('blocks the created invitation if a concurrent invite pushes usage over the member cap', async () => {
+		const ctx = createTestContext({ auth: { userId: 'actor-1', orgId: 'org-1', role: 'admin' } });
+		const port = createOrganizationSettingsMemberManagementPort();
+		const basePlanPolicy = createPlanPolicyPort({
+			plan: 'free',
+			memberLimit: 2,
+			activeOrganizationMemberCount: 1,
+			pendingUnexpiredInvitationCount: 0
+		});
+		const planPolicy = {
+			readEffectivePlanPolicy: basePlanPolicy.readEffectivePlanPolicy,
+			readOrganizationPlanUsage: vi
+				.fn<() => Promise<OrganizationPlanUsage>>()
+				.mockResolvedValueOnce({
+					organizationId: 'org-1',
+					asOf: '2026-05-24T12:00:00.000Z',
+					activePersonnelCount: 0,
+					activeOrganizationMemberCount: 1,
+					pendingUnexpiredInvitationCount: 0,
+					monthlyExportCount: 0,
+					sources: {
+						activePersonnel: { table: 'personnel', included: [], excluded: [] },
+						activeOrganizationMembers: { table: 'organization_memberships', included: [], excluded: [] },
+						pendingUnexpiredInvitations: { table: 'organization_invitations', included: [], excluded: [] },
+						monthlyExports: {
+							table: 'data_exports',
+							included: [],
+							excluded: [],
+							period: { start: '2026-05-01T00:00:00.000Z', endExclusive: '2026-06-01T00:00:00.000Z' }
+						}
+					}
+				})
+				.mockResolvedValueOnce({
+					organizationId: 'org-1',
+					asOf: '2026-05-24T12:00:01.000Z',
+					activePersonnelCount: 0,
+					activeOrganizationMemberCount: 1,
+					pendingUnexpiredInvitationCount: 2,
+					monthlyExportCount: 0,
+					sources: {
+						activePersonnel: { table: 'personnel', included: [], excluded: [] },
+						activeOrganizationMembers: { table: 'organization_memberships', included: [], excluded: [] },
+						pendingUnexpiredInvitations: { table: 'organization_invitations', included: [], excluded: [] },
+						monthlyExports: {
+							table: 'data_exports',
+							included: [],
+							excluded: [],
+							period: { start: '2026-05-01T00:00:00.000Z', endExclusive: '2026-06-01T00:00:00.000Z' }
+						}
+					}
+				})
+		};
+
+		await expect(
+			inviteOrganizationMember(
+				{
+					auth: ctx.auth,
+					audit: ctx.audit,
+					notifications: ctx.notifications,
+					settings: port,
+					planPolicy
+				},
+				{
+					email: 'new.user@example.com',
+					membershipRole: 'member',
+					memberAccess: memberAccess({ memberPreset: 'viewer' }),
+					actorEmail: 'admin@example.com'
+				}
+			)
+		).rejects.toMatchObject({
+			status: 403,
+			message:
+				'This organization exceeded its plan member limit of 2 seats while creating the invitation. Revoke a pending invitation or upgrade before inviting another member.'
+		});
+
+		expect(port.createdInvitations).toHaveLength(1);
+		expect(port.blockedInvitations).toEqual([
+			{
+				organizationId: 'org-1',
+				invitationId: 'invite-created',
+				blockedBy: 'actor-1',
+				reason: 'plan_member_limit_overcap'
+			}
+		]);
+		expect(port.accessRequestBridges).toEqual([]);
+		expect(ctx.auditPort.events).toContainEqual(
+			expect.objectContaining({
+				action: 'member.invite_plan_limit_overcap',
+				details: expect.objectContaining({
+					commercialPlan: 'free',
+					memberLimit: 2,
+					activeOrganizationMemberCount: 1,
+					pendingUnexpiredInvitationCount: 2,
+					blocked: true
+				})
+			})
+		);
+	});
+
 	it('uses the shared usage read model so closed invitation history does not block direct member invites', async () => {
 		const ctx = createTestContext({ auth: { userId: 'actor-1', orgId: 'org-1', role: 'admin' } });
 		const port = createOrganizationSettingsMemberManagementPort();

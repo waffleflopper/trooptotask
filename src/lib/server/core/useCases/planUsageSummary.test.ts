@@ -179,4 +179,31 @@ describe('plan usage summary', () => {
 			})
 		);
 	});
+
+	it('marks add-blocking personnel and member caps as limit reached', () => {
+		const policy = buildEffectivePlanPolicy(snapshot());
+
+		const summary = buildPlanUsageSummary(
+			policy,
+			usage({
+				activePersonnelCount: 20,
+				activeOrganizationMemberCount: 2,
+				pendingUnexpiredInvitationCount: 0,
+				monthlyExportCount: 0
+			})
+		);
+
+		expect(summary.rows).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({ dimension: 'active_personnel', status: 'limit_reached' }),
+				expect.objectContaining({ dimension: 'active_organization_members', status: 'limit_reached' })
+			])
+		);
+		expect(summary.alerts).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({ dimension: 'active_personnel', status: 'limit_reached' }),
+				expect.objectContaining({ dimension: 'active_organization_members', status: 'limit_reached' })
+			])
+		);
+	});
 });

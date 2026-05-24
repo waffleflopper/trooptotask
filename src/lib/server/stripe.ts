@@ -1,10 +1,5 @@
 import Stripe from 'stripe';
-import {
-	STRIPE_SECRET_KEY,
-	STRIPE_WEBHOOK_SECRET,
-	STRIPE_TEAM_PRICE_ID,
-	STRIPE_UNIT_PRICE_ID
-} from '$env/static/private';
+import { STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET } from '$env/static/private';
 import type { BillingReconciliationProviderSubscription } from '$lib/server/core/useCases/billingReconciliation';
 
 function getStripe(): Stripe {
@@ -16,6 +11,7 @@ export async function createCheckoutSession(options: {
 	orgId: string;
 	orgName: string;
 	tier: 'team' | 'unit';
+	priceId: string;
 	customerEmail: string;
 	existingCustomerId?: string;
 	successUrl: string;
@@ -23,12 +19,9 @@ export async function createCheckoutSession(options: {
 }): Promise<{ url: string; customerId: string }> {
 	const stripe = getStripe();
 
-	const PRICE_IDS: Record<string, string | undefined> = {
-		team: STRIPE_TEAM_PRICE_ID,
-		unit: STRIPE_UNIT_PRICE_ID
-	};
-	const priceId = PRICE_IDS[options.tier];
-	if (!priceId) throw new Error(`No Stripe price ID configured for tier: ${options.tier}`);
+	if (!options.priceId) throw new Error(`No Stripe price ID configured for tier: ${options.tier}`);
+	const price = await stripe.prices.retrieve(options.priceId);
+	validateCheckoutPriceForSecretMode(price, STRIPE_SECRET_KEY);
 
 	let customerId = options.existingCustomerId;
 	if (!customerId) {
@@ -42,17 +35,52 @@ export async function createCheckoutSession(options: {
 	const session = await stripe.checkout.sessions.create({
 		customer: customerId,
 		mode: 'subscription',
-		line_items: [{ price: priceId, quantity: 1 }],
+		client_reference_id: options.orgId,
+		line_items: [{ price: price.id, quantity: 1 }],
 		success_url: options.successUrl,
 		cancel_url: options.cancelUrl,
-		metadata: { orgId: options.orgId, tier: options.tier },
+		metadata: { orgId: options.orgId, tier: options.tier, commercialPlan: options.tier, priceId: price.id },
 		subscription_data: {
-			metadata: { orgId: options.orgId, tier: options.tier }
+			metadata: { orgId: options.orgId, tier: options.tier, commercialPlan: options.tier, priceId: price.id }
 		}
 	});
 
 	if (!session.url) throw new Error('Stripe checkout session URL is null');
 	return { url: session.url, customerId };
+}
+
+type StripeMode = 'test' | 'live' | 'unknown';
+
+function stripeModeFromSecretKey(secretKey: string | undefined): StripeMode {
+	if (secretKey?.startsWith('sk_test_') || secretKey?.startsWith('rk_test_')) return 'test';
+	if (secretKey?.startsWith('sk_live_') || secretKey?.startsWith('rk_live_')) return 'live';
+	return 'unknown';
+}
+
+export function validateCheckoutPriceForSecretMode(
+	price: Pick<Stripe.Price, 'id' | 'livemode' | 'active' | 'recurring'>,
+	secretKey: string | undefined
+): void {
+	const mode = stripeModeFromSecretKey(secretKey);
+	if (mode === 'unknown') {
+		throw new Error('Stripe secret key mode could not be determined for checkout price validation');
+	}
+	if (mode === 'test' && price.livemode) {
+		throw new Error(
+			`Configured checkout price ${price.id} belongs to live mode but the Stripe secret key is test mode`
+		);
+	}
+	if (mode === 'live' && !price.livemode) {
+		throw new Error(
+			`Configured checkout price ${price.id} belongs to test mode but the Stripe secret key is live mode`
+		);
+	}
+	if (!price.active) {
+		throw new Error(`Configured checkout price ${price.id} is not active`);
+	}
+	if (!price.recurring) {
+		throw new Error(`Configured checkout price ${price.id} must be a recurring price`);
+	}
 }
 
 export async function createPortalSession(customerId: string, returnUrl: string): Promise<string> {

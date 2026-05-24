@@ -3,7 +3,7 @@ import { timingSafeEqual } from 'node:crypto';
 import { env } from '$env/dynamic/private';
 import type { RequestHandler } from './$types';
 import { getAdminClient } from '$lib/server/supabase';
-import { configuredPriceCatalog } from '$lib/server/billing/priceCatalog';
+import { getConfiguredPriceCatalog } from '$lib/server/billing/priceCatalog';
 import { createStripeBillingReconciliationProvider } from '$lib/server/stripe';
 import { createSupabaseBillingReconciliationStore } from '$lib/server/adapters/supabaseBillingReconciliation';
 import { createSupabaseSubscriptionAdapter } from '$lib/server/adapters/supabaseSubscription';
@@ -61,7 +61,7 @@ export async function _runBillingReconciliationEndpointCore(input: {
 		store: createSupabaseBillingReconciliationStore(input.adminClient),
 		provider: input.provider ?? createStripeBillingReconciliationProvider(),
 		createSubscriptionPort: (orgId) => createSupabaseSubscriptionAdapter(input.adminClient, orgId),
-		priceCatalog: configuredPriceCatalog,
+		priceCatalog: getConfiguredPriceCatalog(),
 		limit,
 		cursor,
 		timeoutMs,

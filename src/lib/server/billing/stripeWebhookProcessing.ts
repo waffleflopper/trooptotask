@@ -4,7 +4,7 @@ import { verifyWebhookSignature, pauseSubscription, resumeSubscription } from '$
 import { getAdminClient } from '$lib/server/supabase';
 import { invalidateTierCache } from '$lib/server/subscription';
 import type { Tier } from '$lib/types/subscription';
-import { configuredPriceCatalog, lookupPriceCatalogEntry } from '$lib/server/billing/priceCatalog';
+import { getConfiguredPriceCatalog, lookupPriceCatalogEntry } from '$lib/server/billing/priceCatalog';
 import { legacyOrganizationSubscriptionId } from '$lib/server/billing/subscriptionRetentionPolicy';
 
 const TIER_RANK: Record<string, number> = { free: 1, team: 2, unit: 3 };
@@ -437,7 +437,7 @@ async function handleSubscriptionUpdated(
 	const trialEnd = isoFromStripeTimestamp(subscription.trial_end);
 	const canceledAt = isoFromStripeTimestamp(subscription.canceled_at);
 	const { priceId, productId } = getSubscriptionPriceDetails(subscription);
-	const catalogLookup = lookupPriceCatalogEntry(configuredPriceCatalog, priceId);
+	const catalogLookup = lookupPriceCatalogEntry(getConfiguredPriceCatalog(), priceId);
 	const grantsPaidAccess =
 		subscription.status === 'active' || subscription.status === 'trialing' || subscription.status === 'paused';
 	const retainsCommercialPlan = grantsPaidAccess || subscription.status === 'past_due';

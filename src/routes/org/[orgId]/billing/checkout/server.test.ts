@@ -1,8 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 
-const { buildRouteContextMock } = vi.hoisted(() => ({
-	buildRouteContextMock: vi.fn()
+const { buildRouteContextMock, checkoutCatalogMock } = vi.hoisted(() => ({
+	buildRouteContextMock: vi.fn(),
+	checkoutCatalogMock: [] as Array<{
+		priceId: string;
+		commercialPlan: 'team' | 'unit';
+		stripeProductId: string | null;
+		activeForCheckout: boolean;
+	}>
 }));
 
 vi.mock('$lib/config/billing', () => ({
@@ -20,6 +26,17 @@ vi.mock('$lib/server/adapters/httpAdapter', async () => {
 	};
 });
 
+vi.mock('$lib/server/billing/priceCatalog', async () => {
+	const actual = await vi.importActual<typeof import('$lib/server/billing/priceCatalog')>(
+		'$lib/server/billing/priceCatalog'
+	);
+
+	return {
+		...actual,
+		getConfiguredPriceCatalog: () => checkoutCatalogMock
+	};
+});
+
 import { POST } from './+server';
 
 function clearPublicOriginConfig() {
@@ -27,6 +44,15 @@ function clearPublicOriginConfig() {
 	vi.stubEnv('PUBLIC_APP_ORIGIN', '');
 	vi.stubEnv('PUBLIC_SITE_URL', '');
 	vi.stubEnv('APP_PUBLIC_ORIGIN_ALLOWLIST', '');
+}
+
+function configureCheckoutPriceCatalog() {
+	checkoutCatalogMock.splice(
+		0,
+		checkoutCatalogMock.length,
+		{ priceId: 'price_team_current', commercialPlan: 'team', stripeProductId: null, activeForCheckout: true },
+		{ priceId: 'price_unit_current', commercialPlan: 'unit', stripeProductId: null, activeForCheckout: true }
+	);
 }
 
 function seedBillingOrganization(ctx: ReturnType<typeof createTestContext>) {
@@ -46,6 +72,7 @@ describe('POST /billing/checkout', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		clearPublicOriginConfig();
+		configureCheckoutPriceCatalog();
 	});
 
 	afterEach(() => {
@@ -76,10 +103,94 @@ describe('POST /billing/checkout', () => {
 
 		expect(response.status).toBe(200);
 		expect(await response.json()).toEqual({ url: 'https://checkout.test/session' });
+		expect(ctx.billingPort.calls).toContainEqual({
+			method: 'createCheckoutSession',
+			args: [
+				expect.objectContaining({
+					tier: 'team',
+					priceId: 'price_team_current'
+				})
+			]
+		});
 		expect(saved).toMatchObject({
 			stripe_customer_id: 'cus_test_123',
 			tier: 'free'
 		});
+	});
+
+	it('rejects unsupported commercial plan selections before creating a checkout session', async () => {
+		const ctx = createTestContext();
+		seedBillingOrganization(ctx);
+		buildRouteContextMock.mockResolvedValue(ctx);
+
+		const response = await POST({
+			request: new Request(`http://localhost/org/${ctx.auth.orgId}/billing/checkout`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ tier: 'enterprise' })
+			}),
+			locals: {
+				user: { email: 'owner@example.com' }
+			},
+			params: { orgId: ctx.auth.orgId },
+			url: new URL(`http://localhost/org/${ctx.auth.orgId}/billing/checkout`)
+		} as never);
+
+		expect(response.status).toBe(400);
+		expect(await response.json()).toEqual({ error: 'Invalid tier. Must be "team" or "unit".' });
+		expect(ctx.billingPort.calls).toEqual([]);
+	});
+
+	it('rejects arbitrary client-submitted Stripe price IDs', async () => {
+		const ctx = createTestContext();
+		seedBillingOrganization(ctx);
+		buildRouteContextMock.mockResolvedValue(ctx);
+
+		const response = await POST({
+			request: new Request(`http://localhost/org/${ctx.auth.orgId}/billing/checkout`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ tier: 'team', priceId: 'price_attacker_controlled' })
+			}),
+			locals: {
+				user: { email: 'owner@example.com' }
+			},
+			params: { orgId: ctx.auth.orgId },
+			url: new URL(`http://localhost/org/${ctx.auth.orgId}/billing/checkout`)
+		} as never);
+
+		expect(response.status).toBe(400);
+		expect(await response.json()).toEqual({ error: 'Stripe price IDs cannot be selected directly.' });
+		expect(ctx.billingPort.calls).toEqual([]);
+	});
+
+	it('denies checkout when the requested plan has no configured current Stripe price', async () => {
+		checkoutCatalogMock.splice(0, checkoutCatalogMock.length, {
+			priceId: 'price_unit_current',
+			commercialPlan: 'unit',
+			stripeProductId: null,
+			activeForCheckout: true
+		});
+		const ctx = createTestContext();
+		seedBillingOrganization(ctx);
+		buildRouteContextMock.mockResolvedValue(ctx);
+
+		const response = await POST({
+			request: new Request(`http://localhost/org/${ctx.auth.orgId}/billing/checkout`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ tier: 'team' })
+			}),
+			locals: {
+				user: { email: 'owner@example.com' }
+			},
+			params: { orgId: ctx.auth.orgId },
+			url: new URL(`http://localhost/org/${ctx.auth.orgId}/billing/checkout`)
+		} as never);
+
+		expect(response.status).toBe(500);
+		expect(await response.json()).toEqual({ error: 'Checkout is temporarily unavailable.' });
+		expect(ctx.billingPort.calls).toEqual([]);
 	});
 
 	it('builds checkout success and cancel URLs from the official public app origin', async () => {
@@ -106,6 +217,7 @@ describe('POST /billing/checkout', () => {
 			method: 'createCheckoutSession',
 			args: [
 				expect.objectContaining({
+					priceId: 'price_team_current',
 					successUrl: `https://app.trooptotask.com/org/${ctx.auth.orgId}/billing/success`,
 					cancelUrl: `https://app.trooptotask.com/org/${ctx.auth.orgId}/billing/canceled`
 				})
@@ -137,6 +249,7 @@ describe('POST /billing/checkout', () => {
 			method: 'createCheckoutSession',
 			args: [
 				expect.objectContaining({
+					priceId: 'price_unit_current',
 					successUrl: `https://billing-preview.trooptotask.dev/org/${ctx.auth.orgId}/billing/success`,
 					cancelUrl: `https://billing-preview.trooptotask.dev/org/${ctx.auth.orgId}/billing/canceled`
 				})

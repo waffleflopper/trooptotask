@@ -31,6 +31,7 @@ export interface BillingPorts {
 
 export interface CheckoutInput {
 	tier: 'team' | 'unit';
+	priceId: string;
 	customerEmail: string;
 	orgName: string;
 	existingCustomerId?: string;

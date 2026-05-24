@@ -173,6 +173,7 @@ export interface BillingPort {
 		orgId: string;
 		orgName: string;
 		tier: 'team' | 'unit';
+		priceId: string;
 		customerEmail: string;
 		existingCustomerId?: string;
 		successUrl: string;

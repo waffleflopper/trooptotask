@@ -7,7 +7,7 @@ import { selectAllSupabaseRows } from '$lib/server/supabasePagination';
 import { invalidateTierCache } from '$lib/server/subscription';
 import { summarizeBillingCancellation } from '$lib/server/core/useCases/billingState';
 import { reconcileOrganizationBilling } from '$lib/server/core/useCases/billingReconciliation';
-import { configuredPriceCatalog } from '$lib/server/billing/priceCatalog';
+import { getConfiguredPriceCatalog } from '$lib/server/billing/priceCatalog';
 import { createSupabaseBillingReconciliationStore } from '$lib/server/adapters/supabaseBillingReconciliation';
 import { createSupabaseDataStore } from '$lib/server/adapters/supabaseDataStore';
 import { createSupabaseSubscriptionAdapter } from '$lib/server/adapters/supabaseSubscription';
@@ -509,7 +509,7 @@ export const actions: Actions = {
 				store: createSupabaseBillingReconciliationStore(ctx.adminClient),
 				provider: createStripeBillingReconciliationProvider(),
 				subscription: createSupabaseSubscriptionAdapter(ctx.adminClient, orgId),
-				priceCatalog: configuredPriceCatalog
+				priceCatalog: getConfiguredPriceCatalog()
 			});
 			const diagnostics = result.diagnostics.map(sanitizeBillingReconciliationDiagnostic);
 

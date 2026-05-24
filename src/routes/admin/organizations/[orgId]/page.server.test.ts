@@ -51,7 +51,9 @@ vi.mock('$lib/server/core/useCases/planFeatureOverrides', () => ({
 }));
 
 vi.mock('$lib/server/billing/priceCatalog', () => ({
-	configuredPriceCatalog: [{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: null }]
+	getConfiguredPriceCatalog: () => [
+		{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: null, activeForCheckout: true }
+	]
 }));
 
 import { actions } from './+page.server';
@@ -195,7 +197,9 @@ describe('admin organization gifting actions', () => {
 		expect(reconcileOrganizationBillingMock).toHaveBeenCalledWith(
 			expect.objectContaining({
 				orgId: '11111111-1111-4111-8111-111111111111',
-				priceCatalog: [{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: null }]
+				priceCatalog: [
+					{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: null, activeForCheckout: true }
+				]
 			})
 		);
 		expect(ctx.audit).toHaveBeenCalledWith(

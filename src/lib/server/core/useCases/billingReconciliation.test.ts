@@ -99,7 +99,9 @@ describe('reconcileOrganizationBilling', () => {
 			store,
 			provider: createProvider(),
 			subscription: subscriptionPort,
-			priceCatalog: [{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: 'prod_team' }],
+			priceCatalog: [
+				{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: 'prod_team', activeForCheckout: true }
+			],
 			now: () => new Date('2026-05-23T00:00:00.000Z')
 		});
 
@@ -127,7 +129,9 @@ describe('reconcileOrganizationBilling', () => {
 			store,
 			provider: createProvider(),
 			subscription: createSubscriptionPort(),
-			priceCatalog: [{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: 'prod_team' }],
+			priceCatalog: [
+				{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: 'prod_team', activeForCheckout: true }
+			],
 			now: () => new Date('2026-05-23T00:00:00.000Z')
 		});
 
@@ -143,7 +147,9 @@ describe('reconcileOrganizationBilling', () => {
 			store,
 			provider: createProvider(),
 			subscription: createSubscriptionPort(),
-			priceCatalog: [{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: 'prod_team' }],
+			priceCatalog: [
+				{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: 'prod_team', activeForCheckout: true }
+			],
 			now: () => new Date('2026-05-23T00:00:00.000Z')
 		});
 
@@ -180,7 +186,9 @@ describe('reconcileOrganizationBilling', () => {
 				})
 			}),
 			subscription: createSubscriptionPort(),
-			priceCatalog: [{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: 'prod_team' }],
+			priceCatalog: [
+				{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: 'prod_team', activeForCheckout: true }
+			],
 			now: () => new Date('2026-05-23T00:00:00.000Z')
 		});
 
@@ -218,7 +226,9 @@ describe('reconcileOrganizationBilling', () => {
 				listSubscriptionsForCustomer: vi.fn().mockResolvedValue([])
 			}),
 			subscription: createSubscriptionPort(),
-			priceCatalog: [{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: 'prod_team' }],
+			priceCatalog: [
+				{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: 'prod_team', activeForCheckout: true }
+			],
 			now: () => new Date('2026-05-23T00:00:00.000Z')
 		});
 
@@ -242,7 +252,9 @@ describe('reconcileOrganizationBilling', () => {
 			store,
 			provider: createProvider(),
 			subscription: createSubscriptionPort(),
-			priceCatalog: [{ priceId: 'price_unit', commercialPlan: 'unit', stripeProductId: 'prod_unit' }],
+			priceCatalog: [
+				{ priceId: 'price_unit', commercialPlan: 'unit', stripeProductId: 'prod_unit', activeForCheckout: true }
+			],
 			now: () => new Date('2026-05-23T00:00:00.000Z')
 		});
 
@@ -264,7 +276,9 @@ describe('reconcileOrganizationBilling', () => {
 			store,
 			provider,
 			subscription: createSubscriptionPort(),
-			priceCatalog: [{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: 'prod_team' }],
+			priceCatalog: [
+				{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: 'prod_team', activeForCheckout: true }
+			],
 			now: () => new Date('2026-05-23T00:00:00.000Z')
 		});
 
@@ -284,7 +298,9 @@ describe('reconcileOrganizationBilling', () => {
 				retrieveSubscription: vi.fn().mockResolvedValue({ ...subscription, metadata: { tier: 'team' } })
 			}),
 			subscription: createSubscriptionPort(),
-			priceCatalog: [{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: 'prod_team' }],
+			priceCatalog: [
+				{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: 'prod_team', activeForCheckout: true }
+			],
 			now: () => new Date('2026-05-23T00:00:00.000Z')
 		});
 
@@ -305,7 +321,9 @@ describe('reconcileOrganizationBilling', () => {
 				})
 			}),
 			subscription: createSubscriptionPort(),
-			priceCatalog: [{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: 'prod_team' }],
+			priceCatalog: [
+				{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: 'prod_team', activeForCheckout: true }
+			],
 			now: () => new Date('2026-05-23T00:00:00.000Z')
 		});
 
@@ -327,7 +345,9 @@ describe('reconcileOrganizationBilling', () => {
 				})
 			}),
 			subscription: createSubscriptionPort(),
-			priceCatalog: [{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: 'prod_team' }],
+			priceCatalog: [
+				{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: 'prod_team', activeForCheckout: true }
+			],
 			now: () => new Date('2026-05-23T00:00:00.000Z')
 		});
 
@@ -349,7 +369,9 @@ describe('reconcileOrganizationBilling', () => {
 			store,
 			provider: createProvider(),
 			subscription: createSubscriptionPort(),
-			priceCatalog: [{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: 'prod_team' }],
+			priceCatalog: [
+				{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: 'prod_team', activeForCheckout: true }
+			],
 			now: () => new Date('2026-05-23T00:00:00.000Z')
 		});
 
@@ -368,7 +390,9 @@ describe('reconcileOrganizationBilling', () => {
 				retrieveSubscription: vi.fn().mockRejectedValue(new Error('Stripe timeout'))
 			}),
 			subscription: createSubscriptionPort(),
-			priceCatalog: [{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: 'prod_team' }],
+			priceCatalog: [
+				{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: 'prod_team', activeForCheckout: true }
+			],
 			now: () => new Date('2026-05-23T00:00:00.000Z')
 		});
 

@@ -20,9 +20,16 @@ vi.mock('$lib/server/subscription', () => ({
 }));
 
 vi.mock('$lib/server/billing/priceCatalog', () => ({
-	configuredPriceCatalog: [{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: 'prod_team' }],
+	getConfiguredPriceCatalog: () => [
+		{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: 'prod_team', activeForCheckout: true }
+	],
 	lookupPriceCatalogEntry: (
-		catalog: { priceId: string; commercialPlan: string; stripeProductId: string }[],
+		catalog: {
+			priceId: string;
+			commercialPlan: string;
+			stripeProductId: string;
+			activeForCheckout: boolean;
+		}[],
 		priceId: string | null | undefined
 	) => {
 		const entry = catalog.find((candidate) => candidate.priceId === priceId);

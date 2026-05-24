@@ -3,6 +3,7 @@ import type { RequestHandler } from './$types';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { isBillingEnabled } from '$lib/config/billing';
 import { buildRouteContext, handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
+import { getConfiguredPriceCatalog, lookupCheckoutPriceCatalogEntry } from '$lib/server/billing/priceCatalog';
 import { checkout } from '$lib/server/core/useCases/billing';
 import { persistBillingCustomerId, readBillingOrganization } from '$lib/server/core/useCases/billingOrganization';
 import { fail } from '$lib/server/core/errors';
@@ -25,10 +26,22 @@ export const POST: RequestHandler = async (event) => {
 		const { orgId } = event.params;
 
 		const body = await event.request.json();
-		const tier = body.tier;
-		if (tier !== 'team' && tier !== 'unit') {
-			fail(400, 'Invalid tier. Must be "team" or "unit".');
+		if (typeof body.priceId === 'string' && body.priceId.trim()) {
+			fail(400, 'Stripe price IDs cannot be selected directly.');
 		}
+		const checkoutPrice = lookupCheckoutPriceCatalogEntry(getConfiguredPriceCatalog(), body.tier);
+		if (!checkoutPrice.ok) {
+			if (checkoutPrice.reason === 'unsupported_plan') {
+				fail(400, 'Invalid tier. Must be "team" or "unit".');
+			}
+			if (checkoutPrice.reason === 'missing_price_id') {
+				console.error(`No Stripe price ID configured for tier: ${checkoutPrice.commercialPlan}`);
+				fail(500, 'Checkout is temporarily unavailable.');
+			}
+			console.error(`Multiple Stripe checkout price IDs configured for tier: ${checkoutPrice.commercialPlan}`);
+			fail(500, 'Checkout is temporarily unavailable.');
+		}
+		const tier = checkoutPrice.entry.commercialPlan;
 
 		const successUrl = makePublicAppUrl(`/org/${orgId}/billing/success`, { inboundOrigin: event.url.origin });
 		const cancelUrl = makePublicAppUrl(`/org/${orgId}/billing/canceled`, { inboundOrigin: event.url.origin });
@@ -45,6 +58,7 @@ export const POST: RequestHandler = async (event) => {
 				fn: (c) =>
 					checkout(c, {
 						tier,
+						priceId: checkoutPrice.entry.priceId,
 						customerEmail: email,
 						orgName: org.name,
 						existingCustomerId: org.stripeCustomerId ?? undefined,

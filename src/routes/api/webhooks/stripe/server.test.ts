@@ -21,12 +21,17 @@ vi.mock('$lib/server/subscription', () => ({
 }));
 
 vi.mock('$lib/server/billing/priceCatalog', () => ({
-	configuredPriceCatalog: [
-		{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: 'prod_team' },
-		{ priceId: 'price_unit', commercialPlan: 'unit', stripeProductId: 'prod_unit' }
+	getConfiguredPriceCatalog: () => [
+		{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: 'prod_team', activeForCheckout: true },
+		{ priceId: 'price_unit', commercialPlan: 'unit', stripeProductId: 'prod_unit', activeForCheckout: true }
 	],
 	lookupPriceCatalogEntry: (
-		catalog: Array<{ priceId: string; commercialPlan: string; stripeProductId: string | null }>,
+		catalog: Array<{
+			priceId: string;
+			commercialPlan: string;
+			stripeProductId: string | null;
+			activeForCheckout: boolean;
+		}>,
 		priceId: string | null | undefined
 	) => {
 		if (!priceId) return { ok: false, reason: 'missing_price_id', priceId: null };

@@ -54,6 +54,7 @@ export interface PriceCatalogEntry {
 	priceId: string;
 	commercialPlan: Exclude<Tier, 'free'>;
 	stripeProductId: string | null;
+	activeForCheckout: boolean;
 }
 
 export interface EffectiveTier {

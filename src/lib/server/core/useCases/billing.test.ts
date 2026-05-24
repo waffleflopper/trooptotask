@@ -13,6 +13,7 @@ describe('billing use cases', () => {
 
 			const result = await checkout(ctx, {
 				tier: 'team',
+				priceId: 'price_team',
 				customerEmail: 'owner@test.com',
 				orgName: 'Test Org',
 				successUrl: 'http://localhost/org/org-1/billing/success',
@@ -26,6 +27,7 @@ describe('billing use cases', () => {
 			expect(ctx.billingPort.calls[0].args[0]).toMatchObject({
 				orgId: 'test-org',
 				tier: 'team',
+				priceId: 'price_team',
 				customerEmail: 'owner@test.com',
 				orgName: 'Test Org'
 			});
@@ -57,6 +59,7 @@ describe('billing use cases', () => {
 
 			const result = await checkout(ctx, {
 				tier: 'unit',
+				priceId: 'price_unit',
 				customerEmail: 'owner@test.com',
 				orgName: 'Test Org',
 				successUrl: 'http://localhost/success',
@@ -95,6 +98,7 @@ describe('billing use cases', () => {
 			await expect(
 				checkout(ctx, {
 					tier: 'team',
+					priceId: 'price_team',
 					customerEmail: 'owner@test.com',
 					orgName: 'Test Org',
 					successUrl: 'http://localhost/success',
@@ -134,6 +138,7 @@ describe('billing use cases', () => {
 			await expect(
 				checkout(ctx, {
 					tier: 'team',
+					priceId: 'price_team',
 					customerEmail: 'owner@test.com',
 					orgName: 'Test Org',
 					successUrl: 'http://localhost/success',
@@ -168,6 +173,7 @@ describe('billing use cases', () => {
 
 			await checkout(ctx, {
 				tier: 'unit',
+				priceId: 'price_unit',
 				customerEmail: 'owner@test.com',
 				orgName: 'Test Org',
 				existingCustomerId: 'cus_existing',
@@ -186,6 +192,7 @@ describe('billing use cases', () => {
 			await expect(
 				checkout(ctx, {
 					tier: 'team',
+					priceId: 'price_team',
 					customerEmail: '',
 					orgName: 'Test Org',
 					successUrl: 'http://localhost/success',

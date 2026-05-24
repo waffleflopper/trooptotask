@@ -1,6 +1,15 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { subscriptionsListMock, subscriptionsRetrieveMock } = vi.hoisted(() => ({
+const {
+	checkoutCreateMock,
+	customersCreateMock,
+	pricesRetrieveMock,
+	subscriptionsListMock,
+	subscriptionsRetrieveMock
+} = vi.hoisted(() => ({
+	checkoutCreateMock: vi.fn(),
+	customersCreateMock: vi.fn(),
+	pricesRetrieveMock: vi.fn(),
 	subscriptionsListMock: vi.fn(),
 	subscriptionsRetrieveMock: vi.fn()
 }));
@@ -25,16 +34,25 @@ vi.mock('stripe', () => {
 			update: vi.fn(),
 			cancel: vi.fn()
 		};
-		customers = { create: vi.fn() };
-		checkout = { sessions: { create: vi.fn() } };
+		customers = { create: customersCreateMock };
+		checkout = { sessions: { create: checkoutCreateMock } };
 		billingPortal = { sessions: { create: vi.fn() } };
+		prices = { retrieve: pricesRetrieveMock };
 		webhooks = { constructEvent: vi.fn() };
 	}
 
 	return { default: StripeMock };
 });
 
-import { createStripeBillingReconciliationProvider } from './stripe';
+import {
+	createCheckoutSession,
+	createStripeBillingReconciliationProvider,
+	validateCheckoutPriceForSecretMode
+} from './stripe';
+
+beforeEach(() => {
+	vi.clearAllMocks();
+});
 
 function stripeSubscription(id: string) {
 	return {
@@ -83,5 +101,136 @@ describe('createStripeBillingReconciliationProvider', () => {
 			limit: 100,
 			starting_after: 'sub_1'
 		});
+	});
+});
+
+describe('createCheckoutSession', () => {
+	it('creates checkout with the catalog-resolved price, client reference, and reconciliation metadata', async () => {
+		pricesRetrieveMock.mockResolvedValue({
+			id: 'price_team',
+			livemode: false,
+			active: true,
+			recurring: { interval: 'month' }
+		});
+		customersCreateMock.mockResolvedValue({ id: 'cus_created' });
+		checkoutCreateMock.mockResolvedValue({ url: 'https://checkout.stripe.test/session' });
+
+		await expect(
+			createCheckoutSession({
+				orgId: 'org-1',
+				orgName: 'Alpha Company',
+				tier: 'team',
+				priceId: 'price_team',
+				customerEmail: 'owner@example.test',
+				successUrl: 'http://localhost/success',
+				cancelUrl: 'http://localhost/canceled'
+			})
+		).resolves.toEqual({ url: 'https://checkout.stripe.test/session', customerId: 'cus_created' });
+
+		expect(pricesRetrieveMock).toHaveBeenCalledWith('price_team');
+		expect(checkoutCreateMock).toHaveBeenCalledWith(
+			expect.objectContaining({
+				customer: 'cus_created',
+				client_reference_id: 'org-1',
+				line_items: [{ price: 'price_team', quantity: 1 }],
+				metadata: {
+					orgId: 'org-1',
+					tier: 'team',
+					commercialPlan: 'team',
+					priceId: 'price_team'
+				},
+				subscription_data: {
+					metadata: {
+						orgId: 'org-1',
+						tier: 'team',
+						commercialPlan: 'team',
+						priceId: 'price_team'
+					}
+				}
+			})
+		);
+	});
+
+	it('validates checkout price mode before creating a customer or session', async () => {
+		pricesRetrieveMock.mockResolvedValue({
+			id: 'price_live',
+			livemode: true,
+			active: true,
+			recurring: { interval: 'month' }
+		});
+
+		await expect(
+			createCheckoutSession({
+				orgId: 'org-1',
+				orgName: 'Alpha Company',
+				tier: 'team',
+				priceId: 'price_live',
+				customerEmail: 'owner@example.test',
+				successUrl: 'http://localhost/success',
+				cancelUrl: 'http://localhost/canceled'
+			})
+		).rejects.toThrow('belongs to live mode but the Stripe secret key is test mode');
+
+		expect(customersCreateMock).not.toHaveBeenCalled();
+		expect(checkoutCreateMock).not.toHaveBeenCalled();
+	});
+});
+
+describe('validateCheckoutPriceForSecretMode', () => {
+	it('rejects obvious live/test mode mismatches', () => {
+		expect(() =>
+			validateCheckoutPriceForSecretMode(
+				{ id: 'price_live', livemode: true, active: true, recurring: { interval: 'month' } as never },
+				'sk_test_123'
+			)
+		).toThrow('belongs to live mode but the Stripe secret key is test mode');
+
+		expect(() =>
+			validateCheckoutPriceForSecretMode(
+				{ id: 'price_test', livemode: false, active: true, recurring: { interval: 'month' } as never },
+				'sk_live_123'
+			)
+		).toThrow('belongs to test mode but the Stripe secret key is live mode');
+	});
+
+	it('accepts restricted keys when their mode matches the checkout price', () => {
+		expect(() =>
+			validateCheckoutPriceForSecretMode(
+				{ id: 'price_test', livemode: false, active: true, recurring: { interval: 'month' } as never },
+				'rk_test_123'
+			)
+		).not.toThrow();
+
+		expect(() =>
+			validateCheckoutPriceForSecretMode(
+				{ id: 'price_live', livemode: true, active: true, recurring: { interval: 'month' } as never },
+				'rk_live_123'
+			)
+		).not.toThrow();
+	});
+
+	it('rejects checkout price validation when the secret key mode cannot be determined', () => {
+		expect(() =>
+			validateCheckoutPriceForSecretMode(
+				{ id: 'price_team', livemode: false, active: true, recurring: { interval: 'month' } as never },
+				'unknown_123'
+			)
+		).toThrow('Stripe secret key mode could not be determined');
+	});
+
+	it('rejects inactive and non-recurring checkout prices', () => {
+		expect(() =>
+			validateCheckoutPriceForSecretMode(
+				{ id: 'price_inactive', livemode: false, active: false, recurring: { interval: 'month' } as never },
+				'sk_test_123'
+			)
+		).toThrow('Configured checkout price price_inactive is not active');
+
+		expect(() =>
+			validateCheckoutPriceForSecretMode(
+				{ id: 'price_one_time', livemode: false, active: true, recurring: null },
+				'sk_test_123'
+			)
+		).toThrow('Configured checkout price price_one_time must be a recurring price');
 	});
 });

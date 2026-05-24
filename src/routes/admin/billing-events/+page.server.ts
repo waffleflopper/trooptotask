@@ -7,7 +7,7 @@ import {
 	_recordRetryableStripeWebhookEventAttempt,
 	_processRecordedStripeWebhookEvent,
 	type WebhookProcessingState
-} from '../../api/webhooks/stripe/+server';
+} from '$lib/server/billing/stripeWebhookProcessing';
 
 const RECENT_EVENT_LIMIT = 50;
 const RETRYABLE_STATE: WebhookProcessingState = 'retryable_failed';

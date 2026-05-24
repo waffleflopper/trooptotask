@@ -82,6 +82,8 @@ export interface BillingReconciliationResult {
 	driftDetected: boolean;
 	diagnostics: string[];
 	snapshotUpdated: boolean;
+	plannedWrites: string[];
+	dryRun: boolean;
 	reconciledAt: string;
 }
 
@@ -174,6 +176,53 @@ function providerSnapshotValues(input: {
 		reconciliation_result: input.result,
 		drift_detected: input.driftDetected
 	};
+}
+
+function legacySnapshotValues(input: {
+	org: BillingReconciliationOrganizationRow;
+	reconciledAt: string;
+}): Record<string, unknown> | null {
+	if (!input.org.stripe_customer_id && !input.org.stripe_subscription_id) return null;
+	if (input.org.tier !== 'team' && input.org.tier !== 'unit') return null;
+
+	const status = input.org.subscription_status;
+	if (
+		status !== 'active' &&
+		status !== 'trialing' &&
+		status !== 'past_due' &&
+		status !== 'unpaid' &&
+		status !== 'canceled' &&
+		status !== 'incomplete' &&
+		status !== 'incomplete_expired' &&
+		status !== 'paused'
+	) {
+		return null;
+	}
+
+	return {
+		organization_id: input.org.id,
+		source: 'legacy_organization',
+		commercial_plan: input.org.tier ?? 'free',
+		stripe_customer_id: input.org.stripe_customer_id,
+		stripe_subscription_id: input.org.stripe_subscription_id,
+		stripe_product_id: null,
+		stripe_price_id: null,
+		subscription_status: status,
+		collection_status: subscriptionCollectionStatus(status),
+		current_period_start: null,
+		current_period_end: status === 'canceled' ? null : input.org.current_period_end,
+		cancel_at_period_end: false,
+		canceled_at: null,
+		trial_end: null,
+		sync_status: 'needs_reconciliation',
+		last_reconciled_at: input.reconciledAt,
+		reconciliation_result: 'legacy_snapshot_seeded_for_stripe_review',
+		drift_detected: true
+	};
+}
+
+function isInactiveFreeLegacyOrg(org: BillingReconciliationOrganizationRow): boolean {
+	return org.tier === 'free' && (org.subscription_status === null || org.subscription_status === 'canceled');
 }
 
 function diffSnapshot(snapshot: BillingReconciliationSnapshotRow | null, expected: Record<string, unknown>): string[] {
@@ -303,8 +352,12 @@ async function markFailed(input: {
 	result: string;
 	diagnostics: string[];
 	writeDiagnostics?: boolean;
+	dryRun?: boolean;
 }): Promise<BillingReconciliationResult> {
-	if (input.writeDiagnostics ?? true) {
+	const dryRun = input.dryRun ?? false;
+	const wouldWriteDiagnostics = input.writeDiagnostics ?? true;
+
+	if (wouldWriteDiagnostics && !dryRun) {
 		await input.store.updateSnapshotDiagnostics(input.orgId, {
 			last_reconciled_at: input.reconciledAt,
 			reconciliation_result: input.result,
@@ -320,6 +373,8 @@ async function markFailed(input: {
 		driftDetected: true,
 		diagnostics: input.diagnostics,
 		snapshotUpdated: false,
+		plannedWrites: wouldWriteDiagnostics ? ['organization_billing_snapshots.diagnostics'] : [],
+		dryRun,
 		reconciledAt: input.reconciledAt
 	};
 }
@@ -331,8 +386,10 @@ export async function reconcileOrganizationBilling(input: {
 	subscription: BillingReconciliationSubscriptionPort;
 	priceCatalog: PriceCatalogEntry[];
 	now?: () => Date;
+	dryRun?: boolean;
 }): Promise<BillingReconciliationResult> {
 	const now = input.now ?? (() => new Date());
+	const dryRun = input.dryRun ?? false;
 	const reconciledAt = isoNow(now);
 	const org = await input.store.readOrganization(input.orgId);
 	if (!org) {
@@ -342,7 +399,8 @@ export async function reconcileOrganizationBilling(input: {
 			reconciledAt,
 			result: 'Organization not found.',
 			diagnostics: ['organization_not_found'],
-			writeDiagnostics: false
+			writeDiagnostics: false,
+			dryRun
 		});
 	}
 
@@ -360,17 +418,64 @@ export async function reconcileOrganizationBilling(input: {
 			orgId: input.orgId,
 			reconciledAt,
 			result: 'Stripe provider read failed.',
-			diagnostics: [err instanceof Error ? err.message : 'provider_error']
+			diagnostics: [err instanceof Error ? err.message : 'provider_error'],
+			dryRun
 		});
 	}
 
 	if (!subscription) {
+		if (snapshot?.source === 'legacy_organization' && snapshot.sync_status === 'needs_reconciliation') {
+			return markFailed({
+				store: input.store,
+				orgId: input.orgId,
+				reconciledAt,
+				result: 'Legacy billing snapshot still needs Stripe review.',
+				diagnostics: ['missing_stripe_subscription', 'legacy_organization_snapshot_needs_review'],
+				writeDiagnostics: false,
+				dryRun
+			});
+		}
+
+		if (isInactiveFreeLegacyOrg(org)) {
+			return {
+				ok: true,
+				status: 'matched',
+				result: 'No active billing snapshot required for inactive free legacy organization.',
+				driftDetected: false,
+				diagnostics: [],
+				snapshotUpdated: false,
+				plannedWrites: [],
+				dryRun,
+				reconciledAt
+			};
+		}
+
+		const values = legacySnapshotValues({ org, reconciledAt });
+		if (values) {
+			if (!dryRun) {
+				await input.store.upsertSnapshot(values);
+			}
+
+			return {
+				ok: false,
+				status: 'failed',
+				result: 'legacy_snapshot_seeded_for_stripe_review',
+				driftDetected: true,
+				diagnostics: ['missing_stripe_subscription', 'legacy_organization_snapshot_seed'],
+				snapshotUpdated: !dryRun,
+				plannedWrites: ['organization_billing_snapshots.legacy_seed'],
+				dryRun,
+				reconciledAt
+			};
+		}
+
 		return markFailed({
 			store: input.store,
 			orgId: input.orgId,
 			reconciledAt,
 			result: 'No Stripe subscription was found for this organization.',
-			diagnostics: ['missing_subscription']
+			diagnostics: ['missing_subscription'],
+			dryRun
 		});
 	}
 
@@ -388,7 +493,8 @@ export async function reconcileOrganizationBilling(input: {
 				orgId: input.orgId,
 				reconciledAt,
 				result: err.message,
-				diagnostics: err.diagnostics
+				diagnostics: err.diagnostics,
+				dryRun
 			});
 		}
 		throw err;
@@ -414,15 +520,21 @@ export async function reconcileOrganizationBilling(input: {
 		result
 	});
 
-	await input.store.upsertSnapshot(values);
-	await input.store.updateOrganizationBillingMirror(input.orgId, {
-		tier: commercialPlan,
-		stripe_customer_id: subscription.customerId,
-		stripe_subscription_id: reconciledSubscriptionId(subscription),
-		subscription_status: legacyOrganizationStatus(subscription.status),
-		current_period_end: subscription.status === 'canceled' ? null : subscription.currentPeriodEnd
-	});
-	await input.subscription.invalidateTierCache();
+	const plannedWrites = driftDetected
+		? ['organization_billing_snapshots', 'organizations.billing_mirror', 'tier_cache_invalidation']
+		: [];
+
+	if (!dryRun) {
+		await input.store.upsertSnapshot(values);
+		await input.store.updateOrganizationBillingMirror(input.orgId, {
+			tier: commercialPlan,
+			stripe_customer_id: subscription.customerId,
+			stripe_subscription_id: reconciledSubscriptionId(subscription),
+			subscription_status: legacyOrganizationStatus(subscription.status),
+			current_period_end: subscription.status === 'canceled' ? null : subscription.currentPeriodEnd
+		});
+		await input.subscription.invalidateTierCache();
+	}
 
 	return {
 		ok: true,
@@ -431,6 +543,8 @@ export async function reconcileOrganizationBilling(input: {
 		driftDetected,
 		diagnostics: driftFields,
 		snapshotUpdated: driftDetected,
+		plannedWrites,
+		dryRun,
 		reconciledAt
 	};
 }

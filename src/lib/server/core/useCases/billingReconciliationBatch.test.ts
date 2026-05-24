@@ -163,6 +163,167 @@ describe('runBillingReconciliationBatch', () => {
 		);
 	});
 
+	it('reports planned writes without mutating rows during a dry run', async () => {
+		const store = createStore();
+
+		const result = await runBillingReconciliationBatch({
+			store,
+			provider: createProvider({
+				retrieveSubscription: vi.fn().mockResolvedValue({
+					...baseSubscription,
+					status: 'unpaid',
+					metadata: { orgId: 'org-1', tier: 'team' }
+				})
+			}),
+			createSubscriptionPort: () => createSubscriptionPort(),
+			priceCatalog: [{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: 'prod_team' }],
+			limit: 1,
+			dryRun: true,
+			now: () => new Date('2026-05-23T00:00:00.000Z')
+		});
+
+		expect(result.dryRun).toBe(true);
+		expect(result.results[0]).toMatchObject({
+			orgId: 'org-1',
+			ok: true,
+			status: 'repaired',
+			dryRun: true,
+			plannedWrites: ['organization_billing_snapshots', 'organizations.billing_mirror', 'tier_cache_invalidation']
+		});
+		expect(store.upsertSnapshot).not.toHaveBeenCalled();
+		expect(store.updateOrganizationBillingMirror).not.toHaveBeenCalled();
+	});
+
+	it('can seed a review-only snapshot from validated legacy fields when Stripe has no subscription', async () => {
+		const store = createStore({
+			readSnapshot: vi.fn().mockResolvedValue(null)
+		});
+		const provider = createProvider({
+			retrieveSubscription: vi.fn().mockResolvedValue(null),
+			listSubscriptionsForCustomer: vi.fn().mockResolvedValue([])
+		});
+
+		const result = await runBillingReconciliationBatch({
+			store,
+			provider,
+			createSubscriptionPort: () => createSubscriptionPort(),
+			priceCatalog: [{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: 'prod_team' }],
+			limit: 1,
+			now: () => new Date('2026-05-23T00:00:00.000Z')
+		});
+
+		expect(result.results[0]).toMatchObject({
+			ok: false,
+			status: 'failed',
+			result: 'legacy_snapshot_seeded_for_stripe_review',
+			diagnostics: ['missing_stripe_subscription', 'legacy_organization_snapshot_seed'],
+			plannedWrites: ['organization_billing_snapshots.legacy_seed']
+		});
+		expect(store.upsertSnapshot).toHaveBeenCalledWith(
+			expect.objectContaining({
+				organization_id: 'org-1',
+				source: 'legacy_organization',
+				commercial_plan: 'team',
+				stripe_customer_id: 'cus_123',
+				stripe_subscription_id: 'sub_123',
+				sync_status: 'needs_reconciliation',
+				drift_detected: true
+			})
+		);
+		expect(store.updateOrganizationBillingMirror).not.toHaveBeenCalled();
+	});
+
+	it('reports legacy seed writes without mutating rows during dry run', async () => {
+		const store = createStore({
+			readSnapshot: vi.fn().mockResolvedValue(null)
+		});
+		const provider = createProvider({
+			retrieveSubscription: vi.fn().mockResolvedValue(null),
+			listSubscriptionsForCustomer: vi.fn().mockResolvedValue([])
+		});
+
+		const result = await runBillingReconciliationBatch({
+			store,
+			provider,
+			createSubscriptionPort: () => createSubscriptionPort(),
+			priceCatalog: [{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: 'prod_team' }],
+			limit: 1,
+			dryRun: true,
+			now: () => new Date('2026-05-23T00:00:00.000Z')
+		});
+
+		expect(result.results[0]).toMatchObject({
+			ok: false,
+			status: 'failed',
+			dryRun: true,
+			plannedWrites: ['organization_billing_snapshots.legacy_seed']
+		});
+		expect(store.upsertSnapshot).not.toHaveBeenCalled();
+	});
+
+	it('does not rewrite an existing legacy review snapshot on later batches', async () => {
+		const store = createStore({
+			readSnapshot: vi.fn().mockResolvedValue({
+				...baseSnapshot,
+				source: 'legacy_organization',
+				sync_status: 'needs_reconciliation'
+			})
+		});
+		const provider = createProvider({
+			retrieveSubscription: vi.fn().mockResolvedValue(null),
+			listSubscriptionsForCustomer: vi.fn().mockResolvedValue([])
+		});
+
+		const result = await runBillingReconciliationBatch({
+			store,
+			provider,
+			createSubscriptionPort: () => createSubscriptionPort(),
+			priceCatalog: [{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: 'prod_team' }],
+			limit: 1,
+			now: () => new Date('2026-05-23T00:00:00.000Z')
+		});
+
+		expect(result.results[0]).toMatchObject({
+			ok: false,
+			status: 'failed',
+			result: 'Legacy billing snapshot still needs Stripe review.',
+			plannedWrites: []
+		});
+		expect(store.upsertSnapshot).not.toHaveBeenCalled();
+	});
+
+	it('ignores inactive free legacy organizations without seeding drift snapshots', async () => {
+		const store = createStore({
+			readOrganization: vi.fn().mockResolvedValue({
+				...baseOrg,
+				tier: 'free',
+				subscription_status: 'canceled'
+			}),
+			readSnapshot: vi.fn().mockResolvedValue(null)
+		});
+		const provider = createProvider({
+			retrieveSubscription: vi.fn().mockResolvedValue(null),
+			listSubscriptionsForCustomer: vi.fn().mockResolvedValue([])
+		});
+
+		const result = await runBillingReconciliationBatch({
+			store,
+			provider,
+			createSubscriptionPort: () => createSubscriptionPort(),
+			priceCatalog: [{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: 'prod_team' }],
+			limit: 1,
+			now: () => new Date('2026-05-23T00:00:00.000Z')
+		});
+
+		expect(result.results[0]).toMatchObject({
+			ok: true,
+			status: 'matched',
+			driftDetected: false,
+			plannedWrites: []
+		});
+		expect(store.upsertSnapshot).not.toHaveBeenCalled();
+	});
+
 	it('continues after partial failures and redacts secret-like diagnostics', async () => {
 		const store = createStore({
 			upsertSnapshot: vi

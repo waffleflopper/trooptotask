@@ -29,9 +29,15 @@
 		layout?: FactGridLayout;
 	};
 
-	let { children, layout = 'stack', class: className, ...restProps }: Props = $props();
+	let { children, layout = 'stack', class: className, role = 'list', ...restProps }: Props = $props();
 </script>
 
-<div data-slot="fact-grid" data-layout={layout} class={cn(factGridVariants({ layout }), className)} {...restProps}>
+<div
+	data-slot="fact-grid"
+	data-layout={layout}
+	{role}
+	class={cn(factGridVariants({ layout }), className)}
+	{...restProps}
+>
 	{@render children?.()}
 </div>

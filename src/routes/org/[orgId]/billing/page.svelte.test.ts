@@ -723,6 +723,9 @@ describe('billing page toolbar', () => {
 		expect(screen.getByText(/Paid access remains active through June 1, 2026/)).toBeTruthy();
 		expect(screen.getByText('Cancellation Timing')).toBeTruthy();
 		expect(screen.getByText('Cancels at period end')).toBeTruthy();
+		const subscriptionStatusFact = screen.getByText('Subscription Status').closest('[data-slot="fact-row"]');
+		expect(subscriptionStatusFact?.getAttribute('role')).toBe('listitem');
+		expect(subscriptionStatusFact?.closest('[data-slot="fact-grid"]')?.getAttribute('role')).toBe('list');
 	});
 
 	it('shows terminal cancellation timing after paid access ends', () => {

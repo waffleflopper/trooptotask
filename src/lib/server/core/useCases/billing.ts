@@ -17,6 +17,7 @@ import {
 	checkSensitiveAction,
 	sensitiveActionDecisionAuditDetails,
 	sensitiveActionDenialMessage,
+	sensitiveActionStepUpPath,
 	type SensitiveAction,
 	type SensitiveActionAuthorizer,
 	type SensitiveActionDecision
@@ -107,7 +108,7 @@ async function authorizeBillingSensitiveAction(
 			actor: { userId: null }
 		});
 		auditDeniedSensitiveBillingAction(ctx, input.deniedAuditAction, decision, input.details);
-		fail(403, sensitiveActionDenialMessage(decision));
+		failSensitiveBillingAction(decision);
 	}
 
 	const decision = await ctx.sensitiveActionAuthorizer.authorize({
@@ -119,10 +120,19 @@ async function authorizeBillingSensitiveAction(
 
 	if (!decision.allowed) {
 		auditDeniedSensitiveBillingAction(ctx, input.deniedAuditAction, decision, input.details);
-		fail(403, sensitiveActionDenialMessage(decision));
+		failSensitiveBillingAction(decision);
 	}
 
 	return sensitiveAction;
+}
+
+function failSensitiveBillingAction(decision: SensitiveActionDecision): never {
+	const err = new Error(sensitiveActionDenialMessage(decision));
+	(err as unknown as Record<string, unknown>).status = 403;
+	(err as unknown as Record<string, unknown>).reason = decision.reason;
+	(err as unknown as Record<string, unknown>).requiresStepUp = decision.requiresStepUp;
+	(err as unknown as Record<string, unknown>).stepUpPath = sensitiveActionStepUpPath(decision);
+	throw err;
 }
 
 function auditDeniedSensitiveBillingAction(

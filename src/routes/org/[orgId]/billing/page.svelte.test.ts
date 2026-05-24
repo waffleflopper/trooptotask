@@ -134,13 +134,30 @@ describe('billing page toolbar', () => {
 		expect(screen.getByText(/downgraded to the free plan/)).toBeTruthy();
 	});
 
-	it('shows owner-visible drift health when reconciliation found drift', () => {
+	it('shows current sync health after reconciliation repaired drift', () => {
 		render(Page, {
 			props: {
 				data: {
 					...baseData,
 					billingSnapshot: {
 						...baseData.billingSnapshot,
+						driftDetected: true
+					}
+				} as never
+			}
+		});
+
+		expect(screen.getAllByText('Current').length).toBeGreaterThan(0);
+	});
+
+	it('shows owner-visible support review when reconciliation drift is unresolved', () => {
+		render(Page, {
+			props: {
+				data: {
+					...baseData,
+					billingSnapshot: {
+						...baseData.billingSnapshot,
+						syncStatus: 'needs_reconciliation',
 						driftDetected: true
 					}
 				} as never
@@ -247,6 +264,88 @@ describe('billing page toolbar', () => {
 
 		await fireEvent.click(within(actions).getByRole('button', { name: 'Cancel Subscription' }));
 		expect((within(actions).getByRole('button', { name: 'Canceling...' }) as HTMLButtonElement).disabled).toBe(true);
+	});
+
+	it('opens password confirmation when checkout requires sensitive-action step-up', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockResolvedValue(
+				new Response(
+					JSON.stringify({
+						error: 'Please confirm your identity before continuing.',
+						requiresStepUp: true,
+						stepUpPath: '/auth/login'
+					}),
+					{ status: 403, headers: { 'Content-Type': 'application/json' } }
+				)
+			)
+		);
+
+		render(Page, {
+			props: {
+				data: {
+					...baseData,
+					effectiveTier: {
+						...baseData.effectiveTier,
+						tier: 'free',
+						source: 'default'
+					}
+				} as never
+			}
+		});
+
+		await fireEvent.click(screen.getAllByRole('button', { name: 'Subscribe' })[0]);
+
+		expect(screen.getByRole('dialog')).toBeTruthy();
+		expect(screen.getByText('Confirm your password')).toBeTruthy();
+		expect(screen.getByLabelText('Password')).toBeTruthy();
+	});
+
+	it('shows password confirmation errors without leaving the billing page', async () => {
+		const fetchMock = vi
+			.fn()
+			.mockResolvedValueOnce(
+				new Response(
+					JSON.stringify({
+						error: 'Please confirm your identity before continuing.',
+						requiresStepUp: true,
+						stepUpPath: '/auth/login'
+					}),
+					{ status: 403, headers: { 'Content-Type': 'application/json' } }
+				)
+			)
+			.mockResolvedValueOnce(
+				new Response(JSON.stringify({ error: 'Password confirmation failed. Try again.' }), {
+					status: 401,
+					headers: { 'Content-Type': 'application/json' }
+				})
+			);
+		vi.stubGlobal('fetch', fetchMock);
+
+		render(Page, {
+			props: {
+				data: {
+					...baseData,
+					effectiveTier: {
+						...baseData.effectiveTier,
+						tier: 'free',
+						source: 'default'
+					}
+				} as never
+			}
+		});
+
+		await fireEvent.click(screen.getAllByRole('button', { name: 'Subscribe' })[0]);
+		await fireEvent.input(screen.getByLabelText('Password'), { target: { value: 'wrong-password' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+
+		expect(fetchMock).toHaveBeenNthCalledWith(2, '/api/auth/confirm-sensitive-action', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ password: 'wrong-password' })
+		});
+		expect(screen.getByText('Password confirmation failed. Try again.')).toBeTruthy();
+		expect(screen.getByRole('dialog')).toBeTruthy();
 	});
 
 	it('shows payment-failure grace messaging separately from personnel limits', () => {

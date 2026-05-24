@@ -7,6 +7,7 @@ import { checkout } from '$lib/server/core/useCases/billing';
 import { persistBillingCustomerId, readBillingOrganization } from '$lib/server/core/useCases/billingOrganization';
 import { fail } from '$lib/server/core/errors';
 import { requireGovernancePolicy } from '$lib/server/core/useCases/governancePolicy';
+import { billingApiErrorResponse } from '../billingApiErrors';
 
 export const POST: RequestHandler = async (event) => {
 	if (!isBillingEnabled) {
@@ -59,7 +60,6 @@ export const POST: RequestHandler = async (event) => {
 
 		return json({ url: result.url });
 	} catch (err) {
-		if (err && typeof err === 'object' && 'status' in err) throw err;
-		return json({ error: 'Failed to create checkout session. Please try again.' }, { status: 500 });
+		return billingApiErrorResponse(err, 'Failed to create checkout session. Please try again.');
 	}
 };

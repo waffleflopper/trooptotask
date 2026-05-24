@@ -127,6 +127,25 @@ describe('reconcileOrganizationBilling', () => {
 		expect(invalidateTierCacheMock).toHaveBeenCalledWith('org-1');
 	});
 
+	it('treats equivalent database timestamp strings as matched', async () => {
+		const store = createStore({
+			...matchingSnapshot,
+			current_period_start: '2026-05-01T00:00:00+00:00',
+			current_period_end: '2026-06-01T00:00:00+00:00'
+		});
+
+		const result = await reconcileOrganizationBilling({
+			orgId: 'org-1',
+			store,
+			provider: createProvider(),
+			priceCatalog: [{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: 'prod_team' }],
+			now: () => new Date('2026-05-23T00:00:00.000Z')
+		});
+
+		expect(result).toMatchObject({ ok: true, status: 'matched', driftDetected: false, snapshotUpdated: false });
+		expect(result.diagnostics).not.toEqual(expect.arrayContaining(['current_period_start', 'current_period_end']));
+	});
+
 	it('repairs drift from the provider snapshot', async () => {
 		const store = createStore({ ...matchingSnapshot, commercial_plan: 'free', subscription_status: 'past_due' });
 

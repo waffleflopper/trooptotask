@@ -2,9 +2,12 @@
 	import { Check, Gift, TriangleAlert } from '@lucide/svelte';
 	import { invalidateAll } from '$app/navigation';
 	import * as Alert from '$lib/components/ui/alert';
+	import * as AppDialog from '$lib/components/ui/app-dialog';
 	import { Badge, type BadgeVariant } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import * as Card from '$lib/components/ui/card';
+	import { Input } from '$lib/components/ui/input';
+	import { Label } from '$lib/components/ui/label';
 	import * as PageShell from '$lib/components/ui/page-shell';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
@@ -17,12 +20,33 @@
 		Tier
 	} from '$lib/types/subscription';
 
+	type BillingApiResult = {
+		url?: string;
+		error?: string;
+		requiresStepUp?: boolean;
+		stepUpPath?: string | null;
+	};
+
+	type PendingBillingAction = { kind: 'subscribe'; tier: string } | { kind: 'portal' } | { kind: 'cancel' };
+
+	type ConfirmSensitiveActionResult = {
+		success?: boolean;
+		error?: string;
+		requiresStepUp?: boolean;
+		stepUpPath?: string | null;
+	};
+
 	let { data } = $props();
 
 	let subscribingTier = $state<string | null>(null);
 	let portalLoading = $state(false);
 	let cancelLoading = $state(false);
 	let errorMessage = $state('');
+	let confirmPasswordOpen = $state(false);
+	let confirmPassword = $state('');
+	let confirmPasswordError = $state('');
+	let confirmPasswordLoading = $state(false);
+	let pendingBillingAction = $state<PendingBillingAction | null>(null);
 
 	const fallbackTier: EffectiveTier = {
 		tier: 'free',
@@ -156,6 +180,14 @@
 			default:
 				return 'Free';
 		}
+	}
+
+	function syncHealthLabel(snapshot: BillingSnapshot | null): string {
+		if (!snapshot) return 'Current';
+		if (snapshot.syncStatus === 'synced') return 'Current';
+		return snapshot.driftDetected || snapshot.syncStatus === 'needs_reconciliation'
+			? 'Needs support review'
+			: 'Current';
 	}
 
 	function buildBillingStatus(
@@ -324,6 +356,107 @@
 		});
 	}
 
+	function redirectToStepUp(path: string | null | undefined) {
+		const destination = new URL(path || '/auth/login', window.location.origin);
+		const next = `${window.location.pathname}${window.location.search}`;
+
+		if (destination.pathname === '/auth/login') {
+			destination.searchParams.set('reauth', '1');
+		}
+
+		destination.searchParams.set('next', next);
+		window.location.href = destination.toString();
+	}
+
+	function openConfirmPasswordDialog(action: PendingBillingAction) {
+		pendingBillingAction = action;
+		confirmPassword = '';
+		confirmPasswordError = '';
+		confirmPasswordOpen = true;
+	}
+
+	function closeConfirmPasswordDialog() {
+		if (confirmPasswordLoading) return;
+		confirmPasswordOpen = false;
+		pendingBillingAction = null;
+		confirmPassword = '';
+		confirmPasswordError = '';
+	}
+
+	function handleBillingApiFailure(
+		result: BillingApiResult,
+		fallbackMessage: string,
+		action: PendingBillingAction
+	): boolean {
+		if (result.requiresStepUp) {
+			if (!result.stepUpPath || result.stepUpPath === '/auth/login') {
+				openConfirmPasswordDialog(action);
+				return true;
+			}
+
+			redirectToStepUp(result.stepUpPath);
+			return true;
+		}
+
+		errorMessage = result.error || fallbackMessage;
+		return false;
+	}
+
+	async function retryPendingBillingAction() {
+		const action = pendingBillingAction;
+		pendingBillingAction = null;
+
+		if (!action) return;
+		if (action.kind === 'subscribe') {
+			await handleSubscribe(action.tier);
+			return;
+		}
+		if (action.kind === 'portal') {
+			await handleManageSubscription();
+			return;
+		}
+		await submitCancelSubscription();
+	}
+
+	async function handleConfirmPassword(event: SubmitEvent) {
+		event.preventDefault();
+		if (confirmPasswordLoading) return;
+		confirmPasswordError = '';
+
+		if (!confirmPassword) {
+			confirmPasswordError = 'Enter your password to continue.';
+			return;
+		}
+
+		confirmPasswordLoading = true;
+		try {
+			const res = await fetch('/api/auth/confirm-sensitive-action', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ password: confirmPassword })
+			});
+			const result = (await res.json()) as ConfirmSensitiveActionResult;
+
+			if (result.requiresStepUp) {
+				redirectToStepUp(result.stepUpPath);
+				return;
+			}
+
+			if (!res.ok) {
+				confirmPasswordError = result.error || 'Password confirmation failed. Try again.';
+				return;
+			}
+
+			confirmPasswordOpen = false;
+			confirmPassword = '';
+			await retryPendingBillingAction();
+		} catch {
+			confirmPasswordError = 'An unexpected error occurred. Please try again.';
+		} finally {
+			confirmPasswordLoading = false;
+		}
+	}
+
 	async function handleSubscribe(selectedTier: string) {
 		if (subscribingTier) return;
 		subscribingTier = selectedTier;
@@ -336,9 +469,21 @@
 				body: JSON.stringify({ tier: selectedTier })
 			});
 
-			const result = await res.json();
+			const result = (await res.json()) as BillingApiResult;
 			if (!res.ok) {
-				errorMessage = result.error || 'Failed to create checkout session';
+				if (
+					handleBillingApiFailure(result, 'Failed to create checkout session', {
+						kind: 'subscribe',
+						tier: selectedTier
+					})
+				)
+					return;
+				subscribingTier = null;
+				return;
+			}
+
+			if (!result.url) {
+				errorMessage = 'Checkout did not return a redirect URL. Please try again.';
 				subscribingTier = null;
 				return;
 			}
@@ -363,15 +508,21 @@
 		cancelLoading = true;
 		errorMessage = '';
 
+		await submitCancelSubscription();
+	}
+
+	async function submitCancelSubscription() {
+		cancelLoading = true;
+		errorMessage = '';
 		try {
 			const res = await fetch(`/org/${data.orgId}/billing/cancel`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' }
 			});
 
-			const result = await res.json();
+			const result = (await res.json()) as BillingApiResult;
 			if (!res.ok) {
-				errorMessage = result.error || 'Failed to cancel subscription';
+				if (handleBillingApiFailure(result, 'Failed to cancel subscription', { kind: 'cancel' })) return;
 				return;
 			}
 
@@ -394,9 +545,14 @@
 				headers: { 'Content-Type': 'application/json' }
 			});
 
-			const result = await res.json();
+			const result = (await res.json()) as BillingApiResult;
 			if (!res.ok) {
-				errorMessage = result.error || 'Failed to open subscription portal';
+				if (handleBillingApiFailure(result, 'Failed to open subscription portal', { kind: 'portal' })) return;
+				return;
+			}
+
+			if (!result.url) {
+				errorMessage = 'Billing portal did not return a redirect URL. Please try again.';
 				return;
 			}
 
@@ -517,7 +673,7 @@
 				</div>
 				<div class="grid gap-1">
 					<dt class="text-xs font-medium text-muted-foreground">Sync Health</dt>
-					<dd>{billingSnapshot?.driftDetected ? 'Needs support review' : 'Current'}</dd>
+					<dd>{syncHealthLabel(billingSnapshot)}</dd>
 				</div>
 			</dl>
 			{#if data.canManageSubscription && !billingActionsDisabled}
@@ -663,4 +819,54 @@
 			{/each}
 		</div>
 	</section>
+
+	<AppDialog.Root
+		bind:open={confirmPasswordOpen}
+		closeBlocked={confirmPasswordLoading}
+		onClose={closeConfirmPasswordDialog}
+	>
+		<AppDialog.Content closeBlocked={confirmPasswordLoading}>
+			<AppDialog.Header>
+				<AppDialog.Title>Confirm your password</AppDialog.Title>
+				<AppDialog.Description>Enter your password again to continue with this billing action.</AppDialog.Description>
+			</AppDialog.Header>
+
+			<form onsubmit={handleConfirmPassword}>
+				<AppDialog.Body class="grid gap-4">
+					{#if confirmPasswordError}
+						<Alert.Root variant="destructive">
+							<Alert.Description>{confirmPasswordError}</Alert.Description>
+						</Alert.Root>
+					{/if}
+
+					<div class="grid gap-2">
+						<Label for="billing-confirm-password">Password</Label>
+						<Input
+							id="billing-confirm-password"
+							type="password"
+							bind:value={confirmPassword}
+							autocomplete="current-password"
+							disabled={confirmPasswordLoading}
+							required
+						/>
+					</div>
+				</AppDialog.Body>
+
+				<AppDialog.Footer>
+					<Button
+						type="button"
+						variant="outline"
+						onclick={closeConfirmPasswordDialog}
+						disabled={confirmPasswordLoading}
+					>
+						Cancel
+					</Button>
+					<Button type="submit" disabled={confirmPasswordLoading}>
+						{#if confirmPasswordLoading}<Spinner />{/if}
+						{confirmPasswordLoading ? 'Confirming...' : 'Continue'}
+					</Button>
+				</AppDialog.Footer>
+			</form>
+		</AppDialog.Content>
+	</AppDialog.Root>
 </PageShell.Root>

@@ -193,7 +193,31 @@ function diffSnapshot(snapshot: BillingReconciliationSnapshotRow | null, expecte
 		['sync_status', 'sync_status']
 	];
 
-	return checks.filter(([field, key]) => (snapshot[field] ?? null) !== (expected[key] ?? null)).map(([field]) => field);
+	const timestampFields = new Set<keyof BillingReconciliationSnapshotRow>([
+		'current_period_start',
+		'current_period_end',
+		'canceled_at',
+		'trial_end'
+	]);
+
+	return checks
+		.filter(([field, key]) => {
+			const actual = snapshot[field] ?? null;
+			const expectedValue = expected[key] ?? null;
+			if (timestampFields.has(field)) return !sameTimestampValue(actual, expectedValue);
+			return actual !== expectedValue;
+		})
+		.map(([field]) => field);
+}
+
+function sameTimestampValue(actual: unknown, expected: unknown): boolean {
+	if (actual === expected) return true;
+	if (actual === null || expected === null) return actual === expected;
+	if (typeof actual !== 'string' || typeof expected !== 'string') return false;
+
+	const actualMs = Date.parse(actual);
+	const expectedMs = Date.parse(expected);
+	return Number.isFinite(actualMs) && Number.isFinite(expectedMs) && actualMs === expectedMs;
 }
 
 function pickProviderSubscription(

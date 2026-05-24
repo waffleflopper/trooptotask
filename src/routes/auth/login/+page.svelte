@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { resolve } from '$app/paths';
 	import AuthField from '$lib/components/auth/AuthField.svelte';
 	import AuthNotice from '$lib/components/auth/AuthNotice.svelte';
 	import AuthPasswordToggle from '$lib/components/auth/AuthPasswordToggle.svelte';
@@ -38,6 +39,13 @@
 			<AuthNotice tone="error" message={data.authLinkError} />
 		{/if}
 
+		{#if data.reauth}
+			<AuthNotice
+				tone="info"
+				message="Confirm your identity to continue. Re-enter your password, then we'll return you to billing."
+			/>
+		{/if}
+
 		{#if form?.error}
 			<AuthNotice tone="error" message={form.error} />
 		{/if}
@@ -54,6 +62,8 @@
 			}}
 			class="flex flex-col gap-5"
 		>
+			<input type="hidden" name="next" value={data.nextPath ?? ''} />
+
 			<AuthField
 				label="Email Address"
 				id="email"
@@ -82,7 +92,7 @@
 			</AuthField>
 
 			<p class="m-0 text-sm leading-relaxed text-muted-foreground">
-				Forgot your password? <a href="/auth/forgot-password">Reset it here</a>.
+				Forgot your password? <a href={resolve('/auth/forgot-password')}>Reset it here</a>.
 			</p>
 
 			<div class="flex flex-col gap-3">
@@ -107,10 +117,10 @@
 
 		<div class="flex flex-col gap-2 text-sm leading-relaxed text-muted-foreground">
 			<p>
-				Have an invite code? <a href="/auth/register">Create your account</a>.
+				Have an invite code? <a href={resolve('/auth/register')}>Create your account</a>.
 			</p>
 			<p>
-				Want beta access? <a href="/auth/request-access">Request access</a>.
+				Want beta access? <a href={resolve('/auth/request-access')}>Request access</a>.
 			</p>
 		</div>
 	</div>

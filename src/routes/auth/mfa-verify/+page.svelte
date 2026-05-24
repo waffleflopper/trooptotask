@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import AuthField from '$lib/components/auth/AuthField.svelte';
 	import AuthNotice from '$lib/components/auth/AuthNotice.svelte';
 	import AuthShell from '$lib/components/auth/AuthShell.svelte';
@@ -9,6 +10,18 @@
 	let code = $state('');
 	let error = $state('');
 	let loading = $state(false);
+
+	function getNextPath(): string | null {
+		const next = new URL(window.location.href).searchParams.get('next');
+		if (!next?.startsWith('/') || next.startsWith('//')) return null;
+
+		try {
+			const url = new URL(next, window.location.origin);
+			return `${url.pathname}${url.search}${url.hash}`;
+		} catch {
+			return null;
+		}
+	}
 
 	function handleCodeInput(e: Event) {
 		const input = e.target as HTMLInputElement;
@@ -38,7 +51,7 @@
 				return;
 			}
 
-			goto('/dashboard');
+			goto(resolve((getNextPath() ?? '/dashboard') as '/'));
 		} catch (e: unknown) {
 			error = e instanceof Error ? e.message : 'Verification failed';
 		} finally {
@@ -107,7 +120,7 @@
 
 		<div class="flex flex-col gap-2 text-sm leading-relaxed text-muted-foreground">
 			<p>
-				Leave this verification step and <a href="/auth/logout">sign out</a>.
+				Leave this verification step and <a href={resolve('/auth/logout')}>sign out</a>.
 			</p>
 		</div>
 	</div>

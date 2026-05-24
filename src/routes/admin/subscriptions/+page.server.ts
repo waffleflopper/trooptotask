@@ -4,6 +4,11 @@ import { selectAllSupabaseRows } from '$lib/server/supabasePagination';
 import { TIER_CONFIG, type Tier } from '$lib/types/subscription';
 import { summarizeBillingCancellation } from '$lib/server/core/useCases/billingState';
 import type { BillingSnapshot } from '$lib/types/subscription';
+import { createSupabaseDataStore } from '$lib/server/adapters/supabaseDataStore';
+import { buildPlanAdminDiagnostics, type PlanAdminDiagnostics } from '$lib/server/core/useCases/planAdminDiagnostics';
+import { readOrganizationPlanUsage } from '$lib/server/core/useCases/organizationPlanUsage';
+import { readEffectivePlanPolicy } from '$lib/server/core/useCases/planPolicy';
+import { visibleBillingSnapshotForAdminRole } from '$lib/server/adminBillingVisibility';
 import {
 	type AdminMetricsClient,
 	displayOwnerMembership,
@@ -69,6 +74,29 @@ function mapAdminBillingSnapshot(row: AdminBillingSnapshotRow): BillingSnapshot 
 		giftTier: null,
 		giftExpiresAt: null
 	};
+}
+
+async function mapWithConcurrency<T, U>(items: T[], limit: number, mapper: (item: T) => Promise<U>): Promise<U[]> {
+	const results = new Array<U>(items.length);
+	let nextIndex = 0;
+
+	async function worker() {
+		while (nextIndex < items.length) {
+			const index = nextIndex;
+			nextIndex += 1;
+			results[index] = await mapper(items[index]);
+		}
+	}
+
+	await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+	return results;
+}
+
+export function _visibleBillingSnapshotForRole(
+	role: Parameters<typeof visibleBillingSnapshotForAdminRole>[0],
+	snapshot: BillingSnapshot | null
+): BillingSnapshot | null {
+	return visibleBillingSnapshotForAdminRole(role, snapshot);
 }
 
 export const load: PageServerLoad = loadWithAdminContext({
@@ -139,10 +167,36 @@ export const load: PageServerLoad = loadWithAdminContext({
 				return [row.organization_id, snapshot] as const;
 			})
 		);
+		const dataStore = createSupabaseDataStore(adminClient);
+		let planDiagnosticsError = false;
+		const planDiagnosticsByOrgId = new Map<string, PlanAdminDiagnostics | null>(
+			await mapWithConcurrency(orgIds, 8, async (orgId) => {
+				try {
+					const [planPolicy, planUsage] = await Promise.all([
+						readEffectivePlanPolicy({
+							store: dataStore,
+							auth: { orgId }
+						}),
+						readOrganizationPlanUsage({
+							store: dataStore,
+							auth: { orgId }
+						})
+					]);
+					return [orgId, buildPlanAdminDiagnostics(planPolicy, planUsage)] as const;
+				} catch (err) {
+					planDiagnosticsError = true;
+					console.error('Admin plan diagnostics query failed:', { orgId, err });
+					return [orgId, null] as const;
+				}
+			})
+		);
 
 		const enrichedOrgs = (orgs ?? []).map((org) => {
 			const ownerEmail = displayOwnerMembership(ownerMemberships.get(org.id));
-			const billingSnapshot = snapshotsByOrgId.get(org.id) ?? null;
+			const billingSnapshot = visibleBillingSnapshotForAdminRole(
+				ctx.adminUser.role,
+				snapshotsByOrgId.get(org.id) ?? null
+			);
 
 			const effectiveTier = (org.gift_tier ?? org.tier ?? 'free') as string;
 
@@ -155,10 +209,11 @@ export const load: PageServerLoad = loadWithAdminContext({
 				isGifted: !!org.gift_tier,
 				isSuspended: !!org.suspended_at,
 				billingSnapshot,
+				planDiagnostics: planDiagnosticsByOrgId.get(org.id) ?? null,
 				cancellationSummary: billingSnapshot ? summarizeBillingCancellation(billingSnapshot) : null
 			};
 		});
 
-		return { subscriptions: enrichedOrgs, billingDiagnosticsError };
+		return { subscriptions: enrichedOrgs, billingDiagnosticsError, planDiagnosticsError };
 	}
 });

@@ -10,4 +10,9 @@ describe('admin page access', () => {
 	it('does not expose billing event diagnostics to support-only admins', () => {
 		expect(canAccessPage('support', 'billing-events')).toBe(false);
 	});
+
+	it('allows support admins to inspect subscription support diagnostics', () => {
+		expect(canAccessPage('support', 'subscriptions')).toBe(true);
+		expect(getAccessiblePages('support')).toContain('subscriptions');
+	});
 });

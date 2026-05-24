@@ -8,6 +8,7 @@ import { scopeSetResourceForGroupId } from '$lib/access/scopeSetAccess';
 import type { AuditPort, AuthContext, DataStore, ReadOnlyGuard } from '$lib/server/core/ports';
 import { evaluateAuthoritativePolicyDecision } from './policyAdapter';
 import { denyPolicyDecision, policyDenialAuditDetails } from './policyDenial';
+import type { AuthoritativePolicyDecisionOptions } from './policyAdapter';
 
 interface FeaturePolicyPorts {
 	auth: AuthContext;
@@ -68,9 +69,10 @@ export async function requireFeaturePolicy(
 	action: FeatureLanePolicyAction,
 	resource: PolicyResource,
 	resourceType: string,
-	resourceId?: string
+	resourceId?: string,
+	options?: Pick<AuthoritativePolicyDecisionOptions, 'enforceReadOnlyOverlay'>
 ): Promise<void> {
-	const decision = await evaluateFeaturePolicy(ports, action, resource);
+	const decision = await evaluateFeaturePolicy(ports, action, resource, options);
 
 	if (decision.allowed) {
 		return;
@@ -93,9 +95,10 @@ export async function requireFeaturePolicy(
 export async function evaluateFeaturePolicy(
 	ports: FeaturePolicyPorts,
 	action: FeatureLanePolicyAction,
-	resource: PolicyResource
+	resource: PolicyResource,
+	options?: Pick<AuthoritativePolicyDecisionOptions, 'enforceReadOnlyOverlay'>
 ): Promise<PolicyDecision> {
-	return evaluateAuthoritativePolicyDecision(ports, action, resource);
+	return evaluateAuthoritativePolicyDecision(ports, action, resource, options);
 }
 
 function featurePolicyDenialMessage(reasonCode: PolicyReasonCode, lane: string): string {

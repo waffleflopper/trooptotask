@@ -79,6 +79,13 @@ export const ORGANIZATION_DATA_EXPORT_SECTIONS = [
 		'Settings'
 	),
 	section('billingSnapshot', 'Organization Billing Snapshot', 'organization_billing_snapshots', 'settings', 'Settings'),
+	section(
+		'planFeatureOverrides',
+		'Plan Feature Overrides',
+		'organization_plan_feature_overrides',
+		'settings',
+		'Settings'
+	),
 	section('dashboardConfigs', 'Dashboard Configs', 'dashboard_configs', 'settings', 'Settings'),
 	section('deletionRequests', 'Deletion Requests', 'deletion_requests', 'settings', 'Settings'),
 	section('gettingStartedProgress', 'Getting Started Progress', 'getting_started_progress', 'settings', 'Settings'),

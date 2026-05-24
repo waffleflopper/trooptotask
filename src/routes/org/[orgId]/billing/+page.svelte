@@ -71,6 +71,8 @@
 	const giftTier = $derived(tier.giftTier);
 	const billingSnapshot = $derived<BillingSnapshot | null>(data.billingSnapshot ?? null);
 	const cancellationSummary = $derived(data.cancellationSummary ?? null);
+	const planUsageSummary = $derived(data.planUsageSummary ?? null);
+	const downgradePreviews = $derived(data.downgradePreviews ?? []);
 	const showCancellationTiming = $derived(
 		!!cancellationSummary && cancellationSummary.state !== 'none' && source !== 'gift'
 	);
@@ -117,19 +119,6 @@
 
 	function formatCap(cap: number | null): string {
 		return cap === null ? 'Unlimited' : String(cap);
-	}
-
-	function tierLabel(tierName: Tier): string {
-		if (tierName === tier.tier) {
-			if (source === 'gift') return 'Gifted';
-			if (source === 'subscription') return 'Current Plan';
-			return 'Current Plan';
-		}
-		const tierOrder: Tier[] = ['free', 'team', 'unit'];
-		const currentIdx = tierOrder.indexOf(tier.tier);
-		const targetIdx = tierOrder.indexOf(tierName);
-		if (targetIdx < currentIdx) return 'Downgrade';
-		return 'Subscribe';
 	}
 
 	function sourceLabel(src: string): string {
@@ -327,6 +316,29 @@
 		if (variant === 'destructive') return 'destructive';
 		if (variant === 'warning') return 'warning';
 		return 'default';
+	}
+
+	function usageStatusLabel(status: string): string {
+		switch (status) {
+			case 'over_limit':
+				return 'Over limit';
+			case 'limit_reached':
+				return 'Limit reached';
+			case 'read_only':
+				return 'Read-only';
+			default:
+				return 'Within limit';
+		}
+	}
+
+	function usageStatusVariant(status: string): BadgeVariant {
+		if (status === 'over_limit') return 'destructive';
+		if (status === 'limit_reached' || status === 'read_only') return 'warning';
+		return 'secondary';
+	}
+
+	function downgradePreviewForTier(tierName: Tier) {
+		return downgradePreviews.find((preview) => preview.targetPlan.tier === tierName) ?? null;
 	}
 
 	function readOnlyTitle(): string {
@@ -651,6 +663,52 @@
 		/>
 	</PageShell.FactGrid>
 
+	{#if planUsageSummary}
+		<Card.Root>
+			<Card.Header>
+				<div class="flex flex-wrap items-center gap-2">
+					<Card.Title>Usage & Limits</Card.Title>
+					<Badge variant="outline">{planUsageSummary.plan.sourceLabel}</Badge>
+				</div>
+				<Card.Description>
+					Plan-backed usage for the current billing period. Existing data remains visible if a limit is reached.
+				</Card.Description>
+			</Card.Header>
+			<Card.Content class="grid gap-4">
+				<div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+					{#each planUsageSummary.rows as row (row.dimension)}
+						<div class="grid gap-2 rounded-md border bg-muted/30 p-3">
+							<div class="flex items-start justify-between gap-2">
+								<p class="text-sm font-medium">{row.label}</p>
+								<Badge variant={usageStatusVariant(row.status)}>{usageStatusLabel(row.status)}</Badge>
+							</div>
+							<strong class="text-xl font-semibold tracking-tight">
+								{row.used} / {row.limitLabel}
+							</strong>
+							<p class="text-xs text-muted-foreground">{row.message}</p>
+							{#if row.status !== 'within_limit'}
+								<p class="text-xs font-medium">{row.remediation}</p>
+							{/if}
+						</div>
+					{/each}
+				</div>
+				{#if planUsageSummary.alerts.length > 0}
+					<Alert.Root variant="warning">
+						<TriangleAlert />
+						<Alert.Title>Existing data remains visible. Resolve limits before adding more data.</Alert.Title>
+						<Alert.Description>
+							<ul class="grid gap-1">
+								{#each planUsageSummary.alerts as alert (`${alert.dimension}-${alert.status}`)}
+									<li>{alert.label}: {alert.remediation}</li>
+								{/each}
+							</ul>
+						</Alert.Description>
+					</Alert.Root>
+				{/if}
+			</Card.Content>
+		</Card.Root>
+	{/if}
+
 	<Card.Root>
 		<Card.Header>
 			<div class="flex flex-wrap items-center gap-2">
@@ -760,8 +818,8 @@
 		<div class="grid gap-3 lg:grid-cols-3">
 			{#each tierComparison as plan (plan.tier)}
 				{@const isCurrent = plan.tier === tier.tier}
-				{@const label = tierLabel(plan.tier)}
-				{@const isDowngrade = label === 'Downgrade'}
+				{@const downgradePreview = downgradePreviewForTier(plan.tier)}
+				{@const isDowngrade = downgradePreview !== null}
 				<Card.Root class="flex flex-col">
 					<Card.Header>
 						<div class="flex flex-wrap items-start justify-between gap-2">
@@ -793,6 +851,31 @@
 								<span><strong>{formatCap(plan.bulkExportsPerMonth)}</strong> exports/month</span>
 							</li>
 						</ul>
+
+						{#if downgradePreview}
+							<div class="grid gap-3 rounded-md border bg-muted/30 p-3">
+								<div class="flex flex-wrap items-center justify-between gap-2">
+									<p class="text-sm font-medium">Downgrade preview</p>
+									<Badge variant={downgradePreview.status === 'blocked' ? 'warning' : 'success'}>
+										{downgradePreview.status === 'blocked' ? 'Needs remediation' : 'Within limits'}
+									</Badge>
+								</div>
+								<p class="text-xs text-muted-foreground">{downgradePreview.preservesExistingDataMessage}</p>
+								{#if downgradePreview.blockers.length > 0}
+									<ul class="grid gap-2 text-xs">
+										{#each downgradePreview.blockers as blocker (`${plan.tier}-${blocker.label}`)}
+											<li>
+												<span class="font-medium">{blocker.label}:</span>
+												{blocker.message}
+												<span class="font-medium">{blocker.remediation}</span>
+											</li>
+										{/each}
+									</ul>
+								{:else}
+									<p class="text-xs font-medium">Current usage is within this plan's limits.</p>
+								{/if}
+							</div>
+						{/if}
 					</Card.Content>
 
 					<Card.Footer>

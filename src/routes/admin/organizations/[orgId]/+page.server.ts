@@ -9,7 +9,16 @@ import { summarizeBillingCancellation } from '$lib/server/core/useCases/billingS
 import { reconcileOrganizationBilling } from '$lib/server/core/useCases/billingReconciliation';
 import { configuredPriceCatalog } from '$lib/server/billing/priceCatalog';
 import { createSupabaseBillingReconciliationStore } from '$lib/server/adapters/supabaseBillingReconciliation';
+import { createSupabaseDataStore } from '$lib/server/adapters/supabaseDataStore';
 import { createSupabaseSubscriptionAdapter } from '$lib/server/adapters/supabaseSubscription';
+import {
+	grantOrganizationPlanFeatureOverride,
+	revokeOrganizationPlanFeatureOverride
+} from '$lib/server/core/useCases/planFeatureOverrides';
+import { isPlanFeatureKey, readEffectivePlanPolicy } from '$lib/server/core/useCases/planPolicy';
+import { readOrganizationPlanUsage } from '$lib/server/core/useCases/organizationPlanUsage';
+import { buildPlanAdminDiagnostics } from '$lib/server/core/useCases/planAdminDiagnostics';
+import { visibleBillingSnapshotForAdminRole } from '$lib/server/adminBillingVisibility';
 import type { BillingSnapshot } from '$lib/types/subscription';
 
 const TIER_RANK: Record<string, number> = { free: 1, team: 2, unit: 3 };
@@ -20,6 +29,19 @@ function sanitizeBillingReconciliationDiagnostic(value: unknown): string {
 		.replace(/[sr]k_(live|test)_[A-Za-z0-9_]+/g, '[redacted_stripe_key]')
 		.replace(/whsec_\S+/g, '[redacted_webhook_secret]')
 		.replace(/bearer\s+\S+/gi, 'bearer [redacted]');
+}
+
+function parseFeatureOverrideExpiry(value: string | null): string | null | { error: string } {
+	if (!value) return null;
+	const parsed = new Date(value);
+	if (Number.isNaN(parsed.getTime())) return { error: 'Invalid expiry date' };
+	return parsed.toISOString();
+}
+
+function parseFeatureOverrideReason(value: string | null): string | null | { error: string } {
+	const reason = value?.trim() || null;
+	if (reason && reason.length > 500) return { error: 'Reason must be 500 characters or less' };
+	return reason;
 }
 
 type AdminOrganizationBillingSnapshotRow = {
@@ -130,11 +152,27 @@ export const load: PageServerLoad = loadWithAdminContext({
 			)
 			.eq('organization_id', orgId)
 			.maybeSingle<AdminOrganizationBillingSnapshotRow>();
-		const billingSnapshot = billingSnapshotRow ? mapAdminOrganizationBillingSnapshot(billingSnapshotRow) : null;
+		const billingSnapshot = visibleBillingSnapshotForAdminRole(
+			ctx.adminUser.role,
+			billingSnapshotRow ? mapAdminOrganizationBillingSnapshot(billingSnapshotRow) : null
+		);
+		const dataStore = createSupabaseDataStore(adminClient);
+		const [planPolicy, planUsage] = await Promise.all([
+			readEffectivePlanPolicy({
+				store: dataStore,
+				auth: { orgId }
+			}),
+			readOrganizationPlanUsage({
+				store: dataStore,
+				auth: { orgId }
+			})
+		]);
+		const planDiagnostics = buildPlanAdminDiagnostics(planPolicy, planUsage);
 
 		const effectiveTier = (org.gift_tier ?? org.tier ?? 'free') as string;
 
 		return {
+			adminRole: ctx.adminUser.role,
 			org: {
 				id: org.id,
 				name: org.name,
@@ -147,6 +185,12 @@ export const load: PageServerLoad = loadWithAdminContext({
 				isSuspended: !!org.suspended_at
 			},
 			billingSnapshot,
+			planPolicy: {
+				source: planPolicy.source,
+				billingSource: planPolicy.billingSource,
+				entitlements: Object.values(planPolicy.entitlements)
+			},
+			planDiagnostics,
 			cancellationSummary: billingSnapshot ? summarizeBillingCancellation(billingSnapshot) : null,
 			members,
 			personnelCount: personnelCount ?? 0,
@@ -288,6 +332,7 @@ export const actions: Actions = {
 				action: 'admin.org.gift_tier',
 				resourceType: 'organization',
 				resourceId: orgId,
+				orgId,
 				details: { giftTier, days },
 				severity: 'warning'
 			});
@@ -329,6 +374,7 @@ export const actions: Actions = {
 				action: 'admin.org.revoke_gift',
 				resourceType: 'organization',
 				resourceId: orgId,
+				orgId,
 				severity: 'warning'
 			});
 			invalidateTierCache(orgId);
@@ -370,11 +416,85 @@ export const actions: Actions = {
 				action: 'admin.org.extend_gift',
 				resourceType: 'organization',
 				resourceId: orgId,
+				orgId,
 				details: { days },
 				severity: 'info'
 			});
 			invalidateTierCache(orgId);
 			return { success: true };
+		}
+	}),
+
+	setFeatureOverride: adminAction({
+		page: 'organizations',
+		requiredRole: 'super_admin',
+		fn: async (ctx, event) => {
+			const orgId = event.params.orgId as string;
+			if (!validateUUID(orgId)) return fail(400, { error: { message: 'Invalid organization ID' } });
+
+			const formData = await event.request.formData();
+			const featureKey = formData.get('featureKey')?.toString() ?? '';
+			const state = formData.get('state')?.toString() ?? '';
+			const expiresAt = parseFeatureOverrideExpiry(formData.get('expiresAt')?.toString() || null);
+			const reason = parseFeatureOverrideReason(formData.get('reason')?.toString() ?? null);
+
+			if (!isPlanFeatureKey(featureKey)) return fail(400, { error: { message: 'Invalid feature key' } });
+			if (state !== 'granted' && state !== 'denied') return fail(400, { error: { message: 'Invalid override state' } });
+			if (expiresAt && typeof expiresAt === 'object') return fail(400, { error: { message: expiresAt.error } });
+			if (reason && typeof reason === 'object') return fail(400, { error: { message: reason.error } });
+
+			const result = await grantOrganizationPlanFeatureOverride(
+				{
+					store: createSupabaseDataStore(ctx.adminClient),
+					audit: { log: (event) => ctx.audit(event) },
+					admin: { userId: ctx.adminUser.id, role: ctx.adminUser.role }
+				},
+				{ orgId, featureKey, state, expiresAt, reason }
+			);
+
+			invalidateTierCache(orgId);
+			return {
+				success: true,
+				planFeatureOverride: {
+					action: 'set',
+					id: result.id,
+					featureKey: result.feature_key,
+					state: result.override_state
+				}
+			};
+		}
+	}),
+
+	revokeFeatureOverride: adminAction({
+		page: 'organizations',
+		requiredRole: 'super_admin',
+		fn: async (ctx, event) => {
+			const orgId = event.params.orgId as string;
+			if (!validateUUID(orgId)) return fail(400, { error: { message: 'Invalid organization ID' } });
+
+			const formData = await event.request.formData();
+			const overrideId = formData.get('overrideId')?.toString() ?? '';
+			if (!overrideId) return fail(400, { error: { message: 'Missing override ID' } });
+			if (!validateUUID(overrideId)) return fail(400, { error: { message: 'Invalid override ID' } });
+
+			const result = await revokeOrganizationPlanFeatureOverride(
+				{
+					store: createSupabaseDataStore(ctx.adminClient),
+					audit: { log: (event) => ctx.audit(event) },
+					admin: { userId: ctx.adminUser.id, role: ctx.adminUser.role }
+				},
+				{ orgId, overrideId }
+			);
+
+			invalidateTierCache(orgId);
+			return {
+				success: true,
+				planFeatureOverride: {
+					action: 'revoke',
+					id: result.id,
+					featureKey: result.feature_key
+				}
+			};
 		}
 	}),
 

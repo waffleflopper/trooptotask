@@ -39,6 +39,19 @@ interface RevokeOrganizationInvitationRpcRow {
 	revoked_email: string | null;
 }
 
+type MemberPlanLimitGuardRpcClient = {
+	rpc(
+		fn: 'block_invitation_if_member_cap_exceeded',
+		args: {
+			p_org_id: string;
+			p_invitation_id: string;
+			p_blocked_by: string;
+			p_member_limit: number;
+			p_block_reason: string;
+		}
+	): Promise<{ data: boolean | null; error: { message?: string } | null }>;
+};
+
 const FIND_USER_BY_EMAIL_MAX_PAGES = 20;
 
 function normalizeEmail(email: string): string {
@@ -245,6 +258,25 @@ export function createSupabaseOrgSettingsMemberManagementPort(
 			}
 
 			return { status: 'blocked' };
+		},
+
+		async blockInvitationIfMemberPlanLimitExceeded(input) {
+			const { data, error } = await (getAdminClientFn() as unknown as MemberPlanLimitGuardRpcClient).rpc(
+				'block_invitation_if_member_cap_exceeded',
+				{
+					p_org_id: input.organizationId,
+					p_invitation_id: input.invitationId,
+					p_blocked_by: input.blockedBy,
+					p_member_limit: input.memberLimit,
+					p_block_reason: input.reason
+				}
+			);
+
+			if (error) {
+				return { status: 'failed', message: error.message ?? 'Invitation plan limit guard failed' };
+			}
+
+			return data ? { status: 'blocked' } : { status: 'within_limit' };
 		},
 
 		async revokeInvitation(orgId, inviteId) {

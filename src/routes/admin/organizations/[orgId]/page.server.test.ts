@@ -1,12 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { invalidateTierCacheMock, pauseSubscriptionMock, resumeSubscriptionMock, reconcileOrganizationBillingMock } =
-	vi.hoisted(() => ({
-		invalidateTierCacheMock: vi.fn(),
-		pauseSubscriptionMock: vi.fn(),
-		resumeSubscriptionMock: vi.fn(),
-		reconcileOrganizationBillingMock: vi.fn()
-	}));
+const {
+	invalidateTierCacheMock,
+	pauseSubscriptionMock,
+	resumeSubscriptionMock,
+	reconcileOrganizationBillingMock,
+	grantFeatureOverrideMock,
+	revokeFeatureOverrideMock
+} = vi.hoisted(() => ({
+	invalidateTierCacheMock: vi.fn(),
+	pauseSubscriptionMock: vi.fn(),
+	resumeSubscriptionMock: vi.fn(),
+	reconcileOrganizationBillingMock: vi.fn(),
+	grantFeatureOverrideMock: vi.fn(),
+	revokeFeatureOverrideMock: vi.fn()
+}));
 
 vi.mock('$lib/server/adapters/adminAdapter', () => ({
 	adminAction: (config: { fn: (ctx: unknown, event: unknown) => unknown }) => (event: { __ctx: unknown }) =>
@@ -31,6 +39,15 @@ vi.mock('$lib/server/core/useCases/billingReconciliation', () => ({
 
 vi.mock('$lib/server/adapters/supabaseBillingReconciliation', () => ({
 	createSupabaseBillingReconciliationStore: () => ({ store: 'supabase' })
+}));
+
+vi.mock('$lib/server/adapters/supabaseDataStore', () => ({
+	createSupabaseDataStore: (client: unknown) => ({ client })
+}));
+
+vi.mock('$lib/server/core/useCases/planFeatureOverrides', () => ({
+	grantOrganizationPlanFeatureOverride: grantFeatureOverrideMock,
+	revokeOrganizationPlanFeatureOverride: revokeFeatureOverrideMock
 }));
 
 vi.mock('$lib/server/billing/priceCatalog', () => ({
@@ -83,6 +100,15 @@ describe('admin organization gifting actions', () => {
 			snapshotUpdated: true,
 			reconciledAt: '2026-05-23T00:00:00.000Z'
 		});
+		grantFeatureOverrideMock.mockResolvedValue({
+			id: 'override-1',
+			feature_key: 'advanced_reporting',
+			override_state: 'granted'
+		});
+		revokeFeatureOverrideMock.mockResolvedValue({
+			id: '22222222-2222-4222-8222-222222222222',
+			feature_key: 'advanced_reporting'
+		});
 	});
 
 	it('invalidates effective tier cache after gifting from the organization detail page', async () => {
@@ -92,15 +118,26 @@ describe('admin organization gifting actions', () => {
 			stripe_subscription_id: null,
 			subscription_status: null
 		});
+		const ctx = makeContext(adminClient.client);
 
 		const result = await actions.giftTier({
-			__ctx: makeContext(adminClient.client),
+			__ctx: ctx,
 			params: { orgId: 'org-1' },
 			request: makeRequest({ giftTier: 'team', days: '30' })
 		} as unknown as Parameters<(typeof actions)['giftTier']>[0]);
 
 		expect(result).toEqual({ success: true });
 		expect(invalidateTierCacheMock).toHaveBeenCalledWith('org-1');
+		expect(ctx.audit).toHaveBeenCalledWith(
+			expect.objectContaining({
+				action: 'admin.org.gift_tier',
+				resourceType: 'organization',
+				resourceId: 'org-1',
+				orgId: 'org-1',
+				details: { giftTier: 'team', days: 30 },
+				severity: 'warning'
+			})
+		);
 	});
 
 	it('invalidates effective tier cache after revoking a gift from the organization detail page', async () => {
@@ -174,6 +211,105 @@ describe('admin organization gifting actions', () => {
 				})
 			})
 		);
+	});
+
+	it('sets a plan feature override through the audited organization detail action', async () => {
+		const adminClient = makeAdminClient({ id: 'org-1' });
+		const ctx = makeContext(adminClient.client);
+
+		const result = await actions.setFeatureOverride({
+			__ctx: ctx,
+			params: { orgId: '11111111-1111-4111-8111-111111111111' },
+			request: makeRequest({
+				featureKey: 'advanced_reporting',
+				state: 'granted',
+				expiresAt: '2999-01-01T00:00:00.000Z',
+				reason: 'Temporary support override'
+			})
+		} as unknown as Parameters<(typeof actions)['setFeatureOverride']>[0]);
+
+		expect(result).toEqual({
+			success: true,
+			planFeatureOverride: {
+				action: 'set',
+				id: 'override-1',
+				featureKey: 'advanced_reporting',
+				state: 'granted'
+			}
+		});
+		expect(grantFeatureOverrideMock).toHaveBeenCalledWith(
+			expect.objectContaining({
+				admin: { userId: 'admin-1', role: 'super_admin' }
+			}),
+			{
+				orgId: '11111111-1111-4111-8111-111111111111',
+				featureKey: 'advanced_reporting',
+				state: 'granted',
+				expiresAt: '2999-01-01T00:00:00.000Z',
+				reason: 'Temporary support override'
+			}
+		);
+		expect(invalidateTierCacheMock).toHaveBeenCalledWith('11111111-1111-4111-8111-111111111111');
+	});
+
+	it('rejects invalid feature override expiry before calling the use case', async () => {
+		const adminClient = makeAdminClient({ id: 'org-1' });
+
+		const result = await actions.setFeatureOverride({
+			__ctx: makeContext(adminClient.client),
+			params: { orgId: '11111111-1111-4111-8111-111111111111' },
+			request: makeRequest({
+				featureKey: 'advanced_reporting',
+				state: 'granted',
+				expiresAt: 'not-a-date'
+			})
+		} as unknown as Parameters<(typeof actions)['setFeatureOverride']>[0]);
+
+		expect(result).toEqual({
+			status: 400,
+			data: { error: { message: 'Invalid expiry date' } }
+		});
+		expect(grantFeatureOverrideMock).not.toHaveBeenCalled();
+	});
+
+	it('revokes a plan feature override through the organization detail action', async () => {
+		const adminClient = makeAdminClient({ id: 'org-1' });
+
+		const result = await actions.revokeFeatureOverride({
+			__ctx: makeContext(adminClient.client),
+			params: { orgId: '11111111-1111-4111-8111-111111111111' },
+			request: makeRequest({ overrideId: '22222222-2222-4222-8222-222222222222' })
+		} as unknown as Parameters<(typeof actions)['revokeFeatureOverride']>[0]);
+
+		expect(result).toEqual({
+			success: true,
+			planFeatureOverride: {
+				action: 'revoke',
+				id: '22222222-2222-4222-8222-222222222222',
+				featureKey: 'advanced_reporting'
+			}
+		});
+		expect(revokeFeatureOverrideMock).toHaveBeenCalledWith(expect.any(Object), {
+			orgId: '11111111-1111-4111-8111-111111111111',
+			overrideId: '22222222-2222-4222-8222-222222222222'
+		});
+		expect(invalidateTierCacheMock).toHaveBeenCalledWith('11111111-1111-4111-8111-111111111111');
+	});
+
+	it('rejects invalid feature override IDs before calling revoke', async () => {
+		const adminClient = makeAdminClient({ id: 'org-1' });
+
+		const result = await actions.revokeFeatureOverride({
+			__ctx: makeContext(adminClient.client),
+			params: { orgId: '11111111-1111-4111-8111-111111111111' },
+			request: makeRequest({ overrideId: 'not-a-uuid' })
+		} as unknown as Parameters<(typeof actions)['revokeFeatureOverride']>[0]);
+
+		expect(result).toEqual({
+			status: 400,
+			data: { error: { message: 'Invalid override ID' } }
+		});
+		expect(revokeFeatureOverrideMock).not.toHaveBeenCalled();
 	});
 
 	it('reports when manual billing reconciliation already matches Stripe', async () => {

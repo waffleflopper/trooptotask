@@ -150,6 +150,7 @@
 		`Includes ${formatCap(tierConfig.personnelCap).toLowerCase()} members, audit log, ${formatExportLimit(tierConfig.bulkExportsPerMonth)}.`
 	);
 	const personnelCount = $derived(`${tier.personnelCount} / ${formatCap(tierConfig.personnelCap).toUpperCase()}`);
+	const planUsageSummary = $derived(data.planUsageSummary ?? null);
 	const billingStatus = $derived(getBillingStatus(tier));
 	const sessionEmail = $derived((data.session as { user?: { email?: string | null } } | null | undefined)?.user?.email);
 
@@ -419,6 +420,7 @@
 				{planCopy}
 				{billingStatus}
 				{personnelCount}
+				{planUsageSummary}
 			/>
 		</Tabs.Content>
 

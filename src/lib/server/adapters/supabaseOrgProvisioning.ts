@@ -1,4 +1,9 @@
-import { canCreateOrg } from '$lib/server/subscription';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { isBillingEnabled } from '$lib/config/billing';
+import {
+	checkCanCreateOrganizationForPlanPolicies,
+	readEffectivePlanPolicy
+} from '$lib/server/core/useCases/planPolicy';
 import type {
 	OrgProvisioningAssignmentTypeSeed,
 	OrgProvisioningCreateResult,
@@ -7,13 +12,19 @@ import type {
 	OrgProvisioningSpecialDaySeed,
 	OrgProvisioningStatusTypeSeed
 } from '$lib/server/core/useCases/orgProvisioning';
+import { selectAllSupabaseRows } from '$lib/server/supabasePagination';
+import { createSupabaseDataStore } from './supabaseDataStore';
+
+interface OwnedOrganizationRow {
+	id: string;
+}
 
 export function createSupabaseOrgProvisioningPort(locals: Pick<App.Locals, 'supabase'>): OrgProvisioningPort {
 	const supabase = locals.supabase;
 
 	return {
 		async canCreateOrganization(userId) {
-			return canCreateOrg(supabase, userId);
+			return canCreateOrganizationFromPlanPolicies(supabase, userId);
 		},
 
 		async createOrganizationWithOwner(name): Promise<OrgProvisioningCreateResult> {
@@ -76,6 +87,40 @@ export function createSupabaseOrgProvisioningPort(locals: Pick<App.Locals, 'supa
 			return firstErrorMessage;
 		}
 	};
+}
+
+async function canCreateOrganizationFromPlanPolicies(supabase: SupabaseClient, userId: string) {
+	if (!isBillingEnabled) return { allowed: true };
+
+	const result = await selectAllSupabaseRows<OwnedOrganizationRow>(
+		(from, to) =>
+			supabase
+				.from('organizations')
+				.select('id', { count: 'exact' })
+				.eq('created_by', userId)
+				.range(from, to) as unknown as Promise<{
+				data: OwnedOrganizationRow[] | null;
+				error: unknown;
+				count: number | null;
+			}>
+	);
+
+	if (result.error) {
+		throw result.error;
+	}
+
+	const ownedOrganizations = result.data ?? [];
+	const store = createSupabaseDataStore(supabase);
+	// Organization ownership caps are currently small (unit allows 3), so fresh per-org policy reads
+	// preserve gift and billing-state precedence without adding a second batching contract here.
+	const policies = await Promise.all(
+		ownedOrganizations.map((org) => readEffectivePlanPolicy({ auth: { orgId: org.id }, store }))
+	);
+
+	return checkCanCreateOrganizationForPlanPolicies({
+		ownedOrganizationCount: result.count ?? ownedOrganizations.length,
+		policies
+	});
 }
 
 function serializeGroupSeed(organizationId: string, group: OrgProvisioningGroupSeed) {

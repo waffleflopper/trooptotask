@@ -4,7 +4,6 @@
 	import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 	import { archivePersonnel } from '$features/personnel/utils/archivePersonnel';
 	import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
-	import { subscriptionStore } from '$lib/stores/subscription.svelte';
 	import ArchiveIcon from '@lucide/svelte/icons/archive';
 	import UsersIcon from '@lucide/svelte/icons/users';
 	import { Badge, badgeVariants } from '$lib/components/ui/badge';
@@ -36,13 +35,18 @@
 		{ value: 'by-group', label: 'Group' }
 	];
 
-	const readOnly = $derived(subscriptionStore.billingEnabled && subscriptionStore.isReadOnly);
+	const readOnly = $derived(ctx.readOnly);
 	const canViewRoster = $derived(permissions?.canViewPersonnel ?? false);
 	const upcomingLossMap = $derived(ctx.upcomingLossMap);
 	const canAddPersonnel = $derived(ctx.canAddPersonnel);
 	const canImportPersonnel = $derived(ctx.canImportPersonnel);
 	const canManageGroups = $derived(ctx.canManageGroups);
-	const hasPersonnelActions = $derived(canImportPersonnel || canManageGroups || canAddPersonnel);
+	const canBulkArchivePersonnel = $derived(
+		personnelStore.items.some((person) => ctx.canArchivePersonnelRecord(person))
+	);
+	const hasPersonnelActions = $derived(
+		canImportPersonnel || canManageGroups || canAddPersonnel || canBulkArchivePersonnel
+	);
 
 	// Personnel DataTable setup
 	const personnelColumns = $derived.by<ColumnDef<Personnel>[]>(() => {
@@ -192,6 +196,9 @@
 					<WorkspaceToolbar.Group label="Personnel actions" zone="actions">
 						{#if canImportPersonnel}
 							<Button variant="outline" disabled={readOnly} onclick={() => ctx.openBulkManager()}>Import</Button>
+						{/if}
+						{#if canBulkArchivePersonnel}
+							<Button variant="outline" onclick={() => ctx.openBulkManager('delete')}>Bulk Archive</Button>
 						{/if}
 						{#if canManageGroups}
 							<Button variant="secondary" disabled={readOnly} onclick={() => ctx.openGroupManager()}

@@ -96,7 +96,8 @@ function makeCtx(
 		handleEdit,
 		handleAdd: vi.fn(),
 		openGroupManager: vi.fn(),
-		openBulkManager: vi.fn()
+		openBulkManager: vi.fn(),
+		readOnly: false
 	} as unknown as PersonnelPageContext;
 }
 
@@ -209,6 +210,32 @@ describe('PersonnelPageView', () => {
 		expect(within(toolbar).queryByRole('button', { name: 'Import' })).toBeNull();
 		expect(screen.getByRole('button', { name: 'Edit' })).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Details' })).toBeTruthy();
+	});
+
+	it('keeps archive access available during read-only mode without enabling create/import controls', async () => {
+		const openBulkManager = vi.fn();
+		const ctx = {
+			...makeCtx(),
+			readOnly: true,
+			canAddPersonnel: false,
+			canImportPersonnel: false,
+			canManageGroups: false,
+			canArchivePersonnelRecord: () => true,
+			personnelArchiveAffordance: () => allowedAffordance()
+		} as unknown as PersonnelPageContext;
+		ctx.openBulkManager = openBulkManager;
+
+		render(PersonnelPageView, {
+			props: { ctx, permissions: editablePermissions }
+		});
+
+		const toolbar = screen.getByRole('toolbar', { name: 'Personnel controls' });
+		expect(within(toolbar).queryByRole('button', { name: 'Import' })).toBeNull();
+		expect(within(toolbar).queryByRole('button', { name: 'Add Person' })).toBeNull();
+		expect(screen.getByRole('button', { name: 'Archive SGT Smith, Jane' })).toBeTruthy();
+
+		await fireEvent.click(within(toolbar).getByRole('button', { name: 'Bulk Archive' }));
+		expect(openBulkManager).toHaveBeenCalledWith('delete');
 	});
 
 	it('filters the roster from the toolbar search item', async () => {

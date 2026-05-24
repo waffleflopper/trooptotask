@@ -1,6 +1,6 @@
 import type { IdentityOwnedPolicyAction, PolicyReasonCode } from '$lib/access/policyEvaluator';
 import type { AuditPort, AuthContext, ReadOnlyGuard } from '$lib/server/core/ports';
-import { evaluateAuthoritativePolicyDecision } from './policyAdapter';
+import { evaluateAuthoritativePolicyDecision, type AuthoritativePolicyDecisionOptions } from './policyAdapter';
 import { denyPolicyDecision, policyDenialAuditDetails } from './policyDenial';
 
 interface IdentityPolicyPorts {
@@ -14,12 +14,14 @@ export async function requireIdentityOwnedPolicy(
 	action: IdentityOwnedPolicyAction,
 	ownerUserId: string | null | undefined,
 	resourceType: string,
-	resourceId?: string
+	resourceId?: string,
+	options?: Pick<AuthoritativePolicyDecisionOptions, 'enforceReadOnlyOverlay'>
 ): Promise<void> {
 	const decision = await evaluateAuthoritativePolicyDecision(
 		ports,
 		action,
-		ownerUserId ? { kind: 'user', userId: ownerUserId } : { kind: 'unscoped' }
+		ownerUserId ? { kind: 'user', userId: ownerUserId } : { kind: 'unscoped' },
+		options
 	);
 
 	if (decision.allowed) {

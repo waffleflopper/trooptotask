@@ -28,6 +28,7 @@ import {
 } from '$lib/access/memberAccessShape';
 import {
 	policyEvaluator,
+	POLICY_ACTION_CATALOG,
 	type FeatureLanePolicyAction,
 	type OrganizationGovernancePolicyAction,
 	type PolicyAction,
@@ -210,9 +211,10 @@ function evaluateClientAffordance(
 		compatibilityLanes: accessShape.compatibilityLanes,
 		scopeSet: accessShape.scopeSet,
 		resource,
-		overlays: input.isReadOnly
-			? [{ id: 'org-read-only', kind: 'read-only-mode', label: 'Organization read-only mode' }]
-			: undefined
+		overlays:
+			input.isReadOnly && action.id !== POLICY_ACTION_CATALOG.personnel.archiveRecords.id
+				? [{ id: 'org-read-only', kind: 'read-only-mode', label: 'Organization read-only mode' }]
+				: undefined
 	});
 	const disabled = !decision.allowed && decision.reasonCode === 'denied:read-only-overlay';
 

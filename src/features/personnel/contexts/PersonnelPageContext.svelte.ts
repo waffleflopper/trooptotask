@@ -107,6 +107,10 @@ export class PersonnelPageContext {
 		return this.#org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.personnel.manageGroups).allowed;
 	}
 
+	get readOnly(): boolean {
+		return this.#org.readOnly;
+	}
+
 	get canManageConfig(): boolean {
 		return this.#org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.personnel.archiveRecords).allowed;
 	}
@@ -227,8 +231,8 @@ export class PersonnelPageContext {
 		this.#modals.open('group-manager');
 	}
 
-	openBulkManager(): void {
-		this.#modals.open('bulk-manager');
+	openBulkManager(initialTab: 'import' | 'merge' | 'delete' = 'import'): void {
+		this.#modals.open('bulk-manager', { initialTab });
 	}
 
 	toggleGroup(group: string): void {

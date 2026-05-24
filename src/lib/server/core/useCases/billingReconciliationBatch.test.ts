@@ -3,14 +3,6 @@ import type { BillingReconciliationBatchStore } from './billingReconciliationBat
 import type { BillingReconciliationProvider } from './billingReconciliation';
 import { runBillingReconciliationBatch } from './billingReconciliationBatch';
 
-const { invalidateTierCacheMock } = vi.hoisted(() => ({
-	invalidateTierCacheMock: vi.fn()
-}));
-
-vi.mock('$lib/server/subscription', () => ({
-	invalidateTierCache: invalidateTierCacheMock
-}));
-
 const baseOrg = {
 	id: 'org-1',
 	tier: 'team' as const,
@@ -91,6 +83,12 @@ function createProvider(overrides: Partial<BillingReconciliationProvider> = {}):
 	};
 }
 
+function createSubscriptionPort() {
+	return {
+		invalidateTierCache: vi.fn()
+	};
+}
+
 describe('runBillingReconciliationBatch', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
@@ -117,6 +115,7 @@ describe('runBillingReconciliationBatch', () => {
 		const result = await runBillingReconciliationBatch({
 			store,
 			provider,
+			createSubscriptionPort: () => createSubscriptionPort(),
 			priceCatalog: [{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: 'prod_team' }],
 			limit: 250,
 			now: () => new Date('2026-05-23T00:00:00.000Z')
@@ -140,6 +139,7 @@ describe('runBillingReconciliationBatch', () => {
 		const result = await runBillingReconciliationBatch({
 			store,
 			provider,
+			createSubscriptionPort: () => createSubscriptionPort(),
 			priceCatalog: [{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: 'prod_team' }],
 			limit: 1,
 			now: () => new Date('2026-05-23T00:00:00.000Z')
@@ -172,6 +172,7 @@ describe('runBillingReconciliationBatch', () => {
 		const result = await runBillingReconciliationBatch({
 			store,
 			provider: createProvider(),
+			createSubscriptionPort: () => createSubscriptionPort(),
 			priceCatalog: [{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: 'prod_team' }],
 			limit: 2,
 			now: () => new Date('2026-05-23T00:00:00.000Z')
@@ -198,6 +199,7 @@ describe('runBillingReconciliationBatch', () => {
 		const result = await runBillingReconciliationBatch({
 			store: createStore(),
 			provider,
+			createSubscriptionPort: () => createSubscriptionPort(),
 			priceCatalog: [{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: 'prod_team' }],
 			limit: 1,
 			now: () => new Date('2026-05-23T00:00:00.000Z')
@@ -217,6 +219,7 @@ describe('runBillingReconciliationBatch', () => {
 		const result = await runBillingReconciliationBatch({
 			store,
 			provider: createProvider(),
+			createSubscriptionPort: () => createSubscriptionPort(),
 			priceCatalog: [{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: 'prod_team' }],
 			limit: 2,
 			timeoutMs: 5,
@@ -235,6 +238,7 @@ describe('runBillingReconciliationBatch', () => {
 		const result = await runBillingReconciliationBatch({
 			store,
 			provider: createProvider(),
+			createSubscriptionPort: () => createSubscriptionPort(),
 			priceCatalog: [{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: 'prod_team' }],
 			limit: 2,
 			cursor: 'org-0',

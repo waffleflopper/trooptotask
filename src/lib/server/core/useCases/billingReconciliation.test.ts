@@ -5,14 +5,6 @@ import type {
 	BillingReconciliationStore
 } from './billingReconciliation';
 
-const { invalidateTierCacheMock } = vi.hoisted(() => ({
-	invalidateTierCacheMock: vi.fn()
-}));
-
-vi.mock('$lib/server/subscription', () => ({
-	invalidateTierCache: invalidateTierCacheMock
-}));
-
 import { reconcileOrganizationBilling } from './billingReconciliation';
 
 const org = {
@@ -87,6 +79,12 @@ function createProvider(overrides: Partial<BillingReconciliationProvider> = {}):
 	};
 }
 
+function createSubscriptionPort() {
+	return {
+		invalidateTierCache: vi.fn()
+	};
+}
+
 describe('reconcileOrganizationBilling', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
@@ -94,11 +92,13 @@ describe('reconcileOrganizationBilling', () => {
 
 	it('records a matched reconciliation without marking drift', async () => {
 		const store = createStore();
+		const subscriptionPort = createSubscriptionPort();
 
 		const result = await reconcileOrganizationBilling({
 			orgId: 'org-1',
 			store,
 			provider: createProvider(),
+			subscription: subscriptionPort,
 			priceCatalog: [{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: 'prod_team' }],
 			now: () => new Date('2026-05-23T00:00:00.000Z')
 		});
@@ -124,7 +124,7 @@ describe('reconcileOrganizationBilling', () => {
 				current_period_end: '2026-06-01T00:00:00.000Z'
 			})
 		);
-		expect(invalidateTierCacheMock).toHaveBeenCalledWith('org-1');
+		expect(subscriptionPort.invalidateTierCache).toHaveBeenCalledOnce();
 	});
 
 	it('treats equivalent database timestamp strings as matched', async () => {
@@ -138,6 +138,7 @@ describe('reconcileOrganizationBilling', () => {
 			orgId: 'org-1',
 			store,
 			provider: createProvider(),
+			subscription: createSubscriptionPort(),
 			priceCatalog: [{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: 'prod_team' }],
 			now: () => new Date('2026-05-23T00:00:00.000Z')
 		});
@@ -153,6 +154,7 @@ describe('reconcileOrganizationBilling', () => {
 			orgId: 'org-1',
 			store,
 			provider: createProvider(),
+			subscription: createSubscriptionPort(),
 			priceCatalog: [{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: 'prod_team' }],
 			now: () => new Date('2026-05-23T00:00:00.000Z')
 		});
@@ -189,6 +191,7 @@ describe('reconcileOrganizationBilling', () => {
 					canceledAt: '2026-05-24T00:11:32.000Z'
 				})
 			}),
+			subscription: createSubscriptionPort(),
 			priceCatalog: [{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: 'prod_team' }],
 			now: () => new Date('2026-05-23T00:00:00.000Z')
 		});
@@ -226,6 +229,7 @@ describe('reconcileOrganizationBilling', () => {
 				retrieveSubscription: vi.fn().mockResolvedValue(null),
 				listSubscriptionsForCustomer: vi.fn().mockResolvedValue([])
 			}),
+			subscription: createSubscriptionPort(),
 			priceCatalog: [{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: 'prod_team' }],
 			now: () => new Date('2026-05-23T00:00:00.000Z')
 		});
@@ -249,6 +253,7 @@ describe('reconcileOrganizationBilling', () => {
 			orgId: 'org-1',
 			store,
 			provider: createProvider(),
+			subscription: createSubscriptionPort(),
 			priceCatalog: [{ priceId: 'price_unit', commercialPlan: 'unit', stripeProductId: 'prod_unit' }],
 			now: () => new Date('2026-05-23T00:00:00.000Z')
 		});
@@ -268,6 +273,7 @@ describe('reconcileOrganizationBilling', () => {
 			provider: createProvider({
 				retrieveSubscription: vi.fn().mockResolvedValue({ ...subscription, metadata: { tier: 'team' } })
 			}),
+			subscription: createSubscriptionPort(),
 			priceCatalog: [{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: 'prod_team' }],
 			now: () => new Date('2026-05-23T00:00:00.000Z')
 		});
@@ -288,6 +294,7 @@ describe('reconcileOrganizationBilling', () => {
 					metadata: { orgId: 'org-2', tier: 'team' }
 				})
 			}),
+			subscription: createSubscriptionPort(),
 			priceCatalog: [{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: 'prod_team' }],
 			now: () => new Date('2026-05-23T00:00:00.000Z')
 		});
@@ -309,6 +316,7 @@ describe('reconcileOrganizationBilling', () => {
 					metadata: { orgId: 'org-1', tier: 'unit' }
 				})
 			}),
+			subscription: createSubscriptionPort(),
 			priceCatalog: [{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: 'prod_team' }],
 			now: () => new Date('2026-05-23T00:00:00.000Z')
 		});
@@ -330,6 +338,7 @@ describe('reconcileOrganizationBilling', () => {
 			orgId: 'org-1',
 			store,
 			provider: createProvider(),
+			subscription: createSubscriptionPort(),
 			priceCatalog: [{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: 'prod_team' }],
 			now: () => new Date('2026-05-23T00:00:00.000Z')
 		});
@@ -348,6 +357,7 @@ describe('reconcileOrganizationBilling', () => {
 			provider: createProvider({
 				retrieveSubscription: vi.fn().mockRejectedValue(new Error('Stripe timeout'))
 			}),
+			subscription: createSubscriptionPort(),
 			priceCatalog: [{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: 'prod_team' }],
 			now: () => new Date('2026-05-23T00:00:00.000Z')
 		});

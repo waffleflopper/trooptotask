@@ -77,6 +77,19 @@ describe('supabase billing reconciliation adapter', () => {
 		expect(stub.snapshotQuery.gt).toHaveBeenCalledWith('organization_id', 'org-0');
 	});
 
+	it('ignores malformed candidate rows before merging', async () => {
+		const stub = createSupabaseStub({
+			organizations: { data: [{ id: 'org-3' }, { id: null }, { id: 123 }], error: null },
+			snapshots: { data: [{ organization_id: 'org-2' }, { organization_id: undefined }], error: null }
+		});
+		const store = createSupabaseBillingReconciliationStore(stub.supabase as never);
+
+		await expect(store.listCandidates({ limit: 10, cursor: null })).resolves.toEqual([
+			{ orgId: 'org-2' },
+			{ orgId: 'org-3' }
+		]);
+	});
+
 	it('surfaces billing snapshot candidate query failures', async () => {
 		const stub = createSupabaseStub({
 			organizations: { data: [{ id: 'org-1' }], error: null },

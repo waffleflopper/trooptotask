@@ -96,7 +96,20 @@ describe('billing reconciliation endpoint', () => {
 		provider.listSubscriptionsForCustomer.mockResolvedValue([]);
 	});
 
-	it('rejects requests without a configured bearer token', async () => {
+	it('rejects requests without a bearer token', async () => {
+		await expect(
+			_runBillingReconciliationEndpointCore({
+				authHeader: null,
+				secrets: ['expected-secret'],
+				url: new URL('http://localhost/api/billing-reconciliation'),
+				adminClient: {} as never,
+				provider
+			})
+		).rejects.toMatchObject({ status: 401 });
+		expect(storeMock.listCandidates).not.toHaveBeenCalled();
+	});
+
+	it('rejects requests without a matching configured bearer token', async () => {
 		await expect(
 			_runBillingReconciliationEndpointCore({
 				authHeader: 'Bearer wrong',
@@ -107,6 +120,19 @@ describe('billing reconciliation endpoint', () => {
 			})
 		).rejects.toMatchObject({ status: 401 });
 		expect(storeMock.listCandidates).not.toHaveBeenCalled();
+	});
+
+	it('accepts the cron bearer token as an alternate secret', async () => {
+		const result = await _runBillingReconciliationEndpointCore({
+			authHeader: 'Bearer cron-secret',
+			secrets: ['billing-secret', 'cron-secret'],
+			url: new URL('http://localhost/api/billing-reconciliation'),
+			adminClient: {} as never,
+			provider,
+			now: () => new Date('2026-05-23T00:00:00.000Z')
+		});
+
+		expect(result).toMatchObject({ processed: 1, failed: 0 });
 	});
 
 	it('runs a capped authorized batch without returning provider secrets', async () => {

@@ -1,7 +1,8 @@
 import type {
 	BillingReconciliationProvider,
 	BillingReconciliationStore,
-	BillingReconciliationResult
+	BillingReconciliationResult,
+	BillingReconciliationSubscriptionPort
 } from './billingReconciliation';
 import { reconcileOrganizationBilling } from './billingReconciliation';
 import type { PriceCatalogEntry } from '$lib/types/subscription';
@@ -55,6 +56,7 @@ function sanitizeDiagnostic(value: unknown): string {
 export async function runBillingReconciliationBatch(input: {
 	store: BillingReconciliationBatchStore;
 	provider: BillingReconciliationProvider;
+	createSubscriptionPort: (orgId: string) => BillingReconciliationSubscriptionPort;
 	priceCatalog: PriceCatalogEntry[];
 	limit?: number | null;
 	cursor?: string | null;
@@ -81,6 +83,7 @@ export async function runBillingReconciliationBatch(input: {
 				orgId: candidate.orgId,
 				store: input.store,
 				provider: input.provider,
+				subscription: input.createSubscriptionPort(candidate.orgId),
 				priceCatalog: input.priceCatalog,
 				now
 			});

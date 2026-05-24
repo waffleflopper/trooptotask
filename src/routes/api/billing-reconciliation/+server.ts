@@ -6,6 +6,7 @@ import { getAdminClient } from '$lib/server/supabase';
 import { configuredPriceCatalog } from '$lib/server/billing/priceCatalog';
 import { createStripeBillingReconciliationProvider } from '$lib/server/stripe';
 import { createSupabaseBillingReconciliationStore } from '$lib/server/adapters/supabaseBillingReconciliation';
+import { createSupabaseSubscriptionAdapter } from '$lib/server/adapters/supabaseSubscription';
 import {
 	normalizeBillingReconciliationBatchLimit,
 	runBillingReconciliationBatch,
@@ -57,6 +58,7 @@ export async function _runBillingReconciliationEndpointCore(input: {
 	return runBillingReconciliationBatch({
 		store: createSupabaseBillingReconciliationStore(input.adminClient),
 		provider: input.provider ?? createStripeBillingReconciliationProvider(),
+		createSubscriptionPort: (orgId) => createSupabaseSubscriptionAdapter(input.adminClient, orgId),
 		priceCatalog: configuredPriceCatalog,
 		limit,
 		cursor,

@@ -132,12 +132,21 @@ export function createStripeBillingReconciliationProvider() {
 		},
 
 		async listSubscriptionsForCustomer(customerId: string): Promise<BillingReconciliationProviderSubscription[]> {
-			const subscriptions = await stripe.subscriptions.list({
-				customer: customerId,
-				status: 'all',
-				limit: 100
-			});
-			return subscriptions.data.map(mapProviderSubscription);
+			const subscriptions: Stripe.Subscription[] = [];
+			let startingAfter: string | undefined;
+
+			do {
+				const page = await stripe.subscriptions.list({
+					customer: customerId,
+					status: 'all',
+					limit: 100,
+					...(startingAfter ? { starting_after: startingAfter } : {})
+				});
+				subscriptions.push(...page.data);
+				startingAfter = page.has_more ? page.data.at(-1)?.id : undefined;
+			} while (startingAfter);
+
+			return subscriptions.map(mapProviderSubscription);
 		}
 	};
 }

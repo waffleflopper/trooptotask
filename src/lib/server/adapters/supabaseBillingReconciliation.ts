@@ -22,6 +22,14 @@ export function _mergeBillingReconciliationCandidateIds(input: {
 	return merged.slice(0, input.limit).map((orgId) => ({ orgId }));
 }
 
+function billingReconciliationCandidateId(
+	row: Record<string, unknown>,
+	field: 'id' | 'organization_id'
+): string | null {
+	const value = row[field];
+	return typeof value === 'string' ? value : null;
+}
+
 export function createSupabaseBillingReconciliationStore(supabase: SupabaseClient): BillingReconciliationBatchStore {
 	return {
 		async listCandidates(input) {
@@ -61,8 +69,12 @@ export function createSupabaseBillingReconciliationStore(supabase: SupabaseClien
 			}
 
 			return _mergeBillingReconciliationCandidateIds({
-				organizationIds: (organizationResult.data ?? []).map((row) => row.id as string),
-				snapshotOrganizationIds: (snapshotResult.data ?? []).map((row) => row.organization_id as string),
+				organizationIds: (organizationResult.data ?? []).flatMap(
+					(row) => billingReconciliationCandidateId(row, 'id') ?? []
+				),
+				snapshotOrganizationIds: (snapshotResult.data ?? []).flatMap(
+					(row) => billingReconciliationCandidateId(row, 'organization_id') ?? []
+				),
 				limit: input.limit
 			});
 		},

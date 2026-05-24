@@ -9,6 +9,7 @@ import { summarizeBillingCancellation } from '$lib/server/core/useCases/billingS
 import { reconcileOrganizationBilling } from '$lib/server/core/useCases/billingReconciliation';
 import { configuredPriceCatalog } from '$lib/server/billing/priceCatalog';
 import { createSupabaseBillingReconciliationStore } from '$lib/server/adapters/supabaseBillingReconciliation';
+import { createSupabaseSubscriptionAdapter } from '$lib/server/adapters/supabaseSubscription';
 import type { BillingSnapshot } from '$lib/types/subscription';
 
 const TIER_RANK: Record<string, number> = { free: 1, team: 2, unit: 3 };
@@ -379,6 +380,7 @@ export const actions: Actions = {
 				orgId,
 				store: createSupabaseBillingReconciliationStore(ctx.adminClient),
 				provider: createStripeBillingReconciliationProvider(),
+				subscription: createSupabaseSubscriptionAdapter(ctx.adminClient, orgId),
 				priceCatalog: configuredPriceCatalog
 			});
 

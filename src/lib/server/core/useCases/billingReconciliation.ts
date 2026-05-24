@@ -1,6 +1,6 @@
-import { invalidateTierCache } from '$lib/server/subscription';
 import type { BillingSnapshot, SubscriptionStatus, Tier, PriceCatalogEntry } from '$lib/types/subscription';
 import { lookupPriceCatalogEntry } from '$lib/server/billing/priceCatalog';
+import type { SubscriptionPort } from '$lib/server/core/ports';
 
 export interface BillingReconciliationOrganizationRow {
 	id: string;
@@ -54,6 +54,8 @@ export interface BillingReconciliationProvider {
 	retrieveSubscription(subscriptionId: string): Promise<BillingReconciliationProviderSubscription | null>;
 	listSubscriptionsForCustomer(customerId: string): Promise<BillingReconciliationProviderSubscription[]>;
 }
+
+export type BillingReconciliationSubscriptionPort = Pick<SubscriptionPort, 'invalidateTierCache'>;
 
 export interface BillingReconciliationStore {
 	readOrganization(orgId: string): Promise<BillingReconciliationOrganizationRow | null>;
@@ -323,6 +325,7 @@ export async function reconcileOrganizationBilling(input: {
 	orgId: string;
 	store: BillingReconciliationStore;
 	provider: BillingReconciliationProvider;
+	subscription: BillingReconciliationSubscriptionPort;
 	priceCatalog: PriceCatalogEntry[];
 	now?: () => Date;
 }): Promise<BillingReconciliationResult> {
@@ -416,7 +419,7 @@ export async function reconcileOrganizationBilling(input: {
 		subscription_status: legacyOrganizationStatus(subscription.status),
 		current_period_end: subscription.status === 'canceled' ? null : subscription.currentPeriodEnd
 	});
-	invalidateTierCache(input.orgId);
+	await input.subscription.invalidateTierCache();
 
 	return {
 		ok: true,

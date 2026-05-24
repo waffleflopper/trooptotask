@@ -159,6 +159,10 @@ function legacyOrganizationStatus(status: Stripe.Subscription.Status): string | 
 	}
 }
 
+function legacyOrganizationSubscriptionId(status: Stripe.Subscription.Status, subscriptionId: string): string | null {
+	return status === 'incomplete_expired' || status === 'canceled' ? null : subscriptionId;
+}
+
 function compareStripeEventPosition(
 	leftCreatedAt: string | null,
 	leftId: string | null,
@@ -486,7 +490,7 @@ async function handleSubscriptionUpdated(
 	await updateLegacyOrganizationBillingMirror(supabase, orgId, {
 		tier: commercialPlan,
 		stripe_customer_id: typeof subscription.customer === 'string' ? subscription.customer : subscription.customer?.id,
-		stripe_subscription_id: subscription.id,
+		stripe_subscription_id: legacyOrganizationSubscriptionId(subscription.status, subscription.id),
 		subscription_status: legacyStatus,
 		current_period_end: periodEnd
 	});

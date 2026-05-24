@@ -140,6 +140,10 @@ function legacyOrganizationStatus(status: SubscriptionStatus): string | null {
 	}
 }
 
+function legacyOrganizationSubscriptionId(status: SubscriptionStatus, subscriptionId: string): string | null {
+	return status === 'incomplete_expired' || status === 'canceled' ? null : subscriptionId;
+}
+
 function retainsCommercialPlan(status: SubscriptionStatus): boolean {
 	return status === 'active' || status === 'trialing' || status === 'paused' || status === 'past_due';
 }
@@ -529,7 +533,7 @@ export async function reconcileOrganizationBilling(input: {
 		await input.store.updateOrganizationBillingMirror(input.orgId, {
 			tier: commercialPlan,
 			stripe_customer_id: subscription.customerId,
-			stripe_subscription_id: reconciledSubscriptionId(subscription),
+			stripe_subscription_id: legacyOrganizationSubscriptionId(subscription.status, subscription.id),
 			subscription_status: legacyOrganizationStatus(subscription.status),
 			current_period_end: subscription.status === 'canceled' ? null : subscription.currentPeriodEnd
 		});

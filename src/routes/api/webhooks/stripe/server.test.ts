@@ -730,6 +730,7 @@ describe('POST /api/webhooks/stripe', () => {
 			expect.objectContaining({
 				values: expect.objectContaining({
 					tier: 'team',
+					stripe_subscription_id: 'sub_123',
 					subscription_status: 'active'
 				})
 			})

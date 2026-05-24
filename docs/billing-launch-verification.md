@@ -72,6 +72,19 @@ TroopToTask intentionally processes only these Stripe events:
 
 Unsupported events should remain ignored, not failed. If the Stripe webhook endpoint also sends events such as `customer.subscription.created` or `invoice.paid`, verify they create ledger rows with `processing_state = ignored` and a support-safe `processing_result`.
 
+## Stripe Subscription ID Retention Policy
+
+`organization_billing_snapshots` is the exact Stripe-facing support and reconciliation record. A non-null `stripe_subscription_id` there does not grant paid access by itself; access comes from the effective billing policy, subscription status, and collection status.
+
+| Stripe subscription state | Billing snapshot subscription ID | Legacy organization mirror | Access policy |
+| --- | --- | --- | --- |
+| `paused` | Retain the Stripe subscription ID. | Retain the Stripe subscription ID and paid tier, using the compatibility status that keeps existing portal and support actions available. | Treat as paid/current unless a later product decision changes paused access. |
+| `unpaid` | Retain the Stripe subscription ID for support, reconciliation, and recovery. | Retain the Stripe subscription ID, but downgrade the legacy tier to `free` and use a non-active compatibility status so old access paths do not grant paid access. | No paid access; show payment recovery. |
+| `incomplete_expired` | Retain the expired Stripe subscription ID for audit/support correlation. | Clear the legacy `stripe_subscription_id`, set the legacy tier to `free`, and leave the compatibility status non-active/null. | No paid access; start a new checkout instead of trying to resume the expired subscription. |
+| `canceled` / subscription deleted | Clear the billing snapshot subscription ID. Retain support-visible cancellation timing where available. | Clear the legacy subscription mirror. | No paid access; start a new checkout unless another access source applies. |
+
+The legacy organization mirror is not the source of truth for exact Stripe lifecycle state. It exists only for older compatibility paths until those paths fully read billing snapshots.
+
 ## Scenario Matrix
 
 Record evidence for every scenario in this table. Use one fresh test organization when possible so the organization, Stripe customer, subscription, event ledger, and admin diagnostics are easy to correlate.

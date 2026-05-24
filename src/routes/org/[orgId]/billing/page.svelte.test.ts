@@ -149,7 +149,7 @@ describe('billing page toolbar', () => {
 		['canceled', 'Subscription canceled.', 'start a new checkout'],
 		['incomplete', 'Payment is pending.', 'Complete checkout'],
 		['incomplete_expired', 'Checkout expired.', 'start a new checkout'],
-		['paused', 'Subscription paused.', 'Open the billing portal']
+		['paused', 'Subscription paused.', 'Current policy keeps paid access available']
 	])('shows owner-safe status copy for %s subscriptions', (subscriptionStatus, title, detail) => {
 		render(Page, {
 			props: {

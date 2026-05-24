@@ -286,7 +286,7 @@
 			case 'paused':
 				return {
 					title: 'Subscription paused.',
-					description: 'Stripe reports this subscription is paused. Access depends on the current billing policy.',
+					description: 'Stripe reports this subscription is paused. Current policy keeps paid access available.',
 					statusLabel: 'Paused',
 					variant: 'warning',
 					actionHint: 'Open the billing portal to resume or update the subscription.'

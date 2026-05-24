@@ -49,6 +49,7 @@ import {
 	createStripeBillingReconciliationProvider,
 	validateCheckoutPriceForSecretMode
 } from './stripe';
+import type { CheckoutSessionConfiguration } from './billing/checkoutConfiguration';
 
 beforeEach(() => {
 	vi.clearAllMocks();
@@ -77,6 +78,12 @@ function stripeSubscription(id: string) {
 		metadata: { orgId: 'org-1', tier: 'team' }
 	};
 }
+
+const taxDisabledCheckoutConfiguration: CheckoutSessionConfiguration = {
+	billingAddressCollection: 'auto',
+	automaticTax: { enabled: false },
+	customerUpdate: { address: 'auto', name: 'auto' }
+};
 
 describe('createStripeBillingReconciliationProvider', () => {
 	it('paginates customer subscriptions before mapping provider subscriptions', async () => {
@@ -128,7 +135,8 @@ describe('createCheckoutSession', () => {
 				checkoutAttemptId: 'attempt-123',
 				customerEmail: 'owner@example.test',
 				successUrl: 'http://localhost/success',
-				cancelUrl: 'http://localhost/canceled'
+				cancelUrl: 'http://localhost/canceled',
+				checkoutConfiguration: taxDisabledCheckoutConfiguration
 			})
 		).resolves.toEqual({
 			url: 'https://checkout.stripe.test/session',
@@ -143,6 +151,9 @@ describe('createCheckoutSession', () => {
 				customer: 'cus_created',
 				client_reference_id: 'org-1',
 				line_items: [{ price: 'price_team', quantity: 1 }],
+				billing_address_collection: 'auto',
+				automatic_tax: { enabled: false },
+				customer_update: { address: 'auto', name: 'auto' },
 				metadata: {
 					orgId: 'org-1',
 					tier: 'team',
@@ -163,6 +174,44 @@ describe('createCheckoutSession', () => {
 		);
 	});
 
+	it('passes automatic tax and required billing address collection to Stripe when configured', async () => {
+		pricesRetrieveMock.mockResolvedValue({
+			id: 'price_team',
+			livemode: false,
+			active: true,
+			recurring: { interval: 'month' }
+		});
+		customersCreateMock.mockResolvedValue({ id: 'cus_created' });
+		checkoutCreateMock.mockResolvedValue({
+			id: 'cs_test_123',
+			url: 'https://checkout.stripe.test/session',
+			expires_at: null
+		});
+
+		await createCheckoutSession({
+			orgId: 'org-1',
+			orgName: 'Alpha Company',
+			tier: 'team',
+			priceId: 'price_team',
+			customerEmail: 'owner@example.test',
+			successUrl: 'http://localhost/success',
+			cancelUrl: 'http://localhost/canceled',
+			checkoutConfiguration: {
+				billingAddressCollection: 'required',
+				automaticTax: { enabled: true },
+				customerUpdate: { address: 'auto', name: 'auto' }
+			}
+		});
+
+		expect(checkoutCreateMock).toHaveBeenCalledWith(
+			expect.objectContaining({
+				billing_address_collection: 'required',
+				automatic_tax: { enabled: true },
+				customer_update: { address: 'auto', name: 'auto' }
+			})
+		);
+	});
+
 	it('validates checkout price mode before creating a customer or session', async () => {
 		pricesRetrieveMock.mockResolvedValue({
 			id: 'price_live',
@@ -179,7 +228,8 @@ describe('createCheckoutSession', () => {
 				priceId: 'price_live',
 				customerEmail: 'owner@example.test',
 				successUrl: 'http://localhost/success',
-				cancelUrl: 'http://localhost/canceled'
+				cancelUrl: 'http://localhost/canceled',
+				checkoutConfiguration: taxDisabledCheckoutConfiguration
 			})
 		).rejects.toThrow('belongs to live mode but the Stripe secret key is test mode');
 

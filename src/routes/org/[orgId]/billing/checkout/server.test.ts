@@ -2,15 +2,24 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { CHECKOUT_ATTEMPTS_TABLE } from '$lib/server/core/useCases/billingCheckoutAttempts';
 
-const { buildRouteContextMock, checkoutCatalogMock } = vi.hoisted(() => ({
-	buildRouteContextMock: vi.fn(),
-	checkoutCatalogMock: [] as Array<{
-		priceId: string;
-		commercialPlan: 'team' | 'unit';
-		stripeProductId: string | null;
-		activeForCheckout: boolean;
-	}>
-}));
+const { buildRouteContextMock, checkoutCatalogMock, checkoutConfigurationMock, checkoutConfigurationErrorMock } =
+	vi.hoisted(() => ({
+		buildRouteContextMock: vi.fn(),
+		checkoutCatalogMock: [] as Array<{
+			priceId: string;
+			commercialPlan: 'team' | 'unit';
+			stripeProductId: string | null;
+			activeForCheckout: boolean;
+		}>,
+		checkoutConfigurationMock: {
+			billingAddressCollection: 'auto' as 'auto' | 'required',
+			automaticTax: { enabled: false },
+			customerUpdate: { address: 'auto' as const, name: 'auto' as const }
+		},
+		checkoutConfigurationErrorMock: {
+			message: ''
+		}
+	}));
 
 vi.mock('$lib/config/billing', () => ({
 	isBillingEnabled: true
@@ -35,6 +44,22 @@ vi.mock('$lib/server/billing/priceCatalog', async () => {
 	return {
 		...actual,
 		getConfiguredPriceCatalog: () => checkoutCatalogMock
+	};
+});
+
+vi.mock('$lib/server/billing/checkoutConfiguration', async () => {
+	const actual = await vi.importActual<typeof import('$lib/server/billing/checkoutConfiguration')>(
+		'$lib/server/billing/checkoutConfiguration'
+	);
+
+	return {
+		...actual,
+		resolveCheckoutSessionConfiguration: () => {
+			if (checkoutConfigurationErrorMock.message) {
+				throw new actual.CheckoutConfigurationError(checkoutConfigurationErrorMock.message);
+			}
+			return checkoutConfigurationMock;
+		}
 	};
 });
 
@@ -74,6 +99,11 @@ describe('POST /billing/checkout', () => {
 		vi.clearAllMocks();
 		clearPublicOriginConfig();
 		configureCheckoutPriceCatalog();
+		checkoutConfigurationErrorMock.message = '';
+		checkoutConfigurationMock.billingAddressCollection = 'auto';
+		checkoutConfigurationMock.automaticTax.enabled = false;
+		checkoutConfigurationMock.customerUpdate.address = 'auto';
+		checkoutConfigurationMock.customerUpdate.name = 'auto';
 	});
 
 	afterEach(() => {
@@ -109,7 +139,12 @@ describe('POST /billing/checkout', () => {
 			args: [
 				expect.objectContaining({
 					tier: 'team',
-					priceId: 'price_team_current'
+					priceId: 'price_team_current',
+					checkoutConfiguration: {
+						billingAddressCollection: 'auto',
+						automaticTax: { enabled: false },
+						customerUpdate: { address: 'auto', name: 'auto' }
+					}
 				})
 			]
 		});
@@ -117,6 +152,68 @@ describe('POST /billing/checkout', () => {
 			stripe_customer_id: 'cus_test_123',
 			tier: 'free'
 		});
+	});
+
+	it('passes verified automatic-tax checkout options from server configuration', async () => {
+		checkoutConfigurationMock.billingAddressCollection = 'required';
+		checkoutConfigurationMock.automaticTax.enabled = true;
+		const ctx = createTestContext();
+		seedBillingOrganization(ctx);
+		buildRouteContextMock.mockResolvedValue(ctx);
+
+		const response = await POST({
+			request: new Request(`http://localhost/org/${ctx.auth.orgId}/billing/checkout`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ tier: 'team' })
+			}),
+			locals: {
+				user: { email: 'owner@example.com' }
+			},
+			params: { orgId: ctx.auth.orgId },
+			url: new URL(`http://localhost/org/${ctx.auth.orgId}/billing/checkout`)
+		} as never);
+
+		expect(response.status).toBe(200);
+		expect(ctx.billingPort.calls).toContainEqual({
+			method: 'createCheckoutSession',
+			args: [
+				expect.objectContaining({
+					checkoutConfiguration: {
+						billingAddressCollection: 'required',
+						automaticTax: { enabled: true },
+						customerUpdate: { address: 'auto', name: 'auto' }
+					}
+				})
+			]
+		});
+	});
+
+	it('fails before session creation when automatic tax lacks dashboard verification', async () => {
+		checkoutConfigurationErrorMock.message =
+			'Automatic tax is enabled, but Stripe Tax dashboard setup has not been marked verified';
+		const ctx = createTestContext();
+		seedBillingOrganization(ctx);
+		buildRouteContextMock.mockResolvedValue(ctx);
+
+		const response = await POST({
+			request: new Request(`http://localhost/org/${ctx.auth.orgId}/billing/checkout`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ tier: 'team' })
+			}),
+			locals: {
+				user: { email: 'owner@example.com' }
+			},
+			params: { orgId: ctx.auth.orgId },
+			url: new URL(`http://localhost/org/${ctx.auth.orgId}/billing/checkout`)
+		} as never);
+
+		expect(response.status).toBe(500);
+		expect(await response.json()).toEqual({
+			error: 'Checkout tax configuration needs support review before checkout can start.'
+		});
+		expect(ctx.billingPort.calls).toEqual([]);
 	});
 
 	it('rejects unsupported commercial plan selections before creating a checkout session', async () => {

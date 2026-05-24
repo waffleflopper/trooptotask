@@ -48,6 +48,8 @@ Use the Stripe Dashboard in test mode:
 
 - Confirm the blue test/sandbox banner is visible before changing settings.
 - Confirm `STRIPE_TEAM_PRICE_ID` and `STRIPE_UNIT_PRICE_ID` point to active recurring monthly prices.
+- Confirm `STRIPE_AUTOMATIC_TAX_ENABLED` is `false` unless Robert has completed the Stripe Tax launch review.
+- If `STRIPE_AUTOMATIC_TAX_ENABLED=true`, confirm `STRIPE_TAX_DASHBOARD_VERIFIED=true` only after checking Stripe Tax registrations, product tax behavior, and required customer address behavior in the Stripe Dashboard.
 - Confirm the webhook endpoint for `/api/webhooks/stripe` is enabled for the handled events listed below.
 - Confirm the Customer Portal supports invoice history, payment method updates, customer information updates, and subscription cancellation.
 - For portal-driven plan changes, enable Customer Portal subscription updates and make the Team and Unit products eligible. If this is not enabled, plan changes must be verified through the Stripe Dashboard or API instead of the portal.
@@ -58,6 +60,20 @@ Useful Stripe docs:
 - [Simulate subscriptions](https://docs.stripe.com/billing/testing/test-clocks/simulate-subscriptions)
 - [API and advanced Test Clock usage](https://docs.stripe.com/billing/testing/test-clocks/api-advanced-usage)
 - [Billing integration testing](https://docs.stripe.com/billing/testing)
+
+## Tax Launch Decision
+
+TroopToTask checkout now always sends explicit Stripe Checkout tax and address options. Tax-disabled checkout is the default launch-safe state: `automatic_tax.enabled=false`, `billing_address_collection=auto`, and customer address/name updates are saved automatically when Checkout collects them.
+
+Automatic tax is a human launch decision. Do not set `STRIPE_TAX_DASHBOARD_VERIFIED=true` until Robert has confirmed all of these in the Stripe Dashboard:
+
+- Stripe Tax is enabled for the correct test or live account mode.
+- The business address and tax registrations are configured for the jurisdictions Robert intends to support.
+- Team and Unit products have the intended tax behavior.
+- Checkout address collection has been tested in Stripe test mode for a real TroopToTask organization.
+- The first test invoice shows the expected tax behavior before live billing is enabled.
+
+If `STRIPE_AUTOMATIC_TAX_ENABLED=true` without `STRIPE_TAX_DASHBOARD_VERIFIED=true`, checkout must fail before creating a Stripe session. This is intentional; it prevents automatic tax from being silently enabled based on incomplete dashboard state.
 
 ## Expected Webhook Events
 

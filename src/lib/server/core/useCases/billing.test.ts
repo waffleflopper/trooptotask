@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
+import { TAX_DISABLED_CHECKOUT_SESSION_CONFIGURATION } from '$lib/server/billing/checkoutConfiguration';
 import { checkout, portal, cancel } from './billing';
 import { CHECKOUT_ATTEMPTS_TABLE, type CheckoutAttemptRow } from './billingCheckoutAttempts';
 
@@ -31,7 +32,8 @@ describe('billing use cases', () => {
 				priceId: 'price_team',
 				checkoutAttemptId: result.checkoutAttemptId,
 				customerEmail: 'owner@test.com',
-				orgName: 'Test Org'
+				orgName: 'Test Org',
+				checkoutConfiguration: TAX_DISABLED_CHECKOUT_SESSION_CONFIGURATION
 			});
 			expect(ctx.billingPort.calls[0].args[0]).toMatchObject({
 				successUrl: `http://localhost/org/org-1/billing/success?checkout_attempt_id=${result.checkoutAttemptId}`,
@@ -64,6 +66,29 @@ describe('billing use cases', () => {
 					}
 				}
 			]);
+		});
+
+		it('passes caller-supplied checkout configuration to the billing port', async () => {
+			const ctx = buildContext();
+			const checkoutConfiguration = {
+				billingAddressCollection: 'required' as const,
+				automaticTax: { enabled: true },
+				customerUpdate: { address: 'auto' as const, name: 'auto' as const }
+			};
+
+			await checkout(ctx, {
+				tier: 'team',
+				priceId: 'price_team',
+				customerEmail: 'owner@test.com',
+				orgName: 'Test Org',
+				successUrl: 'http://localhost/success',
+				cancelUrl: 'http://localhost/canceled',
+				checkoutConfiguration
+			});
+
+			expect(ctx.billingPort.calls[0].args[0]).toMatchObject({
+				checkoutConfiguration
+			});
 		});
 
 		it('allows checkout when MFA assurance satisfies the sensitive-action check', async () => {

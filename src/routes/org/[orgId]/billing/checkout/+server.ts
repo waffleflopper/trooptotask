@@ -3,6 +3,10 @@ import type { RequestHandler } from './$types';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { isBillingEnabled } from '$lib/config/billing';
 import { buildRouteContext, handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
+import {
+	CheckoutConfigurationError,
+	resolveCheckoutSessionConfiguration
+} from '$lib/server/billing/checkoutConfiguration';
 import { getConfiguredPriceCatalog, lookupCheckoutPriceCatalogEntry } from '$lib/server/billing/priceCatalog';
 import { checkout } from '$lib/server/core/useCases/billing';
 import { persistBillingCustomerId, readBillingOrganization } from '$lib/server/core/useCases/billingOrganization';
@@ -45,6 +49,16 @@ export const POST: RequestHandler = async (event) => {
 
 		const successUrl = makePublicAppUrl(`/org/${orgId}/billing/success`, { inboundOrigin: event.url.origin });
 		const cancelUrl = makePublicAppUrl(`/org/${orgId}/billing/canceled`, { inboundOrigin: event.url.origin });
+		let checkoutConfiguration;
+		try {
+			checkoutConfiguration = resolveCheckoutSessionConfiguration();
+		} catch (configError) {
+			if (configError instanceof CheckoutConfigurationError) {
+				console.error(`[billing-checkout] ${configError.message}`);
+				fail(500, 'Checkout tax configuration needs support review before checkout can start.');
+			}
+			throw configError;
+		}
 		const org = await readBillingOrganization({ auth: ctx.auth, store: ctx.rawStore });
 
 		const email = event.locals.user?.email;
@@ -63,7 +77,8 @@ export const POST: RequestHandler = async (event) => {
 						orgName: org.name,
 						existingCustomerId: org.stripeCustomerId ?? undefined,
 						successUrl,
-						cancelUrl
+						cancelUrl,
+						checkoutConfiguration
 					}),
 				audit: { action: 'billing.checkout', resourceType: 'organization' }
 			},

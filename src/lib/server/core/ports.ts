@@ -1,5 +1,6 @@
 import type { EffectiveTier, ReadOnlyReason } from '$lib/types/subscription';
 import type { CapabilityMap, CompatibilityLaneMap, ScopeSet } from '$lib/access/memberAccessShape';
+import type { CheckoutSessionConfiguration } from '$lib/server/billing/checkoutConfiguration';
 import type { SensitiveActionAuthorizer } from '$lib/server/sensitiveActionAuthorizer';
 
 export type FeatureArea = 'calendar' | 'personnel' | 'training' | 'critical-tasks' | 'onboarding' | 'rating-scheme';
@@ -179,6 +180,7 @@ export interface BillingPort {
 		existingCustomerId?: string;
 		successUrl: string;
 		cancelUrl: string;
+		checkoutConfiguration: CheckoutSessionConfiguration;
 	}): Promise<{ url: string; customerId: string; sessionId?: string; expiresAt?: string | null }>;
 	createPortalSession(customerId: string, returnUrl: string): Promise<{ url: string }>;
 	cancelSubscription(subscriptionId: string): Promise<void>;

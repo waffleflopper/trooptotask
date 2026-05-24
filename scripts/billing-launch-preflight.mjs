@@ -71,6 +71,23 @@ function assertEnv(results, env) {
 			: result('fail', 'Stripe webhook secret shape', 'missing or unexpected shape')
 	);
 
+	const automaticTaxEnabled = env.STRIPE_AUTOMATIC_TAX_ENABLED === 'true';
+	const taxDashboardVerified = env.STRIPE_TAX_DASHBOARD_VERIFIED === 'true';
+	results.push(
+		automaticTaxEnabled
+			? result('warn', 'Stripe automatic tax app flag', 'enabled; requires dashboard verification evidence')
+			: result('pass', 'Stripe automatic tax app flag', 'disabled')
+	);
+	results.push(
+		automaticTaxEnabled
+			? taxDashboardVerified
+				? result('pass', 'Stripe Tax dashboard verification flag', 'marked verified')
+				: result('fail', 'Stripe Tax dashboard verification flag', 'required when automatic tax is enabled')
+			: taxDashboardVerified
+				? result('warn', 'Stripe Tax dashboard verification flag', 'marked verified but automatic tax is disabled')
+				: result('pass', 'Stripe Tax dashboard verification flag', 'not required while automatic tax is disabled')
+	);
+
 	results.push(
 		env.BILLING_RECONCILIATION_SECRET || env.CRON_SECRET
 			? result('pass', 'Billing reconciliation authorization', 'BILLING_RECONCILIATION_SECRET or CRON_SECRET present')

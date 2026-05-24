@@ -1,5 +1,6 @@
 import Stripe from 'stripe';
 import { STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET } from '$env/static/private';
+import type { CheckoutSessionConfiguration } from '$lib/server/billing/checkoutConfiguration';
 import type { BillingReconciliationProviderSubscription } from '$lib/server/core/useCases/billingReconciliation';
 
 function getStripe(): Stripe {
@@ -17,6 +18,7 @@ export async function createCheckoutSession(options: {
 	existingCustomerId?: string;
 	successUrl: string;
 	cancelUrl: string;
+	checkoutConfiguration: CheckoutSessionConfiguration;
 }): Promise<{ url: string; customerId: string; sessionId: string; expiresAt: string | null }> {
 	const stripe = getStripe();
 
@@ -40,6 +42,9 @@ export async function createCheckoutSession(options: {
 		line_items: [{ price: price.id, quantity: 1 }],
 		success_url: options.successUrl,
 		cancel_url: options.cancelUrl,
+		billing_address_collection: options.checkoutConfiguration.billingAddressCollection,
+		automatic_tax: options.checkoutConfiguration.automaticTax,
+		customer_update: options.checkoutConfiguration.customerUpdate,
 		metadata: {
 			orgId: options.orgId,
 			tier: options.tier,

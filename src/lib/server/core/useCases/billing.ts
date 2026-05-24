@@ -9,6 +9,10 @@
  * `inMemory.ts`.
  */
 import type { AuditPort, AuthContext, BillingPort, DataStore } from '$lib/server/core/ports';
+import {
+	TAX_DISABLED_CHECKOUT_SESSION_CONFIGURATION,
+	type CheckoutSessionConfiguration
+} from '$lib/server/billing/checkoutConfiguration';
 import { fail } from '$lib/server/core/errors';
 import {
 	appendCheckoutAttemptId,
@@ -48,6 +52,7 @@ export interface CheckoutInput {
 	existingCustomerId?: string;
 	successUrl: string;
 	cancelUrl: string;
+	checkoutConfiguration?: CheckoutSessionConfiguration;
 	now?: Date;
 }
 
@@ -80,6 +85,7 @@ export async function checkout(
 		const result = await ctx.billing.createCheckoutSession({
 			orgId: ctx.auth.orgId,
 			...input,
+			checkoutConfiguration: input.checkoutConfiguration ?? TAX_DISABLED_CHECKOUT_SESSION_CONFIGURATION,
 			checkoutAttemptId: checkoutAttempt.id,
 			successUrl: appendCheckoutAttemptId(input.successUrl, checkoutAttempt.id),
 			cancelUrl: appendCheckoutAttemptId(input.cancelUrl, checkoutAttempt.id)

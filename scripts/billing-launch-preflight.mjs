@@ -7,10 +7,12 @@ const HANDLED_WEBHOOK_EVENTS = new Set([
 	'checkout.session.completed',
 	'customer.subscription.updated',
 	'customer.subscription.deleted',
-	'invoice.payment_failed'
+	'invoice.payment_failed',
+	'invoice.payment_succeeded',
+	'invoice.paid'
 ]);
 
-const OPTIONAL_STRIPE_EVENTS = new Set(['customer.subscription.created', 'invoice.paid']);
+const OPTIONAL_STRIPE_EVENTS = new Set(['customer.subscription.created']);
 
 function parseArgs(argv) {
 	return {

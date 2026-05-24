@@ -4,9 +4,10 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { helpStore } from '$lib/stores/help.svelte';
 import HelpPanel from './HelpPanel.svelte';
 
-afterEach(() => {
+afterEach(async () => {
 	helpStore.close();
 	cleanup();
+	await new Promise((resolve) => setTimeout(resolve, 30));
 });
 
 describe('HelpPanel', () => {

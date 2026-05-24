@@ -2,11 +2,79 @@ import { error, fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 import { loadWithAdminContext, adminAction } from '$lib/server/adapters/adminAdapter';
 import { validateUUID } from '$lib/server/validation';
-import { pauseSubscription, resumeSubscription } from '$lib/server/stripe';
+import { createStripeBillingReconciliationProvider, pauseSubscription, resumeSubscription } from '$lib/server/stripe';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination';
 import { invalidateTierCache } from '$lib/server/subscription';
+import { summarizeBillingCancellation } from '$lib/server/core/useCases/billingState';
+import { reconcileOrganizationBilling } from '$lib/server/core/useCases/billingReconciliation';
+import { configuredPriceCatalog } from '$lib/server/billing/priceCatalog';
+import { createSupabaseBillingReconciliationStore } from '$lib/server/adapters/supabaseBillingReconciliation';
+import { createSupabaseSubscriptionAdapter } from '$lib/server/adapters/supabaseSubscription';
+import type { BillingSnapshot } from '$lib/types/subscription';
 
 const TIER_RANK: Record<string, number> = { free: 1, team: 2, unit: 3 };
+
+function sanitizeBillingReconciliationDiagnostic(value: unknown): string {
+	const message = value instanceof Error ? value.message : String(value ?? 'unknown_error');
+	return message
+		.replace(/[sr]k_(live|test)_[A-Za-z0-9_]+/g, '[redacted_stripe_key]')
+		.replace(/whsec_\S+/g, '[redacted_webhook_secret]')
+		.replace(/bearer\s+\S+/gi, 'bearer [redacted]');
+}
+
+type AdminOrganizationBillingSnapshotRow = {
+	organization_id: string;
+	source: BillingSnapshot['source'];
+	commercial_plan: BillingSnapshot['commercialPlan'];
+	stripe_customer_id: string | null;
+	stripe_subscription_id: string | null;
+	stripe_product_id: string | null;
+	stripe_price_id: string | null;
+	subscription_status: BillingSnapshot['subscriptionStatus'];
+	collection_status: string | null;
+	current_period_start: string | null;
+	current_period_end: string | null;
+	cancel_at_period_end: boolean | null;
+	canceled_at: string | null;
+	trial_end: string | null;
+	sync_status: BillingSnapshot['syncStatus'];
+	last_stripe_event_id: string | null;
+	last_stripe_event_type: string | null;
+	last_stripe_event_created_at: string | null;
+	last_processed_at: string | null;
+	last_reconciled_at: string | null;
+	reconciliation_result: string | null;
+	drift_detected: boolean | null;
+};
+
+function mapAdminOrganizationBillingSnapshot(row: AdminOrganizationBillingSnapshotRow): BillingSnapshot {
+	return {
+		organizationId: row.organization_id,
+		source: row.source,
+		commercialPlan: row.commercial_plan,
+		stripeCustomerId: row.stripe_customer_id,
+		stripeSubscriptionId: row.stripe_subscription_id,
+		stripeProductId: row.stripe_product_id,
+		stripePriceId: row.stripe_price_id,
+		subscriptionStatus: row.subscription_status,
+		collectionStatus: row.collection_status,
+		currentPeriodStart: row.current_period_start,
+		currentPeriodEnd: row.current_period_end,
+		cancelAtPeriodEnd: row.cancel_at_period_end ?? false,
+		canceledAt: row.canceled_at,
+		trialEnd: row.trial_end,
+		syncStatus: row.sync_status,
+		lastStripeEventId: row.last_stripe_event_id,
+		lastStripeEventType: row.last_stripe_event_type,
+		lastStripeEventCreatedAt: row.last_stripe_event_created_at,
+		lastProcessedAt: row.last_processed_at,
+		lastReconciledAt: row.last_reconciled_at,
+		reconciliationResult: row.reconciliation_result,
+		driftDetected: row.drift_detected ?? false,
+		giftTier: null,
+		giftExpiresAt: null
+	};
+}
 
 export const load: PageServerLoad = loadWithAdminContext({
 	page: 'organizations',
@@ -55,6 +123,15 @@ export const load: PageServerLoad = loadWithAdminContext({
 			.order('timestamp', { ascending: false })
 			.limit(10);
 
+		const { data: billingSnapshotRow } = await adminClient
+			.from('organization_billing_snapshots')
+			.select(
+				'organization_id, source, commercial_plan, stripe_customer_id, stripe_subscription_id, stripe_product_id, stripe_price_id, subscription_status, collection_status, current_period_start, current_period_end, cancel_at_period_end, canceled_at, trial_end, sync_status, last_stripe_event_id, last_stripe_event_type, last_stripe_event_created_at, last_processed_at, last_reconciled_at, reconciliation_result, drift_detected'
+			)
+			.eq('organization_id', orgId)
+			.maybeSingle<AdminOrganizationBillingSnapshotRow>();
+		const billingSnapshot = billingSnapshotRow ? mapAdminOrganizationBillingSnapshot(billingSnapshotRow) : null;
+
 		const effectiveTier = (org.gift_tier ?? org.tier ?? 'free') as string;
 
 		return {
@@ -69,6 +146,8 @@ export const load: PageServerLoad = loadWithAdminContext({
 				effectiveTier,
 				isSuspended: !!org.suspended_at
 			},
+			billingSnapshot,
+			cancellationSummary: billingSnapshot ? summarizeBillingCancellation(billingSnapshot) : null,
 			members,
 			personnelCount: personnelCount ?? 0,
 			auditEvents: (auditEvents ?? []).map((e) => ({
@@ -296,6 +375,57 @@ export const actions: Actions = {
 			});
 			invalidateTierCache(orgId);
 			return { success: true };
+		}
+	}),
+
+	reconcileBilling: adminAction({
+		page: 'organizations',
+		fn: async (ctx, event) => {
+			const orgId = event.params.orgId as string;
+			if (!validateUUID(orgId)) return fail(400, { error: { message: 'Invalid organization ID' } });
+
+			const result = await reconcileOrganizationBilling({
+				orgId,
+				store: createSupabaseBillingReconciliationStore(ctx.adminClient),
+				provider: createStripeBillingReconciliationProvider(),
+				subscription: createSupabaseSubscriptionAdapter(ctx.adminClient, orgId),
+				priceCatalog: configuredPriceCatalog
+			});
+			const diagnostics = result.diagnostics.map(sanitizeBillingReconciliationDiagnostic);
+
+			ctx.audit({
+				action: 'admin.org.billing_reconcile',
+				resourceType: 'organization',
+				resourceId: orgId,
+				severity: result.ok ? 'info' : 'warning',
+				details: {
+					status: result.status,
+					result: result.result,
+					driftDetected: result.driftDetected,
+					snapshotUpdated: result.snapshotUpdated,
+					diagnostics
+				}
+			});
+
+			if (!result.ok) {
+				return fail(400, {
+					billingReconciliation: {
+						success: false,
+						message: result.result,
+						diagnostics
+					}
+				});
+			}
+
+			return {
+				billingReconciliation: {
+					success: true,
+					status: result.status,
+					message:
+						result.status === 'matched' ? 'Billing already matched Stripe.' : 'Billing snapshot refreshed from Stripe.',
+					diagnostics
+				}
+			};
 		}
 	})
 };

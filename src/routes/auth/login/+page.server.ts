@@ -4,19 +4,35 @@ import { sanitizeString } from '$lib/server/validation';
 import { auditLog } from '$lib/server/auditLog';
 import { getAuthenticatedRedirectPath } from '$lib/server/mfaGate';
 
+function sanitizeNextPath(value: FormDataEntryValue | string | null | undefined): string | null {
+	if (typeof value !== 'string' || !value.startsWith('/') || value.startsWith('//')) return null;
+
+	try {
+		const url = new URL(value, 'http://localhost');
+		return `${url.pathname}${url.search}${url.hash}`;
+	} catch {
+		return null;
+	}
+}
+
 export const load: PageServerLoad = async ({ locals, url }) => {
+	const reauth = url.searchParams.get('reauth') === '1';
+	const nextPath = sanitizeNextPath(url.searchParams.get('next'));
+
 	if (url.searchParams.get('error') === 'auth_link_invalid') {
 		return {
+			reauth,
+			nextPath,
 			authLinkError:
 				'This email link is invalid or has expired. Request a fresh invite or password reset email and try again.'
 		};
 	}
 
-	if (locals.session) {
+	if (locals.session && !reauth) {
 		redirect(303, getAuthenticatedRedirectPath(locals.authFlow, locals.mfaPending));
 	}
 
-	return {};
+	return { reauth, nextPath };
 };
 
 export const actions: Actions = {
@@ -25,9 +41,10 @@ export const actions: Actions = {
 			const formData = await request.formData();
 			const email = sanitizeString(formData.get('email') as string, 254).toLowerCase();
 			const password = formData.get('password') as string;
+			const nextPath = sanitizeNextPath(formData.get('next'));
 
 			if (!email || !password) {
-				return fail(400, { error: 'Email and password are required', email });
+				return fail(400, { error: 'Email and password are required', email, nextPath });
 			}
 
 			const { error } = await locals.supabase.auth.signInWithPassword({ email, password });
@@ -37,7 +54,7 @@ export const actions: Actions = {
 					{ action: 'auth.login_failure', resourceType: 'user', severity: 'warning', details: { email } },
 					{ userId: null }
 				);
-				return fail(400, { error: error.message, email });
+				return fail(400, { error: error.message, email, nextPath });
 			}
 
 			auditLog({ action: 'auth.login_success', resourceType: 'user', details: { email } }, { userId: null });
@@ -45,10 +62,11 @@ export const actions: Actions = {
 			// Check if user has MFA enabled and needs to complete verification
 			const { data: aalData } = await locals.supabase.auth.mfa.getAuthenticatorAssuranceLevel();
 			if (aalData?.nextLevel === 'aal2' && aalData?.currentLevel === 'aal1') {
-				redirect(303, '/auth/mfa-verify');
+				const suffix = nextPath ? `?next=${encodeURIComponent(nextPath)}` : '';
+				redirect(303, `/auth/mfa-verify${suffix}`);
 			}
 
-			redirect(303, '/dashboard');
+			redirect(303, nextPath ?? '/dashboard');
 		} catch (err) {
 			if (isRedirect(err)) {
 				throw err;

@@ -1,6 +1,8 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { Button } from '$lib/components/ui/button';
 	import { invalidateAll } from '$app/navigation';
+	import type { ActionData, PageData } from './$types';
 	import GiftTierModal from '$lib/components/admin/GiftTierModal.svelte';
 	import SuspendModal from '$lib/components/admin/SuspendModal.svelte';
 	import TransferOwnershipModal from '$lib/components/admin/TransferOwnershipModal.svelte';
@@ -13,7 +15,7 @@
 	import * as PageShell from '$lib/components/ui/page-shell';
 	import * as Table from '$lib/components/ui/table';
 
-	let { data } = $props();
+	let { data, form }: { data: PageData; form: ActionData } = $props();
 
 	function formatPersonnelCap(tier: string): string {
 		const config = TIER_CONFIG[tier as Tier];
@@ -38,6 +40,10 @@
 	async function handleGiftComplete() {
 		showGiftModal = false;
 		await invalidateAll();
+	}
+
+	function formatOptionalDateTime(value: string | null | undefined): string {
+		return value ? formatDisplayDateTime(value) : '-';
 	}
 </script>
 
@@ -150,7 +156,7 @@
 				{#each data.members as member (member.userId)}
 					<div class="flex items-center justify-between gap-3 border-t pt-3 first:border-t-0 first:pt-0">
 						<a
-							href="/admin/users/{member.userId}"
+							href={resolve(`/admin/users/${member.userId}` as `/admin/users/${string}`)}
 							class="break-words text-sm font-medium underline-offset-4 hover:underline"
 						>
 							{member.email}
@@ -163,6 +169,113 @@
 			</Card.Content>
 		</Card.Root>
 	</div>
+
+	<Card.Root>
+		<Card.Header>
+			<div class="flex flex-wrap items-start justify-between gap-3">
+				<div class="grid gap-1">
+					<Card.Title>Billing Diagnostics</Card.Title>
+					<Card.Description>Support-safe billing snapshot fields for cancellation and sync questions.</Card.Description>
+				</div>
+				<form method="POST" action="?/reconcileBilling">
+					<Button type="submit" variant="outline" size="sm">Refresh from Stripe</Button>
+				</form>
+			</div>
+		</Card.Header>
+		<Card.Content class="grid gap-4">
+			{#if form?.billingReconciliation}
+				<div
+					class={[
+						'rounded-md border px-3 py-2 text-sm',
+						form.billingReconciliation.success
+							? 'border-emerald-200 bg-emerald-50 text-emerald-900'
+							: 'border-amber-200 bg-amber-50 text-amber-900'
+					]}
+				>
+					<p class="font-medium">{form.billingReconciliation.message}</p>
+					{#if form.billingReconciliation.diagnostics.length}
+						<p class="mt-1 font-mono text-xs">{form.billingReconciliation.diagnostics.join(', ')}</p>
+					{/if}
+				</div>
+			{/if}
+			{#if data.billingSnapshot}
+				<dl class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+					<div class="grid min-w-0 gap-1">
+						<dt class="text-xs font-medium text-muted-foreground">Stripe Customer</dt>
+						<dd class="min-w-0 break-all font-mono text-xs">{data.billingSnapshot.stripeCustomerId ?? '-'}</dd>
+					</div>
+					<div class="grid min-w-0 gap-1">
+						<dt class="text-xs font-medium text-muted-foreground">Stripe Subscription</dt>
+						<dd class="min-w-0 break-all font-mono text-xs">{data.billingSnapshot.stripeSubscriptionId ?? '-'}</dd>
+					</div>
+					<div class="grid min-w-0 gap-1">
+						<dt class="text-xs font-medium text-muted-foreground">Stripe Price</dt>
+						<dd class="min-w-0 break-all font-mono text-xs">{data.billingSnapshot.stripePriceId ?? '-'}</dd>
+					</div>
+					<div class="grid min-w-0 gap-1">
+						<dt class="text-xs font-medium text-muted-foreground">Stripe Product</dt>
+						<dd class="min-w-0 break-all font-mono text-xs">{data.billingSnapshot.stripeProductId ?? '-'}</dd>
+					</div>
+					<div class="grid min-w-0 gap-1">
+						<dt class="text-xs font-medium text-muted-foreground">Entitlement Source</dt>
+						<dd class="min-w-0 break-words">{formatAdminLabel(data.billingSnapshot.source)}</dd>
+					</div>
+					<div class="grid min-w-0 gap-1">
+						<dt class="text-xs font-medium text-muted-foreground">Subscription Status</dt>
+						<dd class="min-w-0 break-words">
+							{formatAdminLabel(data.billingSnapshot.subscriptionStatus ?? 'unknown')}
+						</dd>
+					</div>
+					<div class="grid min-w-0 gap-1">
+						<dt class="text-xs font-medium text-muted-foreground">Collection Status</dt>
+						<dd class="min-w-0 break-words">{formatAdminLabel(data.billingSnapshot.collectionStatus ?? 'unknown')}</dd>
+					</div>
+					<div class="grid min-w-0 gap-1">
+						<dt class="text-xs font-medium text-muted-foreground">Sync Status</dt>
+						<dd class="min-w-0 break-words">{formatAdminLabel(data.billingSnapshot.syncStatus)}</dd>
+					</div>
+					<div class="grid min-w-0 gap-1">
+						<dt class="text-xs font-medium text-muted-foreground">Cancellation</dt>
+						<dd class="min-w-0 break-words">{data.cancellationSummary?.label ?? 'Not scheduled'}</dd>
+					</div>
+					<div class="grid min-w-0 gap-1">
+						<dt class="text-xs font-medium text-muted-foreground">Paid Through</dt>
+						<dd class="min-w-0 break-words">{formatOptionalDateTime(data.billingSnapshot.currentPeriodEnd)}</dd>
+					</div>
+					<div class="grid min-w-0 gap-1">
+						<dt class="text-xs font-medium text-muted-foreground">Canceled At</dt>
+						<dd class="min-w-0 break-words">{formatOptionalDateTime(data.billingSnapshot.canceledAt)}</dd>
+					</div>
+					<div class="grid min-w-0 gap-1">
+						<dt class="text-xs font-medium text-muted-foreground">Last Stripe Event</dt>
+						<dd class="min-w-0 break-all font-mono text-xs">{data.billingSnapshot.lastStripeEventId ?? '-'}</dd>
+					</div>
+					<div class="grid min-w-0 gap-1">
+						<dt class="text-xs font-medium text-muted-foreground">Last Event Type</dt>
+						<dd class="min-w-0 break-all font-mono text-xs">{data.billingSnapshot.lastStripeEventType ?? '-'}</dd>
+					</div>
+					<div class="grid min-w-0 gap-1">
+						<dt class="text-xs font-medium text-muted-foreground">Last Processed</dt>
+						<dd class="min-w-0 break-words">{formatOptionalDateTime(data.billingSnapshot.lastProcessedAt)}</dd>
+					</div>
+					<div class="grid min-w-0 gap-1">
+						<dt class="text-xs font-medium text-muted-foreground">Last Reconciled</dt>
+						<dd class="min-w-0 break-words">{formatOptionalDateTime(data.billingSnapshot.lastReconciledAt)}</dd>
+					</div>
+					<div class="grid min-w-0 gap-1">
+						<dt class="text-xs font-medium text-muted-foreground">Reconciliation Result</dt>
+						<dd class="min-w-0 break-all font-mono text-xs">{data.billingSnapshot.reconciliationResult ?? '-'}</dd>
+					</div>
+					<div class="grid min-w-0 gap-1">
+						<dt class="text-xs font-medium text-muted-foreground">Drift Detected</dt>
+						<dd class="min-w-0 break-words">{data.billingSnapshot.driftDetected ? 'Yes' : 'No'}</dd>
+					</div>
+				</dl>
+			{:else}
+				<Empty.Root class="border-0">No billing snapshot has been recorded for this organization.</Empty.Root>
+			{/if}
+		</Card.Content>
+	</Card.Root>
 
 	<Card.Root>
 		<Card.Header>

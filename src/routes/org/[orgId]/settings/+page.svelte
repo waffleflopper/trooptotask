@@ -137,6 +137,7 @@
 				personnelCount: membersSection.rows.length,
 				personnelCap: TIER_CONFIG.free.personnelCap,
 				isReadOnly: false,
+				readOnlyReason: null,
 				giftExpiresAt: null,
 				giftTier: null
 			} satisfies EffectiveTier)

@@ -5,9 +5,20 @@ import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { _postConfig } from './+server';
 import { WORKBOOK_MIME_TYPE } from '$lib/export/workbook';
 
+const { billingEnabledMock } = vi.hoisted(() => ({
+	billingEnabledMock: vi.fn(() => true)
+}));
+
+vi.mock('$lib/config/billing', () => ({
+	get isBillingEnabled() {
+		return billingEnabledMock();
+	}
+}));
+
 type WorkbookLoadBuffer = Parameters<ExcelJS.Workbook['xlsx']['load']>[0];
 
 afterEach(() => {
+	billingEnabledMock.mockReturnValue(true);
 	vi.restoreAllMocks();
 });
 
@@ -22,6 +33,57 @@ function toWorkbookBuffer(buffer: ArrayBuffer): WorkbookLoadBuffer {
 }
 
 describe('POST /api/export-excel', () => {
+	it('returns structured plan denial when the monthly export limit is reached', async () => {
+		const ctx = createTestContext();
+		const now = new Date().toISOString();
+		ctx.rawStore.seed('data_exports', [
+			{ id: 'export-1', org_id: ctx.auth.orgId, created_at: now, status: 'completed' },
+			{ id: 'export-2', org_id: ctx.auth.orgId, created_at: now, status: 'completed' },
+			{ id: 'export-3', org_id: ctx.auth.orgId, created_at: now, status: 'completed' }
+		]);
+
+		const result = await handleUseCaseRequest(_postConfig, ctx, {
+			email: 'leader@example.com'
+		});
+		const response = _postConfig.formatOutput?.(result);
+		const payload = await response?.json();
+
+		expect(response?.status).toBe(429);
+		expect(payload).toEqual({
+			error: 'Export limit reached (3/month). Upgrade for unlimited exports.',
+			denial: {
+				code: 'denied.export_quota',
+				dimension: 'monthly_exports',
+				message: 'Export limit reached (3/month). Upgrade for unlimited exports.',
+				remediation: 'Upgrade for unlimited exports or wait until next month.',
+				upgradeTarget: 'team'
+			}
+		});
+	});
+
+	it('allows Excel export when billing is disabled even if stored export count is above the free quota', async () => {
+		billingEnabledMock.mockReturnValue(false);
+		const ctx = createTestContext();
+		const now = new Date().toISOString();
+		ctx.rawStore.seed(
+			'data_exports',
+			Array.from({ length: 4 }, (_, index) => ({
+				id: `export-${index + 1}`,
+				org_id: ctx.auth.orgId,
+				created_at: now,
+				status: 'completed'
+			}))
+		);
+
+		const result = await handleUseCaseRequest(_postConfig, ctx, {
+			email: 'leader@example.com'
+		});
+		const response = _postConfig.formatOutput?.(result);
+
+		expect(response?.status).toBe(200);
+		expect(response?.headers.get('Content-Type')).toBe(WORKBOOK_MIME_TYPE);
+	});
+
 	it('includes ETS and PCS / DEROS columns in the personnel worksheet', async () => {
 		const ctx = createTestContext();
 		ctx.rawStore.seed('personnel', [

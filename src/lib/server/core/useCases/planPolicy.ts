@@ -59,7 +59,7 @@ export interface ExportQuotaPolicy {
 }
 
 export interface PlanFeatureEntitlement {
-	key: string;
+	key: PlanFeatureKey;
 	available: boolean;
 	source: 'base_plan' | 'admin_gift' | 'billing_disabled_fallback';
 	upgradeTarget: Tier | null;
@@ -80,7 +80,7 @@ export interface EffectivePlanPolicy {
 		ownedOrganizations: PlanLimitPolicy;
 	};
 	exportQuota: ExportQuotaPolicy;
-	entitlements: Record<string, PlanFeatureEntitlement>;
+	entitlements: Record<PlanFeatureKey, PlanFeatureEntitlement>;
 	grace: {
 		mode: 'none' | 'payment_failed';
 		message: string | null;
@@ -118,6 +118,27 @@ const MEMBER_CAPS: Record<Tier, number | null> = {
 
 const PENDING_INVITATION_EXCLUDED_STATUSES = ['expired', 'declined', 'revoked', 'blocked', 'accepted'];
 
+export const PLAN_FEATURE_REGISTRY = {
+	bulk_export_unlimited: {
+		key: 'bulk_export_unlimited',
+		enforcement: 'quota',
+		label: 'Unlimited bulk exports',
+		description:
+			'Export organization data without the free-plan monthly export quota. Export routes enforce this through monthly_exports limits.'
+	},
+	advanced_reporting: {
+		key: 'advanced_reporting',
+		enforcement: 'binary_gate',
+		label: 'Advanced reporting',
+		description: 'Use advanced readiness and reporting workspaces.'
+	}
+} as const;
+
+export type PlanFeatureKey = keyof typeof PLAN_FEATURE_REGISTRY;
+export type BinaryPlanFeatureKey = {
+	[K in PlanFeatureKey]: (typeof PLAN_FEATURE_REGISTRY)[K]['enforcement'] extends 'binary_gate' ? K : never;
+}[PlanFeatureKey];
+
 function mapPolicySource(snapshot: BillingSnapshot): PlanPolicySource {
 	switch (snapshot.source) {
 		case 'billing_disabled':
@@ -145,23 +166,48 @@ function limit(value: number | null): number | null {
 	return value === Infinity ? null : value;
 }
 
-function buildEntitlements(plan: Tier, source: PlanPolicySource): Record<string, PlanFeatureEntitlement> {
-	const bulkExportAvailable = plan !== 'free';
-	const advancedReportingAvailable = plan === 'unit';
+function featureAvailableOnPlan(feature: PlanFeatureKey, plan: Tier): boolean {
+	switch (feature) {
+		case 'bulk_export_unlimited':
+			return plan !== 'free';
+		case 'advanced_reporting':
+			return plan === 'unit';
+		default: {
+			const unhandledFeature: never = feature;
+			throw new Error(`Unhandled plan feature: ${String(unhandledFeature)}`);
+		}
+	}
+}
+
+function featureUpgradeTarget(feature: PlanFeatureKey, plan: Tier): Tier | null {
+	if (featureAvailableOnPlan(feature, plan)) return null;
+	switch (feature) {
+		case 'bulk_export_unlimited':
+			return 'team';
+		case 'advanced_reporting':
+			return 'unit';
+		default: {
+			const unhandledFeature: never = feature;
+			throw new Error(`Unhandled plan feature: ${String(unhandledFeature)}`);
+		}
+	}
+}
+
+function buildEntitlements(plan: Tier, source: PlanPolicySource): Record<PlanFeatureKey, PlanFeatureEntitlement> {
 	const resolvedSource = entitlementSource(source);
 
 	return {
 		bulk_export_unlimited: {
 			key: 'bulk_export_unlimited',
-			available: bulkExportAvailable,
+			available: featureAvailableOnPlan('bulk_export_unlimited', plan),
 			source: resolvedSource,
-			upgradeTarget: bulkExportAvailable ? null : 'team'
+			upgradeTarget: featureUpgradeTarget('bulk_export_unlimited', plan)
 		},
 		advanced_reporting: {
 			key: 'advanced_reporting',
-			available: advancedReportingAvailable,
+			available: featureAvailableOnPlan('advanced_reporting', plan),
 			source: resolvedSource,
-			upgradeTarget: advancedReportingAvailable ? null : 'unit'
+			upgradeTarget: featureUpgradeTarget('advanced_reporting', plan)
 		}
 	};
 }

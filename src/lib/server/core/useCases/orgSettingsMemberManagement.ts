@@ -15,7 +15,7 @@ import {
 	ORGANIZATION_MEMBER_UPDATE_HIGH_PRIVILEGE_ACTION,
 	checkSensitiveAction,
 	sensitiveActionDecisionAuditDetails,
-	sensitiveActionDenialMessage,
+	throwSensitiveActionFailure,
 	type SensitiveAction,
 	type SensitiveActionAuthorizer,
 	type SensitiveActionDecision
@@ -912,7 +912,7 @@ async function authorizeMemberManagementSensitiveAction(
 			target
 		});
 		auditDeniedSensitiveAction(ports, input.deniedAuditAction, decision, input.details);
-		fail(403, sensitiveActionDenialMessage(decision));
+		throwSensitiveActionFailure(decision);
 	}
 	if (!ports.sensitiveActionAuthorizer) {
 		fail(500, 'Sensitive action authorization is not configured');
@@ -925,7 +925,7 @@ async function authorizeMemberManagementSensitiveAction(
 	});
 	if (!decision.allowed) {
 		auditDeniedSensitiveAction(ports, input.deniedAuditAction, decision, input.details);
-		fail(403, sensitiveActionDenialMessage(decision));
+		throwSensitiveActionFailure(decision);
 	}
 
 	return decision;

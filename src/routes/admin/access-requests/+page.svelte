@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import type { SubmitFunction } from '@sveltejs/kit';
+	import { redirectToSensitiveActionStepUp } from '$lib/auth/sensitiveActionStepUp';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import * as Alert from '$lib/components/ui/alert';
@@ -18,6 +20,17 @@
 	let { data, form } = $props();
 	let activeTab = $state<'pending' | 'reviewed'>('pending');
 	let loadingId = $state<string | null>(null);
+
+	const stepUpEnhance = (id: string): SubmitFunction => {
+		return () => {
+			loadingId = id;
+			return async ({ result, update }) => {
+				loadingId = null;
+				if (result.type === 'failure' && redirectToSensitiveActionStepUp(result.data)) return;
+				await update();
+			};
+		};
+	};
 
 	function setupStateVariant(state: string): BadgeVariant {
 		if (state === 'completed') return 'success';
@@ -149,34 +162,14 @@
 								<p class="text-xs text-muted-foreground">Submitted {formatDisplayDateTime(req.created_at)}</p>
 							</div>
 							<div class="flex flex-wrap gap-2 md:justify-end">
-								<form
-									method="POST"
-									action="?/approve"
-									use:enhance={() => {
-										loadingId = `${req.id}-approve`;
-										return async ({ update }) => {
-											loadingId = null;
-											await update();
-										};
-									}}
-								>
+								<form method="POST" action="?/approve" use:enhance={stepUpEnhance(`${req.id}-approve`)}>
 									<input type="hidden" name="requestId" value={req.id} />
 									<Button type="submit" disabled={loadingId !== null}>
 										{#if loadingId === `${req.id}-approve`}<Spinner />{/if}
 										Approve
 									</Button>
 								</form>
-								<form
-									method="POST"
-									action="?/reject"
-									use:enhance={() => {
-										loadingId = `${req.id}-reject`;
-										return async ({ update }) => {
-											loadingId = null;
-											await update();
-										};
-									}}
-								>
+								<form method="POST" action="?/reject" use:enhance={stepUpEnhance(`${req.id}-reject`)}>
 									<input type="hidden" name="requestId" value={req.id} />
 									<Button type="submit" variant="destructive" disabled={loadingId !== null}>
 										{#if loadingId === `${req.id}-reject`}<Spinner />{/if}
@@ -265,17 +258,7 @@
 								{/if}
 							</div>
 							{#if req.status === 'approved' && canSendSetup(req.setup_state)}
-								<form
-									method="POST"
-									action="?/resend"
-									use:enhance={() => {
-										loadingId = `${req.id}-resend`;
-										return async ({ update }) => {
-											loadingId = null;
-											await update();
-										};
-									}}
-								>
+								<form method="POST" action="?/resend" use:enhance={stepUpEnhance(`${req.id}-resend`)}>
 									<input type="hidden" name="requestId" value={req.id} />
 									<Button type="submit" variant="outline" disabled={loadingId !== null}>
 										{#if loadingId === `${req.id}-resend`}<Spinner />{/if}

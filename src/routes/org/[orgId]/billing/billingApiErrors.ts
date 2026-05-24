@@ -19,7 +19,7 @@ export function billingApiErrorResponse(err: unknown, fallbackMessage: string): 
 
 		if (err.reason) body.reason = err.reason;
 		if (typeof err.requiresStepUp === 'boolean') body.requiresStepUp = err.requiresStepUp;
-		if (err.stepUpPath) body.stepUpPath = err.stepUpPath;
+		if (typeof err.stepUpPath === 'string') body.stepUpPath = err.stepUpPath;
 
 		return json(body, { status: err.status });
 	}

@@ -6,7 +6,7 @@ const { recordAttemptMock, processRecordedMock } = vi.hoisted(() => ({
 	processRecordedMock: vi.fn()
 }));
 
-vi.mock('../../api/webhooks/stripe/+server', () => ({
+vi.mock('$lib/server/billing/stripeWebhookProcessing', () => ({
 	_recordRetryableStripeWebhookEventAttempt: recordAttemptMock,
 	_processRecordedStripeWebhookEvent: processRecordedMock
 }));

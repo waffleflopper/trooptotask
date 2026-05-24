@@ -38,7 +38,7 @@ import {
 	PLATFORM_ACCESS_REQUEST_RESEND_SETUP_ACTION,
 	sensitiveActionDecisionAuditDetails,
 	sensitiveActionDenialMessage,
-	sensitiveActionStepUpPath
+	sensitiveActionFailureFields
 } from '$lib/server/sensitiveActionAuthorizer';
 
 interface AccessRequestSetupLink {
@@ -467,9 +467,7 @@ async function authorizeSetupSend(input: {
 		ok: false as const,
 		failure: fail(403, {
 			error: sensitiveActionDenialMessage(decision),
-			reason: decision.reason,
-			requiresStepUp: decision.requiresStepUp,
-			stepUpPath: sensitiveActionStepUpPath(decision)
+			...sensitiveActionFailureFields(decision)
 		})
 	};
 }

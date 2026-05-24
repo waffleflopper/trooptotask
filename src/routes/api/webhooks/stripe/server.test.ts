@@ -501,6 +501,39 @@ describe('POST /api/webhooks/stripe', () => {
 		expect(supabase.orgUpdates).toEqual([]);
 	});
 
+	it('marks checkout events without a customer permanently failed before persisting billing state', async () => {
+		const supabase = createWebhookSupabaseStub();
+		getAdminClientMock.mockReturnValue(supabase.client);
+
+		const response = await postWebhook({
+			id: 'evt_bad_checkout_customer',
+			type: 'checkout.session.completed',
+			created: 1,
+			data: {
+				object: {
+					id: 'cs_123',
+					metadata: { orgId: 'org-1', tier: 'unit' },
+					subscription: 'sub_123',
+					customer: null
+				}
+			}
+		});
+
+		expect(response.status).toBe(200);
+		expect(supabase.webhookUpdates).toContainEqual(
+			expect.objectContaining({
+				values: expect.objectContaining({
+					processed: false,
+					processing_state: 'permanently_failed',
+					last_error: 'checkout.session.completed missing customerId',
+					processing_result: 'permanent processing failure'
+				})
+			})
+		);
+		expect(supabase.billingSnapshotUpserts).toEqual([]);
+		expect(supabase.orgUpdates).toEqual([]);
+	});
+
 	it('marks transient processing errors retryable and redacts secrets from failure metadata', async () => {
 		const supabase = createWebhookSupabaseStub({
 			failOrganizationUpdate: 'db write failed sk_test_secret whsec_secret+/== stripe-signature=t=1,v1=secret'
@@ -730,6 +763,7 @@ describe('POST /api/webhooks/stripe', () => {
 			expect.objectContaining({
 				values: expect.objectContaining({
 					tier: 'team',
+					stripe_subscription_id: 'sub_123',
 					subscription_status: 'active'
 				})
 			})
@@ -853,6 +887,7 @@ describe('POST /api/webhooks/stripe', () => {
 			expect.objectContaining({
 				values: expect.objectContaining({
 					tier: 'free',
+					stripe_subscription_id: null,
 					subscription_status: null
 				})
 			})

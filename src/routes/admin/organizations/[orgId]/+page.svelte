@@ -10,6 +10,7 @@
 	import SuspendModal from '$lib/components/admin/SuspendModal.svelte';
 	import TransferOwnershipModal from '$lib/components/admin/TransferOwnershipModal.svelte';
 	import { adminBadgeVariant, adminPlanStatusBadgeVariant, formatAdminLabel } from '$lib/components/admin/adminTheme';
+	import * as Alert from '$lib/components/ui/alert';
 	import { Badge } from '$lib/components/ui/badge';
 	import { TIER_CONFIG, type Tier } from '$lib/types/subscription';
 	import { formatDisplayDate, formatDisplayDateTime } from '$lib/utils/dates';
@@ -187,93 +188,89 @@
 		</Card.Header>
 		<Card.Content class="grid gap-4">
 			{#if form?.billingReconciliation}
-				<div
-					class={[
-						'rounded-md border px-3 py-2 text-sm',
-						form.billingReconciliation.success
-							? 'border-emerald-200 bg-emerald-50 text-emerald-900'
-							: 'border-amber-200 bg-amber-50 text-amber-900'
-					]}
-				>
-					<p class="font-medium">{form.billingReconciliation.message}</p>
+				<Alert.Root variant={form.billingReconciliation.success ? 'success' : 'warning'}>
+					<Alert.Title>{form.billingReconciliation.message}</Alert.Title>
 					{#if form.billingReconciliation.diagnostics.length}
-						<p class="mt-1 font-mono text-xs">{form.billingReconciliation.diagnostics.join(', ')}</p>
+						<Alert.Description class="font-mono text-xs">
+							{form.billingReconciliation.diagnostics.join(', ')}
+						</Alert.Description>
 					{/if}
-				</div>
+				</Alert.Root>
 			{/if}
 			{#if data.billingSnapshot}
-				<dl class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-					<div class="grid min-w-0 gap-1">
-						<dt class="text-xs font-medium text-muted-foreground">Stripe Customer</dt>
-						<dd class="min-w-0 break-all font-mono text-xs">{data.billingSnapshot.stripeCustomerId ?? '-'}</dd>
-					</div>
-					<div class="grid min-w-0 gap-1">
-						<dt class="text-xs font-medium text-muted-foreground">Stripe Subscription</dt>
-						<dd class="min-w-0 break-all font-mono text-xs">{data.billingSnapshot.stripeSubscriptionId ?? '-'}</dd>
-					</div>
-					<div class="grid min-w-0 gap-1">
-						<dt class="text-xs font-medium text-muted-foreground">Stripe Price</dt>
-						<dd class="min-w-0 break-all font-mono text-xs">{data.billingSnapshot.stripePriceId ?? '-'}</dd>
-					</div>
-					<div class="grid min-w-0 gap-1">
-						<dt class="text-xs font-medium text-muted-foreground">Stripe Product</dt>
-						<dd class="min-w-0 break-all font-mono text-xs">{data.billingSnapshot.stripeProductId ?? '-'}</dd>
-					</div>
-					<div class="grid min-w-0 gap-1">
-						<dt class="text-xs font-medium text-muted-foreground">Entitlement Source</dt>
-						<dd class="min-w-0 break-words">{formatAdminLabel(data.billingSnapshot.source)}</dd>
-					</div>
-					<div class="grid min-w-0 gap-1">
-						<dt class="text-xs font-medium text-muted-foreground">Subscription Status</dt>
-						<dd class="min-w-0 break-words">
+				<PageShell.FactGrid layout="three">
+					<PageShell.FactRow label="Stripe Customer" layout="stack">
+						<span class="font-mono text-xs break-all">{data.billingSnapshot.stripeCustomerId ?? '-'}</span>
+					</PageShell.FactRow>
+					<PageShell.FactRow label="Stripe Subscription" layout="stack">
+						<span class="font-mono text-xs break-all">{data.billingSnapshot.stripeSubscriptionId ?? '-'}</span>
+					</PageShell.FactRow>
+					<PageShell.FactRow label="Stripe Price" layout="stack">
+						<span class="font-mono text-xs break-all">{data.billingSnapshot.stripePriceId ?? '-'}</span>
+					</PageShell.FactRow>
+					<PageShell.FactRow label="Stripe Product" layout="stack">
+						<span class="font-mono text-xs break-all">{data.billingSnapshot.stripeProductId ?? '-'}</span>
+					</PageShell.FactRow>
+					<PageShell.FactRow
+						label="Entitlement Source"
+						value={formatAdminLabel(data.billingSnapshot.source)}
+						layout="stack"
+					/>
+					<PageShell.FactRow label="Subscription Status" layout="stack">
+						<span>
 							{formatAdminLabel(data.billingSnapshot.subscriptionStatus ?? 'unknown')}
-						</dd>
-					</div>
-					<div class="grid min-w-0 gap-1">
-						<dt class="text-xs font-medium text-muted-foreground">Collection Status</dt>
-						<dd class="min-w-0 break-words">{formatAdminLabel(data.billingSnapshot.collectionStatus ?? 'unknown')}</dd>
-					</div>
-					<div class="grid min-w-0 gap-1">
-						<dt class="text-xs font-medium text-muted-foreground">Sync Status</dt>
-						<dd class="min-w-0 break-words">{formatAdminLabel(data.billingSnapshot.syncStatus)}</dd>
-					</div>
-					<div class="grid min-w-0 gap-1">
-						<dt class="text-xs font-medium text-muted-foreground">Cancellation</dt>
-						<dd class="min-w-0 break-words">{data.cancellationSummary?.label ?? 'Not scheduled'}</dd>
-					</div>
-					<div class="grid min-w-0 gap-1">
-						<dt class="text-xs font-medium text-muted-foreground">Paid Through</dt>
-						<dd class="min-w-0 break-words">{formatOptionalDateTime(data.billingSnapshot.currentPeriodEnd)}</dd>
-					</div>
-					<div class="grid min-w-0 gap-1">
-						<dt class="text-xs font-medium text-muted-foreground">Canceled At</dt>
-						<dd class="min-w-0 break-words">{formatOptionalDateTime(data.billingSnapshot.canceledAt)}</dd>
-					</div>
-					<div class="grid min-w-0 gap-1">
-						<dt class="text-xs font-medium text-muted-foreground">Last Stripe Event</dt>
-						<dd class="min-w-0 break-all font-mono text-xs">{data.billingSnapshot.lastStripeEventId ?? '-'}</dd>
-					</div>
-					<div class="grid min-w-0 gap-1">
-						<dt class="text-xs font-medium text-muted-foreground">Last Event Type</dt>
-						<dd class="min-w-0 break-all font-mono text-xs">{data.billingSnapshot.lastStripeEventType ?? '-'}</dd>
-					</div>
-					<div class="grid min-w-0 gap-1">
-						<dt class="text-xs font-medium text-muted-foreground">Last Processed</dt>
-						<dd class="min-w-0 break-words">{formatOptionalDateTime(data.billingSnapshot.lastProcessedAt)}</dd>
-					</div>
-					<div class="grid min-w-0 gap-1">
-						<dt class="text-xs font-medium text-muted-foreground">Last Reconciled</dt>
-						<dd class="min-w-0 break-words">{formatOptionalDateTime(data.billingSnapshot.lastReconciledAt)}</dd>
-					</div>
-					<div class="grid min-w-0 gap-1">
-						<dt class="text-xs font-medium text-muted-foreground">Reconciliation Result</dt>
-						<dd class="min-w-0 break-all font-mono text-xs">{data.billingSnapshot.reconciliationResult ?? '-'}</dd>
-					</div>
-					<div class="grid min-w-0 gap-1">
-						<dt class="text-xs font-medium text-muted-foreground">Drift Detected</dt>
-						<dd class="min-w-0 break-words">{data.billingSnapshot.driftDetected ? 'Yes' : 'No'}</dd>
-					</div>
-				</dl>
+						</span>
+					</PageShell.FactRow>
+					<PageShell.FactRow
+						label="Collection Status"
+						value={formatAdminLabel(data.billingSnapshot.collectionStatus ?? 'unknown')}
+						layout="stack"
+					/>
+					<PageShell.FactRow
+						label="Sync Status"
+						value={formatAdminLabel(data.billingSnapshot.syncStatus)}
+						layout="stack"
+					/>
+					<PageShell.FactRow
+						label="Cancellation"
+						value={data.cancellationSummary?.label ?? 'Not scheduled'}
+						layout="stack"
+					/>
+					<PageShell.FactRow
+						label="Paid Through"
+						value={formatOptionalDateTime(data.billingSnapshot.currentPeriodEnd)}
+						layout="stack"
+					/>
+					<PageShell.FactRow
+						label="Canceled At"
+						value={formatOptionalDateTime(data.billingSnapshot.canceledAt)}
+						layout="stack"
+					/>
+					<PageShell.FactRow label="Last Stripe Event" layout="stack">
+						<span class="font-mono text-xs break-all">{data.billingSnapshot.lastStripeEventId ?? '-'}</span>
+					</PageShell.FactRow>
+					<PageShell.FactRow label="Last Event Type" layout="stack">
+						<span class="font-mono text-xs break-all">{data.billingSnapshot.lastStripeEventType ?? '-'}</span>
+					</PageShell.FactRow>
+					<PageShell.FactRow
+						label="Last Processed"
+						value={formatOptionalDateTime(data.billingSnapshot.lastProcessedAt)}
+						layout="stack"
+					/>
+					<PageShell.FactRow
+						label="Last Reconciled"
+						value={formatOptionalDateTime(data.billingSnapshot.lastReconciledAt)}
+						layout="stack"
+					/>
+					<PageShell.FactRow label="Reconciliation Result" layout="stack">
+						<span class="min-w-0 font-mono text-xs break-all">{data.billingSnapshot.reconciliationResult ?? '-'}</span>
+					</PageShell.FactRow>
+					<PageShell.FactRow
+						label="Drift Detected"
+						value={data.billingSnapshot.driftDetected ? 'Yes' : 'No'}
+						layout="stack"
+					/>
+				</PageShell.FactGrid>
 			{:else}
 				<Empty.Root class="border-0">No billing snapshot has been recorded for this organization.</Empty.Root>
 			{/if}

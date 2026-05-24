@@ -103,28 +103,16 @@ describe('reconcileOrganizationBilling', () => {
 			now: () => new Date('2026-05-23T00:00:00.000Z')
 		});
 
-		expect(result).toMatchObject({ ok: true, status: 'matched', driftDetected: false, snapshotUpdated: false });
-		expect(store.upsertSnapshot).toHaveBeenCalledWith(
-			expect.objectContaining({
-				organization_id: 'org-1',
-				commercial_plan: 'team',
-				last_reconciled_at: '2026-05-23T00:00:00.000Z',
-				reconciliation_result: 'matched',
-				drift_detected: false
-			})
-		);
-		expect(store.upsertSnapshot.mock.calls[0][0]).not.toHaveProperty('last_processed_at');
-		expect(store.updateOrganizationBillingMirror).toHaveBeenCalledWith(
-			'org-1',
-			expect.objectContaining({
-				tier: 'team',
-				stripe_customer_id: 'cus_123',
-				stripe_subscription_id: 'sub_123',
-				subscription_status: 'active',
-				current_period_end: '2026-06-01T00:00:00.000Z'
-			})
-		);
-		expect(subscriptionPort.invalidateTierCache).toHaveBeenCalledOnce();
+		expect(result).toMatchObject({
+			ok: true,
+			status: 'matched',
+			driftDetected: false,
+			snapshotUpdated: false,
+			plannedWrites: []
+		});
+		expect(store.upsertSnapshot).not.toHaveBeenCalled();
+		expect(store.updateOrganizationBillingMirror).not.toHaveBeenCalled();
+		expect(subscriptionPort.invalidateTierCache).not.toHaveBeenCalled();
 	});
 
 	it('treats equivalent database timestamp strings as matched', async () => {

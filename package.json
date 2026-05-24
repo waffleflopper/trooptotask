@@ -26,6 +26,7 @@
 		"lint": "eslint .",
 		"lint:fix": "eslint --fix .",
 		"billing:launch-preflight": "node ./scripts/billing-launch-preflight.mjs",
+		"billing:snapshot-backfill": "node ./scripts/billing-snapshot-backfill.mjs",
 		"billing:lifecycle": "node ./scripts/billing-lifecycle-simulate.mjs",
 		"sandcastle": "npx tsx .sandcastle/main.mts"
 	},

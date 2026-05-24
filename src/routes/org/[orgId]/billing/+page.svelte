@@ -71,6 +71,7 @@
 	const giftTier = $derived(tier.giftTier);
 	const billingSnapshot = $derived<BillingSnapshot | null>(data.billingSnapshot ?? null);
 	const cancellationSummary = $derived(data.cancellationSummary ?? null);
+	const planUsageSummary = $derived(data.planUsageSummary ?? null);
 	const showCancellationTiming = $derived(
 		!!cancellationSummary && cancellationSummary.state !== 'none' && source !== 'gift'
 	);
@@ -327,6 +328,25 @@
 		if (variant === 'destructive') return 'destructive';
 		if (variant === 'warning') return 'warning';
 		return 'default';
+	}
+
+	function usageStatusLabel(status: string): string {
+		switch (status) {
+			case 'over_limit':
+				return 'Over limit';
+			case 'limit_reached':
+				return 'Limit reached';
+			case 'read_only':
+				return 'Read-only';
+			default:
+				return 'Within limit';
+		}
+	}
+
+	function usageStatusVariant(status: string): BadgeVariant {
+		if (status === 'over_limit') return 'destructive';
+		if (status === 'limit_reached' || status === 'read_only') return 'warning';
+		return 'secondary';
 	}
 
 	function readOnlyTitle(): string {
@@ -650,6 +670,52 @@
 				: 'How this subscription is currently being applied'}
 		/>
 	</PageShell.FactGrid>
+
+	{#if planUsageSummary}
+		<Card.Root>
+			<Card.Header>
+				<div class="flex flex-wrap items-center gap-2">
+					<Card.Title>Usage & Limits</Card.Title>
+					<Badge variant="outline">{planUsageSummary.plan.sourceLabel}</Badge>
+				</div>
+				<Card.Description>
+					Plan-backed usage for the current billing period. Existing data remains visible if a limit is reached.
+				</Card.Description>
+			</Card.Header>
+			<Card.Content class="grid gap-4">
+				<div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+					{#each planUsageSummary.rows as row (row.dimension)}
+						<div class="grid gap-2 rounded-md border bg-muted/30 p-3">
+							<div class="flex items-start justify-between gap-2">
+								<p class="text-sm font-medium">{row.label}</p>
+								<Badge variant={usageStatusVariant(row.status)}>{usageStatusLabel(row.status)}</Badge>
+							</div>
+							<strong class="text-xl font-semibold tracking-tight">
+								{row.used} / {row.limitLabel}
+							</strong>
+							<p class="text-xs text-muted-foreground">{row.message}</p>
+							{#if row.status !== 'within_limit'}
+								<p class="text-xs font-medium">{row.remediation}</p>
+							{/if}
+						</div>
+					{/each}
+				</div>
+				{#if planUsageSummary.alerts.length > 0}
+					<Alert.Root variant="warning">
+						<TriangleAlert />
+						<Alert.Title>Existing data remains visible. Resolve limits before adding more data.</Alert.Title>
+						<Alert.Description>
+							<ul class="grid gap-1">
+								{#each planUsageSummary.alerts as alert (`${alert.dimension}-${alert.status}`)}
+									<li>{alert.label}: {alert.remediation}</li>
+								{/each}
+							</ul>
+						</Alert.Description>
+					</Alert.Root>
+				{/if}
+			</Card.Content>
+		</Card.Root>
+	{/if}
 
 	<Card.Root>
 		<Card.Header>

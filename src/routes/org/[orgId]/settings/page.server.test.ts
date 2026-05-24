@@ -317,6 +317,17 @@ describe('org settings page server actions', () => {
 				giftExpiresAt: null,
 				giftTier: null
 			},
+			planUsageSummary: {
+				plan: expect.objectContaining({
+					tier: 'unit'
+				}),
+				rows: expect.arrayContaining([
+					expect.objectContaining({ dimension: 'active_personnel' }),
+					expect.objectContaining({ dimension: 'active_organization_members' }),
+					expect.objectContaining({ dimension: 'pending_invitations' }),
+					expect.objectContaining({ dimension: 'monthly_exports' })
+				])
+			},
 			workspace: {
 				currentMember: {
 					role: 'owner',

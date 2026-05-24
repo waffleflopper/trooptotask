@@ -6,6 +6,9 @@ import { canManageBillingSubscription, readBillingOrganization } from '$lib/serv
 import type { UseCaseContext } from '$lib/server/core/ports';
 import { requireGovernancePolicy } from '$lib/server/core/useCases/governancePolicy';
 import { readCurrentBillingSnapshot, summarizeBillingCancellation } from '$lib/server/core/useCases/billingState';
+import { readOrganizationPlanUsage } from '$lib/server/core/useCases/organizationPlanUsage';
+import { readEffectivePlanPolicy } from '$lib/server/core/useCases/planPolicy';
+import { buildPlanUsageSummary } from '$lib/server/core/useCases/planUsageSummary';
 
 export async function _loadBillingPageData(
 	ctx: Pick<UseCaseContext, 'auth' | 'audit' | 'rawStore'>,
@@ -14,8 +17,13 @@ export async function _loadBillingPageData(
 	await requireGovernancePolicy({ auth: ctx.auth, audit: ctx.audit }, POLICY_ACTION_CATALOG.organization.accessBilling);
 
 	const org = await readBillingOrganization({ auth: ctx.auth, store: ctx.rawStore });
-	const billingSnapshot = await readCurrentBillingSnapshot({ auth: ctx.auth, store: ctx.rawStore });
+	const [billingSnapshot, effectivePlanPolicy, planUsage] = await Promise.all([
+		readCurrentBillingSnapshot({ auth: ctx.auth, store: ctx.rawStore }),
+		readEffectivePlanPolicy({ auth: ctx.auth, store: ctx.rawStore }),
+		readOrganizationPlanUsage({ auth: ctx.auth, store: ctx.rawStore })
+	]);
 	const canManageSubscription = canManageBillingSubscription(org);
+	const planUsageSummary = buildPlanUsageSummary(effectivePlanPolicy, planUsage);
 
 	const tierComparison = (['free', 'team', 'unit'] as Tier[]).map((tier) => {
 		const config = TIER_CONFIG[tier];
@@ -37,6 +45,7 @@ export async function _loadBillingPageData(
 		billingSnapshot,
 		cancellationSummary: summarizeBillingCancellation(billingSnapshot),
 		canManageSubscription,
+		planUsageSummary,
 		tierComparison
 	};
 }

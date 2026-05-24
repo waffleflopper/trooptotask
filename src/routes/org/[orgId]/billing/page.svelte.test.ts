@@ -81,6 +81,60 @@ const baseData = {
 		description: 'No cancellation is currently scheduled in the billing snapshot.',
 		currentPeriodEnd: null,
 		canceledAt: null
+	},
+	planUsageSummary: {
+		plan: {
+			tier: 'team',
+			source: 'billing_snapshot',
+			sourceLabel: 'Stripe-backed billing'
+		},
+		rows: [
+			{
+				dimension: 'active_personnel',
+				label: 'Personnel',
+				used: 12,
+				limit: 75,
+				limitLabel: '75',
+				status: 'within_limit',
+				message: 'Personnel usage is 12 of 75.',
+				remediation: 'Archive personnel or upgrade to Unit.',
+				upgradeTarget: 'unit'
+			},
+			{
+				dimension: 'active_organization_members',
+				label: 'Members',
+				used: 2,
+				limit: 10,
+				limitLabel: '10',
+				status: 'within_limit',
+				message: 'Member usage is 2 of 10.',
+				remediation: 'Remove members or upgrade to Unit.',
+				upgradeTarget: 'unit'
+			},
+			{
+				dimension: 'pending_invitations',
+				label: 'Pending invitations',
+				used: 0,
+				limit: 10,
+				limitLabel: '10',
+				status: 'within_limit',
+				message: 'Pending invitations use 0 seats; 2 of 10 member seats are reserved.',
+				remediation: 'Revoke pending invitations or upgrade to Unit.',
+				upgradeTarget: 'unit'
+			},
+			{
+				dimension: 'monthly_exports',
+				label: 'Monthly exports',
+				used: 0,
+				limit: null,
+				limitLabel: 'Unlimited',
+				status: 'within_limit',
+				message: 'Export usage is 0 of Unlimited this month.',
+				remediation: 'Contact support or wait until next month.',
+				upgradeTarget: null
+			}
+		],
+		alerts: []
 	}
 };
 
@@ -109,6 +163,93 @@ describe('billing page toolbar', () => {
 
 		expect(screen.getByText(title)).toBeTruthy();
 		expect(screen.getByText(new RegExp(detail))).toBeTruthy();
+	});
+
+	it('shows policy-backed usage limits and remediation actions', () => {
+		render(Page, {
+			props: {
+				data: {
+					...baseData,
+					planUsageSummary: {
+						...baseData.planUsageSummary,
+						rows: [
+							{
+								...baseData.planUsageSummary.rows[0],
+								used: 21,
+								limit: 20,
+								limitLabel: '20',
+								status: 'over_limit',
+								message: 'Personnel usage is 21 of 20.',
+								remediation: 'Archive personnel or upgrade to Team.',
+								upgradeTarget: 'team'
+							},
+							{
+								...baseData.planUsageSummary.rows[1],
+								used: 1,
+								limit: 2,
+								limitLabel: '2',
+								message: 'Member usage is 1 of 2.',
+								remediation: 'Remove members or upgrade to Team.',
+								upgradeTarget: 'team'
+							},
+							{
+								...baseData.planUsageSummary.rows[2],
+								used: 1,
+								limit: 2,
+								limitLabel: '2',
+								status: 'limit_reached',
+								message: 'Pending invitations use 1 seat; 2 of 2 member seats are reserved.',
+								remediation: 'Revoke pending invitations or upgrade to Team.',
+								upgradeTarget: 'team'
+							},
+							{
+								...baseData.planUsageSummary.rows[3],
+								used: 3,
+								limit: 3,
+								limitLabel: '3',
+								status: 'limit_reached',
+								message: 'Export usage is 3 of 3 this month.',
+								remediation: 'Upgrade for unlimited exports or wait until next month.',
+								upgradeTarget: 'team'
+							}
+						],
+						alerts: [
+							{
+								dimension: 'active_personnel',
+								label: 'Personnel',
+								message: 'Personnel usage is 21 of 20.',
+								remediation: 'Archive personnel or upgrade to Team.',
+								status: 'over_limit'
+							},
+							{
+								dimension: 'pending_invitations',
+								label: 'Pending invitations',
+								message: 'Pending invitations use 1 seat; 2 of 2 member seats are reserved.',
+								remediation: 'Revoke pending invitations or upgrade to Team.',
+								status: 'limit_reached'
+							},
+							{
+								dimension: 'monthly_exports',
+								label: 'Monthly exports',
+								message: 'Export usage is 3 of 3 this month.',
+								remediation: 'Upgrade for unlimited exports or wait until next month.',
+								status: 'limit_reached'
+							}
+						]
+					}
+				} as never
+			}
+		});
+
+		expect(screen.getByRole('heading', { name: 'Usage & Limits' })).toBeTruthy();
+		expect(screen.getByText('Stripe-backed billing')).toBeTruthy();
+		expect(screen.getByText('21 / 20')).toBeTruthy();
+		expect(screen.getAllByText('1 / 2').length).toBeGreaterThanOrEqual(2);
+		expect(screen.getByText('3 / 3')).toBeTruthy();
+		expect(screen.getByText('Archive personnel or upgrade to Team.')).toBeTruthy();
+		expect(screen.getByText('Revoke pending invitations or upgrade to Team.')).toBeTruthy();
+		expect(screen.getByText('Upgrade for unlimited exports or wait until next month.')).toBeTruthy();
+		expect(screen.getByText('Existing data remains visible. Resolve limits before adding more data.')).toBeTruthy();
 	});
 
 	it('uses the effective tier when past-due access has already been downgraded', () => {

@@ -28,6 +28,7 @@ import {
 	updateOrganizationMemberPermissions
 } from '$lib/server/core/useCases/orgSettingsMemberManagement';
 import { requireGovernancePolicy } from '$lib/server/core/useCases/governancePolicy';
+import { buildPlanUsageSummary, type PlanUsageSummary } from '$lib/server/core/useCases/planUsageSummary';
 import {
 	loadOrganizationSettingsWorkspace,
 	type SettingsExportInfoSource
@@ -47,6 +48,7 @@ export const load: PageServerLoad = async ({ locals, cookies, parent }) => {
 			);
 
 			const adminStore = createSupabaseDataStore(getAdminClient());
+			const planInfo = loadPlanInfo(ctx);
 			const workspace = await loadOrganizationSettingsWorkspace(ctx, {
 				isAdmin: Boolean(isAdmin),
 				organization: {
@@ -56,9 +58,10 @@ export const load: PageServerLoad = async ({ locals, cookies, parent }) => {
 					urlSegment: orgUrlSegment ?? orgId,
 					effectiveTier: effectiveTier ?? null
 				},
-				exportInfo: loadExportInfo(ctx),
+				exportInfo: planInfo.then((info) => info.exportInfo),
 				auditLog: fetchAuditLogPreview(ctx, adminStore, { limit: 9 })
 			});
+			const { planUsageSummary } = await planInfo;
 
 			return {
 				orgId,
@@ -68,22 +71,29 @@ export const load: PageServerLoad = async ({ locals, cookies, parent }) => {
 				effectiveTier,
 				permissions,
 				allOrgs,
+				planUsageSummary,
 				workspace
 			};
 		}
 	});
 };
 
-async function loadExportInfo(ctx: Pick<UseCaseContext, 'auth' | 'rawStore'>): Promise<SettingsExportInfoSource> {
+async function loadPlanInfo(ctx: Pick<UseCaseContext, 'auth' | 'rawStore'>): Promise<{
+	exportInfo: SettingsExportInfoSource;
+	planUsageSummary: PlanUsageSummary;
+}> {
 	const [policy, usage] = await Promise.all([
 		readEffectivePlanPolicy({ auth: ctx.auth, store: ctx.rawStore }),
 		readOrganizationPlanUsage({ auth: ctx.auth, store: ctx.rawStore })
 	]);
 	const exportLimit = policy.exportQuota.limit;
 	return {
-		exportsUsed: usage.monthlyExportCount,
-		exportsLimit: exportLimit ?? Infinity,
-		isLimited: exportLimit !== null
+		exportInfo: {
+			exportsUsed: usage.monthlyExportCount,
+			exportsLimit: exportLimit ?? Infinity,
+			isLimited: exportLimit !== null
+		},
+		planUsageSummary: buildPlanUsageSummary(policy, usage)
 	};
 }
 

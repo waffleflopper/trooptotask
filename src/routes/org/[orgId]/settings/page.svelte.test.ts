@@ -131,6 +131,66 @@ const baseData = {
 		limit: 100,
 		actionFilter: '',
 		availableActions: ['organization.rename']
+	},
+	planUsageSummary: {
+		plan: {
+			tier: 'unit',
+			source: 'billing_snapshot',
+			sourceLabel: 'Stripe-backed billing'
+		},
+		rows: [
+			{
+				dimension: 'active_personnel',
+				label: 'Personnel',
+				used: 4,
+				limit: 500,
+				limitLabel: '500',
+				status: 'within_limit',
+				message: 'Personnel usage is 4 of 500.',
+				remediation: 'Archive personnel or upgrade to support.',
+				upgradeTarget: null
+			},
+			{
+				dimension: 'active_organization_members',
+				label: 'Members',
+				used: 4,
+				limit: 50,
+				limitLabel: '50',
+				status: 'within_limit',
+				message: 'Member usage is 4 of 50.',
+				remediation: 'Remove members or upgrade to support.',
+				upgradeTarget: null
+			},
+			{
+				dimension: 'pending_invitations',
+				label: 'Pending invitations',
+				used: 0,
+				limit: 50,
+				limitLabel: '50',
+				status: 'within_limit',
+				message: 'Pending invitations use 0 seats; 4 of 50 member seats are reserved.',
+				remediation: 'Revoke pending invitations or upgrade to support.',
+				upgradeTarget: null
+			},
+			{
+				dimension: 'monthly_exports',
+				label: 'Monthly exports',
+				used: 0,
+				limit: null,
+				limitLabel: 'Unlimited',
+				status: 'within_limit',
+				message: 'Export usage is 0 of Unlimited this month.',
+				remediation: 'Contact support or wait until next month.',
+				upgradeTarget: null
+			}
+		],
+		alerts: [] as Array<{
+			dimension: string;
+			label: string;
+			message: string;
+			remediation: string;
+			status: string;
+		}>
 	}
 };
 
@@ -628,7 +688,48 @@ describe('org settings page', () => {
 
 		expect(screen.getByRole('link', { name: 'Manage Billing' }).getAttribute('href')).toBe('/org/org-1/billing');
 		expect(screen.getByText('Unit tier · $12/mo')).toBeTruthy();
-		expect(screen.getByText('4 / 500')).toBeTruthy();
+		expect(screen.getAllByText('4 / 500').length).toBeGreaterThanOrEqual(1);
+	});
+
+	it('renders plan usage and remediation in organization settings', () => {
+		render(Page, {
+			props: {
+				data: workspaceFor({
+					...baseData,
+					planUsageSummary: {
+						...baseData.planUsageSummary,
+						rows: [
+							{
+								...baseData.planUsageSummary.rows[0],
+								used: 501,
+								limit: 500,
+								limitLabel: '500',
+								status: 'over_limit',
+								message: 'Personnel usage is 501 of 500.',
+								remediation: 'Archive personnel or contact support.',
+								upgradeTarget: null
+							},
+							...baseData.planUsageSummary.rows.slice(1)
+						],
+						alerts: [
+							{
+								dimension: 'active_personnel',
+								label: 'Personnel',
+								message: 'Personnel usage is 501 of 500.',
+								remediation: 'Archive personnel or contact support.',
+								status: 'over_limit'
+							}
+						]
+					}
+				}) as never,
+				form: null as never
+			}
+		});
+
+		expect(screen.getByRole('heading', { name: 'Plan Usage & Limits' })).toBeTruthy();
+		expect(screen.getByText('501 / 500')).toBeTruthy();
+		expect(screen.getByText('Archive personnel or contact support.')).toBeTruthy();
+		expect(screen.getByText('Existing data remains visible while limits are resolved.')).toBeTruthy();
 	});
 
 	it('attaches download anchors before triggering the download', () => {

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 
 const { buildRouteContextMock } = vi.hoisted(() => ({
@@ -22,23 +22,39 @@ vi.mock('$lib/server/adapters/httpAdapter', async () => {
 
 import { POST } from './+server';
 
+function clearPublicOriginConfig() {
+	vi.stubEnv('APP_PUBLIC_ORIGIN', '');
+	vi.stubEnv('PUBLIC_APP_ORIGIN', '');
+	vi.stubEnv('PUBLIC_SITE_URL', '');
+	vi.stubEnv('APP_PUBLIC_ORIGIN_ALLOWLIST', '');
+}
+
+function seedBillingOrganization(ctx: ReturnType<typeof createTestContext>) {
+	ctx.rawStore.seed('organizations', [
+		{
+			id: ctx.auth.orgId,
+			name: 'Alpha Company',
+			tier: 'free',
+			stripe_customer_id: null,
+			stripe_subscription_id: null,
+			subscription_status: null
+		}
+	]);
+}
+
 describe('POST /billing/checkout', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		clearPublicOriginConfig();
+	});
+
+	afterEach(() => {
+		vi.unstubAllEnvs();
 	});
 
 	it('creates a checkout session and persists the new Stripe customer id through the app-owned store', async () => {
 		const ctx = createTestContext();
-		ctx.rawStore.seed('organizations', [
-			{
-				id: ctx.auth.orgId,
-				name: 'Alpha Company',
-				tier: 'free',
-				stripe_customer_id: null,
-				stripe_subscription_id: null,
-				subscription_status: null
-			}
-		]);
+		seedBillingOrganization(ctx);
 		buildRouteContextMock.mockResolvedValue(ctx);
 
 		const response = await POST({
@@ -64,6 +80,91 @@ describe('POST /billing/checkout', () => {
 			stripe_customer_id: 'cus_test_123',
 			tier: 'free'
 		});
+	});
+
+	it('builds checkout success and cancel URLs from the official public app origin', async () => {
+		vi.stubEnv('APP_PUBLIC_ORIGIN', 'https://app.trooptotask.com');
+		const ctx = createTestContext();
+		seedBillingOrganization(ctx);
+		buildRouteContextMock.mockResolvedValue(ctx);
+
+		const response = await POST({
+			request: new Request(`https://spoofed.example/org/${ctx.auth.orgId}/billing/checkout`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ tier: 'team' })
+			}),
+			locals: {
+				user: { email: 'owner@example.com' }
+			},
+			params: { orgId: ctx.auth.orgId },
+			url: new URL(`https://spoofed.example/org/${ctx.auth.orgId}/billing/checkout`)
+		} as never);
+
+		expect(response.status).toBe(200);
+		expect(ctx.billingPort.calls).toContainEqual({
+			method: 'createCheckoutSession',
+			args: [
+				expect.objectContaining({
+					successUrl: `https://app.trooptotask.com/org/${ctx.auth.orgId}/billing/success`,
+					cancelUrl: `https://app.trooptotask.com/org/${ctx.auth.orgId}/billing/canceled`
+				})
+			]
+		});
+	});
+
+	it('allows explicitly allowlisted preview origins when no official public app origin is configured', async () => {
+		vi.stubEnv('APP_PUBLIC_ORIGIN_ALLOWLIST', 'https://billing-preview.trooptotask.dev');
+		const ctx = createTestContext();
+		seedBillingOrganization(ctx);
+		buildRouteContextMock.mockResolvedValue(ctx);
+
+		const response = await POST({
+			request: new Request(`https://billing-preview.trooptotask.dev/org/${ctx.auth.orgId}/billing/checkout`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ tier: 'unit' })
+			}),
+			locals: {
+				user: { email: 'owner@example.com' }
+			},
+			params: { orgId: ctx.auth.orgId },
+			url: new URL(`https://billing-preview.trooptotask.dev/org/${ctx.auth.orgId}/billing/checkout`)
+		} as never);
+
+		expect(response.status).toBe(200);
+		expect(ctx.billingPort.calls).toContainEqual({
+			method: 'createCheckoutSession',
+			args: [
+				expect.objectContaining({
+					successUrl: `https://billing-preview.trooptotask.dev/org/${ctx.auth.orgId}/billing/success`,
+					cancelUrl: `https://billing-preview.trooptotask.dev/org/${ctx.auth.orgId}/billing/canceled`
+				})
+			]
+		});
+	});
+
+	it('rejects non-local checkout origins when no official origin or preview allowlist is configured', async () => {
+		const ctx = createTestContext();
+		seedBillingOrganization(ctx);
+		buildRouteContextMock.mockResolvedValue(ctx);
+
+		const response = await POST({
+			request: new Request(`https://admin.trooptotask.org/org/${ctx.auth.orgId}/billing/checkout`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ tier: 'team' })
+			}),
+			locals: {
+				user: { email: 'owner@example.com' }
+			},
+			params: { orgId: ctx.auth.orgId },
+			url: new URL(`https://admin.trooptotask.org/org/${ctx.auth.orgId}/billing/checkout`)
+		} as never);
+
+		expect(response.status).toBe(400);
+		expect(await response.json()).toEqual({ error: 'Official public app origin is not configured for this host' });
+		expect(ctx.billingPort.calls).toEqual([]);
 	});
 
 	it('denies non-owner checkout attempts through billing policy before reading organization billing state', async () => {
@@ -114,16 +215,7 @@ describe('POST /billing/checkout', () => {
 				requiresStepUp: true
 			}
 		});
-		ctx.rawStore.seed('organizations', [
-			{
-				id: ctx.auth.orgId,
-				name: 'Alpha Company',
-				tier: 'free',
-				stripe_customer_id: null,
-				stripe_subscription_id: null,
-				subscription_status: null
-			}
-		]);
+		seedBillingOrganization(ctx);
 		buildRouteContextMock.mockResolvedValue(ctx);
 
 		const response = await POST({
@@ -151,16 +243,7 @@ describe('POST /billing/checkout', () => {
 
 	it('allows owners to create a checkout session when the organization is read-only', async () => {
 		const ctx = createTestContext({ readOnly: true });
-		ctx.rawStore.seed('organizations', [
-			{
-				id: ctx.auth.orgId,
-				name: 'Alpha Company',
-				tier: 'free',
-				stripe_customer_id: null,
-				stripe_subscription_id: null,
-				subscription_status: null
-			}
-		]);
+		seedBillingOrganization(ctx);
 		buildRouteContextMock.mockResolvedValue(ctx);
 
 		const response = await POST({

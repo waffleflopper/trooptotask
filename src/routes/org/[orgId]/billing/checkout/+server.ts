@@ -7,6 +7,7 @@ import { checkout } from '$lib/server/core/useCases/billing';
 import { persistBillingCustomerId, readBillingOrganization } from '$lib/server/core/useCases/billingOrganization';
 import { fail } from '$lib/server/core/errors';
 import { requireGovernancePolicy } from '$lib/server/core/useCases/governancePolicy';
+import { makePublicAppUrl } from '$lib/server/publicAppOrigin';
 import { billingApiErrorResponse } from '../billingApiErrors';
 
 export const POST: RequestHandler = async (event) => {
@@ -29,6 +30,8 @@ export const POST: RequestHandler = async (event) => {
 			fail(400, 'Invalid tier. Must be "team" or "unit".');
 		}
 
+		const successUrl = makePublicAppUrl(`/org/${orgId}/billing/success`, { inboundOrigin: event.url.origin });
+		const cancelUrl = makePublicAppUrl(`/org/${orgId}/billing/canceled`, { inboundOrigin: event.url.origin });
 		const org = await readBillingOrganization({ auth: ctx.auth, store: ctx.rawStore });
 
 		const email = event.locals.user?.email;
@@ -45,8 +48,8 @@ export const POST: RequestHandler = async (event) => {
 						customerEmail: email,
 						orgName: org.name,
 						existingCustomerId: org.stripeCustomerId ?? undefined,
-						successUrl: `${event.url.origin}/org/${orgId}/billing/success`,
-						cancelUrl: `${event.url.origin}/org/${orgId}/billing/canceled`
+						successUrl,
+						cancelUrl
 					}),
 				audit: { action: 'billing.checkout', resourceType: 'organization' }
 			},

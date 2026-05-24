@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { POST } from './+server';
+import { POST, _postConfig } from './+server';
 
 function request(password: string) {
 	return new Request('http://localhost/api/auth/confirm-sensitive-action', {
@@ -10,6 +10,12 @@ function request(password: string) {
 }
 
 describe('POST /api/auth/confirm-sensitive-action', () => {
+	it('uses the standard route adapter boundary without organization authorization', () => {
+		expect(_postConfig.permission).toBe('none');
+		expect(_postConfig.parseInput).toBeTypeOf('function');
+		expect(_postConfig.formatOutput).toBeTypeOf('function');
+	});
+
 	it('confirms the current user password and reports success without MFA step-up', async () => {
 		const signInWithPassword = vi.fn().mockResolvedValue({ error: null });
 		const getAuthenticatorAssuranceLevel = vi.fn().mockResolvedValue({
@@ -80,6 +86,78 @@ describe('POST /api/auth/confirm-sensitive-action', () => {
 
 		expect(response.status).toBe(401);
 		expect(await response.json()).toEqual({ error: 'Password confirmation failed. Try again.' });
+	});
+
+	it('returns step-up login details when the user email is unavailable', async () => {
+		const signInWithPassword = vi.fn();
+
+		const response = await POST({
+			request: request('correct-password'),
+			locals: {
+				user: null,
+				supabase: {
+					auth: {
+						signInWithPassword,
+						mfa: { getAuthenticatorAssuranceLevel: vi.fn() }
+					}
+				}
+			}
+		} as never);
+
+		expect(response.status).toBe(401);
+		expect(await response.json()).toEqual({
+			error: 'Please sign in again before continuing.',
+			requiresStepUp: true,
+			stepUpPath: '/auth/login'
+		});
+		expect(signInWithPassword).not.toHaveBeenCalled();
+	});
+
+	it('preserves the password-required response for invalid JSON bodies', async () => {
+		const signInWithPassword = vi.fn();
+
+		const response = await POST({
+			request: new Request('http://localhost/api/auth/confirm-sensitive-action', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: '{'
+			}),
+			locals: {
+				user: { email: 'owner@example.com' },
+				supabase: {
+					auth: {
+						signInWithPassword,
+						mfa: { getAuthenticatorAssuranceLevel: vi.fn() }
+					}
+				}
+			}
+		} as never);
+
+		expect(response.status).toBe(400);
+		expect(await response.json()).toEqual({ error: 'Password is required.' });
+		expect(signInWithPassword).not.toHaveBeenCalled();
+	});
+
+	it('wraps unexpected auth adapter exceptions in the standard route error boundary', async () => {
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+		await expect(
+			POST({
+				request: request('correct-password'),
+				locals: {
+					user: { email: 'owner@example.com' },
+					supabase: {
+						auth: {
+							signInWithPassword: vi.fn().mockRejectedValue(new Error('network unavailable')),
+							mfa: { getAuthenticatorAssuranceLevel: vi.fn() }
+						}
+					}
+				}
+			} as never)
+		).rejects.toMatchObject({ status: 500 });
+
+		expect(consoleError).toHaveBeenCalledWith('[http-adapter] Unhandled route error:', expect.any(Error));
+		consoleError.mockRestore();
 	});
 
 	it('fails closed when MFA assurance lookup fails after password confirmation', async () => {

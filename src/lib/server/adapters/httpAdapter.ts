@@ -262,7 +262,7 @@ async function resolveOrganizationIdForRequest(
 	return identity.id;
 }
 
-function rethrowOrWrap(err: unknown): never {
+export function rethrowOrWrap(err: unknown): never {
 	if (err && typeof err === 'object' && 'status' in err) {
 		throw err; // Re-throw SvelteKit HttpError or use-case fail()
 	}

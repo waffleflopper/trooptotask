@@ -74,22 +74,22 @@ describe('POST /billing/checkout', () => {
 		});
 		buildRouteContextMock.mockResolvedValue(ctx);
 
-		await expect(
-			POST({
-				request: new Request(`http://localhost/org/${ctx.auth.orgId}/billing/checkout`, {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ tier: 'team' })
-				}),
-				locals: {
-					user: { email: 'admin@example.com' }
-				},
-				params: { orgId: ctx.auth.orgId },
-				url: new URL(`http://localhost/org/${ctx.auth.orgId}/billing/checkout`)
-			} as never)
-		).rejects.toMatchObject({
-			status: 403,
-			message: 'Only the organization owner can perform this action'
+		const response = await POST({
+			request: new Request(`http://localhost/org/${ctx.auth.orgId}/billing/checkout`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ tier: 'team' })
+			}),
+			locals: {
+				user: { email: 'admin@example.com' }
+			},
+			params: { orgId: ctx.auth.orgId },
+			url: new URL(`http://localhost/org/${ctx.auth.orgId}/billing/checkout`)
+		} as never);
+
+		expect(response.status).toBe(403);
+		expect(await response.json()).toEqual({
+			error: 'Only the organization owner can perform this action'
 		});
 
 		expect(ctx.auditPort.events).toEqual([
@@ -103,6 +103,50 @@ describe('POST /billing/checkout', () => {
 				severity: 'warning'
 			}
 		]);
+	});
+
+	it('returns step-up details when checkout is blocked by a stale sensitive session', async () => {
+		const ctx = createTestContext({
+			sensitiveActionDecision: {
+				allowed: false,
+				reason: 'denied.staleSession',
+				sessionAgeMs: 60 * 60 * 1000,
+				requiresStepUp: true
+			}
+		});
+		ctx.rawStore.seed('organizations', [
+			{
+				id: ctx.auth.orgId,
+				name: 'Alpha Company',
+				tier: 'free',
+				stripe_customer_id: null,
+				stripe_subscription_id: null,
+				subscription_status: null
+			}
+		]);
+		buildRouteContextMock.mockResolvedValue(ctx);
+
+		const response = await POST({
+			request: new Request(`http://localhost/org/${ctx.auth.orgId}/billing/checkout`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ tier: 'team' })
+			}),
+			locals: {
+				user: { email: 'owner@example.com' }
+			},
+			params: { orgId: ctx.auth.orgId },
+			url: new URL(`http://localhost/org/${ctx.auth.orgId}/billing/checkout`)
+		} as never);
+
+		expect(response.status).toBe(403);
+		expect(await response.json()).toMatchObject({
+			error: 'Please confirm your identity before continuing. Sign in again or complete MFA, then try again.',
+			reason: 'denied.staleSession',
+			requiresStepUp: true,
+			stepUpPath: '/auth/login'
+		});
+		expect(ctx.billingPort.calls).toEqual([]);
 	});
 
 	it('allows owners to create a checkout session when the organization is read-only', async () => {

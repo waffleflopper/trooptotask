@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { isOrgReadOnly } from '$lib/server/subscription';
+import { getOrgReadOnlyState } from '$lib/server/subscription';
 import { json } from '@sveltejs/kit';
 
 /**
@@ -7,12 +7,9 @@ import { json } from '@sveltejs/kit';
  * Use in API routes: const blocked = await checkReadOnly(supabase, orgId); if (blocked) return blocked;
  */
 export async function checkReadOnly(supabase: SupabaseClient, orgId: string): Promise<Response | null> {
-	const readOnly = await isOrgReadOnly(supabase, orgId);
-	if (readOnly) {
-		return json(
-			{ error: 'Organization is in read-only mode. Subscribe or remove personnel to continue.' },
-			{ status: 403 }
-		);
+	const state = await getOrgReadOnlyState(supabase, orgId);
+	if (state.isReadOnly) {
+		return json({ error: state.message ?? 'Organization is in read-only mode' }, { status: 403 });
 	}
 	return null;
 }

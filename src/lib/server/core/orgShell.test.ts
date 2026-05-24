@@ -57,6 +57,7 @@ const baseOrgState: OrgState = {
 		personnelCount: 0,
 		personnelCap: 20,
 		isReadOnly: false,
+		readOnlyReason: null,
 		giftExpiresAt: null,
 		giftTier: null
 	}

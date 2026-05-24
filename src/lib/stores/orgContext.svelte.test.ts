@@ -40,6 +40,7 @@ function makeInput(overrides: Record<string, unknown> = {}) {
 		permissions: fullPermissions,
 		scopedGroupId: null as string | null,
 		isReadOnly: false,
+		readOnlyReason: null,
 		...overrides
 	};
 }

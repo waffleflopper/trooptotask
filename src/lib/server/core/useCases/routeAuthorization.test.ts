@@ -151,6 +151,27 @@ describe('route authorization', () => {
 		});
 	});
 
+	it('uses billing-state read-only reasons when blocking direct mutation attempts', async () => {
+		const ctx = createTestContext({ readOnly: true });
+		ctx.readOnlyGuard.checkState = async () => ({
+			isReadOnly: true,
+			reason: 'payment_failure',
+			message:
+				'Organization is in billing grace mode because a payment failed. Update the payment method to restore full access.'
+		});
+
+		await expect(
+			enforceRouteReadOnlyOverlay(ctx, {
+				permission: 'privileged',
+				mutation: true
+			})
+		).rejects.toMatchObject({
+			status: 403,
+			message:
+				'Organization is in billing grace mode because a payment failed. Update the payment method to restore full access.'
+		});
+	});
+
 	it('enforces Policy Actions for loads without route-specific logic', async () => {
 		const ctx = createTestContext({
 			auth: {

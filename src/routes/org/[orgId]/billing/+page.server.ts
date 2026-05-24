@@ -1,12 +1,11 @@
-import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import { isBillingEnabled } from '$lib/config/billing';
 import { TIER_CONFIG, type EffectiveTier, type Tier } from '$lib/types/subscription';
 import { canManageBillingSubscription, readBillingOrganization } from '$lib/server/core/useCases/billingOrganization';
 import type { UseCaseContext } from '$lib/server/core/ports';
 import { requireGovernancePolicy } from '$lib/server/core/useCases/governancePolicy';
+import { readCurrentBillingSnapshot, summarizeBillingCancellation } from '$lib/server/core/useCases/billingState';
 
 export async function _loadBillingPageData(
 	ctx: Pick<UseCaseContext, 'auth' | 'audit' | 'rawStore'>,
@@ -15,6 +14,7 @@ export async function _loadBillingPageData(
 	await requireGovernancePolicy({ auth: ctx.auth, audit: ctx.audit }, POLICY_ACTION_CATALOG.organization.accessBilling);
 
 	const org = await readBillingOrganization({ auth: ctx.auth, store: ctx.rawStore });
+	const billingSnapshot = await readCurrentBillingSnapshot({ auth: ctx.auth, store: ctx.rawStore });
 	const canManageSubscription = canManageBillingSubscription(org);
 
 	const tierComparison = (['free', 'team', 'unit'] as Tier[]).map((tier) => {
@@ -34,6 +34,8 @@ export async function _loadBillingPageData(
 		orgName: org.name,
 		stripeCustomerId: org.stripeCustomerId,
 		subscriptionStripeId: org.stripeSubscriptionId,
+		billingSnapshot,
+		cancellationSummary: summarizeBillingCancellation(billingSnapshot),
 		canManageSubscription,
 		tierComparison
 	};
@@ -42,11 +44,6 @@ export async function _loadBillingPageData(
 export const load: PageServerLoad = async ({ params, locals, cookies, parent }) => {
 	const { orgId } = params;
 	const parentData = await parent();
-
-	// If billing is disabled, redirect to settings — there's nothing to manage
-	if (!isBillingEnabled) {
-		throw redirect(303, `/org/${orgId}/settings`);
-	}
 
 	return loadWithContext(locals, cookies, orgId, {
 		permission: 'owner',

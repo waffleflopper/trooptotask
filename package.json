@@ -25,6 +25,8 @@
 		"format:check": "prettier --check .",
 		"lint": "eslint .",
 		"lint:fix": "eslint --fix .",
+		"billing:launch-preflight": "node ./scripts/billing-launch-preflight.mjs",
+		"billing:lifecycle": "node ./scripts/billing-lifecycle-simulate.mjs",
 		"sandcastle": "npx tsx .sandcastle/main.mts"
 	},
 	"devDependencies": {

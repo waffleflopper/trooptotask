@@ -1,10 +1,13 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
+	import { TriangleAlert } from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { NativeSelect } from '$lib/components/ui/native-select';
 	import { Badge } from '$lib/components/ui/badge';
-	import { formatDisplayDate } from '$lib/utils/dates';
+	import { formatDisplayDate, formatDisplayDateTime } from '$lib/utils/dates';
 	import { adminBadgeVariant, formatAdminLabel } from '$lib/components/admin/adminTheme';
+	import * as Alert from '$lib/components/ui/alert';
 	import * as Card from '$lib/components/ui/card';
 	import * as Empty from '$lib/components/ui/empty';
 	import * as Field from '$lib/components/ui/field';
@@ -32,6 +35,10 @@
 		if (statusFilter === 'active') result = result.filter((sub) => !sub.isSuspended && !sub.isGifted);
 		if (statusFilter === 'suspended') result = result.filter((sub) => sub.isSuspended);
 		if (statusFilter === 'gifted') result = result.filter((sub) => sub.isGifted);
+		if (statusFilter === 'canceling')
+			result = result.filter((sub) => sub.cancellationSummary?.state === 'canceling_at_period_end');
+		if (statusFilter === 'canceled') result = result.filter((sub) => sub.cancellationSummary?.state === 'canceled');
+		if (statusFilter === 'drifted') result = result.filter((sub) => sub.billingSnapshot?.driftDetected);
 
 		return result;
 	});
@@ -42,19 +49,31 @@
 		return filteredSubs.slice(start, start + PAGE_SIZE);
 	});
 
-	$effect(() => {
-		searchInput;
-		tierFilter;
-		statusFilter;
-		currentPage = 1;
-	});
-
 	function formatPersonnelCap(count: number, cap: number | null): string {
 		return cap === null ? `${count} / Unlimited` : `${count} / ${cap}`;
 	}
 
 	function isOverCap(count: number, cap: number | null): boolean {
 		return cap !== null && count > cap;
+	}
+
+	function formatOptionalDateTime(value: string | null | undefined): string {
+		return value ? formatDisplayDateTime(value) : '-';
+	}
+
+	function updateSearchInput(event: Event) {
+		searchInput = (event.currentTarget as HTMLInputElement).value;
+		currentPage = 1;
+	}
+
+	function updateTierFilter(event: Event) {
+		tierFilter = (event.currentTarget as HTMLSelectElement).value;
+		currentPage = 1;
+	}
+
+	function updateStatusFilter(event: Event) {
+		statusFilter = (event.currentTarget as HTMLSelectElement).value;
+		currentPage = 1;
 	}
 </script>
 
@@ -72,7 +91,7 @@
 		{/snippet}
 	</PageShell.Header>
 
-	<PageShell.FactGrid layout="two">
+	<PageShell.FactGrid layout="three">
 		<PageShell.Metric
 			label="Tracked Orgs"
 			value={data.subscriptions.length}
@@ -83,7 +102,22 @@
 			value={filteredSubs.length}
 			detail="Organizations matching the current billing filters."
 		/>
+		<PageShell.Metric
+			label="Drifted"
+			value={data.subscriptions.filter((sub) => sub.billingSnapshot?.driftDetected).length}
+			detail="Organizations whose last reconciliation found local billing drift."
+		/>
 	</PageShell.FactGrid>
+
+	{#if data.billingDiagnosticsError}
+		<Alert.Root variant="warning">
+			<TriangleAlert />
+			<Alert.Title>Billing diagnostics could not be loaded.</Alert.Title>
+			<Alert.Description>
+				Cancellation timing may be incomplete until the billing snapshot query succeeds.
+			</Alert.Description>
+		</Alert.Root>
+	{/if}
 
 	<Card.Root>
 		<Card.Header class="gap-3 xl:flex-row xl:items-end xl:justify-between">
@@ -95,14 +129,15 @@
 							id="subscription-search"
 							type="text"
 							placeholder="Search by org or owner..."
-							bind:value={searchInput}
+							value={searchInput}
+							oninput={updateSearchInput}
 						/>
 					</Field.Control>
 				</Field.Root>
 				<Field.Root>
 					<Field.Label for="subscription-tier">Tier</Field.Label>
 					<Field.Control>
-						<NativeSelect id="subscription-tier" bind:value={tierFilter}>
+						<NativeSelect id="subscription-tier" value={tierFilter} onchange={updateTierFilter}>
 							<option value="all">All tiers</option>
 							<option value="free">Free</option>
 							<option value="team">Team</option>
@@ -113,11 +148,14 @@
 				<Field.Root>
 					<Field.Label for="subscription-status">Status</Field.Label>
 					<Field.Control>
-						<NativeSelect id="subscription-status" bind:value={statusFilter}>
+						<NativeSelect id="subscription-status" value={statusFilter} onchange={updateStatusFilter}>
 							<option value="all">All statuses</option>
 							<option value="active">Active</option>
 							<option value="suspended">Suspended</option>
 							<option value="gifted">Gifted</option>
+							<option value="canceling">Canceling</option>
+							<option value="canceled">Canceled</option>
+							<option value="drifted">Drifted</option>
 						</NativeSelect>
 					</Field.Control>
 				</Field.Root>
@@ -133,6 +171,8 @@
 						<Table.Head>Status</Table.Head>
 						<Table.Head>Personnel</Table.Head>
 						<Table.Head>Owner</Table.Head>
+						<Table.Head>Sync Health</Table.Head>
+						<Table.Head>Cancellation</Table.Head>
 						<Table.Head>Gift</Table.Head>
 						<Table.Head>Created</Table.Head>
 					</Table.Row>
@@ -142,8 +182,9 @@
 						<Table.Row>
 							<Table.Cell>
 								<div class="grid gap-1">
-									<a href="/admin/organizations/{sub.id}" class="text-sm font-medium underline-offset-4 hover:underline"
-										>{sub.name}</a
+									<a
+										href={resolve(`/admin/organizations/${sub.id}` as `/admin/organizations/${string}`)}
+										class="text-sm font-medium underline-offset-4 hover:underline">{sub.name}</a
 									>
 									<span class="font-mono text-xs text-muted-foreground">{sub.id.slice(0, 8)}...</span>
 								</div>
@@ -163,6 +204,48 @@
 							</Table.Cell>
 							<Table.Cell class="max-w-60 break-words text-muted-foreground">{sub.ownerEmail || '-'}</Table.Cell>
 							<Table.Cell>
+								{#if sub.billingSnapshot}
+									<div class="grid gap-1">
+										<Badge variant={sub.billingSnapshot.driftDetected ? 'warning' : 'secondary'}>
+											{sub.billingSnapshot.driftDetected ? 'Drifted' : formatAdminLabel(sub.billingSnapshot.syncStatus)}
+										</Badge>
+										<span class="text-muted-foreground">
+											{formatAdminLabel(sub.billingSnapshot.source)} /
+											{formatAdminLabel(sub.billingSnapshot.subscriptionStatus ?? 'unknown')}
+										</span>
+										<span class="text-muted-foreground">
+											Last checked {formatOptionalDateTime(sub.billingSnapshot.lastReconciledAt)}
+										</span>
+										{#if sub.billingSnapshot.reconciliationResult}
+											<span class="max-w-52 break-words font-mono text-xs text-muted-foreground">
+												{sub.billingSnapshot.reconciliationResult}
+											</span>
+										{/if}
+									</div>
+								{:else}
+									<span class="text-muted-foreground">-</span>
+								{/if}
+							</Table.Cell>
+							<Table.Cell>
+								{#if sub.cancellationSummary?.state === 'canceling_at_period_end'}
+									<div class="grid gap-1">
+										<Badge variant="warning">Cancels at period end</Badge>
+										<span class="text-muted-foreground">
+											paid through {formatOptionalDateTime(sub.cancellationSummary.currentPeriodEnd)}
+										</span>
+									</div>
+								{:else if sub.cancellationSummary?.state === 'canceled'}
+									<div class="grid gap-1">
+										<Badge variant="secondary">Canceled</Badge>
+										<span class="text-muted-foreground">
+											canceled {formatOptionalDateTime(sub.cancellationSummary.canceledAt)}
+										</span>
+									</div>
+								{:else}
+									<span class="text-muted-foreground">-</span>
+								{/if}
+							</Table.Cell>
+							<Table.Cell>
 								{#if sub.isGifted}
 									<div class="grid gap-1">
 										<Badge variant="warning">Gifted</Badge>
@@ -178,7 +261,7 @@
 						</Table.Row>
 					{:else}
 						<Table.Row>
-							<Table.Cell colspan={7}>
+							<Table.Cell colspan={9}>
 								<Empty.Root class="border-0">No subscriptions found.</Empty.Root>
 							</Table.Cell>
 						</Table.Row>

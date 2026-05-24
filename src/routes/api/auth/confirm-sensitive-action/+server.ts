@@ -82,6 +82,7 @@ async function confirmSensitiveAction(input: ConfirmSensitiveActionInput): Promi
 
 export const _postConfig: RouteConfig<ConfirmSensitiveActionInput, ConfirmSensitiveActionResult> = {
 	permission: 'none',
+	// Intentionally omit mutation: this no-org credential check must stay available when an org is read-only.
 	parseInput: parseConfirmSensitiveActionInput,
 	fn: (_ctx, input) => confirmSensitiveAction(input),
 	formatOutput: (result) => json(result.body, { status: result.status })

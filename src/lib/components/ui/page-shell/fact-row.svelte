@@ -29,7 +29,7 @@
 		badgeVariant = 'secondary',
 		children,
 		class: className,
-		role = 'listitem',
+		role,
 		...restProps
 	}: Props = $props();
 

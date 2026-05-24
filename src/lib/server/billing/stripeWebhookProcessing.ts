@@ -5,6 +5,7 @@ import { getAdminClient } from '$lib/server/supabase';
 import { invalidateTierCache } from '$lib/server/subscription';
 import type { Tier } from '$lib/types/subscription';
 import { configuredPriceCatalog, lookupPriceCatalogEntry } from '$lib/server/billing/priceCatalog';
+import { legacyOrganizationSubscriptionId } from '$lib/server/billing/subscriptionRetentionPolicy';
 
 const TIER_RANK: Record<string, number> = { free: 1, team: 2, unit: 3 };
 export const _FINAL_PROCESSING_STATES = new Set(['processed', 'ignored', 'permanently_failed', 'superseded']);
@@ -157,10 +158,6 @@ function legacyOrganizationStatus(status: Stripe.Subscription.Status): string | 
 		default:
 			return null;
 	}
-}
-
-function legacyOrganizationSubscriptionId(status: Stripe.Subscription.Status, subscriptionId: string): string | null {
-	return status === 'incomplete_expired' || status === 'canceled' ? null : subscriptionId;
 }
 
 function compareStripeEventPosition(

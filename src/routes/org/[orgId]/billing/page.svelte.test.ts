@@ -724,8 +724,8 @@ describe('billing page toolbar', () => {
 		expect(screen.getByText('Cancellation Timing')).toBeTruthy();
 		expect(screen.getByText('Cancels at period end')).toBeTruthy();
 		const subscriptionStatusFact = screen.getByText('Subscription Status').closest('[data-slot="fact-row"]');
-		expect(subscriptionStatusFact?.getAttribute('role')).toBe('listitem');
-		expect(subscriptionStatusFact?.closest('[data-slot="fact-grid"]')?.getAttribute('role')).toBe('list');
+		expect(subscriptionStatusFact?.hasAttribute('role')).toBe(false);
+		expect(subscriptionStatusFact?.closest('[data-slot="fact-grid"]')?.hasAttribute('role')).toBe(false);
 	});
 
 	it('shows terminal cancellation timing after paid access ends', () => {

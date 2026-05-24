@@ -13,16 +13,7 @@
 		children?: Snippet;
 	};
 
-	let {
-		label,
-		value,
-		detail,
-		tone = 'default',
-		children,
-		class: className,
-		role = 'listitem',
-		...restProps
-	}: Props = $props();
+	let { label, value, detail, tone = 'default', children, class: className, role, ...restProps }: Props = $props();
 
 	const valueToneClass: Record<MetricTone, string> = {
 		default: 'text-foreground',

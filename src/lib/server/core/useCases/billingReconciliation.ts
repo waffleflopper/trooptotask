@@ -1,5 +1,6 @@
 import type { BillingSnapshot, SubscriptionStatus, Tier, PriceCatalogEntry } from '$lib/types/subscription';
 import { lookupPriceCatalogEntry } from '$lib/server/billing/priceCatalog';
+import { legacyOrganizationSubscriptionId } from '$lib/server/billing/subscriptionRetentionPolicy';
 import type { SubscriptionPort } from '$lib/server/core/ports';
 
 export interface BillingReconciliationOrganizationRow {
@@ -138,10 +139,6 @@ function legacyOrganizationStatus(status: SubscriptionStatus): string | null {
 		default:
 			return null;
 	}
-}
-
-function legacyOrganizationSubscriptionId(status: SubscriptionStatus, subscriptionId: string): string | null {
-	return status === 'incomplete_expired' || status === 'canceled' ? null : subscriptionId;
 }
 
 function retainsCommercialPlan(status: SubscriptionStatus): boolean {

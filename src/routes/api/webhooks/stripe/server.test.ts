@@ -854,6 +854,7 @@ describe('POST /api/webhooks/stripe', () => {
 			expect.objectContaining({
 				values: expect.objectContaining({
 					tier: 'free',
+					stripe_subscription_id: null,
 					subscription_status: null
 				})
 			})

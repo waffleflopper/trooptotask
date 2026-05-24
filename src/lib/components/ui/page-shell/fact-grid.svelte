@@ -29,7 +29,7 @@
 		layout?: FactGridLayout;
 	};
 
-	let { children, layout = 'stack', class: className, role = 'list', ...restProps }: Props = $props();
+	let { children, layout = 'stack', class: className, role, ...restProps }: Props = $props();
 </script>
 
 <div

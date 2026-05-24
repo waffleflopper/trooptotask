@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { OrganizationSettingsWorkspace } from './organizationSettingsWorkspace.server';
 
 const {
 	buildLayoutContextMock,
@@ -223,16 +224,27 @@ describe('org settings page server actions', () => {
 					})
 				},
 				rawStore: {
-					findOne: vi.fn(async () => ({
-						archive_retention_months: 42,
-						loss_warning_window_days: 150,
-						critical_tasks_default_expiration_months: 18,
-						critical_tasks_expiring_soon_warning_days: 45
-					}))
-				},
-				subscription: {
-					getEffectiveTier: vi.fn(async () => ({ tier: 'unit' })),
-					getMonthlyExportCount: vi.fn(async () => 0)
+					findOne: vi.fn(async (table: string) => {
+						if (table === 'organization_billing_snapshots') return null;
+						if (table === 'organizations') {
+							return {
+								id: 'org-1',
+								tier: 'unit',
+								stripe_customer_id: null,
+								stripe_subscription_id: null,
+								subscription_status: null,
+								current_period_end: null,
+								gift_tier: null,
+								gift_expires_at: null,
+								archive_retention_months: 42,
+								loss_warning_window_days: 150,
+								critical_tasks_default_expiration_months: 18,
+								critical_tasks_expiring_soon_warning_days: 45
+							};
+						}
+						return null;
+					}),
+					findMany: vi.fn(async () => [])
 				}
 			})
 		);
@@ -399,16 +411,27 @@ describe('org settings page server actions', () => {
 				audit: { log: vi.fn() },
 				store: { findMany },
 				rawStore: {
-					findOne: vi.fn(async () => ({
-						archive_retention_months: 42,
-						loss_warning_window_days: 150,
-						critical_tasks_default_expiration_months: 18,
-						critical_tasks_expiring_soon_warning_days: 45
-					}))
-				},
-				subscription: {
-					getEffectiveTier: vi.fn(async () => ({ tier: 'free' })),
-					getMonthlyExportCount: vi.fn(async () => 0)
+					findOne: vi.fn(async (table: string) => {
+						if (table === 'organization_billing_snapshots') return null;
+						if (table === 'organizations') {
+							return {
+								id: 'org-1',
+								tier: 'free',
+								stripe_customer_id: null,
+								stripe_subscription_id: null,
+								subscription_status: null,
+								current_period_end: null,
+								gift_tier: null,
+								gift_expires_at: null,
+								archive_retention_months: 42,
+								loss_warning_window_days: 150,
+								critical_tasks_default_expiration_months: 18,
+								critical_tasks_expiring_soon_warning_days: 45
+							};
+						}
+						return null;
+					}),
+					findMany: vi.fn(async () => [])
 				}
 			})
 		);
@@ -465,6 +488,82 @@ describe('org settings page server actions', () => {
 					}
 				}
 			}
+		});
+	});
+
+	it('loads settings export info from plan policy and organization usage', async () => {
+		const now = new Date().toISOString();
+		loadWithContextMock.mockImplementationOnce(async (_locals, _cookies, _orgId, config) =>
+			config.fn({
+				auth: { orgId: 'org-1', role: 'owner' },
+				audit: { log: vi.fn() },
+				store: {
+					findMany: vi.fn(async () => [])
+				},
+				rawStore: {
+					findOne: vi.fn(async (table: string) => {
+						if (table === 'organization_billing_snapshots') return null;
+						if (table === 'organizations') {
+							return {
+								id: 'org-1',
+								tier: 'free',
+								stripe_customer_id: null,
+								stripe_subscription_id: null,
+								subscription_status: null,
+								current_period_end: null,
+								gift_tier: null,
+								gift_expires_at: null,
+								archive_retention_months: 42,
+								loss_warning_window_days: 150,
+								critical_tasks_default_expiration_months: 18,
+								critical_tasks_expiring_soon_warning_days: 45
+							};
+						}
+						return null;
+					}),
+					findMany: vi.fn(async (table: string) => {
+						if (table === 'data_exports') {
+							return [
+								{ id: 'export-1', org_id: 'org-1', created_at: now },
+								{ id: 'export-2', org_id: 'org-1', created_at: now }
+							];
+						}
+						return [];
+					})
+				}
+			})
+		);
+
+		const result = await load({
+			params: { orgId: 'org-1' },
+			locals: {},
+			cookies: {},
+			parent: async () => ({
+				orgId: 'org-1',
+				orgUrlSegment: 'org-1',
+				orgName: 'Test Org',
+				userRole: 'owner',
+				allOrgs: [],
+				isAdmin: true,
+				effectiveTier: {
+					tier: 'free',
+					source: 'subscription',
+					personnelCount: 4,
+					personnelCap: 20,
+					isReadOnly: false,
+					giftExpiresAt: null,
+					giftTier: null
+				},
+				permissions: { canManageMembers: true }
+			})
+		} as never);
+
+		const workspace = (result as Awaited<ReturnType<typeof load>> & { workspace: OrganizationSettingsWorkspace }).workspace;
+		expect(workspace.sections.dataExport.exportInfo).toMatchObject({
+			exportsUsed: 2,
+			exportsLimit: 3,
+			isLimited: true,
+			limitReached: false
 		});
 	});
 
@@ -541,16 +640,27 @@ describe('org settings page server actions', () => {
 					})
 				},
 				rawStore: {
-					findOne: vi.fn(async () => ({
-						archive_retention_months: 42,
-						loss_warning_window_days: 150,
-						critical_tasks_default_expiration_months: 18,
-						critical_tasks_expiring_soon_warning_days: 45
-					}))
-				},
-				subscription: {
-					getEffectiveTier: vi.fn(async () => ({ tier: 'free' })),
-					getMonthlyExportCount: vi.fn(async () => 0)
+					findOne: vi.fn(async (table: string) => {
+						if (table === 'organization_billing_snapshots') return null;
+						if (table === 'organizations') {
+							return {
+								id: 'org-1',
+								tier: 'free',
+								stripe_customer_id: null,
+								stripe_subscription_id: null,
+								subscription_status: null,
+								current_period_end: null,
+								gift_tier: null,
+								gift_expires_at: null,
+								archive_retention_months: 42,
+								loss_warning_window_days: 150,
+								critical_tasks_default_expiration_months: 18,
+								critical_tasks_expiring_soon_warning_days: 45
+							};
+						}
+						return null;
+					}),
+					findMany: vi.fn(async () => [])
 				}
 			})
 		);

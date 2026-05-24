@@ -33,6 +33,7 @@ export const _postConfig: RouteConfig<ExcelExportInput, ExcelExportOutput> = {
 
 		if (!userId) fail(403, 'Authenticated user required');
 
+		// Use the shared usage read model so Settings and export enforcement see the same counts.
 		const [policy, usage] = await Promise.all([
 			readEffectivePlanPolicy({ auth: ctx.auth, store: ctx.rawStore }),
 			readOrganizationPlanUsage({ auth: ctx.auth, store: ctx.rawStore })

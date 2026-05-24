@@ -152,18 +152,20 @@ describe('organization plan usage read model', () => {
 	it('counts export usage only inside the current calendar month', async () => {
 		const ctx = buildContext();
 		ctx.rawStore.seed('data_exports', [
-			{ id: 'export-current-a', org_id: 'org-1', created_at: '2026-05-01T00:00:00.000Z' },
-			{ id: 'export-current-b', org_id: 'org-1', created_at: '2026-05-24T11:00:00.000Z' },
-			{ id: 'export-prior-month', org_id: 'org-1', created_at: '2026-04-30T23:59:59.999Z' },
-			{ id: 'export-other-org', org_id: 'org-2', created_at: '2026-05-24T11:00:00.000Z' }
+			{ id: 'export-current-a', org_id: 'org-1', created_at: '2026-05-01T00:00:00.000Z', status: 'completed' },
+			{ id: 'export-current-b', org_id: 'org-1', created_at: '2026-05-24T11:00:00.000Z', status: 'failed' },
+			{ id: 'export-current-c', org_id: 'org-1', created_at: '2026-05-24T11:30:00.000Z', status: 'processing' },
+			{ id: 'export-prior-month', org_id: 'org-1', created_at: '2026-04-30T23:59:59.999Z', status: 'completed' },
+			{ id: 'export-other-org', org_id: 'org-2', created_at: '2026-05-24T11:00:00.000Z', status: 'completed' }
 		]);
 
 		const usage = await readOrganizationPlanUsage({ auth: ctx.auth, store: ctx.rawStore }, { now: NOW });
 
-		expect(usage.monthlyExportCount).toBe(2);
+		expect(usage.monthlyExportCount).toBe(3);
 		expect(usage.sources.monthlyExports.period).toEqual({
 			start: '2026-05-01T00:00:00.000Z',
 			endExclusive: '2026-06-01T00:00:00.000Z'
 		});
+		expect(usage.sources.monthlyExports.included).toContain('status = any export attempt');
 	});
 });

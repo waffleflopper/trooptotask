@@ -145,6 +145,7 @@ export async function readOrganizationPlanUsage(
 				table: 'data_exports',
 				included: [
 					'org_id = current organization',
+					'status = any export attempt',
 					`created_at >= ${start.toISOString()}`,
 					`created_at < ${endExclusive.toISOString()}`
 				],

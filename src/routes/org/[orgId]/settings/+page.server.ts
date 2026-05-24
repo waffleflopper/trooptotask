@@ -2,8 +2,6 @@ import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { parseMemberAccessEditFormData } from '$lib/access/memberAccessCommands';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import { isBillingEnabled } from '$lib/config/billing';
-import { TIER_CONFIG } from '$lib/types/subscription';
 import { buildRouteContext, loadWithContext } from '$lib/server/adapters/httpAdapter';
 import { createSupabaseDataStore } from '$lib/server/adapters/supabaseDataStore';
 import { createSupabaseOrgSettingsAdministrationPort } from '$lib/server/adapters/supabaseOrgSettingsAdministration';
@@ -12,7 +10,9 @@ import { getAdminClient } from '$lib/server/supabase';
 import { createSupabaseOrganizationInvitationDeliveryPort } from '$lib/server/organizationInvitationDelivery';
 import { createSupabaseOrganizationInvitationRateLimiter } from '$lib/server/organizationInvitationRateLimit';
 import { fetchAuditLogPreview } from '$lib/server/core/useCases/auditLogQuery';
-import type { SubscriptionPort } from '$lib/server/core/ports';
+import type { UseCaseContext } from '$lib/server/core/ports';
+import { readEffectivePlanPolicy } from '$lib/server/core/useCases/planPolicy';
+import { readOrganizationPlanUsage } from '$lib/server/core/useCases/organizationPlanUsage';
 import {
 	clearOrganizationUrlSlug,
 	deleteOrganization as deleteOrganizationUseCase,
@@ -74,24 +74,16 @@ export const load: PageServerLoad = async ({ locals, cookies, parent }) => {
 	});
 };
 
-async function loadExportInfo(ctx: { subscription: SubscriptionPort }): Promise<SettingsExportInfoSource> {
-	if (!isBillingEnabled) {
-		return {
-			exportsUsed: 0,
-			exportsLimit: Infinity,
-			isLimited: false
-		};
-	}
-
-	const [tier, exportCount] = await Promise.all([
-		ctx.subscription.getEffectiveTier(),
-		ctx.subscription.getMonthlyExportCount()
+async function loadExportInfo(ctx: Pick<UseCaseContext, 'auth' | 'rawStore'>): Promise<SettingsExportInfoSource> {
+	const [policy, usage] = await Promise.all([
+		readEffectivePlanPolicy({ auth: ctx.auth, store: ctx.rawStore }),
+		readOrganizationPlanUsage({ auth: ctx.auth, store: ctx.rawStore })
 	]);
-	const config = TIER_CONFIG[tier.tier];
+	const exportLimit = policy.exportQuota.limit;
 	return {
-		exportsUsed: exportCount,
-		exportsLimit: config.bulkExportsPerMonth,
-		isLimited: config.bulkExportsPerMonth !== Infinity
+		exportsUsed: usage.monthlyExportCount,
+		exportsLimit: exportLimit ?? Infinity,
+		isLimited: exportLimit !== null
 	};
 }
 

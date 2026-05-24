@@ -9,6 +9,8 @@ const { billingEnabledMock } = vi.hoisted(() => ({
 	billingEnabledMock: vi.fn(() => true)
 }));
 
+// billingState.ts reads isBillingEnabled below the route; mock it so billing-disabled
+// snapshots produce the same unlimited quota that production uses.
 vi.mock('$lib/config/billing', () => ({
 	get isBillingEnabled() {
 		return billingEnabledMock();
@@ -30,6 +32,35 @@ function rowValues(sheet: ExcelJS.Worksheet, rowNumber: number): string[] {
 
 function toWorkbookBuffer(buffer: ArrayBuffer): WorkbookLoadBuffer {
 	return Buffer.from(buffer) as unknown as WorkbookLoadBuffer;
+}
+
+function billingSnapshot(overrides: Record<string, unknown> = {}) {
+	return {
+		id: 'snapshot-1',
+		organization_id: 'test-org',
+		source: 'stripe',
+		commercial_plan: 'team',
+		stripe_customer_id: 'cus_123',
+		stripe_subscription_id: 'sub_123',
+		stripe_product_id: 'prod_team',
+		stripe_price_id: 'price_team',
+		subscription_status: 'active',
+		collection_status: 'current',
+		current_period_start: null,
+		current_period_end: null,
+		cancel_at_period_end: false,
+		canceled_at: null,
+		trial_end: null,
+		sync_status: 'synced',
+		last_stripe_event_id: null,
+		last_stripe_event_type: null,
+		last_stripe_event_created_at: null,
+		last_processed_at: null,
+		last_reconciled_at: null,
+		reconciliation_result: null,
+		drift_detected: false,
+		...overrides
+	};
 }
 
 describe('POST /api/export-excel', () => {
@@ -68,6 +99,29 @@ describe('POST /api/export-excel', () => {
 		ctx.rawStore.seed(
 			'data_exports',
 			Array.from({ length: 4 }, (_, index) => ({
+				id: `export-${index + 1}`,
+				org_id: ctx.auth.orgId,
+				created_at: now,
+				status: 'completed'
+			}))
+		);
+
+		const result = await handleUseCaseRequest(_postConfig, ctx, {
+			email: 'leader@example.com'
+		});
+		const response = _postConfig.formatOutput?.(result);
+
+		expect(response?.status).toBe(200);
+		expect(response?.headers.get('Content-Type')).toBe(WORKBOOK_MIME_TYPE);
+	});
+
+	it('allows Excel export when a paid team billing snapshot has unlimited exports', async () => {
+		const ctx = createTestContext();
+		const now = new Date().toISOString();
+		ctx.rawStore.seed('organization_billing_snapshots', [billingSnapshot({ commercial_plan: 'team' })]);
+		ctx.rawStore.seed(
+			'data_exports',
+			Array.from({ length: 5 }, (_, index) => ({
 				id: `export-${index + 1}`,
 				org_id: ctx.auth.orgId,
 				created_at: now,

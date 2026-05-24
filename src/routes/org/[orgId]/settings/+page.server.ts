@@ -188,6 +188,7 @@ export const actions: Actions = {
 					auth: ctx.auth,
 					audit: ctx.audit,
 					notifications: ctx.notifications,
+					store: ctx.rawStore,
 					readOnlyGuard: ctx.readOnlyGuard,
 					settings: createSupabaseOrgSettingsMemberManagementPort(locals),
 					invitationDelivery: createSupabaseOrganizationInvitationDeliveryPort(getAdminClient()),

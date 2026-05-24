@@ -134,6 +134,7 @@ describe('org settings page server actions', () => {
 			auth: { kind: 'auth', orgId: 'org-1' },
 			audit: { kind: 'audit' },
 			notifications: { kind: 'notifications' },
+			rawStore: { kind: 'raw-store' },
 			sensitiveActionAuthorizer: { kind: 'sensitive-action-authorizer' }
 		});
 		getAdminClientMock.mockReturnValue({ kind: 'admin-client' });
@@ -874,6 +875,7 @@ describe('org settings page server actions', () => {
 				auth: { kind: 'auth', orgId: 'org-1' },
 				audit: { kind: 'audit' },
 				notifications: { kind: 'notifications' },
+				store: { kind: 'raw-store' },
 				readOnlyGuard: undefined,
 				settings: { kind: 'settings-port' },
 				invitationDelivery: { kind: 'invitation-delivery-port' },

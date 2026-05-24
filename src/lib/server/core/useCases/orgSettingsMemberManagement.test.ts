@@ -7,7 +7,7 @@ import {
 } from '$lib/test-support/authWorkflowFixtures';
 import type { OrganizationMemberPermissions } from '$lib/types';
 import {
-	inviteOrganizationMember,
+	inviteOrganizationMember as inviteOrganizationMemberUseCase,
 	leaveOrganization,
 	removeOrganizationMember,
 	resendOrganizationInvitation,
@@ -18,6 +18,8 @@ import {
 	type OrganizationMembershipUpdateInput,
 	type OrganizationSettingsMemberManagementPort
 } from './orgSettingsMemberManagement';
+import { readOrganizationPlanUsage, type OrganizationPlanUsage } from './organizationPlanUsage';
+import type { EffectivePlanPolicy } from './planPolicy';
 
 function buildPermissions(overrides: Partial<OrganizationMemberPermissions> = {}): OrganizationMemberPermissions {
 	return {
@@ -164,7 +166,278 @@ function createOrganizationSettingsMemberManagementPort(
 	};
 }
 
+function createPlanPolicyPort(input: {
+	plan?: 'free' | 'team' | 'unit';
+	memberLimit?: number | null;
+	activeOrganizationMemberCount: number;
+	pendingUnexpiredInvitationCount: number;
+}): {
+	readEffectivePlanPolicy: ReturnType<typeof vi.fn<() => Promise<EffectivePlanPolicy>>>;
+	readOrganizationPlanUsage: ReturnType<typeof vi.fn<() => Promise<OrganizationPlanUsage>>>;
+} {
+	const plan = input.plan ?? 'free';
+	const memberLimit = input.memberLimit === undefined ? 2 : input.memberLimit;
+	return {
+		readEffectivePlanPolicy: vi.fn(async () => {
+			return {
+				organizationId: 'org-1',
+				commercialPlan: plan,
+				tier: plan,
+				source: 'billing_snapshot',
+				billingSource: 'stripe',
+				limits: {
+					activePersonnel: {
+						limit: 20,
+						enforcement: 'hard_cap',
+						denialCode: 'denied.personnel_limit',
+						upgradeTarget: 'team'
+					},
+					activeOrganizationMembers: {
+						limit: memberLimit,
+						enforcement: 'active_members_plus_pending_invitations',
+						denialCode: 'denied.member_limit',
+						upgradeTarget: plan === 'unit' ? null : 'team'
+					},
+					pendingInvitations: {
+						limit: memberLimit,
+						enforcement: 'active_members_plus_pending_invitations',
+						denialCode: 'denied.pending_invitation_limit',
+						upgradeTarget: plan === 'unit' ? null : 'team',
+						countsTowardMemberLimit: true,
+						excludedStatuses: ['expired', 'declined', 'revoked', 'blocked', 'accepted']
+					},
+					ownedOrganizations: {
+						limit: 1,
+						enforcement: 'hard_cap',
+						denialCode: 'denied.organization_ownership_limit',
+						upgradeTarget: 'unit'
+					}
+				},
+				exportQuota: {
+					limit: 3,
+					unlimited: false,
+					period: 'calendar_month',
+					denialCode: 'denied.export_quota',
+					upgradeTarget: 'team'
+				},
+				entitlements: {},
+				grace: { mode: 'none', message: null },
+				readOnly: { enabled: false, reasons: [] }
+			};
+		}),
+		readOrganizationPlanUsage: vi.fn(async () => {
+			return {
+				organizationId: 'org-1',
+				asOf: '2026-05-24T12:00:00.000Z',
+				activePersonnelCount: 0,
+				activeOrganizationMemberCount: input.activeOrganizationMemberCount,
+				pendingUnexpiredInvitationCount: input.pendingUnexpiredInvitationCount,
+				monthlyExportCount: 0,
+				sources: {
+					activePersonnel: { table: 'personnel', included: [], excluded: [] },
+					activeOrganizationMembers: { table: 'organization_memberships', included: [], excluded: [] },
+					pendingUnexpiredInvitations: { table: 'organization_invitations', included: [], excluded: [] },
+					monthlyExports: {
+						table: 'data_exports',
+						included: [],
+						excluded: [],
+						period: { start: '2026-05-01T00:00:00.000Z', endExclusive: '2026-06-01T00:00:00.000Z' }
+					}
+				}
+			};
+		})
+	};
+}
+
+const createUnlimitedPlanPolicy = () =>
+	createPlanPolicyPort({
+		plan: 'unit',
+		memberLimit: null,
+		activeOrganizationMemberCount: 0,
+		pendingUnexpiredInvitationCount: 0
+	});
+
+const inviteOrganizationMember = (
+	ports: Record<string, unknown>,
+	input: Parameters<typeof inviteOrganizationMemberUseCase>[1]
+) =>
+	inviteOrganizationMemberUseCase(
+		{
+			planPolicy: createUnlimitedPlanPolicy(),
+			...ports
+		} as unknown as Parameters<typeof inviteOrganizationMemberUseCase>[0],
+		input
+	);
+
 describe('inviteOrganizationMember', () => {
+	it('blocks direct member invites when active members already fill the free plan member cap', async () => {
+		const ctx = createTestContext({ auth: { userId: 'actor-1', orgId: 'org-1', role: 'admin' } });
+		const port = createOrganizationSettingsMemberManagementPort();
+		const planPolicy = createPlanPolicyPort({
+			plan: 'free',
+			memberLimit: 2,
+			activeOrganizationMemberCount: 2,
+			pendingUnexpiredInvitationCount: 0
+		});
+
+		await expect(
+			inviteOrganizationMember(
+				{
+					auth: ctx.auth,
+					audit: ctx.audit,
+					notifications: ctx.notifications,
+					settings: port,
+					planPolicy
+				},
+				{
+					email: 'new.user@example.com',
+					membershipRole: 'member',
+					memberAccess: memberAccess({ memberPreset: 'viewer' }),
+					actorEmail: 'admin@example.com'
+				}
+			)
+		).rejects.toMatchObject({
+			status: 403,
+			message:
+				'This organization has reached its plan member limit of 2 active members. Remove a member or upgrade before inviting another member.'
+		});
+
+		expect(port.createdInvitations).toEqual([]);
+		expect(port.userAccountLookups).toEqual([]);
+		expect(ctx.auditPort.events).toContainEqual(
+			expect.objectContaining({
+				action: 'member.invite_plan_limit_denied',
+				details: expect.objectContaining({
+					commercialPlan: 'free',
+					memberLimit: 2,
+					activeOrganizationMemberCount: 2,
+					pendingUnexpiredInvitationCount: 0,
+					reason: 'active_members'
+				})
+			})
+		);
+	});
+
+	it('blocks direct member invites when active members plus pending invitations fill the free plan cap', async () => {
+		const ctx = createTestContext({ auth: { userId: 'actor-1', orgId: 'org-1', role: 'admin' } });
+		const port = createOrganizationSettingsMemberManagementPort();
+		const planPolicy = createPlanPolicyPort({
+			plan: 'free',
+			memberLimit: 2,
+			activeOrganizationMemberCount: 1,
+			pendingUnexpiredInvitationCount: 1
+		});
+
+		await expect(
+			inviteOrganizationMember(
+				{
+					auth: ctx.auth,
+					audit: ctx.audit,
+					notifications: ctx.notifications,
+					settings: port,
+					planPolicy
+				},
+				{
+					email: 'new.user@example.com',
+					membershipRole: 'member',
+					memberAccess: memberAccess({ memberPreset: 'viewer' }),
+					actorEmail: 'admin@example.com'
+				}
+			)
+		).rejects.toMatchObject({
+			status: 403,
+			message:
+				'This organization has reached its plan member limit of 2 seats when pending invitations are included. Revoke a pending invitation or upgrade before inviting another member.'
+		});
+
+		expect(port.createdInvitations).toEqual([]);
+		expect(ctx.auditPort.events).toContainEqual(
+			expect.objectContaining({
+				action: 'member.invite_plan_limit_denied',
+				details: expect.objectContaining({
+					reason: 'pending_invitations'
+				})
+			})
+		);
+	});
+
+	it('allows paid-plan member invites when usage remains under the member cap', async () => {
+		const ctx = createTestContext({ auth: { userId: 'actor-1', orgId: 'org-1', role: 'admin' } });
+		const port = createOrganizationSettingsMemberManagementPort();
+		const planPolicy = createPlanPolicyPort({
+			plan: 'team',
+			memberLimit: 10,
+			activeOrganizationMemberCount: 2,
+			pendingUnexpiredInvitationCount: 3
+		});
+
+		await inviteOrganizationMember(
+			{
+				auth: ctx.auth,
+				audit: ctx.audit,
+				notifications: ctx.notifications,
+				settings: port,
+				planPolicy
+			},
+			{
+				email: 'new.user@example.com',
+				membershipRole: 'member',
+				memberAccess: memberAccess({ memberPreset: 'viewer' }),
+				actorEmail: 'admin@example.com'
+			}
+		);
+
+		expect(port.createdInvitations).toHaveLength(1);
+		expect(ctx.auditPort.events).not.toContainEqual(
+			expect.objectContaining({ action: 'member.invite_plan_limit_denied' })
+		);
+	});
+
+	it('uses the shared usage read model so closed invitation history does not block direct member invites', async () => {
+		const ctx = createTestContext({ auth: { userId: 'actor-1', orgId: 'org-1', role: 'admin' } });
+		const port = createOrganizationSettingsMemberManagementPort();
+		ctx.rawStore.seed('organization_memberships', [
+			{ id: 'member-1', organization_id: 'org-1', user_id: 'user-1', role: 'owner' }
+		]);
+		ctx.rawStore.seed('organization_invitations', [
+			{ id: 'invite-revoked', organization_id: 'org-1', email: 'revoked@example.com', status: 'revoked' },
+			{ id: 'invite-declined', organization_id: 'org-1', email: 'declined@example.com', status: 'declined' },
+			{ id: 'invite-expired', organization_id: 'org-1', email: 'expired@example.com', status: 'expired' },
+			{ id: 'invite-blocked', organization_id: 'org-1', email: 'blocked@example.com', status: 'blocked' },
+			{ id: 'invite-accepted', organization_id: 'org-1', email: 'accepted@example.com', status: 'accepted' }
+		]);
+		const planPolicy = {
+			readEffectivePlanPolicy: createPlanPolicyPort({
+				plan: 'free',
+				memberLimit: 2,
+				activeOrganizationMemberCount: 0,
+				pendingUnexpiredInvitationCount: 0
+			}).readEffectivePlanPolicy,
+			readOrganizationPlanUsage: vi.fn(() =>
+				readOrganizationPlanUsage({ auth: ctx.auth, store: ctx.rawStore }, { now: new Date('2026-05-24T12:00:00Z') })
+			)
+		};
+
+		await inviteOrganizationMember(
+			{
+				auth: ctx.auth,
+				audit: ctx.audit,
+				notifications: ctx.notifications,
+				settings: port,
+				planPolicy
+			},
+			{
+				email: 'new.user@example.com',
+				membershipRole: 'member',
+				memberAccess: memberAccess({ memberPreset: 'viewer' }),
+				actorEmail: 'admin@example.com'
+			}
+		);
+
+		expect(port.createdInvitations).toHaveLength(1);
+		expect(planPolicy.readOrganizationPlanUsage).toHaveBeenCalled();
+	});
+
 	it('denies admin invitations in read-only mode with policy audit metadata', async () => {
 		const ctx = createTestContext({
 			auth: {

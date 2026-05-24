@@ -454,6 +454,14 @@ describe('runBillingReconciliationBatch', () => {
 
 	it('continues after partial failures and redacts secret-like diagnostics', async () => {
 		const store = createStore({
+			readSnapshot: vi.fn().mockImplementation((orgId: string) =>
+				Promise.resolve({
+					...baseSnapshot,
+					organization_id: orgId,
+					commercial_plan: orgId === 'org-1' ? 'free' : 'team',
+					stripe_subscription_id: orgId === 'org-2' ? 'sub_456' : 'sub_123'
+				})
+			),
 			upsertSnapshot: vi
 				.fn()
 				.mockRejectedValueOnce(new Error('db failed sk_test_secret whsec_secret bearer top-secret'))

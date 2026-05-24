@@ -525,7 +525,7 @@ export async function reconcileOrganizationBilling(input: {
 		? ['organization_billing_snapshots', 'organizations.billing_mirror', 'tier_cache_invalidation']
 		: [];
 
-	if (!dryRun) {
+	if (!dryRun && driftDetected) {
 		await input.store.upsertSnapshot(values);
 		await input.store.updateOrganizationBillingMirror(input.orgId, {
 			tier: commercialPlan,

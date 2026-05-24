@@ -341,11 +341,16 @@ async function handleCheckoutCompleted(
 ): Promise<WebhookProcessingResult> {
 	const orgId = session.metadata?.orgId;
 	const tier = session.metadata?.tier as Tier | undefined;
-	const subscriptionId = session.subscription as string | null;
+	const subscriptionId =
+		typeof session.subscription === 'string' && session.subscription.length > 0 ? session.subscription : null;
+	const customerId = typeof session.customer === 'string' && session.customer.length > 0 ? session.customer : null;
 	const eventCreatedAt = new Date(event.created * 1000).toISOString();
 
 	if (!orgId || !tier || !subscriptionId) {
 		throw new _PermanentWebhookProcessingError('checkout.session.completed missing orgId, tier, or subscriptionId');
+	}
+	if (!customerId) {
+		throw new _PermanentWebhookProcessingError('checkout.session.completed missing customerId');
 	}
 
 	// Fetch subscription to get current_period_end
@@ -369,7 +374,7 @@ async function handleCheckoutCompleted(
 		organization_id: orgId,
 		source: 'stripe',
 		commercial_plan: tier,
-		stripe_customer_id: session.customer as string,
+		stripe_customer_id: customerId,
 		stripe_subscription_id: subscriptionId,
 		stripe_product_id: null,
 		stripe_price_id: null,
@@ -395,7 +400,7 @@ async function handleCheckoutCompleted(
 	}
 
 	await updateLegacyOrganizationBillingMirror(supabase, orgId, {
-		stripe_customer_id: session.customer as string,
+		stripe_customer_id: customerId,
 		stripe_subscription_id: subscriptionId,
 		subscription_status: 'incomplete',
 		current_period_end: null

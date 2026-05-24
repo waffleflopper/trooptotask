@@ -3,7 +3,9 @@
 	import { invalidateAll } from '$app/navigation';
 	import { page } from '$app/stores';
 	import { Edit, RefreshCw, Trash2, UserPlus } from '@lucide/svelte';
+	import type { SubmitFunction } from '@sveltejs/kit';
 	import { explainPolicyReasonCode } from '$lib/access/policyDecisionExplanations';
+	import { redirectToSensitiveActionStepUp } from '$lib/auth/sensitiveActionStepUp';
 	import { Badge } from '$lib/components/ui/badge/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import * as AppDialog from '$lib/components/ui/app-dialog/index.js';
@@ -195,6 +197,13 @@
 	function closeDeleteOrganizationDialog() {
 		settingsState.dangerZone.closeDeleteConfirmation();
 	}
+
+	const stepUpEnhance: SubmitFunction = () => {
+		return async ({ result, update }) => {
+			if (result.type === 'failure' && redirectToSensitiveActionStepUp(result.data)) return;
+			await update();
+		};
+	};
 
 	async function saveSettings(body: Record<string, number | null>) {
 		const res = await fetch(`/org/${orgId}/api/organization/settings`, {
@@ -491,7 +500,7 @@
 										<Edit />
 										{isOwner ? 'Manage Role & Access' : 'Manage Access'}
 									</Button>
-									<form method="POST" action="?/removeMember" use:enhance>
+									<form method="POST" action="?/removeMember" use:enhance={stepUpEnhance}>
 										<input type="hidden" name="membershipId" value={member.id} />
 										<Button
 											type="button"
@@ -516,8 +525,9 @@
 									class="grid gap-4 rounded-md border bg-muted/30 p-3 md:col-span-3"
 									use:enhance={() => {
 										loading = true;
-										return async ({ update }) => {
+										return async ({ result, update }) => {
 											loading = false;
+											if (result.type === 'failure' && redirectToSensitiveActionStepUp(result.data)) return;
 											memberAccess.closeMemberEditor(member.id);
 											await update();
 										};
@@ -717,8 +727,9 @@
 						action="?/invite"
 						use:enhance={() => {
 							loading = true;
-							return async ({ update }) => {
+							return async ({ result, update }) => {
 								loading = false;
+								if (result.type === 'failure' && redirectToSensitiveActionStepUp(result.data)) return;
 								await update();
 								if (!form?.inviteError) memberAccess.clearInviteEmail();
 							};
@@ -851,14 +862,14 @@
 									</p>
 								</div>
 								<div class="flex flex-wrap gap-2">
-									<form method="POST" action="?/resendInvite" use:enhance>
+									<form method="POST" action="?/resendInvite" use:enhance={stepUpEnhance}>
 										<input type="hidden" name="inviteId" value={invite.id} />
 										<Button type="submit" variant="outline" size="sm" disabled={!invite.canResend}>
 											<RefreshCw class="mr-2 size-4" />
 											Resend
 										</Button>
 									</form>
-									<form method="POST" action="?/revokeInvite" use:enhance>
+									<form method="POST" action="?/revokeInvite" use:enhance={stepUpEnhance}>
 										<input type="hidden" name="inviteId" value={invite.id} />
 										<Button type="submit" variant="outline" size="sm">Revoke</Button>
 									</form>
@@ -986,8 +997,9 @@
 					class="grid gap-3"
 					use:enhance={() => {
 						loading = true;
-						return async ({ update }) => {
+						return async ({ result, update }) => {
 							loading = false;
+							if (result.type === 'failure' && redirectToSensitiveActionStepUp(result.data)) return;
 							await update();
 						};
 					}}
@@ -1056,8 +1068,9 @@
 					class="grid gap-2"
 					use:enhance={() => {
 						loading = true;
-						return async ({ update }) => {
+						return async ({ result, update }) => {
 							loading = false;
+							if (result.type === 'failure' && redirectToSensitiveActionStepUp(result.data)) return;
 							settingsState.dangerZone.closeTransferConfirmation();
 							await update();
 						};

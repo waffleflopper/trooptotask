@@ -857,6 +857,78 @@ describe('org settings page server actions', () => {
 		});
 	});
 
+	it('preserves sensitive-action step-up details in ownership-transfer failures', async () => {
+		transferOrganizationOwnershipMock.mockRejectedValue(
+			Object.assign(new Error('Please confirm your identity before continuing.'), {
+				status: 403,
+				reason: 'denied.staleSession',
+				requiresStepUp: true,
+				stepUpPath: '/auth/mfa-verify'
+			})
+		);
+
+		const result = await actions.transferOwnership({
+			request: new Request('http://localhost/org/org-1/settings?/transferOwnership', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+				body: new URLSearchParams({ newOwnerId: '11111111-1111-4111-8111-111111111111' })
+			}),
+			locals: {
+				user: { id: 'user-1', email: 'user@example.com' },
+				supabase: {}
+			},
+			params: { orgId: 'org-1' },
+			cookies: {},
+			getClientAddress: () => '127.0.0.1'
+		} as never);
+
+		expect(result).toMatchObject({
+			status: 403,
+			data: {
+				transferError: 'Please confirm your identity before continuing.',
+				reason: 'denied.staleSession',
+				requiresStepUp: true,
+				stepUpPath: '/auth/mfa-verify'
+			}
+		});
+	});
+
+	it('preserves sensitive-action step-up details in high-privilege invite failures', async () => {
+		inviteOrganizationMemberMock.mockRejectedValue(
+			Object.assign(new Error('Please sign in again before continuing.'), {
+				status: 403,
+				reason: 'denied.unauthenticated',
+				requiresStepUp: true,
+				stepUpPath: '/auth/login'
+			})
+		);
+
+		const result = await actions.invite({
+			request: new Request('http://localhost/org/org-1/settings?/invite', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+				body: new URLSearchParams({ email: 'admin@example.com', membershipRole: 'admin' })
+			}),
+			locals: {
+				user: { id: 'user-1', email: 'user@example.com' },
+				supabase: {}
+			},
+			params: { orgId: 'org-1' },
+			cookies: {},
+			getClientAddress: () => '127.0.0.1'
+		} as never);
+
+		expect(result).toMatchObject({
+			status: 403,
+			data: {
+				inviteError: 'Please sign in again before continuing.',
+				reason: 'denied.unauthenticated',
+				requiresStepUp: true,
+				stepUpPath: '/auth/login'
+			}
+		});
+	});
+
 	it('redirects after the destructive org administration use case succeeds', async () => {
 		await expect(
 			actions.deleteOrganization({

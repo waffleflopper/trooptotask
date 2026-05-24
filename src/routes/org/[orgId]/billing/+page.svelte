@@ -12,6 +12,7 @@
 	import * as PageShell from '$lib/components/ui/page-shell';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
+	import { redirectToSensitiveActionStepUp } from '$lib/auth/sensitiveActionStepUp';
 	import type { WorkspaceToolbarAction } from '$lib/components/ui/workspace-toolbar';
 	import type {
 		BillingSnapshot,
@@ -371,18 +372,6 @@
 		});
 	}
 
-	function redirectToStepUp(path: string | null | undefined) {
-		const destination = new URL(path || '/auth/login', window.location.origin);
-		const next = `${window.location.pathname}${window.location.search}`;
-
-		if (destination.pathname === '/auth/login') {
-			destination.searchParams.set('reauth', '1');
-		}
-
-		destination.searchParams.set('next', next);
-		window.location.href = destination.toString();
-	}
-
 	function openConfirmPasswordDialog(action: PendingBillingAction) {
 		pendingBillingAction = action;
 		confirmPassword = '';
@@ -412,7 +401,7 @@
 				return true;
 			}
 
-			redirectToStepUp(result.stepUpPath);
+			redirectToSensitiveActionStepUp(result);
 			return true;
 		}
 
@@ -456,7 +445,7 @@
 			const result = (await res.json()) as ConfirmSensitiveActionResult;
 
 			if (result.requiresStepUp) {
-				redirectToStepUp(result.stepUpPath);
+				redirectToSensitiveActionStepUp(result);
 				return;
 			}
 

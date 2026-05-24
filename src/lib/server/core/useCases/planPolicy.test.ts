@@ -1,0 +1,235 @@
+import { describe, expect, it, vi } from 'vitest';
+import { createTestContext } from '$lib/server/adapters/inMemory';
+import type { BillingSnapshot, Tier } from '$lib/types/subscription';
+
+const { billingEnabledMock } = vi.hoisted(() => ({
+	billingEnabledMock: vi.fn(() => true)
+}));
+
+vi.mock('$lib/config/billing', () => ({
+	get isBillingEnabled() {
+		return billingEnabledMock();
+	}
+}));
+
+import { buildEffectivePlanPolicy, readEffectivePlanPolicy } from './planPolicy';
+
+function snapshot(overrides: Partial<BillingSnapshot> = {}): BillingSnapshot {
+	return {
+		organizationId: 'org-1',
+		source: 'stripe',
+		commercialPlan: 'team',
+		stripeCustomerId: 'cus_123',
+		stripeSubscriptionId: 'sub_123',
+		stripeProductId: 'prod_team',
+		stripePriceId: 'price_team',
+		subscriptionStatus: 'active',
+		collectionStatus: 'current',
+		currentPeriodStart: '2026-05-01T00:00:00.000Z',
+		currentPeriodEnd: '2026-06-01T00:00:00.000Z',
+		cancelAtPeriodEnd: false,
+		canceledAt: null,
+		trialEnd: null,
+		syncStatus: 'synced',
+		lastStripeEventId: 'evt_123',
+		lastStripeEventType: 'customer.subscription.updated',
+		lastStripeEventCreatedAt: '2026-05-01T00:01:00.000Z',
+		lastProcessedAt: '2026-05-01T00:02:00.000Z',
+		lastReconciledAt: null,
+		reconciliationResult: null,
+		driftDetected: false,
+		giftTier: null,
+		giftExpiresAt: null,
+		...overrides
+	};
+}
+
+describe('plan policy', () => {
+	it.each([
+		{
+			name: 'billing-disabled fallback',
+			input: snapshot({
+				source: 'billing_disabled',
+				commercialPlan: 'unit',
+				stripeCustomerId: null,
+				stripeSubscriptionId: null,
+				stripeProductId: null,
+				stripePriceId: null,
+				subscriptionStatus: null,
+				collectionStatus: null,
+				syncStatus: 'billing_disabled'
+			}),
+			expectedPlan: 'unit' as Tier,
+			expectedSource: 'billing_disabled_fallback',
+			expectedReadOnly: false,
+			expectedGraceMode: 'none'
+		},
+		{
+			name: 'Stripe-backed billing snapshot',
+			input: snapshot({ commercialPlan: 'team', subscriptionStatus: 'active' }),
+			expectedPlan: 'team' as Tier,
+			expectedSource: 'billing_snapshot',
+			expectedReadOnly: false,
+			expectedGraceMode: 'none'
+		},
+		{
+			name: 'admin gift source',
+			input: snapshot({
+				source: 'gift',
+				commercialPlan: 'unit',
+				giftTier: 'unit',
+				giftExpiresAt: '2999-01-01T00:00:00.000Z'
+			}),
+			expectedPlan: 'unit' as Tier,
+			expectedSource: 'admin_gift',
+			expectedReadOnly: false,
+			expectedGraceMode: 'none'
+		},
+		{
+			name: 'past-due grace',
+			input: snapshot({
+				commercialPlan: 'team',
+				subscriptionStatus: 'past_due',
+				collectionStatus: 'payment_failed_grace'
+			}),
+			expectedPlan: 'team' as Tier,
+			expectedSource: 'billing_snapshot',
+			expectedReadOnly: true,
+			expectedGraceMode: 'payment_failed',
+			expectedReasonCode: 'denied.payment_failed'
+		},
+		{
+			name: 'canceled subscription',
+			input: snapshot({
+				commercialPlan: 'team',
+				subscriptionStatus: 'canceled',
+				collectionStatus: 'canceled'
+			}),
+			expectedPlan: 'team' as Tier,
+			expectedSource: 'billing_snapshot',
+			expectedReadOnly: true,
+			expectedGraceMode: 'none',
+			expectedReasonCode: 'denied.billing_not_current'
+		}
+	])(
+		'builds an effective policy for $name',
+		({ input, expectedPlan, expectedSource, expectedReadOnly, expectedGraceMode, expectedReasonCode }) => {
+			const policy = buildEffectivePlanPolicy(input);
+
+			expect(policy).toMatchObject({
+				organizationId: 'org-1',
+				commercialPlan: expectedPlan,
+				tier: expectedPlan,
+				source: expectedSource,
+				billingSource: input.source,
+				limits: {
+					activePersonnel: expect.any(Object),
+					activeOrganizationMembers: expect.any(Object),
+					pendingInvitations: expect.any(Object),
+					ownedOrganizations: expect.any(Object)
+				},
+				exportQuota: expect.any(Object),
+				entitlements: expect.any(Object),
+				grace: { mode: expectedGraceMode },
+				readOnly: { enabled: expectedReadOnly }
+			});
+			if (expectedReasonCode) {
+				expect(policy.readOnly.reasons).toEqual([
+					expect.objectContaining({
+						code: expectedReasonCode,
+						dimension: 'billing_state',
+						message: expect.any(String),
+						remediation: expect.any(String)
+					})
+				]);
+			} else {
+				expect(policy.readOnly.reasons).toEqual([]);
+			}
+		}
+	);
+
+	it('lets an active admin gift override past-due Stripe grace state', () => {
+		const policy = buildEffectivePlanPolicy(
+			snapshot({
+				source: 'gift',
+				commercialPlan: 'unit',
+				subscriptionStatus: 'past_due',
+				collectionStatus: 'payment_failed_grace',
+				giftTier: 'unit',
+				giftExpiresAt: '2999-01-01T00:00:00.000Z'
+			})
+		);
+
+		expect(policy).toMatchObject({
+			source: 'admin_gift',
+			commercialPlan: 'unit',
+			grace: { mode: 'none', message: null },
+			readOnly: { enabled: false, reasons: [] }
+		});
+	});
+
+	it('defines the free plan member cap and pending invitation policy in the central contract', () => {
+		const policy = buildEffectivePlanPolicy(snapshot({ commercialPlan: 'free', subscriptionStatus: null }));
+
+		expect(policy.limits.activeOrganizationMembers).toMatchObject({
+			limit: 2,
+			enforcement: 'active_members_plus_pending_invitations'
+		});
+		expect(policy.limits.pendingInvitations).toMatchObject({
+			countsTowardMemberLimit: true,
+			excludedStatuses: expect.arrayContaining(['expired', 'declined', 'revoked', 'blocked', 'accepted'])
+		});
+	});
+
+	it('uses the billing-state read interface instead of provider-specific billing APIs', async () => {
+		billingEnabledMock.mockReturnValue(true);
+		const ctx = createTestContext({ auth: { orgId: 'org-1' } });
+		ctx.rawStore.seed('organizations', [
+			{
+				id: 'org-1',
+				tier: 'free',
+				gift_tier: null,
+				gift_expires_at: null
+			}
+		]);
+		ctx.rawStore.seed('organization_billing_snapshots', [
+			{
+				id: 'snapshot-1',
+				organization_id: 'org-1',
+				source: 'stripe',
+				commercial_plan: 'team',
+				stripe_customer_id: 'cus_123',
+				stripe_subscription_id: 'sub_123',
+				stripe_product_id: 'prod_team',
+				stripe_price_id: 'price_team',
+				subscription_status: 'active',
+				collection_status: 'current',
+				current_period_start: null,
+				current_period_end: null,
+				cancel_at_period_end: false,
+				canceled_at: null,
+				trial_end: null,
+				sync_status: 'synced',
+				last_stripe_event_id: null,
+				last_stripe_event_type: null,
+				last_stripe_event_created_at: null,
+				last_processed_at: null,
+				last_reconciled_at: null,
+				reconciliation_result: null,
+				drift_detected: false
+			}
+		]);
+
+		const policy = await readEffectivePlanPolicy({ auth: ctx.auth, store: ctx.rawStore });
+
+		expect(policy).toMatchObject({
+			commercialPlan: 'team',
+			source: 'billing_snapshot',
+			limits: {
+				activePersonnel: { limit: 80 },
+				activeOrganizationMembers: { limit: 10 },
+				ownedOrganizations: { limit: 1 }
+			}
+		});
+	});
+});

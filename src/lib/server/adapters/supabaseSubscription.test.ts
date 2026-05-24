@@ -212,7 +212,8 @@ describe('createSupabaseSubscriptionAdapter', () => {
 			isReadOnly: false,
 			readOnlyReason: null
 		});
-		expect(supabase.from).not.toHaveBeenCalled();
+		expect(supabase.from).toHaveBeenCalledTimes(1);
+		expect(supabase.from).toHaveBeenCalledWith('organization_plan_feature_overrides');
 	});
 
 	it('allows personnel creation and returns null slots when billing is disabled', async () => {
@@ -222,7 +223,9 @@ describe('createSupabaseSubscriptionAdapter', () => {
 
 		await expect(adapter.canAddPersonnel()).resolves.toEqual({ allowed: true });
 		await expect(adapter.getAvailablePersonnelSlots()).resolves.toBeNull();
-		expect(supabase.from).not.toHaveBeenCalled();
+		expect(supabase.from).toHaveBeenCalledTimes(2);
+		expect(supabase.from).toHaveBeenNthCalledWith(1, 'organization_plan_feature_overrides');
+		expect(supabase.from).toHaveBeenNthCalledWith(2, 'organization_plan_feature_overrides');
 	});
 
 	it('denies personnel creation for billing-state read-only organizations', async () => {

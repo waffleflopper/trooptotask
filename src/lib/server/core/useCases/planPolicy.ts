@@ -167,8 +167,8 @@ interface PlanFeatureOverrideRow {
 	revoked_at?: string | null;
 }
 
-function isPlanFeatureKey(value: string): value is PlanFeatureKey {
-	return value in PLAN_FEATURE_REGISTRY;
+export function isPlanFeatureKey(value: string): value is PlanFeatureKey {
+	return Object.prototype.hasOwnProperty.call(PLAN_FEATURE_REGISTRY, value);
 }
 
 function isPlanFeatureOverrideState(value: string): value is PlanFeatureOverrideState {
@@ -570,10 +570,6 @@ export function buildEffectivePlanPolicyForTier(policy: EffectivePlanPolicy, tar
 
 export async function readEffectivePlanPolicy(ports: PlanPolicyPorts): Promise<EffectivePlanPolicy> {
 	const snapshot = await readCurrentBillingSnapshot(ports);
-	if (snapshot.source === 'billing_disabled') {
-		return buildEffectivePlanPolicy(snapshot);
-	}
-
 	const overrideRows = await ports.store.findMany<PlanFeatureOverrideRow>(
 		'organization_plan_feature_overrides',
 		ports.auth.orgId

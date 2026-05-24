@@ -92,6 +92,46 @@ describe('POST /api/export-excel', () => {
 		});
 	});
 
+	it('blocks the created workbook export when concurrent usage pushes the org over quota', async () => {
+		const ctx = createTestContext();
+		const now = new Date().toISOString();
+		ctx.rawStore.seed('data_exports', [
+			{ id: 'export-1', org_id: ctx.auth.orgId, created_at: now, status: 'completed' },
+			{ id: 'export-2', org_id: ctx.auth.orgId, created_at: now, status: 'completed' }
+		]);
+		const originalInsert = ctx.rawStore.insert.bind(ctx.rawStore);
+		let injectedConcurrentExport = false;
+		ctx.rawStore.insert = async (table, orgId, data, select) => {
+			if (table === 'data_exports' && !injectedConcurrentExport) {
+				injectedConcurrentExport = true;
+				await originalInsert(table, orgId, {
+					requested_by: 'other-user',
+					status: 'completed',
+					created_at: now
+				});
+			}
+			return originalInsert(table, orgId, data, select);
+		};
+
+		const result = await handleUseCaseRequest(_postConfig, ctx, {
+			email: 'leader@example.com'
+		});
+		const response = _postConfig.formatOutput?.(result);
+		const payload = await response?.json();
+		const rows = await ctx.rawStore.findMany<Record<string, unknown>>('data_exports', ctx.auth.orgId);
+
+		expect(response?.status).toBe(429);
+		expect(payload).toMatchObject({
+			error: 'Export limit reached (3/month). Upgrade for unlimited exports.'
+		});
+		expect(rows).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({ requested_by: 'other-user', status: 'completed' }),
+				expect.objectContaining({ requested_by: ctx.auth.userId, status: 'failed' })
+			])
+		);
+	});
+
 	it('allows Excel export when billing is disabled even if stored export count is above the free quota', async () => {
 		billingEnabledMock.mockReturnValue(false);
 		const ctx = createTestContext();
@@ -182,6 +222,13 @@ describe('POST /api/export-excel', () => {
 				status: 'completed'
 			})
 		]);
+		expect(ctx.auditPort.events).toContainEqual(
+			expect.objectContaining({
+				action: 'export.excel_created',
+				resourceType: 'data_export',
+				resourceId: exportRows[0].id
+			})
+		);
 	});
 
 	it('includes personnel detail artifact worksheets', async () => {

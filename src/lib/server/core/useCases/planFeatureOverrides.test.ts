@@ -227,4 +227,51 @@ describe('plan feature overrides', () => {
 			})
 		]);
 	});
+
+	it('restores superseded overrides and skips audit when replacement insert fails', async () => {
+		const ports = makePorts();
+		ports.store.seed('organization_plan_feature_overrides', [
+			{
+				id: 'override-1',
+				organization_id: 'org-1',
+				feature_key: 'advanced_reporting',
+				override_state: 'granted',
+				expires_at: null,
+				reason: null,
+				created_by: 'admin-1',
+				created_at: '2026-05-24T00:00:00.000Z',
+				revoked_at: null,
+				revoked_by: null
+			}
+		]);
+		const originalInsert = ports.store.insert.bind(ports.store);
+		ports.store.insert = async (...args) => {
+			if (args[0] === 'organization_plan_feature_overrides') {
+				throw new Error('insert failed');
+			}
+			return originalInsert(...args);
+		};
+
+		await expect(
+			grantOrganizationPlanFeatureOverride(ports, {
+				orgId: 'org-1',
+				featureKey: 'advanced_reporting',
+				state: 'denied',
+				expiresAt: null
+			})
+		).rejects.toThrow('insert failed');
+
+		const rows = await ports.store.findMany<{ id: string; revoked_at: string | null; revoked_by: string | null }>(
+			'organization_plan_feature_overrides',
+			'org-1'
+		);
+		expect(rows).toEqual([
+			expect.objectContaining({
+				id: 'override-1',
+				revoked_at: null,
+				revoked_by: null
+			})
+		]);
+		expect(ports.audit.events).toEqual([]);
+	});
 });

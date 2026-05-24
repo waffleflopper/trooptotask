@@ -5,7 +5,11 @@ import { completeDataExport, failDataExport, startDataExport } from '$lib/server
 import { loadOrganizationExportPayload } from '$lib/server/core/useCases/organizationExport';
 import { readEffectivePlanPolicy } from '$lib/server/core/useCases/planPolicy';
 import { readOrganizationPlanUsage } from '$lib/server/core/useCases/organizationPlanUsage';
-import { checkWithinPlanLimit, type PlanGateDenial } from '$lib/server/core/useCases/planPolicyGates';
+import {
+	checkAfterPlanLimitMutation,
+	checkWithinPlanLimit,
+	type PlanGateDenial
+} from '$lib/server/core/useCases/planPolicyGates';
 
 interface ExportInput {
 	email: string | undefined;
@@ -46,6 +50,20 @@ export const _postConfig: RouteConfig<ExportInput, ExportOutput> = {
 		}
 
 		const exportRecord = await startDataExport({ auth: ctx.auth, store: ctx.rawStore }, { requestedBy: userId });
+		const usageAfterCreate = await readOrganizationPlanUsage({ auth: ctx.auth, store: ctx.rawStore });
+		const postCreateExportLimit = checkAfterPlanLimitMutation(
+			policy,
+			'monthly_exports',
+			usageAfterCreate.monthlyExportCount
+		);
+		if (!postCreateExportLimit.allowed) {
+			await failDataExport({ auth: ctx.auth, store: ctx.rawStore }, { exportId: exportRecord.exportId });
+			return {
+				_rateLimited: true,
+				error: postCreateExportLimit.denial.message,
+				denial: postCreateExportLimit.denial
+			};
+		}
 
 		try {
 			const exportData = await loadOrganizationExportPayload(ctx.rawStore, orgId);

@@ -579,6 +579,69 @@ describe('plan policy', () => {
 		});
 	});
 
+	it('includes active persisted feature overrides for billing-disabled policy snapshots', async () => {
+		billingEnabledMock.mockReturnValue(true);
+		const ctx = createTestContext({ auth: { orgId: 'org-1' } });
+		ctx.rawStore.seed('organizations', [
+			{
+				id: 'org-1',
+				tier: 'free',
+				gift_tier: null,
+				gift_expires_at: null
+			}
+		]);
+		ctx.rawStore.seed('organization_billing_snapshots', [
+			{
+				id: 'snapshot-1',
+				organization_id: 'org-1',
+				source: 'billing_disabled',
+				commercial_plan: 'free',
+				stripe_customer_id: null,
+				stripe_subscription_id: null,
+				stripe_product_id: null,
+				stripe_price_id: null,
+				subscription_status: null,
+				collection_status: null,
+				current_period_start: null,
+				current_period_end: null,
+				cancel_at_period_end: false,
+				canceled_at: null,
+				trial_end: null,
+				sync_status: 'billing_disabled',
+				last_stripe_event_id: null,
+				last_stripe_event_type: null,
+				last_stripe_event_created_at: null,
+				last_processed_at: null,
+				last_reconciled_at: null,
+				reconciliation_result: null,
+				drift_detected: false
+			}
+		]);
+		ctx.rawStore.seed('organization_plan_feature_overrides', [
+			{
+				id: 'override-1',
+				organization_id: 'org-1',
+				feature_key: 'advanced_reporting',
+				override_state: 'granted',
+				expires_at: '2999-01-01T00:00:00.000Z',
+				revoked_at: null
+			}
+		]);
+
+		const policy = await readEffectivePlanPolicy({ auth: ctx.auth, store: ctx.rawStore });
+
+		expect(policy.source).toBe('billing_disabled_fallback');
+		expect(policy.entitlements.advanced_reporting).toMatchObject({
+			available: true,
+			source: 'feature_override',
+			override: {
+				id: 'override-1',
+				state: 'granted',
+				expiresAt: '2999-01-01T00:00:00.000Z'
+			}
+		});
+	});
+
 	it('ignores expired persisted feature overrides in the effective policy read model', async () => {
 		billingEnabledMock.mockReturnValue(true);
 		const ctx = createTestContext({ auth: { orgId: 'org-1' } });

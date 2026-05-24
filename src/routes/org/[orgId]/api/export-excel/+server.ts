@@ -7,7 +7,11 @@ import { buildOrganizationDataExportWorkbook } from '$lib/server/core/useCases/o
 import { workbookBufferResponse, writeWorkbookBuffer } from '$lib/export/workbook';
 import { readEffectivePlanPolicy } from '$lib/server/core/useCases/planPolicy';
 import { readOrganizationPlanUsage } from '$lib/server/core/useCases/organizationPlanUsage';
-import { checkWithinPlanLimit, type PlanGateDenial } from '$lib/server/core/useCases/planPolicyGates';
+import {
+	checkAfterPlanLimitMutation,
+	checkWithinPlanLimit,
+	type PlanGateDenial
+} from '$lib/server/core/useCases/planPolicyGates';
 
 interface ExcelExportInput {
 	email: string | undefined;
@@ -48,6 +52,20 @@ export const _postConfig: RouteConfig<ExcelExportInput, ExcelExportOutput> = {
 		}
 
 		const exportRecord = await startDataExport({ auth: ctx.auth, store: ctx.rawStore }, { requestedBy: userId });
+		const usageAfterCreate = await readOrganizationPlanUsage({ auth: ctx.auth, store: ctx.rawStore });
+		const postCreateExportLimit = checkAfterPlanLimitMutation(
+			policy,
+			'monthly_exports',
+			usageAfterCreate.monthlyExportCount
+		);
+		if (!postCreateExportLimit.allowed) {
+			await failDataExport({ auth: ctx.auth, store: ctx.rawStore }, { exportId: exportRecord.exportId });
+			return {
+				_rateLimited: true,
+				error: postCreateExportLimit.denial.message,
+				denial: postCreateExportLimit.denial
+			};
+		}
 
 		try {
 			const exportData = await loadOrganizationExportPayload(ctx.rawStore, orgId);
@@ -65,7 +83,11 @@ export const _postConfig: RouteConfig<ExcelExportInput, ExcelExportOutput> = {
 				}
 			);
 
-			ctx.audit.log({ action: 'export.excel_created', resourceType: 'data_export' });
+			ctx.audit.log({
+				action: 'export.excel_created',
+				resourceType: 'data_export',
+				resourceId: exportRecord.exportId
+			});
 
 			await ctx.notifications.notifyAdmins(orgId, userId, {
 				type: 'bulk_data_exported',

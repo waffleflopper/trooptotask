@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { BillingSnapshot } from '$lib/types/subscription';
 import { buildEffectivePlanPolicy } from './planPolicy';
 import {
+	checkAfterPlanLimitMutation,
 	checkPlanFeature,
 	checkPlanFeatureByKey,
 	checkWithinPlanLimit,
@@ -111,6 +112,19 @@ describe('plan policy gates', () => {
 				message: 'Export limit reached (3/month). Upgrade for unlimited exports.',
 				remediation: 'Upgrade for unlimited exports or wait until next month.',
 				upgradeTarget: 'team'
+			}
+		});
+	});
+
+	it('allows post-create usage at the limit but denies usage over the limit', () => {
+		const policy = buildEffectivePlanPolicy(snapshot({ commercialPlan: 'free' }));
+
+		expect(checkAfterPlanLimitMutation(policy, 'monthly_exports', 3)).toEqual({ allowed: true });
+		expect(checkAfterPlanLimitMutation(policy, 'monthly_exports', 4)).toMatchObject({
+			allowed: false,
+			denial: {
+				code: 'denied.export_quota',
+				dimension: 'monthly_exports'
 			}
 		});
 	});

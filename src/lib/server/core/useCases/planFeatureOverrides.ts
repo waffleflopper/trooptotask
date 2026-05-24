@@ -1,6 +1,6 @@
 import type { AuditPort, DataStore } from '$lib/server/core/ports';
 import type { AdminRole } from '$lib/server/admin';
-import { PLAN_FEATURE_REGISTRY, type PlanFeatureKey, type PlanFeatureOverrideState } from './planPolicy';
+import { isPlanFeatureKey, type PlanFeatureKey, type PlanFeatureOverrideState } from './planPolicy';
 
 interface PlanFeatureOverridePorts {
 	store: DataStore;
@@ -55,7 +55,7 @@ function normalizeReason(value: string | null | undefined): string | null {
 }
 
 function assertKnownFeatureKey(featureKey: PlanFeatureKey): void {
-	if (!(featureKey in PLAN_FEATURE_REGISTRY)) {
+	if (!isPlanFeatureKey(featureKey)) {
 		throw new Error('Unknown plan feature key.');
 	}
 }
@@ -81,6 +81,11 @@ export async function grantOrganizationPlanFeatureOverride(
 		{ feature_key: input.featureKey },
 		{ isNull: { revoked_at: true } }
 	);
+	const activeExistingRestore = activeExisting.map((override) => ({
+		id: override.id,
+		revoked_at: override.revoked_at,
+		revoked_by: override.revoked_by
+	}));
 	const revokedAt = new Date().toISOString();
 	await Promise.all(
 		activeExisting.map((override) =>
@@ -90,6 +95,31 @@ export async function grantOrganizationPlanFeatureOverride(
 			})
 		)
 	);
+
+	let row: PlanFeatureOverrideRecord;
+	try {
+		row = await ports.store.insert<PlanFeatureOverrideRecord>('organization_plan_feature_overrides', input.orgId, {
+			feature_key: input.featureKey,
+			override_state: input.state,
+			expires_at: expiresAt,
+			reason,
+			created_by: ports.admin.userId,
+			created_at: new Date().toISOString(),
+			revoked_at: null,
+			revoked_by: null
+		});
+	} catch (error) {
+		await Promise.all(
+			activeExistingRestore.map((override) =>
+				ports.store.update('organization_plan_feature_overrides', input.orgId, override.id, {
+					revoked_at: override.revoked_at,
+					revoked_by: override.revoked_by
+				})
+			)
+		);
+		throw error;
+	}
+
 	for (const override of activeExisting) {
 		ports.audit.log({
 			action: 'admin.plan_feature_override.superseded',
@@ -105,17 +135,6 @@ export async function grantOrganizationPlanFeatureOverride(
 			}
 		});
 	}
-
-	const row = await ports.store.insert<PlanFeatureOverrideRecord>('organization_plan_feature_overrides', input.orgId, {
-		feature_key: input.featureKey,
-		override_state: input.state,
-		expires_at: expiresAt,
-		reason,
-		created_by: ports.admin.userId,
-		created_at: new Date().toISOString(),
-		revoked_at: null,
-		revoked_by: null
-	});
 
 	ports.audit.log({
 		action: 'admin.plan_feature_override.set',

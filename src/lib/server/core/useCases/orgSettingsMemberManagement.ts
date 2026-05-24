@@ -124,6 +124,13 @@ export interface OrganizationSettingsMemberManagementPort {
 		blockedBy: string;
 		reason: string;
 	}): Promise<{ status: 'blocked' } | { status: 'failed'; message: string }>;
+	blockInvitationIfMemberPlanLimitExceeded(input: {
+		organizationId: string;
+		invitationId: string;
+		blockedBy: string;
+		memberLimit: number;
+		reason: string;
+	}): Promise<{ status: 'within_limit' } | { status: 'blocked' } | { status: 'failed'; message: string }>;
 	revokeInvitation(orgId: string, inviteId: string): Promise<OrganizationInvitationRevokeResult>;
 	findMembershipById(orgId: string, membershipId: string): Promise<OrganizationMembershipRecord | null>;
 	removeMembership(orgId: string, membershipId: string): Promise<string | null>;
@@ -401,12 +408,15 @@ async function blockCreatedInvitationIfOverPlanLimit(
 	if (usedSeats <= memberLimit) return;
 
 	const message = `This organization exceeded its plan member limit of ${memberLimit} seats while creating the invitation. Revoke a pending invitation or upgrade before inviting another member.`;
-	const blockResult = await ports.settings.blockInvitationAfterAccessRequestBridgeFailure({
+	const blockResult = await ports.settings.blockInvitationIfMemberPlanLimitExceeded({
 		organizationId: ports.auth.orgId,
 		invitationId: input.invitationId,
 		blockedBy: input.actorUserId,
+		memberLimit,
 		reason: 'plan_member_limit_overcap'
 	});
+
+	if (blockResult.status === 'within_limit') return;
 
 	ports.audit.log({
 		action: 'member.invite_plan_limit_overcap',

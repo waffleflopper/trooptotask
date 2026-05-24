@@ -15,11 +15,7 @@ import {
 	grantOrganizationPlanFeatureOverride,
 	revokeOrganizationPlanFeatureOverride
 } from '$lib/server/core/useCases/planFeatureOverrides';
-import {
-	PLAN_FEATURE_REGISTRY,
-	readEffectivePlanPolicy,
-	type PlanFeatureKey
-} from '$lib/server/core/useCases/planPolicy';
+import { isPlanFeatureKey, readEffectivePlanPolicy } from '$lib/server/core/useCases/planPolicy';
 import { readOrganizationPlanUsage } from '$lib/server/core/useCases/organizationPlanUsage';
 import { buildPlanAdminDiagnostics } from '$lib/server/core/useCases/planAdminDiagnostics';
 import { visibleBillingSnapshotForAdminRole } from '$lib/server/adminBillingVisibility';
@@ -33,10 +29,6 @@ function sanitizeBillingReconciliationDiagnostic(value: unknown): string {
 		.replace(/[sr]k_(live|test)_[A-Za-z0-9_]+/g, '[redacted_stripe_key]')
 		.replace(/whsec_\S+/g, '[redacted_webhook_secret]')
 		.replace(/bearer\s+\S+/gi, 'bearer [redacted]');
-}
-
-function isPlanFeatureKey(value: string): value is PlanFeatureKey {
-	return value in PLAN_FEATURE_REGISTRY;
 }
 
 function parseFeatureOverrideExpiry(value: string | null): string | null | { error: string } {

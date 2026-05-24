@@ -57,6 +57,10 @@ function createOrganizationSettingsMemberManagementPort(
 		pendingInvitationByIdStatus?: 'pending' | 'expired';
 		pendingInvitationRequiresAccountSetup?: boolean;
 		blockInvitationResult?: { status: 'blocked' } | { status: 'failed'; message: string };
+		memberPlanLimitGuardResult?:
+			| { status: 'within_limit' }
+			| { status: 'blocked' }
+			| { status: 'failed'; message: string };
 		membership?: {
 			userId: string | null;
 			role: string | null;
@@ -139,6 +143,16 @@ function createOrganizationSettingsMemberManagementPort(
 			return options.accessRequestBridgeResult ?? { status: 'created', accessRequestId: 'access-request-1' };
 		},
 		async blockInvitationAfterAccessRequestBridgeFailure(input) {
+			blockedInvitations.push(input);
+			return options.blockInvitationResult ?? { status: 'blocked' };
+		},
+		async blockInvitationIfMemberPlanLimitExceeded(input) {
+			if (options.memberPlanLimitGuardResult) {
+				if (options.memberPlanLimitGuardResult.status === 'blocked') {
+					blockedInvitations.push(input);
+				}
+				return options.memberPlanLimitGuardResult;
+			}
 			blockedInvitations.push(input);
 			return options.blockInvitationResult ?? { status: 'blocked' };
 		},
@@ -489,6 +503,7 @@ describe('inviteOrganizationMember', () => {
 				organizationId: 'org-1',
 				invitationId: 'invite-created',
 				blockedBy: 'actor-1',
+				memberLimit: 2,
 				reason: 'plan_member_limit_overcap'
 			}
 		]);

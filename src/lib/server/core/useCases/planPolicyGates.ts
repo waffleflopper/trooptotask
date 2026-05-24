@@ -1,10 +1,10 @@
 import type { Tier } from '$lib/types/subscription';
 import {
 	PLAN_FEATURE_REGISTRY,
+	isPlanFeatureKey,
 	type BinaryPlanFeatureKey,
 	type EffectivePlanPolicy,
 	type PlanFeatureEntitlement,
-	type PlanFeatureKey,
 	type PlanLimitDimension
 } from './planPolicy';
 
@@ -20,15 +20,11 @@ export interface PlanGateDenial {
 
 export type PlanGateResult<T = undefined> = { allowed: true; value?: T } | { allowed: false; denial: PlanGateDenial };
 
-function isKnownPlanFeature(key: string): key is PlanFeatureKey {
-	return key in PLAN_FEATURE_REGISTRY;
-}
-
 export function checkPlanFeatureByKey(
 	policy: EffectivePlanPolicy,
 	key: string
 ): PlanGateResult<PlanFeatureEntitlement> {
-	if (!isKnownPlanFeature(key)) {
+	if (!isPlanFeatureKey(key)) {
 		return {
 			allowed: false,
 			denial: {
@@ -89,6 +85,26 @@ export function checkWithinPlanLimit(
 		return { allowed: true };
 	}
 
+	return planLimitDenied(quota, dimension);
+}
+
+export function checkAfterPlanLimitMutation(
+	policy: EffectivePlanPolicy,
+	dimension: 'monthly_exports',
+	currentUsage: number
+): PlanGateResult {
+	const quota = policy.exportQuota;
+	if (quota.limit === null || currentUsage <= quota.limit) {
+		return { allowed: true };
+	}
+
+	return planLimitDenied(quota, dimension);
+}
+
+function planLimitDenied(
+	quota: EffectivePlanPolicy['exportQuota'],
+	dimension: 'monthly_exports'
+): Exclude<PlanGateResult, { allowed: true }> {
 	return {
 		allowed: false,
 		denial: {

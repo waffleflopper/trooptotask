@@ -510,6 +510,62 @@ export function buildEffectivePlanPolicy(
 	};
 }
 
+function activeFeatureOverridesFromPolicy(policy: EffectivePlanPolicy): PlanFeatureOverride[] {
+	return Object.values(policy.entitlements)
+		.filter((entitlement) => entitlement.override !== undefined)
+		.map((entitlement) => ({
+			id: entitlement.override!.id,
+			organizationId: policy.organizationId,
+			featureKey: entitlement.key,
+			state: entitlement.override!.state,
+			expiresAt: entitlement.override!.expiresAt
+		}));
+}
+
+export function buildEffectivePlanPolicyForTier(policy: EffectivePlanPolicy, targetTier: Tier): EffectivePlanPolicy {
+	const targetPolicy = buildEffectivePlanPolicy(
+		{
+			organizationId: policy.organizationId,
+			source: policy.billingSource,
+			commercialPlan: targetTier,
+			stripeCustomerId: null,
+			stripeSubscriptionId: null,
+			stripeProductId: null,
+			stripePriceId: null,
+			subscriptionStatus: 'active',
+			collectionStatus: 'current',
+			currentPeriodStart: null,
+			currentPeriodEnd: null,
+			cancelAtPeriodEnd: false,
+			canceledAt: null,
+			trialEnd: null,
+			syncStatus: 'synced',
+			lastStripeEventId: null,
+			lastStripeEventType: null,
+			lastStripeEventCreatedAt: null,
+			lastProcessedAt: null,
+			lastReconciledAt: null,
+			reconciliationResult: null,
+			driftDetected: false,
+			giftTier: policy.giftTier,
+			giftExpiresAt: policy.giftExpiresAt
+		},
+		{ featureOverrides: activeFeatureOverridesFromPolicy(policy) }
+	);
+
+	return {
+		...targetPolicy,
+		grace: {
+			mode: 'none',
+			message: null
+		},
+		readOnly: {
+			enabled: false,
+			reasons: []
+		}
+	};
+}
+
 export async function readEffectivePlanPolicy(ports: PlanPolicyPorts): Promise<EffectivePlanPolicy> {
 	const snapshot = await readCurrentBillingSnapshot(ports);
 	if (snapshot.source === 'billing_disabled') {

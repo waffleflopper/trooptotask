@@ -325,4 +325,85 @@ describe('_loadBillingPageData', () => {
 			]
 		});
 	});
+
+	it('loads lower-plan downgrade previews from the same policy and usage data', async () => {
+		const ctx = createTestContext({
+			auth: {
+				orgId: 'org-1',
+				role: 'owner'
+			}
+		});
+		const billingSnapshot = snapshot({ commercialPlan: 'unit' });
+		readBillingOrganizationMock.mockResolvedValue({
+			name: 'Alpha Company',
+			stripeCustomerId: 'cus_123',
+			stripeSubscriptionId: 'sub_123',
+			subscriptionStatus: 'active'
+		});
+		readCurrentBillingSnapshotMock.mockResolvedValue(billingSnapshot);
+		readEffectivePlanPolicyMock.mockResolvedValue(buildEffectivePlanPolicy(billingSnapshot));
+		readOrganizationPlanUsageMock.mockResolvedValue({
+			organizationId: 'org-1',
+			asOf: '2026-05-24T12:00:00.000Z',
+			activePersonnelCount: 90,
+			activeOrganizationMemberCount: 10,
+			pendingUnexpiredInvitationCount: 1,
+			monthlyExportCount: 4,
+			sources: {
+				activePersonnel: { table: 'personnel', included: [], excluded: [] },
+				activeOrganizationMembers: { table: 'organization_memberships', included: [], excluded: [] },
+				pendingUnexpiredInvitations: { table: 'organization_invitations', included: [], excluded: [] },
+				monthlyExports: {
+					table: 'data_exports',
+					included: [],
+					excluded: [],
+					period: {
+						start: '2026-05-01T00:00:00.000Z',
+						endExclusive: '2026-06-01T00:00:00.000Z'
+					}
+				}
+			}
+		});
+		canManageBillingSubscriptionMock.mockReturnValue(true);
+
+		const result = await _loadBillingPageData(
+			{
+				auth: ctx.auth,
+				audit: ctx.audit,
+				rawStore: { kind: 'raw-store' } as never
+			},
+			{
+				tier: 'unit',
+				source: 'subscription',
+				personnelCount: 90,
+				personnelCap: 500,
+				isReadOnly: false,
+				readOnlyReason: null,
+				giftExpiresAt: null,
+				giftTier: null
+			}
+		);
+
+		expect(result.downgradePreviews).toEqual([
+			expect.objectContaining({
+				targetPlan: expect.objectContaining({ tier: 'free', sourceLabel: 'Stripe-backed billing' }),
+				status: 'blocked',
+				rows: expect.arrayContaining([
+					expect.objectContaining({ dimension: 'active_personnel', used: 90, limit: 20, status: 'over_limit' }),
+					expect.objectContaining({ dimension: 'monthly_exports', used: 4, limit: 3, status: 'over_limit' })
+				]),
+				featureLosses: expect.arrayContaining([
+					expect.objectContaining({ featureKey: 'bulk_export_unlimited' }),
+					expect.objectContaining({ featureKey: 'advanced_reporting' })
+				])
+			}),
+			expect.objectContaining({
+				targetPlan: expect.objectContaining({ tier: 'team', sourceLabel: 'Stripe-backed billing' }),
+				rows: expect.arrayContaining([
+					expect.objectContaining({ dimension: 'active_personnel', used: 90, limit: 80, status: 'over_limit' })
+				]),
+				featureLosses: [expect.objectContaining({ featureKey: 'advanced_reporting' })]
+			})
+		]);
+	});
 });

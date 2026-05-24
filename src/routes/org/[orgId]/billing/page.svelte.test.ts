@@ -135,7 +135,8 @@ const baseData = {
 			}
 		],
 		alerts: []
-	}
+	},
+	downgradePreviews: []
 };
 
 describe('billing page toolbar', () => {
@@ -250,6 +251,94 @@ describe('billing page toolbar', () => {
 		expect(screen.getByText('Revoke pending invitations or upgrade to Team.')).toBeTruthy();
 		expect(screen.getByText('Upgrade for unlimited exports or wait until next month.')).toBeTruthy();
 		expect(screen.getByText('Existing data remains visible. Resolve limits before adding more data.')).toBeTruthy();
+	});
+
+	it('shows downgrade preview remediation on lower-plan cards', () => {
+		render(Page, {
+			props: {
+				data: {
+					...baseData,
+					effectiveTier: {
+						...baseData.effectiveTier,
+						tier: 'unit',
+						personnelCount: 90,
+						personnelCap: 500
+					},
+					planUsageSummary: {
+						...baseData.planUsageSummary,
+						plan: {
+							...baseData.planUsageSummary.plan,
+							tier: 'unit'
+						}
+					},
+					downgradePreviews: [
+						{
+							currentPlan: {
+								tier: 'unit',
+								sourceLabel: 'Stripe-backed billing'
+							},
+							targetPlan: {
+								tier: 'free',
+								name: 'Free',
+								sourceLabel: 'Stripe-backed billing'
+							},
+							status: 'blocked',
+							preservesExistingDataMessage:
+								'Existing data is preserved after downgrade, but over-limit usage, unavailable features, or read-only billing states can block new writes until resolved.',
+							rows: [
+								{
+									dimension: 'active_personnel',
+									label: 'Personnel',
+									used: 90,
+									limit: 20,
+									limitLabel: '20',
+									status: 'over_limit',
+									message: 'Personnel usage would be 90 of 20 on Free.',
+									remediation: 'Archive personnel before downgrading or choose Team.',
+									upgradeTarget: 'team'
+								}
+							],
+							featureLosses: [
+								{
+									featureKey: 'advanced_reporting',
+									label: 'Advanced reporting',
+									message: 'Advanced reporting is available on the current plan but not on Free.',
+									remediation: 'Choose Unit to keep Advanced reporting.',
+									upgradeTarget: 'unit'
+								}
+							],
+							blockers: [
+								{
+									dimension: 'active_personnel',
+									label: 'Personnel',
+									used: 90,
+									limit: 20,
+									limitLabel: '20',
+									status: 'over_limit',
+									message: 'Personnel usage would be 90 of 20 on Free.',
+									remediation: 'Archive personnel before downgrading or choose Team.',
+									upgradeTarget: 'team'
+								},
+								{
+									featureKey: 'advanced_reporting',
+									label: 'Advanced reporting',
+									message: 'Advanced reporting is available on the current plan but not on Free.',
+									remediation: 'Choose Unit to keep Advanced reporting.',
+									upgradeTarget: 'unit'
+								}
+							]
+						}
+					]
+				} as never
+			}
+		});
+
+		expect(screen.getByText('Downgrade preview')).toBeTruthy();
+		expect(screen.getByText('Needs remediation')).toBeTruthy();
+		expect(screen.getByText(/Existing data is preserved after downgrade/)).toBeTruthy();
+		expect(screen.getByText(/Personnel usage would be 90 of 20 on Free/)).toBeTruthy();
+		expect(screen.getByText('Archive personnel before downgrading or choose Team.')).toBeTruthy();
+		expect(screen.getByText('Choose Unit to keep Advanced reporting.')).toBeTruthy();
 	});
 
 	it('uses the effective tier when past-due access has already been downgraded', () => {

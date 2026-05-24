@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { checkout, portal, cancel } from './billing';
+import { CHECKOUT_ATTEMPTS_TABLE, type CheckoutAttemptRow } from './billingCheckoutAttempts';
 
 function buildContext() {
 	return createTestContext();
@@ -28,9 +29,26 @@ describe('billing use cases', () => {
 				orgId: 'test-org',
 				tier: 'team',
 				priceId: 'price_team',
+				checkoutAttemptId: result.checkoutAttemptId,
 				customerEmail: 'owner@test.com',
 				orgName: 'Test Org'
 			});
+			expect(ctx.billingPort.calls[0].args[0]).toMatchObject({
+				successUrl: `http://localhost/org/org-1/billing/success?checkout_attempt_id=${result.checkoutAttemptId}`,
+				cancelUrl: `http://localhost/org/org-1/billing/canceled?checkout_attempt_id=${result.checkoutAttemptId}`
+			});
+			const attempt = await ctx.rawStore.findOne<CheckoutAttemptRow>(CHECKOUT_ATTEMPTS_TABLE, ctx.auth.orgId, {
+				id: result.checkoutAttemptId
+			});
+			expect(attempt).toMatchObject({
+				status: 'in_progress',
+				stripe_checkout_session_id: 'cs_test_123',
+				stripe_customer_id: 'cus_test_123',
+				commercial_plan: 'team',
+				stripe_price_id: 'price_team',
+				checkout_url: 'https://checkout.test/session'
+			});
+			expect(attempt?.expires_at).toBe('2026-05-24T12:00:00.000Z');
 			expect(ctx.auditPort.events).toEqual([
 				{
 					action: 'billing.checkout_authorized',
@@ -38,6 +56,7 @@ describe('billing use cases', () => {
 					resourceId: 'test-org',
 					details: {
 						tier: 'team',
+						checkoutAttemptId: result.checkoutAttemptId,
 						sensitiveAction: expect.objectContaining({
 							action: 'billing.checkout',
 							reason: 'allowed.recentSession'
@@ -75,6 +94,7 @@ describe('billing use cases', () => {
 					resourceId: 'test-org',
 					details: {
 						tier: 'unit',
+						checkoutAttemptId: result.checkoutAttemptId,
 						sensitiveAction: expect.objectContaining({
 							action: 'billing.checkout',
 							reason: 'allowed.mfaAssurance',
@@ -184,6 +204,336 @@ describe('billing use cases', () => {
 			expect(ctx.billingPort.calls[0].args[0]).toMatchObject({
 				existingCustomerId: 'cus_existing'
 			});
+		});
+
+		it('reuses an active in-progress checkout attempt after sensitive-action authorization', async () => {
+			const ctx = buildContext();
+			const now = new Date('2026-05-24T10:00:00.000Z');
+			ctx.rawStore.seed(CHECKOUT_ATTEMPTS_TABLE, [
+				{
+					id: 'attempt-active',
+					organization_id: ctx.auth.orgId,
+					stripe_checkout_session_id: 'cs_active',
+					stripe_customer_id: 'cus_active',
+					commercial_plan: 'team',
+					stripe_price_id: 'price_team',
+					checkout_url: 'https://checkout.test/active',
+					status: 'in_progress',
+					expires_at: '2026-05-24T11:00:00.000Z',
+					completed_at: null,
+					canceled_at: null,
+					created_at: '2026-05-24T09:00:00.000Z',
+					updated_at: '2026-05-24T09:00:00.000Z'
+				}
+			]);
+
+			const result = await checkout(ctx, {
+				tier: 'team',
+				priceId: 'price_team',
+				customerEmail: 'owner@test.com',
+				orgName: 'Test Org',
+				successUrl: 'http://localhost/success',
+				cancelUrl: 'http://localhost/canceled',
+				now
+			});
+
+			expect(result).toEqual({
+				url: 'https://checkout.test/active',
+				customerId: 'cus_active',
+				reused: true,
+				message: 'A checkout session is already open. Redirecting you back to it.',
+				checkoutAttemptId: 'attempt-active'
+			});
+			expect(ctx.billingPort.calls).toEqual([]);
+			expect(ctx.auditPort.events).toContainEqual(
+				expect.objectContaining({
+					action: 'billing.checkout_reused',
+					details: expect.objectContaining({ checkoutAttemptId: 'attempt-active' })
+				})
+			);
+		});
+
+		it('blocks an active checkout attempt for a different plan instead of reusing the wrong URL', async () => {
+			const ctx = buildContext();
+			ctx.rawStore.seed(CHECKOUT_ATTEMPTS_TABLE, [
+				{
+					id: 'attempt-team',
+					organization_id: ctx.auth.orgId,
+					stripe_checkout_session_id: 'cs_team',
+					stripe_customer_id: 'cus_team',
+					commercial_plan: 'team',
+					stripe_price_id: 'price_team',
+					checkout_url: 'https://checkout.test/team',
+					status: 'in_progress',
+					expires_at: '2026-05-24T11:00:00.000Z',
+					completed_at: null,
+					canceled_at: null,
+					created_at: '2026-05-24T09:00:00.000Z',
+					updated_at: '2026-05-24T09:00:00.000Z'
+				}
+			]);
+
+			await expect(
+				checkout(ctx, {
+					tier: 'unit',
+					priceId: 'price_unit',
+					customerEmail: 'owner@test.com',
+					orgName: 'Test Org',
+					successUrl: 'http://localhost/success',
+					cancelUrl: 'http://localhost/canceled',
+					now: new Date('2026-05-24T10:00:00.000Z')
+				})
+			).rejects.toMatchObject({
+				status: 409,
+				message:
+					'A checkout session is already open for a different plan. Complete or wait for that session to expire before starting another checkout.'
+			});
+			expect(ctx.billingPort.calls).toEqual([]);
+		});
+
+		it('returns clear retry copy when another request is still creating the provider session', async () => {
+			const ctx = buildContext();
+			ctx.rawStore.seed(CHECKOUT_ATTEMPTS_TABLE, [
+				{
+					id: 'attempt-placeholder',
+					organization_id: ctx.auth.orgId,
+					stripe_checkout_session_id: null,
+					stripe_customer_id: null,
+					commercial_plan: 'team',
+					stripe_price_id: 'price_team',
+					checkout_url: null,
+					status: 'in_progress',
+					expires_at: '2026-05-24T10:04:00.000Z',
+					completed_at: null,
+					canceled_at: null,
+					created_at: '2026-05-24T09:59:00.000Z',
+					updated_at: '2026-05-24T09:59:00.000Z'
+				}
+			]);
+
+			await expect(
+				checkout(ctx, {
+					tier: 'team',
+					priceId: 'price_team',
+					customerEmail: 'owner@test.com',
+					orgName: 'Test Org',
+					successUrl: 'http://localhost/success',
+					cancelUrl: 'http://localhost/canceled',
+					now: new Date('2026-05-24T10:00:00.000Z')
+				})
+			).rejects.toMatchObject({
+				status: 409,
+				message: 'A checkout session is being created for this organization. Please try again shortly.'
+			});
+			expect(ctx.billingPort.calls).toEqual([]);
+		});
+
+		it('expires stale placeholder attempts before creating a replacement', async () => {
+			const ctx = buildContext();
+			const now = new Date('2026-05-24T10:00:00.000Z');
+			ctx.rawStore.seed(CHECKOUT_ATTEMPTS_TABLE, [
+				{
+					id: 'attempt-stale-placeholder',
+					organization_id: ctx.auth.orgId,
+					stripe_checkout_session_id: null,
+					stripe_customer_id: null,
+					commercial_plan: 'team',
+					stripe_price_id: 'price_team',
+					checkout_url: null,
+					status: 'in_progress',
+					expires_at: null,
+					completed_at: null,
+					canceled_at: null,
+					created_at: '2026-05-24T09:40:00.000Z',
+					updated_at: '2026-05-24T09:40:00.000Z'
+				}
+			]);
+
+			const result = await checkout(ctx, {
+				tier: 'team',
+				priceId: 'price_team',
+				customerEmail: 'owner@test.com',
+				orgName: 'Test Org',
+				successUrl: 'http://localhost/success',
+				cancelUrl: 'http://localhost/canceled',
+				now
+			});
+
+			const attempts = await ctx.rawStore.findMany<CheckoutAttemptRow>(CHECKOUT_ATTEMPTS_TABLE, ctx.auth.orgId);
+			expect(result.reused).toBe(false);
+			expect(ctx.billingPort.calls).toHaveLength(1);
+			expect(attempts).toEqual(
+				expect.arrayContaining([
+					expect.objectContaining({ id: 'attempt-stale-placeholder', status: 'expired' }),
+					expect.objectContaining({ id: result.checkoutAttemptId, status: 'in_progress' })
+				])
+			);
+		});
+
+		it('expires stale ready attempts without provider expiry before creating a replacement', async () => {
+			const ctx = buildContext();
+			const now = new Date('2026-05-24T10:00:00.000Z');
+			ctx.rawStore.seed(CHECKOUT_ATTEMPTS_TABLE, [
+				{
+					id: 'attempt-stale-no-provider-expiry',
+					organization_id: ctx.auth.orgId,
+					stripe_checkout_session_id: 'cs_no_provider_expiry',
+					stripe_customer_id: 'cus_no_provider_expiry',
+					commercial_plan: 'team',
+					stripe_price_id: 'price_team',
+					checkout_url: 'https://checkout.test/no-provider-expiry',
+					status: 'in_progress',
+					expires_at: null,
+					completed_at: null,
+					canceled_at: null,
+					created_at: '2026-05-24T09:40:00.000Z',
+					updated_at: '2026-05-24T09:40:00.000Z'
+				}
+			]);
+
+			const result = await checkout(ctx, {
+				tier: 'team',
+				priceId: 'price_team',
+				customerEmail: 'owner@test.com',
+				orgName: 'Test Org',
+				successUrl: 'http://localhost/success',
+				cancelUrl: 'http://localhost/canceled',
+				now
+			});
+
+			const attempts = await ctx.rawStore.findMany<CheckoutAttemptRow>(CHECKOUT_ATTEMPTS_TABLE, ctx.auth.orgId);
+			expect(result.reused).toBe(false);
+			expect(ctx.billingPort.calls).toHaveLength(1);
+			expect(attempts).toEqual(
+				expect.arrayContaining([
+					expect.objectContaining({ id: 'attempt-stale-no-provider-expiry', status: 'expired' }),
+					expect.objectContaining({ id: result.checkoutAttemptId, status: 'in_progress' })
+				])
+			);
+		});
+
+		it('expires stale checkout attempts before creating a replacement', async () => {
+			const ctx = buildContext();
+			const now = new Date('2026-05-24T10:00:00.000Z');
+			ctx.rawStore.seed(CHECKOUT_ATTEMPTS_TABLE, [
+				{
+					id: 'attempt-stale',
+					organization_id: ctx.auth.orgId,
+					stripe_checkout_session_id: 'cs_stale',
+					stripe_customer_id: 'cus_stale',
+					commercial_plan: 'team',
+					stripe_price_id: 'price_team',
+					checkout_url: 'https://checkout.test/stale',
+					status: 'in_progress',
+					expires_at: '2026-05-24T09:59:59.000Z',
+					completed_at: null,
+					canceled_at: null,
+					created_at: '2026-05-24T09:00:00.000Z',
+					updated_at: '2026-05-24T09:00:00.000Z'
+				}
+			]);
+
+			const result = await checkout(ctx, {
+				tier: 'team',
+				priceId: 'price_team',
+				customerEmail: 'owner@test.com',
+				orgName: 'Test Org',
+				successUrl: 'http://localhost/success',
+				cancelUrl: 'http://localhost/canceled',
+				now
+			});
+
+			const attempts = await ctx.rawStore.findMany<CheckoutAttemptRow>(CHECKOUT_ATTEMPTS_TABLE, ctx.auth.orgId);
+			expect(result.reused).toBe(false);
+			expect(ctx.billingPort.calls).toHaveLength(1);
+			expect(attempts).toEqual(
+				expect.arrayContaining([
+					expect.objectContaining({ id: 'attempt-stale', status: 'expired' }),
+					expect.objectContaining({ id: result.checkoutAttemptId, status: 'in_progress' })
+				])
+			);
+		});
+
+		it.each(['completed', 'canceled'] as const)(
+			'does not let %s checkout attempts block a new checkout',
+			async (status) => {
+				const ctx = buildContext();
+				ctx.rawStore.seed(CHECKOUT_ATTEMPTS_TABLE, [
+					{
+						id: `attempt-${status}`,
+						organization_id: ctx.auth.orgId,
+						stripe_checkout_session_id: `cs_${status}`,
+						stripe_customer_id: `cus_${status}`,
+						commercial_plan: 'team',
+						stripe_price_id: 'price_team',
+						checkout_url: `https://checkout.test/${status}`,
+						status,
+						expires_at: '2026-05-24T11:00:00.000Z',
+						completed_at: status === 'completed' ? '2026-05-24T09:30:00.000Z' : null,
+						canceled_at: status === 'canceled' ? '2026-05-24T09:30:00.000Z' : null,
+						created_at: '2026-05-24T09:00:00.000Z',
+						updated_at: '2026-05-24T09:30:00.000Z'
+					}
+				]);
+
+				const result = await checkout(ctx, {
+					tier: 'team',
+					priceId: 'price_team',
+					customerEmail: 'owner@test.com',
+					orgName: 'Test Org',
+					successUrl: 'http://localhost/success',
+					cancelUrl: 'http://localhost/canceled',
+					now: new Date('2026-05-24T10:00:00.000Z')
+				});
+
+				expect(result.reused).toBe(false);
+				expect(ctx.billingPort.calls).toHaveLength(1);
+			}
+		);
+
+		it('denies stale-session checkout before reusing an active attempt', async () => {
+			const ctx = createTestContext({
+				sensitiveActionDecision: {
+					allowed: false,
+					reason: 'denied.staleSession',
+					sessionAgeMs: 3_600_000,
+					requiresStepUp: true
+				}
+			});
+			ctx.rawStore.seed(CHECKOUT_ATTEMPTS_TABLE, [
+				{
+					id: 'attempt-active',
+					organization_id: ctx.auth.orgId,
+					stripe_checkout_session_id: 'cs_active',
+					stripe_customer_id: 'cus_active',
+					commercial_plan: 'team',
+					stripe_price_id: 'price_team',
+					checkout_url: 'https://checkout.test/active',
+					status: 'in_progress',
+					expires_at: '2026-05-24T11:00:00.000Z',
+					completed_at: null,
+					canceled_at: null,
+					created_at: '2026-05-24T09:00:00.000Z',
+					updated_at: '2026-05-24T09:00:00.000Z'
+				}
+			]);
+
+			await expect(
+				checkout(ctx, {
+					tier: 'team',
+					priceId: 'price_team',
+					customerEmail: 'owner@test.com',
+					orgName: 'Test Org',
+					successUrl: 'http://localhost/success',
+					cancelUrl: 'http://localhost/canceled',
+					now: new Date('2026-05-24T10:00:00.000Z')
+				})
+			).rejects.toMatchObject({ status: 403 });
+
+			expect(ctx.billingPort.calls).toEqual([]);
+			expect(ctx.auditPort.events).toEqual([
+				expect.objectContaining({ action: 'billing.checkout_authorization_denied' })
+			]);
 		});
 
 		it('rejects when customerEmail is empty', async () => {

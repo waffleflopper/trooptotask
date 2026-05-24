@@ -8,8 +8,18 @@
  * routes guard that at the route level. Tests use the in-memory BillingPort from
  * `inMemory.ts`.
  */
-import type { AuditPort, AuthContext, BillingPort } from '$lib/server/core/ports';
+import type { AuditPort, AuthContext, BillingPort, DataStore } from '$lib/server/core/ports';
 import { fail } from '$lib/server/core/errors';
+import {
+	appendCheckoutAttemptId,
+	createCheckoutAttemptPlaceholder,
+	expireStaleCheckoutAttempts,
+	findActiveCheckoutAttempt,
+	findReusableCheckoutAttempt,
+	isActiveCheckoutAttemptConflict,
+	markCheckoutAttemptFailed,
+	markCheckoutAttemptReady
+} from './billingCheckoutAttempts';
 import {
 	BILLING_CANCEL_ACTION,
 	BILLING_CHECKOUT_ACTION,
@@ -27,6 +37,7 @@ export interface BillingPorts {
 	billing: BillingPort;
 	audit: AuditPort;
 	sensitiveActionAuthorizer: SensitiveActionAuthorizer;
+	rawStore: DataStore;
 }
 
 export interface CheckoutInput {
@@ -37,9 +48,13 @@ export interface CheckoutInput {
 	existingCustomerId?: string;
 	successUrl: string;
 	cancelUrl: string;
+	now?: Date;
 }
 
-export async function checkout(ctx: BillingPorts, input: CheckoutInput): Promise<{ url: string; customerId: string }> {
+export async function checkout(
+	ctx: BillingPorts,
+	input: CheckoutInput
+): Promise<{ url: string; customerId: string | null; reused: boolean; message?: string; checkoutAttemptId: string }> {
 	if (!input.customerEmail) fail(400, 'User email not found');
 	const sensitiveAction = await authorizeBillingSensitiveAction(ctx, {
 		action: BILLING_CHECKOUT_ACTION,
@@ -47,12 +62,46 @@ export async function checkout(ctx: BillingPorts, input: CheckoutInput): Promise
 		details: { tier: input.tier }
 	});
 
-	const result = await ctx.billing.createCheckoutSession({
+	const now = input.now ?? new Date();
+	await expireStaleCheckoutAttempts(ctx.rawStore, ctx.auth.orgId, now);
+	const activeAttempt = await findActiveCheckoutAttempt(ctx.rawStore, ctx.auth.orgId, now);
+	if (activeAttempt) return reuseOrBlockActiveCheckoutAttempt(ctx, input, sensitiveAction, activeAttempt);
+
+	const checkoutAttempt = await createCheckoutAttemptOrReuse(ctx.rawStore, {
 		orgId: ctx.auth.orgId,
-		...input
+		commercialPlan: input.tier,
+		stripePriceId: input.priceId,
+		now
 	});
-	auditSuccessfulSensitiveBillingAction(ctx, 'billing.checkout_authorized', sensitiveAction, { tier: input.tier });
-	return result;
+	if (checkoutAttempt.checkout_url)
+		return reuseOrBlockActiveCheckoutAttempt(ctx, input, sensitiveAction, checkoutAttempt);
+
+	try {
+		const result = await ctx.billing.createCheckoutSession({
+			orgId: ctx.auth.orgId,
+			...input,
+			checkoutAttemptId: checkoutAttempt.id,
+			successUrl: appendCheckoutAttemptId(input.successUrl, checkoutAttempt.id),
+			cancelUrl: appendCheckoutAttemptId(input.cancelUrl, checkoutAttempt.id)
+		});
+		await markCheckoutAttemptReady(ctx.rawStore, {
+			orgId: ctx.auth.orgId,
+			attemptId: checkoutAttempt.id,
+			sessionId: result.sessionId ?? null,
+			customerId: result.customerId,
+			checkoutUrl: result.url,
+			expiresAt: result.expiresAt ?? null,
+			now
+		});
+		auditSuccessfulSensitiveBillingAction(ctx, 'billing.checkout_authorized', sensitiveAction, {
+			tier: input.tier,
+			checkoutAttemptId: checkoutAttempt.id
+		});
+		return { ...result, reused: false, checkoutAttemptId: checkoutAttempt.id };
+	} catch (err) {
+		await markCheckoutAttemptFailed(ctx.rawStore, ctx.auth.orgId, checkoutAttempt.id, now);
+		throw err;
+	}
 }
 
 export interface PortalInput {
@@ -163,4 +212,51 @@ function auditSuccessfulSensitiveBillingAction(
 			sensitiveAction
 		}
 	});
+}
+
+async function createCheckoutAttemptOrReuse(
+	store: DataStore,
+	input: Parameters<typeof createCheckoutAttemptPlaceholder>[1]
+): Promise<Awaited<ReturnType<typeof createCheckoutAttemptPlaceholder>>> {
+	try {
+		return await createCheckoutAttemptPlaceholder(store, input);
+	} catch (err) {
+		if (isActiveCheckoutAttemptConflict(err)) {
+			const activeAttempt =
+				(await findReusableCheckoutAttempt(store, input.orgId, input.stripePriceId, input.now)) ??
+				(await findActiveCheckoutAttempt(store, input.orgId, input.now));
+			if (activeAttempt) return activeAttempt;
+		}
+		throw err;
+	}
+}
+
+function reuseOrBlockActiveCheckoutAttempt(
+	ctx: BillingPorts,
+	input: CheckoutInput,
+	sensitiveAction: Record<string, unknown>,
+	attempt: Awaited<ReturnType<typeof findActiveCheckoutAttempt>>
+): { url: string; customerId: string | null; reused: boolean; message?: string; checkoutAttemptId: string } {
+	if (!attempt) fail(409, 'A checkout session is being created for this organization. Please try again shortly.');
+	if (attempt.stripe_price_id !== input.priceId || attempt.commercial_plan !== input.tier) {
+		fail(
+			409,
+			'A checkout session is already open for a different plan. Complete or wait for that session to expire before starting another checkout.'
+		);
+	}
+	if (!attempt.checkout_url) {
+		fail(409, 'A checkout session is being created for this organization. Please try again shortly.');
+	}
+
+	auditSuccessfulSensitiveBillingAction(ctx, 'billing.checkout_reused', sensitiveAction, {
+		tier: input.tier,
+		checkoutAttemptId: attempt.id
+	});
+	return {
+		url: attempt.checkout_url,
+		customerId: attempt.stripe_customer_id,
+		reused: true,
+		message: 'A checkout session is already open. Redirecting you back to it.',
+		checkoutAttemptId: attempt.id
+	};
 }

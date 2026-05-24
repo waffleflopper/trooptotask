@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
+import { CHECKOUT_ATTEMPTS_TABLE } from '$lib/server/core/useCases/billingCheckoutAttempts';
 
 const { buildRouteContextMock, checkoutCatalogMock } = vi.hoisted(() => ({
 	buildRouteContextMock: vi.fn(),
@@ -218,8 +219,12 @@ describe('POST /billing/checkout', () => {
 			args: [
 				expect.objectContaining({
 					priceId: 'price_team_current',
-					successUrl: `https://app.trooptotask.com/org/${ctx.auth.orgId}/billing/success`,
-					cancelUrl: `https://app.trooptotask.com/org/${ctx.auth.orgId}/billing/canceled`
+					successUrl: expect.stringMatching(
+						`^https://app\\.trooptotask\\.com/org/${ctx.auth.orgId}/billing/success\\?checkout_attempt_id=`
+					),
+					cancelUrl: expect.stringMatching(
+						`^https://app\\.trooptotask\\.com/org/${ctx.auth.orgId}/billing/canceled\\?checkout_attempt_id=`
+					)
 				})
 			]
 		});
@@ -250,8 +255,12 @@ describe('POST /billing/checkout', () => {
 			args: [
 				expect.objectContaining({
 					priceId: 'price_unit_current',
-					successUrl: `https://billing-preview.trooptotask.dev/org/${ctx.auth.orgId}/billing/success`,
-					cancelUrl: `https://billing-preview.trooptotask.dev/org/${ctx.auth.orgId}/billing/canceled`
+					successUrl: expect.stringMatching(
+						`^https://billing-preview\\.trooptotask\\.dev/org/${ctx.auth.orgId}/billing/success\\?checkout_attempt_id=`
+					),
+					cancelUrl: expect.stringMatching(
+						`^https://billing-preview\\.trooptotask\\.dev/org/${ctx.auth.orgId}/billing/canceled\\?checkout_attempt_id=`
+					)
 				})
 			]
 		});
@@ -374,5 +383,97 @@ describe('POST /billing/checkout', () => {
 
 		expect(response.status).toBe(200);
 		expect(await response.json()).toEqual({ url: 'https://checkout.test/session' });
+	});
+
+	it('reuses an active checkout attempt for clear duplicate-checkout behavior', async () => {
+		const ctx = createTestContext();
+		seedBillingOrganization(ctx);
+		ctx.rawStore.seed(CHECKOUT_ATTEMPTS_TABLE, [
+			{
+				id: 'attempt-active',
+				organization_id: ctx.auth.orgId,
+				stripe_checkout_session_id: 'cs_active',
+				stripe_customer_id: 'cus_active',
+				commercial_plan: 'team',
+				stripe_price_id: 'price_team_current',
+				checkout_url: 'https://checkout.test/active',
+				status: 'in_progress',
+				expires_at: '2099-01-01T00:00:00.000Z',
+				completed_at: null,
+				canceled_at: null,
+				created_at: '2026-05-24T09:00:00.000Z',
+				updated_at: '2026-05-24T09:00:00.000Z'
+			}
+		]);
+		buildRouteContextMock.mockResolvedValue(ctx);
+
+		const response = await POST({
+			request: new Request(`http://localhost/org/${ctx.auth.orgId}/billing/checkout`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ tier: 'team' })
+			}),
+			locals: {
+				user: { email: 'owner@example.com' }
+			},
+			params: { orgId: ctx.auth.orgId },
+			url: new URL(`http://localhost/org/${ctx.auth.orgId}/billing/checkout`)
+		} as never);
+
+		const saved = await ctx.rawStore.findOne<Record<string, unknown>>('organizations', ctx.auth.orgId, {
+			id: ctx.auth.orgId
+		});
+
+		expect(response.status).toBe(200);
+		expect(await response.json()).toEqual({
+			url: 'https://checkout.test/active',
+			reused: true,
+			message: 'A checkout session is already open. Redirecting you back to it.'
+		});
+		expect(ctx.billingPort.calls).toEqual([]);
+		expect(saved?.stripe_customer_id).toBe('cus_active');
+	});
+
+	it('returns clear owner-facing copy when an active checkout attempt is for another plan', async () => {
+		const ctx = createTestContext();
+		seedBillingOrganization(ctx);
+		ctx.rawStore.seed(CHECKOUT_ATTEMPTS_TABLE, [
+			{
+				id: 'attempt-team',
+				organization_id: ctx.auth.orgId,
+				stripe_checkout_session_id: 'cs_team',
+				stripe_customer_id: 'cus_team',
+				commercial_plan: 'team',
+				stripe_price_id: 'price_team_current',
+				checkout_url: 'https://checkout.test/team',
+				status: 'in_progress',
+				expires_at: '2099-01-01T00:00:00.000Z',
+				completed_at: null,
+				canceled_at: null,
+				created_at: '2026-05-24T09:00:00.000Z',
+				updated_at: '2026-05-24T09:00:00.000Z'
+			}
+		]);
+		buildRouteContextMock.mockResolvedValue(ctx);
+
+		const response = await POST({
+			request: new Request(`http://localhost/org/${ctx.auth.orgId}/billing/checkout`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ tier: 'unit' })
+			}),
+			locals: {
+				user: { email: 'owner@example.com' }
+			},
+			params: { orgId: ctx.auth.orgId },
+			url: new URL(`http://localhost/org/${ctx.auth.orgId}/billing/checkout`)
+		} as never);
+
+		expect(response.status).toBe(409);
+		expect(await response.json()).toEqual({
+			error:
+				'A checkout session is already open for a different plan. Complete or wait for that session to expire before starting another checkout.'
+		});
+		expect(ctx.billingPort.calls).toEqual([]);
 	});
 });

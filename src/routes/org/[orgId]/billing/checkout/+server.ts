@@ -71,11 +71,14 @@ export const POST: RequestHandler = async (event) => {
 			undefined
 		);
 
-		if (!org.stripeCustomerId) {
+		if (!org.stripeCustomerId && result.customerId) {
 			await persistBillingCustomerId({ auth: ctx.auth, store: ctx.rawStore }, { customerId: result.customerId });
 		}
 
-		return json({ url: result.url });
+		return json({
+			url: result.url,
+			...(result.reused ? { reused: true, message: result.message } : {})
+		});
 	} catch (err) {
 		return billingApiErrorResponse(err, 'Failed to create checkout session. Please try again.');
 	}

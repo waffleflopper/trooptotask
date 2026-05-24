@@ -65,6 +65,8 @@ function createWebhookSupabaseStub(options: WebhookSupabaseOptions = {}) {
 	const billingSnapshotUpserts: Record<string, unknown>[] = [];
 	const webhookAttemptRecords: Record<string, unknown>[] = [];
 	const webhookUpdates: Array<{ values: Record<string, unknown>; filters: Array<[string, string, unknown]> }> = [];
+	const checkoutAttemptUpdates: Array<{ values: Record<string, unknown>; filters: Array<[string, string, unknown]> }> =
+		[];
 
 	function webhookUpdate(values: Record<string, unknown>) {
 		const filters: Array<[string, string, unknown]> = [];
@@ -99,6 +101,7 @@ function createWebhookSupabaseStub(options: WebhookSupabaseOptions = {}) {
 		billingSnapshotUpserts,
 		webhookAttemptRecords,
 		webhookUpdates,
+		checkoutAttemptUpdates,
 		client: {
 			rpc(name: string, args: Record<string, unknown>) {
 				if (name === 'record_stripe_webhook_event_attempt') {
@@ -144,6 +147,22 @@ function createWebhookSupabaseStub(options: WebhookSupabaseOptions = {}) {
 						upsert: async (values: Record<string, unknown>) => {
 							billingSnapshotUpserts.push(values);
 							return { error: null };
+						}
+					};
+				}
+
+				if (table === 'organization_checkout_attempts') {
+					return {
+						update: (values: Record<string, unknown>) => {
+							const filters: Array<[string, string, unknown]> = [];
+							const chain = {
+								eq(column: string, value: unknown) {
+									filters.push(['eq', column, value]);
+									if (filters.length >= 2) checkoutAttemptUpdates.push({ values, filters });
+									return chain;
+								}
+							};
+							return chain;
 						}
 					};
 				}
@@ -285,6 +304,16 @@ describe('POST /api/webhooks/stripe', () => {
 				last_stripe_event_created_at: '1970-01-01T00:00:01.000Z'
 			})
 		);
+		expect(supabase.checkoutAttemptUpdates).toContainEqual({
+			values: {
+				status: 'completed',
+				completed_at: '1970-01-01T00:00:01.000Z'
+			},
+			filters: [
+				['eq', 'organization_id', 'org-1'],
+				['eq', 'stripe_checkout_session_id', 'cs_123']
+			]
+		});
 		expect(supabase.webhookUpdates).toContainEqual(
 			expect.objectContaining({
 				values: expect.objectContaining({

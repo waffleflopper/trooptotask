@@ -12,11 +12,12 @@ export async function createCheckoutSession(options: {
 	orgName: string;
 	tier: 'team' | 'unit';
 	priceId: string;
+	checkoutAttemptId?: string;
 	customerEmail: string;
 	existingCustomerId?: string;
 	successUrl: string;
 	cancelUrl: string;
-}): Promise<{ url: string; customerId: string }> {
+}): Promise<{ url: string; customerId: string; sessionId: string; expiresAt: string | null }> {
 	const stripe = getStripe();
 
 	if (!options.priceId) throw new Error(`No Stripe price ID configured for tier: ${options.tier}`);
@@ -39,14 +40,26 @@ export async function createCheckoutSession(options: {
 		line_items: [{ price: price.id, quantity: 1 }],
 		success_url: options.successUrl,
 		cancel_url: options.cancelUrl,
-		metadata: { orgId: options.orgId, tier: options.tier, commercialPlan: options.tier, priceId: price.id },
+		metadata: {
+			orgId: options.orgId,
+			tier: options.tier,
+			commercialPlan: options.tier,
+			priceId: price.id,
+			...(options.checkoutAttemptId ? { checkoutAttemptId: options.checkoutAttemptId } : {})
+		},
 		subscription_data: {
-			metadata: { orgId: options.orgId, tier: options.tier, commercialPlan: options.tier, priceId: price.id }
+			metadata: {
+				orgId: options.orgId,
+				tier: options.tier,
+				commercialPlan: options.tier,
+				priceId: price.id,
+				...(options.checkoutAttemptId ? { checkoutAttemptId: options.checkoutAttemptId } : {})
+			}
 		}
 	});
 
 	if (!session.url) throw new Error('Stripe checkout session URL is null');
-	return { url: session.url, customerId };
+	return { url: session.url, customerId, sessionId: session.id, expiresAt: isoFromStripeTimestamp(session.expires_at) };
 }
 
 type StripeMode = 'test' | 'live' | 'unknown';

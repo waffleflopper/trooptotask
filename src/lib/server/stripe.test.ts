@@ -113,7 +113,11 @@ describe('createCheckoutSession', () => {
 			recurring: { interval: 'month' }
 		});
 		customersCreateMock.mockResolvedValue({ id: 'cus_created' });
-		checkoutCreateMock.mockResolvedValue({ url: 'https://checkout.stripe.test/session' });
+		checkoutCreateMock.mockResolvedValue({
+			id: 'cs_test_123',
+			url: 'https://checkout.stripe.test/session',
+			expires_at: 1_769_904_000
+		});
 
 		await expect(
 			createCheckoutSession({
@@ -121,11 +125,17 @@ describe('createCheckoutSession', () => {
 				orgName: 'Alpha Company',
 				tier: 'team',
 				priceId: 'price_team',
+				checkoutAttemptId: 'attempt-123',
 				customerEmail: 'owner@example.test',
 				successUrl: 'http://localhost/success',
 				cancelUrl: 'http://localhost/canceled'
 			})
-		).resolves.toEqual({ url: 'https://checkout.stripe.test/session', customerId: 'cus_created' });
+		).resolves.toEqual({
+			url: 'https://checkout.stripe.test/session',
+			customerId: 'cus_created',
+			sessionId: 'cs_test_123',
+			expiresAt: '2026-02-01T00:00:00.000Z'
+		});
 
 		expect(pricesRetrieveMock).toHaveBeenCalledWith('price_team');
 		expect(checkoutCreateMock).toHaveBeenCalledWith(
@@ -137,14 +147,16 @@ describe('createCheckoutSession', () => {
 					orgId: 'org-1',
 					tier: 'team',
 					commercialPlan: 'team',
-					priceId: 'price_team'
+					priceId: 'price_team',
+					checkoutAttemptId: 'attempt-123'
 				},
 				subscription_data: {
 					metadata: {
 						orgId: 'org-1',
 						tier: 'team',
 						commercialPlan: 'team',
-						priceId: 'price_team'
+						priceId: 'price_team',
+						checkoutAttemptId: 'attempt-123'
 					}
 				}
 			})

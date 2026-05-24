@@ -174,11 +174,12 @@ export interface BillingPort {
 		orgName: string;
 		tier: 'team' | 'unit';
 		priceId: string;
+		checkoutAttemptId?: string;
 		customerEmail: string;
 		existingCustomerId?: string;
 		successUrl: string;
 		cancelUrl: string;
-	}): Promise<{ url: string; customerId: string }>;
+	}): Promise<{ url: string; customerId: string; sessionId?: string; expiresAt?: string | null }>;
 	createPortalSession(customerId: string, returnUrl: string): Promise<{ url: string }>;
 	cancelSubscription(subscriptionId: string): Promise<void>;
 	pauseSubscription(subscriptionId: string): Promise<void>;

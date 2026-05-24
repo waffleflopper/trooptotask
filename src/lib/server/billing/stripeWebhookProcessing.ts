@@ -243,6 +243,28 @@ async function updateLegacyOrganizationBillingMirror(
 	if (error) throw new Error(`Failed to update org ${orgId}: ${error.message}`);
 }
 
+async function markCheckoutAttemptCompleted(
+	supabase: SupabaseClient,
+	orgId: string,
+	checkoutSessionId: string,
+	eventCreatedAt: string
+): Promise<void> {
+	const { error } = await supabase
+		.from('organization_checkout_attempts')
+		.update({
+			status: 'completed',
+			completed_at: eventCreatedAt
+		})
+		.eq('organization_id', orgId)
+		.eq('stripe_checkout_session_id', checkoutSessionId);
+
+	if (error) {
+		throw new Error(
+			`Failed to mark checkout attempt ${checkoutSessionId} completed for org ${orgId}: ${error.message}`
+		);
+	}
+}
+
 async function readOrganizationBillingBySubscription(
 	supabase: SupabaseClient,
 	subscriptionId: string
@@ -352,6 +374,7 @@ async function handleCheckoutCompleted(
 	if (!customerId) {
 		throw new _PermanentWebhookProcessingError('checkout.session.completed missing customerId');
 	}
+	await markCheckoutAttemptCompleted(supabase, orgId, session.id, eventCreatedAt);
 
 	// Fetch subscription to get current_period_end
 	// We import Stripe only for types; the actual SDK call goes through our helper.

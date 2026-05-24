@@ -73,10 +73,18 @@ BEGIN
 		"last_stripe_event_created_at" = EXCLUDED."last_stripe_event_created_at",
 		"last_processed_at" = EXCLUDED."last_processed_at",
 		"drift_detected" = EXCLUDED."drift_detected"
-	WHERE
-		"organization_billing_snapshots"."last_stripe_event_created_at" IS NULL
-		OR EXCLUDED."last_stripe_event_created_at" IS NULL
-		OR "organization_billing_snapshots"."last_stripe_event_created_at" <= EXCLUDED."last_stripe_event_created_at";
+		WHERE
+			"organization_billing_snapshots"."last_stripe_event_created_at" IS NULL
+			OR (
+				EXCLUDED."last_stripe_event_created_at" IS NOT NULL
+				AND (
+					"organization_billing_snapshots"."last_stripe_event_created_at" < EXCLUDED."last_stripe_event_created_at"
+					OR (
+						"organization_billing_snapshots"."last_stripe_event_created_at" = EXCLUDED."last_stripe_event_created_at"
+						AND COALESCE("organization_billing_snapshots"."last_stripe_event_id", '') <= COALESCE(EXCLUDED."last_stripe_event_id", '')
+					)
+				)
+			);
 
 	GET DIAGNOSTICS v_row_count = ROW_COUNT;
 	RETURN v_row_count > 0;

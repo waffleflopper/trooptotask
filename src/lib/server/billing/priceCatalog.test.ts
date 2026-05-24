@@ -41,4 +41,23 @@ describe('billing price catalog', () => {
 			priceId: null
 		});
 	});
+
+	it('rejects duplicate configured Stripe price IDs', () => {
+		expect(() =>
+			buildPriceCatalog({
+				teamPriceId: 'price_shared',
+				unitPriceId: 'price_shared'
+			})
+		).toThrow('Duplicate Stripe price ID configured: price_shared');
+
+		expect(
+			lookupPriceCatalogEntry(
+				[
+					{ priceId: 'price_shared', commercialPlan: 'team', stripeProductId: 'prod_team' },
+					{ priceId: 'price_shared', commercialPlan: 'unit', stripeProductId: 'prod_unit' }
+				],
+				'price_shared'
+			)
+		).toEqual({ ok: false, reason: 'duplicate_price_id', priceId: 'price_shared' });
+	});
 });

@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
 	_mergeBillingReconciliationCandidateIds,
 	createSupabaseBillingReconciliationStore
-} from './supabaseBillingReconciliation';
+} from '$lib/server/adapters/supabaseBillingReconciliation';
 
 function createQueryStub(result: { data: Record<string, unknown>[] | null; error: { message: string } | null }) {
 	const query = {

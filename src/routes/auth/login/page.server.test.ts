@@ -36,6 +36,22 @@ describe('GET /auth/login', () => {
 		});
 	});
 
+	it('drops unsafe external return paths during load', async () => {
+		const result = await load({
+			locals: {
+				session: null,
+				authFlow: null,
+				mfaPending: false
+			},
+			url: new URL('http://localhost/auth/login?next=https://evil.example/phish')
+		} as unknown as Parameters<typeof load>[0]);
+
+		expect(result).toEqual({
+			reauth: false,
+			nextPath: null
+		});
+	});
+
 	it('redirects to the safe return path after a successful reauth login', async () => {
 		const signInWithPassword = vi.fn().mockResolvedValue({ error: null });
 		const getAuthenticatorAssuranceLevel = vi.fn().mockResolvedValue({
@@ -69,6 +85,37 @@ describe('GET /auth/login', () => {
 		expect(signInWithPassword).toHaveBeenCalledWith({
 			email: 'owner@example.com',
 			password: 'correct-password'
+		});
+	});
+
+	it('redirects to dashboard instead of unsafe form next values after login', async () => {
+		const signInWithPassword = vi.fn().mockResolvedValue({ error: null });
+		const getAuthenticatorAssuranceLevel = vi.fn().mockResolvedValue({
+			data: { currentLevel: 'aal1', nextLevel: 'aal1' }
+		});
+		const formData = new FormData();
+		formData.set('email', 'owner@example.com');
+		formData.set('password', 'correct-password');
+		formData.set('next', '//evil.example/phish');
+
+		await expect(
+			actions.login({
+				request: new Request('http://localhost/auth/login?/login', {
+					method: 'POST',
+					body: formData
+				}),
+				locals: {
+					supabase: {
+						auth: {
+							signInWithPassword,
+							mfa: { getAuthenticatorAssuranceLevel }
+						}
+					}
+				}
+			} as never)
+		).rejects.toMatchObject({
+			status: 303,
+			location: '/dashboard'
 		});
 	});
 });

@@ -20,8 +20,12 @@ describe('conditional billing snapshot upsert migration', () => {
 		);
 		expect(normalized).toContain('on conflict ("organization_id") do update');
 		expect(normalized).toContain(
-			'"organization_billing_snapshots"."last_stripe_event_created_at" <= excluded."last_stripe_event_created_at"'
+			'"organization_billing_snapshots"."last_stripe_event_created_at" < excluded."last_stripe_event_created_at"'
 		);
+		expect(normalized).toContain(
+			'coalesce("organization_billing_snapshots"."last_stripe_event_id", \'\') <= coalesce(excluded."last_stripe_event_id", \'\')'
+		);
+		expect(normalized).toContain('excluded."last_stripe_event_created_at" is not null');
 		expect(normalized).toContain('get diagnostics v_row_count = row_count');
 		expect(normalized).toContain(
 			'grant execute on function "public"."upsert_organization_billing_snapshot_if_current"(jsonb) to "service_role"'

@@ -242,9 +242,12 @@ async function resolveProviderSubscription(input: {
 	snapshot: BillingReconciliationSnapshotRow | null;
 }): Promise<BillingReconciliationProviderSubscription | null> {
 	const subscriptionId = input.snapshot?.stripe_subscription_id ?? input.org.stripe_subscription_id;
-	if (subscriptionId) return input.provider.retrieveSubscription(subscriptionId);
-
 	const customerId = input.snapshot?.stripe_customer_id ?? input.org.stripe_customer_id;
+	if (subscriptionId) {
+		const subscription = await input.provider.retrieveSubscription(subscriptionId);
+		if (subscription) return subscription;
+	}
+
 	if (!customerId) return null;
 
 	return pickProviderSubscription(await input.provider.listSubscriptionsForCustomer(customerId));

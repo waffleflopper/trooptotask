@@ -71,6 +71,15 @@ const provider = {
 	listSubscriptionsForCustomer: vi.fn()
 };
 
+function adminClientWithAudit(insert = vi.fn().mockResolvedValue({ error: null })) {
+	return {
+		from: vi.fn((table: string) => {
+			if (table !== 'audit_logs') throw new Error(`Unexpected table ${table}`);
+			return { insert };
+		})
+	};
+}
+
 describe('billing reconciliation endpoint', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
@@ -103,7 +112,8 @@ describe('billing reconciliation endpoint', () => {
 				secrets: ['expected-secret'],
 				url: new URL('http://localhost/api/billing-reconciliation'),
 				adminClient: {} as never,
-				provider
+				provider,
+				writeAudit: false
 			})
 		).rejects.toMatchObject({ status: 401 });
 		expect(storeMock.listCandidates).not.toHaveBeenCalled();
@@ -116,7 +126,8 @@ describe('billing reconciliation endpoint', () => {
 				secrets: ['expected-secret'],
 				url: new URL('http://localhost/api/billing-reconciliation'),
 				adminClient: {} as never,
-				provider
+				provider,
+				writeAudit: false
 			})
 		).rejects.toMatchObject({ status: 401 });
 		expect(storeMock.listCandidates).not.toHaveBeenCalled();
@@ -127,7 +138,7 @@ describe('billing reconciliation endpoint', () => {
 			authHeader: 'Bearer cron-secret',
 			secrets: ['billing-secret', 'cron-secret'],
 			url: new URL('http://localhost/api/billing-reconciliation'),
-			adminClient: {} as never,
+			adminClient: adminClientWithAudit() as never,
 			provider,
 			now: () => new Date('2026-05-23T00:00:00.000Z')
 		});
@@ -140,7 +151,7 @@ describe('billing reconciliation endpoint', () => {
 			authHeader: 'Bearer expected-secret',
 			secrets: ['expected-secret'],
 			url: new URL('http://localhost/api/billing-reconciliation?limit=500&timeoutMs=1000'),
-			adminClient: {} as never,
+			adminClient: adminClientWithAudit() as never,
 			provider,
 			now: () => new Date('2026-05-23T00:00:00.000Z')
 		});
@@ -163,7 +174,7 @@ describe('billing reconciliation endpoint', () => {
 				authHeader: 'Bearer expected-secret',
 				secrets: ['expected-secret'],
 				url: new URL('http://localhost/api/billing-reconciliation?timeoutMs=3600000'),
-				adminClient: {} as never,
+				adminClient: adminClientWithAudit() as never,
 				provider,
 				now: () => new Date('2026-05-23T00:00:00.000Z')
 			});
@@ -176,5 +187,42 @@ describe('billing reconciliation endpoint', () => {
 		} finally {
 			dateNow.mockRestore();
 		}
+	});
+
+	it('writes a durable support-safe audit entry for authorized batch runs', async () => {
+		provider.retrieveSubscription.mockRejectedValue(
+			new Error('provider failed sk_test_secret whsec_secret bearer top-secret')
+		);
+		const insert = vi.fn().mockResolvedValue({ error: null });
+		const adminClient = adminClientWithAudit(insert);
+
+		const result = await _runBillingReconciliationEndpointCore({
+			authHeader: 'Bearer expected-secret',
+			secrets: ['expected-secret'],
+			url: new URL('http://localhost/api/billing-reconciliation'),
+			adminClient: adminClient as never,
+			provider,
+			now: () => new Date('2026-05-23T00:00:00.000Z')
+		});
+
+		expect(result.failed).toBe(1);
+		expect(insert).toHaveBeenCalledWith(
+			expect.objectContaining({
+				action: 'billing.reconciliation.batch',
+				resource_type: 'billing_reconciliation',
+				severity: 'warning',
+				details: expect.objectContaining({
+					processed: 1,
+					failed: 1,
+					results: [
+						expect.objectContaining({
+							diagnostics: ['provider failed [redacted_stripe_key] [redacted_webhook_secret] bearer [redacted]']
+						})
+					]
+				})
+			})
+		);
+		expect(JSON.stringify(insert.mock.calls)).not.toContain('sk_test_secret');
+		expect(JSON.stringify(insert.mock.calls)).not.toContain('whsec_secret');
 	});
 });

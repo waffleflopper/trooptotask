@@ -14,6 +14,14 @@ import type { BillingSnapshot } from '$lib/types/subscription';
 
 const TIER_RANK: Record<string, number> = { free: 1, team: 2, unit: 3 };
 
+function sanitizeBillingReconciliationDiagnostic(value: unknown): string {
+	const message = value instanceof Error ? value.message : String(value ?? 'unknown_error');
+	return message
+		.replace(/[sr]k_(live|test)_[A-Za-z0-9_]+/g, '[redacted_stripe_key]')
+		.replace(/whsec_\S+/g, '[redacted_webhook_secret]')
+		.replace(/bearer\s+\S+/gi, 'bearer [redacted]');
+}
+
 type AdminOrganizationBillingSnapshotRow = {
 	organization_id: string;
 	source: BillingSnapshot['source'];
@@ -383,6 +391,7 @@ export const actions: Actions = {
 				subscription: createSupabaseSubscriptionAdapter(ctx.adminClient, orgId),
 				priceCatalog: configuredPriceCatalog
 			});
+			const diagnostics = result.diagnostics.map(sanitizeBillingReconciliationDiagnostic);
 
 			ctx.audit({
 				action: 'admin.org.billing_reconcile',
@@ -394,7 +403,7 @@ export const actions: Actions = {
 					result: result.result,
 					driftDetected: result.driftDetected,
 					snapshotUpdated: result.snapshotUpdated,
-					diagnostics: result.diagnostics
+					diagnostics
 				}
 			});
 
@@ -403,7 +412,7 @@ export const actions: Actions = {
 					billingReconciliation: {
 						success: false,
 						message: result.result,
-						diagnostics: result.diagnostics
+						diagnostics
 					}
 				});
 			}
@@ -414,7 +423,7 @@ export const actions: Actions = {
 					status: result.status,
 					message:
 						result.status === 'matched' ? 'Billing already matched Stripe.' : 'Billing snapshot refreshed from Stripe.',
-					diagnostics: result.diagnostics
+					diagnostics
 				}
 			};
 		}

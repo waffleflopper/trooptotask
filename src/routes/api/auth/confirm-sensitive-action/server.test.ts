@@ -81,4 +81,29 @@ describe('POST /api/auth/confirm-sensitive-action', () => {
 		expect(response.status).toBe(401);
 		expect(await response.json()).toEqual({ error: 'Password confirmation failed. Try again.' });
 	});
+
+	it('fails closed when MFA assurance lookup fails after password confirmation', async () => {
+		const response = await POST({
+			request: request('correct-password'),
+			locals: {
+				user: { email: 'owner@example.com' },
+				supabase: {
+					auth: {
+						signInWithPassword: vi.fn().mockResolvedValue({ error: null }),
+						mfa: {
+							getAuthenticatorAssuranceLevel: vi.fn().mockResolvedValue({
+								data: null,
+								error: { message: 'aal unavailable' }
+							})
+						}
+					}
+				}
+			}
+		} as never);
+
+		expect(response.status).toBe(401);
+		expect(await response.json()).toEqual({
+			error: 'Could not confirm MFA status. Please sign in again before continuing.'
+		});
+	});
 });

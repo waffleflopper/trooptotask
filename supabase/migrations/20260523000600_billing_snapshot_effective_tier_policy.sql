@@ -1,6 +1,7 @@
 CREATE OR REPLACE FUNCTION "public"."get_effective_tier"("p_org_id" "uuid") RETURNS "jsonb"
 LANGUAGE "plpgsql"
 SECURITY DEFINER
+SET "search_path" = "public"
 AS $$
 DECLARE
 	v_org record;
@@ -13,8 +14,14 @@ DECLARE
 	v_read_only_reason text := NULL;
 	v_gift_active boolean := false;
 	v_had_non_entitling_billing_state boolean := false;
-BEGIN
-	SELECT * INTO v_org FROM "public"."organizations" WHERE "id" = "p_org_id";
+	BEGIN
+		IF current_setting('role', true) <> 'service_role'
+			AND NOT "public"."is_platform_admin"()
+			AND NOT "public"."is_org_member"("p_org_id") THEN
+			RETURN jsonb_build_object('error', 'forbidden');
+		END IF;
+
+		SELECT * INTO v_org FROM "public"."organizations" WHERE "id" = "p_org_id";
 
 	IF NOT FOUND THEN
 		RETURN jsonb_build_object('error', 'org_not_found');
@@ -103,5 +110,10 @@ BEGIN
 		'giftExpiresAt', v_org."gift_expires_at",
 		'giftTier', v_org."gift_tier"
 	);
-END;
-$$;
+	END;
+	$$;
+
+REVOKE ALL ON FUNCTION "public"."get_effective_tier"("p_org_id" "uuid") FROM "anon";
+REVOKE ALL ON FUNCTION "public"."get_effective_tier"("p_org_id" "uuid") FROM "authenticated";
+GRANT EXECUTE ON FUNCTION "public"."get_effective_tier"("p_org_id" "uuid") TO "authenticated";
+GRANT EXECUTE ON FUNCTION "public"."get_effective_tier"("p_org_id" "uuid") TO "service_role";

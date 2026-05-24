@@ -15,7 +15,7 @@ export interface PriceCatalogLookupResult {
 
 export interface PriceCatalogLookupFailure {
 	ok: false;
-	reason: 'missing_price_id' | 'unknown_price_id';
+	reason: 'missing_price_id' | 'unknown_price_id' | 'duplicate_price_id';
 	priceId: string | null;
 }
 
@@ -46,6 +46,13 @@ export function buildPriceCatalog(config: PriceCatalogConfig): PriceCatalogEntry
 		});
 	}
 
+	const duplicatePriceId = entries.find((entry, index) =>
+		entries.some((candidate, candidateIndex) => candidateIndex !== index && candidate.priceId === entry.priceId)
+	)?.priceId;
+	if (duplicatePriceId) {
+		throw new Error(`Duplicate Stripe price ID configured: ${duplicatePriceId}`);
+	}
+
 	return entries;
 }
 
@@ -57,7 +64,11 @@ export function lookupPriceCatalogEntry(
 		return { ok: false, reason: 'missing_price_id', priceId: null };
 	}
 
-	const entry = catalog.find((candidate) => candidate.priceId === priceId);
+	const matches = catalog.filter((candidate) => candidate.priceId === priceId);
+	if (matches.length > 1) {
+		return { ok: false, reason: 'duplicate_price_id', priceId };
+	}
+	const entry = matches[0];
 	if (!entry) {
 		return { ok: false, reason: 'unknown_price_id', priceId };
 	}

@@ -22,6 +22,9 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	}
 
 	const { data: aalData, error: aalError } = await locals.supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+	if (aalError) {
+		return json({ error: 'Could not confirm MFA status. Please sign in again before continuing.' }, { status: 401 });
+	}
 	if (!aalError && aalData?.nextLevel === 'aal2' && aalData?.currentLevel === 'aal1') {
 		return json({ requiresStepUp: true, stepUpPath: '/auth/mfa-verify' });
 	}

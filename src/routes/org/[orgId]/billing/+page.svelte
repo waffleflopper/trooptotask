@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Check, Gift, TriangleAlert } from '@lucide/svelte';
 	import { invalidateAll } from '$app/navigation';
+	import type { PageData } from './$types';
 	import * as Alert from '$lib/components/ui/alert';
 	import * as AppDialog from '$lib/components/ui/app-dialog';
 	import { Badge, type BadgeVariant } from '$lib/components/ui/badge';
@@ -36,7 +37,7 @@
 		stepUpPath?: string | null;
 	};
 
-	let { data } = $props();
+	let { data }: { data: PageData } = $props();
 
 	let subscribingTier = $state<string | null>(null);
 	let portalLoading = $state(false);
@@ -74,7 +75,9 @@
 		!!cancellationSummary && cancellationSummary.state !== 'none' && source !== 'gift'
 	);
 	const billingStatus = $derived(buildBillingStatus(billingSnapshot, tier));
-	const billingActionsDisabled = $derived(billingSnapshot?.source === 'billing_disabled');
+	const billingActionsDisabled = $derived(
+		source === 'billing_disabled' || billingSnapshot?.source === 'billing_disabled'
+	);
 
 	const giftDaysRemaining = $derived.by(() => {
 		if (!giftExpiresAt) return null;
@@ -200,7 +203,7 @@
 		variant: BadgeVariant;
 		actionHint: string;
 	} {
-		if (snapshot?.source === 'billing_disabled') {
+		if (effective.source === 'billing_disabled' || snapshot?.source === 'billing_disabled') {
 			return {
 				title: 'Billing is disabled in this environment.',
 				description: 'This organization is using the billing-disabled fallback, so Stripe recovery actions are hidden.',
@@ -389,6 +392,9 @@
 		action: PendingBillingAction
 	): boolean {
 		if (result.requiresStepUp) {
+			if (action.kind === 'subscribe') subscribingTier = null;
+			if (action.kind === 'portal') portalLoading = false;
+			if (action.kind === 'cancel') cancelLoading = false;
 			if (!result.stepUpPath || result.stepUpPath === '/auth/login') {
 				openConfirmPasswordDialog(action);
 				return true;

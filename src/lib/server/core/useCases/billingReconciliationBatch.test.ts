@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { BillingReconciliationBatchStore } from './billingReconciliationBatch';
-import type { BillingReconciliationProvider } from './billingReconciliation';
-import { runBillingReconciliationBatch } from './billingReconciliationBatch';
+import type { BillingReconciliationProvider } from '$lib/server/core/useCases/billingReconciliation';
+import {
+	type BillingReconciliationBatchStore,
+	runBillingReconciliationBatch
+} from '$lib/server/core/useCases/billingReconciliationBatch';
 
 const baseOrg = {
 	id: 'org-1',

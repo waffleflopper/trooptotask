@@ -44,6 +44,7 @@ export async function _runBillingReconciliationEndpointCore(input: {
 	url: URL;
 	adminClient: ReturnType<typeof getAdminClient>;
 	provider?: ReturnType<typeof createStripeBillingReconciliationProvider>;
+	writeAudit?: boolean;
 	now?: () => Date;
 }): Promise<BillingReconciliationBatchResult> {
 	if (!isAuthorized(input.authHeader, input.secrets)) {
@@ -55,7 +56,7 @@ export async function _runBillingReconciliationEndpointCore(input: {
 	const requestedTimeoutMs = parsePositiveInteger(input.url.searchParams.get('timeoutMs'));
 	const timeoutMs = requestedTimeoutMs ? Math.min(requestedTimeoutMs, MAX_TIMEOUT_MS) : undefined;
 
-	return runBillingReconciliationBatch({
+	const result = await runBillingReconciliationBatch({
 		store: createSupabaseBillingReconciliationStore(input.adminClient),
 		provider: input.provider ?? createStripeBillingReconciliationProvider(),
 		createSubscriptionPort: (orgId) => createSupabaseSubscriptionAdapter(input.adminClient, orgId),
@@ -64,6 +65,44 @@ export async function _runBillingReconciliationEndpointCore(input: {
 		cursor,
 		timeoutMs,
 		now: input.now
+	});
+
+	if (input.writeAudit ?? true) {
+		await writeBillingReconciliationAudit(input.adminClient, result);
+	}
+
+	return result;
+}
+
+async function writeBillingReconciliationAudit(
+	adminClient: ReturnType<typeof getAdminClient>,
+	result: BillingReconciliationBatchResult
+): Promise<void> {
+	await adminClient.from('audit_logs').insert({
+		user_id: null,
+		org_id: null,
+		action: 'billing.reconciliation.batch',
+		resource_type: 'billing_reconciliation',
+		resource_id: null,
+		details: {
+			startedAt: result.startedAt,
+			finishedAt: result.finishedAt,
+			processed: result.processed,
+			succeeded: result.succeeded,
+			failed: result.failed,
+			drifted: result.drifted,
+			timedOut: result.timedOut,
+			nextCursor: result.nextCursor,
+			results: result.results.map((item) => ({
+				orgId: item.orgId,
+				ok: item.ok,
+				status: item.status,
+				result: item.result,
+				driftDetected: item.driftDetected,
+				diagnostics: item.diagnostics
+			}))
+		},
+		severity: result.failed > 0 || result.timedOut ? 'warning' : 'info'
 	});
 }
 

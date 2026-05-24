@@ -5,6 +5,7 @@ import Stripe from 'stripe';
 
 const SUCCESS_CARD_TOKEN = 'tok_visa';
 const FAILING_CARD_TOKEN = 'tok_chargeCustomerFail';
+const DELIVERY_TIMEOUT_MS = 15_000;
 
 function parseEnvFile(path) {
 	if (!existsSync(path)) return {};
@@ -213,14 +214,17 @@ async function deliverEvents(stripe, env, options) {
 	const delivered = [];
 	for (const event of events) {
 		const payload = JSON.stringify(event);
+		const controller = new AbortController();
+		const timeout = setTimeout(() => controller.abort(), DELIVERY_TIMEOUT_MS);
 		const response = await fetch(`${appUrl.replace(/\/$/, '')}/api/webhooks/stripe`, {
 			method: 'POST',
 			headers: {
 				'content-type': 'application/json',
 				'stripe-signature': await signStripePayload(payload, env.STRIPE_WEBHOOK_SECRET)
 			},
-			body: payload
-		});
+			body: payload,
+			signal: controller.signal
+		}).finally(() => clearTimeout(timeout));
 		delivered.push({
 			id: event.id,
 			type: event.type,

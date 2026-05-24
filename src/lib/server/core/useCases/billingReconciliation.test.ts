@@ -264,6 +264,28 @@ describe('reconcileOrganizationBilling', () => {
 		expect(store.updateOrganizationBillingMirror).not.toHaveBeenCalled();
 	});
 
+	it('falls back to customer subscription listing when a stored subscription ID is stale', async () => {
+		const store = createStore({ ...matchingSnapshot, stripe_subscription_id: 'sub_stale' });
+		const provider = createProvider({
+			retrieveSubscription: vi.fn().mockResolvedValue(null),
+			listSubscriptionsForCustomer: vi.fn().mockResolvedValue([subscription])
+		});
+
+		const result = await reconcileOrganizationBilling({
+			orgId: 'org-1',
+			store,
+			provider,
+			subscription: createSubscriptionPort(),
+			priceCatalog: [{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: 'prod_team' }],
+			now: () => new Date('2026-05-23T00:00:00.000Z')
+		});
+
+		expect(result).toMatchObject({ ok: true, status: 'repaired' });
+		expect(provider.retrieveSubscription).toHaveBeenCalledWith('sub_stale');
+		expect(provider.listSubscriptionsForCustomer).toHaveBeenCalledWith('cus_123');
+		expect(store.upsertSnapshot).toHaveBeenCalledWith(expect.objectContaining({ stripe_subscription_id: 'sub_123' }));
+	});
+
 	it('fails closed for missing metadata', async () => {
 		const store = createStore();
 

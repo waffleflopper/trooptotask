@@ -19,7 +19,7 @@
 		{
 			name: 'Team',
 			price: '$5',
-			capacity: 'Up to 100 personnel',
+			capacity: 'Up to 80 personnel',
 			accountUsers: 'Unlimited account users',
 			supporting: 'Unlimited exports',
 			featured: true

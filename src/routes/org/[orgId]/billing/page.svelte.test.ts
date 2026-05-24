@@ -213,6 +213,27 @@ describe('billing page toolbar', () => {
 		expect(screen.getAllByRole('button', { name: 'Billing Disabled' }).length).toBeGreaterThan(0);
 	});
 
+	it('hides Stripe recovery actions when the effective tier source is billing-disabled without a snapshot', () => {
+		render(Page, {
+			props: {
+				data: {
+					...baseData,
+					canManageSubscription: true,
+					effectiveTier: {
+						...baseData.effectiveTier,
+						tier: 'unit',
+						source: 'billing_disabled'
+					},
+					billingSnapshot: null
+				} as never
+			}
+		});
+
+		expect(screen.getByText('Billing is disabled in this environment.')).toBeTruthy();
+		expect(screen.queryByRole('toolbar', { name: 'Billing controls' })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Manage Subscription' })).toBeNull();
+	});
+
 	it('exposes subscription controls as a named toolbar action group', () => {
 		render(Page, {
 			props: {
@@ -299,6 +320,7 @@ describe('billing page toolbar', () => {
 		expect(screen.getByRole('dialog')).toBeTruthy();
 		expect(screen.getByText('Confirm your password')).toBeTruthy();
 		expect(screen.getByLabelText('Password')).toBeTruthy();
+		expect((screen.getAllByRole('button', { name: 'Subscribe' })[0] as HTMLButtonElement).disabled).toBe(false);
 	});
 
 	it('shows password confirmation errors without leaving the billing page', async () => {

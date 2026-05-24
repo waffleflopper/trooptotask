@@ -72,6 +72,7 @@ interface ExistingBillingSnapshot {
 	cancel_at_period_end?: boolean | null;
 	canceled_at?: string | null;
 	trial_end?: string | null;
+	last_stripe_event_id?: string | null;
 	last_stripe_event_created_at: string | null;
 }
 
@@ -159,6 +160,19 @@ function legacyOrganizationStatus(status: Stripe.Subscription.Status): string | 
 	}
 }
 
+function compareStripeEventPosition(
+	leftCreatedAt: string | null,
+	leftId: string | null,
+	rightCreatedAt: string,
+	rightId: string
+): number {
+	if (!leftCreatedAt) return -1;
+	const leftTime = new Date(leftCreatedAt).getTime();
+	const rightTime = new Date(rightCreatedAt).getTime();
+	if (leftTime !== rightTime) return leftTime - rightTime;
+	return (leftId ?? '').localeCompare(rightId);
+}
+
 async function readBillingSnapshotForTransition(
 	supabase: SupabaseClient,
 	orgId: string
@@ -166,7 +180,7 @@ async function readBillingSnapshotForTransition(
 	const { data, error } = await supabase
 		.from('organization_billing_snapshots')
 		.select(
-			'id, commercial_plan, stripe_customer_id, stripe_subscription_id, stripe_product_id, stripe_price_id, current_period_start, current_period_end, cancel_at_period_end, canceled_at, trial_end, last_stripe_event_created_at'
+			'id, commercial_plan, stripe_customer_id, stripe_subscription_id, stripe_product_id, stripe_price_id, current_period_start, current_period_end, cancel_at_period_end, canceled_at, trial_end, last_stripe_event_id, last_stripe_event_created_at'
 		)
 		.eq('organization_id', orgId)
 		.single<ExistingBillingSnapshot>();
@@ -176,10 +190,19 @@ async function readBillingSnapshotForTransition(
 	return data ?? null;
 }
 
-function isStaleBillingEvent(snapshot: ExistingBillingSnapshot | null, eventCreatedAt: string): boolean {
-	return !!(
-		snapshot?.last_stripe_event_created_at &&
-		new Date(snapshot.last_stripe_event_created_at).getTime() > new Date(eventCreatedAt).getTime()
+function isStaleBillingEvent(
+	snapshot: ExistingBillingSnapshot | null,
+	eventCreatedAt: string,
+	eventId: string
+): boolean {
+	return (
+		!!snapshot &&
+		compareStripeEventPosition(
+			snapshot.last_stripe_event_created_at,
+			snapshot.last_stripe_event_id ?? null,
+			eventCreatedAt,
+			eventId
+		) > 0
 	);
 }
 
@@ -218,6 +241,49 @@ async function updateLegacyOrganizationBillingMirror(
 ): Promise<void> {
 	const { error } = await supabase.from('organizations').update(values).eq('id', orgId);
 	if (error) throw new Error(`Failed to update org ${orgId}: ${error.message}`);
+}
+
+async function readOrganizationBillingBySubscription(
+	supabase: SupabaseClient,
+	subscriptionId: string
+): Promise<{
+	id: string;
+	tier: Tier | null;
+	stripe_customer_id: string | null;
+	stripe_subscription_id: string | null;
+} | null> {
+	const { data: snapshot } = await supabase
+		.from('organization_billing_snapshots')
+		.select('organization_id')
+		.eq('stripe_subscription_id', subscriptionId)
+		.single<{ organization_id: string }>();
+
+	if (snapshot?.organization_id) {
+		const { data: org } = await supabase
+			.from('organizations')
+			.select('id, tier, stripe_customer_id, stripe_subscription_id')
+			.eq('id', snapshot.organization_id)
+			.single<{
+				id: string;
+				tier: Tier | null;
+				stripe_customer_id: string | null;
+				stripe_subscription_id: string | null;
+			}>();
+		if (org) return org;
+	}
+
+	const { data: org } = await supabase
+		.from('organizations')
+		.select('id, tier, stripe_customer_id, stripe_subscription_id')
+		.eq('stripe_subscription_id', subscriptionId)
+		.single<{
+			id: string;
+			tier: Tier | null;
+			stripe_customer_id: string | null;
+			stripe_subscription_id: string | null;
+		}>();
+
+	return org ?? null;
 }
 
 /**
@@ -292,7 +358,7 @@ async function handleCheckoutCompleted(
 	// event (which Stripe always fires after checkout) fill it in.
 
 	const snapshot = await readBillingSnapshotForTransition(supabase, orgId);
-	if (isStaleBillingEvent(snapshot, eventCreatedAt)) {
+	if (isStaleBillingEvent(snapshot, eventCreatedAt, event.id)) {
 		return {
 			state: 'superseded',
 			result: `checkout completion for organization ${orgId} is older than the current billing snapshot`
@@ -355,7 +421,7 @@ async function handleSubscriptionUpdated(
 	}
 
 	const snapshot = await readBillingSnapshotForTransition(supabase, orgId);
-	if (isStaleBillingEvent(snapshot, eventCreatedAt)) {
+	if (isStaleBillingEvent(snapshot, eventCreatedAt, event.id)) {
 		return {
 			state: 'superseded',
 			result: `subscription update for organization ${orgId} is older than the current billing snapshot`
@@ -450,7 +516,7 @@ async function handleSubscriptionDeleted(
 	}
 
 	const snapshot = await readBillingSnapshotForTransition(supabase, orgId);
-	if (isStaleBillingEvent(snapshot, eventCreatedAt)) {
+	if (isStaleBillingEvent(snapshot, eventCreatedAt, event.id)) {
 		return {
 			state: 'superseded',
 			result: `subscription deletion for organization ${orgId} is older than the current billing snapshot`
@@ -522,24 +588,14 @@ async function handlePaymentFailed(
 		throw new _PermanentWebhookProcessingError('invoice.payment_failed missing subscription ID');
 	}
 
-	// Find the org by its stripe_subscription_id
-	const { data: org } = await supabase
-		.from('organizations')
-		.select('id, tier, stripe_customer_id, stripe_subscription_id')
-		.eq('stripe_subscription_id', subscriptionId)
-		.single<{
-			id: string;
-			tier: Tier | null;
-			stripe_customer_id: string | null;
-			stripe_subscription_id: string | null;
-		}>();
+	const org = await readOrganizationBillingBySubscription(supabase, subscriptionId);
 
 	if (!org) {
 		throw new Error(`No organization found for subscription ${subscriptionId}`);
 	}
 
 	const snapshot = await readBillingSnapshotForTransition(supabase, org.id);
-	if (isStaleBillingEvent(snapshot, eventCreatedAt)) {
+	if (isStaleBillingEvent(snapshot, eventCreatedAt, event.id)) {
 		return {
 			state: 'superseded',
 			result: `payment failure for organization ${org.id} is older than the current billing snapshot`
@@ -588,6 +644,75 @@ async function handlePaymentFailed(
 	};
 }
 
+async function handlePaymentSucceeded(
+	supabase: SupabaseClient,
+	invoice: Stripe.Invoice,
+	event: Stripe.Event
+): Promise<WebhookProcessingResult> {
+	const subscriptionId = getSubscriptionIdFromInvoice(invoice);
+	const eventCreatedAt = new Date(event.created * 1000).toISOString();
+
+	if (!subscriptionId) {
+		throw new _PermanentWebhookProcessingError(`${event.type} missing subscription ID`);
+	}
+
+	const org = await readOrganizationBillingBySubscription(supabase, subscriptionId);
+	if (!org) {
+		throw new Error(`No organization found for subscription ${subscriptionId}`);
+	}
+
+	const snapshot = await readBillingSnapshotForTransition(supabase, org.id);
+	if (isStaleBillingEvent(snapshot, eventCreatedAt, event.id)) {
+		return {
+			state: 'superseded',
+			result: `payment success for organization ${org.id} is older than the current billing snapshot`
+		};
+	}
+
+	const commercialPlan = snapshot?.commercial_plan ?? org.tier ?? 'free';
+	const snapshotUpdated = await upsertBillingSnapshot(supabase, {
+		organization_id: org.id,
+		source: 'stripe',
+		commercial_plan: commercialPlan,
+		stripe_customer_id: snapshot?.stripe_customer_id ?? org.stripe_customer_id,
+		stripe_subscription_id: snapshot?.stripe_subscription_id ?? org.stripe_subscription_id ?? subscriptionId,
+		stripe_product_id: snapshot?.stripe_product_id ?? null,
+		stripe_price_id: snapshot?.stripe_price_id ?? null,
+		subscription_status: 'active',
+		collection_status: 'current',
+		current_period_start: snapshot?.current_period_start ?? null,
+		current_period_end: snapshot?.current_period_end ?? null,
+		cancel_at_period_end: snapshot?.cancel_at_period_end ?? false,
+		canceled_at: null,
+		trial_end: snapshot?.trial_end ?? null,
+		sync_status: 'synced',
+		last_stripe_event_id: event.id,
+		last_stripe_event_type: event.type,
+		last_stripe_event_created_at: eventCreatedAt,
+		last_processed_at: new Date().toISOString(),
+		drift_detected: false
+	});
+	if (!snapshotUpdated) {
+		return {
+			state: 'superseded',
+			result: `payment success for organization ${org.id} lost a concurrent billing snapshot update`
+		};
+	}
+
+	await updateLegacyOrganizationBillingMirror(supabase, org.id, {
+		tier: commercialPlan,
+		stripe_subscription_id: snapshot?.stripe_subscription_id ?? org.stripe_subscription_id ?? subscriptionId,
+		subscription_status: 'active',
+		current_period_end: snapshot?.current_period_end ?? null
+	});
+
+	invalidateTierCache(org.id);
+	return {
+		state: 'processed',
+		result: `payment success restored billing for organization ${org.id}`
+	};
+}
+
 export async function _processWebhookEvent(
 	supabase: SupabaseClient,
 	event: Stripe.Event
@@ -609,6 +734,10 @@ export async function _processWebhookEvent(
 
 		case 'invoice.payment_failed':
 			return handlePaymentFailed(supabase, event.data.object as Stripe.Invoice, event);
+
+		case 'invoice.payment_succeeded':
+		case 'invoice.paid':
+			return handlePaymentSucceeded(supabase, event.data.object as Stripe.Invoice, event);
 
 		default:
 			return {

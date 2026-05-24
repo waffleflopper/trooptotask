@@ -2,6 +2,7 @@
 	import { resolve } from '$app/paths';
 	import { Button } from '$lib/components/ui/button';
 	import { invalidateAll } from '$app/navigation';
+	import type { ActionData, PageData } from './$types';
 	import GiftTierModal from '$lib/components/admin/GiftTierModal.svelte';
 	import SuspendModal from '$lib/components/admin/SuspendModal.svelte';
 	import TransferOwnershipModal from '$lib/components/admin/TransferOwnershipModal.svelte';
@@ -14,7 +15,7 @@
 	import * as PageShell from '$lib/components/ui/page-shell';
 	import * as Table from '$lib/components/ui/table';
 
-	let { data, form } = $props();
+	let { data, form }: { data: PageData; form: ActionData } = $props();
 
 	function formatPersonnelCap(tier: string): string {
 		const config = TIER_CONFIG[tier as Tier];

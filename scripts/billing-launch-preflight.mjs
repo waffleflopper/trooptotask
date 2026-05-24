@@ -102,6 +102,14 @@ async function retrievePrice(stripe, priceId, label) {
 	}
 }
 
+async function listAllStripeRows(listCall) {
+	const rows = [];
+	for await (const row of listCall()) {
+		rows.push(row);
+	}
+	return rows;
+}
+
 function checkPrice(results, price) {
 	if (!price.ok) {
 		results.push(result('fail', `${price.label} Stripe price`, price.error));
@@ -257,14 +265,14 @@ async function main() {
 		const [team, unit, configurations, endpoints] = await Promise.all([
 			retrievePrice(stripe, env.STRIPE_TEAM_PRICE_ID, 'Team'),
 			retrievePrice(stripe, env.STRIPE_UNIT_PRICE_ID, 'Unit'),
-			stripe.billingPortal.configurations.list({ limit: 10 }),
-			stripe.webhookEndpoints.list({ limit: 10 })
+			listAllStripeRows(() => stripe.billingPortal.configurations.list({ limit: 100 })),
+			listAllStripeRows(() => stripe.webhookEndpoints.list({ limit: 100 }))
 		]);
 
 		checkPrice(results, team);
 		checkPrice(results, unit);
-		checkPortalConfiguration(results, configurations.data, { team, unit });
-		checkWebhookEndpoints(results, endpoints.data);
+		checkPortalConfiguration(results, configurations, { team, unit });
+		checkWebhookEndpoints(results, endpoints);
 	}
 
 	printResults(results, args.json);

@@ -3,8 +3,8 @@ import type {
 	BillingReconciliationStore,
 	BillingReconciliationResult,
 	BillingReconciliationSubscriptionPort
-} from './billingReconciliation';
-import { reconcileOrganizationBilling } from './billingReconciliation';
+} from '$lib/server/core/useCases/billingReconciliation';
+import { reconcileOrganizationBilling } from '$lib/server/core/useCases/billingReconciliation';
 import type { PriceCatalogEntry } from '$lib/types/subscription';
 
 export interface BillingReconciliationCandidate {

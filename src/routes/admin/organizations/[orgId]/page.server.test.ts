@@ -221,14 +221,15 @@ describe('admin organization gifting actions', () => {
 			status: 'failed',
 			result: 'Stripe subscription is missing orgId metadata.',
 			driftDetected: true,
-			diagnostics: ['missing_org_metadata'],
+			diagnostics: ['missing_org_metadata', 'provider failed sk_test_secret whsec_secret bearer top-secret'],
 			snapshotUpdated: false,
 			reconciledAt: '2026-05-23T00:00:00.000Z'
 		});
 		const adminClient = makeAdminClient({ id: 'org-1' });
+		const ctx = makeContext(adminClient.client);
 
 		const result = await actions.reconcileBilling({
-			__ctx: makeContext(adminClient.client),
+			__ctx: ctx,
 			params: { orgId: '11111111-1111-4111-8111-111111111111' },
 			request: makeRequest({})
 		} as unknown as Parameters<(typeof actions)['reconcileBilling']>[0]);
@@ -239,10 +240,15 @@ describe('admin organization gifting actions', () => {
 				billingReconciliation: {
 					success: false,
 					message: 'Stripe subscription is missing orgId metadata.',
-					diagnostics: ['missing_org_metadata']
+					diagnostics: [
+						'missing_org_metadata',
+						'provider failed [redacted_stripe_key] [redacted_webhook_secret] bearer [redacted]'
+					]
 				}
 			}
 		});
-		expect(JSON.stringify(result)).not.toContain('sk_');
+		expect(JSON.stringify(ctx.audit.mock.calls)).not.toContain('sk_test_secret');
+		expect(JSON.stringify(ctx.audit.mock.calls)).not.toContain('whsec_secret');
+		expect(JSON.stringify(result)).not.toContain('sk_test_secret');
 	});
 });

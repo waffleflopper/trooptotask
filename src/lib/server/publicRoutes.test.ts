@@ -28,4 +28,8 @@ describe('isPublicRoute', () => {
 		expect(isPublicRoute('/dashboard')).toBe(false);
 		expect(isPublicRoute('/org/test-org/settings')).toBe(false);
 	});
+
+	it('allows cron-authenticated billing reconciliation to reach its bearer-token guard', () => {
+		expect(isPublicRoute('/api/billing-reconciliation')).toBe(true);
+	});
 });

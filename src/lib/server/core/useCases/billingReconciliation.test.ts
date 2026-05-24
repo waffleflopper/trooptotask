@@ -150,6 +150,52 @@ describe('reconcileOrganizationBilling', () => {
 		);
 	});
 
+	it('reconciles canceled subscriptions as free with no active subscription mirror', async () => {
+		const store = createStore({
+			...matchingSnapshot,
+			commercial_plan: 'unit',
+			subscription_status: 'canceled',
+			collection_status: 'canceled',
+			current_period_end: null
+		});
+
+		const result = await reconcileOrganizationBilling({
+			orgId: 'org-1',
+			store,
+			provider: createProvider({
+				retrieveSubscription: vi.fn().mockResolvedValue({
+					...subscription,
+					status: 'canceled',
+					currentPeriodEnd: null,
+					canceledAt: '2026-05-24T00:11:32.000Z'
+				})
+			}),
+			priceCatalog: [{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: 'prod_team' }],
+			now: () => new Date('2026-05-23T00:00:00.000Z')
+		});
+
+		expect(result).toMatchObject({ ok: true, status: 'repaired', driftDetected: true });
+		expect(result.diagnostics).toEqual(expect.arrayContaining(['commercial_plan', 'stripe_subscription_id']));
+		expect(store.upsertSnapshot).toHaveBeenCalledWith(
+			expect.objectContaining({
+				commercial_plan: 'free',
+				stripe_subscription_id: null,
+				subscription_status: 'canceled',
+				collection_status: 'canceled',
+				current_period_end: null
+			})
+		);
+		expect(store.updateOrganizationBillingMirror).toHaveBeenCalledWith(
+			'org-1',
+			expect.objectContaining({
+				tier: 'free',
+				stripe_subscription_id: null,
+				subscription_status: 'canceled',
+				current_period_end: null
+			})
+		);
+	});
+
 	it('fails closed when Stripe has no subscription for the organization', async () => {
 		const store = createStore({ ...matchingSnapshot, stripe_subscription_id: null });
 		store.readOrganization = vi.fn().mockResolvedValue({ ...org, stripe_subscription_id: null });

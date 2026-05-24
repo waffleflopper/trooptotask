@@ -230,7 +230,7 @@ describe('org settings page server actions', () => {
 					}))
 				},
 				subscription: {
-					getEffectiveTier: vi.fn(async () => ({ tier: 'free' })),
+					getEffectiveTier: vi.fn(async () => ({ tier: 'unit' })),
 					getMonthlyExportCount: vi.fn(async () => 0)
 				}
 			})

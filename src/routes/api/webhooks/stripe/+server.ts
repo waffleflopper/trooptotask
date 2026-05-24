@@ -8,7 +8,7 @@ import type { Tier } from '$lib/types/subscription';
 import { configuredPriceCatalog, lookupPriceCatalogEntry } from '$lib/server/billing/priceCatalog';
 
 const TIER_RANK: Record<string, number> = { free: 1, team: 2, unit: 3 };
-export const FINAL_PROCESSING_STATES = new Set(['processed', 'ignored', 'permanently_failed', 'superseded']);
+export const _FINAL_PROCESSING_STATES = new Set(['processed', 'ignored', 'permanently_failed', 'superseded']);
 
 export type WebhookProcessingState = 'processed' | 'ignored' | 'retryable_failed' | 'permanently_failed' | 'superseded';
 
@@ -37,7 +37,7 @@ interface SubscriptionUpdateResult {
 	result: string;
 }
 
-export class PermanentWebhookProcessingError extends Error {
+export class _PermanentWebhookProcessingError extends Error {
 	constructor(message: string) {
 		super(message);
 		this.name = 'PermanentWebhookProcessingError';
@@ -45,13 +45,19 @@ export class PermanentWebhookProcessingError extends Error {
 }
 
 /**
- * Stripe v20 removed `current_period_end` from the Subscription type,
- * but the webhook payload still includes it. We use this interface to
- * access the field safely via the raw event data object.
+ * Stripe v20 moved subscription period timestamps away from the typed
+ * top-level Subscription shape. Webhook/API payloads may expose them either
+ * on the raw subscription object or on the first subscription item.
  */
 interface SubscriptionWebhookData {
 	current_period_start?: number;
 	current_period_end?: number;
+	items?: {
+		data?: Array<{
+			current_period_start?: number;
+			current_period_end?: number;
+		}>;
+	};
 }
 
 interface ExistingBillingSnapshot {
@@ -87,18 +93,18 @@ function getSubscriptionIdFromInvoice(invoice: Stripe.Invoice): string | null {
 	return null;
 }
 
-export function getStripeObjectId(object: unknown): string | null {
+export function _getStripeObjectId(object: unknown): string | null {
 	if (!object || typeof object !== 'object') return null;
 	const id = (object as { id?: unknown }).id;
 	return typeof id === 'string' && id.length > 0 ? id : null;
 }
 
-export function buildSecondaryDedupeKey(event: Stripe.Event): string {
-	const objectId = getStripeObjectId(event.data.object);
+export function _buildSecondaryDedupeKey(event: Stripe.Event): string {
+	const objectId = _getStripeObjectId(event.data.object);
 	return objectId ? `${event.type}:${objectId}` : `${event.type}:${event.id}`;
 }
 
-export function sanitizeWebhookError(err: unknown): string {
+export function _sanitizeWebhookError(err: unknown): string {
 	const message = err instanceof Error ? err.message : 'Unknown webhook processing error';
 	return message
 		.replace(/sk_(live|test)_[A-Za-z0-9_]+/g, '[redacted_stripe_key]')
@@ -108,6 +114,18 @@ export function sanitizeWebhookError(err: unknown): string {
 
 function isoFromStripeTimestamp(value: number | null | undefined): string | null {
 	return typeof value === 'number' ? new Date(value * 1000).toISOString() : null;
+}
+
+function getSubscriptionPeriod(subscription: Stripe.Subscription): {
+	periodStart: string | null;
+	periodEnd: string | null;
+} {
+	const rawSub = subscription as unknown as SubscriptionWebhookData;
+	const firstItem = rawSub.items?.data?.[0];
+	return {
+		periodStart: isoFromStripeTimestamp(rawSub.current_period_start ?? firstItem?.current_period_start),
+		periodEnd: isoFromStripeTimestamp(rawSub.current_period_end ?? firstItem?.current_period_end)
+	};
 }
 
 function getSubscriptionPriceDetails(subscription: Stripe.Subscription): {
@@ -248,7 +266,7 @@ async function handleCheckoutCompleted(
 	const eventCreatedAt = new Date(event.created * 1000).toISOString();
 
 	if (!orgId || !tier || !subscriptionId) {
-		throw new PermanentWebhookProcessingError('checkout.session.completed missing orgId, tier, or subscriptionId');
+		throw new _PermanentWebhookProcessingError('checkout.session.completed missing orgId, tier, or subscriptionId');
 	}
 
 	// Fetch subscription to get current_period_end
@@ -320,7 +338,7 @@ async function handleSubscriptionUpdated(
 	const eventCreatedAt = new Date(event.created * 1000).toISOString();
 
 	if (!orgId) {
-		throw new PermanentWebhookProcessingError('customer.subscription.updated missing orgId metadata');
+		throw new _PermanentWebhookProcessingError('customer.subscription.updated missing orgId metadata');
 	}
 
 	const snapshot = await readBillingSnapshotForTransition(supabase, orgId);
@@ -331,11 +349,7 @@ async function handleSubscriptionUpdated(
 		};
 	}
 
-	// current_period_end was removed from Stripe SDK v20 types but is
-	// still present in the webhook payload.
-	const rawSub = subscription as unknown as SubscriptionWebhookData;
-	const periodStart = isoFromStripeTimestamp(rawSub.current_period_start);
-	const periodEnd = isoFromStripeTimestamp(rawSub.current_period_end);
+	const { periodStart, periodEnd } = getSubscriptionPeriod(subscription);
 	const trialEnd = isoFromStripeTimestamp(subscription.trial_end);
 	const canceledAt = isoFromStripeTimestamp(subscription.canceled_at);
 	const { priceId, productId } = getSubscriptionPriceDetails(subscription);
@@ -345,7 +359,7 @@ async function handleSubscriptionUpdated(
 	const retainsCommercialPlan = grantsPaidAccess || subscription.status === 'past_due';
 
 	if (retainsCommercialPlan && !catalogLookup.ok) {
-		throw new PermanentWebhookProcessingError(
+		throw new _PermanentWebhookProcessingError(
 			`customer.subscription.updated cannot grant access for ${orgId}: ${catalogLookup.reason}`
 		);
 	}
@@ -356,7 +370,7 @@ async function handleSubscriptionUpdated(
 		subscription.metadata?.tier &&
 		subscription.metadata.tier !== catalogLookup.entry.commercialPlan
 	) {
-		throw new PermanentWebhookProcessingError(
+		throw new _PermanentWebhookProcessingError(
 			`customer.subscription.updated metadata tier ${subscription.metadata.tier} does not match price catalog plan ${catalogLookup.entry.commercialPlan}`
 		);
 	}
@@ -395,6 +409,7 @@ async function handleSubscriptionUpdated(
 
 	await updateLegacyOrganizationBillingMirror(supabase, orgId, {
 		tier: commercialPlan,
+		stripe_customer_id: typeof subscription.customer === 'string' ? subscription.customer : subscription.customer?.id,
 		stripe_subscription_id: subscription.id,
 		subscription_status: legacyStatus,
 		current_period_end: periodEnd
@@ -417,12 +432,10 @@ async function handleSubscriptionDeleted(
 ): Promise<WebhookProcessingResult> {
 	const orgId = subscription.metadata?.orgId;
 	const eventCreatedAt = new Date(event.created * 1000).toISOString();
-	const rawSub = subscription as unknown as SubscriptionWebhookData;
-	const periodStart = isoFromStripeTimestamp(rawSub.current_period_start);
-	const periodEnd = isoFromStripeTimestamp(rawSub.current_period_end);
+	const { periodStart, periodEnd } = getSubscriptionPeriod(subscription);
 
 	if (!orgId) {
-		throw new PermanentWebhookProcessingError('customer.subscription.deleted missing orgId metadata');
+		throw new _PermanentWebhookProcessingError('customer.subscription.deleted missing orgId metadata');
 	}
 
 	const snapshot = await readBillingSnapshotForTransition(supabase, orgId);
@@ -495,7 +508,7 @@ async function handlePaymentFailed(
 	const eventCreatedAt = new Date(event.created * 1000).toISOString();
 
 	if (!subscriptionId) {
-		throw new PermanentWebhookProcessingError('invoice.payment_failed missing subscription ID');
+		throw new _PermanentWebhookProcessingError('invoice.payment_failed missing subscription ID');
 	}
 
 	// Find the org by its stripe_subscription_id
@@ -511,7 +524,7 @@ async function handlePaymentFailed(
 		}>();
 
 	if (!org) {
-		throw new PermanentWebhookProcessingError(`No organization found for subscription ${subscriptionId}`);
+		throw new _PermanentWebhookProcessingError(`No organization found for subscription ${subscriptionId}`);
 	}
 
 	const snapshot = await readBillingSnapshotForTransition(supabase, org.id);
@@ -564,7 +577,7 @@ async function handlePaymentFailed(
 	};
 }
 
-export async function processWebhookEvent(
+export async function _processWebhookEvent(
 	supabase: SupabaseClient,
 	event: Stripe.Event
 ): Promise<WebhookProcessingResult> {
@@ -594,7 +607,7 @@ export async function processWebhookEvent(
 	}
 }
 
-export async function recordStripeWebhookEventAttempt(
+export async function _recordStripeWebhookEventAttempt(
 	supabase: SupabaseClient,
 	event: Stripe.Event,
 	metadata: {
@@ -603,8 +616,8 @@ export async function recordStripeWebhookEventAttempt(
 		eventCreatedAt?: string;
 	} = {}
 ): Promise<void> {
-	const objectId = metadata.objectId ?? getStripeObjectId(event.data.object);
-	const secondaryDedupeKey = metadata.secondaryDedupeKey ?? buildSecondaryDedupeKey(event);
+	const objectId = metadata.objectId ?? _getStripeObjectId(event.data.object);
+	const secondaryDedupeKey = metadata.secondaryDedupeKey ?? _buildSecondaryDedupeKey(event);
 	const eventCreatedAt = metadata.eventCreatedAt ?? new Date(event.created * 1000).toISOString();
 
 	const { error: ledgerError } = await supabase.rpc('record_stripe_webhook_event_attempt', {
@@ -616,11 +629,11 @@ export async function recordStripeWebhookEventAttempt(
 		p_event_created_at: eventCreatedAt
 	});
 	if (ledgerError) {
-		throw new Error(`Failed to record webhook attempt: ${sanitizeWebhookError(ledgerError)}`);
+		throw new Error(`Failed to record webhook attempt: ${_sanitizeWebhookError(ledgerError)}`);
 	}
 }
 
-export async function recordRetryableStripeWebhookEventAttempt(
+export async function _recordRetryableStripeWebhookEventAttempt(
 	supabase: SupabaseClient,
 	event: Stripe.Event,
 	metadata: {
@@ -629,8 +642,8 @@ export async function recordRetryableStripeWebhookEventAttempt(
 		eventCreatedAt?: string;
 	} = {}
 ): Promise<number> {
-	const objectId = metadata.objectId ?? getStripeObjectId(event.data.object);
-	const secondaryDedupeKey = metadata.secondaryDedupeKey ?? buildSecondaryDedupeKey(event);
+	const objectId = metadata.objectId ?? _getStripeObjectId(event.data.object);
+	const secondaryDedupeKey = metadata.secondaryDedupeKey ?? _buildSecondaryDedupeKey(event);
 	const eventCreatedAt = metadata.eventCreatedAt ?? new Date(event.created * 1000).toISOString();
 
 	const { data: attemptCount, error: ledgerError } = await supabase.rpc(
@@ -645,16 +658,16 @@ export async function recordRetryableStripeWebhookEventAttempt(
 		}
 	);
 	if (ledgerError) {
-		throw new Error(`Failed to record webhook retry attempt: ${sanitizeWebhookError(ledgerError)}`);
+		throw new Error(`Failed to record webhook retry attempt: ${_sanitizeWebhookError(ledgerError)}`);
 	}
 	if (typeof attemptCount !== 'number') {
-		throw new PermanentWebhookProcessingError('billing event is no longer retryable');
+		throw new _PermanentWebhookProcessingError('billing event is no longer retryable');
 	}
 
 	return attemptCount;
 }
 
-export async function processRecordedStripeWebhookEvent(
+export async function _processRecordedStripeWebhookEvent(
 	supabase: SupabaseClient,
 	event: Stripe.Event,
 	metadata: {
@@ -662,11 +675,11 @@ export async function processRecordedStripeWebhookEvent(
 		eventCreatedAt?: string;
 	} = {}
 ): Promise<RecordedWebhookProcessingResult> {
-	const secondaryDedupeKey = metadata.secondaryDedupeKey ?? buildSecondaryDedupeKey(event);
+	const secondaryDedupeKey = metadata.secondaryDedupeKey ?? _buildSecondaryDedupeKey(event);
 	const eventCreatedAt = metadata.eventCreatedAt ?? new Date(event.created * 1000).toISOString();
 
 	try {
-		const result = await processWebhookEvent(supabase, event);
+		const result = await _processWebhookEvent(supabase, event);
 
 		await supabase
 			.from('stripe_webhook_events')
@@ -695,8 +708,8 @@ export async function processRecordedStripeWebhookEvent(
 
 		return { ok: true, state: result.state, result: result.result, status: 200 };
 	} catch (err) {
-		const permanent = err instanceof PermanentWebhookProcessingError;
-		const message = sanitizeWebhookError(err);
+		const permanent = err instanceof _PermanentWebhookProcessingError;
+		const message = _sanitizeWebhookError(err);
 		console.error(`Error processing webhook ${event.id} (${event.type}):`, message);
 
 		await supabase
@@ -742,8 +755,8 @@ export const POST: RequestHandler = async ({ request }) => {
 
 	// Service role client — bypasses RLS
 	const supabase = getAdminClient();
-	const objectId = getStripeObjectId(event.data.object);
-	const secondaryDedupeKey = buildSecondaryDedupeKey(event);
+	const objectId = _getStripeObjectId(event.data.object);
+	const secondaryDedupeKey = _buildSecondaryDedupeKey(event);
 	const eventCreatedAt = new Date(event.created * 1000).toISOString();
 
 	// ---- Idempotency check ----
@@ -753,18 +766,18 @@ export const POST: RequestHandler = async ({ request }) => {
 		.eq('id', event.id)
 		.single<ExistingWebhookEvent>();
 
-	if (existing?.processed || (existing?.processing_state && FINAL_PROCESSING_STATES.has(existing.processing_state))) {
+	if (existing?.processed || (existing?.processing_state && _FINAL_PROCESSING_STATES.has(existing.processing_state))) {
 		return new Response('Already processed', { status: 200 });
 	}
 
 	try {
-		await recordStripeWebhookEventAttempt(supabase, event, { objectId, secondaryDedupeKey, eventCreatedAt });
+		await _recordStripeWebhookEventAttempt(supabase, event, { objectId, secondaryDedupeKey, eventCreatedAt });
 	} catch (err) {
-		console.error(`Error recording webhook ${event.id} (${event.type}):`, sanitizeWebhookError(err));
+		console.error(`Error recording webhook ${event.id} (${event.type}):`, _sanitizeWebhookError(err));
 		return new Response('Ledger error', { status: 500 });
 	}
 
-	const result = await processRecordedStripeWebhookEvent(supabase, event, { secondaryDedupeKey, eventCreatedAt });
+	const result = await _processRecordedStripeWebhookEvent(supabase, event, { secondaryDedupeKey, eventCreatedAt });
 	if (!result.ok) {
 		return new Response(result.state === 'permanently_failed' ? 'Permanent processing error' : 'Processing error', {
 			status: result.status

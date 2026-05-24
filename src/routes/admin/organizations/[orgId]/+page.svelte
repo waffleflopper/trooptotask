@@ -199,73 +199,75 @@
 			{/if}
 			{#if data.billingSnapshot}
 				<dl class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-					<div class="grid gap-1">
+					<div class="grid min-w-0 gap-1">
 						<dt class="text-xs font-medium text-muted-foreground">Stripe Customer</dt>
-						<dd class="break-words font-mono text-xs">{data.billingSnapshot.stripeCustomerId ?? '-'}</dd>
+						<dd class="min-w-0 break-all font-mono text-xs">{data.billingSnapshot.stripeCustomerId ?? '-'}</dd>
 					</div>
-					<div class="grid gap-1">
+					<div class="grid min-w-0 gap-1">
 						<dt class="text-xs font-medium text-muted-foreground">Stripe Subscription</dt>
-						<dd class="break-words font-mono text-xs">{data.billingSnapshot.stripeSubscriptionId ?? '-'}</dd>
+						<dd class="min-w-0 break-all font-mono text-xs">{data.billingSnapshot.stripeSubscriptionId ?? '-'}</dd>
 					</div>
-					<div class="grid gap-1">
+					<div class="grid min-w-0 gap-1">
 						<dt class="text-xs font-medium text-muted-foreground">Stripe Price</dt>
-						<dd class="break-words font-mono text-xs">{data.billingSnapshot.stripePriceId ?? '-'}</dd>
+						<dd class="min-w-0 break-all font-mono text-xs">{data.billingSnapshot.stripePriceId ?? '-'}</dd>
 					</div>
-					<div class="grid gap-1">
+					<div class="grid min-w-0 gap-1">
 						<dt class="text-xs font-medium text-muted-foreground">Stripe Product</dt>
-						<dd class="break-words font-mono text-xs">{data.billingSnapshot.stripeProductId ?? '-'}</dd>
+						<dd class="min-w-0 break-all font-mono text-xs">{data.billingSnapshot.stripeProductId ?? '-'}</dd>
 					</div>
-					<div class="grid gap-1">
+					<div class="grid min-w-0 gap-1">
 						<dt class="text-xs font-medium text-muted-foreground">Entitlement Source</dt>
-						<dd>{formatAdminLabel(data.billingSnapshot.source)}</dd>
+						<dd class="min-w-0 break-words">{formatAdminLabel(data.billingSnapshot.source)}</dd>
 					</div>
-					<div class="grid gap-1">
+					<div class="grid min-w-0 gap-1">
 						<dt class="text-xs font-medium text-muted-foreground">Subscription Status</dt>
-						<dd>{formatAdminLabel(data.billingSnapshot.subscriptionStatus ?? 'unknown')}</dd>
+						<dd class="min-w-0 break-words">
+							{formatAdminLabel(data.billingSnapshot.subscriptionStatus ?? 'unknown')}
+						</dd>
 					</div>
-					<div class="grid gap-1">
+					<div class="grid min-w-0 gap-1">
 						<dt class="text-xs font-medium text-muted-foreground">Collection Status</dt>
-						<dd>{formatAdminLabel(data.billingSnapshot.collectionStatus ?? 'unknown')}</dd>
+						<dd class="min-w-0 break-words">{formatAdminLabel(data.billingSnapshot.collectionStatus ?? 'unknown')}</dd>
 					</div>
-					<div class="grid gap-1">
+					<div class="grid min-w-0 gap-1">
 						<dt class="text-xs font-medium text-muted-foreground">Sync Status</dt>
-						<dd>{formatAdminLabel(data.billingSnapshot.syncStatus)}</dd>
+						<dd class="min-w-0 break-words">{formatAdminLabel(data.billingSnapshot.syncStatus)}</dd>
 					</div>
-					<div class="grid gap-1">
+					<div class="grid min-w-0 gap-1">
 						<dt class="text-xs font-medium text-muted-foreground">Cancellation</dt>
-						<dd>{data.cancellationSummary?.label ?? 'Not scheduled'}</dd>
+						<dd class="min-w-0 break-words">{data.cancellationSummary?.label ?? 'Not scheduled'}</dd>
 					</div>
-					<div class="grid gap-1">
+					<div class="grid min-w-0 gap-1">
 						<dt class="text-xs font-medium text-muted-foreground">Paid Through</dt>
-						<dd>{formatOptionalDateTime(data.billingSnapshot.currentPeriodEnd)}</dd>
+						<dd class="min-w-0 break-words">{formatOptionalDateTime(data.billingSnapshot.currentPeriodEnd)}</dd>
 					</div>
-					<div class="grid gap-1">
+					<div class="grid min-w-0 gap-1">
 						<dt class="text-xs font-medium text-muted-foreground">Canceled At</dt>
-						<dd>{formatOptionalDateTime(data.billingSnapshot.canceledAt)}</dd>
+						<dd class="min-w-0 break-words">{formatOptionalDateTime(data.billingSnapshot.canceledAt)}</dd>
 					</div>
-					<div class="grid gap-1">
+					<div class="grid min-w-0 gap-1">
 						<dt class="text-xs font-medium text-muted-foreground">Last Stripe Event</dt>
-						<dd class="break-words font-mono text-xs">{data.billingSnapshot.lastStripeEventId ?? '-'}</dd>
+						<dd class="min-w-0 break-all font-mono text-xs">{data.billingSnapshot.lastStripeEventId ?? '-'}</dd>
 					</div>
-					<div class="grid gap-1">
+					<div class="grid min-w-0 gap-1">
 						<dt class="text-xs font-medium text-muted-foreground">Last Event Type</dt>
-						<dd class="break-words font-mono text-xs">{data.billingSnapshot.lastStripeEventType ?? '-'}</dd>
+						<dd class="min-w-0 break-all font-mono text-xs">{data.billingSnapshot.lastStripeEventType ?? '-'}</dd>
 					</div>
-					<div class="grid gap-1">
+					<div class="grid min-w-0 gap-1">
 						<dt class="text-xs font-medium text-muted-foreground">Last Processed</dt>
-						<dd>{formatOptionalDateTime(data.billingSnapshot.lastProcessedAt)}</dd>
+						<dd class="min-w-0 break-words">{formatOptionalDateTime(data.billingSnapshot.lastProcessedAt)}</dd>
 					</div>
-					<div class="grid gap-1">
+					<div class="grid min-w-0 gap-1">
 						<dt class="text-xs font-medium text-muted-foreground">Last Reconciled</dt>
-						<dd>{formatOptionalDateTime(data.billingSnapshot.lastReconciledAt)}</dd>
+						<dd class="min-w-0 break-words">{formatOptionalDateTime(data.billingSnapshot.lastReconciledAt)}</dd>
 					</div>
-					<div class="grid gap-1">
+					<div class="grid min-w-0 gap-1">
 						<dt class="text-xs font-medium text-muted-foreground">Reconciliation Result</dt>
-						<dd class="break-words font-mono text-xs">{data.billingSnapshot.reconciliationResult ?? '-'}</dd>
+						<dd class="min-w-0 break-all font-mono text-xs">{data.billingSnapshot.reconciliationResult ?? '-'}</dd>
 					</div>
-					<div class="grid gap-1">
+					<div class="grid min-w-0 gap-1">
 						<dt class="text-xs font-medium text-muted-foreground">Drift Detected</dt>
-						<dd>{data.billingSnapshot.driftDetected ? 'Yes' : 'No'}</dd>
+						<dd class="min-w-0 break-words">{data.billingSnapshot.driftDetected ? 'Yes' : 'No'}</dd>
 					</div>
 				</dl>
 			{:else}

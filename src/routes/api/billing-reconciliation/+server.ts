@@ -25,7 +25,7 @@ function parsePositiveInteger(value: string | null): number | null {
 	return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : null;
 }
 
-export async function runBillingReconciliationEndpointCore(input: {
+export async function _runBillingReconciliationEndpointCore(input: {
 	authHeader: string | null;
 	secrets: Array<string | undefined>;
 	url: URL;
@@ -54,7 +54,7 @@ export async function runBillingReconciliationEndpointCore(input: {
 }
 
 export const GET: RequestHandler = async ({ request, url }) => {
-	const result = await runBillingReconciliationEndpointCore({
+	const result = await _runBillingReconciliationEndpointCore({
 		authHeader: request.headers.get('authorization'),
 		secrets: [env.BILLING_RECONCILIATION_SECRET, env.CRON_SECRET],
 		url,

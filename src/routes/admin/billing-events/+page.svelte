@@ -80,20 +80,20 @@
 				<Card.Description>{retryableCount} retryable failures in the current result set.</Card.Description>
 			</div>
 		</Card.Header>
-		<Card.Content class="overflow-x-auto">
-			<Table.Root>
+		<Card.Content>
+			<Table.Root class="min-w-[1480px] table-fixed">
 				<Table.Header>
 					<Table.Row>
-						<Table.Head>Event</Table.Head>
-						<Table.Head>State</Table.Head>
-						<Table.Head>Attempts</Table.Head>
-						<Table.Head>Organization</Table.Head>
-						<Table.Head>Object</Table.Head>
-						<Table.Head>Event Time</Table.Head>
-						<Table.Head>Processed</Table.Head>
-						<Table.Head>Result</Table.Head>
-						<Table.Head>Last Error</Table.Head>
-						<Table.Head class="text-right">Action</Table.Head>
+						<Table.Head class="w-[210px]">Event</Table.Head>
+						<Table.Head class="w-[140px]">State</Table.Head>
+						<Table.Head class="w-[90px]">Attempts</Table.Head>
+						<Table.Head class="w-[190px]">Organization</Table.Head>
+						<Table.Head class="w-[190px]">Object</Table.Head>
+						<Table.Head class="w-[175px]">Event Time</Table.Head>
+						<Table.Head class="w-[175px]">Processed</Table.Head>
+						<Table.Head class="w-[280px]">Result</Table.Head>
+						<Table.Head class="w-[160px]">Last Error</Table.Head>
+						<Table.Head class="w-[70px] text-right">Action</Table.Head>
 					</Table.Row>
 				</Table.Header>
 				<Table.Body>
@@ -121,18 +121,18 @@
 									<span class="text-muted-foreground">-</span>
 								{/if}
 							</Table.Cell>
-							<Table.Cell class="max-w-64 break-words font-mono text-xs">
+							<Table.Cell class="whitespace-normal break-all font-mono text-xs">
 								{event.objectId ?? event.secondaryDedupeKey ?? '-'}
 							</Table.Cell>
 							<Table.Cell>{formatOptionalDateTime(event.eventCreatedAt)}</Table.Cell>
 							<Table.Cell>{formatOptionalDateTime(event.processedAt)}</Table.Cell>
-							<Table.Cell class="max-w-72 break-words text-sm text-muted-foreground">
+							<Table.Cell class="whitespace-normal break-words text-sm text-muted-foreground">
 								{event.processingResult ?? '-'}
 							</Table.Cell>
-							<Table.Cell class="max-w-72 break-words text-sm text-muted-foreground">
+							<Table.Cell class="whitespace-normal break-words text-sm text-muted-foreground">
 								{event.lastError ?? '-'}
 							</Table.Cell>
-							<Table.Cell class="text-right">
+							<Table.Cell class="whitespace-nowrap text-right">
 								{#if event.canRetry}
 									<form method="POST" action="?/retry">
 										<input type="hidden" name="eventId" value={event.id} />

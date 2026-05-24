@@ -4,8 +4,8 @@ import type { Actions, PageServerLoad } from './$types';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { adminAction, loadWithAdminContext, type AdminContext } from '$lib/server/adapters/adminAdapter';
 import {
-	recordRetryableStripeWebhookEventAttempt,
-	processRecordedStripeWebhookEvent,
+	_recordRetryableStripeWebhookEventAttempt,
+	_processRecordedStripeWebhookEvent,
 	type WebhookProcessingState
 } from '../../api/webhooks/stripe/+server';
 
@@ -63,7 +63,7 @@ function normalizeAttemptCount(value: number | null): number {
 	return typeof value === 'number' ? value : 0;
 }
 
-export function mapBillingEventDiagnostics(
+export function _mapBillingEventDiagnostics(
 	events: BillingEventRow[],
 	snapshots: BillingSnapshotLinkRow[],
 	organizations: OrganizationLinkRow[]
@@ -146,7 +146,7 @@ async function loadBillingEventDiagnostics(ctx: AdminContext): Promise<{
 
 	if (snapshotsError) {
 		console.error('Admin billing event snapshot-link query failed:', snapshotsError);
-		return { events: mapBillingEventDiagnostics(events, [], []), diagnosticsError: true };
+		return { events: _mapBillingEventDiagnostics(events, [], []), diagnosticsError: true };
 	}
 
 	const snapshots = (snapshotRows ?? []) as BillingSnapshotLinkRow[];
@@ -157,11 +157,11 @@ async function loadBillingEventDiagnostics(ctx: AdminContext): Promise<{
 
 	if (organizationsError) {
 		console.error('Admin billing event organization-link query failed:', organizationsError);
-		return { events: mapBillingEventDiagnostics(events, snapshots, []), diagnosticsError: true };
+		return { events: _mapBillingEventDiagnostics(events, snapshots, []), diagnosticsError: true };
 	}
 
 	return {
-		events: mapBillingEventDiagnostics(events, snapshots, (organizationRows ?? []) as OrganizationLinkRow[]),
+		events: _mapBillingEventDiagnostics(events, snapshots, (organizationRows ?? []) as OrganizationLinkRow[]),
 		diagnosticsError: false
 	};
 }
@@ -177,7 +177,7 @@ function stripeEventFromLedgerRow(row: BillingEventRow): Stripe.Event {
 	} as Stripe.Event;
 }
 
-export async function retryBillingEventCore(
+export async function _retryBillingEventCore(
 	ctx: AdminContext,
 	eventId: string
 ): Promise<{ ok: true; state: WebhookProcessingState; result: string } | { ok: false; status: number; error: string }> {
@@ -206,7 +206,7 @@ export async function retryBillingEventCore(
 	const attemptCountBefore = normalizeAttemptCount(eventRow.attempt_count);
 
 	try {
-		await recordRetryableStripeWebhookEventAttempt(ctx.adminClient as SupabaseClient, event, {
+		await _recordRetryableStripeWebhookEventAttempt(ctx.adminClient as SupabaseClient, event, {
 			objectId: eventRow.object_id,
 			secondaryDedupeKey: eventRow.secondary_dedupe_key ?? undefined,
 			eventCreatedAt
@@ -234,7 +234,7 @@ export async function retryBillingEventCore(
 		};
 	}
 
-	const result = await processRecordedStripeWebhookEvent(ctx.adminClient as SupabaseClient, event, {
+	const result = await _processRecordedStripeWebhookEvent(ctx.adminClient as SupabaseClient, event, {
 		secondaryDedupeKey: eventRow.secondary_dedupe_key ?? undefined,
 		eventCreatedAt
 	});
@@ -272,7 +272,7 @@ export const actions: Actions = {
 		fn: async (ctx, event) => {
 			const formData = await event.request.formData();
 			const eventId = String(formData.get('eventId') ?? '');
-			const result = await retryBillingEventCore(ctx, eventId);
+			const result = await _retryBillingEventCore(ctx, eventId);
 			if (!result.ok) return fail(result.status, { error: result.error, eventId });
 			return { success: true, eventId, result: result.result, state: result.state };
 		}

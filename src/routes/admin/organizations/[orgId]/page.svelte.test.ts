@@ -42,7 +42,7 @@ describe('admin organization detail page', () => {
 						lastStripeEventType: 'customer.subscription.updated',
 						lastProcessedAt: '2026-05-15T00:01:00.000Z',
 						lastReconciledAt: '2026-05-23T00:00:00.000Z',
-						reconciliationResult: 'matched',
+						reconciliationResult: 'repaired_drift:current_period_start,current_period_end,canceled_at',
 						driftDetected: false
 					},
 					cancellationSummary: {
@@ -66,7 +66,10 @@ describe('admin organization detail page', () => {
 		expect(screen.getByText('Cancels at period end')).toBeTruthy();
 		expect(screen.getByText('customer.subscription.updated')).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Refresh from Stripe' })).toBeTruthy();
-		expect(screen.getByText('matched')).toBeTruthy();
+		const reconciliationResult = screen.getByText('repaired_drift:current_period_start,current_period_end,canceled_at');
+		expect(reconciliationResult).toBeTruthy();
+		expect(reconciliationResult.className).toContain('min-w-0');
+		expect(reconciliationResult.className).toContain('break-all');
 	});
 
 	it('shows support-safe manual reconciliation feedback', () => {

@@ -7,11 +7,11 @@ const { recordAttemptMock, processRecordedMock } = vi.hoisted(() => ({
 }));
 
 vi.mock('../../api/webhooks/stripe/+server', () => ({
-	recordRetryableStripeWebhookEventAttempt: recordAttemptMock,
-	processRecordedStripeWebhookEvent: processRecordedMock
+	_recordRetryableStripeWebhookEventAttempt: recordAttemptMock,
+	_processRecordedStripeWebhookEvent: processRecordedMock
 }));
 
-import { mapBillingEventDiagnostics, retryBillingEventCore } from './+page.server';
+import { _mapBillingEventDiagnostics, _retryBillingEventCore } from './+page.server';
 
 type QueryResponse = { data: unknown; error: unknown };
 
@@ -57,7 +57,7 @@ describe('admin billing event diagnostics', () => {
 	});
 
 	it('maps safe event metadata and links organizations without exposing payload data', () => {
-		const diagnostics = mapBillingEventDiagnostics(
+		const diagnostics = _mapBillingEventDiagnostics(
 			[
 				{
 					id: 'evt_123',
@@ -123,7 +123,7 @@ describe('admin billing event diagnostics', () => {
 		});
 		const ctx = createAdminContext(adminClient);
 
-		const result = await retryBillingEventCore(ctx, 'evt_retry');
+		const result = await _retryBillingEventCore(ctx, 'evt_retry');
 
 		expect(result).toEqual({ ok: true, state: 'processed', result: 'checkout pending activation recorded' });
 		expect(recordAttemptMock).toHaveBeenCalledWith(
@@ -187,7 +187,7 @@ describe('admin billing event diagnostics', () => {
 		});
 		const ctx = createAdminContext(adminClient);
 
-		const result = await retryBillingEventCore(ctx, 'evt_retry_again');
+		const result = await _retryBillingEventCore(ctx, 'evt_retry_again');
 
 		expect(result).toEqual({ ok: false, status: 500, error: 'DB timeout' });
 		expect(ctx.audit).toHaveBeenCalledWith(
@@ -227,7 +227,7 @@ describe('admin billing event diagnostics', () => {
 		});
 		const ctx = createAdminContext(adminClient);
 
-		const result = await retryBillingEventCore(ctx, 'evt_permanent_after_retry');
+		const result = await _retryBillingEventCore(ctx, 'evt_permanent_after_retry');
 
 		expect(result).toEqual({ ok: false, status: 400, error: 'missing required Stripe metadata' });
 		expect(ctx.audit).toHaveBeenCalledWith(
@@ -261,7 +261,7 @@ describe('admin billing event diagnostics', () => {
 		});
 		const ctx = createAdminContext(adminClient);
 
-		const result = await retryBillingEventCore(ctx, 'evt_race');
+		const result = await _retryBillingEventCore(ctx, 'evt_race');
 
 		expect(result).toEqual({ ok: false, status: 409, error: 'billing event is no longer retryable' });
 		expect(processRecordedMock).not.toHaveBeenCalled();
@@ -299,7 +299,7 @@ describe('admin billing event diagnostics', () => {
 				error: null
 			});
 
-			const result = await retryBillingEventCore(createAdminContext(adminClient), `evt_${processingState}`);
+			const result = await _retryBillingEventCore(createAdminContext(adminClient), `evt_${processingState}`);
 
 			expect(result).toEqual({
 				ok: false,

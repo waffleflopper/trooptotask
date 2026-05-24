@@ -136,6 +136,14 @@ function legacyOrganizationStatus(status: SubscriptionStatus): string | null {
 	}
 }
 
+function retainsCommercialPlan(status: SubscriptionStatus): boolean {
+	return status === 'active' || status === 'trialing' || status === 'paused' || status === 'past_due';
+}
+
+function reconciledSubscriptionId(subscription: BillingReconciliationProviderSubscription): string | null {
+	return subscription.status === 'canceled' ? null : subscription.id;
+}
+
 function providerSnapshotValues(input: {
 	orgId: string;
 	subscription: BillingReconciliationProviderSubscription;
@@ -149,7 +157,7 @@ function providerSnapshotValues(input: {
 		source: 'stripe',
 		commercial_plan: input.commercialPlan,
 		stripe_customer_id: input.subscription.customerId,
-		stripe_subscription_id: input.subscription.id,
+		stripe_subscription_id: reconciledSubscriptionId(input.subscription),
 		stripe_product_id: input.subscription.productId,
 		stripe_price_id: input.subscription.priceId,
 		subscription_status: input.subscription.status,
@@ -232,6 +240,12 @@ function validateProviderSubscription(input: {
 	}
 
 	const metadataTier = input.subscription.metadata.tier;
+	const shouldRetainCommercialPlan = retainsCommercialPlan(input.subscription.status);
+
+	if (!shouldRetainCommercialPlan) {
+		return { commercialPlan: 'free' };
+	}
+
 	if (!metadataTier) {
 		throw new BillingReconciliationError('Stripe subscription is missing tier metadata.', ['missing_tier_metadata']);
 	}
@@ -374,9 +388,9 @@ export async function reconcileOrganizationBilling(input: {
 	await input.store.updateOrganizationBillingMirror(input.orgId, {
 		tier: commercialPlan,
 		stripe_customer_id: subscription.customerId,
-		stripe_subscription_id: subscription.id,
+		stripe_subscription_id: reconciledSubscriptionId(subscription),
 		subscription_status: legacyOrganizationStatus(subscription.status),
-		current_period_end: subscription.currentPeriodEnd
+		current_period_end: subscription.status === 'canceled' ? null : subscription.currentPeriodEnd
 	});
 	invalidateTierCache(input.orgId);
 

@@ -43,6 +43,9 @@ describe('admin billing events page', () => {
 		expect(screen.getByText('Retryable Failed')).toBeTruthy();
 		expect(screen.getByText('Alpha Company')).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Retry' })).toBeTruthy();
+		expect(document.querySelector('[data-slot="table"]')?.className).toContain('table-fixed');
+		expect(screen.getByText('retryable processing failure').className).toContain('whitespace-normal');
+		expect(screen.getByText('temporary database timeout').className).toContain('whitespace-normal');
 	});
 
 	it('does not show retry controls for processed events or raw payload content', () => {

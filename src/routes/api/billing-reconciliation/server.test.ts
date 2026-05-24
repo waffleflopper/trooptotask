@@ -30,7 +30,7 @@ vi.mock('$lib/server/billing/priceCatalog', () => ({
 	}
 }));
 
-import { runBillingReconciliationEndpointCore } from './+server';
+import { _runBillingReconciliationEndpointCore } from './+server';
 
 const org = {
 	id: 'org-1',
@@ -98,7 +98,7 @@ describe('billing reconciliation endpoint', () => {
 
 	it('rejects requests without a configured bearer token', async () => {
 		await expect(
-			runBillingReconciliationEndpointCore({
+			_runBillingReconciliationEndpointCore({
 				authHeader: 'Bearer wrong',
 				secrets: ['expected-secret'],
 				url: new URL('http://localhost/api/billing-reconciliation'),
@@ -110,7 +110,7 @@ describe('billing reconciliation endpoint', () => {
 	});
 
 	it('runs a capped authorized batch without returning provider secrets', async () => {
-		const result = await runBillingReconciliationEndpointCore({
+		const result = await _runBillingReconciliationEndpointCore({
 			authHeader: 'Bearer expected-secret',
 			secrets: ['expected-secret'],
 			url: new URL('http://localhost/api/billing-reconciliation?limit=500&timeoutMs=1000'),
@@ -133,7 +133,7 @@ describe('billing reconciliation endpoint', () => {
 	it('caps caller supplied timeout windows', async () => {
 		const dateNow = vi.spyOn(Date, 'now').mockReturnValueOnce(0).mockReturnValueOnce(60_000);
 		try {
-			const result = await runBillingReconciliationEndpointCore({
+			const result = await _runBillingReconciliationEndpointCore({
 				authHeader: 'Bearer expected-secret',
 				secrets: ['expected-secret'],
 				url: new URL('http://localhost/api/billing-reconciliation?timeoutMs=3600000'),

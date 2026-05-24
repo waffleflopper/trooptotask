@@ -91,8 +91,15 @@ function mapProviderSubscription(subscription: Stripe.Subscription): BillingReco
 	const raw = subscription as unknown as {
 		current_period_start?: number;
 		current_period_end?: number;
+		items?: {
+			data?: Array<{
+				current_period_start?: number;
+				current_period_end?: number;
+			}>;
+		};
 	};
 	const price = subscription.items?.data?.[0]?.price;
+	const firstItem = raw.items?.data?.[0];
 	const product = price?.product;
 	const customer = subscription.customer;
 
@@ -102,8 +109,8 @@ function mapProviderSubscription(subscription: Stripe.Subscription): BillingReco
 		status: subscription.status as BillingReconciliationProviderSubscription['status'],
 		priceId: price?.id ?? null,
 		productId: typeof product === 'string' ? product : (product?.id ?? null),
-		currentPeriodStart: isoFromStripeTimestamp(raw.current_period_start),
-		currentPeriodEnd: isoFromStripeTimestamp(raw.current_period_end),
+		currentPeriodStart: isoFromStripeTimestamp(raw.current_period_start ?? firstItem?.current_period_start),
+		currentPeriodEnd: isoFromStripeTimestamp(raw.current_period_end ?? firstItem?.current_period_end),
 		cancelAtPeriodEnd: subscription.cancel_at_period_end,
 		canceledAt: isoFromStripeTimestamp(subscription.canceled_at),
 		trialEnd: isoFromStripeTimestamp(subscription.trial_end),

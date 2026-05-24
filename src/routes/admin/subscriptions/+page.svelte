@@ -6,7 +6,7 @@
 	import { NativeSelect } from '$lib/components/ui/native-select';
 	import { Badge } from '$lib/components/ui/badge';
 	import { formatDisplayDate, formatDisplayDateTime } from '$lib/utils/dates';
-	import { adminBadgeVariant, formatAdminLabel } from '$lib/components/admin/adminTheme';
+	import { adminBadgeVariant, adminPlanStatusBadgeVariant, formatAdminLabel } from '$lib/components/admin/adminTheme';
 	import * as Alert from '$lib/components/ui/alert';
 	import * as Card from '$lib/components/ui/card';
 	import * as Empty from '$lib/components/ui/empty';
@@ -119,6 +119,16 @@
 		</Alert.Root>
 	{/if}
 
+	{#if data.planDiagnosticsError}
+		<Alert.Root variant="warning">
+			<TriangleAlert />
+			<Alert.Title>Plan diagnostics could not be fully loaded.</Alert.Title>
+			<Alert.Description>
+				Some organizations may be missing policy usage details until the plan diagnostics queries succeed.
+			</Alert.Description>
+		</Alert.Root>
+	{/if}
+
 	<Card.Root>
 		<Card.Header class="gap-3 xl:flex-row xl:items-end xl:justify-between">
 			<div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(18rem,1fr)_12rem_12rem]">
@@ -170,6 +180,7 @@
 						<Table.Head>Tier</Table.Head>
 						<Table.Head>Status</Table.Head>
 						<Table.Head>Personnel</Table.Head>
+						<Table.Head>Plan Usage</Table.Head>
 						<Table.Head>Owner</Table.Head>
 						<Table.Head>Sync Health</Table.Head>
 						<Table.Head>Cancellation</Table.Head>
@@ -201,6 +212,40 @@
 								class={isOverCap(sub.personnelCount, sub.personnelCap) ? 'font-semibold text-destructive' : ''}
 							>
 								{formatPersonnelCap(sub.personnelCount, sub.personnelCap)}
+							</Table.Cell>
+							<Table.Cell>
+								{#if sub.planDiagnostics}
+									<div class="grid gap-2">
+										<div class="flex flex-wrap items-center gap-2">
+											<Badge variant={adminBadgeVariant(sub.planDiagnostics.effectivePlan.tier)}>
+												{formatAdminLabel(sub.planDiagnostics.effectivePlan.tier)}
+											</Badge>
+											<span class="text-xs text-muted-foreground">
+												{sub.planDiagnostics.effectivePlan.sourceLabel}
+											</span>
+										</div>
+										<ul class="grid gap-1 text-xs text-muted-foreground">
+											{#each sub.planDiagnostics.usageRows as row (row.dimension)}
+												<li class="flex flex-wrap items-center gap-1">
+													<span>{row.label}</span>
+													<span>{row.used} / {row.limitLabel}</span>
+													<Badge variant={adminPlanStatusBadgeVariant(row.status)}>{formatAdminLabel(row.status)}</Badge
+													>
+												</li>
+											{/each}
+										</ul>
+										{#if sub.planDiagnostics.overLimitReasons.length > 0}
+											<p class="text-xs font-medium text-destructive">
+												{sub.planDiagnostics.overLimitReasons.length} plan blocker{sub.planDiagnostics.overLimitReasons
+													.length === 1
+													? ''
+													: 's'}
+											</p>
+										{/if}
+									</div>
+								{:else}
+									<span class="text-muted-foreground">-</span>
+								{/if}
 							</Table.Cell>
 							<Table.Cell class="max-w-60 break-words text-muted-foreground">{sub.ownerEmail || '-'}</Table.Cell>
 							<Table.Cell>
@@ -261,7 +306,7 @@
 						</Table.Row>
 					{:else}
 						<Table.Row>
-							<Table.Cell colspan={9}>
+							<Table.Cell colspan={10}>
 								<Empty.Root class="border-0">No subscriptions found.</Empty.Root>
 							</Table.Cell>
 						</Table.Row>

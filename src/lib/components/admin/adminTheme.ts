@@ -65,3 +65,17 @@ export function adminBadgeVariant(value: string | null | undefined): BadgeVarian
 			return 'secondary';
 	}
 }
+
+export function adminPlanStatusBadgeVariant(value: string | null | undefined): BadgeVariant {
+	switch (value) {
+		case 'over_limit':
+		case 'read_only':
+			return 'destructive';
+		case 'limit_reached':
+			return 'warning';
+		case 'within_limit':
+			return 'success';
+		default:
+			return 'secondary';
+	}
+}

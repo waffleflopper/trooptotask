@@ -20,6 +20,8 @@ import {
 	readEffectivePlanPolicy,
 	type PlanFeatureKey
 } from '$lib/server/core/useCases/planPolicy';
+import { readOrganizationPlanUsage } from '$lib/server/core/useCases/organizationPlanUsage';
+import { buildPlanAdminDiagnostics } from '$lib/server/core/useCases/planAdminDiagnostics';
 import type { BillingSnapshot } from '$lib/types/subscription';
 
 const TIER_RANK: Record<string, number> = { free: 1, team: 2, unit: 3 };
@@ -158,10 +160,18 @@ export const load: PageServerLoad = loadWithAdminContext({
 			.eq('organization_id', orgId)
 			.maybeSingle<AdminOrganizationBillingSnapshotRow>();
 		const billingSnapshot = billingSnapshotRow ? mapAdminOrganizationBillingSnapshot(billingSnapshotRow) : null;
-		const planPolicy = await readEffectivePlanPolicy({
-			store: createSupabaseDataStore(adminClient),
-			auth: { orgId }
-		});
+		const dataStore = createSupabaseDataStore(adminClient);
+		const [planPolicy, planUsage] = await Promise.all([
+			readEffectivePlanPolicy({
+				store: dataStore,
+				auth: { orgId }
+			}),
+			readOrganizationPlanUsage({
+				store: dataStore,
+				auth: { orgId }
+			})
+		]);
+		const planDiagnostics = buildPlanAdminDiagnostics(planPolicy, planUsage);
 
 		const effectiveTier = (org.gift_tier ?? org.tier ?? 'free') as string;
 
@@ -184,6 +194,7 @@ export const load: PageServerLoad = loadWithAdminContext({
 				billingSource: planPolicy.billingSource,
 				entitlements: Object.values(planPolicy.entitlements)
 			},
+			planDiagnostics,
 			cancellationSummary: billingSnapshot ? summarizeBillingCancellation(billingSnapshot) : null,
 			members,
 			personnelCount: personnelCount ?? 0,

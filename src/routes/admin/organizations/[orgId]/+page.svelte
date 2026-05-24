@@ -9,7 +9,7 @@
 	import GiftTierModal from '$lib/components/admin/GiftTierModal.svelte';
 	import SuspendModal from '$lib/components/admin/SuspendModal.svelte';
 	import TransferOwnershipModal from '$lib/components/admin/TransferOwnershipModal.svelte';
-	import { adminBadgeVariant, formatAdminLabel } from '$lib/components/admin/adminTheme';
+	import { adminBadgeVariant, adminPlanStatusBadgeVariant, formatAdminLabel } from '$lib/components/admin/adminTheme';
 	import { Badge } from '$lib/components/ui/badge';
 	import { TIER_CONFIG, type Tier } from '$lib/types/subscription';
 	import { formatDisplayDate, formatDisplayDateTime } from '$lib/utils/dates';
@@ -282,6 +282,95 @@
 
 	<Card.Root>
 		<Card.Header>
+			<Card.Title>Plan Policy Diagnostics</Card.Title>
+			<Card.Description
+				>Effective limits, usage, feature sources, and over-limit reasons for support review.</Card.Description
+			>
+		</Card.Header>
+		<Card.Content class="grid gap-4">
+			<div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+				<div class="grid gap-1">
+					<span class="text-xs font-medium text-muted-foreground">Effective Plan</span>
+					<span>{formatAdminLabel(data.planDiagnostics.effectivePlan.tier)}</span>
+				</div>
+				<div class="grid gap-1">
+					<span class="text-xs font-medium text-muted-foreground">Commercial Plan</span>
+					<span>{formatAdminLabel(data.planDiagnostics.effectivePlan.commercialPlan)}</span>
+				</div>
+				<div class="grid gap-1">
+					<span class="text-xs font-medium text-muted-foreground">Policy Source</span>
+					<span>{data.planDiagnostics.effectivePlan.sourceLabel}</span>
+				</div>
+				<div class="grid gap-1">
+					<span class="text-xs font-medium text-muted-foreground">Billing Source</span>
+					<span>{formatAdminLabel(data.planDiagnostics.effectivePlan.billingSource)}</span>
+				</div>
+				<div class="grid gap-1">
+					<span class="text-xs font-medium text-muted-foreground">Grace Mode</span>
+					<span>{formatAdminLabel(data.planDiagnostics.grace.mode)}</span>
+				</div>
+				<div class="grid gap-1">
+					<span class="text-xs font-medium text-muted-foreground">Read-only</span>
+					<span>{data.planDiagnostics.readOnly.enabled ? 'Yes' : 'No'}</span>
+				</div>
+			</div>
+
+			{#if data.planDiagnostics.grace.message}
+				<p class="rounded-md border bg-muted/30 px-3 py-2 text-sm">{data.planDiagnostics.grace.message}</p>
+			{/if}
+
+			<div class="overflow-x-auto">
+				<Table.Root>
+					<Table.Header>
+						<Table.Row>
+							<Table.Head>Usage</Table.Head>
+							<Table.Head>Count</Table.Head>
+							<Table.Head>Status</Table.Head>
+							<Table.Head>Reason</Table.Head>
+							<Table.Head>Remediation</Table.Head>
+						</Table.Row>
+					</Table.Header>
+					<Table.Body>
+						{#each data.planDiagnostics.usageRows as row (row.dimension)}
+							<Table.Row>
+								<Table.Cell>{row.label}</Table.Cell>
+								<Table.Cell>{row.used} / {row.limitLabel}</Table.Cell>
+								<Table.Cell>
+									<Badge variant={adminPlanStatusBadgeVariant(row.status)}>{formatAdminLabel(row.status)}</Badge>
+								</Table.Cell>
+								<Table.Cell>{row.message}</Table.Cell>
+								<Table.Cell>{row.remediation}</Table.Cell>
+							</Table.Row>
+						{/each}
+					</Table.Body>
+				</Table.Root>
+			</div>
+
+			{#if data.planDiagnostics.overLimitReasons.length > 0}
+				<div class="grid gap-2">
+					<p class="text-sm font-medium">Over-limit and read-only reasons</p>
+					<ul class="grid gap-2 text-sm">
+						{#each data.planDiagnostics.overLimitReasons as reason (`${reason.dimension}-${reason.status}`)}
+							<li class="rounded-md border px-3 py-2">
+								<div class="flex flex-wrap items-center gap-2">
+									<span class="font-medium">{reason.label}</span>
+									<Badge variant={adminPlanStatusBadgeVariant(reason.status)}>{formatAdminLabel(reason.status)}</Badge>
+									<span class="text-xs text-muted-foreground">{reason.sourceLabel}</span>
+								</div>
+								<p class="mt-1 text-muted-foreground">{reason.message}</p>
+								<p class="mt-1 font-medium">{reason.remediation}</p>
+							</li>
+						{/each}
+					</ul>
+				</div>
+			{:else}
+				<p class="text-sm text-muted-foreground">No over-limit or read-only reasons are active.</p>
+			{/if}
+		</Card.Content>
+	</Card.Root>
+
+	<Card.Root>
+		<Card.Header>
 			<Card.Title>Recent Audit Events</Card.Title>
 			<Card.Description>Latest platform activity recorded against this organization.</Card.Description>
 		</Card.Header>
@@ -343,16 +432,16 @@
 					</Table.Row>
 				</Table.Header>
 				<Table.Body>
-					{#each data.planPolicy.entitlements as entitlement (entitlement.key)}
+					{#each data.planDiagnostics.entitlements as entitlement (entitlement.key)}
 						<Table.Row>
-							<Table.Cell>{formatAdminLabel(entitlement.key)}</Table.Cell>
+							<Table.Cell>{entitlement.label}</Table.Cell>
 							<Table.Cell>
 								<Badge variant={entitlement.available ? 'success' : 'secondary'}>
 									{entitlement.available ? 'Available' : 'Unavailable'}
 								</Badge>
 							</Table.Cell>
 							<Table.Cell>
-								<Badge variant={adminBadgeVariant(entitlement.source)}>{formatAdminLabel(entitlement.source)}</Badge>
+								<Badge variant={adminBadgeVariant(entitlement.source)}>{entitlement.sourceLabel}</Badge>
 							</Table.Cell>
 							<Table.Cell>
 								{entitlement.upgradeTarget ? formatAdminLabel(entitlement.upgradeTarget) : '-'}
@@ -388,8 +477,8 @@
 			{#if data.adminRole === 'super_admin'}
 				<form method="POST" action="?/setFeatureOverride" class="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
 					<NativeSelect name="featureKey" aria-label="Feature">
-						{#each data.planPolicy.entitlements as entitlement (entitlement.key)}
-							<option value={entitlement.key}>{formatAdminLabel(entitlement.key)}</option>
+						{#each data.planDiagnostics.entitlements as entitlement (entitlement.key)}
+							<option value={entitlement.key}>{entitlement.label}</option>
 						{/each}
 					</NativeSelect>
 					<NativeSelect name="state" aria-label="Override state">

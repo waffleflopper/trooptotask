@@ -10,11 +10,7 @@ import {
 } from '$lib/types/subscription';
 import type { DataStore } from '$lib/server/core/ports';
 
-export type PlanPolicySource =
-	| 'billing_disabled_fallback'
-	| 'billing_snapshot'
-	| 'admin_gift'
-	| 'legacy_organization';
+export type PlanPolicySource = 'billing_disabled_fallback' | 'billing_snapshot' | 'admin_gift' | 'legacy_organization';
 
 export type PlanLimitDimension =
 	| 'active_personnel'
@@ -61,8 +57,13 @@ export interface ExportQuotaPolicy {
 export interface PlanFeatureEntitlement {
 	key: PlanFeatureKey;
 	available: boolean;
-	source: 'base_plan' | 'admin_gift' | 'billing_disabled_fallback';
+	source: 'base_plan' | 'stripe_billing' | 'admin_gift' | 'billing_disabled_fallback' | 'feature_override';
 	upgradeTarget: Tier | null;
+	override?: {
+		id: string;
+		state: PlanFeatureOverrideState;
+		expiresAt: string | null;
+	};
 }
 
 export interface EffectivePlanPolicy {
@@ -94,6 +95,21 @@ export interface EffectivePlanPolicy {
 interface PlanPolicyPorts {
 	store: DataStore;
 	auth: { orgId: string };
+}
+
+export type PlanFeatureOverrideState = 'granted' | 'denied';
+
+export interface PlanFeatureOverride {
+	id: string;
+	organizationId: string;
+	featureKey: PlanFeatureKey;
+	state: PlanFeatureOverrideState;
+	expiresAt: string | null;
+}
+
+interface BuildEffectivePlanPolicyOptions {
+	featureOverrides?: PlanFeatureOverride[];
+	now?: Date;
 }
 
 export interface PersonnelUsageForPlanPolicy {
@@ -139,6 +155,35 @@ export type BinaryPlanFeatureKey = {
 	[K in PlanFeatureKey]: (typeof PLAN_FEATURE_REGISTRY)[K]['enforcement'] extends 'binary_gate' ? K : never;
 }[PlanFeatureKey];
 
+interface PlanFeatureOverrideRow {
+	id: string;
+	organization_id: string;
+	feature_key: string;
+	override_state: string;
+	expires_at: string | null;
+	created_at?: string | null;
+	revoked_at?: string | null;
+}
+
+function isPlanFeatureKey(value: string): value is PlanFeatureKey {
+	return value in PLAN_FEATURE_REGISTRY;
+}
+
+function isPlanFeatureOverrideState(value: string): value is PlanFeatureOverrideState {
+	return value === 'granted' || value === 'denied';
+}
+
+function mapFeatureOverrideRow(row: PlanFeatureOverrideRow): PlanFeatureOverride | null {
+	if (!isPlanFeatureKey(row.feature_key) || !isPlanFeatureOverrideState(row.override_state)) return null;
+	return {
+		id: row.id,
+		organizationId: row.organization_id,
+		featureKey: row.feature_key,
+		state: row.override_state,
+		expiresAt: row.expires_at
+	};
+}
+
 function mapPolicySource(snapshot: BillingSnapshot): PlanPolicySource {
 	switch (snapshot.source) {
 		case 'billing_disabled':
@@ -158,6 +203,7 @@ function mapPolicySource(snapshot: BillingSnapshot): PlanPolicySource {
 
 function entitlementSource(source: PlanPolicySource): PlanFeatureEntitlement['source'] {
 	if (source === 'admin_gift') return 'admin_gift';
+	if (source === 'billing_snapshot') return 'stripe_billing';
 	if (source === 'billing_disabled_fallback') return 'billing_disabled_fallback';
 	return 'base_plan';
 }
@@ -193,23 +239,61 @@ function featureUpgradeTarget(feature: PlanFeatureKey, plan: Tier): Tier | null 
 	}
 }
 
-function buildEntitlements(plan: Tier, source: PlanPolicySource): Record<PlanFeatureKey, PlanFeatureEntitlement> {
+function isActiveFeatureOverride(override: PlanFeatureOverride, now: Date): boolean {
+	return !override.expiresAt || new Date(override.expiresAt).getTime() > now.getTime();
+}
+
+function applyFeatureOverrides(
+	entitlements: Record<PlanFeatureKey, PlanFeatureEntitlement>,
+	overrides: PlanFeatureOverride[],
+	now: Date
+): Record<PlanFeatureKey, PlanFeatureEntitlement> {
+	const next = { ...entitlements };
+
+	for (const override of overrides) {
+		if (!isActiveFeatureOverride(override, now)) continue;
+		next[override.featureKey] = {
+			key: override.featureKey,
+			available: override.state === 'granted',
+			source: 'feature_override',
+			upgradeTarget: null,
+			override: {
+				id: override.id,
+				state: override.state,
+				expiresAt: override.expiresAt
+			}
+		};
+	}
+
+	return next;
+}
+
+function buildEntitlements(
+	plan: Tier,
+	source: PlanPolicySource,
+	overrides: PlanFeatureOverride[],
+	now: Date
+): Record<PlanFeatureKey, PlanFeatureEntitlement> {
 	const resolvedSource = entitlementSource(source);
 
-	return {
-		bulk_export_unlimited: {
-			key: 'bulk_export_unlimited',
-			available: featureAvailableOnPlan('bulk_export_unlimited', plan),
-			source: resolvedSource,
-			upgradeTarget: featureUpgradeTarget('bulk_export_unlimited', plan)
+	return applyFeatureOverrides(
+		{
+			bulk_export_unlimited: {
+				key: 'bulk_export_unlimited',
+				available: featureAvailableOnPlan('bulk_export_unlimited', plan),
+				source: resolvedSource,
+				upgradeTarget: featureUpgradeTarget('bulk_export_unlimited', plan)
+			},
+			advanced_reporting: {
+				key: 'advanced_reporting',
+				available: featureAvailableOnPlan('advanced_reporting', plan),
+				source: resolvedSource,
+				upgradeTarget: featureUpgradeTarget('advanced_reporting', plan)
+			}
 		},
-		advanced_reporting: {
-			key: 'advanced_reporting',
-			available: featureAvailableOnPlan('advanced_reporting', plan),
-			source: resolvedSource,
-			upgradeTarget: featureUpgradeTarget('advanced_reporting', plan)
-		}
-	};
+		overrides,
+		now
+	);
 }
 
 function effectiveTierSource(source: PlanPolicySource): TierSource {
@@ -291,7 +375,8 @@ export function toEffectiveTierFromPlanPolicy(
 		policy.source === 'legacy_organization' && policy.tier === 'unit' && personnelLimit !== null
 			? Math.max(personnelLimit, usage.activePersonnelCount)
 			: personnelLimit;
-	const isOverPersonnelLimit = compatibilityPersonnelCap !== null && usage.activePersonnelCount > compatibilityPersonnelCap;
+	const isOverPersonnelLimit =
+		compatibilityPersonnelCap !== null && usage.activePersonnelCount > compatibilityPersonnelCap;
 	const policyReadOnlyReason = readOnlyReasonFromPolicy(policy.readOnly.reasons[0]?.code ?? null);
 
 	return {
@@ -354,7 +439,10 @@ function readOnlyReasonsFor(snapshot: BillingSnapshot): PlanPolicyDenialReason[]
 	return [];
 }
 
-export function buildEffectivePlanPolicy(snapshot: BillingSnapshot): EffectivePlanPolicy {
+export function buildEffectivePlanPolicy(
+	snapshot: BillingSnapshot,
+	options: BuildEffectivePlanPolicyOptions = {}
+): EffectivePlanPolicy {
 	const source = mapPolicySource(snapshot);
 	const plan = snapshot.commercialPlan;
 	const tierConfig = TIER_CONFIG[plan];
@@ -408,7 +496,7 @@ export function buildEffectivePlanPolicy(snapshot: BillingSnapshot): EffectivePl
 			denialCode: 'denied.export_quota',
 			upgradeTarget: exportLimit === null ? null : 'team'
 		},
-		entitlements: buildEntitlements(plan, source),
+		entitlements: buildEntitlements(plan, source, options.featureOverrides ?? [], options.now ?? new Date()),
 		grace: {
 			mode: isPaymentFailedGrace ? 'payment_failed' : 'none',
 			message: isPaymentFailedGrace
@@ -424,5 +512,19 @@ export function buildEffectivePlanPolicy(snapshot: BillingSnapshot): EffectivePl
 
 export async function readEffectivePlanPolicy(ports: PlanPolicyPorts): Promise<EffectivePlanPolicy> {
 	const snapshot = await readCurrentBillingSnapshot(ports);
-	return buildEffectivePlanPolicy(snapshot);
+	if (snapshot.source === 'billing_disabled') {
+		return buildEffectivePlanPolicy(snapshot);
+	}
+
+	const overrideRows = await ports.store.findMany<PlanFeatureOverrideRow>(
+		'organization_plan_feature_overrides',
+		ports.auth.orgId
+	);
+	const featureOverrides = overrideRows
+		.filter((row) => row.revoked_at == null)
+		.sort((a, b) => String(a.created_at ?? '').localeCompare(String(b.created_at ?? '')))
+		.map((row) => mapFeatureOverrideRow(row))
+		.filter((override): override is PlanFeatureOverride => override !== null);
+
+	return buildEffectivePlanPolicy(snapshot, { featureOverrides });
 }

@@ -8,6 +8,19 @@ afterEach(() => {
 	cleanup();
 });
 
+const planPolicy = {
+	source: 'billing_snapshot',
+	billingSource: 'stripe',
+	entitlements: [
+		{
+			key: 'advanced_reporting',
+			available: false,
+			source: 'stripe_billing',
+			upgradeTarget: 'unit'
+		}
+	]
+};
+
 describe('admin organization detail page', () => {
 	it('shows support-safe billing cancellation diagnostics', () => {
 		render(Page, {
@@ -27,6 +40,8 @@ describe('admin organization detail page', () => {
 					members: [],
 					personnelCount: 12,
 					auditEvents: [],
+					adminRole: 'support',
+					planPolicy,
 					billingSnapshot: {
 						stripeCustomerId: 'cus_123',
 						stripeSubscriptionId: 'sub_123',
@@ -90,6 +105,8 @@ describe('admin organization detail page', () => {
 					members: [],
 					personnelCount: 12,
 					auditEvents: [],
+					adminRole: 'support',
+					planPolicy,
 					billingSnapshot: null,
 					cancellationSummary: null
 				} as never,

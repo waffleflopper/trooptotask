@@ -9,10 +9,7 @@ import {
 } from './planPolicy';
 
 export interface PlanGateDenial {
-	code:
-		| 'denied.unknown_plan_feature'
-		| 'denied.plan_feature_unavailable'
-		| 'denied.export_quota';
+	code: 'denied.unknown_plan_feature' | 'denied.plan_feature_unavailable' | 'denied.export_quota';
 	dimension: PlanLimitDimension;
 	featureKey?: string;
 	featureLabel?: string;
@@ -27,7 +24,10 @@ function isKnownPlanFeature(key: string): key is PlanFeatureKey {
 	return key in PLAN_FEATURE_REGISTRY;
 }
 
-export function checkPlanFeatureByKey(policy: EffectivePlanPolicy, key: string): PlanGateResult<PlanFeatureEntitlement> {
+export function checkPlanFeatureByKey(
+	policy: EffectivePlanPolicy,
+	key: string
+): PlanGateResult<PlanFeatureEntitlement> {
 	if (!isKnownPlanFeature(key)) {
 		return {
 			allowed: false,

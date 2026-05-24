@@ -49,7 +49,19 @@ const SAFE_STRING_KEYS = new Set([
 	'note_author_user_id',
 	'statetransition',
 	'outcome',
-	'failurecategory'
+	'failurecategory',
+	'featurekey',
+	'feature_key',
+	'overridestate',
+	'override_state',
+	'replacementoverridestate',
+	'replacement_override_state',
+	'expiresat',
+	'expires_at',
+	'hasreason',
+	'has_reason',
+	'overrideid',
+	'override_id'
 ]);
 const REDACTED_KEY_PARTS = [
 	'phone',

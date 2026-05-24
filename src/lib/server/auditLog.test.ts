@@ -148,4 +148,43 @@ describe('auditLog', () => {
 			}
 		});
 	});
+
+	it('preserves plan feature override audit details while omitting freeform reasons', async () => {
+		await auditLog(
+			{
+				action: 'admin.plan_feature_override.set',
+				resourceType: 'organization',
+				resourceId: '11111111-1111-4111-8111-111111111111',
+				orgId: '11111111-1111-4111-8111-111111111111',
+				details: {
+					featureKey: 'advanced_reporting',
+					overrideState: 'granted',
+					expiresAt: '2999-01-01T00:00:00.000Z',
+					hasReason: true,
+					reason: 'Comp account for command pilot'
+				},
+				severity: 'warning'
+			},
+			{
+				userId: 'admin-1',
+				userEmail: 'admin@example.mil',
+				ip: '127.0.0.1',
+				userAgent: 'Vitest'
+			}
+		);
+
+		expect(insert).toHaveBeenCalledTimes(1);
+		expect(insert.mock.calls[0]?.[0]).toMatchObject({
+			action: 'admin.plan_feature_override.set',
+			org_id: '11111111-1111-4111-8111-111111111111',
+			details: {
+				featureKey: 'advanced_reporting',
+				overrideState: 'granted',
+				expiresAt: '2999-01-01T00:00:00.000Z',
+				hasReason: true,
+				reason: '[redacted]',
+				redacted_fields: ['reason']
+			}
+		});
+	});
 });

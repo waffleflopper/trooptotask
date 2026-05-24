@@ -1,6 +1,9 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { Button } from '$lib/components/ui/button';
+	import { Input } from '$lib/components/ui/input';
+	import { NativeSelect } from '$lib/components/ui/native-select';
+	import { Textarea } from '$lib/components/ui/textarea';
 	import { invalidateAll } from '$app/navigation';
 	import type { ActionData, PageData } from './$types';
 	import GiftTierModal from '$lib/components/admin/GiftTierModal.svelte';
@@ -317,6 +320,87 @@
 					{/each}
 				</Table.Body>
 			</Table.Root>
+		</Card.Content>
+	</Card.Root>
+
+	<Card.Root>
+		<Card.Header>
+			<Card.Title>Plan Entitlements</Card.Title>
+			<Card.Description>Effective feature access with its billing or override source.</Card.Description>
+		</Card.Header>
+		<Card.Content class="overflow-x-auto">
+			<Table.Root>
+				<Table.Header>
+					<Table.Row>
+						<Table.Head>Feature</Table.Head>
+						<Table.Head>Status</Table.Head>
+						<Table.Head>Source</Table.Head>
+						<Table.Head>Upgrade</Table.Head>
+						<Table.Head>Override</Table.Head>
+						{#if data.adminRole === 'super_admin'}
+							<Table.Head>Actions</Table.Head>
+						{/if}
+					</Table.Row>
+				</Table.Header>
+				<Table.Body>
+					{#each data.planPolicy.entitlements as entitlement (entitlement.key)}
+						<Table.Row>
+							<Table.Cell>{formatAdminLabel(entitlement.key)}</Table.Cell>
+							<Table.Cell>
+								<Badge variant={entitlement.available ? 'success' : 'secondary'}>
+									{entitlement.available ? 'Available' : 'Unavailable'}
+								</Badge>
+							</Table.Cell>
+							<Table.Cell>
+								<Badge variant={adminBadgeVariant(entitlement.source)}>{formatAdminLabel(entitlement.source)}</Badge>
+							</Table.Cell>
+							<Table.Cell>
+								{entitlement.upgradeTarget ? formatAdminLabel(entitlement.upgradeTarget) : '-'}
+							</Table.Cell>
+							<Table.Cell>
+								{#if entitlement.override}
+									<div class="grid gap-1">
+										<span>{formatAdminLabel(entitlement.override.state)}</span>
+										<span class="font-mono text-xs text-muted-foreground">
+											{formatOptionalDateTime(entitlement.override.expiresAt)}
+										</span>
+									</div>
+								{:else}
+									<span class="text-muted-foreground">-</span>
+								{/if}
+							</Table.Cell>
+							{#if data.adminRole === 'super_admin'}
+								<Table.Cell>
+									{#if entitlement.override}
+										<form method="POST" action="?/revokeFeatureOverride">
+											<input type="hidden" name="overrideId" value={entitlement.override.id} />
+											<Button type="submit" variant="outline" size="sm">Revoke</Button>
+										</form>
+									{:else}
+										<span class="text-muted-foreground">-</span>
+									{/if}
+								</Table.Cell>
+							{/if}
+						</Table.Row>
+					{/each}
+				</Table.Body>
+			</Table.Root>
+			{#if data.adminRole === 'super_admin'}
+				<form method="POST" action="?/setFeatureOverride" class="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+					<NativeSelect name="featureKey" aria-label="Feature">
+						{#each data.planPolicy.entitlements as entitlement (entitlement.key)}
+							<option value={entitlement.key}>{formatAdminLabel(entitlement.key)}</option>
+						{/each}
+					</NativeSelect>
+					<NativeSelect name="state" aria-label="Override state">
+						<option value="granted">Grant</option>
+						<option value="denied">Deny</option>
+					</NativeSelect>
+					<Input type="datetime-local" name="expiresAt" aria-label="Expires at" />
+					<Textarea name="reason" maxlength={500} placeholder="Reason" aria-label="Reason"></Textarea>
+					<Button type="submit">Set Override</Button>
+				</form>
+			{/if}
 		</Card.Content>
 	</Card.Root>
 </PageShell.Root>

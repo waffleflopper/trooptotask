@@ -48,11 +48,14 @@ export function adminBadgeVariant(value: string | null | undefined): BadgeVarian
 		case 'maintenance':
 			return 'danger';
 		case 'gifted':
+		case 'admin_gift':
+		case 'feature_override':
 		case 'new':
 		case 'unit':
 		case 'owner':
 		case 'warning':
 			return 'warning';
+		case 'stripe_billing':
 		case 'team':
 		case 'admin':
 		case 'info':

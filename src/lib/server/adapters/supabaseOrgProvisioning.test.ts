@@ -112,6 +112,9 @@ function createPolicyProvisioningSupabase(input: {
 							count: input.ownedOrganizationIds.length
 						}).then(resolve, reject);
 					}
+					if (table === 'organization_plan_feature_overrides') {
+						return Promise.resolve({ data: [], error: null, count: 0 }).then(resolve, reject);
+					}
 					return Promise.resolve({ data: null, error: { message: `Unexpected table ${table}` } }).then(resolve, reject);
 				}
 			};

@@ -338,6 +338,108 @@ describe('plan policy', () => {
 		});
 	});
 
+	it('lets an active admin feature override grant a feature independently from the base plan', () => {
+		const policy = buildEffectivePlanPolicy(snapshot({ commercialPlan: 'free' }), {
+			featureOverrides: [
+				{
+					id: 'override-1',
+					organizationId: 'org-1',
+					featureKey: 'advanced_reporting',
+					state: 'granted',
+					expiresAt: '2999-01-01T00:00:00.000Z'
+				}
+			],
+			now: new Date('2026-05-24T00:00:00.000Z')
+		});
+
+		expect(policy.entitlements.advanced_reporting).toMatchObject({
+			available: true,
+			source: 'feature_override',
+			upgradeTarget: null,
+			override: {
+				id: 'override-1',
+				state: 'granted',
+				expiresAt: '2999-01-01T00:00:00.000Z'
+			}
+		});
+	});
+
+	it('lets an active admin feature override deny a feature that the effective plan would include', () => {
+		const policy = buildEffectivePlanPolicy(
+			snapshot({
+				source: 'gift',
+				commercialPlan: 'unit',
+				giftTier: 'unit',
+				giftExpiresAt: '2999-01-01T00:00:00.000Z'
+			}),
+			{
+				featureOverrides: [
+					{
+						id: 'override-2',
+						organizationId: 'org-1',
+						featureKey: 'advanced_reporting',
+						state: 'denied',
+						expiresAt: null
+					}
+				],
+				now: new Date('2026-05-24T00:00:00.000Z')
+			}
+		);
+
+		expect(policy.entitlements.advanced_reporting).toMatchObject({
+			available: false,
+			source: 'feature_override',
+			upgradeTarget: null,
+			override: {
+				id: 'override-2',
+				state: 'denied',
+				expiresAt: null
+			}
+		});
+	});
+
+	it('ignores expired admin feature overrides when building entitlements', () => {
+		const policy = buildEffectivePlanPolicy(snapshot({ commercialPlan: 'free' }), {
+			featureOverrides: [
+				{
+					id: 'override-3',
+					organizationId: 'org-1',
+					featureKey: 'advanced_reporting',
+					state: 'granted',
+					expiresAt: '2026-05-23T23:59:59.000Z'
+				}
+			],
+			now: new Date('2026-05-24T00:00:00.000Z')
+		});
+
+		expect(policy.entitlements.advanced_reporting).toMatchObject({
+			available: false,
+			source: 'stripe_billing',
+			upgradeTarget: 'unit'
+		});
+		expect(policy.entitlements.advanced_reporting).not.toHaveProperty('override');
+	});
+
+	it('explains Stripe-backed entitlements separately from legacy base-plan entitlements', () => {
+		const stripePolicy = buildEffectivePlanPolicy(snapshot({ source: 'stripe', commercialPlan: 'unit' }));
+		const legacyPolicy = buildEffectivePlanPolicy(
+			snapshot({
+				source: 'legacy_organization',
+				commercialPlan: 'unit',
+				stripeCustomerId: null,
+				stripeSubscriptionId: null,
+				stripeProductId: null,
+				stripePriceId: null,
+				subscriptionStatus: null,
+				collectionStatus: null,
+				syncStatus: 'not_configured'
+			})
+		);
+
+		expect(stripePolicy.entitlements.advanced_reporting.source).toBe('stripe_billing');
+		expect(legacyPolicy.entitlements.advanced_reporting.source).toBe('base_plan');
+	});
+
 	it('defines the free plan member cap and pending invitation policy in the central contract', () => {
 		const policy = buildEffectivePlanPolicy(snapshot({ commercialPlan: 'free', subscriptionStatus: null }));
 
@@ -401,5 +503,126 @@ describe('plan policy', () => {
 				ownedOrganizations: { limit: 1 }
 			}
 		});
+	});
+
+	it('includes active persisted feature overrides in the effective policy read model', async () => {
+		billingEnabledMock.mockReturnValue(true);
+		const ctx = createTestContext({ auth: { orgId: 'org-1' } });
+		ctx.rawStore.seed('organizations', [
+			{
+				id: 'org-1',
+				tier: 'free',
+				gift_tier: null,
+				gift_expires_at: null
+			}
+		]);
+		ctx.rawStore.seed('organization_billing_snapshots', [
+			{
+				id: 'snapshot-1',
+				organization_id: 'org-1',
+				source: 'stripe',
+				commercial_plan: 'free',
+				stripe_customer_id: 'cus_123',
+				stripe_subscription_id: 'sub_123',
+				stripe_product_id: 'prod_free',
+				stripe_price_id: 'price_free',
+				subscription_status: 'active',
+				collection_status: 'current',
+				current_period_start: null,
+				current_period_end: null,
+				cancel_at_period_end: false,
+				canceled_at: null,
+				trial_end: null,
+				sync_status: 'synced',
+				last_stripe_event_id: null,
+				last_stripe_event_type: null,
+				last_stripe_event_created_at: null,
+				last_processed_at: null,
+				last_reconciled_at: null,
+				reconciliation_result: null,
+				drift_detected: false
+			}
+		]);
+		ctx.rawStore.seed('organization_plan_feature_overrides', [
+			{
+				id: 'override-1',
+				organization_id: 'org-1',
+				feature_key: 'advanced_reporting',
+				override_state: 'granted',
+				expires_at: '2999-01-01T00:00:00.000Z',
+				revoked_at: null
+			}
+		]);
+
+		const policy = await readEffectivePlanPolicy({ auth: ctx.auth, store: ctx.rawStore });
+
+		expect(policy.entitlements.advanced_reporting).toMatchObject({
+			available: true,
+			source: 'feature_override',
+			override: {
+				id: 'override-1',
+				state: 'granted',
+				expiresAt: '2999-01-01T00:00:00.000Z'
+			}
+		});
+	});
+
+	it('ignores expired persisted feature overrides in the effective policy read model', async () => {
+		billingEnabledMock.mockReturnValue(true);
+		const ctx = createTestContext({ auth: { orgId: 'org-1' } });
+		ctx.rawStore.seed('organizations', [
+			{
+				id: 'org-1',
+				tier: 'free',
+				gift_tier: null,
+				gift_expires_at: null
+			}
+		]);
+		ctx.rawStore.seed('organization_billing_snapshots', [
+			{
+				id: 'snapshot-1',
+				organization_id: 'org-1',
+				source: 'stripe',
+				commercial_plan: 'free',
+				stripe_customer_id: 'cus_123',
+				stripe_subscription_id: 'sub_123',
+				stripe_product_id: 'prod_free',
+				stripe_price_id: 'price_free',
+				subscription_status: 'active',
+				collection_status: 'current',
+				current_period_start: null,
+				current_period_end: null,
+				cancel_at_period_end: false,
+				canceled_at: null,
+				trial_end: null,
+				sync_status: 'synced',
+				last_stripe_event_id: null,
+				last_stripe_event_type: null,
+				last_stripe_event_created_at: null,
+				last_processed_at: null,
+				last_reconciled_at: null,
+				reconciliation_result: null,
+				drift_detected: false
+			}
+		]);
+		ctx.rawStore.seed('organization_plan_feature_overrides', [
+			{
+				id: 'override-1',
+				organization_id: 'org-1',
+				feature_key: 'advanced_reporting',
+				override_state: 'granted',
+				expires_at: '2000-01-01T00:00:00.000Z',
+				revoked_at: null
+			}
+		]);
+
+		const policy = await readEffectivePlanPolicy({ auth: ctx.auth, store: ctx.rawStore });
+
+		expect(policy.entitlements.advanced_reporting).toMatchObject({
+			available: false,
+			source: 'stripe_billing',
+			upgradeTarget: 'unit'
+		});
+		expect(policy.entitlements.advanced_reporting).not.toHaveProperty('override');
 	});
 });

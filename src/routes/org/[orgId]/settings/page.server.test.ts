@@ -558,7 +558,8 @@ describe('org settings page server actions', () => {
 			})
 		} as never);
 
-		const workspace = (result as Awaited<ReturnType<typeof load>> & { workspace: OrganizationSettingsWorkspace }).workspace;
+		const workspace = (result as Awaited<ReturnType<typeof load>> & { workspace: OrganizationSettingsWorkspace })
+			.workspace;
 		expect(workspace.sections.dataExport.exportInfo).toMatchObject({
 			exportsUsed: 2,
 			exportsLimit: 3,

@@ -185,6 +185,8 @@ function createPlanPolicyPort(input: {
 				tier: plan,
 				source: 'billing_snapshot',
 				billingSource: 'stripe',
+				giftTier: null,
+				giftExpiresAt: null,
 				limits: {
 					activePersonnel: {
 						limit: 20,

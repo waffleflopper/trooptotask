@@ -12,7 +12,14 @@ vi.mock('$lib/config/billing', () => ({
 	}
 }));
 
-import { buildEffectivePlanPolicy, readEffectivePlanPolicy } from './planPolicy';
+import {
+	buildEffectivePlanPolicy,
+	checkCanAddPersonnelForPlanPolicy,
+	checkCanCreateOrganizationForPlanPolicies,
+	getAvailablePersonnelSlotsForPlanPolicy,
+	readEffectivePlanPolicy,
+	toEffectiveTierFromPlanPolicy
+} from './planPolicy';
 
 function snapshot(overrides: Partial<BillingSnapshot> = {}): BillingSnapshot {
 	return {
@@ -163,8 +170,171 @@ describe('plan policy', () => {
 		expect(policy).toMatchObject({
 			source: 'admin_gift',
 			commercialPlan: 'unit',
+			giftExpiresAt: '2999-01-01T00:00:00.000Z',
 			grace: { mode: 'none', message: null },
 			readOnly: { enabled: false, reasons: [] }
+		});
+	});
+
+	it('preserves unlimited fallback limits when billing is disabled', () => {
+		const policy = buildEffectivePlanPolicy(
+			snapshot({
+				source: 'billing_disabled',
+				commercialPlan: 'unit',
+				stripeCustomerId: null,
+				stripeSubscriptionId: null,
+				stripeProductId: null,
+				stripePriceId: null,
+				subscriptionStatus: null,
+				collectionStatus: null,
+				syncStatus: 'billing_disabled'
+			})
+		);
+
+		expect(policy.limits.activePersonnel.limit).toBeNull();
+		expect(policy.limits.ownedOrganizations.limit).toBeNull();
+		expect(policy.exportQuota.unlimited).toBe(true);
+	});
+
+	it('denies personnel creation at the active personnel cap with upgrade and archive guidance', () => {
+		const policy = buildEffectivePlanPolicy(snapshot({ commercialPlan: 'free' }));
+		const usage = { activePersonnelCount: 20 };
+
+		const result = checkCanAddPersonnelForPlanPolicy(policy, usage);
+
+		expect(result).toEqual({
+			allowed: false,
+			message: 'Personnel limit reached. Upgrade or archive personnel to add more.'
+		});
+	});
+
+	it('returns available personnel slots for batch import trimming from the same policy limit', () => {
+		const policy = buildEffectivePlanPolicy(snapshot({ commercialPlan: 'team' }));
+		const usage = { activePersonnelCount: 78 };
+
+		expect(getAvailablePersonnelSlotsForPlanPolicy(policy, usage)).toBe(2);
+	});
+
+	it('keeps existing effective-tier callers on a policy-backed compatibility path', () => {
+		const policy = buildEffectivePlanPolicy(snapshot({ commercialPlan: 'free' }));
+		const tier = toEffectiveTierFromPlanPolicy(policy, { activePersonnelCount: 24 });
+
+		expect(tier).toMatchObject({
+			tier: 'free',
+			source: 'subscription',
+			personnelCount: 24,
+			personnelCap: 20,
+			isReadOnly: true,
+			readOnlyReason: 'personnel_limit'
+		});
+	});
+
+	it('does not mark the effective-tier compatibility path read-only at exactly the personnel cap', () => {
+		const policy = buildEffectivePlanPolicy(snapshot({ commercialPlan: 'free' }));
+		const tier = toEffectiveTierFromPlanPolicy(policy, { activePersonnelCount: 20 });
+
+		expect(tier).toMatchObject({
+			personnelCount: 20,
+			personnelCap: 20,
+			isReadOnly: false,
+			readOnlyReason: null
+		});
+	});
+
+	it('preserves the legacy unit compatibility cap for organizations already above 500 personnel', () => {
+		const policy = buildEffectivePlanPolicy(
+			snapshot({
+				source: 'legacy_organization',
+				commercialPlan: 'unit',
+				stripeCustomerId: null,
+				stripeSubscriptionId: null,
+				stripeProductId: null,
+				stripePriceId: null,
+				subscriptionStatus: null,
+				collectionStatus: null,
+				syncStatus: 'not_configured'
+			})
+		);
+
+		expect(toEffectiveTierFromPlanPolicy(policy, { activePersonnelCount: 600 })).toMatchObject({
+			tier: 'unit',
+			source: 'default',
+			personnelCount: 600,
+			personnelCap: 600,
+			isReadOnly: false,
+			readOnlyReason: null
+		});
+	});
+
+	it('preserves gift expiry on the effective-tier compatibility path', () => {
+		const policy = buildEffectivePlanPolicy(
+			snapshot({
+				source: 'gift',
+				commercialPlan: 'unit',
+				giftTier: 'unit',
+				giftExpiresAt: '2999-01-01T00:00:00.000Z'
+			})
+		);
+
+		expect(toEffectiveTierFromPlanPolicy(policy, { activePersonnelCount: 12 })).toMatchObject({
+			source: 'gift',
+			giftTier: 'unit',
+			giftExpiresAt: '2999-01-01T00:00:00.000Z'
+		});
+	});
+
+	it('preserves the actual gift tier when a stronger paid plan wins commercially', () => {
+		const policy = buildEffectivePlanPolicy(
+			snapshot({
+				source: 'gift',
+				commercialPlan: 'unit',
+				giftTier: 'team',
+				giftExpiresAt: '2999-01-01T00:00:00.000Z'
+			})
+		);
+
+		expect(toEffectiveTierFromPlanPolicy(policy, { activePersonnelCount: 12 })).toMatchObject({
+			tier: 'unit',
+			source: 'gift',
+			giftTier: 'team',
+			giftExpiresAt: '2999-01-01T00:00:00.000Z'
+		});
+	});
+
+	it('allows organization creation when the owner has paid or gift policy headroom', () => {
+		const unitPolicy = buildEffectivePlanPolicy(snapshot({ commercialPlan: 'unit' }));
+		const giftPolicy = buildEffectivePlanPolicy(
+			snapshot({
+				source: 'gift',
+				commercialPlan: 'unit',
+				giftTier: 'unit',
+				giftExpiresAt: '2999-01-01T00:00:00.000Z'
+			})
+		);
+
+		expect(checkCanCreateOrganizationForPlanPolicies({ ownedOrganizationCount: 2, policies: [unitPolicy] })).toEqual({
+			allowed: true
+		});
+		expect(checkCanCreateOrganizationForPlanPolicies({ ownedOrganizationCount: 2, policies: [giftPolicy] })).toEqual({
+			allowed: true
+		});
+	});
+
+	it('denies organization creation when the highest effective policy ownership cap is filled', () => {
+		const freePolicy = buildEffectivePlanPolicy(snapshot({ commercialPlan: 'free' }));
+		const teamPolicy = buildEffectivePlanPolicy(snapshot({ commercialPlan: 'team' }));
+
+		expect(
+			checkCanCreateOrganizationForPlanPolicies({ ownedOrganizationCount: 1, policies: [freePolicy, teamPolicy] })
+		).toEqual({
+			allowed: false,
+			message: 'You can own up to 1 organization(s) on your current plan.'
+		});
+	});
+
+	it('allows first organization creation when the owner has no existing policies', () => {
+		expect(checkCanCreateOrganizationForPlanPolicies({ ownedOrganizationCount: 0, policies: [] })).toEqual({
+			allowed: true
 		});
 	});
 

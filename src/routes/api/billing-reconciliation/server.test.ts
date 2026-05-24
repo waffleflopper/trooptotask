@@ -167,6 +167,26 @@ describe('billing reconciliation endpoint', () => {
 		expect(JSON.stringify(result)).not.toContain('whsec_');
 	});
 
+	it('passes dry-run mode through to the reconciliation batch report', async () => {
+		const result = await _runBillingReconciliationEndpointCore({
+			authHeader: 'Bearer expected-secret',
+			secrets: ['expected-secret'],
+			url: new URL('http://localhost/api/billing-reconciliation?dryRun=1'),
+			adminClient: adminClientWithAudit() as never,
+			provider,
+			writeAudit: false,
+			now: () => new Date('2026-05-23T00:00:00.000Z')
+		});
+
+		expect(result.dryRun).toBe(true);
+		expect(result.results[0]).toMatchObject({
+			dryRun: true,
+			plannedWrites: expect.any(Array)
+		});
+		expect(storeMock.upsertSnapshot).not.toHaveBeenCalled();
+		expect(storeMock.updateOrganizationBillingMirror).not.toHaveBeenCalled();
+	});
+
 	it('caps caller supplied timeout windows', async () => {
 		const dateNow = vi.spyOn(Date, 'now').mockReturnValueOnce(0).mockReturnValueOnce(60_000);
 		try {

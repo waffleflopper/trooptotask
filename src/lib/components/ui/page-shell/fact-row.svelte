@@ -29,6 +29,7 @@
 		badgeVariant = 'secondary',
 		children,
 		class: className,
+		role,
 		...restProps
 	}: Props = $props();
 
@@ -44,6 +45,7 @@
 <div
 	data-slot="fact-row"
 	data-layout={layout}
+	{role}
 	class={cn(
 		'grid text-sm',
 		layout === 'inline' ? 'grid-cols-[minmax(0,1fr)_auto] items-baseline gap-3' : 'min-w-0 content-start gap-1',

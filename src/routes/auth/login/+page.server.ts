@@ -3,21 +3,11 @@ import type { Actions, PageServerLoad } from './$types';
 import { sanitizeString } from '$lib/server/validation';
 import { auditLog } from '$lib/server/auditLog';
 import { getAuthenticatedRedirectPath } from '$lib/server/mfaGate';
-
-function sanitizeNextPath(value: FormDataEntryValue | string | null | undefined): string | null {
-	if (typeof value !== 'string' || !value.startsWith('/') || value.startsWith('//')) return null;
-
-	try {
-		const url = new URL(value, 'http://localhost');
-		return `${url.pathname}${url.search}${url.hash}`;
-	} catch {
-		return null;
-	}
-}
+import { sanitizeAuthNextPath } from '$lib/auth/redirects';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
 	const reauth = url.searchParams.get('reauth') === '1';
-	const nextPath = sanitizeNextPath(url.searchParams.get('next'));
+	const nextPath = sanitizeAuthNextPath(url.searchParams.get('next'));
 
 	if (url.searchParams.get('error') === 'auth_link_invalid') {
 		return {
@@ -41,7 +31,7 @@ export const actions: Actions = {
 			const formData = await request.formData();
 			const email = sanitizeString(formData.get('email') as string, 254).toLowerCase();
 			const password = formData.get('password') as string;
-			const nextPath = sanitizeNextPath(formData.get('next'));
+			const nextPath = sanitizeAuthNextPath(formData.get('next'));
 
 			if (!email || !password) {
 				return fail(400, { error: 'Email and password are required', email, nextPath });

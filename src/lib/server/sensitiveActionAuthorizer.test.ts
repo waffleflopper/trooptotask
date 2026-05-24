@@ -1,11 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
+	assignSensitiveActionFailureDetails,
 	checkSensitiveAction,
 	createSensitiveActionAuthorizer,
 	createSupabaseSensitiveActionAuthorizer,
 	sensitiveActionDecisionAuditDetails,
 	sensitiveActionDenialMessage,
-	sensitiveActionStepUpPath
+	sensitiveActionStepUpPath,
+	throwSensitiveActionFailure
 } from './sensitiveActionAuthorizer';
 
 const now = new Date('2026-05-22T12:00:00.000Z');
@@ -159,6 +161,55 @@ describe('checkSensitiveAction', () => {
 			sessionAgeMs: 60 * 60 * 1000,
 			recentSessionWindowMs: 15 * 60 * 1000,
 			requiresStepUp: true
+		});
+	});
+
+	it('throws structured step-up failure details for form and JSON callers', () => {
+		const decision = checkSensitiveAction({
+			action: 'organization.transferOwnership',
+			now,
+			actor: {
+				userId: 'owner-1',
+				sessionStartedAt: '2026-05-22T11:00:00.000Z',
+				currentAssuranceLevel: 'aal1',
+				nextAssuranceLevel: 'aal2',
+				isSuspended: false
+			},
+			target: { type: 'organization', id: 'org-1' }
+		});
+
+		expect(() => throwSensitiveActionFailure(decision)).toThrow(
+			expect.objectContaining({
+				message: 'Please confirm your identity before continuing. Sign in again or complete MFA, then try again.',
+				status: 403,
+				reason: 'denied.staleSession',
+				requiresStepUp: true,
+				stepUpPath: '/auth/mfa-verify'
+			})
+		);
+	});
+
+	it('assigns sensitive-action failure details onto an existing error', () => {
+		const decision = checkSensitiveAction({
+			action: 'billing.checkout',
+			now,
+			actor: {
+				userId: 'owner-1',
+				sessionStartedAt: '2026-05-22T11:00:00.000Z',
+				currentAssuranceLevel: 'aal1',
+				nextAssuranceLevel: 'aal1',
+				isSuspended: false
+			}
+		});
+
+		const error = assignSensitiveActionFailureDetails(new Error('Denied'), decision);
+
+		expect(error).toMatchObject({
+			message: 'Denied',
+			status: 403,
+			reason: 'denied.staleSession',
+			requiresStepUp: true,
+			stepUpPath: '/auth/login'
 		});
 	});
 });

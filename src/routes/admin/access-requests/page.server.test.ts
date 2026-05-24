@@ -72,6 +72,11 @@ vi.mock('$lib/server/sensitiveActionAuthorizer', () => ({
 	sensitiveActionDecisionAuditDetails: sensitiveActionAuditDetailsMock,
 	sensitiveActionDenialMessage: () =>
 		'Please confirm your identity before continuing. Sign in again or complete MFA, then try again.',
+	sensitiveActionFailureFields: (decision: { reason: string; requiresStepUp: boolean }) => ({
+		reason: decision.reason,
+		requiresStepUp: decision.requiresStepUp,
+		stepUpPath: decision.requiresStepUp ? '/auth/mfa-verify' : null
+	}),
 	sensitiveActionStepUpPath: (decision: { requiresStepUp: boolean }) =>
 		decision.requiresStepUp ? '/auth/mfa-verify' : null
 }));

@@ -73,15 +73,15 @@
 		</Alert.Root>
 	{/if}
 
-	<Card.Root>
+	<Card.Root class="overflow-hidden">
 		<Card.Header class="gap-2 sm:flex-row sm:items-center sm:justify-between">
 			<div>
 				<Card.Title>Webhook Ledger</Card.Title>
 				<Card.Description>{retryableCount} retryable failures in the current result set.</Card.Description>
 			</div>
 		</Card.Header>
-		<Card.Content>
-			<Table.Root class="min-w-[1480px] table-fixed">
+		<Card.Content class="overflow-x-auto">
+			<Table.Root>
 				<Table.Header>
 					<Table.Row>
 						<Table.Head class="w-[210px]">Event</Table.Head>

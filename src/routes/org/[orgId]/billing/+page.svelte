@@ -12,6 +12,7 @@
 	import * as PageShell from '$lib/components/ui/page-shell';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
+	import { redirectToSensitiveActionStepUp } from '$lib/auth/sensitiveActionStepUp';
 	import type { WorkspaceToolbarAction } from '$lib/components/ui/workspace-toolbar';
 	import type {
 		BillingSnapshot,
@@ -285,7 +286,7 @@
 			case 'paused':
 				return {
 					title: 'Subscription paused.',
-					description: 'Stripe reports this subscription is paused. Access depends on the current billing policy.',
+					description: 'Stripe reports this subscription is paused. Current policy keeps paid access available.',
 					statusLabel: 'Paused',
 					variant: 'warning',
 					actionHint: 'Open the billing portal to resume or update the subscription.'
@@ -371,18 +372,6 @@
 		});
 	}
 
-	function redirectToStepUp(path: string | null | undefined) {
-		const destination = new URL(path || '/auth/login', window.location.origin);
-		const next = `${window.location.pathname}${window.location.search}`;
-
-		if (destination.pathname === '/auth/login') {
-			destination.searchParams.set('reauth', '1');
-		}
-
-		destination.searchParams.set('next', next);
-		window.location.href = destination.toString();
-	}
-
 	function openConfirmPasswordDialog(action: PendingBillingAction) {
 		pendingBillingAction = action;
 		confirmPassword = '';
@@ -412,7 +401,7 @@
 				return true;
 			}
 
-			redirectToStepUp(result.stepUpPath);
+			redirectToSensitiveActionStepUp(result);
 			return true;
 		}
 
@@ -456,7 +445,7 @@
 			const result = (await res.json()) as ConfirmSensitiveActionResult;
 
 			if (result.requiresStepUp) {
-				redirectToStepUp(result.stepUpPath);
+				redirectToSensitiveActionStepUp(result);
 				return;
 			}
 
@@ -722,24 +711,24 @@
 				<Alert.Title>{billingStatus.title}</Alert.Title>
 				<Alert.Description>{billingStatus.actionHint}</Alert.Description>
 			</Alert.Root>
-			<dl class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-				<div class="grid gap-1">
-					<dt class="text-xs font-medium text-muted-foreground">Subscription Status</dt>
-					<dd>{subscriptionStatusLabel(billingSnapshot?.subscriptionStatus)}</dd>
-				</div>
-				<div class="grid gap-1">
-					<dt class="text-xs font-medium text-muted-foreground">Entitlement Source</dt>
-					<dd>{snapshotSourceLabel(billingSnapshot?.source)}</dd>
-				</div>
-				<div class="grid gap-1">
-					<dt class="text-xs font-medium text-muted-foreground">Paid Through</dt>
-					<dd>{formatBillingDate(billingSnapshot?.currentPeriodEnd)}</dd>
-				</div>
-				<div class="grid gap-1">
-					<dt class="text-xs font-medium text-muted-foreground">Sync Health</dt>
-					<dd>{syncHealthLabel(billingSnapshot)}</dd>
-				</div>
-			</dl>
+			<PageShell.FactGrid layout="three">
+				<PageShell.FactRow
+					label="Subscription Status"
+					value={subscriptionStatusLabel(billingSnapshot?.subscriptionStatus)}
+					layout="stack"
+				/>
+				<PageShell.FactRow
+					label="Entitlement Source"
+					value={snapshotSourceLabel(billingSnapshot?.source)}
+					layout="stack"
+				/>
+				<PageShell.FactRow
+					label="Paid Through"
+					value={formatBillingDate(billingSnapshot?.currentPeriodEnd)}
+					layout="stack"
+				/>
+				<PageShell.FactRow label="Sync Health" value={syncHealthLabel(billingSnapshot)} layout="stack" />
+			</PageShell.FactGrid>
 			{#if data.canManageSubscription && !billingActionsDisabled}
 				<div>
 					<Button variant="outline" onclick={handleManageSubscription} disabled={portalLoading}>
@@ -758,20 +747,19 @@
 				<Card.Description>{cancellationSummary.description}</Card.Description>
 			</Card.Header>
 			<Card.Content>
-				<dl class="grid gap-3 sm:grid-cols-3">
-					<div class="grid gap-1">
-						<dt class="text-xs font-medium text-muted-foreground">Status</dt>
-						<dd>{cancellationSummary.label}</dd>
-					</div>
-					<div class="grid gap-1">
-						<dt class="text-xs font-medium text-muted-foreground">Paid Through</dt>
-						<dd>{formatBillingDate(cancellationSummary.currentPeriodEnd)}</dd>
-					</div>
-					<div class="grid gap-1">
-						<dt class="text-xs font-medium text-muted-foreground">Canceled At</dt>
-						<dd>{formatBillingDate(cancellationSummary.canceledAt)}</dd>
-					</div>
-				</dl>
+				<PageShell.FactGrid layout="three">
+					<PageShell.FactRow label="Status" value={cancellationSummary.label} layout="stack" />
+					<PageShell.FactRow
+						label="Paid Through"
+						value={formatBillingDate(cancellationSummary.currentPeriodEnd)}
+						layout="stack"
+					/>
+					<PageShell.FactRow
+						label="Canceled At"
+						value={formatBillingDate(cancellationSummary.canceledAt)}
+						layout="stack"
+					/>
+				</PageShell.FactGrid>
 			</Card.Content>
 		</Card.Root>
 	{/if}

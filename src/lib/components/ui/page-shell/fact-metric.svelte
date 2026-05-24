@@ -13,7 +13,7 @@
 		children?: Snippet;
 	};
 
-	let { label, value, detail, tone = 'default', children, class: className, ...restProps }: Props = $props();
+	let { label, value, detail, tone = 'default', children, class: className, role, ...restProps }: Props = $props();
 
 	const valueToneClass: Record<MetricTone, string> = {
 		default: 'text-foreground',
@@ -23,7 +23,7 @@
 	};
 </script>
 
-<div data-slot="fact-metric" class={cn('grid gap-1 rounded-lg border p-3', className)} {...restProps}>
+<div data-slot="fact-metric" {role} class={cn('grid gap-1 rounded-lg border p-3', className)} {...restProps}>
 	<span class="text-xs text-muted-foreground">{label}</span>
 	<strong class="text-xl font-semibold {valueToneClass[tone]}">{value}</strong>
 	{#if children}

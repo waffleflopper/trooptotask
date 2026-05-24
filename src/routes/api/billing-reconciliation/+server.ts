@@ -55,6 +55,7 @@ export async function _runBillingReconciliationEndpointCore(input: {
 	const cursor = input.url.searchParams.get('cursor');
 	const requestedTimeoutMs = parsePositiveInteger(input.url.searchParams.get('timeoutMs'));
 	const timeoutMs = requestedTimeoutMs ? Math.min(requestedTimeoutMs, MAX_TIMEOUT_MS) : undefined;
+	const dryRun = input.url.searchParams.get('dryRun') === '1';
 
 	const result = await runBillingReconciliationBatch({
 		store: createSupabaseBillingReconciliationStore(input.adminClient),
@@ -64,7 +65,8 @@ export async function _runBillingReconciliationEndpointCore(input: {
 		limit,
 		cursor,
 		timeoutMs,
-		now: input.now
+		now: input.now,
+		dryRun
 	});
 
 	if (input.writeAudit ?? true) {
@@ -93,13 +95,16 @@ async function writeBillingReconciliationAudit(
 			drifted: result.drifted,
 			timedOut: result.timedOut,
 			nextCursor: result.nextCursor,
+			dryRun: result.dryRun,
 			results: result.results.map((item) => ({
 				orgId: item.orgId,
 				ok: item.ok,
 				status: item.status,
 				result: item.result,
 				driftDetected: item.driftDetected,
-				diagnostics: item.diagnostics
+				diagnostics: item.diagnostics,
+				plannedWrites: item.plannedWrites,
+				dryRun: item.dryRun
 			}))
 		},
 		severity: result.failed > 0 || result.timedOut ? 'warning' : 'info'

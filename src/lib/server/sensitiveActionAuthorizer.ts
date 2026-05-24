@@ -68,6 +68,12 @@ export interface SensitiveActionDecision {
 	requiresStepUp: boolean;
 }
 
+export interface SensitiveActionFailureFields {
+	reason: SensitiveActionDecisionReason;
+	requiresStepUp: boolean;
+	stepUpPath: string | null;
+}
+
 export interface SensitiveActionAuthorizeInput {
 	action: SensitiveAction;
 	actorUserId: string;
@@ -161,6 +167,25 @@ export function sensitiveActionDenialMessage(decision: SensitiveActionDecision):
 export function sensitiveActionStepUpPath(decision: SensitiveActionDecision): string | null {
 	if (!decision.requiresStepUp) return null;
 	return decision.nextAssuranceLevel === 'aal2' ? '/auth/mfa-verify' : '/auth/login';
+}
+
+export function sensitiveActionFailureFields(decision: SensitiveActionDecision): SensitiveActionFailureFields {
+	return {
+		reason: decision.reason,
+		requiresStepUp: decision.requiresStepUp,
+		stepUpPath: sensitiveActionStepUpPath(decision)
+	};
+}
+
+export function assignSensitiveActionFailureDetails(error: Error, decision: SensitiveActionDecision): Error {
+	const details = error as unknown as Record<string, unknown>;
+	details.status = 403;
+	Object.assign(details, sensitiveActionFailureFields(decision));
+	return error;
+}
+
+export function throwSensitiveActionFailure(decision: SensitiveActionDecision): never {
+	throw assignSensitiveActionFailureDetails(new Error(sensitiveActionDenialMessage(decision)), decision);
 }
 
 export function createSensitiveActionAuthorizer(input: {

@@ -7,7 +7,7 @@ import {
 	ORGANIZATION_TRANSFER_OWNERSHIP_ACTION,
 	checkSensitiveAction,
 	sensitiveActionDecisionAuditDetails,
-	sensitiveActionDenialMessage,
+	throwSensitiveActionFailure,
 	type SensitiveAction,
 	type SensitiveActionAuthorizer,
 	type SensitiveActionDecision
@@ -212,7 +212,7 @@ async function authorizeOrganizationSensitiveAction(
 			actor: { userId: null }
 		});
 		auditDeniedSensitiveAction(ports, input.deniedAuditAction, decision, input.details);
-		fail(403, sensitiveActionDenialMessage(decision));
+		throwSensitiveActionFailure(decision);
 	}
 
 	const decision = await ports.sensitiveActionAuthorizer.authorize({
@@ -224,7 +224,7 @@ async function authorizeOrganizationSensitiveAction(
 
 	if (!decision.allowed) {
 		auditDeniedSensitiveAction(ports, input.deniedAuditAction, decision, input.details);
-		fail(403, sensitiveActionDenialMessage(decision));
+		throwSensitiveActionFailure(decision);
 	}
 
 	return sensitiveAction;

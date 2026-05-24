@@ -22,6 +22,8 @@ export interface BillingReconciliationBatchItem {
 	result: string;
 	driftDetected: boolean;
 	diagnostics: string[];
+	plannedWrites: string[];
+	dryRun: boolean;
 }
 
 export interface BillingReconciliationBatchResult {
@@ -33,6 +35,7 @@ export interface BillingReconciliationBatchResult {
 	drifted: number;
 	timedOut: boolean;
 	nextCursor: string | null;
+	dryRun: boolean;
 	results: BillingReconciliationBatchItem[];
 }
 
@@ -62,8 +65,10 @@ export async function runBillingReconciliationBatch(input: {
 	cursor?: string | null;
 	timeoutMs?: number;
 	now?: () => Date;
+	dryRun?: boolean;
 }): Promise<BillingReconciliationBatchResult> {
 	const now = input.now ?? (() => new Date());
+	const dryRun = input.dryRun ?? false;
 	const startedAt = now().toISOString();
 	const timeoutMs = Math.max(1, input.timeoutMs ?? DEFAULT_TIMEOUT_MS);
 	const limit = normalizeBillingReconciliationBatchLimit(input.limit);
@@ -85,7 +90,8 @@ export async function runBillingReconciliationBatch(input: {
 				provider: input.provider,
 				subscription: input.createSubscriptionPort(candidate.orgId),
 				priceCatalog: input.priceCatalog,
-				now
+				now,
+				dryRun
 			});
 			results.push({
 				orgId: candidate.orgId,
@@ -93,7 +99,9 @@ export async function runBillingReconciliationBatch(input: {
 				status: result.status,
 				result: result.result,
 				driftDetected: result.driftDetected,
-				diagnostics: result.diagnostics.map(sanitizeDiagnostic)
+				diagnostics: result.diagnostics.map(sanitizeDiagnostic),
+				plannedWrites: result.plannedWrites,
+				dryRun: result.dryRun
 			});
 		} catch (err) {
 			results.push({
@@ -102,7 +110,9 @@ export async function runBillingReconciliationBatch(input: {
 				status: 'error',
 				result: 'Unexpected reconciliation failure.',
 				driftDetected: true,
-				diagnostics: [sanitizeDiagnostic(err)]
+				diagnostics: [sanitizeDiagnostic(err)],
+				plannedWrites: [],
+				dryRun
 			});
 		}
 	}
@@ -125,6 +135,7 @@ export async function runBillingReconciliationBatch(input: {
 		drifted,
 		timedOut,
 		nextCursor,
+		dryRun,
 		results
 	};
 }

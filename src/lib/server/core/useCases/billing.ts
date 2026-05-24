@@ -16,8 +16,7 @@ import {
 	BILLING_PORTAL_ACTION,
 	checkSensitiveAction,
 	sensitiveActionDecisionAuditDetails,
-	sensitiveActionDenialMessage,
-	sensitiveActionStepUpPath,
+	throwSensitiveActionFailure,
 	type SensitiveAction,
 	type SensitiveActionAuthorizer,
 	type SensitiveActionDecision
@@ -127,12 +126,7 @@ async function authorizeBillingSensitiveAction(
 }
 
 function failSensitiveBillingAction(decision: SensitiveActionDecision): never {
-	const err = new Error(sensitiveActionDenialMessage(decision));
-	(err as unknown as Record<string, unknown>).status = 403;
-	(err as unknown as Record<string, unknown>).reason = decision.reason;
-	(err as unknown as Record<string, unknown>).requiresStepUp = decision.requiresStepUp;
-	(err as unknown as Record<string, unknown>).stepUpPath = sensitiveActionStepUpPath(decision);
-	throw err;
+	throwSensitiveActionFailure(decision);
 }
 
 function auditDeniedSensitiveBillingAction(

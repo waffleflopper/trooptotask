@@ -7,6 +7,7 @@ import Page from './+page.svelte';
 afterEach(() => {
 	cleanup();
 	vi.unstubAllGlobals();
+	window.location.href = 'http://localhost/';
 });
 
 const baseData = {
@@ -148,7 +149,7 @@ describe('billing page toolbar', () => {
 		['canceled', 'Subscription canceled.', 'start a new checkout'],
 		['incomplete', 'Payment is pending.', 'Complete checkout'],
 		['incomplete_expired', 'Checkout expired.', 'start a new checkout'],
-		['paused', 'Subscription paused.', 'Open the billing portal']
+		['paused', 'Subscription paused.', 'Current policy keeps paid access available']
 	])('shows owner-safe status copy for %s subscriptions', (subscriptionStatus, title, detail) => {
 		render(Page, {
 			props: {
@@ -553,6 +554,41 @@ describe('billing page toolbar', () => {
 		expect((screen.getAllByRole('button', { name: 'Subscribe' })[0] as HTMLButtonElement).disabled).toBe(false);
 	});
 
+	it('redirects to MFA verification when checkout requires MFA step-up', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockResolvedValue(
+				new Response(
+					JSON.stringify({
+						error: 'Please confirm your identity before continuing.',
+						requiresStepUp: true,
+						stepUpPath: '/auth/mfa-verify'
+					}),
+					{ status: 403, headers: { 'Content-Type': 'application/json' } }
+				)
+			)
+		);
+
+		render(Page, {
+			props: {
+				data: {
+					...baseData,
+					effectiveTier: {
+						...baseData.effectiveTier,
+						tier: 'free',
+						source: 'default'
+					}
+				} as never
+			}
+		});
+
+		await fireEvent.click(screen.getAllByRole('button', { name: 'Subscribe' })[0]);
+
+		expect(window.location.pathname).toBe('/auth/mfa-verify');
+		expect(window.location.search).toBe('?next=%2F');
+		expect(screen.queryByText('Confirm your password')).toBeNull();
+	});
+
 	it('shows password confirmation errors without leaving the billing page', async () => {
 		const fetchMock = vi
 			.fn()
@@ -600,6 +636,53 @@ describe('billing page toolbar', () => {
 		expect(screen.getByRole('dialog')).toBeTruthy();
 	});
 
+	it('redirects to MFA verification when password confirmation requires MFA step-up', async () => {
+		const fetchMock = vi
+			.fn()
+			.mockResolvedValueOnce(
+				new Response(
+					JSON.stringify({
+						error: 'Please confirm your identity before continuing.',
+						requiresStepUp: true,
+						stepUpPath: '/auth/login'
+					}),
+					{ status: 403, headers: { 'Content-Type': 'application/json' } }
+				)
+			)
+			.mockResolvedValueOnce(
+				new Response(JSON.stringify({ requiresStepUp: true, stepUpPath: '/auth/mfa-verify' }), {
+					status: 200,
+					headers: { 'Content-Type': 'application/json' }
+				})
+			);
+		vi.stubGlobal('fetch', fetchMock);
+
+		render(Page, {
+			props: {
+				data: {
+					...baseData,
+					effectiveTier: {
+						...baseData.effectiveTier,
+						tier: 'free',
+						source: 'default'
+					}
+				} as never
+			}
+		});
+
+		await fireEvent.click(screen.getAllByRole('button', { name: 'Subscribe' })[0]);
+		await fireEvent.input(screen.getByLabelText('Password'), { target: { value: 'correct-password' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+
+		expect(fetchMock).toHaveBeenNthCalledWith(2, '/api/auth/confirm-sensitive-action', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ password: 'correct-password' })
+		});
+		expect(window.location.pathname).toBe('/auth/mfa-verify');
+		expect(window.location.search).toBe('?next=%2F');
+	});
+
 	it('shows payment-failure grace messaging separately from personnel limits', () => {
 		render(Page, {
 			props: {
@@ -640,6 +723,9 @@ describe('billing page toolbar', () => {
 		expect(screen.getByText(/Paid access remains active through June 1, 2026/)).toBeTruthy();
 		expect(screen.getByText('Cancellation Timing')).toBeTruthy();
 		expect(screen.getByText('Cancels at period end')).toBeTruthy();
+		const subscriptionStatusFact = screen.getByText('Subscription Status').closest('[data-slot="fact-row"]');
+		expect(subscriptionStatusFact?.hasAttribute('role')).toBe(false);
+		expect(subscriptionStatusFact?.closest('[data-slot="fact-grid"]')?.hasAttribute('role')).toBe(false);
 	});
 
 	it('shows terminal cancellation timing after paid access ends', () => {

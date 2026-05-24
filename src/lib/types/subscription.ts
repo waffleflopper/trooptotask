@@ -62,7 +62,7 @@ export interface EffectiveTier {
 	personnelCount: number;
 	personnelCap: number;
 	isReadOnly: boolean;
-	readOnlyReason?: ReadOnlyReason | null;
+	readOnlyReason: ReadOnlyReason | null;
 	giftExpiresAt: string | null;
 	giftTier: Tier | null;
 }

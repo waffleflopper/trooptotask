@@ -58,6 +58,9 @@ describe('stripe webhook event ledger migration', () => {
 		expect(normalized).toContain('on conflict ("id") do update');
 		expect(normalized).toContain('"attempt_count" = "stripe_webhook_events"."attempt_count" + 1');
 		expect(normalized).toContain(
+			"where \"stripe_webhook_events\".\"processing_state\" not in ( 'processed'::text, 'ignored'::text, 'permanently_failed'::text, 'superseded'::text )"
+		);
+		expect(normalized).toContain(
 			'grant execute on function "public"."record_stripe_webhook_event_attempt"(text, text, jsonb, text, text, timestamp with time zone) to "service_role"'
 		);
 	});

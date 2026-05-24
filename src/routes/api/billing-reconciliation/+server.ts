@@ -1,4 +1,5 @@
 import { error, json } from '@sveltejs/kit';
+import { timingSafeEqual } from 'node:crypto';
 import { env } from '$env/dynamic/private';
 import type { RequestHandler } from './$types';
 import { getAdminClient } from '$lib/server/supabase';
@@ -16,7 +17,18 @@ const MAX_TIMEOUT_MS = 55_000;
 function isAuthorized(authHeader: string | null, secrets: Array<string | undefined>): boolean {
 	if (!authHeader) return false;
 	const configuredSecrets = secrets.filter((secret): secret is string => Boolean(secret?.trim()));
-	return configuredSecrets.some((secret) => authHeader === `Bearer ${secret}`);
+	return configuredSecrets.some((secret) => timingSafeStringEqual(authHeader, `Bearer ${secret}`));
+}
+
+function timingSafeStringEqual(left: string, right: string): boolean {
+	const leftBuffer = Buffer.from(left);
+	const rightBuffer = Buffer.from(right);
+	const maxLength = Math.max(leftBuffer.length, rightBuffer.length);
+	const paddedLeft = Buffer.alloc(maxLength);
+	const paddedRight = Buffer.alloc(maxLength);
+	leftBuffer.copy(paddedLeft);
+	rightBuffer.copy(paddedRight);
+	return timingSafeEqual(paddedLeft, paddedRight) && leftBuffer.length === rightBuffer.length;
 }
 
 function parsePositiveInteger(value: string | null): number | null {

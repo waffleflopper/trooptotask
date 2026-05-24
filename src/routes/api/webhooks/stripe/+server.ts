@@ -251,6 +251,19 @@ async function checkGiftPause(
 	}
 }
 
+async function checkGiftPauseBestEffort(
+	supabase: SupabaseClient,
+	orgId: string,
+	orgTier: string,
+	subscription: Stripe.Subscription
+): Promise<void> {
+	try {
+		await checkGiftPause(supabase, orgId, orgTier, subscription);
+	} catch (err) {
+		console.error(`Gift pause sync failed for organization ${orgId}:`, _sanitizeWebhookError(err));
+	}
+}
+
 // ---------------------------------------------------------------------------
 // Event handlers
 // ---------------------------------------------------------------------------
@@ -359,9 +372,7 @@ async function handleSubscriptionUpdated(
 	const retainsCommercialPlan = grantsPaidAccess || subscription.status === 'past_due';
 
 	if (retainsCommercialPlan && !catalogLookup.ok) {
-		throw new _PermanentWebhookProcessingError(
-			`customer.subscription.updated cannot grant access for ${orgId}: ${catalogLookup.reason}`
-		);
+		throw new Error(`customer.subscription.updated cannot grant access for ${orgId}: ${catalogLookup.reason}`);
 	}
 
 	if (
@@ -370,7 +381,7 @@ async function handleSubscriptionUpdated(
 		subscription.metadata?.tier &&
 		subscription.metadata.tier !== catalogLookup.entry.commercialPlan
 	) {
-		throw new _PermanentWebhookProcessingError(
+		throw new Error(
 			`customer.subscription.updated metadata tier ${subscription.metadata.tier} does not match price catalog plan ${catalogLookup.entry.commercialPlan}`
 		);
 	}
@@ -418,7 +429,7 @@ async function handleSubscriptionUpdated(
 	invalidateTierCache(orgId);
 
 	// Check if a gift should pause/resume this subscription
-	await checkGiftPause(supabase, orgId, commercialPlan, subscription);
+	await checkGiftPauseBestEffort(supabase, orgId, commercialPlan, subscription);
 	return {
 		state: 'processed',
 		result: `subscription updated for organization ${orgId}`
@@ -524,7 +535,7 @@ async function handlePaymentFailed(
 		}>();
 
 	if (!org) {
-		throw new _PermanentWebhookProcessingError(`No organization found for subscription ${subscriptionId}`);
+		throw new Error(`No organization found for subscription ${subscriptionId}`);
 	}
 
 	const snapshot = await readBillingSnapshotForTransition(supabase, org.id);
@@ -615,12 +626,12 @@ export async function _recordStripeWebhookEventAttempt(
 		secondaryDedupeKey?: string;
 		eventCreatedAt?: string;
 	} = {}
-): Promise<void> {
+): Promise<boolean> {
 	const objectId = metadata.objectId ?? _getStripeObjectId(event.data.object);
 	const secondaryDedupeKey = metadata.secondaryDedupeKey ?? _buildSecondaryDedupeKey(event);
 	const eventCreatedAt = metadata.eventCreatedAt ?? new Date(event.created * 1000).toISOString();
 
-	const { error: ledgerError } = await supabase.rpc('record_stripe_webhook_event_attempt', {
+	const { data: attemptCount, error: ledgerError } = await supabase.rpc('record_stripe_webhook_event_attempt', {
 		p_id: event.id,
 		p_type: event.type,
 		p_data: event.data,
@@ -631,6 +642,8 @@ export async function _recordStripeWebhookEventAttempt(
 	if (ledgerError) {
 		throw new Error(`Failed to record webhook attempt: ${_sanitizeWebhookError(ledgerError)}`);
 	}
+
+	return typeof attemptCount === 'number';
 }
 
 export async function _recordRetryableStripeWebhookEventAttempt(
@@ -681,7 +694,7 @@ export async function _processRecordedStripeWebhookEvent(
 	try {
 		const result = await _processWebhookEvent(supabase, event);
 
-		await supabase
+		const { error: stateUpdateError } = await supabase
 			.from('stripe_webhook_events')
 			.update({
 				processed: result.state === 'processed',
@@ -691,9 +704,12 @@ export async function _processRecordedStripeWebhookEvent(
 				last_error: null
 			})
 			.eq('id', event.id);
+		if (stateUpdateError) {
+			console.error(`Failed to update webhook ledger state for ${event.id}:`, _sanitizeWebhookError(stateUpdateError));
+		}
 
 		if (result.state === 'processed') {
-			await supabase
+			const { error: supersededUpdateError } = await supabase
 				.from('stripe_webhook_events')
 				.update({
 					processing_state: 'superseded',
@@ -702,8 +718,14 @@ export async function _processRecordedStripeWebhookEvent(
 				})
 				.eq('secondary_dedupe_key', secondaryDedupeKey)
 				.lt('event_created_at', eventCreatedAt)
-				.not('processing_state', 'in', '("processed","permanently_failed")')
+				.not('processing_state', 'in', '("processed","ignored","permanently_failed","superseded")')
 				.neq('id', event.id);
+			if (supersededUpdateError) {
+				console.error(
+					`Failed to mark older webhook events superseded for ${event.id}:`,
+					_sanitizeWebhookError(supersededUpdateError)
+				);
+			}
 		}
 
 		return { ok: true, state: result.state, result: result.result, status: 200 };
@@ -712,7 +734,7 @@ export async function _processRecordedStripeWebhookEvent(
 		const message = _sanitizeWebhookError(err);
 		console.error(`Error processing webhook ${event.id} (${event.type}):`, message);
 
-		await supabase
+		const { error: failureUpdateError } = await supabase
 			.from('stripe_webhook_events')
 			.update({
 				processed: false,
@@ -721,7 +743,14 @@ export async function _processRecordedStripeWebhookEvent(
 				error: message,
 				processing_result: permanent ? 'permanent processing failure' : 'retryable processing failure'
 			})
-			.eq('id', event.id);
+			.eq('id', event.id)
+			.not('processing_state', 'in', '("processed","ignored","permanently_failed","superseded")');
+		if (failureUpdateError) {
+			console.error(
+				`Failed to update webhook ledger failure state for ${event.id}:`,
+				_sanitizeWebhookError(failureUpdateError)
+			);
+		}
 
 		return {
 			ok: false,
@@ -771,7 +800,14 @@ export const POST: RequestHandler = async ({ request }) => {
 	}
 
 	try {
-		await _recordStripeWebhookEventAttempt(supabase, event, { objectId, secondaryDedupeKey, eventCreatedAt });
+		const attemptRecorded = await _recordStripeWebhookEventAttempt(supabase, event, {
+			objectId,
+			secondaryDedupeKey,
+			eventCreatedAt
+		});
+		if (!attemptRecorded) {
+			return new Response('Already processed', { status: 200 });
+		}
 	} catch (err) {
 		console.error(`Error recording webhook ${event.id} (${event.type}):`, _sanitizeWebhookError(err));
 		return new Response('Ledger error', { status: 500 });

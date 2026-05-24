@@ -36,6 +36,7 @@ describe('organization settings workspace read model', () => {
 					personnelCount: 4,
 					personnelCap: 500,
 					isReadOnly: false,
+					readOnlyReason: null,
 					giftExpiresAt: null,
 					giftTier: null
 				}
@@ -225,6 +226,7 @@ describe('organization settings workspace read model', () => {
 				personnelCount: 4,
 				personnelCap: 500,
 				isReadOnly: false,
+				readOnlyReason: null,
 				giftExpiresAt: null,
 				giftTier: null
 			},

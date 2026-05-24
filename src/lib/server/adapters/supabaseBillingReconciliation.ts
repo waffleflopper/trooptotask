@@ -5,10 +5,27 @@ import type {
 } from '$lib/server/core/useCases/billingReconciliation';
 import type { BillingReconciliationBatchStore } from '$lib/server/core/useCases/billingReconciliationBatch';
 
+export function _mergeBillingReconciliationCandidateIds(input: {
+	organizationIds: string[];
+	snapshotOrganizationIds: string[];
+	limit: number;
+}): { orgId: string }[] {
+	const seen = new Set<string>();
+	const merged = [...input.organizationIds, ...input.snapshotOrganizationIds]
+		.filter((orgId) => {
+			if (seen.has(orgId)) return false;
+			seen.add(orgId);
+			return true;
+		})
+		.sort((left, right) => left.localeCompare(right));
+
+	return merged.slice(0, input.limit).map((orgId) => ({ orgId }));
+}
+
 export function createSupabaseBillingReconciliationStore(supabase: SupabaseClient): BillingReconciliationBatchStore {
 	return {
 		async listCandidates(input) {
-			let query = supabase
+			let organizationQuery = supabase
 				.from('organizations')
 				.select('id')
 				.or(
@@ -18,12 +35,36 @@ export function createSupabaseBillingReconciliationStore(supabase: SupabaseClien
 				.limit(input.limit);
 
 			if (input.cursor) {
-				query = query.gt('id', input.cursor);
+				organizationQuery = organizationQuery.gt('id', input.cursor);
 			}
 
-			const { data, error } = await query;
-			if (error) throw new Error(`Failed to list billing reconciliation candidates: ${error.message}`);
-			return (data ?? []).map((row) => ({ orgId: row.id as string }));
+			let snapshotQuery = supabase
+				.from('organization_billing_snapshots')
+				.select('organization_id')
+				.eq('source', 'stripe')
+				.or(
+					'commercial_plan.in.(team,unit),stripe_subscription_id.not.is.null,subscription_status.in.(active,past_due,canceled,unpaid,paused),sync_status.eq.needs_reconciliation,drift_detected.eq.true'
+				)
+				.order('organization_id', { ascending: true })
+				.limit(input.limit);
+
+			if (input.cursor) {
+				snapshotQuery = snapshotQuery.gt('organization_id', input.cursor);
+			}
+
+			const [organizationResult, snapshotResult] = await Promise.all([organizationQuery, snapshotQuery]);
+			if (organizationResult.error) {
+				throw new Error(`Failed to list billing reconciliation candidates: ${organizationResult.error.message}`);
+			}
+			if (snapshotResult.error) {
+				throw new Error(`Failed to list billing snapshot reconciliation candidates: ${snapshotResult.error.message}`);
+			}
+
+			return _mergeBillingReconciliationCandidateIds({
+				organizationIds: (organizationResult.data ?? []).map((row) => row.id as string),
+				snapshotOrganizationIds: (snapshotResult.data ?? []).map((row) => row.organization_id as string),
+				limit: input.limit
+			});
 		},
 
 		async readOrganization(orgId) {

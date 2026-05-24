@@ -503,6 +503,7 @@ export function createTestSubscriptionPort(
 				personnelCount: 0,
 				personnelCap: Infinity,
 				isReadOnly: false,
+				readOnlyReason: null,
 				giftExpiresAt: null,
 				giftTier: null
 			};

@@ -55,6 +55,7 @@ describe('_loadBillingPageData', () => {
 				personnelCount: 20,
 				personnelCap: 75,
 				isReadOnly: false,
+				readOnlyReason: null,
 				giftExpiresAt: null,
 				giftTier: null
 			})
@@ -114,6 +115,7 @@ describe('_loadBillingPageData', () => {
 				personnelCount: 20,
 				personnelCap: 75,
 				isReadOnly: false,
+				readOnlyReason: null,
 				giftExpiresAt: null,
 				giftTier: null
 			}

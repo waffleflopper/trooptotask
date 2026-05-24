@@ -50,6 +50,7 @@ interface WebhookSupabaseOptions {
 	paymentFailedOrgId?: string;
 	failOrganizationUpdate?: string;
 	failLedgerRecord?: string;
+	ledgerRecordResult?: number | null;
 	billingSnapshotRpcResult?: boolean;
 	failBillingSnapshotRpc?: string;
 }
@@ -98,7 +99,7 @@ function createWebhookSupabaseStub(options: WebhookSupabaseOptions = {}) {
 				if (name === 'record_stripe_webhook_event_attempt') {
 					webhookAttemptRecords.push(args);
 					return Promise.resolve({
-						data: 1,
+						data: 'ledgerRecordResult' in options ? options.ledgerRecordResult : 1,
 						error: options.failLedgerRecord ? { message: options.failLedgerRecord } : null
 					});
 				}
@@ -274,7 +275,7 @@ describe('POST /api/webhooks/stripe', () => {
 				filters: expect.arrayContaining([
 					['eq', 'secondary_dedupe_key', 'checkout.session.completed:cs_123'],
 					['lt', 'event_created_at', '1970-01-01T00:00:01.000Z'],
-					['not', 'processing_state.in', '("processed","permanently_failed")'],
+					['not', 'processing_state.in', '("processed","ignored","permanently_failed","superseded")'],
 					['neq', 'id', 'evt_checkout']
 				])
 			})
@@ -397,6 +398,32 @@ describe('POST /api/webhooks/stripe', () => {
 		expect(invalidateTierCacheMock).not.toHaveBeenCalled();
 	});
 
+	it('returns successfully when the ledger attempt lost a race to a terminal event row', async () => {
+		const supabase = createWebhookSupabaseStub({ ledgerRecordResult: null });
+		getAdminClientMock.mockReturnValue(supabase.client);
+
+		const response = await postWebhook({
+			id: 'evt_checkout_race_terminal',
+			type: 'checkout.session.completed',
+			created: 1,
+			data: {
+				object: {
+					id: 'cs_123',
+					metadata: { orgId: 'org-1', tier: 'unit' },
+					subscription: 'sub_123',
+					customer: 'cus_123'
+				}
+			}
+		});
+
+		expect(response.status).toBe(200);
+		expect(await response.text()).toBe('Already processed');
+		expect(supabase.webhookAttemptRecords).toHaveLength(1);
+		expect(supabase.billingSnapshotUpserts).toEqual([]);
+		expect(supabase.orgUpdates).toEqual([]);
+		expect(invalidateTierCacheMock).not.toHaveBeenCalled();
+	});
+
 	it('marks unsupported event types ignored instead of failed', async () => {
 		const supabase = createWebhookSupabaseStub();
 		getAdminClientMock.mockReturnValue(supabase.client);
@@ -490,7 +517,11 @@ describe('POST /api/webhooks/stripe', () => {
 					error:
 						'Failed to update org org-1: db write failed [redacted_stripe_key] [redacted_webhook_secret] stripe-signature=[redacted]',
 					processing_result: 'retryable processing failure'
-				})
+				}),
+				filters: expect.arrayContaining([
+					['eq', 'id', 'evt_checkout'],
+					['not', 'processing_state.in', '("processed","ignored","permanently_failed","superseded")']
+				])
 			})
 		);
 	});
@@ -796,13 +827,13 @@ describe('POST /api/webhooks/stripe', () => {
 			}
 		});
 
-		expect(response.status).toBe(200);
+		expect(response.status).toBe(500);
 		expect(supabase.billingSnapshotUpserts).toEqual([]);
 		expect(supabase.orgUpdates).toEqual([]);
 		expect(supabase.webhookUpdates).toContainEqual(
 			expect.objectContaining({
 				values: expect.objectContaining({
-					processing_state: 'permanently_failed',
+					processing_state: 'retryable_failed',
 					last_error: 'customer.subscription.updated cannot grant access for org-1: unknown_price_id'
 				})
 			})
@@ -832,13 +863,13 @@ describe('POST /api/webhooks/stripe', () => {
 			}
 		});
 
-		expect(response.status).toBe(200);
+		expect(response.status).toBe(500);
 		expect(supabase.billingSnapshotUpserts).toEqual([]);
 		expect(supabase.orgUpdates).toEqual([]);
 		expect(supabase.webhookUpdates).toContainEqual(
 			expect.objectContaining({
 				values: expect.objectContaining({
-					processing_state: 'permanently_failed',
+					processing_state: 'retryable_failed',
 					last_error: 'customer.subscription.updated metadata tier unit does not match price catalog plan team'
 				})
 			})
@@ -1069,6 +1100,37 @@ describe('POST /api/webhooks/stripe', () => {
 		expect(invalidateTierCacheMock).not.toHaveBeenCalled();
 	});
 
+	it('marks subscription deletion events without organization metadata permanently failed', async () => {
+		const supabase = createWebhookSupabaseStub();
+		getAdminClientMock.mockReturnValue(supabase.client);
+
+		const response = await postWebhook({
+			id: 'evt_subscription_deleted_missing_org',
+			type: 'customer.subscription.deleted',
+			created: 1,
+			data: {
+				object: {
+					id: 'sub_123',
+					metadata: {},
+					customer: 'cus_123'
+				}
+			}
+		});
+
+		expect(response.status).toBe(200);
+		expect(supabase.billingSnapshotUpserts).toEqual([]);
+		expect(supabase.orgUpdates).toEqual([]);
+		expect(supabase.webhookUpdates).toContainEqual(
+			expect.objectContaining({
+				values: expect.objectContaining({
+					processing_state: 'permanently_failed',
+					last_error: 'customer.subscription.deleted missing orgId metadata'
+				})
+			})
+		);
+		expect(invalidateTierCacheMock).not.toHaveBeenCalled();
+	});
+
 	it('records payment failure grace from organization fields when no billing snapshot exists yet', async () => {
 		const supabase = createWebhookSupabaseStub({ paymentFailedOrgId: 'org-1' });
 		getAdminClientMock.mockReturnValue(supabase.client);
@@ -1102,6 +1164,118 @@ describe('POST /api/webhooks/stripe', () => {
 			})
 		);
 		expect(invalidateTierCacheMock).toHaveBeenCalledWith('org-1');
+	});
+
+	it('records payment failure grace from legacy invoice subscription fields', async () => {
+		const supabase = createWebhookSupabaseStub({ paymentFailedOrgId: 'org-1' });
+		getAdminClientMock.mockReturnValue(supabase.client);
+
+		const response = await postWebhook({
+			id: 'evt_payment_failed_legacy_subscription',
+			type: 'invoice.payment_failed',
+			created: 1,
+			data: {
+				object: {
+					id: 'in_123',
+					subscription: 'sub_123'
+				}
+			}
+		});
+
+		expect(response.status).toBe(200);
+		expect(supabase.billingSnapshotUpserts).toContainEqual(
+			expect.objectContaining({
+				organization_id: 'org-1',
+				commercial_plan: 'team',
+				stripe_customer_id: 'cus_123',
+				stripe_subscription_id: 'sub_123',
+				subscription_status: 'past_due',
+				collection_status: 'payment_failed_grace',
+				last_stripe_event_id: 'evt_payment_failed_legacy_subscription'
+			})
+		);
+		expect(invalidateTierCacheMock).toHaveBeenCalledWith('org-1');
+	});
+
+	it('marks payment failures retryable when the subscription is not linked to an organization yet', async () => {
+		const supabase = createWebhookSupabaseStub();
+		getAdminClientMock.mockReturnValue(supabase.client);
+
+		const response = await postWebhook({
+			id: 'evt_payment_failed_before_checkout_link',
+			type: 'invoice.payment_failed',
+			created: 1,
+			data: {
+				object: {
+					id: 'in_123',
+					parent: {
+						subscription_details: {
+							subscription: 'sub_123'
+						}
+					}
+				}
+			}
+		});
+
+		expect(response.status).toBe(500);
+		expect(supabase.billingSnapshotUpserts).toEqual([]);
+		expect(supabase.orgUpdates).toEqual([]);
+		expect(supabase.webhookUpdates).toContainEqual(
+			expect.objectContaining({
+				values: expect.objectContaining({
+					processing_state: 'retryable_failed',
+					last_error: 'No organization found for subscription sub_123'
+				})
+			})
+		);
+		expect(invalidateTierCacheMock).not.toHaveBeenCalled();
+	});
+
+	it('marks stale payment failure events superseded without overwriting newer billing state', async () => {
+		const supabase = createWebhookSupabaseStub({
+			paymentFailedOrgId: 'org-1',
+			existingBillingSnapshot: {
+				commercial_plan: 'team',
+				stripe_customer_id: 'cus_123',
+				stripe_subscription_id: 'sub_123',
+				stripe_product_id: 'prod_team',
+				stripe_price_id: 'price_team',
+				subscription_status: 'active',
+				current_period_end: '2027-01-15T08:00:00.000Z',
+				last_stripe_event_created_at: '1970-01-01T00:00:10.000Z'
+			}
+		});
+		getAdminClientMock.mockReturnValue(supabase.client);
+
+		const response = await postWebhook({
+			id: 'evt_payment_failed_stale',
+			type: 'invoice.payment_failed',
+			created: 1,
+			data: {
+				object: {
+					id: 'in_123',
+					parent: {
+						subscription_details: {
+							subscription: 'sub_123'
+						}
+					}
+				}
+			}
+		});
+
+		expect(response.status).toBe(200);
+		expect(supabase.billingSnapshotUpserts).toEqual([]);
+		expect(supabase.orgUpdates).toEqual([]);
+		expect(supabase.webhookUpdates).toContainEqual(
+			expect.objectContaining({
+				values: expect.objectContaining({
+					processed: false,
+					processing_state: 'superseded',
+					processing_result: 'payment failure for organization org-1 is older than the current billing snapshot'
+				})
+			})
+		);
+		expect(invalidateTierCacheMock).not.toHaveBeenCalled();
 	});
 
 	it('invalidates the effective-tier cache after payment failure marks an org past due', async () => {

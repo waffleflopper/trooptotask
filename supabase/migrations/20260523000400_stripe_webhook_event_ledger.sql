@@ -107,6 +107,12 @@ BEGIN
 		"attempt_count" = "stripe_webhook_events"."attempt_count" + 1,
 		"last_error" = NULL,
 		"processing_result" = 'processing started'
+	WHERE "stripe_webhook_events"."processing_state" NOT IN (
+		'processed'::text,
+		'ignored'::text,
+		'permanently_failed'::text,
+		'superseded'::text
+	)
 	RETURNING "attempt_count" INTO v_attempt_count;
 
 	RETURN v_attempt_count;

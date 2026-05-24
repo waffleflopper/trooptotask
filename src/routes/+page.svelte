@@ -14,14 +14,14 @@
 			price: '$0',
 			capacity: 'Up to 20 personnel',
 			accountUsers: 'Up to 2 active account users',
-			supporting: '1 organization, 3 exports per month'
+			supporting: '3 exports per month'
 		},
 		{
 			name: 'Team',
 			price: '$5',
 			capacity: 'Up to 100 personnel',
 			accountUsers: 'Unlimited account users',
-			supporting: '1 organization, unlimited exports',
+			supporting: 'Unlimited exports',
 			featured: true
 		},
 		{
@@ -29,7 +29,7 @@
 			price: '$12',
 			capacity: 'Up to 500 personnel',
 			accountUsers: 'Unlimited account users',
-			supporting: 'Up to 3 organizations, unlimited exports'
+			supporting: 'Unlimited exports'
 		},
 		{
 			name: 'Enterprise',

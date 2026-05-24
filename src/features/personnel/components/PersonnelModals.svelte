@@ -8,6 +8,7 @@
 	import { submitDeletionRequest } from '$lib/utils/deletionRequests';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { invalidateAll } from '$app/navigation';
+	import { bulkArchivePersonnel } from '$features/personnel/utils/bulkArchivePersonnel';
 	import type { PersonnelPageContext } from '$features/personnel/contexts/PersonnelPageContext.svelte';
 	import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 
@@ -19,6 +20,7 @@
 	let { ctx, modals }: Props = $props();
 
 	const personnelPayload = $derived(modals.payload<{ person: Personnel | null }>('personnel-modal'));
+	const bulkManagerPayload = $derived(modals.payload<{ initialTab?: 'import' | 'merge' | 'delete' }>('bulk-manager'));
 
 	const editingPerson = $derived(personnelPayload?.person ?? null);
 
@@ -57,25 +59,22 @@
 	}
 
 	async function handleBulkArchive(ids: string[]) {
-		let archivedCount = 0;
-		for (const id of ids) {
-			const person = personnelStore.getById(id);
-			const result = await personnelStore.remove(id);
-			if (result === 'deleted') {
-				archivedCount++;
-			} else if (result === 'approval_required' && person) {
-				await submitDeletionRequest(
-					ctx.orgId,
-					'personnel',
-					id,
-					`Archive ${person.rank} ${person.lastName}, ${person.firstName}`,
-					`/org/${ctx.orgId}/personnel`
-				);
-			}
+		const result = await bulkArchivePersonnel(ctx.orgId, ids);
+
+		for (const id of result.archivedIds) {
+			personnelStore.removeLocal(id);
 		}
-		if (archivedCount > 0) {
-			toastStore.success(`${archivedCount} personnel archived`);
+
+		if (result.archivedIds.length > 0) {
+			toastStore.success(`${result.archivedIds.length} personnel archived`);
 			await invalidateAll();
+		}
+		if (result.approvalRequestedIds.length > 0) {
+			toastStore.info(`${result.approvalRequestedIds.length} archival requests submitted for admin approval.`);
+			await invalidateAll();
+		}
+		if (result.errors.length > 0) {
+			toastStore.error(`${result.errors.length} personnel could not be archived.`);
 		}
 		modals.close('bulk-manager');
 	}
@@ -121,5 +120,7 @@
 		onImportComplete={handleBulkImportComplete}
 		onBulkDelete={handleBulkArchive}
 		onClose={modals.closerFor('bulk-manager')}
+		initialTab={bulkManagerPayload?.initialTab ?? 'import'}
+		readOnly={ctx.readOnly}
 	/>
 {/if}

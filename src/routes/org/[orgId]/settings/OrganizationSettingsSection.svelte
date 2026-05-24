@@ -1,12 +1,32 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { Badge } from '$lib/components/ui/badge/index.js';
+	import type { BadgeVariant } from '$lib/components/ui/badge/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
 	import { Label } from '$lib/components/ui/label/index.js';
 	import { Separator } from '$lib/components/ui/separator/index.js';
 	import { isBillingEnabled } from '$lib/config/billing';
 	import type { OrganizationSettingsWorkspace } from './organizationSettingsWorkspaceModel';
+
+	type PlanUsageSummaryForSettings = {
+		rows: Array<{
+			dimension: string;
+			label: string;
+			used: number;
+			limitLabel: string;
+			status: string;
+			message: string;
+			remediation: string;
+		}>;
+		alerts: Array<{
+			dimension: string;
+			label: string;
+			message: string;
+			remediation: string;
+			status: string;
+		}>;
+	};
 
 	let {
 		organization,
@@ -16,7 +36,8 @@
 		planPrice,
 		planCopy,
 		billingStatus,
-		personnelCount
+		personnelCount,
+		planUsageSummary = null
 	} = $props<{
 		organization: OrganizationSettingsWorkspace['sections']['organization'];
 		form: {
@@ -32,7 +53,27 @@
 		planCopy: string;
 		billingStatus: string;
 		personnelCount: string;
+		planUsageSummary?: PlanUsageSummaryForSettings | null;
 	}>();
+
+	function usageStatusLabel(status: string): string {
+		switch (status) {
+			case 'over_limit':
+				return 'Over limit';
+			case 'limit_reached':
+				return 'Limit reached';
+			case 'read_only':
+				return 'Read-only';
+			default:
+				return 'Within limit';
+		}
+	}
+
+	function usageStatusVariant(status: string): BadgeVariant {
+		if (status === 'over_limit') return 'destructive';
+		if (status === 'limit_reached' || status === 'read_only') return 'warning';
+		return 'secondary';
+	}
 </script>
 
 <div class="grid gap-4">
@@ -148,6 +189,35 @@
 				<p class="text-sm text-muted-foreground">{personnelCount}</p>
 			</div>
 		</div>
+		{#if planUsageSummary}
+			<Separator />
+			<div class="grid gap-3">
+				<div class="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
+					<h4 class="text-base font-semibold tracking-tight">Plan Usage & Limits</h4>
+					{#if planUsageSummary.alerts.length > 0}
+						<Badge variant="warning">Action needed</Badge>
+					{/if}
+				</div>
+				<div class="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
+					{#each planUsageSummary.rows as row (row.dimension)}
+						<div class="grid gap-1 rounded-md border bg-muted/30 p-3">
+							<div class="flex items-start justify-between gap-2">
+								<p class="text-sm font-medium">{row.label}</p>
+								<Badge variant={usageStatusVariant(row.status)}>{usageStatusLabel(row.status)}</Badge>
+							</div>
+							<strong class="text-lg font-semibold tracking-tight">{row.used} / {row.limitLabel}</strong>
+							<p class="text-xs text-muted-foreground">{row.message}</p>
+							{#if row.status !== 'within_limit'}
+								<p class="text-xs font-medium">{row.remediation}</p>
+							{/if}
+						</div>
+					{/each}
+				</div>
+				{#if planUsageSummary.alerts.length > 0}
+					<p class="text-sm font-medium">Existing data remains visible while limits are resolved.</p>
+				{/if}
+			</div>
+		{/if}
 	</section>
 
 	<section class="grid gap-4 rounded-lg border bg-card p-4 text-card-foreground" aria-labelledby="session-heading">

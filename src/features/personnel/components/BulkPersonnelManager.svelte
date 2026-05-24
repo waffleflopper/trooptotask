@@ -20,6 +20,8 @@
 	import ImportIcon from '@lucide/svelte/icons/download';
 	import MergeIcon from '@lucide/svelte/icons/git-merge';
 
+	type TabType = 'import' | 'merge' | 'delete';
+
 	interface GroupData {
 		group: string;
 		personnel: Personnel[];
@@ -32,12 +34,26 @@
 		onImportComplete: () => void;
 		onBulkDelete: (ids: string[]) => void | Promise<void>;
 		onClose: () => void;
+		initialTab?: TabType;
+		readOnly?: boolean;
 	}
 
-	let { personnelByGroup, groups, orgId, onImportComplete, onBulkDelete, onClose }: Props = $props();
+	let {
+		personnelByGroup,
+		groups,
+		orgId,
+		onImportComplete,
+		onBulkDelete,
+		onClose,
+		initialTab = 'import',
+		readOnly = false
+	}: Props = $props();
 
-	type TabType = 'import' | 'merge' | 'delete';
-	let activeTab = $state<TabType>('import');
+	function getInitialTab(): TabType {
+		return initialTab;
+	}
+
+	let activeTab = $state<TabType>(getInitialTab());
 
 	// TODO: Move bulk personnel management to its own route, mirroring calendar bulk status operations.
 
@@ -288,8 +304,8 @@
 		<AppDialog.Body>
 			<Tabs.Root bind:value={activeTab}>
 				<Tabs.List>
-					<Tabs.Trigger value="import"><ImportIcon />Import</Tabs.Trigger>
-					<Tabs.Trigger value="merge"><MergeIcon />Backfill ETS/DEROS</Tabs.Trigger>
+					<Tabs.Trigger value="import" disabled={readOnly}><ImportIcon />Import</Tabs.Trigger>
+					<Tabs.Trigger value="merge" disabled={readOnly}><MergeIcon />Backfill ETS/DEROS</Tabs.Trigger>
 					<Tabs.Trigger value="delete"><ArchiveIcon />Archive</Tabs.Trigger>
 				</Tabs.List>
 

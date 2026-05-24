@@ -13,7 +13,7 @@ function toWorkbookBuffer(buffer: ArrayBuffer): WorkbookLoadBuffer {
 }
 
 describe('GET /api/training-reports/export', () => {
-	it('uses training read permission and returns workbook download output', async () => {
+	it('keeps training report export available through the existing training permission', async () => {
 		const ctx = createTestContext();
 
 		ctx.store.seed('personnel', [

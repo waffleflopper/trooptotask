@@ -70,6 +70,24 @@ describe('createDeletionRequest', () => {
 		await expect(createDeletionRequest(ctx, validInput)).rejects.toMatchObject({ status: 403 });
 	});
 
+	it('allows personnel archival requests when read-only so organizations can return below limits', async () => {
+		const ctx = buildContext({ readOnly: true });
+
+		const created = await createDeletionRequest(ctx, {
+			...validInput,
+			resourceType: 'personnel',
+			resourceId: 'p-1',
+			resourceDescription: 'Archive SGT Smith, Jane',
+			resourceUrl: '/org/test-org/personnel'
+		});
+
+		expect(created).toMatchObject({
+			resource_type: 'personnel',
+			resource_id: 'p-1',
+			status: 'pending'
+		});
+	});
+
 	it('rejects create when there is no authenticated requester', async () => {
 		const ctx = buildContext({ auth: { userId: null } });
 

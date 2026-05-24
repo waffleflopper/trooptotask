@@ -1,13 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 
-const { readBillingOrganizationMock, canManageBillingSubscriptionMock, readCurrentBillingSnapshotMock } = vi.hoisted(
-	() => ({
-		readBillingOrganizationMock: vi.fn(),
-		canManageBillingSubscriptionMock: vi.fn(),
-		readCurrentBillingSnapshotMock: vi.fn()
-	})
-);
+const {
+	readBillingOrganizationMock,
+	canManageBillingSubscriptionMock,
+	readCurrentBillingSnapshotMock,
+	readEffectivePlanPolicyMock,
+	readOrganizationPlanUsageMock
+} = vi.hoisted(() => ({
+	readBillingOrganizationMock: vi.fn(),
+	canManageBillingSubscriptionMock: vi.fn(),
+	readCurrentBillingSnapshotMock: vi.fn(),
+	readEffectivePlanPolicyMock: vi.fn(),
+	readOrganizationPlanUsageMock: vi.fn()
+}));
 
 vi.mock('$lib/server/core/useCases/billingOrganization', async () => {
 	const actual = await vi.importActual<typeof import('$lib/server/core/useCases/billingOrganization')>(
@@ -32,13 +38,92 @@ vi.mock('$lib/server/core/useCases/billingState', async () => {
 	};
 });
 
+vi.mock('$lib/server/core/useCases/planPolicy', async () => {
+	const actual = await vi.importActual<typeof import('$lib/server/core/useCases/planPolicy')>(
+		'$lib/server/core/useCases/planPolicy'
+	);
+
+	return {
+		...actual,
+		readEffectivePlanPolicy: readEffectivePlanPolicyMock
+	};
+});
+
+vi.mock('$lib/server/core/useCases/organizationPlanUsage', async () => {
+	const actual = await vi.importActual<typeof import('$lib/server/core/useCases/organizationPlanUsage')>(
+		'$lib/server/core/useCases/organizationPlanUsage'
+	);
+
+	return {
+		...actual,
+		readOrganizationPlanUsage: readOrganizationPlanUsageMock
+	};
+});
+
 import { _loadBillingPageData } from './+page.server';
+import { buildEffectivePlanPolicy } from '$lib/server/core/useCases/planPolicy';
+import type { BillingSnapshot } from '$lib/types/subscription';
+
+function snapshot(overrides: Partial<BillingSnapshot> = {}): BillingSnapshot {
+	return {
+		organizationId: 'org-1',
+		source: 'stripe',
+		commercialPlan: 'free',
+		stripeCustomerId: 'cus_123',
+		stripeSubscriptionId: 'sub_123',
+		stripeProductId: 'prod_free',
+		stripePriceId: 'price_free',
+		subscriptionStatus: 'active',
+		collectionStatus: 'current',
+		currentPeriodStart: '2026-05-01T00:00:00.000Z',
+		currentPeriodEnd: '2026-06-01T00:00:00.000Z',
+		cancelAtPeriodEnd: false,
+		canceledAt: null,
+		trialEnd: null,
+		syncStatus: 'synced',
+		lastStripeEventId: 'evt_123',
+		lastStripeEventType: 'customer.subscription.updated',
+		lastStripeEventCreatedAt: '2026-05-01T00:01:00.000Z',
+		lastProcessedAt: '2026-05-01T00:02:00.000Z',
+		lastReconciledAt: null,
+		reconciliationResult: null,
+		driftDetected: false,
+		giftTier: null,
+		giftExpiresAt: null,
+		...overrides
+	};
+}
 
 describe('_loadBillingPageData', () => {
 	beforeEach(() => {
 		readBillingOrganizationMock.mockReset();
 		canManageBillingSubscriptionMock.mockReset();
 		readCurrentBillingSnapshotMock.mockReset();
+		readEffectivePlanPolicyMock.mockReset();
+		readOrganizationPlanUsageMock.mockReset();
+		readEffectivePlanPolicyMock.mockResolvedValue(buildEffectivePlanPolicy(snapshot({ commercialPlan: 'team' })));
+		readOrganizationPlanUsageMock.mockResolvedValue({
+			organizationId: 'org-1',
+			asOf: '2026-05-24T12:00:00.000Z',
+			activePersonnelCount: 20,
+			activeOrganizationMemberCount: 1,
+			pendingUnexpiredInvitationCount: 0,
+			monthlyExportCount: 0,
+			sources: {
+				activePersonnel: { table: 'personnel', included: [], excluded: [] },
+				activeOrganizationMembers: { table: 'organization_memberships', included: [], excluded: [] },
+				pendingUnexpiredInvitations: { table: 'organization_invitations', included: [], excluded: [] },
+				monthlyExports: {
+					table: 'data_exports',
+					included: [],
+					excluded: [],
+					period: {
+						start: '2026-05-01T00:00:00.000Z',
+						endExclusive: '2026-06-01T00:00:00.000Z'
+					}
+				}
+			}
+		});
 	});
 
 	it('denies non-owner billing access before reading billing organization details', async () => {
@@ -160,5 +245,165 @@ describe('_loadBillingPageData', () => {
 				canManageSubscription: true
 			})
 		);
+	});
+
+	it('loads policy-backed usage and limits for owner remediation copy', async () => {
+		const ctx = createTestContext({
+			auth: {
+				orgId: 'org-1',
+				role: 'owner'
+			}
+		});
+		const billingSnapshot = snapshot();
+		readBillingOrganizationMock.mockResolvedValue({
+			name: 'Alpha Company',
+			stripeCustomerId: 'cus_123',
+			stripeSubscriptionId: 'sub_123',
+			subscriptionStatus: 'active'
+		});
+		readCurrentBillingSnapshotMock.mockResolvedValue(billingSnapshot);
+		readEffectivePlanPolicyMock.mockResolvedValue(buildEffectivePlanPolicy(billingSnapshot));
+		readOrganizationPlanUsageMock.mockResolvedValue({
+			organizationId: 'org-1',
+			asOf: '2026-05-24T12:00:00.000Z',
+			activePersonnelCount: 21,
+			activeOrganizationMemberCount: 1,
+			pendingUnexpiredInvitationCount: 1,
+			monthlyExportCount: 3,
+			sources: {
+				activePersonnel: { table: 'personnel', included: [], excluded: [] },
+				activeOrganizationMembers: { table: 'organization_memberships', included: [], excluded: [] },
+				pendingUnexpiredInvitations: { table: 'organization_invitations', included: [], excluded: [] },
+				monthlyExports: {
+					table: 'data_exports',
+					included: [],
+					excluded: [],
+					period: {
+						start: '2026-05-01T00:00:00.000Z',
+						endExclusive: '2026-06-01T00:00:00.000Z'
+					}
+				}
+			}
+		});
+		canManageBillingSubscriptionMock.mockReturnValue(true);
+
+		const result = await _loadBillingPageData(
+			{
+				auth: ctx.auth,
+				audit: ctx.audit,
+				rawStore: { kind: 'raw-store' } as never
+			},
+			{
+				tier: 'free',
+				source: 'subscription',
+				personnelCount: 21,
+				personnelCap: 20,
+				isReadOnly: true,
+				readOnlyReason: 'personnel_limit',
+				giftExpiresAt: null,
+				giftTier: null
+			}
+		);
+
+		expect(readEffectivePlanPolicyMock).toHaveBeenCalledWith({
+			auth: expect.objectContaining({ orgId: 'org-1', role: 'owner' }),
+			store: { kind: 'raw-store' }
+		});
+		expect(readOrganizationPlanUsageMock).toHaveBeenCalledWith({
+			auth: expect.objectContaining({ orgId: 'org-1', role: 'owner' }),
+			store: { kind: 'raw-store' }
+		});
+		expect(result.planUsageSummary).toMatchObject({
+			plan: {
+				sourceLabel: 'Stripe-backed billing'
+			},
+			rows: [
+				expect.objectContaining({ dimension: 'active_personnel', used: 21, limit: 20, status: 'over_limit' }),
+				expect.objectContaining({ dimension: 'active_organization_members', used: 1, limit: 2 }),
+				expect.objectContaining({ dimension: 'pending_invitations', status: 'limit_reached' }),
+				expect.objectContaining({ dimension: 'monthly_exports', status: 'limit_reached' })
+			]
+		});
+	});
+
+	it('loads lower-plan downgrade previews from the same policy and usage data', async () => {
+		const ctx = createTestContext({
+			auth: {
+				orgId: 'org-1',
+				role: 'owner'
+			}
+		});
+		const billingSnapshot = snapshot({ commercialPlan: 'unit' });
+		readBillingOrganizationMock.mockResolvedValue({
+			name: 'Alpha Company',
+			stripeCustomerId: 'cus_123',
+			stripeSubscriptionId: 'sub_123',
+			subscriptionStatus: 'active'
+		});
+		readCurrentBillingSnapshotMock.mockResolvedValue(billingSnapshot);
+		readEffectivePlanPolicyMock.mockResolvedValue(buildEffectivePlanPolicy(billingSnapshot));
+		readOrganizationPlanUsageMock.mockResolvedValue({
+			organizationId: 'org-1',
+			asOf: '2026-05-24T12:00:00.000Z',
+			activePersonnelCount: 90,
+			activeOrganizationMemberCount: 10,
+			pendingUnexpiredInvitationCount: 1,
+			monthlyExportCount: 4,
+			sources: {
+				activePersonnel: { table: 'personnel', included: [], excluded: [] },
+				activeOrganizationMembers: { table: 'organization_memberships', included: [], excluded: [] },
+				pendingUnexpiredInvitations: { table: 'organization_invitations', included: [], excluded: [] },
+				monthlyExports: {
+					table: 'data_exports',
+					included: [],
+					excluded: [],
+					period: {
+						start: '2026-05-01T00:00:00.000Z',
+						endExclusive: '2026-06-01T00:00:00.000Z'
+					}
+				}
+			}
+		});
+		canManageBillingSubscriptionMock.mockReturnValue(true);
+
+		const result = await _loadBillingPageData(
+			{
+				auth: ctx.auth,
+				audit: ctx.audit,
+				rawStore: { kind: 'raw-store' } as never
+			},
+			{
+				tier: 'unit',
+				source: 'subscription',
+				personnelCount: 90,
+				personnelCap: 500,
+				isReadOnly: false,
+				readOnlyReason: null,
+				giftExpiresAt: null,
+				giftTier: null
+			}
+		);
+
+		expect(result.downgradePreviews).toEqual([
+			expect.objectContaining({
+				targetPlan: expect.objectContaining({ tier: 'free', sourceLabel: 'Stripe-backed billing' }),
+				status: 'blocked',
+				rows: expect.arrayContaining([
+					expect.objectContaining({ dimension: 'active_personnel', used: 90, limit: 20, status: 'over_limit' }),
+					expect.objectContaining({ dimension: 'monthly_exports', used: 4, limit: 3, status: 'over_limit' })
+				]),
+				featureLosses: expect.arrayContaining([
+					expect.objectContaining({ featureKey: 'bulk_export_unlimited' }),
+					expect.objectContaining({ featureKey: 'advanced_reporting' })
+				])
+			}),
+			expect.objectContaining({
+				targetPlan: expect.objectContaining({ tier: 'team', sourceLabel: 'Stripe-backed billing' }),
+				rows: expect.arrayContaining([
+					expect.objectContaining({ dimension: 'active_personnel', used: 90, limit: 80, status: 'over_limit' })
+				]),
+				featureLosses: [expect.objectContaining({ featureKey: 'advanced_reporting' })]
+			})
+		]);
 	});
 });

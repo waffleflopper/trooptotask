@@ -94,4 +94,115 @@ describe('admin subscriptions page', () => {
 		expect(screen.getByText(/Last checked/)).toBeTruthy();
 		expect(screen.getByText('repaired_drift:subscription_status')).toBeTruthy();
 	});
+
+	it('shows effective policy usage diagnostics without raw billing payloads', () => {
+		render(Page, {
+			props: {
+				data: {
+					subscriptions: [
+						{
+							id: 'org-1',
+							name: 'Alpha Company',
+							effectiveTier: 'team',
+							personnelCount: 12,
+							personnelCap: 80,
+							ownerEmail: 'owner@example.com',
+							isGifted: false,
+							isSuspended: false,
+							gift_expires_at: null,
+							created_at: '2026-05-01T00:00:00.000Z',
+							planDiagnostics: {
+								effectivePlan: {
+									commercialPlan: 'team',
+									tier: 'team',
+									source: 'billing_snapshot',
+									sourceLabel: 'Stripe-backed billing',
+									billingSource: 'stripe',
+									giftTier: null,
+									giftExpiresAt: null
+								},
+								usageRows: [
+									{
+										dimension: 'active_personnel',
+										label: 'Personnel',
+										used: 12,
+										limit: 80,
+										limitLabel: '80',
+										status: 'within_limit',
+										message: 'Personnel usage is 12 of 80.',
+										remediation: 'Archive personnel or upgrade to Unit.',
+										upgradeTarget: 'unit'
+									},
+									{
+										dimension: 'active_organization_members',
+										label: 'Members',
+										used: 11,
+										limit: 10,
+										limitLabel: '10',
+										status: 'over_limit',
+										message: 'Member usage is 11 of 10.',
+										remediation: 'Remove members or upgrade to Unit.',
+										upgradeTarget: 'unit'
+									},
+									{
+										dimension: 'pending_invitations',
+										label: 'Pending invitations',
+										used: 1,
+										limit: 10,
+										limitLabel: '10',
+										status: 'over_limit',
+										message: 'Pending invitations use 1 seat; 12 of 10 member seats are reserved.',
+										remediation: 'Revoke pending invitations or upgrade to Unit.',
+										upgradeTarget: 'unit'
+									},
+									{
+										dimension: 'monthly_exports',
+										label: 'Monthly exports',
+										used: 2,
+										limit: null,
+										limitLabel: 'Unlimited',
+										status: 'within_limit',
+										message: 'Export usage is 2 of Unlimited this month.',
+										remediation: 'Upgrade for unlimited exports or wait until next month.',
+										upgradeTarget: null
+									}
+								],
+								overLimitReasons: [
+									{
+										dimension: 'active_organization_members',
+										label: 'Members',
+										message: 'Member usage is 11 of 10.',
+										remediation: 'Remove members or upgrade to Unit.',
+										status: 'over_limit',
+										sourceLabel: 'Stripe-backed billing'
+									},
+									{
+										dimension: 'pending_invitations',
+										label: 'Pending invitations',
+										message: 'Pending invitations use 1 seat; 12 of 10 member seats are reserved.',
+										remediation: 'Revoke pending invitations or upgrade to Unit.',
+										status: 'over_limit',
+										sourceLabel: 'Stripe-backed billing'
+									}
+								]
+							}
+						}
+					],
+					billingDiagnosticsError: false
+				} as never
+			}
+		});
+
+		expect(screen.getByText('Plan Usage')).toBeTruthy();
+		expect(screen.getByText('Stripe-backed billing')).toBeTruthy();
+		expect(screen.getByText('Members')).toBeTruthy();
+		expect(screen.getAllByText('11 / 10').length).toBeGreaterThan(0);
+		expect(screen.getByText('Pending invitations')).toBeTruthy();
+		expect(screen.getByText('1 / 10')).toBeTruthy();
+		expect(screen.getByText('Monthly exports')).toBeTruthy();
+		expect(screen.getByText('2 / Unlimited')).toBeTruthy();
+		expect(screen.getByText('2 plan blockers')).toBeTruthy();
+		expect(document.body.textContent).not.toContain('raw_payload');
+		expect(document.body.textContent).not.toContain('sk_');
+	});
 });

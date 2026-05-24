@@ -44,7 +44,9 @@ export async function createDeletionRequest(
 		ctx,
 		POLICY_ACTION_CATALOG.identity.createOwnDeletionRequest,
 		ctx.auth.userId,
-		AUDIT_RESOURCE
+		AUDIT_RESOURCE,
+		undefined,
+		{ enforceReadOnlyOverlay: input.resourceType !== 'personnel' }
 	);
 
 	// Check for existing pending request for the same resource

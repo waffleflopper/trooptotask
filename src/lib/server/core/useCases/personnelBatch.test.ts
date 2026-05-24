@@ -70,6 +70,7 @@ describe('importPersonnelBatch', () => {
 		expect(result.inserted).toHaveLength(1);
 		expect(result.errors).toHaveLength(1);
 		expect(result.errors[0].message).toContain('cap reached');
+		expect(result.errors[0].message).toContain('upgrade or archive personnel');
 	});
 
 	it('throws 403 when cap fully reached (0 available)', async () => {
@@ -78,7 +79,10 @@ describe('importPersonnelBatch', () => {
 			importPersonnelBatch(ctx, {
 				records: [{ rank: 'SGT', lastName: 'Smith', firstName: 'John' }]
 			})
-		).rejects.toMatchObject({ status: 403, message: 'Personnel limit reached. Upgrade to add more.' });
+		).rejects.toMatchObject({
+			status: 403,
+			message: 'Personnel limit reached. Upgrade or archive personnel to add more.'
+		});
 	});
 
 	it('enforces scoped group restriction', async () => {

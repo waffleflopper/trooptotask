@@ -8,7 +8,7 @@ import {
 } from '$lib/access/memberAccessCommands';
 import { type CapabilityOverrideMap, type StoredMemberPreset } from '$lib/access/memberAccessShape';
 import { fail } from '$lib/server/core/errors';
-import type { AuthContext, AuditPort, NotificationPort, ReadOnlyGuard } from '$lib/server/core/ports';
+import type { AuthContext, AuditPort, DataStore, NotificationPort, ReadOnlyGuard } from '$lib/server/core/ports';
 import {
 	ORGANIZATION_MEMBER_INVITE_HIGH_PRIVILEGE_ACTION,
 	ORGANIZATION_MEMBER_REMOVE_HIGH_PRIVILEGE_ACTION,
@@ -29,6 +29,8 @@ import {
 import { validateEmail, validateUUID } from '$lib/server/validation';
 import { requireGovernancePolicy } from './governancePolicy';
 import { normalizeInvitationEmail } from './invitationEmail';
+import { readOrganizationPlanUsage, type OrganizationPlanUsage } from './organizationPlanUsage';
+import { readEffectivePlanPolicy, type EffectivePlanPolicy } from './planPolicy';
 import { evaluateAuthoritativePolicyDecision } from './policyAdapter';
 import { denyPolicyDecision, policyDenialAuditDetails } from './policyDenial';
 
@@ -122,6 +124,13 @@ export interface OrganizationSettingsMemberManagementPort {
 		blockedBy: string;
 		reason: string;
 	}): Promise<{ status: 'blocked' } | { status: 'failed'; message: string }>;
+	blockInvitationIfMemberPlanLimitExceeded(input: {
+		organizationId: string;
+		invitationId: string;
+		blockedBy: string;
+		memberLimit: number;
+		reason: string;
+	}): Promise<{ status: 'within_limit' } | { status: 'blocked' } | { status: 'failed'; message: string }>;
 	revokeInvitation(orgId: string, inviteId: string): Promise<OrganizationInvitationRevokeResult>;
 	findMembershipById(orgId: string, membershipId: string): Promise<OrganizationMembershipRecord | null>;
 	removeMembership(orgId: string, membershipId: string): Promise<string | null>;
@@ -141,6 +150,11 @@ export interface OrganizationInvitationDeliveryPort {
 	}): Promise<{ status: 'sent'; outbox: { id: string } } | { status: 'failed'; outbox: { id: string }; error: string }>;
 }
 
+interface OrganizationMemberPlanPolicyReads {
+	readEffectivePlanPolicy(): Promise<EffectivePlanPolicy>;
+	readOrganizationPlanUsage(): Promise<OrganizationPlanUsage>;
+}
+
 interface OrganizationSettingsMemberManagementPorts {
 	auth: AuthContext;
 	audit: AuditPort;
@@ -151,6 +165,18 @@ interface OrganizationSettingsMemberManagementPorts {
 	invitationRateLimiter?: OrganizationInvitationRateLimiter;
 	sensitiveActionAuthorizer?: SensitiveActionAuthorizer;
 }
+
+type InviteOrganizationMemberPorts = OrganizationSettingsMemberManagementPorts &
+	(
+		| {
+				store: DataStore;
+				planPolicy?: OrganizationMemberPlanPolicyReads;
+		  }
+		| {
+				store?: DataStore;
+				planPolicy: OrganizationMemberPlanPolicyReads;
+		  }
+	);
 
 interface InviteOrganizationMemberInput {
 	email: string;
@@ -189,7 +215,7 @@ interface UpdateOrganizationMemberPermissionsInput {
 }
 
 export async function inviteOrganizationMember(
-	ports: OrganizationSettingsMemberManagementPorts,
+	ports: InviteOrganizationMemberPorts,
 	input: InviteOrganizationMemberInput
 ): Promise<{
 	inviteSuccess: true;
@@ -217,6 +243,13 @@ export async function inviteOrganizationMember(
 	if (!invitesAdminRole && accessCommand.permissions.canManageMembers) {
 		await requireGovernancePolicy(ports, POLICY_ACTION_CATALOG.organization.updateAdminAccess);
 	}
+	const existing = await ports.settings.findPendingInvitation(ports.auth.orgId, email);
+	if (existing) {
+		fail(400, 'An invitation for this email is already pending');
+	}
+
+	await requireMemberInviteWithinPlanLimit(ports);
+
 	const inviteRequiresStepUp = isHighPrivilegeAccess(accessCommand.role, accessCommand.permissions.canManageMembers);
 	const sensitiveAction = inviteRequiresStepUp
 		? await authorizeMemberManagementSensitiveAction(ports, {
@@ -231,11 +264,6 @@ export async function inviteOrganizationMember(
 				}
 			})
 		: null;
-
-	const existing = await ports.settings.findPendingInvitation(ports.auth.orgId, email);
-	if (existing) {
-		fail(400, 'An invitation for this email is already pending');
-	}
 
 	const existingUserAccount = await ports.settings.findUserAccountByEmail(email);
 	const rateLimit = await checkInvitationRateLimit(ports, {
@@ -260,6 +288,11 @@ export async function inviteOrganizationMember(
 	if (createResult.status === 'failed') {
 		fail(500, createResult.message);
 	}
+
+	await blockCreatedInvitationIfOverPlanLimit(ports, {
+		invitationId: createResult.invitationId,
+		actorUserId
+	});
 
 	const accessRequestBridgeStatus = existingUserAccount
 		? 'existing-user'
@@ -319,6 +352,106 @@ export async function inviteOrganizationMember(
 				: deliveryStatus === 'sent'
 					? 'Invitation created and email delivery was queued.'
 					: 'Invitation created! Tell the user to log in to Troop to Task - they will see the invitation on their dashboard.'
+	};
+}
+
+async function requireMemberInviteWithinPlanLimit(ports: InviteOrganizationMemberPorts): Promise<void> {
+	const planReads = getPlanPolicyReads(ports);
+
+	const [policy, usage] = await Promise.all([
+		planReads.readEffectivePlanPolicy(),
+		planReads.readOrganizationPlanUsage()
+	]);
+	const memberLimit = policy.limits.activeOrganizationMembers.limit;
+	if (memberLimit === null) return;
+
+	const usedSeats = usage.activeOrganizationMemberCount + usage.pendingUnexpiredInvitationCount;
+	if (usedSeats < memberLimit) return;
+
+	// Attribute the denial to pending invitations only when active members alone do not already fill the cap.
+	const pendingCausedBlock =
+		usage.activeOrganizationMemberCount < memberLimit && usage.pendingUnexpiredInvitationCount > 0;
+	const message = pendingCausedBlock
+		? `This organization has reached its plan member limit of ${memberLimit} seats when pending invitations are included. Revoke a pending invitation or upgrade before inviting another member.`
+		: `This organization has reached its plan member limit of ${memberLimit} active members. Remove a member or upgrade before inviting another member.`;
+
+	ports.audit.log({
+		action: 'member.invite_plan_limit_denied',
+		resourceType: 'organization',
+		resourceId: ports.auth.orgId,
+		details: {
+			commercialPlan: policy.commercialPlan,
+			memberLimit,
+			activeOrganizationMemberCount: usage.activeOrganizationMemberCount,
+			pendingUnexpiredInvitationCount: usage.pendingUnexpiredInvitationCount,
+			reason: pendingCausedBlock ? 'pending_invitations' : 'active_members'
+		},
+		severity: 'warning'
+	});
+
+	fail(403, message);
+}
+
+async function blockCreatedInvitationIfOverPlanLimit(
+	ports: InviteOrganizationMemberPorts,
+	input: { invitationId: string; actorUserId: string }
+): Promise<void> {
+	const planReads = getPlanPolicyReads(ports);
+	const [policy, usage] = await Promise.all([
+		planReads.readEffectivePlanPolicy(),
+		planReads.readOrganizationPlanUsage()
+	]);
+	const memberLimit = policy.limits.activeOrganizationMembers.limit;
+	if (memberLimit === null) return;
+
+	const usedSeats = usage.activeOrganizationMemberCount + usage.pendingUnexpiredInvitationCount;
+	if (usedSeats <= memberLimit) return;
+
+	const message = `This organization exceeded its plan member limit of ${memberLimit} seats while creating the invitation. Revoke a pending invitation or upgrade before inviting another member.`;
+	const blockResult = await ports.settings.blockInvitationIfMemberPlanLimitExceeded({
+		organizationId: ports.auth.orgId,
+		invitationId: input.invitationId,
+		blockedBy: input.actorUserId,
+		memberLimit,
+		reason: 'plan_member_limit_overcap'
+	});
+
+	if (blockResult.status === 'within_limit') return;
+
+	ports.audit.log({
+		action: 'member.invite_plan_limit_overcap',
+		resourceType: 'organization',
+		resourceId: ports.auth.orgId,
+		details: {
+			commercialPlan: policy.commercialPlan,
+			memberLimit,
+			activeOrganizationMemberCount: usage.activeOrganizationMemberCount,
+			pendingUnexpiredInvitationCount: usage.pendingUnexpiredInvitationCount,
+			blocked: blockResult.status === 'blocked'
+		},
+		severity: 'warning'
+	});
+
+	if (blockResult.status === 'failed') {
+		fail(500, 'Invitation could not be canceled after the plan member limit was exceeded');
+	}
+
+	fail(403, message);
+}
+
+function getPlanPolicyReads(ports: InviteOrganizationMemberPorts): OrganizationMemberPlanPolicyReads {
+	if (ports.planPolicy) return ports.planPolicy;
+	return {
+		readEffectivePlanPolicy: () =>
+			readEffectivePlanPolicy({
+				auth: ports.auth,
+				store: ports.store as DataStore
+			}),
+		readOrganizationPlanUsage: () =>
+			readOrganizationPlanUsage({
+				auth: ports.auth,
+				store: ports.store as DataStore
+			})
 	};
 }
 

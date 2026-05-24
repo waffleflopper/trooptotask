@@ -19,8 +19,12 @@ export const _getConfig: RouteConfig<TrainingReportRouteInput, TrainingReportWor
 	policyResource: { kind: 'unscoped' },
 	input: trainingReportInput,
 	parseInput: (event) => parseTrainingReportInput(event.url),
-	fn: async (ctx, input) => generateTrainingReportWorkbookExport(ctx, toTrainingReportInput(input)),
-	formatOutput: (result) => workbookBufferResponse(result.buffer, result.filename, PRIVATE_REPORT_HEADERS)
+	fn: async (ctx, input) => {
+		return generateTrainingReportWorkbookExport(ctx, toTrainingReportInput(input));
+	},
+	formatOutput: (result) => {
+		return workbookBufferResponse(result.buffer, result.filename, PRIVATE_REPORT_HEADERS);
+	}
 };
 
 export const GET = handle(_getConfig);

@@ -6,6 +6,18 @@ import { canManageBillingSubscription, readBillingOrganization } from '$lib/serv
 import type { UseCaseContext } from '$lib/server/core/ports';
 import { requireGovernancePolicy } from '$lib/server/core/useCases/governancePolicy';
 import { readCurrentBillingSnapshot, summarizeBillingCancellation } from '$lib/server/core/useCases/billingState';
+import { readOrganizationPlanUsage } from '$lib/server/core/useCases/organizationPlanUsage';
+import { buildEffectivePlanPolicyForTier, readEffectivePlanPolicy } from '$lib/server/core/useCases/planPolicy';
+import { buildPlanDowngradePreview } from '$lib/server/core/useCases/planDowngradePreview';
+import { buildPlanUsageSummary } from '$lib/server/core/useCases/planUsageSummary';
+
+const TIER_ORDER: Tier[] = ['free', 'team', 'unit'];
+
+function lowerPlanTiers(tier: Tier): Tier[] {
+	const currentIndex = TIER_ORDER.indexOf(tier);
+	if (currentIndex <= 0) return [];
+	return TIER_ORDER.slice(0, currentIndex);
+}
 
 export async function _loadBillingPageData(
 	ctx: Pick<UseCaseContext, 'auth' | 'audit' | 'rawStore'>,
@@ -14,8 +26,20 @@ export async function _loadBillingPageData(
 	await requireGovernancePolicy({ auth: ctx.auth, audit: ctx.audit }, POLICY_ACTION_CATALOG.organization.accessBilling);
 
 	const org = await readBillingOrganization({ auth: ctx.auth, store: ctx.rawStore });
-	const billingSnapshot = await readCurrentBillingSnapshot({ auth: ctx.auth, store: ctx.rawStore });
+	const [billingSnapshot, effectivePlanPolicy, planUsage] = await Promise.all([
+		readCurrentBillingSnapshot({ auth: ctx.auth, store: ctx.rawStore }),
+		readEffectivePlanPolicy({ auth: ctx.auth, store: ctx.rawStore }),
+		readOrganizationPlanUsage({ auth: ctx.auth, store: ctx.rawStore })
+	]);
 	const canManageSubscription = canManageBillingSubscription(org);
+	const planUsageSummary = buildPlanUsageSummary(effectivePlanPolicy, planUsage);
+	const downgradePreviews = lowerPlanTiers(effectivePlanPolicy.tier).map((targetTier) =>
+		buildPlanDowngradePreview({
+			currentPolicy: effectivePlanPolicy,
+			targetPolicy: buildEffectivePlanPolicyForTier(effectivePlanPolicy, targetTier),
+			usage: planUsage
+		})
+	);
 
 	const tierComparison = (['free', 'team', 'unit'] as Tier[]).map((tier) => {
 		const config = TIER_CONFIG[tier];
@@ -37,6 +61,8 @@ export async function _loadBillingPageData(
 		billingSnapshot,
 		cancellationSummary: summarizeBillingCancellation(billingSnapshot),
 		canManageSubscription,
+		planUsageSummary,
+		downgradePreviews,
 		tierComparison
 	};
 }

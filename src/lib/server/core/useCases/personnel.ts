@@ -11,18 +11,56 @@
 import { fail } from '$lib/server/core/errors';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { PersonnelEntity } from '$lib/server/entities/personnel';
-import type { WriteWithSubscriptionPorts } from '$lib/server/core/ports';
+import type { WriteWithNotificationsPorts, WriteWithSubscriptionPorts } from '$lib/server/core/ports';
 import { evaluateFeaturePolicy, policyResourceForGroup, requireFeaturePolicy } from './featurePolicy';
 import { buildUniquePersonnelSlug, isPersonnelSlugUniqueConstraintError } from './personnelSlug';
+import { createDeletionRequest } from './deletionRequests';
 
 const entity = PersonnelEntity;
 const AUDIT_RESOURCE = 'personnel';
 const SLUG_RETRY_LIMIT = 3;
 
+type ArchiveBatchPorts = WriteWithSubscriptionPorts & WriteWithNotificationsPorts;
+
+export interface ArchivePersonnelBatchInput {
+	ids: string[];
+	userEmail: string;
+}
+
+export interface ArchivePersonnelBatchResult {
+	archivedIds: string[];
+	approvalRequestedIds: string[];
+	errors: Array<{ id: string; message: string }>;
+}
+
+interface ArchiveCandidate {
+	id: string;
+	rank: string;
+	first_name: string;
+	last_name: string;
+	group_id: string | null;
+	archived_at: string | null;
+}
+
 export interface PersonnelUseCases {
 	create(ctx: WriteWithSubscriptionPorts, data: Record<string, unknown>): Promise<unknown>;
 	update(ctx: WriteWithSubscriptionPorts, data: Record<string, unknown>): Promise<unknown>;
 	archive(ctx: WriteWithSubscriptionPorts, id: string): Promise<{ requiresApproval: boolean } | void>;
+	archiveBatch(ctx: ArchiveBatchPorts, input: ArchivePersonnelBatchInput): Promise<ArchivePersonnelBatchResult>;
+}
+
+function uniqueStrings(values: string[]): string[] {
+	return [...new Set(values)];
+}
+
+function resourceDescription(person: ArchiveCandidate): string {
+	return `Archive ${person.rank} ${person.last_name}, ${person.first_name}`;
+}
+
+function errorStatus(error: unknown): number | undefined {
+	return typeof error === 'object' && error !== null && 'status' in error
+		? (error as { status?: number }).status
+		: undefined;
 }
 
 export function createPersonnelUseCases(): PersonnelUseCases {
@@ -152,13 +190,15 @@ export function createPersonnelUseCases(): PersonnelUseCases {
 				POLICY_ACTION_CATALOG.personnel.manageRecords,
 				policyResourceForGroup(currentRecord?.group_id),
 				AUDIT_RESOURCE,
-				id
+				id,
+				{ enforceReadOnlyOverlay: false }
 			);
 
 			const directArchiveDecision = await evaluateFeaturePolicy(
 				ctx,
 				POLICY_ACTION_CATALOG.personnel.archiveRecords,
-				policyResourceForGroup(currentRecord?.group_id)
+				policyResourceForGroup(currentRecord?.group_id),
+				{ enforceReadOnlyOverlay: false }
 			);
 			if (!directArchiveDecision.allowed && directArchiveDecision.reasonCode === 'denied:missing-capability') {
 				return { requiresApproval: true };
@@ -168,7 +208,8 @@ export function createPersonnelUseCases(): PersonnelUseCases {
 				POLICY_ACTION_CATALOG.personnel.archiveRecords,
 				policyResourceForGroup(currentRecord?.group_id),
 				AUDIT_RESOURCE,
-				id
+				id,
+				{ enforceReadOnlyOverlay: false }
 			);
 
 			await ctx.store.update(entity.table, ctx.auth.orgId, id, {
@@ -182,6 +223,104 @@ export function createPersonnelUseCases(): PersonnelUseCases {
 				resourceType: AUDIT_RESOURCE,
 				resourceId: id
 			});
+		},
+
+		async archiveBatch(ctx, input) {
+			const ids = uniqueStrings(input.ids);
+			if (ids.length === 0) {
+				return { archivedIds: [], approvalRequestedIds: [], errors: [] };
+			}
+
+			const candidates = await ctx.store.findMany<ArchiveCandidate>(entity.table, ctx.auth.orgId, undefined, {
+				inFilters: { id: ids },
+				select: 'id, rank, first_name, last_name, group_id, archived_at'
+			});
+			const candidateById = new Map(candidates.map((candidate) => [candidate.id, candidate]));
+			const result: ArchivePersonnelBatchResult = {
+				archivedIds: [],
+				approvalRequestedIds: [],
+				errors: []
+			};
+
+			const archivedAt = new Date().toISOString();
+
+			for (const id of ids) {
+				const person = candidateById.get(id);
+				if (!person) {
+					result.errors.push({ id, message: 'Personnel not found' });
+					continue;
+				}
+
+				if (person.archived_at) {
+					result.errors.push({ id, message: 'Personnel is already archived' });
+					continue;
+				}
+
+				await requireFeaturePolicy(
+					ctx,
+					POLICY_ACTION_CATALOG.personnel.manageRecords,
+					policyResourceForGroup(person.group_id),
+					AUDIT_RESOURCE,
+					id,
+					{ enforceReadOnlyOverlay: false }
+				);
+
+				const directArchiveDecision = await evaluateFeaturePolicy(
+					ctx,
+					POLICY_ACTION_CATALOG.personnel.archiveRecords,
+					policyResourceForGroup(person.group_id),
+					{ enforceReadOnlyOverlay: false }
+				);
+
+				if (!directArchiveDecision.allowed && directArchiveDecision.reasonCode === 'denied:missing-capability') {
+					try {
+						await createDeletionRequest(ctx, {
+							resourceType: AUDIT_RESOURCE,
+							resourceId: id,
+							resourceDescription: resourceDescription(person),
+							resourceUrl: `/org/${ctx.auth.orgId}/personnel`,
+							userEmail: input.userEmail
+						});
+						result.approvalRequestedIds.push(id);
+					} catch (error) {
+						if (errorStatus(error) === 409) {
+							result.approvalRequestedIds.push(id);
+						} else {
+							result.errors.push({
+								id,
+								message: error instanceof Error ? error.message : 'Failed to submit archival request'
+							});
+						}
+					}
+					continue;
+				}
+
+				await requireFeaturePolicy(
+					ctx,
+					POLICY_ACTION_CATALOG.personnel.archiveRecords,
+					policyResourceForGroup(person.group_id),
+					AUDIT_RESOURCE,
+					id,
+					{ enforceReadOnlyOverlay: false }
+				);
+
+				await ctx.store.update(entity.table, ctx.auth.orgId, id, { archived_at: archivedAt });
+				result.archivedIds.push(id);
+			}
+
+			if (result.archivedIds.length > 0) {
+				ctx.subscription.invalidateTierCache();
+				ctx.audit.log({
+					action: `${AUDIT_RESOURCE}.bulk_archived`,
+					resourceType: AUDIT_RESOURCE,
+					details: {
+						count: result.archivedIds.length,
+						ids: result.archivedIds
+					}
+				});
+			}
+
+			return result;
 		}
 	};
 }

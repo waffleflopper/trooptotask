@@ -635,6 +635,36 @@ describe('createSupabaseOrgSettingsMemberManagementPort', () => {
 		expect(calls).toContainEqual({ method: 'single', args: [] });
 	});
 
+	it('uses the serialized member-plan guard RPC for post-create cap enforcement', async () => {
+		const adminSupabase = {
+			rpc: vi.fn(async () => ({ data: true, error: null }))
+		};
+		const port = createSupabaseOrgSettingsMemberManagementPort(
+			{
+				supabase: { from: vi.fn() }
+			} as never,
+			{ getAdminClient: () => adminSupabase as never }
+		);
+
+		await expect(
+			port.blockInvitationIfMemberPlanLimitExceeded({
+				organizationId: 'org-1',
+				invitationId: 'invite-1',
+				blockedBy: 'owner-1',
+				memberLimit: 2,
+				reason: 'plan_member_limit_overcap'
+			})
+		).resolves.toEqual({ status: 'blocked' });
+
+		expect(adminSupabase.rpc).toHaveBeenCalledWith('block_invitation_if_member_cap_exceeded', {
+			p_org_id: 'org-1',
+			p_invitation_id: 'invite-1',
+			p_blocked_by: 'owner-1',
+			p_member_limit: 2,
+			p_block_reason: 'plan_member_limit_overcap'
+		});
+	});
+
 	it('does not swallow unrelated unique constraint failures while creating invite-origin Access Requests', async () => {
 		const { builder: lookupBuilder } = createAccessRequestLookupBuilder({
 			data: null,

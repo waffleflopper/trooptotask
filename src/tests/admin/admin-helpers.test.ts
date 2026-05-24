@@ -26,10 +26,10 @@ describe('canAccessPage', () => {
 		expect(canAccessPage('support', 'organizations')).toBe(true);
 		expect(canAccessPage('support', 'access-requests')).toBe(true);
 		expect(canAccessPage('support', 'feedback')).toBe(true);
+		expect(canAccessPage('support', 'subscriptions')).toBe(true);
 	});
 
-	it('support cannot access billing or system pages', () => {
-		expect(canAccessPage('support', 'subscriptions')).toBe(false);
+	it('support cannot access billing operations or system pages', () => {
 		expect(canAccessPage('support', 'billing-events')).toBe(false);
 		expect(canAccessPage('support', 'gifting')).toBe(false);
 		expect(canAccessPage('support', 'audit')).toBe(false);
@@ -63,12 +63,12 @@ describe('getAccessiblePages', () => {
 		expect(pages).toHaveLength(10);
 	});
 
-	it('returns 5 pages for support', () => {
+	it('returns 6 pages for support', () => {
 		const pages = getAccessiblePages('support');
-		expect(pages).toHaveLength(5);
+		expect(pages).toHaveLength(6);
 		expect(pages).toContain('dashboard');
 		expect(pages).toContain('users');
-		expect(pages).not.toContain('subscriptions');
+		expect(pages).toContain('subscriptions');
 	});
 
 	it('returns 4 pages for billing', () => {

@@ -142,6 +142,14 @@ export const actions: Actions = {
 				}
 			}
 
+			ctx.audit({
+				action: 'admin.org.gift_tier',
+				resourceType: 'organization',
+				resourceId: orgId,
+				orgId,
+				details: { giftTier, days },
+				severity: 'warning'
+			});
 			invalidateTierCache(orgId);
 			return { success: true, action: 'gift' };
 		}
@@ -188,6 +196,13 @@ export const actions: Actions = {
 				}
 			}
 
+			ctx.audit({
+				action: 'admin.org.revoke_gift',
+				resourceType: 'organization',
+				resourceId: orgId,
+				orgId,
+				severity: 'warning'
+			});
 			invalidateTierCache(orgId);
 			return { success: true, action: 'revoke' };
 		}
@@ -235,6 +250,14 @@ export const actions: Actions = {
 				return fail(500, { error: 'Failed to extend gift' });
 			}
 
+			ctx.audit({
+				action: 'admin.org.extend_gift',
+				resourceType: 'organization',
+				resourceId: orgId,
+				orgId,
+				details: { days },
+				severity: 'info'
+			});
 			invalidateTierCache(orgId);
 			return { success: true, action: 'extend' };
 		}

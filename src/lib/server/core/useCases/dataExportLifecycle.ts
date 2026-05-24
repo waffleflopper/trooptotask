@@ -26,7 +26,8 @@ export async function startDataExport(
 ): Promise<{ exportId: string }> {
 	const record = await ports.store.insert<DataExportRow>('data_exports', ports.auth.orgId, {
 		requested_by: input.requestedBy,
-		status: 'processing'
+		status: 'processing',
+		created_at: new Date().toISOString()
 	});
 
 	return { exportId: record.id };

@@ -172,6 +172,28 @@ describe('PersonnelPageContext', () => {
 			);
 			expect(ctx.canManageConfig).toBe(false);
 		});
+
+		it('allows archive affordances during read-only mode while other writes stay denied', () => {
+			const org = createTestOrgContext({
+				userRole: 'member',
+				isReadOnly: true,
+				capabilityMap: {
+					calendar: 'view',
+					personnel: 'configure',
+					training: 'view',
+					criticalTasks: 'view',
+					onboarding: 'view',
+					ratingScheme: 'view'
+				},
+				scopeSet: { kind: 'organization' }
+			});
+			const ctx = new PersonnelPageContext(makeData(), makeModals(), org);
+
+			expect(ctx.readOnly).toBe(true);
+			expect(ctx.canAddPersonnel).toBe(false);
+			expect(ctx.canImportPersonnel).toBe(false);
+			expect(ctx.canArchivePersonnelRecord(makePerson())).toBe(true);
+		});
 	});
 
 	describe('filtered personnel (search)', () => {

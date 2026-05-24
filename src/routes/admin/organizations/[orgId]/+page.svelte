@@ -434,7 +434,14 @@
 				<Table.Body>
 					{#each data.planDiagnostics.entitlements as entitlement (entitlement.key)}
 						<Table.Row>
-							<Table.Cell>{entitlement.label}</Table.Cell>
+							<Table.Cell>
+								<div class="grid gap-1">
+									<span>{entitlement.label}</span>
+									<span class="max-w-[34rem] whitespace-normal text-sm text-muted-foreground">
+										{entitlement.description}
+									</span>
+								</div>
+							</Table.Cell>
 							<Table.Cell>
 								<Badge variant={entitlement.available ? 'success' : 'secondary'}>
 									{entitlement.available ? 'Available' : 'Unavailable'}
@@ -475,19 +482,42 @@
 				</Table.Body>
 			</Table.Root>
 			{#if data.adminRole === 'super_admin'}
-				<form method="POST" action="?/setFeatureOverride" class="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-					<NativeSelect name="featureKey" aria-label="Feature">
-						{#each data.planDiagnostics.entitlements as entitlement (entitlement.key)}
-							<option value={entitlement.key}>{entitlement.label}</option>
-						{/each}
-					</NativeSelect>
-					<NativeSelect name="state" aria-label="Override state">
-						<option value="granted">Grant</option>
-						<option value="denied">Deny</option>
-					</NativeSelect>
-					<Input type="datetime-local" name="expiresAt" aria-label="Expires at" />
-					<Textarea name="reason" maxlength={500} placeholder="Reason" aria-label="Reason"></Textarea>
-					<Button type="submit">Set Override</Button>
+				<form method="POST" action="?/setFeatureOverride" class="mt-5 border-t pt-4">
+					<div class="mb-3">
+						<h3 class="text-sm font-medium">Set Feature Override</h3>
+						<p class="text-sm text-muted-foreground">
+							Grant or deny feature access outside the organization's current plan.
+						</p>
+					</div>
+					<div
+						class="grid gap-3 lg:grid-cols-[minmax(12rem,1.2fr)_8rem_minmax(13rem,1fr)_minmax(16rem,1.4fr)_auto] lg:items-start"
+					>
+						<label class="grid gap-1.5 text-sm font-medium">
+							Feature
+							<NativeSelect name="featureKey" class="w-full">
+								{#each data.planDiagnostics.entitlements as entitlement (entitlement.key)}
+									<option value={entitlement.key}>{entitlement.label}</option>
+								{/each}
+							</NativeSelect>
+						</label>
+						<label class="grid gap-1.5 text-sm font-medium">
+							Override
+							<NativeSelect name="state" class="w-full">
+								<option value="granted">Grant</option>
+								<option value="denied">Deny</option>
+							</NativeSelect>
+						</label>
+						<label class="grid gap-1.5 text-sm font-medium">
+							Expires
+							<Input type="datetime-local" name="expiresAt" />
+						</label>
+						<label class="grid gap-1.5 text-sm font-medium">
+							Reason
+							<Textarea name="reason" maxlength={500} placeholder="Optional support note" class="min-h-8 resize-y"
+							></Textarea>
+						</label>
+						<Button type="submit" class="w-full lg:mt-[1.875rem] lg:w-auto">Set Override</Button>
+					</div>
 				</form>
 			{/if}
 		</Card.Content>

@@ -13,12 +13,14 @@
 			name: 'Free',
 			price: '$0',
 			capacity: 'Up to 20 personnel',
+			accountUsers: 'Up to 2 active account users',
 			supporting: '1 organization, 3 exports per month'
 		},
 		{
 			name: 'Team',
 			price: '$5',
 			capacity: 'Up to 100 personnel',
+			accountUsers: 'Unlimited account users',
 			supporting: '1 organization, unlimited exports',
 			featured: true
 		},
@@ -26,12 +28,14 @@
 			name: 'Unit',
 			price: '$12',
 			capacity: 'Up to 500 personnel',
+			accountUsers: 'Unlimited account users',
 			supporting: 'Up to 3 organizations, unlimited exports'
 		},
 		{
 			name: 'Enterprise',
 			price: 'Contact us',
 			capacity: 'Larger formations',
+			accountUsers: 'Unlimited account users',
 			supporting: 'Custom capacity and support terms'
 		}
 	];
@@ -370,7 +374,7 @@
 				</h2>
 				<p>
 					All plans are free during beta. Paid tiers later scale by personnel capacity, not by hiding core workflows
-					from smaller units.
+					from smaller units. Account user limits are separate from personnel capacity.
 				</p>
 			</div>
 
@@ -394,15 +398,18 @@
 								<span class="pricing__price-suffix">/mo</span>
 							{/if}
 						</div>
+						<p class="pricing__account-users">{plan.accountUsers}</p>
 						<p class="pricing__supporting">{plan.supporting}</p>
 					</article>
 				{/each}
 			</div>
 
 			<div class="pricing__note reveal">
-				<strong>No feature gating.</strong>
+				<strong>User seats are not personnel.</strong>
 				<span
-					>Calendar, training, onboarding, duty rosters, exports, and readiness workflows stay available across tiers.</span
+					>Account users are leaders or staff with login access to your organization. The Free tier includes up to 2
+					active account users; Team, Unit, and Enterprise include unlimited account users. Personnel limits refer only
+					to the Soldiers tracked in your roster.</span
 				>
 			</div>
 		</div>
@@ -1000,6 +1007,14 @@
 		color: var(--muted-foreground);
 		font-size: 0.9375rem;
 		line-height: 1.5;
+	}
+
+	.pricing__account-users {
+		margin: 0.75rem 0 0;
+		color: var(--foreground);
+		font-size: 0.9375rem;
+		font-weight: 700;
+		line-height: 1.35;
 	}
 
 	.pricing__tier-header span {

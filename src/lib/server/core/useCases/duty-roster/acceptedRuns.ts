@@ -418,7 +418,12 @@ export async function invalidateLatestDutyRosterTemplateRun(
 	}
 	let calendarRemoval: { cleared: number };
 	try {
-		calendarRemoval = await removeAcceptedDutyRosterRunLinkedCalendarAssignments(ctx, linkedRows);
+		calendarRemoval = { cleared: 0 };
+		for (const target of targetRows) {
+			const targetLinkedRows = linkedRowsByRunId.get(target.id) ?? [];
+			const targetRemoval = await removeAcceptedDutyRosterRunLinkedCalendarAssignments(ctx, target.id, targetLinkedRows);
+			calendarRemoval.cleared += targetRemoval.cleared;
+		}
 	} catch (error) {
 		for (const updated of updatedRows) {
 			await ctx.store.update<DutyRosterTemplateRunRow>(DUTY_ROSTER_TEMPLATE_RUN_TABLE, ctx.auth.orgId, updated.id, {

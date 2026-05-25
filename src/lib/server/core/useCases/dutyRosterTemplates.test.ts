@@ -2391,8 +2391,8 @@ describe('Duty Roster Template use cases', () => {
 		const applied = await acceptAndApplyDutyRosterTemplatePreview(ctx, {
 			preview: JSON.stringify(preview)
 		});
-		const deleteWhereAnySpy = vi
-			.spyOn(store, 'deleteWhereAny')
+		const deleteWhereSpy = vi
+			.spyOn(store, 'deleteWhere')
 			.mockRejectedValueOnce(new Error('Calendar cleanup failed.'));
 
 		await expect(invalidateLatestDutyRosterTemplateRun(ctx, { runId: applied.acceptedRun.id })).rejects.toThrow(
@@ -2421,7 +2421,7 @@ describe('Duty Roster Template use cases', () => {
 				resourceId: applied.acceptedRun.id
 			})
 		);
-		deleteWhereAnySpy.mockRestore();
+		deleteWhereSpy.mockRestore();
 	});
 
 	it('uses accepted runs, not Manual DA6 Baseline, as the future preview count source', async () => {

@@ -155,6 +155,7 @@ export type AcceptedDutyRosterRunCalendarSyncStatus =
 export interface AcceptedDutyRosterRunCalendarSyncPlanChange {
 	id: string;
 	date: string;
+	sourceRowKey: string;
 	assignmentTypeId: string;
 	action: 'create' | 'update' | 'clear';
 	currentAssigneeId: string | null;

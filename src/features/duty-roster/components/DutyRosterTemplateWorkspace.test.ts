@@ -1046,7 +1046,7 @@ function acceptedRunWithCalendarSync() {
 		...acceptedRun({ applied: true, calendarAssignmentsEdited: true, corrected: true }),
 		calendarSyncState: {
 			status: 'duty-roster-newer' as const,
-			label: 'Duty Roster newer',
+			label: 'Duty Roster is newer than Calendar',
 			summary: '1 Calendar assignment needs the latest Duty Roster Correction.',
 			invalidationRemovalSummary:
 				'1 linked Calendar assignment came from this Accepted Duty Roster Run and will be removed if the run is invalidated.',
@@ -1056,6 +1056,7 @@ function acceptedRunWithCalendarSync() {
 					{
 						id: 'run-1:2026-06-01',
 						date: '2026-06-01',
+						sourceRowKey: '2026-06-01',
 						assignmentTypeId: 'template-1',
 						action: 'update' as const,
 						currentAssigneeId: 'person-2',

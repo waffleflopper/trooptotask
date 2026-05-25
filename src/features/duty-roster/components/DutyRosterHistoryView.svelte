@@ -254,13 +254,6 @@
 		return 'warning';
 	}
 
-	function calendarSyncTitle(run: DutyRosterTemplateAcceptedRun): string {
-		if (run.calendarSyncState?.status === 'duty-roster-newer') return 'Duty Roster is newer than Calendar';
-		if (run.calendarSyncState?.status === 'calendar-manually-changed') return 'Calendar was manually changed';
-		if (run.calendarSyncState?.status === 'needs-review') return 'Calendar sync needs review';
-		return 'Calendar sync state';
-	}
-
 	function runMatchesHistoryFilter(run: DutyRosterTemplateAcceptedRun): boolean {
 		const query = historySearch.trim().toLowerCase();
 		const haystack = [
@@ -510,7 +503,7 @@
 				{#if historyDetailRun.calendarSyncState && historyDetailRun.calendarSyncState.status !== 'in-sync' && historyDetailRun.calendarSyncState.status !== 'not-applied' && !detailReview.isInvalidated}
 					<WarningSummary
 						tone={calendarSyncTone(historyDetailRun)}
-						title={calendarSyncTitle(historyDetailRun)}
+						title={historyDetailRun.calendarSyncState.label}
 						description={historyDetailRun.calendarSyncState.summary}
 					/>
 				{/if}

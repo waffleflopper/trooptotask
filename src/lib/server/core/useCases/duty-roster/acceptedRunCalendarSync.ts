@@ -50,7 +50,7 @@ export async function applyAcceptedDutyRosterRunCalendarSync(
 	);
 
 	if (options.audit !== false) {
-		await logAcceptedDutyRosterRunAppliedToCalendar(ctx, run.id, {
+		await tryLogAcceptedDutyRosterRunAppliedToCalendar(ctx, run.id, {
 			inserted: result.inserted.length,
 			cleared: result.cleared
 		});
@@ -72,6 +72,8 @@ export async function applyReviewedAcceptedDutyRosterRunCalendarSyncPlan(
 		return applyAcceptedDutyRosterRunCalendarSync(ctx, run);
 	}
 
+	// Rollback restores the reviewed state that the user confirmed; without row locks a concurrent Calendar edit can
+	// still change the live slot after this plan is reviewed, so the plan token remains the write guard.
 	const rollbackRecords = plan.changes.map((change) => rollbackRecordFromPlanChange(change, run.id));
 	let result: Awaited<ReturnType<typeof batchDailyAssignments>>;
 	try {
@@ -95,13 +97,13 @@ export async function applyReviewedAcceptedDutyRosterRunCalendarSyncPlan(
 			}
 		);
 
-		await logAcceptedDutyRosterRunAppliedToCalendar(ctx, run.id, {
+		const acceptedRun = toAcceptedDutyRosterTemplateRun(updated);
+		await tryLogAcceptedDutyRosterRunAppliedToCalendar(ctx, run.id, {
 			inserted: result.inserted.length,
 			cleared: result.cleared
 		});
-
 		return {
-			acceptedRun: toAcceptedDutyRosterTemplateRun(updated),
+			acceptedRun,
 			insertedCount: result.inserted.length,
 			clearedCount: result.cleared
 		};
@@ -234,21 +236,16 @@ export async function loadAcceptedDutyRosterRunCalendarSyncState(
 
 export async function removeAcceptedDutyRosterRunLinkedCalendarAssignments(
 	ctx: WritePorts,
+	runId: string,
 	linkedRows: DutyRosterTemplateLinkedCalendarAssignmentRow[]
 ): Promise<{ cleared: number }> {
 	if (linkedRows.length === 0) {
 		return { cleared: 0 };
 	}
 
-	const result = await batchDailyAssignments(ctx, {
-		records: linkedRows.map((assignment) => ({
-			date: assignment.date,
-			assignmentTypeId: assignment.assignment_type_id,
-			assigneeId: ''
-		}))
-	});
-	// `cleared` is the number of requested slot removals; the batch API does not expose actual deleted row count.
-	return { cleared: result.cleared };
+	await ctx.store.deleteWhere('daily_assignments', ctx.auth.orgId, { duty_roster_template_run_id: runId });
+	// The store API does not expose the actual deleted row count here. Report the linked rows observed before cleanup.
+	return { cleared: linkedRows.length };
 }
 
 export async function hydrateAcceptedDutyRosterRunCalendarSyncState(
@@ -361,6 +358,7 @@ function buildCalendarSyncPlanChanges(
 		changes.push({
 			id: `${run.id}:${finalRow.date}`,
 			date: finalRow.date,
+			sourceRowKey: finalRow.date,
 			assignmentTypeId: expectedRow.assignmentTypeId,
 			action: plannedAssigneeId ? (linkedRow ? 'update' : 'create') : 'clear',
 			currentAssigneeId: linkedRow?.assignee_id ?? null,
@@ -378,6 +376,7 @@ function buildCalendarSyncPlanChanges(
 		changes.push({
 			id: `${run.id}:${rowDate}:clear`,
 			date: linkedRow.date,
+			sourceRowKey: rowDate,
 			assignmentTypeId: linkedRow.assignment_type_id,
 			action: 'clear',
 			currentAssigneeId: linkedRow.assignee_id,
@@ -438,9 +437,9 @@ function linkedRowsBySourceRowDate(
 function calendarSyncStatusLabel(status: AcceptedDutyRosterRunCalendarSyncStatus): string {
 	if (status === 'not-applied') return 'Not applied';
 	if (status === 'in-sync') return 'In sync';
-	if (status === 'duty-roster-newer') return 'Duty Roster newer';
-	if (status === 'calendar-manually-changed') return 'Calendar manually changed';
-	return 'Needs review';
+	if (status === 'duty-roster-newer') return 'Duty Roster is newer than Calendar';
+	if (status === 'calendar-manually-changed') return 'Calendar was manually changed';
+	return 'Calendar sync needs review';
 }
 
 function calendarSyncStatusSummary(status: AcceptedDutyRosterRunCalendarSyncStatus, changeCount: number): string {
@@ -461,6 +460,7 @@ function planToken(changes: AcceptedDutyRosterRunCalendarSyncPlanChange[]): stri
 		date: change.date,
 		assignmentTypeId: change.assignmentTypeId,
 		action: change.action,
+		sourceRowKey: change.sourceRowKey,
 		currentAssigneeId: change.currentAssigneeId,
 		plannedAssigneeId: change.plannedAssigneeId,
 		reason: change.reason
@@ -514,7 +514,7 @@ function planChangeToDailyAssignmentRecord(
 			? {
 					sourceKind: 'duty-roster-run',
 					sourceId: runId,
-					sourceRowKey: sourceRowKeyFromPlanChange(change, runId)
+					sourceRowKey: change.sourceRowKey
 				}
 			: null
 	};
@@ -532,7 +532,7 @@ function rollbackRecordFromPlanChange(
 			? {
 					sourceKind: 'duty-roster-run',
 					sourceId: runId,
-					sourceRowKey: sourceRowKeyFromPlanChange(change, runId)
+					sourceRowKey: change.sourceRowKey
 				}
 			: null
 	};
@@ -542,8 +542,16 @@ function assignmentTypeIdFromPlanChange(change: AcceptedDutyRosterRunCalendarSyn
 	return change.assignmentTypeId;
 }
 
-function sourceRowKeyFromPlanChange(change: AcceptedDutyRosterRunCalendarSyncPlanChange, runId: string): string {
-	return change.id.replace(`${runId}:`, '').replace(':clear', '');
+async function tryLogAcceptedDutyRosterRunAppliedToCalendar(
+	ctx: WritePorts,
+	runId: string,
+	details: { inserted: number; cleared: number }
+): Promise<void> {
+	try {
+		await logAcceptedDutyRosterRunAppliedToCalendar(ctx, runId, details);
+	} catch {
+		// Calendar writes and the accepted-run applied marker are already durable; do not roll them back for audit failure.
+	}
 }
 
 async function tryRollbackReviewedCalendarSyncPlan(

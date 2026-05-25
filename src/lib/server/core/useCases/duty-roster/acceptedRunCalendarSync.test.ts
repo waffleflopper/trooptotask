@@ -174,7 +174,7 @@ describe('Accepted Duty Roster Run Calendar Sync', () => {
 		]);
 	});
 
-	it('removes slots at linked Calendar assignment coordinates during invalidation cleanup', async () => {
+	it('removes slots by accepted run lineage during invalidation cleanup', async () => {
 		const ctx = buildContext();
 		ctx.store.seed('daily_assignments', [
 			{
@@ -184,6 +184,15 @@ describe('Accepted Duty Roster Run Calendar Sync', () => {
 				assignment_type_id: 'type-a',
 				assignee_id: 'person-1',
 				duty_roster_template_run_id: 'run-1',
+				duty_roster_template_run_row_date: '2026-06-01'
+			},
+			{
+				id: 'other-run-linked-1',
+				organization_id: 'test-org',
+				date: '2026-06-01',
+				assignment_type_id: 'type-a',
+				assignee_id: 'person-3',
+				duty_roster_template_run_id: 'run-2',
 				duty_roster_template_run_row_date: '2026-06-01'
 			},
 			{
@@ -197,7 +206,7 @@ describe('Accepted Duty Roster Run Calendar Sync', () => {
 			}
 		]);
 
-		const result = await removeAcceptedDutyRosterRunLinkedCalendarAssignments(ctx, [
+		const result = await removeAcceptedDutyRosterRunLinkedCalendarAssignments(ctx, 'run-1', [
 			{
 				id: 'linked-1',
 				duty_roster_template_run_id: 'run-1',
@@ -210,7 +219,32 @@ describe('Accepted Duty Roster Run Calendar Sync', () => {
 
 		expect(result).toEqual({ cleared: 1 });
 		expect(await ctx.store.findMany('daily_assignments', 'test-org')).toEqual([
+			expect.objectContaining({ id: 'other-run-linked-1' }),
 			expect.objectContaining({ id: 'manual-1' })
+		]);
+	});
+
+	it('keeps applied Calendar state when audit logging fails after first apply', async () => {
+		const ctx = buildContext();
+		seedRunRow(ctx);
+		const originalLog = ctx.audit.log.bind(ctx.audit);
+		ctx.audit.log = (event) => {
+			if (event.action === 'duty_roster_template_run.applied_to_calendar') {
+				throw new Error('audit unavailable');
+			}
+			originalLog(event);
+		};
+
+		const result = await applyAcceptedDutyRosterRunCalendarSync(ctx, acceptedRun());
+
+		expect(result.acceptedRun.appliedAt).toEqual(expect.any(String));
+		expect(await ctx.store.findMany('daily_assignments', 'test-org')).toEqual([
+			expect.objectContaining({
+				date: '2026-06-01',
+				assignment_type_id: 'type-a',
+				assignee_id: 'person-1',
+				duty_roster_template_run_id: 'run-1'
+			})
 		]);
 	});
 
@@ -271,11 +305,12 @@ describe('Accepted Duty Roster Run Calendar Sync', () => {
 
 		expect(state).toMatchObject({
 			status: 'duty-roster-newer',
-			label: 'Duty Roster newer',
+			label: 'Duty Roster is newer than Calendar',
 			plan: {
 				changes: [
 					expect.objectContaining({
 						date: '2026-06-01',
+						sourceRowKey: '2026-06-01',
 						action: 'update',
 						currentAssigneeId: 'person-1',
 						plannedAssigneeId: 'person-2',

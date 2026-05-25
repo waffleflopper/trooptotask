@@ -8,6 +8,7 @@ import type { BillingPort } from '$lib/server/core/ports';
 import {
 	createCheckoutSession,
 	createPortalSession,
+	expireCheckoutSession,
 	cancelSubscription,
 	pauseSubscription,
 	resumeSubscription
@@ -21,6 +22,9 @@ export function createStripeBillingAdapter(): BillingPort {
 		async createPortalSession(customerId, returnUrl) {
 			const url = await createPortalSession(customerId, returnUrl);
 			return { url };
+		},
+		async expireCheckoutSession(sessionId) {
+			return expireCheckoutSession(sessionId);
 		},
 		async cancelSubscription(subscriptionId, options) {
 			return cancelSubscription(subscriptionId, options);

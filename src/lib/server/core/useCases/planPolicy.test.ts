@@ -231,6 +231,33 @@ describe('plan policy', () => {
 		});
 	});
 
+	it('treats a canceled Stripe snapshot on Free as the base Free plan for owner-facing source labels', () => {
+		const policy = buildEffectivePlanPolicy(
+			snapshot({
+				commercialPlan: 'free',
+				subscriptionStatus: 'canceled',
+				collectionStatus: 'canceled',
+				stripeSubscriptionId: null,
+				stripeProductId: null,
+				stripePriceId: null
+			})
+		);
+		const tier = toEffectiveTierFromPlanPolicy(policy, { activePersonnelCount: 69 });
+
+		expect(policy).toMatchObject({
+			commercialPlan: 'free',
+			source: 'legacy_organization',
+			billingSource: 'stripe'
+		});
+		expect(tier).toMatchObject({
+			tier: 'free',
+			source: 'default',
+			personnelCap: 20,
+			isReadOnly: true,
+			readOnlyReason: 'billing_state'
+		});
+	});
+
 	it('does not mark the effective-tier compatibility path read-only at exactly the personnel cap', () => {
 		const policy = buildEffectivePlanPolicy(snapshot({ commercialPlan: 'free' }));
 		const tier = toEffectiveTierFromPlanPolicy(policy, { activePersonnelCount: 20 });

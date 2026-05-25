@@ -34,16 +34,16 @@ export interface PlanUsageSummary {
 	alerts: PlanUsageSummaryAlert[];
 }
 
-function sourceLabel(source: PlanPolicySource): string {
+function sourceLabel(source: PlanPolicySource, tier: Tier): string {
 	switch (source) {
 		case 'admin_gift':
 			return 'Admin gift';
 		case 'billing_disabled_fallback':
 			return 'Billing-disabled fallback';
 		case 'legacy_organization':
-			return 'Legacy organization';
+			return tier === 'free' ? 'Free plan' : 'Legacy organization';
 		case 'billing_snapshot':
-			return 'Paid subscription';
+			return tier === 'free' ? 'Free plan' : 'Paid subscription';
 	}
 }
 
@@ -166,7 +166,7 @@ export function buildPlanUsageSummary(policy: EffectivePlanPolicy, usage: Organi
 		plan: {
 			tier: policy.tier,
 			source: policy.source,
-			sourceLabel: sourceLabel(policy.source)
+			sourceLabel: sourceLabel(policy.source, policy.tier)
 		},
 		rows,
 		alerts: [

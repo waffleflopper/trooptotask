@@ -24,6 +24,7 @@ interface BillingOrganizationRow {
 	stripe_customer_id: string | null;
 	stripe_subscription_id: string | null;
 	subscription_status: string | null;
+	current_period_end: string | null;
 }
 
 export interface BillingOrganization {
@@ -31,6 +32,7 @@ export interface BillingOrganization {
 	stripeCustomerId: string | null;
 	stripeSubscriptionId: string | null;
 	subscriptionStatus: string | null;
+	currentPeriodEnd: string | null;
 }
 
 export async function readBillingOrganization(ports: BillingOrganizationPorts): Promise<BillingOrganization> {
@@ -38,7 +40,7 @@ export async function readBillingOrganization(ports: BillingOrganizationPorts): 
 		'organizations',
 		ports.auth.orgId,
 		{},
-		'name, stripe_customer_id, stripe_subscription_id, subscription_status'
+		'name, stripe_customer_id, stripe_subscription_id, subscription_status, current_period_end'
 	);
 
 	if (!org) {
@@ -49,7 +51,8 @@ export async function readBillingOrganization(ports: BillingOrganizationPorts): 
 		name: org.name ?? '',
 		stripeCustomerId: org.stripe_customer_id ?? null,
 		stripeSubscriptionId: org.stripe_subscription_id ?? null,
-		subscriptionStatus: org.subscription_status ?? null
+		subscriptionStatus: org.subscription_status ?? null,
+		currentPeriodEnd: org.current_period_end ?? null
 	};
 }
 
@@ -98,6 +101,8 @@ async function applyBillingCancellationWithWebhookFallback(
 export interface CancelBillingSubscriptionResult {
 	success: true;
 	localCancellationApplied: boolean;
+	stripeCustomerId: string | null;
+	canceledSubscriptionId: string;
 }
 
 export async function cancelBillingSubscriptionForOrganization(
@@ -125,5 +130,10 @@ export async function cancelBillingSubscriptionForOrganization(
 		result
 	);
 
-	return { success: true, localCancellationApplied };
+	return {
+		success: true,
+		localCancellationApplied,
+		stripeCustomerId: org.stripeCustomerId,
+		canceledSubscriptionId: subscriptionId
+	};
 }

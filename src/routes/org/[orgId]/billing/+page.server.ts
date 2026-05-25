@@ -5,6 +5,11 @@ import { TIER_CONFIG, type EffectiveTier, type Tier } from '$lib/types/subscript
 import { canManageBillingSubscription, readBillingOrganization } from '$lib/server/core/useCases/billingOrganization';
 import type { UseCaseContext } from '$lib/server/core/ports';
 import { requireGovernancePolicy } from '$lib/server/core/useCases/governancePolicy';
+import {
+	expireStaleCheckoutAttempts,
+	findActiveCheckoutAttempt,
+	type CheckoutAttemptRow
+} from '$lib/server/core/useCases/billingCheckoutAttempts';
 import { readCurrentBillingSnapshot, summarizeBillingCancellation } from '$lib/server/core/useCases/billingState';
 import { readOrganizationPlanUsage } from '$lib/server/core/useCases/organizationPlanUsage';
 import { buildEffectivePlanPolicyForTier, readEffectivePlanPolicy } from '$lib/server/core/useCases/planPolicy';
@@ -13,10 +18,35 @@ import { buildPlanUsageSummary } from '$lib/server/core/useCases/planUsageSummar
 
 const TIER_ORDER: Tier[] = ['free', 'team', 'unit'];
 
+export interface PendingCheckoutSession {
+	id: string;
+	tier: Exclude<Tier, 'free'>;
+	checkoutUrl: string | null;
+	expiresAt: string | null;
+	createdAt: string;
+}
+
 function lowerPlanTiers(tier: Tier): Tier[] {
 	const currentIndex = TIER_ORDER.indexOf(tier);
 	if (currentIndex <= 0) return [];
 	return TIER_ORDER.slice(0, currentIndex);
+}
+
+function mapPendingCheckoutSession(attempt: CheckoutAttemptRow | null): PendingCheckoutSession | null {
+	if (!attempt) return null;
+	return {
+		id: attempt.id,
+		tier: attempt.commercial_plan,
+		checkoutUrl: attempt.checkout_url,
+		expiresAt: attempt.expires_at,
+		createdAt: attempt.created_at
+	};
+}
+
+async function readPendingCheckoutSession(ctx: Pick<UseCaseContext, 'auth' | 'rawStore'>) {
+	const now = new Date();
+	await expireStaleCheckoutAttempts(ctx.rawStore, ctx.auth.orgId, now);
+	return mapPendingCheckoutSession(await findActiveCheckoutAttempt(ctx.rawStore, ctx.auth.orgId, now));
 }
 
 export async function _loadBillingPageData(
@@ -26,10 +56,11 @@ export async function _loadBillingPageData(
 	await requireGovernancePolicy({ auth: ctx.auth, audit: ctx.audit }, POLICY_ACTION_CATALOG.organization.accessBilling);
 
 	const org = await readBillingOrganization({ auth: ctx.auth, store: ctx.rawStore });
-	const [billingSnapshot, effectivePlanPolicy, planUsage] = await Promise.all([
+	const [billingSnapshot, effectivePlanPolicy, planUsage, pendingCheckoutSession] = await Promise.all([
 		readCurrentBillingSnapshot({ auth: ctx.auth, store: ctx.rawStore }),
 		readEffectivePlanPolicy({ auth: ctx.auth, store: ctx.rawStore }),
-		readOrganizationPlanUsage({ auth: ctx.auth, store: ctx.rawStore })
+		readOrganizationPlanUsage({ auth: ctx.auth, store: ctx.rawStore }),
+		readPendingCheckoutSession(ctx)
 	]);
 	const canManageSubscription = canManageBillingSubscription(org);
 	const planUsageSummary = buildPlanUsageSummary(effectivePlanPolicy, planUsage);
@@ -61,6 +92,7 @@ export async function _loadBillingPageData(
 		billingSnapshot,
 		cancellationSummary: summarizeBillingCancellation(billingSnapshot),
 		canManageSubscription,
+		pendingCheckoutSession,
 		planUsageSummary,
 		downgradePreviews,
 		tierComparison

@@ -1,8 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 
-const { buildRouteContextMock } = vi.hoisted(() => ({
-	buildRouteContextMock: vi.fn()
+const { buildRouteContextMock, getAdminClientMock, snapshotUpserts } = vi.hoisted(() => ({
+	buildRouteContextMock: vi.fn(),
+	getAdminClientMock: vi.fn(),
+	snapshotUpserts: [] as Array<{ values: Record<string, unknown>; options: Record<string, unknown> }>
 }));
 
 vi.mock('$lib/config/billing', () => ({
@@ -20,7 +22,27 @@ vi.mock('$lib/server/adapters/httpAdapter', async () => {
 	};
 });
 
+vi.mock('$lib/server/supabase', () => ({
+	getAdminClient: getAdminClientMock
+}));
+
 import { POST } from './+server';
+
+function createSnapshotAdminClient() {
+	return {
+		from: (table: string) => {
+			if (table !== 'organization_billing_snapshots') {
+				throw new Error(`unexpected table ${table}`);
+			}
+			return {
+				upsert: async (values: Record<string, unknown>, options: Record<string, unknown>) => {
+					snapshotUpserts.push({ values, options });
+					return { error: null };
+				}
+			};
+		}
+	};
+}
 
 function cancelEvent(ctx: ReturnType<typeof createTestContext>, body: Record<string, unknown> = {}) {
 	return {
@@ -43,6 +65,8 @@ function cancelEvent(ctx: ReturnType<typeof createTestContext>, body: Record<str
 describe('POST /billing/cancel', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		snapshotUpserts.length = 0;
+		getAdminClientMock.mockReturnValue(createSnapshotAdminClient());
 	});
 
 	it('cancels the subscription and clears the org subscription state through the app-owned store', async () => {
@@ -66,7 +90,7 @@ describe('POST /billing/cancel', () => {
 		});
 
 		expect(response.status).toBe(200);
-		expect(await response.json()).toEqual({ success: true });
+		expect(await response.json()).toEqual({ success: true, snapshotCancellationApplied: true });
 		expect(ctx.billingPort.calls).toContainEqual({
 			method: 'cancelSubscription',
 			args: ['sub_123', { cancellationFeedback: 'too_expensive' }]
@@ -75,8 +99,24 @@ describe('POST /billing/cancel', () => {
 			tier: 'free',
 			stripe_customer_id: 'cus_123',
 			stripe_subscription_id: null,
-			subscription_status: null
+			subscription_status: null,
+			current_period_end: null
 		});
+		expect(snapshotUpserts).toEqual([
+			{
+				values: expect.objectContaining({
+					organization_id: ctx.auth.orgId,
+					commercial_plan: 'free',
+					stripe_customer_id: 'cus_123',
+					stripe_subscription_id: null,
+					subscription_status: 'canceled',
+					sync_status: 'pending',
+					cancellation_feedback: 'too_expensive',
+					reconciliation_result: 'local_immediate_cancellation_pending_webhook'
+				}),
+				options: { onConflict: 'organization_id' }
+			}
+		]);
 	});
 
 	it('rejects immediate cancellation without explicit owner confirmation before calling Stripe', async () => {
@@ -150,7 +190,7 @@ describe('POST /billing/cancel', () => {
 		});
 
 		expect(response.status).toBe(200);
-		expect(await response.json()).toEqual({ success: true });
+		expect(await response.json()).toEqual({ success: true, snapshotCancellationApplied: true });
 		expect(ctx.billingPort.calls).toContainEqual({
 			method: 'cancelSubscription',
 			args: ['sub_123', { cancellationFeedback: null }]

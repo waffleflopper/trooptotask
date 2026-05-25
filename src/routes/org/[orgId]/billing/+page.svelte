@@ -4,10 +4,12 @@
 		ArrowUpCircle,
 		Check,
 		CreditCard,
+		ExternalLink,
 		FileText,
 		Gift,
 		LifeBuoy,
 		TriangleAlert,
+		X,
 		UserMinus
 	} from '@lucide/svelte';
 	import { invalidateAll } from '$app/navigation';
@@ -35,10 +37,19 @@
 	} from '$lib/types/subscription';
 
 	type BillingApiResult = {
+		success?: boolean;
 		url?: string;
 		error?: string;
 		requiresStepUp?: boolean;
 		stepUpPath?: string | null;
+	};
+
+	type PendingCheckoutSession = {
+		id: string;
+		tier: 'team' | 'unit';
+		checkoutUrl: string | null;
+		expiresAt: string | null;
+		createdAt: string;
 	};
 
 	type PendingBillingAction =
@@ -65,6 +76,7 @@
 	let subscribingTier = $state<string | null>(null);
 	let portalLoading = $state(false);
 	let cancelLoading = $state(false);
+	let cancelCheckoutLoading = $state(false);
 	let errorMessage = $state('');
 	let confirmPasswordOpen = $state(false);
 	let confirmPassword = $state('');
@@ -97,6 +109,7 @@
 	const giftExpiresAt = $derived(tier.giftExpiresAt);
 	const giftTier = $derived(tier.giftTier);
 	const billingSnapshot = $derived<BillingSnapshot | null>(data.billingSnapshot ?? null);
+	const pendingCheckoutSession = $derived<PendingCheckoutSession | null>(data.pendingCheckoutSession ?? null);
 	const cancellationSummary = $derived(data.cancellationSummary ?? null);
 	const planUsageSummary = $derived(data.planUsageSummary ?? null);
 	const downgradePreviews = $derived(data.downgradePreviews ?? []);
@@ -222,6 +235,7 @@
 
 	function billingUpdateLabel(snapshot: BillingSnapshot | null): string {
 		if (!snapshot) return 'Current';
+		if (snapshot.syncStatus === 'pending') return 'Updating';
 		if (snapshot.syncStatus === 'synced') return 'Current';
 		return snapshot.driftDetected || snapshot.syncStatus === 'needs_reconciliation'
 			? 'Needs support review'
@@ -575,6 +589,21 @@
 		});
 	}
 
+	function formatBillingDateTime(value: string | null | undefined): string {
+		if (!value) return 'the provider expiration window ends';
+		return new Date(value).toLocaleString('en-US', {
+			year: 'numeric',
+			month: 'long',
+			day: 'numeric',
+			hour: 'numeric',
+			minute: '2-digit'
+		});
+	}
+
+	function planLabel(plan: Tier | string): string {
+		return tierComparison.find((tierOption) => tierOption.tier === plan)?.name ?? plan;
+	}
+
 	function openConfirmPasswordDialog(action: PendingBillingAction) {
 		pendingBillingAction = action;
 		confirmPassword = '';
@@ -672,6 +701,15 @@
 
 	async function handleSubscribe(selectedTier: string) {
 		if (subscribingTier) return;
+		if (pendingCheckoutSession) {
+			if (pendingCheckoutSession.tier === selectedTier && pendingCheckoutSession.checkoutUrl) {
+				window.location.href = pendingCheckoutSession.checkoutUrl;
+				return;
+			}
+			errorMessage =
+				'Cancel the pending checkout before starting another plan, or continue the open checkout from the notice above.';
+			return;
+		}
 		subscribingTier = selectedTier;
 		errorMessage = '';
 
@@ -706,6 +744,36 @@
 		} catch {
 			errorMessage = 'An unexpected error occurred. Please try again.';
 			subscribingTier = null;
+		}
+	}
+
+	function handleContinuePendingCheckout() {
+		if (!pendingCheckoutSession?.checkoutUrl) return;
+		window.location.href = pendingCheckoutSession.checkoutUrl;
+	}
+
+	async function handleCancelPendingCheckout() {
+		if (cancelCheckoutLoading) return;
+		cancelCheckoutLoading = true;
+		errorMessage = '';
+
+		try {
+			const res = await fetch(`/org/${data.orgId}/billing/checkout/cancel`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' }
+			});
+
+			const result = (await res.json()) as BillingApiResult;
+			if (!res.ok) {
+				errorMessage = result.error || 'Failed to cancel pending checkout.';
+				return;
+			}
+
+			await invalidateAll();
+		} catch {
+			errorMessage = 'An unexpected error occurred. Please try again.';
+		} finally {
+			cancelCheckoutLoading = false;
 		}
 	}
 
@@ -837,6 +905,37 @@
 	{#if errorMessage}
 		<Alert.Root variant="destructive">
 			<Alert.Description>{errorMessage}</Alert.Description>
+		</Alert.Root>
+	{/if}
+
+	{#if !billingActionsDisabled && pendingCheckoutSession}
+		<Alert.Root variant="warning">
+			<TriangleAlert />
+			<Alert.Title>{planLabel(pendingCheckoutSession.tier)} checkout is already open.</Alert.Title>
+			<Alert.Description>
+				<p>
+					This checkout expires on {formatBillingDateTime(pendingCheckoutSession.expiresAt)}. Continue it, or cancel it
+					now before starting a different plan.
+				</p>
+				<div class="mt-3 flex flex-wrap gap-2">
+					{#if pendingCheckoutSession.checkoutUrl}
+						<Button type="button" variant="outline" onclick={handleContinuePendingCheckout}>
+							<ExternalLink data-icon="inline-start" />
+							Continue Checkout
+						</Button>
+					{/if}
+					<Button
+						type="button"
+						variant="outline"
+						onclick={handleCancelPendingCheckout}
+						disabled={cancelCheckoutLoading}
+					>
+						<X data-icon="inline-start" />
+						{#if cancelCheckoutLoading}<Spinner />{/if}
+						{cancelCheckoutLoading ? 'Canceling...' : 'Cancel Pending Checkout'}
+					</Button>
+				</div>
+			</Alert.Description>
 		</Alert.Root>
 	{/if}
 
@@ -1222,6 +1321,15 @@
 								</Button>
 							{:else}
 								<Button class="w-full" variant="outline" disabled>Free Plan</Button>
+							{/if}
+						{:else if pendingCheckoutSession}
+							{#if pendingCheckoutSession.tier === plan.tier && pendingCheckoutSession.checkoutUrl}
+								<Button class="w-full" variant="outline" onclick={handleContinuePendingCheckout}>
+									<ExternalLink data-icon="inline-start" />
+									Continue Checkout
+								</Button>
+							{:else}
+								<Button class="w-full" variant="outline" disabled>Pending Checkout</Button>
 							{/if}
 						{:else if isDowngrade && data.canManageSubscription}
 							<Button class="w-full" variant="outline" onclick={handleManageSubscription} disabled={portalLoading}>

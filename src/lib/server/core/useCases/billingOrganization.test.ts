@@ -24,7 +24,8 @@ describe('billingOrganization use cases', () => {
 			name: 'Alpha Company',
 			stripeCustomerId: 'cus_123',
 			stripeSubscriptionId: 'sub_123',
-			subscriptionStatus: 'active'
+			subscriptionStatus: 'active',
+			currentPeriodEnd: null
 		});
 	});
 
@@ -72,7 +73,8 @@ describe('billingOrganization use cases', () => {
 				orgUpdates: {
 					tier: 'free',
 					subscription_status: null,
-					stripe_subscription_id: null
+					stripe_subscription_id: null,
+					current_period_end: null
 				}
 			}
 		);
@@ -85,7 +87,8 @@ describe('billingOrganization use cases', () => {
 			tier: 'free',
 			stripe_customer_id: 'cus_123',
 			stripe_subscription_id: null,
-			subscription_status: null
+			subscription_status: null,
+			current_period_end: null
 		});
 	});
 

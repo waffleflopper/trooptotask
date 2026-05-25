@@ -567,6 +567,9 @@ export function createTestBillingPort(): BillingPort & { calls: RecordedBillingC
 			calls.push({ method: 'createPortalSession', args: [customerId, returnUrl] });
 			return { url: 'https://portal.test/session' };
 		},
+		async expireCheckoutSession(sessionId) {
+			calls.push({ method: 'expireCheckoutSession', args: [sessionId] });
+		},
 		async cancelSubscription(subscriptionId, options) {
 			calls.push({
 				method: 'cancelSubscription',

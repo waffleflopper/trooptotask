@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { TAX_DISABLED_CHECKOUT_SESSION_CONFIGURATION } from '$lib/server/billing/checkoutConfiguration';
-import { checkout, portal, cancel } from './billing';
+import { checkout, portal, cancel, cancelPendingCheckout } from './billing';
 import { CHECKOUT_ATTEMPTS_TABLE, type CheckoutAttemptRow } from './billingCheckoutAttempts';
 
 function buildContext() {
@@ -312,6 +312,60 @@ describe('billing use cases', () => {
 				status: 409,
 				message:
 					'A checkout session is already open for a different plan. Complete or wait for that session to expire before starting another checkout.'
+			});
+			expect(ctx.billingPort.calls).toEqual([]);
+		});
+
+		it('expires the provider session and marks an active checkout attempt canceled', async () => {
+			const ctx = buildContext();
+			const now = new Date('2026-05-24T10:00:00.000Z');
+			ctx.rawStore.seed(CHECKOUT_ATTEMPTS_TABLE, [
+				{
+					id: 'attempt-active',
+					organization_id: ctx.auth.orgId,
+					stripe_checkout_session_id: 'cs_active',
+					stripe_customer_id: 'cus_active',
+					commercial_plan: 'unit',
+					stripe_price_id: 'price_unit',
+					checkout_url: 'https://checkout.test/unit',
+					status: 'in_progress',
+					expires_at: '2026-05-24T11:00:00.000Z',
+					completed_at: null,
+					canceled_at: null,
+					created_at: '2026-05-24T09:00:00.000Z',
+					updated_at: '2026-05-24T09:00:00.000Z'
+				}
+			]);
+
+			const result = await cancelPendingCheckout(ctx, { now });
+
+			const attempt = await ctx.rawStore.findOne<CheckoutAttemptRow>(CHECKOUT_ATTEMPTS_TABLE, ctx.auth.orgId, {
+				id: 'attempt-active'
+			});
+			expect(result).toEqual({ success: true, canceled: true, checkoutAttemptId: 'attempt-active' });
+			expect(ctx.billingPort.calls).toContainEqual({ method: 'expireCheckoutSession', args: ['cs_active'] });
+			expect(attempt).toMatchObject({
+				status: 'canceled',
+				canceled_at: '2026-05-24T10:00:00.000Z'
+			});
+			expect(ctx.auditPort.events).toContainEqual(
+				expect.objectContaining({
+					action: 'billing.checkout_canceled',
+					details: expect.objectContaining({
+						checkoutAttemptId: 'attempt-active',
+						commercialPlan: 'unit'
+					})
+				})
+			);
+		});
+
+		it('treats missing active checkout attempts as already canceled', async () => {
+			const ctx = buildContext();
+
+			await expect(cancelPendingCheckout(ctx, { now: new Date('2026-05-24T10:00:00.000Z') })).resolves.toEqual({
+				success: true,
+				canceled: false,
+				checkoutAttemptId: null
 			});
 			expect(ctx.billingPort.calls).toEqual([]);
 		});
@@ -712,7 +766,8 @@ describe('billing use cases', () => {
 			expect(result.orgUpdates).toEqual({
 				tier: 'free',
 				subscription_status: null,
-				stripe_subscription_id: null
+				stripe_subscription_id: null,
+				current_period_end: null
 			});
 			expect(ctx.billingPort.calls).toHaveLength(1);
 			expect(ctx.billingPort.calls[0].method).toBe('cancelSubscription');

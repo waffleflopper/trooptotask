@@ -183,6 +183,7 @@ export interface BillingPort {
 		checkoutConfiguration: CheckoutSessionConfiguration;
 	}): Promise<{ url: string; customerId: string; sessionId?: string; expiresAt?: string | null }>;
 	createPortalSession(customerId: string, returnUrl: string): Promise<{ url: string }>;
+	expireCheckoutSession(sessionId: string): Promise<void>;
 	cancelSubscription(
 		subscriptionId: string,
 		options?: { cancellationFeedback?: BillingCancellationFeedback | null }

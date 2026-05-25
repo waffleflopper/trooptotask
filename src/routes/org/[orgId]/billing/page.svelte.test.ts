@@ -56,6 +56,7 @@ const baseData = {
 		giftTier: null,
 		giftExpiresAt: null
 	},
+	pendingCheckoutSession: null,
 	tierComparison: [
 		{
 			tier: 'free',
@@ -576,6 +577,23 @@ describe('billing page toolbar', () => {
 		expect(screen.getByText('Needs support review')).toBeTruthy();
 	});
 
+	it('shows updating copy while a local cancellation is waiting for provider reconciliation', () => {
+		render(Page, {
+			props: {
+				data: {
+					...baseData,
+					billingSnapshot: {
+						...baseData.billingSnapshot,
+						syncStatus: 'pending',
+						driftDetected: false
+					}
+				} as never
+			}
+		});
+
+		expect(screen.getByText('Updating')).toBeTruthy();
+	});
+
 	it('shows gifted billing source copy without payment recovery pressure', () => {
 		render(Page, {
 			props: {
@@ -669,6 +687,49 @@ describe('billing page toolbar', () => {
 
 		expect(screen.queryByRole('toolbar', { name: 'Billing controls' })).toBeNull();
 		expect(screen.queryByRole('button', { name: 'Manage Subscription' })).toBeNull();
+	});
+
+	it('surfaces an active checkout with continue and cancel actions', async () => {
+		const fetchMock = vi.fn().mockResolvedValue(
+			new Response(JSON.stringify({ success: true, canceled: true, checkoutAttemptId: 'attempt-unit' }), {
+				status: 200,
+				headers: { 'Content-Type': 'application/json' }
+			})
+		);
+		vi.stubGlobal('fetch', fetchMock);
+
+		render(Page, {
+			props: {
+				data: {
+					...baseData,
+					effectiveTier: {
+						...baseData.effectiveTier,
+						tier: 'free',
+						source: 'default'
+					},
+					pendingCheckoutSession: {
+						id: 'attempt-unit',
+						tier: 'unit',
+						checkoutUrl: 'https://checkout.test/unit',
+						expiresAt: '2026-05-26T04:03:56.000Z',
+						createdAt: '2026-05-25T04:03:55.000Z'
+					}
+				} as never
+			}
+		});
+
+		expect(screen.getByText('Unit checkout is already open.')).toBeTruthy();
+		expect(screen.getByText(/This checkout expires on/)).toBeTruthy();
+		expect(screen.getAllByRole('button', { name: 'Continue Checkout' }).length).toBeGreaterThan(0);
+		expect(screen.getByRole('button', { name: 'Cancel Pending Checkout' })).toBeTruthy();
+		expect(screen.getAllByRole('button', { name: 'Pending Checkout' }).length).toBeGreaterThan(0);
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Cancel Pending Checkout' }));
+
+		expect(fetchMock).toHaveBeenCalledWith('/org/org-1/billing/checkout/cancel', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' }
+		});
 	});
 
 	it('keeps subscription actions disabled while requests are in flight', async () => {

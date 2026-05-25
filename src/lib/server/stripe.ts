@@ -110,6 +110,11 @@ export async function createPortalSession(customerId: string, returnUrl: string)
 	return session.url;
 }
 
+export async function expireCheckoutSession(sessionId: string): Promise<void> {
+	const stripe = getStripe();
+	await stripe.checkout.sessions.expire(sessionId);
+}
+
 export async function pauseSubscription(subscriptionId: string): Promise<void> {
 	const stripe = getStripe();
 	await stripe.subscriptions.update(subscriptionId, {

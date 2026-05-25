@@ -22,6 +22,7 @@ import {
 	findActiveCheckoutAttempt,
 	findReusableCheckoutAttempt,
 	isActiveCheckoutAttemptConflict,
+	markCheckoutAttemptCanceled,
 	markCheckoutAttemptFailed,
 	markCheckoutAttemptReady
 } from './billingCheckoutAttempts';
@@ -136,7 +137,7 @@ export interface CancelInput {
 
 export interface CancelResult {
 	success: true;
-	orgUpdates: { tier: 'free'; subscription_status: null; stripe_subscription_id: null };
+	orgUpdates: { tier: 'free'; subscription_status: null; stripe_subscription_id: null; current_period_end: null };
 }
 
 export async function cancel(ctx: BillingPorts, input: CancelInput): Promise<CancelResult> {
@@ -156,8 +157,49 @@ export async function cancel(ctx: BillingPorts, input: CancelInput): Promise<Can
 	});
 	return {
 		success: true,
-		orgUpdates: { tier: 'free', subscription_status: null, stripe_subscription_id: null }
+		orgUpdates: { tier: 'free', subscription_status: null, stripe_subscription_id: null, current_period_end: null }
 	};
+}
+
+export interface CancelPendingCheckoutInput {
+	now?: Date;
+}
+
+export interface CancelPendingCheckoutResult {
+	success: true;
+	canceled: boolean;
+	checkoutAttemptId: string | null;
+}
+
+export async function cancelPendingCheckout(
+	ctx: BillingPorts,
+	input: CancelPendingCheckoutInput = {}
+): Promise<CancelPendingCheckoutResult> {
+	const now = input.now ?? new Date();
+	await expireStaleCheckoutAttempts(ctx.rawStore, ctx.auth.orgId, now);
+
+	const attempt = await findActiveCheckoutAttempt(ctx.rawStore, ctx.auth.orgId, now);
+	if (!attempt) {
+		return { success: true, canceled: false, checkoutAttemptId: null };
+	}
+
+	if (attempt.stripe_checkout_session_id) {
+		await ctx.billing.expireCheckoutSession(attempt.stripe_checkout_session_id);
+	}
+
+	await markCheckoutAttemptCanceled(ctx.rawStore, ctx.auth.orgId, attempt.id, now);
+	ctx.audit.log({
+		action: 'billing.checkout_canceled',
+		resourceType: 'organization',
+		resourceId: ctx.auth.orgId,
+		details: {
+			checkoutAttemptId: attempt.id,
+			commercialPlan: attempt.commercial_plan,
+			expiresAt: attempt.expires_at
+		}
+	});
+
+	return { success: true, canceled: true, checkoutAttemptId: attempt.id };
 }
 
 async function authorizeBillingSensitiveAction(

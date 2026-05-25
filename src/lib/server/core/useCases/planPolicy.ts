@@ -193,6 +193,9 @@ function mapPolicySource(snapshot: BillingSnapshot): PlanPolicySource {
 		case 'gift':
 			return 'admin_gift';
 		case 'stripe':
+			if (snapshot.commercialPlan === 'free' && snapshot.subscriptionStatus === 'canceled') {
+				return 'legacy_organization';
+			}
 			return 'billing_snapshot';
 		case 'legacy_organization':
 			return 'legacy_organization';

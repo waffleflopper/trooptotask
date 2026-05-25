@@ -28,8 +28,10 @@ import {
 import {
 	acceptedDutyRosterRunCalendarAssignmentsWereEdited,
 	applyAcceptedDutyRosterRunCalendarSync,
+	applyReviewedAcceptedDutyRosterRunCalendarSyncPlan,
 	hydrateAcceptedDutyRosterRunCalendarSyncState,
 	loadAcceptedDutyRosterRunLinkedCalendarAssignmentsByRunId,
+	loadAcceptedDutyRosterRunCalendarSyncState,
 	logAcceptedDutyRosterRunAppliedToCalendar,
 	logAcceptedDutyRosterRunInvalidated,
 	removeAcceptedDutyRosterRunLinkedCalendarAssignments,
@@ -314,7 +316,7 @@ async function logAcceptedDutyRosterTemplateRun(ctx: WritePorts, runId: string):
 
 export async function applyAcceptedDutyRosterTemplateRun(
 	ctx: WritePorts,
-	input: { runId: string }
+	input: { runId: string; calendarSyncPlanToken?: string | null }
 ): Promise<DutyRosterTemplateApplyResult> {
 	const row = await ctx.store.findOne<DutyRosterTemplateRunRow>(DUTY_ROSTER_TEMPLATE_RUN_TABLE, ctx.auth.orgId, {
 		id: input.runId,
@@ -326,6 +328,17 @@ export async function applyAcceptedDutyRosterTemplateRun(
 
 	const [hydrated] = await hydrateAcceptedRunCorrections(ctx, [toAcceptedDutyRosterTemplateRun(row)]);
 	const run = hydrated ?? toAcceptedDutyRosterTemplateRun(row);
+	if (run.appliedAt) {
+		const state = await loadAcceptedDutyRosterRunCalendarSyncState(ctx, run);
+		if (state.status === 'in-sync') {
+			fail(400, 'Calendar is already in sync with this Accepted Duty Roster Run.');
+		}
+		if (!input.calendarSyncPlanToken || input.calendarSyncPlanToken !== state.plan.token) {
+			fail(409, 'Calendar sync plan changed. Review the current plan before reapplying.');
+		}
+		return applyReviewedAcceptedDutyRosterRunCalendarSyncPlan(ctx, run, state.plan);
+	}
+
 	try {
 		return await applyAcceptedDutyRosterRunCalendarSync(ctx, run);
 	} catch (error) {

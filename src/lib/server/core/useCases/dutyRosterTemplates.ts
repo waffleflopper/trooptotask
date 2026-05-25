@@ -161,7 +161,10 @@ export async function acceptDutyRosterTemplatePreview(
 	return acceptDutyRosterTemplatePreviewLifecycle(ctx, input);
 }
 
-export async function applyAcceptedDutyRosterTemplateRun(ctx: WritePorts, input: { runId: string }) {
+export async function applyAcceptedDutyRosterTemplateRun(
+	ctx: WritePorts,
+	input: { runId: string; calendarSyncPlanToken?: string | null }
+) {
 	await requireTemplateManagement(ctx);
 	return applyAcceptedDutyRosterTemplateRunLifecycle(ctx, input);
 }

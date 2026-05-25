@@ -740,7 +740,8 @@ describe('Duty Roster Template use cases', () => {
 	it('allows Manual DA6 Baseline updates when only invalidated accepted history remains', async () => {
 		const ctx = createCtx(createAuth({ scopeSet: { kind: 'groups', groupIds: ['alpha'] } }));
 		personnelRows.push(
-			personnelRow({ id: 'alpha', rank: 'SGT', last_name: 'Able', first_name: 'Ann', group_id: 'alpha' })
+			personnelRow({ id: 'alpha', rank: 'SGT', last_name: 'Able', first_name: 'Ann', group_id: 'alpha' }),
+			personnelRow({ id: 'beta', rank: 'SSG', last_name: 'Baker', first_name: 'Ben', group_id: 'alpha' })
 		);
 		const template = await createDutyRosterTemplate(ctx, { name: 'CQ NCO', shortCode: 'CQ' });
 		acceptedRunRows.push(
@@ -1517,17 +1518,24 @@ describe('Duty Roster Template use cases', () => {
 			preview: JSON.stringify(preview)
 		});
 		await applyAcceptedDutyRosterTemplateRun(ctx, { runId: accepted.id });
+		const expectedAssigneeId = String(dailyAssignmentRows[0].assignee_id);
+		dailyAssignmentRows[0].assignee_id = expectedAssigneeId === 'alpha' ? 'beta' : 'alpha';
+		const history = await listAcceptedDutyRosterTemplateRunHistory(ctx, template.id, { includeRunId: accepted.id });
+		const reviewedRun = history.runs.find((run) => run.id === accepted.id);
+		const calendarSyncPlanToken = reviewedRun?.calendarSyncState?.plan.token;
 
-		const result = await applyAcceptedDutyRosterTemplateRun(ctx, { runId: accepted.id });
+		const result = await applyAcceptedDutyRosterTemplateRun(ctx, { runId: accepted.id, calendarSyncPlanToken });
 
 		expect(result.acceptedRun.appliedAt).toEqual(expect.any(String));
 		expect(dailyAssignmentRows).toHaveLength(1);
+		expect(dailyAssignmentRows[0]).toMatchObject({ assignee_id: expectedAssigneeId });
 	});
 
 	it('does not empty Calendar slots when re-apply fails after replacing linked assignments', async () => {
-		const ctx = createCtx(createAuth({ scopeSet: { kind: 'groups', groupIds: ['alpha'] } }));
+		const ctx = createCtx(createAuth({ scopeSet: { kind: 'organization' } }));
 		personnelRows.push(
-			personnelRow({ id: 'alpha', rank: 'SGT', last_name: 'Able', first_name: 'Ann', group_id: 'alpha' })
+			personnelRow({ id: 'alpha', rank: 'SGT', last_name: 'Able', first_name: 'Ann', group_id: 'alpha' }),
+			personnelRow({ id: 'beta', rank: 'SSG', last_name: 'Baker', first_name: 'Ben', group_id: 'alpha' })
 		);
 		const template = await createDutyRosterTemplate(ctx, { name: 'CQ NCO', shortCode: 'CQ' });
 		const preview = await generateDutyRosterTemplatePreview(ctx, {
@@ -1539,6 +1547,12 @@ describe('Duty Roster Template use cases', () => {
 			preview: JSON.stringify(preview)
 		});
 		await applyAcceptedDutyRosterTemplateRun(ctx, { runId: accepted.id });
+		const expectedAssigneeId = String(dailyAssignmentRows[0].assignee_id);
+		const editedAssigneeId = expectedAssigneeId === 'alpha' ? 'beta' : 'alpha';
+		dailyAssignmentRows[0].assignee_id = editedAssigneeId;
+		const history = await listAcceptedDutyRosterTemplateRunHistory(ctx, template.id, { includeRunId: accepted.id });
+		const reviewedRun = history.runs.find((run) => run.id === accepted.id);
+		const calendarSyncPlanToken = reviewedRun?.calendarSyncState?.plan.token;
 		const originalUpdate = store.update.bind(store);
 		const updateSpy = vi.spyOn(store, 'update').mockImplementation(async (table, orgId, id, patch) => {
 			if (table === 'duty_roster_template_runs' && id === accepted.id && 'applied_at' in patch) {
@@ -1548,15 +1562,15 @@ describe('Duty Roster Template use cases', () => {
 		});
 
 		try {
-			await expect(applyAcceptedDutyRosterTemplateRun(ctx, { runId: accepted.id })).rejects.toThrow(
-				'Reapply marker failed.'
-			);
+			await expect(
+				applyAcceptedDutyRosterTemplateRun(ctx, { runId: accepted.id, calendarSyncPlanToken })
+			).rejects.toThrow('Reapply marker failed.');
 
 			expect(dailyAssignmentRows).toEqual([
 				expect.objectContaining({
 					date: '2026-06-01',
 					assignment_type_id: template.assignmentTypeId,
-					assignee_id: 'alpha',
+					assignee_id: editedAssigneeId,
 					duty_roster_template_run_id: accepted.id
 				})
 			]);

@@ -2,7 +2,6 @@
 	import { enhance } from '$app/forms';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import type { SubmitFunction } from '@sveltejs/kit';
 	import {
 		Calendar,
 		Database,
@@ -81,6 +80,7 @@
 	} = $props();
 
 	let confirmingInvalidationRunId = $state<string | null>(null);
+	let confirmingCalendarSyncRunId = $state<string | null>(null);
 	let selectedCorrectionAssignees = $state<Record<string, string>>({});
 	let historySearch = $state('');
 	let historyStateFilter = $state<'all' | 'accepted' | 'invalidated' | 'applied' | 'not-applied'>('all');
@@ -130,11 +130,6 @@
 			await update();
 			pendingHistoryAction = null;
 		};
-	}
-
-	function enhancePostForm(formElement: HTMLFormElement, submit: SubmitFunction) {
-		formElement.method = 'post';
-		return enhance(formElement, submit);
 	}
 
 	function openCorrection(runId: string, date: string): void {
@@ -227,6 +222,13 @@
 
 	function runStatusBadge(run: DutyRosterTemplateAcceptedRun): DutyRosterStatus {
 		if (run.status === 'invalidated') return 'invalidated';
+		if (
+			run.calendarSyncState?.status === 'calendar-manually-changed' ||
+			run.calendarSyncState?.status === 'needs-review'
+		) {
+			return 'review';
+		}
+		if (run.appliedAt && run.calendarSyncState?.status === 'duty-roster-newer') return 'needs-sync';
 		if (run.appliedAt && run.calendarAssignmentsEdited) return 'needs-sync';
 		if (run.appliedAt) return 'applied';
 		return 'official';
@@ -237,8 +239,26 @@
 	}
 
 	function calendarStateLabel(run: DutyRosterTemplateAcceptedRun): string {
+		if (run.calendarSyncState) return run.calendarSyncState.label;
 		if (!run.appliedAt) return 'Not applied';
 		return run.calendarAssignmentsEdited ? 'Needs sync' : 'Applied';
+	}
+
+	function calendarSyncTone(run: DutyRosterTemplateAcceptedRun): 'warning' | 'destructive' {
+		if (
+			run.calendarSyncState?.status === 'calendar-manually-changed' ||
+			run.calendarSyncState?.status === 'needs-review'
+		) {
+			return 'destructive';
+		}
+		return 'warning';
+	}
+
+	function calendarSyncTitle(run: DutyRosterTemplateAcceptedRun): string {
+		if (run.calendarSyncState?.status === 'duty-roster-newer') return 'Duty Roster is newer than Calendar';
+		if (run.calendarSyncState?.status === 'calendar-manually-changed') return 'Calendar was manually changed';
+		if (run.calendarSyncState?.status === 'needs-review') return 'Calendar sync needs review';
+		return 'Calendar sync state';
 	}
 
 	function runMatchesHistoryFilter(run: DutyRosterTemplateAcceptedRun): boolean {
@@ -487,11 +507,11 @@
 					</div>
 				</header>
 
-				{#if historyDetailRun.calendarAssignmentsEdited && !detailReview.isInvalidated}
+				{#if historyDetailRun.calendarSyncState && historyDetailRun.calendarSyncState.status !== 'in-sync' && historyDetailRun.calendarSyncState.status !== 'not-applied' && !detailReview.isInvalidated}
 					<WarningSummary
-						tone="warning"
-						title="Calendar assignments linked to this run changed after apply"
-						description="Re-applying may overwrite linked Calendar assignments, and invalidation will remove the run footprint after confirmation."
+						tone={calendarSyncTone(historyDetailRun)}
+						title={calendarSyncTitle(historyDetailRun)}
+						description={historyDetailRun.calendarSyncState.summary}
 					/>
 				{/if}
 
@@ -616,7 +636,7 @@
 						class="grid gap-3"
 						method="post"
 						action={correctAcceptedRunAction}
-						use:enhancePostForm={() => handleHistoryActionEnhance('correction')}
+						use:enhance={() => handleHistoryActionEnhance('correction')}
 					>
 						<input type="hidden" name="runId" value={selectedCorrectionRow.run.id} />
 						<input type="hidden" name="runRowDate" value={selectedCorrectionRow.date} />
@@ -721,11 +741,11 @@
 						<p class="text-xs text-muted-foreground">
 							Use Change Assignment on a roster row to record who actually served.
 						</p>
-						{#if !detailReview.isInvalidated && detailReview.calendarState !== 'applied'}
+						{#if !detailReview.isInvalidated && detailReview.calendarState === 'apply'}
 							<form
 								method="post"
 								action={applyAcceptedRunAction}
-								use:enhancePostForm={() => handleHistoryActionEnhance('apply')}
+								use:enhance={() => handleHistoryActionEnhance('apply')}
 							>
 								<input type="hidden" name="runId" value={historyDetailRun.id} />
 								<Button type="submit" class="w-full" disabled={pendingHistoryAction === 'apply'}>
@@ -733,10 +753,28 @@
 									{#if pendingHistoryAction === 'apply'}
 										Applying...
 									{:else}
-										{detailReview.calendarState === 'reapply' ? 'Re-apply to Calendar' : 'Apply to Calendar'}
+										Apply to Calendar
 									{/if}
 								</Button>
 							</form>
+						{/if}
+						{#if !detailReview.isInvalidated && detailReview.calendarState === 'reapply' && historyDetailRun.calendarSyncState}
+							<Button
+								type="button"
+								class="w-full"
+								variant={calendarSyncTone(historyDetailRun) === 'destructive' ? 'destructive' : 'default'}
+								aria-expanded={confirmingCalendarSyncRunId === historyDetailRun.id}
+								onclick={() => (confirmingCalendarSyncRunId = historyDetailRun.id)}
+							>
+								<RefreshCw size={16} aria-hidden="true" />
+								Review Calendar Reapply
+							</Button>
+							<p class="text-xs text-muted-foreground">{historyDetailRun.calendarSyncState.summary}</p>
+						{/if}
+						{#if historyDetailRun.calendarSyncState?.invalidationRemovalSummary}
+							<p class="text-xs text-muted-foreground">
+								{historyDetailRun.calendarSyncState.invalidationRemovalSummary}
+							</p>
 						{/if}
 						{#if detailReview.canInvalidate}
 							<Button
@@ -780,7 +818,10 @@
 												{/if}
 											</ul>
 										{:else}
-											<p>Linked Calendar assignments will be removed. Future previews will ignore this run.</p>
+											<p>
+												{historyDetailRun.calendarSyncState?.invalidationRemovalSummary ??
+													'Linked Calendar assignments will be removed because they came from this invalidated Accepted Duty Roster Run. Future previews will ignore this run.'}
+											</p>
 										{/if}
 									</AppDialog.Body>
 									<AppDialog.Footer>
@@ -795,7 +836,7 @@
 										<form
 											method="post"
 											action={invalidateAcceptedRunAction}
-											use:enhancePostForm={() => handleHistoryActionEnhance('invalidate')}
+											use:enhance={() => handleHistoryActionEnhance('invalidate')}
 										>
 											<input type="hidden" name="runId" value={historyDetailRun.id} />
 											<input type="hidden" name="cascade" value="false" />
@@ -811,7 +852,7 @@
 											<form
 												method="post"
 												action={invalidateAcceptedRunAction}
-												use:enhancePostForm={() => handleHistoryActionEnhance('invalidate')}
+												use:enhance={() => handleHistoryActionEnhance('invalidate')}
 											>
 												<input type="hidden" name="runId" value={historyDetailRun.id} />
 												<input type="hidden" name="cascade" value="true" />
@@ -820,6 +861,90 @@
 												</Button>
 											</form>
 										{/if}
+									</AppDialog.Footer>
+								</AppDialog.Content>
+							</AppDialog.Root>
+						{/if}
+						{#if confirmingCalendarSyncRunId === historyDetailRun.id && historyDetailRun.calendarSyncState}
+							<AppDialog.Root open onClose={() => (confirmingCalendarSyncRunId = null)}>
+								<AppDialog.Content closeBlocked={pendingHistoryAction === 'apply'} size="wide">
+									<AppDialog.Header>
+										<AppDialog.Title>Re-apply Duty Roster to Calendar?</AppDialog.Title>
+										<AppDialog.Description>
+											Review the Calendar assignment changes before anything is written.
+										</AppDialog.Description>
+									</AppDialog.Header>
+									<AppDialog.Body class="grid gap-4 text-sm">
+										<div
+											class={[
+												'rounded-md border px-3 py-2',
+												calendarSyncTone(historyDetailRun) === 'destructive'
+													? 'border-destructive/40 bg-destructive/10 text-destructive'
+													: 'border-warning/50 bg-warning-muted text-warning-foreground'
+											]}
+										>
+											<p class="font-medium">{historyDetailRun.calendarSyncState.label}</p>
+											<p class="text-xs">{historyDetailRun.calendarSyncState.summary}</p>
+										</div>
+										<div class="min-w-0 overflow-x-auto rounded-md border border-border">
+											<table class="w-full text-sm" aria-label="Calendar reapply plan">
+												<thead>
+													<tr class="border-b border-border bg-muted/50">
+														<th class="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Date</th>
+														<th class="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Current</th>
+														<th class="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Planned</th>
+														<th class="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Reason</th>
+													</tr>
+												</thead>
+												<tbody>
+													{#each historyDetailRun.calendarSyncState.plan.changes as change (change.id)}
+														<tr class="border-b border-border last:border-b-0">
+															<td class="whitespace-nowrap px-3 py-2 text-xs font-medium">
+																{formatDutyDate(change.date)}
+															</td>
+															<td class="px-3 py-2 text-xs text-muted-foreground">
+																{change.currentAssigneeLabel ?? change.currentAssigneeId ?? 'Empty'}
+															</td>
+															<td class="px-3 py-2 text-xs font-medium text-foreground">
+																{change.plannedAssigneeLabel ?? change.plannedAssigneeId ?? 'Clear assignment'}
+															</td>
+															<td class="px-3 py-2 text-xs text-muted-foreground">
+																{change.reason}
+															</td>
+														</tr>
+													{/each}
+												</tbody>
+											</table>
+										</div>
+									</AppDialog.Body>
+									<AppDialog.Footer>
+										<Button
+											variant="outline"
+											type="button"
+											disabled={pendingHistoryAction === 'apply'}
+											onclick={() => (confirmingCalendarSyncRunId = null)}
+										>
+											Cancel
+										</Button>
+										<form
+											method="post"
+											action={applyAcceptedRunAction}
+											use:enhance={() => handleHistoryActionEnhance('apply')}
+										>
+											<input type="hidden" name="runId" value={historyDetailRun.id} />
+											<input
+												type="hidden"
+												name="calendarSyncPlanToken"
+												value={historyDetailRun.calendarSyncState.plan.token}
+											/>
+											<Button
+												variant={calendarSyncTone(historyDetailRun) === 'destructive' ? 'destructive' : 'default'}
+												type="submit"
+												disabled={pendingHistoryAction === 'apply'}
+											>
+												{pendingHistoryAction === 'apply' ? 'Re-applying...' : 'Confirm reapply'}
+											</Button>
+										</form>
 									</AppDialog.Footer>
 								</AppDialog.Content>
 							</AppDialog.Root>

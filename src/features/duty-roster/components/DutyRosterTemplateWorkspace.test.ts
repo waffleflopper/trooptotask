@@ -87,6 +87,47 @@ describe('DutyRosterTemplateWorkspace', () => {
 		expect(screen.getByRole('heading', { name: 'Accepted runs' })).toBeTruthy();
 	});
 
+	it('shows Calendar sync state and a reviewed reapply confirmation plan', async () => {
+		const run = acceptedRunWithCalendarSync();
+		render(DutyRosterTemplateWorkspace, {
+			props: {
+				data: {
+					orgId: 'org-1',
+					orgName: 'Able Company',
+					templates: [template],
+					selectedTemplate: template,
+					view: 'history',
+					acceptedRuns: [run],
+					historyDetailRunId: run.id,
+					historyPage: {
+						page: 1,
+						pageSize: 20,
+						hasMore: false,
+						nextPage: null,
+						previousPage: null,
+						latestRunId: run.id
+					}
+				}
+			}
+		});
+
+		expect(screen.getByText('Duty Roster is newer than Calendar')).toBeTruthy();
+		expect(
+			screen.getAllByText('1 Calendar assignment needs the latest Duty Roster Correction.').length
+		).toBeGreaterThan(0);
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Review Calendar Reapply' }));
+
+		expect(screen.getByRole('dialog')).toBeTruthy();
+		expect(screen.getByRole('heading', { name: 'Re-apply Duty Roster to Calendar?' })).toBeTruthy();
+		expect(screen.getByRole('table', { name: 'Calendar reapply plan' })).toBeTruthy();
+		expect(screen.getByText('Duty Roster Correction: Emergency leave swap.')).toBeTruthy();
+		expect(
+			document.querySelector('form[action="/org/org-1/duty-rosters/cq-nco/history?/applyAcceptedRun"]')
+		).toBeTruthy();
+		expect(document.querySelector('input[name="calendarSyncPlanToken"][value="sync-token"]')).toBeTruthy();
+	});
+
 	it('opens the shadcn archive confirmation from the register quick actions', async () => {
 		render(DutyRosterTemplateWorkspace, {
 			props: {
@@ -476,20 +517,22 @@ describe('DutyRosterTemplateWorkspace', () => {
 					templates: [template],
 					selectedTemplate: template,
 					view: 'history',
-					acceptedRuns: [acceptedRun({ applied: true, calendarAssignmentsEdited: true })],
+					acceptedRuns: [acceptedRunWithCalendarSync()],
 					historyDetailRunId: 'run-1',
 					historyDetailMode: 'roster'
 				}
 			}
 		});
 
-		expect(screen.getByText(/Calendar assignments linked to this run changed after apply/)).toBeTruthy();
+		expect(screen.getByText('Duty Roster is newer than Calendar')).toBeTruthy();
 		const invalidateButton = screen.getByRole('button', { name: 'Invalidate run' });
 		await fireEvent.click(invalidateButton);
 
 		expect(screen.getByRole('heading', { name: 'Invalidate Duty Roster run?' })).toBeTruthy();
 		expect(screen.getByText(/Run 2026-06-01 to 2026-06-01 will be marked invalidated/)).toBeTruthy();
-		expect(screen.getByText(/Linked Calendar assignments will be removed/)).toBeTruthy();
+		expect(screen.getAllByText(/came from this Accepted Duty Roster Run and will be removed/).length).toBeGreaterThan(
+			0
+		);
 		expect(screen.getByRole('button', { name: 'Confirm invalidation' })).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Cancel' })).toBeTruthy();
 		expect(confirm).not.toHaveBeenCalled();
@@ -995,5 +1038,35 @@ function acceptedRun(
 			warnings: []
 		},
 		createdAt: '2026-06-01T00:00:00.000Z'
+	};
+}
+
+function acceptedRunWithCalendarSync() {
+	return {
+		...acceptedRun({ applied: true, calendarAssignmentsEdited: true, corrected: true }),
+		calendarSyncState: {
+			status: 'duty-roster-newer' as const,
+			label: 'Duty Roster newer',
+			summary: '1 Calendar assignment needs the latest Duty Roster Correction.',
+			invalidationRemovalSummary:
+				'1 linked Calendar assignment came from this Accepted Duty Roster Run and will be removed if the run is invalidated.',
+			plan: {
+				token: 'sync-token',
+				changes: [
+					{
+						id: 'run-1:2026-06-01',
+						date: '2026-06-01',
+						assignmentTypeId: 'template-1',
+						action: 'update' as const,
+						currentAssigneeId: 'person-2',
+						currentAssigneeLabel: 'SGT Baker, Ben',
+						plannedAssigneeId: 'person-1',
+						plannedAssigneeLabel: 'SGT Able, Ann',
+						reason: 'Duty Roster Correction: Emergency leave swap.',
+						correctionReason: 'Emergency leave swap.'
+					}
+				]
+			}
+		}
 	};
 }

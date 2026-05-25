@@ -4,6 +4,8 @@ import { createWritePortsContext } from '$lib/server/adapters/inMemory';
 import {
 	acceptedDutyRosterRunCalendarAssignmentsWereEdited,
 	applyAcceptedDutyRosterRunCalendarSync,
+	applyReviewedAcceptedDutyRosterRunCalendarSyncPlan,
+	buildAcceptedDutyRosterRunCalendarSyncState,
 	hydrateAcceptedDutyRosterRunCalendarSyncState,
 	removeAcceptedDutyRosterRunLinkedCalendarAssignments,
 	syncAcceptedDutyRosterCorrectionToCalendar
@@ -56,24 +58,24 @@ function acceptedRun(overrides: Partial<DutyRosterTemplateAcceptedRun> = {}): Du
 	};
 }
 
-function seedRunRow(ctx: ReturnType<typeof buildContext>) {
+function seedRunRow(ctx: ReturnType<typeof buildContext>, run: DutyRosterTemplateAcceptedRun = acceptedRun()) {
 	ctx.store.seed('duty_roster_template_runs', [
 		{
-			id: 'run-1',
+			id: run.id,
 			organization_id: 'test-org',
-			template_id: 'type-a',
-			template_name: 'CQ NCO',
-			status: 'accepted',
-			start_date: '2026-06-01',
-			end_date: '2026-06-01',
-			snapshot_payload: acceptedRun().snapshotPayload,
-			accepted_by_user_id: 'user-1',
-			accepted_at: '2026-05-04T12:00:00.000Z',
-			applied_by_user_id: null,
-			applied_at: null,
-			invalidated_by_user_id: null,
-			invalidated_at: null,
-			created_at: '2026-05-04T12:00:00.000Z'
+			template_id: run.templateId,
+			template_name: run.templateName,
+			status: run.status,
+			start_date: run.startDate,
+			end_date: run.endDate,
+			snapshot_payload: run.snapshotPayload,
+			accepted_by_user_id: run.acceptedByUserId,
+			accepted_at: run.acceptedAt,
+			applied_by_user_id: run.appliedByUserId,
+			applied_at: run.appliedAt,
+			invalidated_by_user_id: run.invalidatedByUserId,
+			invalidated_at: run.invalidatedAt,
+			created_at: run.createdAt
 		}
 	]);
 }
@@ -225,6 +227,120 @@ describe('Accepted Duty Roster Run Calendar Sync', () => {
 				}
 			])
 		).toBe(true);
+	});
+
+	it('reports Duty Roster newer than Calendar when a correction has not reached the linked slot', () => {
+		const state = buildAcceptedDutyRosterRunCalendarSyncState(
+			acceptedRun({
+				appliedAt: '2026-05-04T12:01:00.000Z',
+				corrections: [
+					{
+						id: 'correction-1',
+						runId: 'run-1',
+						runRowDate: '2026-06-01',
+						originalAssigneeId: 'person-1',
+						originalDisplay: { id: 'person-1', rank: 'SGT', lastName: 'Able', firstName: 'Ann', groupName: 'A' },
+						replacementAssigneeId: 'person-2',
+						replacementDisplay: {
+							id: 'person-2',
+							rank: 'SSG',
+							lastName: 'Baker',
+							firstName: 'Ben',
+							groupName: 'A'
+						},
+						reason: 'Emergency leave swap.',
+						correctedByUserId: 'user-1',
+						correctedAt: '2026-05-04T12:05:00.000Z',
+						countsTowardFuture: true,
+						poolOverride: false,
+						poolOverrideReasons: []
+					}
+				]
+			}),
+			[
+				{
+					id: 'linked-1',
+					duty_roster_template_run_id: 'run-1',
+					duty_roster_template_run_row_date: '2026-06-01',
+					date: '2026-06-01',
+					assignment_type_id: 'type-a',
+					assignee_id: 'person-1'
+				}
+			]
+		);
+
+		expect(state).toMatchObject({
+			status: 'duty-roster-newer',
+			label: 'Duty Roster newer',
+			plan: {
+				changes: [
+					expect.objectContaining({
+						date: '2026-06-01',
+						action: 'update',
+						currentAssigneeId: 'person-1',
+						plannedAssigneeId: 'person-2',
+						reason: 'Duty Roster Correction: Emergency leave swap.',
+						correctionReason: 'Emergency leave swap.'
+					})
+				]
+			}
+		});
+	});
+
+	it('reports manual Calendar changes as needing review before overwrite', () => {
+		const state = buildAcceptedDutyRosterRunCalendarSyncState(acceptedRun({ appliedAt: '2026-05-04T12:01:00.000Z' }), [
+			{
+				id: 'linked-1',
+				duty_roster_template_run_id: 'run-1',
+				duty_roster_template_run_row_date: '2026-06-01',
+				date: '2026-06-01',
+				assignment_type_id: 'type-a',
+				assignee_id: 'person-3'
+			}
+		]);
+
+		expect(state.status).toBe('calendar-manually-changed');
+		expect(state.summary).toContain('Review before overwriting');
+		expect(state.plan.changes).toEqual([
+			expect.objectContaining({
+				action: 'update',
+				currentAssigneeId: 'person-3',
+				plannedAssigneeId: 'person-1'
+			})
+		]);
+	});
+
+	it('applies a reviewed reapply plan and marks the run applied as one sync module operation', async () => {
+		const ctx = buildContext();
+		const run = acceptedRun({ appliedAt: '2026-05-04T12:01:00.000Z' });
+		seedRunRow(ctx, run);
+		const state = buildAcceptedDutyRosterRunCalendarSyncState(run, [
+			{
+				id: 'linked-1',
+				duty_roster_template_run_id: 'run-1',
+				duty_roster_template_run_row_date: '2026-06-01',
+				date: '2026-06-01',
+				assignment_type_id: 'type-a',
+				assignee_id: 'person-3'
+			}
+		]);
+
+		const result = await applyReviewedAcceptedDutyRosterRunCalendarSyncPlan(ctx, run, state.plan);
+
+		expect(result).toMatchObject({
+			insertedCount: 1,
+			clearedCount: 0,
+			acceptedRun: { id: 'run-1', appliedByUserId: 'test-user' }
+		});
+		expect(await ctx.store.findMany('daily_assignments', 'test-org')).toEqual([
+			expect.objectContaining({
+				date: '2026-06-01',
+				assignment_type_id: 'type-a',
+				assignee_id: 'person-1',
+				duty_roster_template_run_id: 'run-1',
+				duty_roster_template_run_row_date: '2026-06-01'
+			})
+		]);
 	});
 
 	it('hydrates linked assignment count and edited state for accepted run history', async () => {

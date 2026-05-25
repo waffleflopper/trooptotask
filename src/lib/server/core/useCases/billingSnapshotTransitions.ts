@@ -27,6 +27,7 @@ export interface ExistingBillingSnapshot {
 	cancellation_feedback?: BillingCancellationFeedback | null;
 	trial_end?: string | null;
 	last_stripe_event_id?: string | null;
+	last_stripe_event_type?: string | null;
 	last_stripe_event_created_at: string | null;
 }
 
@@ -193,25 +194,28 @@ export async function applyBillingSnapshotTransition(
 	};
 }
 
-function applyImmediateCancellationTransition(
+async function applyImmediateCancellationTransition(
 	store: BillingSnapshotTransitionStore,
 	transition: Extract<BillingSnapshotTransition, { kind: 'immediate_cancellation_requested' }>
 ): Promise<BillingSnapshotTransitionResult> {
+	const snapshot = await store.readSnapshot(transition.orgId);
 	const processedAt = transition.processedAt ?? new Date().toISOString();
-	return writeImmediateCancellation(store, transition, processedAt);
+	return writeImmediateCancellation(store, transition, snapshot, processedAt);
 }
 
 async function writeImmediateCancellation(
 	store: BillingSnapshotTransitionStore,
 	transition: Extract<BillingSnapshotTransition, { kind: 'immediate_cancellation_requested' }>,
+	currentSnapshot: ExistingBillingSnapshot | null,
 	processedAt: string
 ): Promise<BillingSnapshotTransitionResult> {
+	const stripeSubscriptionId = currentSnapshot?.stripe_subscription_id ?? null;
 	const snapshotUpdated = await store.upsertSnapshotIfCurrent({
 		organization_id: transition.orgId,
 		source: 'stripe',
 		commercial_plan: 'free',
 		stripe_customer_id: transition.stripeCustomerId,
-		stripe_subscription_id: null,
+		stripe_subscription_id: stripeSubscriptionId,
 		stripe_product_id: null,
 		stripe_price_id: null,
 		subscription_status: 'canceled',
@@ -224,9 +228,9 @@ async function writeImmediateCancellation(
 		cancellation_feedback: transition.cancellationFeedback,
 		trial_end: null,
 		sync_status: 'pending',
-		last_stripe_event_id: null,
-		last_stripe_event_type: null,
-		last_stripe_event_created_at: null,
+		last_stripe_event_id: currentSnapshot?.last_stripe_event_id ?? null,
+		last_stripe_event_type: currentSnapshot?.last_stripe_event_type ?? null,
+		last_stripe_event_created_at: currentSnapshot?.last_stripe_event_created_at ?? null,
 		last_processed_at: processedAt,
 		last_reconciled_at: null,
 		reconciliation_result: 'local_immediate_cancellation_pending_webhook',
@@ -239,7 +243,7 @@ async function writeImmediateCancellation(
 	await store.updateOrganizationBillingMirror(transition.orgId, {
 		tier: 'free',
 		subscription_status: null,
-		stripe_subscription_id: null,
+		stripe_subscription_id: stripeSubscriptionId,
 		current_period_end: null
 	});
 	invalidateTierCache(transition.orgId);

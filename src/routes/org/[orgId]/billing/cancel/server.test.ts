@@ -29,11 +29,34 @@ vi.mock('$lib/server/supabase', () => ({
 
 import { POST } from './+server';
 
-function createSnapshotAdminClient(input: { failOrganizationUpdate?: string } = {}) {
+function createSnapshotAdminClient(
+	input: {
+		failOrganizationUpdate?: string;
+		snapshot?: Record<string, unknown> | null;
+	} = {}
+) {
+	const snapshot =
+		'snapshot' in input
+			? input.snapshot
+			: {
+					stripe_subscription_id: 'sub_123',
+					last_stripe_event_id: 'evt_123',
+					last_stripe_event_type: 'customer.subscription.updated',
+					last_stripe_event_created_at: '2026-05-24T12:00:00.000Z'
+				};
+
 	return {
 		from: (table: string) => {
 			if (table === 'organization_billing_snapshots') {
 				return {
+					select: () => ({
+						eq: () => ({
+							single: async () => ({
+								data: snapshot,
+								error: null
+							})
+						})
+					}),
 					upsert: async (values: Record<string, unknown>, options: Record<string, unknown>) => {
 						snapshotUpserts.push({ values, options });
 						return { error: null };
@@ -83,7 +106,7 @@ describe('POST /billing/cancel', () => {
 		getAdminClientMock.mockReturnValue(createSnapshotAdminClient());
 	});
 
-	it('cancels the subscription and clears the org subscription state through the app-owned store', async () => {
+	it('cancels the subscription and records pending cancellation through the app-owned store', async () => {
 		const ctx = createTestContext();
 		ctx.rawStore.seed('organizations', [
 			{
@@ -111,10 +134,13 @@ describe('POST /billing/cancel', () => {
 					organization_id: ctx.auth.orgId,
 					commercial_plan: 'free',
 					stripe_customer_id: 'cus_123',
-					stripe_subscription_id: null,
+					stripe_subscription_id: 'sub_123',
 					subscription_status: 'canceled',
 					sync_status: 'pending',
 					cancellation_feedback: 'too_expensive',
+					last_stripe_event_id: 'evt_123',
+					last_stripe_event_type: 'customer.subscription.updated',
+					last_stripe_event_created_at: '2026-05-24T12:00:00.000Z',
 					reconciliation_result: 'local_immediate_cancellation_pending_webhook'
 				}),
 				options: { onConflict: 'organization_id' }
@@ -125,7 +151,7 @@ describe('POST /billing/cancel', () => {
 				values: {
 					tier: 'free',
 					subscription_status: null,
-					stripe_subscription_id: null,
+					stripe_subscription_id: 'sub_123',
 					current_period_end: null
 				},
 				column: 'id',

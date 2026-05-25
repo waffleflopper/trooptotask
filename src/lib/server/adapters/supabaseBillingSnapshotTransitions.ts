@@ -6,7 +6,7 @@ import type {
 } from '$lib/server/core/useCases/billingSnapshotTransitions';
 
 const BILLING_SNAPSHOT_TRANSITION_SELECT =
-	'organization_id, commercial_plan, stripe_customer_id, stripe_subscription_id, stripe_product_id, stripe_price_id, subscription_status, collection_status, current_period_start, current_period_end, cancel_at_period_end, canceled_at, cancellation_reason, cancellation_feedback, trial_end, last_stripe_event_id, last_stripe_event_created_at';
+	'organization_id, commercial_plan, stripe_customer_id, stripe_subscription_id, stripe_product_id, stripe_price_id, subscription_status, collection_status, current_period_start, current_period_end, cancel_at_period_end, canceled_at, cancellation_reason, cancellation_feedback, trial_end, last_stripe_event_id, last_stripe_event_type, last_stripe_event_created_at';
 
 export function createSupabaseBillingSnapshotTransitionStore(supabase: SupabaseClient): BillingSnapshotTransitionStore {
 	return {

@@ -381,7 +381,14 @@ describe('applyBillingSnapshotTransition', () => {
 	});
 
 	it('records immediate cancellation as a pending-webhook free canceled snapshot', async () => {
-		const store = createStore();
+		const store = createStore({
+			snapshot: {
+				stripe_subscription_id: 'sub_123',
+				last_stripe_event_id: 'evt_123',
+				last_stripe_event_type: 'customer.subscription.updated',
+				last_stripe_event_created_at: '2026-05-24T12:00:00.000Z'
+			}
+		});
 
 		await applyBillingSnapshotTransition(store, {
 			kind: 'immediate_cancellation_requested',
@@ -397,16 +404,16 @@ describe('applyBillingSnapshotTransition', () => {
 				source: 'stripe',
 				commercial_plan: 'free',
 				stripe_customer_id: 'cus_123',
-				stripe_subscription_id: null,
+				stripe_subscription_id: 'sub_123',
 				subscription_status: 'canceled',
 				collection_status: 'canceled',
 				canceled_at: '2026-05-25T17:00:00.000Z',
 				cancellation_reason: 'cancellation_requested',
 				cancellation_feedback: 'unused',
 				sync_status: 'pending',
-				last_stripe_event_id: null,
-				last_stripe_event_type: null,
-				last_stripe_event_created_at: null,
+				last_stripe_event_id: 'evt_123',
+				last_stripe_event_type: 'customer.subscription.updated',
+				last_stripe_event_created_at: '2026-05-24T12:00:00.000Z',
 				reconciliation_result: 'local_immediate_cancellation_pending_webhook'
 			})
 		]);
@@ -416,7 +423,7 @@ describe('applyBillingSnapshotTransition', () => {
 				values: {
 					tier: 'free',
 					subscription_status: null,
-					stripe_subscription_id: null,
+					stripe_subscription_id: 'sub_123',
 					current_period_end: null
 				}
 			}

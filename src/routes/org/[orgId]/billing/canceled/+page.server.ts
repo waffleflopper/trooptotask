@@ -1,0 +1,19 @@
+import type { PageServerLoad } from './$types';
+import type { UseCaseContext } from '$lib/server/core/ports';
+import { loadWithContext } from '$lib/server/adapters/httpAdapter';
+
+export async function _loadCanceledCheckoutPageData(
+	ctx: Pick<UseCaseContext, 'auth' | 'rawStore'>,
+	_input: { checkoutAttemptId: string | null; now?: Date }
+) {
+	return { orgId: ctx.auth.orgId };
+}
+
+export const load: PageServerLoad = async ({ params, locals, cookies, url }) =>
+	loadWithContext(locals, cookies, params.orgId, {
+		permission: 'owner',
+		fn: (ctx) =>
+			_loadCanceledCheckoutPageData(ctx, {
+				checkoutAttemptId: url.searchParams.get('checkout_attempt_id')
+			})
+	});

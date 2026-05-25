@@ -17,8 +17,15 @@ const {
 }));
 
 vi.mock('$lib/server/adapters/adminAdapter', () => ({
-	adminAction: (config: { fn: (ctx: unknown, event: unknown) => unknown }) => (event: { __ctx: unknown }) =>
-		config.fn(event.__ctx, event),
+	adminAction:
+		(config: { requiredRole?: string | string[]; fn: (ctx: unknown, event: unknown) => unknown }) =>
+		(event: { __ctx: { adminUser?: { role?: string } } }) => {
+			const allowedRoles = Array.isArray(config.requiredRole) ? config.requiredRole : [config.requiredRole];
+			if (config.requiredRole && !allowedRoles.includes(event.__ctx.adminUser?.role)) {
+				return { status: 403, data: { error: 'Not authorized for this action.' } };
+			}
+			return config.fn(event.__ctx, event);
+		},
 	loadWithAdminContext: (config: { fn: (ctx: unknown, event: unknown) => unknown }) => (event: { __ctx: unknown }) =>
 		config.fn(event.__ctx, event)
 }));
@@ -51,7 +58,9 @@ vi.mock('$lib/server/core/useCases/planFeatureOverrides', () => ({
 }));
 
 vi.mock('$lib/server/billing/priceCatalog', () => ({
-	configuredPriceCatalog: [{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: null }]
+	getConfiguredPriceCatalog: () => [
+		{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: null, activeForCheckout: true }
+	]
 }));
 
 import { actions } from './+page.server';
@@ -80,10 +89,10 @@ function makeAdminClient(org: Record<string, unknown>) {
 	};
 }
 
-function makeContext(adminClient: unknown) {
+function makeContext(adminClient: unknown, role = 'super_admin') {
 	return {
 		adminClient,
-		adminUser: { id: 'admin-1', role: 'super_admin' },
+		adminUser: { id: 'admin-1', role },
 		audit: vi.fn()
 	};
 }
@@ -195,7 +204,9 @@ describe('admin organization gifting actions', () => {
 		expect(reconcileOrganizationBillingMock).toHaveBeenCalledWith(
 			expect.objectContaining({
 				orgId: '11111111-1111-4111-8111-111111111111',
-				priceCatalog: [{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: null }]
+				priceCatalog: [
+					{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: null, activeForCheckout: true }
+				]
 			})
 		);
 		expect(ctx.audit).toHaveBeenCalledWith(
@@ -351,13 +362,37 @@ describe('admin organization gifting actions', () => {
 		);
 	});
 
+	it('allows manual billing reconciliation for support admins', async () => {
+		const adminClient = makeAdminClient({ id: 'org-1' });
+		const ctx = makeContext(adminClient.client, 'support');
+
+		const result = await actions.reconcileBilling({
+			__ctx: ctx,
+			params: { orgId: '11111111-1111-4111-8111-111111111111' },
+			request: makeRequest({})
+		} as unknown as Parameters<(typeof actions)['reconcileBilling']>[0]);
+
+		expect(result).toMatchObject({
+			billingReconciliation: expect.objectContaining({
+				success: true,
+				status: 'repaired'
+			})
+		});
+		expect(reconcileOrganizationBillingMock).toHaveBeenCalledOnce();
+		expect(ctx.audit).toHaveBeenCalledWith(expect.objectContaining({ action: 'admin.org.billing_reconcile' }));
+	});
+
 	it('returns a support-safe billing reconciliation failure without secrets', async () => {
 		reconcileOrganizationBillingMock.mockResolvedValue({
 			ok: false,
 			status: 'failed',
-			result: 'Stripe subscription is missing orgId metadata.',
+			result: 'Stripe subscription is missing orgId metadata with sk_test_secret stripe-signature=t=1,v1=abc.',
 			driftDetected: true,
-			diagnostics: ['missing_org_metadata', 'provider failed sk_test_secret whsec_secret bearer top-secret'],
+			diagnostics: [
+				'missing_org_metadata',
+				'provider failed sk_test_secret whsec_secret stripe-signature=t=1,v1=abc bearer top-secret',
+				'header failed Stripe-Signature: t=2,v1=xyz.'
+			],
 			snapshotUpdated: false,
 			reconciledAt: '2026-05-23T00:00:00.000Z'
 		});
@@ -375,16 +410,22 @@ describe('admin organization gifting actions', () => {
 			data: {
 				billingReconciliation: {
 					success: false,
-					message: 'Stripe subscription is missing orgId metadata.',
+					message:
+						'Stripe subscription is missing orgId metadata with [redacted_stripe_key] stripe-signature=[redacted].',
 					diagnostics: [
 						'missing_org_metadata',
-						'provider failed [redacted_stripe_key] [redacted_webhook_secret] bearer [redacted]'
+						'provider failed [redacted_stripe_key] [redacted_webhook_secret] stripe-signature=[redacted] bearer [redacted]',
+						'header failed stripe-signature=[redacted].'
 					]
 				}
 			}
 		});
 		expect(JSON.stringify(ctx.audit.mock.calls)).not.toContain('sk_test_secret');
 		expect(JSON.stringify(ctx.audit.mock.calls)).not.toContain('whsec_secret');
+		expect(JSON.stringify(ctx.audit.mock.calls)).not.toContain('v1=abc');
+		expect(JSON.stringify(ctx.audit.mock.calls)).not.toContain('v1=xyz');
 		expect(JSON.stringify(result)).not.toContain('sk_test_secret');
+		expect(JSON.stringify(result)).not.toContain('v1=abc');
+		expect(JSON.stringify(result)).not.toContain('v1=xyz');
 	});
 });

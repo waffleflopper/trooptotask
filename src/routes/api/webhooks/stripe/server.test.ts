@@ -21,12 +21,17 @@ vi.mock('$lib/server/subscription', () => ({
 }));
 
 vi.mock('$lib/server/billing/priceCatalog', () => ({
-	configuredPriceCatalog: [
-		{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: 'prod_team' },
-		{ priceId: 'price_unit', commercialPlan: 'unit', stripeProductId: 'prod_unit' }
+	getConfiguredPriceCatalog: () => [
+		{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: 'prod_team', activeForCheckout: true },
+		{ priceId: 'price_unit', commercialPlan: 'unit', stripeProductId: 'prod_unit', activeForCheckout: true }
 	],
 	lookupPriceCatalogEntry: (
-		catalog: Array<{ priceId: string; commercialPlan: string; stripeProductId: string | null }>,
+		catalog: Array<{
+			priceId: string;
+			commercialPlan: string;
+			stripeProductId: string | null;
+			activeForCheckout: boolean;
+		}>,
 		priceId: string | null | undefined
 	) => {
 		if (!priceId) return { ok: false, reason: 'missing_price_id', priceId: null };
@@ -60,6 +65,8 @@ function createWebhookSupabaseStub(options: WebhookSupabaseOptions = {}) {
 	const billingSnapshotUpserts: Record<string, unknown>[] = [];
 	const webhookAttemptRecords: Record<string, unknown>[] = [];
 	const webhookUpdates: Array<{ values: Record<string, unknown>; filters: Array<[string, string, unknown]> }> = [];
+	const checkoutAttemptUpdates: Array<{ values: Record<string, unknown>; filters: Array<[string, string, unknown]> }> =
+		[];
 
 	function webhookUpdate(values: Record<string, unknown>) {
 		const filters: Array<[string, string, unknown]> = [];
@@ -94,6 +101,7 @@ function createWebhookSupabaseStub(options: WebhookSupabaseOptions = {}) {
 		billingSnapshotUpserts,
 		webhookAttemptRecords,
 		webhookUpdates,
+		checkoutAttemptUpdates,
 		client: {
 			rpc(name: string, args: Record<string, unknown>) {
 				if (name === 'record_stripe_webhook_event_attempt') {
@@ -139,6 +147,29 @@ function createWebhookSupabaseStub(options: WebhookSupabaseOptions = {}) {
 						upsert: async (values: Record<string, unknown>) => {
 							billingSnapshotUpserts.push(values);
 							return { error: null };
+						}
+					};
+				}
+
+				if (table === 'organization_checkout_attempts') {
+					return {
+						update: (values: Record<string, unknown>) => {
+							const filters: Array<[string, string, unknown]> = [];
+							const chain = {
+								eq(column: string, value: unknown) {
+									filters.push(['eq', column, value]);
+									return chain;
+								},
+								select: () => {
+									checkoutAttemptUpdates.push({ values, filters });
+									return Promise.resolve({ error: null, count: 1 });
+								},
+								then(resolve: (value: { error: null; count: number }) => void) {
+									checkoutAttemptUpdates.push({ values, filters });
+									return Promise.resolve({ error: null, count: 1 }).then(resolve);
+								}
+							};
+							return chain;
 						}
 					};
 				}
@@ -280,6 +311,16 @@ describe('POST /api/webhooks/stripe', () => {
 				last_stripe_event_created_at: '1970-01-01T00:00:01.000Z'
 			})
 		);
+		expect(supabase.checkoutAttemptUpdates).toContainEqual({
+			values: {
+				status: 'completed',
+				completed_at: '1970-01-01T00:00:01.000Z'
+			},
+			filters: [
+				['eq', 'organization_id', 'org-1'],
+				['eq', 'stripe_checkout_session_id', 'cs_123']
+			]
+		});
 		expect(supabase.webhookUpdates).toContainEqual(
 			expect.objectContaining({
 				values: expect.objectContaining({
@@ -658,6 +699,11 @@ describe('POST /api/webhooks/stripe', () => {
 					current_period_end: 1_800_000_000,
 					cancel_at_period_end: true,
 					canceled_at: 1_700_100_000,
+					cancellation_details: {
+						reason: 'cancellation_requested',
+						feedback: 'too_expensive',
+						comment: 'do not store freeform text'
+					},
 					trial_end: null,
 					pause_collection: null
 				}
@@ -672,7 +718,9 @@ describe('POST /api/webhooks/stripe', () => {
 				collection_status: 'current',
 				current_period_end: '2027-01-15T08:00:00.000Z',
 				cancel_at_period_end: true,
-				canceled_at: '2023-11-16T02:00:00.000Z'
+				canceled_at: '2023-11-16T02:00:00.000Z',
+				cancellation_reason: 'cancellation_requested',
+				cancellation_feedback: 'too_expensive'
 			})
 		);
 		expect(supabase.orgUpdates).toContainEqual(
@@ -1113,7 +1161,12 @@ describe('POST /api/webhooks/stripe', () => {
 					metadata: { orgId: 'org-1' },
 					customer: 'cus_123',
 					current_period_end: 1_800_000_000,
-					canceled_at: 1
+					canceled_at: 1,
+					cancellation_details: {
+						reason: 'cancellation_requested',
+						feedback: 'unused',
+						comment: 'do not store freeform text'
+					}
 				}
 			}
 		});
@@ -1131,6 +1184,8 @@ describe('POST /api/webhooks/stripe', () => {
 				collection_status: 'canceled',
 				current_period_end: '2027-01-15T08:00:00.000Z',
 				canceled_at: '1970-01-01T00:00:01.000Z',
+				cancellation_reason: 'cancellation_requested',
+				cancellation_feedback: 'unused',
 				last_stripe_event_id: 'evt_subscription_deleted'
 			})
 		);
@@ -1158,6 +1213,8 @@ describe('POST /api/webhooks/stripe', () => {
 				stripe_price_id: 'price_team',
 				current_period_start: '2026-12-15T08:00:00.000Z',
 				current_period_end: '2027-01-15T08:00:00.000Z',
+				cancellation_reason: 'cancellation_requested',
+				cancellation_feedback: 'too_expensive',
 				last_stripe_event_created_at: null
 			}
 		});
@@ -1184,6 +1241,8 @@ describe('POST /api/webhooks/stripe', () => {
 				subscription_status: 'canceled',
 				current_period_start: '2026-12-15T08:00:00.000Z',
 				current_period_end: '2027-01-15T08:00:00.000Z',
+				cancellation_reason: 'cancellation_requested',
+				cancellation_feedback: 'too_expensive',
 				last_stripe_event_id: 'evt_subscription_deleted_without_period_end'
 			})
 		);
@@ -1383,6 +1442,9 @@ describe('POST /api/webhooks/stripe', () => {
 				stripe_product_id: 'prod_team',
 				stripe_price_id: 'price_team',
 				subscription_status: 'past_due',
+				cancel_at_period_end: true,
+				cancellation_reason: 'cancellation_requested',
+				cancellation_feedback: 'too_expensive',
 				current_period_end: '2027-01-15T08:00:00.000Z',
 				last_stripe_event_created_at: null
 			}
@@ -1412,6 +1474,9 @@ describe('POST /api/webhooks/stripe', () => {
 				commercial_plan: 'team',
 				subscription_status: 'active',
 				collection_status: 'current',
+				cancel_at_period_end: true,
+				cancellation_reason: null,
+				cancellation_feedback: null,
 				last_stripe_event_id: 'evt_payment_succeeded'
 			})
 		);
@@ -1421,6 +1486,71 @@ describe('POST /api/webhooks/stripe', () => {
 				values: expect.objectContaining({
 					tier: 'team',
 					subscription_status: 'active'
+				})
+			})
+		);
+		expect(invalidateTierCacheMock).toHaveBeenCalledWith('org-1');
+	});
+
+	it('keeps current billing fields stable when invoice paid arrives for an active subscription', async () => {
+		const supabase = createWebhookSupabaseStub({
+			existingBillingSnapshot: {
+				organization_id: 'org-1',
+				commercial_plan: 'team',
+				stripe_customer_id: 'cus_123',
+				stripe_subscription_id: 'sub_123',
+				stripe_product_id: 'prod_team',
+				stripe_price_id: 'price_team',
+				subscription_status: 'active',
+				collection_status: 'current',
+				cancel_at_period_end: true,
+				cancellation_reason: 'cancellation_requested',
+				cancellation_feedback: 'too_expensive',
+				current_period_start: '2026-12-15T08:00:00.000Z',
+				current_period_end: '2027-01-15T08:00:00.000Z',
+				last_stripe_event_created_at: null
+			}
+		});
+		getAdminClientMock.mockReturnValue(supabase.client);
+
+		const response = await postWebhook({
+			id: 'evt_invoice_paid',
+			type: 'invoice.paid',
+			created: 1,
+			data: {
+				object: {
+					id: 'in_123',
+					parent: {
+						subscription_details: {
+							subscription: 'sub_123'
+						}
+					}
+				}
+			}
+		});
+
+		expect(response.status).toBe(200);
+		expect(supabase.billingSnapshotUpserts).toContainEqual(
+			expect.objectContaining({
+				organization_id: 'org-1',
+				commercial_plan: 'team',
+				subscription_status: 'active',
+				collection_status: 'current',
+				cancel_at_period_end: true,
+				cancellation_reason: null,
+				cancellation_feedback: null,
+				current_period_start: '2026-12-15T08:00:00.000Z',
+				current_period_end: '2027-01-15T08:00:00.000Z',
+				last_stripe_event_id: 'evt_invoice_paid'
+			})
+		);
+		expect(supabase.orgUpdates).toContainEqual(
+			expect.objectContaining({
+				value: 'org-1',
+				values: expect.objectContaining({
+					tier: 'team',
+					subscription_status: 'active',
+					current_period_end: '2027-01-15T08:00:00.000Z'
 				})
 			})
 		);

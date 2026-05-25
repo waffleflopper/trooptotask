@@ -167,7 +167,7 @@ describe('createSupabaseOrgProvisioningPort', () => {
 		expect(organizationListCalls).toContainEqual({ method: 'eq', args: ['created_by', 'user-1'] });
 	});
 
-	it('allows organization creation when a paid unit policy provides ownership headroom', async () => {
+	it('denies organization creation when a paid unit policy has no ownership headroom', async () => {
 		const { supabase } = createPolicyProvisioningSupabase({
 			ownedOrganizationIds: ['org-1', 'org-2'],
 			organizations: {
@@ -177,10 +177,13 @@ describe('createSupabaseOrgProvisioningPort', () => {
 		});
 		const port = createSupabaseOrgProvisioningPort({ supabase } as never);
 
-		await expect(port.canCreateOrganization('user-1')).resolves.toEqual({ allowed: true });
+		await expect(port.canCreateOrganization('user-1')).resolves.toEqual({
+			allowed: false,
+			message: 'You can own up to 1 organization(s) on your current plan.'
+		});
 	});
 
-	it('allows organization creation when an active gift policy provides ownership headroom', async () => {
+	it('denies organization creation when an active gift policy has no ownership headroom', async () => {
 		const { supabase } = createPolicyProvisioningSupabase({
 			ownedOrganizationIds: ['org-1', 'org-2'],
 			organizations: {
@@ -195,7 +198,10 @@ describe('createSupabaseOrgProvisioningPort', () => {
 		});
 		const port = createSupabaseOrgProvisioningPort({ supabase } as never);
 
-		await expect(port.canCreateOrganization('user-1')).resolves.toEqual({ allowed: true });
+		await expect(port.canCreateOrganization('user-1')).resolves.toEqual({
+			allowed: false,
+			message: 'You can own up to 1 organization(s) on your current plan.'
+		});
 	});
 
 	it('denies organization creation when a gift policy has expired', async () => {

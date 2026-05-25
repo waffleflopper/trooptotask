@@ -88,8 +88,13 @@ export async function buildAdminContextCore(params: BuildAdminContextParams): Pr
 // ---------------------------------------------------------------------------
 
 export interface AdminLoadConfig<T> {
-	requiredRole?: AdminRole;
+	requiredRole?: AdminRole | AdminRole[];
 	fn: (ctx: AdminContext, event: RequestEvent) => Promise<T>;
+}
+
+function hasRequiredRole(role: AdminRole, requiredRole: AdminRole | AdminRole[] | undefined): boolean {
+	if (!requiredRole) return true;
+	return Array.isArray(requiredRole) ? requiredRole.includes(role) : role === requiredRole;
 }
 
 export async function loadWithAdminContextCore<T>(
@@ -97,7 +102,7 @@ export async function loadWithAdminContextCore<T>(
 	config: AdminLoadConfig<T>,
 	event: RequestEvent
 ): Promise<T> {
-	if (config.requiredRole && ctx.adminUser.role !== config.requiredRole) {
+	if (!hasRequiredRole(ctx.adminUser.role, config.requiredRole)) {
 		throw adminError(403, 'Not authorized for this action.');
 	}
 	return config.fn(ctx, event);
@@ -108,7 +113,7 @@ export async function loadWithAdminContextCore<T>(
 // ---------------------------------------------------------------------------
 
 export interface AdminRouteConfig<TInput = void, TOutput = unknown> {
-	requiredRole?: AdminRole;
+	requiredRole?: AdminRole | AdminRole[];
 	parseInput?: (event: RequestEvent) => TInput | Promise<TInput>;
 	fn: (ctx: AdminContext, input: TInput) => Promise<TOutput>;
 }
@@ -118,7 +123,7 @@ export async function adminHandleCore<TInput, TOutput>(
 	config: AdminRouteConfig<TInput, TOutput>,
 	rawInput: unknown
 ): Promise<TOutput> {
-	if (config.requiredRole && ctx.adminUser.role !== config.requiredRole) {
+	if (!hasRequiredRole(ctx.adminUser.role, config.requiredRole)) {
 		throw adminError(403, 'Not authorized for this action.');
 	}
 	return config.fn(ctx, rawInput as TInput);
@@ -175,13 +180,13 @@ export function loadWithAdminContext<T>(config: AdminLoadConfig<T> & { page?: st
  */
 export function adminAction<T>(config: {
 	page?: string;
-	requiredRole?: AdminRole;
+	requiredRole?: AdminRole | AdminRole[];
 	fn: (ctx: AdminContext, event: RequestEvent) => Promise<T>;
 }) {
 	return async (event: RequestEvent) => {
 		try {
 			const ctx = await resolveAdminContext(event.locals, event, config.page);
-			if (config.requiredRole && ctx.adminUser.role !== config.requiredRole) {
+			if (!hasRequiredRole(ctx.adminUser.role, config.requiredRole)) {
 				return fail(403, { error: 'Not authorized for this action.' });
 			}
 			return config.fn(ctx, event);

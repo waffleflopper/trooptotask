@@ -116,7 +116,7 @@ describe('admin subscriptions page', () => {
 									commercialPlan: 'team',
 									tier: 'team',
 									source: 'billing_snapshot',
-									sourceLabel: 'Stripe-backed billing',
+									sourceLabel: 'Local billing snapshot',
 									billingSource: 'stripe',
 									giftTier: null,
 									giftExpiresAt: null
@@ -174,7 +174,7 @@ describe('admin subscriptions page', () => {
 										message: 'Member usage is 11 of 10.',
 										remediation: 'Remove members or upgrade to Unit.',
 										status: 'over_limit',
-										sourceLabel: 'Stripe-backed billing'
+										sourceLabel: 'Local billing snapshot'
 									},
 									{
 										dimension: 'pending_invitations',
@@ -182,7 +182,7 @@ describe('admin subscriptions page', () => {
 										message: 'Pending invitations use 1 seat; 12 of 10 member seats are reserved.',
 										remediation: 'Revoke pending invitations or upgrade to Unit.',
 										status: 'over_limit',
-										sourceLabel: 'Stripe-backed billing'
+										sourceLabel: 'Local billing snapshot'
 									}
 								]
 							}
@@ -194,7 +194,7 @@ describe('admin subscriptions page', () => {
 		});
 
 		expect(screen.getByText('Plan Usage')).toBeTruthy();
-		expect(screen.getByText('Stripe-backed billing')).toBeTruthy();
+		expect(screen.getByText('Local billing snapshot')).toBeTruthy();
 		expect(screen.getByText('Members')).toBeTruthy();
 		expect(screen.getAllByText('11 / 10').length).toBeGreaterThan(0);
 		expect(screen.getByText('Pending invitations')).toBeTruthy();

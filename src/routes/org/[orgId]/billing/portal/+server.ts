@@ -4,10 +4,10 @@ import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { isBillingEnabled } from '$lib/config/billing';
 import { buildRouteContext, handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { portal } from '$lib/server/core/useCases/billing';
-import { readBillingOrganization } from '$lib/server/core/useCases/billingOrganization';
-import { fail } from '$lib/server/core/errors';
 import { requireGovernancePolicy } from '$lib/server/core/useCases/governancePolicy';
+import { makePublicAppUrl } from '$lib/server/publicAppOrigin';
 import { billingApiErrorResponse } from '../billingApiErrors';
+import { resolvePortalCustomerId } from './portalAccess.server';
 
 export const POST: RequestHandler = async (event) => {
 	if (!isBillingEnabled) {
@@ -22,22 +22,19 @@ export const POST: RequestHandler = async (event) => {
 		);
 
 		const { orgId } = event.params;
-		const org = await readBillingOrganization({ auth: ctx.auth, store: ctx.rawStore });
-		const customerId = org.stripeCustomerId;
-
-		if (!customerId) {
-			fail(400, 'No active subscription found for this organization');
-		}
+		const returnUrl = makePublicAppUrl(`/org/${orgId}/billing`, { inboundOrigin: event.url.origin });
 
 		const result = await handleUseCaseRequest(
 			{
 				permission: 'owner',
 				mutation: true,
-				fn: (c) =>
-					portal(c, {
+				fn: async (c) => {
+					const customerId = await resolvePortalCustomerId(c);
+					return portal(c, {
 						customerId,
-						returnUrl: `${event.url.origin}/org/${orgId}/billing`
-					}),
+						returnUrl
+					});
+				},
 				audit: { action: 'billing.portal', resourceType: 'organization' }
 			},
 			ctx,

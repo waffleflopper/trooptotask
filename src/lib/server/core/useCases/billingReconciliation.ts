@@ -26,6 +26,8 @@ export interface BillingReconciliationSnapshotRow {
 	current_period_end: string | null;
 	cancel_at_period_end: boolean | null;
 	canceled_at: string | null;
+	cancellation_reason: string | null;
+	cancellation_feedback: BillingSnapshot['cancellationFeedback'];
 	trial_end: string | null;
 	sync_status: BillingSnapshot['syncStatus'];
 	last_stripe_event_id: string | null;

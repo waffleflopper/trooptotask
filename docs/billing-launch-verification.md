@@ -6,6 +6,12 @@ This runbook verifies the Stripe-backed billing-state subsystem before paid bill
 
 Issue #1049 covers launch verification for checkout, renewal, failed renewal, cancellation, Customer Portal changes, plan changes, webhook processing, reconciliation, and owner/admin visibility.
 
+The broader launch go/no-go checklist is documented in [Billing Operations Launch Checklist](billing-operations-launch-checklist.md). That checklist separates test-mode verification, live-mode launch steps, environment variables, support process, and Robert-owned Stripe Dashboard confirmations.
+
+Cancellation behavior is documented in [Billing Cancellation Policy](billing-cancellation-policy.md). Customer Portal cancellation is the default owner path and should be configured for cancellation at period end. Immediate cancellation is limited to TroopToTask's confirmed Cancel Now path or platform-admin/support action.
+
+Customer Portal behavior is constrained by [Billing Customer Portal Contract](billing-customer-portal.md). Use that contract as the source of truth for supported portal outcomes and support/admin-handled states.
+
 The verification target is not just "Stripe changed state." Each scenario must confirm all four TroopToTask surfaces:
 
 - `organization_billing_snapshots` has the expected billing snapshot.
@@ -48,6 +54,8 @@ Use the Stripe Dashboard in test mode:
 
 - Confirm the blue test/sandbox banner is visible before changing settings.
 - Confirm `STRIPE_TEAM_PRICE_ID` and `STRIPE_UNIT_PRICE_ID` point to active recurring monthly prices.
+- Confirm `STRIPE_AUTOMATIC_TAX_ENABLED` is `false` unless Robert has completed the Stripe Tax launch review.
+- If `STRIPE_AUTOMATIC_TAX_ENABLED=true`, confirm `STRIPE_TAX_DASHBOARD_VERIFIED=true` only after checking Stripe Tax registrations, product tax behavior, and required customer address behavior in the Stripe Dashboard.
 - Confirm the webhook endpoint for `/api/webhooks/stripe` is enabled for the handled events listed below.
 - Confirm the Customer Portal supports invoice history, payment method updates, customer information updates, and subscription cancellation.
 - For portal-driven plan changes, enable Customer Portal subscription updates and make the Team and Unit products eligible. If this is not enabled, plan changes must be verified through the Stripe Dashboard or API instead of the portal.
@@ -59,6 +67,20 @@ Useful Stripe docs:
 - [API and advanced Test Clock usage](https://docs.stripe.com/billing/testing/test-clocks/api-advanced-usage)
 - [Billing integration testing](https://docs.stripe.com/billing/testing)
 
+## Tax Launch Decision
+
+TroopToTask checkout now always sends explicit Stripe Checkout tax and address options. Tax-disabled checkout is the default launch-safe state: `automatic_tax.enabled=false`, `billing_address_collection=auto`, and customer address/name updates are saved automatically when Checkout collects them.
+
+Automatic tax is a human launch decision. Do not set `STRIPE_TAX_DASHBOARD_VERIFIED=true` until Robert has confirmed all of these in the Stripe Dashboard:
+
+- Stripe Tax is enabled for the correct test or live account mode.
+- The business address and tax registrations are configured for the jurisdictions Robert intends to support.
+- Team and Unit products have the intended tax behavior.
+- Checkout address collection has been tested in Stripe test mode for a real TroopToTask organization.
+- The first test invoice shows the expected tax behavior before live billing is enabled.
+
+If `STRIPE_AUTOMATIC_TAX_ENABLED=true` without `STRIPE_TAX_DASHBOARD_VERIFIED=true`, checkout must fail before creating a Stripe session. This is intentional; it prevents automatic tax from being silently enabled based on incomplete dashboard state.
+
 ## Expected Webhook Events
 
 TroopToTask intentionally processes only these Stripe events:
@@ -69,8 +91,10 @@ TroopToTask intentionally processes only these Stripe events:
 | `customer.subscription.updated` | Map Stripe price to the internal commercial plan, update subscription status, cancellation timing, paid-through dates, and effective tier. |
 | `customer.subscription.deleted` | Revoke paid access, retain support-visible cancellation timing in the billing snapshot, and clear the legacy subscription mirror. |
 | `invoice.payment_failed` | Move the snapshot into payment-failed grace state and surface billing recovery UI. |
+| `invoice.payment_succeeded` | Restore billing to current when a previously failed payment succeeds and Stripe still links the subscription to the organization. |
+| `invoice.paid` | Restore billing to current when an invoice is marked paid. This can appear during regular renewals and failed-payment recovery; the handler is idempotent for snapshots already in a current state. |
 
-Unsupported events should remain ignored, not failed. If the Stripe webhook endpoint also sends events such as `customer.subscription.created` or `invoice.paid`, verify they create ledger rows with `processing_state = ignored` and a support-safe `processing_result`.
+Unsupported events should remain ignored, not failed. If the Stripe webhook endpoint also sends events such as `customer.subscription.created`, verify they create ledger rows with `processing_state = ignored` and a support-safe `processing_result`.
 
 ## Stripe Subscription ID Retention Policy
 
@@ -92,13 +116,14 @@ Record evidence for every scenario in this table. Use one fresh test organizatio
 | Scenario | Stripe/Test Clock action | Expected snapshot | Expected ledger | UI/reconciliation checks |
 | --- | --- | --- | --- | --- |
 | Checkout activation | Owner starts Team checkout and completes payment with a successful test card. | `source = stripe`, `commercial_plan = team`, `subscription_status = active`, `collection_status = current`, Stripe customer/subscription/price IDs present. | `checkout.session.completed` then `customer.subscription.updated` processed. | Owner billing page shows active Team plan. Admin org diagnostics show synced snapshot. Reconciliation returns `matched`. |
-| Renewal success | Advance the Test Clock past the next billing date. | Plan remains paid, status remains active, period dates move forward. | Renewal-related `customer.subscription.updated` is processed. Optional invoice events are ignored unless supported later. | Owner paid-through date updates. Admin subscriptions page remains current. Reconciliation returns `matched`. |
+| Renewal success | Advance the Test Clock past the next billing date. | Plan remains paid, status remains active, period dates move forward. | Renewal-related `customer.subscription.updated` is processed. `invoice.paid` is also processed by the payment-success handler and should produce a `processed`, not ignored, ledger row. `invoice.payment_succeeded` may also fire and be processed. | Owner paid-through date updates. Admin subscriptions page remains current. Reconciliation returns `matched`. |
 | Failed renewal | Attach a failing payment method or use the documented Test Clock failure path, then advance through renewal. | `subscription_status = past_due`, `collection_status = payment_failed_grace`, commercial plan retained for grace policy. | `invoice.payment_failed` processed. Later terminal subscription events processed if Stripe moves to `unpaid` or `canceled`. | Owner billing page shows payment recovery/read-only messaging. Server-side paid write gates respect billing-state policy. Reconciliation returns `matched` or repairs drift. |
 | Portal period-end cancellation | Open the Customer Portal from TroopToTask and cancel at period end. | `cancel_at_period_end = true`, `current_period_end` populated, paid access remains through paid-through date. | `customer.subscription.updated` processed. | Owner and admin screens show scheduled cancellation timing. Reconciliation returns `matched`. |
 | Immediate cancellation | Use TroopToTask's Cancel Subscription action or cancel immediately in Stripe test mode. | `commercial_plan = free`, `subscription_status = canceled`, `collection_status = canceled`, `cancel_at_period_end = false`. | `customer.subscription.deleted` processed. | Owner page shows canceled/free state. Admin diagnostics show canceled snapshot. Reconciliation does not restore paid access unless Stripe still reports an active subscription. |
 | End-of-period terminal cancellation | After portal period-end cancellation, advance the Test Clock beyond `current_period_end`. | Paid access is revoked when Stripe emits the terminal cancellation. | Final `customer.subscription.deleted` processed. | Owner page moves from scheduled cancellation to canceled/free. Admin diagnostics retain cancellation timing. |
+| Payment recovery and reactivation | After failed renewal, attach a successful payment method and pay the open invoice or advance the Test Clock through recovery. | `subscription_status = active`, `collection_status = current`, commercial plan remains paid. If the subscription already had `cancel_at_period_end = true` before payment failed, the snapshot should retain `cancel_at_period_end = true`, `current_period_end`, `cancellation_reason`, and `cancellation_feedback` after recovery; confirm the Stripe subscription and local snapshot agree on the scheduled cancellation date. | `invoice.payment_succeeded` or `invoice.paid` processed. | Owner recovery banner clears, paid write gates reopen, admin diagnostics show current collection state and the latest invoice success event. |
 | Plan change | Change from Team to Unit or Unit to Team through Customer Portal if enabled; otherwise use Stripe Dashboard/API. | `commercial_plan`, `stripe_price_id`, and `stripe_product_id` match the new price catalog entry. | `customer.subscription.updated` processed. | Owner plan and personnel cap update. Admin diagnostics show the new price/product. Reconciliation returns `matched`. |
-| Unsupported event | Trigger or resend an enabled but unsupported event such as `invoice.paid`. | No entitlement change. | Ledger row is `ignored`, not failed. | Admin billing events page shows ignored/support-safe diagnostics. |
+| Unsupported event | Trigger or resend an enabled but unsupported event such as `customer.subscription.created`. | No entitlement change. | Ledger row is `ignored`, not failed. | Admin billing events page shows ignored/support-safe diagnostics. |
 
 ## Manual Verification Steps
 
@@ -111,6 +136,8 @@ Record evidence for every scenario in this table. Use one fresh test organizatio
 7. Confirm no Stripe secrets, webhook secrets, payment details, or raw sensitive payloads are copied into issue comments or PR descriptions.
 
 ## Dashboard Findings From Initial Setup
+
+> **Not yet confirmed for launch.** The items below reflect an initial inspection snapshot. Every item in this section is still listed as **Requires Robert confirmation** in the [Billing Operations Launch Checklist](billing-operations-launch-checklist.md). Robert must re-verify against current Dashboard state before live launch.
 
 The first test-mode inspection found:
 

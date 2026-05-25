@@ -34,16 +34,16 @@ export interface PlanUsageSummary {
 	alerts: PlanUsageSummaryAlert[];
 }
 
-function sourceLabel(source: PlanPolicySource): string {
+function sourceLabel(source: PlanPolicySource, tier: Tier): string {
 	switch (source) {
 		case 'admin_gift':
 			return 'Admin gift';
 		case 'billing_disabled_fallback':
 			return 'Billing-disabled fallback';
 		case 'legacy_organization':
-			return 'Legacy organization';
+			return tier === 'free' ? 'Free plan' : 'Legacy organization';
 		case 'billing_snapshot':
-			return 'Stripe-backed billing';
+			return tier === 'free' ? 'Free plan' : 'Paid subscription';
 	}
 }
 
@@ -72,7 +72,8 @@ function invitationRemediation(upgradeTarget: Tier | null): string {
 
 function exportRemediation(upgradeTarget: Tier | null): string {
 	if (!upgradeTarget) return 'Contact support or wait until next month.';
-	return 'Upgrade for unlimited exports or wait until next month.';
+	if (upgradeTarget === 'unit') return 'Upgrade to Unit for unlimited exports or wait until next month.';
+	return `Upgrade to ${formatUpgradeTarget(upgradeTarget)} for more monthly exports or wait until next month.`;
 }
 
 function limitStatus(used: number, limit: number | null, reachedAtLimit = false): PlanUsageSummaryStatus {
@@ -166,7 +167,7 @@ export function buildPlanUsageSummary(policy: EffectivePlanPolicy, usage: Organi
 		plan: {
 			tier: policy.tier,
 			source: policy.source,
-			sourceLabel: sourceLabel(policy.source)
+			sourceLabel: sourceLabel(policy.source, policy.tier)
 		},
 		rows,
 		alerts: [

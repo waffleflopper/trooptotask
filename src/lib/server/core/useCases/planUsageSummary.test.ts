@@ -19,6 +19,8 @@ function snapshot(overrides: Partial<BillingSnapshot> = {}): BillingSnapshot {
 		currentPeriodEnd: '2026-06-01T00:00:00.000Z',
 		cancelAtPeriodEnd: false,
 		canceledAt: null,
+		cancellationReason: null,
+		cancellationFeedback: null,
 		trialEnd: null,
 		syncStatus: 'synced',
 		lastStripeEventId: 'evt_123',
@@ -70,7 +72,7 @@ describe('plan usage summary', () => {
 			plan: {
 				tier: 'free',
 				source: 'billing_snapshot',
-				sourceLabel: 'Stripe-backed billing'
+				sourceLabel: 'Free plan'
 			},
 			rows: [
 				expect.objectContaining({
@@ -98,7 +100,7 @@ describe('plan usage summary', () => {
 					used: 3,
 					limit: 3,
 					status: 'limit_reached',
-					remediation: 'Upgrade for unlimited exports or wait until next month.'
+					remediation: 'Upgrade to Team for more monthly exports or wait until next month.'
 				})
 			],
 			alerts: [

@@ -49,6 +49,21 @@
 	function formatOptionalDateTime(value: string | null | undefined): string {
 		return value ? formatDisplayDateTime(value) : '-';
 	}
+
+	function billingSnapshotSourceLabel(source: string | null | undefined): string {
+		switch (source) {
+			case 'stripe':
+				return 'Stripe subscription';
+			case 'gift':
+				return 'Admin gift';
+			case 'billing_disabled':
+				return 'Billing-disabled fallback';
+			case 'legacy_organization':
+				return 'Legacy organization';
+			default:
+				return 'Not configured';
+		}
+	}
 </script>
 
 <svelte:head>
@@ -212,8 +227,8 @@
 						<span class="font-mono text-xs break-all">{data.billingSnapshot.stripeProductId ?? '-'}</span>
 					</PageShell.FactRow>
 					<PageShell.FactRow
-						label="Entitlement Source"
-						value={formatAdminLabel(data.billingSnapshot.source)}
+						label="Subscription Source"
+						value={billingSnapshotSourceLabel(data.billingSnapshot.source)}
 						layout="stack"
 					/>
 					<PageShell.FactRow label="Subscription Status" layout="stack">
@@ -252,6 +267,11 @@
 					<PageShell.FactRow label="Last Event Type" layout="stack">
 						<span class="font-mono text-xs break-all">{data.billingSnapshot.lastStripeEventType ?? '-'}</span>
 					</PageShell.FactRow>
+					<PageShell.FactRow
+						label="Last Event Created"
+						value={formatOptionalDateTime(data.billingSnapshot.lastStripeEventCreatedAt)}
+						layout="stack"
+					/>
 					<PageShell.FactRow
 						label="Last Processed"
 						value={formatOptionalDateTime(data.billingSnapshot.lastProcessedAt)}
@@ -295,7 +315,7 @@
 					<span>{formatAdminLabel(data.planDiagnostics.effectivePlan.commercialPlan)}</span>
 				</div>
 				<div class="grid gap-1">
-					<span class="text-xs font-medium text-muted-foreground">Policy Source</span>
+					<span class="text-xs font-medium text-muted-foreground">Entitlement Source</span>
 					<span>{data.planDiagnostics.effectivePlan.sourceLabel}</span>
 				</div>
 				<div class="grid gap-1">

@@ -26,7 +26,7 @@ const planDiagnostics = {
 		commercialPlan: 'team',
 		tier: 'team',
 		source: 'billing_snapshot',
-		sourceLabel: 'Stripe-backed billing',
+		sourceLabel: 'Local billing snapshot',
 		billingSource: 'stripe',
 		giftTier: null,
 		giftExpiresAt: null
@@ -93,7 +93,7 @@ const planDiagnostics = {
 			description: 'Use advanced readiness and reporting workspaces.',
 			available: false,
 			source: 'stripe_billing',
-			sourceLabel: 'Stripe-backed billing',
+			sourceLabel: 'Paid plan',
 			upgradeTarget: 'unit'
 		}
 	]
@@ -134,6 +134,7 @@ describe('admin organization detail page', () => {
 						canceledAt: '2026-05-15T00:00:00.000Z',
 						lastStripeEventId: 'evt_123',
 						lastStripeEventType: 'customer.subscription.updated',
+						lastStripeEventCreatedAt: '2026-05-15T00:00:30.000Z',
 						lastProcessedAt: '2026-05-15T00:01:00.000Z',
 						lastReconciledAt: '2026-05-23T00:00:00.000Z',
 						reconciliationResult: 'repaired_drift:current_period_start,current_period_end,canceled_at',
@@ -156,9 +157,17 @@ describe('admin organization detail page', () => {
 		expect(screen.getByText('cus_123')).toBeTruthy();
 		expect(screen.getByText('sub_123')).toBeTruthy();
 		expect(screen.getByText('prod_team')).toBeTruthy();
+		expect(screen.getByText('Subscription Source')).toBeTruthy();
+		expect(screen.getByText('Subscription Source').parentElement?.parentElement?.textContent).toContain(
+			'Stripe subscription'
+		);
+		expect(screen.getByText('Entitlement Source').parentElement?.parentElement?.textContent).toContain(
+			'Local billing snapshot'
+		);
 		expect(screen.getAllByText('Stripe').length).toBeGreaterThan(0);
 		expect(screen.getByText('Cancels at period end')).toBeTruthy();
 		expect(screen.getByText('customer.subscription.updated')).toBeTruthy();
+		expect(screen.getByText('Last Event Created')).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Refresh from Stripe' })).toBeTruthy();
 		const reconciliationResult = screen.getByText('repaired_drift:current_period_start,current_period_end,canceled_at');
 		expect(reconciliationResult).toBeTruthy();
@@ -240,7 +249,7 @@ describe('admin organization detail page', () => {
 									message: 'Billing is not current.',
 									remediation: 'Update the payment method or contact support.',
 									status: 'read_only',
-									sourceLabel: 'Stripe-backed billing'
+									sourceLabel: 'Local billing snapshot'
 								}
 							]
 						},
@@ -297,7 +306,7 @@ describe('admin organization detail page', () => {
 								message: 'Member usage is 11 of 10.',
 								remediation: 'Remove members or upgrade to Unit.',
 								status: 'over_limit',
-								sourceLabel: 'Stripe-backed billing'
+								sourceLabel: 'Local billing snapshot'
 							},
 							{
 								dimension: 'pending_invitations',
@@ -305,7 +314,7 @@ describe('admin organization detail page', () => {
 								message: 'Pending invitations use 1 seat; 12 of 10 member seats are reserved.',
 								remediation: 'Revoke pending invitations or upgrade to Unit.',
 								status: 'over_limit',
-								sourceLabel: 'Stripe-backed billing'
+								sourceLabel: 'Local billing snapshot'
 							},
 							{
 								dimension: 'billing_state',
@@ -313,7 +322,7 @@ describe('admin organization detail page', () => {
 								message: 'Billing is not current.',
 								remediation: 'Update the payment method or contact support.',
 								status: 'read_only',
-								sourceLabel: 'Stripe-backed billing'
+								sourceLabel: 'Local billing snapshot'
 							}
 						],
 						entitlements: [
@@ -341,7 +350,7 @@ describe('admin organization detail page', () => {
 		});
 
 		expect(screen.getByText('Plan Policy Diagnostics')).toBeTruthy();
-		expect(screen.getAllByText('Stripe-backed billing').length).toBeGreaterThan(0);
+		expect(screen.getAllByText('Local billing snapshot').length).toBeGreaterThan(0);
 		expect(
 			screen.getByText('Payment failed grace mode keeps the current plan visible while write access can be restricted.')
 		).toBeTruthy();

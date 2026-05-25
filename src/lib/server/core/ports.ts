@@ -1,5 +1,6 @@
-import type { EffectiveTier, ReadOnlyReason } from '$lib/types/subscription';
+import type { BillingCancellationFeedback, EffectiveTier, ReadOnlyReason } from '$lib/types/subscription';
 import type { CapabilityMap, CompatibilityLaneMap, ScopeSet } from '$lib/access/memberAccessShape';
+import type { CheckoutSessionConfiguration } from '$lib/server/billing/checkoutConfiguration';
 import type { SensitiveActionAuthorizer } from '$lib/server/sensitiveActionAuthorizer';
 
 export type FeatureArea = 'calendar' | 'personnel' | 'training' | 'critical-tasks' | 'onboarding' | 'rating-scheme';
@@ -173,13 +174,20 @@ export interface BillingPort {
 		orgId: string;
 		orgName: string;
 		tier: 'team' | 'unit';
+		priceId: string;
+		checkoutAttemptId?: string;
 		customerEmail: string;
 		existingCustomerId?: string;
 		successUrl: string;
 		cancelUrl: string;
-	}): Promise<{ url: string; customerId: string }>;
+		checkoutConfiguration: CheckoutSessionConfiguration;
+	}): Promise<{ url: string; customerId: string; sessionId?: string; expiresAt?: string | null }>;
 	createPortalSession(customerId: string, returnUrl: string): Promise<{ url: string }>;
-	cancelSubscription(subscriptionId: string): Promise<void>;
+	expireCheckoutSession(sessionId: string): Promise<void>;
+	cancelSubscription(
+		subscriptionId: string,
+		options?: { cancellationFeedback?: BillingCancellationFeedback | null }
+	): Promise<void>;
 	pauseSubscription(subscriptionId: string): Promise<void>;
 	resumeSubscription(subscriptionId: string): Promise<void>;
 }

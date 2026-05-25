@@ -182,7 +182,7 @@
 						<Table.Head>Personnel</Table.Head>
 						<Table.Head>Plan Usage</Table.Head>
 						<Table.Head>Owner</Table.Head>
-						<Table.Head>Sync Health</Table.Head>
+						<Table.Head>Billing Freshness</Table.Head>
 						<Table.Head>Cancellation</Table.Head>
 						<Table.Head>Gift</Table.Head>
 						<Table.Head>Created</Table.Head>

@@ -6,13 +6,17 @@ const {
 	canManageBillingSubscriptionMock,
 	readCurrentBillingSnapshotMock,
 	readEffectivePlanPolicyMock,
-	readOrganizationPlanUsageMock
+	readOrganizationPlanUsageMock,
+	expireStaleCheckoutAttemptsMock,
+	findActiveCheckoutAttemptMock
 } = vi.hoisted(() => ({
 	readBillingOrganizationMock: vi.fn(),
 	canManageBillingSubscriptionMock: vi.fn(),
 	readCurrentBillingSnapshotMock: vi.fn(),
 	readEffectivePlanPolicyMock: vi.fn(),
-	readOrganizationPlanUsageMock: vi.fn()
+	readOrganizationPlanUsageMock: vi.fn(),
+	expireStaleCheckoutAttemptsMock: vi.fn(),
+	findActiveCheckoutAttemptMock: vi.fn()
 }));
 
 vi.mock('$lib/server/core/useCases/billingOrganization', async () => {
@@ -60,6 +64,18 @@ vi.mock('$lib/server/core/useCases/organizationPlanUsage', async () => {
 	};
 });
 
+vi.mock('$lib/server/core/useCases/billingCheckoutAttempts', async () => {
+	const actual = await vi.importActual<typeof import('$lib/server/core/useCases/billingCheckoutAttempts')>(
+		'$lib/server/core/useCases/billingCheckoutAttempts'
+	);
+
+	return {
+		...actual,
+		expireStaleCheckoutAttempts: expireStaleCheckoutAttemptsMock,
+		findActiveCheckoutAttempt: findActiveCheckoutAttemptMock
+	};
+});
+
 import { _loadBillingPageData } from './+page.server';
 import { buildEffectivePlanPolicy } from '$lib/server/core/useCases/planPolicy';
 import type { BillingSnapshot } from '$lib/types/subscription';
@@ -79,6 +95,8 @@ function snapshot(overrides: Partial<BillingSnapshot> = {}): BillingSnapshot {
 		currentPeriodEnd: '2026-06-01T00:00:00.000Z',
 		cancelAtPeriodEnd: false,
 		canceledAt: null,
+		cancellationReason: null,
+		cancellationFeedback: null,
 		trialEnd: null,
 		syncStatus: 'synced',
 		lastStripeEventId: 'evt_123',
@@ -101,6 +119,8 @@ describe('_loadBillingPageData', () => {
 		readCurrentBillingSnapshotMock.mockReset();
 		readEffectivePlanPolicyMock.mockReset();
 		readOrganizationPlanUsageMock.mockReset();
+		expireStaleCheckoutAttemptsMock.mockReset();
+		findActiveCheckoutAttemptMock.mockReset();
 		readEffectivePlanPolicyMock.mockResolvedValue(buildEffectivePlanPolicy(snapshot({ commercialPlan: 'team' })));
 		readOrganizationPlanUsageMock.mockResolvedValue({
 			organizationId: 'org-1',
@@ -124,6 +144,8 @@ describe('_loadBillingPageData', () => {
 				}
 			}
 		});
+		expireStaleCheckoutAttemptsMock.mockResolvedValue([]);
+		findActiveCheckoutAttemptMock.mockResolvedValue(null);
 	});
 
 	it('denies non-owner billing access before reading billing organization details', async () => {
@@ -238,13 +260,73 @@ describe('_loadBillingPageData', () => {
 					state: 'canceling_at_period_end',
 					label: 'Cancels at period end',
 					description:
-						'Paid access remains active until the paid-through date unless Stripe reports an earlier terminal state.',
+						'Paid access remains active until the paid-through date unless the provider reports an earlier terminal state.',
 					currentPeriodEnd: '2026-06-01T00:00:00.000Z',
 					canceledAt: null
 				},
-				canManageSubscription: true
+				canManageSubscription: true,
+				pendingCheckoutSession: null
 			})
 		);
+	});
+
+	it('loads the active checkout attempt for owner recovery controls', async () => {
+		const ctx = createTestContext({
+			auth: {
+				orgId: 'org-1',
+				role: 'owner'
+			}
+		});
+		readBillingOrganizationMock.mockResolvedValue({
+			name: 'Alpha Company',
+			stripeCustomerId: 'cus_123',
+			stripeSubscriptionId: null,
+			subscriptionStatus: null
+		});
+		readCurrentBillingSnapshotMock.mockResolvedValue(snapshot({ commercialPlan: 'free', subscriptionStatus: null }));
+		canManageBillingSubscriptionMock.mockReturnValue(false);
+		findActiveCheckoutAttemptMock.mockResolvedValue({
+			id: 'attempt-unit',
+			organization_id: 'org-1',
+			stripe_checkout_session_id: 'cs_unit',
+			stripe_customer_id: 'cus_123',
+			commercial_plan: 'unit',
+			stripe_price_id: 'price_unit_old',
+			checkout_url: 'https://checkout.test/unit',
+			status: 'in_progress',
+			expires_at: '2026-05-26T04:03:56.000Z',
+			completed_at: null,
+			canceled_at: null,
+			created_at: '2026-05-25T04:03:55.000Z',
+			updated_at: '2026-05-25T04:03:55.000Z'
+		});
+
+		const result = await _loadBillingPageData(
+			{
+				auth: ctx.auth,
+				audit: ctx.audit,
+				rawStore: { kind: 'raw-store' } as never
+			},
+			{
+				tier: 'free',
+				source: 'default',
+				personnelCount: 69,
+				personnelCap: 20,
+				isReadOnly: true,
+				readOnlyReason: 'personnel_limit',
+				giftExpiresAt: null,
+				giftTier: null
+			}
+		);
+
+		expect(expireStaleCheckoutAttemptsMock).toHaveBeenCalledWith({ kind: 'raw-store' }, 'org-1', expect.any(Date));
+		expect(result.pendingCheckoutSession).toEqual({
+			id: 'attempt-unit',
+			tier: 'unit',
+			checkoutUrl: 'https://checkout.test/unit',
+			expiresAt: '2026-05-26T04:03:56.000Z',
+			createdAt: '2026-05-25T04:03:55.000Z'
+		});
 	});
 
 	it('loads policy-backed usage and limits for owner remediation copy', async () => {
@@ -315,7 +397,7 @@ describe('_loadBillingPageData', () => {
 		});
 		expect(result.planUsageSummary).toMatchObject({
 			plan: {
-				sourceLabel: 'Stripe-backed billing'
+				sourceLabel: 'Free plan'
 			},
 			rows: [
 				expect.objectContaining({ dimension: 'active_personnel', used: 21, limit: 20, status: 'over_limit' }),
@@ -402,7 +484,10 @@ describe('_loadBillingPageData', () => {
 				rows: expect.arrayContaining([
 					expect.objectContaining({ dimension: 'active_personnel', used: 90, limit: 80, status: 'over_limit' })
 				]),
-				featureLosses: [expect.objectContaining({ featureKey: 'advanced_reporting' })]
+				featureLosses: [
+					expect.objectContaining({ featureKey: 'bulk_export_unlimited' }),
+					expect.objectContaining({ featureKey: 'advanced_reporting' })
+				]
 			})
 		]);
 	});

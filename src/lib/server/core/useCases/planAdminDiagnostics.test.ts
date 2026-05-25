@@ -19,6 +19,8 @@ function snapshot(overrides: Partial<BillingSnapshot> = {}): BillingSnapshot {
 		currentPeriodEnd: '2026-06-01T00:00:00.000Z',
 		cancelAtPeriodEnd: false,
 		canceledAt: null,
+		cancellationReason: null,
+		cancellationFeedback: null,
 		trialEnd: null,
 		syncStatus: 'synced',
 		lastStripeEventId: 'evt_secret',
@@ -80,7 +82,7 @@ describe('plan admin diagnostics', () => {
 			commercialPlan: 'team',
 			tier: 'team',
 			source: 'billing_snapshot',
-			sourceLabel: 'Stripe-backed billing',
+			sourceLabel: 'Local billing snapshot',
 			billingSource: 'stripe',
 			giftTier: null,
 			giftExpiresAt: null
@@ -95,7 +97,7 @@ describe('plan admin diagnostics', () => {
 				expect.objectContaining({
 					dimension: 'billing_state',
 					label: 'Billing state',
-					sourceLabel: 'Stripe-backed billing'
+					sourceLabel: 'Local billing snapshot'
 				})
 			]
 		});
@@ -112,35 +114,32 @@ describe('plan admin diagnostics', () => {
 					dimension: 'active_organization_members',
 					label: 'Members',
 					used: 11,
-					limit: 10,
-					status: 'over_limit'
+					limit: null,
+					status: 'within_limit'
 				}),
 				expect.objectContaining({
 					dimension: 'pending_invitations',
 					label: 'Pending invitations',
-					status: 'over_limit',
-					message: 'Pending invitations use 1 seat; 12 of 10 member seats are reserved.'
+					status: 'within_limit',
+					message: 'Pending invitations use 1 seat; 12 of Unlimited member seats are reserved.'
 				}),
 				expect.objectContaining({
 					dimension: 'monthly_exports',
 					label: 'Monthly exports',
-					limit: null,
+					limit: 10,
 					status: 'within_limit'
 				})
 			])
 		);
-		expect(diagnostics.overLimitReasons.map((reason) => reason.label)).toEqual([
-			'Members',
-			'Pending invitations',
-			'Billing state'
-		]);
+		expect(diagnostics.overLimitReasons.map((reason) => reason.label)).toEqual(['Billing state']);
 		expect(diagnostics.entitlements).toEqual(
 			expect.arrayContaining([
 				expect.objectContaining({
 					key: 'bulk_export_unlimited',
 					label: 'Unlimited bulk exports',
-					available: true,
-					sourceLabel: 'Stripe-backed billing'
+					available: false,
+					sourceLabel: 'Paid plan',
+					upgradeTarget: 'unit'
 				}),
 				expect.objectContaining({
 					key: 'advanced_reporting',

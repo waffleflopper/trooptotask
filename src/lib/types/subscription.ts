@@ -12,6 +12,15 @@ export type SubscriptionStatus =
 export type BillingSnapshotSource = 'stripe' | 'gift' | 'billing_disabled' | 'legacy_organization';
 export type BillingSyncStatus = 'not_configured' | 'synced' | 'pending' | 'needs_reconciliation' | 'billing_disabled';
 export type ReadOnlyReason = 'payment_failure' | 'billing_state' | 'personnel_limit';
+export type BillingCancellationFeedback =
+	| 'customer_service'
+	| 'low_quality'
+	| 'missing_features'
+	| 'other'
+	| 'switched_service'
+	| 'too_complex'
+	| 'too_expensive'
+	| 'unused';
 
 export interface BillingSnapshot {
 	organizationId: string;
@@ -27,6 +36,8 @@ export interface BillingSnapshot {
 	currentPeriodEnd: string | null;
 	cancelAtPeriodEnd: boolean;
 	canceledAt: string | null;
+	cancellationReason: string | null;
+	cancellationFeedback: BillingCancellationFeedback | null;
 	trialEnd: string | null;
 	syncStatus: BillingSyncStatus;
 	lastStripeEventId: string | null;
@@ -54,6 +65,7 @@ export interface PriceCatalogEntry {
 	priceId: string;
 	commercialPlan: Exclude<Tier, 'free'>;
 	stripeProductId: string | null;
+	activeForCheckout: boolean;
 }
 
 export interface EffectiveTier {
@@ -71,8 +83,10 @@ export interface TierConfig {
 	name: string;
 	personnelCap: number;
 	maxOrgsOwned: number;
-	bulkExportsPerMonth: number;
+	activeUserCap: number | null;
+	bulkExportsPerMonth: number | null;
 	priceMonthly: number;
+	featureKeys: string[];
 }
 
 export const TIER_CONFIG: Record<Tier, TierConfig> = {
@@ -80,21 +94,27 @@ export const TIER_CONFIG: Record<Tier, TierConfig> = {
 		name: 'Free',
 		personnelCap: 20,
 		maxOrgsOwned: 1,
+		activeUserCap: 2,
 		bulkExportsPerMonth: 3,
-		priceMonthly: 0
+		priceMonthly: 0,
+		featureKeys: []
 	},
 	team: {
 		name: 'Team',
 		personnelCap: 80,
 		maxOrgsOwned: 1,
-		bulkExportsPerMonth: Infinity,
-		priceMonthly: 500 // cents
+		activeUserCap: null,
+		bulkExportsPerMonth: 10,
+		priceMonthly: 500, // cents
+		featureKeys: []
 	},
 	unit: {
 		name: 'Unit',
 		personnelCap: 500,
-		maxOrgsOwned: 3,
-		bulkExportsPerMonth: Infinity,
-		priceMonthly: 1200 // cents
+		maxOrgsOwned: 1,
+		activeUserCap: null,
+		bulkExportsPerMonth: null,
+		priceMonthly: 1200, // cents
+		featureKeys: ['experimental.ai.chat']
 	}
 };

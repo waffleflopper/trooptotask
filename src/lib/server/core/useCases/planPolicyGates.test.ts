@@ -25,6 +25,8 @@ function snapshot(overrides: Partial<BillingSnapshot> = {}): BillingSnapshot {
 		currentPeriodEnd: null,
 		cancelAtPeriodEnd: false,
 		canceledAt: null,
+		cancellationReason: null,
+		cancellationFeedback: null,
 		trialEnd: null,
 		syncStatus: 'synced',
 		lastStripeEventId: null,
@@ -48,9 +50,13 @@ describe('plan policy gates', () => {
 
 		expect(freePolicy.entitlements.bulk_export_unlimited).toMatchObject({
 			available: false,
-			upgradeTarget: 'team'
+			upgradeTarget: 'unit'
 		});
-		expect(teamPolicy.entitlements.bulk_export_unlimited).toMatchObject({ available: true });
+		expect(teamPolicy.entitlements.bulk_export_unlimited).toMatchObject({
+			available: false,
+			upgradeTarget: 'unit'
+		});
+		expect(unitPolicy.entitlements.bulk_export_unlimited).toMatchObject({ available: true });
 		expect(checkPlanFeature(teamPolicy, 'advanced_reporting')).toMatchObject({
 			allowed: false,
 			denial: { upgradeTarget: 'unit' }

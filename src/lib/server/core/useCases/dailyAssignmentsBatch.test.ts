@@ -133,7 +133,7 @@ describe('batchDailyAssignments', () => {
 		expect(remaining[0]?.id).toBe('existing-outside');
 	});
 
-	it('allows group assignees without running personnel group checks', async () => {
+	it('authorizes group assignees through Calendar group scope without running personnel group checks', async () => {
 		const requireGroupAccessBatch = vi.fn(async () => {
 			throw Object.assign(new Error('should not be called'), { status: 403 });
 		});
@@ -156,11 +156,56 @@ describe('batchDailyAssignments', () => {
 		]);
 
 		const result = await batchDailyAssignments(ctx, {
-			records: [{ date: '2026-03-22', assignmentTypeId: 'type-group', assigneeId: 'Front Desk' }]
+			records: [{ date: '2026-03-22', assignmentTypeId: 'type-group', assigneeId: 'group-a' }]
 		});
 
 		expect(result.inserted).toHaveLength(1);
 		expect(requireGroupAccessBatch).not.toHaveBeenCalled();
+	});
+
+	it('denies group assignees outside Calendar group scope before batch persistence', async () => {
+		const ctx = buildContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				scopeSet: { kind: 'groups', groupIds: ['group-a'] },
+				capabilityMap: {
+					calendar: 'operate',
+					personnel: 'view',
+					training: 'view',
+					criticalTasks: 'view',
+					onboarding: 'view',
+					ratingScheme: 'view'
+				}
+			}
+		});
+		ctx.store.seed('assignment_types', [
+			{
+				id: 'type-group',
+				organization_id: 'test-org',
+				name: 'Front Desk',
+				short_name: 'FD',
+				assign_to: 'group',
+				color: '#123456',
+				sort_order: 0,
+				exempt_personnel_ids: [],
+				show_in_date_header: false
+			}
+		]);
+		ctx.store.deleteWhereAny = vi.fn(ctx.store.deleteWhereAny.bind(ctx.store)) as typeof ctx.store.deleteWhereAny;
+		ctx.store.insertMany = vi.fn(ctx.store.insertMany.bind(ctx.store)) as typeof ctx.store.insertMany;
+
+		await expect(
+			batchDailyAssignments(ctx, {
+				records: [{ date: '2026-03-22', assignmentTypeId: 'type-group', assigneeId: 'group-b' }]
+			})
+		).rejects.toMatchObject({
+			status: 403,
+			message: 'You do not have access to that Calendar scope'
+		});
+
+		expect(ctx.store.deleteWhereAny).not.toHaveBeenCalled();
+		expect(ctx.store.insertMany).not.toHaveBeenCalled();
 	});
 
 	it('logs an audit event', async () => {

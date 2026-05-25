@@ -119,6 +119,8 @@ export interface CalendarAssignmentsHydrationTarget {
 	mode: HydrationMode;
 	deferred?: boolean;
 	snapshotKey: string;
+	rangeStart?: string;
+	rangeEnd?: string;
 	items: CalendarAssignmentsHydrationItems | Promise<CalendarAssignmentsHydrationItems>;
 }
 

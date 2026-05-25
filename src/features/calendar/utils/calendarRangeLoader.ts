@@ -28,7 +28,12 @@ export function mergeCalendarRangeIntoStores(orgId: string, data: CalendarRangeD
 		specialDaysStore.orgId === orgId ? mergeById(specialDaysStore.items, data.specialDays) : data.specialDays;
 	const dailyAssignments =
 		dailyAssignmentsStore.orgId === orgId
-			? mergeById(dailyAssignmentsStore.assignments, data.dailyAssignments)
+			? mergeById(
+					dailyAssignmentsStore.assignments.filter(
+						(assignment) => assignment.date < data.rangeStart || assignment.date > data.rangeEnd
+					),
+					data.dailyAssignments
+				)
 			: data.dailyAssignments;
 
 	availabilityStore.load(availabilityEntries, orgId);

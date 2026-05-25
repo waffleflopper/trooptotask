@@ -1208,6 +1208,48 @@ describe('OrgShellCoordinator', () => {
 		]);
 	});
 
+	it('replaces daily assignments inside a same-org calendar hydration range', async () => {
+		const coordinator = createTestCoordinator();
+		const { stores, calendarAssignments } = createHydrationStores();
+		const assignmentType = {
+			id: 'at1',
+			name: 'Staff Duty',
+			shortName: 'SD',
+			assignTo: 'personnel',
+			color: '#111111',
+			exemptPersonnelIds: [],
+			showInDateHeader: false
+		} satisfies AssignmentType;
+
+		calendarAssignments.load(
+			[assignmentType],
+			[
+				{ id: 'stale-march', date: '2026-03-01', assignmentTypeId: 'at1', assigneeId: 'p1' },
+				{ id: 'kept-april', date: '2026-04-01', assignmentTypeId: 'at1', assigneeId: 'p2' }
+			],
+			'org-1'
+		);
+
+		await coordinator.hydrate(
+			{
+				orgId: 'org-1',
+				calendarAssignments: {
+					mode: 'merge',
+					rangeStart: '2026-03-01',
+					rangeEnd: '2026-03-31',
+					snapshotKey: 'calendar-assignments:march-refresh',
+					items: {
+						types: [assignmentType],
+						assignments: []
+					}
+				}
+			},
+			stores
+		);
+
+		expect(calendarAssignments.assignments.map((assignment) => assignment.id)).toEqual(['kept-april']);
+	});
+
 	it('hydrates onboarding templates and onboardings through the coordinator boundary', async () => {
 		const coordinator = createTestCoordinator();
 		const { stores, onboardingTemplates, onboardings } = createHydrationStores();

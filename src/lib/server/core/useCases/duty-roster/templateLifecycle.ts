@@ -907,7 +907,10 @@ async function buildReviewedDutyRosterTemplatePreview(
 	return acceptedPreview;
 }
 
-export async function applyAcceptedDutyRosterTemplateRunLifecycle(ctx: WritePorts, input: { runId: string }) {
+export async function applyAcceptedDutyRosterTemplateRunLifecycle(
+	ctx: WritePorts,
+	input: { runId: string; calendarSyncPlanToken?: string | null }
+) {
 	return applyAcceptedRunLifecycle(ctx, input);
 }
 

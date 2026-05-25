@@ -212,6 +212,10 @@ _Avoid_: Leave tracker
 One Calendar assignment position for a specific date and **Assignment Type**.
 _Avoid_: Duplicate assignment row, batch row
 
+**Daily Assignment Source Lineage**:
+The source reference stored on a **Daily Assignment Slot** when another workflow creates or updates the Calendar assignment, using a source kind, source id, and source row key so later updates or removals can target only the assignments created by that workflow.
+_Avoid_: Duty-roster-only lineage, date/template guessing
+
 **DONSA**:
 A day of no scheduled activities, often used for training holidays and similar unit non-duty days. The current schema may still store these as `org-closure` special days, but duty-roster UX copy should prefer **DONSA** over closure language.
 _Avoid_: Closure, org closure in user-facing duty-roster copy
@@ -259,6 +263,10 @@ _Avoid_: Current-count order, random starting order
 **Accepted Duty Roster Run**:
 A generated **Duty Roster Run** that has been saved as official DA Form 6 history and may later be printed, exported, or applied to the **Calendar**.
 _Avoid_: Preview, draft print, unsaved generation
+
+**Accepted Duty Roster Run Calendar Sync**:
+The workflow that makes **Calendar** assignments match an **Accepted Duty Roster Run** while preserving **Daily Assignment Source Lineage**. It covers applying an accepted run, later applying history, syncing **Duty Roster Corrections** into Calendar, detecting edited linked Calendar assignments, explaining out-of-sync states, and removing linked assignments when an **Accepted Duty Roster Run** is invalidated. It does not own preview acceptance, DA Form 6 count derivation, or accepted-history storage.
+_Avoid_: Duty Roster lifecycle, Calendar assignment batch only, preview apply logic
 
 **Manual Duty Roster Selection**:
 A pre-acceptance human change to a generated roster row that replaces the proposed Soldier for a duty date.
@@ -461,8 +469,13 @@ _Avoid_: Training type
 - **Duty Roster Templates** consume each **Status Type**'s **DA6 Availability Treatment** and do not redefine unavailable statuses per template.
 - When statuses overlap during **Duty Roster** generation, the selected DA6 treatment follows the documented priority: future **Misconduct Unavailable** first once enabled, then **Authorized Absence**, then **Other Duty**.
 - **Calendar** assignments stay in **Calendar**; applying an accepted **Duty Roster Run** may create or update Calendar records, but the DA Form 6 history belongs to **Duty Roster**.
-- Calendar assignments created from an **Accepted Duty Roster Run** must keep lineage back to that run.
-- Run-to-Calendar lineage lets invalidation remove exactly the Calendar assignments created by that run without guessing by date, template, or person.
+- **Accepted Duty Roster Run Calendar Sync** owns the seam where accepted Duty Roster history changes Calendar assignments; it should not become the owner of preview acceptance, DA Form 6 count derivation, or accepted-history storage.
+- **Accepted Duty Roster Run Calendar Sync** should behave as all-or-reverted: applying, later applying, correction sync, invalidation cleanup, and rollback should not leave callers responsible for partial Calendar sync state.
+- **Accepted Duty Roster Run Calendar Sync** should expose sync state before writes, including in-sync, Duty Roster newer than Calendar, Calendar manually changed, and needs-review cases.
+- Reapplying **Accepted Duty Roster Run Calendar Sync** changes should require a confirmation that explains which Calendar assignments will change and why, including **Duty Roster Correction** reasons when available.
+- **Accepted Duty Roster Run Calendar Sync** owns its audit events because it knows whether the operation was first apply, reapply, correction sync, invalidation cleanup, edited-Calendar detection, or rollback.
+- Calendar assignments created from an **Accepted Duty Roster Run** must keep **Daily Assignment Source Lineage** back to that run.
+- **Daily Assignment Source Lineage** lets invalidation remove exactly the Calendar assignments created by that source without guessing by date, template, or person.
 - Generating a **Duty Roster Run** creates a preview only; it does not change DA Form 6 history or future counts until accepted.
 - Before acceptance, the operator may make a **Manual Duty Roster Selection** for a duty date in the generated preview.
 - Accepted history must preserve whether each roster row was generated or manually selected, with manual selections clearly marked in UI and print/export output.

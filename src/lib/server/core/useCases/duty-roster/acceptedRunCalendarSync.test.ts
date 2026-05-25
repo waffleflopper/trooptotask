@@ -346,6 +346,70 @@ describe('Accepted Duty Roster Run Calendar Sync', () => {
 		]);
 	});
 
+	it('plans stale duplicate linked assignments for cleanup instead of reporting in sync', () => {
+		const state = buildAcceptedDutyRosterRunCalendarSyncState(acceptedRun({ appliedAt: '2026-05-04T12:01:00.000Z' }), [
+			{
+				id: 'linked-current',
+				duty_roster_template_run_id: 'run-1',
+				duty_roster_template_run_row_date: '2026-06-01',
+				date: '2026-06-01',
+				assignment_type_id: 'type-a',
+				assignee_id: 'person-1'
+			},
+			{
+				id: 'linked-stale',
+				duty_roster_template_run_id: 'run-1',
+				duty_roster_template_run_row_date: '2026-06-01',
+				date: '2026-06-02',
+				assignment_type_id: 'type-a',
+				assignee_id: 'person-3'
+			}
+		]);
+
+		expect(state.status).toBe('calendar-manually-changed');
+		expect(state.plan.changes).toEqual([
+			expect.objectContaining({
+				id: 'run-1:2026-06-01:clear',
+				date: '2026-06-02',
+				sourceRowKey: '2026-06-01',
+				action: 'clear',
+				currentAssigneeId: 'person-3'
+			})
+		]);
+	});
+
+	it('keeps current assignment type in reviewed plan rollback state', () => {
+		const state = buildAcceptedDutyRosterRunCalendarSyncState(acceptedRun({ appliedAt: '2026-05-04T12:01:00.000Z' }), [
+			{
+				id: 'linked-moved',
+				duty_roster_template_run_id: 'run-1',
+				duty_roster_template_run_row_date: '2026-06-01',
+				date: '2026-06-01',
+				assignment_type_id: 'type-b',
+				assignee_id: 'person-3'
+			}
+		]);
+
+		expect(state.plan.changes).toEqual([
+			expect.objectContaining({
+				date: '2026-06-01',
+				assignmentTypeId: 'type-a',
+				action: 'create',
+				currentAssignmentTypeId: null,
+				currentAssigneeId: null,
+				plannedAssigneeId: 'person-1'
+			}),
+			expect.objectContaining({
+				date: '2026-06-01',
+				assignmentTypeId: 'type-b',
+				action: 'clear',
+				currentAssignmentTypeId: 'type-b',
+				currentAssigneeId: 'person-3',
+				plannedAssigneeId: null
+			})
+		]);
+	});
+
 	it('shows the live Calendar occupant when manual edits removed Duty Roster lineage', () => {
 		const state = buildAcceptedDutyRosterRunCalendarSyncState(
 			acceptedRun({

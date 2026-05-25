@@ -187,6 +187,20 @@ describe('Daily Assignment Slot writes', () => {
 		]);
 	});
 
+	it('requires manage assignment policy for clear-only empty batch slots', async () => {
+		const ctx = buildContext({ readOnly: true });
+
+		await expect(
+			replaceDailyAssignmentSlotsBatch(ctx, {
+				records: [{ date: '2026-03-22', assignmentTypeId: 'type-a', assigneeId: '' }]
+			})
+		).rejects.toMatchObject({
+			status: 403,
+			message: 'Organization is in read-only mode'
+		});
+		expect(await ctx.store.findMany('daily_assignments', 'test-org')).toEqual([]);
+	});
+
 	it('prefers generic Daily Assignment Source Lineage over legacy lineage fields', async () => {
 		const ctx = buildContext();
 

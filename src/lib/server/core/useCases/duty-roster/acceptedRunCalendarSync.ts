@@ -315,6 +315,7 @@ function buildCalendarSyncPlanChanges(
 	const rowsByCoordinate = calendarRowsByCoordinate(rows);
 	const snapshot = parseAcceptedRunSnapshot(run.snapshotPayload);
 	const finalRowsByDate = new Map(snapshot.finalRows.map((row) => [row.date, row]));
+	const primaryLinkedRowIds = new Set<string>();
 	const changes: AcceptedDutyRosterRunCalendarSyncPlanChange[] = [];
 
 	for (const finalRow of snapshot.finalRows) {
@@ -322,11 +323,19 @@ function buildCalendarSyncPlanChanges(
 			assignmentTypeId: snapshot.template.id,
 			assigneeId: ''
 		};
-		const linkedRow = linkedRowsByRowDate.get(finalRow.date) ?? null;
+		const linkedRow =
+			choosePrimaryLinkedRow(
+				linkedRowsByRowDate.get(finalRow.date) ?? [],
+				finalRow.date,
+				expectedRow.assignmentTypeId
+			) ?? null;
 		const currentRow =
 			linkedRow ?? rowsByCoordinate.get(calendarCoordinateKey(finalRow.date, expectedRow.assignmentTypeId)) ?? null;
 		const correction = latestCorrectionForRunDate(run, finalRow.date);
 		const plannedAssigneeId = expectedRow.assigneeId || null;
+		if (linkedRow) {
+			primaryLinkedRowIds.add(linkedRow.id);
+		}
 
 		if (
 			linkedRow &&
@@ -343,6 +352,7 @@ function buildCalendarSyncPlanChanges(
 			sourceRowKey: finalRow.date,
 			assignmentTypeId: expectedRow.assignmentTypeId,
 			action: plannedAssigneeId ? (currentRow ? 'update' : 'create') : 'clear',
+			currentAssignmentTypeId: currentRow?.assignment_type_id ?? null,
 			currentAssigneeId: currentRow?.assignee_id ?? null,
 			currentAssigneeLabel: assigneeLabelForDate(run, finalRow.date, currentRow?.assignee_id ?? null),
 			currentSourceLineage: calendarSourceLineage(currentRow),
@@ -355,13 +365,14 @@ function buildCalendarSyncPlanChanges(
 
 	for (const linkedRow of linkedRows) {
 		const rowDate = linkedRow.duty_roster_template_run_row_date ?? linkedRow.date;
-		if (finalRowsByDate.has(rowDate)) continue;
+		if (finalRowsByDate.has(rowDate) && primaryLinkedRowIds.has(linkedRow.id)) continue;
 		changes.push({
 			id: `${run.id}:${rowDate}:clear`,
 			date: linkedRow.date,
 			sourceRowKey: rowDate,
 			assignmentTypeId: linkedRow.assignment_type_id,
 			action: 'clear',
+			currentAssignmentTypeId: linkedRow.assignment_type_id,
 			currentAssigneeId: linkedRow.assignee_id,
 			currentAssigneeLabel: assigneeLabelForDate(run, rowDate, linkedRow.assignee_id),
 			currentSourceLineage: calendarSourceLineage(linkedRow),
@@ -389,15 +400,19 @@ function classifyCalendarSyncStatus(
 	let calendarManual = false;
 
 	for (const change of changes) {
-		const correction = latestCorrectionForRunDate(run, change.date);
-		const expectedRow = expected.get(change.date);
-		const linkedRow = linkedRowsByRowDate.get(change.date);
-		const originalAssigneeId = acceptedAssigneeIdForRunDate(run, change.date);
+		const correction = latestCorrectionForRunDate(run, change.sourceRowKey);
+		const expectedRow = expected.get(change.sourceRowKey);
+		const linkedRow = choosePrimaryLinkedRow(
+			linkedRowsByRowDate.get(change.sourceRowKey) ?? [],
+			change.sourceRowKey,
+			expectedRow?.assignmentTypeId ?? change.assignmentTypeId
+		);
+		const originalAssigneeId = acceptedAssigneeIdForRunDate(run, change.sourceRowKey);
 		if (
 			correction &&
 			expectedRow &&
 			linkedRow &&
-			linkedRow.date === change.date &&
+			linkedRow.date === change.sourceRowKey &&
 			linkedRow.assignment_type_id === expectedRow.assignmentTypeId &&
 			linkedRow.assignee_id === originalAssigneeId
 		) {
@@ -414,8 +429,23 @@ function classifyCalendarSyncStatus(
 
 function linkedRowsBySourceRowDate(
 	rows: DutyRosterTemplateLinkedCalendarAssignmentRow[]
-): Map<string, DutyRosterTemplateLinkedCalendarAssignmentRow> {
-	return new Map(rows.map((row) => [row.duty_roster_template_run_row_date ?? row.date, row]));
+): Map<string, DutyRosterTemplateLinkedCalendarAssignmentRow[]> {
+	const byRowDate = new Map<string, DutyRosterTemplateLinkedCalendarAssignmentRow[]>();
+	for (const row of rows) {
+		const rowDate = row.duty_roster_template_run_row_date ?? row.date;
+		const runRows = byRowDate.get(rowDate) ?? [];
+		runRows.push(row);
+		byRowDate.set(rowDate, runRows);
+	}
+	return byRowDate;
+}
+
+function choosePrimaryLinkedRow(
+	rows: DutyRosterTemplateLinkedCalendarAssignmentRow[],
+	date: string,
+	assignmentTypeId: string
+): DutyRosterTemplateLinkedCalendarAssignmentRow | null {
+	return rows.find((row) => row.date === date && row.assignment_type_id === assignmentTypeId) ?? null;
 }
 
 async function loadAcceptedDutyRosterRunCalendarAssignmentsByRunId(
@@ -572,6 +602,7 @@ function planToken(changes: AcceptedDutyRosterRunCalendarSyncPlanChange[]): stri
 		assignmentTypeId: change.assignmentTypeId,
 		action: change.action,
 		sourceRowKey: change.sourceRowKey,
+		currentAssignmentTypeId: change.currentAssignmentTypeId ?? null,
 		currentAssigneeId: change.currentAssigneeId,
 		currentSourceLineage: change.currentSourceLineage ?? null,
 		plannedAssigneeId: change.plannedAssigneeId,
@@ -635,7 +666,7 @@ function planChangeToDailyAssignmentRecord(
 function rollbackRecordFromPlanChange(change: AcceptedDutyRosterRunCalendarSyncPlanChange): DailyAssignmentSlotRecord {
 	return {
 		date: change.date,
-		assignmentTypeId: assignmentTypeIdFromPlanChange(change),
+		assignmentTypeId: change.currentAssignmentTypeId ?? assignmentTypeIdFromPlanChange(change),
 		assigneeId: change.currentAssigneeId ?? '',
 		sourceLineage: change.currentAssigneeId ? (change.currentSourceLineage ?? null) : null
 	};

@@ -23,6 +23,7 @@ import {
 import {
 	acceptedRunSnapshot,
 	toAcceptedDutyRosterTemplateRun,
+	type DutyRosterTemplateLinkedCalendarAssignmentRow,
 	type DutyRosterTemplateRunRow
 } from './acceptedRunRecord';
 import {
@@ -389,11 +390,13 @@ export async function invalidateLatestDutyRosterTemplateRun(
 	assertDutyRosterRunsCanBeInvalidated(targetRows, dutyRosterTodayDate());
 
 	const linkedRowsByRunId = await loadAcceptedDutyRosterRunLinkedCalendarAssignmentsByRunId(ctx, targetRows);
+	const targetRuns = await hydrateAcceptedRunCorrections(ctx, targetRows.map(toAcceptedDutyRosterTemplateRun));
+	const targetRunsById = new Map(targetRuns.map((target) => [target.id, target]));
 	const calendarAssignmentsEditedByRunId = new Map(
 		targetRows.map((target) => [
 			target.id,
 			acceptedDutyRosterRunCalendarAssignmentsWereEdited(
-				toAcceptedDutyRosterTemplateRun(target),
+				targetRunsById.get(target.id) ?? toAcceptedDutyRosterTemplateRun(target),
 				linkedRowsByRunId.get(target.id) ?? []
 			)
 		])
@@ -416,6 +419,7 @@ export async function invalidateLatestDutyRosterTemplateRun(
 		);
 	}
 	let calendarRemoval: { cleared: number };
+	const removedCalendarRows: DutyRosterTemplateLinkedCalendarAssignmentRow[] = [];
 	try {
 		calendarRemoval = { cleared: 0 };
 		for (const target of targetRows) {
@@ -425,9 +429,11 @@ export async function invalidateLatestDutyRosterTemplateRun(
 				target.id,
 				targetLinkedRows
 			);
+			removedCalendarRows.push(...targetLinkedRows);
 			calendarRemoval.cleared += targetRemoval.cleared;
 		}
 	} catch (error) {
+		await tryRestoreLinkedCalendarAssignments(ctx, removedCalendarRows);
 		for (const updated of updatedRows) {
 			await ctx.store.update<DutyRosterTemplateRunRow>(DUTY_ROSTER_TEMPLATE_RUN_TABLE, ctx.auth.orgId, updated.id, {
 				status: 'accepted',
@@ -439,7 +445,7 @@ export async function invalidateLatestDutyRosterTemplateRun(
 	}
 
 	for (const updated of updatedRows) {
-		await logAcceptedDutyRosterRunInvalidated(ctx, updated.id, {
+		await tryLogAcceptedDutyRosterRunInvalidated(ctx, updated.id, {
 			removedCalendarAssignments: (linkedRowsByRunId.get(updated.id) ?? []).length,
 			calendarAssignmentsEdited: calendarAssignmentsEditedByRunId.get(updated.id) ?? false
 		});
@@ -510,11 +516,65 @@ export async function acceptAndApplyDutyRosterTemplatePreview(
 	}
 
 	await logAcceptedDutyRosterTemplateRun(ctx, acceptedRun.id);
-	await logAcceptedDutyRosterRunAppliedToCalendar(ctx, result.acceptedRun.id, {
+	await tryLogAcceptedDutyRosterRunAppliedToCalendar(ctx, result.acceptedRun.id, {
 		inserted: result.insertedCount,
 		cleared: result.clearedCount
 	});
 	return result;
+}
+
+async function restoreLinkedCalendarAssignments(
+	ctx: WritePorts,
+	rows: DutyRosterTemplateLinkedCalendarAssignmentRow[]
+): Promise<void> {
+	if (rows.length === 0) return;
+	await ctx.store.insertMany(
+		'daily_assignments',
+		ctx.auth.orgId,
+		rows.map((row) => ({
+			id: row.id,
+			date: row.date,
+			assignment_type_id: row.assignment_type_id,
+			assignee_id: row.assignee_id,
+			duty_roster_template_run_id: row.duty_roster_template_run_id,
+			duty_roster_template_run_row_date: row.duty_roster_template_run_row_date
+		}))
+	);
+}
+
+async function tryRestoreLinkedCalendarAssignments(
+	ctx: WritePorts,
+	rows: Parameters<typeof restoreLinkedCalendarAssignments>[1]
+): Promise<void> {
+	try {
+		await restoreLinkedCalendarAssignments(ctx, rows);
+	} catch {
+		// Preserve the cleanup failure; callers need the primary invalidation error.
+	}
+}
+
+async function tryLogAcceptedDutyRosterRunInvalidated(
+	ctx: WritePorts,
+	runId: string,
+	details: { removedCalendarAssignments: number; calendarAssignmentsEdited: boolean }
+): Promise<void> {
+	try {
+		await logAcceptedDutyRosterRunInvalidated(ctx, runId, details);
+	} catch {
+		// Invalidation is already durable; audit failure should not make callers retry against mutated state.
+	}
+}
+
+async function tryLogAcceptedDutyRosterRunAppliedToCalendar(
+	ctx: WritePorts,
+	runId: string,
+	details: { inserted: number; cleared: number }
+): Promise<void> {
+	try {
+		await logAcceptedDutyRosterRunAppliedToCalendar(ctx, runId, details);
+	} catch {
+		// Calendar writes and the accepted-run applied marker are already durable.
+	}
 }
 
 async function rollbackAcceptedDutyRosterTemplateRun(ctx: WritePorts, runId: string): Promise<void> {

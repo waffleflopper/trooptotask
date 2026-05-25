@@ -206,7 +206,10 @@ export async function replaceDailyAssignmentSlotsBatch(
 			])
 		).values()
 	];
-	await requireExistingAssignmentSlotPolicy(ctx, affectedSlotFilters);
+	const affectedSlotKeys = await requireExistingAssignmentSlotPolicy(ctx, affectedSlotFilters);
+	if (clears.some((record) => !affectedSlotKeys.has(toSlotKey(record.date, record.assignmentTypeId)))) {
+		await requireCalendarPolicy(ctx, CALENDAR_POLICY_ACTIONS.manageAssignments);
+	}
 	await ctx.store.deleteWhereAny(entity.table, ctx.auth.orgId, affectedSlotFilters);
 
 	let inserted: unknown[] = [];
@@ -320,8 +323,8 @@ async function requireExistingAssignmentAccessById(
 async function requireExistingAssignmentSlotPolicy(
 	ctx: WritePorts,
 	slotFilters: AssignmentSlotFilter[]
-): Promise<void> {
-	if (slotFilters.length === 0) return;
+): Promise<Set<string>> {
+	if (slotFilters.length === 0) return new Set();
 
 	const lookupStore = ctx.rawStore ?? ctx.store;
 	const affectedSlotKeys = new Set(slotFilters.map((filter) => toSlotKey(filter.date, filter.assignment_type_id)));
@@ -338,9 +341,10 @@ async function requireExistingAssignmentSlotPolicy(
 			typeof row.assignment_type_id === 'string' &&
 			affectedSlotKeys.has(toSlotKey(row.date, row.assignment_type_id))
 	);
-	if (affectedRows.length === 0) return;
+	if (affectedRows.length === 0) return new Set();
 
 	await requireCalendarAssignmentRowsPolicy(ctx, affectedRows);
+	return new Set(affectedRows.map((row) => toSlotKey(String(row.date), String(row.assignment_type_id))));
 }
 
 async function requireCalendarAssignmentRowsPolicy(ctx: WritePorts, rows: Record<string, unknown>[]): Promise<void> {

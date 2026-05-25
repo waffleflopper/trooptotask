@@ -218,11 +218,48 @@ describe('Accepted Duty Roster Run Calendar Sync', () => {
 			}
 		]);
 
-		expect(result).toEqual({ cleared: 1 });
+		expect(result).toEqual({ cleared: 1, deletedIds: ['linked-1'] });
 		expect(await ctx.store.findMany('daily_assignments', 'test-org')).toEqual([
 			expect.objectContaining({ id: 'other-run-linked-1' }),
 			expect.objectContaining({ id: 'manual-1' })
 		]);
+	});
+
+	it('reports only linked Calendar assignment ids that existed before invalidation cleanup', async () => {
+		const ctx = buildContext();
+		ctx.store.seed('daily_assignments', [
+			{
+				id: 'linked-1',
+				organization_id: 'test-org',
+				date: '2026-06-01',
+				assignment_type_id: 'type-a',
+				assignee_id: 'person-1',
+				duty_roster_template_run_id: 'run-1',
+				duty_roster_template_run_row_date: '2026-06-01'
+			}
+		]);
+
+		const result = await removeAcceptedDutyRosterRunLinkedCalendarAssignments(ctx, 'run-1', [
+			{
+				id: 'linked-1',
+				duty_roster_template_run_id: 'run-1',
+				duty_roster_template_run_row_date: '2026-06-01',
+				date: '2026-06-01',
+				assignment_type_id: 'type-a',
+				assignee_id: 'person-1'
+			},
+			{
+				id: 'stale-linked-1',
+				duty_roster_template_run_id: 'run-1',
+				duty_roster_template_run_row_date: '2026-06-02',
+				date: '2026-06-02',
+				assignment_type_id: 'type-a',
+				assignee_id: 'person-2'
+			}
+		]);
+
+		expect(result).toEqual({ cleared: 1, deletedIds: ['linked-1'] });
+		expect(await ctx.store.findMany('daily_assignments', 'test-org')).toEqual([]);
 	});
 
 	it('keeps applied Calendar state when audit logging fails after first apply', async () => {

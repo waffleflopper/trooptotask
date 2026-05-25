@@ -227,14 +227,27 @@ export async function removeAcceptedDutyRosterRunLinkedCalendarAssignments(
 	ctx: WritePorts,
 	_runId: string,
 	linkedRows: DutyRosterTemplateLinkedCalendarAssignmentRow[]
-): Promise<{ cleared: number }> {
+): Promise<{ cleared: number; deletedIds: string[] }> {
 	if (linkedRows.length === 0) {
-		return { cleared: 0 };
+		return { cleared: 0, deletedIds: [] };
 	}
 
 	const linkedRowIds = linkedRows.map((row) => row.id);
-	const deletedCount = await ctx.store.deleteManyByIds('daily_assignments', ctx.auth.orgId, linkedRowIds);
-	return { cleared: deletedCount };
+	const existingRows = await ctx.store.findMany<Record<string, unknown>>(
+		'daily_assignments',
+		ctx.auth.orgId,
+		undefined,
+		{
+			inFilters: { id: linkedRowIds },
+			select: 'id'
+		}
+	);
+	const deletedIds = existingRows
+		.map((row) => row.id)
+		.filter((id): id is string => typeof id === 'string' && linkedRowIds.includes(id));
+
+	const deletedCount = await ctx.store.deleteManyByIds('daily_assignments', ctx.auth.orgId, deletedIds);
+	return { cleared: deletedCount, deletedIds };
 }
 
 export async function hydrateAcceptedDutyRosterRunCalendarSyncState(

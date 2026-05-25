@@ -419,6 +419,7 @@ export async function invalidateLatestDutyRosterTemplateRun(
 		);
 	}
 	let calendarRemoval: { cleared: number };
+	const removedCalendarAssignmentCountByRunId = new Map<string, number>();
 	const removedCalendarRows: DutyRosterTemplateLinkedCalendarAssignmentRow[] = [];
 	try {
 		calendarRemoval = { cleared: 0 };
@@ -429,7 +430,9 @@ export async function invalidateLatestDutyRosterTemplateRun(
 				target.id,
 				targetLinkedRows
 			);
-			removedCalendarRows.push(...targetLinkedRows);
+			const deletedIdSet = new Set(targetRemoval.deletedIds);
+			removedCalendarRows.push(...targetLinkedRows.filter((row) => deletedIdSet.has(row.id)));
+			removedCalendarAssignmentCountByRunId.set(target.id, targetRemoval.cleared);
 			calendarRemoval.cleared += targetRemoval.cleared;
 		}
 	} catch (error) {
@@ -446,7 +449,7 @@ export async function invalidateLatestDutyRosterTemplateRun(
 
 	for (const updated of updatedRows) {
 		await tryLogAcceptedDutyRosterRunInvalidated(ctx, updated.id, {
-			removedCalendarAssignments: (linkedRowsByRunId.get(updated.id) ?? []).length,
+			removedCalendarAssignments: removedCalendarAssignmentCountByRunId.get(updated.id) ?? 0,
 			calendarAssignmentsEdited: calendarAssignmentsEditedByRunId.get(updated.id) ?? false
 		});
 	}

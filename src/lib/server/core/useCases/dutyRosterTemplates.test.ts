@@ -2391,9 +2391,7 @@ describe('Duty Roster Template use cases', () => {
 		const applied = await acceptAndApplyDutyRosterTemplatePreview(ctx, {
 			preview: JSON.stringify(preview)
 		});
-		const deleteWhereSpy = vi
-			.spyOn(store, 'deleteWhere')
-			.mockRejectedValueOnce(new Error('Calendar cleanup failed.'));
+		const deleteWhereSpy = vi.spyOn(store, 'deleteWhere').mockRejectedValueOnce(new Error('Calendar cleanup failed.'));
 
 		await expect(invalidateLatestDutyRosterTemplateRun(ctx, { runId: applied.acceptedRun.id })).rejects.toThrow(
 			'Calendar cleanup failed.'

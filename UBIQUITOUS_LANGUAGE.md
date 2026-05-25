@@ -49,18 +49,18 @@ This glossary captures the canonical v1 language for TroopToTask as it exists to
 
 ## Calendar Planning
 
-| Term                           | Definition                                                                                                                     | Aliases to avoid                       |
-| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------- |
-| **Availability Status**        | A calendar state that marks a person's availability, duty limitation, or absence over one or more dates.                       | Event, appointment when status matters |
-| **Daily Assignment Slot**      | One Calendar assignment position for a specific date and **Assignment Type**.                                                   | Duplicate assignment row, batch row    |
+| Term                                | Definition                                                                                                                                                                       | Aliases to avoid                        |
+| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
+| **Availability Status**             | A calendar state that marks a person's availability, duty limitation, or absence over one or more dates.                                                                         | Event, appointment when status matters  |
+| **Daily Assignment Slot**           | One Calendar assignment position for a specific date and **Assignment Type**.                                                                                                    | Duplicate assignment row, batch row     |
 | **Daily Assignment Source Lineage** | The source reference stored on a **Daily Assignment Slot** when another workflow creates or updates the Calendar assignment, using a source kind, source id, and source row key. | Duty-roster-only lineage, guessing rows |
-| **Status Type**                | An organization-defined calendar status category such as leave, school, training, appointment, sick, CQ/SD, or sick call.      | Calendar color only                    |
-| **DA6 Availability Treatment** | The optional duty-roster meaning attached to a **Status Type** for DA Form 6 availability and numbering.                       | Status type, DA6 code, color           |
-| **Status Legend**              | The visual key that explains **Status Types** on the calendar surface.                                                         | Filter bar, status picker              |
-| **Bulk Status Update**         | A workflow for applying or removing an **Availability Status** across multiple people or dates.                                | Mass edit, batch event                 |
-| **Planning Control**           | A page-level calendar control that changes planning scope, filters, visible date range, or update mode.                        | Stat badge, dashboard metric           |
-| **Conflict Indicator**         | A signal that a calendar status or assignment overlaps in a way that needs review.                                             | Error if it is only a review condition |
-| **Readiness Signal**           | A compact visual or data cue that helps leaders interpret availability, training, evaluation, or personnel state under review. | Decorative badge, vanity metric        |
+| **Status Type**                     | An organization-defined calendar status category such as leave, school, training, appointment, sick, CQ/SD, or sick call.                                                        | Calendar color only                     |
+| **DA6 Availability Treatment**      | The optional duty-roster meaning attached to a **Status Type** for DA Form 6 availability and numbering.                                                                         | Status type, DA6 code, color            |
+| **Status Legend**                   | The visual key that explains **Status Types** on the calendar surface.                                                                                                           | Filter bar, status picker               |
+| **Bulk Status Update**              | A workflow for applying or removing an **Availability Status** across multiple people or dates.                                                                                  | Mass edit, batch event                  |
+| **Planning Control**                | A page-level calendar control that changes planning scope, filters, visible date range, or update mode.                                                                          | Stat badge, dashboard metric            |
+| **Conflict Indicator**              | A signal that a calendar status or assignment overlaps in a way that needs review.                                                                                               | Error if it is only a review condition  |
+| **Readiness Signal**                | A compact visual or data cue that helps leaders interpret availability, training, evaluation, or personnel state under review.                                                   | Decorative badge, vanity metric         |
 
 ## Duty Rosters
 

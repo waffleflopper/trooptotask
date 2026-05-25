@@ -398,7 +398,6 @@ export async function invalidateLatestDutyRosterTemplateRun(
 			)
 		])
 	);
-	const linkedRows = [...linkedRowsByRunId.values()].flat();
 
 	const invalidatedAt = new Date().toISOString();
 	await assertDutyRosterRunsAreInvalidatableAtWriteTime(ctx, {
@@ -421,7 +420,11 @@ export async function invalidateLatestDutyRosterTemplateRun(
 		calendarRemoval = { cleared: 0 };
 		for (const target of targetRows) {
 			const targetLinkedRows = linkedRowsByRunId.get(target.id) ?? [];
-			const targetRemoval = await removeAcceptedDutyRosterRunLinkedCalendarAssignments(ctx, target.id, targetLinkedRows);
+			const targetRemoval = await removeAcceptedDutyRosterRunLinkedCalendarAssignments(
+				ctx,
+				target.id,
+				targetLinkedRows
+			);
 			calendarRemoval.cleared += targetRemoval.cleared;
 		}
 	} catch (error) {

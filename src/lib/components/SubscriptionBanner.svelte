@@ -17,6 +17,7 @@
 	const tierName = $derived(subscriptionStore.tierConfig.name);
 	const personnelCap = $derived(subscriptionStore.personnelCap);
 	const personnelCount = $derived(subscriptionStore.personnelCount);
+	const readOnlyReason = $derived(subscriptionStore.readOnlyReason);
 </script>
 
 {#if showBanner}
@@ -31,8 +32,16 @@
 			{#if isReadOnly}
 				<CircleAlertIcon aria-hidden="true" class="mt-1 size-4 shrink-0 sm:mt-0" />
 				<Alert.Description class="min-w-0 flex-1 text-sm leading-6 text-current">
-					Your org has <strong>{personnelCount}</strong> personnel but your current plan allows
-					<strong>{personnelCap === Infinity ? 'unlimited' : personnelCap}</strong>. Your data is read-only.
+					{#if readOnlyReason === 'payment_failure'}
+						A renewal payment needs attention. Existing data remains visible, but some paid-plan writes can be blocked
+						until billing is restored.
+					{:else if readOnlyReason === 'billing_state'}
+						Billing is not currently active. Existing data remains visible, but paid-plan writes are blocked until
+						billing is restored.
+					{:else}
+						Your org has <strong>{personnelCount}</strong> personnel but your current plan allows
+						<strong>{personnelCap === Infinity ? 'unlimited' : personnelCap}</strong>. Your data is read-only.
+					{/if}
 				</Alert.Description>
 				<div class="flex flex-wrap items-center gap-2">
 					<Button href="/org/{orgUrlSegment}/billing" variant="outline" size="xs">Subscribe</Button>

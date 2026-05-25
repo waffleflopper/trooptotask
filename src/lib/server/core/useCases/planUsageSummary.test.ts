@@ -72,7 +72,7 @@ describe('plan usage summary', () => {
 			plan: {
 				tier: 'free',
 				source: 'billing_snapshot',
-				sourceLabel: 'Stripe-backed billing'
+				sourceLabel: 'Paid subscription'
 			},
 			rows: [
 				expect.objectContaining({

@@ -93,7 +93,7 @@ const baseData = {
 		plan: {
 			tier: 'team',
 			source: 'billing_snapshot',
-			sourceLabel: 'Stripe-backed billing'
+			sourceLabel: 'Paid subscription'
 		},
 		rows: [
 			{
@@ -173,6 +173,136 @@ describe('billing page toolbar', () => {
 		expect(screen.getByText(new RegExp(detail))).toBeTruthy();
 	});
 
+	it.each([
+		['past_due', 'Payment recovery needed', 'Grace access may be read-only', 'Update Payment Method', false],
+		['unpaid', 'Payment is required', 'Paid-plan writes are blocked', 'Open Billing Portal', true],
+		['canceled', 'Paid access ended', 'New work follows Free plan limits', null, true],
+		[
+			'incomplete',
+			'Checkout still needs attention',
+			'Paid capacity starts only after checkout completes',
+			'Review Billing Details',
+			false
+		],
+		['incomplete_expired', 'Checkout expired', 'No paid access was activated', null, true]
+	])(
+		'shows payment recovery guidance for %s without provider jargon',
+		(subscriptionStatus, title, impact, portalLabel, showsPlansLink) => {
+			render(Page, {
+				props: {
+					data: {
+						...baseData,
+						billingSnapshot: {
+							...baseData.billingSnapshot,
+							subscriptionStatus
+						}
+					} as never
+				}
+			});
+
+			expect(screen.getByRole('heading', { name: 'Payment Recovery' })).toBeTruthy();
+			expect(screen.getByText(title)).toBeTruthy();
+			expect(screen.getByText(new RegExp(impact))).toBeTruthy();
+			expect(screen.getAllByText(/Existing data remains visible/).length).toBeGreaterThan(0);
+			expect(screen.queryByText(/Stripe reports/)).toBeNull();
+
+			if (portalLabel) {
+				expect(screen.getAllByRole('button', { name: portalLabel }).length).toBeGreaterThan(0);
+			}
+
+			if (showsPlansLink) {
+				expect(screen.getByRole('link', { name: 'View Plans' }).getAttribute('href')).toBe('#billing-pricing-heading');
+			} else {
+				expect(screen.queryByRole('link', { name: 'View Plans' })).toBeNull();
+			}
+		}
+	);
+
+	it('keeps invoice and receipt portal access when recovery has no dedicated portal action', () => {
+		render(Page, {
+			props: {
+				data: {
+					...baseData,
+					billingSnapshot: {
+						...baseData.billingSnapshot,
+						subscriptionStatus: 'canceled'
+					}
+				} as never
+			}
+		});
+
+		expect(screen.getByRole('heading', { name: 'Payment Recovery' })).toBeTruthy();
+		expect(screen.getByRole('heading', { name: 'Invoices & Receipts' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Open Billing Portal' })).toBeTruthy();
+	});
+
+	it.each([
+		['past_due', 'Payment recovery needed', 'Grace access may be read-only'],
+		['unpaid', 'Payment is required', 'Paid-plan writes are blocked'],
+		['canceled', 'Paid access ended', 'New work follows Free plan limits'],
+		['incomplete', 'Checkout still needs attention', 'Paid capacity starts only after checkout completes'],
+		['incomplete_expired', 'Checkout expired', 'No paid access was activated']
+	])(
+		'shows %s payment recovery guidance even when portal access is unavailable',
+		(subscriptionStatus, title, impact) => {
+			render(Page, {
+				props: {
+					data: {
+						...baseData,
+						canManageSubscription: false,
+						billingSnapshot: {
+							...baseData.billingSnapshot,
+							subscriptionStatus
+						}
+					} as never
+				}
+			});
+
+			expect(screen.getByRole('heading', { name: 'Payment Recovery' })).toBeTruthy();
+			expect(screen.getByText(title)).toBeTruthy();
+			expect(screen.getByText(new RegExp(impact))).toBeTruthy();
+			expect(screen.queryByRole('toolbar', { name: 'Billing controls' })).toBeNull();
+			expect(screen.queryByRole('button', { name: /Billing Portal|Payment Method|Billing Details/ })).toBeNull();
+		}
+	);
+
+	it('distinguishes suspended past-due access from grace-mode past-due access', () => {
+		render(Page, {
+			props: {
+				data: {
+					...baseData,
+					effectiveTier: {
+						...baseData.effectiveTier,
+						tier: 'free',
+						isReadOnly: true,
+						readOnlyReason: 'billing_state'
+					},
+					billingSnapshot: {
+						...baseData.billingSnapshot,
+						subscriptionStatus: 'past_due'
+					}
+				} as never
+			}
+		});
+
+		expect(screen.getByText('Payment recovery needed')).toBeTruthy();
+		expect(
+			screen.getByText('Paid access is suspended and paid-plan writes are blocked until billing is restored.')
+		).toBeTruthy();
+	});
+
+	it('routes invoices, receipts, and payment updates through the billing portal', () => {
+		render(Page, {
+			props: {
+				data: baseData as never
+			}
+		});
+
+		expect(screen.getByRole('heading', { name: 'Invoices & Receipts' })).toBeTruthy();
+		expect(screen.getByText(/Download invoices and receipts/)).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Open Billing Portal' })).toBeTruthy();
+	});
+
 	it('shows policy-backed usage limits and remediation actions', () => {
 		render(Page, {
 			props: {
@@ -193,10 +323,11 @@ describe('billing page toolbar', () => {
 							},
 							{
 								...baseData.planUsageSummary.rows[1],
-								used: 1,
+								used: 3,
 								limit: 2,
 								limitLabel: '2',
-								message: 'Member usage is 1 of 2.',
+								status: 'over_limit',
+								message: 'Member usage is 3 of 2.',
 								remediation: 'Remove members or upgrade to Team.',
 								upgradeTarget: 'team'
 							},
@@ -230,6 +361,13 @@ describe('billing page toolbar', () => {
 								status: 'over_limit'
 							},
 							{
+								dimension: 'active_organization_members',
+								label: 'Members',
+								message: 'Member usage is 3 of 2.',
+								remediation: 'Remove members or upgrade to Team.',
+								status: 'over_limit'
+							},
+							{
 								dimension: 'pending_invitations',
 								label: 'Pending invitations',
 								message: 'Pending invitations use 1 seat; 2 of 2 member seats are reserved.',
@@ -250,14 +388,48 @@ describe('billing page toolbar', () => {
 		});
 
 		expect(screen.getByRole('heading', { name: 'Usage & Limits' })).toBeTruthy();
-		expect(screen.getByText('Stripe-backed billing')).toBeTruthy();
+		expect(screen.getByText('Paid subscription')).toBeTruthy();
 		expect(screen.getByText('21 / 20')).toBeTruthy();
-		expect(screen.getAllByText('1 / 2').length).toBeGreaterThanOrEqual(2);
+		expect(screen.getByText('3 / 2')).toBeTruthy();
+		expect(screen.getByText('1 / 2')).toBeTruthy();
 		expect(screen.getByText('3 / 3')).toBeTruthy();
 		expect(screen.getByText('Archive personnel or upgrade to Team.')).toBeTruthy();
+		expect(screen.getByText('Remove members or upgrade to Team.')).toBeTruthy();
 		expect(screen.getByText('Revoke pending invitations or upgrade to Team.')).toBeTruthy();
 		expect(screen.getByText('Upgrade for unlimited exports or wait until next month.')).toBeTruthy();
 		expect(screen.getByText('Existing data remains visible. Resolve limits before adding more data.')).toBeTruthy();
+		expect(screen.getByText(/member invitations, exports, or paid-plan writes can be blocked/)).toBeTruthy();
+		expect(screen.getByRole('link', { name: 'Open Personnel' }).getAttribute('href')).toBe('/org/org-1/personnel');
+		expect(screen.getByRole('link', { name: 'Manage Members' }).getAttribute('href')).toBe('/org/org-1/settings');
+		expect(screen.getByRole('link', { name: 'Compare Plans' }).getAttribute('href')).toBe('#billing-pricing-heading');
+		expect(screen.getByRole('link', { name: 'Contact Support' }).getAttribute('href')).toBe(
+			'mailto:support@trooptotask.com'
+		);
+	});
+
+	it('names billing-state blocks separately from usage-limit blocks', () => {
+		render(Page, {
+			props: {
+				data: {
+					...baseData,
+					planUsageSummary: {
+						...baseData.planUsageSummary,
+						alerts: [
+							{
+								dimension: 'billing_state',
+								label: 'Billing state',
+								message: 'Organization billing is not currently active.',
+								remediation: 'Restore the subscription or choose a current plan.',
+								status: 'read_only'
+							}
+						]
+					}
+				} as never
+			}
+		});
+
+		expect(screen.getByText('Existing data remains visible. Resolve billing before adding more data.')).toBeTruthy();
+		expect(screen.queryByText('Existing data remains visible. Resolve limits before adding more data.')).toBeNull();
 	});
 
 	it('shows downgrade preview remediation on lower-plan cards', () => {
@@ -282,12 +454,12 @@ describe('billing page toolbar', () => {
 						{
 							currentPlan: {
 								tier: 'unit',
-								sourceLabel: 'Stripe-backed billing'
+								sourceLabel: 'Paid subscription'
 							},
 							targetPlan: {
 								tier: 'free',
 								name: 'Free',
-								sourceLabel: 'Stripe-backed billing'
+								sourceLabel: 'Paid subscription'
 							},
 							status: 'blocked',
 							preservesExistingDataMessage:
@@ -371,7 +543,7 @@ describe('billing page toolbar', () => {
 		expect(screen.getByText(/downgraded to the free plan/)).toBeTruthy();
 	});
 
-	it('shows current sync health after reconciliation repaired drift', () => {
+	it('shows current billing update status after reconciliation repaired drift', () => {
 		render(Page, {
 			props: {
 				data: {
@@ -420,10 +592,10 @@ describe('billing page toolbar', () => {
 		});
 
 		expect(screen.getByText('Gifted access is active.')).toBeTruthy();
-		expect(screen.getAllByText(/outside Stripe billing/).length).toBeGreaterThan(0);
+		expect(screen.getAllByText(/outside regular billing/).length).toBeGreaterThan(0);
 	});
 
-	it('shows billing-disabled fallback state and hides Stripe recovery actions', () => {
+	it('shows billing-disabled fallback state and hides paid recovery actions', () => {
 		render(Page, {
 			props: {
 				data: {
@@ -450,7 +622,7 @@ describe('billing page toolbar', () => {
 		expect(screen.getAllByRole('button', { name: 'Billing Disabled' }).length).toBeGreaterThan(0);
 	});
 
-	it('hides Stripe recovery actions when the effective tier source is billing-disabled without a snapshot', () => {
+	it('hides paid recovery actions when the effective tier source is billing-disabled without a snapshot', () => {
 		render(Page, {
 			props: {
 				data: {
@@ -758,7 +930,7 @@ describe('billing page toolbar', () => {
 						state: 'canceling_at_period_end',
 						label: 'Cancels at period end',
 						description:
-							'Paid access remains active until the paid-through date unless Stripe reports an earlier terminal state.',
+							'Paid access remains active until the paid-through date unless the provider reports an earlier terminal state.',
 						currentPeriodEnd: '2026-06-01T00:00:00.000Z',
 						canceledAt: null
 					}

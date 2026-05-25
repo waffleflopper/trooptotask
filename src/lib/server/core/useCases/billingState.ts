@@ -215,7 +215,7 @@ export function summarizeBillingCancellation(snapshot: BillingSnapshot): Billing
 			state: 'canceling_at_period_end',
 			label: 'Cancels at period end',
 			description:
-				'Paid access remains active until the paid-through date unless Stripe reports an earlier terminal state.',
+				'Paid access remains active until the paid-through date unless the provider reports an earlier terminal state.',
 			currentPeriodEnd,
 			canceledAt
 		};
@@ -225,7 +225,7 @@ export function summarizeBillingCancellation(snapshot: BillingSnapshot): Billing
 		return {
 			state: 'canceling_at_period_end',
 			label: 'Cancellation scheduled',
-			description: 'Stripe reports cancellation at period end, but the paid-through date has not synced yet.',
+			description: 'A cancellation is scheduled for period end, but the paid-through date has not synced yet.',
 			currentPeriodEnd,
 			canceledAt
 		};

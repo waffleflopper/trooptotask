@@ -43,7 +43,7 @@ function sourceLabel(source: PlanPolicySource): string {
 		case 'legacy_organization':
 			return 'Legacy organization';
 		case 'billing_snapshot':
-			return 'Stripe-backed billing';
+			return 'Paid subscription';
 	}
 }
 

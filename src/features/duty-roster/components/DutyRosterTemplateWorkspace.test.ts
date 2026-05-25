@@ -89,7 +89,7 @@ describe('DutyRosterTemplateWorkspace', () => {
 
 	it('shows Calendar sync state and a reviewed reapply confirmation plan', async () => {
 		const run = acceptedRunWithCalendarSync();
-		render(DutyRosterTemplateWorkspace, {
+		const view = render(DutyRosterTemplateWorkspace, {
 			props: {
 				data: {
 					orgId: 'org-1',
@@ -126,6 +126,39 @@ describe('DutyRosterTemplateWorkspace', () => {
 			document.querySelector('form[action="/org/org-1/duty-rosters/cq-nco/history?/applyAcceptedRun"]')
 		).toBeTruthy();
 		expect(document.querySelector('input[name="calendarSyncPlanToken"][value="sync-token"]')).toBeTruthy();
+
+		await view.rerender({
+			data: {
+				orgId: 'org-1',
+				orgName: 'Able Company',
+				templates: [template],
+				selectedTemplate: template,
+				view: 'history',
+				acceptedRuns: [
+					{
+						...run,
+						calendarAssignmentsEdited: false,
+						calendarSyncState: {
+							status: 'in-sync' as const,
+							label: 'In sync',
+							summary: 'Calendar matches this accepted Duty Roster Run.',
+							invalidationRemovalSummary: run.calendarSyncState.invalidationRemovalSummary,
+							plan: { token: 'empty-plan', changes: [] }
+						}
+					}
+				],
+				historyDetailRunId: run.id,
+				historyPage: {
+					page: 1,
+					pageSize: 20,
+					hasMore: false,
+					nextPage: null,
+					previousPage: null,
+					latestRunId: run.id
+				}
+			}
+		});
+		expect(screen.queryByRole('dialog')).toBeNull();
 	});
 
 	it('opens the shadcn archive confirmation from the register quick actions', async () => {

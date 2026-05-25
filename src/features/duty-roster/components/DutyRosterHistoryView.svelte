@@ -128,6 +128,9 @@
 
 		return async ({ update }: { update: () => Promise<void> }) => {
 			await update();
+			if (action === 'apply') {
+				confirmingCalendarSyncRunId = null;
+			}
 			pendingHistoryAction = null;
 		};
 	}
@@ -858,7 +861,7 @@
 								</AppDialog.Content>
 							</AppDialog.Root>
 						{/if}
-						{#if confirmingCalendarSyncRunId === historyDetailRun.id && historyDetailRun.calendarSyncState}
+						{#if confirmingCalendarSyncRunId === historyDetailRun.id && historyDetailRun.calendarSyncState && historyDetailRun.calendarSyncState.plan.changes.length > 0}
 							<AppDialog.Root open onClose={() => (confirmingCalendarSyncRunId = null)}>
 								<AppDialog.Content closeBlocked={pendingHistoryAction === 'apply'} size="wide">
 									<AppDialog.Header>

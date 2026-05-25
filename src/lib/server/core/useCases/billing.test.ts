@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { TAX_DISABLED_CHECKOUT_SESSION_CONFIGURATION } from '$lib/server/billing/checkoutConfiguration';
 import { checkout, portal, cancel, cancelPendingCheckout } from './billing';
@@ -44,13 +44,13 @@ describe('billing use cases', () => {
 			});
 			expect(attempt).toMatchObject({
 				status: 'in_progress',
-				stripe_checkout_session_id: 'cs_test_123',
+				stripe_checkout_session_id: expect.stringMatching(/^cs_test_\d+$/),
 				stripe_customer_id: 'cus_test_123',
 				commercial_plan: 'team',
 				stripe_price_id: 'price_team',
 				checkout_url: 'https://checkout.test/session'
 			});
-			expect(attempt?.expires_at).toBe('2026-05-24T12:00:00.000Z');
+			expect(new Date(attempt?.expires_at ?? '').getTime()).toBeGreaterThan(Date.now());
 			expect(ctx.auditPort.events).toEqual([
 				{
 					action: 'billing.checkout_authorized',
@@ -344,6 +344,17 @@ describe('billing use cases', () => {
 			});
 			expect(result).toEqual({ success: true, canceled: true, checkoutAttemptId: 'attempt-active' });
 			expect(ctx.billingPort.calls).toContainEqual({ method: 'expireCheckoutSession', args: ['cs_active'] });
+			expect(ctx.auditPort.events).toContainEqual(
+				expect.objectContaining({
+					action: 'billing.checkout_cancel_authorized',
+					details: expect.objectContaining({
+						checkoutAttemptId: 'attempt-active',
+						sensitiveAction: expect.objectContaining({
+							action: 'billing.checkout'
+						})
+					})
+				})
+			);
 			expect(attempt).toMatchObject({
 				status: 'canceled',
 				canceled_at: '2026-05-24T10:00:00.000Z'
@@ -357,6 +368,87 @@ describe('billing use cases', () => {
 					})
 				})
 			);
+		});
+
+		it('still marks a pending checkout canceled when provider session expiration fails', async () => {
+			const ctx = buildContext();
+			const now = new Date('2026-05-24T10:00:00.000Z');
+			const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+			ctx.billingPort.expireCheckoutSession = async (sessionId) => {
+				ctx.billingPort.calls.push({ method: 'expireCheckoutSession', args: [sessionId] });
+				throw new Error('Stripe unavailable');
+			};
+			ctx.rawStore.seed(CHECKOUT_ATTEMPTS_TABLE, [
+				{
+					id: 'attempt-provider-failure',
+					organization_id: ctx.auth.orgId,
+					stripe_checkout_session_id: 'cs_active',
+					stripe_customer_id: 'cus_active',
+					commercial_plan: 'unit',
+					stripe_price_id: 'price_unit',
+					checkout_url: 'https://checkout.test/unit',
+					status: 'in_progress',
+					expires_at: '2026-05-24T11:00:00.000Z',
+					completed_at: null,
+					canceled_at: null,
+					created_at: '2026-05-24T09:00:00.000Z',
+					updated_at: '2026-05-24T09:00:00.000Z'
+				}
+			]);
+
+			await expect(cancelPendingCheckout(ctx, { now })).resolves.toEqual({
+				success: true,
+				canceled: true,
+				checkoutAttemptId: 'attempt-provider-failure'
+			});
+			await expect(
+				ctx.rawStore.findOne<CheckoutAttemptRow>(CHECKOUT_ATTEMPTS_TABLE, ctx.auth.orgId, {
+					id: 'attempt-provider-failure'
+				})
+			).resolves.toMatchObject({
+				status: 'canceled',
+				canceled_at: '2026-05-24T10:00:00.000Z'
+			});
+			expect(errorSpy).toHaveBeenCalled();
+			errorSpy.mockRestore();
+		});
+
+		it('denies stale-session pending checkout cancellation before provider calls', async () => {
+			const ctx = createTestContext({
+				sensitiveActionDecision: {
+					allowed: false,
+					reason: 'denied.staleSession',
+					sessionAgeMs: 3_600_000,
+					requiresStepUp: true
+				}
+			});
+			ctx.rawStore.seed(CHECKOUT_ATTEMPTS_TABLE, [
+				{
+					id: 'attempt-active',
+					organization_id: ctx.auth.orgId,
+					stripe_checkout_session_id: 'cs_active',
+					stripe_customer_id: 'cus_active',
+					commercial_plan: 'unit',
+					stripe_price_id: 'price_unit',
+					checkout_url: 'https://checkout.test/unit',
+					status: 'in_progress',
+					expires_at: '2026-05-24T11:00:00.000Z',
+					completed_at: null,
+					canceled_at: null,
+					created_at: '2026-05-24T09:00:00.000Z',
+					updated_at: '2026-05-24T09:00:00.000Z'
+				}
+			]);
+
+			await expect(cancelPendingCheckout(ctx, { now: new Date('2026-05-24T10:00:00.000Z') })).rejects.toMatchObject({
+				status: 403
+			});
+			expect(ctx.billingPort.calls).toEqual([]);
+			await expect(
+				ctx.rawStore.findOne<CheckoutAttemptRow>(CHECKOUT_ATTEMPTS_TABLE, ctx.auth.orgId, {
+					id: 'attempt-active'
+				})
+			).resolves.toMatchObject({ status: 'in_progress' });
 		});
 
 		it('treats missing active checkout attempts as already canceled', async () => {

@@ -139,6 +139,7 @@ BEGIN
 END;
 $$;
 
+REVOKE ALL ON FUNCTION "public"."upsert_organization_billing_snapshot_if_current"(jsonb) FROM PUBLIC;
 REVOKE ALL ON FUNCTION "public"."upsert_organization_billing_snapshot_if_current"(jsonb) FROM "anon";
 REVOKE ALL ON FUNCTION "public"."upsert_organization_billing_snapshot_if_current"(jsonb) FROM "authenticated";
 GRANT EXECUTE ON FUNCTION "public"."upsert_organization_billing_snapshot_if_current"(jsonb) TO "service_role";

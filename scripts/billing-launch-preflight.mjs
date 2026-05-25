@@ -106,6 +106,7 @@ async function retrievePrice(stripe, priceId, label) {
 			ok: true,
 			label,
 			id: price.id,
+			livemode: price.livemode,
 			active: price.active,
 			recurring: price.recurring?.interval ?? null,
 			currency: price.currency,
@@ -134,6 +135,11 @@ function checkPrice(results, price) {
 		results.push(result('fail', `${price.label} Stripe price`, price.error));
 		return;
 	}
+	results.push(
+		price.livemode === false
+			? result('pass', `${price.label} Stripe price mode`, 'test mode')
+			: result('fail', `${price.label} Stripe price mode`, `${price.id} is not a test-mode price`)
+	);
 	results.push(
 		price.active
 			? result('pass', `${price.label} Stripe price active`, `${price.id} (${price.currency})`)

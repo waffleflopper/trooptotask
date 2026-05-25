@@ -1,16 +1,11 @@
 import type { PageServerLoad } from './$types';
 import type { UseCaseContext } from '$lib/server/core/ports';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
-import { markCheckoutAttemptCanceled } from '$lib/server/core/useCases/billingCheckoutAttempts';
 
 export async function _loadCanceledCheckoutPageData(
 	ctx: Pick<UseCaseContext, 'auth' | 'rawStore'>,
-	input: { checkoutAttemptId: string | null; now?: Date }
+	_input: { checkoutAttemptId: string | null; now?: Date }
 ) {
-	const checkoutAttemptId = input.checkoutAttemptId?.trim();
-	if (!checkoutAttemptId) return { orgId: ctx.auth.orgId };
-
-	await markCheckoutAttemptCanceled(ctx.rawStore, ctx.auth.orgId, checkoutAttemptId, input.now ?? new Date());
 	return { orgId: ctx.auth.orgId };
 }
 

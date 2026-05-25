@@ -133,6 +133,12 @@ export async function markCheckoutAttemptFailed(
 	attemptId: string,
 	now: Date
 ): Promise<void> {
+	const attempt = await store.findOne<CheckoutAttemptRow>(CHECKOUT_ATTEMPTS_TABLE, orgId, {
+		id: attemptId,
+		status: 'in_progress'
+	});
+	if (!attempt) return;
+
 	await store.update<CheckoutAttemptRow>(CHECKOUT_ATTEMPTS_TABLE, orgId, attemptId, {
 		status: 'failed',
 		updated_at: now.toISOString()

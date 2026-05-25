@@ -65,6 +65,20 @@ describe('environment validation', () => {
 		).toEqual([]);
 	});
 
+	it('allows IPv6 loopback HTTP origins for local development', () => {
+		const result = validateEnvironmentConfig({
+			mode: 'development',
+			env: {
+				...baseEnv,
+				APP_PUBLIC_ORIGIN: 'http://[::1]:5173',
+				APP_PUBLIC_ORIGIN_ALLOWLIST: 'http://[::1]:4173'
+			}
+		});
+
+		expect(result.errors).not.toContain('APP_PUBLIC_ORIGIN must use HTTPS outside local development');
+		expect(result.errors).not.toContain('APP_PUBLIC_ORIGIN_ALLOWLIST must use HTTPS outside local development');
+	});
+
 	it('rejects non-HTTPS official public origins outside local development', () => {
 		const result = validateEnvironmentConfig({
 			mode: 'production',

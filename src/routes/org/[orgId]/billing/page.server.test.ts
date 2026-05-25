@@ -484,7 +484,10 @@ describe('_loadBillingPageData', () => {
 				rows: expect.arrayContaining([
 					expect.objectContaining({ dimension: 'active_personnel', used: 90, limit: 80, status: 'over_limit' })
 				]),
-				featureLosses: [expect.objectContaining({ featureKey: 'advanced_reporting' })]
+				featureLosses: [
+					expect.objectContaining({ featureKey: 'bulk_export_unlimited' }),
+					expect.objectContaining({ featureKey: 'advanced_reporting' })
+				]
 			})
 		]);
 	});

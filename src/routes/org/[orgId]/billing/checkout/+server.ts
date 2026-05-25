@@ -29,7 +29,10 @@ export const POST: RequestHandler = async (event) => {
 
 		const { orgId } = event.params;
 
-		const body = await event.request.json();
+		const body = await event.request.json().catch(() => null);
+		if (!body || typeof body !== 'object' || Array.isArray(body)) {
+			fail(400, 'Invalid checkout request.');
+		}
 		if (typeof body.priceId === 'string' && body.priceId.trim()) {
 			fail(400, 'Stripe price IDs cannot be selected directly.');
 		}

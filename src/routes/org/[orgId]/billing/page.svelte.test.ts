@@ -62,23 +62,23 @@ const baseData = {
 			tier: 'free',
 			name: 'Free',
 			personnelCap: 20,
-			maxOrgsOwned: 1,
-			bulkExportsPerMonth: 1,
+			activeUserCap: 2,
+			bulkExportsPerMonth: 3,
 			priceMonthly: 0
 		},
 		{
 			tier: 'team',
 			name: 'Team',
 			personnelCap: 80,
-			maxOrgsOwned: 1,
-			bulkExportsPerMonth: null,
+			activeUserCap: null,
+			bulkExportsPerMonth: 10,
 			priceMonthly: 500
 		},
 		{
 			tier: 'unit',
 			name: 'Unit',
 			personnelCap: 500,
-			maxOrgsOwned: 3,
+			activeUserCap: null,
 			bulkExportsPerMonth: null,
 			priceMonthly: 1200
 		}
@@ -112,23 +112,23 @@ const baseData = {
 				dimension: 'active_organization_members',
 				label: 'Members',
 				used: 2,
-				limit: 10,
-				limitLabel: '10',
+				limit: null,
+				limitLabel: 'Unlimited',
 				status: 'within_limit',
-				message: 'Member usage is 2 of 10.',
-				remediation: 'Remove members or upgrade to Unit.',
-				upgradeTarget: 'unit'
+				message: 'Member usage is 2 of Unlimited.',
+				remediation: 'Remove members or contact support.',
+				upgradeTarget: null
 			},
 			{
 				dimension: 'pending_invitations',
 				label: 'Pending invitations',
 				used: 0,
-				limit: 10,
-				limitLabel: '10',
+				limit: null,
+				limitLabel: 'Unlimited',
 				status: 'within_limit',
-				message: 'Pending invitations use 0 seats; 2 of 10 member seats are reserved.',
-				remediation: 'Revoke pending invitations or upgrade to Unit.',
-				upgradeTarget: 'unit'
+				message: 'Pending invitations use 0 seats; 2 of Unlimited member seats are reserved.',
+				remediation: 'Revoke pending invitations or contact support.',
+				upgradeTarget: null
 			},
 			{
 				dimension: 'monthly_exports',
@@ -349,7 +349,7 @@ describe('billing page toolbar', () => {
 								limitLabel: '3',
 								status: 'limit_reached',
 								message: 'Export usage is 3 of 3 this month.',
-								remediation: 'Upgrade for unlimited exports or wait until next month.',
+								remediation: 'Upgrade to Team for more monthly exports or wait until next month.',
 								upgradeTarget: 'team'
 							}
 						],
@@ -379,7 +379,7 @@ describe('billing page toolbar', () => {
 								dimension: 'monthly_exports',
 								label: 'Monthly exports',
 								message: 'Export usage is 3 of 3 this month.',
-								remediation: 'Upgrade for unlimited exports or wait until next month.',
+								remediation: 'Upgrade to Team for more monthly exports or wait until next month.',
 								status: 'limit_reached'
 							}
 						]
@@ -397,7 +397,7 @@ describe('billing page toolbar', () => {
 		expect(screen.getByText('Archive personnel or upgrade to Team.')).toBeTruthy();
 		expect(screen.getByText('Remove members or upgrade to Team.')).toBeTruthy();
 		expect(screen.getByText('Revoke pending invitations or upgrade to Team.')).toBeTruthy();
-		expect(screen.getByText('Upgrade for unlimited exports or wait until next month.')).toBeTruthy();
+		expect(screen.getByText('Upgrade to Team for more monthly exports or wait until next month.')).toBeTruthy();
 		expect(screen.getByText('Existing data remains visible. Resolve limits before adding more data.')).toBeTruthy();
 		expect(screen.getByText(/member invitations, exports, or paid-plan writes can be blocked/)).toBeTruthy();
 		expect(screen.getByRole('link', { name: 'Open Personnel' }).getAttribute('href')).toBe('/org/org-1/personnel');

@@ -556,11 +556,12 @@ export function createTestBillingPort(): BillingPort & { calls: RecordedBillingC
 		calls,
 		async createCheckoutSession(options) {
 			calls.push({ method: 'createCheckoutSession', args: [options] });
+			const now = Date.now();
 			return {
 				url: 'https://checkout.test/session',
 				customerId: 'cus_test_123',
-				sessionId: 'cs_test_123',
-				expiresAt: '2026-05-24T12:00:00.000Z'
+				sessionId: `cs_test_${now}`,
+				expiresAt: new Date(now + 30 * 60 * 1000).toISOString()
 			};
 		},
 		async createPortalSession(customerId, returnUrl) {

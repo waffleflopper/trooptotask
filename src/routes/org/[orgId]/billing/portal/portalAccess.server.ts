@@ -24,7 +24,7 @@ export async function resolvePortalCustomerId(ctx: Pick<UseCaseContext, 'auth' |
 
 	if (!snapshot) {
 		if (organizationCustomerId) {
-			fail(409, 'Billing customer state needs support review before opening the portal');
+			return organizationCustomerId;
 		}
 
 		fail(400, 'No active subscription found for this organization');

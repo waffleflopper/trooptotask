@@ -175,6 +175,10 @@ export async function cancelPendingCheckout(
 	ctx: BillingPorts,
 	input: CancelPendingCheckoutInput = {}
 ): Promise<CancelPendingCheckoutResult> {
+	const sensitiveAction = await authorizeBillingSensitiveAction(ctx, {
+		action: BILLING_CHECKOUT_ACTION,
+		deniedAuditAction: 'billing.checkout_cancel_authorization_denied'
+	});
 	const now = input.now ?? new Date();
 	await expireStaleCheckoutAttempts(ctx.rawStore, ctx.auth.orgId, now);
 
@@ -184,10 +188,22 @@ export async function cancelPendingCheckout(
 	}
 
 	if (attempt.stripe_checkout_session_id) {
-		await ctx.billing.expireCheckoutSession(attempt.stripe_checkout_session_id);
+		try {
+			await ctx.billing.expireCheckoutSession(attempt.stripe_checkout_session_id);
+		} catch (err) {
+			console.error(
+				`[billing] Failed to expire checkout session ${attempt.stripe_checkout_session_id}: ${
+					err instanceof Error ? err.message : 'unknown error'
+				}`
+			);
+		}
 	}
 
 	await markCheckoutAttemptCanceled(ctx.rawStore, ctx.auth.orgId, attempt.id, now);
+	auditSuccessfulSensitiveBillingAction(ctx, 'billing.checkout_cancel_authorized', sensitiveAction, {
+		checkoutAttemptId: attempt.id,
+		commercialPlan: attempt.commercial_plan
+	});
 	ctx.audit.log({
 		action: 'billing.checkout_canceled',
 		resourceType: 'organization',

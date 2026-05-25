@@ -1271,10 +1271,7 @@
 							</li>
 							<li class="flex gap-2">
 								<Check class="mt-0.5 size-4 shrink-0 text-success-foreground" />
-								<span>
-									<strong>{formatCap(plan.maxOrgsOwned)}</strong>
-									{plan.maxOrgsOwned === 1 ? 'organization' : 'organizations'}
-								</span>
+								<span><strong>{formatCap(plan.activeUserCap)}</strong> active users</span>
 							</li>
 							<li class="flex gap-2">
 								<Check class="mt-0.5 size-4 shrink-0 text-success-foreground" />

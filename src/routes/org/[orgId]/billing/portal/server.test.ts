@@ -123,18 +123,19 @@ describe('POST /billing/portal', () => {
 		expect(ctx.billingPort.calls).toEqual([]);
 	});
 
-	it('rejects a legacy organization customer that is missing app billing snapshot state', async () => {
+	it('opens the portal for legacy paid organizations while billing snapshots catch up', async () => {
 		const ctx = createTestContext();
 		seedBillingOrganization(ctx, 'cus_legacy');
 		buildRouteContextMock.mockResolvedValue(ctx);
 
 		const response = await POST(portalEvent(ctx));
 
-		expect(response.status).toBe(409);
-		expect(await response.json()).toEqual({
-			error: 'Billing customer state needs support review before opening the portal'
+		expect(response.status).toBe(200);
+		expect(await response.json()).toEqual({ url: 'https://portal.test/session' });
+		expect(ctx.billingPort.calls).toContainEqual({
+			method: 'createPortalSession',
+			args: ['cus_legacy', `http://localhost/org/${ctx.auth.orgId}/billing`]
 		});
-		expect(ctx.billingPort.calls).toEqual([]);
 	});
 
 	it('opens the portal from the billing snapshot when the organization mirror has not caught up', async () => {

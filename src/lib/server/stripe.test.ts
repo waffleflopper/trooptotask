@@ -113,12 +113,6 @@ describe('createStripeBillingReconciliationProvider', () => {
 
 describe('createCheckoutSession', () => {
 	it('creates checkout with the catalog-resolved price, client reference, and reconciliation metadata', async () => {
-		pricesRetrieveMock.mockResolvedValue({
-			id: 'price_team',
-			livemode: false,
-			active: true,
-			recurring: { interval: 'month' }
-		});
 		customersCreateMock.mockResolvedValue({ id: 'cus_created' });
 		checkoutCreateMock.mockResolvedValue({
 			id: 'cs_test_123',
@@ -145,7 +139,7 @@ describe('createCheckoutSession', () => {
 			expiresAt: '2026-02-01T00:00:00.000Z'
 		});
 
-		expect(pricesRetrieveMock).toHaveBeenCalledWith('price_team');
+		expect(pricesRetrieveMock).not.toHaveBeenCalled();
 		expect(checkoutCreateMock).toHaveBeenCalledWith(
 			expect.objectContaining({
 				customer: 'cus_created',
@@ -175,12 +169,6 @@ describe('createCheckoutSession', () => {
 	});
 
 	it('passes automatic tax and required billing address collection to Stripe when configured', async () => {
-		pricesRetrieveMock.mockResolvedValue({
-			id: 'price_team',
-			livemode: false,
-			active: true,
-			recurring: { interval: 'month' }
-		});
 		customersCreateMock.mockResolvedValue({ id: 'cus_created' });
 		checkoutCreateMock.mockResolvedValue({
 			id: 'cs_test_123',
@@ -212,29 +200,32 @@ describe('createCheckoutSession', () => {
 		);
 	});
 
-	it('validates checkout price mode before creating a customer or session', async () => {
-		pricesRetrieveMock.mockResolvedValue({
-			id: 'price_live',
-			livemode: true,
-			active: true,
-			recurring: { interval: 'month' }
+	it('does not make a serial price-read API call during checkout', async () => {
+		customersCreateMock.mockResolvedValue({ id: 'cus_created' });
+		checkoutCreateMock.mockResolvedValue({
+			id: 'cs_test_123',
+			url: 'https://checkout.stripe.test/session',
+			expires_at: null
 		});
-
 		await expect(
 			createCheckoutSession({
 				orgId: 'org-1',
 				orgName: 'Alpha Company',
 				tier: 'team',
-				priceId: 'price_live',
+				priceId: 'price_team',
 				customerEmail: 'owner@example.test',
 				successUrl: 'http://localhost/success',
 				cancelUrl: 'http://localhost/canceled',
 				checkoutConfiguration: taxDisabledCheckoutConfiguration
 			})
-		).rejects.toThrow('belongs to live mode but the Stripe secret key is test mode');
+		).resolves.toMatchObject({
+			url: 'https://checkout.stripe.test/session'
+		});
 
-		expect(customersCreateMock).not.toHaveBeenCalled();
-		expect(checkoutCreateMock).not.toHaveBeenCalled();
+		expect(pricesRetrieveMock).not.toHaveBeenCalled();
+		expect(checkoutCreateMock).toHaveBeenCalledWith(
+			expect.objectContaining({ line_items: [{ price: 'price_team', quantity: 1 }] })
+		);
 	});
 });
 

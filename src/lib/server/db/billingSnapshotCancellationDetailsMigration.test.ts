@@ -21,5 +21,11 @@ describe('billing snapshot cancellation details migration', () => {
 		expect(normalized).toContain('"cancellation_feedback" = excluded."cancellation_feedback"');
 		expect(normalized).toContain("'cancellation_requested'::text");
 		expect(normalized).toContain("'too_expensive'::text");
+		expect(normalized).toContain(
+			'revoke all on function "public"."upsert_organization_billing_snapshot_if_current"(jsonb) from public'
+		);
+		expect(normalized).toContain(
+			'grant execute on function "public"."upsert_organization_billing_snapshot_if_current"(jsonb) to "service_role"'
+		);
 	});
 });

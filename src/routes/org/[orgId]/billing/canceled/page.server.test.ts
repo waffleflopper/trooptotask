@@ -28,7 +28,7 @@ function seedAttempt(
 }
 
 describe('billing canceled page server load', () => {
-	it('marks the returned checkout attempt canceled so owners can start a new checkout', async () => {
+	it('keeps checkout cancellation return loads read-only', async () => {
 		const ctx = createTestContext();
 		seedAttempt(ctx);
 		const now = new Date('2026-05-24T10:00:00.000Z');
@@ -45,8 +45,8 @@ describe('billing canceled page server load', () => {
 				id: 'attempt-canceled-return'
 			})
 		).resolves.toMatchObject({
-			status: 'canceled',
-			canceled_at: now.toISOString()
+			status: 'in_progress',
+			canceled_at: null
 		});
 	});
 

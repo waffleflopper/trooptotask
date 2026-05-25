@@ -77,9 +77,9 @@ export async function _loadBillingPageData(
 		return {
 			tier,
 			name: config.name,
-			personnelCap: config.personnelCap === Infinity ? null : config.personnelCap,
-			maxOrgsOwned: config.maxOrgsOwned === Infinity ? null : config.maxOrgsOwned,
-			bulkExportsPerMonth: config.bulkExportsPerMonth === Infinity ? null : config.bulkExportsPerMonth,
+			personnelCap: config.personnelCap,
+			activeUserCap: config.activeUserCap,
+			bulkExportsPerMonth: config.bulkExportsPerMonth,
 			priceMonthly: config.priceMonthly
 		};
 	});

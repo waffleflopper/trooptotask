@@ -23,8 +23,6 @@ export async function createCheckoutSession(options: {
 	const stripe = getStripe();
 
 	if (!options.priceId) throw new Error(`No Stripe price ID configured for tier: ${options.tier}`);
-	const price = await stripe.prices.retrieve(options.priceId);
-	validateCheckoutPriceForSecretMode(price, STRIPE_SECRET_KEY);
 
 	let customerId = options.existingCustomerId;
 	if (!customerId) {
@@ -39,7 +37,7 @@ export async function createCheckoutSession(options: {
 		customer: customerId,
 		mode: 'subscription',
 		client_reference_id: options.orgId,
-		line_items: [{ price: price.id, quantity: 1 }],
+		line_items: [{ price: options.priceId, quantity: 1 }],
 		success_url: options.successUrl,
 		cancel_url: options.cancelUrl,
 		billing_address_collection: options.checkoutConfiguration.billingAddressCollection,
@@ -49,7 +47,7 @@ export async function createCheckoutSession(options: {
 			orgId: options.orgId,
 			tier: options.tier,
 			commercialPlan: options.tier,
-			priceId: price.id,
+			priceId: options.priceId,
 			...(options.checkoutAttemptId ? { checkoutAttemptId: options.checkoutAttemptId } : {})
 		},
 		subscription_data: {
@@ -57,7 +55,7 @@ export async function createCheckoutSession(options: {
 				orgId: options.orgId,
 				tier: options.tier,
 				commercialPlan: options.tier,
-				priceId: price.id,
+				priceId: options.priceId,
 				...(options.checkoutAttemptId ? { checkoutAttemptId: options.checkoutAttemptId } : {})
 			}
 		}

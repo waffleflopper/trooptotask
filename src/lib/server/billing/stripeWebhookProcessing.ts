@@ -263,6 +263,8 @@ async function markCheckoutAttemptCompleted(
 	checkoutSessionId: string,
 	eventCreatedAt: string
 ): Promise<void> {
+	// Direct Supabase write: webhook processing runs outside the DataStore port.
+	// Keep fields and status values in sync with billingCheckoutAttempts.ts.
 	const { error, count } = await supabase
 		.from('organization_checkout_attempts')
 		.update(

@@ -262,6 +262,29 @@ describe('POST /billing/checkout', () => {
 		expect(ctx.billingPort.calls).toEqual([]);
 	});
 
+	it('rejects invalid checkout payload shapes before property access', async () => {
+		const ctx = createTestContext();
+		seedBillingOrganization(ctx);
+		buildRouteContextMock.mockResolvedValue(ctx);
+
+		const response = await POST({
+			request: new Request(`http://localhost/org/${ctx.auth.orgId}/billing/checkout`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: 'null'
+			}),
+			locals: {
+				user: { email: 'owner@example.com' }
+			},
+			params: { orgId: ctx.auth.orgId },
+			url: new URL(`http://localhost/org/${ctx.auth.orgId}/billing/checkout`)
+		} as never);
+
+		expect(response.status).toBe(400);
+		expect(await response.json()).toEqual({ error: 'Invalid checkout request.' });
+		expect(ctx.billingPort.calls).toEqual([]);
+	});
+
 	it('denies checkout when the requested plan has no configured current Stripe price', async () => {
 		checkoutCatalogMock.splice(0, checkoutCatalogMock.length, {
 			priceId: 'price_unit_current',

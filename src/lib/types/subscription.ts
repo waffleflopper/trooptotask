@@ -83,8 +83,10 @@ export interface TierConfig {
 	name: string;
 	personnelCap: number;
 	maxOrgsOwned: number;
-	bulkExportsPerMonth: number;
+	activeUserCap: number | null;
+	bulkExportsPerMonth: number | null;
 	priceMonthly: number;
+	featureKeys: string[];
 }
 
 export const TIER_CONFIG: Record<Tier, TierConfig> = {
@@ -92,21 +94,27 @@ export const TIER_CONFIG: Record<Tier, TierConfig> = {
 		name: 'Free',
 		personnelCap: 20,
 		maxOrgsOwned: 1,
+		activeUserCap: 2,
 		bulkExportsPerMonth: 3,
-		priceMonthly: 0
+		priceMonthly: 0,
+		featureKeys: []
 	},
 	team: {
 		name: 'Team',
 		personnelCap: 80,
 		maxOrgsOwned: 1,
-		bulkExportsPerMonth: Infinity,
-		priceMonthly: 500 // cents
+		activeUserCap: null,
+		bulkExportsPerMonth: 10,
+		priceMonthly: 500, // cents
+		featureKeys: []
 	},
 	unit: {
 		name: 'Unit',
 		personnelCap: 500,
-		maxOrgsOwned: 3,
-		bulkExportsPerMonth: Infinity,
-		priceMonthly: 1200 // cents
+		maxOrgsOwned: 1,
+		activeUserCap: null,
+		bulkExportsPerMonth: null,
+		priceMonthly: 1200, // cents
+		featureKeys: ['experimental.ai.chat']
 	}
 };

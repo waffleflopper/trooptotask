@@ -23,7 +23,7 @@ export interface EnvironmentConfigValidationResult {
 	warnings: string[];
 }
 
-const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1']);
+const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '[::1]']);
 const OFFICIAL_PUBLIC_ORIGIN_NAMES = ['APP_PUBLIC_ORIGIN', 'PUBLIC_APP_ORIGIN', 'PUBLIC_SITE_URL'] as const;
 
 function isPresent(value: string | undefined): boolean {

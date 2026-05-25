@@ -100,7 +100,7 @@ describe('plan usage summary', () => {
 					used: 3,
 					limit: 3,
 					status: 'limit_reached',
-					remediation: 'Upgrade for unlimited exports or wait until next month.'
+					remediation: 'Upgrade to Team for more monthly exports or wait until next month.'
 				})
 			],
 			alerts: [

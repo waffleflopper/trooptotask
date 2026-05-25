@@ -72,7 +72,8 @@ function invitationRemediation(upgradeTarget: Tier | null): string {
 
 function exportRemediation(upgradeTarget: Tier | null): string {
 	if (!upgradeTarget) return 'Contact support or wait until next month.';
-	return 'Upgrade for unlimited exports or wait until next month.';
+	if (upgradeTarget === 'unit') return 'Upgrade to Unit for unlimited exports or wait until next month.';
+	return `Upgrade to ${formatUpgradeTarget(upgradeTarget)} for more monthly exports or wait until next month.`;
 }
 
 function limitStatus(used: number, limit: number | null, reachedAtLimit = false): PlanUsageSummaryStatus {

@@ -133,7 +133,7 @@ describe('batchDailyAssignments', () => {
 		expect(remaining[0]?.id).toBe('existing-outside');
 	});
 
-	it('allows group assignees without running personnel group checks', async () => {
+	it('authorizes group assignees through Calendar group scope without running personnel group checks', async () => {
 		const requireGroupAccessBatch = vi.fn(async () => {
 			throw Object.assign(new Error('should not be called'), { status: 403 });
 		});
@@ -156,7 +156,7 @@ describe('batchDailyAssignments', () => {
 		]);
 
 		const result = await batchDailyAssignments(ctx, {
-			records: [{ date: '2026-03-22', assignmentTypeId: 'type-group', assigneeId: 'Front Desk' }]
+			records: [{ date: '2026-03-22', assignmentTypeId: 'type-group', assigneeId: 'group-a' }]
 		});
 
 		expect(result.inserted).toHaveLength(1);

@@ -515,7 +515,7 @@ export async function acceptAndApplyDutyRosterTemplatePreview(
 		throw error;
 	}
 
-	await logAcceptedDutyRosterTemplateRun(ctx, acceptedRun.id);
+	await tryLogAcceptedDutyRosterTemplateRun(ctx, acceptedRun.id);
 	await tryLogAcceptedDutyRosterRunAppliedToCalendar(ctx, result.acceptedRun.id, {
 		inserted: result.insertedCount,
 		cleared: result.clearedCount
@@ -562,6 +562,20 @@ async function tryLogAcceptedDutyRosterRunInvalidated(
 		await logAcceptedDutyRosterRunInvalidated(ctx, runId, details);
 	} catch {
 		// Invalidation is already durable; audit failure should not make callers retry against mutated state.
+	}
+}
+
+async function tryLogAcceptedDutyRosterTemplateRun(ctx: WritePorts, runId: string): Promise<void> {
+	try {
+		await logAcceptedDutyRosterTemplateRun(ctx, runId);
+	} catch (error) {
+		console.error('[duty-roster] Failed to log accepted Duty Roster Run audit event:', {
+			orgId: ctx.auth.orgId,
+			userId: ctx.auth.userId,
+			runId,
+			error
+		});
+		// Accepted-run and Calendar writes are already durable; audit failure should not make callers retry.
 	}
 }
 

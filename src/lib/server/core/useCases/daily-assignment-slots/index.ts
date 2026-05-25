@@ -195,6 +195,7 @@ export async function replaceDailyAssignmentSlotsBatch(
 	const upserts = records.filter((record) => record.assigneeId);
 	const clears = records.filter((record) => !record.assigneeId);
 
+	await requireCalendarAssignmentPolicy(ctx, upserts);
 	await requireBatchUpsertAssignmentPolicy(ctx, upserts);
 	await ensureBatchUpsertAvailability(ctx, upserts);
 

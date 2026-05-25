@@ -225,16 +225,16 @@ export async function loadAcceptedDutyRosterRunCalendarSyncState(
 
 export async function removeAcceptedDutyRosterRunLinkedCalendarAssignments(
 	ctx: WritePorts,
-	runId: string,
+	_runId: string,
 	linkedRows: DutyRosterTemplateLinkedCalendarAssignmentRow[]
 ): Promise<{ cleared: number }> {
 	if (linkedRows.length === 0) {
 		return { cleared: 0 };
 	}
 
-	await ctx.store.deleteWhere('daily_assignments', ctx.auth.orgId, { duty_roster_template_run_id: runId });
-	// The store API does not expose the actual deleted row count here. Report the linked rows observed before cleanup.
-	return { cleared: linkedRows.length };
+	const linkedRowIds = linkedRows.map((row) => row.id);
+	const deletedCount = await ctx.store.deleteManyByIds('daily_assignments', ctx.auth.orgId, linkedRowIds);
+	return { cleared: deletedCount };
 }
 
 export async function hydrateAcceptedDutyRosterRunCalendarSyncState(

@@ -241,7 +241,19 @@ const store: DataStore = {
 			}
 		}
 	},
-	deleteManyByIds: vi.fn(),
+	async deleteManyByIds(table, orgId, ids) {
+		const source = tableRows(table);
+		const idSet = new Set(ids);
+		let deleted = 0;
+		for (let index = source.length - 1; index >= 0; index -= 1) {
+			const row = source[index];
+			if (row?.organization_id === orgId && typeof row.id === 'string' && idSet.has(row.id)) {
+				source.splice(index, 1);
+				deleted += 1;
+			}
+		}
+		return deleted;
+	},
 	async insertMany(table, orgId, dataRows) {
 		const inserted: Record<string, unknown>[] = [];
 		for (const data of dataRows) {
@@ -2292,33 +2304,36 @@ describe('Duty Roster Template use cases', () => {
 			});
 			acceptedRunRows[index].accepted_at = `2026-06-0${index + 1}T00:00:00.000Z`;
 		}
-		const originalDeleteWhere = store.deleteWhere.bind(store);
+		const originalDeleteManyByIds = store.deleteManyByIds.bind(store);
 		let linkedCalendarCleanupCalls = 0;
-		const deleteWhereSpy = vi.spyOn(store, 'deleteWhere').mockImplementation(async (table, orgId, filters) => {
-			if (table === 'daily_assignments' && typeof filters.duty_roster_template_run_id === 'string') {
+		const deleteManyByIdsSpy = vi.spyOn(store, 'deleteManyByIds').mockImplementation(async (table, orgId, ids) => {
+			if (table === 'daily_assignments') {
 				linkedCalendarCleanupCalls += 1;
 				if (linkedCalendarCleanupCalls === 2) {
 					throw new Error('Calendar cleanup failed.');
 				}
 			}
-			return originalDeleteWhere(table, orgId, filters);
+			return originalDeleteManyByIds(table, orgId, ids);
 		});
 
-		await expect(invalidateLatestDutyRosterTemplateRun(ctx, { runId: 'run-1', cascade: true })).rejects.toThrow(
-			'Calendar cleanup failed.'
-		);
+		try {
+			await expect(invalidateLatestDutyRosterTemplateRun(ctx, { runId: 'run-1', cascade: true })).rejects.toThrow(
+				'Calendar cleanup failed.'
+			);
 
-		expect(acceptedRunRows.map((row) => ({ id: row.id, status: row.status }))).toEqual([
-			{ id: 'run-1', status: 'accepted' },
-			{ id: 'run-2', status: 'accepted' },
-			{ id: 'run-3', status: 'accepted' }
-		]);
-		expect(dailyAssignmentRows.map((row) => row.duty_roster_template_run_id).sort()).toEqual([
-			'run-1',
-			'run-2',
-			'run-3'
-		]);
-		deleteWhereSpy.mockRestore();
+			expect(acceptedRunRows.map((row) => ({ id: row.id, status: row.status }))).toEqual([
+				{ id: 'run-1', status: 'accepted' },
+				{ id: 'run-2', status: 'accepted' },
+				{ id: 'run-3', status: 'accepted' }
+			]);
+			expect(dailyAssignmentRows.map((row) => row.duty_roster_template_run_id).sort()).toEqual([
+				'run-1',
+				'run-2',
+				'run-3'
+			]);
+		} finally {
+			deleteManyByIdsSpy.mockRestore();
+		}
 	});
 
 	it('blocks invalidating runs whose end date is before today', async () => {
@@ -2373,22 +2388,25 @@ describe('Duty Roster Template use cases', () => {
 			return originalFindMany(table, orgId, filters, options);
 		});
 
-		await expect(invalidateLatestDutyRosterTemplateRun(ctx, { runId: run.id })).rejects.toMatchObject({
-			status: 409,
-			message: 'Duty Roster Run changed before invalidation. Refresh history and try again.'
-		});
+		try {
+			await expect(invalidateLatestDutyRosterTemplateRun(ctx, { runId: run.id })).rejects.toMatchObject({
+				status: 409,
+				message: 'Duty Roster Run changed before invalidation. Refresh history and try again.'
+			});
 
-		expect(acceptedRunRows.find((row) => row.id === run.id)).toMatchObject({
-			status: 'invalidated',
-			invalidated_by_user_id: 'user-2'
-		});
-		expect(auditEvents).not.toContainEqual(
-			expect.objectContaining({
-				action: 'duty_roster_template_run.invalidated',
-				resourceId: run.id
-			})
-		);
-		findManySpy.mockRestore();
+			expect(acceptedRunRows.find((row) => row.id === run.id)).toMatchObject({
+				status: 'invalidated',
+				invalidated_by_user_id: 'user-2'
+			});
+			expect(auditEvents).not.toContainEqual(
+				expect.objectContaining({
+					action: 'duty_roster_template_run.invalidated',
+					resourceId: run.id
+				})
+			);
+		} finally {
+			findManySpy.mockRestore();
+		}
 	});
 
 	it('removes linked Calendar assignments when invalidating an applied run and reports edited rows', async () => {
@@ -2424,7 +2442,7 @@ describe('Duty Roster Template use cases', () => {
 		);
 	});
 
-	it('keeps accept-and-apply durable when post-commit calendar audit fails', async () => {
+	it('keeps accept-and-apply durable when post-commit audit fails', async () => {
 		const ctx = createCtx(createAuth({ scopeSet: { kind: 'groups', groupIds: ['alpha'] } }));
 		personnelRows.push(
 			personnelRow({ id: 'alpha', rank: 'SGT', last_name: 'Able', first_name: 'Ann', group_id: 'alpha' })
@@ -2436,27 +2454,44 @@ describe('Duty Roster Template use cases', () => {
 			endDate: '2026-06-01'
 		});
 		const originalAuditLog = audit.log.bind(audit);
+		const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
 		audit.log = (event) => {
-			if (event.action === 'duty_roster_template_run.applied_to_calendar') {
+			if (
+				event.action === 'duty_roster_template_run.accepted' ||
+				event.action === 'duty_roster_template_run.applied_to_calendar'
+			) {
 				throw new Error('audit unavailable');
 			}
 			originalAuditLog(event);
 		};
 
-		const result = await acceptAndApplyDutyRosterTemplatePreview(ctx, {
-			preview: JSON.stringify(preview)
-		});
+		try {
+			const result = await acceptAndApplyDutyRosterTemplatePreview(ctx, {
+				preview: JSON.stringify(preview)
+			});
 
-		expect(result.acceptedRun.appliedAt).toEqual(expect.any(String));
-		expect(dailyAssignmentRows).toEqual([
-			expect.objectContaining({
-				date: '2026-06-01',
-				assignment_type_id: template.assignmentTypeId,
-				assignee_id: 'alpha',
-				duty_roster_template_run_id: result.acceptedRun.id
-			})
-		]);
-		audit.log = originalAuditLog;
+			expect(result.acceptedRun.appliedAt).toEqual(expect.any(String));
+			expect(dailyAssignmentRows).toEqual([
+				expect.objectContaining({
+					date: '2026-06-01',
+					assignment_type_id: template.assignmentTypeId,
+					assignee_id: 'alpha',
+					duty_roster_template_run_id: result.acceptedRun.id
+				})
+			]);
+			expect(consoleErrorSpy).toHaveBeenCalledWith(
+				'[duty-roster] Failed to log accepted Duty Roster Run audit event:',
+				expect.objectContaining({
+					orgId: ctx.auth.orgId,
+					userId: ctx.auth.userId,
+					runId: result.acceptedRun.id,
+					error: expect.any(Error)
+				})
+			);
+		} finally {
+			audit.log = originalAuditLog;
+			consoleErrorSpy.mockRestore();
+		}
 	});
 
 	it('uses corrected accepted runs when reporting invalidation Calendar edits', async () => {
@@ -2514,16 +2549,19 @@ describe('Duty Roster Template use cases', () => {
 			originalAuditLog(event);
 		};
 
-		const result = await invalidateLatestDutyRosterTemplateRun(ctx, { runId: applied.acceptedRun.id });
+		try {
+			const result = await invalidateLatestDutyRosterTemplateRun(ctx, { runId: applied.acceptedRun.id });
 
-		expect(result.invalidatedRun.status).toBe('invalidated');
-		expect(acceptedRunRows).toEqual([
-			expect.objectContaining({
-				id: applied.acceptedRun.id,
-				status: 'invalidated'
-			})
-		]);
-		audit.log = originalAuditLog;
+			expect(result.invalidatedRun.status).toBe('invalidated');
+			expect(acceptedRunRows).toEqual([
+				expect.objectContaining({
+					id: applied.acceptedRun.id,
+					status: 'invalidated'
+				})
+			]);
+		} finally {
+			audit.log = originalAuditLog;
+		}
 	});
 
 	it('rolls back invalidation state when linked Calendar assignment cleanup fails', async () => {
@@ -2540,35 +2578,40 @@ describe('Duty Roster Template use cases', () => {
 		const applied = await acceptAndApplyDutyRosterTemplatePreview(ctx, {
 			preview: JSON.stringify(preview)
 		});
-		const deleteWhereSpy = vi.spyOn(store, 'deleteWhere').mockRejectedValueOnce(new Error('Calendar cleanup failed.'));
+		const deleteManyByIdsSpy = vi
+			.spyOn(store, 'deleteManyByIds')
+			.mockRejectedValueOnce(new Error('Calendar cleanup failed.'));
 
-		await expect(invalidateLatestDutyRosterTemplateRun(ctx, { runId: applied.acceptedRun.id })).rejects.toThrow(
-			'Calendar cleanup failed.'
-		);
+		try {
+			await expect(invalidateLatestDutyRosterTemplateRun(ctx, { runId: applied.acceptedRun.id })).rejects.toThrow(
+				'Calendar cleanup failed.'
+			);
 
-		expect(acceptedRunRows).toEqual([
-			expect.objectContaining({
-				id: applied.acceptedRun.id,
-				status: 'accepted',
-				invalidated_at: null,
-				invalidated_by_user_id: null
-			})
-		]);
-		expect(dailyAssignmentRows).toEqual([
-			expect.objectContaining({
-				date: '2026-06-01',
-				assignment_type_id: template.assignmentTypeId,
-				assignee_id: 'alpha',
-				duty_roster_template_run_id: applied.acceptedRun.id
-			})
-		]);
-		expect(auditEvents).not.toContainEqual(
-			expect.objectContaining({
-				action: 'duty_roster_template_run.invalidated',
-				resourceId: applied.acceptedRun.id
-			})
-		);
-		deleteWhereSpy.mockRestore();
+			expect(acceptedRunRows).toEqual([
+				expect.objectContaining({
+					id: applied.acceptedRun.id,
+					status: 'accepted',
+					invalidated_at: null,
+					invalidated_by_user_id: null
+				})
+			]);
+			expect(dailyAssignmentRows).toEqual([
+				expect.objectContaining({
+					date: '2026-06-01',
+					assignment_type_id: template.assignmentTypeId,
+					assignee_id: 'alpha',
+					duty_roster_template_run_id: applied.acceptedRun.id
+				})
+			]);
+			expect(auditEvents).not.toContainEqual(
+				expect.objectContaining({
+					action: 'duty_roster_template_run.invalidated',
+					resourceId: applied.acceptedRun.id
+				})
+			);
+		} finally {
+			deleteManyByIdsSpy.mockRestore();
+		}
 	});
 
 	it('uses accepted runs, not Manual DA6 Baseline, as the future preview count source', async () => {

@@ -79,28 +79,13 @@ export async function applyBillingCancellation(
 	ports: BillingOrganizationPorts,
 	input: Pick<CancelResult, 'orgUpdates'>
 ): Promise<void> {
+	// Compatibility helper for tests and older support flows. The production cancellation path
+	// writes through Billing Snapshot Transition so the snapshot and mirror stay coupled.
 	await ports.store.updateById('organizations', ports.auth.orgId, input.orgUpdates);
-}
-
-async function applyBillingCancellationWithWebhookFallback(
-	ports: BillingOrganizationPorts,
-	input: Pick<CancelResult, 'orgUpdates'>
-): Promise<boolean> {
-	try {
-		await applyBillingCancellation(ports, input);
-		return true;
-	} catch (error) {
-		console.warn(
-			`[billing] Local cancellation state for organization ${ports.auth.orgId} will be reconciled by Stripe subscription-deleted webhook processing.`,
-			error
-		);
-		return false;
-	}
 }
 
 export interface CancelBillingSubscriptionResult {
 	success: true;
-	localCancellationApplied: boolean;
 	stripeCustomerId: string | null;
 	canceledSubscriptionId: string;
 }
@@ -120,19 +105,14 @@ export async function cancelBillingSubscriptionForOrganization(
 		fail(400, 'Subscription is not in a cancellable state');
 	}
 
-	const result = await cancel(ports, {
+	await cancel(ports, {
 		subscriptionId,
 		confirmedImmediateCancellation: input.confirmedImmediateCancellation,
 		cancellationFeedback: input.cancellationFeedback ?? null
 	});
-	const localCancellationApplied = await applyBillingCancellationWithWebhookFallback(
-		{ auth: ports.auth, store: ports.rawStore },
-		result
-	);
 
 	return {
 		success: true,
-		localCancellationApplied,
 		stripeCustomerId: org.stripeCustomerId,
 		canceledSubscriptionId: subscriptionId
 	};

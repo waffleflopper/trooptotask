@@ -1425,7 +1425,8 @@ describe('Duty Roster Template use cases', () => {
 				date: '2026-06-01',
 				assignment_type_id: template.assignmentTypeId,
 				assignee_id: 'alpha',
-				duty_roster_template_run_id: accepted.id
+				duty_roster_template_run_id: accepted.id,
+				duty_roster_template_run_row_date: '2026-06-01'
 			})
 		]);
 	});

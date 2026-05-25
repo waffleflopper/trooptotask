@@ -2,6 +2,7 @@ import { fail } from '$lib/server/core/errors';
 import type { DutyRosterTemplateAcceptedRun } from '$features/duty-roster/templates/dutyRosterTemplates';
 import { effectiveDutyRosterAssigneeId } from '$features/duty-roster/templates/dutyRosterCorrection';
 import type { DutyRosterTemplateAcceptedSnapshot } from '$features/duty-roster/templates/dutyRosterTemplatePreview';
+import type { DailyAssignmentSlotRecord } from '../daily-assignment-slots';
 
 export type DutyRosterTemplateRunRow = {
 	id: string;
@@ -116,7 +117,7 @@ export function linkedCalendarAssignmentsWereEdited(
 	return false;
 }
 
-export function applyRecordsFromAcceptedRun(run: DutyRosterTemplateAcceptedRun) {
+export function applyRecordsFromAcceptedRun(run: DutyRosterTemplateAcceptedRun): DailyAssignmentSlotRecord[] {
 	const snapshot = parseAcceptedRunSnapshot(run.snapshotPayload);
 	return snapshot.finalRows.map((row) => ({
 		date: row.date,
@@ -127,7 +128,10 @@ export function applyRecordsFromAcceptedRun(run: DutyRosterTemplateAcceptedRun) 
 				acceptedAssigneeId: row.finalAssigneeId,
 				corrections: run.corrections
 			}) ?? '',
-		dutyRosterTemplateRunId: run.id,
-		dutyRosterTemplateRunRowDate: row.date
+		sourceLineage: {
+			sourceKind: 'duty-roster-run',
+			sourceId: run.id,
+			sourceRowKey: row.date
+		}
 	}));
 }

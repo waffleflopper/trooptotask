@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { BillingSnapshotTransitionStore, BillingSnapshotUpsert } from './billingSnapshotTransitions';
+import type {
+	BillingEventPosition,
+	BillingSnapshotTransitionStore,
+	BillingSnapshotUpsert
+} from './billingSnapshotTransitions';
 import { applyBillingSnapshotTransition } from './billingSnapshotTransitions';
 
 const { invalidateTierCacheMock } = vi.hoisted(() => ({
@@ -18,19 +22,23 @@ function createStore(
 	} = {}
 ): BillingSnapshotTransitionStore & {
 	snapshotWrites: BillingSnapshotUpsert[];
+	snapshotWriteEventPositions: Array<BillingEventPosition | undefined>;
 	mirrorWrites: Array<{ orgId: string; values: Record<string, unknown> }>;
 } {
 	const snapshotWrites: BillingSnapshotUpsert[] = [];
+	const snapshotWriteEventPositions: Array<BillingEventPosition | undefined> = [];
 	const mirrorWrites: Array<{ orgId: string; values: Record<string, unknown> }> = [];
 
 	return {
 		snapshotWrites,
+		snapshotWriteEventPositions,
 		mirrorWrites,
 		async readSnapshot() {
 			return input.snapshot ?? null;
 		},
-		async upsertSnapshotIfCurrent(values) {
+		async upsertSnapshotIfCurrent(values, eventPosition) {
 			snapshotWrites.push(values);
+			snapshotWriteEventPositions.push(eventPosition);
 			return input.upsertResult ?? true;
 		},
 		async updateOrganizationBillingMirror(orgId, values) {
@@ -416,6 +424,13 @@ describe('applyBillingSnapshotTransition', () => {
 				last_stripe_event_created_at: '2026-05-24T12:00:00.000Z',
 				reconciliation_result: 'local_immediate_cancellation_pending_webhook'
 			})
+		]);
+		expect(store.snapshotWriteEventPositions).toEqual([
+			{
+				eventId: 'evt_123',
+				eventType: 'customer.subscription.updated',
+				eventCreatedAt: '2026-05-24T12:00:00.000Z'
+			}
 		]);
 		expect(store.mirrorWrites).toEqual([
 			{

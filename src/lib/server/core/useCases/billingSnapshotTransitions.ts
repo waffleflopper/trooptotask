@@ -147,6 +147,7 @@ export type BillingSnapshotTransition =
 			orgId: string;
 			stripeCustomerId: string | null;
 			cancellationFeedback: BillingCancellationFeedback | null;
+			eventPosition?: BillingEventPosition;
 			processedAt?: string;
 	  };
 
@@ -210,32 +211,35 @@ async function writeImmediateCancellation(
 	processedAt: string
 ): Promise<BillingSnapshotTransitionResult> {
 	const stripeSubscriptionId = currentSnapshot?.stripe_subscription_id ?? null;
-	const snapshotUpdated = await store.upsertSnapshotIfCurrent({
-		organization_id: transition.orgId,
-		source: 'stripe',
-		commercial_plan: 'free',
-		stripe_customer_id: transition.stripeCustomerId,
-		stripe_subscription_id: stripeSubscriptionId,
-		stripe_product_id: null,
-		stripe_price_id: null,
-		subscription_status: 'canceled',
-		collection_status: 'canceled',
-		current_period_start: null,
-		current_period_end: null,
-		cancel_at_period_end: false,
-		canceled_at: processedAt,
-		cancellation_reason: 'cancellation_requested',
-		cancellation_feedback: transition.cancellationFeedback,
-		trial_end: null,
-		sync_status: 'pending',
-		last_stripe_event_id: currentSnapshot?.last_stripe_event_id ?? null,
-		last_stripe_event_type: currentSnapshot?.last_stripe_event_type ?? null,
-		last_stripe_event_created_at: currentSnapshot?.last_stripe_event_created_at ?? null,
-		last_processed_at: processedAt,
-		last_reconciled_at: null,
-		reconciliation_result: 'local_immediate_cancellation_pending_webhook',
-		drift_detected: false
-	});
+	const snapshotUpdated = await store.upsertSnapshotIfCurrent(
+		{
+			organization_id: transition.orgId,
+			source: 'stripe',
+			commercial_plan: 'free',
+			stripe_customer_id: transition.stripeCustomerId,
+			stripe_subscription_id: stripeSubscriptionId,
+			stripe_product_id: null,
+			stripe_price_id: null,
+			subscription_status: 'canceled',
+			collection_status: 'canceled',
+			current_period_start: null,
+			current_period_end: null,
+			cancel_at_period_end: false,
+			canceled_at: processedAt,
+			cancellation_reason: 'cancellation_requested',
+			cancellation_feedback: transition.cancellationFeedback,
+			trial_end: null,
+			sync_status: 'pending',
+			last_stripe_event_id: currentSnapshot?.last_stripe_event_id ?? null,
+			last_stripe_event_type: currentSnapshot?.last_stripe_event_type ?? null,
+			last_stripe_event_created_at: currentSnapshot?.last_stripe_event_created_at ?? null,
+			last_processed_at: processedAt,
+			last_reconciled_at: null,
+			reconciliation_result: 'local_immediate_cancellation_pending_webhook',
+			drift_detected: false
+		},
+		transition.eventPosition ?? snapshotEventPosition(currentSnapshot)
+	);
 	if (!snapshotUpdated) {
 		return superseded(transition.orgId, 'immediate cancellation', 'lost a concurrent billing snapshot update');
 	}
@@ -501,6 +505,16 @@ function eventPosition(event: StripeEventFact): BillingEventPosition {
 		eventId: event.id,
 		eventType: event.type,
 		eventCreatedAt: event.createdAt
+	};
+}
+
+function snapshotEventPosition(snapshot: ExistingBillingSnapshot | null): BillingEventPosition | undefined {
+	if (!snapshot?.last_stripe_event_created_at) return undefined;
+
+	return {
+		eventId: snapshot.last_stripe_event_id ?? '',
+		eventType: snapshot.last_stripe_event_type ?? '',
+		eventCreatedAt: snapshot.last_stripe_event_created_at
 	};
 }
 

@@ -508,7 +508,7 @@ export const actions: Actions = {
 
 	reconcileBilling: adminAction({
 		page: 'organizations',
-		requiredRole: 'super_admin',
+		requiredRole: ['super_admin', 'support'],
 		fn: async (ctx, event) => {
 			const orgId = event.params.orgId as string;
 			if (!validateUUID(orgId)) return fail(400, { error: { message: 'Invalid organization ID' } });

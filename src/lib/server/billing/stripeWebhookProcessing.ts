@@ -263,18 +263,26 @@ async function markCheckoutAttemptCompleted(
 	checkoutSessionId: string,
 	eventCreatedAt: string
 ): Promise<void> {
-	const { error } = await supabase
+	const { error, count } = await supabase
 		.from('organization_checkout_attempts')
-		.update({
-			status: 'completed',
-			completed_at: eventCreatedAt
-		})
+		.update(
+			{
+				status: 'completed',
+				completed_at: eventCreatedAt
+			},
+			{ count: 'exact' }
+		)
 		.eq('organization_id', orgId)
 		.eq('stripe_checkout_session_id', checkoutSessionId);
 
 	if (error) {
 		throw new Error(
 			`Failed to mark checkout attempt ${checkoutSessionId} completed for org ${orgId}: ${error.message}`
+		);
+	}
+	if (!count) {
+		console.warn(
+			`[checkout-complete] No in-progress attempt found for session ${checkoutSessionId} org ${orgId}; attempt may have been expired or was started before tracking was enabled`
 		);
 	}
 }
@@ -734,8 +742,8 @@ async function handlePaymentSucceeded(
 		current_period_end: snapshot?.current_period_end ?? null,
 		cancel_at_period_end: snapshot?.cancel_at_period_end ?? false,
 		canceled_at: null,
-		cancellation_reason: snapshot?.cancellation_reason ?? null,
-		cancellation_feedback: snapshot?.cancellation_feedback ?? null,
+		cancellation_reason: null,
+		cancellation_feedback: null,
 		trial_end: snapshot?.trial_end ?? null,
 		sync_status: 'synced',
 		last_stripe_event_id: event.id,

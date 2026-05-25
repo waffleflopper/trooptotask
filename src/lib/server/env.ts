@@ -67,6 +67,8 @@ export function validateEnvironmentConfig(input: EnvironmentConfigInput): Enviro
 		{ name: 'STRIPE_WEBHOOK_SECRET', value: input.env.STRIPE_WEBHOOK_SECRET, required: false },
 		{ name: 'STRIPE_TEAM_PRICE_ID', value: input.env.STRIPE_TEAM_PRICE_ID, required: false },
 		{ name: 'STRIPE_UNIT_PRICE_ID', value: input.env.STRIPE_UNIT_PRICE_ID, required: false },
+		{ name: 'STRIPE_TEAM_LEGACY_PRICE_IDS', value: input.env.STRIPE_TEAM_LEGACY_PRICE_IDS, required: false },
+		{ name: 'STRIPE_UNIT_LEGACY_PRICE_IDS', value: input.env.STRIPE_UNIT_LEGACY_PRICE_IDS, required: false },
 		// Optional — only needed for email invitations
 		{ name: 'RESEND_API_KEY', value: input.env.RESEND_API_KEY, required: false },
 		{ name: 'RESEND_FROM_EMAIL', value: input.env.RESEND_FROM_EMAIL, required: false }
@@ -161,6 +163,8 @@ function currentEnv(): Record<string, string | undefined> {
 		STRIPE_WEBHOOK_SECRET: env.STRIPE_WEBHOOK_SECRET,
 		STRIPE_TEAM_PRICE_ID: env.STRIPE_TEAM_PRICE_ID,
 		STRIPE_UNIT_PRICE_ID: env.STRIPE_UNIT_PRICE_ID,
+		STRIPE_TEAM_LEGACY_PRICE_IDS: env.STRIPE_TEAM_LEGACY_PRICE_IDS,
+		STRIPE_UNIT_LEGACY_PRICE_IDS: env.STRIPE_UNIT_LEGACY_PRICE_IDS,
 		STRIPE_AUTOMATIC_TAX_ENABLED: env.STRIPE_AUTOMATIC_TAX_ENABLED,
 		STRIPE_TAX_DASHBOARD_VERIFIED: env.STRIPE_TAX_DASHBOARD_VERIFIED,
 		RESEND_API_KEY: env.RESEND_API_KEY,

@@ -157,5 +157,3 @@ export function getConfiguredPriceCatalog(): PriceCatalogEntry[] {
 		unitLegacyPriceIds: env.STRIPE_UNIT_LEGACY_PRICE_IDS
 	});
 }
-
-export const configuredPriceCatalog = getConfiguredPriceCatalog();

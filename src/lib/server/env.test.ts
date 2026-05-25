@@ -167,4 +167,14 @@ describe('environment validation', () => {
 			}).errors
 		).toEqual([]);
 	});
+
+	it('surfaces missing legacy Stripe price catalog variables as optional warnings', () => {
+		const result = validateEnvironmentConfig({
+			mode: 'development',
+			env: baseEnv
+		});
+
+		expect(result.warnings).toContain('STRIPE_TEAM_LEGACY_PRICE_IDS is not configured; some features may not work');
+		expect(result.warnings).toContain('STRIPE_UNIT_LEGACY_PRICE_IDS is not configured; some features may not work');
+	});
 });

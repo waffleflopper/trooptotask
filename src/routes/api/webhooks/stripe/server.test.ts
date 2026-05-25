@@ -158,8 +158,15 @@ function createWebhookSupabaseStub(options: WebhookSupabaseOptions = {}) {
 							const chain = {
 								eq(column: string, value: unknown) {
 									filters.push(['eq', column, value]);
-									if (filters.length >= 2) checkoutAttemptUpdates.push({ values, filters });
 									return chain;
+								},
+								select: () => {
+									checkoutAttemptUpdates.push({ values, filters });
+									return Promise.resolve({ error: null, count: 1 });
+								},
+								then(resolve: (value: { error: null; count: number }) => void) {
+									checkoutAttemptUpdates.push({ values, filters });
+									return Promise.resolve({ error: null, count: 1 }).then(resolve);
 								}
 							};
 							return chain;
@@ -1468,8 +1475,8 @@ describe('POST /api/webhooks/stripe', () => {
 				subscription_status: 'active',
 				collection_status: 'current',
 				cancel_at_period_end: true,
-				cancellation_reason: 'cancellation_requested',
-				cancellation_feedback: 'too_expensive',
+				cancellation_reason: null,
+				cancellation_feedback: null,
 				last_stripe_event_id: 'evt_payment_succeeded'
 			})
 		);
@@ -1530,8 +1537,8 @@ describe('POST /api/webhooks/stripe', () => {
 				subscription_status: 'active',
 				collection_status: 'current',
 				cancel_at_period_end: true,
-				cancellation_reason: 'cancellation_requested',
-				cancellation_feedback: 'too_expensive',
+				cancellation_reason: null,
+				cancellation_feedback: null,
 				current_period_start: '2026-12-15T08:00:00.000Z',
 				current_period_end: '2027-01-15T08:00:00.000Z',
 				last_stripe_event_id: 'evt_invoice_paid'

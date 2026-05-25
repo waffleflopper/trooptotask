@@ -73,13 +73,13 @@ export async function checkout(
 	const activeAttempt = await findActiveCheckoutAttempt(ctx.rawStore, ctx.auth.orgId, now);
 	if (activeAttempt) return reuseOrBlockActiveCheckoutAttempt(ctx, input, sensitiveAction, activeAttempt);
 
-	const checkoutAttempt = await createCheckoutAttemptOrReuse(ctx.rawStore, {
+	const { attempt: checkoutAttempt, reused: attemptReused } = await createCheckoutAttemptOrReuse(ctx.rawStore, {
 		orgId: ctx.auth.orgId,
 		commercialPlan: input.tier,
 		stripePriceId: input.priceId,
 		now
 	});
-	if (checkoutAttempt.checkout_url)
+	if (attemptReused || checkoutAttempt.checkout_url)
 		return reuseOrBlockActiveCheckoutAttempt(ctx, input, sensitiveAction, checkoutAttempt);
 
 	try {
@@ -232,15 +232,15 @@ function auditSuccessfulSensitiveBillingAction(
 async function createCheckoutAttemptOrReuse(
 	store: DataStore,
 	input: Parameters<typeof createCheckoutAttemptPlaceholder>[1]
-): Promise<Awaited<ReturnType<typeof createCheckoutAttemptPlaceholder>>> {
+): Promise<{ attempt: Awaited<ReturnType<typeof createCheckoutAttemptPlaceholder>>; reused: boolean }> {
 	try {
-		return await createCheckoutAttemptPlaceholder(store, input);
+		return { attempt: await createCheckoutAttemptPlaceholder(store, input), reused: false };
 	} catch (err) {
 		if (isActiveCheckoutAttemptConflict(err)) {
 			const activeAttempt =
 				(await findReusableCheckoutAttempt(store, input.orgId, input.stripePriceId, input.now)) ??
 				(await findActiveCheckoutAttempt(store, input.orgId, input.now));
-			if (activeAttempt) return activeAttempt;
+			if (activeAttempt) return { attempt: activeAttempt, reused: true };
 		}
 		throw err;
 	}

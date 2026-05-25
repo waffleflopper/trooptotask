@@ -353,6 +353,56 @@ describe('billing use cases', () => {
 			expect(ctx.billingPort.calls).toEqual([]);
 		});
 
+		it('blocks a checkout when the unique-constraint fallback sees a placeholder without a provider URL', async () => {
+			const ctx = buildContext();
+			const now = new Date('2026-05-24T10:00:00.000Z');
+			const originalFindMany = ctx.rawStore.findMany.bind(ctx.rawStore);
+			const originalInsert = ctx.rawStore.insert.bind(ctx.rawStore);
+			let findManyCalls = 0;
+
+			ctx.rawStore.findMany = ((...args: Parameters<typeof ctx.rawStore.findMany>) => {
+				findManyCalls += 1;
+				if (args[0] === CHECKOUT_ATTEMPTS_TABLE && findManyCalls <= 2) return Promise.resolve([]);
+				return originalFindMany(...args);
+			}) as typeof ctx.rawStore.findMany;
+			ctx.rawStore.insert = (async (...args: Parameters<typeof ctx.rawStore.insert>) => {
+				if (args[0] === CHECKOUT_ATTEMPTS_TABLE) {
+					await originalInsert(CHECKOUT_ATTEMPTS_TABLE, ctx.auth.orgId, {
+						id: 'attempt-racing-placeholder',
+						stripe_checkout_session_id: null,
+						stripe_customer_id: null,
+						commercial_plan: 'team',
+						stripe_price_id: 'price_team',
+						checkout_url: null,
+						status: 'in_progress',
+						expires_at: '2026-05-24T10:05:00.000Z',
+						completed_at: null,
+						canceled_at: null,
+						created_at: now.toISOString(),
+						updated_at: now.toISOString()
+					});
+					throw new Error('duplicate key violates unique constraint "organization_checkout_attempts_active_org_key"');
+				}
+				return originalInsert(...args);
+			}) as typeof ctx.rawStore.insert;
+
+			await expect(
+				checkout(ctx, {
+					tier: 'team',
+					priceId: 'price_team',
+					customerEmail: 'owner@test.com',
+					orgName: 'Test Org',
+					successUrl: 'http://localhost/success',
+					cancelUrl: 'http://localhost/canceled',
+					now
+				})
+			).rejects.toMatchObject({
+				status: 409,
+				message: 'A checkout session is being created for this organization. Please try again shortly.'
+			});
+			expect(ctx.billingPort.calls).toEqual([]);
+		});
+
 		it('expires stale placeholder attempts before creating a replacement', async () => {
 			const ctx = buildContext();
 			const now = new Date('2026-05-24T10:00:00.000Z');

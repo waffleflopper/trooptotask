@@ -18,9 +18,10 @@ const {
 
 vi.mock('$lib/server/adapters/adminAdapter', () => ({
 	adminAction:
-		(config: { requiredRole?: string; fn: (ctx: unknown, event: unknown) => unknown }) =>
+		(config: { requiredRole?: string | string[]; fn: (ctx: unknown, event: unknown) => unknown }) =>
 		(event: { __ctx: { adminUser?: { role?: string } } }) => {
-			if (config.requiredRole && event.__ctx.adminUser?.role !== config.requiredRole) {
+			const allowedRoles = Array.isArray(config.requiredRole) ? config.requiredRole : [config.requiredRole];
+			if (config.requiredRole && !allowedRoles.includes(event.__ctx.adminUser?.role)) {
 				return { status: 403, data: { error: 'Not authorized for this action.' } };
 			}
 			return config.fn(event.__ctx, event);
@@ -361,7 +362,7 @@ describe('admin organization gifting actions', () => {
 		);
 	});
 
-	it('denies manual billing reconciliation for support admins', async () => {
+	it('allows manual billing reconciliation for support admins', async () => {
 		const adminClient = makeAdminClient({ id: 'org-1' });
 		const ctx = makeContext(adminClient.client, 'support');
 
@@ -371,9 +372,14 @@ describe('admin organization gifting actions', () => {
 			request: makeRequest({})
 		} as unknown as Parameters<(typeof actions)['reconcileBilling']>[0]);
 
-		expect(result).toEqual({ status: 403, data: { error: 'Not authorized for this action.' } });
-		expect(reconcileOrganizationBillingMock).not.toHaveBeenCalled();
-		expect(ctx.audit).not.toHaveBeenCalled();
+		expect(result).toMatchObject({
+			billingReconciliation: expect.objectContaining({
+				success: true,
+				status: 'repaired'
+			})
+		});
+		expect(reconcileOrganizationBillingMock).toHaveBeenCalledOnce();
+		expect(ctx.audit).toHaveBeenCalledWith(expect.objectContaining({ action: 'admin.org.billing_reconcile' }));
 	});
 
 	it('returns a support-safe billing reconciliation failure without secrets', async () => {

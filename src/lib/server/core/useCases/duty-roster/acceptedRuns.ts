@@ -20,15 +20,22 @@ import {
 	buildDutyRosterTemplateAcceptedSnapshot,
 	type DutyRosterTemplatePreview
 } from '$features/duty-roster/templates/dutyRosterTemplatePreview';
-import { batchDailyAssignments } from '../dailyAssignmentsBatch';
 import {
 	acceptedRunSnapshot,
-	applyRecordsFromAcceptedRun,
-	linkedCalendarAssignmentsWereEdited,
 	toAcceptedDutyRosterTemplateRun,
-	type DutyRosterTemplateLinkedCalendarAssignmentRow,
 	type DutyRosterTemplateRunRow
 } from './acceptedRunRecord';
+import {
+	acceptedDutyRosterRunCalendarAssignmentsWereEdited,
+	applyAcceptedDutyRosterRunCalendarSync,
+	hydrateAcceptedDutyRosterRunCalendarSyncState,
+	loadAcceptedDutyRosterRunLinkedCalendarAssignmentsByRunId,
+	logAcceptedDutyRosterRunAppliedToCalendar,
+	logAcceptedDutyRosterRunInvalidated,
+	removeAcceptedDutyRosterRunLinkedCalendarAssignments,
+	rollbackAcceptedDutyRosterRunCalendarSync,
+	type AcceptedDutyRosterRunCalendarSyncApplyResult
+} from './acceptedRunCalendarSync';
 import {
 	hydrateAcceptedRunCorrections,
 	loadDutyRosterRunCorrectionsByRunId,
@@ -39,11 +46,7 @@ const DUTY_ROSTER_TEMPLATE_RUN_TABLE = 'duty_roster_template_runs';
 export const DUTY_ROSTER_HISTORY_PAGE_SIZE = 20;
 export const DUTY_ROSTER_HISTORY_MAX_PAGE_SIZE = 50;
 
-export type DutyRosterTemplateApplyResult = {
-	acceptedRun: DutyRosterTemplateAcceptedRun;
-	insertedCount: number;
-	clearedCount: number;
-};
+export type DutyRosterTemplateApplyResult = AcceptedDutyRosterRunCalendarSyncApplyResult;
 
 export type DutyRosterTemplateInvalidateResult = {
 	invalidatedRun: DutyRosterTemplateAcceptedRun;
@@ -122,7 +125,7 @@ export async function listAcceptedDutyRosterTemplateRunHistory(
 		ctx,
 		await hydrateAcceptedRunCorrections(ctx, pageRows.map(toAcceptedDutyRosterTemplateRun))
 	);
-	const runs = await hydrateAcceptedRunCalendarState(ctx, runsWithCorrections);
+	const runs = await hydrateAcceptedDutyRosterRunCalendarSyncState(ctx, runsWithCorrections);
 	return {
 		runs,
 		page,
@@ -322,7 +325,15 @@ export async function applyAcceptedDutyRosterTemplateRun(
 	}
 
 	const [hydrated] = await hydrateAcceptedRunCorrections(ctx, [toAcceptedDutyRosterTemplateRun(row)]);
-	return applyAcceptedDutyRosterTemplateRunRecord(ctx, hydrated ?? toAcceptedDutyRosterTemplateRun(row));
+	const run = hydrated ?? toAcceptedDutyRosterTemplateRun(row);
+	try {
+		return await applyAcceptedDutyRosterRunCalendarSync(ctx, run);
+	} catch (error) {
+		if (!run.appliedAt) {
+			await tryRollbackAcceptedDutyRosterRunCalendarSync(ctx, run.id);
+		}
+		throw error;
+	}
 }
 
 export async function recordDutyRosterTemplateRunCorrection(
@@ -364,11 +375,11 @@ export async function invalidateLatestDutyRosterTemplateRun(
 		: [selectedRun];
 	assertDutyRosterRunsCanBeInvalidated(targetRows, dutyRosterTodayDate());
 
-	const linkedRowsByRunId = await loadLinkedCalendarAssignmentRowsByRunId(ctx, targetRows);
+	const linkedRowsByRunId = await loadAcceptedDutyRosterRunLinkedCalendarAssignmentsByRunId(ctx, targetRows);
 	const calendarAssignmentsEditedByRunId = new Map(
 		targetRows.map((target) => [
 			target.id,
-			linkedCalendarAssignmentsWereEdited(
+			acceptedDutyRosterRunCalendarAssignmentsWereEdited(
 				toAcceptedDutyRosterTemplateRun(target),
 				linkedRowsByRunId.get(target.id) ?? []
 			)
@@ -394,16 +405,7 @@ export async function invalidateLatestDutyRosterTemplateRun(
 	}
 	let calendarRemoval: { cleared: number };
 	try {
-		calendarRemoval =
-			linkedRows.length > 0
-				? await batchDailyAssignments(ctx, {
-						records: linkedRows.map((assignment) => ({
-							date: assignment.date,
-							assignmentTypeId: assignment.assignment_type_id,
-							assigneeId: ''
-						}))
-					})
-				: { inserted: [], cleared: 0 };
+		calendarRemoval = await removeAcceptedDutyRosterRunLinkedCalendarAssignments(ctx, linkedRows);
 	} catch (error) {
 		for (const updated of updatedRows) {
 			await ctx.store.update<DutyRosterTemplateRunRow>(DUTY_ROSTER_TEMPLATE_RUN_TABLE, ctx.auth.orgId, updated.id, {
@@ -416,14 +418,9 @@ export async function invalidateLatestDutyRosterTemplateRun(
 	}
 
 	for (const updated of updatedRows) {
-		await ctx.audit.log({
-			action: 'duty_roster_template_run.invalidated',
-			resourceType: 'duty_roster_template_run',
-			resourceId: updated.id,
-			details: {
-				removedCalendarAssignments: (linkedRowsByRunId.get(updated.id) ?? []).length,
-				calendarAssignmentsEdited: calendarAssignmentsEditedByRunId.get(updated.id) ?? false
-			}
+		await logAcceptedDutyRosterRunInvalidated(ctx, updated.id, {
+			removedCalendarAssignments: (linkedRowsByRunId.get(updated.id) ?? []).length,
+			calendarAssignmentsEdited: calendarAssignmentsEditedByRunId.get(updated.id) ?? false
 		});
 	}
 
@@ -457,31 +454,6 @@ function assertDutyRosterRunsCanBeInvalidated(rows: DutyRosterTemplateRunRow[], 
 	}
 }
 
-async function loadLinkedCalendarAssignmentRowsByRunId(
-	ctx: WritePorts,
-	rows: DutyRosterTemplateRunRow[]
-): Promise<Map<string, DutyRosterTemplateLinkedCalendarAssignmentRow[]>> {
-	const linkedRowsByRunId = new Map<string, DutyRosterTemplateLinkedCalendarAssignmentRow[]>();
-	for (const row of rows) {
-		linkedRowsByRunId.set(
-			row.id,
-			row.applied_at
-				? await ctx.store.findMany<DutyRosterTemplateLinkedCalendarAssignmentRow>(
-						'daily_assignments',
-						ctx.auth.orgId,
-						{ duty_roster_template_run_id: row.id },
-						{
-							select:
-								'id, duty_roster_template_run_id, duty_roster_template_run_row_date, date, assignment_type_id, assignee_id'
-						}
-					)
-				: []
-		);
-	}
-
-	return linkedRowsByRunId;
-}
-
 async function assertDutyRosterRunsAreInvalidatableAtWriteTime(
 	ctx: WritePorts,
 	input: { templateId: string; targetRunIds: string[]; todayDate: string }
@@ -509,103 +481,37 @@ export async function acceptAndApplyDutyRosterTemplatePreview(
 	const acceptedRun = await insertAcceptedDutyRosterTemplatePreview(ctx, input);
 	let result: DutyRosterTemplateApplyResult;
 	try {
-		result = await applyAcceptedDutyRosterTemplateRunRecord(ctx, acceptedRun, { audit: false });
+		result = await applyAcceptedDutyRosterRunCalendarSync(ctx, acceptedRun, { audit: false });
 	} catch (error) {
-		await rollbackAcceptedDutyRosterTemplateRun(ctx, acceptedRun.id);
+		await tryRollbackAcceptedDutyRosterRunCalendarSync(ctx, acceptedRun.id);
+		await tryRollbackAcceptedDutyRosterTemplateRun(ctx, acceptedRun.id);
 		throw error;
 	}
 
 	await logAcceptedDutyRosterTemplateRun(ctx, acceptedRun.id);
-	await logAppliedDutyRosterTemplateRun(ctx, result.acceptedRun.id, {
+	await logAcceptedDutyRosterRunAppliedToCalendar(ctx, result.acceptedRun.id, {
 		inserted: result.insertedCount,
 		cleared: result.clearedCount
 	});
 	return result;
 }
 
-async function applyAcceptedDutyRosterTemplateRunRecord(
-	ctx: WritePorts,
-	run: DutyRosterTemplateAcceptedRun,
-	options: { audit?: boolean } = {}
-): Promise<DutyRosterTemplateApplyResult> {
-	const result = await batchDailyAssignments(ctx, {
-		records: applyRecordsFromAcceptedRun(run)
-	});
-	const appliedAt = new Date().toISOString();
-	const updated = await ctx.store.update<DutyRosterTemplateRunRow>(
-		DUTY_ROSTER_TEMPLATE_RUN_TABLE,
-		ctx.auth.orgId,
-		run.id,
-		{
-			applied_at: appliedAt,
-			applied_by_user_id: ctx.auth.userId
-		}
-	);
-
-	if (options.audit !== false) {
-		await logAppliedDutyRosterTemplateRun(ctx, run.id, {
-			inserted: result.inserted.length,
-			cleared: result.cleared
-		});
-	}
-
-	return {
-		acceptedRun: toAcceptedDutyRosterTemplateRun(updated),
-		insertedCount: result.inserted.length,
-		clearedCount: result.cleared
-	};
-}
-
-async function logAppliedDutyRosterTemplateRun(
-	ctx: WritePorts,
-	runId: string,
-	details: { inserted: number; cleared: number }
-): Promise<void> {
-	await ctx.audit.log({
-		action: 'duty_roster_template_run.applied_to_calendar',
-		resourceType: 'duty_roster_template_run',
-		resourceId: runId,
-		details
-	});
-}
-
 async function rollbackAcceptedDutyRosterTemplateRun(ctx: WritePorts, runId: string): Promise<void> {
-	await ctx.store.deleteWhere('daily_assignments', ctx.auth.orgId, { duty_roster_template_run_id: runId });
 	await ctx.store.delete(DUTY_ROSTER_TEMPLATE_RUN_TABLE, ctx.auth.orgId, runId);
 }
 
-async function hydrateAcceptedRunCalendarState(
-	ctx: QueryPorts,
-	runs: DutyRosterTemplateAcceptedRun[]
-): Promise<DutyRosterTemplateAcceptedRun[]> {
-	const appliedRunIds = runs.filter((run) => run.appliedAt).map((run) => run.id);
-	if (appliedRunIds.length === 0) {
-		return runs;
+async function tryRollbackAcceptedDutyRosterRunCalendarSync(ctx: WritePorts, runId: string): Promise<void> {
+	try {
+		await rollbackAcceptedDutyRosterRunCalendarSync(ctx, runId);
+	} catch {
+		// Preserve the original apply error; callers still need the primary failure.
 	}
+}
 
-	const rows = await ctx.store.findMany<DutyRosterTemplateLinkedCalendarAssignmentRow>(
-		'daily_assignments',
-		ctx.auth.orgId,
-		{},
-		{
-			inFilters: { duty_roster_template_run_id: appliedRunIds },
-			select:
-				'id, duty_roster_template_run_id, duty_roster_template_run_row_date, date, assignment_type_id, assignee_id'
-		}
-	);
-	const rowsByRunId = new Map<string, DutyRosterTemplateLinkedCalendarAssignmentRow[]>();
-	for (const row of rows) {
-		const runRows = rowsByRunId.get(row.duty_roster_template_run_id) ?? [];
-		runRows.push(row);
-		rowsByRunId.set(row.duty_roster_template_run_id, runRows);
+async function tryRollbackAcceptedDutyRosterTemplateRun(ctx: WritePorts, runId: string): Promise<void> {
+	try {
+		await rollbackAcceptedDutyRosterTemplateRun(ctx, runId);
+	} catch {
+		// Preserve the original apply error; callers still need the primary failure.
 	}
-
-	return runs.map((run) => {
-		const runRows = rowsByRunId.get(run.id) ?? [];
-		return {
-			...run,
-			linkedCalendarAssignmentCount: runRows.length,
-			calendarAssignmentsEdited: linkedCalendarAssignmentsWereEdited(run, runRows)
-		};
-	});
 }

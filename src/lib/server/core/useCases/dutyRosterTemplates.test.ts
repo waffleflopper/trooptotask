@@ -1402,6 +1402,35 @@ describe('Duty Roster Template use cases', () => {
 		expect(dailyAssignmentRows).toHaveLength(1);
 	});
 
+	it('preserves the apply error and removes accepted history when Calendar rollback cleanup fails', async () => {
+		const ctx = createCtx(createAuth({ scopeSet: { kind: 'groups', groupIds: ['alpha'] } }));
+		personnelRows.push(
+			personnelRow({ id: 'alpha', rank: 'SGT', last_name: 'Able', first_name: 'Ann', group_id: 'alpha' })
+		);
+		const template = await createDutyRosterTemplate(ctx, { name: 'CQ NCO', shortCode: 'CQ' });
+		const preview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: template.id,
+			startDate: '2026-06-01',
+			endDate: '2026-06-01'
+		});
+		const insertManySpy = vi.spyOn(store, 'insertMany').mockRejectedValueOnce(new Error('Calendar apply failed.'));
+		const deleteWhereSpy = vi.spyOn(store, 'deleteWhere').mockRejectedValueOnce(new Error('Rollback cleanup failed.'));
+
+		try {
+			await expect(
+				acceptAndApplyDutyRosterTemplatePreview(ctx, {
+					preview: JSON.stringify(preview)
+				})
+			).rejects.toThrow('Calendar apply failed.');
+
+			expect(acceptedRunRows).toHaveLength(0);
+			expect(dailyAssignmentRows).toHaveLength(0);
+		} finally {
+			insertManySpy.mockRestore();
+			deleteWhereSpy.mockRestore();
+		}
+	});
+
 	it('applies an accepted run later from history', async () => {
 		const ctx = createCtx(createAuth({ scopeSet: { kind: 'groups', groupIds: ['alpha'] } }));
 		personnelRows.push(
@@ -1431,6 +1460,48 @@ describe('Duty Roster Template use cases', () => {
 		]);
 	});
 
+	it('rolls back later Calendar apply when marking the accepted run applied fails', async () => {
+		const ctx = createCtx(createAuth({ scopeSet: { kind: 'groups', groupIds: ['alpha'] } }));
+		personnelRows.push(
+			personnelRow({ id: 'alpha', rank: 'SGT', last_name: 'Able', first_name: 'Ann', group_id: 'alpha' })
+		);
+		const template = await createDutyRosterTemplate(ctx, { name: 'CQ NCO', shortCode: 'CQ' });
+		const preview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: template.id,
+			startDate: '2026-06-01',
+			endDate: '2026-06-01'
+		});
+		const accepted = await acceptDutyRosterTemplatePreview(ctx, {
+			preview: JSON.stringify(preview)
+		});
+		const originalUpdate = store.update.bind(store);
+		const updateSpy = vi.spyOn(store, 'update').mockImplementation(async (table, orgId, id, patch) => {
+			if (table === 'duty_roster_template_runs' && id === accepted.id && 'applied_at' in patch) {
+				throw new Error('Apply marker failed.');
+			}
+			return originalUpdate(table, orgId, id, patch);
+		});
+
+		try {
+			await expect(applyAcceptedDutyRosterTemplateRun(ctx, { runId: accepted.id })).rejects.toThrow(
+				'Apply marker failed.'
+			);
+
+			expect(dailyAssignmentRows).toHaveLength(0);
+			expect(acceptedRunRows[0]).toMatchObject({ id: accepted.id });
+			expect(acceptedRunRows[0].applied_at ?? null).toBeNull();
+			expect(acceptedRunRows[0].applied_by_user_id ?? null).toBeNull();
+			expect(auditEvents).not.toContainEqual(
+				expect.objectContaining({
+					action: 'duty_roster_template_run.applied_to_calendar',
+					resourceId: accepted.id
+				})
+			);
+		} finally {
+			updateSpy.mockRestore();
+		}
+	});
+
 	it('re-applies an already applied accepted run when Calendar needs sync', async () => {
 		const ctx = createCtx(createAuth({ scopeSet: { kind: 'groups', groupIds: ['alpha'] } }));
 		personnelRows.push(
@@ -1451,6 +1522,47 @@ describe('Duty Roster Template use cases', () => {
 
 		expect(result.acceptedRun.appliedAt).toEqual(expect.any(String));
 		expect(dailyAssignmentRows).toHaveLength(1);
+	});
+
+	it('does not empty Calendar slots when re-apply fails after replacing linked assignments', async () => {
+		const ctx = createCtx(createAuth({ scopeSet: { kind: 'groups', groupIds: ['alpha'] } }));
+		personnelRows.push(
+			personnelRow({ id: 'alpha', rank: 'SGT', last_name: 'Able', first_name: 'Ann', group_id: 'alpha' })
+		);
+		const template = await createDutyRosterTemplate(ctx, { name: 'CQ NCO', shortCode: 'CQ' });
+		const preview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: template.id,
+			startDate: '2026-06-01',
+			endDate: '2026-06-01'
+		});
+		const accepted = await acceptDutyRosterTemplatePreview(ctx, {
+			preview: JSON.stringify(preview)
+		});
+		await applyAcceptedDutyRosterTemplateRun(ctx, { runId: accepted.id });
+		const originalUpdate = store.update.bind(store);
+		const updateSpy = vi.spyOn(store, 'update').mockImplementation(async (table, orgId, id, patch) => {
+			if (table === 'duty_roster_template_runs' && id === accepted.id && 'applied_at' in patch) {
+				throw new Error('Reapply marker failed.');
+			}
+			return originalUpdate(table, orgId, id, patch);
+		});
+
+		try {
+			await expect(applyAcceptedDutyRosterTemplateRun(ctx, { runId: accepted.id })).rejects.toThrow(
+				'Reapply marker failed.'
+			);
+
+			expect(dailyAssignmentRows).toEqual([
+				expect.objectContaining({
+					date: '2026-06-01',
+					assignment_type_id: template.assignmentTypeId,
+					assignee_id: 'alpha',
+					duty_roster_template_run_id: accepted.id
+				})
+			]);
+		} finally {
+			updateSpy.mockRestore();
+		}
 	});
 
 	it('rejects unsupported accepted snapshot versions before applying a run', async () => {
@@ -2249,6 +2361,53 @@ describe('Duty Roster Template use cases', () => {
 				resourceId: applied.acceptedRun.id
 			})
 		);
+	});
+
+	it('rolls back invalidation state when linked Calendar assignment cleanup fails', async () => {
+		const ctx = createCtx(createAuth({ scopeSet: { kind: 'groups', groupIds: ['alpha'] } }));
+		personnelRows.push(
+			personnelRow({ id: 'alpha', rank: 'SGT', last_name: 'Able', first_name: 'Ann', group_id: 'alpha' })
+		);
+		const template = await createDutyRosterTemplate(ctx, { name: 'CQ NCO', shortCode: 'CQ' });
+		const preview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: template.id,
+			startDate: '2026-06-01',
+			endDate: '2026-06-01'
+		});
+		const applied = await acceptAndApplyDutyRosterTemplatePreview(ctx, {
+			preview: JSON.stringify(preview)
+		});
+		const deleteWhereAnySpy = vi
+			.spyOn(store, 'deleteWhereAny')
+			.mockRejectedValueOnce(new Error('Calendar cleanup failed.'));
+
+		await expect(invalidateLatestDutyRosterTemplateRun(ctx, { runId: applied.acceptedRun.id })).rejects.toThrow(
+			'Calendar cleanup failed.'
+		);
+
+		expect(acceptedRunRows).toEqual([
+			expect.objectContaining({
+				id: applied.acceptedRun.id,
+				status: 'accepted',
+				invalidated_at: null,
+				invalidated_by_user_id: null
+			})
+		]);
+		expect(dailyAssignmentRows).toEqual([
+			expect.objectContaining({
+				date: '2026-06-01',
+				assignment_type_id: template.assignmentTypeId,
+				assignee_id: 'alpha',
+				duty_roster_template_run_id: applied.acceptedRun.id
+			})
+		]);
+		expect(auditEvents).not.toContainEqual(
+			expect.objectContaining({
+				action: 'duty_roster_template_run.invalidated',
+				resourceId: applied.acceptedRun.id
+			})
+		);
+		deleteWhereAnySpy.mockRestore();
 	});
 
 	it('uses accepted runs, not Manual DA6 Baseline, as the future preview count source', async () => {

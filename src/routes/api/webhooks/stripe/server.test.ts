@@ -1485,6 +1485,71 @@ describe('POST /api/webhooks/stripe', () => {
 		expect(invalidateTierCacheMock).toHaveBeenCalledWith('org-1');
 	});
 
+	it('keeps current billing fields stable when invoice paid arrives for an active subscription', async () => {
+		const supabase = createWebhookSupabaseStub({
+			existingBillingSnapshot: {
+				organization_id: 'org-1',
+				commercial_plan: 'team',
+				stripe_customer_id: 'cus_123',
+				stripe_subscription_id: 'sub_123',
+				stripe_product_id: 'prod_team',
+				stripe_price_id: 'price_team',
+				subscription_status: 'active',
+				collection_status: 'current',
+				cancel_at_period_end: true,
+				cancellation_reason: 'cancellation_requested',
+				cancellation_feedback: 'too_expensive',
+				current_period_start: '2026-12-15T08:00:00.000Z',
+				current_period_end: '2027-01-15T08:00:00.000Z',
+				last_stripe_event_created_at: null
+			}
+		});
+		getAdminClientMock.mockReturnValue(supabase.client);
+
+		const response = await postWebhook({
+			id: 'evt_invoice_paid',
+			type: 'invoice.paid',
+			created: 1,
+			data: {
+				object: {
+					id: 'in_123',
+					parent: {
+						subscription_details: {
+							subscription: 'sub_123'
+						}
+					}
+				}
+			}
+		});
+
+		expect(response.status).toBe(200);
+		expect(supabase.billingSnapshotUpserts).toContainEqual(
+			expect.objectContaining({
+				organization_id: 'org-1',
+				commercial_plan: 'team',
+				subscription_status: 'active',
+				collection_status: 'current',
+				cancel_at_period_end: true,
+				cancellation_reason: 'cancellation_requested',
+				cancellation_feedback: 'too_expensive',
+				current_period_start: '2026-12-15T08:00:00.000Z',
+				current_period_end: '2027-01-15T08:00:00.000Z',
+				last_stripe_event_id: 'evt_invoice_paid'
+			})
+		);
+		expect(supabase.orgUpdates).toContainEqual(
+			expect.objectContaining({
+				value: 'org-1',
+				values: expect.objectContaining({
+					tier: 'team',
+					subscription_status: 'active',
+					current_period_end: '2027-01-15T08:00:00.000Z'
+				})
+			})
+		);
+		expect(invalidateTierCacheMock).toHaveBeenCalledWith('org-1');
+	});
+
 	it('marks payment failures retryable when the subscription is not linked to an organization yet', async () => {
 		const supabase = createWebhookSupabaseStub();
 		getAdminClientMock.mockReturnValue(supabase.client);

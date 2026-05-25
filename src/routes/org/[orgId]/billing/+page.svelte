@@ -894,7 +894,7 @@
 			<Card.Content class="grid gap-4">
 				<div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
 					{#each planUsageSummary.rows as row (row.dimension)}
-						<div class="grid gap-2 rounded-md border bg-muted/30 p-3">
+						<div class="grid gap-2 rounded-md bg-muted/40 p-3">
 							<div class="flex items-start justify-between gap-2">
 								<p class="text-sm font-medium">{row.label}</p>
 								<Badge variant={usageStatusVariant(row.status)}>{usageStatusLabel(row.status)}</Badge>
@@ -1184,7 +1184,7 @@
 						</ul>
 
 						{#if downgradePreview}
-							<div class="grid gap-3 rounded-md border bg-muted/30 p-3">
+							<div class="grid gap-3 rounded-md bg-muted/40 p-3">
 								<div class="flex flex-wrap items-center justify-between gap-2">
 									<p class="text-sm font-medium">Downgrade preview</p>
 									<Badge variant={downgradePreview.status === 'blocked' ? 'warning' : 'success'}>

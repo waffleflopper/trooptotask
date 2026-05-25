@@ -162,7 +162,8 @@ describe('billing success page server load', () => {
 
 		await expect(
 			_loadCheckoutSuccessPageData(ctx, {
-				checkoutAttemptId: 'attempt-success-return'
+				checkoutAttemptId: 'attempt-success-return',
+				recoverCheckoutSuccess: vi.fn().mockResolvedValue(false)
 			})
 		).resolves.toEqual({
 			orgId: 'org-1',
@@ -171,6 +172,43 @@ describe('billing success page server load', () => {
 				title: 'Checkout Received'
 			})
 		});
+	});
+
+	it('recovers completed provider checkout before reporting success status', async () => {
+		const ctx = createTestContext({
+			auth: {
+				orgId: 'org-1'
+			}
+		});
+		ctx.rawStore.seed(CHECKOUT_ATTEMPTS_TABLE, [attempt() as unknown as Record<string, unknown>]);
+		readCurrentBillingSnapshotMock
+			.mockResolvedValueOnce(
+				snapshot({ commercialPlan: 'free', subscriptionStatus: null, syncStatus: 'not_configured' })
+			)
+			.mockResolvedValueOnce(snapshot());
+		const recoverCheckoutSuccess = vi.fn().mockResolvedValue(true);
+
+		await expect(
+			_loadCheckoutSuccessPageData(ctx, {
+				checkoutAttemptId: 'attempt-success-return',
+				recoverCheckoutSuccess
+			})
+		).resolves.toEqual({
+			orgId: 'org-1',
+			checkoutStatus: expect.objectContaining({
+				state: 'active',
+				title: 'Plan Active'
+			})
+		});
+		expect(recoverCheckoutSuccess).toHaveBeenCalledWith(
+			ctx,
+			expect.objectContaining({
+				checkoutAttempt: expect.objectContaining({
+					id: 'attempt-success-return',
+					stripe_checkout_session_id: 'cs_success'
+				})
+			})
+		);
 	});
 
 	it('ignores blank checkout attempt ids while still reading local billing state', async () => {

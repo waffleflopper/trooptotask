@@ -115,6 +115,29 @@ export async function expireCheckoutSession(sessionId: string): Promise<void> {
 	await stripe.checkout.sessions.expire(sessionId);
 }
 
+export interface CheckoutSessionRecoveryDetails {
+	id: string;
+	status: Stripe.Checkout.Session['status'] | null;
+	paymentStatus: Stripe.Checkout.Session['payment_status'] | null;
+	customerId: string | null;
+	subscriptionId: string | null;
+	metadata: Stripe.Metadata | null;
+}
+
+export async function retrieveCheckoutSessionForRecovery(sessionId: string): Promise<CheckoutSessionRecoveryDetails> {
+	const stripe = getStripe();
+	const session = await stripe.checkout.sessions.retrieve(sessionId);
+	return {
+		id: session.id,
+		status: session.status,
+		paymentStatus: session.payment_status,
+		customerId: typeof session.customer === 'string' ? session.customer : (session.customer?.id ?? null),
+		subscriptionId:
+			typeof session.subscription === 'string' ? session.subscription : (session.subscription?.id ?? null),
+		metadata: session.metadata ?? null
+	};
+}
+
 export async function pauseSubscription(subscriptionId: string): Promise<void> {
 	const stripe = getStripe();
 	await stripe.subscriptions.update(subscriptionId, {

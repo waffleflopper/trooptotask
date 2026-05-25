@@ -139,6 +139,25 @@ export async function markCheckoutAttemptFailed(
 	});
 }
 
+export async function markCheckoutAttemptCompleted(
+	store: DataStore,
+	orgId: string,
+	attemptId: string,
+	now: Date
+): Promise<CheckoutAttemptRow | null> {
+	const attempt = await store.findOne<CheckoutAttemptRow>(CHECKOUT_ATTEMPTS_TABLE, orgId, {
+		id: attemptId,
+		status: 'in_progress'
+	});
+	if (!attempt) return null;
+
+	return store.update<CheckoutAttemptRow>(CHECKOUT_ATTEMPTS_TABLE, orgId, attemptId, {
+		status: 'completed',
+		completed_at: now.toISOString(),
+		updated_at: now.toISOString()
+	});
+}
+
 export async function markCheckoutAttemptCanceled(
 	store: DataStore,
 	orgId: string,

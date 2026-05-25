@@ -8,10 +8,10 @@ export async function _loadCanceledCheckoutPageData(
 	input: { checkoutAttemptId: string | null; now?: Date }
 ) {
 	const checkoutAttemptId = input.checkoutAttemptId?.trim();
-	if (!checkoutAttemptId) return {};
+	if (!checkoutAttemptId) return { orgId: ctx.auth.orgId };
 
 	await markCheckoutAttemptCanceled(ctx.rawStore, ctx.auth.orgId, checkoutAttemptId, input.now ?? new Date());
-	return {};
+	return { orgId: ctx.auth.orgId };
 }
 
 export const load: PageServerLoad = async ({ params, locals, cookies, url }) =>

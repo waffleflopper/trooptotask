@@ -33,10 +33,12 @@ describe('billing canceled page server load', () => {
 		seedAttempt(ctx);
 		const now = new Date('2026-05-24T10:00:00.000Z');
 
-		await _loadCanceledCheckoutPageData(ctx, {
-			checkoutAttemptId: 'attempt-canceled-return',
-			now
-		});
+		await expect(
+			_loadCanceledCheckoutPageData(ctx, {
+				checkoutAttemptId: 'attempt-canceled-return',
+				now
+			})
+		).resolves.toEqual({ orgId: ctx.auth.orgId });
 
 		await expect(
 			ctx.rawStore.findOne<CheckoutAttemptRow>(CHECKOUT_ATTEMPTS_TABLE, ctx.auth.orgId, {
@@ -80,6 +82,6 @@ describe('billing canceled page server load', () => {
 				checkoutAttemptId: null,
 				now: new Date('2026-05-24T10:00:00.000Z')
 			})
-		).resolves.toEqual({});
+		).resolves.toEqual({ orgId: ctx.auth.orgId });
 	});
 });

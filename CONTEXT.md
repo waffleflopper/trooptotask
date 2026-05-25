@@ -54,6 +54,10 @@ _Avoid_: Admin page, raw settings load, member-management route
 An **Organization**-scoped export of operational data for leader review, backup, or migration support. The export may include readable review sheets and raw archive sheets, but it is not itself a **Feature Lane** and should not own feature-specific business rules.
 _Avoid_: Feature export, database dump, generic spreadsheet
 
+**Organization Data Export Execution**:
+The server-side workflow that enforces export quota, starts and completes the export lifecycle record, marks failed exports, records export audit events, notifies organization admins, and hands an export artifact back to the route for response formatting. It does not decide which tables, workbook sheets, or feature-specific rows belong in the **Organization Data Export**.
+_Avoid_: Workbook builder, export manifest, route response formatting, feature export rules
+
 ### People And Roster
 
 **Personnel Record**:

@@ -39,6 +39,33 @@ describe('createDefaultHydrationPlanner', () => {
 		expect(firstPlan?.calendarAssignments?.snapshotKey).toBe(secondPlan?.calendarAssignments?.snapshotKey);
 	});
 
+	it('uses range bounds in the calendar assignment snapshot key', () => {
+		const planner = createDefaultHydrationPlanner('org-1');
+		const dailyAssignments: DailyAssignment[] = [
+			{
+				id: 'da1',
+				date: '2024-01-01',
+				assignmentTypeId: 'at1',
+				assigneeId: 'p1'
+			}
+		];
+
+		const firstPlan = planner.createPlan('calendar', {
+			assignmentTypes,
+			dailyAssignments,
+			rangeStart: '2024-01-01',
+			rangeEnd: '2024-01-31'
+		});
+		const secondPlan = planner.createPlan('calendar', {
+			assignmentTypes,
+			dailyAssignments,
+			rangeStart: '2024-02-01',
+			rangeEnd: '2024-02-29'
+		});
+
+		expect(firstPlan?.calendarAssignments?.snapshotKey).not.toBe(secondPlan?.calendarAssignments?.snapshotKey);
+	});
+
 	it('reuses the same dashboard assignment snapshot key when the deferred assignment input is unchanged', () => {
 		const planner = createDefaultHydrationPlanner('org-1');
 		const deferredAssignments = Promise.resolve([

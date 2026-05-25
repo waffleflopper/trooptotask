@@ -112,12 +112,14 @@ describe('calendar layout server load', () => {
 					items: specialDays,
 					snapshotKey: expect.any(String)
 				},
-				calendarAssignments: {
+				calendarAssignments: expect.objectContaining({
 					mode: 'merge',
 					deferred: true,
 					items: expect.any(Promise),
-					snapshotKey: expect.any(String)
-				}
+					snapshotKey: expect.any(String),
+					rangeStart: '2024-01-01',
+					rangeEnd: '2024-01-31'
+				})
 			})
 		} satisfies WorkspaceBootstrap<CalendarBootstrap>);
 	});

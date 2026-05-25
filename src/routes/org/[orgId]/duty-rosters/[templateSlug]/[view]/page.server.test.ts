@@ -427,7 +427,33 @@ describe('Duty Roster Template view route', () => {
 		});
 
 		expect(applyAcceptedDutyRosterTemplateRunMock).toHaveBeenCalledWith(mockCtx, {
-			runId: 'run-1'
+			runId: 'run-1',
+			calendarSyncPlanToken: null
+		});
+	});
+
+	it('passes the reviewed Calendar sync plan token when re-applying an accepted run', async () => {
+		const request = new Request('http://localhost', {
+			method: 'POST',
+			body: new URLSearchParams({
+				runId: 'run-1',
+				calendarSyncPlanToken: 'reviewed-token'
+			})
+		});
+
+		await expect(
+			actions.applyAcceptedRun({
+				request,
+				params: { orgId: 'org-1', templateSlug: 'cq-nco' }
+			} as never)
+		).rejects.toMatchObject({
+			status: 303,
+			location: '/org/org-1/duty-rosters/cq-nco/history/run-1'
+		});
+
+		expect(applyAcceptedDutyRosterTemplateRunMock).toHaveBeenCalledWith(mockCtx, {
+			runId: 'run-1',
+			calendarSyncPlanToken: 'reviewed-token'
 		});
 	});
 

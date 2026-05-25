@@ -219,7 +219,8 @@ export const actions: Actions = {
 		try {
 			const ctx = await buildRouteContext(event);
 			await applyAcceptedDutyRosterTemplateRun(ctx, {
-				runId
+				runId,
+				calendarSyncPlanToken: String(formData.get('calendarSyncPlanToken') ?? '') || null
 			});
 		} catch (errorValue) {
 			return actionError(errorValue, {

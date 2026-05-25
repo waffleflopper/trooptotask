@@ -96,6 +96,11 @@ describe('calendarRangeLoader', () => {
 	});
 
 	it('merges ranged calendar data into the existing org-scoped stores', () => {
+		dailyAssignmentsStoreMock.assignments = [
+			{ id: 'stale-in-range', date: '2026-03-15', assignmentTypeId: 'at1', assigneeId: 'p1' },
+			{ id: 'kept-out-of-range', date: '2026-02-15', assignmentTypeId: 'at1', assigneeId: 'p1' }
+		];
+
 		mergeCalendarRangeIntoStores('org-1', {
 			rangeStart: '2026-03-01',
 			rangeEnd: '2026-06-30',
@@ -139,7 +144,7 @@ describe('calendarRangeLoader', () => {
 		expect(dailyAssignmentsStoreMock.load).toHaveBeenCalledWith(
 			dailyAssignmentsStoreMock.types,
 			[
-				{ id: 'da1', date: '2026-03-01', assignmentTypeId: 'at1', assigneeId: 'p1' },
+				{ id: 'kept-out-of-range', date: '2026-02-15', assignmentTypeId: 'at1', assigneeId: 'p1' },
 				{ id: 'da2', date: '2026-06-10', assignmentTypeId: 'at1', assigneeId: 'p2' }
 			],
 			'org-1'

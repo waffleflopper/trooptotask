@@ -77,17 +77,24 @@ function createCalendarAssignmentsItems(
 function createCalendarAssignmentsTarget(
 	assignmentTypes: AssignmentType[] | Promise<AssignmentType[]>,
 	assignmentEntries: DailyAssignment[] | Promise<DailyAssignment[]>,
-	mode: 'replace' | 'merge' = 'replace'
+	mode: 'replace' | 'merge' = 'replace',
+	range?: { rangeStart?: string; rangeEnd?: string }
 ) {
 	const items = createCalendarAssignmentsItems(assignmentTypes, assignmentEntries);
+	const rangeStart = range?.rangeStart;
+	const rangeEnd = range?.rangeEnd;
 
 	return {
 		mode,
 		deferred: isPromiseLike(items),
 		snapshotKey: createCompositeSnapshotKey({
 			assignmentTypes,
-			assignmentEntries
+			assignmentEntries,
+			rangeStart: rangeStart ?? null,
+			rangeEnd: rangeEnd ?? null
 		}),
+		rangeStart,
+		rangeEnd,
 		items
 	};
 }
@@ -199,7 +206,11 @@ export function createDefaultHydrationPlanner(orgId: string): HydrationPlannerPo
 				plan.calendarAssignments = createCalendarAssignmentsTarget(
 					d.assignmentTypes as AssignmentType[] | Promise<AssignmentType[]>,
 					assignmentEntries as DailyAssignment[] | Promise<DailyAssignment[]>,
-					dateRangeHydrationMode
+					dateRangeHydrationMode,
+					{
+						rangeStart: typeof d.rangeStart === 'string' ? d.rangeStart : undefined,
+						rangeEnd: typeof d.rangeEnd === 'string' ? d.rangeEnd : undefined
+					}
 				);
 			}
 

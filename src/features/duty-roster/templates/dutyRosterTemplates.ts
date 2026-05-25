@@ -139,9 +139,46 @@ export interface DutyRosterTemplateAcceptedRun {
 	invalidatedByUserId: string | null;
 	linkedCalendarAssignmentCount: number;
 	calendarAssignmentsEdited: boolean;
+	calendarSyncState?: AcceptedDutyRosterRunCalendarSyncState | null;
 	corrections: DutyRosterTemplateRunCorrection[];
 	snapshotPayload: Record<string, unknown>;
 	createdAt: string;
+}
+
+export type AcceptedDutyRosterRunCalendarSyncStatus =
+	| 'not-applied'
+	| 'in-sync'
+	| 'duty-roster-newer'
+	| 'calendar-manually-changed'
+	| 'needs-review';
+
+export interface AcceptedDutyRosterRunCalendarSyncPlanChange {
+	id: string;
+	date: string;
+	sourceRowKey: string;
+	assignmentTypeId: string;
+	action: 'create' | 'update' | 'clear';
+	currentAssignmentTypeId?: string | null;
+	currentAssigneeId: string | null;
+	currentAssigneeLabel: string | null;
+	currentSourceLineage?: { sourceKind: 'duty-roster-run'; sourceId: string; sourceRowKey: string } | null;
+	plannedAssigneeId: string | null;
+	plannedAssigneeLabel: string | null;
+	reason: string;
+	correctionReason?: string | null;
+}
+
+export interface AcceptedDutyRosterRunCalendarSyncPlan {
+	token: string;
+	changes: AcceptedDutyRosterRunCalendarSyncPlanChange[];
+}
+
+export interface AcceptedDutyRosterRunCalendarSyncState {
+	status: AcceptedDutyRosterRunCalendarSyncStatus;
+	label: string;
+	summary: string;
+	plan: AcceptedDutyRosterRunCalendarSyncPlan;
+	invalidationRemovalSummary: string | null;
 }
 
 export interface DutyRosterTemplateRunCorrection {

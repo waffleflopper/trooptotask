@@ -79,15 +79,26 @@ function mergeCalendarAssignments(
 	store: CalendarAssignmentsLoadable,
 	items: CalendarAssignmentsHydrationItems,
 	orgId: string,
-	mode: string
+	target: CalendarAssignmentsHydrationTarget
 ): CalendarAssignmentsHydrationItems {
-	if (mode !== 'merge' || store.orgId !== orgId) {
+	if (target.mode !== 'merge' || store.orgId !== orgId) {
 		return items;
 	}
 
+	const existingAssignments = store.assignments ?? [];
+	const assignments =
+		target.rangeStart && target.rangeEnd
+			? mergeById(
+					existingAssignments.filter(
+						(assignment) => assignment.date < target.rangeStart! || assignment.date > target.rangeEnd!
+					),
+					items.assignments
+				)
+			: mergeById(existingAssignments, items.assignments);
+
 	return {
 		types: items.types,
-		assignments: mergeById(store.assignments ?? [], items.assignments)
+		assignments
 	};
 }
 
@@ -161,7 +172,7 @@ export function createOrgShellHydrationCoordinator(): OrgShellHydrationCoordinat
 				const items = await target.items;
 				const latestPending = pendingSnapshotKeys.get(targetName);
 				if (latestPending?.orgId !== orgId || latestPending.snapshotKey !== target.snapshotKey) return;
-				const mergedItems = mergeCalendarAssignments(store, items, orgId, target.mode);
+				const mergedItems = mergeCalendarAssignments(store, items, orgId, target);
 				store.load(mergedItems.types, mergedItems.assignments, orgId);
 				pendingSnapshotKeys.delete(targetName);
 				appliedSnapshotKeys.set(targetName, { orgId, snapshotKey: target.snapshotKey });
@@ -173,7 +184,7 @@ export function createOrgShellHydrationCoordinator(): OrgShellHydrationCoordinat
 			}
 		}
 
-		const mergedItems = mergeCalendarAssignments(store, target.items, orgId, target.mode);
+		const mergedItems = mergeCalendarAssignments(store, target.items, orgId, target);
 		store.load(mergedItems.types, mergedItems.assignments, orgId);
 		pendingSnapshotKeys.delete(targetName);
 		appliedSnapshotKeys.set(targetName, { orgId, snapshotKey: target.snapshotKey });

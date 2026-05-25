@@ -81,16 +81,20 @@ function createCalendarAssignmentsTarget(
 	range?: { rangeStart?: string; rangeEnd?: string }
 ) {
 	const items = createCalendarAssignmentsItems(assignmentTypes, assignmentEntries);
+	const rangeStart = range?.rangeStart;
+	const rangeEnd = range?.rangeEnd;
 
 	return {
 		mode,
 		deferred: isPromiseLike(items),
 		snapshotKey: createCompositeSnapshotKey({
 			assignmentTypes,
-			assignmentEntries
+			assignmentEntries,
+			rangeStart: rangeStart ?? null,
+			rangeEnd: rangeEnd ?? null
 		}),
-		rangeStart: range?.rangeStart,
-		rangeEnd: range?.rangeEnd,
+		rangeStart,
+		rangeEnd,
 		items
 	};
 }

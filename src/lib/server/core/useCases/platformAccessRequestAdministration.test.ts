@@ -187,7 +187,8 @@ describe('Platform Access Request Administration', () => {
 						id: 'outbox-delivery-failed',
 						setup_link_id: 'link-delivery-failed',
 						status: 'failed',
-						last_error: 'mail provider unavailable',
+						last_error:
+							'mail provider failed https://app.example.test/auth/setup-account?token=secret-token token=secret-token 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
 						sent_at: null
 					})
 				]
@@ -285,8 +286,12 @@ describe('Platform Access Request Administration', () => {
 			setup_state_label: 'Revoked by cleanup',
 			setup_link_revocation_reason: 'cleanup'
 		});
-		expect(JSON.stringify(result)).not.toContain('token=');
+		expect(JSON.stringify(result)).not.toContain('token=secret-token');
+		expect(JSON.stringify(result)).not.toContain('secret-token');
 		expect(JSON.stringify(result)).not.toContain('/auth/setup-account');
+		expect(reviewedById['delivery-failed'].setup_delivery_last_error).toBe(
+			'mail provider failed [redacted setup url] token=[redacted] [redacted hash]'
+		);
 	});
 
 	it('includes organization invitation origin context in the admin list model', async () => {
@@ -604,6 +609,44 @@ describe('Platform Access Request Administration', () => {
 				details: { blockedInvitationCount: 1 }
 			})
 		);
+	});
+
+	it('does not log blocked invitation email when governor notification fails', async () => {
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+		const notificationError = new Error('notification unavailable');
+		const { admin } = makeDeps({
+			store: makeStore({
+				rejectPendingAccessRequestAndBlockLinkedInvitations: vi.fn().mockResolvedValue({
+					status: 'rejected',
+					blockedInvitations: [
+						{
+							id: 'invite-1',
+							organizationId: 'org-1',
+							email: 'invitee@example.com',
+							blockedAt: '2026-05-22T12:00:00.000Z'
+						}
+					]
+				})
+			}),
+			notifyGovernors: {
+				notifyInvitationBlocked: vi.fn().mockRejectedValue(notificationError)
+			}
+		});
+
+		try {
+			const result = await admin.reject({ accessRequestId: 'request-1', actorUserId: 'admin-1' });
+
+			expect(result).toEqual({ status: 'rejected' });
+			expect(consoleError).toHaveBeenCalledWith('[platform-access-request-administration]', {
+				status: 'blocked-invitation-notification-failed',
+				organizationId: 'org-1',
+				invitationId: 'invite-1',
+				error: notificationError
+			});
+			expect(JSON.stringify(consoleError.mock.calls)).not.toContain('invitee@example.com');
+		} finally {
+			consoleError.mockRestore();
+		}
 	});
 
 	it('requires sensitive-action authorization before rejecting or blocking linked invitations', async () => {

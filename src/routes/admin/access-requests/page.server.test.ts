@@ -73,6 +73,19 @@ describe('admin access request route shell', () => {
 		);
 	});
 
+	it('propagates Platform Access Request Administration list failures from load', async () => {
+		administrationMock.list.mockRejectedValueOnce(new Error('boom'));
+
+		await expect(
+			load({
+				__ctx: makeContext()
+			} as unknown as Parameters<typeof load>[0])
+		).rejects.toThrow('boom');
+		expect(createAdministrationMock).toHaveBeenCalledWith(
+			expect.objectContaining({ adminUser: { id: 'admin-1', role: 'super_admin' } })
+		);
+	});
+
 	it('parses approve form data and maps a sent result to the current success shape', async () => {
 		const result = await actions.approve({
 			__ctx: makeContext(),
@@ -189,5 +202,72 @@ describe('admin access request route shell', () => {
 				stepUpPath: '/auth/mfa-verify'
 			}
 		});
+	});
+
+	it('maps route-only setup command states to their HTTP failure shapes', async () => {
+		const cases = [
+			{
+				name: 'rate_limited',
+				mock: administrationMock.approve,
+				result: {
+					status: 'rate_limited' as const,
+					message: 'Too many setup email attempts. Try again in 60 seconds.',
+					retryAfterSeconds: 60
+				},
+				run: () =>
+					actions.approve({
+						__ctx: makeContext(),
+						request: makeRequest({ requestId: 'request-1' }),
+						url: new URL('http://localhost/admin/access-requests')
+					} as unknown as Parameters<(typeof actions)['approve']>[0]),
+				expected: {
+					status: 429,
+					data: {
+						error: 'Too many setup email attempts. Try again in 60 seconds.',
+						retryAfterSeconds: 60
+					}
+				}
+			},
+			{
+				name: 'setup_completed',
+				mock: administrationMock.resendSetup,
+				result: { status: 'setup_completed' as const },
+				run: () =>
+					actions.resend({
+						__ctx: makeContext(),
+						request: makeRequest({ requestId: 'request-1' }),
+						url: new URL('http://localhost/admin/access-requests')
+					} as unknown as Parameters<(typeof actions)['resend']>[0]),
+				expected: {
+					status: 400,
+					data: {
+						error: 'This user has already completed account setup. They can sign in or use reset password if needed.'
+					}
+				}
+			},
+			{
+				name: 'concurrent_create',
+				mock: administrationMock.approve,
+				result: { status: 'concurrent_create' as const },
+				run: () =>
+					actions.approve({
+						__ctx: makeContext(),
+						request: makeRequest({ requestId: 'request-1' }),
+						url: new URL('http://localhost/admin/access-requests')
+					} as unknown as Parameters<(typeof actions)['approve']>[0]),
+				expected: {
+					status: 409,
+					data: {
+						error:
+							'Another setup link is being created for this request. Refresh and try again if a fresh link does not appear.'
+					}
+				}
+			}
+		];
+
+		for (const testCase of cases) {
+			testCase.mock.mockResolvedValueOnce(testCase.result);
+			await expect(testCase.run(), testCase.name).resolves.toEqual(testCase.expected);
+		}
 	});
 });

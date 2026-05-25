@@ -285,7 +285,8 @@ function resolveSetupState(
 		setup_delivery_id: latestDelivery?.id ?? null,
 		setup_delivery_status: latestDelivery?.status ?? null,
 		setup_delivery_attempt_count: latestDelivery?.attempt_count ?? 0,
-		setup_delivery_last_error: latestDelivery?.last_error ?? null,
+		setup_delivery_last_error:
+			latestDelivery?.last_error == null ? null : redactProviderError(latestDelivery.last_error),
 		setup_delivery_updated_at: latestDelivery?.updated_at ?? null,
 		setup_delivery_sent_at: latestDelivery?.sent_at ?? null
 	};
@@ -447,9 +448,11 @@ function redactProviderError(error: unknown): string {
 	const message =
 		error instanceof Error && error.message
 			? error.message
-			: typeof error === 'object' && error && 'message' in error && typeof error.message === 'string'
-				? error.message
-				: 'Provider operation failed';
+			: typeof error === 'string' && error
+				? error
+				: typeof error === 'object' && error && 'message' in error && typeof error.message === 'string'
+					? error.message
+					: 'Provider operation failed';
 
 	return message
 		.replace(/https?:\/\/[^\s"'<>]+\/auth\/setup-account\?token=[^\s"'<>]+/gi, '[redacted setup url]')
@@ -498,7 +501,7 @@ async function notifyGovernorsOfBlockedInvitations(input: {
 			console.error('[platform-access-request-administration]', {
 				status: 'blocked-invitation-notification-failed',
 				organizationId: invitation.organizationId,
-				email: invitation.email,
+				invitationId: invitation.id,
 				error
 			});
 		}

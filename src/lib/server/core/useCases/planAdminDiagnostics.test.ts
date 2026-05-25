@@ -82,7 +82,7 @@ describe('plan admin diagnostics', () => {
 			commercialPlan: 'team',
 			tier: 'team',
 			source: 'billing_snapshot',
-			sourceLabel: 'Stripe-backed billing',
+			sourceLabel: 'Local billing snapshot',
 			billingSource: 'stripe',
 			giftTier: null,
 			giftExpiresAt: null
@@ -97,7 +97,7 @@ describe('plan admin diagnostics', () => {
 				expect.objectContaining({
 					dimension: 'billing_state',
 					label: 'Billing state',
-					sourceLabel: 'Stripe-backed billing'
+					sourceLabel: 'Local billing snapshot'
 				})
 			]
 		});
@@ -142,7 +142,7 @@ describe('plan admin diagnostics', () => {
 					key: 'bulk_export_unlimited',
 					label: 'Unlimited bulk exports',
 					available: true,
-					sourceLabel: 'Stripe-backed billing'
+					sourceLabel: 'Paid plan'
 				}),
 				expect.objectContaining({
 					key: 'advanced_reporting',

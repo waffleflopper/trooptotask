@@ -28,6 +28,10 @@ function sanitizeBillingReconciliationDiagnostic(value: unknown): string {
 	return message
 		.replace(/[sr]k_(live|test)_[A-Za-z0-9_]+/g, '[redacted_stripe_key]')
 		.replace(/whsec_\S+/g, '[redacted_webhook_secret]')
+		.replace(
+			/stripe-signature\s*[:=]\s*\S+?([.,;:!?)])?(?=\s|$)/gi,
+			(_match, punctuation: string | undefined) => `stripe-signature=[redacted]${punctuation ?? ''}`
+		)
 		.replace(/bearer\s+\S+/gi, 'bearer [redacted]');
 }
 
@@ -504,6 +508,7 @@ export const actions: Actions = {
 
 	reconcileBilling: adminAction({
 		page: 'organizations',
+		requiredRole: 'super_admin',
 		fn: async (ctx, event) => {
 			const orgId = event.params.orgId as string;
 			if (!validateUUID(orgId)) return fail(400, { error: { message: 'Invalid organization ID' } });
@@ -516,6 +521,7 @@ export const actions: Actions = {
 				priceCatalog: getConfiguredPriceCatalog()
 			});
 			const diagnostics = result.diagnostics.map(sanitizeBillingReconciliationDiagnostic);
+			const safeResult = sanitizeBillingReconciliationDiagnostic(result.result);
 
 			ctx.audit({
 				action: 'admin.org.billing_reconcile',
@@ -524,7 +530,7 @@ export const actions: Actions = {
 				severity: result.ok ? 'info' : 'warning',
 				details: {
 					status: result.status,
-					result: result.result,
+					result: safeResult,
 					driftDetected: result.driftDetected,
 					snapshotUpdated: result.snapshotUpdated,
 					diagnostics
@@ -535,7 +541,7 @@ export const actions: Actions = {
 				return fail(400, {
 					billingReconciliation: {
 						success: false,
-						message: result.result,
+						message: safeResult,
 						diagnostics
 					}
 				});

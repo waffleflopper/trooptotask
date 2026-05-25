@@ -59,7 +59,7 @@ function policySourceLabel(source: PlanPolicySource): string {
 		case 'billing_disabled_fallback':
 			return 'Billing-disabled fallback';
 		case 'billing_snapshot':
-			return 'Stripe-backed billing';
+			return 'Local billing snapshot';
 		case 'legacy_organization':
 			return 'Base plan';
 	}
@@ -76,7 +76,7 @@ function entitlementSourceLabel(source: PlanFeatureEntitlement['source']): strin
 		case 'feature_override':
 			return 'Feature override';
 		case 'stripe_billing':
-			return 'Stripe-backed billing';
+			return 'Paid plan';
 	}
 }
 

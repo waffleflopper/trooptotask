@@ -46,6 +46,16 @@ function createSnapshotAdminClient(
 				};
 
 	return {
+		rpc: async (functionName: string, params: Record<string, unknown>) => {
+			if (functionName !== 'upsert_organization_billing_snapshot_if_current') {
+				throw new Error(`unexpected rpc ${functionName}`);
+			}
+			snapshotUpserts.push({
+				values: params.p_snapshot as Record<string, unknown>,
+				options: { onConflict: 'organization_id' }
+			});
+			return { data: true, error: null };
+		},
 		from: (table: string) => {
 			if (table === 'organization_billing_snapshots') {
 				return {

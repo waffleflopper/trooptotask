@@ -34,6 +34,12 @@ function toWorkbookBuffer(buffer: ArrayBuffer): WorkbookLoadBuffer {
 	return Buffer.from(buffer) as unknown as WorkbookLoadBuffer;
 }
 
+function readyWorkbookBuffer(result: Awaited<ReturnType<(typeof _postConfig)['fn']>>): ArrayBuffer {
+	expect(result.status).toBe('ready');
+	if (result.status !== 'ready') throw new Error('Expected export to be ready');
+	return result.artifact.buffer;
+}
+
 function billingSnapshot(overrides: Record<string, unknown> = {}) {
 	return {
 		id: 'snapshot-1',
@@ -202,7 +208,7 @@ describe('POST /api/export-excel', () => {
 		const response = _postConfig.formatOutput?.(result);
 
 		const workbook = new ExcelJS.Workbook();
-		await workbook.xlsx.load(toWorkbookBuffer(result._buffer as ArrayBuffer));
+		await workbook.xlsx.load(toWorkbookBuffer(readyWorkbookBuffer(result)));
 
 		const personnelSheet = workbook.getWorksheet('Personnel');
 		const exportRows = await ctx.rawStore.findMany<Record<string, unknown>>('data_exports', ctx.auth.orgId);
@@ -293,7 +299,7 @@ describe('POST /api/export-excel', () => {
 		});
 
 		const workbook = new ExcelJS.Workbook();
-		await workbook.xlsx.load(toWorkbookBuffer(result._buffer as ArrayBuffer));
+		await workbook.xlsx.load(toWorkbookBuffer(readyWorkbookBuffer(result)));
 
 		const leaderNotes = workbook.getWorksheet('Leader Notes');
 		const followUps = workbook.getWorksheet('Personnel Follow-ups');
@@ -372,7 +378,7 @@ describe('POST /api/export-excel', () => {
 		});
 
 		const workbook = new ExcelJS.Workbook();
-		await workbook.xlsx.load(toWorkbookBuffer(result._buffer as ArrayBuffer));
+		await workbook.xlsx.load(toWorkbookBuffer(readyWorkbookBuffer(result)));
 
 		const calendar = workbook.getWorksheet('Calendar');
 		const dailyAssignments = workbook.getWorksheet('Daily Assignments');
@@ -441,7 +447,7 @@ describe('POST /api/export-excel', () => {
 		});
 
 		const workbook = new ExcelJS.Workbook();
-		await workbook.xlsx.load(toWorkbookBuffer(result._buffer as ArrayBuffer));
+		await workbook.xlsx.load(toWorkbookBuffer(readyWorkbookBuffer(result)));
 
 		const inventory = workbook.getWorksheet('Export Inventory');
 		const personnel = workbook.getWorksheet('Personnel');
@@ -503,7 +509,7 @@ describe('POST /api/export-excel', () => {
 		});
 
 		const workbook = new ExcelJS.Workbook();
-		await workbook.xlsx.load(toWorkbookBuffer(result._buffer as ArrayBuffer));
+		await workbook.xlsx.load(toWorkbookBuffer(readyWorkbookBuffer(result)));
 
 		const personnelSheet = workbook.getWorksheet('Personnel');
 		const exportRows = await ctx.rawStore.findMany<Record<string, unknown>>('data_exports', ctx.auth.orgId);

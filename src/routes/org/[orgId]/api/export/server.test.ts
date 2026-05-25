@@ -158,7 +158,9 @@ describe('POST /api/export', () => {
 		});
 		const response = _postConfig.formatOutput?.(result);
 
-		const payload = JSON.parse(result._json as string) as {
+		expect(result.status).toBe('ready');
+		if (result.status !== 'ready') throw new Error('Expected export to be ready');
+		const payload = JSON.parse(result.artifact.body) as {
 			personnel: Array<Record<string, unknown>>;
 		};
 		const exportRows = await ctx.rawStore.findMany<Record<string, unknown>>('data_exports', ctx.auth.orgId);
@@ -225,7 +227,9 @@ describe('POST /api/export', () => {
 			email: 'leader@example.com'
 		});
 
-		const payload = JSON.parse(result._json as string) as {
+		expect(result.status).toBe('ready');
+		if (result.status !== 'ready') throw new Error('Expected export to be ready');
+		const payload = JSON.parse(result.artifact.body) as {
 			leaderNotes: Array<Record<string, unknown>>;
 			personnelFollowUps: Array<Record<string, unknown>>;
 			personnelDocuments: Array<Record<string, unknown>>;
@@ -280,7 +284,9 @@ describe('POST /api/export', () => {
 			email: 'leader@example.com'
 		});
 
-		const payload = JSON.parse(result._json as string) as {
+		expect(result.status).toBe('ready');
+		if (result.status !== 'ready') throw new Error('Expected export to be ready');
+		const payload = JSON.parse(result.artifact.body) as {
 			personnel: Array<Record<string, unknown>>;
 			dutyRosterTemplates: Array<Record<string, unknown>>;
 			dutyRosterTemplateRuns: Array<Record<string, unknown>>;
@@ -331,7 +337,9 @@ describe('POST /api/export', () => {
 			email: 'leader@example.com'
 		});
 
-		const payload = JSON.parse(result._json as string) as {
+		expect(result.status).toBe('ready');
+		if (result.status !== 'ready') throw new Error('Expected export to be ready');
+		const payload = JSON.parse(result.artifact.body) as {
 			personnel: Array<Record<string, unknown>>;
 		};
 		const exportRows = await ctx.rawStore.findMany<Record<string, unknown>>('data_exports', ctx.auth.orgId);

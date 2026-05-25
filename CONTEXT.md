@@ -30,6 +30,10 @@ _Avoid_: Invite, registration invite, organization member, permanent signup queu
 An app-owned, time-limited link sent after an **Access Request** is approved so the recipient can activate a **User Account** and choose their own password.
 _Avoid_: Supabase invite, temporary password, magic login
 
+**Platform Access Request Administration**:
+The platform-admin workflow for reviewing **Access Requests**, issuing or resending **Account Setup Links**, explaining setup state, rejecting requests, and blocking linked **Organization Invitations** when platform access is denied. It does not create **User Accounts** directly and does not create **Organization Members**.
+_Avoid_: Invite-code admin, organization member approval, Supabase invite management
+
 **User Profile**:
 The personal profile details attached to a **User Account**, such as first name, last name, rank, and future display information. A **User Profile** is not the same as a **Personnel Record** and should not automatically sync to roster data.
 _Avoid_: Personnel Record, Organization Member

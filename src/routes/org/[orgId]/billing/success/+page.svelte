@@ -1,36 +1,46 @@
 <script lang="ts">
-	import { CheckCircle2 } from '@lucide/svelte';
-	import { page } from '$app/stores';
+	import { AlertCircle, CheckCircle2, Clock3, RefreshCw } from '@lucide/svelte';
+	import type { PageProps } from './$types';
 	import { Button } from '$lib/components/ui/button';
 	import * as Card from '$lib/components/ui/card';
 	import * as PageShell from '$lib/components/ui/page-shell';
 
-	const orgId = $derived($page.params.orgId);
+	let { data }: PageProps = $props();
+
+	const billingHref = $derived(`/org/${data.orgId}/billing`);
+	const dashboardHref = $derived(`/org/${data.orgId}`);
 </script>
 
 <svelte:head>
-	<title>Subscription Active - Troop to Task</title>
+	<title>{data.checkoutStatus.title} - Troop to Task</title>
 </svelte:head>
 
 <PageShell.Root width="content" class="flex items-center justify-center">
 	<Card.Root class="w-full max-w-xl">
 		<Card.Header>
 			<div class="flex items-center gap-3">
-				<CheckCircle2 class="size-8 text-success-foreground" />
+				{#if data.checkoutStatus.state === 'active'}
+					<CheckCircle2 class="size-8 text-success-foreground" />
+				{:else if data.checkoutStatus.state === 'payment_incomplete'}
+					<AlertCircle class="size-8 text-destructive" />
+				{:else if data.checkoutStatus.state === 'pending'}
+					<Clock3 class="size-8 text-primary" />
+				{:else}
+					<RefreshCw class="size-8 text-muted-foreground" />
+				{/if}
 				<div class="grid gap-1">
-					<Card.Description>Billing Update</Card.Description>
-					<Card.Title>Subscription Active</Card.Title>
+					<Card.Description>{data.checkoutStatus.eyebrow}</Card.Description>
+					<Card.Title>{data.checkoutStatus.title}</Card.Title>
 				</div>
 			</div>
 		</Card.Header>
-		<Card.Content>
-			<p class="text-sm text-muted-foreground">
-				Your plan has been updated. Your organization now has access to the new tier's features and personnel limits.
-			</p>
+		<Card.Content class="grid gap-2">
+			<p class="text-sm text-muted-foreground">{data.checkoutStatus.description}</p>
+			<p class="text-sm text-muted-foreground">{data.checkoutStatus.detail}</p>
 		</Card.Content>
 		<Card.Footer class="flex flex-col gap-2 sm:flex-row">
-			<Button href="/org/{orgId}" class="w-full sm:w-auto">Go to Dashboard</Button>
-			<Button href="/org/{orgId}/billing" variant="outline" class="w-full sm:w-auto">View Billing</Button>
+			<Button href={billingHref} class="w-full sm:w-auto">View Billing</Button>
+			<Button href={dashboardHref} variant="outline" class="w-full sm:w-auto">Go to Dashboard</Button>
 		</Card.Footer>
 	</Card.Root>
 </PageShell.Root>

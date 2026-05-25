@@ -80,6 +80,13 @@ export const ORGANIZATION_DATA_EXPORT_SECTIONS = [
 	),
 	section('billingSnapshot', 'Organization Billing Snapshot', 'organization_billing_snapshots', 'settings', 'Settings'),
 	section(
+		'billingCheckoutAttempts',
+		'Billing Checkout Attempts',
+		'organization_checkout_attempts',
+		'settings',
+		'Settings'
+	),
+	section(
 		'planFeatureOverrides',
 		'Plan Feature Overrides',
 		'organization_plan_feature_overrides',

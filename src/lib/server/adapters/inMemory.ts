@@ -556,14 +556,26 @@ export function createTestBillingPort(): BillingPort & { calls: RecordedBillingC
 		calls,
 		async createCheckoutSession(options) {
 			calls.push({ method: 'createCheckoutSession', args: [options] });
-			return { url: 'https://checkout.test/session', customerId: 'cus_test_123' };
+			const now = Date.now();
+			return {
+				url: 'https://checkout.test/session',
+				customerId: 'cus_test_123',
+				sessionId: `cs_test_${now}`,
+				expiresAt: new Date(now + 30 * 60 * 1000).toISOString()
+			};
 		},
 		async createPortalSession(customerId, returnUrl) {
 			calls.push({ method: 'createPortalSession', args: [customerId, returnUrl] });
 			return { url: 'https://portal.test/session' };
 		},
-		async cancelSubscription(subscriptionId) {
-			calls.push({ method: 'cancelSubscription', args: [subscriptionId] });
+		async expireCheckoutSession(sessionId) {
+			calls.push({ method: 'expireCheckoutSession', args: [sessionId] });
+		},
+		async cancelSubscription(subscriptionId, options) {
+			calls.push({
+				method: 'cancelSubscription',
+				args: options === undefined ? [subscriptionId] : [subscriptionId, options]
+			});
 		},
 		async pauseSubscription(subscriptionId) {
 			calls.push({ method: 'pauseSubscription', args: [subscriptionId] });

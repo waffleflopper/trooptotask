@@ -7,7 +7,7 @@ import { selectAllSupabaseRows } from '$lib/server/supabasePagination';
 import { invalidateTierCache } from '$lib/server/subscription';
 import { summarizeBillingCancellation } from '$lib/server/core/useCases/billingState';
 import { reconcileOrganizationBilling } from '$lib/server/core/useCases/billingReconciliation';
-import { configuredPriceCatalog } from '$lib/server/billing/priceCatalog';
+import { getConfiguredPriceCatalog } from '$lib/server/billing/priceCatalog';
 import { createSupabaseBillingReconciliationStore } from '$lib/server/adapters/supabaseBillingReconciliation';
 import { createSupabaseDataStore } from '$lib/server/adapters/supabaseDataStore';
 import { createSupabaseSubscriptionAdapter } from '$lib/server/adapters/supabaseSubscription';
@@ -28,6 +28,10 @@ function sanitizeBillingReconciliationDiagnostic(value: unknown): string {
 	return message
 		.replace(/[sr]k_(live|test)_[A-Za-z0-9_]+/g, '[redacted_stripe_key]')
 		.replace(/whsec_\S+/g, '[redacted_webhook_secret]')
+		.replace(
+			/stripe-signature\s*[:=]\s*\S+?([.,;:!?)])?(?=\s|$)/gi,
+			(_match, punctuation: string | undefined) => `stripe-signature=[redacted]${punctuation ?? ''}`
+		)
 		.replace(/bearer\s+\S+/gi, 'bearer [redacted]');
 }
 
@@ -58,6 +62,8 @@ type AdminOrganizationBillingSnapshotRow = {
 	current_period_end: string | null;
 	cancel_at_period_end: boolean | null;
 	canceled_at: string | null;
+	cancellation_reason: string | null;
+	cancellation_feedback: BillingSnapshot['cancellationFeedback'];
 	trial_end: string | null;
 	sync_status: BillingSnapshot['syncStatus'];
 	last_stripe_event_id: string | null;
@@ -84,6 +90,8 @@ function mapAdminOrganizationBillingSnapshot(row: AdminOrganizationBillingSnapsh
 		currentPeriodEnd: row.current_period_end,
 		cancelAtPeriodEnd: row.cancel_at_period_end ?? false,
 		canceledAt: row.canceled_at,
+		cancellationReason: row.cancellation_reason,
+		cancellationFeedback: row.cancellation_feedback,
 		trialEnd: row.trial_end,
 		syncStatus: row.sync_status,
 		lastStripeEventId: row.last_stripe_event_id,
@@ -148,7 +156,7 @@ export const load: PageServerLoad = loadWithAdminContext({
 		const { data: billingSnapshotRow } = await adminClient
 			.from('organization_billing_snapshots')
 			.select(
-				'organization_id, source, commercial_plan, stripe_customer_id, stripe_subscription_id, stripe_product_id, stripe_price_id, subscription_status, collection_status, current_period_start, current_period_end, cancel_at_period_end, canceled_at, trial_end, sync_status, last_stripe_event_id, last_stripe_event_type, last_stripe_event_created_at, last_processed_at, last_reconciled_at, reconciliation_result, drift_detected'
+				'organization_id, source, commercial_plan, stripe_customer_id, stripe_subscription_id, stripe_product_id, stripe_price_id, subscription_status, collection_status, current_period_start, current_period_end, cancel_at_period_end, canceled_at, cancellation_reason, cancellation_feedback, trial_end, sync_status, last_stripe_event_id, last_stripe_event_type, last_stripe_event_created_at, last_processed_at, last_reconciled_at, reconciliation_result, drift_detected'
 			)
 			.eq('organization_id', orgId)
 			.maybeSingle<AdminOrganizationBillingSnapshotRow>();
@@ -500,6 +508,7 @@ export const actions: Actions = {
 
 	reconcileBilling: adminAction({
 		page: 'organizations',
+		requiredRole: ['super_admin', 'support'],
 		fn: async (ctx, event) => {
 			const orgId = event.params.orgId as string;
 			if (!validateUUID(orgId)) return fail(400, { error: { message: 'Invalid organization ID' } });
@@ -509,9 +518,10 @@ export const actions: Actions = {
 				store: createSupabaseBillingReconciliationStore(ctx.adminClient),
 				provider: createStripeBillingReconciliationProvider(),
 				subscription: createSupabaseSubscriptionAdapter(ctx.adminClient, orgId),
-				priceCatalog: configuredPriceCatalog
+				priceCatalog: getConfiguredPriceCatalog()
 			});
 			const diagnostics = result.diagnostics.map(sanitizeBillingReconciliationDiagnostic);
+			const safeResult = sanitizeBillingReconciliationDiagnostic(result.result);
 
 			ctx.audit({
 				action: 'admin.org.billing_reconcile',
@@ -520,7 +530,7 @@ export const actions: Actions = {
 				severity: result.ok ? 'info' : 'warning',
 				details: {
 					status: result.status,
-					result: result.result,
+					result: safeResult,
 					driftDetected: result.driftDetected,
 					snapshotUpdated: result.snapshotUpdated,
 					diagnostics
@@ -531,7 +541,7 @@ export const actions: Actions = {
 				return fail(400, {
 					billingReconciliation: {
 						success: false,
-						message: result.result,
+						message: safeResult,
 						diagnostics
 					}
 				});

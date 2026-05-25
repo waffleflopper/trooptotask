@@ -99,6 +99,6 @@ export function formatCap(cap: number): string {
 	return cap === Infinity ? 'Unlimited' : String(cap);
 }
 
-export function formatExportLimit(limit: number): string {
-	return limit === Infinity ? 'exports' : `${limit} exports/mo`;
+export function formatExportLimit(limit: number | null): string {
+	return limit === null || limit === Infinity ? 'exports' : `${limit} exports/mo`;
 }

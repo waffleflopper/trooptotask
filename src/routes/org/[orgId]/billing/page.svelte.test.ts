@@ -1,6 +1,10 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
+
+vi.mock('$app/navigation', () => ({
+	invalidateAll: vi.fn(() => Promise.resolve())
+}));
 
 import Page from './+page.svelte';
 
@@ -38,6 +42,8 @@ const baseData = {
 		currentPeriodEnd: '2026-06-01T00:00:00.000Z',
 		cancelAtPeriodEnd: false,
 		canceledAt: null,
+		cancellationReason: null,
+		cancellationFeedback: null,
 		trialEnd: null,
 		syncStatus: 'synced',
 		lastStripeEventId: 'evt_123',
@@ -50,28 +56,29 @@ const baseData = {
 		giftTier: null,
 		giftExpiresAt: null
 	},
+	pendingCheckoutSession: null,
 	tierComparison: [
 		{
 			tier: 'free',
 			name: 'Free',
 			personnelCap: 20,
-			maxOrgsOwned: 1,
-			bulkExportsPerMonth: 1,
+			activeUserCap: 2,
+			bulkExportsPerMonth: 3,
 			priceMonthly: 0
 		},
 		{
 			tier: 'team',
 			name: 'Team',
 			personnelCap: 80,
-			maxOrgsOwned: 1,
-			bulkExportsPerMonth: null,
+			activeUserCap: null,
+			bulkExportsPerMonth: 10,
 			priceMonthly: 500
 		},
 		{
 			tier: 'unit',
 			name: 'Unit',
 			personnelCap: 500,
-			maxOrgsOwned: 3,
+			activeUserCap: null,
 			bulkExportsPerMonth: null,
 			priceMonthly: 1200
 		}
@@ -87,7 +94,7 @@ const baseData = {
 		plan: {
 			tier: 'team',
 			source: 'billing_snapshot',
-			sourceLabel: 'Stripe-backed billing'
+			sourceLabel: 'Paid subscription'
 		},
 		rows: [
 			{
@@ -105,23 +112,23 @@ const baseData = {
 				dimension: 'active_organization_members',
 				label: 'Members',
 				used: 2,
-				limit: 10,
-				limitLabel: '10',
+				limit: null,
+				limitLabel: 'Unlimited',
 				status: 'within_limit',
-				message: 'Member usage is 2 of 10.',
-				remediation: 'Remove members or upgrade to Unit.',
-				upgradeTarget: 'unit'
+				message: 'Member usage is 2 of Unlimited.',
+				remediation: 'Remove members or contact support.',
+				upgradeTarget: null
 			},
 			{
 				dimension: 'pending_invitations',
 				label: 'Pending invitations',
 				used: 0,
-				limit: 10,
-				limitLabel: '10',
+				limit: null,
+				limitLabel: 'Unlimited',
 				status: 'within_limit',
-				message: 'Pending invitations use 0 seats; 2 of 10 member seats are reserved.',
-				remediation: 'Revoke pending invitations or upgrade to Unit.',
-				upgradeTarget: 'unit'
+				message: 'Pending invitations use 0 seats; 2 of Unlimited member seats are reserved.',
+				remediation: 'Revoke pending invitations or contact support.',
+				upgradeTarget: null
 			},
 			{
 				dimension: 'monthly_exports',
@@ -167,6 +174,136 @@ describe('billing page toolbar', () => {
 		expect(screen.getByText(new RegExp(detail))).toBeTruthy();
 	});
 
+	it.each([
+		['past_due', 'Payment recovery needed', 'Grace access may be read-only', 'Update Payment Method', false],
+		['unpaid', 'Payment is required', 'Paid-plan writes are blocked', 'Open Billing Portal', true],
+		['canceled', 'Paid access ended', 'New work follows Free plan limits', null, true],
+		[
+			'incomplete',
+			'Checkout still needs attention',
+			'Paid capacity starts only after checkout completes',
+			'Review Billing Details',
+			false
+		],
+		['incomplete_expired', 'Checkout expired', 'No paid access was activated', null, true]
+	])(
+		'shows payment recovery guidance for %s without provider jargon',
+		(subscriptionStatus, title, impact, portalLabel, showsPlansLink) => {
+			render(Page, {
+				props: {
+					data: {
+						...baseData,
+						billingSnapshot: {
+							...baseData.billingSnapshot,
+							subscriptionStatus
+						}
+					} as never
+				}
+			});
+
+			expect(screen.getByRole('heading', { name: 'Payment Recovery' })).toBeTruthy();
+			expect(screen.getByText(title)).toBeTruthy();
+			expect(screen.getByText(new RegExp(impact))).toBeTruthy();
+			expect(screen.getAllByText(/Existing data remains visible/).length).toBeGreaterThan(0);
+			expect(screen.queryByText(/Stripe reports/)).toBeNull();
+
+			if (portalLabel) {
+				expect(screen.getAllByRole('button', { name: portalLabel }).length).toBeGreaterThan(0);
+			}
+
+			if (showsPlansLink) {
+				expect(screen.getByRole('link', { name: 'View Plans' }).getAttribute('href')).toBe('#billing-pricing-heading');
+			} else {
+				expect(screen.queryByRole('link', { name: 'View Plans' })).toBeNull();
+			}
+		}
+	);
+
+	it('keeps invoice and receipt portal access when recovery has no dedicated portal action', () => {
+		render(Page, {
+			props: {
+				data: {
+					...baseData,
+					billingSnapshot: {
+						...baseData.billingSnapshot,
+						subscriptionStatus: 'canceled'
+					}
+				} as never
+			}
+		});
+
+		expect(screen.getByRole('heading', { name: 'Payment Recovery' })).toBeTruthy();
+		expect(screen.getByRole('heading', { name: 'Invoices & Receipts' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Open Billing Portal' })).toBeTruthy();
+	});
+
+	it.each([
+		['past_due', 'Payment recovery needed', 'Grace access may be read-only'],
+		['unpaid', 'Payment is required', 'Paid-plan writes are blocked'],
+		['canceled', 'Paid access ended', 'New work follows Free plan limits'],
+		['incomplete', 'Checkout still needs attention', 'Paid capacity starts only after checkout completes'],
+		['incomplete_expired', 'Checkout expired', 'No paid access was activated']
+	])(
+		'shows %s payment recovery guidance even when portal access is unavailable',
+		(subscriptionStatus, title, impact) => {
+			render(Page, {
+				props: {
+					data: {
+						...baseData,
+						canManageSubscription: false,
+						billingSnapshot: {
+							...baseData.billingSnapshot,
+							subscriptionStatus
+						}
+					} as never
+				}
+			});
+
+			expect(screen.getByRole('heading', { name: 'Payment Recovery' })).toBeTruthy();
+			expect(screen.getByText(title)).toBeTruthy();
+			expect(screen.getByText(new RegExp(impact))).toBeTruthy();
+			expect(screen.queryByRole('toolbar', { name: 'Billing controls' })).toBeNull();
+			expect(screen.queryByRole('button', { name: /Billing Portal|Payment Method|Billing Details/ })).toBeNull();
+		}
+	);
+
+	it('distinguishes suspended past-due access from grace-mode past-due access', () => {
+		render(Page, {
+			props: {
+				data: {
+					...baseData,
+					effectiveTier: {
+						...baseData.effectiveTier,
+						tier: 'free',
+						isReadOnly: true,
+						readOnlyReason: 'billing_state'
+					},
+					billingSnapshot: {
+						...baseData.billingSnapshot,
+						subscriptionStatus: 'past_due'
+					}
+				} as never
+			}
+		});
+
+		expect(screen.getByText('Payment recovery needed')).toBeTruthy();
+		expect(
+			screen.getByText('Paid access is suspended and paid-plan writes are blocked until billing is restored.')
+		).toBeTruthy();
+	});
+
+	it('routes invoices, receipts, and payment updates through the billing portal', () => {
+		render(Page, {
+			props: {
+				data: baseData as never
+			}
+		});
+
+		expect(screen.getByRole('heading', { name: 'Invoices & Receipts' })).toBeTruthy();
+		expect(screen.getByText(/Download invoices and receipts/)).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Open Billing Portal' })).toBeTruthy();
+	});
+
 	it('shows policy-backed usage limits and remediation actions', () => {
 		render(Page, {
 			props: {
@@ -187,10 +324,11 @@ describe('billing page toolbar', () => {
 							},
 							{
 								...baseData.planUsageSummary.rows[1],
-								used: 1,
+								used: 3,
 								limit: 2,
 								limitLabel: '2',
-								message: 'Member usage is 1 of 2.',
+								status: 'over_limit',
+								message: 'Member usage is 3 of 2.',
 								remediation: 'Remove members or upgrade to Team.',
 								upgradeTarget: 'team'
 							},
@@ -211,7 +349,7 @@ describe('billing page toolbar', () => {
 								limitLabel: '3',
 								status: 'limit_reached',
 								message: 'Export usage is 3 of 3 this month.',
-								remediation: 'Upgrade for unlimited exports or wait until next month.',
+								remediation: 'Upgrade to Team for more monthly exports or wait until next month.',
 								upgradeTarget: 'team'
 							}
 						],
@@ -221,6 +359,13 @@ describe('billing page toolbar', () => {
 								label: 'Personnel',
 								message: 'Personnel usage is 21 of 20.',
 								remediation: 'Archive personnel or upgrade to Team.',
+								status: 'over_limit'
+							},
+							{
+								dimension: 'active_organization_members',
+								label: 'Members',
+								message: 'Member usage is 3 of 2.',
+								remediation: 'Remove members or upgrade to Team.',
 								status: 'over_limit'
 							},
 							{
@@ -234,7 +379,7 @@ describe('billing page toolbar', () => {
 								dimension: 'monthly_exports',
 								label: 'Monthly exports',
 								message: 'Export usage is 3 of 3 this month.',
-								remediation: 'Upgrade for unlimited exports or wait until next month.',
+								remediation: 'Upgrade to Team for more monthly exports or wait until next month.',
 								status: 'limit_reached'
 							}
 						]
@@ -244,14 +389,48 @@ describe('billing page toolbar', () => {
 		});
 
 		expect(screen.getByRole('heading', { name: 'Usage & Limits' })).toBeTruthy();
-		expect(screen.getByText('Stripe-backed billing')).toBeTruthy();
+		expect(screen.getByText('Paid subscription')).toBeTruthy();
 		expect(screen.getByText('21 / 20')).toBeTruthy();
-		expect(screen.getAllByText('1 / 2').length).toBeGreaterThanOrEqual(2);
+		expect(screen.getByText('3 / 2')).toBeTruthy();
+		expect(screen.getByText('1 / 2')).toBeTruthy();
 		expect(screen.getByText('3 / 3')).toBeTruthy();
 		expect(screen.getByText('Archive personnel or upgrade to Team.')).toBeTruthy();
+		expect(screen.getByText('Remove members or upgrade to Team.')).toBeTruthy();
 		expect(screen.getByText('Revoke pending invitations or upgrade to Team.')).toBeTruthy();
-		expect(screen.getByText('Upgrade for unlimited exports or wait until next month.')).toBeTruthy();
+		expect(screen.getByText('Upgrade to Team for more monthly exports or wait until next month.')).toBeTruthy();
 		expect(screen.getByText('Existing data remains visible. Resolve limits before adding more data.')).toBeTruthy();
+		expect(screen.getByText(/member invitations, exports, or paid-plan writes can be blocked/)).toBeTruthy();
+		expect(screen.getByRole('link', { name: 'Open Personnel' }).getAttribute('href')).toBe('/org/org-1/personnel');
+		expect(screen.getByRole('link', { name: 'Manage Members' }).getAttribute('href')).toBe('/org/org-1/settings');
+		expect(screen.getByRole('link', { name: 'Compare Plans' }).getAttribute('href')).toBe('#billing-pricing-heading');
+		expect(screen.getByRole('link', { name: 'Contact Support' }).getAttribute('href')).toBe(
+			'mailto:support@trooptotask.com'
+		);
+	});
+
+	it('names billing-state blocks separately from usage-limit blocks', () => {
+		render(Page, {
+			props: {
+				data: {
+					...baseData,
+					planUsageSummary: {
+						...baseData.planUsageSummary,
+						alerts: [
+							{
+								dimension: 'billing_state',
+								label: 'Billing state',
+								message: 'Organization billing is not currently active.',
+								remediation: 'Restore the subscription or choose a current plan.',
+								status: 'read_only'
+							}
+						]
+					}
+				} as never
+			}
+		});
+
+		expect(screen.getByText('Existing data remains visible. Resolve billing before adding more data.')).toBeTruthy();
+		expect(screen.queryByText('Existing data remains visible. Resolve limits before adding more data.')).toBeNull();
 	});
 
 	it('shows downgrade preview remediation on lower-plan cards', () => {
@@ -276,12 +455,12 @@ describe('billing page toolbar', () => {
 						{
 							currentPlan: {
 								tier: 'unit',
-								sourceLabel: 'Stripe-backed billing'
+								sourceLabel: 'Paid subscription'
 							},
 							targetPlan: {
 								tier: 'free',
 								name: 'Free',
-								sourceLabel: 'Stripe-backed billing'
+								sourceLabel: 'Paid subscription'
 							},
 							status: 'blocked',
 							preservesExistingDataMessage:
@@ -365,7 +544,7 @@ describe('billing page toolbar', () => {
 		expect(screen.getByText(/downgraded to the free plan/)).toBeTruthy();
 	});
 
-	it('shows current sync health after reconciliation repaired drift', () => {
+	it('shows current billing update status after reconciliation repaired drift', () => {
 		render(Page, {
 			props: {
 				data: {
@@ -398,6 +577,23 @@ describe('billing page toolbar', () => {
 		expect(screen.getByText('Needs support review')).toBeTruthy();
 	});
 
+	it('shows updating copy while a local cancellation is waiting for provider reconciliation', () => {
+		render(Page, {
+			props: {
+				data: {
+					...baseData,
+					billingSnapshot: {
+						...baseData.billingSnapshot,
+						syncStatus: 'pending',
+						driftDetected: false
+					}
+				} as never
+			}
+		});
+
+		expect(screen.getByText('Updating')).toBeTruthy();
+	});
+
 	it('shows gifted billing source copy without payment recovery pressure', () => {
 		render(Page, {
 			props: {
@@ -414,10 +610,10 @@ describe('billing page toolbar', () => {
 		});
 
 		expect(screen.getByText('Gifted access is active.')).toBeTruthy();
-		expect(screen.getAllByText(/outside Stripe billing/).length).toBeGreaterThan(0);
+		expect(screen.getAllByText(/outside regular billing/).length).toBeGreaterThan(0);
 	});
 
-	it('shows billing-disabled fallback state and hides Stripe recovery actions', () => {
+	it('shows billing-disabled fallback state and hides paid recovery actions', () => {
 		render(Page, {
 			props: {
 				data: {
@@ -444,7 +640,7 @@ describe('billing page toolbar', () => {
 		expect(screen.getAllByRole('button', { name: 'Billing Disabled' }).length).toBeGreaterThan(0);
 	});
 
-	it('hides Stripe recovery actions when the effective tier source is billing-disabled without a snapshot', () => {
+	it('hides paid recovery actions when the effective tier source is billing-disabled without a snapshot', () => {
 		render(Page, {
 			props: {
 				data: {
@@ -475,9 +671,11 @@ describe('billing page toolbar', () => {
 		const toolbar = screen.getByRole('toolbar', { name: 'Billing controls' });
 		const actions = within(toolbar).getByRole('group', { name: 'Billing actions' });
 
-		expect(within(actions).getByRole('button', { name: 'Cancel Subscription' })).toBeTruthy();
 		expect(within(actions).getByRole('button', { name: 'Manage Subscription' })).toBeTruthy();
 		expect(screen.getAllByRole('button', { name: 'Manage Subscription' }).length).toBeGreaterThan(1);
+		expect(screen.getByRole('heading', { name: 'Cancellation Policy' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Cancel at Period End' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Cancel Now' })).toBeTruthy();
 	});
 
 	it('keeps subscription controls hidden when subscription management is not allowed', () => {
@@ -491,14 +689,53 @@ describe('billing page toolbar', () => {
 		expect(screen.queryByRole('button', { name: 'Manage Subscription' })).toBeNull();
 	});
 
+	it('surfaces an active checkout with continue and cancel actions', async () => {
+		const fetchMock = vi.fn().mockResolvedValue(
+			new Response(JSON.stringify({ success: true, canceled: true, checkoutAttemptId: 'attempt-unit' }), {
+				status: 200,
+				headers: { 'Content-Type': 'application/json' }
+			})
+		);
+		vi.stubGlobal('fetch', fetchMock);
+
+		render(Page, {
+			props: {
+				data: {
+					...baseData,
+					effectiveTier: {
+						...baseData.effectiveTier,
+						tier: 'free',
+						source: 'default'
+					},
+					pendingCheckoutSession: {
+						id: 'attempt-unit',
+						tier: 'unit',
+						checkoutUrl: 'https://checkout.test/unit',
+						expiresAt: '2026-05-26T04:03:56.000Z',
+						createdAt: '2026-05-25T04:03:55.000Z'
+					}
+				} as never
+			}
+		});
+
+		expect(screen.getByText('Unit checkout is already open.')).toBeTruthy();
+		expect(screen.getByText(/This checkout expires on/)).toBeTruthy();
+		expect(screen.getAllByRole('button', { name: 'Continue Checkout' }).length).toBeGreaterThan(0);
+		expect(screen.getByRole('button', { name: 'Cancel Pending Checkout' })).toBeTruthy();
+		expect(screen.getAllByRole('button', { name: 'Pending Checkout' }).length).toBeGreaterThan(0);
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Cancel Pending Checkout' }));
+
+		expect(fetchMock).toHaveBeenCalledWith('/org/org-1/billing/checkout/cancel', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' }
+		});
+	});
+
 	it('keeps subscription actions disabled while requests are in flight', async () => {
 		vi.stubGlobal(
 			'fetch',
 			vi.fn(() => new Promise<Response>(() => {}))
-		);
-		vi.stubGlobal(
-			'confirm',
-			vi.fn(() => true)
 		);
 
 		render(Page, {
@@ -514,8 +751,51 @@ describe('billing page toolbar', () => {
 		await fireEvent.click(within(actions).getByRole('button', { name: 'Manage Subscription' }));
 		expect((within(actions).getByRole('button', { name: 'Opening...' }) as HTMLButtonElement).disabled).toBe(true);
 
-		await fireEvent.click(within(actions).getByRole('button', { name: 'Cancel Subscription' }));
-		expect((within(actions).getByRole('button', { name: 'Canceling...' }) as HTMLButtonElement).disabled).toBe(true);
+		await fireEvent.click(screen.getByRole('button', { name: 'Cancel Now' }));
+		await fireEvent.input(screen.getByLabelText('Type CANCEL NOW to confirm'), { target: { value: 'CANCEL NOW' } });
+		await fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Cancel Now' }));
+		expect(
+			(within(screen.getByRole('dialog')).getByRole('button', { name: /Canceling/ }) as HTMLButtonElement).disabled
+		).toBe(true);
+	});
+
+	it('requires explicit immediate cancellation confirmation before submitting the immediate path', async () => {
+		const fetchMock = vi.fn().mockResolvedValue(
+			new Response(JSON.stringify({ success: true }), {
+				status: 200,
+				headers: { 'Content-Type': 'application/json' }
+			})
+		);
+		vi.stubGlobal('fetch', fetchMock);
+
+		render(Page, {
+			props: {
+				data: baseData as never
+			}
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Cancel Now' }));
+		expect(
+			(within(screen.getByRole('dialog')).getByRole('button', { name: 'Cancel Now' }) as HTMLButtonElement).disabled
+		).toBe(true);
+
+		expect(fetchMock).not.toHaveBeenCalled();
+
+		await fireEvent.input(screen.getByLabelText('Type CANCEL NOW to confirm'), { target: { value: 'CANCEL NOW' } });
+		expect(
+			(within(screen.getByRole('dialog')).getByRole('button', { name: 'Cancel Now' }) as HTMLButtonElement).disabled
+		).toBe(false);
+		await fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Cancel Now' }));
+
+		expect(fetchMock).toHaveBeenCalledWith('/org/org-1/billing/cancel', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({
+				confirmedImmediateCancellation: true,
+				cancellationFeedback: null
+			})
+		});
+		await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Cancel paid access now' })).toBeNull());
 	});
 
 	it('opens password confirmation when checkout requires sensitive-action step-up', async () => {
@@ -711,7 +991,7 @@ describe('billing page toolbar', () => {
 						state: 'canceling_at_period_end',
 						label: 'Cancels at period end',
 						description:
-							'Paid access remains active until the paid-through date unless Stripe reports an earlier terminal state.',
+							'Paid access remains active until the paid-through date unless the provider reports an earlier terminal state.',
 						currentPeriodEnd: '2026-06-01T00:00:00.000Z',
 						canceledAt: null
 					}

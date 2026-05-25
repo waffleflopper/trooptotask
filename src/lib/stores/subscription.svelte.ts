@@ -31,6 +31,9 @@ function createSubscriptionStore() {
 		get personnelCap() {
 			return effectiveTier?.personnelCap ?? Infinity;
 		},
+		get readOnlyReason() {
+			return effectiveTier?.readOnlyReason ?? null;
+		},
 		get currentTier() {
 			return effectiveTier?.tier ?? ('free' as Tier);
 		},

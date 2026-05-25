@@ -118,7 +118,9 @@ describe('runBillingReconciliationBatch', () => {
 			store,
 			provider,
 			createSubscriptionPort: () => createSubscriptionPort(),
-			priceCatalog: [{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: 'prod_team' }],
+			priceCatalog: [
+				{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: 'prod_team', activeForCheckout: true }
+			],
 			limit: 250,
 			now: () => new Date('2026-05-23T00:00:00.000Z')
 		});
@@ -142,7 +144,9 @@ describe('runBillingReconciliationBatch', () => {
 			store,
 			provider,
 			createSubscriptionPort: () => createSubscriptionPort(),
-			priceCatalog: [{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: 'prod_team' }],
+			priceCatalog: [
+				{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: 'prod_team', activeForCheckout: true }
+			],
 			limit: 1,
 			now: () => new Date('2026-05-23T00:00:00.000Z')
 		});
@@ -179,7 +183,9 @@ describe('runBillingReconciliationBatch', () => {
 			store,
 			provider,
 			createSubscriptionPort: () => createSubscriptionPort(),
-			priceCatalog: [{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: 'prod_team' }],
+			priceCatalog: [
+				{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: 'prod_team', activeForCheckout: true }
+			],
 			limit: 1,
 			now: () => new Date('2026-05-23T00:00:00.000Z')
 		});
@@ -221,7 +227,9 @@ describe('runBillingReconciliationBatch', () => {
 			store,
 			provider,
 			createSubscriptionPort: () => createSubscriptionPort(),
-			priceCatalog: [{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: 'prod_team' }],
+			priceCatalog: [
+				{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: 'prod_team', activeForCheckout: true }
+			],
 			limit: 1,
 			now: () => new Date('2026-05-23T00:00:00.000Z')
 		});
@@ -263,7 +271,9 @@ describe('runBillingReconciliationBatch', () => {
 			store,
 			provider,
 			createSubscriptionPort: () => createSubscriptionPort(),
-			priceCatalog: [{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: 'prod_team' }],
+			priceCatalog: [
+				{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: 'prod_team', activeForCheckout: true }
+			],
 			limit: 1,
 			now: () => new Date('2026-05-23T00:00:00.000Z')
 		});
@@ -304,7 +314,9 @@ describe('runBillingReconciliationBatch', () => {
 				})
 			}),
 			createSubscriptionPort: () => createSubscriptionPort(),
-			priceCatalog: [{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: 'prod_team' }],
+			priceCatalog: [
+				{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: 'prod_team', activeForCheckout: true }
+			],
 			limit: 1,
 			dryRun: true,
 			now: () => new Date('2026-05-23T00:00:00.000Z')
@@ -335,7 +347,9 @@ describe('runBillingReconciliationBatch', () => {
 			store,
 			provider,
 			createSubscriptionPort: () => createSubscriptionPort(),
-			priceCatalog: [{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: 'prod_team' }],
+			priceCatalog: [
+				{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: 'prod_team', activeForCheckout: true }
+			],
 			limit: 1,
 			now: () => new Date('2026-05-23T00:00:00.000Z')
 		});
@@ -374,7 +388,9 @@ describe('runBillingReconciliationBatch', () => {
 			store,
 			provider,
 			createSubscriptionPort: () => createSubscriptionPort(),
-			priceCatalog: [{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: 'prod_team' }],
+			priceCatalog: [
+				{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: 'prod_team', activeForCheckout: true }
+			],
 			limit: 1,
 			dryRun: true,
 			now: () => new Date('2026-05-23T00:00:00.000Z')
@@ -406,7 +422,9 @@ describe('runBillingReconciliationBatch', () => {
 			store,
 			provider,
 			createSubscriptionPort: () => createSubscriptionPort(),
-			priceCatalog: [{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: 'prod_team' }],
+			priceCatalog: [
+				{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: 'prod_team', activeForCheckout: true }
+			],
 			limit: 1,
 			now: () => new Date('2026-05-23T00:00:00.000Z')
 		});
@@ -438,7 +456,9 @@ describe('runBillingReconciliationBatch', () => {
 			store,
 			provider,
 			createSubscriptionPort: () => createSubscriptionPort(),
-			priceCatalog: [{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: 'prod_team' }],
+			priceCatalog: [
+				{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: 'prod_team', activeForCheckout: true }
+			],
 			limit: 1,
 			now: () => new Date('2026-05-23T00:00:00.000Z')
 		});
@@ -472,7 +492,9 @@ describe('runBillingReconciliationBatch', () => {
 			store,
 			provider: createProvider(),
 			createSubscriptionPort: () => createSubscriptionPort(),
-			priceCatalog: [{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: 'prod_team' }],
+			priceCatalog: [
+				{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: 'prod_team', activeForCheckout: true }
+			],
 			limit: 2,
 			now: () => new Date('2026-05-23T00:00:00.000Z')
 		});
@@ -499,7 +521,9 @@ describe('runBillingReconciliationBatch', () => {
 			store: createStore(),
 			provider,
 			createSubscriptionPort: () => createSubscriptionPort(),
-			priceCatalog: [{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: 'prod_team' }],
+			priceCatalog: [
+				{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: 'prod_team', activeForCheckout: true }
+			],
 			limit: 1,
 			now: () => new Date('2026-05-23T00:00:00.000Z')
 		});
@@ -519,7 +543,9 @@ describe('runBillingReconciliationBatch', () => {
 			store,
 			provider: createProvider(),
 			createSubscriptionPort: () => createSubscriptionPort(),
-			priceCatalog: [{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: 'prod_team' }],
+			priceCatalog: [
+				{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: 'prod_team', activeForCheckout: true }
+			],
 			limit: 2,
 			timeoutMs: 5,
 			now: () => new Date('2026-05-23T00:00:00.000Z')
@@ -538,7 +564,9 @@ describe('runBillingReconciliationBatch', () => {
 			store,
 			provider: createProvider(),
 			createSubscriptionPort: () => createSubscriptionPort(),
-			priceCatalog: [{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: 'prod_team' }],
+			priceCatalog: [
+				{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: 'prod_team', activeForCheckout: true }
+			],
 			limit: 2,
 			cursor: 'org-0',
 			timeoutMs: 5,

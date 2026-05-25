@@ -1,5 +1,17 @@
 <script lang="ts">
-	import { Check, Gift, TriangleAlert } from '@lucide/svelte';
+	import {
+		Archive,
+		ArrowUpCircle,
+		Check,
+		CreditCard,
+		ExternalLink,
+		FileText,
+		Gift,
+		LifeBuoy,
+		TriangleAlert,
+		X,
+		UserMinus
+	} from '@lucide/svelte';
 	import { invalidateAll } from '$app/navigation';
 	import type { PageData } from './$types';
 	import * as Alert from '$lib/components/ui/alert';
@@ -10,12 +22,14 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
 	import * as PageShell from '$lib/components/ui/page-shell';
+	import * as Select from '$lib/components/ui/select';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
 	import { redirectToSensitiveActionStepUp } from '$lib/auth/sensitiveActionStepUp';
 	import type { WorkspaceToolbarAction } from '$lib/components/ui/workspace-toolbar';
 	import type {
 		BillingSnapshot,
+		BillingCancellationFeedback,
 		BillingSnapshotSource,
 		EffectiveTier,
 		SubscriptionStatus,
@@ -23,13 +37,25 @@
 	} from '$lib/types/subscription';
 
 	type BillingApiResult = {
+		success?: boolean;
 		url?: string;
 		error?: string;
 		requiresStepUp?: boolean;
 		stepUpPath?: string | null;
 	};
 
-	type PendingBillingAction = { kind: 'subscribe'; tier: string } | { kind: 'portal' } | { kind: 'cancel' };
+	type PendingCheckoutSession = {
+		id: string;
+		tier: 'team' | 'unit';
+		checkoutUrl: string | null;
+		expiresAt: string | null;
+		createdAt: string;
+	};
+
+	type PendingBillingAction =
+		| { kind: 'subscribe'; tier: string }
+		| { kind: 'portal' }
+		| { kind: 'cancel'; feedback: BillingCancellationFeedback | null };
 
 	type ConfirmSensitiveActionResult = {
 		success?: boolean;
@@ -38,17 +64,29 @@
 		stepUpPath?: string | null;
 	};
 
+	type UsageAlertAction = {
+		id: string;
+		label: string;
+		href: string;
+		icon: 'archive' | 'members' | 'plans' | 'support';
+	};
+
 	let { data }: { data: PageData } = $props();
 
 	let subscribingTier = $state<string | null>(null);
 	let portalLoading = $state(false);
 	let cancelLoading = $state(false);
+	let cancelCheckoutLoading = $state(false);
 	let errorMessage = $state('');
 	let confirmPasswordOpen = $state(false);
 	let confirmPassword = $state('');
 	let confirmPasswordError = $state('');
 	let confirmPasswordLoading = $state(false);
 	let pendingBillingAction = $state<PendingBillingAction | null>(null);
+	let cancelNowDialogOpen = $state(false);
+	let cancelNowConfirmation = $state('');
+	let cancelFeedback = $state<'none' | BillingCancellationFeedback>('none');
+	let cancelNowError = $state('');
 
 	const fallbackTier: EffectiveTier = {
 		tier: 'free',
@@ -71,6 +109,7 @@
 	const giftExpiresAt = $derived(tier.giftExpiresAt);
 	const giftTier = $derived(tier.giftTier);
 	const billingSnapshot = $derived<BillingSnapshot | null>(data.billingSnapshot ?? null);
+	const pendingCheckoutSession = $derived<PendingCheckoutSession | null>(data.pendingCheckoutSession ?? null);
 	const cancellationSummary = $derived(data.cancellationSummary ?? null);
 	const planUsageSummary = $derived(data.planUsageSummary ?? null);
 	const downgradePreviews = $derived(data.downgradePreviews ?? []);
@@ -81,6 +120,33 @@
 	const billingActionsDisabled = $derived(
 		source === 'billing_disabled' || billingSnapshot?.source === 'billing_disabled'
 	);
+	const canOpenBillingPortal = $derived(data.canManageSubscription && !billingActionsDisabled);
+	const billingRecovery = $derived(
+		buildBillingRecovery(billingSnapshot, tier, canOpenBillingPortal, billingActionsDisabled)
+	);
+	const usageAlertTitle = $derived(buildUsageAlertTitle(planUsageSummary?.alerts ?? []));
+	const usageAlertActions = $derived.by(() => buildUsageAlertActions(planUsageSummary?.alerts ?? [], data.orgId));
+	const canShowImmediateCancellation = $derived(
+		data.canManageSubscription &&
+			!billingActionsDisabled &&
+			source !== 'gift' &&
+			!!billingSnapshot?.stripeSubscriptionId
+	);
+	const selectedCancellationFeedback = $derived<BillingCancellationFeedback | null>(
+		cancelFeedback === 'none' ? null : cancelFeedback
+	);
+
+	const cancellationFeedbackOptions: Array<{ value: 'none' | BillingCancellationFeedback; label: string }> = [
+		{ value: 'none', label: 'No reason selected' },
+		{ value: 'too_expensive', label: 'Too expensive' },
+		{ value: 'unused', label: 'Not using it enough' },
+		{ value: 'missing_features', label: 'Missing features' },
+		{ value: 'too_complex', label: 'Too complex' },
+		{ value: 'customer_service', label: 'Customer service' },
+		{ value: 'low_quality', label: 'Quality did not meet needs' },
+		{ value: 'switched_service', label: 'Switched service' },
+		{ value: 'other', label: 'Other' }
+	];
 
 	const giftDaysRemaining = $derived.by(() => {
 		if (!giftExpiresAt) return null;
@@ -91,14 +157,6 @@
 		if (!data.canManageSubscription || billingActionsDisabled) return [];
 
 		const actions: WorkspaceToolbarAction[] = [
-			{
-				id: 'cancel-subscription',
-				label: cancelLoading ? 'Canceling...' : 'Cancel Subscription',
-				onclick: handleCancelSubscription,
-				disabled: cancelLoading,
-				priority: 'low',
-				variant: 'danger'
-			},
 			{
 				id: 'manage-subscription',
 				label: portalLoading ? 'Opening...' : 'Manage Subscription',
@@ -125,7 +183,7 @@
 	function sourceLabel(src: string): string {
 		switch (src) {
 			case 'subscription':
-				return 'Stripe Subscription';
+				return 'Paid Subscription';
 			case 'gift':
 				return 'Admin Gift';
 			case 'billing_disabled':
@@ -140,7 +198,7 @@
 	function snapshotSourceLabel(src: BillingSnapshotSource | null | undefined): string {
 		switch (src) {
 			case 'stripe':
-				return 'Stripe';
+				return 'Billing Provider';
 			case 'gift':
 				return 'Admin Gift';
 			case 'billing_disabled':
@@ -175,8 +233,9 @@
 		}
 	}
 
-	function syncHealthLabel(snapshot: BillingSnapshot | null): string {
+	function billingUpdateLabel(snapshot: BillingSnapshot | null): string {
 		if (!snapshot) return 'Current';
+		if (snapshot.syncStatus === 'pending') return 'Updating';
 		if (snapshot.syncStatus === 'synced') return 'Current';
 		return snapshot.driftDetected || snapshot.syncStatus === 'needs_reconciliation'
 			? 'Needs support review'
@@ -196,7 +255,7 @@
 		if (effective.source === 'billing_disabled' || snapshot?.source === 'billing_disabled') {
 			return {
 				title: 'Billing is disabled in this environment.',
-				description: 'This organization is using the billing-disabled fallback, so Stripe recovery actions are hidden.',
+				description: 'Billing actions are hidden because paid billing is turned off for this environment.',
 				statusLabel: 'Billing Disabled',
 				variant: 'secondary',
 				actionHint: 'No billing action is available while billing is disabled.'
@@ -206,7 +265,7 @@
 		if (effective.source === 'gift') {
 			return {
 				title: 'Gifted access is active.',
-				description: 'An admin gift is currently granting this organization access outside Stripe billing.',
+				description: 'An admin gift is currently granting this organization access outside regular billing.',
 				statusLabel: 'Gifted',
 				variant: 'success',
 				actionHint: 'No payment recovery is needed while gifted access is active.'
@@ -217,15 +276,15 @@
 			case 'active':
 				return {
 					title: 'Subscription active.',
-					description: 'Stripe reports this subscription as active and TroopToTask is applying the paid plan.',
+					description: 'The paid subscription is active and TroopToTask is applying the paid plan.',
 					statusLabel: 'Active',
 					variant: 'success',
-					actionHint: 'Use Manage Subscription for invoices, payment methods, and portal self-service.'
+					actionHint: 'Use Manage Subscription for invoices, receipts, payment methods, and billing self-service.'
 				};
 			case 'trialing':
 				return {
 					title: 'Trial active.',
-					description: `Stripe reports this subscription is trialing${
+					description: `The subscription trial is active${
 						snapshot.trialEnd ? ` until ${formatBillingDate(snapshot.trialEnd)}` : ''
 					}.`,
 					statusLabel: 'Trialing',
@@ -240,8 +299,8 @@
 							: 'Payment failed. Grace access is active.',
 					description:
 						effective.tier === 'free'
-							? 'Stripe reports a past-due subscription. Access has been downgraded to the free plan until billing is restored.'
-							: 'Stripe reports a past-due subscription. Paid access may be read-only until the payment method is updated.',
+							? 'The renewal payment did not go through. Access has been downgraded to the free plan until billing is restored.'
+							: 'The renewal payment did not go through. Paid access may be read-only until the payment method is updated.',
 					statusLabel: 'Past Due',
 					variant: 'warning',
 					actionHint: 'Open the billing portal to update the payment method and recover full access.'
@@ -251,8 +310,8 @@
 					title: 'Payment required to restore paid access.',
 					description:
 						effective.tier === 'free'
-							? 'Stripe reports this subscription as unpaid, so this organization is on the free plan until billing is restored.'
-							: 'Stripe reports this subscription as unpaid, so TroopToTask is blocking paid writes.',
+							? 'The subscription is unpaid, so this organization is on the free plan until billing is restored.'
+							: 'The subscription is unpaid, so TroopToTask is blocking paid writes.',
 					statusLabel: 'Unpaid',
 					variant: 'destructive',
 					actionHint: 'Use the billing portal or choose a plan below to recover service.'
@@ -260,17 +319,17 @@
 			case 'canceled':
 				return {
 					title: 'Subscription canceled.',
-					description:
-						'Stripe reports this subscription as canceled, so paid access has ended unless another source applies.',
+					description: 'This subscription is canceled, so paid access has ended unless another access source applies.',
 					statusLabel: 'Canceled',
 					variant: 'warning',
-					actionHint: 'Choose a plan below to start a new checkout, or use the portal if Stripe still allows recovery.'
+					actionHint:
+						'Choose a plan below to start a new checkout, or use the billing portal if recovery is still available.'
 				};
 			case 'incomplete':
 				return {
 					title: 'Payment is pending.',
 					description:
-						'Stripe has not finished activating this subscription. Complete checkout to activate paid access.',
+						'Checkout has not finished activating this subscription. Complete checkout to activate paid access.',
 					statusLabel: 'Payment Pending',
 					variant: 'warning',
 					actionHint: 'Return to checkout or manage billing if a portal session is available.'
@@ -278,7 +337,7 @@
 			case 'incomplete_expired':
 				return {
 					title: 'Checkout expired.',
-					description: 'The pending Stripe checkout expired before payment completed.',
+					description: 'The pending checkout expired before payment completed.',
 					statusLabel: 'Checkout Expired',
 					variant: 'warning',
 					actionHint: 'Choose a plan below to start a new checkout.'
@@ -286,7 +345,7 @@
 			case 'paused':
 				return {
 					title: 'Subscription paused.',
-					description: 'Stripe reports this subscription is paused. Current policy keeps paid access available.',
+					description: 'This subscription is paused. Current policy keeps paid access available.',
 					statusLabel: 'Paused',
 					variant: 'warning',
 					actionHint: 'Open the billing portal to resume or update the subscription.'
@@ -294,12 +353,170 @@
 			default:
 				return {
 					title: 'Free plan active.',
-					description: 'No active Stripe subscription is currently applied to this organization.',
+					description: 'No active paid subscription is currently applied to this organization.',
 					statusLabel: 'Free',
 					variant: 'secondary',
 					actionHint: 'Choose a paid plan below to activate more capacity.'
 				};
 		}
+	}
+
+	function buildBillingRecovery(
+		snapshot: BillingSnapshot | null,
+		effective: EffectiveTier,
+		canOpenPortal: boolean,
+		actionsDisabled: boolean
+	): {
+		title: string;
+		description: string;
+		impact: string;
+		statusLabel: string;
+		steps: string[];
+		portalLabel: string | null;
+		showPlansLink: boolean;
+		variant: 'warning' | 'destructive';
+	} | null {
+		if (!snapshot || actionsDisabled || effective.source === 'gift') return null;
+
+		switch (snapshot.subscriptionStatus) {
+			case 'past_due':
+				return {
+					title: 'Payment recovery needed',
+					description: 'Your renewal payment did not go through. Existing data remains visible while you fix billing.',
+					impact:
+						effective.tier === 'free'
+							? 'Paid access is suspended and paid-plan writes are blocked until billing is restored.'
+							: 'Grace access may be read-only; some paid-plan writes can be blocked until payment succeeds.',
+					statusLabel: 'Past Due',
+					steps: [
+						'Update the payment method in the billing portal.',
+						'Contact support if the payment is correct but access does not recover.'
+					],
+					portalLabel: canOpenPortal ? 'Update Payment Method' : null,
+					showPlansLink: false,
+					variant: 'warning'
+				};
+			case 'unpaid':
+				return {
+					title: 'Payment is required',
+					description: 'The paid subscription is unpaid. Existing data remains visible on the account.',
+					impact: 'Paid-plan writes are blocked until billing is restored or a new plan is selected.',
+					statusLabel: 'Unpaid',
+					steps: [
+						'Open the billing portal to retry payment.',
+						'Choose a plan below if the old subscription cannot be recovered.'
+					],
+					portalLabel: canOpenPortal ? 'Open Billing Portal' : null,
+					showPlansLink: true,
+					variant: 'destructive'
+				};
+			case 'canceled':
+				return {
+					title: 'Paid access ended',
+					description: 'The paid subscription has ended. Existing organization data is still visible.',
+					impact: 'New work follows Free plan limits until a paid plan is started again.',
+					statusLabel: 'Canceled',
+					steps: [
+						'Choose Team or Unit below to restart paid access.',
+						'Contact support if the cancellation was unexpected.'
+					],
+					portalLabel: null,
+					showPlansLink: true,
+					variant: 'warning'
+				};
+			case 'incomplete':
+				return {
+					title: 'Checkout still needs attention',
+					description:
+						'The checkout has not finished. Existing data remains visible, but the paid plan is not active yet.',
+					impact: 'Paid capacity starts only after checkout completes.',
+					statusLabel: 'Payment Pending',
+					steps: [
+						'Complete payment in the billing portal to activate the subscription.',
+						'Open the billing portal if payment details need attention.'
+					],
+					portalLabel: canOpenPortal ? 'Review Billing Details' : null,
+					showPlansLink: false,
+					variant: 'warning'
+				};
+			case 'incomplete_expired':
+				return {
+					title: 'Checkout expired',
+					description: 'The previous checkout expired before payment completed. No paid access was activated from it.',
+					impact: 'Existing data remains visible; choose a paid plan below to start a fresh checkout.',
+					statusLabel: 'Checkout Expired',
+					steps: [
+						'Choose Team or Unit below to start again.',
+						'Contact support if checkout expired after a successful payment.'
+					],
+					portalLabel: null,
+					showPlansLink: true,
+					variant: 'warning'
+				};
+			default:
+				return null;
+		}
+	}
+
+	function buildUsageAlertActions(alerts: Array<{ dimension: string }>, orgId: string): UsageAlertAction[] {
+		const dimensions = new Set(alerts.map((alert) => alert.dimension));
+		const actions: UsageAlertAction[] = [];
+
+		if (dimensions.has('active_personnel')) {
+			actions.push({
+				id: 'archive-personnel',
+				label: 'Open Personnel',
+				href: `/org/${orgId}/personnel`,
+				icon: 'archive'
+			});
+		}
+
+		if (dimensions.has('active_organization_members') || dimensions.has('pending_invitations')) {
+			actions.push({
+				id: 'manage-members',
+				label: 'Manage Members',
+				href: `/org/${orgId}/settings`,
+				icon: 'members'
+			});
+		}
+
+		if (
+			dimensions.has('active_personnel') ||
+			dimensions.has('active_organization_members') ||
+			dimensions.has('pending_invitations') ||
+			dimensions.has('monthly_exports')
+		) {
+			actions.push({
+				id: 'compare-plans',
+				label: 'Compare Plans',
+				href: '#billing-pricing-heading',
+				icon: 'plans'
+			});
+			actions.push({
+				id: 'contact-support',
+				label: 'Contact Support',
+				href: 'mailto:support@trooptotask.com',
+				icon: 'support'
+			});
+		}
+
+		return actions;
+	}
+
+	function buildUsageAlertTitle(alerts: Array<{ dimension: string }>): string {
+		const dimensions = new Set(alerts.map((alert) => alert.dimension));
+		const hasBillingState = dimensions.has('billing_state');
+		const hasUsageLimit = [...dimensions].some((dimension) => dimension !== 'billing_state');
+
+		if (hasBillingState && hasUsageLimit) {
+			return 'Existing data remains visible. Resolve billing or limits before adding more data.';
+		}
+
+		if (hasBillingState) {
+			return 'Existing data remains visible. Resolve billing before adding more data.';
+		}
+
+		return 'Existing data remains visible. Resolve limits before adding more data.';
 	}
 
 	function sourceVariant(src: string): BadgeVariant {
@@ -372,6 +589,21 @@
 		});
 	}
 
+	function formatBillingDateTime(value: string | null | undefined): string {
+		if (!value) return 'the provider expiration window ends';
+		return new Date(value).toLocaleString('en-US', {
+			year: 'numeric',
+			month: 'long',
+			day: 'numeric',
+			hour: 'numeric',
+			minute: '2-digit'
+		});
+	}
+
+	function planLabel(plan: Tier | string): string {
+		return tierComparison.find((tierOption) => tierOption.tier === plan)?.name ?? plan;
+	}
+
 	function openConfirmPasswordDialog(action: PendingBillingAction) {
 		pendingBillingAction = action;
 		confirmPassword = '';
@@ -395,7 +627,10 @@
 		if (result.requiresStepUp) {
 			if (action.kind === 'subscribe') subscribingTier = null;
 			if (action.kind === 'portal') portalLoading = false;
-			if (action.kind === 'cancel') cancelLoading = false;
+			if (action.kind === 'cancel') {
+				cancelLoading = false;
+				cancelNowDialogOpen = false;
+			}
 			if (!result.stepUpPath || result.stepUpPath === '/auth/login') {
 				openConfirmPasswordDialog(action);
 				return true;
@@ -422,7 +657,7 @@
 			await handleManageSubscription();
 			return;
 		}
-		await submitCancelSubscription();
+		await submitCancelSubscription(action.feedback);
 	}
 
 	async function handleConfirmPassword(event: SubmitEvent) {
@@ -466,6 +701,15 @@
 
 	async function handleSubscribe(selectedTier: string) {
 		if (subscribingTier) return;
+		if (pendingCheckoutSession) {
+			if (pendingCheckoutSession.tier === selectedTier && pendingCheckoutSession.checkoutUrl) {
+				window.location.href = pendingCheckoutSession.checkoutUrl;
+				return;
+			}
+			errorMessage =
+				'Cancel the pending checkout before starting another plan, or continue the open checkout from the notice above.';
+			return;
+		}
 		subscribingTier = selectedTier;
 		errorMessage = '';
 
@@ -503,36 +747,88 @@
 		}
 	}
 
-	async function handleCancelSubscription() {
-		if (cancelLoading) return;
-		if (
-			!confirm(
-				'Are you sure you want to cancel your subscription immediately? Your organization will revert to the Free tier.'
-			)
-		) {
-			return;
-		}
-		cancelLoading = true;
-		errorMessage = '';
-
-		await submitCancelSubscription();
+	function handleContinuePendingCheckout() {
+		if (!pendingCheckoutSession?.checkoutUrl) return;
+		window.location.href = pendingCheckoutSession.checkoutUrl;
 	}
 
-	async function submitCancelSubscription() {
-		cancelLoading = true;
+	async function handleCancelPendingCheckout() {
+		if (cancelCheckoutLoading) return;
+		cancelCheckoutLoading = true;
 		errorMessage = '';
+
 		try {
-			const res = await fetch(`/org/${data.orgId}/billing/cancel`, {
+			const res = await fetch(`/org/${data.orgId}/billing/checkout/cancel`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' }
 			});
 
 			const result = (await res.json()) as BillingApiResult;
 			if (!res.ok) {
-				if (handleBillingApiFailure(result, 'Failed to cancel subscription', { kind: 'cancel' })) return;
+				errorMessage = result.error || 'Failed to cancel pending checkout.';
 				return;
 			}
 
+			await invalidateAll();
+		} catch {
+			errorMessage = 'An unexpected error occurred. Please try again.';
+		} finally {
+			cancelCheckoutLoading = false;
+		}
+	}
+
+	function openCancelNowDialog() {
+		if (cancelLoading) return;
+		cancelNowConfirmation = '';
+		cancelFeedback = 'none';
+		cancelNowError = '';
+		cancelNowDialogOpen = true;
+	}
+
+	function closeCancelNowDialog() {
+		if (cancelLoading) return;
+		cancelNowDialogOpen = false;
+		cancelNowConfirmation = '';
+		cancelFeedback = 'none';
+		cancelNowError = '';
+	}
+
+	async function handleCancelSubscription() {
+		if (cancelLoading) return;
+		cancelNowError = '';
+		if (cancelNowConfirmation.trim() !== 'CANCEL NOW') {
+			cancelNowError = 'Type CANCEL NOW to confirm immediate cancellation.';
+			return;
+		}
+		cancelLoading = true;
+		errorMessage = '';
+
+		await submitCancelSubscription(selectedCancellationFeedback);
+	}
+
+	async function submitCancelSubscription(feedback: BillingCancellationFeedback | null) {
+		cancelLoading = true;
+		errorMessage = '';
+		try {
+			const res = await fetch(`/org/${data.orgId}/billing/cancel`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					confirmedImmediateCancellation: true,
+					cancellationFeedback: feedback
+				})
+			});
+
+			const result = (await res.json()) as BillingApiResult;
+			if (!res.ok) {
+				if (handleBillingApiFailure(result, 'Failed to cancel subscription', { kind: 'cancel', feedback })) return;
+				return;
+			}
+
+			cancelNowDialogOpen = false;
+			cancelNowConfirmation = '';
+			cancelFeedback = 'none';
+			cancelNowError = '';
 			await invalidateAll();
 		} catch {
 			errorMessage = 'An unexpected error occurred. Please try again.';
@@ -579,7 +875,7 @@
 <PageShell.Root width="wide">
 	<PageShell.Header
 		title="Billing"
-		subtitle="Manage subscription status, plan limits, and Stripe billing for this organization."
+		subtitle="Manage subscription status, plan limits, invoices, receipts, and billing details for this organization."
 	>
 		{#snippet meta()}
 			<Badge variant={sourceVariant(source)}>{sourceLabel(source)}</Badge>
@@ -609,6 +905,37 @@
 	{#if errorMessage}
 		<Alert.Root variant="destructive">
 			<Alert.Description>{errorMessage}</Alert.Description>
+		</Alert.Root>
+	{/if}
+
+	{#if !billingActionsDisabled && pendingCheckoutSession}
+		<Alert.Root variant="warning">
+			<TriangleAlert />
+			<Alert.Title>{planLabel(pendingCheckoutSession.tier)} checkout is already open.</Alert.Title>
+			<Alert.Description>
+				<p>
+					This checkout expires on {formatBillingDateTime(pendingCheckoutSession.expiresAt)}. Continue it, or cancel it
+					now before starting a different plan.
+				</p>
+				<div class="mt-3 flex flex-wrap gap-2">
+					{#if pendingCheckoutSession.checkoutUrl}
+						<Button type="button" variant="outline" onclick={handleContinuePendingCheckout}>
+							<ExternalLink data-icon="inline-start" />
+							Continue Checkout
+						</Button>
+					{/if}
+					<Button
+						type="button"
+						variant="outline"
+						onclick={handleCancelPendingCheckout}
+						disabled={cancelCheckoutLoading}
+					>
+						<X data-icon="inline-start" />
+						{#if cancelCheckoutLoading}<Spinner />{/if}
+						{cancelCheckoutLoading ? 'Canceling...' : 'Cancel Pending Checkout'}
+					</Button>
+				</div>
+			</Alert.Description>
 		</Alert.Root>
 	{/if}
 
@@ -647,7 +974,7 @@
 			label="Plan Source"
 			value={sourceLabel(source)}
 			detail={source === 'gift'
-				? 'Access is currently being granted outside Stripe billing'
+				? 'Access is currently being granted outside regular billing'
 				: 'How this subscription is currently being applied'}
 		/>
 	</PageShell.FactGrid>
@@ -666,7 +993,7 @@
 			<Card.Content class="grid gap-4">
 				<div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
 					{#each planUsageSummary.rows as row (row.dimension)}
-						<div class="grid gap-2 rounded-md border bg-muted/30 p-3">
+						<div class="grid gap-2 rounded-md bg-muted/40 p-3">
 							<div class="flex items-start justify-between gap-2">
 								<p class="text-sm font-medium">{row.label}</p>
 								<Badge variant={usageStatusVariant(row.status)}>{usageStatusLabel(row.status)}</Badge>
@@ -684,13 +1011,35 @@
 				{#if planUsageSummary.alerts.length > 0}
 					<Alert.Root variant="warning">
 						<TriangleAlert />
-						<Alert.Title>Existing data remains visible. Resolve limits before adding more data.</Alert.Title>
+						<Alert.Title>{usageAlertTitle}</Alert.Title>
 						<Alert.Description>
+							<p class="mb-2">
+								New personnel, member invitations, exports, or paid-plan writes can be blocked until these items are
+								fixed.
+							</p>
 							<ul class="grid gap-1">
 								{#each planUsageSummary.alerts as alert (`${alert.dimension}-${alert.status}`)}
 									<li>{alert.label}: {alert.remediation}</li>
 								{/each}
 							</ul>
+							{#if usageAlertActions.length > 0}
+								<div class="mt-3 flex flex-wrap gap-2">
+									{#each usageAlertActions as action (action.id)}
+										<Button href={action.href} variant="outline" size="sm">
+											{#if action.icon === 'archive'}
+												<Archive data-icon="inline-start" />
+											{:else if action.icon === 'members'}
+												<UserMinus data-icon="inline-start" />
+											{:else if action.icon === 'plans'}
+												<ArrowUpCircle data-icon="inline-start" />
+											{:else}
+												<LifeBuoy data-icon="inline-start" />
+											{/if}
+											{action.label}
+										</Button>
+									{/each}
+								</div>
+							{/if}
 						</Alert.Description>
 					</Alert.Root>
 				{/if}
@@ -727,11 +1076,12 @@
 					value={formatBillingDate(billingSnapshot?.currentPeriodEnd)}
 					layout="stack"
 				/>
-				<PageShell.FactRow label="Sync Health" value={syncHealthLabel(billingSnapshot)} layout="stack" />
+				<PageShell.FactRow label="Billing Updates" value={billingUpdateLabel(billingSnapshot)} layout="stack" />
 			</PageShell.FactGrid>
 			{#if data.canManageSubscription && !billingActionsDisabled}
 				<div>
 					<Button variant="outline" onclick={handleManageSubscription} disabled={portalLoading}>
+						<CreditCard data-icon="inline-start" />
 						{#if portalLoading}<Spinner />{/if}
 						{portalLoading ? 'Opening...' : 'Manage Subscription'}
 					</Button>
@@ -739,6 +1089,98 @@
 			{/if}
 		</Card.Content>
 	</Card.Root>
+
+	{#if billingRecovery}
+		<Card.Root>
+			<Card.Header>
+				<div class="flex flex-wrap items-center gap-2">
+					<Card.Title>Payment Recovery</Card.Title>
+					<Badge variant={billingRecovery.variant}>{billingRecovery.statusLabel}</Badge>
+				</div>
+				<Card.Description>{billingRecovery.description}</Card.Description>
+			</Card.Header>
+			<Card.Content class="grid gap-4">
+				<Alert.Root variant={billingRecovery.variant}>
+					<TriangleAlert />
+					<Alert.Title>{billingRecovery.title}</Alert.Title>
+					<Alert.Description>{billingRecovery.impact}</Alert.Description>
+				</Alert.Root>
+				<ul class="grid gap-2 text-sm text-muted-foreground">
+					{#each billingRecovery.steps as step (step)}
+						<li>{step}</li>
+					{/each}
+				</ul>
+				<div class="flex flex-wrap gap-2">
+					{#if billingRecovery.portalLabel}
+						<Button variant="outline" onclick={handleManageSubscription} disabled={portalLoading}>
+							<CreditCard data-icon="inline-start" />
+							{#if portalLoading}<Spinner />{/if}
+							{portalLoading ? 'Opening...' : billingRecovery.portalLabel}
+						</Button>
+					{/if}
+					{#if billingRecovery.showPlansLink}
+						<Button href="#billing-pricing-heading" variant="outline">View Plans</Button>
+					{/if}
+				</div>
+			</Card.Content>
+		</Card.Root>
+	{/if}
+
+	{#if data.canManageSubscription && !billingActionsDisabled && (!billingRecovery || !billingRecovery.portalLabel)}
+		<Card.Root>
+			<Card.Header>
+				<Card.Title>Invoices & Receipts</Card.Title>
+				<Card.Description>
+					Download invoices and receipts, update payment methods, and review billing details in the secure billing
+					portal.
+				</Card.Description>
+			</Card.Header>
+			<Card.Content>
+				<Button variant="outline" onclick={handleManageSubscription} disabled={portalLoading}>
+					<FileText data-icon="inline-start" />
+					{#if portalLoading}<Spinner />{/if}
+					{portalLoading ? 'Opening...' : 'Open Billing Portal'}
+				</Button>
+			</Card.Content>
+		</Card.Root>
+	{/if}
+
+	{#if data.canManageSubscription && !billingActionsDisabled && source !== 'gift'}
+		<Card.Root>
+			<Card.Header>
+				<Card.Title>Cancellation Policy</Card.Title>
+				<Card.Description>
+					Use the billing portal for the normal paid-launch cancellation path. Portal cancellation keeps paid access
+					active through the current paid-through date.
+				</Card.Description>
+			</Card.Header>
+			<Card.Content class="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
+				<div class="grid gap-2 text-sm text-muted-foreground">
+					<p>
+						Canceling in the portal is scheduled at period end when the billing dashboard is configured for launch. The
+						organization stays on the paid plan until billing confirms the cancellation.
+					</p>
+					<p>
+						Immediate cancellation is separate: it ends paid access now, moves the organization to Free, and should only
+						be used when the owner explicitly confirms that outcome.
+					</p>
+				</div>
+				<div class="flex flex-wrap gap-2 md:justify-end">
+					<Button variant="outline" onclick={handleManageSubscription} disabled={portalLoading}>
+						<CreditCard data-icon="inline-start" />
+						{#if portalLoading}<Spinner />{/if}
+						{portalLoading ? 'Opening...' : 'Cancel at Period End'}
+					</Button>
+					{#if canShowImmediateCancellation}
+						<Button variant="destructive" onclick={openCancelNowDialog} disabled={cancelLoading}>
+							{#if cancelLoading}<Spinner />{/if}
+							{cancelLoading ? 'Canceling...' : 'Cancel Now'}
+						</Button>
+					{/if}
+				</div>
+			</Card.Content>
+		</Card.Root>
+	{/if}
 
 	{#if showCancellationTiming}
 		<Card.Root>
@@ -829,10 +1271,7 @@
 							</li>
 							<li class="flex gap-2">
 								<Check class="mt-0.5 size-4 shrink-0 text-success-foreground" />
-								<span>
-									<strong>{formatCap(plan.maxOrgsOwned)}</strong>
-									{plan.maxOrgsOwned === 1 ? 'organization' : 'organizations'}
-								</span>
+								<span><strong>{formatCap(plan.activeUserCap)}</strong> active users</span>
 							</li>
 							<li class="flex gap-2">
 								<Check class="mt-0.5 size-4 shrink-0 text-success-foreground" />
@@ -841,7 +1280,7 @@
 						</ul>
 
 						{#if downgradePreview}
-							<div class="grid gap-3 rounded-md border bg-muted/30 p-3">
+							<div class="grid gap-3 rounded-md bg-muted/40 p-3">
 								<div class="flex flex-wrap items-center justify-between gap-2">
 									<p class="text-sm font-medium">Downgrade preview</p>
 									<Badge variant={downgradePreview.status === 'blocked' ? 'warning' : 'success'}>
@@ -879,6 +1318,15 @@
 								</Button>
 							{:else}
 								<Button class="w-full" variant="outline" disabled>Free Plan</Button>
+							{/if}
+						{:else if pendingCheckoutSession}
+							{#if pendingCheckoutSession.tier === plan.tier && pendingCheckoutSession.checkoutUrl}
+								<Button class="w-full" variant="outline" onclick={handleContinuePendingCheckout}>
+									<ExternalLink data-icon="inline-start" />
+									Continue Checkout
+								</Button>
+							{:else}
+								<Button class="w-full" variant="outline" disabled>Pending Checkout</Button>
 							{/if}
 						{:else if isDowngrade && data.canManageSubscription}
 							<Button class="w-full" variant="outline" onclick={handleManageSubscription} disabled={portalLoading}>
@@ -944,6 +1392,75 @@
 					</Button>
 				</AppDialog.Footer>
 			</form>
+		</AppDialog.Content>
+	</AppDialog.Root>
+
+	<AppDialog.Root bind:open={cancelNowDialogOpen} closeBlocked={cancelLoading} onClose={closeCancelNowDialog}>
+		<AppDialog.Content closeBlocked={cancelLoading}>
+			<AppDialog.Header>
+				<AppDialog.Title>Cancel paid access now</AppDialog.Title>
+				<AppDialog.Description>
+					This is the immediate cancellation path. Paid access ends now and the organization moves to the Free plan. Use
+					the billing portal instead for period-end cancellation.
+				</AppDialog.Description>
+			</AppDialog.Header>
+
+			<AppDialog.Body class="grid gap-4">
+				{#if cancelNowError}
+					<Alert.Root variant="destructive">
+						<Alert.Description>{cancelNowError}</Alert.Description>
+					</Alert.Root>
+				{/if}
+
+				<Alert.Root variant="warning">
+					<TriangleAlert />
+					<Alert.Title>Immediate cancellation ends paid access now.</Alert.Title>
+					<Alert.Description>
+						Existing data remains visible, but paid-plan writes may be blocked by Free plan limits after billing
+						confirms the change.
+					</Alert.Description>
+				</Alert.Root>
+
+				<div class="grid gap-2">
+					<Label for="billing-cancel-feedback">Reason</Label>
+					<Select.Root type="single" bind:value={cancelFeedback}>
+						<Select.Trigger id="billing-cancel-feedback" class="w-full">
+							{cancellationFeedbackOptions.find((option) => option.value === cancelFeedback)?.label ??
+								'No reason selected'}
+						</Select.Trigger>
+						<Select.Content>
+							{#each cancellationFeedbackOptions as option (option.value)}
+								<Select.Item value={option.value} label={option.label} />
+							{/each}
+						</Select.Content>
+					</Select.Root>
+				</div>
+
+				<div class="grid gap-2">
+					<Label for="billing-cancel-confirmation">Type CANCEL NOW to confirm</Label>
+					<Input
+						id="billing-cancel-confirmation"
+						bind:value={cancelNowConfirmation}
+						disabled={cancelLoading}
+						autocomplete="off"
+					/>
+				</div>
+			</AppDialog.Body>
+
+			<AppDialog.Footer>
+				<Button type="button" variant="outline" onclick={closeCancelNowDialog} disabled={cancelLoading}>
+					Keep Subscription
+				</Button>
+				<Button
+					type="button"
+					variant="destructive"
+					onclick={handleCancelSubscription}
+					disabled={cancelLoading || cancelNowConfirmation.trim() !== 'CANCEL NOW'}
+				>
+					{#if cancelLoading}<Spinner />{/if}
+					{cancelLoading ? 'Canceling...' : 'Cancel Now'}
+				</Button>
+			</AppDialog.Footer>
 		</AppDialog.Content>
 	</AppDialog.Root>
 </PageShell.Root>

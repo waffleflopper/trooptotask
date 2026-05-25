@@ -29,6 +29,8 @@ interface OrganizationBillingSnapshotRow {
 	current_period_end: string | null;
 	cancel_at_period_end: boolean | null;
 	canceled_at: string | null;
+	cancellation_reason: string | null;
+	cancellation_feedback: BillingSnapshot['cancellationFeedback'];
 	trial_end: string | null;
 	sync_status: BillingSyncStatus;
 	last_stripe_event_id: string | null;
@@ -73,6 +75,8 @@ function mapSnapshotRow(
 		currentPeriodEnd: row.current_period_end,
 		cancelAtPeriodEnd: row.cancel_at_period_end ?? false,
 		canceledAt: row.canceled_at,
+		cancellationReason: row.cancellation_reason ?? null,
+		cancellationFeedback: row.cancellation_feedback ?? null,
 		trialEnd: row.trial_end,
 		syncStatus: row.sync_status,
 		lastStripeEventId: row.last_stripe_event_id,
@@ -102,6 +106,8 @@ function emptySnapshot(orgId: string): BillingSnapshot {
 		currentPeriodEnd: null,
 		cancelAtPeriodEnd: false,
 		canceledAt: null,
+		cancellationReason: null,
+		cancellationFeedback: null,
 		trialEnd: null,
 		syncStatus: 'not_configured',
 		lastStripeEventId: null,
@@ -168,7 +174,7 @@ export async function readCurrentBillingSnapshot(ports: BillingStatePorts): Prom
 		'organization_billing_snapshots',
 		ports.auth.orgId,
 		{},
-		'organization_id, source, commercial_plan, stripe_customer_id, stripe_subscription_id, stripe_product_id, stripe_price_id, subscription_status, collection_status, current_period_start, current_period_end, cancel_at_period_end, canceled_at, trial_end, sync_status, last_stripe_event_id, last_stripe_event_type, last_stripe_event_created_at, last_processed_at, last_reconciled_at, reconciliation_result, drift_detected'
+		'organization_id, source, commercial_plan, stripe_customer_id, stripe_subscription_id, stripe_product_id, stripe_price_id, subscription_status, collection_status, current_period_start, current_period_end, cancel_at_period_end, canceled_at, cancellation_reason, cancellation_feedback, trial_end, sync_status, last_stripe_event_id, last_stripe_event_type, last_stripe_event_created_at, last_processed_at, last_reconciled_at, reconciliation_result, drift_detected'
 	);
 
 	const base = snapshotRow
@@ -209,7 +215,7 @@ export function summarizeBillingCancellation(snapshot: BillingSnapshot): Billing
 			state: 'canceling_at_period_end',
 			label: 'Cancels at period end',
 			description:
-				'Paid access remains active until the paid-through date unless Stripe reports an earlier terminal state.',
+				'Paid access remains active until the paid-through date unless the provider reports an earlier terminal state.',
 			currentPeriodEnd,
 			canceledAt
 		};
@@ -219,7 +225,7 @@ export function summarizeBillingCancellation(snapshot: BillingSnapshot): Billing
 		return {
 			state: 'canceling_at_period_end',
 			label: 'Cancellation scheduled',
-			description: 'Stripe reports cancellation at period end, but the paid-through date has not synced yet.',
+			description: 'A cancellation is scheduled for period end, but the paid-through date has not synced yet.',
 			currentPeriodEnd,
 			canceledAt
 		};

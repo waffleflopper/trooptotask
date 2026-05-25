@@ -17,6 +17,8 @@ function snapshot(): BillingSnapshot {
 		currentPeriodEnd: '2026-06-01T00:00:00.000Z',
 		cancelAtPeriodEnd: false,
 		canceledAt: null,
+		cancellationReason: 'cancellation_requested',
+		cancellationFeedback: 'unused',
 		trialEnd: null,
 		syncStatus: 'synced',
 		lastStripeEventId: 'evt_secret',

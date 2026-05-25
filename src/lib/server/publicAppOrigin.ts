@@ -1,18 +1,28 @@
 import { env } from '$env/dynamic/private';
 
-const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1']);
+const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '[::1]']);
 
 export interface PublicAppOriginInput {
 	inboundOrigin: string;
+}
+
+export class PublicAppOriginError extends Error {
+	readonly status = 400;
 }
 
 function normalizeOrigin(origin: string | null | undefined): string | null {
 	const trimmed = origin?.trim();
 	if (!trimmed) return null;
 
-	const url = new URL(trimmed);
+	let url: URL;
+	try {
+		url = new URL(trimmed);
+	} catch {
+		throw new PublicAppOriginError('Public app origin must be a valid URL');
+	}
+
 	if (url.protocol !== 'https:' && !(url.protocol === 'http:' && LOCAL_HOSTS.has(url.hostname))) {
-		throw new Error('Public app origin must use HTTPS outside local development');
+		throw new PublicAppOriginError('Public app origin must use HTTPS outside local development');
 	}
 
 	return url.origin;
@@ -45,7 +55,7 @@ function isLocalOrigin(origin: string): boolean {
 export function resolvePublicAppOrigin(input: PublicAppOriginInput): string {
 	const inboundOrigin = normalizeOrigin(input.inboundOrigin);
 	if (!inboundOrigin) {
-		throw new Error('Inbound origin is required to resolve public app origin');
+		throw new PublicAppOriginError('Inbound origin is required to resolve public app origin');
 	}
 
 	const officialOrigin = configuredOfficialOrigin();
@@ -61,7 +71,7 @@ export function resolvePublicAppOrigin(input: PublicAppOriginInput): string {
 		return inboundOrigin;
 	}
 
-	throw new Error('Official public app origin is not configured for this host');
+	throw new PublicAppOriginError('Official public app origin is not configured for this host');
 }
 
 export function makePublicAppUrl(path: string, input: PublicAppOriginInput): string {

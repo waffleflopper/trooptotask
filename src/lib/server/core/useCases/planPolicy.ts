@@ -126,14 +126,6 @@ export interface PlanLimitAvailability {
 	message?: string;
 }
 
-const MEMBER_CAPS: Record<Tier, number | null> = {
-	// Authoritative commercial member-seat caps for PRD 02. Keep these in the
-	// plan policy contract so enforcement, usage summaries, and previews agree.
-	free: 2,
-	team: 10,
-	unit: 50
-};
-
 const PENDING_INVITATION_EXCLUDED_STATUSES = ['expired', 'declined', 'revoked', 'blocked', 'accepted'];
 
 export const PLAN_FEATURE_REGISTRY = {
@@ -193,6 +185,9 @@ function mapPolicySource(snapshot: BillingSnapshot): PlanPolicySource {
 		case 'gift':
 			return 'admin_gift';
 		case 'stripe':
+			if (snapshot.commercialPlan === 'free' && snapshot.subscriptionStatus === 'canceled') {
+				return 'legacy_organization';
+			}
 			return 'billing_snapshot';
 		case 'legacy_organization':
 			return 'legacy_organization';
@@ -217,7 +212,7 @@ function limit(value: number | null): number | null {
 function featureAvailableOnPlan(feature: PlanFeatureKey, plan: Tier): boolean {
 	switch (feature) {
 		case 'bulk_export_unlimited':
-			return plan !== 'free';
+			return plan === 'unit';
 		case 'advanced_reporting':
 			return plan === 'unit';
 		default: {
@@ -231,7 +226,7 @@ function featureUpgradeTarget(feature: PlanFeatureKey, plan: Tier): Tier | null 
 	if (featureAvailableOnPlan(feature, plan)) return null;
 	switch (feature) {
 		case 'bulk_export_unlimited':
-			return 'team';
+			return 'unit';
 		case 'advanced_reporting':
 			return 'unit';
 		default: {
@@ -471,13 +466,13 @@ export function buildEffectivePlanPolicy(
 				upgradeTarget: plan === 'unit' ? null : plan === 'team' ? 'unit' : 'team'
 			},
 			activeOrganizationMembers: {
-				limit: hasUnlimitedFallback ? null : MEMBER_CAPS[plan],
+				limit: hasUnlimitedFallback ? null : tierConfig.activeUserCap,
 				enforcement: 'active_members_plus_pending_invitations',
 				denialCode: 'denied.member_limit',
 				upgradeTarget: plan === 'unit' ? null : plan === 'team' ? 'unit' : 'team'
 			},
 			pendingInvitations: {
-				limit: hasUnlimitedFallback ? null : MEMBER_CAPS[plan],
+				limit: hasUnlimitedFallback ? null : tierConfig.activeUserCap,
 				enforcement: 'active_members_plus_pending_invitations',
 				denialCode: 'denied.pending_invitation_limit',
 				upgradeTarget: plan === 'unit' ? null : plan === 'team' ? 'unit' : 'team',
@@ -496,7 +491,7 @@ export function buildEffectivePlanPolicy(
 			unlimited: exportLimit === null,
 			period: 'calendar_month',
 			denialCode: 'denied.export_quota',
-			upgradeTarget: exportLimit === null ? null : 'team'
+			upgradeTarget: exportLimit === null ? null : plan === 'free' ? 'team' : 'unit'
 		},
 		entitlements: buildEntitlements(plan, source, options.featureOverrides ?? [], options.now ?? new Date()),
 		grace: {
@@ -540,6 +535,8 @@ export function buildEffectivePlanPolicyForTier(policy: EffectivePlanPolicy, tar
 			currentPeriodEnd: null,
 			cancelAtPeriodEnd: false,
 			canceledAt: null,
+			cancellationReason: null,
+			cancellationFeedback: null,
 			trialEnd: null,
 			syncStatus: 'synced',
 			lastStripeEventId: null,

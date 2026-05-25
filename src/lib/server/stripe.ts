@@ -1,10 +1,6 @@
 import Stripe from 'stripe';
-import {
-	STRIPE_SECRET_KEY,
-	STRIPE_WEBHOOK_SECRET,
-	STRIPE_TEAM_PRICE_ID,
-	STRIPE_UNIT_PRICE_ID
-} from '$env/static/private';
+import { STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET } from '$env/static/private';
+import type { CheckoutSessionConfiguration } from '$lib/server/billing/checkoutConfiguration';
 import type { BillingReconciliationProviderSubscription } from '$lib/server/core/useCases/billingReconciliation';
 
 function getStripe(): Stripe {
@@ -16,19 +12,17 @@ export async function createCheckoutSession(options: {
 	orgId: string;
 	orgName: string;
 	tier: 'team' | 'unit';
+	priceId: string;
+	checkoutAttemptId?: string;
 	customerEmail: string;
 	existingCustomerId?: string;
 	successUrl: string;
 	cancelUrl: string;
-}): Promise<{ url: string; customerId: string }> {
+	checkoutConfiguration: CheckoutSessionConfiguration;
+}): Promise<{ url: string; customerId: string; sessionId: string; expiresAt: string | null }> {
 	const stripe = getStripe();
 
-	const PRICE_IDS: Record<string, string | undefined> = {
-		team: STRIPE_TEAM_PRICE_ID,
-		unit: STRIPE_UNIT_PRICE_ID
-	};
-	const priceId = PRICE_IDS[options.tier];
-	if (!priceId) throw new Error(`No Stripe price ID configured for tier: ${options.tier}`);
+	if (!options.priceId) throw new Error(`No Stripe price ID configured for tier: ${options.tier}`);
 
 	let customerId = options.existingCustomerId;
 	if (!customerId) {
@@ -42,17 +36,67 @@ export async function createCheckoutSession(options: {
 	const session = await stripe.checkout.sessions.create({
 		customer: customerId,
 		mode: 'subscription',
-		line_items: [{ price: priceId, quantity: 1 }],
+		client_reference_id: options.orgId,
+		line_items: [{ price: options.priceId, quantity: 1 }],
 		success_url: options.successUrl,
 		cancel_url: options.cancelUrl,
-		metadata: { orgId: options.orgId, tier: options.tier },
+		billing_address_collection: options.checkoutConfiguration.billingAddressCollection,
+		automatic_tax: options.checkoutConfiguration.automaticTax,
+		customer_update: options.checkoutConfiguration.customerUpdate,
+		metadata: {
+			orgId: options.orgId,
+			tier: options.tier,
+			commercialPlan: options.tier,
+			priceId: options.priceId,
+			...(options.checkoutAttemptId ? { checkoutAttemptId: options.checkoutAttemptId } : {})
+		},
 		subscription_data: {
-			metadata: { orgId: options.orgId, tier: options.tier }
+			metadata: {
+				orgId: options.orgId,
+				tier: options.tier,
+				commercialPlan: options.tier,
+				priceId: options.priceId,
+				...(options.checkoutAttemptId ? { checkoutAttemptId: options.checkoutAttemptId } : {})
+			}
 		}
 	});
 
 	if (!session.url) throw new Error('Stripe checkout session URL is null');
-	return { url: session.url, customerId };
+	return { url: session.url, customerId, sessionId: session.id, expiresAt: isoFromStripeTimestamp(session.expires_at) };
+}
+
+type StripeMode = 'test' | 'live' | 'unknown';
+
+function stripeModeFromSecretKey(secretKey: string | undefined): StripeMode {
+	if (secretKey?.startsWith('sk_test_') || secretKey?.startsWith('rk_test_')) return 'test';
+	if (secretKey?.startsWith('sk_live_') || secretKey?.startsWith('rk_live_')) return 'live';
+	return 'unknown';
+}
+
+export function validateCheckoutPriceForSecretMode(
+	price: Pick<Stripe.Price, 'id' | 'livemode' | 'active' | 'recurring'>,
+	secretKey: string | undefined
+): void {
+	const mode = stripeModeFromSecretKey(secretKey);
+	if (mode === 'unknown') {
+		throw new Error('Stripe secret key mode could not be determined for checkout price validation');
+	}
+	if (mode === 'test' && price.livemode) {
+		throw new Error(
+			`Configured checkout price ${price.id} belongs to live mode but the Stripe secret key is test mode`
+		);
+	}
+	if (mode === 'live' && !price.livemode) {
+		throw new Error(
+			`Configured checkout price ${price.id} belongs to test mode but the Stripe secret key is live mode`
+		);
+	}
+	if (!price.active) {
+		throw new Error(`Configured checkout price ${price.id} is not active`);
+	}
+	if (!price.recurring) {
+		throw new Error(`Configured checkout price ${price.id} must be a recurring price`);
+	}
 }
 
 export async function createPortalSession(customerId: string, returnUrl: string): Promise<string> {
@@ -62,6 +106,34 @@ export async function createPortalSession(customerId: string, returnUrl: string)
 		return_url: returnUrl
 	});
 	return session.url;
+}
+
+export async function expireCheckoutSession(sessionId: string): Promise<void> {
+	const stripe = getStripe();
+	await stripe.checkout.sessions.expire(sessionId);
+}
+
+export interface CheckoutSessionRecoveryDetails {
+	id: string;
+	status: Stripe.Checkout.Session['status'] | null;
+	paymentStatus: Stripe.Checkout.Session['payment_status'] | null;
+	customerId: string | null;
+	subscriptionId: string | null;
+	metadata: Stripe.Metadata | null;
+}
+
+export async function retrieveCheckoutSessionForRecovery(sessionId: string): Promise<CheckoutSessionRecoveryDetails> {
+	const stripe = getStripe();
+	const session = await stripe.checkout.sessions.retrieve(sessionId);
+	return {
+		id: session.id,
+		status: session.status,
+		paymentStatus: session.payment_status,
+		customerId: typeof session.customer === 'string' ? session.customer : (session.customer?.id ?? null),
+		subscriptionId:
+			typeof session.subscription === 'string' ? session.subscription : (session.subscription?.id ?? null),
+		metadata: session.metadata ?? null
+	};
 }
 
 export async function pauseSubscription(subscriptionId: string): Promise<void> {
@@ -78,9 +150,15 @@ export async function resumeSubscription(subscriptionId: string): Promise<void> 
 	});
 }
 
-export async function cancelSubscription(subscriptionId: string): Promise<void> {
+export async function cancelSubscription(
+	subscriptionId: string,
+	options: { cancellationFeedback?: Stripe.SubscriptionCancelParams.CancellationDetails.Feedback | null } = {}
+): Promise<void> {
 	const stripe = getStripe();
-	await stripe.subscriptions.cancel(subscriptionId);
+	await stripe.subscriptions.cancel(
+		subscriptionId,
+		options.cancellationFeedback ? { cancellation_details: { feedback: options.cancellationFeedback } } : undefined
+	);
 }
 
 function isoFromStripeTimestamp(value: number | null | undefined): string | null {

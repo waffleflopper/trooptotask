@@ -19,6 +19,8 @@ function snapshot(overrides: Partial<BillingSnapshot> = {}): BillingSnapshot {
 		currentPeriodEnd: '2026-06-01T00:00:00.000Z',
 		cancelAtPeriodEnd: false,
 		canceledAt: null,
+		cancellationReason: null,
+		cancellationFeedback: null,
 		trialEnd: null,
 		syncStatus: 'synced',
 		lastStripeEventId: 'evt_123',
@@ -109,7 +111,7 @@ describe('plan downgrade preview', () => {
 					status: 'over_limit',
 					used: 4,
 					limit: 3,
-					remediation: 'Wait until next month or choose Team for unlimited exports.'
+					remediation: 'Wait until next month or choose Team for more monthly exports.'
 				})
 			])
 		);
@@ -117,7 +119,7 @@ describe('plan downgrade preview', () => {
 			expect.objectContaining({
 				featureKey: 'bulk_export_unlimited',
 				label: 'Unlimited bulk exports',
-				remediation: 'Choose Team to keep Unlimited bulk exports.'
+				remediation: 'Choose Unit to keep Unlimited bulk exports.'
 			}),
 			expect.objectContaining({
 				featureKey: 'advanced_reporting',
@@ -150,20 +152,15 @@ describe('plan downgrade preview', () => {
 			})
 		});
 
-		expect(preview.status).toBe('blocked');
+		expect(preview.status).toBe('available');
 		expect(preview.rows.map((row) => row.status)).toEqual([
 			'within_limit',
 			'within_limit',
 			'within_limit',
 			'within_limit'
 		]);
-		expect(preview.featureLosses).toEqual([
-			expect.objectContaining({
-				featureKey: 'bulk_export_unlimited',
-				remediation: 'Choose Team to keep Unlimited bulk exports.'
-			})
-		]);
-		expect(preview.blockers).toEqual([expect.objectContaining({ featureKey: 'bulk_export_unlimited' })]);
+		expect(preview.featureLosses).toEqual([]);
+		expect(preview.blockers).toEqual([]);
 	});
 
 	it('includes policy read-only reasons in downgrade blockers and preservation copy', () => {
@@ -248,10 +245,13 @@ describe('plan downgrade preview', () => {
 		expect(preview.rows).toEqual(
 			expect.arrayContaining([
 				expect.objectContaining({ dimension: 'active_personnel', status: 'limit_reached' }),
-				expect.objectContaining({ dimension: 'active_organization_members', status: 'limit_reached' })
+				expect.objectContaining({ dimension: 'active_organization_members', status: 'within_limit' })
 			])
 		);
-		expect(preview.blockers).toEqual([expect.objectContaining({ featureKey: 'advanced_reporting' })]);
+		expect(preview.blockers).toEqual([
+			expect.objectContaining({ featureKey: 'bulk_export_unlimited' }),
+			expect.objectContaining({ featureKey: 'advanced_reporting' })
+		]);
 		expect(preview.blockers).not.toContainEqual(expect.objectContaining({ dimension: 'active_personnel' }));
 		expect(preview.blockers).not.toContainEqual(expect.objectContaining({ dimension: 'active_organization_members' }));
 	});

@@ -36,6 +36,8 @@ function snapshot(overrides: Partial<BillingSnapshot> = {}): BillingSnapshot {
 		currentPeriodEnd: '2026-06-01T00:00:00.000Z',
 		cancelAtPeriodEnd: false,
 		canceledAt: null,
+		cancellationReason: null,
+		cancellationFeedback: null,
 		trialEnd: null,
 		syncStatus: 'synced',
 		lastStripeEventId: 'evt_123',
@@ -229,6 +231,33 @@ describe('plan policy', () => {
 		});
 	});
 
+	it('treats a canceled Stripe snapshot on Free as the base Free plan for owner-facing source labels', () => {
+		const policy = buildEffectivePlanPolicy(
+			snapshot({
+				commercialPlan: 'free',
+				subscriptionStatus: 'canceled',
+				collectionStatus: 'canceled',
+				stripeSubscriptionId: null,
+				stripeProductId: null,
+				stripePriceId: null
+			})
+		);
+		const tier = toEffectiveTierFromPlanPolicy(policy, { activePersonnelCount: 69 });
+
+		expect(policy).toMatchObject({
+			commercialPlan: 'free',
+			source: 'legacy_organization',
+			billingSource: 'stripe'
+		});
+		expect(tier).toMatchObject({
+			tier: 'free',
+			source: 'default',
+			personnelCap: 20,
+			isReadOnly: true,
+			readOnlyReason: 'billing_state'
+		});
+	});
+
 	it('does not mark the effective-tier compatibility path read-only at exactly the personnel cap', () => {
 		const policy = buildEffectivePlanPolicy(snapshot({ commercialPlan: 'free' }));
 		const tier = toEffectiveTierFromPlanPolicy(policy, { activePersonnelCount: 20 });
@@ -312,10 +341,10 @@ describe('plan policy', () => {
 			})
 		);
 
-		expect(checkCanCreateOrganizationForPlanPolicies({ ownedOrganizationCount: 2, policies: [unitPolicy] })).toEqual({
+		expect(checkCanCreateOrganizationForPlanPolicies({ ownedOrganizationCount: 0, policies: [unitPolicy] })).toEqual({
 			allowed: true
 		});
-		expect(checkCanCreateOrganizationForPlanPolicies({ ownedOrganizationCount: 2, policies: [giftPolicy] })).toEqual({
+		expect(checkCanCreateOrganizationForPlanPolicies({ ownedOrganizationCount: 0, policies: [giftPolicy] })).toEqual({
 			allowed: true
 		});
 	});
@@ -457,12 +486,12 @@ describe('plan policy', () => {
 		expect(buildEffectivePlanPolicy(snapshot({ commercialPlan: 'free' })).limits.activeOrganizationMembers.limit).toBe(
 			2
 		);
-		expect(buildEffectivePlanPolicy(snapshot({ commercialPlan: 'team' })).limits.activeOrganizationMembers.limit).toBe(
-			10
-		);
-		expect(buildEffectivePlanPolicy(snapshot({ commercialPlan: 'unit' })).limits.activeOrganizationMembers.limit).toBe(
-			50
-		);
+		expect(
+			buildEffectivePlanPolicy(snapshot({ commercialPlan: 'team' })).limits.activeOrganizationMembers.limit
+		).toBeNull();
+		expect(
+			buildEffectivePlanPolicy(snapshot({ commercialPlan: 'unit' })).limits.activeOrganizationMembers.limit
+		).toBeNull();
 	});
 
 	it('uses the billing-state read interface instead of provider-specific billing APIs', async () => {
@@ -511,7 +540,7 @@ describe('plan policy', () => {
 			source: 'billing_snapshot',
 			limits: {
 				activePersonnel: { limit: 80 },
-				activeOrganizationMembers: { limit: 10 },
+				activeOrganizationMembers: { limit: null },
 				ownedOrganizations: { limit: 1 }
 			}
 		});

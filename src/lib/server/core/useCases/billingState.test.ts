@@ -72,6 +72,8 @@ describe('billing state use cases', () => {
 			currentPeriodEnd: '2026-06-01T00:00:00.000Z',
 			cancelAtPeriodEnd: false,
 			canceledAt: null,
+			cancellationReason: null,
+			cancellationFeedback: null,
 			trialEnd: null,
 			syncStatus: 'synced',
 			lastStripeEventId: 'evt_123',
@@ -317,7 +319,7 @@ describe('billing state use cases', () => {
 			state: 'canceling_at_period_end',
 			label: 'Cancels at period end',
 			description:
-				'Paid access remains active until the paid-through date unless Stripe reports an earlier terminal state.',
+				'Paid access remains active until the paid-through date unless the provider reports an earlier terminal state.',
 			currentPeriodEnd: '2026-06-01T00:00:00.000Z',
 			canceledAt: null
 		});

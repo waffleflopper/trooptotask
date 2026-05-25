@@ -6,6 +6,8 @@ This runbook verifies the Stripe-backed billing-state subsystem before paid bill
 
 Issue #1049 covers launch verification for checkout, renewal, failed renewal, cancellation, Customer Portal changes, plan changes, webhook processing, reconciliation, and owner/admin visibility.
 
+Cancellation behavior is documented in [Billing Cancellation Policy](billing-cancellation-policy.md). Customer Portal cancellation is the default owner path and should be configured for cancellation at period end. Immediate cancellation is limited to TroopToTask's confirmed Cancel Now path or platform-admin/support action.
+
 Customer Portal behavior is constrained by [Billing Customer Portal Contract](billing-customer-portal.md). Use that contract as the source of truth for supported portal outcomes and support/admin-handled states.
 
 The verification target is not just "Stripe changed state." Each scenario must confirm all four TroopToTask surfaces:

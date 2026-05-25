@@ -109,7 +109,9 @@ describe('billingOrganization use cases', () => {
 			}
 		]);
 
-		await expect(cancelBillingSubscriptionForOrganization(ctx)).rejects.toMatchObject({ status: 403 });
+		await expect(
+			cancelBillingSubscriptionForOrganization(ctx, { confirmedImmediateCancellation: true })
+		).rejects.toMatchObject({ status: 403 });
 
 		const saved = await ctx.rawStore.findOne<Record<string, unknown>>('organizations', ctx.auth.orgId, {
 			id: ctx.auth.orgId
@@ -134,5 +136,25 @@ describe('billingOrganization use cases', () => {
 				severity: 'warning'
 			}
 		]);
+	});
+
+	it('rejects immediate cancellation when the local subscription status is not cancellable', async () => {
+		const ctx = createTestContext();
+		ctx.rawStore.seed('organizations', [
+			{
+				id: ctx.auth.orgId,
+				name: 'Alpha Company',
+				stripe_customer_id: 'cus_123',
+				stripe_subscription_id: 'sub_123',
+				subscription_status: 'trialing',
+				tier: 'team'
+			}
+		]);
+
+		await expect(
+			cancelBillingSubscriptionForOrganization(ctx, { confirmedImmediateCancellation: true })
+		).rejects.toMatchObject({ status: 400 });
+
+		expect(ctx.billingPort.calls).toEqual([]);
 	});
 });

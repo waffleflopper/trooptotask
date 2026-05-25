@@ -1,4 +1,4 @@
-import type { EffectiveTier, ReadOnlyReason } from '$lib/types/subscription';
+import type { BillingCancellationFeedback, EffectiveTier, ReadOnlyReason } from '$lib/types/subscription';
 import type { CapabilityMap, CompatibilityLaneMap, ScopeSet } from '$lib/access/memberAccessShape';
 import type { CheckoutSessionConfiguration } from '$lib/server/billing/checkoutConfiguration';
 import type { SensitiveActionAuthorizer } from '$lib/server/sensitiveActionAuthorizer';
@@ -183,7 +183,10 @@ export interface BillingPort {
 		checkoutConfiguration: CheckoutSessionConfiguration;
 	}): Promise<{ url: string; customerId: string; sessionId?: string; expiresAt?: string | null }>;
 	createPortalSession(customerId: string, returnUrl: string): Promise<{ url: string }>;
-	cancelSubscription(subscriptionId: string): Promise<void>;
+	cancelSubscription(
+		subscriptionId: string,
+		options?: { cancellationFeedback?: BillingCancellationFeedback | null }
+	): Promise<void>;
 	pauseSubscription(subscriptionId: string): Promise<void>;
 	resumeSubscription(subscriptionId: string): Promise<void>;
 }

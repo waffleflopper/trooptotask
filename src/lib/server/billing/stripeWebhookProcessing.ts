@@ -71,6 +71,8 @@ interface ExistingBillingSnapshot {
 	current_period_end?: string | null;
 	cancel_at_period_end?: boolean | null;
 	canceled_at?: string | null;
+	cancellation_reason?: string | null;
+	cancellation_feedback?: string | null;
 	trial_end?: string | null;
 	last_stripe_event_id?: string | null;
 	last_stripe_event_created_at: string | null;
@@ -115,6 +117,18 @@ export function _sanitizeWebhookError(err: unknown): string {
 
 function isoFromStripeTimestamp(value: number | null | undefined): string | null {
 	return typeof value === 'number' ? new Date(value * 1000).toISOString() : null;
+}
+
+function safeCancellationDetails(
+	subscription: Stripe.Subscription,
+	fallback?: Pick<ExistingBillingSnapshot, 'cancellation_reason' | 'cancellation_feedback'> | null
+): { cancellation_reason: string | null; cancellation_feedback: string | null } {
+	const details = subscription.cancellation_details;
+
+	return {
+		cancellation_reason: details?.reason ?? fallback?.cancellation_reason ?? null,
+		cancellation_feedback: details?.feedback ?? fallback?.cancellation_feedback ?? null
+	};
 }
 
 function getSubscriptionPeriod(subscription: Stripe.Subscription): {
@@ -180,7 +194,7 @@ async function readBillingSnapshotForTransition(
 	const { data, error } = await supabase
 		.from('organization_billing_snapshots')
 		.select(
-			'id, commercial_plan, stripe_customer_id, stripe_subscription_id, stripe_product_id, stripe_price_id, current_period_start, current_period_end, cancel_at_period_end, canceled_at, trial_end, last_stripe_event_id, last_stripe_event_created_at'
+			'id, commercial_plan, stripe_customer_id, stripe_subscription_id, stripe_product_id, stripe_price_id, current_period_start, current_period_end, cancel_at_period_end, canceled_at, cancellation_reason, cancellation_feedback, trial_end, last_stripe_event_id, last_stripe_event_created_at'
 		)
 		.eq('organization_id', orgId)
 		.single<ExistingBillingSnapshot>();
@@ -482,6 +496,10 @@ async function handleSubscriptionUpdated(
 
 	const commercialPlan = retainsCommercialPlan && catalogLookup.ok ? catalogLookup.entry.commercialPlan : 'free';
 	const legacyStatus = legacyOrganizationStatus(subscription.status);
+	const cancellationDetails = safeCancellationDetails(
+		subscription,
+		subscription.cancel_at_period_end || subscription.status === 'canceled' ? snapshot : null
+	);
 
 	const snapshotUpdated = await upsertBillingSnapshot(supabase, {
 		organization_id: orgId,
@@ -497,6 +515,7 @@ async function handleSubscriptionUpdated(
 		current_period_end: periodEnd,
 		cancel_at_period_end: subscription.cancel_at_period_end,
 		canceled_at: canceledAt,
+		...cancellationDetails,
 		trial_end: trialEnd,
 		sync_status: 'synced',
 		last_stripe_event_id: event.id,
@@ -567,6 +586,7 @@ async function handleSubscriptionDeleted(
 		current_period_end: periodEnd ?? snapshot?.current_period_end ?? null,
 		cancel_at_period_end: false,
 		canceled_at: isoFromStripeTimestamp(subscription.canceled_at) ?? eventCreatedAt,
+		...safeCancellationDetails(subscription, snapshot),
 		trial_end: snapshot?.trial_end ?? null,
 		sync_status: 'synced',
 		last_stripe_event_id: event.id,
@@ -644,6 +664,8 @@ async function handlePaymentFailed(
 		current_period_end: snapshot?.current_period_end ?? null,
 		cancel_at_period_end: snapshot?.cancel_at_period_end ?? false,
 		canceled_at: snapshot?.canceled_at ?? null,
+		cancellation_reason: snapshot?.cancellation_reason ?? null,
+		cancellation_feedback: snapshot?.cancellation_feedback ?? null,
 		trial_end: snapshot?.trial_end ?? null,
 		sync_status: 'synced',
 		last_stripe_event_id: event.id,
@@ -712,6 +734,8 @@ async function handlePaymentSucceeded(
 		current_period_end: snapshot?.current_period_end ?? null,
 		cancel_at_period_end: snapshot?.cancel_at_period_end ?? false,
 		canceled_at: null,
+		cancellation_reason: snapshot?.cancellation_reason ?? null,
+		cancellation_feedback: snapshot?.cancellation_feedback ?? null,
 		trial_end: snapshot?.trial_end ?? null,
 		sync_status: 'synced',
 		last_stripe_event_id: event.id,

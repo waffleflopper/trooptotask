@@ -124,9 +124,15 @@ export async function resumeSubscription(subscriptionId: string): Promise<void> 
 	});
 }
 
-export async function cancelSubscription(subscriptionId: string): Promise<void> {
+export async function cancelSubscription(
+	subscriptionId: string,
+	options: { cancellationFeedback?: Stripe.SubscriptionCancelParams.CancellationDetails.Feedback | null } = {}
+): Promise<void> {
 	const stripe = getStripe();
-	await stripe.subscriptions.cancel(subscriptionId);
+	await stripe.subscriptions.cancel(
+		subscriptionId,
+		options.cancellationFeedback ? { cancellation_details: { feedback: options.cancellationFeedback } } : undefined
+	);
 }
 
 function isoFromStripeTimestamp(value: number | null | undefined): string | null {

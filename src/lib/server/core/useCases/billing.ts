@@ -9,6 +9,7 @@
  * `inMemory.ts`.
  */
 import type { AuditPort, AuthContext, BillingPort, DataStore } from '$lib/server/core/ports';
+import type { BillingCancellationFeedback } from '$lib/types/subscription';
 import {
 	TAX_DISABLED_CHECKOUT_SESSION_CONFIGURATION,
 	type CheckoutSessionConfiguration
@@ -129,6 +130,8 @@ export async function portal(ctx: BillingPorts, input: PortalInput): Promise<{ u
 
 export interface CancelInput {
 	subscriptionId: string;
+	confirmedImmediateCancellation?: boolean;
+	cancellationFeedback?: BillingCancellationFeedback | null;
 }
 
 export interface CancelResult {
@@ -138,13 +141,19 @@ export interface CancelResult {
 
 export async function cancel(ctx: BillingPorts, input: CancelInput): Promise<CancelResult> {
 	if (!input.subscriptionId) fail(400, 'No active subscription found');
+	if (!input.confirmedImmediateCancellation) fail(400, 'Immediate cancellation requires explicit owner confirmation');
 	const sensitiveAction = await authorizeBillingSensitiveAction(ctx, {
 		action: BILLING_CANCEL_ACTION,
 		deniedAuditAction: 'billing.cancel_authorization_denied'
 	});
 
-	await ctx.billing.cancelSubscription(input.subscriptionId);
-	auditSuccessfulSensitiveBillingAction(ctx, 'billing.cancel_authorized', sensitiveAction);
+	await ctx.billing.cancelSubscription(input.subscriptionId, {
+		cancellationFeedback: input.cancellationFeedback ?? null
+	});
+	auditSuccessfulSensitiveBillingAction(ctx, 'billing.cancel_authorized', sensitiveAction, {
+		cancellationMode: 'immediate',
+		cancellationFeedback: input.cancellationFeedback ?? null
+	});
 	return {
 		success: true,
 		orgUpdates: { tier: 'free', subscription_status: null, stripe_subscription_id: null }

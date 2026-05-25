@@ -652,7 +652,11 @@ describe('billing use cases', () => {
 		it('calls billing port and returns orgUpdates to reset to free tier', async () => {
 			const ctx = buildContext();
 
-			const result = await cancel(ctx, { subscriptionId: 'sub_abc' });
+			const result = await cancel(ctx, {
+				subscriptionId: 'sub_abc',
+				confirmedImmediateCancellation: true,
+				cancellationFeedback: 'unused'
+			});
 
 			expect(result.success).toBe(true);
 			expect(result.orgUpdates).toEqual({
@@ -662,13 +666,15 @@ describe('billing use cases', () => {
 			});
 			expect(ctx.billingPort.calls).toHaveLength(1);
 			expect(ctx.billingPort.calls[0].method).toBe('cancelSubscription');
-			expect(ctx.billingPort.calls[0].args).toEqual(['sub_abc']);
+			expect(ctx.billingPort.calls[0].args).toEqual(['sub_abc', { cancellationFeedback: 'unused' }]);
 			expect(ctx.auditPort.events).toEqual([
 				{
 					action: 'billing.cancel_authorized',
 					resourceType: 'organization',
 					resourceId: 'test-org',
 					details: {
+						cancellationMode: 'immediate',
+						cancellationFeedback: 'unused',
 						sensitiveAction: expect.objectContaining({
 							action: 'billing.cancel',
 							reason: 'allowed.recentSession'
@@ -688,7 +694,9 @@ describe('billing use cases', () => {
 				}
 			});
 
-			await expect(cancel(ctx, { subscriptionId: 'sub_abc' })).rejects.toMatchObject({ status: 403 });
+			await expect(
+				cancel(ctx, { subscriptionId: 'sub_abc', confirmedImmediateCancellation: true })
+			).rejects.toMatchObject({ status: 403 });
 
 			expect(ctx.billingPort.calls).toEqual([]);
 			expect(ctx.auditPort.events).toEqual([
@@ -711,6 +719,17 @@ describe('billing use cases', () => {
 			const ctx = buildContext();
 
 			await expect(cancel(ctx, { subscriptionId: '' })).rejects.toThrow(/subscription/i);
+		});
+
+		it('rejects immediate cancellation without explicit confirmation before sensitive-action checks', async () => {
+			const ctx = buildContext();
+
+			await expect(cancel(ctx, { subscriptionId: 'sub_abc' })).rejects.toMatchObject({
+				status: 400,
+				message: 'Immediate cancellation requires explicit owner confirmation'
+			});
+			expect(ctx.sensitiveActionAuthorizer.requests).toEqual([]);
+			expect(ctx.billingPort.calls).toEqual([]);
 		});
 	});
 });

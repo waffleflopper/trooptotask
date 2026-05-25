@@ -44,6 +44,8 @@ const matchingSnapshot: BillingReconciliationSnapshotRow = {
 	current_period_end: '2026-06-01T00:00:00.000Z',
 	cancel_at_period_end: false,
 	canceled_at: null,
+	cancellation_reason: null,
+	cancellation_feedback: null,
 	trial_end: null,
 	sync_status: 'synced',
 	last_stripe_event_id: 'evt_123',

@@ -19,6 +19,8 @@ function snapshot(overrides: Partial<BillingSnapshot> = {}): BillingSnapshot {
 		currentPeriodEnd: '2026-06-01T00:00:00.000Z',
 		cancelAtPeriodEnd: false,
 		canceledAt: null,
+		cancellationReason: null,
+		cancellationFeedback: null,
 		trialEnd: null,
 		syncStatus: 'synced',
 		lastStripeEventId: 'evt_123',

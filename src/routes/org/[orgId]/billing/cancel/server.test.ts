@@ -22,6 +22,24 @@ vi.mock('$lib/server/adapters/httpAdapter', async () => {
 
 import { POST } from './+server';
 
+function cancelEvent(ctx: ReturnType<typeof createTestContext>, body: Record<string, unknown> = {}) {
+	return {
+		request: new Request(`http://localhost/org/${ctx.auth.orgId}/billing/cancel`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({
+				confirmedImmediateCancellation: true,
+				...body
+			})
+		}),
+		locals: {
+			user: { email: 'owner@example.com' }
+		},
+		params: { orgId: ctx.auth.orgId },
+		url: new URL(`http://localhost/org/${ctx.auth.orgId}/billing/cancel`)
+	} as never;
+}
+
 describe('POST /billing/cancel', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
@@ -41,16 +59,7 @@ describe('POST /billing/cancel', () => {
 		]);
 		buildRouteContextMock.mockResolvedValue(ctx);
 
-		const response = await POST({
-			request: new Request(`http://localhost/org/${ctx.auth.orgId}/billing/cancel`, {
-				method: 'POST'
-			}),
-			locals: {
-				user: { email: 'owner@example.com' }
-			},
-			params: { orgId: ctx.auth.orgId },
-			url: new URL(`http://localhost/org/${ctx.auth.orgId}/billing/cancel`)
-		} as never);
+		const response = await POST(cancelEvent(ctx, { cancellationFeedback: 'too_expensive' }));
 
 		const saved = await ctx.rawStore.findOne<Record<string, unknown>>('organizations', ctx.auth.orgId, {
 			id: ctx.auth.orgId
@@ -58,12 +67,58 @@ describe('POST /billing/cancel', () => {
 
 		expect(response.status).toBe(200);
 		expect(await response.json()).toEqual({ success: true });
+		expect(ctx.billingPort.calls).toContainEqual({
+			method: 'cancelSubscription',
+			args: ['sub_123', { cancellationFeedback: 'too_expensive' }]
+		});
 		expect(saved).toMatchObject({
 			tier: 'free',
 			stripe_customer_id: 'cus_123',
 			stripe_subscription_id: null,
 			subscription_status: null
 		});
+	});
+
+	it('rejects immediate cancellation without explicit owner confirmation before calling Stripe', async () => {
+		const ctx = createTestContext();
+		ctx.rawStore.seed('organizations', [
+			{
+				id: ctx.auth.orgId,
+				name: 'Alpha Company',
+				tier: 'team',
+				stripe_customer_id: 'cus_123',
+				stripe_subscription_id: 'sub_123',
+				subscription_status: 'active'
+			}
+		]);
+		buildRouteContextMock.mockResolvedValue(ctx);
+
+		const response = await POST(cancelEvent(ctx, { confirmedImmediateCancellation: false }));
+
+		expect(response.status).toBe(400);
+		expect(await response.json()).toEqual({ error: 'Immediate cancellation requires explicit owner confirmation' });
+		expect(ctx.billingPort.calls).toEqual([]);
+	});
+
+	it('rejects unsupported cancellation feedback before calling Stripe', async () => {
+		const ctx = createTestContext();
+		ctx.rawStore.seed('organizations', [
+			{
+				id: ctx.auth.orgId,
+				name: 'Alpha Company',
+				tier: 'team',
+				stripe_customer_id: 'cus_123',
+				stripe_subscription_id: 'sub_123',
+				subscription_status: 'active'
+			}
+		]);
+		buildRouteContextMock.mockResolvedValue(ctx);
+
+		const response = await POST(cancelEvent(ctx, { cancellationFeedback: 'hate_it' }));
+
+		expect(response.status).toBe(400);
+		expect(await response.json()).toEqual({ error: 'Cancellation feedback is not supported' });
+		expect(ctx.billingPort.calls).toEqual([]);
 	});
 
 	it('acknowledges cancellation when the post-Stripe local reset must be reconciled by webhook processing', async () => {
@@ -88,16 +143,7 @@ describe('POST /billing/cancel', () => {
 		});
 		buildRouteContextMock.mockResolvedValue(ctx);
 
-		const response = await POST({
-			request: new Request(`http://localhost/org/${ctx.auth.orgId}/billing/cancel`, {
-				method: 'POST'
-			}),
-			locals: {
-				user: { email: 'owner@example.com' }
-			},
-			params: { orgId: ctx.auth.orgId },
-			url: new URL(`http://localhost/org/${ctx.auth.orgId}/billing/cancel`)
-		} as never);
+		const response = await POST(cancelEvent(ctx));
 
 		const saved = await ctx.rawStore.findOne<Record<string, unknown>>('organizations', ctx.auth.orgId, {
 			id: ctx.auth.orgId
@@ -105,7 +151,10 @@ describe('POST /billing/cancel', () => {
 
 		expect(response.status).toBe(200);
 		expect(await response.json()).toEqual({ success: true });
-		expect(ctx.billingPort.calls).toContainEqual({ method: 'cancelSubscription', args: ['sub_123'] });
+		expect(ctx.billingPort.calls).toContainEqual({
+			method: 'cancelSubscription',
+			args: ['sub_123', { cancellationFeedback: null }]
+		});
 		expect(saved).toMatchObject({
 			tier: 'team',
 			stripe_subscription_id: 'sub_123',

@@ -692,6 +692,11 @@ describe('POST /api/webhooks/stripe', () => {
 					current_period_end: 1_800_000_000,
 					cancel_at_period_end: true,
 					canceled_at: 1_700_100_000,
+					cancellation_details: {
+						reason: 'cancellation_requested',
+						feedback: 'too_expensive',
+						comment: 'do not store freeform text'
+					},
 					trial_end: null,
 					pause_collection: null
 				}
@@ -706,7 +711,9 @@ describe('POST /api/webhooks/stripe', () => {
 				collection_status: 'current',
 				current_period_end: '2027-01-15T08:00:00.000Z',
 				cancel_at_period_end: true,
-				canceled_at: '2023-11-16T02:00:00.000Z'
+				canceled_at: '2023-11-16T02:00:00.000Z',
+				cancellation_reason: 'cancellation_requested',
+				cancellation_feedback: 'too_expensive'
 			})
 		);
 		expect(supabase.orgUpdates).toContainEqual(
@@ -1147,7 +1154,12 @@ describe('POST /api/webhooks/stripe', () => {
 					metadata: { orgId: 'org-1' },
 					customer: 'cus_123',
 					current_period_end: 1_800_000_000,
-					canceled_at: 1
+					canceled_at: 1,
+					cancellation_details: {
+						reason: 'cancellation_requested',
+						feedback: 'unused',
+						comment: 'do not store freeform text'
+					}
 				}
 			}
 		});
@@ -1165,6 +1177,8 @@ describe('POST /api/webhooks/stripe', () => {
 				collection_status: 'canceled',
 				current_period_end: '2027-01-15T08:00:00.000Z',
 				canceled_at: '1970-01-01T00:00:01.000Z',
+				cancellation_reason: 'cancellation_requested',
+				cancellation_feedback: 'unused',
 				last_stripe_event_id: 'evt_subscription_deleted'
 			})
 		);
@@ -1192,6 +1206,8 @@ describe('POST /api/webhooks/stripe', () => {
 				stripe_price_id: 'price_team',
 				current_period_start: '2026-12-15T08:00:00.000Z',
 				current_period_end: '2027-01-15T08:00:00.000Z',
+				cancellation_reason: 'cancellation_requested',
+				cancellation_feedback: 'too_expensive',
 				last_stripe_event_created_at: null
 			}
 		});
@@ -1218,6 +1234,8 @@ describe('POST /api/webhooks/stripe', () => {
 				subscription_status: 'canceled',
 				current_period_start: '2026-12-15T08:00:00.000Z',
 				current_period_end: '2027-01-15T08:00:00.000Z',
+				cancellation_reason: 'cancellation_requested',
+				cancellation_feedback: 'too_expensive',
 				last_stripe_event_id: 'evt_subscription_deleted_without_period_end'
 			})
 		);
@@ -1417,6 +1435,9 @@ describe('POST /api/webhooks/stripe', () => {
 				stripe_product_id: 'prod_team',
 				stripe_price_id: 'price_team',
 				subscription_status: 'past_due',
+				cancel_at_period_end: true,
+				cancellation_reason: 'cancellation_requested',
+				cancellation_feedback: 'too_expensive',
 				current_period_end: '2027-01-15T08:00:00.000Z',
 				last_stripe_event_created_at: null
 			}
@@ -1446,6 +1467,9 @@ describe('POST /api/webhooks/stripe', () => {
 				commercial_plan: 'team',
 				subscription_status: 'active',
 				collection_status: 'current',
+				cancel_at_period_end: true,
+				cancellation_reason: 'cancellation_requested',
+				cancellation_feedback: 'too_expensive',
 				last_stripe_event_id: 'evt_payment_succeeded'
 			})
 		);

@@ -1,6 +1,7 @@
 import type { AuditPort, AuthContext, DataStore } from '$lib/server/core/ports';
 import type { BillingPort } from '$lib/server/core/ports';
 import type { SensitiveActionAuthorizer } from '$lib/server/sensitiveActionAuthorizer';
+import type { BillingCancellationFeedback } from '$lib/types/subscription';
 import type { CancelResult } from './billing';
 import { cancel } from './billing';
 import { fail } from '$lib/server/core/errors';
@@ -100,7 +101,8 @@ export interface CancelBillingSubscriptionResult {
 }
 
 export async function cancelBillingSubscriptionForOrganization(
-	ports: BillingCancellationPorts
+	ports: BillingCancellationPorts,
+	input: { confirmedImmediateCancellation?: boolean; cancellationFeedback?: BillingCancellationFeedback | null } = {}
 ): Promise<CancelBillingSubscriptionResult> {
 	const org = await readBillingOrganization({ auth: ports.auth, store: ports.rawStore });
 	const subscriptionId = org.stripeSubscriptionId;
@@ -109,7 +111,15 @@ export async function cancelBillingSubscriptionForOrganization(
 		fail(400, 'No active subscription found');
 	}
 
-	const result = await cancel(ports, { subscriptionId });
+	if (!canManageBillingSubscription(org)) {
+		fail(400, 'Subscription is not in a cancellable state');
+	}
+
+	const result = await cancel(ports, {
+		subscriptionId,
+		confirmedImmediateCancellation: input.confirmedImmediateCancellation,
+		cancellationFeedback: input.cancellationFeedback ?? null
+	});
 	const localCancellationApplied = await applyBillingCancellationWithWebhookFallback(
 		{ auth: ports.auth, store: ports.rawStore },
 		result

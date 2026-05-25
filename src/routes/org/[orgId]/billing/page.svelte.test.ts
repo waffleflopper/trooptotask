@@ -1,6 +1,10 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
+
+vi.mock('$app/navigation', () => ({
+	invalidateAll: vi.fn(() => Promise.resolve())
+}));
 
 import Page from './+page.svelte';
 
@@ -38,6 +42,8 @@ const baseData = {
 		currentPeriodEnd: '2026-06-01T00:00:00.000Z',
 		cancelAtPeriodEnd: false,
 		canceledAt: null,
+		cancellationReason: null,
+		cancellationFeedback: null,
 		trialEnd: null,
 		syncStatus: 'synced',
 		lastStripeEventId: 'evt_123',
@@ -475,9 +481,11 @@ describe('billing page toolbar', () => {
 		const toolbar = screen.getByRole('toolbar', { name: 'Billing controls' });
 		const actions = within(toolbar).getByRole('group', { name: 'Billing actions' });
 
-		expect(within(actions).getByRole('button', { name: 'Cancel Subscription' })).toBeTruthy();
 		expect(within(actions).getByRole('button', { name: 'Manage Subscription' })).toBeTruthy();
 		expect(screen.getAllByRole('button', { name: 'Manage Subscription' }).length).toBeGreaterThan(1);
+		expect(screen.getByRole('heading', { name: 'Cancellation Policy' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Cancel at Period End' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Cancel Now' })).toBeTruthy();
 	});
 
 	it('keeps subscription controls hidden when subscription management is not allowed', () => {
@@ -496,10 +504,6 @@ describe('billing page toolbar', () => {
 			'fetch',
 			vi.fn(() => new Promise<Response>(() => {}))
 		);
-		vi.stubGlobal(
-			'confirm',
-			vi.fn(() => true)
-		);
 
 		render(Page, {
 			props: {
@@ -514,8 +518,51 @@ describe('billing page toolbar', () => {
 		await fireEvent.click(within(actions).getByRole('button', { name: 'Manage Subscription' }));
 		expect((within(actions).getByRole('button', { name: 'Opening...' }) as HTMLButtonElement).disabled).toBe(true);
 
-		await fireEvent.click(within(actions).getByRole('button', { name: 'Cancel Subscription' }));
-		expect((within(actions).getByRole('button', { name: 'Canceling...' }) as HTMLButtonElement).disabled).toBe(true);
+		await fireEvent.click(screen.getByRole('button', { name: 'Cancel Now' }));
+		await fireEvent.input(screen.getByLabelText('Type CANCEL NOW to confirm'), { target: { value: 'CANCEL NOW' } });
+		await fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Cancel Now' }));
+		expect(
+			(within(screen.getByRole('dialog')).getByRole('button', { name: /Canceling/ }) as HTMLButtonElement).disabled
+		).toBe(true);
+	});
+
+	it('requires explicit immediate cancellation confirmation before submitting the immediate path', async () => {
+		const fetchMock = vi.fn().mockResolvedValue(
+			new Response(JSON.stringify({ success: true }), {
+				status: 200,
+				headers: { 'Content-Type': 'application/json' }
+			})
+		);
+		vi.stubGlobal('fetch', fetchMock);
+
+		render(Page, {
+			props: {
+				data: baseData as never
+			}
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Cancel Now' }));
+		expect(
+			(within(screen.getByRole('dialog')).getByRole('button', { name: 'Cancel Now' }) as HTMLButtonElement).disabled
+		).toBe(true);
+
+		expect(fetchMock).not.toHaveBeenCalled();
+
+		await fireEvent.input(screen.getByLabelText('Type CANCEL NOW to confirm'), { target: { value: 'CANCEL NOW' } });
+		expect(
+			(within(screen.getByRole('dialog')).getByRole('button', { name: 'Cancel Now' }) as HTMLButtonElement).disabled
+		).toBe(false);
+		await fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Cancel Now' }));
+
+		expect(fetchMock).toHaveBeenCalledWith('/org/org-1/billing/cancel', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({
+				confirmedImmediateCancellation: true,
+				cancellationFeedback: null
+			})
+		});
+		await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Cancel paid access now' })).toBeNull());
 	});
 
 	it('opens password confirmation when checkout requires sensitive-action step-up', async () => {

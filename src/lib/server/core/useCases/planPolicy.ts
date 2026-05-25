@@ -540,6 +540,8 @@ export function buildEffectivePlanPolicyForTier(policy: EffectivePlanPolicy, tar
 			currentPeriodEnd: null,
 			cancelAtPeriodEnd: false,
 			canceledAt: null,
+			cancellationReason: null,
+			cancellationFeedback: null,
 			trialEnd: null,
 			syncStatus: 'synced',
 			lastStripeEventId: null,

@@ -22,8 +22,8 @@ export function createStripeBillingAdapter(): BillingPort {
 			const url = await createPortalSession(customerId, returnUrl);
 			return { url };
 		},
-		async cancelSubscription(subscriptionId) {
-			return cancelSubscription(subscriptionId);
+		async cancelSubscription(subscriptionId, options) {
+			return cancelSubscription(subscriptionId, options);
 		},
 		async pauseSubscription(subscriptionId) {
 			return pauseSubscription(subscriptionId);

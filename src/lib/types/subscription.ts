@@ -12,6 +12,15 @@ export type SubscriptionStatus =
 export type BillingSnapshotSource = 'stripe' | 'gift' | 'billing_disabled' | 'legacy_organization';
 export type BillingSyncStatus = 'not_configured' | 'synced' | 'pending' | 'needs_reconciliation' | 'billing_disabled';
 export type ReadOnlyReason = 'payment_failure' | 'billing_state' | 'personnel_limit';
+export type BillingCancellationFeedback =
+	| 'customer_service'
+	| 'low_quality'
+	| 'missing_features'
+	| 'other'
+	| 'switched_service'
+	| 'too_complex'
+	| 'too_expensive'
+	| 'unused';
 
 export interface BillingSnapshot {
 	organizationId: string;
@@ -27,6 +36,8 @@ export interface BillingSnapshot {
 	currentPeriodEnd: string | null;
 	cancelAtPeriodEnd: boolean;
 	canceledAt: string | null;
+	cancellationReason: string | null;
+	cancellationFeedback: BillingCancellationFeedback | null;
 	trialEnd: string | null;
 	syncStatus: BillingSyncStatus;
 	lastStripeEventId: string | null;

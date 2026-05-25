@@ -58,6 +58,8 @@ type AdminOrganizationBillingSnapshotRow = {
 	current_period_end: string | null;
 	cancel_at_period_end: boolean | null;
 	canceled_at: string | null;
+	cancellation_reason: string | null;
+	cancellation_feedback: BillingSnapshot['cancellationFeedback'];
 	trial_end: string | null;
 	sync_status: BillingSnapshot['syncStatus'];
 	last_stripe_event_id: string | null;
@@ -84,6 +86,8 @@ function mapAdminOrganizationBillingSnapshot(row: AdminOrganizationBillingSnapsh
 		currentPeriodEnd: row.current_period_end,
 		cancelAtPeriodEnd: row.cancel_at_period_end ?? false,
 		canceledAt: row.canceled_at,
+		cancellationReason: row.cancellation_reason,
+		cancellationFeedback: row.cancellation_feedback,
 		trialEnd: row.trial_end,
 		syncStatus: row.sync_status,
 		lastStripeEventId: row.last_stripe_event_id,
@@ -148,7 +152,7 @@ export const load: PageServerLoad = loadWithAdminContext({
 		const { data: billingSnapshotRow } = await adminClient
 			.from('organization_billing_snapshots')
 			.select(
-				'organization_id, source, commercial_plan, stripe_customer_id, stripe_subscription_id, stripe_product_id, stripe_price_id, subscription_status, collection_status, current_period_start, current_period_end, cancel_at_period_end, canceled_at, trial_end, sync_status, last_stripe_event_id, last_stripe_event_type, last_stripe_event_created_at, last_processed_at, last_reconciled_at, reconciliation_result, drift_detected'
+				'organization_id, source, commercial_plan, stripe_customer_id, stripe_subscription_id, stripe_product_id, stripe_price_id, subscription_status, collection_status, current_period_start, current_period_end, cancel_at_period_end, canceled_at, cancellation_reason, cancellation_feedback, trial_end, sync_status, last_stripe_event_id, last_stripe_event_type, last_stripe_event_created_at, last_processed_at, last_reconciled_at, reconciliation_result, drift_detected'
 			)
 			.eq('organization_id', orgId)
 			.maybeSingle<AdminOrganizationBillingSnapshotRow>();

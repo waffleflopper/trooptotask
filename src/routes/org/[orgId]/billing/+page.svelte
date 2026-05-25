@@ -10,12 +10,14 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
 	import * as PageShell from '$lib/components/ui/page-shell';
+	import * as Select from '$lib/components/ui/select';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
 	import { redirectToSensitiveActionStepUp } from '$lib/auth/sensitiveActionStepUp';
 	import type { WorkspaceToolbarAction } from '$lib/components/ui/workspace-toolbar';
 	import type {
 		BillingSnapshot,
+		BillingCancellationFeedback,
 		BillingSnapshotSource,
 		EffectiveTier,
 		SubscriptionStatus,
@@ -29,7 +31,10 @@
 		stepUpPath?: string | null;
 	};
 
-	type PendingBillingAction = { kind: 'subscribe'; tier: string } | { kind: 'portal' } | { kind: 'cancel' };
+	type PendingBillingAction =
+		| { kind: 'subscribe'; tier: string }
+		| { kind: 'portal' }
+		| { kind: 'cancel'; feedback: BillingCancellationFeedback | null };
 
 	type ConfirmSensitiveActionResult = {
 		success?: boolean;
@@ -49,6 +54,10 @@
 	let confirmPasswordError = $state('');
 	let confirmPasswordLoading = $state(false);
 	let pendingBillingAction = $state<PendingBillingAction | null>(null);
+	let cancelNowDialogOpen = $state(false);
+	let cancelNowConfirmation = $state('');
+	let cancelFeedback = $state<'none' | BillingCancellationFeedback>('none');
+	let cancelNowError = $state('');
 
 	const fallbackTier: EffectiveTier = {
 		tier: 'free',
@@ -81,6 +90,27 @@
 	const billingActionsDisabled = $derived(
 		source === 'billing_disabled' || billingSnapshot?.source === 'billing_disabled'
 	);
+	const canShowImmediateCancellation = $derived(
+		data.canManageSubscription &&
+			!billingActionsDisabled &&
+			source !== 'gift' &&
+			!!billingSnapshot?.stripeSubscriptionId
+	);
+	const selectedCancellationFeedback = $derived<BillingCancellationFeedback | null>(
+		cancelFeedback === 'none' ? null : cancelFeedback
+	);
+
+	const cancellationFeedbackOptions: Array<{ value: 'none' | BillingCancellationFeedback; label: string }> = [
+		{ value: 'none', label: 'No reason selected' },
+		{ value: 'too_expensive', label: 'Too expensive' },
+		{ value: 'unused', label: 'Not using it enough' },
+		{ value: 'missing_features', label: 'Missing features' },
+		{ value: 'too_complex', label: 'Too complex' },
+		{ value: 'customer_service', label: 'Customer service' },
+		{ value: 'low_quality', label: 'Quality did not meet needs' },
+		{ value: 'switched_service', label: 'Switched service' },
+		{ value: 'other', label: 'Other' }
+	];
 
 	const giftDaysRemaining = $derived.by(() => {
 		if (!giftExpiresAt) return null;
@@ -91,14 +121,6 @@
 		if (!data.canManageSubscription || billingActionsDisabled) return [];
 
 		const actions: WorkspaceToolbarAction[] = [
-			{
-				id: 'cancel-subscription',
-				label: cancelLoading ? 'Canceling...' : 'Cancel Subscription',
-				onclick: handleCancelSubscription,
-				disabled: cancelLoading,
-				priority: 'low',
-				variant: 'danger'
-			},
 			{
 				id: 'manage-subscription',
 				label: portalLoading ? 'Opening...' : 'Manage Subscription',
@@ -395,7 +417,10 @@
 		if (result.requiresStepUp) {
 			if (action.kind === 'subscribe') subscribingTier = null;
 			if (action.kind === 'portal') portalLoading = false;
-			if (action.kind === 'cancel') cancelLoading = false;
+			if (action.kind === 'cancel') {
+				cancelLoading = false;
+				cancelNowDialogOpen = false;
+			}
 			if (!result.stepUpPath || result.stepUpPath === '/auth/login') {
 				openConfirmPasswordDialog(action);
 				return true;
@@ -422,7 +447,7 @@
 			await handleManageSubscription();
 			return;
 		}
-		await submitCancelSubscription();
+		await submitCancelSubscription(action.feedback);
 	}
 
 	async function handleConfirmPassword(event: SubmitEvent) {
@@ -503,36 +528,58 @@
 		}
 	}
 
+	function openCancelNowDialog() {
+		if (cancelLoading) return;
+		cancelNowConfirmation = '';
+		cancelFeedback = 'none';
+		cancelNowError = '';
+		cancelNowDialogOpen = true;
+	}
+
+	function closeCancelNowDialog() {
+		if (cancelLoading) return;
+		cancelNowDialogOpen = false;
+		cancelNowConfirmation = '';
+		cancelFeedback = 'none';
+		cancelNowError = '';
+	}
+
 	async function handleCancelSubscription() {
 		if (cancelLoading) return;
-		if (
-			!confirm(
-				'Are you sure you want to cancel your subscription immediately? Your organization will revert to the Free tier.'
-			)
-		) {
+		cancelNowError = '';
+		if (cancelNowConfirmation.trim() !== 'CANCEL NOW') {
+			cancelNowError = 'Type CANCEL NOW to confirm immediate cancellation.';
 			return;
 		}
 		cancelLoading = true;
 		errorMessage = '';
 
-		await submitCancelSubscription();
+		await submitCancelSubscription(selectedCancellationFeedback);
 	}
 
-	async function submitCancelSubscription() {
+	async function submitCancelSubscription(feedback: BillingCancellationFeedback | null) {
 		cancelLoading = true;
 		errorMessage = '';
 		try {
 			const res = await fetch(`/org/${data.orgId}/billing/cancel`, {
 				method: 'POST',
-				headers: { 'Content-Type': 'application/json' }
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					confirmedImmediateCancellation: true,
+					cancellationFeedback: feedback
+				})
 			});
 
 			const result = (await res.json()) as BillingApiResult;
 			if (!res.ok) {
-				if (handleBillingApiFailure(result, 'Failed to cancel subscription', { kind: 'cancel' })) return;
+				if (handleBillingApiFailure(result, 'Failed to cancel subscription', { kind: 'cancel', feedback })) return;
 				return;
 			}
 
+			cancelNowDialogOpen = false;
+			cancelNowConfirmation = '';
+			cancelFeedback = 'none';
+			cancelNowError = '';
 			await invalidateAll();
 		} catch {
 			errorMessage = 'An unexpected error occurred. Please try again.';
@@ -740,6 +787,42 @@
 		</Card.Content>
 	</Card.Root>
 
+	{#if data.canManageSubscription && !billingActionsDisabled && source !== 'gift'}
+		<Card.Root>
+			<Card.Header>
+				<Card.Title>Cancellation Policy</Card.Title>
+				<Card.Description>
+					Use the billing portal for the normal paid-launch cancellation path. Portal cancellation keeps paid access
+					active through the current paid-through date.
+				</Card.Description>
+			</Card.Header>
+			<Card.Content class="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
+				<div class="grid gap-2 text-sm text-muted-foreground">
+					<p>
+						Canceling in the portal is scheduled at period end when Stripe Dashboard is configured for launch. The
+						organization stays on the paid plan until Stripe sends the final cancellation event.
+					</p>
+					<p>
+						Immediate cancellation is separate: it ends paid access now, moves the organization to Free, and should only
+						be used when the owner explicitly confirms that outcome.
+					</p>
+				</div>
+				<div class="flex flex-wrap gap-2 md:justify-end">
+					<Button variant="outline" onclick={handleManageSubscription} disabled={portalLoading}>
+						{#if portalLoading}<Spinner />{/if}
+						{portalLoading ? 'Opening...' : 'Cancel at Period End'}
+					</Button>
+					{#if canShowImmediateCancellation}
+						<Button variant="destructive" onclick={openCancelNowDialog} disabled={cancelLoading}>
+							{#if cancelLoading}<Spinner />{/if}
+							{cancelLoading ? 'Canceling...' : 'Cancel Now'}
+						</Button>
+					{/if}
+				</div>
+			</Card.Content>
+		</Card.Root>
+	{/if}
+
 	{#if showCancellationTiming}
 		<Card.Root>
 			<Card.Header>
@@ -944,6 +1027,75 @@
 					</Button>
 				</AppDialog.Footer>
 			</form>
+		</AppDialog.Content>
+	</AppDialog.Root>
+
+	<AppDialog.Root bind:open={cancelNowDialogOpen} closeBlocked={cancelLoading} onClose={closeCancelNowDialog}>
+		<AppDialog.Content closeBlocked={cancelLoading}>
+			<AppDialog.Header>
+				<AppDialog.Title>Cancel paid access now</AppDialog.Title>
+				<AppDialog.Description>
+					This is the immediate cancellation path. Paid access ends now and the organization moves to the Free plan. Use
+					the billing portal instead for period-end cancellation.
+				</AppDialog.Description>
+			</AppDialog.Header>
+
+			<AppDialog.Body class="grid gap-4">
+				{#if cancelNowError}
+					<Alert.Root variant="destructive">
+						<Alert.Description>{cancelNowError}</Alert.Description>
+					</Alert.Root>
+				{/if}
+
+				<Alert.Root variant="warning">
+					<TriangleAlert />
+					<Alert.Title>Immediate cancellation ends paid access now.</Alert.Title>
+					<Alert.Description>
+						Existing data remains visible, but paid-plan writes may be blocked by Free plan limits after the local
+						billing state updates or the Stripe webhook reconciles the change.
+					</Alert.Description>
+				</Alert.Root>
+
+				<div class="grid gap-2">
+					<Label for="billing-cancel-feedback">Reason</Label>
+					<Select.Root type="single" bind:value={cancelFeedback}>
+						<Select.Trigger id="billing-cancel-feedback" class="w-full">
+							{cancellationFeedbackOptions.find((option) => option.value === cancelFeedback)?.label ??
+								'No reason selected'}
+						</Select.Trigger>
+						<Select.Content>
+							{#each cancellationFeedbackOptions as option (option.value)}
+								<Select.Item value={option.value} label={option.label} />
+							{/each}
+						</Select.Content>
+					</Select.Root>
+				</div>
+
+				<div class="grid gap-2">
+					<Label for="billing-cancel-confirmation">Type CANCEL NOW to confirm</Label>
+					<Input
+						id="billing-cancel-confirmation"
+						bind:value={cancelNowConfirmation}
+						disabled={cancelLoading}
+						autocomplete="off"
+					/>
+				</div>
+			</AppDialog.Body>
+
+			<AppDialog.Footer>
+				<Button type="button" variant="outline" onclick={closeCancelNowDialog} disabled={cancelLoading}>
+					Keep Subscription
+				</Button>
+				<Button
+					type="button"
+					variant="destructive"
+					onclick={handleCancelSubscription}
+					disabled={cancelLoading || cancelNowConfirmation.trim() !== 'CANCEL NOW'}
+				>
+					{#if cancelLoading}<Spinner />{/if}
+					{cancelLoading ? 'Canceling...' : 'Cancel Now'}
+				</Button>
+			</AppDialog.Footer>
 		</AppDialog.Content>
 	</AppDialog.Root>
 </PageShell.Root>

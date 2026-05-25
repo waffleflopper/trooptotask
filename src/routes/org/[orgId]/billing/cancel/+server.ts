@@ -2,11 +2,11 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { isBillingEnabled } from '$lib/config/billing';
+import { createSupabaseBillingSnapshotTransitionStore } from '$lib/server/adapters/supabaseBillingSnapshotTransitions';
 import { buildRouteContext, handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
-import { createSupabaseBillingReconciliationStore } from '$lib/server/adapters/supabaseBillingReconciliation';
-import { recordImmediateBillingCancellationSnapshot } from '$lib/server/billing/immediateCancellationSnapshot';
 import { fail } from '$lib/server/core/errors';
 import { cancelBillingSubscriptionForOrganization } from '$lib/server/core/useCases/billingOrganization';
+import { applyBillingSnapshotTransition } from '$lib/server/core/useCases/billingSnapshotTransitions';
 import { requireGovernancePolicy } from '$lib/server/core/useCases/governancePolicy';
 import { getAdminClient } from '$lib/server/supabase';
 import type { BillingCancellationFeedback } from '$lib/types/subscription';
@@ -75,14 +75,15 @@ export const POST: RequestHandler = async (event) => {
 			input
 		);
 
-		let snapshotCancellationApplied = false;
+		let billingTransitionApplied = false;
 		try {
-			await recordImmediateBillingCancellationSnapshot(createSupabaseBillingReconciliationStore(getAdminClient()), {
+			await applyBillingSnapshotTransition(createSupabaseBillingSnapshotTransitionStore(getAdminClient()), {
+				kind: 'immediate_cancellation_requested',
 				orgId: ctx.auth.orgId,
 				stripeCustomerId: result.stripeCustomerId,
 				cancellationFeedback: input.cancellationFeedback
 			});
-			snapshotCancellationApplied = true;
+			billingTransitionApplied = true;
 		} catch (snapshotError) {
 			console.warn(
 				`[billing] Immediate cancellation snapshot for organization ${ctx.auth.orgId} will be reconciled by Stripe webhook processing.`,
@@ -90,7 +91,7 @@ export const POST: RequestHandler = async (event) => {
 			);
 		}
 
-		return json({ success: true, snapshotCancellationApplied });
+		return json({ success: true, billingTransitionApplied });
 	} catch (err) {
 		return billingApiErrorResponse(err, 'Failed to cancel subscription. Please try again.');
 	}

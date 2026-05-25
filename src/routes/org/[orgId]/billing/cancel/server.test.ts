@@ -1,10 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 
-const { buildRouteContextMock, getAdminClientMock, snapshotUpserts } = vi.hoisted(() => ({
+const { buildRouteContextMock, getAdminClientMock, snapshotUpserts, orgMirrorUpdates } = vi.hoisted(() => ({
 	buildRouteContextMock: vi.fn(),
 	getAdminClientMock: vi.fn(),
-	snapshotUpserts: [] as Array<{ values: Record<string, unknown>; options: Record<string, unknown> }>
+	snapshotUpserts: [] as Array<{ values: Record<string, unknown>; options: Record<string, unknown> }>,
+	orgMirrorUpdates: [] as Array<{ values: Record<string, unknown>; column: string; value: unknown }>
 }));
 
 vi.mock('$lib/config/billing', () => ({
@@ -28,18 +29,30 @@ vi.mock('$lib/server/supabase', () => ({
 
 import { POST } from './+server';
 
-function createSnapshotAdminClient() {
+function createSnapshotAdminClient(input: { failOrganizationUpdate?: string } = {}) {
 	return {
 		from: (table: string) => {
-			if (table !== 'organization_billing_snapshots') {
-				throw new Error(`unexpected table ${table}`);
+			if (table === 'organization_billing_snapshots') {
+				return {
+					upsert: async (values: Record<string, unknown>, options: Record<string, unknown>) => {
+						snapshotUpserts.push({ values, options });
+						return { error: null };
+					}
+				};
 			}
-			return {
-				upsert: async (values: Record<string, unknown>, options: Record<string, unknown>) => {
-					snapshotUpserts.push({ values, options });
-					return { error: null };
-				}
-			};
+			if (table === 'organizations') {
+				return {
+					update: (values: Record<string, unknown>) => ({
+						eq: async (column: string, value: unknown) => {
+							orgMirrorUpdates.push({ values, column, value });
+							return {
+								error: input.failOrganizationUpdate ? { message: input.failOrganizationUpdate } : null
+							};
+						}
+					})
+				};
+			}
+			throw new Error(`unexpected table ${table}`);
 		}
 	};
 }
@@ -66,6 +79,7 @@ describe('POST /billing/cancel', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		snapshotUpserts.length = 0;
+		orgMirrorUpdates.length = 0;
 		getAdminClientMock.mockReturnValue(createSnapshotAdminClient());
 	});
 
@@ -85,22 +99,11 @@ describe('POST /billing/cancel', () => {
 
 		const response = await POST(cancelEvent(ctx, { cancellationFeedback: 'too_expensive' }));
 
-		const saved = await ctx.rawStore.findOne<Record<string, unknown>>('organizations', ctx.auth.orgId, {
-			id: ctx.auth.orgId
-		});
-
 		expect(response.status).toBe(200);
-		expect(await response.json()).toEqual({ success: true, snapshotCancellationApplied: true });
+		expect(await response.json()).toEqual({ success: true, billingTransitionApplied: true });
 		expect(ctx.billingPort.calls).toContainEqual({
 			method: 'cancelSubscription',
 			args: ['sub_123', { cancellationFeedback: 'too_expensive' }]
-		});
-		expect(saved).toMatchObject({
-			tier: 'free',
-			stripe_customer_id: 'cus_123',
-			stripe_subscription_id: null,
-			subscription_status: null,
-			current_period_end: null
 		});
 		expect(snapshotUpserts).toEqual([
 			{
@@ -115,6 +118,18 @@ describe('POST /billing/cancel', () => {
 					reconciliation_result: 'local_immediate_cancellation_pending_webhook'
 				}),
 				options: { onConflict: 'organization_id' }
+			}
+		]);
+		expect(orgMirrorUpdates).toEqual([
+			{
+				values: {
+					tier: 'free',
+					subscription_status: null,
+					stripe_subscription_id: null,
+					current_period_end: null
+				},
+				column: 'id',
+				value: ctx.auth.orgId
 			}
 		]);
 	});
@@ -161,7 +176,7 @@ describe('POST /billing/cancel', () => {
 		expect(ctx.billingPort.calls).toEqual([]);
 	});
 
-	it('acknowledges cancellation when the post-Stripe local reset must be reconciled by webhook processing', async () => {
+	it('acknowledges cancellation when the snapshot transition mirror must be reconciled by webhook processing', async () => {
 		const ctx = createTestContext();
 		ctx.rawStore.seed('organizations', [
 			{
@@ -174,13 +189,7 @@ describe('POST /billing/cancel', () => {
 			}
 		]);
 		const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-		const originalUpdateById = ctx.rawStore.updateById.bind(ctx.rawStore);
-		vi.spyOn(ctx.rawStore, 'updateById').mockImplementation(async (table, id, data) => {
-			if (table === 'organizations') {
-				throw new Error('local org update denied');
-			}
-			return originalUpdateById(table, id, data);
-		});
+		getAdminClientMock.mockReturnValue(createSnapshotAdminClient({ failOrganizationUpdate: 'mirror denied' }));
 		buildRouteContextMock.mockResolvedValue(ctx);
 
 		const response = await POST(cancelEvent(ctx));
@@ -190,7 +199,7 @@ describe('POST /billing/cancel', () => {
 		});
 
 		expect(response.status).toBe(200);
-		expect(await response.json()).toEqual({ success: true, snapshotCancellationApplied: true });
+		expect(await response.json()).toEqual({ success: true, billingTransitionApplied: false });
 		expect(ctx.billingPort.calls).toContainEqual({
 			method: 'cancelSubscription',
 			args: ['sub_123', { cancellationFeedback: null }]
@@ -201,7 +210,7 @@ describe('POST /billing/cancel', () => {
 			subscription_status: 'active'
 		});
 		expect(warnSpy).toHaveBeenCalledWith(
-			expect.stringContaining('[billing] Local cancellation state for organization test-org will be reconciled'),
+			expect.stringContaining('[billing] Immediate cancellation snapshot for organization test-org will be reconciled'),
 			expect.any(Error)
 		);
 		warnSpy.mockRestore();

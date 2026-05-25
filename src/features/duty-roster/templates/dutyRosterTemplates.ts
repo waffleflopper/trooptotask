@@ -160,6 +160,7 @@ export interface AcceptedDutyRosterRunCalendarSyncPlanChange {
 	action: 'create' | 'update' | 'clear';
 	currentAssigneeId: string | null;
 	currentAssigneeLabel: string | null;
+	currentSourceLineage?: { sourceKind: 'duty-roster-run'; sourceId: string; sourceRowKey: string } | null;
 	plannedAssigneeId: string | null;
 	plannedAssigneeLabel: string | null;
 	reason: string;

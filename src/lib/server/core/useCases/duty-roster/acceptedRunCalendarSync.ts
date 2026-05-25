@@ -24,6 +24,13 @@ import type { DailyAssignmentSlotRecord } from '../daily-assignment-slots';
 const DUTY_ROSTER_TEMPLATE_RUN_TABLE = 'duty_roster_template_runs';
 const MAX_DUTY_ROSTER_COOLDOWN_HOURS = 168;
 
+type DutyRosterTemplateCalendarAssignmentRow = Omit<
+	DutyRosterTemplateLinkedCalendarAssignmentRow,
+	'duty_roster_template_run_id'
+> & {
+	duty_roster_template_run_id: string | null;
+};
+
 export type AcceptedDutyRosterRunCalendarSyncApplyResult = {
 	acceptedRun: DutyRosterTemplateAcceptedRun;
 	insertedCount: number;
@@ -74,7 +81,7 @@ export async function applyReviewedAcceptedDutyRosterRunCalendarSyncPlan(
 
 	// Rollback restores the reviewed state that the user confirmed; without row locks a concurrent Calendar edit can
 	// still change the live slot after this plan is reviewed, so the plan token remains the write guard.
-	const rollbackRecords = plan.changes.map((change) => rollbackRecordFromPlanChange(change, run.id));
+	const rollbackRecords = plan.changes.map((change) => rollbackRecordFromPlanChange(change));
 	let result: Awaited<ReturnType<typeof batchDailyAssignments>>;
 	try {
 		result = await batchDailyAssignments(ctx, {
@@ -181,7 +188,7 @@ export function acceptedDutyRosterRunCalendarAssignmentsWereEdited(
 
 export function buildAcceptedDutyRosterRunCalendarSyncState(
 	run: DutyRosterTemplateAcceptedRun,
-	rows: DutyRosterTemplateLinkedCalendarAssignmentRow[]
+	rows: DutyRosterTemplateCalendarAssignmentRow[]
 ): AcceptedDutyRosterRunCalendarSyncState {
 	if (!run.appliedAt) {
 		return {
@@ -195,7 +202,7 @@ export function buildAcceptedDutyRosterRunCalendarSyncState(
 
 	const changes = buildCalendarSyncPlanChanges(run, rows);
 	const status = classifyCalendarSyncStatus(run, rows, changes);
-	const linkedCount = rows.length;
+	const linkedCount = linkedRowsForRun(rows, run.id).length;
 	return {
 		status,
 		label: calendarSyncStatusLabel(status),
@@ -212,25 +219,7 @@ export async function loadAcceptedDutyRosterRunCalendarSyncState(
 	ctx: QueryPorts,
 	run: DutyRosterTemplateAcceptedRun
 ): Promise<AcceptedDutyRosterRunCalendarSyncState> {
-	const rowsByRunId = await loadAcceptedDutyRosterRunLinkedCalendarAssignmentsByRunId(ctx, [
-		{
-			id: run.id,
-			organization_id: ctx.auth.orgId,
-			template_id: run.templateId,
-			template_name: run.templateName,
-			status: run.status,
-			start_date: run.startDate,
-			end_date: run.endDate,
-			snapshot_payload: run.snapshotPayload,
-			accepted_by_user_id: run.acceptedByUserId,
-			accepted_at: run.acceptedAt,
-			applied_by_user_id: run.appliedByUserId,
-			applied_at: run.appliedAt,
-			invalidated_by_user_id: run.invalidatedByUserId,
-			invalidated_at: run.invalidatedAt,
-			created_at: run.createdAt
-		}
-	]);
+	const rowsByRunId = await loadAcceptedDutyRosterRunCalendarAssignmentsByRunId(ctx, [run]);
 	return buildAcceptedDutyRosterRunCalendarSyncState(run, rowsByRunId.get(run.id) ?? []);
 }
 
@@ -257,29 +246,18 @@ export async function hydrateAcceptedDutyRosterRunCalendarSyncState(
 		return runs;
 	}
 
-	const rows = await ctx.store.findMany<DutyRosterTemplateLinkedCalendarAssignmentRow>(
-		'daily_assignments',
-		ctx.auth.orgId,
-		{},
-		{
-			inFilters: { duty_roster_template_run_id: appliedRunIds },
-			select:
-				'id, duty_roster_template_run_id, duty_roster_template_run_row_date, date, assignment_type_id, assignee_id'
-		}
+	const rowsByRunId = await loadAcceptedDutyRosterRunCalendarAssignmentsByRunId(
+		ctx,
+		runs.filter((run) => appliedRunIds.includes(run.id))
 	);
-	const rowsByRunId = new Map<string, DutyRosterTemplateLinkedCalendarAssignmentRow[]>();
-	for (const row of rows) {
-		const runRows = rowsByRunId.get(row.duty_roster_template_run_id) ?? [];
-		runRows.push(row);
-		rowsByRunId.set(row.duty_roster_template_run_id, runRows);
-	}
 
 	return runs.map((run) => {
 		const runRows = rowsByRunId.get(run.id) ?? [];
 		const calendarSyncState = buildAcceptedDutyRosterRunCalendarSyncState(run, runRows);
+		const linkedRows = linkedRowsForRun(runRows, run.id);
 		return {
 			...run,
-			linkedCalendarAssignmentCount: runRows.length,
+			linkedCalendarAssignmentCount: linkedRows.length,
 			calendarAssignmentsEdited: calendarSyncState.status !== 'not-applied' && calendarSyncState.status !== 'in-sync',
 			calendarSyncState
 		};
@@ -329,10 +307,12 @@ function normalizeDutyRosterCooldownHours(value: unknown): number {
 
 function buildCalendarSyncPlanChanges(
 	run: DutyRosterTemplateAcceptedRun,
-	rows: DutyRosterTemplateLinkedCalendarAssignmentRow[]
+	rows: DutyRosterTemplateCalendarAssignmentRow[]
 ): AcceptedDutyRosterRunCalendarSyncPlanChange[] {
 	const expected = expectedCalendarAssignmentsByRowDate(run);
-	const linkedRowsByRowDate = linkedRowsBySourceRowDate(rows);
+	const linkedRows = linkedRowsForRun(rows, run.id);
+	const linkedRowsByRowDate = linkedRowsBySourceRowDate(linkedRows);
+	const rowsByCoordinate = calendarRowsByCoordinate(rows);
 	const snapshot = parseAcceptedRunSnapshot(run.snapshotPayload);
 	const finalRowsByDate = new Map(snapshot.finalRows.map((row) => [row.date, row]));
 	const changes: AcceptedDutyRosterRunCalendarSyncPlanChange[] = [];
@@ -343,6 +323,8 @@ function buildCalendarSyncPlanChanges(
 			assigneeId: ''
 		};
 		const linkedRow = linkedRowsByRowDate.get(finalRow.date) ?? null;
+		const currentRow =
+			linkedRow ?? rowsByCoordinate.get(calendarCoordinateKey(finalRow.date, expectedRow.assignmentTypeId)) ?? null;
 		const correction = latestCorrectionForRunDate(run, finalRow.date);
 		const plannedAssigneeId = expectedRow.assigneeId || null;
 
@@ -360,9 +342,10 @@ function buildCalendarSyncPlanChanges(
 			date: finalRow.date,
 			sourceRowKey: finalRow.date,
 			assignmentTypeId: expectedRow.assignmentTypeId,
-			action: plannedAssigneeId ? (linkedRow ? 'update' : 'create') : 'clear',
-			currentAssigneeId: linkedRow?.assignee_id ?? null,
-			currentAssigneeLabel: assigneeLabelForDate(run, finalRow.date, linkedRow?.assignee_id ?? null),
+			action: plannedAssigneeId ? (currentRow ? 'update' : 'create') : 'clear',
+			currentAssigneeId: currentRow?.assignee_id ?? null,
+			currentAssigneeLabel: assigneeLabelForDate(run, finalRow.date, currentRow?.assignee_id ?? null),
+			currentSourceLineage: calendarSourceLineage(currentRow),
 			plannedAssigneeId,
 			plannedAssigneeLabel: assigneeLabelForDate(run, finalRow.date, plannedAssigneeId),
 			reason: correction ? `Duty Roster Correction: ${correction.reason}` : 'Accepted Duty Roster Run assignment',
@@ -370,7 +353,7 @@ function buildCalendarSyncPlanChanges(
 		});
 	}
 
-	for (const linkedRow of rows) {
+	for (const linkedRow of linkedRows) {
 		const rowDate = linkedRow.duty_roster_template_run_row_date ?? linkedRow.date;
 		if (finalRowsByDate.has(rowDate)) continue;
 		changes.push({
@@ -381,6 +364,7 @@ function buildCalendarSyncPlanChanges(
 			action: 'clear',
 			currentAssigneeId: linkedRow.assignee_id,
 			currentAssigneeLabel: assigneeLabelForDate(run, rowDate, linkedRow.assignee_id),
+			currentSourceLineage: calendarSourceLineage(linkedRow),
 			plannedAssigneeId: null,
 			plannedAssigneeLabel: null,
 			reason: 'Linked Calendar assignment no longer appears in this Accepted Duty Roster Run.',
@@ -393,14 +377,14 @@ function buildCalendarSyncPlanChanges(
 
 function classifyCalendarSyncStatus(
 	run: DutyRosterTemplateAcceptedRun,
-	rows: DutyRosterTemplateLinkedCalendarAssignmentRow[],
+	rows: DutyRosterTemplateCalendarAssignmentRow[],
 	changes: AcceptedDutyRosterRunCalendarSyncPlanChange[]
 ): AcceptedDutyRosterRunCalendarSyncStatus {
 	if (!run.appliedAt) return 'not-applied';
 	if (changes.length === 0) return 'in-sync';
 
 	const expected = expectedCalendarAssignmentsByRowDate(run);
-	const linkedRowsByRowDate = linkedRowsBySourceRowDate(rows);
+	const linkedRowsByRowDate = linkedRowsBySourceRowDate(linkedRowsForRun(rows, run.id));
 	let dutyRosterNewer = false;
 	let calendarManual = false;
 
@@ -434,6 +418,133 @@ function linkedRowsBySourceRowDate(
 	return new Map(rows.map((row) => [row.duty_roster_template_run_row_date ?? row.date, row]));
 }
 
+async function loadAcceptedDutyRosterRunCalendarAssignmentsByRunId(
+	ctx: QueryPorts,
+	runs: DutyRosterTemplateAcceptedRun[]
+): Promise<Map<string, DutyRosterTemplateCalendarAssignmentRow[]>> {
+	const rowsByRunId = new Map(runs.map((run) => [run.id, [] as DutyRosterTemplateCalendarAssignmentRow[]]));
+	const appliedRuns = runs.filter((run) => run.appliedAt);
+	if (appliedRuns.length === 0) {
+		return rowsByRunId;
+	}
+
+	const linkedRowsByRunId = await loadAcceptedDutyRosterRunLinkedCalendarAssignmentsByRunId(
+		ctx,
+		appliedRuns.map(runToRow)
+	);
+	for (const run of appliedRuns) {
+		for (const row of linkedRowsByRunId.get(run.id) ?? []) {
+			appendUniqueCalendarRow(rowsByRunId, run.id, row);
+		}
+	}
+
+	const coordinatesByRunId = calendarCoordinatesByRunId(appliedRuns);
+	const dates = [...new Set([...coordinatesByRunId.values()].flatMap((coordinates) => [...coordinates.keys()]))];
+	const assignmentTypeIds = [
+		...new Set(appliedRuns.map((run) => parseAcceptedRunSnapshot(run.snapshotPayload).template.id))
+	];
+
+	if (dates.length === 0 || assignmentTypeIds.length === 0) {
+		return rowsByRunId;
+	}
+
+	const liveRows = await ctx.store.findMany<DutyRosterTemplateCalendarAssignmentRow>(
+		'daily_assignments',
+		ctx.auth.orgId,
+		{},
+		{
+			inFilters: { date: dates, assignment_type_id: assignmentTypeIds },
+			select:
+				'id, duty_roster_template_run_id, duty_roster_template_run_row_date, date, assignment_type_id, assignee_id'
+		}
+	);
+
+	for (const liveRow of liveRows) {
+		const coordinateKey = calendarCoordinateKey(liveRow.date, liveRow.assignment_type_id);
+		for (const [runId, coordinates] of coordinatesByRunId) {
+			if (coordinates.has(liveRow.date) && coordinates.get(liveRow.date) === coordinateKey) {
+				appendUniqueCalendarRow(rowsByRunId, runId, liveRow);
+			}
+		}
+	}
+
+	return rowsByRunId;
+}
+
+function runToRow(run: DutyRosterTemplateAcceptedRun): DutyRosterTemplateRunRow {
+	return {
+		id: run.id,
+		organization_id: '',
+		template_id: run.templateId,
+		template_name: run.templateName,
+		status: run.status,
+		start_date: run.startDate,
+		end_date: run.endDate,
+		snapshot_payload: run.snapshotPayload,
+		accepted_by_user_id: run.acceptedByUserId,
+		accepted_at: run.acceptedAt,
+		applied_by_user_id: run.appliedByUserId,
+		applied_at: run.appliedAt,
+		invalidated_by_user_id: run.invalidatedByUserId,
+		invalidated_at: run.invalidatedAt,
+		created_at: run.createdAt
+	};
+}
+
+function appendUniqueCalendarRow(
+	rowsByRunId: Map<string, DutyRosterTemplateCalendarAssignmentRow[]>,
+	runId: string,
+	row: DutyRosterTemplateCalendarAssignmentRow
+): void {
+	const rows = rowsByRunId.get(runId) ?? [];
+	if (!rows.some((existing) => existing.id === row.id)) {
+		rows.push(row);
+	}
+	rowsByRunId.set(runId, rows);
+}
+
+function calendarCoordinatesByRunId(runs: DutyRosterTemplateAcceptedRun[]): Map<string, Map<string, string>> {
+	const byRunId = new Map<string, Map<string, string>>();
+	for (const run of runs) {
+		const snapshot = parseAcceptedRunSnapshot(run.snapshotPayload);
+		byRunId.set(
+			run.id,
+			new Map(snapshot.finalRows.map((row) => [row.date, calendarCoordinateKey(row.date, snapshot.template.id)]))
+		);
+	}
+	return byRunId;
+}
+
+function linkedRowsForRun(
+	rows: DutyRosterTemplateCalendarAssignmentRow[],
+	runId: string
+): DutyRosterTemplateLinkedCalendarAssignmentRow[] {
+	return rows.filter(
+		(row): row is DutyRosterTemplateLinkedCalendarAssignmentRow => row.duty_roster_template_run_id === runId
+	);
+}
+
+function calendarRowsByCoordinate(
+	rows: DutyRosterTemplateCalendarAssignmentRow[]
+): Map<string, DutyRosterTemplateCalendarAssignmentRow> {
+	return new Map(rows.map((row) => [calendarCoordinateKey(row.date, row.assignment_type_id), row]));
+}
+
+function calendarCoordinateKey(date: string, assignmentTypeId: string): string {
+	return `${date}:${assignmentTypeId}`;
+}
+
+function calendarSourceLineage(
+	row: DutyRosterTemplateCalendarAssignmentRow | null
+): AcceptedDutyRosterRunCalendarSyncPlanChange['currentSourceLineage'] {
+	if (!row?.duty_roster_template_run_id) return null;
+	return {
+		sourceKind: 'duty-roster-run',
+		sourceId: row.duty_roster_template_run_id,
+		sourceRowKey: row.duty_roster_template_run_row_date ?? row.date
+	};
+}
+
 function calendarSyncStatusLabel(status: AcceptedDutyRosterRunCalendarSyncStatus): string {
 	if (status === 'not-applied') return 'Not applied';
 	if (status === 'in-sync') return 'In sync';
@@ -462,6 +573,7 @@ function planToken(changes: AcceptedDutyRosterRunCalendarSyncPlanChange[]): stri
 		action: change.action,
 		sourceRowKey: change.sourceRowKey,
 		currentAssigneeId: change.currentAssigneeId,
+		currentSourceLineage: change.currentSourceLineage ?? null,
 		plannedAssigneeId: change.plannedAssigneeId,
 		reason: change.reason
 	}));
@@ -520,21 +632,12 @@ function planChangeToDailyAssignmentRecord(
 	};
 }
 
-function rollbackRecordFromPlanChange(
-	change: AcceptedDutyRosterRunCalendarSyncPlanChange,
-	runId: string
-): DailyAssignmentSlotRecord {
+function rollbackRecordFromPlanChange(change: AcceptedDutyRosterRunCalendarSyncPlanChange): DailyAssignmentSlotRecord {
 	return {
 		date: change.date,
 		assignmentTypeId: assignmentTypeIdFromPlanChange(change),
 		assigneeId: change.currentAssigneeId ?? '',
-		sourceLineage: change.currentAssigneeId
-			? {
-					sourceKind: 'duty-roster-run',
-					sourceId: runId,
-					sourceRowKey: change.sourceRowKey
-				}
-			: null
+		sourceLineage: change.currentAssigneeId ? (change.currentSourceLineage ?? null) : null
 	};
 }
 

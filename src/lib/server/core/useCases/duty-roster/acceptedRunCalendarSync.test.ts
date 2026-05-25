@@ -7,6 +7,7 @@ import {
 	applyReviewedAcceptedDutyRosterRunCalendarSyncPlan,
 	buildAcceptedDutyRosterRunCalendarSyncState,
 	hydrateAcceptedDutyRosterRunCalendarSyncState,
+	loadAcceptedDutyRosterRunCalendarSyncState,
 	removeAcceptedDutyRosterRunLinkedCalendarAssignments,
 	syncAcceptedDutyRosterCorrectionToCalendar
 } from './acceptedRunCalendarSync';
@@ -340,6 +341,72 @@ describe('Accepted Duty Roster Run Calendar Sync', () => {
 			expect.objectContaining({
 				action: 'update',
 				currentAssigneeId: 'person-3',
+				plannedAssigneeId: 'person-1'
+			})
+		]);
+	});
+
+	it('shows the live Calendar occupant when manual edits removed Duty Roster lineage', () => {
+		const state = buildAcceptedDutyRosterRunCalendarSyncState(
+			acceptedRun({
+				appliedAt: '2026-05-04T12:01:00.000Z',
+				snapshotPayload: {
+					...acceptedRun().snapshotPayload,
+					selectionPersonnel: [{ id: 'person-3', rank: 'CPT', lastName: 'Hayes', firstName: 'Emma', groupName: 'A' }]
+				}
+			}),
+			[
+				{
+					id: 'manual-1',
+					duty_roster_template_run_id: null,
+					duty_roster_template_run_row_date: null,
+					date: '2026-06-01',
+					assignment_type_id: 'type-a',
+					assignee_id: 'person-3'
+				}
+			]
+		);
+
+		expect(state.status).toBe('calendar-manually-changed');
+		expect(state.plan.changes).toEqual([
+			expect.objectContaining({
+				action: 'update',
+				currentAssigneeId: 'person-3',
+				currentAssigneeLabel: 'CPT Hayes, Emma',
+				currentSourceLineage: null,
+				plannedAssigneeId: 'person-1'
+			})
+		]);
+	});
+
+	it('loads same-slot Calendar occupants for sync review even when they are no longer linked', async () => {
+		const ctx = buildContext();
+		const run = acceptedRun({
+			appliedAt: '2026-05-04T12:01:00.000Z',
+			snapshotPayload: {
+				...acceptedRun().snapshotPayload,
+				selectionPersonnel: [{ id: 'person-3', rank: 'CPT', lastName: 'Hayes', firstName: 'Emma', groupName: 'A' }]
+			}
+		});
+		seedRunRow(ctx, run);
+		ctx.store.seed('daily_assignments', [
+			{
+				id: 'manual-1',
+				organization_id: 'test-org',
+				date: '2026-06-01',
+				assignment_type_id: 'type-a',
+				assignee_id: 'person-3',
+				duty_roster_template_run_id: null,
+				duty_roster_template_run_row_date: null
+			}
+		]);
+
+		const state = await loadAcceptedDutyRosterRunCalendarSyncState(ctx, run);
+
+		expect(state.plan.changes).toEqual([
+			expect.objectContaining({
+				currentAssigneeId: 'person-3',
+				currentAssigneeLabel: 'CPT Hayes, Emma',
 				plannedAssigneeId: 'person-1'
 			})
 		]);

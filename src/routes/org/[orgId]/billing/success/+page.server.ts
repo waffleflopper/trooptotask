@@ -159,8 +159,6 @@ export async function _recoverCheckoutSuccessFromStripe(
 	if (session.metadata?.orgId !== ctx.auth.orgId) return false;
 	if (session.metadata?.checkoutAttemptId !== attempt.id) return false;
 
-	await markCheckoutAttemptCompleted(ctx.rawStore, ctx.auth.orgId, attempt.id, input.now ?? new Date());
-
 	const adminClient = getAdminClient();
 	await reconcileOrganizationBilling({
 		orgId: ctx.auth.orgId,
@@ -170,6 +168,8 @@ export async function _recoverCheckoutSuccessFromStripe(
 		priceCatalog: getConfiguredPriceCatalog(),
 		dryRun: false
 	});
+
+	await markCheckoutAttemptCompleted(ctx.rawStore, ctx.auth.orgId, attempt.id, input.now ?? new Date());
 
 	return true;
 }

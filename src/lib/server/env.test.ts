@@ -77,6 +77,7 @@ describe('environment validation', () => {
 
 		expect(result.errors).not.toContain('APP_PUBLIC_ORIGIN must use HTTPS outside local development');
 		expect(result.errors).not.toContain('APP_PUBLIC_ORIGIN_ALLOWLIST must use HTTPS outside local development');
+		expect(result.errors).toHaveLength(0);
 	});
 
 	it('rejects non-HTTPS official public origins outside local development', () => {

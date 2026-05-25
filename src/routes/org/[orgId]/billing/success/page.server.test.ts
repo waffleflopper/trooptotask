@@ -3,8 +3,24 @@ import { createTestContext } from '$lib/server/adapters/inMemory';
 import { CHECKOUT_ATTEMPTS_TABLE, type CheckoutAttemptRow } from '$lib/server/core/useCases/billingCheckoutAttempts';
 import type { BillingSnapshot } from '$lib/types/subscription';
 
-const { readCurrentBillingSnapshotMock } = vi.hoisted(() => ({
-	readCurrentBillingSnapshotMock: vi.fn()
+const {
+	readCurrentBillingSnapshotMock,
+	retrieveCheckoutSessionForRecoveryMock,
+	reconcileOrganizationBillingMock,
+	getAdminClientMock,
+	createSupabaseBillingReconciliationStoreMock,
+	createStripeBillingReconciliationProviderMock,
+	createSupabaseSubscriptionAdapterMock,
+	getConfiguredPriceCatalogMock
+} = vi.hoisted(() => ({
+	readCurrentBillingSnapshotMock: vi.fn(),
+	retrieveCheckoutSessionForRecoveryMock: vi.fn(),
+	reconcileOrganizationBillingMock: vi.fn(),
+	getAdminClientMock: vi.fn(() => ({ admin: true })),
+	createSupabaseBillingReconciliationStoreMock: vi.fn(() => ({ store: true })),
+	createStripeBillingReconciliationProviderMock: vi.fn(() => ({ provider: true })),
+	createSupabaseSubscriptionAdapterMock: vi.fn(() => ({ subscription: true })),
+	getConfiguredPriceCatalogMock: vi.fn(() => ({ prices: [] }))
 }));
 
 vi.mock('$lib/server/core/useCases/billingState', async () => {
@@ -18,7 +34,74 @@ vi.mock('$lib/server/core/useCases/billingState', async () => {
 	};
 });
 
-import { _buildCheckoutSuccessStatus, _loadCheckoutSuccessPageData } from './+page.server';
+vi.mock('$lib/server/stripe', async () => {
+	const actual = await vi.importActual<typeof import('$lib/server/stripe')>('$lib/server/stripe');
+
+	return {
+		...actual,
+		retrieveCheckoutSessionForRecovery: retrieveCheckoutSessionForRecoveryMock,
+		createStripeBillingReconciliationProvider: createStripeBillingReconciliationProviderMock
+	};
+});
+
+vi.mock('$lib/server/core/useCases/billingReconciliation', async () => {
+	const actual = await vi.importActual<typeof import('$lib/server/core/useCases/billingReconciliation')>(
+		'$lib/server/core/useCases/billingReconciliation'
+	);
+
+	return {
+		...actual,
+		reconcileOrganizationBilling: reconcileOrganizationBillingMock
+	};
+});
+
+vi.mock('$lib/server/supabase', async () => {
+	const actual = await vi.importActual<typeof import('$lib/server/supabase')>('$lib/server/supabase');
+
+	return {
+		...actual,
+		getAdminClient: getAdminClientMock
+	};
+});
+
+vi.mock('$lib/server/adapters/supabaseBillingReconciliation', async () => {
+	const actual = await vi.importActual<typeof import('$lib/server/adapters/supabaseBillingReconciliation')>(
+		'$lib/server/adapters/supabaseBillingReconciliation'
+	);
+
+	return {
+		...actual,
+		createSupabaseBillingReconciliationStore: createSupabaseBillingReconciliationStoreMock
+	};
+});
+
+vi.mock('$lib/server/adapters/supabaseSubscription', async () => {
+	const actual = await vi.importActual<typeof import('$lib/server/adapters/supabaseSubscription')>(
+		'$lib/server/adapters/supabaseSubscription'
+	);
+
+	return {
+		...actual,
+		createSupabaseSubscriptionAdapter: createSupabaseSubscriptionAdapterMock
+	};
+});
+
+vi.mock('$lib/server/billing/priceCatalog', async () => {
+	const actual = await vi.importActual<typeof import('$lib/server/billing/priceCatalog')>(
+		'$lib/server/billing/priceCatalog'
+	);
+
+	return {
+		...actual,
+		getConfiguredPriceCatalog: getConfiguredPriceCatalogMock
+	};
+});
+
+import {
+	_buildCheckoutSuccessStatus,
+	_loadCheckoutSuccessPageData,
+	_recoverCheckoutSuccessFromStripe
+} from './+page.server';
 
 function snapshot(overrides: Partial<BillingSnapshot> = {}): BillingSnapshot {
 	return {
@@ -147,6 +230,13 @@ describe('_buildCheckoutSuccessStatus', () => {
 describe('billing success page server load', () => {
 	beforeEach(() => {
 		readCurrentBillingSnapshotMock.mockReset();
+		retrieveCheckoutSessionForRecoveryMock.mockReset();
+		reconcileOrganizationBillingMock.mockReset();
+		getAdminClientMock.mockClear();
+		createSupabaseBillingReconciliationStoreMock.mockClear();
+		createStripeBillingReconciliationProviderMock.mockClear();
+		createSupabaseSubscriptionAdapterMock.mockClear();
+		getConfiguredPriceCatalogMock.mockClear();
 	});
 
 	it('returns route data derived from the billing snapshot and checkout attempt id', async () => {
@@ -224,6 +314,40 @@ describe('billing success page server load', () => {
 			checkoutStatus: expect.objectContaining({
 				state: 'active'
 			})
+		});
+	});
+
+	it('keeps checkout attempts retryable when recovery reconciliation fails', async () => {
+		const ctx = createTestContext({
+			auth: {
+				orgId: 'org-1'
+			}
+		});
+		ctx.rawStore.seed(CHECKOUT_ATTEMPTS_TABLE, [attempt() as unknown as Record<string, unknown>]);
+		retrieveCheckoutSessionForRecoveryMock.mockResolvedValue({
+			status: 'complete',
+			paymentStatus: 'paid',
+			subscriptionId: 'sub_success',
+			metadata: {
+				orgId: 'org-1',
+				checkoutAttemptId: 'attempt-success-return'
+			}
+		});
+		reconcileOrganizationBillingMock.mockRejectedValue(new Error('reconciliation unavailable'));
+
+		await expect(
+			_recoverCheckoutSuccessFromStripe(ctx, {
+				checkoutAttempt: attempt(),
+				now: new Date('2026-05-24T12:00:00.000Z')
+			})
+		).rejects.toThrow('reconciliation unavailable');
+
+		const storedAttempt = await ctx.rawStore.findOne<CheckoutAttemptRow>(CHECKOUT_ATTEMPTS_TABLE, 'org-1', {
+			id: 'attempt-success-return'
+		});
+		expect(storedAttempt).toMatchObject({
+			status: 'in_progress',
+			completed_at: null
 		});
 	});
 });

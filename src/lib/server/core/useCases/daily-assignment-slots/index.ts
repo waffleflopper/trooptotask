@@ -195,7 +195,6 @@ export async function replaceDailyAssignmentSlotsBatch(
 	const upserts = records.filter((record) => record.assigneeId);
 	const clears = records.filter((record) => !record.assigneeId);
 
-	await requireCalendarAssignmentPolicy(ctx, upserts);
 	await requireBatchUpsertAssignmentPolicy(ctx, upserts);
 	await ensureBatchUpsertAvailability(ctx, upserts);
 
@@ -394,15 +393,7 @@ async function requireCalendarAssignmentPolicy(ctx: WritePorts, records: Assignm
 }
 
 async function requireBatchUpsertAssignmentPolicy(ctx: WritePorts, records: AssignmentPolicyRecord[]): Promise<void> {
-	const assignmentTargets = await getAssignmentTargets(
-		ctx,
-		records.map((record) => record.assignmentTypeId)
-	);
-	const personnelAssigneeIds = records
-		.filter((record) => assignmentTargets.get(record.assignmentTypeId) !== 'group')
-		.map((record) => record.assigneeId);
-
-	await requireCalendarPersonnelPolicy(ctx, CALENDAR_POLICY_ACTIONS.manageAssignments, personnelAssigneeIds);
+	await requireCalendarAssignmentPolicy(ctx, records);
 }
 
 async function ensureManualAssignmentAvailabilityForRecords(

@@ -163,6 +163,51 @@ describe('batchDailyAssignments', () => {
 		expect(requireGroupAccessBatch).not.toHaveBeenCalled();
 	});
 
+	it('denies group assignees outside Calendar group scope before batch persistence', async () => {
+		const ctx = buildContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				scopeSet: { kind: 'groups', groupIds: ['group-a'] },
+				capabilityMap: {
+					calendar: 'operate',
+					personnel: 'view',
+					training: 'view',
+					criticalTasks: 'view',
+					onboarding: 'view',
+					ratingScheme: 'view'
+				}
+			}
+		});
+		ctx.store.seed('assignment_types', [
+			{
+				id: 'type-group',
+				organization_id: 'test-org',
+				name: 'Front Desk',
+				short_name: 'FD',
+				assign_to: 'group',
+				color: '#123456',
+				sort_order: 0,
+				exempt_personnel_ids: [],
+				show_in_date_header: false
+			}
+		]);
+		ctx.store.deleteWhereAny = vi.fn(ctx.store.deleteWhereAny.bind(ctx.store)) as typeof ctx.store.deleteWhereAny;
+		ctx.store.insertMany = vi.fn(ctx.store.insertMany.bind(ctx.store)) as typeof ctx.store.insertMany;
+
+		await expect(
+			batchDailyAssignments(ctx, {
+				records: [{ date: '2026-03-22', assignmentTypeId: 'type-group', assigneeId: 'group-b' }]
+			})
+		).rejects.toMatchObject({
+			status: 403,
+			message: 'You do not have access to that Calendar scope'
+		});
+
+		expect(ctx.store.deleteWhereAny).not.toHaveBeenCalled();
+		expect(ctx.store.insertMany).not.toHaveBeenCalled();
+	});
+
 	it('logs an audit event', async () => {
 		const ctx = buildContext();
 		await batchDailyAssignments(ctx, {

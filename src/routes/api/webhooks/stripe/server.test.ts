@@ -534,7 +534,8 @@ describe('POST /api/webhooks/stripe', () => {
 				values: expect.objectContaining({
 					processed: false,
 					processing_state: 'permanently_failed',
-					last_error: 'checkout.session.completed missing orgId, tier, or subscriptionId',
+					last_error:
+						'checkout.session.completed has missing or invalid orgId, tier (must be team or unit), or subscriptionId',
 					processing_result: 'permanent processing failure'
 				})
 			})

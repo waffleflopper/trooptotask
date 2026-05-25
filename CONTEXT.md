@@ -194,6 +194,10 @@ _Avoid_: Checkbox
 A billing-driven state where writes are blocked even if a member would otherwise have edit access.
 _Avoid_: Broken permissions
 
+**Billing Snapshot Transition**:
+The app-owned billing lifecycle decision that turns provider facts, such as Stripe checkout, subscription, invoice, or cancellation events, into the current **Organization** billing snapshot, legacy Organization billing mirror, and related cache effects.
+_Avoid_: Webhook handler, raw Stripe update, table update
+
 ### Feature Surfaces
 
 **Calendar**:

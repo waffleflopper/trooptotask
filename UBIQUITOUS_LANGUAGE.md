@@ -52,6 +52,8 @@ This glossary captures the canonical v1 language for TroopToTask as it exists to
 | Term                           | Definition                                                                                                                     | Aliases to avoid                       |
 | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------- |
 | **Availability Status**        | A calendar state that marks a person's availability, duty limitation, or absence over one or more dates.                       | Event, appointment when status matters |
+| **Daily Assignment Slot**      | One Calendar assignment position for a specific date and **Assignment Type**.                                                   | Duplicate assignment row, batch row    |
+| **Daily Assignment Source Lineage** | The source reference stored on a **Daily Assignment Slot** when another workflow creates or updates the Calendar assignment, using a source kind, source id, and source row key. | Duty-roster-only lineage, guessing rows |
 | **Status Type**                | An organization-defined calendar status category such as leave, school, training, appointment, sick, CQ/SD, or sick call.      | Calendar color only                    |
 | **DA6 Availability Treatment** | The optional duty-roster meaning attached to a **Status Type** for DA Form 6 availability and numbering.                       | Status type, DA6 code, color           |
 | **Status Legend**              | The visual key that explains **Status Types** on the calendar surface.                                                         | Filter bar, status picker              |
@@ -248,8 +250,8 @@ This glossary captures the canonical v1 language for TroopToTask as it exists to
 - The DA6 engine should preserve **Misconduct Unavailable** support, but normal UI setup must not enable it until the product has an explicit misconduct/AWOL workflow and audit trail.
 - **Duty Roster Templates** consume each **Status Type**'s **DA6 Availability Treatment** and do not redefine unavailable statuses per template.
 - When statuses overlap during **Duty Roster** generation, the selected DA6 treatment follows the documented priority: future **Misconduct Unavailable** first once enabled, then **Authorized Absence**, then **Other Duty**.
-- Calendar assignments created from an **Accepted Duty Roster Run** must keep lineage back to that run.
-- Run-to-Calendar lineage lets invalidation remove exactly the Calendar assignments created by that run without guessing by date, template, or person.
+- Calendar assignments created from an **Accepted Duty Roster Run** must keep **Daily Assignment Source Lineage** back to that run.
+- **Daily Assignment Source Lineage** lets invalidation remove exactly the Calendar assignments created by that source without guessing by date, template, or person.
 - Generating a **Duty Roster Run** creates a preview only; it does not change DA Form 6 history or future counts until accepted.
 - Before acceptance, the operator may make a **Manual Duty Roster Selection** for a duty date in the generated preview.
 - Accepted history must preserve whether each roster row was generated or manually selected, with manual selections clearly marked in UI and print/export output.

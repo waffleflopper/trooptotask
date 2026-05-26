@@ -1,5 +1,8 @@
 <script lang="ts">
+	import { tick } from 'svelte';
 	import { enhance } from '$app/forms';
+	import * as Alert from '$lib/components/ui/alert/index.js';
+	import * as AppDialog from '$lib/components/ui/app-dialog/index.js';
 	import { Badge } from '$lib/components/ui/badge/index.js';
 	import type { BadgeVariant } from '$lib/components/ui/badge/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
@@ -7,31 +10,14 @@
 	import { Label } from '$lib/components/ui/label/index.js';
 	import { Separator } from '$lib/components/ui/separator/index.js';
 	import { isBillingEnabled } from '$lib/config/billing';
+	import type { PlanUsageSummaryForSettings } from './settingsTypes';
 	import type { OrganizationSettingsWorkspace } from './organizationSettingsWorkspaceModel';
-
-	type PlanUsageSummaryForSettings = {
-		rows: Array<{
-			dimension: string;
-			label: string;
-			used: number;
-			limitLabel: string;
-			status: string;
-			message: string;
-			remediation: string;
-		}>;
-		alerts: Array<{
-			dimension: string;
-			label: string;
-			message: string;
-			remediation: string;
-			status: string;
-		}>;
-	};
 
 	let {
 		organization,
 		form,
-		loading = $bindable(false),
+		nameLoading = $bindable(false),
+		slugLoading = $bindable(false),
 		planBadge,
 		planPrice,
 		planCopy,
@@ -39,8 +25,7 @@
 		personnelCount,
 		planUsageSummary = null,
 		showProfile = true,
-		showBilling = true,
-		showSession = true
+		showBilling = true
 	} = $props<{
 		organization: OrganizationSettingsWorkspace['sections']['organization'];
 		form: {
@@ -50,7 +35,8 @@
 			error?: string;
 			slugError?: string;
 		} | null;
-		loading?: boolean;
+		nameLoading?: boolean;
+		slugLoading?: boolean;
 		planBadge: string;
 		planPrice: string;
 		planCopy: string;
@@ -59,8 +45,33 @@
 		planUsageSummary?: PlanUsageSummaryForSettings | null;
 		showProfile?: boolean;
 		showBilling?: boolean;
-		showSession?: boolean;
 	}>();
+
+	let slugFormEl = $state<HTMLFormElement | null>(null);
+	let slugConfirmOpen = $state(false);
+	let slugConfirmed = $state(false);
+	let pendingSlugAction = $state<'update' | 'clear' | null>(null);
+	let slugFormAction = $state('?/updateSlug');
+
+	function requestSlugClear() {
+		pendingSlugAction = 'clear';
+		slugConfirmOpen = true;
+	}
+
+	async function confirmSlugAction() {
+		slugConfirmed = true;
+		slugConfirmOpen = false;
+		if (pendingSlugAction === 'clear') {
+			slugFormAction = '?/clearSlug';
+			await tick();
+		}
+		slugFormEl?.requestSubmit();
+	}
+
+	function cancelSlugAction() {
+		slugConfirmOpen = false;
+		pendingSlugAction = null;
+	}
 
 	function usageStatusLabel(status: string): string {
 		switch (status) {
@@ -84,25 +95,21 @@
 
 <div class="grid gap-4">
 	{#if showProfile}
-		<section
-			class="grid gap-4 rounded-lg border bg-card p-4 text-card-foreground"
-			aria-labelledby="organization-profile-heading"
-		>
+		<section class="grid gap-4 rounded-lg border bg-card p-4" aria-labelledby="organization-profile-heading">
 			<div class="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
 				<div class="grid gap-1">
 					<h3 id="organization-profile-heading" class="text-lg font-semibold tracking-tight">Organization Profile</h3>
 					<p class="text-sm text-muted-foreground">Displayed across briefs, exports, and printed rosters.</p>
 				</div>
-				{#if form?.nameSuccess || form?.slugSuccess}<Badge variant="secondary">Saved</Badge>{/if}
 			</div>
 			<Separator />
 			<form
 				method="POST"
 				action="?/updateName"
 				use:enhance={() => {
-					loading = true;
+					nameLoading = true;
 					return async ({ update }) => {
-						loading = false;
+						nameLoading = false;
 						await update();
 					};
 				}}
@@ -111,38 +118,58 @@
 				<div class="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto]">
 					<div class="grid gap-2">
 						<Label for="name">Organization name</Label>
-						<Input id="name" name="name" type="text" value={organization.name ?? ''} required />
+						<Input id="name" name="name" type="text" value={organization.name ?? ''} required maxlength={120} />
 					</div>
-					<div class="flex items-end">
-						<Button type="submit" disabled={loading || !organization.canUpdateProfile}>
-							{loading ? 'Saving...' : 'Update'}
+					<div class="flex items-end gap-2">
+						<Button type="submit" disabled={nameLoading || !organization.canUpdateProfile}>
+							{nameLoading ? 'Saving...' : 'Update'}
 						</Button>
+						{#if form?.nameSuccess}
+							<span class="text-sm text-success-foreground">Saved</span>
+						{/if}
 					</div>
 				</div>
 			</form>
 			<form
+				bind:this={slugFormEl}
 				method="POST"
-				action="?/updateSlug"
+				action={slugFormAction}
 				class="grid gap-4 rounded-md border bg-muted/30 p-3"
-				use:enhance={() => {
-					loading = true;
+				use:enhance={(event) => {
+					if (!slugConfirmed) {
+						event.cancel();
+						pendingSlugAction = 'update';
+						slugConfirmOpen = true;
+						return;
+					}
+					slugConfirmed = false;
+					pendingSlugAction = null;
+					slugLoading = true;
 					return async ({ update }) => {
-						loading = false;
+						slugLoading = false;
+						slugFormAction = '?/updateSlug';
 						await update();
 					};
 				}}
 			>
 				<div class="grid gap-1">
-					<p class="text-sm font-medium">Organization URL slug</p>
+					<p class="text-sm font-medium">Custom URL</p>
 					<p class="text-sm text-muted-foreground">
-						Used in app links like /org/{organization.urlSlug ?? '1-11-bde'}/calendar. Letters, numbers, and hyphens
-						only.
+						Your unit's web address. Members access the app at /org/{organization.urlSlug ?? '1-11-bde'}/calendar.
+						Letters, numbers, and hyphens only.
 					</p>
 				</div>
 				{#if form?.slugError}<p class="text-sm text-destructive">{form.slugError}</p>{/if}
+				{#if form?.slugSuccess}
+					<Alert.Root variant="success">
+						<Alert.Description
+							>Custom URL updated. Bookmarks and shared links using the old URL will need updating.</Alert.Description
+						>
+					</Alert.Root>
+				{/if}
 				<div class="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto_auto]">
 					<div class="grid gap-2">
-						<Label for="urlSlug">Slug</Label>
+						<Label for="urlSlug">Custom path</Label>
 						<Input
 							id="urlSlug"
 							name="urlSlug"
@@ -151,23 +178,24 @@
 							placeholder="1-11-bde"
 							autocomplete="off"
 							aria-describedby="url-slug-help"
+							maxlength={60}
 						/>
 						<p id="url-slug-help" class="text-sm text-muted-foreground">
 							Current app path: /org/{organization.urlSegment}
 						</p>
 					</div>
 					<div class="flex items-end">
-						<Button type="submit" disabled={loading || !organization.canUpdateUrlSlug}>
-							{loading ? 'Saving...' : organization.urlSlug ? 'Update Slug' : 'Set Slug'}
+						<Button type="submit" disabled={slugLoading || !organization.canUpdateUrlSlug}>
+							{slugLoading ? 'Saving...' : organization.urlSlug ? 'Update URL' : 'Set URL'}
 						</Button>
 					</div>
 					{#if organization.urlSlug}
 						<div class="flex items-end">
 							<Button
-								type="submit"
+								type="button"
 								variant="outline"
-								formaction="?/clearSlug"
-								disabled={loading || !organization.canUpdateUrlSlug}>Clear</Button
+								disabled={slugLoading || !organization.canUpdateUrlSlug}
+								onclick={requestSlugClear}>Reset to default</Button
 							>
 						</div>
 					{/if}
@@ -177,10 +205,7 @@
 	{/if}
 
 	{#if showBilling}
-		<section
-			class="grid gap-4 rounded-lg border bg-card p-4 text-card-foreground"
-			aria-labelledby="subscription-heading"
-		>
+		<section class="grid gap-4 rounded-lg border bg-card p-4" aria-labelledby="subscription-heading">
 			<div class="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
 				<div class="grid gap-1">
 					<h3 id="subscription-heading" class="text-lg font-semibold tracking-tight">Subscription & Billing</h3>
@@ -233,17 +258,29 @@
 			{/if}
 		</section>
 	{/if}
-
-	{#if showSession}
-		<section class="grid gap-4 rounded-lg border bg-card p-4 text-card-foreground" aria-labelledby="session-heading">
-			<div class="grid gap-1">
-				<h3 id="session-heading" class="text-lg font-semibold tracking-tight">Session</h3>
-				<p class="text-sm text-muted-foreground">Sign out of this browser only. Other sessions are unaffected.</p>
-			</div>
-			<div class="flex flex-wrap gap-2">
-				<Button href="/auth/logout" variant="outline" size="sm">Sign Out</Button>
-				<Button href="/dashboard?show=all" variant="outline" size="sm">Switch Organization</Button>
-			</div>
-		</section>
-	{/if}
 </div>
+
+<AppDialog.Root bind:open={slugConfirmOpen} onClose={cancelSlugAction}>
+	<AppDialog.Content>
+		<AppDialog.Header>
+			<AppDialog.Title>
+				{pendingSlugAction === 'clear' ? 'Reset custom URL?' : 'Update custom URL?'}
+			</AppDialog.Title>
+			<AppDialog.Description>
+				{#if pendingSlugAction === 'clear'}
+					Removing the custom URL resets this organization's web address to the default. Existing bookmarks and shared
+					links using /org/{organization.urlSlug}/ will stop working.
+				{:else}
+					Changing the custom URL affects every bookmarked link and shared URL for this organization. Members will need
+					to update their bookmarks.
+				{/if}
+			</AppDialog.Description>
+		</AppDialog.Header>
+		<AppDialog.Footer>
+			<Button type="button" variant="outline" onclick={cancelSlugAction}>Cancel</Button>
+			<Button type="button" onclick={confirmSlugAction}>
+				{pendingSlugAction === 'clear' ? 'Reset URL' : 'Update URL'}
+			</Button>
+		</AppDialog.Footer>
+	</AppDialog.Content>
+</AppDialog.Root>

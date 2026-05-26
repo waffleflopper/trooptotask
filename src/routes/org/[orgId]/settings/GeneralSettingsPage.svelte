@@ -2,26 +2,8 @@
 	import { TIER_CONFIG, type EffectiveTier } from '$lib/types/subscription';
 	import OrganizationSettingsSection from './OrganizationSettingsSection.svelte';
 	import type { OrganizationSettingsWorkspace } from './organizationSettingsWorkspaceModel';
+	import type { PlanUsageSummaryForSettings } from './settingsTypes';
 	import { formatCap, formatExportLimit, formatPrice } from './settingsWorkspaceFormatters';
-
-	type PlanUsageSummaryForSettings = {
-		rows: Array<{
-			dimension: string;
-			label: string;
-			used: number;
-			limitLabel: string;
-			status: string;
-			message: string;
-			remediation: string;
-		}>;
-		alerts: Array<{
-			dimension: string;
-			label: string;
-			message: string;
-			remediation: string;
-			status: string;
-		}>;
-	};
 
 	type SettingsPageData = {
 		effectiveTier?: EffectiveTier | null;
@@ -47,7 +29,8 @@
 		showBilling?: boolean;
 	}>();
 
-	let loading = $state(false);
+	let nameLoading = $state(false);
+	let slugLoading = $state(false);
 	const settingsData = $derived(data as SettingsPageData);
 	const organizationSection = $derived(settingsData.workspace.sections.organization);
 	const membersSection = $derived(settingsData.workspace.sections.members);
@@ -84,7 +67,8 @@
 <OrganizationSettingsSection
 	organization={organizationSection}
 	{form}
-	bind:loading
+	bind:nameLoading
+	bind:slugLoading
 	{planBadge}
 	{planPrice}
 	{planCopy}
@@ -93,5 +77,4 @@
 	planUsageSummary={settingsData.planUsageSummary}
 	showProfile={!showBilling}
 	{showBilling}
-	showSession={!showBilling}
 />

@@ -23,9 +23,7 @@
 	import * as PageShell from '$lib/components/ui/page-shell';
 	import * as Select from '$lib/components/ui/select';
 	import { Spinner } from '$lib/components/ui/spinner';
-	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
 	import { redirectToSensitiveActionStepUp } from '$lib/auth/sensitiveActionStepUp';
-	import type { WorkspaceToolbarAction } from '$lib/components/ui/workspace-toolbar';
 	import type {
 		BillingSnapshot,
 		BillingCancellationFeedback,
@@ -155,24 +153,6 @@
 		const diff = new Date(giftExpiresAt).getTime() - Date.now();
 		return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
 	});
-	const billingToolbarActions = $derived.by(() => {
-		if (!data.canManageSubscription || billingActionsDisabled) return [];
-
-		const actions: WorkspaceToolbarAction[] = [
-			{
-				id: 'manage-subscription',
-				label: portalLoading ? 'Opening...' : 'Manage Subscription',
-				onclick: handleManageSubscription,
-				disabled: portalLoading,
-				priority: 'critical',
-				overflow: 'never',
-				variant: 'primary'
-			}
-		];
-
-		return actions;
-	});
-
 	function formatPrice(cents: number): string {
 		if (cents === 0) return 'Free';
 		return `$${(cents / 100).toFixed(0)}/mo`;
@@ -506,12 +486,6 @@
 			default:
 				return 'secondary';
 		}
-	}
-
-	function billingAlertVariant(variant: BadgeVariant): 'default' | 'destructive' | 'warning' {
-		if (variant === 'destructive') return 'destructive';
-		if (variant === 'warning') return 'warning';
-		return 'default';
 	}
 
 	function usageStatusLabel(status: string): string {
@@ -878,18 +852,6 @@
 		{/snippet}
 	</PageShell.Header>
 
-	{#if billingToolbarActions.length > 0}
-		<WorkspaceToolbar.Root ariaLabel="Billing controls">
-			<WorkspaceToolbar.Group label="Billing actions" zone="actions">
-				<WorkspaceToolbar.Actions
-					actions={billingToolbarActions}
-					ariaLabel="Billing actions"
-					overflowAriaLabel="More billing actions"
-				/>
-			</WorkspaceToolbar.Group>
-		</WorkspaceToolbar.Root>
-	{/if}
-
 	{#if isReadOnly}
 		<Alert.Root variant="warning">
 			<TriangleAlert />
@@ -954,45 +916,33 @@
 		</Alert.Root>
 	{/if}
 
-	<PageShell.FactGrid layout="three">
-		<PageShell.Metric
-			label="Current Plan"
-			value={tierComparison.find((t) => t.tier === tier.tier)?.name ?? tier.tier}
-			detail={isReadOnly ? 'Organization access is limited right now' : 'Organization access is active and available'}
-			tone={isReadOnly ? 'warning' : 'default'}
-		/>
-		<PageShell.Metric
-			label="Personnel Usage"
-			value={`${personnelCount} / ${personnelCap === Infinity ? 'Unlimited' : personnelCap}`}
-			detail="Current headcount against the plan limit"
-		/>
-		<PageShell.Metric
-			label="Paid Through"
-			value={formatBillingDate(billingSnapshot?.currentPeriodEnd)}
-			detail={source === 'gift'
-				? 'Access is currently being granted outside regular billing'
-				: 'Next renewal or expiration date'}
-		/>
-	</PageShell.FactGrid>
-
 	<Card.Root>
 		<Card.Header>
-			<div class="flex flex-wrap items-center gap-2">
-				<Card.Title>Subscription</Card.Title>
-				<Badge variant={billingStatus.variant}>{billingStatus.statusLabel}</Badge>
+			<div class="flex flex-wrap items-start justify-between gap-3">
+				<div class="grid gap-1.5">
+					<div class="flex flex-wrap items-center gap-2">
+						<Card.Title>Subscription</Card.Title>
+						<Badge variant={billingStatus.variant}>{billingStatus.statusLabel}</Badge>
+					</div>
+					<Card.Description>{billingStatus.description}</Card.Description>
+				</div>
+				{#if data.canManageSubscription && !billingActionsDisabled}
+					<Button type="button" class="shrink-0" onclick={handleManageSubscription} disabled={portalLoading}>
+						{#if portalLoading}<Spinner />{/if}
+						{portalLoading ? 'Opening...' : 'Manage Subscription'}
+					</Button>
+				{/if}
 			</div>
-			<Card.Description>{billingStatus.description}</Card.Description>
 		</Card.Header>
 		<Card.Content class="grid gap-4">
-			<Alert.Root variant={billingAlertVariant(billingStatus.variant)}>
-				<Alert.Title>{billingStatus.title}</Alert.Title>
-				<Alert.Description>{billingStatus.actionHint}</Alert.Description>
-			</Alert.Root>
-
 			<PageShell.FactGrid layout="three">
 				<PageShell.FactRow
 					label="Status"
-					value={subscriptionStatusLabel(billingSnapshot?.subscriptionStatus)}
+					value={subscriptionStatusLabel(billingSnapshot?.subscriptionStatus) +
+						' (' +
+						(tierComparison.find((t) => t.tier === tier.tier)?.name ?? tier.tier) +
+						(isReadOnly ? ' *Limited' : '') +
+						')'}
 					layout="stack"
 				/>
 				<PageShell.FactRow

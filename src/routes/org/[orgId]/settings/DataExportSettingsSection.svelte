@@ -26,7 +26,7 @@
 
 	const exportInfo = $derived(section.exportInfo);
 	const exportLimitReached = $derived(exportInfo.limitReached);
-	const settingsHref = $derived(resolve(`/org/${orgId}/settings`));
+	const logsHref = $derived(resolve(`/org/${orgId}/settings/logs`));
 </script>
 
 <div class="grid gap-4">
@@ -112,7 +112,7 @@
 				<p class="text-sm text-muted-foreground">Last 90 days of activity.</p>
 			</div>
 			<div class="flex flex-wrap gap-2">
-				<Button href={settingsHref} variant="outline" size="sm">View Audit Log</Button>
+				<Button href={logsHref} variant="outline" size="sm">View Audit Log</Button>
 				<Button type="button" variant="outline" size="sm" disabled title="Coming soon" aria-disabled="true">
 					Export Audit
 					<Badge variant="outline">Coming Soon</Badge>

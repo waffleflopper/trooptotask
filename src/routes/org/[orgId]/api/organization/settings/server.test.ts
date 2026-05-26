@@ -1,12 +1,34 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { _postConfig } from './+server';
 
 describe('/api/organization/settings', () => {
-	it('requires privileged access for settings updates', () => {
-		expect(_postConfig.permission).toBe('privileged');
+	it('uses the organization settings governance policy for settings updates', async () => {
+		expect(_postConfig.policyAction).toBe(POLICY_ACTION_CATALOG.organization.updateSettings);
+		expect(_postConfig.policyResource).toEqual({ kind: 'organization' });
 		expect(_postConfig.mutation).toBe(true);
+
+		const memberCtx = createTestContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: {
+					calendar: 'view',
+					personnel: 'configure',
+					training: 'view',
+					criticalTasks: 'view',
+					onboarding: 'view',
+					ratingScheme: 'view'
+				},
+				scopeSet: { kind: 'organization' }
+			}
+		});
+
+		await expect(handleUseCaseRequest(_postConfig, memberCtx, { lossWarningWindowDays: 90 })).rejects.toMatchObject({
+			status: 403
+		});
 	});
 
 	it('persists archive retention, loss warning, and Critical Tasks settings on the organization row', async () => {

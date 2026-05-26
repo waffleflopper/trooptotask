@@ -1,4 +1,5 @@
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { fail } from '$lib/server/core/errors';
 import type { UseCaseContext } from '$lib/server/core/ports';
 import {
@@ -43,7 +44,8 @@ function parseNullableWholeNumber(
 }
 
 export const _postConfig: RouteConfig<OrganizationSettingsInput, { success: true }> = {
-	permission: 'privileged',
+	policyAction: POLICY_ACTION_CATALOG.organization.updateSettings,
+	policyResource: { kind: 'organization' },
 	mutation: true,
 	fn: async (ctx: UseCaseContext, input: OrganizationSettingsInput) => {
 		const archiveRetentionMonths = parseWholeNumber(

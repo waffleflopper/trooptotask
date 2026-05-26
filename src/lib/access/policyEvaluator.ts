@@ -416,6 +416,11 @@ export const POLICY_ACTION_CATALOG = {
 			label: 'Rename organization',
 			access: 'admin-or-owner'
 		}),
+		updateSettings: governanceAction({
+			id: 'organization.updateSettings',
+			label: 'Update organization settings',
+			access: 'admin-or-owner'
+		}),
 		inviteMember: governanceAction({
 			id: 'organization.inviteMember',
 			label: 'Invite organization member',

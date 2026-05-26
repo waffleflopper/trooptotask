@@ -5,12 +5,12 @@ import { listPersonnelDocuments } from './personnelDocuments';
 import { listPersonnelFollowUps } from './personnelFollowUps';
 import { listPersonnelLeaderNotes } from './personnelLeaderNotes';
 
-function operateContext() {
+function configureContext() {
 	const ctx = createTestContext({
 		auth: {
 			capabilityMap: {
 				calendar: 'view',
-				personnel: 'operate',
+				personnel: 'configure',
 				training: 'view',
 				criticalTasks: 'view',
 				onboarding: 'view',
@@ -26,7 +26,7 @@ function operateContext() {
 
 describe('personnel artifact authorization', () => {
 	it('caches the shared Personnel access check across dashboard artifact loaders', async () => {
-		const ctx = operateContext();
+		const ctx = configureContext();
 		const findOne = ctx.rawStore.findOne.bind(ctx.rawStore);
 		const findOneSpy = vi.fn(findOne);
 		ctx.rawStore.findOne = findOneSpy as unknown as typeof ctx.rawStore.findOne;
@@ -43,7 +43,7 @@ describe('personnel artifact authorization', () => {
 	});
 
 	it('keeps group-scope rejection inside the shared service-layer helper', async () => {
-		const ctx = operateContext();
+		const ctx = configureContext();
 		(ctx.auth as typeof ctx.auth & { requireGroupAccess: typeof ctx.auth.requireGroupAccess }).requireGroupAccess =
 			vi.fn(async () => {
 				const error = new Error('Group access denied') as Error & { status?: number };
@@ -54,12 +54,12 @@ describe('personnel artifact authorization', () => {
 		await expect(listPersonnelDocuments(ctx, 'person-1', 5)).rejects.toMatchObject({ status: 403 });
 	});
 
-	it('rejects artifact reads when the caller lacks Personnel operate capability', async () => {
+	it('rejects artifact reads when the caller lacks Personnel configure capability', async () => {
 		const ctx = createTestContext({
 			auth: {
 				capabilityMap: {
 					calendar: 'view',
-					personnel: 'view',
+					personnel: 'operate',
 					training: 'view',
 					criticalTasks: 'view',
 					onboarding: 'view',

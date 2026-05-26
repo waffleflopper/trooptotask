@@ -20,7 +20,7 @@ describe('personnel notes page server load', () => {
 				orgId: 'org-1',
 				capabilityMap: {
 					calendar: 'view',
-					personnel: 'operate',
+					personnel: 'configure',
 					training: 'view',
 					criticalTasks: 'view',
 					onboarding: 'view',

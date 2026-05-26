@@ -16,7 +16,7 @@ describe('/api/personnel/[id]/documents/[documentId]/download', () => {
 			auth: {
 				capabilityMap: {
 					calendar: 'view',
-					personnel: 'operate',
+					personnel: 'configure',
 					training: 'view',
 					criticalTasks: 'view',
 					onboarding: 'view',

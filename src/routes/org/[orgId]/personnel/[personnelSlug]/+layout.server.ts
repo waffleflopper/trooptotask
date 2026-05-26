@@ -45,7 +45,8 @@ export function _createPersonnelDetailLayoutLoad(deps: PersonnelDetailLayoutLoad
 		const { orgId, personnelSlug } = params;
 
 		const personnelDetailHeader = await loadWithContextFn(locals, cookies, orgId, {
-			permission: 'none',
+			policyAction: POLICY_ACTION_CATALOG.personnel.manageRecords,
+			policyResource: { kind: 'unscoped' },
 			fn: (ctx) => resolvePersonnelHeader(ctx, personnelSlug)
 		});
 

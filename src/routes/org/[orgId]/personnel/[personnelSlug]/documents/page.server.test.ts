@@ -24,7 +24,7 @@ describe('personnel documents page server load', () => {
 				userId: 'test-user',
 				capabilityMap: {
 					calendar: 'view',
-					personnel: 'operate',
+					personnel: 'configure',
 					training: 'view',
 					criticalTasks: 'view',
 					onboarding: 'view',

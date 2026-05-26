@@ -23,7 +23,7 @@ describe('personnel leader notes', () => {
 			auth: {
 				capabilityMap: {
 					calendar: 'view',
-					personnel: 'operate',
+					personnel: 'configure',
 					training: 'view',
 					criticalTasks: 'view',
 					onboarding: 'view',
@@ -67,7 +67,7 @@ describe('personnel leader notes', () => {
 		expect(notes.map((note) => note.id)).toEqual([created.id, 'note-old']);
 	});
 
-	it('requires Personnel operate capability', async () => {
+	it('requires Personnel configure capability for reads and operate capability for writes', async () => {
 		const ctx = createTestContext({
 			auth: {
 				capabilityMap: {
@@ -94,7 +94,7 @@ describe('personnel leader notes', () => {
 			auth: {
 				capabilityMap: {
 					calendar: 'view',
-					personnel: 'operate',
+					personnel: 'configure',
 					training: 'view',
 					criticalTasks: 'view',
 					onboarding: 'view',

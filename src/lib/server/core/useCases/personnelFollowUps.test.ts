@@ -30,7 +30,7 @@ describe('personnel follow-ups', () => {
 			auth: {
 				capabilityMap: {
 					calendar: 'view',
-					personnel: 'operate',
+					personnel: 'configure',
 					training: 'view',
 					criticalTasks: 'view',
 					onboarding: 'view',
@@ -133,7 +133,7 @@ describe('personnel follow-ups', () => {
 		).rejects.toMatchObject({ status: 409 });
 	});
 
-	it('requires Personnel operate capability', async () => {
+	it('requires Personnel configure capability for reads and operate capability for writes', async () => {
 		const ctx = createTestContext({
 			auth: {
 				capabilityMap: {
@@ -169,7 +169,7 @@ describe('personnel follow-ups', () => {
 			auth: {
 				capabilityMap: {
 					calendar: 'view',
-					personnel: 'operate',
+					personnel: 'configure',
 					training: 'view',
 					criticalTasks: 'view',
 					onboarding: 'view',

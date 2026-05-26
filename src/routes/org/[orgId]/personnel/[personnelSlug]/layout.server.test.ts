@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { _createPersonnelDetailLayoutLoad } from './+layout.server';
 
 function makeAuth(overrides: Record<string, unknown> = {}) {
@@ -58,7 +59,7 @@ describe('personnel detail layout server load', () => {
 			readOnlyGuard: { check: vi.fn(async () => false) }
 		};
 		const depends = vi.fn();
-		const { load } = makeLoad(ctx);
+		const { load, loadWithContext } = makeLoad(ctx);
 
 		const result = await load({
 			params: { orgId: 'org-1', personnelSlug: 'rivera-monica' },
@@ -73,6 +74,15 @@ describe('personnel detail layout server load', () => {
 			'org-1',
 			{ slug: 'rivera-monica' },
 			expect.any(String)
+		);
+		expect(loadWithContext).toHaveBeenCalledWith(
+			expect.anything(),
+			expect.anything(),
+			'org-1',
+			expect.objectContaining({
+				policyAction: POLICY_ACTION_CATALOG.personnel.manageRecords,
+				policyResource: { kind: 'unscoped' }
+			})
 		);
 		expect(ctx.auth.requireGroupAccess).toHaveBeenCalledWith('person-1');
 		expect(result.personnelDetailHeader.person).toMatchObject({

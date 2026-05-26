@@ -1,12 +1,13 @@
 import type { RequestEvent } from '@sveltejs/kit';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { fail } from '$lib/server/core/errors';
 import { updatePersonnelExtendedInfo } from '$lib/server/core/useCases/personnelExtendedInfo';
 
 export const _putConfig: RouteConfig<Record<string, unknown>, unknown> = {
-	permission: 'personnel',
 	mutation: true,
-	deferPolicyToUseCase: true,
+	policyAction: POLICY_ACTION_CATALOG.personnel.manageRecords,
+	policyResource: { kind: 'unscoped' },
 	parseInput: async (event: RequestEvent) => {
 		const body = (await event.request.json()) as Record<string, unknown>;
 		const personnelId = event.params.id;

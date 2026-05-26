@@ -1,5 +1,6 @@
 import type { RequestEvent } from '@sveltejs/kit';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { fail } from '$lib/server/core/errors';
 import { createPersonnelDocumentDownloadUrl } from '$lib/server/core/useCases/personnelDocuments';
 
@@ -17,8 +18,8 @@ function inputFromEvent(event: RequestEvent): PersonnelDocumentDownloadInput {
 }
 
 export const _getConfig: RouteConfig<PersonnelDocumentDownloadInput, { url: string }> = {
-	permission: 'personnel',
-	deferPolicyToUseCase: true,
+	policyAction: POLICY_ACTION_CATALOG.personnel.readSensitiveRecords,
+	policyResource: { kind: 'unscoped' },
 	parseInput: async (event: RequestEvent) => inputFromEvent(event),
 	fn: (ctx, input) => createPersonnelDocumentDownloadUrl(ctx, input)
 };

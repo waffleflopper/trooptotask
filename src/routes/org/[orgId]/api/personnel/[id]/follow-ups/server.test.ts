@@ -21,7 +21,7 @@ describe('/api/personnel/[id]/follow-ups', () => {
 			auth: {
 				capabilityMap: {
 					calendar: 'view',
-					personnel: 'operate',
+					personnel: 'configure',
 					training: 'view',
 					criticalTasks: 'view',
 					onboarding: 'view',
@@ -162,12 +162,12 @@ describe('/api/personnel/[id]/follow-ups', () => {
 		).rejects.toMatchObject({ status: 400 });
 	});
 
-	it('requires Personnel operate capability', async () => {
+	it('requires Personnel configure capability for sensitive follow-up reads', async () => {
 		const ctx = createTestContext({
 			auth: {
 				capabilityMap: {
 					calendar: 'view',
-					personnel: 'view',
+					personnel: 'operate',
 					training: 'view',
 					criticalTasks: 'view',
 					onboarding: 'view',

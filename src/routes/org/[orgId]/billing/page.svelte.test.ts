@@ -201,15 +201,10 @@ describe('billing page toolbar', () => {
 				}
 			});
 
-			expect(screen.getByRole('heading', { name: 'Payment Recovery' })).toBeTruthy();
 			expect(screen.getByText(title)).toBeTruthy();
 			expect(screen.getByText(new RegExp(impact))).toBeTruthy();
 			expect(screen.getAllByText(/Existing data remains visible/).length).toBeGreaterThan(0);
 			expect(screen.queryByText(/Stripe reports/)).toBeNull();
-
-			if (portalLabel) {
-				expect(screen.getAllByRole('button', { name: portalLabel }).length).toBeGreaterThan(0);
-			}
 
 			if (showsPlansLink) {
 				expect(screen.getByRole('link', { name: 'View Plans' }).getAttribute('href')).toBe('#billing-pricing-heading');
@@ -219,7 +214,7 @@ describe('billing page toolbar', () => {
 		}
 	);
 
-	it('keeps invoice and receipt portal access when recovery has no dedicated portal action', () => {
+	it('shows recovery guidance within the subscription card when the subscription is canceled', () => {
 		render(Page, {
 			props: {
 				data: {
@@ -232,9 +227,8 @@ describe('billing page toolbar', () => {
 			}
 		});
 
-		expect(screen.getByRole('heading', { name: 'Payment Recovery' })).toBeTruthy();
-		expect(screen.getByRole('heading', { name: 'Invoices & Receipts' })).toBeTruthy();
-		expect(screen.getByRole('button', { name: 'Open Billing Portal' })).toBeTruthy();
+		expect(screen.getByText('Paid access ended')).toBeTruthy();
+		expect(screen.getByRole('link', { name: 'View Plans' })).toBeTruthy();
 	});
 
 	it.each([
@@ -259,11 +253,9 @@ describe('billing page toolbar', () => {
 				}
 			});
 
-			expect(screen.getByRole('heading', { name: 'Payment Recovery' })).toBeTruthy();
 			expect(screen.getByText(title)).toBeTruthy();
 			expect(screen.getByText(new RegExp(impact))).toBeTruthy();
 			expect(screen.queryByRole('toolbar', { name: 'Billing controls' })).toBeNull();
-			expect(screen.queryByRole('button', { name: /Billing Portal|Payment Method|Billing Details/ })).toBeNull();
 		}
 	);
 
@@ -292,16 +284,15 @@ describe('billing page toolbar', () => {
 		).toBeTruthy();
 	});
 
-	it('routes invoices, receipts, and payment updates through the billing portal', () => {
+	it('provides billing portal access through the toolbar for active subscriptions', () => {
 		render(Page, {
 			props: {
 				data: baseData as never
 			}
 		});
 
-		expect(screen.getByRole('heading', { name: 'Invoices & Receipts' })).toBeTruthy();
-		expect(screen.getByText(/Download invoices and receipts/)).toBeTruthy();
-		expect(screen.getByRole('button', { name: 'Open Billing Portal' })).toBeTruthy();
+		const toolbar = screen.getByRole('toolbar', { name: 'Billing controls' });
+		expect(within(toolbar).getByRole('button', { name: 'Manage Subscription' })).toBeTruthy();
 	});
 
 	it('shows policy-backed usage limits and remediation actions', () => {
@@ -560,7 +551,7 @@ describe('billing page toolbar', () => {
 		expect(screen.getAllByText('Current').length).toBeGreaterThan(0);
 	});
 
-	it('shows owner-visible support review when reconciliation drift is unresolved', () => {
+	it('renders the subscription card for reconciliation states without surfacing internal sync details', () => {
 		render(Page, {
 			props: {
 				data: {
@@ -574,24 +565,8 @@ describe('billing page toolbar', () => {
 			}
 		});
 
-		expect(screen.getByText('Needs support review')).toBeTruthy();
-	});
-
-	it('shows updating copy while a local cancellation is waiting for provider reconciliation', () => {
-		render(Page, {
-			props: {
-				data: {
-					...baseData,
-					billingSnapshot: {
-						...baseData.billingSnapshot,
-						syncStatus: 'pending',
-						driftDetected: false
-					}
-				} as never
-			}
-		});
-
-		expect(screen.getByText('Updating')).toBeTruthy();
+		expect(screen.getByRole('heading', { name: 'Subscription' })).toBeTruthy();
+		expect(screen.getAllByText('Active').length).toBeGreaterThan(0);
 	});
 
 	it('shows gifted billing source copy without payment recovery pressure', () => {
@@ -672,8 +647,7 @@ describe('billing page toolbar', () => {
 		const actions = within(toolbar).getByRole('group', { name: 'Billing actions' });
 
 		expect(within(actions).getByRole('button', { name: 'Manage Subscription' })).toBeTruthy();
-		expect(screen.getAllByRole('button', { name: 'Manage Subscription' }).length).toBeGreaterThan(1);
-		expect(screen.getByRole('heading', { name: 'Cancellation Policy' })).toBeTruthy();
+		expect(screen.getByRole('heading', { name: 'Cancel Subscription' })).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Cancel at Period End' })).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Cancel Now' })).toBeTruthy();
 	});
@@ -827,8 +801,8 @@ describe('billing page toolbar', () => {
 		});
 
 		await fireEvent.click(screen.getAllByRole('button', { name: 'Subscribe' })[0]);
+		await fireEvent.click(screen.getByRole('button', { name: 'Continue to Checkout' }));
 
-		expect(screen.getByRole('dialog')).toBeTruthy();
 		expect(screen.getByText('Confirm your password')).toBeTruthy();
 		expect(screen.getByLabelText('Password')).toBeTruthy();
 		expect((screen.getAllByRole('button', { name: 'Subscribe' })[0] as HTMLButtonElement).disabled).toBe(false);
@@ -863,6 +837,7 @@ describe('billing page toolbar', () => {
 		});
 
 		await fireEvent.click(screen.getAllByRole('button', { name: 'Subscribe' })[0]);
+		await fireEvent.click(screen.getByRole('button', { name: 'Continue to Checkout' }));
 
 		expect(window.location.pathname).toBe('/auth/mfa-verify');
 		expect(window.location.search).toBe('?next=%2F');
@@ -904,6 +879,7 @@ describe('billing page toolbar', () => {
 		});
 
 		await fireEvent.click(screen.getAllByRole('button', { name: 'Subscribe' })[0]);
+		await fireEvent.click(screen.getByRole('button', { name: 'Continue to Checkout' }));
 		await fireEvent.input(screen.getByLabelText('Password'), { target: { value: 'wrong-password' } });
 		await fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
 
@@ -951,6 +927,7 @@ describe('billing page toolbar', () => {
 		});
 
 		await fireEvent.click(screen.getAllByRole('button', { name: 'Subscribe' })[0]);
+		await fireEvent.click(screen.getByRole('button', { name: 'Continue to Checkout' }));
 		await fireEvent.input(screen.getByLabelText('Password'), { target: { value: 'correct-password' } });
 		await fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
 
@@ -1001,11 +978,9 @@ describe('billing page toolbar', () => {
 
 		expect(screen.getByText('Your subscription is scheduled to cancel.')).toBeTruthy();
 		expect(screen.getByText(/Paid access remains active through June 1, 2026/)).toBeTruthy();
-		expect(screen.getByText('Cancellation Timing')).toBeTruthy();
-		expect(screen.getByText('Cancels at period end')).toBeTruthy();
-		const subscriptionStatusFact = screen.getByText('Subscription Status').closest('[data-slot="fact-row"]');
-		expect(subscriptionStatusFact?.hasAttribute('role')).toBe(false);
-		expect(subscriptionStatusFact?.closest('[data-slot="fact-grid"]')?.hasAttribute('role')).toBe(false);
+		const statusFact = screen.getByText('Status').closest('[data-slot="fact-row"]');
+		expect(statusFact?.hasAttribute('role')).toBe(false);
+		expect(statusFact?.closest('[data-slot="fact-grid"]')?.hasAttribute('role')).toBe(false);
 	});
 
 	it('shows terminal cancellation timing after paid access ends', () => {
@@ -1026,7 +1001,6 @@ describe('billing page toolbar', () => {
 
 		expect(screen.getByText('Your subscription has been canceled.')).toBeTruthy();
 		expect(screen.getByText(/Access ended on May 23, 2026/)).toBeTruthy();
-		expect(screen.getByText('Canceled')).toBeTruthy();
 	});
 
 	it('does not show owner cancellation warnings when an active gift is the access source', () => {

@@ -119,14 +119,14 @@ export interface AuthContext {
 	readonly orgId: string;
 	readonly role: 'owner' | 'admin' | 'member';
 	readonly isPrivileged: boolean;
+	readonly canManageMembers: boolean;
 	readonly capabilityMap: CapabilityMap;
 	readonly compatibilityLanes: CompatibilityLaneMap;
 	readonly scopeSet: ScopeSet;
+}
 
-	requireView(area: FeatureArea): void;
-	requirePrivileged(): void;
-	requireOwner(): void;
-	requireManageMembers(): void;
+/** Enforces resource-level Group scope checks for scoped personnel data. */
+export interface ScopeEnforcementPort {
 	requireGroupAccess(personnelId: string): Promise<void>;
 	requireGroupAccessBatch(personnelIds: string[]): Promise<void>;
 	requireGroupAccessByRecord(table: string, recordId: string, personnelIdColumn: string): Promise<void>;
@@ -258,6 +258,7 @@ export interface UseCaseContext {
 	store: DataStore;
 	advancedDutyPersistence: AdvancedDutyPersistencePort;
 	auth: AuthContext;
+	scope: ScopeEnforcementPort;
 	audit: AuditPort;
 	readOnlyGuard: ReadOnlyGuard;
 	subscription: SubscriptionPort;

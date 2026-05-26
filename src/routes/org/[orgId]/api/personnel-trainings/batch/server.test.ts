@@ -1,10 +1,17 @@
 import { describe, expect, it } from 'vitest';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { _postConfig } from './+server';
 
 describe('/api/personnel-trainings/batch route config', () => {
-	it('defers batch import authorization to Training policy use cases instead of legacy edit flags', async () => {
+	it('uses a policy-first route config for Training batch import', () => {
+		expect('permission' in _postConfig).toBe(false);
+		expect(_postConfig.policyAction).toBe(POLICY_ACTION_CATALOG.training.recordCompletions);
+		expect(_postConfig.policyResource).toEqual({ kind: 'unscoped' });
+	});
+
+	it('authorizes batch import through policy decisions before use-case scoped checks', async () => {
 		let legacyEditCalled = false;
 		const ctx = createTestContext({
 			auth: {
@@ -53,5 +60,35 @@ describe('/api/personnel-trainings/batch route config', () => {
 
 		expect(legacyEditCalled).toBe(false);
 		expect(result).toMatchObject({ errors: [] });
+	});
+
+	it('denies batch imports before use-case execution when Training policy is missing', async () => {
+		const ctx = createTestContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'none',
+					training: 'view',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				},
+				scopeSet: { kind: 'organization' }
+			}
+		});
+
+		await expect(
+			handleUseCaseRequest(_postConfig, ctx, {
+				records: [{ personnelId: 'p-1', trainingTypeId: 'tt-1', completionDate: '2026-01-01', status: 'completed' }]
+			})
+		).rejects.toMatchObject({ status: 403 });
+		expect(ctx.auditPort.events).toEqual([
+			expect.objectContaining({
+				action: 'policy.denied',
+				resourceType: 'training.recordCompletions'
+			})
+		]);
 	});
 });

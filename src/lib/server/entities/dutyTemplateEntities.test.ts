@@ -4,9 +4,9 @@ import { DutyTemplateSlotEntity } from './dutyTemplateSlot';
 import { DutyTemplateRotationBaselineEntity } from './dutyTemplateRotationBaseline';
 
 describe('advanced duty template entities', () => {
-	it('declare calendar permission consistently', () => {
-		expect(DutyTemplateEntity.permission).toBe('calendar');
-		expect(DutyTemplateSlotEntity.permission).toBe('calendar');
-		expect(DutyTemplateRotationBaselineEntity.permission).toBe('calendar');
+	it('keeps legacy permission metadata out of persistence-only entities', () => {
+		expect('permission' in DutyTemplateEntity).toBe(false);
+		expect('permission' in DutyTemplateSlotEntity).toBe(false);
+		expect('permission' in DutyTemplateRotationBaselineEntity).toBe(false);
 	});
 });

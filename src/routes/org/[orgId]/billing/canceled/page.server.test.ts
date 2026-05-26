@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+import { loadWithContextCore } from '$lib/server/adapters/httpAdapter';
 import { CHECKOUT_ATTEMPTS_TABLE, type CheckoutAttemptRow } from '$lib/server/core/useCases/billingCheckoutAttempts';
 import { _loadCanceledCheckoutPageData } from './+page.server';
 
@@ -28,6 +30,28 @@ function seedAttempt(
 }
 
 describe('billing canceled page server load', () => {
+	it('denies non-owner checkout cancellation return loads through billing policy', async () => {
+		const ctx = createTestContext({
+			auth: {
+				role: 'admin'
+			}
+		});
+		seedAttempt(ctx);
+
+		await expect(
+			loadWithContextCore(ctx, {
+				policyAction: POLICY_ACTION_CATALOG.organization.accessBilling,
+				fn: (loadCtx) =>
+					_loadCanceledCheckoutPageData(loadCtx, {
+						checkoutAttemptId: 'attempt-canceled-return'
+					})
+			})
+		).rejects.toMatchObject({
+			status: 403,
+			body: { message: 'Only the organization owner can perform this action' }
+		});
+	});
+
 	it('keeps checkout cancellation return loads read-only', async () => {
 		const ctx = createTestContext();
 		seedAttempt(ctx);

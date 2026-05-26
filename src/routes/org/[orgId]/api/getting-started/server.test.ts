@@ -1,11 +1,19 @@
 import { describe, expect, it, vi } from 'vitest';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
-import { _getConfig } from './+server';
+import { _deleteConfig, _getConfig, _postConfig } from './+server';
 
 describe('GET /api/getting-started', () => {
-	it('exports a privileged RouteConfig', () => {
-		expect(_getConfig.permission).toBe('privileged');
+	it('uses policy-first route configs for dashboard support and own preference writes', () => {
+		expect('permission' in _getConfig).toBe(false);
+		expect('permission' in _postConfig).toBe(false);
+		expect('permission' in _deleteConfig).toBe(false);
+		expect(_getConfig.policyAction).toBe(POLICY_ACTION_CATALOG.identity.viewDashboard);
+		expect(_postConfig.policyAction).toBe(POLICY_ACTION_CATALOG.identity.updateOwnPreferences);
+		expect(_deleteConfig.policyAction).toBe(POLICY_ACTION_CATALOG.identity.updateOwnPreferences);
+		expect(_postConfig.allowReadOnlyMutation).toBe(true);
+		expect(_deleteConfig.allowReadOnlyMutation).toBe(true);
 	});
 
 	it('returns workspace support metadata and logs timing', async () => {
@@ -49,5 +57,26 @@ describe('GET /api/getting-started', () => {
 				durationMs: expect.any(Number)
 			})
 		);
+	});
+
+	it('allows a signed-in member to read their getting-started dashboard support data', async () => {
+		const ctx = createTestContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'none',
+					training: 'none',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				}
+			}
+		});
+
+		await expect(handleUseCaseRequest(_getConfig, ctx, undefined)).resolves.toMatchObject({
+			gettingStartedDismissed: false
+		});
 	});
 });

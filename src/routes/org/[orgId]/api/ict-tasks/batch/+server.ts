@@ -3,7 +3,6 @@ import { importIctTasksBatch } from '$lib/server/core/useCases/ictTasksBatch';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 
 export const POST = handle<Record<string, unknown>, unknown>({
-	permission: 'critical-tasks',
 	mutation: true,
 	policyAction: POLICY_ACTION_CATALOG.criticalTasks.configureLibrary,
 	fn: (ctx, input) =>

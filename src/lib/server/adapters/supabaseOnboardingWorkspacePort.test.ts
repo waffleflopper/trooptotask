@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Cookies } from '@sveltejs/kit';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import type { OnboardingBootstrap } from '$lib/server/core/useCases/onboardingQuery';
 
 const { loadWithContextMock } = vi.hoisted(() => {
@@ -53,10 +54,12 @@ describe('createSupabaseOnboardingWorkspacePort', () => {
 			expect.anything(),
 			'11111111-1111-1111-1111-111111111111',
 			expect.objectContaining({
-				permission: 'onboarding',
+				policyAction: POLICY_ACTION_CATALOG.onboarding.viewWorkflows,
+				policyResource: { kind: 'unscoped' },
 				defer: true,
 				fn: expect.any(Function)
 			})
 		);
+		expect(loadWithContextMock.mock.calls[0]?.[3]).not.toHaveProperty('permission');
 	});
 });

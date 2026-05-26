@@ -32,7 +32,7 @@ describe('requireAdvancedDutyTemplateManagement', () => {
 			role: 'member',
 			isPrivileged: false,
 			capabilityMap: {
-				calendar: 'operate',
+				calendar: 'configure',
 				personnel: 'none',
 				training: 'none',
 				criticalTasks: 'none',

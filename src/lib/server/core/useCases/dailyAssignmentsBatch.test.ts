@@ -133,12 +133,9 @@ describe('batchDailyAssignments', () => {
 		expect(remaining[0]?.id).toBe('existing-outside');
 	});
 
-	it('authorizes group assignees through Calendar group scope without running personnel group checks', async () => {
-		const requireGroupAccessBatch = vi.fn(async () => {
-			throw Object.assign(new Error('should not be called'), { status: 403 });
-		});
+	it('authorizes group assignees through Calendar group scope', async () => {
 		const ctx = buildContext({
-			auth: { scopeSet: { kind: 'groups', groupIds: ['group-a'] }, requireGroupAccessBatch }
+			auth: { scopeSet: { kind: 'groups', groupIds: ['group-a'] } }
 		});
 
 		ctx.store.seed('assignment_types', [
@@ -160,7 +157,6 @@ describe('batchDailyAssignments', () => {
 		});
 
 		expect(result.inserted).toHaveLength(1);
-		expect(requireGroupAccessBatch).not.toHaveBeenCalled();
 	});
 
 	it('denies group assignees outside Calendar group scope before batch persistence', async () => {

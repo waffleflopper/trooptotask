@@ -13,9 +13,8 @@ const PT_3 = '00000000-0000-4000-a000-000000000013';
 // Same config entityHandlers() derives — validates the pattern without HTTP layer
 const useCases = createCrudUseCases<WriteWithNotificationsPorts>({
 	entity: TrainingTypeEntity,
-	permission: TrainingTypeEntity.permission!,
 	auditResource: getEntityAuditResource(TrainingTypeEntity),
-	policyAction: TrainingTypeEntity.policyAction,
+	policyAction: TrainingTypeEntity.policyAction!,
 	beforeDelete: async (ctx, id) => {
 		await ctx.store.deleteWhere('personnel_trainings', ctx.auth.orgId, {
 			training_type_id: id

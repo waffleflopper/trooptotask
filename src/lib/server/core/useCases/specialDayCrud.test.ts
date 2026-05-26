@@ -12,9 +12,8 @@ function buildContext(overrides?: Parameters<typeof createWritePortsContext>[0])
 function createSpecialDayCrudUseCases() {
 	return createCrudUseCases({
 		entity: SpecialDayEntity,
-		permission: SpecialDayEntity.permission!,
 		auditResource: getEntityAuditResource(SpecialDayEntity),
-		policyAction: SpecialDayEntity.policyAction
+		policyAction: SpecialDayEntity.policyAction!
 	});
 }
 

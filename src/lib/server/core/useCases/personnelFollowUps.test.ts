@@ -30,7 +30,7 @@ describe('personnel follow-ups', () => {
 			auth: {
 				capabilityMap: {
 					calendar: 'view',
-					personnel: 'operate',
+					personnel: 'configure',
 					training: 'view',
 					criticalTasks: 'view',
 					onboarding: 'view',
@@ -133,7 +133,7 @@ describe('personnel follow-ups', () => {
 		).rejects.toMatchObject({ status: 409 });
 	});
 
-	it('requires Personnel operate capability', async () => {
+	it('requires Personnel configure capability for reads and operate capability for writes', async () => {
 		const ctx = createTestContext({
 			auth: {
 				capabilityMap: {
@@ -161,10 +161,7 @@ describe('personnel follow-ups', () => {
 		).rejects.toMatchObject({ status: 403 });
 	});
 
-	it('delegates Soldier scope enforcement to the auth context', async () => {
-		const requireGroupAccess = vi.fn(async () => {
-			throw { status: 403, message: 'Group scope denied' };
-		});
+	it('allows Personnel operate capability for follow-up writes but not sensitive reads', async () => {
 		const ctx = createTestContext({
 			auth: {
 				capabilityMap: {
@@ -175,7 +172,45 @@ describe('personnel follow-ups', () => {
 					onboarding: 'view',
 					ratingScheme: 'view'
 				},
-				scopeSet: { kind: 'groups', groupIds: ['group-1'] },
+				scopeSet: { kind: 'organization' }
+			}
+		});
+		seedPersonnel(ctx);
+
+		await expect(listPersonnelFollowUps(ctx, 'person-1')).rejects.toMatchObject({ status: 403 });
+
+		const created = await createPersonnelFollowUp(ctx, { personnelId: 'person-1', title: 'Follow up' });
+		await expect(
+			updatePersonnelFollowUp(ctx, {
+				personnelId: 'person-1',
+				followUpId: created.id,
+				title: 'Updated follow up'
+			})
+		).resolves.toMatchObject({ title: 'Updated follow up' });
+		await expect(
+			archivePersonnelFollowUp(ctx, { personnelId: 'person-1', followUpId: created.id })
+		).resolves.toMatchObject({
+			status: 'archived'
+		});
+	});
+
+	it('delegates Soldier scope enforcement to the scope port', async () => {
+		const requireGroupAccess = vi.fn(async () => {
+			throw { status: 403, message: 'Group scope denied' };
+		});
+		const ctx = createTestContext({
+			auth: {
+				capabilityMap: {
+					calendar: 'view',
+					personnel: 'configure',
+					training: 'view',
+					criticalTasks: 'view',
+					onboarding: 'view',
+					ratingScheme: 'view'
+				},
+				scopeSet: { kind: 'groups', groupIds: ['group-1'] }
+			},
+			scope: {
 				requireGroupAccess
 			}
 		});

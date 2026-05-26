@@ -23,7 +23,8 @@ function toClient(r: Record<string, unknown>) {
 }
 
 export const _getConfig: RouteConfig<Record<string, unknown>, unknown> = {
-	permission: 'personnel',
+	policyAction: POLICY_ACTION_CATALOG.training.viewRecords,
+	policyResource: { kind: 'unscoped' },
 	parseInput: (event: RequestEvent) => {
 		return {
 			title: event.url.searchParams.get('title') || '',
@@ -66,9 +67,8 @@ export const _getConfig: RouteConfig<Record<string, unknown>, unknown> = {
 export const GET = handle(_getConfig);
 
 export const _postConfig: RouteConfig<Record<string, unknown>, unknown> = {
-	permission: 'training',
 	mutation: true,
-	policyAction: POLICY_ACTION_CATALOG.training.recordCompletions,
+	policyAction: POLICY_ACTION_CATALOG.training.manageSignInRosters,
 	policyResource: { kind: 'unscoped' },
 	fn: async (ctx, input) => {
 		if (!input.title || !(input.title as string).trim()) fail(400, 'Title is required');

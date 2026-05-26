@@ -6,6 +6,7 @@ import {
 	type OrganizationDataExportExecutionResult
 } from '$lib/server/core/useCases/organizationDataExportExecution';
 import { loadOrganizationExportPayload } from '$lib/server/core/useCases/organizationExport';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 
 interface ExportInput {
 	email: string | undefined;
@@ -15,8 +16,9 @@ type JsonExportArtifact = Extract<OrganizationDataExportArtifact, { kind: 'json'
 type ExportOutput = OrganizationDataExportExecutionResult<JsonExportArtifact>;
 
 export const _postConfig: RouteConfig<ExportInput, ExportOutput> = {
-	permission: 'manageMembers',
 	mutation: true,
+	policyAction: POLICY_ACTION_CATALOG.organization.exportData,
+	policyResource: { kind: 'organization' },
 	parseInput: (event: RequestEvent) => ({
 		email: event.locals.user?.email
 	}),

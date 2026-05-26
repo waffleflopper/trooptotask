@@ -7,7 +7,6 @@ import { buildRouteContext, handleUseCaseRequest } from '$lib/server/adapters/ht
 import { fail } from '$lib/server/core/errors';
 import { cancelBillingSubscriptionForOrganization } from '$lib/server/core/useCases/billingOrganization';
 import { applyBillingSnapshotTransition } from '$lib/server/core/useCases/billingSnapshotTransitions';
-import { requireGovernancePolicy } from '$lib/server/core/useCases/governancePolicy';
 import { getAdminClient } from '$lib/server/supabase';
 import type { BillingCancellationFeedback } from '$lib/types/subscription';
 import { billingApiErrorResponse } from '../billingApiErrors';
@@ -58,15 +57,11 @@ export const POST: RequestHandler = async (event) => {
 
 	try {
 		const ctx = await buildRouteContext(event);
-		await requireGovernancePolicy(
-			{ auth: ctx.auth, audit: ctx.audit },
-			POLICY_ACTION_CATALOG.organization.accessBilling
-		);
 		const input = await parseCancellationRequest(event.request);
 
 		const result = await handleUseCaseRequest(
 			{
-				permission: 'owner',
+				policyAction: POLICY_ACTION_CATALOG.organization.manageBilling,
 				mutation: true,
 				fn: cancelBillingSubscriptionForOrganization,
 				audit: { action: 'billing.cancel', resourceType: 'organization' }

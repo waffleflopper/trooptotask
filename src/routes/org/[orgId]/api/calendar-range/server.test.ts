@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { _getConfig } from './+server';
 
 describe('GET /api/calendar-range', () => {
 	it('exports a calendar read RouteConfig', () => {
-		expect(_getConfig.permission).toBe('calendar');
+		expect('permission' in _getConfig).toBe(false);
+		expect(_getConfig.policyAction).toBe(POLICY_ACTION_CATALOG.calendar.viewAvailability);
+		expect(_getConfig.policyResource).toEqual({ kind: 'unscoped' });
 		expect(_getConfig.mutation).toBeUndefined();
 	});
 

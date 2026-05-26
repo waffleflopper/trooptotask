@@ -19,15 +19,26 @@ interface PersonnelExportOutput {
 }
 
 export const _getConfig: RouteConfig<{ personnelId: string }, PersonnelExportOutput> = {
-	permission: 'privileged',
-	deferPolicyToUseCase: true,
+	policyAction: POLICY_ACTION_CATALOG.personnel.exportRecords,
+	policyResource: { kind: 'unscoped' },
 	parseInput: (event: RequestEvent) => ({ personnelId: event.params.id as string }),
 	fn: async (ctx, input) => {
 		const orgId = ctx.auth.orgId;
 		const id = input.personnelId;
 
-		const [person, trainings, counseling, availability, trainingTypes, statusTypes, groups] = await Promise.all([
-			ctx.rawStore.findOne<Record<string, unknown>>('personnel', orgId, { id }),
+		const person = await ctx.rawStore.findOne<Record<string, unknown>>('personnel', orgId, { id });
+
+		if (!person) fail(404, 'Personnel not found');
+
+		await requireFeaturePolicy(
+			ctx,
+			POLICY_ACTION_CATALOG.personnel.exportRecords,
+			policyResourceForGroup(person.group_id),
+			'personnel',
+			id
+		);
+
+		const [trainings, counseling, availability, trainingTypes, statusTypes, groups] = await Promise.all([
 			ctx.rawStore.findMany<Record<string, unknown>>('personnel_trainings', orgId, { personnel_id: id }),
 			ctx.rawStore.findMany<Record<string, unknown>>(
 				'counseling_records',
@@ -49,16 +60,6 @@ export const _getConfig: RouteConfig<{ personnelId: string }, PersonnelExportOut
 			ctx.rawStore.findMany<Record<string, unknown>>('status_types', orgId, {}, { select: 'id, name' }),
 			ctx.rawStore.findMany<Record<string, unknown>>('groups', orgId, {}, { select: 'id, name' })
 		]);
-
-		if (!person) fail(404, 'Personnel not found');
-
-		await requireFeaturePolicy(
-			ctx,
-			POLICY_ACTION_CATALOG.personnel.exportRecords,
-			policyResourceForGroup(person.group_id),
-			'personnel',
-			id
-		);
 
 		// Extended info is a separate table without org_id scoping — query by personnel_id
 		const extResults = await ctx.rawStore.findMany<Record<string, unknown>>('personnel_extended_info', orgId, {

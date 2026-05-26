@@ -413,7 +413,9 @@ describe('personnel readiness lanes', () => {
 	it('enforces group scope before cross-feature lane reads', async () => {
 		const ctx = createTestContext({
 			auth: {
-				scopeSet: { kind: 'groups', groupIds: ['other-group'] },
+				scopeSet: { kind: 'groups', groupIds: ['other-group'] }
+			},
+			scope: {
 				requireGroupAccess: vi.fn(async () => {
 					throw Object.assign(new Error('out of scope'), { status: 403 });
 				})
@@ -422,6 +424,6 @@ describe('personnel readiness lanes', () => {
 		seedPerson(ctx, { group_id: 'group-1' });
 
 		await expect(loadTrainingReadinessLane(ctx, 'person-1', AS_OF)).rejects.toMatchObject({ status: 403 });
-		expect(ctx.auth.requireGroupAccess).toHaveBeenCalledWith('person-1');
+		expect(ctx.scope.requireGroupAccess).toHaveBeenCalledWith('person-1');
 	});
 });

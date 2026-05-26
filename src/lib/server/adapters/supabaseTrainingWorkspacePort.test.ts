@@ -73,12 +73,12 @@ describe('createSupabaseTrainingWorkspacePort', () => {
 			expect.anything(),
 			'1-11-bde',
 			expect.objectContaining({
-				permission: 'training',
 				policyAction: POLICY_ACTION_CATALOG.training.viewMatrix,
 				policyResource: { kind: 'unscoped' },
 				defer: true
 			})
 		);
+		expect(loadWithContextMock.mock.calls[0]?.[3]).not.toHaveProperty('permission');
 		expect(bootstrap).toBeDefined();
 		expect(bootstrap?.personnel).toBeInstanceOf(Promise);
 		expect(bootstrap?.groups).toBeInstanceOf(Promise);

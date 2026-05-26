@@ -30,11 +30,17 @@ const {
 			auth: {
 				orgId: ORG_ID,
 				userId: 'user-1',
-				requireView: vi.fn(),
-				requireEdit: vi.fn(),
-				requirePrivileged: vi.fn(),
-				requireOwner: vi.fn(),
-				requireManageMembers: vi.fn()
+				role: 'member',
+				capabilityMap: {
+					calendar: 'view',
+					personnel: 'view',
+					training: 'view',
+					criticalTasks: 'view',
+					onboarding: 'view',
+					ratingScheme: 'view'
+				},
+				scopeSet: { kind: 'organization' },
+				isPrivileged: false
 			},
 			store: {
 				findManyWithCount: findManyWithCountMock,

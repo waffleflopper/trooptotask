@@ -21,9 +21,9 @@ describe('critical tasks library page server load', () => {
 			expect.anything(),
 			'org-1',
 			expect.objectContaining({
-				permission: 'critical-tasks',
 				policyAction: POLICY_ACTION_CATALOG.criticalTasks.configureLibrary
 			})
 		);
+		expect(loadWithContext.mock.calls[0]?.[3]).not.toHaveProperty('permission');
 	});
 });

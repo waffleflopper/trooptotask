@@ -4,7 +4,7 @@ import { derivePersonnelDocumentTitle } from '$features/personnel/utils/document
 import { fail } from '$lib/server/core/errors';
 import type { UseCaseContext } from '$lib/server/core/ports';
 import { hasPdfFileSignature } from '$lib/storage/fileSignatures';
-import { requirePersonnelArtifactAccess } from './personnelArtifactAuthorization';
+import { requirePersonnelArtifactAccess, requirePersonnelArtifactReadAccess } from './personnelArtifactAuthorization';
 import { loadPersonnelContributorLabels, resolveContributorLabel } from './personnelContributorLabels';
 
 export const PERSONNEL_DOCUMENTS_BUCKET = 'personnel-documents';
@@ -155,7 +155,7 @@ export async function listPersonnelDocuments(
 	limit?: number,
 	options: { archived?: boolean } = {}
 ): Promise<PersonnelDocument[]> {
-	await requirePersonnelArtifactAccess(ctx, personnelId);
+	await requirePersonnelArtifactReadAccess(ctx, personnelId);
 	const rows = await ctx.store.findMany<PersonnelDocumentRow>(
 		'personnel_documents',
 		ctx.auth.orgId,
@@ -221,7 +221,7 @@ export async function createPersonnelDocumentDownloadUrl(
 	ctx: UseCaseContext,
 	input: PersonnelDocumentDownloadInput
 ): Promise<{ url: string }> {
-	await requirePersonnelArtifactAccess(ctx, input.personnelId);
+	await requirePersonnelArtifactReadAccess(ctx, input.personnelId);
 	const document = await ctx.store.findOne<PersonnelDocumentRow>('personnel_documents', ctx.auth.orgId, {
 		id: input.documentId,
 		personnel_id: input.personnelId

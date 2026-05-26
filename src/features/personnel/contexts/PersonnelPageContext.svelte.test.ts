@@ -194,6 +194,24 @@ describe('PersonnelPageContext', () => {
 			expect(ctx.canImportPersonnel).toBe(false);
 			expect(ctx.canArchivePersonnelRecord(makePerson())).toBe(true);
 		});
+
+		it('allows personnel managers to start archive approval requests', () => {
+			const org = createTestOrgContext({
+				userRole: 'member',
+				capabilityMap: {
+					calendar: 'view',
+					personnel: 'operate',
+					training: 'view',
+					criticalTasks: 'view',
+					onboarding: 'view',
+					ratingScheme: 'view'
+				},
+				scopeSet: { kind: 'organization' }
+			});
+			const ctx = new PersonnelPageContext(makeData(), makeModals(), org);
+
+			expect(ctx.canArchivePersonnelRecord(makePerson())).toBe(true);
+		});
 	});
 
 	describe('filtered personnel (search)', () => {

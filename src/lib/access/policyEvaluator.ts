@@ -13,7 +13,7 @@ export type { MatchedScope } from './scopeSetAccess';
 
 export type PolicyDecisionKind = 'server-authoritative' | 'client-advisory';
 export type PolicyActionAccessMode = 'read' | 'write' | 'governance';
-export type OrganizationGovernanceAccess = 'admin-or-owner' | 'owner-only';
+export type OrganizationGovernanceAccess = 'admin-or-owner' | 'member-manager-or-admin' | 'owner-only';
 
 export type PolicyReasonCode =
 	| 'allowed:capability'
@@ -84,6 +84,7 @@ export interface PolicyOverlay {
 
 export interface PolicyActor {
 	membershipRole: MembershipRole;
+	canManageMembers?: boolean;
 	userId?: string | null;
 }
 
@@ -180,6 +181,27 @@ export const POLICY_ACTION_CATALOG = {
 			lane: 'calendar',
 			accessMode: 'write',
 			requiredCapability: 'configure'
+		}),
+		manageDutyRosters: featureAction({
+			id: 'calendar.manageDutyRosters',
+			label: 'Manage duty rosters',
+			lane: 'calendar',
+			accessMode: 'write',
+			requiredCapability: 'operate'
+		}),
+		viewDutyRosters: featureAction({
+			id: 'calendar.viewDutyRosters',
+			label: 'View duty rosters',
+			lane: 'calendar',
+			accessMode: 'read',
+			requiredCapability: 'view'
+		}),
+		configureDutyTemplates: featureAction({
+			id: 'calendar.configureDutyTemplates',
+			label: 'Configure duty templates',
+			lane: 'calendar',
+			accessMode: 'write',
+			requiredCapability: 'configure'
 		})
 	},
 	personnel: {
@@ -214,6 +236,13 @@ export const POLICY_ACTION_CATALOG = {
 		manageGroups: featureAction({
 			id: 'personnel.manageGroups',
 			label: 'Manage personnel groups',
+			lane: 'personnel',
+			accessMode: 'write',
+			requiredCapability: 'configure'
+		}),
+		manageUnits: featureAction({
+			id: 'personnel.manageUnits',
+			label: 'Manage personnel units',
 			lane: 'personnel',
 			accessMode: 'write',
 			requiredCapability: 'configure'
@@ -279,6 +308,13 @@ export const POLICY_ACTION_CATALOG = {
 		recordCompletions: featureAction({
 			id: 'training.recordCompletions',
 			label: 'Record training completions',
+			lane: 'training',
+			accessMode: 'write',
+			requiredCapability: 'operate'
+		}),
+		manageSignInRosters: featureAction({
+			id: 'training.manageSignInRosters',
+			label: 'Manage training sign-in rosters',
 			lane: 'training',
 			accessMode: 'write',
 			requiredCapability: 'operate'
@@ -385,9 +421,19 @@ export const POLICY_ACTION_CATALOG = {
 			label: 'Access organization billing',
 			access: 'owner-only'
 		}),
+		manageBilling: governanceAction({
+			id: 'organization.manageBilling',
+			label: 'Manage organization billing',
+			access: 'owner-only'
+		}),
 		rename: governanceAction({
 			id: 'organization.rename',
 			label: 'Rename organization',
+			access: 'admin-or-owner'
+		}),
+		updateSettings: governanceAction({
+			id: 'organization.updateSettings',
+			label: 'Update organization settings',
 			access: 'admin-or-owner'
 		}),
 		inviteMember: governanceAction({
@@ -434,9 +480,24 @@ export const POLICY_ACTION_CATALOG = {
 			id: 'organization.reviewDeletionRequests',
 			label: 'Review deletion requests',
 			access: 'admin-or-owner'
+		}),
+		exportData: governanceAction({
+			id: 'organization.exportData',
+			label: 'Export organization data',
+			access: 'member-manager-or-admin'
 		})
 	},
 	identity: {
+		viewDashboard: identityAction({
+			id: 'identity.viewDashboard',
+			label: 'View dashboard',
+			accessMode: 'read'
+		}),
+		updateOwnPreferences: identityAction({
+			id: 'identity.updateOwnPreferences',
+			label: 'Update own preferences',
+			accessMode: 'write'
+		}),
 		readOwnNotifications: identityAction({
 			id: 'identity.readOwnNotifications',
 			label: 'Read own notifications',
@@ -622,7 +683,13 @@ function evaluateGovernancePolicy(
 		});
 	}
 
-	if (!GOVERNANCE_MEMBERSHIP_ROLES.has(input.actor.membershipRole)) {
+	const hasAdminGovernance = GOVERNANCE_MEMBERSHIP_ROLES.has(input.actor.membershipRole);
+	const hasMemberManagerGovernance = hasAdminGovernance || input.actor.canManageMembers === true;
+
+	if (
+		(action.owner.access === 'admin-or-owner' && !hasAdminGovernance) ||
+		(action.owner.access === 'member-manager-or-admin' && !hasMemberManagerGovernance)
+	) {
 		return buildDecision(input, {
 			allowed: false,
 			reasonCode: POLICY_REASON_CODES.deniedGovernanceRole,

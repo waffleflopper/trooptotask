@@ -1,4 +1,5 @@
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import type { RequestEvent } from '@sveltejs/kit';
 import {
 	setPersonnelAwardTrackingAcknowledged,
@@ -11,9 +12,9 @@ interface PersonnelAwardTrackingInput {
 }
 
 export const _postConfig: RouteConfig<PersonnelAwardTrackingInput, PersonnelAwardTrackingResult> = {
-	permission: 'personnel',
 	mutation: true,
-	deferPolicyToUseCase: true,
+	policyAction: POLICY_ACTION_CATALOG.personnel.manageRecords,
+	policyResource: { kind: 'unscoped' },
 	parseInput: async (event: RequestEvent) => {
 		const body = (await event.request.json()) as { acknowledged?: boolean };
 		return {

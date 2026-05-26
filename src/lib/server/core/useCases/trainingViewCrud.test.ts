@@ -6,9 +6,8 @@ import { createCrudUseCases } from '$lib/server/core/useCases/crud';
 
 const useCases = createCrudUseCases({
 	entity: TrainingViewEntity,
-	permission: TrainingViewEntity.permission!,
 	auditResource: getEntityAuditResource(TrainingViewEntity),
-	policyAction: TrainingViewEntity.policyAction
+	policyAction: TrainingViewEntity.policyAction!
 });
 
 describe('TrainingView CRUD use case', () => {

@@ -4,7 +4,6 @@ import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { isBillingEnabled } from '$lib/config/billing';
 import { buildRouteContext, handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { portal } from '$lib/server/core/useCases/billing';
-import { requireGovernancePolicy } from '$lib/server/core/useCases/governancePolicy';
 import { makePublicAppUrl } from '$lib/server/publicAppOrigin';
 import { billingApiErrorResponse } from '../billingApiErrors';
 import { resolvePortalCustomerId } from './portalAccess.server';
@@ -16,17 +15,13 @@ export const POST: RequestHandler = async (event) => {
 
 	try {
 		const ctx = await buildRouteContext(event);
-		await requireGovernancePolicy(
-			{ auth: ctx.auth, audit: ctx.audit },
-			POLICY_ACTION_CATALOG.organization.accessBilling
-		);
 
 		const { orgId } = event.params;
 		const returnUrl = makePublicAppUrl(`/org/${orgId}/billing`, { inboundOrigin: event.url.origin });
 
 		const result = await handleUseCaseRequest(
 			{
-				permission: 'owner',
+				policyAction: POLICY_ACTION_CATALOG.organization.manageBilling,
 				mutation: true,
 				fn: async (c) => {
 					const customerId = await resolvePortalCustomerId(c);

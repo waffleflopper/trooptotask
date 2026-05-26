@@ -127,10 +127,25 @@ export class PersonnelPageContext {
 	}
 
 	personnelArchiveAffordance(person: Personnel): ClientAffordance {
-		return this.#org.affordanceForFeatureAction(
-			POLICY_ACTION_CATALOG.personnel.archiveRecords,
-			person.groupId ? { kind: 'group', groupId: person.groupId } : { kind: 'organization' }
-		);
+		const resource = person.groupId
+			? { kind: 'group' as const, groupId: person.groupId }
+			: { kind: 'organization' as const };
+		const affordance = this.#org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.personnel.manageRecords, resource);
+		if (
+			!affordance.allowed &&
+			affordance.reason === 'denied:read-only-overlay' &&
+			this.#org.hasCapability('personnel', 'operate') &&
+			this.#org.isResourceInScope(resource)
+		) {
+			return {
+				...affordance,
+				allowed: true,
+				visible: true,
+				disabled: false
+			};
+		}
+
+		return affordance;
 	}
 
 	canArchivePersonnelRecord(person: Personnel): boolean {

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { createWritePortsContext } from '$lib/server/adapters/inMemory';
 import {
 	clearDailyAssignment,
@@ -313,11 +313,8 @@ describe('createDailyAssignment', () => {
 		expect(stored).toHaveLength(0);
 	});
 
-	it('allows group assignees without running personnel group checks', async () => {
-		const requireGroupAccess = vi.fn(async () => {
-			throw Object.assign(new Error('should not be called'), { status: 403 });
-		});
-		const ctx = buildContext({ auth: { scopeSet: { kind: 'groups', groupIds: ['group-a'] }, requireGroupAccess } });
+	it('allows group assignees through Calendar group-scope policy', async () => {
+		const ctx = buildContext({ auth: { scopeSet: { kind: 'groups', groupIds: ['group-a'] } } });
 
 		ctx.store.seed('assignment_types', [
 			{
@@ -340,7 +337,6 @@ describe('createDailyAssignment', () => {
 		})) as Record<string, unknown>;
 
 		expect(result).toMatchObject({ assigneeId: 'group-a', assignmentTypeId: 'at-group' });
-		expect(requireGroupAccess).not.toHaveBeenCalled();
 	});
 
 	it('denies group assignees outside the shared multi-Group policy scope', async () => {
@@ -549,11 +545,8 @@ describe('setDailyAssignment', () => {
 		});
 	});
 
-	it('allows assigning a group without running personnel availability checks', async () => {
-		const requireGroupAccess = vi.fn(async () => {
-			throw Object.assign(new Error('should not be called'), { status: 403 });
-		});
-		const ctx = buildContext({ auth: { scopeSet: { kind: 'groups', groupIds: ['group-a'] }, requireGroupAccess } });
+	it('allows assigning a group through Calendar group-scope policy', async () => {
+		const ctx = buildContext({ auth: { scopeSet: { kind: 'groups', groupIds: ['group-a'] } } });
 
 		ctx.store.seed('assignment_types', [
 			{
@@ -576,7 +569,6 @@ describe('setDailyAssignment', () => {
 		})) as Record<string, unknown>;
 
 		expect(result).toMatchObject({ assigneeId: 'group-a', assignmentTypeId: 'at-group' });
-		expect(requireGroupAccess).not.toHaveBeenCalled();
 	});
 });
 

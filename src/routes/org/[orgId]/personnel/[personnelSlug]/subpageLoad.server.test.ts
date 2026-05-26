@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { _createPersonnelFollowUpsPageLoad } from './follow-ups/+page.server';
 
 function makeEvent() {
@@ -48,7 +49,10 @@ describe('personnel detail subpage server loads', () => {
 			event.locals,
 			event.cookies,
 			'org-1',
-			expect.objectContaining({ permission: 'none' })
+			expect.objectContaining({
+				policyAction: POLICY_ACTION_CATALOG.personnel.readSensitiveRecords,
+				policyResource: { kind: 'unscoped' }
+			})
 		);
 	});
 });

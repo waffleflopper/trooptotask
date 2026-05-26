@@ -1,12 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { createTestContext } from '$lib/server/adapters/inMemory';
-import {
-	enforceLoadAuthorization,
-	enforceRouteAuthorization,
-	enforceRouteReadOnlyOverlay,
-	shouldRunLegacyReadOnlyGuard
-} from './routeAuthorization';
+import { enforceLoadAuthorization, enforceLayoutPolicy, enforceRouteAuthorization } from './routeAuthorization';
 
 const NO_CAPABILITIES = {
 	calendar: 'none',
@@ -18,54 +13,7 @@ const NO_CAPABILITIES = {
 } as const;
 
 describe('route authorization', () => {
-	it('enforces legacy read permissions for compatibility routes', async () => {
-		let requireViewCalledWith = '';
-		const ctx = createTestContext({
-			auth: {
-				requireView(area) {
-					requireViewCalledWith = area;
-				}
-			}
-		});
-
-		await enforceRouteAuthorization(ctx, {
-			permission: 'training'
-		});
-
-		expect(requireViewCalledWith).toBe('training');
-	});
-
-	it('requires mutations for feature permissions to use policy or defer to the use case', async () => {
-		const ctx = createTestContext();
-
-		await expect(
-			enforceRouteAuthorization(ctx, {
-				permission: 'personnel',
-				mutation: true
-			})
-		).rejects.toThrow('Mutation route for personnel must declare policyAction or deferPolicyToUseCase');
-	});
-
-	it('allows a deferred mutation without route-level policy enforcement', async () => {
-		let requireViewCalled = false;
-		const ctx = createTestContext({
-			auth: {
-				requireView() {
-					requireViewCalled = true;
-				}
-			}
-		});
-
-		await enforceRouteAuthorization(ctx, {
-			permission: 'personnel',
-			mutation: true,
-			deferPolicyToUseCase: true
-		});
-
-		expect(requireViewCalled).toBe(false);
-	});
-
-	it('enforces Policy Actions for route-level authorization', async () => {
+	it('enforces policy actions for route-level authorization', async () => {
 		const ctx = createTestContext({
 			auth: {
 				role: 'member',
@@ -76,14 +24,13 @@ describe('route authorization', () => {
 		});
 
 		await enforceRouteAuthorization(ctx, {
-			permission: 'critical-tasks',
 			mutation: true,
 			policyAction: POLICY_ACTION_CATALOG.criticalTasks.recordCompletion,
 			policyResource: { kind: 'group', groupId: 'group-alpha' }
 		});
 	});
 
-	it('uses Policy Decision denial audit for route-level failures', async () => {
+	it('uses policy decision denial audit for route-level failures', async () => {
 		const ctx = createTestContext({
 			auth: {
 				role: 'member',
@@ -95,7 +42,6 @@ describe('route authorization', () => {
 
 		await expect(
 			enforceRouteAuthorization(ctx, {
-				permission: 'critical-tasks',
 				mutation: true,
 				policyAction: POLICY_ACTION_CATALOG.criticalTasks.recordCompletion,
 				policyResource: { kind: 'organization' }
@@ -114,36 +60,22 @@ describe('route authorization', () => {
 		]);
 	});
 
-	it('centralizes the legacy read-only guard decision', async () => {
-		expect(
-			shouldRunLegacyReadOnlyGuard({
-				permission: 'privileged',
-				mutation: true
-			})
-		).toBe(true);
-		expect(
-			shouldRunLegacyReadOnlyGuard({
-				permission: 'critical-tasks',
-				mutation: true,
-				policyAction: POLICY_ACTION_CATALOG.criticalTasks.recordCompletion
-			})
-		).toBe(false);
-		expect(
-			shouldRunLegacyReadOnlyGuard({
-				permission: 'personnel',
-				mutation: true,
-				deferPolicyToUseCase: true
-			})
-		).toBe(false);
-	});
-
-	it('blocks legacy mutations in read-only mode', async () => {
-		const ctx = createTestContext({ readOnly: true });
+	it('blocks ordinary policy mutations in read-only mode', async () => {
+		const ctx = createTestContext({
+			readOnly: true,
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: { ...NO_CAPABILITIES, criticalTasks: 'operate' },
+				scopeSet: { kind: 'organization' }
+			}
+		});
 
 		await expect(
-			enforceRouteReadOnlyOverlay(ctx, {
-				permission: 'privileged',
-				mutation: true
+			enforceRouteAuthorization(ctx, {
+				mutation: true,
+				policyAction: POLICY_ACTION_CATALOG.criticalTasks.recordCompletion,
+				policyResource: { kind: 'organization' }
 			})
 		).rejects.toMatchObject({
 			status: 403,
@@ -151,8 +83,16 @@ describe('route authorization', () => {
 		});
 	});
 
-	it('uses billing-state read-only reasons when blocking direct mutation attempts', async () => {
-		const ctx = createTestContext({ readOnly: true });
+	it('uses billing-state read-only reasons when blocking policy mutation attempts', async () => {
+		const ctx = createTestContext({
+			readOnly: true,
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: { ...NO_CAPABILITIES, criticalTasks: 'operate' },
+				scopeSet: { kind: 'organization' }
+			}
+		});
 		ctx.readOnlyGuard.checkState = async () => ({
 			isReadOnly: true,
 			reason: 'payment_failure',
@@ -161,9 +101,10 @@ describe('route authorization', () => {
 		});
 
 		await expect(
-			enforceRouteReadOnlyOverlay(ctx, {
-				permission: 'privileged',
-				mutation: true
+			enforceRouteAuthorization(ctx, {
+				mutation: true,
+				policyAction: POLICY_ACTION_CATALOG.criticalTasks.recordCompletion,
+				policyResource: { kind: 'organization' }
 			})
 		).rejects.toMatchObject({
 			status: 403,
@@ -172,7 +113,26 @@ describe('route authorization', () => {
 		});
 	});
 
-	it('enforces Policy Actions for loads without route-specific logic', async () => {
+	it('allows explicit read-only bypasses for policy routes that need them', async () => {
+		const ctx = createTestContext({
+			readOnly: true,
+			auth: {
+				userId: 'user-alpha',
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: NO_CAPABILITIES,
+				scopeSet: { kind: 'organization' }
+			}
+		});
+
+		await enforceRouteAuthorization(ctx, {
+			mutation: true,
+			policyAction: POLICY_ACTION_CATALOG.identity.updateOwnPreferences,
+			allowReadOnlyMutation: true
+		});
+	});
+
+	it('enforces policy actions for loads without route-specific logic', async () => {
 		const ctx = createTestContext({
 			auth: {
 				role: 'member',
@@ -183,9 +143,128 @@ describe('route authorization', () => {
 		});
 
 		await enforceLoadAuthorization(ctx, {
-			permission: 'training',
 			policyAction: POLICY_ACTION_CATALOG.training.viewRecords,
 			policyResource: { kind: 'organization' }
 		});
+	});
+
+	it('provides a layout-level helper for settings and governance policy checks', async () => {
+		const ctx = createTestContext({
+			auth: {
+				role: 'admin',
+				isPrivileged: true,
+				capabilityMap: NO_CAPABILITIES,
+				scopeSet: { kind: 'organization' }
+			}
+		});
+
+		await enforceLayoutPolicy(ctx, {
+			policyAction: POLICY_ACTION_CATALOG.organization.accessGovernance
+		});
+	});
+
+	it('denies layout policy helper access for non-governance members', async () => {
+		const ctx = createTestContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: NO_CAPABILITIES,
+				scopeSet: { kind: 'organization' }
+			}
+		});
+
+		await expect(
+			enforceLayoutPolicy(ctx, {
+				policyAction: POLICY_ACTION_CATALOG.organization.accessGovernance
+			})
+		).rejects.toMatchObject({ status: 403 });
+
+		expect(ctx.auditPort.events).toEqual([
+			expect.objectContaining({
+				action: 'policy.denied',
+				resourceType: 'organization.accessGovernance',
+				details: expect.objectContaining({
+					policyAction: 'organization.accessGovernance',
+					reasonCode: 'denied:governance-role'
+				})
+			})
+		]);
+	});
+
+	it('defaults identity-owned route policy resources to the authenticated actor', async () => {
+		const ctx = createTestContext({
+			auth: {
+				userId: 'user-alpha',
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: NO_CAPABILITIES,
+				scopeSet: { kind: 'groups', groupIds: ['group-alpha'] }
+			}
+		});
+
+		await enforceRouteAuthorization(ctx, {
+			policyAction: POLICY_ACTION_CATALOG.identity.updateOwnPreferences
+		});
+	});
+
+	it('uses identity-owned denial reasons when a route has no authenticated actor', async () => {
+		const ctx = createTestContext({
+			auth: {
+				userId: null,
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: NO_CAPABILITIES,
+				scopeSet: { kind: 'organization' }
+			}
+		});
+
+		await expect(
+			enforceLoadAuthorization(ctx, {
+				policyAction: POLICY_ACTION_CATALOG.identity.viewDashboard
+			})
+		).rejects.toMatchObject({ status: 403, message: 'Unauthorized' });
+
+		expect(ctx.auditPort.events).toEqual([
+			expect.objectContaining({
+				action: 'policy.denied',
+				resourceType: 'identity.viewDashboard',
+				details: expect.objectContaining({
+					policyAction: 'identity.viewDashboard',
+					reasonCode: 'denied:unauthenticated',
+					resource: { kind: 'user', userId: '' }
+				})
+			})
+		]);
+	});
+
+	it('denies identity-owned route policies when an explicit resource points at another user', async () => {
+		const ctx = createTestContext({
+			auth: {
+				userId: 'user-alpha',
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: NO_CAPABILITIES,
+				scopeSet: { kind: 'organization' }
+			}
+		});
+
+		await expect(
+			enforceRouteAuthorization(ctx, {
+				policyAction: POLICY_ACTION_CATALOG.identity.updateOwnPreferences,
+				policyResource: { kind: 'user', userId: 'user-bravo' }
+			})
+		).rejects.toMatchObject({ status: 403, message: 'You can only manage your own resources' });
+
+		expect(ctx.auditPort.events).toEqual([
+			expect.objectContaining({
+				action: 'policy.denied',
+				resourceType: 'identity.updateOwnPreferences',
+				details: expect.objectContaining({
+					policyAction: 'identity.updateOwnPreferences',
+					reasonCode: 'denied:not-resource-owner',
+					resource: { kind: 'user', userId: 'user-bravo' }
+				})
+			})
+		]);
 	});
 });

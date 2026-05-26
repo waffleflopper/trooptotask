@@ -20,7 +20,7 @@ describe('/api/personnel/[id]/leader-notes', () => {
 			auth: {
 				capabilityMap: {
 					calendar: 'view',
-					personnel: 'operate',
+					personnel: 'configure',
 					training: 'view',
 					criticalTasks: 'view',
 					onboarding: 'view',
@@ -66,7 +66,7 @@ describe('/api/personnel/[id]/leader-notes', () => {
 		).resolves.toMatchObject({ personnelId: 'person-1', text: 'Observation' });
 	});
 
-	it('requires Personnel operate capability', async () => {
+	it('requires Personnel configure capability for sensitive note reads', async () => {
 		const ctx = createTestContext({
 			auth: {
 				capabilityMap: {

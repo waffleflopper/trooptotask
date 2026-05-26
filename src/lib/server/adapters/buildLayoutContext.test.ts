@@ -74,8 +74,7 @@ describe('buildLayoutContext', () => {
 				expect(ctx.auth.role).toBe('owner');
 				expect(ctx.auth.isPrivileged).toBe(true);
 				expect(ctx.auth.scopeSet).toEqual({ kind: 'organization' });
-				expect(() => ctx.auth.requireOwner()).not.toThrow();
-				expect(() => ctx.auth.requireManageMembers()).not.toThrow();
+				expect(ctx.auth.capabilityMap.personnel).toBe('configure');
 			}
 		},
 		{
@@ -97,8 +96,7 @@ describe('buildLayoutContext', () => {
 				expect(ctx.auth.role).toBe('admin');
 				expect(ctx.auth.isPrivileged).toBe(true);
 				expect(ctx.auth.scopeSet).toEqual({ kind: 'organization' });
-				expect(() => ctx.auth.requirePrivileged()).not.toThrow();
-				expect(() => ctx.auth.requireOwner()).toThrow();
+				expect(ctx.auth.capabilityMap.personnel).toBe('configure');
 			}
 		},
 		{
@@ -120,7 +118,7 @@ describe('buildLayoutContext', () => {
 				expect(ctx.auth.role).toBe('member');
 				expect(ctx.auth.isPrivileged).toBe(false);
 				expect(ctx.auth.scopeSet).toEqual({ kind: 'organization' });
-				expect(() => ctx.auth.requireView('calendar')).not.toThrow();
+				expect(ctx.auth.capabilityMap.calendar).toBe('view');
 			}
 		},
 		{
@@ -142,8 +140,7 @@ describe('buildLayoutContext', () => {
 				expect(ctx.auth.role).toBe('member');
 				expect(ctx.auth.isPrivileged).toBe(false);
 				expect(ctx.auth.scopeSet).toEqual({ kind: 'groups', groupIds: ['group-123'] });
-				expect(() => ctx.auth.requireView('training')).not.toThrow();
-				expect(() => ctx.auth.requirePrivileged()).toThrow();
+				expect(ctx.auth.capabilityMap.training).toBe('view');
 			}
 		}
 	])('builds auth from cached $label without querying organization memberships', async ({ membership, assertAuth }) => {
@@ -363,7 +360,6 @@ describe('buildLayoutContext', () => {
 		expect(supabase.from).toHaveBeenCalledTimes(1);
 		expect(ctx.auth.role).toBe('member');
 		expect(ctx.auth.scopeSet).toEqual({ kind: 'groups', groupIds: ['group-live'] });
-		expect(() => ctx.auth.requireOwner()).toThrow();
-		expect(() => ctx.auth.requireView('calendar')).not.toThrow();
+		expect(ctx.auth.capabilityMap.calendar).toBe('view');
 	});
 });

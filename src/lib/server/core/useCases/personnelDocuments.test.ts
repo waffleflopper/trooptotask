@@ -20,12 +20,12 @@ function seedPersonnel(ctx: ReturnType<typeof createTestContext>, groupId: strin
 	]);
 }
 
-function operateContext() {
+function configureContext() {
 	return createTestContext({
 		auth: {
 			capabilityMap: {
 				calendar: 'view',
-				personnel: 'operate',
+				personnel: 'configure',
 				training: 'view',
 				criticalTasks: 'view',
 				onboarding: 'view',
@@ -38,7 +38,7 @@ function operateContext() {
 
 describe('personnel documents', () => {
 	it('uploads a valid document, derives a title from the filename, and lists newest first', async () => {
-		const ctx = operateContext();
+		const ctx = configureContext();
 		seedPersonnel(ctx);
 		ctx.store.seed('organizations', [
 			{
@@ -80,7 +80,7 @@ describe('personnel documents', () => {
 	});
 
 	it('uses an editable title when one is submitted', async () => {
-		const ctx = operateContext();
+		const ctx = configureContext();
 		seedPersonnel(ctx);
 
 		const created = await createPersonnelDocument(ctx, {
@@ -93,7 +93,7 @@ describe('personnel documents', () => {
 	});
 
 	it('rejects unsupported file types and files over 10MB', async () => {
-		const ctx = operateContext();
+		const ctx = configureContext();
 		seedPersonnel(ctx);
 
 		await expect(
@@ -119,7 +119,7 @@ describe('personnel documents', () => {
 	});
 
 	it('enforces the organization-level per-Soldier storage cap', async () => {
-		const ctx = operateContext();
+		const ctx = configureContext();
 		seedPersonnel(ctx);
 		ctx.store.seed('organizations', [
 			{
@@ -150,7 +150,7 @@ describe('personnel documents', () => {
 	});
 
 	it('removes the uploaded object when record persistence fails', async () => {
-		const ctx = operateContext();
+		const ctx = configureContext();
 		seedPersonnel(ctx);
 		ctx.store.insert = async () => {
 			throw new Error('insert failed');
@@ -166,7 +166,7 @@ describe('personnel documents', () => {
 	});
 
 	it('creates a short-lived signed URL for an uploaded document', async () => {
-		const ctx = operateContext();
+		const ctx = configureContext();
 		seedPersonnel(ctx);
 		const created = await createPersonnelDocument(ctx, {
 			personnelId: 'person-1',
@@ -182,7 +182,7 @@ describe('personnel documents', () => {
 		expect(result.url).toContain('expires=300');
 	});
 
-	it('requires Personnel operate capability and group scope', async () => {
+	it('requires Personnel configure capability for reads and group scope', async () => {
 		const viewOnly = createTestContext({
 			auth: {
 				capabilityMap: {
@@ -203,7 +203,7 @@ describe('personnel documents', () => {
 			auth: {
 				capabilityMap: {
 					calendar: 'view',
-					personnel: 'operate',
+					personnel: 'configure',
 					training: 'view',
 					criticalTasks: 'view',
 					onboarding: 'view',

@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { _createCriticalTasksPersonnelHistoryPageLoad } from './+page.server';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 
 describe('critical tasks personnel history page server load', () => {
 	it('guards personnel history behind critical tasks view access and fetches the selected person', async () => {
@@ -32,8 +33,9 @@ describe('critical tasks personnel history page server load', () => {
 			expect.anything(),
 			expect.anything(),
 			'org-1',
-			expect.objectContaining({ permission: 'critical-tasks' })
+			expect.objectContaining({ policyAction: POLICY_ACTION_CATALOG.criticalTasks.viewReadiness })
 		);
+		expect(loadWithContext.mock.calls[0]?.[3]).not.toHaveProperty('permission');
 		expect(fetchHistory).toHaveBeenCalledWith(expect.anything(), 'p-1');
 		expect(result.criticalTasksPersonnelHistory.personnel.lastName).toBe('Smith');
 		expect(result.breadcrumbLabel).toBe('SGT Smith, Jane');

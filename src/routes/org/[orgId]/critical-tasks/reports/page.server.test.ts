@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { _createCriticalTasksReportsPageLoad } from './+page.server';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 
 describe('critical tasks reports page server load', () => {
 	it('registers the reports dependency and fetches the initial dashboard payload', async () => {
@@ -73,8 +74,9 @@ describe('critical tasks reports page server load', () => {
 			expect.anything(),
 			expect.anything(),
 			'org-1',
-			expect.objectContaining({ permission: 'critical-tasks' })
+			expect.objectContaining({ policyAction: POLICY_ACTION_CATALOG.criticalTasks.viewReadiness })
 		);
+		expect(loadWithContext.mock.calls[0]?.[3]).not.toHaveProperty('permission');
 		expect(fetchPageModel).toHaveBeenCalledWith(expect.anything());
 		expect(result).toEqual(pageModel);
 	});

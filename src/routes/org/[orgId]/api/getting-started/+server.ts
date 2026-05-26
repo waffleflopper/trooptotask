@@ -2,6 +2,7 @@ import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { fail } from '$lib/server/core/errors';
 import type { UseCaseContext } from '$lib/server/core/ports';
 import { withDashboardTiming } from '$lib/server/utils/dashboardTiming';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 
 interface GettingStartedSupportData {
 	onboardingTemplateStepCount: number;
@@ -33,15 +34,17 @@ async function fetchGettingStartedSupport(ctx: UseCaseContext) {
 }
 
 export const _getConfig: RouteConfig<void, GettingStartedSupportData> = {
-	permission: 'privileged',
+	// Getting-started supports the signed-in user's dashboard checklist, so it follows the identity-owned dashboard boundary.
+	policyAction: POLICY_ACTION_CATALOG.identity.viewDashboard,
 	fn: async (ctx) => withDashboardTiming(ctx.auth.orgId, 'support', () => fetchGettingStartedSupport(ctx))
 };
 
 export const GET = handle(_getConfig);
 
-export const POST = handle<void, unknown>({
-	permission: 'personnel',
+export const _postConfig: RouteConfig<void, unknown> = {
 	mutation: true,
+	allowReadOnlyMutation: true,
+	policyAction: POLICY_ACTION_CATALOG.identity.updateOwnPreferences,
 	fn: async (ctx) => {
 		const userId = ctx.auth.userId;
 		if (!userId) fail(401, 'Unauthorized');
@@ -64,11 +67,14 @@ export const POST = handle<void, unknown>({
 
 		return { success: true };
 	}
-});
+};
 
-export const DELETE = handle<void, unknown>({
-	permission: 'personnel',
+export const POST = handle(_postConfig);
+
+export const _deleteConfig: RouteConfig<void, unknown> = {
 	mutation: true,
+	allowReadOnlyMutation: true,
+	policyAction: POLICY_ACTION_CATALOG.identity.updateOwnPreferences,
 	fn: async (ctx) => {
 		const userId = ctx.auth.userId;
 		if (!userId) fail(401, 'Unauthorized');
@@ -85,4 +91,6 @@ export const DELETE = handle<void, unknown>({
 
 		return { success: true };
 	}
-});
+};
+
+export const DELETE = handle(_deleteConfig);

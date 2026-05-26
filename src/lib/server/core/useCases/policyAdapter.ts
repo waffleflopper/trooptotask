@@ -10,7 +10,7 @@ import type { CapabilityMap, CompatibilityLaneMap, ScopeSet } from '$lib/access/
 import type { AuthContext, ReadOnlyGuard } from '$lib/server/core/ports';
 
 type PolicyAdapterAuth = Pick<AuthContext, 'role' | 'capabilityMap' | 'scopeSet'> &
-	Partial<Pick<AuthContext, 'userId' | 'compatibilityLanes'>>;
+	Partial<Pick<AuthContext, 'userId' | 'canManageMembers' | 'compatibilityLanes'>>;
 
 export interface PolicyAdapterPorts {
 	auth: PolicyAdapterAuth;
@@ -53,6 +53,7 @@ export async function buildAuthoritativePolicyInput(
 		decisionKind: 'server-authoritative',
 		actor: {
 			membershipRole: ports.auth.role,
+			canManageMembers: ports.auth.canManageMembers,
 			userId: options.actorUserId ?? ports.auth.userId
 		},
 		action,
@@ -69,9 +70,26 @@ export async function resolveAuthoritativePolicyOverlays(
 	options: Pick<AuthoritativePolicyDecisionOptions, 'enforceReadOnlyOverlay'> = {}
 ): Promise<PolicyOverlay[]> {
 	const enforceReadOnlyOverlay = options.enforceReadOnlyOverlay ?? true;
-	if (!enforceReadOnlyOverlay || !((await readOnlyGuard?.check()) ?? false)) {
+	if (!enforceReadOnlyOverlay || !readOnlyGuard) {
 		return [];
 	}
 
-	return [{ id: 'read-only-mode', kind: 'read-only-mode', label: 'Organization read-only mode' }];
+	const state = await readOnlyGuard.checkState?.();
+	if (state) {
+		return state.isReadOnly
+			? [
+					{
+						id: 'read-only-mode',
+						kind: 'read-only-mode',
+						label: state.message ?? 'Organization is in read-only mode'
+					}
+				]
+			: [];
+	}
+
+	if (!(await readOnlyGuard.check())) {
+		return [];
+	}
+
+	return [{ id: 'read-only-mode', kind: 'read-only-mode', label: 'Organization is in read-only mode' }];
 }

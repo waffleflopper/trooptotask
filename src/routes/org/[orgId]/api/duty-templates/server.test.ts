@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { _postConfig, _putConfig } from './+server';
@@ -31,7 +32,9 @@ function makePayload(overrides: Record<string, unknown> = {}) {
 
 describe('POST /api/duty-templates', () => {
 	it('exports a calendar mutation route config', () => {
-		expect(_postConfig.permission).toBe('calendar');
+		expect('permission' in _postConfig).toBe(false);
+		expect(_postConfig.policyAction).toBe(POLICY_ACTION_CATALOG.calendar.configureDutyTemplates);
+		expect(_postConfig.policyResource).toEqual({ kind: 'unscoped' });
 		expect(_postConfig.mutation).toBe(true);
 	});
 
@@ -77,6 +80,12 @@ describe('POST /api/duty-templates', () => {
 });
 
 describe('PUT /api/duty-templates', () => {
+	it('uses a policy-first route config for updates', () => {
+		expect('permission' in _putConfig).toBe(false);
+		expect(_putConfig.policyAction).toBe(POLICY_ACTION_CATALOG.calendar.configureDutyTemplates);
+		expect(_putConfig.policyResource).toEqual({ kind: 'unscoped' });
+	});
+
 	it('updates an existing template aggregate', async () => {
 		const ctx = createTestContext();
 		const created = await handleUseCaseRequest(_postConfig, ctx, makePayload());
@@ -91,6 +100,12 @@ describe('PUT /api/duty-templates', () => {
 });
 
 describe('DELETE /api/duty-templates/[templateId]', () => {
+	it('uses a policy-first route config for archive', () => {
+		expect('permission' in archiveTemplateConfig).toBe(false);
+		expect(archiveTemplateConfig.policyAction).toBe(POLICY_ACTION_CATALOG.calendar.configureDutyTemplates);
+		expect(archiveTemplateConfig.policyResource).toEqual({ kind: 'unscoped' });
+	});
+
 	it('archives an existing template', async () => {
 		const ctx = createTestContext();
 		const created = await handleUseCaseRequest(_postConfig, ctx, makePayload({ status: 'active' }));

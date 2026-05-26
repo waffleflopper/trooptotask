@@ -45,7 +45,6 @@ describe('onboarding templates page server load', () => {
 			{},
 			'org-1',
 			expect.objectContaining({
-				permission: 'onboarding',
 				policyAction: POLICY_ACTION_CATALOG.onboarding.configureWorkflows,
 				policyResource: { kind: 'unscoped' }
 			})

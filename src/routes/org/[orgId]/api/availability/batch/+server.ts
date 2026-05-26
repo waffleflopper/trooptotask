@@ -1,20 +1,24 @@
-import { handle } from '$lib/server/adapters/httpAdapter';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { createAvailabilityBatch, deleteAvailabilityBatch } from '$lib/server/core/useCases/availabilityBatch';
 
 // Use case functions validate input internally; handle() parses raw JSON body
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyInput = any;
 
-export const POST = handle<AnyInput, unknown>({
-	permission: 'calendar',
+export const _postConfig = {
 	mutation: true,
-	deferPolicyToUseCase: true,
+	policyAction: POLICY_ACTION_CATALOG.calendar.manageAvailability,
+	policyResource: { kind: 'unscoped' },
 	fn: (ctx, input) => createAvailabilityBatch(ctx, input)
-});
+} satisfies RouteConfig<AnyInput, unknown>;
 
-export const DELETE = handle<AnyInput, unknown>({
-	permission: 'calendar',
+export const _deleteConfig = {
 	mutation: true,
-	deferPolicyToUseCase: true,
+	policyAction: POLICY_ACTION_CATALOG.calendar.manageAvailability,
+	policyResource: { kind: 'unscoped' },
 	fn: (ctx, input) => deleteAvailabilityBatch(ctx, input)
-});
+} satisfies RouteConfig<AnyInput, unknown>;
+
+export const POST = handle(_postConfig);
+export const DELETE = handle(_deleteConfig);

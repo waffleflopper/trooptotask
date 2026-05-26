@@ -77,6 +77,16 @@ describe('createSupabaseCalendarWorkspacePort', () => {
 
 		await streamed.data;
 
+		expect(loadWithContextMock).toHaveBeenCalledWith(
+			expect.anything(),
+			expect.anything(),
+			'11111111-1111-1111-1111-111111111111',
+			expect.objectContaining({
+				policyAction: expect.objectContaining({ id: 'calendar.viewAvailability' }),
+				policyResource: { kind: 'unscoped' },
+				defer: true
+			})
+		);
 		expect(fetchCalendarBootstrapMock).toHaveBeenCalledWith(
 			expect.anything(),
 			expect.objectContaining({

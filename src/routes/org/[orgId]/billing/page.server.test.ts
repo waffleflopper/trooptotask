@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+import { loadWithContextCore } from '$lib/server/adapters/httpAdapter';
 
 const {
 	readBillingOrganizationMock,
@@ -156,33 +158,38 @@ describe('_loadBillingPageData', () => {
 		});
 
 		await expect(
-			_loadBillingPageData(ctx, {
-				tier: 'team',
-				source: 'subscription',
-				personnelCount: 20,
-				personnelCap: 75,
-				isReadOnly: false,
-				readOnlyReason: null,
-				giftExpiresAt: null,
-				giftTier: null
+			loadWithContextCore(ctx, {
+				policyAction: POLICY_ACTION_CATALOG.organization.accessBilling,
+				fn: (loadCtx) =>
+					_loadBillingPageData(loadCtx, {
+						tier: 'team',
+						source: 'subscription',
+						personnelCount: 20,
+						personnelCap: 75,
+						isReadOnly: false,
+						readOnlyReason: null,
+						giftExpiresAt: null,
+						giftTier: null
+					})
 			})
 		).rejects.toMatchObject({
 			status: 403,
-			message: 'Only the organization owner can perform this action'
+			body: { message: 'Only the organization owner can perform this action' }
 		});
 
 		expect(readBillingOrganizationMock).not.toHaveBeenCalled();
 		expect(readCurrentBillingSnapshotMock).not.toHaveBeenCalled();
 		expect(ctx.auditPort.events).toEqual([
-			{
+			expect.objectContaining({
 				action: 'policy.denied',
-				resourceType: 'organization',
-				details: {
+				resourceType: 'organization.accessBilling',
+				details: expect.objectContaining({
 					policyAction: 'organization.accessBilling',
-					reasonCode: 'denied:owner-only'
-				},
+					reasonCode: 'denied:owner-only',
+					resource: { kind: 'organization' }
+				}),
 				severity: 'warning'
-			}
+			})
 		]);
 	});
 

@@ -1,13 +1,13 @@
-import { error } from '@sveltejs/kit';
 import type { LayoutServerLoad } from './$types';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+import { loadWithContext } from '$lib/server/adapters/httpAdapter';
 
-export const load: LayoutServerLoad = async ({ parent }) => {
-	const { userRole } = await parent();
-	if (userRole !== 'owner' && userRole !== 'admin') {
-		throw error(403, 'Only organization owners and admins can access organization settings');
-	}
-
-	return {
-		canAccessOrganizationGovernance: userRole === 'owner' || userRole === 'admin'
-	};
+export const load: LayoutServerLoad = async ({ locals, cookies, params }) => {
+	return loadWithContext(locals, cookies, params.orgId, {
+		policyAction: POLICY_ACTION_CATALOG.organization.accessGovernance,
+		policyResource: { kind: 'organization' },
+		fn: async () => ({
+			canAccessOrganizationGovernance: true
+		})
+	});
 };

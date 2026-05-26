@@ -175,7 +175,7 @@ async function requirePersonnelOperate(ctx: UseCaseContext, personnelId: string)
 		'personnel',
 		personnelId
 	);
-	await ctx.auth.requireGroupAccess(personnelId);
+	await ctx.scope.requireGroupAccess(personnelId);
 }
 
 export async function readPersonnelExtendedInfo(

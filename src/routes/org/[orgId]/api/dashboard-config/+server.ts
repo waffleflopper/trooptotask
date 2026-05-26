@@ -1,4 +1,5 @@
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { fail } from '$lib/server/core/errors';
 import type { UseCaseContext } from '$lib/server/core/ports';
 import type { DashboardConfig } from '$features/dashboard/dashboard.types';
@@ -21,7 +22,7 @@ interface DashboardConfigResponse {
 // ---------------------------------------------------------------------------
 
 export const _getConfig: RouteConfig<void, DashboardConfigResponse> = {
-	permission: 'none',
+	policyAction: POLICY_ACTION_CATALOG.identity.viewDashboard,
 	fn: async (ctx: UseCaseContext) => {
 		const userId = ctx.auth.userId;
 		if (!userId) fail(401, 'Unauthorized');
@@ -41,7 +42,7 @@ export const GET = handle(_getConfig);
 // ---------------------------------------------------------------------------
 
 export const _putConfig: RouteConfig<DashboardConfig, DashboardConfigResponse> = {
-	permission: 'none',
+	policyAction: POLICY_ACTION_CATALOG.identity.updateOwnPreferences,
 	mutation: true,
 	fn: async (ctx: UseCaseContext, input: DashboardConfig) => {
 		const userId = ctx.auth.userId;

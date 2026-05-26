@@ -46,15 +46,23 @@ import {
 type DutyRosterTemplateQueryPorts = QueryPorts & Pick<UseCaseContext, 'audit'>;
 
 async function requireTemplateView(ctx: DutyRosterTemplateQueryPorts): Promise<void> {
-	await requirePolicyDecision({ auth: ctx.auth, audit: ctx.audit }, POLICY_ACTION_CATALOG.calendar.viewAvailability, {
+	await requirePolicyDecision({ auth: ctx.auth, audit: ctx.audit }, POLICY_ACTION_CATALOG.calendar.viewDutyRosters, {
 		kind: 'unscoped'
 	});
 }
 
-async function requireTemplateManagement(ctx: WritePorts): Promise<void> {
+async function requireTemplateConfiguration(ctx: WritePorts): Promise<void> {
 	await requirePolicyDecision(
 		{ auth: ctx.auth, audit: ctx.audit, readOnlyGuard: ctx.readOnlyGuard },
-		POLICY_ACTION_CATALOG.calendar.manageAssignments,
+		POLICY_ACTION_CATALOG.calendar.configureDutyTemplates,
+		{ kind: 'unscoped' }
+	);
+}
+
+async function requireDutyRosterManagement(ctx: WritePorts): Promise<void> {
+	await requirePolicyDecision(
+		{ auth: ctx.auth, audit: ctx.audit, readOnlyGuard: ctx.readOnlyGuard },
+		POLICY_ACTION_CATALOG.calendar.manageDutyRosters,
 		{ kind: 'unscoped' }
 	);
 }
@@ -76,7 +84,7 @@ export async function createDutyRosterTemplate(
 	ctx: WritePorts,
 	input: DutyRosterTemplateCreateInput
 ): Promise<DutyRosterTemplate> {
-	await requireTemplateManagement(ctx);
+	await requireTemplateConfiguration(ctx);
 	return createDutyRosterTemplateLifecycle(ctx, input);
 }
 
@@ -84,7 +92,7 @@ export async function createConfiguredDutyRosterTemplate(
 	ctx: WritePorts,
 	input: DutyRosterTemplateConfiguredCreateInput
 ): Promise<DutyRosterTemplate> {
-	await requireTemplateManagement(ctx);
+	await requireTemplateConfiguration(ctx);
 	return createConfiguredDutyRosterTemplateLifecycle(ctx, input);
 }
 
@@ -133,7 +141,7 @@ export async function updateDutyRosterTemplateSettings(
 	ctx: WritePorts,
 	input: DutyRosterTemplateSettingsInput
 ): Promise<DutyRosterTemplate> {
-	await requireTemplateManagement(ctx);
+	await requireTemplateConfiguration(ctx);
 	return updateDutyRosterTemplateSettingsLifecycle(ctx, input);
 }
 
@@ -141,7 +149,7 @@ export async function archiveDutyRosterTemplate(
 	ctx: WritePorts,
 	input: DutyRosterTemplateArchiveInput
 ): Promise<DutyRosterTemplate> {
-	await requireTemplateManagement(ctx);
+	await requireTemplateConfiguration(ctx);
 	return archiveDutyRosterTemplateLifecycle(ctx, input);
 }
 
@@ -149,7 +157,7 @@ export async function generateDutyRosterTemplatePreview(
 	ctx: WritePorts,
 	input: DutyRosterTemplateGenerateInput
 ): Promise<DutyRosterTemplatePreview> {
-	await requireTemplateManagement(ctx);
+	await requireDutyRosterManagement(ctx);
 	return generateDutyRosterTemplatePreviewLifecycle(ctx, input);
 }
 
@@ -157,7 +165,7 @@ export async function acceptDutyRosterTemplatePreview(
 	ctx: WritePorts,
 	input: DutyRosterTemplateAcceptPreviewInput
 ): Promise<DutyRosterTemplateAcceptedRun> {
-	await requireTemplateManagement(ctx);
+	await requireDutyRosterManagement(ctx);
 	return acceptDutyRosterTemplatePreviewLifecycle(ctx, input);
 }
 
@@ -165,7 +173,7 @@ export async function applyAcceptedDutyRosterTemplateRun(
 	ctx: WritePorts,
 	input: { runId: string; calendarSyncPlanToken?: string | null }
 ) {
-	await requireTemplateManagement(ctx);
+	await requireDutyRosterManagement(ctx);
 	return applyAcceptedDutyRosterTemplateRunLifecycle(ctx, input);
 }
 
@@ -173,7 +181,7 @@ export async function recordDutyRosterTemplateRunCorrection(
 	ctx: WritePorts,
 	input: DutyRosterTemplateCorrectionInput
 ): Promise<DutyRosterTemplateRunCorrection> {
-	await requireTemplateManagement(ctx);
+	await requireDutyRosterManagement(ctx);
 	return recordDutyRosterTemplateRunCorrectionLifecycle(ctx, input);
 }
 
@@ -181,7 +189,7 @@ export async function invalidateLatestDutyRosterTemplateRun(
 	ctx: WritePorts,
 	input: { runId: string; cascade?: boolean }
 ) {
-	await requireTemplateManagement(ctx);
+	await requireDutyRosterManagement(ctx);
 	return invalidateLatestDutyRosterTemplateRunLifecycle(ctx, input);
 }
 
@@ -189,7 +197,7 @@ export async function acceptAndApplyDutyRosterTemplatePreview(
 	ctx: WritePorts,
 	input: DutyRosterTemplateAcceptPreviewInput
 ) {
-	await requireTemplateManagement(ctx);
+	await requireDutyRosterManagement(ctx);
 	return acceptAndApplyDutyRosterTemplatePreviewLifecycle(ctx, input);
 }
 
@@ -197,6 +205,6 @@ export async function applyDutyRosterTemplatePreviewManualSelection(
 	ctx: WritePorts,
 	input: DutyRosterTemplateManualSelectionInput
 ): Promise<DutyRosterTemplatePreview> {
-	await requireTemplateManagement(ctx);
+	await requireDutyRosterManagement(ctx);
 	return applyDutyRosterTemplatePreviewManualSelectionLifecycle(ctx, input);
 }

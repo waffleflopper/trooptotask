@@ -13,7 +13,7 @@
  * intended for direct use in routes — they exist to satisfy the different context-building
  * needs of route handlers vs. layout servers.
  */
-import { json, error } from '@sveltejs/kit';
+import { json, error, isHttpError, isRedirect } from '@sveltejs/kit';
 import type { Cookies, RequestEvent, RequestHandler } from '@sveltejs/kit';
 import type { z } from 'zod';
 import { getApiContext } from '$lib/server/supabase';
@@ -27,6 +27,7 @@ import { validateUUID } from '$lib/server/validation';
 import { getRequestInfo } from '$lib/server/auditLog';
 import { createSupabaseDataStore } from './supabaseDataStore';
 import { createSupabaseAuthContextAdapter } from './supabaseAuthContext';
+import { createSupabaseScopeEnforcementAdapter } from './supabaseScopeEnforcement';
 import { createSupabaseAuditAdapter } from './supabaseAudit';
 import { createSupabaseReadOnlyGuard } from './supabaseReadOnlyGuard';
 import { createSupabaseSubscriptionAdapter } from './supabaseSubscription';
@@ -41,19 +42,15 @@ import { createSupabaseRatingSchemePersonnelLookupPort } from './supabaseRatingS
 import { createSupabaseSensitiveActionAuthorizer } from '$lib/server/sensitiveActionAuthorizer';
 import { resolveOrganizationRouteIdentity } from '$lib/server/core/useCases/organizationUrlSlug';
 import type { UseCaseContext, AuthContext } from '$lib/server/core/ports';
-import type {
-	FeatureLanePolicyAction,
-	OrganizationGovernancePolicyAction,
-	PolicyResource
-} from '$lib/access/policyEvaluator';
+import type { FeatureLanePolicyAction } from '$lib/access/policyEvaluator';
 import { fail } from '$lib/server/core/errors';
 import {
 	enforceLoadAuthorization,
 	enforceRouteAuthorization,
-	enforceRouteReadOnlyOverlay,
-	type LegacyRoutePermission
+	type LoadAuthorizationConfig,
+	type RouteAuthorizationConfig
 } from '$lib/server/core/useCases/routeAuthorization';
-import { createCrudUseCases, type CrudConfig } from '$lib/server/core/useCases/crud';
+import { createCrudUseCases } from '$lib/server/core/useCases/crud';
 import { getEntityAuditResource, type EntityDefinition } from '$lib/server/entitySchema';
 
 interface BuildContextResult {
@@ -65,7 +62,7 @@ function policyScopeGroupIds(auth: AuthContext): string[] | string | null {
 	return auth.scopeSet.kind === 'groups' ? auth.scopeSet.groupIds : null;
 }
 
-async function createRequestAuthContext(config: {
+async function createRequestAuthorizationPorts(config: {
 	locals: App.Locals;
 	supabase: ReturnType<typeof getApiContext>['supabase'];
 	userId: string;
@@ -76,7 +73,13 @@ async function createRequestAuthContext(config: {
 	);
 
 	const permCtx = createPermissionContextFromMembership(membership);
-	return createSupabaseAuthContextAdapter(permCtx, config.supabase, config.userId, config.orgId);
+	const auth = createSupabaseAuthContextAdapter(permCtx, config.userId, config.orgId);
+	const scope = createSupabaseScopeEnforcementAdapter({
+		supabase: config.supabase,
+		orgId: config.orgId,
+		scopeSet: permCtx.scopeSet
+	});
+	return { auth, scope };
 }
 
 async function buildContextInternal(event: RequestEvent): Promise<BuildContextResult> {
@@ -91,7 +94,7 @@ async function buildContextInternal(event: RequestEvent): Promise<BuildContextRe
 	const readOnlyGuard = createSupabaseReadOnlyGuard(supabase, orgId);
 	const audit = createSupabaseAuditAdapter(orgId, requestInfo);
 
-	const auth = await createRequestAuthContext({
+	const { auth, scope } = await createRequestAuthorizationPorts({
 		locals: event.locals,
 		supabase,
 		userId,
@@ -114,6 +117,7 @@ async function buildContextInternal(event: RequestEvent): Promise<BuildContextRe
 			store: scopedStore,
 			advancedDutyPersistence,
 			auth,
+			scope,
 			audit,
 			readOnlyGuard,
 			subscription,
@@ -157,7 +161,7 @@ export async function buildLayoutContext(locals: App.Locals, cookies: Cookies, o
 	const readOnlyGuard = createSupabaseReadOnlyGuard(supabase, canonicalOrgId);
 	const audit = { log() {} };
 
-	const auth = await createRequestAuthContext({
+	const { auth, scope } = await createRequestAuthorizationPorts({
 		locals,
 		supabase,
 		userId,
@@ -180,6 +184,7 @@ export async function buildLayoutContext(locals: App.Locals, cookies: Cookies, o
 		store: scopedStore,
 		advancedDutyPersistence,
 		auth,
+		scope,
 		audit,
 		readOnlyGuard,
 		subscription,
@@ -215,7 +220,12 @@ export async function buildLayoutContextFromMembership(
 
 	cacheRequestMembership(locals, userId, orgId, membership);
 	const permCtx = createPermissionContextFromMembership(membership);
-	const auth = createSupabaseAuthContextAdapter(permCtx, supabase, userId, orgId);
+	const auth = createSupabaseAuthContextAdapter(permCtx, userId, orgId);
+	const scope = createSupabaseScopeEnforcementAdapter({
+		supabase,
+		orgId,
+		scopeSet: permCtx.scopeSet
+	});
 
 	const subscription = createSupabaseSubscriptionAdapter(supabase, orgId);
 	const notifications = createSupabaseNotificationAdapter();
@@ -233,6 +243,7 @@ export async function buildLayoutContextFromMembership(
 		store: scopedStore,
 		advancedDutyPersistence,
 		auth,
+		scope,
 		audit,
 		readOnlyGuard,
 		subscription,
@@ -263,73 +274,47 @@ async function resolveOrganizationIdForRequest(
 }
 
 export function rethrowOrWrap(err: unknown): never {
+	if (isHttpError(err) || isRedirect(err)) {
+		throw err;
+	}
+
 	if (err && typeof err === 'object' && 'status' in err) {
-		throw err; // Re-throw SvelteKit HttpError or use-case fail()
+		const { status } = err as { status?: unknown };
+		if (typeof status === 'number' && status >= 400 && status <= 599) {
+			const message = err instanceof Error ? err.message : 'Request failed';
+			throw error(status, message);
+		}
 	}
 	console.error('[http-adapter] Unhandled route error:', err);
 	throw error(500, 'Internal server error');
 }
 
-/**
- * @deprecated Use `entityHandlers(entity, hooks?)` instead. This function exists
- * only as a low-level escape hatch for routes that mix standard CRUD with custom
- * actions and cannot be expressed entirely through `entityHandlers()`. If you're
- * wiring a standard entity route, use `entityHandlers()` and extend it when
- * necessary rather than falling back to `crudHandlers()`.
- */
-export function crudHandlers(config: CrudConfig): {
-	POST: RequestHandler;
-	PUT: RequestHandler;
-	DELETE: RequestHandler;
-} {
-	const useCases = createCrudUseCases(config);
+async function withHttpErrorBoundary<T>(operation: Promise<T>): Promise<T> {
+	try {
+		return await operation;
+	} catch (err) {
+		rethrowOrWrap(err);
+	}
+}
 
-	// Use handle() as the HTTP shell — permission and read-only are enforced
-	// by the crud use cases themselves (they predate handle()), so we pass
-	// through without double-checking. The use case fn receives parsed body
-	// as input.
-	const POST = handle<Record<string, unknown>, unknown>({
-		permission: config.permission,
-		mutation: true,
-		fn: (ctx, input) => useCases.create(ctx, input)
-	});
-
-	const PUT = handle<Record<string, unknown>, unknown>({
-		permission: config.permission,
-		mutation: true,
-		fn: (ctx, input) => useCases.update(ctx, input)
-	});
-
-	const DELETE = handle<Record<string, unknown>, unknown>({
-		permission: config.permission,
-		mutation: true,
-		fn: async (ctx, input) => {
-			const id = input?.id;
-			if (!id || typeof id !== 'string') {
-				fail(400, 'Missing id');
-			}
-			if (!validateUUID(id)) {
-				fail(400, 'Invalid resource ID');
-			}
-			await useCases.remove(ctx, id);
-			return { success: true };
+async function withHttpStatusErrorBoundary<T>(operation: Promise<T>): Promise<T> {
+	try {
+		return await operation;
+	} catch (err) {
+		if (err && typeof err === 'object' && 'status' in err) {
+			rethrowOrWrap(err);
 		}
-	});
-
-	return { POST, PUT, DELETE };
+		throw err;
+	}
 }
 
 // ---------------------------------------------------------------------------
 // handle() — unified route wrapper
 // ---------------------------------------------------------------------------
 
-export interface RouteConfig<TInput = void, TOutput = unknown> {
-	permission: LegacyRoutePermission;
-	mutation?: boolean;
-	allowReadOnlyMutation?: boolean;
-	policyAction?: FeatureLanePolicyAction | OrganizationGovernancePolicyAction;
-	policyResource?: PolicyResource;
-	deferPolicyToUseCase?: boolean;
+type RouteConfigAuthorization = RouteAuthorizationConfig;
+
+type RouteConfigBehavior<TInput, TOutput> = {
 	input?: z.ZodType<TInput>;
 	parseInput?: (event: RequestEvent) => TInput | Promise<TInput>;
 	fn: (ctx: UseCaseContext, input: TInput) => Promise<TOutput>;
@@ -339,7 +324,10 @@ export interface RouteConfig<TInput = void, TOutput = unknown> {
 		resourceType: string;
 		resourceId?: (result: TOutput) => string;
 	};
-}
+};
+
+export type RouteConfig<TInput = void, TOutput = unknown> = RouteConfigAuthorization &
+	RouteConfigBehavior<TInput, TOutput>;
 
 /**
  * Testable core of handle() — no HTTP/RequestEvent dependency.
@@ -353,10 +341,7 @@ export async function handleUseCaseRequest<TInput, TOutput>(
 	// 1. Permission check
 	await enforceRouteAuthorization(ctx, config as RouteConfig<unknown, unknown>);
 
-	// 2. Read-only guard for mutations
-	await enforceRouteReadOnlyOverlay(ctx, config);
-
-	// 3. Zod input validation
+	// 2. Zod input validation
 	let input: TInput;
 	if (config.input) {
 		const result = config.input.safeParse(rawInput);
@@ -368,10 +353,10 @@ export async function handleUseCaseRequest<TInput, TOutput>(
 		input = rawInput as TInput;
 	}
 
-	// 4. Execute use case
+	// 3. Execute use case
 	const output = await config.fn(ctx, input);
 
-	// 5. Declarative audit
+	// 4. Declarative audit
 	if (config.audit) {
 		ctx.audit.log({
 			action: config.audit.action,
@@ -387,13 +372,10 @@ export async function handleUseCaseRequest<TInput, TOutput>(
 // loadWithContext() — page loader wrapper
 // ---------------------------------------------------------------------------
 
-interface LoadConfig<T> {
-	permission: LegacyRoutePermission;
-	policyAction?: FeatureLanePolicyAction | OrganizationGovernancePolicyAction;
-	policyResource?: PolicyResource;
+type LoadConfig<T> = LoadAuthorizationConfig & {
 	fn: (ctx: UseCaseContext) => Promise<T>;
 	defer?: boolean;
-}
+};
 
 function enforceLoadPermission(ctx: UseCaseContext, config: LoadConfig<unknown>): void | Promise<void> {
 	return enforceLoadAuthorization(ctx, config);
@@ -403,9 +385,8 @@ function enforceLoadPermission(ctx: UseCaseContext, config: LoadConfig<unknown>)
  * Testable core of loadWithContext() — no SvelteKit dependency.
  *
  * Without `defer`: checks permissions and awaits the data (blocks navigation).
- * With `defer: true`: checks permissions eagerly, returns data as an unresolved
- * promise for SvelteKit streaming (navigation completes immediately, page shows
- * skeletons while data loads).
+ * With `defer: true`: starts the policy check immediately and returns data as an
+ * unresolved promise for SvelteKit streaming. Denied access rejects that promise.
  */
 export function loadWithContextCore<T>(
 	ctx: UseCaseContext,
@@ -416,11 +397,13 @@ export function loadWithContextCore<T>(ctx: UseCaseContext, config: LoadConfig<T
 	if (config.defer) {
 		const permissionResult = enforceLoadPermission(ctx, config as LoadConfig<unknown>);
 		return {
-			data: Promise.resolve(permissionResult).then(() => config.fn(ctx))
+			data: withHttpStatusErrorBoundary(Promise.resolve(permissionResult).then(() => config.fn(ctx)))
 		};
 	}
 
-	return Promise.resolve(enforceLoadPermission(ctx, config as LoadConfig<unknown>)).then(() => config.fn(ctx));
+	return withHttpStatusErrorBoundary(
+		Promise.resolve(enforceLoadPermission(ctx, config as LoadConfig<unknown>)).then(() => config.fn(ctx))
+	);
 }
 
 /**
@@ -428,9 +411,9 @@ export function loadWithContextCore<T>(ctx: UseCaseContext, config: LoadConfig<T
  * Wraps buildLayoutContext() for use in +page.server.ts / +layout.server.ts load functions.
  *
  * Without `defer`: awaits data before returning (standard blocking load).
- * With `defer: true`: permissions checked eagerly, data returned as an unresolved
- * promise that SvelteKit streams. Pages with skeleton UIs should use this to allow
- * instant navigation.
+ * With `defer: true`: policy checks start immediately, data is returned as an
+ * unresolved promise that SvelteKit streams, and denied access rejects that promise.
+ * Pages with skeleton UIs should use this to allow instant navigation.
  */
 export async function loadWithContext<T>(
 	locals: App.Locals,
@@ -450,8 +433,12 @@ export async function loadWithContext<T>(
 	orgId: string,
 	config: LoadConfig<T>
 ): Promise<T | { data: Promise<T> }> {
-	const ctx = await buildLayoutContext(locals, cookies, orgId);
-	return loadWithContextCore(ctx, config);
+	return withHttpErrorBoundary(
+		(async () => {
+			const ctx = await buildLayoutContext(locals, cookies, orgId);
+			return loadWithContextCore(ctx, config);
+		})()
+	);
 }
 
 /**
@@ -510,18 +497,19 @@ export interface EntityHandlersResult {
 }
 
 export function entityHandlers(entity: EntityDefinition, hooks?: EntityHandlerHooks): EntityHandlersResult {
-	if (!entity.permission) {
-		throw new Error(`entityHandlers: entity "${entity.table}" must have a permission defined`);
+	const policyAction = hooks?.policyAction ?? entity.policyAction;
+	if (!policyAction) {
+		throw new Error(`entityHandlers: entity "${entity.table}" must define policyAction`);
 	}
 
-	const policyAction = hooks?.policyAction ?? entity.policyAction;
-	const config: CrudConfig<UseCaseContext> = {
+	const config = {
 		entity,
-		permission: entity.permission,
 		auditResource: getEntityAuditResource(entity),
 		policyAction,
-		beforeDelete: hooks?.beforeDelete ? async (ctx, id) => hooks.beforeDelete!(ctx as UseCaseContext, id) : undefined,
-		afterDelete: hooks?.afterDelete ? async (ctx, id) => hooks.afterDelete!(ctx as UseCaseContext, id) : undefined
+		beforeDelete: hooks?.beforeDelete
+			? async (ctx: UseCaseContext, id: string) => hooks.beforeDelete!(ctx, id)
+			: undefined,
+		afterDelete: hooks?.afterDelete ? async (ctx: UseCaseContext, id: string) => hooks.afterDelete!(ctx, id) : undefined
 	};
 
 	const useCases = createCrudUseCases(config);
@@ -530,9 +518,9 @@ export function entityHandlers(entity: EntityDefinition, hooks?: EntityHandlerHo
 
 	if (methods.has('POST')) {
 		const postConfig: RouteConfig<Record<string, unknown>, unknown> = {
-			permission: entity.permission,
 			mutation: true,
-			deferPolicyToUseCase: !!policyAction,
+			policyAction,
+			policyResource: { kind: 'unscoped' },
 			fn: (ctx, input) => useCases.create(ctx, input)
 		};
 		result.POST = handle(postConfig);
@@ -541,9 +529,9 @@ export function entityHandlers(entity: EntityDefinition, hooks?: EntityHandlerHo
 
 	if (methods.has('PUT')) {
 		const putConfig: RouteConfig<Record<string, unknown>, unknown> = {
-			permission: entity.permission,
 			mutation: true,
-			deferPolicyToUseCase: !!policyAction,
+			policyAction,
+			policyResource: { kind: 'unscoped' },
 			fn: (ctx, input) => useCases.update(ctx, input)
 		};
 		result.PUT = handle(putConfig);
@@ -552,9 +540,9 @@ export function entityHandlers(entity: EntityDefinition, hooks?: EntityHandlerHo
 
 	if (methods.has('DELETE')) {
 		const deleteConfig: RouteConfig<Record<string, unknown>, unknown> = {
-			permission: entity.permission,
 			mutation: true,
-			deferPolicyToUseCase: !!policyAction,
+			policyAction,
+			policyResource: { kind: 'unscoped' },
 			fn: async (ctx, input) => {
 				const id = input?.id;
 				if (!id || typeof id !== 'string') {

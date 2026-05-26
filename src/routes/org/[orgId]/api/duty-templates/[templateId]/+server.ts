@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import type { DutyTemplate } from '$features/duty-roster/duty-roster.types';
 import { archiveDutyTemplate } from '$lib/server/core/useCases/dutyTemplateCrud';
@@ -8,9 +9,9 @@ const templateIdInputSchema = z.object({
 });
 
 export const _deleteConfig: RouteConfig<{ templateId: string }, DutyTemplate> = {
-	permission: 'calendar',
 	mutation: true,
-	deferPolicyToUseCase: true,
+	policyAction: POLICY_ACTION_CATALOG.calendar.configureDutyTemplates,
+	policyResource: { kind: 'unscoped' },
 	input: templateIdInputSchema,
 	fn: (ctx, input) => archiveDutyTemplate(ctx, input)
 };

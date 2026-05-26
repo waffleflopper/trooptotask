@@ -23,6 +23,16 @@ const VALID_LEGACY_AUTHORIZATION_CLASSIFICATIONS = new Set([
 	'historical-migration',
 	'local-seed-fixture'
 ]);
+const DELETED_ROUTE_AUTHORIZATION_SYMBOLS = [
+	'LegacyRoutePermission',
+	'enforceLegacyRoutePermission',
+	'shouldRunLegacyReadOnlyGuard',
+	'deferPolicyToUseCase',
+	'requireView',
+	'requirePrivileged',
+	'requireOwner',
+	'requireManageMembers'
+];
 
 function normalizePath(filePath) {
 	return filePath.split(path.sep).join('/');
@@ -142,6 +152,21 @@ function legacyAuthorizationScanFiles() {
 	const sourceFiles = walkRelative('src').filter(isProductionSourceFile);
 	const migrationFiles = walkRelative('supabase').filter((filePath) => /\.sql$/.test(filePath));
 	return [...sourceFiles, ...migrationFiles];
+}
+
+function legacyRouteAuthorizationScanFiles() {
+	const routeFiles = walkRelative('src/routes').filter(isProductionSourceFile);
+	const serverFiles = [
+		'src/lib/server/core/ports.ts',
+		...walkRelative('src/lib/server/core/useCases').filter(isProductionSourceFile),
+		'src/lib/server/adapters/httpAdapter.ts',
+		'src/lib/server/adapters/supabaseAuthContext.ts',
+		'src/lib/server/adapters/inMemory.ts',
+		'src/lib/server/permissionContext.ts',
+		'src/lib/server/entitySchema.ts',
+		...walkRelative('src/lib/server/entities').filter(isProductionSourceFile)
+	];
+	return [...new Set([...routeFiles, ...serverFiles])];
 }
 
 function ensureRequiredFiles() {
@@ -360,11 +385,37 @@ function checkLegacyAuthorizationAllowlist() {
 	}
 }
 
+function checkDeletedRouteAuthorizationFramework() {
+	const deletedSymbolPattern = new RegExp(`\\b(${DELETED_ROUTE_AUTHORIZATION_SYMBOLS.join('|')})\\b`);
+	const routePermissionPattern =
+		/permission:\s*'(calendar|personnel|training|critical-tasks|onboarding|rating-scheme|privileged|owner|manageMembers|none)'/;
+
+	for (const filePath of legacyRouteAuthorizationScanFiles()) {
+		if (!existsSync(path.join(repoRoot, filePath))) continue;
+
+		const content = readRelativeFile(filePath);
+		const deletedSymbol = content.match(deletedSymbolPattern)?.[1];
+		if (deletedSymbol) {
+			errors.push(
+				`Deleted route authorization symbol still present: ${filePath} -> ${deletedSymbol}. Use policyAction and Policy Decision authorization instead.`
+			);
+		}
+
+		const routePermission = content.match(routePermissionPattern)?.[0];
+		if (routePermission) {
+			errors.push(
+				`Deleted route/load permission config still present: ${filePath} -> ${routePermission}. Use policyAction and policyResource instead.`
+			);
+		}
+	}
+}
+
 ensureRequiredFiles();
 checkRouteSupabaseAllowlist();
 checkFeaturePermissionCouplings();
 checkDeprecatedDemoSandboxAllowlist();
 checkLegacyAuthorizationAllowlist();
+checkDeletedRouteAuthorizationFramework();
 
 if (errors.length > 0) {
 	console.error('Governance check failed:\n');

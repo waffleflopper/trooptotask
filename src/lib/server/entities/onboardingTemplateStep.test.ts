@@ -167,10 +167,6 @@ describe('OnboardingTemplateStepEntity', () => {
 		expect(invalid.success).toBe(false);
 	});
 
-	it('has permission onboarding', () => {
-		expect(OnboardingTemplateStepEntity.permission).toBe('onboarding');
-	});
-
 	it('uses Onboarding configure policy', () => {
 		expect(OnboardingTemplateStepEntity.policyAction?.id).toBe('onboarding.configureWorkflows');
 	});

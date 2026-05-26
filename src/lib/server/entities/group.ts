@@ -10,7 +10,6 @@ import type { Group } from '$lib/stores/groups.svelte';
 
 export const GroupEntity = defineEntity<Group>({
 	table: 'groups',
-	permission: 'personnel',
 	policyAction: POLICY_ACTION_CATALOG.personnel.manageGroups,
 	groupScope: 'none',
 	audit: { resourceType: 'group', detailFields: ['name'] },

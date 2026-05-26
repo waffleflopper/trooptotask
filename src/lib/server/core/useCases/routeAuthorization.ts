@@ -29,7 +29,11 @@ interface RouteAuthorizationBaseConfig {
 export interface PolicyFirstRouteAuthorizationConfig extends RouteAuthorizationBaseConfig {
 	policyAction: RoutePolicyAction;
 	permission?: LegacyRoutePermission;
-	allowReadOnlyMutation?: never;
+	/**
+	 * Use only for billing recovery flows where the mutation is the user's path out of
+	 * read-only mode. Ordinary policy-first writes should let the policy overlay deny.
+	 */
+	allowReadOnlyMutation?: boolean;
 	deferPolicyToUseCase?: false;
 }
 
@@ -63,7 +67,9 @@ export async function enforceRouteAuthorization(
 	config: RouteAuthorizationConfig
 ): Promise<void> {
 	if (config.policyAction) {
-		await requirePolicyDecision(ports, config.policyAction, resolveRoutePolicyResource(ports.auth, config));
+		await requirePolicyDecision(ports, config.policyAction, resolveRoutePolicyResource(ports.auth, config), {
+			enforceReadOnlyOverlay: !config.allowReadOnlyMutation
+		});
 		return;
 	}
 

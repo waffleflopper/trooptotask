@@ -206,6 +206,19 @@ describe('POST /billing/portal', () => {
 		expect(ctx.billingPort.calls).toEqual([]);
 	});
 
+	it('blocks billing portal sessions while the organization is read-only', async () => {
+		const ctx = createTestContext({ readOnly: true });
+		seedBillingOrganization(ctx);
+		seedBillingSnapshot(ctx);
+		buildRouteContextMock.mockResolvedValue(ctx);
+
+		const response = await POST(portalEvent(ctx));
+
+		expect(response.status).toBe(403);
+		expect(await response.json()).toEqual({ error: 'Organization is in read-only mode' });
+		expect(ctx.billingPort.calls).toEqual([]);
+	});
+
 	it('rejects stale-session portal access before creating a provider session', async () => {
 		const ctx = createTestContext({
 			sensitiveActionDecision: {

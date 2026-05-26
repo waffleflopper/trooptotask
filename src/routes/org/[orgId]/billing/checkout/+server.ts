@@ -11,7 +11,6 @@ import { getConfiguredPriceCatalog, lookupCheckoutPriceCatalogEntry } from '$lib
 import { checkout } from '$lib/server/core/useCases/billing';
 import { persistBillingCustomerId, readBillingOrganization } from '$lib/server/core/useCases/billingOrganization';
 import { fail } from '$lib/server/core/errors';
-import { requireGovernancePolicy } from '$lib/server/core/useCases/governancePolicy';
 import { makePublicAppUrl } from '$lib/server/publicAppOrigin';
 import { billingApiErrorResponse } from '../billingApiErrors';
 
@@ -22,10 +21,6 @@ export const POST: RequestHandler = async (event) => {
 
 	try {
 		const ctx = await buildRouteContext(event);
-		await requireGovernancePolicy(
-			{ auth: ctx.auth, audit: ctx.audit },
-			POLICY_ACTION_CATALOG.organization.accessBilling
-		);
 
 		const { orgId } = event.params;
 
@@ -62,18 +57,17 @@ export const POST: RequestHandler = async (event) => {
 			}
 			throw configError;
 		}
-		const org = await readBillingOrganization({ auth: ctx.auth, store: ctx.rawStore });
-
 		const email = event.locals.user?.email;
 		if (!email) fail(400, 'User email not found');
 
 		const result = await handleUseCaseRequest(
 			{
-				permission: 'owner',
+				policyAction: POLICY_ACTION_CATALOG.organization.manageBilling,
 				mutation: true,
 				allowReadOnlyMutation: true,
-				fn: (c) =>
-					checkout(c, {
+				fn: async (c) => {
+					const org = await readBillingOrganization({ auth: c.auth, store: c.rawStore });
+					const checkoutResult = await checkout(c, {
 						tier,
 						priceId: checkoutPrice.entry.priceId,
 						customerEmail: email,
@@ -82,14 +76,19 @@ export const POST: RequestHandler = async (event) => {
 						successUrl,
 						cancelUrl,
 						checkoutConfiguration
-					}),
+					});
+					return {
+						...checkoutResult,
+						existingCustomerId: org.stripeCustomerId
+					};
+				},
 				audit: { action: 'billing.checkout', resourceType: 'organization' }
 			},
 			ctx,
 			undefined
 		);
 
-		if (!org.stripeCustomerId && result.customerId) {
+		if (!result.existingCustomerId && result.customerId) {
 			await persistBillingCustomerId({ auth: ctx.auth, store: ctx.rawStore }, { customerId: result.customerId });
 		}
 

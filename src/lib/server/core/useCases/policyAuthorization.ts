@@ -13,6 +13,10 @@ interface PolicyPorts {
 
 type ServerPolicyAction = PolicyAction;
 
+interface PolicyDecisionOptions {
+	enforceReadOnlyOverlay?: boolean;
+}
+
 const routePolicyAuditDetailShape = {
 	matchedCapability: { key: 'matchedCapability', value: 'object' },
 	matchedScope: { key: 'matchedScope', value: 'object' }
@@ -21,9 +25,10 @@ const routePolicyAuditDetailShape = {
 export async function requirePolicyDecision(
 	ports: PolicyPorts,
 	action: ServerPolicyAction,
-	resource: PolicyResource
+	resource: PolicyResource,
+	options: PolicyDecisionOptions = {}
 ): Promise<void> {
-	const decision = await evaluateAuthoritativePolicyDecision(ports, action, resource);
+	const decision = await evaluateAuthoritativePolicyDecision(ports, action, resource, options);
 
 	if (decision.allowed) {
 		return;
@@ -76,6 +81,10 @@ function routePolicyDenialMessage(decision: PolicyDecision, scopeSet?: ScopeSet)
 
 	if (decision.reasonCode === 'denied:not-resource-owner') {
 		return 'You can only manage your own resources';
+	}
+
+	if (decision.reasonCode === 'denied:owner-only') {
+		return 'Only the organization owner can perform this action';
 	}
 
 	return 'You do not have permission to perform this action';

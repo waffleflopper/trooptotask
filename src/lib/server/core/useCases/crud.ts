@@ -5,29 +5,21 @@
  * EntityDefinition. In most cases you don't call this directly — use `entityHandlers(entity)`
  * in +server.ts, which wires these up automatically.
  *
- * Direct use is only needed for mixed-action routes or tests that need to exercise the
- * use cases in isolation. See `CrudConfig` for the escape-hatch interface.
+ * Direct use is only needed for tests that need to exercise the use cases in isolation.
+ * See `CrudConfig` for the policy-first interface.
  */
 import { fail } from '$lib/server/core/errors';
 import type { DataStore, WritePorts } from '$lib/server/core/ports';
 import type { EntityDefinition } from '$lib/server/entitySchema';
-import type { FeatureArea } from '$lib/server/core/ports';
 import type { z } from 'zod';
 import type { FeatureLanePolicyAction, PolicyResource } from '$lib/access/policyEvaluator';
 import { requireFeaturePolicy } from './featurePolicy';
 import { requireCalendarPolicy } from './calendarPolicy';
 
-/**
- * @deprecated Use `entityHandlers(entity, hooks?)` from `httpAdapter.ts` instead.
- * This type exists only as a low-level escape hatch for mixed-action routes and
- * use-case tests that need to exercise `createCrudUseCases()` directly. Do not
- * introduce new route wiring with `CrudConfig`; prefer entity-driven handlers.
- */
 export interface CrudConfig<C extends WritePorts = WritePorts> {
 	entity: EntityDefinition;
-	permission?: FeatureArea;
 	auditResource: string;
-	policyAction?: FeatureLanePolicyAction;
+	policyAction: FeatureLanePolicyAction;
 	beforeDelete?: (ctx: C, id: string) => Promise<void>;
 	afterDelete?: (ctx: C, id: string) => Promise<void>;
 }
@@ -47,8 +39,7 @@ function parseOrFail<T>(schema: z.ZodType<T>, data: Record<string, unknown>): T 
 }
 
 export function createCrudUseCases<C extends WritePorts>(config: CrudConfig<C>): CrudUseCases<C> {
-	const { entity, permission, auditResource } = config;
-	const policyAction = resolveCrudPolicyAction(config, entity, permission);
+	const { entity, policyAction, auditResource } = config;
 
 	return {
 		async create(ctx, data) {
@@ -127,21 +118,6 @@ export function createCrudUseCases<C extends WritePorts>(config: CrudConfig<C>):
 			}
 		}
 	};
-}
-
-function resolveCrudPolicyAction<C extends WritePorts>(
-	config: CrudConfig<C>,
-	entity: EntityDefinition,
-	permission: FeatureArea | undefined
-): FeatureLanePolicyAction {
-	const policyAction = config.policyAction ?? entity.policyAction;
-	if (policyAction) {
-		return policyAction;
-	}
-
-	throw new Error(
-		`createCrudUseCases requires policyAction for write authorization (${entity.table}:${permission ?? 'unknown'})`
-	);
 }
 
 async function requirePolicyDecisionForCrud<C extends WritePorts>(

@@ -50,7 +50,7 @@ import {
 	type LoadAuthorizationConfig,
 	type RouteAuthorizationConfig
 } from '$lib/server/core/useCases/routeAuthorization';
-import { createCrudUseCases, type CrudConfig } from '$lib/server/core/useCases/crud';
+import { createCrudUseCases } from '$lib/server/core/useCases/crud';
 import { getEntityAuditResource, type EntityDefinition } from '$lib/server/entitySchema';
 
 interface BuildContextResult {
@@ -267,55 +267,6 @@ export function rethrowOrWrap(err: unknown): never {
 	throw error(500, 'Internal server error');
 }
 
-/**
- * @deprecated Use `entityHandlers(entity, hooks?)` instead. This function exists
- * only as a low-level escape hatch for routes that mix standard CRUD with custom
- * actions and cannot be expressed entirely through `entityHandlers()`. If you're
- * wiring a standard entity route, use `entityHandlers()` and extend it when
- * necessary rather than falling back to `crudHandlers()`.
- */
-export function crudHandlers(config: CrudConfig): {
-	POST: RequestHandler;
-	PUT: RequestHandler;
-	DELETE: RequestHandler;
-} {
-	const useCases = createCrudUseCases(config);
-
-	// Use handle() as the HTTP shell — permission and read-only are enforced
-	// by the crud use cases themselves (they predate handle()), so we pass
-	// through without double-checking. The use case fn receives parsed body
-	// as input.
-	const POST = handle<Record<string, unknown>, unknown>({
-		permission: config.permission ?? 'none',
-		mutation: true,
-		fn: (ctx, input) => useCases.create(ctx, input)
-	});
-
-	const PUT = handle<Record<string, unknown>, unknown>({
-		permission: config.permission ?? 'none',
-		mutation: true,
-		fn: (ctx, input) => useCases.update(ctx, input)
-	});
-
-	const DELETE = handle<Record<string, unknown>, unknown>({
-		permission: config.permission ?? 'none',
-		mutation: true,
-		fn: async (ctx, input) => {
-			const id = input?.id;
-			if (!id || typeof id !== 'string') {
-				fail(400, 'Missing id');
-			}
-			if (!validateUUID(id)) {
-				fail(400, 'Invalid resource ID');
-			}
-			await useCases.remove(ctx, id);
-			return { success: true };
-		}
-	});
-
-	return { POST, PUT, DELETE };
-}
-
 // ---------------------------------------------------------------------------
 // handle() — unified route wrapper
 // ---------------------------------------------------------------------------
@@ -503,18 +454,19 @@ export interface EntityHandlersResult {
 }
 
 export function entityHandlers(entity: EntityDefinition, hooks?: EntityHandlerHooks): EntityHandlersResult {
-	if (!entity.permission) {
-		throw new Error(`entityHandlers: entity "${entity.table}" must have a permission defined`);
+	const policyAction = hooks?.policyAction ?? entity.policyAction;
+	if (!policyAction) {
+		throw new Error(`entityHandlers: entity "${entity.table}" must define policyAction`);
 	}
 
-	const policyAction = hooks?.policyAction ?? entity.policyAction;
-	const config: CrudConfig<UseCaseContext> = {
+	const config = {
 		entity,
-		permission: entity.permission,
 		auditResource: getEntityAuditResource(entity),
 		policyAction,
-		beforeDelete: hooks?.beforeDelete ? async (ctx, id) => hooks.beforeDelete!(ctx as UseCaseContext, id) : undefined,
-		afterDelete: hooks?.afterDelete ? async (ctx, id) => hooks.afterDelete!(ctx as UseCaseContext, id) : undefined
+		beforeDelete: hooks?.beforeDelete
+			? async (ctx: UseCaseContext, id: string) => hooks.beforeDelete!(ctx, id)
+			: undefined,
+		afterDelete: hooks?.afterDelete ? async (ctx: UseCaseContext, id: string) => hooks.afterDelete!(ctx, id) : undefined
 	};
 
 	const useCases = createCrudUseCases(config);
@@ -523,9 +475,9 @@ export function entityHandlers(entity: EntityDefinition, hooks?: EntityHandlerHo
 
 	if (methods.has('POST')) {
 		const postConfig: RouteConfig<Record<string, unknown>, unknown> = {
-			permission: entity.permission,
 			mutation: true,
-			deferPolicyToUseCase: !!policyAction,
+			policyAction,
+			policyResource: { kind: 'unscoped' },
 			fn: (ctx, input) => useCases.create(ctx, input)
 		};
 		result.POST = handle(postConfig);
@@ -534,9 +486,9 @@ export function entityHandlers(entity: EntityDefinition, hooks?: EntityHandlerHo
 
 	if (methods.has('PUT')) {
 		const putConfig: RouteConfig<Record<string, unknown>, unknown> = {
-			permission: entity.permission,
 			mutation: true,
-			deferPolicyToUseCase: !!policyAction,
+			policyAction,
+			policyResource: { kind: 'unscoped' },
 			fn: (ctx, input) => useCases.update(ctx, input)
 		};
 		result.PUT = handle(putConfig);
@@ -545,9 +497,9 @@ export function entityHandlers(entity: EntityDefinition, hooks?: EntityHandlerHo
 
 	if (methods.has('DELETE')) {
 		const deleteConfig: RouteConfig<Record<string, unknown>, unknown> = {
-			permission: entity.permission,
 			mutation: true,
-			deferPolicyToUseCase: !!policyAction,
+			policyAction,
+			policyResource: { kind: 'unscoped' },
 			fn: async (ctx, input) => {
 				const id = input?.id;
 				if (!id || typeof id !== 'string') {

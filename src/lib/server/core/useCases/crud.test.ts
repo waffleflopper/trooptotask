@@ -29,15 +29,8 @@ function buildContext(overrides?: Parameters<typeof createWritePortsContext>[0])
 
 const crudConfig = {
 	entity: TestEntity,
-	permission: 'training' as const,
 	auditResource: 'test_record',
 	policyAction: POLICY_ACTION_CATALOG.training.recordCompletions
-};
-
-const noPolicyCrudConfig = {
-	entity: TestEntity,
-	permission: 'training' as const,
-	auditResource: 'test_record'
 };
 
 describe('createCrudUseCases', () => {
@@ -68,12 +61,6 @@ describe('createCrudUseCases', () => {
 
 			// personnelId is required but missing
 			await expect(create(ctx, { notes: 'no personnel' })).rejects.toThrow();
-		});
-
-		it('requires a policy action before standard CRUD can authorize writes', async () => {
-			expect(() => createCrudUseCases(noPolicyCrudConfig)).toThrow(
-				'createCrudUseCases requires policyAction for write authorization'
-			);
 		});
 
 		it('throws when organization is read-only', async () => {
@@ -107,7 +94,6 @@ describe('createCrudUseCases', () => {
 			ctx.store.seed('personnel', [{ id: 'p-1', organization_id: 'test-org', group_id: 'group-2', last_name: 'Able' }]);
 			const { create } = createCrudUseCases({
 				...crudConfig,
-				permission: 'critical-tasks',
 				policyAction: POLICY_ACTION_CATALOG.criticalTasks.recordCompletion
 			});
 
@@ -139,7 +125,6 @@ describe('createCrudUseCases', () => {
 			ctx.store.seed('personnel', [{ id: 'p-1', organization_id: 'test-org', group_id: 'group-2', last_name: 'Able' }]);
 			const { create } = createCrudUseCases({
 				...crudConfig,
-				permission: 'critical-tasks',
 				policyAction: POLICY_ACTION_CATALOG.criticalTasks.recordCompletion
 			});
 
@@ -170,7 +155,6 @@ describe('createCrudUseCases', () => {
 			]);
 			const { create } = createCrudUseCases({
 				...crudConfig,
-				permission: 'critical-tasks',
 				policyAction: POLICY_ACTION_CATALOG.criticalTasks.recordCompletion
 			});
 
@@ -233,12 +217,6 @@ describe('createCrudUseCases', () => {
 			});
 		});
 
-		it('requires a policy action before standard CRUD can authorize updates', async () => {
-			expect(() => createCrudUseCases(noPolicyCrudConfig)).toThrow(
-				'createCrudUseCases requires policyAction for write authorization'
-			);
-		});
-
 		it('throws when organization is read-only', async () => {
 			const ctx = buildContext({ readOnly: true });
 			const { update } = createCrudUseCases(crudConfig);
@@ -293,12 +271,6 @@ describe('createCrudUseCases', () => {
 				resourceType: 'test_record',
 				resourceId: 'tr-1'
 			});
-		});
-
-		it('requires a policy action before standard CRUD can authorize deletes', async () => {
-			expect(() => createCrudUseCases(noPolicyCrudConfig)).toThrow(
-				'createCrudUseCases requires policyAction for write authorization'
-			);
 		});
 
 		it('throws when organization is read-only', async () => {

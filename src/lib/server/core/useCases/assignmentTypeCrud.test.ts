@@ -10,9 +10,8 @@ const AT_ID = '00000000-0000-4000-a000-000000000001';
 // Same config entityHandlers() derives — validates the pattern without HTTP layer
 const useCases = createCrudUseCases<WriteWithNotificationsPorts>({
 	entity: AssignmentTypeEntity,
-	permission: AssignmentTypeEntity.permission!,
 	auditResource: getEntityAuditResource(AssignmentTypeEntity),
-	policyAction: AssignmentTypeEntity.policyAction,
+	policyAction: AssignmentTypeEntity.policyAction!,
 	afterDelete: async (ctx) => {
 		await ctx.notifications.notifyAdmins(ctx.auth.orgId, ctx.auth.userId, {
 			type: 'config_type_deleted',

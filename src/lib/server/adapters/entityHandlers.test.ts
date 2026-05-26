@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { z } from 'zod';
 import { field, defineEntity } from '$lib/server/entitySchema';
 import { createTestContext } from './inMemory';
@@ -6,7 +6,7 @@ import { handleUseCaseRequest } from './httpAdapter';
 import { entityHandlers } from './httpAdapter';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 
-// A simple test entity with full metadata
+// A simple test entity with the policy metadata entityHandlers requires.
 function createTestEntity(overrides?: { methods?: ('POST' | 'PUT' | 'DELETE')[] }) {
 	return defineEntity({
 		table: 'widgets',
@@ -16,7 +16,6 @@ function createTestEntity(overrides?: { methods?: ('POST' | 'PUT' | 'DELETE')[] 
 			name: field(z.string()),
 			color: field(z.string(), { insertDefault: 'blue' })
 		},
-		permission: 'training',
 		policyAction: POLICY_ACTION_CATALOG.training.configureRequirements,
 		audit: 'widget',
 		methods: overrides?.methods ?? ['POST', 'PUT', 'DELETE']
@@ -116,6 +115,21 @@ describe('entityHandlers()', () => {
 	});
 
 	describe('method awareness', () => {
+		it('emits policy-first route configs for every generated mutation', () => {
+			const entity = createTestEntity();
+			const handlers = entityHandlers(entity);
+
+			for (const config of [handlers._configs.POST, handlers._configs.PUT, handlers._configs.DELETE]) {
+				expect(config).toMatchObject({
+					mutation: true,
+					policyAction: POLICY_ACTION_CATALOG.training.configureRequirements,
+					policyResource: { kind: 'unscoped' }
+				});
+				expect('permission' in config!).toBe(false);
+				expect('deferPolicyToUseCase' in config!).toBe(false);
+			}
+		});
+
 		it('only returns handlers for declared methods', () => {
 			const entity = createTestEntity({ methods: ['POST'] });
 			const handlers = entityHandlers(entity);
@@ -180,14 +194,36 @@ describe('entityHandlers()', () => {
 		});
 	});
 
-	describe('permission enforcement', () => {
-		it('rejects when auth lacks the declared policy capability', async () => {
+	describe('policy enforcement', () => {
+		it('requires each entity to declare a policy action', () => {
+			const entity = defineEntity({
+				table: 'legacy_widgets',
+				groupScope: 'none',
+				schema: {
+					id: field(z.string(), { readOnly: true }),
+					name: field(z.string())
+				},
+				audit: 'legacy_widget'
+			});
+
+			expect(() => entityHandlers(entity)).toThrow('entityHandlers: entity "legacy_widgets" must define policyAction');
+		});
+
+		it.each([
+			['POST', { name: 'Denied' }],
+			['PUT', { id: crypto.randomUUID(), name: 'Denied' }],
+			['DELETE', { id: crypto.randomUUID() }]
+		] as const)('rejects %s when auth lacks the declared policy capability', async (method, input) => {
 			const entity = createTestEntity();
 			const handlers = entityHandlers(entity);
+			const requirePrivileged = vi.fn(() => {
+				throw new Error('legacy privileged auth should not authorize entity handler mutations');
+			});
 			const ctx = createTestContext({
 				auth: {
 					role: 'member',
 					isPrivileged: false,
+					requirePrivileged,
 					capabilityMap: {
 						calendar: 'none',
 						personnel: 'none',
@@ -199,9 +235,10 @@ describe('entityHandlers()', () => {
 				}
 			});
 
-			await expect(handleUseCaseRequest(handlers._configs.POST!, ctx, { name: 'Denied' })).rejects.toMatchObject({
+			await expect(handleUseCaseRequest(handlers._configs[method]!, ctx, input)).rejects.toMatchObject({
 				status: 403
 			});
+			expect(requirePrivileged).not.toHaveBeenCalled();
 		});
 	});
 
@@ -226,7 +263,6 @@ describe('entityHandlers()', () => {
 					id: field(z.string(), { readOnly: true }),
 					name: field(z.string())
 				},
-				permission: 'training',
 				policyAction: POLICY_ACTION_CATALOG.training.configureRequirements,
 				audit: { resourceType: 'gadget', action: 'custom' }
 			});

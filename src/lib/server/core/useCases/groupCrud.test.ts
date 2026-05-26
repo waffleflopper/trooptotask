@@ -4,17 +4,16 @@ import { GroupEntity } from '$lib/server/entities/group';
 import { getEntityAuditResource } from '$lib/server/entitySchema';
 import { createCrudUseCases } from './crud';
 
-const groupPermission = GroupEntity.permission;
 const groupAudit = GroupEntity.audit;
-if (!groupPermission || !groupAudit) {
+if (!GroupEntity.policyAction || !groupAudit) {
 	throw new Error('GroupEntity missing required metadata');
 }
 const groupAuditResource = getEntityAuditResource(GroupEntity);
 
 const useCases = createCrudUseCases({
 	entity: GroupEntity,
-	permission: groupPermission,
-	auditResource: groupAuditResource
+	auditResource: groupAuditResource,
+	policyAction: GroupEntity.policyAction!
 });
 
 describe('Group CRUD use case', () => {

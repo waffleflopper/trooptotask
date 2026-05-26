@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Cookies } from '@sveltejs/kit';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import type { CriticalTasksBootstrap } from '$lib/server/core/orgShell';
 
 const { findManyMock, loadWithContextMock, mockCtx } = vi.hoisted(() => {
@@ -69,8 +70,13 @@ describe('createSupabaseCriticalTasksWorkspacePort', () => {
 			expect.anything(),
 			expect.anything(),
 			'1-11-bde',
-			expect.objectContaining({ permission: 'critical-tasks', defer: true })
+			expect.objectContaining({
+				policyAction: POLICY_ACTION_CATALOG.criticalTasks.viewReadiness,
+				policyResource: { kind: 'unscoped' },
+				defer: true
+			})
 		);
+		expect(loadWithContextMock.mock.calls[0][3]).not.toHaveProperty('permission');
 		expect(bootstrap).toBeDefined();
 		expect(bootstrap?.personnel).toBeInstanceOf(Promise);
 		expect(bootstrap?.groups).toBeInstanceOf(Promise);

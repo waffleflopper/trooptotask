@@ -588,7 +588,6 @@ export function createSupabaseCriticalTasksWorkspacePort(
 
 		if (defer) {
 			return loadWithContext(locals, cookies, orgId, {
-				permission: 'critical-tasks',
 				policyAction: POLICY_ACTION_CATALOG.criticalTasks.viewReadiness,
 				policyResource: { kind: 'unscoped' },
 				defer: true,
@@ -597,7 +596,6 @@ export function createSupabaseCriticalTasksWorkspacePort(
 		}
 
 		return loadWithContext(locals, cookies, orgId, {
-			permission: 'critical-tasks',
 			policyAction: POLICY_ACTION_CATALOG.criticalTasks.viewReadiness,
 			policyResource: { kind: 'unscoped' },
 			fn
@@ -704,7 +702,8 @@ export function createSupabaseRatingSchemeWorkspacePort(
 			}
 
 			const data = await loadWithContext(locals, cookies, orgId, {
-				permission: 'none',
+				policyAction: POLICY_ACTION_CATALOG.ratingScheme.viewEntries,
+				policyResource: { kind: 'unscoped' },
 				fn: async (ctx) => fetchRatingSchemeBootstrap(ctx)
 			});
 
@@ -725,14 +724,14 @@ export function createSupabaseDashboardWorkspacePort(
 
 		if (defer) {
 			return loadWithContext(locals, cookies, orgId, {
-				permission: 'none',
+				policyAction: POLICY_ACTION_CATALOG.identity.viewDashboard,
 				defer: true,
 				fn
 			});
 		}
 
 		return loadWithContext(locals, cookies, orgId, {
-			permission: 'none',
+			policyAction: POLICY_ACTION_CATALOG.identity.viewDashboard,
 			fn
 		});
 	}

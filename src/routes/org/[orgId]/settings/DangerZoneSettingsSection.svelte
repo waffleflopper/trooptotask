@@ -37,7 +37,9 @@
 	>
 		<div class="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
 			<div class="grid gap-1">
-				<h3 id="destructive-actions-heading" class="text-lg font-semibold tracking-tight">Destructive Actions</h3>
+				<h2 id="destructive-actions-heading" class="font-heading text-lg font-semibold tracking-tight">
+					Destructive Actions
+				</h2>
 				<p class="text-sm text-muted-foreground">Owner-only controls for irreversible organization changes.</p>
 			</div>
 			<Badge variant="destructive">Owner only</Badge>

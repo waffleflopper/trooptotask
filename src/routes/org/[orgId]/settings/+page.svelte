@@ -2,7 +2,19 @@
 	import { enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
 	import { page } from '$app/stores';
-	import { Edit, RefreshCw, Trash2, UserPlus } from '@lucide/svelte';
+	import {
+		Building2,
+		Users,
+		Shield,
+		Archive,
+		Download,
+		AlertTriangle,
+		ChevronRight,
+		X,
+		Edit,
+		RefreshCw,
+		Trash2
+	} from '@lucide/svelte';
 	import type { SubmitFunction } from '@sveltejs/kit';
 	import { explainPolicyReasonCode } from '$lib/access/policyDecisionExplanations';
 	import { redirectToSensitiveActionStepUp } from '$lib/auth/sensitiveActionStepUp';
@@ -17,10 +29,9 @@
 	import * as PageShell from '$lib/components/ui/page-shell/index.js';
 	import { Separator } from '$lib/components/ui/separator/index.js';
 	import * as Select from '$lib/components/ui/select/index.js';
-	import * as Tabs from '$lib/components/ui/tabs/index.js';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { TIER_CONFIG, type EffectiveTier } from '$lib/types/subscription';
-	import { addMonths, formatRelativeDate } from '$lib/utils/dates';
+	import { formatRelativeDate } from '$lib/utils/dates';
 	import { downloadBlob } from './settingsDownloads';
 	import ArchivedPersonnelSettingsSection from './ArchivedPersonnelSettingsSection.svelte';
 	import DangerZoneSettingsSection from './DangerZoneSettingsSection.svelte';
@@ -28,31 +39,24 @@
 	import OrganizationSettingsSection from './OrganizationSettingsSection.svelte';
 	import PoliciesSettingsSection from './PoliciesSettingsSection.svelte';
 	import SettingsActivityRail from './SettingsActivityRail.svelte';
-	import {
-		formatCompactDate,
-		formatCap,
-		formatExportLimit,
-		formatPrice,
-		pluralize
-	} from './settingsWorkspaceFormatters';
+	import { formatCap, formatExportLimit, formatPrice, pluralize } from './settingsWorkspaceFormatters';
 	import { createSettingsWorkspaceState } from './settingsWorkspaceState.svelte';
 	import type { EditableMembershipRole, EditablePreset } from './settingsMemberAccessWorkspace.svelte';
 	import type { SettingsMemberAccessRow } from './settingsMemberAccessModel';
-
 	let { data, form } = $props();
+
 	const orgId = $derived($page.params.orgId);
 
 	type SectionId = 'organization' | 'members' | 'policies' | 'archived' | 'data-export' | 'danger';
-	type SectionConfig = { id: SectionId; label: string; eyebrow: string; danger?: boolean };
+	type TileConfig = {
+		id: SectionId;
+		label: string;
+		icon: typeof Building2;
+		metric: string;
+		detail: string;
+		status?: 'default' | 'warning' | 'danger';
+	};
 
-	const standardSections: SectionConfig[] = [
-		{ id: 'organization', label: 'Organization', eyebrow: 'Profile' },
-		{ id: 'members', label: 'Members', eyebrow: 'Access Control' },
-		{ id: 'policies', label: 'Policies', eyebrow: 'Operational Defaults' },
-		{ id: 'archived', label: 'Archived Personnel', eyebrow: 'Retention Queue' },
-		{ id: 'data-export', label: 'Data & Export', eyebrow: 'Backup & Migration' }
-	];
-	const ownerSection: SectionConfig = { id: 'danger', label: 'Danger Zone', eyebrow: 'Owner Authority', danger: true };
 	const settingsState = createSettingsWorkspaceState(() => data.workspace);
 	const syncPoliciesFromWorkspace = () => settingsState.policies.syncFromWorkspace();
 	const organizationSection = $derived(data.workspace.sections.organization);
@@ -66,9 +70,59 @@
 	const dangerZoneSection = $derived(settingsState.dangerZone.section);
 	const currentMember = $derived(data.workspace.currentMember);
 	const isOwner = $derived(currentMember.isOwner);
-	const sections = $derived(isOwner ? [...standardSections, ownerSection] : standardSections);
+	const tiles = $derived<TileConfig[]>([
+		{
+			id: 'organization',
+			label: 'General',
+			icon: Building2,
+			metric: organizationSection.name ?? 'Unnamed',
+			detail: 'Profile & subscription'
+		},
+		{
+			id: 'members',
+			label: 'Members',
+			icon: Users,
+			metric: `${membersSection.rows.length}`,
+			detail: `${membersSection.invitations.length} pending invitations`,
+			status: membersSection.invitations.length > 0 ? 'warning' : 'default'
+		},
+		{
+			id: 'policies',
+			label: 'Policies',
+			icon: Shield,
+			metric: `${data.workspace.sections.policies.archiveRetention.savedMonths}mo / ${data.workspace.sections.policies.lossWarning.savedDays}d`,
+			detail: 'Retention & warning thresholds'
+		},
+		{
+			id: 'archived',
+			label: 'Archived',
+			icon: Archive,
+			metric: `${archivedPersonnelSection.rows.length}`,
+			detail: archivedPersonnelSection.retention.purgeSummary,
+			status: archivedPersonnelSection.rows.length > 0 ? 'warning' : 'default'
+		},
+		{
+			id: 'data-export',
+			label: 'Data Export',
+			icon: Download,
+			metric: 'Available',
+			detail: 'JSON & Excel export'
+		},
+		...(isOwner
+			? [
+					{
+						id: 'danger' as SectionId,
+						label: 'Danger Zone',
+						icon: AlertTriangle,
+						metric: 'Owner only',
+						detail: 'Transfer or delete',
+						status: 'danger' as const
+					}
+				]
+			: [])
+	]);
 
-	let activeSection = $state<SectionId>('organization');
+	let openSection = $state<SectionId | null>(null);
 	let activityCollapsed = $state(false);
 	let loading = $state(false);
 	let pendingRemoveMemberForm = $state<HTMLFormElement | null>(null);
@@ -85,52 +139,6 @@
 	const capabilityOptions = memberAccess.capabilityOptions;
 	const governanceRoleExplanation = explainPolicyReasonCode('denied:governance-role');
 
-	const activeSectionConfig = $derived(sections.find((section) => section.id === activeSection) ?? sections[0]);
-	const activeSectionDescription = $derived(getSectionDescription(activeSection));
-	const nextPurgeDate = $derived.by(() => {
-		if (archivedPersonnelSection.rows.length === 0) return null;
-		const purgeTimes = archivedPersonnelSection.rows.map((person) =>
-			addMonths(new Date(person.archivedAt), archivedPersonnelSection.retention.months).getTime()
-		);
-		return new Date(Math.min(...purgeTimes));
-	});
-	const auditEntriesLast30Days = $derived.by(() => {
-		if (typeof dataExportSection.activity.auditLog.last30DaysCount === 'number') {
-			return dataExportSection.activity.auditLog.last30DaysCount;
-		}
-		const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
-		return dataExportSection.activity.auditLog.logs.filter((log) => new Date(log.createdAt).getTime() >= cutoff).length;
-	});
-	const summaryRows = $derived([
-		{
-			label: 'Members',
-			value: String(membersSection.rows.length),
-			detail: membersSection.memberRoleSummary,
-			target: 'members' as SectionId
-		},
-		{
-			label: 'Pending approvals',
-			value: String(membersSection.pendingApprovalSummary.count),
-			detail: membersSection.pendingApprovalSummary.oldestCreatedAt
-				? `Oldest ${formatRelativeDate(membersSection.pendingApprovalSummary.oldestCreatedAt)}`
-				: 'No pending requests',
-			target: 'members' as SectionId
-		},
-		{
-			label: 'Archived personnel',
-			value: String(archivedPersonnelSection.rows.length),
-			detail: nextPurgeDate
-				? `Next purge ${formatCompactDate(nextPurgeDate)}`
-				: archivedPersonnelSection.retention.purgeSummary,
-			target: 'archived' as SectionId
-		},
-		{
-			label: 'Audit entries',
-			value: String(auditEntriesLast30Days),
-			detail: 'Last 30 days',
-			target: 'data-export' as SectionId
-		}
-	]);
 	const tier = $derived(
 		data.effectiveTier ??
 			({
@@ -162,23 +170,6 @@
 		if (tier.isReadOnly) return 'Read-only';
 		if (tier.source === 'gift') return 'Gifted access';
 		return 'Active';
-	}
-
-	function getSectionDescription(sectionId: SectionId): string | null {
-		switch (sectionId) {
-			case 'members':
-				return 'Control who can view, update, and manage each part of the organization. Admin authority stays separate.';
-			case 'policies':
-				return 'Retention windows, warning lead times, and shared expiration thresholds.';
-			case 'archived':
-				return 'Records pending automatic deletion. Restore, export, or purge early.';
-			case 'data-export':
-				return 'Move data in and out of T2T. JSON for backups, Excel for human review.';
-			case 'danger':
-				return 'Destructive actions that cannot be undone. Owner authentication required.';
-			case 'organization':
-				return null;
-		}
 	}
 
 	function isCurrentMember(member: SettingsMemberAccessRow): boolean {
@@ -371,608 +362,621 @@
 		{#snippet meta()}
 			<Badge variant="outline">{isOwner ? 'Owner access' : 'Admin access'}</Badge>
 		{/snippet}
-		{#snippet actions()}
-			{#if activeSection === 'members' && membersSection.canInvite}
-				<Button href="#invite-member-section">
-					<UserPlus />
-					Invite Member
-				</Button>
-			{/if}
-		{/snippet}
 	</PageShell.Header>
 
-	<section class="rounded-lg border bg-border p-px" aria-label="Organization settings summary">
-		<div class="grid grid-cols-2 gap-px overflow-hidden rounded-[calc(var(--radius-lg)-1px)] md:grid-cols-4">
-			{#each summaryRows as row (row.label)}
-				<button
-					type="button"
-					aria-pressed={activeSection === row.target}
-					aria-label={`${row.label} ${row.value}. ${row.detail}. Show settings section.`}
-					class={[
-						'grid min-h-24 gap-1 bg-card p-3 text-left text-card-foreground transition-colors hover:bg-muted/50 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-ring',
-						activeSection === row.target && 'bg-muted'
-					]}
-					onclick={() => (activeSection = row.target)}
-				>
-					<span class="text-sm font-medium">{row.label}</span>
-					<strong class="text-2xl font-semibold tracking-tight">{row.value}</strong>
-					<span class="text-xs text-muted-foreground">{row.detail}</span>
-				</button>
-			{/each}
-		</div>
-	</section>
-
-	<Tabs.Root bind:value={activeSection} class="grid gap-4">
-		<div class="-mx-4 overflow-x-auto overflow-y-hidden px-4 py-0.5 md:mx-0 md:px-0">
-			<Tabs.List class="w-max min-w-full justify-start">
-				{#each sections as section (section.id)}
-					<Tabs.Trigger value={section.id} class="flex-none px-3">{section.label}</Tabs.Trigger>
-				{/each}
-			</Tabs.List>
-		</div>
-
-		{#if activeSectionDescription}
-			<section class="grid gap-1" aria-labelledby="settings-section-title">
-				<p class="text-sm text-muted-foreground">{activeSectionConfig.eyebrow}</p>
-				<h2 id="settings-section-title" class="text-xl font-semibold tracking-tight">{activeSectionConfig.label}</h2>
-				<p class="max-w-3xl text-sm text-muted-foreground">{activeSectionDescription}</p>
-			</section>
-		{/if}
-
-		<Tabs.Content value="organization" class="grid gap-4">
-			<OrganizationSettingsSection
-				organization={organizationSection}
-				{form}
-				bind:loading
-				{planBadge}
-				{planPrice}
-				{planCopy}
-				{billingStatus}
-				{personnelCount}
-				{planUsageSummary}
-			/>
-		</Tabs.Content>
-
-		<Tabs.Content value="members" class="grid gap-4">
-			<section
-				class="grid gap-4 rounded-lg border bg-card p-4 text-card-foreground"
-				aria-labelledby="roster-access-heading"
+	<!-- Tile grid -->
+	<div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+		{#each tiles as tile (tile.id)}
+			<button
+				type="button"
+				class={[
+					'group grid gap-3 rounded-md border p-4 text-left transition-colors',
+					tile.status === 'danger'
+						? 'border-destructive/20 hover:border-destructive/40 hover:bg-destructive/5'
+						: 'hover:border-foreground/20 hover:bg-muted/30',
+					openSection === tile.id && 'border-foreground/30 bg-muted/20'
+				]}
+				onclick={() => (openSection = openSection === tile.id ? null : tile.id)}
 			>
-				<div class="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
-					<div class="grid gap-1">
-						<h3 id="roster-access-heading" class="text-lg font-semibold tracking-tight">Access Management</h3>
-						<p class="text-sm text-muted-foreground">
-							Set each member's access level, then narrow it to specific groups when needed. {governanceRoleExplanation}
-						</p>
-					</div>
-					<Badge variant="outline">{membersSection.rows.length} {pluralize('Member', membersSection.rows.length)}</Badge
-					>
-				</div>
-				<Separator />
-				<div class="rounded-md border bg-muted/30 p-3 text-sm">
-					<strong>Admin authority is separate from member access.</strong>
-				</div>
-
-				<div class="grid gap-3" role="list" aria-label="Organization members">
-					{#each sortedMembers as member (member.id)}
-						{@const accessShape = memberAccess.getMemberAccessShape(member)}
-						{@const accessBadge = memberAccess.getMemberAccessBadge(member, accessShape)}
-						{@const selectedMembershipRole = memberAccess.getSelectedMembershipRole(member)}
-						{@const selectedPreset = memberAccess.getSelectedPreset(member)}
-						{@const selectedScopeKind = memberAccess.getSelectedScopeKind(member)}
-						{@const selectedScopeGroupIds = memberAccess.getSelectedScopeGroupIds(member)}
-						{@const overrides = memberAccess.overriddenCapabilityLabels(member)}
-						<div
-							class="grid gap-4 rounded-md border bg-card p-3 md:grid-cols-[auto_minmax(0,1fr)_auto]"
-							role="listitem"
+				<div class="flex items-center justify-between">
+					<div class="flex items-center gap-2">
+						<tile.icon class={['size-4', tile.status === 'danger' ? 'text-destructive' : 'text-muted-foreground']} />
+						<span class="font-mono text-[0.6875rem] font-medium uppercase tracking-[0.08em] text-muted-foreground"
+							>{tile.label}</span
 						>
-							<div
-								class="flex size-10 items-center justify-center rounded-md border bg-muted text-sm font-medium"
-								aria-hidden="true"
-							>
-								{memberAccess.getMemberInitials(member.email)}
-							</div>
-							<div class="grid gap-2">
-								<div class="grid gap-1">
-									<p class="font-medium">{member.email ?? `${member.userId.slice(0, 8)}...`}</p>
-									<p class="text-sm text-muted-foreground">{memberAccess.formatScopeSet(accessShape.scopeSet)}</p>
-								</div>
-								<div class="flex flex-wrap gap-2">
-									<Badge variant="secondary">{memberAccess.getAccessLabel(accessBadge)}</Badge>
-									{#each overrides as override (override)}
-										<Badge variant="outline">{override}</Badge>
-									{/each}
-									{#if overrides.length === 0 && member.membershipRole !== 'owner' && member.membershipRole !== 'admin'}
-										<Badge variant="outline">Preset defaults</Badge>
-									{/if}
-								</div>
-							</div>
-							<div class="flex flex-wrap items-start justify-end gap-2">
-								{#if member.membershipRole === 'owner'}
-									{#if isCurrentMember(member)}<Badge>You</Badge>{/if}
-								{:else if membersSection.canManageMemberAccess && (member.membershipRole !== 'admin' || isOwner)}
-									<Button
-										type="button"
-										variant="outline"
-										size="sm"
-										onclick={() => memberAccess.openMemberEditor(member)}
-									>
-										<Edit />
-										{isOwner ? 'Manage Role & Access' : 'Manage Access'}
-									</Button>
-									<form method="POST" action="?/removeMember" use:enhance={stepUpEnhance}>
-										<input type="hidden" name="membershipId" value={member.id} />
-										<Button
-											type="button"
-											variant="destructive"
-											size="sm"
-											onclick={(event) => {
-												pendingRemoveMemberForm = (event.currentTarget as HTMLButtonElement).closest('form');
-												pendingRemoveMemberEmail = member.email ?? 'this member';
-											}}
-										>
-											<Trash2 />
-											Remove
-										</Button>
-									</form>
-								{/if}
-							</div>
+					</div>
+					<ChevronRight
+						class={['size-3.5 text-muted-foreground/60 transition-transform', openSection === tile.id && 'rotate-90']}
+					/>
+				</div>
+				<div class="grid gap-0.5">
+					<p class={['font-heading text-xl font-bold tracking-tight', tile.status === 'danger' && 'text-destructive']}>
+						{tile.metric}
+					</p>
+					<p class="text-[0.8125rem] text-muted-foreground">{tile.detail}</p>
+				</div>
+				{#if tile.status === 'warning'}
+					<Badge variant="warning" class="w-fit">Needs attention</Badge>
+				{/if}
+			</button>
+		{/each}
+	</div>
 
-							{#if memberAccess.memberEditorId === member.id}
-								<form
-									method="POST"
-									action="?/updatePermissions"
-									class="grid gap-4 rounded-md border bg-muted/30 p-3 md:col-span-3"
-									use:enhance={() => {
-										loading = true;
-										return async ({ result, update }) => {
-											loading = false;
-											if (result.type === 'failure' && redirectToSensitiveActionStepUp(result.data)) return;
-											memberAccess.closeMemberEditor(member.id);
-											await update();
-										};
-									}}
+	<!-- Inline expanded panel -->
+	{#if openSection}
+		<div class="rounded-md border">
+			<div class="flex items-center justify-between border-b px-5 py-3">
+				<h2 class="font-heading text-lg font-semibold tracking-tight">
+					{tiles.find((t) => t.id === openSection)?.label ?? ''}
+				</h2>
+				<Button variant="ghost" size="sm" onclick={() => (openSection = null)}>
+					<X class="size-4" />
+				</Button>
+			</div>
+			<div class="p-5">
+				{#if openSection === 'organization'}
+					<OrganizationSettingsSection
+						organization={organizationSection}
+						{form}
+						bind:loading
+						{planBadge}
+						{planPrice}
+						{planCopy}
+						{billingStatus}
+						{personnelCount}
+						{planUsageSummary}
+					/>
+				{:else if openSection === 'members'}
+					<section
+						class="grid gap-4 rounded-lg border bg-card p-4 text-card-foreground"
+						aria-labelledby="roster-access-heading"
+					>
+						<div class="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+							<div class="grid gap-1">
+								<h3 id="roster-access-heading" class="text-lg font-semibold tracking-tight">Access Management</h3>
+								<p class="text-sm text-muted-foreground">
+									Set each member's access level, then narrow it to specific groups when needed. {governanceRoleExplanation}
+								</p>
+							</div>
+							<Badge variant="outline"
+								>{membersSection.rows.length} {pluralize('Member', membersSection.rows.length)}</Badge
+							>
+						</div>
+						<Separator />
+						<div class="rounded-md border bg-muted/30 p-3 text-sm">
+							<strong>Admin authority is separate from member access.</strong>
+						</div>
+
+						<div class="grid gap-3" role="list" aria-label="Organization members">
+							{#each sortedMembers as member (member.id)}
+								{@const accessShape = memberAccess.getMemberAccessShape(member)}
+								{@const accessBadge = memberAccess.getMemberAccessBadge(member, accessShape)}
+								{@const selectedMembershipRole = memberAccess.getSelectedMembershipRole(member)}
+								{@const selectedPreset = memberAccess.getSelectedPreset(member)}
+								{@const selectedScopeKind = memberAccess.getSelectedScopeKind(member)}
+								{@const selectedScopeGroupIds = memberAccess.getSelectedScopeGroupIds(member)}
+								{@const overrides = memberAccess.overriddenCapabilityLabels(member)}
+								<div
+									class="grid gap-4 rounded-md border bg-card p-3 md:grid-cols-[auto_minmax(0,1fr)_auto]"
+									role="listitem"
 								>
-									<input type="hidden" name="membershipId" value={member.id} />
-									<input type="hidden" name="membershipRole" value={selectedMembershipRole} />
-									<div class="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
-										<Field.Root>
-											<Field.Label id="membership-role-label-{member.id}">Membership Role</Field.Label>
-											{#if isOwner}
-												<Select.Root
-													type="single"
-													value={selectedMembershipRole}
-													onValueChange={(value) =>
-														memberAccess.setMemberMembershipRole(member.id, value as EditableMembershipRole)}
-												>
-													<Select.Trigger
-														aria-labelledby="membership-role-label-{member.id}"
-														class="w-full md:min-w-56"
-													>
-														{memberAccess.getGovernanceRoleLabel(selectedMembershipRole)}
-													</Select.Trigger>
-													<Select.Content>
-														{#each availableMembershipRoleOptions as option (option.value)}
-															<Select.Item value={option.value} label={option.label} />
-														{/each}
-													</Select.Content>
-												</Select.Root>
-											{:else}
-												<p class="rounded-md border bg-background px-3 py-2 text-sm">
-													{memberAccess.getGovernanceRoleLabel(selectedMembershipRole)}
-												</p>
+									<div
+										class="flex size-10 items-center justify-center rounded-md border bg-muted text-sm font-medium"
+										aria-hidden="true"
+									>
+										{memberAccess.getMemberInitials(member.email)}
+									</div>
+									<div class="grid gap-2">
+										<div class="grid gap-1">
+											<p class="font-medium">{member.email ?? `${member.userId.slice(0, 8)}...`}</p>
+											<p class="text-sm text-muted-foreground">{memberAccess.formatScopeSet(accessShape.scopeSet)}</p>
+										</div>
+										<div class="flex flex-wrap gap-2">
+											<Badge variant="secondary">{memberAccess.getAccessLabel(accessBadge)}</Badge>
+											{#each overrides as override (override)}
+												<Badge variant="outline">{override}</Badge>
+											{/each}
+											{#if overrides.length === 0 && member.membershipRole !== 'owner' && member.membershipRole !== 'admin'}
+												<Badge variant="outline">Preset defaults</Badge>
 											{/if}
-											<Field.Description
-												>{memberAccess.getGovernanceRoleHelper(selectedMembershipRole)}</Field.Description
-											>
-										</Field.Root>
-										{#if selectedMembershipRole === 'member'}
-											<Field.Root>
-												<Field.Label id="access-level-label-{member.id}">Member Preset</Field.Label>
-												<input type="hidden" name="memberPreset" value={selectedPreset} />
-												<Select.Root
-													type="single"
-													value={selectedPreset}
-													onValueChange={(value) => memberAccess.setMemberPreset(member.id, value as EditablePreset)}
-												>
-													<Select.Trigger aria-labelledby="access-level-label-{member.id}" class="w-full md:min-w-56">
-														{getPresetLabel(selectedPreset)}
-													</Select.Trigger>
-													<Select.Content>
-														{#each availablePresetOptions as option (option.value)}
-															<Select.Item value={option.value} label={option.label} />
-														{/each}
-													</Select.Content>
-												</Select.Root>
-												<Field.Description>{memberAccess.getAccessOptionHelper(selectedPreset)}</Field.Description>
-											</Field.Root>
-										{:else}
-											<input type="hidden" name="memberPreset" value={selectedPreset} />
-										{/if}
-										<div class="flex flex-wrap items-end gap-2">
-											<Button type="submit" size="sm" disabled={loading}>
-												{loading ? 'Saving...' : 'Save Member'}
-											</Button>
+										</div>
+									</div>
+									<div class="flex flex-wrap items-start justify-end gap-2">
+										{#if member.membershipRole === 'owner'}
+											{#if isCurrentMember(member)}<Badge>You</Badge>{/if}
+										{:else if membersSection.canManageMemberAccess && (member.membershipRole !== 'admin' || isOwner)}
 											<Button
 												type="button"
 												variant="outline"
 												size="sm"
-												onclick={() => memberAccess.closeMemberEditor(member.id)}
+												onclick={() => memberAccess.openMemberEditor(member)}
 											>
-												Cancel
+												<Edit />
+												{isOwner ? 'Manage Role & Access' : 'Manage Access'}
 											</Button>
-											{#if isOwner}
+											<form method="POST" action="?/removeMember" use:enhance={stepUpEnhance}>
+												<input type="hidden" name="membershipId" value={member.id} />
 												<Button
 													type="button"
-													variant="outline"
+													variant="destructive"
 													size="sm"
-													onclick={() => settingsState.dangerZone.openTransferConfirmation(member.userId)}
+													onclick={(event) => {
+														pendingRemoveMemberForm = (event.currentTarget as HTMLButtonElement).closest('form');
+														pendingRemoveMemberEmail = member.email ?? 'this member';
+													}}
 												>
-													Transfer Ownership
+													<Trash2 />
+													Remove
 												</Button>
+											</form>
+										{/if}
+									</div>
+
+									{#if memberAccess.memberEditorId === member.id}
+										<form
+											method="POST"
+											action="?/updatePermissions"
+											class="grid gap-4 rounded-md border bg-muted/30 p-3 md:col-span-3"
+											use:enhance={() => {
+												loading = true;
+												return async ({ result, update }) => {
+													loading = false;
+													if (result.type === 'failure' && redirectToSensitiveActionStepUp(result.data)) return;
+													memberAccess.closeMemberEditor(member.id);
+													await update();
+												};
+											}}
+										>
+											<input type="hidden" name="membershipId" value={member.id} />
+											<input type="hidden" name="membershipRole" value={selectedMembershipRole} />
+											<div class="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
+												<Field.Root>
+													<Field.Label id="membership-role-label-{member.id}">Membership Role</Field.Label>
+													{#if isOwner}
+														<Select.Root
+															type="single"
+															value={selectedMembershipRole}
+															onValueChange={(value) =>
+																memberAccess.setMemberMembershipRole(member.id, value as EditableMembershipRole)}
+														>
+															<Select.Trigger
+																aria-labelledby="membership-role-label-{member.id}"
+																class="w-full md:min-w-56"
+															>
+																{memberAccess.getGovernanceRoleLabel(selectedMembershipRole)}
+															</Select.Trigger>
+															<Select.Content>
+																{#each availableMembershipRoleOptions as option (option.value)}
+																	<Select.Item value={option.value} label={option.label} />
+																{/each}
+															</Select.Content>
+														</Select.Root>
+													{:else}
+														<p class="rounded-md border bg-background px-3 py-2 text-sm">
+															{memberAccess.getGovernanceRoleLabel(selectedMembershipRole)}
+														</p>
+													{/if}
+													<Field.Description
+														>{memberAccess.getGovernanceRoleHelper(selectedMembershipRole)}</Field.Description
+													>
+												</Field.Root>
+												{#if selectedMembershipRole === 'member'}
+													<Field.Root>
+														<Field.Label id="access-level-label-{member.id}">Member Preset</Field.Label>
+														<input type="hidden" name="memberPreset" value={selectedPreset} />
+														<Select.Root
+															type="single"
+															value={selectedPreset}
+															onValueChange={(value) =>
+																memberAccess.setMemberPreset(member.id, value as EditablePreset)}
+														>
+															<Select.Trigger
+																aria-labelledby="access-level-label-{member.id}"
+																class="w-full md:min-w-56"
+															>
+																{getPresetLabel(selectedPreset)}
+															</Select.Trigger>
+															<Select.Content>
+																{#each availablePresetOptions as option (option.value)}
+																	<Select.Item value={option.value} label={option.label} />
+																{/each}
+															</Select.Content>
+														</Select.Root>
+														<Field.Description>{memberAccess.getAccessOptionHelper(selectedPreset)}</Field.Description>
+													</Field.Root>
+												{:else}
+													<input type="hidden" name="memberPreset" value={selectedPreset} />
+												{/if}
+												<div class="flex flex-wrap items-end gap-2">
+													<Button type="submit" size="sm" disabled={loading}>
+														{loading ? 'Saving...' : 'Save Member'}
+													</Button>
+													<Button
+														type="button"
+														variant="outline"
+														size="sm"
+														onclick={() => memberAccess.closeMemberEditor(member.id)}
+													>
+														Cancel
+													</Button>
+													{#if isOwner}
+														<Button
+															type="button"
+															variant="outline"
+															size="sm"
+															onclick={() => settingsState.dangerZone.openTransferConfirmation(member.userId)}
+														>
+															Transfer Ownership
+														</Button>
+													{/if}
+												</div>
+											</div>
+
+											{#if selectedMembershipRole === 'member'}
+												<input type="hidden" name="scopeSetKind" value={selectedScopeKind} />
+												<div class="grid gap-4 md:grid-cols-2">
+													<section
+														class="grid gap-3 rounded-md border bg-card p-3"
+														aria-labelledby="capability-overrides-{member.id}"
+													>
+														<div class="grid gap-1">
+															<h4 id="capability-overrides-{member.id}" class="font-medium">Area-by-area access</h4>
+															<p class="text-sm text-muted-foreground">
+																Use this only when the access level is too broad or too limited for one area.
+															</p>
+														</div>
+														<div class="grid gap-3 sm:grid-cols-2">
+															{#each accessLanes as lane (lane.id)}
+																{@const capabilityValue = memberAccess.getEditorCapabilityValue(
+																	member,
+																	lane.id,
+																	selectedPreset
+																)}
+																<Field.Root>
+																	<Field.Label id="capability-{member.id}-{lane.id}">{lane.label}</Field.Label>
+																	<input type="hidden" name="capabilityOverride:{lane.id}" value={capabilityValue} />
+																	<Select.Root
+																		type="single"
+																		value={capabilityValue}
+																		onValueChange={(value) =>
+																			memberAccess.setMemberCapability(
+																				member.id,
+																				lane.id,
+																				value as typeof capabilityValue
+																			)}
+																	>
+																		<Select.Trigger aria-labelledby="capability-{member.id}-{lane.id}" class="w-full">
+																			{getCapabilityLabel(capabilityValue)}
+																		</Select.Trigger>
+																		<Select.Content>
+																			{#each capabilityOptions as option (option.value)}
+																				<Select.Item value={option.value} label={option.label} />
+																			{/each}
+																		</Select.Content>
+																	</Select.Root>
+																</Field.Root>
+															{/each}
+														</div>
+													</section>
+													<section
+														class="grid gap-3 rounded-md border bg-card p-3"
+														aria-labelledby="scope-set-{member.id}"
+													>
+														<div class="grid gap-1">
+															<h4 id="scope-set-{member.id}" class="font-medium">Group access</h4>
+															<p class="text-sm text-muted-foreground">
+																Choose whether this access applies to every group or only selected groups.
+															</p>
+														</div>
+														<RadioGroup.Root
+															value={selectedScopeKind}
+															onValueChange={(value) =>
+																memberAccess.setMemberScopeKind(member.id, value as 'organization' | 'groups')}
+															class="sm:grid-cols-2"
+														>
+															<Field.Root orientation="horizontal">
+																<RadioGroup.Item id="scope-all-{member.id}" value="organization" />
+																<Field.Label for="scope-all-{member.id}">All groups</Field.Label>
+															</Field.Root>
+															<Field.Root orientation="horizontal">
+																<RadioGroup.Item id="scope-groups-{member.id}" value="groups" />
+																<Field.Label for="scope-groups-{member.id}">Selected groups</Field.Label>
+															</Field.Root>
+														</RadioGroup.Root>
+														{#if selectedScopeKind === 'groups'}
+															<div class="grid gap-2">
+																{#each membersSection.groups as group (group.id)}
+																	{@const checked = selectedScopeGroupIds.includes(group.id)}
+																	{#if checked}<input type="hidden" name="scopeSetGroupIds" value={group.id} />{/if}
+																	<Field.Root orientation="horizontal">
+																		<Checkbox
+																			id="scope-group-{member.id}-{group.id}"
+																			{checked}
+																			onCheckedChange={(value) =>
+																				memberAccess.toggleMemberScopeGroup(member.id, group.id, value === true)}
+																		/>
+																		<Field.Label for="scope-group-{member.id}-{group.id}">{group.name}</Field.Label>
+																	</Field.Root>
+																{/each}
+															</div>
+														{/if}
+													</section>
+												</div>
+											{/if}
+										</form>
+									{/if}
+								</div>
+							{/each}
+						</div>
+
+						{#if form?.memberError}<p class="text-sm text-destructive">{form.memberError}</p>{/if}
+						{#if form?.permissionError}<p class="text-sm text-destructive">{form.permissionError}</p>{/if}
+						{#if form?.permissionSuccess}<p class="text-sm text-muted-foreground">Permissions updated.</p>{/if}
+					</section>
+
+					{#if membersSection.canInvite}
+						<section
+							id="invite-member-section"
+							class="grid gap-4 rounded-lg border bg-card p-4 text-card-foreground"
+							aria-labelledby="invite-member-heading"
+						>
+							<div class="grid gap-1">
+								<h3 id="invite-member-heading" class="text-lg font-semibold tracking-tight">Invite Member</h3>
+								<p class="text-sm text-muted-foreground">
+									Create an invite they can accept after signing in. T2T sends the invitation email.
+								</p>
+							</div>
+							<Separator />
+							<form
+								method="POST"
+								action="?/invite"
+								use:enhance={() => {
+									loading = true;
+									return async ({ result, update }) => {
+										loading = false;
+										if (result.type === 'failure' && redirectToSensitiveActionStepUp(result.data)) return;
+										await update();
+										if (!form?.inviteError) memberAccess.clearInviteEmail();
+									};
+								}}
+							>
+								{#if form?.inviteError}<p class="text-sm text-destructive">{form.inviteError}</p>{/if}
+								{#if form?.inviteSuccess}
+									<p class="text-sm text-muted-foreground">{form.inviteMessage ?? 'Invitation created.'}</p>
+								{/if}
+								<input type="hidden" name="membershipRole" value={memberAccess.inviteMembershipRole} />
+								<div class="grid gap-4 md:grid-cols-[minmax(0,1fr)_12rem_14rem_auto]">
+									<div class="grid gap-2">
+										<Label for="invite-email">Email address</Label>
+										<Input
+											id="invite-email"
+											name="email"
+											type="email"
+											placeholder="colleague@example.com"
+											bind:value={memberAccess.inviteEmail}
+											required
+										/>
+									</div>
+									{#if isOwner}
+										<Field.Root>
+											<Field.Label id="invite-membership-role-label">Membership Role</Field.Label>
+											<Select.Root
+												type="single"
+												value={memberAccess.inviteMembershipRole}
+												onValueChange={(value) => memberAccess.setInviteMembershipRole(value as EditableMembershipRole)}
+											>
+												<Select.Trigger aria-labelledby="invite-membership-role-label" class="w-full">
+													{memberAccess.getGovernanceRoleLabel(memberAccess.inviteMembershipRole)}
+												</Select.Trigger>
+												<Select.Content>
+													{#each availableMembershipRoleOptions as option (option.value)}
+														<Select.Item value={option.value} label={option.label} />
+													{/each}
+												</Select.Content>
+											</Select.Root>
+										</Field.Root>
+									{/if}
+									<Field.Root>
+										<Field.Label id="invite-access-level-label">Member Preset</Field.Label>
+										{#if memberAccess.inviteMembershipRole === 'member'}
+											<input type="hidden" name="memberPreset" value={memberAccess.invitePreset} />
+											<Select.Root type="single" bind:value={memberAccess.invitePreset}>
+												<Select.Trigger aria-label="Invite member preset" class="w-full">
+													{getPresetLabel(memberAccess.invitePreset)}
+												</Select.Trigger>
+												<Select.Content>
+													{#each availablePresetOptions as option (option.value)}
+														<Select.Item value={option.value} label={option.label} />
+													{/each}
+												</Select.Content>
+											</Select.Root>
+										{:else}
+											<p class="rounded-md border bg-background px-3 py-2 text-sm">Uses Admin authority</p>
+										{/if}
+									</Field.Root>
+									<div class="flex items-end">
+										<Button type="submit" disabled={loading}>
+											{loading ? 'Inviting...' : 'Invite'}
+										</Button>
+									</div>
+								</div>
+								{#if memberAccess.inviteMembershipRole === 'member'}
+									<div class="mt-4 grid gap-3 rounded-md border bg-muted/30 p-3">
+										<input type="hidden" name="scopeSetKind" value={memberAccess.inviteScopeKind} />
+										<RadioGroup.Root
+											value={memberAccess.inviteScopeKind}
+											onValueChange={(value) => memberAccess.setInviteScopeKind(value as 'organization' | 'groups')}
+											class="sm:grid-cols-2"
+										>
+											<Field.Root orientation="horizontal">
+												<RadioGroup.Item id="invite-scope-all" value="organization" />
+												<Field.Label for="invite-scope-all">All groups</Field.Label>
+											</Field.Root>
+											<Field.Root orientation="horizontal">
+												<RadioGroup.Item id="invite-scope-groups" value="groups" />
+												<Field.Label for="invite-scope-groups">Selected groups</Field.Label>
+											</Field.Root>
+										</RadioGroup.Root>
+										{#if memberAccess.inviteScopeKind === 'groups'}
+											<div class="grid gap-2">
+												{#each membersSection.groups as group (group.id)}
+													{@const checked = memberAccess.inviteScopeGroupIds.includes(group.id)}
+													{#if checked}<input type="hidden" name="scopeSetGroupIds" value={group.id} />{/if}
+													<Field.Root orientation="horizontal">
+														<Checkbox
+															id="invite-scope-group-{group.id}"
+															{checked}
+															onCheckedChange={(value) => memberAccess.toggleInviteScopeGroup(group.id, value === true)}
+														/>
+														<Field.Label for="invite-scope-group-{group.id}">{group.name}</Field.Label>
+													</Field.Root>
+												{/each}
+											</div>
+										{/if}
+									</div>
+								{/if}
+							</form>
+						</section>
+					{/if}
+
+					{#if membersSection.invitations.length > 0}
+						<section
+							class="grid gap-4 rounded-lg border bg-card p-4 text-card-foreground"
+							aria-labelledby="pending-invites-heading"
+						>
+							<div class="flex items-center justify-between gap-3">
+								<h3 id="pending-invites-heading" class="text-lg font-semibold tracking-tight">Pending Invitations</h3>
+								<Badge variant="outline">{membersSection.invitations.length} Pending</Badge>
+							</div>
+							<div class="grid gap-3">
+								{#each membersSection.invitations as invite (invite.id)}
+									{@const invitePermissionPreset = memberAccess.getInvitePreset(invite)}
+									<div class="flex flex-col gap-3 rounded-md border p-3 md:flex-row md:items-center md:justify-between">
+										<div>
+											<p class="font-medium">{invite.email}</p>
+											<p class="text-sm text-muted-foreground">
+												{memberAccess.getAccessLabel(invitePermissionPreset)} · Sent {formatRelativeDate(
+													invite.createdAt
+												)}
+											</p>
+											<p class="text-sm text-muted-foreground">
+												{invite.deliveryStatusLabel}
+												{#if invite.deliverySentAt}
+													{formatRelativeDate(invite.deliverySentAt)}
+												{:else if invite.deliveryUpdatedAt}
+													{formatRelativeDate(invite.deliveryUpdatedAt)}
+												{/if}
+											</p>
+										</div>
+										<div class="flex flex-wrap gap-2">
+											<form method="POST" action="?/resendInvite" use:enhance={stepUpEnhance}>
+												<input type="hidden" name="inviteId" value={invite.id} />
+												<Button type="submit" variant="outline" size="sm" disabled={!invite.canResend}>
+													<RefreshCw class="mr-2 size-4" />
+													Resend
+												</Button>
+											</form>
+											<form method="POST" action="?/revokeInvite" use:enhance={stepUpEnhance}>
+												<input type="hidden" name="inviteId" value={invite.id} />
+												<Button type="submit" variant="outline" size="sm">Revoke</Button>
+											</form>
+										</div>
+									</div>
+								{/each}
+							</div>
+						</section>
+					{/if}
+
+					{#if membersSection.invitationHistory.length > 0}
+						<section
+							class="grid gap-4 rounded-lg border bg-card p-4 text-card-foreground"
+							aria-labelledby="invitation-history-heading"
+						>
+							<div class="flex items-center justify-between gap-3">
+								<h3 id="invitation-history-heading" class="text-lg font-semibold tracking-tight">Invitation History</h3>
+								<Badge variant="secondary">{membersSection.invitationHistory.length} Closed</Badge>
+							</div>
+							<div class="grid gap-3">
+								{#each membersSection.invitationHistory as invite (invite.id)}
+									{@const invitePermissionPreset = memberAccess.getInvitePreset(invite)}
+									<div class="flex flex-col gap-2 rounded-md border p-3 md:flex-row md:items-center md:justify-between">
+										<div>
+											<p class="font-medium">{invite.email}</p>
+											<p class="text-sm text-muted-foreground">
+												{memberAccess.getAccessLabel(invitePermissionPreset)} · {invite.lifecycleStatusLabel}
+												{formatRelativeDate(invite.lifecycleAt)}
+											</p>
+											{#if invite.lifecycleDetail}
+												<p class="text-sm text-muted-foreground">{invite.lifecycleDetail}</p>
 											{/if}
 										</div>
+										<Badge variant="outline">{invite.lifecycleStatusLabel}</Badge>
 									</div>
-
-									{#if selectedMembershipRole === 'member'}
-										<input type="hidden" name="scopeSetKind" value={selectedScopeKind} />
-										<div class="grid gap-4 md:grid-cols-2">
-											<section
-												class="grid gap-3 rounded-md border bg-card p-3"
-												aria-labelledby="capability-overrides-{member.id}"
-											>
-												<div class="grid gap-1">
-													<h4 id="capability-overrides-{member.id}" class="font-medium">Area-by-area access</h4>
-													<p class="text-sm text-muted-foreground">
-														Use this only when the access level is too broad or too limited for one area.
-													</p>
-												</div>
-												<div class="grid gap-3 sm:grid-cols-2">
-													{#each accessLanes as lane (lane.id)}
-														{@const capabilityValue = memberAccess.getEditorCapabilityValue(
-															member,
-															lane.id,
-															selectedPreset
-														)}
-														<Field.Root>
-															<Field.Label id="capability-{member.id}-{lane.id}">{lane.label}</Field.Label>
-															<input type="hidden" name="capabilityOverride:{lane.id}" value={capabilityValue} />
-															<Select.Root
-																type="single"
-																value={capabilityValue}
-																onValueChange={(value) =>
-																	memberAccess.setMemberCapability(member.id, lane.id, value as typeof capabilityValue)}
-															>
-																<Select.Trigger aria-labelledby="capability-{member.id}-{lane.id}" class="w-full">
-																	{getCapabilityLabel(capabilityValue)}
-																</Select.Trigger>
-																<Select.Content>
-																	{#each capabilityOptions as option (option.value)}
-																		<Select.Item value={option.value} label={option.label} />
-																	{/each}
-																</Select.Content>
-															</Select.Root>
-														</Field.Root>
-													{/each}
-												</div>
-											</section>
-											<section class="grid gap-3 rounded-md border bg-card p-3" aria-labelledby="scope-set-{member.id}">
-												<div class="grid gap-1">
-													<h4 id="scope-set-{member.id}" class="font-medium">Group access</h4>
-													<p class="text-sm text-muted-foreground">
-														Choose whether this access applies to every group or only selected groups.
-													</p>
-												</div>
-												<RadioGroup.Root
-													value={selectedScopeKind}
-													onValueChange={(value) =>
-														memberAccess.setMemberScopeKind(member.id, value as 'organization' | 'groups')}
-													class="sm:grid-cols-2"
-												>
-													<Field.Root orientation="horizontal">
-														<RadioGroup.Item id="scope-all-{member.id}" value="organization" />
-														<Field.Label for="scope-all-{member.id}">All groups</Field.Label>
-													</Field.Root>
-													<Field.Root orientation="horizontal">
-														<RadioGroup.Item id="scope-groups-{member.id}" value="groups" />
-														<Field.Label for="scope-groups-{member.id}">Selected groups</Field.Label>
-													</Field.Root>
-												</RadioGroup.Root>
-												{#if selectedScopeKind === 'groups'}
-													<div class="grid gap-2">
-														{#each membersSection.groups as group (group.id)}
-															{@const checked = selectedScopeGroupIds.includes(group.id)}
-															{#if checked}<input type="hidden" name="scopeSetGroupIds" value={group.id} />{/if}
-															<Field.Root orientation="horizontal">
-																<Checkbox
-																	id="scope-group-{member.id}-{group.id}"
-																	{checked}
-																	onCheckedChange={(value) =>
-																		memberAccess.toggleMemberScopeGroup(member.id, group.id, value === true)}
-																/>
-																<Field.Label for="scope-group-{member.id}-{group.id}">{group.name}</Field.Label>
-															</Field.Root>
-														{/each}
-													</div>
-												{/if}
-											</section>
-										</div>
-									{/if}
-								</form>
-							{/if}
-						</div>
-					{/each}
-				</div>
-
-				{#if form?.memberError}<p class="text-sm text-destructive">{form.memberError}</p>{/if}
-				{#if form?.permissionError}<p class="text-sm text-destructive">{form.permissionError}</p>{/if}
-				{#if form?.permissionSuccess}<p class="text-sm text-muted-foreground">Permissions updated.</p>{/if}
-			</section>
-
-			{#if membersSection.canInvite}
-				<section
-					id="invite-member-section"
-					class="grid gap-4 rounded-lg border bg-card p-4 text-card-foreground"
-					aria-labelledby="invite-member-heading"
-				>
-					<div class="grid gap-1">
-						<h3 id="invite-member-heading" class="text-lg font-semibold tracking-tight">Invite Member</h3>
-						<p class="text-sm text-muted-foreground">
-							Create an invite they can accept after signing in. T2T sends the invitation email.
-						</p>
-					</div>
-					<Separator />
-					<form
-						method="POST"
-						action="?/invite"
-						use:enhance={() => {
-							loading = true;
-							return async ({ result, update }) => {
-								loading = false;
-								if (result.type === 'failure' && redirectToSensitiveActionStepUp(result.data)) return;
-								await update();
-								if (!form?.inviteError) memberAccess.clearInviteEmail();
-							};
-						}}
-					>
-						{#if form?.inviteError}<p class="text-sm text-destructive">{form.inviteError}</p>{/if}
-						{#if form?.inviteSuccess}
-							<p class="text-sm text-muted-foreground">{form.inviteMessage ?? 'Invitation created.'}</p>
-						{/if}
-						<input type="hidden" name="membershipRole" value={memberAccess.inviteMembershipRole} />
-						<div class="grid gap-4 md:grid-cols-[minmax(0,1fr)_12rem_14rem_auto]">
-							<div class="grid gap-2">
-								<Label for="invite-email">Email address</Label>
-								<Input
-									id="invite-email"
-									name="email"
-									type="email"
-									placeholder="colleague@example.com"
-									bind:value={memberAccess.inviteEmail}
-									required
-								/>
+								{/each}
 							</div>
-							{#if isOwner}
-								<Field.Root>
-									<Field.Label id="invite-membership-role-label">Membership Role</Field.Label>
-									<Select.Root
-										type="single"
-										value={memberAccess.inviteMembershipRole}
-										onValueChange={(value) => memberAccess.setInviteMembershipRole(value as EditableMembershipRole)}
-									>
-										<Select.Trigger aria-labelledby="invite-membership-role-label" class="w-full">
-											{memberAccess.getGovernanceRoleLabel(memberAccess.inviteMembershipRole)}
-										</Select.Trigger>
-										<Select.Content>
-											{#each availableMembershipRoleOptions as option (option.value)}
-												<Select.Item value={option.value} label={option.label} />
-											{/each}
-										</Select.Content>
-									</Select.Root>
-								</Field.Root>
-							{/if}
-							<Field.Root>
-								<Field.Label id="invite-access-level-label">Member Preset</Field.Label>
-								{#if memberAccess.inviteMembershipRole === 'member'}
-									<input type="hidden" name="memberPreset" value={memberAccess.invitePreset} />
-									<Select.Root type="single" bind:value={memberAccess.invitePreset}>
-										<Select.Trigger aria-label="Invite member preset" class="w-full">
-											{getPresetLabel(memberAccess.invitePreset)}
-										</Select.Trigger>
-										<Select.Content>
-											{#each availablePresetOptions as option (option.value)}
-												<Select.Item value={option.value} label={option.label} />
-											{/each}
-										</Select.Content>
-									</Select.Root>
-								{:else}
-									<p class="rounded-md border bg-background px-3 py-2 text-sm">Uses Admin authority</p>
-								{/if}
-							</Field.Root>
-							<div class="flex items-end">
-								<Button type="submit" disabled={loading}>
-									{loading ? 'Inviting...' : 'Invite'}
-								</Button>
-							</div>
-						</div>
-						{#if memberAccess.inviteMembershipRole === 'member'}
-							<div class="mt-4 grid gap-3 rounded-md border bg-muted/30 p-3">
-								<input type="hidden" name="scopeSetKind" value={memberAccess.inviteScopeKind} />
-								<RadioGroup.Root
-									value={memberAccess.inviteScopeKind}
-									onValueChange={(value) => memberAccess.setInviteScopeKind(value as 'organization' | 'groups')}
-									class="sm:grid-cols-2"
-								>
-									<Field.Root orientation="horizontal">
-										<RadioGroup.Item id="invite-scope-all" value="organization" />
-										<Field.Label for="invite-scope-all">All groups</Field.Label>
-									</Field.Root>
-									<Field.Root orientation="horizontal">
-										<RadioGroup.Item id="invite-scope-groups" value="groups" />
-										<Field.Label for="invite-scope-groups">Selected groups</Field.Label>
-									</Field.Root>
-								</RadioGroup.Root>
-								{#if memberAccess.inviteScopeKind === 'groups'}
-									<div class="grid gap-2">
-										{#each membersSection.groups as group (group.id)}
-											{@const checked = memberAccess.inviteScopeGroupIds.includes(group.id)}
-											{#if checked}<input type="hidden" name="scopeSetGroupIds" value={group.id} />{/if}
-											<Field.Root orientation="horizontal">
-												<Checkbox
-													id="invite-scope-group-{group.id}"
-													{checked}
-													onCheckedChange={(value) => memberAccess.toggleInviteScopeGroup(group.id, value === true)}
-												/>
-												<Field.Label for="invite-scope-group-{group.id}">{group.name}</Field.Label>
-											</Field.Root>
-										{/each}
-									</div>
-								{/if}
-							</div>
-						{/if}
-					</form>
-				</section>
-			{/if}
-
-			{#if membersSection.invitations.length > 0}
-				<section
-					class="grid gap-4 rounded-lg border bg-card p-4 text-card-foreground"
-					aria-labelledby="pending-invites-heading"
-				>
-					<div class="flex items-center justify-between gap-3">
-						<h3 id="pending-invites-heading" class="text-lg font-semibold tracking-tight">Pending Invitations</h3>
-						<Badge variant="outline">{membersSection.invitations.length} Pending</Badge>
+						</section>
+					{/if}
+				{:else if openSection === 'policies'}
+					<PoliciesSettingsSection
+						bind:retentionMonths={settingsState.policies.retentionMonths}
+						bind:warningWindowDays={settingsState.policies.warningWindowDays}
+						bind:criticalTasksDefaultExpirationMonths={settingsState.policies.criticalTasksDefaultExpirationMonths}
+						bind:criticalTasksExpiringSoonWarningDays={settingsState.policies.criticalTasksExpiringSoonWarningDays}
+						hasRetentionChanges={settingsState.policies.hasRetentionChanges}
+						isRetentionValid={settingsState.policies.isRetentionValid}
+						hasLossWarningChanges={settingsState.policies.hasLossWarningChanges}
+						isLossWarningValid={settingsState.policies.isLossWarningValid}
+						hasCriticalTasksChanges={settingsState.policies.hasCriticalTasksChanges}
+						isCriticalTasksValid={settingsState.policies.isCriticalTasksValid}
+						savingRetention={settingsState.policies.savingRetention}
+						savingWarningWindow={settingsState.policies.savingWarningWindow}
+						savingCriticalTasks={settingsState.policies.savingCriticalTasks}
+						onSaveRetention={handleRetentionSave}
+						onSaveLossWarning={handleLossWarningSave}
+						onSaveCriticalTasks={handleCriticalTasksSave}
+					/>
+				{:else if openSection === 'archived'}
+					<ArchivedPersonnelSettingsSection
+						section={archivedPersonnelSection}
+						{restoring}
+						{exportingPerson}
+						onRestore={handleRestore}
+						onExport={handlePersonnelExport}
+						onConfirmPermanentDelete={(person) =>
+							settingsState.archivedPersonnel.openPermanentDeleteConfirmation(person)}
+					/>
+				{:else if openSection === 'data-export'}
+					<div class="grid gap-4">
+						<DataExportSettingsSection
+							orgId={data.orgId}
+							section={dataExportSection}
+							exportError={settingsState.dataExport.exportError}
+							exportSuccess={settingsState.dataExport.exportSuccess}
+							exportingOrgJson={settingsState.dataExport.exportingOrgJson}
+							exportingOrgExcel={settingsState.dataExport.exportingOrgExcel}
+							onExportOrganization={handleOrganizationExport}
+						/>
+						<SettingsActivityRail
+							orgId={data.orgId}
+							activity={dataExportSection.activity}
+							bind:collapsed={activityCollapsed}
+						/>
 					</div>
-					<div class="grid gap-3">
-						{#each membersSection.invitations as invite (invite.id)}
-							{@const invitePermissionPreset = memberAccess.getInvitePreset(invite)}
-							<div class="flex flex-col gap-3 rounded-md border p-3 md:flex-row md:items-center md:justify-between">
-								<div>
-									<p class="font-medium">{invite.email}</p>
-									<p class="text-sm text-muted-foreground">
-										{memberAccess.getAccessLabel(invitePermissionPreset)} · Sent {formatRelativeDate(invite.createdAt)}
-									</p>
-									<p class="text-sm text-muted-foreground">
-										{invite.deliveryStatusLabel}
-										{#if invite.deliverySentAt}
-											{formatRelativeDate(invite.deliverySentAt)}
-										{:else if invite.deliveryUpdatedAt}
-											{formatRelativeDate(invite.deliveryUpdatedAt)}
-										{/if}
-									</p>
-								</div>
-								<div class="flex flex-wrap gap-2">
-									<form method="POST" action="?/resendInvite" use:enhance={stepUpEnhance}>
-										<input type="hidden" name="inviteId" value={invite.id} />
-										<Button type="submit" variant="outline" size="sm" disabled={!invite.canResend}>
-											<RefreshCw class="mr-2 size-4" />
-											Resend
-										</Button>
-									</form>
-									<form method="POST" action="?/revokeInvite" use:enhance={stepUpEnhance}>
-										<input type="hidden" name="inviteId" value={invite.id} />
-										<Button type="submit" variant="outline" size="sm">Revoke</Button>
-									</form>
-								</div>
-							</div>
-						{/each}
-					</div>
-				</section>
-			{/if}
-
-			{#if membersSection.invitationHistory.length > 0}
-				<section
-					class="grid gap-4 rounded-lg border bg-card p-4 text-card-foreground"
-					aria-labelledby="invitation-history-heading"
-				>
-					<div class="flex items-center justify-between gap-3">
-						<h3 id="invitation-history-heading" class="text-lg font-semibold tracking-tight">Invitation History</h3>
-						<Badge variant="secondary">{membersSection.invitationHistory.length} Closed</Badge>
-					</div>
-					<div class="grid gap-3">
-						{#each membersSection.invitationHistory as invite (invite.id)}
-							{@const invitePermissionPreset = memberAccess.getInvitePreset(invite)}
-							<div class="flex flex-col gap-2 rounded-md border p-3 md:flex-row md:items-center md:justify-between">
-								<div>
-									<p class="font-medium">{invite.email}</p>
-									<p class="text-sm text-muted-foreground">
-										{memberAccess.getAccessLabel(invitePermissionPreset)} · {invite.lifecycleStatusLabel}
-										{formatRelativeDate(invite.lifecycleAt)}
-									</p>
-									{#if invite.lifecycleDetail}
-										<p class="text-sm text-muted-foreground">{invite.lifecycleDetail}</p>
-									{/if}
-								</div>
-								<Badge variant="outline">{invite.lifecycleStatusLabel}</Badge>
-							</div>
-						{/each}
-					</div>
-				</section>
-			{/if}
-		</Tabs.Content>
-
-		<Tabs.Content value="policies" class="grid gap-4">
-			<PoliciesSettingsSection
-				bind:retentionMonths={settingsState.policies.retentionMonths}
-				bind:warningWindowDays={settingsState.policies.warningWindowDays}
-				bind:criticalTasksDefaultExpirationMonths={settingsState.policies.criticalTasksDefaultExpirationMonths}
-				bind:criticalTasksExpiringSoonWarningDays={settingsState.policies.criticalTasksExpiringSoonWarningDays}
-				hasRetentionChanges={settingsState.policies.hasRetentionChanges}
-				isRetentionValid={settingsState.policies.isRetentionValid}
-				hasLossWarningChanges={settingsState.policies.hasLossWarningChanges}
-				isLossWarningValid={settingsState.policies.isLossWarningValid}
-				hasCriticalTasksChanges={settingsState.policies.hasCriticalTasksChanges}
-				isCriticalTasksValid={settingsState.policies.isCriticalTasksValid}
-				savingRetention={settingsState.policies.savingRetention}
-				savingWarningWindow={settingsState.policies.savingWarningWindow}
-				savingCriticalTasks={settingsState.policies.savingCriticalTasks}
-				onSaveRetention={handleRetentionSave}
-				onSaveLossWarning={handleLossWarningSave}
-				onSaveCriticalTasks={handleCriticalTasksSave}
-			/>
-		</Tabs.Content>
-
-		<Tabs.Content value="archived" class="grid gap-4">
-			<ArchivedPersonnelSettingsSection
-				section={archivedPersonnelSection}
-				{restoring}
-				{exportingPerson}
-				onRestore={handleRestore}
-				onExport={handlePersonnelExport}
-				onConfirmPermanentDelete={(person) => settingsState.archivedPersonnel.openPermanentDeleteConfirmation(person)}
-			/>
-		</Tabs.Content>
-
-		<Tabs.Content value="data-export" class="grid gap-4">
-			<DataExportSettingsSection
-				orgId={data.orgId}
-				section={dataExportSection}
-				exportError={settingsState.dataExport.exportError}
-				exportSuccess={settingsState.dataExport.exportSuccess}
-				exportingOrgJson={settingsState.dataExport.exportingOrgJson}
-				exportingOrgExcel={settingsState.dataExport.exportingOrgExcel}
-				onExportOrganization={handleOrganizationExport}
-			/>
-			<SettingsActivityRail
-				orgId={data.orgId}
-				activity={dataExportSection.activity}
-				bind:collapsed={activityCollapsed}
-			/>
-		</Tabs.Content>
-
-		<Tabs.Content value="danger" class="grid gap-4">
-			{#if isOwner}
-				<DangerZoneSettingsSection
-					orgName={organizationSection.name}
-					{form}
-					section={dangerZoneSection}
-					bind:transferTargetId={settingsState.dangerZone.transferTargetId}
-					onTransferConfirm={() => settingsState.dangerZone.openTransferConfirmation()}
-					onDeleteConfirm={() => settingsState.dangerZone.openDeleteConfirmation()}
-				/>
-			{/if}
-		</Tabs.Content>
-	</Tabs.Root>
+				{:else if openSection === 'danger'}
+					{#if isOwner}
+						<DangerZoneSettingsSection
+							orgName={organizationSection.name}
+							{form}
+							section={dangerZoneSection}
+							bind:transferTargetId={settingsState.dangerZone.transferTargetId}
+							onTransferConfirm={() => settingsState.dangerZone.openTransferConfirmation()}
+							onDeleteConfirm={() => settingsState.dangerZone.openDeleteConfirmation()}
+						/>
+					{/if}
+				{/if}
+			</div>
+		</div>
+	{/if}
 </PageShell.Root>
 
 {#if settingsState.dangerZone.showDeleteConfirm}

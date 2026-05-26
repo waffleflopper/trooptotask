@@ -349,7 +349,7 @@ function workspaceFor(data: SettingsPageTestData) {
 }
 
 describe('org settings page', () => {
-	it('renders the shadcn settings shell with summary metrics and shared tabs', () => {
+	it('renders the tile grid with section tiles and page header', async () => {
 		render(Page, {
 			props: {
 				data: workspaceFor(baseData) as never,
@@ -358,19 +358,20 @@ describe('org settings page', () => {
 		});
 
 		expect(screen.getByRole('heading', { name: 'Organization Settings' })).toBeTruthy();
-		expect(screen.getByRole('region', { name: 'Organization settings summary' })).toBeTruthy();
-		expect(screen.getByRole('button', { name: /Members 4/ })).toBeTruthy();
-		expect(screen.getByRole('button', { name: /Pending approvals 1/ })).toBeTruthy();
-		expect(screen.getByRole('tab', { name: 'Organization' })).toBeTruthy();
-		expect(screen.getByRole('tab', { name: 'Members' })).toBeTruthy();
-		expect(screen.getByRole('tab', { name: 'Policies' })).toBeTruthy();
-		expect(screen.getByRole('tab', { name: 'Archived Personnel' })).toBeTruthy();
-		expect(screen.getByRole('tab', { name: 'Data & Export' })).toBeTruthy();
-		expect(screen.getByRole('tab', { name: 'Danger Zone' })).toBeTruthy();
-		expect(screen.getByRole('link', { name: 'Sign Out' }).getAttribute('href')).toBe('/auth/logout');
-		expect(screen.getByRole('link', { name: 'Switch Organization' }).getAttribute('href')).toBe('/dashboard?show=all');
+		expect(screen.getByText('General')).toBeTruthy();
+		expect(screen.getByText('Members')).toBeTruthy();
+		expect(screen.getByText('Policies')).toBeTruthy();
+		expect(screen.getByText('Archived')).toBeTruthy();
+		expect(screen.getByText('Data Export')).toBeTruthy();
+		expect(screen.getByText('Danger Zone')).toBeTruthy();
+		expect(screen.getByText('Test Org')).toBeTruthy();
+		expect(screen.getByText('4')).toBeTruthy();
+
+		await fireEvent.click(screen.getByText('General'));
 		expect(screen.getByRole('heading', { name: 'Organization Profile' })).toBeTruthy();
 		expect(screen.getByText('Displayed across briefs, exports, and printed rosters.')).toBeTruthy();
+		expect(screen.getByRole('link', { name: 'Sign Out' }).getAttribute('href')).toBe('/auth/logout');
+		expect(screen.getByRole('link', { name: 'Switch Organization' }).getAttribute('href')).toBe('/dashboard?show=all');
 	});
 
 	it('renders member access management and supports the preset editor behavior', async () => {
@@ -403,7 +404,7 @@ describe('org settings page', () => {
 			}
 		});
 
-		await fireEvent.click(screen.getByRole('tab', { name: 'Members' }));
+		await fireEvent.click(screen.getByText('Members'));
 
 		expect(screen.getByRole('heading', { name: 'Access Management' })).toBeTruthy();
 		expect(screen.getByText('Admin authority is separate from member access.')).toBeTruthy();
@@ -495,7 +496,7 @@ describe('org settings page', () => {
 			}
 		});
 
-		await fireEvent.click(screen.getByRole('tab', { name: 'Members' }));
+		await fireEvent.click(screen.getByText('Members'));
 
 		expect(screen.getByRole('heading', { name: 'Pending Invitations' })).toBeTruthy();
 		expect(screen.getByText('pending@example.com')).toBeTruthy();
@@ -518,7 +519,7 @@ describe('org settings page', () => {
 			}
 		});
 
-		await fireEvent.click(screen.getByRole('tab', { name: 'Policies' }));
+		await fireEvent.click(screen.getByText('Policies'));
 
 		expect(screen.getByRole('heading', { name: 'Policies' })).toBeTruthy();
 		expect(screen.getByRole('heading', { name: 'Archive Retention' })).toBeTruthy();
@@ -556,7 +557,7 @@ describe('org settings page', () => {
 			}
 		});
 
-		await fireEvent.click(screen.getByRole('tab', { name: 'Archived Personnel' }));
+		await fireEvent.click(screen.getByText('Archived'));
 
 		const archivedTable = screen.getByRole('region', { name: 'Archived personnel records' });
 		expect(within(archivedTable).getByText('PV2 Abbott, Henry')).toBeTruthy();
@@ -602,7 +603,7 @@ describe('org settings page', () => {
 			}
 		});
 
-		await fireEvent.click(screen.getByRole('tab', { name: 'Archived Personnel' }));
+		await fireEvent.click(screen.getByText('Archived'));
 
 		const archivedTable = screen.getByRole('region', { name: 'Archived personnel records' });
 		expect(within(archivedTable).getByRole('button', { name: 'Restore' }).hasAttribute('disabled')).toBe(true);
@@ -618,9 +619,9 @@ describe('org settings page', () => {
 			}
 		});
 
-		await fireEvent.click(screen.getByRole('tab', { name: 'Data & Export' }));
+		await fireEvent.click(screen.getByText('Data Export'));
 
-		expect(screen.getByRole('heading', { name: 'Data & Export' })).toBeTruthy();
+		expect(screen.getByRole('heading', { name: 'Data Export' })).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Export JSON' })).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Export Excel' })).toBeTruthy();
 		expect(screen.getByRole('link', { name: 'View Audit Log' }).getAttribute('href')).toBe('/org/org-1/settings');
@@ -639,7 +640,7 @@ describe('org settings page', () => {
 			}
 		});
 
-		await fireEvent.click(screen.getByRole('tab', { name: 'Danger Zone' }));
+		await fireEvent.click(screen.getByText('Danger Zone'));
 
 		expect(screen.getByRole('heading', { name: 'Destructive Actions' })).toBeTruthy();
 		expect(screen.getByText('Hand the Owner role to another member. You will become Admin.')).toBeTruthy();
@@ -676,7 +677,7 @@ describe('org settings page', () => {
 		expect(screen.queryByRole('dialog', { name: 'Delete Organization' })).toBeNull();
 	});
 
-	it('shows billing access when billing is enabled', () => {
+	it('shows billing access when billing is enabled', async () => {
 		billingEnabledMock.mockReturnValue(true);
 
 		render(Page, {
@@ -686,12 +687,14 @@ describe('org settings page', () => {
 			}
 		});
 
+		await fireEvent.click(screen.getByText('General'));
+
 		expect(screen.getByRole('link', { name: 'Manage Billing' }).getAttribute('href')).toBe('/org/org-1/billing');
 		expect(screen.getByText('Unit tier · $12/mo')).toBeTruthy();
 		expect(screen.getAllByText('4 / 500').length).toBeGreaterThanOrEqual(1);
 	});
 
-	it('renders plan usage and remediation in organization settings', () => {
+	it('renders plan usage and remediation in organization settings', async () => {
 		render(Page, {
 			props: {
 				data: workspaceFor({
@@ -725,6 +728,8 @@ describe('org settings page', () => {
 				form: null as never
 			}
 		});
+
+		await fireEvent.click(screen.getByText('General'));
 
 		expect(screen.getByRole('heading', { name: 'Plan Usage & Limits' })).toBeTruthy();
 		expect(screen.getByText('501 / 500')).toBeTruthy();

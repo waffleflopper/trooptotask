@@ -180,6 +180,20 @@ export const POLICY_ACTION_CATALOG = {
 			lane: 'calendar',
 			accessMode: 'write',
 			requiredCapability: 'configure'
+		}),
+		manageDutyRosters: featureAction({
+			id: 'calendar.manageDutyRosters',
+			label: 'Manage duty rosters',
+			lane: 'calendar',
+			accessMode: 'write',
+			requiredCapability: 'operate'
+		}),
+		configureDutyTemplates: featureAction({
+			id: 'calendar.configureDutyTemplates',
+			label: 'Configure duty templates',
+			lane: 'calendar',
+			accessMode: 'write',
+			requiredCapability: 'configure'
 		})
 	},
 	personnel: {
@@ -385,6 +399,11 @@ export const POLICY_ACTION_CATALOG = {
 			label: 'Access organization billing',
 			access: 'owner-only'
 		}),
+		manageBilling: governanceAction({
+			id: 'organization.manageBilling',
+			label: 'Manage organization billing',
+			access: 'owner-only'
+		}),
 		rename: governanceAction({
 			id: 'organization.rename',
 			label: 'Rename organization',
@@ -434,9 +453,24 @@ export const POLICY_ACTION_CATALOG = {
 			id: 'organization.reviewDeletionRequests',
 			label: 'Review deletion requests',
 			access: 'admin-or-owner'
+		}),
+		exportData: governanceAction({
+			id: 'organization.exportData',
+			label: 'Export organization data',
+			access: 'admin-or-owner'
 		})
 	},
 	identity: {
+		viewDashboard: identityAction({
+			id: 'identity.viewDashboard',
+			label: 'View dashboard',
+			accessMode: 'read'
+		}),
+		updateOwnPreferences: identityAction({
+			id: 'identity.updateOwnPreferences',
+			label: 'Update own preferences',
+			accessMode: 'write'
+		}),
 		readOwnNotifications: identityAction({
 			id: 'identity.readOwnNotifications',
 			label: 'Read own notifications',

@@ -43,6 +43,7 @@ import { resolveOrganizationRouteIdentity } from '$lib/server/core/useCases/orga
 import type { UseCaseContext, AuthContext } from '$lib/server/core/ports';
 import type {
 	FeatureLanePolicyAction,
+	IdentityOwnedPolicyAction,
 	OrganizationGovernancePolicyAction,
 	PolicyResource
 } from '$lib/access/policyEvaluator';
@@ -327,7 +328,7 @@ export interface RouteConfig<TInput = void, TOutput = unknown> {
 	permission: LegacyRoutePermission;
 	mutation?: boolean;
 	allowReadOnlyMutation?: boolean;
-	policyAction?: FeatureLanePolicyAction | OrganizationGovernancePolicyAction;
+	policyAction?: FeatureLanePolicyAction | OrganizationGovernancePolicyAction | IdentityOwnedPolicyAction;
 	policyResource?: PolicyResource;
 	deferPolicyToUseCase?: boolean;
 	input?: z.ZodType<TInput>;
@@ -389,7 +390,7 @@ export async function handleUseCaseRequest<TInput, TOutput>(
 
 interface LoadConfig<T> {
 	permission: LegacyRoutePermission;
-	policyAction?: FeatureLanePolicyAction | OrganizationGovernancePolicyAction;
+	policyAction?: FeatureLanePolicyAction | OrganizationGovernancePolicyAction | IdentityOwnedPolicyAction;
 	policyResource?: PolicyResource;
 	fn: (ctx: UseCaseContext) => Promise<T>;
 	defer?: boolean;

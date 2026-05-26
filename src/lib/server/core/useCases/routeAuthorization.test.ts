@@ -188,4 +188,84 @@ describe('route authorization', () => {
 			policyResource: { kind: 'organization' }
 		});
 	});
+
+	it('defaults identity-owned route policy resources to the authenticated actor', async () => {
+		const ctx = createTestContext({
+			auth: {
+				userId: 'user-alpha',
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: NO_CAPABILITIES,
+				scopeSet: { kind: 'groups', groupIds: ['group-alpha'] }
+			}
+		});
+
+		await enforceRouteAuthorization(ctx, {
+			permission: 'none',
+			policyAction: POLICY_ACTION_CATALOG.identity.updateOwnPreferences
+		});
+	});
+
+	it('uses identity-owned denial reasons when a route has no authenticated actor', async () => {
+		const ctx = createTestContext({
+			auth: {
+				userId: null,
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: NO_CAPABILITIES,
+				scopeSet: { kind: 'organization' }
+			}
+		});
+
+		await expect(
+			enforceLoadAuthorization(ctx, {
+				permission: 'none',
+				policyAction: POLICY_ACTION_CATALOG.identity.viewDashboard
+			})
+		).rejects.toMatchObject({ status: 403, message: 'Unauthorized' });
+
+		expect(ctx.auditPort.events).toEqual([
+			expect.objectContaining({
+				action: 'policy.denied',
+				resourceType: 'identity.viewDashboard',
+				details: expect.objectContaining({
+					policyAction: 'identity.viewDashboard',
+					reasonCode: 'denied:unauthenticated',
+					resource: { kind: 'user', userId: '' }
+				})
+			})
+		]);
+	});
+
+	it('denies identity-owned route policies when an explicit resource points at another user', async () => {
+		const ctx = createTestContext({
+			auth: {
+				userId: 'user-alpha',
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: NO_CAPABILITIES,
+				scopeSet: { kind: 'organization' }
+			}
+		});
+
+		await expect(
+			enforceRouteAuthorization(ctx, {
+				permission: 'none',
+				policyAction: POLICY_ACTION_CATALOG.identity.updateOwnPreferences,
+				policyResource: { kind: 'user', userId: 'user-bravo' }
+			})
+		).rejects.toMatchObject({ status: 403, message: 'You can only manage your own resources' });
+
+		expect(ctx.auditPort.events).toEqual([
+			expect.objectContaining({
+				action: 'policy.denied',
+				resourceType: 'identity.updateOwnPreferences',
+				details: expect.objectContaining({
+					policyAction: 'identity.updateOwnPreferences',
+					reasonCode: 'denied:not-resource-owner',
+					resource: { kind: 'user', userId: 'user-bravo' }
+				})
+			})
+		]);
+	});
 });

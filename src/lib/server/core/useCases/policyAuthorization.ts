@@ -1,22 +1,17 @@
-import type {
-	FeatureLanePolicyAction,
-	OrganizationGovernancePolicyAction,
-	PolicyDecision,
-	PolicyReasonCode,
-	PolicyResource
-} from '$lib/access/policyEvaluator';
+import type { PolicyAction, PolicyDecision, PolicyReasonCode, PolicyResource } from '$lib/access/policyEvaluator';
 import type { ScopeSet } from '$lib/access/memberAccessShape';
 import type { AuditPort, AuthContext, ReadOnlyGuard } from '$lib/server/core/ports';
 import { evaluateAuthoritativePolicyDecision } from './policyAdapter';
 import { denyPolicyDecision, policyDenialAuditDetails, type PolicyDenialAuditDetailsOptions } from './policyDenial';
 
 interface PolicyPorts {
-	auth: Pick<AuthContext, 'role' | 'capabilityMap' | 'compatibilityLanes' | 'scopeSet'>;
+	auth: Pick<AuthContext, 'role' | 'capabilityMap' | 'compatibilityLanes' | 'scopeSet'> &
+		Partial<Pick<AuthContext, 'userId'>>;
 	audit: AuditPort;
 	readOnlyGuard?: ReadOnlyGuard;
 }
 
-type ServerPolicyAction = FeatureLanePolicyAction | OrganizationGovernancePolicyAction;
+type ServerPolicyAction = PolicyAction;
 
 const routePolicyAuditDetailShape = {
 	matchedCapability: { key: 'matchedCapability', value: 'object' },

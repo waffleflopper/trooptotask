@@ -503,7 +503,146 @@ describe('policy evaluator', () => {
 				owner: { kind: 'feature-lane', lane: 'calendar' },
 				accessMode: 'write',
 				requiredCapability: 'configure'
+			},
+			manageDutyRosters: {
+				id: 'calendar.manageDutyRosters',
+				owner: { kind: 'feature-lane', lane: 'calendar' },
+				accessMode: 'write',
+				requiredCapability: 'operate'
+			},
+			configureDutyTemplates: {
+				id: 'calendar.configureDutyTemplates',
+				owner: { kind: 'feature-lane', lane: 'calendar' },
+				accessMode: 'write',
+				requiredCapability: 'configure'
 			}
+		});
+	});
+
+	it('defines new rollout workflow actions with the settled ownership semantics', () => {
+		expect(POLICY_ACTION_CATALOG.organization.manageBilling).toMatchObject({
+			id: 'organization.manageBilling',
+			accessMode: 'governance',
+			owner: { kind: 'organization-governance', access: 'owner-only' }
+		});
+		expect(POLICY_ACTION_CATALOG.organization.exportData).toMatchObject({
+			id: 'organization.exportData',
+			accessMode: 'governance',
+			owner: { kind: 'organization-governance', access: 'admin-or-owner' }
+		});
+		expect(POLICY_ACTION_CATALOG.identity.viewDashboard).toMatchObject({
+			id: 'identity.viewDashboard',
+			accessMode: 'read',
+			owner: { kind: 'identity-owned' }
+		});
+		expect(POLICY_ACTION_CATALOG.identity.updateOwnPreferences).toMatchObject({
+			id: 'identity.updateOwnPreferences',
+			accessMode: 'write',
+			owner: { kind: 'identity-owned' }
+		});
+	});
+
+	it('evaluates new Calendar duty roster actions through capability and scope decisions', () => {
+		const manageDecision = evaluatePolicyDecision({
+			decisionKind: 'server-authoritative',
+			actor: { membershipRole: 'member' },
+			action: POLICY_ACTION_CATALOG.calendar.manageDutyRosters,
+			capabilityMap: { ...baseCapabilityMap, calendar: 'operate' },
+			scopeSet: { kind: 'groups', groupIds: ['group-alpha'] },
+			resource: { kind: 'group', groupId: 'group-alpha' },
+			overlays: []
+		});
+
+		expect(manageDecision).toMatchObject({
+			allowed: true,
+			reasonCode: 'allowed:capability',
+			matchedCapability: { lane: 'calendar', actual: 'operate', required: 'operate' },
+			matchedScope: { kind: 'group', groupId: 'group-alpha' }
+		});
+
+		const configureDecision = evaluatePolicyDecision({
+			decisionKind: 'server-authoritative',
+			actor: { membershipRole: 'member' },
+			action: POLICY_ACTION_CATALOG.calendar.configureDutyTemplates,
+			capabilityMap: { ...baseCapabilityMap, calendar: 'operate' },
+			scopeSet: { kind: 'organization' },
+			resource: { kind: 'organization' },
+			overlays: []
+		});
+
+		expect(configureDecision).toMatchObject({
+			allowed: false,
+			reasonCode: 'denied:missing-capability',
+			matchedCapability: { lane: 'calendar', actual: 'operate', required: 'configure' }
+		});
+	});
+
+	it('evaluates new organization governance actions with distinct role denial reasons', () => {
+		const manageBillingDecision = evaluatePolicyDecision({
+			decisionKind: 'server-authoritative',
+			actor: { membershipRole: 'admin' },
+			action: POLICY_ACTION_CATALOG.organization.manageBilling,
+			capabilityMap: baseCapabilityMap,
+			scopeSet: { kind: 'organization' },
+			resource: { kind: 'organization' },
+			overlays: []
+		});
+
+		expect(manageBillingDecision).toMatchObject({
+			allowed: false,
+			reasonCode: 'denied:owner-only',
+			action: { owner: { kind: 'organization-governance', access: 'owner-only' } }
+		});
+
+		const exportDataDecision = evaluatePolicyDecision({
+			decisionKind: 'server-authoritative',
+			actor: { membershipRole: 'member' },
+			action: POLICY_ACTION_CATALOG.organization.exportData,
+			capabilityMap: { ...baseCapabilityMap, personnel: 'configure' },
+			scopeSet: { kind: 'organization' },
+			resource: { kind: 'organization' },
+			overlays: []
+		});
+
+		expect(exportDataDecision).toMatchObject({
+			allowed: false,
+			reasonCode: 'denied:governance-role',
+			action: { owner: { kind: 'organization-governance', access: 'admin-or-owner' } }
+		});
+		expect(exportDataDecision.matchedCapability).toBeUndefined();
+	});
+
+	it('evaluates new identity-owned actions with ownership and read-only denial reasons', () => {
+		const dashboardDecision = evaluatePolicyDecision({
+			decisionKind: 'server-authoritative',
+			actor: { membershipRole: 'member', userId: 'user-a' },
+			action: POLICY_ACTION_CATALOG.identity.viewDashboard,
+			capabilityMap: baseCapabilityMap,
+			scopeSet: { kind: 'organization' },
+			resource: { kind: 'user', userId: 'user-b' },
+			overlays: []
+		});
+
+		expect(dashboardDecision).toMatchObject({
+			allowed: false,
+			reasonCode: 'denied:not-resource-owner',
+			action: { owner: { kind: 'identity-owned' } }
+		});
+
+		const preferencesDecision = evaluatePolicyDecision({
+			decisionKind: 'server-authoritative',
+			actor: { membershipRole: 'member', userId: 'user-a' },
+			action: POLICY_ACTION_CATALOG.identity.updateOwnPreferences,
+			capabilityMap: baseCapabilityMap,
+			scopeSet: { kind: 'organization' },
+			resource: { kind: 'user', userId: 'user-a' },
+			overlays: [{ id: 'read-only-mode', kind: 'read-only-mode', label: 'Read-only mode' }]
+		});
+
+		expect(preferencesDecision).toMatchObject({
+			allowed: false,
+			reasonCode: 'denied:read-only-overlay',
+			blockingOverlay: { kind: 'read-only-mode' }
 		});
 	});
 });

@@ -1,6 +1,8 @@
 import type {
 	FeatureLanePolicyAction,
+	IdentityOwnedPolicyAction,
 	OrganizationGovernancePolicyAction,
+	PolicyAction,
 	PolicyResource
 } from '$lib/access/policyEvaluator';
 import { fail } from '$lib/server/core/errors';
@@ -8,7 +10,10 @@ import type { AuthContext, FeatureArea, ReadOnlyGuard } from '$lib/server/core/p
 import { requirePolicyDecision } from './policyAuthorization';
 
 export type LegacyRoutePermission = FeatureArea | 'manageMembers' | 'privileged' | 'owner' | 'none';
-export type RoutePolicyAction = FeatureLanePolicyAction | OrganizationGovernancePolicyAction;
+export type RoutePolicyAction =
+	| FeatureLanePolicyAction
+	| OrganizationGovernancePolicyAction
+	| IdentityOwnedPolicyAction;
 
 export interface RouteAuthorizationPorts {
 	auth: AuthContext;
@@ -40,7 +45,7 @@ export async function enforceRouteAuthorization(
 	}
 
 	if (config.policyAction) {
-		await requirePolicyDecision(ports, config.policyAction, config.policyResource ?? { kind: 'organization' });
+		await requirePolicyDecision(ports, config.policyAction, resolveRoutePolicyResource(ports.auth, config));
 		return;
 	}
 
@@ -75,10 +80,26 @@ export function enforceLoadAuthorization(
 	config: LoadAuthorizationConfig
 ): void | Promise<void> {
 	if (config.policyAction) {
-		return requirePolicyDecision(ports, config.policyAction, config.policyResource ?? { kind: 'organization' });
+		return requirePolicyDecision(ports, config.policyAction, resolveRoutePolicyResource(ports.auth, config));
 	}
 
 	enforceLegacyRoutePermission(ports.auth, config.permission);
+}
+
+function resolveRoutePolicyResource(
+	auth: Pick<AuthContext, 'userId'>,
+	config: { policyAction?: PolicyAction; policyResource?: PolicyResource }
+): PolicyResource {
+	if (config.policyResource) {
+		return config.policyResource;
+	}
+
+	if (config.policyAction?.owner.kind === 'identity-owned') {
+		// No user id means the evaluator will deny as unauthenticated before comparing resource ownership.
+		return { kind: 'user', userId: auth.userId ?? '' };
+	}
+
+	return { kind: 'organization' };
 }
 
 export function shouldRunLegacyReadOnlyGuard(config: RouteAuthorizationConfig): boolean {

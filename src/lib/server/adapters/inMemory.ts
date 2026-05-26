@@ -331,6 +331,7 @@ export function createTestAuthContext(overrides?: TestAuthContextOverrides): Aut
 		orgId: 'test-org',
 		role: 'owner',
 		isPrivileged: true,
+		canManageMembers: true,
 		capabilityMap: FULL_CAPABILITY_MAP,
 		compatibilityLanes: FULL_COMPATIBILITY_LANES,
 		scopeSet: { kind: 'organization' } satisfies ScopeSet

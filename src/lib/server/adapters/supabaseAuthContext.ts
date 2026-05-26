@@ -25,6 +25,9 @@ export function createSupabaseAuthContextAdapter(
 		get isPrivileged() {
 			return permCtx.isPrivileged;
 		},
+		get canManageMembers() {
+			return permCtx.canManageMembers;
+		},
 		get capabilityMap() {
 			return permCtx.capabilityMap;
 		},

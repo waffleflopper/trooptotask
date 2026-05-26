@@ -13,7 +13,7 @@ export type { MatchedScope } from './scopeSetAccess';
 
 export type PolicyDecisionKind = 'server-authoritative' | 'client-advisory';
 export type PolicyActionAccessMode = 'read' | 'write' | 'governance';
-export type OrganizationGovernanceAccess = 'admin-or-owner' | 'owner-only';
+export type OrganizationGovernanceAccess = 'admin-or-owner' | 'member-manager-or-admin' | 'owner-only';
 
 export type PolicyReasonCode =
 	| 'allowed:capability'
@@ -84,6 +84,7 @@ export interface PolicyOverlay {
 
 export interface PolicyActor {
 	membershipRole: MembershipRole;
+	canManageMembers?: boolean;
 	userId?: string | null;
 }
 
@@ -483,7 +484,7 @@ export const POLICY_ACTION_CATALOG = {
 		exportData: governanceAction({
 			id: 'organization.exportData',
 			label: 'Export organization data',
-			access: 'admin-or-owner'
+			access: 'member-manager-or-admin'
 		})
 	},
 	identity: {
@@ -682,7 +683,13 @@ function evaluateGovernancePolicy(
 		});
 	}
 
-	if (!GOVERNANCE_MEMBERSHIP_ROLES.has(input.actor.membershipRole)) {
+	const hasAdminGovernance = GOVERNANCE_MEMBERSHIP_ROLES.has(input.actor.membershipRole);
+	const hasMemberManagerGovernance = hasAdminGovernance || input.actor.canManageMembers === true;
+
+	if (
+		(action.owner.access === 'admin-or-owner' && !hasAdminGovernance) ||
+		(action.owner.access === 'member-manager-or-admin' && !hasMemberManagerGovernance)
+	) {
 		return buildDecision(input, {
 			allowed: false,
 			reasonCode: POLICY_REASON_CODES.deniedGovernanceRole,

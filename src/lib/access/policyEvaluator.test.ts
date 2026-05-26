@@ -546,7 +546,7 @@ describe('policy evaluator', () => {
 		expect(POLICY_ACTION_CATALOG.organization.exportData).toMatchObject({
 			id: 'organization.exportData',
 			accessMode: 'governance',
-			owner: { kind: 'organization-governance', access: 'admin-or-owner' }
+			owner: { kind: 'organization-governance', access: 'member-manager-or-admin' }
 		});
 		expect(POLICY_ACTION_CATALOG.organization.updateSettings).toMatchObject({
 			id: 'organization.updateSettings',
@@ -617,9 +617,9 @@ describe('policy evaluator', () => {
 			action: { owner: { kind: 'organization-governance', access: 'owner-only' } }
 		});
 
-		const exportDataDecision = evaluatePolicyDecision({
+		const exportDataDeniedDecision = evaluatePolicyDecision({
 			decisionKind: 'server-authoritative',
-			actor: { membershipRole: 'member' },
+			actor: { membershipRole: 'member', canManageMembers: false },
 			action: POLICY_ACTION_CATALOG.organization.exportData,
 			capabilityMap: { ...baseCapabilityMap, personnel: 'configure' },
 			scopeSet: { kind: 'organization' },
@@ -627,12 +627,29 @@ describe('policy evaluator', () => {
 			overlays: []
 		});
 
-		expect(exportDataDecision).toMatchObject({
+		expect(exportDataDeniedDecision).toMatchObject({
 			allowed: false,
 			reasonCode: 'denied:governance-role',
-			action: { owner: { kind: 'organization-governance', access: 'admin-or-owner' } }
+			action: { owner: { kind: 'organization-governance', access: 'member-manager-or-admin' } }
 		});
-		expect(exportDataDecision.matchedCapability).toBeUndefined();
+		expect(exportDataDeniedDecision.matchedCapability).toBeUndefined();
+
+		const exportDataAllowedDecision = evaluatePolicyDecision({
+			decisionKind: 'server-authoritative',
+			actor: { membershipRole: 'member', canManageMembers: true },
+			action: POLICY_ACTION_CATALOG.organization.exportData,
+			capabilityMap: { ...baseCapabilityMap, personnel: 'view' },
+			scopeSet: { kind: 'organization' },
+			resource: { kind: 'organization' },
+			overlays: []
+		});
+
+		expect(exportDataAllowedDecision).toMatchObject({
+			allowed: true,
+			reasonCode: 'allowed:governance',
+			action: { owner: { kind: 'organization-governance', access: 'member-manager-or-admin' } }
+		});
+		expect(exportDataAllowedDecision.matchedCapability).toBeUndefined();
 	});
 
 	it('evaluates new identity-owned actions with ownership and read-only denial reasons', () => {

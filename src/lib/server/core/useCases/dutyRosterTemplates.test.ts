@@ -44,6 +44,7 @@ function createAuth(overrides: Partial<AuthContext> = {}): AuthContext {
 		orgId: 'org-1',
 		role: 'member',
 		isPrivileged: false,
+		canManageMembers: false,
 		capabilityMap: {
 			calendar: 'configure',
 			personnel: 'none',

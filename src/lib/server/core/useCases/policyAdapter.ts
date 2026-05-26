@@ -10,7 +10,7 @@ import type { CapabilityMap, CompatibilityLaneMap, ScopeSet } from '$lib/access/
 import type { AuthContext, ReadOnlyGuard } from '$lib/server/core/ports';
 
 type PolicyAdapterAuth = Pick<AuthContext, 'role' | 'capabilityMap' | 'scopeSet'> &
-	Partial<Pick<AuthContext, 'userId' | 'compatibilityLanes'>>;
+	Partial<Pick<AuthContext, 'userId' | 'canManageMembers' | 'compatibilityLanes'>>;
 
 export interface PolicyAdapterPorts {
 	auth: PolicyAdapterAuth;
@@ -53,6 +53,7 @@ export async function buildAuthoritativePolicyInput(
 		decisionKind: 'server-authoritative',
 		actor: {
 			membershipRole: ports.auth.role,
+			canManageMembers: ports.auth.canManageMembers,
 			userId: options.actorUserId ?? ports.auth.userId
 		},
 		action,

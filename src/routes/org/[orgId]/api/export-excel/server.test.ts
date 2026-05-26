@@ -77,6 +77,22 @@ describe('POST /api/export-excel', () => {
 		expect(_postConfig.policyResource).toEqual({ kind: 'organization' });
 	});
 
+	it('allows delegated member managers to export organization workbooks', async () => {
+		const ctx = createTestContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				canManageMembers: true
+			}
+		});
+
+		const result = await handleUseCaseRequest(_postConfig, ctx, {
+			email: 'member-manager@example.com'
+		});
+
+		expect(result.status).toBe('ready');
+	});
+
 	it('returns structured plan denial when the monthly export limit is reached', async () => {
 		const ctx = createTestContext();
 		const now = new Date().toISOString();

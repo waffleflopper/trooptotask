@@ -54,9 +54,6 @@ function createAuth(overrides: Partial<AuthContext> = {}): AuthContext {
 		},
 		compatibilityLanes: {},
 		scopeSet: { kind: 'groups', groupIds: ['group-1'] },
-		requireGroupAccess: vi.fn(),
-		requireGroupAccessBatch: vi.fn(),
-		requireGroupAccessByRecord: vi.fn(),
 		...overrides
 	};
 }

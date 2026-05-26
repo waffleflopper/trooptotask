@@ -4,6 +4,7 @@ import {
 	createTestContext,
 	createInMemoryDataStore,
 	createTestAuthContext,
+	createTestScopeEnforcementPort,
 	createTestAuditPort,
 	createTestReadOnlyGuard
 } from './inMemory';
@@ -14,6 +15,7 @@ import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 type TestContext = {
 	store: ReturnType<typeof createInMemoryDataStore>;
 	auth: ReturnType<typeof createTestAuthContext>;
+	scope: ReturnType<typeof createTestScopeEnforcementPort>;
 	auditPort: ReturnType<typeof createTestAuditPort>;
 	readOnlyGuard: ReturnType<typeof createTestReadOnlyGuard>;
 	readOnly: boolean;
@@ -25,10 +27,11 @@ function buildTestCtx(overrides?: {
 }): TestContext {
 	const store = createInMemoryDataStore();
 	const auth = createTestAuthContext(overrides?.auth);
+	const scope = createTestScopeEnforcementPort();
 	const auditPort = createTestAuditPort();
 	const readOnly = overrides?.readOnly ?? false;
 	const readOnlyGuard = createTestReadOnlyGuard(readOnly);
-	return { store, auth, auditPort, readOnlyGuard, readOnly };
+	return { store, auth, scope, auditPort, readOnlyGuard, readOnly };
 }
 
 function toUseCaseCtx(t: TestContext): UseCaseContext {
@@ -38,9 +41,6 @@ function toUseCaseCtx(t: TestContext): UseCaseContext {
 			userId: t.auth.userId,
 			role: t.auth.role,
 			isPrivileged: t.auth.isPrivileged,
-			requireGroupAccess: t.auth.requireGroupAccess,
-			requireGroupAccessBatch: t.auth.requireGroupAccessBatch,
-			requireGroupAccessByRecord: t.auth.requireGroupAccessByRecord,
 			capabilityMap: t.auth.capabilityMap,
 			compatibilityLanes: t.auth.compatibilityLanes,
 			scopeSet: t.auth.scopeSet
@@ -52,6 +52,7 @@ function toUseCaseCtx(t: TestContext): UseCaseContext {
 		store: t.store,
 		rawStore: t.store,
 		auth: t.auth,
+		scope: t.scope,
 		audit: t.auditPort,
 		readOnlyGuard: t.readOnlyGuard
 	};

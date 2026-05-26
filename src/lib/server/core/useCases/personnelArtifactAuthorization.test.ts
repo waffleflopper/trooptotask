@@ -16,7 +16,9 @@ function configureContext() {
 				onboarding: 'view',
 				ratingScheme: 'view'
 			},
-			scopeSet: { kind: 'organization' },
+			scopeSet: { kind: 'organization' }
+		},
+		scope: {
 			requireGroupAccess: vi.fn(async () => {})
 		}
 	});
@@ -39,17 +41,16 @@ describe('personnel artifact authorization', () => {
 		]);
 
 		expect(findOneSpy.mock.calls.filter(([table]) => table === 'personnel')).toHaveLength(1);
-		expect(ctx.auth.requireGroupAccess).toHaveBeenCalledTimes(1);
+		expect(ctx.scope.requireGroupAccess).toHaveBeenCalledTimes(1);
 	});
 
 	it('keeps group-scope rejection inside the shared service-layer helper', async () => {
 		const ctx = configureContext();
-		(ctx.auth as typeof ctx.auth & { requireGroupAccess: typeof ctx.auth.requireGroupAccess }).requireGroupAccess =
-			vi.fn(async () => {
-				const error = new Error('Group access denied') as Error & { status?: number };
-				error.status = 403;
-				throw error;
-			});
+		ctx.scope.requireGroupAccess = vi.fn(async () => {
+			const error = new Error('Group access denied') as Error & { status?: number };
+			error.status = 403;
+			throw error;
+		});
 
 		await expect(listPersonnelDocuments(ctx, 'person-1', 5)).rejects.toMatchObject({ status: 403 });
 	});
@@ -65,13 +66,15 @@ describe('personnel artifact authorization', () => {
 					onboarding: 'view',
 					ratingScheme: 'view'
 				},
-				scopeSet: { kind: 'organization' },
+				scopeSet: { kind: 'organization' }
+			},
+			scope: {
 				requireGroupAccess: vi.fn(async () => {})
 			}
 		});
 		ctx.store.seed('personnel', [{ id: 'person-1', organization_id: ctx.auth.orgId, group_id: null }]);
 
 		await expect(listPersonnelDocuments(ctx, 'person-1', 5)).rejects.toMatchObject({ status: 403 });
-		expect(ctx.auth.requireGroupAccess).not.toHaveBeenCalled();
+		expect(ctx.scope.requireGroupAccess).not.toHaveBeenCalled();
 	});
 });

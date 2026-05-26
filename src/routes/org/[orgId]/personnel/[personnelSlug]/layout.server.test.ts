@@ -16,7 +16,15 @@ function makeAuth(overrides: Record<string, unknown> = {}) {
 		},
 		compatibilityLanes: {},
 		scopeSet: { kind: 'organization' },
+		...overrides
+	};
+}
+
+function makeScope(overrides: Record<string, unknown> = {}) {
+	return {
 		requireGroupAccess: vi.fn(async () => {}),
+		requireGroupAccessBatch: vi.fn(async () => {}),
+		requireGroupAccessByRecord: vi.fn(async () => {}),
 		...overrides
 	};
 }
@@ -55,6 +63,7 @@ describe('personnel detail layout server load', () => {
 				findOne: vi.fn(async () => null)
 			},
 			auth: makeAuth(),
+			scope: makeScope(),
 			audit: { log: vi.fn() },
 			readOnlyGuard: { check: vi.fn(async () => false) }
 		};
@@ -84,7 +93,7 @@ describe('personnel detail layout server load', () => {
 				policyResource: { kind: 'unscoped' }
 			})
 		);
-		expect(ctx.auth.requireGroupAccess).toHaveBeenCalledWith('person-1');
+		expect(ctx.scope.requireGroupAccess).toHaveBeenCalledWith('person-1');
 		expect(result.personnelDetailHeader.person).toMatchObject({
 			id: 'person-1',
 			rank: 'SGT',
@@ -112,6 +121,7 @@ describe('personnel detail layout server load', () => {
 					ratingScheme: 'view'
 				}
 			}),
+			scope: makeScope(),
 			audit: { log: vi.fn() },
 			readOnlyGuard: { check: vi.fn(async () => false) }
 		};
@@ -138,6 +148,7 @@ describe('personnel detail layout server load', () => {
 			auth: makeAuth({
 				scopeSet: { kind: 'groups', groupIds: ['other-group'] }
 			}),
+			scope: makeScope(),
 			audit: { log: vi.fn() },
 			readOnlyGuard: { check: vi.fn(async () => false) }
 		};
@@ -162,6 +173,7 @@ describe('personnel detail layout server load', () => {
 				findOne: vi.fn(async () => null)
 			},
 			auth: makeAuth(),
+			scope: makeScope(),
 			audit: { log: vi.fn() },
 			readOnlyGuard: { check: vi.fn(async () => false) }
 		};

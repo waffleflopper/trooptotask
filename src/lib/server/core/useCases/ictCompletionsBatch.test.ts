@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { createWritePortsContext } from '$lib/server/adapters/inMemory';
 import { importIctCompletionsBatch } from './ictCompletionsBatch';
 
@@ -311,10 +311,7 @@ describe('importIctCompletionsBatch', () => {
 		expect(stored).toEqual([]);
 	});
 
-	it('does not run legacy scoped-group checks after policy allows matched completion rows', async () => {
-		const requireGroupAccessBatch = vi.fn(async () => {
-			throw new Error('legacy scope check should not run');
-		});
+	it('imports matched completion rows after policy allows the shared group scope', async () => {
 		const ctx = buildContext({
 			auth: {
 				role: 'member',
@@ -327,8 +324,7 @@ describe('importIctCompletionsBatch', () => {
 					criticalTasks: 'operate',
 					onboarding: 'view',
 					ratingScheme: 'view'
-				},
-				requireGroupAccessBatch
+				}
 			}
 		});
 		ctx.store.seed('personnel', [
@@ -376,7 +372,6 @@ describe('importIctCompletionsBatch', () => {
 
 		expect(result.errors).toEqual([]);
 		expect(result.inserted).toHaveLength(1);
-		expect(requireGroupAccessBatch).not.toHaveBeenCalled();
 
 		const stored = await ctx.store.findMany<{ id: string }>('personnel_ict_completions', 'test-org');
 		expect(stored).toHaveLength(1);

@@ -161,7 +161,7 @@ describe('personnel follow-ups', () => {
 		).rejects.toMatchObject({ status: 403 });
 	});
 
-	it('delegates Soldier scope enforcement to the auth context', async () => {
+	it('delegates Soldier scope enforcement to the scope port', async () => {
 		const requireGroupAccess = vi.fn(async () => {
 			throw { status: 403, message: 'Group scope denied' };
 		});
@@ -175,7 +175,9 @@ describe('personnel follow-ups', () => {
 					onboarding: 'view',
 					ratingScheme: 'view'
 				},
-				scopeSet: { kind: 'groups', groupIds: ['group-1'] },
+				scopeSet: { kind: 'groups', groupIds: ['group-1'] }
+			},
+			scope: {
 				requireGroupAccess
 			}
 		});

@@ -27,7 +27,9 @@ describe('personnel notes page server load', () => {
 					ratingScheme: 'view'
 				},
 				compatibilityLanes: {},
-				scopeSet: { kind: 'organization' },
+				scopeSet: { kind: 'organization' }
+			},
+			scope: {
 				requireGroupAccess: vi.fn(async () => {})
 			},
 			audit: { log: vi.fn() },

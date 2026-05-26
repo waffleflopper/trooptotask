@@ -55,5 +55,5 @@ async function requirePersonnelArtifactAccessUncached(
 		'personnel',
 		personnelId
 	);
-	await ctx.auth.requireGroupAccess(personnelId);
+	await ctx.scope.requireGroupAccess(personnelId);
 }

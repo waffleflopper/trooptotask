@@ -32,7 +32,7 @@ async function resolvePersonnelHeader(ctx: UseCaseContext, personnelSlug: string
 		'personnel',
 		person.id
 	);
-	await ctx.auth.requireGroupAccess(person.id);
+	await ctx.scope.requireGroupAccess(person.id);
 
 	return { person };
 }

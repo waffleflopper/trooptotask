@@ -13,7 +13,10 @@ const operateAuth = {
 		ratingScheme: 'view'
 	},
 	compatibilityLanes: {},
-	scopeSet: { kind: 'organization' },
+	scopeSet: { kind: 'organization' }
+};
+
+const operateScope = {
 	requireGroupAccess: vi.fn(async () => {})
 };
 
@@ -28,6 +31,7 @@ describe('personnel detail page server load', () => {
 				findMany: vi.fn(async () => [])
 			},
 			auth: { ...operateAuth },
+			scope: { ...operateScope },
 			audit: { log: vi.fn() },
 			readOnlyGuard: { check: vi.fn(async () => false) }
 		};
@@ -95,7 +99,8 @@ describe('personnel detail page server load', () => {
 					];
 				})
 			},
-			auth: { ...operateAuth, requireGroupAccess: vi.fn(async () => {}) },
+			auth: { ...operateAuth },
+			scope: { ...operateScope },
 			audit: { log: vi.fn() },
 			readOnlyGuard: { check: vi.fn(async () => false) }
 		};
@@ -132,7 +137,8 @@ describe('personnel detail page server load', () => {
 				findOne: vi.fn(async () => ({ id: 'person-9', group_id: null })),
 				findMany: vi.fn(async () => [])
 			},
-			auth: { ...operateAuth, requireGroupAccess: vi.fn(async () => {}) },
+			auth: { ...operateAuth },
+			scope: { ...operateScope },
 			audit: { log: vi.fn() },
 			readOnlyGuard: { check: vi.fn(async () => false) }
 		};

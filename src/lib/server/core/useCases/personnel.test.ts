@@ -328,14 +328,9 @@ describe('Personnel — update', () => {
 	});
 
 	it('enforces group scope on update', async () => {
-		const groupAccessError = new Error('Group access denied');
-		(groupAccessError as unknown as Record<string, unknown>).status = 403;
 		const ctx = buildContext({
 			auth: {
-				scopeSet: { kind: 'groups', groupIds: ['group-a'] },
-				async requireGroupAccess() {
-					throw groupAccessError;
-				}
+				scopeSet: { kind: 'groups', groupIds: ['group-a'] }
 			}
 		});
 		const { update } = createPersonnelUseCases();
@@ -445,14 +440,9 @@ describe('Personnel — archive', () => {
 	});
 
 	it('enforces group scope on archive', async () => {
-		const groupAccessError = new Error('Group access denied');
-		(groupAccessError as unknown as Record<string, unknown>).status = 403;
 		const ctx = buildContext({
 			auth: {
-				scopeSet: { kind: 'groups', groupIds: ['group-a'] },
-				async requireGroupAccess() {
-					throw groupAccessError;
-				}
+				scopeSet: { kind: 'groups', groupIds: ['group-a'] }
 			}
 		});
 		const { archive } = createPersonnelUseCases();

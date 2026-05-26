@@ -27,6 +27,7 @@ import { validateUUID } from '$lib/server/validation';
 import { getRequestInfo } from '$lib/server/auditLog';
 import { createSupabaseDataStore } from './supabaseDataStore';
 import { createSupabaseAuthContextAdapter } from './supabaseAuthContext';
+import { createSupabaseScopeEnforcementAdapter } from './supabaseScopeEnforcement';
 import { createSupabaseAuditAdapter } from './supabaseAudit';
 import { createSupabaseReadOnlyGuard } from './supabaseReadOnlyGuard';
 import { createSupabaseSubscriptionAdapter } from './supabaseSubscription';
@@ -61,7 +62,7 @@ function policyScopeGroupIds(auth: AuthContext): string[] | string | null {
 	return auth.scopeSet.kind === 'groups' ? auth.scopeSet.groupIds : null;
 }
 
-async function createRequestAuthContext(config: {
+async function createRequestAuthorizationPorts(config: {
 	locals: App.Locals;
 	supabase: ReturnType<typeof getApiContext>['supabase'];
 	userId: string;
@@ -72,7 +73,13 @@ async function createRequestAuthContext(config: {
 	);
 
 	const permCtx = createPermissionContextFromMembership(membership);
-	return createSupabaseAuthContextAdapter(permCtx, config.supabase, config.userId, config.orgId);
+	const auth = createSupabaseAuthContextAdapter(permCtx, config.userId, config.orgId);
+	const scope = createSupabaseScopeEnforcementAdapter({
+		supabase: config.supabase,
+		orgId: config.orgId,
+		scopeSet: permCtx.scopeSet
+	});
+	return { auth, scope };
 }
 
 async function buildContextInternal(event: RequestEvent): Promise<BuildContextResult> {
@@ -87,7 +94,7 @@ async function buildContextInternal(event: RequestEvent): Promise<BuildContextRe
 	const readOnlyGuard = createSupabaseReadOnlyGuard(supabase, orgId);
 	const audit = createSupabaseAuditAdapter(orgId, requestInfo);
 
-	const auth = await createRequestAuthContext({
+	const { auth, scope } = await createRequestAuthorizationPorts({
 		locals: event.locals,
 		supabase,
 		userId,
@@ -110,6 +117,7 @@ async function buildContextInternal(event: RequestEvent): Promise<BuildContextRe
 			store: scopedStore,
 			advancedDutyPersistence,
 			auth,
+			scope,
 			audit,
 			readOnlyGuard,
 			subscription,
@@ -153,7 +161,7 @@ export async function buildLayoutContext(locals: App.Locals, cookies: Cookies, o
 	const readOnlyGuard = createSupabaseReadOnlyGuard(supabase, canonicalOrgId);
 	const audit = { log() {} };
 
-	const auth = await createRequestAuthContext({
+	const { auth, scope } = await createRequestAuthorizationPorts({
 		locals,
 		supabase,
 		userId,
@@ -176,6 +184,7 @@ export async function buildLayoutContext(locals: App.Locals, cookies: Cookies, o
 		store: scopedStore,
 		advancedDutyPersistence,
 		auth,
+		scope,
 		audit,
 		readOnlyGuard,
 		subscription,
@@ -211,7 +220,12 @@ export async function buildLayoutContextFromMembership(
 
 	cacheRequestMembership(locals, userId, orgId, membership);
 	const permCtx = createPermissionContextFromMembership(membership);
-	const auth = createSupabaseAuthContextAdapter(permCtx, supabase, userId, orgId);
+	const auth = createSupabaseAuthContextAdapter(permCtx, userId, orgId);
+	const scope = createSupabaseScopeEnforcementAdapter({
+		supabase,
+		orgId,
+		scopeSet: permCtx.scopeSet
+	});
 
 	const subscription = createSupabaseSubscriptionAdapter(supabase, orgId);
 	const notifications = createSupabaseNotificationAdapter();
@@ -229,6 +243,7 @@ export async function buildLayoutContextFromMembership(
 		store: scopedStore,
 		advancedDutyPersistence,
 		auth,
+		scope,
 		audit,
 		readOnlyGuard,
 		subscription,

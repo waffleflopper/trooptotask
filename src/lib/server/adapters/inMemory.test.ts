@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
 	createInMemoryDataStore,
 	createTestAuthContext,
+	createTestScopeEnforcementPort,
 	createTestAuditPort,
 	createTestReadOnlyGuard,
 	createTestContext,
@@ -408,14 +409,6 @@ describe('TestAuthContext', () => {
 		expect(auth.userId).toBe('test-user');
 	});
 
-	it('does not throw on group access calls by default', async () => {
-		const auth = createTestAuthContext();
-
-		await expect(auth.requireGroupAccess('p-1')).resolves.toBeUndefined();
-		await expect(auth.requireGroupAccessBatch(['p-1', 'p-2'])).resolves.toBeUndefined();
-		await expect(auth.requireGroupAccessByRecord('table', 'r-1', 'personnel_id')).resolves.toBeUndefined();
-	});
-
 	it('allows overriding role and properties', () => {
 		const auth = createTestAuthContext({
 			role: 'member',
@@ -427,17 +420,26 @@ describe('TestAuthContext', () => {
 		expect(auth.isPrivileged).toBe(false);
 		expect(auth.scopeSet).toEqual({ kind: 'groups', groupIds: ['group-A'] });
 	});
+});
+
+describe('TestScopeEnforcementPort', () => {
+	it('does not throw on group access calls by default', async () => {
+		const scope = createTestScopeEnforcementPort();
+
+		await expect(scope.requireGroupAccess('p-1')).resolves.toBeUndefined();
+		await expect(scope.requireGroupAccessBatch(['p-1', 'p-2'])).resolves.toBeUndefined();
+		await expect(scope.requireGroupAccessByRecord('table', 'r-1', 'personnel_id')).resolves.toBeUndefined();
+	});
 
 	it('allows overriding requireGroupAccess to throw', async () => {
-		const auth = createTestAuthContext({
-			scopeSet: { kind: 'groups', groupIds: ['group-A'] },
+		const scope = createTestScopeEnforcementPort({
 			async requireGroupAccess(personnelId: string) {
 				if (personnelId === 'p-outside') throw new Error('Access denied');
 			}
 		});
 
-		await expect(auth.requireGroupAccess('p-inside')).resolves.toBeUndefined();
-		await expect(auth.requireGroupAccess('p-outside')).rejects.toThrow('Access denied');
+		await expect(scope.requireGroupAccess('p-inside')).resolves.toBeUndefined();
+		await expect(scope.requireGroupAccess('p-outside')).rejects.toThrow('Access denied');
 	});
 });
 

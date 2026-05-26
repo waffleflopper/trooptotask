@@ -18,7 +18,7 @@ describe('/api/personnel route authorization', () => {
 		});
 		expect(_deleteConfig).toMatchObject({
 			mutation: true,
-			policyAction: POLICY_ACTION_CATALOG.personnel.archiveRecords,
+			policyAction: POLICY_ACTION_CATALOG.personnel.manageRecords,
 			policyResource: { kind: 'unscoped' }
 		});
 		expect(_patchConfig).toMatchObject({
@@ -131,6 +131,52 @@ describe('/api/personnel route authorization', () => {
 		const result = await handleUseCaseRequest(_deleteConfig, ctx, { id: '11111111-1111-4111-8111-111111111111' });
 
 		expect(result).toEqual({ success: true });
+	});
+
+	it('lets personnel managers request archive approval instead of failing route authorization', async () => {
+		const ctx = createTestContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: {
+					calendar: 'view',
+					personnel: 'operate',
+					training: 'view',
+					criticalTasks: 'view',
+					onboarding: 'view',
+					ratingScheme: 'view'
+				},
+				scopeSet: { kind: 'organization' }
+			}
+		});
+		ctx.store.seed('personnel', [
+			{
+				id: '11111111-1111-4111-8111-111111111111',
+				organization_id: ctx.auth.orgId,
+				rank: 'SGT',
+				last_name: 'Smith',
+				first_name: 'Jamie',
+				mos: '11B',
+				clinic_role: 'Team Leader',
+				group_id: null,
+				archived_at: null
+			}
+		]);
+
+		const result = await handleUseCaseRequest(_deleteConfig, ctx, { id: '11111111-1111-4111-8111-111111111111' });
+
+		expect(result).toEqual({ requiresApproval: true });
+		const stored = (await ctx.store.findOne('personnel', ctx.auth.orgId, {
+			id: '11111111-1111-4111-8111-111111111111'
+		})) as Record<string, unknown>;
+		expect(stored.archived_at).toBeNull();
+	});
+
+	it('formats single archive approval requests as accepted responses for the client approval flow', async () => {
+		const response = _deleteConfig.formatOutput?.({ requiresApproval: true });
+
+		expect(response?.status).toBe(202);
+		await expect(response?.json()).resolves.toEqual({ requiresApproval: true });
 	});
 
 	it('restores personnel through Personnel policy decisions without route-level privileged gates', async () => {

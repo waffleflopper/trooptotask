@@ -87,5 +87,42 @@ function routePolicyDenialMessage(decision: PolicyDecision, scopeSet?: ScopeSet)
 		return 'Only the organization owner can perform this action';
 	}
 
+	if (decision.reasonCode === 'denied:missing-capability') {
+		return missingCapabilityMessage(decision);
+	}
+
 	return 'You do not have permission to perform this action';
+}
+
+function missingCapabilityMessage(decision: PolicyDecision): string {
+	if (decision.action.owner.kind !== 'feature-lane' || !decision.matchedCapability) {
+		return 'You do not have permission to perform this action';
+	}
+
+	const lane = featureLaneLabel(decision.matchedCapability.lane);
+	const permission = capabilityPermissionLabel(decision.matchedCapability.required);
+	return `You don't have permission. This requires ${lane} ${permission} permissions. Talk to your organization owner or admin.`;
+}
+
+function featureLaneLabel(lane: string): string {
+	switch (lane) {
+		case 'criticalTasks':
+			return 'Critical Tasks';
+		case 'ratingScheme':
+			return 'Evals';
+		default:
+			return lane.charAt(0).toUpperCase() + lane.slice(1);
+	}
+}
+
+function capabilityPermissionLabel(required: string): string {
+	switch (required) {
+		case 'view':
+			return 'can view';
+		case 'operate':
+		case 'configure':
+			return 'can manage';
+		default:
+			return 'the required';
+	}
 }

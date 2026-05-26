@@ -48,7 +48,7 @@ describe('billing canceled page server load', () => {
 			})
 		).rejects.toMatchObject({
 			status: 403,
-			message: 'Only the organization owner can perform this action'
+			body: { message: 'Only the organization owner can perform this action' }
 		});
 	});
 

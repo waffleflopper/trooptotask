@@ -87,7 +87,7 @@ describe('settings layout server load', () => {
 			} as never)
 		).rejects.toMatchObject({
 			status: 403,
-			message: 'You do not have permission to perform this action'
+			body: { message: 'You do not have permission to perform this action' }
 		});
 	});
 });

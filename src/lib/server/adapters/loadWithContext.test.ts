@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { isHttpError } from '@sveltejs/kit';
 import { createTestContext, createInMemoryDataStore, createTestAuthContext } from './inMemory';
 import type { UseCaseContext } from '$lib/server/core/ports';
 import { loadWithContextCore } from './httpAdapter';
@@ -64,6 +65,42 @@ describe('loadWithContextCore', () => {
 
 		expect(result).toEqual({ items: [] });
 	});
+
+	it('turns denied page loads into SvelteKit 403 errors instead of unhandled errors', async () => {
+		const ctx = buildCtx({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'view',
+					training: 'none',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				},
+				scopeSet: { kind: 'organization' }
+			}
+		});
+
+		try {
+			await loadWithContextCore(ctx, {
+				policyAction: POLICY_ACTION_CATALOG.personnel.readSensitiveRecords,
+				policyResource: { kind: 'organization' },
+				fn: async () => ({ items: [] })
+			});
+			throw new Error('Expected loadWithContextCore to throw');
+		} catch (err) {
+			expect(isHttpError(err)).toBe(true);
+			expect(err).toMatchObject({
+				status: 403,
+				body: {
+					message:
+						"You don't have permission. This requires Personnel can manage permissions. Talk to your organization owner or admin."
+				}
+			});
+		}
+	});
 });
 
 describe('loadWithContextCore with defer: true', () => {
@@ -91,7 +128,19 @@ describe('loadWithContextCore with defer: true', () => {
 			defer: true
 		});
 
-		await expect(data).rejects.toMatchObject({ status: 403 });
+		try {
+			await data;
+			throw new Error('Expected deferred load to reject');
+		} catch (err) {
+			expect(isHttpError(err)).toBe(true);
+			expect(err).toMatchObject({
+				status: 403,
+				body: {
+					message:
+						"You don't have permission. This requires Training can view permissions. Talk to your organization owner or admin."
+				}
+			});
+		}
 	});
 
 	it('returns a deferred data promise that resolves to fn result', async () => {

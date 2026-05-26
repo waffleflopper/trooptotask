@@ -29,7 +29,7 @@ export const PUT = handle(_putConfig);
 
 export const _deleteConfig: RouteConfig<Record<string, unknown>, Record<string, unknown>> = {
 	mutation: true,
-	policyAction: POLICY_ACTION_CATALOG.personnel.archiveRecords,
+	policyAction: POLICY_ACTION_CATALOG.personnel.manageRecords,
 	policyResource: { kind: 'unscoped' },
 	fn: async (ctx, input) => {
 		const id = input.id;

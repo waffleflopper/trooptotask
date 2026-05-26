@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { isHttpError } from '@sveltejs/kit';
 import { z } from 'zod';
 import {
 	createTestContext,
@@ -9,7 +10,7 @@ import {
 	createTestReadOnlyGuard
 } from './inMemory';
 import type { UseCaseContext } from '$lib/server/core/ports';
-import { handleUseCaseRequest, type RouteConfig } from './httpAdapter';
+import { handleUseCaseRequest, rethrowOrWrap, type RouteConfig } from './httpAdapter';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 
 type TestContext = {
@@ -396,5 +397,23 @@ describe('handleUseCaseRequest', () => {
 			const result = await handleUseCaseRequest(config, toUseCaseCtx(t), undefined);
 			expect(result).toHaveLength(1);
 		});
+	});
+});
+
+describe('rethrowOrWrap', () => {
+	it('converts framework-agnostic status errors to SvelteKit HTTP errors', () => {
+		const denied = new Error('You do not have permission');
+		(denied as unknown as { status: number }).status = 403;
+
+		try {
+			rethrowOrWrap(denied);
+			throw new Error('Expected rethrowOrWrap to throw');
+		} catch (err) {
+			expect(isHttpError(err)).toBe(true);
+			expect(err).toMatchObject({
+				status: 403,
+				body: { message: 'You do not have permission' }
+			});
+		}
 	});
 });

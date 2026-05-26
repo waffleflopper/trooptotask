@@ -15,7 +15,7 @@ interface ArchivePersonnelBatchRouteInput {
 
 export const _postConfig: RouteConfig<ArchivePersonnelBatchRouteInput, ArchivePersonnelBatchResult> = {
 	mutation: true,
-	policyAction: POLICY_ACTION_CATALOG.personnel.archiveRecords,
+	policyAction: POLICY_ACTION_CATALOG.personnel.manageRecords,
 	policyResource: { kind: 'unscoped' },
 	parseInput: async (event: RequestEvent) => {
 		const body = (await event.request.json()) as Record<string, unknown>;

@@ -60,7 +60,8 @@ describe('GET /api/calendar-reports/status-days', () => {
 			})
 		).rejects.toMatchObject({
 			status: 403,
-			message: 'You do not have permission to perform this action'
+			message:
+				"You don't have permission. This requires Calendar can view permissions. Talk to your organization owner or admin."
 		});
 		expect(ctx.auditPort.events[0]).toMatchObject({
 			action: 'policy.denied',

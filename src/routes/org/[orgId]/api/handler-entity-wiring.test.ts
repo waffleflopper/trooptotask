@@ -435,7 +435,8 @@ describe('handle() + entity pipeline integration', () => {
 			handleUseCaseRequest(config, ctx, { date: '2026-12-25', name: 'X', type: 'federal-holiday' })
 		).rejects.toMatchObject({
 			status: 403,
-			message: 'You do not have permission to perform this action'
+			message:
+				"You don't have permission. This requires Calendar can manage permissions. Talk to your organization owner or admin."
 		});
 
 		expect(ctx.auditPort.events[0]).toMatchObject({

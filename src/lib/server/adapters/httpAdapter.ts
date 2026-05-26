@@ -13,7 +13,7 @@
  * intended for direct use in routes — they exist to satisfy the different context-building
  * needs of route handlers vs. layout servers.
  */
-import { json, error } from '@sveltejs/kit';
+import { json, error, isHttpError, isRedirect } from '@sveltejs/kit';
 import type { Cookies, RequestEvent, RequestHandler } from '@sveltejs/kit';
 import type { z } from 'zod';
 import { getApiContext } from '$lib/server/supabase';
@@ -274,11 +274,38 @@ async function resolveOrganizationIdForRequest(
 }
 
 export function rethrowOrWrap(err: unknown): never {
+	if (isHttpError(err) || isRedirect(err)) {
+		throw err;
+	}
+
 	if (err && typeof err === 'object' && 'status' in err) {
-		throw err; // Re-throw SvelteKit HttpError or use-case fail()
+		const { status } = err as { status?: unknown };
+		if (typeof status === 'number' && status >= 400 && status <= 599) {
+			const message = err instanceof Error ? err.message : 'Request failed';
+			throw error(status, message);
+		}
 	}
 	console.error('[http-adapter] Unhandled route error:', err);
 	throw error(500, 'Internal server error');
+}
+
+async function withHttpErrorBoundary<T>(operation: Promise<T>): Promise<T> {
+	try {
+		return await operation;
+	} catch (err) {
+		rethrowOrWrap(err);
+	}
+}
+
+async function withHttpStatusErrorBoundary<T>(operation: Promise<T>): Promise<T> {
+	try {
+		return await operation;
+	} catch (err) {
+		if (err && typeof err === 'object' && 'status' in err) {
+			rethrowOrWrap(err);
+		}
+		throw err;
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -370,11 +397,13 @@ export function loadWithContextCore<T>(ctx: UseCaseContext, config: LoadConfig<T
 	if (config.defer) {
 		const permissionResult = enforceLoadPermission(ctx, config as LoadConfig<unknown>);
 		return {
-			data: Promise.resolve(permissionResult).then(() => config.fn(ctx))
+			data: withHttpStatusErrorBoundary(Promise.resolve(permissionResult).then(() => config.fn(ctx)))
 		};
 	}
 
-	return Promise.resolve(enforceLoadPermission(ctx, config as LoadConfig<unknown>)).then(() => config.fn(ctx));
+	return withHttpStatusErrorBoundary(
+		Promise.resolve(enforceLoadPermission(ctx, config as LoadConfig<unknown>)).then(() => config.fn(ctx))
+	);
 }
 
 /**
@@ -404,8 +433,12 @@ export async function loadWithContext<T>(
 	orgId: string,
 	config: LoadConfig<T>
 ): Promise<T | { data: Promise<T> }> {
-	const ctx = await buildLayoutContext(locals, cookies, orgId);
-	return loadWithContextCore(ctx, config);
+	return withHttpErrorBoundary(
+		(async () => {
+			const ctx = await buildLayoutContext(locals, cookies, orgId);
+			return loadWithContextCore(ctx, config);
+		})()
+	);
 }
 
 /**

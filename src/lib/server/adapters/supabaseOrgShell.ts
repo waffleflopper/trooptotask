@@ -357,7 +357,7 @@ export function createSupabaseCalendarWorkspacePort(
 		if (defer) {
 			return loadWithContext(locals, cookies, orgId, {
 				policyAction: POLICY_ACTION_CATALOG.calendar.viewAvailability,
-				policyResource: { kind: 'organization' },
+				policyResource: { kind: 'unscoped' },
 				defer: true,
 				fn
 			});
@@ -365,7 +365,7 @@ export function createSupabaseCalendarWorkspacePort(
 
 		return loadWithContext(locals, cookies, orgId, {
 			policyAction: POLICY_ACTION_CATALOG.calendar.viewAvailability,
-			policyResource: { kind: 'organization' },
+			policyResource: { kind: 'unscoped' },
 			fn
 		});
 	}

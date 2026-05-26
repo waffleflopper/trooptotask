@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { createTestContext, createInMemoryDataStore, createTestAuthContext } from './inMemory';
 import type { UseCaseContext } from '$lib/server/core/ports';
 import { loadWithContextCore } from './httpAdapter';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 
 function buildCtx(overrides?: { auth?: Parameters<typeof createTestAuthContext>[0] }): UseCaseContext {
 	return createTestContext({ auth: overrides?.auth });
@@ -90,6 +91,37 @@ describe('loadWithContextCore', () => {
 				}
 			})
 		).rejects.toThrow('load failed');
+	});
+
+	it('supports policy-first loads without legacy permission declarations', async () => {
+		let legacyPermissionCalled = false;
+		const ctx = buildCtx({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'none',
+					training: 'view',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				},
+				scopeSet: { kind: 'organization' },
+				requireView() {
+					legacyPermissionCalled = true;
+				}
+			}
+		});
+
+		const result = await loadWithContextCore(ctx, {
+			policyAction: POLICY_ACTION_CATALOG.training.viewRecords,
+			policyResource: { kind: 'organization' },
+			fn: async () => ({ items: [] })
+		});
+
+		expect(result).toEqual({ items: [] });
+		expect(legacyPermissionCalled).toBe(false);
 	});
 });
 

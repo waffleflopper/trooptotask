@@ -3,6 +3,7 @@ import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import {
 	enforceLoadAuthorization,
+	enforceLayoutPolicy,
 	enforceRouteAuthorization,
 	enforceRouteReadOnlyOverlay,
 	shouldRunLegacyReadOnlyGuard
@@ -83,6 +84,54 @@ describe('route authorization', () => {
 		});
 	});
 
+	it('allows policy-first routes without legacy permission declarations', async () => {
+		const ctx = createTestContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: { ...NO_CAPABILITIES, criticalTasks: 'operate' },
+				scopeSet: { kind: 'organization' },
+				requireView() {
+					throw new Error('legacy permission should not run');
+				}
+			}
+		});
+
+		await enforceRouteAuthorization(ctx, {
+			mutation: true,
+			policyAction: POLICY_ACTION_CATALOG.criticalTasks.recordCompletion,
+			policyResource: { kind: 'organization' }
+		});
+	});
+
+	it('evaluates policy actions before migration-only deferral compatibility', async () => {
+		const ctx = createTestContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: { ...NO_CAPABILITIES, criticalTasks: 'view' },
+				scopeSet: { kind: 'organization' }
+			}
+		});
+
+		await expect(
+			enforceRouteAuthorization(ctx, {
+				permission: 'critical-tasks',
+				mutation: true,
+				policyAction: POLICY_ACTION_CATALOG.criticalTasks.recordCompletion,
+				policyResource: { kind: 'organization' },
+				deferPolicyToUseCase: false
+			})
+		).rejects.toMatchObject({ status: 403 });
+
+		expect(ctx.auditPort.events).toEqual([
+			expect.objectContaining({
+				action: 'policy.denied',
+				resourceType: 'criticalTasks.recordCompletion'
+			})
+		]);
+	});
+
 	it('uses Policy Decision denial audit for route-level failures', async () => {
 		const ctx = createTestContext({
 			auth: {
@@ -137,6 +186,31 @@ describe('route authorization', () => {
 		).toBe(false);
 	});
 
+	it('keeps policy-first writes out of the legacy read-only guard branch', async () => {
+		const ctx = createTestContext({
+			readOnly: true,
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: { ...NO_CAPABILITIES, criticalTasks: 'operate' },
+				scopeSet: { kind: 'organization' }
+			}
+		});
+		let legacyGuardCalled = false;
+		ctx.readOnlyGuard.check = async () => {
+			legacyGuardCalled = true;
+			return true;
+		};
+
+		await enforceRouteReadOnlyOverlay(ctx, {
+			mutation: true,
+			policyAction: POLICY_ACTION_CATALOG.criticalTasks.recordCompletion,
+			policyResource: { kind: 'organization' }
+		});
+
+		expect(legacyGuardCalled).toBe(false);
+	});
+
 	it('blocks legacy mutations in read-only mode', async () => {
 		const ctx = createTestContext({ readOnly: true });
 
@@ -187,6 +261,68 @@ describe('route authorization', () => {
 			policyAction: POLICY_ACTION_CATALOG.training.viewRecords,
 			policyResource: { kind: 'organization' }
 		});
+	});
+
+	it('enforces policy-first loads without legacy permission declarations', async () => {
+		const ctx = createTestContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: { ...NO_CAPABILITIES, training: 'view' },
+				scopeSet: { kind: 'organization' },
+				requireView() {
+					throw new Error('legacy permission should not run');
+				}
+			}
+		});
+
+		await enforceLoadAuthorization(ctx, {
+			policyAction: POLICY_ACTION_CATALOG.training.viewRecords,
+			policyResource: { kind: 'organization' }
+		});
+	});
+
+	it('provides a layout-level helper for settings and governance policy checks', async () => {
+		const ctx = createTestContext({
+			auth: {
+				role: 'admin',
+				isPrivileged: true,
+				capabilityMap: NO_CAPABILITIES,
+				scopeSet: { kind: 'organization' }
+			}
+		});
+
+		await enforceLayoutPolicy(ctx, {
+			policyAction: POLICY_ACTION_CATALOG.organization.accessGovernance
+		});
+	});
+
+	it('denies layout policy helper access for non-governance members', async () => {
+		const ctx = createTestContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: NO_CAPABILITIES,
+				scopeSet: { kind: 'organization' }
+			}
+		});
+
+		await expect(
+			enforceLayoutPolicy(ctx, {
+				policyAction: POLICY_ACTION_CATALOG.organization.accessGovernance
+			})
+		).rejects.toMatchObject({ status: 403 });
+
+		expect(ctx.auditPort.events).toEqual([
+			expect.objectContaining({
+				action: 'policy.denied',
+				resourceType: 'organization.accessGovernance',
+				details: expect.objectContaining({
+					policyAction: 'organization.accessGovernance',
+					reasonCode: 'denied:governance-role'
+				})
+			})
+		]);
 	});
 
 	it('defaults identity-owned route policy resources to the authenticated actor', async () => {

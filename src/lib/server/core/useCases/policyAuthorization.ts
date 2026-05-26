@@ -1,4 +1,4 @@
-import type { PolicyAction, PolicyDecision, PolicyReasonCode, PolicyResource } from '$lib/access/policyEvaluator';
+import type { PolicyAction, PolicyDecision, PolicyResource } from '$lib/access/policyEvaluator';
 import type { ScopeSet } from '$lib/access/memberAccessShape';
 import type { AuditPort, AuthContext, ReadOnlyGuard } from '$lib/server/core/ports';
 import { evaluateAuthoritativePolicyDecision } from './policyAdapter';
@@ -43,7 +43,7 @@ function denyRoutePolicyDecision(
 		decision,
 		resourceType: action.id,
 		details: routePolicyDenialAuditDetails(decision, action, resource),
-		message: routePolicyDenialMessage(decision.reasonCode, ports.auth.scopeSet)
+		message: routePolicyDenialMessage(decision, ports.auth.scopeSet)
 	});
 }
 
@@ -59,22 +59,22 @@ function routePolicyDenialAuditDetails(
 	});
 }
 
-function routePolicyDenialMessage(reasonCode: PolicyReasonCode, scopeSet?: ScopeSet): string {
-	if (reasonCode === 'denied:read-only-overlay') {
-		return 'Organization is in read-only mode';
+function routePolicyDenialMessage(decision: PolicyDecision, scopeSet?: ScopeSet): string {
+	if (decision.reasonCode === 'denied:read-only-overlay') {
+		return decision.blockingOverlay?.label ?? 'Organization is in read-only mode';
 	}
 
-	if (reasonCode === 'denied:out-of-scope') {
+	if (decision.reasonCode === 'denied:out-of-scope') {
 		return scopeSet?.kind === 'groups'
 			? 'This action is outside your assigned Group scope'
 			: 'This action is outside your assigned scope';
 	}
 
-	if (reasonCode === 'denied:unauthenticated') {
+	if (decision.reasonCode === 'denied:unauthenticated') {
 		return 'Unauthorized';
 	}
 
-	if (reasonCode === 'denied:not-resource-owner') {
+	if (decision.reasonCode === 'denied:not-resource-owner') {
 		return 'You can only manage your own resources';
 	}
 

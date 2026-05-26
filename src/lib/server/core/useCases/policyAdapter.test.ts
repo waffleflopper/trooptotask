@@ -48,7 +48,7 @@ describe('policy adapter', () => {
 			compatibilityLanes: {},
 			scopeSet: { kind: 'groups', groupIds: ['group-alpha'] },
 			resource: { kind: 'group', groupId: 'group-alpha' },
-			overlays: [{ id: 'read-only-mode', kind: 'read-only-mode', label: 'Organization read-only mode' }]
+			overlays: [{ id: 'read-only-mode', kind: 'read-only-mode', label: 'Organization is in read-only mode' }]
 		});
 	});
 

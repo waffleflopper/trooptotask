@@ -182,6 +182,39 @@ describe('handleUseCaseRequest', () => {
 			expect(result).toBe('ok');
 		});
 
+		it('executes policy-first routes without legacy permission declarations', async () => {
+			let legacyPermissionCalled = false;
+			const t = buildTestCtx({
+				auth: {
+					role: 'member',
+					isPrivileged: false,
+					capabilityMap: {
+						calendar: 'none',
+						personnel: 'none',
+						training: 'none',
+						criticalTasks: 'operate',
+						onboarding: 'none',
+						ratingScheme: 'none'
+					},
+					scopeSet: { kind: 'organization' },
+					requireView() {
+						legacyPermissionCalled = true;
+					}
+				}
+			});
+
+			const config: RouteConfig<void, string> = {
+				mutation: true,
+				policyAction: POLICY_ACTION_CATALOG.criticalTasks.recordCompletion,
+				policyResource: { kind: 'organization' },
+				fn: async () => 'ok'
+			};
+
+			const result = await handleUseCaseRequest(config, toUseCaseCtx(t), undefined);
+			expect(result).toBe('ok');
+			expect(legacyPermissionCalled).toBe(false);
+		});
+
 		it('audits denied policy writes before rejecting the request', async () => {
 			const t = buildTestCtx({
 				auth: {
@@ -252,6 +285,55 @@ describe('handleUseCaseRequest', () => {
 			await expect(handleUseCaseRequest(config, toUseCaseCtx(t), undefined)).rejects.toMatchObject({
 				status: 403,
 				message: 'Organization is in read-only mode'
+			});
+			expect(t.auditPort.events).toEqual([
+				expect.objectContaining({
+					action: 'policy.denied',
+					resourceType: 'criticalTasks.recordCompletion',
+					details: expect.objectContaining({
+						policyAction: 'criticalTasks.recordCompletion',
+						reasonCode: 'denied:read-only-overlay',
+						blockingOverlay: 'read-only-mode'
+					})
+				})
+			]);
+		});
+
+		it('uses policy read-only state messages for pure policy-first mutations', async () => {
+			const t = buildTestCtx({
+				readOnly: true,
+				auth: {
+					role: 'member',
+					isPrivileged: false,
+					capabilityMap: {
+						calendar: 'none',
+						personnel: 'none',
+						training: 'none',
+						criticalTasks: 'operate',
+						onboarding: 'none',
+						ratingScheme: 'none'
+					},
+					scopeSet: { kind: 'organization' }
+				}
+			});
+			t.readOnlyGuard.checkState = async () => ({
+				isReadOnly: true,
+				reason: 'payment_failure',
+				message:
+					'Organization is in billing grace mode because a payment failed. Update the payment method to restore full access.'
+			});
+
+			const config: RouteConfig<void, string> = {
+				mutation: true,
+				policyAction: POLICY_ACTION_CATALOG.criticalTasks.recordCompletion,
+				policyResource: { kind: 'organization' },
+				fn: async () => 'unreachable'
+			};
+
+			await expect(handleUseCaseRequest(config, toUseCaseCtx(t), undefined)).rejects.toMatchObject({
+				status: 403,
+				message:
+					'Organization is in billing grace mode because a payment failed. Update the payment method to restore full access.'
 			});
 			expect(t.auditPort.events).toEqual([
 				expect.objectContaining({

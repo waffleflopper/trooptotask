@@ -21,31 +21,53 @@ export interface RouteAuthorizationPorts {
 	readOnlyGuard: ReadOnlyGuard;
 }
 
-export interface RouteAuthorizationConfig {
-	permission: LegacyRoutePermission;
+interface RouteAuthorizationBaseConfig {
 	mutation?: boolean;
-	allowReadOnlyMutation?: boolean;
-	policyAction?: RoutePolicyAction;
 	policyResource?: PolicyResource;
+}
+
+export interface PolicyFirstRouteAuthorizationConfig extends RouteAuthorizationBaseConfig {
+	policyAction: RoutePolicyAction;
+	permission?: LegacyRoutePermission;
+	allowReadOnlyMutation?: never;
+	deferPolicyToUseCase?: false;
+}
+
+export interface LegacyRouteAuthorizationConfig extends RouteAuthorizationBaseConfig {
+	permission: LegacyRoutePermission;
+	policyAction?: undefined;
+	allowReadOnlyMutation?: boolean;
 	deferPolicyToUseCase?: boolean;
 }
 
-export interface LoadAuthorizationConfig {
-	permission: LegacyRoutePermission;
-	policyAction?: RoutePolicyAction;
+export type RouteAuthorizationConfig = PolicyFirstRouteAuthorizationConfig | LegacyRouteAuthorizationConfig;
+
+export interface PolicyFirstLoadAuthorizationConfig {
+	policyAction: RoutePolicyAction;
+	permission?: LegacyRoutePermission;
 	policyResource?: PolicyResource;
 }
+
+export interface LegacyLoadAuthorizationConfig {
+	permission: LegacyRoutePermission;
+	policyAction?: undefined;
+	policyResource?: PolicyResource;
+}
+
+export type LoadAuthorizationConfig = PolicyFirstLoadAuthorizationConfig | LegacyLoadAuthorizationConfig;
+
+export type LayoutPolicyAuthorizationConfig = PolicyFirstLoadAuthorizationConfig;
 
 export async function enforceRouteAuthorization(
 	ports: RouteAuthorizationPorts,
 	config: RouteAuthorizationConfig
 ): Promise<void> {
-	if (config.deferPolicyToUseCase) {
+	if (config.policyAction) {
+		await requirePolicyDecision(ports, config.policyAction, resolveRoutePolicyResource(ports.auth, config));
 		return;
 	}
 
-	if (config.policyAction) {
-		await requirePolicyDecision(ports, config.policyAction, resolveRoutePolicyResource(ports.auth, config));
+	if (config.deferPolicyToUseCase) {
 		return;
 	}
 
@@ -86,6 +108,13 @@ export function enforceLoadAuthorization(
 	enforceLegacyRoutePermission(ports.auth, config.permission);
 }
 
+export function enforceLayoutPolicy(
+	ports: Pick<RouteAuthorizationPorts, 'auth' | 'audit' | 'readOnlyGuard'>,
+	config: LayoutPolicyAuthorizationConfig
+): Promise<void> {
+	return requirePolicyDecision(ports, config.policyAction, resolveRoutePolicyResource(ports.auth, config));
+}
+
 function resolveRoutePolicyResource(
 	auth: Pick<AuthContext, 'userId'>,
 	config: { policyAction?: PolicyAction; policyResource?: PolicyResource }
@@ -103,12 +132,17 @@ function resolveRoutePolicyResource(
 }
 
 export function shouldRunLegacyReadOnlyGuard(config: RouteAuthorizationConfig): boolean {
+	// Migration-only compatibility: policy-first writes are blocked by the authoritative
+	// policy overlay path. This branch exists only for legacy routes awaiting conversion.
 	return Boolean(
-		config.mutation && !config.allowReadOnlyMutation && !config.deferPolicyToUseCase && !config.policyAction
+		config.mutation &&
+		!('allowReadOnlyMutation' in config && config.allowReadOnlyMutation) &&
+		!config.deferPolicyToUseCase &&
+		!config.policyAction
 	);
 }
 
-function assertMutationHasAuthoritativePolicy(config: RouteAuthorizationConfig): void {
+function assertMutationHasAuthoritativePolicy(config: LegacyRouteAuthorizationConfig): void {
 	if (config.mutation && isFeatureAreaPermission(config.permission)) {
 		throw new Error(`Mutation route for ${config.permission} must declare policyAction or deferPolicyToUseCase`);
 	}

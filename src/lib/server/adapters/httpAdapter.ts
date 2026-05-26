@@ -41,18 +41,14 @@ import { createSupabaseRatingSchemePersonnelLookupPort } from './supabaseRatingS
 import { createSupabaseSensitiveActionAuthorizer } from '$lib/server/sensitiveActionAuthorizer';
 import { resolveOrganizationRouteIdentity } from '$lib/server/core/useCases/organizationUrlSlug';
 import type { UseCaseContext, AuthContext } from '$lib/server/core/ports';
-import type {
-	FeatureLanePolicyAction,
-	IdentityOwnedPolicyAction,
-	OrganizationGovernancePolicyAction,
-	PolicyResource
-} from '$lib/access/policyEvaluator';
+import type { FeatureLanePolicyAction } from '$lib/access/policyEvaluator';
 import { fail } from '$lib/server/core/errors';
 import {
 	enforceLoadAuthorization,
 	enforceRouteAuthorization,
 	enforceRouteReadOnlyOverlay,
-	type LegacyRoutePermission
+	type LoadAuthorizationConfig,
+	type RouteAuthorizationConfig
 } from '$lib/server/core/useCases/routeAuthorization';
 import { createCrudUseCases, type CrudConfig } from '$lib/server/core/useCases/crud';
 import { getEntityAuditResource, type EntityDefinition } from '$lib/server/entitySchema';
@@ -324,13 +320,9 @@ export function crudHandlers(config: CrudConfig): {
 // handle() — unified route wrapper
 // ---------------------------------------------------------------------------
 
-export interface RouteConfig<TInput = void, TOutput = unknown> {
-	permission: LegacyRoutePermission;
-	mutation?: boolean;
-	allowReadOnlyMutation?: boolean;
-	policyAction?: FeatureLanePolicyAction | OrganizationGovernancePolicyAction | IdentityOwnedPolicyAction;
-	policyResource?: PolicyResource;
-	deferPolicyToUseCase?: boolean;
+type RouteConfigAuthorization = RouteAuthorizationConfig;
+
+type RouteConfigBehavior<TInput, TOutput> = {
 	input?: z.ZodType<TInput>;
 	parseInput?: (event: RequestEvent) => TInput | Promise<TInput>;
 	fn: (ctx: UseCaseContext, input: TInput) => Promise<TOutput>;
@@ -340,7 +332,10 @@ export interface RouteConfig<TInput = void, TOutput = unknown> {
 		resourceType: string;
 		resourceId?: (result: TOutput) => string;
 	};
-}
+};
+
+export type RouteConfig<TInput = void, TOutput = unknown> = RouteConfigAuthorization &
+	RouteConfigBehavior<TInput, TOutput>;
 
 /**
  * Testable core of handle() — no HTTP/RequestEvent dependency.
@@ -388,13 +383,10 @@ export async function handleUseCaseRequest<TInput, TOutput>(
 // loadWithContext() — page loader wrapper
 // ---------------------------------------------------------------------------
 
-interface LoadConfig<T> {
-	permission: LegacyRoutePermission;
-	policyAction?: FeatureLanePolicyAction | OrganizationGovernancePolicyAction | IdentityOwnedPolicyAction;
-	policyResource?: PolicyResource;
+type LoadConfig<T> = LoadAuthorizationConfig & {
 	fn: (ctx: UseCaseContext) => Promise<T>;
 	defer?: boolean;
-}
+};
 
 function enforceLoadPermission(ctx: UseCaseContext, config: LoadConfig<unknown>): void | Promise<void> {
 	return enforceLoadAuthorization(ctx, config);

@@ -69,9 +69,26 @@ export async function resolveAuthoritativePolicyOverlays(
 	options: Pick<AuthoritativePolicyDecisionOptions, 'enforceReadOnlyOverlay'> = {}
 ): Promise<PolicyOverlay[]> {
 	const enforceReadOnlyOverlay = options.enforceReadOnlyOverlay ?? true;
-	if (!enforceReadOnlyOverlay || !((await readOnlyGuard?.check()) ?? false)) {
+	if (!enforceReadOnlyOverlay || !readOnlyGuard) {
 		return [];
 	}
 
-	return [{ id: 'read-only-mode', kind: 'read-only-mode', label: 'Organization read-only mode' }];
+	const state = await readOnlyGuard.checkState?.();
+	if (state) {
+		return state.isReadOnly
+			? [
+					{
+						id: 'read-only-mode',
+						kind: 'read-only-mode',
+						label: state.message ?? 'Organization is in read-only mode'
+					}
+				]
+			: [];
+	}
+
+	if (!(await readOnlyGuard.check())) {
+		return [];
+	}
+
+	return [{ id: 'read-only-mode', kind: 'read-only-mode', label: 'Organization is in read-only mode' }];
 }

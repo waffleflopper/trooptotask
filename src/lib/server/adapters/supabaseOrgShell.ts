@@ -356,14 +356,16 @@ export function createSupabaseCalendarWorkspacePort(
 
 		if (defer) {
 			return loadWithContext(locals, cookies, orgId, {
-				permission: 'calendar',
+				policyAction: POLICY_ACTION_CATALOG.calendar.viewAvailability,
+				policyResource: { kind: 'unscoped' },
 				defer: true,
 				fn
 			});
 		}
 
 		return loadWithContext(locals, cookies, orgId, {
-			permission: 'calendar',
+			policyAction: POLICY_ACTION_CATALOG.calendar.viewAvailability,
+			policyResource: { kind: 'unscoped' },
 			fn
 		});
 	}

@@ -25,7 +25,7 @@ import { requireCalendarPolicy } from './calendarPolicy';
  */
 export interface CrudConfig<C extends WritePorts = WritePorts> {
 	entity: EntityDefinition;
-	permission: FeatureArea;
+	permission?: FeatureArea;
 	auditResource: string;
 	policyAction?: FeatureLanePolicyAction;
 	beforeDelete?: (ctx: C, id: string) => Promise<void>;
@@ -132,14 +132,16 @@ export function createCrudUseCases<C extends WritePorts>(config: CrudConfig<C>):
 function resolveCrudPolicyAction<C extends WritePorts>(
 	config: CrudConfig<C>,
 	entity: EntityDefinition,
-	permission: FeatureArea
+	permission: FeatureArea | undefined
 ): FeatureLanePolicyAction {
 	const policyAction = config.policyAction ?? entity.policyAction;
 	if (policyAction) {
 		return policyAction;
 	}
 
-	throw new Error(`createCrudUseCases requires policyAction for write authorization (${entity.table}:${permission})`);
+	throw new Error(
+		`createCrudUseCases requires policyAction for write authorization (${entity.table}:${permission ?? 'unknown'})`
+	);
 }
 
 async function requirePolicyDecisionForCrud<C extends WritePorts>(

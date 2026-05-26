@@ -510,6 +510,12 @@ describe('policy evaluator', () => {
 				accessMode: 'write',
 				requiredCapability: 'operate'
 			},
+			viewDutyRosters: {
+				id: 'calendar.viewDutyRosters',
+				owner: { kind: 'feature-lane', lane: 'calendar' },
+				accessMode: 'read',
+				requiredCapability: 'view'
+			},
 			configureDutyTemplates: {
 				id: 'calendar.configureDutyTemplates',
 				owner: { kind: 'feature-lane', lane: 'calendar' },

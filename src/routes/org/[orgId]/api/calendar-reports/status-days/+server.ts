@@ -1,3 +1,4 @@
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import type { RequestEvent } from '@sveltejs/kit';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { fail } from '$lib/server/core/errors';
@@ -12,8 +13,8 @@ import {
 } from '$lib/server/core/useCases/calendarScope';
 
 export const _getConfig: RouteConfig<{ startDate: string; endDate: string }, unknown> = {
-	permission: 'calendar',
-	deferPolicyToUseCase: true,
+	policyAction: POLICY_ACTION_CATALOG.calendar.viewReports,
+	policyResource: { kind: 'unscoped' },
 	parseInput: (event: RequestEvent) => ({
 		startDate: event.url.searchParams.get('startDate') ?? '',
 		endDate: event.url.searchParams.get('endDate') ?? ''

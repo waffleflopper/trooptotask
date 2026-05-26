@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 
@@ -7,7 +8,10 @@ import { _putConfig } from './+server';
 
 describe('PUT /api/duty-roster-exemptions', () => {
 	it('exports a RouteConfig with correct permission and mutation', () => {
-		expect(_putConfig.permission).toBe('calendar');
+		expect('permission' in _putConfig).toBe(false);
+		expect('deferPolicyToUseCase' in _putConfig).toBe(false);
+		expect(_putConfig.policyAction).toBe(POLICY_ACTION_CATALOG.calendar.configureDutyTemplates);
+		expect(_putConfig.policyResource).toEqual({ kind: 'unscoped' });
 		expect(_putConfig.mutation).toBe(true);
 	});
 

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { fetchCalendarRangeData } from '$lib/server/core/useCases/calendarQuery';
 import { formatDate, parseDate } from '$lib/utils/dates';
@@ -40,8 +41,8 @@ const calendarRangeInput = z
 	);
 
 export const _getConfig: RouteConfig<z.infer<typeof calendarRangeInput>> = {
-	permission: 'calendar',
-	deferPolicyToUseCase: true,
+	policyAction: POLICY_ACTION_CATALOG.calendar.viewAvailability,
+	policyResource: { kind: 'unscoped' },
 	input: calendarRangeInput,
 	parseInput: (event) => ({
 		rangeStart: event.url.searchParams.get('rangeStart') ?? '',

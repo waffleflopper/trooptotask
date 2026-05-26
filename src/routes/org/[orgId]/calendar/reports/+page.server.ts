@@ -9,8 +9,8 @@ export const load = async ({ params, locals, cookies, parent, depends }: PageSer
 	await parent();
 
 	return loadWithContext(locals, cookies, orgId, {
-		permission: 'calendar',
 		policyAction: POLICY_ACTION_CATALOG.calendar.viewReports,
+		policyResource: { kind: 'unscoped' },
 		fn: async (ctx) => fetchCalendarReportData(ctx)
 	});
 };

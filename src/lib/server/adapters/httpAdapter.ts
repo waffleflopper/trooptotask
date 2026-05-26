@@ -286,19 +286,19 @@ export function crudHandlers(config: CrudConfig): {
 	// through without double-checking. The use case fn receives parsed body
 	// as input.
 	const POST = handle<Record<string, unknown>, unknown>({
-		permission: config.permission,
+		permission: config.permission ?? 'none',
 		mutation: true,
 		fn: (ctx, input) => useCases.create(ctx, input)
 	});
 
 	const PUT = handle<Record<string, unknown>, unknown>({
-		permission: config.permission,
+		permission: config.permission ?? 'none',
 		mutation: true,
 		fn: (ctx, input) => useCases.update(ctx, input)
 	});
 
 	const DELETE = handle<Record<string, unknown>, unknown>({
-		permission: config.permission,
+		permission: config.permission ?? 'none',
 		mutation: true,
 		fn: async (ctx, input) => {
 			const id = input?.id;

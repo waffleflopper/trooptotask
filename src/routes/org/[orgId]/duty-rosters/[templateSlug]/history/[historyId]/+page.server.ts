@@ -1,5 +1,6 @@
 import { error, redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
 import {
 	findDutyRosterTemplateBySlug,
@@ -15,7 +16,8 @@ export const load: PageServerLoad = async ({ params, url, locals, cookies, paren
 	const mode: 'roster' | 'da6' = url.searchParams.get('mode') === 'da6' ? 'da6' : 'roster';
 
 	const data = await loadWithContext(locals, cookies, orgId, {
-		permission: 'calendar',
+		policyAction: POLICY_ACTION_CATALOG.calendar.viewDutyRosters,
+		policyResource: { kind: 'unscoped' },
 		fn: async (ctx) => {
 			const [templates, selectedTemplate] = await Promise.all([
 				listDutyRosterTemplates(ctx),

@@ -1,9 +1,17 @@
 import { describe, expect, it } from 'vitest';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { _getConfig } from './+server';
 
 describe('GET /api/calendar-reports/status-days', () => {
+	it('uses a policy-first route config for report reads', () => {
+		expect('permission' in _getConfig).toBe(false);
+		expect('deferPolicyToUseCase' in _getConfig).toBe(false);
+		expect(_getConfig.policyAction).toBe(POLICY_ACTION_CATALOG.calendar.viewReports);
+		expect(_getConfig.policyResource).toEqual({ kind: 'unscoped' });
+	});
+
 	it('uses Calendar report policy decisions instead of privileged route gates', async () => {
 		const ctx = createTestContext({
 			auth: {
@@ -53,11 +61,11 @@ describe('GET /api/calendar-reports/status-days', () => {
 			})
 		).rejects.toMatchObject({
 			status: 403,
-			message: 'You do not have permission to view calendar data'
+			message: 'You do not have permission to perform this action'
 		});
 		expect(ctx.auditPort.events[0]).toMatchObject({
 			action: 'policy.denied',
-			resourceType: 'calendar',
+			resourceType: 'calendar.viewReports',
 			details: {
 				policyAction: 'calendar.viewReports',
 				reasonCode: 'denied:missing-capability'

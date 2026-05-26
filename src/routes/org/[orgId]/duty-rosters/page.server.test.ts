@@ -1,4 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 
 const {
 	loadWithContextMock,
@@ -55,8 +56,13 @@ describe('Duty Roster Templates route', () => {
 			{},
 			{},
 			'org-1',
-			expect.objectContaining({ permission: 'calendar', fn: expect.any(Function) })
+			expect.objectContaining({
+				policyAction: POLICY_ACTION_CATALOG.calendar.viewDutyRosters,
+				policyResource: { kind: 'unscoped' },
+				fn: expect.any(Function)
+			})
 		);
+		expect(loadWithContextMock.mock.calls[0]?.[3]).not.toHaveProperty('permission');
 		expect(listDutyRosterTemplatesMock).toHaveBeenCalledWith(mockCtx);
 		expect(loadDutyRosterTemplateSetupOptionsMock).toHaveBeenCalledWith(mockCtx);
 		expect(result).toEqual({

@@ -1,5 +1,6 @@
 import { redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { buildRouteContext, loadWithContext } from '$lib/server/adapters/httpAdapter';
 import {
 	createConfiguredDutyRosterTemplate,
@@ -18,7 +19,8 @@ export const load: PageServerLoad = async ({ params, locals, cookies, parent }) 
 	const parentData = await parent();
 
 	const data = await loadWithContext(locals, cookies, orgId, {
-		permission: 'calendar',
+		policyAction: POLICY_ACTION_CATALOG.calendar.configureDutyTemplates,
+		policyResource: { kind: 'unscoped' },
 		fn: async (ctx) => {
 			const [templates, setupOptions] = await Promise.all([
 				listDutyRosterTemplates(ctx),

@@ -36,7 +36,7 @@ function evaluateAdvancedDutyAccess(
 	return evaluatePolicyDecision({
 		decisionKind,
 		actor: { membershipRole: auth.role },
-		action: POLICY_ACTION_CATALOG.calendar.manageAssignments,
+		action: POLICY_ACTION_CATALOG.calendar.configureDutyTemplates,
 		capabilityMap: auth.capabilityMap,
 		compatibilityLanes: auth.compatibilityLanes,
 		scopeSet: auth.scopeSet,

@@ -755,7 +755,7 @@ describe('org settings page server actions', () => {
 			} as never)
 		).rejects.toMatchObject({
 			status: 303,
-			location: '/org/new-bde/settings'
+			location: '/org/new-bde/settings/general'
 		});
 
 		expect(updateOrganizationUrlSlugMock).toHaveBeenCalledWith(
@@ -788,7 +788,7 @@ describe('org settings page server actions', () => {
 			} as never)
 		).rejects.toMatchObject({
 			status: 303,
-			location: '/org/org-1/settings'
+			location: '/org/org-1/settings/general'
 		});
 
 		expect(clearOrganizationUrlSlugMock).toHaveBeenCalledWith({
@@ -805,7 +805,10 @@ describe('org settings page server actions', () => {
 			request: new Request('http://localhost/org/org-1/settings?/transferOwnership', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-				body: new URLSearchParams({ newOwnerId: '11111111-1111-4111-8111-111111111111' })
+				body: new URLSearchParams({
+					newOwnerId: '11111111-1111-4111-8111-111111111111',
+					confirmTransferEmail: 'new-owner@example.com'
+				})
 			}),
 			locals: {
 				user: { id: 'user-1', email: 'user@example.com' },
@@ -825,7 +828,10 @@ describe('org settings page server actions', () => {
 				administration: { kind: 'admin-port' },
 				sensitiveActionAuthorizer: { kind: 'sensitive-action-authorizer' }
 			},
-			{ newOwnerId: '11111111-1111-4111-8111-111111111111' }
+			{
+				newOwnerId: '11111111-1111-4111-8111-111111111111',
+				confirmTransferEmail: 'new-owner@example.com'
+			}
 		);
 		expect(createSupabaseOrgSettingsAdministrationPortMock).toHaveBeenCalledWith({
 			user: { id: 'user-1', email: 'user@example.com' },
@@ -871,7 +877,10 @@ describe('org settings page server actions', () => {
 			request: new Request('http://localhost/org/org-1/settings?/transferOwnership', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-				body: new URLSearchParams({ newOwnerId: '11111111-1111-4111-8111-111111111111' })
+				body: new URLSearchParams({
+					newOwnerId: '11111111-1111-4111-8111-111111111111',
+					confirmTransferEmail: 'new-owner@example.com'
+				})
 			}),
 			locals: {
 				user: { id: 'user-1', email: 'user@example.com' },

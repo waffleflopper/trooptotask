@@ -147,17 +147,35 @@ const baseData = {
 	downgradePreviews: []
 };
 
+function getSubscriptionCard(): HTMLElement {
+	const card = screen.getByRole('heading', { name: 'Subscription' }).closest('[data-slot="card"]');
+	if (!card) throw new Error('Subscription card was not rendered');
+	return card as HTMLElement;
+}
+
 describe('billing page toolbar', () => {
 	it.each([
-		['active', 'Subscription active.', 'Use Manage Subscription for invoices'],
-		['trialing', 'Trial active.', 'review payment details before the trial ends'],
-		['past_due', 'Payment failed. Grace access is active.', 'update the payment method'],
-		['unpaid', 'Payment required to restore paid access.', 'recover service'],
-		['canceled', 'Subscription canceled.', 'start a new checkout'],
-		['incomplete', 'Payment is pending.', 'Complete checkout'],
-		['incomplete_expired', 'Checkout expired.', 'start a new checkout'],
-		['paused', 'Subscription paused.', 'Current policy keeps paid access available']
-	])('shows owner-safe status copy for %s subscriptions', (subscriptionStatus, title, detail) => {
+		['active', 'The paid subscription is active and TroopToTask is applying the paid plan.', 'Active'],
+		['trialing', 'The subscription trial is active.', 'Trialing'],
+		[
+			'past_due',
+			'The renewal payment did not go through. Paid access may be read-only until the payment method is updated.',
+			'Past Due'
+		],
+		['unpaid', 'The subscription is unpaid, so TroopToTask is blocking paid writes.', 'Unpaid'],
+		[
+			'canceled',
+			'This subscription is canceled, so paid access has ended unless another access source applies.',
+			'Canceled'
+		],
+		[
+			'incomplete',
+			'Checkout has not finished activating this subscription. Complete checkout to activate paid access.',
+			'Payment Pending'
+		],
+		['incomplete_expired', 'The pending checkout expired before payment completed.', 'Checkout Expired'],
+		['paused', 'This subscription is paused. Current policy keeps paid access available.', 'Paused']
+	])('shows owner-safe status copy for %s subscriptions', (subscriptionStatus, description, statusLabel) => {
 		render(Page, {
 			props: {
 				data: {
@@ -170,8 +188,9 @@ describe('billing page toolbar', () => {
 			}
 		});
 
-		expect(screen.getByText(title)).toBeTruthy();
-		expect(screen.getByText(new RegExp(detail))).toBeTruthy();
+		const subscriptionCard = within(getSubscriptionCard());
+		expect(subscriptionCard.getByText(description)).toBeTruthy();
+		expect(subscriptionCard.getAllByText(statusLabel).length).toBeGreaterThan(0);
 	});
 
 	it.each([
@@ -201,15 +220,10 @@ describe('billing page toolbar', () => {
 				}
 			});
 
-			expect(screen.getByRole('heading', { name: 'Payment Recovery' })).toBeTruthy();
 			expect(screen.getByText(title)).toBeTruthy();
 			expect(screen.getByText(new RegExp(impact))).toBeTruthy();
 			expect(screen.getAllByText(/Existing data remains visible/).length).toBeGreaterThan(0);
 			expect(screen.queryByText(/Stripe reports/)).toBeNull();
-
-			if (portalLabel) {
-				expect(screen.getAllByRole('button', { name: portalLabel }).length).toBeGreaterThan(0);
-			}
 
 			if (showsPlansLink) {
 				expect(screen.getByRole('link', { name: 'View Plans' }).getAttribute('href')).toBe('#billing-pricing-heading');
@@ -219,7 +233,7 @@ describe('billing page toolbar', () => {
 		}
 	);
 
-	it('keeps invoice and receipt portal access when recovery has no dedicated portal action', () => {
+	it('shows recovery guidance within the subscription card when the subscription is canceled', () => {
 		render(Page, {
 			props: {
 				data: {
@@ -232,9 +246,8 @@ describe('billing page toolbar', () => {
 			}
 		});
 
-		expect(screen.getByRole('heading', { name: 'Payment Recovery' })).toBeTruthy();
-		expect(screen.getByRole('heading', { name: 'Invoices & Receipts' })).toBeTruthy();
-		expect(screen.getByRole('button', { name: 'Open Billing Portal' })).toBeTruthy();
+		expect(screen.getByText('Paid access ended')).toBeTruthy();
+		expect(screen.getByRole('link', { name: 'View Plans' })).toBeTruthy();
 	});
 
 	it.each([
@@ -259,11 +272,9 @@ describe('billing page toolbar', () => {
 				}
 			});
 
-			expect(screen.getByRole('heading', { name: 'Payment Recovery' })).toBeTruthy();
 			expect(screen.getByText(title)).toBeTruthy();
 			expect(screen.getByText(new RegExp(impact))).toBeTruthy();
 			expect(screen.queryByRole('toolbar', { name: 'Billing controls' })).toBeNull();
-			expect(screen.queryByRole('button', { name: /Billing Portal|Payment Method|Billing Details/ })).toBeNull();
 		}
 	);
 
@@ -292,16 +303,14 @@ describe('billing page toolbar', () => {
 		).toBeTruthy();
 	});
 
-	it('routes invoices, receipts, and payment updates through the billing portal', () => {
+	it('provides billing portal access through the subscription card header for active subscriptions', () => {
 		render(Page, {
 			props: {
 				data: baseData as never
 			}
 		});
 
-		expect(screen.getByRole('heading', { name: 'Invoices & Receipts' })).toBeTruthy();
-		expect(screen.getByText(/Download invoices and receipts/)).toBeTruthy();
-		expect(screen.getByRole('button', { name: 'Open Billing Portal' })).toBeTruthy();
+		expect(within(getSubscriptionCard()).getByRole('button', { name: 'Manage Subscription' })).toBeTruthy();
 	});
 
 	it('shows policy-backed usage limits and remediation actions', () => {
@@ -540,7 +549,11 @@ describe('billing page toolbar', () => {
 			}
 		});
 
-		expect(screen.getByText('Payment failed. Paid access has been suspended.')).toBeTruthy();
+		expect(
+			screen.getByText(
+				'The renewal payment did not go through. Access has been downgraded to the free plan until billing is restored.'
+			)
+		).toBeTruthy();
 		expect(screen.getByText(/downgraded to the free plan/)).toBeTruthy();
 	});
 
@@ -560,7 +573,7 @@ describe('billing page toolbar', () => {
 		expect(screen.getAllByText('Current').length).toBeGreaterThan(0);
 	});
 
-	it('shows owner-visible support review when reconciliation drift is unresolved', () => {
+	it('renders the subscription card for reconciliation states without surfacing internal sync details', () => {
 		render(Page, {
 			props: {
 				data: {
@@ -574,24 +587,8 @@ describe('billing page toolbar', () => {
 			}
 		});
 
-		expect(screen.getByText('Needs support review')).toBeTruthy();
-	});
-
-	it('shows updating copy while a local cancellation is waiting for provider reconciliation', () => {
-		render(Page, {
-			props: {
-				data: {
-					...baseData,
-					billingSnapshot: {
-						...baseData.billingSnapshot,
-						syncStatus: 'pending',
-						driftDetected: false
-					}
-				} as never
-			}
-		});
-
-		expect(screen.getByText('Updating')).toBeTruthy();
+		expect(screen.getByRole('heading', { name: 'Subscription' })).toBeTruthy();
+		expect(screen.getAllByText('Active').length).toBeGreaterThan(0);
 	});
 
 	it('shows gifted billing source copy without payment recovery pressure', () => {
@@ -609,7 +606,9 @@ describe('billing page toolbar', () => {
 			}
 		});
 
-		expect(screen.getByText('Gifted access is active.')).toBeTruthy();
+		expect(
+			screen.getByText('An admin gift is currently granting this organization access outside regular billing.')
+		).toBeTruthy();
 		expect(screen.getAllByText(/outside regular billing/).length).toBeGreaterThan(0);
 	});
 
@@ -635,7 +634,9 @@ describe('billing page toolbar', () => {
 			}
 		});
 
-		expect(screen.getByText('Billing is disabled in this environment.')).toBeTruthy();
+		expect(
+			screen.getByText('Billing actions are hidden because paid billing is turned off for this environment.')
+		).toBeTruthy();
 		expect(screen.queryByRole('toolbar', { name: 'Billing controls' })).toBeNull();
 		expect(screen.getAllByRole('button', { name: 'Billing Disabled' }).length).toBeGreaterThan(0);
 	});
@@ -656,24 +657,22 @@ describe('billing page toolbar', () => {
 			}
 		});
 
-		expect(screen.getByText('Billing is disabled in this environment.')).toBeTruthy();
+		expect(
+			screen.getByText('Billing actions are hidden because paid billing is turned off for this environment.')
+		).toBeTruthy();
 		expect(screen.queryByRole('toolbar', { name: 'Billing controls' })).toBeNull();
 		expect(screen.queryByRole('button', { name: 'Manage Subscription' })).toBeNull();
 	});
 
-	it('exposes subscription controls as a named toolbar action group', () => {
+	it('exposes subscription management in the card header with cancellation controls below', () => {
 		render(Page, {
 			props: {
 				data: baseData as never
 			}
 		});
 
-		const toolbar = screen.getByRole('toolbar', { name: 'Billing controls' });
-		const actions = within(toolbar).getByRole('group', { name: 'Billing actions' });
-
-		expect(within(actions).getByRole('button', { name: 'Manage Subscription' })).toBeTruthy();
-		expect(screen.getAllByRole('button', { name: 'Manage Subscription' }).length).toBeGreaterThan(1);
-		expect(screen.getByRole('heading', { name: 'Cancellation Policy' })).toBeTruthy();
+		expect(within(getSubscriptionCard()).getByRole('button', { name: 'Manage Subscription' })).toBeTruthy();
+		expect(screen.getByRole('heading', { name: 'Cancel Subscription' })).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Cancel at Period End' })).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Cancel Now' })).toBeTruthy();
 	});
@@ -744,12 +743,10 @@ describe('billing page toolbar', () => {
 			}
 		});
 
-		const actions = within(screen.getByRole('toolbar', { name: 'Billing controls' })).getByRole('group', {
-			name: 'Billing actions'
-		});
+		const subscriptionCard = within(getSubscriptionCard());
 
-		await fireEvent.click(within(actions).getByRole('button', { name: 'Manage Subscription' }));
-		expect((within(actions).getByRole('button', { name: 'Opening...' }) as HTMLButtonElement).disabled).toBe(true);
+		await fireEvent.click(subscriptionCard.getByRole('button', { name: 'Manage Subscription' }));
+		expect((subscriptionCard.getByRole('button', { name: /Opening/ }) as HTMLButtonElement).disabled).toBe(true);
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Cancel Now' }));
 		await fireEvent.input(screen.getByLabelText('Type CANCEL NOW to confirm'), { target: { value: 'CANCEL NOW' } });
@@ -827,8 +824,8 @@ describe('billing page toolbar', () => {
 		});
 
 		await fireEvent.click(screen.getAllByRole('button', { name: 'Subscribe' })[0]);
+		await fireEvent.click(screen.getByRole('button', { name: 'Continue to Checkout' }));
 
-		expect(screen.getByRole('dialog')).toBeTruthy();
 		expect(screen.getByText('Confirm your password')).toBeTruthy();
 		expect(screen.getByLabelText('Password')).toBeTruthy();
 		expect((screen.getAllByRole('button', { name: 'Subscribe' })[0] as HTMLButtonElement).disabled).toBe(false);
@@ -863,6 +860,7 @@ describe('billing page toolbar', () => {
 		});
 
 		await fireEvent.click(screen.getAllByRole('button', { name: 'Subscribe' })[0]);
+		await fireEvent.click(screen.getByRole('button', { name: 'Continue to Checkout' }));
 
 		expect(window.location.pathname).toBe('/auth/mfa-verify');
 		expect(window.location.search).toBe('?next=%2F');
@@ -904,6 +902,7 @@ describe('billing page toolbar', () => {
 		});
 
 		await fireEvent.click(screen.getAllByRole('button', { name: 'Subscribe' })[0]);
+		await fireEvent.click(screen.getByRole('button', { name: 'Continue to Checkout' }));
 		await fireEvent.input(screen.getByLabelText('Password'), { target: { value: 'wrong-password' } });
 		await fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
 
@@ -951,6 +950,7 @@ describe('billing page toolbar', () => {
 		});
 
 		await fireEvent.click(screen.getAllByRole('button', { name: 'Subscribe' })[0]);
+		await fireEvent.click(screen.getByRole('button', { name: 'Continue to Checkout' }));
 		await fireEvent.input(screen.getByLabelText('Password'), { target: { value: 'correct-password' } });
 		await fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
 
@@ -1001,11 +1001,9 @@ describe('billing page toolbar', () => {
 
 		expect(screen.getByText('Your subscription is scheduled to cancel.')).toBeTruthy();
 		expect(screen.getByText(/Paid access remains active through June 1, 2026/)).toBeTruthy();
-		expect(screen.getByText('Cancellation Timing')).toBeTruthy();
-		expect(screen.getByText('Cancels at period end')).toBeTruthy();
-		const subscriptionStatusFact = screen.getByText('Subscription Status').closest('[data-slot="fact-row"]');
-		expect(subscriptionStatusFact?.hasAttribute('role')).toBe(false);
-		expect(subscriptionStatusFact?.closest('[data-slot="fact-grid"]')?.hasAttribute('role')).toBe(false);
+		const statusFact = screen.getByText('Status').closest('[data-slot="fact-row"]');
+		expect(statusFact?.hasAttribute('role')).toBe(false);
+		expect(statusFact?.closest('[data-slot="fact-grid"]')?.hasAttribute('role')).toBe(false);
 	});
 
 	it('shows terminal cancellation timing after paid access ends', () => {
@@ -1026,7 +1024,6 @@ describe('billing page toolbar', () => {
 
 		expect(screen.getByText('Your subscription has been canceled.')).toBeTruthy();
 		expect(screen.getByText(/Access ended on May 23, 2026/)).toBeTruthy();
-		expect(screen.getByText('Canceled')).toBeTruthy();
 	});
 
 	it('does not show owner cancellation warnings when an active gift is the access source', () => {

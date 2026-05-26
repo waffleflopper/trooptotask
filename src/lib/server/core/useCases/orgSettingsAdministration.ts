@@ -19,6 +19,10 @@ export interface OrganizationSettingsAdministrationPort {
 	renameOrganization(orgId: string, name: string): Promise<string | null>;
 	updateOrganizationUrlSlug(orgId: string, urlSlug: string | null): Promise<string | null>;
 	findOrganizationByUrlSlug(urlSlug: string): Promise<{ id: string } | null>;
+	findOwnershipTransferTarget(
+		orgId: string,
+		userId: string
+	): Promise<{ userId: string | null; email: string | null; role: string | null } | null>;
 	transferOwnership(orgId: string, newOwnerId: string): Promise<string | null>;
 	lookupOrganization(orgId: string): Promise<{ name: string | null; errorMessage: string | null }>;
 	deleteOrganization(orgId: string): Promise<string | null>;
@@ -38,6 +42,7 @@ type OrganizationSensitiveActionPorts = OrganizationSettingsAdministrationPorts 
 
 interface TransferOrganizationOwnershipInput {
 	newOwnerId: string;
+	confirmTransferEmail: string;
 }
 
 interface DeleteOrganizationInput {
@@ -132,6 +137,17 @@ export async function transferOrganizationOwnership(
 
 	if (!validateUUID(input.newOwnerId)) {
 		fail(400, 'Invalid user ID');
+	}
+
+	const targetMember = await ports.administration.findOwnershipTransferTarget(ports.auth.orgId, input.newOwnerId);
+	if (!targetMember || targetMember.role === 'owner' || !targetMember.userId || !targetMember.email) {
+		fail(400, 'Select an eligible member to receive ownership');
+	}
+
+	const confirmTransferEmail = sanitizeString(input.confirmTransferEmail, 320).toLowerCase();
+	const targetEmail = sanitizeString(targetMember.email, 320).toLowerCase();
+	if (confirmTransferEmail !== targetEmail) {
+		fail(400, 'Member email does not match');
 	}
 
 	const sensitiveAction = await authorizeOrganizationSensitiveAction(ports, {

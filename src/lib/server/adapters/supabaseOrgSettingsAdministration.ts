@@ -8,6 +8,12 @@ interface OrganizationSlugRow {
 	id: string;
 }
 
+interface OwnershipTransferTargetRow {
+	user_id: string | null;
+	email: string | null;
+	role: string | null;
+}
+
 export function createSupabaseOrgSettingsAdministrationPort(
 	locals: Pick<App.Locals, 'supabase'>
 ): OrganizationSettingsAdministrationPort {
@@ -38,6 +44,21 @@ export function createSupabaseOrgSettingsAdministrationPort(
 			}
 
 			return data ? { id: data.id } : null;
+		},
+
+		async findOwnershipTransferTarget(orgId, userId) {
+			const { data, error } = await supabase
+				.from('organization_memberships')
+				.select('user_id, email, role')
+				.eq('organization_id', orgId)
+				.eq('user_id', userId)
+				.maybeSingle<OwnershipTransferTargetRow>();
+
+			if (error) {
+				throw new Error(error.message);
+			}
+
+			return data ? { userId: data.user_id, email: data.email, role: data.role } : null;
 		},
 
 		async transferOwnership(orgId, newOwnerId) {

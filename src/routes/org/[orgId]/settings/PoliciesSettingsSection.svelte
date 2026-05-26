@@ -50,7 +50,9 @@
 	>
 		<div class="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
 			<div class="grid gap-1">
-				<h3 id="archive-retention-heading" class="text-lg font-semibold tracking-tight">Archive Retention</h3>
+				<h2 id="archive-retention-heading" class="font-heading text-lg font-semibold tracking-tight">
+					Archive Retention
+				</h2>
 				<p class="text-sm text-muted-foreground">Archived personnel are automatically purged after this window.</p>
 			</div>
 			<div class="flex flex-wrap items-center gap-2">
@@ -81,7 +83,7 @@
 	<section class="grid gap-4 rounded-lg border bg-card p-4 text-card-foreground" aria-labelledby="loss-warning-heading">
 		<div class="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
 			<div class="grid gap-1">
-				<h3 id="loss-warning-heading" class="text-lg font-semibold tracking-tight">Loss Warning Window</h3>
+				<h2 id="loss-warning-heading" class="font-heading text-lg font-semibold tracking-tight">Loss Warning Window</h2>
 				<p class="text-sm text-muted-foreground">Flag personnel approaching ETS / PCS / DEROS this far out.</p>
 			</div>
 			<div class="flex flex-wrap items-center gap-2">
@@ -115,9 +117,9 @@
 	>
 		<div class="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
 			<div class="grid gap-1">
-				<h3 id="critical-tasks-defaults-heading" class="text-lg font-semibold tracking-tight">
+				<h2 id="critical-tasks-defaults-heading" class="font-heading text-lg font-semibold tracking-tight">
 					Critical Tasks Defaults
-				</h3>
+				</h2>
 				<p class="text-sm text-muted-foreground">Shared expiration thresholds for ICTL tracking.</p>
 			</div>
 			<div class="flex flex-wrap items-center gap-2">

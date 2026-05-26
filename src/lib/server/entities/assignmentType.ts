@@ -11,7 +11,6 @@ import type { AssignmentType } from '$lib/types';
 
 export const AssignmentTypeEntity = defineEntity<AssignmentType>({
 	table: 'assignment_types',
-	permission: 'calendar',
 	policyAction: POLICY_ACTION_CATALOG.calendar.configureAssignmentTypes,
 	groupScope: 'none',
 	audit: { resourceType: 'assignment_type', detailFields: ['name', 'short_name'] },

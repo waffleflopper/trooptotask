@@ -15,7 +15,6 @@ const defaultSoftPreferences = cloneDefaultSoftPreferences();
 
 export const DutyTemplateEntity = defineEntity<DutyTemplateRecord>({
 	table: 'duty_templates',
-	permission: 'calendar',
 	groupScope: 'none',
 	schema: {
 		id: field(z.string(), { readOnly: true }),

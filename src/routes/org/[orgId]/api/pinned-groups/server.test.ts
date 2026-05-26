@@ -9,8 +9,6 @@ describe('/api/pinned-groups route config', () => {
 		expect(_deleteConfig.policyAction?.id).toBe('identity.updateOwnPreferences');
 		expect('permission' in _postConfig).toBe(false);
 		expect('permission' in _deleteConfig).toBe(false);
-		expect('deferPolicyToUseCase' in _postConfig).toBe(false);
-		expect('deferPolicyToUseCase' in _deleteConfig).toBe(false);
 	});
 
 	it('lets viewers pin groups as a user preference without calendar edit access', async () => {

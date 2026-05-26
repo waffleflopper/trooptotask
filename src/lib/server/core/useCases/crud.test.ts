@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { z } from 'zod';
 import { defineEntity, field } from '$lib/server/entitySchema';
 import { createWritePortsContext } from '$lib/server/adapters/inMemory';
@@ -103,14 +103,10 @@ describe('createCrudUseCases', () => {
 		});
 
 		it('uses create-resource policy resolution for policyAction creates without consulting privileged auth', async () => {
-			const requirePrivileged = vi.fn(() => {
-				throw new Error('privileged auth should not authorize policy CRUD create');
-			});
 			const ctx = buildContext({
 				auth: {
 					role: 'member',
 					isPrivileged: false,
-					requirePrivileged,
 					capabilityMap: {
 						calendar: 'none',
 						personnel: 'none',
@@ -131,7 +127,6 @@ describe('createCrudUseCases', () => {
 			await expect(create(ctx, { personnelId: 'p-1', notes: 'done' })).resolves.toMatchObject({
 				personnelId: 'p-1'
 			});
-			expect(requirePrivileged).not.toHaveBeenCalled();
 		});
 
 		it('denies policy writes outside a multi-group scope set and captures an audit event', async () => {

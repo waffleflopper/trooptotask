@@ -6,6 +6,5 @@ describe('/api/deletion-requests/review route config', () => {
 		expect(_postConfig.policyAction?.id).toBe('organization.reviewDeletionRequests');
 		expect(_postConfig.mutation).toBe(true);
 		expect('permission' in _postConfig).toBe(false);
-		expect('deferPolicyToUseCase' in _postConfig).toBe(false);
 	});
 });

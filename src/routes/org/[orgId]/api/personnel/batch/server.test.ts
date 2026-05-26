@@ -10,6 +10,5 @@ describe('POST /api/personnel/batch', () => {
 			policyResource: { kind: 'unscoped' }
 		});
 		expect('permission' in _postConfig).toBe(false);
-		expect('deferPolicyToUseCase' in _postConfig).toBe(false);
 	});
 });

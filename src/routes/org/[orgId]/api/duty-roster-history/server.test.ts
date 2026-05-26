@@ -31,14 +31,12 @@ function makeManualImportPayload(overrides: Record<string, unknown> = {}) {
 describe('POST /api/duty-roster-history', () => {
 	it('uses a policy-first route config for history reads', () => {
 		expect('permission' in _getConfig).toBe(false);
-		expect('deferPolicyToUseCase' in _getConfig).toBe(false);
 		expect(_getConfig.policyAction).toBe(POLICY_ACTION_CATALOG.calendar.viewDutyRosters);
 		expect(_getConfig.policyResource).toEqual({ kind: 'unscoped' });
 	});
 
 	it('uses a policy-first route config for manual history imports', () => {
 		expect('permission' in _postConfig).toBe(false);
-		expect('deferPolicyToUseCase' in _postConfig).toBe(false);
 		expect(_postConfig.policyAction).toBe(POLICY_ACTION_CATALOG.calendar.manageDutyRosters);
 		expect(_postConfig.policyResource).toEqual({ kind: 'unscoped' });
 	});

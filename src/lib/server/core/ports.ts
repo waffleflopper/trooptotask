@@ -123,10 +123,6 @@ export interface AuthContext {
 	readonly compatibilityLanes: CompatibilityLaneMap;
 	readonly scopeSet: ScopeSet;
 
-	requireView(area: FeatureArea): void;
-	requirePrivileged(): void;
-	requireOwner(): void;
-	requireManageMembers(): void;
 	requireGroupAccess(personnelId: string): Promise<void>;
 	requireGroupAccessBatch(personnelIds: string[]): Promise<void>;
 	requireGroupAccessByRecord(table: string, recordId: string, personnelIdColumn: string): Promise<void>;

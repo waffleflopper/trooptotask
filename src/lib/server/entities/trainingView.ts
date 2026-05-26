@@ -10,7 +10,6 @@ import type { TrainingView } from '$features/training/training.types';
 
 export const TrainingViewEntity = defineEntity<TrainingView>({
 	table: 'training_views',
-	permission: 'training',
 	policyAction: POLICY_ACTION_CATALOG.training.configureRequirements,
 	groupScope: 'none',
 	audit: { resourceType: 'training_view', detailFields: ['name'] },

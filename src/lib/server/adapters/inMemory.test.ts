@@ -408,14 +408,6 @@ describe('TestAuthContext', () => {
 		expect(auth.userId).toBe('test-user');
 	});
 
-	it('does not throw on any require* call by default', () => {
-		const auth = createTestAuthContext();
-
-		expect(() => auth.requireView('training')).not.toThrow();
-		expect(() => auth.requirePrivileged()).not.toThrow();
-		expect(() => auth.requireOwner()).not.toThrow();
-	});
-
 	it('does not throw on group access calls by default', async () => {
 		const auth = createTestAuthContext();
 

@@ -9,11 +9,9 @@ describe('/api/dashboard-config', () => {
 	it('matches dashboard route access for read and write operations', () => {
 		expect(_getConfig.policyAction?.id).toBe('identity.viewDashboard');
 		expect('permission' in _getConfig).toBe(false);
-		expect('deferPolicyToUseCase' in _getConfig).toBe(false);
 		expect(_getConfig.mutation).toBeUndefined();
 		expect(_putConfig.policyAction?.id).toBe('identity.updateOwnPreferences');
 		expect('permission' in _putConfig).toBe(false);
-		expect('deferPolicyToUseCase' in _putConfig).toBe(false);
 		expect(_putConfig.mutation).toBe(true);
 	});
 

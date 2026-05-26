@@ -33,16 +33,11 @@ describe('GET /api/personnel/[id]/export', () => {
 			policyResource: { kind: 'unscoped' }
 		});
 		expect('permission' in _getConfig).toBe(false);
-		expect('deferPolicyToUseCase' in _getConfig).toBe(false);
 	});
 
 	it('establishes a route-level policy gate for Personnel export', async () => {
-		const requirePrivileged = vi.fn(() => {
-			throw new Error('legacy requirePrivileged should not authorize Personnel export');
-		});
 		const ctx = createTestContext({
 			auth: {
-				requirePrivileged,
 				role: 'member',
 				isPrivileged: false,
 				capabilityMap: {
@@ -73,7 +68,6 @@ describe('GET /api/personnel/[id]/export', () => {
 		const result = await handleUseCaseRequest(_getConfig, ctx, { personnelId: 'p-1' });
 
 		expect(result._filename).toContain('SGT_Smith_Jamie-export');
-		expect(requirePrivileged).not.toHaveBeenCalled();
 	});
 
 	it('checks scoped Personnel export access before loading related record sets', async () => {

@@ -24,7 +24,6 @@ afterEach(() => {
 describe('POST /api/export', () => {
 	it('uses the organization data export policy boundary', () => {
 		expect('permission' in _postConfig).toBe(false);
-		expect('deferPolicyToUseCase' in _postConfig).toBe(false);
 		expect(_postConfig.policyAction).toBe(POLICY_ACTION_CATALOG.organization.exportData);
 		expect(_postConfig.policyResource).toEqual({ kind: 'organization' });
 	});

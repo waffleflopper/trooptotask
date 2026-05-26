@@ -123,7 +123,6 @@ describe('IctTaskEntity', () => {
 
 	it('uses the Critical Tasks configure policy boundary', () => {
 		expect(IctTaskEntity.table).toBe('ict_tasks');
-		expect(IctTaskEntity.permission).toBe('critical-tasks');
 		expect(IctTaskEntity.policyAction).toBe(POLICY_ACTION_CATALOG.criticalTasks.configureLibrary);
 		expect(IctTaskEntity.methods).toEqual(['POST', 'PUT']);
 		expect(IctTaskEntity.orderBy).toEqual([

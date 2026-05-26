@@ -12,7 +12,6 @@ describe('POST /api/personnel/merge', () => {
 			policyResource: { kind: 'unscoped' }
 		});
 		expect('permission' in _postConfig).toBe(false);
-		expect('deferPolicyToUseCase' in _postConfig).toBe(false);
 	});
 
 	it('returns updated, skipped, ambiguous, and failed rows for the merge workflow', async () => {

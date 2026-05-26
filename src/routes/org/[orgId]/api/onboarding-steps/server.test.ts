@@ -58,7 +58,6 @@ describe('/api/onboarding-steps route config', () => {
 	it('uses policy-first route configs for onboarding step mutations', () => {
 		for (const config of [_putConfig, _deleteConfig]) {
 			expect('permission' in config).toBe(false);
-			expect('deferPolicyToUseCase' in config).toBe(false);
 			expect(config.policyAction).toBe(POLICY_ACTION_CATALOG.onboarding.manageWorkflows);
 			expect(config.policyResource).toEqual({ kind: 'unscoped' });
 		}

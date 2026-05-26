@@ -11,8 +11,5 @@ describe('/api/notifications route config', () => {
 		expect('permission' in _getConfig).toBe(false);
 		expect('permission' in _putConfig).toBe(false);
 		expect('permission' in _deleteConfig).toBe(false);
-		expect('deferPolicyToUseCase' in _getConfig).toBe(false);
-		expect('deferPolicyToUseCase' in _putConfig).toBe(false);
-		expect('deferPolicyToUseCase' in _deleteConfig).toBe(false);
 	});
 });

@@ -7,7 +7,6 @@ import { _postConfig } from './+server';
 describe('/api/personnel-trainings/batch route config', () => {
 	it('uses a policy-first route config for Training batch import', () => {
 		expect('permission' in _postConfig).toBe(false);
-		expect('deferPolicyToUseCase' in _postConfig).toBe(false);
 		expect(_postConfig.policyAction).toBe(POLICY_ACTION_CATALOG.training.recordCompletions);
 		expect(_postConfig.policyResource).toEqual({ kind: 'unscoped' });
 	});

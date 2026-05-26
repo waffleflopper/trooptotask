@@ -38,11 +38,6 @@ export interface PermissionContext {
 	readonly canEdit: Record<FeatureArea, boolean>;
 	readonly canManageMembers: boolean;
 
-	requireView(area: FeatureArea): void;
-	requirePrivileged(): void;
-	requireOwner(): void;
-	requireManageMembers(): void;
-
 	requireGroupAccess(supabase: SupabaseClient, personnelId: string): Promise<void>;
 	requireGroupAccessBatch(supabase: SupabaseClient, personnelIds: string[]): Promise<void>;
 	requireGroupAccessByRecord(
@@ -87,17 +82,6 @@ export interface MembershipRow {
 export function createPermissionContextFromMembership(membership: MembershipRow): PermissionContext {
 	const projection = projectEffectiveMemberAccess(membership);
 
-	const areaLabel = (area: FeatureArea) => {
-		switch (area) {
-			case 'critical-tasks':
-				return 'critical tasks';
-			case 'rating-scheme':
-				return 'rating scheme';
-			default:
-				return area;
-		}
-	};
-
 	const ctx: PermissionContext = {
 		role: projection.role,
 		isOwner: projection.isOwner,
@@ -109,30 +93,6 @@ export function createPermissionContextFromMembership(membership: MembershipRow)
 		canView: projection.canView,
 		canEdit: projection.canEdit,
 		canManageMembers: projection.canManageMembers,
-
-		requireView(area: FeatureArea): void {
-			if (!projection.canView[area]) {
-				throw error(403, `You do not have permission to view ${areaLabel(area)} data`);
-			}
-		},
-
-		requirePrivileged(): void {
-			if (!projection.isPrivileged) {
-				throw error(403, 'This action requires admin or owner permissions');
-			}
-		},
-
-		requireOwner(): void {
-			if (!projection.isOwner) {
-				throw error(403, 'Only the organization owner can perform this action');
-			}
-		},
-
-		requireManageMembers(): void {
-			if (!projection.canManageMembers) {
-				throw error(403, 'You do not have permission to manage this organization');
-			}
-		},
 
 		async requireGroupAccess(supabaseClient: SupabaseClient, personnelId: string): Promise<void> {
 			const resolver = createSupabaseGroupResolver(supabaseClient);

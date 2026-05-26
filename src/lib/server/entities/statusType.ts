@@ -10,7 +10,6 @@ import { DA6_AVAILABILITY_TREATMENTS, type StatusType } from '$lib/types';
 
 export const StatusTypeEntity = defineEntity<StatusType>({
 	table: 'status_types',
-	permission: 'calendar',
 	policyAction: POLICY_ACTION_CATALOG.calendar.configureStatusTypes,
 	groupScope: 'none',
 	audit: { resourceType: 'status_type', detailFields: ['name'] },

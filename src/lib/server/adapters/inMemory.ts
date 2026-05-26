@@ -333,10 +333,6 @@ export function createTestAuthContext(overrides?: TestAuthContextOverrides): Aut
 		capabilityMap: FULL_CAPABILITY_MAP,
 		compatibilityLanes: FULL_COMPATIBILITY_LANES,
 		scopeSet: { kind: 'organization' } satisfies ScopeSet,
-		requireView() {},
-		requirePrivileged() {},
-		requireOwner() {},
-		requireManageMembers() {},
 		async requireGroupAccess() {},
 		async requireGroupAccessBatch() {},
 		async requireGroupAccessByRecord() {}

@@ -11,8 +11,5 @@ describe('/api/deletion-requests route config', () => {
 		expect('permission' in _getConfig).toBe(false);
 		expect('permission' in _postConfig).toBe(false);
 		expect('permission' in _deleteConfig).toBe(false);
-		expect('deferPolicyToUseCase' in _getConfig).toBe(false);
-		expect('deferPolicyToUseCase' in _postConfig).toBe(false);
-		expect('deferPolicyToUseCase' in _deleteConfig).toBe(false);
 	});
 });

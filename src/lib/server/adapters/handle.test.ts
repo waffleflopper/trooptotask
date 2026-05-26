@@ -38,10 +38,6 @@ function toUseCaseCtx(t: TestContext): UseCaseContext {
 			userId: t.auth.userId,
 			role: t.auth.role,
 			isPrivileged: t.auth.isPrivileged,
-			requireView: t.auth.requireView,
-			requirePrivileged: t.auth.requirePrivileged,
-			requireOwner: t.auth.requireOwner,
-			requireManageMembers: t.auth.requireManageMembers,
 			requireGroupAccess: t.auth.requireGroupAccess,
 			requireGroupAccessBatch: t.auth.requireGroupAccessBatch,
 			requireGroupAccessByRecord: t.auth.requireGroupAccessByRecord,
@@ -63,96 +59,6 @@ function toUseCaseCtx(t: TestContext): UseCaseContext {
 
 describe('handleUseCaseRequest', () => {
 	describe('permission enforcement', () => {
-		it('calls requireView for read-only routes', async () => {
-			let viewCalled = false;
-			const t = buildTestCtx({
-				auth: {
-					requireView() {
-						viewCalled = true;
-					}
-				}
-			});
-
-			const config: RouteConfig<void, string> = {
-				permission: 'personnel',
-				fn: async () => 'ok'
-			};
-
-			await handleUseCaseRequest(config, toUseCaseCtx(t), undefined);
-			expect(viewCalled).toBe(true);
-		});
-
-		it('rejects mutation routes without policy authorization or use-case deferral', async () => {
-			const t = buildTestCtx();
-
-			const config: RouteConfig<void, string> = {
-				permission: 'personnel',
-				mutation: true,
-				fn: async () => 'ok'
-			};
-
-			await expect(handleUseCaseRequest(config, toUseCaseCtx(t), undefined)).rejects.toThrow(
-				'Mutation route for personnel must declare policyAction or deferPolicyToUseCase'
-			);
-		});
-
-		it('calls requirePrivileged for privileged permission', async () => {
-			let called = false;
-			const t = buildTestCtx({
-				auth: {
-					requirePrivileged() {
-						called = true;
-					}
-				}
-			});
-
-			const config: RouteConfig<void, string> = {
-				permission: 'privileged',
-				fn: async () => 'ok'
-			};
-
-			await handleUseCaseRequest(config, toUseCaseCtx(t), undefined);
-			expect(called).toBe(true);
-		});
-
-		it('calls requireOwner for owner permission', async () => {
-			let called = false;
-			const t = buildTestCtx({
-				auth: {
-					requireOwner() {
-						called = true;
-					}
-				}
-			});
-
-			const config: RouteConfig<void, string> = {
-				permission: 'owner',
-				fn: async () => 'ok'
-			};
-
-			await handleUseCaseRequest(config, toUseCaseCtx(t), undefined);
-			expect(called).toBe(true);
-		});
-
-		it('calls requireManageMembers for manageMembers permission', async () => {
-			let called = false;
-			const t = buildTestCtx({
-				auth: {
-					requireManageMembers() {
-						called = true;
-					}
-				}
-			});
-
-			const config: RouteConfig<void, string> = {
-				permission: 'manageMembers',
-				fn: async () => 'ok'
-			};
-
-			await handleUseCaseRequest(config, toUseCaseCtx(t), undefined);
-			expect(called).toBe(true);
-		});
-
 		it('uses policy decisions when a policy action is declared', async () => {
 			const t = buildTestCtx({
 				auth: {
@@ -171,7 +77,6 @@ describe('handleUseCaseRequest', () => {
 			});
 
 			const config: RouteConfig<void, string> = {
-				permission: 'critical-tasks',
 				mutation: true,
 				policyAction: POLICY_ACTION_CATALOG.criticalTasks.recordCompletion,
 				policyResource: { kind: 'group', groupId: 'group-bravo' },
@@ -183,7 +88,6 @@ describe('handleUseCaseRequest', () => {
 		});
 
 		it('executes policy-first routes without legacy permission declarations', async () => {
-			let legacyPermissionCalled = false;
 			const t = buildTestCtx({
 				auth: {
 					role: 'member',
@@ -196,10 +100,7 @@ describe('handleUseCaseRequest', () => {
 						onboarding: 'none',
 						ratingScheme: 'none'
 					},
-					scopeSet: { kind: 'organization' },
-					requireView() {
-						legacyPermissionCalled = true;
-					}
+					scopeSet: { kind: 'organization' }
 				}
 			});
 
@@ -212,7 +113,6 @@ describe('handleUseCaseRequest', () => {
 
 			const result = await handleUseCaseRequest(config, toUseCaseCtx(t), undefined);
 			expect(result).toBe('ok');
-			expect(legacyPermissionCalled).toBe(false);
 		});
 
 		it('audits denied policy writes before rejecting the request', async () => {
@@ -233,7 +133,6 @@ describe('handleUseCaseRequest', () => {
 			});
 
 			const config: RouteConfig<void, string> = {
-				permission: 'critical-tasks',
 				mutation: true,
 				policyAction: POLICY_ACTION_CATALOG.criticalTasks.recordCompletion,
 				policyResource: { kind: 'organization' },
@@ -275,7 +174,6 @@ describe('handleUseCaseRequest', () => {
 			});
 
 			const config: RouteConfig<void, string> = {
-				permission: 'critical-tasks',
 				mutation: true,
 				policyAction: POLICY_ACTION_CATALOG.criticalTasks.recordCompletion,
 				policyResource: { kind: 'organization' },
@@ -351,11 +249,26 @@ describe('handleUseCaseRequest', () => {
 
 	describe('read-only guard', () => {
 		it('blocks mutations when org is read-only', async () => {
-			const t = buildTestCtx({ readOnly: true });
+			const t = buildTestCtx({
+				readOnly: true,
+				auth: {
+					role: 'member',
+					isPrivileged: false,
+					capabilityMap: {
+						calendar: 'none',
+						personnel: 'none',
+						training: 'none',
+						criticalTasks: 'operate',
+						onboarding: 'none',
+						ratingScheme: 'none'
+					}
+				}
+			});
 
 			const config: RouteConfig<void, string> = {
-				permission: 'privileged',
 				mutation: true,
+				policyAction: POLICY_ACTION_CATALOG.criticalTasks.recordCompletion,
+				policyResource: { kind: 'organization' },
 				fn: async () => 'ok'
 			};
 
@@ -366,7 +279,8 @@ describe('handleUseCaseRequest', () => {
 			const t = buildTestCtx({ readOnly: true });
 
 			const config: RouteConfig<void, string> = {
-				permission: 'personnel',
+				policyAction: POLICY_ACTION_CATALOG.personnel.viewRoster,
+				policyResource: { kind: 'organization' },
 				fn: async () => 'ok'
 			};
 
@@ -378,8 +292,8 @@ describe('handleUseCaseRequest', () => {
 			const t = buildTestCtx({ readOnly: true });
 
 			const config: RouteConfig<void, string> = {
-				permission: 'owner',
 				mutation: true,
+				policyAction: POLICY_ACTION_CATALOG.identity.updateOwnPreferences,
 				allowReadOnlyMutation: true,
 				fn: async () => 'ok'
 			};
@@ -394,9 +308,9 @@ describe('handleUseCaseRequest', () => {
 			const t = buildTestCtx();
 
 			const config: RouteConfig<{ name: string }, string> = {
-				permission: 'personnel',
 				mutation: true,
-				deferPolicyToUseCase: true,
+				policyAction: POLICY_ACTION_CATALOG.personnel.manageRecords,
+				policyResource: { kind: 'organization' },
 				input: z.object({ name: z.string().min(1) }),
 				fn: async (_ctx, input) => `hello ${input.name}`
 			};
@@ -409,9 +323,9 @@ describe('handleUseCaseRequest', () => {
 			const t = buildTestCtx();
 
 			const config: RouteConfig<{ name: string }, string> = {
-				permission: 'personnel',
 				mutation: true,
-				deferPolicyToUseCase: true,
+				policyAction: POLICY_ACTION_CATALOG.personnel.manageRecords,
+				policyResource: { kind: 'organization' },
 				input: z.object({ name: z.string().min(1) }),
 				fn: async (_ctx, input) => `hello ${input.name}`
 			};
@@ -425,9 +339,9 @@ describe('handleUseCaseRequest', () => {
 			const t = buildTestCtx();
 
 			const config: RouteConfig<void, { id: string }> = {
-				permission: 'personnel',
 				mutation: true,
-				deferPolicyToUseCase: true,
+				policyAction: POLICY_ACTION_CATALOG.personnel.createRecords,
+				policyResource: { kind: 'organization' },
 				fn: async () => ({ id: 'new-1' }),
 				audit: {
 					action: 'person.created',
@@ -450,9 +364,9 @@ describe('handleUseCaseRequest', () => {
 			const t = buildTestCtx();
 
 			const config: RouteConfig<void, string> = {
-				permission: 'personnel',
 				mutation: true,
-				deferPolicyToUseCase: true,
+				policyAction: POLICY_ACTION_CATALOG.personnel.createRecords,
+				policyResource: { kind: 'organization' },
 				fn: async () => {
 					throw new Error('boom');
 				},
@@ -473,7 +387,8 @@ describe('handleUseCaseRequest', () => {
 			t.store.seed('items', [{ id: '1', organization_id: 'test-org', name: 'thing' }]);
 
 			const config: RouteConfig<void, unknown[]> = {
-				permission: 'personnel',
+				policyAction: POLICY_ACTION_CATALOG.personnel.viewRoster,
+				policyResource: { kind: 'organization' },
 				fn: async (ctx) => ctx.store.findMany('items', ctx.auth.orgId)
 			};
 

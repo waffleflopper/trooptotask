@@ -33,7 +33,6 @@ function makePayload(overrides: Record<string, unknown> = {}) {
 describe('POST /api/duty-templates', () => {
 	it('exports a calendar mutation route config', () => {
 		expect('permission' in _postConfig).toBe(false);
-		expect('deferPolicyToUseCase' in _postConfig).toBe(false);
 		expect(_postConfig.policyAction).toBe(POLICY_ACTION_CATALOG.calendar.configureDutyTemplates);
 		expect(_postConfig.policyResource).toEqual({ kind: 'unscoped' });
 		expect(_postConfig.mutation).toBe(true);
@@ -83,7 +82,6 @@ describe('POST /api/duty-templates', () => {
 describe('PUT /api/duty-templates', () => {
 	it('uses a policy-first route config for updates', () => {
 		expect('permission' in _putConfig).toBe(false);
-		expect('deferPolicyToUseCase' in _putConfig).toBe(false);
 		expect(_putConfig.policyAction).toBe(POLICY_ACTION_CATALOG.calendar.configureDutyTemplates);
 		expect(_putConfig.policyResource).toEqual({ kind: 'unscoped' });
 	});
@@ -104,7 +102,6 @@ describe('PUT /api/duty-templates', () => {
 describe('DELETE /api/duty-templates/[templateId]', () => {
 	it('uses a policy-first route config for archive', () => {
 		expect('permission' in archiveTemplateConfig).toBe(false);
-		expect('deferPolicyToUseCase' in archiveTemplateConfig).toBe(false);
 		expect(archiveTemplateConfig.policyAction).toBe(POLICY_ACTION_CATALOG.calendar.configureDutyTemplates);
 		expect(archiveTemplateConfig.policyResource).toEqual({ kind: 'unscoped' });
 	});

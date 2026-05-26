@@ -7,7 +7,6 @@ import { _postConfig, _putConfig } from './+server';
 describe('POST /api/special-days', () => {
 	it('uses a policy-first route config for special-day creation and reset', () => {
 		expect('permission' in _postConfig).toBe(false);
-		expect('deferPolicyToUseCase' in _postConfig).toBe(false);
 		expect(_postConfig.policyAction).toBe(POLICY_ACTION_CATALOG.calendar.configureSpecialDays);
 		expect(_postConfig.policyResource).toEqual({ kind: 'organization' });
 	});
@@ -37,7 +36,6 @@ describe('POST /api/special-days', () => {
 describe('PUT /api/special-days', () => {
 	it('exports a calendar mutation route config', () => {
 		expect('permission' in _putConfig).toBe(false);
-		expect('deferPolicyToUseCase' in _putConfig).toBe(false);
 		expect(_putConfig.policyAction).toBe(POLICY_ACTION_CATALOG.calendar.configureSpecialDays);
 		expect(_putConfig.policyResource).toEqual({ kind: 'organization' });
 		expect(_putConfig.mutation).toBe(true);

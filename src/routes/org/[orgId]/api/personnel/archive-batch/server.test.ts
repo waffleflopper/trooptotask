@@ -12,7 +12,6 @@ describe('POST /api/personnel/archive-batch', () => {
 			policyResource: { kind: 'unscoped' }
 		});
 		expect('permission' in _postConfig).toBe(false);
-		expect('deferPolicyToUseCase' in _postConfig).toBe(false);
 	});
 
 	it('archives selected personnel through one route use case request', async () => {

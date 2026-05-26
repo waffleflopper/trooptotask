@@ -46,7 +46,6 @@ import { fail } from '$lib/server/core/errors';
 import {
 	enforceLoadAuthorization,
 	enforceRouteAuthorization,
-	enforceRouteReadOnlyOverlay,
 	type LoadAuthorizationConfig,
 	type RouteAuthorizationConfig
 } from '$lib/server/core/useCases/routeAuthorization';
@@ -300,10 +299,7 @@ export async function handleUseCaseRequest<TInput, TOutput>(
 	// 1. Permission check
 	await enforceRouteAuthorization(ctx, config as RouteConfig<unknown, unknown>);
 
-	// 2. Read-only guard for mutations
-	await enforceRouteReadOnlyOverlay(ctx, config);
-
-	// 3. Zod input validation
+	// 2. Zod input validation
 	let input: TInput;
 	if (config.input) {
 		const result = config.input.safeParse(rawInput);
@@ -315,10 +311,10 @@ export async function handleUseCaseRequest<TInput, TOutput>(
 		input = rawInput as TInput;
 	}
 
-	// 4. Execute use case
+	// 3. Execute use case
 	const output = await config.fn(ctx, input);
 
-	// 5. Declarative audit
+	// 4. Declarative audit
 	if (config.audit) {
 		ctx.audit.log({
 			action: config.audit.action,
@@ -347,9 +343,8 @@ function enforceLoadPermission(ctx: UseCaseContext, config: LoadConfig<unknown>)
  * Testable core of loadWithContext() — no SvelteKit dependency.
  *
  * Without `defer`: checks permissions and awaits the data (blocks navigation).
- * With `defer: true`: checks permissions eagerly, returns data as an unresolved
- * promise for SvelteKit streaming (navigation completes immediately, page shows
- * skeletons while data loads).
+ * With `defer: true`: starts the policy check immediately and returns data as an
+ * unresolved promise for SvelteKit streaming. Denied access rejects that promise.
  */
 export function loadWithContextCore<T>(
 	ctx: UseCaseContext,
@@ -372,9 +367,9 @@ export function loadWithContextCore<T>(ctx: UseCaseContext, config: LoadConfig<T
  * Wraps buildLayoutContext() for use in +page.server.ts / +layout.server.ts load functions.
  *
  * Without `defer`: awaits data before returning (standard blocking load).
- * With `defer: true`: permissions checked eagerly, data returned as an unresolved
- * promise that SvelteKit streams. Pages with skeleton UIs should use this to allow
- * instant navigation.
+ * With `defer: true`: policy checks start immediately, data is returned as an
+ * unresolved promise that SvelteKit streams, and denied access rejects that promise.
+ * Pages with skeleton UIs should use this to allow instant navigation.
  */
 export async function loadWithContext<T>(
 	locals: App.Locals,

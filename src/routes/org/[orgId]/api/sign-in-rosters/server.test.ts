@@ -8,8 +8,6 @@ describe('/api/sign-in-rosters route config', () => {
 	it('uses policy-first route configs for sign-in roster reads and creation', () => {
 		expect('permission' in _getConfig).toBe(false);
 		expect('permission' in _postConfig).toBe(false);
-		expect('deferPolicyToUseCase' in _getConfig).toBe(false);
-		expect('deferPolicyToUseCase' in _postConfig).toBe(false);
 		expect(_getConfig.policyAction).toBe(POLICY_ACTION_CATALOG.training.viewRecords);
 		expect(_postConfig.policyAction).toBe(POLICY_ACTION_CATALOG.training.manageSignInRosters);
 		expect(_getConfig.policyResource).toEqual({ kind: 'unscoped' });

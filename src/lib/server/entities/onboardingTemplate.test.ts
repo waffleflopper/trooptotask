@@ -138,10 +138,6 @@ describe('OnboardingTemplateEntity', () => {
 		expect(result.success).toBe(true);
 	});
 
-	it('has permission onboarding', () => {
-		expect(OnboardingTemplateEntity.permission).toBe('onboarding');
-	});
-
 	it('uses Onboarding configure policy', () => {
 		expect(OnboardingTemplateEntity.policyAction?.id).toBe('onboarding.configureWorkflows');
 	});

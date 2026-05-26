@@ -8,7 +8,6 @@ describe('/api/personnel-trainings route config', () => {
 	it('uses policy-first route configs for all personnel training mutations', () => {
 		for (const config of [_postConfig, _putConfig, _deleteConfig]) {
 			expect('permission' in config).toBe(false);
-			expect('deferPolicyToUseCase' in config).toBe(false);
 			expect(config.policyAction).toBe(POLICY_ACTION_CATALOG.training.recordCompletions);
 			expect(config.policyResource).toEqual({ kind: 'unscoped' });
 		}

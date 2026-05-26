@@ -4,7 +4,6 @@ import type { DutyEvent } from '$features/duty-roster/duty-roster.types';
 
 export const DutyEventEntity = defineEntity<DutyEvent>({
 	table: 'duty_events',
-	permission: 'calendar',
 	groupScope: 'none',
 	audit: { resourceType: 'duty_event' },
 	schema: {

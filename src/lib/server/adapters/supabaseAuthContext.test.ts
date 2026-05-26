@@ -31,10 +31,6 @@ function makePermissionContext(overrides?: Partial<PermissionContext>): Permissi
 		canView: { ...allTrue },
 		canEdit: { ...allTrue },
 		canManageMembers: true,
-		requireView: vi.fn(),
-		requirePrivileged: vi.fn(),
-		requireOwner: vi.fn(),
-		requireManageMembers: vi.fn(),
 		requireGroupAccess: vi.fn().mockResolvedValue(undefined),
 		requireGroupAccessBatch: vi.fn().mockResolvedValue(undefined),
 		requireGroupAccessByRecord: vi.fn().mockResolvedValue(undefined),
@@ -61,30 +57,6 @@ describe('SupabaseAuthContextAdapter', () => {
 		expect(auth.role).toBe('member');
 		expect(auth.isPrivileged).toBe(false);
 		expect(auth.scopeSet).toEqual({ kind: 'groups', groupIds: ['group-A'] });
-	});
-
-	it('delegates requireView to PermissionContext', () => {
-		const permCtx = makePermissionContext();
-		const auth = createSupabaseAuthContextAdapter(permCtx, fakeSupabase, userId, orgId);
-
-		auth.requireView('training');
-		expect(permCtx.requireView).toHaveBeenCalledWith('training');
-	});
-
-	it('delegates requirePrivileged to PermissionContext', () => {
-		const permCtx = makePermissionContext();
-		const auth = createSupabaseAuthContextAdapter(permCtx, fakeSupabase, userId, orgId);
-
-		auth.requirePrivileged();
-		expect(permCtx.requirePrivileged).toHaveBeenCalled();
-	});
-
-	it('delegates requireOwner to PermissionContext', () => {
-		const permCtx = makePermissionContext();
-		const auth = createSupabaseAuthContextAdapter(permCtx, fakeSupabase, userId, orgId);
-
-		auth.requireOwner();
-		expect(permCtx.requireOwner).toHaveBeenCalled();
 	});
 
 	it('delegates requireGroupAccess with captured supabase client', async () => {

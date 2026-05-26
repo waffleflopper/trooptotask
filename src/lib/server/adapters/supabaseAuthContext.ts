@@ -5,7 +5,7 @@
  * Enforces role and group-scope checks.
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { AuthContext, FeatureArea } from '../core/ports';
+import type { AuthContext } from '../core/ports';
 import type { PermissionContext } from '$lib/server/permissionContext';
 
 export function createSupabaseAuthContextAdapter(
@@ -35,19 +35,6 @@ export function createSupabaseAuthContextAdapter(
 		},
 		get scopeSet() {
 			return permCtx.scopeSet;
-		},
-
-		requireView(area: FeatureArea): void {
-			permCtx.requireView(area);
-		},
-		requirePrivileged(): void {
-			permCtx.requirePrivileged();
-		},
-		requireOwner(): void {
-			permCtx.requireOwner();
-		},
-		requireManageMembers(): void {
-			permCtx.requireManageMembers();
 		},
 
 		async requireGroupAccess(personnelId: string): Promise<void> {

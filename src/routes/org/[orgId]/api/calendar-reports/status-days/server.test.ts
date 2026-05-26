@@ -7,7 +7,6 @@ import { _getConfig } from './+server';
 describe('GET /api/calendar-reports/status-days', () => {
 	it('uses a policy-first route config for report reads', () => {
 		expect('permission' in _getConfig).toBe(false);
-		expect('deferPolicyToUseCase' in _getConfig).toBe(false);
 		expect(_getConfig.policyAction).toBe(POLICY_ACTION_CATALOG.calendar.viewReports);
 		expect(_getConfig.policyResource).toEqual({ kind: 'unscoped' });
 	});

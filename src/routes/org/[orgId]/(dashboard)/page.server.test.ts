@@ -40,11 +40,7 @@ const {
 					ratingScheme: 'view'
 				},
 				scopeSet: { kind: 'organization' },
-				requireView: vi.fn(),
-				requireEdit: vi.fn(),
-				requirePrivileged: vi.fn(),
-				requireOwner: vi.fn(),
-				requireManageMembers: vi.fn()
+				isPrivileged: false
 			},
 			store: {
 				findManyWithCount: findManyWithCountMock,
@@ -301,7 +297,6 @@ describe('dashboard page server load', () => {
 			}
 		});
 		expect(fetchCriticalTasksReportDashboardMock).toHaveBeenCalledOnce();
-		expect(mockCtx.auth.requireView).not.toHaveBeenCalled();
 	});
 
 	it('does not fetch or return Critical Tasks dashboard data without Critical Tasks view access', async () => {

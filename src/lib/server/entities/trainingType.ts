@@ -12,7 +12,6 @@ import type { TrainingType } from '$features/training/training.types';
 
 export const TrainingTypeEntity = defineEntity<TrainingType>({
 	table: 'training_types',
-	permission: 'training',
 	policyAction: POLICY_ACTION_CATALOG.training.configureRequirements,
 	groupScope: 'none',
 	audit: { resourceType: 'training_type', detailFields: ['name'] },

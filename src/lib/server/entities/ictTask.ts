@@ -5,7 +5,6 @@ import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 
 export const IctTaskEntity = defineEntity<IctTask>({
 	table: 'ict_tasks',
-	permission: 'critical-tasks',
 	policyAction: POLICY_ACTION_CATALOG.criticalTasks.configureLibrary,
 	groupScope: 'none',
 	methods: ['POST', 'PUT'],

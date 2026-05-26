@@ -11,7 +11,6 @@ import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 
 export const OnboardingTemplateEntity = defineEntity<OnboardingTemplate>({
 	table: 'onboarding_templates',
-	permission: 'onboarding',
 	policyAction: POLICY_ACTION_CATALOG.onboarding.configureWorkflows,
 	groupScope: 'none',
 	audit: { resourceType: 'onboarding_template' },

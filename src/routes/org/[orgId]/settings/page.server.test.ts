@@ -130,7 +130,7 @@ describe('org settings page server actions', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		buildLayoutContextMock.mockResolvedValue({
-			auth: { requireManageMembers: vi.fn() }
+			auth: { orgId: 'org-1' }
 		});
 		buildRouteContextMock.mockResolvedValue({
 			auth: { kind: 'auth', orgId: 'org-1' },

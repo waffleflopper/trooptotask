@@ -8,7 +8,6 @@ describe('/api/onboarding route config', () => {
 	it('uses policy-first route configs for onboarding lifecycle mutations', () => {
 		for (const config of [_postConfig, _putConfig]) {
 			expect('permission' in config).toBe(false);
-			expect('deferPolicyToUseCase' in config).toBe(false);
 			expect(config.policyAction).toBe(POLICY_ACTION_CATALOG.onboarding.manageWorkflows);
 			expect(config.policyResource).toEqual({ kind: 'unscoped' });
 		}

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { z } from 'zod';
 import { field, defineEntity } from '$lib/server/entitySchema';
 import { createTestContext } from './inMemory';
@@ -126,7 +126,6 @@ describe('entityHandlers()', () => {
 					policyResource: { kind: 'unscoped' }
 				});
 				expect('permission' in config!).toBe(false);
-				expect('deferPolicyToUseCase' in config!).toBe(false);
 			}
 		});
 
@@ -216,14 +215,10 @@ describe('entityHandlers()', () => {
 		] as const)('rejects %s when auth lacks the declared policy capability', async (method, input) => {
 			const entity = createTestEntity();
 			const handlers = entityHandlers(entity);
-			const requirePrivileged = vi.fn(() => {
-				throw new Error('legacy privileged auth should not authorize entity handler mutations');
-			});
 			const ctx = createTestContext({
 				auth: {
 					role: 'member',
 					isPrivileged: false,
-					requirePrivileged,
 					capabilityMap: {
 						calendar: 'none',
 						personnel: 'none',
@@ -238,7 +233,6 @@ describe('entityHandlers()', () => {
 			await expect(handleUseCaseRequest(handlers._configs[method]!, ctx, input)).rejects.toMatchObject({
 				status: 403
 			});
-			expect(requirePrivileged).not.toHaveBeenCalled();
 		});
 	});
 

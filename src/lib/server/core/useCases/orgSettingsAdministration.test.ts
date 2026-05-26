@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import {
 	clearOrganizationUrlSlug,
@@ -92,8 +92,7 @@ describe('renameOrganization', () => {
 		const ctx = createTestContext({
 			auth: {
 				orgId: 'org-1',
-				role: 'member',
-				requireManageMembers: vi.fn()
+				role: 'member'
 			}
 		});
 		const port = createOrganizationSettingsAdministrationPort();
@@ -123,11 +122,9 @@ describe('renameOrganization', () => {
 	});
 
 	it('normalizes the organization name before persisting and auditing', async () => {
-		const requireManageMembers = vi.fn();
 		const ctx = createTestContext({
 			auth: {
-				orgId: 'org-1',
-				requireManageMembers
+				orgId: 'org-1'
 			}
 		});
 		const port = createOrganizationSettingsAdministrationPort();
@@ -138,7 +135,6 @@ describe('renameOrganization', () => {
 		);
 
 		expect(result).toEqual({ nameSuccess: true });
-		expect(requireManageMembers).not.toHaveBeenCalled();
 		expect(port.renameRequests).toEqual([{ orgId: 'org-1', name: 'Alpha Company' }]);
 		expect(ctx.auditPort.events).toEqual([
 			{
@@ -266,8 +262,7 @@ describe('transferOrganizationOwnership', () => {
 		const ctx = createTestContext({
 			auth: {
 				orgId: 'org-1',
-				role: 'admin',
-				requireOwner: vi.fn()
+				role: 'admin'
 			}
 		});
 		const port = createOrganizationSettingsAdministrationPort();
@@ -304,12 +299,7 @@ describe('transferOrganizationOwnership', () => {
 	});
 
 	it('rejects invalid target user ids before transfer provider work starts', async () => {
-		const requireOwner = vi.fn();
-		const ctx = createTestContext({
-			auth: {
-				requireOwner
-			}
-		});
+		const ctx = createTestContext();
 		const port = createOrganizationSettingsAdministrationPort();
 
 		await expect(
@@ -328,7 +318,6 @@ describe('transferOrganizationOwnership', () => {
 			message: 'Invalid user ID'
 		});
 
-		expect(requireOwner).not.toHaveBeenCalled();
 		expect(port.transferRequests).toEqual([]);
 		expect(ctx.sensitiveActionAuthorizer.requests).toEqual([]);
 		expect(ctx.auditPort.events).toEqual([]);
@@ -652,8 +641,7 @@ describe('deleteOrganization', () => {
 		const ctx = createTestContext({
 			auth: {
 				orgId: 'org-1',
-				role: 'admin',
-				requireOwner: vi.fn()
+				role: 'admin'
 			}
 		});
 		const port = createOrganizationSettingsAdministrationPort({
@@ -693,11 +681,9 @@ describe('deleteOrganization', () => {
 	});
 
 	it('normalizes the confirmation name before deleting and records the destructive audit event', async () => {
-		const requireOwner = vi.fn();
 		const ctx = createTestContext({
 			auth: {
-				orgId: 'org-1',
-				requireOwner
+				orgId: 'org-1'
 			}
 		});
 		const port = createOrganizationSettingsAdministrationPort({
@@ -716,7 +702,6 @@ describe('deleteOrganization', () => {
 		);
 
 		expect(result).toEqual({ success: true });
-		expect(requireOwner).not.toHaveBeenCalled();
 		expect(port.organizationLookups).toEqual(['org-1']);
 		expect(port.deletedOrganizations).toEqual(['org-1']);
 		expect(ctx.auditPort.events).toEqual([

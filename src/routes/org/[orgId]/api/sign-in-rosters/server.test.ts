@@ -1,9 +1,17 @@
 import { describe, expect, it } from 'vitest';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { _postConfig } from './+server';
 
 describe('/api/sign-in-rosters route config', () => {
+	it('uses a policy-first route config for sign-in roster creation', () => {
+		expect('permission' in _postConfig).toBe(false);
+		expect('deferPolicyToUseCase' in _postConfig).toBe(false);
+		expect(_postConfig.policyAction).toBe(POLICY_ACTION_CATALOG.training.recordCompletions);
+		expect(_postConfig.policyResource).toEqual({ kind: 'unscoped' });
+	});
+
 	it('persists sign-in rosters through the Training record policy for operators', async () => {
 		let legacyEditCalled = false;
 		const ctx = createTestContext({
@@ -48,5 +56,36 @@ describe('/api/sign-in-rosters route config', () => {
 			action: 'sign_in_roster.created',
 			resourceType: 'sign_in_roster'
 		});
+	});
+
+	it('denies sign-in roster creation through the Training policy decision', async () => {
+		const ctx = createTestContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'view',
+					training: 'view',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				},
+				scopeSet: { kind: 'organization' }
+			}
+		});
+
+		await expect(
+			handleUseCaseRequest(_postConfig, ctx, {
+				title: 'Annual AT Sign-In',
+				personnelSnapshot: [{ id: 'p-1' }]
+			})
+		).rejects.toMatchObject({ status: 403 });
+		expect(ctx.auditPort.events).toEqual([
+			expect.objectContaining({
+				action: 'policy.denied',
+				resourceType: 'training.recordCompletions'
+			})
+		]);
 	});
 });

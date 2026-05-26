@@ -474,7 +474,6 @@ export function createSupabaseTrainingWorkspacePort(
 
 		if (defer) {
 			return loadWithContext(locals, cookies, orgId, {
-				permission: 'training',
 				policyAction: POLICY_ACTION_CATALOG.training.viewMatrix,
 				policyResource: { kind: 'unscoped' },
 				defer: true,
@@ -483,7 +482,6 @@ export function createSupabaseTrainingWorkspacePort(
 		}
 
 		return loadWithContext(locals, cookies, orgId, {
-			permission: 'training',
 			policyAction: POLICY_ACTION_CATALOG.training.viewMatrix,
 			policyResource: { kind: 'unscoped' },
 			fn
@@ -636,7 +634,6 @@ export function createSupabaseOnboardingWorkspacePort(
 
 		if (defer) {
 			return loadWithContext(locals, cookies, orgId, {
-				permission: 'onboarding',
 				policyAction: POLICY_ACTION_CATALOG.onboarding.viewWorkflows,
 				policyResource: { kind: 'unscoped' },
 				defer: true,
@@ -645,7 +642,6 @@ export function createSupabaseOnboardingWorkspacePort(
 		}
 
 		return loadWithContext(locals, cookies, orgId, {
-			permission: 'onboarding',
 			policyAction: POLICY_ACTION_CATALOG.onboarding.viewWorkflows,
 			policyResource: { kind: 'unscoped' },
 			fn

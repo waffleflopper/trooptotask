@@ -1,4 +1,5 @@
 import { json } from '@sveltejs/kit';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { fail } from '$lib/server/core/errors';
 import { validateUUID } from '$lib/server/validation';
@@ -9,23 +10,23 @@ import {
 } from '$lib/server/core/useCases/trainingRecords';
 
 export const _postConfig: RouteConfig<Record<string, unknown>, unknown> = {
-	permission: 'training',
 	mutation: true,
-	deferPolicyToUseCase: true,
+	policyAction: POLICY_ACTION_CATALOG.training.recordCompletions,
+	policyResource: { kind: 'unscoped' },
 	fn: (ctx, input) => createTrainingRecord(ctx, input)
 };
 
 export const _putConfig: RouteConfig<Record<string, unknown>, unknown> = {
-	permission: 'training',
 	mutation: true,
-	deferPolicyToUseCase: true,
+	policyAction: POLICY_ACTION_CATALOG.training.recordCompletions,
+	policyResource: { kind: 'unscoped' },
 	fn: (ctx, input) => updateTrainingRecord(ctx, input)
 };
 
 export const _deleteConfig: RouteConfig<Record<string, unknown>, Record<string, unknown>> = {
-	permission: 'training',
 	mutation: true,
-	deferPolicyToUseCase: true,
+	policyAction: POLICY_ACTION_CATALOG.training.recordCompletions,
+	policyResource: { kind: 'unscoped' },
 	fn: async (ctx, input) => {
 		const id = input?.id;
 		if (!id || typeof id !== 'string') fail(400, 'Missing id');

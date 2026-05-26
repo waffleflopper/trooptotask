@@ -40,7 +40,6 @@ describe('training reports page server load', () => {
 			expect.anything(),
 			'org-1',
 			expect.objectContaining({
-				permission: 'training',
 				policyAction: POLICY_ACTION_CATALOG.training.viewRecords,
 				policyResource: { kind: 'unscoped' }
 			})

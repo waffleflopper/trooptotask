@@ -1,4 +1,5 @@
-import { handle } from '$lib/server/adapters/httpAdapter';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { fail } from '$lib/server/core/errors';
 import {
 	startOnboarding,
@@ -7,21 +8,21 @@ import {
 	completeOnboarding
 } from '$lib/server/core/useCases/onboardingLifecycle';
 
-export const POST = handle<Record<string, unknown>, unknown>({
-	permission: 'onboarding',
+export const _postConfig = {
 	mutation: true,
-	deferPolicyToUseCase: true,
+	policyAction: POLICY_ACTION_CATALOG.onboarding.manageWorkflows,
+	policyResource: { kind: 'unscoped' },
 	fn: (ctx, input) =>
 		startOnboarding(ctx, {
 			personnelId: input.personnelId as string,
 			templateId: input.templateId as string
 		})
-});
+} satisfies RouteConfig<Record<string, unknown>, unknown>;
 
-export const PUT = handle<Record<string, unknown>, unknown>({
-	permission: 'onboarding',
+export const _putConfig = {
 	mutation: true,
-	deferPolicyToUseCase: true,
+	policyAction: POLICY_ACTION_CATALOG.onboarding.manageWorkflows,
+	policyResource: { kind: 'unscoped' },
 	fn: async (ctx, input) => {
 		const id = input.id as string;
 		const status = input.status as string;
@@ -32,4 +33,7 @@ export const PUT = handle<Record<string, unknown>, unknown>({
 
 		fail(400, `Invalid status: ${status}`);
 	}
-});
+} satisfies RouteConfig<Record<string, unknown>, unknown>;
+
+export const POST = handle(_postConfig);
+export const PUT = handle(_putConfig);

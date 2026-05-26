@@ -1,4 +1,5 @@
-import { handle } from '$lib/server/adapters/httpAdapter';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { fail } from '$lib/server/core/errors';
 import {
 	toggleCheckbox,
@@ -7,10 +8,10 @@ import {
 	removeInactiveStep
 } from '$lib/server/core/useCases/onboardingStepProgress';
 
-export const PUT = handle<Record<string, unknown>, unknown>({
-	permission: 'onboarding',
+export const _putConfig = {
 	mutation: true,
-	deferPolicyToUseCase: true,
+	policyAction: POLICY_ACTION_CATALOG.onboarding.manageWorkflows,
+	policyResource: { kind: 'unscoped' },
 	fn: async (ctx, input) => {
 		const action = input.action as string;
 
@@ -40,12 +41,12 @@ export const PUT = handle<Record<string, unknown>, unknown>({
 
 		fail(400, `Unknown action: ${action}`);
 	}
-});
+} satisfies RouteConfig<Record<string, unknown>, unknown>;
 
-export const DELETE = handle<Record<string, unknown>, unknown>({
-	permission: 'onboarding',
+export const _deleteConfig = {
 	mutation: true,
-	deferPolicyToUseCase: true,
+	policyAction: POLICY_ACTION_CATALOG.onboarding.manageWorkflows,
+	policyResource: { kind: 'unscoped' },
 	fn: async (ctx, input) => {
 		const stepId = input.id as string;
 		if (!stepId) fail(400, 'Missing step id');
@@ -53,4 +54,7 @@ export const DELETE = handle<Record<string, unknown>, unknown>({
 		await removeInactiveStep(ctx, stepId);
 		return { success: true };
 	}
-});
+} satisfies RouteConfig<Record<string, unknown>, unknown>;
+
+export const PUT = handle(_putConfig);
+export const DELETE = handle(_deleteConfig);

@@ -66,7 +66,6 @@ export const _getConfig: RouteConfig<Record<string, unknown>, unknown> = {
 export const GET = handle(_getConfig);
 
 export const _postConfig: RouteConfig<Record<string, unknown>, unknown> = {
-	permission: 'training',
 	mutation: true,
 	policyAction: POLICY_ACTION_CATALOG.training.recordCompletions,
 	policyResource: { kind: 'unscoped' },

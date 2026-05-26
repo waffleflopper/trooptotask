@@ -54,7 +54,7 @@ describe('GET /api/training-reports/export', () => {
 			}
 		]);
 
-		expect(_getConfig.permission).toBe('training');
+		expect('permission' in _getConfig).toBe(false);
 		expect(_getConfig.policyAction).toBe(POLICY_ACTION_CATALOG.training.viewRecords);
 		expect(_getConfig.policyResource).toEqual({ kind: 'unscoped' });
 

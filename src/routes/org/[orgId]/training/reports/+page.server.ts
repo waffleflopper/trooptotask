@@ -29,7 +29,6 @@ export function _createTrainingReportsPageLoad(deps: TrainingReportsPageLoadDeps
 
 		return {
 			trainingReport: await loadWithContextFn(locals, cookies, orgId, {
-				permission: 'training',
 				policyAction: POLICY_ACTION_CATALOG.training.viewRecords,
 				policyResource: { kind: 'unscoped' },
 				fn: (ctx) => fetchTrainingReportPageFn(ctx, INITIAL_REPORT_INPUT)

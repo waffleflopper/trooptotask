@@ -1,10 +1,11 @@
-import { handle } from '$lib/server/adapters/httpAdapter';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { resyncOnboarding, switchTemplate } from '$lib/server/core/useCases/onboardingResync';
 
-export const POST = handle<Record<string, unknown>, unknown>({
-	permission: 'onboarding',
+export const _postConfig = {
 	mutation: true,
-	deferPolicyToUseCase: true,
+	policyAction: POLICY_ACTION_CATALOG.onboarding.configureWorkflows,
+	policyResource: { kind: 'unscoped' },
 	fn: async (ctx, input) => {
 		if (input.newTemplateId) {
 			return switchTemplate(ctx, {
@@ -14,4 +15,6 @@ export const POST = handle<Record<string, unknown>, unknown>({
 		}
 		return resyncOnboarding(ctx, input.onboardingId as string);
 	}
-});
+} satisfies RouteConfig<Record<string, unknown>, unknown>;
+
+export const POST = handle(_postConfig);

@@ -16,6 +16,10 @@ const operateOnlyCapabilityMap: CapabilityMap = {
 };
 
 describe('POST /api/onboarding-templates/[templateId]/duplicate', () => {
+	it('uses a policy-first route config for template duplication', () => {
+		expect('permission' in _postConfig).toBe(false);
+	});
+
 	it('duplicates a template through the route config', async () => {
 		const ctx = createTestContext();
 		ctx.store.seed('onboarding_templates', [

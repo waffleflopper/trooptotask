@@ -14,7 +14,6 @@ function parseDuplicateTemplateInput(event: RequestEvent): z.infer<typeof duplic
 }
 
 const duplicateTemplateConfig = {
-	permission: 'onboarding',
 	mutation: true,
 	policyAction: POLICY_ACTION_CATALOG.onboarding.configureWorkflows,
 	policyResource: { kind: 'organization' },

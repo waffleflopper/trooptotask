@@ -11,16 +11,23 @@
 
 	let { data, form } = $props();
 
-	let loading = $state(false);
+	let deleteLoading = $state(false);
+	let transferLoading = $state(false);
 	const settingsState = createSettingsWorkspaceState(() => data.workspace);
 	const organizationSection = $derived(data.workspace.sections.organization);
 	const dangerZoneSection = $derived(settingsState.dangerZone.section);
 	const currentMember = $derived(data.workspace.currentMember);
 
-	const stepUpEnhance: SubmitFunction = () => {
+	const transferEnhance: SubmitFunction = () => {
+		transferLoading = true;
 		return async ({ result, update }) => {
-			if (result.type === 'failure' && redirectToSensitiveActionStepUp(result.data)) return;
-			await update();
+			try {
+				if (result.type === 'failure' && redirectToSensitiveActionStepUp(result.data)) return;
+				await update();
+				if (result.type === 'success') settingsState.dangerZone.closeTransferConfirmation();
+			} finally {
+				transferLoading = false;
+			}
 		};
 	};
 
@@ -50,10 +57,10 @@
 {#if settingsState.dangerZone.showDeleteConfirm}
 	<AppDialog.Root
 		bind:open={settingsState.dangerZone.showDeleteConfirm}
-		closeBlocked={loading || settingsState.dangerZone.deleteOrganizationCloseBlocked}
+		closeBlocked={deleteLoading || settingsState.dangerZone.deleteOrganizationCloseBlocked}
 		onClose={closeDeleteOrganizationDialog}
 	>
-		<AppDialog.Content closeBlocked={loading || settingsState.dangerZone.deleteOrganizationCloseBlocked}>
+		<AppDialog.Content closeBlocked={deleteLoading || settingsState.dangerZone.deleteOrganizationCloseBlocked}>
 			<AppDialog.Header>
 				<AppDialog.Title>Delete Organization</AppDialog.Title>
 				<AppDialog.Description>
@@ -67,11 +74,14 @@
 					action="?/deleteOrganization"
 					class="grid gap-3"
 					use:enhance={() => {
-						loading = true;
+						deleteLoading = true;
 						return async ({ result, update }) => {
-							loading = false;
-							if (result.type === 'failure' && redirectToSensitiveActionStepUp(result.data)) return;
-							await update();
+							try {
+								if (result.type === 'failure' && redirectToSensitiveActionStepUp(result.data)) return;
+								await update();
+							} finally {
+								deleteLoading = false;
+							}
 						};
 					}}
 					onsubmit={(event) => {
@@ -89,16 +99,16 @@
 				</form>
 			</AppDialog.Body>
 			<AppDialog.Footer>
-				<Button type="button" variant="outline" disabled={loading} onclick={closeDeleteOrganizationDialog}
+				<Button type="button" variant="outline" disabled={deleteLoading} onclick={closeDeleteOrganizationDialog}
 					>Cancel</Button
 				>
 				<Button
 					type="submit"
 					form="delete-org-form"
 					variant="destructive"
-					disabled={loading || !settingsState.dangerZone.deleteConfirmMatches}
+					disabled={deleteLoading || !settingsState.dangerZone.deleteConfirmMatches}
 				>
-					{loading ? 'Deleting...' : 'Delete Permanently'}
+					{deleteLoading ? 'Deleting...' : 'Delete Permanently'}
 				</Button>
 			</AppDialog.Footer>
 		</AppDialog.Content>
@@ -108,10 +118,10 @@
 {#if settingsState.dangerZone.showTransferConfirm && settingsState.dangerZone.transferTargetId}
 	<AppDialog.Root
 		bind:open={settingsState.dangerZone.showTransferConfirm}
-		closeBlocked={loading || settingsState.dangerZone.transferCloseBlocked}
+		closeBlocked={transferLoading || settingsState.dangerZone.transferCloseBlocked}
 		onClose={() => settingsState.dangerZone.closeTransferConfirmation()}
 	>
-		<AppDialog.Content closeBlocked={loading || settingsState.dangerZone.transferCloseBlocked}>
+		<AppDialog.Content closeBlocked={transferLoading || settingsState.dangerZone.transferCloseBlocked}>
 			<AppDialog.Header>
 				<AppDialog.Title>Transfer Ownership</AppDialog.Title>
 				<AppDialog.Description>
@@ -126,12 +136,13 @@
 					method="POST"
 					action="?/transferOwnership"
 					class="grid gap-2"
-					use:enhance={stepUpEnhance}
+					use:enhance={transferEnhance}
 				>
 					<input type="hidden" name="newOwnerId" value={settingsState.dangerZone.transferTargetId} />
 					<Label for="confirmTransferOwner">Type the member email to confirm</Label>
 					<Input
 						id="confirmTransferOwner"
+						name="confirmTransferEmail"
 						type="text"
 						bind:value={settingsState.dangerZone.transferConfirmText}
 						placeholder={settingsState.dangerZone.selectedTransferCandidate?.email ?? 'member@example.com'}
@@ -143,16 +154,16 @@
 				<Button
 					type="button"
 					variant="outline"
-					disabled={loading}
+					disabled={transferLoading}
 					onclick={() => settingsState.dangerZone.closeTransferConfirmation()}>Cancel</Button
 				>
 				<Button
 					type="submit"
 					form="transfer-ownership-form"
 					variant="destructive"
-					disabled={loading || !settingsState.dangerZone.transferConfirmMatches}
+					disabled={transferLoading || !settingsState.dangerZone.transferConfirmMatches}
 				>
-					{loading ? 'Transferring...' : 'Transfer Ownership'}
+					{transferLoading ? 'Transferring...' : 'Transfer Ownership'}
 				</Button>
 			</AppDialog.Footer>
 		</AppDialog.Content>

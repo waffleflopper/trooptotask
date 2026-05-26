@@ -16,6 +16,9 @@ function createOrganizationSettingsAdministrationPort(
 		renameOrganizationError?: string | null;
 		updateOrganizationUrlSlugError?: string | null;
 		transferOwnershipError?: string | null;
+		transferTargetEmail?: string | null;
+		transferTargetRole?: string | null;
+		transferTargetUserId?: string | null;
 		deleteOrganizationError?: string | null;
 		existingSlugOrgId?: string | null;
 	} = {}
@@ -23,6 +26,7 @@ function createOrganizationSettingsAdministrationPort(
 	renameRequests: Array<{ orgId: string; name: string }>;
 	slugRequests: Array<{ orgId: string; urlSlug: string | null }>;
 	transferRequests: Array<{ orgId: string; newOwnerId: string }>;
+	transferTargetLookups: Array<{ orgId: string; userId: string }>;
 	slugLookups: string[];
 	organizationLookups: string[];
 	deletedOrganizations: string[];
@@ -30,6 +34,7 @@ function createOrganizationSettingsAdministrationPort(
 	const renameRequests: Array<{ orgId: string; name: string }> = [];
 	const slugRequests: Array<{ orgId: string; urlSlug: string | null }> = [];
 	const transferRequests: Array<{ orgId: string; newOwnerId: string }> = [];
+	const transferTargetLookups: Array<{ orgId: string; userId: string }> = [];
 	const slugLookups: string[] = [];
 	const organizationLookups: string[] = [];
 	const deletedOrganizations: string[] = [];
@@ -38,6 +43,7 @@ function createOrganizationSettingsAdministrationPort(
 		renameRequests,
 		slugRequests,
 		transferRequests,
+		transferTargetLookups,
 		slugLookups,
 		organizationLookups,
 		deletedOrganizations,
@@ -52,6 +58,16 @@ function createOrganizationSettingsAdministrationPort(
 		async findOrganizationByUrlSlug(urlSlug) {
 			slugLookups.push(urlSlug);
 			return options.existingSlugOrgId ? { id: options.existingSlugOrgId } : null;
+		},
+		async findOwnershipTransferTarget(orgId, userId) {
+			transferTargetLookups.push({ orgId, userId });
+			const targetUserId = options.transferTargetUserId === undefined ? userId : options.transferTargetUserId;
+			if (targetUserId === null) return null;
+			return {
+				userId: targetUserId,
+				email: options.transferTargetEmail === undefined ? 'new-owner@example.com' : options.transferTargetEmail,
+				role: options.transferTargetRole === undefined ? 'member' : options.transferTargetRole
+			};
 		},
 		async transferOwnership(orgId, newOwnerId) {
 			transferRequests.push({ orgId, newOwnerId });
@@ -265,7 +281,7 @@ describe('transferOrganizationOwnership', () => {
 					administration: port,
 					sensitiveActionAuthorizer: ctx.sensitiveActionAuthorizer
 				},
-				{ newOwnerId: '11111111-1111-4111-8111-111111111111' }
+				{ newOwnerId: '11111111-1111-4111-8111-111111111111', confirmTransferEmail: 'new-owner@example.com' }
 			)
 		).rejects.toMatchObject({
 			status: 403,
@@ -305,7 +321,7 @@ describe('transferOrganizationOwnership', () => {
 					administration: port,
 					sensitiveActionAuthorizer: ctx.sensitiveActionAuthorizer
 				},
-				{ newOwnerId: 'bad-id' }
+				{ newOwnerId: 'bad-id', confirmTransferEmail: 'new-owner@example.com' }
 			)
 		).rejects.toMatchObject({
 			status: 400,
@@ -317,6 +333,41 @@ describe('transferOrganizationOwnership', () => {
 		expect(ctx.sensitiveActionAuthorizer.requests).toEqual([]);
 		expect(ctx.auditPort.events).toEqual([]);
 		expect(ctx.notificationPort.notifications).toEqual([]);
+	});
+
+	it('requires the typed confirmation email to match the target member before sensitive authorization', async () => {
+		const ctx = createTestContext({
+			auth: {
+				orgId: 'org-1'
+			}
+		});
+		const port = createOrganizationSettingsAdministrationPort({
+			transferTargetEmail: 'new-owner@example.com'
+		});
+
+		await expect(
+			transferOrganizationOwnership(
+				{
+					auth: ctx.auth,
+					audit: ctx.audit,
+					notifications: ctx.notifications,
+					administration: port,
+					sensitiveActionAuthorizer: ctx.sensitiveActionAuthorizer
+				},
+				{
+					newOwnerId: '11111111-1111-4111-8111-111111111111',
+					confirmTransferEmail: 'wrong@example.com'
+				}
+			)
+		).rejects.toMatchObject({
+			status: 400,
+			message: 'Member email does not match'
+		});
+
+		expect(port.transferTargetLookups).toEqual([{ orgId: 'org-1', userId: '11111111-1111-4111-8111-111111111111' }]);
+		expect(port.transferRequests).toEqual([]);
+		expect(ctx.sensitiveActionAuthorizer.requests).toEqual([]);
+		expect(ctx.auditPort.events).toEqual([]);
 	});
 
 	it('denies stale-session ownership transfers after governance and before provider mutation', async () => {
@@ -343,7 +394,7 @@ describe('transferOrganizationOwnership', () => {
 					administration: port,
 					sensitiveActionAuthorizer: ctx.sensitiveActionAuthorizer
 				},
-				{ newOwnerId: '11111111-1111-4111-8111-111111111111' }
+				{ newOwnerId: '11111111-1111-4111-8111-111111111111', confirmTransferEmail: 'new-owner@example.com' }
 			)
 		).rejects.toMatchObject({
 			status: 403,
@@ -395,7 +446,7 @@ describe('transferOrganizationOwnership', () => {
 				administration: port,
 				sensitiveActionAuthorizer: ctx.sensitiveActionAuthorizer
 			},
-			{ newOwnerId: '11111111-1111-4111-8111-111111111111' }
+			{ newOwnerId: '11111111-1111-4111-8111-111111111111', confirmTransferEmail: 'new-owner@example.com' }
 		);
 
 		expect(result).toEqual({ transferSuccess: true });
@@ -460,7 +511,7 @@ describe('transferOrganizationOwnership', () => {
 				administration: port,
 				sensitiveActionAuthorizer: ctx.sensitiveActionAuthorizer
 			},
-			{ newOwnerId: '11111111-1111-4111-8111-111111111111' }
+			{ newOwnerId: '11111111-1111-4111-8111-111111111111', confirmTransferEmail: 'new-owner@example.com' }
 		);
 
 		expect(result).toEqual({ transferSuccess: true });
@@ -505,7 +556,7 @@ describe('transferOrganizationOwnership', () => {
 					administration: port,
 					sensitiveActionAuthorizer: ctx.sensitiveActionAuthorizer
 				},
-				{ newOwnerId: '11111111-1111-4111-8111-111111111111' }
+				{ newOwnerId: '11111111-1111-4111-8111-111111111111', confirmTransferEmail: 'new-owner@example.com' }
 			)
 		).rejects.toMatchObject({
 			status: 403,
@@ -546,7 +597,7 @@ describe('transferOrganizationOwnership', () => {
 					administration: port,
 					sensitiveActionAuthorizer: ctx.sensitiveActionAuthorizer
 				},
-				{ newOwnerId: '11111111-1111-4111-8111-111111111111' }
+				{ newOwnerId: '11111111-1111-4111-8111-111111111111', confirmTransferEmail: 'new-owner@example.com' }
 			)
 		).rejects.toMatchObject({
 			status: 500,
@@ -576,7 +627,7 @@ describe('transferOrganizationOwnership', () => {
 				administration: port,
 				sensitiveActionAuthorizer: ctx.sensitiveActionAuthorizer
 			},
-			{ newOwnerId: '11111111-1111-4111-8111-111111111111' }
+			{ newOwnerId: '11111111-1111-4111-8111-111111111111', confirmTransferEmail: 'new-owner@example.com' }
 		);
 
 		expect(result).toEqual({ transferSuccess: true });

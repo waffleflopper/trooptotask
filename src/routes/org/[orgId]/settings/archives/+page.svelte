@@ -23,6 +23,7 @@
 	const dataExportSection = $derived(settingsState.dataExport.section);
 	let restoring = $state<string | null>(null);
 	let exportingPerson = $state<string | null>(null);
+	let permanentlyDeletingPerson = $state<string | null>(null);
 
 	async function handleRestore(id: string) {
 		restoring = id;
@@ -47,6 +48,8 @@
 	}
 
 	async function handlePermanentDelete(id: string) {
+		if (permanentlyDeletingPerson === id) return;
+		permanentlyDeletingPerson = id;
 		try {
 			const res = await fetch(`/org/${orgId}/api/personnel/permanent`, {
 				method: 'DELETE',
@@ -59,6 +62,8 @@
 			await invalidateAll();
 		} catch {
 			toastStore.error('Failed to permanently delete');
+		} finally {
+			permanentlyDeletingPerson = null;
 		}
 	}
 
@@ -114,18 +119,21 @@
 				</div>
 			</AppDialog.Body>
 			<AppDialog.Footer>
+				{@const deleteInFlight =
+					permanentlyDeletingPerson === settingsState.archivedPersonnel.confirmPermanentDelete.id}
 				<Button
 					type="button"
 					variant="outline"
+					disabled={deleteInFlight}
 					onclick={() => settingsState.archivedPersonnel.clearPermanentDeleteConfirmation()}>Cancel</Button
 				>
 				<Button
 					type="button"
 					variant="destructive"
-					disabled={!settingsState.archivedPersonnel.permanentDeleteConfirmMatches}
+					disabled={deleteInFlight || !settingsState.archivedPersonnel.permanentDeleteConfirmMatches}
 					onclick={() => handlePermanentDelete(settingsState.archivedPersonnel.confirmPermanentDelete!.id)}
 				>
-					Permanently Delete
+					{deleteInFlight ? 'Deleting...' : 'Permanently Delete'}
 				</Button>
 			</AppDialog.Footer>
 		</AppDialog.Content>

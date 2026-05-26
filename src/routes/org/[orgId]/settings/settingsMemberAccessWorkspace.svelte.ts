@@ -215,6 +215,9 @@ export class SettingsMemberAccessWorkspace {
 			...this.memberSelectedPreset,
 			[member.id]: this.editablePresetForMemberPreset(accessShape.memberPreset)
 		};
+		const remainingCapabilities = { ...this.memberSelectedCapabilities };
+		delete remainingCapabilities[member.id];
+		this.memberSelectedCapabilities = remainingCapabilities;
 		this.memberSelectedScopeKind = {
 			...this.memberSelectedScopeKind,
 			[member.id]: accessShape.scopeSet.kind
@@ -324,12 +327,15 @@ export class SettingsMemberAccessWorkspace {
 
 	editorChangeCount(member: SettingsMemberAccessRow): number {
 		let count = 0;
-		if (this.isRoleChanged(member)) count++;
+		const roleChanged = this.isRoleChanged(member);
+		if (roleChanged) count++;
 		const selectedRole = this.getSelectedMembershipRole(member);
 		if (selectedRole === 'member') {
 			if (this.isPresetChanged(member)) count++;
-			for (const lane of SETTINGS_ACCESS_LANES) {
-				if (this.isCapabilityChanged(member, lane.id)) count++;
+			if (!roleChanged) {
+				for (const lane of SETTINGS_ACCESS_LANES) {
+					if (this.isCapabilityChanged(member, lane.id)) count++;
+				}
 			}
 			if (this.isScopeChanged(member)) count++;
 		}

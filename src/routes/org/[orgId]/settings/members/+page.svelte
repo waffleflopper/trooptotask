@@ -22,7 +22,8 @@
 
 	let { data, form } = $props();
 
-	let loading = $state(false);
+	let inviteLoading = $state(false);
+	let permissionLoading = $state(false);
 	let memberSearch = $state('');
 	let pendingRemoveMemberForm = $state<HTMLFormElement | null>(null);
 	let pendingRemoveMemberEmail = $state('');
@@ -54,8 +55,7 @@
 	};
 
 	function isCurrentMember(member: SettingsMemberAccessRow): boolean {
-		if (sessionEmail && member.email === sessionEmail) return true;
-		return Boolean(isOwner && member.membershipRole === 'owner');
+		return Boolean(sessionEmail && member.email === sessionEmail);
 	}
 
 	function getPresetLabel(value: string | null | undefined): string {
@@ -89,12 +89,15 @@
 				method="POST"
 				action="?/invite"
 				use:enhance={() => {
-					loading = true;
+					inviteLoading = true;
 					return async ({ result, update }) => {
-						loading = false;
-						if (result.type === 'failure' && redirectToSensitiveActionStepUp(result.data)) return;
-						await update();
-						if (!form?.inviteError) memberAccess.clearInviteEmail();
+						try {
+							if (result.type === 'failure' && redirectToSensitiveActionStepUp(result.data)) return;
+							await update();
+							if (result.type === 'success') memberAccess.clearInviteEmail();
+						} finally {
+							inviteLoading = false;
+						}
 					};
 				}}
 			>
@@ -146,7 +149,7 @@
 						{/if}
 					</Field.Root>
 					<div class="flex items-end">
-						<Button type="submit" disabled={loading}>{loading ? 'Inviting...' : 'Invite'}</Button>
+						<Button type="submit" disabled={inviteLoading}>{inviteLoading ? 'Inviting...' : 'Invite'}</Button>
 					</div>
 				</div>
 				{#if memberAccess.inviteMembershipRole === 'member'}
@@ -199,8 +202,10 @@
 			</div>
 			<div class="flex items-center gap-3">
 				<div class="relative">
+					<Label for="member-filter" class="sr-only">Filter members</Label>
 					<Search class="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
 					<Input
+						id="member-filter"
 						type="search"
 						placeholder="Filter members..."
 						class="h-8 w-48 pl-8 text-sm"
@@ -373,12 +378,15 @@
 				action="?/updatePermissions"
 				class="grid gap-5 px-4 pb-4"
 				use:enhance={() => {
-					loading = true;
+					permissionLoading = true;
 					return async ({ result, update }) => {
-						loading = false;
-						if (result.type === 'failure' && redirectToSensitiveActionStepUp(result.data)) return;
-						memberAccess.closeMemberEditor(selectedMember.id);
-						await update();
+						try {
+							if (result.type === 'failure' && redirectToSensitiveActionStepUp(result.data)) return;
+							await update();
+							if (result.type === 'success') memberAccess.closeMemberEditor(selectedMember.id);
+						} finally {
+							permissionLoading = false;
+						}
 					};
 				}}
 			>
@@ -523,8 +531,8 @@
 					<Button type="button" variant="outline" onclick={() => memberAccess.closeMemberEditor(selectedMember.id)}>
 						Cancel
 					</Button>
-					<Button type="submit" disabled={loading || changeCount === 0}>
-						{#if loading}
+					<Button type="submit" disabled={permissionLoading || changeCount === 0}>
+						{#if permissionLoading}
 							Saving...
 						{:else if changeCount > 0}
 							Save {changeCount} {changeCount === 1 ? 'change' : 'changes'}

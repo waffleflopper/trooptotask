@@ -2,21 +2,16 @@
 	import * as DataTable from '$lib/components/ui/data-table/index.js';
 	import type { ColumnDef } from '$lib/components/ui/data-table/index.js';
 	import type { AuditLogQueryResult } from '$lib/server/core/useCases/auditLogQuery';
-	import type { OrganizationSettingsWorkspace } from '../organizationSettingsWorkspaceModel';
 	import { formatAuditTimestamp, getAuditActionParts } from '../settingsWorkspaceFormatters';
-	import { createSettingsWorkspaceState } from '../settingsWorkspaceState.svelte';
 
 	type SettingsLogsPageData = {
 		orgUrlSegment: string;
-		workspace: OrganizationSettingsWorkspace;
-		auditLogPage?: AuditLogQueryResult;
+		auditLogPage: AuditLogQueryResult;
 	};
 
 	let { data }: { data: SettingsLogsPageData } = $props();
 
-	const settingsState = createSettingsWorkspaceState(() => data.workspace);
-	const dataExportSection = $derived(settingsState.dataExport.section);
-	const auditLog = $derived(data.auditLogPage ?? dataExportSection.activity.auditLog);
+	const auditLog = $derived(data.auditLogPage);
 	const auditColumns: ColumnDef<(typeof auditLog.logs)[number]>[] = [
 		{
 			key: 'time',

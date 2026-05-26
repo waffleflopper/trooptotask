@@ -2,13 +2,17 @@ import { describe, expect, it } from 'vitest';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
-import { _postConfig } from './+server';
+import { _getConfig, _postConfig } from './+server';
 
 describe('/api/sign-in-rosters route config', () => {
-	it('uses a policy-first route config for sign-in roster creation', () => {
+	it('uses policy-first route configs for sign-in roster reads and creation', () => {
+		expect('permission' in _getConfig).toBe(false);
 		expect('permission' in _postConfig).toBe(false);
+		expect('deferPolicyToUseCase' in _getConfig).toBe(false);
 		expect('deferPolicyToUseCase' in _postConfig).toBe(false);
-		expect(_postConfig.policyAction).toBe(POLICY_ACTION_CATALOG.training.recordCompletions);
+		expect(_getConfig.policyAction).toBe(POLICY_ACTION_CATALOG.training.viewRecords);
+		expect(_postConfig.policyAction).toBe(POLICY_ACTION_CATALOG.training.manageSignInRosters);
+		expect(_getConfig.policyResource).toEqual({ kind: 'unscoped' });
 		expect(_postConfig.policyResource).toEqual({ kind: 'unscoped' });
 	});
 
@@ -84,7 +88,7 @@ describe('/api/sign-in-rosters route config', () => {
 		expect(ctx.auditPort.events).toEqual([
 			expect.objectContaining({
 				action: 'policy.denied',
-				resourceType: 'training.recordCompletions'
+				resourceType: 'training.manageSignInRosters'
 			})
 		]);
 	});

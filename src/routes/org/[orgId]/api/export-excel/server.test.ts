@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import ExcelJS from 'exceljs';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { _postConfig } from './+server';
@@ -70,6 +71,13 @@ function billingSnapshot(overrides: Record<string, unknown> = {}) {
 }
 
 describe('POST /api/export-excel', () => {
+	it('uses the organization data export policy boundary', () => {
+		expect('permission' in _postConfig).toBe(false);
+		expect('deferPolicyToUseCase' in _postConfig).toBe(false);
+		expect(_postConfig.policyAction).toBe(POLICY_ACTION_CATALOG.organization.exportData);
+		expect(_postConfig.policyResource).toEqual({ kind: 'organization' });
+	});
+
 	it('returns structured plan denial when the monthly export limit is reached', async () => {
 		const ctx = createTestContext();
 		const now = new Date().toISOString();

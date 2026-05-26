@@ -17,7 +17,6 @@ export function _createCriticalTasksLibraryPageLoad(deps: CriticalTasksLibraryPa
 
 		return {
 			criticalTasksLibrary: await loadWithContextFn(locals, cookies, orgId, {
-				permission: 'critical-tasks',
 				policyAction: POLICY_ACTION_CATALOG.criticalTasks.configureLibrary,
 				fn: async () => ({})
 			})

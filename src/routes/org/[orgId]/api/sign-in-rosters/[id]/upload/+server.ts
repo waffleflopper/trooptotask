@@ -1,15 +1,17 @@
 import { json } from '@sveltejs/kit';
 import type { RequestEvent } from '@sveltejs/kit';
-import { handle } from '$lib/server/adapters/httpAdapter';
+import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { fail } from '$lib/server/core/errors';
 import {
 	buildSensitiveFilePath,
 	SENSITIVE_FILE_BUCKET,
 	validateSensitiveFileSelection
 } from '$lib/storage/sensitiveFiles';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 
-export const GET = handle<{ rosterId: string }, { url: string }>({
-	permission: 'personnel',
+export const _getConfig: RouteConfig<{ rosterId: string }, { url: string }> = {
+	policyAction: POLICY_ACTION_CATALOG.training.viewRecords,
+	policyResource: { kind: 'unscoped' },
 	parseInput: (event: RequestEvent) => ({
 		rosterId: event.params.id as string
 	}),
@@ -24,11 +26,14 @@ export const GET = handle<{ rosterId: string }, { url: string }>({
 
 		return { url };
 	}
-});
+};
 
-export const POST = handle<{ rosterId: string; file: File }, { filePath: string }>({
-	permission: 'personnel',
+export const GET = handle(_getConfig);
+
+export const _postConfig: RouteConfig<{ rosterId: string; file: File }, { filePath: string }> = {
 	mutation: true,
+	policyAction: POLICY_ACTION_CATALOG.training.manageSignInRosters,
+	policyResource: { kind: 'unscoped' },
 	parseInput: async (event: RequestEvent) => {
 		const formData = await event.request.formData();
 		const file = formData.get('file') as File;
@@ -64,11 +69,14 @@ export const POST = handle<{ rosterId: string; file: File }, { filePath: string 
 		return { filePath: storagePath };
 	},
 	formatOutput: (result) => json(result)
-});
+};
 
-export const DELETE = handle<{ rosterId: string }, { success: boolean }>({
-	permission: 'personnel',
+export const POST = handle(_postConfig);
+
+export const _deleteConfig: RouteConfig<{ rosterId: string }, { success: boolean }> = {
 	mutation: true,
+	policyAction: POLICY_ACTION_CATALOG.training.manageSignInRosters,
+	policyResource: { kind: 'unscoped' },
 	parseInput: (event: RequestEvent) => ({
 		rosterId: event.params.id as string
 	}),
@@ -89,4 +97,6 @@ export const DELETE = handle<{ rosterId: string }, { success: boolean }>({
 
 		return { success: true };
 	}
-});
+};
+
+export const DELETE = handle(_deleteConfig);

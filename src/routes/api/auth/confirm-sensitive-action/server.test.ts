@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { POST, _postConfig } from './+server';
+import { POST, _testInternals } from './+server';
 
 function request(password: string) {
 	return new Request('http://localhost/api/auth/confirm-sensitive-action', {
@@ -10,10 +10,9 @@ function request(password: string) {
 }
 
 describe('POST /api/auth/confirm-sensitive-action', () => {
-	it('uses the standard route adapter boundary without organization authorization', () => {
-		expect(_postConfig.permission).toBe('none');
-		expect(_postConfig.parseInput).toBeTypeOf('function');
-		expect(_postConfig.formatOutput).toBeTypeOf('function');
+	it('executes directly without route adapter or organization authorization', () => {
+		expect(_testInternals.parseConfirmSensitiveActionInput).toBeTypeOf('function');
+		expect(_testInternals.confirmSensitiveAction).toBeTypeOf('function');
 	});
 
 	it('confirms the current user password and reports success without MFA step-up', async () => {

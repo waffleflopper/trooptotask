@@ -14,7 +14,6 @@ import {
 } from '../../reportInput';
 
 export const _getConfig: RouteConfig<CriticalTasksMatrixExportRouteInput, CriticalTasksWorkbookExport> = {
-	permission: 'critical-tasks',
 	policyAction: POLICY_ACTION_CATALOG.criticalTasks.viewReadiness,
 	policyResource: { kind: 'unscoped' },
 	input: criticalTasksMatrixExportInput,

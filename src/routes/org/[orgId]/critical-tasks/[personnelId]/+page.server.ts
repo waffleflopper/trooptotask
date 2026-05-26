@@ -20,7 +20,6 @@ export function _createCriticalTasksPersonnelHistoryPageLoad(deps: CriticalTasks
 		depends('app:critical-tasks-personnel-history');
 		const { orgId, personnelId } = params;
 		const criticalTasksPersonnelHistory = await loadWithContextFn(locals, cookies, orgId, {
-			permission: 'critical-tasks',
 			policyAction: POLICY_ACTION_CATALOG.criticalTasks.viewReadiness,
 			policyResource: { kind: 'unscoped' },
 			fn: (ctx) => fetchHistoryFn(ctx, personnelId)

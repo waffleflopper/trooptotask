@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
-import { _postConfig } from './+server';
+import { _deleteConfig, _postConfig, _putConfig } from './+server';
 
 const validInput = {
 	ratedPersonId: 'person-1',
@@ -12,6 +13,15 @@ const validInput = {
 };
 
 describe('POST /api/rating-scheme', () => {
+	it('uses policy-first route configs for Rating Scheme writes', () => {
+		expect('permission' in _postConfig).toBe(false);
+		expect('permission' in _putConfig).toBe(false);
+		expect('permission' in _deleteConfig).toBe(false);
+		expect(_postConfig.policyAction).toBe(POLICY_ACTION_CATALOG.ratingScheme.updateEntries);
+		expect(_putConfig.policyAction).toBe(POLICY_ACTION_CATALOG.ratingScheme.updateEntries);
+		expect(_deleteConfig.policyAction).toBe(POLICY_ACTION_CATALOG.ratingScheme.requestEntryDeletion);
+	});
+
 	it('authorizes through Rating Scheme policy decisions instead of legacy route permissions', async () => {
 		const ctx = createTestContext({
 			auth: {

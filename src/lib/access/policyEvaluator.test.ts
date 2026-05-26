@@ -126,6 +126,12 @@ describe('policy evaluator', () => {
 			owner: { kind: 'feature-lane', lane: 'personnel' },
 			requiredCapability: 'configure'
 		});
+		expect(POLICY_ACTION_CATALOG.personnel.manageUnits).toMatchObject({
+			id: 'personnel.manageUnits',
+			accessMode: 'write',
+			owner: { kind: 'feature-lane', lane: 'personnel' },
+			requiredCapability: 'configure'
+		});
 		expect(POLICY_ACTION_CATALOG.personnel.importRecords).toMatchObject({
 			id: 'personnel.importRecords',
 			accessMode: 'write',
@@ -185,6 +191,12 @@ describe('policy evaluator', () => {
 		});
 		expect(POLICY_ACTION_CATALOG.training.recordCompletions).toMatchObject({
 			id: 'training.recordCompletions',
+			accessMode: 'write',
+			owner: { kind: 'feature-lane', lane: 'training' },
+			requiredCapability: 'operate'
+		});
+		expect(POLICY_ACTION_CATALOG.training.manageSignInRosters).toMatchObject({
+			id: 'training.manageSignInRosters',
 			accessMode: 'write',
 			owner: { kind: 'feature-lane', lane: 'training' },
 			requiredCapability: 'operate'

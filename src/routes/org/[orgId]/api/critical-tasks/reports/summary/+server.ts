@@ -10,7 +10,6 @@ import {
 } from '../../reportInput';
 
 export const _getConfig: RouteConfig<CriticalTasksReportRouteInput, IctReportDashboard> = {
-	permission: 'critical-tasks',
 	policyAction: POLICY_ACTION_CATALOG.criticalTasks.viewReadiness,
 	policyResource: { kind: 'unscoped' },
 	input: criticalTasksReportInput,

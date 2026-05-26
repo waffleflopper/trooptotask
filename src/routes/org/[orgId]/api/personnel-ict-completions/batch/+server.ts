@@ -7,7 +7,6 @@ import {
 } from '$lib/server/core/useCases/ictCompletionsBatch';
 
 export const _postConfig: RouteConfig<IctCompletionBatchImportInput, IctCompletionBatchImportResult> = {
-	permission: 'critical-tasks',
 	mutation: true,
 	policyAction: POLICY_ACTION_CATALOG.criticalTasks.recordCompletion,
 	policyResource: { kind: 'unscoped' },

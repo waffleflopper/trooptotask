@@ -239,6 +239,13 @@ export const POLICY_ACTION_CATALOG = {
 			accessMode: 'write',
 			requiredCapability: 'configure'
 		}),
+		manageUnits: featureAction({
+			id: 'personnel.manageUnits',
+			label: 'Manage personnel units',
+			lane: 'personnel',
+			accessMode: 'write',
+			requiredCapability: 'configure'
+		}),
 		archiveRecords: featureAction({
 			id: 'personnel.archiveRecords',
 			label: 'Archive personnel records',
@@ -300,6 +307,13 @@ export const POLICY_ACTION_CATALOG = {
 		recordCompletions: featureAction({
 			id: 'training.recordCompletions',
 			label: 'Record training completions',
+			lane: 'training',
+			accessMode: 'write',
+			requiredCapability: 'operate'
+		}),
+		manageSignInRosters: featureAction({
+			id: 'training.manageSignInRosters',
+			label: 'Manage training sign-in rosters',
 			lane: 'training',
 			accessMode: 'write',
 			requiredCapability: 'operate'

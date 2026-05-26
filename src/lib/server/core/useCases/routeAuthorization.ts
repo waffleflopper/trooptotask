@@ -30,8 +30,9 @@ export interface PolicyFirstRouteAuthorizationConfig extends RouteAuthorizationB
 	policyAction: RoutePolicyAction;
 	permission?: LegacyRoutePermission;
 	/**
-	 * Use only for billing recovery flows where the mutation is the user's path out of
-	 * read-only mode. Ordinary policy-first writes should let the policy overlay deny.
+	 * Use only for policy-first writes that must remain available during org read-only
+	 * mode, such as user preferences or billing recovery paths. Ordinary writes should
+	 * let the policy overlay deny.
 	 */
 	allowReadOnlyMutation?: boolean;
 	deferPolicyToUseCase?: false;

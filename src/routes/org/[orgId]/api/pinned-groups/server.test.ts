@@ -4,6 +4,15 @@ import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { _deleteConfig, _postConfig } from './+server';
 
 describe('/api/pinned-groups route config', () => {
+	it('uses policy-first identity preference authorization', () => {
+		expect(_postConfig.policyAction?.id).toBe('identity.updateOwnPreferences');
+		expect(_deleteConfig.policyAction?.id).toBe('identity.updateOwnPreferences');
+		expect('permission' in _postConfig).toBe(false);
+		expect('permission' in _deleteConfig).toBe(false);
+		expect('deferPolicyToUseCase' in _postConfig).toBe(false);
+		expect('deferPolicyToUseCase' in _deleteConfig).toBe(false);
+	});
+
 	it('lets viewers pin groups as a user preference without calendar edit access', async () => {
 		const ctx = createTestContext({
 			auth: {

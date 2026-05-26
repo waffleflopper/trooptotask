@@ -1,11 +1,13 @@
-import { handle } from '$lib/server/adapters/httpAdapter';
+import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { fail } from '$lib/server/core/errors';
 import { approveDeletionRequest, denyDeletionRequest } from '$lib/server/core/useCases/deletionRequests';
 
-export const POST = handle<Record<string, unknown>, unknown>({
-	permission: 'none',
+export const _postConfig: RouteConfig<Record<string, unknown>, unknown> = {
+	// Keep the use-case governance check as defense in depth because approve/deny
+	// remain callable service functions outside this HTTP route.
+	policyAction: POLICY_ACTION_CATALOG.organization.reviewDeletionRequests,
 	mutation: true,
-	deferPolicyToUseCase: true,
 	fn: async (ctx, input) => {
 		const { id, action, denialReason } = input;
 
@@ -22,4 +24,6 @@ export const POST = handle<Record<string, unknown>, unknown>({
 
 		return { success: true };
 	}
-});
+};
+
+export const POST = handle(_postConfig);

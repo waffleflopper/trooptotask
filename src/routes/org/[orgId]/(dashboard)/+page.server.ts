@@ -1,5 +1,6 @@
 import { redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoadEvent } from './$types';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { buildLayoutContext, buildRouteContext, loadWithContextCore } from '$lib/server/adapters/httpAdapter';
 import { createSupabaseOrgSettingsMemberManagementPort } from '$lib/server/adapters/supabaseOrgSettingsMemberManagement';
 import type { DashboardBootstrap } from '$lib/server/core/useCases/dashboardQuery';
@@ -71,7 +72,6 @@ async function loadDashboardIctlSummary(
 ): Promise<DashboardIctlSummary | null> {
 	if (!canViewCriticalTasks) return null;
 
-	ctx.auth.requireView('critical-tasks');
 	const report = await fetchCriticalTasksReportDashboard(ctx);
 	return toDashboardIctlSummary(report);
 }
@@ -83,7 +83,7 @@ export const load = async ({ params, locals, cookies, depends, parent }: PageSer
 	const parentDataPromise = parent();
 	const ctx = await buildLayoutContext(locals, cookies, orgId);
 	const { data: summary } = loadWithContextCore(ctx, {
-		permission: 'none',
+		policyAction: POLICY_ACTION_CATALOG.identity.viewDashboard,
 		defer: true,
 		fn: async () =>
 			withDashboardTiming(orgId, 'summary', async () => {

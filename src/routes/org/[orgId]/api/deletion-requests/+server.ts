@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestEvent } from '@sveltejs/kit';
-import { handle } from '$lib/server/adapters/httpAdapter';
+import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import {
 	listDeletionRequests,
 	createDeletionRequest,
@@ -8,19 +9,23 @@ import {
 	type CreateDeletionRequestInput
 } from '$lib/server/core/useCases/deletionRequests';
 
-export const GET = handle<{ status?: string }, unknown>({
-	permission: 'none',
-	deferPolicyToUseCase: true,
+export const _getConfig: RouteConfig<{ status?: string }, unknown> = {
+	// This route serves self-service callers and Settings reviewers. The route
+	// gate proves an authenticated identity; listDeletionRequests applies the
+	// stronger organization.reviewDeletionRequests policy before returning
+	// org-wide rows for admins and owners.
+	policyAction: POLICY_ACTION_CATALOG.identity.listOwnDeletionRequests,
 	parseInput: (event: RequestEvent) => ({
 		status: event.url.searchParams.get('status') ?? undefined
 	}),
 	fn: (ctx, input) => listDeletionRequests(ctx, input.status ? { status: input.status } : undefined)
-});
+};
 
-export const POST = handle<CreateDeletionRequestInput, unknown>({
-	permission: 'none',
+export const GET = handle(_getConfig);
+
+export const _postConfig: RouteConfig<CreateDeletionRequestInput, unknown> = {
+	policyAction: POLICY_ACTION_CATALOG.identity.createOwnDeletionRequest,
 	mutation: true,
-	deferPolicyToUseCase: true,
 	allowReadOnlyMutation: true,
 	parseInput: async (event: RequestEvent) => {
 		const body = await event.request.json();
@@ -31,14 +36,17 @@ export const POST = handle<CreateDeletionRequestInput, unknown>({
 	},
 	fn: (ctx, input) => createDeletionRequest(ctx, input),
 	formatOutput: (result) => json(result, { status: 201 })
-});
+};
 
-export const DELETE = handle<Record<string, unknown>, unknown>({
-	permission: 'none',
+export const POST = handle(_postConfig);
+
+export const _deleteConfig: RouteConfig<Record<string, unknown>, unknown> = {
+	policyAction: POLICY_ACTION_CATALOG.identity.cancelOwnDeletionRequest,
 	mutation: true,
-	deferPolicyToUseCase: true,
 	fn: async (ctx, input) => {
 		await cancelDeletionRequest(ctx, input.id as string);
 		return { success: true };
 	}
-});
+};
+
+export const DELETE = handle(_deleteConfig);

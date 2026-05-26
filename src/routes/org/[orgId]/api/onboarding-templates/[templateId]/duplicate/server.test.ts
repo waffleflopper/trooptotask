@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import type { CapabilityMap } from '$lib/access/memberAccessShape';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
@@ -18,6 +19,9 @@ const operateOnlyCapabilityMap: CapabilityMap = {
 describe('POST /api/onboarding-templates/[templateId]/duplicate', () => {
 	it('uses a policy-first route config for template duplication', () => {
 		expect('permission' in _postConfig).toBe(false);
+		expect(_postConfig.policyAction).toBe(POLICY_ACTION_CATALOG.onboarding.configureWorkflows);
+		expect(_postConfig.policyResource).toEqual({ kind: 'organization' });
+		expect(_postConfig.mutation).toBe(true);
 	});
 
 	it('duplicates a template through the route config', async () => {

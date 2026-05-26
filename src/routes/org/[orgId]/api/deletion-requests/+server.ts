@@ -45,8 +45,12 @@ export const _deleteConfig: RouteConfig<Record<string, unknown>, unknown> = {
 	policyAction: POLICY_ACTION_CATALOG.identity.cancelOwnDeletionRequest,
 	mutation: true,
 	fn: async (ctx, input) => {
-		const { id } = input;
-		if (!id || typeof id !== 'string') fail(400, 'Missing id');
+		if (!input || typeof input !== 'object' || Array.isArray(input)) {
+			fail(400, 'Missing id');
+		}
+
+		const id = input.id;
+		if (typeof id !== 'string' || id.length === 0) fail(400, 'Missing id');
 
 		await cancelDeletionRequest(ctx, id);
 		return { success: true };

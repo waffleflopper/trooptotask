@@ -9,9 +9,9 @@ vi.mock('$lib/server/groupAccess', () => ({
 	enforceGroupAccessBatch: vi.fn().mockResolvedValue(undefined)
 }));
 
-function makeRecordSupabase(record: Record<string, unknown> | null): SupabaseClient {
-	const single = vi.fn().mockResolvedValue({ data: record });
-	const eqOrganization = vi.fn(() => ({ single }));
+function makeRecordSupabase(record: Record<string, unknown> | null, error: unknown = null): SupabaseClient {
+	const maybeSingle = vi.fn().mockResolvedValue({ data: record, error });
+	const eqOrganization = vi.fn(() => ({ maybeSingle }));
 	const eqId = vi.fn(() => ({ eq: eqOrganization }));
 	const select = vi.fn(() => ({ eq: eqId }));
 	const from = vi.fn(() => ({ select }));
@@ -102,6 +102,22 @@ describe('createSupabaseScopeEnforcementAdapter', () => {
 		await expect(
 			scope.requireGroupAccessByRecord('training_records', 'missing', 'personnel_id')
 		).resolves.toBeUndefined();
+
+		expect(enforceGroupAccess).not.toHaveBeenCalled();
+	});
+
+	it('fails closed when record-derived group access lookup errors', async () => {
+		const queryError = new Error('scope lookup failed');
+		const supabase = makeRecordSupabase(null, queryError);
+		const scope = createSupabaseScopeEnforcementAdapter({
+			supabase,
+			orgId: 'org-1',
+			scopeSet: { kind: 'groups', groupIds: ['group-1'] }
+		});
+
+		await expect(scope.requireGroupAccessByRecord('training_records', 'record-1', 'personnel_id')).rejects.toBe(
+			queryError
+		);
 
 		expect(enforceGroupAccess).not.toHaveBeenCalled();
 	});

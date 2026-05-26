@@ -24,12 +24,16 @@ export function createSupabaseScopeEnforcementAdapter(config: {
 		async requireGroupAccessByRecord(table: string, recordId: string, personnelIdColumn: string): Promise<void> {
 			if (config.scopeSet.kind === 'organization') return;
 
-			const { data: record } = await config.supabase
+			const { data: record, error } = await config.supabase
 				.from(table)
 				.select(personnelIdColumn)
 				.eq('id', recordId)
 				.eq('organization_id', config.orgId)
-				.single();
+				.maybeSingle();
+
+			if (error) {
+				throw error;
+			}
 
 			if (!record) return;
 

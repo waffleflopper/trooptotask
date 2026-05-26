@@ -682,7 +682,8 @@ export function createSupabasePersonnelWorkspacePort(
 			}
 
 			const data = await loadWithContext(locals, cookies, orgId, {
-				permission: 'personnel',
+				policyAction: POLICY_ACTION_CATALOG.personnel.viewRoster,
+				policyResource: { kind: 'unscoped' },
 				fn: async (ctx) => fetchPersonnelBootstrap(ctx)
 			});
 

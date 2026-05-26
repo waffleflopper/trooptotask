@@ -1,10 +1,11 @@
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { importPersonnelBatch } from '$lib/server/core/useCases/personnelBatch';
 
 export const _postConfig: RouteConfig<Record<string, unknown>, unknown> = {
-	permission: 'personnel',
 	mutation: true,
-	deferPolicyToUseCase: true,
+	policyAction: POLICY_ACTION_CATALOG.personnel.importRecords,
+	policyResource: { kind: 'unscoped' },
 	fn: (ctx, input) =>
 		importPersonnelBatch(ctx, {
 			records: input.records as Array<{

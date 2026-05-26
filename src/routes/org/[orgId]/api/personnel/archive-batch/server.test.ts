@@ -1,9 +1,20 @@
 import { describe, expect, it } from 'vitest';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { _postConfig } from './+server';
 
 describe('POST /api/personnel/archive-batch', () => {
+	it('declares policy-first authorization for batch archive', () => {
+		expect(_postConfig).toMatchObject({
+			mutation: true,
+			policyAction: POLICY_ACTION_CATALOG.personnel.archiveRecords,
+			policyResource: { kind: 'unscoped' }
+		});
+		expect('permission' in _postConfig).toBe(false);
+		expect('deferPolicyToUseCase' in _postConfig).toBe(false);
+	});
+
 	it('archives selected personnel through one route use case request', async () => {
 		const ctx = createTestContext();
 		const firstId = '11111111-1111-4111-8111-111111111111';

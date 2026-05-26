@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import ExcelJS from 'exceljs';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { _getConfig } from './+server';
@@ -26,7 +27,16 @@ function toWorkbookBuffer(buffer: ArrayBuffer): WorkbookLoadBuffer {
 }
 
 describe('GET /api/personnel/[id]/export', () => {
-	it('uses policy decisions instead of route-level privileged authorization', async () => {
+	it('declares policy-first authorization for Personnel export', () => {
+		expect(_getConfig).toMatchObject({
+			policyAction: POLICY_ACTION_CATALOG.personnel.exportRecords,
+			policyResource: { kind: 'unscoped' }
+		});
+		expect('permission' in _getConfig).toBe(false);
+		expect('deferPolicyToUseCase' in _getConfig).toBe(false);
+	});
+
+	it('establishes a route-level policy gate for Personnel export', async () => {
 		const requirePrivileged = vi.fn(() => {
 			throw new Error('legacy requirePrivileged should not authorize Personnel export');
 		});
@@ -64,6 +74,42 @@ describe('GET /api/personnel/[id]/export', () => {
 
 		expect(result._filename).toContain('SGT_Smith_Jamie-export');
 		expect(requirePrivileged).not.toHaveBeenCalled();
+	});
+
+	it('checks scoped Personnel export access before loading related record sets', async () => {
+		const ctx = createTestContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: {
+					calendar: 'view',
+					personnel: 'configure',
+					training: 'view',
+					criticalTasks: 'view',
+					onboarding: 'view',
+					ratingScheme: 'view'
+				},
+				scopeSet: { kind: 'groups', groupIds: ['allowed-group'] }
+			}
+		});
+		ctx.rawStore.seed('personnel', [
+			{
+				id: 'p-1',
+				organization_id: ctx.auth.orgId,
+				rank: 'SGT',
+				last_name: 'Smith',
+				first_name: 'Jamie',
+				group_id: 'other-group',
+				archived_at: null
+			}
+		]);
+		const findManySpy = vi.spyOn(ctx.rawStore, 'findMany');
+
+		await expect(handleUseCaseRequest(_getConfig, ctx, { personnelId: 'p-1' })).rejects.toMatchObject({
+			status: 403
+		});
+
+		expect(findManySpy).not.toHaveBeenCalled();
 	});
 
 	it('includes ETS and PCS / DEROS in the personnel info worksheet', async () => {

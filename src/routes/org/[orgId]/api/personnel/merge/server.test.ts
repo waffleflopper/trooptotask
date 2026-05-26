@@ -1,9 +1,20 @@
 import { describe, expect, it } from 'vitest';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { _postConfig } from './+server';
 
 describe('POST /api/personnel/merge', () => {
+	it('declares policy-first authorization for personnel merge', () => {
+		expect(_postConfig).toMatchObject({
+			mutation: true,
+			policyAction: POLICY_ACTION_CATALOG.personnel.mergeRecords,
+			policyResource: { kind: 'unscoped' }
+		});
+		expect('permission' in _postConfig).toBe(false);
+		expect('deferPolicyToUseCase' in _postConfig).toBe(false);
+	});
+
 	it('returns updated, skipped, ambiguous, and failed rows for the merge workflow', async () => {
 		const ctx = createTestContext();
 		ctx.store.seed('personnel', [

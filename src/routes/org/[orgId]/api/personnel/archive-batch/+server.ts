@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestEvent } from '@sveltejs/kit';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { fail } from '$lib/server/core/errors';
 import { createPersonnelUseCases, type ArchivePersonnelBatchResult } from '$lib/server/core/useCases/personnel';
 import { validateUUID } from '$lib/server/validation';
@@ -13,9 +14,9 @@ interface ArchivePersonnelBatchRouteInput {
 }
 
 export const _postConfig: RouteConfig<ArchivePersonnelBatchRouteInput, ArchivePersonnelBatchResult> = {
-	permission: 'personnel',
 	mutation: true,
-	deferPolicyToUseCase: true,
+	policyAction: POLICY_ACTION_CATALOG.personnel.archiveRecords,
+	policyResource: { kind: 'unscoped' },
 	parseInput: async (event: RequestEvent) => {
 		const body = (await event.request.json()) as Record<string, unknown>;
 		const ids = body.ids;

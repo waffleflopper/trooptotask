@@ -10,27 +10,27 @@ import { policyResourceForGroup, requireFeaturePolicy } from '$lib/server/core/u
 const useCases = createPersonnelUseCases();
 
 export const _postConfig: RouteConfig<Record<string, unknown>, unknown> = {
-	permission: 'personnel',
 	mutation: true,
-	deferPolicyToUseCase: true,
+	policyAction: POLICY_ACTION_CATALOG.personnel.createRecords,
+	policyResource: { kind: 'unscoped' },
 	fn: (ctx, input) => useCases.create(ctx, input)
 };
 
 export const POST = handle(_postConfig);
 
 export const _putConfig: RouteConfig<Record<string, unknown>, unknown> = {
-	permission: 'personnel',
 	mutation: true,
-	deferPolicyToUseCase: true,
+	policyAction: POLICY_ACTION_CATALOG.personnel.manageRecords,
+	policyResource: { kind: 'unscoped' },
 	fn: (ctx, input) => useCases.update(ctx, input)
 };
 
 export const PUT = handle(_putConfig);
 
 export const _deleteConfig: RouteConfig<Record<string, unknown>, Record<string, unknown>> = {
-	permission: 'personnel',
 	mutation: true,
-	deferPolicyToUseCase: true,
+	policyAction: POLICY_ACTION_CATALOG.personnel.archiveRecords,
+	policyResource: { kind: 'unscoped' },
 	fn: async (ctx, input) => {
 		const id = input.id;
 		if (!id || typeof id !== 'string') fail(400, 'Missing id');
@@ -53,9 +53,9 @@ export const _deleteConfig: RouteConfig<Record<string, unknown>, Record<string, 
 export const DELETE = handle(_deleteConfig);
 
 export const _patchConfig: RouteConfig<Record<string, unknown>, Record<string, unknown>> = {
-	permission: 'privileged',
 	mutation: true,
-	deferPolicyToUseCase: true,
+	policyAction: POLICY_ACTION_CATALOG.personnel.restoreRecords,
+	policyResource: { kind: 'unscoped' },
 	parseInput: async (event: RequestEvent) => {
 		return event.request.json();
 	},

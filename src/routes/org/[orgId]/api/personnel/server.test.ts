@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { _deleteConfig, _patchConfig, _postConfig, _putConfig } from './+server';
@@ -15,6 +16,33 @@ function legacyAuthShouldNotAuthorize() {
 }
 
 describe('/api/personnel route authorization', () => {
+	it('declares policy-first route authorization for personnel roster lifecycle writes', () => {
+		expect(_postConfig).toMatchObject({
+			mutation: true,
+			policyAction: POLICY_ACTION_CATALOG.personnel.createRecords,
+			policyResource: { kind: 'unscoped' }
+		});
+		expect(_putConfig).toMatchObject({
+			mutation: true,
+			policyAction: POLICY_ACTION_CATALOG.personnel.manageRecords,
+			policyResource: { kind: 'unscoped' }
+		});
+		expect(_deleteConfig).toMatchObject({
+			mutation: true,
+			policyAction: POLICY_ACTION_CATALOG.personnel.archiveRecords,
+			policyResource: { kind: 'unscoped' }
+		});
+		expect(_patchConfig).toMatchObject({
+			mutation: true,
+			policyAction: POLICY_ACTION_CATALOG.personnel.restoreRecords,
+			policyResource: { kind: 'unscoped' }
+		});
+		for (const config of [_postConfig, _putConfig, _deleteConfig, _patchConfig]) {
+			expect('permission' in config).toBe(false);
+			expect('deferPolicyToUseCase' in config).toBe(false);
+		}
+	});
+
 	it('creates personnel through configure-level use-case Policy Decisions without route-level legacy edit gates', async () => {
 		const legacyAuth = legacyAuthShouldNotAuthorize();
 		const ctx = createTestContext({

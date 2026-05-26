@@ -2,6 +2,7 @@ import { json } from '@sveltejs/kit';
 import type { RequestEvent } from '@sveltejs/kit';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+import { fail } from '$lib/server/core/errors';
 import {
 	listDeletionRequests,
 	createDeletionRequest,
@@ -44,7 +45,10 @@ export const _deleteConfig: RouteConfig<Record<string, unknown>, unknown> = {
 	policyAction: POLICY_ACTION_CATALOG.identity.cancelOwnDeletionRequest,
 	mutation: true,
 	fn: async (ctx, input) => {
-		await cancelDeletionRequest(ctx, input.id as string);
+		const { id } = input;
+		if (!id || typeof id !== 'string') fail(400, 'Missing id');
+
+		await cancelDeletionRequest(ctx, id);
 		return { success: true };
 	}
 };

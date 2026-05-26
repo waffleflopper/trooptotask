@@ -293,6 +293,49 @@ export class SettingsMemberAccessWorkspace {
 		this.inviteMembershipRole = role;
 	}
 
+	isRoleChanged(member: SettingsMemberAccessRow): boolean {
+		const saved: EditableMembershipRole = member.membershipRole === 'admin' ? 'admin' : 'member';
+		return this.getSelectedMembershipRole(member) !== saved;
+	}
+
+	isPresetChanged(member: SettingsMemberAccessRow): boolean {
+		const saved = this.editablePresetForMemberPreset(member.access.memberPreset);
+		return this.getSelectedPreset(member) !== saved;
+	}
+
+	isCapabilityChanged(member: SettingsMemberAccessRow, lane: DurableFeatureLane): boolean {
+		const saved = member.access.capabilityMap[lane];
+		const selected = this.getEditorCapabilityValue(member, lane, this.getSelectedPreset(member));
+		return selected !== saved;
+	}
+
+	isScopeChanged(member: SettingsMemberAccessRow): boolean {
+		const savedKind = this.getMemberAccessShape(member).scopeSet.kind;
+		const selectedKind = this.getSelectedScopeKind(member);
+		if (savedKind !== selectedKind) return true;
+		if (selectedKind === 'groups') {
+			const savedSet = this.getMemberAccessShape(member).scopeSet;
+			const savedGroupIds = savedSet.kind === 'groups' ? [...savedSet.groupIds].sort() : [];
+			const selectedGroupIds = [...this.getSelectedScopeGroupIds(member)].sort();
+			return savedGroupIds.join(',') !== selectedGroupIds.join(',');
+		}
+		return false;
+	}
+
+	editorChangeCount(member: SettingsMemberAccessRow): number {
+		let count = 0;
+		if (this.isRoleChanged(member)) count++;
+		const selectedRole = this.getSelectedMembershipRole(member);
+		if (selectedRole === 'member') {
+			if (this.isPresetChanged(member)) count++;
+			for (const lane of SETTINGS_ACCESS_LANES) {
+				if (this.isCapabilityChanged(member, lane.id)) count++;
+			}
+			if (this.isScopeChanged(member)) count++;
+		}
+		return count;
+	}
+
 	toggleInviteScopeGroup(groupId: string, checked: boolean): void {
 		this.inviteScopeGroupIds = checked
 			? this.inviteScopeGroupIds.includes(groupId)

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import { Edit, RefreshCw, Trash2 } from '@lucide/svelte';
+	import { Edit, RefreshCw, Search, Trash2 } from '@lucide/svelte';
 	import type { SubmitFunction } from '@sveltejs/kit';
 	import { explainPolicyReasonCode } from '$lib/access/policyDecisionExplanations';
 	import { redirectToSensitiveActionStepUp } from '$lib/auth/sensitiveActionStepUp';
@@ -13,7 +13,6 @@
 	import { Label } from '$lib/components/ui/label/index.js';
 	import * as RadioGroup from '$lib/components/ui/radio-group/index.js';
 	import * as Select from '$lib/components/ui/select/index.js';
-	import { Separator } from '$lib/components/ui/separator/index.js';
 	import * as Sheet from '$lib/components/ui/sheet/index.js';
 	import { formatRelativeDate } from '$lib/utils/dates';
 	import { createSettingsWorkspaceState } from '../settingsWorkspaceState.svelte';
@@ -24,6 +23,7 @@
 	let { data, form } = $props();
 
 	let loading = $state(false);
+	let memberSearch = $state('');
 	let pendingRemoveMemberForm = $state<HTMLFormElement | null>(null);
 	let pendingRemoveMemberEmail = $state('');
 
@@ -33,6 +33,11 @@
 	const isOwner = $derived(currentMember.isOwner);
 	const memberAccess = settingsState.members;
 	const sortedMembers = $derived(memberAccess.sortedMembers);
+	const filteredMembers = $derived(
+		memberSearch.trim()
+			? sortedMembers.filter((m) => (m.email ?? '').toLowerCase().includes(memberSearch.trim().toLowerCase()))
+			: sortedMembers
+	);
 	const availablePresetOptions = $derived(memberAccess.availablePresetOptions);
 	const availableMembershipRoleOptions = $derived(memberAccess.availableMembershipRoleOptions);
 	const selectedMember = $derived(sortedMembers.find((member) => member.id === memberAccess.memberEditorId) ?? null);
@@ -64,84 +69,12 @@
 
 <section class="grid gap-4" aria-labelledby="members-settings-heading">
 	<div class="grid gap-1">
-		<h2 id="members-settings-heading" class="text-lg font-semibold tracking-tight">Access Management</h2>
+		<h2 id="members-settings-heading" class="text-xl font-semibold tracking-tight">Access Management</h2>
 		<p class="max-w-3xl text-sm text-muted-foreground">
 			Set each member's role and day-to-day access. Admin authority is separate from member access.
 			{governanceRoleExplanation}
 		</p>
 	</div>
-
-	<div class="rounded-lg border bg-card text-card-foreground">
-		<div class="flex flex-col gap-3 border-b p-4 md:flex-row md:items-center md:justify-between">
-			<div>
-				<h3 class="font-medium">Organization members</h3>
-				<p class="text-sm text-muted-foreground">
-					{membersSection.rows.length}
-					{pluralize('member', membersSection.rows.length)}
-				</p>
-			</div>
-			<Badge variant="outline">{membersSection.invitations.length} pending invitations</Badge>
-		</div>
-
-		<div class="divide-y">
-			{#each sortedMembers as member (member.id)}
-				{@const accessShape = memberAccess.getMemberAccessShape(member)}
-				{@const accessBadge = memberAccess.getMemberAccessBadge(member, accessShape)}
-				{@const overrides = memberAccess.overriddenCapabilityLabels(member)}
-				<div class="grid gap-3 p-4 md:grid-cols-[auto_minmax(0,1fr)_auto] md:items-start">
-					<div
-						class="flex size-10 items-center justify-center rounded-md border bg-muted text-sm font-medium"
-						aria-hidden="true"
-					>
-						{memberAccess.getMemberInitials(member.email)}
-					</div>
-					<div class="min-w-0 grid gap-2">
-						<div class="min-w-0">
-							<p class="truncate font-medium">{member.email ?? `${member.userId.slice(0, 8)}...`}</p>
-							<p class="truncate text-sm text-muted-foreground">{memberAccess.formatScopeSet(accessShape.scopeSet)}</p>
-						</div>
-						<div class="flex flex-wrap gap-2">
-							<Badge variant="secondary">{memberAccess.getAccessLabel(accessBadge)}</Badge>
-							{#each overrides as override (override)}
-								<Badge variant="outline">{override}</Badge>
-							{/each}
-							{#if overrides.length === 0 && member.membershipRole !== 'owner' && member.membershipRole !== 'admin'}
-								<Badge variant="outline">Preset defaults</Badge>
-							{/if}
-							{#if isCurrentMember(member)}<Badge>You</Badge>{/if}
-						</div>
-					</div>
-					<div class="flex flex-wrap justify-end gap-2">
-						{#if member.membershipRole !== 'owner' && membersSection.canManageMemberAccess && (member.membershipRole !== 'admin' || isOwner)}
-							<Button type="button" variant="outline" size="sm" onclick={() => memberAccess.openMemberEditor(member)}>
-								<Edit />
-								{isOwner ? 'Manage role & access' : 'Manage access'}
-							</Button>
-							<form method="POST" action="?/removeMember" use:enhance={stepUpEnhance}>
-								<input type="hidden" name="membershipId" value={member.id} />
-								<Button
-									type="button"
-									variant="destructive"
-									size="sm"
-									onclick={(event) => {
-										pendingRemoveMemberForm = (event.currentTarget as HTMLButtonElement).closest('form');
-										pendingRemoveMemberEmail = member.email ?? 'this member';
-									}}
-								>
-									<Trash2 />
-									Remove
-								</Button>
-							</form>
-						{/if}
-					</div>
-				</div>
-			{/each}
-		</div>
-	</div>
-
-	{#if form?.memberError}<p class="text-sm text-destructive">{form.memberError}</p>{/if}
-	{#if form?.permissionError}<p class="text-sm text-destructive">{form.permissionError}</p>{/if}
-	{#if form?.permissionSuccess}<p class="text-sm text-muted-foreground">Permissions updated.</p>{/if}
 
 	{#if membersSection.canInvite}
 		<section
@@ -152,7 +85,6 @@
 				<h3 id="invite-member-heading" class="text-lg font-semibold tracking-tight">Invite Member</h3>
 				<p class="text-sm text-muted-foreground">Create an invite they can accept after signing in.</p>
 			</div>
-			<Separator />
 			<form
 				method="POST"
 				action="?/invite"
@@ -256,6 +188,97 @@
 		</section>
 	{/if}
 
+	<div class="rounded-lg border bg-card text-card-foreground">
+		<div class="flex flex-col gap-3 border-b p-4 md:flex-row md:items-center md:justify-between">
+			<div>
+				<h3 class="font-medium">Organization members</h3>
+				<p class="text-sm text-muted-foreground">
+					{membersSection.rows.length}
+					{pluralize('member', membersSection.rows.length)}
+				</p>
+			</div>
+			<div class="flex items-center gap-3">
+				<div class="relative">
+					<Search class="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+					<Input
+						type="search"
+						placeholder="Filter members..."
+						class="h-8 w-48 pl-8 text-sm"
+						bind:value={memberSearch}
+					/>
+				</div>
+				<Badge variant="outline">{membersSection.invitations.length} pending invitations</Badge>
+			</div>
+		</div>
+
+		<div class="divide-y">
+			{#each filteredMembers as member (member.id)}
+				{@const accessShape = memberAccess.getMemberAccessShape(member)}
+				{@const accessBadge = memberAccess.getMemberAccessBadge(member, accessShape)}
+				{@const overrides = memberAccess.overriddenCapabilityLabels(member)}
+				<div class="grid gap-3 p-4 md:grid-cols-[auto_minmax(0,1fr)_auto] md:items-start">
+					<div
+						class="flex size-10 items-center justify-center rounded-md border bg-muted text-sm font-medium"
+						aria-hidden="true"
+					>
+						{memberAccess.getMemberInitials(member.email)}
+					</div>
+					<div class="min-w-0 grid gap-2">
+						<div class="min-w-0">
+							<p class="truncate font-medium">{member.email ?? `${member.userId.slice(0, 8)}...`}</p>
+							<p class="truncate text-sm text-muted-foreground">{memberAccess.formatScopeSet(accessShape.scopeSet)}</p>
+						</div>
+						<div class="flex flex-wrap gap-2">
+							<Badge variant="secondary">{memberAccess.getAccessLabel(accessBadge)}</Badge>
+							{#each overrides as override (override)}
+								<Badge variant="outline">{override}</Badge>
+							{/each}
+							{#if overrides.length === 0 && member.membershipRole !== 'owner' && member.membershipRole !== 'admin'}
+								<Badge variant="outline">Preset defaults</Badge>
+							{/if}
+							{#if isCurrentMember(member)}<Badge>You</Badge>{/if}
+						</div>
+					</div>
+					<div class="flex flex-wrap justify-end gap-2">
+						{#if member.membershipRole !== 'owner' && membersSection.canManageMemberAccess && (member.membershipRole !== 'admin' || isOwner)}
+							<Button type="button" variant="outline" size="sm" onclick={() => memberAccess.openMemberEditor(member)}>
+								<Edit />
+								{isOwner ? 'Manage role & access' : 'Manage access'}
+							</Button>
+							<form method="POST" action="?/removeMember" use:enhance={stepUpEnhance}>
+								<input type="hidden" name="membershipId" value={member.id} />
+								<Button
+									type="button"
+									variant="destructive"
+									size="sm"
+									onclick={(event) => {
+										pendingRemoveMemberForm = (event.currentTarget as HTMLButtonElement).closest('form');
+										pendingRemoveMemberEmail = member.email ?? 'this member';
+									}}
+								>
+									<Trash2 />
+									Remove
+								</Button>
+							</form>
+						{/if}
+					</div>
+				</div>
+			{:else}
+				<div class="p-4 text-center text-sm text-muted-foreground">
+					{#if memberSearch.trim()}
+						No members matching "{memberSearch.trim()}"
+					{:else}
+						No members found
+					{/if}
+				</div>
+			{/each}
+		</div>
+	</div>
+
+	{#if form?.memberError}<p class="text-sm text-destructive">{form.memberError}</p>{/if}
+	{#if form?.permissionError}<p class="text-sm text-destructive">{form.permissionError}</p>{/if}
+	{#if form?.permissionSuccess}<p class="text-sm text-muted-foreground">Permissions updated.</p>{/if}
+
 	{#if membersSection.invitations.length > 0}
 		<section
 			class="grid gap-4 rounded-lg border bg-card p-4 text-card-foreground"
@@ -278,7 +301,13 @@
 						<div class="flex flex-wrap gap-2">
 							<form method="POST" action="?/resendInvite" use:enhance={stepUpEnhance}>
 								<input type="hidden" name="inviteId" value={invite.id} />
-								<Button type="submit" variant="outline" size="sm" disabled={!invite.canResend}>
+								<Button
+									type="submit"
+									variant="outline"
+									size="sm"
+									disabled={!invite.canResend}
+									title={invite.canResend ? undefined : 'This invitation was sent recently'}
+								>
 									<RefreshCw />
 									Resend
 								</Button>
@@ -333,6 +362,7 @@
 		{@const selectedPreset = memberAccess.getSelectedPreset(selectedMember)}
 		{@const selectedScopeKind = memberAccess.getSelectedScopeKind(selectedMember)}
 		{@const selectedScopeGroupIds = memberAccess.getSelectedScopeGroupIds(selectedMember)}
+		{@const changeCount = memberAccess.editorChangeCount(selectedMember)}
 		<Sheet.Content class="w-full overflow-y-auto sm:max-w-xl">
 			<Sheet.Header>
 				<Sheet.Title>Manage Access</Sheet.Title>
@@ -416,8 +446,14 @@
 									lane.id,
 									selectedPreset
 								)}
-								<Field.Root>
-									<Field.Label id="capability-{selectedMember.id}-{lane.id}">{lane.label}</Field.Label>
+								{@const capabilityChanged = memberAccess.isCapabilityChanged(selectedMember, lane.id)}
+								<Field.Root class={capabilityChanged ? '' : 'opacity-60'}>
+									<Field.Label id="capability-{selectedMember.id}-{lane.id}">
+										{lane.label}
+										{#if capabilityChanged}
+											<span class="ml-1 inline-block size-1.5 rounded-full bg-ring" aria-label="changed"></span>
+										{/if}
+									</Field.Label>
 									<input type="hidden" name="capabilityOverride:{lane.id}" value={capabilityValue} />
 									<Select.Root
 										type="single"
@@ -487,7 +523,15 @@
 					<Button type="button" variant="outline" onclick={() => memberAccess.closeMemberEditor(selectedMember.id)}>
 						Cancel
 					</Button>
-					<Button type="submit" disabled={loading}>{loading ? 'Saving...' : 'Save member'}</Button>
+					<Button type="submit" disabled={loading || changeCount === 0}>
+						{#if loading}
+							Saving...
+						{:else if changeCount > 0}
+							Save {changeCount} {changeCount === 1 ? 'change' : 'changes'}
+						{:else}
+							No changes
+						{/if}
+					</Button>
 				</Sheet.Footer>
 			</form>
 		</Sheet.Content>
@@ -509,6 +553,9 @@
 				<AppDialog.Title>Remove Member</AppDialog.Title>
 				<AppDialog.Description>Remove {pendingRemoveMemberEmail} from this organization?</AppDialog.Description>
 			</AppDialog.Header>
+			<p class="px-4 text-sm text-muted-foreground">
+				Their assignments, calendar availability, and duty roster entries will be unassigned. This cannot be undone.
+			</p>
 			<AppDialog.Footer>
 				<Button
 					type="button"

@@ -66,7 +66,10 @@ describe('SettingsActivityRail', () => {
 		expect(within(activity).getByText('requester@example.com')).toBeTruthy();
 
 		await fireEvent.click(within(activity).getByRole('tab', { name: 'Audit Log' }));
-		expect(within(activity).getByText('Organization › Rename')).toBeTruthy();
+		expect(within(activity).getByRole('columnheader', { name: 'Area' })).toBeTruthy();
+		expect(within(activity).getByRole('columnheader', { name: 'Event' })).toBeTruthy();
+		expect(within(activity).getByRole('cell', { name: 'Organization' })).toBeTruthy();
+		expect(within(activity).getByRole('cell', { name: 'Rename' })).toBeTruthy();
 		expect(within(activity).getByText('admin@example.com')).toBeTruthy();
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Collapse' }));

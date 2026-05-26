@@ -5,7 +5,6 @@
 		Check,
 		CreditCard,
 		ExternalLink,
-		FileText,
 		Gift,
 		LifeBuoy,
 		TriangleAlert,
@@ -24,13 +23,10 @@
 	import * as PageShell from '$lib/components/ui/page-shell';
 	import * as Select from '$lib/components/ui/select';
 	import { Spinner } from '$lib/components/ui/spinner';
-	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
 	import { redirectToSensitiveActionStepUp } from '$lib/auth/sensitiveActionStepUp';
-	import type { WorkspaceToolbarAction } from '$lib/components/ui/workspace-toolbar';
 	import type {
 		BillingSnapshot,
 		BillingCancellationFeedback,
-		BillingSnapshotSource,
 		EffectiveTier,
 		SubscriptionStatus,
 		Tier
@@ -87,6 +83,8 @@
 	let cancelNowConfirmation = $state('');
 	let cancelFeedback = $state<'none' | BillingCancellationFeedback>('none');
 	let cancelNowError = $state('');
+	let subscribeConfirmOpen = $state(false);
+	let subscribeConfirmTier = $state<string | null>(null);
 
 	const fallbackTier: EffectiveTier = {
 		tier: 'free',
@@ -135,7 +133,9 @@
 	const selectedCancellationFeedback = $derived<BillingCancellationFeedback | null>(
 		cancelFeedback === 'none' ? null : cancelFeedback
 	);
-
+	const subscribeConfirmPlan = $derived(
+		subscribeConfirmTier ? tierComparison.find((t) => t.tier === subscribeConfirmTier) : null
+	);
 	const cancellationFeedbackOptions: Array<{ value: 'none' | BillingCancellationFeedback; label: string }> = [
 		{ value: 'none', label: 'No reason selected' },
 		{ value: 'too_expensive', label: 'Too expensive' },
@@ -153,24 +153,6 @@
 		const diff = new Date(giftExpiresAt).getTime() - Date.now();
 		return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
 	});
-	const billingToolbarActions = $derived.by(() => {
-		if (!data.canManageSubscription || billingActionsDisabled) return [];
-
-		const actions: WorkspaceToolbarAction[] = [
-			{
-				id: 'manage-subscription',
-				label: portalLoading ? 'Opening...' : 'Manage Subscription',
-				onclick: handleManageSubscription,
-				disabled: portalLoading,
-				priority: 'critical',
-				overflow: 'never',
-				variant: 'primary'
-			}
-		];
-
-		return actions;
-	});
-
 	function formatPrice(cents: number): string {
 		if (cents === 0) return 'Free';
 		return `$${(cents / 100).toFixed(0)}/mo`;
@@ -195,21 +177,6 @@
 		}
 	}
 
-	function snapshotSourceLabel(src: BillingSnapshotSource | null | undefined): string {
-		switch (src) {
-			case 'stripe':
-				return 'Billing Provider';
-			case 'gift':
-				return 'Admin Gift';
-			case 'billing_disabled':
-				return 'Billing Disabled';
-			case 'legacy_organization':
-				return 'Legacy Organization';
-			default:
-				return 'Not Configured';
-		}
-	}
-
 	function subscriptionStatusLabel(status: SubscriptionStatus | null | undefined): string {
 		switch (status) {
 			case 'active':
@@ -231,15 +198,6 @@
 			default:
 				return 'Free';
 		}
-	}
-
-	function billingUpdateLabel(snapshot: BillingSnapshot | null): string {
-		if (!snapshot) return 'Current';
-		if (snapshot.syncStatus === 'pending') return 'Updating';
-		if (snapshot.syncStatus === 'synced') return 'Current';
-		return snapshot.driftDetected || snapshot.syncStatus === 'needs_reconciliation'
-			? 'Needs support review'
-			: 'Current';
 	}
 
 	function buildBillingStatus(
@@ -530,12 +488,6 @@
 		}
 	}
 
-	function billingAlertVariant(variant: BadgeVariant): 'default' | 'destructive' | 'warning' {
-		if (variant === 'destructive') return 'destructive';
-		if (variant === 'warning') return 'warning';
-		return 'default';
-	}
-
 	function usageStatusLabel(status: string): string {
 		switch (status) {
 			case 'over_limit':
@@ -697,6 +649,24 @@
 		} finally {
 			confirmPasswordLoading = false;
 		}
+	}
+
+	function handleSubscribeClick(selectedTier: string) {
+		subscribeConfirmTier = selectedTier;
+		subscribeConfirmOpen = true;
+	}
+
+	function closeSubscribeConfirmDialog() {
+		subscribeConfirmOpen = false;
+		subscribeConfirmTier = null;
+	}
+
+	async function handleSubscribeConfirmed() {
+		subscribeConfirmOpen = false;
+		if (subscribeConfirmTier) {
+			await handleSubscribe(subscribeConfirmTier);
+		}
+		subscribeConfirmTier = null;
 	}
 
 	async function handleSubscribe(selectedTier: string) {
@@ -882,18 +852,6 @@
 		{/snippet}
 	</PageShell.Header>
 
-	{#if billingToolbarActions.length > 0}
-		<WorkspaceToolbar.Root ariaLabel="Billing controls">
-			<WorkspaceToolbar.Group label="Billing actions" zone="actions">
-				<WorkspaceToolbar.Actions
-					actions={billingToolbarActions}
-					ariaLabel="Billing actions"
-					overflowAriaLabel="More billing actions"
-				/>
-			</WorkspaceToolbar.Group>
-		</WorkspaceToolbar.Root>
-	{/if}
-
 	{#if isReadOnly}
 		<Alert.Root variant="warning">
 			<TriangleAlert />
@@ -958,26 +916,90 @@
 		</Alert.Root>
 	{/if}
 
-	<PageShell.FactGrid layout="three">
-		<PageShell.Metric
-			label="Current Plan"
-			value={tierComparison.find((t) => t.tier === tier.tier)?.name ?? tier.tier}
-			detail={isReadOnly ? 'Organization access is limited right now' : 'Organization access is active and available'}
-			tone={isReadOnly ? 'warning' : 'default'}
-		/>
-		<PageShell.Metric
-			label="Personnel Usage"
-			value={`${personnelCount} / ${personnelCap === Infinity ? 'Unlimited' : personnelCap}`}
-			detail="Current headcount against the plan limit"
-		/>
-		<PageShell.Metric
-			label="Plan Source"
-			value={sourceLabel(source)}
-			detail={source === 'gift'
-				? 'Access is currently being granted outside regular billing'
-				: 'How this subscription is currently being applied'}
-		/>
-	</PageShell.FactGrid>
+	<Card.Root>
+		<Card.Header>
+			<div class="flex flex-wrap items-start justify-between gap-3">
+				<div class="grid gap-1.5">
+					<div class="flex flex-wrap items-center gap-2">
+						<Card.Title>Subscription</Card.Title>
+						<Badge variant={billingStatus.variant}>{billingStatus.statusLabel}</Badge>
+					</div>
+					<Card.Description>{billingStatus.description}</Card.Description>
+				</div>
+				{#if data.canManageSubscription && !billingActionsDisabled}
+					<Button type="button" class="shrink-0" onclick={handleManageSubscription} disabled={portalLoading}>
+						{#if portalLoading}<Spinner />{/if}
+						{portalLoading ? 'Opening...' : 'Manage Subscription'}
+					</Button>
+				{/if}
+			</div>
+		</Card.Header>
+		<Card.Content class="grid gap-4">
+			<PageShell.FactGrid layout="three">
+				<PageShell.FactRow
+					label="Status"
+					value={subscriptionStatusLabel(billingSnapshot?.subscriptionStatus) +
+						' (' +
+						(tierComparison.find((t) => t.tier === tier.tier)?.name ?? tier.tier) +
+						(isReadOnly ? ' *Limited' : '') +
+						')'}
+					layout="stack"
+				/>
+				<PageShell.FactRow
+					label="Paid Through"
+					value={formatBillingDate(billingSnapshot?.currentPeriodEnd)}
+					layout="stack"
+				/>
+				{#if showCancellationTiming && cancellationSummary}
+					<PageShell.FactRow
+						label="Canceled At"
+						value={formatBillingDate(cancellationSummary.canceledAt)}
+						layout="stack"
+					/>
+				{/if}
+			</PageShell.FactGrid>
+
+			{#if source === 'gift' && giftExpiresAt}
+				<Alert.Root variant="success">
+					<Gift />
+					<Alert.Title>
+						Complimentary {giftTier ? giftTier.charAt(0).toUpperCase() + giftTier.slice(1) : ''} tier
+					</Alert.Title>
+					<Alert.Description>
+						Expires: {new Date(giftExpiresAt).toLocaleDateString('en-US', {
+							year: 'numeric',
+							month: 'long',
+							day: 'numeric'
+						})}
+						{#if giftDaysRemaining !== null}
+							({giftDaysRemaining} {giftDaysRemaining === 1 ? 'day' : 'days'} remaining)
+						{/if}
+					</Alert.Description>
+				</Alert.Root>
+			{/if}
+
+			{#if billingRecovery}
+				<div class="grid gap-3 rounded-md border border-warning/20 bg-warning/5 p-4">
+					<div class="flex flex-wrap items-center gap-2">
+						<p class="text-sm font-semibold">{billingRecovery.title}</p>
+						<Badge variant={billingRecovery.variant}>{billingRecovery.statusLabel}</Badge>
+					</div>
+					<p class="text-sm text-muted-foreground">{billingRecovery.description}</p>
+					<p class="text-sm text-muted-foreground">{billingRecovery.impact}</p>
+					<ol class="grid gap-1 pl-4 text-sm text-muted-foreground" style="list-style: decimal">
+						{#each billingRecovery.steps as step (step)}
+							<li>{step}</li>
+						{/each}
+					</ol>
+					{#if billingRecovery.showPlansLink}
+						<div>
+							<Button href="#billing-pricing-heading" variant="outline" size="sm">View Plans</Button>
+						</div>
+					{/if}
+				</div>
+			{/if}
+		</Card.Content>
+	</Card.Root>
 
 	{#if planUsageSummary}
 		<Card.Root>
@@ -1046,198 +1068,6 @@
 			</Card.Content>
 		</Card.Root>
 	{/if}
-
-	<Card.Root>
-		<Card.Header>
-			<div class="flex flex-wrap items-center gap-2">
-				<Card.Title>Billing Status</Card.Title>
-				<Badge variant={billingStatus.variant}>{billingStatus.statusLabel}</Badge>
-			</div>
-			<Card.Description>{billingStatus.description}</Card.Description>
-		</Card.Header>
-		<Card.Content class="grid gap-4">
-			<Alert.Root variant={billingAlertVariant(billingStatus.variant)}>
-				<Alert.Title>{billingStatus.title}</Alert.Title>
-				<Alert.Description>{billingStatus.actionHint}</Alert.Description>
-			</Alert.Root>
-			<PageShell.FactGrid layout="three">
-				<PageShell.FactRow
-					label="Subscription Status"
-					value={subscriptionStatusLabel(billingSnapshot?.subscriptionStatus)}
-					layout="stack"
-				/>
-				<PageShell.FactRow
-					label="Entitlement Source"
-					value={snapshotSourceLabel(billingSnapshot?.source)}
-					layout="stack"
-				/>
-				<PageShell.FactRow
-					label="Paid Through"
-					value={formatBillingDate(billingSnapshot?.currentPeriodEnd)}
-					layout="stack"
-				/>
-				<PageShell.FactRow label="Billing Updates" value={billingUpdateLabel(billingSnapshot)} layout="stack" />
-			</PageShell.FactGrid>
-			{#if data.canManageSubscription && !billingActionsDisabled}
-				<div>
-					<Button variant="outline" onclick={handleManageSubscription} disabled={portalLoading}>
-						<CreditCard data-icon="inline-start" />
-						{#if portalLoading}<Spinner />{/if}
-						{portalLoading ? 'Opening...' : 'Manage Subscription'}
-					</Button>
-				</div>
-			{/if}
-		</Card.Content>
-	</Card.Root>
-
-	{#if billingRecovery}
-		<Card.Root>
-			<Card.Header>
-				<div class="flex flex-wrap items-center gap-2">
-					<Card.Title>Payment Recovery</Card.Title>
-					<Badge variant={billingRecovery.variant}>{billingRecovery.statusLabel}</Badge>
-				</div>
-				<Card.Description>{billingRecovery.description}</Card.Description>
-			</Card.Header>
-			<Card.Content class="grid gap-4">
-				<Alert.Root variant={billingRecovery.variant}>
-					<TriangleAlert />
-					<Alert.Title>{billingRecovery.title}</Alert.Title>
-					<Alert.Description>{billingRecovery.impact}</Alert.Description>
-				</Alert.Root>
-				<ul class="grid gap-2 text-sm text-muted-foreground">
-					{#each billingRecovery.steps as step (step)}
-						<li>{step}</li>
-					{/each}
-				</ul>
-				<div class="flex flex-wrap gap-2">
-					{#if billingRecovery.portalLabel}
-						<Button variant="outline" onclick={handleManageSubscription} disabled={portalLoading}>
-							<CreditCard data-icon="inline-start" />
-							{#if portalLoading}<Spinner />{/if}
-							{portalLoading ? 'Opening...' : billingRecovery.portalLabel}
-						</Button>
-					{/if}
-					{#if billingRecovery.showPlansLink}
-						<Button href="#billing-pricing-heading" variant="outline">View Plans</Button>
-					{/if}
-				</div>
-			</Card.Content>
-		</Card.Root>
-	{/if}
-
-	{#if data.canManageSubscription && !billingActionsDisabled && (!billingRecovery || !billingRecovery.portalLabel)}
-		<Card.Root>
-			<Card.Header>
-				<Card.Title>Invoices & Receipts</Card.Title>
-				<Card.Description>
-					Download invoices and receipts, update payment methods, and review billing details in the secure billing
-					portal.
-				</Card.Description>
-			</Card.Header>
-			<Card.Content>
-				<Button variant="outline" onclick={handleManageSubscription} disabled={portalLoading}>
-					<FileText data-icon="inline-start" />
-					{#if portalLoading}<Spinner />{/if}
-					{portalLoading ? 'Opening...' : 'Open Billing Portal'}
-				</Button>
-			</Card.Content>
-		</Card.Root>
-	{/if}
-
-	{#if data.canManageSubscription && !billingActionsDisabled && source !== 'gift'}
-		<Card.Root>
-			<Card.Header>
-				<Card.Title>Cancellation Policy</Card.Title>
-				<Card.Description>
-					Use the billing portal for the normal paid-launch cancellation path. Portal cancellation keeps paid access
-					active through the current paid-through date.
-				</Card.Description>
-			</Card.Header>
-			<Card.Content class="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
-				<div class="grid gap-2 text-sm text-muted-foreground">
-					<p>
-						Canceling in the portal is scheduled at period end when the billing dashboard is configured for launch. The
-						organization stays on the paid plan until billing confirms the cancellation.
-					</p>
-					<p>
-						Immediate cancellation is separate: it ends paid access now, moves the organization to Free, and should only
-						be used when the owner explicitly confirms that outcome.
-					</p>
-				</div>
-				<div class="flex flex-wrap gap-2 md:justify-end">
-					<Button variant="outline" onclick={handleManageSubscription} disabled={portalLoading}>
-						<CreditCard data-icon="inline-start" />
-						{#if portalLoading}<Spinner />{/if}
-						{portalLoading ? 'Opening...' : 'Cancel at Period End'}
-					</Button>
-					{#if canShowImmediateCancellation}
-						<Button variant="destructive" onclick={openCancelNowDialog} disabled={cancelLoading}>
-							{#if cancelLoading}<Spinner />{/if}
-							{cancelLoading ? 'Canceling...' : 'Cancel Now'}
-						</Button>
-					{/if}
-				</div>
-			</Card.Content>
-		</Card.Root>
-	{/if}
-
-	{#if showCancellationTiming}
-		<Card.Root>
-			<Card.Header>
-				<Card.Title>Cancellation Timing</Card.Title>
-				<Card.Description>{cancellationSummary.description}</Card.Description>
-			</Card.Header>
-			<Card.Content>
-				<PageShell.FactGrid layout="three">
-					<PageShell.FactRow label="Status" value={cancellationSummary.label} layout="stack" />
-					<PageShell.FactRow
-						label="Paid Through"
-						value={formatBillingDate(cancellationSummary.currentPeriodEnd)}
-						layout="stack"
-					/>
-					<PageShell.FactRow
-						label="Canceled At"
-						value={formatBillingDate(cancellationSummary.canceledAt)}
-						layout="stack"
-					/>
-				</PageShell.FactGrid>
-			</Card.Content>
-		</Card.Root>
-	{/if}
-
-	<Card.Root>
-		<Card.Header>
-			<div class="flex flex-wrap items-center gap-2">
-				<Card.Title>Current Plan</Card.Title>
-				<Badge variant={sourceVariant(source)}>{sourceLabel(source)}</Badge>
-			</div>
-			<Card.Description>
-				{tierComparison.find((t) => t.tier === tier.tier)?.name ?? tier.tier}
-			</Card.Description>
-		</Card.Header>
-
-		{#if source === 'gift' && giftExpiresAt}
-			<Card.Content>
-				<Alert.Root variant="success">
-					<Gift />
-					<Alert.Title>
-						Complimentary {giftTier ? giftTier.charAt(0).toUpperCase() + giftTier.slice(1) : ''} tier
-					</Alert.Title>
-					<Alert.Description>
-						Expires: {new Date(giftExpiresAt).toLocaleDateString('en-US', {
-							year: 'numeric',
-							month: 'long',
-							day: 'numeric'
-						})}
-						{#if giftDaysRemaining !== null}
-							({giftDaysRemaining} {giftDaysRemaining === 1 ? 'day' : 'days'} remaining)
-						{/if}
-					</Alert.Description>
-				</Alert.Root>
-			</Card.Content>
-		{/if}
-	</Card.Root>
 
 	<section class="grid gap-3" aria-labelledby="billing-pricing-heading">
 		<div class="grid gap-1">
@@ -1334,7 +1164,7 @@
 								{portalLoading ? 'Opening...' : 'Downgrade'}
 							</Button>
 						{:else}
-							<Button class="w-full" onclick={() => handleSubscribe(plan.tier)} disabled={!!subscribingTier}>
+							<Button class="w-full" onclick={() => handleSubscribeClick(plan.tier)} disabled={!!subscribingTier}>
 								{#if subscribingTier === plan.tier}<Spinner />{/if}
 								{subscribingTier === plan.tier ? 'Redirecting...' : 'Subscribe'}
 							</Button>
@@ -1344,6 +1174,77 @@
 			{/each}
 		</div>
 	</section>
+
+	{#if data.canManageSubscription && !billingActionsDisabled && source !== 'gift'}
+		<Card.Root>
+			<Card.Header>
+				<Card.Title>Cancel Subscription</Card.Title>
+				<Card.Description>Choose how to end your paid plan.</Card.Description>
+			</Card.Header>
+			<Card.Content>
+				<div class="grid gap-4 sm:grid-cols-2">
+					<div class="grid gap-2 rounded-md border p-4">
+						<p class="text-sm font-semibold">Cancel at period end</p>
+						<p class="text-sm text-muted-foreground">
+							Keep paid access through {formatBillingDate(billingSnapshot?.currentPeriodEnd)}. No further charges after
+							the current period.
+						</p>
+						<div class="mt-auto pt-2">
+							<Button variant="outline" class="w-full" onclick={handleManageSubscription} disabled={portalLoading}>
+								<CreditCard data-icon="inline-start" />
+								{#if portalLoading}<Spinner />{/if}
+								{portalLoading ? 'Opening...' : 'Cancel at Period End'}
+							</Button>
+						</div>
+					</div>
+					{#if canShowImmediateCancellation}
+						<div class="grid gap-2 rounded-md border border-destructive/20 p-4">
+							<p class="text-sm font-semibold">Cancel immediately</p>
+							<p class="text-sm text-muted-foreground">
+								End paid access now and move to the Free plan. Existing data stays visible.
+							</p>
+							<div class="mt-auto pt-2">
+								<Button variant="destructive" class="w-full" onclick={openCancelNowDialog} disabled={cancelLoading}>
+									{#if cancelLoading}<Spinner />{/if}
+									{cancelLoading ? 'Canceling...' : 'Cancel Now'}
+								</Button>
+							</div>
+						</div>
+					{/if}
+				</div>
+			</Card.Content>
+		</Card.Root>
+	{/if}
+
+	<AppDialog.Root bind:open={subscribeConfirmOpen} onClose={closeSubscribeConfirmDialog}>
+		<AppDialog.Content>
+			<AppDialog.Header>
+				<AppDialog.Title>Confirm subscription</AppDialog.Title>
+				<AppDialog.Description>Review the details below before continuing to checkout.</AppDialog.Description>
+			</AppDialog.Header>
+
+			<AppDialog.Body class="grid gap-4">
+				{#if subscribeConfirmPlan}
+					<PageShell.FactGrid layout="three">
+						<PageShell.FactRow label="Plan" value={subscribeConfirmPlan.name} layout="stack" />
+						<PageShell.FactRow label="Price" value={formatPrice(subscribeConfirmPlan.priceMonthly)} layout="stack" />
+						<PageShell.FactRow label="Billing" value="Monthly" layout="stack" />
+					</PageShell.FactGrid>
+				{/if}
+				<p class="text-sm text-muted-foreground">
+					You will be redirected to our payment provider to complete checkout. No charges until checkout is finalized.
+				</p>
+			</AppDialog.Body>
+
+			<AppDialog.Footer>
+				<Button type="button" variant="outline" onclick={closeSubscribeConfirmDialog}>Cancel</Button>
+				<Button type="button" onclick={handleSubscribeConfirmed} disabled={!!subscribingTier}>
+					{#if subscribingTier}<Spinner />{/if}
+					{subscribingTier ? 'Redirecting...' : 'Continue to Checkout'}
+				</Button>
+			</AppDialog.Footer>
+		</AppDialog.Content>
+	</AppDialog.Root>
 
 	<AppDialog.Root
 		bind:open={confirmPasswordOpen}

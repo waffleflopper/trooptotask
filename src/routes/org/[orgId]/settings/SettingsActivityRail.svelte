@@ -1,8 +1,9 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import { Badge } from '$lib/components/ui/badge/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
+	import * as DataTable from '$lib/components/ui/data-table/index.js';
+	import type { ColumnDef } from '$lib/components/ui/data-table/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
 	import * as Tabs from '$lib/components/ui/tabs/index.js';
 	import { Spinner } from '$lib/components/ui/spinner/index.js';
@@ -14,15 +15,18 @@
 	type ActivityTab = 'approvals' | 'audit';
 
 	type Activity = OrganizationSettingsWorkspace['sections']['dataExport']['activity'];
+	type AuditLogEntry = Activity['auditLog']['logs'][number];
 
 	let {
 		orgId,
 		activity,
-		collapsed = $bindable(false)
+		collapsed = $bindable(false),
+		lockedTab = null
 	}: {
 		orgId: string;
 		activity: Activity;
 		collapsed?: boolean;
+		lockedTab?: ActivityTab | null;
 	} = $props();
 
 	let activityTab = $state<ActivityTab>('approvals');
@@ -36,7 +40,41 @@
 	const pendingApprovals = $derived(approvalRequests.filter((request) => request.status === 'pending'));
 	const visibleApprovals = $derived(pendingApprovals.slice(0, 4));
 	const visibleAuditLogs = $derived(auditLog.logs.slice(0, 9));
-	const settingsHref = $derived(resolve(`/org/${orgId}/settings`));
+	const archivesHref = $derived(resolve(`/org/${orgId}/settings/archives`));
+	const logsHref = $derived(resolve(`/org/${orgId}/settings/logs`));
+	const activeTab = $derived(lockedTab ?? activityTab);
+	const auditColumns: ColumnDef<AuditLogEntry>[] = [
+		{
+			key: 'time',
+			header: 'Time',
+			value: (log) => formatAuditTimestamp(log.createdAt),
+			sortable: true,
+			compare: (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+			width: '9rem'
+		},
+		{
+			key: 'area',
+			header: 'Area',
+			value: (log) => getAuditActionParts(log.action).area,
+			searchable: true,
+			sortable: true
+		},
+		{
+			key: 'event',
+			header: 'Event',
+			value: (log) => getAuditActionParts(log.action).event,
+			searchable: true,
+			sortable: true
+		},
+		{
+			key: 'actor',
+			header: 'Actor',
+			value: (log) => log.actor ?? 'System',
+			searchable: true,
+			sortable: true,
+			align: 'right'
+		}
+	];
 
 	async function handleApprovalAction(id: string, action: 'approve' | 'deny', reason?: string) {
 		if (processingApproval) return;
@@ -69,15 +107,24 @@
 	{:else}
 		<Tabs.Root bind:value={activityTab} class="grid gap-4">
 			<div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-				<Tabs.List>
-					<Tabs.Trigger value="approvals">Approvals {pendingApprovalsCount}</Tabs.Trigger>
-					<Tabs.Trigger value="audit">Audit Log</Tabs.Trigger>
-				</Tabs.List>
-				<Button type="button" variant="outline" size="sm" aria-label="Collapse" onclick={() => (collapsed = true)}>
-					Hide
-				</Button>
+				{#if lockedTab}
+					<div class="grid gap-1">
+						<h3 class="font-medium">{lockedTab === 'approvals' ? 'Approval Requests' : 'Audit Log'}</h3>
+						<p class="text-sm text-muted-foreground">
+							{lockedTab === 'approvals' ? `${pendingApprovalsCount} pending` : `${auditLog.totalCount} entries`}
+						</p>
+					</div>
+				{:else}
+					<Tabs.List>
+						<Tabs.Trigger value="approvals">Approvals {pendingApprovalsCount}</Tabs.Trigger>
+						<Tabs.Trigger value="audit">Audit Log</Tabs.Trigger>
+					</Tabs.List>
+					<Button type="button" variant="outline" size="sm" aria-label="Collapse" onclick={() => (collapsed = true)}>
+						Hide
+					</Button>
+				{/if}
 			</div>
-			<Tabs.Content value="approvals" class="grid gap-3">
+			{#if activeTab === 'approvals'}
 				<div class="grid gap-3" aria-label="Pending approval requests">
 					{#each visibleApprovals as request (request.id)}
 						<article class="grid gap-2 rounded-md border p-3">
@@ -142,36 +189,48 @@
 					{:else if pendingApprovals.length <= visibleApprovals.length}
 						<p class="text-sm text-muted-foreground">No more pending requests.</p>
 					{:else}
-						<Button href={settingsHref} variant="outline" size="sm">
+						<Button href={archivesHref} variant="outline" size="sm">
 							View all {pendingApprovals.length} pending requests
 						</Button>
 					{/if}
 				</div>
-			</Tabs.Content>
+			{/if}
 
-			<Tabs.Content value="audit" class="grid gap-3">
+			{#if activeTab === 'audit'}
 				<div class="grid gap-3" aria-label="Recent audit log entries">
-					{#each visibleAuditLogs as log (log.id)}
-						{@const actionParts = getAuditActionParts(log.action)}
-						<article class="grid gap-2 rounded-md border p-3">
-							<time class="text-sm text-muted-foreground" datetime={log.createdAt}
-								>{formatAuditTimestamp(log.createdAt)}</time
-							>
-							<div>
-								<Badge variant="outline">{actionParts.area} › {actionParts.event}</Badge>
-								<p class="mt-1 text-sm text-muted-foreground">{log.actor ?? 'System'}</p>
-							</div>
-						</article>
-					{/each}
-					{#if auditLog.totalCount > 0}
-						<Button href={settingsHref} variant="outline" size="sm">
+					<DataTable.DataTable
+						data={visibleAuditLogs}
+						columns={auditColumns}
+						ariaLabel="Recent audit log entries"
+						emptyMessage="No audit log entries yet."
+						density="dense"
+						pageSize={9}
+						initialSortKey="time"
+						initialSortDirection="desc"
+					>
+						{#snippet cell(log: AuditLogEntry, column: ColumnDef<AuditLogEntry>)}
+							{#if column.key === 'time'}
+								<time class="text-sm text-muted-foreground" datetime={log.createdAt}>
+									{formatAuditTimestamp(log.createdAt)}
+								</time>
+							{:else if column.key === 'area'}
+								<span class="font-medium">{getAuditActionParts(log.action).area}</span>
+							{:else if column.key === 'event'}
+								<span>{getAuditActionParts(log.action).event}</span>
+							{:else if column.key === 'actor'}
+								<span class="block max-w-56 truncate text-muted-foreground">{log.actor ?? 'System'}</span>
+							{:else}
+								{String(column.value(log))}
+							{/if}
+						{/snippet}
+					</DataTable.DataTable>
+					{#if !lockedTab && auditLog.totalCount > visibleAuditLogs.length}
+						<Button href={logsHref} variant="outline" size="sm">
 							View all {auditLog.totalCount} entries
 						</Button>
-					{:else}
-						<p class="text-sm text-muted-foreground">No audit log entries yet.</p>
 					{/if}
 				</div>
-			</Tabs.Content>
+			{/if}
 		</Tabs.Root>
 	{/if}
 </aside>

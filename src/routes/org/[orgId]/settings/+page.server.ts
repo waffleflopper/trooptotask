@@ -149,7 +149,7 @@ export const actions: Actions = {
 			return toActionFailure('slugError', error);
 		}
 
-		throw redirect(303, `/org/${orgUrlSlug}/settings`);
+		throw redirect(303, `/org/${orgUrlSlug}/settings/general`);
 	},
 
 	clearSlug: async (event) => {
@@ -172,7 +172,7 @@ export const actions: Actions = {
 			return toActionFailure('slugError', error);
 		}
 
-		throw redirect(303, `/org/${orgId}/settings`);
+		throw redirect(303, `/org/${orgId}/settings/general`);
 	},
 
 	invite: async (event) => {
@@ -338,7 +338,8 @@ export const actions: Actions = {
 					sensitiveActionAuthorizer: ctx.sensitiveActionAuthorizer
 				},
 				{
-					newOwnerId: (formData.get('newOwnerId') as string) ?? ''
+					newOwnerId: (formData.get('newOwnerId') as string) ?? '',
+					confirmTransferEmail: (formData.get('confirmTransferEmail') as string) ?? ''
 				}
 			);
 		} catch (error) {

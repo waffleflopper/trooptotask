@@ -25,7 +25,7 @@
 			{#if back}
 				{@render back()}
 			{/if}
-			<h1 class="min-w-0 text-2xl font-semibold tracking-tight">{title}</h1>
+			<h1 class="min-w-0 font-heading text-2xl font-semibold tracking-tight">{title}</h1>
 			{#if meta}
 				{@render meta()}
 			{/if}

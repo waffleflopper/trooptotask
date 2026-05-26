@@ -411,7 +411,7 @@ describe('handle() + entity pipeline integration', () => {
 		expect(stored).toHaveLength(1);
 	});
 
-	it('handle pipeline defers SpecialDay mutations to calendar policy decisions before entity operations', async () => {
+	it('handle pipeline authorizes SpecialDay mutations through policy decisions before entity operations', async () => {
 		const handlers = entityHandlers(SpecialDayEntity);
 		const ctx = createTestContext({
 			auth: {
@@ -435,12 +435,13 @@ describe('handle() + entity pipeline integration', () => {
 			handleUseCaseRequest(config, ctx, { date: '2026-12-25', name: 'X', type: 'federal-holiday' })
 		).rejects.toMatchObject({
 			status: 403,
-			message: 'This action requires Calendar configuration access'
+			message:
+				"You don't have permission. This requires Calendar can manage permissions. Talk to your organization owner or admin."
 		});
 
 		expect(ctx.auditPort.events[0]).toMatchObject({
 			action: 'policy.denied',
-			resourceType: 'calendar',
+			resourceType: 'calendar.configureSpecialDays',
 			details: {
 				policyAction: 'calendar.configureSpecialDays',
 				reasonCode: 'denied:missing-capability'

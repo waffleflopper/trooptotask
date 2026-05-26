@@ -5,7 +5,8 @@ import { fail } from '$lib/server/core/errors';
 import { RosterHistoryEntity } from '$lib/server/entities/rosterHistory';
 
 export const _getConfig: RouteConfig<void, unknown> = {
-	permission: 'calendar',
+	policyAction: POLICY_ACTION_CATALOG.calendar.viewDutyRosters,
+	policyResource: { kind: 'unscoped' },
 	fn: async (ctx) => {
 		const rows = await ctx.store.findMany<Record<string, unknown>>('duty_roster_history', ctx.auth.orgId, undefined, {
 			orderBy: [{ column: 'created_at', ascending: false }]
@@ -32,9 +33,9 @@ function validateManualHistoryImport(input: Record<string, unknown>) {
 }
 
 export const _postConfig: RouteConfig<Record<string, unknown>, unknown> = {
-	permission: 'calendar',
 	mutation: true,
-	policyAction: POLICY_ACTION_CATALOG.calendar.manageAssignments,
+	policyAction: POLICY_ACTION_CATALOG.calendar.manageDutyRosters,
+	policyResource: { kind: 'unscoped' },
 	fn: async (ctx, input) => {
 		validateManualHistoryImport(input);
 		const insertData = {

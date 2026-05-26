@@ -3,14 +3,13 @@
  *
  * Typical usage:
  * 1. Define fields: `field(z.string(), { readOnly: true })`
- * 2. Register entity: `defineEntity({ table, groupScope, schema, permission, audit, ... })`
+ * 2. Register entity: `defineEntity({ table, groupScope, schema, policyAction, audit, ... })`
  * 3. Wire up routes: `entityHandlers(entity)` in +server.ts
  * 4. Load data: `entity.fromDbArray(rows)` in load functions
  *
  * See docs/entity-system.md for full documentation and examples.
  */
 import { z } from 'zod';
-import type { FeatureArea } from './core/ports';
 import type { FeatureLanePolicyAction } from '$lib/access/policyEvaluator';
 
 export interface FieldMeta {
@@ -54,7 +53,6 @@ export interface EntityConfig<T = unknown> {
 	groupScope: GroupScopeConfig;
 	schema: EntitySchema;
 	customTransform?: (row: Record<string, unknown>) => T;
-	permission?: FeatureArea;
 	policyAction?: FeatureLanePolicyAction;
 	audit?: string | { resourceType: string; action?: string; detailFields?: string[] };
 	select?: string;
@@ -76,7 +74,6 @@ export interface EntityDefinition<T = unknown> {
 	createSchema: z.ZodObject<z.ZodRawShape>;
 	updateSchema: z.ZodObject<z.ZodRawShape>;
 	select: string;
-	permission?: FeatureArea;
 	policyAction?: FeatureLanePolicyAction;
 	audit?: string | { resourceType: string; action?: string; detailFields?: string[] };
 	orderBy?: Array<{ column: string; ascending?: boolean }>;
@@ -212,7 +209,6 @@ export function defineEntity<T = unknown>(config: EntityConfig<T>): EntityDefini
 		createSchema,
 		updateSchema,
 		select,
-		permission: config.permission,
 		policyAction: config.policyAction,
 		audit: config.audit,
 		orderBy: config.orderBy

@@ -10,9 +10,8 @@ const ST_ID = '00000000-0000-4000-a000-000000000001';
 // Same config entityHandlers() derives — validates the pattern without HTTP layer
 const useCases = createCrudUseCases<WriteWithNotificationsPorts>({
 	entity: StatusTypeEntity,
-	permission: StatusTypeEntity.permission!,
 	auditResource: getEntityAuditResource(StatusTypeEntity),
-	policyAction: StatusTypeEntity.policyAction,
+	policyAction: StatusTypeEntity.policyAction!,
 	beforeDelete: async (ctx, id) => {
 		await ctx.store.deleteWhere('availability_entries', ctx.auth.orgId, {
 			status_type_id: id

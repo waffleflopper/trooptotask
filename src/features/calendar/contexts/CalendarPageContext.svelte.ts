@@ -24,6 +24,8 @@ import type { CalendarWorkspaceData } from '$features/calendar/calendar.types';
 import { SvelteDate, SvelteMap } from 'svelte/reactivity';
 import { evaluateUpcomingLosses, type UpcomingLossRecord } from '$lib/domain/readinessSignals';
 
+const CALENDAR_WORKSPACE_RESOURCE: PolicyResource = { kind: 'unscoped' };
+
 export interface CalendarRosterFilterOption {
 	value: string;
 	label: string;
@@ -141,15 +143,24 @@ export class CalendarPageContext {
 	}
 
 	get canViewCalendar(): boolean {
-		return this.#org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.calendar.viewAvailability).allowed;
+		return this.#org.affordanceForFeatureAction(
+			POLICY_ACTION_CATALOG.calendar.viewAvailability,
+			CALENDAR_WORKSPACE_RESOURCE
+		).allowed;
 	}
 
 	get canManageAvailability(): boolean {
-		return this.#org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.calendar.manageAvailability).allowed;
+		return this.#org.affordanceForFeatureAction(
+			POLICY_ACTION_CATALOG.calendar.manageAvailability,
+			CALENDAR_WORKSPACE_RESOURCE
+		).allowed;
 	}
 
 	get canManageAssignments(): boolean {
-		return this.#org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.calendar.manageAssignments).allowed;
+		return this.#org.affordanceForFeatureAction(
+			POLICY_ACTION_CATALOG.calendar.manageAssignments,
+			CALENDAR_WORKSPACE_RESOURCE
+		).allowed;
 	}
 
 	// ---- derived: personnel groupings --------------------------------------

@@ -44,8 +44,9 @@ function createAuth(overrides: Partial<AuthContext> = {}): AuthContext {
 		orgId: 'org-1',
 		role: 'member',
 		isPrivileged: false,
+		canManageMembers: false,
 		capabilityMap: {
-			calendar: 'operate',
+			calendar: 'configure',
 			personnel: 'none',
 			training: 'none',
 			criticalTasks: 'none',
@@ -54,13 +55,6 @@ function createAuth(overrides: Partial<AuthContext> = {}): AuthContext {
 		},
 		compatibilityLanes: {},
 		scopeSet: { kind: 'groups', groupIds: ['group-1'] },
-		requireView: vi.fn(),
-		requirePrivileged: vi.fn(),
-		requireOwner: vi.fn(),
-		requireManageMembers: vi.fn(),
-		requireGroupAccess: vi.fn(),
-		requireGroupAccessBatch: vi.fn(),
-		requireGroupAccessByRecord: vi.fn(),
 		...overrides
 	};
 }

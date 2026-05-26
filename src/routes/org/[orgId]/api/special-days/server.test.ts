@@ -1,9 +1,16 @@
 import { describe, expect, it } from 'vitest';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { _postConfig, _putConfig } from './+server';
 
 describe('POST /api/special-days', () => {
+	it('uses a policy-first route config for special-day creation and reset', () => {
+		expect('permission' in _postConfig).toBe(false);
+		expect(_postConfig.policyAction).toBe(POLICY_ACTION_CATALOG.calendar.configureSpecialDays);
+		expect(_postConfig.policyResource).toEqual({ kind: 'organization' });
+	});
+
 	it('creates a special day through the mixed-action route config', async () => {
 		const ctx = createTestContext();
 
@@ -28,7 +35,9 @@ describe('POST /api/special-days', () => {
 
 describe('PUT /api/special-days', () => {
 	it('exports a calendar mutation route config', () => {
-		expect(_putConfig.permission).toBe('calendar');
+		expect('permission' in _putConfig).toBe(false);
+		expect(_putConfig.policyAction).toBe(POLICY_ACTION_CATALOG.calendar.configureSpecialDays);
+		expect(_putConfig.policyResource).toEqual({ kind: 'organization' });
 		expect(_putConfig.mutation).toBe(true);
 	});
 

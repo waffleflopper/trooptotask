@@ -5,7 +5,6 @@ import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 
 export const PersonnelIctCompletionEntity = defineEntity<PersonnelIctCompletion>({
 	table: 'personnel_ict_completions',
-	permission: 'critical-tasks',
 	policyAction: POLICY_ACTION_CATALOG.criticalTasks.recordCompletion,
 	groupScope: { personnelColumn: 'personnel_id' },
 	audit: { resourceType: 'personnel_ict_completion', detailFields: ['personnelId', 'ictTaskId', 'completedAt'] },

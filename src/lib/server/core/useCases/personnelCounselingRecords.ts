@@ -8,7 +8,7 @@ import {
 	SENSITIVE_FILE_BUCKET,
 	validateSensitiveFileSelection
 } from '$lib/storage/sensitiveFiles';
-import { requirePersonnelArtifactAccess } from './personnelArtifactAuthorization';
+import { requirePersonnelArtifactAccess, requirePersonnelArtifactReadAccess } from './personnelArtifactAuthorization';
 import { loadPersonnelContributorLabels, resolveContributorLabel } from './personnelContributorLabels';
 
 export const COUNSELING_RECORDS_BUCKET = SENSITIVE_FILE_BUCKET;
@@ -92,7 +92,7 @@ export async function listPersonnelCounselingRecords(
 	limit?: number,
 	options: { archived?: boolean } = {}
 ): Promise<PersonnelCounselingRecord[]> {
-	await requirePersonnelArtifactAccess(ctx, personnelId);
+	await requirePersonnelArtifactReadAccess(ctx, personnelId);
 	const rows = await ctx.store.findMany<CounselingRecordRow>(
 		'counseling_records',
 		ctx.auth.orgId,

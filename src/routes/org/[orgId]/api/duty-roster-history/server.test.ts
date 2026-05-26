@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
-import { _postConfig } from './+server';
+import { _getConfig, _postConfig } from './+server';
 
 function makeManualImportPayload(overrides: Record<string, unknown> = {}) {
 	return {
@@ -28,6 +29,18 @@ function makeManualImportPayload(overrides: Record<string, unknown> = {}) {
 }
 
 describe('POST /api/duty-roster-history', () => {
+	it('uses a policy-first route config for history reads', () => {
+		expect('permission' in _getConfig).toBe(false);
+		expect(_getConfig.policyAction).toBe(POLICY_ACTION_CATALOG.calendar.viewDutyRosters);
+		expect(_getConfig.policyResource).toEqual({ kind: 'unscoped' });
+	});
+
+	it('uses a policy-first route config for manual history imports', () => {
+		expect('permission' in _postConfig).toBe(false);
+		expect(_postConfig.policyAction).toBe(POLICY_ACTION_CATALOG.calendar.manageDutyRosters);
+		expect(_postConfig.policyResource).toEqual({ kind: 'unscoped' });
+	});
+
 	it('persists manual history imports as explicitly non-generated history', async () => {
 		const ctx = createTestContext();
 

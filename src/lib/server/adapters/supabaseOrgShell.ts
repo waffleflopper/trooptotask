@@ -356,14 +356,16 @@ export function createSupabaseCalendarWorkspacePort(
 
 		if (defer) {
 			return loadWithContext(locals, cookies, orgId, {
-				permission: 'calendar',
+				policyAction: POLICY_ACTION_CATALOG.calendar.viewAvailability,
+				policyResource: { kind: 'unscoped' },
 				defer: true,
 				fn
 			});
 		}
 
 		return loadWithContext(locals, cookies, orgId, {
-			permission: 'calendar',
+			policyAction: POLICY_ACTION_CATALOG.calendar.viewAvailability,
+			policyResource: { kind: 'unscoped' },
 			fn
 		});
 	}
@@ -474,7 +476,6 @@ export function createSupabaseTrainingWorkspacePort(
 
 		if (defer) {
 			return loadWithContext(locals, cookies, orgId, {
-				permission: 'training',
 				policyAction: POLICY_ACTION_CATALOG.training.viewMatrix,
 				policyResource: { kind: 'unscoped' },
 				defer: true,
@@ -483,7 +484,6 @@ export function createSupabaseTrainingWorkspacePort(
 		}
 
 		return loadWithContext(locals, cookies, orgId, {
-			permission: 'training',
 			policyAction: POLICY_ACTION_CATALOG.training.viewMatrix,
 			policyResource: { kind: 'unscoped' },
 			fn
@@ -588,7 +588,6 @@ export function createSupabaseCriticalTasksWorkspacePort(
 
 		if (defer) {
 			return loadWithContext(locals, cookies, orgId, {
-				permission: 'critical-tasks',
 				policyAction: POLICY_ACTION_CATALOG.criticalTasks.viewReadiness,
 				policyResource: { kind: 'unscoped' },
 				defer: true,
@@ -597,7 +596,6 @@ export function createSupabaseCriticalTasksWorkspacePort(
 		}
 
 		return loadWithContext(locals, cookies, orgId, {
-			permission: 'critical-tasks',
 			policyAction: POLICY_ACTION_CATALOG.criticalTasks.viewReadiness,
 			policyResource: { kind: 'unscoped' },
 			fn
@@ -636,7 +634,6 @@ export function createSupabaseOnboardingWorkspacePort(
 
 		if (defer) {
 			return loadWithContext(locals, cookies, orgId, {
-				permission: 'onboarding',
 				policyAction: POLICY_ACTION_CATALOG.onboarding.viewWorkflows,
 				policyResource: { kind: 'unscoped' },
 				defer: true,
@@ -645,7 +642,6 @@ export function createSupabaseOnboardingWorkspacePort(
 		}
 
 		return loadWithContext(locals, cookies, orgId, {
-			permission: 'onboarding',
 			policyAction: POLICY_ACTION_CATALOG.onboarding.viewWorkflows,
 			policyResource: { kind: 'unscoped' },
 			fn
@@ -684,7 +680,8 @@ export function createSupabasePersonnelWorkspacePort(
 			}
 
 			const data = await loadWithContext(locals, cookies, orgId, {
-				permission: 'personnel',
+				policyAction: POLICY_ACTION_CATALOG.personnel.viewRoster,
+				policyResource: { kind: 'unscoped' },
 				fn: async (ctx) => fetchPersonnelBootstrap(ctx)
 			});
 
@@ -705,7 +702,8 @@ export function createSupabaseRatingSchemeWorkspacePort(
 			}
 
 			const data = await loadWithContext(locals, cookies, orgId, {
-				permission: 'none',
+				policyAction: POLICY_ACTION_CATALOG.ratingScheme.viewEntries,
+				policyResource: { kind: 'unscoped' },
 				fn: async (ctx) => fetchRatingSchemeBootstrap(ctx)
 			});
 
@@ -726,14 +724,14 @@ export function createSupabaseDashboardWorkspacePort(
 
 		if (defer) {
 			return loadWithContext(locals, cookies, orgId, {
-				permission: 'none',
+				policyAction: POLICY_ACTION_CATALOG.identity.viewDashboard,
 				defer: true,
 				fn
 			});
 		}
 
 		return loadWithContext(locals, cookies, orgId, {
-			permission: 'none',
+			policyAction: POLICY_ACTION_CATALOG.identity.viewDashboard,
 			fn
 		});
 	}

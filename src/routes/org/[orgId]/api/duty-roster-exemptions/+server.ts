@@ -12,9 +12,10 @@ interface ExemptionOutput {
 }
 
 export const _putConfig: RouteConfig<ExemptionInput, ExemptionOutput> = {
-	permission: 'calendar',
 	mutation: true,
-	policyAction: POLICY_ACTION_CATALOG.calendar.manageAssignments,
+	// Exemptions shape the Duty Roster template pool; they are not per-day assignment writes.
+	policyAction: POLICY_ACTION_CATALOG.calendar.configureDutyTemplates,
+	policyResource: { kind: 'unscoped' },
 	fn: async (ctx, input) => {
 		const { assignmentTypeId, personnelIds } = input;
 

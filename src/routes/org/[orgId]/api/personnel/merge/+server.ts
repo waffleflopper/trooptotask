@@ -1,4 +1,5 @@
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { mergePersonnelBatch } from '$lib/server/core/useCases/personnelMergeBatch';
 
 interface PersonnelMergeRecord {
@@ -15,9 +16,9 @@ interface PersonnelMergeInput {
 }
 
 export const _postConfig: RouteConfig<PersonnelMergeInput, Awaited<ReturnType<typeof mergePersonnelBatch>>> = {
-	permission: 'personnel',
 	mutation: true,
-	deferPolicyToUseCase: true,
+	policyAction: POLICY_ACTION_CATALOG.personnel.mergeRecords,
+	policyResource: { kind: 'unscoped' },
 	fn: (ctx, input) => mergePersonnelBatch(ctx, input)
 };
 

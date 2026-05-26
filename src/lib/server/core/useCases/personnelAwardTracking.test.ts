@@ -107,7 +107,9 @@ describe('setPersonnelAwardTrackingAcknowledged', () => {
 		const requireGroupAccess = vi.fn(async () => {});
 		const ctx = createTestContext({
 			auth: {
-				scopeSet: { kind: 'groups', groupIds: ['group-1'] },
+				scopeSet: { kind: 'groups', groupIds: ['group-1'] }
+			},
+			scope: {
 				requireGroupAccess
 			}
 		});
@@ -131,7 +133,9 @@ describe('setPersonnelAwardTrackingAcknowledged', () => {
 		(groupAccessError as unknown as Record<string, unknown>).status = 403;
 		const ctx = createTestContext({
 			auth: {
-				scopeSet: { kind: 'groups', groupIds: ['group-1'] },
+				scopeSet: { kind: 'groups', groupIds: ['group-1'] }
+			},
+			scope: {
 				async requireGroupAccess() {
 					throw groupAccessError;
 				}

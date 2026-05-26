@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { z } from 'zod';
 import { field, defineEntity } from './entitySchema';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 
 describe('field()', () => {
 	it('wraps a Zod type with metadata defaults', () => {
@@ -348,7 +349,7 @@ describe('defineEntity() methods config', () => {
 });
 
 describe('defineEntity() metadata preservation', () => {
-	it('preserves permission, audit, and orderBy when provided', () => {
+	it('preserves policyAction, audit, and orderBy when provided', () => {
 		const entity = defineEntity({
 			table: 'with_meta',
 			groupScope: 'none',
@@ -356,11 +357,11 @@ describe('defineEntity() metadata preservation', () => {
 				id: field(z.string(), { readOnly: true }),
 				name: field(z.string())
 			},
-			permission: 'training',
+			policyAction: POLICY_ACTION_CATALOG.training.configureRequirements,
 			audit: 'training_type',
 			orderBy: [{ column: 'name', ascending: true }]
 		});
-		expect(entity.permission).toBe('training');
+		expect(entity.policyAction).toBe(POLICY_ACTION_CATALOG.training.configureRequirements);
 		expect(entity.audit).toBe('training_type');
 		expect(entity.orderBy).toEqual([{ column: 'name', ascending: true }]);
 	});
@@ -374,7 +375,7 @@ describe('defineEntity() metadata preservation', () => {
 				name: field(z.string())
 			}
 		});
-		expect(entity.permission).toBeUndefined();
+		expect(entity.policyAction).toBeUndefined();
 		expect(entity.audit).toBeUndefined();
 		expect(entity.orderBy).toBeUndefined();
 	});

@@ -17,7 +17,6 @@ export function _createCriticalTasksReportsPageLoad(_deps: CriticalTasksReportsP
 	return async ({ params, depends, locals, cookies }: PageServerLoadEvent) => {
 		depends('app:critical-tasks-reports');
 		return loadWithContextFn(locals, cookies, params.orgId, {
-			permission: 'critical-tasks',
 			policyAction: POLICY_ACTION_CATALOG.criticalTasks.viewReadiness,
 			policyResource: { kind: 'unscoped' },
 			fn: (ctx) => fetchPageModelFn(ctx)

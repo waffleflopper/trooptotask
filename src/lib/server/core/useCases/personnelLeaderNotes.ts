@@ -2,7 +2,7 @@ import { z } from 'zod';
 import type { PersonnelLeaderNote } from '$features/personnel/personnel-detail.types';
 import { fail } from '$lib/server/core/errors';
 import type { UseCaseContext } from '$lib/server/core/ports';
-import { requirePersonnelArtifactAccess } from './personnelArtifactAuthorization';
+import { requirePersonnelArtifactAccess, requirePersonnelArtifactReadAccess } from './personnelArtifactAuthorization';
 import { loadPersonnelContributorLabels, resolveContributorLabel } from './personnelContributorLabels';
 
 interface LeaderNoteRow {
@@ -39,7 +39,7 @@ export async function listPersonnelLeaderNotes(
 	limit?: number,
 	options: { archived?: boolean } = {}
 ): Promise<PersonnelLeaderNote[]> {
-	await requirePersonnelArtifactAccess(ctx, personnelId);
+	await requirePersonnelArtifactReadAccess(ctx, personnelId);
 
 	const rows = await ctx.store.findMany<LeaderNoteRow>(
 		'leader_notes',

@@ -1,4 +1,5 @@
 import type { PageServerLoadEvent } from './$types';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
 import type { UseCaseContext } from '$lib/server/core/ports';
 import type { PersonnelDetailHeader, PersonnelDetailStreams } from '$features/personnel/personnel-detail.types';
@@ -60,7 +61,8 @@ export function _createPersonnelDetailPageLoad(deps: PersonnelDetailPageLoadDeps
 		const personnelId = parentData.personnelDetailHeader.person.id;
 
 		const personnelDetail = await loadWithContextFn(locals, cookies, orgId, {
-			permission: 'none',
+			policyAction: POLICY_ACTION_CATALOG.personnel.readSensitiveRecords,
+			policyResource: { kind: 'unscoped' },
 			fn: async (ctx) => createPersonnelDetailStreams(ctx, personnelId)
 		});
 

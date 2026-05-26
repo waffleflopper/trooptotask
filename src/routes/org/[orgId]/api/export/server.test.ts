@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { _postConfig } from './+server';
@@ -21,6 +22,28 @@ afterEach(() => {
 });
 
 describe('POST /api/export', () => {
+	it('uses the organization data export policy boundary', () => {
+		expect('permission' in _postConfig).toBe(false);
+		expect(_postConfig.policyAction).toBe(POLICY_ACTION_CATALOG.organization.exportData);
+		expect(_postConfig.policyResource).toEqual({ kind: 'organization' });
+	});
+
+	it('allows delegated member managers to export organization data', async () => {
+		const ctx = createTestContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				canManageMembers: true
+			}
+		});
+
+		const result = await handleUseCaseRequest(_postConfig, ctx, {
+			email: 'member-manager@example.com'
+		});
+
+		expect(result.status).toBe('ready');
+	});
+
 	it('returns structured plan denial when the monthly export limit is reached', async () => {
 		const ctx = createTestContext();
 		const now = new Date().toISOString();

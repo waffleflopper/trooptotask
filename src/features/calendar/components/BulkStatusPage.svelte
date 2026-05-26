@@ -35,7 +35,7 @@
 	const org = getOrgContext();
 	const orgUrlSegment = $derived(org.orgUrlSegment ?? org.orgId);
 	const availabilityAffordance = $derived(
-		org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.calendar.manageAvailability)
+		org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.calendar.manageAvailability, { kind: 'unscoped' })
 	);
 	const canMutate = $derived(availabilityAffordance.allowed);
 	const workspaceData = $derived(data.calendar?.data ?? data);

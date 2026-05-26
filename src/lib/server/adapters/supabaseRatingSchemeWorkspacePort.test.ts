@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Cookies } from '@sveltejs/kit';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 
 const { loadWithContextMock } = vi.hoisted(() => ({
 	loadWithContextMock: vi.fn()
@@ -35,7 +36,11 @@ describe('createSupabaseRatingSchemeWorkspacePort', () => {
 			expect.anything(),
 			expect.anything(),
 			orgId,
-			expect.objectContaining({ permission: 'none' })
+			expect.objectContaining({
+				policyAction: POLICY_ACTION_CATALOG.ratingScheme.viewEntries,
+				policyResource: { kind: 'unscoped' }
+			})
 		);
+		expect(loadWithContextMock.mock.calls[0][3]).not.toHaveProperty('permission');
 	});
 });

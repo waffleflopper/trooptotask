@@ -190,22 +190,4 @@ describe('createPermissionContextFromMembership', () => {
 
 		expect(ctx.capabilityMap.criticalTasks).not.toBe('configure');
 	});
-
-	it('requireView throws for areas without view permission', () => {
-		const ctx = createPermissionContextFromMembership(baseMembership);
-
-		expect(() => ctx.requireView('training')).toThrow();
-		expect(() => ctx.requireView('critical-tasks')).toThrow();
-		expect(() => ctx.requireView('calendar')).not.toThrow();
-	});
-
-	it('requirePrivileged throws for members', () => {
-		const ctx = createPermissionContextFromMembership(baseMembership);
-		expect(() => ctx.requirePrivileged()).toThrow();
-	});
-
-	it('requireOwner throws for admins', () => {
-		const ctx = createPermissionContextFromMembership({ ...baseMembership, role: 'admin' });
-		expect(() => ctx.requireOwner()).toThrow();
-	});
 });

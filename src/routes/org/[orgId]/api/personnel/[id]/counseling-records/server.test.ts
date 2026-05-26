@@ -14,7 +14,7 @@ describe('/api/personnel/[id]/counseling-records', () => {
 			auth: {
 				capabilityMap: {
 					calendar: 'view',
-					personnel: 'operate',
+					personnel: 'configure',
 					training: 'view',
 					criticalTasks: 'view',
 					onboarding: 'view',
@@ -36,6 +36,27 @@ describe('/api/personnel/[id]/counseling-records', () => {
 
 		expect(created.title).toBe('Event-oriented counseling');
 		expect(records).toHaveLength(1);
+	});
+
+	it('requires Personnel configure capability for sensitive counseling reads', async () => {
+		const ctx = createTestContext({
+			auth: {
+				capabilityMap: {
+					calendar: 'view',
+					personnel: 'operate',
+					training: 'view',
+					criticalTasks: 'view',
+					onboarding: 'view',
+					ratingScheme: 'view'
+				},
+				scopeSet: { kind: 'organization' }
+			}
+		});
+		seedPersonnel(ctx);
+
+		await expect(handleUseCaseRequest(_getConfig, ctx, { personnelId: 'person-1' })).rejects.toMatchObject({
+			status: 403
+		});
 	});
 
 	it('derives the Personnel id from the route param for form submissions', async () => {

@@ -46,4 +46,27 @@ describe('POST /api/personnel/[id]/award-tracking', () => {
 		expect(rows).toHaveLength(1);
 		expect(rows[0].award_tracking_acknowledged_at).toBeNull();
 	});
+
+	it('requires Personnel operate capability for award-tracking writes', async () => {
+		const ctx = createTestContext({
+			auth: {
+				capabilityMap: {
+					calendar: 'view',
+					personnel: 'view',
+					training: 'view',
+					criticalTasks: 'view',
+					onboarding: 'view',
+					ratingScheme: 'view'
+				},
+				scopeSet: { kind: 'organization' }
+			}
+		});
+
+		await expect(
+			handleUseCaseRequest(_postConfig, ctx, {
+				personnelId: 'person-1',
+				acknowledged: true
+			})
+		).rejects.toMatchObject({ status: 403 });
+	});
 });

@@ -4,9 +4,9 @@ import { fail } from '$lib/server/core/errors';
 import { policyResourceForGroup, requireFeaturePolicy } from '$lib/server/core/useCases/featurePolicy';
 
 export const _deleteConfig: RouteConfig<Record<string, unknown>, unknown> = {
-	permission: 'privileged',
 	mutation: true,
-	deferPolicyToUseCase: true,
+	policyAction: POLICY_ACTION_CATALOG.personnel.permanentlyDeleteRecords,
+	policyResource: { kind: 'unscoped' },
 	fn: async (ctx, input) => {
 		const { id } = input;
 		if (!id || typeof id !== 'string') fail(400, 'Missing id');

@@ -2,6 +2,7 @@ import type { RequestEvent } from '@sveltejs/kit';
 import { json } from '@sveltejs/kit';
 import { fail } from '$lib/server/core/errors';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import {
 	archivePersonnelCounselingRecord,
 	deletePersonnelCounselingRecord,
@@ -17,9 +18,9 @@ function routeIds(event: RequestEvent): { personnelId: string; recordId: string 
 }
 
 export const _patchConfig: RouteConfig<Record<string, unknown>, unknown> = {
-	permission: 'personnel',
 	mutation: true,
-	deferPolicyToUseCase: true,
+	policyAction: POLICY_ACTION_CATALOG.personnel.manageRecords,
+	policyResource: { kind: 'unscoped' },
 	parseInput: async (event) => ({ ...(await event.request.json()), ...routeIds(event) }),
 	fn: (ctx, input) => {
 		if (input.action === 'restore')
@@ -31,9 +32,9 @@ export const _patchConfig: RouteConfig<Record<string, unknown>, unknown> = {
 };
 
 export const _deleteConfig: RouteConfig<{ personnelId: string; recordId: string }, { success: true }> = {
-	permission: 'personnel',
 	mutation: true,
-	deferPolicyToUseCase: true,
+	policyAction: POLICY_ACTION_CATALOG.personnel.manageRecords,
+	policyResource: { kind: 'unscoped' },
 	parseInput: async (event) => routeIds(event),
 	fn: async (ctx, input) => {
 		await deletePersonnelCounselingRecord(ctx, input);

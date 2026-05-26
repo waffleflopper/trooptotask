@@ -3,6 +3,7 @@ import { createInMemoryDataStore, createTestContext, createTestAuthContext } fro
 import { loadWithContextCore } from '$lib/server/adapters/httpAdapter';
 import { fetchCalendarData } from '$lib/server/core/useCases/calendarQuery';
 import { getActiveOnboardingPersonnelIds } from '$lib/server/core/useCases/calendarQuery';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 
 const ORG = 'test-org';
 
@@ -69,7 +70,8 @@ describe('CalendarBootstrap query (fetchCalendarData + activeOnboardingPersonnel
 		seedCalendarData(ctx.store);
 
 		const result = await loadWithContextCore(ctx, {
-			permission: 'calendar',
+			policyAction: POLICY_ACTION_CATALOG.calendar.viewAvailability,
+			policyResource: { kind: 'organization' },
 			fn: async (ctx) => {
 				const [calendarData, activeOnboardingPersonnelIds] = await Promise.all([
 					fetchCalendarData(ctx, { rangeStart: RANGE_START, rangeEnd: RANGE_END }),
@@ -97,7 +99,8 @@ describe('CalendarBootstrap query (fetchCalendarData + activeOnboardingPersonnel
 		]);
 
 		const result = await loadWithContextCore(ctx, {
-			permission: 'calendar',
+			policyAction: POLICY_ACTION_CATALOG.calendar.viewAvailability,
+			policyResource: { kind: 'organization' },
 			fn: async (ctx) => {
 				const [calendarData, activeOnboardingPersonnelIds] = await Promise.all([
 					fetchCalendarData(ctx, { rangeStart: RANGE_START, rangeEnd: RANGE_END }),

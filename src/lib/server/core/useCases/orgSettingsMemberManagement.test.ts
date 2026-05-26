@@ -618,8 +618,7 @@ describe('inviteOrganizationMember', () => {
 			auth: {
 				userId: 'actor-1',
 				orgId: 'org-1',
-				role: 'member',
-				requireManageMembers: vi.fn()
+				role: 'member'
 			}
 		});
 		const port = createOrganizationSettingsMemberManagementPort();
@@ -1902,8 +1901,7 @@ describe('removeOrganizationMember', () => {
 			auth: {
 				userId: 'actor-1',
 				orgId: 'org-1',
-				role: 'member',
-				requireManageMembers: vi.fn()
+				role: 'member'
 			}
 		});
 		const port = createOrganizationSettingsMemberManagementPort({
@@ -2390,8 +2388,7 @@ describe('updateOrganizationMemberPermissions', () => {
 			auth: {
 				userId: 'actor-1',
 				orgId: 'org-1',
-				role: 'admin',
-				requireOwner: vi.fn()
+				role: 'admin'
 			}
 		});
 		const port = createOrganizationSettingsMemberManagementPort({
@@ -2435,8 +2432,7 @@ describe('updateOrganizationMemberPermissions', () => {
 			auth: {
 				userId: 'actor-1',
 				orgId: 'org-1',
-				role: 'member',
-				requireManageMembers: vi.fn()
+				role: 'member'
 			}
 		});
 		const port = createOrganizationSettingsMemberManagementPort({
@@ -2522,14 +2518,7 @@ describe('updateOrganizationMemberPermissions', () => {
 	});
 
 	it('blocks owner permission changes before auth escalation checks', async () => {
-		const requireOwner = vi.fn();
-		const requireManageMembers = vi.fn();
-		const ctx = createTestContext({
-			auth: {
-				requireOwner,
-				requireManageMembers
-			}
-		});
+		const ctx = createTestContext();
 		const port = createOrganizationSettingsMemberManagementPort({
 			membership: {
 				userId: 'owner-1',
@@ -2552,8 +2541,6 @@ describe('updateOrganizationMemberPermissions', () => {
 			message: 'Cannot modify owner permissions'
 		});
 
-		expect(requireOwner).not.toHaveBeenCalled();
-		expect(requireManageMembers).not.toHaveBeenCalled();
 		expect(port.updatedMemberships).toEqual([]);
 	});
 
@@ -2728,14 +2715,10 @@ describe('updateOrganizationMemberPermissions', () => {
 	});
 
 	it('requires owner rights for admin changes, updates the membership, and sends the role-change notification', async () => {
-		const requireOwner = vi.fn();
-		const requireManageMembers = vi.fn();
 		const ctx = createTestContext({
 			auth: {
 				userId: 'actor-1',
-				orgId: 'org-1',
-				requireOwner,
-				requireManageMembers
+				orgId: 'org-1'
 			}
 		});
 		const port = createOrganizationSettingsMemberManagementPort({
@@ -2764,8 +2747,6 @@ describe('updateOrganizationMemberPermissions', () => {
 
 		expect(result).toEqual({ permissionSuccess: true });
 		expect(port.membershipLookups).toEqual([{ orgId: 'org-1', membershipId: '11111111-1111-4111-8111-111111111111' }]);
-		expect(requireOwner).not.toHaveBeenCalled();
-		expect(requireManageMembers).not.toHaveBeenCalled();
 		expect(port.updatedMemberships).toEqual([
 			{
 				organizationId: 'org-1',
@@ -2810,14 +2791,10 @@ describe('updateOrganizationMemberPermissions', () => {
 	});
 
 	it('uses governance policy for non-admin updates and keeps the permission-change notification path', async () => {
-		const requireOwner = vi.fn();
-		const requireManageMembers = vi.fn();
 		const ctx = createTestContext({
 			auth: {
 				userId: 'actor-1',
-				orgId: 'org-1',
-				requireOwner,
-				requireManageMembers
+				orgId: 'org-1'
 			}
 		});
 		const port = createOrganizationSettingsMemberManagementPort({
@@ -2841,8 +2818,6 @@ describe('updateOrganizationMemberPermissions', () => {
 		);
 
 		expect(result).toEqual({ permissionSuccess: true });
-		expect(requireManageMembers).not.toHaveBeenCalled();
-		expect(requireOwner).not.toHaveBeenCalled();
 		expect(port.updatedMemberships).toEqual([
 			{
 				organizationId: 'org-1',

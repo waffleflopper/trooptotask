@@ -27,7 +27,6 @@ import {
 	revokeOrganizationInvitation,
 	updateOrganizationMemberPermissions
 } from '$lib/server/core/useCases/orgSettingsMemberManagement';
-import { requireGovernancePolicy } from '$lib/server/core/useCases/governancePolicy';
 import { buildPlanUsageSummary, type PlanUsageSummary } from '$lib/server/core/useCases/planUsageSummary';
 import {
 	loadOrganizationSettingsWorkspace,
@@ -40,13 +39,9 @@ export const load: PageServerLoad = async ({ locals, cookies, parent }) => {
 	const permissions = parentData.permissions!;
 
 	return loadWithContext(locals, cookies, orgId, {
-		permission: 'privileged',
+		policyAction: POLICY_ACTION_CATALOG.organization.accessGovernance,
+		policyResource: { kind: 'organization' },
 		fn: async (ctx) => {
-			await requireGovernancePolicy(
-				{ auth: ctx.auth, audit: ctx.audit },
-				POLICY_ACTION_CATALOG.organization.accessGovernance
-			);
-
 			const adminStore = createSupabaseDataStore(getAdminClient());
 			const planInfo = loadPlanInfo(ctx);
 			const workspace = await loadOrganizationSettingsWorkspace(ctx, {

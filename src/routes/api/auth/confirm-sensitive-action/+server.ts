@@ -1,8 +1,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestEvent } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { handleUseCaseRequest, rethrowOrWrap, type RouteConfig } from '$lib/server/adapters/httpAdapter';
-import type { UseCaseContext } from '$lib/server/core/ports';
+import { rethrowOrWrap } from '$lib/server/adapters/httpAdapter';
 
 type ConfirmSensitiveActionAuthPort = {
 	signInWithPassword(input: { email: string; password: string }): Promise<{ error: unknown }>;
@@ -29,12 +28,6 @@ type ConfirmSensitiveActionResult = {
 	body: ConfirmSensitiveActionBody;
 	status?: number;
 };
-
-const authRouteContext = {
-	auth: {},
-	audit: { log() {} },
-	readOnlyGuard: { check: async () => false }
-} as unknown as UseCaseContext;
 
 async function parseConfirmSensitiveActionInput(event: RequestEvent): Promise<ConfirmSensitiveActionInput> {
 	const body = (await event.request.json().catch(() => null)) as { password?: unknown } | null;
@@ -80,20 +73,18 @@ async function confirmSensitiveAction(input: ConfirmSensitiveActionInput): Promi
 	return { body: { success: true } };
 }
 
-export const _postConfig: RouteConfig<ConfirmSensitiveActionInput, ConfirmSensitiveActionResult> = {
-	permission: 'none',
-	// Intentionally omit mutation: this no-org credential check must stay available when an org is read-only.
-	parseInput: parseConfirmSensitiveActionInput,
-	fn: (_ctx, input) => confirmSensitiveAction(input),
-	formatOutput: (result) => json(result.body, { status: result.status })
-};
-
 export const POST: RequestHandler = async (event) => {
 	try {
-		const input = await _postConfig.parseInput!(event);
-		const result = await handleUseCaseRequest(_postConfig, authRouteContext, input);
-		return _postConfig.formatOutput!(result);
+		// This no-org credential check intentionally runs outside route authorization and remains available in read-only org mode.
+		const input = await parseConfirmSensitiveActionInput(event);
+		const result = await confirmSensitiveAction(input);
+		return json(result.body, { status: result.status });
 	} catch (err) {
 		rethrowOrWrap(err);
 	}
+};
+
+export const _testInternals = {
+	parseConfirmSensitiveActionInput,
+	confirmSensitiveAction
 };

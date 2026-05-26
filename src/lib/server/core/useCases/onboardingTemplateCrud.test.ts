@@ -21,9 +21,8 @@ const operateOnlyCapabilityMap: CapabilityMap = {
 // Same config entityHandlers() derives for template — with afterDelete hook
 const templateUseCases = createCrudUseCases({
 	entity: OnboardingTemplateEntity,
-	permission: OnboardingTemplateEntity.permission!,
 	auditResource: getEntityAuditResource(OnboardingTemplateEntity),
-	policyAction: OnboardingTemplateEntity.policyAction,
+	policyAction: OnboardingTemplateEntity.policyAction!,
 	afterDelete: async (ctx, id) => {
 		await ctx.store.deleteWhere('onboarding_template_steps', ctx.auth.orgId, { template_id: id });
 
@@ -39,9 +38,8 @@ const templateUseCases = createCrudUseCases({
 // Same config entityHandlers() derives for step — no hooks
 const stepUseCases = createCrudUseCases({
 	entity: OnboardingTemplateStepEntity,
-	permission: OnboardingTemplateStepEntity.permission!,
 	auditResource: getEntityAuditResource(OnboardingTemplateStepEntity),
-	policyAction: OnboardingTemplateStepEntity.policyAction
+	policyAction: OnboardingTemplateStepEntity.policyAction!
 });
 
 describe('Onboarding Template CRUD', () => {

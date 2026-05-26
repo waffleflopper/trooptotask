@@ -1,11 +1,13 @@
 import type { RequestEvent } from '@sveltejs/kit';
-import { handle } from '$lib/server/adapters/httpAdapter';
+import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { fail } from '$lib/server/core/errors';
 import { SENSITIVE_FILE_BUCKET } from '$lib/storage/sensitiveFiles';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 
-export const DELETE = handle<{ rosterId: string }, unknown>({
-	permission: 'personnel',
+export const _deleteConfig: RouteConfig<{ rosterId: string }, unknown> = {
 	mutation: true,
+	policyAction: POLICY_ACTION_CATALOG.training.manageSignInRosters,
+	policyResource: { kind: 'unscoped' },
 	parseInput: (event: RequestEvent) => ({
 		rosterId: event.params.id as string
 	}),
@@ -33,4 +35,6 @@ export const DELETE = handle<{ rosterId: string }, unknown>({
 
 		return { success: true };
 	}
-});
+};
+
+export const DELETE = handle(_deleteConfig);

@@ -436,15 +436,16 @@ describe('POST /billing/checkout', () => {
 		});
 
 		expect(ctx.auditPort.events).toEqual([
-			{
+			expect.objectContaining({
 				action: 'policy.denied',
-				resourceType: 'organization',
-				details: {
-					policyAction: 'organization.accessBilling',
-					reasonCode: 'denied:owner-only'
-				},
+				resourceType: 'organization.manageBilling',
+				details: expect.objectContaining({
+					policyAction: 'organization.manageBilling',
+					reasonCode: 'denied:owner-only',
+					resource: { kind: 'organization' }
+				}),
 				severity: 'warning'
-			}
+			})
 		]);
 	});
 

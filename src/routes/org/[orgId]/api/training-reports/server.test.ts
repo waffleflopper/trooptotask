@@ -6,10 +6,43 @@ import { _getConfig } from './+server';
 
 describe('GET /api/training-reports', () => {
 	it('exports a training read RouteConfig', () => {
-		expect(_getConfig.permission).toBe('training');
+		expect('permission' in _getConfig).toBe(false);
 		expect(_getConfig.policyAction).toBe(POLICY_ACTION_CATALOG.training.viewRecords);
 		expect(_getConfig.policyResource).toEqual({ kind: 'unscoped' });
 		expect(_getConfig.mutation).toBeUndefined();
+	});
+
+	it('denies training report access through the policy decision', async () => {
+		const ctx = createTestContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'none',
+					training: 'none',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				},
+				scopeSet: { kind: 'organization' }
+			}
+		});
+
+		await expect(
+			handleUseCaseRequest(_getConfig, ctx, {
+				page: 1,
+				pageSize: 25,
+				sortColumn: 'name',
+				sortDirection: 'asc'
+			})
+		).rejects.toMatchObject({ status: 403 });
+		expect(ctx.auditPort.events).toEqual([
+			expect.objectContaining({
+				action: 'policy.denied',
+				resourceType: 'training.viewRecords'
+			})
+		]);
 	});
 
 	it('returns a server-computed paginated training report page', async () => {

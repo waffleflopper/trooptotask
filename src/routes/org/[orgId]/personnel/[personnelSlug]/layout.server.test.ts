@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { _createPersonnelDetailLayoutLoad } from './+layout.server';
 
 function makeAuth(overrides: Record<string, unknown> = {}) {
@@ -15,7 +16,15 @@ function makeAuth(overrides: Record<string, unknown> = {}) {
 		},
 		compatibilityLanes: {},
 		scopeSet: { kind: 'organization' },
+		...overrides
+	};
+}
+
+function makeScope(overrides: Record<string, unknown> = {}) {
+	return {
 		requireGroupAccess: vi.fn(async () => {}),
+		requireGroupAccessBatch: vi.fn(async () => {}),
+		requireGroupAccessByRecord: vi.fn(async () => {}),
 		...overrides
 	};
 }
@@ -54,11 +63,12 @@ describe('personnel detail layout server load', () => {
 				findOne: vi.fn(async () => null)
 			},
 			auth: makeAuth(),
+			scope: makeScope(),
 			audit: { log: vi.fn() },
 			readOnlyGuard: { check: vi.fn(async () => false) }
 		};
 		const depends = vi.fn();
-		const { load } = makeLoad(ctx);
+		const { load, loadWithContext } = makeLoad(ctx);
 
 		const result = await load({
 			params: { orgId: 'org-1', personnelSlug: 'rivera-monica' },
@@ -74,7 +84,16 @@ describe('personnel detail layout server load', () => {
 			{ slug: 'rivera-monica' },
 			expect.any(String)
 		);
-		expect(ctx.auth.requireGroupAccess).toHaveBeenCalledWith('person-1');
+		expect(loadWithContext).toHaveBeenCalledWith(
+			expect.anything(),
+			expect.anything(),
+			'org-1',
+			expect.objectContaining({
+				policyAction: POLICY_ACTION_CATALOG.personnel.manageRecords,
+				policyResource: { kind: 'unscoped' }
+			})
+		);
+		expect(ctx.scope.requireGroupAccess).toHaveBeenCalledWith('person-1');
 		expect(result.personnelDetailHeader.person).toMatchObject({
 			id: 'person-1',
 			rank: 'SGT',
@@ -102,6 +121,7 @@ describe('personnel detail layout server load', () => {
 					ratingScheme: 'view'
 				}
 			}),
+			scope: makeScope(),
 			audit: { log: vi.fn() },
 			readOnlyGuard: { check: vi.fn(async () => false) }
 		};
@@ -128,6 +148,7 @@ describe('personnel detail layout server load', () => {
 			auth: makeAuth({
 				scopeSet: { kind: 'groups', groupIds: ['other-group'] }
 			}),
+			scope: makeScope(),
 			audit: { log: vi.fn() },
 			readOnlyGuard: { check: vi.fn(async () => false) }
 		};
@@ -152,6 +173,7 @@ describe('personnel detail layout server load', () => {
 				findOne: vi.fn(async () => null)
 			},
 			auth: makeAuth(),
+			scope: makeScope(),
 			audit: { log: vi.fn() },
 			readOnlyGuard: { check: vi.fn(async () => false) }
 		};

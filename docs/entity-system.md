@@ -7,7 +7,7 @@ All database entities use the schema-first `defineEntity()` pattern. Each entity
 - **Metadata**: `.table`, `.groupScope`, `.methods`, `.fieldMap`, `.select`
 
 > **Note**: `EntityDefinition` does **not** include a `.repo` or `.handlers` property.
-> Use `crudHandlers()` from `httpAdapter` for standard CRUD routes, and `createRepository()` from `repositoryFactory` for data access.
+> Use `entityHandlers()` from `httpAdapter` for standard CRUD routes, and `createRepository()` from `repositoryFactory` for data access.
 
 ---
 
@@ -16,13 +16,14 @@ All database entities use the schema-first `defineEntity()` pattern. Each entity
 ```typescript
 import { z } from 'zod';
 import { defineEntity, field } from '$lib/server/entitySchema';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import type { MyType } from '$lib/types';
 
 export const MyEntity = defineEntity<MyType>({
   table: 'my_table',
   groupScope: 'none', // or { personnelColumn: 'personnel_id' }
-  permission: 'myFeature',   // FeatureArea — required for crudHandlers()
-  auditResource: 'MyThing',  // passed to crudHandlers() for audit logging
+  policyAction: POLICY_ACTION_CATALOG.training.configureRequirements,
+  audit: 'MyThing',
   orderBy: [{ column: 'sort_order', ascending: true }],
   schema: {
     id: field(z.string(), { readOnly: true }),
@@ -42,7 +43,6 @@ export const MyEntity = defineEntity<MyType>({
 | `schema` | `Record<string, EntityField>` | Field definitions |
 | `select` | `string` | Custom select expression (default `'*'`) |
 | `orderBy` | `Array<{ column, ascending? }>` | Default sort order |
-| `permission` | `FeatureArea` | Feature area required for CRUD access |
 | `policyAction` | `FeatureLanePolicyAction` | Authorize mutations through a Policy Decision |
 | `audit` | `string \| { resourceType, action?, detailFields? }` | Audit log config |
 | `methods` | `EntityMethod[]` | HTTP verbs to allow; defaults to `['POST', 'PUT', 'DELETE']` |
@@ -81,19 +81,16 @@ export const PersonnelEntity = defineEntity<Personnel>({
 
 ---
 
-## Standard CRUD routes — `crudHandlers()`
+## Standard CRUD routes — `entityHandlers()`
 
-For entities with standard POST/PUT/DELETE, use `crudHandlers()` from `httpAdapter`:
+For entities with standard POST/PUT/DELETE, use `entityHandlers()` from `httpAdapter`:
 
 ```typescript
 // In +server.ts:
-import { crudHandlers } from '$lib/server/adapters/httpAdapter';
+import { entityHandlers } from '$lib/server/adapters/httpAdapter';
 import { MyEntity } from '$lib/server/entities/myEntity';
 
-const handlers = crudHandlers({
-  entity: MyEntity,
-  permission: 'myFeature',     // FeatureArea
-  auditResource: 'MyThing',    // audit log label
+const handlers = entityHandlers(MyEntity, {
   policyAction: POLICY_ACTION_CATALOG.training.configureRequirements,
   beforeDelete: async (ctx, id) => { /* optional hook */ },
   afterDelete: async (ctx, id) => { /* optional hook */ }
@@ -104,7 +101,7 @@ export const PUT = handlers.PUT;
 export const DELETE = handlers.DELETE;
 ```
 
-`crudHandlers()` automatically enforces:
+`entityHandlers()` automatically enforces:
 - Policy Decision authorization (`policyAction`)
 - Read-only guard on mutations
 - Zod validation via `entity.createSchema` / `entity.updateSchema`
@@ -122,8 +119,9 @@ import { handle } from '$lib/server/adapters/httpAdapter';
 import { z } from 'zod';
 
 export const POST = handle({
-  permission: 'myFeature',   // FeatureArea, 'manageMembers', 'privileged', or 'owner'
-  mutation: true,            // triggers read-only guard check
+  policyAction: POLICY_ACTION_CATALOG.training.configureRequirements,
+  policyResource: { kind: 'organization' },
+  mutation: true,            // documents that this route changes state; read-only overlays follow policyAction.accessMode
   input: z.object({ name: z.string() }),  // optional Zod schema
   fn: async (ctx, input) => {
     // ctx is a fully-built UseCaseContext
@@ -137,13 +135,14 @@ export const POST = handle({
 });
 ```
 
-`handle()` enforces permissions, read-only guard, and Zod validation automatically.
+`handle()` enforces Policy Decision authorization, read-only overlays, and Zod validation automatically.
 
 For custom input parsing (e.g. query params, form data), use `parseInput` instead of `input`:
 
 ```typescript
 export const GET = handle({
-  permission: 'myFeature',
+  policyAction: POLICY_ACTION_CATALOG.training.viewRecords,
+  policyResource: { kind: 'organization' },
   parseInput: (event) => ({ id: event.params.id }),
   fn: async (ctx, input) => { /* ... */ }
 });
@@ -162,7 +161,8 @@ import { loadWithContext } from '$lib/server/adapters/httpAdapter';
 
 export const load = async ({ locals, cookies, params }) => {
   return loadWithContext(locals, cookies, params.orgId, {
-    permission: 'myFeature', // or 'none' to skip permission check
+    policyAction: POLICY_ACTION_CATALOG.training.viewRecords,
+    policyResource: { kind: 'organization' },
     fn: async (ctx) => {
       return myUseCase(ctx);
     }
@@ -170,11 +170,12 @@ export const load = async ({ locals, cookies, params }) => {
 };
 ```
 
-For streaming with skeleton UIs, add `defer: true` — permissions are checked eagerly but data loads after navigation:
+For streaming with skeleton UIs, add `defer: true` — the policy check starts immediately, and denied access rejects the streamed data promise:
 
 ```typescript
 return loadWithContext(locals, cookies, params.orgId, {
-  permission: 'myFeature',
+  policyAction: POLICY_ACTION_CATALOG.training.viewRecords,
+  policyResource: { kind: 'organization' },
   defer: true,
   fn: async (ctx) => fetchSlowData(ctx)
 });

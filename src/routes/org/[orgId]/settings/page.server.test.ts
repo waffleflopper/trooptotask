@@ -124,12 +124,13 @@ vi.mock('$lib/server/core/useCases/orgSettingsAdministration', async () => {
 });
 
 import { actions, load } from './+page.server';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 
 describe('org settings page server actions', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		buildLayoutContextMock.mockResolvedValue({
-			auth: { requireManageMembers: vi.fn() }
+			auth: { orgId: 'org-1' }
 		});
 		buildRouteContextMock.mockResolvedValue({
 			auth: { kind: 'auth', orgId: 'org-1' },
@@ -301,7 +302,10 @@ describe('org settings page server actions', () => {
 			{},
 			{},
 			'org-1',
-			expect.objectContaining({ permission: 'privileged' })
+			expect.objectContaining({
+				policyAction: POLICY_ACTION_CATALOG.organization.accessGovernance,
+				policyResource: { kind: 'organization' }
+			})
 		);
 		expect(result).toMatchObject({
 			orgId: 'org-1',
@@ -580,20 +584,17 @@ describe('org settings page server actions', () => {
 	});
 
 	it('denies governance workspace access through policy before loading settings data', async () => {
-		const auditLog = vi.fn();
-		const findMany = vi.fn();
-		loadWithContextMock.mockImplementationOnce(async (_locals, _cookies, _orgId, config) =>
-			config.fn({
-				auth: { orgId: 'org-1', role: 'member' },
-				audit: { log: auditLog },
-				store: { findMany },
-				rawStore: { findOne: vi.fn() },
-				subscription: {
-					getEffectiveTier: vi.fn(async () => ({ tier: 'free' })),
-					getMonthlyExportCount: vi.fn(async () => 0)
-				}
-			})
-		);
+		loadWithContextMock.mockImplementationOnce(async (_locals, _cookies, _orgId, config) => {
+			expect(config).toMatchObject({
+				policyAction: POLICY_ACTION_CATALOG.organization.accessGovernance,
+				policyResource: { kind: 'organization' }
+			});
+			const error = new Error('This action requires an organization admin or owner role') as Error & {
+				status?: number;
+			};
+			error.status = 403;
+			throw error;
+		});
 
 		await expect(
 			load({
@@ -622,17 +623,6 @@ describe('org settings page server actions', () => {
 		).rejects.toMatchObject({
 			status: 403,
 			message: 'This action requires an organization admin or owner role'
-		});
-
-		expect(findMany).not.toHaveBeenCalled();
-		expect(auditLog).toHaveBeenCalledWith({
-			action: 'policy.denied',
-			resourceType: 'organization',
-			details: {
-				policyAction: 'organization.accessGovernance',
-				reasonCode: 'denied:governance-role'
-			},
-			severity: 'warning'
 		});
 	});
 

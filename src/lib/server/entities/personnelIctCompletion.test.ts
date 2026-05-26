@@ -88,7 +88,6 @@ describe('PersonnelIctCompletionEntity', () => {
 
 	it('uses the Critical Tasks operate policy boundary for writes', () => {
 		expect(PersonnelIctCompletionEntity.table).toBe('personnel_ict_completions');
-		expect(PersonnelIctCompletionEntity.permission).toBe('critical-tasks');
 		expect(PersonnelIctCompletionEntity.policyAction).toBe(POLICY_ACTION_CATALOG.criticalTasks.recordCompletion);
 		expect(PersonnelIctCompletionEntity.groupScope).toEqual({ personnelColumn: 'personnel_id' });
 		expect(PersonnelIctCompletionEntity.personnelIdField).toBe('personnelId');

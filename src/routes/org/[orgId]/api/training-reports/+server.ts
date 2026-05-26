@@ -11,7 +11,6 @@ import {
 } from './reportInput';
 
 export const _getConfig: RouteConfig<TrainingReportRouteInput, TrainingReportData> = {
-	permission: 'training',
 	policyAction: POLICY_ACTION_CATALOG.training.viewRecords,
 	policyResource: { kind: 'unscoped' },
 	input: trainingReportInput,

@@ -29,7 +29,7 @@
 	const org = getOrgContext();
 	const orgUrlSegment = $derived(org.orgUrlSegment ?? org.orgId);
 	const assignmentAffordance = $derived(
-		org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.calendar.manageAssignments)
+		org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.calendar.manageAssignments, { kind: 'unscoped' })
 	);
 	const canMutate = $derived(assignmentAffordance.allowed);
 	const workspaceData = $derived(data.calendar?.data ?? data);

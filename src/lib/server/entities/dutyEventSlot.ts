@@ -9,7 +9,6 @@ type DutyEventSlotEntityRecord = DutyEventSlotInstance & {
 
 export const DutyEventSlotEntity = defineEntity<DutyEventSlotEntityRecord>({
 	table: 'duty_event_slots',
-	permission: 'calendar',
 	groupScope: 'none',
 	audit: { resourceType: 'duty_event_slot' },
 	schema: {

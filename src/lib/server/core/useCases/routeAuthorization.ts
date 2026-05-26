@@ -1,14 +1,17 @@
 import type {
 	FeatureLanePolicyAction,
+	IdentityOwnedPolicyAction,
 	OrganizationGovernancePolicyAction,
+	PolicyAction,
 	PolicyResource
 } from '$lib/access/policyEvaluator';
-import { fail } from '$lib/server/core/errors';
-import type { AuthContext, FeatureArea, ReadOnlyGuard } from '$lib/server/core/ports';
+import type { AuthContext, ReadOnlyGuard } from '$lib/server/core/ports';
 import { requirePolicyDecision } from './policyAuthorization';
 
-export type LegacyRoutePermission = FeatureArea | 'manageMembers' | 'privileged' | 'owner' | 'none';
-export type RoutePolicyAction = FeatureLanePolicyAction | OrganizationGovernancePolicyAction;
+export type RoutePolicyAction =
+	| FeatureLanePolicyAction
+	| OrganizationGovernancePolicyAction
+	| IdentityOwnedPolicyAction;
 
 export interface RouteAuthorizationPorts {
 	auth: AuthContext;
@@ -17,102 +20,59 @@ export interface RouteAuthorizationPorts {
 }
 
 export interface RouteAuthorizationConfig {
-	permission: LegacyRoutePermission;
 	mutation?: boolean;
-	allowReadOnlyMutation?: boolean;
-	policyAction?: RoutePolicyAction;
+	policyAction: RoutePolicyAction;
 	policyResource?: PolicyResource;
-	deferPolicyToUseCase?: boolean;
+	/**
+	 * Use only for policy-first writes that must remain available during org read-only
+	 * mode, such as user preferences or billing recovery paths. Ordinary writes should
+	 * let the policy overlay deny.
+	 */
+	allowReadOnlyMutation?: boolean;
 }
 
 export interface LoadAuthorizationConfig {
-	permission: LegacyRoutePermission;
-	policyAction?: RoutePolicyAction;
+	policyAction: RoutePolicyAction;
 	policyResource?: PolicyResource;
 }
+
+export type LayoutPolicyAuthorizationConfig = LoadAuthorizationConfig;
 
 export async function enforceRouteAuthorization(
 	ports: RouteAuthorizationPorts,
 	config: RouteAuthorizationConfig
 ): Promise<void> {
-	if (config.deferPolicyToUseCase) {
-		return;
-	}
-
-	if (config.policyAction) {
-		await requirePolicyDecision(ports, config.policyAction, config.policyResource ?? { kind: 'organization' });
-		return;
-	}
-
-	enforceLegacyRoutePermission(ports.auth, config.permission);
-	assertMutationHasAuthoritativePolicy(config);
-}
-
-export async function enforceRouteReadOnlyOverlay(
-	ports: Pick<RouteAuthorizationPorts, 'readOnlyGuard'>,
-	config: RouteAuthorizationConfig
-): Promise<void> {
-	if (!shouldRunLegacyReadOnlyGuard(config)) {
-		return;
-	}
-
-	const state = await ports.readOnlyGuard.checkState?.();
-	if (state) {
-		if (state.isReadOnly) {
-			fail(403, state.message ?? 'Organization is in read-only mode');
-		}
-		return;
-	}
-
-	const isReadOnly = await ports.readOnlyGuard.check();
-	if (isReadOnly) {
-		fail(403, 'Organization is in read-only mode');
-	}
+	await requirePolicyDecision(ports, config.policyAction, resolveRoutePolicyResource(ports.auth, config), {
+		enforceReadOnlyOverlay: !config.allowReadOnlyMutation
+	});
 }
 
 export function enforceLoadAuthorization(
 	ports: Pick<RouteAuthorizationPorts, 'auth' | 'audit' | 'readOnlyGuard'>,
 	config: LoadAuthorizationConfig
 ): void | Promise<void> {
-	if (config.policyAction) {
-		return requirePolicyDecision(ports, config.policyAction, config.policyResource ?? { kind: 'organization' });
+	return requirePolicyDecision(ports, config.policyAction, resolveRoutePolicyResource(ports.auth, config));
+}
+
+export function enforceLayoutPolicy(
+	ports: Pick<RouteAuthorizationPorts, 'auth' | 'audit' | 'readOnlyGuard'>,
+	config: LayoutPolicyAuthorizationConfig
+): Promise<void> {
+	return requirePolicyDecision(ports, config.policyAction, resolveRoutePolicyResource(ports.auth, config));
+}
+
+function resolveRoutePolicyResource(
+	auth: Pick<AuthContext, 'userId'>,
+	config: { policyAction?: PolicyAction; policyResource?: PolicyResource }
+): PolicyResource {
+	if (config.policyResource) {
+		return config.policyResource;
 	}
 
-	enforceLegacyRoutePermission(ports.auth, config.permission);
-}
-
-export function shouldRunLegacyReadOnlyGuard(config: RouteAuthorizationConfig): boolean {
-	return Boolean(
-		config.mutation && !config.allowReadOnlyMutation && !config.deferPolicyToUseCase && !config.policyAction
-	);
-}
-
-function assertMutationHasAuthoritativePolicy(config: RouteAuthorizationConfig): void {
-	if (config.mutation && isFeatureAreaPermission(config.permission)) {
-		throw new Error(`Mutation route for ${config.permission} must declare policyAction or deferPolicyToUseCase`);
+	if (config.policyAction?.owner.kind === 'identity-owned') {
+		// No user id means the evaluator will deny as unauthenticated before comparing resource ownership.
+		return { kind: 'user', userId: auth.userId ?? '' };
 	}
-}
 
-function enforceLegacyRoutePermission(auth: AuthContext, permission: LegacyRoutePermission): void {
-	switch (permission) {
-		case 'none':
-			return;
-		case 'privileged':
-			auth.requirePrivileged();
-			return;
-		case 'owner':
-			auth.requireOwner();
-			return;
-		case 'manageMembers':
-			auth.requireManageMembers();
-			return;
-		default:
-			auth.requireView(permission);
-	}
-}
-
-function isFeatureAreaPermission(permission: LegacyRoutePermission): permission is FeatureArea {
-	return (
-		permission !== 'none' && permission !== 'privileged' && permission !== 'owner' && permission !== 'manageMembers'
-	);
+	return { kind: 'organization' };
 }

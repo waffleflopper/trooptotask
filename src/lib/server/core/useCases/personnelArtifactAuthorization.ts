@@ -6,22 +6,38 @@ import { policyResourceForGroup, requireFeaturePolicy } from './featurePolicy';
 const artifactAccessCache = new WeakMap<UseCaseContext, Map<string, Promise<void>>>();
 
 export async function requirePersonnelArtifactAccess(ctx: UseCaseContext, personnelId: string): Promise<void> {
+	return requirePersonnelArtifactPolicy(ctx, personnelId, 'write');
+}
+
+export async function requirePersonnelArtifactReadAccess(ctx: UseCaseContext, personnelId: string): Promise<void> {
+	return requirePersonnelArtifactPolicy(ctx, personnelId, 'read');
+}
+
+async function requirePersonnelArtifactPolicy(
+	ctx: UseCaseContext,
+	personnelId: string,
+	accessType: 'read' | 'write'
+): Promise<void> {
 	let orgCache = artifactAccessCache.get(ctx);
 	if (!orgCache) {
 		orgCache = new Map();
 		artifactAccessCache.set(ctx, orgCache);
 	}
 
-	const cacheKey = `${ctx.auth.orgId}:${personnelId}`;
+	const cacheKey = `${ctx.auth.orgId}:${personnelId}:${accessType}`;
 	const cached = orgCache.get(cacheKey);
 	if (cached) return cached;
 
-	const accessCheck = requirePersonnelArtifactAccessUncached(ctx, personnelId);
+	const accessCheck = requirePersonnelArtifactAccessUncached(ctx, personnelId, accessType);
 	orgCache.set(cacheKey, accessCheck);
 	return accessCheck;
 }
 
-async function requirePersonnelArtifactAccessUncached(ctx: UseCaseContext, personnelId: string): Promise<void> {
+async function requirePersonnelArtifactAccessUncached(
+	ctx: UseCaseContext,
+	personnelId: string,
+	accessType: 'read' | 'write'
+): Promise<void> {
 	const person = await (ctx.rawStore ?? ctx.store).findOne<{ id: string; group_id: string | null }>(
 		'personnel',
 		ctx.auth.orgId,
@@ -32,10 +48,12 @@ async function requirePersonnelArtifactAccessUncached(ctx: UseCaseContext, perso
 
 	await requireFeaturePolicy(
 		ctx,
-		POLICY_ACTION_CATALOG.personnel.manageRecords,
+		accessType === 'read'
+			? POLICY_ACTION_CATALOG.personnel.readSensitiveRecords
+			: POLICY_ACTION_CATALOG.personnel.manageRecords,
 		policyResourceForGroup(person.group_id),
 		'personnel',
 		personnelId
 	);
-	await ctx.auth.requireGroupAccess(personnelId);
+	await ctx.scope.requireGroupAccess(personnelId);
 }

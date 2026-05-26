@@ -1,6 +1,7 @@
 import type { PageServerLoad } from './$types';
 import type { UseCaseContext } from '$lib/server/core/ports';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { createSupabaseBillingReconciliationStore } from '$lib/server/adapters/supabaseBillingReconciliation';
 import { createSupabaseSubscriptionAdapter } from '$lib/server/adapters/supabaseSubscription';
 import { getConfiguredPriceCatalog } from '$lib/server/billing/priceCatalog';
@@ -11,6 +12,7 @@ import {
 	type CheckoutAttemptRow
 } from '$lib/server/core/useCases/billingCheckoutAttempts';
 import { reconcileOrganizationBilling } from '$lib/server/core/useCases/billingReconciliation';
+import { requireGovernancePolicy } from '$lib/server/core/useCases/governancePolicy';
 import { getAdminClient } from '$lib/server/supabase';
 import { createStripeBillingReconciliationProvider, retrieveCheckoutSessionForRecovery } from '$lib/server/stripe';
 import type { BillingSnapshot } from '$lib/types/subscription';
@@ -28,12 +30,16 @@ export interface CheckoutSuccessStatus {
 const PAYMENT_INCOMPLETE_STATUSES = new Set(['incomplete', 'incomplete_expired', 'past_due', 'unpaid']);
 const PENDING_CHECKOUT_ATTEMPT_STATUSES = new Set(['in_progress', 'completed']);
 
-type CheckoutSuccessContext = Pick<UseCaseContext, 'auth' | 'rawStore'>;
+type CheckoutSuccessContext = Pick<UseCaseContext, 'auth' | 'audit' | 'readOnlyGuard' | 'rawStore'>;
 
 export type RecoverCheckoutSuccess = (
 	ctx: CheckoutSuccessContext,
 	input: { checkoutAttempt: CheckoutAttemptRow; now?: Date }
 ) => Promise<boolean>;
+
+function isHttpError(error: unknown): error is { status: number } {
+	return Boolean(error && typeof error === 'object' && 'status' in error && typeof error.status === 'number');
+}
 
 function isPaidPlanActive(snapshot: BillingSnapshot): boolean {
 	return (
@@ -119,6 +125,9 @@ export async function _loadCheckoutSuccessPageData(
 
 	if (!isPaidPlanActive(snapshot) && checkoutAttempt && PENDING_CHECKOUT_ATTEMPT_STATUSES.has(checkoutAttempt.status)) {
 		try {
+			await requireGovernancePolicy(ctx, POLICY_ACTION_CATALOG.organization.manageBilling, {
+				enforceReadOnlyOverlay: false
+			});
 			const recovered = await (input.recoverCheckoutSuccess ?? _recoverCheckoutSuccessFromStripe)(ctx, {
 				checkoutAttempt
 			});
@@ -131,6 +140,9 @@ export async function _loadCheckoutSuccessPageData(
 				]);
 			}
 		} catch (err) {
+			if (isHttpError(err)) {
+				throw err;
+			}
 			console.warn(
 				`[billing-success] Checkout success recovery for organization ${ctx.auth.orgId} will be retried by billing reconciliation.`,
 				err
@@ -176,7 +188,7 @@ export async function _recoverCheckoutSuccessFromStripe(
 
 export const load: PageServerLoad = async ({ params, locals, cookies, url }) =>
 	loadWithContext(locals, cookies, params.orgId, {
-		permission: 'owner',
+		policyAction: POLICY_ACTION_CATALOG.organization.accessBilling,
 		fn: (ctx) =>
 			_loadCheckoutSuccessPageData(ctx, {
 				checkoutAttemptId: url.searchParams.get('checkout_attempt_id')

@@ -21,12 +21,12 @@ function seedPersonnel(ctx: ReturnType<typeof createTestContext>, groupId: strin
 	]);
 }
 
-function operateContext() {
+function configureContext() {
 	return createTestContext({
 		auth: {
 			capabilityMap: {
 				calendar: 'view',
-				personnel: 'operate',
+				personnel: 'configure',
 				training: 'view',
 				criticalTasks: 'view',
 				onboarding: 'view',
@@ -40,7 +40,7 @@ function operateContext() {
 
 describe('personnel counseling records', () => {
 	it('uploads a signed counseling PDF and lists records newest first', async () => {
-		const ctx = operateContext();
+		const ctx = configureContext();
 		seedPersonnel(ctx);
 		ctx.store.seed('counseling_records', [
 			{
@@ -89,7 +89,7 @@ describe('personnel counseling records', () => {
 	});
 
 	it('archives, restores, and hard-deletes counseling records only after archive', async () => {
-		const ctx = operateContext();
+		const ctx = configureContext();
 		seedPersonnel(ctx);
 		ctx.store.seed('counseling_records', [
 			{
@@ -131,7 +131,7 @@ describe('personnel counseling records', () => {
 	});
 
 	it('rejects non-PDF uploads', async () => {
-		const ctx = operateContext();
+		const ctx = configureContext();
 		seedPersonnel(ctx);
 
 		await expect(
@@ -154,7 +154,7 @@ describe('personnel counseling records', () => {
 	});
 
 	it('rejects MIME-spoofed PDFs by checking file contents', async () => {
-		const ctx = operateContext();
+		const ctx = configureContext();
 		seedPersonnel(ctx);
 
 		await expect(
@@ -170,7 +170,7 @@ describe('personnel counseling records', () => {
 	});
 
 	it('rejects oversize PDF uploads before writing storage', async () => {
-		const ctx = operateContext();
+		const ctx = configureContext();
 		seedPersonnel(ctx);
 		const oversizeBytes = new Uint8Array(10 * 1024 * 1024 + 1);
 		oversizeBytes.set([0x25, 0x50, 0x44, 0x46], 0);
@@ -188,7 +188,7 @@ describe('personnel counseling records', () => {
 	});
 
 	it('removes the uploaded counseling file if record creation fails', async () => {
-		const ctx = operateContext();
+		const ctx = configureContext();
 		seedPersonnel(ctx);
 		const insert = ctx.store.insert.bind(ctx.store);
 		ctx.store.insert = async (table, orgId, data, select) => {
@@ -208,7 +208,7 @@ describe('personnel counseling records', () => {
 		expect(ctx.storagePort.files).toHaveLength(0);
 	});
 
-	it('requires Personnel operate capability and group scope', async () => {
+	it('requires Personnel configure capability for reads and group scope', async () => {
 		const viewOnly = createTestContext({
 			auth: {
 				capabilityMap: {
@@ -229,7 +229,7 @@ describe('personnel counseling records', () => {
 			auth: {
 				capabilityMap: {
 					calendar: 'view',
-					personnel: 'operate',
+					personnel: 'configure',
 					training: 'view',
 					criticalTasks: 'view',
 					onboarding: 'view',

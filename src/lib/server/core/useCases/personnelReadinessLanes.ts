@@ -62,7 +62,7 @@ async function loadPersonnelForLane(
 	);
 	if (!row) fail(404, 'Personnel record not found');
 
-	await ctx.auth.requireGroupAccess(personnelId);
+	await ctx.scope.requireGroupAccess(personnelId);
 	await requireFeaturePolicy(ctx, action, policyResourceForGroup(row.group_id), resourceType, personnelId);
 	return PersonnelEntity.fromDb(row);
 }

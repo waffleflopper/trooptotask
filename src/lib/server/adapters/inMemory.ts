@@ -21,6 +21,7 @@ import type {
 	AdvancedDutyPersistencePort,
 	AuthContext,
 	AuditPort,
+	ScopeEnforcementPort,
 	ReadOnlyGuard,
 	SubscriptionPort,
 	NotificationPort,
@@ -330,13 +331,17 @@ export function createTestAuthContext(overrides?: TestAuthContextOverrides): Aut
 		orgId: 'test-org',
 		role: 'owner',
 		isPrivileged: true,
+		canManageMembers: true,
 		capabilityMap: FULL_CAPABILITY_MAP,
 		compatibilityLanes: FULL_COMPATIBILITY_LANES,
-		scopeSet: { kind: 'organization' } satisfies ScopeSet,
-		requireView() {},
-		requirePrivileged() {},
-		requireOwner() {},
-		requireManageMembers() {},
+		scopeSet: { kind: 'organization' } satisfies ScopeSet
+	};
+
+	return { ...defaults, ...overrides };
+}
+
+export function createTestScopeEnforcementPort(overrides?: Partial<ScopeEnforcementPort>): ScopeEnforcementPort {
+	const defaults: ScopeEnforcementPort = {
 		async requireGroupAccess() {},
 		async requireGroupAccessBatch() {},
 		async requireGroupAccessByRecord() {}
@@ -412,6 +417,7 @@ function createScopedTestStores(auth: AuthContext): { store: InMemoryDataStore; 
 /** Convenience: build a full UseCaseContext for tests. rawStore defaults to store (unscoped). */
 export function createTestContext(overrides?: {
 	auth?: Parameters<typeof createTestAuthContext>[0];
+	scope?: Partial<ScopeEnforcementPort>;
 	readOnly?: boolean;
 	subscriptionAllowed?: boolean;
 	sensitiveActionDecision?: Partial<SensitiveActionDecision>;
@@ -427,6 +433,7 @@ export function createTestContext(overrides?: {
 	sensitiveActionAuthorizer: ReturnType<typeof createTestSensitiveActionAuthorizer>;
 } {
 	const auth = createTestAuthContext(overrides?.auth);
+	const scope = createTestScopeEnforcementPort(overrides?.scope);
 	const { store, rawStore } = createScopedTestStores(auth);
 	const auditPort = createTestAuditPort();
 	const subscription = createTestSubscriptionPort(overrides?.subscriptionAllowed ?? true);
@@ -441,6 +448,7 @@ export function createTestContext(overrides?: {
 		rawStore,
 		advancedDutyPersistence,
 		auth,
+		scope,
 		audit: auditPort,
 		auditPort,
 		readOnlyGuard: createTestReadOnlyGuard(overrides?.readOnly ?? false),

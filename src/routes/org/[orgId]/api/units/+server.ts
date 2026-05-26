@@ -1,13 +1,16 @@
-import { handle } from '$lib/server/adapters/httpAdapter';
+import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { fail } from '$lib/server/core/errors';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 
 function toClient(row: Record<string, unknown>) {
 	return { id: row.id, name: row.name, sortOrder: row.sort_order };
 }
 
-export const POST = handle<Record<string, unknown>, unknown>({
-	permission: 'personnel',
+// Units are organization-wide roster configuration, so group-scoped members should not mutate them.
+export const _postConfig: RouteConfig<Record<string, unknown>, unknown> = {
 	mutation: true,
+	policyAction: POLICY_ACTION_CATALOG.personnel.manageUnits,
+	policyResource: { kind: 'organization' },
 	fn: async (ctx, input) => {
 		const row = await ctx.store.insert<Record<string, unknown>>('units', ctx.auth.orgId, {
 			name: input.name,
@@ -17,11 +20,14 @@ export const POST = handle<Record<string, unknown>, unknown>({
 		ctx.audit.log({ action: 'unit.created', resourceType: 'unit', resourceId: row.id as string });
 		return toClient(row);
 	}
-});
+};
 
-export const PUT = handle<Record<string, unknown>, unknown>({
-	permission: 'personnel',
+export const POST = handle(_postConfig);
+
+export const _putConfig: RouteConfig<Record<string, unknown>, unknown> = {
 	mutation: true,
+	policyAction: POLICY_ACTION_CATALOG.personnel.manageUnits,
+	policyResource: { kind: 'organization' },
 	fn: async (ctx, input) => {
 		const { id, ...fields } = input;
 		if (!id) fail(400, 'Missing id');
@@ -35,11 +41,14 @@ export const PUT = handle<Record<string, unknown>, unknown>({
 		ctx.audit.log({ action: 'unit.updated', resourceType: 'unit', resourceId: id as string });
 		return toClient(row);
 	}
-});
+};
 
-export const DELETE = handle<Record<string, unknown>, unknown>({
-	permission: 'personnel',
+export const PUT = handle(_putConfig);
+
+export const _deleteConfig: RouteConfig<Record<string, unknown>, unknown> = {
 	mutation: true,
+	policyAction: POLICY_ACTION_CATALOG.personnel.manageUnits,
+	policyResource: { kind: 'organization' },
 	fn: async (ctx, input) => {
 		const { id } = input;
 		if (!id) fail(400, 'Missing id');
@@ -49,4 +58,6 @@ export const DELETE = handle<Record<string, unknown>, unknown>({
 		ctx.audit.log({ action: 'unit.deleted', resourceType: 'unit', resourceId: id as string });
 		return { success: true };
 	}
-});
+};
+
+export const DELETE = handle(_deleteConfig);

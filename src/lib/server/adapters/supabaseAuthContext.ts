@@ -2,15 +2,13 @@
  * AuthContext adapter implementations for SvelteKit routes.
  *
  * Wraps the real PermissionContext built from the user's membership row.
- * Enforces role and group-scope checks.
+ * Exposes authorization data used by policy evaluation.
  */
-import type { SupabaseClient } from '@supabase/supabase-js';
-import type { AuthContext, FeatureArea } from '../core/ports';
+import type { AuthContext } from '../core/ports';
 import type { PermissionContext } from '$lib/server/permissionContext';
 
 export function createSupabaseAuthContextAdapter(
 	permCtx: PermissionContext,
-	supabase: SupabaseClient,
 	userId: string | null,
 	orgId: string
 ): AuthContext {
@@ -27,6 +25,9 @@ export function createSupabaseAuthContextAdapter(
 		get isPrivileged() {
 			return permCtx.isPrivileged;
 		},
+		get canManageMembers() {
+			return permCtx.canManageMembers;
+		},
 		get capabilityMap() {
 			return permCtx.capabilityMap;
 		},
@@ -35,29 +36,6 @@ export function createSupabaseAuthContextAdapter(
 		},
 		get scopeSet() {
 			return permCtx.scopeSet;
-		},
-
-		requireView(area: FeatureArea): void {
-			permCtx.requireView(area);
-		},
-		requirePrivileged(): void {
-			permCtx.requirePrivileged();
-		},
-		requireOwner(): void {
-			permCtx.requireOwner();
-		},
-		requireManageMembers(): void {
-			permCtx.requireManageMembers();
-		},
-
-		async requireGroupAccess(personnelId: string): Promise<void> {
-			await permCtx.requireGroupAccess(supabase, personnelId);
-		},
-		async requireGroupAccessBatch(personnelIds: string[]): Promise<void> {
-			await permCtx.requireGroupAccessBatch(supabase, personnelIds);
-		},
-		async requireGroupAccessByRecord(table: string, recordId: string, personnelIdColumn: string): Promise<void> {
-			await permCtx.requireGroupAccessByRecord(supabase, table, recordId, orgId, personnelIdColumn);
 		}
 	};
 }

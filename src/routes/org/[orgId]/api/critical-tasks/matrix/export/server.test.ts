@@ -112,7 +112,7 @@ describe('GET /api/critical-tasks/matrix/export', () => {
 			}
 		]);
 
-		expect(_getConfig.permission).toBe('critical-tasks');
+		expect('permission' in _getConfig).toBe(false);
 
 		const result = await handleUseCaseRequest(_getConfig, ctx, {
 			groupId: 'group-alpha',

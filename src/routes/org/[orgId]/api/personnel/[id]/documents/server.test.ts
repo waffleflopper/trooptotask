@@ -16,7 +16,7 @@ describe('/api/personnel/[id]/documents', () => {
 			auth: {
 				capabilityMap: {
 					calendar: 'view',
-					personnel: 'operate',
+					personnel: 'configure',
 					training: 'view',
 					criticalTasks: 'view',
 					onboarding: 'view',
@@ -36,6 +36,27 @@ describe('/api/personnel/[id]/documents', () => {
 
 		expect(created.title).toBe('BLS Card');
 		expect(records).toHaveLength(1);
+	});
+
+	it('requires Personnel configure capability for sensitive document reads', async () => {
+		const ctx = createTestContext({
+			auth: {
+				capabilityMap: {
+					calendar: 'view',
+					personnel: 'operate',
+					training: 'view',
+					criticalTasks: 'view',
+					onboarding: 'view',
+					ratingScheme: 'view'
+				},
+				scopeSet: { kind: 'organization' }
+			}
+		});
+		seedPersonnel(ctx);
+
+		await expect(handleUseCaseRequest(_getConfig, ctx, { personnelId: 'person-1' })).rejects.toMatchObject({
+			status: 403
+		});
 	});
 
 	it('rejects PDF uploads without a matching file signature through API configs', async () => {

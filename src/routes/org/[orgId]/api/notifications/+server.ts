@@ -1,4 +1,5 @@
-import { handle } from '$lib/server/adapters/httpAdapter';
+import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { fail } from '$lib/server/core/errors';
 import {
 	deleteAllOwnNotifications,
@@ -8,16 +9,16 @@ import {
 	markOwnNotificationRead
 } from '$lib/server/core/useCases/notifications';
 
-export const GET = handle<void, unknown>({
-	permission: 'none',
-	deferPolicyToUseCase: true,
+export const _getConfig: RouteConfig<void, unknown> = {
+	policyAction: POLICY_ACTION_CATALOG.identity.readOwnNotifications,
 	fn: (ctx) => listOwnNotifications(ctx)
-});
+};
 
-export const PUT = handle<Record<string, unknown>, unknown>({
-	permission: 'none',
+export const GET = handle(_getConfig);
+
+export const _putConfig: RouteConfig<Record<string, unknown>, unknown> = {
+	policyAction: POLICY_ACTION_CATALOG.identity.updateOwnNotifications,
 	mutation: true,
-	deferPolicyToUseCase: true,
 	fn: async (ctx, input) => {
 		if (input.markAllRead) {
 			await markAllOwnNotificationsRead(ctx);
@@ -31,12 +32,13 @@ export const PUT = handle<Record<string, unknown>, unknown>({
 
 		fail(400, 'Missing id or markAllRead');
 	}
-});
+};
 
-export const DELETE = handle<Record<string, unknown>, unknown>({
-	permission: 'none',
+export const PUT = handle(_putConfig);
+
+export const _deleteConfig: RouteConfig<Record<string, unknown>, unknown> = {
+	policyAction: POLICY_ACTION_CATALOG.identity.deleteOwnNotifications,
 	mutation: true,
-	deferPolicyToUseCase: true,
 	fn: async (ctx, input) => {
 		if (input.deleteAll) {
 			await deleteAllOwnNotifications(ctx);
@@ -48,4 +50,6 @@ export const DELETE = handle<Record<string, unknown>, unknown>({
 		await deleteOwnNotification(ctx, input.id as string);
 		return { success: true };
 	}
-});
+};
+
+export const DELETE = handle(_deleteConfig);

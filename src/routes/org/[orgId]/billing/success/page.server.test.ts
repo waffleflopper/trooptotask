@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+import { loadWithContextCore } from '$lib/server/adapters/httpAdapter';
 import { CHECKOUT_ATTEMPTS_TABLE, type CheckoutAttemptRow } from '$lib/server/core/useCases/billingCheckoutAttempts';
 import type { BillingSnapshot } from '$lib/types/subscription';
 
@@ -239,6 +241,31 @@ describe('billing success page server load', () => {
 		getConfiguredPriceCatalogMock.mockClear();
 	});
 
+	it('denies non-owner checkout success loads through billing policy', async () => {
+		const ctx = createTestContext({
+			auth: {
+				orgId: 'org-1',
+				role: 'admin'
+			}
+		});
+		readCurrentBillingSnapshotMock.mockResolvedValue(snapshot());
+
+		await expect(
+			loadWithContextCore(ctx, {
+				policyAction: POLICY_ACTION_CATALOG.organization.accessBilling,
+				fn: (loadCtx) =>
+					_loadCheckoutSuccessPageData(loadCtx, {
+						checkoutAttemptId: null
+					})
+			})
+		).rejects.toMatchObject({
+			status: 403,
+			body: { message: 'Only the organization owner can perform this action' }
+		});
+
+		expect(readCurrentBillingSnapshotMock).not.toHaveBeenCalled();
+	});
+
 	it('returns route data derived from the billing snapshot and checkout attempt id', async () => {
 		const ctx = createTestContext({
 			auth: {
@@ -299,6 +326,59 @@ describe('billing success page server load', () => {
 				})
 			})
 		);
+	});
+
+	it('recovers completed provider checkout while the organization is read-only', async () => {
+		const ctx = createTestContext({
+			auth: {
+				orgId: 'org-1'
+			},
+			readOnly: true
+		});
+		ctx.rawStore.seed(CHECKOUT_ATTEMPTS_TABLE, [attempt() as unknown as Record<string, unknown>]);
+		readCurrentBillingSnapshotMock
+			.mockResolvedValueOnce(
+				snapshot({ commercialPlan: 'free', subscriptionStatus: null, syncStatus: 'not_configured' })
+			)
+			.mockResolvedValueOnce(snapshot());
+		const recoverCheckoutSuccess = vi.fn().mockResolvedValue(true);
+
+		await expect(
+			_loadCheckoutSuccessPageData(ctx, {
+				checkoutAttemptId: 'attempt-success-return',
+				recoverCheckoutSuccess
+			})
+		).resolves.toEqual({
+			orgId: 'org-1',
+			checkoutStatus: expect.objectContaining({
+				state: 'active',
+				title: 'Plan Active'
+			})
+		});
+		expect(recoverCheckoutSuccess).toHaveBeenCalled();
+	});
+
+	it('does not swallow billing policy denials during checkout success recovery', async () => {
+		const ctx = createTestContext({
+			auth: {
+				orgId: 'org-1',
+				role: 'admin'
+			}
+		});
+		ctx.rawStore.seed(CHECKOUT_ATTEMPTS_TABLE, [attempt() as unknown as Record<string, unknown>]);
+		readCurrentBillingSnapshotMock.mockResolvedValue(
+			snapshot({ commercialPlan: 'free', subscriptionStatus: null, syncStatus: 'not_configured' })
+		);
+
+		await expect(
+			_loadCheckoutSuccessPageData(ctx, {
+				checkoutAttemptId: 'attempt-success-return',
+				recoverCheckoutSuccess: vi.fn().mockResolvedValue(true)
+			})
+		).rejects.toMatchObject({
+			status: 403,
+			message: 'Only the organization owner can perform this action'
+		});
 	});
 
 	it('ignores blank checkout attempt ids while still reading local billing state', async () => {

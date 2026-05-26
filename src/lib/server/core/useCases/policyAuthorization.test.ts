@@ -13,6 +13,28 @@ const baseCapabilityMap = {
 } as const;
 
 describe('policy authorization', () => {
+	it('uses user-facing missing-capability copy that points members to an owner or admin', async () => {
+		await expect(
+			requirePolicyDecision(
+				{
+					auth: {
+						role: 'member',
+						capabilityMap: { ...baseCapabilityMap, personnel: 'view' },
+						compatibilityLanes: {},
+						scopeSet: { kind: 'organization' }
+					},
+					audit: auditSpy()
+				},
+				POLICY_ACTION_CATALOG.personnel.readSensitiveRecords,
+				{ kind: 'organization' }
+			)
+		).rejects.toMatchObject({
+			status: 403,
+			message:
+				"You don't have permission. This requires Personnel can manage permissions. Talk to your organization owner or admin."
+		});
+	});
+
 	it('denies through the shared policy denial helper while preserving the route audit shape', async () => {
 		const audit = auditSpy();
 

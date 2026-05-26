@@ -11,7 +11,6 @@ import type { SpecialDay } from '$lib/types';
 
 export const SpecialDayEntity = defineEntity<SpecialDay>({
 	table: 'special_days',
-	permission: 'calendar',
 	policyAction: POLICY_ACTION_CATALOG.calendar.configureSpecialDays,
 	methods: ['POST', 'PUT', 'DELETE'],
 	groupScope: 'none',

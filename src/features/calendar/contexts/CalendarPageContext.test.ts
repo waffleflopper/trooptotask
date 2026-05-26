@@ -171,6 +171,27 @@ describe('CalendarPageContext', () => {
 			expect(operatorCtx.canManageAvailability).toBe(true);
 			expect(operatorCtx.canManageAssignments).toBe(true);
 		});
+
+		it('allows group-scoped Calendar managers to view and manage the scoped workspace', () => {
+			const scopedManagerCtx = new CalendarPageContext(
+				mockData,
+				makeMockOrg({
+					capabilityMap: {
+						calendar: 'operate',
+						personnel: 'view',
+						training: 'view',
+						criticalTasks: 'view',
+						onboarding: 'view',
+						ratingScheme: 'view'
+					},
+					scopeSet: { kind: 'groups', groupIds: ['g1'] }
+				})
+			);
+
+			expect(scopedManagerCtx.canViewCalendar).toBe(true);
+			expect(scopedManagerCtx.canManageAvailability).toBe(true);
+			expect(scopedManagerCtx.canManageAssignments).toBe(true);
+		});
 	});
 
 	describe('isHydrating', () => {

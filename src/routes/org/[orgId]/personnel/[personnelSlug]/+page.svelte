@@ -25,11 +25,17 @@
 	const roster = $derived(data.personnel?.data?.personnel ?? []);
 	const groups = $derived(data.personnel?.data?.groups ?? []);
 	const person = $derived(data.personnelDetailHeader.person);
+	const archiveResource = $derived(
+		person.groupId ? { kind: 'group' as const, groupId: person.groupId } : { kind: 'organization' as const }
+	);
+	const archiveAffordance = $derived(
+		org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.personnel.manageRecords, archiveResource)
+	);
 	const canArchivePersonnel = $derived(
-		org.affordanceForFeatureAction(
-			POLICY_ACTION_CATALOG.personnel.archiveRecords,
-			person.groupId ? { kind: 'group', groupId: person.groupId } : { kind: 'organization' }
-		).allowed
+		archiveAffordance.allowed ||
+			(archiveAffordance.reason === 'denied:read-only-overlay' &&
+				org.hasCapability('personnel', 'operate') &&
+				org.isResourceInScope(archiveResource))
 	);
 </script>
 

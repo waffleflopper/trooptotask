@@ -5,18 +5,20 @@ import { listPersonnelDocuments } from './personnelDocuments';
 import { listPersonnelFollowUps } from './personnelFollowUps';
 import { listPersonnelLeaderNotes } from './personnelLeaderNotes';
 
-function operateContext() {
+function configureContext() {
 	const ctx = createTestContext({
 		auth: {
 			capabilityMap: {
 				calendar: 'view',
-				personnel: 'operate',
+				personnel: 'configure',
 				training: 'view',
 				criticalTasks: 'view',
 				onboarding: 'view',
 				ratingScheme: 'view'
 			},
-			scopeSet: { kind: 'organization' },
+			scopeSet: { kind: 'organization' }
+		},
+		scope: {
 			requireGroupAccess: vi.fn(async () => {})
 		}
 	});
@@ -26,7 +28,7 @@ function operateContext() {
 
 describe('personnel artifact authorization', () => {
 	it('caches the shared Personnel access check across dashboard artifact loaders', async () => {
-		const ctx = operateContext();
+		const ctx = configureContext();
 		const findOne = ctx.rawStore.findOne.bind(ctx.rawStore);
 		const findOneSpy = vi.fn(findOne);
 		ctx.rawStore.findOne = findOneSpy as unknown as typeof ctx.rawStore.findOne;
@@ -39,39 +41,40 @@ describe('personnel artifact authorization', () => {
 		]);
 
 		expect(findOneSpy.mock.calls.filter(([table]) => table === 'personnel')).toHaveLength(1);
-		expect(ctx.auth.requireGroupAccess).toHaveBeenCalledTimes(1);
+		expect(ctx.scope.requireGroupAccess).toHaveBeenCalledTimes(1);
 	});
 
 	it('keeps group-scope rejection inside the shared service-layer helper', async () => {
-		const ctx = operateContext();
-		(ctx.auth as typeof ctx.auth & { requireGroupAccess: typeof ctx.auth.requireGroupAccess }).requireGroupAccess =
-			vi.fn(async () => {
-				const error = new Error('Group access denied') as Error & { status?: number };
-				error.status = 403;
-				throw error;
-			});
+		const ctx = configureContext();
+		ctx.scope.requireGroupAccess = vi.fn(async () => {
+			const error = new Error('Group access denied') as Error & { status?: number };
+			error.status = 403;
+			throw error;
+		});
 
 		await expect(listPersonnelDocuments(ctx, 'person-1', 5)).rejects.toMatchObject({ status: 403 });
 	});
 
-	it('rejects artifact reads when the caller lacks Personnel operate capability', async () => {
+	it('rejects artifact reads when the caller lacks Personnel configure capability', async () => {
 		const ctx = createTestContext({
 			auth: {
 				capabilityMap: {
 					calendar: 'view',
-					personnel: 'view',
+					personnel: 'operate',
 					training: 'view',
 					criticalTasks: 'view',
 					onboarding: 'view',
 					ratingScheme: 'view'
 				},
-				scopeSet: { kind: 'organization' },
+				scopeSet: { kind: 'organization' }
+			},
+			scope: {
 				requireGroupAccess: vi.fn(async () => {})
 			}
 		});
 		ctx.store.seed('personnel', [{ id: 'person-1', organization_id: ctx.auth.orgId, group_id: null }]);
 
 		await expect(listPersonnelDocuments(ctx, 'person-1', 5)).rejects.toMatchObject({ status: 403 });
-		expect(ctx.auth.requireGroupAccess).not.toHaveBeenCalled();
+		expect(ctx.scope.requireGroupAccess).not.toHaveBeenCalled();
 	});
 });

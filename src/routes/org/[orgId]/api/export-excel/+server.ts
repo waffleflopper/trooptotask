@@ -8,6 +8,7 @@ import {
 import { loadOrganizationExportPayload } from '$lib/server/core/useCases/organizationExport';
 import { buildOrganizationDataExportWorkbook } from '$lib/server/core/useCases/organizationExportWorkbook';
 import { workbookBufferResponse, writeWorkbookBuffer } from '$lib/export/workbook';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 
 interface ExcelExportInput {
 	email: string | undefined;
@@ -17,8 +18,9 @@ type WorkbookExportArtifact = Extract<OrganizationDataExportArtifact, { kind: 'w
 type ExcelExportOutput = OrganizationDataExportExecutionResult<WorkbookExportArtifact>;
 
 export const _postConfig: RouteConfig<ExcelExportInput, ExcelExportOutput> = {
-	permission: 'manageMembers',
 	mutation: true,
+	policyAction: POLICY_ACTION_CATALOG.organization.exportData,
+	policyResource: { kind: 'organization' },
 	parseInput: (event: RequestEvent) => ({
 		email: event.locals.user?.email
 	}),

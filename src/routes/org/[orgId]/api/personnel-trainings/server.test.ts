@@ -1,10 +1,19 @@
 import { describe, expect, it } from 'vitest';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
-import { _postConfig } from './+server';
+import { _deleteConfig, _postConfig, _putConfig } from './+server';
 
 describe('/api/personnel-trainings route config', () => {
-	it('defers mutation authorization to Training policy use cases instead of legacy edit flags', async () => {
+	it('uses policy-first route configs for all personnel training mutations', () => {
+		for (const config of [_postConfig, _putConfig, _deleteConfig]) {
+			expect('permission' in config).toBe(false);
+			expect(config.policyAction).toBe(POLICY_ACTION_CATALOG.training.recordCompletions);
+			expect(config.policyResource).toEqual({ kind: 'unscoped' });
+		}
+	});
+
+	it('authorizes Training record writes through policy decisions before use-case scoped checks', async () => {
 		let legacyEditCalled = false;
 		const ctx = createTestContext({
 			auth: {
@@ -56,5 +65,39 @@ describe('/api/personnel-trainings route config', () => {
 		expect(legacyEditCalled).toBe(false);
 		const stored = await ctx.store.findMany('personnel_trainings', ctx.auth.orgId);
 		expect(stored).toHaveLength(1);
+	});
+
+	it('denies personnel training writes before executing the use case when Training policy is missing', async () => {
+		const ctx = createTestContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'none',
+					training: 'view',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				},
+				scopeSet: { kind: 'organization' }
+			}
+		});
+
+		await expect(
+			handleUseCaseRequest(_postConfig, ctx, {
+				personnelId: 'p-1',
+				trainingTypeId: 'tt-1',
+				completionDate: '2026-01-01',
+				notes: null,
+				certificateUrl: null
+			})
+		).rejects.toMatchObject({ status: 403 });
+		expect(ctx.auditPort.events).toEqual([
+			expect.objectContaining({
+				action: 'policy.denied',
+				resourceType: 'training.recordCompletions'
+			})
+		]);
 	});
 });

@@ -9,7 +9,6 @@ export const load: PageServerLoad = async ({ params, locals, cookies, parent }) 
 	const onboardingWorkspace = await parentData.onboarding.data;
 
 	const data = await loadWithContext(locals, cookies, orgId, {
-		permission: 'onboarding',
 		policyAction: POLICY_ACTION_CATALOG.onboarding.configureWorkflows,
 		policyResource: { kind: 'unscoped' },
 		fn: fetchOnboardingTemplatesData

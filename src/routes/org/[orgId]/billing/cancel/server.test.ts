@@ -212,6 +212,28 @@ describe('POST /billing/cancel', () => {
 		expect(ctx.billingPort.calls).toEqual([]);
 	});
 
+	it('blocks immediate cancellation while the organization is read-only', async () => {
+		const ctx = createTestContext({ readOnly: true });
+		ctx.rawStore.seed('organizations', [
+			{
+				id: ctx.auth.orgId,
+				name: 'Alpha Company',
+				tier: 'team',
+				stripe_customer_id: 'cus_123',
+				stripe_subscription_id: 'sub_123',
+				subscription_status: 'active'
+			}
+		]);
+		buildRouteContextMock.mockResolvedValue(ctx);
+
+		const response = await POST(cancelEvent(ctx));
+
+		expect(response.status).toBe(403);
+		expect(await response.json()).toEqual({ error: 'Organization is in read-only mode' });
+		expect(ctx.billingPort.calls).toEqual([]);
+		expect(snapshotUpserts).toEqual([]);
+	});
+
 	it('acknowledges cancellation when the snapshot transition mirror must be reconciled by webhook processing', async () => {
 		const ctx = createTestContext();
 		ctx.rawStore.seed('organizations', [

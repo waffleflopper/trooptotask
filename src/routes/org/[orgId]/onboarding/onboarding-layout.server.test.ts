@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { Cookies } from '@sveltejs/kit';
+import { error, type Cookies } from '@sveltejs/kit';
 import { createInMemoryOrgWorkspacePort } from '$lib/server/adapters/inMemoryOrgShell';
 import { createDefaultHydrationPlanner } from '$lib/server/core/hydrationPlanner';
 import type { Group } from '$lib/stores/groups.svelte';
@@ -61,9 +61,11 @@ describe('onboarding layout server load', () => {
 		const plannerPort = createDefaultHydrationPlanner('org-1');
 		const createWorkspacePort = vi.fn().mockReturnValue(workspacePort);
 		const createPlannerPort = vi.fn().mockReturnValue(plannerPort);
+		const authorizeAccess = vi.fn().mockResolvedValue(undefined);
 		const load = _createOnboardingLayoutLoad({
 			createWorkspacePort,
-			createPlannerPort
+			createPlannerPort,
+			authorizeAccess
 		});
 		const locals = {} as App.Locals;
 		const cookies = {} as Cookies;
@@ -80,6 +82,7 @@ describe('onboarding layout server load', () => {
 
 		expect(depends).toHaveBeenCalledTimes(1);
 		expect(depends).toHaveBeenCalledWith('app:org-core', 'app:onboarding-data');
+		expect(authorizeAccess).toHaveBeenCalledWith({ locals, cookies, orgId: 'org-1' });
 		expect(createWorkspacePort).toHaveBeenCalledWith({ locals, cookies, orgId: 'org-1' });
 		expect(createPlannerPort).toHaveBeenCalledWith('org-1');
 		expect(result.onboarding.data).toBeInstanceOf(Promise);
@@ -109,5 +112,38 @@ describe('onboarding layout server load', () => {
 				})
 			}
 		} satisfies WorkspaceBootstrap<OnboardingBootstrap>);
+	});
+
+	it('throws a route-level permission error before starting streamed onboarding data', async () => {
+		const depends = vi.fn();
+		const createWorkspacePort = vi.fn();
+		const createPlannerPort = vi.fn();
+		const authorizeAccess = vi.fn(async () => {
+			throw error(403, 'No onboarding access');
+		});
+		const load = _createOnboardingLayoutLoad({
+			createWorkspacePort,
+			createPlannerPort,
+			authorizeAccess
+		});
+		const locals = {} as App.Locals;
+		const cookies = {} as Cookies;
+
+		try {
+			await load({
+				params: { orgId: 'org-1' },
+				locals,
+				cookies,
+				depends
+			} as unknown as Parameters<typeof load>[0]);
+			throw new Error('Expected onboarding layout load to throw');
+		} catch (err) {
+			expect((err as { status?: number }).status).toBe(403);
+		}
+
+		expect(depends).toHaveBeenCalledWith('app:org-core', 'app:onboarding-data');
+		expect(authorizeAccess).toHaveBeenCalledWith({ locals, cookies, orgId: 'org-1' });
+		expect(createWorkspacePort).not.toHaveBeenCalled();
+		expect(createPlannerPort).not.toHaveBeenCalled();
 	});
 });

@@ -64,7 +64,7 @@ describe('parseMemberAccessEditFormData', () => {
 });
 
 describe('memberAccessCommandToStorage', () => {
-	it('projects a member access command into storage and compatibility fields', () => {
+	it('projects a member access command into replacement storage fields only', () => {
 		expect(
 			memberAccessCommandToStorage({
 				membershipRole: 'member',
@@ -79,22 +79,6 @@ describe('memberAccessCommandToStorage', () => {
 			})
 		).toEqual({
 			role: 'member',
-			singleGroupCompatibilityId: '11111111-1111-4111-8111-111111111111',
-			permissions: {
-				canViewCalendar: true,
-				canEditCalendar: true,
-				canViewPersonnel: true,
-				canEditPersonnel: false,
-				canViewTraining: true,
-				canEditTraining: false,
-				canViewCriticalTasks: true,
-				canEditCriticalTasks: false,
-				canViewOnboarding: true,
-				canEditOnboarding: false,
-				canViewRatingScheme: false,
-				canEditRatingScheme: false,
-				canManageMembers: false
-			},
 			memberPreset: 'operator',
 			capabilityOverrides: { calendar: 'configure', ratingScheme: 'none' },
 			accessScopeKind: 'groups',
@@ -111,7 +95,5 @@ describe('memberAccessCommandToStorage', () => {
 		expect(storage.memberPreset).toBe('editor');
 		expect(storage.accessScopeKind).toBe('organization');
 		expect(storage.accessScopeGroupIds).toEqual([]);
-		expect(storage.permissions.canManageMembers).toBe(true);
-		expect(storage.permissions.canEditPersonnel).toBe(true);
 	});
 });

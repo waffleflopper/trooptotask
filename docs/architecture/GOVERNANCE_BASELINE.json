@@ -145,12 +145,10 @@
 			"path": "src/lib/access/memberAccessShape.ts",
 			"classification": "compatibility-adapter",
 			"patterns": [
-				"isFullEditor",
-				"canEdit*",
-				"scopedGroupId"
+				"canEdit*"
 			],
-			"ownerIssue": "#757",
-			"reason": "Member access shape still translates legacy flags and single-Group scope into replacement access data; historical compatibility translation is retained for auditability while current per-Soldier workflows live under Personnel.",
+			"ownerIssue": "#1113",
+			"reason": "Member access shape derives route-data Permission Flag compatibility from replacement Capability Map data only; it no longer reads legacy storage or single-Group storage.",
 			"driftIds": [
 				"D-01"
 			]
@@ -160,28 +158,10 @@
 			"classification": "compatibility-adapter",
 			"patterns": [
 				"canEdit*",
-				"scopedGroupId",
-				"scoped_group_id",
-				"can_view_*",
-				"can_edit_*"
+				"scopedGroupId"
 			],
-			"ownerIssue": "#757",
-			"reason": "Member access projection centralizes read-model translation from legacy membership rows into Capability Map, Scope Set, and route-data compatibility fields.",
-			"driftIds": [
-				"D-01"
-			]
-		},
-		{
-			"path": "src/lib/server/adapters/supabaseOrgSettingsMemberManagement.ts",
-			"classification": "compatibility-adapter",
-			"patterns": [
-				"canEdit*",
-				"scoped_group_id",
-				"can_view_*",
-				"can_edit_*"
-			],
-			"ownerIssue": "#757",
-			"reason": "Member management persistence still round-trips legacy columns while the replacement access shape rolls out.",
+			"ownerIssue": "#1113",
+			"reason": "Member access projection exposes route-data compatibility fields derived from replacement storage only; legacy Permission Flag and scoped_group_id fallback paths have been removed.",
 			"driftIds": [
 				"D-01"
 			]
@@ -190,13 +170,24 @@
 			"path": "src/lib/server/adapters/supabaseOrgShell.ts",
 			"classification": "compatibility-adapter",
 			"patterns": [
-				"scopedGroupId",
+				"scopedGroupId"
+			],
+			"ownerIssue": "#1113",
+			"reason": "Org shell still emits the old single-Group route-data field from replacement Scope Set for transitional callers; it no longer reads scoped_group_id.",
+			"driftIds": [
+				"D-01"
+			]
+		},
+		{
+			"path": "supabase/migrations/20260526000100_normalize_member_access_replacement_storage.sql",
+			"classification": "historical-migration",
+			"patterns": [
 				"scoped_group_id",
 				"can_view_*",
 				"can_edit_*"
 			],
-			"ownerIssue": "#757",
-			"reason": "Org shell loading still reads legacy booleans and single-Group scope only to translate membership rows into Capability Map and Scope Set data.",
+			"ownerIssue": "#1108",
+			"reason": "Normalization migration intentionally derives replacement member access from legacy columns before app compatibility paths are removed.",
 			"driftIds": [
 				"D-01"
 			]
@@ -228,33 +219,6 @@
 			]
 		},
 		{
-			"path": "src/lib/server/core/useCases/organizationInvitationMembership.ts",
-			"classification": "compatibility-adapter",
-			"patterns": [
-				"canEdit*",
-				"scopedGroupId"
-			],
-			"ownerIssue": "#757",
-			"reason": "Organization invitation membership maps legacy invite fields into member access compatibility data during invite acceptance.",
-			"driftIds": [
-				"D-01"
-			]
-		},
-		{
-			"path": "src/lib/server/permissionContext.ts",
-			"classification": "compatibility-adapter",
-			"patterns": [
-				"scoped_group_id",
-				"can_view_*",
-				"can_edit_*"
-			],
-			"ownerIssue": "#757",
-			"reason": "Permission context still translates legacy membership columns into Capability Map and Scope Set data for org-shell compatibility.",
-			"driftIds": [
-				"D-01"
-			]
-		},
-		{
 			"path": "src/lib/stores/orgContext.svelte.ts",
 			"classification": "compatibility-adapter",
 			"patterns": [
@@ -271,12 +235,11 @@
 			"path": "src/lib/types.ts",
 			"classification": "compatibility-adapter",
 			"patterns": [
-				"isFullEditor",
 				"canEdit*",
 				"scopedGroupId"
 			],
 			"ownerIssue": "#767",
-			"reason": "Shared route data types retain legacy compatibility fields for older route data while new authorization uses Capability Map, Scope Set, and Policy Decisions.",
+			"reason": "Shared route data types retain legacy edit and single-Group compatibility fields for older route data while new authorization uses Capability Map, Scope Set, and Policy Decisions.",
 			"driftIds": [
 				"D-01"
 			]
@@ -307,24 +270,13 @@
 			]
 		},
 		{
-			"path": "src/routes/org/[orgId]/settings/settingsMemberAccessReadModel.server.ts",
-			"classification": "compatibility-adapter",
-			"patterns": [
-				"scoped_group_id"
-			],
-			"ownerIssue": "#976",
-			"reason": "Settings member-access read model translates legacy single-Group scope into the shaped Organization Settings workspace Scope Set before route data reaches the page.",
-			"driftIds": [
-				"D-01"
-			]
-		},
-		{
 			"path": "supabase/migrations/20260413001158_remote_schema.sql",
 			"classification": "historical-migration",
 			"patterns": [
 				"scoped_group_id",
 				"can_view_*",
-				"can_edit_*"
+				"can_edit_*",
+				"can_manage_members"
 			],
 			"ownerIssue": "#766",
 			"reason": "Historical remote schema snapshot preserves legacy authorization columns and helpers.",
@@ -419,7 +371,8 @@
 			"classification": "historical-migration",
 			"patterns": [
 				"can_view_*",
-				"can_edit_*"
+				"can_edit_*",
+				"can_manage_members"
 			],
 			"ownerIssue": "#1009",
 			"reason": "Organization invitation role snapshot migration intentionally backfills Membership Role from legacy compatibility permission flags before future acceptance copies the stored snapshot.",
@@ -433,7 +386,8 @@
 			"patterns": [
 				"can_view_*",
 				"can_edit_*",
-				"scoped_group_id"
+				"scoped_group_id",
+				"can_manage_members"
 			],
 			"ownerIssue": "#1010",
 			"reason": "Atomic invitation acceptance transition intentionally copies stored compatibility permission flags from Organization Invitation snapshots into Organization Membership rows.",
@@ -447,7 +401,8 @@
 			"patterns": [
 				"can_view_*",
 				"can_edit_*",
-				"scoped_group_id"
+				"scoped_group_id",
+				"can_manage_members"
 			],
 			"ownerIssue": "#1013",
 			"reason": "Access-request-gated invitation acceptance redefines the existing atomic transition and intentionally preserves stored compatibility permission snapshot copying while adding the account-setup guard.",
@@ -561,7 +516,8 @@
 			"path": "supabase/migrations/20260515000600_repair_groups_access_after_leaders_book_retirement.sql",
 			"classification": "compatibility-adapter",
 			"patterns": [
-				"can_view_*"
+				"can_view_*",
+				"can_manage_members"
 			],
 			"ownerIssue": "#891",
 			"reason": "Leader's Book retirement repair migration historically redefines the existing Groups RLS helper API so Personnel bootstrap can read groups through durable member-access capabilities instead of dropped Leaders Book flags.",
@@ -583,20 +539,6 @@
 			]
 		},
 		{
-			"path": "supabase/seed.sql",
-			"classification": "local-seed-fixture",
-			"patterns": [
-				"scoped_group_id",
-				"can_view_*",
-				"can_edit_*"
-			],
-			"ownerIssue": "#766",
-			"reason": "Local seed data still includes legacy authorization columns as fixture compatibility.",
-			"driftIds": [
-				"D-01"
-			]
-		},
-		{
 			"path": "src/lib/test-support/orgContextBuilder.ts",
 			"classification": "compatibility-adapter",
 			"patterns": [
@@ -605,6 +547,34 @@
 			],
 			"ownerIssue": "#757",
 			"reason": "Shared test OrgContext builder derives legacy permission flags from the capability map so test files do not maintain both in sync.",
+			"driftIds": [
+				"D-01"
+			]
+		},
+		{
+			"path": "supabase/migrations/20260526000250_repair_rls_before_legacy_member_access_drop.sql",
+			"classification": "compatibility-adapter",
+			"patterns": [
+				"can_view_*",
+				"can_edit_*"
+			],
+			"ownerIssue": "#1114",
+			"reason": "Pre-drop RLS repair keeps historical helper and policy names while replacing direct legacy member-access column reads with replacement capability helpers before the columns are removed.",
+			"driftIds": [
+				"D-01"
+			]
+		},
+		{
+			"path": "supabase/migrations/20260526000300_drop_legacy_member_access_columns.sql",
+			"classification": "historical-migration",
+			"patterns": [
+				"scoped_group_id",
+				"can_view_*",
+				"can_edit_*",
+				"can_manage_members"
+			],
+			"ownerIssue": "#1114",
+			"reason": "Final cleanup migration intentionally names legacy member-access columns only to drop them from memberships and invitations.",
 			"driftIds": [
 				"D-01"
 			]

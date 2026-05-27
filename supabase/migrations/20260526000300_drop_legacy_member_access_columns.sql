@@ -1,0 +1,31 @@
+ALTER TABLE "public"."organization_memberships"
+	DROP COLUMN IF EXISTS "can_view_calendar",
+	DROP COLUMN IF EXISTS "can_edit_calendar",
+	DROP COLUMN IF EXISTS "can_view_personnel",
+	DROP COLUMN IF EXISTS "can_edit_personnel",
+	DROP COLUMN IF EXISTS "can_view_training",
+	DROP COLUMN IF EXISTS "can_edit_training",
+	DROP COLUMN IF EXISTS "can_view_critical_tasks",
+	DROP COLUMN IF EXISTS "can_edit_critical_tasks",
+	DROP COLUMN IF EXISTS "can_view_onboarding",
+	DROP COLUMN IF EXISTS "can_edit_onboarding",
+	DROP COLUMN IF EXISTS "can_view_rating_scheme",
+	DROP COLUMN IF EXISTS "can_edit_rating_scheme",
+	DROP COLUMN IF EXISTS "can_manage_members",
+	DROP COLUMN IF EXISTS "scoped_group_id";
+
+ALTER TABLE "public"."organization_invitations"
+	DROP COLUMN IF EXISTS "can_view_calendar",
+	DROP COLUMN IF EXISTS "can_edit_calendar",
+	DROP COLUMN IF EXISTS "can_view_personnel",
+	DROP COLUMN IF EXISTS "can_edit_personnel",
+	DROP COLUMN IF EXISTS "can_view_training",
+	DROP COLUMN IF EXISTS "can_edit_training",
+	DROP COLUMN IF EXISTS "can_view_critical_tasks",
+	DROP COLUMN IF EXISTS "can_edit_critical_tasks",
+	DROP COLUMN IF EXISTS "can_view_onboarding",
+	DROP COLUMN IF EXISTS "can_edit_onboarding",
+	DROP COLUMN IF EXISTS "can_view_rating_scheme",
+	DROP COLUMN IF EXISTS "can_edit_rating_scheme",
+	DROP COLUMN IF EXISTS "can_manage_members",
+	DROP COLUMN IF EXISTS "scoped_group_id";

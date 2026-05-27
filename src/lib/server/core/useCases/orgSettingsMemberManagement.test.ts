@@ -5,7 +5,6 @@ import {
 	createFakeOrganizationInvitationRateLimiter as createInvitationRateLimiter,
 	memberAccessFixture as memberAccess
 } from '$lib/test-support/authWorkflowFixtures';
-import type { OrganizationMemberPermissions } from '$lib/types';
 import {
 	inviteOrganizationMember as inviteOrganizationMemberUseCase,
 	leaveOrganization,
@@ -20,25 +19,6 @@ import {
 } from './orgSettingsMemberManagement';
 import { readOrganizationPlanUsage, type OrganizationPlanUsage } from './organizationPlanUsage';
 import type { EffectivePlanPolicy } from './planPolicy';
-
-function buildPermissions(overrides: Partial<OrganizationMemberPermissions> = {}): OrganizationMemberPermissions {
-	return {
-		canViewCalendar: true,
-		canEditCalendar: true,
-		canViewPersonnel: true,
-		canEditPersonnel: true,
-		canViewTraining: true,
-		canEditTraining: true,
-		canViewCriticalTasks: true,
-		canEditCriticalTasks: true,
-		canViewOnboarding: true,
-		canEditOnboarding: true,
-		canViewRatingScheme: true,
-		canEditRatingScheme: true,
-		canManageMembers: false,
-		...overrides
-	};
-}
 
 function createOrganizationSettingsMemberManagementPort(
 	options: {
@@ -698,7 +678,7 @@ describe('inviteOrganizationMember', () => {
 		]);
 	});
 
-	it('requires owner rights before granting member-management authority through a member invitation', async () => {
+	it('does not treat member invitation feature-lane fields as member-management authority', async () => {
 		const ctx = createTestContext({
 			auth: {
 				userId: 'actor-1',
@@ -724,24 +704,25 @@ describe('inviteOrganizationMember', () => {
 					actorEmail: 'actor@example.com'
 				}
 			)
-		).rejects.toMatchObject({
-			status: 403,
-			message: 'Only the organization owner can perform this action'
-		});
+		).resolves.toMatchObject({ inviteSuccess: true });
 
-		expect(port.invitationLookups).toEqual([]);
-		expect(port.createdInvitations).toEqual([]);
-		expect(ctx.auditPort.events).toEqual([
-			{
+		expect(port.createdInvitations).toHaveLength(1);
+		expect(port.createdInvitations[0]).toEqual({
+			organizationId: 'org-1',
+			email: 'new.manager@example.com',
+			invitedBy: 'actor-1',
+			role: 'member',
+			memberPreset: 'editor',
+			capabilityOverrides: {},
+			accessScopeKind: 'organization',
+			accessScopeGroupIds: []
+		});
+		expect(ctx.auditPort.events).not.toContainEqual(
+			expect.objectContaining({
 				action: 'policy.denied',
-				resourceType: 'organization',
-				details: {
-					policyAction: 'organization.updateAdminAccess',
-					reasonCode: 'denied:owner-only'
-				},
-				severity: 'warning'
-			}
-		]);
+				details: expect.objectContaining({ policyAction: 'organization.updateAdminAccess' })
+			})
+		);
 	});
 
 	it('requires recent assurance before creating high-privilege invitations', async () => {
@@ -905,9 +886,6 @@ describe('inviteOrganizationMember', () => {
 		expect(port.createdInvitations).toHaveLength(1);
 		expect(port.createdInvitations[0]).toMatchObject({
 			role: 'member',
-			permissions: expect.objectContaining({
-				canManageMembers: false
-			}),
 			memberPreset: 'viewer'
 		});
 		expect(ctx.sensitiveActionAuthorizer.requests).toEqual([]);
@@ -948,22 +926,6 @@ describe('inviteOrganizationMember', () => {
 				email: 'new.user@example.com',
 				invitedBy: 'actor-1',
 				role: 'member',
-				singleGroupCompatibilityId: '11111111-1111-4111-8111-111111111111',
-				permissions: {
-					canViewCalendar: true,
-					canEditCalendar: true,
-					canViewPersonnel: true,
-					canEditPersonnel: false,
-					canViewTraining: true,
-					canEditTraining: false,
-					canViewCriticalTasks: true,
-					canEditCriticalTasks: false,
-					canViewOnboarding: true,
-					canEditOnboarding: false,
-					canViewRatingScheme: true,
-					canEditRatingScheme: false,
-					canManageMembers: false
-				},
 				memberPreset: 'operator',
 				capabilityOverrides: { calendar: 'configure' },
 				accessScopeKind: 'groups',
@@ -1028,21 +990,6 @@ describe('inviteOrganizationMember', () => {
 				invitedBy: 'actor-1',
 				invitedAt: '2026-05-22T12:00:00.000Z',
 				role: 'member',
-				permissions: {
-					canViewCalendar: true,
-					canEditCalendar: true,
-					canViewPersonnel: true,
-					canEditPersonnel: false,
-					canViewTraining: true,
-					canEditTraining: false,
-					canViewCriticalTasks: true,
-					canEditCriticalTasks: false,
-					canViewOnboarding: true,
-					canEditOnboarding: false,
-					canViewRatingScheme: true,
-					canEditRatingScheme: false,
-					canManageMembers: false
-				},
 				memberPreset: 'operator',
 				capabilityOverrides: { calendar: 'configure' },
 				accessScopeKind: 'groups',
@@ -1224,22 +1171,6 @@ describe('inviteOrganizationMember', () => {
 				email: 'manager@example.com',
 				invitedBy: 'owner-1',
 				role: 'member',
-				singleGroupCompatibilityId: '22222222-2222-4222-8222-222222222222',
-				permissions: {
-					canViewCalendar: true,
-					canEditCalendar: false,
-					canViewPersonnel: true,
-					canEditPersonnel: true,
-					canViewTraining: true,
-					canEditTraining: false,
-					canViewCriticalTasks: true,
-					canEditCriticalTasks: false,
-					canViewOnboarding: true,
-					canEditOnboarding: false,
-					canViewRatingScheme: true,
-					canEditRatingScheme: false,
-					canManageMembers: true
-				},
 				memberPreset: 'viewer',
 				capabilityOverrides: { personnel: 'configure' },
 				accessScopeKind: 'groups',
@@ -1253,21 +1184,11 @@ describe('inviteOrganizationMember', () => {
 				details: {
 					email: 'manager@example.com',
 					membershipRole: 'member',
-					memberPreset: 'viewer',
-					sensitiveAction: expect.objectContaining({
-						action: 'organization.member.inviteHighPrivilege',
-						reason: 'allowed.recentSession'
-					})
+					memberPreset: 'viewer'
 				}
 			}
 		]);
-		expect(ctx.sensitiveActionAuthorizer.requests).toEqual([
-			{
-				action: 'organization.member.inviteHighPrivilege',
-				actorUserId: 'owner-1',
-				target: { type: 'organization_invitation', id: 'manager@example.com' }
-			}
-		]);
+		expect(ctx.sensitiveActionAuthorizer.requests).toEqual([]);
 	});
 
 	it('queues invitation email delivery after creating the invitation without granting membership', async () => {
@@ -2472,7 +2393,7 @@ describe('updateOrganizationMemberPermissions', () => {
 		]);
 	});
 
-	it('requires owner rights before granting member-management authority through a member update', async () => {
+	it('does not treat feature-lane member access fields as member-management authority', async () => {
 		const ctx = createTestContext({
 			auth: {
 				userId: 'actor-1',
@@ -2498,23 +2419,20 @@ describe('updateOrganizationMemberPermissions', () => {
 					actorEmail: 'actor@example.com'
 				}
 			)
-		).rejects.toMatchObject({
-			status: 403,
-			message: 'Only the organization owner can perform this action'
-		});
+		).resolves.toEqual({ permissionSuccess: true });
 
-		expect(port.updatedMemberships).toEqual([]);
-		expect(ctx.auditPort.events).toEqual([
-			{
-				action: 'policy.denied',
-				resourceType: 'organization',
-				details: {
-					policyAction: 'organization.updateAdminAccess',
-					reasonCode: 'denied:owner-only'
-				},
-				severity: 'warning'
-			}
+		expect(port.updatedMemberships).toEqual([
+			expect.objectContaining({
+				role: 'member',
+				memberPreset: 'editor'
+			})
 		]);
+		expect(ctx.auditPort.events).not.toContainEqual(
+			expect.objectContaining({
+				action: 'policy.denied',
+				details: expect.objectContaining({ policyAction: 'organization.updateAdminAccess' })
+			})
+		);
 	});
 
 	it('blocks owner permission changes before auth escalation checks', async () => {
@@ -2665,7 +2583,7 @@ describe('updateOrganizationMemberPermissions', () => {
 		);
 	});
 
-	it('requires recent assurance before granting member-management authority without changing role', async () => {
+	it('does not require step-up when member feature-lane fields include legacy member-management intent', async () => {
 		const ctx = createTestContext({
 			auth: {
 				userId: 'owner-1',
@@ -2699,17 +2617,10 @@ describe('updateOrganizationMemberPermissions', () => {
 		);
 
 		expect(result).toEqual({ permissionSuccess: true });
-		expect(ctx.sensitiveActionAuthorizer.requests).toEqual([
-			{
-				action: 'organization.member.updateHighPrivilege',
-				actorUserId: 'owner-1',
-				target: { type: 'organization_membership', id: '11111111-1111-4111-8111-111111111111' }
-			}
-		]);
+		expect(ctx.sensitiveActionAuthorizer.requests).toEqual([]);
 		expect(port.updatedMemberships).toEqual([
 			expect.objectContaining({
-				role: 'member',
-				permissions: expect.objectContaining({ canManageMembers: true })
+				role: 'member'
 			})
 		]);
 	});
@@ -2752,8 +2663,6 @@ describe('updateOrganizationMemberPermissions', () => {
 				organizationId: 'org-1',
 				membershipId: '11111111-1111-4111-8111-111111111111',
 				role: 'admin',
-				singleGroupCompatibilityId: null,
-				permissions: buildPermissions({ canManageMembers: true }),
 				memberPreset: 'editor',
 				capabilityOverrides: {},
 				accessScopeKind: 'organization',
@@ -2768,6 +2677,9 @@ describe('updateOrganizationMemberPermissions', () => {
 					membershipId: '11111111-1111-4111-8111-111111111111',
 					membershipRole: 'admin',
 					memberPreset: 'editor',
+					capabilityOverrides: {},
+					accessScopeKind: 'organization',
+					accessScopeGroupIds: [],
 					sensitiveAction: expect.objectContaining({
 						action: 'organization.member.updateHighPrivilege',
 						reason: 'allowed.recentSession'
@@ -2823,8 +2735,6 @@ describe('updateOrganizationMemberPermissions', () => {
 				organizationId: 'org-1',
 				membershipId: '11111111-1111-4111-8111-111111111111',
 				role: 'member',
-				singleGroupCompatibilityId: null,
-				permissions: buildPermissions({ canEditPersonnel: false }),
 				memberPreset: 'editor',
 				capabilityOverrides: { personnel: 'view' },
 				accessScopeKind: 'organization',
@@ -2850,7 +2760,10 @@ describe('updateOrganizationMemberPermissions', () => {
 				details: {
 					membershipId: '11111111-1111-4111-8111-111111111111',
 					membershipRole: 'member',
-					memberPreset: 'editor'
+					memberPreset: 'editor',
+					capabilityOverrides: { personnel: 'view' },
+					accessScopeKind: 'organization',
+					accessScopeGroupIds: []
 				},
 				severity: 'warning'
 			}
@@ -2899,22 +2812,6 @@ describe('updateOrganizationMemberPermissions', () => {
 				organizationId: 'org-1',
 				membershipId: '11111111-1111-4111-8111-111111111111',
 				role: 'member',
-				singleGroupCompatibilityId: '22222222-2222-4222-8222-222222222222',
-				permissions: {
-					canViewCalendar: true,
-					canEditCalendar: true,
-					canViewPersonnel: true,
-					canEditPersonnel: false,
-					canViewTraining: true,
-					canEditTraining: false,
-					canViewCriticalTasks: true,
-					canEditCriticalTasks: false,
-					canViewOnboarding: true,
-					canEditOnboarding: false,
-					canViewRatingScheme: false,
-					canEditRatingScheme: false,
-					canManageMembers: false
-				},
 				memberPreset: 'operator',
 				capabilityOverrides: {
 					calendar: 'configure',

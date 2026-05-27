@@ -1,9 +1,7 @@
-import type { OrganizationMemberPermissions } from '$lib/types';
 import {
 	DURABLE_FEATURE_LANES,
 	isCapabilityLevel,
 	serializeScopeSetForStorage,
-	targetMemberAccessToCurrentPermissionFlags,
 	targetMemberAccessToStorage,
 	type CapabilityOverrideMap,
 	type MembershipRole,
@@ -29,8 +27,6 @@ export interface MemberAccessEditCommand {
 
 export interface MemberAccessStorageCommand {
 	role: EditableMembershipRole;
-	singleGroupCompatibilityId: string | null;
-	permissions: OrganizationMemberPermissions;
 	memberPreset: StoredMemberPreset;
 	capabilityOverrides: CapabilityOverrideMap;
 	accessScopeKind: ScopeSet['kind'];
@@ -61,37 +57,36 @@ export function memberAccessCommandToStorage(command: {
 	membershipRole: EditableMembershipRole;
 	memberAccess?: TargetMemberAccessCommand | null;
 }): MemberAccessStorageCommand {
+	const accessStorage = normalizeMemberAccessStorageCommand(command);
+	const serializedScope = serializeScopeSetForStorage(accessStorage.scopeSet);
+
+	return {
+		role: command.membershipRole,
+		memberPreset: accessStorage.memberPreset,
+		capabilityOverrides: accessStorage.capabilityOverrides,
+		accessScopeKind: serializedScope.access_scope_kind,
+		accessScopeGroupIds: serializedScope.access_scope_group_ids
+	};
+}
+
+function normalizeMemberAccessStorageCommand(command: {
+	membershipRole: EditableMembershipRole;
+	memberAccess?: TargetMemberAccessCommand | null;
+}) {
 	const memberAccess =
 		command.memberAccess ??
 		(command.membershipRole === 'admin'
 			? defaultMemberAccessForRole(command.membershipRole)
 			: throwBadRequest('Member preset is required'));
 	const scopeSet = normalizeScopeSet(memberAccess.scopeSet);
-	const permissions = targetMemberAccessToCurrentPermissionFlags({
-		membershipRole: command.membershipRole,
-		memberPreset: memberAccess.memberPreset,
-		capabilityOverrides: memberAccess.capabilityOverrides,
-		scopeSet,
-		canManageMembers: memberAccess.canManageMembers
-	});
-	const accessStorage = targetMemberAccessToStorage({
-		membershipRole: command.membershipRole,
-		memberPreset: memberAccess.memberPreset,
-		capabilityOverrides: memberAccess.capabilityOverrides,
-		scopeSet,
-		canManageMembers: memberAccess.canManageMembers
-	});
-	const serializedScope = serializeScopeSetForStorage(accessStorage.scopeSet);
 
-	return {
-		role: command.membershipRole,
-		singleGroupCompatibilityId: serializedScope.access_scope_group_ids[0] ?? null,
-		permissions,
-		memberPreset: accessStorage.memberPreset,
-		capabilityOverrides: accessStorage.capabilityOverrides,
-		accessScopeKind: serializedScope.access_scope_kind,
-		accessScopeGroupIds: serializedScope.access_scope_group_ids
-	};
+	return targetMemberAccessToStorage({
+		membershipRole: command.membershipRole,
+		memberPreset: memberAccess.memberPreset,
+		capabilityOverrides: memberAccess.capabilityOverrides,
+		scopeSet,
+		canManageMembers: memberAccess.canManageMembers
+	});
 }
 
 export function defaultMemberAccessForRole(role: EditableMembershipRole): TargetMemberAccessCommand {

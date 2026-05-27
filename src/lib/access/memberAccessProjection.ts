@@ -4,6 +4,7 @@ import {
 	createCompatibilityLaneMap,
 	resolveMemberAccessShapeFromStoredOrCurrent,
 	resolveRatingSchemePermissions,
+	toCurrentPermissionFlags,
 	type CapabilityMap,
 	type CompatibilityLaneMap,
 	type MemberPreset,
@@ -21,20 +22,20 @@ export type MemberAccessFeatureArea =
 
 export interface MemberAccessProjectionRow {
 	role: MembershipRole;
-	scoped_group_id: string | null;
-	can_view_calendar: boolean;
-	can_edit_calendar: boolean;
-	can_view_personnel: boolean;
-	can_edit_personnel: boolean;
-	can_view_training: boolean;
-	can_edit_training: boolean;
+	scoped_group_id?: string | null;
+	can_view_calendar?: boolean | null;
+	can_edit_calendar?: boolean | null;
+	can_view_personnel?: boolean | null;
+	can_edit_personnel?: boolean | null;
+	can_view_training?: boolean | null;
+	can_edit_training?: boolean | null;
 	can_view_critical_tasks?: boolean | null;
 	can_edit_critical_tasks?: boolean | null;
-	can_view_onboarding: boolean;
-	can_edit_onboarding: boolean;
+	can_view_onboarding?: boolean | null;
+	can_edit_onboarding?: boolean | null;
 	can_view_rating_scheme?: boolean | null;
 	can_edit_rating_scheme?: boolean | null;
-	can_manage_members: boolean;
+	can_manage_members?: boolean | null;
 	member_preset?: unknown;
 	capability_overrides?: unknown;
 	access_scope_kind?: unknown;
@@ -43,19 +44,19 @@ export interface MemberAccessProjectionRow {
 
 export interface MemberAccessPresentationRow {
 	scoped_group_id?: string | null;
-	can_view_calendar: boolean;
-	can_edit_calendar: boolean;
-	can_view_personnel: boolean;
-	can_edit_personnel: boolean;
-	can_view_training: boolean;
-	can_edit_training: boolean;
+	can_view_calendar?: boolean | null;
+	can_edit_calendar?: boolean | null;
+	can_view_personnel?: boolean | null;
+	can_edit_personnel?: boolean | null;
+	can_view_training?: boolean | null;
+	can_edit_training?: boolean | null;
 	can_view_critical_tasks?: boolean | null;
 	can_edit_critical_tasks?: boolean | null;
-	can_view_onboarding: boolean;
-	can_edit_onboarding: boolean;
+	can_view_onboarding?: boolean | null;
+	can_edit_onboarding?: boolean | null;
 	can_view_rating_scheme?: boolean | null;
 	can_edit_rating_scheme?: boolean | null;
-	can_manage_members: boolean;
+	can_manage_members?: boolean | null;
 	member_preset?: unknown;
 	capability_overrides?: unknown;
 	access_scope_kind?: unknown;
@@ -136,23 +137,28 @@ export function projectEffectiveMemberAccess(row: MemberAccessProjectionRow): Ef
 	const isOwner = role === 'owner';
 	const isAdmin = role === 'admin';
 	const isPrivileged = isOwner || isAdmin;
-	const permissions = projectMemberPermissions(row, { privileged: isPrivileged });
+	const legacyPermissions = projectMemberPermissions(row, { privileged: isPrivileged });
+	const hasStoredMemberAccess =
+		row.member_preset === 'viewer' || row.member_preset === 'operator' || row.member_preset === 'editor';
 	const accessShape = isPrivileged
 		? {
+				membershipRole: role,
 				memberPreset: 'editor' as const,
 				capabilityMap: createCapabilityMap('configure'),
 				compatibilityLanes: createCompatibilityLaneMap(),
-				scopeSet: { kind: 'organization' } as ScopeSet
+				scopeSet: { kind: 'organization' } as ScopeSet,
+				canManageMembers: true
 			}
 		: resolveMemberAccessShapeFromStoredOrCurrent({
 				membershipRole: role,
-				permissions,
+				permissions: hasStoredMemberAccess ? { ...legacyPermissions, canManageMembers: false } : legacyPermissions,
 				scopedGroupId: row.scoped_group_id ?? null,
 				memberPreset: row.member_preset,
 				capabilityOverrides: row.capability_overrides,
 				accessScopeKind: row.access_scope_kind,
 				accessScopeGroupIds: row.access_scope_group_ids
 			});
+	const permissions = toCurrentPermissionFlags(accessShape) as Required<OrganizationMemberPermissions>;
 
 	return {
 		role,
@@ -177,7 +183,10 @@ export function projectEffectiveMemberAccess(row: MemberAccessProjectionRow): Ef
 			'rating-scheme': permissions.canEditRatingScheme
 		},
 		canManageMembers: permissions.canManageMembers,
-		scopedGroupId: isPrivileged ? null : (row.scoped_group_id ?? null),
+		scopedGroupId:
+			isPrivileged || accessShape.scopeSet.kind !== 'groups' || accessShape.scopeSet.groupIds.length !== 1
+				? null
+				: accessShape.scopeSet.groupIds[0],
 		memberPreset: accessShape.memberPreset,
 		capabilityMap: accessShape.capabilityMap,
 		compatibilityLanes: accessShape.compatibilityLanes,

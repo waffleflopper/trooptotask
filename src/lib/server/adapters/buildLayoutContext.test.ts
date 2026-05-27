@@ -194,16 +194,10 @@ describe('buildLayoutContext', () => {
 		const membership = {
 			id: 'membership-1',
 			role: 'member',
-			scoped_group_id: 'group-123',
-			can_view_calendar: true,
-			can_edit_calendar: false,
-			can_view_personnel: true,
-			can_edit_personnel: true,
-			can_view_training: true,
-			can_edit_training: false,
-			can_view_onboarding: false,
-			can_edit_onboarding: false,
-			can_manage_members: false
+			member_preset: 'operator',
+			capability_overrides: { calendar: 'view' },
+			access_scope_kind: 'groups',
+			access_scope_group_ids: ['group-123']
 		} satisfies MembershipRow;
 		const { supabase, query, select } = createMembershipSupabase(membership);
 		getApiContextMock.mockReturnValue({
@@ -217,7 +211,11 @@ describe('buildLayoutContext', () => {
 		const second = await buildLayoutContext(locals, {} as never, ORG_ID);
 
 		expect(supabase.from).toHaveBeenCalledTimes(1);
-		expect(select).toHaveBeenCalledWith(expect.stringContaining('id, role'));
+		expect(select).toHaveBeenCalledWith(
+			'id, role, member_preset, capability_overrides, access_scope_kind, access_scope_group_ids'
+		);
+		expect(select).not.toHaveBeenCalledWith(expect.stringContaining('can_view_calendar'));
+		expect(select).not.toHaveBeenCalledWith(expect.stringContaining('scoped_group_id'));
 		expect(query.single).toHaveBeenCalledTimes(1);
 		expect(first.auth.scopeSet).toEqual({ kind: 'groups', groupIds: ['group-123'] });
 		expect(second.auth.scopeSet).toEqual({ kind: 'groups', groupIds: ['group-123'] });
@@ -229,16 +227,10 @@ describe('buildLayoutContext', () => {
 	it('deduplicates concurrent membership queries within the same request', async () => {
 		const membership = {
 			role: 'member',
-			scoped_group_id: 'group-123',
-			can_view_calendar: true,
-			can_edit_calendar: false,
-			can_view_personnel: true,
-			can_edit_personnel: true,
-			can_view_training: true,
-			can_edit_training: false,
-			can_view_onboarding: false,
-			can_edit_onboarding: false,
-			can_manage_members: false
+			member_preset: 'operator',
+			capability_overrides: {},
+			access_scope_kind: 'groups',
+			access_scope_group_ids: ['group-123']
 		} satisfies MembershipRow;
 		const deferred = createDeferred<{ data: MembershipRow }>();
 		const query = {
@@ -272,16 +264,10 @@ describe('buildLayoutContext', () => {
 	it('clears a failed in-flight membership query so a later attempt can retry', async () => {
 		const membership = {
 			role: 'member',
-			scoped_group_id: null,
-			can_view_calendar: true,
-			can_edit_calendar: false,
-			can_view_personnel: true,
-			can_edit_personnel: false,
-			can_view_training: false,
-			can_edit_training: false,
-			can_view_onboarding: false,
-			can_edit_onboarding: false,
-			can_manage_members: false
+			member_preset: 'viewer',
+			capability_overrides: {},
+			access_scope_kind: 'organization',
+			access_scope_group_ids: []
 		} satisfies MembershipRow;
 		const query = {
 			eq: vi.fn(),
@@ -335,16 +321,10 @@ describe('buildLayoutContext', () => {
 		} satisfies MembershipRow;
 		const queriedMembership = {
 			role: 'member',
-			scoped_group_id: 'group-live',
-			can_view_calendar: true,
-			can_edit_calendar: false,
-			can_view_personnel: true,
-			can_edit_personnel: false,
-			can_view_training: false,
-			can_edit_training: false,
-			can_view_onboarding: false,
-			can_edit_onboarding: false,
-			can_manage_members: false
+			member_preset: 'viewer',
+			capability_overrides: {},
+			access_scope_kind: 'groups',
+			access_scope_group_ids: ['group-live']
 		} satisfies MembershipRow;
 		const { supabase } = createMembershipSupabase(queriedMembership);
 		getApiContextMock.mockReturnValue({

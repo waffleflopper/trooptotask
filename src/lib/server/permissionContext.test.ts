@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { createPermissionContextFromMembership } from './permissionContext';
+import { describe, it, expect, vi } from 'vitest';
+import { createPermissionContextFromMembership, getMembershipRow } from './permissionContext';
 
 describe('createPermissionContextFromMembership', () => {
 	const baseMembership = {
@@ -41,6 +41,17 @@ describe('createPermissionContextFromMembership', () => {
 		expect(ctx.role).toBe('admin');
 		expect(ctx.isAdmin).toBe(true);
 		expect(ctx.isPrivileged).toBe(true);
+	});
+
+	it.each(['owner', 'admin'] as const)('builds privileged access from replacement-only %s membership', (role) => {
+		const ctx = createPermissionContextFromMembership({ role });
+
+		expect(ctx.role).toBe(role);
+		expect(ctx.isPrivileged).toBe(true);
+		expect(ctx.capabilityMap.calendar).toBe('configure');
+		expect(ctx.capabilityMap.personnel).toBe('configure');
+		expect(ctx.scopeSet).toEqual({ kind: 'organization' });
+		expect(ctx.canManageMembers).toBe(true);
 	});
 
 	it('maps permission booleans correctly for a member', () => {
@@ -106,6 +117,56 @@ describe('createPermissionContextFromMembership', () => {
 		expect(ctx.compatibilityLanes).toEqual({});
 		expect(ctx.scopeSet).toEqual({ kind: 'groups', groupIds: ['group-a', 'group-b'] });
 	});
+
+	it('builds Policy Decision inputs from replacement-only membership access', () => {
+		const ctx = createPermissionContextFromMembership({
+			role: 'member',
+			can_manage_members: true,
+			member_preset: 'operator',
+			capability_overrides: { calendar: 'view', training: 'configure' },
+			access_scope_kind: 'groups',
+			access_scope_group_ids: ['group-a', 'group-b']
+		});
+
+		expect(ctx.role).toBe('member');
+		expect(ctx.capabilityMap.calendar).toBe('view');
+		expect(ctx.capabilityMap.personnel).toBe('operate');
+		expect(ctx.capabilityMap.training).toBe('configure');
+		expect(ctx.scopeSet).toEqual({ kind: 'groups', groupIds: ['group-a', 'group-b'] });
+		expect(ctx.canEdit.training).toBe(true);
+		expect(ctx.canEdit.personnel).toBe(false);
+		expect(ctx.canManageMembers).toBe(false);
+	});
+
+	it.each([null, 'custom'] as const)(
+		'requires valid normalized replacement preset %s when fetching membership rows',
+		async (memberPreset) => {
+			const query = {
+				eq: vi.fn(),
+				single: vi.fn().mockResolvedValue({
+					data: {
+						id: 'membership-1',
+						role: 'member',
+						member_preset: memberPreset,
+						capability_overrides: {},
+						access_scope_kind: 'organization',
+						access_scope_group_ids: []
+					}
+				})
+			};
+			query.eq.mockReturnValue(query);
+			const supabase = {
+				from: vi.fn().mockReturnValue({
+					select: vi.fn().mockReturnValue(query)
+				})
+			};
+
+			await expect(getMembershipRow(supabase as never, 'user-1', 'org-1')).rejects.toMatchObject({
+				status: 500,
+				body: { message: 'Membership row is missing normalized member access storage' }
+			});
+		}
+	);
 
 	it('keeps retired compatibility lanes out of the permission context', () => {
 		const ctx = createPermissionContextFromMembership({

@@ -85,7 +85,7 @@ describe('member access projection', () => {
 			access_scope_group_ids: ['stored-group', 'stored-group', 'other-group']
 		});
 
-		expect(projection.scopedGroupId).toBe('legacy-group');
+		expect(projection.scopedGroupId).toBeNull();
 		expect(projection.scopeSet).toEqual({ kind: 'groups', groupIds: ['stored-group', 'other-group'] });
 		expect(projection.memberPreset).toBe('viewer');
 		expect(projection.capabilityMap.calendar).toBe('operate');

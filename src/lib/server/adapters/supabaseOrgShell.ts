@@ -11,7 +11,7 @@ import type { Cookies } from '@sveltejs/kit';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { projectEffectiveMemberAccess } from '$lib/access/memberAccessProjection';
 import type { EffectiveTier } from '$lib/types/subscription';
-import type { MembershipRow } from '$lib/server/permissionContext';
+import { assertNormalizedMembershipRow, type MembershipRow } from '$lib/server/permissionContext';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { getDefaultUserOrgPreferences, normalizeUserOrgPreferences } from '$lib/preferences/userPreferences';
 import type {
@@ -188,9 +188,7 @@ async function loadMembershipRow(config: {
 }): Promise<MembershipRow> {
 	const { data, error: membershipError } = await config.userSupabase
 		.from('organization_memberships')
-		.select(
-			'id, role, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_view_critical_tasks, can_edit_critical_tasks, can_view_onboarding, can_edit_onboarding, can_view_rating_scheme, can_edit_rating_scheme, can_manage_members, scoped_group_id, member_preset, capability_overrides, access_scope_kind, access_scope_group_ids'
-		)
+		.select('id, role, member_preset, capability_overrides, access_scope_kind, access_scope_group_ids')
 		.eq('user_id', config.userId)
 		.eq('organization_id', config.orgId)
 		.maybeSingle();
@@ -203,6 +201,7 @@ async function loadMembershipRow(config: {
 		throw error(403, 'You are not a member of this organization');
 	}
 
+	assertNormalizedMembershipRow(data);
 	return data as MembershipRow;
 }
 

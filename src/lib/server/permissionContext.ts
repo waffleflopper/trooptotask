@@ -42,20 +42,20 @@ export interface PermissionContext {
 export interface MembershipRow {
 	id?: string;
 	role: 'owner' | 'admin' | 'member';
-	scoped_group_id: string | null;
-	can_view_calendar: boolean;
-	can_edit_calendar: boolean;
-	can_view_personnel: boolean;
-	can_edit_personnel: boolean;
-	can_view_training: boolean;
-	can_edit_training: boolean;
+	scoped_group_id?: string | null;
+	can_view_calendar?: boolean;
+	can_edit_calendar?: boolean;
+	can_view_personnel?: boolean;
+	can_edit_personnel?: boolean;
+	can_view_training?: boolean;
+	can_edit_training?: boolean;
 	can_view_critical_tasks?: boolean;
 	can_edit_critical_tasks?: boolean;
-	can_view_onboarding: boolean;
-	can_edit_onboarding: boolean;
+	can_view_onboarding?: boolean;
+	can_edit_onboarding?: boolean;
 	can_view_rating_scheme?: boolean;
 	can_edit_rating_scheme?: boolean;
-	can_manage_members: boolean;
+	can_manage_members?: boolean;
 	member_preset?: StoredMemberPreset | null;
 	capability_overrides?: CapabilityOverrideMap | null;
 	access_scope_kind?: ScopeSet['kind'] | null;
@@ -102,9 +102,7 @@ export async function getMembershipRow(
 ): Promise<MembershipRow> {
 	const { data: membership } = await supabase
 		.from('organization_memberships')
-		.select(
-			'id, role, scoped_group_id, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_view_critical_tasks, can_edit_critical_tasks, can_view_onboarding, can_edit_onboarding, can_view_rating_scheme, can_edit_rating_scheme, can_manage_members, member_preset, capability_overrides, access_scope_kind, access_scope_group_ids'
-		)
+		.select('id, role, member_preset, capability_overrides, access_scope_kind, access_scope_group_ids')
 		.eq('organization_id', orgId)
 		.eq('user_id', userId)
 		.single();
@@ -113,5 +111,13 @@ export async function getMembershipRow(
 		throw error(403, 'Not a member of this organization');
 	}
 
+	assertNormalizedMembershipRow(membership);
 	return membership as MembershipRow;
+}
+
+export function assertNormalizedMembershipRow(data: Record<string, unknown>): void {
+	const preset = data.member_preset;
+	if (preset !== 'viewer' && preset !== 'operator' && preset !== 'editor') {
+		throw error(500, 'Membership row is missing normalized member access storage');
+	}
 }

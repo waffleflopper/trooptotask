@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { memberAccessCommandToStorage, parseMemberAccessEditFormData } from './memberAccessCommands';
+import {
+	memberAccessCommandToCompatibilityStorage,
+	memberAccessCommandToStorage,
+	parseMemberAccessEditFormData
+} from './memberAccessCommands';
 
 describe('parseMemberAccessEditFormData', () => {
 	it('parses target membership role, member preset, capability map, and scope set fields', () => {
@@ -64,7 +68,7 @@ describe('parseMemberAccessEditFormData', () => {
 });
 
 describe('memberAccessCommandToStorage', () => {
-	it('projects a member access command into storage and compatibility fields', () => {
+	it('projects a member access command into replacement storage fields only', () => {
 		expect(
 			memberAccessCommandToStorage({
 				membershipRole: 'member',
@@ -74,6 +78,41 @@ describe('memberAccessCommandToStorage', () => {
 					scopeSet: {
 						kind: 'groups',
 						groupIds: ['11111111-1111-4111-8111-111111111111', 'not-a-uuid', '22222222-2222-4222-8222-222222222222']
+					}
+				}
+			})
+		).toEqual({
+			role: 'member',
+			memberPreset: 'operator',
+			capabilityOverrides: { calendar: 'configure', ratingScheme: 'none' },
+			accessScopeKind: 'groups',
+			accessScopeGroupIds: ['11111111-1111-4111-8111-111111111111', '22222222-2222-4222-8222-222222222222']
+		});
+	});
+
+	it('projects admin authority without requiring a separate member preset edit', () => {
+		const storage = memberAccessCommandToStorage({
+			membershipRole: 'admin'
+		});
+
+		expect(storage.role).toBe('admin');
+		expect(storage.memberPreset).toBe('editor');
+		expect(storage.accessScopeKind).toBe('organization');
+		expect(storage.accessScopeGroupIds).toEqual([]);
+	});
+});
+
+describe('memberAccessCommandToCompatibilityStorage', () => {
+	it('keeps the temporary invitation compatibility snapshot explicit', () => {
+		expect(
+			memberAccessCommandToCompatibilityStorage({
+				membershipRole: 'member',
+				memberAccess: {
+					memberPreset: 'operator',
+					capabilityOverrides: { calendar: 'configure', ratingScheme: 'none' },
+					scopeSet: {
+						kind: 'groups',
+						groupIds: ['11111111-1111-4111-8111-111111111111', '22222222-2222-4222-8222-222222222222']
 					}
 				}
 			})
@@ -98,20 +137,8 @@ describe('memberAccessCommandToStorage', () => {
 			memberPreset: 'operator',
 			capabilityOverrides: { calendar: 'configure', ratingScheme: 'none' },
 			accessScopeKind: 'groups',
-			accessScopeGroupIds: ['11111111-1111-4111-8111-111111111111', '22222222-2222-4222-8222-222222222222']
+			accessScopeGroupIds: ['11111111-1111-4111-8111-111111111111', '22222222-2222-4222-8222-222222222222'],
+			canManageMembers: false
 		});
-	});
-
-	it('projects admin authority without requiring a separate member preset edit', () => {
-		const storage = memberAccessCommandToStorage({
-			membershipRole: 'admin'
-		});
-
-		expect(storage.role).toBe('admin');
-		expect(storage.memberPreset).toBe('editor');
-		expect(storage.accessScopeKind).toBe('organization');
-		expect(storage.accessScopeGroupIds).toEqual([]);
-		expect(storage.permissions.canManageMembers).toBe(true);
-		expect(storage.permissions.canEditPersonnel).toBe(true);
 	});
 });

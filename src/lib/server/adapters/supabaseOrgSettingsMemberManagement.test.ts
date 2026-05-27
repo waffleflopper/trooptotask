@@ -104,6 +104,25 @@ function createMembershipRemovalBuilder(result: { data: unknown[] | null; error:
 	return { builder, calls };
 }
 
+function createMembershipUpdateBuilder(result: { error: { message: string } | null }) {
+	const calls: Call[] = [];
+	let eqCount = 0;
+
+	const builder: Record<string, unknown> = {
+		update: (...args: unknown[]) => {
+			calls.push({ method: 'update', args });
+			return builder;
+		},
+		eq: (...args: unknown[]) => {
+			calls.push({ method: 'eq', args });
+			eqCount += 1;
+			return eqCount >= 2 ? result : builder;
+		}
+	};
+
+	return { builder, calls };
+}
+
 function createInvitationInsertBuilder(result: {
 	data?: { id: string; created_at?: string } | null;
 	error: { message: string } | null;
@@ -771,6 +790,46 @@ describe('createSupabaseOrgSettingsMemberManagementPort', () => {
 		expect(calls).toContainEqual({ method: 'select', args: ['user_id, role, email, can_manage_members'] });
 		expect(calls).toContainEqual({ method: 'eq', args: ['id', 'membership-1'] });
 		expect(calls).toContainEqual({ method: 'eq', args: ['organization_id', 'org-1'] });
+	});
+
+	it('updates memberships through replacement member-access storage only', async () => {
+		const { builder, calls } = createMembershipUpdateBuilder({ error: null });
+		const supabase = {
+			from: vi.fn(() => builder)
+		};
+		const port = createSupabaseOrgSettingsMemberManagementPort({
+			supabase
+		} as never);
+
+		await expect(
+			port.updateMembership({
+				organizationId: 'org-1',
+				membershipId: 'membership-1',
+				role: 'member',
+				memberPreset: 'operator',
+				capabilityOverrides: { calendar: 'configure', ratingScheme: 'none' },
+				accessScopeKind: 'groups',
+				accessScopeGroupIds: ['11111111-1111-4111-8111-111111111111', '22222222-2222-4222-8222-222222222222']
+			})
+		).resolves.toBeNull();
+
+		expect(supabase.from).toHaveBeenCalledWith('organization_memberships');
+		expect(calls).toEqual([
+			{
+				method: 'update',
+				args: [
+					{
+						role: 'member',
+						member_preset: 'operator',
+						capability_overrides: { calendar: 'configure', ratingScheme: 'none' },
+						access_scope_kind: 'groups',
+						access_scope_group_ids: ['11111111-1111-4111-8111-111111111111', '22222222-2222-4222-8222-222222222222']
+					}
+				]
+			},
+			{ method: 'eq', args: ['id', 'membership-1'] },
+			{ method: 'eq', args: ['organization_id', 'org-1'] }
+		]);
 	});
 
 	it('removes memberships with the admin client and verifies a row was deleted', async () => {

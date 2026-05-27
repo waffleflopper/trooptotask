@@ -1,7 +1,5 @@
-import type { OrganizationMemberPermissions } from '$lib/types';
 import { POLICY_ACTION_CATALOG, type PolicyReasonCode } from '$lib/access/policyEvaluator';
 import {
-	memberAccessCommandToCompatibilityStorage,
 	memberAccessCommandToStorage,
 	type EditableMembershipRole,
 	type TargetMemberAccessCommand,
@@ -40,8 +38,6 @@ export interface OrganizationInvitationCreateInput {
 	email: string;
 	invitedBy: string;
 	role: EditableMembershipRole;
-	singleGroupCompatibilityId: string | null;
-	permissions: OrganizationMemberPermissions;
 	memberPreset: StoredMemberPreset;
 	capabilityOverrides: CapabilityOverrideMap;
 	accessScopeKind: 'organization' | 'groups';
@@ -65,7 +61,6 @@ export interface OrganizationInvitationAccessRequestBridgeInput {
 	invitedBy: string;
 	invitedAt: string;
 	role: EditableMembershipRole;
-	permissions: OrganizationMemberPermissions;
 	memberPreset: StoredMemberPreset;
 	capabilityOverrides: CapabilityOverrideMap;
 	accessScopeKind: 'organization' | 'groups';
@@ -235,13 +230,10 @@ export async function inviteOrganizationMember(
 		fail(400, 'Please enter a valid email address');
 	}
 
-	const accessCommand = buildInvitationAccessStorageCommand({
+	const accessCommand = buildMemberAccessStorageCommand({
 		membershipRole,
 		memberAccess: input.memberAccess
 	});
-	if (!invitesAdminRole && accessCommand.permissions.canManageMembers) {
-		await requireGovernancePolicy(ports, POLICY_ACTION_CATALOG.organization.updateAdminAccess);
-	}
 	const existing = await ports.settings.findPendingInvitation(ports.auth.orgId, email);
 	if (existing) {
 		fail(400, 'An invitation for this email is already pending');
@@ -249,7 +241,7 @@ export async function inviteOrganizationMember(
 
 	await requireMemberInviteWithinPlanLimit(ports);
 
-	const inviteRequiresStepUp = isHighPrivilegeAccess(accessCommand.role, accessCommand.permissions.canManageMembers);
+	const inviteRequiresStepUp = isHighPrivilegeAccess(accessCommand.role, false);
 	const sensitiveAction = inviteRequiresStepUp
 		? await authorizeMemberManagementSensitiveAction(ports, {
 				action: ORGANIZATION_MEMBER_INVITE_HIGH_PRIVILEGE_ACTION,
@@ -276,8 +268,6 @@ export async function inviteOrganizationMember(
 		email,
 		invitedBy: actorUserId,
 		role: accessCommand.role,
-		singleGroupCompatibilityId: accessCommand.singleGroupCompatibilityId,
-		permissions: accessCommand.permissions,
 		memberPreset: accessCommand.memberPreset,
 		capabilityOverrides: accessCommand.capabilityOverrides,
 		accessScopeKind: accessCommand.accessScopeKind,
@@ -302,7 +292,6 @@ export async function inviteOrganizationMember(
 				invitedBy: actorUserId,
 				invitedAt: createResult.createdAt,
 				role: accessCommand.role,
-				permissions: accessCommand.permissions,
 				memberPreset: accessCommand.memberPreset,
 				capabilityOverrides: accessCommand.capabilityOverrides,
 				accessScopeKind: accessCommand.accessScopeKind,
@@ -1083,21 +1072,6 @@ function buildMemberAccessStorageCommand(command: {
 }): MemberAccessStorageCommand {
 	try {
 		return memberAccessCommandToStorage(command);
-	} catch (error) {
-		if (error instanceof Error && Reflect.get(error, 'status') === 400) {
-			fail(400, error.message);
-		}
-
-		throw error;
-	}
-}
-
-function buildInvitationAccessStorageCommand(command: {
-	membershipRole: EditableMembershipRole;
-	memberAccess?: TargetMemberAccessCommand | null;
-}) {
-	try {
-		return memberAccessCommandToCompatibilityStorage(command);
 	} catch (error) {
 		if (error instanceof Error && Reflect.get(error, 'status') === 400) {
 			fail(400, error.message);

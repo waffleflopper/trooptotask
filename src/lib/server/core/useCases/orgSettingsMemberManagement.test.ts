@@ -678,7 +678,7 @@ describe('inviteOrganizationMember', () => {
 		]);
 	});
 
-	it('requires owner rights before granting member-management authority through a member invitation', async () => {
+	it('does not treat member invitation feature-lane fields as member-management authority', async () => {
 		const ctx = createTestContext({
 			auth: {
 				userId: 'actor-1',
@@ -704,24 +704,25 @@ describe('inviteOrganizationMember', () => {
 					actorEmail: 'actor@example.com'
 				}
 			)
-		).rejects.toMatchObject({
-			status: 403,
-			message: 'Only the organization owner can perform this action'
-		});
+		).resolves.toMatchObject({ inviteSuccess: true });
 
-		expect(port.invitationLookups).toEqual([]);
-		expect(port.createdInvitations).toEqual([]);
-		expect(ctx.auditPort.events).toEqual([
-			{
+		expect(port.createdInvitations).toHaveLength(1);
+		expect(port.createdInvitations[0]).toEqual({
+			organizationId: 'org-1',
+			email: 'new.manager@example.com',
+			invitedBy: 'actor-1',
+			role: 'member',
+			memberPreset: 'editor',
+			capabilityOverrides: {},
+			accessScopeKind: 'organization',
+			accessScopeGroupIds: []
+		});
+		expect(ctx.auditPort.events).not.toContainEqual(
+			expect.objectContaining({
 				action: 'policy.denied',
-				resourceType: 'organization',
-				details: {
-					policyAction: 'organization.updateAdminAccess',
-					reasonCode: 'denied:owner-only'
-				},
-				severity: 'warning'
-			}
-		]);
+				details: expect.objectContaining({ policyAction: 'organization.updateAdminAccess' })
+			})
+		);
 	});
 
 	it('requires recent assurance before creating high-privilege invitations', async () => {
@@ -885,9 +886,6 @@ describe('inviteOrganizationMember', () => {
 		expect(port.createdInvitations).toHaveLength(1);
 		expect(port.createdInvitations[0]).toMatchObject({
 			role: 'member',
-			permissions: expect.objectContaining({
-				canManageMembers: false
-			}),
 			memberPreset: 'viewer'
 		});
 		expect(ctx.sensitiveActionAuthorizer.requests).toEqual([]);
@@ -928,22 +926,6 @@ describe('inviteOrganizationMember', () => {
 				email: 'new.user@example.com',
 				invitedBy: 'actor-1',
 				role: 'member',
-				singleGroupCompatibilityId: '11111111-1111-4111-8111-111111111111',
-				permissions: {
-					canViewCalendar: true,
-					canEditCalendar: true,
-					canViewPersonnel: true,
-					canEditPersonnel: false,
-					canViewTraining: true,
-					canEditTraining: false,
-					canViewCriticalTasks: true,
-					canEditCriticalTasks: false,
-					canViewOnboarding: true,
-					canEditOnboarding: false,
-					canViewRatingScheme: true,
-					canEditRatingScheme: false,
-					canManageMembers: false
-				},
 				memberPreset: 'operator',
 				capabilityOverrides: { calendar: 'configure' },
 				accessScopeKind: 'groups',
@@ -1008,21 +990,6 @@ describe('inviteOrganizationMember', () => {
 				invitedBy: 'actor-1',
 				invitedAt: '2026-05-22T12:00:00.000Z',
 				role: 'member',
-				permissions: {
-					canViewCalendar: true,
-					canEditCalendar: true,
-					canViewPersonnel: true,
-					canEditPersonnel: false,
-					canViewTraining: true,
-					canEditTraining: false,
-					canViewCriticalTasks: true,
-					canEditCriticalTasks: false,
-					canViewOnboarding: true,
-					canEditOnboarding: false,
-					canViewRatingScheme: true,
-					canEditRatingScheme: false,
-					canManageMembers: false
-				},
 				memberPreset: 'operator',
 				capabilityOverrides: { calendar: 'configure' },
 				accessScopeKind: 'groups',
@@ -1204,22 +1171,6 @@ describe('inviteOrganizationMember', () => {
 				email: 'manager@example.com',
 				invitedBy: 'owner-1',
 				role: 'member',
-				singleGroupCompatibilityId: '22222222-2222-4222-8222-222222222222',
-				permissions: {
-					canViewCalendar: true,
-					canEditCalendar: false,
-					canViewPersonnel: true,
-					canEditPersonnel: true,
-					canViewTraining: true,
-					canEditTraining: false,
-					canViewCriticalTasks: true,
-					canEditCriticalTasks: false,
-					canViewOnboarding: true,
-					canEditOnboarding: false,
-					canViewRatingScheme: true,
-					canEditRatingScheme: false,
-					canManageMembers: true
-				},
 				memberPreset: 'viewer',
 				capabilityOverrides: { personnel: 'configure' },
 				accessScopeKind: 'groups',
@@ -1233,21 +1184,11 @@ describe('inviteOrganizationMember', () => {
 				details: {
 					email: 'manager@example.com',
 					membershipRole: 'member',
-					memberPreset: 'viewer',
-					sensitiveAction: expect.objectContaining({
-						action: 'organization.member.inviteHighPrivilege',
-						reason: 'allowed.recentSession'
-					})
+					memberPreset: 'viewer'
 				}
 			}
 		]);
-		expect(ctx.sensitiveActionAuthorizer.requests).toEqual([
-			{
-				action: 'organization.member.inviteHighPrivilege',
-				actorUserId: 'owner-1',
-				target: { type: 'organization_invitation', id: 'manager@example.com' }
-			}
-		]);
+		expect(ctx.sensitiveActionAuthorizer.requests).toEqual([]);
 	});
 
 	it('queues invitation email delivery after creating the invitation without granting membership', async () => {

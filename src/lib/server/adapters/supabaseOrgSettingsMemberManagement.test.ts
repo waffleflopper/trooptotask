@@ -3,24 +3,6 @@ import { createSupabaseOrgSettingsMemberManagementPort } from './supabaseOrgSett
 
 type Call = { method: string; args: unknown[] };
 
-function buildAdapterPermissions() {
-	return {
-		canViewCalendar: true,
-		canEditCalendar: false,
-		canViewPersonnel: true,
-		canEditPersonnel: false,
-		canViewTraining: true,
-		canEditTraining: false,
-		canViewCriticalTasks: true,
-		canEditCriticalTasks: false,
-		canViewOnboarding: true,
-		canEditOnboarding: false,
-		canViewRatingScheme: true,
-		canEditRatingScheme: false,
-		canManageMembers: false
-	};
-}
-
 function createMembershipLookupBuilder() {
 	const calls: Call[] = [];
 	const result = {
@@ -323,22 +305,6 @@ describe('createSupabaseOrgSettingsMemberManagementPort', () => {
 			email: 'user@example.com',
 			invitedBy: 'owner-1',
 			role: 'member',
-			singleGroupCompatibilityId: null,
-			permissions: {
-				canViewCalendar: true,
-				canEditCalendar: false,
-				canViewPersonnel: true,
-				canEditPersonnel: false,
-				canViewTraining: true,
-				canEditTraining: false,
-				canViewCriticalTasks: true,
-				canEditCriticalTasks: false,
-				canViewOnboarding: true,
-				canEditOnboarding: false,
-				canViewRatingScheme: true,
-				canEditRatingScheme: false,
-				canManageMembers: true
-			},
 			memberPreset: 'viewer',
 			capabilityOverrides: { personnel: 'configure' },
 			accessScopeKind: 'organization',
@@ -368,7 +334,6 @@ describe('createSupabaseOrgSettingsMemberManagementPort', () => {
 						email: 'user@example.com',
 						invited_by: 'owner-1',
 						role: 'member',
-						can_manage_members: true,
 						member_preset: 'viewer',
 						capability_overrides: { personnel: 'configure' },
 						access_scope_kind: 'organization',
@@ -521,21 +486,6 @@ describe('createSupabaseOrgSettingsMemberManagementPort', () => {
 			invitedBy: 'owner-1',
 			invitedAt: '2026-05-22T12:00:00.000Z',
 			role: 'member',
-			permissions: {
-				canViewCalendar: true,
-				canEditCalendar: false,
-				canViewPersonnel: true,
-				canEditPersonnel: false,
-				canViewTraining: true,
-				canEditTraining: false,
-				canViewCriticalTasks: true,
-				canEditCriticalTasks: false,
-				canViewOnboarding: true,
-				canEditOnboarding: false,
-				canViewRatingScheme: true,
-				canEditRatingScheme: false,
-				canManageMembers: false
-			},
 			memberPreset: 'viewer',
 			capabilityOverrides: { personnel: 'view' },
 			accessScopeKind: 'groups',
@@ -603,7 +553,6 @@ describe('createSupabaseOrgSettingsMemberManagementPort', () => {
 				invitedBy: 'owner-1',
 				invitedAt: '2026-05-22T12:00:00.000Z',
 				role: 'member',
-				permissions: buildAdapterPermissions(),
 				memberPreset: 'viewer',
 				capabilityOverrides: {},
 				accessScopeKind: 'organization',
@@ -714,7 +663,6 @@ describe('createSupabaseOrgSettingsMemberManagementPort', () => {
 				invitedBy: 'owner-1',
 				invitedAt: '2026-05-22T12:00:00.000Z',
 				role: 'member',
-				permissions: buildAdapterPermissions(),
 				memberPreset: 'viewer',
 				capabilityOverrides: {},
 				accessScopeKind: 'organization',

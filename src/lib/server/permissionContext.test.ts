@@ -46,6 +46,63 @@ describe('createPermissionContextFromMembership', () => {
 		expect(ctx.canManageMembers).toBe(true);
 	});
 
+	it.each(['owner', 'admin'] as const)('allows fetched privileged %s rows without member presets', async (role) => {
+		const query = {
+			eq: vi.fn(),
+			single: vi.fn().mockResolvedValue({
+				data: {
+					id: 'membership-1',
+					role,
+					member_preset: null,
+					capability_overrides: {},
+					access_scope_kind: 'organization',
+					access_scope_group_ids: []
+				}
+			})
+		};
+		query.eq.mockReturnValue(query);
+		const supabase = {
+			from: vi.fn().mockReturnValue({
+				select: vi.fn().mockReturnValue(query)
+			})
+		};
+
+		await expect(getMembershipRow(supabase as never, 'user-1', 'org-1')).resolves.toMatchObject({
+			role,
+			member_preset: null
+		});
+	});
+
+	it.each([null, 'custom'] as const)(
+		'requires valid normalized replacement preset %s when fetching nonprivileged membership rows',
+		async (memberPreset) => {
+			const query = {
+				eq: vi.fn(),
+				single: vi.fn().mockResolvedValue({
+					data: {
+						id: 'membership-1',
+						role: 'member',
+						member_preset: memberPreset,
+						capability_overrides: {},
+						access_scope_kind: 'organization',
+						access_scope_group_ids: []
+					}
+				})
+			};
+			query.eq.mockReturnValue(query);
+			const supabase = {
+				from: vi.fn().mockReturnValue({
+					select: vi.fn().mockReturnValue(query)
+				})
+			};
+
+			await expect(getMembershipRow(supabase as never, 'user-1', 'org-1')).rejects.toMatchObject({
+				status: 500,
+				body: { message: 'Membership row is missing normalized member access storage' }
+			});
+		}
+	);
+
 	it('maps replacement storage correctly for a member', () => {
 		const ctx = createPermissionContextFromMembership(baseMembership);
 
@@ -126,36 +183,6 @@ describe('createPermissionContextFromMembership', () => {
 		expect(ctx.canEdit.personnel).toBe(false);
 		expect(ctx.canManageMembers).toBe(false);
 	});
-
-	it.each([null, 'custom'] as const)(
-		'requires valid normalized replacement preset %s when fetching membership rows',
-		async (memberPreset) => {
-			const query = {
-				eq: vi.fn(),
-				single: vi.fn().mockResolvedValue({
-					data: {
-						id: 'membership-1',
-						role: 'member',
-						member_preset: memberPreset,
-						capability_overrides: {},
-						access_scope_kind: 'organization',
-						access_scope_group_ids: []
-					}
-				})
-			};
-			query.eq.mockReturnValue(query);
-			const supabase = {
-				from: vi.fn().mockReturnValue({
-					select: vi.fn().mockReturnValue(query)
-				})
-			};
-
-			await expect(getMembershipRow(supabase as never, 'user-1', 'org-1')).rejects.toMatchObject({
-				status: 500,
-				body: { message: 'Membership row is missing normalized member access storage' }
-			});
-		}
-	);
 
 	it('keeps retired compatibility lanes out of the permission context', () => {
 		const ctx = createPermissionContextFromMembership({

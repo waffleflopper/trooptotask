@@ -102,6 +102,10 @@ export async function getMembershipRow(
 }
 
 export function assertNormalizedMembershipRow(data: Record<string, unknown>): void {
+	if (data.role === 'owner' || data.role === 'admin') {
+		return;
+	}
+
 	const preset = data.member_preset;
 	if (preset !== 'viewer' && preset !== 'operator' && preset !== 'editor') {
 		throw error(500, 'Membership row is missing normalized member access storage');

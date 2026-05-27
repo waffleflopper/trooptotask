@@ -552,6 +552,19 @@
 			]
 		},
 		{
+			"path": "supabase/migrations/20260526000250_repair_rls_before_legacy_member_access_drop.sql",
+			"classification": "compatibility-adapter",
+			"patterns": [
+				"can_view_*",
+				"can_edit_*"
+			],
+			"ownerIssue": "#1114",
+			"reason": "Pre-drop RLS repair keeps historical helper and policy names while replacing direct legacy member-access column reads with replacement capability helpers before the columns are removed.",
+			"driftIds": [
+				"D-01"
+			]
+		},
+		{
 			"path": "supabase/migrations/20260526000300_drop_legacy_member_access_columns.sql",
 			"classification": "historical-migration",
 			"patterns": [

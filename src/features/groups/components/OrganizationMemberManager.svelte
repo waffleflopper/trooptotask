@@ -16,20 +16,10 @@
 		email: string;
 		status: string;
 		createdAt: string;
-		scopedGroupId?: string | null;
-		canViewCalendar: boolean;
-		canEditCalendar: boolean;
-		canViewPersonnel: boolean;
-		canEditPersonnel: boolean;
-		canViewTraining: boolean;
-		canEditTraining: boolean;
-		canViewCriticalTasks: boolean;
-		canEditCriticalTasks: boolean;
-		canViewOnboarding: boolean;
-		canEditOnboarding: boolean;
-		canViewRatingScheme: boolean;
-		canEditRatingScheme: boolean;
-		canManageMembers: boolean;
+		membershipRole: 'owner' | 'admin' | 'member';
+		access: {
+			memberPreset: 'viewer' | 'operator' | 'editor';
+		};
 	}
 
 	interface Props {
@@ -120,16 +110,9 @@
 	}
 
 	function getInvitePreset(invite: Invitation): PermissionPreset {
-		if (invite.canManageMembers) return 'admin';
-		if (invite.scopedGroupId) return 'team-leader';
-		if (
-			invite.canEditCalendar ||
-			invite.canEditPersonnel ||
-			invite.canEditTraining ||
-			invite.canEditCriticalTasks ||
-			invite.canEditOnboarding ||
-			invite.canEditRatingScheme
-		) {
+		if (invite.membershipRole === 'admin') return 'admin';
+		if (invite.access.memberPreset === 'operator') return 'team-leader';
+		if (invite.access.memberPreset === 'editor') {
 			return 'full-editor';
 		}
 		return 'viewer';

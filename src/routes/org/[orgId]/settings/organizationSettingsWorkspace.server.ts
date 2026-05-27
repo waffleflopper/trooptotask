@@ -22,7 +22,7 @@ import {
 import {
 	buildSettingsInvitationAccessRow,
 	buildSettingsMemberAccessRow,
-	type LegacySettingsAccessRow
+	type SettingsAccessSourceRow
 } from './settingsMemberAccessReadModel.server';
 import { normalizeOrganizationName } from './settingsWorkspaceFormatters';
 import type {
@@ -54,8 +54,8 @@ export interface BuildOrganizationSettingsWorkspaceInput {
 	currentMemberRole: MembershipRole;
 	isAdmin: boolean;
 	organization: OrganizationSettingsSource;
-	members: LegacySettingsAccessRow[];
-	invitations: LegacySettingsAccessRow[];
+	members: SettingsAccessSourceRow[];
+	invitations: SettingsAccessSourceRow[];
 	invitationDeliveries?: SettingsInvitationDeliverySourceRow[];
 	pendingApprovalSummary?: PendingApprovalSummary;
 	approvalRequests?: DeletionRequestRow[];
@@ -111,8 +111,13 @@ export async function loadOrganizationSettingsWorkspace(
 		exportInfo,
 		auditLog
 	] = await Promise.all([
-		ctx.store.findMany<LegacySettingsAccessRow>('organization_memberships', ctx.auth.orgId),
-		ctx.store.findMany<LegacySettingsAccessRow>('organization_invitations', ctx.auth.orgId, undefined, {
+		ctx.store.findMany<SettingsAccessSourceRow>('organization_memberships', ctx.auth.orgId, undefined, {
+			select:
+				'id, organization_id, user_id, email, role, created_at, member_preset, capability_overrides, access_scope_kind, access_scope_group_ids'
+		}),
+		ctx.store.findMany<SettingsAccessSourceRow>('organization_invitations', ctx.auth.orgId, undefined, {
+			select:
+				'id, email, role, status, created_at, expires_at, accepted_at, declined_at, revoked_at, expired_at, blocked_at, member_preset, capability_overrides, access_scope_kind, access_scope_group_ids',
 			orderBy: [{ column: 'created_at', ascending: false }]
 		}),
 		ctx.store.findMany<SettingsInvitationDeliverySourceRow>(

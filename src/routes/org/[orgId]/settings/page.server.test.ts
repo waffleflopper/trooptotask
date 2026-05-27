@@ -163,21 +163,22 @@ describe('org settings page server actions', () => {
 									user_id: 'user-1',
 									email: 'owner@example.com',
 									role: 'owner',
-									scoped_group_id: null,
 									created_at: '2026-04-26T12:00:00Z',
-									can_view_calendar: true,
-									can_edit_calendar: true,
-									can_view_personnel: true,
-									can_edit_personnel: true,
-									can_view_training: true,
-									can_edit_training: true,
-									can_view_critical_tasks: true,
-									can_edit_critical_tasks: true,
-									can_view_onboarding: true,
-									can_edit_onboarding: true,
-									can_view_rating_scheme: true,
-									can_edit_rating_scheme: true,
-									can_manage_members: true
+									member_preset: 'editor',
+									capability_overrides: {},
+									access_scope_kind: 'organization',
+									access_scope_group_ids: []
+								},
+								{
+									id: 'membership-2',
+									user_id: 'user-2',
+									email: 'member@example.com',
+									role: 'member',
+									created_at: '2026-04-26T12:00:00Z',
+									member_preset: 'editor',
+									capability_overrides: {},
+									access_scope_kind: 'organization',
+									access_scope_group_ids: []
 								}
 							];
 						}
@@ -188,14 +189,24 @@ describe('org settings page server actions', () => {
 									email: 'new@example.com',
 									status: 'pending',
 									created_at: '2026-04-26T12:00:00Z',
-									expires_at: '2026-06-26T12:00:00Z'
+									expires_at: '2026-06-26T12:00:00Z',
+									role: 'member',
+									member_preset: 'viewer',
+									capability_overrides: {},
+									access_scope_kind: 'organization',
+									access_scope_group_ids: []
 								},
 								{
 									id: 'invite-2',
 									email: 'other@example.com',
 									status: 'pending',
 									created_at: '2026-04-27T12:00:00Z',
-									expires_at: '2026-06-27T12:00:00Z'
+									expires_at: '2026-06-27T12:00:00Z',
+									role: 'member',
+									member_preset: 'operator',
+									capability_overrides: {},
+									access_scope_kind: 'groups',
+									access_scope_group_ids: ['group-1']
 								}
 							];
 						}
@@ -355,8 +366,27 @@ describe('org settings page server actions', () => {
 						}
 					},
 					members: {
-						rows: [{ email: 'owner@example.com' }],
-						invitations: [expect.objectContaining({ id: 'invite-1' }), expect.objectContaining({ id: 'invite-2' })],
+						rows: [
+							{ email: 'owner@example.com' },
+							expect.objectContaining({
+								email: 'member@example.com',
+								access: expect.objectContaining({
+									memberPreset: 'editor',
+									scopeSet: { kind: 'organization' }
+								})
+							})
+						],
+						invitations: [
+							expect.objectContaining({
+								id: 'invite-1',
+								membershipRole: 'member',
+								access: expect.objectContaining({
+									memberPreset: 'viewer',
+									scopeSet: { kind: 'organization' }
+								})
+							}),
+							expect.objectContaining({ id: 'invite-2' })
+						],
 						groups: [{ id: 'group-1', name: 'HQ' }],
 						pendingApprovalSummary: {
 							count: 1,
@@ -477,7 +507,15 @@ describe('org settings page server actions', () => {
 
 		await new Promise((resolve) => setTimeout(resolve, 0));
 
-		expect(findMany).toHaveBeenCalledWith('organization_memberships', 'org-1');
+		expect(findMany).toHaveBeenCalledWith('organization_memberships', 'org-1', undefined, {
+			select:
+				'id, organization_id, user_id, email, role, created_at, member_preset, capability_overrides, access_scope_kind, access_scope_group_ids'
+		});
+		expect(findMany).toHaveBeenCalledWith('organization_invitations', 'org-1', undefined, {
+			select:
+				'id, email, role, status, created_at, expires_at, accepted_at, declined_at, revoked_at, expired_at, blocked_at, member_preset, capability_overrides, access_scope_kind, access_scope_group_ids',
+			orderBy: [{ column: 'created_at', ascending: false }]
+		});
 
 		resolveAuditLog({
 			logs: [],

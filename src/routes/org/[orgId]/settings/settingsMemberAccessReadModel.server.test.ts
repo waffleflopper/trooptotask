@@ -1,29 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { buildSettingsInvitationAccessRow, buildSettingsMemberAccessRow } from './settingsMemberAccessReadModel.server';
 
-const legacyAccessRow = {
-	scoped_group_id: 'group-alpha',
-	can_view_calendar: true,
-	can_edit_calendar: true,
-	can_view_personnel: true,
-	can_edit_personnel: true,
-	can_view_training: true,
-	can_edit_training: false,
-	can_view_critical_tasks: true,
-	can_edit_critical_tasks: true,
-	can_view_onboarding: true,
-	can_edit_onboarding: true,
-	can_view_rating_scheme: true,
-	can_edit_rating_scheme: true,
-	can_manage_members: false,
-	member_preset: 'viewer',
-	capability_overrides: { calendar: 'operate', ratingScheme: 'none' },
-	access_scope_kind: 'groups',
+const replacementAccessRow = {
+	member_preset: 'viewer' as const,
+	capability_overrides: { calendar: 'operate' as const, ratingScheme: 'none' as const },
+	access_scope_kind: 'groups' as const,
 	access_scope_group_ids: ['group-alpha']
 };
 
 describe('settings member access read model', () => {
-	it('translates a legacy membership row into a shaped workspace member access row', () => {
+	it('translates a replacement membership row into a shaped workspace member access row', () => {
 		const member = buildSettingsMemberAccessRow({
 			id: 'member-1',
 			organization_id: 'org-1',
@@ -31,7 +17,7 @@ describe('settings member access read model', () => {
 			email: 'member@example.com',
 			role: 'member',
 			created_at: '2026-05-20T12:00:00Z',
-			...legacyAccessRow
+			...replacementAccessRow
 		});
 
 		expect(member).toMatchObject({
@@ -56,6 +42,42 @@ describe('settings member access read model', () => {
 		expect(JSON.stringify(member)).not.toContain('scopedGroupId');
 	});
 
+	it('shapes organization-wide member access from replacement scope storage', () => {
+		const member = buildSettingsMemberAccessRow({
+			id: 'member-org-wide',
+			organization_id: 'org-1',
+			user_id: 'user-org-wide',
+			email: 'org-wide@example.com',
+			role: 'member',
+			created_at: '2026-05-20T12:00:00Z',
+			member_preset: 'editor',
+			capability_overrides: {},
+			access_scope_kind: 'organization',
+			access_scope_group_ids: []
+		});
+
+		expect(member.access.memberPreset).toBe('editor');
+		expect(member.access.scopeSet).toEqual({ kind: 'organization' });
+	});
+
+	it('shapes multi-Group Scope Set access from replacement storage', () => {
+		const member = buildSettingsMemberAccessRow({
+			id: 'member-multi-group',
+			organization_id: 'org-1',
+			user_id: 'user-multi-group',
+			email: 'multi-group@example.com',
+			role: 'member',
+			created_at: '2026-05-20T12:00:00Z',
+			member_preset: 'operator',
+			capability_overrides: {},
+			access_scope_kind: 'groups',
+			access_scope_group_ids: ['group-a', 'group-b']
+		});
+
+		expect(member.access.memberPreset).toBe('operator');
+		expect(member.access.scopeSet).toEqual({ kind: 'groups', groupIds: ['group-a', 'group-b'] });
+	});
+
 	it('normalizes admin and owner rows through Membership Role governance instead of stored member access', () => {
 		const admin = buildSettingsMemberAccessRow({
 			id: 'admin-1',
@@ -64,7 +86,7 @@ describe('settings member access read model', () => {
 			email: 'admin@example.com',
 			role: 'admin',
 			created_at: '2026-05-20T12:00:00Z',
-			...legacyAccessRow,
+			...replacementAccessRow,
 			member_preset: 'viewer',
 			capability_overrides: { calendar: 'none' },
 			access_scope_kind: 'groups',
@@ -77,7 +99,7 @@ describe('settings member access read model', () => {
 			email: 'owner@example.com',
 			role: 'owner',
 			created_at: '2026-05-20T12:00:00Z',
-			...legacyAccessRow,
+			...replacementAccessRow,
 			member_preset: 'viewer',
 			capability_overrides: { calendar: 'none' },
 			access_scope_kind: 'groups',
@@ -102,18 +124,17 @@ describe('settings member access read model', () => {
 		expect(owner.access.organizationGovernanceActions).toContain('organization.deleteOrganization');
 	});
 
-	it('translates a legacy invitation row into shaped pending access', () => {
+	it('translates a replacement invitation row into shaped pending access', () => {
 		const invitation = buildSettingsInvitationAccessRow({
 			id: 'invite-1',
 			email: 'invite@example.com',
 			status: 'pending',
 			created_at: '2026-05-20T12:00:00Z',
-			...legacyAccessRow,
-			can_edit_training: true,
-			member_preset: null,
-			capability_overrides: null,
-			access_scope_kind: null,
-			access_scope_group_ids: null
+			...replacementAccessRow,
+			member_preset: 'editor',
+			capability_overrides: {},
+			access_scope_kind: 'groups',
+			access_scope_group_ids: ['group-alpha']
 		});
 
 		expect(invitation).toMatchObject({
@@ -123,7 +144,7 @@ describe('settings member access read model', () => {
 			membershipRole: 'member',
 			createdAt: '2026-05-20T12:00:00Z',
 			access: {
-				memberPreset: 'operator',
+				memberPreset: 'editor',
 				capabilityMap: {
 					calendar: 'configure',
 					training: 'configure'
@@ -136,33 +157,46 @@ describe('settings member access read model', () => {
 		expect(JSON.stringify(invitation)).not.toContain('scoped_group_id');
 	});
 
-	it('keeps org-wide legacy invitations as organization Scope Set access', () => {
+	it('keeps org-wide invitations as organization Scope Set access', () => {
 		const invitation = buildSettingsInvitationAccessRow({
 			id: 'invite-1',
 			email: 'invite@example.com',
 			status: 'pending',
 			created_at: '2026-05-20T12:00:00Z',
-			...legacyAccessRow,
-			scoped_group_id: null,
-			member_preset: null,
-			capability_overrides: null,
-			access_scope_kind: null,
-			access_scope_group_ids: null
+			member_preset: 'viewer',
+			capability_overrides: {},
+			access_scope_kind: 'organization',
+			access_scope_group_ids: []
 		});
 
 		expect(invitation.membershipRole).toBe('member');
 		expect(invitation.access.scopeSet).toEqual({ kind: 'organization' });
 	});
 
-	it('infers admin invitation role when shaping pending access', () => {
+	it('shapes multi-Group Scope Set invitations from replacement storage', () => {
+		const invitation = buildSettingsInvitationAccessRow({
+			id: 'invite-multi-group',
+			email: 'multi-invite@example.com',
+			status: 'pending',
+			created_at: '2026-05-20T12:00:00Z',
+			member_preset: 'operator',
+			capability_overrides: {},
+			access_scope_kind: 'groups',
+			access_scope_group_ids: ['group-a', 'group-b']
+		});
+
+		expect(invitation.access.memberPreset).toBe('operator');
+		expect(invitation.access.scopeSet).toEqual({ kind: 'groups', groupIds: ['group-a', 'group-b'] });
+	});
+
+	it('reads admin invitation role from replacement row role field', () => {
 		const invitation = buildSettingsInvitationAccessRow({
 			id: 'invite-admin',
 			email: 'admin-invite@example.com',
 			status: 'pending',
 			created_at: '2026-05-20T12:00:00Z',
-			...legacyAccessRow,
-			can_edit_training: true,
-			can_manage_members: true
+			...replacementAccessRow,
+			role: 'admin'
 		});
 
 		expect(invitation.membershipRole).toBe('admin');
@@ -178,7 +212,7 @@ describe('settings member access read model', () => {
 			status: 'pending',
 			role: 'admin',
 			created_at: '2026-05-20T12:00:00Z',
-			...legacyAccessRow,
+			...replacementAccessRow,
 			member_preset: 'viewer',
 			capability_overrides: { calendar: 'none' },
 			access_scope_kind: 'groups',

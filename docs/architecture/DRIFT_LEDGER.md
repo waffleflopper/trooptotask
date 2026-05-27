@@ -14,7 +14,7 @@ Each entry separates:
 - Current-state truth:
   - membership role is `owner`, `admin`, or `member`
   - migrated Policy Decision workflows now use stored member presets, capability overrides, and shared scope sets as their active runtime inputs
-  - per-feature booleans plus optional `scoped_group_id` remain only as compatibility inputs for explicitly unmigrated flows and older membership rows
+  - legacy per-feature storage booleans plus `scoped_group_id` have been removed from memberships and invitations; historical migrations still name them for audit and transition history
   - UI presets and derived labels are convenience shapes over that model
   - platform admin uses a separate role system outside organization-membership authz
 - Intended direction:
@@ -31,7 +31,7 @@ Each entry separates:
   - do not invent partial-admin member shapes or per-feature scope matrices
   - do not reintroduce legacy permission flags or `scoped_group_id` as active authorization checks for migrated Policy Decision workflows
 - Recommended next slice:
-  - after the Organization Settings member-access command slice lands, re-run `improve-codebase-architecture` on the member-access storage deletion seam: verify stored preset backfill completion, isolate or delete the remaining compatibility adapter, remove legacy permission booleans and `scoped_group_id` from active code paths, and plan database-column removal through the normal migration/release process
+  - re-run `improve-codebase-architecture` on the remaining org-shell route-data compatibility fields and helper-name compatibility surface once the database-column removal migration is released
 
 ## D-02 Provider-Boundary Leaks
 

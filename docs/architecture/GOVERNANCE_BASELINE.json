@@ -275,7 +275,8 @@
 			"patterns": [
 				"scoped_group_id",
 				"can_view_*",
-				"can_edit_*"
+				"can_edit_*",
+				"can_manage_members"
 			],
 			"ownerIssue": "#766",
 			"reason": "Historical remote schema snapshot preserves legacy authorization columns and helpers.",
@@ -370,7 +371,8 @@
 			"classification": "historical-migration",
 			"patterns": [
 				"can_view_*",
-				"can_edit_*"
+				"can_edit_*",
+				"can_manage_members"
 			],
 			"ownerIssue": "#1009",
 			"reason": "Organization invitation role snapshot migration intentionally backfills Membership Role from legacy compatibility permission flags before future acceptance copies the stored snapshot.",
@@ -384,7 +386,8 @@
 			"patterns": [
 				"can_view_*",
 				"can_edit_*",
-				"scoped_group_id"
+				"scoped_group_id",
+				"can_manage_members"
 			],
 			"ownerIssue": "#1010",
 			"reason": "Atomic invitation acceptance transition intentionally copies stored compatibility permission flags from Organization Invitation snapshots into Organization Membership rows.",
@@ -398,7 +401,8 @@
 			"patterns": [
 				"can_view_*",
 				"can_edit_*",
-				"scoped_group_id"
+				"scoped_group_id",
+				"can_manage_members"
 			],
 			"ownerIssue": "#1013",
 			"reason": "Access-request-gated invitation acceptance redefines the existing atomic transition and intentionally preserves stored compatibility permission snapshot copying while adding the account-setup guard.",
@@ -512,7 +516,8 @@
 			"path": "supabase/migrations/20260515000600_repair_groups_access_after_leaders_book_retirement.sql",
 			"classification": "compatibility-adapter",
 			"patterns": [
-				"can_view_*"
+				"can_view_*",
+				"can_manage_members"
 			],
 			"ownerIssue": "#891",
 			"reason": "Leader's Book retirement repair migration historically redefines the existing Groups RLS helper API so Personnel bootstrap can read groups through durable member-access capabilities instead of dropped Leaders Book flags.",
@@ -534,20 +539,6 @@
 			]
 		},
 		{
-			"path": "supabase/seed.sql",
-			"classification": "local-seed-fixture",
-			"patterns": [
-				"scoped_group_id",
-				"can_view_*",
-				"can_edit_*"
-			],
-			"ownerIssue": "#766",
-			"reason": "Local seed data still includes legacy authorization columns as fixture compatibility.",
-			"driftIds": [
-				"D-01"
-			]
-		},
-		{
 			"path": "src/lib/test-support/orgContextBuilder.ts",
 			"classification": "compatibility-adapter",
 			"patterns": [
@@ -556,6 +547,21 @@
 			],
 			"ownerIssue": "#757",
 			"reason": "Shared test OrgContext builder derives legacy permission flags from the capability map so test files do not maintain both in sync.",
+			"driftIds": [
+				"D-01"
+			]
+		},
+		{
+			"path": "supabase/migrations/20260526000300_drop_legacy_member_access_columns.sql",
+			"classification": "historical-migration",
+			"patterns": [
+				"scoped_group_id",
+				"can_view_*",
+				"can_edit_*",
+				"can_manage_members"
+			],
+			"ownerIssue": "#1114",
+			"reason": "Final cleanup migration intentionally names legacy member-access columns only to drop them from memberships and invitations.",
 			"driftIds": [
 				"D-01"
 			]

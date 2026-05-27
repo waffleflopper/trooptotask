@@ -1,14 +1,14 @@
 <script lang="ts">
 	import { TIER_CONFIG, type EffectiveTier } from '$lib/types/subscription';
 	import OrganizationSettingsSection from './OrganizationSettingsSection.svelte';
-	import type { OrganizationSettingsWorkspace } from './organizationSettingsWorkspaceModel';
+	import type { GeneralSettingsData } from './settingsGeneral.server';
 	import type { PlanUsageSummaryForSettings } from './settingsTypes';
 	import { formatCap, formatExportLimit, formatPrice } from './settingsWorkspaceFormatters';
 
 	type SettingsPageData = {
 		effectiveTier?: EffectiveTier | null;
 		planUsageSummary: PlanUsageSummaryForSettings;
-		workspace: OrganizationSettingsWorkspace;
+		generalSettings: GeneralSettingsData;
 	};
 
 	type SettingsActionData = {
@@ -32,14 +32,13 @@
 	let nameLoading = $state(false);
 	let slugLoading = $state(false);
 	const settingsData = $derived(data as SettingsPageData);
-	const organizationSection = $derived(settingsData.workspace.sections.organization);
-	const membersSection = $derived(settingsData.workspace.sections.members);
+	const organizationSection = $derived(settingsData.generalSettings.sections.organization);
 	const tier = $derived(
 		settingsData.effectiveTier ??
 			({
 				tier: 'free',
 				source: 'default',
-				personnelCount: membersSection.rows.length,
+				personnelCount: 0,
 				personnelCap: TIER_CONFIG.free.personnelCap,
 				isReadOnly: false,
 				readOnlyReason: null,

@@ -3,12 +3,14 @@ import { buildRouteContext } from '$lib/server/adapters/httpAdapter';
 import { createSupabaseDataStore } from '$lib/server/adapters/supabaseDataStore';
 import { fetchAuditLogs } from '$lib/server/core/useCases/auditLogQuery';
 import { getAdminClient } from '$lib/server/supabase';
-import { actions, load as loadSettingsPage } from '../+page.server';
+import { actions, loadSettingsWorkspacePage } from '../+page.server';
 
 export { actions };
 
 export const load: PageServerLoad = async (event) => {
-	const settingsData = await loadSettingsPage(event as unknown as Parameters<typeof loadSettingsPage>[0]);
+	const settingsData = await loadSettingsWorkspacePage(
+		event as unknown as Parameters<typeof loadSettingsWorkspacePage>[0]
+	);
 	const ctx = await buildRouteContext(event);
 	const adminStore = createSupabaseDataStore(getAdminClient());
 

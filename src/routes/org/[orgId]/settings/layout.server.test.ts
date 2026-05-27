@@ -44,7 +44,13 @@ describe('settings layout server load', () => {
 		const result = await load({
 			params: { orgId: 'org-1' },
 			locals: {},
-			cookies: {}
+			cookies: {},
+			parent: async () => ({
+				orgId: 'org-1',
+				orgName: 'Test Org',
+				orgUrlSegment: 'test-org',
+				effectiveTier: null
+			})
 		} as never);
 
 		expect(loadWithContextMock).toHaveBeenCalledWith(
@@ -56,7 +62,26 @@ describe('settings layout server load', () => {
 				policyResource: { kind: 'organization' }
 			})
 		);
-		expect(result).toEqual({ canAccessOrganizationGovernance: true });
+		expect(result).toMatchObject({
+			canAccessOrganizationGovernance: true,
+			settingsShell: {
+				organization: {
+					id: 'org-1',
+					name: 'Test Org',
+					urlSlug: 'test-org',
+					urlSegment: 'test-org'
+				},
+				currentMember: {
+					role: 'admin',
+					isOwner: false,
+					canManageMembers: true
+				},
+				navBadges: {
+					pendingInvitationsCount: 0,
+					archivedPersonnelCount: 0
+				}
+			}
+		});
 	});
 
 	it('lets policy denials block non-governance members before layout data is returned', async () => {
@@ -83,7 +108,13 @@ describe('settings layout server load', () => {
 			load({
 				params: { orgId: 'org-1' },
 				locals: {},
-				cookies: {}
+				cookies: {},
+				parent: async () => ({
+					orgId: 'org-1',
+					orgName: 'Test Org',
+					orgUrlSegment: 'org-1',
+					effectiveTier: null
+				})
 			} as never)
 		).rejects.toMatchObject({
 			status: 403,

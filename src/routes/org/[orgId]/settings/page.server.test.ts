@@ -123,7 +123,8 @@ vi.mock('$lib/server/core/useCases/orgSettingsAdministration', async () => {
 	};
 });
 
-import { actions, load } from './+page.server';
+import { actions, load as loadSettingsIndexPage, loadSettingsWorkspacePage as load } from './+page.server';
+import { actions as generalActions, load as loadGeneralPage } from './general/+page.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 
 describe('org settings page server actions', () => {
@@ -282,6 +283,63 @@ describe('org settings page server actions', () => {
 		transferOrganizationOwnershipMock.mockResolvedValue({ transferSuccess: true });
 		updateOrganizationMemberPermissionsMock.mockResolvedValue({ permissionSuccess: true });
 		updateOrganizationUrlSlugMock.mockResolvedValue({ slugSuccess: true, orgUrlSlug: '1-11-bde' });
+	});
+
+	it('redirects the settings index route to General settings', async () => {
+		await expect(
+			loadSettingsIndexPage({
+				params: { orgId: 'org-1' },
+				locals: {},
+				cookies: {},
+				parent: async () => ({
+					orgId: 'org-1',
+					orgUrlSegment: '1-11-bde'
+				})
+			} as never)
+		).rejects.toMatchObject({ status: 303, location: '/org/1-11-bde/settings/general' });
+	});
+
+	it('loads explicit General settings data without workspace section rows', async () => {
+		const result = await loadGeneralPage({
+			params: { orgId: 'org-1' },
+			locals: {},
+			cookies: {},
+			parent: async () => ({
+				orgId: 'org-1',
+				orgUrlSegment: '1-11-bde',
+				orgName: 'Test Org',
+				allOrgs: [],
+				isAdmin: true,
+				effectiveTier: {
+					tier: 'unit',
+					source: 'subscription',
+					personnelCount: 4,
+					personnelCap: 500,
+					isReadOnly: false,
+					giftExpiresAt: null,
+					giftTier: null
+				},
+				permissions: { canManageMembers: true }
+			})
+		} as never);
+
+		expect(result).toMatchObject({
+			orgId: 'org-1',
+			planUsageSummary: expect.any(Object),
+			generalSettings: {
+				currentMember: { role: 'owner', canManageMembers: true },
+				sections: {
+					organization: {
+						id: 'org-1',
+						name: 'Test Org',
+						urlSlug: '1-11-bde',
+						canUpdateProfile: true,
+						canUpdateUrlSlug: true
+					}
+				}
+			}
+		});
+		expect('workspace' in (result as Record<string, unknown>)).toBe(false);
 	});
 
 	it('loads a consolidated admin settings workspace payload', async () => {
@@ -736,7 +794,7 @@ describe('org settings page server actions', () => {
 	});
 
 	it('returns a name-specific success flag for organization rename', async () => {
-		const result = await actions.updateName({
+		const result = await generalActions.updateName({
 			request: new Request('http://localhost/org/org-1/settings?/updateName', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -767,7 +825,7 @@ describe('org settings page server actions', () => {
 		updateOrganizationUrlSlugMock.mockResolvedValueOnce({ slugSuccess: true, orgUrlSlug: 'new-bde' });
 
 		await expect(
-			actions.updateSlug({
+			generalActions.updateSlug({
 				request: new Request('http://localhost/org/1-11-bde/settings?/updateSlug', {
 					method: 'POST',
 					headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -800,7 +858,7 @@ describe('org settings page server actions', () => {
 
 	it('redirects to the organization ID URL after clearing the slug', async () => {
 		await expect(
-			actions.clearSlug({
+			generalActions.clearSlug({
 				request: new Request('http://localhost/org/1-11-bde/settings?/clearSlug', {
 					method: 'POST',
 					headers: { 'Content-Type': 'application/x-www-form-urlencoded' },

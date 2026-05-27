@@ -14,11 +14,8 @@ import type { UseCaseContext } from '$lib/server/core/ports';
 import { readEffectivePlanPolicy } from '$lib/server/core/useCases/planPolicy';
 import { readOrganizationPlanUsage } from '$lib/server/core/useCases/organizationPlanUsage';
 import {
-	clearOrganizationUrlSlug,
 	deleteOrganization as deleteOrganizationUseCase,
-	renameOrganization,
-	transferOrganizationOwnership,
-	updateOrganizationUrlSlug
+	transferOrganizationOwnership
 } from '$lib/server/core/useCases/orgSettingsAdministration';
 import {
 	inviteOrganizationMember,
@@ -33,7 +30,12 @@ import {
 	type SettingsExportInfoSource
 } from './organizationSettingsWorkspace.server';
 
-export const load: PageServerLoad = async ({ locals, cookies, parent }) => {
+export const load: PageServerLoad = async ({ parent }) => {
+	const parentData = await parent();
+	redirect(303, `/org/${parentData.orgUrlSegment ?? parentData.orgId}/settings/general`);
+};
+
+export const loadSettingsWorkspacePage = async ({ locals, cookies, parent }: Parameters<PageServerLoad>[0]) => {
 	const parentData = await parent();
 	const { orgId, orgName, orgUrlSegment, allOrgs, isAdmin, effectiveTier } = parentData;
 	const permissions = parentData.permissions!;
@@ -93,83 +95,6 @@ async function loadPlanInfo(ctx: Pick<UseCaseContext, 'auth' | 'rawStore'>): Pro
 }
 
 export const actions: Actions = {
-	updateName: async (event) => {
-		const { request, locals } = event;
-		const user = locals.user;
-		if (!user) throw redirect(303, '/auth/login');
-
-		const formData = await request.formData();
-		try {
-			const ctx = await buildRouteContext(event);
-			return await renameOrganization(
-				{
-					auth: ctx.auth,
-					audit: ctx.audit,
-					notifications: ctx.notifications,
-					readOnlyGuard: ctx.readOnlyGuard,
-					administration: createSupabaseOrgSettingsAdministrationPort(locals)
-				},
-				{
-					name: (formData.get('name') as string) ?? ''
-				}
-			);
-		} catch (error) {
-			return toActionFailure('error', error);
-		}
-	},
-
-	updateSlug: async (event) => {
-		const { request, locals } = event;
-		const user = locals.user;
-		if (!user) throw redirect(303, '/auth/login');
-
-		const formData = await request.formData();
-		let orgUrlSlug: string;
-		try {
-			const ctx = await buildRouteContext(event);
-			const result = await updateOrganizationUrlSlug(
-				{
-					auth: ctx.auth,
-					audit: ctx.audit,
-					notifications: ctx.notifications,
-					readOnlyGuard: ctx.readOnlyGuard,
-					administration: createSupabaseOrgSettingsAdministrationPort(locals)
-				},
-				{
-					urlSlug: (formData.get('urlSlug') as string) ?? ''
-				}
-			);
-			orgUrlSlug = result.orgUrlSlug;
-		} catch (error) {
-			return toActionFailure('slugError', error);
-		}
-
-		throw redirect(303, `/org/${orgUrlSlug}/settings/general`);
-	},
-
-	clearSlug: async (event) => {
-		const { locals } = event;
-		const user = locals.user;
-		if (!user) throw redirect(303, '/auth/login');
-
-		let orgId: string;
-		try {
-			const ctx = await buildRouteContext(event);
-			await clearOrganizationUrlSlug({
-				auth: ctx.auth,
-				audit: ctx.audit,
-				notifications: ctx.notifications,
-				readOnlyGuard: ctx.readOnlyGuard,
-				administration: createSupabaseOrgSettingsAdministrationPort(locals)
-			});
-			orgId = ctx.auth.orgId;
-		} catch (error) {
-			return toActionFailure('slugError', error);
-		}
-
-		throw redirect(303, `/org/${orgId}/settings/general`);
-	},
-
 	invite: async (event) => {
 		const { request, locals } = event;
 		const user = locals.user;

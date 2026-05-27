@@ -6,9 +6,10 @@
 	let { children } = $props();
 
 	const settingsData = $derived($page.data);
-	const organization = $derived(settingsData.workspace?.sections.organization);
-	const currentMember = $derived(settingsData.workspace?.currentMember);
-	const baseHref = $derived(`/org/${settingsData.orgUrlSegment ?? $page.params.orgId}/settings`);
+	const settingsShell = $derived(settingsData.settingsShell);
+	const organization = $derived(settingsShell?.organization);
+	const currentMember = $derived(settingsShell?.currentMember);
+	const baseHref = $derived(`/org/${organization?.urlSegment ?? $page.params.orgId}/settings`);
 	const activePath = $derived($page.url.pathname);
 	const tabs = $derived(
 		[
@@ -18,7 +19,7 @@
 				label: 'Members',
 				href: `${baseHref}/members`,
 				active: activePath.endsWith('/settings/members'),
-				badge: settingsData.workspace?.sections.members.invitations.length || undefined,
+				badge: settingsShell?.navBadges.pendingInvitationsCount || undefined,
 				badgeVariant: 'warning' as const
 			},
 			{ label: 'Policies', href: `${baseHref}/policies`, active: activePath.endsWith('/settings/policies') },
@@ -26,12 +27,12 @@
 				label: 'Archives',
 				href: `${baseHref}/archives`,
 				active: activePath.endsWith('/settings/archives'),
-				badge: settingsData.workspace?.sections.archivedPersonnel.rows.length || undefined,
+				badge: settingsShell?.navBadges.archivedPersonnelCount || undefined,
 				badgeVariant: 'outline' as const
 			},
 			{ label: 'Logs', href: `${baseHref}/logs`, active: activePath.endsWith('/settings/logs') },
 			{ label: 'Exports', href: `${baseHref}/exports`, active: activePath.endsWith('/settings/exports') },
-			...(currentMember?.isOwner
+			...(settingsShell?.tabVisibility.danger
 				? [{ label: 'Danger', href: `${baseHref}/danger`, active: activePath.endsWith('/settings/danger') }]
 				: [])
 		].map((tab) => ({

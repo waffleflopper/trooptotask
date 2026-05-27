@@ -27,7 +27,6 @@ interface OrganizationMembershipLookupRow {
 	user_id: string | null;
 	role: string | null;
 	email: string | null;
-	can_manage_members: boolean | null;
 }
 
 interface OrganizationRow {
@@ -286,7 +285,7 @@ export function createSupabaseOrgSettingsMemberManagementPort(
 		async findMembershipById(orgId, membershipId) {
 			const { data, error } = await supabase
 				.from('organization_memberships')
-				.select('user_id, role, email, can_manage_members')
+				.select('user_id, role, email')
 				.eq('id', membershipId)
 				.eq('organization_id', orgId)
 				.single<OrganizationMembershipLookupRow>();
@@ -299,7 +298,7 @@ export function createSupabaseOrgSettingsMemberManagementPort(
 				userId: data.user_id,
 				role: data.role,
 				email: data.email,
-				canManageMembers: data.role === 'admin' || data.role === 'owner' || data.can_manage_members === true
+				canManageMembers: data.role === 'admin' || data.role === 'owner'
 			};
 		},
 

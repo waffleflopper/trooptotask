@@ -58,17 +58,7 @@ describe('buildLayoutContext', () => {
 		{
 			label: 'owner membership',
 			membership: {
-				role: 'owner',
-				scoped_group_id: 'group-ignored',
-				can_view_calendar: false,
-				can_edit_calendar: false,
-				can_view_personnel: false,
-				can_edit_personnel: false,
-				can_view_training: false,
-				can_edit_training: false,
-				can_view_onboarding: false,
-				can_edit_onboarding: false,
-				can_manage_members: false
+				role: 'owner'
 			} satisfies MembershipRow,
 			assertAuth: (ctx: Awaited<ReturnType<typeof buildLayoutContext>>) => {
 				expect(ctx.auth.role).toBe('owner');
@@ -80,17 +70,7 @@ describe('buildLayoutContext', () => {
 		{
 			label: 'admin membership',
 			membership: {
-				role: 'admin',
-				scoped_group_id: 'group-ignored',
-				can_view_calendar: false,
-				can_edit_calendar: false,
-				can_view_personnel: false,
-				can_edit_personnel: false,
-				can_view_training: false,
-				can_edit_training: false,
-				can_view_onboarding: false,
-				can_edit_onboarding: false,
-				can_manage_members: false
+				role: 'admin'
 			} satisfies MembershipRow,
 			assertAuth: (ctx: Awaited<ReturnType<typeof buildLayoutContext>>) => {
 				expect(ctx.auth.role).toBe('admin');
@@ -103,16 +83,10 @@ describe('buildLayoutContext', () => {
 			label: 'member membership',
 			membership: {
 				role: 'member',
-				scoped_group_id: null,
-				can_view_calendar: true,
-				can_edit_calendar: false,
-				can_view_personnel: true,
-				can_edit_personnel: true,
-				can_view_training: false,
-				can_edit_training: false,
-				can_view_onboarding: true,
-				can_edit_onboarding: false,
-				can_manage_members: false
+				member_preset: 'viewer',
+				capability_overrides: {},
+				access_scope_kind: 'organization',
+				access_scope_group_ids: []
 			} satisfies MembershipRow,
 			assertAuth: (ctx: Awaited<ReturnType<typeof buildLayoutContext>>) => {
 				expect(ctx.auth.role).toBe('member');
@@ -125,16 +99,10 @@ describe('buildLayoutContext', () => {
 			label: 'scoped member membership',
 			membership: {
 				role: 'member',
-				scoped_group_id: 'group-123',
-				can_view_calendar: true,
-				can_edit_calendar: false,
-				can_view_personnel: true,
-				can_edit_personnel: false,
-				can_view_training: true,
-				can_edit_training: false,
-				can_view_onboarding: false,
-				can_edit_onboarding: false,
-				can_manage_members: false
+				member_preset: 'viewer',
+				capability_overrides: { training: 'view' },
+				access_scope_kind: 'groups',
+				access_scope_group_ids: ['group-123']
 			} satisfies MembershipRow,
 			assertAuth: (ctx: Awaited<ReturnType<typeof buildLayoutContext>>) => {
 				expect(ctx.auth.role).toBe('member');
@@ -162,16 +130,10 @@ describe('buildLayoutContext', () => {
 	it('reuses a pre-fetched membership when buildLayoutContextFromMembership seeds the request cache', async () => {
 		const membership = {
 			role: 'member',
-			scoped_group_id: 'group-123',
-			can_view_calendar: true,
-			can_edit_calendar: false,
-			can_view_personnel: true,
-			can_edit_personnel: true,
-			can_view_training: true,
-			can_edit_training: false,
-			can_view_onboarding: false,
-			can_edit_onboarding: false,
-			can_manage_members: false
+			member_preset: 'operator',
+			capability_overrides: { personnel: 'configure' },
+			access_scope_kind: 'groups',
+			access_scope_group_ids: ['group-123']
 		} satisfies MembershipRow;
 		const { supabase } = createMembershipSupabase(membership);
 		getApiContextMock.mockReturnValue({
@@ -307,17 +269,7 @@ describe('buildLayoutContext', () => {
 		}
 	])('ignores cached membership rows for $label', async ({ cache }) => {
 		const cachedMembership = {
-			role: 'owner',
-			scoped_group_id: null,
-			can_view_calendar: false,
-			can_edit_calendar: false,
-			can_view_personnel: false,
-			can_edit_personnel: false,
-			can_view_training: false,
-			can_edit_training: false,
-			can_view_onboarding: false,
-			can_edit_onboarding: false,
-			can_manage_members: false
+			role: 'owner'
 		} satisfies MembershipRow;
 		const queriedMembership = {
 			role: 'member',

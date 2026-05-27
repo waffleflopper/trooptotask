@@ -42,20 +42,6 @@ export interface PermissionContext {
 export interface MembershipRow {
 	id?: string;
 	role: 'owner' | 'admin' | 'member';
-	scoped_group_id?: string | null;
-	can_view_calendar?: boolean;
-	can_edit_calendar?: boolean;
-	can_view_personnel?: boolean;
-	can_edit_personnel?: boolean;
-	can_view_training?: boolean;
-	can_edit_training?: boolean;
-	can_view_critical_tasks?: boolean;
-	can_edit_critical_tasks?: boolean;
-	can_view_onboarding?: boolean;
-	can_edit_onboarding?: boolean;
-	can_view_rating_scheme?: boolean;
-	can_edit_rating_scheme?: boolean;
-	can_manage_members?: boolean;
 	member_preset?: StoredMemberPreset | null;
 	capability_overrides?: CapabilityOverrideMap | null;
 	access_scope_kind?: ScopeSet['kind'] | null;

@@ -4,18 +4,10 @@ import { createPermissionContextFromMembership, getMembershipRow } from './permi
 describe('createPermissionContextFromMembership', () => {
 	const baseMembership = {
 		role: 'member' as const,
-		scoped_group_id: null as string | null,
-		can_view_calendar: true,
-		can_edit_calendar: false,
-		can_view_personnel: true,
-		can_edit_personnel: true,
-		can_view_training: false,
-		can_edit_training: false,
-		can_view_critical_tasks: false,
-		can_edit_critical_tasks: false,
-		can_view_onboarding: true,
-		can_edit_onboarding: false,
-		can_manage_members: false
+		member_preset: 'viewer' as const,
+		capability_overrides: {},
+		access_scope_kind: 'organization' as const,
+		access_scope_group_ids: []
 	};
 
 	it('builds correct role and privilege flags for a member', () => {
@@ -54,27 +46,26 @@ describe('createPermissionContextFromMembership', () => {
 		expect(ctx.canManageMembers).toBe(true);
 	});
 
-	it('maps permission booleans correctly for a member', () => {
+	it('maps replacement storage correctly for a member', () => {
 		const ctx = createPermissionContextFromMembership(baseMembership);
 
 		expect(ctx.canView.calendar).toBe(true);
 		expect(ctx.canEdit.calendar).toBe(false);
 		expect(ctx.canView.personnel).toBe(true);
-		expect(ctx.canEdit.personnel).toBe(true);
-		expect(ctx.canView.training).toBe(false);
+		expect(ctx.canEdit.personnel).toBe(false);
+		expect(ctx.canView.training).toBe(true);
 		expect(ctx.canEdit.training).toBe(false);
-		expect(ctx.canView['critical-tasks']).toBe(false);
+		expect(ctx.canView['critical-tasks']).toBe(true);
 		expect(ctx.canEdit['critical-tasks']).toBe(false);
 		expect(ctx.canView['rating-scheme']).toBe(true);
-		expect(ctx.canEdit['rating-scheme']).toBe(true);
+		expect(ctx.canEdit['rating-scheme']).toBe(false);
 		expect(ctx.canManageMembers).toBe(false);
 	});
 
-	it('prefers explicit rating scheme flags over the personnel fallback shape', () => {
+	it('uses replacement capability overrides for rating scheme access', () => {
 		const ctx = createPermissionContextFromMembership({
 			...baseMembership,
-			can_view_rating_scheme: false,
-			can_edit_rating_scheme: false
+			capability_overrides: { ratingScheme: 'none' }
 		});
 
 		expect(ctx.canView['rating-scheme']).toBe(false);
@@ -85,18 +76,19 @@ describe('createPermissionContextFromMembership', () => {
 		const ctx = createPermissionContextFromMembership({
 			...baseMembership,
 			role: 'admin',
-			can_view_training: false,
-			can_edit_training: false
+			member_preset: 'viewer',
+			capability_overrides: { training: 'none' }
 		});
 
 		expect(ctx.canView.training).toBe(true);
 		expect(ctx.canEdit.training).toBe(true);
 	});
 
-	it('respects scoped_group_id for members', () => {
+	it('respects replacement Scope Set for members', () => {
 		const ctx = createPermissionContextFromMembership({
 			...baseMembership,
-			scoped_group_id: 'group-123'
+			access_scope_kind: 'groups',
+			access_scope_group_ids: ['group-123']
 		});
 
 		expect(ctx.scopeSet).toEqual({ kind: 'groups', groupIds: ['group-123'] });
@@ -105,8 +97,6 @@ describe('createPermissionContextFromMembership', () => {
 	it('uses stored capability and multi-Group scope when available', () => {
 		const ctx = createPermissionContextFromMembership({
 			...baseMembership,
-			can_view_personnel: false,
-			can_edit_personnel: false,
 			member_preset: 'viewer',
 			capability_overrides: { personnel: 'operate' },
 			access_scope_kind: 'groups',
@@ -121,7 +111,6 @@ describe('createPermissionContextFromMembership', () => {
 	it('builds Policy Decision inputs from replacement-only membership access', () => {
 		const ctx = createPermissionContextFromMembership({
 			role: 'member',
-			can_manage_members: true,
 			member_preset: 'operator',
 			capability_overrides: { calendar: 'view', training: 'configure' },
 			access_scope_kind: 'groups',
@@ -180,12 +169,9 @@ describe('createPermissionContextFromMembership', () => {
 		expect(ctx.compatibilityLanes).toEqual({});
 	});
 
-	it('does not let legacy flags or scoped_group_id override stored member access', () => {
+	it('uses replacement member access without legacy fallback inputs', () => {
 		const ctx = createPermissionContextFromMembership({
 			...baseMembership,
-			scoped_group_id: 'legacy-group',
-			can_view_calendar: false,
-			can_edit_calendar: false,
 			member_preset: 'viewer',
 			capability_overrides: { calendar: 'operate' },
 			access_scope_kind: 'organization',
@@ -196,11 +182,12 @@ describe('createPermissionContextFromMembership', () => {
 		expect(ctx.scopeSet).toEqual({ kind: 'organization' });
 	});
 
-	it('ignores scoped_group_id for privileged roles', () => {
+	it('ignores stored group scope for privileged roles', () => {
 		const ctx = createPermissionContextFromMembership({
 			...baseMembership,
 			role: 'owner',
-			scoped_group_id: 'group-123'
+			access_scope_kind: 'groups',
+			access_scope_group_ids: ['group-123']
 		});
 
 		expect(ctx.scopeSet).toEqual({ kind: 'organization' });
@@ -209,18 +196,10 @@ describe('createPermissionContextFromMembership', () => {
 	it('maps all-permission members to organization-wide configure capabilities', () => {
 		const ctx = createPermissionContextFromMembership({
 			role: 'member',
-			scoped_group_id: null,
-			can_view_calendar: true,
-			can_edit_calendar: true,
-			can_view_personnel: true,
-			can_edit_personnel: true,
-			can_view_training: true,
-			can_edit_training: true,
-			can_view_critical_tasks: true,
-			can_edit_critical_tasks: true,
-			can_view_onboarding: true,
-			can_edit_onboarding: true,
-			can_manage_members: true
+			member_preset: 'editor',
+			capability_overrides: {},
+			access_scope_kind: 'organization',
+			access_scope_group_ids: []
 		});
 
 		expect(ctx.capabilityMap).toMatchObject({
@@ -235,18 +214,10 @@ describe('createPermissionContextFromMembership', () => {
 	it('does not map disabled critical tasks permissions to configure capability', () => {
 		const ctx = createPermissionContextFromMembership({
 			role: 'member',
-			scoped_group_id: null,
-			can_view_calendar: true,
-			can_edit_calendar: true,
-			can_view_personnel: true,
-			can_edit_personnel: true,
-			can_view_training: true,
-			can_edit_training: true,
-			can_view_critical_tasks: false,
-			can_edit_critical_tasks: false,
-			can_view_onboarding: true,
-			can_edit_onboarding: true,
-			can_manage_members: true
+			member_preset: 'editor',
+			capability_overrides: { criticalTasks: 'none' },
+			access_scope_kind: 'organization',
+			access_scope_group_ids: []
 		});
 
 		expect(ctx.capabilityMap.criticalTasks).not.toBe('configure');

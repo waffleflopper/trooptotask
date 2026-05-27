@@ -64,13 +64,7 @@ export interface OrganizationInvitation {
 	createdAt: string;
 }
 
-export {
-	PERMISSION_PRESETS,
-	getPermissionPreset,
-	isFullEditor,
-	resolveRatingSchemePermissions,
-	type CurrentPermissionPreset as PermissionPreset
-} from '$lib/access/memberAccessShape';
+export { resolveRatingSchemePermissions } from '$lib/access/memberAccessShape';
 
 // ============================================================
 // Calendar Display Types (shared across features)

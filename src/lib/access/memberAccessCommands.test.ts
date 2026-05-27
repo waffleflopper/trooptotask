@@ -1,9 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-	memberAccessCommandToCompatibilityStorage,
-	memberAccessCommandToStorage,
-	parseMemberAccessEditFormData
-} from './memberAccessCommands';
+import { memberAccessCommandToStorage, parseMemberAccessEditFormData } from './memberAccessCommands';
 
 describe('parseMemberAccessEditFormData', () => {
 	it('parses target membership role, member preset, capability map, and scope set fields', () => {
@@ -99,46 +95,5 @@ describe('memberAccessCommandToStorage', () => {
 		expect(storage.memberPreset).toBe('editor');
 		expect(storage.accessScopeKind).toBe('organization');
 		expect(storage.accessScopeGroupIds).toEqual([]);
-	});
-});
-
-describe('memberAccessCommandToCompatibilityStorage', () => {
-	it('keeps the temporary invitation compatibility snapshot explicit', () => {
-		expect(
-			memberAccessCommandToCompatibilityStorage({
-				membershipRole: 'member',
-				memberAccess: {
-					memberPreset: 'operator',
-					capabilityOverrides: { calendar: 'configure', ratingScheme: 'none' },
-					scopeSet: {
-						kind: 'groups',
-						groupIds: ['11111111-1111-4111-8111-111111111111', '22222222-2222-4222-8222-222222222222']
-					}
-				}
-			})
-		).toEqual({
-			role: 'member',
-			singleGroupCompatibilityId: '11111111-1111-4111-8111-111111111111',
-			permissions: {
-				canViewCalendar: true,
-				canEditCalendar: true,
-				canViewPersonnel: true,
-				canEditPersonnel: false,
-				canViewTraining: true,
-				canEditTraining: false,
-				canViewCriticalTasks: true,
-				canEditCriticalTasks: false,
-				canViewOnboarding: true,
-				canEditOnboarding: false,
-				canViewRatingScheme: false,
-				canEditRatingScheme: false,
-				canManageMembers: false
-			},
-			memberPreset: 'operator',
-			capabilityOverrides: { calendar: 'configure', ratingScheme: 'none' },
-			accessScopeKind: 'groups',
-			accessScopeGroupIds: ['11111111-1111-4111-8111-111111111111', '22222222-2222-4222-8222-222222222222'],
-			canManageMembers: false
-		});
 	});
 });

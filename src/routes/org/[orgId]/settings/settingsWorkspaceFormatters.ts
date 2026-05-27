@@ -1,4 +1,4 @@
-import type { PermissionPreset } from '$lib/types';
+type PermissionPreset = 'owner' | 'admin' | 'full-editor' | 'team-leader' | 'viewer' | 'custom';
 
 export function normalizeOrganizationName(value: string): string {
 	return value.trim().replace(/\s+/g, ' ');

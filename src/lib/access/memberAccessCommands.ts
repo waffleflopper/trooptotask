@@ -1,9 +1,7 @@
-import type { OrganizationMemberPermissions } from '$lib/types';
 import {
 	DURABLE_FEATURE_LANES,
 	isCapabilityLevel,
 	serializeScopeSetForStorage,
-	targetMemberAccessToCurrentPermissionFlags,
 	targetMemberAccessToStorage,
 	type CapabilityOverrideMap,
 	type MembershipRole,
@@ -33,12 +31,6 @@ export interface MemberAccessStorageCommand {
 	capabilityOverrides: CapabilityOverrideMap;
 	accessScopeKind: ScopeSet['kind'];
 	accessScopeGroupIds: string[];
-}
-
-export interface MemberAccessCompatibilityStorageSnapshot extends MemberAccessStorageCommand {
-	singleGroupCompatibilityId: string | null;
-	permissions: OrganizationMemberPermissions;
-	canManageMembers: boolean;
 }
 
 export function parseMemberAccessEditFormData(formData: FormData): MemberAccessEditCommand {
@@ -74,32 +66,6 @@ export function memberAccessCommandToStorage(command: {
 		capabilityOverrides: accessStorage.capabilityOverrides,
 		accessScopeKind: serializedScope.access_scope_kind,
 		accessScopeGroupIds: serializedScope.access_scope_group_ids
-	};
-}
-
-export function memberAccessCommandToCompatibilityStorage(command: {
-	membershipRole: EditableMembershipRole;
-	memberAccess?: TargetMemberAccessCommand | null;
-}): MemberAccessCompatibilityStorageSnapshot {
-	const accessStorage = normalizeMemberAccessStorageCommand(command);
-	const serializedScope = serializeScopeSetForStorage(accessStorage.scopeSet);
-	const permissions = targetMemberAccessToCurrentPermissionFlags({
-		membershipRole: command.membershipRole,
-		memberPreset: accessStorage.memberPreset,
-		capabilityOverrides: accessStorage.capabilityOverrides,
-		scopeSet: accessStorage.scopeSet,
-		canManageMembers: command.memberAccess?.canManageMembers
-	});
-
-	return {
-		role: command.membershipRole,
-		singleGroupCompatibilityId: serializedScope.access_scope_group_ids[0] ?? null,
-		permissions,
-		memberPreset: accessStorage.memberPreset,
-		capabilityOverrides: accessStorage.capabilityOverrides,
-		accessScopeKind: serializedScope.access_scope_kind,
-		accessScopeGroupIds: serializedScope.access_scope_group_ids,
-		canManageMembers: permissions.canManageMembers
 	};
 }
 

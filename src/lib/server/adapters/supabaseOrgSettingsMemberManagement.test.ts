@@ -732,10 +732,10 @@ describe('createSupabaseOrgSettingsMemberManagementPort', () => {
 			userId: 'member-1',
 			role: 'member',
 			email: 'member@example.com',
-			canManageMembers: true
+			canManageMembers: false
 		});
 		expect(supabase.from).toHaveBeenCalledWith('organization_memberships');
-		expect(calls).toContainEqual({ method: 'select', args: ['user_id, role, email, can_manage_members'] });
+		expect(calls).toContainEqual({ method: 'select', args: ['user_id, role, email'] });
 		expect(calls).toContainEqual({ method: 'eq', args: ['id', 'membership-1'] });
 		expect(calls).toContainEqual({ method: 'eq', args: ['organization_id', 'org-1'] });
 	});

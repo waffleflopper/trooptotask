@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { createCapabilityMap } from '$lib/access/memberAccessShape';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { createOrgContext } from './orgContext.svelte';
 import type { OrganizationMemberPermissions } from '$lib/types';
@@ -83,12 +84,12 @@ describe('createOrgContext', () => {
 		expect(ctx.isPrivileged).toBe(false);
 	});
 
-	it('derives isFullEditor=true when all permission booleans are true and not privileged and not scoped', () => {
+	it('derives isFullEditor=true from organization-wide configure capabilities for nonprivileged members', () => {
 		const ctx = createOrgContext(
 			makeInput({
 				userRole: 'member',
-				permissions: fullPermissions,
-				scopedGroupId: null
+				capabilityMap: createCapabilityMap('configure'),
+				scopeSet: { kind: 'organization' }
 			})
 		);
 		expect(ctx.isFullEditor).toBe(true);

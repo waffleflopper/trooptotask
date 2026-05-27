@@ -175,23 +175,9 @@ describe('createSupabaseOrgAccessPort', () => {
 		}
 	);
 
-	it('prefers stored capability map and Scope Set over legacy permission and scoped group compatibility', async () => {
+	it('loads replacement capability map and Scope Set for member access', async () => {
 		const membershipRow = {
 			role: 'member',
-			scoped_group_id: 'legacy-group',
-			can_view_calendar: false,
-			can_edit_calendar: false,
-			can_view_personnel: false,
-			can_edit_personnel: false,
-			can_view_training: false,
-			can_edit_training: false,
-			can_view_critical_tasks: false,
-			can_edit_critical_tasks: false,
-			can_view_onboarding: false,
-			can_edit_onboarding: false,
-			can_view_rating_scheme: false,
-			can_edit_rating_scheme: false,
-			can_manage_members: false,
 			member_preset: 'viewer',
 			capability_overrides: { training: 'operate', criticalTasks: 'configure' },
 			access_scope_kind: 'groups',

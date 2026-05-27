@@ -17,9 +17,9 @@
 import { setContext, getContext } from 'svelte';
 import {
 	capabilityMeets,
+	createCapabilityMap,
 	createCompatibilityLaneMap,
 	hasOrganizationWideConfigureAccess,
-	resolveMemberAccessShapeFromStoredOrCurrent,
 	type CapabilityLevel,
 	type CapabilityMap,
 	type CompatibilityLaneMap,
@@ -105,24 +105,14 @@ export function createOrgContext(input: CreateOrgContextInput | OrgContextInputA
 	const getInput = toInputAccessor(input);
 	const getAccessShape = () => {
 		const current = getInput();
-		if (current.capabilityMap && current.scopeSet) {
-			return {
-				capabilityMap: current.capabilityMap,
-				compatibilityLanes: current.compatibilityLanes ?? createCompatibilityLaneMap(),
-				scopeSet: current.scopeSet
-			};
-		}
-
-		const shape = resolveMemberAccessShapeFromStoredOrCurrent({
-			membershipRole: current.userRole,
-			permissions: current.permissions,
-			scopedGroupId: current.scopedGroupId
-		});
-
 		return {
-			capabilityMap: shape.capabilityMap,
-			compatibilityLanes: shape.compatibilityLanes,
-			scopeSet: shape.scopeSet
+			capabilityMap:
+				current.capabilityMap ??
+				(current.userRole === 'owner' || current.userRole === 'admin'
+					? createCapabilityMap('configure')
+					: createCapabilityMap('none')),
+			compatibilityLanes: current.compatibilityLanes ?? createCompatibilityLaneMap(),
+			scopeSet: current.scopeSet ?? { kind: 'organization' }
 		};
 	};
 	return {

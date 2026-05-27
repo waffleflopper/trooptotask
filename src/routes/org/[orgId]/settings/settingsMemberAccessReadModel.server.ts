@@ -3,7 +3,6 @@ import {
 	projectEffectiveInvitationAccess,
 	projectEffectiveMemberAccess,
 	type EffectiveMemberAccessProjection,
-	type MemberAccessPresentationRow,
 	type MemberAccessProjectionRow
 } from '$lib/access/memberAccessProjection';
 import type {
@@ -72,7 +71,7 @@ export function buildSettingsInvitationAccessRow(row: SettingsAccessSourceRow): 
 
 export function buildSettingsAccessShape(
 	row: Pick<
-		MemberAccessPresentationRow,
+		MemberAccessProjectionRow,
 		'member_preset' | 'capability_overrides' | 'access_scope_kind' | 'access_scope_group_ids'
 	>,
 	membershipRole: MembershipRole

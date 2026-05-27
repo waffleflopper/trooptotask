@@ -16,7 +16,8 @@ const LEGACY_AUTHORIZATION_SIGNALS = [
 	{ label: 'scopedGroupId', pattern: /\bscopedGroupId\b/ },
 	{ label: 'scoped_group_id', pattern: /\bscoped_group_id\b/ },
 	{ label: 'can_view_*', pattern: /\bcan_view_[a-z_]+\b/ },
-	{ label: 'can_edit_*', pattern: /\bcan_edit_[a-z_]+\b/ }
+	{ label: 'can_edit_*', pattern: /\bcan_edit_[a-z_]+\b/ },
+	{ label: 'can_manage_members', pattern: /\bcan_manage_members\b/ }
 ];
 const VALID_LEGACY_AUTHORIZATION_CLASSIFICATIONS = new Set([
 	'compatibility-adapter',
@@ -144,6 +145,7 @@ function contentHasLegacyAuthorizationSignal(content, signal) {
 function isProductionSourceFile(filePath) {
 	if (!/\.(ts|js|svelte)$/.test(filePath)) return false;
 	if (/\.test\.(ts|js)$/.test(filePath)) return false;
+	if (/\.svelte\.test\.ts$/.test(filePath)) return false;
 	if (filePath.includes('/test-stubs/')) return false;
 	return true;
 }

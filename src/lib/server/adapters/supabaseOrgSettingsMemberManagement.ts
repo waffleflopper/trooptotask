@@ -27,7 +27,6 @@ interface OrganizationMembershipLookupRow {
 	user_id: string | null;
 	role: string | null;
 	email: string | null;
-	can_manage_members: boolean | null;
 }
 
 interface OrganizationRow {
@@ -169,20 +168,6 @@ export function createSupabaseOrgSettingsMemberManagementPort(
 					email: input.email,
 					invited_by: input.invitedBy,
 					role: input.role,
-					scoped_group_id: input.singleGroupCompatibilityId,
-					can_view_calendar: input.permissions.canViewCalendar,
-					can_edit_calendar: input.permissions.canEditCalendar,
-					can_view_personnel: input.permissions.canViewPersonnel,
-					can_edit_personnel: input.permissions.canEditPersonnel,
-					can_view_training: input.permissions.canViewTraining,
-					can_edit_training: input.permissions.canEditTraining,
-					can_view_critical_tasks: input.permissions.canViewCriticalTasks,
-					can_edit_critical_tasks: input.permissions.canEditCriticalTasks,
-					can_view_onboarding: input.permissions.canViewOnboarding,
-					can_edit_onboarding: input.permissions.canEditOnboarding,
-					can_view_rating_scheme: input.permissions.canViewRatingScheme,
-					can_edit_rating_scheme: input.permissions.canEditRatingScheme,
-					can_manage_members: input.permissions.canManageMembers,
 					member_preset: input.memberPreset,
 					capability_overrides: input.capabilityOverrides,
 					access_scope_kind: input.accessScopeKind,
@@ -300,7 +285,7 @@ export function createSupabaseOrgSettingsMemberManagementPort(
 		async findMembershipById(orgId, membershipId) {
 			const { data, error } = await supabase
 				.from('organization_memberships')
-				.select('user_id, role, email, can_manage_members')
+				.select('user_id, role, email')
 				.eq('id', membershipId)
 				.eq('organization_id', orgId)
 				.single<OrganizationMembershipLookupRow>();
@@ -313,7 +298,7 @@ export function createSupabaseOrgSettingsMemberManagementPort(
 				userId: data.user_id,
 				role: data.role,
 				email: data.email,
-				canManageMembers: data.can_manage_members
+				canManageMembers: data.role === 'admin' || data.role === 'owner'
 			};
 		},
 
@@ -458,7 +443,6 @@ async function insertAccessRequestInvitationLink(
 		invited_by: input.invitedBy,
 		invited_at: input.invitedAt,
 		intended_membership_role: input.role,
-		intended_permissions: input.permissions,
 		intended_member_preset: input.memberPreset,
 		intended_capability_overrides: input.capabilityOverrides,
 		intended_access_scope_kind: input.accessScopeKind,
@@ -495,20 +479,6 @@ function normalizeRevokeStatus(
 function serializeMembershipUpdate(input: OrganizationMembershipUpdateInput) {
 	return {
 		role: input.role,
-		scoped_group_id: input.singleGroupCompatibilityId,
-		can_view_calendar: input.permissions.canViewCalendar,
-		can_edit_calendar: input.permissions.canEditCalendar,
-		can_view_personnel: input.permissions.canViewPersonnel,
-		can_edit_personnel: input.permissions.canEditPersonnel,
-		can_view_training: input.permissions.canViewTraining,
-		can_edit_training: input.permissions.canEditTraining,
-		can_view_critical_tasks: input.permissions.canViewCriticalTasks,
-		can_edit_critical_tasks: input.permissions.canEditCriticalTasks,
-		can_view_onboarding: input.permissions.canViewOnboarding,
-		can_edit_onboarding: input.permissions.canEditOnboarding,
-		can_view_rating_scheme: input.permissions.canViewRatingScheme,
-		can_edit_rating_scheme: input.permissions.canEditRatingScheme,
-		can_manage_members: input.permissions.canManageMembers,
 		member_preset: input.memberPreset,
 		capability_overrides: input.capabilityOverrides,
 		access_scope_kind: input.accessScopeKind,

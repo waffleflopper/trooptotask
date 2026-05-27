@@ -1,5 +1,6 @@
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { join, relative, sep } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
@@ -25,4 +26,30 @@ describe('legacy authorization governance guardrail', () => {
 
 		expect(runtimeEntries).toEqual([]);
 	});
+
+	it('keeps legacy member-access storage out of active production source', () => {
+		const sourceFiles = walkFiles('src').filter((filePath) => {
+			if (!/\.(ts|js|svelte)$/.test(filePath)) return false;
+			if (/\.test\.(ts|js)$/.test(filePath)) return false;
+			if (/\.svelte\.test\.ts$/.test(filePath)) return false;
+			if (filePath.includes('/test-support/') || filePath.includes('/test-stubs/')) return false;
+			return true;
+		});
+		const legacyStoragePattern = /\b(can_view_[a-z_]+|can_edit_[a-z_]+|can_manage_members|scoped_group_id)\b/;
+		const offenders = sourceFiles.filter((filePath) => legacyStoragePattern.test(readFileSync(filePath, 'utf8')));
+
+		expect(offenders.map((filePath) => relative(process.cwd(), filePath).split(sep).join('/'))).toEqual([]);
+	});
 });
+
+function walkFiles(relativeDirectory: string): string[] {
+	const directory = join(process.cwd(), relativeDirectory);
+	return readdirSync(directory).flatMap((entry) => {
+		const filePath = join(directory, entry);
+		const stats = statSync(filePath);
+		if (stats.isDirectory()) {
+			return walkFiles(relative(process.cwd(), filePath));
+		}
+		return [filePath];
+	});
+}

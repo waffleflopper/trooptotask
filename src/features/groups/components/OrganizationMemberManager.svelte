@@ -6,29 +6,20 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
-	import type { OrganizationMember, PermissionPreset } from '$lib/types';
-	import { getPermissionPreset } from '$lib/types';
+	import type { OrganizationMember } from '$lib/types';
 	import { sortMembers } from '$features/groups/utils/sortMembers';
+
+	type PermissionPreset = 'owner' | 'admin' | 'full-editor' | 'team-leader' | 'viewer' | 'custom';
 
 	interface Invitation {
 		id: string;
 		email: string;
 		status: string;
 		createdAt: string;
-		scopedGroupId?: string | null;
-		canViewCalendar: boolean;
-		canEditCalendar: boolean;
-		canViewPersonnel: boolean;
-		canEditPersonnel: boolean;
-		canViewTraining: boolean;
-		canEditTraining: boolean;
-		canViewCriticalTasks: boolean;
-		canEditCriticalTasks: boolean;
-		canViewOnboarding: boolean;
-		canEditOnboarding: boolean;
-		canViewRatingScheme: boolean;
-		canEditRatingScheme: boolean;
-		canManageMembers: boolean;
+		membershipRole: 'owner' | 'admin' | 'member';
+		access: {
+			memberPreset: 'viewer' | 'operator' | 'editor';
+		};
 	}
 
 	interface Props {
@@ -103,24 +94,11 @@
 
 	function getMemberPreset(member: OrganizationMember): PermissionPreset {
 		if (member.role === 'owner') return 'owner';
-		return getPermissionPreset(
-			{
-				canViewCalendar: member.canViewCalendar,
-				canEditCalendar: member.canEditCalendar,
-				canViewPersonnel: member.canViewPersonnel,
-				canEditPersonnel: member.canEditPersonnel,
-				canViewTraining: member.canViewTraining,
-				canEditTraining: member.canEditTraining,
-				canViewCriticalTasks: member.canViewCriticalTasks,
-				canEditCriticalTasks: member.canEditCriticalTasks,
-				canViewOnboarding: member.canViewOnboarding,
-				canEditOnboarding: member.canEditOnboarding,
-				canViewRatingScheme: member.canViewRatingScheme,
-				canEditRatingScheme: member.canEditRatingScheme,
-				canManageMembers: member.canManageMembers
-			},
-			member.scopedGroupId
-		);
+		if (member.role === 'admin') return 'admin';
+		if (member.memberPreset === 'viewer') return 'viewer';
+		if (member.memberPreset === 'operator') return 'team-leader';
+		if (member.memberPreset === 'editor') return 'full-editor';
+		return 'custom';
 	}
 
 	function toggleExpanded(memberId: string) {
@@ -132,24 +110,12 @@
 	}
 
 	function getInvitePreset(invite: Invitation): PermissionPreset {
-		return getPermissionPreset(
-			{
-				canViewCalendar: invite.canViewCalendar,
-				canEditCalendar: invite.canEditCalendar,
-				canViewPersonnel: invite.canViewPersonnel,
-				canEditPersonnel: invite.canEditPersonnel,
-				canViewTraining: invite.canViewTraining,
-				canEditTraining: invite.canEditTraining,
-				canViewCriticalTasks: invite.canViewCriticalTasks,
-				canEditCriticalTasks: invite.canEditCriticalTasks,
-				canViewOnboarding: invite.canViewOnboarding,
-				canEditOnboarding: invite.canEditOnboarding,
-				canViewRatingScheme: invite.canViewRatingScheme,
-				canEditRatingScheme: invite.canEditRatingScheme,
-				canManageMembers: invite.canManageMembers
-			},
-			invite.scopedGroupId
-		);
+		if (invite.membershipRole === 'admin') return 'admin';
+		if (invite.access.memberPreset === 'operator') return 'team-leader';
+		if (invite.access.memberPreset === 'editor') {
+			return 'full-editor';
+		}
+		return 'viewer';
 	}
 
 	let memberSelectedGroupId = $state<Record<string, string>>({});

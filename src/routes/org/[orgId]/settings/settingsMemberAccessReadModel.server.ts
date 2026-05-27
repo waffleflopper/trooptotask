@@ -3,10 +3,14 @@ import {
 	projectEffectiveInvitationAccess,
 	projectEffectiveMemberAccess,
 	type EffectiveMemberAccessProjection,
-	type MemberAccessPresentationRow,
 	type MemberAccessProjectionRow
 } from '$lib/access/memberAccessProjection';
-import type { MembershipRole } from '$lib/access/memberAccessShape';
+import type {
+	MembershipRole,
+	StoredMemberPreset,
+	CapabilityOverrideMap,
+	ScopeSet
+} from '$lib/access/memberAccessShape';
 import type {
 	OrganizationGovernanceActionId,
 	SettingsAccessShape,
@@ -14,12 +18,16 @@ import type {
 	SettingsMemberAccessRow
 } from './settingsMemberAccessModel';
 
-export type LegacySettingsAccessRow = MemberAccessPresentationRow & {
+export type SettingsAccessSourceRow = {
 	id?: unknown;
 	organization_id?: unknown;
 	user_id?: unknown;
 	email?: unknown;
 	role?: unknown;
+	member_preset?: StoredMemberPreset | null;
+	capability_overrides?: CapabilityOverrideMap | null;
+	access_scope_kind?: ScopeSet['kind'] | null;
+	access_scope_group_ids?: string[] | null;
 	status?: unknown;
 	created_at?: unknown;
 	expires_at?: unknown;
@@ -30,7 +38,7 @@ export type LegacySettingsAccessRow = MemberAccessPresentationRow & {
 	blocked_at?: unknown;
 };
 
-export function buildSettingsMemberAccessRow(row: LegacySettingsAccessRow): SettingsMemberAccessRow {
+export function buildSettingsMemberAccessRow(row: SettingsAccessSourceRow): SettingsMemberAccessRow {
 	const membershipRole = parseMembershipRole(row.role);
 	return {
 		id: asString(row.id),
@@ -43,7 +51,7 @@ export function buildSettingsMemberAccessRow(row: LegacySettingsAccessRow): Sett
 	};
 }
 
-export function buildSettingsInvitationAccessRow(row: LegacySettingsAccessRow): SettingsInvitationAccessRow {
+export function buildSettingsInvitationAccessRow(row: SettingsAccessSourceRow): SettingsInvitationAccessRow {
 	const projection = projectEffectiveInvitationAccess(row);
 	return {
 		id: asString(row.id),
@@ -62,13 +70,15 @@ export function buildSettingsInvitationAccessRow(row: LegacySettingsAccessRow): 
 }
 
 export function buildSettingsAccessShape(
-	row: MemberAccessPresentationRow,
+	row: Pick<
+		MemberAccessProjectionRow,
+		'member_preset' | 'capability_overrides' | 'access_scope_kind' | 'access_scope_group_ids'
+	>,
 	membershipRole: MembershipRole
 ): SettingsAccessShape {
 	const projection = projectEffectiveMemberAccess({
 		...row,
-		role: membershipRole,
-		scoped_group_id: row.scoped_group_id ?? null
+		role: membershipRole
 	} satisfies MemberAccessProjectionRow);
 
 	return buildSettingsAccessShapeFromProjection(projection);

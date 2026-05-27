@@ -1,4 +1,3 @@
-import type { OrganizationMemberPermissions } from '$lib/types';
 import { POLICY_ACTION_CATALOG, type PolicyReasonCode } from '$lib/access/policyEvaluator';
 import {
 	memberAccessCommandToStorage,
@@ -39,8 +38,6 @@ export interface OrganizationInvitationCreateInput {
 	email: string;
 	invitedBy: string;
 	role: EditableMembershipRole;
-	singleGroupCompatibilityId: string | null;
-	permissions: OrganizationMemberPermissions;
 	memberPreset: StoredMemberPreset;
 	capabilityOverrides: CapabilityOverrideMap;
 	accessScopeKind: 'organization' | 'groups';
@@ -64,7 +61,6 @@ export interface OrganizationInvitationAccessRequestBridgeInput {
 	invitedBy: string;
 	invitedAt: string;
 	role: EditableMembershipRole;
-	permissions: OrganizationMemberPermissions;
 	memberPreset: StoredMemberPreset;
 	capabilityOverrides: CapabilityOverrideMap;
 	accessScopeKind: 'organization' | 'groups';
@@ -82,8 +78,6 @@ export interface OrganizationMembershipUpdateInput {
 	organizationId: string;
 	membershipId: string;
 	role: 'admin' | 'member';
-	singleGroupCompatibilityId: string | null;
-	permissions: OrganizationMemberPermissions;
 	memberPreset: StoredMemberPreset;
 	capabilityOverrides: CapabilityOverrideMap;
 	accessScopeKind: 'organization' | 'groups';
@@ -240,9 +234,6 @@ export async function inviteOrganizationMember(
 		membershipRole,
 		memberAccess: input.memberAccess
 	});
-	if (!invitesAdminRole && accessCommand.permissions.canManageMembers) {
-		await requireGovernancePolicy(ports, POLICY_ACTION_CATALOG.organization.updateAdminAccess);
-	}
 	const existing = await ports.settings.findPendingInvitation(ports.auth.orgId, email);
 	if (existing) {
 		fail(400, 'An invitation for this email is already pending');
@@ -250,7 +241,7 @@ export async function inviteOrganizationMember(
 
 	await requireMemberInviteWithinPlanLimit(ports);
 
-	const inviteRequiresStepUp = isHighPrivilegeAccess(accessCommand.role, accessCommand.permissions.canManageMembers);
+	const inviteRequiresStepUp = isHighPrivilegeAccess(accessCommand.role, false);
 	const sensitiveAction = inviteRequiresStepUp
 		? await authorizeMemberManagementSensitiveAction(ports, {
 				action: ORGANIZATION_MEMBER_INVITE_HIGH_PRIVILEGE_ACTION,
@@ -277,8 +268,6 @@ export async function inviteOrganizationMember(
 		email,
 		invitedBy: actorUserId,
 		role: accessCommand.role,
-		singleGroupCompatibilityId: accessCommand.singleGroupCompatibilityId,
-		permissions: accessCommand.permissions,
 		memberPreset: accessCommand.memberPreset,
 		capabilityOverrides: accessCommand.capabilityOverrides,
 		accessScopeKind: accessCommand.accessScopeKind,
@@ -303,7 +292,6 @@ export async function inviteOrganizationMember(
 				invitedBy: actorUserId,
 				invitedAt: createResult.createdAt,
 				role: accessCommand.role,
-				permissions: accessCommand.permissions,
 				memberPreset: accessCommand.memberPreset,
 				capabilityOverrides: accessCommand.capabilityOverrides,
 				accessScopeKind: accessCommand.accessScopeKind,
@@ -823,12 +811,9 @@ export async function updateOrganizationMemberPermissions(
 		membershipRole: input.membershipRole,
 		memberAccess: input.memberAccess
 	});
-	if (!updatesAdminRole && accessCommand.permissions.canManageMembers) {
-		await requireGovernancePolicy(ports, POLICY_ACTION_CATALOG.organization.updateAdminAccess);
-	}
 	const updatesHighPrivilegeAccess =
 		isHighPrivilegeAccess(targetMembership?.role, targetMembership?.canManageMembers) ||
-		isHighPrivilegeAccess(accessCommand.role, accessCommand.permissions.canManageMembers);
+		isHighPrivilegeAccess(accessCommand.role, false);
 	const sensitiveAction = updatesHighPrivilegeAccess
 		? await authorizeMemberManagementSensitiveAction(ports, {
 				action: ORGANIZATION_MEMBER_UPDATE_HIGH_PRIVILEGE_ACTION,
@@ -840,7 +825,7 @@ export async function updateOrganizationMemberPermissions(
 					currentRole: targetMembership?.role ?? null,
 					targetRole: accessCommand.role,
 					currentCanManageMembers: targetMembership?.canManageMembers ?? null,
-					targetCanManageMembers: accessCommand.permissions.canManageMembers
+					targetCanManageMembers: accessCommand.role === 'admin'
 				}
 			})
 		: null;
@@ -849,8 +834,6 @@ export async function updateOrganizationMemberPermissions(
 		organizationId: ports.auth.orgId,
 		membershipId: input.membershipId,
 		role: accessCommand.role,
-		singleGroupCompatibilityId: accessCommand.singleGroupCompatibilityId,
-		permissions: accessCommand.permissions,
 		memberPreset: accessCommand.memberPreset,
 		capabilityOverrides: accessCommand.capabilityOverrides,
 		accessScopeKind: accessCommand.accessScopeKind,
@@ -868,6 +851,9 @@ export async function updateOrganizationMemberPermissions(
 			membershipId: input.membershipId,
 			membershipRole: accessCommand.role,
 			memberPreset: accessCommand.memberPreset,
+			capabilityOverrides: accessCommand.capabilityOverrides,
+			accessScopeKind: accessCommand.accessScopeKind,
+			accessScopeGroupIds: accessCommand.accessScopeGroupIds,
 			...(sensitiveAction ? { sensitiveAction: sensitiveActionDecisionAuditDetails(sensitiveAction) } : {})
 		},
 		severity: 'warning'

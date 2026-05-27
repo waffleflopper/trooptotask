@@ -1,7 +1,6 @@
 import type { OrganizationMemberPermissions } from '$lib/types';
 
 export type MembershipRole = 'owner' | 'admin' | 'member';
-export type CurrentPermissionPreset = 'owner' | 'admin' | 'full-editor' | 'team-leader' | 'viewer' | 'custom';
 export type MemberPreset = 'viewer' | 'operator' | 'editor' | 'custom';
 export type StoredMemberPreset = Exclude<MemberPreset, 'custom'>;
 export type CapabilityLevel = 'none' | 'view' | 'operate' | 'configure';
@@ -38,12 +37,6 @@ export interface MemberAccessShape {
 	canManageMembers: boolean;
 }
 
-export interface CurrentMemberAccessInput {
-	membershipRole?: MembershipRole;
-	permissions: OrganizationMemberPermissions;
-	scopedGroupId?: string | null;
-}
-
 export interface StoredMemberAccessInput {
 	membershipRole: MembershipRole;
 	memberPreset: StoredMemberPreset;
@@ -66,86 +59,10 @@ export interface TargetMemberAccessInput {
 	canManageMembers?: boolean | null;
 }
 
-export interface StoredOrCurrentMemberAccessInput {
-	membershipRole: MembershipRole;
-	permissions: OrganizationMemberPermissions;
-	scopedGroupId?: string | null;
-	memberPreset?: unknown;
-	capabilityOverrides?: unknown;
-	accessScopeKind?: unknown;
-	accessScopeGroupIds?: unknown;
-}
-
 export interface SerializedScopeSetStorage {
 	access_scope_kind: ScopeSet['kind'];
 	access_scope_group_ids: string[];
 }
-
-export const PERMISSION_PRESETS: Record<
-	Exclude<CurrentPermissionPreset, 'owner' | 'custom'>,
-	OrganizationMemberPermissions
-> = {
-	admin: {
-		canViewCalendar: true,
-		canEditCalendar: true,
-		canViewPersonnel: true,
-		canEditPersonnel: true,
-		canViewTraining: true,
-		canEditTraining: true,
-		canViewCriticalTasks: true,
-		canEditCriticalTasks: true,
-		canViewOnboarding: true,
-		canEditOnboarding: true,
-		canViewRatingScheme: true,
-		canEditRatingScheme: true,
-		canManageMembers: true
-	},
-	'full-editor': {
-		canViewCalendar: true,
-		canEditCalendar: true,
-		canViewPersonnel: true,
-		canEditPersonnel: true,
-		canViewTraining: true,
-		canEditTraining: true,
-		canViewCriticalTasks: true,
-		canEditCriticalTasks: true,
-		canViewOnboarding: true,
-		canEditOnboarding: true,
-		canViewRatingScheme: true,
-		canEditRatingScheme: true,
-		canManageMembers: false
-	},
-	'team-leader': {
-		canViewCalendar: true,
-		canEditCalendar: true,
-		canViewPersonnel: true,
-		canEditPersonnel: true,
-		canViewTraining: true,
-		canEditTraining: true,
-		canViewCriticalTasks: true,
-		canEditCriticalTasks: true,
-		canViewOnboarding: true,
-		canEditOnboarding: true,
-		canViewRatingScheme: true,
-		canEditRatingScheme: true,
-		canManageMembers: false
-	},
-	viewer: {
-		canViewCalendar: true,
-		canEditCalendar: false,
-		canViewPersonnel: true,
-		canEditPersonnel: false,
-		canViewTraining: true,
-		canEditTraining: false,
-		canViewCriticalTasks: true,
-		canEditCriticalTasks: false,
-		canViewOnboarding: true,
-		canEditOnboarding: false,
-		canViewRatingScheme: true,
-		canEditRatingScheme: false,
-		canManageMembers: false
-	}
-};
 
 const CAPABILITY_RANK: Record<CapabilityLevel, number> = {
 	none: 0,
@@ -158,51 +75,12 @@ const EDITOR_CAPABILITY_MAP = createCapabilityMap('configure');
 const OPERATOR_CAPABILITY_MAP = createCapabilityMap('operate');
 const VIEWER_CAPABILITY_MAP = createCapabilityMap('view');
 
-export function toMemberAccessShape(input: CurrentMemberAccessInput): MemberAccessShape {
-	const permissions = withResolvedCompatibilityPermissions(input.permissions);
-	const currentPreset = getPermissionPreset(permissions, input.scopedGroupId);
-	const membershipRole = input.membershipRole ?? (currentPreset === 'admin' ? 'admin' : 'member');
-
-	return {
-		membershipRole,
-		memberPreset: toMemberPreset(currentPreset),
-		capabilityMap: {
-			calendar: toCapabilityLevel(permissions.canViewCalendar, permissions.canEditCalendar),
-			personnel: toCapabilityLevel(permissions.canViewPersonnel, permissions.canEditPersonnel),
-			training: toCapabilityLevel(permissions.canViewTraining, permissions.canEditTraining),
-			criticalTasks: toCapabilityLevel(permissions.canViewCriticalTasks, permissions.canEditCriticalTasks),
-			onboarding: toCapabilityLevel(permissions.canViewOnboarding, permissions.canEditOnboarding),
-			ratingScheme: toCapabilityLevel(permissions.canViewRatingScheme, permissions.canEditRatingScheme)
-		},
-		compatibilityLanes: createCompatibilityLaneMap(),
-		scopeSet: input.scopedGroupId ? { kind: 'groups', groupIds: [input.scopedGroupId] } : { kind: 'organization' },
-		canManageMembers: permissions.canManageMembers || membershipRole === 'owner' || membershipRole === 'admin'
-	};
-}
-
 export function toCurrentPermissionFlags(shape: MemberAccessShape): OrganizationMemberPermissions {
 	const permissions = fromCapabilityMap(shape.capabilityMap, shape.compatibilityLanes);
 	return {
 		...permissions,
 		canManageMembers: shape.membershipRole === 'owner' || shape.membershipRole === 'admin' || shape.canManageMembers
 	};
-}
-
-export function currentPresetToMemberAccessShape(input: {
-	preset: string;
-	scopedGroupId?: string | null;
-	customPermissions?: Partial<OrganizationMemberPermissions> | null;
-}): MemberAccessShape {
-	const currentPreset = normalizeCurrentPreset(input.preset);
-	const permissions =
-		currentPreset === 'custom'
-			? normalizeCustomPermissions(input.customPermissions)
-			: (PERMISSION_PRESETS[currentPreset] ?? PERMISSION_PRESETS['full-editor']);
-	return toMemberAccessShape({
-		membershipRole: currentPreset === 'admin' ? 'admin' : 'member',
-		permissions,
-		scopedGroupId: currentPreset === 'team-leader' ? input.scopedGroupId : null
-	});
 }
 
 export function resolveStoredMemberAccessShape(input: StoredMemberAccessInput): MemberAccessShape {
@@ -223,20 +101,6 @@ export function resolveStoredMemberAccessShape(input: StoredMemberAccessInput): 
 	};
 }
 
-export function currentPresetToMemberAccessStorage(input: {
-	preset: string;
-	scopedGroupId?: string | null;
-	customPermissions?: Partial<OrganizationMemberPermissions> | null;
-}): MemberAccessStorage {
-	const shape = currentPresetToMemberAccessShape(input);
-	const memberPreset = storedPresetForCurrentPreset(normalizeCurrentPreset(input.preset));
-	return {
-		memberPreset,
-		capabilityOverrides: diffCapabilityOverrides(TARGET_MEMBER_PRESET_CAPABILITIES[memberPreset], shape.capabilityMap),
-		scopeSet: normalizeScopeSet(shape.scopeSet)
-	};
-}
-
 export function targetMemberAccessToStorage(input: TargetMemberAccessInput): MemberAccessStorage {
 	const memberPreset = normalizeStoredMemberPreset(input.memberPreset);
 	const shape = resolveStoredMemberAccessShape({
@@ -252,51 +116,6 @@ export function targetMemberAccessToStorage(input: TargetMemberAccessInput): Mem
 		capabilityOverrides: diffCapabilityOverrides(TARGET_MEMBER_PRESET_CAPABILITIES[memberPreset], shape.capabilityMap),
 		scopeSet: normalizeScopeSet(shape.scopeSet)
 	};
-}
-
-export function targetMemberAccessToCurrentPermissionFlags(
-	input: TargetMemberAccessInput
-): OrganizationMemberPermissions {
-	return toCurrentPermissionFlags(
-		resolveStoredMemberAccessShape({
-			membershipRole: input.membershipRole ?? 'member',
-			memberPreset: normalizeStoredMemberPreset(input.memberPreset),
-			capabilityOverrides: input.capabilityOverrides,
-			scopeSet: input.scopeSet,
-			canManageMembers: input.canManageMembers
-		})
-	);
-}
-
-export function resolveMemberAccessShapeFromStoredOrCurrent(
-	input: StoredOrCurrentMemberAccessInput
-): MemberAccessShape {
-	const storedPreset = parseStoredMemberPreset(input.memberPreset);
-	if (storedPreset) {
-		return resolveStoredMemberAccessShape({
-			membershipRole: input.membershipRole,
-			memberPreset: storedPreset,
-			capabilityOverrides: parseCapabilityOverrideMap(input.capabilityOverrides),
-			scopeSet: parseStoredScopeSet(input),
-			canManageMembers: input.permissions.canManageMembers
-		});
-	}
-
-	const permissions = withResolvedCompatibilityPermissions(input.permissions);
-	const currentPreset = getPermissionPreset(permissions, input.scopedGroupId);
-	const memberPreset = input.membershipRole === 'admin' ? 'editor' : storedPresetForDisplayPreset(currentPreset);
-	const capabilityOverrides = diffCapabilityOverrides(
-		TARGET_MEMBER_PRESET_CAPABILITIES[memberPreset],
-		capabilityMapFromPermissions(permissions)
-	);
-
-	return resolveStoredMemberAccessShape({
-		membershipRole: input.membershipRole,
-		memberPreset,
-		capabilityOverrides,
-		scopeSet: input.scopedGroupId ? { kind: 'groups', groupIds: [input.scopedGroupId] } : { kind: 'organization' },
-		canManageMembers: input.permissions.canManageMembers
-	});
 }
 
 export function serializeScopeSetForStorage(scopeSet: ScopeSet): SerializedScopeSetStorage {
@@ -330,17 +149,6 @@ export function hasOrganizationWideConfigureAccess(capabilityMap: CapabilityMap,
 	return scopeSet.kind === 'organization' && DURABLE_FEATURE_LANES.every((lane) => capabilityMap[lane] === 'configure');
 }
 
-export function resolveCurrentPresetPermissions(preset: string): OrganizationMemberPermissions {
-	return toCurrentPermissionFlags(currentPresetToMemberAccessShape({ preset }));
-}
-
-export function resolveCurrentUpdatePermissions(
-	preset: string,
-	customPermissions?: Partial<OrganizationMemberPermissions> | null
-): OrganizationMemberPermissions {
-	return toCurrentPermissionFlags(currentPresetToMemberAccessShape({ preset, customPermissions }));
-}
-
 export function resolveRatingSchemePermissions(
 	permissions: Pick<
 		OrganizationMemberPermissions,
@@ -353,67 +161,10 @@ export function resolveRatingSchemePermissions(
 	};
 }
 
-export function getPermissionPreset(
-	permissions: OrganizationMemberPermissions,
-	scopedGroupId?: string | null
-): CurrentPermissionPreset {
-	const resolvedPermissions = withResolvedCompatibilityPermissions(permissions);
-
-	for (const [preset, presetPermissions] of Object.entries(PERMISSION_PRESETS)) {
-		if (matchesPermissionPreset(resolvedPermissions, presetPermissions)) {
-			if (preset === 'full-editor' && scopedGroupId) {
-				return 'team-leader';
-			}
-			if (preset === 'team-leader' && !scopedGroupId) {
-				continue;
-			}
-			return preset as CurrentPermissionPreset;
-		}
-	}
-	return 'custom';
-}
-
-export function isFullEditor(permissions: OrganizationMemberPermissions, scopedGroupId?: string | null): boolean {
-	const shape = toMemberAccessShape({ permissions, scopedGroupId });
-	return hasOrganizationWideConfigureAccess(shape.capabilityMap, shape.scopeSet);
-}
-
-function toMemberPreset(preset: CurrentPermissionPreset): MemberPreset {
-	switch (preset) {
-		case 'viewer':
-			return 'viewer';
-		case 'team-leader':
-			return 'operator';
-		case 'admin':
-		case 'full-editor':
-			return 'editor';
-		case 'owner':
-		case 'custom':
-			return 'custom';
-	}
-}
-
-function toCapabilityLevel(canView: boolean | undefined, canEdit: boolean | undefined): CapabilityLevel {
-	if (canEdit) return 'configure';
-	if (canView) return 'view';
-	return 'none';
-}
-
 function toPermissionFlags(level: CapabilityLevel): { canView: boolean; canEdit: boolean } {
 	return {
 		canView: level !== 'none',
 		canEdit: level === 'configure'
-	};
-}
-
-function capabilityMapFromPermissions(permissions: Required<OrganizationMemberPermissions>): CapabilityMap {
-	return {
-		calendar: toCapabilityLevel(permissions.canViewCalendar, permissions.canEditCalendar),
-		personnel: toCapabilityLevel(permissions.canViewPersonnel, permissions.canEditPersonnel),
-		training: toCapabilityLevel(permissions.canViewTraining, permissions.canEditTraining),
-		criticalTasks: toCapabilityLevel(permissions.canViewCriticalTasks, permissions.canEditCriticalTasks),
-		onboarding: toCapabilityLevel(permissions.canViewOnboarding, permissions.canEditOnboarding),
-		ratingScheme: toCapabilityLevel(permissions.canViewRatingScheme, permissions.canEditRatingScheme)
 	};
 }
 
@@ -460,40 +211,6 @@ export function isCapabilityLevel(value: unknown): value is CapabilityLevel {
 	return CAPABILITY_LEVELS.includes(value as CapabilityLevel);
 }
 
-function parseStoredMemberPreset(value: unknown): StoredMemberPreset | null {
-	return value === 'viewer' || value === 'operator' || value === 'editor' ? value : null;
-}
-
-function parseCapabilityOverrideMap(value: unknown): CapabilityOverrideMap {
-	const overrides: CapabilityOverrideMap = {};
-	if (!value || typeof value !== 'object') {
-		return overrides;
-	}
-
-	const record = value as Record<string, unknown>;
-	for (const lane of DURABLE_FEATURE_LANES) {
-		const level = record[lane];
-		if (isCapabilityLevel(level)) {
-			overrides[lane] = level;
-		}
-	}
-
-	return overrides;
-}
-
-function parseStoredScopeSet(
-	input: Pick<StoredOrCurrentMemberAccessInput, 'accessScopeKind' | 'accessScopeGroupIds'>
-): ScopeSet {
-	if (input.accessScopeKind !== 'groups' || !Array.isArray(input.accessScopeGroupIds)) {
-		return { kind: 'organization' };
-	}
-
-	return normalizeScopeSet({
-		kind: 'groups',
-		groupIds: input.accessScopeGroupIds.filter((groupId): groupId is string => typeof groupId === 'string')
-	});
-}
-
 function normalizeScopeSet(scopeSet?: ScopeSet | null): ScopeSet {
 	if (scopeSet?.kind !== 'groups') {
 		return { kind: 'organization' };
@@ -501,26 +218,6 @@ function normalizeScopeSet(scopeSet?: ScopeSet | null): ScopeSet {
 
 	const groupIds = Array.from(new Set(scopeSet.groupIds.filter(Boolean)));
 	return groupIds.length > 0 ? { kind: 'groups', groupIds } : { kind: 'organization' };
-}
-
-function storedPresetForDisplayPreset(preset: CurrentPermissionPreset): StoredMemberPreset {
-	if (preset === 'viewer') return 'viewer';
-	if (preset === 'team-leader') return 'operator';
-	return 'editor';
-}
-
-function storedPresetForCurrentPreset(preset: Exclude<CurrentPermissionPreset, 'owner'>): StoredMemberPreset {
-	switch (preset) {
-		case 'viewer':
-			return 'viewer';
-		case 'team-leader':
-			return 'operator';
-		case 'admin':
-		case 'full-editor':
-			return 'editor';
-		case 'custom':
-			return 'viewer';
-	}
 }
 
 function fromCapabilityMap(
@@ -552,74 +249,11 @@ function fromCapabilityMap(
 	};
 }
 
-function normalizeCurrentPreset(preset: string): Exclude<CurrentPermissionPreset, 'owner'> {
-	if (preset === 'admin' || preset === 'full-editor' || preset === 'team-leader' || preset === 'viewer') {
-		return preset;
-	}
-	if (preset === 'custom') {
-		return 'custom';
-	}
-	return 'full-editor';
-}
-
 function normalizeStoredMemberPreset(preset: string): StoredMemberPreset {
 	if (preset === 'viewer' || preset === 'operator' || preset === 'editor') {
 		return preset;
 	}
 	return 'editor';
-}
-
-function normalizeCustomPermissions(
-	customPermissions?: Partial<OrganizationMemberPermissions> | null
-): OrganizationMemberPermissions {
-	return {
-		canViewCalendar: !!customPermissions?.canViewCalendar,
-		canEditCalendar: !!customPermissions?.canEditCalendar,
-		canViewPersonnel: !!customPermissions?.canViewPersonnel,
-		canEditPersonnel: !!customPermissions?.canEditPersonnel,
-		canViewTraining: !!customPermissions?.canViewTraining,
-		canEditTraining: !!customPermissions?.canEditTraining,
-		canViewCriticalTasks: !!customPermissions?.canViewCriticalTasks,
-		canEditCriticalTasks: !!customPermissions?.canEditCriticalTasks,
-		canViewOnboarding: !!customPermissions?.canViewOnboarding,
-		canEditOnboarding: !!customPermissions?.canEditOnboarding,
-		canViewRatingScheme: !!customPermissions?.canViewRatingScheme,
-		canEditRatingScheme: !!customPermissions?.canEditRatingScheme,
-		canManageMembers: !!customPermissions?.canManageMembers
-	};
-}
-
-function withResolvedCompatibilityPermissions(
-	permissions: OrganizationMemberPermissions
-): Required<OrganizationMemberPermissions> {
-	const ratingScheme = resolveRatingSchemePermissions(permissions);
-	return {
-		...permissions,
-		canViewRatingScheme: ratingScheme.canViewRatingScheme,
-		canEditRatingScheme: ratingScheme.canEditRatingScheme
-	};
-}
-
-function matchesPermissionPreset(
-	permissions: Required<OrganizationMemberPermissions>,
-	presetPermissions: OrganizationMemberPermissions
-): boolean {
-	const presetRatingScheme = resolveRatingSchemePermissions(presetPermissions);
-	return (
-		permissions.canViewCalendar === presetPermissions.canViewCalendar &&
-		permissions.canEditCalendar === presetPermissions.canEditCalendar &&
-		permissions.canViewPersonnel === presetPermissions.canViewPersonnel &&
-		permissions.canEditPersonnel === presetPermissions.canEditPersonnel &&
-		permissions.canViewTraining === presetPermissions.canViewTraining &&
-		permissions.canEditTraining === presetPermissions.canEditTraining &&
-		permissions.canViewCriticalTasks === presetPermissions.canViewCriticalTasks &&
-		permissions.canEditCriticalTasks === presetPermissions.canEditCriticalTasks &&
-		permissions.canViewOnboarding === presetPermissions.canViewOnboarding &&
-		permissions.canEditOnboarding === presetPermissions.canEditOnboarding &&
-		permissions.canViewRatingScheme === presetRatingScheme.canViewRatingScheme &&
-		permissions.canEditRatingScheme === presetRatingScheme.canEditRatingScheme &&
-		permissions.canManageMembers === presetPermissions.canManageMembers
-	);
 }
 
 export const TARGET_MEMBER_PRESET_CAPABILITIES: Record<Exclude<MemberPreset, 'custom'>, CapabilityMap> = {

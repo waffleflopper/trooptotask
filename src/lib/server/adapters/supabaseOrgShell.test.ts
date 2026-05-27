@@ -89,22 +89,12 @@ describe('createSupabaseOrgAccessPort', () => {
 		const membershipRow = {
 			id: 'membership-1',
 			role: 'member',
-			scoped_group_id: 'group-123',
-			can_view_calendar: true,
-			can_edit_calendar: false,
-			can_view_personnel: true,
-			can_edit_personnel: true,
-			can_view_training: false,
-			can_edit_training: false,
-			can_view_critical_tasks: false,
-			can_edit_critical_tasks: false,
-			can_view_onboarding: true,
-			can_edit_onboarding: false,
-			can_view_rating_scheme: true,
-			can_edit_rating_scheme: false,
-			can_manage_members: false
+			member_preset: 'viewer',
+			capability_overrides: { personnel: 'configure', training: 'none', criticalTasks: 'none' },
+			access_scope_kind: 'groups',
+			access_scope_group_ids: ['group-123']
 		} satisfies MembershipRow;
-		const { builder } = createMembershipQueryBuilder(membershipRow);
+		const { builder, calls } = createMembershipQueryBuilder(membershipRow);
 		const userSupabase = createMockSupabase(builder);
 		const wrapMembershipLoad = vi.fn(async (loadMembershipRow: () => Promise<MembershipRow>) => loadMembershipRow());
 		const port = createSupabaseOrgAccessPort({
@@ -119,6 +109,12 @@ describe('createSupabaseOrgAccessPort', () => {
 		const result = await port.getMembership();
 
 		expect(wrapMembershipLoad).toHaveBeenCalledTimes(1);
+		const selectCall = calls.find((call) => call.method === 'select');
+		expect(selectCall?.args[0]).toBe(
+			'id, role, member_preset, capability_overrides, access_scope_kind, access_scope_group_ids'
+		);
+		expect(selectCall?.args[0]).not.toContain('can_view_calendar');
+		expect(selectCall?.args[0]).not.toContain('scoped_group_id');
 		expect(result).toEqual({
 			orgId: 'org-1',
 			membershipId: 'membership-1',
@@ -153,23 +149,35 @@ describe('createSupabaseOrgAccessPort', () => {
 		});
 	});
 
-	it('prefers stored capability map and Scope Set over legacy permission and scoped group compatibility', async () => {
+	it.each([null, 'custom'] as const)(
+		'fails visibly when shell membership rows have invalid normalized preset %s',
+		async (memberPreset) => {
+			const { builder } = createMembershipQueryBuilder({
+				id: 'membership-1',
+				role: 'member',
+				member_preset: memberPreset,
+				capability_overrides: {},
+				access_scope_kind: 'organization',
+				access_scope_group_ids: []
+			});
+			const port = createSupabaseOrgAccessPort({
+				orgId: 'org-1',
+				userId: 'user-1',
+				userSupabase: createMockSupabase(builder),
+				orgName: 'Test Org',
+				getEffectiveTier: async () => effectiveTier
+			});
+
+			await expect(port.getMembership()).rejects.toMatchObject({
+				status: 500,
+				body: { message: 'Membership row is missing normalized member access storage' }
+			});
+		}
+	);
+
+	it('loads replacement capability map and Scope Set for member access', async () => {
 		const membershipRow = {
 			role: 'member',
-			scoped_group_id: 'legacy-group',
-			can_view_calendar: false,
-			can_edit_calendar: false,
-			can_view_personnel: false,
-			can_edit_personnel: false,
-			can_view_training: false,
-			can_edit_training: false,
-			can_view_critical_tasks: false,
-			can_edit_critical_tasks: false,
-			can_view_onboarding: false,
-			can_edit_onboarding: false,
-			can_view_rating_scheme: false,
-			can_edit_rating_scheme: false,
-			can_manage_members: false,
 			member_preset: 'viewer',
 			capability_overrides: { training: 'operate', criticalTasks: 'configure' },
 			access_scope_kind: 'groups',
@@ -190,26 +198,16 @@ describe('createSupabaseOrgAccessPort', () => {
 		expect(result.capabilityMap.training).toBe('operate');
 		expect(result.capabilityMap.criticalTasks).toBe('configure');
 		expect(result.scopeSet).toEqual({ kind: 'groups', groupIds: ['group-alpha', 'group-bravo'] });
-		expect(result.scopedGroupId).toBe('legacy-group');
+		expect(result.scopedGroupId).toBeNull();
 	});
 
 	it('exposes organization-wide configure capability for admin governance roles', async () => {
 		const membershipRow = {
 			role: 'admin',
-			scoped_group_id: 'legacy-group',
-			can_view_calendar: false,
-			can_edit_calendar: false,
-			can_view_personnel: false,
-			can_edit_personnel: false,
-			can_view_training: false,
-			can_edit_training: false,
-			can_view_critical_tasks: false,
-			can_edit_critical_tasks: false,
-			can_view_onboarding: false,
-			can_edit_onboarding: false,
-			can_view_rating_scheme: false,
-			can_edit_rating_scheme: false,
-			can_manage_members: false
+			member_preset: 'viewer',
+			capability_overrides: {},
+			access_scope_kind: 'groups',
+			access_scope_group_ids: ['ignored-for-admin']
 		} satisfies MembershipRow;
 		const { builder } = createMembershipQueryBuilder(membershipRow);
 		const port = createSupabaseOrgAccessPort({

@@ -794,8 +794,8 @@ INSERT INTO "public"."onboarding_step_progress" ("id", "onboarding_id", "step_na
 -- Data for Name: organization_memberships; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-INSERT INTO "public"."organization_memberships" ("id", "organization_id", "user_id", "role", "invited_by", "created_at", "can_view_calendar", "can_edit_calendar", "can_view_personnel", "can_edit_personnel", "can_view_training", "can_edit_training", "can_manage_members", "email", "scoped_group_id", "can_view_onboarding", "can_edit_onboarding") VALUES
-	('b3f7f96e-6be5-4978-9540-8f11a9fcbd48', '58b4ca31-634e-4525-be67-5a5a80c8d6e2', 'a66f8bd7-92e1-416e-9dbe-11da5a7f7f3c', 'owner', NULL, '2026-04-13 00:26:28.693345+00', true, true, true, true, true, true, true, 'seed-owner@example.test', NULL, true, true);
+INSERT INTO "public"."organization_memberships" ("id", "organization_id", "user_id", "role", "invited_by", "created_at", "email", "member_preset", "capability_overrides", "access_scope_kind", "access_scope_group_ids") VALUES
+	('b3f7f96e-6be5-4978-9540-8f11a9fcbd48', '58b4ca31-634e-4525-be67-5a5a80c8d6e2', 'a66f8bd7-92e1-416e-9dbe-11da5a7f7f3c', 'owner', NULL, '2026-04-13 00:26:28.693345+00', 'seed-owner@example.test', 'editor', '{}'::jsonb, 'organization', ARRAY[]::uuid[]);
 
 
 --

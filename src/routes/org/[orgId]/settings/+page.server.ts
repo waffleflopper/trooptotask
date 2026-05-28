@@ -1,4 +1,4 @@
-import { fail, redirect } from '@sveltejs/kit';
+import { redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { parseMemberAccessEditFormData } from '$lib/access/memberAccessCommands';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
@@ -29,6 +29,7 @@ import {
 	loadOrganizationSettingsWorkspace,
 	type SettingsExportInfoSource
 } from './organizationSettingsWorkspace.server';
+import { toActionFailure } from './settingsActionFailure.server';
 
 export const load: PageServerLoad = async ({ parent }) => {
 	const parentData = await parent();
@@ -295,20 +296,3 @@ export const actions: Actions = {
 		throw redirect(303, '/dashboard?show=all');
 	}
 };
-
-function toActionFailure(errorKey: string, error: unknown) {
-	if (error instanceof Error && typeof Reflect.get(error, 'status') === 'number') {
-		const data: Record<string, unknown> = { [errorKey]: error.message };
-		const reason = Reflect.get(error, 'reason');
-		const requiresStepUp = Reflect.get(error, 'requiresStepUp');
-		const stepUpPath = Reflect.get(error, 'stepUpPath');
-
-		if (typeof reason === 'string') data.reason = reason;
-		if (typeof requiresStepUp === 'boolean') data.requiresStepUp = requiresStepUp;
-		if (typeof stepUpPath === 'string') data.stepUpPath = stepUpPath;
-
-		return fail(Reflect.get(error, 'status') as number, data);
-	}
-
-	throw error;
-}

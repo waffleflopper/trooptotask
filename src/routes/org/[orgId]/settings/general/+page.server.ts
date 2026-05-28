@@ -1,4 +1,4 @@
-import { fail, redirect } from '@sveltejs/kit';
+import { redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { buildRouteContext, loadWithContext } from '$lib/server/adapters/httpAdapter';
@@ -12,6 +12,7 @@ import {
 	updateOrganizationUrlSlug
 } from '$lib/server/core/useCases/orgSettingsAdministration';
 import { buildPlanUsageSummary, type PlanUsageSummary } from '$lib/server/core/useCases/planUsageSummary';
+import { toActionFailure } from '../settingsActionFailure.server';
 import { buildGeneralSettingsData } from '../settingsGeneral.server';
 
 export const load: PageServerLoad = async ({ locals, cookies, parent }) => {
@@ -135,20 +136,3 @@ export const actions: Actions = {
 		throw redirect(303, `/org/${orgId}/settings/general`);
 	}
 };
-
-function toActionFailure(errorKey: string, error: unknown) {
-	if (error instanceof Error && typeof Reflect.get(error, 'status') === 'number') {
-		const data: Record<string, unknown> = { [errorKey]: error.message };
-		const reason = Reflect.get(error, 'reason');
-		const requiresStepUp = Reflect.get(error, 'requiresStepUp');
-		const stepUpPath = Reflect.get(error, 'stepUpPath');
-
-		if (typeof reason === 'string') data.reason = reason;
-		if (typeof requiresStepUp === 'boolean') data.requiresStepUp = requiresStepUp;
-		if (typeof stepUpPath === 'string') data.stepUpPath = stepUpPath;
-
-		return fail(Reflect.get(error, 'status') as number, data);
-	}
-
-	throw error;
-}

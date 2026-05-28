@@ -20,6 +20,7 @@
 		type EditableMembershipRole,
 		type EditablePreset
 	} from '../settingsMemberAccessWorkspace.svelte';
+	import type { MembersSettingsSection } from './membersSettings.server';
 	import type { SettingsMemberAccessRow } from '../settingsMemberAccessModel';
 	import { pluralize } from '../settingsWorkspaceFormatters';
 
@@ -227,7 +228,7 @@
 			{#each filteredMembers as member (member.id)}
 				{@const accessShape = memberAccess.getMemberAccessShape(member)}
 				{@const accessBadge = memberAccess.getMemberAccessBadge(member, accessShape)}
-				{@const overrides = memberAccess.overriddenCapabilityLabels(member)}
+				{@const overrides = (member as MembersSettingsSection['rows'][number]).overriddenCapabilityLabels}
 				<div class="grid gap-3 p-4 md:grid-cols-[auto_minmax(0,1fr)_auto] md:items-start">
 					<div
 						class="flex size-10 items-center justify-center rounded-md border bg-muted text-sm font-medium"

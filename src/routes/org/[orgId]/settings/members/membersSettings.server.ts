@@ -23,6 +23,7 @@ import {
 	SETTINGS_ACCESS_OPTIONS,
 	SETTINGS_CAPABILITY_OPTIONS
 } from '../settingsMemberAccessConstants';
+import { pluralize } from '../settingsWorkspaceFormatters';
 import type { DeletionRequestRow } from '../settingsRows.server';
 
 export interface LoadMembersSettingsInput {
@@ -151,7 +152,7 @@ export function buildMembersSettingsSection(input: BuildMembersSettingsDataInput
 	const now = new Date();
 	const latestDeliveryByInvitationId = buildLatestDeliveryByInvitationId(input.invitationDeliveries ?? []);
 	const shapedInvitations = input.invitations.map((row) =>
-		shapeInvitationRow(buildSettingsInvitationAccessRow(row), groups, latestDeliveryByInvitationId)
+		shapeInvitationRow(buildSettingsInvitationAccessRow(row), groups, latestDeliveryByInvitationId, now)
 	);
 	const invitations = shapedInvitations.filter((invitation) => isActionableInvitation(invitation, now));
 	const invitationHistory = shapedInvitations
@@ -229,7 +230,8 @@ function shapeMemberRow(
 function shapeInvitationRow(
 	invitation: ReturnType<typeof buildSettingsInvitationAccessRow>,
 	groups: Array<{ id: string; name: string }>,
-	deliveryByInvitationId: Map<string, SettingsInvitationDeliverySourceRow>
+	deliveryByInvitationId: Map<string, SettingsInvitationDeliverySourceRow>,
+	now: Date
 ): SettingsInvitationRow {
 	const delivery = deliveryByInvitationId.get(invitation.id) ?? null;
 	return {
@@ -242,7 +244,7 @@ function shapeInvitationRow(
 		deliveryLastError: delivery?.last_error ?? null,
 		deliveryUpdatedAt: delivery?.updated_at ?? null,
 		deliverySentAt: delivery?.sent_at ?? null,
-		canResend: invitation.status === 'pending'
+		canResend: isPendingUnexpiredInvitation(invitation, now)
 	};
 }
 
@@ -285,6 +287,16 @@ function shapeInvitationHistoryRow(invitation: SettingsInvitationRow, now: Date)
 
 function isActionableInvitation(invitation: SettingsInvitationRow, now: Date): boolean {
 	return getInvitationLifecycleStatus(invitation, now) === 'pending';
+}
+
+function isPendingUnexpiredInvitation(
+	invitation: Pick<SettingsInvitationRow, 'status' | 'expiresAt'>,
+	now: Date
+): boolean {
+	return (
+		invitation.status === 'pending' &&
+		(!invitation.expiresAt || new Date(invitation.expiresAt).getTime() > now.getTime())
+	);
 }
 
 function getInvitationLifecycleStatus(
@@ -370,8 +382,4 @@ function formatScopeSet(
 
 function formatCapability(level: CapabilityLevel): string {
 	return level[0].toUpperCase() + level.slice(1);
-}
-
-function pluralize(label: string, count: number): string {
-	return count === 1 ? label : `${label}s`;
 }

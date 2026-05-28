@@ -126,6 +126,7 @@ vi.mock('$lib/server/core/useCases/orgSettingsAdministration', async () => {
 import { actions, load as loadSettingsIndexPage, loadSettingsWorkspacePage as load } from './+page.server';
 import { actions as generalActions, load as loadGeneralPage } from './general/+page.server';
 import { actions as memberActions, load as loadMembersPage } from './members/+page.server';
+import { buildMembersSettingsData } from './members/membersSettings.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 
 describe('org settings page server actions', () => {
@@ -393,6 +394,85 @@ describe('org settings page server actions', () => {
 		expect('dataExport' in resultRecord.membersSettings.sections).toBe(false);
 		expect('dangerZone' in resultRecord.membersSettings.sections).toBe(false);
 		expect(fetchAuditLogPreviewMock).not.toHaveBeenCalled();
+	});
+
+	it('shapes Members invitations with expiry and delivery status semantics', () => {
+		const result = buildMembersSettingsData({
+			currentMemberRole: 'owner',
+			isAdmin: true,
+			members: [
+				{
+					id: 'membership-1',
+					organization_id: 'org-1',
+					user_id: 'user-1',
+					email: 'owner@example.com',
+					role: 'owner',
+					created_at: '2026-04-26T12:00:00Z',
+					member_preset: 'editor',
+					capability_overrides: {},
+					access_scope_kind: 'organization',
+					access_scope_group_ids: []
+				}
+			],
+			invitations: [
+				{
+					id: 'invite-pending',
+					email: 'pending@example.com',
+					role: 'member',
+					status: 'pending',
+					created_at: '2026-04-26T12:00:00Z',
+					expires_at: '2999-06-26T12:00:00Z',
+					member_preset: 'viewer',
+					capability_overrides: {},
+					access_scope_kind: 'organization',
+					access_scope_group_ids: []
+				},
+				{
+					id: 'invite-expired',
+					email: 'expired@example.com',
+					role: 'member',
+					status: 'pending',
+					created_at: '2026-04-20T12:00:00Z',
+					expires_at: '2000-06-26T12:00:00Z',
+					member_preset: 'operator',
+					capability_overrides: {},
+					access_scope_kind: 'groups',
+					access_scope_group_ids: ['group-1']
+				}
+			],
+			invitationDeliveries: [
+				{
+					id: 'delivery-1',
+					invitation_id: 'invite-pending',
+					status: 'failed',
+					attempt_count: 2,
+					last_error: 'SMTP unavailable',
+					updated_at: '2026-04-27T12:00:00Z',
+					sent_at: null
+				}
+			],
+			groups: [{ id: 'group-1', name: 'HQ', organization_id: 'org-1' }]
+		});
+
+		expect(result.sections.members.invitations).toEqual([
+			expect.objectContaining({
+				id: 'invite-pending',
+				canResend: true,
+				deliveryStatus: 'failed',
+				deliveryStatusLabel: 'Email failed',
+				deliveryAttemptCount: 2,
+				deliveryLastError: 'SMTP unavailable'
+			})
+		]);
+		expect(result.sections.members.invitationHistory).toEqual([
+			expect.objectContaining({
+				id: 'invite-expired',
+				canResend: false,
+				lifecycleStatus: 'expired',
+				lifecycleAt: '2000-06-26T12:00:00Z',
+				scopeDisplayLabel: 'HQ'
+			})
+		]);
 	});
 
 	it('loads a consolidated admin settings workspace payload', async () => {
@@ -1279,6 +1359,87 @@ describe('org settings page server actions', () => {
 					capabilityOverrides: { calendar: 'operate' },
 					scopeSet: { kind: 'groups', groupIds: ['22222222-2222-4222-8222-222222222222'] }
 				},
+				actorEmail: 'user@example.com'
+			}
+		);
+	});
+
+	it('redirects unauthenticated users to login before invoking the remove-member flow', async () => {
+		await expect(
+			memberActions.removeMember({
+				request: new Request('http://localhost/org/org-1/settings?/removeMember', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+					body: new URLSearchParams({ membershipId: 'membership-2' })
+				}),
+				locals: {},
+				params: { orgId: 'org-1' },
+				cookies: {},
+				getClientAddress: () => '127.0.0.1'
+			} as never)
+		).rejects.toMatchObject({
+			status: 303,
+			location: '/auth/login'
+		});
+
+		expect(buildRouteContextMock).not.toHaveBeenCalled();
+		expect(removeOrganizationMemberMock).not.toHaveBeenCalled();
+	});
+
+	it('maps remove-member failures back into the memberError action payload', async () => {
+		removeOrganizationMemberMock.mockRejectedValue(
+			Object.assign(new Error('Cannot remove this member'), { status: 400 })
+		);
+
+		const result = await memberActions.removeMember({
+			request: new Request('http://localhost/org/org-1/settings?/removeMember', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+				body: new URLSearchParams({ membershipId: 'membership-2' })
+			}),
+			locals: {
+				user: { id: 'user-1', email: 'user@example.com' },
+				supabase: {}
+			},
+			params: { orgId: 'org-1' },
+			cookies: {},
+			getClientAddress: () => '127.0.0.1'
+		} as never);
+
+		expect(result).toMatchObject({
+			status: 400,
+			data: { memberError: 'Cannot remove this member' }
+		});
+	});
+
+	it('translates remove-member form data into the remove use-case input shape', async () => {
+		const result = await memberActions.removeMember({
+			request: new Request('http://localhost/org/org-1/settings?/removeMember', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+				body: new URLSearchParams({ membershipId: '11111111-1111-4111-8111-111111111111' })
+			}),
+			locals: {
+				user: { id: 'user-1', email: 'user@example.com' },
+				supabase: {}
+			},
+			params: { orgId: 'org-1' },
+			cookies: {},
+			getClientAddress: () => '127.0.0.1'
+		} as never);
+
+		expect(result).toEqual({ success: true });
+		expect(removeOrganizationMemberMock).toHaveBeenCalledWith(
+			{
+				auth: { kind: 'auth', orgId: 'org-1' },
+				audit: { kind: 'audit' },
+				notifications: { kind: 'notifications' },
+				readOnlyGuard: undefined,
+				settings: { kind: 'settings-port' },
+				sensitiveActionAuthorizer: { kind: 'sensitive-action-authorizer' }
+			},
+			{
+				membershipId: '11111111-1111-4111-8111-111111111111',
 				actorEmail: 'user@example.com'
 			}
 		);

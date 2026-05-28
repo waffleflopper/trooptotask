@@ -4,10 +4,7 @@
 	import { Spinner } from '$lib/components/ui/spinner/index.js';
 	import * as Table from '$lib/components/ui/table/index.js';
 	import { formatRosterDate, pluralize } from './settingsWorkspaceFormatters';
-	import type {
-		OrganizationSettingsWorkspace,
-		SettingsArchivedPersonnelRow
-	} from './organizationSettingsWorkspaceModel';
+	import type { SettingsArchivedPersonnelRow, SettingsArchivesSectionData } from './organizationSettingsWorkspaceModel';
 
 	let {
 		section,
@@ -17,7 +14,7 @@
 		onExport,
 		onConfirmPermanentDelete
 	}: {
-		section: OrganizationSettingsWorkspace['sections']['archivedPersonnel'];
+		section: SettingsArchivesSectionData;
 		restoring: string | null;
 		exportingPerson: string | null;
 		onRestore: (id: string) => void;

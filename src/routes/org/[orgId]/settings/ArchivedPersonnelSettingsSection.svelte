@@ -4,7 +4,7 @@
 	import { Spinner } from '$lib/components/ui/spinner/index.js';
 	import * as Table from '$lib/components/ui/table/index.js';
 	import { formatRosterDate, pluralize } from './settingsWorkspaceFormatters';
-	import type { SettingsArchivedPersonnelRow, SettingsArchivesSectionData } from './organizationSettingsWorkspaceModel';
+	import type { SettingsArchivedPersonnelRow, SettingsArchivesSectionData } from './settingsSectionTypes';
 
 	let {
 		section,

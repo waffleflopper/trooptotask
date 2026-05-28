@@ -7,16 +7,16 @@
 	import { Input } from '$lib/components/ui/input/index.js';
 	import { Label } from '$lib/components/ui/label/index.js';
 	import DangerZoneSettingsSection from '../DangerZoneSettingsSection.svelte';
-	import { createSettingsWorkspaceState } from '../settingsWorkspaceState.svelte';
+	import { createSettingsDangerZoneState } from '../settingsWorkspaceState.svelte';
 
 	let { data, form } = $props();
 
 	let deleteLoading = $state(false);
 	let transferLoading = $state(false);
-	const settingsState = createSettingsWorkspaceState(() => data.workspace);
-	const organizationSection = $derived(data.workspace.sections.organization);
-	const dangerZoneSection = $derived(settingsState.dangerZone.section);
-	const currentMember = $derived(data.workspace.currentMember);
+	const dangerZoneState = createSettingsDangerZoneState(() => data.dangerSettings);
+	const organizationSection = $derived(data.dangerSettings.sections.organization);
+	const dangerZoneSection = $derived(dangerZoneState.section);
+	const currentMember = $derived(data.dangerSettings.currentMember);
 
 	const transferEnhance: SubmitFunction = () => {
 		transferLoading = true;
@@ -24,7 +24,7 @@
 			try {
 				if (result.type === 'failure' && redirectToSensitiveActionStepUp(result.data)) return;
 				await update();
-				if (result.type === 'success') settingsState.dangerZone.closeTransferConfirmation();
+				if (result.type === 'success') dangerZoneState.closeTransferConfirmation();
 			} finally {
 				transferLoading = false;
 			}
@@ -32,7 +32,7 @@
 	};
 
 	function closeDeleteOrganizationDialog() {
-		settingsState.dangerZone.closeDeleteConfirmation();
+		dangerZoneState.closeDeleteConfirmation();
 	}
 </script>
 
@@ -41,9 +41,9 @@
 		orgName={organizationSection.name}
 		{form}
 		section={dangerZoneSection}
-		bind:transferTargetId={settingsState.dangerZone.transferTargetId}
-		onTransferConfirm={() => settingsState.dangerZone.openTransferConfirmation()}
-		onDeleteConfirm={() => settingsState.dangerZone.openDeleteConfirmation()}
+		bind:transferTargetId={dangerZoneState.transferTargetId}
+		onTransferConfirm={() => dangerZoneState.openTransferConfirmation()}
+		onDeleteConfirm={() => dangerZoneState.openDeleteConfirmation()}
 	/>
 {:else}
 	<div class="rounded-lg border bg-card p-4 text-card-foreground">
@@ -54,13 +54,13 @@
 	</div>
 {/if}
 
-{#if settingsState.dangerZone.showDeleteConfirm}
+{#if dangerZoneState.showDeleteConfirm}
 	<AppDialog.Root
-		bind:open={settingsState.dangerZone.showDeleteConfirm}
-		closeBlocked={deleteLoading || settingsState.dangerZone.deleteOrganizationCloseBlocked}
+		bind:open={dangerZoneState.showDeleteConfirm}
+		closeBlocked={deleteLoading || dangerZoneState.deleteOrganizationCloseBlocked}
 		onClose={closeDeleteOrganizationDialog}
 	>
-		<AppDialog.Content closeBlocked={deleteLoading || settingsState.dangerZone.deleteOrganizationCloseBlocked}>
+		<AppDialog.Content closeBlocked={deleteLoading || dangerZoneState.deleteOrganizationCloseBlocked}>
 			<AppDialog.Header>
 				<AppDialog.Title>Delete Organization</AppDialog.Title>
 				<AppDialog.Description>
@@ -85,7 +85,7 @@
 						};
 					}}
 					onsubmit={(event) => {
-						if (!settingsState.dangerZone.deleteConfirmMatches) event.preventDefault();
+						if (!dangerZoneState.deleteConfirmMatches) event.preventDefault();
 					}}
 				>
 					<Label for="confirmDelete">Type {organizationSection.name} to confirm</Label>
@@ -93,7 +93,7 @@
 						id="confirmDelete"
 						name="confirmName"
 						type="text"
-						bind:value={settingsState.dangerZone.deleteConfirmText}
+						bind:value={dangerZoneState.deleteConfirmText}
 						autocomplete="off"
 					/>
 				</form>
@@ -106,7 +106,7 @@
 					type="submit"
 					form="delete-org-form"
 					variant="destructive"
-					disabled={deleteLoading || !settingsState.dangerZone.deleteConfirmMatches}
+					disabled={deleteLoading || !dangerZoneState.deleteConfirmMatches}
 				>
 					{deleteLoading ? 'Deleting...' : 'Delete Permanently'}
 				</Button>
@@ -115,18 +115,17 @@
 	</AppDialog.Root>
 {/if}
 
-{#if settingsState.dangerZone.showTransferConfirm && settingsState.dangerZone.transferTargetId}
+{#if dangerZoneState.showTransferConfirm && dangerZoneState.transferTargetId}
 	<AppDialog.Root
-		bind:open={settingsState.dangerZone.showTransferConfirm}
-		closeBlocked={transferLoading || settingsState.dangerZone.transferCloseBlocked}
-		onClose={() => settingsState.dangerZone.closeTransferConfirmation()}
+		bind:open={dangerZoneState.showTransferConfirm}
+		closeBlocked={transferLoading || dangerZoneState.transferCloseBlocked}
+		onClose={() => dangerZoneState.closeTransferConfirmation()}
 	>
-		<AppDialog.Content closeBlocked={transferLoading || settingsState.dangerZone.transferCloseBlocked}>
+		<AppDialog.Content closeBlocked={transferLoading || dangerZoneState.transferCloseBlocked}>
 			<AppDialog.Header>
 				<AppDialog.Title>Transfer Ownership</AppDialog.Title>
 				<AppDialog.Description>
-					Transfer owner authority to {settingsState.dangerZone.selectedTransferCandidate?.email ??
-						'the selected member'}.
+					Transfer owner authority to {dangerZoneState.selectedTransferCandidate?.email ?? 'the selected member'}.
 				</AppDialog.Description>
 			</AppDialog.Header>
 			<AppDialog.Body>
@@ -138,14 +137,14 @@
 					class="grid gap-2"
 					use:enhance={transferEnhance}
 				>
-					<input type="hidden" name="newOwnerId" value={settingsState.dangerZone.transferTargetId} />
+					<input type="hidden" name="newOwnerId" value={dangerZoneState.transferTargetId} />
 					<Label for="confirmTransferOwner">Type the member email to confirm</Label>
 					<Input
 						id="confirmTransferOwner"
 						name="confirmTransferEmail"
 						type="text"
-						bind:value={settingsState.dangerZone.transferConfirmText}
-						placeholder={settingsState.dangerZone.selectedTransferCandidate?.email ?? 'member@example.com'}
+						bind:value={dangerZoneState.transferConfirmText}
+						placeholder={dangerZoneState.selectedTransferCandidate?.email ?? 'member@example.com'}
 						autocomplete="off"
 					/>
 				</form>
@@ -155,13 +154,13 @@
 					type="button"
 					variant="outline"
 					disabled={transferLoading}
-					onclick={() => settingsState.dangerZone.closeTransferConfirmation()}>Cancel</Button
+					onclick={() => dangerZoneState.closeTransferConfirmation()}>Cancel</Button
 				>
 				<Button
 					type="submit"
 					form="transfer-ownership-form"
 					variant="destructive"
-					disabled={transferLoading || !settingsState.dangerZone.transferConfirmMatches}
+					disabled={transferLoading || !dangerZoneState.transferConfirmMatches}
 				>
 					{transferLoading ? 'Transferring...' : 'Transfer Ownership'}
 				</Button>

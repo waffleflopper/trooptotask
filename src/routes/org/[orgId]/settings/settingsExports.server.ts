@@ -4,7 +4,7 @@ import type { DataStore, QueryWithRawStorePorts, UseCaseContext } from '$lib/ser
 import { readOrganizationPlanUsage } from '$lib/server/core/useCases/organizationPlanUsage';
 import { readEffectivePlanPolicy } from '$lib/server/core/useCases/planPolicy';
 import type { DeletionRequestRow } from './settingsRows.server';
-import type { SettingsExportInfo, SettingsExportsSectionData } from './organizationSettingsWorkspaceModel';
+import type { SettingsExportInfo, SettingsExportsSectionData } from './settingsSectionTypes';
 
 export interface ExportsSettingsData {
 	sections: {

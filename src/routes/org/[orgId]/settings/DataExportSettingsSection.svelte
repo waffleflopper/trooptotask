@@ -4,7 +4,7 @@
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Separator } from '$lib/components/ui/separator/index.js';
 	import { Spinner } from '$lib/components/ui/spinner/index.js';
-	import type { SettingsExportsSectionData } from './organizationSettingsWorkspaceModel';
+	import type { SettingsExportsSectionData } from './settingsSectionTypes';
 
 	let {
 		orgId,

@@ -12,11 +12,7 @@ import {
 	buildSettingsMemberAccessRow,
 	type SettingsAccessSourceRow
 } from '../settingsMemberAccessReadModel.server';
-import type {
-	SettingsInvitationHistoryRow,
-	SettingsInvitationRow,
-	SettingsMemberRow
-} from '../organizationSettingsWorkspaceModel';
+import type { SettingsInvitationHistoryRow, SettingsInvitationRow, SettingsMemberRow } from '../settingsSectionTypes';
 import {
 	ACCESS_LANE_LABELS,
 	SETTINGS_ACCESS_LANES,

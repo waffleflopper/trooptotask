@@ -111,49 +111,53 @@ export type SettingsPoliciesSectionData = {
 	canUpdateCriticalTasksSettings: boolean;
 };
 
-export interface OrganizationSettingsWorkspace {
-	currentMember: {
-		role: MembershipRole;
-		isOwner: boolean;
-		isAdmin: boolean;
-		canManageMembers: boolean;
+export type SettingsCurrentMemberData = {
+	role: MembershipRole;
+	isOwner: boolean;
+	isAdmin: boolean;
+	canManageMembers: boolean;
+};
+
+export type SettingsOrganizationSectionData = {
+	id: string;
+	name: string | null;
+	urlSlug: string | null;
+	urlSegment: string;
+	tier: EffectiveTier | null;
+	canUpdateProfile: boolean;
+	canUpdateUrlSlug: boolean;
+};
+
+export type SettingsMembersSectionData = {
+	rows: SettingsMemberRow[];
+	invitations: SettingsInvitationRow[];
+	invitationHistory: SettingsInvitationHistoryRow[];
+	groups: Array<{ id: string; name: string }>;
+	roleCounts: Record<'owner' | 'admin' | 'member', number>;
+	memberRoleSummary: string;
+	pendingApprovalSummary: { count: number; oldestCreatedAt: string | null };
+	availableAccessLanes: Array<{ id: DurableFeatureLane; label: string }>;
+	capabilityOptions: Array<{ value: CapabilityLevel; label: string }>;
+	canInvite: boolean;
+	canManageMemberAccess: boolean;
+};
+
+export type SettingsDangerSectionData = {
+	transferOwnershipCandidates: SettingsOwnershipTransferCandidate[];
+	deleteConfirmation: {
+		organizationName: string | null;
+		normalizedOrganizationName: string;
 	};
+	commands: {
+		canTransferOwnership: boolean;
+		canDeleteOrganization: boolean;
+	};
+};
+
+export type DangerSettingsData = {
+	currentMember: SettingsCurrentMemberData;
 	sections: {
-		organization: {
-			id: string;
-			name: string | null;
-			urlSlug: string | null;
-			urlSegment: string;
-			tier: EffectiveTier | null;
-			canUpdateProfile: boolean;
-			canUpdateUrlSlug: boolean;
-		};
-		members: {
-			rows: SettingsMemberRow[];
-			invitations: SettingsInvitationRow[];
-			invitationHistory: SettingsInvitationHistoryRow[];
-			groups: Array<{ id: string; name: string }>;
-			roleCounts: Record<'owner' | 'admin' | 'member', number>;
-			memberRoleSummary: string;
-			pendingApprovalSummary: { count: number; oldestCreatedAt: string | null };
-			availableAccessLanes: Array<{ id: DurableFeatureLane; label: string }>;
-			capabilityOptions: Array<{ value: CapabilityLevel; label: string }>;
-			canInvite: boolean;
-			canManageMemberAccess: boolean;
-		};
-		policies: SettingsPoliciesSectionData;
-		archivedPersonnel: SettingsArchivesSectionData;
-		dataExport: SettingsExportsSectionData;
-		dangerZone: {
-			transferOwnershipCandidates: SettingsOwnershipTransferCandidate[];
-			deleteConfirmation: {
-				organizationName: string | null;
-				normalizedOrganizationName: string;
-			};
-			commands: {
-				canTransferOwnership: boolean;
-				canDeleteOrganization: boolean;
-			};
-		};
+		organization: SettingsOrganizationSectionData;
+		dangerZone: SettingsDangerSectionData;
 	};
-}
+};

@@ -1,7 +1,7 @@
 import type { MembershipRole } from '$lib/access/memberAccessShape';
 import type { UseCaseContext } from '$lib/server/core/ports';
 import type { EffectiveTier } from '$lib/types/subscription';
-import type { OrganizationSettingsWorkspace } from './organizationSettingsWorkspaceModel';
+import type { SettingsOrganizationSectionData } from './settingsSectionTypes';
 
 export interface GeneralSettingsOrganizationSource {
 	id: string;
@@ -19,7 +19,7 @@ export interface GeneralSettingsData {
 		canManageMembers: boolean;
 	};
 	sections: {
-		organization: OrganizationSettingsWorkspace['sections']['organization'];
+		organization: SettingsOrganizationSectionData;
 	};
 }
 

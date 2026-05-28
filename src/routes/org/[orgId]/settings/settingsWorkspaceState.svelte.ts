@@ -1,13 +1,13 @@
 import type { CriticalTasksSettings } from '$features/critical-tasks/criticalTasks.types';
-import { createSettingsMemberAccessWorkspace } from './settingsMemberAccessWorkspace.svelte';
 import type {
-	OrganizationSettingsWorkspace,
+	DangerSettingsData,
 	SettingsArchivedPersonnelRow,
 	SettingsArchivesSectionData,
+	SettingsDangerSectionData,
 	SettingsExportsSectionData,
 	SettingsOwnershipTransferCandidate,
 	SettingsPoliciesSectionData
-} from './organizationSettingsWorkspaceModel';
+} from './settingsSectionTypes';
 
 export class SettingsPoliciesState {
 	readonly #getPolicies: () => SettingsPoliciesSectionData;
@@ -234,7 +234,7 @@ export class SettingsDataExportState {
 }
 
 export class SettingsDangerZoneState {
-	readonly #getWorkspace: () => OrganizationSettingsWorkspace;
+	readonly #getSettings: () => DangerSettingsData;
 
 	showTransferConfirm = $state(false);
 	transferTargetId = $state<string | null>(null);
@@ -242,12 +242,12 @@ export class SettingsDangerZoneState {
 	showDeleteConfirm = $state(false);
 	deleteConfirmText = $state('');
 
-	constructor(workspace: OrganizationSettingsWorkspace | (() => OrganizationSettingsWorkspace)) {
-		this.#getWorkspace = typeof workspace === 'function' ? workspace : () => workspace;
+	constructor(settings: DangerSettingsData | (() => DangerSettingsData)) {
+		this.#getSettings = typeof settings === 'function' ? settings : () => settings;
 	}
 
-	get section(): OrganizationSettingsWorkspace['sections']['dangerZone'] {
-		return this.#getWorkspace().sections.dangerZone;
+	get section(): SettingsDangerSectionData {
+		return this.#getSettings().sections.dangerZone;
 	}
 
 	get transferOwnershipCandidates(): SettingsOwnershipTransferCandidate[] {
@@ -297,37 +297,10 @@ export class SettingsDangerZoneState {
 	}
 }
 
-export class SettingsWorkspaceState {
-	readonly #getWorkspace: () => OrganizationSettingsWorkspace;
-
-	members: ReturnType<typeof createSettingsMemberAccessWorkspace>;
-	policies: SettingsPoliciesState;
-	archivedPersonnel: SettingsArchivedPersonnelState;
-	dataExport: SettingsDataExportState;
-	dangerZone: SettingsDangerZoneState;
-
-	constructor(workspace: OrganizationSettingsWorkspace | (() => OrganizationSettingsWorkspace)) {
-		this.#getWorkspace = typeof workspace === 'function' ? workspace : () => workspace;
-		this.members = createSettingsMemberAccessWorkspace(() => {
-			const section = this.#getWorkspace().sections.members;
-			return {
-				members: section.rows,
-				invitations: section.invitations,
-				groups: section.groups,
-				isOwner: this.#getWorkspace().currentMember.isOwner
-			};
-		});
-		this.policies = new SettingsPoliciesState(() => this.#getWorkspace().sections.policies);
-		this.archivedPersonnel = new SettingsArchivedPersonnelState(() => this.#getWorkspace().sections.archivedPersonnel);
-		this.dataExport = new SettingsDataExportState(() => this.#getWorkspace().sections.dataExport);
-		this.dangerZone = new SettingsDangerZoneState(() => this.#getWorkspace());
-	}
-}
-
-export function createSettingsWorkspaceState(
-	workspace: OrganizationSettingsWorkspace | (() => OrganizationSettingsWorkspace)
-): SettingsWorkspaceState {
-	return new SettingsWorkspaceState(workspace);
+export function createSettingsDangerZoneState(
+	settings: DangerSettingsData | (() => DangerSettingsData)
+): SettingsDangerZoneState {
+	return new SettingsDangerZoneState(settings);
 }
 
 export function createSettingsPoliciesState(

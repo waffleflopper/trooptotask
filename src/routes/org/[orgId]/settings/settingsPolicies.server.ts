@@ -9,7 +9,7 @@ import {
 	DEFAULT_LOSS_WARNING_WINDOW_DAYS,
 	LOSS_WARNING_CONSTRAINT
 } from './settingsPolicyConstraints';
-import type { SettingsPoliciesSectionData } from './organizationSettingsWorkspaceModel';
+import type { SettingsPoliciesSectionData } from './settingsSectionTypes';
 import type { OrganizationSettingsRow } from './settingsRows.server';
 
 export interface PoliciesSettingsData {

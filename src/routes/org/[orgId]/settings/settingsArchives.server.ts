@@ -2,7 +2,7 @@ import type { MembershipRole } from '$lib/access/memberAccessShape';
 import type { UseCaseContext } from '$lib/server/core/ports';
 import { PersonnelEntity } from '$lib/server/entities/personnel';
 import { DEFAULT_ARCHIVE_RETENTION_MONTHS } from './settingsPolicyConstraints';
-import type { SettingsArchivedPersonnelRow, SettingsArchivesSectionData } from './organizationSettingsWorkspaceModel';
+import type { SettingsArchivedPersonnelRow, SettingsArchivesSectionData } from './settingsSectionTypes';
 import type { OrganizationSettingsRow } from './settingsRows.server';
 
 export interface ArchivesSettingsData {

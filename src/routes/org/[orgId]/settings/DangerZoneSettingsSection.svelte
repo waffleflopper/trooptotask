@@ -4,7 +4,7 @@
 	import { Label } from '$lib/components/ui/label/index.js';
 	import { Separator } from '$lib/components/ui/separator/index.js';
 	import * as Select from '$lib/components/ui/select/index.js';
-	import type { OrganizationSettingsWorkspace } from './organizationSettingsWorkspaceModel';
+	import type { SettingsDangerSectionData } from './settingsSectionTypes';
 
 	let {
 		orgName,
@@ -16,7 +16,7 @@
 	}: {
 		orgName: string | null;
 		form: { [key: string]: unknown; deleteError?: string } | null;
-		section: OrganizationSettingsWorkspace['sections']['dangerZone'];
+		section: SettingsDangerSectionData;
 		transferTargetId?: string | null;
 		onTransferConfirm: () => void;
 		onDeleteConfirm: () => void;

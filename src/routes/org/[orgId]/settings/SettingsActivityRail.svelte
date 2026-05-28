@@ -9,12 +9,12 @@
 	import { Spinner } from '$lib/components/ui/spinner/index.js';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { formatRelativeDate } from '$lib/utils/dates';
-	import type { OrganizationSettingsWorkspace } from './organizationSettingsWorkspaceModel';
+	import type { SettingsExportsSectionData } from './organizationSettingsWorkspaceModel';
 	import { formatAuditTimestamp, getAuditActionParts } from './settingsWorkspaceFormatters';
 
 	type ActivityTab = 'approvals' | 'audit';
 
-	type Activity = OrganizationSettingsWorkspace['sections']['dataExport']['activity'];
+	type Activity = SettingsExportsSectionData['activity'];
 	type AuditLogEntry = Activity['auditLog']['logs'][number];
 
 	let {

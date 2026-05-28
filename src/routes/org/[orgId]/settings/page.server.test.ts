@@ -128,6 +128,7 @@ import { actions as generalActions, load as loadGeneralPage } from './general/+p
 import { actions as memberActions, load as loadMembersPage } from './members/+page.server';
 import { load as loadPoliciesPage } from './policies/+page.server';
 import { load as loadArchivesPage } from './archives/+page.server';
+import { load as loadExportsPage } from './exports/+page.server';
 import { buildMembersSettingsData } from './members/membersSettings.server';
 import { buildArchivesSettingsData } from './settingsArchives.server';
 import { buildPoliciesSettingsData } from './settingsPolicies.server';
@@ -675,6 +676,70 @@ describe('org settings page server actions', () => {
 				scopeDisplayLabel: 'HQ'
 			})
 		]);
+	});
+
+	it('loads explicit Exports settings data without the full settings workspace', async () => {
+		const result = await loadExportsPage({
+			params: { orgId: 'org-1' },
+			locals: {},
+			cookies: {},
+			parent: async () => ({
+				orgId: 'org-1',
+				orgUrlSegment: '1-11-bde',
+				orgName: 'Test Org',
+				allOrgs: [],
+				isAdmin: true,
+				effectiveTier: {
+					tier: 'unit',
+					source: 'subscription',
+					personnelCount: 4,
+					personnelCap: 500,
+					isReadOnly: false,
+					giftExpiresAt: null,
+					giftTier: null
+				},
+				permissions: { canManageMembers: true }
+			})
+		} as never);
+
+		expect(loadWithContextMock).toHaveBeenCalledWith(
+			{},
+			{},
+			'org-1',
+			expect.objectContaining({
+				policyAction: POLICY_ACTION_CATALOG.organization.accessGovernance,
+				policyResource: { kind: 'organization' }
+			})
+		);
+		expect(result).toMatchObject({
+			orgId: 'org-1',
+			orgUrlSegment: '1-11-bde',
+			exportsSettings: {
+				sections: {
+					exports: {
+						activity: {
+							approvalRequests: [
+								expect.objectContaining({ id: 'request-1', status: 'approved' }),
+								expect.objectContaining({ id: 'request-2', status: 'pending' })
+							],
+							pendingApprovalsCount: 1,
+							auditLog: { totalCount: 1, last30DaysCount: 1 }
+						},
+						exportInfo: {
+							exportsUsed: 0,
+							isLimited: false,
+							limitReached: false
+						}
+					}
+				}
+			}
+		});
+		const resultRecord = result as Record<string, unknown>;
+		expect('workspace' in resultRecord).toBe(false);
+		expect('membersSettings' in resultRecord).toBe(false);
+		expect('archivesSettings' in resultRecord).toBe(false);
+		expect('policiesSettings' in resultRecord).toBe(false);
+		expect(fetchAuditLogPreviewMock).toHaveBeenCalledWith(expect.anything(), { kind: 'admin-store' }, { limit: 9 });
 	});
 
 	it('loads a consolidated admin settings workspace payload', async () => {

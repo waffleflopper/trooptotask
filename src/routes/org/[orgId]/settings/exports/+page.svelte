@@ -1,16 +1,16 @@
 <script lang="ts">
 	import DataExportSettingsSection from '../DataExportSettingsSection.svelte';
 	import { downloadBlob } from '../settingsDownloads';
-	import { createSettingsWorkspaceState } from '../settingsWorkspaceState.svelte';
+	import { createSettingsDataExportState } from '../settingsWorkspaceState.svelte';
 
 	let { data } = $props();
 
-	const settingsState = createSettingsWorkspaceState(() => data.workspace);
-	const dataExportSection = $derived(settingsState.dataExport.section);
+	const exportState = createSettingsDataExportState(() => data.exportsSettings.sections.exports);
+	const dataExportSection = $derived(exportState.section);
 
 	async function handleOrganizationExport(format: 'json' | 'excel') {
-		if (settingsState.dataExport.isExporting || settingsState.dataExport.exportLimitReached) return;
-		settingsState.dataExport.beginExport(format);
+		if (exportState.isExporting || exportState.exportLimitReached) return;
+		exportState.beginExport(format);
 		const endpoint = format === 'json' ? 'export' : 'export-excel';
 		const fallbackName = `org-export-${data.orgId}.${format === 'json' ? 'json' : 'xlsx'}`;
 
@@ -20,9 +20,9 @@
 			if (!res.ok) {
 				if (res.headers.get('Content-Type')?.includes('application/json')) {
 					const body = await res.json();
-					settingsState.dataExport.markExportFailed(body.error || 'Export failed. Please try again.');
+					exportState.markExportFailed(body.error || 'Export failed. Please try again.');
 				} else {
-					settingsState.dataExport.markExportFailed('Export failed. Please try again.');
+					exportState.markExportFailed('Export failed. Please try again.');
 				}
 				return;
 			}
@@ -32,11 +32,11 @@
 			const filenameMatch = disposition?.match(/filename="(.+)"/);
 			const filename = filenameMatch?.[1] ?? fallbackName;
 			downloadBlob(blob, filename);
-			settingsState.dataExport.markExportSucceeded();
+			exportState.markExportSucceeded();
 		} catch {
-			settingsState.dataExport.markExportFailed('Export failed. Please try again.');
+			exportState.markExportFailed('Export failed. Please try again.');
 		} finally {
-			settingsState.dataExport.finishExport();
+			exportState.finishExport();
 		}
 	}
 </script>
@@ -44,9 +44,9 @@
 <DataExportSettingsSection
 	orgId={data.orgUrlSegment}
 	section={dataExportSection}
-	exportError={settingsState.dataExport.exportError}
-	exportSuccess={settingsState.dataExport.exportSuccess}
-	exportingOrgJson={settingsState.dataExport.exportingOrgJson}
-	exportingOrgExcel={settingsState.dataExport.exportingOrgExcel}
+	exportError={exportState.exportError}
+	exportSuccess={exportState.exportSuccess}
+	exportingOrgJson={exportState.exportingOrgJson}
+	exportingOrgExcel={exportState.exportingOrgExcel}
 	onExportOrganization={handleOrganizationExport}
 />

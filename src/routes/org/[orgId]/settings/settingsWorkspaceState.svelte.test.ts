@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import type { OrganizationSettingsWorkspace } from './organizationSettingsWorkspace.server';
-import { createSettingsArchivedPersonnelState, createSettingsWorkspaceState } from './settingsWorkspaceState.svelte';
+import {
+	createSettingsArchivedPersonnelState,
+	createSettingsDataExportState,
+	createSettingsWorkspaceState
+} from './settingsWorkspaceState.svelte';
 
 const capabilityMap = {
 	calendar: 'configure',
@@ -209,20 +213,20 @@ describe('settings workspace state', () => {
 		expect(state.permanentDeleteConfirmText).toBe('');
 	});
 
-	it('owns data export command transition state', () => {
-		const state = createSettingsWorkspaceState(makeWorkspace());
+	it('owns data export command transition state from Exports section data', () => {
+		const state = createSettingsDataExportState(makeWorkspace().sections.dataExport);
 
-		state.dataExport.beginExport('json');
+		state.beginExport('json');
 
-		expect(state.dataExport.exportingOrgJson).toBe(true);
-		expect(state.dataExport.exportingOrgExcel).toBe(false);
-		expect(state.dataExport.exportSuccess).toBe(false);
+		expect(state.exportingOrgJson).toBe(true);
+		expect(state.exportingOrgExcel).toBe(false);
+		expect(state.exportSuccess).toBe(false);
 
-		state.dataExport.markExportSucceeded();
-		state.dataExport.finishExport();
+		state.markExportSucceeded();
+		state.finishExport();
 
-		expect(state.dataExport.exportingOrgJson).toBe(false);
-		expect(state.dataExport.exportSuccess).toBe(true);
+		expect(state.exportingOrgJson).toBe(false);
+		expect(state.exportSuccess).toBe(true);
 	});
 
 	it('owns danger zone delete confirmation transition state', () => {

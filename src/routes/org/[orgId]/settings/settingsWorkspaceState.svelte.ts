@@ -4,6 +4,7 @@ import type {
 	OrganizationSettingsWorkspace,
 	SettingsArchivedPersonnelRow,
 	SettingsArchivesSectionData,
+	SettingsExportsSectionData,
 	SettingsOwnershipTransferCandidate,
 	SettingsPoliciesSectionData
 } from './organizationSettingsWorkspaceModel';
@@ -176,30 +177,30 @@ export class SettingsArchivedPersonnelState {
 }
 
 export class SettingsDataExportState {
-	readonly #getWorkspace: () => OrganizationSettingsWorkspace;
+	readonly #getSection: () => SettingsExportsSectionData;
 
 	exportingOrgJson = $state(false);
 	exportingOrgExcel = $state(false);
 	exportError = $state('');
 	exportSuccess = $state(false);
 
-	constructor(workspace: OrganizationSettingsWorkspace | (() => OrganizationSettingsWorkspace)) {
-		this.#getWorkspace = typeof workspace === 'function' ? workspace : () => workspace;
+	constructor(section: SettingsExportsSectionData | (() => SettingsExportsSectionData)) {
+		this.#getSection = typeof section === 'function' ? section : () => section;
 	}
 
-	get section(): OrganizationSettingsWorkspace['sections']['dataExport'] {
-		return this.#getWorkspace().sections.dataExport;
+	get section(): SettingsExportsSectionData {
+		return this.#getSection();
 	}
 
-	get exportInfo(): OrganizationSettingsWorkspace['sections']['dataExport']['exportInfo'] {
+	get exportInfo(): SettingsExportsSectionData['exportInfo'] {
 		return this.section.exportInfo;
 	}
 
-	get commands(): OrganizationSettingsWorkspace['sections']['dataExport']['commands'] {
+	get commands(): SettingsExportsSectionData['commands'] {
 		return this.section.commands;
 	}
 
-	get activity(): OrganizationSettingsWorkspace['sections']['dataExport']['activity'] {
+	get activity(): SettingsExportsSectionData['activity'] {
 		return this.section.activity;
 	}
 
@@ -318,7 +319,7 @@ export class SettingsWorkspaceState {
 		});
 		this.policies = new SettingsPoliciesState(() => this.#getWorkspace().sections.policies);
 		this.archivedPersonnel = new SettingsArchivedPersonnelState(() => this.#getWorkspace().sections.archivedPersonnel);
-		this.dataExport = new SettingsDataExportState(() => this.#getWorkspace());
+		this.dataExport = new SettingsDataExportState(() => this.#getWorkspace().sections.dataExport);
 		this.dangerZone = new SettingsDangerZoneState(() => this.#getWorkspace());
 	}
 }
@@ -339,4 +340,10 @@ export function createSettingsArchivedPersonnelState(
 	section: SettingsArchivesSectionData | (() => SettingsArchivesSectionData)
 ): SettingsArchivedPersonnelState {
 	return new SettingsArchivedPersonnelState(section);
+}
+
+export function createSettingsDataExportState(
+	section: SettingsExportsSectionData | (() => SettingsExportsSectionData)
+): SettingsDataExportState {
+	return new SettingsDataExportState(section);
 }

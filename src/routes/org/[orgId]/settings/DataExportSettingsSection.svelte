@@ -4,7 +4,7 @@
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Separator } from '$lib/components/ui/separator/index.js';
 	import { Spinner } from '$lib/components/ui/spinner/index.js';
-	import type { OrganizationSettingsWorkspace } from './organizationSettingsWorkspaceModel';
+	import type { SettingsExportsSectionData } from './organizationSettingsWorkspaceModel';
 
 	let {
 		orgId,
@@ -16,7 +16,7 @@
 		onExportOrganization
 	}: {
 		orgId: string;
-		section: OrganizationSettingsWorkspace['sections']['dataExport'];
+		section: SettingsExportsSectionData;
 		exportError: string;
 		exportSuccess: boolean;
 		exportingOrgJson: boolean;

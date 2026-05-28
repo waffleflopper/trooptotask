@@ -77,6 +77,19 @@ export type SettingsExportInfo = {
 	planBadge: string;
 };
 
+export type SettingsExportsSectionData = {
+	exportInfo: SettingsExportInfo;
+	commands: {
+		canExportJson: boolean;
+		canExportExcel: boolean;
+	};
+	activity: {
+		pendingApprovalsCount: number;
+		approvalRequests: DeletionRequestRow[];
+		auditLog: AuditLogQueryResult;
+	};
+};
+
 export type SettingsOwnershipTransferCandidate = Pick<SettingsMemberRow, 'id' | 'userId' | 'email' | 'membershipRole'>;
 
 export type SettingsPoliciesSectionData = {
@@ -130,18 +143,7 @@ export interface OrganizationSettingsWorkspace {
 		};
 		policies: SettingsPoliciesSectionData;
 		archivedPersonnel: SettingsArchivesSectionData;
-		dataExport: {
-			exportInfo: SettingsExportInfo;
-			commands: {
-				canExportJson: boolean;
-				canExportExcel: boolean;
-			};
-			activity: {
-				pendingApprovalsCount: number;
-				approvalRequests: DeletionRequestRow[];
-				auditLog: AuditLogQueryResult;
-			};
-		};
+		dataExport: SettingsExportsSectionData;
 		dangerZone: {
 			transferOwnershipCandidates: SettingsOwnershipTransferCandidate[];
 			deleteConfirmation: {

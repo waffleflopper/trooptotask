@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
 	import { page } from '$app/stores';
+	import type { PageProps } from './$types';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import * as AppDialog from '$lib/components/ui/app-dialog/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
@@ -10,7 +11,7 @@
 	import { downloadBlob } from '../settingsDownloads';
 	import { createSettingsArchivedPersonnelState } from '../settingsWorkspaceState.svelte';
 
-	let { data } = $props();
+	let { data }: PageProps = $props();
 
 	const orgId = $derived($page.params.orgId);
 	const archivedPersonnelState = createSettingsArchivedPersonnelState(

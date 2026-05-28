@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import type { PageProps } from './$types';
 	import type { SubmitFunction } from '@sveltejs/kit';
 	import { redirectToSensitiveActionStepUp } from '$lib/auth/sensitiveActionStepUp';
 	import { Button } from '$lib/components/ui/button/index.js';
@@ -9,7 +10,7 @@
 	import DangerZoneSettingsSection from '../DangerZoneSettingsSection.svelte';
 	import { createSettingsDangerZoneState } from '../settingsWorkspaceState.svelte';
 
-	let { data, form } = $props();
+	let { data, form }: PageProps = $props();
 
 	let deleteLoading = $state(false);
 	let transferLoading = $state(false);

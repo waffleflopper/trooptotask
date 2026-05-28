@@ -1,9 +1,10 @@
 <script lang="ts">
 	import { page } from '$app/stores';
+	import type { LayoutProps } from './$types';
 	import { Badge } from '$lib/components/ui/badge/index.js';
 	import * as PageShell from '$lib/components/ui/page-shell/index.js';
 
-	let { children } = $props();
+	let { children }: LayoutProps = $props();
 
 	const settingsData = $derived($page.data);
 	const settingsShell = $derived(settingsData.settingsShell);

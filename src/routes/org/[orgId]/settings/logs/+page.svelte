@@ -1,15 +1,10 @@
 <script lang="ts">
 	import * as DataTable from '$lib/components/ui/data-table/index.js';
 	import type { ColumnDef } from '$lib/components/ui/data-table/index.js';
-	import type { LogsSettingsData } from '../settingsLogs.server';
+	import type { PageProps } from './$types';
 	import { formatAuditTimestamp, getAuditActionParts } from '../settingsWorkspaceFormatters';
 
-	type SettingsLogsPageData = {
-		orgUrlSegment: string;
-		logsSettings: LogsSettingsData;
-	};
-
-	let { data }: { data: SettingsLogsPageData } = $props();
+	let { data }: PageProps = $props();
 
 	const auditLog = $derived(data.logsSettings.sections.logs.auditLogPage);
 	const auditColumns: ColumnDef<(typeof auditLog.logs)[number]>[] = [

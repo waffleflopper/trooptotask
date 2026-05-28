@@ -1,10 +1,11 @@
 <script lang="ts">
 	import { page } from '$app/stores';
+	import type { PageProps } from './$types';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import PoliciesSettingsSection from '../PoliciesSettingsSection.svelte';
 	import { createSettingsPoliciesState } from '../settingsWorkspaceState.svelte';
 
-	let { data } = $props();
+	let { data }: PageProps = $props();
 
 	const orgId = $derived($page.params.orgId);
 	const policiesState = createSettingsPoliciesState(() => data.policiesSettings.sections.policies);

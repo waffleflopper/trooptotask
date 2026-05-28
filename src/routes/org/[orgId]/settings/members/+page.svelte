@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import type { PageProps } from './$types';
 	import { Edit, RefreshCw, Search, Trash2 } from '@lucide/svelte';
 	import type { SubmitFunction } from '@sveltejs/kit';
 	import { explainPolicyReasonCode } from '$lib/access/policyDecisionExplanations';
@@ -24,7 +25,7 @@
 	import type { SettingsMemberAccessRow } from '../settingsMemberAccessModel';
 	import { pluralize } from '../settingsWorkspaceFormatters';
 
-	let { data, form } = $props();
+	let { data, form }: PageProps = $props();
 
 	let inviteLoading = $state(false);
 	let permissionLoading = $state(false);

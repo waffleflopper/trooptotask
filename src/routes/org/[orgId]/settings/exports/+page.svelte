@@ -1,10 +1,11 @@
 <script lang="ts">
+	import type { PageProps } from './$types';
 	import DataExportSettingsSection from '../DataExportSettingsSection.svelte';
 	import SettingsActivityRail from '../SettingsActivityRail.svelte';
 	import { downloadBlob } from '../settingsDownloads';
 	import { createSettingsDataExportState } from '../settingsWorkspaceState.svelte';
 
-	let { data } = $props();
+	let { data }: PageProps = $props();
 
 	const exportState = createSettingsDataExportState(() => data.exportsSettings.sections.exports);
 	const dataExportSection = $derived(exportState.section);

@@ -15,8 +15,11 @@
 	import * as Select from '$lib/components/ui/select/index.js';
 	import * as Sheet from '$lib/components/ui/sheet/index.js';
 	import { formatRelativeDate } from '$lib/utils/dates';
-	import { createSettingsWorkspaceState } from '../settingsWorkspaceState.svelte';
-	import type { EditableMembershipRole, EditablePreset } from '../settingsMemberAccessWorkspace.svelte';
+	import {
+		createSettingsMemberAccessWorkspace,
+		type EditableMembershipRole,
+		type EditablePreset
+	} from '../settingsMemberAccessWorkspace.svelte';
 	import type { SettingsMemberAccessRow } from '../settingsMemberAccessModel';
 	import { pluralize } from '../settingsWorkspaceFormatters';
 
@@ -28,11 +31,15 @@
 	let pendingRemoveMemberForm = $state<HTMLFormElement | null>(null);
 	let pendingRemoveMemberEmail = $state('');
 
-	const settingsState = createSettingsWorkspaceState(() => data.workspace);
-	const membersSection = $derived(data.workspace.sections.members);
-	const currentMember = $derived(data.workspace.currentMember);
+	const membersSection = $derived(data.membersSettings.sections.members);
+	const currentMember = $derived(data.membersSettings.currentMember);
 	const isOwner = $derived(currentMember.isOwner);
-	const memberAccess = settingsState.members;
+	const memberAccess = createSettingsMemberAccessWorkspace(() => ({
+		members: membersSection.rows,
+		invitations: membersSection.invitations,
+		groups: membersSection.groups,
+		isOwner
+	}));
 	const sortedMembers = $derived(memberAccess.sortedMembers);
 	const filteredMembers = $derived(
 		memberSearch.trim()

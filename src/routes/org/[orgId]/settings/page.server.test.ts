@@ -125,6 +125,7 @@ vi.mock('$lib/server/core/useCases/orgSettingsAdministration', async () => {
 
 import { actions, load as loadSettingsIndexPage, loadSettingsWorkspacePage as load } from './+page.server';
 import { actions as generalActions, load as loadGeneralPage } from './general/+page.server';
+import { actions as memberActions, load as loadMembersPage } from './members/+page.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 
 describe('org settings page server actions', () => {
@@ -340,6 +341,58 @@ describe('org settings page server actions', () => {
 			}
 		});
 		expect('workspace' in (result as Record<string, unknown>)).toBe(false);
+	});
+
+	it('loads explicit Members settings data without the full settings workspace', async () => {
+		const result = await loadMembersPage({
+			params: { orgId: 'org-1' },
+			locals: {},
+			cookies: {},
+			parent: async () => ({
+				orgId: 'org-1',
+				orgUrlSegment: '1-11-bde',
+				orgName: 'Test Org',
+				allOrgs: [],
+				isAdmin: true,
+				effectiveTier: {
+					tier: 'unit',
+					source: 'subscription',
+					personnelCount: 4,
+					personnelCap: 500,
+					isReadOnly: false,
+					giftExpiresAt: null,
+					giftTier: null
+				},
+				permissions: { canManageMembers: true },
+				session: { user: { email: 'owner@example.com' } }
+			})
+		} as never);
+
+		expect(result).toMatchObject({
+			orgId: 'org-1',
+			orgUrlSegment: '1-11-bde',
+			membersSettings: {
+				currentMember: { role: 'owner', canManageMembers: true },
+				sections: {
+					members: {
+						rows: [{ email: 'owner@example.com' }, { email: 'member@example.com' }],
+						invitations: [expect.objectContaining({ id: 'invite-1' }), expect.objectContaining({ id: 'invite-2' })],
+						groups: [{ id: 'group-1', name: 'HQ' }],
+						pendingApprovalSummary: {
+							count: 1,
+							oldestCreatedAt: '2026-05-01T12:00:00Z'
+						}
+					}
+				}
+			}
+		});
+		const resultRecord = result as Record<string, { sections: Record<string, unknown> }>;
+		expect('workspace' in resultRecord).toBe(false);
+		expect('policies' in resultRecord.membersSettings.sections).toBe(false);
+		expect('archivedPersonnel' in resultRecord.membersSettings.sections).toBe(false);
+		expect('dataExport' in resultRecord.membersSettings.sections).toBe(false);
+		expect('dangerZone' in resultRecord.membersSettings.sections).toBe(false);
+		expect(fetchAuditLogPreviewMock).not.toHaveBeenCalled();
 	});
 
 	it('loads a consolidated admin settings workspace payload', async () => {
@@ -998,7 +1051,7 @@ describe('org settings page server actions', () => {
 			})
 		);
 
-		const result = await actions.invite({
+		const result = await memberActions.invite({
 			request: new Request('http://localhost/org/org-1/settings?/invite', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -1085,7 +1138,7 @@ describe('org settings page server actions', () => {
 
 	it('redirects unauthenticated users to login before invoking the invite flow', async () => {
 		await expect(
-			actions.invite({
+			memberActions.invite({
 				request: new Request('http://localhost/org/org-1/settings?/invite', {
 					method: 'POST',
 					headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -1110,7 +1163,7 @@ describe('org settings page server actions', () => {
 			Object.assign(new Error('Please enter a valid email address'), { status: 400 })
 		);
 
-		const result = await actions.invite({
+		const result = await memberActions.invite({
 			request: new Request('http://localhost/org/org-1/settings?/invite', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -1136,7 +1189,7 @@ describe('org settings page server actions', () => {
 	});
 
 	it('translates the target invite form into the use-case input shape', async () => {
-		const result = await actions.invite({
+		const result = await memberActions.invite({
 			request: new Request('http://localhost/org/org-1/settings?/invite', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -1186,7 +1239,7 @@ describe('org settings page server actions', () => {
 	});
 
 	it('translates the update-permissions form into the use-case input shape', async () => {
-		const result = await actions.updatePermissions({
+		const result = await memberActions.updatePermissions({
 			request: new Request('http://localhost/org/org-1/settings?/updatePermissions', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -1236,7 +1289,7 @@ describe('org settings page server actions', () => {
 			Object.assign(new Error('Invalid invitation ID'), { status: 400 })
 		);
 
-		const result = await actions.revokeInvite({
+		const result = await memberActions.revokeInvite({
 			request: new Request('http://localhost/org/org-1/settings?/revokeInvite', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -1258,7 +1311,7 @@ describe('org settings page server actions', () => {
 	});
 
 	it('translates resend-invite form data into the resend use-case without creating another invitation', async () => {
-		const result = await actions.resendInvite({
+		const result = await memberActions.resendInvite({
 			request: new Request('http://localhost/org/org-1/settings?/resendInvite', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/x-www-form-urlencoded' },

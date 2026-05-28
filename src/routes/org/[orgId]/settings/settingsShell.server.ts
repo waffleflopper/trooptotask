@@ -30,6 +30,7 @@ export interface SettingsShell {
 		members: true;
 		policies: true;
 		archives: true;
+		approvals: true;
 		logs: true;
 		exports: true;
 		danger: boolean;
@@ -37,6 +38,7 @@ export interface SettingsShell {
 	navBadges: {
 		pendingInvitationsCount: number;
 		archivedPersonnelCount: number;
+		pendingApprovalsCount: number;
 	};
 }
 
@@ -44,7 +46,7 @@ export async function loadSettingsShell(
 	ctx: Pick<UseCaseContext, 'auth' | 'store'>,
 	organization: SettingsShellOrganizationSource
 ): Promise<SettingsShell> {
-	const [pendingInvitations, archivedPersonnel] = await Promise.all([
+	const [pendingInvitations, archivedPersonnel, pendingApprovals] = await Promise.all([
 		ctx.store.findManyWithCount(
 			'organization_invitations',
 			ctx.auth.orgId,
@@ -55,7 +57,8 @@ export async function loadSettingsShell(
 			select: 'id',
 			isNull: { archived_at: false },
 			limit: 0
-		})
+		}),
+		ctx.store.findManyWithCount('deletion_requests', ctx.auth.orgId, { status: 'pending' }, { select: 'id', limit: 0 })
 	]);
 	const isOwner = ctx.auth.role === 'owner';
 	const canManageMembers = isOwner || ctx.auth.role === 'admin';
@@ -80,13 +83,15 @@ export async function loadSettingsShell(
 			members: true,
 			policies: true,
 			archives: true,
+			approvals: true,
 			logs: true,
 			exports: true,
 			danger: isOwner
 		},
 		navBadges: {
 			pendingInvitationsCount: pendingInvitations.count ?? 0,
-			archivedPersonnelCount: archivedPersonnel.count ?? 0
+			archivedPersonnelCount: archivedPersonnel.count ?? 0,
+			pendingApprovalsCount: pendingApprovals.count ?? 0
 		}
 	};
 }

@@ -77,16 +77,21 @@ export type SettingsExportInfo = {
 	planBadge: string;
 };
 
+export type SettingsActivityData = {
+	pendingApprovalsCount: number;
+	approvalRequests: DeletionRequestRow[];
+	auditLog: AuditLogQueryResult;
+};
+
+export type SettingsApprovalsSectionData = {
+	activity: SettingsActivityData;
+};
+
 export type SettingsExportsSectionData = {
 	exportInfo: SettingsExportInfo;
 	commands: {
 		canExportJson: boolean;
 		canExportExcel: boolean;
-	};
-	activity: {
-		pendingApprovalsCount: number;
-		approvalRequests: DeletionRequestRow[];
-		auditLog: AuditLogQueryResult;
 	};
 };
 

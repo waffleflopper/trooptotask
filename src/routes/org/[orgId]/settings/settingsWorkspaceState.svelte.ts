@@ -200,10 +200,6 @@ export class SettingsDataExportState {
 		return this.section.commands;
 	}
 
-	get activity(): SettingsExportsSectionData['activity'] {
-		return this.section.activity;
-	}
-
 	get exportLimitReached(): boolean {
 		return this.exportInfo.limitReached;
 	}

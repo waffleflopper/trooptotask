@@ -142,19 +142,6 @@ function makeSettingsData(): SettingsStateTestData {
 				commands: {
 					canExportJson: true,
 					canExportExcel: true
-				},
-				activity: {
-					pendingApprovalsCount: 0,
-					approvalRequests: [],
-					auditLog: {
-						logs: [],
-						totalCount: 0,
-						last30DaysCount: 0,
-						page: 1,
-						limit: 9,
-						actionFilter: '',
-						availableActions: []
-					}
 				}
 			},
 			dangerZone: {

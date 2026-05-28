@@ -1,9 +1,6 @@
-import type { AuditLogQueryResult } from '$lib/server/core/useCases/auditLogQuery';
-import { fetchAuditLogPreview } from '$lib/server/core/useCases/auditLogQuery';
-import type { DataStore, QueryWithRawStorePorts, UseCaseContext } from '$lib/server/core/ports';
+import type { QueryWithRawStorePorts, UseCaseContext } from '$lib/server/core/ports';
 import { readOrganizationPlanUsage } from '$lib/server/core/useCases/organizationPlanUsage';
 import { readEffectivePlanPolicy } from '$lib/server/core/useCases/planPolicy';
-import type { DeletionRequestRow } from './settingsRows.server';
 import type { SettingsExportInfo, SettingsExportsSectionData } from './settingsSectionTypes';
 
 export interface ExportsSettingsData {
@@ -16,26 +13,13 @@ export type SettingsExportInfoSource = Pick<SettingsExportInfo, 'exportsUsed' | 
 
 export interface BuildExportsSettingsDataInput {
 	exportInfo: SettingsExportInfoSource;
-	approvalRequests: DeletionRequestRow[];
-	auditLog: AuditLogQueryResult;
 }
 
-export async function loadExportsSettings(
-	ctx: QueryWithRawStorePorts,
-	adminStore: DataStore
-): Promise<ExportsSettingsData> {
-	const [exportInfo, approvalRequests, auditLog] = await Promise.all([
-		loadExportInfo(ctx),
-		ctx.store.findMany<DeletionRequestRow>('deletion_requests', ctx.auth.orgId, undefined, {
-			orderBy: [{ column: 'created_at', ascending: false }]
-		}),
-		fetchAuditLogPreview(ctx, adminStore, { limit: 9 })
-	]);
+export async function loadExportsSettings(ctx: QueryWithRawStorePorts): Promise<ExportsSettingsData> {
+	const exportInfo = await loadExportInfo(ctx);
 
 	return buildExportsSettingsData({
-		exportInfo,
-		approvalRequests,
-		auditLog
+		exportInfo
 	});
 }
 
@@ -49,11 +33,6 @@ export function buildExportsSettingsData(input: BuildExportsSettingsDataInput): 
 				commands: {
 					canExportJson: !exportInfo.limitReached,
 					canExportExcel: !exportInfo.limitReached
-				},
-				activity: {
-					pendingApprovalsCount: countPendingApprovals(input.approvalRequests),
-					approvalRequests: input.approvalRequests,
-					auditLog: input.auditLog
 				}
 			}
 		}
@@ -80,8 +59,4 @@ function shapeExportInfo(source: SettingsExportInfoSource): SettingsExportInfo {
 		limitReached,
 		planBadge: source.isLimited ? 'Plan limited' : 'Unlimited exports'
 	};
-}
-
-function countPendingApprovals(approvalRequests: Array<Pick<DeletionRequestRow, 'status'>>): number {
-	return approvalRequests.filter((request) => request.status === 'pending').length;
 }

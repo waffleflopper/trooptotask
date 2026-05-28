@@ -31,6 +31,13 @@
 				badge: settingsShell?.navBadges.archivedPersonnelCount || undefined,
 				badgeVariant: 'outline' as const
 			},
+			{
+				label: 'Approvals',
+				href: `${baseHref}/approvals`,
+				active: activePath.endsWith('/settings/approvals'),
+				badge: settingsShell?.navBadges.pendingApprovalsCount || undefined,
+				badgeVariant: 'warning' as const
+			},
 			{ label: 'Logs', href: `${baseHref}/logs`, active: activePath.endsWith('/settings/logs') },
 			{ label: 'Exports', href: `${baseHref}/exports`, active: activePath.endsWith('/settings/exports') },
 			...(settingsShell?.tabVisibility.danger

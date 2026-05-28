@@ -1,17 +1,17 @@
 <script lang="ts">
 	import * as DataTable from '$lib/components/ui/data-table/index.js';
 	import type { ColumnDef } from '$lib/components/ui/data-table/index.js';
-	import type { AuditLogQueryResult } from '$lib/server/core/useCases/auditLogQuery';
+	import type { LogsSettingsData } from '../settingsLogs.server';
 	import { formatAuditTimestamp, getAuditActionParts } from '../settingsWorkspaceFormatters';
 
 	type SettingsLogsPageData = {
 		orgUrlSegment: string;
-		auditLogPage: AuditLogQueryResult;
+		logsSettings: LogsSettingsData;
 	};
 
 	let { data }: { data: SettingsLogsPageData } = $props();
 
-	const auditLog = $derived(data.auditLogPage);
+	const auditLog = $derived(data.logsSettings.sections.logs.auditLogPage);
 	const auditColumns: ColumnDef<(typeof auditLog.logs)[number]>[] = [
 		{
 			key: 'time',

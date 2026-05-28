@@ -12,6 +12,7 @@ const {
 	createSupabaseOrgSettingsMemberManagementPortMock,
 	deleteOrganizationUseCaseMock,
 	fetchAuditLogPreviewMock,
+	fetchAuditLogsMock,
 	getAdminClientMock,
 	inviteOrganizationMemberMock,
 	loadWithContextMock,
@@ -33,6 +34,7 @@ const {
 	createSupabaseOrgSettingsMemberManagementPortMock: vi.fn(),
 	deleteOrganizationUseCaseMock: vi.fn(),
 	fetchAuditLogPreviewMock: vi.fn(),
+	fetchAuditLogsMock: vi.fn(),
 	getAdminClientMock: vi.fn(),
 	inviteOrganizationMemberMock: vi.fn(),
 	loadWithContextMock: vi.fn(),
@@ -67,7 +69,8 @@ vi.mock('$lib/server/supabase', () => ({
 }));
 
 vi.mock('$lib/server/core/useCases/auditLogQuery', () => ({
-	fetchAuditLogPreview: fetchAuditLogPreviewMock
+	fetchAuditLogPreview: fetchAuditLogPreviewMock,
+	fetchAuditLogs: fetchAuditLogsMock
 }));
 
 vi.mock('$lib/server/adapters/supabaseOrgSettingsMemberManagement', () => ({
@@ -129,8 +132,10 @@ import { actions as memberActions, load as loadMembersPage } from './members/+pa
 import { load as loadPoliciesPage } from './policies/+page.server';
 import { load as loadArchivesPage } from './archives/+page.server';
 import { load as loadExportsPage } from './exports/+page.server';
+import { load as loadLogsPage } from './logs/+page.server';
 import { buildMembersSettingsData } from './members/membersSettings.server';
 import { buildArchivesSettingsData } from './settingsArchives.server';
+import { buildLogsSettingsData } from './settingsLogs.server';
 import { buildPoliciesSettingsData } from './settingsPolicies.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 
@@ -157,6 +162,17 @@ describe('org settings page server actions', () => {
 			limit: 9,
 			actionFilter: '',
 			availableActions: []
+		});
+		fetchAuditLogsMock.mockResolvedValue({
+			logs: [
+				{ id: 'audit-1', action: 'organization.rename', actor: 'owner@example.com', createdAt: '2026-04-26T12:00:00Z' }
+			],
+			totalCount: 1,
+			last30DaysCount: 1,
+			page: 1,
+			limit: 100,
+			actionFilter: '',
+			availableActions: ['organization.rename']
 		});
 		loadWithContextMock.mockImplementation(async (_locals, _cookies, _orgId, config) =>
 			config.fn({
@@ -740,6 +756,94 @@ describe('org settings page server actions', () => {
 		expect('archivesSettings' in resultRecord).toBe(false);
 		expect('policiesSettings' in resultRecord).toBe(false);
 		expect(fetchAuditLogPreviewMock).toHaveBeenCalledWith(expect.anything(), { kind: 'admin-store' }, { limit: 9 });
+	});
+
+	it('loads explicit Logs settings data without the full settings workspace', async () => {
+		const result = await loadLogsPage({
+			params: { orgId: 'org-1' },
+			locals: {},
+			cookies: {},
+			parent: async () => ({
+				orgId: 'org-1',
+				orgUrlSegment: '1-11-bde',
+				orgName: 'Test Org',
+				allOrgs: [],
+				isAdmin: true,
+				effectiveTier: {
+					tier: 'unit',
+					source: 'subscription',
+					personnelCount: 4,
+					personnelCap: 500,
+					isReadOnly: false,
+					giftExpiresAt: null,
+					giftTier: null
+				},
+				permissions: { canManageMembers: true }
+			})
+		} as never);
+
+		expect(loadWithContextMock).toHaveBeenCalledWith(
+			{},
+			{},
+			'org-1',
+			expect.objectContaining({
+				policyAction: POLICY_ACTION_CATALOG.organization.accessGovernance,
+				policyResource: { kind: 'organization' }
+			})
+		);
+		expect(result).toMatchObject({
+			orgId: 'org-1',
+			orgUrlSegment: '1-11-bde',
+			logsSettings: {
+				sections: {
+					logs: {
+						auditLogPage: {
+							logs: [expect.objectContaining({ id: 'audit-1', action: 'organization.rename' })],
+							totalCount: 1,
+							last30DaysCount: 1,
+							page: 1,
+							limit: 100
+						}
+					}
+				}
+			}
+		});
+		const resultRecord = result as Record<string, { sections: Record<string, unknown> } | unknown>;
+		expect('workspace' in resultRecord).toBe(false);
+		expect('membersSettings' in resultRecord).toBe(false);
+		expect('archivesSettings' in resultRecord).toBe(false);
+		expect('policiesSettings' in resultRecord).toBe(false);
+		expect('exportsSettings' in resultRecord).toBe(false);
+		expect('members' in (resultRecord.logsSettings as { sections: Record<string, unknown> }).sections).toBe(false);
+		expect('archivedPersonnel' in (resultRecord.logsSettings as { sections: Record<string, unknown> }).sections).toBe(
+			false
+		);
+		expect('dataExport' in (resultRecord.logsSettings as { sections: Record<string, unknown> }).sections).toBe(false);
+		expect('dangerZone' in (resultRecord.logsSettings as { sections: Record<string, unknown> }).sections).toBe(false);
+		expect(fetchAuditLogsMock).toHaveBeenCalledWith(
+			expect.anything(),
+			{ kind: 'admin-store' },
+			{ page: 1, limit: 100 }
+		);
+		expect(fetchAuditLogPreviewMock).not.toHaveBeenCalled();
+	});
+
+	it('shapes Logs settings data from the exported section interface', () => {
+		const auditLogPage = {
+			logs: [],
+			totalCount: 7,
+			last30DaysCount: 3,
+			page: 1,
+			limit: 100,
+			actionFilter: '',
+			availableActions: []
+		};
+
+		expect(buildLogsSettingsData({ auditLogPage })).toEqual({
+			sections: {
+				logs: { auditLogPage }
+			}
+		});
 	});
 
 	it('loads a consolidated admin settings workspace payload', async () => {

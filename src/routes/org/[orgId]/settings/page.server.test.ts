@@ -126,7 +126,9 @@ vi.mock('$lib/server/core/useCases/orgSettingsAdministration', async () => {
 import { actions, _loadSettingsWorkspacePage as load, load as loadSettingsIndexPage } from './+page.server';
 import { actions as generalActions, load as loadGeneralPage } from './general/+page.server';
 import { actions as memberActions, load as loadMembersPage } from './members/+page.server';
+import { load as loadPoliciesPage } from './policies/+page.server';
 import { buildMembersSettingsData } from './members/membersSettings.server';
+import { buildPoliciesSettingsData } from './settingsPolicies.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 
 describe('org settings page server actions', () => {
@@ -394,6 +396,102 @@ describe('org settings page server actions', () => {
 		expect('dataExport' in resultRecord.membersSettings.sections).toBe(false);
 		expect('dangerZone' in resultRecord.membersSettings.sections).toBe(false);
 		expect(fetchAuditLogPreviewMock).not.toHaveBeenCalled();
+	});
+
+	it('loads explicit Policies settings data without the full settings workspace', async () => {
+		const findMany = vi.fn(async () => []);
+		const findOne = vi.fn(async () => ({
+			archive_retention_months: 42,
+			loss_warning_window_days: 150,
+			critical_tasks_default_expiration_months: 18,
+			critical_tasks_expiring_soon_warning_days: 45
+		}));
+		loadWithContextMock.mockImplementationOnce(async (_locals, _cookies, _orgId, config) =>
+			config.fn({
+				auth: { orgId: 'org-1', role: 'admin' },
+				store: { findMany },
+				rawStore: { findOne }
+			})
+		);
+
+		const result = await loadPoliciesPage({
+			params: { orgId: 'org-1' },
+			locals: {},
+			cookies: {},
+			parent: async () => ({
+				orgId: 'org-1',
+				orgUrlSegment: '1-11-bde',
+				orgName: 'Test Org',
+				allOrgs: [],
+				isAdmin: true,
+				effectiveTier: {
+					tier: 'unit',
+					source: 'subscription',
+					personnelCount: 4,
+					personnelCap: 500,
+					isReadOnly: false,
+					giftExpiresAt: null,
+					giftTier: null
+				},
+				permissions: { canManageMembers: true }
+			})
+		} as never);
+
+		expect(result).toMatchObject({
+			orgId: 'org-1',
+			orgUrlSegment: '1-11-bde',
+			policiesSettings: {
+				currentMember: { role: 'admin', canManageMembers: true },
+				sections: {
+					policies: {
+						archiveRetention: { savedMonths: 42, constraints: { min: 1, max: 120, unit: 'months' } },
+						lossWarning: { savedDays: 150, constraints: { min: 1, max: 365, unit: 'days' } },
+						criticalTasks: {
+							savedDefaultExpirationMonths: 18,
+							savedExpiringSoonWarningDays: 45,
+							defaultExpirationConstraints: { min: 1, max: 120, unit: 'months' },
+							expiringSoonWarningConstraints: { min: 1, max: 365, unit: 'days' }
+						}
+					}
+				}
+			}
+		});
+		const resultRecord = result as Record<string, { sections: Record<string, unknown> }>;
+		expect('workspace' in resultRecord).toBe(false);
+		expect('members' in resultRecord.policiesSettings.sections).toBe(false);
+		expect('archivedPersonnel' in resultRecord.policiesSettings.sections).toBe(false);
+		expect('dataExport' in resultRecord.policiesSettings.sections).toBe(false);
+		expect('dangerZone' in resultRecord.policiesSettings.sections).toBe(false);
+		expect(findMany).not.toHaveBeenCalled();
+		expect(findOne).toHaveBeenCalledWith(
+			'organizations',
+			'org-1',
+			{},
+			'archive_retention_months, loss_warning_window_days, critical_tasks_default_expiration_months, critical_tasks_expiring_soon_warning_days'
+		);
+		expect(fetchAuditLogPreviewMock).not.toHaveBeenCalled();
+	});
+
+	it('shapes Policies settings defaults and capabilities from the exported section interface', () => {
+		const result = buildPoliciesSettingsData({ auth: { orgId: 'org-1', role: 'member' } } as never, {
+			isAdmin: false,
+			organizationSettings: null
+		});
+
+		expect(result.currentMember).toEqual({
+			role: 'member',
+			isOwner: false,
+			isAdmin: false,
+			canManageMembers: false
+		});
+		expect(result.sections.policies.archiveRetention.savedMonths).toBe(36);
+		expect(result.sections.policies.lossWarning.savedDays).toBe(180);
+		expect(result.sections.policies.criticalTasks).toMatchObject({
+			savedDefaultExpirationMonths: 12,
+			savedExpiringSoonWarningDays: 60
+		});
+		expect(result.sections.policies.canUpdateRetention).toBe(false);
+		expect(result.sections.policies.canUpdateCriticalTasksSettings).toBe(false);
 	});
 
 	it('shapes Members invitations with expiry and delivery status semantics', () => {

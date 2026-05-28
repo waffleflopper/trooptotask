@@ -2,15 +2,15 @@
 	import { page } from '$app/stores';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import PoliciesSettingsSection from '../PoliciesSettingsSection.svelte';
-	import { createSettingsWorkspaceState } from '../settingsWorkspaceState.svelte';
+	import { createSettingsPoliciesState } from '../settingsWorkspaceState.svelte';
 
 	let { data } = $props();
 
 	const orgId = $derived($page.params.orgId);
-	const settingsState = createSettingsWorkspaceState(() => data.workspace);
-	const syncPoliciesFromWorkspace = () => settingsState.policies.syncFromWorkspace();
+	const policiesState = createSettingsPoliciesState(() => data.policiesSettings.sections.policies);
+	const syncPoliciesFromSettings = () => policiesState.syncFromWorkspace();
 
-	$effect.pre(syncPoliciesFromWorkspace);
+	$effect.pre(syncPoliciesFromSettings);
 
 	async function saveSettings(body: Record<string, number | null>) {
 		const res = await fetch(`/org/${orgId}/api/organization/settings`, {
@@ -22,80 +22,71 @@
 	}
 
 	async function handleRetentionSave() {
-		if (
-			!settingsState.policies.hasRetentionChanges ||
-			!settingsState.policies.isRetentionValid ||
-			settingsState.policies.savingRetention
-		)
-			return;
-		settingsState.policies.savingRetention = true;
+		if (!policiesState.hasRetentionChanges || !policiesState.isRetentionValid || policiesState.savingRetention) return;
+		policiesState.savingRetention = true;
 		try {
-			await saveSettings({ archiveRetentionMonths: settingsState.policies.retentionMonths });
-			settingsState.policies.markRetentionSaved();
+			await saveSettings({ archiveRetentionMonths: policiesState.retentionMonths });
+			policiesState.markRetentionSaved();
 			toastStore.success('Retention policy saved');
 		} catch {
 			toastStore.error('Failed to save retention policy');
 		} finally {
-			settingsState.policies.savingRetention = false;
+			policiesState.savingRetention = false;
 		}
 	}
 
 	async function handleLossWarningSave() {
-		if (
-			!settingsState.policies.hasLossWarningChanges ||
-			!settingsState.policies.isLossWarningValid ||
-			settingsState.policies.savingWarningWindow
-		)
+		if (!policiesState.hasLossWarningChanges || !policiesState.isLossWarningValid || policiesState.savingWarningWindow)
 			return;
-		settingsState.policies.savingWarningWindow = true;
+		policiesState.savingWarningWindow = true;
 		try {
-			await saveSettings({ lossWarningWindowDays: settingsState.policies.warningWindowDays });
-			settingsState.policies.markLossWarningSaved();
+			await saveSettings({ lossWarningWindowDays: policiesState.warningWindowDays });
+			policiesState.markLossWarningSaved();
 			toastStore.success('Warning window saved');
 		} catch {
 			toastStore.error('Failed to save warning window');
 		} finally {
-			settingsState.policies.savingWarningWindow = false;
+			policiesState.savingWarningWindow = false;
 		}
 	}
 
 	async function handleCriticalTasksSave() {
 		if (
-			!settingsState.policies.hasCriticalTasksChanges ||
-			!settingsState.policies.isCriticalTasksValid ||
-			settingsState.policies.savingCriticalTasks
+			!policiesState.hasCriticalTasksChanges ||
+			!policiesState.isCriticalTasksValid ||
+			policiesState.savingCriticalTasks
 		)
 			return;
-		settingsState.policies.savingCriticalTasks = true;
+		policiesState.savingCriticalTasks = true;
 		try {
 			await saveSettings({
-				criticalTasksDefaultExpirationMonths: settingsState.policies.criticalTasksDefaultExpirationMonths,
-				criticalTasksExpiringSoonWarningDays: settingsState.policies.criticalTasksExpiringSoonWarningDays
+				criticalTasksDefaultExpirationMonths: policiesState.criticalTasksDefaultExpirationMonths,
+				criticalTasksExpiringSoonWarningDays: policiesState.criticalTasksExpiringSoonWarningDays
 			});
-			settingsState.policies.markCriticalTasksSaved();
+			policiesState.markCriticalTasksSaved();
 			toastStore.success('Critical Tasks settings saved');
 		} catch {
 			toastStore.error('Failed to save Critical Tasks settings');
 		} finally {
-			settingsState.policies.savingCriticalTasks = false;
+			policiesState.savingCriticalTasks = false;
 		}
 	}
 </script>
 
 <PoliciesSettingsSection
-	bind:retentionMonths={settingsState.policies.retentionMonths}
-	bind:warningWindowDays={settingsState.policies.warningWindowDays}
-	bind:criticalTasksDefaultExpirationMonths={settingsState.policies.criticalTasksDefaultExpirationMonths}
-	bind:criticalTasksExpiringSoonWarningDays={settingsState.policies.criticalTasksExpiringSoonWarningDays}
-	hasRetentionChanges={settingsState.policies.hasRetentionChanges}
-	isRetentionValid={settingsState.policies.isRetentionValid}
-	hasLossWarningChanges={settingsState.policies.hasLossWarningChanges}
-	isLossWarningValid={settingsState.policies.isLossWarningValid}
-	hasCriticalTasksChanges={settingsState.policies.hasCriticalTasksChanges}
-	isCriticalTasksValid={settingsState.policies.isCriticalTasksValid}
-	savingRetention={settingsState.policies.savingRetention}
-	savingWarningWindow={settingsState.policies.savingWarningWindow}
-	savingCriticalTasks={settingsState.policies.savingCriticalTasks}
+	bind:retentionMonths={policiesState.retentionMonths}
+	bind:warningWindowDays={policiesState.warningWindowDays}
+	bind:criticalTasksDefaultExpirationMonths={policiesState.criticalTasksDefaultExpirationMonths}
+	bind:criticalTasksExpiringSoonWarningDays={policiesState.criticalTasksExpiringSoonWarningDays}
+	hasRetentionChanges={policiesState.hasRetentionChanges}
+	isRetentionValid={policiesState.isRetentionValid}
+	hasLossWarningChanges={policiesState.hasLossWarningChanges}
+	isLossWarningValid={policiesState.isLossWarningValid}
+	hasCriticalTasksChanges={policiesState.hasCriticalTasksChanges}
+	isCriticalTasksValid={policiesState.isCriticalTasksValid}
+	savingRetention={policiesState.savingRetention}
+	savingWarningWindow={policiesState.savingWarningWindow}
+	savingCriticalTasks={policiesState.savingCriticalTasks}
 	onSaveRetention={handleRetentionSave}
 	onSaveLossWarning={handleLossWarningSave}
 	onSaveCriticalTasks={handleCriticalTasksSave}

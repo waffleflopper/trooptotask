@@ -3,11 +3,12 @@ import { createSettingsMemberAccessWorkspace } from './settingsMemberAccessWorks
 import type {
 	OrganizationSettingsWorkspace,
 	SettingsArchivedPersonnelRow,
-	SettingsOwnershipTransferCandidate
+	SettingsOwnershipTransferCandidate,
+	SettingsPoliciesSectionData
 } from './organizationSettingsWorkspaceModel';
 
 export class SettingsPoliciesState {
-	readonly #getWorkspace: () => OrganizationSettingsWorkspace;
+	readonly #getPolicies: () => SettingsPoliciesSectionData;
 
 	retentionMonths = $state(0);
 	savedRetentionMonths = $state(0);
@@ -22,13 +23,13 @@ export class SettingsPoliciesState {
 	savingCriticalTasks = $state(false);
 	#syncedPolicySnapshot = $state('');
 
-	constructor(workspace: OrganizationSettingsWorkspace | (() => OrganizationSettingsWorkspace)) {
-		this.#getWorkspace = typeof workspace === 'function' ? workspace : () => workspace;
+	constructor(policies: SettingsPoliciesSectionData | (() => SettingsPoliciesSectionData)) {
+		this.#getPolicies = typeof policies === 'function' ? policies : () => policies;
 		this.syncFromWorkspace();
 	}
 
-	get #policies(): OrganizationSettingsWorkspace['sections']['policies'] {
-		return this.#getWorkspace().sections.policies;
+	get #policies(): SettingsPoliciesSectionData {
+		return this.#getPolicies();
 	}
 
 	get archiveRetentionConstraints() {
@@ -314,7 +315,7 @@ export class SettingsWorkspaceState {
 				isOwner: this.#getWorkspace().currentMember.isOwner
 			};
 		});
-		this.policies = new SettingsPoliciesState(() => this.#getWorkspace());
+		this.policies = new SettingsPoliciesState(() => this.#getWorkspace().sections.policies);
 		this.archivedPersonnel = new SettingsArchivedPersonnelState(() => this.#getWorkspace());
 		this.dataExport = new SettingsDataExportState(() => this.#getWorkspace());
 		this.dangerZone = new SettingsDangerZoneState(() => this.#getWorkspace());
@@ -325,4 +326,10 @@ export function createSettingsWorkspaceState(
 	workspace: OrganizationSettingsWorkspace | (() => OrganizationSettingsWorkspace)
 ): SettingsWorkspaceState {
 	return new SettingsWorkspaceState(workspace);
+}
+
+export function createSettingsPoliciesState(
+	policies: SettingsPoliciesSectionData | (() => SettingsPoliciesSectionData)
+): SettingsPoliciesState {
+	return new SettingsPoliciesState(policies);
 }

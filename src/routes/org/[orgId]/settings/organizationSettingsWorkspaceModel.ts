@@ -66,6 +66,25 @@ export type SettingsExportInfo = {
 
 export type SettingsOwnershipTransferCandidate = Pick<SettingsMemberRow, 'id' | 'userId' | 'email' | 'membershipRole'>;
 
+export type SettingsPoliciesSectionData = {
+	archiveRetention: {
+		savedMonths: number;
+		constraints: WorkspaceConstraint<'months'>;
+	};
+	lossWarning: {
+		savedDays: number;
+		constraints: WorkspaceConstraint<'days'>;
+	};
+	criticalTasks: {
+		savedDefaultExpirationMonths: number;
+		savedExpiringSoonWarningDays: number;
+		defaultExpirationConstraints: WorkspaceConstraint<'months'>;
+		expiringSoonWarningConstraints: WorkspaceConstraint<'days'>;
+	};
+	canUpdateRetention: boolean;
+	canUpdateCriticalTasksSettings: boolean;
+};
+
 export interface OrganizationSettingsWorkspace {
 	currentMember: {
 		role: MembershipRole;
@@ -96,24 +115,7 @@ export interface OrganizationSettingsWorkspace {
 			canInvite: boolean;
 			canManageMemberAccess: boolean;
 		};
-		policies: {
-			archiveRetention: {
-				savedMonths: number;
-				constraints: WorkspaceConstraint<'months'>;
-			};
-			lossWarning: {
-				savedDays: number;
-				constraints: WorkspaceConstraint<'days'>;
-			};
-			criticalTasks: {
-				savedDefaultExpirationMonths: number;
-				savedExpiringSoonWarningDays: number;
-				defaultExpirationConstraints: WorkspaceConstraint<'months'>;
-				expiringSoonWarningConstraints: WorkspaceConstraint<'days'>;
-			};
-			canUpdateRetention: boolean;
-			canUpdateCriticalTasksSettings: boolean;
-		};
+		policies: SettingsPoliciesSectionData;
 		archivedPersonnel: {
 			rows: SettingsArchivedPersonnelRow[];
 			retention: {

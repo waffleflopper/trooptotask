@@ -25,7 +25,7 @@ export const load: PageServerLoad = async ({ parent }) => {
 	redirect(303, `/org/${parentData.orgUrlSegment ?? parentData.orgId}/settings/general`);
 };
 
-export const loadSettingsWorkspacePage = async ({ locals, cookies, parent }: Parameters<PageServerLoad>[0]) => {
+export const _loadSettingsWorkspacePage = async ({ locals, cookies, parent }: Parameters<PageServerLoad>[0]) => {
 	const parentData = await parent();
 	const { orgId, orgName, orgUrlSegment, allOrgs, isAdmin, effectiveTier } = parentData;
 	const permissions = parentData.permissions!;

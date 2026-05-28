@@ -123,7 +123,7 @@ vi.mock('$lib/server/core/useCases/orgSettingsAdministration', async () => {
 	};
 });
 
-import { actions, load as loadSettingsIndexPage, loadSettingsWorkspacePage as load } from './+page.server';
+import { actions, _loadSettingsWorkspacePage as load, load as loadSettingsIndexPage } from './+page.server';
 import { actions as generalActions, load as loadGeneralPage } from './general/+page.server';
 import { actions as memberActions, load as loadMembersPage } from './members/+page.server';
 import { buildMembersSettingsData } from './members/membersSettings.server';

@@ -1,1 +1,1 @@
-export { actions, loadSettingsWorkspacePage as load } from '../+page.server';
+export { actions, _loadSettingsWorkspacePage as load } from '../+page.server';

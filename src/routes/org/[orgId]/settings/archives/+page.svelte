@@ -7,20 +7,20 @@
 	import { Label } from '$lib/components/ui/label/index.js';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import ArchivedPersonnelSettingsSection from '../ArchivedPersonnelSettingsSection.svelte';
-	import SettingsActivityRail from '../SettingsActivityRail.svelte';
 	import { downloadBlob } from '../settingsDownloads';
-	import { createSettingsWorkspaceState } from '../settingsWorkspaceState.svelte';
+	import { createSettingsArchivedPersonnelState } from '../settingsWorkspaceState.svelte';
 
 	let { data } = $props();
 
 	const orgId = $derived($page.params.orgId);
-	const settingsState = createSettingsWorkspaceState(() => data.workspace);
+	const archivedPersonnelState = createSettingsArchivedPersonnelState(
+		() => data.archivesSettings.sections.archivedPersonnel
+	);
 	const archivedPersonnelSection = $derived({
-		rows: settingsState.archivedPersonnel.rows,
-		retention: settingsState.archivedPersonnel.retention,
-		commands: settingsState.archivedPersonnel.commands
+		rows: archivedPersonnelState.rows,
+		retention: archivedPersonnelState.retention,
+		commands: archivedPersonnelState.commands
 	});
-	const dataExportSection = $derived(settingsState.dataExport.section);
 	let restoring = $state<string | null>(null);
 	let exportingPerson = $state<string | null>(null);
 	let permanentlyDeletingPerson = $state<string | null>(null);
@@ -58,7 +58,7 @@
 			});
 			if (!res.ok) throw new Error();
 			toastStore.success('Personnel permanently deleted');
-			settingsState.archivedPersonnel.clearPermanentDeleteConfirmation();
+			archivedPersonnelState.clearPermanentDeleteConfirmation();
 			await invalidateAll();
 		} catch {
 			toastStore.error('Failed to permanently delete');
@@ -82,29 +82,25 @@
 	}
 </script>
 
-<div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
-	<ArchivedPersonnelSettingsSection
-		section={archivedPersonnelSection}
-		{restoring}
-		{exportingPerson}
-		onRestore={handleRestore}
-		onExport={handlePersonnelExport}
-		onConfirmPermanentDelete={(person) => settingsState.archivedPersonnel.openPermanentDeleteConfirmation(person)}
-	/>
-	<SettingsActivityRail orgId={data.orgUrlSegment} activity={dataExportSection.activity} lockedTab="approvals" />
-</div>
+<ArchivedPersonnelSettingsSection
+	section={archivedPersonnelSection}
+	{restoring}
+	{exportingPerson}
+	onRestore={handleRestore}
+	onExport={handlePersonnelExport}
+	onConfirmPermanentDelete={(person) => archivedPersonnelState.openPermanentDeleteConfirmation(person)}
+/>
 
-{#if settingsState.archivedPersonnel.confirmPermanentDelete}
+{#if archivedPersonnelState.confirmPermanentDelete}
 	<AppDialog.Root
-		open={Boolean(settingsState.archivedPersonnel.confirmPermanentDelete)}
-		onClose={() => settingsState.archivedPersonnel.clearPermanentDeleteConfirmation()}
+		open={Boolean(archivedPersonnelState.confirmPermanentDelete)}
+		onClose={() => archivedPersonnelState.clearPermanentDeleteConfirmation()}
 	>
 		<AppDialog.Content>
 			<AppDialog.Header>
 				<AppDialog.Title>Permanently Delete Personnel</AppDialog.Title>
 				<AppDialog.Description>
-					Permanently delete {settingsState.archivedPersonnel.confirmPermanentDelete.name}. This action cannot be
-					undone.
+					Permanently delete {archivedPersonnelState.confirmPermanentDelete.name}. This action cannot be undone.
 				</AppDialog.Description>
 			</AppDialog.Header>
 			<AppDialog.Body>
@@ -113,25 +109,24 @@
 					<Input
 						id="confirmPermanentDeletePersonnel"
 						type="text"
-						bind:value={settingsState.archivedPersonnel.permanentDeleteConfirmText}
+						bind:value={archivedPersonnelState.permanentDeleteConfirmText}
 						autocomplete="off"
 					/>
 				</div>
 			</AppDialog.Body>
 			<AppDialog.Footer>
-				{@const deleteInFlight =
-					permanentlyDeletingPerson === settingsState.archivedPersonnel.confirmPermanentDelete.id}
+				{@const deleteInFlight = permanentlyDeletingPerson === archivedPersonnelState.confirmPermanentDelete.id}
 				<Button
 					type="button"
 					variant="outline"
 					disabled={deleteInFlight}
-					onclick={() => settingsState.archivedPersonnel.clearPermanentDeleteConfirmation()}>Cancel</Button
+					onclick={() => archivedPersonnelState.clearPermanentDeleteConfirmation()}>Cancel</Button
 				>
 				<Button
 					type="button"
 					variant="destructive"
-					disabled={deleteInFlight || !settingsState.archivedPersonnel.permanentDeleteConfirmMatches}
-					onclick={() => handlePermanentDelete(settingsState.archivedPersonnel.confirmPermanentDelete!.id)}
+					disabled={deleteInFlight || !archivedPersonnelState.permanentDeleteConfirmMatches}
+					onclick={() => handlePermanentDelete(archivedPersonnelState.confirmPermanentDelete!.id)}
 				>
 					{deleteInFlight ? 'Deleting...' : 'Permanently Delete'}
 				</Button>

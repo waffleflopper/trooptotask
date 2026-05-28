@@ -3,6 +3,7 @@ import { createSettingsMemberAccessWorkspace } from './settingsMemberAccessWorks
 import type {
 	OrganizationSettingsWorkspace,
 	SettingsArchivedPersonnelRow,
+	SettingsArchivesSectionData,
 	SettingsOwnershipTransferCandidate,
 	SettingsPoliciesSectionData
 } from './organizationSettingsWorkspaceModel';
@@ -135,25 +136,25 @@ export class SettingsPoliciesState {
 }
 
 export class SettingsArchivedPersonnelState {
-	readonly #getWorkspace: () => OrganizationSettingsWorkspace;
+	readonly #getSection: () => SettingsArchivesSectionData;
 
 	confirmPermanentDelete = $state<{ id: string; name: string } | null>(null);
 	permanentDeleteConfirmText = $state('');
 
-	constructor(workspace: OrganizationSettingsWorkspace | (() => OrganizationSettingsWorkspace)) {
-		this.#getWorkspace = typeof workspace === 'function' ? workspace : () => workspace;
+	constructor(section: SettingsArchivesSectionData | (() => SettingsArchivesSectionData)) {
+		this.#getSection = typeof section === 'function' ? section : () => section;
 	}
 
-	get rows(): OrganizationSettingsWorkspace['sections']['archivedPersonnel']['rows'] {
-		return this.#getWorkspace().sections.archivedPersonnel.rows;
+	get rows(): SettingsArchivesSectionData['rows'] {
+		return this.#getSection().rows;
 	}
 
-	get retention(): OrganizationSettingsWorkspace['sections']['archivedPersonnel']['retention'] {
-		return this.#getWorkspace().sections.archivedPersonnel.retention;
+	get retention(): SettingsArchivesSectionData['retention'] {
+		return this.#getSection().retention;
 	}
 
-	get commands(): OrganizationSettingsWorkspace['sections']['archivedPersonnel']['commands'] {
-		return this.#getWorkspace().sections.archivedPersonnel.commands;
+	get commands(): SettingsArchivesSectionData['commands'] {
+		return this.#getSection().commands;
 	}
 
 	openPermanentDeleteConfirmation(person: Pick<SettingsArchivedPersonnelRow, 'id' | 'displayName'>): void {
@@ -316,7 +317,7 @@ export class SettingsWorkspaceState {
 			};
 		});
 		this.policies = new SettingsPoliciesState(() => this.#getWorkspace().sections.policies);
-		this.archivedPersonnel = new SettingsArchivedPersonnelState(() => this.#getWorkspace());
+		this.archivedPersonnel = new SettingsArchivedPersonnelState(() => this.#getWorkspace().sections.archivedPersonnel);
 		this.dataExport = new SettingsDataExportState(() => this.#getWorkspace());
 		this.dangerZone = new SettingsDangerZoneState(() => this.#getWorkspace());
 	}
@@ -332,4 +333,10 @@ export function createSettingsPoliciesState(
 	policies: SettingsPoliciesSectionData | (() => SettingsPoliciesSectionData)
 ): SettingsPoliciesState {
 	return new SettingsPoliciesState(policies);
+}
+
+export function createSettingsArchivedPersonnelState(
+	section: SettingsArchivesSectionData | (() => SettingsArchivesSectionData)
+): SettingsArchivedPersonnelState {
+	return new SettingsArchivedPersonnelState(section);
 }

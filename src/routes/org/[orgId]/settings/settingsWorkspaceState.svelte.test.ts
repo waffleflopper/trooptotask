@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { OrganizationSettingsWorkspace } from './organizationSettingsWorkspace.server';
-import { createSettingsWorkspaceState } from './settingsWorkspaceState.svelte';
+import { createSettingsArchivedPersonnelState, createSettingsWorkspaceState } from './settingsWorkspaceState.svelte';
 
 const capabilityMap = {
 	calendar: 'configure',
@@ -187,26 +187,26 @@ describe('settings workspace state', () => {
 		expect(state.members.getSelectedPreset(member)).toBe('editor');
 	});
 
-	it('owns archived personnel delete confirmation command state', () => {
-		const state = createSettingsWorkspaceState(makeWorkspace());
-		const archivedPerson = state.archivedPersonnel.rows[0];
+	it('owns archived personnel delete confirmation command state from Archives section data', () => {
+		const state = createSettingsArchivedPersonnelState(makeWorkspace().sections.archivedPersonnel);
+		const archivedPerson = state.rows[0];
 
-		state.archivedPersonnel.openPermanentDeleteConfirmation(archivedPerson);
+		state.openPermanentDeleteConfirmation(archivedPerson);
 
-		expect(state.archivedPersonnel.confirmPermanentDelete).toEqual({
+		expect(state.confirmPermanentDelete).toEqual({
 			id: 'person-1',
 			name: 'SGT Jones, Avery'
 		});
-		expect(state.archivedPersonnel.permanentDeleteConfirmMatches).toBe(false);
+		expect(state.permanentDeleteConfirmMatches).toBe(false);
 
-		state.archivedPersonnel.permanentDeleteConfirmText = 'SGT Jones, Avery';
+		state.permanentDeleteConfirmText = 'SGT Jones, Avery';
 
-		expect(state.archivedPersonnel.permanentDeleteConfirmMatches).toBe(true);
+		expect(state.permanentDeleteConfirmMatches).toBe(true);
 
-		state.archivedPersonnel.clearPermanentDeleteConfirmation();
+		state.clearPermanentDeleteConfirmation();
 
-		expect(state.archivedPersonnel.confirmPermanentDelete).toBeNull();
-		expect(state.archivedPersonnel.permanentDeleteConfirmText).toBe('');
+		expect(state.confirmPermanentDelete).toBeNull();
+		expect(state.permanentDeleteConfirmText).toBe('');
 	});
 
 	it('owns data export command transition state', () => {

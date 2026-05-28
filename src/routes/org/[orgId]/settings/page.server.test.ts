@@ -127,7 +127,9 @@ import { actions, _loadSettingsWorkspacePage as load, load as loadSettingsIndexP
 import { actions as generalActions, load as loadGeneralPage } from './general/+page.server';
 import { actions as memberActions, load as loadMembersPage } from './members/+page.server';
 import { load as loadPoliciesPage } from './policies/+page.server';
+import { load as loadArchivesPage } from './archives/+page.server';
 import { buildMembersSettingsData } from './members/membersSettings.server';
+import { buildArchivesSettingsData } from './settingsArchives.server';
 import { buildPoliciesSettingsData } from './settingsPolicies.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 
@@ -472,6 +474,106 @@ describe('org settings page server actions', () => {
 			'archive_retention_months, loss_warning_window_days, critical_tasks_default_expiration_months, critical_tasks_expiring_soon_warning_days'
 		);
 		expect(fetchAuditLogPreviewMock).not.toHaveBeenCalled();
+	});
+
+	it('loads explicit Archives settings data without the full settings workspace', async () => {
+		const findMany = vi.fn(async (table: string) => {
+			if (table === 'personnel') {
+				return [
+					{
+						id: 'person-1',
+						organization_id: 'org-1',
+						first_name: 'Avery',
+						last_name: 'Jones',
+						rank: 'SGT',
+						mos: '11B',
+						group_id: 'group-1',
+						group_name: 'HQ',
+						archived_at: '2026-04-01T12:00:00Z'
+					}
+				];
+			}
+			throw new Error(`Unexpected table: ${table}`);
+		});
+		const findOne = vi.fn(async () => ({ archive_retention_months: 42 }));
+		loadWithContextMock.mockImplementationOnce(async (_locals, _cookies, _orgId, config) =>
+			config.fn({
+				auth: { orgId: 'org-1', role: 'admin' },
+				store: { findMany },
+				rawStore: { findOne }
+			})
+		);
+
+		const result = await loadArchivesPage({
+			params: { orgId: 'org-1' },
+			locals: {},
+			cookies: {},
+			parent: async () => ({
+				orgId: 'org-1',
+				orgUrlSegment: '1-11-bde',
+				orgName: 'Test Org',
+				allOrgs: [],
+				isAdmin: true,
+				effectiveTier: {
+					tier: 'unit',
+					source: 'subscription',
+					personnelCount: 4,
+					personnelCap: 500,
+					isReadOnly: false,
+					giftExpiresAt: null,
+					giftTier: null
+				},
+				permissions: { canManageMembers: true }
+			})
+		} as never);
+
+		expect(result).toMatchObject({
+			orgId: 'org-1',
+			orgUrlSegment: '1-11-bde',
+			archivesSettings: {
+				currentMember: { role: 'admin', canManageMembers: true },
+				sections: {
+					archivedPersonnel: {
+						rows: [{ id: 'person-1', displayName: 'SGT Jones, Avery', exportFileStem: 'SGT-Jones' }],
+						retention: { months: 42, purgeSummary: '1 archived record' }
+					}
+				}
+			}
+		});
+		const resultRecord = result as Record<string, { sections: Record<string, unknown> }>;
+		expect('workspace' in resultRecord).toBe(false);
+		expect('members' in resultRecord.archivesSettings.sections).toBe(false);
+		expect('policies' in resultRecord.archivesSettings.sections).toBe(false);
+		expect('dataExport' in resultRecord.archivesSettings.sections).toBe(false);
+		expect('dangerZone' in resultRecord.archivesSettings.sections).toBe(false);
+		expect(findMany).toHaveBeenCalledTimes(1);
+		expect(findMany).toHaveBeenCalledWith('personnel', 'org-1', undefined, {
+			select: expect.any(String),
+			isNull: { archived_at: false },
+			orderBy: [{ column: 'archived_at', ascending: false }]
+		});
+		expect(findOne).toHaveBeenCalledWith('organizations', 'org-1', {}, 'archive_retention_months');
+		expect(fetchAuditLogPreviewMock).not.toHaveBeenCalled();
+	});
+
+	it('shapes Archives settings defaults and commands from the exported section interface', () => {
+		const result = buildArchivesSettingsData({ auth: { orgId: 'org-1', role: 'member' } } as never, {
+			isAdmin: false,
+			organizationSettings: null,
+			archivedPersonnel: []
+		});
+
+		expect(result.currentMember).toEqual({
+			role: 'member',
+			isOwner: false,
+			isAdmin: false,
+			canManageMembers: false
+		});
+		expect(result.sections.archivedPersonnel).toMatchObject({
+			rows: [],
+			retention: { months: 36, purgeSummary: 'Retention 36 months' },
+			commands: { canRestore: false, canExport: false, canPermanentlyDelete: false }
+		});
 	});
 
 	it('shapes Policies settings defaults and capabilities from the exported section interface', () => {

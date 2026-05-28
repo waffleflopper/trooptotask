@@ -56,6 +56,19 @@ export type SettingsArchivedPersonnelRow = {
 	exportFileStem: string;
 };
 
+export type SettingsArchivesSectionData = {
+	rows: SettingsArchivedPersonnelRow[];
+	retention: {
+		months: number;
+		purgeSummary: string;
+	};
+	commands: {
+		canRestore: boolean;
+		canExport: boolean;
+		canPermanentlyDelete: boolean;
+	};
+};
+
 export type SettingsExportInfo = {
 	exportsUsed: number;
 	exportsLimit: number;
@@ -116,18 +129,7 @@ export interface OrganizationSettingsWorkspace {
 			canManageMemberAccess: boolean;
 		};
 		policies: SettingsPoliciesSectionData;
-		archivedPersonnel: {
-			rows: SettingsArchivedPersonnelRow[];
-			retention: {
-				months: number;
-				purgeSummary: string;
-			};
-			commands: {
-				canRestore: boolean;
-				canExport: boolean;
-				canPermanentlyDelete: boolean;
-			};
-		};
+		archivedPersonnel: SettingsArchivesSectionData;
 		dataExport: {
 			exportInfo: SettingsExportInfo;
 			commands: {

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import DataExportSettingsSection from '../DataExportSettingsSection.svelte';
+	import SettingsActivityRail from '../SettingsActivityRail.svelte';
 	import { downloadBlob } from '../settingsDownloads';
 	import { createSettingsDataExportState } from '../settingsWorkspaceState.svelte';
 
@@ -7,6 +8,7 @@
 
 	const exportState = createSettingsDataExportState(() => data.exportsSettings.sections.exports);
 	const dataExportSection = $derived(exportState.section);
+	const activity = $derived(exportState.activity);
 
 	async function handleOrganizationExport(format: 'json' | 'excel') {
 		if (exportState.isExporting || exportState.exportLimitReached) return;
@@ -41,12 +43,15 @@
 	}
 </script>
 
-<DataExportSettingsSection
-	orgId={data.orgUrlSegment}
-	section={dataExportSection}
-	exportError={exportState.exportError}
-	exportSuccess={exportState.exportSuccess}
-	exportingOrgJson={exportState.exportingOrgJson}
-	exportingOrgExcel={exportState.exportingOrgExcel}
-	onExportOrganization={handleOrganizationExport}
-/>
+<div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_24rem]">
+	<DataExportSettingsSection
+		orgId={data.orgUrlSegment}
+		section={dataExportSection}
+		exportError={exportState.exportError}
+		exportSuccess={exportState.exportSuccess}
+		exportingOrgJson={exportState.exportingOrgJson}
+		exportingOrgExcel={exportState.exportingOrgExcel}
+		onExportOrganization={handleOrganizationExport}
+	/>
+	<SettingsActivityRail orgId={data.orgUrlSegment} {activity} />
+</div>

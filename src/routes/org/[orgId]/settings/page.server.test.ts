@@ -451,7 +451,9 @@ describe('org settings page server actions', () => {
 							savedExpiringSoonWarningDays: 45,
 							defaultExpirationConstraints: { min: 1, max: 120, unit: 'months' },
 							expiringSoonWarningConstraints: { min: 1, max: 365, unit: 'days' }
-						}
+						},
+						canUpdateRetention: true,
+						canUpdateCriticalTasksSettings: true
 					}
 				}
 			}

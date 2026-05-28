@@ -25,7 +25,7 @@ export class SettingsPoliciesState {
 
 	constructor(policies: SettingsPoliciesSectionData | (() => SettingsPoliciesSectionData)) {
 		this.#getPolicies = typeof policies === 'function' ? policies : () => policies;
-		this.syncFromWorkspace();
+		this.syncFromSettings();
 	}
 
 	get #policies(): SettingsPoliciesSectionData {
@@ -104,7 +104,7 @@ export class SettingsPoliciesState {
 		});
 	}
 
-	syncFromWorkspace(): void {
+	syncFromSettings(): void {
 		const snapshot = this.serverPolicySnapshot;
 		if (snapshot === this.#syncedPolicySnapshot) return;
 		if (this.#syncedPolicySnapshot && this.hasUnsavedEdits) return;

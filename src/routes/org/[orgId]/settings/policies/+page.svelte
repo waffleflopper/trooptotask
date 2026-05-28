@@ -8,7 +8,7 @@
 
 	const orgId = $derived($page.params.orgId);
 	const policiesState = createSettingsPoliciesState(() => data.policiesSettings.sections.policies);
-	const syncPoliciesFromSettings = () => policiesState.syncFromWorkspace();
+	const syncPoliciesFromSettings = () => policiesState.syncFromSettings();
 
 	$effect.pre(syncPoliciesFromSettings);
 

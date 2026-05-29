@@ -174,7 +174,13 @@ export async function importPersonnelBatch(ctx: WriteWithSubscriptionPorts, inpu
 	const available = await ctx.subscription.getAvailablePersonnelSlots();
 	if (available !== null) {
 		if (available <= 0) {
-			fail(403, 'Personnel limit reached. Upgrade or archive personnel to add more.');
+			for (const { index } of validRows) {
+				errors.push({
+					index,
+					message: 'Personnel cap reached — upgrade or archive personnel before adding this record'
+				});
+			}
+			return { inserted: [], errors };
 		}
 		if (validRows.length > available) {
 			const excess = validRows.splice(available);

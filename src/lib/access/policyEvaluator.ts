@@ -266,7 +266,7 @@ export const POLICY_ACTION_CATALOG = {
 			label: 'Import personnel records',
 			lane: 'personnel',
 			accessMode: 'write',
-			requiredCapability: 'configure'
+			requiredCapability: 'operate'
 		}),
 		mergeRecords: featureAction({
 			id: 'personnel.mergeRecords',

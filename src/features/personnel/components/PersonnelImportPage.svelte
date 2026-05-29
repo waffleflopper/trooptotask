@@ -313,9 +313,13 @@
 				body: JSON.stringify({ records: checkedRows.map((row) => row.values) })
 			});
 
-			const data = await response.json();
-			if (response.status === 403 && data.error) {
-				importResult = { insertedCount: 0, errors: data.errors ?? [], capError: data.error };
+			const data = await response.json().catch(() => ({}));
+			if (!response.ok) {
+				importResult = {
+					insertedCount: 0,
+					errors: data.errors ?? [],
+					capError: data.error ?? data.message ?? `Import failed with status ${response.status}`
+				};
 			} else {
 				importResult = {
 					insertedCount: (data.inserted ?? []).length,

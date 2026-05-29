@@ -1,15 +1,17 @@
 import { test, expect } from '../fixtures/auth';
 
 test.describe('Bulk Import', () => {
-	test('bulk import option is accessible from personnel page', async ({ ownerPage, orgId }) => {
+	test('personnel import route is accessible from personnel page', async ({ ownerPage, orgId }) => {
 		await ownerPage.goto(`/org/${orgId}/personnel`);
 		await ownerPage.waitForLoadState('networkidle');
 
-		const moreButton = ownerPage.getByRole('button', { name: /more actions/i });
-		await moreButton.waitFor({ state: 'visible', timeout: 10000 });
-		await moreButton.click();
+		const importLink = ownerPage.getByRole('link', { name: 'Import' });
+		await importLink.waitFor({ state: 'visible', timeout: 10000 });
+		await importLink.click();
 
-		// Verify the "Bulk Import" option is visible in the dropdown
-		await expect(ownerPage.getByText('Bulk Import')).toBeVisible({ timeout: 5000 });
+		await expect(ownerPage).toHaveURL(new RegExp(`/org/${orgId}/personnel/import$`));
+		await expect(ownerPage.getByRole('heading', { name: 'Build the roster from one file' })).toBeVisible({
+			timeout: 5000
+		});
 	});
 });

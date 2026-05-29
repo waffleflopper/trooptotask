@@ -3,8 +3,11 @@
 	import { resolve } from '$app/paths';
 	import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 	import { archivePersonnel } from '$features/personnel/utils/archivePersonnel';
+	import { bulkArchivePersonnel } from '$features/personnel/utils/bulkArchivePersonnel';
 	import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
+	import { toastStore } from '$lib/stores/toast.svelte';
 	import ArchiveIcon from '@lucide/svelte/icons/archive';
+	import DownloadIcon from '@lucide/svelte/icons/download';
 	import UsersIcon from '@lucide/svelte/icons/users';
 	import { Badge, badgeVariants } from '$lib/components/ui/badge';
 	import { Button, buttonVariants } from '$lib/components/ui/button';
@@ -19,6 +22,7 @@
 	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
 	import type { PersonnelPageContext } from '$features/personnel/contexts/PersonnelPageContext.svelte';
 	import type { Personnel } from '$lib/types';
+	import { SvelteSet } from 'svelte/reactivity';
 
 	interface Props {
 		ctx: PersonnelPageContext;
@@ -63,6 +67,10 @@
 			{ key: 'group', header: 'Group', value: (p) => p.groupName }
 		];
 
+		if (bulkArchiveMode) {
+			columns.unshift({ key: 'select', header: '', value: () => '', searchable: false, sortable: false });
+		}
+
 		if (canViewRoster) {
 			columns.push({
 				key: 'actions',
@@ -103,12 +111,23 @@
 	let rosterSearch = $state('');
 	let archiveTarget = $state<Personnel | null>(null);
 	let archiveSubmitting = $state(false);
+	let bulkArchiveMode = $state(false);
+	let bulkArchiveSubmitting = $state(false);
+	let showBulkArchiveConfirm = $state(false);
+	let selectedArchiveIds = new SvelteSet<string>();
 	const activeRosterFilterCount = $derived((ctx.viewMode !== 'alphabetical' ? 1 : 0) + (rosterSearch.trim() ? 1 : 0));
 	const shouldGateGroupedRoster = $derived(
 		ctx.viewMode === 'by-group' && !rosterSearch.trim() && groupedTable.totalRows > GROUPED_ROSTER_RENDER_LIMIT
 	);
+	const selectedArchivePersonnel = $derived(
+		personnelStore.items.filter((person) => selectedArchiveIds.has(person.id) && ctx.canArchivePersonnelRecord(person))
+	);
 
 	const handleRowClick = $derived.by(() => (person: Personnel) => {
+		if (bulkArchiveMode) {
+			toggleArchiveSelection(person.id);
+			return;
+		}
 		if (ctx.canManagePersonnelRecord(person)) openPersonnelDetail(person);
 	});
 
@@ -135,6 +154,39 @@
 		archiveTarget = person;
 	}
 
+	function toggleArchiveMode(): void {
+		bulkArchiveMode = !bulkArchiveMode;
+		selectedArchiveIds.clear();
+	}
+
+	function cancelArchiveMode(): void {
+		bulkArchiveMode = false;
+		selectedArchiveIds.clear();
+		showBulkArchiveConfirm = false;
+	}
+
+	function toggleArchiveSelection(id: string): void {
+		const person = personnelStore.items.find((item) => item.id === id);
+		if (!person || !ctx.canArchivePersonnelRecord(person)) return;
+
+		if (selectedArchiveIds.has(id)) {
+			selectedArchiveIds.delete(id);
+		} else {
+			selectedArchiveIds.add(id);
+		}
+	}
+
+	function selectVisibleArchiveRows(): void {
+		const table = ctx.viewMode === 'alphabetical' ? azTable : groupedTable;
+		for (const person of table.allRows) {
+			if (ctx.canArchivePersonnelRecord(person)) selectedArchiveIds.add(person.id);
+		}
+	}
+
+	function clearArchiveSelection(): void {
+		selectedArchiveIds.clear();
+	}
+
 	async function confirmArchive(): Promise<void> {
 		if (!archiveTarget || archiveSubmitting) return;
 		archiveSubmitting = true;
@@ -146,6 +198,39 @@
 			archiveTarget = null;
 		} finally {
 			archiveSubmitting = false;
+		}
+	}
+
+	async function confirmBulkArchive(): Promise<void> {
+		if (selectedArchiveIds.size === 0 || bulkArchiveSubmitting) return;
+		bulkArchiveSubmitting = true;
+		try {
+			const result = await bulkArchivePersonnel(
+				ctx.orgId,
+				selectedArchivePersonnel.map((person) => person.id)
+			);
+
+			for (const id of result.archivedIds) {
+				personnelStore.removeLocal(id);
+			}
+
+			if (result.archivedIds.length > 0) {
+				toastStore.success(`${result.archivedIds.length} personnel archived`);
+			}
+			if (result.approvalRequestedIds.length > 0) {
+				toastStore.info(`${result.approvalRequestedIds.length} archival requests submitted for admin approval.`);
+			}
+			if (result.errors.length > 0) {
+				toastStore.error(`${result.errors.length} personnel could not be archived.`);
+			}
+			if (result.archivedIds.length > 0 || result.approvalRequestedIds.length > 0) {
+				await invalidateAll();
+			}
+			selectedArchiveIds.clear();
+			showBulkArchiveConfirm = false;
+			bulkArchiveMode = false;
+		} finally {
+			bulkArchiveSubmitting = false;
 		}
 	}
 </script>
@@ -195,10 +280,16 @@
 				{#if hasPersonnelActions}
 					<WorkspaceToolbar.Group label="Personnel actions" zone="actions">
 						{#if canImportPersonnel}
-							<Button variant="outline" disabled={readOnly} onclick={() => ctx.openBulkManager()}>Import</Button>
+							<Button variant="outline" disabled={readOnly} href={resolve(`/org/${orgUrlSegment}/personnel/import`)}>
+								<DownloadIcon aria-hidden="true" />
+								Import
+							</Button>
 						{/if}
 						{#if canBulkArchivePersonnel}
-							<Button variant="outline" onclick={() => ctx.openBulkManager('delete')}>Bulk Archive</Button>
+							<Button variant={bulkArchiveMode ? 'secondary' : 'outline'} onclick={toggleArchiveMode}>
+								<ArchiveIcon aria-hidden="true" />
+								Archive
+							</Button>
 						{/if}
 						{#if canManageGroups}
 							<Button variant="secondary" disabled={readOnly} onclick={() => ctx.openGroupManager()}
@@ -266,14 +357,46 @@
 						table={ctx.viewMode === 'alphabetical' ? azTable : groupedTable}
 						columns={personnelColumns}
 						onRowClick={handleRowClick}
-						rowActionLabel={getPersonnelRowActionLabel}
+						rowActionLabel={bulkArchiveMode
+							? (person) => `Select ${person.rank} ${person.lastName}`
+							: getPersonnelRowActionLabel}
 						ariaLabel="Personnel roster"
 						emptyMessage="No personnel match your search."
 						maxHeight="100%"
 					>
+						{#snippet toolbar(tbl)}
+							{#if bulkArchiveMode}
+								<div class="flex flex-wrap items-center justify-between gap-2">
+									<DataTable.BulkActions selectedCount={selectedArchiveIds.size} totalCount={tbl.totalRows}>
+										<Button type="button" variant="outline" size="sm" onclick={selectVisibleArchiveRows}
+											>Select shown</Button
+										>
+										<Button type="button" variant="outline" size="sm" onclick={clearArchiveSelection}>Clear</Button>
+									</DataTable.BulkActions>
+									<div class="flex flex-wrap gap-2">
+										<Button type="button" variant="outline" size="sm" onclick={cancelArchiveMode}>Cancel</Button>
+										<Button
+											type="button"
+											variant="destructive"
+											size="sm"
+											disabled={selectedArchiveIds.size === 0}
+											onclick={() => (showBulkArchiveConfirm = true)}
+										>
+											Confirm Archive
+										</Button>
+									</div>
+								</div>
+							{/if}
+						{/snippet}
 						{#snippet cell(row, col)}
 							{@const lossRecord = upcomingLossMap.get(row.id)}
-							{#if col.key === 'name'}
+							{#if col.key === 'select'}
+								<DataTable.SelectionCheckbox
+									checked={selectedArchiveIds.has(row.id)}
+									ariaLabel={`Select ${row.rank} ${row.lastName}, ${row.firstName}`}
+									onCheckedChange={() => toggleArchiveSelection(row.id)}
+								/>
+							{:else if col.key === 'name'}
 								{row.lastName}, {row.firstName}
 								{#if lossRecord}
 									<Badge
@@ -288,13 +411,13 @@
 								{/if}
 							{:else if col.key === 'actions'}
 								<div class="flex items-center justify-end gap-2">
-									{#if ctx.canManagePersonnelRecord(row)}
+									{#if !bulkArchiveMode && ctx.canManagePersonnelRecord(row)}
 										<Button type="button" variant="outline" size="sm" onclick={() => ctx.handleEdit(row)}>Edit</Button>
 										<Button type="button" variant="secondary" size="sm" onclick={() => openPersonnelDetail(row)}
 											>Details</Button
 										>
 									{/if}
-									{#if ctx.canArchivePersonnelRecord(row)}
+									{#if !bulkArchiveMode && ctx.canArchivePersonnelRecord(row)}
 										<Button
 											type="button"
 											variant="destructive"
@@ -369,5 +492,17 @@
 		loading={archiveSubmitting}
 		onConfirm={confirmArchive}
 		onCancel={() => (archiveTarget = null)}
+	/>
+{/if}
+
+{#if showBulkArchiveConfirm}
+	<ConfirmDialog
+		title="Archive Personnel"
+		message="Archive {selectedArchiveIds.size} personnel? They will leave active rosters, calendars, and reports. Records are not erased, and some archives may require approval."
+		confirmLabel="Archive"
+		variant="warning"
+		loading={bulkArchiveSubmitting}
+		onConfirm={confirmBulkArchive}
+		onCancel={() => (showBulkArchiveConfirm = false)}
 	/>
 {/if}

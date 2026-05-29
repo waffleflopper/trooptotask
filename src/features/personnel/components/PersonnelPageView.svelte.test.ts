@@ -96,7 +96,6 @@ function makeCtx(
 		handleEdit,
 		handleAdd: vi.fn(),
 		openGroupManager: vi.fn(),
-		openBulkManager: vi.fn(),
 		readOnly: false
 	} as unknown as PersonnelPageContext;
 }
@@ -186,8 +185,21 @@ describe('PersonnelPageView', () => {
 		const toolbar = screen.getByRole('toolbar', { name: 'Personnel controls' });
 		expect(within(toolbar).getByRole('button', { name: 'Manage Groups' })).toBeTruthy();
 		expect(within(toolbar).getByRole('button', { name: 'Add Person' })).toBeTruthy();
-		expect(within(toolbar).getByRole('button', { name: 'Import' })).toBeTruthy();
+		expect(within(toolbar).getByRole('link', { name: 'Import' })).toBeTruthy();
 		expect(within(toolbar).queryByRole('button', { name: 'Bulk Import' })).toBeNull();
+	});
+
+	it('links import to the dedicated personnel import route', () => {
+		const ctx = {
+			...makeCtx(),
+			canImportPersonnel: true
+		} as unknown as PersonnelPageContext;
+
+		render(PersonnelPageView, {
+			props: { ctx, permissions: editablePermissions }
+		});
+
+		expect(screen.getByRole('link', { name: 'Import' }).getAttribute('href')).toBe('/org/org-1/personnel/import');
 	});
 
 	it('keeps creation and group controls hidden for operators who can edit existing personnel', () => {
@@ -213,7 +225,6 @@ describe('PersonnelPageView', () => {
 	});
 
 	it('keeps archive access available during read-only mode without enabling create/import controls', async () => {
-		const openBulkManager = vi.fn();
 		const ctx = {
 			...makeCtx(),
 			readOnly: true,
@@ -223,7 +234,6 @@ describe('PersonnelPageView', () => {
 			canArchivePersonnelRecord: () => true,
 			personnelArchiveAffordance: () => allowedAffordance()
 		} as unknown as PersonnelPageContext;
-		ctx.openBulkManager = openBulkManager;
 
 		render(PersonnelPageView, {
 			props: { ctx, permissions: editablePermissions }
@@ -234,8 +244,8 @@ describe('PersonnelPageView', () => {
 		expect(within(toolbar).queryByRole('button', { name: 'Add Person' })).toBeNull();
 		expect(screen.getByRole('button', { name: 'Archive SGT Smith, Jane' })).toBeTruthy();
 
-		await fireEvent.click(within(toolbar).getByRole('button', { name: 'Bulk Archive' }));
-		expect(openBulkManager).toHaveBeenCalledWith('delete');
+		await fireEvent.click(within(toolbar).getByRole('button', { name: 'Archive' }));
+		expect(screen.getByText('0 of 1 selected')).toBeTruthy();
 	});
 
 	it('filters the roster from the toolbar search item', async () => {
@@ -474,12 +484,42 @@ describe('PersonnelPageView', () => {
 		});
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Archive SGT Smith, Jane' }));
-		await fireEvent.click(screen.getByRole('button', { name: 'Archive' }));
+		await fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Archive' }));
 
 		expect(fetchMock).toHaveBeenCalledWith('/org/org-1/api/personnel', {
 			method: 'DELETE',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ id: 'person-1' })
+		});
+		await waitFor(() => expect(invalidateAllMock).toHaveBeenCalled());
+		expect(screen.queryByText('Smith, Jane')).toBeNull();
+	});
+
+	it('archives selected personnel from roster archive mode after confirmation', async () => {
+		const fetchMock = vi.fn().mockResolvedValue({
+			ok: true,
+			json: () => Promise.resolve({ archivedIds: ['person-1'], approvalRequestedIds: [], errors: [] })
+		});
+		vi.stubGlobal('fetch', fetchMock);
+		const ctx = {
+			...makeCtx(),
+			canArchivePersonnelRecord: () => true,
+			personnelArchiveAffordance: () => allowedAffordance()
+		} as unknown as PersonnelPageContext;
+
+		render(PersonnelPageView, {
+			props: { ctx, permissions: editablePermissions }
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Archive' }));
+		await fireEvent.click(screen.getByRole('checkbox', { name: 'Select SGT Smith, Jane' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Confirm Archive' }));
+		await fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Archive' }));
+
+		expect(fetchMock).toHaveBeenCalledWith('/org/org-1/api/personnel/archive-batch', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ ids: ['person-1'] })
 		});
 		await waitFor(() => expect(invalidateAllMock).toHaveBeenCalled());
 		expect(screen.queryByText('Smith, Jane')).toBeNull();

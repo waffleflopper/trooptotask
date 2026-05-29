@@ -8,6 +8,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import * as NativeSelect from '$lib/components/ui/native-select';
+	import * as Tooltip from '$lib/components/ui/tooltip';
 	import {
 		PERSONNEL_COLUMNS,
 		autoMapColumns,
@@ -19,7 +20,9 @@
 	import { parseFile } from '$lib/utils/csvParser';
 	import { useDataTableSelection, type ColumnDef as DataTableColumnDef } from '$lib/components/ui/data-table';
 	import { tick } from 'svelte';
+	import AlertCircleIcon from '@lucide/svelte/icons/alert-circle';
 	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
+	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert';
 
 	interface Props {
 		orgId: string;
@@ -453,79 +456,130 @@
 					<span class="font-mono text-xs text-muted-foreground">{row.sourceRowNumber}</span>
 				{:else if column.key.startsWith('field:')}
 					{@const fieldKey = column.key.slice('field:'.length)}
-					<Input
-						aria-label={`Row ${row.sourceRowNumber} ${column.header}`}
-						value={row.values[fieldKey] ?? ''}
-						aria-invalid={!!row.validation.cellErrors[fieldKey]}
-						title={row.validation.cellErrors[fieldKey] ?? row.validation.cellWarnings[fieldKey] ?? ''}
-						onchange={(event) => updateCell(row, fieldKey, event.currentTarget.value)}
-					/>
+					{@const fieldError = row.validation.cellErrors[fieldKey]}
+					{@const fieldWarning = row.validation.cellWarnings[fieldKey]}
+					{@const fieldIssue = fieldError ?? fieldWarning}
+					{@const fieldState = fieldError ? 'error' : fieldWarning ? 'warning' : undefined}
+					{#if fieldIssue}
+						<span class="relative block min-w-0">
+							<Tooltip.Root>
+								<Tooltip.Trigger>
+									{#snippet child({ props })}
+										<Input
+											{...props}
+											aria-label={`Row ${row.sourceRowNumber} ${column.header}`}
+											autocomplete="off"
+											spellcheck="false"
+											value={row.values[fieldKey] ?? ''}
+											aria-invalid={!!fieldError}
+											data-cell-state={fieldState}
+											title={fieldIssue}
+											class={[
+												'pr-7',
+												fieldState === 'error' &&
+													'border-danger/80! bg-danger-muted/70! text-danger-foreground ring-1 ring-danger/45!',
+												fieldState === 'warning' &&
+													'border-warning/80! bg-warning-muted/80! text-warning-foreground ring-1 ring-warning/45!'
+											]}
+											onchange={(event) => updateCell(row, fieldKey, event.currentTarget.value)}
+										/>
+									{/snippet}
+								</Tooltip.Trigger>
+								<Tooltip.Content side="top" sideOffset={6}>{fieldIssue}</Tooltip.Content>
+							</Tooltip.Root>
+							<span
+								class={[
+									'pointer-events-none absolute top-1/2 right-1.5 inline-flex -translate-y-1/2 items-center',
+									fieldState === 'error' ? 'text-danger-foreground' : 'text-warning-foreground'
+								]}
+								aria-hidden="true"
+							>
+								{#if fieldState === 'error'}
+									<AlertCircleIcon class="size-3.5" />
+								{:else}
+									<TriangleAlertIcon class="size-3.5" />
+								{/if}
+							</span>
+						</span>
+					{:else}
+						<Input
+							aria-label={`Row ${row.sourceRowNumber} ${column.header}`}
+							autocomplete="off"
+							spellcheck="false"
+							value={row.values[fieldKey] ?? ''}
+							onchange={(event) => updateCell(row, fieldKey, event.currentTarget.value)}
+						/>
+					{/if}
 				{:else}
 					{String(column.value(row) ?? '')}
 				{/if}
 			{/snippet}
 
-			<BulkImportWorkspace.Root ariaLabel="Personnel import workspace">
-				<BulkImportWorkspace.Header
-					step="Step 2"
-					title="Review mapped rows"
-					description="Only checked rows without errors will be imported."
-				/>
+			<Tooltip.Provider>
+				<BulkImportWorkspace.Root ariaLabel="Personnel import workspace">
+					<BulkImportWorkspace.Header
+						step="Step 2"
+						title="Review mapped rows"
+						description="Only checked rows without errors will be imported."
+					/>
 
-				<BulkImportWorkspace.InputPanel title="Column mapping" description="Confirm each file column before import.">
-					<div class="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
-						{#each mappings as mapping, i (mapping.columnIndex)}
-							<label class="grid gap-1">
-								<span class="truncate font-mono text-xs text-muted-foreground">
-									{rawRows[0]?.[mapping.columnIndex] ?? `Column ${i + 1}`}
-								</span>
-								<NativeSelect.Root
-									class="w-full"
-									size="sm"
-									value={mapping.fieldKey ?? ''}
-									onchange={(event) => setMapping(mapping.columnIndex, event.currentTarget.value || null)}
-								>
-									{#each getAvailableFields(mapping.columnIndex) as field (field?.key ?? '__skip__')}
-										{#if field === null}
-											<NativeSelect.Option value="">Skip</NativeSelect.Option>
-										{:else}
-											<NativeSelect.Option value={field.key}
-												>{field.label}{field.required ? ' *' : ''}</NativeSelect.Option
-											>
-										{/if}
-									{/each}
-								</NativeSelect.Root>
-							</label>
-						{/each}
-					</div>
-				</BulkImportWorkspace.InputPanel>
+					<BulkImportWorkspace.InputPanel title="Column mapping" description="Confirm each file column before import.">
+						<div class="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
+							{#each mappings as mapping, i (mapping.columnIndex)}
+								<label class="grid gap-1">
+									<span class="truncate font-mono text-xs text-muted-foreground">
+										{rawRows[0]?.[mapping.columnIndex] ?? `Column ${i + 1}`}
+									</span>
+									<NativeSelect.Root
+										class="w-full"
+										size="sm"
+										value={mapping.fieldKey ?? ''}
+										onchange={(event) => setMapping(mapping.columnIndex, event.currentTarget.value || null)}
+									>
+										{#each getAvailableFields(mapping.columnIndex) as field (field?.key ?? '__skip__')}
+											{#if field === null}
+												<NativeSelect.Option value="">Skip</NativeSelect.Option>
+											{:else}
+												<NativeSelect.Option value={field.key}
+													>{field.label}{field.required ? ' *' : ''}</NativeSelect.Option
+												>
+											{/if}
+										{/each}
+									</NativeSelect.Root>
+								</label>
+							{/each}
+						</div>
+					</BulkImportWorkspace.InputPanel>
 
-				<BulkImportWorkspace.ValidationSummary
-					title="Review row status"
-					description="Warnings can import, errors are blocked until fixed."
-					issues={validationIssues}
-				/>
+					<BulkImportWorkspace.ValidationSummary
+						title="Review row status"
+						description="Warnings can import, errors are blocked until fixed."
+						issues={validationIssues}
+					/>
 
-				<BulkImportWorkspace.PreviewTable
-					rows={previewRows}
-					columns={previewColumns}
-					{selection}
-					rowKey={(row) => row.id}
-					disabledRow={(row) => !row.validation.valid}
-					{disabledReason}
-					{rowStatus}
-					selectedCountLabel={(selected, total) => `${selected} of ${total} selected`}
-					ariaLabel="Personnel import preview"
-					cell={previewCell}
-				/>
+					<BulkImportWorkspace.PreviewTable
+						rows={previewRows}
+						columns={previewColumns}
+						{selection}
+						rowKey={(row) => row.id}
+						disabledRow={(row) => !row.validation.valid}
+						{disabledReason}
+						{rowStatus}
+						statusDescriptionMode="sr-only"
+						cellPresentation="editable-grid"
+						selectedCountLabel={(selected, total) => `${selected} of ${total} selected`}
+						ariaLabel="Personnel import preview"
+						cell={previewCell}
+					/>
 
-				<BulkImportWorkspace.FooterActions disabledReason={submitDisabledReason}>
-					<Button variant="outline" type="button" onclick={backToInput}>Back</Button>
-					<Button type="button" onclick={runImport} disabled={runningImport || !!submitDisabledReason}>
-						Import checked rows
-					</Button>
-				</BulkImportWorkspace.FooterActions>
-			</BulkImportWorkspace.Root>
+					<BulkImportWorkspace.FooterActions disabledReason={submitDisabledReason}>
+						<Button variant="outline" type="button" onclick={backToInput}>Back</Button>
+						<Button type="button" onclick={runImport} disabled={runningImport || !!submitDisabledReason}>
+							Import checked rows
+						</Button>
+					</BulkImportWorkspace.FooterActions>
+				</BulkImportWorkspace.Root>
+			</Tooltip.Provider>
 		{:else if importStep === 'importing'}
 			<BulkImportWorkspace.ProgressState
 				title="Importing personnel records"

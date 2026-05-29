@@ -580,8 +580,8 @@ Public components:
 - `FileInput`: shared file input presentation using `ui/field` and `ui/input`.
 - `PasteInput`: shared textarea presentation using `ui/field` and `ui/textarea`.
 - `ValidationSummary`: shared error/warning/ready count summary.
-- `PreviewTable`: DataTable-backed preview with optional `useDataTableSelection` row selection. Supports `rowStatus`, `disabledReason`, `statusColumnHeader`, and `selectedCountLabel`.
-- `RowStatus`: shared per-row import status display. Props: `tone: 'valid' | 'warning' | 'error' | 'disabled' | 'duplicate' | 'info'`, `label?`, `description?`.
+- `PreviewTable`: DataTable-backed preview with optional `useDataTableSelection` row selection. Supports `rowStatus`, `disabledReason`, `statusColumnHeader`, `statusDescriptionMode`, `cellPresentation`, and `selectedCountLabel`. Use `cellPresentation="editable-grid"` when route-provided cell snippets render editable inputs in a dense preview; issue-bearing cells should expose a field-level tooltip and `data-cell-state`.
+- `RowStatus`: shared per-row import status display. Props: `tone: 'valid' | 'warning' | 'error' | 'disabled' | 'duplicate' | 'info'`, `label?`, `description?`, `descriptionMode?`.
 - `ProgressState`: importing/loading state with optional progress value.
 - `FooterActions`: footer command region with disabled submit reason.
 - `ResultSummary`: final `success`, `partial`, or `failed` result summary.

@@ -159,7 +159,9 @@ describe('PersonnelImportPage', () => {
 		expect(screen.getByText('Ready')).toBeInTheDocument();
 		expect(screen.getByText('Blocked')).toBeInTheDocument();
 		expect(screen.getByText('Warning')).toBeInTheDocument();
-		expect(within(table).getByText(/will import as unassigned/i)).toBeInTheDocument();
+		expect(within(table).getAllByTitle(/will import as unassigned/i).length).toBeGreaterThan(0);
+		expect(screen.getByLabelText('Row 4 Group')).toHaveAttribute('data-cell-state', 'warning');
+		expect(screen.getByLabelText('Row 3 Rank')).toHaveAttribute('data-cell-state', 'error');
 		expect(screen.getByRole('checkbox', { name: /Select import row 2: Resolve row errors/i })).toBeDisabled();
 		expect(screen.getAllByText('2 of 3 selected').length).toBeGreaterThan(0);
 

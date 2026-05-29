@@ -9,12 +9,12 @@
 	import { Spinner } from '$lib/components/ui/spinner/index.js';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { formatRelativeDate } from '$lib/utils/dates';
-	import type { OrganizationSettingsWorkspace } from './organizationSettingsWorkspaceModel';
+	import type { SettingsActivityData } from './settingsSectionTypes';
 	import { formatAuditTimestamp, getAuditActionParts } from './settingsWorkspaceFormatters';
 
 	type ActivityTab = 'approvals' | 'audit';
 
-	type Activity = OrganizationSettingsWorkspace['sections']['dataExport']['activity'];
+	type Activity = SettingsActivityData;
 	type AuditLogEntry = Activity['auditLog']['logs'][number];
 
 	let {
@@ -38,9 +38,10 @@
 	const auditLog = $derived(activity.auditLog);
 	const pendingApprovalsCount = $derived(activity.pendingApprovalsCount);
 	const pendingApprovals = $derived(approvalRequests.filter((request) => request.status === 'pending'));
-	const visibleApprovals = $derived(pendingApprovals.slice(0, 4));
+	const approvalLimit = $derived(lockedTab === 'approvals' ? pendingApprovals.length : 4);
+	const visibleApprovals = $derived(pendingApprovals.slice(0, approvalLimit));
 	const visibleAuditLogs = $derived(auditLog.logs.slice(0, 9));
-	const archivesHref = $derived(resolve(`/org/${orgId}/settings/archives`));
+	const approvalsHref = $derived(resolve(`/org/${orgId}/settings/approvals`));
 	const logsHref = $derived(resolve(`/org/${orgId}/settings/logs`));
 	const activeTab = $derived(lockedTab ?? activityTab);
 	const auditColumns: ColumnDef<AuditLogEntry>[] = [
@@ -188,8 +189,8 @@
 						<p class="text-sm text-muted-foreground">No pending requests.</p>
 					{:else if pendingApprovals.length <= visibleApprovals.length}
 						<p class="text-sm text-muted-foreground">No more pending requests.</p>
-					{:else}
-						<Button href={archivesHref} variant="outline" size="sm">
+					{:else if !lockedTab}
+						<Button href={approvalsHref} variant="outline" size="sm">
 							View all {pendingApprovals.length} pending requests
 						</Button>
 					{/if}

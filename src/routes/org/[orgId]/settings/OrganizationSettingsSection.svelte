@@ -11,7 +11,7 @@
 	import { Separator } from '$lib/components/ui/separator/index.js';
 	import { isBillingEnabled } from '$lib/config/billing';
 	import type { PlanUsageSummaryForSettings } from './settingsTypes';
-	import type { OrganizationSettingsWorkspace } from './organizationSettingsWorkspaceModel';
+	import type { SettingsOrganizationSectionData } from './settingsSectionTypes';
 
 	let {
 		organization,
@@ -27,7 +27,7 @@
 		showProfile = true,
 		showBilling = true
 	} = $props<{
-		organization: OrganizationSettingsWorkspace['sections']['organization'];
+		organization: SettingsOrganizationSectionData;
 		form: {
 			[key: string]: unknown;
 			nameSuccess?: boolean;

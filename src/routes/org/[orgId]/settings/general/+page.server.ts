@@ -2,6 +2,7 @@ import { redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { buildRouteContext, loadWithContext } from '$lib/server/adapters/httpAdapter';
+import { getSettingsPermissions } from '../settingsPermissions.server';
 import { createSupabaseOrgSettingsAdministrationPort } from '$lib/server/adapters/supabaseOrgSettingsAdministration';
 import type { UseCaseContext } from '$lib/server/core/ports';
 import { readEffectivePlanPolicy } from '$lib/server/core/useCases/planPolicy';
@@ -17,8 +18,10 @@ import { buildGeneralSettingsData } from '../settingsGeneral.server';
 
 export const load: PageServerLoad = async ({ locals, cookies, parent }) => {
 	const parentData = await parent();
+	const permissions = getSettingsPermissions(parentData);
+	if (!permissions) return {} as never;
+
 	const { orgId, orgName, orgUrlSegment, allOrgs, isAdmin, effectiveTier } = parentData;
-	const permissions = parentData.permissions!;
 
 	return loadWithContext(locals, cookies, orgId, {
 		policyAction: POLICY_ACTION_CATALOG.organization.accessGovernance,

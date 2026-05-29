@@ -12,6 +12,8 @@ export const load: LayoutServerLoad = async ({ locals, cookies, params, parent, 
 		redirect(303, `/org/${orgUrlSegment ?? orgId}/settings/general`);
 	}
 
+	if (parentData.orgSuspended) return {} as never;
+
 	return loadWithContext(locals, cookies, orgId, {
 		policyAction: POLICY_ACTION_CATALOG.organization.accessGovernance,
 		policyResource: { kind: 'organization' },

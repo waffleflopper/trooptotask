@@ -3,6 +3,7 @@ import type { Actions, PageServerLoad } from './$types';
 import { parseMemberAccessEditFormData } from '$lib/access/memberAccessCommands';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { buildRouteContext, loadWithContext } from '$lib/server/adapters/httpAdapter';
+import { getSettingsPermissions } from '../settingsPermissions.server';
 import { createSupabaseOrgSettingsMemberManagementPort } from '$lib/server/adapters/supabaseOrgSettingsMemberManagement';
 import { getAdminClient } from '$lib/server/supabase';
 import { createSupabaseOrganizationInvitationDeliveryPort } from '$lib/server/organizationInvitationDelivery';
@@ -19,8 +20,10 @@ import { loadMembersSettings } from './membersSettings.server';
 
 export const load: PageServerLoad = async ({ locals, cookies, parent }) => {
 	const parentData = await parent();
+	const permissions = getSettingsPermissions(parentData);
+	if (!permissions) return {} as never;
+
 	const { orgId, orgName, orgUrlSegment, allOrgs, isAdmin, effectiveTier } = parentData;
-	const permissions = parentData.permissions!;
 
 	return loadWithContext(locals, cookies, orgId, {
 		policyAction: POLICY_ACTION_CATALOG.organization.accessGovernance,

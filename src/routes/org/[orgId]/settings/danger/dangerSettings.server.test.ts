@@ -13,6 +13,7 @@ describe('danger settings section', () => {
 	it('builds owner-only transfer candidates and delete confirmation facts', () => {
 		const dangerSettings = buildDangerSettings({
 			currentMemberRole: 'owner',
+			canManageMembers: true,
 			isAdmin: false,
 			organization,
 			members: [
@@ -48,7 +49,7 @@ describe('danger settings section', () => {
 		const findMany = vi.fn();
 		const dangerSettings = await loadDangerSettings(
 			{
-				auth: { orgId: 'org-1', role: 'admin' },
+				auth: { orgId: 'org-1', role: 'admin', canManageMembers: true },
 				store: { findMany }
 			} as never,
 			{ isAdmin: true, organization }

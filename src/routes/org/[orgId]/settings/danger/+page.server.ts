@@ -58,6 +58,8 @@ export const actions: Actions = {
 		if (!user) throw redirect(303, '/auth/login');
 
 		const formData = await request.formData();
+		const newOwnerIdRaw = formData.get('newOwnerId');
+		const confirmTransferEmailRaw = formData.get('confirmTransferEmail');
 		try {
 			const ctx = await buildRouteContext(event);
 			return await transferOrganizationOwnership(
@@ -70,8 +72,8 @@ export const actions: Actions = {
 					sensitiveActionAuthorizer: ctx.sensitiveActionAuthorizer
 				},
 				{
-					newOwnerId: (formData.get('newOwnerId') as string) ?? '',
-					confirmTransferEmail: (formData.get('confirmTransferEmail') as string) ?? ''
+					newOwnerId: typeof newOwnerIdRaw === 'string' ? newOwnerIdRaw : '',
+					confirmTransferEmail: typeof confirmTransferEmailRaw === 'string' ? confirmTransferEmailRaw : ''
 				}
 			);
 		} catch (error) {
@@ -85,6 +87,7 @@ export const actions: Actions = {
 		if (!user) throw redirect(303, '/auth/login');
 
 		const formData = await request.formData();
+		const confirmNameRaw = formData.get('confirmName');
 		try {
 			const ctx = await buildRouteContext(event);
 			await deleteOrganizationUseCase(
@@ -97,7 +100,7 @@ export const actions: Actions = {
 					sensitiveActionAuthorizer: ctx.sensitiveActionAuthorizer
 				},
 				{
-					confirmName: (formData.get('confirmName') as string) ?? ''
+					confirmName: typeof confirmNameRaw === 'string' ? confirmNameRaw : ''
 				}
 			);
 		} catch (error) {

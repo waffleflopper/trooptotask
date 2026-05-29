@@ -65,7 +65,7 @@ export function buildArchivesSettingsData(
 	}
 ): ArchivesSettingsData {
 	const isOwner = ctx.auth.role === 'owner';
-	const canManageMembers = isOwner || ctx.auth.role === 'admin';
+	const canManageMembers = ctx.auth.canManageMembers;
 	const archiveRetentionMonths =
 		input.organizationSettings?.archive_retention_months ?? DEFAULT_ARCHIVE_RETENTION_MONTHS;
 	const rows = input.archivedPersonnel.map(shapeArchivedPersonnelRow);

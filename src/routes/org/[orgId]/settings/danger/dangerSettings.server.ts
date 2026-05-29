@@ -32,6 +32,7 @@ export async function loadDangerSettings(
 
 	return buildDangerSettings({
 		currentMemberRole: ctx.auth.role,
+		canManageMembers: ctx.auth.canManageMembers,
 		isAdmin: input.isAdmin,
 		organization: input.organization,
 		members
@@ -40,12 +41,13 @@ export async function loadDangerSettings(
 
 export function buildDangerSettings(input: {
 	currentMemberRole: MembershipRole;
+	canManageMembers: boolean;
 	isAdmin: boolean;
 	organization: DangerSettingsOrganizationSource;
 	members: DangerSettingsMemberSourceRow[];
 }): DangerSettingsData {
 	const isOwner = input.currentMemberRole === 'owner';
-	const canManageMembers = isOwner || input.currentMemberRole === 'admin';
+	const canManageMembers = input.canManageMembers;
 
 	return {
 		currentMember: {

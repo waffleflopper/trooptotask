@@ -28,7 +28,7 @@ export function buildGeneralSettingsData(
 	input: { isAdmin: boolean; organization: GeneralSettingsOrganizationSource }
 ): GeneralSettingsData {
 	const isOwner = ctx.auth.role === 'owner';
-	const canManageMembers = isOwner || ctx.auth.role === 'admin';
+	const canManageMembers = ctx.auth.canManageMembers;
 
 	return {
 		currentMember: {

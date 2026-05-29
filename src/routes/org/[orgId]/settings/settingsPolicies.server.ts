@@ -46,7 +46,7 @@ export function buildPoliciesSettingsData(
 	input: { isAdmin: boolean; organizationSettings: OrganizationSettingsRow | null }
 ): PoliciesSettingsData {
 	const isOwner = ctx.auth.role === 'owner';
-	const canManageMembers = isOwner || ctx.auth.role === 'admin';
+	const canManageMembers = ctx.auth.canManageMembers;
 	const criticalTasksSettings = normalizeCriticalTasksSettings({
 		defaultExpirationMonths: input.organizationSettings?.critical_tasks_default_expiration_months ?? null,
 		expiringSoonWarningDays: input.organizationSettings?.critical_tasks_expiring_soon_warning_days ?? null

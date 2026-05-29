@@ -68,6 +68,7 @@ export const actions: Actions = {
 		if (!user) throw redirect(303, '/auth/login');
 
 		const formData = await request.formData();
+		const nameRaw = formData.get('name');
 		try {
 			const ctx = await buildRouteContext(event);
 			return await renameOrganization(
@@ -79,7 +80,7 @@ export const actions: Actions = {
 					administration: createSupabaseOrgSettingsAdministrationPort(locals)
 				},
 				{
-					name: (formData.get('name') as string) ?? ''
+					name: typeof nameRaw === 'string' ? nameRaw : ''
 				}
 			);
 		} catch (error) {
@@ -93,6 +94,7 @@ export const actions: Actions = {
 		if (!user) throw redirect(303, '/auth/login');
 
 		const formData = await request.formData();
+		const urlSlugRaw = formData.get('urlSlug');
 		let orgUrlSlug: string;
 		try {
 			const ctx = await buildRouteContext(event);
@@ -105,7 +107,7 @@ export const actions: Actions = {
 					administration: createSupabaseOrgSettingsAdministrationPort(locals)
 				},
 				{
-					urlSlug: (formData.get('urlSlug') as string) ?? ''
+					urlSlug: typeof urlSlugRaw === 'string' ? urlSlugRaw : ''
 				}
 			);
 			orgUrlSlug = result.orgUrlSlug;

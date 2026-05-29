@@ -8,11 +8,13 @@ export const load: LayoutServerLoad = async ({ locals, cookies, params, parent, 
 	const parentData = await parent();
 	const { orgId, orgName, orgUrlSegment, effectiveTier } = parentData;
 
+	if (parentData.orgSuspended) {
+		redirect(303, `/org/${orgUrlSegment ?? orgId}/suspended`);
+	}
+
 	if (route.id === '/org/[orgId]/settings') {
 		redirect(303, `/org/${orgUrlSegment ?? orgId}/settings/general`);
 	}
-
-	if (parentData.orgSuspended) return {} as never;
 
 	return loadWithContext(locals, cookies, orgId, {
 		policyAction: POLICY_ACTION_CATALOG.organization.accessGovernance,

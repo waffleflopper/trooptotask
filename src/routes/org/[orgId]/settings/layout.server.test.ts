@@ -44,6 +44,26 @@ describe('settings layout server load', () => {
 		expect(loadWithContextMock).not.toHaveBeenCalled();
 	});
 
+	it('redirects suspended organizations before loading the shell', async () => {
+		await expect(
+			load({
+				params: { orgId: 'org-1' },
+				locals: {},
+				cookies: {},
+				route: { id: '/org/[orgId]/settings' },
+				parent: async () => ({
+					orgId: 'org-1',
+					orgName: 'Test Org',
+					orgUrlSegment: 'test-org',
+					effectiveTier: null,
+					orgSuspended: true
+				})
+			} as never)
+		).rejects.toMatchObject({ status: 303, location: '/org/test-org/suspended' });
+
+		expect(loadWithContextMock).not.toHaveBeenCalled();
+	});
+
 	it('authorizes organization governance access through the policy evaluator', async () => {
 		const ctx = createTestContext({
 			auth: {

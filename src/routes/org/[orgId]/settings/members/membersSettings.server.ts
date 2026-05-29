@@ -54,6 +54,7 @@ export interface MembersSettingsSection {
 
 export interface BuildMembersSettingsDataInput {
 	currentMemberRole: MembershipRole;
+	canManageMembers: boolean;
 	isAdmin: boolean;
 	members: SettingsAccessSourceRow[];
 	invitations: SettingsAccessSourceRow[];
@@ -111,6 +112,7 @@ export async function loadMembersSettings(
 
 	return buildMembersSettingsData({
 		currentMemberRole: ctx.auth.role,
+		canManageMembers: ctx.auth.canManageMembers,
 		isAdmin: input.isAdmin,
 		members: membershipRows,
 		invitations: invitationRows,
@@ -122,7 +124,7 @@ export async function loadMembersSettings(
 
 export function buildMembersSettingsData(input: BuildMembersSettingsDataInput): MembersSettingsData {
 	const isOwner = input.currentMemberRole === 'owner';
-	const canManageMembers = isOwner || input.currentMemberRole === 'admin';
+	const canManageMembers = input.canManageMembers;
 
 	return {
 		currentMember: {
@@ -138,8 +140,7 @@ export function buildMembersSettingsData(input: BuildMembersSettingsDataInput): 
 }
 
 export function buildMembersSettingsSection(input: BuildMembersSettingsDataInput): MembersSettingsSection {
-	const isOwner = input.currentMemberRole === 'owner';
-	const canManageMembers = isOwner || input.currentMemberRole === 'admin';
+	const canManageMembers = input.canManageMembers;
 	const groups = GroupEntity.fromDbArray(input.groups).map((group) => ({ id: group.id, name: group.name }));
 	const availablePresetOptions = canManageMembers ? [...SETTINGS_ACCESS_OPTIONS] : [];
 	const members = input.members.map((row) =>

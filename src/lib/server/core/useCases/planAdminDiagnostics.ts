@@ -8,6 +8,7 @@ import {
 } from './planPolicy';
 import type { OrganizationPlanUsage } from './organizationPlanUsage';
 import { buildPlanUsageSummary, type PlanUsageSummaryRow, type PlanUsageSummaryStatus } from './planUsageSummary';
+import { planPolicySourceLabel } from './planPolicySourceLabel';
 import type { BillingSnapshotSource, Tier } from '$lib/types/subscription';
 
 export interface PlanAdminDiagnosticsEffectivePlan {
@@ -50,19 +51,6 @@ export interface PlanAdminDiagnostics {
 	usageRows: PlanUsageSummaryRow[];
 	overLimitReasons: PlanAdminDiagnosticsReason[];
 	entitlements: PlanAdminDiagnosticsEntitlement[];
-}
-
-function policySourceLabel(source: PlanPolicySource): string {
-	switch (source) {
-		case 'admin_gift':
-			return 'Admin gift';
-		case 'billing_disabled_fallback':
-			return 'Billing-disabled fallback';
-		case 'billing_snapshot':
-			return 'Local billing snapshot';
-		case 'legacy_organization':
-			return 'Base plan';
-	}
 }
 
 function entitlementSourceLabel(source: PlanFeatureEntitlement['source']): string {
@@ -124,7 +112,7 @@ export function buildPlanAdminDiagnostics(
 	usage: OrganizationPlanUsage
 ): PlanAdminDiagnostics {
 	const summary = buildPlanUsageSummary(policy, usage);
-	const sourceLabel = policySourceLabel(policy.source);
+	const sourceLabel = planPolicySourceLabel(policy.source);
 	const overLimitRows = summary.rows
 		.filter((row) => row.status === 'over_limit')
 		.map((row) => rowReason(row, sourceLabel));

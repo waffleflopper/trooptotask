@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { goto, invalidateAll } from '$app/navigation';
+	import { beforeNavigate, goto, invalidateAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import type { Group } from '$lib/stores/groups.svelte';
 	import { ALL_RANKS } from '$lib/types';
@@ -19,7 +19,7 @@
 	} from '$lib/utils/columnMapping';
 	import { parseFile } from '$lib/utils/csvParser';
 	import { useDataTableSelection, type ColumnDef as DataTableColumnDef } from '$lib/components/ui/data-table';
-	import { tick } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import AlertCircleIcon from '@lucide/svelte/icons/alert-circle';
 	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert';
@@ -60,10 +60,13 @@
 		insertedCount: number;
 		errors: Array<{ index: number; message: string }>;
 		capError?: string;
+		capReached?: boolean;
 	}
 
 	const TEMPLATE_HEADERS = 'Rank, Last Name, First Name, MOS, Duty Role, Group, ETS, PCS / DEROS';
 	const SAMPLE_ROW = 'SGT, Smith, John, 68W, Medic, Alpha Team, 2027-05-01, 2026-11-30';
+	const ISO_DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
+	const CAP_REACHED_MARKER = 'Personnel cap reached';
 
 	let importStep = $state<ImportState>('input');
 	let fileRows = $state<string[][]>([]);
@@ -108,6 +111,12 @@
 
 		if (!(row.lastName ?? '').trim()) cellErrors.lastName = 'Last name is required';
 		if (!(row.firstName ?? '').trim()) cellErrors.firstName = 'First name is required';
+
+		const ets = (row.ets ?? '').trim();
+		if (ets && !isValidIsoDate(ets)) cellErrors.ets = 'ETS must be a valid YYYY-MM-DD date';
+
+		const deros = (row.deros ?? '').trim();
+		if (deros && !isValidIsoDate(deros)) cellErrors.deros = 'PCS / DEROS must be a valid YYYY-MM-DD date';
 
 		const groupName = (row.groupName ?? '').trim();
 		if (groupName && !groups.some((group) => group.name.toLowerCase() === groupName.toLowerCase())) {
@@ -196,6 +205,32 @@
 					: 'failed'
 			: 'failed'
 	);
+	const hasCapFailure = $derived(!!importResult?.capReached || !!importResult?.capError);
+	const hasReviewableErrors = $derived(
+		!!importResult?.errors.some((error) => !error.message.includes(CAP_REACHED_MARKER))
+	);
+
+	beforeNavigate(({ cancel }) => {
+		if (runningImport) cancel();
+	});
+
+	onMount(() => {
+		const resetRestoredResult = (event: PageTransitionEvent) => {
+			if (event.persisted && importResult) resetImportState();
+		};
+
+		window.addEventListener('pageshow', resetRestoredResult);
+		return () => window.removeEventListener('pageshow', resetRestoredResult);
+	});
+
+	function isValidIsoDate(value: string): boolean {
+		if (!ISO_DATE_REGEX.test(value)) return false;
+
+		const [year, month, day] = value.split('-').map((part) => Number(part));
+		const utcDate = new Date(Date.UTC(year, month - 1, day));
+
+		return utcDate.getUTCFullYear() === year && utcDate.getUTCMonth() === month - 1 && utcDate.getUTCDate() === day;
+	}
 
 	function firstError(row: PreviewRow): string | undefined {
 		return Object.values(row.validation.cellErrors)[0];
@@ -264,7 +299,7 @@
 		}
 	}
 
-	function clearFile() {
+	function resetImportState() {
 		uploadedFileName = '';
 		uploadedFiles = undefined;
 		fileRows = [];
@@ -272,6 +307,12 @@
 		importResult = null;
 		lastSubmittedEntries = [];
 		importStep = 'input';
+	}
+
+	async function clearFile() {
+		const shouldRefresh = importResult !== null;
+		resetImportState();
+		if (shouldRefresh) await invalidateAll();
 	}
 
 	function useTemplateHeaders() {
@@ -318,19 +359,27 @@
 				importResult = {
 					insertedCount: 0,
 					errors: data.errors ?? [],
-					capError: data.error ?? data.message ?? `Import failed with status ${response.status}`
+					capError: data.message ?? `Import failed with status ${response.status}`,
+					capReached: data.capReached ?? false
 				};
 			} else {
+				const capError =
+					typeof data.capError === 'string'
+						? data.capError
+						: data.errors?.find((error: { message?: string }) => error.message?.includes(CAP_REACHED_MARKER))?.message;
 				importResult = {
 					insertedCount: (data.inserted ?? []).length,
-					errors: data.errors ?? []
+					errors: data.errors ?? [],
+					capError,
+					capReached: data.capReached ?? !!capError
 				};
 			}
 			importStep = 'results';
 		} catch (err) {
 			importResult = {
 				insertedCount: 0,
-				errors: [{ index: -1, message: err instanceof Error ? err.message : 'Network error' }]
+				errors: [{ index: -1, message: err instanceof Error ? err.message : 'Network error' }],
+				capReached: false
 			};
 			importStep = 'results';
 		} finally {
@@ -347,6 +396,7 @@
 		importStep = 'preview';
 		const failedKeys = new Set(
 			importResult?.errors
+				.filter((error) => !error.message.includes(CAP_REACHED_MARKER))
 				.map((error) => (error.index >= 0 ? lastSubmittedEntries[error.index]?.sourceRowNumber : undefined))
 				.filter((rowNumber): rowNumber is number => rowNumber !== undefined)
 				.map((rowNumber) => `row-${rowNumber}`)
@@ -358,8 +408,7 @@
 	}
 
 	async function finishImport() {
-		await invalidateAll();
-		await goto(resolve(`/org/${orgUrlSegment}/personnel`));
+		await goto(resolve(`/org/${orgUrlSegment}/personnel`), { invalidateAll: true });
 	}
 </script>
 
@@ -577,6 +626,7 @@
 					/>
 
 					<BulkImportWorkspace.FooterActions disabledReason={submitDisabledReason}>
+						<Button variant="ghost" type="button" href={rosterPath}>Cancel</Button>
 						<Button variant="outline" type="button" onclick={backToInput}>Back</Button>
 						<Button type="button" onclick={runImport} disabled={runningImport || !!submitDisabledReason}>
 							Import checked rows
@@ -591,8 +641,10 @@
 			/>
 		{:else if importStep === 'results' && importResult}
 			{#snippet resultActions()}
-				{#if importResult && importResult.errors.length > 0}
+				{#if hasReviewableErrors}
 					<Button variant="outline" type="button" onclick={reviewFailedRows}>Review failed rows</Button>
+					<Button variant="outline" type="button" onclick={clearFile}>Upload another file</Button>
+				{:else if importResult?.errors.length}
 					<Button variant="outline" type="button" onclick={clearFile}>Upload another file</Button>
 				{/if}
 				<Button type="button" onclick={finishImport}>Return to Personnel</Button>
@@ -611,6 +663,11 @@
 				]}
 				actions={resultActions}
 			>
+				{#if hasCapFailure}
+					<div class="rounded-md border border-warning/35 bg-warning-muted/70 p-3 text-sm text-warning-foreground">
+						Your personnel limit has been reached. Archive personnel or upgrade your plan before retrying.
+					</div>
+				{/if}
 				{#if importResult.errors.length > 0}
 					<ul class="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
 						{#each importResult.errors as err (`${err.index}-${err.message}`)}

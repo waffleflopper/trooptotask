@@ -16,8 +16,7 @@
 		Moon,
 		Settings,
 		Sun,
-		UserCircle,
-		UserRound
+		UserCircle
 	} from '@lucide/svelte';
 	import type { CapabilityMap } from '$lib/access/memberAccessShape';
 	import type { OrganizationMemberPermissions } from '$lib/types';
@@ -387,10 +386,6 @@
 											Send Feedback
 										</DropdownMenu.Item>
 									{/if}
-									<DropdownMenu.Item onclick={() => goto(resolve('/help'))}>
-										<UserRound />
-										Help
-									</DropdownMenu.Item>
 								</DropdownMenu.Group>
 								<DropdownMenu.Separator />
 								{#if canLeaveOrganization}

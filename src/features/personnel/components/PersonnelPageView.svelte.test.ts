@@ -9,14 +9,27 @@ import type { PersonnelPageContext } from '$features/personnel/contexts/Personne
 import type { UpcomingLossRecord } from '$lib/domain/readinessSignals';
 import type { ClientAffordance } from '$lib/stores/orgContext.svelte';
 
-const { gotoMock, invalidateAllMock } = vi.hoisted(() => ({
+const { gotoMock, invalidateAllMock, toastSuccessMock, toastInfoMock, toastErrorMock } = vi.hoisted(() => ({
 	gotoMock: vi.fn(),
-	invalidateAllMock: vi.fn()
+	invalidateAllMock: vi.fn(),
+	toastSuccessMock: vi.fn(),
+	toastInfoMock: vi.fn(),
+	toastErrorMock: vi.fn()
 }));
 
 vi.mock('$app/navigation', () => ({
 	goto: gotoMock,
 	invalidateAll: invalidateAllMock
+}));
+
+vi.mock('svelte-sonner', () => ({
+	toast: {
+		success: toastSuccessMock,
+		info: toastInfoMock,
+		error: toastErrorMock,
+		warning: vi.fn(),
+		dismiss: vi.fn()
+	}
 }));
 
 import PersonnelPageView from './PersonnelPageView.svelte';
@@ -132,6 +145,9 @@ describe('PersonnelPageView', () => {
 		vi.stubGlobal('fetch', vi.fn());
 		gotoMock.mockReset();
 		invalidateAllMock.mockReset();
+		toastSuccessMock.mockReset();
+		toastInfoMock.mockReset();
+		toastErrorMock.mockReset();
 	});
 
 	afterEach(() => {
@@ -219,7 +235,7 @@ describe('PersonnelPageView', () => {
 		const toolbar = screen.getByRole('toolbar', { name: 'Personnel controls' });
 		expect(within(toolbar).queryByRole('button', { name: 'Manage Groups' })).toBeNull();
 		expect(within(toolbar).queryByRole('button', { name: 'Add Person' })).toBeNull();
-		expect(within(toolbar).queryByRole('button', { name: 'Import' })).toBeNull();
+		expect(within(toolbar).queryByRole('link', { name: 'Import' })).toBeNull();
 		expect(screen.getByRole('button', { name: 'Edit' })).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Details' })).toBeTruthy();
 	});
@@ -240,7 +256,7 @@ describe('PersonnelPageView', () => {
 		});
 
 		const toolbar = screen.getByRole('toolbar', { name: 'Personnel controls' });
-		expect(within(toolbar).queryByRole('button', { name: 'Import' })).toBeNull();
+		expect(within(toolbar).queryByRole('link', { name: 'Import' })).toBeNull();
 		expect(within(toolbar).queryByRole('button', { name: 'Add Person' })).toBeNull();
 		expect(screen.getByRole('button', { name: 'Archive SGT Smith, Jane' })).toBeTruthy();
 
@@ -523,6 +539,77 @@ describe('PersonnelPageView', () => {
 		});
 		await waitFor(() => expect(invalidateAllMock).toHaveBeenCalled());
 		expect(screen.queryByText('Smith, Jane')).toBeNull();
+	});
+
+	it('shows an approval-request toast for selected personnel that need admin approval', async () => {
+		const fetchMock = vi.fn().mockResolvedValue({
+			ok: true,
+			json: () => Promise.resolve({ archivedIds: [], approvalRequestedIds: ['person-1'], errors: [] })
+		});
+		vi.stubGlobal('fetch', fetchMock);
+		const ctx = {
+			...makeCtx(),
+			canArchivePersonnelRecord: () => true,
+			personnelArchiveAffordance: () => allowedAffordance()
+		} as unknown as PersonnelPageContext;
+
+		render(PersonnelPageView, {
+			props: { ctx, permissions: editablePermissions }
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Archive' }));
+		await fireEvent.click(screen.getByRole('checkbox', { name: 'Select SGT Smith, Jane' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Confirm Archive' }));
+		await fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Archive' }));
+
+		await waitFor(() =>
+			expect(toastInfoMock).toHaveBeenCalledWith('1 archival requests submitted for admin approval.', {
+				duration: 4000,
+				action: undefined
+			})
+		);
+		expect(toastSuccessMock).not.toHaveBeenCalled();
+		expect(toastErrorMock).not.toHaveBeenCalled();
+		expect(invalidateAllMock).toHaveBeenCalled();
+		expect(screen.getByText('Smith, Jane')).toBeTruthy();
+	});
+
+	it('shows an error toast when selected personnel cannot be archived', async () => {
+		const fetchMock = vi.fn().mockResolvedValue({
+			ok: true,
+			json: () =>
+				Promise.resolve({
+					archivedIds: [],
+					approvalRequestedIds: [],
+					errors: [{ id: 'person-1', message: 'Archive failed' }]
+				})
+		});
+		vi.stubGlobal('fetch', fetchMock);
+		const ctx = {
+			...makeCtx(),
+			canArchivePersonnelRecord: () => true,
+			personnelArchiveAffordance: () => allowedAffordance()
+		} as unknown as PersonnelPageContext;
+
+		render(PersonnelPageView, {
+			props: { ctx, permissions: editablePermissions }
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Archive' }));
+		await fireEvent.click(screen.getByRole('checkbox', { name: 'Select SGT Smith, Jane' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Confirm Archive' }));
+		await fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Archive' }));
+
+		await waitFor(() =>
+			expect(toastErrorMock).toHaveBeenCalledWith('1 personnel could not be archived.', {
+				duration: 6000,
+				action: undefined
+			})
+		);
+		expect(toastSuccessMock).not.toHaveBeenCalled();
+		expect(toastInfoMock).not.toHaveBeenCalled();
+		expect(invalidateAllMock).not.toHaveBeenCalled();
+		expect(screen.getByText('Smith, Jane')).toBeTruthy();
 	});
 
 	it('keeps rating scheme controls out of the Personnel roster page', () => {

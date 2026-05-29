@@ -72,7 +72,7 @@ describe('plan usage summary', () => {
 			plan: {
 				tier: 'free',
 				source: 'billing_snapshot',
-				sourceLabel: 'Free plan'
+				sourceLabel: 'Stripe-backed billing'
 			},
 			rows: [
 				expect.objectContaining({
@@ -111,7 +111,7 @@ describe('plan usage summary', () => {
 		});
 	});
 
-	it('explains gift, billing-disabled, and read-only billing sources for owners', () => {
+	it('explains shared policy source labels and read-only billing sources for owners', () => {
 		const gifted = buildPlanUsageSummary(
 			buildEffectivePlanPolicy(
 				snapshot({
@@ -164,9 +164,32 @@ describe('plan usage summary', () => {
 				monthlyExportCount: 0
 			})
 		);
+		const legacy = buildPlanUsageSummary(
+			buildEffectivePlanPolicy(
+				snapshot({
+					source: 'legacy_organization',
+					commercialPlan: 'team',
+					stripeCustomerId: null,
+					stripeSubscriptionId: null,
+					stripeProductId: null,
+					stripePriceId: null,
+					subscriptionStatus: null,
+					collectionStatus: null,
+					syncStatus: 'needs_reconciliation'
+				})
+			),
+			usage({
+				activePersonnelCount: 4,
+				activeOrganizationMemberCount: 1,
+				pendingUnexpiredInvitationCount: 0,
+				monthlyExportCount: 0
+			})
+		);
 
 		expect(gifted.plan.sourceLabel).toBe('Admin gift');
 		expect(billingDisabled.plan.sourceLabel).toBe('Billing-disabled fallback');
+		expect(paymentGrace.plan.sourceLabel).toBe('Stripe-backed billing');
+		expect(legacy.plan.sourceLabel).toBe('Legacy organization');
 		expect(billingDisabled.rows.map((row) => row.limitLabel)).toEqual([
 			'Unlimited',
 			'Unlimited',

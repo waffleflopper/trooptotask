@@ -1,9 +1,7 @@
 import { redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { parseMemberAccessEditFormData } from '$lib/access/memberAccessCommands';
-import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import { buildRouteContext, loadWithContext } from '$lib/server/adapters/httpAdapter';
-import { getSettingsPermissions } from '../settingsPermissions.server';
+import { buildRouteContext } from '$lib/server/adapters/httpAdapter';
 import { createSupabaseOrgSettingsMemberManagementPort } from '$lib/server/adapters/supabaseOrgSettingsMemberManagement';
 import { getAdminClient } from '$lib/server/supabase';
 import { createSupabaseOrganizationInvitationDeliveryPort } from '$lib/server/organizationInvitationDelivery';
@@ -17,29 +15,12 @@ import {
 } from '$lib/server/core/useCases/orgSettingsMemberManagement';
 import { toActionFailure } from '../settingsActionFailure.server';
 import { loadMembersSettings } from './membersSettings.server';
+import { loadSettingsPage } from '../settingsLoad.server';
 
-export const load: PageServerLoad = async ({ locals, cookies, parent }) => {
-	const parentData = await parent();
-	const permissions = getSettingsPermissions(parentData);
-	if (!permissions) return {} as never;
-
-	const { orgId, orgName, orgUrlSegment, allOrgs, isAdmin, effectiveTier } = parentData;
-
-	return loadWithContext(locals, cookies, orgId, {
-		policyAction: POLICY_ACTION_CATALOG.organization.accessGovernance,
-		policyResource: { kind: 'organization' },
-		fn: async (ctx) => ({
-			orgId,
-			orgUrlSegment: orgUrlSegment ?? orgId,
-			orgUrlSlug: orgUrlSegment && orgUrlSegment !== orgId ? orgUrlSegment : null,
-			orgName,
-			effectiveTier,
-			permissions,
-			allOrgs,
-			membersSettings: await loadMembersSettings(ctx, { isAdmin: Boolean(isAdmin) })
-		})
-	});
-};
+export const load: PageServerLoad = (event) =>
+	loadSettingsPage(event, async (ctx, { common }) => ({
+		membersSettings: await loadMembersSettings(ctx, { isAdmin: common.isAdmin })
+	}));
 
 export const actions: Actions = {
 	invite: async (event) => {

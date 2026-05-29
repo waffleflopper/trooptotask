@@ -71,6 +71,8 @@ describe('importPersonnelBatch', () => {
 		expect(result.errors).toHaveLength(1);
 		expect(result.errors[0].message).toContain('cap reached');
 		expect(result.errors[0].message).toContain('upgrade or archive personnel');
+		expect(result.capReached).toBe(true);
+		expect(result.capError).toBe('Personnel cap reached — upgrade or archive personnel before adding this record');
 	});
 
 	it('returns per-row errors when cap is fully reached', async () => {
@@ -88,6 +90,15 @@ describe('importPersonnelBatch', () => {
 			{ index: 0, message: 'Personnel cap reached — upgrade or archive personnel before adding this record' },
 			{ index: 1, message: 'Personnel cap reached — upgrade or archive personnel before adding this record' }
 		]);
+		expect(result).toMatchObject({
+			capReached: true,
+			capError: 'Personnel cap reached — upgrade or archive personnel before adding this record'
+		});
+		expect(ctx.audit.events).toContainEqual({
+			action: 'personnel.bulk_import_blocked',
+			resourceType: 'personnel',
+			details: { reason: 'cap_exhausted', attempted: 2 }
+		});
 	});
 
 	it('enforces scoped group restriction', async () => {

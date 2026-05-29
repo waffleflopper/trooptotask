@@ -46,7 +46,11 @@ interface BatchError {
 interface BatchResult {
 	inserted: unknown[];
 	errors: BatchError[];
+	capReached?: boolean;
+	capError?: string;
 }
+
+const PERSONNEL_CAP_REACHED_MESSAGE = 'Personnel cap reached — upgrade or archive personnel before adding this record';
 
 function isValidIsoDate(value: string): boolean {
 	if (!ISO_DATE_REGEX.test(value)) return false;
@@ -177,17 +181,22 @@ export async function importPersonnelBatch(ctx: WriteWithSubscriptionPorts, inpu
 			for (const { index } of validRows) {
 				errors.push({
 					index,
-					message: 'Personnel cap reached — upgrade or archive personnel before adding this record'
+					message: PERSONNEL_CAP_REACHED_MESSAGE
 				});
 			}
-			return { inserted: [], errors };
+			ctx.audit.log({
+				action: 'personnel.bulk_import_blocked',
+				resourceType: AUDIT_RESOURCE,
+				details: { reason: 'cap_exhausted', attempted: validRows.length }
+			});
+			return { inserted: [], errors, capReached: true, capError: PERSONNEL_CAP_REACHED_MESSAGE };
 		}
 		if (validRows.length > available) {
 			const excess = validRows.splice(available);
 			for (const { index } of excess) {
 				errors.push({
 					index,
-					message: 'Personnel cap reached — upgrade or archive personnel before adding this record'
+					message: PERSONNEL_CAP_REACHED_MESSAGE
 				});
 			}
 		}
@@ -211,7 +220,11 @@ export async function importPersonnelBatch(ctx: WriteWithSubscriptionPorts, inpu
 
 	return {
 		inserted: insertedRows.map((row) => entity.fromDb(row)),
-		errors
+		errors,
+		capReached: errors.some((error) => error.message === PERSONNEL_CAP_REACHED_MESSAGE) || undefined,
+		capError: errors.some((error) => error.message === PERSONNEL_CAP_REACHED_MESSAGE)
+			? PERSONNEL_CAP_REACHED_MESSAGE
+			: undefined
 	};
 }
 

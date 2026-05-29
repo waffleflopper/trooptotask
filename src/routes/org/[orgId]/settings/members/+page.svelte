@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import type { PageProps } from './$types';
 	import { Edit, RefreshCw, Search, Trash2 } from '@lucide/svelte';
 	import type { SubmitFunction } from '@sveltejs/kit';
 	import { explainPolicyReasonCode } from '$lib/access/policyDecisionExplanations';
@@ -15,12 +16,16 @@
 	import * as Select from '$lib/components/ui/select/index.js';
 	import * as Sheet from '$lib/components/ui/sheet/index.js';
 	import { formatRelativeDate } from '$lib/utils/dates';
-	import { createSettingsWorkspaceState } from '../settingsWorkspaceState.svelte';
-	import type { EditableMembershipRole, EditablePreset } from '../settingsMemberAccessWorkspace.svelte';
+	import {
+		createSettingsMemberAccessWorkspace,
+		type EditableMembershipRole,
+		type EditablePreset
+	} from '../settingsMemberAccessWorkspace.svelte';
+	import type { MembersSettingsSection } from './membersSettings.server';
 	import type { SettingsMemberAccessRow } from '../settingsMemberAccessModel';
 	import { pluralize } from '../settingsWorkspaceFormatters';
 
-	let { data, form } = $props();
+	let { data, form }: PageProps = $props();
 
 	let inviteLoading = $state(false);
 	let permissionLoading = $state(false);
@@ -28,11 +33,15 @@
 	let pendingRemoveMemberForm = $state<HTMLFormElement | null>(null);
 	let pendingRemoveMemberEmail = $state('');
 
-	const settingsState = createSettingsWorkspaceState(() => data.workspace);
-	const membersSection = $derived(data.workspace.sections.members);
-	const currentMember = $derived(data.workspace.currentMember);
+	const membersSection = $derived(data.membersSettings.sections.members);
+	const currentMember = $derived(data.membersSettings.currentMember);
 	const isOwner = $derived(currentMember.isOwner);
-	const memberAccess = settingsState.members;
+	const memberAccess = createSettingsMemberAccessWorkspace(() => ({
+		members: membersSection.rows,
+		invitations: membersSection.invitations,
+		groups: membersSection.groups,
+		isOwner
+	}));
 	const sortedMembers = $derived(memberAccess.sortedMembers);
 	const filteredMembers = $derived(
 		memberSearch.trim()
@@ -220,7 +229,7 @@
 			{#each filteredMembers as member (member.id)}
 				{@const accessShape = memberAccess.getMemberAccessShape(member)}
 				{@const accessBadge = memberAccess.getMemberAccessBadge(member, accessShape)}
-				{@const overrides = memberAccess.overriddenCapabilityLabels(member)}
+				{@const overrides = (member as MembersSettingsSection['rows'][number]).overriddenCapabilityLabels}
 				<div class="grid gap-3 p-4 md:grid-cols-[auto_minmax(0,1fr)_auto] md:items-start">
 					<div
 						class="flex size-10 items-center justify-center rounded-md border bg-muted text-sm font-medium"

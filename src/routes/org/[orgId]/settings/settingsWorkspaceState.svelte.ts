@@ -1,13 +1,16 @@
 import type { CriticalTasksSettings } from '$features/critical-tasks/criticalTasks.types';
-import { createSettingsMemberAccessWorkspace } from './settingsMemberAccessWorkspace.svelte';
 import type {
-	OrganizationSettingsWorkspace,
+	DangerSettingsData,
 	SettingsArchivedPersonnelRow,
-	SettingsOwnershipTransferCandidate
-} from './organizationSettingsWorkspaceModel';
+	SettingsArchivesSectionData,
+	SettingsDangerSectionData,
+	SettingsExportsSectionData,
+	SettingsOwnershipTransferCandidate,
+	SettingsPoliciesSectionData
+} from './settingsSectionTypes';
 
 export class SettingsPoliciesState {
-	readonly #getWorkspace: () => OrganizationSettingsWorkspace;
+	readonly #getPolicies: () => SettingsPoliciesSectionData;
 
 	retentionMonths = $state(0);
 	savedRetentionMonths = $state(0);
@@ -22,13 +25,13 @@ export class SettingsPoliciesState {
 	savingCriticalTasks = $state(false);
 	#syncedPolicySnapshot = $state('');
 
-	constructor(workspace: OrganizationSettingsWorkspace | (() => OrganizationSettingsWorkspace)) {
-		this.#getWorkspace = typeof workspace === 'function' ? workspace : () => workspace;
-		this.syncFromWorkspace();
+	constructor(policies: SettingsPoliciesSectionData | (() => SettingsPoliciesSectionData)) {
+		this.#getPolicies = typeof policies === 'function' ? policies : () => policies;
+		this.syncFromSettings();
 	}
 
-	get #policies(): OrganizationSettingsWorkspace['sections']['policies'] {
-		return this.#getWorkspace().sections.policies;
+	get #policies(): SettingsPoliciesSectionData {
+		return this.#getPolicies();
 	}
 
 	get archiveRetentionConstraints() {
@@ -103,7 +106,7 @@ export class SettingsPoliciesState {
 		});
 	}
 
-	syncFromWorkspace(): void {
+	syncFromSettings(): void {
 		const snapshot = this.serverPolicySnapshot;
 		if (snapshot === this.#syncedPolicySnapshot) return;
 		if (this.#syncedPolicySnapshot && this.hasUnsavedEdits) return;
@@ -134,25 +137,25 @@ export class SettingsPoliciesState {
 }
 
 export class SettingsArchivedPersonnelState {
-	readonly #getWorkspace: () => OrganizationSettingsWorkspace;
+	readonly #getSection: () => SettingsArchivesSectionData;
 
 	confirmPermanentDelete = $state<{ id: string; name: string } | null>(null);
 	permanentDeleteConfirmText = $state('');
 
-	constructor(workspace: OrganizationSettingsWorkspace | (() => OrganizationSettingsWorkspace)) {
-		this.#getWorkspace = typeof workspace === 'function' ? workspace : () => workspace;
+	constructor(section: SettingsArchivesSectionData | (() => SettingsArchivesSectionData)) {
+		this.#getSection = typeof section === 'function' ? section : () => section;
 	}
 
-	get rows(): OrganizationSettingsWorkspace['sections']['archivedPersonnel']['rows'] {
-		return this.#getWorkspace().sections.archivedPersonnel.rows;
+	get rows(): SettingsArchivesSectionData['rows'] {
+		return this.#getSection().rows;
 	}
 
-	get retention(): OrganizationSettingsWorkspace['sections']['archivedPersonnel']['retention'] {
-		return this.#getWorkspace().sections.archivedPersonnel.retention;
+	get retention(): SettingsArchivesSectionData['retention'] {
+		return this.#getSection().retention;
 	}
 
-	get commands(): OrganizationSettingsWorkspace['sections']['archivedPersonnel']['commands'] {
-		return this.#getWorkspace().sections.archivedPersonnel.commands;
+	get commands(): SettingsArchivesSectionData['commands'] {
+		return this.#getSection().commands;
 	}
 
 	openPermanentDeleteConfirmation(person: Pick<SettingsArchivedPersonnelRow, 'id' | 'displayName'>): void {
@@ -174,31 +177,27 @@ export class SettingsArchivedPersonnelState {
 }
 
 export class SettingsDataExportState {
-	readonly #getWorkspace: () => OrganizationSettingsWorkspace;
+	readonly #getSection: () => SettingsExportsSectionData;
 
 	exportingOrgJson = $state(false);
 	exportingOrgExcel = $state(false);
 	exportError = $state('');
 	exportSuccess = $state(false);
 
-	constructor(workspace: OrganizationSettingsWorkspace | (() => OrganizationSettingsWorkspace)) {
-		this.#getWorkspace = typeof workspace === 'function' ? workspace : () => workspace;
+	constructor(section: SettingsExportsSectionData | (() => SettingsExportsSectionData)) {
+		this.#getSection = typeof section === 'function' ? section : () => section;
 	}
 
-	get section(): OrganizationSettingsWorkspace['sections']['dataExport'] {
-		return this.#getWorkspace().sections.dataExport;
+	get section(): SettingsExportsSectionData {
+		return this.#getSection();
 	}
 
-	get exportInfo(): OrganizationSettingsWorkspace['sections']['dataExport']['exportInfo'] {
+	get exportInfo(): SettingsExportsSectionData['exportInfo'] {
 		return this.section.exportInfo;
 	}
 
-	get commands(): OrganizationSettingsWorkspace['sections']['dataExport']['commands'] {
+	get commands(): SettingsExportsSectionData['commands'] {
 		return this.section.commands;
-	}
-
-	get activity(): OrganizationSettingsWorkspace['sections']['dataExport']['activity'] {
-		return this.section.activity;
 	}
 
 	get exportLimitReached(): boolean {
@@ -231,7 +230,7 @@ export class SettingsDataExportState {
 }
 
 export class SettingsDangerZoneState {
-	readonly #getWorkspace: () => OrganizationSettingsWorkspace;
+	readonly #getSettings: () => DangerSettingsData;
 
 	showTransferConfirm = $state(false);
 	transferTargetId = $state<string | null>(null);
@@ -239,12 +238,12 @@ export class SettingsDangerZoneState {
 	showDeleteConfirm = $state(false);
 	deleteConfirmText = $state('');
 
-	constructor(workspace: OrganizationSettingsWorkspace | (() => OrganizationSettingsWorkspace)) {
-		this.#getWorkspace = typeof workspace === 'function' ? workspace : () => workspace;
+	constructor(settings: DangerSettingsData | (() => DangerSettingsData)) {
+		this.#getSettings = typeof settings === 'function' ? settings : () => settings;
 	}
 
-	get section(): OrganizationSettingsWorkspace['sections']['dangerZone'] {
-		return this.#getWorkspace().sections.dangerZone;
+	get section(): SettingsDangerSectionData {
+		return this.#getSettings().sections.dangerZone;
 	}
 
 	get transferOwnershipCandidates(): SettingsOwnershipTransferCandidate[] {
@@ -294,35 +293,26 @@ export class SettingsDangerZoneState {
 	}
 }
 
-export class SettingsWorkspaceState {
-	readonly #getWorkspace: () => OrganizationSettingsWorkspace;
-
-	members: ReturnType<typeof createSettingsMemberAccessWorkspace>;
-	policies: SettingsPoliciesState;
-	archivedPersonnel: SettingsArchivedPersonnelState;
-	dataExport: SettingsDataExportState;
-	dangerZone: SettingsDangerZoneState;
-
-	constructor(workspace: OrganizationSettingsWorkspace | (() => OrganizationSettingsWorkspace)) {
-		this.#getWorkspace = typeof workspace === 'function' ? workspace : () => workspace;
-		this.members = createSettingsMemberAccessWorkspace(() => {
-			const section = this.#getWorkspace().sections.members;
-			return {
-				members: section.rows,
-				invitations: section.invitations,
-				groups: section.groups,
-				isOwner: this.#getWorkspace().currentMember.isOwner
-			};
-		});
-		this.policies = new SettingsPoliciesState(() => this.#getWorkspace());
-		this.archivedPersonnel = new SettingsArchivedPersonnelState(() => this.#getWorkspace());
-		this.dataExport = new SettingsDataExportState(() => this.#getWorkspace());
-		this.dangerZone = new SettingsDangerZoneState(() => this.#getWorkspace());
-	}
+export function createSettingsDangerZoneState(
+	settings: DangerSettingsData | (() => DangerSettingsData)
+): SettingsDangerZoneState {
+	return new SettingsDangerZoneState(settings);
 }
 
-export function createSettingsWorkspaceState(
-	workspace: OrganizationSettingsWorkspace | (() => OrganizationSettingsWorkspace)
-): SettingsWorkspaceState {
-	return new SettingsWorkspaceState(workspace);
+export function createSettingsPoliciesState(
+	policies: SettingsPoliciesSectionData | (() => SettingsPoliciesSectionData)
+): SettingsPoliciesState {
+	return new SettingsPoliciesState(policies);
+}
+
+export function createSettingsArchivedPersonnelState(
+	section: SettingsArchivesSectionData | (() => SettingsArchivesSectionData)
+): SettingsArchivedPersonnelState {
+	return new SettingsArchivedPersonnelState(section);
+}
+
+export function createSettingsDataExportState(
+	section: SettingsExportsSectionData | (() => SettingsExportsSectionData)
+): SettingsDataExportState {
+	return new SettingsDataExportState(section);
 }

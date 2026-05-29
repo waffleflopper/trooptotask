@@ -1,6 +1,18 @@
 import { describe, expect, it } from 'vitest';
-import type { OrganizationSettingsWorkspace } from './organizationSettingsWorkspace.server';
-import { createSettingsWorkspaceState } from './settingsWorkspaceState.svelte';
+import { createSettingsMemberAccessWorkspace } from './settingsMemberAccessWorkspace.svelte';
+import type {
+	DangerSettingsData,
+	SettingsArchivesSectionData,
+	SettingsExportsSectionData,
+	SettingsMembersSectionData,
+	SettingsPoliciesSectionData
+} from './settingsSectionTypes';
+import {
+	createSettingsArchivedPersonnelState,
+	createSettingsDangerZoneState,
+	createSettingsDataExportState,
+	createSettingsPoliciesState
+} from './settingsWorkspaceState.svelte';
 
 const capabilityMap = {
 	calendar: 'configure',
@@ -11,7 +23,16 @@ const capabilityMap = {
 	ratingScheme: 'configure'
 } as const;
 
-function makeWorkspace(): OrganizationSettingsWorkspace {
+type SettingsStateTestData = DangerSettingsData & {
+	sections: DangerSettingsData['sections'] & {
+		members: SettingsMembersSectionData;
+		policies: SettingsPoliciesSectionData;
+		archivedPersonnel: SettingsArchivesSectionData;
+		dataExport: SettingsExportsSectionData;
+	};
+};
+
+function makeSettingsData(): SettingsStateTestData {
 	return {
 		currentMember: {
 			role: 'owner',
@@ -121,19 +142,6 @@ function makeWorkspace(): OrganizationSettingsWorkspace {
 				commands: {
 					canExportJson: true,
 					canExportExcel: true
-				},
-				activity: {
-					pendingApprovalsCount: 0,
-					approvalRequests: [],
-					auditLog: {
-						logs: [],
-						totalCount: 0,
-						last30DaysCount: 0,
-						page: 1,
-						limit: 9,
-						actionFilter: '',
-						availableActions: []
-					}
 				}
 			},
 			dangerZone: {
@@ -159,123 +167,135 @@ function makeWorkspace(): OrganizationSettingsWorkspace {
 }
 
 describe('settings workspace state', () => {
-	it('owns policy dirty and validity state from workspace saved values', () => {
-		const state = createSettingsWorkspaceState(makeWorkspace());
+	it('owns policy dirty and validity state from Policies section data', () => {
+		const state = createSettingsPoliciesState(makeSettingsData().sections.policies);
 
-		expect(state.policies.retentionMonths).toBe(36);
-		expect(state.policies.hasRetentionChanges).toBe(false);
+		expect(state.retentionMonths).toBe(36);
+		expect(state.hasRetentionChanges).toBe(false);
 
-		state.policies.retentionMonths = 0;
+		state.retentionMonths = 0;
 
-		expect(state.policies.hasRetentionChanges).toBe(true);
-		expect(state.policies.isRetentionValid).toBe(false);
+		expect(state.hasRetentionChanges).toBe(true);
+		expect(state.isRetentionValid).toBe(false);
 
-		state.policies.retentionMonths = 48;
-		state.policies.markRetentionSaved();
+		state.retentionMonths = 48;
+		state.markRetentionSaved();
 
-		expect(state.policies.savedRetentionMonths).toBe(48);
-		expect(state.policies.hasRetentionChanges).toBe(false);
+		expect(state.savedRetentionMonths).toBe(48);
+		expect(state.hasRetentionChanges).toBe(false);
 	});
 
-	it('composes member editor state from the workspace section', () => {
-		const state = createSettingsWorkspaceState(makeWorkspace());
-		const member = state.members.sortedMembers[0];
+	it('composes member editor state from Members section data', () => {
+		const data = makeSettingsData();
+		const state = createSettingsMemberAccessWorkspace({
+			members: data.sections.members.rows,
+			invitations: data.sections.members.invitations,
+			groups: data.sections.members.groups,
+			isOwner: data.currentMember.isOwner
+		});
+		const member = state.sortedMembers[0];
 
-		state.members.openMemberEditor(member);
+		state.openMemberEditor(member);
 
-		expect(state.members.memberEditorId).toBe('member-1');
-		expect(state.members.getSelectedPreset(member)).toBe('editor');
+		expect(state.memberEditorId).toBe('member-1');
+		expect(state.getSelectedPreset(member)).toBe('editor');
 	});
 
-	it('owns archived personnel delete confirmation command state', () => {
-		const state = createSettingsWorkspaceState(makeWorkspace());
-		const archivedPerson = state.archivedPersonnel.rows[0];
+	it('owns archived personnel delete confirmation command state from Archives section data', () => {
+		const state = createSettingsArchivedPersonnelState(makeSettingsData().sections.archivedPersonnel);
+		const archivedPerson = state.rows[0];
 
-		state.archivedPersonnel.openPermanentDeleteConfirmation(archivedPerson);
+		state.openPermanentDeleteConfirmation(archivedPerson);
 
-		expect(state.archivedPersonnel.confirmPermanentDelete).toEqual({
+		expect(state.confirmPermanentDelete).toEqual({
 			id: 'person-1',
 			name: 'SGT Jones, Avery'
 		});
-		expect(state.archivedPersonnel.permanentDeleteConfirmMatches).toBe(false);
+		expect(state.permanentDeleteConfirmMatches).toBe(false);
 
-		state.archivedPersonnel.permanentDeleteConfirmText = 'SGT Jones, Avery';
+		state.permanentDeleteConfirmText = 'SGT Jones, Avery';
 
-		expect(state.archivedPersonnel.permanentDeleteConfirmMatches).toBe(true);
+		expect(state.permanentDeleteConfirmMatches).toBe(true);
 
-		state.archivedPersonnel.clearPermanentDeleteConfirmation();
+		state.clearPermanentDeleteConfirmation();
 
-		expect(state.archivedPersonnel.confirmPermanentDelete).toBeNull();
-		expect(state.archivedPersonnel.permanentDeleteConfirmText).toBe('');
+		expect(state.confirmPermanentDelete).toBeNull();
+		expect(state.permanentDeleteConfirmText).toBe('');
 	});
 
-	it('owns data export command transition state', () => {
-		const state = createSettingsWorkspaceState(makeWorkspace());
+	it('owns data export command transition state from Exports section data', () => {
+		const state = createSettingsDataExportState(makeSettingsData().sections.dataExport);
 
-		state.dataExport.beginExport('json');
+		state.beginExport('json');
 
-		expect(state.dataExport.exportingOrgJson).toBe(true);
-		expect(state.dataExport.exportingOrgExcel).toBe(false);
-		expect(state.dataExport.exportSuccess).toBe(false);
+		expect(state.exportingOrgJson).toBe(true);
+		expect(state.exportingOrgExcel).toBe(false);
+		expect(state.exportSuccess).toBe(false);
 
-		state.dataExport.markExportSucceeded();
-		state.dataExport.finishExport();
+		state.markExportSucceeded();
+		state.finishExport();
 
-		expect(state.dataExport.exportingOrgJson).toBe(false);
-		expect(state.dataExport.exportSuccess).toBe(true);
+		expect(state.exportingOrgJson).toBe(false);
+		expect(state.exportSuccess).toBe(true);
 	});
 
 	it('owns danger zone delete confirmation transition state', () => {
-		const state = createSettingsWorkspaceState(makeWorkspace());
+		const state = createSettingsDangerZoneState(makeSettingsData());
 
-		state.dangerZone.openDeleteConfirmation();
-		state.dangerZone.deleteConfirmText = 'test org';
+		state.openDeleteConfirmation();
+		state.deleteConfirmText = 'test org';
 
-		expect(state.dangerZone.showDeleteConfirm).toBe(true);
-		expect(state.dangerZone.deleteConfirmMatches).toBe(false);
+		expect(state.showDeleteConfirm).toBe(true);
+		expect(state.deleteConfirmMatches).toBe(false);
 
-		state.dangerZone.deleteConfirmText = 'Test Org';
+		state.deleteConfirmText = 'Test Org';
 
-		expect(state.dangerZone.deleteConfirmMatches).toBe(true);
+		expect(state.deleteConfirmMatches).toBe(true);
 
-		state.dangerZone.closeDeleteConfirmation();
+		state.closeDeleteConfirmation();
 
-		expect(state.dangerZone.showDeleteConfirm).toBe(false);
-		expect(state.dangerZone.deleteConfirmText).toBe('');
+		expect(state.showDeleteConfirm).toBe(false);
+		expect(state.deleteConfirmText).toBe('');
 	});
 
 	it('owns ownership transfer confirmation transition state', () => {
-		const state = createSettingsWorkspaceState(makeWorkspace());
+		const state = createSettingsDangerZoneState(makeSettingsData());
 
-		state.dangerZone.openTransferConfirmation('user-1');
+		state.openTransferConfirmation('user-1');
 
-		expect(state.dangerZone.showTransferConfirm).toBe(true);
-		expect(state.dangerZone.selectedTransferCandidate?.email).toBe('member@example.com');
-		expect(state.dangerZone.transferConfirmMatches).toBe(false);
+		expect(state.showTransferConfirm).toBe(true);
+		expect(state.selectedTransferCandidate?.email).toBe('member@example.com');
+		expect(state.transferConfirmMatches).toBe(false);
 
-		state.dangerZone.transferConfirmText = 'MEMBER@EXAMPLE.COM';
+		state.transferConfirmText = 'MEMBER@EXAMPLE.COM';
 
-		expect(state.dangerZone.transferConfirmMatches).toBe(true);
-		expect(state.dangerZone.transferCloseBlocked).toBe(true);
+		expect(state.transferConfirmMatches).toBe(true);
+		expect(state.transferCloseBlocked).toBe(true);
 
-		state.dangerZone.closeTransferConfirmation();
+		state.closeTransferConfirmation();
 
-		expect(state.dangerZone.showTransferConfirm).toBe(false);
-		expect(state.dangerZone.transferConfirmText).toBe('');
+		expect(state.showTransferConfirm).toBe(false);
+		expect(state.transferConfirmText).toBe('');
 	});
 
 	it('owns member capability edits while the editor is open', () => {
-		const state = createSettingsWorkspaceState(makeWorkspace());
-		const member = state.members.sortedMembers.find((row) => row.id === 'member-1');
+		const data = makeSettingsData();
+		const state = createSettingsMemberAccessWorkspace({
+			members: data.sections.members.rows,
+			invitations: data.sections.members.invitations,
+			groups: data.sections.members.groups,
+			isOwner: data.currentMember.isOwner
+		});
+		const member = state.sortedMembers.find((row) => row.id === 'member-1');
 		expect(member).toBeTruthy();
 
-		state.members.openMemberEditor(member!);
-		state.members.setMemberCapability(member!.id, 'calendar', 'view');
+		state.openMemberEditor(member!);
+		state.setMemberCapability(member!.id, 'calendar', 'view');
 
-		expect(state.members.getEditorCapabilityValue(member!, 'calendar', 'editor')).toBe('view');
+		expect(state.getEditorCapabilityValue(member!, 'calendar', 'editor')).toBe('view');
 
-		state.members.closeMemberEditor(member!.id);
+		state.closeMemberEditor(member!.id);
 
-		expect(state.members.getEditorCapabilityValue(member!, 'calendar', 'editor')).toBe('configure');
+		expect(state.getEditorCapabilityValue(member!, 'calendar', 'editor')).toBe('configure');
 	});
 });

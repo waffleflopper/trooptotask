@@ -3,12 +3,14 @@ import type { Cookies } from '@sveltejs/kit';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import type { CriticalTasksBootstrap } from '$lib/server/core/orgShell';
 
-const { findManyMock, loadWithContextMock, mockCtx } = vi.hoisted(() => {
+const { findManyMock, findOneMock, loadWithContextMock, mockCtx } = vi.hoisted(() => {
 	const findManyMock = vi.fn();
+	const findOneMock = vi.fn();
 	const loadWithContextMock = vi.fn();
 
 	return {
 		findManyMock,
+		findOneMock,
 		loadWithContextMock,
 		mockCtx: {
 			auth: {
@@ -16,7 +18,8 @@ const { findManyMock, loadWithContextMock, mockCtx } = vi.hoisted(() => {
 				orgId: '11111111-1111-1111-1111-111111111111'
 			},
 			store: {
-				findMany: findManyMock
+				findMany: findManyMock,
+				findOne: findOneMock
 			}
 		}
 	};
@@ -35,6 +38,10 @@ import { createSupabaseCriticalTasksWorkspacePort } from './supabaseOrgShell';
 describe('createSupabaseCriticalTasksWorkspacePort', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		findOneMock.mockResolvedValue({
+			critical_tasks_default_expiration_months: 18,
+			critical_tasks_expiring_soon_warning_days: 45
+		});
 		loadWithContextMock.mockImplementation((_locals, _cookies, _orgId, config) => {
 			const data = config.fn(mockCtx as never);
 			return config.defer ? { data } : data;
@@ -78,6 +85,10 @@ describe('createSupabaseCriticalTasksWorkspacePort', () => {
 		);
 		expect(loadWithContextMock.mock.calls[0][3]).not.toHaveProperty('permission');
 		expect(bootstrap).toBeDefined();
+		expect(bootstrap?.settings).toEqual({
+			defaultExpirationMonths: 18,
+			expiringSoonWarningDays: 45
+		});
 		expect(bootstrap?.personnel).toBeInstanceOf(Promise);
 		expect(bootstrap?.groups).toBeInstanceOf(Promise);
 		expect(bootstrap?.ictTasks).toBeInstanceOf(Promise);

@@ -577,6 +577,10 @@ describe('OrgShellCoordinator', () => {
 			} satisfies PersonnelIctCompletion
 		]);
 		const criticalTasksData: CriticalTasksBootstrap = {
+			settings: {
+				defaultExpirationMonths: 18,
+				expiringSoonWarningDays: 45
+			},
 			personnelIctCompletions,
 			ictTasks: [
 				{

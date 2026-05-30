@@ -18,7 +18,11 @@ import type {
 } from '$features/onboarding/onboarding.types';
 import type { RatingSchemeEntry } from '$features/rating-scheme/rating-scheme.types';
 import type { PersonnelTraining, TrainingType, TrainingView } from '$features/training/training.types';
-import type { IctTask, PersonnelIctCompletion } from '$features/critical-tasks/criticalTasks.types';
+import type {
+	CriticalTasksSettings,
+	IctTask,
+	PersonnelIctCompletion
+} from '$features/critical-tasks/criticalTasks.types';
 import type { AssignmentType, AvailabilityEntry, DailyAssignment, Personnel, SpecialDay } from '$lib/types';
 import type { Group } from '$lib/stores/groups.svelte';
 
@@ -93,6 +97,7 @@ export interface TrainingBootstrap {
 }
 
 export interface CriticalTasksBootstrap {
+	settings: CriticalTasksSettings;
 	personnelIctCompletions: HydrationItems<PersonnelIctCompletion>;
 	ictTasks: HydrationItems<IctTask>;
 	personnel: HydrationItems<Personnel>;

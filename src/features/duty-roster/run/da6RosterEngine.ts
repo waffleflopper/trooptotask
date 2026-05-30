@@ -44,6 +44,15 @@ interface DutyPriority {
 	recordPassedOver(personId: string): void;
 }
 
+interface Da6Numbering {
+	current(personId: string, sequenceKey: DutyRosterSequenceKey, isChargeableThisDate: boolean): number | null;
+	record(
+		personId: string,
+		sequenceKey: DutyRosterSequenceKey,
+		outcome: { assigned: boolean; chargeable: boolean }
+	): void;
+}
+
 function compareOldestFirst(a: string | null, b: string | null): number {
 	if (a && b && a !== b) {
 		return a.localeCompare(b);
@@ -93,6 +102,40 @@ function baselineCountPriority(seed: Map<string, number>): DutyPriority {
 		},
 		recordPassedOver(personId) {
 			selectionCounts.set(personId, (selectionCounts.get(personId) ?? 0) + 1);
+		}
+	};
+}
+
+function createDa6Numbering(manualBaselineCounts: Map<string, number>): Da6Numbering {
+	const sequenceNumberByPerson = new Map<string, number>();
+
+	function keyFor(personId: string, sequenceKey: DutyRosterSequenceKey): string {
+		return `${sequenceKey}::${personId}`;
+	}
+
+	function current(personId: string, sequenceKey: DutyRosterSequenceKey, isChargeableThisDate: boolean): number | null {
+		let sequenceNumber = sequenceNumberByPerson.get(keyFor(personId, sequenceKey));
+		if (sequenceNumber === undefined) {
+			sequenceNumber = manualBaselineCounts.get(personId);
+		}
+		if (sequenceNumber === undefined && isChargeableThisDate) {
+			sequenceNumber = 1;
+		}
+		return sequenceNumber ?? null;
+	}
+
+	return {
+		current,
+		record(personId, sequenceKey, outcome) {
+			const sequenceNumber = current(personId, sequenceKey, outcome.chargeable);
+			const sequenceBaseKey = keyFor(personId, sequenceKey);
+			if (outcome.assigned) {
+				sequenceNumberByPerson.set(sequenceBaseKey, 1);
+			} else if (outcome.chargeable && sequenceNumber !== null) {
+				sequenceNumberByPerson.set(sequenceBaseKey, sequenceNumber + 1);
+			} else if (sequenceNumber !== null) {
+				sequenceNumberByPerson.set(sequenceBaseKey, sequenceNumber);
+			}
 		}
 	};
 }
@@ -147,7 +190,7 @@ export function computeDa6Roster(input: Da6RosterEngineInput): Da6RosterEngineOu
 		['weekday', 0],
 		['weekend-holiday', 0]
 	]);
-	const sequenceNumberByPerson = new Map<string, number>();
+	const numbering = createDa6Numbering(input.manualBaselineCounts);
 	const rosterRows: DutyRosterRunSnapshot['rosterRows'] = [];
 
 	for (const date of input.dutyDates) {
@@ -183,24 +226,11 @@ export function computeDa6Roster(input: Da6RosterEngineInput): Da6RosterEngineOu
 			const classification = classifications.get(person.id)!;
 			const queuePosition = queuePositionByPersonnelId.get(person.id) ?? null;
 			const isAssigned = assigned?.id === person.id;
-			const sequenceBaseKey = `${sequenceKey}::${person.id}`;
-			let sequenceNumber = sequenceNumberByPerson.get(sequenceBaseKey);
-			if (sequenceNumber === undefined) {
-				sequenceNumber = input.manualBaselineCounts.get(person.id);
-			}
-			if (sequenceNumber === undefined && queuePosition !== null) {
-				sequenceNumber = 1;
-			}
+			const sequenceNumber = numbering.current(person.id, sequenceKey, classification.chargeable);
 			cellsByPersonnelId
 				.get(person.id)!
-				.push(buildCell(person.id, date, classification, queuePosition, sequenceNumber ?? null, isAssigned));
-			if (isAssigned) {
-				sequenceNumberByPerson.set(sequenceBaseKey, 1);
-			} else if (classification.chargeable && sequenceNumber !== undefined) {
-				sequenceNumberByPerson.set(sequenceBaseKey, sequenceNumber + 1);
-			} else if (sequenceNumber !== undefined) {
-				sequenceNumberByPerson.set(sequenceBaseKey, sequenceNumber);
-			}
+				.push(buildCell(person.id, date, classification, queuePosition, sequenceNumber, isAssigned));
+			numbering.record(person.id, sequenceKey, { assigned: isAssigned, chargeable: classification.chargeable });
 
 			if (!isAssigned && classification.chargeable) {
 				priority.recordPassedOver(person.id);
@@ -215,5 +245,6 @@ export function computeDa6Roster(input: Da6RosterEngineInput): Da6RosterEngineOu
 
 export const __testing = {
 	baselineCountPriority,
+	createDa6Numbering,
 	lastDutyDatePriority
 };

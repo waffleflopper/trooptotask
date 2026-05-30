@@ -219,3 +219,62 @@ describe('Duty Priority', () => {
 		expect(priority.compare(staff, bravo)).toBeLessThan(0);
 	});
 });
+
+describe('DA6 Numbering', () => {
+	it('does not increment for an A cell and resumes from the interrupted sequence number', () => {
+		const numbering = __testing.createDa6Numbering(new Map([['alpha', 2]]));
+
+		expect(numbering.current('alpha', 'single', true)).toBe(2);
+		numbering.record('alpha', 'single', { assigned: false, chargeable: true });
+
+		expect(numbering.current('alpha', 'single', false)).toBe(3);
+		numbering.record('alpha', 'single', { assigned: false, chargeable: false });
+
+		expect(numbering.current('alpha', 'single', true)).toBe(3);
+	});
+
+	it('increments through D and U chargeable outcomes', () => {
+		const numbering = __testing.createDa6Numbering(new Map());
+
+		expect(numbering.current('alpha', 'single', true)).toBe(1);
+		numbering.record('alpha', 'single', { assigned: false, chargeable: true });
+
+		expect(numbering.current('alpha', 'single', true)).toBe(2);
+		numbering.record('alpha', 'single', { assigned: false, chargeable: true });
+
+		expect(numbering.current('alpha', 'single', true)).toBe(3);
+	});
+
+	it('resets the next displayed number to 1 after an assignment', () => {
+		const numbering = __testing.createDa6Numbering(new Map([['alpha', 5]]));
+
+		expect(numbering.current('alpha', 'single', true)).toBe(5);
+		numbering.record('alpha', 'single', { assigned: true, chargeable: true });
+
+		expect(numbering.current('alpha', 'single', true)).toBe(1);
+	});
+
+	it('uses Manual DA6 Baseline counts as the first displayed number', () => {
+		const numbering = __testing.createDa6Numbering(new Map([['alpha', 4]]));
+
+		expect(numbering.current('alpha', 'single', true)).toBe(4);
+	});
+
+	it('starts an unseeded chargeable Soldier at 1', () => {
+		const numbering = __testing.createDa6Numbering(new Map());
+
+		expect(numbering.current('alpha', 'single', true)).toBe(1);
+		expect(numbering.current('bravo', 'single', false)).toBeNull();
+	});
+
+	it('tracks numbering independently per DA6 sequence key', () => {
+		const numbering = __testing.createDa6Numbering(new Map());
+
+		expect(numbering.current('alpha', 'single', true)).toBe(1);
+		numbering.record('alpha', 'single', { assigned: false, chargeable: true });
+
+		expect(numbering.current('alpha', 'single', true)).toBe(2);
+		expect(numbering.current('alpha', 'weekday', true)).toBe(1);
+		expect(numbering.current('alpha', 'weekend-holiday', true)).toBe(1);
+	});
+});

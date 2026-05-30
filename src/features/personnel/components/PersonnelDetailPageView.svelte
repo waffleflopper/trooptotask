@@ -27,7 +27,6 @@
 		orgId: string;
 		orgUrlSegment?: string;
 		person: Personnel;
-		roster: Personnel[];
 		groups?: Group[];
 		orgName: string;
 		detail: PersonnelDetailStreams;

@@ -16,7 +16,7 @@ import { derivePersonnelDocumentTitle } from '$features/personnel/utils/document
 import { downloadBlob, filenameFromContentDisposition } from '$lib/export/workbook';
 import type { Group } from '$lib/stores/groups.svelte';
 import type { Personnel } from '$lib/types';
-import { SvelteDate, SvelteMap, SvelteSet } from 'svelte/reactivity';
+import { SvelteDate } from 'svelte/reactivity';
 
 export type PersonnelDetailTone = PersonnelReadinessLaneTone;
 
@@ -282,9 +282,12 @@ export class PersonnelDetailWorkspace {
 	}
 
 	mergeUpdatedFollowUps(loaded: PersonnelFollowUp[]): PersonnelFollowUp[] {
-		const updatedById = new SvelteMap(this.updatedFollowUps.map((item) => [item.id, item]));
+		// These are transient lookup tables for one synchronous merge, not reactive state.
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity
+		const updatedById = new Map(this.updatedFollowUps.map((item) => [item.id, item]));
 		const merged = loaded.map((item) => updatedById.get(item.id) ?? item);
-		const loadedIds = new SvelteSet(loaded.map((item) => item.id));
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity
+		const loadedIds = new Set(loaded.map((item) => item.id));
 		const created = this.updatedFollowUps.filter((item) => !loadedIds.has(item.id) && item.status !== 'archived');
 		return this.sortFollowUps([...created, ...merged.filter((item) => item.status !== 'archived')]);
 	}

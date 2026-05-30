@@ -28,6 +28,7 @@
 		DA6Matrix,
 		DutyRosterStatusBadge,
 		WarningSummary,
+		toDa6MatrixCell,
 		type DA6MatrixCell,
 		type DA6MatrixColumn,
 		type DA6MatrixFooterRow,
@@ -47,8 +48,7 @@
 	} from '$features/duty-roster/workspace/dutyRosterWorkspaceReadModel';
 	import {
 		buildDutyRosterAcceptedRunReviewModel,
-		correctionKey,
-		type DutyRosterAcceptedRunReviewModel
+		correctionKey
 	} from '$features/duty-roster/workspace/dutyRosterPreviewReview';
 
 	let {
@@ -94,8 +94,6 @@
 		{ value: 'applied', label: 'Applied' },
 		{ value: 'not-applied', label: 'Not applied runs' }
 	];
-
-	type AcceptedDa6MatrixCell = NonNullable<DutyRosterAcceptedRunReviewModel['matrix']['rows'][number]['cells'][number]>;
 
 	function historyDetailHref(run: DutyRosterTemplateAcceptedRun, mode: 'roster' | 'da6'): string {
 		const detailPath = `${basePath}/${selectedTemplate.slug}/history/${run.id}`;
@@ -326,7 +324,7 @@
 		Object.fromEntries(
 			(detailReview?.matrix.rows ?? []).map((row) => [
 				row.personnelId,
-				Object.fromEntries(row.cells.map((cell) => [cell.date, toSharedAcceptedDa6Cell(row.soldierLabel, cell)]))
+				Object.fromEntries(row.cells.map((cell) => [cell.date, toDa6MatrixCell(cell, row.soldierLabel, 'official')]))
 			])
 		)
 	);
@@ -362,28 +360,6 @@
 				]
 			: []
 	);
-
-	function toSharedAcceptedDa6Cell(soldierLabel: string, cell: AcceptedDa6MatrixCell): DA6MatrixCell {
-		const kind =
-			cell.tone === 'assigned'
-				? 'assigned'
-				: cell.tone === 'warning'
-					? 'manual-override'
-					: cell.tone === 'danger'
-						? 'blocked'
-						: cell.display === 'A' || cell.display === 'EX'
-							? 'exempt'
-							: 'not-assigned';
-
-		return {
-			display: cell.display ?? '-',
-			kind,
-			ariaLabel: `${soldierLabel} ${formatDutyDate(cell.date)}: ${cell.display ?? 'not assigned'}`,
-			chargeable: cell.chargeable,
-			count: cell.sequenceNumber,
-			reason: cell.reason
-		};
-	}
 
 	function followOnAcceptedRuns(run: DutyRosterTemplateAcceptedRun): DutyRosterTemplateAcceptedRun[] {
 		return acceptedRuns

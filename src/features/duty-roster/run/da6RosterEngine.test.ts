@@ -12,7 +12,6 @@ const available: AvailabilityClassification = {
 	code: 'available-not-selected',
 	da6Code: null,
 	chargeable: true,
-	reason: null,
 	reasonCode: null
 };
 
@@ -21,8 +20,8 @@ const authorizedAbsence: AvailabilityClassification = {
 	code: 'authorized-absence',
 	da6Code: 'A',
 	chargeable: false,
-	reason: 'Authorized absence: Leave',
-	reasonCode: 'authorized-absence'
+	reasonCode: 'authorized-absence',
+	reasonParams: { statusNames: ['Leave'] }
 };
 
 const blockedByDuty: AvailabilityClassification = {
@@ -30,8 +29,8 @@ const blockedByDuty: AvailabilityClassification = {
 	code: 'blocked-by-duty',
 	da6Code: 'D',
 	chargeable: true,
-	reason: 'Other duty: CQ',
-	reasonCode: 'other-duty-status'
+	reasonCode: 'other-duty-status',
+	reasonParams: { statusNames: ['CQ'] }
 };
 
 function soldier(overrides: Partial<DutyRosterSnapshotPersonnel>): DutyRosterSnapshotPersonnel {
@@ -102,7 +101,10 @@ describe('computeDa6Roster', () => {
 			chargeable: false,
 			queuePosition: null,
 			sequenceNumber: 1,
-			assigned: false
+			assigned: false,
+			reason: null,
+			reasonCode: 'authorized-absence',
+			reasonParams: { statusNames: ['Leave'] }
 		});
 	});
 
@@ -113,15 +115,16 @@ describe('computeDa6Roster', () => {
 			})
 		);
 
-		expect(output.rosterRows).toEqual([
-			{ date: '2026-05-01', assigneeId: null, reason: 'No eligible personnel available' }
-		]);
+		expect(output.rosterRows).toEqual([{ date: '2026-05-01', assigneeId: null, reasonCode: 'no-eligible-personnel' }]);
 		expect(output.cellsByPersonnelId.get('alpha')?.[0]).toMatchObject({
 			code: 'blocked-by-duty',
 			da6Code: 'D',
 			chargeable: true,
 			queuePosition: 1,
-			assigned: false
+			assigned: false,
+			reason: null,
+			reasonCode: 'other-duty-status',
+			reasonParams: { statusNames: ['CQ'] }
 		});
 	});
 

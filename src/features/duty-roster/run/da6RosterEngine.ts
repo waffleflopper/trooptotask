@@ -1,9 +1,9 @@
 import { comparePersonnelByRankThenName } from '$lib/domain/personnelRank';
+import type { Da6ReasonCode, Da6ReasonParams } from './da6ReasonText';
 import type {
 	Da6Cell,
 	Da6CellCode,
 	Da6Column,
-	DutyRosterRunSnapshot,
 	DutyRosterSequenceKey,
 	DutyRosterSequenceKind,
 	DutyRosterSnapshotPersonnel
@@ -14,13 +14,20 @@ export interface AvailabilityClassification {
 	code: Da6CellCode;
 	da6Code: Da6Cell['da6Code'];
 	chargeable: boolean;
-	reason: string | null;
-	reasonCode: string | null;
+	reasonCode: Da6ReasonCode | null;
+	reasonParams?: Da6ReasonParams;
 }
 
 type Da6RosterSequenceInfo = {
 	sequenceKind: DutyRosterSequenceKind;
 	sequenceKey: DutyRosterSequenceKey;
+};
+
+export type Da6RosterEngineRow = {
+	date: string;
+	assigneeId: string | null;
+	reasonCode?: Da6ReasonCode;
+	reasonParams?: Da6ReasonParams;
 };
 
 export interface Da6RosterEngineInput {
@@ -34,7 +41,7 @@ export interface Da6RosterEngineInput {
 
 export interface Da6RosterEngineOutput {
 	columns: Da6Column[];
-	rosterRows: DutyRosterRunSnapshot['rosterRows'];
+	rosterRows: Da6RosterEngineRow[];
 	cellsByPersonnelId: Map<string, Da6Cell[]>;
 }
 
@@ -164,6 +171,11 @@ function buildCell(
 	sequenceNumber: number | null,
 	assigned: boolean
 ): Da6Cell {
+	const reasonCode = assigned ? null : classification.reasonCode;
+	const reasonParams = reasonCode && classification.reasonParams ? { ...classification.reasonParams } : undefined;
+	if (reasonParams?.statusNames) {
+		reasonParams.statusNames = [...reasonParams.statusNames];
+	}
 	return {
 		date,
 		personnelId,
@@ -173,8 +185,9 @@ function buildCell(
 		queuePosition,
 		sequenceNumber,
 		assigned,
-		reason: assigned ? null : classification.reason,
-		reasonCode: assigned ? null : classification.reasonCode
+		reason: null,
+		reasonCode,
+		...(reasonParams ? { reasonParams } : {})
 	};
 }
 
@@ -191,7 +204,7 @@ export function computeDa6Roster(input: Da6RosterEngineInput): Da6RosterEngineOu
 		['weekend-holiday', 0]
 	]);
 	const numbering = createDa6Numbering(input.manualBaselineCounts);
-	const rosterRows: DutyRosterRunSnapshot['rosterRows'] = [];
+	const rosterRows: Da6RosterEngineRow[] = [];
 
 	for (const date of input.dutyDates) {
 		const { sequenceKind, sequenceKey } = getSequenceInfo(input, date);
@@ -213,9 +226,7 @@ export function computeDa6Roster(input: Da6RosterEngineInput): Da6RosterEngineOu
 		});
 
 		rosterRows.push(
-			assigned
-				? { date, assigneeId: assigned.id }
-				: { date, assigneeId: null, reason: 'No eligible personnel available' }
+			assigned ? { date, assigneeId: assigned.id } : { date, assigneeId: null, reasonCode: 'no-eligible-personnel' }
 		);
 
 		if (assigned) {

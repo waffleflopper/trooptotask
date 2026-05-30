@@ -36,7 +36,6 @@ import { defaultScopeRules } from './scopeRules';
 import { createSupabaseNotificationAdapter } from './supabaseNotification';
 import { createStripeBillingAdapter } from './stripeBilling';
 import { createSupabaseStorageAdapter } from './supabaseStorage';
-import { createSupabaseAdvancedDutyPersistenceAdapter } from './advancedDutyPersistence';
 import { createSupabaseCriticalTasksReadModelAdapter } from './criticalTasksReadModel';
 import { createSupabaseRatingSchemePersonnelLookupPort } from './supabaseRatingSchemePersonnelLookup';
 import { createSupabaseSensitiveActionAuthorizer } from '$lib/server/sensitiveActionAuthorizer';
@@ -104,7 +103,6 @@ async function buildContextInternal(event: RequestEvent): Promise<BuildContextRe
 	const subscription = createSupabaseSubscriptionAdapter(supabase, orgId);
 	const notifications = createSupabaseNotificationAdapter();
 	const billing = createStripeBillingAdapter();
-	const advancedDutyPersistence = createSupabaseAdvancedDutyPersistenceAdapter(supabase);
 	const criticalTasksReadModel = createSupabaseCriticalTasksReadModelAdapter(supabase);
 	const ratingSchemePersonnelLookup = createSupabaseRatingSchemePersonnelLookupPort(supabase);
 	const sensitiveActionAuthorizer = createSupabaseSensitiveActionAuthorizer({
@@ -115,7 +113,6 @@ async function buildContextInternal(event: RequestEvent): Promise<BuildContextRe
 	return {
 		ctx: {
 			store: scopedStore,
-			advancedDutyPersistence,
 			auth,
 			scope,
 			audit,
@@ -172,7 +169,6 @@ export async function buildLayoutContext(locals: App.Locals, cookies: Cookies, o
 	const notifications = createSupabaseNotificationAdapter();
 	const billing = createStripeBillingAdapter();
 	const storage = createSupabaseStorageAdapter(supabase);
-	const advancedDutyPersistence = createSupabaseAdvancedDutyPersistenceAdapter(supabase);
 	const criticalTasksReadModel = createSupabaseCriticalTasksReadModelAdapter(supabase);
 	const ratingSchemePersonnelLookup = createSupabaseRatingSchemePersonnelLookupPort(supabase);
 	const sensitiveActionAuthorizer = createSupabaseSensitiveActionAuthorizer({
@@ -182,7 +178,6 @@ export async function buildLayoutContext(locals: App.Locals, cookies: Cookies, o
 	const scopedStore = createScopedDataStore(store, policyScopeGroupIds(auth), defaultScopeRules);
 	return {
 		store: scopedStore,
-		advancedDutyPersistence,
 		auth,
 		scope,
 		audit,
@@ -231,7 +226,6 @@ export async function buildLayoutContextFromMembership(
 	const notifications = createSupabaseNotificationAdapter();
 	const billing = createStripeBillingAdapter();
 	const storage = createSupabaseStorageAdapter(supabase);
-	const advancedDutyPersistence = createSupabaseAdvancedDutyPersistenceAdapter(supabase);
 	const criticalTasksReadModel = createSupabaseCriticalTasksReadModelAdapter(supabase);
 	const ratingSchemePersonnelLookup = createSupabaseRatingSchemePersonnelLookupPort(supabase);
 	const sensitiveActionAuthorizer = createSupabaseSensitiveActionAuthorizer({
@@ -241,7 +235,6 @@ export async function buildLayoutContextFromMembership(
 	const scopedStore = createScopedDataStore(store, policyScopeGroupIds(auth), defaultScopeRules);
 	return {
 		store: scopedStore,
-		advancedDutyPersistence,
 		auth,
 		scope,
 		audit,

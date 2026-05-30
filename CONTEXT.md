@@ -208,6 +208,10 @@ _Avoid_: Webhook handler, raw Stripe update, table update
 The feature for availability, assignments, special days, and duty visibility.
 _Avoid_: Leave tracker
 
+**Calendar Render State**:
+The app-side read model that turns already-loaded **Calendar** data into render-ready date header and person/date cell facts for month and long-range views. It owns lookup and shaping rules for **Availability Statuses**, **Daily Assignment Slots**, special days, duty badges, onboarding markers, and loss indicators. It does not own scrolling, virtual row layout, collapsed groups, click handlers, exports, modal state, provider access, or authorization.
+_Avoid_: Calendar UI helper, cell-only index, route data
+
 **Daily Assignment Slot**:
 One Calendar assignment position for a specific date and **Assignment Type**.
 _Avoid_: Duplicate assignment row, batch row

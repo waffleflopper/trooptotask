@@ -60,12 +60,6 @@ export interface RatingSchemePersonnelLookupPort {
 	listPersonnelLookup(orgId: string): Promise<RatingSchemePersonnelLookupRecord[]>;
 }
 
-export interface PersistedDutyTemplateAggregate {
-	templateRow: Record<string, unknown>;
-	slotRows: Record<string, unknown>[];
-	rotationBaselineRows: Record<string, unknown>[];
-}
-
 /** Scope rule for ScopedDataStore — how a table relates to personnel groups */
 export type GroupScopeRule = { type: 'group'; groupColumn: string } | { type: 'personnel'; personnelColumn: string };
 
@@ -101,16 +95,6 @@ export interface DataStore {
 	): Promise<FindResult<T>>;
 
 	listDistinctAuditActions(orgId: string, excludedActions?: string[]): Promise<string[]>;
-}
-
-export interface AdvancedDutyPersistencePort {
-	updateDutyTemplateAggregate(input: {
-		orgId: string;
-		templateId: string;
-		templateData: Record<string, unknown>;
-		slotRows: Record<string, unknown>[];
-		rotationBaselineRows: Record<string, unknown>[];
-	}): Promise<PersistedDutyTemplateAggregate>;
 }
 
 /** Abstracts permission enforcement — no SupabaseClient parameter needed */
@@ -256,7 +240,6 @@ export interface QueryWithRawStorePorts extends QueryPorts {
 /** Combined context for all use cases */
 export interface UseCaseContext {
 	store: DataStore;
-	advancedDutyPersistence: AdvancedDutyPersistencePort;
 	auth: AuthContext;
 	scope: ScopeEnforcementPort;
 	audit: AuditPort;

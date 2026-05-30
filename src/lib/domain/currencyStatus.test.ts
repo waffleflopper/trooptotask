@@ -159,7 +159,9 @@ describe('currencyStatus core', () => {
 		});
 
 		it('counts whole calendar days across a DST fall-back transition', () => {
-			// US fall-back is 2026-11-01. The naive count would over-count to 29 in a DST timezone.
+			// US fall-back is 2026-11-01 (a 25h local day). Here naive elapsed-ms/floor also
+			// yields 30 — only spring-forward under-counts — so this pins that calendar-day
+			// counting stays correct across the fall-back boundary in either direction.
 			expect(
 				currencyStatus({ completionDate: '2025-01-01', expirationDate: '2026-11-14' }, ICT_BANDS, '2026-10-15')
 					.daysUntilExpiration

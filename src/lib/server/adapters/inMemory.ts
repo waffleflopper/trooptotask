@@ -18,7 +18,6 @@ import type {
 	DataStore,
 	FindOptions,
 	FindResult,
-	AdvancedDutyPersistencePort,
 	AuthContext,
 	AuditPort,
 	ScopeEnforcementPort,
@@ -50,7 +49,6 @@ import {
 } from '$lib/access/memberAccessShape';
 import { createScopedDataStore } from './scopedDataStore';
 import { defaultScopeRules } from './scopeRules';
-import { createInMemoryAdvancedDutyPersistenceAdapter } from './advancedDutyPersistence';
 import { createInMemoryCriticalTasksReadModelAdapter } from './inMemoryCriticalTasksReadModel';
 
 type Row = Record<string, unknown>;
@@ -424,7 +422,6 @@ export function createTestContext(overrides?: {
 }): UseCaseContext & {
 	store: ReturnType<typeof createInMemoryDataStore>;
 	rawStore: ReturnType<typeof createInMemoryDataStore>;
-	advancedDutyPersistence: AdvancedDutyPersistencePort;
 	auditPort: ReturnType<typeof createTestAuditPort>;
 	subscription: ReturnType<typeof createTestSubscriptionPort>;
 	notificationPort: ReturnType<typeof createTestNotificationPort>;
@@ -441,12 +438,10 @@ export function createTestContext(overrides?: {
 	const billingPort = createTestBillingPort();
 	const storagePort = createTestStoragePort();
 	const sensitiveActionAuthorizer = createTestSensitiveActionAuthorizer(overrides?.sensitiveActionDecision);
-	const advancedDutyPersistence = createInMemoryAdvancedDutyPersistenceAdapter(rawStore);
 	const criticalTasksReadModel = createInMemoryCriticalTasksReadModelAdapter(rawStore);
 	return {
 		store,
 		rawStore,
-		advancedDutyPersistence,
 		auth,
 		scope,
 		audit: auditPort,

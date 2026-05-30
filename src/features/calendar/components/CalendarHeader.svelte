@@ -1,17 +1,12 @@
 <script lang="ts">
-	import type { Personnel, SpecialDay, AssignmentType, DailyAssignment } from '$lib/types';
-	import { isWeekend, isToday, formatDate, getDayName } from '$lib/utils/dates';
+	import type { CalendarDateHeaderState } from '$features/calendar/utils/calendarRenderState';
 	import CalendarNavigation from './CalendarNavigation.svelte';
 
 	interface Props {
 		year: number;
 		month: number;
 		monthName: string;
-		dates: Date[];
-		specialDays: SpecialDay[];
-		assignmentTypes: AssignmentType[];
-		assignments: DailyAssignment[];
-		personnelById: Map<string, Personnel>;
+		headerCells: readonly CalendarDateHeaderState[];
 		onPrevMonth: () => void;
 		onNextMonth: () => void;
 		onGoToToday: () => void;
@@ -27,11 +22,7 @@
 		year,
 		month,
 		monthName,
-		dates,
-		specialDays,
-		assignmentTypes,
-		assignments,
-		personnelById,
+		headerCells,
 		onPrevMonth,
 		onNextMonth,
 		onGoToToday,
@@ -50,37 +41,6 @@
 			dateHeadersEl.scrollLeft = scrollLeft;
 		}
 	});
-
-	function isHoliday(date: Date): boolean {
-		const dateStr = formatDate(date);
-		return specialDays.some((d) => d.date === dateStr);
-	}
-
-	function getHolidayName(date: Date): string | undefined {
-		const dateStr = formatDate(date);
-		return specialDays.find((d) => d.date === dateStr)?.name;
-	}
-
-	function getHeaderAssignment(date: Date): { assignmentTypeName: string; assigneeLabel: string } | null {
-		const dateStr = formatDate(date);
-		const headerType = assignmentTypes.find((t) => t.showInDateHeader);
-		if (!headerType) return null;
-		const assignment = assignments.find((a) => a.date === dateStr && a.assignmentTypeId === headerType.id);
-		if (!assignment?.assigneeId) return null;
-
-		const assigneeLabel =
-			headerType.assignTo === 'personnel'
-				? (() => {
-						const person = personnelById.get(assignment.assigneeId);
-						return person ? `${person.rank} ${person.lastName}` : assignment.assigneeId;
-					})()
-				: assignment.assigneeId;
-
-		return {
-			assignmentTypeName: headerType.name,
-			assigneeLabel
-		};
-	}
 </script>
 
 <div class="sticky top-0 z-10 bg-card">
@@ -100,7 +60,7 @@
 	<div
 		class="date-headers overflow-hidden"
 		bind:this={dateHeadersEl}
-		style="padding-right: {scrollbarWidth}px; --dates-count: {dates.length}; --calendar-date-columns: var(--calendar-personnel-column-width) repeat(var(--dates-count), minmax(var(--calendar-cell-width), 1fr));"
+		style="padding-right: {scrollbarWidth}px; --dates-count: {headerCells.length}; --calendar-date-columns: var(--calendar-personnel-column-width) repeat(var(--dates-count), minmax(var(--calendar-cell-width), 1fr));"
 	>
 		<div
 			class="grid w-full min-w-[calc(var(--calendar-personnel-column-width)+(var(--calendar-cell-width)*var(--dates-count)))] grid-cols-[var(--calendar-date-columns)]"
@@ -110,29 +70,29 @@
 			>
 				Personnel
 			</div>
-			{#each dates as date (formatDate(date))}
-				{@const holiday = isHoliday(date)}
-				{@const headerAssignment = getHeaderAssignment(date)}
+			{#each headerCells as header (header.dateKey)}
 				<button
 					class={[
 						'flex min-w-0 cursor-pointer flex-col items-center gap-px overflow-hidden border-r border-b bg-card px-0 py-2 text-center transition-colors hover:bg-muted focus-visible:ring-ring focus-visible:z-[2] focus-visible:ring-2 focus-visible:outline-none max-sm:min-h-11 max-sm:min-w-[var(--calendar-cell-width)]',
-						isWeekend(date) && 'bg-muted/55',
-						holiday && 'bg-warning-muted/60',
-						isToday(date) && 'bg-primary/10 shadow-[inset_0_-2px_0_var(--primary)]'
+						header.weekend && 'bg-muted/55',
+						header.holiday && 'bg-warning-muted/60',
+						header.today && 'bg-primary/10 shadow-[inset_0_-2px_0_var(--primary)]'
 					]}
-					title={getHolidayName(date) || 'Click to set daily assignments'}
-					onclick={() => onDateClick?.(date)}
+					title={header.title}
+					onclick={() => onDateClick?.(header.date)}
 				>
 					<span class="font-mono text-[9px] font-semibold tracking-widest text-muted-foreground uppercase sm:text-xs">
-						{getDayName(date)}
+						{header.dayName}
 					</span>
-					<span class="font-display text-base leading-none font-bold text-foreground sm:text-lg">{date.getDate()}</span>
-					{#if headerAssignment}
+					<span class="font-display text-base leading-none font-bold text-foreground sm:text-lg"
+						>{header.dayOfMonth}</span
+					>
+					{#if header.headerAssignment}
 						<span
 							class="header-assignment-badge mt-0.5 max-w-[calc(100%-0.375rem)] overflow-hidden rounded-sm border border-primary/20 bg-primary/10 px-1 py-px font-mono text-[8px] leading-none font-medium text-primary uppercase sm:text-[9px]"
-							title="{headerAssignment.assignmentTypeName}: {headerAssignment.assigneeLabel}"
+							title="{header.headerAssignment.assignmentTypeName}: {header.headerAssignment.assigneeLabel}"
 						>
-							{headerAssignment.assigneeLabel}
+							{header.headerAssignment.assigneeLabel}
 						</span>
 					{/if}
 				</button>

@@ -17,17 +17,17 @@
 
 	$effect(() => {
 		let cancelled = false;
-		const streamedCriticalTasks = data.criticalTasks?.data;
+		const criticalTasks = isPromiseLike(data.criticalTasks?.data) ? data.criticalTasks.data : data.criticalTasks;
 
 		hydrationError = null;
 
-		if (!streamedCriticalTasks) {
+		if (!criticalTasks) {
 			return;
 		}
 
-		if (!isPromiseLike(streamedCriticalTasks)) {
+		if (!isPromiseLike(criticalTasks)) {
 			void observeDeferred(
-				coordinator.hydrate((streamedCriticalTasks as WorkspaceBootstrap<CriticalTasksBootstrap>).hydration),
+				coordinator.hydrate((criticalTasks as WorkspaceBootstrap<CriticalTasksBootstrap>).hydration),
 				{
 					fallbackMessage: 'Failed to hydrate Critical Tasks workspace',
 					onReject: (error) => {
@@ -42,8 +42,8 @@
 		}
 
 		void observeDeferred(
-			streamedCriticalTasks.then((criticalTasks: WorkspaceBootstrap<CriticalTasksBootstrap>) =>
-				coordinator.hydrate(criticalTasks.hydration)
+			criticalTasks.then((bootstrap: WorkspaceBootstrap<CriticalTasksBootstrap>) =>
+				coordinator.hydrate(bootstrap.hydration)
 			),
 			{
 				fallbackMessage: 'Failed to hydrate Critical Tasks workspace',

@@ -76,6 +76,15 @@ vi.mock('$lib/stores/orgContext.svelte', () => ({
 	getOrgContext: () => mockOrgContext
 }));
 
+const criticalTasksLayoutData = {
+	data: {
+		settings: {
+			defaultExpirationMonths: 12,
+			expiringSoonWarningDays: 60
+		}
+	}
+};
+
 const history: CriticalTasksPersonnelHistoryData = {
 	personnel: {
 		id: 'p-1',
@@ -210,10 +219,7 @@ describe('IctPersonnelDetailPage', () => {
 						canViewCriticalTasks: true,
 						canEditCriticalTasks: true
 					},
-					criticalTasksSettings: {
-						defaultExpirationMonths: 12,
-						expiringSoonWarningDays: 60
-					},
+					criticalTasks: criticalTasksLayoutData,
 					criticalTasksPersonnelHistory: {
 						...history,
 						rows: []
@@ -252,10 +258,7 @@ describe('IctPersonnelDetailPage', () => {
 						canViewCriticalTasks: true,
 						canEditCriticalTasks: true
 					},
-					criticalTasksSettings: {
-						defaultExpirationMonths: 12,
-						expiringSoonWarningDays: 60
-					},
+					criticalTasks: criticalTasksLayoutData,
 					criticalTasksPersonnelHistory: {
 						...history,
 						rows: []
@@ -282,10 +285,7 @@ describe('IctPersonnelDetailPage', () => {
 						canViewCriticalTasks: true,
 						canEditCriticalTasks: false
 					},
-					criticalTasksSettings: {
-						defaultExpirationMonths: 12,
-						expiringSoonWarningDays: 60
-					},
+					criticalTasks: criticalTasksLayoutData,
 					criticalTasksPersonnelHistory: {
 						...history,
 						rows: []
@@ -314,10 +314,7 @@ describe('IctPersonnelDetailPage', () => {
 						canViewCriticalTasks: true,
 						canEditCriticalTasks: false
 					},
-					criticalTasksSettings: {
-						defaultExpirationMonths: 12,
-						expiringSoonWarningDays: 60
-					},
+					criticalTasks: criticalTasksLayoutData,
 					criticalTasksPersonnelHistory: {
 						...history,
 						personnel: {
@@ -350,10 +347,7 @@ describe('IctPersonnelDetailPage', () => {
 						canViewCriticalTasks: true,
 						canEditCriticalTasks: true
 					},
-					criticalTasksSettings: {
-						defaultExpirationMonths: 12,
-						expiringSoonWarningDays: 60
-					},
+					criticalTasks: criticalTasksLayoutData,
 					criticalTasksPersonnelHistory: {
 						...history,
 						personnel: {
@@ -402,10 +396,7 @@ describe('IctPersonnelDetailPage', () => {
 							}
 						}
 					},
-					criticalTasksSettings: {
-						defaultExpirationMonths: 12,
-						expiringSoonWarningDays: 60
-					},
+					criticalTasks: criticalTasksLayoutData,
 					criticalTasksPersonnelHistory: {
 						...history,
 						rows: []
@@ -484,10 +475,7 @@ describe('IctPersonnelDetailPage', () => {
 						canViewCriticalTasks: true,
 						canEditCriticalTasks: true
 					},
-					criticalTasksSettings: {
-						defaultExpirationMonths: 12,
-						expiringSoonWarningDays: 60
-					},
+					criticalTasks: criticalTasksLayoutData,
 					criticalTasksPersonnelHistory: {
 						...history,
 						rows: []
@@ -568,10 +556,7 @@ describe('IctPersonnelDetailPage', () => {
 						canViewCriticalTasks: true,
 						canEditCriticalTasks: true
 					},
-					criticalTasksSettings: {
-						defaultExpirationMonths: 12,
-						expiringSoonWarningDays: 60
-					},
+					criticalTasks: criticalTasksLayoutData,
 					criticalTasksPersonnelHistory: {
 						...history,
 						rows: []
@@ -659,10 +644,7 @@ describe('IctPersonnelDetailPage', () => {
 			props: {
 				data: {
 					orgId: 'org-1',
-					criticalTasksSettings: {
-						defaultExpirationMonths: 12,
-						expiringSoonWarningDays: 60
-					},
+					criticalTasks: criticalTasksLayoutData,
 					criticalTasksPersonnelHistory: {
 						...history,
 						rows: [

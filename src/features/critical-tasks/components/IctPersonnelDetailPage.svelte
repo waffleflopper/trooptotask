@@ -17,6 +17,7 @@
 		criticalTasksPolicyResourceForGroup,
 		criticalTasksRecordCompletionAffordance
 	} from '$features/critical-tasks/utils/criticalTasksPolicy';
+	import { criticalTasksSettingsFromWorkspaceData } from '$features/critical-tasks/utils/criticalTasksWorkspaceData';
 	import { getActiveIctTasksForLibrary, isIctTaskApplicableToMos } from '$features/critical-tasks/utils/ictTaskLibrary';
 	import type {
 		CriticalTasksPersonnelHistoryData,
@@ -31,9 +32,13 @@
 		data: {
 			orgId: string;
 			criticalTasksPersonnelHistory: CriticalTasksPersonnelHistoryData;
-			criticalTasksSettings?: {
-				defaultExpirationMonths: number;
-				expiringSoonWarningDays: number;
+			criticalTasks?: {
+				data?: {
+					settings?: {
+						defaultExpirationMonths: number;
+						expiringSoonWarningDays: number;
+					} | null;
+				} | null;
 			};
 			permissions?: Partial<OrganizationMemberPermissions> | null;
 			session?:
@@ -63,7 +68,7 @@
 	const history = $derived(data.criticalTasksPersonnelHistory);
 	const personnelDisplayName = $derived(`${history.personnel.lastName}, ${history.personnel.firstName}`);
 	const personnelName = $derived([history.personnel.rank, personnelDisplayName].filter(Boolean).join(' '));
-	const settings = $derived(normalizeCriticalTasksSettings(data.criticalTasksSettings));
+	const settings = $derived(normalizeCriticalTasksSettings(criticalTasksSettingsFromWorkspaceData(data)));
 	const recordCompletionAffordance = $derived(
 		criticalTasksRecordCompletionAffordance(org, criticalTasksPolicyResourceForGroup(history.personnel.groupId))
 	);
@@ -780,7 +785,7 @@
 		person={history.personnel}
 		task={activeEditorRow.task}
 		existingCompletion={activeEditorRow.completion}
-		settings={data.criticalTasksSettings ?? null}
+		{settings}
 		{currentUserDisplayName}
 		onSave={handleCompletionSave}
 		onClose={() => (activeEditorRow = null)}
@@ -790,7 +795,7 @@
 		person={history.personnel}
 		taskOptions={applicableTaskOptions}
 		completions={personnelIctCompletionsStore.items}
-		settings={data.criticalTasksSettings ?? null}
+		{settings}
 		{currentUserDisplayName}
 		onSave={handleCompletionSave}
 		onClose={() => (showTaskInputModal = false)}

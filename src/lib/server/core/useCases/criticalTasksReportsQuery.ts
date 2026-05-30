@@ -6,7 +6,6 @@ import type {
 } from '$features/critical-tasks/criticalTasks.types';
 import type { Group } from '$lib/stores/groups.svelte';
 import type { Personnel } from '$lib/types';
-import { normalizeCriticalTasksSettings } from '$features/critical-tasks/utils/ictStatus';
 import {
 	buildCriticalTasksMatrix,
 	matchesCriticalTasksPersonnelSearch
@@ -29,6 +28,7 @@ import { GroupEntity } from '$lib/server/entities/group';
 import { IctTaskEntity } from '$lib/server/entities/ictTask';
 import { PersonnelEntity } from '$lib/server/entities/personnel';
 import { PersonnelIctCompletionEntity } from '$lib/server/entities/personnelIctCompletion';
+import { fetchCriticalTasksSettings } from '$lib/server/core/useCases/criticalTasksWorkspaceQuery';
 import { writeWorkbookBuffer } from '$lib/export/workbook';
 
 export interface CriticalTasksReportInput {
@@ -53,11 +53,6 @@ interface CriticalTasksReportSource {
 	groups: Group[];
 	tasks: IctTask[];
 	settings: CriticalTasksSettings;
-}
-
-interface OrgSettingsRow {
-	critical_tasks_default_expiration_months?: number | null;
-	critical_tasks_expiring_soon_warning_days?: number | null;
 }
 
 function uniqueSorted(values: Array<string | null | undefined>): string[] {
@@ -112,7 +107,7 @@ async function buildDashboardFromSource(
 
 async function loadCriticalTasksReportSource(ctx: QueryPorts): Promise<CriticalTasksReportSource> {
 	const orgId = ctx.auth.orgId;
-	const [personnelRows, groupRows, taskRows, settingsRow] = await Promise.all([
+	const [personnelRows, groupRows, taskRows, settings] = await Promise.all([
 		ctx.store.findMany<Record<string, unknown>>('personnel', orgId, undefined, {
 			select: PersonnelEntity.select,
 			isNull: { archived_at: true },
@@ -128,17 +123,14 @@ async function loadCriticalTasksReportSource(ctx: QueryPorts): Promise<CriticalT
 				{ column: 'task_code', ascending: true }
 			]
 		}),
-		ctx.store.findOne<OrgSettingsRow>('organizations', orgId, { id: orgId })
+		fetchCriticalTasksSettings(ctx)
 	]);
 
 	return {
 		personnel: PersonnelEntity.fromDbArray(personnelRows),
 		groups: GroupEntity.fromDbArray(groupRows),
 		tasks: IctTaskEntity.fromDbArray(taskRows),
-		settings: normalizeCriticalTasksSettings({
-			defaultExpirationMonths: settingsRow?.critical_tasks_default_expiration_months ?? null,
-			expiringSoonWarningDays: settingsRow?.critical_tasks_expiring_soon_warning_days ?? null
-		})
+		settings
 	};
 }
 

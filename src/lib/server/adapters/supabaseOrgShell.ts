@@ -36,21 +36,19 @@ import { withCalendarTiming } from '$lib/server/utils/calendarTiming';
 import { fetchOnboardingBootstrap } from '../core/useCases/onboardingQuery';
 import { fetchDashboardBootstrap, type DashboardBootstrap } from '../core/useCases/dashboardQuery';
 import { fetchPersonnelBootstrap, fetchRatingSchemeBootstrap } from '../core/useCases/personnelWorkspaceQuery';
+import { fetchCriticalTasksBootstrap } from '../core/useCases/criticalTasksWorkspaceQuery';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination';
 import { PersonnelEntity } from '$lib/server/entities/personnel';
 import { GroupEntity } from '$lib/server/entities/group';
 import { TrainingTypeEntity } from '$lib/server/entities/trainingType';
 import { TrainingViewEntity } from '$lib/server/entities/trainingView';
 import { PersonnelTrainingEntity } from '$lib/server/entities/personnelTraining';
-import { IctTaskEntity } from '$lib/server/entities/ictTask';
-import { PersonnelIctCompletionEntity } from '$lib/server/entities/personnelIctCompletion';
 import { PinnedGroupsEntity } from '$lib/server/entities/pinnedGroups';
 import type { Personnel } from '$lib/types';
 import type { Group } from '$lib/stores/groups.svelte';
 import type { PersonnelTraining, TrainingType, TrainingView } from '$features/training/training.types';
 import { createSupabaseSubscriptionAdapter } from './supabaseSubscription';
 import type { CriticalTasksBootstrap, TrainingBootstrap } from '../core/orgShell';
-import type { IctTask, PersonnelIctCompletion } from '$features/critical-tasks/criticalTasks.types';
 import { createInitialCalendarBufferedRange } from '$features/calendar/utils/calendarRange';
 import { CALENDAR_ANCHOR_COOKIE, resolveCalendarAnchorDate } from '$features/calendar/utils/calendarAnchorDate';
 import {
@@ -519,71 +517,7 @@ export function createSupabaseCriticalTasksWorkspacePort(
 	function getCriticalTasksData(
 		defer: boolean = false
 	): Promise<CriticalTasksBootstrap> | Promise<DeferredData<CriticalTasksBootstrap>> {
-		const fn = async (ctx: UseCaseContext) => {
-			const canonicalOrgId = ctx.auth.orgId;
-			const loadCriticalTasksItems = <T>(
-				label: string,
-				load: Promise<Record<string, unknown>[]>,
-				mapRows: (rows: Record<string, unknown>[]) => T
-			): Promise<T> =>
-				load.then(mapRows).catch((error) => {
-					console.error(`[critical-tasks-workspace] Failed to load ${label}`, {
-						orgId,
-						error
-					});
-					throw error;
-				});
-
-			const personnel = loadCriticalTasksItems(
-				'personnel',
-				ctx.store.findMany<Record<string, unknown>>('personnel', canonicalOrgId, undefined, {
-					select: PersonnelEntity.select,
-					isNull: { archived_at: true },
-					orderBy: [{ column: 'last_name', ascending: true }]
-				}),
-				(rows) => PersonnelEntity.fromDbArray(rows) as Personnel[]
-			);
-			const groups = loadCriticalTasksItems(
-				'groups',
-				ctx.store.findMany<Record<string, unknown>>('groups', canonicalOrgId, undefined, {
-					orderBy: [{ column: 'sort_order', ascending: true }]
-				}),
-				(rows) => GroupEntity.fromDbArray(rows) as Group[]
-			);
-			const ictTasks = loadCriticalTasksItems(
-				'ICT tasks',
-				ctx.store.findMany<Record<string, unknown>>('ict_tasks', canonicalOrgId, undefined, {
-					isNull: { archived_at: true },
-					orderBy: [
-						{ column: 'sort_order', ascending: true },
-						{ column: 'task_code', ascending: true }
-					]
-				}),
-				(rows) => IctTaskEntity.fromDbArray(rows) as IctTask[]
-			);
-			const personnelIctCompletions = Promise.all([personnel, ictTasks])
-				.then(([loadedPersonnel, loadedTasks]) =>
-					ctx.criticalTasksReadModel.findLatestCompletions(canonicalOrgId, {
-						personnelIds: loadedPersonnel.map((person) => person.id),
-						taskIds: loadedTasks.map((task) => task.id)
-					})
-				)
-				.then((rows) => PersonnelIctCompletionEntity.fromDbArray(rows) as PersonnelIctCompletion[])
-				.catch((error) => {
-					console.error('[critical-tasks-workspace] Failed to load personnel ICT completions', {
-						orgId,
-						error
-					});
-					throw error;
-				});
-
-			return {
-				personnel,
-				groups,
-				ictTasks,
-				personnelIctCompletions
-			};
-		};
+		const fn = async (ctx: UseCaseContext) => fetchCriticalTasksBootstrap(ctx);
 
 		if (defer) {
 			return loadWithContext(locals, cookies, orgId, {

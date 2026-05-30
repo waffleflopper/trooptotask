@@ -242,6 +242,22 @@ describe('cleanupArchivedRecords', () => {
 		await expect(idsFor(ports, 'personnel')).resolves.toEqual(['old-but-inside-default']);
 	});
 
+	it('clamps month-end cutoffs instead of rolling into the current month', async () => {
+		const ports = buildPorts();
+		ports.store.seed('personnel', [
+			{ id: 'expired-before-cutoff', organization_id: 'org-1', archived_at: '2026-02-28T11:59:59.999Z' },
+			{ id: 'retained-at-cutoff', organization_id: 'org-1', archived_at: '2026-02-28T12:00:00.000Z' },
+			{ id: 'retained-after-cutoff', organization_id: 'org-1', archived_at: '2026-03-01T00:00:00.000Z' }
+		]);
+
+		const result = await cleanupArchivedRecords(ports, [{ id: 'org-1', retentionMonths: 1 }], {
+			now: new Date('2026-03-31T12:00:00.000Z')
+		});
+
+		expect(result.deletedCount).toBe(1);
+		await expect(idsFor(ports, 'personnel')).resolves.toEqual(['retained-after-cutoff', 'retained-at-cutoff']);
+	});
+
 	it('respects per-Organization retention settings', async () => {
 		const ports = buildPorts();
 		const eightMonthsAgo = isoMonthsAgo(8);

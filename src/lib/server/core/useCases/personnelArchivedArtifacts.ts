@@ -24,19 +24,23 @@ import {
 const PERSONNEL_OWNED_ARCHIVE_TABLES = [
 	{
 		table: 'personnel_follow_ups',
-		archiveData: (archivedAt: string) => ({ status: 'archived', archived_at: archivedAt })
+		archiveData: (archivedAt: string) => ({ status: 'archived', archived_at: archivedAt }),
+		restoreData: () => ({ status: 'open', archived_at: null })
 	},
 	{
 		table: 'counseling_records',
-		archiveData: (archivedAt: string) => ({ archived_at: archivedAt })
+		archiveData: (archivedAt: string) => ({ archived_at: archivedAt }),
+		restoreData: () => ({ archived_at: null })
 	},
 	{
 		table: 'personnel_documents',
-		archiveData: (archivedAt: string) => ({ archived_at: archivedAt })
+		archiveData: (archivedAt: string) => ({ archived_at: archivedAt }),
+		restoreData: () => ({ archived_at: null })
 	},
 	{
 		table: 'leader_notes',
-		archiveData: (archivedAt: string) => ({ archived_at: archivedAt })
+		archiveData: (archivedAt: string) => ({ archived_at: archivedAt }),
+		restoreData: () => ({ archived_at: null })
 	}
 ] as const;
 const ARCHIVE_UPDATE_BATCH_SIZE = 50;
@@ -65,6 +69,32 @@ export async function archivePersonnelOwnedArtifacts(
 		for (let index = 0; index < rows.length; index += ARCHIVE_UPDATE_BATCH_SIZE) {
 			const batch = rows.slice(index, index + ARCHIVE_UPDATE_BATCH_SIZE);
 			await Promise.all(batch.map((row) => ctx.store.update(table, ctx.auth.orgId, row.id, archiveData(archivedAt))));
+		}
+	}
+}
+
+export async function restorePersonnelOwnedArtifacts(
+	ctx: Pick<UseCaseContext, 'store' | 'auth'>,
+	personnelIds: string[],
+	personnelArchivedAt: string
+): Promise<void> {
+	const uniquePersonnelIds = [...new Set(personnelIds)];
+	if (uniquePersonnelIds.length === 0) return;
+
+	for (const { table, restoreData } of PERSONNEL_OWNED_ARCHIVE_TABLES) {
+		const rows = await ctx.store.findMany<{ id: string }>(
+			table,
+			ctx.auth.orgId,
+			{ archived_at: personnelArchivedAt },
+			{
+				inFilters: { personnel_id: uniquePersonnelIds },
+				select: 'id'
+			}
+		);
+
+		for (let index = 0; index < rows.length; index += ARCHIVE_UPDATE_BATCH_SIZE) {
+			const batch = rows.slice(index, index + ARCHIVE_UPDATE_BATCH_SIZE);
+			await Promise.all(batch.map((row) => ctx.store.update(table, ctx.auth.orgId, row.id, restoreData())));
 		}
 	}
 }

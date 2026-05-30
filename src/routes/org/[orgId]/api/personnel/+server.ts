@@ -5,6 +5,7 @@ import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { fail } from '$lib/server/core/errors';
 import { validateUUID } from '$lib/server/validation';
 import { createPersonnelUseCases } from '$lib/server/core/useCases/personnel';
+import { restorePersonnelOwnedArtifacts } from '$lib/server/core/useCases/personnelArchivedArtifacts';
 import { policyResourceForGroup, requireFeaturePolicy } from '$lib/server/core/useCases/featurePolicy';
 
 const useCases = createPersonnelUseCases();
@@ -89,7 +90,9 @@ export const _patchConfig: RouteConfig<Record<string, unknown>, Record<string, u
 			id as string
 		);
 
+		const personnelArchivedAt = person.archived_at;
 		await ctx.store.update('personnel', ctx.auth.orgId, id as string, { archived_at: null });
+		await restorePersonnelOwnedArtifacts(ctx, [id as string], personnelArchivedAt);
 
 		ctx.subscription.invalidateTierCache();
 

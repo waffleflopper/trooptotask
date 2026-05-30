@@ -146,6 +146,50 @@ describe('PersonnelImportPage', () => {
 		});
 	});
 
+	it('keeps the ETS / DEROS merge workflow reachable from the import page', async () => {
+		const fetchMock = vi.fn(
+			async () =>
+				new Response(JSON.stringify({ updated: [{ id: 'person-1' }], errors: [], ambiguous: [] }), { status: 200 })
+		);
+		vi.stubGlobal('fetch', fetchMock);
+		parseFileMock.mockResolvedValue([
+			['Rank', 'Last Name', 'First Name', 'Group', 'ETS', 'PCS / DEROS'],
+			['SGT', 'Smith', 'Jane', 'Alpha Team', '2027-05-01', '2026-11-30']
+		]);
+		renderPage();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Backfill ETS/DEROS' }));
+		expect(screen.getByRole('heading', { name: 'Backfill ETS/DEROS from one file' })).toBeInTheDocument();
+
+		const input = document.querySelector<HTMLInputElement>('#fileUpload');
+		expect(input).toBeTruthy();
+		await fireEvent.change(input!, {
+			target: { files: [new File(['records'], 'personnel.csv', { type: 'text/csv' })] }
+		});
+		await fireEvent.click(await screen.findByRole('button', { name: /Preview 1 Rows/i }));
+		await waitFor(() => expect(screen.getByDisplayValue('2027-05-01')).toBeTruthy());
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Backfill ETS/DEROS checked rows' }));
+
+		await waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
+		expect(fetchMock).toHaveBeenCalledWith('/org/org-1/api/personnel/merge', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({
+				records: [
+					{
+						rank: 'SGT',
+						lastName: 'Smith',
+						firstName: 'Jane',
+						groupName: 'Alpha Team',
+						ets: '2027-05-01',
+						deros: '2026-11-30'
+					}
+				]
+			})
+		});
+	});
+
 	it('shows template guidance before upload', () => {
 		renderPage();
 

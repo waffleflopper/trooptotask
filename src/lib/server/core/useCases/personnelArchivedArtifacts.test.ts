@@ -50,6 +50,20 @@ function seedActiveAndArchivedArtifacts(ctx: ReturnType<typeof createTestContext
 			updated_at: '2026-05-02T10:00:00Z',
 			completed_at: null,
 			archived_at: '2026-05-02T10:00:00Z'
+		},
+		{
+			id: 'follow-up-completed',
+			organization_id: ctx.auth.orgId,
+			personnel_id: 'person-1',
+			title: 'Completed follow-up',
+			notes: null,
+			due_date: null,
+			status: 'completed',
+			created_by: 'test-user',
+			created_at: '2026-05-01T10:00:00Z',
+			updated_at: '2026-05-01T10:00:00Z',
+			completed_at: '2026-05-01T10:00:00Z',
+			archived_at: null
 		}
 	]);
 	ctx.store.seed('counseling_records', [
@@ -148,6 +162,11 @@ describe('personnel archived artifacts', () => {
 					id: 'follow-up-archived',
 					status: 'archived',
 					archived_at: '2026-05-02T10:00:00Z'
+				}),
+				expect.objectContaining({
+					id: 'follow-up-completed',
+					status: 'completed',
+					archived_at: null
 				})
 			])
 		);

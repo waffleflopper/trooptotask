@@ -35,6 +35,7 @@
 	let { orgId, orgUrlSegment = orgId, groups, personnel = [], readOnly = false }: Props = $props();
 
 	type ImportState = 'input' | 'preview' | 'importing' | 'results';
+	type ImportMode = 'create' | 'merge';
 
 	interface RowValidation {
 		valid: boolean;
@@ -57,7 +58,7 @@
 	}
 
 	interface ImportResult {
-		insertedCount: number;
+		savedCount: number;
 		errors: Array<{ index: number; message: string }>;
 		capError?: string;
 		capReached?: boolean;
@@ -78,9 +79,19 @@
 	let editableRows = $state<string[][]>([]);
 	let userOverrides = $state<Record<number, string | null>>({});
 	let lastSubmittedEntries = $state<CheckedRowEntry[]>([]);
+	let importMode = $state<ImportMode>('create');
 
 	const rawRows = $derived(fileRows);
 	const rosterPath = $derived(resolve(`/org/${orgUrlSegment}/personnel`));
+	const submitModeLabel = $derived(importMode === 'merge' ? 'Backfill ETS/DEROS' : 'Import');
+	const inputTitle = $derived(
+		importMode === 'merge' ? 'Backfill ETS/DEROS from one file' : 'Build the roster from one file'
+	);
+	const inputDescription = $derived(
+		importMode === 'merge'
+			? 'Match existing personnel by rank and name, then update ETS and PCS / DEROS values from the mapped rows.'
+			: 'Import rank, name, MOS, duty role, group, ETS, and PCS / DEROS together. Review the mapped rows before anything is added to the active roster.'
+	);
 	const hasHeaders = $derived(rawRows.length > 0 ? detectHeaderRow(rawRows[0], PERSONNEL_COLUMNS) : false);
 	const dataRows = $derived(hasHeaders ? rawRows.slice(1) : rawRows);
 	const dataRowCount = $derived(dataRows.length);
@@ -198,9 +209,9 @@
 	);
 	const resultStatus = $derived(
 		importResult
-			? importResult.insertedCount > 0 && importResult.errors.length > 0
+			? importResult.savedCount > 0 && importResult.errors.length > 0
 				? 'partial'
-				: importResult.insertedCount > 0
+				: importResult.savedCount > 0
 					? 'success'
 					: 'failed'
 			: 'failed'
@@ -303,10 +314,19 @@
 		uploadedFileName = '';
 		uploadedFiles = undefined;
 		fileRows = [];
+		editableRows = [];
+		userOverrides = {};
+		selection.clear();
 		importError = '';
 		importResult = null;
 		lastSubmittedEntries = [];
 		importStep = 'input';
+	}
+
+	function setImportMode(mode: ImportMode) {
+		if (importMode === mode) return;
+		importMode = mode;
+		resetImportState();
 	}
 
 	async function clearFile() {
@@ -348,7 +368,7 @@
 		importStep = 'importing';
 
 		try {
-			const response = await fetch(`/org/${orgId}/api/personnel/batch`, {
+			const response = await fetch(`/org/${orgId}/api/personnel/${importMode === 'merge' ? 'merge' : 'batch'}`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ records: checkedRows.map((row) => row.values) })
@@ -357,7 +377,7 @@
 			const data = await response.json().catch(() => ({}));
 			if (!response.ok) {
 				importResult = {
-					insertedCount: 0,
+					savedCount: 0,
 					errors: data.errors ?? [],
 					capError: data.message ?? `Import failed with status ${response.status}`,
 					capReached: data.capReached ?? false
@@ -368,8 +388,8 @@
 						? data.capError
 						: data.errors?.find((error: { message?: string }) => error.message?.includes(CAP_REACHED_MARKER))?.message;
 				importResult = {
-					insertedCount: (data.inserted ?? []).length,
-					errors: data.errors ?? [],
+					savedCount: importMode === 'merge' ? (data.updated ?? []).length : (data.inserted ?? []).length,
+					errors: importMode === 'merge' ? [...(data.errors ?? []), ...(data.ambiguous ?? [])] : (data.errors ?? []),
 					capError,
 					capReached: data.capReached ?? !!capError
 				};
@@ -377,7 +397,7 @@
 			importStep = 'results';
 		} catch (err) {
 			importResult = {
-				insertedCount: 0,
+				savedCount: 0,
 				errors: [{ index: -1, message: err instanceof Error ? err.message : 'Network error' }],
 				capReached: false
 			};
@@ -426,22 +446,41 @@
 				</Button>
 				<div class="grid gap-1">
 					<p class="text-xs font-medium tracking-widest text-muted-foreground uppercase">Personnel import</p>
-					<h1 class="text-2xl font-semibold tracking-tight text-foreground">Build the roster from one file</h1>
-					<p class="max-w-3xl text-sm leading-relaxed text-muted-foreground">
-						Import rank, name, MOS, duty role, group, ETS, and PCS / DEROS together. Review the mapped rows before
-						anything is added to the active roster.
-					</p>
+					<h1 class="text-2xl font-semibold tracking-tight text-foreground">{inputTitle}</h1>
+					<p class="max-w-3xl text-sm leading-relaxed text-muted-foreground">{inputDescription}</p>
 				</div>
 			</div>
 
-			<div class="grid min-w-[220px] grid-cols-2 gap-2 text-sm">
-				<div class="rounded-lg border bg-card p-3">
-					<div class="text-xs text-muted-foreground">Active roster</div>
-					<div class="mt-1 text-lg font-semibold">{activePersonnelCount}</div>
+			<div class="grid min-w-[220px] gap-2 text-sm">
+				<div class="flex flex-wrap justify-end gap-2">
+					<Button
+						variant={importMode === 'create' ? 'secondary' : 'outline'}
+						size="sm"
+						type="button"
+						aria-pressed={importMode === 'create'}
+						onclick={() => setImportMode('create')}
+					>
+						Add new
+					</Button>
+					<Button
+						variant={importMode === 'merge' ? 'secondary' : 'outline'}
+						size="sm"
+						type="button"
+						aria-pressed={importMode === 'merge'}
+						onclick={() => setImportMode('merge')}
+					>
+						Backfill ETS/DEROS
+					</Button>
 				</div>
-				<div class="rounded-lg border bg-card p-3">
-					<div class="text-xs text-muted-foreground">Known groups</div>
-					<div class="mt-1 text-lg font-semibold">{groups.length}</div>
+				<div class="grid grid-cols-2 gap-2">
+					<div class="rounded-lg border bg-card p-3">
+						<div class="text-xs text-muted-foreground">Active roster</div>
+						<div class="mt-1 text-lg font-semibold">{activePersonnelCount}</div>
+					</div>
+					<div class="rounded-lg border bg-card p-3">
+						<div class="text-xs text-muted-foreground">Known groups</div>
+						<div class="mt-1 text-lg font-semibold">{groups.length}</div>
+					</div>
 				</div>
 			</div>
 		</header>
@@ -573,7 +612,9 @@
 					<BulkImportWorkspace.Header
 						step="Step 2"
 						title="Review mapped rows"
-						description="Only checked rows without errors will be imported."
+						description={importMode === 'merge'
+							? 'Only checked rows without errors will be matched against existing personnel.'
+							: 'Only checked rows without errors will be imported.'}
 					/>
 
 					<BulkImportWorkspace.InputPanel title="Column mapping" description="Confirm each file column before import.">
@@ -629,14 +670,14 @@
 						<Button variant="ghost" type="button" href={rosterPath}>Cancel</Button>
 						<Button variant="outline" type="button" onclick={backToInput}>Back</Button>
 						<Button type="button" onclick={runImport} disabled={runningImport || !!submitDisabledReason}>
-							Import checked rows
+							{submitModeLabel} checked rows
 						</Button>
 					</BulkImportWorkspace.FooterActions>
 				</BulkImportWorkspace.Root>
 			</Tooltip.Provider>
 		{:else if importStep === 'importing'}
 			<BulkImportWorkspace.ProgressState
-				title="Importing personnel records"
+				title={importMode === 'merge' ? 'Backfilling personnel records' : 'Importing personnel records'}
 				description="Keep this page open while the roster is updated."
 			/>
 		{:else if importStep === 'results' && importResult}
@@ -654,7 +695,7 @@
 				status={resultStatus}
 				description={importResult.capError ?? 'Review the summary before returning to the roster.'}
 				items={[
-					{ label: 'Saved', value: importResult.insertedCount, tone: 'success' },
+					{ label: 'Saved', value: importResult.savedCount, tone: 'success' },
 					{
 						label: 'Failed',
 						value: importResult.errors.length,

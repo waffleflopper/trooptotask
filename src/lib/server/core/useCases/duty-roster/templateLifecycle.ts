@@ -954,10 +954,12 @@ export async function recordDutyRosterTemplateRunCorrectionLifecycle(
 	input: DutyRosterTemplateCorrectionInput
 ): Promise<DutyRosterTemplateRunCorrection> {
 	const parsed = parseCorrectionInput(input);
+	await assertAcceptedRunTemplateIsActive(ctx, parsed.runId);
 	return recordRunCorrectionLifecycle(ctx, parsed);
 }
 
 export async function invalidateLatestDutyRosterTemplateRunLifecycle(ctx: WritePorts, input: { runId: string }) {
+	await assertAcceptedRunTemplateIsActive(ctx, input.runId);
 	return invalidateLatestRunLifecycle(ctx, input);
 }
 

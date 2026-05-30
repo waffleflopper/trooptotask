@@ -427,6 +427,38 @@ describe('Duty Roster Template use cases', () => {
 		});
 	});
 
+	it('blocks accepted history mutations for archived templates', async () => {
+		const ctx = createCtx();
+		personnelRows.push(
+			personnelRow({ id: 'p1', rank: 'SGT', last_name: 'Able' }),
+			personnelRow({ id: 'p2', rank: 'SGT', last_name: 'Baker' })
+		);
+		const template = await createDutyRosterTemplate(ctx, { name: 'CQ NCO', shortCode: 'CQ' });
+		const preview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: template.id,
+			startDate: '2026-06-01',
+			endDate: '2026-06-01'
+		});
+		const accepted = await acceptDutyRosterTemplatePreview(ctx, { preview: JSON.stringify(preview) });
+		await archiveDutyRosterTemplate(ctx, { templateId: template.id });
+
+		await expect(
+			recordDutyRosterTemplateRunCorrection(ctx, {
+				runId: accepted.id,
+				runRowDate: '2026-06-01',
+				replacementAssigneeId: 'p2',
+				reason: 'Actual Soldier served'
+			})
+		).rejects.toMatchObject({
+			status: 400,
+			message: 'Archived Duty Roster Templates cannot be applied to Calendar.'
+		});
+		await expect(invalidateLatestDutyRosterTemplateRun(ctx, { runId: accepted.id })).rejects.toMatchObject({
+			status: 400,
+			message: 'Archived Duty Roster Templates cannot be applied to Calendar.'
+		});
+	});
+
 	it('creates a configured Duty Roster Template in one use-case call', async () => {
 		const ctx = createCtx();
 		personnelRows.push(

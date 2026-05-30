@@ -24,21 +24,25 @@ import {
 const PERSONNEL_OWNED_ARCHIVE_TABLES = [
 	{
 		table: 'personnel_follow_ups',
+		filters: { status: 'open' },
 		archiveData: (archivedAt: string) => ({ status: 'archived', archived_at: archivedAt }),
 		restoreData: () => ({ status: 'open', archived_at: null })
 	},
 	{
 		table: 'counseling_records',
+		filters: undefined,
 		archiveData: (archivedAt: string) => ({ archived_at: archivedAt }),
 		restoreData: () => ({ archived_at: null })
 	},
 	{
 		table: 'personnel_documents',
+		filters: undefined,
 		archiveData: (archivedAt: string) => ({ archived_at: archivedAt }),
 		restoreData: () => ({ archived_at: null })
 	},
 	{
 		table: 'leader_notes',
+		filters: undefined,
 		archiveData: (archivedAt: string) => ({ archived_at: archivedAt }),
 		restoreData: () => ({ archived_at: null })
 	}
@@ -59,8 +63,8 @@ export async function archivePersonnelOwnedArtifacts(
 	const uniquePersonnelIds = [...new Set(personnelIds)];
 	if (uniquePersonnelIds.length === 0) return;
 
-	for (const { table, archiveData } of PERSONNEL_OWNED_ARCHIVE_TABLES) {
-		const rows = await ctx.store.findMany<{ id: string }>(table, ctx.auth.orgId, undefined, {
+	for (const { table, filters, archiveData } of PERSONNEL_OWNED_ARCHIVE_TABLES) {
+		const rows = await ctx.store.findMany<{ id: string }>(table, ctx.auth.orgId, filters, {
 			inFilters: { personnel_id: uniquePersonnelIds },
 			isNull: { archived_at: true },
 			select: 'id'

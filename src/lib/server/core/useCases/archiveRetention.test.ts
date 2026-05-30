@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createInMemoryDataStore, createTestStoragePort } from '$lib/server/adapters/inMemory';
 import { cleanupArchivedRecords, DEFAULT_ARCHIVE_RETENTION_MONTHS } from './archiveRetention';
 import { COUNSELING_RECORDS_BUCKET } from './personnelCounselingRecords';
@@ -170,6 +170,31 @@ describe('cleanupArchivedRecords', () => {
 		]);
 	});
 
+	it('keeps storage files when database deletion fails', async () => {
+		const ports = buildPorts();
+		seedRetentionRows(ports);
+		const deleteManyByIds = ports.store.deleteManyByIds.bind(ports.store);
+		vi.spyOn(ports.store, 'deleteManyByIds').mockImplementation(async (table, orgId, ids) => {
+			if (table === 'personnel_documents') {
+				throw new Error('database delete failed');
+			}
+			return deleteManyByIds(table, orgId, ids);
+		});
+
+		await expect(cleanupArchivedRecords(ports, [{ id: 'org-1', retentionMonths: 12 }], { now: NOW })).rejects.toThrow(
+			'database delete failed'
+		);
+
+		expect(ports.storage.files).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					bucket: PERSONNEL_DOCUMENTS_BUCKET,
+					path: 'org-1/personnel/person-1/documents/expired.pdf'
+				})
+			])
+		);
+	});
+
 	it('removes storage files for personnel-owned documents that would be deleted by personnel cascades', async () => {
 		const ports = buildPorts();
 		const expired = isoMonthsAgo(13);
@@ -228,6 +253,25 @@ describe('cleanupArchivedRecords', () => {
 			expect.arrayContaining([expect.objectContaining({ key: 'assignment-types', deletedCount: 1 })])
 		);
 		await expect(idsFor(ports, 'assignment_types')).resolves.toEqual(['assignment-referenced']);
+	});
+
+	it('skips archived critical tasks that still have completion history', async () => {
+		const ports = buildPorts();
+		const expired = isoMonthsAgo(13);
+		ports.store.seed('ict_tasks', [
+			{ id: 'task-referenced', organization_id: 'org-1', archived_at: expired },
+			{ id: 'task-unreferenced', organization_id: 'org-1', archived_at: expired }
+		]);
+		ports.store.seed('personnel_ict_completions', [
+			{ id: 'completion-1', organization_id: 'org-1', ict_task_id: 'task-referenced' }
+		]);
+
+		const result = await cleanupArchivedRecords(ports, [{ id: 'org-1', retentionMonths: 12 }], { now: NOW });
+
+		expect(result.families).toEqual(
+			expect.arrayContaining([expect.objectContaining({ key: 'critical-tasks', deletedCount: 1 })])
+		);
+		await expect(idsFor(ports, 'ict_tasks')).resolves.toEqual(['task-referenced']);
 	});
 
 	it('defaults invalid retention settings instead of deleting immediately', async () => {

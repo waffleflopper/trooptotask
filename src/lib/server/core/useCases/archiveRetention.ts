@@ -47,7 +47,11 @@ interface CleanupFamily {
 		orgId: string,
 		rows: CleanupCandidate[]
 	) => Promise<CleanupCandidate[]>;
-	beforeDelete?: (ports: ArchiveRetentionPorts, orgId: string, rows: CleanupCandidate[]) => Promise<void>;
+	prepareDelete?: (
+		ports: ArchiveRetentionPorts,
+		orgId: string,
+		rows: CleanupCandidate[]
+	) => Promise<((deletedRows: CleanupCandidate[]) => Promise<void>) | undefined>;
 }
 
 interface CleanupCandidate {
@@ -70,7 +74,7 @@ const ARCHIVE_RETENTION_FAMILIES: CleanupFamily[] = [
 		label: 'Counseling records',
 		timestampColumn: 'archived_at',
 		select: 'id, file_path',
-		beforeDelete: removeCounselingRecordFiles
+		prepareDelete: prepareCounselingRecordFileRemoval
 	},
 	{
 		key: 'personnel-documents',
@@ -78,7 +82,7 @@ const ARCHIVE_RETENTION_FAMILIES: CleanupFamily[] = [
 		label: 'Personnel documents',
 		timestampColumn: 'archived_at',
 		select: 'id, file_path',
-		beforeDelete: removePersonnelDocumentFiles
+		prepareDelete: preparePersonnelDocumentFileRemoval
 	},
 	{
 		key: 'leader-notes',
@@ -91,13 +95,14 @@ const ARCHIVE_RETENTION_FAMILIES: CleanupFamily[] = [
 		table: 'personnel',
 		label: 'Personnel',
 		timestampColumn: 'archived_at',
-		beforeDelete: removePersonnelOwnedDocumentFiles
+		prepareDelete: preparePersonnelOwnedDocumentFileRemoval
 	},
 	{
 		key: 'critical-tasks',
 		table: 'ict_tasks',
 		label: 'Critical Tasks library',
-		timestampColumn: 'archived_at'
+		timestampColumn: 'archived_at',
+		filterCandidates: excludeReferencedCriticalTasks
 	},
 	{
 		key: 'assignment-types',
@@ -211,57 +216,101 @@ async function excludeReferencedAssignmentTypes(
 	return rows.filter((row) => !referencedIds.has(row.id));
 }
 
-async function removePersonnelDocumentFiles(
-	ports: ArchiveRetentionPorts,
-	_orgId: string,
-	rows: CleanupCandidate[]
-): Promise<void> {
-	const paths = rows
-		.map((row) => row.file_path)
-		.filter((path): path is string => typeof path === 'string' && path.length > 0);
-
-	if (paths.length > 0) {
-		await ports.storage.remove(PERSONNEL_DOCUMENTS_BUCKET, paths);
-	}
-}
-
-async function removeCounselingRecordFiles(
-	ports: ArchiveRetentionPorts,
-	_orgId: string,
-	rows: CleanupCandidate[]
-): Promise<void> {
-	const paths = rows
-		.map((row) => row.file_path)
-		.filter((path): path is string => typeof path === 'string' && path.length > 0);
-
-	if (paths.length > 0) {
-		await ports.storage.remove(COUNSELING_RECORDS_BUCKET, paths);
-	}
-}
-
-async function removePersonnelOwnedDocumentFiles(
+async function excludeReferencedCriticalTasks(
 	ports: ArchiveRetentionPorts,
 	orgId: string,
 	rows: CleanupCandidate[]
-): Promise<void> {
+): Promise<CleanupCandidate[]> {
+	const candidateIds = rows.map((row) => row.id);
+	if (candidateIds.length === 0) return rows;
+
+	const completions = await ports.store.findMany<{ ict_task_id: string }>(
+		'personnel_ict_completions',
+		orgId,
+		undefined,
+		{
+			select: 'ict_task_id',
+			inFilters: { ict_task_id: candidateIds }
+		}
+	);
+
+	const referencedIds = new Set(completions.map((row) => row.ict_task_id));
+	return rows.filter((row) => !referencedIds.has(row.id));
+}
+
+function prepareFileRemoval(
+	ports: ArchiveRetentionPorts,
+	bucket: string,
+	rows: CleanupCandidate[]
+): ((deletedRows: CleanupCandidate[]) => Promise<void>) | undefined {
+	const pathsById = new Map(
+		rows
+			.filter((row) => typeof row.file_path === 'string' && row.file_path.length > 0)
+			.map((row) => [row.id, row.file_path as string])
+	);
+
+	if (pathsById.size === 0) return undefined;
+
+	return async (deletedRows) => {
+		const paths = deletedRows
+			.map((row) => pathsById.get(row.id))
+			.filter((path): path is string => typeof path === 'string' && path.length > 0);
+
+		if (paths.length > 0) {
+			await ports.storage.remove(bucket, paths);
+		}
+	};
+}
+
+async function preparePersonnelDocumentFileRemoval(
+	ports: ArchiveRetentionPorts,
+	_orgId: string,
+	rows: CleanupCandidate[]
+): Promise<((deletedRows: CleanupCandidate[]) => Promise<void>) | undefined> {
+	return prepareFileRemoval(ports, PERSONNEL_DOCUMENTS_BUCKET, rows);
+}
+
+async function prepareCounselingRecordFileRemoval(
+	ports: ArchiveRetentionPorts,
+	_orgId: string,
+	rows: CleanupCandidate[]
+): Promise<((deletedRows: CleanupCandidate[]) => Promise<void>) | undefined> {
+	return prepareFileRemoval(ports, COUNSELING_RECORDS_BUCKET, rows);
+}
+
+async function preparePersonnelOwnedDocumentFileRemoval(
+	ports: ArchiveRetentionPorts,
+	orgId: string,
+	rows: CleanupCandidate[]
+): Promise<((deletedRows: CleanupCandidate[]) => Promise<void>) | undefined> {
 	const personnelIds = rows.map((row) => row.id);
-	if (personnelIds.length === 0) return;
+	if (personnelIds.length === 0) return undefined;
 
 	const [documents, counselingRecords] = await Promise.all([
 		ports.store.findMany<CleanupCandidate>('personnel_documents', orgId, undefined, {
-			select: 'id, file_path',
+			select: 'id, personnel_id, file_path',
 			inFilters: { personnel_id: personnelIds }
 		}),
 		ports.store.findMany<CleanupCandidate>('counseling_records', orgId, undefined, {
-			select: 'id, file_path',
+			select: 'id, personnel_id, file_path',
 			inFilters: { personnel_id: personnelIds }
 		})
 	]);
 
-	await Promise.all([
-		removePersonnelDocumentFiles(ports, orgId, documents),
-		removeCounselingRecordFiles(ports, orgId, counselingRecords)
-	]);
+	const documentCleanup = prepareFileRemoval(ports, PERSONNEL_DOCUMENTS_BUCKET, documents);
+	const counselingCleanup = prepareFileRemoval(ports, COUNSELING_RECORDS_BUCKET, counselingRecords);
+
+	if (!documentCleanup && !counselingCleanup) return undefined;
+
+	return async (deletedRows) => {
+		const deletedPersonnelIds = new Set(deletedRows.map((row) => row.id));
+		await Promise.all([
+			documentCleanup?.(documents.filter((row) => row.personnel_id && deletedPersonnelIds.has(row.personnel_id))),
+			counselingCleanup?.(
+				counselingRecords.filter((row) => row.personnel_id && deletedPersonnelIds.has(row.personnel_id))
+			)
+		]);
+	};
 }
 
 function notificationMessage(families: ArchiveRetentionFamilyResult[]): string {
@@ -299,12 +348,20 @@ export async function cleanupArchivedRecords(
 			rows = (await family.filterCandidates?.(ports, org.id, rows)) ?? rows;
 			if (rows.length === 0) continue;
 
-			await family.beforeDelete?.(ports, org.id, rows);
+			const afterDelete = await family.prepareDelete?.(ports, org.id, rows);
 			const deletedCount = await ports.store.deleteManyByIds(
 				family.table,
 				org.id,
 				rows.map((row) => row.id)
 			);
+			if (afterDelete && deletedCount > 0) {
+				const remainingRows = await ports.store.findMany<CleanupCandidate>(family.table, org.id, undefined, {
+					select: 'id',
+					inFilters: { id: rows.map((row) => row.id) }
+				});
+				const remainingIds = new Set(remainingRows.map((row) => row.id));
+				await afterDelete(rows.filter((row) => !remainingIds.has(row.id)));
+			}
 
 			const familyTotal = familyTotals.get(family.key);
 			if (familyTotal) familyTotal.deletedCount += deletedCount;

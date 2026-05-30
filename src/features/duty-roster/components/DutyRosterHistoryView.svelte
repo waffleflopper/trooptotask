@@ -122,6 +122,7 @@
 	}
 
 	const selectedCorrectionWarning = $derived(selectedCorrectionOverrideWarning());
+	const isArchivedTemplate = $derived(selectedTemplate.status === 'archived');
 
 	function handleHistoryActionEnhance(action: 'apply' | 'invalidate' | 'correction') {
 		pendingHistoryAction = action;
@@ -570,7 +571,7 @@
 											<span class="block text-xs text-muted-foreground">{detailReview.calendarStepLabel}</span>
 										</td>
 										<td class="px-3 py-2">
-											{#if tableRow.canCorrect}
+											{#if !isArchivedTemplate && tableRow.canCorrect}
 												<Button
 													variant="outline"
 													size="sm"
@@ -612,7 +613,7 @@
 				class="grid content-start gap-4 border-l border-border bg-muted/20 p-4"
 				aria-label="Run correction controls"
 			>
-				{#if selectedCorrectionRow}
+				{#if selectedCorrectionRow && !isArchivedTemplate}
 					<div class="flex items-start justify-between gap-3">
 						<div>
 							<p class="text-xs font-medium text-muted-foreground">Record Correction</p>
@@ -734,10 +735,17 @@
 						<h3 class="text-sm font-semibold text-foreground">Official record</h3>
 					</div>
 					<div class="grid gap-3">
-						<p class="text-xs text-muted-foreground">
-							Use Change Assignment on a roster row to record who actually served.
-						</p>
-						{#if !detailReview.isInvalidated && detailReview.calendarState === 'apply'}
+						{#if isArchivedTemplate}
+							<p class="text-xs text-muted-foreground">
+								Archived Duty Roster Template history is read-only. Corrections, invalidations, and Calendar writes are
+								disabled.
+							</p>
+						{:else}
+							<p class="text-xs text-muted-foreground">
+								Use Change Assignment on a roster row to record who actually served.
+							</p>
+						{/if}
+						{#if !isArchivedTemplate && !detailReview.isInvalidated && detailReview.calendarState === 'apply'}
 							<form
 								method="post"
 								action={applyAcceptedRunAction}
@@ -754,7 +762,7 @@
 								</Button>
 							</form>
 						{/if}
-						{#if !detailReview.isInvalidated && detailReview.calendarState === 'reapply' && historyDetailRun.calendarSyncState}
+						{#if !isArchivedTemplate && !detailReview.isInvalidated && detailReview.calendarState === 'reapply' && historyDetailRun.calendarSyncState}
 							<Button
 								type="button"
 								class="w-full"
@@ -772,7 +780,7 @@
 								{historyDetailRun.calendarSyncState.invalidationRemovalSummary}
 							</p>
 						{/if}
-						{#if detailReview.canInvalidate}
+						{#if !isArchivedTemplate && detailReview.canInvalidate}
 							<Button
 								variant="destructive"
 								type="button"
@@ -785,7 +793,7 @@
 								Invalidate run
 							</Button>
 						{/if}
-						{#if detailReview.canInvalidate && confirmingInvalidationRunId === historyDetailRun.id}
+						{#if !isArchivedTemplate && detailReview.canInvalidate && confirmingInvalidationRunId === historyDetailRun.id}
 							<AppDialog.Root open onClose={() => (confirmingInvalidationRunId = null)}>
 								<AppDialog.Content closeBlocked={pendingHistoryAction === 'invalidate'}>
 									<AppDialog.Header>
@@ -861,7 +869,7 @@
 								</AppDialog.Content>
 							</AppDialog.Root>
 						{/if}
-						{#if confirmingCalendarSyncRunId === historyDetailRun.id && historyDetailRun.calendarSyncState && historyDetailRun.calendarSyncState.plan.changes.length > 0}
+						{#if !isArchivedTemplate && confirmingCalendarSyncRunId === historyDetailRun.id && historyDetailRun.calendarSyncState && historyDetailRun.calendarSyncState.plan.changes.length > 0}
 							<AppDialog.Root open onClose={() => (confirmingCalendarSyncRunId = null)}>
 								<AppDialog.Content closeBlocked={pendingHistoryAction === 'apply'} size="wide">
 									<AppDialog.Header>

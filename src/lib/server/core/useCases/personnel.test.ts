@@ -426,7 +426,7 @@ describe('Personnel — archive', () => {
 		});
 	});
 
-	it('archives all personnel-owned artifacts when archiving personnel', async () => {
+	it('archives personnel-owned artifacts without reopening completed follow-ups later', async () => {
 		const ctx = buildContext();
 		const { archive } = createPersonnelUseCases();
 		seedPersonnel(ctx);
@@ -442,7 +442,7 @@ describe('Personnel — archive', () => {
 		expect(followUps).toEqual(
 			expect.arrayContaining([
 				expect.objectContaining({ id: 'follow-up-open', status: 'archived', archived_at: expect.any(String) }),
-				expect.objectContaining({ id: 'follow-up-completed', status: 'archived', archived_at: expect.any(String) })
+				expect.objectContaining({ id: 'follow-up-completed', status: 'completed', archived_at: null })
 			])
 		);
 		expect(counselings[0].archived_at).toEqual(expect.any(String));

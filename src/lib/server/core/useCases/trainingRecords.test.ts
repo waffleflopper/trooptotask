@@ -95,6 +95,13 @@ describe('calculateExpirationDate', () => {
 	it('returns null when completion date is null', () => {
 		expect(calculateExpirationDate(null, 12)).toBeNull();
 	});
+
+	it('clamps month-end overflow instead of rolling into the next month', () => {
+		// BUG-FIX (issue #1148): was `date.setMonth(+n)` which overflowed
+		// 2025-01-31 + 1 month → 2025-03-03. Now clamps to the last valid day,
+		// matching the client preview in trainingStatus.ts.
+		expect(calculateExpirationDate('2025-01-31', 1)).toBe('2025-02-28');
+	});
 });
 
 describe('createTrainingRecord', () => {

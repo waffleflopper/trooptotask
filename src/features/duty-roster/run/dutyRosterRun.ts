@@ -3,14 +3,17 @@ import type { DutyEvent } from '$features/duty-roster/duty-roster.types';
 import type { Da6AvailabilityTreatment, Personnel, SpecialDay, StatusType } from '$lib/types';
 import { comparePersonnelByRankThenName } from '$lib/domain/personnelRank';
 import { computeDa6Roster } from './da6RosterEngine';
-import type { AvailabilityClassification, Da6RosterEngineInput } from './da6RosterEngine';
+import type { AvailabilityClassification, Da6RosterEngineInput, Da6RosterEngineRow } from './da6RosterEngine';
+import { da6ReasonText } from './da6ReasonText';
 import type {
+	Da6Cell,
 	Da6Column,
 	DutyRosterApplyPayloadRow,
 	DutyRosterExportModel,
 	DutyRosterExportSequencePeriod,
 	DutyRosterHistoryDa6Data,
 	DutyRosterHistoryPayload,
+	DutyRosterRow,
 	DutyRosterRunConfig,
 	DutyRosterRunInput,
 	DutyRosterRunSnapshot,
@@ -512,7 +515,6 @@ function classifyAvailability(
 			code: 'misconduct-unavailable',
 			da6Code: 'U',
 			chargeable: true,
-			reason: 'Unavailable due to misconduct/AWOL-style status',
 			reasonCode: 'misconduct-unavailable'
 		};
 	}
@@ -523,8 +525,8 @@ function classifyAvailability(
 			code: 'misconduct-unavailable',
 			da6Code: 'U',
 			chargeable: true,
-			reason: `Misconduct unavailable: ${statusNames.join(', ') || 'status'}`,
-			reasonCode: 'misconduct-unavailable'
+			reasonCode: 'misconduct-unavailable',
+			reasonParams: { statusNames }
 		};
 	}
 
@@ -534,8 +536,8 @@ function classifyAvailability(
 			code: 'authorized-absence',
 			da6Code: 'A',
 			chargeable: false,
-			reason: `Authorized absence: ${statusNames.join(', ') || 'status'}`,
-			reasonCode: 'authorized-absence'
+			reasonCode: 'authorized-absence',
+			reasonParams: { statusNames }
 		};
 	}
 
@@ -548,10 +550,6 @@ function classifyAvailability(
 			code: advancedDutyBlock === 'duty' ? 'blocked-by-duty' : 'blocked-by-cooldown',
 			da6Code: 'D',
 			chargeable: true,
-			reason:
-				advancedDutyBlock === 'duty'
-					? 'Assigned to blocking advanced duty coverage'
-					: 'In cooldown from blocking advanced duty coverage',
 			reasonCode: advancedDutyBlock === 'duty' ? 'advanced-duty-overlap' : 'advanced-duty-cooldown'
 		};
 	}
@@ -562,8 +560,8 @@ function classifyAvailability(
 			code: 'blocked-by-duty',
 			da6Code: 'D',
 			chargeable: true,
-			reason: `Other duty: ${statusNames.join(', ') || 'status'}`,
-			reasonCode: 'other-duty-status'
+			reasonCode: 'other-duty-status',
+			reasonParams: { statusNames }
 		};
 	}
 
@@ -572,8 +570,29 @@ function classifyAvailability(
 		code: 'available-not-selected',
 		da6Code: null,
 		chargeable: true,
-		reason: null,
 		reasonCode: null
+	};
+}
+
+function renderRosterRowReason(row: Da6RosterEngineRow): DutyRosterRow {
+	const reason = da6ReasonText(row.reasonCode, row.reasonParams);
+	return reason
+		? {
+				date: row.date,
+				assigneeId: row.assigneeId,
+				reason
+			}
+		: {
+				date: row.date,
+				assigneeId: row.assigneeId
+			};
+}
+
+function renderDa6CellReason(cell: Da6Cell): Da6Cell {
+	const { reasonParams, ...cellWithoutReasonParams } = cell;
+	return {
+		...cellWithoutReasonParams,
+		reason: da6ReasonText(cell.reasonCode, reasonParams)
 	};
 }
 
@@ -688,7 +707,10 @@ export function buildDutyRosterRunSnapshot(input: DutyRosterRunInput): DutyRoste
 		...column,
 		specialDayIds: (indexes.specialDaysByDate.get(column.date) ?? []).map((day) => day.id)
 	}));
-	const { rosterRows, cellsByPersonnelId } = engineOutput;
+	const rosterRows = engineOutput.rosterRows.map(renderRosterRowReason);
+	const cellsByPersonnelId = new Map(
+		[...engineOutput.cellsByPersonnelId].map(([personnelId, cells]) => [personnelId, cells.map(renderDa6CellReason)])
+	);
 
 	const da6 = {
 		numberingMode: config.numberingMode,

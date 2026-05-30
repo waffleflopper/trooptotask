@@ -16,6 +16,12 @@
  * Pure module: no SvelteKit, no Supabase, no I/O. Importable from both client
  * feature utils and server use cases. The only clock dependency is the optional
  * `asOf` param (defaults to now), mirroring the existing ICT status helper.
+ *
+ * Date-only strings are parsed with `parseDate` (local calendar) on BOTH sides,
+ * matching the existing ICT helper and the way Training writes its expiration
+ * dates. This deliberately corrects Training's legacy `new Date("YYYY-MM-DD")`
+ * read parse, which under-counted by a day west of UTC (a no-op in production,
+ * which runs in UTC). See currencyStatus.test.ts for the parity characterization.
  */
 import { parseDate } from '$lib/utils/dates';
 
@@ -65,6 +71,7 @@ function classify(
 	warnBands: CurrencyWarnBand[],
 	asOf: string | Date | undefined
 ): CurrencyStatusResult {
+	// parseDate (local calendar) on both sides → timezone-independent calendar-day count.
 	const days = Math.floor(
 		(toStartOfDay(parseDate(expirationDate)).getTime() - resolveAsOfDate(asOf).getTime()) / DAY_MS
 	);

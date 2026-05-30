@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { computeDa6Roster, type AvailabilityClassification, type Da6RosterEngineInput } from './da6RosterEngine';
+import {
+	__testing,
+	computeDa6Roster,
+	type AvailabilityClassification,
+	type Da6RosterEngineInput
+} from './da6RosterEngine';
 import type { DutyRosterSnapshotPersonnel } from './dutyRosterRun.types';
 
 const available: AvailabilityClassification = {
@@ -155,5 +160,62 @@ describe('computeDa6Roster', () => {
 		expect(output.rosterRows.map((row) => row.assigneeId)).toEqual(['alpha', 'bravo']);
 		expect(output.cellsByPersonnelId.get('alpha')?.map((cell) => cell.sequenceNumber)).toEqual([5, 1]);
 		expect(output.cellsByPersonnelId.get('bravo')?.map((cell) => cell.sequenceNumber)).toEqual([2, 3]);
+	});
+});
+
+describe('Duty Priority', () => {
+	it('ranks never-assigned Soldiers before already-assigned Soldiers, then uses DA6 Roster Order', () => {
+		const alpha = soldier({ id: 'alpha', rank: 'SGT', lastName: 'Able' });
+		const bravo = soldier({ id: 'bravo', rank: 'SGT', lastName: 'Baker' });
+		const staff = soldier({ id: 'staff', rank: 'SSG', lastName: 'Zebra' });
+		const priority = __testing.lastDutyDatePriority(
+			new Map([
+				['alpha', '2026-05-01'],
+				['bravo', null],
+				['staff', null]
+			])
+		);
+
+		expect(priority.compare(bravo, alpha)).toBeLessThan(0);
+		expect(priority.compare(alpha, bravo)).toBeGreaterThan(0);
+		expect(priority.compare(staff, bravo)).toBeLessThan(0);
+	});
+
+	it('updates last-duty-date priority when a Soldier is selected', () => {
+		const alpha = soldier({ id: 'alpha', rank: 'SGT', lastName: 'Able' });
+		const bravo = soldier({ id: 'bravo', rank: 'SGT', lastName: 'Baker' });
+		const priority = __testing.lastDutyDatePriority(
+			new Map([
+				['alpha', '2026-05-01'],
+				['bravo', null]
+			])
+		);
+
+		priority.recordSelection('bravo', '2026-05-02');
+
+		expect(priority.compare(alpha, bravo)).toBeLessThan(0);
+	});
+
+	it('raises passed-over Soldiers, resets selected Soldiers, and uses DA6 Roster Order for count ties', () => {
+		const alpha = soldier({ id: 'alpha', rank: 'SGT', lastName: 'Able' });
+		const bravo = soldier({ id: 'bravo', rank: 'SGT', lastName: 'Baker' });
+		const staff = soldier({ id: 'staff', rank: 'SSG', lastName: 'Zebra' });
+		const priority = __testing.baselineCountPriority(
+			new Map([
+				['alpha', 2],
+				['bravo', 2],
+				['staff', 2]
+			])
+		);
+
+		expect(priority.compare(staff, alpha)).toBeLessThan(0);
+
+		priority.recordPassedOver('bravo');
+
+		expect(priority.compare(bravo, staff)).toBeLessThan(0);
+
+		priority.recordSelection('bravo', '2026-05-01');
+
+		expect(priority.compare(staff, bravo)).toBeLessThan(0);
 	});
 });

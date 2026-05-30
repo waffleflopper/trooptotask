@@ -4,10 +4,10 @@
 	import { Separator } from '$lib/components/ui/separator';
 	import { CalendarStatusBadge } from '$lib/components/ui/calendar-status-badge';
 	import * as Card from '$lib/components/ui/card';
-	import type { DashboardContext } from '../../contexts/DashboardContext.svelte';
+	import type { DashboardScreenModel } from '../../read-model/dashboardScreenModel.svelte';
 
 	interface Props {
-		ctx: DashboardContext;
+		ctx: DashboardScreenModel;
 	}
 
 	let { ctx }: Props = $props();

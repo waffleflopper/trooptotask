@@ -2,10 +2,10 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import { Skeleton } from '$lib/components/ui/skeleton';
-	import type { DashboardContext } from '../../contexts/DashboardContext.svelte';
+	import type { DashboardScreenModel } from '../../read-model/dashboardScreenModel.svelte';
 
 	interface Props {
-		ctx: DashboardContext;
+		ctx: DashboardScreenModel;
 	}
 
 	let { ctx }: Props = $props();

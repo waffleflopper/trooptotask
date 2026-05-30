@@ -9,7 +9,7 @@
  */
 import { fail } from '$lib/server/core/errors';
 import { evaluatePolicyDecision, POLICY_ACTION_CATALOG, type PolicyResource } from '$lib/access/policyEvaluator';
-import { formatDate, parseDate } from '$lib/utils/dates';
+import { addMonthsClamped, formatDate, parseDate } from '$lib/utils/dates';
 import { PersonnelTrainingEntity } from '$lib/server/entities/personnelTraining';
 import type { WritePorts } from '$lib/server/core/ports';
 import { policyResourceForPersonnel, requireFeaturePolicy } from './featurePolicy';
@@ -19,9 +19,9 @@ const AUDIT_RESOURCE = 'training_record';
 
 export function calculateExpirationDate(completionDate: string | null, expirationMonths: number | null): string | null {
 	if (expirationMonths === null || !completionDate) return null;
-	const date = parseDate(completionDate);
-	date.setMonth(date.getMonth() + expirationMonths);
-	return formatDate(date);
+	// addMonthsClamped pins month-end overflow (e.g. Jan 31 + 1mo → Feb 28, not Mar 3),
+	// keeping the stored expiration consistent with the client preview in trainingStatus.ts.
+	return formatDate(addMonthsClamped(parseDate(completionDate), expirationMonths));
 }
 
 interface TrainingTypeRow {

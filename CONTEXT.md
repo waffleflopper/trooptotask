@@ -396,6 +396,10 @@ _Avoid_: Pivot cache, dashboard cache, report rows only
 An organization-defined ICT requirement tracked by the **Critical Tasks** feature.
 _Avoid_: Training type
 
+**Currency Status**:
+The shared, provider-free determination of whether a dated requirement is still current, expiring, expired, or has no usable date, given a completion or expiration date, a resolved expiration window, ordered warning thresholds, and an as-of date. It is the single currency clock behind both **Training Type** status and **Critical Task** status. Currency Status does not decide applicability or exemption (that gate runs before it and is feature-owned), does not own display color or label text (that presenter runs after it), and does not interpret a null expiration window — each feature resolves its effective window first, since a null window means "never expires" for **Training** but "use the org default" for **Critical Tasks**. The four currency states are `not-recorded`, `current`, `expiring`, and `expired`.
+_Avoid_: Compliance status, readiness, training status, ICT status when the shared currency determination is meant
+
 ## Relationships
 
 - An **Organization** contains **Groups**, **Personnel Records**, settings, and organization-scoped feature data.

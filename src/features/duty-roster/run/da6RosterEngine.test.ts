@@ -164,6 +164,31 @@ describe('computeDa6Roster', () => {
 		expect(output.cellsByPersonnelId.get('alpha')?.map((cell) => cell.sequenceNumber)).toEqual([5, 1]);
 		expect(output.cellsByPersonnelId.get('bravo')?.map((cell) => cell.sequenceNumber)).toEqual([2, 3]);
 	});
+
+	it('uses manual baseline counts to seed separate weekday and weekend-holiday sequence numbers', () => {
+		const output = computeDa6Roster(
+			engineInput({
+				dutyDates: ['2026-05-01', '2026-05-02'],
+				sequenceByDate: new Map([
+					['2026-05-01', { sequenceKind: 'weekday', sequenceKey: 'weekday' }],
+					['2026-05-02', { sequenceKind: 'weekend-holiday', sequenceKey: 'weekend-holiday' }]
+				]),
+				classificationByPersonDate: new Map([
+					[
+						'alpha',
+						new Map([
+							['2026-05-01', available],
+							['2026-05-02', available]
+						])
+					]
+				]),
+				manualBaselineCounts: new Map([['alpha', 5]])
+			})
+		);
+
+		expect(output.columns.map((column) => column.sequenceKey)).toEqual(['weekday', 'weekend-holiday']);
+		expect(output.cellsByPersonnelId.get('alpha')?.map((cell) => cell.sequenceNumber)).toEqual([5, 5]);
+	});
 });
 
 describe('Duty Priority', () => {

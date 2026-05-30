@@ -1,0 +1,159 @@
+import { describe, expect, it } from 'vitest';
+import { computeDa6Roster, type AvailabilityClassification, type Da6RosterEngineInput } from './da6RosterEngine';
+import type { DutyRosterSnapshotPersonnel } from './dutyRosterRun.types';
+
+const available: AvailabilityClassification = {
+	selectable: true,
+	code: 'available-not-selected',
+	da6Code: null,
+	chargeable: true,
+	reason: null,
+	reasonCode: null
+};
+
+const authorizedAbsence: AvailabilityClassification = {
+	selectable: false,
+	code: 'authorized-absence',
+	da6Code: 'A',
+	chargeable: false,
+	reason: 'Authorized absence: Leave',
+	reasonCode: 'authorized-absence'
+};
+
+const blockedByDuty: AvailabilityClassification = {
+	selectable: false,
+	code: 'blocked-by-duty',
+	da6Code: 'D',
+	chargeable: true,
+	reason: 'Other duty: CQ',
+	reasonCode: 'other-duty-status'
+};
+
+function soldier(overrides: Partial<DutyRosterSnapshotPersonnel>): DutyRosterSnapshotPersonnel {
+	return {
+		id: overrides.id ?? 'alpha',
+		rank: overrides.rank ?? 'SGT',
+		lastName: overrides.lastName ?? 'Able',
+		firstName: overrides.firstName ?? 'Avery',
+		groupId: overrides.groupId ?? 'group-a',
+		groupName: overrides.groupName ?? 'Alpha',
+		...overrides
+	};
+}
+
+function engineInput(overrides: Partial<Da6RosterEngineInput> = {}): Da6RosterEngineInput {
+	const pool = overrides.pool ?? [soldier({ id: 'alpha' })];
+	const dutyDates = overrides.dutyDates ?? ['2026-05-01'];
+	return {
+		pool,
+		dutyDates,
+		sequenceByDate:
+			overrides.sequenceByDate ??
+			new Map(dutyDates.map((date) => [date, { sequenceKind: 'weekday', sequenceKey: 'single' }])),
+		classificationByPersonDate:
+			overrides.classificationByPersonDate ??
+			new Map(pool.map((person) => [person.id, new Map(dutyDates.map((date) => [date, available]))])),
+		priorLastDutyDates: overrides.priorLastDutyDates ?? new Map(pool.map((person) => [person.id, null])),
+		manualBaselineCounts: overrides.manualBaselineCounts ?? new Map()
+	};
+}
+
+describe('computeDa6Roster', () => {
+	it('assigns a single available Soldier across dates while advancing DA6 column sequence starts', () => {
+		const output = computeDa6Roster(engineInput({ dutyDates: ['2026-05-01', '2026-05-02', '2026-05-03'] }));
+
+		expect(output.rosterRows).toEqual([
+			{ date: '2026-05-01', assigneeId: 'alpha' },
+			{ date: '2026-05-02', assigneeId: 'alpha' },
+			{ date: '2026-05-03', assigneeId: 'alpha' }
+		]);
+		expect(output.columns.map((column) => column.chargeSequenceStart)).toEqual([1, 2, 3]);
+		expect(output.cellsByPersonnelId.get('alpha')?.map((cell) => [cell.assigned, cell.sequenceNumber])).toEqual([
+			[true, 1],
+			[true, 1],
+			[true, 1]
+		]);
+	});
+
+	it('records authorized absence as a nonchargeable A cell without incrementing the Soldier sequence', () => {
+		const output = computeDa6Roster(
+			engineInput({
+				dutyDates: ['2026-05-01', '2026-05-02'],
+				classificationByPersonDate: new Map([
+					[
+						'alpha',
+						new Map([
+							['2026-05-01', available],
+							['2026-05-02', authorizedAbsence]
+						])
+					]
+				])
+			})
+		);
+
+		expect(output.cellsByPersonnelId.get('alpha')?.[1]).toMatchObject({
+			code: 'authorized-absence',
+			da6Code: 'A',
+			chargeable: false,
+			queuePosition: null,
+			sequenceNumber: 1,
+			assigned: false
+		});
+	});
+
+	it('emits an unfilled roster row when no eligible Soldier is selectable', () => {
+		const output = computeDa6Roster(
+			engineInput({
+				classificationByPersonDate: new Map([['alpha', new Map([['2026-05-01', blockedByDuty]])]])
+			})
+		);
+
+		expect(output.rosterRows).toEqual([
+			{ date: '2026-05-01', assigneeId: null, reason: 'No eligible personnel available' }
+		]);
+		expect(output.cellsByPersonnelId.get('alpha')?.[0]).toMatchObject({
+			code: 'blocked-by-duty',
+			da6Code: 'D',
+			chargeable: true,
+			queuePosition: 1,
+			assigned: false
+		});
+	});
+
+	it('uses manual baseline counts to seed first visible sequence numbers and Duty Priority ordering', () => {
+		const output = computeDa6Roster(
+			engineInput({
+				pool: [soldier({ id: 'alpha', lastName: 'Able' }), soldier({ id: 'bravo', lastName: 'Baker' })],
+				dutyDates: ['2026-05-01', '2026-05-02'],
+				classificationByPersonDate: new Map([
+					[
+						'alpha',
+						new Map([
+							['2026-05-01', available],
+							['2026-05-02', available]
+						])
+					],
+					[
+						'bravo',
+						new Map([
+							['2026-05-01', available],
+							['2026-05-02', available]
+						])
+					]
+				]),
+				priorLastDutyDates: new Map([
+					['alpha', null],
+					['bravo', null]
+				]),
+				manualBaselineCounts: new Map([
+					['alpha', 5],
+					['bravo', 2]
+				])
+			})
+		);
+
+		expect(output.rosterRows.map((row) => row.assigneeId)).toEqual(['alpha', 'bravo']);
+		expect(output.cellsByPersonnelId.get('alpha')?.map((cell) => cell.sequenceNumber)).toEqual([5, 1]);
+		expect(output.cellsByPersonnelId.get('bravo')?.map((cell) => cell.sequenceNumber)).toEqual([2, 3]);
+	});
+});

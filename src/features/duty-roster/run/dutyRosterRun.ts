@@ -2,9 +2,9 @@ import { resolveSlotBlockingMode } from '$features/duty-roster/blockingMode';
 import type { DutyEvent } from '$features/duty-roster/duty-roster.types';
 import type { Da6AvailabilityTreatment, Personnel, SpecialDay, StatusType } from '$lib/types';
 import { comparePersonnelByRankThenName } from '$lib/domain/personnelRank';
+import { computeDa6Roster } from './da6RosterEngine';
+import type { AvailabilityClassification, Da6RosterEngineInput } from './da6RosterEngine';
 import type {
-	Da6Cell,
-	Da6CellCode,
 	Da6Column,
 	DutyRosterApplyPayloadRow,
 	DutyRosterExportModel,
@@ -25,15 +25,6 @@ const DA6_TREATMENT_PRIORITY: Record<Da6AvailabilityTreatment, number> = {
 	'authorized-absence': 2,
 	'other-duty': 1
 };
-
-interface AvailabilityClassification {
-	selectable: boolean;
-	code: Da6CellCode;
-	da6Code: Da6Cell['da6Code'];
-	chargeable: boolean;
-	reason: string | null;
-	reasonCode: string | null;
-}
 
 interface DutyRosterRunIndexes {
 	availabilityByPersonDate: Map<string, Map<string, DutyRosterRunInput['availabilityEntries']>>;
@@ -307,19 +298,6 @@ function getManualBaselineCounts(input: DutyRosterRunInput): Map<string, number>
 		}
 	}
 	return counts;
-}
-
-function compareOldestFirst(a: string | null, b: string | null): number {
-	if (a && b && a !== b) {
-		return a.localeCompare(b);
-	}
-	if (a && !b) {
-		return 1;
-	}
-	if (!a && b) {
-		return -1;
-	}
-	return 0;
 }
 
 function isPersonInAdvancedDuty(event: DutyEvent, personnelId: string): boolean {
@@ -599,28 +577,6 @@ function classifyAvailability(
 	};
 }
 
-function buildCell(
-	personnelId: string,
-	date: string,
-	classification: AvailabilityClassification,
-	queuePosition: number | null,
-	sequenceNumber: number | null,
-	assigned: boolean
-): Da6Cell {
-	return {
-		date,
-		personnelId,
-		code: assigned ? 'assigned' : classification.code,
-		da6Code: assigned ? null : classification.da6Code,
-		chargeable: classification.chargeable,
-		queuePosition,
-		sequenceNumber,
-		assigned,
-		reason: assigned ? null : classification.reason,
-		reasonCode: assigned ? null : classification.reasonCode
-	};
-}
-
 function formatDisplayDate(date: string): string {
 	return new Date(`${date}T00:00:00`).toLocaleDateString('en-US', {
 		month: 'short',
@@ -706,103 +662,33 @@ export function buildDutyRosterRunSnapshot(input: DutyRosterRunInput): DutyRoste
 	const specialDaysByDate = buildSpecialDaysByDate(input.specialDays);
 	const dutyDates = buildDutyDates(config, input.specialDays, specialDaysByDate);
 	const indexes = buildRunIndexes(input, config, dutyDates, specialDaysByDate);
-	const lastDutyDates = getLastDutyDates(personnel, input, config.startDate);
 	const manualBaselineCounts = getManualBaselineCounts(input);
-	const selectionCounts =
-		manualBaselineCounts.size > 0
-			? new Map(personnel.map((person) => [person.id, manualBaselineCounts.get(person.id) ?? 0]))
-			: null;
-	const cellsByPersonnelId = new Map<string, Da6Cell[]>(personnel.map((person) => [person.id, []]));
-	const columns: Da6Column[] = [];
-	const sequencePeriodCounters = new Map<DutyRosterSequenceKey, number>([
-		['single', 0],
-		['weekday', 0],
-		['weekend-holiday', 0]
-	]);
-	const sequenceNumberByPerson = new Map<string, number>();
-	const rosterRows: DutyRosterRunSnapshot['rosterRows'] = [];
-
-	for (const date of dutyDates) {
-		const sequenceKind = classifySequenceKind(date, indexes.specialDaysByDate);
-		const sequenceKey = getSequenceKey(config.numberingMode, sequenceKind);
-		const classifications = new Map(
-			personnel.map((person) => [person.id, classifyAvailability(person.id, date, input, config, indexes)])
-		);
-		const rankedPersonnel = [...personnel].sort((a, b) => {
-			if (selectionCounts) {
-				const countDiff = (selectionCounts.get(b.id) ?? 0) - (selectionCounts.get(a.id) ?? 0);
-				if (countDiff !== 0) {
-					return countDiff;
-				}
-				return comparePersonnelByRankThenName(a, b);
-			}
-
-			const lastDutyDiff = compareOldestFirst(lastDutyDates.get(a.id) ?? null, lastDutyDates.get(b.id) ?? null);
-			if (lastDutyDiff !== 0) {
-				return lastDutyDiff;
-			}
-			return comparePersonnelByRankThenName(a, b);
-		});
-		const queue = rankedPersonnel.filter((person) => classifications.get(person.id)?.chargeable);
-		const assigned = rankedPersonnel.find((person) => classifications.get(person.id)?.selectable) ?? null;
-		const sequencePeriodIndex = sequencePeriodCounters.get(sequenceKey) ?? 0;
-		const chargeSequenceStart = queue.length > 0 ? sequencePeriodIndex + 1 : null;
-		const queuePositionByPersonnelId = new Map(queue.map((candidate, index) => [candidate.id, index + 1]));
-
-		columns.push({
-			date,
-			sequenceKind,
-			sequenceKey,
-			specialDayIds: (indexes.specialDaysByDate.get(date) ?? []).map((day) => day.id),
-			chargeSequenceStart,
-			chargeableCount: queue.length
-		});
-
-		rosterRows.push(
-			assigned
-				? { date, assigneeId: assigned.id }
-				: { date, assigneeId: null, reason: 'No eligible personnel available' }
-		);
-
-		if (assigned) {
-			lastDutyDates.set(assigned.id, date);
-		}
-
-		for (const person of personnel) {
-			const classification = classifications.get(person.id)!;
-			const queuePosition = queuePositionByPersonnelId.get(person.id) ?? null;
-			const isAssigned = assigned?.id === person.id;
-			const sequenceBaseKey = `${sequenceKey}::${person.id}`;
-			let sequenceNumber = sequenceNumberByPerson.get(sequenceBaseKey);
-			if (sequenceNumber === undefined) {
-				sequenceNumber = manualBaselineCounts.get(person.id);
-			}
-			if (sequenceNumber === undefined && queuePosition !== null) {
-				sequenceNumber = 1;
-			}
-			cellsByPersonnelId
-				.get(person.id)!
-				.push(buildCell(person.id, date, classification, queuePosition, sequenceNumber ?? null, isAssigned));
-			if (isAssigned) {
-				sequenceNumberByPerson.set(sequenceBaseKey, 1);
-			} else if (classification.chargeable && sequenceNumber !== undefined) {
-				sequenceNumberByPerson.set(sequenceBaseKey, sequenceNumber + 1);
-			} else if (sequenceNumber !== undefined) {
-				sequenceNumberByPerson.set(sequenceBaseKey, sequenceNumber);
-			}
-
-			if (selectionCounts) {
-				const currentCount = selectionCounts.get(person.id) ?? 0;
-				if (isAssigned) {
-					selectionCounts.set(person.id, 0);
-				} else if (classification.chargeable) {
-					selectionCounts.set(person.id, currentCount + 1);
-				}
-			}
-		}
-
-		sequencePeriodCounters.set(sequenceKey, sequencePeriodIndex + 1);
-	}
+	const sequenceByDate: Da6RosterEngineInput['sequenceByDate'] = new Map(
+		dutyDates.map((date) => {
+			const sequenceKind = classifySequenceKind(date, indexes.specialDaysByDate);
+			const sequenceKey = getSequenceKey(config.numberingMode, sequenceKind);
+			return [date, { sequenceKind, sequenceKey }];
+		})
+	);
+	const classificationByPersonDate: Da6RosterEngineInput['classificationByPersonDate'] = new Map(
+		personnel.map((person) => [
+			person.id,
+			new Map(dutyDates.map((date) => [date, classifyAvailability(person.id, date, input, config, indexes)]))
+		])
+	);
+	const engineOutput = computeDa6Roster({
+		pool: personnel,
+		dutyDates,
+		sequenceByDate,
+		classificationByPersonDate,
+		priorLastDutyDates: getLastDutyDates(personnel, input, config.startDate),
+		manualBaselineCounts
+	});
+	const columns = engineOutput.columns.map((column) => ({
+		...column,
+		specialDayIds: (indexes.specialDaysByDate.get(column.date) ?? []).map((day) => day.id)
+	}));
+	const { rosterRows, cellsByPersonnelId } = engineOutput;
 
 	const da6 = {
 		numberingMode: config.numberingMode,

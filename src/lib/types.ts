@@ -105,6 +105,7 @@ export interface AssignmentType {
 	shortName: string;
 	assignTo: 'personnel' | 'group';
 	color: string;
+	textColor?: string;
 	exemptPersonnelIds: string[];
 	showInDateHeader: boolean;
 	archivedAt?: string | null;

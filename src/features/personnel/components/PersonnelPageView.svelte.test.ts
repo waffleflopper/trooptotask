@@ -72,6 +72,23 @@ const personnel: Personnel[] = [
 	}
 ];
 
+function makePerson(index: number): Personnel {
+	return {
+		id: `person-${index}`,
+		rank: 'SGT',
+		lastName: `Soldier${String(index).padStart(3, '0')}`,
+		firstName: 'Test',
+		mos: '68W',
+		clinicRole: 'Medic',
+		groupId: 'group-1',
+		groupName: 'Alpha',
+		archivedAt: null,
+		ets: null,
+		deros: null,
+		slug: `soldier-${index}`
+	};
+}
+
 function makeUpcomingLossRecord(overrides: Partial<UpcomingLossRecord> = {}): UpcomingLossRecord {
 	return {
 		id: 'person-1',
@@ -539,6 +556,43 @@ describe('PersonnelPageView', () => {
 		});
 		await waitFor(() => expect(invalidateAllMock).toHaveBeenCalled());
 		expect(screen.queryByText('Smith, Jane')).toBeNull();
+	});
+
+	it('selects only the current A-Z page when selecting shown archive rows', async () => {
+		const roster = Array.from({ length: 76 }, (_, index) => makePerson(index + 1));
+		personnelStore.load(roster, 'org-1');
+		const fetchMock = vi.fn().mockResolvedValue({
+			ok: true,
+			json: () =>
+				Promise.resolve({
+					archivedIds: roster.slice(0, 75).map((person) => person.id),
+					approvalRequestedIds: [],
+					errors: []
+				})
+		});
+		vi.stubGlobal('fetch', fetchMock);
+		const ctx = {
+			...makeCtx(),
+			totalPersonnel: roster.length,
+			canArchivePersonnelRecord: () => true,
+			personnelArchiveAffordance: () => allowedAffordance()
+		} as unknown as PersonnelPageContext;
+
+		render(PersonnelPageView, {
+			props: { ctx, permissions: editablePermissions }
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Archive' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Select shown' }));
+		expect(screen.getByText('75 of 76 selected')).toBeTruthy();
+		await fireEvent.click(screen.getByRole('button', { name: 'Confirm Archive' }));
+		await fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Archive' }));
+
+		await waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
+		const request = JSON.parse(String(fetchMock.mock.calls[0][1]?.body)) as { ids: string[] };
+		expect(request.ids).toHaveLength(75);
+		expect(request.ids).toContain('person-1');
+		expect(request.ids).not.toContain('person-76');
 	});
 
 	it('shows an approval-request toast for selected personnel that need admin approval', async () => {

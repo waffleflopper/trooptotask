@@ -273,7 +273,7 @@ export const POLICY_ACTION_CATALOG = {
 			label: 'Merge personnel records',
 			lane: 'personnel',
 			accessMode: 'write',
-			requiredCapability: 'configure'
+			requiredCapability: 'operate'
 		}),
 		exportRecords: featureAction({
 			id: 'personnel.exportRecords',

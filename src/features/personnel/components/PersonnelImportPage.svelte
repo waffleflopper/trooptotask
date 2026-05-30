@@ -60,6 +60,7 @@
 	interface ImportResult {
 		savedCount: number;
 		errors: Array<{ index: number; message: string }>;
+		skipped?: Array<{ index: number; message: string }>;
 		capError?: string;
 		capReached?: boolean;
 	}
@@ -213,7 +214,9 @@
 				? 'partial'
 				: importResult.savedCount > 0
 					? 'success'
-					: 'failed'
+					: (importResult.skipped?.length ?? 0) > 0 && importResult.errors.length === 0
+						? 'success'
+						: 'failed'
 			: 'failed'
 	);
 	const hasCapFailure = $derived(!!importResult?.capReached || !!importResult?.capError);
@@ -379,6 +382,7 @@
 				importResult = {
 					savedCount: 0,
 					errors: data.errors ?? [],
+					skipped: data.skipped ?? [],
 					capError: data.message ?? `Import failed with status ${response.status}`,
 					capReached: data.capReached ?? false
 				};
@@ -390,6 +394,7 @@
 				importResult = {
 					savedCount: importMode === 'merge' ? (data.updated ?? []).length : (data.inserted ?? []).length,
 					errors: importMode === 'merge' ? [...(data.errors ?? []), ...(data.ambiguous ?? [])] : (data.errors ?? []),
+					skipped: importMode === 'merge' ? (data.skipped ?? []) : [],
 					capError,
 					capReached: data.capReached ?? !!capError
 				};
@@ -399,6 +404,7 @@
 			importResult = {
 				savedCount: 0,
 				errors: [{ index: -1, message: err instanceof Error ? err.message : 'Network error' }],
+				skipped: [],
 				capReached: false
 			};
 			importStep = 'results';
@@ -696,6 +702,9 @@
 				description={importResult.capError ?? 'Review the summary before returning to the roster.'}
 				items={[
 					{ label: 'Saved', value: importResult.savedCount, tone: 'success' },
+					...(importMode === 'merge'
+						? [{ label: 'Skipped', value: importResult.skipped?.length ?? 0, tone: 'neutral' as const }]
+						: []),
 					{
 						label: 'Failed',
 						value: importResult.errors.length,
@@ -715,6 +724,16 @@
 							<li>
 								{#if sourceRowForError(err.index)}Row {sourceRowForError(err.index)}:
 								{/if}{err.message}
+							</li>
+						{/each}
+					</ul>
+				{/if}
+				{#if importResult.skipped && importResult.skipped.length > 0}
+					<ul class="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+						{#each importResult.skipped as skipped (`skipped-${skipped.index}-${skipped.message}`)}
+							<li>
+								{#if sourceRowForError(skipped.index)}Row {sourceRowForError(skipped.index)}:
+								{/if}{skipped.message}
 							</li>
 						{/each}
 					</ul>

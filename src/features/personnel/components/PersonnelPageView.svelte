@@ -178,7 +178,7 @@
 
 	function selectVisibleArchiveRows(): void {
 		const table = ctx.viewMode === 'alphabetical' ? azTable : groupedTable;
-		for (const person of table.allRows) {
+		for (const person of table.rows) {
 			if (ctx.canArchivePersonnelRecord(person)) selectedArchiveIds.add(person.id);
 		}
 	}

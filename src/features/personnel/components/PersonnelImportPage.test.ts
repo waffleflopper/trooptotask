@@ -190,6 +190,40 @@ describe('PersonnelImportPage', () => {
 		});
 	});
 
+	it('shows skipped ETS / DEROS merge rows in the results', async () => {
+		const fetchMock = vi.fn(
+			async () =>
+				new Response(
+					JSON.stringify({
+						updated: [],
+						errors: [],
+						ambiguous: [],
+						skipped: [{ index: 0, message: 'Matched personnel already has the requested values' }]
+					}),
+					{ status: 200 }
+				)
+		);
+		vi.stubGlobal('fetch', fetchMock);
+		parseFileMock.mockResolvedValue([
+			['Rank', 'Last Name', 'First Name', 'Group', 'ETS', 'PCS / DEROS'],
+			['SGT', 'Smith', 'Jane', 'Alpha Team', '2027-05-01', '2026-11-30']
+		]);
+		renderPage();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Backfill ETS/DEROS' }));
+		const input = document.querySelector<HTMLInputElement>('#fileUpload');
+		expect(input).toBeTruthy();
+		await fireEvent.change(input!, {
+			target: { files: [new File(['records'], 'personnel.csv', { type: 'text/csv' })] }
+		});
+		await fireEvent.click(await screen.findByRole('button', { name: /Preview 1 Rows/i }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Backfill ETS/DEROS checked rows' }));
+
+		await waitFor(() => expect(screen.getByText('Skipped')).toBeInTheDocument());
+		expect(screen.getByText(/Matched personnel already has the requested values/)).toBeInTheDocument();
+		expect(screen.getByText('Import complete')).toBeInTheDocument();
+	});
+
 	it('shows template guidance before upload', () => {
 		renderPage();
 

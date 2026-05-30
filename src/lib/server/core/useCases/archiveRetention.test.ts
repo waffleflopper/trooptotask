@@ -361,4 +361,18 @@ describe('cleanupArchivedRecords', () => {
 		expect(notifications[0].message).toContain('Personnel documents: 1');
 		expect(notifications[0].message).not.toContain('Smith');
 	});
+
+	it('does not mark an organization affected or notify admins when deletes remove no rows', async () => {
+		const ports = buildPorts();
+		ports.store.seed('personnel', [
+			{ id: 'person-expired', organization_id: 'org-1', archived_at: '2025-01-01T00:00:00.000Z' }
+		]);
+		vi.spyOn(ports.store, 'deleteManyByIds').mockResolvedValue(0);
+
+		const result = await cleanupArchivedRecords(ports, [{ id: 'org-1', retentionMonths: 12 }], { now: NOW });
+
+		expect(result.deletedCount).toBe(0);
+		expect(result.orgsAffected).toBe(0);
+		await expect(ports.store.findMany('notifications', 'org-1')).resolves.toHaveLength(0);
+	});
 });

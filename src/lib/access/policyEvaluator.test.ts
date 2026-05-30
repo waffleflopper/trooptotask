@@ -142,7 +142,7 @@ describe('policy evaluator', () => {
 			id: 'personnel.mergeRecords',
 			accessMode: 'write',
 			owner: { kind: 'feature-lane', lane: 'personnel' },
-			requiredCapability: 'configure'
+			requiredCapability: 'operate'
 		});
 	});
 

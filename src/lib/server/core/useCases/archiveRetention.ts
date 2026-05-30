@@ -362,6 +362,7 @@ export async function cleanupArchivedRecords(
 				const remainingIds = new Set(remainingRows.map((row) => row.id));
 				await afterDelete(rows.filter((row) => !remainingIds.has(row.id)));
 			}
+			if (deletedCount === 0) continue;
 
 			const familyTotal = familyTotals.get(family.key);
 			if (familyTotal) familyTotal.deletedCount += deletedCount;

@@ -294,7 +294,7 @@
 	const acceptedRunCount = $derived(acceptedRuns.filter((run) => run.status === 'accepted').length);
 	const pendingCorrectionCount = $derived(acceptedRuns.reduce((total, run) => total + run.corrections.length, 0));
 	const canInvalidateAnyRun = $derived(
-		acceptedRuns.some((run) => run.status === 'accepted' && run.endDate >= todayDate)
+		!isArchivedTemplate && acceptedRuns.some((run) => run.status === 'accepted' && run.endDate >= todayDate)
 	);
 	const detailReview = $derived(
 		historyDetailRun

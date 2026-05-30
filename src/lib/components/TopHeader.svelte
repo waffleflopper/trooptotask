@@ -16,8 +16,7 @@
 		Moon,
 		Settings,
 		Sun,
-		UserCircle,
-		UserRound
+		UserCircle
 	} from '@lucide/svelte';
 	import type { CapabilityMap } from '$lib/access/memberAccessShape';
 	import type { OrganizationMemberPermissions } from '$lib/types';
@@ -373,25 +372,23 @@
 										Account
 									</DropdownMenu.Item>
 								</DropdownMenu.Group>
-								<DropdownMenu.Separator />
-								<DropdownMenu.Group>
-									{#if onWhatsNew}
-										<DropdownMenu.Item onclick={onWhatsNew}>
-											<Megaphone />
-											What's New
-										</DropdownMenu.Item>
-									{/if}
-									{#if onFeedback}
-										<DropdownMenu.Item onclick={onFeedback}>
-											<MessageSquareText />
-											Send Feedback
-										</DropdownMenu.Item>
-									{/if}
-									<DropdownMenu.Item onclick={() => goto(resolve('/help'))}>
-										<UserRound />
-										Help
-									</DropdownMenu.Item>
-								</DropdownMenu.Group>
+								{#if onWhatsNew || onFeedback}
+									<DropdownMenu.Separator />
+									<DropdownMenu.Group>
+										{#if onWhatsNew}
+											<DropdownMenu.Item onclick={onWhatsNew}>
+												<Megaphone />
+												What's New
+											</DropdownMenu.Item>
+										{/if}
+										{#if onFeedback}
+											<DropdownMenu.Item onclick={onFeedback}>
+												<MessageSquareText />
+												Send Feedback
+											</DropdownMenu.Item>
+										{/if}
+									</DropdownMenu.Group>
+								{/if}
 								<DropdownMenu.Separator />
 								{#if canLeaveOrganization}
 									<DropdownMenu.Item variant="destructive" onclick={openLeaveOrganizationDialog}>

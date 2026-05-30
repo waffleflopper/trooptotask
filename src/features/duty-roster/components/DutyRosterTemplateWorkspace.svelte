@@ -115,8 +115,18 @@
 
 			<PageShell.Header
 				title={selectedTemplate.name}
-				subtitle={`${selectedTemplate.slug} duty roster template. Settings affect future runs only.`}
+				subtitle={selectedTemplate.status === 'archived'
+					? `${selectedTemplate.slug} archived duty roster template. Accepted history remains readable.`
+					: `${selectedTemplate.slug} duty roster template. Settings affect future runs only.`}
 			/>
+
+			{#if selectedTemplate.status === 'archived'}
+				<WarningSummary
+					tone="warning"
+					title="Archived template"
+					description="This Duty Roster Template is retained for historical review. New previews, Calendar apply actions, and settings changes are disabled."
+				/>
+			{/if}
 
 			<PageShell.Tabs items={routeTabs} label="Duty Roster Template views" />
 

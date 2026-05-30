@@ -8,7 +8,11 @@
 	import * as DataTable from '$lib/components/ui/data-table/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import RowStatus from './bulk-import-row-status.svelte';
-	import type { BulkImportRowStatus } from './types.js';
+	import type {
+		BulkImportPreviewCellPresentation,
+		BulkImportRowStatus,
+		BulkImportRowStatusDescriptionMode
+	} from './types.js';
 
 	type Props = {
 		rows: T[];
@@ -22,6 +26,8 @@
 		disabledReason?: (row: T, index: number) => string | undefined;
 		rowStatus?: (row: T, index: number) => BulkImportRowStatus | undefined;
 		statusColumnHeader?: string;
+		statusDescriptionMode?: BulkImportRowStatusDescriptionMode;
+		cellPresentation?: BulkImportPreviewCellPresentation;
 		selectedCountLabel?: (selectedCount: number, totalCount: number) => string;
 		cell?: DataTableCellSnippet<T>;
 		headerCell?: DataTableHeaderSnippet<T>;
@@ -39,6 +45,8 @@
 		disabledReason,
 		rowStatus,
 		statusColumnHeader = 'Status',
+		statusDescriptionMode = 'inline',
+		cellPresentation = 'default',
 		selectedCountLabel,
 		cell,
 		headerCell
@@ -90,7 +98,12 @@
 	{:else if column.key === 'import-status'}
 		{@const status = resolveRowStatus(row, rows.indexOf(row))}
 		{#if status}
-			<RowStatus tone={status.tone} label={status.label} description={status.description} />
+			<RowStatus
+				tone={status.tone}
+				label={status.label}
+				description={status.description}
+				descriptionMode={statusDescriptionMode}
+			/>
 		{/if}
 	{:else if cell}
 		{@render cell(row, column)}
@@ -127,18 +140,28 @@
 	{/if}
 {/snippet}
 
-<DataTable.DataTable
-	data={rows}
-	columns={previewColumns}
-	{ariaLabel}
-	{emptyMessage}
-	{loading}
-	{rowKey}
-	{disabledRow}
-	density="dense"
-	stickyHeader
-	maxHeight="30rem"
-	cell={selectionCell}
-	headerCell={selectionHeader}
-	toolbar={selection ? toolbar : undefined}
-/>
+<div
+	data-slot="bulk-import-preview-table"
+	data-cell-presentation={cellPresentation}
+	class={[
+		'[&_[data-slot=data-table-toolbar]]:bg-card',
+		cellPresentation === 'editable-grid' &&
+			'[&_[data-slot=table-container]]:pb-20 [&_[data-slot=input]]:h-7 [&_[data-slot=input]]:rounded-md [&_[data-slot=input]]:border-transparent [&_[data-slot=input]]:bg-transparent [&_[data-slot=input]]:px-2 [&_[data-slot=input]]:text-sm [&_[data-slot=input]]:shadow-none hover:[&_[data-slot=input]]:border-input [&_[data-slot=input]:focus-visible]:border-ring'
+	]}
+>
+	<DataTable.DataTable
+		data={rows}
+		columns={previewColumns}
+		{ariaLabel}
+		{emptyMessage}
+		{loading}
+		{rowKey}
+		{disabledRow}
+		density="dense"
+		stickyHeader
+		maxHeight="30rem"
+		cell={selectionCell}
+		headerCell={selectionHeader}
+		toolbar={selection ? toolbar : undefined}
+	/>
+</div>

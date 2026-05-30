@@ -141,6 +141,7 @@ type DutyRosterTemplateRow = {
 	assignment_type_id: string;
 	short_code: string | null;
 	status: 'active' | 'archived';
+	archived_at?: string | null;
 	pool_criteria?: Record<string, unknown> | null;
 	exempt_personnel_ids?: unknown[] | null;
 	manual_baseline_counts?: Record<string, unknown> | null;
@@ -157,6 +158,7 @@ function toTemplate(row: DutyRosterTemplateRow): DutyRosterTemplate {
 		slug: row.slug,
 		shortCode: row.short_code,
 		status: row.status,
+		archivedAt: row.archived_at ?? null,
 		poolCriteria,
 		exemptPersonnelIds: normalizeStringArray(row.exempt_personnel_ids),
 		manualBaselineCounts: normalizeBaselineCounts(row.manual_baseline_counts),
@@ -444,11 +446,26 @@ export async function listDutyRosterTemplatesLifecycle(ctx: QueryPorts): Promise
 	const rows = await ctx.store.findMany<DutyRosterTemplateRow>(
 		DUTY_ROSTER_TEMPLATE_TABLE,
 		ctx.auth.orgId,
-		{ status: 'active' },
-		{ orderBy: [{ column: 'name', ascending: true }] }
+		{},
+		{
+			inFilters: { status: ['active', 'archived'] },
+			orderBy: [
+				{ column: 'status', ascending: true },
+				{ column: 'name', ascending: true }
+			]
+		}
 	);
 
-	return rows.map(toTemplate);
+	return rows.map(toTemplate).sort(compareDutyRosterTemplatesForRegister);
+}
+
+function compareDutyRosterTemplatesForRegister(left: DutyRosterTemplate, right: DutyRosterTemplate): number {
+	const statusComparison = templateStatusOrder(left.status) - templateStatusOrder(right.status);
+	return statusComparison || left.name.localeCompare(right.name);
+}
+
+function templateStatusOrder(status: DutyRosterTemplate['status']): number {
+	return status === 'active' ? 0 : 1;
 }
 
 export async function findDutyRosterTemplateBySlugLifecycle(
@@ -456,8 +473,7 @@ export async function findDutyRosterTemplateBySlugLifecycle(
 	slug: string
 ): Promise<DutyRosterTemplate | null> {
 	const row = await ctx.store.findOne<DutyRosterTemplateRow>(DUTY_ROSTER_TEMPLATE_TABLE, ctx.auth.orgId, {
-		slug,
-		status: 'active'
+		slug
 	});
 
 	return row ? toTemplate(row) : null;
@@ -717,13 +733,15 @@ export async function archiveDutyRosterTemplateLifecycle(
 		fail(404, 'Duty Roster Template not found');
 	}
 
+	const archivedAt = new Date().toISOString();
 	const row = await ctx.store.update<DutyRosterTemplateRow>(
 		DUTY_ROSTER_TEMPLATE_TABLE,
 		ctx.auth.orgId,
 		parsed.templateId,
 		{
 			status: 'archived',
-			updated_at: new Date().toISOString()
+			archived_at: archivedAt,
+			updated_at: archivedAt
 		}
 	);
 
@@ -733,7 +751,7 @@ export async function archiveDutyRosterTemplateLifecycle(
 			ctx.auth.orgId,
 			existing.assignment_type_id,
 			{
-				archived_at: new Date().toISOString()
+				archived_at: archivedAt
 			}
 		);
 	}
@@ -911,7 +929,24 @@ export async function applyAcceptedDutyRosterTemplateRunLifecycle(
 	ctx: WritePorts,
 	input: { runId: string; calendarSyncPlanToken?: string | null }
 ) {
+	await assertAcceptedRunTemplateIsActive(ctx, input.runId);
 	return applyAcceptedRunLifecycle(ctx, input);
+}
+
+async function assertAcceptedRunTemplateIsActive(ctx: WritePorts, runId: string): Promise<void> {
+	const run = await ctx.store.findOne<{ template_id: string }>('duty_roster_template_runs', ctx.auth.orgId, {
+		id: runId
+	});
+	if (!run) {
+		fail(404, 'Accepted Duty Roster Run not found');
+	}
+
+	const template = await ctx.store.findOne<DutyRosterTemplateRow>(DUTY_ROSTER_TEMPLATE_TABLE, ctx.auth.orgId, {
+		id: run.template_id
+	});
+	if (template?.status === 'archived') {
+		fail(400, 'Archived Duty Roster Templates cannot be applied to Calendar.');
+	}
 }
 
 export async function recordDutyRosterTemplateRunCorrectionLifecycle(
@@ -919,10 +954,12 @@ export async function recordDutyRosterTemplateRunCorrectionLifecycle(
 	input: DutyRosterTemplateCorrectionInput
 ): Promise<DutyRosterTemplateRunCorrection> {
 	const parsed = parseCorrectionInput(input);
+	await assertAcceptedRunTemplateIsActive(ctx, parsed.runId);
 	return recordRunCorrectionLifecycle(ctx, parsed);
 }
 
 export async function invalidateLatestDutyRosterTemplateRunLifecycle(ctx: WritePorts, input: { runId: string }) {
+	await assertAcceptedRunTemplateIsActive(ctx, input.runId);
 	return invalidateLatestRunLifecycle(ctx, input);
 }
 

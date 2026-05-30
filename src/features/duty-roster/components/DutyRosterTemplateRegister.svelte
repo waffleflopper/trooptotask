@@ -5,9 +5,12 @@
 	import { resolveDutyRosterPool } from '$features/duty-roster/templates/dutyRosterPool';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import { Button } from '$lib/components/ui/button';
+	import * as ButtonGroup from '$lib/components/ui/button-group';
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import * as PageShell from '$lib/components/ui/page-shell';
 	import { DutyRosterStatusBadge } from '$features/duty-roster/components/shared';
+
+	type TemplateRegisterView = 'active' | 'archived';
 
 	let {
 		basePath,
@@ -20,6 +23,7 @@
 	} = $props();
 
 	let selectedTemplateId = $state<string | null>(null);
+	let registerView = $state<TemplateRegisterView>('active');
 	let archiveTemplate = $state<DutyRosterTemplate | null>(null);
 	let archiveAssignmentType = $state(false);
 	let archiveFormRef = $state<HTMLFormElement | null>(null);
@@ -40,21 +44,28 @@
 			};
 		})
 	);
+	const activeTemplateRows = $derived(templateRows.filter((row) => row.template.status === 'active'));
+	const archivedTemplateRows = $derived(templateRows.filter((row) => row.template.status === 'archived'));
+	const visibleTemplateRows = $derived(registerView === 'active' ? activeTemplateRows : archivedTemplateRows);
 
 	const selectedRow = $derived(
-		templateRows.find((row) => row.template.id === selectedTemplateId) ?? templateRows[0] ?? null
+		visibleTemplateRows.find((row) => row.template.id === selectedTemplateId) ?? visibleTemplateRows[0] ?? null
 	);
 
 	$effect(() => {
-		if (templates.length === 0) {
+		if (visibleTemplateRows.length === 0) {
 			selectedTemplateId = null;
 			return;
 		}
 
-		if (!selectedTemplateId || !templates.some((template) => template.id === selectedTemplateId)) {
-			selectedTemplateId = templates[0].id;
+		if (!selectedTemplateId || !visibleTemplateRows.some((row) => row.template.id === selectedTemplateId)) {
+			selectedTemplateId = visibleTemplateRows[0].template.id;
 		}
 	});
+
+	function viewLabel(view: TemplateRegisterView): string {
+		return view === 'active' ? 'Active templates' : 'Archived templates';
+	}
 
 	function formatUpdatedAt(value: string): string {
 		if (!value) return 'Not recorded';
@@ -119,6 +130,27 @@
 	{:else}
 		<div class="grid min-h-0 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,22rem)]">
 			<div class="min-w-0 overflow-hidden rounded-lg border bg-card">
+				<div class="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
+					<ButtonGroup.Root aria-label="Duty Roster Template register view">
+						<Button
+							variant={registerView === 'active' ? 'secondary' : 'outline'}
+							type="button"
+							aria-pressed={registerView === 'active'}
+							onclick={() => (registerView = 'active')}
+						>
+							Active ({activeTemplateRows.length})
+						</Button>
+						<Button
+							variant={registerView === 'archived' ? 'secondary' : 'outline'}
+							type="button"
+							aria-pressed={registerView === 'archived'}
+							onclick={() => (registerView = 'archived')}
+						>
+							Archived ({archivedTemplateRows.length})
+						</Button>
+					</ButtonGroup.Root>
+					<p class="text-sm text-muted-foreground">{viewLabel(registerView)}</p>
+				</div>
 				<div class="overflow-x-auto">
 					<table class="w-full text-sm" aria-label="Duty Roster Template register">
 						<thead>
@@ -132,7 +164,7 @@
 							</tr>
 						</thead>
 						<tbody>
-							{#each templateRows as row (row.template.id)}
+							{#each visibleTemplateRows as row (row.template.id)}
 								<tr
 									class={[
 										'border-b border-border transition-colors',
@@ -146,8 +178,15 @@
 											aria-pressed={selectedRow?.template.id === row.template.id}
 											onclick={() => (selectedTemplateId = row.template.id)}
 										>
-											<span class="text-sm font-semibold text-foreground">{row.template.name}</span>
-											<span class="text-xs text-muted-foreground">{row.template.status}</span>
+											<span class="flex items-center gap-2 text-sm font-semibold text-foreground">
+												{row.template.name}
+												{#if row.template.status === 'archived'}
+													<DutyRosterStatusBadge status="archived" />
+												{/if}
+											</span>
+											<span class="text-xs text-muted-foreground">
+												{row.template.status === 'archived' ? 'Archived history' : 'Active template'}
+											</span>
 										</button>
 									</td>
 									<td class="px-4 py-2.5 font-mono text-xs text-muted-foreground" role="cell">
@@ -163,15 +202,17 @@
 									</td>
 									<td class="px-4 py-2.5" role="cell" aria-label={`${row.template.name} quick actions`}>
 										<div class="flex items-center justify-end gap-0.5">
-											<Button
-												class="size-6"
-												variant="outline"
-												size="icon-sm"
-												href={`${basePath}/${row.template.slug}/generate`}
-												aria-label={`Generate ${row.template.name}`}
-											>
-												<Play class="size-3.5" aria-hidden="true" />
-											</Button>
+											{#if row.template.status !== 'archived'}
+												<Button
+													class="size-6"
+													variant="outline"
+													size="icon-sm"
+													href={`${basePath}/${row.template.slug}/generate`}
+													aria-label={`Generate ${row.template.name}`}
+												>
+													<Play class="size-3.5" aria-hidden="true" />
+												</Button>
+											{/if}
 											<Button
 												class="size-6"
 												variant="outline"
@@ -181,15 +222,17 @@
 											>
 												<History class="size-3.5" aria-hidden="true" />
 											</Button>
-											<Button
-												class="size-6"
-												variant="outline"
-												size="icon-sm"
-												href={`${basePath}/${row.template.slug}/settings`}
-												aria-label={`View settings for ${row.template.name}`}
-											>
-												<Settings class="size-3.5" aria-hidden="true" />
-											</Button>
+											{#if row.template.status !== 'archived'}
+												<Button
+													class="size-6"
+													variant="outline"
+													size="icon-sm"
+													href={`${basePath}/${row.template.slug}/settings`}
+													aria-label={`View settings for ${row.template.name}`}
+												>
+													<Settings class="size-3.5" aria-hidden="true" />
+												</Button>
+											{/if}
 											<Button
 												class="size-6"
 												variant="outline"
@@ -204,12 +247,22 @@
 										</div>
 									</td>
 								</tr>
+							{:else}
+								<tr>
+									<td colspan="6" class="px-4 py-12 text-center text-sm text-muted-foreground">
+										{#if registerView === 'active'}
+											No active templates. Create a new template or switch to Archived.
+										{:else}
+											No archived templates.
+										{/if}
+									</td>
+								</tr>
 							{/each}
 						</tbody>
 					</table>
 				</div>
 				<div class="flex flex-wrap items-center justify-between gap-3 border-t px-4 py-3 text-sm text-muted-foreground">
-					<span>Showing 1 to {templateRows.length} of {templateRows.length} templates</span>
+					<span>Showing {visibleTemplateRows.length} of {templateRows.length} templates</span>
 					<span>Rows per page 10</span>
 				</div>
 			</div>
@@ -263,10 +316,12 @@
 					</div>
 
 					<div class="mt-auto grid gap-2">
-						<Button href={`${basePath}/${selectedRow.template.slug}/generate`}>
-							<Play size={16} aria-hidden="true" />
-							Open Generate
-						</Button>
+						{#if selectedRow.template.status !== 'archived'}
+							<Button href={`${basePath}/${selectedRow.template.slug}/generate`}>
+								<Play size={16} aria-hidden="true" />
+								Open Generate
+							</Button>
+						{/if}
 						<Button variant="outline" href={`${basePath}/${selectedRow.template.slug}/history`}>
 							<History size={16} aria-hidden="true" />
 							Open History
@@ -274,7 +329,11 @@
 					</div>
 
 					<p class="border-t border-border pt-3 text-xs text-muted-foreground">
-						Pool rules are managed in Template Settings.
+						{#if selectedRow.template.status === 'archived'}
+							Archived templates are retained for historical review.
+						{:else}
+							Pool rules are managed in Template Settings.
+						{/if}
 					</p>
 				</PageShell.SummaryRail>
 			{/if}

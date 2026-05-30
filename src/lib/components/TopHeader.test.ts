@@ -105,12 +105,13 @@ describe('TopHeader', () => {
 		expect(screen.queryByRole('button', { name: 'Send feedback' })).toBeNull();
 	});
 
-	it('renders help in the account menu', async () => {
+	it('does not render a standalone help route item in the account menu', async () => {
 		renderHeader();
 
 		await fireEvent.click(screen.getByRole('button', { name: /Account menu/i }));
 
-		expect(screen.getByRole('menuitem', { name: 'Help' })).toBeTruthy();
+		expect(screen.queryByRole('menuitem', { name: 'Help' })).toBeNull();
+		expect(topHeaderSource).not.toContain('/help');
 	});
 
 	it('keeps account access available in the shadcn sidebar footer', () => {

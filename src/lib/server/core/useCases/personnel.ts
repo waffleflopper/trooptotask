@@ -15,6 +15,7 @@ import type { WriteWithNotificationsPorts, WriteWithSubscriptionPorts } from '$l
 import { evaluateFeaturePolicy, policyResourceForGroup, requireFeaturePolicy } from './featurePolicy';
 import { buildUniquePersonnelSlug, isPersonnelSlugUniqueConstraintError } from './personnelSlug';
 import { createDeletionRequest } from './deletionRequests';
+import { archivePersonnelOwnedArtifacts } from './personnelArchivedArtifacts';
 
 const entity = PersonnelEntity;
 const AUDIT_RESOURCE = 'personnel';
@@ -212,9 +213,11 @@ export function createPersonnelUseCases(): PersonnelUseCases {
 				{ enforceReadOnlyOverlay: false }
 			);
 
+			const archivedAt = new Date().toISOString();
 			await ctx.store.update(entity.table, ctx.auth.orgId, id, {
-				archived_at: new Date().toISOString()
+				archived_at: archivedAt
 			});
+			await archivePersonnelOwnedArtifacts(ctx, [id], archivedAt);
 
 			ctx.subscription.invalidateTierCache();
 
@@ -309,6 +312,7 @@ export function createPersonnelUseCases(): PersonnelUseCases {
 			}
 
 			if (result.archivedIds.length > 0) {
+				await archivePersonnelOwnedArtifacts(ctx, result.archivedIds, archivedAt);
 				ctx.subscription.invalidateTierCache();
 				ctx.audit.log({
 					action: `${AUDIT_RESOURCE}.bulk_archived`,

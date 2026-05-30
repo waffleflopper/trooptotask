@@ -75,7 +75,6 @@ describe('PersonnelPageContext', () => {
 			new PersonnelPageContext(makeData(), modals, makeOrg());
 			expect(modals.isOpen('personnel-modal')).toBe(false);
 			expect(modals.isOpen('group-manager')).toBe(false);
-			expect(modals.isOpen('bulk-manager')).toBe(false);
 		});
 	});
 
@@ -325,13 +324,6 @@ describe('PersonnelPageContext', () => {
 			const ctx = new PersonnelPageContext(makeData(), modals, makeOrg());
 			ctx.openGroupManager();
 			expect(modals.isOpen('group-manager')).toBe(true);
-		});
-
-		it('openBulkManager opens bulk-manager modal', () => {
-			const modals = makeModals();
-			const ctx = new PersonnelPageContext(makeData(), modals, makeOrg());
-			ctx.openBulkManager();
-			expect(modals.isOpen('bulk-manager')).toBe(true);
 		});
 	});
 

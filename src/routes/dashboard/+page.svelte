@@ -64,12 +64,6 @@
 			<p class="max-w-xl text-base leading-7 text-muted-foreground">
 				Move into an organization, process pending invitations, or create a new workspace before the next handoff.
 			</p>
-
-			<div>
-				<a class="text-sm font-medium text-foreground underline-offset-4 hover:underline" href={resolve('/help')}>
-					Need a quick refresher? Open the field guide.
-				</a>
-			</div>
 		</section>
 
 		<section

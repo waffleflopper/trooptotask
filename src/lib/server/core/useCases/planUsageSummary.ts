@@ -1,6 +1,7 @@
 import type { Tier } from '$lib/types/subscription';
 import type { EffectivePlanPolicy, PlanLimitDimension, PlanPolicyDenialReason, PlanPolicySource } from './planPolicy';
 import type { OrganizationPlanUsage } from './organizationPlanUsage';
+import { planPolicySourceLabel } from './planPolicySourceLabel';
 
 export type PlanUsageSummaryStatus = 'within_limit' | 'limit_reached' | 'over_limit' | 'read_only';
 
@@ -32,19 +33,6 @@ export interface PlanUsageSummary {
 	};
 	rows: PlanUsageSummaryRow[];
 	alerts: PlanUsageSummaryAlert[];
-}
-
-function sourceLabel(source: PlanPolicySource, tier: Tier): string {
-	switch (source) {
-		case 'admin_gift':
-			return 'Admin gift';
-		case 'billing_disabled_fallback':
-			return 'Billing-disabled fallback';
-		case 'legacy_organization':
-			return tier === 'free' ? 'Free plan' : 'Legacy organization';
-		case 'billing_snapshot':
-			return tier === 'free' ? 'Free plan' : 'Paid subscription';
-	}
 }
 
 function formatLimit(limit: number | null): string {
@@ -167,7 +155,7 @@ export function buildPlanUsageSummary(policy: EffectivePlanPolicy, usage: Organi
 		plan: {
 			tier: policy.tier,
 			source: policy.source,
-			sourceLabel: sourceLabel(policy.source, policy.tier)
+			sourceLabel: planPolicySourceLabel(policy.source)
 		},
 		rows,
 		alerts: [

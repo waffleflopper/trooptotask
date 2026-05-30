@@ -365,6 +365,49 @@ describe('Personnel — archive', () => {
 		]);
 	}
 
+	function seedPersonnelArtifacts(ctx: ReturnType<typeof buildContext>) {
+		ctx.store.seed('personnel_follow_ups', [
+			{
+				id: 'follow-up-open',
+				organization_id: 'test-org',
+				personnel_id: 'p-1',
+				status: 'open',
+				archived_at: null
+			},
+			{
+				id: 'follow-up-completed',
+				organization_id: 'test-org',
+				personnel_id: 'p-1',
+				status: 'completed',
+				archived_at: null
+			}
+		]);
+		ctx.store.seed('counseling_records', [
+			{
+				id: 'counseling-active',
+				organization_id: 'test-org',
+				personnel_id: 'p-1',
+				archived_at: null
+			}
+		]);
+		ctx.store.seed('personnel_documents', [
+			{
+				id: 'document-active',
+				organization_id: 'test-org',
+				personnel_id: 'p-1',
+				archived_at: null
+			}
+		]);
+		ctx.store.seed('leader_notes', [
+			{
+				id: 'note-active',
+				organization_id: 'test-org',
+				personnel_id: 'p-1',
+				archived_at: null
+			}
+		]);
+	}
+
 	it('sets archived_at, invalidates tier cache, and audits', async () => {
 		const ctx = buildContext();
 		const { archive } = createPersonnelUseCases();
@@ -381,6 +424,30 @@ describe('Personnel — archive', () => {
 			action: 'personnel.archived',
 			resourceId: 'p-1'
 		});
+	});
+
+	it('archives personnel-owned artifacts without reopening completed follow-ups later', async () => {
+		const ctx = buildContext();
+		const { archive } = createPersonnelUseCases();
+		seedPersonnel(ctx);
+		seedPersonnelArtifacts(ctx);
+
+		await archive(ctx, 'p-1');
+
+		const followUps = (await ctx.store.findMany('personnel_follow_ups', 'test-org')) as Record<string, unknown>[];
+		const counselings = (await ctx.store.findMany('counseling_records', 'test-org')) as Record<string, unknown>[];
+		const documents = (await ctx.store.findMany('personnel_documents', 'test-org')) as Record<string, unknown>[];
+		const notes = (await ctx.store.findMany('leader_notes', 'test-org')) as Record<string, unknown>[];
+
+		expect(followUps).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({ id: 'follow-up-open', status: 'archived', archived_at: expect.any(String) }),
+				expect.objectContaining({ id: 'follow-up-completed', status: 'completed', archived_at: null })
+			])
+		);
+		expect(counselings[0].archived_at).toEqual(expect.any(String));
+		expect(documents[0].archived_at).toEqual(expect.any(String));
+		expect(notes[0].archived_at).toEqual(expect.any(String));
 	});
 
 	it('returns requiresApproval for non-privileged, non-full-editor users', async () => {
@@ -487,6 +554,37 @@ describe('Personnel — archive batch', () => {
 		]);
 	}
 
+	function seedPersonnelArtifacts(ctx: ReturnType<typeof createTestContext>) {
+		ctx.store.seed('personnel_follow_ups', [
+			{
+				id: 'follow-up-p1',
+				organization_id: 'test-org',
+				personnel_id: 'p-1',
+				status: 'open',
+				archived_at: null
+			},
+			{
+				id: 'follow-up-p2',
+				organization_id: 'test-org',
+				personnel_id: 'p-2',
+				status: 'open',
+				archived_at: null
+			}
+		]);
+		ctx.store.seed('counseling_records', [
+			{ id: 'counseling-p1', organization_id: 'test-org', personnel_id: 'p-1', archived_at: null },
+			{ id: 'counseling-p2', organization_id: 'test-org', personnel_id: 'p-2', archived_at: null }
+		]);
+		ctx.store.seed('personnel_documents', [
+			{ id: 'document-p1', organization_id: 'test-org', personnel_id: 'p-1', archived_at: null },
+			{ id: 'document-p2', organization_id: 'test-org', personnel_id: 'p-2', archived_at: null }
+		]);
+		ctx.store.seed('leader_notes', [
+			{ id: 'note-p1', organization_id: 'test-org', personnel_id: 'p-1', archived_at: null },
+			{ id: 'note-p2', organization_id: 'test-org', personnel_id: 'p-2', archived_at: null }
+		]);
+	}
+
 	it('archives multiple personnel through one use case call', async () => {
 		const ctx = createTestContext();
 		const { archiveBatch } = createPersonnelUseCases();
@@ -512,6 +610,28 @@ describe('Personnel — archive batch', () => {
 				details: expect.objectContaining({ count: 2, ids: ['p-1', 'p-2'] })
 			})
 		);
+	});
+
+	it('archives personnel-owned artifacts for every directly archived personnel record', async () => {
+		const ctx = createTestContext();
+		const { archiveBatch } = createPersonnelUseCases();
+		seedPersonnel(ctx);
+		seedPersonnelArtifacts(ctx);
+
+		await archiveBatch(ctx, {
+			ids: ['p-1', 'p-2'],
+			userEmail: 'requester@example.com'
+		});
+
+		const followUps = (await ctx.store.findMany('personnel_follow_ups', 'test-org')) as Record<string, unknown>[];
+		const counselings = (await ctx.store.findMany('counseling_records', 'test-org')) as Record<string, unknown>[];
+		const documents = (await ctx.store.findMany('personnel_documents', 'test-org')) as Record<string, unknown>[];
+		const notes = (await ctx.store.findMany('leader_notes', 'test-org')) as Record<string, unknown>[];
+
+		expect(followUps.every((row) => row.status === 'archived' && row.archived_at)).toBe(true);
+		expect(counselings.every((row) => row.archived_at)).toBe(true);
+		expect(documents.every((row) => row.archived_at)).toBe(true);
+		expect(notes.every((row) => row.archived_at)).toBe(true);
 	});
 
 	it('creates archival requests in the same call when direct archive requires approval', async () => {

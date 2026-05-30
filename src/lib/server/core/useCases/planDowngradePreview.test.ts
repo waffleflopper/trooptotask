@@ -163,6 +163,68 @@ describe('plan downgrade preview', () => {
 		expect(preview.blockers).toEqual([]);
 	});
 
+	it('uses the shared policy source labels for current and target plans', () => {
+		const currentPolicy = buildEffectivePlanPolicy(
+			snapshot({
+				source: 'gift',
+				commercialPlan: 'free',
+				giftTier: 'unit',
+				giftExpiresAt: '2999-01-01T00:00:00.000Z'
+			})
+		);
+		const targetPolicy = buildEffectivePlanPolicy(
+			snapshot({
+				source: 'legacy_organization',
+				commercialPlan: 'team',
+				stripeCustomerId: null,
+				stripeSubscriptionId: null,
+				stripeProductId: null,
+				stripePriceId: null,
+				subscriptionStatus: null,
+				collectionStatus: null,
+				syncStatus: 'needs_reconciliation'
+			})
+		);
+
+		const preview = buildPlanDowngradePreview({
+			currentPolicy,
+			targetPolicy,
+			usage: usage({
+				activePersonnelCount: 12,
+				activeOrganizationMemberCount: 1,
+				pendingUnexpiredInvitationCount: 0,
+				monthlyExportCount: 0
+			})
+		});
+		const fallbackPreview = buildPlanDowngradePreview({
+			currentPolicy: buildEffectivePlanPolicy(
+				snapshot({
+					source: 'billing_disabled',
+					commercialPlan: 'unit',
+					stripeCustomerId: null,
+					stripeSubscriptionId: null,
+					stripeProductId: null,
+					stripePriceId: null,
+					subscriptionStatus: null,
+					collectionStatus: null,
+					syncStatus: 'billing_disabled'
+				})
+			),
+			targetPolicy: buildEffectivePlanPolicy(snapshot({ commercialPlan: 'team' })),
+			usage: usage({
+				activePersonnelCount: 12,
+				activeOrganizationMemberCount: 1,
+				pendingUnexpiredInvitationCount: 0,
+				monthlyExportCount: 0
+			})
+		});
+
+		expect(preview.currentPlan.sourceLabel).toBe('Admin gift');
+		expect(preview.targetPlan.sourceLabel).toBe('Legacy organization');
+		expect(fallbackPreview.currentPlan.sourceLabel).toBe('Billing-disabled fallback');
+		expect(fallbackPreview.targetPlan.sourceLabel).toBe('Stripe-backed billing');
+	});
+
 	it('includes policy read-only reasons in downgrade blockers and preservation copy', () => {
 		const currentPolicy = buildEffectivePlanPolicy(snapshot({ commercialPlan: 'team' }));
 		const targetPolicy = buildEffectivePlanPolicy(

@@ -6,15 +6,16 @@
 	import InfoIcon from '@lucide/svelte/icons/info';
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert';
 	import { Badge } from '$lib/components/ui/badge/index.js';
-	import type { BulkImportRowStatusTone } from './types.js';
+	import type { BulkImportRowStatusDescriptionMode, BulkImportRowStatusTone } from './types.js';
 
 	type Props = {
 		tone: BulkImportRowStatusTone;
 		label?: string;
 		description?: string;
+		descriptionMode?: BulkImportRowStatusDescriptionMode;
 	};
 
-	let { tone, label, description }: Props = $props();
+	let { tone, label, description, descriptionMode = 'inline' }: Props = $props();
 
 	const displayLabel = $derived(label ?? defaultLabel(tone));
 	const badgeVariant = $derived(
@@ -67,6 +68,8 @@
 		<span>{displayLabel}</span>
 	</Badge>
 	{#if description}
-		<span class="max-w-56 text-xs leading-5 text-muted-foreground">{description}</span>
+		<span class={descriptionMode === 'inline' ? 'max-w-56 text-xs leading-5 text-muted-foreground' : 'sr-only'}>
+			{description}
+		</span>
 	{/if}
 </span>

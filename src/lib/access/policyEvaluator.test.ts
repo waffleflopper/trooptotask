@@ -136,13 +136,13 @@ describe('policy evaluator', () => {
 			id: 'personnel.importRecords',
 			accessMode: 'write',
 			owner: { kind: 'feature-lane', lane: 'personnel' },
-			requiredCapability: 'configure'
+			requiredCapability: 'operate'
 		});
 		expect(POLICY_ACTION_CATALOG.personnel.mergeRecords).toMatchObject({
 			id: 'personnel.mergeRecords',
 			accessMode: 'write',
 			owner: { kind: 'feature-lane', lane: 'personnel' },
-			requiredCapability: 'configure'
+			requiredCapability: 'operate'
 		});
 	});
 

@@ -4,11 +4,9 @@
 	import { groupsStore } from '$lib/stores/groups.svelte';
 	import PersonnelModal from '$features/personnel/components/PersonnelModal.svelte';
 	import GroupManager from '$features/groups/components/GroupManager.svelte';
-	import BulkPersonnelManager from '$features/personnel/components/BulkPersonnelManager.svelte';
 	import { submitDeletionRequest } from '$lib/utils/deletionRequests';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { invalidateAll } from '$app/navigation';
-	import { bulkArchivePersonnel } from '$features/personnel/utils/bulkArchivePersonnel';
 	import type { PersonnelPageContext } from '$features/personnel/contexts/PersonnelPageContext.svelte';
 	import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 
@@ -20,7 +18,6 @@
 	let { ctx, modals }: Props = $props();
 
 	const personnelPayload = $derived(modals.payload<{ person: Personnel | null }>('personnel-modal'));
-	const bulkManagerPayload = $derived(modals.payload<{ initialTab?: 'import' | 'merge' | 'delete' }>('bulk-manager'));
 
 	const editingPerson = $derived(personnelPayload?.person ?? null);
 
@@ -51,32 +48,6 @@
 		} else if (result === 'error') {
 			toastStore.error('Failed to archive personnel');
 		}
-	}
-
-	async function handleBulkImportComplete() {
-		await invalidateAll();
-		modals.close('bulk-manager');
-	}
-
-	async function handleBulkArchive(ids: string[]) {
-		const result = await bulkArchivePersonnel(ctx.orgId, ids);
-
-		for (const id of result.archivedIds) {
-			personnelStore.removeLocal(id);
-		}
-
-		if (result.archivedIds.length > 0) {
-			toastStore.success(`${result.archivedIds.length} personnel archived`);
-			await invalidateAll();
-		}
-		if (result.approvalRequestedIds.length > 0) {
-			toastStore.info(`${result.approvalRequestedIds.length} archival requests submitted for admin approval.`);
-			await invalidateAll();
-		}
-		if (result.errors.length > 0) {
-			toastStore.error(`${result.errors.length} personnel could not be archived.`);
-		}
-		modals.close('bulk-manager');
 	}
 </script>
 
@@ -109,18 +80,5 @@
 			);
 		}}
 		onClose={modals.closerFor('group-manager')}
-	/>
-{/if}
-
-{#if modals.isOpen('bulk-manager')}
-	<BulkPersonnelManager
-		personnelByGroup={ctx.personnelByGroup}
-		groups={groupsStore.items}
-		orgId={ctx.orgId}
-		onImportComplete={handleBulkImportComplete}
-		onBulkDelete={handleBulkArchive}
-		onClose={modals.closerFor('bulk-manager')}
-		initialTab={bulkManagerPayload?.initialTab ?? 'import'}
-		readOnly={ctx.readOnly}
 	/>
 {/if}

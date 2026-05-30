@@ -16,6 +16,7 @@ import { reviewerDetails, subjectDetails } from '$lib/server/auditDetails';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { requireGovernancePolicy } from './governancePolicy';
 import { requireIdentityOwnedPolicy } from './identityPolicy';
+import { archivePersonnelOwnedArtifacts } from './personnelArchivedArtifacts';
 
 const TABLE = 'deletion_requests';
 const AUDIT_RESOURCE = 'deletion_request';
@@ -154,9 +155,11 @@ export async function approveDeletionRequest(ctx: WriteWithNotificationsPorts, r
 	}
 
 	if (resourceType === 'personnel') {
+		const archivedAt = new Date().toISOString();
 		await ctx.store.update(tableName, ctx.auth.orgId, resourceId, {
-			archived_at: new Date().toISOString()
+			archived_at: archivedAt
 		});
+		await archivePersonnelOwnedArtifacts(ctx, [resourceId], archivedAt);
 	} else {
 		await ctx.store.delete(tableName, ctx.auth.orgId, resourceId);
 	}

@@ -258,6 +258,18 @@ describe('approveDeletionRequest', () => {
 		ctx.store.seed('personnel', [
 			{ id: 'person-1', organization_id: 'test-org', last_name: 'Smith', archived_at: null }
 		]);
+		ctx.store.seed('personnel_follow_ups', [
+			{ id: 'follow-up-1', organization_id: 'test-org', personnel_id: 'person-1', status: 'open', archived_at: null }
+		]);
+		ctx.store.seed('counseling_records', [
+			{ id: 'counseling-1', organization_id: 'test-org', personnel_id: 'person-1', archived_at: null }
+		]);
+		ctx.store.seed('personnel_documents', [
+			{ id: 'document-1', organization_id: 'test-org', personnel_id: 'person-1', archived_at: null }
+		]);
+		ctx.store.seed('leader_notes', [
+			{ id: 'note-1', organization_id: 'test-org', personnel_id: 'person-1', archived_at: null }
+		]);
 
 		await approveDeletionRequest(ctx, 'dr-1');
 
@@ -272,6 +284,18 @@ describe('approveDeletionRequest', () => {
 		// Personnel archived (archived_at set)
 		const person = await ctx.store.findOne<Record<string, unknown>>('personnel', 'test-org', { id: 'person-1' });
 		expect(person!.archived_at).toBeTruthy();
+		await expect(
+			ctx.store.findOne<Record<string, unknown>>('personnel_follow_ups', 'test-org', { id: 'follow-up-1' })
+		).resolves.toMatchObject({ status: 'archived', archived_at: person!.archived_at });
+		await expect(
+			ctx.store.findOne<Record<string, unknown>>('counseling_records', 'test-org', { id: 'counseling-1' })
+		).resolves.toMatchObject({ archived_at: person!.archived_at });
+		await expect(
+			ctx.store.findOne<Record<string, unknown>>('personnel_documents', 'test-org', { id: 'document-1' })
+		).resolves.toMatchObject({ archived_at: person!.archived_at });
+		await expect(
+			ctx.store.findOne<Record<string, unknown>>('leader_notes', 'test-org', { id: 'note-1' })
+		).resolves.toMatchObject({ archived_at: person!.archived_at });
 
 		// Notification created for the requester
 		const notifications = ctx.notifications.notifications;

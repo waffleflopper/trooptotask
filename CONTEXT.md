@@ -264,6 +264,14 @@ _Avoid_: Exemption list, date availability, all personnel
 The standard order for a new DA Form 6: alphabetically within pay grade, beginning with the highest pay grade.
 _Avoid_: Current-count order, random starting order
 
+**DA6 Roster Engine**:
+The deep module that turns an already-classified, exempt-filtered **Duty Roster Pool** into DA Form 6 selection and numbering across a date range. It owns per-date duty selection, the chargeable queue and its positions, **Duty Priority** ordering, and **DA6 Matrix** sequence numbering, returning matrix columns, **DA6 Matrix** cells, and roster rows. It receives availability already resolved as classifications and emits **DA6 Matrix** cells directly, where an assigned cell supersedes its classification. Its boundary is string-free: it emits stable reason codes (with parameters such as **Status Type** names), and copy is mapped outside it, the same way a **Policy Reason Code** maps to text outside the **Policy Evaluator**. It does not own availability classification, **DA6 Availability Treatment** resolution, snapshot or export assembly, or personnel-display denormalization onto matrix rows.
+_Avoid_: Run builder, snapshot assembler, the whole generation function
+
+**Duty Priority**:
+The **DA6 Roster Engine**'s internal ordering of which pool member is most overdue for a duty, used to rank the **Duty Roster Pool** each date before selection. It has two data-selected implementations: a last-duty-date ordering seeded from prior assignment and accepted history, and a count ordering seeded from a **Manual DA6 Baseline**, with **DA6 Roster Order** breaking ties. It is an engine-internal seam used by the engine and its own tests, not part of the engine's public interface and not a caller-pluggable strategy.
+_Avoid_: Pluggable strategy hook, public ordering option, two parallel ranking branches
+
 **Accepted Duty Roster Run**:
 A generated **Duty Roster Run** that has been saved as official DA Form 6 history and may later be printed, exported, or applied to the **Calendar**.
 _Avoid_: Preview, draft print, unsaved generation
@@ -469,6 +477,10 @@ _Avoid_: Training type
 - If no **Manual DA6 Baseline** exists, the first generated run starts from **DA6 Roster Order**.
 - After the first **Accepted Duty Roster Run** for a template, the **Manual DA6 Baseline** is locked as setup history and future counts come from accepted, non-invalidated runs.
 - Duty selection uses the longest break from that duty first; **DA6 Roster Order** breaks ties when history and baseline data do not separate Soldiers.
+- The **DA6 Roster Engine** owns duty selection, the chargeable queue and positions, **Duty Priority** ordering, and **DA6 Matrix** numbering; availability classification, **DA6 Availability Treatment** resolution, and snapshot/export assembly stay outside it.
+- The **DA6 Roster Engine** emits **DA6 Matrix** cells directly, and an assigned cell supersedes its availability classification with no A/D/U code or reason; personnel-display denormalization onto matrix rows happens in the surrounding builder, not the engine.
+- The **DA6 Roster Engine** boundary is string-free: it emits stable reason codes with parameters, and a single builder-side mapper renders copy, the same discipline as **Policy Reason Code** to text outside the **Policy Evaluator**.
+- **Duty Priority** has a last-duty-date implementation and a **Manual DA6 Baseline** count implementation selected by whether baseline data exists; both express the same "most overdue first" rule and are engine-internal rather than caller-pluggable.
 - A **Duty Roster Run** keeps pool members in the **DA6 Matrix** when they are unavailable on a duty date; the reason they are unavailable controls whether their count increments.
 - **Authorized Absence** uses `A`, is nonchargeable, and interrupts the Soldier's DA Form 6 numbering sequence.
 - **Other Duty** uses `D`, is chargeable, and continues the Soldier's DA Form 6 numbering sequence.

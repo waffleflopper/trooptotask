@@ -379,7 +379,7 @@ function buildAssignmentsByPersonDate(
 			name: assignmentType.name,
 			shortName: assignmentType.shortName,
 			color: assignmentType.color,
-			textColor: assignmentType.textColor ?? '`#ffffff`',
+			textColor: '#ffffff',
 			title: assignmentType.name,
 			kind: 'assignment'
 		});

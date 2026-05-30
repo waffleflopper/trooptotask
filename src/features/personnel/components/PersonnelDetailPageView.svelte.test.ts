@@ -94,7 +94,6 @@ describe('PersonnelDetailPageView', () => {
 			props: {
 				orgId: 'org-1',
 				person,
-				roster: [person],
 				orgName: 'Test Org',
 				detail: makeDetail()
 			}
@@ -124,7 +123,6 @@ describe('PersonnelDetailPageView', () => {
 			props: {
 				orgId: 'org-1',
 				person,
-				roster: [person],
 				orgName: 'Test Org',
 				detail: makeDetail()
 			}
@@ -143,7 +141,6 @@ describe('PersonnelDetailPageView', () => {
 			props: {
 				orgId: 'org-1',
 				person,
-				roster: [person],
 				orgName: 'Test Org',
 				detail: makeDetail({
 					readinessLanes: {
@@ -162,7 +159,6 @@ describe('PersonnelDetailPageView', () => {
 			props: {
 				orgId: 'org-1',
 				person,
-				roster: [person],
 				orgName: 'Test Org',
 				detail: makeDetail({
 					documents: Promise.resolve([
@@ -214,7 +210,6 @@ describe('PersonnelDetailPageView', () => {
 			props: {
 				orgId: 'org-1',
 				person,
-				roster: [person],
 				orgName: 'Test Org',
 				detail: makeDetail({
 					followUps: Promise.resolve([
@@ -270,7 +265,6 @@ describe('PersonnelDetailPageView', () => {
 			props: {
 				orgId: 'org-1',
 				person,
-				roster: [person],
 				orgName: 'Test Org',
 				detail: makeDetail({ followUps: Promise.resolve([]) })
 			}
@@ -314,7 +308,6 @@ describe('PersonnelDetailPageView', () => {
 			props: {
 				orgId: 'org-1',
 				person,
-				roster: [person],
 				orgName: 'Test Org',
 				detail: makeDetail({ followUps: Promise.resolve(followUps) })
 			}
@@ -343,7 +336,6 @@ describe('PersonnelDetailPageView', () => {
 			props: {
 				orgId: 'org-1',
 				person,
-				roster: [person],
 				orgName: 'Test Org',
 				detail: makeDetail()
 			}
@@ -388,7 +380,6 @@ describe('PersonnelDetailPageView', () => {
 			props: {
 				orgId: 'org-1',
 				person,
-				roster: [person],
 				groups: [
 					{ id: 'group-1', name: 'Alpha', sortOrder: 0 },
 					{ id: 'group-empty', name: 'Bravo', sortOrder: 1 }
@@ -421,7 +412,6 @@ describe('PersonnelDetailPageView', () => {
 			props: {
 				orgId: 'org-1',
 				person,
-				roster: [person],
 				orgName: 'Test Org',
 				detail: makeDetail(),
 				canArchivePersonnel: true
@@ -448,7 +438,6 @@ describe('PersonnelDetailPageView', () => {
 			props: {
 				orgId: 'org-1',
 				person,
-				roster: [person],
 				orgName: 'Test Org',
 				detail: makeDetail({
 					followUps: Promise.resolve([

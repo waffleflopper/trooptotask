@@ -192,6 +192,7 @@ describe('calendarRenderState', () => {
 		expect(cell?.statuses.map((status) => status.name)).toEqual(['Leave', 'School']);
 		expect(cell?.primaryStatus?.name).toBe('School');
 		expect(cell?.markers.map((marker) => marker.kind)).toEqual(['assignment', 'duty']);
+		expect(cell?.markers.find((marker) => marker.kind === 'assignment')?.textColor).toBe('#ffffff');
 		expect(cell?.dutyIndicator?.title).toBe('Battalion Staff Duty — NCO');
 		expect(cell?.title).toBe('School | Battalion Staff Duty — NCO');
 		expect(state.personDateCells('person-1')).toHaveLength(2);

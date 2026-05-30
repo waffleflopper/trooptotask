@@ -14,9 +14,9 @@
 	import GroupHeader from '$lib/components/GroupHeader.svelte';
 	import * as Empty from '$lib/components/ui/empty';
 	import { Button } from '$lib/components/ui/button';
-	import { buildDutyEventBadgesByPerson, type DutyEventBadge } from '$features/calendar/utils/dutyEventBadges';
+	import { buildCalendarRenderState } from '$features/calendar/utils/calendarRenderState';
 	import { buildVirtualRowLayout, getVisibleVirtualRows } from '$features/calendar/utils/virtualRows';
-	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
+	import { SvelteSet } from 'svelte/reactivity';
 
 	const GROUP_ROW_HEIGHT = 35;
 	const PERSON_ROW_HEIGHT_WITH_ROLES = 46;
@@ -152,8 +152,6 @@
 		}
 	}
 
-	const onboardingSet = $derived(new SvelteSet(activeOnboardingPersonnelIds));
-
 	const totalPersonnel = $derived(personnelByGroup.reduce((sum, g) => sum + g.personnel.length, 0));
 	const personRowHeight = $derived(showPersonnelRoles ? PERSON_ROW_HEIGHT_WITH_ROLES : PERSON_ROW_HEIGHT_WITHOUT_ROLES);
 	const rowOverscanPx = $derived(personRowHeight * ROW_OVERSCAN_COUNT);
@@ -193,57 +191,22 @@
 		getVisibleVirtualRows(rosterLayout.rows, scrollTop, viewportHeight, rowOverscanPx)
 	);
 
-	// Pre-index availability entries by personnel ID for O(1) lookup per person
-	const availabilityByPerson = $derived.by(() => {
-		const map = new SvelteMap<string, AvailabilityEntry[]>();
-		for (const e of availabilityEntries) {
-			let list = map.get(e.personnelId);
-			if (!list) {
-				list = [];
-				map.set(e.personnelId, list);
-			}
-			list.push(e);
-		}
-		return map;
-	});
-
-	// Pre-index assignments by assignee ID
-	const assignmentsByPerson = $derived.by(() => {
-		const map = new SvelteMap<string, DailyAssignment[]>();
-		for (const a of assignments) {
-			let list = map.get(a.assigneeId);
-			if (!list) {
-				list = [];
-				map.set(a.assigneeId, list);
-			}
-			list.push(a);
-		}
-		return map;
-	});
-
-	// Pre-index advanced-duty-event badges by personnel ID → date string
-	const dutyBadgesByPerson = $derived.by(() =>
-		buildDutyEventBadgesByPerson(dutyEvents, { startDayOnly: dutyStartDayOnly })
+	const renderState = $derived.by(() =>
+		buildCalendarRenderState({
+			dates,
+			personnelByGroup,
+			availabilityEntries,
+			statusTypes,
+			specialDays,
+			assignmentTypes,
+			assignments,
+			dutyEvents,
+			dutyStartDayOnly,
+			activeOnboardingPersonnelIds,
+			highlightOnboarding,
+			upcomingLossMap
+		})
 	);
-
-	const personnelById = $derived.by(() => {
-		const map = new SvelteMap<string, Personnel>();
-		for (const group of personnelByGroup) {
-			for (const person of group.personnel) {
-				map.set(person.id, person);
-			}
-		}
-		return map;
-	});
-
-	// Pre-index status types by ID for O(1) lookup
-	const statusTypeMap = $derived.by(() => {
-		const map = new SvelteMap<string, StatusType>();
-		for (const s of statusTypes) {
-			map.set(s.id, s);
-		}
-		return map;
-	});
 </script>
 
 <div class="calendar flex flex-1 flex-col overflow-hidden rounded-lg border bg-card text-card-foreground">
@@ -251,11 +214,7 @@
 		{year}
 		{month}
 		{monthName}
-		{dates}
-		{specialDays}
-		{assignmentTypes}
-		{assignments}
-		{personnelById}
+		headerCells={renderState.headerCells}
 		{onPrevMonth}
 		{onNextMonth}
 		{onGoToToday}
@@ -316,18 +275,10 @@
 							{:else}
 								<CalendarRow
 									person={row.person}
-									{dates}
-									personAvailability={availabilityByPerson.get(row.person.id) ?? []}
-									{statusTypeMap}
-									{specialDays}
-									{assignmentTypes}
-									personAssignments={assignmentsByPerson.get(row.person.id) ?? []}
-									personDutyBadges={dutyBadgesByPerson.get(row.person.id) ?? new SvelteMap<string, DutyEventBadge[]>()}
+									personHeader={renderState.personHeader(row.person.id)}
+									cells={renderState.personDateCells(row.person.id) ?? []}
 									{showStatusText}
 									{showPersonnelRoles}
-									isOnboarding={onboardingSet.has(row.person.id)}
-									{highlightOnboarding}
-									upcomingLossRecord={upcomingLossMap?.get(row.person.id)}
 									onCellClick={canEdit ? onCellClick : undefined}
 									{onPersonClick}
 								/>

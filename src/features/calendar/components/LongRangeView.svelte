@@ -7,14 +7,12 @@
 		AssignmentType,
 		DailyAssignment
 	} from '$lib/types';
-	import { formatDate, getMonthDates, getMonthName, isWeekend, addMonths, isToday } from '$lib/utils/dates';
+	import { formatDate, getMonthDates, getMonthName, addMonths } from '$lib/utils/dates';
 	import { exportQuarterToExcel, printQuarterCalendar } from '../utils/calendarExport';
 	import CalendarNavigation from './CalendarNavigation.svelte';
 	import type { DutyEvent } from '$features/duty-roster/duty-roster.types';
-	import { buildDutyEventBadgesByPerson } from '$features/calendar/utils/dutyEventBadges';
-	import { buildAvailabilityStatusIndex } from '$features/calendar/utils/calendarIndexes';
+	import { buildCalendarRenderState } from '$features/calendar/utils/calendarRenderState';
 	import { buildVirtualRowLayout, getVisibleVirtualRows } from '$features/calendar/utils/virtualRows';
-	import { SvelteMap } from 'svelte/reactivity';
 	import FileSpreadsheetIcon from '@lucide/svelte/icons/file-spreadsheet';
 	import PrinterIcon from '@lucide/svelte/icons/printer';
 	import { Button } from '$lib/components/ui/button';
@@ -82,27 +80,23 @@
 		return result;
 	});
 
-	const visibleDateKeys = $derived.by(() => months.flatMap((month) => month.dates.map((date) => formatDate(date))));
+	const visibleDates = $derived.by(() => months.flatMap((month) => month.dates));
 
-	const specialDayByDate = $derived.by(() => {
-		const map = new SvelteMap<string, SpecialDay>();
-		for (const specialDay of specialDays) {
-			map.set(specialDay.date, specialDay);
-		}
-		return map;
-	});
-
-	const dutyBadgesByPerson = $derived.by(() =>
-		buildDutyEventBadgesByPerson(dutyEvents, { startDayOnly: dutyStartDayOnly })
-	);
-
-	const statusIndex = $derived.by(() =>
-		buildAvailabilityStatusIndex({
+	const renderState = $derived.by(() =>
+		buildCalendarRenderState({
+			dates: visibleDates,
+			personnelByGroup,
 			availabilityEntries,
 			statusTypes,
-			dateKeys: visibleDateKeys
+			specialDays,
+			assignmentTypes,
+			assignments,
+			dutyEvents,
+			dutyStartDayOnly
 		})
 	);
+
+	const visibleDateKeys = $derived(renderState.dateKeys);
 
 	const rosterRows = $derived.by(() => {
 		const rows: (
@@ -287,17 +281,15 @@
 				{#each months as month (`${month.year}-${month.month}`)}
 					{#each month.dates as date (formatDate(date))}
 						{@const dateKey = formatDate(date)}
-						{@const weekend = isWeekend(date)}
-						{@const today = isToday(date)}
-						{@const special = specialDayByDate.get(dateKey)}
+						{@const header = renderState.headerCell(dateKey)}
 						<button
 							class={[
 								'flex h-8 w-[var(--long-range-col-width)] shrink-0 cursor-pointer flex-col items-center justify-center border-l bg-card text-xs text-muted-foreground transition-colors hover:bg-muted focus-visible:ring-ring focus-visible:z-[2] focus-visible:ring-2 focus-visible:outline-none max-sm:h-9 max-sm:w-7 max-sm:min-w-7 max-sm:max-w-7',
-								weekend && 'bg-muted/55',
-								today && 'z-[1] bg-primary/10 shadow-[inset_0_0_0_1px_var(--primary)]',
-								special?.type === 'federal-holiday' && 'bg-warning-muted/55'
+								header?.weekend && 'bg-muted/55',
+								header?.today && 'z-[1] bg-primary/10 shadow-[inset_0_0_0_1px_var(--primary)]',
+								header?.specialDay?.type === 'federal-holiday' && 'bg-warning-muted/55'
 							]}
-							title={special?.name ?? `Jump to ${month.name} ${month.year}`}
+							title={header?.specialDay?.name ?? `Jump to ${month.name} ${month.year}`}
 							onclick={() => onDateColumnClick?.(date)}
 						>
 							<span class="font-mono text-[9px] font-semibold sm:text-xs">{date.getDate()}</span>
@@ -351,26 +343,25 @@
 								{#each months as month (`${month.year}-${month.month}`)}
 									{#each month.dates as date (formatDate(date))}
 										{@const dateKey = formatDate(date)}
-										{@const status = statusIndex.getStatus(row.person.id, dateKey)}
-										{@const weekend = isWeekend(date)}
-										{@const today = isToday(date)}
-										{@const dutyBadges = dutyBadgesByPerson.get(row.person.id)?.get(dateKey) ?? []}
+										{@const cell = renderState.personDateCell(row.person.id, dateKey)}
+										{@const status = cell?.primaryStatus}
+										{@const dutyIndicator = cell?.dutyIndicator}
 										<div
 											class={[
 												'status-cell relative flex h-[var(--long-range-person-row-height)] w-[var(--long-range-col-width)] shrink-0 items-center justify-center border-l bg-card transition-colors max-sm:h-8 max-sm:w-7 max-sm:min-w-7 max-sm:max-w-7',
 												!status && 'empty-status-cell',
-												weekend && 'bg-muted/55',
-												today && 'z-[1] shadow-[inset_0_0_0_1px_var(--primary)]',
+												cell?.weekend && 'bg-muted/55',
+												cell?.today && 'z-[1] shadow-[inset_0_0_0_1px_var(--primary)]',
 												status && 'has-status border-transparent',
-												dutyBadges.length > 0 && 'has-duty'
+												dutyIndicator && 'has-duty'
 											]}
 											style={status ? `background-color: ${status.color}` : ''}
-											title={[status?.name, dutyBadges.map((b) => b.title).join(', ')].filter(Boolean).join(' | ')}
+											title={cell?.title ?? ''}
 										>
-											{#if dutyBadges.length > 0}
+											{#if dutyIndicator}
 												<span
 													class="duty-indicator absolute right-0 bottom-0 left-0 h-0.5"
-													style="background-color: {dutyBadges[0].color}"
+													style="background-color: {dutyIndicator.color}"
 												></span>
 											{/if}
 										</div>

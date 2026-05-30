@@ -1,100 +1,30 @@
 <script lang="ts">
 	import type {
-		Personnel,
-		AvailabilityEntry,
-		StatusType,
-		SpecialDay,
-		AssignmentType,
-		DailyAssignment
-	} from '$lib/types';
-	import type { DutyEventBadge } from '$features/calendar/utils/dutyEventBadges';
-	import type { UpcomingLossRecord } from '$lib/domain/readinessSignals';
-	import { isWeekend, isToday, formatDate } from '$lib/utils/dates';
+		CalendarPersonDateCellState,
+		CalendarPersonHeaderState
+	} from '$features/calendar/utils/calendarRenderState';
 	import * as DateCell from '$lib/components/ui/date-cell/index.js';
-	import type { DateCellMarkerData, DateCellStatus } from '$lib/components/ui/date-cell/index.js';
-	import { SvelteMap } from 'svelte/reactivity';
+	import type { Personnel } from '$lib/types';
 
 	interface Props {
 		person: Personnel;
-		dates: Date[];
-		personAvailability: AvailabilityEntry[];
-		statusTypeMap: Map<string, StatusType>;
-		specialDays: SpecialDay[];
-		assignmentTypes: AssignmentType[];
-		personAssignments: DailyAssignment[];
-		personDutyBadges?: Map<string, DutyEventBadge[]>;
+		personHeader?: CalendarPersonHeaderState;
+		cells: CalendarPersonDateCellState[];
 		showStatusText?: boolean;
 		showPersonnelRoles?: boolean;
-		isOnboarding?: boolean;
-		highlightOnboarding?: boolean;
-		/** Upcoming-loss record for this person, if they are approaching ETS or PCS/DEROS. */
-		upcomingLossRecord?: UpcomingLossRecord;
 		onCellClick?: (person: Personnel, date: Date) => void;
 		onPersonClick?: (person: Personnel) => void;
 	}
 
 	let {
 		person,
-		dates,
-		personAvailability,
-		statusTypeMap,
-		specialDays,
-		assignmentTypes,
-		personAssignments,
-		personDutyBadges,
+		personHeader,
+		cells,
 		showStatusText = false,
 		showPersonnelRoles = false,
-		isOnboarding = false,
-		highlightOnboarding = true,
-		upcomingLossRecord,
 		onCellClick,
 		onPersonClick
 	}: Props = $props();
-
-	// Build date-keyed index of availability entries for this person (once per render)
-	const availabilityByDate = $derived.by(() => {
-		const map = new SvelteMap<string, AvailabilityEntry[]>();
-		for (const entry of personAvailability) {
-			// Expand entry across its date range for the visible dates
-			for (const date of dates) {
-				const dateStr = formatDate(date);
-				if (dateStr >= entry.startDate && dateStr <= entry.endDate) {
-					let list = map.get(dateStr);
-					if (!list) {
-						list = [];
-						map.set(dateStr, list);
-					}
-					list.push(entry);
-				}
-			}
-		}
-		return map;
-	});
-
-	// Build date-keyed index of assignments for this person
-	const assignmentsByDate = $derived.by(() => {
-		const map = new SvelteMap<string, { type: AssignmentType; assignment: DailyAssignment }[]>();
-		for (const a of personAssignments) {
-			const type = assignmentTypes.find((t) => t.id === a.assignmentTypeId && t.assignTo === 'personnel');
-			if (!type) continue;
-			let list = map.get(a.date);
-			if (!list) {
-				list = [];
-				map.set(a.date, list);
-			}
-			list.push({ type, assignment: a });
-		}
-		return map;
-	});
-
-	// Build date-keyed index of special days
-	const specialDayMap = $derived.by(() => {
-		const map = new SvelteMap<string, SpecialDay>();
-		for (const d of specialDays) {
-			map.set(d.date, d);
-		}
-		return map;
-	});
 
 	function handleCellClick(date: Date) {
 		onCellClick?.(person, date);
@@ -102,49 +32,6 @@
 
 	function handlePersonClick() {
 		onPersonClick?.(person);
-	}
-
-	function getDateCellStatuses(entries: AvailabilityEntry[]): DateCellStatus[] {
-		return entries.flatMap((entry) => {
-			const status = statusTypeMap.get(entry.statusTypeId);
-			return status
-				? [
-						{
-							id: entry.id,
-							color: status.color,
-							name: status.name,
-							textColor: status.textColor,
-							note: entry.note ?? undefined
-						}
-					]
-				: [];
-		});
-	}
-
-	function getDateCellMarkers(
-		assignments: { type: AssignmentType; assignment: DailyAssignment }[],
-		dutyBadges: DutyEventBadge[]
-	): DateCellMarkerData[] {
-		return [
-			...assignments.map(({ type, assignment }) => ({
-				id: assignment.id,
-				name: type.name,
-				shortName: type.shortName,
-				color: type.color,
-				textColor: '#ffffff',
-				title: type.name,
-				kind: 'assignment' as const
-			})),
-			...dutyBadges.map((badge) => ({
-				id: badge.slotId,
-				name: badge.title,
-				shortName: badge.shortName,
-				color: badge.color,
-				textColor: badge.textColor,
-				title: badge.title,
-				kind: 'duty' as const
-			}))
-		];
 	}
 </script>
 
@@ -166,22 +53,21 @@
 				<span class="overflow-hidden text-sm font-semibold text-ellipsis whitespace-nowrap text-foreground"
 					>{person.lastName}, {person.firstName}</span
 				>
-				{#if isOnboarding}
+				{#if personHeader?.isOnboarding}
 					<span class="size-2 shrink-0 rounded-[2px] bg-primary" title="Active onboarding"></span>
 				{/if}
-				{#if upcomingLossRecord}
+				{#if personHeader?.upcomingLossRecord}
 					<span
 						class={[
 							'shrink-0 rounded-md px-1 py-px font-mono text-[10px] leading-tight font-semibold tracking-widest uppercase',
-							upcomingLossRecord.triggerType === 'ETS'
+							personHeader.upcomingLossRecord.triggerType === 'ETS'
 								? 'bg-warning-muted text-warning-foreground'
 								: 'bg-muted text-muted-foreground'
 						]}
 						data-testid="loss-indicator-{person.id}"
-						title="{upcomingLossRecord.triggerType} in {upcomingLossRecord.daysRemaining} day{upcomingLossRecord.daysRemaining ===
-						1
-							? ''
-							: 's'}">{upcomingLossRecord.triggerType === 'ETS' ? 'ETS' : 'PCS'}</span
+						title="{personHeader.upcomingLossRecord.triggerType} in {personHeader.upcomingLossRecord
+							.daysRemaining} day{personHeader.upcomingLossRecord.daysRemaining === 1 ? '' : 's'}"
+						>{personHeader.upcomingLossRecord.triggerType === 'ETS' ? 'ETS' : 'PCS'}</span
 					>
 				{/if}
 			</span>
@@ -194,21 +80,17 @@
 			{/if}
 		</div>
 	</button>
-	{#each dates as date (formatDate(date))}
-		{@const dateStr = formatDate(date)}
-		{@const specialDay = specialDayMap.get(dateStr)}
-		{@const statuses = getDateCellStatuses(availabilityByDate.get(dateStr) ?? [])}
-		{@const markers = getDateCellMarkers(assignmentsByDate.get(dateStr) ?? [], personDutyBadges?.get(dateStr) ?? [])}
+	{#each cells as cell (cell.dateKey)}
 		<DateCell.Root
-			weekend={isWeekend(date)}
-			today={isToday(date)}
-			holiday={!!specialDay}
-			holidayName={specialDay?.name}
-			{statuses}
-			{markers}
+			weekend={cell.weekend}
+			today={cell.today}
+			holiday={cell.holiday}
+			holidayName={cell.holidayName}
+			statuses={cell.statuses}
+			markers={cell.markers}
 			{showStatusText}
-			onboarding={isOnboarding && highlightOnboarding}
-			onclick={() => handleCellClick(date)}
+			onboarding={cell.onboarding}
+			onclick={() => handleCellClick(cell.date)}
 		/>
 	{/each}
 </div>

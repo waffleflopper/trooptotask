@@ -95,17 +95,21 @@ describe('dutyRosterPreviewReview', () => {
 		expect(model.rows[1]?.liveWarnings).toEqual(['Selected Soldier is outside this template pool.']);
 		expect(model.matrix.rows.find((row) => row.personnelId === 'person-3')?.cells[0]).toMatchObject({
 			date: '2026-06-01',
+			personnelId: 'person-3',
+			code: 'blocked-by-duty',
+			da6Code: 'D',
 			assigned: false,
-			tone: 'danger',
-			display: 'D',
 			chargeable: true,
+			queuePosition: 2,
 			sequenceNumber: 2,
-			reason: 'Other duty: Staff Duty'
+			reason: 'Other duty: Staff Duty',
+			reasonCode: 'blocked-by-duty'
 		});
 	});
 
-	it('shapes DA6 matrix cells with rendered DA6 labels and count context', () => {
-		const model = buildDutyRosterPreviewReviewModel({ preview: previewSnapshot() });
+	it('carries preview DA6 matrix cells through as engine cells', () => {
+		const preview = previewSnapshot();
+		const model = buildDutyRosterPreviewReviewModel({ preview });
 
 		expect(model.matrix.columns).toEqual([
 			expect.objectContaining({ date: '2026-06-01' }),
@@ -115,28 +119,10 @@ describe('dutyRosterPreviewReview', () => {
 			{
 				personnelId: 'person-1',
 				soldierLabel: 'SGT Able',
-				cells: [
-					{
-						date: '2026-06-01',
-						assigned: true,
-						tone: 'assigned',
-						display: 'X',
-						chargeable: true,
-						sequenceNumber: 1,
-						reason: null
-					},
-					{
-						date: '2026-06-02',
-						assigned: false,
-						tone: 'warning',
-						display: 'A',
-						chargeable: false,
-						sequenceNumber: null,
-						reason: 'Authorized absence: Leave'
-					}
-				]
+				cells: preview.da6.rows[0]?.cells
 			}
 		]);
+		expect(model.matrix.rows[0]?.cells).toBe(preview.da6.rows[0]?.cells);
 	});
 
 	it('shapes accepted history rows from the saved snapshot and latest correction', () => {
@@ -205,37 +191,21 @@ describe('dutyRosterPreviewReview', () => {
 		});
 	});
 
-	it('shapes accepted DA6 matrix cells for history with rendered DA6 labels and count context', () => {
+	it('carries accepted DA6 matrix cells through as engine cells', () => {
+		const run = acceptedRun();
+		const snapshot = run.snapshotPayload as unknown as DutyRosterTemplateAcceptedSnapshot;
 		const model = buildDutyRosterAcceptedRunReviewModel({
-			run: acceptedRun()
+			run
 		});
 
 		expect(model.matrix.rows).toEqual([
 			{
 				personnelId: 'person-1',
 				soldierLabel: 'SGT Able',
-				cells: [
-					{
-						date: '2026-06-01',
-						assigned: true,
-						tone: 'assigned',
-						display: 'X',
-						chargeable: true,
-						sequenceNumber: 1,
-						reason: null
-					},
-					{
-						date: '2026-06-02',
-						assigned: false,
-						tone: 'warning',
-						display: 'A',
-						chargeable: false,
-						sequenceNumber: null,
-						reason: 'Authorized absence: Leave'
-					}
-				]
+				cells: snapshot.da6.rows[0]?.cells
 			}
 		]);
+		expect(model.matrix.rows[0]?.cells).toBe(snapshot.da6.rows[0]?.cells);
 	});
 
 	it('allows non-latest accepted history to be invalidated while its end date is today or later', () => {

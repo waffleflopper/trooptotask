@@ -25,6 +25,7 @@
 		DateRangeControls,
 		DutyRosterStatusBadge,
 		WarningSummary,
+		toDa6MatrixCell,
 		type DA6MatrixCell,
 		type DA6MatrixColumn,
 		type DA6MatrixFooterRow,
@@ -40,7 +41,6 @@
 
 	let { generate }: { generate: DutyRosterGenerateWorkspaceModel } = $props();
 
-	type PreviewDa6MatrixCell = NonNullable<DutyRosterPreviewReviewModel['matrix']['rows'][number]['cells'][number]>;
 	type GenerationPatternOption = { value: DutyRosterGenerationPattern; label: string };
 
 	const generationPatternOptions: GenerationPatternOption[] = [
@@ -148,7 +148,7 @@
 		Object.fromEntries(
 			(previewReview?.matrix.rows ?? []).map((row) => [
 				row.personnelId,
-				Object.fromEntries(row.cells.map((cell) => [cell.date, toSharedDa6Cell(row.soldierLabel, cell)]))
+				Object.fromEntries(row.cells.map((cell) => [cell.date, toDa6MatrixCell(cell, row.soldierLabel, 'draft')]))
 			])
 		)
 	);
@@ -292,37 +292,10 @@
 		return `${dayPart}-${monthPart}`;
 	}
 
-	function toSharedDa6Cell(soldierLabel: string, cell: PreviewDa6MatrixCell): DA6MatrixCell {
-		const kind =
-			cell.tone === 'assigned'
-				? 'assigned'
-				: cell.tone === 'warning'
-					? 'manual-override'
-					: cell.tone === 'danger'
-						? 'blocked'
-						: cell.display === 'A' || cell.display === 'EX'
-							? 'exempt'
-							: 'not-assigned';
-
-		return {
-			display: cell.display ?? '-',
-			kind,
-			ariaLabel: `${soldierLabel} ${formatDutyDateLabel(cell.date)}: ${cell.display ?? 'not assigned'}`,
-			chargeable: cell.chargeable,
-			count: cell.sequenceNumber,
-			reason: cell.reason
-		};
-	}
-
 	function da6SequenceKind(
 		sequenceKind: 'weekday' | 'weekend' | 'holiday' | 'weekend-holiday'
 	): DA6MatrixColumn['sequenceKind'] {
 		return sequenceKind === 'weekday' ? 'weekday' : 'weekend-holiday';
-	}
-
-	function formatDutyDateLabel(date: string): string {
-		const parts = dateParts(date);
-		return `${parts.weekday} ${parts.label}`;
 	}
 </script>
 

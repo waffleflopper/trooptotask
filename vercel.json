@@ -14,7 +14,7 @@
 			"schedule": "0 4 * * 0"
 		},
 		{
-			"path": "/api/cleanup-archived-personnel",
+			"path": "/api/cleanup-archived-records",
 			"schedule": "0 5 * * *"
 		},
 		{

@@ -355,6 +355,8 @@ describe('Duty Roster Template use cases', () => {
 		const archived = await archiveDutyRosterTemplate(ctx, { templateId: template.id });
 
 		expect(archived.status).toBe('archived');
+		expect(archived.archivedAt).toBe('2026-05-04T12:00:00.000Z');
+		expect(rows.find((row) => row.id === template.id)?.archived_at).toBe('2026-05-04T12:00:00.000Z');
 		expect(assignmentTypeRows.find((row) => row.id === template.assignmentTypeId)?.archived_at).toBeUndefined();
 		expect(auditEvents).toContainEqual(
 			expect.objectContaining({
@@ -366,6 +368,21 @@ describe('Duty Roster Template use cases', () => {
 					assignmentTypeId: template.assignmentTypeId
 				}
 			})
+		);
+	});
+
+	it('keeps archived Duty Roster Templates listed and openable by slug for historical reads', async () => {
+		const ctx = createCtx();
+		const active = await createDutyRosterTemplate(ctx, { name: 'Staff Duty NCO', shortCode: 'SD' });
+		const archived = await createDutyRosterTemplate(ctx, { name: 'CQ NCO', shortCode: 'CQ' });
+		await archiveDutyRosterTemplate(ctx, { templateId: archived.id });
+
+		await expect(listDutyRosterTemplates(ctx)).resolves.toEqual([
+			expect.objectContaining({ id: active.id, status: 'active', archivedAt: null }),
+			expect.objectContaining({ id: archived.id, status: 'archived', archivedAt: '2026-05-04T12:00:00.000Z' })
+		]);
+		await expect(findDutyRosterTemplateBySlug(ctx, archived.slug)).resolves.toEqual(
+			expect.objectContaining({ id: archived.id, status: 'archived', archivedAt: '2026-05-04T12:00:00.000Z' })
 		);
 	});
 
@@ -387,6 +404,59 @@ describe('Duty Roster Template use cases', () => {
 				}
 			})
 		);
+	});
+
+	it('blocks Calendar apply for accepted runs that belong to archived templates', async () => {
+		const ctx = createCtx();
+		personnelRows.push(
+			personnelRow({ id: 'p1', rank: 'SGT', last_name: 'Able' }),
+			personnelRow({ id: 'p2', rank: 'SGT', last_name: 'Baker' })
+		);
+		const template = await createDutyRosterTemplate(ctx, { name: 'CQ NCO', shortCode: 'CQ' });
+		const preview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: template.id,
+			startDate: '2026-06-01',
+			endDate: '2026-06-01'
+		});
+		const accepted = await acceptDutyRosterTemplatePreview(ctx, { preview: JSON.stringify(preview) });
+		await archiveDutyRosterTemplate(ctx, { templateId: template.id });
+
+		await expect(applyAcceptedDutyRosterTemplateRun(ctx, { runId: accepted.id })).rejects.toMatchObject({
+			status: 400,
+			message: 'Archived Duty Roster Templates cannot be applied to Calendar.'
+		});
+	});
+
+	it('blocks accepted history mutations for archived templates', async () => {
+		const ctx = createCtx();
+		personnelRows.push(
+			personnelRow({ id: 'p1', rank: 'SGT', last_name: 'Able' }),
+			personnelRow({ id: 'p2', rank: 'SGT', last_name: 'Baker' })
+		);
+		const template = await createDutyRosterTemplate(ctx, { name: 'CQ NCO', shortCode: 'CQ' });
+		const preview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: template.id,
+			startDate: '2026-06-01',
+			endDate: '2026-06-01'
+		});
+		const accepted = await acceptDutyRosterTemplatePreview(ctx, { preview: JSON.stringify(preview) });
+		await archiveDutyRosterTemplate(ctx, { templateId: template.id });
+
+		await expect(
+			recordDutyRosterTemplateRunCorrection(ctx, {
+				runId: accepted.id,
+				runRowDate: '2026-06-01',
+				replacementAssigneeId: 'p2',
+				reason: 'Actual Soldier served'
+			})
+		).rejects.toMatchObject({
+			status: 400,
+			message: 'Archived Duty Roster Templates cannot be applied to Calendar.'
+		});
+		await expect(invalidateLatestDutyRosterTemplateRun(ctx, { runId: accepted.id })).rejects.toMatchObject({
+			status: 400,
+			message: 'Archived Duty Roster Templates cannot be applied to Calendar.'
+		});
 	});
 
 	it('creates a configured Duty Roster Template in one use-case call', async () => {

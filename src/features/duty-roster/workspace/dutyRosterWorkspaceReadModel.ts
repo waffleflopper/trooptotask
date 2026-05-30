@@ -155,6 +155,10 @@ const VIEW_TABS: DutyRosterWorkspaceViewTab[] = [
 	{ id: 'settings', label: 'Settings', note: 'Template identity and setup' }
 ];
 
+const ARCHIVED_VIEW_TABS: DutyRosterWorkspaceViewTab[] = [
+	{ id: 'history', label: 'History', note: 'Accepted runs remain readable' }
+];
+
 const DUTY_ROSTER_RANK_OPTIONS = [
 	...[...ARMY_RANKS.officer].reverse(),
 	...[...ARMY_RANKS.warrant].reverse(),
@@ -293,7 +297,7 @@ export function buildDutyRosterWorkspaceReadModel(
 		groupOptions,
 		mosOptions,
 		dutyRoleOptions,
-		viewTabs: VIEW_TABS,
+		viewTabs: selectedTemplate?.status === 'archived' ? ARCHIVED_VIEW_TABS : VIEW_TABS,
 		todayDate,
 		defaultDateRange,
 		generateStartDate,

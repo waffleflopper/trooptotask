@@ -78,6 +78,9 @@ export const load: PageServerLoad = async ({ params, url, locals, cookies, paren
 			if (!selectedTemplate) {
 				throw error(404, 'Duty Roster Template not found');
 			}
+			if (selectedTemplate.status === 'archived' && view !== 'history') {
+				throw redirect(303, `/org/${orgId}/duty-rosters/${selectedTemplate.slug}/history`);
+			}
 
 			const historyPageNumber =
 				view === 'history' ? parseHistoryPage(url.searchParams.get('page')) : DEFAULT_HISTORY_PAGE;
@@ -310,7 +313,8 @@ export const actions: Actions = {
 		try {
 			const ctx = await buildRouteContext(event);
 			await archiveDutyRosterTemplate(ctx, {
-				templateId: String(formData.get('templateId') ?? '')
+				templateId: String(formData.get('templateId') ?? ''),
+				archiveAssignmentType: formData.get('archiveAssignmentType') === 'true'
 			});
 		} catch (errorValue) {
 			return actionError(errorValue, {

@@ -20,12 +20,12 @@ describe('BulkImportWorkspace', () => {
 	it('renders shared file and paste input labels, descriptions, and errors', () => {
 		render(BulkImportWorkspaceTest);
 
-		const fileInput = screen.getByLabelText('Upload roster');
+		const fileInput = screen.getByLabelText('Upload import file');
 		expect(fileInput).toHaveAttribute('type', 'file');
 		expect(fileInput).toHaveAttribute('aria-invalid', 'true');
 		expect(screen.getByText('File is required')).toBeInTheDocument();
 
-		expect(screen.getByLabelText('Paste roster rows')).toBeInTheDocument();
+		expect(screen.getByLabelText('Paste import rows')).toBeInTheDocument();
 		expect(screen.getByText('Use CSV format.')).toBeInTheDocument();
 	});
 
@@ -35,11 +35,11 @@ describe('BulkImportWorkspace', () => {
 		expect(screen.getByText('Review row status')).toBeInTheDocument();
 		expect(screen.getByText('1 errors')).toBeInTheDocument();
 
-		const table = screen.getByRole('table', { name: 'Personnel import preview' });
+		const table = screen.getByRole('table', { name: 'Bulk import preview' });
 		expect(within(table).getByText('Avery Brooks')).toBeInTheDocument();
 		expect(within(table).getByText('Valid')).toBeInTheDocument();
-		expect(within(table).getByText('Missing group')).toBeInTheDocument();
-		expect(within(table).getByText('Group is required.')).toBeInTheDocument();
+		expect(within(table).getByText('Missing value')).toBeInTheDocument();
+		expect(within(table).getByText('Value is required.')).toBeInTheDocument();
 		expect(screen.getByRole('checkbox', { name: /Select import row 2/ })).toHaveAccessibleName(
 			'Select import row 2: Resolve validation errors before selecting this row.'
 		);
@@ -52,5 +52,22 @@ describe('BulkImportWorkspace', () => {
 		expect(screen.getByText('Import completed with issues')).toBeInTheDocument();
 		expect(screen.getByText('Select at least one valid row.')).toBeInTheDocument();
 		expect(screen.getByRole('button', { name: 'Import checked rows' })).toBeDisabled();
+	});
+
+	it('keeps row status descriptions available to screen readers when configured', () => {
+		render(BulkImportWorkspaceTest, { props: { statusDescriptionMode: 'sr-only' } });
+
+		const description = within(screen.getByRole('table', { name: 'Bulk import preview' })).getByText(
+			'Ready to import.'
+		);
+		expect(description).toBeInTheDocument();
+		expect(description).toHaveClass('sr-only');
+	});
+
+	it('marks the preview table with editable-grid cell presentation state', () => {
+		const { container } = render(BulkImportWorkspaceTest, { props: { cellPresentation: 'editable-grid' } });
+
+		const previewTable = container.querySelector('[data-slot="bulk-import-preview-table"]');
+		expect(previewTable).toHaveAttribute('data-cell-presentation', 'editable-grid');
 	});
 });

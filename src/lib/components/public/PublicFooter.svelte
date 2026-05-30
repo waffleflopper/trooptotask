@@ -1,3 +1,7 @@
+<script lang="ts">
+	import { resolve } from '$app/paths';
+</script>
+
 <footer class="site-footer">
 	<div class="container">
 		<div class="footer__inner">
@@ -9,21 +13,20 @@
 			<div class="footer__links">
 				<div class="footer__links-col">
 					<div class="footer__link-heading">Product</div>
-					<a href="/about" class="footer__link">About</a>
-					<a href="/#pricing" class="footer__link">Pricing</a>
-					<a href="/security" class="footer__link">Security</a>
-					<a href="/#faq" class="footer__link">FAQ</a>
+					<a href={resolve('/about')} class="footer__link">About</a>
+					<a href={resolve('/#pricing')} class="footer__link">Pricing</a>
+					<a href={resolve('/security')} class="footer__link">Security</a>
+					<a href={resolve('/#faq')} class="footer__link">FAQ</a>
 				</div>
 				<div class="footer__links-col">
 					<div class="footer__link-heading">Access</div>
-					<a href="/auth/request-access" class="footer__link">Request Access</a>
-					<a href="/auth/login" class="footer__link">Sign In</a>
+					<a href={resolve('/auth/request-access')} class="footer__link">Request Access</a>
+					<a href={resolve('/auth/login')} class="footer__link">Sign In</a>
 				</div>
 				<div class="footer__links-col">
 					<div class="footer__link-heading">Legal</div>
-					<a href="/privacy" class="footer__link">Privacy Policy</a>
-					<a href="/terms" class="footer__link">Terms of Use</a>
-					<a href="/help" class="footer__link">Help</a>
+					<a href={resolve('/privacy')} class="footer__link">Privacy Policy</a>
+					<a href={resolve('/terms')} class="footer__link">Terms of Use</a>
 				</div>
 			</div>
 

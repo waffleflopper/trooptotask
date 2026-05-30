@@ -82,7 +82,7 @@ describe('plan admin diagnostics', () => {
 			commercialPlan: 'team',
 			tier: 'team',
 			source: 'billing_snapshot',
-			sourceLabel: 'Local billing snapshot',
+			sourceLabel: 'Stripe-backed billing',
 			billingSource: 'stripe',
 			giftTier: null,
 			giftExpiresAt: null
@@ -97,7 +97,7 @@ describe('plan admin diagnostics', () => {
 				expect.objectContaining({
 					dimension: 'billing_state',
 					label: 'Billing state',
-					sourceLabel: 'Local billing snapshot'
+					sourceLabel: 'Stripe-backed billing'
 				})
 			]
 		});
@@ -160,7 +160,7 @@ describe('plan admin diagnostics', () => {
 		expect(JSON.stringify(diagnostics)).not.toContain('evt_secret');
 	});
 
-	it('shows gift and billing-disabled entitlement source labels', () => {
+	it('shows shared policy source labels for gift, billing-disabled, and legacy organizations', () => {
 		const giftDiagnostics = buildPlanAdminDiagnostics(
 			buildEffectivePlanPolicy(
 				snapshot({
@@ -185,6 +185,22 @@ describe('plan admin diagnostics', () => {
 			),
 			usage({ activeOrganizationMemberCount: 1, pendingUnexpiredInvitationCount: 0 })
 		);
+		const legacyDiagnostics = buildPlanAdminDiagnostics(
+			buildEffectivePlanPolicy(
+				snapshot({
+					source: 'legacy_organization',
+					commercialPlan: 'team',
+					stripeCustomerId: null,
+					stripeSubscriptionId: null,
+					stripeProductId: null,
+					stripePriceId: null,
+					subscriptionStatus: null,
+					collectionStatus: null,
+					syncStatus: 'needs_reconciliation'
+				})
+			),
+			usage({ activeOrganizationMemberCount: 1, pendingUnexpiredInvitationCount: 0 })
+		);
 
 		expect(giftDiagnostics.effectivePlan.sourceLabel).toBe('Admin gift');
 		expect(giftDiagnostics.entitlements.map((entitlement) => entitlement.sourceLabel)).toContain('Admin gift');
@@ -192,5 +208,6 @@ describe('plan admin diagnostics', () => {
 		expect(fallbackDiagnostics.entitlements.map((entitlement) => entitlement.sourceLabel)).toContain(
 			'Billing-disabled fallback'
 		);
+		expect(legacyDiagnostics.effectivePlan.sourceLabel).toBe('Legacy organization');
 	});
 });

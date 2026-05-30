@@ -20,7 +20,11 @@ describe('isPublicRoute', () => {
 		expect(isPublicRoute('/auth/login')).toBe(true);
 		expect(isPublicRoute('/about')).toBe(true);
 		expect(isPublicRoute('/security')).toBe(true);
-		expect(isPublicRoute('/help')).toBe(true);
+	});
+
+	it('does not classify the removed help route as public', () => {
+		expect(isPublicRoute('/help')).toBe(false);
+		expect(isPublicRoute('/help/platform-guide')).toBe(false);
 	});
 
 	it('keeps protected application routes private', () => {

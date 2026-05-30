@@ -11,6 +11,7 @@ export interface DutyRosterTemplate {
 	slug: string;
 	shortCode: string | null;
 	status: 'active' | 'archived';
+	archivedAt: string | null;
 	poolCriteria: DutyRosterPoolCriteria;
 	exemptPersonnelIds: string[];
 	manualBaselineCounts: Record<string, number>;

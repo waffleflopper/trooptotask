@@ -1,8 +1,11 @@
 // @vitest-environment happy-dom
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
+import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it } from 'vitest';
 import { helpStore } from '$lib/stores/help.svelte';
 import HelpPanel from './HelpPanel.svelte';
+
+const helpPanelSource = readFileSync('src/lib/components/ui/HelpPanel.svelte', 'utf8');
 
 afterEach(async () => {
 	helpStore.close();
@@ -21,7 +24,9 @@ describe('HelpPanel', () => {
 		const dialog = await screen.findByRole('dialog', { name: 'Calendar help' });
 		expect(dialog.textContent).toContain('Track availability, holidays, daily assignments, and calendar reporting.');
 		expect(dialog.textContent).toContain('Use assignment types for repeatable duties.');
-		expect(screen.getByRole('link', { name: /Open full platform guide/i }).getAttribute('href')).toBe('/help');
+		expect(screen.queryByRole('link', { name: /Open full platform guide/i })).toBeNull();
+		expect(helpPanelSource).not.toContain('href="/help"');
+		expect(helpPanelSource).not.toContain("href='/help'");
 	});
 
 	it('closes through the sheet close affordance and clears global help state', async () => {

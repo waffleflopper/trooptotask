@@ -71,17 +71,33 @@ describe('importPersonnelBatch', () => {
 		expect(result.errors).toHaveLength(1);
 		expect(result.errors[0].message).toContain('cap reached');
 		expect(result.errors[0].message).toContain('upgrade or archive personnel');
+		expect(result.capReached).toBe(true);
+		expect(result.capError).toBe('Personnel cap reached — upgrade or archive personnel before adding this record');
 	});
 
-	it('throws 403 when cap fully reached (0 available)', async () => {
+	it('returns per-row errors when cap is fully reached', async () => {
 		const ctx = buildContext({ availableSlots: 0 });
-		await expect(
-			importPersonnelBatch(ctx, {
-				records: [{ rank: 'SGT', lastName: 'Smith', firstName: 'John' }]
-			})
-		).rejects.toMatchObject({
-			status: 403,
-			message: 'Personnel limit reached. Upgrade or archive personnel to add more.'
+
+		const result = await importPersonnelBatch(ctx, {
+			records: [
+				{ rank: 'SGT', lastName: 'Smith', firstName: 'John' },
+				{ rank: 'PFC', lastName: 'Doe', firstName: 'Jane' }
+			]
+		});
+
+		expect(result.inserted).toHaveLength(0);
+		expect(result.errors).toEqual([
+			{ index: 0, message: 'Personnel cap reached — upgrade or archive personnel before adding this record' },
+			{ index: 1, message: 'Personnel cap reached — upgrade or archive personnel before adding this record' }
+		]);
+		expect(result).toMatchObject({
+			capReached: true,
+			capError: 'Personnel cap reached — upgrade or archive personnel before adding this record'
+		});
+		expect(ctx.audit.events).toContainEqual({
+			action: 'personnel.bulk_import_blocked',
+			resourceType: 'personnel',
+			details: { reason: 'cap_exhausted', attempted: 2 }
 		});
 	});
 

@@ -1,6 +1,7 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import {
+	archivePersonnelOwnedArtifacts,
 	deletePersonnelArchivedArtifact,
 	listPersonnelArchivedArtifacts,
 	restorePersonnelArchivedArtifact,
@@ -49,6 +50,20 @@ function seedActiveAndArchivedArtifacts(ctx: ReturnType<typeof createTestContext
 			updated_at: '2026-05-02T10:00:00Z',
 			completed_at: null,
 			archived_at: '2026-05-02T10:00:00Z'
+		},
+		{
+			id: 'follow-up-completed',
+			organization_id: ctx.auth.orgId,
+			personnel_id: 'person-1',
+			title: 'Completed follow-up',
+			notes: null,
+			due_date: null,
+			status: 'completed',
+			created_by: 'test-user',
+			created_at: '2026-05-01T10:00:00Z',
+			updated_at: '2026-05-01T10:00:00Z',
+			completed_at: '2026-05-01T10:00:00Z',
+			archived_at: null
 		}
 	]);
 	ctx.store.seed('counseling_records', [
@@ -124,6 +139,57 @@ function seedActiveAndArchivedArtifacts(ctx: ReturnType<typeof createTestContext
 }
 
 describe('personnel archived artifacts', () => {
+	it('archives active personnel-owned artifacts without resetting existing archive timestamps', async () => {
+		const ctx = createTestContext();
+		seedPersonnel(ctx);
+		seedActiveAndArchivedArtifacts(ctx);
+
+		await archivePersonnelOwnedArtifacts(ctx, ['person-1'], '2026-05-30T12:00:00Z');
+
+		const followUps = await ctx.store.findMany<Record<string, unknown>>('personnel_follow_ups', ctx.auth.orgId);
+		const counselings = await ctx.store.findMany<Record<string, unknown>>('counseling_records', ctx.auth.orgId);
+		const documents = await ctx.store.findMany<Record<string, unknown>>('personnel_documents', ctx.auth.orgId);
+		const notes = await ctx.store.findMany<Record<string, unknown>>('leader_notes', ctx.auth.orgId);
+
+		expect(followUps).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					id: 'follow-up-active',
+					status: 'archived',
+					archived_at: '2026-05-30T12:00:00Z'
+				}),
+				expect.objectContaining({
+					id: 'follow-up-archived',
+					status: 'archived',
+					archived_at: '2026-05-02T10:00:00Z'
+				}),
+				expect.objectContaining({
+					id: 'follow-up-completed',
+					status: 'completed',
+					archived_at: null
+				})
+			])
+		);
+		expect(counselings).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({ id: 'counseling-active', archived_at: '2026-05-30T12:00:00Z' }),
+				expect.objectContaining({ id: 'counseling-archived', archived_at: '2026-05-03T10:00:00Z' })
+			])
+		);
+		expect(documents).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({ id: 'document-active', archived_at: '2026-05-30T12:00:00Z' }),
+				expect.objectContaining({ id: 'document-archived', archived_at: '2026-05-04T10:00:00Z' })
+			])
+		);
+		expect(notes).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({ id: 'note-active', archived_at: '2026-05-30T12:00:00Z' }),
+				expect.objectContaining({ id: 'note-archived', archived_at: '2026-05-05T10:00:00Z' })
+			])
+		);
+	});
+
 	it('lists only archived artifacts across follow-ups, counselings, documents, and notes', async () => {
 		const ctx = createTestContext();
 		seedPersonnel(ctx);

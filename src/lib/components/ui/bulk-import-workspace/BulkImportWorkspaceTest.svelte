@@ -2,6 +2,7 @@
 	import * as BulkImportWorkspace from './index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import * as DataTable from '$lib/components/ui/data-table/index.js';
+	import type { BulkImportPreviewCellPresentation, BulkImportRowStatusDescriptionMode } from './types.js';
 
 	type ImportRow = {
 		id: string;
@@ -22,6 +23,14 @@
 		{ key: 'status', header: 'Status', value: (row: ImportRow) => row.status }
 	];
 
+	let {
+		statusDescriptionMode = 'inline',
+		cellPresentation = 'default'
+	}: {
+		statusDescriptionMode?: BulkImportRowStatusDescriptionMode;
+		cellPresentation?: BulkImportPreviewCellPresentation;
+	} = $props();
+
 	let source = $state<'upload' | 'paste' | 'manual'>('upload');
 	let pasteValue = $state('');
 	let files = $state<FileList>();
@@ -32,12 +41,12 @@
 	});
 </script>
 
-<BulkImportWorkspace.Root ariaLabel="Personnel import workspace">
+<BulkImportWorkspace.Root ariaLabel="Bulk import workspace">
 	<BulkImportWorkspace.Header
 		step="Step 1"
-		title="Bulk personnel import"
+		title="Bulk record import"
 		description="Choose a source, validate rows, then import checked records."
-		meta={[{ label: 'Required', value: 'Rank, name' }]}
+		meta={[{ label: 'Required', value: 'Name, status' }]}
 	/>
 
 	<BulkImportWorkspace.SourcePicker label="Choose import source">
@@ -62,8 +71,8 @@
 	</BulkImportWorkspace.SourcePicker>
 
 	<BulkImportWorkspace.InputPanel title="Input rows" description="Shared input presentation owns labels and errors.">
-		<BulkImportWorkspace.FileInput bind:files label="Upload roster" error="File is required" />
-		<BulkImportWorkspace.PasteInput bind:value={pasteValue} label="Paste roster rows" description="Use CSV format." />
+		<BulkImportWorkspace.FileInput bind:files label="Upload import file" error="File is required" />
+		<BulkImportWorkspace.PasteInput bind:value={pasteValue} label="Paste import rows" description="Use CSV format." />
 	</BulkImportWorkspace.InputPanel>
 
 	<BulkImportWorkspace.ValidationSummary
@@ -85,9 +94,11 @@
 		rowStatus={(row) =>
 			row.status === 'valid'
 				? { tone: 'valid', description: 'Ready to import.' }
-				: { tone: 'error', label: 'Missing group', description: 'Group is required.' }}
+				: { tone: 'error', label: 'Missing value', description: 'Value is required.' }}
+		{statusDescriptionMode}
+		{cellPresentation}
 		selectedCountLabel={(selected, total) => `${selected} selectable rows chosen from ${total} preview rows`}
-		ariaLabel="Personnel import preview"
+		ariaLabel="Bulk import preview"
 	/>
 
 	<BulkImportWorkspace.ProgressState title="Importing rows" description="Do not close this panel." value={50} />

@@ -1,7 +1,5 @@
 <script lang="ts">
-	import ArrowUpRightIcon from '@lucide/svelte/icons/arrow-up-right';
 	import * as Sheet from '$lib/components/ui/sheet';
-	import { Button } from '$lib/components/ui/button';
 	import { helpStore } from '$lib/stores/help.svelte';
 
 	type HelpTopic = {
@@ -127,11 +125,6 @@
 					{/each}
 				</ul>
 			</section>
-
-			<Button href="/help" variant="outline" class="w-full justify-between">
-				Open full platform guide
-				<ArrowUpRightIcon />
-			</Button>
 		</div>
 	</Sheet.Content>
 </Sheet.Root>

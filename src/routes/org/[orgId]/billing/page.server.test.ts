@@ -404,7 +404,7 @@ describe('_loadBillingPageData', () => {
 		});
 		expect(result.planUsageSummary).toMatchObject({
 			plan: {
-				sourceLabel: 'Free plan'
+				sourceLabel: 'Stripe-backed billing'
 			},
 			rows: [
 				expect.objectContaining({ dimension: 'active_personnel', used: 21, limit: 20, status: 'over_limit' }),

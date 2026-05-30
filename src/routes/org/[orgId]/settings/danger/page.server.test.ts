@@ -83,7 +83,7 @@ describe('danger settings page server', () => {
 		const findMany = vi.fn();
 		loadWithContextMock.mockImplementation(async (_locals, _cookies, _orgId, config) =>
 			config.fn({
-				auth: { orgId: 'org-1', role: 'admin' },
+				auth: { orgId: 'org-1', role: 'admin', canManageMembers: true },
 				store: { findMany }
 			})
 		);
@@ -107,6 +107,78 @@ describe('danger settings page server', () => {
 			location: '/org/test-org/settings/general'
 		});
 		expect(findMany).not.toHaveBeenCalled();
+	});
+
+	it('loads owner danger settings with shared page context and ownership candidates', async () => {
+		const findMany = vi.fn().mockResolvedValue([
+			{
+				id: 'member-1',
+				user_id: 'user-2',
+				email: 'next-owner@example.com',
+				role: 'admin'
+			},
+			{
+				id: 'owner-1',
+				user_id: 'user-1',
+				email: 'owner@example.com',
+				role: 'owner'
+			}
+		]);
+		loadWithContextMock.mockImplementation(async (_locals, _cookies, _orgId, config) =>
+			config.fn({
+				auth: { orgId: 'org-1', role: 'owner', canManageMembers: true },
+				store: { findMany }
+			})
+		);
+
+		const result = await load({
+			locals: {},
+			cookies: {},
+			parent: async () => ({
+				orgId: 'org-1',
+				orgName: 'Test Org',
+				orgUrlSegment: 'test-org',
+				allOrgs: [{ id: 'org-1', name: 'Test Org', role: 'owner', urlSegment: 'test-org' }],
+				isAdmin: false,
+				effectiveTier: null,
+				permissions: { organization: [] }
+			})
+		} as never);
+
+		expect(result).toMatchObject({
+			orgId: 'org-1',
+			orgUrlSegment: 'test-org',
+			orgUrlSlug: 'test-org',
+			orgName: 'Test Org',
+			allOrgs: [{ id: 'org-1', name: 'Test Org', role: 'owner', urlSegment: 'test-org' }],
+			isAdmin: false,
+			dangerSettings: {
+				currentMember: {
+					role: 'owner',
+					isOwner: true,
+					canManageMembers: true
+				},
+				sections: {
+					dangerZone: {
+						transferOwnershipCandidates: [
+							{
+								id: 'member-1',
+								userId: 'user-2',
+								email: 'next-owner@example.com',
+								membershipRole: 'admin'
+							}
+						],
+						commands: {
+							canTransferOwnership: true,
+							canDeleteOrganization: true
+						}
+					}
+				}
+			}
+		});
+		expect(findMany).toHaveBeenCalledWith('organization_memberships', 'org-1', undefined, {
+			select: 'id, user_id, email, role'
+		});
 	});
 
 	it('delegates ownership transfer to the org administration use case', async () => {

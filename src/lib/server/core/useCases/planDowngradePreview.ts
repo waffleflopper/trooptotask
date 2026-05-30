@@ -5,6 +5,7 @@ import {
 	type PlanLimitDimension
 } from './planPolicy';
 import type { OrganizationPlanUsage } from './organizationPlanUsage';
+import { planPolicySourceLabel } from './planPolicySourceLabel';
 import { TIER_CONFIG, type Tier } from '$lib/types/subscription';
 
 export type PlanDowngradePreviewRowStatus = 'within_limit' | 'limit_reached' | 'over_limit';
@@ -64,19 +65,6 @@ interface BuildPlanDowngradePreviewInput {
 	currentPolicy: EffectivePlanPolicy;
 	targetPolicy: EffectivePlanPolicy;
 	usage: OrganizationPlanUsage;
-}
-
-function sourceLabel(source: EffectivePlanPolicy['source']): string {
-	switch (source) {
-		case 'admin_gift':
-			return 'Admin gift';
-		case 'billing_disabled_fallback':
-			return 'Billing-disabled fallback';
-		case 'legacy_organization':
-			return 'Legacy organization';
-		case 'billing_snapshot':
-			return 'Stripe-backed billing';
-	}
 }
 
 function formatLimit(limit: number | null): string {
@@ -242,12 +230,12 @@ export function buildPlanDowngradePreview(input: BuildPlanDowngradePreviewInput)
 	return {
 		currentPlan: {
 			tier: currentPolicy.tier,
-			sourceLabel: sourceLabel(currentPolicy.source)
+			sourceLabel: planPolicySourceLabel(currentPolicy.source)
 		},
 		targetPlan: {
 			tier: targetPolicy.tier,
 			name: TIER_CONFIG[targetPolicy.tier].name,
-			sourceLabel: sourceLabel(targetPolicy.source)
+			sourceLabel: planPolicySourceLabel(targetPolicy.source)
 		},
 		status: blockers.length > 0 ? 'blocked' : 'available',
 		preservesExistingDataMessage:

@@ -175,6 +175,71 @@ describe('Duty Roster Template view route', () => {
 		});
 	});
 
+	it('loads archived templates through History links', async () => {
+		const archivedTemplate = template({
+			id: 'template-1',
+			name: 'CQ NCO',
+			slug: 'cq-nco',
+			shortCode: 'CQ',
+			status: 'archived',
+			archivedAt: '2026-05-04T12:00:00.000Z'
+		});
+		listDutyRosterTemplatesMock.mockResolvedValue([archivedTemplate]);
+		findDutyRosterTemplateBySlugMock.mockResolvedValue(archivedTemplate);
+		listAcceptedDutyRosterTemplateRunHistoryMock.mockResolvedValue(historyPage([acceptedRun()]));
+
+		const result = await load({
+			params: { orgId: 'org-1', templateSlug: 'cq-nco', view: 'history' },
+			url: new URL('http://localhost/org/org-1/duty-rosters/cq-nco/history'),
+			locals: {},
+			cookies: {},
+			parent: async () => ({ orgName: 'Able Company' })
+		} as never);
+
+		expect(result).toMatchObject({
+			selectedTemplate: { id: 'template-1', status: 'archived' },
+			acceptedRuns: [{ id: 'run-1' }],
+			view: 'history'
+		});
+	});
+
+	it('redirects archived Generate and Settings routes to History', async () => {
+		const archivedTemplate = template({
+			id: 'template-1',
+			name: 'CQ NCO',
+			slug: 'cq-nco',
+			status: 'archived',
+			archivedAt: '2026-05-04T12:00:00.000Z'
+		});
+		findDutyRosterTemplateBySlugMock.mockResolvedValue(archivedTemplate);
+
+		await expect(
+			load({
+				params: { orgId: 'org-1', templateSlug: 'cq-nco', view: 'generate' },
+				url: new URL('http://localhost/org/org-1/duty-rosters/cq-nco/generate'),
+				locals: {},
+				cookies: {},
+				parent: async () => ({ orgName: 'Able Company' })
+			} as never)
+		).rejects.toMatchObject({
+			status: 303,
+			location: '/org/org-1/duty-rosters/cq-nco/history'
+		});
+
+		await expect(
+			load({
+				params: { orgId: 'org-1', templateSlug: 'cq-nco', view: 'settings' },
+				url: new URL('http://localhost/org/org-1/duty-rosters/cq-nco/settings'),
+				locals: {},
+				cookies: {},
+				parent: async () => ({ orgName: 'Able Company' })
+			} as never)
+		).rejects.toMatchObject({
+			status: 303,
+			location: '/org/org-1/duty-rosters/cq-nco/history'
+		});
+	});
+
 	it('updates Settings through the service layer and redirects back to Settings', async () => {
 		updateDutyRosterTemplateSettingsMock.mockResolvedValueOnce(
 			template({ id: 'template-1', name: 'Staff Duty NCO', slug: 'staff-duty-nco', shortCode: 'SD' })
@@ -560,7 +625,7 @@ describe('Duty Roster Template view route', () => {
 	it('archives a template and returns to the register', async () => {
 		const request = new Request('http://localhost', {
 			method: 'POST',
-			body: new URLSearchParams({ templateId: 'template-1' })
+			body: new URLSearchParams({ templateId: 'template-1', archiveAssignmentType: 'true' })
 		});
 
 		await expect(
@@ -574,7 +639,8 @@ describe('Duty Roster Template view route', () => {
 		});
 
 		expect(archiveDutyRosterTemplateMock).toHaveBeenCalledWith(mockCtx, {
-			templateId: 'template-1'
+			templateId: 'template-1',
+			archiveAssignmentType: true
 		});
 	});
 
@@ -603,6 +669,7 @@ function template(overrides: Record<string, unknown> = {}) {
 		slug: 'cq-nco',
 		shortCode: 'CQ',
 		status: 'active',
+		archivedAt: null,
 		poolCriteria: {
 			rankValues: [],
 			groupIds: [],

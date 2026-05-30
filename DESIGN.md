@@ -4,37 +4,56 @@ description: Military unit management SaaS for personnel readiness and operation
 colors:
   command-charcoal: 'oklch(14.7% 0.004 49.25)'
   formation-ivory: 'oklch(98.5% 0.001 106.423)'
-  ops-amber: 'oklch(66.6% 0.179 58.318)'
-  ops-amber-dark: 'oklch(76.9% 0.188 70.08)'
   muster-ash: 'oklch(97% 0.001 106.424)'
   standing-stone: 'oklch(44.4% 0.011 73.639)'
   parade-line: 'oklch(92.3% 0.003 48.717)'
+  field-stone: 'oklch(21.6% 0.006 56.043)'
+  dark-field: 'oklch(26.8% 0.007 34.298)'
+  ops-amber: 'oklch(66.6% 0.179 58.318)'
+  ops-amber-dark: 'oklch(76.9% 0.188 70.08)'
   alert-red: 'oklch(57.7% 0.245 27.325)'
+  alert-red-dark: 'oklch(63.7% 0.237 25.331)'
   readiness-green: 'oklch(62.7% 0.194 149.214)'
   intel-blue: 'oklch(58.8% 0.158 241.966)'
-  bunker-black: '#12110f'
-  bunker-text: '#f0efe9'
-  bunker-muted: '#b0afa8'
-  bunker-border: '#2a2825'
+  chrome: 'oklch(14.7% 0.004 49.25)'
+  chrome-text: 'oklch(95.2% 0.006 95)'
+  chrome-text-muted: 'oklch(72% 0.01 73.639)'
+  chrome-border: 'oklch(25.5% 0.006 56.043)'
+  chrome-surface: 'oklch(18% 0.004 49.25)'
+  chrome-surface-muted: 'oklch(28% 0.005 49.25)'
 typography:
   display:
     fontFamily: "'Barlow Condensed', sans-serif"
+    fontWeight: 800
+    lineHeight: 1.1
+    letterSpacing: '0'
+  headline:
+    fontFamily: "'Barlow Condensed', sans-serif"
     fontWeight: 700
     lineHeight: 1.1
+    letterSpacing: '0'
+  title:
+    fontFamily: "'Barlow Condensed', sans-serif"
+    fontWeight: 600
+    lineHeight: 1.2
+    letterSpacing: '0'
   body:
     fontFamily: "'Source Serif 4', serif"
     fontSize: '1rem'
     fontWeight: 400
     lineHeight: 1.5
+    letterSpacing: '0'
   label:
     fontFamily: "'IBM Plex Mono', monospace"
     fontSize: '0.6875rem'
     fontWeight: 500
+    lineHeight: 1.2
     letterSpacing: '0.08em'
 rounded:
   sm: '2px'
   md: '4px'
   lg: '6px'
+  full: '9999px'
 spacing:
   xs: '4px'
   sm: '8px'
@@ -46,39 +65,44 @@ components:
     textColor: '{colors.formation-ivory}'
     rounded: '{rounded.lg}'
     padding: '0 10px'
+    height: '32px'
   button-outline:
     backgroundColor: '{colors.formation-ivory}'
     textColor: '{colors.command-charcoal}'
     rounded: '{rounded.lg}'
     padding: '0 10px'
+    height: '32px'
   button-ghost:
     backgroundColor: 'transparent'
     textColor: '{colors.command-charcoal}'
     rounded: '{rounded.lg}'
     padding: '0 10px'
+    height: '32px'
   button-destructive:
     backgroundColor: 'oklch(57.7% 0.245 27.325 / 0.1)'
     textColor: '{colors.alert-red}'
     rounded: '{rounded.lg}'
     padding: '0 10px'
+    height: '32px'
   input-default:
     backgroundColor: 'transparent'
     textColor: '{colors.command-charcoal}'
     rounded: '{rounded.lg}'
     padding: '4px 10px'
+    height: '32px'
   card-default:
     backgroundColor: '{colors.formation-ivory}'
     textColor: '{colors.command-charcoal}'
     rounded: '{rounded.md}'
+  badge-default:
+    backgroundColor: '{colors.command-charcoal}'
+    textColor: '{colors.formation-ivory}'
+    rounded: '{rounded.md}'
+    padding: '2px 8px'
   chip-default:
     backgroundColor: '{colors.muster-ash}'
     textColor: '{colors.standing-stone}'
-    rounded: '9999px'
-    padding: '4px 12px'
-  chip-primary:
-    backgroundColor: 'oklch(66.6% 0.179 58.318 / 0.12)'
-    textColor: '{colors.ops-amber}'
-    rounded: '9999px'
+    rounded: '{rounded.full}'
     padding: '4px 12px'
 ---
 
@@ -88,59 +112,62 @@ components:
 
 **Creative North Star: "The Operations Center"**
 
-TroopToTask looks like the best briefing room you've ever walked into: clean sight lines, information-dense displays, everything exactly where you expect it. No decoration for its own sake. Every pixel either communicates status or enables action.
+TroopToTask should feel like a disciplined operations center: warm paper surfaces, hard-working controls, dense information, visible state, and no decorative noise. The interface exists for NCOs, officers, and staff sections who need to know the state of their formation quickly and act without hunting through scattered systems.
 
-The system is restrained by conviction, not by timidity. Color is deployed with purpose: warm amber marks what needs attention, red marks what's wrong, and the rest stays out of the way. Typography pairs a condensed military-grade heading face with a legible serif body, reinforced by monospace for data and labels. The effect is authoritative without being cold, dense without being cluttered.
+The implemented UI foundation is shadcn-svelte on Tailwind v4, configured through `components.json` with the `nova` style, `baseColor: stone`, and shared primitives under `src/lib/components/ui`. The visual language is owned centrally by `src/app.css`, Tailwind theme variables, and shared component source files. Production routes consume those visuals as-is and may vary behavior, labels, data, filters, actions, validation, and permissions.
 
-This is not consumer software dressed up in olive drab. It does not borrow startup aesthetics (pastel gradients, playful illustrations, bouncy micro-interactions) or repeat the mistakes of legacy military systems (green-on-gray brutalism, 12px system fonts, modal-driven workflows). It occupies its own lane: modern professional tooling built for people who manage formations, not features.
+This system rejects two opposite failures: consumer/startup SaaS polish (pastel gradients, playful illustrations, bouncy motion, "delightful" empty states) and legacy military software (green-on-gray brutalism, tiny system fonts, modal-first workflows). The target is professional operational software: modern, fast, restrained, and trustworthy.
 
 **Key Characteristics:**
 
-- Restrained color palette with a single warm accent
-- Tight radii and flat surfaces; depth comes from borders and background tints, not shadows
-- Condensed headings for density; serif body for sustained reading; mono for data
-- Transitions are fast and purposeful (120-240ms, exponential ease-out)
-- Information density is a feature, not a problem to solve
+- Warm tinted neutrals, sparse operational amber, and semantic status colors.
+- Tight radii, thin borders, flat page surfaces, and low-shadow overlays only.
+- Barlow Condensed for structure, Source Serif 4 for content, IBM Plex Mono for data.
+- Dense table-first and toolbar-first workflows using shared shadcn-backed primitives.
+- Explicit keyboard focus, reduced-motion support, and WCAG AA contrast targets.
 
-## 2. Colors: The Formation Palette
+## 2. Colors
 
-A restrained palette: tinted neutrals carry the interface, with a single warm accent deployed sparingly to draw the eye to active states, warnings, and interactive elements.
+The palette is restrained and warm: paper, ink, stone, amber signal, and functional red/green/blue states.
 
 ### Primary
 
-- **Command Charcoal** (`oklch(14.7% 0.004 49.25)`): Primary text, button fills, and foreground elements. Not true black; warm-tinted toward the amber hue family (chroma 0.004 at hue 49). Used for all body text and primary interactive surfaces.
+- **Command Charcoal** (`oklch(14.7% 0.004 49.25)`): Primary light-mode text, button fills, dark theme background, and app chrome. It is warm-tinted black, never pure black.
+- **Formation Ivory** (`oklch(98.5% 0.001 106.423)`): Primary light-mode background, card surface, popover surface, and primary foreground in dark mode. It is warm paper, never pure white.
 
 ### Tertiary
 
-- **Ops Amber** (`oklch(66.6% 0.179 58.318)`, dark mode: `oklch(76.9% 0.188 70.08)`): The single accent color. Focus rings, active sidebar items, links, warning indicators, chart-1, and the ring token. High chroma at a warm hue (58). Brightens in dark mode to maintain contrast against dark surfaces.
+- **Ops Amber** (`oklch(66.6% 0.179 58.318)`, dark: `oklch(76.9% 0.188 70.08)`): The single operational accent. Use for focus rings, current selections, warning-adjacent emphasis, chart-1, and links. Its rarity is the signal.
 
 ### Neutral
 
-- **Formation Ivory** (`oklch(98.5% 0.001 106.423)`): Page background, card surfaces, popover backgrounds. Warm-tinted off-white, not pure white.
-- **Muster Ash** (`oklch(97% 0.001 106.424)`): Secondary backgrounds, muted surfaces, hover states. A half-step darker than Formation Ivory.
-- **Parade Line** (`oklch(92.3% 0.003 48.717)`): Borders, input outlines, dividers, sidebar borders. Warm gray at low chroma.
-- **Standing Stone** (`oklch(44.4% 0.011 73.639)`): Muted foreground text, secondary labels, placeholder text. Mid-tone with a slight warm cast.
+- **Muster Ash** (`oklch(97% 0.001 106.424)`): Muted surface, secondary button fill, hover tint, sidebar accent in light mode.
+- **Standing Stone** (`oklch(44.4% 0.011 73.639)`): Muted text, placeholder text, secondary metadata, and subdued labels.
+- **Parade Line** (`oklch(92.3% 0.003 48.717)`): Borders, dividers, input borders, table rules, and subtle component boundaries.
+- **Field Stone** (`oklch(21.6% 0.006 56.043)`): Dark-mode cards, popovers, and high-contrast secondary foreground.
+- **Dark Field** (`oklch(26.8% 0.007 34.298)`): Dark-mode secondary and muted surfaces, dark borders.
 
 ### Status Colors
 
-- **Alert Red** (`oklch(57.7% 0.245 27.325)`): Destructive actions, error states, expired training, overdue items. Always used at 10-20% opacity for backgrounds, full saturation for text.
-- **Readiness Green** (`oklch(62.7% 0.194 149.214)`): Success states, current training, active status. Chart-2.
-- **Intel Blue** (`oklch(58.8% 0.158 241.966)`): Informational states, info badges. Chart-3.
+- **Alert Red** (`oklch(57.7% 0.245 27.325)`, dark: `oklch(63.7% 0.237 25.331)`): Destructive actions, errors, expired training, overdue items, and chart-4.
+- **Readiness Green** (`oklch(62.7% 0.194 149.214)`): Success states, current training, active readiness, and chart-2.
+- **Intel Blue** (`oklch(58.8% 0.158 241.966)`): Informational states and chart-3.
 
-### Chrome (App Shell)
+### Chrome
 
-Fixed across light and dark modes. The sidebar and top navigation use a permanent dark shell:
-
-- **Bunker Black** (`#12110f`): Chrome background.
-- **Bunker Text** (`#f0efe9`): Chrome foreground text.
-- **Bunker Muted** (`#b0afa8`): Chrome secondary text.
-- **Bunker Border** (`#2a2825`): Chrome dividers.
+- **Chrome** (`oklch(14.7% 0.004 49.25)`): Authenticated shell background and permanent dark chrome.
+- **Chrome Text** (`oklch(95.2% 0.006 95)`): Chrome foreground.
+- **Chrome Text Muted** (`oklch(72% 0.01 73.639)`): Chrome secondary text.
+- **Chrome Border** (`oklch(25.5% 0.006 56.043)`): Chrome dividers.
+- **Chrome Surface** (`oklch(18% 0.004 49.25)`) and **Chrome Surface Muted** (`oklch(28% 0.005 49.25)`): Shell panels, hover states, overlays, and muted chrome surfaces.
 
 ### Named Rules
 
-**The One Accent Rule.** Ops Amber is the only saturated color in the interface outside of status indicators. Its rarity is the point. If more than 10% of a screen surface is amber, reduce usage until it reads as signal, not decoration.
+**The One Accent Rule.** Ops Amber is the only saturated accent outside functional status colors. If amber covers more than about 10% of a normal product screen, the screen is using signal as decoration.
 
-**The Tinted Neutral Rule.** Every neutral in the palette carries a warm hue tint (chroma 0.001-0.011, hue 48-106). Never use pure gray (`oklch(X% 0 0)`), `#000`, or `#fff`. The warmth is subtle but essential to the system's cohesion.
+**The Tinted Neutral Rule.** New neutrals must carry the warm TroopToTask hue. Do not introduce `#000`, `#fff`, or achromatic gray.
+
+**The Shared Token Rule.** Route code uses Tailwind tokens such as `bg-background`, `bg-card`, `text-muted-foreground`, `border`, and `rounded-lg`. It must not create local color systems.
 
 ## 3. Typography
 
@@ -148,110 +175,124 @@ Fixed across light and dark modes. The sidebar and top navigation use a permanen
 **Body Font:** Source Serif 4 (with serif fallback)
 **Label/Mono Font:** IBM Plex Mono (with monospace fallback)
 
-**Character:** Military brevity meets editorial legibility. Barlow Condensed packs dense information into headers without shouting; Source Serif 4 provides the sustained readability that NCOs need when scanning rosters and training records. IBM Plex Mono anchors data displays and chip labels with technical precision.
+**Character:** Military brevity with editorial legibility. Barlow Condensed gives command hierarchy and density; Source Serif 4 keeps longer operational copy readable; IBM Plex Mono marks data, status, and machine-like labels.
 
 ### Hierarchy
 
-- **Display** (Barlow Condensed 800, clamp-scaled, line-height 1.1): Page titles on public/marketing pages. Reserved for high-impact, single-line use.
-- **Headline** (Barlow Condensed 700, line-height 1.1): Section headers within authenticated views. The workhorse heading weight.
-- **Title** (Barlow Condensed 600, line-height 1.2): Sub-section headers, card titles, dialog headers.
-- **Body** (Source Serif 4 400, 1rem/1.5, max-width 65-75ch): Running text, descriptions, form help text. Use 300 weight for lighter secondary body text; 600 for inline emphasis.
-- **Label** (IBM Plex Mono 500, 0.6875rem, letter-spacing 0.08em, uppercase): Chips, tags, status badges, table column headers, metadata. The system's data voice.
+- **Display** (Barlow Condensed 800, line-height 1.1): Public hero titles and rare high-impact titles. Avoid in dense controls.
+- **Headline** (Barlow Condensed 700, line-height 1.1): Authenticated page headers and major section headers.
+- **Title** (Barlow Condensed 600, line-height 1.2): Card titles, dialog titles, panel headings, table group labels.
+- **Body** (Source Serif 4 400, `1rem/1.5`): Running text, descriptions, help text, route copy. Cap prose at 65-75ch.
+- **Label** (IBM Plex Mono 500, `0.6875rem`, `0.08em`, uppercase): Badges, chips, metadata, table headers, small status labels, and compact facts.
 
 ### Named Rules
 
-**The Three Voices Rule.** Every text element uses exactly one of the three font families. Barlow Condensed for structure. Source Serif 4 for content. IBM Plex Mono for data. Mixing within a single element is forbidden.
+**The Three Voices Rule.** Barlow Condensed is structure, Source Serif 4 is content, IBM Plex Mono is data. Do not mix fonts inside one UI role to create emphasis.
+
+**The Product Scale Rule.** Product UI uses fixed sizes and tight ratios. Do not use fluid viewport-scaled type inside authenticated workspaces, tables, toolbars, forms, or panels.
 
 ## 4. Elevation
 
-Flat by default. Surfaces are distinguished through background tint shifts (Formation Ivory to Muster Ash) and thin borders (Parade Line at 1px), not through shadows. This keeps the interface dense and scannable without visual noise.
+TroopToTask is flat by default. Depth comes from surface shifts, borders, sticky positioning, and overlay layering, not from card shadows. In-flow cards, tables, fields, buttons, sidebars, and route panels stay flat. Shadows are reserved for surfaces that break the page plane.
 
 ### Shadow Vocabulary
 
-Shadows are reserved for elements that float above the page plane:
-
-- **Popover/Dropdown** (`box-shadow: 0 4px 12px oklch(0% 0 0 / 0.08)`): Menus, popovers, command palette. Light enough to read as "floating" without drama.
-- **Dialog** (`box-shadow: 0 8px 24px oklch(0% 0 0 / 0.12)`): Modal dialogs and sheets. Slightly heavier to establish the overlay relationship.
-
-No other elements use shadows. Cards, buttons, inputs, navigation items: all flat.
+- **Focus Ring** (`0 0 0 3px color-mix(in srgb, var(--ring) 24%, transparent)`): Keyboard and validation focus. Always paired with a visible outline or border shift.
+- **Popover/Dropdown** (`0 4px 12px oklch(0% 0 0 / 0.08)`): Menus, popovers, command lists, and select panels where the component needs separation from the page plane.
+- **Dialog/Sheet** (`0 8px 24px oklch(0% 0 0 / 0.12)`): Modal dialogs and sheets. Use only for true overlays.
 
 ### Named Rules
 
-**The Flat Formation Rule.** If an element is in the page flow, it is flat. Shadows are exclusively for elements that break the page plane (popovers, dialogs, dropdowns). A card with a shadow is a bug.
+**The Flat Formation Rule.** If an element is in normal page flow, it has no shadow. A shadow on a card, table row, toolbar, or button is a bug unless the shared component catalog explicitly documents the exception.
+
+**The Overlay Only Rule.** Floating layers may use shadow, but the interaction should still be clear from border, backdrop, placement, and focus.
 
 ## 5. Components
 
+Shared UI primitives live in `src/lib/components/ui`. Production routes should import those primitives or app-specific shared wrappers, not rebuild local versions.
+
 ### Buttons
 
-Clean and restrained. Tight dimensions with a 1px translate-down on active press for tactile feedback.
+Clean, compact, shadcn-backed controls with direct operational weight.
 
-- **Shape:** Gently curved edges (6px radius, `rounded-lg` via `--radius` scale). 1px transparent border for consistent sizing across variants.
-- **Primary:** Command Charcoal fill, Formation Ivory text, height 32px (`h-8`), horizontal padding 10px. The default workhorse.
-- **Outline:** Formation Ivory fill, 1px Parade Line border, darkens on hover. Used for secondary actions.
-- **Ghost:** Transparent, Muster Ash background on hover. Used for toolbar actions and icon buttons.
-- **Destructive:** Alert Red at 10% opacity background, Alert Red text. Never a solid red fill; the tinted-background treatment keeps destructive actions visible but not alarming until confirmed.
-- **Hover / Focus:** Background shifts by opacity. Focus ring is 3px Ops Amber at 24% opacity (`--focus-ring`), with 2px solid Ops Amber outline offset 2px.
-- **Sizes:** xs (24px), sm (28px), default (32px), lg (36px), icon (32px square).
+- **Shape:** `rounded-lg` (6px) for default buttons; smaller button sizes use `min(var(--radius), 10px/12px)` where implemented.
+- **Primary:** `bg-primary text-primary-foreground`, 32px tall by default, 10px horizontal padding. Use for the main page action only.
+- **Outline:** `border-border bg-background`, with muted hover. Use for secondary actions.
+- **Secondary:** `bg-secondary text-secondary-foreground`, with subtle opacity hover. Use for grouped view modes and lower-emphasis commands.
+- **Ghost:** Transparent at rest, muted hover. Use for toolbar actions, icon actions, and low-emphasis controls.
+- **Destructive:** Tinted destructive background with destructive text, not a solid red fill.
+- **Hover / Focus:** Transitions use 120-240ms `cubic-bezier(0.2, 0, 0, 1)`. Focus uses the ring token and visible border state.
+- **Sizes:** xs 24px, sm 28px, default 32px, lg 36px, icon 32px square, plus icon-xs/icon-sm/icon-lg.
 
-### Chips
+### Badges and Chips
 
-The data voice of the interface. Always monospace, always uppercase.
+Badges communicate status; chips communicate compact metadata.
 
-- **Style:** Full-radius pill (9999px), IBM Plex Mono at 0.6875rem, 500 weight, 0.08em letter-spacing, uppercase. Padding 4px 12px.
-- **Default:** Muster Ash background, Standing Stone text.
-- **Primary:** Ops Amber at 12% opacity background, Ops Amber text.
-- **Warning:** Warning-muted background (amber at 16% mixed into card surface), amber text.
-- **State:** Single state only (no hover/toggle on chips). They are labels, not controls.
+- **Badge Style:** 20px height, `rounded-md`, 1px transparent border, 8px horizontal padding, small medium text.
+- **Badge Variants:** default, secondary, destructive, danger, warning, info, success, outline, ghost, link. Status variants use tinted backgrounds and functional color text.
+- **Chip Style:** Full pill, IBM Plex Mono, uppercase, 4px by 12px padding, muted or amber-tinted background.
+- **State:** Badges and chips are labels unless explicitly rendered as links. Do not make status labels behave like controls by accident.
 
 ### Cards / Containers
 
-- **Corner Style:** Moderate curve (4px radius, `--radius-md`).
-- **Background:** Formation Ivory (matches page background in light mode), Card token in dark mode.
-- **Border:** 1px Parade Line. No shadow.
-- **Internal Padding:** Defined by card-header (24px horizontal, 24px top) and card-content (24px horizontal, no top padding). Footer mirrors header.
+Cards frame repeated or grouped content without theatrical depth.
+
+- **Corner Style:** `rounded-md` (4px) for cards, `rounded-lg` for shadcn controls and route-owned panels.
+- **Background:** `bg-card text-card-foreground`.
+- **Border:** 1px `border`.
+- **Shadow Strategy:** No shadow for in-flow cards.
+- **Internal Padding:** Use shared card subcomponents and route layout utilities, commonly 16-24px depending on density.
 
 ### Inputs / Fields
 
-- **Style:** Transparent background (dark mode: `input/30` tinted), 1px Parade Line border, 6px radius, height 32px, horizontal padding 10px.
-- **Focus:** Border shifts to Ops Amber (`--ring`), 3px ring at 50% opacity. Clean, visible, consistent with button focus.
-- **Error:** Border shifts to Alert Red, 3px ring at 20% opacity. Ring intensifies to 40% in dark mode for visibility.
-- **Disabled:** 50% opacity, `pointer-events: none`, slightly tinted background.
+Inputs are compact and precise.
+
+- **Style:** 32px height, `rounded-lg`, 1px `border-input`, transparent light background, `dark:bg-input/30`, 10px horizontal padding.
+- **Focus:** Border shifts to ring, with `focus-visible:ring-3`.
+- **Error:** Destructive border and destructive ring at reduced opacity.
+- **Disabled:** 50% opacity, pointer-events disabled, muted background.
+- **Field Composition:** Use `ui/field`, `Input`, `Textarea`, `Select`, `Checkbox`, `RadioGroup`, `Switch`, `Combobox`, and `MultiSelect` instead of legacy route-local field wrappers.
 
 ### Navigation
 
-- **Sidebar:** Permanent dark chrome shell (Bunker Black background). Active items highlighted with Ops Amber text. Hover uses Muster Ash-equivalent dark tint.
-- **Breadcrumbs:** Horizontal trail below the page header. Source Serif 4 at body size. Slash separators.
-- **Command Palette:** Full-width dialog with search input. Keyboard-first navigation.
-- **Mobile:** Collapsed sidebar via drawer, bottom tab bar for primary navigation.
+Navigation is standard because users need muscle memory.
 
-### Page Shell
+- **Authenticated Shell:** Permanent dark chrome using `--chrome` tokens, with muted text and amber current-state signal.
+- **Breadcrumbs:** Shared breadcrumb primitives in the app header area. Do not duplicate app breadcrumbs inside route content.
+- **Route Tabs:** Use `ui/page-shell` tabs or shadcn tabs for route-local Generate/History/Settings style navigation. Do not restore legacy `SubNav`.
+- **Menus:** Use dropdown menu, command, popover, sheet, dialog, tooltip, and drawer primitives from shared UI.
+- **Mobile:** Collapse structure through shared sidebar, sheet, drawer, toolbar overflow, and responsive route layout. Do not invent route-specific mobile chrome.
 
-The authenticated page layout compound. Not a single component but a repeating structure:
+### Tables, Toolbars, and Operational Surfaces
 
-- Header band with title (Barlow Condensed 700), optional subtitle, action buttons right-aligned.
-- Optional tab bar below header for view switching.
-- Optional fact grid / summary rail for dashboard-style metrics.
-- Sticky bottom action bar for save/discard on form pages.
+Data-heavy work is first-class.
+
+- **DataTable:** Production DataTable surfaces use `ui/data-table`; route code configures columns, filters, search, selection, actions, empty state, pagination, and row behavior.
+- **WorkspaceToolbar:** Use `ui/workspace-toolbar` for route controls. It owns one-row toolbar structure, grouping, labels, overflow behavior, and visual treatment.
+- **PageShell:** Use `ui/page-shell` for route roots, headers, tabs, fact grids, metrics, summary rails, and sticky action bars.
+- **OperationalMatrix:** Training and Critical Tasks matrix surfaces converge on `ui/operational-matrix`, including vertical column headers where needed.
+- **WorkflowPanel:** Onboarding, training type, and manager panels converge on shared workflow-panel and alert variants instead of route-local warning panels.
+- **Charts:** Use shadcn chart primitives and shared chart conventions for reports.
 
 ## 6. Do's and Don'ts
 
 ### Do:
 
-- **Do** use OKLCH for all color definitions. Every neutral carries a warm hue tint (chroma 0.001-0.011). Verify with the Tinted Neutral Rule before adding any new color.
-- **Do** use the three-font system consistently: Barlow Condensed for structure, Source Serif 4 for content, IBM Plex Mono for data. No exceptions.
-- **Do** keep all transitions between 120-240ms using `cubic-bezier(0.2, 0, 0, 1)`. The three speed tokens (`--transition-fast`, `--transition-normal`, `--transition-slow`) cover every case.
-- **Do** respect `prefers-reduced-motion` with the existing media query that collapses all animation durations to near-zero.
-- **Do** use tinted-background treatments for status colors (Alert Red at 10-20%, Readiness Green at 14%, Intel Blue at 14%). Solid saturated fills are reserved for chart elements only.
-- **Do** cap body text line length at 65-75ch.
+- **Do** keep `src/app.css`, `components.json`, and shared component files as the visual source of truth.
+- **Do** use shadcn-svelte `nova` shared primitives from `src/lib/components/ui` for new production UI.
+- **Do** route visual QA findings back to the component catalog and shared component layer.
+- **Do** use warm OKLCH tokens for new colors and preserve the paper/ink/amber system.
+- **Do** use shared Tailwind tokens for route-owned layout: `bg-background`, `bg-card`, `text-muted-foreground`, `border`, `rounded-lg`, and the normal spacing scale.
+- **Do** preserve visible focus states, keyboard navigation, reduced-motion support, and WCAG AA contrast.
+- **Do** prefer dense tables, toolbars, fact grids, and summary rails when they help leaders see the whole formation.
 
 ### Don't:
 
-- **Don't** use pastel gradients, playful illustrations, or bouncy animations. This is not consumer SaaS. If it could belong on a Notion or Linear marketing page, it does not belong here.
-- **Don't** use green-on-gray color schemes, 12px system fonts, or modal-first workflows. This is not legacy military software (DTMS, DTS, or any .mil system from 2004).
-- **Don't** add shadows to in-flow elements. Cards, buttons, inputs, table rows: all flat. If you're reaching for `box-shadow` on something that isn't a popover or dialog, stop.
-- **Don't** use `#000`, `#fff`, or any achromatic neutral. Every value must carry the warm tint.
-- **Don't** introduce a second accent color. The One Accent Rule: Ops Amber only. Status colors (red, green, blue) serve functional roles, not decorative ones.
-- **Don't** use border-left or border-right greater than 1px as a colored accent stripe on any element.
-- **Don't** use gradient text (`background-clip: text` with a gradient background).
-- **Don't** use glassmorphism (blur + transparency as decoration).
-- **Don't** build hero-metric templates (big number, small label, gradient accent). Dense fact grids are fine; SaaS dashboard cliches are not.
+- **Don't** visually retune shared components inside production routes unless Robert explicitly approves that exact visual exception.
+- **Don't** add route-local wrappers whose purpose is to change shared component spacing, radius, borders, shadows, typography, color, animation, density, or internal styling.
+- **Don't** import legacy wrappers when shadcn/shared replacements exist, including old toolbar, EmptyState, FileUpload, SearchSelect, MultiTagSelect, or spinner wrappers.
+- **Don't** use consumer/startup SaaS aesthetics: pastel gradients, playful illustrations, bouncy animations, or "delightful" empty states.
+- **Don't** use legacy military-software aesthetics: green-on-gray brutalism, tiny system fonts, or modal-first workflows.
+- **Don't** use `#000`, `#fff`, achromatic gray, gradient text, decorative glassmorphism, or colored side-stripe borders.
+- **Don't** create route-local alternate versions of buttons, inputs, badges, dialogs, menus, tables, tabs, toolbars, empty states, calendars, or charts.
+- **Don't** solve a shared-component mismatch locally. Report the design-system gap and add a shared component/API extension before production routes consume it.

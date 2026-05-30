@@ -246,10 +246,6 @@ export class PersonnelPageContext {
 		this.#modals.open('group-manager');
 	}
 
-	openBulkManager(initialTab: 'import' | 'merge' | 'delete' = 'import'): void {
-		this.#modals.open('bulk-manager', { initialTab });
-	}
-
 	toggleGroup(group: string): void {
 		if (this.collapsedGroups.has(group)) {
 			this.collapsedGroups.delete(group);

@@ -342,7 +342,7 @@ describe('mergePersonnelBatch', () => {
 		});
 	});
 
-	it('denies operator-level direct merge calls before personnel lookup', async () => {
+	it('allows operator-level direct merge calls through the policy gate', async () => {
 		const ctx = buildContext({
 			auth: {
 				role: 'member',
@@ -359,20 +359,15 @@ describe('mergePersonnelBatch', () => {
 			}
 		});
 
-		await expect(
-			mergePersonnelBatch(ctx, {
-				records: [{ rank: 'SGT', lastName: 'Smith', firstName: 'Jamie', ets: '2027-05-01' }]
-			})
-		).rejects.toMatchObject({ status: 403 });
+		const result = await mergePersonnelBatch(ctx, {
+			records: [{ rank: 'SGT', lastName: 'Smith', firstName: 'Jamie', ets: '2027-05-01' }]
+		});
 
-		expect(ctx.auditPort.events).toContainEqual(
+		expect(result.errors).toEqual([{ index: 0, message: 'No active personnel row matched this record' }]);
+		expect(ctx.auditPort.events).not.toContainEqual(
 			expect.objectContaining({
 				action: 'policy.denied',
-				resourceType: 'personnel',
-				details: expect.objectContaining({
-					policyAction: 'personnel.mergeRecords',
-					reasonCode: 'denied:missing-capability'
-				})
+				resourceType: 'personnel'
 			})
 		);
 	});

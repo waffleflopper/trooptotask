@@ -57,6 +57,7 @@ export async function archivePersonnelOwnedArtifacts(
 	for (const { table, archiveData } of PERSONNEL_OWNED_ARCHIVE_TABLES) {
 		const rows = await ctx.store.findMany<{ id: string }>(table, ctx.auth.orgId, undefined, {
 			inFilters: { personnel_id: uniquePersonnelIds },
+			isNull: { archived_at: true },
 			select: 'id'
 		});
 

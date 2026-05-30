@@ -149,6 +149,23 @@ describe('currencyStatus core', () => {
 			).toMatchObject({ daysUntilExpiration: 364 });
 		});
 
+		it('counts whole calendar days across a DST spring-forward transition', () => {
+			// US spring-forward is 2026-03-08. A naive (localMidnight − localMidnight)/DAY_MS
+			// floor returns 27 in a DST-observing timezone; calendar-day math returns 28.
+			expect(
+				currencyStatus({ completionDate: '2025-01-01', expirationDate: '2026-03-14' }, ICT_BANDS, '2026-02-14')
+					.daysUntilExpiration
+			).toBe(28);
+		});
+
+		it('counts whole calendar days across a DST fall-back transition', () => {
+			// US fall-back is 2026-11-01. The naive count would over-count to 29 in a DST timezone.
+			expect(
+				currencyStatus({ completionDate: '2025-01-01', expirationDate: '2026-11-14' }, ICT_BANDS, '2026-10-15')
+					.daysUntilExpiration
+			).toBe(30);
+		});
+
 		// Characterizes issue #1148's third (intended) Training delta: the shared core
 		// uses parseDate, correcting the legacy `new Date("YYYY-MM-DD")` parse that
 		// under-counted by a day west of UTC. This is a no-op in production (UTC) and

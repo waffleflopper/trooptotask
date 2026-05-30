@@ -55,15 +55,19 @@ export interface CurrencyStatusResult {
 
 const DAY_MS = 1000 * 60 * 60 * 24;
 
-function toStartOfDay(date: Date): Date {
-	const normalized = new Date(date);
-	normalized.setHours(0, 0, 0, 0);
-	return normalized;
+function resolveAsOfDate(asOf: string | Date | undefined): Date {
+	if (!asOf) return new Date();
+	return typeof asOf === 'string' ? parseDate(asOf) : asOf;
 }
 
-function resolveAsOfDate(asOf: string | Date | undefined): Date {
-	if (!asOf) return toStartOfDay(new Date());
-	return toStartOfDay(typeof asOf === 'string' ? parseDate(asOf) : asOf);
+/**
+ * The local calendar day reprojected onto a UTC midnight epoch. Differencing two of
+ * these counts whole calendar days regardless of timezone OR daylight-saving: a naive
+ * `(localMidnight − localMidnight) / DAY_MS` would see a 23h/25h day across a DST
+ * transition and `Math.floor` to an off-by-one.
+ */
+function toCalendarDayMs(date: Date): number {
+	return Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
 }
 
 function classify(
@@ -71,9 +75,9 @@ function classify(
 	warnBands: CurrencyWarnBand[],
 	asOf: string | Date | undefined
 ): CurrencyStatusResult {
-	// parseDate (local calendar) on both sides → timezone-independent calendar-day count.
+	// Calendar-day difference (parseDate = local calendar on both sides) → timezone- and DST-independent.
 	const days = Math.floor(
-		(toStartOfDay(parseDate(expirationDate)).getTime() - resolveAsOfDate(asOf).getTime()) / DAY_MS
+		(toCalendarDayMs(parseDate(expirationDate)) - toCalendarDayMs(resolveAsOfDate(asOf))) / DAY_MS
 	);
 
 	if (days < 0) {

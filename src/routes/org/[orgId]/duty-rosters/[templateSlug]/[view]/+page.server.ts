@@ -78,6 +78,9 @@ export const load: PageServerLoad = async ({ params, url, locals, cookies, paren
 			if (!selectedTemplate) {
 				throw error(404, 'Duty Roster Template not found');
 			}
+			if (selectedTemplate.status === 'archived' && view !== 'history') {
+				throw redirect(303, `/org/${orgId}/duty-rosters/${selectedTemplate.slug}/history`);
+			}
 
 			const historyPageNumber =
 				view === 'history' ? parseHistoryPage(url.searchParams.get('page')) : DEFAULT_HISTORY_PAGE;

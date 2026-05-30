@@ -12,6 +12,7 @@ const template: DutyRosterTemplate = {
 	slug: 'cq-nco',
 	shortCode: 'CQ',
 	status: 'active',
+	archivedAt: null,
 	poolCriteria: {
 		rankValues: [],
 		groupIds: [],
@@ -22,6 +23,16 @@ const template: DutyRosterTemplate = {
 	manualBaselineCounts: {},
 	createdAt: '2026-05-04T00:00:00Z',
 	updatedAt: '2026-05-04T00:00:00Z'
+};
+
+const archivedTemplate: DutyRosterTemplate = {
+	...template,
+	id: 'template-archived',
+	assignmentTypeId: 'template-archived',
+	name: 'Old CQ NCO',
+	slug: 'old-cq-nco',
+	status: 'archived',
+	archivedAt: '2026-05-05T00:00:00Z'
 };
 
 afterEach(() => {
@@ -184,6 +195,36 @@ describe('DutyRosterTemplateWorkspace', () => {
 		expect(document.querySelector('form[action="/org/org-1/duty-rosters?/archiveTemplate"]')).toBeTruthy();
 		expect(document.querySelector('input[name="templateId"][value="template-1"]')).toBeTruthy();
 		expect(document.querySelector('input[name="archiveAssignmentType"][value="false"]')).toBeTruthy();
+	});
+
+	it('keeps active and archived templates in separate register views', async () => {
+		render(DutyRosterTemplateWorkspace, {
+			props: {
+				data: {
+					orgId: 'org-1',
+					orgName: 'Able Company',
+					templates: [template, archivedTemplate],
+					selectedTemplate: null,
+					view: 'generate',
+					setupOptions: { personnel: [] }
+				}
+			}
+		});
+
+		expect(screen.getByRole('button', { name: 'Active (1)' }).getAttribute('aria-pressed')).toBe('true');
+		expect(screen.getAllByText('CQ NCO').length).toBeGreaterThan(0);
+		expect(screen.queryAllByText('Old CQ NCO')).toHaveLength(0);
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Archived (1)' }));
+
+		expect(screen.getByRole('button', { name: 'Archived (1)' }).getAttribute('aria-pressed')).toBe('true');
+		expect(screen.queryAllByText('CQ NCO')).toHaveLength(0);
+		expect(screen.getAllByText('Old CQ NCO').length).toBeGreaterThan(0);
+		expect(screen.getByRole('link', { name: 'View history for Old CQ NCO' }).getAttribute('href')).toBe(
+			'/org/org-1/duty-rosters/old-cq-nco/history'
+		);
+		expect(screen.queryByRole('link', { name: 'Generate Old CQ NCO' })).toBeNull();
+		expect(screen.queryByRole('link', { name: 'View settings for Old CQ NCO' })).toBeNull();
 	});
 
 	it('shows New Template wizard validation errors without dropping entered values', () => {

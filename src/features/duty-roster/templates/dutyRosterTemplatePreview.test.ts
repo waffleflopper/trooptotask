@@ -45,6 +45,7 @@ const template: DutyRosterTemplate = {
 	slug: 'cq-nco',
 	shortCode: 'CQ',
 	status: 'active',
+	archivedAt: null,
 	poolCriteria: {
 		rankValues: [],
 		groupIds: [],

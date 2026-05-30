@@ -12,6 +12,7 @@ const template: DutyRosterTemplate = {
 	slug: 'cq-nco',
 	shortCode: 'CQ',
 	status: 'active',
+	archivedAt: null,
 	poolCriteria: {
 		rankValues: ['SGT'],
 		groupIds: ['alpha'],
@@ -54,6 +55,27 @@ describe('dutyRosterWorkspaceReadModel', () => {
 		expect(model.generateStartDate).toBe('2026-06-01');
 		expect(model.generateEndDate).toBe('2026-06-30');
 		expect(model.canGenerate).toBe(true);
+	});
+
+	it('limits archived templates to the History tab in the workspace model', () => {
+		const archivedTemplate: DutyRosterTemplate = {
+			...template,
+			status: 'archived',
+			archivedAt: '2026-05-04T12:00:00.000Z'
+		};
+
+		const model = buildDutyRosterWorkspaceReadModel(
+			{
+				orgId: 'org-1',
+				orgName: 'Able Company',
+				templates: [archivedTemplate],
+				selectedTemplate: archivedTemplate,
+				view: 'history'
+			},
+			null
+		);
+
+		expect(model.viewTabs).toEqual([{ id: 'history', label: 'History', note: 'Accepted runs remain readable' }]);
 	});
 
 	it('keeps submitted generate dates and validates past ranges for the view', () => {

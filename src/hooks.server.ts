@@ -31,6 +31,30 @@ const securityHeaders: Record<string, string> = {
 };
 
 const SUPABASE_AUTH_STORAGE_KEY = getSupabaseAuthStorageKey(PUBLIC_SUPABASE_URL);
+const STALE_SUPABASE_AUTH_ERROR_CODES = new Set([
+	'refresh_token_not_found',
+	'refresh_token_already_used',
+	'session_not_found',
+	'session_expired'
+]);
+
+function getAuthErrorCode(error: unknown): string | null {
+	if (!error || typeof error !== 'object' || !('code' in error)) return null;
+	return typeof error.code === 'string' ? error.code : null;
+}
+
+function isStaleSupabaseAuthError(error: unknown): boolean {
+	const code = getAuthErrorCode(error);
+	return Boolean(code && STALE_SUPABASE_AUTH_ERROR_CODES.has(code));
+}
+
+function clearSupabaseAuthCookies(event: Parameters<Handle>[0]['event']): void {
+	for (const { name } of event.cookies.getAll()) {
+		if (hasSupabaseAuthCookie([name], SUPABASE_AUTH_STORAGE_KEY)) {
+			event.cookies.delete(name, { path: '/' });
+		}
+	}
+}
 
 export const handle: Handle = async ({ event, resolve }) => {
 	// Rate limiting — skip for e2e tests (dev mode only, tree-shaken in production)
@@ -88,15 +112,35 @@ export const handle: Handle = async ({ event, resolve }) => {
 		const {
 			data: { session },
 			error: sessionError
-		} = await event.locals.supabase.auth.getSession();
+		} = await event.locals.supabase.auth.getSession().catch((error) => {
+			if (isStaleSupabaseAuthError(error)) {
+				clearSupabaseAuthCookies(event);
+				return { data: { session: null }, error };
+			}
+			throw error;
+		});
 
 		if (sessionError || !session?.access_token) {
+			if (isStaleSupabaseAuthError(sessionError)) {
+				clearSupabaseAuthCookies(event);
+			}
 			cachedSession = { session: null, user: null };
 			return cachedSession;
 		}
 
-		const { data: claimsData, error: claimsError } = await event.locals.supabase.auth.getClaims(session.access_token);
+		const { data: claimsData, error: claimsError } = await event.locals.supabase.auth
+			.getClaims(session.access_token)
+			.catch((error) => {
+				if (isStaleSupabaseAuthError(error)) {
+					clearSupabaseAuthCookies(event);
+					return { data: null, error };
+				}
+				throw error;
+			});
 		if (claimsError || !claimsData?.claims) {
+			if (isStaleSupabaseAuthError(claimsError)) {
+				clearSupabaseAuthCookies(event);
+			}
 			cachedSession = { session: null, user: null };
 			return cachedSession;
 		}

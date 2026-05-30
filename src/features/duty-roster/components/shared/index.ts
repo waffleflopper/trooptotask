@@ -7,6 +7,7 @@ export { default as ManualChangePanel } from './ManualChangePanel.svelte';
 export { default as SearchableRuleMultiSelect } from './SearchableRuleMultiSelect.svelte';
 export { default as WarningSummary } from './WarningSummary.svelte';
 export type { SearchableRuleMultiSelectOption } from './SearchableRuleMultiSelect.svelte';
+export { toDa6MatrixCell } from './da6MatrixCell.js';
 export { getDutyRosterStatusBadge, type DutyRosterStatus, type DutyRosterStatusBadgeConfig } from './status.js';
 export type {
 	AuditTimelineEvent,

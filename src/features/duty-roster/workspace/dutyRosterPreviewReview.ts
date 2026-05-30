@@ -13,6 +13,7 @@ import type {
 	DutyRosterTemplateRunCorrection
 } from '$features/duty-roster/templates/dutyRosterTemplates';
 import { dutyRosterTodayDate } from '$features/duty-roster/templates/dutyRosterDatePolicy';
+import type { Da6Cell } from '$features/duty-roster/run/dutyRosterRun.types';
 import type { ColumnDef } from '$lib/components/ui/data-table';
 
 export const DUTY_ROSTER_CORRECTION_OVERRIDE_WARNING = 'Outside normal pool. Saved as an override.';
@@ -27,8 +28,6 @@ export type DutyRosterPreviewReviewRow = {
 	liveWarnings: string[];
 };
 
-export type DutyRosterMatrixCellTone = 'default' | 'assigned' | 'warning' | 'danger';
-
 export type DutyRosterPreviewReviewModel = {
 	rows: DutyRosterPreviewReviewRow[];
 	selectionOptions: Array<{ value: string; label: string; description?: string }>;
@@ -38,15 +37,7 @@ export type DutyRosterPreviewReviewModel = {
 		rows: Array<{
 			personnelId: string;
 			soldierLabel: string;
-			cells: Array<{
-				date: string;
-				assigned: boolean;
-				tone: DutyRosterMatrixCellTone;
-				display: string;
-				chargeable: boolean;
-				sequenceNumber: number | null;
-				reason: string | null;
-			}>;
+			cells: Da6Cell[];
 		}>;
 	};
 };
@@ -90,15 +81,7 @@ export type DutyRosterAcceptedRunReviewModel = {
 		rows: Array<{
 			personnelId: string;
 			soldierLabel: string;
-			cells: Array<{
-				date: string;
-				assigned: boolean;
-				tone: DutyRosterMatrixCellTone;
-				display: string;
-				chargeable: boolean;
-				sequenceNumber: number | null;
-				reason: string | null;
-			}>;
+			cells: Da6Cell[];
 		}>;
 	};
 };
@@ -164,15 +147,7 @@ export function buildDutyRosterPreviewReviewModel(input: {
 			rows: input.preview.da6.rows.map((row) => ({
 				personnelId: row.personnelId,
 				soldierLabel: `${row.display.rank} ${row.display.lastName}`,
-				cells: row.cells.map((cell) => ({
-					date: cell.date,
-					assigned: cell.assigned,
-					tone: da6CellTone(cell),
-					display: previewCellDisplay(cell),
-					chargeable: cell.chargeable,
-					sequenceNumber: cell.sequenceNumber,
-					reason: cell.reason
-				}))
+				cells: row.cells
 			}))
 		}
 	};
@@ -252,15 +227,7 @@ export function buildDutyRosterAcceptedRunReviewModel(input: {
 			rows: snapshot.da6.rows.map((row) => ({
 				personnelId: row.personnelId,
 				soldierLabel: `${row.display.rank} ${row.display.lastName}`,
-				cells: row.cells.map((cell) => ({
-					date: cell.date,
-					assigned: cell.assigned,
-					tone: da6CellTone(cell),
-					display: da6CellDisplay(cell),
-					chargeable: cell.chargeable,
-					sequenceNumber: cell.sequenceNumber,
-					reason: cell.reason
-				}))
+				cells: row.cells
 			}))
 		}
 	};
@@ -307,21 +274,6 @@ export function previewFormValue(preview: DutyRosterTemplatePreview): string {
 	return JSON.stringify(preview);
 }
 
-export function previewCellDisplay(cell: DutyRosterTemplatePreview['da6']['rows'][number]['cells'][number]): string {
-	return da6CellDisplay(cell);
-}
-
-function da6CellTone(
-	cell:
-		| DutyRosterTemplatePreview['da6']['rows'][number]['cells'][number]
-		| DutyRosterTemplateAcceptedSnapshot['da6']['rows'][number]['cells'][number]
-): DutyRosterMatrixCellTone {
-	if (cell.assigned) return 'assigned';
-	if (cell.da6Code === 'A') return 'warning';
-	if (cell.da6Code === 'D' || cell.da6Code === 'U') return 'danger';
-	return 'default';
-}
-
 export function acceptedSnapshot(run: DutyRosterTemplateAcceptedRun): DutyRosterTemplateAcceptedSnapshot {
 	return run.snapshotPayload as unknown as DutyRosterTemplateAcceptedSnapshot;
 }
@@ -342,23 +294,6 @@ export function correctionKey(runId: string, date: string): string {
 
 function correctionPersonName(display: DutyRosterPoolPersonnelDisplay | null, fallbackId: string): string {
 	return display ? `${display.rank} ${display.lastName}, ${display.firstName}` : fallbackId;
-}
-
-function da6CellDisplay(
-	cell:
-		| DutyRosterTemplatePreview['da6']['rows'][number]['cells'][number]
-		| DutyRosterTemplateAcceptedSnapshot['da6']['rows'][number]['cells'][number]
-): string {
-	if (cell.assigned) {
-		return 'X';
-	}
-	if (cell.da6Code === 'A') {
-		return 'A';
-	}
-	if (cell.da6Code === 'D' || cell.da6Code === 'U') {
-		return cell.da6Code;
-	}
-	return cell.sequenceNumber === null ? '' : String(cell.sequenceNumber);
 }
 
 function previewAssignee(

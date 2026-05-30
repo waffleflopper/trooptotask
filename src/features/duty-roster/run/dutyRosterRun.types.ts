@@ -1,5 +1,6 @@
 import type { DutyEvent, DutyEventSeriesPattern } from '$features/duty-roster/duty-roster.types';
 import type { AssignmentType, AvailabilityEntry, DailyAssignment, Personnel, SpecialDay, StatusType } from '$lib/types';
+import type { Da6ReasonCode, Da6ReasonParams } from './da6ReasonText';
 
 export type DutyRosterRunDuration = 'daily' | 'weekly' | 'monthly';
 export type DutyRosterNumberingMode = 'single-sequence' | 'separate-weekend-holiday';
@@ -83,7 +84,8 @@ export interface Da6Cell {
 	sequenceNumber: number | null;
 	assigned: boolean;
 	reason: string | null;
-	reasonCode: string | null;
+	reasonCode: Da6ReasonCode | null;
+	reasonParams?: Da6ReasonParams;
 }
 
 export interface Da6Row {

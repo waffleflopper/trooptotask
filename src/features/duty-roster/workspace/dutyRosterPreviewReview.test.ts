@@ -65,7 +65,7 @@ describe('dutyRosterPreviewReview', () => {
 					sequenceNumber: 2,
 					assigned: false,
 					reason: 'Other duty: Staff Duty',
-					reasonCode: 'blocked-by-duty'
+					reasonCode: 'other-duty-status'
 				},
 				{
 					date: '2026-06-02',
@@ -103,7 +103,7 @@ describe('dutyRosterPreviewReview', () => {
 			queuePosition: 2,
 			sequenceNumber: 2,
 			reason: 'Other duty: Staff Duty',
-			reasonCode: 'blocked-by-duty'
+			reasonCode: 'other-duty-status'
 		});
 	});
 

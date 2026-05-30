@@ -63,6 +63,15 @@ vi.mock('$lib/stores/orgContext.svelte', () => ({
 	getOrgContext: () => mockOrgContext
 }));
 
+const criticalTasksLayoutData = {
+	data: {
+		settings: {
+			defaultExpirationMonths: 12,
+			expiringSoonWarningDays: 60
+		}
+	}
+};
+
 const activeTask: IctTask = {
 	id: 'task-1',
 	taskCode: '181-105-1001',
@@ -136,10 +145,7 @@ describe('critical tasks personnel detail route', () => {
 				data: {
 					orgId: 'org-1',
 					breadcrumbLabel: 'SGT Smith, Jane',
-					criticalTasksSettings: {
-						defaultExpirationMonths: 12,
-						expiringSoonWarningDays: 60
-					},
+					criticalTasks: criticalTasksLayoutData,
 					criticalTasksPersonnelHistory: {
 						personnel: {
 							id: 'person-1',

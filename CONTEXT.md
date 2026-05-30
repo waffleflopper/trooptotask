@@ -316,6 +316,10 @@ _Avoid_: Certification tracker only
 The feature for ICT task libraries, completions, readiness reporting, and related reporting views.
 _Avoid_: Training when discussing feature ownership
 
+**Critical Tasks Workspace**:
+The app-owned route-data surface for the Critical Tasks readiness matrix, including settings, task library data, personnel, groups, and completions.
+_Avoid_: Route-owned Critical Tasks settings query, generic layout helper
+
 **Onboarding**:
 The feature for template-driven in-processing workflows and onboarding progress.
 _Avoid_: Checklist feature

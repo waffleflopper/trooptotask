@@ -113,14 +113,6 @@
 			"reason": "Password reset exchange remains an auth-provider boundary."
 		},
 		{
-			"path": "src/routes/org/[orgId]/critical-tasks/+layout.server.ts",
-			"classification": "legacy-drift",
-			"reason": "Critical Tasks layout still queries directly in route code.",
-			"driftIds": [
-				"D-02"
-			]
-		},
-		{
 			"path": "src/routes/suspended/+page.server.ts",
 			"classification": "auth-edge",
 			"reason": "Suspension checks remain part of the session/auth gate."

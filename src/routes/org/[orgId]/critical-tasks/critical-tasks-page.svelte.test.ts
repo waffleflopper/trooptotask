@@ -76,6 +76,15 @@ vi.mock('$lib/utils/csvParser', async (importOriginal) => {
 	};
 });
 
+const criticalTasksLayoutData = {
+	data: {
+		settings: {
+			defaultExpirationMonths: 12,
+			expiringSoonWarningDays: 60
+		}
+	}
+};
+
 async function chooseCompletionDate(label: RegExp): Promise<void> {
 	await fireEvent.click(screen.getByLabelText(/Completion Date/i));
 	const day = await screen.findByRole('button', { name: label });
@@ -339,10 +348,7 @@ describe('critical tasks page', () => {
 						canViewCriticalTasks: true,
 						canEditCriticalTasks: true
 					},
-					criticalTasksSettings: {
-						defaultExpirationMonths: 12,
-						expiringSoonWarningDays: 60
-					}
+					criticalTasks: criticalTasksLayoutData
 				}
 			}
 		});
@@ -463,10 +469,7 @@ describe('critical tasks page', () => {
 						canViewCriticalTasks: true,
 						canEditCriticalTasks: true
 					},
-					criticalTasksSettings: {
-						defaultExpirationMonths: 12,
-						expiringSoonWarningDays: 60
-					}
+					criticalTasks: criticalTasksLayoutData
 				}
 			}
 		});
@@ -524,10 +527,7 @@ describe('critical tasks page', () => {
 						canViewCriticalTasks: true,
 						canEditCriticalTasks: false
 					},
-					criticalTasksSettings: {
-						defaultExpirationMonths: 12,
-						expiringSoonWarningDays: 60
-					}
+					criticalTasks: criticalTasksLayoutData
 				}
 			}
 		});
@@ -576,10 +576,7 @@ describe('critical tasks page', () => {
 						canViewCriticalTasks: true,
 						canEditCriticalTasks: true
 					},
-					criticalTasksSettings: {
-						defaultExpirationMonths: 12,
-						expiringSoonWarningDays: 60
-					}
+					criticalTasks: criticalTasksLayoutData
 				}
 			}
 		});
@@ -696,10 +693,7 @@ describe('critical tasks page', () => {
 						canViewCriticalTasks: true,
 						canEditCriticalTasks: true
 					},
-					criticalTasksSettings: {
-						defaultExpirationMonths: 12,
-						expiringSoonWarningDays: 60
-					}
+					criticalTasks: criticalTasksLayoutData
 				}
 			}
 		});

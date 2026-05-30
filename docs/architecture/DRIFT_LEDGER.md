@@ -36,10 +36,11 @@ Each entry separates:
 ## D-02 Provider-Boundary Leaks
 
 - Current-state truth:
-  - many server paths already use ports, adapters, entities, and use cases
-  - billing organization-state reads and writes plus the shared export-record lifecycle now run through app-owned store-backed helpers in `#619`
-  - billing cancellation now acknowledges successful Stripe cancellation even if the immediate local organization reset fails, relying on the existing Stripe deleted-subscription webhook as the documented reconciliation path in `#637`
-  - multiple non-adapter routes still depend directly on `locals.supabase`, especially admin/platform operations and some layout helpers
+	- many server paths already use ports, adapters, entities, and use cases
+	- billing organization-state reads and writes plus the shared export-record lifecycle now run through app-owned store-backed helpers in `#619`
+	- billing cancellation now acknowledges successful Stripe cancellation even if the immediate local organization reset fails, relying on the existing Stripe deleted-subscription webhook as the documented reconciliation path in `#637`
+	- Critical Tasks workspace settings now load through an app-owned use case instead of the route layout
+	- multiple non-adapter routes still depend directly on `locals.supabase`, especially admin/platform operations and some remaining layout helpers
 - Intended direction:
   - outside auth and adapter edges, business logic should be provider-agnostic
 - Why this matters:

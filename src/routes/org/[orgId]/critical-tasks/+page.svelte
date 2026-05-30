@@ -21,6 +21,7 @@
 		criticalTasksRecordCompletionAffordance,
 		criticalTasksViewReadinessAffordance
 	} from '$features/critical-tasks/utils/criticalTasksPolicy';
+	import { criticalTasksSettingsFromWorkspaceData } from '$features/critical-tasks/utils/criticalTasksWorkspaceData';
 	import { normalizeCriticalTasksSettings } from '$features/critical-tasks/utils/ictStatus';
 	import { getActiveIctTasksForLibrary } from '$features/critical-tasks/utils/ictTaskLibrary';
 	import type { IctTask, PersonnelIctCompletion } from '$features/critical-tasks/criticalTasks.types';
@@ -58,7 +59,7 @@
 	);
 
 	const activeTasks = $derived(getActiveIctTasksForLibrary(ictTasksStore.items));
-	const criticalTasksSettings = $derived(normalizeCriticalTasksSettings(data.criticalTasksSettings));
+	const criticalTasksSettings = $derived(normalizeCriticalTasksSettings(criticalTasksSettingsFromWorkspaceData(data)));
 	const viewReadinessAffordance = $derived(criticalTasksViewReadinessAffordance(org));
 	const recordCompletionAffordance = $derived(criticalTasksRecordCompletionAffordance(org));
 	const configureLibraryAffordance = $derived(criticalTasksConfigureLibraryAffordance(org));

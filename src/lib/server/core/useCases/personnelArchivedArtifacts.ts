@@ -21,11 +21,48 @@ import {
 	restorePersonnelLeaderNote
 } from './personnelLeaderNotes';
 
+const PERSONNEL_OWNED_ARCHIVE_TABLES = [
+	{
+		table: 'personnel_follow_ups',
+		archiveData: (archivedAt: string) => ({ status: 'archived', archived_at: archivedAt })
+	},
+	{
+		table: 'counseling_records',
+		archiveData: (archivedAt: string) => ({ archived_at: archivedAt })
+	},
+	{
+		table: 'personnel_documents',
+		archiveData: (archivedAt: string) => ({ archived_at: archivedAt })
+	},
+	{
+		table: 'leader_notes',
+		archiveData: (archivedAt: string) => ({ archived_at: archivedAt })
+	}
+] as const;
+
 export type RestoredPersonnelArchivedArtifact =
 	| ({ kind: 'follow-up' } & PersonnelFollowUp)
 	| ({ kind: 'counseling' } & PersonnelCounselingRecord)
 	| ({ kind: 'document' } & PersonnelDocument)
 	| ({ kind: 'note' } & PersonnelLeaderNote);
+
+export async function archivePersonnelOwnedArtifacts(
+	ctx: Pick<UseCaseContext, 'store' | 'auth'>,
+	personnelIds: string[],
+	archivedAt: string
+): Promise<void> {
+	const uniquePersonnelIds = [...new Set(personnelIds)];
+	if (uniquePersonnelIds.length === 0) return;
+
+	for (const { table, archiveData } of PERSONNEL_OWNED_ARCHIVE_TABLES) {
+		const rows = await ctx.store.findMany<{ id: string }>(table, ctx.auth.orgId, undefined, {
+			inFilters: { personnel_id: uniquePersonnelIds },
+			select: 'id'
+		});
+
+		await Promise.all(rows.map((row) => ctx.store.update(table, ctx.auth.orgId, row.id, archiveData(archivedAt))));
+	}
+}
 
 export async function listPersonnelArchivedArtifacts(
 	ctx: UseCaseContext,

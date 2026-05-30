@@ -27,7 +27,8 @@ describe('removed standalone help route', () => {
 	});
 
 	it('does not resolve /help in SvelteKit route generation', () => {
-		expect(svelteKitRouteIds()).not.toContain('/help');
+		const routeIds = svelteKitRouteIds();
+		expect(routeIds.some((id) => id === '/help' || id.startsWith('/help/'))).toBe(false);
 	});
 
 	it('does not link former help entry points to /help', () => {

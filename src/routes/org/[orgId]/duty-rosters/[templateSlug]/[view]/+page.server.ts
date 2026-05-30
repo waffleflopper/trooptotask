@@ -313,7 +313,8 @@ export const actions: Actions = {
 		try {
 			const ctx = await buildRouteContext(event);
 			await archiveDutyRosterTemplate(ctx, {
-				templateId: String(formData.get('templateId') ?? '')
+				templateId: String(formData.get('templateId') ?? ''),
+				archiveAssignmentType: formData.get('archiveAssignmentType') === 'true'
 			});
 		} catch (errorValue) {
 			return actionError(errorValue, {

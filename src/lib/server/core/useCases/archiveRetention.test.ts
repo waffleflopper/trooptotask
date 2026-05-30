@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createInMemoryDataStore, createTestStoragePort } from '$lib/server/adapters/inMemory';
 import { cleanupArchivedRecords, DEFAULT_ARCHIVE_RETENTION_MONTHS } from './archiveRetention';
+import { COUNSELING_RECORDS_BUCKET } from './personnelCounselingRecords';
 import { PERSONNEL_DOCUMENTS_BUCKET } from './personnelDocuments';
 
 const NOW = new Date('2026-05-30T12:00:00.000Z');
@@ -36,8 +37,18 @@ function seedRetentionRows(ports: ReturnType<typeof buildPorts>) {
 		{ id: 'follow-up-active', organization_id: 'org-1', status: 'open', archived_at: null }
 	]);
 	ports.store.seed('counseling_records', [
-		{ id: 'counseling-expired', organization_id: 'org-1', archived_at: expired },
-		{ id: 'counseling-recent', organization_id: 'org-1', archived_at: recent },
+		{
+			id: 'counseling-expired',
+			organization_id: 'org-1',
+			file_path: 'org-1/counseling-records/person-1/expired.pdf',
+			archived_at: expired
+		},
+		{
+			id: 'counseling-recent',
+			organization_id: 'org-1',
+			file_path: 'org-1/counseling-records/person-1/recent.pdf',
+			archived_at: recent
+		},
 		{ id: 'counseling-active', organization_id: 'org-1', archived_at: null }
 	]);
 	ports.store.seed('personnel_documents', [
@@ -90,6 +101,16 @@ function seedRetentionRows(ports: ReturnType<typeof buildPorts>) {
 			bucket: PERSONNEL_DOCUMENTS_BUCKET,
 			path: 'org-1/personnel/person-1/documents/recent.pdf',
 			data: new ArrayBuffer(1)
+		},
+		{
+			bucket: COUNSELING_RECORDS_BUCKET,
+			path: 'org-1/counseling-records/person-1/expired.pdf',
+			data: new ArrayBuffer(1)
+		},
+		{
+			bucket: COUNSELING_RECORDS_BUCKET,
+			path: 'org-1/counseling-records/person-1/recent.pdf',
+			data: new ArrayBuffer(1)
 		}
 	);
 }
@@ -141,8 +162,84 @@ describe('cleanupArchivedRecords', () => {
 			expect.objectContaining({
 				bucket: PERSONNEL_DOCUMENTS_BUCKET,
 				path: 'org-1/personnel/person-1/documents/recent.pdf'
+			}),
+			expect.objectContaining({
+				bucket: COUNSELING_RECORDS_BUCKET,
+				path: 'org-1/counseling-records/person-1/recent.pdf'
 			})
 		]);
+	});
+
+	it('removes storage files for personnel-owned documents that would be deleted by personnel cascades', async () => {
+		const ports = buildPorts();
+		const expired = isoMonthsAgo(13);
+		const recent = isoMonthsAgo(3);
+		ports.store.seed('personnel', [{ id: 'person-expired', organization_id: 'org-1', archived_at: expired }]);
+		ports.store.seed('personnel_documents', [
+			{
+				id: 'document-recent',
+				organization_id: 'org-1',
+				personnel_id: 'person-expired',
+				file_path: 'org-1/personnel/person-expired/documents/recent.pdf',
+				archived_at: recent
+			}
+		]);
+		ports.store.seed('counseling_records', [
+			{
+				id: 'counseling-recent',
+				organization_id: 'org-1',
+				personnel_id: 'person-expired',
+				file_path: 'org-1/counseling-records/person-expired/recent.pdf',
+				archived_at: recent
+			}
+		]);
+		ports.storage.files.push(
+			{
+				bucket: PERSONNEL_DOCUMENTS_BUCKET,
+				path: 'org-1/personnel/person-expired/documents/recent.pdf',
+				data: new ArrayBuffer(1)
+			},
+			{
+				bucket: COUNSELING_RECORDS_BUCKET,
+				path: 'org-1/counseling-records/person-expired/recent.pdf',
+				data: new ArrayBuffer(1)
+			}
+		);
+
+		await cleanupArchivedRecords(ports, [{ id: 'org-1', retentionMonths: 12 }], { now: NOW });
+
+		expect(ports.storage.files).toEqual([]);
+	});
+
+	it('skips archived assignment types that still have calendar or duty roster references', async () => {
+		const ports = buildPorts();
+		const expired = isoMonthsAgo(13);
+		ports.store.seed('assignment_types', [
+			{ id: 'assignment-referenced', organization_id: 'org-1', archived_at: expired },
+			{ id: 'assignment-unreferenced', organization_id: 'org-1', archived_at: expired }
+		]);
+		ports.store.seed('daily_assignments', [
+			{ id: 'daily-1', organization_id: 'org-1', assignment_type_id: 'assignment-referenced' }
+		]);
+
+		const result = await cleanupArchivedRecords(ports, [{ id: 'org-1', retentionMonths: 12 }], { now: NOW });
+
+		expect(result.families).toEqual(
+			expect.arrayContaining([expect.objectContaining({ key: 'assignment-types', deletedCount: 1 })])
+		);
+		await expect(idsFor(ports, 'assignment_types')).resolves.toEqual(['assignment-referenced']);
+	});
+
+	it('defaults invalid retention settings instead of deleting immediately', async () => {
+		const ports = buildPorts();
+		ports.store.seed('personnel', [
+			{ id: 'old-but-inside-default', organization_id: 'org-1', archived_at: isoMonthsAgo(13) }
+		]);
+
+		const result = await cleanupArchivedRecords(ports, [{ id: 'org-1', retentionMonths: 0 }], { now: NOW });
+
+		expect(result.deletedCount).toBe(0);
+		await expect(idsFor(ports, 'personnel')).resolves.toEqual(['old-but-inside-default']);
 	});
 
 	it('respects per-Organization retention settings', async () => {

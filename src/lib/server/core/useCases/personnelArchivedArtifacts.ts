@@ -39,6 +39,7 @@ const PERSONNEL_OWNED_ARCHIVE_TABLES = [
 		archiveData: (archivedAt: string) => ({ archived_at: archivedAt })
 	}
 ] as const;
+const ARCHIVE_UPDATE_BATCH_SIZE = 50;
 
 export type RestoredPersonnelArchivedArtifact =
 	| ({ kind: 'follow-up' } & PersonnelFollowUp)
@@ -61,7 +62,10 @@ export async function archivePersonnelOwnedArtifacts(
 			select: 'id'
 		});
 
-		await Promise.all(rows.map((row) => ctx.store.update(table, ctx.auth.orgId, row.id, archiveData(archivedAt))));
+		for (let index = 0; index < rows.length; index += ARCHIVE_UPDATE_BATCH_SIZE) {
+			const batch = rows.slice(index, index + ARCHIVE_UPDATE_BATCH_SIZE);
+			await Promise.all(batch.map((row) => ctx.store.update(table, ctx.auth.orgId, row.id, archiveData(archivedAt))));
+		}
 	}
 }
 

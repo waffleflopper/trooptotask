@@ -391,10 +391,14 @@
 						{#snippet cell(row, col)}
 							{@const lossRecord = upcomingLossMap.get(row.id)}
 							{#if col.key === 'select'}
+								{@const canArchive = ctx.canArchivePersonnelRecord(row)}
 								<DataTable.SelectionCheckbox
-									checked={selectedArchiveIds.has(row.id)}
-									ariaLabel={`Select ${row.rank} ${row.lastName}, ${row.firstName}`}
-									onCheckedChange={() => toggleArchiveSelection(row.id)}
+									checked={canArchive && selectedArchiveIds.has(row.id)}
+									disabled={!canArchive}
+									ariaLabel={canArchive
+										? `Select ${row.rank} ${row.lastName}, ${row.firstName}`
+										: `${row.rank} ${row.lastName}, ${row.firstName} cannot be archived`}
+									onCheckedChange={canArchive ? () => toggleArchiveSelection(row.id) : undefined}
 								/>
 							{:else if col.key === 'name'}
 								{row.lastName}, {row.firstName}

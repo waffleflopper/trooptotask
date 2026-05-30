@@ -225,6 +225,19 @@ describe('Duty Roster Template view route', () => {
 			status: 303,
 			location: '/org/org-1/duty-rosters/cq-nco/history'
 		});
+
+		await expect(
+			load({
+				params: { orgId: 'org-1', templateSlug: 'cq-nco', view: 'settings' },
+				url: new URL('http://localhost/org/org-1/duty-rosters/cq-nco/settings'),
+				locals: {},
+				cookies: {},
+				parent: async () => ({ orgName: 'Able Company' })
+			} as never)
+		).rejects.toMatchObject({
+			status: 303,
+			location: '/org/org-1/duty-rosters/cq-nco/history'
+		});
 	});
 
 	it('updates Settings through the service layer and redirects back to Settings', async () => {
@@ -612,7 +625,7 @@ describe('Duty Roster Template view route', () => {
 	it('archives a template and returns to the register', async () => {
 		const request = new Request('http://localhost', {
 			method: 'POST',
-			body: new URLSearchParams({ templateId: 'template-1' })
+			body: new URLSearchParams({ templateId: 'template-1', archiveAssignmentType: 'true' })
 		});
 
 		await expect(
@@ -626,7 +639,8 @@ describe('Duty Roster Template view route', () => {
 		});
 
 		expect(archiveDutyRosterTemplateMock).toHaveBeenCalledWith(mockCtx, {
-			templateId: 'template-1'
+			templateId: 'template-1',
+			archiveAssignmentType: true
 		});
 	});
 

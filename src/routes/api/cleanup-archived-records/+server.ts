@@ -37,6 +37,10 @@ export async function _runArchiveRetentionCleanupEndpointCore(
 }
 
 export const GET: RequestHandler = async ({ request }) => {
+	if (!isAuthorized(request, env.CLEANUP_SECRET, env.CRON_SECRET)) {
+		throw error(401, 'Unauthorized');
+	}
+
 	const admin = getAdminClient();
 	const { data: orgs, error: orgError } = await admin.from('organizations').select('id, archive_retention_months');
 

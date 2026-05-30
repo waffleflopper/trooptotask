@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { _runArchiveRetentionCleanupEndpointCore } from './+server';
 
 function makeRequest(token?: string): Request {
@@ -9,15 +9,18 @@ function makeRequest(token?: string): Request {
 
 describe('cleanup archived records endpoint core', () => {
 	it('rejects missing bearer token', async () => {
+		const runCleanup = vi.fn(async () => ({ deletedCount: 0, orgsAffected: 0, families: [] }));
+
 		await expect(
 			_runArchiveRetentionCleanupEndpointCore({
 				request: makeRequest(),
 				cleanupSecret: 'cleanup-secret',
 				cronSecret: 'cron-secret',
 				orgConfigs: [],
-				runCleanup: async () => ({ deletedCount: 0, orgsAffected: 0, families: [] })
+				runCleanup
 			})
 		).rejects.toMatchObject({ status: 401 });
+		expect(runCleanup).not.toHaveBeenCalled();
 	});
 
 	it('accepts CLEANUP_SECRET bearer token and passes Organization configs to the cleanup use case', async () => {

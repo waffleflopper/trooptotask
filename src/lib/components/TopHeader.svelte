@@ -372,21 +372,23 @@
 										Account
 									</DropdownMenu.Item>
 								</DropdownMenu.Group>
-								<DropdownMenu.Separator />
-								<DropdownMenu.Group>
-									{#if onWhatsNew}
-										<DropdownMenu.Item onclick={onWhatsNew}>
-											<Megaphone />
-											What's New
-										</DropdownMenu.Item>
-									{/if}
-									{#if onFeedback}
-										<DropdownMenu.Item onclick={onFeedback}>
-											<MessageSquareText />
-											Send Feedback
-										</DropdownMenu.Item>
-									{/if}
-								</DropdownMenu.Group>
+								{#if onWhatsNew || onFeedback}
+									<DropdownMenu.Separator />
+									<DropdownMenu.Group>
+										{#if onWhatsNew}
+											<DropdownMenu.Item onclick={onWhatsNew}>
+												<Megaphone />
+												What's New
+											</DropdownMenu.Item>
+										{/if}
+										{#if onFeedback}
+											<DropdownMenu.Item onclick={onFeedback}>
+												<MessageSquareText />
+												Send Feedback
+											</DropdownMenu.Item>
+										{/if}
+									</DropdownMenu.Group>
+								{/if}
 								<DropdownMenu.Separator />
 								{#if canLeaveOrganization}
 									<DropdownMenu.Item variant="destructive" onclick={openLeaveOrganizationDialog}>

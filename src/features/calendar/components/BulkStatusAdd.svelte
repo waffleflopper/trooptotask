@@ -6,13 +6,13 @@
 	import { Badge as UiBadge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import * as DataTable from '$lib/components/ui/data-table';
-	import { useDataTable, type ColumnDef } from '$lib/components/ui/data-table';
+	import { useDataTable, useDataTableSelection, type ColumnDef } from '$lib/components/ui/data-table';
 	import { DatePicker } from '$lib/components/ui/date-picker';
 	import * as Field from '$lib/components/ui/field';
 	import { Input } from '$lib/components/ui/input';
 	import { NativeSelect } from '$lib/components/ui/native-select';
 	import { Spinner } from '$lib/components/ui/spinner';
-	import { SvelteSet } from 'svelte/reactivity';
+	import { validateDateRange } from '$features/calendar/utils/availabilityMutation';
 
 	interface GroupData {
 		group: string;
@@ -38,7 +38,6 @@
 	let selectedStatusId = $state('');
 	let startDate = $state(todayStr);
 	let endDate = $state(todayStr);
-	const selectedIds = new SvelteSet<string>();
 	let isSubmitting = $state(false);
 	let note = $state('');
 	let step = $state<'select' | 'confirm'>('select');
@@ -76,29 +75,26 @@
 		}
 	});
 
-	// ---- Selection logic ----
-	function togglePerson(id: string) {
-		if (selectedIds.has(id)) selectedIds.delete(id);
-		else selectedIds.add(id);
-	}
+	const selection = useDataTableSelection<Personnel>({ rows: () => allPersonnel, rowKey: (p) => p.id });
 
-	function getVisiblePersonnelIds(): string[] {
-		const groupedIds = table.groups.flatMap((g) => g.rows.map((p) => p.id));
-		return groupedIds.length > 0 ? groupedIds : table.rows.map((p) => p.id);
+	// ---- Selection logic ----
+	function visiblePersonnel(): Personnel[] {
+		const grouped = table.groups.flatMap((g) => g.rows);
+		return grouped.length > 0 ? grouped : table.rows;
 	}
 
 	function selectVisible() {
-		for (const id of getVisiblePersonnelIds()) selectedIds.add(id);
+		for (const p of visiblePersonnel()) selection.toggleRow(p, 0, true);
 	}
 
 	function selectNone() {
-		selectedIds.clear();
+		selection.clear();
 	}
 
 	function getGroupSelectionState(groupKey: string): 'none' | 'some' | 'all' {
 		const group = table.groups.find((g) => g.key === groupKey);
 		if (!group || group.rows.length === 0) return 'none';
-		const count = group.rows.filter((p) => selectedIds.has(p.id)).length;
+		const count = group.rows.filter((p) => selection.isSelected(p, 0)).length;
 		if (count === 0) return 'none';
 		if (count === group.rows.length) return 'all';
 		return 'some';
@@ -107,33 +103,18 @@
 	function toggleGroup(groupKey: string) {
 		const group = table.groups.find((g) => g.key === groupKey);
 		if (!group) return;
-		const state = getGroupSelectionState(groupKey);
-		if (state === 'all') {
-			for (const p of group.rows) selectedIds.delete(p.id);
-		} else {
-			for (const p of group.rows) selectedIds.add(p.id);
-		}
+		const shouldSelect = getGroupSelectionState(groupKey) !== 'all';
+		for (const p of group.rows) selection.toggleRow(p, 0, shouldSelect);
 	}
 
 	// ---- Validation ----
-	const dateError = $derived.by(() => {
-		if (startDate && endDate && startDate > endDate) return 'End date must be on or after start date';
-		return null;
-	});
-
-	const dayCount = $derived.by(() => {
-		if (!startDate || !endDate || startDate > endDate) return 0;
-		const start = new Date(startDate);
-		const end = new Date(endDate);
-		return Math.floor((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-	});
-
-	const isValid = $derived(selectedStatusId && startDate && endDate && startDate <= endDate && selectedIds.size > 0);
+	const range = $derived(validateDateRange(startDate, endDate));
+	const isValid = $derived(!!selectedStatusId && range.valid && selection.selectedCount > 0);
 	const selectedStatus = $derived(statusTypes.find((s) => s.id === selectedStatusId));
 	const selectedPersonnel = $derived(
-		allPersonnel
-			.filter((p) => selectedIds.has(p.id))
-			.sort((a, b) => (a.groupName || '').localeCompare(b.groupName || '') || a.lastName.localeCompare(b.lastName))
+		[...selection.selectedRows].sort(
+			(a, b) => (a.groupName || '').localeCompare(b.groupName || '') || a.lastName.localeCompare(b.lastName)
+		)
 	);
 
 	$effect(() => {
@@ -160,10 +141,11 @@
 		if (!isValid || isSubmitting) return;
 		isSubmitting = true;
 		try {
-			await onApply([...selectedIds], selectedStatusId, startDate, endDate, note.trim() || null);
-			const count = selectedIds.size;
+			const ids = selection.selectedRows.map((p) => p.id);
+			await onApply(ids, selectedStatusId, startDate, endDate, note.trim() || null);
+			const count = ids.length;
 			toastStore.success(`Applied status to ${count} ${count === 1 ? 'person' : 'people'}`);
-			selectedIds.clear();
+			selection.clear();
 			step = 'select';
 			onComplete();
 		} finally {
@@ -208,17 +190,17 @@
 							<Field.Root>
 								<Field.Label for="endDate">End Date</Field.Label>
 								<DatePicker id="endDate" bind:value={endDate} placeholder="Select end date" />
-								{#if dayCount > 0}
+								{#if range.dayCount > 0}
 									<div class="status-summary-support">
-										<span class="day-count-number">{dayCount}</span>
-										<span class="status-summary-hint">{dayCount === 1 ? 'day selected' : 'days selected'}</span>
+										<span class="day-count-number">{range.dayCount}</span>
+										<span class="status-summary-hint">{range.dayCount === 1 ? 'day selected' : 'days selected'}</span>
 									</div>
 								{/if}
 							</Field.Root>
 						</div>
 
-						{#if dateError}
-							<div id="date-error" class="date-error" role="alert">{dateError}</div>
+						{#if range.error}
+							<div id="date-error" class="date-error" role="alert">{range.error}</div>
 						{/if}
 
 						<Field.Root>
@@ -235,12 +217,12 @@
 
 					<div class="summary-card" aria-live="polite">
 						<h3 class="summary-heading">Ready to apply</h3>
-						{#if selectedIds.size > 0 && selectedStatus && !dateError}
+						{#if selection.selectedCount > 0 && selectedStatus && !range.error}
 							<div class="summary-line">
 								<CalendarStatusBadge statusType={selectedStatus}>{selectedStatus.name}</CalendarStatusBadge>
 								<span class="summary-copy">
-									<strong>{selectedIds.size}</strong>
-									{selectedIds.size === 1 ? 'person' : 'people'}
+									<strong>{selection.selectedCount}</strong>
+									{selection.selectedCount === 1 ? 'person' : 'people'}
 									selected
 								</span>
 							</div>
@@ -251,10 +233,10 @@
 									{formatDateDisplay(startDate)} to {formatDateDisplay(endDate)}
 								{/if}
 							</p>
-						{:else if selectedIds.size === 0}
+						{:else if selection.selectedCount === 0}
 							<p class="summary-copy muted">Choose at least one person from the list to enable the bulk update.</p>
-						{:else if dateError}
-							<p class="summary-copy error">{dateError}</p>
+						{:else if range.error}
+							<p class="summary-copy error">{range.error}</p>
 						{/if}
 					</div>
 
@@ -278,10 +260,10 @@
 							showSearch
 							searchPlaceholder="Search by name, rank, MOS, or role..."
 							emptyMessage="No personnel available"
-							onRowClick={(person) => togglePerson(person.id)}
+							onRowClick={(person) => selection.toggleRow(person, 0)}
 						>
 							{#snippet toolbar()}
-								<DataTable.BulkActions selectedCount={selectedIds.size} totalCount={table.totalRows}>
+								<DataTable.BulkActions selectedCount={selection.selectedCount} totalCount={table.totalRows}>
 									<Button type="button" variant="outline" size="sm" onclick={selectVisible}>Select shown</Button>
 									<Button type="button" variant="outline" size="sm" onclick={selectNone}>Clear</Button>
 								</DataTable.BulkActions>
@@ -305,9 +287,9 @@
 							{#snippet cell(row, col)}
 								{#if col.key === 'select'}
 									<DataTable.SelectionCheckbox
-										checked={selectedIds.has(row.id)}
+										checked={selection.isSelected(row, 0)}
 										ariaLabel={`Select ${row.rank} ${row.lastName}, ${row.firstName}`}
-										onCheckedChange={() => togglePerson(row.id)}
+										onCheckedChange={() => selection.toggleRow(row, 0)}
 									/>
 								{:else}
 									{String(col.value(row) ?? '')}
@@ -333,7 +315,9 @@
 					{#if selectedStatus}
 						<CalendarStatusBadge statusType={selectedStatus}>{selectedStatus.name}</CalendarStatusBadge>
 					{/if}
-					<UiBadge variant="outline">{selectedIds.size} {selectedIds.size === 1 ? 'person' : 'people'}</UiBadge>
+					<UiBadge variant="outline"
+						>{selection.selectedCount} {selection.selectedCount === 1 ? 'person' : 'people'}</UiBadge
+					>
 					<UiBadge variant="outline">
 						{startDate === endDate
 							? formatDateDisplay(startDate)

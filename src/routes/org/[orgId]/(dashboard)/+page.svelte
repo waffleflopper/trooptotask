@@ -29,6 +29,7 @@
 	let supportRequestVersion = 0;
 	let workspaceError = $state<Error | null>(null);
 	let summaryError = $state<Error | null>(null);
+	const shell = $derived(data.shell.kind === 'ready' ? data.shell : null);
 	const renderLoadError = $derived.by(() => {
 		const error = workspaceError ?? summaryError;
 		if (error) {
@@ -76,7 +77,7 @@
 	});
 
 	$effect(() => {
-		data.orgId;
+		shell?.org.id;
 		supportRequestVersion += 1;
 		supportData = null;
 		supportLoading = false;
@@ -121,10 +122,10 @@
 	): DashboardPageData {
 		return {
 			...data,
-			orgId: data.orgId,
-			orgName: data.orgName ?? 'Troop to Task',
-			userId: data.userId ?? null,
-			permissions: data.permissions ?? null,
+			orgId: shell?.org.id ?? '',
+			orgName: shell?.org.name ?? 'Troop to Task',
+			userId: shell?.user.id ?? null,
+			permissions: shell?.member.permissions ?? null,
 			dashboard,
 			trainingSummary: summary.trainingSummary,
 			ictlSummary: summary.ictlSummary,

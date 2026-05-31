@@ -27,6 +27,7 @@ import {
 	dutyRosterFormValues,
 	parseDutyRosterBaselineCounts
 } from '../../routeHelpers.server';
+import { requireReadyAppShell } from '$lib/server/core/appShellRouteData';
 
 type ActionErrorKey =
 	| 'generateError'
@@ -60,7 +61,7 @@ function parseHistoryPage(value: string | null): number {
 
 export const load: PageServerLoad = async ({ params, url, locals, cookies, parent }) => {
 	const { orgId, templateSlug, view } = params;
-	const parentData = await parent();
+	const shell = requireReadyAppShell(await parent());
 
 	if (!isDutyRosterTemplateView(view)) {
 		throw redirect(303, `/org/${orgId}/duty-rosters/${templateSlug}/generate`);
@@ -96,7 +97,7 @@ export const load: PageServerLoad = async ({ params, url, locals, cookies, paren
 
 	return {
 		orgId,
-		orgName: parentData.orgName,
+		orgName: shell.org.name,
 		breadcrumbLabel: data.selectedTemplate.name,
 		templates: data.templates,
 		selectedTemplate: data.selectedTemplate,

@@ -4,6 +4,7 @@ import { cleanup, render, screen } from '@testing-library/svelte';
 
 import Page from './+page.svelte';
 import type { CheckoutSuccessStatus } from './+page.server';
+import { createReadyAppShellRouteData } from '$lib/test-support/appShellRouteData';
 
 afterEach(() => {
 	cleanup();
@@ -13,7 +14,7 @@ function renderPage(checkoutStatus: CheckoutSuccessStatus) {
 	render(Page, {
 		props: {
 			data: {
-				orgId: 'org-route-1',
+				...createReadyAppShellRouteData({ orgId: 'org-route-1' }),
 				checkoutStatus
 			} as never,
 			form: null as never,

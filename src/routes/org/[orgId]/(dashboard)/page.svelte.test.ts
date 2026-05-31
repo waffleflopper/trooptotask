@@ -2,6 +2,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, waitFor } from '@testing-library/svelte';
 import PassiveStub from '$features/duty-roster/components/test-stubs/PassiveStub.svelte';
+import { createReadyAppShellRouteData } from '$lib/test-support/appShellRouteData';
 
 vi.mock('$features/dashboard', async () => {
 	const actual = await vi.importActual<typeof import('$features/dashboard')>('$features/dashboard');
@@ -19,22 +20,17 @@ afterEach(() => {
 });
 
 function makePageData(overrides: Record<string, unknown> = {}) {
+	const orgId = typeof overrides.orgId === 'string' ? overrides.orgId : 'org-1';
+	const orgName = typeof overrides.orgName === 'string' ? overrides.orgName : 'Test Unit';
+	const userRole = typeof overrides.userRole === 'string' ? overrides.userRole : 'owner';
 	const base = {
-		orgId: 'org-1',
-		orgName: 'Test Unit',
-		userId: 'user-1',
-		userRole: 'owner',
-		permissions: {
-			canViewCalendar: true,
-			canEditCalendar: true,
-			canViewPersonnel: true,
-			canEditPersonnel: true,
-			canViewTraining: true,
-			canEditTraining: true,
-			canViewOnboarding: true,
-			canEditOnboarding: true,
-			canManageMembers: true
-		},
+		...createReadyAppShellRouteData({
+			orgId,
+			orgName,
+			userId: 'user-1',
+			role: userRole === 'member' ? 'member' : 'owner'
+		}),
+		userRole,
 		dashboard: {
 			workspace: 'dashboard',
 			data: {

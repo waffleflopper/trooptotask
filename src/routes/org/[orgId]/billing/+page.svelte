@@ -85,6 +85,8 @@
 	let cancelNowError = $state('');
 	let subscribeConfirmOpen = $state(false);
 	let subscribeConfirmTier = $state<string | null>(null);
+	const shell = $derived(data.shell.kind === 'ready' ? data.shell : null);
+	const orgUrlSegment = $derived(shell?.org.urlSegment ?? '');
 
 	const fallbackTier: EffectiveTier = {
 		tier: 'free',
@@ -123,7 +125,7 @@
 		buildBillingRecovery(billingSnapshot, tier, canOpenBillingPortal, billingActionsDisabled)
 	);
 	const usageAlertTitle = $derived(buildUsageAlertTitle(planUsageSummary?.alerts ?? []));
-	const usageAlertActions = $derived.by(() => buildUsageAlertActions(planUsageSummary?.alerts ?? [], data.orgId));
+	const usageAlertActions = $derived.by(() => buildUsageAlertActions(planUsageSummary?.alerts ?? [], orgUrlSegment));
 	const canShowImmediateCancellation = $derived(
 		data.canManageSubscription &&
 			!billingActionsDisabled &&
@@ -684,7 +686,7 @@
 		errorMessage = '';
 
 		try {
-			const res = await fetch(`/org/${data.orgId}/billing/checkout`, {
+			const res = await fetch(`/org/${orgUrlSegment}/billing/checkout`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ tier: selectedTier })
@@ -728,7 +730,7 @@
 		errorMessage = '';
 
 		try {
-			const res = await fetch(`/org/${data.orgId}/billing/checkout/cancel`, {
+			const res = await fetch(`/org/${orgUrlSegment}/billing/checkout/cancel`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' }
 			});
@@ -780,7 +782,7 @@
 		cancelLoading = true;
 		errorMessage = '';
 		try {
-			const res = await fetch(`/org/${data.orgId}/billing/cancel`, {
+			const res = await fetch(`/org/${orgUrlSegment}/billing/cancel`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
@@ -813,7 +815,7 @@
 		errorMessage = '';
 
 		try {
-			const res = await fetch(`/org/${data.orgId}/billing/portal`, {
+			const res = await fetch(`/org/${orgUrlSegment}/billing/portal`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' }
 			});

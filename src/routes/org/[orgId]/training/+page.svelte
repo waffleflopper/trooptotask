@@ -10,13 +10,15 @@
 
 	const org = getOrgContext();
 	const modals = new ModalRegistry();
+	const shell = $derived(data.shell.kind === 'ready' ? data.shell : null);
 	let ctx = $state<TrainingPageContext | null>(null);
 
 	$effect.pre(() => {
+		if (!shell) return;
 		const pageData: TrainingPageData = {
-			orgId: data.orgId,
-			orgName: data.orgName,
-			userPreferences: data.userPreferences
+			orgId: shell.org.id,
+			orgName: shell.org.name,
+			userPreferences: shell.preferences
 		};
 		ctx = new TrainingPageContext(pageData, modals, org);
 	});

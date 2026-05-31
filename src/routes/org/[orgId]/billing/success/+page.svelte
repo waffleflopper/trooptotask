@@ -7,8 +7,9 @@
 
 	let { data }: PageProps = $props();
 
-	const billingHref = $derived(`/org/${data.orgId}/billing`);
-	const dashboardHref = $derived(`/org/${data.orgId}`);
+	const orgUrlSegment = $derived(data.shell.kind === 'ready' ? data.shell.org.urlSegment : '');
+	const billingHref = $derived(`/org/${orgUrlSegment}/billing`);
+	const dashboardHref = $derived(`/org/${orgUrlSegment}`);
 </script>
 
 <svelte:head>

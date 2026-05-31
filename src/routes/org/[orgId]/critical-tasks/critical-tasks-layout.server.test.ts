@@ -7,6 +7,7 @@ import type { IctTask, PersonnelIctCompletion } from '$features/critical-tasks/c
 import type { Personnel } from '$lib/types';
 import type { WorkspaceBootstrap, WorkspaceKey } from '$lib/server/core/orgShell';
 import type { CriticalTasksBootstrap } from '$lib/server/core/orgShell';
+import { createReadyAppShellRouteData } from '$lib/test-support/appShellRouteData';
 import { _createCriticalTasksLayoutLoad } from './+layout.server';
 
 describe('critical tasks layout server load', () => {
@@ -59,7 +60,7 @@ describe('critical tasks layout server load', () => {
 		});
 		const locals = {} as App.Locals;
 		const cookies = {} as Cookies;
-		const parent = vi.fn().mockResolvedValue({ orgId: 'org-1' });
+		const parent = vi.fn().mockResolvedValue(createReadyAppShellRouteData({ orgId: 'org-1' }));
 
 		const result = await load({
 			params: { orgId: '1-11-bde' },

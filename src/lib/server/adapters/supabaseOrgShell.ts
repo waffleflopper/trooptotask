@@ -1,5 +1,5 @@
 /**
- * Supabase-backed implementations of `OrgAccessPort` and `OrgChromePort` for the org shell split
+ * Supabase-backed implementations of App Shell and workspace ports for the org shell split
  * (RFC #415). These are the production adapters; in-memory equivalents for tests live in
  * `inMemoryOrgShell.ts`.
  *
@@ -15,19 +15,26 @@ import { assertNormalizedMembershipRow, type MembershipRow } from '$lib/server/p
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { getDefaultUserOrgPreferences, normalizeUserOrgPreferences } from '$lib/preferences/userPreferences';
 import type {
+	AppShellDeferredChromePort,
+	AppShellFirstPaintChrome,
+	AppShellFirstPaintChromePort,
+	AppShellRequest,
 	DeferredData,
 	OrgAccessPort,
-	OrgChromePort,
 	OrgWorkspacePort,
 	StreamableOrgWorkspacePort,
 	WorkspaceKey,
 	MembershipInfo,
 	OrgState,
-	ChromeData,
-	Announcement
+	Announcement,
+	OrganizationSwitcherOrg
 } from '../core/orgShell';
 import type { UseCaseContext } from '../core/ports';
-import type { RootOrgLoadPort, RootOrgShellRequest } from '../core/orgShellCoordinator';
+import {
+	loadAppShellDeferredChrome,
+	loadAppShellFirstPaint,
+	type AppShellFirstPaintRequest
+} from '../core/useCases/loadAppShell';
 import { loadWithContext, getLayoutClient } from './httpAdapter';
 import { getOrLoadRequestMembership } from '$lib/server/membershipContextCache';
 import { fetchCalendarBootstrap, type CalendarBootstrap, type CalendarDateRange } from '../core/useCases/calendarQuery';
@@ -56,83 +63,120 @@ import {
 	resolveOrganizationRouteIdentity
 } from '$lib/server/core/useCases/organizationUrlSlug';
 
-export interface SupabaseRootOrgLoadPortDeps {
+export interface SupabaseAppShellRequestDeps {
 	getLayoutClient?: typeof getLayoutClient;
 	createSubscriptionAdapter?: typeof createSupabaseSubscriptionAdapter;
 	createOrgAccessPort?: typeof createSupabaseOrgAccessPort;
-	createOrgChromePort?: typeof createSupabaseOrgChromePort;
+	createFirstPaintChromePort?: typeof createSupabaseAppShellFirstPaintChromePort;
+	createDeferredChromePort?: typeof createSupabaseAppShellDeferredChromePort;
 }
 
-export function createSupabaseRootOrgLoadPort(
+export function createSupabaseAppShellRequest(
 	config: {
 		locals: App.Locals;
 		cookies: Cookies;
 		orgSegment: string;
 		url?: URL;
 	},
-	deps: SupabaseRootOrgLoadPortDeps = {}
-): RootOrgLoadPort {
+	deps: SupabaseAppShellRequestDeps = {}
+): AppShellRequest {
 	const getLayoutClientFn = deps.getLayoutClient ?? getLayoutClient;
 	const createSubscriptionAdapterFn = deps.createSubscriptionAdapter ?? createSupabaseSubscriptionAdapter;
 	const createOrgAccessPortFn = deps.createOrgAccessPort ?? createSupabaseOrgAccessPort;
-	const createOrgChromePortFn = deps.createOrgChromePort ?? createSupabaseOrgChromePort;
+	const createFirstPaintChromePortFn = deps.createFirstPaintChromePort ?? createSupabaseAppShellFirstPaintChromePort;
+	const createDeferredChromePortFn = deps.createDeferredChromePort ?? createSupabaseAppShellDeferredChromePort;
+
+	async function resolveFirstPaintRequest(): Promise<AppShellFirstPaintRequest> {
+		const { supabase } = getLayoutClientFn(config.locals, config.cookies, config.orgSegment);
+
+		const org = await resolveOrganizationRouteIdentity(supabase, config.orgSegment);
+
+		if (!org) {
+			throw error(404, 'Organization not found');
+		}
+
+		const orgUrlSegment = getPreferredOrganizationUrlSegment({ id: org.id, urlSlug: org.urlSlug });
+
+		if (config.url && org.urlSlug && config.orgSegment !== org.urlSlug) {
+			const currentBase = `/org/${config.orgSegment}`;
+			const canonicalBase = `/org/${org.urlSlug}`;
+			const pathname = config.url.pathname.startsWith(currentBase)
+				? `${canonicalBase}${config.url.pathname.slice(currentBase.length)}`
+				: canonicalBase;
+			throw redirect(308, `${pathname}${config.url.search}`);
+		}
+
+		if (org.suspendedAt) {
+			return {
+				kind: 'suspended',
+				orgId: org.id,
+				orgName: org.name ?? 'Organization',
+				orgUrlSegment
+			};
+		}
+
+		if (!config.locals.user) {
+			throw redirect(303, '/auth/login');
+		}
+
+		const subscriptionAdapter = createSubscriptionAdapterFn(supabase, org.id);
+		const effectiveTierPromise = subscriptionAdapter.getEffectiveTier();
+
+		return {
+			kind: 'ready',
+			orgUrlSegment,
+			access: createOrgAccessPortFn({
+				orgId: org.id,
+				userId: config.locals.user.id,
+				userSupabase: config.locals.supabase,
+				orgName: org.name ?? 'Organization',
+				getEffectiveTier: () => effectiveTierPromise,
+				wrapMembershipLoad: (loadMembershipRow) =>
+					getOrLoadRequestMembership(config.locals, config.locals.user?.id ?? null, org.id, loadMembershipRow)
+			}),
+			chrome: createFirstPaintChromePortFn({
+				orgId: org.id,
+				userId: config.locals.user.id,
+				userSupabase: config.locals.supabase,
+				supabase
+			})
+		};
+	}
+
+	async function resolveDeferredChromePort(): Promise<AppShellDeferredChromePort> {
+		const { supabase } = getLayoutClientFn(config.locals, config.cookies, config.orgSegment);
+		const org = await resolveOrganizationRouteIdentity(supabase, config.orgSegment);
+
+		if (!org) {
+			throw error(404, 'Organization not found');
+		}
+
+		if (org.urlSlug && config.url && config.orgSegment !== org.urlSlug) {
+			const currentBase = `/org/${config.orgSegment}`;
+			const canonicalBase = `/org/${org.urlSlug}`;
+			const pathname = config.url.pathname.startsWith(currentBase)
+				? `${canonicalBase}${config.url.pathname.slice(currentBase.length)}`
+				: canonicalBase;
+			throw redirect(308, `${pathname}${config.url.search}`);
+		}
+
+		if (!config.locals.user) {
+			throw redirect(303, '/auth/login');
+		}
+
+		return createDeferredChromePortFn({
+			orgId: org.id,
+			userId: config.locals.user.id,
+			userSupabase: config.locals.supabase
+		});
+	}
 
 	return {
-		async resolveRequest(): Promise<RootOrgShellRequest> {
-			const { supabase } = getLayoutClientFn(config.locals, config.cookies, config.orgSegment);
-
-			const org = await resolveOrganizationRouteIdentity(supabase, config.orgSegment);
-
-			if (!org) {
-				throw error(404, 'Organization not found');
-			}
-
-			const orgUrlSegment = getPreferredOrganizationUrlSegment({ id: org.id, urlSlug: org.urlSlug });
-
-			if (config.url && org.urlSlug && config.orgSegment !== org.urlSlug) {
-				const currentBase = `/org/${config.orgSegment}`;
-				const canonicalBase = `/org/${org.urlSlug}`;
-				const pathname = config.url.pathname.startsWith(currentBase)
-					? `${canonicalBase}${config.url.pathname.slice(currentBase.length)}`
-					: canonicalBase;
-				throw redirect(308, `${pathname}${config.url.search}`);
-			}
-
-			if (org.suspendedAt) {
-				return {
-					kind: 'suspended',
-					orgId: org.id,
-					orgName: org.name ?? 'Organization',
-					orgUrlSegment
-				};
-			}
-
-			if (!config.locals.user) {
-				throw redirect(303, '/auth/login');
-			}
-
-			const subscriptionAdapter = createSubscriptionAdapterFn(supabase, org.id);
-			const effectiveTierPromise = subscriptionAdapter.getEffectiveTier();
-
-			return {
-				kind: 'shell',
-				orgUrlSegment,
-				access: createOrgAccessPortFn({
-					orgId: org.id,
-					userId: config.locals.user.id,
-					userSupabase: config.locals.supabase,
-					orgName: org.name ?? 'Organization',
-					getEffectiveTier: () => effectiveTierPromise,
-					wrapMembershipLoad: (loadMembershipRow) =>
-						getOrLoadRequestMembership(config.locals, config.locals.user?.id ?? null, org.id, loadMembershipRow)
-				}),
-				chrome: createOrgChromePortFn({
-					orgId: org.id,
-					userId: config.locals.user.id,
-					userSupabase: config.locals.supabase,
-					supabase
-				})
-			};
+		async loadFirstPaint() {
+			return loadAppShellFirstPaint(await resolveFirstPaintRequest());
+		},
+		async loadDeferredChrome(part) {
+			return loadAppShellDeferredChrome(part, await resolveDeferredChromePort());
 		}
 	};
 }
@@ -203,131 +247,177 @@ async function loadMembershipRow(config: {
 	return data as MembershipRow;
 }
 
-export function createSupabaseOrgChromePort(config: {
+export function createSupabaseAppShellFirstPaintChromePort(config: {
 	orgId: string;
 	userId: string;
-	/** User-scoped Supabase client for notifications, memberships, and dismissals. */
+	/** User-scoped Supabase client for dismissals and preferences. */
 	userSupabase: SupabaseClient;
 	/** Service-role or anon client for platform announcements. */
 	supabase: SupabaseClient;
-}): OrgChromePort {
+}): AppShellFirstPaintChromePort {
 	return {
-		async getChromeData(): Promise<ChromeData> {
-			const [membershipsRes, notifRes, announcementsRes, dismissalsRes, userPrefsRes] = await Promise.all([
-				selectAllSupabaseRows<Record<string, unknown>>(
-					(from, to) =>
-						config.userSupabase
-							.from('organization_memberships')
-							.select('role, organizations(id, name, url_slug)')
-							.eq('user_id', config.userId)
-							.range(from, to) as unknown as Promise<{
-							data: Record<string, unknown>[] | null;
-							error: unknown;
-						}>
-				),
-				config.userSupabase
-					.from('notifications')
-					.select('id', { count: 'exact', head: true })
-					.eq('user_id', config.userId)
-					.eq('organization_id', config.orgId)
-					.eq('read', false),
-				selectAllSupabaseRows<Record<string, unknown>>(
-					(from, to) =>
-						config.supabase
-							.from('platform_announcements')
-							.select('id, title, message, type')
-							.eq('is_active', true)
-							.or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
-							.range(from, to) as unknown as Promise<{
-							data: Record<string, unknown>[] | null;
-							error: unknown;
-						}>
-				),
-				selectAllSupabaseRows<Record<string, unknown>>(
-					(from, to) =>
-						config.userSupabase
-							.from('announcement_dismissals')
-							.select('announcement_id')
-							.eq('user_id', config.userId)
-							.range(from, to) as unknown as Promise<{
-							data: Record<string, unknown>[] | null;
-							error: unknown;
-						}>
-				),
-				config.userSupabase
-					.from('user_org_preferences')
-					.select('preferences')
-					.eq('organization_id', config.orgId)
-					.eq('user_id', config.userId)
-					.maybeSingle()
+		async getFirstPaintChrome(): Promise<AppShellFirstPaintChrome> {
+			const [announcements, preferences] = await Promise.all([
+				loadActiveAnnouncements({
+					userId: config.userId,
+					userSupabase: config.userSupabase,
+					supabase: config.supabase
+				}),
+				loadUserOrgPreferences({
+					orgId: config.orgId,
+					userId: config.userId,
+					userSupabase: config.userSupabase
+				})
 			]);
 
-			if (membershipsRes.error) {
-				console.error('[org-shell] Failed to load organization memberships for chrome data:', membershipsRes.error);
-				throw new Error(
-					`Failed to load organization memberships: ${(membershipsRes.error as { message?: string }).message ?? 'Unknown error'}`
-				);
-			}
-
-			if (notifRes.error) {
-				console.error('[org-shell] Failed to load unread notification count for chrome data:', notifRes.error);
-				throw new Error(`Failed to load unread notification count: ${notifRes.error.message}`);
-			}
-
-			if (announcementsRes.error) {
-				console.error('[org-shell] Failed to load platform announcements for chrome data:', announcementsRes.error);
-				throw new Error(
-					`Failed to load platform announcements: ${(announcementsRes.error as { message?: string }).message ?? 'Unknown error'}`
-				);
-			}
-
-			if (dismissalsRes.error) {
-				console.error('[org-shell] Failed to load announcement dismissals for chrome data:', dismissalsRes.error);
-				throw new Error(
-					`Failed to load announcement dismissals: ${(dismissalsRes.error as { message?: string }).message ?? 'Unknown error'}`
-				);
-			}
-
-			if (userPrefsRes.error) {
-				console.error('[org-shell] Failed to load user preferences for chrome data:', userPrefsRes.error);
-				throw new Error(`Failed to load user preferences: ${userPrefsRes.error.message}`);
-			}
-
-			const allOrgs = (membershipsRes.data ?? [])
-				.filter((m: Record<string, unknown>) => m.organizations)
-				.map((m: Record<string, unknown>) => {
-					const org = m.organizations as Record<string, unknown>;
-					return {
-						id: org.id as string,
-						name: org.name as string,
-						role: m.role as string,
-						urlSegment: getPreferredOrganizationUrlSegment({
-							id: org.id as string,
-							urlSlug: org.url_slug as string | null
-						})
-					};
-				});
-
-			const dismissedIds = new Set((dismissalsRes.data ?? []).map((d: Record<string, unknown>) => d.announcement_id));
-			const activeAnnouncements: Announcement[] = (announcementsRes.data ?? [])
-				.filter((a: Record<string, unknown>) => !dismissedIds.has(a.id))
-				.map((a: Record<string, unknown>) => ({
-					id: a.id as string,
-					title: a.title as string,
-					message: a.message as string,
-					type: a.type as 'info' | 'warning' | 'maintenance'
-				}));
-
-			return {
-				unreadNotificationCount: notifRes.count ?? 0,
-				activeAnnouncements,
-				allOrgs,
-				userPreferences: userPrefsRes.data
-					? normalizeUserOrgPreferences(userPrefsRes.data.preferences)
-					: getDefaultUserOrgPreferences()
-			};
+			return { announcements, preferences };
 		}
 	};
+}
+
+export function createSupabaseAppShellDeferredChromePort(config: {
+	orgId: string;
+	userId: string;
+	/** User-scoped Supabase client for notifications and organization switcher data. */
+	userSupabase: SupabaseClient;
+}): AppShellDeferredChromePort {
+	return {
+		async getUnreadNotificationCount(): Promise<number> {
+			const { count, error: notificationError } = await config.userSupabase
+				.from('notifications')
+				.select('id', { count: 'exact', head: true })
+				.eq('user_id', config.userId)
+				.eq('organization_id', config.orgId)
+				.eq('read', false);
+
+			if (notificationError) {
+				throw new Error(`Failed to load unread notification count: ${notificationError.message}`);
+			}
+
+			return count ?? 0;
+		},
+
+		getOrganizationSwitcherOrgs(): Promise<OrganizationSwitcherOrg[]> {
+			return loadOrganizationSwitcherOrgs({
+				userId: config.userId,
+				userSupabase: config.userSupabase
+			});
+		}
+	};
+}
+
+async function loadActiveAnnouncements(config: {
+	userId: string;
+	userSupabase: SupabaseClient;
+	supabase: SupabaseClient;
+}): Promise<Announcement[]> {
+	try {
+		const [announcementsRes, dismissalsRes] = await Promise.all([
+			selectAllSupabaseRows<Record<string, unknown>>(
+				(from, to) =>
+					config.supabase
+						.from('platform_announcements')
+						.select('id, title, message, type')
+						.eq('is_active', true)
+						.or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
+						.range(from, to) as unknown as Promise<{
+						data: Record<string, unknown>[] | null;
+						error: unknown;
+					}>
+			),
+			selectAllSupabaseRows<Record<string, unknown>>(
+				(from, to) =>
+					config.userSupabase
+						.from('announcement_dismissals')
+						.select('announcement_id')
+						.eq('user_id', config.userId)
+						.range(from, to) as unknown as Promise<{
+						data: Record<string, unknown>[] | null;
+						error: unknown;
+					}>
+			)
+		]);
+
+		if (announcementsRes.error) {
+			throw new Error(
+				`Failed to load platform announcements: ${(announcementsRes.error as { message?: string }).message ?? 'Unknown error'}`
+			);
+		}
+
+		if (dismissalsRes.error) {
+			throw new Error(
+				`Failed to load announcement dismissals: ${(dismissalsRes.error as { message?: string }).message ?? 'Unknown error'}`
+			);
+		}
+
+		const dismissedIds = new Set((dismissalsRes.data ?? []).map((dismissal) => dismissal.announcement_id));
+
+		return (announcementsRes.data ?? [])
+			.filter((announcement) => !dismissedIds.has(announcement.id))
+			.map((announcement) => ({
+				id: announcement.id as string,
+				title: announcement.title as string,
+				message: announcement.message as string,
+				type: announcement.type as 'info' | 'warning' | 'maintenance'
+			}));
+	} catch (cause) {
+		console.error('[app-shell] Failed to load first-paint announcements:', cause);
+		return [];
+	}
+}
+
+async function loadUserOrgPreferences(config: { orgId: string; userId: string; userSupabase: SupabaseClient }) {
+	const { data, error: preferencesError } = await config.userSupabase
+		.from('user_org_preferences')
+		.select('preferences')
+		.eq('organization_id', config.orgId)
+		.eq('user_id', config.userId)
+		.maybeSingle();
+
+	if (preferencesError) {
+		console.error('[app-shell] Failed to load user preferences:', preferencesError);
+		return getDefaultUserOrgPreferences();
+	}
+
+	return data ? normalizeUserOrgPreferences(data.preferences) : getDefaultUserOrgPreferences();
+}
+
+async function loadOrganizationSwitcherOrgs(config: {
+	userId: string;
+	userSupabase: SupabaseClient;
+}): Promise<OrganizationSwitcherOrg[]> {
+	const membershipsRes = await selectAllSupabaseRows<Record<string, unknown>>(
+		(from, to) =>
+			config.userSupabase
+				.from('organization_memberships')
+				.select('role, organizations(id, name, url_slug)')
+				.eq('user_id', config.userId)
+				.range(from, to) as unknown as Promise<{
+				data: Record<string, unknown>[] | null;
+				error: unknown;
+			}>
+	);
+
+	if (membershipsRes.error) {
+		throw new Error(
+			`Failed to load organization memberships: ${(membershipsRes.error as { message?: string }).message ?? 'Unknown error'}`
+		);
+	}
+
+	return (membershipsRes.data ?? [])
+		.filter((membership) => membership.organizations)
+		.map((membership) => {
+			const org = membership.organizations as Record<string, unknown>;
+			return {
+				id: org.id as string,
+				name: org.name as string,
+				role: membership.role as string,
+				urlSegment: getPreferredOrganizationUrlSegment({
+					id: org.id as string,
+					urlSlug: org.url_slug as string | null
+				})
+			};
+		});
 }
 
 export function createSupabaseCalendarWorkspacePort(

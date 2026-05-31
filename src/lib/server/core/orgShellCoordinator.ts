@@ -2,51 +2,21 @@ import type {
 	DeferredData,
 	HydrationPlan,
 	HydrationPlannerPort,
-	OrgAccessPort,
-	OrgChromePort,
-	OrgShellData,
 	OrgWorkspacePort,
 	StreamableOrgWorkspacePort,
 	WorkspaceBootstrap,
 	WorkspaceKey
 } from './orgShell';
 import type { HydrationStores, OrgShellHydrator } from '$lib/orgShellCoordinator';
-import { loadOrgShell } from './useCases/loadOrgShell';
-
-export type RootOrgShellRouteData = OrgShellData & {
-	shell: OrgShellData;
-};
-
-export interface SuspendedRootOrgShellRouteData {
-	orgSuspended: true;
-	orgId: string;
-	orgName: string;
-	orgUrlSegment: string;
-}
-
-export type RootOrgShellLoadResult = RootOrgShellRouteData | SuspendedRootOrgShellRouteData;
-
-export type RootOrgShellRequest =
-	| { kind: 'shell'; access: OrgAccessPort; chrome: OrgChromePort; orgUrlSegment: string }
-	| { kind: 'suspended'; orgId: string; orgName: string; orgUrlSegment: string };
-
-export interface RootOrgLoadPort {
-	resolveRequest(): Promise<RootOrgShellRequest>;
-}
 
 export interface OrgShellCoordinatorDeps {
 	hydrationCoordinator?: Pick<OrgShellHydrator, 'hydrate'>;
-}
-
-function isRootOrgLoadPort(request: RootOrgShellRequest | RootOrgLoadPort): request is RootOrgLoadPort {
-	return 'resolveRequest' in request;
 }
 
 /**
  * Orchestration boundary for org shell/workspace bootstrap data and client hydration.
  */
 export interface OrgShellCoordinator {
-	loadRoot(request: RootOrgShellRequest | RootOrgLoadPort): Promise<RootOrgShellLoadResult>;
 	loadWorkspace<T, K extends WorkspaceKey>(
 		workspace: K,
 		ports: {
@@ -66,27 +36,6 @@ export interface OrgShellCoordinator {
 
 export function createOrgShellCoordinator(deps: OrgShellCoordinatorDeps = {}): OrgShellCoordinator {
 	return {
-		async loadRoot(input) {
-			const request = isRootOrgLoadPort(input) ? await input.resolveRequest() : input;
-
-			if (request.kind === 'suspended') {
-				return {
-					orgSuspended: true,
-					orgId: request.orgId,
-					orgName: request.orgName,
-					orgUrlSegment: request.orgUrlSegment
-				};
-			}
-
-			return loadOrgShell(request.access, request.chrome).then((shell) => {
-				const shellWithUrlSegment = { ...shell, orgUrlSegment: request.orgUrlSegment };
-				return {
-					...shellWithUrlSegment,
-					shell: shellWithUrlSegment
-				};
-			});
-		},
-
 		async loadWorkspace<T, K extends WorkspaceKey>(
 			workspace: K,
 			ports: {

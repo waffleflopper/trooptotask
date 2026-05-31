@@ -1,4 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { createReadyAppShellRouteData } from '$lib/test-support/appShellRouteData';
 
 const {
 	createConfiguredDutyRosterTemplateMock,
@@ -45,7 +46,7 @@ describe('New Duty Roster Template route', () => {
 			params: { orgId: 'org-1' },
 			locals: {},
 			cookies: {},
-			parent: async () => ({ orgName: 'Able Company' })
+			parent: async () => createReadyAppShellRouteData({ orgId: 'org-1', orgName: 'Able Company' })
 		} as never);
 
 		expect(result).toMatchObject({

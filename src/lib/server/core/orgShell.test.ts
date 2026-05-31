@@ -1,19 +1,21 @@
 import { describe, it, expect } from 'vitest';
 import { getDefaultUserOrgPreferences } from '$lib/preferences/userPreferences';
 import {
+	createInMemoryAppShellDeferredChromePort,
+	createInMemoryAppShellFirstPaintChromePort,
 	createInMemoryOrgAccessPort,
-	createInMemoryOrgChromePort,
 	createInMemoryOrgWorkspacePort,
 	createInMemoryHydrationPlannerPort
 } from '$lib/server/adapters/inMemoryOrgShell';
 import type {
+	AppShellDeferredChromePort,
+	AppShellFirstPaintChrome,
+	AppShellFirstPaintChromePort,
 	OrgAccessPort,
-	OrgChromePort,
 	OrgWorkspacePort,
 	HydrationPlannerPort,
 	MembershipInfo,
 	OrgState,
-	ChromeData,
 	WorkspaceBootstrap,
 	HydrationPlan
 } from './orgShell';
@@ -139,7 +141,8 @@ describe('WorkspaceBootstrap contract', () => {
 describe('org shell port contract types', () => {
 	it('in-memory adapters satisfy the four shell/workspace port interfaces', () => {
 		function acceptsOrgAccessPort(_port: OrgAccessPort) {}
-		function acceptsOrgChromePort(_port: OrgChromePort) {}
+		function acceptsFirstPaintChromePort(_port: AppShellFirstPaintChromePort) {}
+		function acceptsDeferredChromePort(_port: AppShellDeferredChromePort) {}
 		function acceptsOrgWorkspacePort(_port: OrgWorkspacePort) {}
 		function acceptsHydrationPlannerPort(_port: HydrationPlannerPort) {}
 
@@ -159,14 +162,18 @@ describe('org shell port contract types', () => {
 		] as const);
 
 		acceptsOrgAccessPort(createInMemoryOrgAccessPort({ membership: baseMembership, orgState: baseOrgState }));
-		acceptsOrgChromePort(
-			createInMemoryOrgChromePort({
+		acceptsFirstPaintChromePort(
+			createInMemoryAppShellFirstPaintChromePort({
 				chrome: {
-					unreadNotificationCount: 0,
-					activeAnnouncements: [],
-					allOrgs: [],
-					userPreferences: getDefaultUserOrgPreferences()
+					announcements: [],
+					preferences: getDefaultUserOrgPreferences()
 				}
+			})
+		);
+		acceptsDeferredChromePort(
+			createInMemoryAppShellDeferredChromePort({
+				unreadNotificationCount: 0,
+				organizations: []
 			})
 		);
 		acceptsOrgWorkspacePort(createInMemoryOrgWorkspacePort(workspaceData));
@@ -176,31 +183,36 @@ describe('org shell port contract types', () => {
 	});
 });
 
-describe('createInMemoryOrgChromePort', () => {
-	const chrome: ChromeData = {
-		unreadNotificationCount: 3,
-		activeAnnouncements: [{ id: 'a1', title: 'Hello', message: 'World', type: 'info' as const }],
-		allOrgs: [{ id: 'org-1', name: 'Test Unit', role: 'owner' }],
-		userPreferences: getDefaultUserOrgPreferences()
+describe('createInMemoryAppShellFirstPaintChromePort', () => {
+	const chrome: AppShellFirstPaintChrome = {
+		announcements: [{ id: 'a1', title: 'Hello', message: 'World', type: 'info' as const }],
+		preferences: getDefaultUserOrgPreferences()
 	};
 
-	it('returns configured notification count', async () => {
-		const port = createInMemoryOrgChromePort({ chrome });
-		const result = await port.getChromeData();
-		expect(result.unreadNotificationCount).toBe(3);
-	});
-
 	it('returns configured announcements', async () => {
-		const port = createInMemoryOrgChromePort({ chrome });
-		const result = await port.getChromeData();
-		expect(result.activeAnnouncements).toHaveLength(1);
-		expect(result.activeAnnouncements[0].title).toBe('Hello');
+		const port = createInMemoryAppShellFirstPaintChromePort({ chrome });
+		const result = await port.getFirstPaintChrome();
+		expect(result.announcements).toHaveLength(1);
+		expect(result.announcements[0].title).toBe('Hello');
+	});
+});
+
+describe('createInMemoryAppShellDeferredChromePort', () => {
+	it('returns configured notification count', async () => {
+		const port = createInMemoryAppShellDeferredChromePort({
+			unreadNotificationCount: 3,
+			organizations: []
+		});
+		expect(await port.getUnreadNotificationCount()).toBe(3);
 	});
 
 	it('returns configured org list', async () => {
-		const port = createInMemoryOrgChromePort({ chrome });
-		const result = await port.getChromeData();
-		expect(result.allOrgs[0]).toEqual({ id: 'org-1', name: 'Test Unit', role: 'owner' });
+		const port = createInMemoryAppShellDeferredChromePort({
+			unreadNotificationCount: 0,
+			organizations: [{ id: 'org-1', name: 'Test Unit', role: 'owner' }]
+		});
+		const result = await port.getOrganizationSwitcherOrgs();
+		expect(result[0]).toEqual({ id: 'org-1', name: 'Test Unit', role: 'owner' });
 	});
 });
 

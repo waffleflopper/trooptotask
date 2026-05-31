@@ -85,6 +85,7 @@
 	let orgSwitcherOrgs = $state<OrgInfo[]>([]);
 	let orgSwitcherLoaded = $state(false);
 	let orgSwitcherLoading = $state(false);
+	let orgSwitcherLoadAttempted = $state(false);
 	let notificationsOpen = $state(false);
 	let notifications = $state<Notification[]>([]);
 	let notificationsLoaded = $state(false);
@@ -92,6 +93,8 @@
 	let showLeaveOrganizationDialog = $state(false);
 	let leaveOrganizationConfirmText = $state('');
 	let localUnreadCount = $state(0);
+	let lastOrgUrlSegment = $state<string | null>(null);
+	let lastNotificationCountSegment = $state<string | null>(null);
 	const pathname = $derived($page.url.pathname);
 	const dashboardPath = $derived(`/org/${orgUrlSegment}`);
 	const isDashboardRoot = $derived(pathname === dashboardPath);
@@ -125,7 +128,6 @@
 
 	onMount(() => {
 		clientDashboardDateLabel = formatDashboardDisplayDate(formatDate(new Date()));
-		void loadUnreadNotificationCount();
 	});
 
 	function getInitials(value: string) {
@@ -157,16 +159,17 @@
 		void goto(resolve(`/org/${targetOrgUrlSegment}${suffix}`));
 	}
 
-	async function loadOrgSwitcherOrgs() {
-		if (orgSwitcherLoaded || orgSwitcherLoading) return;
+	async function loadOrgSwitcherOrgs(segment = orgUrlSegment) {
+		if (orgSwitcherLoaded || orgSwitcherLoading || orgSwitcherLoadAttempted) return;
 
+		orgSwitcherLoadAttempted = true;
 		orgSwitcherLoading = true;
 		try {
-			const response = await fetch(`/org/${orgUrlSegment}/api/app-shell-chrome?part=organization-switcher`);
+			const response = await fetch(`/org/${segment}/api/app-shell-chrome?part=organization-switcher`);
 			if (!response.ok) return;
 
 			const result = await response.json();
-			if (result.ok && Array.isArray(result.organizations)) {
+			if (segment === orgUrlSegment && result.ok && Array.isArray(result.organizations)) {
 				orgSwitcherOrgs = result.organizations;
 				orgSwitcherLoaded = true;
 			}
@@ -175,17 +178,19 @@
 		}
 	}
 
-	async function loadUnreadNotificationCount() {
+	async function loadUnreadNotificationCount(segment = orgUrlSegment) {
 		try {
-			const response = await fetch(`/org/${orgUrlSegment}/api/app-shell-chrome?part=notification-count`);
+			const response = await fetch(`/org/${segment}/api/app-shell-chrome?part=notification-count`);
 			if (!response.ok) return;
 
 			const result = await response.json();
-			if (result.ok && typeof result.unreadNotificationCount === 'number') {
+			if (segment === orgUrlSegment && result.ok && typeof result.unreadNotificationCount === 'number') {
 				localUnreadCount = result.unreadNotificationCount;
 			}
 		} catch {
-			localUnreadCount = 0;
+			if (segment === orgUrlSegment) {
+				localUnreadCount = 0;
+			}
 		}
 	}
 
@@ -236,8 +241,31 @@
 	}
 
 	$effect(() => {
-		if (orgSwitcherOpen) {
-			void loadOrgSwitcherOrgs();
+		const segment = orgUrlSegment;
+		if (lastOrgUrlSegment === segment) return;
+
+		lastOrgUrlSegment = segment;
+		orgSwitcherOrgs = [];
+		orgSwitcherLoaded = false;
+		orgSwitcherLoading = false;
+		orgSwitcherLoadAttempted = false;
+		notifications = [];
+		notificationsLoaded = false;
+		notificationsLoading = false;
+		localUnreadCount = 0;
+	});
+
+	$effect(() => {
+		const segment = orgUrlSegment;
+		if (lastNotificationCountSegment === segment) return;
+
+		lastNotificationCountSegment = segment;
+		void loadUnreadNotificationCount(segment);
+	});
+
+	$effect(() => {
+		if (orgSwitcherOpen && !orgSwitcherLoadAttempted) {
+			void loadOrgSwitcherOrgs(orgUrlSegment);
 		}
 	});
 

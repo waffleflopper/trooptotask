@@ -22,11 +22,10 @@
 
 	let { data } = $props();
 
-	const shell = $derived(data.shell.kind === 'ready' ? data.shell : null);
 	let expandedOnboardingId = $state<string | null>(null);
 	const expandedNotes = new SvelteSet<string>();
 	const onboardingNavItems = $derived<WorkspaceToolbarNavItem[]>([
-		{ label: 'Onboarding', href: `/org/${shell?.org.urlSegment ?? ''}/onboarding` }
+		{ label: 'Onboarding', href: `/org/${data.shell.org.urlSegment}/onboarding` }
 	]);
 
 	const historyOnboardings = $derived(

@@ -17,8 +17,8 @@
 
 	const pageData = $derived.by(
 		(): PersonnelPageData => ({
-			orgId: shell?.org.id ?? '',
-			orgName: shell?.org.name ?? '',
+			orgId: data.shell.org.id,
+			orgName: data.shell.org.name,
 			pinnedGroups: workspaceData.pinnedGroups,
 			personnel: workspaceData.personnel,
 			permissions: shell?.member.permissions,

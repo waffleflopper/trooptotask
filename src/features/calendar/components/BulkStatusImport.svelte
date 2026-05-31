@@ -43,6 +43,7 @@
 	// Import state
 	let importing = $state(false);
 	let importResult = $state<{ inserted: number; errors: { row: number; message: string }[] } | null>(null);
+	let completionNotified = false;
 
 	type RowValidation = {
 		valid: boolean;
@@ -96,6 +97,12 @@
 	});
 
 	const allResolved = $derived(unmatchedStatuses.length === 0 || unmatchedStatuses.every((s) => s.resolvedId !== null));
+
+	function notifyCompleteOnce() {
+		if (completionNotified) return;
+		completionNotified = true;
+		onComplete();
+	}
 
 	function buildPreviewRows(raw: string[][]): PreviewRow[] {
 		if (raw.length === 0) return [];
@@ -352,6 +359,9 @@
 			}
 
 			importResult = { inserted: totalInserted, errors: allErrors };
+			if (totalInserted > 0) {
+				notifyCompleteOnce();
+			}
 			step = 'results';
 		} catch (err) {
 			importResult = {
@@ -592,7 +602,7 @@
 				{importing ? 'Importing...' : 'Import'}
 			</Button>
 		{:else if step === 'results'}
-			<Button onclick={onComplete}>Done</Button>
+			<Button onclick={notifyCompleteOnce}>Done</Button>
 		{/if}
 	</div>
 </BulkImportWorkspace.Root>

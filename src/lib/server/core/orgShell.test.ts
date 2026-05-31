@@ -7,6 +7,7 @@ import {
 	createInMemoryOrgWorkspacePort,
 	createInMemoryHydrationPlannerPort
 } from '$lib/server/adapters/inMemoryOrgShell';
+import { createReadyAppShell } from './orgShell';
 import type {
 	AppShellDeferredChromePort,
 	AppShellFirstPaintChrome,
@@ -64,6 +65,35 @@ const baseOrgState: OrgState = {
 		giftTier: null
 	}
 };
+
+const baseFirstPaintChrome: AppShellFirstPaintChrome = {
+	announcements: [],
+	preferences: getDefaultUserOrgPreferences()
+};
+
+describe('createReadyAppShell', () => {
+	it('preserves the authenticated membership user id', () => {
+		const shell = createReadyAppShell({
+			orgUrlSegment: 'test-unit',
+			membership: baseMembership,
+			orgState: baseOrgState,
+			firstPaintChrome: baseFirstPaintChrome
+		});
+
+		expect(shell.user.id).toBe('user-1');
+	});
+
+	it('rejects ready shell creation without an authenticated user id', () => {
+		expect(() =>
+			createReadyAppShell({
+				orgUrlSegment: 'test-unit',
+				membership: { ...baseMembership, userId: null },
+				orgState: baseOrgState,
+				firstPaintChrome: baseFirstPaintChrome
+			})
+		).toThrow('Ready app shell requires an authenticated user id');
+	});
+});
 
 describe('createInMemoryOrgAccessPort', () => {
 	it('returns the configured membership', async () => {

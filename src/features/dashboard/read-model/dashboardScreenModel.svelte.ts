@@ -328,7 +328,10 @@ export class DashboardScreenModel {
 
 	async dismissGettingStarted() {
 		this.gettingStartedDismissed = true;
-		await fetch(`/org/${this.data.orgId}/api/getting-started`, { method: 'POST' });
+		const response = await fetch(`/org/${this.data.orgId}/api/getting-started`, { method: 'POST' });
+		if (!response.ok) {
+			this.gettingStartedDismissed = false;
+		}
 	}
 
 	// ---------------------------------------------------------------------------

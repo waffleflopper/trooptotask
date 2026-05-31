@@ -30,7 +30,6 @@ function makePageData(overrides: Record<string, unknown> = {}) {
 			userId: 'user-1',
 			role: userRole === 'member' ? 'member' : 'owner'
 		}),
-		userRole,
 		dashboard: {
 			workspace: 'dashboard',
 			data: {

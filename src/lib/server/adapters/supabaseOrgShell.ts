@@ -86,9 +86,8 @@ export function createSupabaseAppShellRequest(
 	const createFirstPaintChromePortFn = deps.createFirstPaintChromePort ?? createSupabaseAppShellFirstPaintChromePort;
 	const createDeferredChromePortFn = deps.createDeferredChromePort ?? createSupabaseAppShellDeferredChromePort;
 
-	async function resolveFirstPaintRequest(): Promise<AppShellFirstPaintRequest> {
+	async function resolveOrgRoute() {
 		const { supabase } = getLayoutClientFn(config.locals, config.cookies, config.orgSegment);
-
 		const org = await resolveOrganizationRouteIdentity(supabase, config.orgSegment);
 
 		if (!org) {
@@ -105,6 +104,12 @@ export function createSupabaseAppShellRequest(
 				: canonicalBase;
 			throw redirect(308, `${pathname}${config.url.search}`);
 		}
+
+		return { supabase, org, orgUrlSegment };
+	}
+
+	async function resolveFirstPaintRequest(): Promise<AppShellFirstPaintRequest> {
+		const { supabase, org, orgUrlSegment } = await resolveOrgRoute();
 
 		if (org.suspendedAt) {
 			return {
@@ -144,21 +149,7 @@ export function createSupabaseAppShellRequest(
 	}
 
 	async function resolveDeferredChromePort(): Promise<AppShellDeferredChromePort> {
-		const { supabase } = getLayoutClientFn(config.locals, config.cookies, config.orgSegment);
-		const org = await resolveOrganizationRouteIdentity(supabase, config.orgSegment);
-
-		if (!org) {
-			throw error(404, 'Organization not found');
-		}
-
-		if (org.urlSlug && config.url && config.orgSegment !== org.urlSlug) {
-			const currentBase = `/org/${config.orgSegment}`;
-			const canonicalBase = `/org/${org.urlSlug}`;
-			const pathname = config.url.pathname.startsWith(currentBase)
-				? `${canonicalBase}${config.url.pathname.slice(currentBase.length)}`
-				: canonicalBase;
-			throw redirect(308, `${pathname}${config.url.search}`);
-		}
+		const { org } = await resolveOrgRoute();
 
 		if (!config.locals.user) {
 			throw redirect(303, '/auth/login');

@@ -141,6 +141,10 @@ export function createReadyAppShell(config: {
 	firstPaintChrome: AppShellFirstPaintChrome;
 }): ReadyAppShell {
 	const { membership, orgState, firstPaintChrome } = config;
+	if (!membership.userId) {
+		throw new Error('Ready app shell requires an authenticated user id');
+	}
+
 	const isOwner = membership.role === 'owner';
 	const isAdmin = membership.role === 'admin';
 
@@ -158,7 +162,7 @@ export function createReadyAppShell(config: {
 			name: orgState.orgName
 		},
 		user: {
-			id: membership.userId ?? ''
+			id: membership.userId
 		},
 		member: {
 			membershipId: membership.membershipId,

@@ -16,8 +16,8 @@
 
 	const pageData = $derived.by(
 		(): RatingSchemePageData => ({
-			orgId: shell?.org.id ?? '',
-			orgName: shell?.org.name ?? '',
+			orgId: data.shell.org.id,
+			orgName: data.shell.org.name,
 			ratingSchemeEntries: workspaceData.ratingSchemeEntries,
 			permissions: shell?.member.permissions,
 			lossWarningWindowDays: workspaceData.lossWarningWindowDays

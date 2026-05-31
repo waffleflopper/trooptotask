@@ -7,7 +7,7 @@
 
 	let { data }: PageProps = $props();
 
-	const orgUrlSegment = $derived(data.shell.kind === 'ready' ? data.shell.org.urlSegment : '');
+	const orgUrlSegment = $derived(data.shell.org.urlSegment);
 	const billingHref = $derived(`/org/${orgUrlSegment}/billing`);
 	const dashboardHref = $derived(`/org/${orgUrlSegment}`);
 </script>

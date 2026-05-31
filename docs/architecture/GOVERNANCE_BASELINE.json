@@ -518,19 +518,6 @@
 			]
 		},
 		{
-			"path": "src/lib/test-support/orgContextBuilder.ts",
-			"classification": "compatibility-adapter",
-			"patterns": [
-				"canEdit*",
-				"scopedGroupId"
-			],
-			"ownerIssue": "#757",
-			"reason": "Shared test OrgContext builder derives legacy permission flags from the capability map so test files do not maintain both in sync.",
-			"driftIds": [
-				"D-01"
-			]
-		},
-		{
 			"path": "supabase/migrations/20260526000250_repair_rls_before_legacy_member_access_drop.sql",
 			"classification": "compatibility-adapter",
 			"patterns": [

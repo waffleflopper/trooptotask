@@ -85,8 +85,7 @@
 	let cancelNowError = $state('');
 	let subscribeConfirmOpen = $state(false);
 	let subscribeConfirmTier = $state<string | null>(null);
-	const shell = $derived(data.shell.kind === 'ready' ? data.shell : null);
-	const orgUrlSegment = $derived(shell?.org.urlSegment ?? '');
+	const orgUrlSegment = $derived(data.shell.org.urlSegment);
 
 	const fallbackTier: EffectiveTier = {
 		tier: 'free',

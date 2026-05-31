@@ -16,8 +16,8 @@
 	const person = $derived(data.personnelDetailHeader.person);
 	const displayName = $derived(`${person.rank} ${person.lastName}, ${person.firstName}`);
 	const initials = $derived(`${person.firstName[0] ?? ''}${person.lastName[0] ?? ''}`.toUpperCase());
-	const shell = $derived(data.shell.kind === 'ready' ? data.shell : null);
-	const orgUrlSegment = $derived(shell?.org.urlSegment ?? '');
+	const shell = $derived(data.shell);
+	const orgUrlSegment = $derived(shell.org.urlSegment);
 	const detailBasePath = $derived(`/org/${orgUrlSegment}/personnel/${person.slug}`);
 </script>
 
@@ -35,7 +35,7 @@
 					<p class="text-xs font-semibold tracking-widest text-muted-foreground uppercase">Personnel view</p>
 					<h1 class="mt-1 text-3xl font-semibold tracking-tight text-foreground">{displayName}</h1>
 					<p class="mt-1 text-sm text-muted-foreground">
-						{person.groupName || shell?.org.name} / {person.mos || 'No MOS'} / {person.clinicRole || 'No duty role'}
+						{person.groupName || shell.org.name} / {person.mos || 'No MOS'} / {person.clinicRole || 'No duty role'}
 					</p>
 				</div>
 			</div>

@@ -1,6 +1,5 @@
 import { getDefaultUserOrgPreferences } from '$lib/preferences/userPreferences';
 import type { AppShellRouteData, ReadyAppShell } from '$lib/server/core/orgShell';
-import type { OrganizationMemberPermissions } from '$lib/types';
 
 export const testEffectiveTier: ReadyAppShell['state']['effectiveTier'] = {
 	tier: 'free',
@@ -25,22 +24,22 @@ export function createReadyAppShellRouteData(
 ): AppShellRouteData {
 	const role = overrides.role ?? 'admin';
 	const criticalTaskAccess = overrides.canViewCriticalTasks !== false;
-	const permissions = {
+	const permissions: ReadyAppShell['member']['permissions'] = {
 		canViewCalendar: true,
-		['can' + 'EditCalendar']: true,
+		canEditCalendar: true,
 		canViewPersonnel: true,
-		['can' + 'EditPersonnel']: true,
+		canEditPersonnel: true,
 		canViewTraining: true,
-		['can' + 'EditTraining']: true,
+		canEditTraining: true,
 		canViewCriticalTasks: criticalTaskAccess,
-		['can' + 'EditCriticalTasks']: criticalTaskAccess,
+		canEditCriticalTasks: criticalTaskAccess,
 		canViewOnboarding: true,
-		['can' + 'EditOnboarding']: true,
+		canEditOnboarding: true,
 		canViewRatingScheme: true,
-		['can' + 'EditRatingScheme']: true,
+		canEditRatingScheme: true,
 		canManageMembers: true
-	} as unknown as OrganizationMemberPermissions;
-	const member = {
+	};
+	const member: ReadyAppShell['member'] = {
 		membershipId: 'membership-1',
 		role,
 		capabilityMap: {
@@ -53,11 +52,11 @@ export function createReadyAppShellRouteData(
 		},
 		scopeSet: { kind: 'organization' },
 		permissions,
-		['scoped' + 'GroupId']: null,
+		scopedGroupId: null,
 		isOwner: role === 'owner',
 		isAdmin: role === 'admin',
-		['isFull' + 'Editor']: role === 'member'
-	} as unknown as ReadyAppShell['member'];
+		isFullEditor: role === 'member'
+	};
 
 	return {
 		shell: {

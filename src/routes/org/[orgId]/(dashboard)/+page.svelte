@@ -77,7 +77,7 @@
 	});
 
 	$effect(() => {
-		shell?.org.id;
+		data.shell.org.id;
 		supportRequestVersion += 1;
 		supportData = null;
 		supportLoading = false;
@@ -122,9 +122,10 @@
 	): DashboardPageData {
 		return {
 			...data,
-			orgId: shell?.org.id ?? '',
-			orgName: shell?.org.name ?? 'Troop to Task',
+			orgId: data.shell.org.id,
+			orgName: data.shell.org.name,
 			userId: shell?.user.id ?? null,
+			userRole: shell?.member.role,
 			permissions: shell?.member.permissions ?? null,
 			dashboard,
 			trainingSummary: summary.trainingSummary,

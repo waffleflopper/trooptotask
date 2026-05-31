@@ -78,7 +78,7 @@
 		}
 
 		void rangeCoordinator.loadVisibleRange({
-			orgId: shell?.org.id ?? '',
+			orgId: data.shell.org.id,
 			canViewCalendar: shell?.member.permissions.canViewCalendar ?? false,
 			currentDate: calendarStore.currentDate,
 			viewMode: ctx.viewMode
@@ -92,8 +92,8 @@
 	const workspacePending = $derived(!!data.calendar?.data && calendarBootstrap === null && loadError === null);
 	const pageData = $derived.by(
 		(): CalendarPageData => ({
-			orgId: shell?.org.id ?? '',
-			orgName: shell?.org.name ?? 'Troop to Task',
+			orgId: data.shell.org.id,
+			orgName: data.shell.org.name,
 			userId: shell?.user.id ?? null,
 			userPreferences: shell?.preferences,
 			calendar: calendarBootstrap
@@ -109,7 +109,7 @@
 	);
 	const viewData = $derived.by(() => ({
 		orgId: pageData.orgId,
-		orgUrlSegment: shell?.org.urlSegment ?? pageData.orgId,
+		orgUrlSegment: data.shell.org.urlSegment,
 		orgName: pageData.orgName ?? 'Troop to Task',
 		permissions: pageData.permissions
 	}));

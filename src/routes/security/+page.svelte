@@ -4,6 +4,16 @@
 	import PublicShell from '$lib/components/public/PublicShell.svelte';
 
 	let { data } = $props();
+
+	const sections = [
+		{ id: 'data-classification', num: '01', label: 'Classification' },
+		{ id: 'encryption', num: '02', label: 'Encryption' },
+		{ id: 'access-control', num: '03', label: 'Access' },
+		{ id: 'audit-logging', num: '04', label: 'Audit' },
+		{ id: 'infrastructure', num: '05', label: 'Infrastructure' },
+		{ id: 'compliance', num: '06', label: 'Compliance' },
+		{ id: 'disclosure', num: '07', label: 'Disclosure' }
+	];
 </script>
 
 <svelte:head>
@@ -11,13 +21,24 @@
 	<meta name="description" content="Security practices and NIST 800-171 compliance information for Troop to Task." />
 </svelte:head>
 
-<PublicShell user={data.user} active="security" bodyClass="security-page">
+<PublicShell user={data.user} active="security">
 	<PublicPageHeader label="Security">
 		{#snippet title()}Your data, <em>protected.</em>{/snippet}
 		<p>TroopToTask aligns with NIST SP 800-171 for the protection of Controlled Unclassified Information.</p>
+		<p class="page-meta">Last reviewed: May 2026</p>
 	</PublicPageHeader>
 
-	<PublicContentSection label="01 // Data Classification">
+	<nav class="section-index" aria-label="On this page">
+		<ul>
+			{#each sections as section (section.id)}
+				<li>
+					<a href={`#${section.id}`}><span class="idx-num">{section.num}</span>{section.label}</a>
+				</li>
+			{/each}
+		</ul>
+	</nav>
+
+	<PublicContentSection id="data-classification" label="01 // Data Classification">
 		{#snippet title()}What we handle, and how we treat it.{/snippet}
 		<p>
 			TroopToTask manages personnel readiness data that may include Controlled Unclassified Information (CUI). This
@@ -30,7 +51,7 @@
 		</p>
 	</PublicContentSection>
 
-	<PublicContentSection label="02 // Encryption" alternate>
+	<PublicContentSection id="encryption" label="02 // Encryption" alternate>
 		{#snippet title()}Encrypted in transit and at rest.{/snippet}
 		<p>
 			All data transmitted between your browser and our servers is encrypted with TLS 1.2 or higher, enforced via HTTP
@@ -42,7 +63,7 @@
 		</p>
 	</PublicContentSection>
 
-	<PublicContentSection label="03 // Access Control">
+	<PublicContentSection id="access-control" label="03 // Access Control">
 		{#snippet title()}Every request is authorized.{/snippet}
 		<p>
 			Authentication is handled via Supabase Auth with support for email/password and multi-factor authentication
@@ -57,7 +78,7 @@
 		</p>
 	</PublicContentSection>
 
-	<PublicContentSection label="04 // Audit Logging" alternate>
+	<PublicContentSection id="audit-logging" label="04 // Audit Logging" alternate>
 		{#snippet title()}Every action leaves a trail.{/snippet}
 		<p>
 			TroopToTask maintains structured audit logs for security-relevant events including authentication attempts,
@@ -71,7 +92,7 @@
 		</p>
 	</PublicContentSection>
 
-	<PublicContentSection label="05 // Infrastructure">
+	<PublicContentSection id="infrastructure" label="05 // Infrastructure">
 		{#snippet title()}Built on proven platforms.{/snippet}
 		<p>TroopToTask runs on infrastructure from providers with established security programs:</p>
 		<ul>
@@ -88,8 +109,8 @@
 		<p>All infrastructure is hosted within the United States.</p>
 	</PublicContentSection>
 
-	<PublicContentSection label="06 // Compliance Alignment" alternate>
-		{#snippet title()}Aligned with NIST SP 800-171.{/snippet}
+	<PublicContentSection id="compliance" label="06 // Compliance & Use" alternate>
+		{#snippet title()}Aligned with NIST, used with judgment.{/snippet}
 		<p>TroopToTask's security controls align with the following NIST SP 800-171 Rev 2 control families:</p>
 		<ul>
 			<li><strong>Access Control (3.1)</strong> — RBAC, RLS, session management, least privilege</li>
@@ -110,39 +131,19 @@
 			readiness without creating more administrative drag.
 		</p>
 		<p>
-			FedRAMP is mainly a factor in formal government procurement and officially sanctioned enterprise adoption. It does
-			not, by itself, determine whether a commercial platform can be useful to military leaders working within local
-			policy, command guidance, and common-sense data handling.
+			FedRAMP and formal federal procurement involve a separate, additional compliance review. That process does not, by
+			itself, determine whether a commercial platform is useful, secure, and workable for leaders operating within their
+			local policy, command guidance, and approval chain.
 		</p>
 		<p>
-			Like any operational tool, TroopToTask should be used in a way that matches your organization's guidance. That
-			means keeping classified information and any data required to remain in approved government systems out of the
-			platform.
+			Use TroopToTask in ways that match local policy and sound judgment: keep classified information, highly sensitive
+			operational details, and anything your command or cybersecurity office has directed to remain in approved
+			government systems out of the platform. Our aim is a secure, dependable tool leaders can trust today, while we
+			continue to strengthen it for more demanding compliance environments.
 		</p>
 	</PublicContentSection>
 
-	<PublicContentSection label="07 // Use Guidance">
-		{#snippet title()}Built to help leaders, used with common sense.{/snippet}
-		<p>
-			TroopToTask exists to make unit management easier for leaders who are tired of piecing together personnel,
-			training, readiness, and day-to-day tracking across too many disconnected tools. We focus on strong security,
-			careful handling of personnel information, and practical controls that support responsible use.
-		</p>
-		<p>
-			The goal is simple: give leaders better visibility, less friction, and a more reliable way to manage the work they
-			are already doing. Formal federal procurement and enterprise adoption can involve additional compliance review,
-			but that is a separate question from whether a platform is useful, secure, and workable for leaders operating
-			within their local policies, approval chain, and mission needs.
-		</p>
-		<p>
-			We recommend using TroopToTask in ways that match local policy and sound judgment. That means avoiding classified
-			information, highly sensitive operational details, or anything your command or cybersecurity office has directed
-			to stay inside approved government systems. Our aim is to give leaders a secure, helpful platform they can trust
-			today while continuing to strengthen the product for more demanding compliance environments over time.
-		</p>
-	</PublicContentSection>
-
-	<PublicContentSection label="08 // Responsible Disclosure" alternate>
+	<PublicContentSection id="disclosure" label="07 // Responsible Disclosure">
 		{#snippet title()}Report a vulnerability.{/snippet}
 		<p>
 			If you discover a security vulnerability in TroopToTask, we encourage responsible disclosure. Please report
@@ -162,7 +163,7 @@
 				<path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
 				<polyline points="22,6 12,13 2,6" />
 			</svg>
-			<a href="mailto:security@trooptotask.org">security@trooptotask.org</a>
+			<a href="mailto:security@trooptotask.org?subject=Security%20vulnerability%20report">security@trooptotask.org</a>
 		</div>
 		<p>
 			We ask that you provide a reasonable amount of time for us to address reported issues before public disclosure. We
@@ -170,3 +171,65 @@
 		</p>
 	</PublicContentSection>
 </PublicShell>
+
+<style>
+	.section-index {
+		position: sticky;
+		top: 56px;
+		z-index: 40;
+		background: var(--card);
+		border-bottom: 1px solid var(--border);
+	}
+
+	.section-index ul {
+		display: flex;
+		gap: 0.25rem;
+		align-items: stretch;
+		max-width: 780px;
+		margin: 0 auto;
+		padding: 0 1rem;
+		list-style: none;
+		overflow-x: auto;
+		scrollbar-width: thin;
+	}
+
+	.section-index a {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.4rem;
+		padding: 0.7rem 0.65rem;
+		white-space: nowrap;
+		font-family: 'IBM Plex Mono', monospace;
+		font-size: 0.6875rem;
+		font-weight: 500;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		text-decoration: none;
+		color: var(--muted-foreground);
+		border-bottom: 2px solid transparent;
+		transition:
+			color var(--transition-fast),
+			border-color var(--transition-fast);
+	}
+
+	.section-index a:hover {
+		color: var(--brass-text);
+		border-bottom-color: var(--brass);
+	}
+
+	.section-index a:focus-visible {
+		outline: var(--focus-outline);
+		outline-offset: -2px;
+	}
+
+	.idx-num {
+		color: var(--brass-text);
+		font-weight: 600;
+	}
+
+	@media (max-width: 640px) {
+		.section-index ul {
+			padding-inline: 0.5rem;
+		}
+	}
+</style>

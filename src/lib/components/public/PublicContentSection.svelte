@@ -2,16 +2,17 @@
 	import type { Snippet } from 'svelte';
 
 	interface Props {
+		id?: string;
 		label: string;
 		alternate?: boolean;
 		title?: Snippet;
 		children: Snippet;
 	}
 
-	let { label, alternate = false, title, children }: Props = $props();
+	let { id, label, alternate = false, title, children }: Props = $props();
 </script>
 
-<section class:alt={alternate} class="content-section">
+<section {id} class:alt={alternate} class="content-section">
 	<div class="content-inner">
 		<div class="content-label">{label}</div>
 		{#if title}
@@ -26,6 +27,8 @@
 		padding: 4rem 2rem;
 		background: var(--card);
 		border-bottom: 1px solid var(--border);
+		/* Clear the sticky nav (56px) plus any sticky in-page index when jumped to via anchor. */
+		scroll-margin-top: 7rem;
 	}
 
 	.content-section.alt {
@@ -44,7 +47,7 @@
 		font-weight: 600;
 		letter-spacing: 0.12em;
 		text-transform: uppercase;
-		color: var(--brass);
+		color: var(--brass-text);
 	}
 
 	.content-inner h2 {
@@ -67,6 +70,7 @@
 	.content-inner :global(p) {
 		margin: 0;
 		font-size: 1rem;
+		font-weight: 400;
 		line-height: 1.8;
 		color: var(--muted-foreground);
 	}
@@ -89,13 +93,14 @@
 
 	.content-inner :global(li) {
 		margin: 0.65rem 0;
+		font-weight: 400;
 		line-height: 1.75;
 	}
 
 	.content-inner :global(a) {
-		color: var(--brass);
+		color: var(--brass-text);
 		text-decoration: underline;
-		text-decoration-color: color-mix(in srgb, var(--brass) 55%, transparent);
+		text-decoration-color: color-mix(in srgb, var(--brass-text) 55%, transparent);
 		text-underline-offset: 0.2em;
 	}
 
@@ -116,7 +121,7 @@
 
 	.content-inner :global(.contact-card svg) {
 		flex: 0 0 auto;
-		color: var(--brass);
+		color: var(--brass-text);
 	}
 
 	.content-inner :global(.contact-card a) {
@@ -129,7 +134,7 @@
 	}
 
 	.content-inner :global(.contact-card a:hover) {
-		color: var(--brass-light);
+		color: var(--brass-text);
 		text-decoration: underline;
 	}
 

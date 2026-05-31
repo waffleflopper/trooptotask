@@ -49,7 +49,7 @@
 
 <style>
 	.cta {
-		background: var(--foreground);
+		background: var(--hero-bg);
 		color: var(--hero-text);
 		padding: clamp(4rem, 8vw, 6rem) 2rem;
 		border-top: 1px solid var(--public-ink-border);

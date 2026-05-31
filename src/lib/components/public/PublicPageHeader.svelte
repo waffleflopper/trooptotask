@@ -26,7 +26,7 @@
 <style>
 	.page-header {
 		position: relative;
-		background: var(--foreground);
+		background: var(--hero-bg);
 		padding: 5rem 2rem 4rem;
 		overflow: hidden;
 		text-align: center;

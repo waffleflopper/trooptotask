@@ -150,7 +150,11 @@
 					readiness, training compliance, and daily accountability.
 				</p>
 				<div class="hero__actions">
-					<a href={resolve('/auth/request-access')} class="btn-amber">Request Access</a>
+					{#if data.user}
+						<a href={resolve('/dashboard?show=all')} class="btn-amber">Go to Dashboard</a>
+					{:else}
+						<a href={resolve('/auth/request-access')} class="btn-amber">Request Access</a>
+					{/if}
 					<a href="#pricing" class="btn-ghost">View Pricing</a>
 				</div>
 				<div class="hero__meta">
@@ -183,7 +187,9 @@
 	<section class="showcase">
 		<div class="showcase__container">
 			<div class="showcase__text reveal">
-				<span class="section-label">AVAILABILITY AT A GLANCE</span>
+				<span class="section-label section-label--indexed"
+					><span class="section-label__index">01</span>AVAILABILITY AT A GLANCE</span
+				>
 				<h2 class="showcase__heading">See your entire formation across weeks, not just today.</h2>
 				<p class="showcase__body">
 					The availability calendar shows every soldier's status across a rolling window. One look tells you who's here,
@@ -207,7 +213,9 @@
 		<div class="features__container">
 			<div class="feature reveal">
 				<div class="feature__content">
-					<span class="section-label">TRAINING READINESS</span>
+					<span class="section-label section-label--indexed"
+						><span class="section-label__index">02</span>TRAINING READINESS</span
+					>
 					<h2 class="feature__heading">Every requirement. Every soldier. One view.</h2>
 					<p class="feature__body">
 						Track certifications, ACFT scores, weapons quals, and mandatory training across your unit. Color-coded
@@ -229,7 +237,9 @@
 
 			<div class="feature feature--reverse reveal">
 				<div class="feature__content">
-					<span class="section-label">READINESS REPORTS</span>
+					<span class="section-label section-label--indexed"
+						><span class="section-label__index">03</span>READINESS REPORTS</span
+					>
 					<h2 class="feature__heading">The readiness picture your commander actually needs.</h2>
 					<p class="feature__body">
 						MOS-level readiness matrix, expiration cliff projections, and at-risk soldier call lists. Built for the
@@ -251,7 +261,9 @@
 
 			<div class="feature reveal">
 				<div class="feature__content">
-					<span class="section-label">EVALUATION TRACKING</span>
+					<span class="section-label section-label--indexed"
+						><span class="section-label__index">04</span>EVALUATION TRACKING</span
+					>
 					<h2 class="feature__heading">Never miss another NCOER deadline.</h2>
 					<p class="feature__body">
 						Track rating chains, evaluation timelines, and submission status across the unit. Surface expired and
@@ -273,7 +285,9 @@
 
 			<div class="feature feature--reverse reveal">
 				<div class="feature__content">
-					<span class="section-label">IN-PROCESSING</span>
+					<span class="section-label section-label--indexed"
+						><span class="section-label__index">05</span>IN-PROCESSING</span
+					>
 					<h2 class="feature__heading">Onboarding that doesn't require a whiteboard.</h2>
 					<p class="feature__body">
 						Build checklist templates once. Every new arrival gets a tracked workflow with stage-by-stage visibility for
@@ -295,7 +309,9 @@
 
 			<div class="feature reveal">
 				<div class="feature__content">
-					<span class="section-label">DUTY ROSTERS</span>
+					<span class="section-label section-label--indexed"
+						><span class="section-label__index">06</span>DUTY ROSTERS</span
+					>
 					<h2 class="feature__heading">Generate the DA6 without rebuilding the wheel every month.</h2>
 					<p class="feature__body">
 						Create duty roster templates, account for availability, review the generated run, and keep correction
@@ -517,6 +533,17 @@
 
 	.section-label--light {
 		color: var(--public-accent-strong);
+	}
+
+	/* Numbered capability index: amber leads, topic reads quieter. */
+	.section-label--indexed {
+		color: var(--muted-foreground);
+	}
+
+	.section-label__index {
+		margin-right: 0.7em;
+		color: var(--accent);
+		font-variant-numeric: tabular-nums;
 	}
 
 	/* ── Buttons ── */

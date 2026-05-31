@@ -6,7 +6,7 @@
  * `rename` rejects empty strings.
  *
  * Consumed by the sidebar group selector, personnel filter, and any component that needs
- * the org's group list. Load via `sharedDataQuery.ts` through the layout.
+ * the org's group list. Load through the org shell workspace bootstraps.
  */
 import { defineStore } from '$lib/stores/core';
 import type { Store } from '$lib/stores/core';

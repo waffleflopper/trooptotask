@@ -2,13 +2,6 @@
 
 // Stores
 export { personnelStore } from './stores/personnel.svelte';
-// Utils
-export {
-	groupAndSortPersonnel,
-	RANK_ORDER,
-	type PersonnelGroup,
-	type GroupSortOptions
-} from '$lib/domain/rosterGrouping';
 
 // Context
 export { PersonnelPageContext } from './contexts/PersonnelPageContext.svelte';

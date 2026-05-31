@@ -44,7 +44,7 @@ describe('queryPersonnel', () => {
 		expect(result[1].lastName).toBe('Zulu');
 	});
 
-	it('returns only archived personnel when archived: true', async () => {
+	it('returns only archived personnel when status is archived', async () => {
 		const ctx = createQueryPortsContext();
 		seedPersonnel(ctx, [
 			{ id: 'p1', last_name: 'Active', first_name: 'A', rank: 'SGT', clinic_role: 'medic', mos: '68W', group_id: null },
@@ -60,13 +60,13 @@ describe('queryPersonnel', () => {
 			}
 		]);
 
-		const result = await queryPersonnel(ctx, { archived: true });
+		const result = await queryPersonnel(ctx, { status: 'archived' });
 
 		expect(result).toHaveLength(1);
 		expect(result[0].lastName).toBe('Gone');
 	});
 
-	it('returns all personnel when archived: all', async () => {
+	it('returns all personnel when status is all', async () => {
 		const ctx = createQueryPortsContext();
 		seedPersonnel(ctx, [
 			{ id: 'p1', last_name: 'Active', first_name: 'A', rank: 'SGT', clinic_role: 'medic', mos: '68W', group_id: null },
@@ -82,7 +82,7 @@ describe('queryPersonnel', () => {
 			}
 		]);
 
-		const result = await queryPersonnel(ctx, { archived: 'all' });
+		const result = await queryPersonnel(ctx, { status: 'all' });
 
 		expect(result).toHaveLength(2);
 	});

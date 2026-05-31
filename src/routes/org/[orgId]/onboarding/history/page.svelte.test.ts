@@ -1,9 +1,17 @@
 // @vitest-environment happy-dom
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/svelte';
 import Page from './+page.svelte';
 import { onboardingStore } from '$features/onboarding/stores/onboarding.svelte';
 import { createReadyAppShellRouteData } from '$lib/test-support/appShellRouteData';
+
+vi.mock('$lib/stores/orgContext.svelte', () => ({
+	getOrgContext: () => ({
+		orgId: 'org-1',
+		orgUrlSegment: 'org-1',
+		scopeSet: { kind: 'organization' }
+	})
+}));
 
 afterEach(() => {
 	cleanup();

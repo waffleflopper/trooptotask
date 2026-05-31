@@ -1,7 +1,9 @@
 <script lang="ts">
 	import { onboardingStore } from '$features/onboarding/stores/onboarding.svelte';
 	import { onboardingTemplateStore } from '$features/onboarding/stores/onboardingTemplate.svelte';
-	import { personnelStore } from '$features/personnel/stores/personnel.svelte';
+	import { createRosterReadModel } from '$lib/domain/rosterReadModel';
+	import { getOrgContext } from '$lib/stores/orgContext.svelte';
+	import { rosterStore } from '$lib/stores/roster.svelte';
 	import { formatDisplayDate } from '$lib/utils/dates';
 	import {
 		formatTimestamp,
@@ -22,6 +24,7 @@
 
 	let { data } = $props();
 
+	const org = getOrgContext();
 	let expandedOnboardingId = $state<string | null>(null);
 	const expandedNotes = new SvelteSet<string>();
 	const onboardingNavItems = $derived<WorkspaceToolbarNavItem[]>([
@@ -30,6 +33,11 @@
 
 	const historyOnboardings = $derived(
 		onboardingStore.items.filter((o) => o.status === 'completed' || o.status === 'cancelled')
+	);
+	const historyRosterView = $derived(
+		rosterStore.orgId === org.orgId
+			? rosterStore.readModel().scoped(org.scopeSet, { status: 'active' })
+			: createRosterReadModel({ personnel: [] }).scoped(org.scopeSet, { status: 'active' })
 	);
 
 	function toggleNotes(stepId: string) {
@@ -74,12 +82,12 @@
 				onValueChange={(value) => (expandedOnboardingId = value || null)}
 			>
 				{#each historyOnboardings as onboarding (onboarding.id)}
-					{@const groupName = getPersonGroupDisplayName(onboarding.personnelId, personnelStore.items)}
+					{@const groupName = getPersonGroupDisplayName(onboarding.personnelId, historyRosterView.flatPersonnel)}
 					<OnboardingPacketList.Item value={onboarding.id}>
 						<OnboardingPacketList.Trigger>
 							<OnboardingPacketList.Summary>
 								<OnboardingPacketList.SummaryTitle
-									title={getPersonDisplayName(onboarding.personnelId, personnelStore.items)}
+									title={getPersonDisplayName(onboarding.personnelId, historyRosterView.flatPersonnel)}
 									meta={[
 										getTemplateDisplayName(onboarding.templateId, onboardingTemplateStore.templates),
 										groupName,

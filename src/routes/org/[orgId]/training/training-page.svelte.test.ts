@@ -5,9 +5,9 @@ import Page from './+page.svelte';
 import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
 import { trainingViewsStore } from '$features/training/stores/trainingViews.svelte';
 import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
-import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 import { groupsStore } from '$lib/stores/groups.svelte';
 import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
+import { rosterStore } from '$lib/stores/roster.svelte';
 import { createReadyAppShellRouteData } from '$lib/test-support/appShellRouteData';
 
 vi.mock('$lib/stores/orgContext.svelte', () => ({
@@ -30,6 +30,7 @@ vi.mock('$lib/stores/orgContext.svelte', () => ({
 			canEditOnboarding: true,
 			canManageMembers: true
 		},
+		scopeSet: { kind: 'organization' },
 		readOnly: false,
 		affordanceForFeatureAction: () => ({
 			allowed: true,
@@ -53,7 +54,7 @@ function makePageData() {
 
 describe('training page', () => {
 	beforeEach(() => {
-		personnelStore.startLoading();
+		rosterStore.startLoading();
 		groupsStore.startLoading();
 		trainingTypesStore.startLoading();
 		trainingViewsStore.startLoading();
@@ -63,7 +64,7 @@ describe('training page', () => {
 
 	afterEach(() => {
 		cleanup();
-		personnelStore.load([], 'org-test-reset');
+		rosterStore.load([], 'org-test-reset');
 		groupsStore.load([], 'org-test-reset');
 		trainingTypesStore.load([], 'org-test-reset');
 		trainingViewsStore.load([], 'org-test-reset');

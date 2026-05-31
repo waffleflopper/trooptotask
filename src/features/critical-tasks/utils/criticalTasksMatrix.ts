@@ -7,7 +7,7 @@ import type {
 } from '$features/critical-tasks/criticalTasks.types';
 import type { Group } from '$lib/stores/groups.svelte';
 import type { Personnel } from '$lib/types';
-import { groupAndSortPersonnel } from '$lib/domain/rosterGrouping';
+import { createRosterReadModel } from '$lib/domain/rosterReadModel';
 import { getIctStatus } from './ictStatus';
 import { getActiveIctTasksForLibrary, isIctTaskApplicableToMos } from './ictTaskLibrary';
 
@@ -163,15 +163,11 @@ export function buildCriticalTasksMatrix({
 	const groupOrder = [...groups]
 		.sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name))
 		.map((g) => g.name);
-	const activePersonnel = personnel.filter((person) => !person.archivedAt);
-	const scopedPersonnel = selectedGroupId
-		? activePersonnel.filter((person) => person.groupId === selectedGroupId)
-		: activePersonnel;
-
-	const sortedGroups = groupAndSortPersonnel(scopedPersonnel, {
+	const sortedGroups = createRosterReadModel({
+		personnel,
 		groupOrder,
 		fallbackGroupName: orgName
-	});
+	}).full({ status: 'active', groupId: selectedGroupId || undefined }).personnelByGroup;
 
 	const allGroups = sortedGroups
 		.map((group) => {

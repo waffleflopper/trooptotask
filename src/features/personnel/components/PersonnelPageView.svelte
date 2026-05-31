@@ -45,8 +45,18 @@
 	const canAddPersonnel = $derived(ctx.canAddPersonnel);
 	const canImportPersonnel = $derived(ctx.canImportPersonnel);
 	const canManageGroups = $derived(ctx.canManageGroups);
+	let locallyArchivedIds = new SvelteSet<string>();
+	const visibleAllActivePersonnel = $derived(
+		ctx.allActivePersonnel.filter((person) => !locallyArchivedIds.has(person.id))
+	);
+	const visibleAlphabeticalPersonnel = $derived(
+		ctx.alphabeticalPersonnel.filter((person) => !locallyArchivedIds.has(person.id))
+	);
+	const visibleFilteredPersonnel = $derived(
+		ctx.filteredPersonnel.filter((person) => !locallyArchivedIds.has(person.id))
+	);
 	const canBulkArchivePersonnel = $derived(
-		personnelStore.items.some((person) => ctx.canArchivePersonnelRecord(person))
+		visibleAllActivePersonnel.some((person) => ctx.canArchivePersonnelRecord(person))
 	);
 	const hasPersonnelActions = $derived(
 		canImportPersonnel || canManageGroups || canAddPersonnel || canBulkArchivePersonnel
@@ -85,7 +95,7 @@
 	});
 
 	const azTable = useDataTable<Personnel>({
-		data: () => personnelStore.items,
+		data: () => visibleAlphabeticalPersonnel,
 		columns: () => personnelColumns,
 		initialSortKey: 'name',
 		initialSortDirection: 'asc',
@@ -93,7 +103,7 @@
 	});
 
 	const groupedTable = useDataTable<Personnel>({
-		data: () => personnelStore.items,
+		data: () => visibleFilteredPersonnel,
 		columns: () => personnelColumns,
 		initialSortKey: 'name',
 		initialSortDirection: 'asc',
@@ -120,7 +130,9 @@
 		ctx.viewMode === 'by-group' && !rosterSearch.trim() && groupedTable.totalRows > GROUPED_ROSTER_RENDER_LIMIT
 	);
 	const selectedArchivePersonnel = $derived(
-		personnelStore.items.filter((person) => selectedArchiveIds.has(person.id) && ctx.canArchivePersonnelRecord(person))
+		visibleAllActivePersonnel.filter(
+			(person) => selectedArchiveIds.has(person.id) && ctx.canArchivePersonnelRecord(person)
+		)
 	);
 
 	const handleRowClick = $derived.by(() => (person: Personnel) => {
@@ -137,6 +149,7 @@
 
 	function setRosterSearch(value: string): void {
 		rosterSearch = value;
+		ctx.searchQuery = value;
 		azTable.setSearch(value);
 		groupedTable.setSearch(value);
 	}
@@ -166,7 +179,7 @@
 	}
 
 	function toggleArchiveSelection(id: string): void {
-		const person = personnelStore.items.find((item) => item.id === id);
+		const person = ctx.getPersonnelById(id);
 		if (!person || !ctx.canArchivePersonnelRecord(person)) return;
 
 		if (selectedArchiveIds.has(id)) {
@@ -193,6 +206,7 @@
 		try {
 			const result = await archivePersonnel({ orgId: ctx.orgId, person: archiveTarget });
 			if (result === 'archived') {
+				locallyArchivedIds.add(archiveTarget.id);
 				await invalidateAll();
 			}
 			archiveTarget = null;
@@ -211,6 +225,7 @@
 			);
 
 			for (const id of result.archivedIds) {
+				locallyArchivedIds.add(id);
 				personnelStore.removeLocal(id);
 			}
 
@@ -308,7 +323,7 @@
 				{/if}
 			</WorkspaceToolbar.Root>
 
-			{#if ctx.totalPersonnel === 0}
+			{#if visibleAllActivePersonnel.length === 0}
 				<Empty.Root class="border-border bg-card">
 					<Empty.Header>
 						<Empty.Media variant="icon">

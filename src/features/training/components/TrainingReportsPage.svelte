@@ -8,6 +8,7 @@
 	import type { WorkspaceToolbarAction } from '$lib/components/ui/workspace-toolbar';
 	import { downloadBlob, filenameFromContentDisposition } from '$lib/export/workbook';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
+	import { createRosterReadModel } from '$lib/domain/rosterReadModel';
 	import { rosterStore } from '$lib/stores/roster.svelte';
 	import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
 	import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
@@ -48,23 +49,25 @@
 	const org = getOrgContext();
 	const workspaceData = $derived(data.training?.data);
 	const serverReport = $derived((data.trainingReport as TrainingReportData | undefined) ?? null);
-	let report = $state<TrainingReportData | null>(null);
-	const activeReport = $derived(report ?? serverReport);
-	let reportLoading = $state(false);
-	let reportError = $state<string | null>(null);
-	let reportRequestId = 0;
-	let lastServerReport: TrainingReportData | null = null;
-
-	$effect(() => {
-		const nextServerReport = serverReport;
-		if (nextServerReport !== lastServerReport) {
-			lastServerReport = nextServerReport;
-			report = null;
-			reportError = null;
-			reportLoading = false;
-			reportRequestId += 1;
-		}
+	const serverReportKey = $derived(reportIdentity(serverReport));
+	let localReport = $state<{
+		serverReportKey: string | null;
+		report: TrainingReportData | null;
+		loading: boolean;
+		error: string | null;
+		requestId: number;
+	}>({
+		serverReportKey: null,
+		report: null,
+		loading: false,
+		error: null,
+		requestId: 0
 	});
+	const localReportMatchesServer = $derived(localReport.serverReportKey === serverReportKey);
+	const report = $derived(localReportMatchesServer ? localReport.report : null);
+	const activeReport = $derived(report ?? serverReport);
+	const reportLoading = $derived(localReportMatchesServer ? localReport.loading : false);
+	const reportError = $derived(localReportMatchesServer ? localReport.error : null);
 
 	let filterGroupId = $state('');
 	let filterMos = $state('');
@@ -76,14 +79,17 @@
 	let sortColumn = $state<string>('name');
 	let sortAsc = $state(true);
 
+	const fallbackPersonnel = $derived<Personnel[]>(
+		Array.isArray(workspaceData?.personnel)
+			? workspaceData.personnel
+			: Array.isArray(data.personnel)
+				? data.personnel
+				: []
+	);
 	const sourcePersonnel = $derived<Personnel[]>(
 		rosterStore.orgId === org.orgId
-			? rosterStore.items
-			: Array.isArray(workspaceData?.personnel)
-				? workspaceData.personnel
-				: Array.isArray(data.personnel)
-					? data.personnel
-					: []
+			? rosterStore.readModel().scoped(org.scopeSet, { status: 'active' }).flatPersonnel
+			: createRosterReadModel({ personnel: fallbackPersonnel }).scoped(org.scopeSet, { status: 'active' }).flatPersonnel
 	);
 	const sourceGroups = $derived<Group[]>(
 		groupsStore.orgId === org.orgId
@@ -125,6 +131,17 @@
 	const canPageBack = $derived(!!activeReport && screen.currentPage > 1 && !reportLoading);
 	const canPageForward = $derived(!!activeReport && screen.currentPage < screen.totalPages && !reportLoading);
 
+	function reportIdentity(report: TrainingReportData | null): string | null {
+		if (!report) return null;
+		return [
+			report.detail.page,
+			report.detail.pageSize,
+			report.detail.totalRows,
+			report.detail.totalPages,
+			report.detail.rows.map((row) => row.person.id).join(',')
+		].join('|');
+	}
+
 	function toggleSort(col: string) {
 		if (sortColumn === col) {
 			sortAsc = !sortAsc;
@@ -155,25 +172,38 @@
 
 	async function loadReportPage(page: number): Promise<void> {
 		if (!activeReport) return;
-		const requestId = ++reportRequestId;
-		reportLoading = true;
-		reportError = null;
+		const requestId = localReport.requestId + 1;
+		localReport = {
+			serverReportKey,
+			report: localReportMatchesServer ? localReport.report : null,
+			loading: true,
+			error: null,
+			requestId
+		};
 		try {
 			const response = await fetch(buildReportUrl(page));
 			if (!response.ok) {
 				throw new Error('Failed to load training report page');
 			}
 			const nextReport = (await response.json()) as TrainingReportData;
-			if (requestId === reportRequestId) {
-				report = nextReport;
+			if (requestId === localReport.requestId) {
+				localReport = {
+					serverReportKey,
+					report: nextReport,
+					loading: false,
+					error: null,
+					requestId
+				};
 			}
 		} catch (error) {
-			if (requestId === reportRequestId) {
-				reportError = error instanceof Error ? error.message : 'Failed to load training report page';
-			}
-		} finally {
-			if (requestId === reportRequestId) {
-				reportLoading = false;
+			if (requestId === localReport.requestId) {
+				localReport = {
+					serverReportKey,
+					report: localReportMatchesServer ? localReport.report : null,
+					loading: false,
+					error: error instanceof Error ? error.message : 'Failed to load training report page',
+					requestId
+				};
 			}
 		}
 	}
@@ -186,7 +216,13 @@
 
 	async function exportExcel() {
 		if (activeReport) {
-			reportError = null;
+			localReport = {
+				serverReportKey,
+				report: localReportMatchesServer ? localReport.report : null,
+				loading: reportLoading,
+				error: null,
+				requestId: localReport.requestId
+			};
 			try {
 				const response = await fetch(buildReportExportUrl());
 				if (!response.ok) {
@@ -198,7 +234,13 @@
 					filenameFromContentDisposition(response.headers.get('Content-Disposition'), 'training-report.xlsx')
 				);
 			} catch (error) {
-				reportError = error instanceof Error ? error.message : 'Failed to export training report';
+				localReport = {
+					serverReportKey,
+					report: localReportMatchesServer ? localReport.report : null,
+					loading: reportLoading,
+					error: error instanceof Error ? error.message : 'Failed to export training report',
+					requestId: localReport.requestId
+				};
 			}
 			return;
 		}

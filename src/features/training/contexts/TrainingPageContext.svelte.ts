@@ -1,5 +1,6 @@
 import { SvelteSet } from 'svelte/reactivity';
 import { invalidate, goto } from '$app/navigation';
+import { resolve } from '$app/paths';
 import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
 import { trainingViewsStore } from '$features/training/stores/trainingViews.svelte';
 import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
@@ -7,11 +8,11 @@ import { rosterStore } from '$lib/stores/roster.svelte';
 import { subscriptionStore } from '$lib/stores/subscription.svelte';
 import { toastStore } from '$lib/stores/toast.svelte';
 import { getTrainingStats } from '$features/training/utils/trainingStatus';
-import { groupAndSortPersonnel } from '$lib/domain/rosterGrouping';
 import { submitDeletionRequest } from '$lib/utils/deletionRequests';
 import { queueUserPreferencesPatch } from '$lib/preferences/userPreferences.client';
 import { groupsStore } from '$lib/stores/groups.svelte';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+import { createRosterReadModel, type PersonnelGroup, type RosterReadModelView } from '$lib/domain/rosterReadModel';
 import type { ClientAffordance } from '$lib/stores/orgContext.svelte';
 import type {
 	TrainingMatrixViewMode,
@@ -109,7 +110,7 @@ export class TrainingPageContext {
 
 	get personnel(): Personnel[] {
 		this.reconcileHydratedSelections();
-		return rosterStore.orgId === this.orgId ? rosterStore.items : [];
+		return this.trainingRosterView().flatPersonnel;
 	}
 
 	get groups(): Group[] {
@@ -130,7 +131,7 @@ export class TrainingPageContext {
 	// ---- derived: filtered/sorted personnel ----
 	get basePersonnel(): Personnel[] {
 		this.reconcileHydratedSelections();
-		return this.selectedGroupId ? this.personnel.filter((p) => p.groupId === this.selectedGroupId) : this.personnel;
+		return this.trainingRosterView({ groupId: this.selectedGroupId || undefined }).flatPersonnel;
 	}
 
 	get filteredPersonnel(): Personnel[] {
@@ -142,14 +143,18 @@ export class TrainingPageContext {
 	}
 
 	get groupOrder(): string[] {
-		return this.groups.map((g) => g.name);
+		return groupsStore.orgId === this.orgId ? groupsStore.items.map((g) => g.name) : [];
 	}
 
-	get personnelByGroup() {
-		return groupAndSortPersonnel(this.basePersonnel, {
-			groupOrder: this.groupOrder,
-			fallbackGroupName: this.orgName
-		});
+	get personnelByGroup(): PersonnelGroup[] {
+		return this.trainingRosterView({ groupId: this.selectedGroupId || undefined }).personnelByGroup;
+	}
+
+	get groupFilterOptions(): Array<{ value: string; label: string }> {
+		return this.trainingRosterView().groupFilterOptions.map((option) => ({
+			value: option.value,
+			label: option.value ? option.label : 'Group: All'
+		}));
 	}
 
 	// ---- derived: stats ----
@@ -161,7 +166,7 @@ export class TrainingPageContext {
 	get trainingOverflowItems(): OverflowItem[] {
 		const items: OverflowItem[] = [];
 		items.push({ label: 'Sign-In Rosters', onclick: () => this.#modals.open('sign-in-rosters') });
-		items.push({ label: 'Reports', onclick: () => goto(`/org/${this.orgUrlSegment}/training/reports`) });
+		items.push({ label: 'Reports', onclick: () => goto(resolve(`/org/${this.orgUrlSegment}/training/reports`)) });
 		if (this.canManageConfig) {
 			items.push({
 				label: 'Bulk Import',
@@ -171,7 +176,7 @@ export class TrainingPageContext {
 			});
 			items.push({
 				label: 'Manage Types',
-				onclick: () => goto(`/org/${this.orgUrlSegment}/training/types`)
+				onclick: () => goto(resolve(`/org/${this.orgUrlSegment}/training/types`))
 			});
 		}
 		return items;
@@ -326,7 +331,7 @@ export class TrainingPageContext {
 	}
 
 	private isValidGroupId(groupId: string | null): boolean {
-		return !!groupId && this.groups.some((group) => group.id === groupId);
+		return !!groupId && this.groupFilterOptions.some((option) => option.value === groupId);
 	}
 
 	private getHydratedSelectionFingerprint(): string {
@@ -348,5 +353,22 @@ export class TrainingPageContext {
 		} catch (error) {
 			toastStore.error(error instanceof Error ? error.message : 'Failed to save your training preferences');
 		}
+	}
+
+	private trainingRosterView(options: { groupId?: string } = {}): RosterReadModelView {
+		if (rosterStore.orgId !== this.orgId) {
+			return createRosterReadModel({
+				personnel: [],
+				groupOrder: this.groupOrder,
+				fallbackGroupName: this.orgName
+			}).scoped(this.#org.scopeSet, { status: 'active', ...options });
+		}
+
+		return rosterStore
+			.readModel({
+				groupOrder: this.groupOrder,
+				fallbackGroupName: this.orgName
+			})
+			.scoped(this.#org.scopeSet, { status: 'active', ...options });
 	}
 }

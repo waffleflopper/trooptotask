@@ -1,11 +1,11 @@
 import type { QueryWithRawStorePorts } from '$lib/server/core/ports';
 import type { Personnel, StatusType } from '$lib/types';
 import type { Group } from '$lib/stores/groups.svelte';
-import { PersonnelEntity } from '$lib/server/entities/personnel';
 import { GroupEntity } from '$lib/server/entities/group';
 import { StatusTypeEntity } from '$lib/server/entities/statusType';
 import { CALENDAR_POLICY_ACTIONS, requireCalendarPolicy } from './calendarPolicy';
 import { groupInFilter, resolveCalendarGroupScope } from './calendarScope';
+import { loadRosterPersonnel } from './rosterReadModel';
 
 export interface CalendarReportData {
 	allPersonnel: Personnel[];
@@ -19,13 +19,14 @@ export async function fetchCalendarReportData(ctx: QueryWithRawStorePorts): Prom
 	const orgId = ctx.auth.orgId;
 	const scope = resolveCalendarGroupScope(ctx);
 
-	const [allPersonnelRows, statusTypeRows, groupRows] = await Promise.all([
-		ctx.rawStore.findMany<Record<string, unknown>>('personnel', orgId, undefined, {
-			select: PersonnelEntity.select,
-			...groupInFilter(scope, 'group_id'),
-			isNull: { archived_at: true },
-			orderBy: [{ column: 'last_name', ascending: true }]
-		}),
+	const [allPersonnel, statusTypeRows, groupRows] = await Promise.all([
+		loadRosterPersonnel(
+			{ auth: ctx.auth, store: ctx.rawStore },
+			{
+				status: 'active',
+				inFilters: scope ? { group_id: scope.groupIds } : undefined
+			}
+		),
 		ctx.store.findMany<Record<string, unknown>>('status_types', orgId, undefined, {
 			orderBy: [{ column: 'sort_order', ascending: true }]
 		}),
@@ -36,7 +37,7 @@ export async function fetchCalendarReportData(ctx: QueryWithRawStorePorts): Prom
 	]);
 
 	return {
-		allPersonnel: PersonnelEntity.fromDbArray(allPersonnelRows),
+		allPersonnel,
 		statusTypes: StatusTypeEntity.fromDbArray(statusTypeRows),
 		groups: GroupEntity.fromDbArray(groupRows)
 	};

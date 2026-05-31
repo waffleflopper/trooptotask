@@ -46,10 +46,7 @@
 		{ value: '', label: 'All Trainings' },
 		...trainingViewsStore.items.map((view) => ({ value: view.id, label: view.name }))
 	]);
-	const groupFilterOptions = $derived([
-		{ value: '', label: 'Group: All' },
-		...ctx.groups.map((group) => ({ value: group.id, label: group.name }))
-	]);
+	const groupFilterOptions = $derived([...ctx.groupFilterOptions]);
 	const matrixViewOptions = [
 		{ value: 'alphabetical', label: 'A-Z' },
 		{ value: 'by-group', label: 'Group' }

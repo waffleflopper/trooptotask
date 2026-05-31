@@ -2,8 +2,8 @@
 import { cleanup, render, screen } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import Page from './+page.svelte';
-import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
+import { rosterStore } from '$lib/stores/roster.svelte';
 import type { WorkspaceBootstrap } from '$lib/server/core/orgShell';
 import type { TrainingBootstrap } from '$lib/server/core/orgShell';
 
@@ -57,13 +57,13 @@ function makeDeferredBootstrap(): WorkspaceBootstrap<TrainingBootstrap> {
 
 describe('training types page', () => {
 	beforeEach(() => {
-		personnelStore.load([], 'org-stale');
+		rosterStore.load([], 'org-stale');
 		trainingTypesStore.load([], 'org-stale');
 	});
 
 	afterEach(() => {
 		cleanup();
-		personnelStore.load([], 'org-test-reset');
+		rosterStore.load([], 'org-test-reset');
 		trainingTypesStore.load([], 'org-test-reset');
 	});
 

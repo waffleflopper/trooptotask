@@ -26,10 +26,10 @@ import {
 import { getActiveIctTasksForLibrary } from '$features/critical-tasks/utils/ictTaskLibrary';
 import { GroupEntity } from '$lib/server/entities/group';
 import { IctTaskEntity } from '$lib/server/entities/ictTask';
-import { PersonnelEntity } from '$lib/server/entities/personnel';
 import { PersonnelIctCompletionEntity } from '$lib/server/entities/personnelIctCompletion';
 import { fetchCriticalTasksSettings } from '$lib/server/core/useCases/criticalTasksWorkspaceQuery';
 import { writeWorkbookBuffer } from '$lib/export/workbook';
+import { loadRosterPersonnel } from './rosterReadModel';
 
 export interface CriticalTasksReportInput {
 	filters?: IctReportFilters;
@@ -107,12 +107,8 @@ async function buildDashboardFromSource(
 
 async function loadCriticalTasksReportSource(ctx: QueryPorts): Promise<CriticalTasksReportSource> {
 	const orgId = ctx.auth.orgId;
-	const [personnelRows, groupRows, taskRows, settings] = await Promise.all([
-		ctx.store.findMany<Record<string, unknown>>('personnel', orgId, undefined, {
-			select: PersonnelEntity.select,
-			isNull: { archived_at: true },
-			orderBy: [{ column: 'last_name', ascending: true }]
-		}),
+	const [personnel, groupRows, taskRows, settings] = await Promise.all([
+		loadRosterPersonnel(ctx, { status: 'active' }),
 		ctx.store.findMany<Record<string, unknown>>('groups', orgId, undefined, {
 			orderBy: [{ column: 'sort_order', ascending: true }]
 		}),
@@ -127,7 +123,7 @@ async function loadCriticalTasksReportSource(ctx: QueryPorts): Promise<CriticalT
 	]);
 
 	return {
-		personnel: PersonnelEntity.fromDbArray(personnelRows),
+		personnel,
 		groups: GroupEntity.fromDbArray(groupRows),
 		tasks: IctTaskEntity.fromDbArray(taskRows),
 		settings

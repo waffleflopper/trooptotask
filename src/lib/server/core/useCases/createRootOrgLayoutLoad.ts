@@ -1,20 +1,21 @@
 import type { Cookies } from '@sveltejs/kit';
-import { createOrgShellCoordinator, type OrgShellCoordinator, type RootOrgLoadPort } from '../orgShellCoordinator';
 import { createSupabaseSubscriptionAdapter } from '$lib/server/adapters/supabaseSubscription';
 import {
+	createSupabaseAppShellDeferredChromePort,
+	createSupabaseAppShellFirstPaintChromePort,
+	createSupabaseAppShellRequest,
 	createSupabaseOrgAccessPort,
-	createSupabaseOrgChromePort,
-	createSupabaseRootOrgLoadPort,
-	type SupabaseRootOrgLoadPortDeps
+	type SupabaseAppShellRequestDeps
 } from '$lib/server/adapters/supabaseOrgShell';
+import type { AppShellRequest } from '../orgShell';
 
 export interface RootOrgLayoutLoadDeps {
-	coordinator?: OrgShellCoordinator;
-	createRootPort?: (context: RootOrgLayoutRequestContext) => RootOrgLoadPort;
-	getLayoutClient?: SupabaseRootOrgLoadPortDeps['getLayoutClient'];
+	createAppShellRequest?: (context: RootOrgLayoutRequestContext) => AppShellRequest;
+	getLayoutClient?: SupabaseAppShellRequestDeps['getLayoutClient'];
 	createSubscriptionAdapter?: typeof createSupabaseSubscriptionAdapter;
 	createOrgAccessPort?: typeof createSupabaseOrgAccessPort;
-	createOrgChromePort?: typeof createSupabaseOrgChromePort;
+	createFirstPaintChromePort?: typeof createSupabaseAppShellFirstPaintChromePort;
+	createDeferredChromePort?: typeof createSupabaseAppShellDeferredChromePort;
 }
 
 interface RootOrgLayoutRequestContext {
@@ -25,17 +26,17 @@ interface RootOrgLayoutRequestContext {
 }
 
 export function createRootOrgLayoutLoad(deps: RootOrgLayoutLoadDeps = {}) {
-	const coordinator = deps.coordinator ?? createOrgShellCoordinator();
-	const createRootPort =
-		deps.createRootPort ??
+	const createAppShellRequest =
+		deps.createAppShellRequest ??
 		(({ locals, cookies, orgSegment, url }: RootOrgLayoutRequestContext) =>
-			createSupabaseRootOrgLoadPort(
+			createSupabaseAppShellRequest(
 				{ locals, cookies, orgSegment, url },
 				{
 					getLayoutClient: deps.getLayoutClient,
 					createSubscriptionAdapter: deps.createSubscriptionAdapter,
 					createOrgAccessPort: deps.createOrgAccessPort,
-					createOrgChromePort: deps.createOrgChromePort
+					createFirstPaintChromePort: deps.createFirstPaintChromePort,
+					createDeferredChromePort: deps.createDeferredChromePort
 				}
 			));
 
@@ -53,6 +54,6 @@ export function createRootOrgLayoutLoad(deps: RootOrgLayoutLoadDeps = {}) {
 		url: URL;
 	}) => {
 		depends('app:org-core', 'app:org-preferences');
-		return coordinator.loadRoot(createRootPort({ locals, cookies, orgSegment: params.orgId, url }));
+		return createAppShellRequest({ locals, cookies, orgSegment: params.orgId, url }).loadFirstPaint();
 	};
 }

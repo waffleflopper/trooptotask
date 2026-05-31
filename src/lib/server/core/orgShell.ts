@@ -1,9 +1,10 @@
 /**
- * Shell/workspace type contracts and port interfaces for the org shell split (RFC #415).
+ * App shell/workspace type contracts and port interfaces for the org shell split (RFC #415).
  *
- * `OrgShellData` — identity, access, org state, and chrome only. No feature reference data.
+ * `AppShellRouteData` — first-paint identity, access, org state, preferences, and announcements.
  * `WorkspaceBootstrap<T>` — workspace-specific payload with an optional typed hydration plan.
- * Port interfaces (`OrgAccessPort`, `OrgChromePort`, `OrgWorkspacePort`, `HydrationPlannerPort`)
+ * Port interfaces (`OrgAccessPort`, `AppShellFirstPaintChromePort`, `AppShellDeferredChromePort`,
+ * `OrgWorkspacePort`, `HydrationPlannerPort`)
  * define the internal composition boundary. SvelteKit adapter implementations live in
  * src/lib/server/adapters/; in-memory test implementations live in inMemoryOrgShell.ts.
  */
@@ -38,29 +39,150 @@ export interface Announcement {
 }
 
 // ---------------------------------------------------------------------------
-// Shell data — identity, access, org state, chrome only
+// App shell data — first paint and deferred chrome
 // ---------------------------------------------------------------------------
 
-export interface OrgShellData {
-	orgId: string;
-	orgUrlSegment?: string;
-	membershipId: string | null;
-	orgName: string;
-	userId: string | null;
-	userPreferences: UserOrgPreferences;
-	userRole: 'owner' | 'admin' | 'member';
-	capabilityMap: CapabilityMap;
-	scopeSet: ScopeSet;
-	permissions: OrganizationMemberPermissions;
-	scopedGroupId?: string | null;
-	isOwner: boolean;
-	isAdmin: boolean;
-	isFullEditor: boolean;
-	effectiveTier: EffectiveTier;
-	unreadNotificationCount: number;
-	activeAnnouncements: Announcement[];
-	allOrgs: Array<{ id: string; name: string; role: string; urlSegment?: string }>;
-	orgSuspended?: boolean;
+export interface OrganizationSwitcherOrg {
+	id: string;
+	name: string;
+	role: string;
+	urlSegment?: string;
+}
+
+export interface ReadyAppShell {
+	kind: 'ready';
+	org: {
+		id: string;
+		urlSegment: string;
+		name: string;
+	};
+	user: {
+		id: string;
+	};
+	member: {
+		membershipId: string | null;
+		role: 'owner' | 'admin' | 'member';
+		capabilityMap: CapabilityMap;
+		scopeSet: ScopeSet;
+		permissions: OrganizationMemberPermissions;
+		scopedGroupId?: string | null;
+		isOwner: boolean;
+		isAdmin: boolean;
+		isFullEditor: boolean;
+	};
+	state: {
+		effectiveTier: EffectiveTier;
+		isReadOnly: boolean;
+		orgSuspended: false;
+	};
+	preferences: UserOrgPreferences;
+	announcements: Announcement[];
+}
+
+export interface SuspendedAppShell {
+	kind: 'suspended';
+	org: {
+		id: string;
+		urlSegment: string;
+		name: string;
+	};
+	state: {
+		isReadOnly: true;
+		orgSuspended: true;
+	};
+}
+
+export interface AppShellRouteData {
+	shell: ReadyAppShell | SuspendedAppShell;
+}
+
+export interface AppShellFirstPaintChrome {
+	announcements: Announcement[];
+	preferences: UserOrgPreferences;
+}
+
+export type DeferredChromePart = 'notification-count' | 'organization-switcher';
+
+export type AppShellDeferredChromeResult =
+	| {
+			part: 'notification-count';
+			ok: true;
+			unreadNotificationCount: number;
+	  }
+	| {
+			part: 'organization-switcher';
+			ok: true;
+			organizations: OrganizationSwitcherOrg[];
+	  }
+	| {
+			part: DeferredChromePart;
+			ok: false;
+			reason: string;
+	  };
+
+export interface AppShellRequest {
+	loadFirstPaint(): Promise<AppShellRouteData>;
+	loadDeferredChrome(part: DeferredChromePart): Promise<AppShellDeferredChromeResult>;
+}
+
+export interface AppShellFirstPaintChromePort {
+	getFirstPaintChrome(): Promise<AppShellFirstPaintChrome>;
+}
+
+export interface AppShellDeferredChromePort {
+	getUnreadNotificationCount(): Promise<number>;
+	getOrganizationSwitcherOrgs(): Promise<OrganizationSwitcherOrg[]>;
+}
+
+export function createReadyAppShell(config: {
+	orgUrlSegment: string;
+	membership: MembershipInfo;
+	orgState: OrgState;
+	firstPaintChrome: AppShellFirstPaintChrome;
+}): ReadyAppShell {
+	const { membership, orgState, firstPaintChrome } = config;
+	if (!membership.userId) {
+		throw new Error('Ready app shell requires an authenticated user id');
+	}
+
+	const isOwner = membership.role === 'owner';
+	const isAdmin = membership.role === 'admin';
+
+	const isFullEditor =
+		!isOwner &&
+		!isAdmin &&
+		membership.scopeSet.kind === 'organization' &&
+		Object.values(membership.permissions).every(Boolean);
+
+	return {
+		kind: 'ready',
+		org: {
+			id: membership.orgId,
+			urlSegment: config.orgUrlSegment,
+			name: orgState.orgName
+		},
+		user: {
+			id: membership.userId
+		},
+		member: {
+			membershipId: membership.membershipId,
+			role: membership.role,
+			capabilityMap: membership.capabilityMap,
+			scopeSet: membership.scopeSet,
+			permissions: membership.permissions,
+			scopedGroupId: membership.scopedGroupId ?? null,
+			isOwner,
+			isAdmin,
+			isFullEditor
+		},
+		state: {
+			effectiveTier: orgState.effectiveTier,
+			isReadOnly: orgState.effectiveTier.isReadOnly,
+			orgSuspended: false
+		},
+		preferences: firstPaintChrome.preferences,
+		announcements: firstPaintChrome.announcements
+	};
 }
 
 // ---------------------------------------------------------------------------
@@ -191,13 +313,6 @@ export interface OrgState {
 	effectiveTier: EffectiveTier;
 }
 
-export interface ChromeData {
-	unreadNotificationCount: number;
-	activeAnnouncements: Announcement[];
-	allOrgs: Array<{ id: string; name: string; role: string; urlSegment?: string }>;
-	userPreferences: UserOrgPreferences;
-}
-
 // ---------------------------------------------------------------------------
 // Port interfaces — framework-agnostic, pre-configured per request
 // ---------------------------------------------------------------------------
@@ -205,10 +320,6 @@ export interface ChromeData {
 export interface OrgAccessPort {
 	getMembership(): Promise<MembershipInfo>;
 	getOrgState(): Promise<OrgState>;
-}
-
-export interface OrgChromePort {
-	getChromeData(): Promise<ChromeData>;
 }
 
 export interface OrgWorkspacePort {

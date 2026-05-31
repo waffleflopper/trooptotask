@@ -1,4 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { createReadyAppShellRouteData } from '$lib/test-support/appShellRouteData';
 
 const {
 	acceptDutyRosterTemplatePreviewMock,
@@ -70,6 +71,8 @@ vi.mock('$features/duty-roster/templates/dutyRosterTemplates', () => ({
 
 import { actions, load } from './+page.server';
 
+const parentAppShell = async () => createReadyAppShellRouteData({ orgId: 'org-1', orgName: 'Able Company' });
+
 describe('Duty Roster Template view route', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
@@ -113,7 +116,7 @@ describe('Duty Roster Template view route', () => {
 			url: new URL('http://localhost/org/org-1/duty-rosters/cq-nco/history'),
 			locals: {},
 			cookies: {},
-			parent: async () => ({ orgName: 'Able Company' })
+			parent: parentAppShell
 		} as never);
 
 		expect(findDutyRosterTemplateBySlugMock).toHaveBeenCalledWith(mockCtx, 'cq-nco');
@@ -140,7 +143,7 @@ describe('Duty Roster Template view route', () => {
 			url: new URL('http://localhost/org/org-1/duty-rosters/cq-nco/settings'),
 			locals: {},
 			cookies: {},
-			parent: async () => ({ orgName: 'Able Company' })
+			parent: parentAppShell
 		} as never);
 
 		expect(loadDutyRosterTemplateSettingsMock).toHaveBeenCalledWith(
@@ -165,7 +168,7 @@ describe('Duty Roster Template view route', () => {
 			url: new URL('http://localhost/org/org-1/duty-rosters/cq-nco/history?page=2'),
 			locals: {},
 			cookies: {},
-			parent: async () => ({ orgName: 'Able Company' })
+			parent: parentAppShell
 		} as never);
 
 		expect(listAcceptedDutyRosterTemplateRunHistoryMock).toHaveBeenCalledWith(mockCtx, 'template-1', { page: 2 });
@@ -193,7 +196,7 @@ describe('Duty Roster Template view route', () => {
 			url: new URL('http://localhost/org/org-1/duty-rosters/cq-nco/history'),
 			locals: {},
 			cookies: {},
-			parent: async () => ({ orgName: 'Able Company' })
+			parent: parentAppShell
 		} as never);
 
 		expect(result).toMatchObject({
@@ -219,7 +222,7 @@ describe('Duty Roster Template view route', () => {
 				url: new URL('http://localhost/org/org-1/duty-rosters/cq-nco/generate'),
 				locals: {},
 				cookies: {},
-				parent: async () => ({ orgName: 'Able Company' })
+				parent: parentAppShell
 			} as never)
 		).rejects.toMatchObject({
 			status: 303,
@@ -232,7 +235,7 @@ describe('Duty Roster Template view route', () => {
 				url: new URL('http://localhost/org/org-1/duty-rosters/cq-nco/settings'),
 				locals: {},
 				cookies: {},
-				parent: async () => ({ orgName: 'Able Company' })
+				parent: parentAppShell
 			} as never)
 		).rejects.toMatchObject({
 			status: 303,
@@ -652,7 +655,7 @@ describe('Duty Roster Template view route', () => {
 				params: { orgId: 'org-1', templateSlug: 'cq-nco', view: 'unknown' },
 				locals: {},
 				cookies: {},
-				parent: async () => ({ orgName: 'Able Company' })
+				parent: parentAppShell
 			} as never)
 		).rejects.toMatchObject({
 			status: 303,

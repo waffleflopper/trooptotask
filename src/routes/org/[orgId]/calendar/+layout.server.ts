@@ -5,6 +5,7 @@ import { createDefaultHydrationPlanner } from '$lib/server/core/hydrationPlanner
 import type { HydrationPlannerPort, StreamableOrgWorkspacePort } from '$lib/server/core/orgShell';
 import { createOrgShellCoordinator, type OrgShellCoordinator } from '$lib/server/core/orgShellCoordinator';
 import type { CalendarBootstrap, CalendarDateRange } from '$lib/server/core/useCases/calendarQuery';
+import { requireReadyAppShell } from '$lib/server/core/appShellRouteData';
 
 interface CalendarLayoutRequestContext {
 	locals: App.Locals;
@@ -38,11 +39,12 @@ export function _createCalendarLayoutLoad(deps: CalendarLayoutLoadDeps = {}): La
 		cookies: Cookies;
 		url: URL;
 		depends: (...deps: string[]) => void;
-		parent: () => Promise<{ orgId: string }>;
+		parent: () => Promise<Parameters<typeof requireReadyAppShell>[0]>;
 	}) => {
 		depends('app:org-core', 'app:calendar-data');
 
-		const { orgId } = await parent();
+		const shell = requireReadyAppShell(await parent());
+		const orgId = shell.org.id;
 		const requestContext: CalendarLayoutRequestContext = { locals, cookies, orgId };
 		if (isCalendarSettingsPath(url.pathname)) {
 			requestContext.specialDaysRange = createCalendarSettingsSpecialDaysRange(new Date());

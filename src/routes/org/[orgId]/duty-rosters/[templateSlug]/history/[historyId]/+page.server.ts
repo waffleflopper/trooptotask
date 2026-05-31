@@ -8,11 +8,12 @@ import {
 	listDutyRosterTemplates,
 	loadDutyRosterTemplateCountReadModel
 } from '$lib/server/core/useCases/dutyRosterTemplates';
+import { requireReadyAppShell } from '$lib/server/core/appShellRouteData';
 export { actions } from '../../[view]/+page.server';
 
 export const load: PageServerLoad = async ({ params, url, locals, cookies, parent }) => {
 	const { orgId, templateSlug, historyId } = params;
-	const parentData = await parent();
+	const shell = requireReadyAppShell(await parent());
 	const mode: 'roster' | 'da6' = url.searchParams.get('mode') === 'da6' ? 'da6' : 'roster';
 
 	const data = await loadWithContext(locals, cookies, orgId, {
@@ -46,7 +47,7 @@ export const load: PageServerLoad = async ({ params, url, locals, cookies, paren
 
 	return {
 		orgId,
-		orgName: parentData.orgName,
+		orgName: shell.org.name,
 		templates: data.templates,
 		selectedTemplate: data.selectedTemplate,
 		settings: null,

@@ -2,13 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { defineStore } from '$lib/stores/core';
 import { createOrgShellCoordinator as createClientOrgShellCoordinator } from '$lib/orgShellCoordinator.svelte';
 import type { HydrationStores } from '$lib/orgShellCoordinator';
-import {
-	createInMemoryOrgAccessPort,
-	createInMemoryOrgChromePort,
-	createInMemoryOrgWorkspacePort
-} from '$lib/server/adapters/inMemoryOrgShell';
+import { createInMemoryOrgWorkspacePort } from '$lib/server/adapters/inMemoryOrgShell';
 import { createDefaultHydrationPlanner } from './hydrationPlanner';
-import { getDefaultUserOrgPreferences } from '$lib/preferences/userPreferences';
 import type { Group } from '$lib/stores/groups.svelte';
 import type {
 	OnboardingTemplate,
@@ -19,7 +14,7 @@ import type { RatingSchemeEntry } from '$features/rating-scheme/rating-scheme.ty
 import type { PersonnelTraining, TrainingType, TrainingView } from '$features/training/training.types';
 import type { IctTask, PersonnelIctCompletion } from '$features/critical-tasks/criticalTasks.types';
 import type { AssignmentType, AvailabilityEntry, DailyAssignment, Personnel, SpecialDay, StatusType } from '$lib/types';
-import type { ChromeData, MembershipInfo, OrgState, WorkspaceBootstrap, WorkspaceKey } from './orgShell';
+import type { WorkspaceBootstrap, WorkspaceKey } from './orgShell';
 import { createOrgShellCoordinator } from './orgShellCoordinator';
 import type { CalendarBootstrap } from './useCases/calendarQuery';
 import type { DashboardBootstrap } from './useCases/dashboardQuery';
@@ -27,56 +22,6 @@ import type { OnboardingBootstrap } from './useCases/onboardingQuery';
 import type { PersonnelBootstrap } from './useCases/personnelWorkspaceQuery';
 import type { TrainingBootstrap } from './orgShell';
 import type { CriticalTasksBootstrap } from './orgShell';
-
-const membership: MembershipInfo = {
-	orgId: 'org-1',
-	membershipId: 'membership-1',
-	userId: 'user-1',
-	role: 'member',
-	capabilityMap: {
-		calendar: 'view',
-		personnel: 'view',
-		training: 'view',
-		criticalTasks: 'view',
-		onboarding: 'none',
-		ratingScheme: 'none'
-	},
-	scopeSet: { kind: 'organization' },
-	permissions: {
-		canViewCalendar: true,
-		canEditCalendar: false,
-		canViewPersonnel: true,
-		canEditPersonnel: false,
-		canViewTraining: true,
-		canEditTraining: false,
-		canViewCriticalTasks: true,
-		canEditCriticalTasks: false,
-		canViewOnboarding: false,
-		canEditOnboarding: false,
-		canManageMembers: false
-	}
-};
-
-const orgState: OrgState = {
-	orgName: 'Test Unit',
-	effectiveTier: {
-		tier: 'free',
-		source: 'default',
-		personnelCount: 0,
-		personnelCap: 20,
-		isReadOnly: false,
-		readOnlyReason: null,
-		giftExpiresAt: null,
-		giftTier: null
-	}
-};
-
-const chrome: ChromeData = {
-	unreadNotificationCount: 3,
-	activeAnnouncements: [{ id: 'a1', title: 'Heads up', message: 'Check this', type: 'info' }],
-	allOrgs: [{ id: 'org-1', name: 'Test Unit', role: 'member' }],
-	userPreferences: getDefaultUserOrgPreferences()
-};
 
 function createInspectableLoadable<T>() {
 	return {
@@ -177,66 +122,6 @@ function createTestCoordinator() {
 }
 
 describe('OrgShellCoordinator', () => {
-	it('loads the canonical root org shell payload for the authenticated happy path', async () => {
-		const coordinator = createTestCoordinator();
-
-		const result = await coordinator.loadRoot({
-			kind: 'shell',
-			orgUrlSegment: '1-11-bde',
-			access: createInMemoryOrgAccessPort({ membership, orgState }),
-			chrome: createInMemoryOrgChromePort({ chrome })
-		});
-
-		expect(result).toMatchObject({
-			orgId: 'org-1',
-			orgUrlSegment: '1-11-bde',
-			orgName: 'Test Unit',
-			userId: 'user-1',
-			userPreferences: chrome.userPreferences,
-			userRole: 'member',
-			permissions: membership.permissions,
-			isOwner: false,
-			isAdmin: false,
-			effectiveTier: orgState.effectiveTier,
-			unreadNotificationCount: 3,
-			activeAnnouncements: chrome.activeAnnouncements,
-			allOrgs: chrome.allOrgs,
-			shell: {
-				orgId: 'org-1',
-				orgUrlSegment: '1-11-bde',
-				orgName: 'Test Unit',
-				userId: 'user-1',
-				userPreferences: chrome.userPreferences,
-				userRole: 'member',
-				permissions: membership.permissions,
-				isOwner: false,
-				isAdmin: false,
-				effectiveTier: orgState.effectiveTier,
-				unreadNotificationCount: 3,
-				activeAnnouncements: chrome.activeAnnouncements,
-				allOrgs: chrome.allOrgs
-			}
-		});
-	});
-
-	it('returns the suspended root-shell payload through the coordinator boundary', async () => {
-		const coordinator = createTestCoordinator();
-
-		const result = await coordinator.loadRoot({
-			kind: 'suspended',
-			orgId: 'org-1',
-			orgName: 'Test Unit',
-			orgUrlSegment: 'org-1'
-		});
-
-		expect(result).toEqual({
-			orgSuspended: true,
-			orgId: 'org-1',
-			orgName: 'Test Unit',
-			orgUrlSegment: 'org-1'
-		});
-	});
-
 	it('returns the canonical calendar workspace payload with composite calendar hydration through the coordinator boundary', async () => {
 		const coordinator = createTestCoordinator();
 		const deferredAssignments = Promise.resolve([

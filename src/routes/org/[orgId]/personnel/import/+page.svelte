@@ -9,8 +9,8 @@
 </script>
 
 <PersonnelImportPage
-	orgId={data.orgId}
-	orgUrlSegment={org.orgUrlSegment ?? data.orgId}
+	orgId={org.orgId}
+	orgUrlSegment={org.orgUrlSegment ?? org.orgId}
 	groups={workspaceData.groups}
 	personnel={workspaceData.personnel}
 	readOnly={org.readOnly}

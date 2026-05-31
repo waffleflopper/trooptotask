@@ -1,13 +1,9 @@
 import { error } from '@sveltejs/kit';
 import type { OrganizationMemberPermissions } from '$lib/types';
+import type { AppShellRouteData } from '$lib/server/core/orgShell';
 
-interface SettingsParentData {
-	orgSuspended?: boolean;
-	permissions?: OrganizationMemberPermissions;
-}
-
-export function getSettingsPermissions(parentData: SettingsParentData): OrganizationMemberPermissions | undefined {
-	if (parentData.orgSuspended) return undefined;
-	if (!parentData.permissions) error(500, 'Permissions not loaded from parent org layout');
-	return parentData.permissions;
+export function getSettingsPermissions(parentData: AppShellRouteData): OrganizationMemberPermissions | undefined {
+	if (parentData.shell.kind === 'suspended') return undefined;
+	if (!parentData.shell.member.permissions) error(500, 'Permissions not loaded from parent org layout');
+	return parentData.shell.member.permissions;
 }

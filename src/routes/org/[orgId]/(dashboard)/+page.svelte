@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { DashboardContext, DashboardPageView } from '$features/dashboard';
-	import type { DashboardSupportData } from '$features/dashboard/contexts/DashboardContext.svelte';
+	import { createDashboardScreenModel, DashboardPageView } from '$features/dashboard';
+	import type { DashboardScreenModel, DashboardSupportData } from '$features/dashboard';
 	import type { DashboardPageData } from '$features/dashboard/dashboard.types';
 	import type { PageData } from './$types';
 	import type { DashboardPageSummaryData } from './+page.server';
@@ -29,6 +29,7 @@
 	let supportRequestVersion = 0;
 	let workspaceError = $state<Error | null>(null);
 	let summaryError = $state<Error | null>(null);
+	const shell = $derived(data.shell.kind === 'ready' ? data.shell : null);
 	const renderLoadError = $derived.by(() => {
 		const error = workspaceError ?? summaryError;
 		if (error) {
@@ -76,7 +77,7 @@
 	});
 
 	$effect(() => {
-		data.orgId;
+		data.shell.org.id;
 		supportRequestVersion += 1;
 		supportData = null;
 		supportLoading = false;
@@ -121,10 +122,11 @@
 	): DashboardPageData {
 		return {
 			...data,
-			orgId: data.orgId,
-			orgName: data.orgName ?? 'Troop to Task',
-			userId: data.userId ?? null,
-			permissions: data.permissions ?? null,
+			orgId: data.shell.org.id,
+			orgName: data.shell.org.name,
+			userId: shell?.user.id ?? null,
+			userRole: shell?.member.role,
+			permissions: shell?.member.permissions ?? null,
 			dashboard,
 			trainingSummary: summary.trainingSummary,
 			ictlSummary: summary.ictlSummary,
@@ -132,11 +134,11 @@
 		};
 	}
 
-	function shouldLoadWorkspaceSupport(ctx: DashboardContext): boolean {
+	function shouldLoadWorkspaceSupport(ctx: DashboardScreenModel): boolean {
 		return ctx.userRole === 'owner' || ctx.userRole === 'admin';
 	}
 
-	async function loadSupportData(ctx: DashboardContext): Promise<void> {
+	async function loadSupportData(ctx: DashboardScreenModel): Promise<void> {
 		const requestVersion = ++supportRequestVersion;
 		const orgId = ctx.data.orgId;
 		supportLoading = true;
@@ -174,7 +176,7 @@
 	const pending = $derived(workspacePending || summaryPending);
 	const ctx = $derived(
 		dashboardBootstrap && summaryData
-			? new DashboardContext(toDashboardPageData(data, dashboardBootstrap, summaryData))
+			? createDashboardScreenModel(toDashboardPageData(data, dashboardBootstrap, summaryData))
 			: null
 	);
 	const canLoadSupport = $derived(ctx ? shouldLoadWorkspaceSupport(ctx) : false);

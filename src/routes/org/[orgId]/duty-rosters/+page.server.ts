@@ -9,10 +9,11 @@ import {
 	loadDutyRosterTemplateSetupOptions
 } from '$lib/server/core/useCases/dutyRosterTemplates';
 import { dutyRosterActionError } from './routeHelpers.server';
+import { requireReadyAppShell } from '$lib/server/core/appShellRouteData';
 
 export const load: PageServerLoad = async ({ params, locals, cookies, parent }) => {
 	const { orgId } = params;
-	const parentData = await parent();
+	const shell = requireReadyAppShell(await parent());
 
 	const { templates, setupOptions } = await loadWithContext(locals, cookies, orgId, {
 		policyAction: POLICY_ACTION_CATALOG.calendar.viewDutyRosters,
@@ -25,7 +26,7 @@ export const load: PageServerLoad = async ({ params, locals, cookies, parent }) 
 
 	return {
 		orgId,
-		orgName: parentData.orgName,
+		orgName: shell.org.name,
 		templates,
 		setupOptions,
 		selectedTemplate: null,

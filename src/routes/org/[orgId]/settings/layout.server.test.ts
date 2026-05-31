@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { createTestContext } from '$lib/server/adapters/inMemory';
+import { createReadyAppShellRouteData, createSuspendedAppShellRouteData } from '$lib/test-support/appShellRouteData';
 
 const { loadWithContextMock } = vi.hoisted(() => ({
 	loadWithContextMock: vi.fn()
@@ -32,12 +33,12 @@ describe('settings layout server load', () => {
 				locals: {},
 				cookies: {},
 				route: { id: '/org/[orgId]/settings' },
-				parent: async () => ({
-					orgId: 'org-1',
-					orgName: 'Test Org',
-					orgUrlSegment: 'test-org',
-					effectiveTier: null
-				})
+				parent: async () =>
+					createReadyAppShellRouteData({
+						orgId: 'org-1',
+						orgName: 'Test Org',
+						orgUrlSegment: 'test-org'
+					})
 			} as never)
 		).rejects.toMatchObject({ status: 303, location: '/org/test-org/settings/general' });
 
@@ -51,13 +52,12 @@ describe('settings layout server load', () => {
 				locals: {},
 				cookies: {},
 				route: { id: '/org/[orgId]/settings' },
-				parent: async () => ({
-					orgId: 'org-1',
-					orgName: 'Test Org',
-					orgUrlSegment: 'test-org',
-					effectiveTier: null,
-					orgSuspended: true
-				})
+				parent: async () =>
+					createSuspendedAppShellRouteData({
+						orgId: 'org-1',
+						orgName: 'Test Org',
+						orgUrlSegment: 'test-org'
+					})
 			} as never)
 		).rejects.toMatchObject({ status: 303, location: '/org/test-org/suspended' });
 
@@ -90,12 +90,12 @@ describe('settings layout server load', () => {
 			locals: {},
 			cookies: {},
 			route: { id: '/org/[orgId]/settings/general' },
-			parent: async () => ({
-				orgId: 'org-1',
-				orgName: 'Test Org',
-				orgUrlSegment: 'test-org',
-				effectiveTier: null
-			})
+			parent: async () =>
+				createReadyAppShellRouteData({
+					orgId: 'org-1',
+					orgName: 'Test Org',
+					orgUrlSegment: 'test-org'
+				})
 		} as never);
 
 		expect(loadWithContextMock).toHaveBeenCalledWith(
@@ -173,12 +173,12 @@ describe('settings layout server load', () => {
 			locals: {},
 			cookies: {},
 			route: { id: '/org/[orgId]/settings/general' },
-			parent: async () => ({
-				orgId: 'org-1',
-				orgName: 'Test Org',
-				orgUrlSegment: 'test-org',
-				effectiveTier: null
-			})
+			parent: async () =>
+				createReadyAppShellRouteData({
+					orgId: 'org-1',
+					orgName: 'Test Org',
+					orgUrlSegment: 'test-org'
+				})
 		} as never);
 
 		expect(result).toMatchObject({
@@ -241,12 +241,7 @@ describe('settings layout server load', () => {
 				locals: {},
 				cookies: {},
 				route: { id: '/org/[orgId]/settings/general' },
-				parent: async () => ({
-					orgId: 'org-1',
-					orgName: 'Test Org',
-					orgUrlSegment: 'org-1',
-					effectiveTier: null
-				})
+				parent: async () => createReadyAppShellRouteData({ orgId: 'org-1', orgName: 'Test Org' })
 			} as never)
 		).rejects.toMatchObject({
 			status: 403,

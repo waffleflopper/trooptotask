@@ -6,6 +6,7 @@ import type { AssignmentType, AvailabilityEntry, DailyAssignment, Personnel, Spe
 import type { Group } from '$lib/stores/groups.svelte';
 import type { WorkspaceBootstrap, WorkspaceKey } from '$lib/server/core/orgShell';
 import type { CalendarBootstrap } from '$lib/server/core/useCases/calendarQuery';
+import { createReadyAppShellRouteData } from '$lib/test-support/appShellRouteData';
 import { _createCalendarLayoutLoad } from './+layout.server';
 
 describe('calendar layout server load', () => {
@@ -83,7 +84,7 @@ describe('calendar layout server load', () => {
 			cookies,
 			url: new URL('https://app.test/org/org-1/calendar'),
 			depends,
-			parent: async () => ({ orgId: 'org-1' })
+			parent: async () => createReadyAppShellRouteData({ orgId: 'org-1' })
 		} as unknown as Parameters<typeof load>[0]);
 		if (!result) {
 			throw new Error('Expected calendar layout load to return data');
@@ -155,7 +156,7 @@ describe('calendar layout server load', () => {
 			cookies: {} as Cookies,
 			url: new URL('https://app.test/org/org-1/calendar/settings'),
 			depends: vi.fn(),
-			parent: async () => ({ orgId: 'org-1' })
+			parent: async () => createReadyAppShellRouteData({ orgId: 'org-1' })
 		} as unknown as Parameters<typeof load>[0]);
 
 		expect(createWorkspacePort).toHaveBeenCalledWith({

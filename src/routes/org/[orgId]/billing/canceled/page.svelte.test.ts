@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/svelte';
 
 import Page from './+page.svelte';
+import { createReadyAppShellRouteData } from '$lib/test-support/appShellRouteData';
 
 afterEach(() => {
 	cleanup();
@@ -13,7 +14,7 @@ describe('billing canceled page', () => {
 		render(Page, {
 			props: {
 				data: {
-					orgId: 'org-route-1'
+					...createReadyAppShellRouteData({ orgId: 'org-route-1' })
 				} as never,
 				form: null as never,
 				params: { orgId: 'org-route-1' }

@@ -15,6 +15,7 @@
 	import { goto, invalidate } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+	import { buildAddRecords } from '$features/calendar/utils/availabilityMutation';
 	import type { Personnel } from '$lib/types';
 	import type { CalendarWorkspaceData } from '$features/calendar/calendar.types';
 
@@ -80,9 +81,7 @@
 		endDate: string,
 		note: string | null
 	) {
-		await availabilityStore.addBatch(
-			personnelIds.map((personnelId) => ({ personnelId, statusTypeId, startDate, endDate, note }))
-		);
+		await availabilityStore.addBatch(buildAddRecords(personnelIds, statusTypeId, startDate, endDate, note));
 	}
 
 	async function handleBulkRemove(ids: string[]): Promise<boolean> {
@@ -90,10 +89,6 @@
 	}
 
 	function handleComplete() {
-		invalidate('app:calendar-data');
-	}
-
-	function handleImportComplete() {
 		invalidate('app:calendar-data');
 	}
 </script>
@@ -149,7 +144,6 @@
 					personnel={allPersonnelFlat}
 					statusTypes={statusTypesStore.items}
 					orgId={data.orgId}
-					onImportComplete={handleImportComplete}
 					onComplete={handleComplete}
 				/>
 			{/if}

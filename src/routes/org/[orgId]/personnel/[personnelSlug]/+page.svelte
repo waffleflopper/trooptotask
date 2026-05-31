@@ -6,8 +6,6 @@
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
 
 	interface PersonnelLayoutData {
-		orgId: string;
-		orgName: string;
 		personnelDetailHeader: PersonnelDetailHeader;
 		personnelDetail: PersonnelDetailStreams;
 		personnel?: {
@@ -37,11 +35,11 @@
 </script>
 
 <PersonnelDetailPageView
-	orgId={data.orgId}
+	orgId={org.orgId}
 	orgUrlSegment={org.orgUrlSegment}
 	{person}
 	{groups}
-	orgName={data.orgName}
+	orgName={org.orgName}
 	detail={data.personnelDetail}
 	{canArchivePersonnel}
 />

@@ -146,6 +146,7 @@ function isProductionSourceFile(filePath) {
 	if (!/\.(ts|js|svelte)$/.test(filePath)) return false;
 	if (/\.test\.(ts|js)$/.test(filePath)) return false;
 	if (/\.svelte\.test\.ts$/.test(filePath)) return false;
+	if (filePath.includes('/test-support/')) return false;
 	if (filePath.includes('/test-stubs/')) return false;
 	return true;
 }

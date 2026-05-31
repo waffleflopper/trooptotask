@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import OverviewTab from './tabs/OverviewTab.svelte';
-	import type { DashboardContext } from '../contexts/DashboardContext.svelte';
+	import type { DashboardScreenModel } from '../read-model/dashboardScreenModel.svelte';
 
-	let { ctx }: { ctx: DashboardContext } = $props();
+	let { ctx }: { ctx: DashboardScreenModel } = $props();
 </script>
 
 <svelte:head>

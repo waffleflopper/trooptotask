@@ -5,6 +5,7 @@ import { calendarStore } from '$features/calendar/stores/calendar.svelte';
 import { CALENDAR_ANCHOR_COOKIE } from '$features/calendar/utils/calendarAnchorDate';
 import type { WorkspaceBootstrap } from '$lib/server/core/orgShell';
 import type { CalendarBootstrap, CalendarRangeData } from '$lib/server/core/useCases/calendarQuery';
+import { createReadyAppShellRouteData } from '$lib/test-support/appShellRouteData';
 
 const { exportMonthToExcelMock, loadCalendarRangeMock, mergeCalendarRangeIntoStoresMock, printMonthCalendarMock } =
 	vi.hoisted(() => ({
@@ -121,6 +122,19 @@ function makeBootstrap(): WorkspaceBootstrap<CalendarBootstrap> {
 	};
 }
 
+function makePageData() {
+	return {
+		...createReadyAppShellRouteData({
+			orgId: 'org-1',
+			orgName: 'Test Unit',
+			userId: 'user-1'
+		}),
+		calendar: {
+			data: makeBootstrap()
+		}
+	};
+}
+
 describe('calendar page', () => {
 	beforeEach(() => {
 		loadCalendarRangeMock.mockReset();
@@ -144,18 +158,7 @@ describe('calendar page', () => {
 	it('loads a larger calendar range on demand when navigating beyond the buffered window', async () => {
 		render(Page, {
 			props: {
-				data: {
-					orgId: 'org-1',
-					orgName: 'Test Unit',
-					userId: 'user-1',
-					permissions: {
-						canViewCalendar: true,
-						canEditCalendar: true
-					},
-					calendar: {
-						data: makeBootstrap()
-					}
-				}
+				data: makePageData()
 			}
 		});
 
@@ -183,18 +186,7 @@ describe('calendar page', () => {
 
 		render(Page, {
 			props: {
-				data: {
-					orgId: 'org-1',
-					orgName: 'Test Unit',
-					userId: 'user-1',
-					permissions: {
-						canViewCalendar: true,
-						canEditCalendar: true
-					},
-					calendar: {
-						data: makeBootstrap()
-					}
-				}
+				data: makePageData()
 			}
 		});
 
@@ -230,18 +222,7 @@ describe('calendar page', () => {
 
 		render(Page, {
 			props: {
-				data: {
-					orgId: 'org-1',
-					orgName: 'Test Unit',
-					userId: 'user-1',
-					permissions: {
-						canViewCalendar: true,
-						canEditCalendar: true
-					},
-					calendar: {
-						data: makeBootstrap()
-					}
-				}
+				data: makePageData()
 			}
 		});
 
@@ -272,18 +253,7 @@ describe('calendar page', () => {
 
 		render(Page, {
 			props: {
-				data: {
-					orgId: 'org-1',
-					orgName: 'Test Unit',
-					userId: 'user-1',
-					permissions: {
-						canViewCalendar: true,
-						canEditCalendar: true
-					},
-					calendar: {
-						data: makeBootstrap()
-					}
-				}
+				data: makePageData()
 			}
 		});
 

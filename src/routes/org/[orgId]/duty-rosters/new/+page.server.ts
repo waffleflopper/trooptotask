@@ -13,10 +13,11 @@ import {
 	dutyRosterFormValues,
 	parseDutyRosterBaselineCounts
 } from '../routeHelpers.server';
+import { requireReadyAppShell } from '$lib/server/core/appShellRouteData';
 
 export const load: PageServerLoad = async ({ params, locals, cookies, parent }) => {
 	const { orgId } = params;
-	const parentData = await parent();
+	const shell = requireReadyAppShell(await parent());
 
 	const data = await loadWithContext(locals, cookies, orgId, {
 		policyAction: POLICY_ACTION_CATALOG.calendar.configureDutyTemplates,
@@ -32,7 +33,7 @@ export const load: PageServerLoad = async ({ params, locals, cookies, parent }) 
 
 	return {
 		orgId,
-		orgName: parentData.orgName,
+		orgName: shell.org.name,
 		templates: data.templates,
 		selectedTemplate: null,
 		settings: null,

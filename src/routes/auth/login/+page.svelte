@@ -116,8 +116,9 @@
 		</div>
 
 		<div class="flex flex-col gap-2 text-sm leading-relaxed text-muted-foreground">
+			<p>Have an Account Setup Link? Open the newest setup email from TroopToTask.</p>
 			<p>
-				Have an invite code? <a href={resolve('/auth/register')}>Create your account</a>.
+				Need a fresh setup link? <a href={resolve('/auth/renew-invite')}>Request one</a>.
 			</p>
 			<p>
 				Want beta access? <a href={resolve('/auth/request-access')}>Request access</a>.

@@ -2,8 +2,8 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { page } from '$app/stores';
-	import PlatformInviteManager from '$features/groups/components/PlatformInviteManager.svelte';
 	import { formatDisplayDate } from '$lib/utils/dates';
 	import { Badge } from '$lib/components/ui/badge';
 	import { adminBadgeVariant } from '$lib/components/admin/adminTheme';
@@ -16,20 +16,19 @@
 	import * as Table from '$lib/components/ui/table';
 
 	let { data } = $props();
-	let showPlatformInvite = $state(false);
 	let searchInput = $derived(data.search);
 
 	function applyFilters() {
 		const params = new SvelteURLSearchParams();
 		if (searchInput) params.set('search', searchInput);
 		params.set('page', '1');
-		goto(`/admin/users?${params.toString()}`);
+		goto(resolve(`/admin/users?${params.toString()}`));
 	}
 
 	function goToPage(pageNum: number) {
 		const params = new SvelteURLSearchParams($page.url.searchParams);
 		params.set('page', pageNum.toString());
-		goto(`/admin/users?${params.toString()}`);
+		goto(resolve(`/admin/users?${params.toString()}`));
 	}
 
 	const totalPages = $derived(Math.ceil(data.totalCount / data.limit));
@@ -45,7 +44,7 @@
 			<Badge variant="secondary">Identity Ledger</Badge>
 		{/snippet}
 		{#snippet actions()}
-			<Button onclick={() => (showPlatformInvite = true)}>Invite User</Button>
+			<Button href="/admin/access-requests">Open Access Requests</Button>
 		{/snippet}
 	</PageShell.Header>
 
@@ -141,7 +140,3 @@
 		</div>
 	{/if}
 </PageShell.Root>
-
-{#if showPlatformInvite}
-	<PlatformInviteManager onClose={() => (showPlatformInvite = false)} />
-{/if}

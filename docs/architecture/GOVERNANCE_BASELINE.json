@@ -75,14 +75,6 @@
 			"reason": "Password updates remain inside the auth-provider edge."
 		},
 		{
-			"path": "src/routes/api/platform-invites/+server.ts",
-			"classification": "legacy-drift",
-			"reason": "Platform invite management still performs provider work directly in the route layer.",
-			"driftIds": [
-				"D-02"
-			]
-		},
-		{
 			"path": "src/routes/auth/accept-invite/+page.server.ts",
 			"classification": "auth-edge",
 			"reason": "Invite acceptance still depends on auth/session exchange."

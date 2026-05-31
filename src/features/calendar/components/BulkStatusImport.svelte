@@ -21,11 +21,10 @@
 		personnel: Personnel[];
 		statusTypes: StatusType[];
 		orgId: string;
-		onImportComplete: () => void;
 		onComplete: () => void;
 	}
 
-	let { personnel, statusTypes, orgId, onImportComplete, onComplete }: Props = $props();
+	let { personnel, statusTypes, orgId, onComplete }: Props = $props();
 
 	// State machine
 	type Step = 'upload' | 'preview' | 'resolve' | 'results';
@@ -354,9 +353,6 @@
 
 			importResult = { inserted: totalInserted, errors: allErrors };
 			step = 'results';
-			if (totalInserted > 0) {
-				onImportComplete();
-			}
 		} catch (err) {
 			importResult = {
 				inserted: 0,

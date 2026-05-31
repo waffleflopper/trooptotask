@@ -91,10 +91,6 @@
 	function handleComplete() {
 		invalidate('app:calendar-data');
 	}
-
-	function handleImportComplete() {
-		invalidate('app:calendar-data');
-	}
 </script>
 
 <div class="mx-auto flex max-w-[1480px] flex-col gap-4 px-4 py-4 sm:px-6 sm:pb-6">
@@ -148,7 +144,6 @@
 					personnel={allPersonnelFlat}
 					statusTypes={statusTypesStore.items}
 					orgId={data.orgId}
-					onImportComplete={handleImportComplete}
 					onComplete={handleComplete}
 				/>
 			{/if}

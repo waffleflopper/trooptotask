@@ -77,6 +77,8 @@
 	.public-shell {
 		--brass: var(--accent);
 		--brass-light: var(--accent);
+		/* AA-safe amber for text on the light paper surface (bright --accent is only ~3:1 on paper). */
+		--brass-text: oklch(48% 0.13 55);
 		--brass-muted: color-mix(in srgb, var(--accent) 14%, transparent);
 		--public-accent: var(--accent);
 		--public-accent-strong: var(--ring);
@@ -87,7 +89,7 @@
 		--public-ink-light: color-mix(in srgb, var(--color-chrome) 86%, var(--card) 14%);
 		--public-ink-border: var(--color-chrome-border);
 		--public-paper: var(--card);
-		--public-paper-warm: color-mix(in srgb, var(--card) 78%, var(--muted) 22%);
+		--public-paper-warm: color-mix(in srgb, var(--card) 96%, var(--foreground) 4%);
 		--hero-bg: var(--color-chrome);
 		--hero-text: var(--color-chrome-text);
 		--hero-muted: var(--color-chrome-text-muted);
@@ -109,6 +111,8 @@
 	:global([data-theme='dark']) .public-shell {
 		--public-paper: var(--card);
 		--public-paper-warm: color-mix(in srgb, var(--card) 82%, black 18%);
+		/* On the dark card surface the bright accent already clears AA. */
+		--brass-text: var(--accent);
 		--classification-bg: var(--foreground);
 		--classification-text: var(--hero-muted);
 		--classification-border: var(--public-ink-border);

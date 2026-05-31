@@ -41,7 +41,7 @@
 		gap: 0.75rem;
 		padding: 10px 1rem;
 		border-bottom: 1px solid var(--border);
-		background: var(--foreground);
+		background: var(--color-chrome);
 	}
 
 	.demo-frame__dots {

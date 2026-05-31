@@ -110,6 +110,48 @@ describe('countPersonnel', () => {
 
 		expect(count).toBe(2);
 	});
+
+	it('returns only archived personnel count when status is archived', async () => {
+		const ctx = createQueryPortsContext();
+		seedPersonnel(ctx, [
+			{ id: 'p1', last_name: 'Active', first_name: 'A', rank: 'SGT', clinic_role: 'medic', mos: '68W', group_id: null },
+			{
+				id: 'p2',
+				last_name: 'Gone',
+				first_name: 'B',
+				rank: 'CPT',
+				clinic_role: 'provider',
+				mos: '61H',
+				group_id: null,
+				archived_at: '2025-06-01'
+			}
+		]);
+
+		const count = await countPersonnel(ctx, { status: 'archived' });
+
+		expect(count).toBe(1);
+	});
+
+	it('returns all personnel count when status is all', async () => {
+		const ctx = createQueryPortsContext();
+		seedPersonnel(ctx, [
+			{ id: 'p1', last_name: 'Active', first_name: 'A', rank: 'SGT', clinic_role: 'medic', mos: '68W', group_id: null },
+			{
+				id: 'p2',
+				last_name: 'Gone',
+				first_name: 'B',
+				rank: 'CPT',
+				clinic_role: 'provider',
+				mos: '61H',
+				group_id: null,
+				archived_at: '2025-06-01'
+			}
+		]);
+
+		const count = await countPersonnel(ctx, { status: 'all' });
+
+		expect(count).toBe(2);
+	});
 });
 
 describe('queryPersonnel filters and pagination', () => {

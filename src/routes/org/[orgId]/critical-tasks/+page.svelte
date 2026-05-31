@@ -68,7 +68,9 @@
 	const canConfigureLibrary = $derived(configureLibraryAffordance.allowed);
 	const canInputTask = $derived(canViewReadiness && canRecordCompletion);
 	const groupOrder = $derived(
-		[...groupsStore.items].sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name)).map((g) => g.name)
+		[...groupsStore.items]
+			.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.name.localeCompare(b.name))
+			.map((g) => g.name)
 	);
 	const rosterReadModel = $derived(
 		rosterStore.orgId === orgId
@@ -150,7 +152,7 @@
 	const matrixExportHref = $derived.by(() => {
 		const params = new SvelteURLSearchParams();
 		if (effectiveSelectedGroupId) {
-			params.set('groupId', effectiveSelectedGroupId);
+			params.set('groupFilter', effectiveSelectedGroupId);
 		}
 		if (personnelSearch.trim()) {
 			params.set('search', personnelSearch.trim());
@@ -377,7 +379,7 @@
 							settings={criticalTasksSettings}
 							canEdit={canRecordCompletion}
 							onSelectCell={handleMatrixCellSelection}
-							selectedGroupId={effectiveSelectedGroupId}
+							selectedGroupFilter={effectiveSelectedGroupId}
 							{gapsOnly}
 							{viewMode}
 							{orgName}

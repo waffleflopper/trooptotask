@@ -77,6 +77,21 @@ const mockPerson2: Personnel = {
 	archivedAt: null
 } as unknown as Personnel;
 
+const unassignedPerson: Personnel = {
+	id: 'p-unassigned',
+	firstName: 'Taylor',
+	lastName: 'NoGroup',
+	rank: 'PFC',
+	clinicRole: 'Medic',
+	groupId: null,
+	groupName: '',
+	orgId: 'org-1',
+	phone: null,
+	email: null,
+	notes: null,
+	archivedAt: null
+} as unknown as Personnel;
+
 const mockType: TrainingType = {
 	id: 't-1',
 	name: 'CPR',
@@ -240,6 +255,20 @@ describe('TrainingPageContext', () => {
 			ctx.selectedGroupId = 'g-1';
 			expect(ctx.filteredPersonnel).toHaveLength(1);
 			expect(ctx.filteredPersonnel[0].id).toBe('p-1');
+		});
+
+		it('filters unassigned personnel through the roster group filter value', () => {
+			rosterStore.load([mockPerson, mockPerson2, unassignedPerson], 'org-1');
+			const ctx = new TrainingPageContext(makeData(), modals, makeOrg());
+
+			expect(ctx.groupFilterOptions).toContainEqual({ value: 'name:Unassigned', label: 'Unassigned' });
+
+			ctx.setSelectedGroupId('name:Unassigned');
+
+			expect(ctx.filteredPersonnel.map((person) => person.id)).toEqual(['p-unassigned']);
+			expect(queueUserPreferencesPatchMock).toHaveBeenCalledWith('org-1', {
+				training: { selectedGroupId: 'name:Unassigned' }
+			});
 		});
 	});
 

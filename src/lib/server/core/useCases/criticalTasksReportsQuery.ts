@@ -43,6 +43,7 @@ export interface CriticalTasksReportsPageModel {
 
 export interface CriticalTasksMatrixExportInput {
 	selectedGroupId?: string;
+	selectedGroupFilter?: string;
 	gapsOnly?: boolean;
 	search?: string;
 	asOf?: string | Date;
@@ -255,6 +256,7 @@ export async function generateCriticalTasksMatrixWorkbookExport(
 		groups: source.groups,
 		settings: source.settings,
 		selectedGroupId: input.selectedGroupId ?? '',
+		selectedGroupFilter: input.selectedGroupFilter ?? '',
 		gapsOnly: input.gapsOnly ?? false,
 		asOf: input.asOf,
 		orgName: 'Unassigned'

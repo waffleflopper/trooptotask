@@ -127,6 +127,7 @@ function makeCtx(
 		);
 	};
 	const activePersonnel = () => personnelStore.items.filter((person) => !person.archivedAt);
+	let searchQuery = $state('');
 
 	const ctx = {
 		data: { orgId: 'org-1', scopedGroupId: null },
@@ -139,7 +140,12 @@ function makeCtx(
 		personnelRecordAffordance: () => deniedAffordance(),
 		personnelArchiveAffordance: () => deniedAffordance(),
 		viewMode: 'alphabetical',
-		searchQuery: '',
+		get searchQuery() {
+			return searchQuery;
+		},
+		set searchQuery(value: string) {
+			searchQuery = value;
+		},
 		totalPersonnel: personnelStore.items.length,
 		get allActivePersonnel() {
 			return activePersonnel();
@@ -338,7 +344,7 @@ describe('PersonnelPageView', () => {
 			props: { ctx, permissions: viewOnlyPermissions }
 		});
 
-		await fireEvent.input(screen.getByTestId('personnel-search'), { target: { value: 'Garcia' } });
+		await fireEvent.input(screen.getByTestId('personnel-search'), { target: { value: 'Luis Garcia' } });
 
 		expect(screen.getByText('Garcia, Luis')).toBeTruthy();
 		expect(screen.queryByText('Smith, Jane')).toBeNull();

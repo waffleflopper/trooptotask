@@ -240,6 +240,18 @@ export class DashboardScreenModel {
 
 	private outTodayGroupBy = $state<OutTodayGroupBy>('status');
 	private upcomingGroupBy = $state<UpcomingGroupBy>('date');
+	private rosterView = $derived.by<RosterReadModelView>(() => {
+		const groupOrder = [...this.sources.groups.items]
+			.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.name.localeCompare(b.name))
+			.map((group) => group.name);
+
+		return createRosterReadModel({
+			personnel: this.sources.personnel.items,
+			pinnedGroups: this.sources.pinnedGroups.list,
+			groupOrder,
+			fallbackGroupName: this.data.orgName
+		}).full({ status: 'active' });
+	});
 
 	// ---------------------------------------------------------------------------
 	// Banner / getting-started support state
@@ -887,19 +899,6 @@ export class DashboardScreenModel {
 			textColor: hexToTextColor(color),
 			assigneeName
 		};
-	}
-
-	private get rosterView(): RosterReadModelView {
-		const groupOrder = [...this.sources.groups.items]
-			.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.name.localeCompare(b.name))
-			.map((group) => group.name);
-
-		return createRosterReadModel({
-			personnel: this.sources.personnel.items,
-			pinnedGroups: this.sources.pinnedGroups.list,
-			groupOrder,
-			fallbackGroupName: this.data.orgName
-		}).full({ status: 'active' });
 	}
 
 	private get rosterPersonnel(): Personnel[] {

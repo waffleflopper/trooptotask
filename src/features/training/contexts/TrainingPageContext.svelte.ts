@@ -131,7 +131,7 @@ export class TrainingPageContext {
 	// ---- derived: filtered/sorted personnel ----
 	get basePersonnel(): Personnel[] {
 		this.reconcileHydratedSelections();
-		return this.trainingRosterView({ groupId: this.selectedGroupId || undefined }).flatPersonnel;
+		return this.trainingRosterView({ groupFilter: this.selectedGroupId || undefined }).flatPersonnel;
 	}
 
 	get filteredPersonnel(): Personnel[] {
@@ -147,7 +147,7 @@ export class TrainingPageContext {
 	}
 
 	get personnelByGroup(): PersonnelGroup[] {
-		return this.trainingRosterView({ groupId: this.selectedGroupId || undefined }).personnelByGroup;
+		return this.trainingRosterView({ groupFilter: this.selectedGroupId || undefined }).personnelByGroup;
 	}
 
 	get groupFilterOptions(): Array<{ value: string; label: string }> {
@@ -289,10 +289,13 @@ export class TrainingPageContext {
 		const selectedGroupId = trainingPrefs?.selectedGroupId ?? null;
 		const selectedViewId = trainingPrefs?.selectedViewId ?? null;
 		const groupsLoaded = groupsStore.orgId === this.orgId && !groupsStore.loading;
+		const rosterLoaded = rosterStore.orgId === this.orgId && !rosterStore.loading;
 		const viewsLoaded = trainingViewsStore.orgId === this.orgId && !trainingViewsStore.loading;
 
 		this.selectedGroupId =
-			selectedGroupId && (!groupsLoaded || this.isValidGroupId(selectedGroupId)) ? selectedGroupId : '';
+			selectedGroupId && (!groupsLoaded || !rosterLoaded || this.isValidGroupId(selectedGroupId))
+				? selectedGroupId
+				: '';
 		this.selectedViewId =
 			selectedViewId && (!viewsLoaded || this.savedViewIds.has(selectedViewId)) ? selectedViewId : null;
 		this.viewMode = trainingPrefs?.matrixViewMode ?? 'by-group';
@@ -305,11 +308,12 @@ export class TrainingPageContext {
 		}
 
 		const groupsLoaded = groupsStore.orgId === this.orgId && !groupsStore.loading;
+		const rosterLoaded = rosterStore.orgId === this.orgId && !rosterStore.loading;
 		const viewsLoaded = trainingViewsStore.orgId === this.orgId && !trainingViewsStore.loading;
 
 		const patch: NonNullable<UserOrgPreferencesPatch['training']> = {};
 
-		if (groupsLoaded && this.selectedGroupId && !groupsStore.items.some((group) => group.id === this.selectedGroupId)) {
+		if (groupsLoaded && rosterLoaded && this.selectedGroupId && !this.isValidGroupId(this.selectedGroupId)) {
 			this.selectedGroupId = '';
 			patch.selectedGroupId = null;
 		}
@@ -339,12 +343,16 @@ export class TrainingPageContext {
 			groupsStore.orgId === this.orgId && !groupsStore.loading
 				? groupsStore.items.map((group) => group.id).join(',')
 				: 'pending';
+		const groupFilterValues =
+			rosterStore.orgId === this.orgId && !rosterStore.loading
+				? this.groupFilterOptions.map((option) => option.value).join(',')
+				: 'pending';
 		const viewIds =
 			trainingViewsStore.orgId === this.orgId && !trainingViewsStore.loading
 				? trainingViewsStore.items.map((view) => view.id).join(',')
 				: 'pending';
 
-		return [this.orgId, this.selectedGroupId, this.selectedViewId, groupIds, viewIds].join('|');
+		return [this.orgId, this.selectedGroupId, this.selectedViewId, groupIds, groupFilterValues, viewIds].join('|');
 	}
 
 	private async persistPreferences(preferences: UserOrgPreferencesPatch): Promise<void> {
@@ -355,7 +363,7 @@ export class TrainingPageContext {
 		}
 	}
 
-	private trainingRosterView(options: { groupId?: string } = {}): RosterReadModelView {
+	private trainingRosterView(options: { groupFilter?: string } = {}): RosterReadModelView {
 		if (rosterStore.orgId !== this.orgId) {
 			return createRosterReadModel({
 				personnel: [],

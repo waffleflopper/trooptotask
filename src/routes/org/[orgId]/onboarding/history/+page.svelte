@@ -36,8 +36,8 @@
 	);
 	const historyRosterView = $derived(
 		rosterStore.orgId === org.orgId
-			? rosterStore.readModel().scoped(org.scopeSet, { status: 'active' })
-			: createRosterReadModel({ personnel: [] }).scoped(org.scopeSet, { status: 'active' })
+			? rosterStore.readModel().scoped(org.scopeSet, { status: 'all' })
+			: createRosterReadModel({ personnel: [] }).scoped(org.scopeSet, { status: 'all' })
 	);
 
 	function toggleNotes(stepId: string) {

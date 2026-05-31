@@ -173,6 +173,11 @@ export class OnboardingPageContext {
 	// Complete confirmation state
 	completingId = $state<string | null>(null);
 	completingIncompleteCount = $state(0);
+	readonly #rosterView = $derived.by<RosterReadModelView>(() =>
+		rosterStore.orgId !== this.#org.orgId
+			? createRosterReadModel({ personnel: [] }).scoped(this.#org.scopeSet, { status: 'active' })
+			: rosterStore.readModel().scoped(this.#org.scopeSet, { status: 'active' })
+	);
 
 	constructor(modals: ModalRegistry, org: OrgContext) {
 		this.modals = modals;
@@ -446,10 +451,6 @@ export class OnboardingPageContext {
 	}
 
 	private get rosterView(): RosterReadModelView {
-		if (rosterStore.orgId !== this.#org.orgId) {
-			return createRosterReadModel({ personnel: [] }).scoped(this.#org.scopeSet, { status: 'active' });
-		}
-
-		return rosterStore.readModel().scoped(this.#org.scopeSet, { status: 'active' });
+		return this.#rosterView;
 	}
 }

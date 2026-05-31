@@ -53,6 +53,7 @@ export interface BuildCriticalTasksMatrixOptions {
 	groups?: Group[];
 	settings?: CriticalTasksSettingsInput | null;
 	selectedGroupId?: string;
+	selectedGroupFilter?: string;
 	gapsOnly?: boolean;
 	asOf?: string | Date;
 	orgName?: string;
@@ -154,6 +155,7 @@ export function buildCriticalTasksMatrix({
 	groups = [],
 	settings = null,
 	selectedGroupId = '',
+	selectedGroupFilter = '',
 	gapsOnly = false,
 	asOf,
 	orgName = 'Unassigned'
@@ -161,13 +163,17 @@ export function buildCriticalTasksMatrix({
 	const activeTasks = getActiveIctTasksForLibrary(tasks);
 	const latestCompletions = getLatestCompletionLookup(completions);
 	const groupOrder = [...groups]
-		.sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name))
+		.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.name.localeCompare(b.name))
 		.map((g) => g.name);
 	const sortedGroups = createRosterReadModel({
 		personnel,
 		groupOrder,
 		fallbackGroupName: orgName
-	}).full({ status: 'active', groupId: selectedGroupId || undefined }).personnelByGroup;
+	}).full({
+		status: 'active',
+		groupId: selectedGroupFilter ? undefined : selectedGroupId || undefined,
+		groupFilter: selectedGroupFilter || undefined
+	}).personnelByGroup;
 
 	const allGroups = sortedGroups
 		.map((group) => {

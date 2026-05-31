@@ -4,7 +4,6 @@
 	import type { RatingSchemePageData } from '$features/rating-scheme/contexts/RatingSchemePageContext.svelte';
 	import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
-	import { rosterStore } from '$lib/stores/roster.svelte';
 	import RatingSchemePageView from '$features/rating-scheme/components/RatingSchemePageView.svelte';
 	import RatingSchemeModals from '$features/rating-scheme/components/RatingSchemeModals.svelte';
 
@@ -26,19 +25,7 @@
 	);
 
 	const ctx = $derived(new RatingSchemePageContext(pageData, modals, org, ratingSchemeStore));
-	const personnelLookup = $derived(
-		rosterStore.orgId === org.orgId
-			? rosterStore
-					.readModel()
-					.scoped(org.scopeSet, { status: 'active' })
-					.flatPersonnel.map((person) => ({
-						id: person.id,
-						rank: person.rank,
-						lastName: person.lastName,
-						firstName: person.firstName
-					}))
-			: workspaceData.personnelLookup
-	);
+	const personnelLookup = $derived(workspaceData.personnelLookup);
 </script>
 
 <RatingSchemePageView {ctx} {personnelLookup} />

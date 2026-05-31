@@ -150,8 +150,6 @@
 	function setRosterSearch(value: string): void {
 		rosterSearch = value;
 		ctx.searchQuery = value;
-		azTable.setSearch(value);
-		groupedTable.setSearch(value);
 	}
 
 	function handleRosterSearchInput(event: Event): void {

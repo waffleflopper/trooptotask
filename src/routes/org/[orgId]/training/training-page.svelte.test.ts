@@ -8,6 +8,7 @@ import { personnelTrainingsStore } from '$features/training/stores/personnelTrai
 import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 import { groupsStore } from '$lib/stores/groups.svelte';
 import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
+import { createReadyAppShellRouteData } from '$lib/test-support/appShellRouteData';
 
 vi.mock('$lib/stores/orgContext.svelte', () => ({
 	getOrgContext: () => ({
@@ -43,13 +44,7 @@ vi.mock('$lib/stores/orgContext.svelte', () => ({
 
 function makePageData() {
 	return {
-		orgId: 'org-1',
-		orgName: 'Test Unit',
-		userPreferences: {},
-		permissions: {
-			canViewTraining: true,
-			canEditTraining: true
-		},
+		...createReadyAppShellRouteData({ orgId: 'org-1', orgName: 'Test Unit' }),
 		training: {
 			data: new Promise(() => undefined)
 		}

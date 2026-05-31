@@ -90,7 +90,8 @@ export const load = async ({ params, locals, cookies, depends, parent }: PageSer
 				const parentData = await parentDataPromise;
 				const workspaceBootstrap = parentData.dashboard.data as Promise<WorkspaceBootstrap<DashboardBootstrap>>;
 				const workspaceData = (await workspaceBootstrap).data;
-				const canViewCriticalTasks = parentData.permissions?.canViewCriticalTasks === true;
+				const canViewCriticalTasks =
+					parentData.shell.kind === 'ready' && parentData.shell.member.permissions.canViewCriticalTasks === true;
 				const trainingData = await fetchDashboardTrainingSummary(ctx, {
 					personnel: workspaceData.personnel,
 					trainingTypes: workspaceData.trainingTypes,

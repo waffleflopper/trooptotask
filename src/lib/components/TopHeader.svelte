@@ -49,10 +49,8 @@
 		membershipId?: string | null;
 		permissions: OrganizationMemberPermissions;
 		capabilityMap?: CapabilityMap;
-		allOrgs: OrgInfo[];
 		onToggleTheme: () => void;
 		isDarkTheme: boolean;
-		unreadNotificationCount?: number;
 		onFeedback?: () => void;
 		onWhatsNew?: () => void;
 		children?: Snippet;
@@ -75,23 +73,28 @@
 		membershipId = null,
 		permissions,
 		capabilityMap,
-		allOrgs,
 		onToggleTheme,
 		isDarkTheme,
-		unreadNotificationCount = 0,
 		onFeedback,
 		onWhatsNew,
 		children
 	}: Props = $props();
 
 	let clientDashboardDateLabel = $state<string | null>(null);
+	let orgSwitcherOpen = $state(false);
+	let orgSwitcherOrgs = $state<OrgInfo[]>([]);
+	let orgSwitcherLoaded = $state(false);
+	let orgSwitcherLoading = $state(false);
+	let orgSwitcherLoadAttempted = $state(false);
 	let notificationsOpen = $state(false);
 	let notifications = $state<Notification[]>([]);
 	let notificationsLoaded = $state(false);
 	let notificationsLoading = $state(false);
 	let showLeaveOrganizationDialog = $state(false);
 	let leaveOrganizationConfirmText = $state('');
-	let localUnreadCount = $derived(unreadNotificationCount);
+	let localUnreadCount = $state(0);
+	let lastOrgUrlSegment = $state<string | null>(null);
+	let lastNotificationCountSegment = $state<string | null>(null);
 	const pathname = $derived($page.url.pathname);
 	const dashboardPath = $derived(`/org/${orgUrlSegment}`);
 	const isDashboardRoot = $derived(pathname === dashboardPath);
@@ -106,9 +109,15 @@
 	const navItems = $derived(allNavItems.filter((item) => item.visible));
 	const breadcrumbs = $derived(getOrgBreadcrumbs(pathname, orgName, allNavItems, routeLeafLabel));
 	const activeOrg = $derived(
-		allOrgs.find((org) => org.id === orgId) ?? { id: orgId, name: orgName, role: userRole, urlSegment: orgUrlSegment }
+		orgSwitcherOrgs.find((org) => org.id === orgId) ?? {
+			id: orgId,
+			name: orgName,
+			role: userRole,
+			urlSegment: orgUrlSegment
+		}
 	);
-	const isMultiOrg = $derived(allOrgs.length > 1);
+	const visibleOrgs = $derived(orgSwitcherLoaded ? orgSwitcherOrgs : [activeOrg]);
+	const isMultiOrg = $derived(orgSwitcherLoaded && orgSwitcherOrgs.length > 1);
 	const normalizedUserRole = $derived(userRole.toLowerCase());
 	const canLeaveOrganization = $derived(normalizedUserRole !== 'owner');
 	const canAccessOrganizationSettings = $derived(normalizedUserRole === 'owner' || normalizedUserRole === 'admin');
@@ -150,12 +159,47 @@
 		void goto(resolve(`/org/${targetOrgUrlSegment}${suffix}`));
 	}
 
+	async function loadOrgSwitcherOrgs(segment = orgUrlSegment) {
+		if (orgSwitcherLoaded || orgSwitcherLoading || orgSwitcherLoadAttempted) return;
+
+		orgSwitcherLoadAttempted = true;
+		orgSwitcherLoading = true;
+		try {
+			const response = await fetch(`/org/${segment}/api/app-shell-chrome?part=organization-switcher`);
+			if (!response.ok) return;
+
+			const result = await response.json();
+			if (segment === orgUrlSegment && result.ok && Array.isArray(result.organizations)) {
+				orgSwitcherOrgs = result.organizations;
+				orgSwitcherLoaded = true;
+			}
+		} finally {
+			orgSwitcherLoading = false;
+		}
+	}
+
+	async function loadUnreadNotificationCount(segment = orgUrlSegment) {
+		try {
+			const response = await fetch(`/org/${segment}/api/app-shell-chrome?part=notification-count`);
+			if (!response.ok) return;
+
+			const result = await response.json();
+			if (segment === orgUrlSegment && result.ok && typeof result.unreadNotificationCount === 'number') {
+				localUnreadCount = result.unreadNotificationCount;
+			}
+		} catch {
+			if (segment === orgUrlSegment) {
+				localUnreadCount = 0;
+			}
+		}
+	}
+
 	async function loadNotifications() {
 		if (notificationsLoaded || notificationsLoading) return;
 
 		notificationsLoading = true;
 		try {
-			const response = await fetch(`/org/${orgId}/api/notifications`);
+			const response = await fetch(`/org/${orgUrlSegment}/api/notifications`);
 			if (response.ok) {
 				notifications = await response.json();
 				notificationsLoaded = true;
@@ -166,7 +210,7 @@
 	}
 
 	async function markAllNotificationsRead() {
-		const response = await fetch(`/org/${orgId}/api/notifications`, {
+		const response = await fetch(`/org/${orgUrlSegment}/api/notifications`, {
 			method: 'PUT',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ markAllRead: true })
@@ -184,7 +228,7 @@
 		if (!notification.read) {
 			notification.read = true;
 			localUnreadCount = Math.max(0, localUnreadCount - 1);
-			await fetch(`/org/${orgId}/api/notifications`, {
+			await fetch(`/org/${orgUrlSegment}/api/notifications`, {
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ id: notification.id })
@@ -195,6 +239,35 @@
 			void goto(resolve(notification.link as `/org/${string}`));
 		}
 	}
+
+	$effect(() => {
+		const segment = orgUrlSegment;
+		if (lastOrgUrlSegment === segment) return;
+
+		lastOrgUrlSegment = segment;
+		orgSwitcherOrgs = [];
+		orgSwitcherLoaded = false;
+		orgSwitcherLoading = false;
+		orgSwitcherLoadAttempted = false;
+		notifications = [];
+		notificationsLoaded = false;
+		notificationsLoading = false;
+		localUnreadCount = 0;
+	});
+
+	$effect(() => {
+		const segment = orgUrlSegment;
+		if (lastNotificationCountSegment === segment) return;
+
+		lastNotificationCountSegment = segment;
+		void loadUnreadNotificationCount(segment);
+	});
+
+	$effect(() => {
+		if (orgSwitcherOpen && !orgSwitcherLoadAttempted) {
+			void loadOrgSwitcherOrgs(orgUrlSegment);
+		}
+	});
 
 	$effect(() => {
 		if (notificationsOpen) {
@@ -212,7 +285,7 @@
 			<Sidebar.Header>
 				<Sidebar.Menu>
 					<Sidebar.MenuItem>
-						<DropdownMenu.Root>
+						<DropdownMenu.Root bind:open={orgSwitcherOpen}>
 							<DropdownMenu.Trigger>
 								{#snippet child({ props })}
 									<Sidebar.MenuButton
@@ -237,7 +310,7 @@
 							<DropdownMenu.Content class="w-72" side="right" align="start">
 								<DropdownMenu.Label>Organizations</DropdownMenu.Label>
 								<DropdownMenu.Group>
-									{#each isMultiOrg ? allOrgs : [activeOrg] as org (org.id)}
+									{#each visibleOrgs as org (org.id)}
 										<DropdownMenu.Item
 											onclick={() => switchOrg(org.id, org.urlSegment)}
 											disabled={org.id === orgId && !isMultiOrg}
@@ -256,6 +329,9 @@
 											{/if}
 										</DropdownMenu.Item>
 									{/each}
+									{#if orgSwitcherOpen && orgSwitcherLoading}
+										<DropdownMenu.Item disabled>Loading organizations...</DropdownMenu.Item>
+									{/if}
 								</DropdownMenu.Group>
 								{#if canAccessOrganizationSettings}
 									<DropdownMenu.Separator />

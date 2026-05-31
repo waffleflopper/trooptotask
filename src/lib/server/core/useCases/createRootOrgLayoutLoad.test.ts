@@ -1,108 +1,98 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { OrgAccessPort, OrgChromePort } from '$lib/server/core/orgShell';
+import { getDefaultUserOrgPreferences } from '$lib/preferences/userPreferences';
+import type { AppShellFirstPaintChromePort, OrgAccessPort } from '$lib/server/core/orgShell';
 import { createRootOrgLayoutLoad } from './createRootOrgLayoutLoad';
 
+const effectiveTier = {
+	tier: 'free',
+	source: 'default',
+	personnelCount: 0,
+	personnelCap: 20,
+	isReadOnly: false,
+	readOnlyReason: null,
+	giftExpiresAt: null,
+	giftTier: null
+} as const;
+
+function createOrganizationQuery(row: Record<string, unknown>) {
+	const query = {
+		eq: vi.fn(),
+		maybeSingle: vi.fn().mockResolvedValue({ data: row })
+	};
+	query.eq.mockReturnValue(query);
+
+	return {
+		from: vi.fn().mockReturnValue({
+			select: vi.fn().mockReturnValue(query)
+		})
+	};
+}
+
 describe('createRootOrgLayoutLoad', () => {
-	it('loads the authenticated root-shell path through the coordinator', async () => {
-		const effectiveTier = {
-			tier: 'free',
-			source: 'default',
-			personnelCount: 0,
-			personnelCap: 20,
-			isReadOnly: false,
-			readOnlyReason: null,
-			giftExpiresAt: null,
-			giftTier: null
-		} as const;
-		const routePayload = {
-			orgId: 'org-1',
-			orgName: 'Test Unit',
-			userId: 'user-1',
-			userRole: 'member',
-			permissions: {
-				canViewCalendar: true,
-				canEditCalendar: false,
-				canViewPersonnel: true,
-				canEditPersonnel: false,
-				canViewTraining: true,
-				canEditTraining: false,
-				canViewOnboarding: false,
-				canEditOnboarding: false,
-				canManageMembers: false
-			},
-			isOwner: false,
-			isAdmin: false,
-			effectiveTier,
-			unreadNotificationCount: 0,
-			activeAnnouncements: [],
-			allOrgs: [],
-			orgUrlSegment: '1-11-bde',
-			shell: {
-				orgId: 'org-1',
-				orgUrlSegment: '1-11-bde',
-				orgName: 'Test Unit',
-				userId: 'user-1',
-				userRole: 'member',
-				permissions: {
-					canViewCalendar: true,
-					canEditCalendar: false,
-					canViewPersonnel: true,
-					canEditPersonnel: false,
-					canViewTraining: true,
-					canEditTraining: false,
-					canViewOnboarding: false,
-					canEditOnboarding: false,
-					canManageMembers: false
-				},
-				isOwner: false,
-				isAdmin: false,
-				effectiveTier,
-				unreadNotificationCount: 0,
-				activeAnnouncements: [],
-				allOrgs: []
-			}
-		};
-
-		const query = {
-			eq: vi.fn(),
-			maybeSingle: vi.fn().mockResolvedValue({
-				data: {
-					id: 'org-1',
-					name: 'Test Unit',
-					url_slug: '1-11-bde',
-					suspended_at: null
-				}
-			})
-		};
-		query.eq.mockReturnValue(query);
-
-		const supabase = {
-			from: vi.fn().mockReturnValue({
-				select: vi.fn().mockReturnValue(query)
-			})
-		};
+	it('loads the App Shell first-paint payload without legacy top-level fields', async () => {
+		const supabase = createOrganizationQuery({
+			id: 'org-1',
+			name: 'Test Unit',
+			url_slug: '1-11-bde',
+			suspended_at: null
+		});
 		const userSupabase = { kind: 'user-supabase' };
-		const accessPort = { kind: 'access-port' } as unknown as OrgAccessPort;
-		const chromePort = { kind: 'chrome-port' } as unknown as OrgChromePort;
 		const getLayoutClient = vi.fn().mockReturnValue({ supabase });
 		const createSubscriptionAdapter = vi.fn().mockReturnValue({
 			getEffectiveTier: vi.fn().mockResolvedValue(effectiveTier)
 		});
-		const createOrgAccessPort = vi.fn().mockReturnValue(accessPort);
-		const createOrgChromePort = vi.fn().mockReturnValue(chromePort);
-		const coordinator = {
-			loadRoot: vi.fn().mockResolvedValue(routePayload),
-			loadWorkspace: vi.fn(),
-			streamWorkspace: vi.fn(),
-			hydrate: vi.fn()
-		};
+		const createOrgAccessPort = vi.fn(
+			(config: { orgId: string; userId: string; orgName: string; getEffectiveTier: () => Promise<unknown> }) =>
+				({
+					getMembership: vi.fn().mockResolvedValue({
+						orgId: config.orgId,
+						membershipId: 'membership-1',
+						userId: config.userId,
+						role: 'member',
+						capabilityMap: {
+							calendar: 'view',
+							personnel: 'view',
+							training: 'view',
+							criticalTasks: 'view',
+							onboarding: 'none',
+							ratingScheme: 'none'
+						},
+						scopeSet: { kind: 'organization' },
+						permissions: {
+							canViewCalendar: true,
+							canEditCalendar: false,
+							canViewPersonnel: true,
+							canEditPersonnel: false,
+							canViewTraining: true,
+							canEditTraining: false,
+							canViewCriticalTasks: true,
+							canEditCriticalTasks: false,
+							canViewOnboarding: false,
+							canEditOnboarding: false,
+							canManageMembers: false
+						}
+					}),
+					getOrgState: vi.fn().mockImplementation(async () => ({
+						orgName: config.orgName,
+						effectiveTier: await config.getEffectiveTier()
+					}))
+				}) as OrgAccessPort
+		);
+		const createFirstPaintChromePort = vi.fn(
+			() =>
+				({
+					getFirstPaintChrome: vi.fn().mockResolvedValue({
+						announcements: [],
+						preferences: getDefaultUserOrgPreferences()
+					})
+				}) as AppShellFirstPaintChromePort
+		);
 
 		const load = createRootOrgLayoutLoad({
-			coordinator,
 			getLayoutClient,
 			createSubscriptionAdapter,
 			createOrgAccessPort,
-			createOrgChromePort
+			createFirstPaintChromePort
 		});
 
 		const depends = vi.fn();
@@ -119,21 +109,18 @@ describe('createRootOrgLayoutLoad', () => {
 			url: new URL('http://localhost/org/1-11-bde/calendar')
 		});
 
-		expect(result).toEqual(routePayload);
-		expect(depends).toHaveBeenCalledWith('app:org-core', 'app:org-preferences');
-		expect(coordinator.loadRoot).toHaveBeenCalledWith(
-			expect.objectContaining({
-				resolveRequest: expect.any(Function)
-			})
-		);
-
-		const request = await coordinator.loadRoot.mock.calls[0][0].resolveRequest();
-		expect(request).toEqual({
-			kind: 'shell',
-			orgUrlSegment: '1-11-bde',
-			access: accessPort,
-			chrome: chromePort
+		expect(result).toMatchObject({
+			shell: {
+				kind: 'ready',
+				org: { id: 'org-1', name: 'Test Unit', urlSegment: '1-11-bde' },
+				user: { id: 'user-1' },
+				state: { effectiveTier, orgSuspended: false }
+			}
 		});
+		expect(result).not.toHaveProperty('orgId');
+		expect(result).not.toHaveProperty('allOrgs');
+		expect(result).not.toHaveProperty('unreadNotificationCount');
+		expect(depends).toHaveBeenCalledWith('app:org-core', 'app:org-preferences');
 		expect(createOrgAccessPort).toHaveBeenCalledWith(
 			expect.objectContaining({
 				orgId: 'org-1',
@@ -142,52 +129,32 @@ describe('createRootOrgLayoutLoad', () => {
 				orgName: 'Test Unit'
 			})
 		);
-		await expect(createOrgAccessPort.mock.calls[0][0].getEffectiveTier()).resolves.toEqual(effectiveTier);
+		expect(createFirstPaintChromePort).toHaveBeenCalledWith(
+			expect.objectContaining({
+				orgId: 'org-1',
+				userId: 'user-1',
+				userSupabase
+			})
+		);
 	});
 
-	it('loads the suspended root-shell path through the coordinator', async () => {
-		const suspendedPayload = {
-			orgSuspended: true as const,
-			orgId: 'org-1',
-			orgName: 'Suspended Unit',
-			orgUrlSegment: 'org-1'
-		};
-
-		const query = {
-			eq: vi.fn(),
-			maybeSingle: vi.fn().mockResolvedValue({
-				data: {
-					id: 'org-1',
-					name: 'Suspended Unit',
-					url_slug: null,
-					suspended_at: '2026-04-01T00:00:00.000Z'
-				}
-			})
-		};
-		query.eq.mockReturnValue(query);
-
-		const supabase = {
-			from: vi.fn().mockReturnValue({
-				select: vi.fn().mockReturnValue(query)
-			})
-		};
+	it('loads the suspended App Shell path without creating ready-only ports', async () => {
+		const supabase = createOrganizationQuery({
+			id: 'org-1',
+			name: 'Suspended Unit',
+			url_slug: null,
+			suspended_at: '2026-04-01T00:00:00.000Z'
+		});
 		const getLayoutClient = vi.fn().mockReturnValue({ supabase });
 		const createSubscriptionAdapter = vi.fn();
 		const createOrgAccessPort = vi.fn();
-		const createOrgChromePort = vi.fn();
-		const coordinator = {
-			loadRoot: vi.fn().mockResolvedValue(suspendedPayload),
-			loadWorkspace: vi.fn(),
-			streamWorkspace: vi.fn(),
-			hydrate: vi.fn()
-		};
+		const createFirstPaintChromePort = vi.fn();
 
 		const load = createRootOrgLayoutLoad({
-			coordinator,
 			getLayoutClient,
 			createSubscriptionAdapter,
 			createOrgAccessPort,
-			createOrgChromePort
+			createFirstPaintChromePort
 		});
 
 		const result = await load({
@@ -200,22 +167,15 @@ describe('createRootOrgLayoutLoad', () => {
 			url: new URL('http://localhost/org/org-1')
 		});
 
-		expect(result).toEqual(suspendedPayload);
-		expect(coordinator.loadRoot).toHaveBeenCalledWith(
-			expect.objectContaining({
-				resolveRequest: expect.any(Function)
-			})
-		);
-
-		const request = await coordinator.loadRoot.mock.calls[0][0].resolveRequest();
-		expect(request).toEqual({
-			kind: 'suspended',
-			orgId: 'org-1',
-			orgName: 'Suspended Unit',
-			orgUrlSegment: 'org-1'
+		expect(result).toEqual({
+			shell: {
+				kind: 'suspended',
+				org: { id: 'org-1', name: 'Suspended Unit', urlSegment: 'org-1' },
+				state: { isReadOnly: true, orgSuspended: true }
+			}
 		});
 		expect(createSubscriptionAdapter).not.toHaveBeenCalled();
 		expect(createOrgAccessPort).not.toHaveBeenCalled();
-		expect(createOrgChromePort).not.toHaveBeenCalled();
+		expect(createFirstPaintChromePort).not.toHaveBeenCalled();
 	});
 });

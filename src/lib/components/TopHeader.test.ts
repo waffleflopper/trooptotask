@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { readFileSync } from 'node:fs';
 import type { ComponentProps } from 'svelte';
@@ -67,8 +67,37 @@ const basePermissions: OrganizationMemberPermissions = {
 afterEach(() => {
 	cleanup();
 	vi.clearAllMocks();
+	vi.unstubAllGlobals();
 	vi.useRealTimers();
 	pageStore.setPath('/org/org-1/personnel');
+});
+
+beforeEach(() => {
+	vi.stubGlobal(
+		'fetch',
+		vi.fn(async (input: RequestInfo | URL) => {
+			const url = String(input);
+
+			if (url.includes('part=notification-count')) {
+				return {
+					ok: true,
+					json: async () => ({ ok: true, unreadNotificationCount: 2 })
+				};
+			}
+
+			if (url.includes('part=organization-switcher')) {
+				return {
+					ok: true,
+					json: async () => ({ ok: true, organizations: [] })
+				};
+			}
+
+			return {
+				ok: true,
+				json: async () => []
+			};
+		})
+	);
 });
 
 function renderHeader(overrides: Partial<ComponentProps<typeof TopHeader>> = {}) {
@@ -79,10 +108,8 @@ function renderHeader(overrides: Partial<ComponentProps<typeof TopHeader>> = {})
 			userRole: 'admin',
 			membershipId: 'membership-1',
 			permissions: basePermissions,
-			allOrgs: [],
 			onToggleTheme: vi.fn(),
 			isDarkTheme: false,
-			unreadNotificationCount: 2,
 			...overrides
 		}
 	});
@@ -253,16 +280,109 @@ describe('TopHeader', () => {
 	});
 
 	it('shows manage organizations only for multi-org users', async () => {
-		renderHeader({
-			allOrgs: [
-				{ id: 'org-1', name: 'Test Org', role: 'admin' },
-				{ id: 'org-2', name: 'Second Org', role: 'member' }
-			]
+		vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL) => {
+			const url = String(input);
+			if (url.includes('part=organization-switcher')) {
+				return {
+					ok: true,
+					json: async () => ({
+						ok: true,
+						organizations: [
+							{ id: 'org-1', name: 'Test Org', role: 'admin' },
+							{ id: 'org-2', name: 'Second Org', role: 'member' }
+						]
+					})
+				} as Response;
+			}
+			return {
+				ok: true,
+				json: async () => ({ ok: true, unreadNotificationCount: 2 })
+			} as Response;
 		});
+
+		renderHeader();
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Switch organization' }));
 
-		expect(screen.getByRole('menuitem', { name: 'Manage Organizations' })).toBeTruthy();
+		expect(await screen.findByRole('menuitem', { name: 'Manage Organizations' })).toBeTruthy();
+	});
+
+	it('reloads the deferred notification count when the org route segment changes', async () => {
+		const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+			const url = String(input);
+			if (url.includes('/org/org-2/') && url.includes('part=notification-count')) {
+				return {
+					ok: true,
+					json: async () => ({ ok: true, unreadNotificationCount: 5 })
+				} as Response;
+			}
+
+			if (url.includes('part=notification-count')) {
+				return {
+					ok: true,
+					json: async () => ({ ok: true, unreadNotificationCount: 2 })
+				} as Response;
+			}
+
+			return {
+				ok: true,
+				json: async () => ({ ok: true, organizations: [] })
+			} as Response;
+		});
+		vi.stubGlobal('fetch', fetchMock);
+
+		const view = renderHeader({ orgUrlSegment: 'org-1' });
+
+		await waitFor(() =>
+			expect(fetchMock).toHaveBeenCalledWith('/org/org-1/api/app-shell-chrome?part=notification-count')
+		);
+
+		await view.rerender({
+			orgId: 'org-2',
+			orgName: 'Second Org',
+			orgUrlSegment: 'org-2',
+			userRole: 'admin',
+			membershipId: 'membership-2',
+			permissions: basePermissions,
+			onToggleTheme: vi.fn(),
+			isDarkTheme: false
+		});
+
+		await waitFor(() =>
+			expect(fetchMock).toHaveBeenCalledWith('/org/org-2/api/app-shell-chrome?part=notification-count')
+		);
+	});
+
+	it('does not continuously retry a failed org switcher load while the menu stays open', async () => {
+		const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+			const url = String(input);
+			if (url.includes('part=organization-switcher')) {
+				return { ok: false, json: async () => ({ ok: false }) } as Response;
+			}
+
+			return {
+				ok: true,
+				json: async () => ({ ok: true, unreadNotificationCount: 2 })
+			} as Response;
+		});
+		vi.stubGlobal('fetch', fetchMock);
+
+		renderHeader();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Switch organization' }));
+
+		await waitFor(() => {
+			const orgSwitcherCalls = fetchMock.mock.calls.filter(([input]) =>
+				String(input).includes('part=organization-switcher')
+			);
+			expect(orgSwitcherCalls).toHaveLength(1);
+		});
+
+		await Promise.resolve();
+		await Promise.resolve();
+		expect(fetchMock.mock.calls.filter(([input]) => String(input).includes('part=organization-switcher'))).toHaveLength(
+			1
+		);
 	});
 
 	it('renders route-aware Calendar breadcrumbs for subpages', () => {

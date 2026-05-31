@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/svelte';
 import Page from './+page.svelte';
 import { onboardingStore } from '$features/onboarding/stores/onboarding.svelte';
+import { createReadyAppShellRouteData } from '$lib/test-support/appShellRouteData';
 
 afterEach(() => {
 	cleanup();
@@ -15,9 +16,7 @@ describe('onboarding history page', () => {
 
 		render(Page, {
 			props: {
-				data: {
-					orgId: 'org-1'
-				}
+				data: createReadyAppShellRouteData({ orgId: 'org-1' })
 			}
 		});
 

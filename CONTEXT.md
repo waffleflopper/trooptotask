@@ -58,6 +58,20 @@ _Avoid_: Feature export, database dump, generic spreadsheet
 The server-side workflow that enforces export quota, starts and completes the export lifecycle record, marks failed exports, records export audit events, notifies organization admins, and hands an export artifact back to the route for response formatting. It does not decide which tables, workbook sheets, or feature-specific rows belong in the **Organization Data Export**.
 _Avoid_: Workbook builder, export manifest, route response formatting, feature export rules
 
+### Product Shell And Navigation
+
+**App Shell**:
+The persistent authenticated product frame that carries primary navigation, organization context, account access, notifications, announcements, help, and account controls. The **App Shell** is shared product infrastructure and must not redefine **Feature Lane** ownership.
+_Avoid_: Page chrome, dashboard wrapper, feature owner
+
+**App Shell First Paint Data**:
+The minimal blocking data needed to render a usable **App Shell** without misleading access or layout shifts: current **Organization** identity, current **Organization Member** access, current user identity, suspended/read-only state, and layout-stable announcements. Announcement load failure should render like there are no announcements.
+_Avoid_: Full shell payload, every badge, feature workspace data
+
+**App Shell Deferred Chrome Data**:
+Non-blocking **App Shell** enhancement data that may load after first paint, such as notification count, the full organization switcher list, and non-layout-critical preferences. Failure should stay local to the affected shell affordance and must not block the current **Organization** page.
+_Avoid_: Access enforcement, layout-stable announcement data, required route data
+
 ### People And Roster
 
 **Personnel Record**:

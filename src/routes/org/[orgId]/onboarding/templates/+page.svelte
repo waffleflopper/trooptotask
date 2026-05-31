@@ -26,11 +26,12 @@
 	let { data } = $props();
 
 	const org = getOrgContext();
+	const orgId = $derived(org.orgId);
 	const orgUrlSegment = $derived(org.orgUrlSegment ?? org.orgId);
 
 	$effect(() => {
-		templateStore.load(data.templates, data.orgId);
-		templateStepStore.load(data.templateSteps, data.orgId);
+		templateStore.load(data.templates, orgId);
+		templateStepStore.load(data.templateSteps, orgId);
 	});
 
 	let selectedTemplateId: string | null = $state(null);
@@ -167,7 +168,7 @@
 		try {
 			if (creatingTemplate) {
 				const created = await templateStore.add({
-					orgId: data.orgId,
+					orgId,
 					name: templateName.trim(),
 					description: templateDescription.trim() || null,
 					createdAt: new Date().toISOString()

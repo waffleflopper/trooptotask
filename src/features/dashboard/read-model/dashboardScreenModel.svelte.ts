@@ -1,4 +1,6 @@
 import { browser } from '$app/environment';
+import { changelog } from '$lib/data/changelog';
+import { whatsNewStore } from '$lib/stores/whatsNew.svelte';
 import { rosterStore } from '$lib/stores/roster.svelte';
 import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 import { availabilityStore } from '$features/calendar/stores/availability.svelte';
@@ -9,6 +11,7 @@ import { getRatingDueStatus } from '$features/rating-scheme/utils/ratingScheme';
 import { deriveBadgeColor, deriveShortName } from '$features/calendar/utils/dutyEventBadges';
 import { getBrowserLocalStorage } from '$lib/utils/browserStorage';
 import { formatDate, parseDate } from '$lib/utils/dates';
+import { formatDashboardDisplayDate } from '$lib/utils/dashboardDate';
 import { evaluateUpcomingLosses, type UpcomingLossRecord } from '$lib/domain/readinessSignals';
 import { SvelteDate, SvelteMap, SvelteSet } from 'svelte/reactivity';
 import type { AssignmentType, AvailabilityEntry, DailyAssignment, Personnel, StatusType } from '$lib/types';
@@ -59,6 +62,13 @@ export interface DashboardScreenModelOptions {
 	today?: string;
 	storage?: DashboardStoragePort;
 	sources?: DashboardStoreSources;
+}
+
+export interface DashboardSupportData {
+	onboardingTemplateStepCount: number;
+	ratingSchemeEntryCount: number;
+	orgMemberCount: number;
+	gettingStartedDismissed: boolean;
 }
 
 export interface DashboardStatusBreakdown {
@@ -230,6 +240,12 @@ export class DashboardScreenModel {
 	private outTodayGroupBy = $state<OutTodayGroupBy>('status');
 	private upcomingGroupBy = $state<UpcomingGroupBy>('date');
 
+	// ---------------------------------------------------------------------------
+	// Banner / getting-started support state
+	// ---------------------------------------------------------------------------
+	gettingStartedDismissed = $state(false);
+	private supportData = $state<DashboardSupportData | null>(null);
+
 	constructor(data: DashboardPageData, options: DashboardScreenModelOptions = {}) {
 		this.data = data;
 		// Date is intentional here so callers using fake timers can snapshot today deterministically.
@@ -239,6 +255,109 @@ export class DashboardScreenModel {
 		this.storage = options.storage ?? createBrowserStoragePort();
 		this.outTodayGroupBy = readPreference(this.storage, OUT_TODAY_KEY, ['status', 'group'], 'status');
 		this.upcomingGroupBy = readPreference(this.storage, UPCOMING_KEY, ['date', 'group'], 'date');
+
+		if (
+			typeof data.onboardingTemplateStepCount === 'number' &&
+			typeof data.ratingSchemeEntryCount === 'number' &&
+			typeof data.orgMemberCount === 'number' &&
+			typeof data.gettingStartedDismissed === 'boolean'
+		) {
+			this.applySupportData({
+				onboardingTemplateStepCount: data.onboardingTemplateStepCount,
+				ratingSchemeEntryCount: data.ratingSchemeEntryCount,
+				orgMemberCount: data.orgMemberCount,
+				gettingStartedDismissed: data.gettingStartedDismissed
+			});
+		}
+	}
+
+	// ---------------------------------------------------------------------------
+	// Display helper for the current date
+	// ---------------------------------------------------------------------------
+	get todayDisplay(): string {
+		return formatDashboardDisplayDate(this.today);
+	}
+
+	// ---------------------------------------------------------------------------
+	// Typed counts that flow through the page-data index signature
+	// (bootstrap counts — distinct from the live store-backed totals)
+	// ---------------------------------------------------------------------------
+	get personnelCount(): number {
+		return this.data.dashboard.data.personnel.length;
+	}
+
+	get statusTypeCount(): number {
+		return this.data.dashboard.data.statusTypes.length;
+	}
+
+	get trainingTypeCount(): number {
+		return this.data.dashboard.data.trainingTypes.length;
+	}
+
+	get assignmentTypeCount(): number {
+		return this.data.dashboard.data.assignmentTypes.length;
+	}
+
+	get userRole(): string | undefined {
+		return this.data.userRole as string | undefined;
+	}
+
+	// ---------------------------------------------------------------------------
+	// Getting-started checklist support data
+	// ---------------------------------------------------------------------------
+	get hasSupportData(): boolean {
+		return this.supportData !== null;
+	}
+
+	get onboardingTemplateStepCount(): number {
+		return this.supportData?.onboardingTemplateStepCount ?? 0;
+	}
+
+	get ratingSchemeEntryCount(): number {
+		return this.supportData?.ratingSchemeEntryCount ?? 0;
+	}
+
+	get orgMemberCount(): number {
+		return this.supportData?.orgMemberCount ?? 0;
+	}
+
+	applySupportData(data: DashboardSupportData) {
+		this.supportData = data;
+		this.gettingStartedDismissed = data.gettingStartedDismissed;
+	}
+
+	async dismissGettingStarted() {
+		this.gettingStartedDismissed = true;
+		try {
+			const response = await fetch(`/org/${this.data.orgId}/api/getting-started`, { method: 'POST' });
+			if (!response.ok) {
+				this.gettingStartedDismissed = false;
+			}
+		} catch {
+			this.gettingStartedDismissed = false;
+		}
+	}
+
+	// ---------------------------------------------------------------------------
+	// localStorage side-effect — call once inside $effect (browser only)
+	// ---------------------------------------------------------------------------
+	autoShowWhatsNew(hasShown: { value: boolean }) {
+		if (browser && !hasShown.value && changelog.length > 0 && this.data.userId) {
+			const storage = getBrowserLocalStorage();
+			if (!storage) return;
+
+			let lastSeen: string | null = null;
+			try {
+				lastSeen = storage.getItem(`changelog-last-seen-${this.data.userId}`);
+			} catch {
+				return;
+			}
+
+			if (lastSeen !== changelog[0].id) {
+				hasShown.value = true;
+				whatsNewStore.show();
+			}
+		}
 	}
 
 	get isHydrating(): boolean {

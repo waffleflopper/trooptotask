@@ -31,9 +31,9 @@
 	let { data } = $props();
 
 	const org = getOrgContext();
-	const orgId = $derived(data.orgId ?? org.orgId);
+	const orgId = $derived(org.orgId);
 	const orgUrlSegment = $derived(org.orgUrlSegment ?? orgId);
-	const orgName = $derived(data.orgName ?? org.orgName);
+	const orgName = $derived(org.orgName);
 	let selectedGroupId = $state('');
 	let gapsOnly = $state(false);
 	let personnelSearch = $state('');

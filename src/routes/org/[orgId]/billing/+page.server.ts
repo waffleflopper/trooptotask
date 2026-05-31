@@ -14,6 +14,7 @@ import { readOrganizationPlanUsage } from '$lib/server/core/useCases/organizatio
 import { buildEffectivePlanPolicyForTier, readEffectivePlanPolicy } from '$lib/server/core/useCases/planPolicy';
 import { buildPlanDowngradePreview } from '$lib/server/core/useCases/planDowngradePreview';
 import { buildPlanUsageSummary } from '$lib/server/core/useCases/planUsageSummary';
+import { requireReadyAppShell } from '$lib/server/core/appShellRouteData';
 
 const TIER_ORDER: Tier[] = ['free', 'team', 'unit'];
 
@@ -98,10 +99,10 @@ export async function _loadBillingPageData(
 
 export const load: PageServerLoad = async ({ params, locals, cookies, parent }) => {
 	const { orgId } = params;
-	const parentData = await parent();
+	const shell = requireReadyAppShell(await parent());
 
 	return loadWithContext(locals, cookies, orgId, {
 		policyAction: POLICY_ACTION_CATALOG.organization.accessBilling,
-		fn: async (ctx) => _loadBillingPageData(ctx, parentData.effectiveTier!)
+		fn: async (ctx) => _loadBillingPageData(ctx, shell.state.effectiveTier)
 	});
 };

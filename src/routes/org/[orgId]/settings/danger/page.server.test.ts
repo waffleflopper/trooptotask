@@ -1,4 +1,5 @@
 import { describe, expect, it, beforeEach, vi } from 'vitest';
+import { createReadyAppShellRouteData } from '$lib/test-support/appShellRouteData';
 
 const {
 	buildRouteContextMock,
@@ -92,15 +93,13 @@ describe('danger settings page server', () => {
 			load({
 				locals: {},
 				cookies: {},
-				parent: async () => ({
-					orgId: 'org-1',
-					orgName: 'Test Org',
-					orgUrlSegment: 'test-org',
-					allOrgs: [],
-					isAdmin: true,
-					effectiveTier: null,
-					permissions: { organization: [] }
-				})
+				parent: async () =>
+					createReadyAppShellRouteData({
+						orgId: 'org-1',
+						orgName: 'Test Org',
+						orgUrlSegment: 'test-org',
+						role: 'admin'
+					})
 			} as never)
 		).rejects.toMatchObject({
 			status: 303,
@@ -134,15 +133,13 @@ describe('danger settings page server', () => {
 		const result = await load({
 			locals: {},
 			cookies: {},
-			parent: async () => ({
-				orgId: 'org-1',
-				orgName: 'Test Org',
-				orgUrlSegment: 'test-org',
-				allOrgs: [{ id: 'org-1', name: 'Test Org', role: 'owner', urlSegment: 'test-org' }],
-				isAdmin: false,
-				effectiveTier: null,
-				permissions: { organization: [] }
-			})
+			parent: async () =>
+				createReadyAppShellRouteData({
+					orgId: 'org-1',
+					orgName: 'Test Org',
+					orgUrlSegment: 'test-org',
+					role: 'owner'
+				})
 		} as never);
 
 		expect(result).toMatchObject({
@@ -150,7 +147,6 @@ describe('danger settings page server', () => {
 			orgUrlSegment: 'test-org',
 			orgUrlSlug: 'test-org',
 			orgName: 'Test Org',
-			allOrgs: [{ id: 'org-1', name: 'Test Org', role: 'owner', urlSegment: 'test-org' }],
 			isAdmin: false,
 			dangerSettings: {
 				currentMember: {

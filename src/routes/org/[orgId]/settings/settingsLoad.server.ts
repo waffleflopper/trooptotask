@@ -5,17 +5,9 @@ import type { UseCaseContext } from '$lib/server/core/ports';
 import type { OrganizationMemberPermissions } from '$lib/types';
 import type { EffectiveTier } from '$lib/types/subscription';
 import { getSettingsPermissions } from './settingsPermissions.server';
+import type { AppShellRouteData } from '$lib/server/core/orgShell';
 
-export interface SettingsSubrouteParentData {
-	orgSuspended?: boolean;
-	orgId: string;
-	orgName: string | null;
-	orgUrlSegment?: string | null;
-	allOrgs?: Array<{ id: string; name: string; role: string; urlSegment?: string }>;
-	isAdmin?: boolean;
-	effectiveTier?: EffectiveTier | null;
-	permissions?: OrganizationMemberPermissions;
-}
+export type SettingsSubrouteParentData = AppShellRouteData;
 
 export interface SettingsSubrouteLoadEvent {
 	locals: App.Locals;
@@ -38,7 +30,6 @@ export interface CommonSettingsPageData {
 	orgName: string | null;
 	effectiveTier: EffectiveTier | null;
 	permissions: OrganizationMemberPermissions;
-	allOrgs: NonNullable<SettingsSubrouteParentData['allOrgs']>;
 	isAdmin: boolean;
 }
 
@@ -77,30 +68,37 @@ export function buildCommonSettingsPageData(
 	parentData: SettingsSubrouteParentData,
 	permissions: OrganizationMemberPermissions
 ): CommonSettingsPageData {
-	const orgUrlSegment = parentData.orgUrlSegment ?? parentData.orgId;
+	if (parentData.shell.kind !== 'ready') {
+		throw new Error('Settings page data requires a ready app shell');
+	}
+
+	const shell = parentData.shell;
+	const orgUrlSegment = shell.org.urlSegment;
 
 	return {
-		orgId: parentData.orgId,
+		orgId: shell.org.id,
 		orgUrlSegment,
-		orgUrlSlug:
-			parentData.orgUrlSegment && parentData.orgUrlSegment !== parentData.orgId ? parentData.orgUrlSegment : null,
-		orgName: parentData.orgName,
-		effectiveTier: parentData.effectiveTier ?? null,
+		orgUrlSlug: orgUrlSegment !== shell.org.id ? orgUrlSegment : null,
+		orgName: shell.org.name,
+		effectiveTier: shell.state.effectiveTier,
 		permissions,
-		allOrgs: parentData.allOrgs ?? [],
-		isAdmin: Boolean(parentData.isAdmin)
+		isAdmin: shell.member.isAdmin
 	};
 }
 
 export function buildSettingsPageOrganization(parentData: SettingsSubrouteParentData): SettingsPageOrganization {
-	const orgUrlSegment = parentData.orgUrlSegment ?? parentData.orgId;
+	if (parentData.shell.kind !== 'ready') {
+		throw new Error('Settings organization data requires a ready app shell');
+	}
+
+	const shell = parentData.shell;
+	const orgUrlSegment = shell.org.urlSegment;
 
 	return {
-		id: parentData.orgId,
-		name: parentData.orgName,
-		urlSlug:
-			parentData.orgUrlSegment && parentData.orgUrlSegment !== parentData.orgId ? parentData.orgUrlSegment : null,
+		id: shell.org.id,
+		name: shell.org.name,
+		urlSlug: orgUrlSegment !== shell.org.id ? orgUrlSegment : null,
 		urlSegment: orgUrlSegment,
-		effectiveTier: parentData.effectiveTier ?? null
+		effectiveTier: shell.state.effectiveTier
 	};
 }

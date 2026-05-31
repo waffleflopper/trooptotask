@@ -5,6 +5,7 @@ import { createDefaultHydrationPlanner } from '$lib/server/core/hydrationPlanner
 import type { HydrationPlannerPort, StreamableOrgWorkspacePort } from '$lib/server/core/orgShell';
 import { createOrgShellCoordinator, type OrgShellCoordinator } from '$lib/server/core/orgShellCoordinator';
 import type { TrainingBootstrap } from '$lib/server/core/orgShell';
+import { requireReadyAppShell } from '$lib/server/core/appShellRouteData';
 
 interface TrainingLayoutRequestContext {
 	locals: App.Locals;
@@ -35,11 +36,12 @@ export function _createTrainingLayoutLoad(deps: TrainingLayoutLoadDeps = {}): La
 		locals: App.Locals;
 		cookies: Cookies;
 		depends: (...deps: string[]) => void;
-		parent: () => Promise<{ orgId: string }>;
+		parent: () => Promise<Parameters<typeof requireReadyAppShell>[0]>;
 	}) => {
 		depends('app:org-core', 'app:training-data');
 
-		const { orgId } = await parent();
+		const shell = requireReadyAppShell(await parent());
+		const orgId = shell.org.id;
 		const workspacePort = createWorkspacePort({ locals, cookies, orgId });
 		const plannerPort = createPlannerPort(orgId);
 

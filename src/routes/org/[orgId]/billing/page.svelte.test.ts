@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
+import { createReadyAppShellRouteData } from '$lib/test-support/appShellRouteData';
 
 vi.mock('$app/navigation', () => ({
 	invalidateAll: vi.fn(() => Promise.resolve())
@@ -15,7 +16,7 @@ afterEach(() => {
 });
 
 const baseData = {
-	orgId: 'org-1',
+	...createReadyAppShellRouteData({ orgId: 'org-1', orgName: 'Test Org' }),
 	orgName: 'Test Org',
 	canManageSubscription: true,
 	effectiveTier: {

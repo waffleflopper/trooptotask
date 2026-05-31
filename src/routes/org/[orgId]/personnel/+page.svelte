@@ -12,15 +12,16 @@
 
 	const org = getOrgContext();
 	const modals = new ModalRegistry();
+	const shell = $derived(data.shell.kind === 'ready' ? data.shell : null);
 	const workspaceData = $derived(data.personnel.data);
 
 	const pageData = $derived.by(
 		(): PersonnelPageData => ({
-			orgId: data.orgId,
-			orgName: data.orgName,
+			orgId: data.shell.org.id,
+			orgName: data.shell.org.name,
 			pinnedGroups: workspaceData.pinnedGroups,
 			personnel: workspaceData.personnel,
-			permissions: data.permissions,
+			permissions: shell?.member.permissions,
 			lossWarningWindowDays: workspaceData.lossWarningWindowDays,
 			awardTrackingAcknowledgedPersonnelIds: workspaceData.awardTrackingAcknowledgedPersonnelIds
 		})
@@ -29,5 +30,5 @@
 	const ctx = $derived(new PersonnelPageContext(pageData, modals, org, personnelStore, pinnedGroupsStore));
 </script>
 
-<PersonnelPageView {ctx} permissions={data.permissions} />
+<PersonnelPageView {ctx} permissions={shell?.member.permissions} />
 <PersonnelModals {ctx} {modals} />

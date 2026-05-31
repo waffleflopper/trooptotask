@@ -3,12 +3,11 @@
 	import { CalendarStatusBadge } from '$lib/components/ui/calendar-status-badge';
 	import { Progress } from '$lib/components/ui/progress';
 	import * as Tabs from '$lib/components/ui/tabs';
-	import type { DashboardContext } from '../../contexts/DashboardContext.svelte';
-	import type { UpcomingGroupBy } from '../../read-model/dashboardScreenModel.svelte';
+	import type { DashboardScreenModel, UpcomingGroupBy } from '../../read-model/dashboardScreenModel.svelte';
 	import UpcomingLossesWidget from '../UpcomingLossesWidget.svelte';
 
 	interface Props {
-		ctx: DashboardContext;
+		ctx: DashboardScreenModel;
 	}
 
 	let { ctx }: Props = $props();

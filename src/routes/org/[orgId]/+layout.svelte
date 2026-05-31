@@ -31,19 +31,22 @@
 		canManageMembers: false
 	};
 
+	const readyShell = $derived(data.shell.kind === 'ready' ? data.shell : null);
+	const suspendedShell = $derived(data.shell.kind === 'suspended' ? data.shell : null);
+
 	// Set OrgContext so child pages can call getOrgContext()
 	setOrgContext(
 		createOrgContext(() => ({
-			orgId: data.orgId ?? '',
-			orgUrlSegment: data.orgUrlSegment ?? data.orgId ?? '',
-			orgName: data.orgName ?? '',
-			userId: data.userId ?? null,
-			userRole: data.userRole ?? 'member',
-			capabilityMap: data.capabilityMap,
-			scopeSet: data.scopeSet,
-			permissions: data.permissions ?? NO_PERMISSIONS,
-			scopedGroupId: data.scopedGroupId ?? null,
-			isReadOnly: data.effectiveTier?.isReadOnly ?? false
+			orgId: readyShell?.org.id ?? suspendedShell?.org.id ?? '',
+			orgUrlSegment: readyShell?.org.urlSegment ?? suspendedShell?.org.urlSegment ?? '',
+			orgName: readyShell?.org.name ?? suspendedShell?.org.name ?? '',
+			userId: readyShell?.user.id ?? null,
+			userRole: readyShell?.member.role ?? 'member',
+			capabilityMap: readyShell?.member.capabilityMap,
+			scopeSet: readyShell?.member.scopeSet,
+			permissions: readyShell?.member.permissions ?? NO_PERMISSIONS,
+			scopedGroupId: readyShell?.member.scopedGroupId ?? null,
+			isReadOnly: readyShell?.state.isReadOnly ?? suspendedShell?.state.isReadOnly ?? false
 		}))
 	);
 
@@ -51,15 +54,15 @@
 
 	function closeWhatsNew() {
 		whatsNewStore.close();
-		if (browser && changelog.length > 0 && data.userId) {
-			localStorage.setItem(`changelog-last-seen-${data.userId}`, changelog[0].id);
+		if (browser && changelog.length > 0 && readyShell?.user.id) {
+			localStorage.setItem(`changelog-last-seen-${readyShell.user.id}`, changelog[0].id);
 		}
 	}
 
 	// Load subscription tier into store (reacts to org navigation changes)
 	$effect(() => {
-		if (data.effectiveTier) {
-			subscriptionStore.load(data.effectiveTier);
+		if (readyShell) {
+			subscriptionStore.load(readyShell.state.effectiveTier);
 		}
 	});
 
@@ -106,7 +109,7 @@
 	});
 </script>
 
-{#if data.orgSuspended}
+{#if suspendedShell}
 	<div class="flex min-h-screen items-center justify-center bg-background p-6 text-foreground">
 		<div class="grid max-w-md gap-4 rounded-lg border bg-card p-8 text-center text-card-foreground">
 			<h1
@@ -115,32 +118,31 @@
 				Organization Suspended
 			</h1>
 			<p class="m-0 text-sm leading-relaxed text-muted-foreground">
-				This organization ({data.orgName}) has been suspended. If you believe this is an error, please contact support.
+				This organization ({suspendedShell.org.name}) has been suspended. If you believe this is an error, please
+				contact support.
 			</p>
 			<p class="m-0 font-medium">support@trooptotask.com</p>
 			<Button href="/dashboard?show=all" variant="outline">Back to Dashboard</Button>
 		</div>
 	</div>
-{:else}
+{:else if readyShell}
 	<BannerStack>
-		<SubscriptionBanner orgId={data.orgId} orgUrlSegment={data.orgUrlSegment ?? data.orgId} />
-		{#if data.activeAnnouncements?.length}
-			<AnnouncementBanner announcements={data.activeAnnouncements} />
+		<SubscriptionBanner orgId={readyShell.org.id} orgUrlSegment={readyShell.org.urlSegment} />
+		{#if readyShell.announcements.length}
+			<AnnouncementBanner announcements={readyShell.announcements} />
 		{/if}
 	</BannerStack>
 
 	<TopHeader
-		orgId={data.orgId}
-		orgUrlSegment={data.orgUrlSegment ?? data.orgId}
-		orgName={data.orgName}
-		userRole={data.userRole ?? 'member'}
-		membershipId={data.membershipId ?? null}
-		permissions={data.permissions!}
-		capabilityMap={data.capabilityMap}
-		allOrgs={data.allOrgs ?? []}
+		orgId={readyShell.org.id}
+		orgUrlSegment={readyShell.org.urlSegment}
+		orgName={readyShell.org.name}
+		userRole={readyShell.member.role}
+		membershipId={readyShell.member.membershipId}
+		permissions={readyShell.member.permissions}
+		capabilityMap={readyShell.member.capabilityMap}
 		onToggleTheme={() => themeStore.toggle()}
 		isDarkTheme={themeStore.isDark}
-		unreadNotificationCount={data.unreadNotificationCount ?? 0}
 		onFeedback={() => (showFeedback = true)}
 		onWhatsNew={() => whatsNewStore.show()}
 	>
@@ -151,8 +153,8 @@
 		{#await import('$lib/components/FeedbackModal.svelte') then { default: FeedbackModal }}
 			<FeedbackModal
 				onClose={() => (showFeedback = false)}
-				orgId={data.orgId}
-				orgName={data.orgName}
+				orgId={readyShell.org.id}
+				orgName={readyShell.org.name}
 				pageUrl={$page.url.pathname}
 			/>
 		{/await}

@@ -7,6 +7,7 @@ import type { PersonnelTraining, TrainingType, TrainingView } from '$features/tr
 import type { Personnel } from '$lib/types';
 import type { WorkspaceBootstrap, WorkspaceKey } from '$lib/server/core/orgShell';
 import type { TrainingBootstrap } from '$lib/server/core/orgShell';
+import { createReadyAppShellRouteData } from '$lib/test-support/appShellRouteData';
 import { _createTrainingLayoutLoad } from './+layout.server';
 
 describe('training layout server load', () => {
@@ -50,7 +51,7 @@ describe('training layout server load', () => {
 		});
 		const locals = {} as App.Locals;
 		const cookies = {} as Cookies;
-		const parent = vi.fn().mockResolvedValue({ orgId: 'org-1' });
+		const parent = vi.fn().mockResolvedValue(createReadyAppShellRouteData({ orgId: 'org-1' }));
 
 		const result = await load({
 			params: { orgId: '1-11-bde' },

@@ -5,9 +5,9 @@
 	import FilePlus2Icon from '@lucide/svelte/icons/file-plus-2';
 
 	interface LayoutData {
-		orgId: string;
-		orgUrlSegment?: string;
-		orgName: string;
+		shell:
+			| { kind: 'ready'; org: { urlSegment: string; name: string } }
+			| { kind: 'suspended'; org: { urlSegment: string; name: string } };
 		personnelDetailHeader: PersonnelDetailHeader;
 	}
 
@@ -16,7 +16,8 @@
 	const person = $derived(data.personnelDetailHeader.person);
 	const displayName = $derived(`${person.rank} ${person.lastName}, ${person.firstName}`);
 	const initials = $derived(`${person.firstName[0] ?? ''}${person.lastName[0] ?? ''}`.toUpperCase());
-	const orgUrlSegment = $derived(data.orgUrlSegment ?? data.orgId);
+	const shell = $derived(data.shell);
+	const orgUrlSegment = $derived(shell.org.urlSegment);
 	const detailBasePath = $derived(`/org/${orgUrlSegment}/personnel/${person.slug}`);
 </script>
 
@@ -34,7 +35,7 @@
 					<p class="text-xs font-semibold tracking-widest text-muted-foreground uppercase">Personnel view</p>
 					<h1 class="mt-1 text-3xl font-semibold tracking-tight text-foreground">{displayName}</h1>
 					<p class="mt-1 text-sm text-muted-foreground">
-						{person.groupName || data.orgName} / {person.mos || 'No MOS'} / {person.clinicRole || 'No duty role'}
+						{person.groupName || shell.org.name} / {person.mos || 'No MOS'} / {person.clinicRole || 'No duty role'}
 					</p>
 				</div>
 			</div>

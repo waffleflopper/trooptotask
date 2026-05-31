@@ -12,6 +12,7 @@
 	import { Textarea } from '$lib/components/ui/textarea';
 	import { parseFile, parseCSVText, parseDateString } from '$lib/utils/csvParser';
 	import { autoMapColumns, detectHeaderRow, STATUS_IMPORT_COLUMNS } from '$lib/utils/columnMapping';
+	import { validateDateRange, type AvailabilityRecord } from '$features/calendar/utils/availabilityMutation';
 	import type { Personnel, StatusType } from '$lib/types';
 	import { tick } from 'svelte';
 	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
@@ -20,11 +21,10 @@
 		personnel: Personnel[];
 		statusTypes: StatusType[];
 		orgId: string;
-		onImportComplete: () => void;
 		onComplete: () => void;
 	}
 
-	let { personnel, statusTypes, orgId, onImportComplete, onComplete }: Props = $props();
+	let { personnel, statusTypes, orgId, onComplete }: Props = $props();
 
 	// State machine
 	type Step = 'upload' | 'preview' | 'resolve' | 'results';
@@ -43,6 +43,7 @@
 	// Import state
 	let importing = $state(false);
 	let importResult = $state<{ inserted: number; errors: { row: number; message: string }[] } | null>(null);
+	let completionNotified = false;
 
 	type RowValidation = {
 		valid: boolean;
@@ -96,6 +97,12 @@
 	});
 
 	const allResolved = $derived(unmatchedStatuses.length === 0 || unmatchedStatuses.every((s) => s.resolvedId !== null));
+
+	function notifyCompleteOnce() {
+		if (completionNotified) return;
+		completionNotified = true;
+		onComplete();
+	}
 
 	function buildPreviewRows(raw: string[][]): PreviewRow[] {
 		if (raw.length === 0) return [];
@@ -220,8 +227,9 @@
 		} else if (!endDate) {
 			errors.endDate = 'Invalid date';
 		}
-		if (startDate && endDate && startDate > endDate) {
-			errors.endDate = 'End date must be on or after start date';
+		if (startDate && endDate) {
+			const rangeError = validateDateRange(startDate, endDate).error;
+			if (rangeError) errors.endDate = rangeError;
 		}
 
 		// Status — just check it's present (resolution happens in Step 3)
@@ -290,13 +298,7 @@
 		}
 
 		// Build records
-		const records: {
-			personnelId: string;
-			statusTypeId: string;
-			startDate: string;
-			endDate: string;
-			note?: string | null;
-		}[] = [];
+		const records: AvailabilityRecord[] = [];
 		const skippedStatuses = new SvelteSet(
 			unmatchedStatuses.filter((m) => m.resolvedId === '__skip__').map((m) => m.csvName.toLowerCase())
 		);
@@ -357,10 +359,10 @@
 			}
 
 			importResult = { inserted: totalInserted, errors: allErrors };
-			step = 'results';
 			if (totalInserted > 0) {
-				onImportComplete();
+				notifyCompleteOnce();
 			}
+			step = 'results';
 		} catch (err) {
 			importResult = {
 				inserted: 0,
@@ -600,7 +602,7 @@
 				{importing ? 'Importing...' : 'Import'}
 			</Button>
 		{:else if step === 'results'}
-			<Button onclick={onComplete}>Done</Button>
+			<Button onclick={notifyCompleteOnce}>Done</Button>
 		{/if}
 	</div>
 </BulkImportWorkspace.Root>

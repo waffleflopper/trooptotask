@@ -16,6 +16,7 @@ import { defineStore } from '$lib/stores/core';
 import type { Store, BatchApiAdapter } from '$lib/stores/core';
 import type { AvailabilityEntry } from '$lib/types';
 import { isDateInRange, formatDate } from '$lib/utils/dates';
+import { rangesOverlap } from '$features/calendar/utils/availabilityMutation';
 
 let orgIdRef = '';
 
@@ -127,12 +128,7 @@ function enhance(base: Store<AvailabilityEntry>): AvailabilityExtensions {
 		getByDateRange(startDate: Date, endDate: Date) {
 			const start = formatDate(startDate);
 			const end = formatDate(endDate);
-			return base.filter(
-				(e) =>
-					(e.startDate >= start && e.startDate <= end) ||
-					(e.endDate >= start && e.endDate <= end) ||
-					(e.startDate <= start && e.endDate >= end)
-			);
+			return base.filter((e) => rangesOverlap(e.startDate, e.endDate, start, end));
 		}
 	};
 }

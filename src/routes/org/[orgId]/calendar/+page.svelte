@@ -17,6 +17,7 @@
 
 	const org = getOrgContext();
 	const rangeCoordinator = new CalendarRangeCoordinator();
+	const shell = $derived(data.shell.kind === 'ready' ? data.shell : null);
 	let calendarBootstrap = $state<WorkspaceBootstrap<CalendarBootstrap> | null>(null);
 	let loadError = $state<Error | null>(null);
 	const renderLoadError = $derived.by(() => {
@@ -77,8 +78,8 @@
 		}
 
 		void rangeCoordinator.loadVisibleRange({
-			orgId: data.orgId,
-			canViewCalendar: data.permissions?.canViewCalendar ?? false,
+			orgId: data.shell.org.id,
+			canViewCalendar: shell?.member.permissions.canViewCalendar ?? false,
 			currentDate: calendarStore.currentDate,
 			viewMode: ctx.viewMode
 		});
@@ -91,10 +92,10 @@
 	const workspacePending = $derived(!!data.calendar?.data && calendarBootstrap === null && loadError === null);
 	const pageData = $derived.by(
 		(): CalendarPageData => ({
-			orgId: data.orgId,
-			orgName: data.orgName ?? 'Troop to Task',
-			userId: data.userId,
-			userPreferences: data.userPreferences,
+			orgId: data.shell.org.id,
+			orgName: data.shell.org.name,
+			userId: shell?.user.id ?? null,
+			userPreferences: shell?.preferences,
 			calendar: calendarBootstrap
 				? {
 						data: {
@@ -102,13 +103,13 @@
 						}
 					}
 				: undefined,
-			permissions: data.permissions,
+			permissions: shell?.member.permissions,
 			activeOnboardingPersonnelIds: calendarBootstrap?.data.activeOnboardingPersonnelIds
 		})
 	);
 	const viewData = $derived.by(() => ({
 		orgId: pageData.orgId,
-		orgUrlSegment: data.orgUrlSegment ?? pageData.orgId,
+		orgUrlSegment: data.shell.org.urlSegment,
 		orgName: pageData.orgName ?? 'Troop to Task',
 		permissions: pageData.permissions
 	}));

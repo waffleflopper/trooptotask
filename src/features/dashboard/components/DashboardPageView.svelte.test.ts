@@ -2,14 +2,14 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/svelte';
 import DashboardPageView from './DashboardPageView.svelte';
-import type { DashboardContext } from '../contexts/DashboardContext.svelte';
+import type { DashboardScreenModel } from '../read-model/dashboardScreenModel.svelte';
 
 afterEach(() => {
 	cleanup();
 	vi.restoreAllMocks();
 });
 
-function makeCtx(overrides: Record<string, unknown> = {}): DashboardContext {
+function makeCtx(overrides: Record<string, unknown> = {}): DashboardScreenModel {
 	const base = {
 		data: {
 			orgName: 'Test Unit',
@@ -91,7 +91,7 @@ function makeCtx(overrides: Record<string, unknown> = {}): DashboardContext {
 			...base.data,
 			...(overrides.data as Record<string, unknown> | undefined)
 		}
-	} as unknown as DashboardContext;
+	} as unknown as DashboardScreenModel;
 }
 
 describe('DashboardPageView', () => {

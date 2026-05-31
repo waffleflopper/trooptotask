@@ -7,19 +7,22 @@
  *
  * Key exports:
  * - `createInMemoryOrgAccessPort(config)` — returns configured `MembershipInfo` and `OrgState`
- * - `createInMemoryOrgChromePort(config)` — returns configured `ChromeData`
+ * - `createInMemoryAppShellFirstPaintChromePort(config)` — returns configured first-paint chrome
+ * - `createInMemoryAppShellDeferredChromePort(config)` — returns configured deferred chrome
  * - `createInMemoryOrgWorkspacePort(data)` — returns keyed workspace data
  * - `createInMemoryHydrationPlannerPort(plans)` — returns keyed `HydrationPlan` values
  */
 import type {
+	AppShellDeferredChromePort,
+	AppShellFirstPaintChrome,
+	AppShellFirstPaintChromePort,
 	OrgAccessPort,
-	OrgChromePort,
 	StreamableOrgWorkspacePort,
 	HydrationPlannerPort,
 	MembershipInfo,
 	OrgState,
-	ChromeData,
 	HydrationPlan,
+	OrganizationSwitcherOrg,
 	WorkspaceKey
 } from '$lib/server/core/orgShell';
 
@@ -30,9 +33,21 @@ export function createInMemoryOrgAccessPort(config: { membership: MembershipInfo
 	};
 }
 
-export function createInMemoryOrgChromePort(config: { chrome: ChromeData }): OrgChromePort {
+export function createInMemoryAppShellFirstPaintChromePort(config: {
+	chrome: AppShellFirstPaintChrome;
+}): AppShellFirstPaintChromePort {
 	return {
-		getChromeData: () => Promise.resolve(config.chrome)
+		getFirstPaintChrome: () => Promise.resolve(config.chrome)
+	};
+}
+
+export function createInMemoryAppShellDeferredChromePort(config: {
+	unreadNotificationCount: number;
+	organizations: OrganizationSwitcherOrg[];
+}): AppShellDeferredChromePort {
+	return {
+		getUnreadNotificationCount: () => Promise.resolve(config.unreadNotificationCount),
+		getOrganizationSwitcherOrgs: () => Promise.resolve(config.organizations)
 	};
 }
 

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DashboardBootstrap } from '$lib/server/core/useCases/dashboardQuery';
 import type { WorkspaceBootstrap } from '$lib/server/core/orgShell';
+import { createReadyAppShellRouteData } from '$lib/test-support/appShellRouteData';
 
 const {
 	buildLayoutContextMock,
@@ -195,7 +196,7 @@ describe('dashboard page server load', () => {
 		});
 		const depends = vi.fn();
 		const parent = vi.fn().mockResolvedValue({
-			permissions: { canViewCriticalTasks: true },
+			...createReadyAppShellRouteData({ orgId: ORG_ID, canViewCriticalTasks: true }),
 			dashboard: {
 				data: workspaceBootstrap
 			}
@@ -305,7 +306,7 @@ describe('dashboard page server load', () => {
 			resolveWorkspace = resolve;
 		});
 		const parent = vi.fn().mockResolvedValue({
-			permissions: { canViewCriticalTasks: false },
+			...createReadyAppShellRouteData({ orgId: ORG_ID, canViewCriticalTasks: false }),
 			dashboard: {
 				data: workspaceBootstrap
 			}

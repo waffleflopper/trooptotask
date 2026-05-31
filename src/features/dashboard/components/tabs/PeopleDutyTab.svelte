@@ -2,12 +2,15 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import { CalendarStatusBadge } from '$lib/components/ui/calendar-status-badge';
 	import * as Tabs from '$lib/components/ui/tabs';
-	import type { DashboardContext } from '../../contexts/DashboardContext.svelte';
-	import type { OutTodayGroupBy, UpcomingGroupBy } from '../../read-model/dashboardScreenModel.svelte';
+	import type {
+		DashboardScreenModel,
+		OutTodayGroupBy,
+		UpcomingGroupBy
+	} from '../../read-model/dashboardScreenModel.svelte';
 	import UpcomingLossesWidget from '../UpcomingLossesWidget.svelte';
 
 	interface Props {
-		ctx: DashboardContext;
+		ctx: DashboardScreenModel;
 	}
 
 	let { ctx }: Props = $props();

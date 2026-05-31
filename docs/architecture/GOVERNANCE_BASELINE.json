@@ -198,19 +198,6 @@
 			]
 		},
 		{
-			"path": "src/lib/server/core/useCases/loadOrgShell.ts",
-			"classification": "compatibility-adapter",
-			"patterns": [
-				"isFullEditor",
-				"scopedGroupId"
-			],
-			"ownerIssue": "#757",
-			"reason": "Org shell load now exposes Capability Map and Scope Set while retaining full-editor and single-Group compatibility values for transitional callers.",
-			"driftIds": [
-				"D-01"
-			]
-		},
-		{
 			"path": "src/lib/stores/orgContext.svelte.ts",
 			"classification": "compatibility-adapter",
 			"patterns": [
@@ -526,19 +513,6 @@
 			],
 			"ownerIssue": "#893",
 			"reason": "Counseling record scope repair migration redefines the existing sensitive-file storage helper API so counseling attachment reads and writes keep the historical function names while enforcing Personnel capability and group-scope checks.",
-			"driftIds": [
-				"D-01"
-			]
-		},
-		{
-			"path": "src/lib/test-support/orgContextBuilder.ts",
-			"classification": "compatibility-adapter",
-			"patterns": [
-				"canEdit*",
-				"scopedGroupId"
-			],
-			"ownerIssue": "#757",
-			"reason": "Shared test OrgContext builder derives legacy permission flags from the capability map so test files do not maintain both in sync.",
 			"driftIds": [
 				"D-01"
 			]

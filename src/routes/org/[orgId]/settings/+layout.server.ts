@@ -3,17 +3,21 @@ import type { LayoutServerLoad } from './$types';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
 import { loadSettingsShell } from './settingsShell.server';
+import { requireReadyAppShell } from '$lib/server/core/appShellRouteData';
 
 export const load: LayoutServerLoad = async ({ locals, cookies, params, parent, route }) => {
 	const parentData = await parent();
-	const { orgId, orgName, orgUrlSegment, effectiveTier } = parentData;
-
-	if (parentData.orgSuspended) {
-		redirect(303, `/org/${orgUrlSegment ?? orgId}/suspended`);
+	if (parentData.shell.kind === 'suspended') {
+		redirect(303, `/org/${parentData.shell.org.urlSegment}/suspended`);
 	}
 
+	const shell = requireReadyAppShell(parentData);
+	const orgId = shell.org.id;
+	const orgName = shell.org.name;
+	const orgUrlSegment = shell.org.urlSegment;
+
 	if (route.id === '/org/[orgId]/settings') {
-		redirect(303, `/org/${orgUrlSegment ?? orgId}/settings/general`);
+		redirect(303, `/org/${orgUrlSegment}/settings/general`);
 	}
 
 	return loadWithContext(locals, cookies, orgId, {
@@ -26,7 +30,7 @@ export const load: LayoutServerLoad = async ({ locals, cookies, params, parent, 
 				name: orgName,
 				urlSlug: orgUrlSegment && orgUrlSegment !== orgId ? orgUrlSegment : null,
 				urlSegment: orgUrlSegment ?? params.orgId,
-				effectiveTier: effectiveTier ?? null
+				effectiveTier: shell.state.effectiveTier
 			})
 		})
 	});

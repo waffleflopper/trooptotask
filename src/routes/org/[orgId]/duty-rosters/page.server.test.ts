@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+import { createReadyAppShellRouteData } from '$lib/test-support/appShellRouteData';
 
 const {
 	loadWithContextMock,
@@ -49,7 +50,7 @@ describe('Duty Roster Templates route', () => {
 			params: { orgId: 'org-1' },
 			locals: {},
 			cookies: {},
-			parent: async () => ({ orgName: 'Able Company' })
+			parent: async () => createReadyAppShellRouteData({ orgId: 'org-1', orgName: 'Able Company' })
 		} as never);
 
 		expect(loadWithContextMock).toHaveBeenCalledWith(

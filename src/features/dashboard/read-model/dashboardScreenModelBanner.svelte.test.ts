@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { DashboardContext } from './DashboardContext.svelte';
+import { createDashboardScreenModel, type DashboardScreenModel } from './dashboardScreenModel.svelte';
 import { rosterStore } from '$lib/stores/roster.svelte';
 import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 import { availabilityStore } from '$features/calendar/stores/availability.svelte';
@@ -109,8 +109,8 @@ function makeData(overrides: Record<string, unknown> = {}, workspaceOverrides: R
 // Tests
 // ---------------------------------------------------------------------------
 
-describe('DashboardContext', () => {
-	let ctx: DashboardContext;
+describe('DashboardScreenModel (migrated context coverage)', () => {
+	let ctx: DashboardScreenModel;
 
 	beforeEach(() => {
 		vi.restoreAllMocks();
@@ -119,7 +119,7 @@ describe('DashboardContext', () => {
 		mutableAvailabilityStore.items = [];
 		mutableDailyAssignmentsStore.loading = false;
 		mutableGroupsStore.loading = false;
-		ctx = new DashboardContext(makeData());
+		ctx = createDashboardScreenModel(makeData());
 	});
 
 	afterEach(() => {
@@ -194,7 +194,7 @@ describe('DashboardContext', () => {
 
 	describe('statusTypeCount', () => {
 		it('reads from dashboard workspace data', () => {
-			const c = new DashboardContext(
+			const c = createDashboardScreenModel(
 				makeData({}, { statusTypes: [{ id: 'st1', name: 'Leave', color: '#000', textColor: '#fff' }] })
 			);
 			expect(c.statusTypeCount).toBe(1);
@@ -217,7 +217,7 @@ describe('DashboardContext', () => {
 
 		it('is true while any composite store is still loading', () => {
 			mutableAvailabilityStore.loading = true;
-			expect(new DashboardContext(makeData()).isHydrating).toBe(true);
+			expect(createDashboardScreenModel(makeData()).isHydrating).toBe(true);
 		});
 	});
 
@@ -232,7 +232,7 @@ describe('DashboardContext', () => {
 		it('uses server-provided stats when trainingSummary is present', () => {
 			const stats = { current: 5, expired: 1, 'warning-orange': 2, 'warning-yellow': 0 };
 			const dataWithStats = makeData({ trainingSummary: { stats, issues: [] } });
-			const c = new DashboardContext(dataWithStats);
+			const c = createDashboardScreenModel(dataWithStats);
 			expect(c.trainingStats).toEqual(stats);
 		});
 	});
@@ -244,7 +244,7 @@ describe('DashboardContext', () => {
 
 		it('returns issues from trainingSummary', () => {
 			const issues = [{ personName: 'SGT Smith', typeName: 'CPR', status: 'expired', label: 'Expired' }];
-			const c = new DashboardContext(makeData({ trainingSummary: { stats: {}, issues } }));
+			const c = createDashboardScreenModel(makeData({ trainingSummary: { stats: {}, issues } }));
 			expect(c.topTrainingIssues).toHaveLength(1);
 			expect(c.topTrainingIssues[0].personName).toBe('SGT Smith');
 		});
@@ -255,7 +255,7 @@ describe('DashboardContext', () => {
 				{ personName: 'PFC Jones', typeName: 'BLS', status: 'warning-orange', label: 'Expiring' },
 				{ personName: 'SPC Clark', typeName: 'SHARP', status: 'expired', label: 'Expired' }
 			];
-			const c = new DashboardContext(makeData({ trainingSummary: { stats: {}, issues } }));
+			const c = createDashboardScreenModel(makeData({ trainingSummary: { stats: {}, issues } }));
 			expect(c.topTrainingIssues).toHaveLength(3);
 			expect(c.topTrainingIssues[1].typeName).toBe('BLS');
 		});
@@ -294,8 +294,8 @@ describe('DashboardContext', () => {
 				}
 			];
 
-			const dashboardCtx = new DashboardContext(makeData());
-			const keys = dashboardCtx.upcomingChanges.map((change) => change.key);
+			const dashboardModel = createDashboardScreenModel(makeData());
+			const keys = dashboardModel.upcomingChanges.map((change) => change.key);
 
 			expect(keys).toEqual([
 				'a1-departing-2099-01-01',
@@ -326,7 +326,7 @@ describe('DashboardContext', () => {
 
 		it('does not count completed entries', () => {
 			const entries = [{ ratingPeriodEnd: '2026-01-01', status: 'completed' }];
-			const c = new DashboardContext(makeData({}, { ratingSchemeEntries: entries }));
+			const c = createDashboardScreenModel(makeData({}, { ratingSchemeEntries: entries }));
 			expect(c.ratingTotal).toBe(0);
 		});
 
@@ -335,7 +335,7 @@ describe('DashboardContext', () => {
 				{ ratingPeriodEnd: '2026-06-01', status: 'pending' },
 				{ ratingPeriodEnd: '2026-07-01', status: 'pending' }
 			];
-			const c = new DashboardContext(makeData({}, { ratingSchemeEntries: entries }));
+			const c = createDashboardScreenModel(makeData({}, { ratingSchemeEntries: entries }));
 			expect(c.ratingTotal).toBe(2);
 			expect(c.ratingStats.current).toBe(2);
 		});
@@ -346,7 +346,7 @@ describe('DashboardContext', () => {
 				{ ratingPeriodEnd: '2026-05-01', status: 'completed' },
 				{ ratingPeriodEnd: '2026-08-01', status: 'draft' }
 			];
-			const c = new DashboardContext(makeData({}, { ratingSchemeEntries: entries }));
+			const c = createDashboardScreenModel(makeData({}, { ratingSchemeEntries: entries }));
 			expect(c.ratingTotal).toBe(2);
 		});
 	});
@@ -370,7 +370,7 @@ describe('DashboardContext', () => {
 				{ personnelId: 'p1', steps: [{ completed: true }, { completed: false }], id: 'ob1' },
 				{ personnelId: 'p2', steps: [], id: 'ob2' }
 			];
-			const c = new DashboardContext(makeData({}, { activeOnboardings: onboardings }));
+			const c = createDashboardScreenModel(makeData({}, { activeOnboardings: onboardings }));
 			// Returns an array (may be empty if personnel store has no matching records)
 			expect(Array.isArray(c.activeOnboardings)).toBe(true);
 		});
@@ -390,7 +390,7 @@ describe('DashboardContext', () => {
 	// -------------------------------------------------------------------------
 	describe('gettingStartedDismissed', () => {
 		it('reads from data prop', () => {
-			const c = new DashboardContext(makeData({ gettingStartedDismissed: true }));
+			const c = createDashboardScreenModel(makeData({ gettingStartedDismissed: true }));
 			expect(c.gettingStartedDismissed).toBe(true);
 		});
 
@@ -401,7 +401,7 @@ describe('DashboardContext', () => {
 
 	describe('support data', () => {
 		it('starts without support data when checklist metadata is omitted', () => {
-			const c = new DashboardContext(
+			const c = createDashboardScreenModel(
 				makeData({
 					onboardingTemplateStepCount: undefined,
 					ratingSchemeEntryCount: undefined,
@@ -417,7 +417,7 @@ describe('DashboardContext', () => {
 			expect(c.gettingStartedDismissed).toBe(false);
 		});
 
-		it('applies deferred checklist metadata without rebuilding the context', () => {
+		it('applies deferred checklist metadata without rebuilding the model', () => {
 			ctx.applySupportData({
 				onboardingTemplateStepCount: 4,
 				ratingSchemeEntryCount: 3,
@@ -464,7 +464,7 @@ describe('DashboardContext', () => {
 		}
 
 		/** Returns a date string N days from ctx.today */
-		function daysOut(ctx: DashboardContext, n: number): string {
+		function daysOut(ctx: DashboardScreenModel, n: number): string {
 			const d = new Date(ctx.today + 'T00:00:00');
 			d.setDate(d.getDate() + n);
 			return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -472,7 +472,7 @@ describe('DashboardContext', () => {
 
 		it('returns an empty array when no personnel have tracked dates', () => {
 			mutableRosterStore.items = [makePerson('p1')];
-			ctx = new DashboardContext(makeData());
+			ctx = createDashboardScreenModel(makeData());
 			expect(ctx.upcomingLosses).toEqual([]);
 		});
 
@@ -490,7 +490,7 @@ describe('DashboardContext', () => {
 
 		it('respects the configured lossWarningWindowDays from the workspace data', () => {
 			// Window = 30 days; person at 60 days should be excluded
-			ctx = new DashboardContext(makeData({}, { lossWarningWindowDays: 30 }));
+			ctx = createDashboardScreenModel(makeData({}, { lossWarningWindowDays: 30 }));
 			mutableRosterStore.items = [makePerson('p1', daysOut(ctx, 60))];
 			expect(ctx.upcomingLosses).toHaveLength(0);
 		});
@@ -518,7 +518,7 @@ describe('DashboardContext', () => {
 		});
 
 		it('keeps the loss entry but suppresses the award badge when award tracking is acknowledged', () => {
-			ctx = new DashboardContext(
+			ctx = createDashboardScreenModel(
 				makeData({}, { awardTrackingAcknowledgedPersonnelIds: ['p1'], lossWarningWindowDays: 180 })
 			);
 			mutableRosterStore.items = [makePerson('p1', daysOut(ctx, 45))];

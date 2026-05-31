@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { cleanup, render, screen } from '@testing-library/svelte';
 import { afterEach, describe, expect, it } from 'vitest';
-import type { DashboardContext } from '../../contexts/DashboardContext.svelte';
+import type { DashboardScreenModel } from '../../read-model/dashboardScreenModel.svelte';
 import type { UpcomingLossRecord } from '$lib/domain/readinessSignals';
 import UnitReadinessTab from './UnitReadinessTab.svelte';
 
@@ -22,7 +22,7 @@ function makeLoss(overrides: Partial<UpcomingLossRecord> = {}): UpcomingLossReco
 	};
 }
 
-function makeCtx(overrides: Record<string, unknown> = {}): DashboardContext {
+function makeCtx(overrides: Record<string, unknown> = {}): DashboardScreenModel {
 	return {
 		dutyStrengthPct: 90,
 		availableCount: 9,
@@ -71,7 +71,7 @@ function makeCtx(overrides: Record<string, unknown> = {}): DashboardContext {
 		upcomingLosses: [makeLoss()],
 		formatShortDate: (date: string) => `Fmt ${date}`,
 		...overrides
-	} as unknown as DashboardContext;
+	} as unknown as DashboardScreenModel;
 }
 
 afterEach(() => {

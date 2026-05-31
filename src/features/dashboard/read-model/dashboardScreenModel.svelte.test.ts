@@ -118,6 +118,19 @@ describe('createDashboardScreenModel', () => {
 		vi.unstubAllGlobals();
 	});
 
+	it('rolls back getting started dismissal when the request rejects', async () => {
+		vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network unavailable')));
+		const model = createDashboardScreenModel(makeData(), {
+			storage: createMemoryStorage(),
+			sources: makeSources()
+		});
+
+		await expect(model.dismissGettingStarted()).resolves.toBeUndefined();
+
+		expect(model.gettingStartedDismissed).toBe(false);
+		vi.unstubAllGlobals();
+	});
+
 	it('pre-shapes out-today rows by status and group while preserving the saved grouping mode', () => {
 		const storage = createMemoryStorage({ 'dashboard-out-today-group-by': 'group' });
 		const model = createDashboardScreenModel(makeData(), {

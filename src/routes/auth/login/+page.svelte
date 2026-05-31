@@ -27,10 +27,10 @@
 	imageAlt="A military command-post desk with a map, notebook, compass, and rugged laptop."
 	supportLabel="Need help?"
 	supportTitle="Choose the right path."
-	supportDescription="If you do not have an account yet, create one from an invite or request beta access."
+	supportDescription="If you do not have an account yet, use your Account Setup Link, request a fresh setup link below, or request beta access."
 	supportPoints={[
 		'If you have an account but cannot sign in, reset your password before requesting new access.',
-		'Invite codes expire. If yours is stale, ask your unit admin to resend the invite.',
+		'Account Setup Links expire. If yours is stale, request a fresh setup link from this page.',
 		'Request Access is only for units that do not yet have access to TroopToTask.'
 	]}
 >

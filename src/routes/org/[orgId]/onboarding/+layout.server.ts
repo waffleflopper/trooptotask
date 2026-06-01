@@ -7,6 +7,7 @@ import { createDefaultHydrationPlanner } from '$lib/server/core/hydrationPlanner
 import type { HydrationPlannerPort, StreamableOrgWorkspacePort } from '$lib/server/core/orgShell';
 import { createOrgShellCoordinator, type OrgShellCoordinator } from '$lib/server/core/orgShellCoordinator';
 import type { OnboardingBootstrap } from '$lib/server/core/useCases/onboardingQuery';
+import { requireReadyAppShell } from '$lib/server/core/appShellRouteData';
 
 interface OnboardingLayoutRequestContext {
 	locals: App.Locals;
@@ -36,10 +37,21 @@ export function _createOnboardingLayoutLoad(deps: OnboardingLayoutLoadDeps = {})
 				fn: async () => undefined
 			}));
 
-	return async ({ params, locals, cookies, depends }) => {
+	return async ({
+		locals,
+		cookies,
+		depends,
+		parent
+	}: {
+		locals: App.Locals;
+		cookies: Cookies;
+		depends: (...deps: string[]) => void;
+		parent: () => Promise<Parameters<typeof requireReadyAppShell>[0]>;
+	}) => {
 		depends('app:org-core', 'app:onboarding-data');
 
-		const { orgId } = params;
+		const shell = requireReadyAppShell(await parent());
+		const orgId = shell.org.id;
 		await authorizeAccess({ locals, cookies, orgId });
 		const workspacePort = createWorkspacePort({ locals, cookies, orgId });
 		const plannerPort = createPlannerPort(orgId);

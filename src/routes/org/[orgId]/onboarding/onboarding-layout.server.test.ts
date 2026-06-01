@@ -14,6 +14,19 @@ import type { TrainingType } from '$features/training/training.types';
 import type { Personnel } from '$lib/types';
 import { _createOnboardingLayoutLoad } from './+layout.server';
 
+function makeReadyParent(orgId = 'org-1') {
+	return vi.fn().mockResolvedValue({
+		shell: {
+			kind: 'ready',
+			org: {
+				id: orgId,
+				urlSegment: 'alpha-company',
+				name: 'Alpha Company'
+			}
+		}
+	});
+}
+
 describe('onboarding layout server load', () => {
 	it('registers onboarding dependencies and streams the canonical onboarding workspace payload', async () => {
 		const onboardingData: OnboardingBootstrap = {
@@ -69,12 +82,14 @@ describe('onboarding layout server load', () => {
 		});
 		const locals = {} as App.Locals;
 		const cookies = {} as Cookies;
+		const parent = makeReadyParent('org-1');
 
 		const result = await load({
 			params: { orgId: 'org-1' },
 			locals,
 			cookies,
-			depends
+			depends,
+			parent
 		} as unknown as Parameters<typeof load>[0]);
 		if (!result) {
 			throw new Error('Expected onboarding layout load to return data');
@@ -114,6 +129,53 @@ describe('onboarding layout server load', () => {
 		} satisfies WorkspaceBootstrap<OnboardingBootstrap>);
 	});
 
+	it('keys onboarding hydration to the canonical org id when the route uses an org slug', async () => {
+		const onboardingData: OnboardingBootstrap = {
+			onboardingTemplates: [],
+			onboardingTemplateSteps: [],
+			onboardings: [],
+			trainingTypes: [],
+			personnel: [{ id: 'p1', firstName: 'John', lastName: 'Smith' } as Personnel],
+			groups: []
+		};
+		const depends = vi.fn();
+		const workspacePort = createInMemoryOrgWorkspacePort(
+			new Map<WorkspaceKey, unknown>([['onboarding', onboardingData]])
+		);
+		const createWorkspacePort = vi.fn().mockReturnValue(workspacePort);
+		const createPlannerPort = vi.fn((orgId: string) => createDefaultHydrationPlanner(orgId));
+		const authorizeAccess = vi.fn().mockResolvedValue(undefined);
+		const parent = makeReadyParent('org-1');
+		const load = _createOnboardingLayoutLoad({
+			createWorkspacePort,
+			createPlannerPort,
+			authorizeAccess
+		});
+		const locals = {} as App.Locals;
+		const cookies = {} as Cookies;
+
+		const result = await load({
+			params: { orgId: 'alpha-company' },
+			locals,
+			cookies,
+			depends,
+			parent
+		} as unknown as Parameters<typeof load>[0]);
+		if (!result) {
+			throw new Error('Expected onboarding layout load to return data');
+		}
+
+		expect(parent).toHaveBeenCalledTimes(1);
+		expect(authorizeAccess).toHaveBeenCalledWith({ locals, cookies, orgId: 'org-1' });
+		expect(createWorkspacePort).toHaveBeenCalledWith({ locals, cookies, orgId: 'org-1' });
+		expect(createPlannerPort).toHaveBeenCalledWith('org-1');
+		await expect(result.onboarding.data).resolves.toMatchObject({
+			hydration: {
+				orgId: 'org-1'
+			}
+		});
+	});
+
 	it('throws a route-level permission error before starting streamed onboarding data', async () => {
 		const depends = vi.fn();
 		const createWorkspacePort = vi.fn();
@@ -128,13 +190,15 @@ describe('onboarding layout server load', () => {
 		});
 		const locals = {} as App.Locals;
 		const cookies = {} as Cookies;
+		const parent = makeReadyParent('org-1');
 
 		try {
 			await load({
 				params: { orgId: 'org-1' },
 				locals,
 				cookies,
-				depends
+				depends,
+				parent
 			} as unknown as Parameters<typeof load>[0]);
 			throw new Error('Expected onboarding layout load to throw');
 		} catch (err) {

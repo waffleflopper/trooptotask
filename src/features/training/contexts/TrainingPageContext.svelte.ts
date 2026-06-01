@@ -1,4 +1,4 @@
-import { SvelteSet } from 'svelte/reactivity';
+import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 import { invalidate, goto } from '$app/navigation';
 import { resolve } from '$app/paths';
 import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
@@ -151,10 +151,24 @@ export class TrainingPageContext {
 	}
 
 	get groupFilterOptions(): Array<{ value: string; label: string }> {
-		return this.trainingRosterView().groupFilterOptions.map((option) => ({
+		const rosterOptions = this.trainingRosterView().groupFilterOptions.map((option) => ({
 			value: option.value,
 			label: option.value ? option.label : 'Group: All'
 		}));
+		if (groupsStore.orgId !== this.orgId) {
+			return rosterOptions;
+		}
+
+		const optionsByValue = new SvelteMap(rosterOptions.map((option) => [option.value, option]));
+		const orderedOptions = [optionsByValue.get('') ?? { value: '', label: 'Group: All' }];
+
+		for (const group of groupsStore.items) {
+			orderedOptions.push(optionsByValue.get(group.id) ?? { value: group.id, label: group.name });
+			optionsByValue.delete(group.id);
+		}
+
+		optionsByValue.delete('');
+		return [...orderedOptions, ...optionsByValue.values()];
 	}
 
 	// ---- derived: stats ----
@@ -335,7 +349,11 @@ export class TrainingPageContext {
 	}
 
 	private isValidGroupId(groupId: string | null): boolean {
-		return !!groupId && this.groupFilterOptions.some((option) => option.value === groupId);
+		if (!groupId) return false;
+		if (groupsStore.orgId === this.orgId && groupsStore.items.some((group) => group.id === groupId)) {
+			return true;
+		}
+		return this.groupFilterOptions.some((option) => option.value === groupId);
 	}
 
 	private getHydratedSelectionFingerprint(): string {

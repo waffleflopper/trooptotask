@@ -213,7 +213,7 @@ describe('buildCriticalTasksMatrix', () => {
 			personnel: [assigned, unassigned],
 			tasks: [task({ id: 'universal', taskCode: 'A', title: 'Universal task', mos: [] })],
 			completions: [],
-			groups: [{ id: 'group-alpha', name: 'Alpha', sortOrder: undefined as unknown as number }],
+			groups: [{ id: 'group-alpha', name: 'Alpha', sortOrder: 0 }],
 			settings,
 			selectedGroupFilter: 'name:Unassigned',
 			orgName: 'Test Unit'

@@ -11,8 +11,9 @@ export async function fetchCalendarReportData(
 	startDate: string,
 	endDate: string
 ): Promise<CalendarReportData> {
+	const params = new URLSearchParams({ startDate, endDate });
 	const response = await fetch(
-		`/org/${orgId}/api/calendar-reports/status-days?startDate=${startDate}&endDate=${endDate}`
+		`/org/${encodeURIComponent(orgId)}/api/calendar-reports/status-days?${params.toString()}`
 	);
 	if (!response.ok) {
 		const body = await response.json().catch(() => ({}));

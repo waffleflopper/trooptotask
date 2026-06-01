@@ -34,7 +34,12 @@
 
 	const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-	const tableRows = $derived(report.result?.groups ?? []);
+	let groupSort = $state<'none' | 'asc' | 'desc'>('none');
+	const tableRows = $derived.by(() => {
+		const rows = report.result?.groups ?? [];
+		if (groupSort === 'none') return rows;
+		return [...rows].sort((a, b) => (groupSort === 'asc' ? sortByGroupName(a, b) : sortByGroupName(b, a)));
+	});
 	const resultMeta = $derived(
 		report.result ? `${report.result.groups.length} groups · ${startDate} to ${endDate}` : ''
 	);
@@ -52,6 +57,10 @@
 
 	function sortByGroupName(a: ReadinessGroupRow, b: ReadinessGroupRow): number {
 		return a.groupName.localeCompare(b.groupName);
+	}
+
+	function toggleGroupSort() {
+		groupSort = groupSort === 'asc' ? 'desc' : 'asc';
 	}
 
 	function handleExportExcel() {
@@ -119,7 +128,8 @@
 							<tr>
 								<th
 									class="min-w-36 cursor-pointer border-b border-border px-3 py-2 text-left text-xs font-semibold text-muted-foreground uppercase"
-									onclick={() => tableRows.sort(sortByGroupName)}
+									aria-sort={groupSort === 'none' ? 'none' : groupSort === 'asc' ? 'ascending' : 'descending'}
+									onclick={toggleGroupSort}
 								>
 									Group
 								</th>

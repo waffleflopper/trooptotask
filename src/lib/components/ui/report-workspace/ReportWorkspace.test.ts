@@ -42,9 +42,12 @@ describe('ReportWorkspace', () => {
 
 		const table = screen.getByRole('table', { name: 'Readiness rows table' });
 		expect(within(table).getByText('Avery Brooks')).toBeInTheDocument();
+		expect(screen.getByLabelText('Report summary')).toHaveTextContent('Maya Chen · Action');
+		expect(screen.getByText('1 person needs action.')).toBeInTheDocument();
 
 		expect(screen.getByText('Loading report rows')).toBeInTheDocument();
 		expect(screen.getByText('No report data')).toBeInTheDocument();
 		expect(screen.getByRole('alert')).toHaveTextContent('Report failed');
+		expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument();
 	});
 });

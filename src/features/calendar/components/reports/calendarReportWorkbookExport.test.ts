@@ -105,7 +105,7 @@ describe('calendar report workbook exports', () => {
 			'Date',
 			'Unavailable',
 			'Available',
-			'Available %',
+			'Available percent',
 			'Unavailable Personnel'
 		]);
 		expect(sheet?.getCell('D2').value).toBe('0%');
@@ -198,6 +198,7 @@ describe('calendar report workbook exports', () => {
 		expect(filename).toBe('status-days-2026-01-01-to-2026-12-31.xlsx');
 		expect(sheet?.getCell('D1').value).toBe('Leave');
 		expect(sheet?.getCell('D2').value).toBe(4);
+		expect(sheet?.getCell('E1').value).toBe('Total status days');
 		expect(sheet?.getCell('E2').value).toBe(4);
 	});
 });

@@ -1,18 +1,17 @@
 <script lang="ts">
-	import type { Personnel } from '$lib/types';
-	import type { StatusType } from '$lib/types';
+	import type { Personnel, StatusType } from '$lib/types';
+	import { Badge } from '$lib/components/ui/badge/index.js';
+	import { Button } from '$lib/components/ui/button/index.js';
+	import PlusIcon from '@lucide/svelte/icons/plus';
+	import MinusIcon from '@lucide/svelte/icons/minus';
+	import * as ReportWorkspace from '$lib/components/ui/report-workspace/index.js';
+	import type { ColumnDef } from '$lib/components/ui/data-table/index.js';
+	import { useDataTable } from '$lib/components/ui/data-table/index.js';
+	import { SvelteSet } from 'svelte/reactivity';
 	import type { AvailabilityForecastResult, ForecastDay } from '../../utils/calendarReports';
 	import { computeAvailabilityForecast } from '../../utils/calendarReports';
 	import { exportAvailabilityForecastWorkbook } from './calendarReportWorkbookExport';
-	import { Badge } from '$lib/components/ui/badge';
-	import { Button } from '$lib/components/ui/button';
-	import { DatePicker } from '$lib/components/ui/date-picker';
-	import * as Field from '$lib/components/ui/field';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import * as DataTable from '$lib/components/ui/data-table';
-	import { useDataTable } from '$lib/components/ui/data-table';
-	import type { ColumnDef } from '$lib/components/ui/data-table';
-	import { SvelteSet } from 'svelte/reactivity';
+	import { fetchCalendarReportData, type CalendarReportData } from './calendarReportData';
 
 	interface Props {
 		orgId: string;
@@ -21,225 +20,263 @@
 		groups: { id: string; name: string }[];
 	}
 
+	interface AvailabilityForecastRunData {
+		startDate: string;
+		endDate: string;
+		personnel: Personnel[];
+		data: CalendarReportData;
+	}
+
+	interface AvailabilityForecastReportResult extends AvailabilityForecastResult {
+		startDate: string;
+		endDate: string;
+		personnelCount: number;
+	}
+
 	let { orgId, personnel, statusTypes, groups }: Props = $props();
 
-	// --- Date range state ---
-	const today = new Date();
-	const thirtyDaysFromNow = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 30);
+	const initialRange = ReportWorkspace.FORECAST_PRESET[0].getRange();
+	let startDate = $state(initialRange.start);
+	let endDate = $state(initialRange.end);
 
-	function formatDate(d: Date): string {
-		return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-	}
-
-	let startDate = $state(formatDate(today));
-	let endDate = $state(formatDate(thirtyDaysFromNow));
-
-	// --- Group filter state ---
-	const selectedGroupIds = new SvelteSet<string>();
-
-	const filteredPersonnel = $derived.by(() => {
-		if (selectedGroupIds.size === 0) return personnel;
-		return personnel.filter((p) => p.groupId && selectedGroupIds.has(p.groupId));
-	});
-
-	// --- Report execution ---
-	let loading = $state(false);
-	let result = $state<AvailabilityForecastResult | null>(null);
-	let errorMsg = $state('');
-
-	// --- Expandable rows ---
 	const expandedDates = new SvelteSet<string>();
 
-	function toggleExpanded(date: string) {
-		if (expandedDates.has(date)) expandedDates.delete(date);
-		else expandedDates.add(date);
-	}
+	const groupSelect = ReportWorkspace.createMultiSelect(() => groups);
+	const groupOptions = $derived(groups.map((group) => ({ id: group.id, label: group.name })));
 
-	function toggleForecastRow(day: ForecastDay): void {
-		if (day.unavailableCount > 0) toggleExpanded(day.date);
-	}
+	const filteredPersonnel = $derived.by(() => {
+		if (groupSelect.allSelected) return personnel;
+		return personnel.filter((person) => person.groupId && groupSelect.has(person.groupId));
+	});
 
-	function toggleGroup(groupId: string) {
-		if (selectedGroupIds.has(groupId)) selectedGroupIds.delete(groupId);
-		else selectedGroupIds.add(groupId);
-	}
-
-	async function runReport() {
-		if (!startDate || !endDate) return;
-		if (filteredPersonnel.length === 0) {
-			errorMsg = 'No personnel selected.';
-			result = null;
-			return;
-		}
-
-		loading = true;
-		errorMsg = '';
-		result = null;
-		expandedDates.clear();
-
-		try {
-			const res = await fetch(
-				`/org/${orgId}/api/calendar-reports/status-days?startDate=${startDate}&endDate=${endDate}`
-			);
-			if (!res.ok) {
-				const body = await res.json().catch(() => ({}));
-				throw new Error(body.message || `Request failed (${res.status})`);
-			}
-			const data = await res.json();
-			result = computeAvailabilityForecast(filteredPersonnel, data.entries, statusTypes, startDate, endDate);
-		} catch (e: unknown) {
-			errorMsg = e instanceof Error ? e.message : 'Failed to generate report.';
-		} finally {
-			loading = false;
-		}
-	}
-
-	function formatDisplayDate(dateStr: string): string {
-		const [year, month, day] = dateStr.split('-');
-		const d = new Date(Number(year), Number(month) - 1, Number(day));
-		const weekday = d.toLocaleDateString('en-US', { weekday: 'short' });
-		return `${weekday}, ${month}/${day}/${year}`;
-	}
-
-	async function handleExportExcel() {
-		if (!result) return;
-		await exportAvailabilityForecastWorkbook(result, startDate, endDate);
-	}
-
-	// --- useDataTable for sorting ---
-	const tableColumns: ColumnDef<ForecastDay>[] = [
-		{
-			key: 'date',
-			header: 'Date',
-			value: (r) => r.date
+	const report = ReportWorkspace.createReportRun({
+		validate: () => {
+			if (!startDate || !endDate) return 'Select a date range.';
+			if (filteredPersonnel.length === 0) return 'Select at least one group.';
+			return null;
 		},
+		load: async (): Promise<AvailabilityForecastRunData> => {
+			const runStartDate = startDate;
+			const runEndDate = endDate;
+			const runPersonnel = [...filteredPersonnel];
+			const data = await fetchCalendarReportData(orgId, runStartDate, runEndDate);
+			return { startDate: runStartDate, endDate: runEndDate, personnel: runPersonnel, data };
+		},
+		compute: (run): AvailabilityForecastReportResult => ({
+			...computeAvailabilityForecast(run.personnel, run.data.entries, statusTypes, run.startDate, run.endDate),
+			startDate: run.startDate,
+			endDate: run.endDate,
+			personnelCount: run.personnel.length
+		})
+	});
+
+	const tableColumns: ColumnDef<ForecastDay>[] = [
+		{ key: 'date', header: 'Date', value: (row) => row.date },
 		{
 			key: 'unavailable',
 			header: 'Unavailable',
-			value: (r) => r.unavailableCount,
+			value: (row) => row.unavailableCount,
 			compare: (a, b) => a.unavailableCount - b.unavailableCount,
 			align: 'center'
 		},
 		{
 			key: 'available',
 			header: 'Available',
-			value: (r) => r.availableCount,
+			value: (row) => row.availableCount,
 			compare: (a, b) => a.availableCount - b.availableCount,
 			align: 'center'
 		},
 		{
 			key: 'percent',
-			header: 'Available %',
-			value: (r) => r.availablePercent,
+			header: 'Available percent',
+			value: (row) => row.availablePercent,
 			compare: (a, b) => a.availablePercent - b.availablePercent,
 			align: 'center'
 		}
 	];
 
 	const table = useDataTable({
-		data: () => result?.days ?? [],
+		data: () => report.result?.days ?? [],
 		columns: tableColumns,
-		initialSortKey: 'date'
+		initialSortKey: 'unavailable',
+		initialSortDirection: 'desc'
 	});
+
+	const resultMeta = $derived(
+		report.result
+			? `${report.result.days.length} days · ${report.result.personnelCount} personnel · ${report.result.startDate} to ${report.result.endDate}`
+			: ''
+	);
+
+	const reportSummary = $derived.by(() => {
+		if (!report.result) return null;
+		const days = report.result.days;
+		const topDay = days.reduce<ForecastDay | null>(
+			(current, day) => (!current || day.unavailableCount > current.unavailableCount ? day : current),
+			null
+		);
+		const daysBelowEighty = days.filter((day) => day.availablePercent < 80).length;
+		const averageAvailable =
+			days.length > 0 ? Math.round(days.reduce((sum, day) => sum + day.availablePercent, 0) / days.length) : 100;
+		const maxUnavailable = topDay?.unavailableCount ?? 0;
+
+		return {
+			topRisk:
+				topDay && maxUnavailable > 0
+					? `${formatDisplayDate(topDay.date)} · ${maxUnavailable} unavailable (${topDay.availablePercent}% available)`
+					: 'No unavailable personnel',
+			population: `${report.result.personnelCount} personnel`,
+			parameters: `${report.result.startDate} to ${report.result.endDate}`,
+			findings: [
+				daysBelowEighty > 0
+					? `${daysBelowEighty} ${daysBelowEighty === 1 ? 'day is' : 'days are'} below 80% availability.`
+					: 'All days are at or above 80% availability.',
+				`${averageAvailable}% average availability across ${days.length} ${days.length === 1 ? 'day' : 'days'}.`,
+				maxUnavailable > 0
+					? `${maxUnavailable} unavailable on the highest-risk day.`
+					: 'No unavailable personnel in the selected range.'
+			],
+			riskTone: maxUnavailable > 0 ? ('warning' as const) : ('success' as const)
+		};
+	});
+
+	async function runReport() {
+		expandedDates.clear();
+		await report.run();
+	}
+
+	function toggleForecastRow(day: ForecastDay): void {
+		if (day.unavailableCount === 0) return;
+		if (expandedDates.has(day.date)) expandedDates.delete(day.date);
+		else expandedDates.add(day.date);
+	}
+
+	function formatDisplayDate(dateStr: string): string {
+		const [year, month, day] = dateStr.split('-');
+		const date = new Date(Number(year), Number(month) - 1, Number(day));
+		const weekday = date.toLocaleDateString('en-US', { weekday: 'short' });
+		return `${weekday}, ${month}/${day}/${year}`;
+	}
+
+	async function handleExportExcel() {
+		if (!report.result) return;
+		await exportAvailabilityForecastWorkbook(report.result, report.result.startDate, report.result.endDate);
+	}
 </script>
 
-<div class="bg-card flex flex-col gap-4 rounded-lg border p-4">
-	<div>
-		<h3 class="text-muted-foreground mb-2 text-sm font-semibold tracking-wide uppercase">Date Range</h3>
-		<div class="flex flex-wrap items-end gap-2">
-			<Field.Root class="min-w-[120px] flex-1">
-				<Field.Label>Start</Field.Label>
-				<DatePicker bind:value={startDate} placeholder="Select start date" />
-			</Field.Root>
-			<Field.Root class="min-w-[120px] flex-1">
-				<Field.Label>End</Field.Label>
-				<DatePicker bind:value={endDate} placeholder="Select end date" />
-			</Field.Root>
+<ReportWorkspace.Root ariaLabel="Availability by day report">
+	<ReportWorkspace.Filters
+		title="Build daily availability report"
+		description="Shows available and unavailable personnel for each day in the range."
+	>
+		{#snippet dateRange()}
+			<ReportWorkspace.DateRangeField
+				bind:start={startDate}
+				bind:end={endDate}
+				presets={ReportWorkspace.FORECAST_PRESET}
+			/>
+		{/snippet}
+
+		{#snippet actions()}
+			<Button onclick={runReport} disabled={!report.canRun}>
+				{report.status === 'loading' ? 'Checking availability...' : 'Run availability report'}
+			</Button>
+		{/snippet}
+
+		<div class="min-w-0 space-y-2">
+			<span class="font-mono text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground"> Groups </span>
+			<ReportWorkspace.OptionList
+				ariaLabel="Filter by group"
+				options={groupOptions}
+				selectedIds={groupSelect.selectedIds}
+				onToggle={groupSelect.toggle}
+				emptyMessage="No groups available."
+			/>
+			<p class="text-xs text-muted-foreground">
+				{#if groupSelect.allSelected}
+					All {personnel.length} personnel
+				{:else if groupSelect.count === 0}
+					No groups selected
+				{:else}
+					{filteredPersonnel.length} of {personnel.length} personnel
+				{/if}
+			</p>
 		</div>
-	</div>
+	</ReportWorkspace.Filters>
 
-	<div>
-		<h3 class="text-muted-foreground mb-2 text-sm font-semibold tracking-wide uppercase">Group Filter</h3>
-		<div class="flex max-h-[200px] flex-col gap-0.5 overflow-y-auto rounded-md border p-1">
-			{#each groups as group (group.id)}
-				<label class="hover:bg-muted flex cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-sm">
-					<input type="checkbox" checked={selectedGroupIds.has(group.id)} onchange={() => toggleGroup(group.id)} />
-					<span>{group.name}</span>
-				</label>
-			{/each}
-		</div>
-		<div class="text-muted-foreground mt-1 text-sm">
-			{filteredPersonnel.length} of {personnel.length} personnel selected
-			{#if selectedGroupIds.size === 0}
-				(all)
-			{/if}
-		</div>
-	</div>
+	{#if report.status === 'loading'}
+		<ReportWorkspace.State state="loading" title="Checking daily availability" />
+	{:else if report.status === 'error'}
+		<ReportWorkspace.State
+			state="error"
+			title="Could not build availability report"
+			description={report.error ?? undefined}
+			onRetry={runReport}
+			retryLabel="Run again"
+		/>
+	{:else if report.result}
+		<ReportWorkspace.Table
+			title="Availability by day"
+			description="Expand a day to see unavailable personnel and their recorded status."
+			meta={resultMeta}
+			{table}
+			columns={tableColumns}
+			ariaLabel="Availability by day"
+			emptyMessage="No calendar data falls in this date range. Try a different date range."
+			onRowClick={toggleForecastRow}
+			rowActionLabel={(day) =>
+				day.unavailableCount > 0
+					? `${expandedDates.has(day.date) ? 'Collapse' : 'Expand'} unavailable personnel for ${formatDisplayDate(day.date)}`
+					: `Availability for ${formatDisplayDate(day.date)}`}
+			rowDetailVisible={(day) => expandedDates.has(day.date)}
+		>
+			{#snippet actions()}
+				<ReportWorkspace.ExportAction label="Export availability" onclick={handleExportExcel} />
+			{/snippet}
 
-	<div class="flex justify-end">
-		<Button onclick={runReport} disabled={loading || !startDate || !endDate}>
-			{#if loading}<Spinner />{/if}
-			{loading ? 'Generating...' : 'Generate Report'}
-		</Button>
-	</div>
-</div>
+			{#snippet summary()}
+				{#if reportSummary}
+					<ReportWorkspace.SummaryStrip
+						topRisk={reportSummary.topRisk}
+						population={reportSummary.population}
+						parameters={reportSummary.parameters}
+						findings={reportSummary.findings}
+						riskTone={reportSummary.riskTone}
+					/>
+				{/if}
+			{/snippet}
 
-{#if errorMsg}
-	<div class="text-destructive bg-destructive/10 mt-2 rounded-md border px-3 py-2 text-sm">{errorMsg}</div>
-{/if}
-
-{#if result}
-	<div class="mt-4">
-		<div class="mb-2 flex items-center justify-between gap-2">
-			<span class="text-muted-foreground text-sm">
-				{result.days.length} days &middot; {filteredPersonnel.length} personnel &middot; {startDate} to {endDate}
-			</span>
-			<Button variant="outline" size="sm" onclick={handleExportExcel}>Export Excel</Button>
-		</div>
-
-		{#if result.days.length === 0}
-			<p class="text-muted-foreground py-8 text-center text-sm italic">No data found for the selected criteria.</p>
-		{:else}
-			<DataTable.DataTable
-				{table}
-				columns={tableColumns}
-				ariaLabel="Availability forecast"
-				compact
-				striped
-				emptyMessage="No data found for the selected criteria."
-				onRowClick={toggleForecastRow}
-				rowActionLabel={(day) =>
-					day.unavailableCount > 0
-						? `${expandedDates.has(day.date) ? 'Collapse' : 'Expand'} unavailable personnel for ${formatDisplayDate(day.date)}`
-						: `Availability for ${formatDisplayDate(day.date)}`}
-				rowDetailVisible={(day) => expandedDates.has(day.date)}
-			>
-				{#snippet cell(day, column)}
-					{#if column.key === 'date'}
+			{#snippet cell(day, column)}
+				{#if column.key === 'date'}
+					<span class="inline-flex items-center gap-1.5">
 						{#if day.unavailableCount > 0}
-							{expandedDates.has(day.date) ? 'Collapse' : 'Expand'} {formatDisplayDate(day.date)}
+							{#if expandedDates.has(day.date)}
+								<MinusIcon class="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+							{:else}
+								<PlusIcon class="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+							{/if}
 						{:else}
-							{formatDisplayDate(day.date)}
+							<span class="size-3.5 shrink-0" aria-hidden="true"></span>
 						{/if}
-					{:else if column.key === 'percent'}
-						{day.availablePercent}%
-					{:else}
-						{String(column.value(day) ?? '')}
-					{/if}
-				{/snippet}
+						{formatDisplayDate(day.date)}
+					</span>
+				{:else if column.key === 'percent'}
+					{day.availablePercent}%
+				{:else}
+					{String(column.value(day) ?? '')}
+				{/if}
+			{/snippet}
 
-				{#snippet rowDetail(day)}
-					<ul>
-						{#each day.unavailablePersonnel as entry (entry.person.id)}
-							<li>
-								{entry.person.rank}
-								{entry.person.lastName}, {entry.person.firstName}
-								<Badge variant="outline">{entry.statusName}</Badge>
-							</li>
-						{/each}
-					</ul>
-				{/snippet}
-			</DataTable.DataTable>
-		{/if}
-	</div>
-{/if}
+			{#snippet rowDetail(day)}
+				<ul class="space-y-1">
+					{#each day.unavailablePersonnel as entry (entry.person.id)}
+						<li class="flex flex-wrap items-center gap-2 text-sm [overflow-wrap:anywhere]">
+							<span class="min-w-0">{entry.person.rank} {entry.person.lastName}, {entry.person.firstName}</span>
+							<Badge variant="outline">{entry.statusName}</Badge>
+						</li>
+					{/each}
+				</ul>
+			{/snippet}
+		</ReportWorkspace.Table>
+	{/if}
+</ReportWorkspace.Root>

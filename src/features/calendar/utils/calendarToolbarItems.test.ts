@@ -79,6 +79,24 @@ describe('buildCalendarToolbarItems', () => {
 		expect(planning!.menuItems![0].href).toBe('/org/org1/duty-rosters');
 	});
 
+	it('places Reports between Planning and Settings in calendar navigation actions', () => {
+		const items = buildCalendarToolbarItems(
+			makeInput({ orgUrlSegment: '1-11-bde', canManageAssignments: true, canManageConfig: true })
+		);
+		const navigationLabels = items
+			.filter((item) => ['Planning', 'Reports', 'Settings'].includes(item.label))
+			.map((item) => item.label);
+		const reports = items.find((i) => i.label === 'Reports');
+
+		expect(navigationLabels).toEqual(['Planning', 'Reports', 'Settings']);
+		expect(reports).toMatchObject({
+			id: 'calendar-reports',
+			href: '/org/1-11-bde/calendar/reports',
+			icon: 'chart',
+			displayMode: 'full'
+		});
+	});
+
 	it('includes settings as the first low-priority action to compact for admins', () => {
 		const items = buildCalendarToolbarItems(makeInput({ canManageConfig: true }));
 		const settings = items.find((i) => i.label === 'Settings');
@@ -90,9 +108,10 @@ describe('buildCalendarToolbarItems', () => {
 		expect(settings!.href).toBe('/org/org1/calendar/settings');
 	});
 
-	it('does not include Planning or Settings for plain members', () => {
+	it('keeps Reports available for plain calendar viewers without Planning or Settings', () => {
 		const items = buildCalendarToolbarItems(makeInput());
 		expect(items.find((i) => i.label === 'Planning')).toBeUndefined();
+		expect(items.find((i) => i.label === 'Reports')?.href).toBe('/org/org1/calendar/reports');
 		expect(items.find((i) => i.label === 'Settings')).toBeUndefined();
 	});
 

@@ -1,17 +1,11 @@
 <script lang="ts">
-	import type { Personnel } from '$lib/types';
-	import type { StatusType } from '$lib/types';
+	import type { Personnel, StatusType } from '$lib/types';
+	import { Button } from '$lib/components/ui/button/index.js';
+	import * as ReportWorkspace from '$lib/components/ui/report-workspace/index.js';
 	import type { GroupReadinessResult, ReadinessGroupRow } from '../../utils/calendarReports';
 	import { computeGroupReadiness } from '../../utils/calendarReports';
 	import { exportGroupReadinessWorkbook } from './calendarReportWorkbookExport';
-	import { Button } from '$lib/components/ui/button';
-	import { DatePicker } from '$lib/components/ui/date-picker';
-	import * as Field from '$lib/components/ui/field';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import { useDataTable } from '$lib/components/ui/data-table';
-	import type { ColumnDef } from '$lib/components/ui/data-table';
-	import { untrack } from 'svelte';
-	import { SvelteSet } from 'svelte/reactivity';
+	import { fetchCalendarReportData } from './calendarReportData';
 
 	interface Props {
 		orgId: string;
@@ -22,152 +16,86 @@
 
 	let { orgId, personnel, groups }: Props = $props();
 
-	// --- Helpers ---
+	const initialRange = ReportWorkspace.WEEK_PRESETS[0].getRange();
+	let startDate = $state(initialRange.start);
+	let endDate = $state(initialRange.end);
 
-	function getMonday(d: Date): Date {
-		const day = d.getDay();
-		const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-		return new Date(d.getFullYear(), d.getMonth(), diff);
-	}
-
-	function addDays(d: Date, days: number): Date {
-		return new Date(d.getFullYear(), d.getMonth(), d.getDate() + days);
-	}
-
-	function formatDateStr(d: Date): string {
-		return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-	}
-
-	const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-	function formatShortDate(dateStr: string): string {
-		const d = new Date(dateStr + 'T00:00:00');
-		return `${dayNames[d.getDay()]} ${d.getMonth() + 1}/${d.getDate()}`;
-	}
-
-	// --- Date range state ---
-
-	const today = new Date();
-	const monday = getMonday(today);
-	const sunday = addDays(monday, 6);
-
-	let startDate = $state(formatDateStr(monday));
-	let endDate = $state(formatDateStr(sunday));
-
-	function setThisWeek() {
-		const mon = getMonday(new Date());
-		const sun = addDays(mon, 6);
-		startDate = formatDateStr(mon);
-		endDate = formatDateStr(sun);
-	}
-
-	function setNextWeek() {
-		const mon = getMonday(new Date());
-		const nextMon = addDays(mon, 7);
-		const sun = addDays(nextMon, 6);
-		startDate = formatDateStr(nextMon);
-		endDate = formatDateStr(sun);
-	}
-
-	function setNext2Weeks() {
-		const mon = getMonday(new Date());
-		const nextMon = addDays(mon, 7);
-		const sun = addDays(nextMon, 13);
-		startDate = formatDateStr(nextMon);
-		endDate = formatDateStr(sun);
-	}
-
-	function setThisMonth() {
-		const now = new Date();
-		const first = new Date(now.getFullYear(), now.getMonth(), 1);
-		const last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-		startDate = formatDateStr(first);
-		endDate = formatDateStr(last);
-	}
-
-	// --- Group selection state ---
-
-	const selectedGroupIds = new SvelteSet<string>();
-	let previousGroupIds: string[] = [];
-
-	$effect(() => {
-		const currentGroupIds = groups.map((g) => g.id);
-		const currentGroupIdSet = new SvelteSet(currentGroupIds);
-
-		untrack(() => {
-			const selectedAllPrevious =
-				previousGroupIds.length > 0 && previousGroupIds.every((id) => selectedGroupIds.has(id));
-			const shouldSelectAll = (previousGroupIds.length === 0 && selectedGroupIds.size === 0) || selectedAllPrevious;
-
-			if (shouldSelectAll) {
-				selectedGroupIds.clear();
-				for (const id of currentGroupIds) selectedGroupIds.add(id);
-			} else {
-				const selectedExistingIds = [...selectedGroupIds].filter((id) => currentGroupIdSet.has(id));
-				if (selectedExistingIds.length !== selectedGroupIds.size) {
-					selectedGroupIds.clear();
-					for (const id of selectedExistingIds) selectedGroupIds.add(id);
-				}
-			}
-
-			previousGroupIds = currentGroupIds;
-		});
+	const groupSelect = ReportWorkspace.createMultiSelect(() => groups);
+	const groupOptions = $derived(groups.map((group) => ({ id: group.id, label: group.name })));
+	const report = ReportWorkspace.createReportRun({
+		validate: () => {
+			if (!startDate || !endDate) return 'Select a date range.';
+			if (groupSelect.count === 0) return 'Select at least one group.';
+			return null;
+		},
+		load: () => fetchCalendarReportData(orgId, startDate, endDate),
+		compute: (data): GroupReadinessResult =>
+			computeGroupReadiness(personnel, data.entries, groups, groupSelect.selectedIds as Set<string>, startDate, endDate)
 	});
 
-	function toggleGroup(id: string) {
-		if (selectedGroupIds.has(id)) selectedGroupIds.delete(id);
-		else selectedGroupIds.add(id);
+	const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+	let groupSort = $state<'risk-asc' | 'risk-desc' | 'group-asc' | 'group-desc'>('risk-asc');
+	const tableRows = $derived.by(() => {
+		const rows = report.result?.groups ?? [];
+		return [...rows].sort((a, b) => {
+			if (groupSort === 'group-asc') return sortByGroupName(a, b);
+			if (groupSort === 'group-desc') return sortByGroupName(b, a);
+			return groupSort === 'risk-asc' ? sortByGroupRisk(a, b) : sortByGroupRisk(b, a);
+		});
+	});
+	const resultMeta = $derived(
+		report.result ? `${report.result.groups.length} groups · ${startDate} to ${endDate}` : ''
+	);
+
+	const reportSummary = $derived.by(() => {
+		if (!report.result) return null;
+		const groupsInReport = report.result.groups;
+		const topGroup = groupsInReport.reduce<ReadinessGroupRow | null>(
+			(current, group) =>
+				!current || groupLowestAvailability(group) < groupLowestAvailability(current) ? group : current,
+			null
+		);
+		const topCell = topGroup ? groupLowestCell(topGroup) : null;
+		const totalPersonnel = groupsInReport.reduce((sum, group) => sum + (group.cells[0]?.totalPersonnel ?? 0), 0);
+		const allCells = groupsInReport.flatMap((group) => group.cells);
+		const lowCellCount = allCells.filter((cell) => cell.availablePercent < 80).length;
+		const averageAvailability =
+			allCells.length > 0
+				? Math.round(allCells.reduce((sum, cell) => sum + cell.availablePercent, 0) / allCells.length)
+				: 100;
+		const emptyGroupCount = groupsInReport.filter((group) => (group.cells[0]?.totalPersonnel ?? 0) === 0).length;
+		const lowestAvailability = topCell?.availablePercent ?? 100;
+
+		return {
+			topRisk:
+				topGroup && topCell
+					? `${topGroup.groupName} · ${topCell.availablePercent}% available on ${formatShortDate(topCell.date)}`
+					: 'No groups in result',
+			population: `${totalPersonnel} personnel across ${groupsInReport.length} groups`,
+			parameters: `${startDate} to ${endDate}; ${report.result.dates.length} ${report.result.dates.length === 1 ? 'day' : 'days'}`,
+			findings: [
+				lowCellCount > 0
+					? `${lowCellCount} group-day ${lowCellCount === 1 ? 'cell is' : 'cells are'} below 80% availability.`
+					: 'All group-day cells are at or above 80% availability.',
+				`${averageAvailability}% average availability across selected groups.`,
+				emptyGroupCount > 0
+					? `${emptyGroupCount} selected ${emptyGroupCount === 1 ? 'group has' : 'groups have'} no assigned personnel.`
+					: 'All selected groups have assigned personnel.'
+			],
+			riskTone:
+				lowestAvailability < 50
+					? ('danger' as const)
+					: lowestAvailability < 80
+						? ('warning' as const)
+						: ('success' as const)
+		};
+	});
+
+	function formatShortDate(dateStr: string): string {
+		const date = new Date(dateStr + 'T00:00:00');
+		return `${dayNames[date.getDay()]} ${date.getMonth() + 1}/${date.getDate()}`;
 	}
-
-	function toggleAllGroups() {
-		if (selectedGroupIds.size === groups.length) {
-			selectedGroupIds.clear();
-		} else {
-			selectedGroupIds.clear();
-			for (const group of groups) selectedGroupIds.add(group.id);
-		}
-	}
-
-	// --- Report execution ---
-
-	let loading = $state(false);
-	let result = $state<GroupReadinessResult | null>(null);
-	let errorMsg = $state('');
-
-	async function runReport() {
-		if (!startDate || !endDate) return;
-		if (selectedGroupIds.size === 0) {
-			errorMsg = 'No groups selected.';
-			result = null;
-			return;
-		}
-
-		loading = true;
-		errorMsg = '';
-		result = null;
-
-		try {
-			const res = await fetch(
-				`/org/${orgId}/api/calendar-reports/status-days?startDate=${startDate}&endDate=${endDate}`
-			);
-			if (!res.ok) {
-				const body = await res.json().catch(() => ({}));
-				throw new Error(body.message || `Request failed (${res.status})`);
-			}
-			const data = await res.json();
-			result = computeGroupReadiness(personnel, data.entries, groups, selectedGroupIds, startDate, endDate);
-		} catch (e: unknown) {
-			errorMsg = e instanceof Error ? e.message : 'Failed to generate report.';
-		} finally {
-			loading = false;
-		}
-	}
-
-	function handleExportExcel() {
-		if (!result) return;
-		return exportGroupReadinessWorkbook(result, startDate, endDate);
-	}
-
-	// --- Cell color helper ---
 
 	function cellBackground(percent: number): string {
 		if (percent >= 80) return 'color-mix(in srgb, var(--chart-2) 15%, transparent)';
@@ -175,296 +103,187 @@
 		return 'color-mix(in srgb, var(--destructive) 15%, transparent)';
 	}
 
-	// --- useDataTable for sorting ---
-	const columns: ColumnDef<ReadinessGroupRow>[] = [
-		{
-			key: 'groupName',
-			header: 'Group',
-			value: (r) => r.groupName,
-			compare: (a, b) => a.groupName.localeCompare(b.groupName)
-		}
-	];
+	function sortByGroupName(a: ReadinessGroupRow, b: ReadinessGroupRow): number {
+		return a.groupName.localeCompare(b.groupName);
+	}
 
-	const table = useDataTable({
-		data: () => result?.groups ?? [],
-		columns,
-		initialSortKey: 'groupName'
-	});
+	function toggleGroupSort() {
+		groupSort = groupSort === 'group-asc' ? 'group-desc' : 'group-asc';
+	}
+
+	function toggleRiskSort() {
+		groupSort = groupSort === 'risk-asc' ? 'risk-desc' : 'risk-asc';
+	}
+
+	function sortByGroupRisk(a: ReadinessGroupRow, b: ReadinessGroupRow): number {
+		const riskDifference = groupLowestAvailability(a) - groupLowestAvailability(b);
+		return riskDifference === 0 ? sortByGroupName(a, b) : riskDifference;
+	}
+
+	function groupLowestAvailability(group: ReadinessGroupRow): number {
+		return groupLowestCell(group)?.availablePercent ?? 100;
+	}
+
+	function groupLowestCell(group: ReadinessGroupRow) {
+		return group.cells.reduce<ReadinessGroupRow['cells'][number] | null>(
+			(current, cell) => (!current || cell.availablePercent < current.availablePercent ? cell : current),
+			null
+		);
+	}
+
+	function handleExportExcel() {
+		if (!report.result) return;
+		return exportGroupReadinessWorkbook(report.result, startDate, endDate);
+	}
 </script>
 
-<div class="report-config">
-	<div class="config-section">
-		<h3>Date Range</h3>
-		<div class="date-row">
-			<Field.Root>
-				<Field.Label>Start</Field.Label>
-				<DatePicker bind:value={startDate} placeholder="Select start date" />
-			</Field.Root>
-			<Field.Root>
-				<Field.Label>End</Field.Label>
-				<DatePicker bind:value={endDate} placeholder="Select end date" />
-			</Field.Root>
-		</div>
-		<div class="quick-range-row">
-			<Button variant="outline" size="sm" onclick={setThisWeek}>This Week</Button>
-			<Button variant="outline" size="sm" onclick={setNextWeek}>Next Week</Button>
-			<Button variant="outline" size="sm" onclick={setNext2Weeks}>Next 2 Weeks</Button>
-			<Button variant="outline" size="sm" onclick={setThisMonth}>This Month</Button>
-		</div>
-	</div>
+<ReportWorkspace.Root ariaLabel="Group availability by day report">
+	<ReportWorkspace.Filters
+		title="Build group availability report"
+		description="Shows available personnel by group for each day in the range."
+	>
+		{#snippet dateRange()}
+			<ReportWorkspace.DateRangeField
+				bind:start={startDate}
+				bind:end={endDate}
+				presets={ReportWorkspace.WEEK_PRESETS}
+			/>
+		{/snippet}
 
-	<div class="config-section">
-		<h3>Groups</h3>
-		<div class="group-filter-header">
-			<Button variant="outline" size="sm" onclick={toggleAllGroups}>
-				{selectedGroupIds.size === groups.length ? 'Deselect All' : 'Select All'}
+		{#snippet actions()}
+			<Button onclick={report.run} disabled={!report.canRun}>
+				{report.status === 'loading' ? 'Checking group availability...' : 'Run group availability report'}
 			</Button>
-			<span class="selection-count">
-				{selectedGroupIds.size} of {groups.length} selected
-			</span>
+		{/snippet}
+
+		<div class="min-w-0 space-y-2">
+			<div class="flex flex-wrap items-center justify-between gap-2">
+				<span class="font-mono text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground"> Groups </span>
+				<div class="flex items-center gap-2">
+					<span class="text-xs text-muted-foreground">{groupSelect.count} of {groups.length} selected</span>
+					<Button type="button" variant="ghost" size="xs" onclick={groupSelect.toggleAll}>
+						{groupSelect.allSelected ? 'Clear' : 'Select all'}
+					</Button>
+				</div>
+			</div>
+			<ReportWorkspace.OptionList
+				ariaLabel="Select groups"
+				options={groupOptions}
+				selectedIds={groupSelect.selectedIds}
+				onToggle={groupSelect.toggle}
+				emptyMessage="No groups available."
+			/>
 		</div>
-		<div class="checkbox-list">
-			{#each groups as group (group.id)}
-				<label class="checkbox-item">
-					<input type="checkbox" checked={selectedGroupIds.has(group.id)} onchange={() => toggleGroup(group.id)} />
-					<span>{group.name}</span>
-				</label>
-			{/each}
-		</div>
-	</div>
+	</ReportWorkspace.Filters>
 
-	<div class="config-actions">
-		<Button onclick={runReport} disabled={loading || !startDate || !endDate || selectedGroupIds.size === 0}>
-			{#if loading}<Spinner />{/if}
-			{loading ? 'Generating...' : 'Generate Report'}
-		</Button>
-	</div>
-</div>
+	{#if report.status === 'loading'}
+		<ReportWorkspace.State state="loading" title="Checking group availability" />
+	{:else if report.status === 'error'}
+		<ReportWorkspace.State
+			state="error"
+			title="Could not build group availability report"
+			description={report.error ?? undefined}
+			onRetry={report.run}
+			retryLabel="Run again"
+		/>
+	{:else if report.result}
+		<ReportWorkspace.Section
+			title="Group availability by day"
+			description="Each cell shows available personnel over total personnel for that group and date."
+			meta={resultMeta}
+		>
+			{#snippet actions()}
+				<ReportWorkspace.ExportAction label="Export group availability" onclick={handleExportExcel} />
+			{/snippet}
 
-{#if errorMsg}
-	<div class="report-error">{errorMsg}</div>
-{/if}
+			{#snippet summary()}
+				{#if reportSummary}
+					<ReportWorkspace.SummaryStrip
+						topRisk={reportSummary.topRisk}
+						population={reportSummary.population}
+						parameters={reportSummary.parameters}
+						findings={reportSummary.findings}
+						riskTone={reportSummary.riskTone}
+					/>
+				{/if}
+			{/snippet}
 
-{#if result}
-	<div class="report-output">
-		<div class="report-toolbar">
-			<span class="report-summary">
-				{result.groups.length} groups &middot; {startDate} to {endDate}
-			</span>
-			<Button variant="outline" size="sm" onclick={handleExportExcel}>Export Excel</Button>
-		</div>
-
-		{#if result.groups.length === 0}
-			<p class="no-data">No data found for the selected criteria.</p>
-		{:else}
-			<div class="data-table compact">
-				<table aria-label="Group readiness heat map">
-					<thead>
-						<tr>
-							<th class="col-group" onclick={() => table.toggleSort('groupName')}>Group</th>
-							{#each result.dates as dateStr (dateStr)}
-								<th class="col-date">{formatShortDate(dateStr)}</th>
-							{/each}
-						</tr>
-					</thead>
-					<tbody>
-						{#each table.rows as group (group.groupId)}
+			{#if report.result.groups.length === 0}
+				<ReportWorkspace.State
+					state="no-data"
+					title="No group availability to report"
+					description="No personnel are assigned to the selected groups for these dates."
+				/>
+			{:else}
+				<div class="overflow-x-auto rounded-md border border-border">
+					<table class="w-full border-collapse text-sm" aria-label="Group availability heat map">
+						<thead class="bg-muted">
 							<tr>
-								<td class="col-group">{group.groupName}</td>
-								{#each group.cells as cell (cell.date)}
-									<td class="col-date" style:background={cellBackground(cell.availablePercent)}>
-										{cell.availableCount}/{cell.totalPersonnel}
-									</td>
+								<th
+									class="min-w-36 border-b border-border px-3 py-2 text-left text-xs font-semibold text-muted-foreground uppercase"
+									aria-sort={groupSort === 'group-asc'
+										? 'ascending'
+										: groupSort === 'group-desc'
+											? 'descending'
+											: 'none'}
+								>
+									<button
+										type="button"
+										class="-mx-2 inline-flex min-h-8 max-w-full items-center rounded-sm px-2 text-left font-mono text-[0.6875rem] font-semibold tracking-[0.08em] uppercase [overflow-wrap:anywhere] hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
+										aria-label="Sort by group"
+										onclick={toggleGroupSort}
+									>
+										Group
+									</button>
+								</th>
+								<th
+									class="min-w-24 border-b border-border px-3 py-2 text-center text-xs font-semibold text-muted-foreground uppercase"
+									aria-sort={groupSort === 'risk-asc' ? 'ascending' : groupSort === 'risk-desc' ? 'descending' : 'none'}
+								>
+									<button
+										type="button"
+										class="inline-flex min-h-8 max-w-full items-center justify-center rounded-sm px-2 text-center font-mono text-[0.6875rem] font-semibold tracking-[0.08em] uppercase [overflow-wrap:anywhere] hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
+										aria-label="Sort by lowest availability"
+										onclick={toggleRiskSort}
+									>
+										Lowest
+									</button>
+								</th>
+								{#each report.result.dates as dateStr (dateStr)}
+									<th
+										class="min-w-20 border-b border-border px-3 py-2 text-center text-xs font-semibold text-muted-foreground uppercase [overflow-wrap:anywhere]"
+									>
+										{formatShortDate(dateStr)}
+									</th>
 								{/each}
 							</tr>
-						{/each}
-					</tbody>
-				</table>
-			</div>
-		{/if}
-	</div>
-{/if}
-
-<style>
-	.report-config {
-		background: var(--card);
-		border: 1px solid var(--border);
-		border-radius: var(--radius);
-		padding: 1rem;
-		display: flex;
-		flex-direction: column;
-		gap: 1rem;
-	}
-
-	.config-section h3 {
-		font-size: 0.75rem;
-		font-weight: 600;
-		color: var(--muted-foreground);
-		text-transform: uppercase;
-		letter-spacing: 0.05em;
-		margin: 0 0 0.5rem 0;
-	}
-
-	.date-row {
-		display: flex;
-		gap: 0.5rem;
-		align-items: flex-end;
-		flex-wrap: wrap;
-	}
-
-	.quick-range-row {
-		display: flex;
-		gap: 0.25rem;
-		flex-wrap: wrap;
-		margin-top: 0.5rem;
-	}
-
-	.group-filter-header {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-		margin-bottom: 0.5rem;
-	}
-
-	.selection-count {
-		font-size: 0.75rem;
-		color: var(--muted-foreground);
-	}
-
-	.checkbox-list {
-		max-height: 200px;
-		overflow-y: auto;
-		border: 1px solid var(--border);
-		border-radius: var(--radius);
-		padding: 0.25rem;
-		display: flex;
-		flex-direction: column;
-		gap: 2px;
-	}
-
-	.checkbox-item {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-		padding: 0.25rem 0.5rem;
-		border-radius: var(--radius);
-		font-size: 0.75rem;
-		cursor: pointer;
-	}
-
-	.checkbox-item:hover {
-		background: var(--background);
-	}
-
-	.config-actions {
-		display: flex;
-		justify-content: flex-end;
-	}
-
-	.report-error {
-		color: var(--destructive);
-		font-size: 0.75rem;
-		padding: 0.5rem;
-		background: color-mix(in srgb, var(--destructive) 10%, transparent);
-		border-radius: var(--radius);
-		margin-top: 0.5rem;
-	}
-
-	.report-output {
-		margin-top: 1rem;
-	}
-
-	.report-toolbar {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		margin-bottom: 0.5rem;
-	}
-
-	.report-summary {
-		font-size: 0.75rem;
-		color: var(--muted-foreground);
-	}
-
-	.no-data {
-		text-align: center;
-		color: var(--muted-foreground);
-		padding: 2rem;
-		font-style: italic;
-	}
-
-	/* DataTable-compatible table styles */
-	.data-table {
-		overflow-x: auto;
-		border: 1px solid var(--border);
-		border-radius: var(--radius);
-		background: var(--card);
-	}
-
-	table {
-		width: 100%;
-		border-collapse: collapse;
-		font-size: 0.75rem;
-	}
-
-	thead {
-		background: var(--muted);
-	}
-
-	th {
-		padding: 0.25rem 0.5rem;
-		font-size: 0.6875rem;
-		font-weight: 600;
-		color: var(--muted-foreground);
-		text-transform: uppercase;
-		letter-spacing: 0.05em;
-		border-bottom: 2px solid var(--border);
-		cursor: pointer;
-		user-select: none;
-		white-space: nowrap;
-		background: var(--muted);
-		text-align: center;
-	}
-
-	th:hover {
-		color: var(--foreground);
-	}
-
-	td {
-		padding: 0.25rem 0.5rem;
-		border-bottom: 1px solid color-mix(in srgb, var(--foreground) 8%, transparent);
-		color: var(--foreground);
-		text-align: center;
-		white-space: nowrap;
-	}
-
-	tbody tr:last-child td {
-		border-bottom: none;
-	}
-
-	.col-group {
-		text-align: left;
-		min-width: 150px;
-		font-weight: 600;
-	}
-
-	.col-date {
-		min-width: 80px;
-	}
-
-	@media (max-width: 640px) {
-		.date-row {
-			flex-direction: column;
-		}
-
-		.quick-range-row {
-			flex-direction: column;
-		}
-
-		th,
-		td {
-			padding: 0.25rem 0.5rem;
-			font-size: 0.75rem;
-		}
-	}
-</style>
+						</thead>
+						<tbody>
+							{#each tableRows as group (group.groupId)}
+								<tr>
+									<td
+										class="border-b border-border/60 px-3 py-2 font-semibold [overflow-wrap:anywhere]"
+										title={group.groupName}
+									>
+										{group.groupName}
+									</td>
+									<td class="border-b border-border/60 px-3 py-2 text-center font-semibold tabular-nums">
+										{groupLowestAvailability(group)}%
+									</td>
+									{#each group.cells as cell (cell.date)}
+										<td
+											class="border-b border-border/60 px-3 py-2 text-center tabular-nums"
+											style:background={cellBackground(cell.availablePercent)}
+										>
+											{cell.availableCount}/{cell.totalPersonnel}
+										</td>
+									{/each}
+								</tr>
+							{/each}
+						</tbody>
+					</table>
+				</div>
+			{/if}
+		</ReportWorkspace.Section>
+	{/if}
+</ReportWorkspace.Root>

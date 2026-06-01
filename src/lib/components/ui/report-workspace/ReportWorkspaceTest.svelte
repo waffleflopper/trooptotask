@@ -52,10 +52,20 @@
 		<ReportWorkspace.Chart title="Readiness trend" ariaLabel="Readiness trend chart">
 			<div>Chart region</div>
 		</ReportWorkspace.Chart>
-		<ReportWorkspace.Table title="Readiness rows" data={rows} {columns} ariaLabel="Readiness rows table" />
+		<ReportWorkspace.Table title="Readiness rows" data={rows} {columns} ariaLabel="Readiness rows table">
+			{#snippet summary()}
+				<ReportWorkspace.SummaryStrip
+					topRisk="Maya Chen · Action"
+					population="2 personnel"
+					parameters="Last 24 hours"
+					findings={['1 person needs action.', '1 person is ready.']}
+					riskTone="warning"
+				/>
+			{/snippet}
+		</ReportWorkspace.Table>
 	</ReportWorkspace.Content>
 
 	<ReportWorkspace.State state="loading" title="Loading report rows" />
 	<ReportWorkspace.State state="no-data" title="No report data" description="Adjust filters and try again." />
-	<ReportWorkspace.State state="error" title="Report failed" description="Try again." />
+	<ReportWorkspace.State state="error" title="Report failed" description="Try again." onRetry={() => undefined} />
 </ReportWorkspace.Root>

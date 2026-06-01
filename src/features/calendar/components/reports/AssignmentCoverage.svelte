@@ -109,7 +109,7 @@
 			header: 'Difference from average',
 			value: (row) => Math.round((row.totalAssignments - (result?.averageTotal ?? 0)) * 10) / 10,
 			searchable: false,
-			sortable: false,
+			compare: (a, b) => assignmentDifference(a) - assignmentDifference(b),
 			align: 'center'
 		}
 	]);
@@ -117,10 +117,40 @@
 	const table = useDataTable({
 		data: () => result?.rows ?? [],
 		columns: () => tableColumns,
-		initialSortKey: 'name'
+		initialSortKey: 'vsAvg',
+		initialSortDirection: 'desc'
 	});
 
 	const resultMeta = $derived(result ? `${result.rows.length} personnel · ${startDate} to ${endDate}` : '');
+
+	const reportSummary = $derived.by(() => {
+		if (!result) return null;
+		const rows = result.rows;
+		const topRow = rows.reduce<CoverageRow | null>(
+			(current, row) => (!current || assignmentDifference(row) > assignmentDifference(current) ? row : current),
+			null
+		);
+		const aboveAverageCount = rows.filter((row) => assignmentDifference(row) > 0).length;
+		const noAssignmentCount = rows.filter((row) => row.totalAssignments === 0).length;
+		const topDifference = topRow ? assignmentDifference(topRow) : 0;
+
+		return {
+			topRisk:
+				topRow && topDifference > 0
+					? `${formatPersonName(topRow.person)} · +${topDifference} over average`
+					: 'No one above average',
+			population: `${rows.length} personnel`,
+			parameters: `${startDate} to ${endDate}; ${displayTypes.length} assignment ${displayTypes.length === 1 ? 'type' : 'types'}`,
+			findings: [
+				aboveAverageCount > 0
+					? `${aboveAverageCount} personnel are above the average assignment load.`
+					: 'No personnel are above the average assignment load.',
+				`${noAssignmentCount} personnel have no selected assignments in range.`,
+				`Formation average is ${result.averageTotal} assignments.`
+			],
+			riskTone: topDifference > 0 ? ('warning' as const) : ('success' as const)
+		};
+	});
 
 	function toggleTypeFilter(id: string) {
 		if (selectedTypeIds.has(id)) selectedTypeIds.delete(id);
@@ -135,6 +165,14 @@
 
 		selectedTypeIds.clear();
 		for (const type of personnelAssignmentTypes) selectedTypeIds.add(type.id);
+	}
+
+	function assignmentDifference(row: CoverageRow): number {
+		return Math.round((row.totalAssignments - (result?.averageTotal ?? 0)) * 10) / 10;
+	}
+
+	function formatPersonName(person: Personnel): string {
+		return `${person.rank} ${person.lastName}, ${person.firstName}`;
 	}
 
 	function handleExportExcel() {
@@ -198,6 +236,18 @@
 		>
 			{#snippet actions()}
 				<ReportWorkspace.ExportAction label="Export assignment load" onclick={handleExportExcel} />
+			{/snippet}
+
+			{#snippet summary()}
+				{#if reportSummary}
+					<ReportWorkspace.SummaryStrip
+						topRisk={reportSummary.topRisk}
+						population={reportSummary.population}
+						parameters={reportSummary.parameters}
+						findings={reportSummary.findings}
+						riskTone={reportSummary.riskTone}
+					/>
+				{/if}
 			{/snippet}
 
 			{#snippet cell(row, column)}

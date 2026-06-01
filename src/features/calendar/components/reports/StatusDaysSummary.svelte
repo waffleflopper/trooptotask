@@ -140,16 +140,52 @@
 	const table = useDataTable({
 		data: () => report.result?.rows ?? [],
 		columns: () => tableColumns,
-		initialSortKey: 'name'
+		initialSortKey: 'totalDays',
+		initialSortDirection: 'desc'
 	});
 
 	const resultMeta = $derived(
 		report.result ? `${report.result.rows.length} personnel · ${startDate} to ${endDate}` : ''
 	);
 
+	const reportSummary = $derived.by(() => {
+		if (!report.result) return null;
+		const rows = report.result.rows;
+		const topRow = rows.reduce<StatusDayRow | null>(
+			(current, row) => (!current || row.totalDays > current.totalDays ? row : current),
+			null
+		);
+		const personnelWithStatus = rows.filter((row) => row.totalDays > 0).length;
+		const totalStatusDays = rows.reduce((sum, row) => sum + row.totalDays, 0);
+		const statusCount = displayColumns.length;
+
+		return {
+			topRisk:
+				topRow && topRow.totalDays > 0
+					? `${formatPersonName(topRow.person)} · ${topRow.totalDays} days`
+					: 'No selected status days',
+			population: `${rows.length} personnel`,
+			parameters: `${startDate} to ${endDate}; ${statusCount} ${statusCount === 1 ? 'status' : 'statuses'}`,
+			findings: [
+				personnelWithStatus > 0
+					? `${personnelWithStatus} personnel have selected status days.`
+					: 'No personnel have selected status days.',
+				`${totalStatusDays} total selected status days in the range.`,
+				statusCount > 0
+					? `${statusCount} status ${statusCount === 1 ? 'type appears' : 'types appear'} in the result.`
+					: 'No selected status type appears in the result.'
+			],
+			riskTone: topRow && topRow.totalDays > 0 ? ('warning' as const) : ('success' as const)
+		};
+	});
+
 	function toggleSet<T>(set: SvelteSet<T>, value: T): void {
 		if (set.has(value)) set.delete(value);
 		else set.add(value);
+	}
+
+	function formatPersonName(person: Personnel): string {
+		return `${person.rank} ${person.lastName}, ${person.firstName}`;
 	}
 
 	function handleExportExcel() {
@@ -258,6 +294,18 @@
 		>
 			{#snippet actions()}
 				<ReportWorkspace.ExportAction label="Export status days" onclick={handleExportExcel} />
+			{/snippet}
+
+			{#snippet summary()}
+				{#if reportSummary}
+					<ReportWorkspace.SummaryStrip
+						topRisk={reportSummary.topRisk}
+						population={reportSummary.population}
+						parameters={reportSummary.parameters}
+						findings={reportSummary.findings}
+						riskTone={reportSummary.riskTone}
+					/>
+				{/if}
 			{/snippet}
 
 			{#snippet cell(row, column)}

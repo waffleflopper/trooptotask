@@ -35,6 +35,7 @@
 		headerCell?: DataTableHeaderSnippet<T>;
 		footer?: DataTableStateSnippet<T>;
 		actions?: Snippet;
+		summary?: Snippet;
 	};
 
 	let {
@@ -59,11 +60,12 @@
 		rowActionLabel,
 		headerCell,
 		footer,
-		actions
+		actions,
+		summary
 	}: Props = $props();
 </script>
 
-<Section {title} {description} {meta} {actions}>
+<Section {title} {description} {meta} {actions} {summary}>
 	<DataTable.DataTable
 		{data}
 		{columns}

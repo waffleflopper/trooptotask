@@ -6,6 +6,7 @@ export { default as OptionChips, type OptionChip } from './report-workspace-opti
 export { default as OptionList, type OptionListItem } from './report-workspace-option-list.svelte';
 export { default as Content } from './report-workspace-content.svelte';
 export { default as Section } from './report-workspace-section.svelte';
+export { default as SummaryStrip, type SummaryStripTone } from './report-workspace-summary-strip.svelte';
 export { default as Chart } from './report-workspace-chart.svelte';
 export { default as Table } from './report-workspace-table.svelte';
 export { default as State } from './report-workspace-state.svelte';

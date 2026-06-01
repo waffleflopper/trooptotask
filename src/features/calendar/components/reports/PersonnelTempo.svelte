@@ -117,12 +117,53 @@
 	const table = useDataTable({
 		data: () => report.result?.rows ?? [],
 		columns: () => tableColumns,
-		initialSortKey: 'name'
+		initialSortKey: 'totalAway',
+		initialSortDirection: 'desc'
 	});
 
 	const resultMeta = $derived(
 		report.result ? `${report.result.rows.length} personnel · ${startDate} to ${endDate}` : ''
 	);
+
+	const reportSummary = $derived.by(() => {
+		if (!report.result) return null;
+		const rows = report.result.rows;
+		const topRow = rows.reduce<TempoRow | null>(
+			(current, row) => (!current || row.totalAwayDays > current.totalAwayDays ? row : current),
+			null
+		);
+		const flaggedCount = rows.filter((row) => row.flagged).length;
+		const totalAwayDays = rows.reduce((sum, row) => sum + row.totalAwayDays, 0);
+		const statusCount = displayColumns.length;
+
+		return {
+			topRisk:
+				topRow && topRow.totalAwayDays > 0
+					? `${formatPersonName(topRow.person)} · ${topRow.totalAwayDays} away days`
+					: 'No away days recorded',
+			population: `${rows.length} personnel`,
+			parameters: `${threshold}+ away days; ${startDate} to ${endDate}`,
+			findings: [
+				flaggedCount > 0
+					? `${flaggedCount} personnel meet or exceed the threshold.`
+					: 'No personnel meet the away-day threshold.',
+				`${totalAwayDays} total away days across selected statuses.`,
+				statusCount > 0
+					? `${statusCount} away ${statusCount === 1 ? 'status appears' : 'statuses appear'} in the result.`
+					: 'No selected away status appears in the result.'
+			],
+			riskTone:
+				flaggedCount > 0
+					? ('danger' as const)
+					: topRow && topRow.totalAwayDays > 0
+						? ('warning' as const)
+						: ('success' as const)
+		};
+	});
+
+	function formatPersonName(person: Personnel): string {
+		return `${person.rank} ${person.lastName}, ${person.firstName}`;
+	}
 
 	function handleExportExcel() {
 		if (!report.result) return;
@@ -186,6 +227,18 @@
 		>
 			{#snippet actions()}
 				<ReportWorkspace.ExportAction label="Export away days" onclick={handleExportExcel} />
+			{/snippet}
+
+			{#snippet summary()}
+				{#if reportSummary}
+					<ReportWorkspace.SummaryStrip
+						topRisk={reportSummary.topRisk}
+						population={reportSummary.population}
+						parameters={reportSummary.parameters}
+						findings={reportSummary.findings}
+						riskTone={reportSummary.riskTone}
+					/>
+				{/if}
 			{/snippet}
 
 			{#snippet cell(row, column)}

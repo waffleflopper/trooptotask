@@ -9,9 +9,10 @@
 		meta?: string;
 		children?: Snippet;
 		actions?: Snippet;
+		summary?: Snippet;
 	};
 
-	let { title, description, meta, children, actions, class: className, ...restProps }: Props = $props();
+	let { title, description, meta, children, actions, summary, class: className, ...restProps }: Props = $props();
 	const uid = $props.id();
 </script>
 
@@ -41,6 +42,11 @@
 			</div>
 		{/if}
 	</div>
+	{#if summary}
+		<div class="min-w-0 border-b border-border bg-muted/35">
+			{@render summary()}
+		</div>
+	{/if}
 	<div class="min-w-0 p-3">
 		{@render children?.()}
 	</div>

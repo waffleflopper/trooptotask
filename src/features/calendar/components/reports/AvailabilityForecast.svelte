@@ -75,7 +75,8 @@
 	const table = useDataTable({
 		data: () => report.result?.days ?? [],
 		columns: tableColumns,
-		initialSortKey: 'date'
+		initialSortKey: 'unavailable',
+		initialSortDirection: 'desc'
 	});
 
 	const resultMeta = $derived(
@@ -83,6 +84,38 @@
 			? `${report.result.days.length} days · ${filteredPersonnel.length} personnel · ${startDate} to ${endDate}`
 			: ''
 	);
+
+	const reportSummary = $derived.by(() => {
+		if (!report.result) return null;
+		const days = report.result.days;
+		const topDay = days.reduce<ForecastDay | null>(
+			(current, day) => (!current || day.unavailableCount > current.unavailableCount ? day : current),
+			null
+		);
+		const daysBelowEighty = days.filter((day) => day.availablePercent < 80).length;
+		const averageAvailable =
+			days.length > 0 ? Math.round(days.reduce((sum, day) => sum + day.availablePercent, 0) / days.length) : 100;
+		const maxUnavailable = topDay?.unavailableCount ?? 0;
+
+		return {
+			topRisk:
+				topDay && maxUnavailable > 0
+					? `${formatDisplayDate(topDay.date)} · ${maxUnavailable} unavailable (${topDay.availablePercent}% available)`
+					: 'No unavailable personnel',
+			population: `${filteredPersonnel.length} personnel`,
+			parameters: `${startDate} to ${endDate}`,
+			findings: [
+				daysBelowEighty > 0
+					? `${daysBelowEighty} ${daysBelowEighty === 1 ? 'day is' : 'days are'} below 80% availability.`
+					: 'All days are at or above 80% availability.',
+				`${averageAvailable}% average availability across ${days.length} ${days.length === 1 ? 'day' : 'days'}.`,
+				maxUnavailable > 0
+					? `${maxUnavailable} unavailable on the highest-risk day.`
+					: 'No unavailable personnel in the selected range.'
+			],
+			riskTone: maxUnavailable > 0 ? ('warning' as const) : ('success' as const)
+		};
+	});
 
 	function toggleGroup(groupId: string) {
 		if (selectedGroupIds.has(groupId)) selectedGroupIds.delete(groupId);
@@ -179,6 +212,18 @@
 		>
 			{#snippet actions()}
 				<ReportWorkspace.ExportAction label="Export availability" onclick={handleExportExcel} />
+			{/snippet}
+
+			{#snippet summary()}
+				{#if reportSummary}
+					<ReportWorkspace.SummaryStrip
+						topRisk={reportSummary.topRisk}
+						population={reportSummary.population}
+						parameters={reportSummary.parameters}
+						findings={reportSummary.findings}
+						riskTone={reportSummary.riskTone}
+					/>
+				{/if}
 			{/snippet}
 
 			{#snippet cell(day, column)}

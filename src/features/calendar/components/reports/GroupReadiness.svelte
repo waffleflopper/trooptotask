@@ -35,15 +35,62 @@
 
 	const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-	let groupSort = $state<'none' | 'asc' | 'desc'>('none');
+	let groupSort = $state<'risk-asc' | 'risk-desc' | 'group-asc' | 'group-desc'>('risk-asc');
 	const tableRows = $derived.by(() => {
 		const rows = report.result?.groups ?? [];
-		if (groupSort === 'none') return rows;
-		return [...rows].sort((a, b) => (groupSort === 'asc' ? sortByGroupName(a, b) : sortByGroupName(b, a)));
+		return [...rows].sort((a, b) => {
+			if (groupSort === 'group-asc') return sortByGroupName(a, b);
+			if (groupSort === 'group-desc') return sortByGroupName(b, a);
+			return groupSort === 'risk-asc' ? sortByGroupRisk(a, b) : sortByGroupRisk(b, a);
+		});
 	});
 	const resultMeta = $derived(
 		report.result ? `${report.result.groups.length} groups · ${startDate} to ${endDate}` : ''
 	);
+
+	const reportSummary = $derived.by(() => {
+		if (!report.result) return null;
+		const groupsInReport = report.result.groups;
+		const topGroup = groupsInReport.reduce<ReadinessGroupRow | null>(
+			(current, group) =>
+				!current || groupLowestAvailability(group) < groupLowestAvailability(current) ? group : current,
+			null
+		);
+		const topCell = topGroup ? groupLowestCell(topGroup) : null;
+		const totalPersonnel = groupsInReport.reduce((sum, group) => sum + (group.cells[0]?.totalPersonnel ?? 0), 0);
+		const allCells = groupsInReport.flatMap((group) => group.cells);
+		const lowCellCount = allCells.filter((cell) => cell.availablePercent < 80).length;
+		const averageAvailability =
+			allCells.length > 0
+				? Math.round(allCells.reduce((sum, cell) => sum + cell.availablePercent, 0) / allCells.length)
+				: 100;
+		const emptyGroupCount = groupsInReport.filter((group) => (group.cells[0]?.totalPersonnel ?? 0) === 0).length;
+		const lowestAvailability = topCell?.availablePercent ?? 100;
+
+		return {
+			topRisk:
+				topGroup && topCell
+					? `${topGroup.groupName} · ${topCell.availablePercent}% available on ${formatShortDate(topCell.date)}`
+					: 'No groups in result',
+			population: `${totalPersonnel} personnel across ${groupsInReport.length} groups`,
+			parameters: `${startDate} to ${endDate}; ${report.result.dates.length} ${report.result.dates.length === 1 ? 'day' : 'days'}`,
+			findings: [
+				lowCellCount > 0
+					? `${lowCellCount} group-day ${lowCellCount === 1 ? 'cell is' : 'cells are'} below 80% availability.`
+					: 'All group-day cells are at or above 80% availability.',
+				`${averageAvailability}% average availability across selected groups.`,
+				emptyGroupCount > 0
+					? `${emptyGroupCount} selected ${emptyGroupCount === 1 ? 'group has' : 'groups have'} no assigned personnel.`
+					: 'All selected groups have assigned personnel.'
+			],
+			riskTone:
+				lowestAvailability < 50
+					? ('danger' as const)
+					: lowestAvailability < 80
+						? ('warning' as const)
+						: ('success' as const)
+		};
+	});
 
 	function formatShortDate(dateStr: string): string {
 		const date = new Date(dateStr + 'T00:00:00');
@@ -61,7 +108,27 @@
 	}
 
 	function toggleGroupSort() {
-		groupSort = groupSort === 'asc' ? 'desc' : 'asc';
+		groupSort = groupSort === 'group-asc' ? 'group-desc' : 'group-asc';
+	}
+
+	function toggleRiskSort() {
+		groupSort = groupSort === 'risk-asc' ? 'risk-desc' : 'risk-asc';
+	}
+
+	function sortByGroupRisk(a: ReadinessGroupRow, b: ReadinessGroupRow): number {
+		const riskDifference = groupLowestAvailability(a) - groupLowestAvailability(b);
+		return riskDifference === 0 ? sortByGroupName(a, b) : riskDifference;
+	}
+
+	function groupLowestAvailability(group: ReadinessGroupRow): number {
+		return groupLowestCell(group)?.availablePercent ?? 100;
+	}
+
+	function groupLowestCell(group: ReadinessGroupRow) {
+		return group.cells.reduce<ReadinessGroupRow['cells'][number] | null>(
+			(current, cell) => (!current || cell.availablePercent < current.availablePercent ? cell : current),
+			null
+		);
 	}
 
 	function handleExportExcel() {
@@ -129,6 +196,18 @@
 				<ReportWorkspace.ExportAction label="Export group availability" onclick={handleExportExcel} />
 			{/snippet}
 
+			{#snippet summary()}
+				{#if reportSummary}
+					<ReportWorkspace.SummaryStrip
+						topRisk={reportSummary.topRisk}
+						population={reportSummary.population}
+						parameters={reportSummary.parameters}
+						findings={reportSummary.findings}
+						riskTone={reportSummary.riskTone}
+					/>
+				{/if}
+			{/snippet}
+
 			{#if report.result.groups.length === 0}
 				<ReportWorkspace.State
 					state="no-data"
@@ -142,7 +221,11 @@
 							<tr>
 								<th
 									class="min-w-36 border-b border-border px-3 py-2 text-left text-xs font-semibold text-muted-foreground uppercase"
-									aria-sort={groupSort === 'none' ? 'none' : groupSort === 'asc' ? 'ascending' : 'descending'}
+									aria-sort={groupSort === 'group-asc'
+										? 'ascending'
+										: groupSort === 'group-desc'
+											? 'descending'
+											: 'none'}
 								>
 									<button
 										type="button"
@@ -151,6 +234,19 @@
 										onclick={toggleGroupSort}
 									>
 										Group
+									</button>
+								</th>
+								<th
+									class="min-w-24 border-b border-border px-3 py-2 text-center text-xs font-semibold text-muted-foreground uppercase"
+									aria-sort={groupSort === 'risk-asc' ? 'ascending' : groupSort === 'risk-desc' ? 'descending' : 'none'}
+								>
+									<button
+										type="button"
+										class="inline-flex min-h-8 max-w-full items-center justify-center rounded-sm px-2 text-center font-mono text-[0.6875rem] font-semibold tracking-[0.08em] uppercase [overflow-wrap:anywhere] hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
+										aria-label="Sort by lowest availability"
+										onclick={toggleRiskSort}
+									>
+										Lowest
 									</button>
 								</th>
 								{#each report.result.dates as dateStr (dateStr)}
@@ -170,6 +266,9 @@
 										title={group.groupName}
 									>
 										{group.groupName}
+									</td>
+									<td class="border-b border-border/60 px-3 py-2 text-center font-semibold tabular-nums">
+										{groupLowestAvailability(group)}%
 									</td>
 									{#each group.cells as cell (cell.date)}
 										<td

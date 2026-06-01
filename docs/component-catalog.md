@@ -281,7 +281,17 @@ Migration guidance:
 		<ReportWorkspace.Chart title="Readiness trend" ariaLabel="Readiness trend chart">
 			<!-- feature-owned chart content -->
 		</ReportWorkspace.Chart>
-		<ReportWorkspace.Table title="Detail rows" data={rows} columns={columns} ariaLabel="Training detail rows" />
+		<ReportWorkspace.Table title="Detail rows" data={rows} columns={columns} ariaLabel="Training detail rows">
+			{#snippet summary()}
+				<ReportWorkspace.SummaryStrip
+					topRisk="Alpha · 68% ready"
+					population="126 personnel"
+					parameters="Past 30 days"
+					findings={["3 groups below 80% readiness.", "HQ has the lowest current availability."]}
+					riskTone="warning"
+				/>
+			{/snippet}
+		</ReportWorkspace.Table>
 	</ReportWorkspace.Content>
 </ReportWorkspace.Root>
 ```
@@ -295,9 +305,10 @@ Public components:
 - `OptionChips`: shadcn `Toggle`-backed multi-select rendered as chips, each with an optional color identity dot. Use for status-type and assignment-type filters instead of route-local toggle buttons. Props: `options: { id; label; color? }[]`, `selectedIds`, `onToggle`, `label?`, `ariaLabel?`, `onToggleAll?`, `allSelected?`. Color is shown as a small dot only; selection uses the standard toggle state, never a flood of the raw color.
 - `OptionList`: scrollable shadcn `Checkbox` + `Label` list for personnel, group, MOS, and role selection. Use instead of raw `<input type="checkbox">` lists. Props: `options: { id; label }[]`, `selectedIds`, `onToggle`, `ariaLabel?`, `emptyMessage?`.
 - `Content`: report section layout. Props: `layout?: 'stack' | 'split'`.
-- `Section`: generic bounded report section. Props: `title`, `description?`, `meta?`, `actions?`.
+- `Section`: generic bounded report section. Props: `title`, `description?`, `meta?`, `actions?`, `summary?`.
+- `SummaryStrip`: compact operational summary band for completed report results. Props: `topRisk`, `population`, `parameters`, `findings`, `riskTone?: 'default' | 'warning' | 'danger' | 'success'`, `ariaLabel?`. Use inside the `summary` snippet so the strip sits between the section header and result body, not as a nested card.
 - `Chart`: chart section with accessible chart region. Props: `title`, `description?`, `meta?`, `ariaLabel?`.
-- `Table`: DataTable-backed report table section. Props include `data`, `columns`, `table`, `ariaLabel`, `emptyMessage`, `loading`, `showSearch`, `searchPlaceholder`, `pageSize`, and cell/header snippets.
+- `Table`: DataTable-backed report table section. Props include `data`, `columns`, `table`, `ariaLabel`, `emptyMessage`, `loading`, `showSearch`, `searchPlaceholder`, `pageSize`, and cell/header/summary snippets.
 - `State`: shared `loading`, `no-data`, and `error` report states.
 - `ExportActions`: grouped export region.
 - `ExportAction`: shared export command. Props: `label`, `state?: 'ready' | 'loading' | 'disabled' | 'error'`, `disabledReason?`, `errorReason?`, `loading?`, `loadingLabel?`, plus button props such as `href`.

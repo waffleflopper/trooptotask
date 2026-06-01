@@ -36,4 +36,35 @@ describe('createReportRun', () => {
 		expect(report.result).toBeNull();
 		expect(report.error).toBe('No groups selected.');
 	});
+
+	it('ignores stale async results when a newer run finishes first', async () => {
+		let resolveFirst: (value: number) => void = () => {};
+		const firstLoad = new Promise<number>((resolve) => {
+			resolveFirst = resolve;
+		});
+		let loadCount = 0;
+		const report = createReportRun({
+			validate: () => null,
+			load: async () => {
+				loadCount += 1;
+				if (loadCount === 1) return firstLoad;
+				return 2;
+			},
+			compute: (raw) => raw * 10
+		});
+
+		const firstRun = report.run();
+		const secondRun = report.run();
+
+		await secondRun;
+		expect(report.status).toBe('ready');
+		expect(report.result).toBe(20);
+
+		resolveFirst(1);
+		await firstRun;
+
+		expect(report.status).toBe('ready');
+		expect(report.result).toBe(20);
+		expect(report.error).toBeNull();
+	});
 });

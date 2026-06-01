@@ -57,6 +57,7 @@
 		validate: () => {
 			if (!startDate || !endDate) return 'Select a date range.';
 			if (awayStatusSelect.count === 0) return 'Select at least one away status.';
+			if (!Number.isFinite(threshold) || threshold < 1) return 'Enter an away-day threshold of 1 or more.';
 			return null;
 		},
 		load: () => fetchCalendarReportData(orgId, startDate, endDate),
@@ -170,6 +171,8 @@
 			state="error"
 			title="Could not build away-days report"
 			description={report.error ?? undefined}
+			onRetry={report.run}
+			retryLabel="Run again"
 		/>
 	{:else if report.result}
 		<ReportWorkspace.Table

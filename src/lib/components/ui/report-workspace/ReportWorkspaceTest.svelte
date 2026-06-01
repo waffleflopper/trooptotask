@@ -57,5 +57,5 @@
 
 	<ReportWorkspace.State state="loading" title="Loading report rows" />
 	<ReportWorkspace.State state="no-data" title="No report data" description="Adjust filters and try again." />
-	<ReportWorkspace.State state="error" title="Report failed" description="Try again." />
+	<ReportWorkspace.State state="error" title="Report failed" description="Try again." onRetry={() => undefined} />
 </ReportWorkspace.Root>

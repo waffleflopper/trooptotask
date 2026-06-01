@@ -17,6 +17,7 @@ export function createReportRun<TRaw, TResult>(config: {
 	let status = $state<ReportRunStatus>('idle');
 	let result = $state<TResult | null>(null);
 	let error = $state<string | null>(null);
+	let runGeneration = 0;
 	const canRun = $derived(config.validate() === null && status !== 'loading');
 
 	return {
@@ -33,6 +34,7 @@ export function createReportRun<TRaw, TResult>(config: {
 			return canRun;
 		},
 		async run() {
+			const currentGeneration = ++runGeneration;
 			const validationError = config.validate();
 			if (validationError) {
 				status = 'error';
@@ -47,9 +49,11 @@ export function createReportRun<TRaw, TResult>(config: {
 
 			try {
 				const raw = await config.load();
+				if (currentGeneration !== runGeneration) return;
 				result = config.compute(raw);
 				status = 'ready';
 			} catch (cause: unknown) {
+				if (currentGeneration !== runGeneration) return;
 				status = 'error';
 				error = cause instanceof Error ? cause.message : 'Failed to generate report.';
 			}

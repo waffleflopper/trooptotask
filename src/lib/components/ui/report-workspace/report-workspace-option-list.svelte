@@ -37,9 +37,9 @@
 	{#each options as option (option.id)}
 		<Label class="cursor-pointer rounded-md px-2 py-1.5 text-sm font-normal transition-colors hover:bg-muted">
 			<Checkbox bind:checked={() => selectedIds.has(option.id), () => onToggle(option.id)} />
-			<span class="min-w-0 truncate">{option.label}</span>
+			<span class="min-w-0 flex-1 [overflow-wrap:anywhere]" title={option.label}>{option.label}</span>
 		</Label>
 	{:else}
-		<p class="px-2 py-1.5 text-xs text-muted-foreground">{emptyMessage}</p>
+		<p class="px-2 py-1.5 text-xs text-muted-foreground [overflow-wrap:anywhere]">{emptyMessage}</p>
 	{/each}
 </div>

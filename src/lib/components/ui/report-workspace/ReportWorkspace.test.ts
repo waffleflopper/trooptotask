@@ -46,5 +46,6 @@ describe('ReportWorkspace', () => {
 		expect(screen.getByText('Loading report rows')).toBeInTheDocument();
 		expect(screen.getByText('No report data')).toBeInTheDocument();
 		expect(screen.getByRole('alert')).toHaveTextContent('Report failed');
+		expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument();
 	});
 });

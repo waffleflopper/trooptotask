@@ -158,6 +158,8 @@
 			state="error"
 			title="Could not build availability report"
 			description={report.error ?? undefined}
+			onRetry={runReport}
+			retryLabel="Run again"
 		/>
 	{:else if report.result}
 		<ReportWorkspace.Table
@@ -203,8 +205,8 @@
 			{#snippet rowDetail(day)}
 				<ul class="space-y-1">
 					{#each day.unavailablePersonnel as entry (entry.person.id)}
-						<li class="flex flex-wrap items-center gap-2 text-sm">
-							<span>{entry.person.rank} {entry.person.lastName}, {entry.person.firstName}</span>
+						<li class="flex flex-wrap items-center gap-2 text-sm [overflow-wrap:anywhere]">
+							<span class="min-w-0">{entry.person.rank} {entry.person.lastName}, {entry.person.firstName}</span>
 							<Badge variant="outline">{entry.statusName}</Badge>
 						</li>
 					{/each}

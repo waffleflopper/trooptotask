@@ -23,16 +23,20 @@
 >
 	<div class="flex flex-col gap-2 border-b border-border p-3 sm:flex-row sm:items-start sm:justify-between">
 		<div class="min-w-0 space-y-1">
-			<h3 id={`${uid}-title`} class="text-base font-semibold text-foreground">{title}</h3>
+			<h3 id={`${uid}-title`} class="text-base font-semibold text-foreground [overflow-wrap:anywhere]">{title}</h3>
 			{#if description}
-				<p class="text-sm text-muted-foreground">{description}</p>
+				<p class="text-sm text-muted-foreground [overflow-wrap:anywhere]">{description}</p>
 			{/if}
 			{#if meta}
-				<p class="font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">{meta}</p>
+				<p
+					class="font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground [overflow-wrap:anywhere]"
+				>
+					{meta}
+				</p>
 			{/if}
 		</div>
 		{#if actions}
-			<div class="flex shrink-0 items-center gap-2">
+			<div class="flex shrink-0 flex-wrap items-center gap-2">
 				{@render actions()}
 			</div>
 		{/if}

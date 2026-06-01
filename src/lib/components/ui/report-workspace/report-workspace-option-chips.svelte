@@ -53,6 +53,8 @@
 				variant="outline"
 				size="sm"
 				aria-label={option.label}
+				title={option.label}
+				class="h-auto min-h-7 max-w-full whitespace-normal text-left"
 				bind:pressed={() => selectedIds.has(option.id), () => onToggle(option.id)}
 			>
 				{#if option.color}
@@ -61,7 +63,7 @@
 						style:background-color={option.color}
 					></span>
 				{/if}
-				{option.label}
+				<span class="min-w-0 [overflow-wrap:anywhere]">{option.label}</span>
 			</Toggle>
 		{/each}
 	</div>

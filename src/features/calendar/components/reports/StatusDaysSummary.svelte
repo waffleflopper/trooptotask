@@ -243,6 +243,8 @@
 			state="error"
 			title="Could not build status-day report"
 			description={report.error ?? undefined}
+			onRetry={report.run}
+			retryLabel="Run again"
 		/>
 	{:else if report.result}
 		<ReportWorkspace.Table

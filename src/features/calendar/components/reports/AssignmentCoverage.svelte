@@ -170,6 +170,8 @@
 			state="error"
 			title="Could not build assignment-load report"
 			description={report.error ?? undefined}
+			onRetry={report.run}
+			retryLabel="Run again"
 		/>
 	{:else if result}
 		{#if personnelAssignmentTypes.length > 0}
@@ -225,7 +227,9 @@
 				<p class="flex flex-wrap gap-3 text-xs text-muted-foreground" aria-label="Assignment coverage averages">
 					<span>Average assignments</span>
 					{#each displayTypes as assignmentType (assignmentType.id)}
-						<span>{assignmentType.name}: {averageByType.get(assignmentType.id) ?? 0}</span>
+						<span class="min-w-0 [overflow-wrap:anywhere]">
+							{assignmentType.name}: {averageByType.get(assignmentType.id) ?? 0}
+						</span>
 					{/each}
 					<span>Total: {result.averageTotal}</span>
 				</p>

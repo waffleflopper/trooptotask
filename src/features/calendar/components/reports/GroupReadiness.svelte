@@ -116,6 +116,8 @@
 			state="error"
 			title="Could not build group availability report"
 			description={report.error ?? undefined}
+			onRetry={report.run}
+			retryLabel="Run again"
 		/>
 	{:else if report.result}
 		<ReportWorkspace.Section
@@ -139,15 +141,21 @@
 						<thead class="bg-muted">
 							<tr>
 								<th
-									class="min-w-36 cursor-pointer border-b border-border px-3 py-2 text-left text-xs font-semibold text-muted-foreground uppercase"
+									class="min-w-36 border-b border-border px-3 py-2 text-left text-xs font-semibold text-muted-foreground uppercase"
 									aria-sort={groupSort === 'none' ? 'none' : groupSort === 'asc' ? 'ascending' : 'descending'}
-									onclick={toggleGroupSort}
 								>
-									Group
+									<button
+										type="button"
+										class="-mx-2 inline-flex min-h-8 max-w-full items-center rounded-sm px-2 text-left font-mono text-[0.6875rem] font-semibold tracking-[0.08em] uppercase [overflow-wrap:anywhere] hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
+										aria-label="Sort by group"
+										onclick={toggleGroupSort}
+									>
+										Group
+									</button>
 								</th>
 								{#each report.result.dates as dateStr (dateStr)}
 									<th
-										class="min-w-20 border-b border-border px-3 py-2 text-center text-xs font-semibold text-muted-foreground uppercase"
+										class="min-w-20 border-b border-border px-3 py-2 text-center text-xs font-semibold text-muted-foreground uppercase [overflow-wrap:anywhere]"
 									>
 										{formatShortDate(dateStr)}
 									</th>
@@ -157,7 +165,12 @@
 						<tbody>
 							{#each tableRows as group (group.groupId)}
 								<tr>
-									<td class="border-b border-border/60 px-3 py-2 font-semibold">{group.groupName}</td>
+									<td
+										class="border-b border-border/60 px-3 py-2 font-semibold [overflow-wrap:anywhere]"
+										title={group.groupName}
+									>
+										{group.groupName}
+									</td>
 									{#each group.cells as cell (cell.date)}
 										<td
 											class="border-b border-border/60 px-3 py-2 text-center tabular-nums"

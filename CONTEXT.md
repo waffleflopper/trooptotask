@@ -226,6 +226,18 @@ _Avoid_: Leave tracker
 The app-side read model that turns already-loaded **Calendar** data into render-ready date header and person/date cell facts for month and long-range views. It owns lookup and shaping rules for **Availability Statuses**, **Daily Assignment Slots**, special days, duty badges, onboarding markers, and loss indicators. It does not own scrolling, virtual row layout, collapsed groups, click handlers, exports, modal state, provider access, or authorization.
 _Avoid_: Calendar UI helper, cell-only index, route data
 
+**Report Workspace**:
+The shared report chrome for feature reporting surfaces: toolbar, filters, content sections, table, state, and export affordances. Reports should compose it around their feature-owned data loading, filters, math, and result views instead of rebuilding per-report page chrome.
+_Avoid_: Bespoke report config shell, ad hoc `.report-config`
+
+**Report Run**:
+The client-side fetch, compute, loading, result, and error lifecycle for one report request. It coordinates a supplied data loader and compute function; it does not own route loading, provider access, authorization, or report math.
+_Avoid_: Route loader, server query, report calculation layer
+
+**Report Filter Selection**:
+A report multi-select that auto-selects all options on first load and preserves user intent when option lists change. It is the shared selection behavior for report filters, not a feature-specific permission or scope model.
+_Avoid_: Raw `SvelteSet` plus bespoke select-all effect
+
 **Daily Assignment Slot**:
 One Calendar assignment position for a specific date and **Assignment Type**.
 _Avoid_: Duplicate assignment row, batch row

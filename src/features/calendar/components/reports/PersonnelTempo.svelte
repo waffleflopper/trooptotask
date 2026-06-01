@@ -1,20 +1,14 @@
 <script lang="ts">
-	import type { Personnel } from '$lib/types';
-	import type { StatusType } from '$lib/types';
+	import type { Personnel, StatusType } from '$lib/types';
+	import { Button } from '$lib/components/ui/button/index.js';
+	import { Input } from '$lib/components/ui/input/index.js';
+	import * as ReportWorkspace from '$lib/components/ui/report-workspace/index.js';
+	import type { ColumnDef } from '$lib/components/ui/data-table/index.js';
+	import { useDataTable } from '$lib/components/ui/data-table/index.js';
 	import type { PersonnelTempoResult, TempoRow } from '../../utils/calendarReports';
 	import { computePersonnelTempo } from '../../utils/calendarReports';
 	import { exportPersonnelTempoWorkbook } from './calendarReportWorkbookExport';
-	import { Button } from '$lib/components/ui/button';
-	import * as DataTable from '$lib/components/ui/data-table';
-	import { DatePicker } from '$lib/components/ui/date-picker';
-	import * as Field from '$lib/components/ui/field';
-	import { Input } from '$lib/components/ui/input';
-	import { NativeSelect } from '$lib/components/ui/native-select';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import { useDataTable } from '$lib/components/ui/data-table';
-	import type { ColumnDef } from '$lib/components/ui/data-table';
-	import { untrack } from 'svelte';
-	import { SvelteSet } from 'svelte/reactivity';
+	import { fetchCalendarReportData } from './calendarReportData';
 
 	interface Props {
 		orgId: string;
@@ -25,143 +19,77 @@
 
 	let { orgId, personnel, statusTypes }: Props = $props();
 
-	// --- Period selector state ---
-	type PeriodOption = '90' | '180' | '365' | 'custom';
-	let periodOption = $state<PeriodOption>('90');
-
-	function todayStr(): string {
-		const d = new Date();
-		return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-	}
-
-	function daysAgo(n: number): string {
+	function daysAgo(days: number): string {
 		const today = new Date();
-		const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() - n);
-		return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+		return ReportWorkspace.formatLocalDate(new Date(today.getFullYear(), today.getMonth(), today.getDate() - days));
 	}
 
-	let startDate = $state(daysAgo(90));
-	let endDate = $state(todayStr());
-
-	function handlePeriodChange(option: PeriodOption) {
-		periodOption = option;
-		if (option !== 'custom') {
-			endDate = todayStr();
-			startDate = daysAgo(Number(option));
+	const tempoPresets: ReportWorkspace.DateRangePreset[] = [
+		{
+			id: 'past-90',
+			label: 'Past 90 Days',
+			getRange: () => ({ start: daysAgo(90), end: ReportWorkspace.formatLocalDate(new Date()) })
+		},
+		{
+			id: 'past-180',
+			label: 'Past 180 Days',
+			getRange: () => ({ start: daysAgo(180), end: ReportWorkspace.formatLocalDate(new Date()) })
+		},
+		{
+			id: 'past-365',
+			label: 'Past 365 Days',
+			getRange: () => ({ start: daysAgo(365), end: ReportWorkspace.formatLocalDate(new Date()) })
 		}
-	}
+	];
 
-	// --- "Away" status type selector ---
-	const awayStatusTypeIds = new SvelteSet<string>();
-	let previousStatusTypeIds: string[] = [];
-
-	$effect(() => {
-		const currentStatusTypeIds = statusTypes.map((s) => s.id);
-		const currentStatusTypeIdSet = new SvelteSet(currentStatusTypeIds);
-
-		untrack(() => {
-			const selectedAllPrevious =
-				previousStatusTypeIds.length > 0 && previousStatusTypeIds.every((id) => awayStatusTypeIds.has(id));
-			const shouldSelectAll =
-				(previousStatusTypeIds.length === 0 && awayStatusTypeIds.size === 0) || selectedAllPrevious;
-
-			if (shouldSelectAll) {
-				awayStatusTypeIds.clear();
-				for (const id of currentStatusTypeIds) awayStatusTypeIds.add(id);
-			} else {
-				const selectedExistingIds = [...awayStatusTypeIds].filter((id) => currentStatusTypeIdSet.has(id));
-				if (selectedExistingIds.length !== awayStatusTypeIds.size) {
-					awayStatusTypeIds.clear();
-					for (const id of selectedExistingIds) awayStatusTypeIds.add(id);
-				}
-			}
-
-			previousStatusTypeIds = currentStatusTypeIds;
-		});
-	});
-
-	function toggleAllStatuses() {
-		if (awayStatusTypeIds.size === statusTypes.length) {
-			awayStatusTypeIds.clear();
-		} else {
-			awayStatusTypeIds.clear();
-			for (const statusType of statusTypes) awayStatusTypeIds.add(statusType.id);
-		}
-	}
-
-	// --- Threshold ---
+	const initialRange = tempoPresets[0].getRange();
+	let startDate = $state(initialRange.start);
+	let endDate = $state(initialRange.end);
 	let threshold = $state(90);
 
-	// --- Report execution ---
-	let loading = $state(false);
-	let result = $state<PersonnelTempoResult | null>(null);
-	let errorMsg = $state('');
+	const awayStatusSelect = ReportWorkspace.createMultiSelect(() => statusTypes);
+	const statusTypeMap = $derived(new Map(statusTypes.map((statusType) => [statusType.id, statusType])));
 
-	async function runReport() {
-		if (!startDate || !endDate) return;
-		if (awayStatusTypeIds.size === 0) {
-			errorMsg = 'Select at least one "away" status type.';
-			result = null;
-			return;
-		}
-
-		loading = true;
-		errorMsg = '';
-		result = null;
-
-		try {
-			const res = await fetch(
-				`/org/${orgId}/api/calendar-reports/status-days?startDate=${startDate}&endDate=${endDate}`
+	const report = ReportWorkspace.createReportRun({
+		validate: () => {
+			if (!startDate || !endDate) return 'Select a date range.';
+			if (awayStatusSelect.count === 0) return 'Select at least one "away" status type.';
+			return null;
+		},
+		load: () => fetchCalendarReportData(orgId, startDate, endDate),
+		compute: (data): PersonnelTempoResult => {
+			const entries = data.entries.filter((entry) => awayStatusSelect.has(entry.statusTypeId));
+			return computePersonnelTempo(
+				personnel,
+				entries,
+				awayStatusSelect.selectedIds as Set<string>,
+				startDate,
+				endDate,
+				threshold
 			);
-			if (!res.ok) {
-				const body = await res.json().catch(() => ({}));
-				throw new Error(body.message || `Request failed (${res.status})`);
-			}
-			const data = await res.json();
-			// Filter entries to only away status types client-side
-			const filteredEntries = data.entries.filter((e: Record<string, unknown>) =>
-				awayStatusTypeIds.has(e.statusTypeId as string)
-			);
-			result = computePersonnelTempo(personnel, filteredEntries, awayStatusTypeIds, startDate, endDate, threshold);
-		} catch (e: unknown) {
-			errorMsg = e instanceof Error ? e.message : 'Failed to generate report.';
-		} finally {
-			loading = false;
 		}
-	}
-
-	function toggleSet<T>(set: SvelteSet<T>, value: T): void {
-		if (set.has(value)) set.delete(value);
-		else set.add(value);
-	}
-
-	const statusTypeMap = $derived(new Map(statusTypes.map((s) => [s.id, s])));
+	});
 
 	const displayColumns = $derived(
-		result ? result.activeStatusTypeIds.map((id) => statusTypeMap.get(id)).filter((s): s is StatusType => !!s) : []
+		report.result
+			? report.result.activeStatusTypeIds
+					.map((id) => statusTypeMap.get(id))
+					.filter((status): status is StatusType => !!status)
+			: []
 	);
 
-	function handleExportExcel() {
-		if (!result) return;
-		return exportPersonnelTempoWorkbook(result, displayColumns, startDate, endDate);
-	}
-
 	const tableColumns = $derived.by<ColumnDef<TempoRow>[]>(() => [
-		{
-			key: 'rank',
-			header: 'Rank',
-			value: (r) => r.person.rank
-		},
+		{ key: 'rank', header: 'Rank', value: (row) => row.person.rank },
 		{
 			key: 'name',
 			header: 'Name',
-			value: (r) => `${r.person.lastName}, ${r.person.firstName}`,
+			value: (row) => `${row.person.lastName}, ${row.person.firstName}`,
 			compare: (a, b) => a.person.lastName.localeCompare(b.person.lastName)
 		},
 		...displayColumns.map((statusType) => ({
 			key: `status:${statusType.id}`,
 			header: statusType.name,
-			value: (r: TempoRow) => r.awayByStatus.get(statusType.id) ?? 0,
+			value: (row: TempoRow) => row.awayByStatus.get(statusType.id) ?? 0,
 			searchable: false,
 			sortable: false,
 			align: 'center' as const
@@ -169,237 +97,107 @@
 		{
 			key: 'totalAway',
 			header: 'Total Away',
-			value: (r) => r.totalAwayDays,
+			value: (row) => row.totalAwayDays,
 			compare: (a, b) => a.totalAwayDays - b.totalAwayDays,
 			align: 'center'
 		},
 		{
 			key: 'percentAway',
 			header: '% Away',
-			value: (r) => r.percentAway,
+			value: (row) => row.percentAway,
 			compare: (a, b) => a.percentAway - b.percentAway,
 			align: 'center'
 		}
 	]);
 
 	const table = useDataTable({
-		data: () => result?.rows ?? [],
+		data: () => report.result?.rows ?? [],
 		columns: () => tableColumns,
 		initialSortKey: 'name'
 	});
+
+	const resultMeta = $derived(
+		report.result ? `${report.result.rows.length} personnel · ${startDate} to ${endDate}` : ''
+	);
+
+	function handleExportExcel() {
+		if (!report.result) return;
+		return exportPersonnelTempoWorkbook(report.result, displayColumns, startDate, endDate);
+	}
 </script>
 
-<div class="report-config">
-	<div class="config-section">
-		<h3>Period</h3>
-		<div class="date-row">
-			<Field.Root>
-				<Field.Label>Range</Field.Label>
-				<NativeSelect value={periodOption} onchange={(e) => handlePeriodChange(e.currentTarget.value as PeriodOption)}>
-					<option value="90">Past 90 Days</option>
-					<option value="180">Past 180 Days</option>
-					<option value="365">Past 365 Days</option>
-					<option value="custom">Custom</option>
-				</NativeSelect>
-			</Field.Root>
-			{#if periodOption === 'custom'}
-				<Field.Root>
-					<Field.Label>Start</Field.Label>
-					<DatePicker bind:value={startDate} placeholder="Select start date" />
-				</Field.Root>
-				<Field.Root>
-					<Field.Label>End</Field.Label>
-					<DatePicker bind:value={endDate} placeholder="Select end date" />
-				</Field.Root>
-			{/if}
-		</div>
-	</div>
+<ReportWorkspace.Root ariaLabel="Personnel tempo report">
+	<ReportWorkspace.Filters title="Report configuration">
+		{#snippet dateRange()}
+			<ReportWorkspace.DateRangeField bind:start={startDate} bind:end={endDate} presets={tempoPresets} />
+		{/snippet}
 
-	<div class="config-section">
-		<h3>"Away" Status Types</h3>
-		<div class="status-filter-header">
-			<Button variant="outline" size="sm" onclick={toggleAllStatuses}>
-				{awayStatusTypeIds.size === statusTypes.length ? 'Deselect All' : 'Select All'}
+		{#snippet actions()}
+			<Button onclick={report.run} disabled={!report.canRun}>
+				{report.status === 'loading' ? 'Generating...' : 'Generate Report'}
 			</Button>
-			<span class="personnel-count">
-				{awayStatusTypeIds.size} of {statusTypes.length} selected
-			</span>
-		</div>
-		<div class="status-chips">
-			{#each statusTypes as st (st.id)}
-				<button
-					class="status-chip"
-					class:selected={awayStatusTypeIds.has(st.id)}
-					style:--chip-color={st.color}
-					style:--chip-text={st.textColor}
-					onclick={() => toggleSet(awayStatusTypeIds, st.id)}
-				>
-					{st.name}
-				</button>
-			{/each}
-		</div>
-	</div>
+		{/snippet}
 
-	<div class="config-section">
-		<h3>Flag Threshold</h3>
-		<Field.Root class="threshold-group">
-			<Field.Label>Flag threshold (days)</Field.Label>
-			<Input type="number" class="threshold-input" bind:value={threshold} min={1} />
-		</Field.Root>
-	</div>
-
-	<div class="config-actions">
-		<Button onclick={runReport} disabled={loading || !startDate || !endDate || awayStatusTypeIds.size === 0}>
-			{#if loading}<Spinner />{/if}
-			{loading ? 'Generating...' : 'Generate Report'}
-		</Button>
-	</div>
-</div>
-
-{#if errorMsg}
-	<div class="report-error">{errorMsg}</div>
-{/if}
-
-{#if result}
-	<div class="report-output">
-		<div class="report-toolbar">
-			<span class="report-summary">
-				{result.rows.length} personnel &middot; {startDate} to {endDate} &middot; {result.totalDaysInPeriod} days in period
-			</span>
-			<Button variant="outline" size="sm" onclick={handleExportExcel}>Export Excel</Button>
+		<div class="min-w-0 space-y-2">
+			<div class="flex flex-wrap items-center gap-2">
+				<Button type="button" variant="outline" size="sm" onclick={awayStatusSelect.toggleAll}>
+					{awayStatusSelect.allSelected ? 'Deselect All' : 'Select All'}
+				</Button>
+				<span class="text-xs text-muted-foreground">
+					{awayStatusSelect.count} of {statusTypes.length} selected
+				</span>
+			</div>
+			<div class="flex max-h-48 flex-wrap gap-2 overflow-y-auto rounded-md border border-border p-2">
+				{#each statusTypes as statusType (statusType.id)}
+					<button
+						type="button"
+						class="rounded-md border border-border px-2 py-1 text-sm text-foreground"
+						style:background={awayStatusSelect.has(statusType.id) ? statusType.color : 'transparent'}
+						style:color={awayStatusSelect.has(statusType.id) ? statusType.textColor : undefined}
+						onclick={() => awayStatusSelect.toggle(statusType.id)}
+					>
+						{statusType.name}
+					</button>
+				{/each}
+			</div>
 		</div>
 
-		{#if result.rows.length === 0}
-			<p class="no-data">No data found for the selected criteria.</p>
-		{:else}
-			<DataTable.DataTable
-				{table}
-				columns={tableColumns}
-				ariaLabel="Personnel tempo report"
-				compact
-				emptyMessage="No data found for the selected criteria."
-			>
-				{#snippet cell(row, column)}
-					{#if column.key === 'rank'}
-						{row.person.rank}
-					{:else if column.key === 'name'}
-						{row.person.lastName}, {row.person.firstName}
-					{:else if column.key.startsWith('status:')}
-						{Number(column.value(row)) > 0 ? column.value(row) : ''}
-					{:else if column.key === 'totalAway'}
-						{row.totalAwayDays > 0 ? row.totalAwayDays : ''}
-					{:else if column.key === 'percentAway'}
-						{row.percentAway > 0 ? `${row.percentAway}%` : ''}
-					{:else}
-						{String(column.value(row) ?? '')}
-					{/if}
-				{/snippet}
-			</DataTable.DataTable>
-		{/if}
-	</div>
-{/if}
+		<div class="min-w-0">
+			<label class="grid gap-1 text-sm">
+				<span class="font-medium">Flag threshold (days)</span>
+				<Input type="number" bind:value={threshold} min={1} />
+			</label>
+		</div>
+	</ReportWorkspace.Filters>
 
-<style>
-	.report-config {
-		background: var(--card);
-		border: 1px solid var(--border);
-		border-radius: var(--radius);
-		padding: 1rem;
-		display: flex;
-		flex-direction: column;
-		gap: 1rem;
-	}
+	{#if report.status === 'loading'}
+		<ReportWorkspace.State state="loading" title="Generating report" />
+	{:else if report.status === 'error'}
+		<ReportWorkspace.State state="error" title="Report failed" description={report.error ?? undefined} />
+	{:else if report.result}
+		<ReportWorkspace.Table
+			title="Personnel tempo"
+			meta={resultMeta}
+			{table}
+			columns={tableColumns}
+			ariaLabel="Personnel tempo report"
+			emptyMessage="No data found for the selected criteria."
+		>
+			{#snippet actions()}
+				<ReportWorkspace.ExportAction label="Export Excel" onclick={handleExportExcel} />
+			{/snippet}
 
-	.config-section h3 {
-		font-size: 0.75rem;
-		font-weight: 600;
-		color: var(--muted-foreground);
-		text-transform: uppercase;
-		letter-spacing: 0.05em;
-		margin: 0 0 0.5rem 0;
-	}
-
-	.date-row {
-		display: flex;
-		gap: 0.5rem;
-		align-items: flex-end;
-		flex-wrap: wrap;
-	}
-
-	.status-filter-header {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-		margin-bottom: 0.5rem;
-	}
-
-	.personnel-count {
-		font-size: 0.75rem;
-		color: var(--muted-foreground);
-	}
-
-	.status-chips {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.25rem;
-	}
-
-	.status-chip {
-		padding: 0.25rem 0.5rem;
-		border-radius: 9999px;
-		font-size: 0.75rem;
-		cursor: pointer;
-		border: 2px solid var(--chip-color);
-		background: transparent;
-		color: var(--foreground);
-		transition: all 0.15s ease;
-	}
-
-	.status-chip.selected {
-		background: var(--chip-color);
-		color: var(--chip-text);
-	}
-
-	.config-actions {
-		display: flex;
-		justify-content: flex-end;
-	}
-
-	.report-error {
-		color: var(--destructive);
-		font-size: 0.75rem;
-		padding: 0.5rem;
-		background: color-mix(in srgb, var(--destructive) 10%, transparent);
-		border-radius: var(--radius);
-		margin-top: 0.5rem;
-	}
-
-	.report-output {
-		margin-top: 1rem;
-	}
-
-	.report-toolbar {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		margin-bottom: 0.5rem;
-	}
-
-	.report-summary {
-		font-size: 0.75rem;
-		color: var(--muted-foreground);
-	}
-
-	.no-data {
-		text-align: center;
-		color: var(--muted-foreground);
-		padding: 2rem;
-		font-style: italic;
-	}
-
-	@media (max-width: 640px) {
-		.date-row {
-			flex-direction: column;
-		}
-	}
-</style>
+			{#snippet cell(row, column)}
+				{#if column.key === 'rank'}
+					{row.person.rank}
+				{:else if column.key === 'name'}
+					{row.person.lastName}, {row.person.firstName}
+				{:else if column.key === 'percentAway'}
+					<span class={row.flagged ? 'font-semibold text-destructive' : ''}>{row.percentAway}%</span>
+				{:else}
+					{String(column.value(row) ?? '')}
+				{/if}
+			{/snippet}
+		</ReportWorkspace.Table>
+	{/if}
+</ReportWorkspace.Root>

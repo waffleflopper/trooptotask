@@ -2,7 +2,7 @@
 	import type { Personnel, StatusType } from '$lib/types';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
-	import { NativeSelect } from '$lib/components/ui/native-select/index.js';
+	import * as Select from '$lib/components/ui/select/index.js';
 	import * as ReportWorkspace from '$lib/components/ui/report-workspace/index.js';
 	import type { ColumnDef } from '$lib/components/ui/data-table/index.js';
 	import { useDataTable } from '$lib/components/ui/data-table/index.js';
@@ -39,6 +39,24 @@
 	const uniqueRoles = $derived([...new Set(personnel.map((p) => p.clinicRole).filter(Boolean))].sort());
 	const statusTypeMap = $derived(new Map(statusTypes.map((statusType) => [statusType.id, statusType])));
 
+	const filterModeOptions = $derived<{ value: FilterMode; label: string }[]>([
+		{ value: 'all', label: 'All Personnel' },
+		{ value: 'name', label: 'By Name' },
+		{ value: 'group', label: 'By Group' },
+		...(uniqueMosCodes.length > 0 ? [{ value: 'mos' as const, label: 'By MOS' }] : []),
+		...(uniqueRoles.length > 0 ? [{ value: 'role' as const, label: 'By Duty Role' }] : [])
+	]);
+	const filterModeLabel = $derived(
+		filterModeOptions.find((option) => option.value === filterMode)?.label ?? 'All Personnel'
+	);
+
+	const groupOptions = $derived(groups.map((group) => ({ id: group.id, label: group.name })));
+	const mosOptions = $derived(uniqueMosCodes.map((mos) => ({ id: mos, label: mos })));
+	const roleOptions = $derived(uniqueRoles.map((role) => ({ id: role, label: role })));
+	const statusChipOptions = $derived(
+		statusTypes.map((statusType) => ({ id: statusType.id, label: statusType.name, color: statusType.color }))
+	);
+
 	const filteredPersonnel = $derived.by(() => {
 		switch (filterMode) {
 			case 'name':
@@ -62,10 +80,17 @@
 			: personnel
 	);
 
+	const namePersonnelOptions = $derived(
+		nameFilteredPersonnel.map((person) => ({
+			id: person.id,
+			label: `${person.rank} ${person.lastName}, ${person.firstName}`
+		}))
+	);
+
 	const report = ReportWorkspace.createReportRun({
 		validate: () => {
 			if (!startDate || !endDate) return 'Select a date range.';
-			if (filteredPersonnel.length === 0) return 'No personnel selected.';
+			if (filteredPersonnel.length === 0) return 'Select at least one person.';
 			if (statusSelect.count === 0) return 'Select at least one status type.';
 			return null;
 		},
@@ -105,7 +130,7 @@
 		})),
 		{
 			key: 'totalDays',
-			header: 'Total Days',
+			header: 'Total status days',
 			value: (row) => row.totalDays,
 			compare: (a, b) => a.totalDays - b.totalDays,
 			align: 'center'
@@ -133,8 +158,11 @@
 	}
 </script>
 
-<ReportWorkspace.Root ariaLabel="Status days summary report">
-	<ReportWorkspace.Filters title="Report configuration">
+<ReportWorkspace.Root ariaLabel="Status days by person report">
+	<ReportWorkspace.Filters
+		title="Build status-day report"
+		description="Counts selected calendar statuses for each person across the date range."
+	>
 		{#snippet dateRange()}
 			<ReportWorkspace.DateRangeField
 				bind:start={startDate}
@@ -145,121 +173,89 @@
 
 		{#snippet actions()}
 			<Button onclick={report.run} disabled={!report.canRun}>
-				{report.status === 'loading' ? 'Generating...' : 'Generate Report'}
+				{report.status === 'loading' ? 'Counting status days...' : 'Run status-day report'}
 			</Button>
 		{/snippet}
 
 		<div class="min-w-0 space-y-2">
-			<NativeSelect bind:value={filterMode} aria-label="Filter personnel">
-				<option value="all">All Personnel</option>
-				<option value="name">By Name</option>
-				<option value="group">By Group</option>
-				{#if uniqueMosCodes.length > 0}
-					<option value="mos">By MOS</option>
-				{/if}
-				{#if uniqueRoles.length > 0}
-					<option value="role">By Duty Role</option>
-				{/if}
-			</NativeSelect>
+			<span class="font-mono text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground"> Personnel </span>
+			<Select.Root type="single" value={filterMode} onValueChange={(value) => (filterMode = value as FilterMode)}>
+				<Select.Trigger size="sm" aria-label="Filter personnel" class="w-full">
+					{filterModeLabel}
+				</Select.Trigger>
+				<Select.Content>
+					{#each filterModeOptions as option (option.value)}
+						<Select.Item value={option.value} label={option.label} />
+					{/each}
+				</Select.Content>
+			</Select.Root>
 
 			{#if filterMode === 'name'}
 				<Input type="text" placeholder="Search by name..." bind:value={nameSearch} />
-				<div class="flex max-h-48 flex-col gap-0.5 overflow-y-auto rounded-md border border-border p-1">
-					{#each nameFilteredPersonnel as person (person.id)}
-						<label class="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-sm hover:bg-muted">
-							<input
-								type="checkbox"
-								checked={selectedPersonnelIds.has(person.id)}
-								onchange={() => toggleSet(selectedPersonnelIds, person.id)}
-							/>
-							<span>{person.rank} {person.lastName}, {person.firstName}</span>
-						</label>
-					{/each}
-				</div>
+				<ReportWorkspace.OptionList
+					ariaLabel="Select personnel"
+					options={namePersonnelOptions}
+					selectedIds={selectedPersonnelIds}
+					onToggle={(id) => toggleSet(selectedPersonnelIds, id)}
+					emptyMessage="No personnel match your search."
+				/>
 			{:else if filterMode === 'group'}
-				<div class="flex max-h-48 flex-col gap-0.5 overflow-y-auto rounded-md border border-border p-1">
-					{#each groups as group (group.id)}
-						<label class="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-sm hover:bg-muted">
-							<input
-								type="checkbox"
-								checked={selectedGroupIds.has(group.id)}
-								onchange={() => toggleSet(selectedGroupIds, group.id)}
-							/>
-							<span>{group.name}</span>
-						</label>
-					{/each}
-				</div>
+				<ReportWorkspace.OptionList
+					ariaLabel="Select groups"
+					options={groupOptions}
+					selectedIds={selectedGroupIds}
+					onToggle={(id) => toggleSet(selectedGroupIds, id)}
+				/>
 			{:else if filterMode === 'mos'}
-				<div class="flex max-h-48 flex-col gap-0.5 overflow-y-auto rounded-md border border-border p-1">
-					{#each uniqueMosCodes as mos (mos)}
-						<label class="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-sm hover:bg-muted">
-							<input
-								type="checkbox"
-								checked={selectedMosCodes.has(mos)}
-								onchange={() => toggleSet(selectedMosCodes, mos)}
-							/>
-							<span>{mos}</span>
-						</label>
-					{/each}
-				</div>
+				<ReportWorkspace.OptionList
+					ariaLabel="Select MOS codes"
+					options={mosOptions}
+					selectedIds={selectedMosCodes}
+					onToggle={(id) => toggleSet(selectedMosCodes, id)}
+				/>
 			{:else if filterMode === 'role'}
-				<div class="flex max-h-48 flex-col gap-0.5 overflow-y-auto rounded-md border border-border p-1">
-					{#each uniqueRoles as role (role)}
-						<label class="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-sm hover:bg-muted">
-							<input
-								type="checkbox"
-								checked={selectedRoles.has(role)}
-								onchange={() => toggleSet(selectedRoles, role)}
-							/>
-							<span>{role}</span>
-						</label>
-					{/each}
-				</div>
+				<ReportWorkspace.OptionList
+					ariaLabel="Select duty roles"
+					options={roleOptions}
+					selectedIds={selectedRoles}
+					onToggle={(id) => toggleSet(selectedRoles, id)}
+				/>
 			{/if}
 
 			<p class="text-xs text-muted-foreground">{filteredPersonnel.length} of {personnel.length} personnel selected</p>
 		</div>
 
-		<div class="min-w-0 space-y-2">
-			<div class="flex flex-wrap items-center gap-2">
-				<Button type="button" variant="outline" size="sm" onclick={statusSelect.toggleAll}>
-					{statusSelect.allSelected ? 'Deselect All' : 'Select All'}
-				</Button>
-				<span class="text-xs text-muted-foreground">
-					{statusSelect.count} of {statusTypes.length} selected
-				</span>
-			</div>
-			<div class="flex max-h-48 flex-wrap gap-2 overflow-y-auto rounded-md border border-border p-2">
-				{#each statusTypes as statusType (statusType.id)}
-					<button
-						type="button"
-						class="rounded-md border border-border px-2 py-1 text-sm text-foreground"
-						style:background={statusSelect.has(statusType.id) ? statusType.color : 'transparent'}
-						style:color={statusSelect.has(statusType.id) ? statusType.textColor : undefined}
-						onclick={() => statusSelect.toggle(statusType.id)}
-					>
-						{statusType.name}
-					</button>
-				{/each}
-			</div>
-		</div>
+		<ReportWorkspace.OptionChips
+			label="Status types"
+			ariaLabel="Select status types"
+			options={statusChipOptions}
+			selectedIds={statusSelect.selectedIds}
+			onToggle={statusSelect.toggle}
+			onToggleAll={statusSelect.toggleAll}
+			allSelected={statusSelect.allSelected}
+		/>
 	</ReportWorkspace.Filters>
 
 	{#if report.status === 'loading'}
-		<ReportWorkspace.State state="loading" title="Generating report" />
+		<ReportWorkspace.State state="loading" title="Counting status days" />
 	{:else if report.status === 'error'}
-		<ReportWorkspace.State state="error" title="Report failed" description={report.error ?? undefined} />
+		<ReportWorkspace.State
+			state="error"
+			title="Could not build status-day report"
+			description={report.error ?? undefined}
+		/>
 	{:else if report.result}
 		<ReportWorkspace.Table
-			title="Status days"
+			title="Status days by person"
+			description="Each status column shows how many days were recorded for that person."
 			meta={resultMeta}
 			{table}
 			columns={tableColumns}
-			ariaLabel="Status days summary"
-			emptyMessage="No data found for the selected criteria."
+			ariaLabel="Status days by person"
+			emptyMessage="No selected status entries fall in this date range. Try more statuses, more personnel, or a wider range."
 		>
 			{#snippet actions()}
-				<ReportWorkspace.ExportAction label="Export Excel" onclick={handleExportExcel} />
+				<ReportWorkspace.ExportAction label="Export status days" onclick={handleExportExcel} />
 			{/snippet}
 
 			{#snippet cell(row, column)}

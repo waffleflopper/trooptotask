@@ -27,7 +27,7 @@ export async function exportAvailabilityForecastWorkbook(
 			{ header: 'Date', key: 'date', width: 14 },
 			{ header: 'Unavailable', key: 'unavailable', width: 14 },
 			{ header: 'Available', key: 'available', width: 12 },
-			{ header: 'Available %', key: 'availablePercent', width: 14 },
+			{ header: 'Available percent', key: 'availablePercent', width: 18 },
 			{ header: 'Unavailable Personnel', key: 'unavailablePersonnel', width: 40 }
 		],
 		rows
@@ -58,8 +58,8 @@ export async function exportPersonnelTempoWorkbook(
 			{ header: 'Last Name', key: 'lastName', width: 18 },
 			{ header: 'First Name', key: 'firstName', width: 18 },
 			...columns.map((statusType) => ({ header: statusType.name, key: statusType.id, width: 14 })),
-			{ header: 'Total Away', key: 'totalAway', width: 14 },
-			{ header: '% Away', key: 'percentAway', width: 12 }
+			{ header: 'Total away days', key: 'totalAway', width: 18 },
+			{ header: 'Away percent', key: 'percentAway', width: 16 }
 		],
 		rows
 	});
@@ -103,7 +103,7 @@ export async function exportAssignmentCoverageWorkbook(
 			{ header: 'First Name', key: 'firstName', width: 18 },
 			...columns.map((assignmentType) => ({ header: assignmentType.name, key: assignmentType.id, width: 16 })),
 			{ header: 'Total', key: 'total', width: 12 },
-			{ header: 'vs Avg', key: 'vsAverage', width: 12 }
+			{ header: 'Difference from average', key: 'vsAverage', width: 24 }
 		],
 		rows
 	});
@@ -158,7 +158,7 @@ export async function exportStatusDaysWorkbook(
 			{ header: 'Last Name', key: 'lastName', width: 18 },
 			{ header: 'First Name', key: 'firstName', width: 18 },
 			...columns.map((statusType) => ({ header: statusType.name, key: statusType.id, width: 14 })),
-			{ header: 'Total Days', key: 'totalDays', width: 14 }
+			{ header: 'Total status days', key: 'totalDays', width: 18 }
 		],
 		rows
 	});

@@ -291,7 +291,9 @@ Public components:
 - `Root`: report workspace shell. Props: `ariaLabel?: string`, `children?: Snippet`.
 - `Header`: report title, description, and metadata. Props: `title`, `description?`, `meta?`, `actions?`.
 - `Toolbar`: thin wrapper around `WorkspaceToolbar.Root`. Props: `ariaLabel`, `children`.
-- `Filters`: configuration panel with optional date-range and actions regions. Props: `title?`, `description?`, `dateRange?`, `actions?`.
+- `Filters`: configuration panel with optional date-range and actions regions. Renders a header band, a responsive config grid (children and `dateRange` flow together), and a bordered action footer. Props: `title?`, `description?`, `dateRange?`, `actions?`.
+- `OptionChips`: shadcn `Toggle`-backed multi-select rendered as chips, each with an optional color identity dot. Use for status-type and assignment-type filters instead of route-local toggle buttons. Props: `options: { id; label; color? }[]`, `selectedIds`, `onToggle`, `label?`, `ariaLabel?`, `onToggleAll?`, `allSelected?`. Color is shown as a small dot only; selection uses the standard toggle state, never a flood of the raw color.
+- `OptionList`: scrollable shadcn `Checkbox` + `Label` list for personnel, group, MOS, and role selection. Use instead of raw `<input type="checkbox">` lists. Props: `options: { id; label }[]`, `selectedIds`, `onToggle`, `ariaLabel?`, `emptyMessage?`.
 - `Content`: report section layout. Props: `layout?: 'stack' | 'split'`.
 - `Section`: generic bounded report section. Props: `title`, `description?`, `meta?`, `actions?`.
 - `Chart`: chart section with accessible chart region. Props: `title`, `description?`, `meta?`, `ariaLabel?`.

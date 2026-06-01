@@ -27,6 +27,12 @@
 	const selectedTypeIds = new SvelteSet<string>();
 
 	const personnelAssignmentTypes = $derived(fetchedAssignmentTypes.filter((type) => type.assignTo === 'personnel'));
+	const assignmentTypeChipOptions = $derived(
+		personnelAssignmentTypes.map((type) => ({ id: type.id, label: type.name, color: type.color }))
+	);
+	const allTypesSelected = $derived(
+		personnelAssignmentTypes.length > 0 && selectedTypeIds.size === personnelAssignmentTypes.length
+	);
 
 	const report = ReportWorkspace.createReportRun({
 		validate: () => {
@@ -100,7 +106,7 @@
 		},
 		{
 			key: 'vsAvg',
-			header: 'vs Avg',
+			header: 'Difference from average',
 			value: (row) => Math.round((row.totalAssignments - (result?.averageTotal ?? 0)) * 10) / 10,
 			searchable: false,
 			sortable: false,
@@ -137,8 +143,11 @@
 	}
 </script>
 
-<ReportWorkspace.Root ariaLabel="Assignment coverage report">
-	<ReportWorkspace.Filters title="Report configuration">
+<ReportWorkspace.Root ariaLabel="Assignment load by person report">
+	<ReportWorkspace.Filters
+		title="Build assignment-load report"
+		description="Counts personnel assignments and compares each person against the formation average."
+	>
 		{#snippet dateRange()}
 			<ReportWorkspace.DateRangeField
 				bind:start={startDate}
@@ -149,55 +158,44 @@
 
 		{#snippet actions()}
 			<Button onclick={report.run} disabled={!report.canRun}>
-				{report.status === 'loading' ? 'Generating...' : 'Generate Report'}
+				{report.status === 'loading' ? 'Counting assignments...' : 'Run assignment-load report'}
 			</Button>
 		{/snippet}
 	</ReportWorkspace.Filters>
 
 	{#if report.status === 'loading'}
-		<ReportWorkspace.State state="loading" title="Generating report" />
+		<ReportWorkspace.State state="loading" title="Counting assignments" />
 	{:else if report.status === 'error'}
-		<ReportWorkspace.State state="error" title="Report failed" description={report.error ?? undefined} />
+		<ReportWorkspace.State
+			state="error"
+			title="Could not build assignment-load report"
+			description={report.error ?? undefined}
+		/>
 	{:else if result}
 		{#if personnelAssignmentTypes.length > 0}
-			<ReportWorkspace.Filters title="Assignment types">
-				<div class="min-w-0 space-y-2">
-					<div class="flex flex-wrap items-center gap-2">
-						<Button type="button" variant="outline" size="sm" onclick={toggleAllTypes}>
-							{selectedTypeIds.size === personnelAssignmentTypes.length ? 'Deselect All' : 'Select All'}
-						</Button>
-						<span class="text-xs text-muted-foreground">
-							{selectedTypeIds.size} of {personnelAssignmentTypes.length} selected
-						</span>
-					</div>
-					<div class="flex flex-wrap gap-2 rounded-md border border-border p-2">
-						{#each personnelAssignmentTypes as assignmentType (assignmentType.id)}
-							<button
-								type="button"
-								class="rounded-full border px-3 py-1 text-sm"
-								style:border-color={assignmentType.color}
-								style:background={selectedTypeIds.has(assignmentType.id) ? assignmentType.color : 'transparent'}
-								style:color={selectedTypeIds.has(assignmentType.id) ? 'white' : undefined}
-								onclick={() => toggleTypeFilter(assignmentType.id)}
-							>
-								{assignmentType.name}
-							</button>
-						{/each}
-					</div>
-				</div>
+			<ReportWorkspace.Filters title="Assignment types to include">
+				<ReportWorkspace.OptionChips
+					ariaLabel="Filter assignment types"
+					options={assignmentTypeChipOptions}
+					selectedIds={selectedTypeIds}
+					onToggle={toggleTypeFilter}
+					onToggleAll={toggleAllTypes}
+					allSelected={allTypesSelected}
+				/>
 			</ReportWorkspace.Filters>
 		{/if}
 
 		<ReportWorkspace.Table
-			title="Assignment coverage"
+			title="Assignment load by person"
+			description="Positive numbers are above the average assignment count for the selected dates."
 			meta={resultMeta}
 			{table}
 			columns={tableColumns}
-			ariaLabel="Assignment coverage report"
-			emptyMessage="No assignment data found for the selected criteria."
+			ariaLabel="Assignment load by person"
+			emptyMessage="No personnel assignments fall in this date range. Try a wider date range."
 		>
 			{#snippet actions()}
-				<ReportWorkspace.ExportAction label="Export Excel" onclick={handleExportExcel} />
+				<ReportWorkspace.ExportAction label="Export assignment load" onclick={handleExportExcel} />
 			{/snippet}
 
 			{#snippet cell(row, column)}
@@ -225,7 +223,7 @@
 
 			{#snippet footer()}
 				<p class="flex flex-wrap gap-3 text-xs text-muted-foreground" aria-label="Assignment coverage averages">
-					<span>Average</span>
+					<span>Average assignments</span>
 					{#each displayTypes as assignmentType (assignmentType.id)}
 						<span>{assignmentType.name}: {averageByType.get(assignmentType.id) ?? 0}</span>
 					{/each}

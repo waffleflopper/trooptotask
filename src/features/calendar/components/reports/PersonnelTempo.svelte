@@ -49,11 +49,14 @@
 
 	const awayStatusSelect = ReportWorkspace.createMultiSelect(() => statusTypes);
 	const statusTypeMap = $derived(new Map(statusTypes.map((statusType) => [statusType.id, statusType])));
+	const statusChipOptions = $derived(
+		statusTypes.map((statusType) => ({ id: statusType.id, label: statusType.name, color: statusType.color }))
+	);
 
 	const report = ReportWorkspace.createReportRun({
 		validate: () => {
 			if (!startDate || !endDate) return 'Select a date range.';
-			if (awayStatusSelect.count === 0) return 'Select at least one "away" status type.';
+			if (awayStatusSelect.count === 0) return 'Select at least one away status.';
 			return null;
 		},
 		load: () => fetchCalendarReportData(orgId, startDate, endDate),
@@ -96,14 +99,14 @@
 		})),
 		{
 			key: 'totalAway',
-			header: 'Total Away',
+			header: 'Total away days',
 			value: (row) => row.totalAwayDays,
 			compare: (a, b) => a.totalAwayDays - b.totalAwayDays,
 			align: 'center'
 		},
 		{
 			key: 'percentAway',
-			header: '% Away',
+			header: 'Away percent',
 			value: (row) => row.percentAway,
 			compare: (a, b) => a.percentAway - b.percentAway,
 			align: 'center'
@@ -126,65 +129,60 @@
 	}
 </script>
 
-<ReportWorkspace.Root ariaLabel="Personnel tempo report">
-	<ReportWorkspace.Filters title="Report configuration">
+<ReportWorkspace.Root ariaLabel="Away days by person report">
+	<ReportWorkspace.Filters
+		title="Build away-days report"
+		description="Counts time away from the formation using the selected calendar statuses."
+	>
 		{#snippet dateRange()}
 			<ReportWorkspace.DateRangeField bind:start={startDate} bind:end={endDate} presets={tempoPresets} />
 		{/snippet}
 
 		{#snippet actions()}
 			<Button onclick={report.run} disabled={!report.canRun}>
-				{report.status === 'loading' ? 'Generating...' : 'Generate Report'}
+				{report.status === 'loading' ? 'Counting away days...' : 'Run away-days report'}
 			</Button>
 		{/snippet}
 
-		<div class="min-w-0 space-y-2">
-			<div class="flex flex-wrap items-center gap-2">
-				<Button type="button" variant="outline" size="sm" onclick={awayStatusSelect.toggleAll}>
-					{awayStatusSelect.allSelected ? 'Deselect All' : 'Select All'}
-				</Button>
-				<span class="text-xs text-muted-foreground">
-					{awayStatusSelect.count} of {statusTypes.length} selected
-				</span>
-			</div>
-			<div class="flex max-h-48 flex-wrap gap-2 overflow-y-auto rounded-md border border-border p-2">
-				{#each statusTypes as statusType (statusType.id)}
-					<button
-						type="button"
-						class="rounded-md border border-border px-2 py-1 text-sm text-foreground"
-						style:background={awayStatusSelect.has(statusType.id) ? statusType.color : 'transparent'}
-						style:color={awayStatusSelect.has(statusType.id) ? statusType.textColor : undefined}
-						onclick={() => awayStatusSelect.toggle(statusType.id)}
-					>
-						{statusType.name}
-					</button>
-				{/each}
-			</div>
-		</div>
+		<ReportWorkspace.OptionChips
+			label="Away status types"
+			ariaLabel="Select away status types"
+			options={statusChipOptions}
+			selectedIds={awayStatusSelect.selectedIds}
+			onToggle={awayStatusSelect.toggle}
+			onToggleAll={awayStatusSelect.toggleAll}
+			allSelected={awayStatusSelect.allSelected}
+		/>
 
-		<div class="min-w-0">
-			<label class="grid gap-1 text-sm">
-				<span class="font-medium">Flag threshold (days)</span>
-				<Input type="number" bind:value={threshold} min={1} />
-			</label>
+		<div class="min-w-0 space-y-2">
+			<span class="font-mono text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground">
+				Flag when away days exceed
+			</span>
+			<Input type="number" bind:value={threshold} min={1} aria-label="Flag personnel when away days exceed" />
+			<p class="text-xs text-muted-foreground">Rows above this number are marked in red.</p>
 		</div>
 	</ReportWorkspace.Filters>
 
 	{#if report.status === 'loading'}
-		<ReportWorkspace.State state="loading" title="Generating report" />
+		<ReportWorkspace.State state="loading" title="Counting away days" />
 	{:else if report.status === 'error'}
-		<ReportWorkspace.State state="error" title="Report failed" description={report.error ?? undefined} />
+		<ReportWorkspace.State
+			state="error"
+			title="Could not build away-days report"
+			description={report.error ?? undefined}
+		/>
 	{:else if report.result}
 		<ReportWorkspace.Table
-			title="Personnel tempo"
+			title="Away days by person"
+			description="Use this to spot personnel with sustained time away from normal availability."
 			meta={resultMeta}
 			{table}
 			columns={tableColumns}
-			ariaLabel="Personnel tempo report"
-			emptyMessage="No data found for the selected criteria."
+			ariaLabel="Away days by person"
+			emptyMessage="No selected away statuses fall in this date range. Try more statuses or a wider range."
 		>
 			{#snippet actions()}
-				<ReportWorkspace.ExportAction label="Export Excel" onclick={handleExportExcel} />
+				<ReportWorkspace.ExportAction label="Export away days" onclick={handleExportExcel} />
 			{/snippet}
 
 			{#snippet cell(row, column)}

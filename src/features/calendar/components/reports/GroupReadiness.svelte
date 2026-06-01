@@ -21,10 +21,11 @@
 	let endDate = $state(initialRange.end);
 
 	const groupSelect = ReportWorkspace.createMultiSelect(() => groups);
+	const groupOptions = $derived(groups.map((group) => ({ id: group.id, label: group.name })));
 	const report = ReportWorkspace.createReportRun({
 		validate: () => {
 			if (!startDate || !endDate) return 'Select a date range.';
-			if (groupSelect.count === 0) return 'No groups selected.';
+			if (groupSelect.count === 0) return 'Select at least one group.';
 			return null;
 		},
 		load: () => fetchCalendarReportData(orgId, startDate, endDate),
@@ -69,8 +70,11 @@
 	}
 </script>
 
-<ReportWorkspace.Root ariaLabel="Group readiness report">
-	<ReportWorkspace.Filters title="Report configuration">
+<ReportWorkspace.Root ariaLabel="Group availability by day report">
+	<ReportWorkspace.Filters
+		title="Build group availability report"
+		description="Shows available personnel by group for each day in the range."
+	>
 		{#snippet dateRange()}
 			<ReportWorkspace.DateRangeField
 				bind:start={startDate}
@@ -81,49 +85,57 @@
 
 		{#snippet actions()}
 			<Button onclick={report.run} disabled={!report.canRun}>
-				{report.status === 'loading' ? 'Generating...' : 'Generate Report'}
+				{report.status === 'loading' ? 'Checking group availability...' : 'Run group availability report'}
 			</Button>
 		{/snippet}
 
 		<div class="min-w-0 space-y-2">
-			<div class="flex flex-wrap items-center gap-2">
-				<Button type="button" variant="outline" size="sm" onclick={groupSelect.toggleAll}>
-					{groupSelect.allSelected ? 'Deselect All' : 'Select All'}
-				</Button>
-				<span class="text-xs text-muted-foreground">
-					{groupSelect.count} of {groups.length} selected
-				</span>
+			<div class="flex flex-wrap items-center justify-between gap-2">
+				<span class="font-mono text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground"> Groups </span>
+				<div class="flex items-center gap-2">
+					<span class="text-xs text-muted-foreground">{groupSelect.count} of {groups.length} selected</span>
+					<Button type="button" variant="ghost" size="xs" onclick={groupSelect.toggleAll}>
+						{groupSelect.allSelected ? 'Clear' : 'Select all'}
+					</Button>
+				</div>
 			</div>
-			<div class="flex max-h-48 flex-col gap-0.5 overflow-y-auto rounded-md border border-border p-1">
-				{#each groups as group (group.id)}
-					<label class="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-sm hover:bg-muted">
-						<input type="checkbox" checked={groupSelect.has(group.id)} onchange={() => groupSelect.toggle(group.id)} />
-						<span>{group.name}</span>
-					</label>
-				{/each}
-			</div>
+			<ReportWorkspace.OptionList
+				ariaLabel="Select groups"
+				options={groupOptions}
+				selectedIds={groupSelect.selectedIds}
+				onToggle={groupSelect.toggle}
+				emptyMessage="No groups available."
+			/>
 		</div>
 	</ReportWorkspace.Filters>
 
 	{#if report.status === 'loading'}
-		<ReportWorkspace.State state="loading" title="Generating report" />
+		<ReportWorkspace.State state="loading" title="Checking group availability" />
 	{:else if report.status === 'error'}
-		<ReportWorkspace.State state="error" title="Report failed" description={report.error ?? undefined} />
+		<ReportWorkspace.State
+			state="error"
+			title="Could not build group availability report"
+			description={report.error ?? undefined}
+		/>
 	{:else if report.result}
-		<ReportWorkspace.Section title="Group readiness" meta={resultMeta}>
+		<ReportWorkspace.Section
+			title="Group availability by day"
+			description="Each cell shows available personnel over total personnel for that group and date."
+			meta={resultMeta}
+		>
 			{#snippet actions()}
-				<ReportWorkspace.ExportAction label="Export Excel" onclick={handleExportExcel} />
+				<ReportWorkspace.ExportAction label="Export group availability" onclick={handleExportExcel} />
 			{/snippet}
 
 			{#if report.result.groups.length === 0}
 				<ReportWorkspace.State
 					state="no-data"
-					title="No data found"
-					description="No group readiness rows matched the selected criteria."
+					title="No group availability to report"
+					description="No personnel are assigned to the selected groups for these dates."
 				/>
 			{:else}
 				<div class="overflow-x-auto rounded-md border border-border">
-					<table class="w-full border-collapse text-sm" aria-label="Group readiness heat map">
+					<table class="w-full border-collapse text-sm" aria-label="Group availability heat map">
 						<thead class="bg-muted">
 							<tr>
 								<th

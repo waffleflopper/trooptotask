@@ -2,6 +2,8 @@
 	import type { Personnel, StatusType } from '$lib/types';
 	import { Badge } from '$lib/components/ui/badge/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
+	import PlusIcon from '@lucide/svelte/icons/plus';
+	import MinusIcon from '@lucide/svelte/icons/minus';
 	import * as ReportWorkspace from '$lib/components/ui/report-workspace/index.js';
 	import type { ColumnDef } from '$lib/components/ui/data-table/index.js';
 	import { useDataTable } from '$lib/components/ui/data-table/index.js';
@@ -27,6 +29,8 @@
 	const selectedGroupIds = new SvelteSet<string>();
 	const expandedDates = new SvelteSet<string>();
 
+	const groupOptions = $derived(groups.map((group) => ({ id: group.id, label: group.name })));
+
 	const filteredPersonnel = $derived.by(() => {
 		if (selectedGroupIds.size === 0) return personnel;
 		return personnel.filter((person) => person.groupId && selectedGroupIds.has(person.groupId));
@@ -35,7 +39,7 @@
 	const report = ReportWorkspace.createReportRun({
 		validate: () => {
 			if (!startDate || !endDate) return 'Select a date range.';
-			if (filteredPersonnel.length === 0) return 'No personnel selected.';
+			if (filteredPersonnel.length === 0) return 'Select at least one group.';
 			return null;
 		},
 		load: () => fetchCalendarReportData(orgId, startDate, endDate),
@@ -61,7 +65,7 @@
 		},
 		{
 			key: 'percent',
-			header: 'Available %',
+			header: 'Available percent',
 			value: (row) => row.availablePercent,
 			compare: (a, b) => a.availablePercent - b.availablePercent,
 			align: 'center'
@@ -109,8 +113,11 @@
 	}
 </script>
 
-<ReportWorkspace.Root ariaLabel="Availability forecast report">
-	<ReportWorkspace.Filters title="Report configuration">
+<ReportWorkspace.Root ariaLabel="Availability by day report">
+	<ReportWorkspace.Filters
+		title="Build daily availability report"
+		description="Shows available and unavailable personnel for each day in the range."
+	>
 		{#snippet dateRange()}
 			<ReportWorkspace.DateRangeField
 				bind:start={startDate}
@@ -121,40 +128,46 @@
 
 		{#snippet actions()}
 			<Button onclick={runReport} disabled={!report.canRun}>
-				{report.status === 'loading' ? 'Generating...' : 'Generate Report'}
+				{report.status === 'loading' ? 'Checking availability...' : 'Run availability report'}
 			</Button>
 		{/snippet}
 
 		<div class="min-w-0 space-y-2">
-			<div class="flex max-h-48 flex-col gap-0.5 overflow-y-auto rounded-md border border-border p-1">
-				{#each groups as group (group.id)}
-					<label class="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-sm hover:bg-muted">
-						<input type="checkbox" checked={selectedGroupIds.has(group.id)} onchange={() => toggleGroup(group.id)} />
-						<span>{group.name}</span>
-					</label>
-				{/each}
-			</div>
+			<span class="font-mono text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground"> Groups </span>
+			<ReportWorkspace.OptionList
+				ariaLabel="Filter by group"
+				options={groupOptions}
+				selectedIds={selectedGroupIds}
+				onToggle={toggleGroup}
+				emptyMessage="No groups available."
+			/>
 			<p class="text-xs text-muted-foreground">
-				{filteredPersonnel.length} of {personnel.length} personnel selected
 				{#if selectedGroupIds.size === 0}
-					(all)
+					All {personnel.length} personnel (no group filter)
+				{:else}
+					{filteredPersonnel.length} of {personnel.length} personnel
 				{/if}
 			</p>
 		</div>
 	</ReportWorkspace.Filters>
 
 	{#if report.status === 'loading'}
-		<ReportWorkspace.State state="loading" title="Generating report" />
+		<ReportWorkspace.State state="loading" title="Checking daily availability" />
 	{:else if report.status === 'error'}
-		<ReportWorkspace.State state="error" title="Report failed" description={report.error ?? undefined} />
+		<ReportWorkspace.State
+			state="error"
+			title="Could not build availability report"
+			description={report.error ?? undefined}
+		/>
 	{:else if report.result}
 		<ReportWorkspace.Table
-			title="Availability forecast"
+			title="Availability by day"
+			description="Expand a day to see unavailable personnel and their recorded status."
 			meta={resultMeta}
 			{table}
 			columns={tableColumns}
-			ariaLabel="Availability forecast"
-			emptyMessage="No data found for the selected criteria."
+			ariaLabel="Availability by day"
+			emptyMessage="No calendar data falls in this date range. Try a different date range."
 			onRowClick={toggleForecastRow}
 			rowActionLabel={(day) =>
 				day.unavailableCount > 0
@@ -163,16 +176,23 @@
 			rowDetailVisible={(day) => expandedDates.has(day.date)}
 		>
 			{#snippet actions()}
-				<ReportWorkspace.ExportAction label="Export Excel" onclick={handleExportExcel} />
+				<ReportWorkspace.ExportAction label="Export availability" onclick={handleExportExcel} />
 			{/snippet}
 
 			{#snippet cell(day, column)}
 				{#if column.key === 'date'}
-					{#if day.unavailableCount > 0}
-						{expandedDates.has(day.date) ? 'Collapse' : 'Expand'} {formatDisplayDate(day.date)}
-					{:else}
+					<span class="inline-flex items-center gap-1.5">
+						{#if day.unavailableCount > 0}
+							{#if expandedDates.has(day.date)}
+								<MinusIcon class="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+							{:else}
+								<PlusIcon class="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+							{/if}
+						{:else}
+							<span class="size-3.5 shrink-0" aria-hidden="true"></span>
+						{/if}
 						{formatDisplayDate(day.date)}
-					{/if}
+					</span>
 				{:else if column.key === 'percent'}
 					{day.availablePercent}%
 				{:else}

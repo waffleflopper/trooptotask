@@ -23,6 +23,7 @@ describe('CalendarReports', () => {
 		expect(screen.queryByText('Pick the view that answers the question in front of you.')).toBeNull();
 
 		const reportType = screen.getByLabelText('Report type') as HTMLSelectElement;
+		expect(screen.getByText('Status days by person')).toBeTruthy();
 		await fireEvent.change(reportType, { target: { value: 'group-readiness' } });
 
 		expect(reportType.value).toBe('group-readiness');

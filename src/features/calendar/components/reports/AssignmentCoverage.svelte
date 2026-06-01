@@ -8,7 +8,7 @@
 	import type { AssignmentCoverageResult, CoverageRow } from '../../utils/calendarReports';
 	import { computeAssignmentCoverage } from '../../utils/calendarReports';
 	import { exportAssignmentCoverageWorkbook } from './calendarReportWorkbookExport';
-	import { fetchCalendarReportData } from './calendarReportData';
+	import { fetchCalendarReportData, type CalendarReportData } from './calendarReportData';
 
 	interface Props {
 		orgId: string;
@@ -17,16 +17,31 @@
 		groups: { id: string; name: string }[];
 	}
 
+	interface AssignmentCoverageRunData {
+		startDate: string;
+		endDate: string;
+		data: CalendarReportData;
+	}
+
+	interface AssignmentCoverageSnapshot {
+		startDate: string;
+		endDate: string;
+		assignments: DailyAssignment[];
+		assignmentTypes: AssignmentType[];
+	}
+
 	let { orgId, personnel }: Props = $props();
 
-	const initialYearRange = ReportWorkspace.YEAR_PRESETS[0].getRange();
+	const yearPresets = ReportWorkspace.createYearPresets();
+	const initialYearRange = yearPresets[0].getRange();
 	let startDate = $state(initialYearRange.start);
 	let endDate = $state(initialYearRange.end);
-	let fetchedAssignmentTypes = $state<AssignmentType[]>([]);
-	let rawAssignments = $state<DailyAssignment[]>([]);
+	let runSnapshot = $state<AssignmentCoverageSnapshot | null>(null);
 	const selectedTypeIds = new SvelteSet<string>();
 
-	const personnelAssignmentTypes = $derived(fetchedAssignmentTypes.filter((type) => type.assignTo === 'personnel'));
+	const personnelAssignmentTypes = $derived(
+		(runSnapshot?.assignmentTypes ?? []).filter((type) => type.assignTo === 'personnel')
+	);
 	const assignmentTypeChipOptions = $derived(
 		personnelAssignmentTypes.map((type) => ({ id: type.id, label: type.name, color: type.color }))
 	);
@@ -39,27 +54,43 @@
 			if (!startDate || !endDate) return 'Select a date range.';
 			return null;
 		},
-		load: () => fetchCalendarReportData(orgId, startDate, endDate),
-		compute: (data): AssignmentCoverageResult => {
-			const assignmentTypes = data.assignmentTypes ?? [];
-			const assignments = data.assignments ?? [];
-			fetchedAssignmentTypes = assignmentTypes;
-			rawAssignments = assignments;
+		load: async (): Promise<AssignmentCoverageRunData> => {
+			const runStartDate = startDate;
+			const runEndDate = endDate;
+			const data = await fetchCalendarReportData(orgId, runStartDate, runEndDate);
+			return { startDate: runStartDate, endDate: runEndDate, data };
+		},
+		compute: (run): AssignmentCoverageResult => {
+			const assignmentTypes = run.data.assignmentTypes ?? [];
+			const assignments = run.data.assignments ?? [];
+			runSnapshot = {
+				startDate: run.startDate,
+				endDate: run.endDate,
+				assignments,
+				assignmentTypes
+			};
 			selectedTypeIds.clear();
 			for (const type of assignmentTypes.filter((item) => item.assignTo === 'personnel')) selectedTypeIds.add(type.id);
-			return computeAssignmentCoverage(personnel, assignments, assignmentTypes, selectedTypeIds, startDate, endDate);
+			return computeAssignmentCoverage(
+				personnel,
+				assignments,
+				assignmentTypes,
+				selectedTypeIds,
+				run.startDate,
+				run.endDate
+			);
 		}
 	});
 
 	const result = $derived.by(() => {
-		if (!report.result) return null;
+		if (!report.result || !runSnapshot) return null;
 		return computeAssignmentCoverage(
 			personnel,
-			rawAssignments,
-			fetchedAssignmentTypes,
+			runSnapshot.assignments,
+			runSnapshot.assignmentTypes,
 			selectedTypeIds,
-			startDate,
-			endDate
+			runSnapshot.startDate,
+			runSnapshot.endDate
 		);
 	});
 
@@ -121,7 +152,8 @@
 		initialSortDirection: 'desc'
 	});
 
-	const resultMeta = $derived(result ? `${result.rows.length} personnel · ${startDate} to ${endDate}` : '');
+	const resultRangeLabel = $derived(runSnapshot ? `${runSnapshot.startDate} to ${runSnapshot.endDate}` : '');
+	const resultMeta = $derived(result && runSnapshot ? `${result.rows.length} personnel · ${resultRangeLabel}` : '');
 
 	const reportSummary = $derived.by(() => {
 		if (!result) return null;
@@ -140,7 +172,7 @@
 					? `${formatPersonName(topRow.person)} · +${topDifference} over average`
 					: 'No one above average',
 			population: `${rows.length} personnel`,
-			parameters: `${startDate} to ${endDate}; ${displayTypes.length} assignment ${displayTypes.length === 1 ? 'type' : 'types'}`,
+			parameters: `${resultRangeLabel}; ${displayTypes.length} assignment ${displayTypes.length === 1 ? 'type' : 'types'}`,
 			findings: [
 				aboveAverageCount > 0
 					? `${aboveAverageCount} personnel are above the average assignment load.`
@@ -176,8 +208,8 @@
 	}
 
 	function handleExportExcel() {
-		if (!result) return;
-		return exportAssignmentCoverageWorkbook(result, displayTypes, startDate, endDate);
+		if (!result || !runSnapshot) return;
+		return exportAssignmentCoverageWorkbook(result, displayTypes, runSnapshot.startDate, runSnapshot.endDate);
 	}
 </script>
 
@@ -187,11 +219,7 @@
 		description="Counts personnel assignments and compares each person against the formation average."
 	>
 		{#snippet dateRange()}
-			<ReportWorkspace.DateRangeField
-				bind:start={startDate}
-				bind:end={endDate}
-				presets={ReportWorkspace.YEAR_PRESETS}
-			/>
+			<ReportWorkspace.DateRangeField bind:start={startDate} bind:end={endDate} presets={yearPresets} />
 		{/snippet}
 
 		{#snippet actions()}

@@ -36,7 +36,11 @@
 >
 	{#each options as option (option.id)}
 		<Label class="cursor-pointer rounded-md px-2 py-1.5 text-sm font-normal transition-colors hover:bg-muted">
-			<Checkbox bind:checked={() => selectedIds.has(option.id), () => onToggle(option.id)} />
+			<Checkbox
+				bind:checked={
+					() => selectedIds.has(option.id), (checked) => checked !== selectedIds.has(option.id) && onToggle(option.id)
+				}
+			/>
 			<span class="min-w-0 flex-1 [overflow-wrap:anywhere]" title={option.label}>{option.label}</span>
 		</Label>
 	{:else}

@@ -55,7 +55,9 @@
 				aria-label={option.label}
 				title={option.label}
 				class="h-auto min-h-7 max-w-full whitespace-normal text-left"
-				bind:pressed={() => selectedIds.has(option.id), () => onToggle(option.id)}
+				bind:pressed={
+					() => selectedIds.has(option.id), (pressed) => pressed !== selectedIds.has(option.id) && onToggle(option.id)
+				}
 			>
 				{#if option.color}
 					<span

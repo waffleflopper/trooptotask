@@ -19,6 +19,7 @@ export {
 	FORECAST_PRESET,
 	WEEK_PRESETS,
 	YEAR_PRESETS,
+	createYearPresets,
 	formatLocalDate,
 	type DateRangePreset
 } from './DateRangeField.svelte';

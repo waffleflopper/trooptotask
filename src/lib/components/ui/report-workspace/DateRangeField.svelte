@@ -19,16 +19,19 @@
 		return new Date(date.getFullYear(), date.getMonth(), diff);
 	}
 
-	const currentYear = new Date().getFullYear();
+	export function createYearPresets(referenceDate = new Date()): DateRangePreset[] {
+		const currentYear = referenceDate.getFullYear();
+		return Array.from({ length: 5 }, (_, index) => {
+			const year = currentYear - index;
+			return {
+				id: `year-${year}`,
+				label: String(year),
+				getRange: () => ({ start: `${year}-01-01`, end: `${year}-12-31` })
+			};
+		});
+	}
 
-	export const YEAR_PRESETS: DateRangePreset[] = Array.from({ length: 5 }, (_, index) => {
-		const year = currentYear - index;
-		return {
-			id: `year-${year}`,
-			label: String(year),
-			getRange: () => ({ start: `${year}-01-01`, end: `${year}-12-31` })
-		};
-	});
+	export const YEAR_PRESETS: DateRangePreset[] = createYearPresets();
 
 	export const WEEK_PRESETS: DateRangePreset[] = [
 		{

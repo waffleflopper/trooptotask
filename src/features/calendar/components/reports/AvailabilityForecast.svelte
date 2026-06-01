@@ -11,7 +11,7 @@
 	import type { AvailabilityForecastResult, ForecastDay } from '../../utils/calendarReports';
 	import { computeAvailabilityForecast } from '../../utils/calendarReports';
 	import { exportAvailabilityForecastWorkbook } from './calendarReportWorkbookExport';
-	import { fetchCalendarReportData } from './calendarReportData';
+	import { fetchCalendarReportData, type CalendarReportData } from './calendarReportData';
 
 	interface Props {
 		orgId: string;
@@ -20,20 +20,33 @@
 		groups: { id: string; name: string }[];
 	}
 
+	interface AvailabilityForecastRunData {
+		startDate: string;
+		endDate: string;
+		personnel: Personnel[];
+		data: CalendarReportData;
+	}
+
+	interface AvailabilityForecastReportResult extends AvailabilityForecastResult {
+		startDate: string;
+		endDate: string;
+		personnelCount: number;
+	}
+
 	let { orgId, personnel, statusTypes, groups }: Props = $props();
 
 	const initialRange = ReportWorkspace.FORECAST_PRESET[0].getRange();
 	let startDate = $state(initialRange.start);
 	let endDate = $state(initialRange.end);
 
-	const selectedGroupIds = new SvelteSet<string>();
 	const expandedDates = new SvelteSet<string>();
 
+	const groupSelect = ReportWorkspace.createMultiSelect(() => groups);
 	const groupOptions = $derived(groups.map((group) => ({ id: group.id, label: group.name })));
 
 	const filteredPersonnel = $derived.by(() => {
-		if (selectedGroupIds.size === 0) return personnel;
-		return personnel.filter((person) => person.groupId && selectedGroupIds.has(person.groupId));
+		if (groupSelect.allSelected) return personnel;
+		return personnel.filter((person) => person.groupId && groupSelect.has(person.groupId));
 	});
 
 	const report = ReportWorkspace.createReportRun({
@@ -42,9 +55,19 @@
 			if (filteredPersonnel.length === 0) return 'Select at least one group.';
 			return null;
 		},
-		load: () => fetchCalendarReportData(orgId, startDate, endDate),
-		compute: (data): AvailabilityForecastResult =>
-			computeAvailabilityForecast(filteredPersonnel, data.entries, statusTypes, startDate, endDate)
+		load: async (): Promise<AvailabilityForecastRunData> => {
+			const runStartDate = startDate;
+			const runEndDate = endDate;
+			const runPersonnel = [...filteredPersonnel];
+			const data = await fetchCalendarReportData(orgId, runStartDate, runEndDate);
+			return { startDate: runStartDate, endDate: runEndDate, personnel: runPersonnel, data };
+		},
+		compute: (run): AvailabilityForecastReportResult => ({
+			...computeAvailabilityForecast(run.personnel, run.data.entries, statusTypes, run.startDate, run.endDate),
+			startDate: run.startDate,
+			endDate: run.endDate,
+			personnelCount: run.personnel.length
+		})
 	});
 
 	const tableColumns: ColumnDef<ForecastDay>[] = [
@@ -81,7 +104,7 @@
 
 	const resultMeta = $derived(
 		report.result
-			? `${report.result.days.length} days · ${filteredPersonnel.length} personnel · ${startDate} to ${endDate}`
+			? `${report.result.days.length} days · ${report.result.personnelCount} personnel · ${report.result.startDate} to ${report.result.endDate}`
 			: ''
 	);
 
@@ -102,8 +125,8 @@
 				topDay && maxUnavailable > 0
 					? `${formatDisplayDate(topDay.date)} · ${maxUnavailable} unavailable (${topDay.availablePercent}% available)`
 					: 'No unavailable personnel',
-			population: `${filteredPersonnel.length} personnel`,
-			parameters: `${startDate} to ${endDate}`,
+			population: `${report.result.personnelCount} personnel`,
+			parameters: `${report.result.startDate} to ${report.result.endDate}`,
 			findings: [
 				daysBelowEighty > 0
 					? `${daysBelowEighty} ${daysBelowEighty === 1 ? 'day is' : 'days are'} below 80% availability.`
@@ -116,11 +139,6 @@
 			riskTone: maxUnavailable > 0 ? ('warning' as const) : ('success' as const)
 		};
 	});
-
-	function toggleGroup(groupId: string) {
-		if (selectedGroupIds.has(groupId)) selectedGroupIds.delete(groupId);
-		else selectedGroupIds.add(groupId);
-	}
 
 	async function runReport() {
 		expandedDates.clear();
@@ -142,7 +160,7 @@
 
 	async function handleExportExcel() {
 		if (!report.result) return;
-		await exportAvailabilityForecastWorkbook(report.result, startDate, endDate);
+		await exportAvailabilityForecastWorkbook(report.result, report.result.startDate, report.result.endDate);
 	}
 </script>
 
@@ -170,13 +188,15 @@
 			<ReportWorkspace.OptionList
 				ariaLabel="Filter by group"
 				options={groupOptions}
-				selectedIds={selectedGroupIds}
-				onToggle={toggleGroup}
+				selectedIds={groupSelect.selectedIds}
+				onToggle={groupSelect.toggle}
 				emptyMessage="No groups available."
 			/>
 			<p class="text-xs text-muted-foreground">
-				{#if selectedGroupIds.size === 0}
-					All {personnel.length} personnel (no group filter)
+				{#if groupSelect.allSelected}
+					All {personnel.length} personnel
+				{:else if groupSelect.count === 0}
+					No groups selected
 				{:else}
 					{filteredPersonnel.length} of {personnel.length} personnel
 				{/if}

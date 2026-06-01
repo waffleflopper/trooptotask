@@ -23,7 +23,8 @@
 
 	type FilterMode = 'all' | 'name' | 'group' | 'mos' | 'role';
 
-	const initialYearRange = ReportWorkspace.YEAR_PRESETS[0].getRange();
+	const yearPresets = ReportWorkspace.createYearPresets();
+	const initialYearRange = yearPresets[0].getRange();
 	let startDate = $state(initialYearRange.start);
 	let endDate = $state(initialYearRange.end);
 	let filterMode = $state<FilterMode>('all');
@@ -200,11 +201,7 @@
 		description="Counts selected calendar statuses for each person across the date range."
 	>
 		{#snippet dateRange()}
-			<ReportWorkspace.DateRangeField
-				bind:start={startDate}
-				bind:end={endDate}
-				presets={ReportWorkspace.YEAR_PRESETS}
-			/>
+			<ReportWorkspace.DateRangeField bind:start={startDate} bind:end={endDate} presets={yearPresets} />
 		{/snippet}
 
 		{#snippet actions()}

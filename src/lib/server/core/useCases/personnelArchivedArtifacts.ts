@@ -20,33 +20,8 @@ import {
 	listPersonnelLeaderNotes,
 	restorePersonnelLeaderNote
 } from './personnelLeaderNotes';
+import { PERSONNEL_ARTIFACT_SPECS, personnelOwnedArchiveSpecs } from './personnelArtifactLifecycle';
 
-const PERSONNEL_OWNED_ARCHIVE_TABLES = [
-	{
-		table: 'personnel_follow_ups',
-		filters: { status: 'open' },
-		archiveData: (archivedAt: string) => ({ status: 'archived', archived_at: archivedAt }),
-		restoreData: () => ({ status: 'open', archived_at: null })
-	},
-	{
-		table: 'counseling_records',
-		filters: undefined,
-		archiveData: (archivedAt: string) => ({ archived_at: archivedAt }),
-		restoreData: () => ({ archived_at: null })
-	},
-	{
-		table: 'personnel_documents',
-		filters: undefined,
-		archiveData: (archivedAt: string) => ({ archived_at: archivedAt }),
-		restoreData: () => ({ archived_at: null })
-	},
-	{
-		table: 'leader_notes',
-		filters: undefined,
-		archiveData: (archivedAt: string) => ({ archived_at: archivedAt }),
-		restoreData: () => ({ archived_at: null })
-	}
-] as const;
 const ARCHIVE_UPDATE_BATCH_SIZE = 50;
 
 export type RestoredPersonnelArchivedArtifact =
@@ -63,7 +38,7 @@ export async function archivePersonnelOwnedArtifacts(
 	const uniquePersonnelIds = [...new Set(personnelIds)];
 	if (uniquePersonnelIds.length === 0) return;
 
-	for (const { table, filters, archiveData } of PERSONNEL_OWNED_ARCHIVE_TABLES) {
+	for (const { table, filters, archivePatch } of personnelOwnedArchiveSpecs()) {
 		const rows = await ctx.store.findMany<{ id: string }>(table, ctx.auth.orgId, filters, {
 			inFilters: { personnel_id: uniquePersonnelIds },
 			isNull: { archived_at: true },
@@ -72,7 +47,7 @@ export async function archivePersonnelOwnedArtifacts(
 
 		for (let index = 0; index < rows.length; index += ARCHIVE_UPDATE_BATCH_SIZE) {
 			const batch = rows.slice(index, index + ARCHIVE_UPDATE_BATCH_SIZE);
-			await Promise.all(batch.map((row) => ctx.store.update(table, ctx.auth.orgId, row.id, archiveData(archivedAt))));
+			await Promise.all(batch.map((row) => ctx.store.update(table, ctx.auth.orgId, row.id, archivePatch(archivedAt))));
 		}
 	}
 }
@@ -85,20 +60,15 @@ export async function restorePersonnelOwnedArtifacts(
 	const uniquePersonnelIds = [...new Set(personnelIds)];
 	if (uniquePersonnelIds.length === 0) return;
 
-	for (const { table, restoreData } of PERSONNEL_OWNED_ARCHIVE_TABLES) {
-		const rows = await ctx.store.findMany<{ id: string }>(
-			table,
-			ctx.auth.orgId,
-			{ archived_at: personnelArchivedAt },
-			{
-				inFilters: { personnel_id: uniquePersonnelIds },
-				select: 'id'
-			}
-		);
+	for (const { table, restoreFilters, restorePatch } of personnelOwnedArchiveSpecs()) {
+		const rows = await ctx.store.findMany<{ id: string }>(table, ctx.auth.orgId, restoreFilters(personnelArchivedAt), {
+			inFilters: { personnel_id: uniquePersonnelIds },
+			select: 'id'
+		});
 
 		for (let index = 0; index < rows.length; index += ARCHIVE_UPDATE_BATCH_SIZE) {
 			const batch = rows.slice(index, index + ARCHIVE_UPDATE_BATCH_SIZE);
-			await Promise.all(batch.map((row) => ctx.store.update(table, ctx.auth.orgId, row.id, restoreData())));
+			await Promise.all(batch.map((row) => ctx.store.update(table, ctx.auth.orgId, row.id, restorePatch())));
 		}
 	}
 }
@@ -131,46 +101,50 @@ export async function restorePersonnelArchivedArtifact(
 	ctx: UseCaseContext,
 	input: { personnelId: string; kind: PersonnelArtifactKind; id: string }
 ): Promise<RestoredPersonnelArchivedArtifact> {
-	switch (input.kind) {
-		case 'follow-up':
-			return {
-				kind: 'follow-up',
-				...(await restorePersonnelFollowUp(ctx, { personnelId: input.personnelId, followUpId: input.id }))
-			};
-		case 'counseling':
-			return {
-				kind: 'counseling',
-				...(await restorePersonnelCounselingRecord(ctx, { personnelId: input.personnelId, recordId: input.id }))
-			};
-		case 'document':
-			return {
-				kind: 'document',
-				...(await restorePersonnelDocument(ctx, { personnelId: input.personnelId, documentId: input.id }))
-			};
-		case 'note':
-			return {
-				kind: 'note',
-				...(await restorePersonnelLeaderNote(ctx, { personnelId: input.personnelId, noteId: input.id }))
-			};
-		default:
-			fail(400, 'Unknown archived item type');
-	}
+	const restore = restorePersonnelArchivedArtifactByKind[input.kind];
+	if (!restore) fail(400, 'Unknown archived item type');
+	return restore(ctx, input);
 }
 
 export async function deletePersonnelArchivedArtifact(
 	ctx: UseCaseContext,
 	input: { personnelId: string; kind: PersonnelArtifactKind; id: string }
 ): Promise<void> {
-	switch (input.kind) {
-		case 'follow-up':
-			return deletePersonnelFollowUp(ctx, { personnelId: input.personnelId, followUpId: input.id });
-		case 'counseling':
-			return deletePersonnelCounselingRecord(ctx, { personnelId: input.personnelId, recordId: input.id });
-		case 'document':
-			return deletePersonnelDocument(ctx, { personnelId: input.personnelId, documentId: input.id });
-		case 'note':
-			return deletePersonnelLeaderNote(ctx, { personnelId: input.personnelId, noteId: input.id });
-		default:
-			fail(400, 'Unknown archived item type');
-	}
+	const deleteArtifact = deletePersonnelArchivedArtifactByKind[input.kind];
+	if (!deleteArtifact) fail(400, 'Unknown archived item type');
+	return deleteArtifact(ctx, input);
 }
+
+type ArchivedArtifactInput = { personnelId: string; kind: PersonnelArtifactKind; id: string };
+type RestoreArchivedArtifactHandler = (
+	ctx: UseCaseContext,
+	input: ArchivedArtifactInput
+) => Promise<RestoredPersonnelArchivedArtifact>;
+type DeleteArchivedArtifactHandler = (ctx: UseCaseContext, input: ArchivedArtifactInput) => Promise<void>;
+
+const restorePersonnelArchivedArtifactByKind = {
+	'follow-up': async (ctx, input) => ({
+		kind: 'follow-up',
+		...(await restorePersonnelFollowUp(ctx, { personnelId: input.personnelId, followUpId: input.id }))
+	}),
+	counseling: async (ctx, input) => ({
+		kind: 'counseling',
+		...(await restorePersonnelCounselingRecord(ctx, { personnelId: input.personnelId, recordId: input.id }))
+	}),
+	document: async (ctx, input) => ({
+		kind: 'document',
+		...(await restorePersonnelDocument(ctx, { personnelId: input.personnelId, documentId: input.id }))
+	}),
+	note: async (ctx, input) => ({
+		kind: 'note',
+		...(await restorePersonnelLeaderNote(ctx, { personnelId: input.personnelId, noteId: input.id }))
+	})
+} satisfies Record<keyof typeof PERSONNEL_ARTIFACT_SPECS, RestoreArchivedArtifactHandler>;
+
+const deletePersonnelArchivedArtifactByKind = {
+	'follow-up': (ctx, input) => deletePersonnelFollowUp(ctx, { personnelId: input.personnelId, followUpId: input.id }),
+	counseling: (ctx, input) =>
+		deletePersonnelCounselingRecord(ctx, { personnelId: input.personnelId, recordId: input.id }),
+	document: (ctx, input) => deletePersonnelDocument(ctx, { personnelId: input.personnelId, documentId: input.id }),
+	note: (ctx, input) => deletePersonnelLeaderNote(ctx, { personnelId: input.personnelId, noteId: input.id })
+} satisfies Record<keyof typeof PERSONNEL_ARTIFACT_SPECS, DeleteArchivedArtifactHandler>;

@@ -4,26 +4,24 @@ import { derivePersonnelDocumentTitle } from '$features/personnel/utils/document
 import { fail } from '$lib/server/core/errors';
 import type { UseCaseContext } from '$lib/server/core/ports';
 import { hasPdfFileSignature } from '$lib/storage/fileSignatures';
-import { requirePersonnelArtifactAccess, requirePersonnelArtifactReadAccess } from './personnelArtifactAuthorization';
-import { loadPersonnelContributorLabels, resolveContributorLabel } from './personnelContributorLabels';
+import {
+	archiveArtifact,
+	deleteArtifact,
+	listArtifacts,
+	loadPersonnelContributorLabels,
+	mapDocumentRow,
+	PERSONNEL_DOCUMENT_SPEC,
+	requirePersonnelArtifactAccess,
+	requirePersonnelArtifactReadAccess,
+	restoreArtifact,
+	type PersonnelDocumentRow
+} from './personnelArtifactLifecycle';
 
 export const PERSONNEL_DOCUMENTS_BUCKET = 'personnel-documents';
 export const MAX_PERSONNEL_DOCUMENT_BYTES = 10 * 1024 * 1024;
 export const DEFAULT_PERSONNEL_DOCUMENT_STORAGE_CAP_BYTES = 100 * 1024 * 1024;
 
 const ACCEPTED_DOCUMENT_TYPES = new Set(['application/pdf', 'image/jpeg', 'image/png', 'image/heic', 'image/heif']);
-
-interface PersonnelDocumentRow {
-	id: string;
-	personnel_id: string;
-	title: string;
-	file_path: string;
-	file_size_bytes: number;
-	content_type: string;
-	uploaded_by: string;
-	created_at?: string | null;
-	archived_at?: string | null;
-}
 
 interface OrganizationDocumentSettingsRow {
 	personnel_document_storage_cap_bytes?: number | null;
@@ -44,24 +42,6 @@ const documentInputSchema = z.object({
 	personnelId: z.string().min(1),
 	title: z.string().trim().max(160).optional()
 });
-
-function mapDocumentRow(row: PersonnelDocumentRow, contributorLabels = new Map<string, string>()): PersonnelDocument {
-	return {
-		id: row.id,
-		personnelId: row.personnel_id,
-		title: row.title,
-		fileName: fileNameFromPath(row.file_path),
-		fileSizeBytes: row.file_size_bytes,
-		contentType: row.content_type,
-		uploadedBy: resolveContributorLabel(contributorLabels, row.uploaded_by),
-		createdAt: row.created_at ?? new Date().toISOString(),
-		archivedAt: row.archived_at ?? null
-	};
-}
-
-function fileNameFromPath(path: string): string {
-	return path.split(/[\\/]/).pop() ?? 'document';
-}
 
 function hasJpegSignature(bytes: Uint8Array): boolean {
 	return bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
@@ -155,22 +135,7 @@ export async function listPersonnelDocuments(
 	limit?: number,
 	options: { archived?: boolean } = {}
 ): Promise<PersonnelDocument[]> {
-	await requirePersonnelArtifactReadAccess(ctx, personnelId);
-	const rows = await ctx.store.findMany<PersonnelDocumentRow>(
-		'personnel_documents',
-		ctx.auth.orgId,
-		{ personnel_id: personnelId },
-		{
-			orderBy: [{ column: 'created_at', ascending: false }],
-			isNull: { archived_at: !options.archived },
-			limit
-		}
-	);
-	const labels = await loadPersonnelContributorLabels(
-		ctx,
-		rows.map((row) => row.uploaded_by)
-	);
-	return rows.map((row) => mapDocumentRow(row, labels));
+	return listArtifacts(ctx, PERSONNEL_DOCUMENT_SPEC, personnelId, { limit, archived: options.archived });
 }
 
 export async function createPersonnelDocument(
@@ -233,54 +198,32 @@ export async function createPersonnelDocumentDownloadUrl(
 	};
 }
 
-async function loadDocument(
-	ctx: UseCaseContext,
-	personnelId: string,
-	documentId: string
-): Promise<PersonnelDocumentRow> {
-	await requirePersonnelArtifactAccess(ctx, personnelId);
-	const row = await ctx.store.findOne<PersonnelDocumentRow>('personnel_documents', ctx.auth.orgId, {
-		id: documentId,
-		personnel_id: personnelId
-	});
-	if (!row) fail(404, 'Document not found');
-	return row;
-}
-
 export async function archivePersonnelDocument(
 	ctx: UseCaseContext,
 	input: { personnelId: string; documentId: string }
 ): Promise<PersonnelDocument> {
-	const existing = await loadDocument(ctx, input.personnelId, input.documentId);
-	if (existing.archived_at) fail(409, 'Document is already archived');
-	const row = await ctx.store.update<PersonnelDocumentRow>('personnel_documents', ctx.auth.orgId, input.documentId, {
-		archived_at: new Date().toISOString()
-	});
-	ctx.audit.log({ action: 'personnel.document.archived', resourceType: 'personnel', resourceId: input.personnelId });
-	const labels = await loadPersonnelContributorLabels(ctx, [row.uploaded_by]);
-	return mapDocumentRow(row, labels);
+	return archiveArtifact(ctx, PERSONNEL_DOCUMENT_SPEC, { personnelId: input.personnelId, id: input.documentId });
 }
 
 export async function restorePersonnelDocument(
 	ctx: UseCaseContext,
 	input: { personnelId: string; documentId: string }
 ): Promise<PersonnelDocument> {
-	await loadDocument(ctx, input.personnelId, input.documentId);
-	const row = await ctx.store.update<PersonnelDocumentRow>('personnel_documents', ctx.auth.orgId, input.documentId, {
-		archived_at: null
-	});
-	ctx.audit.log({ action: 'personnel.document.restored', resourceType: 'personnel', resourceId: input.personnelId });
-	const labels = await loadPersonnelContributorLabels(ctx, [row.uploaded_by]);
-	return mapDocumentRow(row, labels);
+	return restoreArtifact(ctx, PERSONNEL_DOCUMENT_SPEC, { personnelId: input.personnelId, id: input.documentId });
 }
 
 export async function deletePersonnelDocument(
 	ctx: UseCaseContext,
 	input: { personnelId: string; documentId: string }
 ): Promise<void> {
-	const row = await loadDocument(ctx, input.personnelId, input.documentId);
-	if (!row.archived_at) fail(409, 'Archive documents before deleting them');
-	await ctx.store.delete('personnel_documents', ctx.auth.orgId, input.documentId);
-	await ctx.storage.remove(PERSONNEL_DOCUMENTS_BUCKET, [row.file_path]);
-	ctx.audit.log({ action: 'personnel.document.deleted', resourceType: 'personnel', resourceId: input.personnelId });
+	return deleteArtifact(
+		ctx,
+		PERSONNEL_DOCUMENT_SPEC,
+		{ personnelId: input.personnelId, id: input.documentId },
+		{
+			onDeleted: async (row) => {
+				await ctx.storage.remove(PERSONNEL_DOCUMENTS_BUCKET, [row.file_path]);
+			}
+		}
+	);
 }

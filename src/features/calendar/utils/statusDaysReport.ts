@@ -1,6 +1,6 @@
 import type { AvailabilityEntry } from '$lib/types';
 import type { Personnel } from '$lib/types';
-import { RANK_ORDER } from '$lib/domain/rosterGrouping';
+import { comparePersonnelByRankThenName } from '$lib/domain/personnelRank';
 
 export interface StatusDayRow {
 	person: Personnel;
@@ -82,14 +82,7 @@ export function computeStatusDays(
 		});
 	}
 
-	// Sort rows by rank then last name
-	const rankIndex = new Map<string, number>(RANK_ORDER.map((r, i) => [r, i]));
-	rows.sort((a, b) => {
-		const ra = rankIndex.get(a.person.rank) ?? 999;
-		const rb = rankIndex.get(b.person.rank) ?? 999;
-		if (ra !== rb) return ra - rb;
-		return a.person.lastName.localeCompare(b.person.lastName) || a.person.firstName.localeCompare(b.person.firstName);
-	});
+	rows.sort((a, b) => comparePersonnelByRankThenName(a.person, b.person));
 
 	return {
 		rows,

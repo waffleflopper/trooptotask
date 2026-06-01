@@ -2,8 +2,10 @@ import { subscriptionStore } from '$lib/stores/subscription.svelte';
 import { onboardingStore } from '$features/onboarding/stores/onboarding.svelte';
 import { onboardingTemplateStore } from '$features/onboarding/stores/onboardingTemplate.svelte';
 import { personnelStore } from '$features/personnel/stores/personnel.svelte';
+import { rosterStore } from '$lib/stores/roster.svelte';
 import { groupsStore } from '$lib/stores/groups.svelte';
 import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
+import { createRosterReadModel, type RosterReadModelView } from '$lib/domain/rosterReadModel';
 import { SvelteDate, SvelteMap, SvelteSet } from 'svelte/reactivity';
 import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 import type { OrgContext } from '$lib/stores/orgContext.svelte';
@@ -171,6 +173,11 @@ export class OnboardingPageContext {
 	// Complete confirmation state
 	completingId = $state<string | null>(null);
 	completingIncompleteCount = $state(0);
+	readonly #rosterView = $derived.by<RosterReadModelView>(() =>
+		rosterStore.orgId !== this.#org.orgId
+			? createRosterReadModel({ personnel: [] }).scoped(this.#org.scopeSet, { status: 'active' })
+			: rosterStore.readModel().scoped(this.#org.scopeSet, { status: 'active' })
+	);
 
 	constructor(modals: ModalRegistry, org: OrgContext) {
 		this.modals = modals;
@@ -238,15 +245,15 @@ export class OnboardingPageContext {
 	// ── Helpers ────────────────────────────────────────────────
 
 	getPersonName(personnelId: string): string {
-		return getPersonDisplayName(personnelId, personnelStore.items);
+		return this.rosterView.displayName(personnelId);
 	}
 
 	getPersonGroupName(personnelId: string): string | null {
-		return getPersonGroupDisplayName(personnelId, personnelStore.items);
+		return this.rosterView.groupName(personnelId);
 	}
 
 	getPersonnelPolicyResource(personnelId: string): PolicyResource {
-		const personnel = personnelStore.items.find((p) => p.id === personnelId);
+		const personnel = this.rosterView.getById(personnelId);
 		return personnel?.groupId ? { kind: 'group', groupId: personnel.groupId } : { kind: 'organization' };
 	}
 
@@ -428,7 +435,7 @@ export class OnboardingPageContext {
 	}
 
 	get personnel() {
-		return personnelStore.items;
+		return this.rosterView.flatPersonnel;
 	}
 
 	get groups() {
@@ -441,5 +448,9 @@ export class OnboardingPageContext {
 
 	get trainingTypeNames(): Map<string, string> {
 		return new SvelteMap(trainingTypesStore.items.map((t) => [t.id, t.name]));
+	}
+
+	private get rosterView(): RosterReadModelView {
+		return this.#rosterView;
 	}
 }

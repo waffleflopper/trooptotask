@@ -13,6 +13,7 @@
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+	import { createRosterReadModel } from '$lib/domain/rosterReadModel';
 	import { rosterStore } from '$lib/stores/roster.svelte';
 	import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
 	import {
@@ -66,14 +67,17 @@
 			: (selectedTypeId ? (types.find((t) => t.id === selectedTypeId) ?? null) : null) || orderedTypes[0] || null
 	);
 
+	const fallbackPersonnel = $derived(
+		Array.isArray(workspaceData?.personnel)
+			? workspaceData.personnel
+			: Array.isArray(data.personnel)
+				? data.personnel
+				: []
+	);
 	const personnel = $derived(
 		rosterStore.orgId === org.orgId
-			? rosterStore.items
-			: Array.isArray(workspaceData?.personnel)
-				? workspaceData.personnel
-				: Array.isArray(data.personnel)
-					? data.personnel
-					: []
+			? rosterStore.readModel().full({ status: 'active' }).flatPersonnel
+			: createRosterReadModel({ personnel: fallbackPersonnel }).full({ status: 'active' }).flatPersonnel
 	);
 
 	const availableRoles = $derived(

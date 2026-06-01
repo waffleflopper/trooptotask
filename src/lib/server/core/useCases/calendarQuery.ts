@@ -14,7 +14,6 @@ import { SpecialDayEntity } from '$lib/server/entities/specialDay';
 import { AssignmentTypeEntity } from '$lib/server/entities/assignmentType';
 import { DailyAssignmentEntity } from '$lib/server/entities/dailyAssignment';
 import { PinnedGroupsEntity } from '$lib/server/entities/pinnedGroups';
-import { PersonnelEntity } from '$lib/server/entities/personnel';
 import { GroupEntity } from '$lib/server/entities/group';
 import { StatusTypeEntity } from '$lib/server/entities/statusType';
 import { listDutyEventsInRange } from '$lib/server/core/useCases/dutyEventCrud';
@@ -27,6 +26,7 @@ import {
 	resolveCalendarAssigneeScope,
 	type CalendarAssigneeScope
 } from './calendarScope';
+import { loadRosterPersonnel } from './rosterReadModel';
 
 export interface CalendarDateRange {
 	rangeStart: string;
@@ -240,7 +240,7 @@ export async function fetchCalendarBootstrap(
 		assignmentTypeRows,
 		pinnedGroupRows,
 		advancedDutyEvents,
-		personnelRows,
+		personnel,
 		groupRows,
 		statusTypeRows,
 		orgSettingsRow
@@ -259,11 +259,9 @@ export async function fetchCalendarBootstrap(
 				)
 			: Promise.resolve([]),
 		withCalendarTiming(orgId, 'duty-event-hydration', () => listDutyEventsInRange(ctx, { rangeStart, rangeEnd })),
-		ctx.store.findMany<Record<string, unknown>>('personnel', orgId, undefined, {
-			select: PersonnelEntity.select,
-			...groupInFilter(calendarScope, 'group_id'),
-			isNull: { archived_at: true },
-			orderBy: [{ column: 'last_name', ascending: true }]
+		loadRosterPersonnel(ctx, {
+			status: 'active',
+			inFilters: calendarScope ? { group_id: calendarScope.groupIds } : undefined
 		}),
 		ctx.store.findMany<Record<string, unknown>>('groups', orgId, undefined, {
 			...groupInFilter(calendarScope, 'id'),
@@ -288,7 +286,7 @@ export async function fetchCalendarBootstrap(
 		dailyAssignments,
 		pinnedGroups: PinnedGroupsEntity.fromDbArray(pinnedGroupRows),
 		advancedDutyEvents: filterDutyEventsByCalendarScope(advancedDutyEvents, calendarScope),
-		personnel: PersonnelEntity.fromDbArray(personnelRows),
+		personnel,
 		groups: GroupEntity.fromDbArray(groupRows),
 		statusTypes: StatusTypeEntity.fromDbArray(statusTypeRows),
 		lossWarningWindowDays

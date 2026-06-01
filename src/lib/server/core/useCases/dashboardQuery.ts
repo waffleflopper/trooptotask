@@ -20,7 +20,6 @@ import { DailyAssignmentEntity } from '$lib/server/entities/dailyAssignment';
 import { PinnedGroupsEntity } from '$lib/server/entities/pinnedGroups';
 import { RatingSchemeEntryEntity } from '$lib/server/entities/ratingSchemeEntry';
 import { PersonnelOnboardingEntity } from '$lib/server/entities/personnelOnboarding';
-import { PersonnelEntity } from '$lib/server/entities/personnel';
 import { GroupEntity } from '$lib/server/entities/group';
 import { StatusTypeEntity } from '$lib/server/entities/statusType';
 import { TrainingTypeEntity } from '$lib/server/entities/trainingType';
@@ -28,6 +27,7 @@ import { formatDate } from '$lib/utils/dates';
 import type { DutyEvent } from '$features/duty-roster/duty-roster.types';
 import { listDutyEventsInRange } from './dutyEventCrud';
 import { listAwardTrackingAcknowledgedPersonnelIds } from './personnelAwardTracking';
+import { loadRosterPersonnel } from './rosterReadModel';
 
 export interface DashboardData {
 	availabilityEntries: AvailabilityEntry[];
@@ -95,7 +95,7 @@ export async function fetchDashboardBootstrap(ctx: QueryPorts): Promise<Dashboar
 		ratingSchemeRows,
 		onboardingRows,
 		todayDutyEvents,
-		personnelRows,
+		personnel,
 		groupRows,
 		statusTypeRows,
 		trainingTypeRows,
@@ -123,11 +123,7 @@ export async function fetchDashboardBootstrap(ctx: QueryPorts): Promise<Dashboar
 			select: PersonnelOnboardingEntity.select
 		}),
 		listDutyEventsInRange(ctx, { rangeStart: today, rangeEnd: today }).catch(() => [] as DutyEvent[]),
-		ctx.store.findMany<Record<string, unknown>>('personnel', orgId, undefined, {
-			select: PersonnelEntity.select,
-			isNull: { archived_at: true },
-			orderBy: [{ column: 'last_name', ascending: true }]
-		}),
+		loadRosterPersonnel(ctx, { status: 'active' }),
 		ctx.store.findMany<Record<string, unknown>>('groups', orgId, undefined, {
 			orderBy: [{ column: 'sort_order', ascending: true }]
 		}),
@@ -154,7 +150,7 @@ export async function fetchDashboardBootstrap(ctx: QueryPorts): Promise<Dashboar
 		ratingSchemeEntries: RatingSchemeEntryEntity.fromDbArray(ratingSchemeRows),
 		activeOnboardings,
 		todayDutyEvents,
-		personnel: PersonnelEntity.fromDbArray(personnelRows),
+		personnel,
 		groups: GroupEntity.fromDbArray(groupRows),
 		statusTypes: StatusTypeEntity.fromDbArray(statusTypeRows),
 		trainingTypes: TrainingTypeEntity.fromDbArray(trainingTypeRows),

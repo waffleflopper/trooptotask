@@ -78,6 +78,7 @@ interface TrainingPageViewTestCtx {
 	groups: Group[];
 	selectedGroupId: string;
 	setSelectedGroupId: ReturnType<typeof vi.fn>;
+	groupFilterOptions: Array<{ value: string; label: string }>;
 	viewMode: 'alphabetical' | 'by-group';
 	setViewMode: ReturnType<typeof vi.fn>;
 	filteredPersonnel: Personnel[];
@@ -98,6 +99,11 @@ function makeCtx(viewMode: 'alphabetical' | 'by-group', overrides: Partial<Train
 		groups,
 		selectedGroupId: '',
 		setSelectedGroupId: vi.fn(),
+		groupFilterOptions: [
+			{ value: '', label: 'Group: All' },
+			{ value: 'group-1', label: 'Alpha' },
+			{ value: 'group-2', label: 'Bravo' }
+		],
 		viewMode,
 		setViewMode: vi.fn(),
 		filteredPersonnel: personnel,

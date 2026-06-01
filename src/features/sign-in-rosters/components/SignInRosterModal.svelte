@@ -1,8 +1,9 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import type { Personnel } from '$lib/types';
 	import type { SignInRoster } from '../sign-in-rosters.types';
 	import { ARMY_RANKS, ALL_RANKS } from '$lib/types';
-	import { RANK_ORDER } from '$lib/domain/rosterGrouping';
+	import { PERSONNEL_RANK_ORDER } from '$lib/domain/personnelRank';
 	import type { RowInput } from 'jspdf-autotable';
 	import * as AppDialog from '$lib/components/ui/app-dialog';
 	import { Badge } from '$lib/components/ui/badge';
@@ -30,7 +31,7 @@
 	let { orgId, personnel, groups, canEdit, onClose }: Props = $props();
 
 	// Pre-compute rank index map
-	const RANK_INDEX = new Map<string, number>(RANK_ORDER.map((rank, index) => [rank, index]));
+	const RANK_INDEX = new Map<string, number>(PERSONNEL_RANK_ORDER.map((rank, index) => [rank, index]));
 
 	// View toggle
 	let view = $state<'list' | 'create'>('list');
@@ -77,10 +78,8 @@
 		loading = false;
 	}
 
-	$effect(() => {
-		if (view === 'list') {
-			fetchRosters(true);
-		}
+	onMount(() => {
+		void fetchRosters(true);
 	});
 
 	// Search debounce
@@ -143,8 +142,8 @@
 
 		if (sortBy === 'rank') {
 			sorted.sort((a, b) => {
-				const rankA = RANK_INDEX.get(a.rank) ?? RANK_ORDER.length;
-				const rankB = RANK_INDEX.get(b.rank) ?? RANK_ORDER.length;
+				const rankA = RANK_INDEX.get(a.rank) ?? PERSONNEL_RANK_ORDER.length;
+				const rankB = RANK_INDEX.get(b.rank) ?? PERSONNEL_RANK_ORDER.length;
 				if (rankA !== rankB) return rankA - rankB;
 				const lastDiff = a.lastName.localeCompare(b.lastName);
 				if (lastDiff !== 0) return lastDiff;
@@ -296,6 +295,7 @@
 				resetCreateFilters();
 				// Switch to list
 				view = 'list';
+				void fetchRosters(true);
 			}
 		} finally {
 			saving = false;

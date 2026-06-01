@@ -7,8 +7,7 @@ import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
 import { groupsStore } from '$lib/stores/groups.svelte';
 import { subscriptionStore } from '$lib/stores/subscription.svelte';
-import { groupAndSortPersonnel } from '$lib/domain/rosterGrouping';
-import { scopePersonnelByGroupScopeSet } from '$lib/utils/scopePersonnel';
+import { createRosterReadModel } from '$lib/domain/rosterReadModel';
 import { getBrowserLocalStorage } from '$lib/utils/browserStorage';
 import { POLICY_ACTION_CATALOG, type PolicyResource } from '$lib/access/policyEvaluator';
 import { queueUserPreferencesPatch } from '$lib/preferences/userPreferences.client';
@@ -164,50 +163,43 @@ export class CalendarPageContext {
 	}
 
 	// ---- derived: personnel groupings --------------------------------------
-	get personnelByGroup() {
-		return groupAndSortPersonnel(this.calendarPersonnel, {
+	get #calendarRoster() {
+		return createRosterReadModel({
+			personnel: this.calendarPersonnel,
 			pinnedGroups: pinnedGroupsStore.list,
 			fallbackGroupName: this.#data.orgName ?? ''
 		});
 	}
 
+	get personnelByGroup() {
+		return this.#calendarRoster.full({ status: 'active' }).personnelByGroup;
+	}
+
 	get scopedPBG() {
-		return scopePersonnelByGroupScopeSet(this.personnelByGroup, this.#org.scopeSet);
+		return this.#calendarRoster.scoped(this.#org.scopeSet, { status: 'active' }).personnelByGroup;
 	}
 
 	get allPersonnelFlat(): Personnel[] {
-		return this.scopedPBG.flatMap((g) => g.personnel);
+		return this.#calendarRoster.scoped(this.#org.scopeSet, { status: 'active' }).flatPersonnel;
 	}
 
 	get groupFilterOptions(): CalendarRosterFilterOption[] {
-		const scopedGroups = this.scopedPBG;
-		const total = scopedGroups.reduce((sum, group) => sum + group.personnel.length, 0);
-
-		return [
-			{ value: '', label: 'All groups', count: total },
-			...scopedGroups.map((group) => ({
-				value: this.groupFilterValue(group),
-				label: group.group,
-				count: group.personnel.length
-			}))
-		];
+		return this.#calendarRoster.scoped(this.#org.scopeSet, { status: 'active' }).groupFilterOptions;
 	}
 
 	get groupFilteredPBG() {
-		if (!this.calendarGroupFilter) return this.scopedPBG;
-		return this.scopedPBG.filter((group) => this.groupFilterValue(group) === this.calendarGroupFilter);
+		return this.#calendarRoster.scoped(this.#org.scopeSet, {
+			status: 'active',
+			groupFilter: this.calendarGroupFilter
+		}).personnelByGroup;
 	}
 
 	get filteredPBG() {
-		const query = this.calendarPersonnelSearch.trim().toLowerCase();
-		if (!query) return this.groupFilteredPBG;
-
-		return this.groupFilteredPBG
-			.map((group) => ({
-				...group,
-				personnel: group.personnel.filter((person) => this.matchesPersonnelSearch(person, group.group, query))
-			}))
-			.filter((group) => group.personnel.length > 0);
+		return this.#calendarRoster.scoped(this.#org.scopeSet, {
+			status: 'active',
+			groupFilter: this.calendarGroupFilter,
+			search: this.calendarPersonnelSearch
+		}).personnelByGroup;
 	}
 
 	// ---- reference date (for upcoming-loss evaluation) --------------------
@@ -379,26 +371,6 @@ export class CalendarPageContext {
 	private canManageAvailabilityForPerson(person: Personnel): boolean {
 		const resource = policyResourceForPersonnel(person);
 		return this.#org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.calendar.manageAvailability, resource).allowed;
-	}
-
-	private groupFilterValue(group: { group: string; personnel: Personnel[] }): string {
-		return group.personnel.find((person) => person.groupId)?.groupId ?? `name:${group.group}`;
-	}
-
-	private matchesPersonnelSearch(person: Personnel, groupName: string, query: string): boolean {
-		const searchableValues = [
-			person.rank,
-			person.mos,
-			person.clinicRole,
-			person.groupName,
-			groupName,
-			person.firstName,
-			person.lastName,
-			`${person.firstName} ${person.lastName}`,
-			`${person.lastName}, ${person.firstName}`
-		];
-
-		return searchableValues.some((value) => value?.toLowerCase().includes(query));
 	}
 }
 

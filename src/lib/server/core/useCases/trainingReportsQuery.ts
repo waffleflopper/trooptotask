@@ -11,7 +11,6 @@ import type { QueryPorts } from '$lib/server/core/ports';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import type { PersonnelTraining, TrainingStatus, TrainingType } from '$features/training/training.types';
 import { PersonnelTrainingEntity } from '$lib/server/entities/personnelTraining';
-import { PersonnelEntity } from '$lib/server/entities/personnel';
 import { TrainingTypeEntity } from '$lib/server/entities/trainingType';
 import { GroupEntity } from '$lib/server/entities/group';
 import type { Personnel } from '$lib/types';
@@ -29,6 +28,7 @@ import {
 import { writeWorkbookBuffer } from '$lib/export/workbook';
 import { TRAINING_STATUS_SORT_ORDER } from '$features/training/utils/trainingStatus';
 import { requireFeaturePolicy } from './featurePolicy';
+import { loadRosterPersonnel } from './rosterReadModel';
 
 export interface TrainingReportsData {
 	trainings: PersonnelTraining[];
@@ -144,12 +144,8 @@ async function buildTrainingReport(ctx: QueryPorts, input: TrainingReportInput =
 	const filters = input.filters ?? {};
 	const sort = normalizeSort(input.sort);
 
-	const [personnelRows, groupRows, typeRows, trainingRows] = await Promise.all([
-		ctx.store.findMany<Record<string, unknown>>('personnel', orgId, undefined, {
-			select: PersonnelEntity.select,
-			isNull: { archived_at: true },
-			orderBy: [{ column: 'last_name', ascending: true }]
-		}),
+	const [personnel, groupRows, typeRows, trainingRows] = await Promise.all([
+		loadRosterPersonnel(ctx, { status: 'active' }),
 		ctx.store.findMany<Record<string, unknown>>('groups', orgId, undefined, {
 			orderBy: [{ column: 'sort_order', ascending: true }]
 		}),
@@ -159,7 +155,6 @@ async function buildTrainingReport(ctx: QueryPorts, input: TrainingReportInput =
 		ctx.store.findMany<Record<string, unknown>>('personnel_trainings', orgId)
 	]);
 
-	const personnel = PersonnelEntity.fromDbArray(personnelRows);
 	const groups = GroupEntity.fromDbArray(groupRows);
 	const trainingTypes = TrainingTypeEntity.fromDbArray(typeRows);
 	const trainings = PersonnelTrainingEntity.fromDbArray(trainingRows);

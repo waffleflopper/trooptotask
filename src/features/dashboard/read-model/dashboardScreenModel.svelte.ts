@@ -1,6 +1,7 @@
 import { browser } from '$app/environment';
 import { changelog } from '$lib/data/changelog';
 import { whatsNewStore } from '$lib/stores/whatsNew.svelte';
+import { createRosterReadModel, type RosterReadModelView } from '$lib/domain/rosterReadModel';
 import { rosterStore } from '$lib/stores/roster.svelte';
 import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 import { availabilityStore } from '$features/calendar/stores/availability.svelte';
@@ -239,6 +240,18 @@ export class DashboardScreenModel {
 
 	private outTodayGroupBy = $state<OutTodayGroupBy>('status');
 	private upcomingGroupBy = $state<UpcomingGroupBy>('date');
+	private rosterView = $derived.by<RosterReadModelView>(() => {
+		const groupOrder = [...this.sources.groups.items]
+			.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.name.localeCompare(b.name))
+			.map((group) => group.name);
+
+		return createRosterReadModel({
+			personnel: this.sources.personnel.items,
+			pinnedGroups: this.sources.pinnedGroups.list,
+			groupOrder,
+			fallbackGroupName: this.data.orgName
+		}).full({ status: 'active' });
+	});
 
 	// ---------------------------------------------------------------------------
 	// Banner / getting-started support state
@@ -371,7 +384,7 @@ export class DashboardScreenModel {
 	}
 
 	get personnelIds(): Set<string> {
-		return new SvelteSet(this.sources.personnel.items.map((p) => p.id));
+		return new SvelteSet(this.rosterPersonnel.map((p) => p.id));
 	}
 
 	get todayEntries(): AvailabilityEntry[] {
@@ -386,7 +399,7 @@ export class DashboardScreenModel {
 	}
 
 	get totalPersonnel(): number {
-		return this.sources.personnel.items.length;
+		return this.rosterPersonnel.length;
 	}
 
 	get availableCount(): number {
@@ -427,7 +440,7 @@ export class DashboardScreenModel {
 					.map((slot) => {
 						let assigneeName = 'Unfilled';
 						if (slot.assigneeId) {
-							const person = this.sources.personnel.items.find((p) => p.id === slot.assigneeId);
+							const person = this.findRosterPerson(slot.assigneeId);
 							if (person) {
 								assigneeName = `${person.rank} ${person.lastName}`;
 								if (person.firstName) assigneeName += `, ${person.firstName[0]}`;
@@ -451,7 +464,7 @@ export class DashboardScreenModel {
 		const changes: DashboardUpcomingChangeRow[] = [];
 
 		for (const entry of this.sources.availability.items) {
-			const person = this.sources.personnel.items.find((p) => p.id === entry.personnelId);
+			const person = this.findRosterPerson(entry.personnelId);
 			const st = this.sources.statusTypes.items.find((s) => s.id === entry.statusTypeId);
 			if (!person || !st) continue;
 
@@ -505,7 +518,7 @@ export class DashboardScreenModel {
 		const completionSet = new SvelteSet(this.data.onboardingTrainingCompletions ?? []);
 
 		return onboardings.map((o) => {
-			const person = this.sources.personnel.items.find((p) => p.id === o.personnelId);
+			const person = this.findRosterPerson(o.personnelId);
 			const personName = person ? `${person.rank} ${person.lastName}, ${person.firstName}` : 'Unknown';
 			const steps = ((o.steps ?? []) as { stepType: string; trainingTypeId?: string; completed: boolean }[]).map(
 				(step) => {
@@ -541,7 +554,7 @@ export class DashboardScreenModel {
 		});
 
 		return sorted.map((group) => {
-			const groupPersonnel = this.sources.personnel.items.filter((p) => p.groupId === group.id);
+			const groupPersonnel = this.rosterPersonnel.filter((p) => p.groupId === group.id);
 			const total = groupPersonnel.length;
 			const unavailable = groupPersonnel.filter((p) => this.unavailablePersonnelIds.has(p.id)).length;
 			const available = total - unavailable;
@@ -591,7 +604,7 @@ export class DashboardScreenModel {
 	get nonAvailablePersonnel(): DashboardOutTodayRow[] {
 		return this.todayEntries
 			.map((e) => {
-				const person = this.sources.personnel.items.find((p) => p.id === e.personnelId);
+				const person = this.findRosterPerson(e.personnelId);
 				const st = this.sources.statusTypes.items.find((s) => s.id === e.statusTypeId);
 				if (!person || !st) return null;
 				const groupId = person.groupId ?? null;
@@ -685,8 +698,7 @@ export class DashboardScreenModel {
 
 		return this.groupBreakdown
 			.map((g) => {
-				const groupPersonnel = this.sources.personnel.items.filter((p) => p.groupId === g.id);
-				const total = groupPersonnel.length;
+				const total = g.total;
 				const overallTotal = this.totalPersonnel;
 				const estimated =
 					overallTotal > 0 ? Math.round(((stats.expired + stats.warningOrange) * total) / overallTotal) : 0;
@@ -719,7 +731,7 @@ export class DashboardScreenModel {
 			const daysUntil = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
 			if (daysUntil > lookaheadDays) continue;
 
-			const person = this.sources.personnel.items.find((p) => p.id === entry.ratedPersonId);
+			const person = entry.ratedPersonId ? this.findRosterPerson(entry.ratedPersonId) : undefined;
 			const personName = person ? `${person.rank} ${person.lastName}` : (entry.ratedPersonId ?? 'Unknown');
 			results.push({
 				id: entry.id,
@@ -742,7 +754,7 @@ export class DashboardScreenModel {
 
 	get upcomingLosses(): UpcomingLossRecord[] {
 		const warningWindowDays = this.data.dashboard.data.lossWarningWindowDays ?? 180;
-		return evaluateUpcomingLosses(this.sources.personnel.items, warningWindowDays, this.today, {
+		return evaluateUpcomingLosses(this.rosterPersonnel, warningWindowDays, this.today, {
 			awardTrackingAcknowledgedPersonnelIds: this.data.dashboard.data.awardTrackingAcknowledgedPersonnelIds ?? []
 		});
 	}
@@ -873,7 +885,7 @@ export class DashboardScreenModel {
 		const type = this.sources.dailyAssignments.types.find((t) => t.id === assignment.assignmentTypeId);
 		let assigneeName = '';
 		if (type?.assignTo === 'personnel') {
-			const person = this.sources.personnel.items.find((p) => p.id === assignment.assigneeId);
+			const person = this.findRosterPerson(assignment.assigneeId);
 			if (person) assigneeName = `${person.rank} ${person.lastName}`;
 		} else {
 			assigneeName = assignment.assigneeId;
@@ -887,6 +899,14 @@ export class DashboardScreenModel {
 			textColor: hexToTextColor(color),
 			assigneeName
 		};
+	}
+
+	private get rosterPersonnel(): Personnel[] {
+		return this.rosterView.flatPersonnel;
+	}
+
+	private findRosterPerson(personnelId: string | null | undefined): Personnel | undefined {
+		return personnelId ? this.rosterView.getById(personnelId) : undefined;
 	}
 }
 

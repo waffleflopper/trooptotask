@@ -80,4 +80,16 @@ describe('personnelStore', () => {
 			expect(sorted.map((p) => p.lastName)).toEqual(['Smith', 'Alpha', 'Doe']);
 		});
 	});
+
+	describe('readModel', () => {
+		it('exposes the explicit Roster Read Model over store items', () => {
+			const view = personnelStore.readModel({ pinnedGroups: ['Bravo'] }).scoped({
+				kind: 'groups',
+				groupIds: ['g2']
+			});
+
+			expect(view.personnel.map((person) => person.id)).toEqual(['3']);
+			expect(view.personnelByGroup.map((group) => group.group)).toEqual(['Bravo']);
+		});
+	});
 });

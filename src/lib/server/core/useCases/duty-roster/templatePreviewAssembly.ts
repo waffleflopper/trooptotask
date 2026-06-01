@@ -11,27 +11,15 @@ import {
 	type DutyRosterTemplatePreview
 } from '$features/duty-roster/templates/dutyRosterTemplatePreview';
 import { AvailabilityEntryEntity } from '$lib/server/entities/availabilityEntry';
-import { PersonnelEntity } from '$lib/server/entities/personnel';
 import { SpecialDayEntity } from '$lib/server/entities/specialDay';
 import { StatusTypeEntity } from '$lib/server/entities/statusType';
+import { loadRosterReadModel } from '$lib/server/core/useCases/rosterReadModel';
 import { loadAcceptedDutyRosterRunCountSource, type AcceptedDutyRosterRunCountSource } from './acceptedRuns';
 
 export async function listActiveDutyRosterPersonnel(ctx: QueryPorts): Promise<DutyRosterPoolPersonnel[]> {
-	const rows = await ctx.store.findMany<Record<string, unknown>>(
-		'personnel',
-		ctx.auth.orgId,
-		{},
-		{
-			select: PersonnelEntity.select,
-			isNull: { archived_at: true },
-			orderBy: [
-				{ column: 'last_name', ascending: true },
-				{ column: 'first_name', ascending: true }
-			]
-		}
-	);
+	const roster = await loadRosterReadModel(ctx, { status: 'active' });
 
-	return PersonnelEntity.fromDbArray(rows).map((person) => ({
+	return roster.full({ status: 'active' }).flatPersonnel.map((person) => ({
 		id: person.id,
 		rank: person.rank,
 		lastName: person.lastName,

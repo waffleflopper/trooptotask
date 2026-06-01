@@ -216,18 +216,6 @@
 			]
 		},
 		{
-			"path": "src/lib/utils/scopePersonnel.ts",
-			"classification": "compatibility-adapter",
-			"patterns": [
-				"scopedGroupId"
-			],
-			"ownerIssue": "#757",
-			"reason": "Client-side personnel filtering keeps the old single-Group helper beside the Scope Set helper for transitional callers.",
-			"driftIds": [
-				"D-01"
-			]
-		},
-		{
 			"path": "src/routes/org/[orgId]/+layout.svelte",
 			"classification": "compatibility-adapter",
 			"patterns": [

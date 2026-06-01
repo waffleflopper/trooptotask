@@ -2,10 +2,10 @@
 import { cleanup, render, screen } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import Page from './+page.svelte';
-import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
 import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
 import { groupsStore } from '$lib/stores/groups.svelte';
+import { rosterStore } from '$lib/stores/roster.svelte';
 import type { WorkspaceBootstrap } from '$lib/server/core/orgShell';
 import type { TrainingBootstrap } from '$lib/server/core/orgShell';
 import type { TrainingReportData } from '$lib/server/core/useCases/trainingReportsQuery';
@@ -30,6 +30,7 @@ vi.mock('$lib/stores/orgContext.svelte', () => ({
 			canEditOnboarding: true,
 			canManageMembers: true
 		},
+		scopeSet: { kind: 'organization' },
 		readOnly: false,
 		affordanceForFeatureAction: () => ({
 			allowed: true,
@@ -107,7 +108,7 @@ function makeTrainingReportData(rowCount = 1): TrainingReportData {
 
 describe('training reports page', () => {
 	beforeEach(() => {
-		personnelStore.load([], 'org-stale');
+		rosterStore.load([], 'org-stale');
 		groupsStore.load([], 'org-stale');
 		trainingTypesStore.load([], 'org-stale');
 		personnelTrainingsStore.load([], 'org-stale');
@@ -116,7 +117,7 @@ describe('training reports page', () => {
 	afterEach(() => {
 		cleanup();
 		vi.unstubAllGlobals();
-		personnelStore.load([], 'org-test-reset');
+		rosterStore.load([], 'org-test-reset');
 		groupsStore.load([], 'org-test-reset');
 		trainingTypesStore.load([], 'org-test-reset');
 		personnelTrainingsStore.load([], 'org-test-reset');

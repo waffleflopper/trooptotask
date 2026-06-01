@@ -1,6 +1,6 @@
 import type { MembershipRole } from '$lib/access/memberAccessShape';
 import type { UseCaseContext } from '$lib/server/core/ports';
-import { PersonnelEntity } from '$lib/server/entities/personnel';
+import { loadRosterPersonnel } from '$lib/server/core/useCases/rosterReadModel';
 import { DEFAULT_ARCHIVE_RETENTION_MONTHS } from './settingsPolicyConstraints';
 import type { SettingsArchivedPersonnelRow, SettingsArchivesSectionData } from './settingsSectionTypes';
 import type { OrganizationSettingsRow } from './settingsRows.server';
@@ -26,16 +26,15 @@ export async function loadArchivesSettings(
 	ctx: Pick<UseCaseContext, 'auth' | 'store' | 'rawStore'>,
 	input: { isAdmin: boolean }
 ): Promise<ArchivesSettingsData> {
-	const [organizationSettings, archivedPersonnelRows] = await Promise.all([
+	const [organizationSettings, archivedPersonnel] = await Promise.all([
 		ctx.rawStore.findOne<Pick<OrganizationSettingsRow, 'archive_retention_months'>>(
 			'organizations',
 			ctx.auth.orgId,
 			{},
 			'archive_retention_months'
 		),
-		ctx.store.findMany<Record<string, unknown>>('personnel', ctx.auth.orgId, undefined, {
-			select: PersonnelEntity.select,
-			isNull: { archived_at: false },
+		loadRosterPersonnel(ctx, {
+			status: 'archived',
 			orderBy: [{ column: 'archived_at', ascending: false }]
 		})
 	]);
@@ -43,7 +42,7 @@ export async function loadArchivesSettings(
 	return buildArchivesSettingsData(ctx, {
 		isAdmin: input.isAdmin,
 		organizationSettings,
-		archivedPersonnel: PersonnelEntity.fromDbArray(archivedPersonnelRows).map((p) => ({
+		archivedPersonnel: archivedPersonnel.map((p) => ({
 			id: p.id,
 			rank: p.rank,
 			firstName: p.firstName,

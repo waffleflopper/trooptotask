@@ -6,8 +6,7 @@
 	import { groupsStore } from '$lib/stores/groups.svelte';
 	import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
 	import { calendarStore } from '$features/calendar/stores/calendar.svelte';
-	import { groupAndSortPersonnel } from '$lib/domain/rosterGrouping';
-	import { scopePersonnelByGroupScopeSet } from '$lib/utils/scopePersonnel';
+	import { createRosterReadModel } from '$lib/domain/rosterReadModel';
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 	import type { Personnel } from '$lib/types';
 	import type { CalendarWorkspaceData } from '$features/calendar/calendar.types';
@@ -35,13 +34,14 @@
 	const workspaceData = $derived(data.calendar?.data ?? data);
 
 	const calendarPersonnel = $derived(workspaceData.allPersonnel ?? workspaceData.personnel ?? []);
-	const personnelByGroup = $derived(
-		groupAndSortPersonnel(calendarPersonnel, {
+	const rosterView = $derived(
+		createRosterReadModel({
+			personnel: calendarPersonnel,
 			pinnedGroups: pinnedGroupsStore.list,
 			fallbackGroupName: data.orgName ?? ''
-		})
+		}).scoped(org.scopeSet, { status: 'active' })
 	);
-	const scopedPBG = $derived(scopePersonnelByGroupScopeSet(personnelByGroup, org.scopeSet));
+	const scopedPBG = $derived(rosterView.personnelByGroup);
 	const relatedLinks = $derived([
 		{ label: 'Duty Rosters', href: `/org/${orgUrlSegment}/duty-rosters` },
 		{ label: 'Calendar', href: `/org/${orgUrlSegment}/calendar` }

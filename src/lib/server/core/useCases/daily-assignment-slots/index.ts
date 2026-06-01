@@ -1,8 +1,8 @@
 import { fail } from '$lib/server/core/errors';
 import type { WritePorts } from '$lib/server/core/ports';
 import { DailyAssignmentEntity } from '$lib/server/entities/dailyAssignment';
-import { PersonnelEntity } from '$lib/server/entities/personnel';
 import { CALENDAR_POLICY_ACTIONS, requireCalendarPersonnelPolicy, requireCalendarPolicy } from '../calendarPolicy';
+import { loadRosterPersonnel } from '../rosterReadModel';
 import {
 	findDutyCoverageConflicts,
 	findDutyCoverageConflictsBatch,
@@ -431,10 +431,11 @@ async function ensureManualAssignmentAvailability(
 	ctx: WritePorts,
 	input: { date: string; assigneeId: string }
 ): Promise<void> {
-	const personnelRows = await ctx.store.findMany<Record<string, unknown>>('personnel', ctx.auth.orgId, undefined, {
+	const personnel = await loadRosterPersonnel(ctx, {
+		status: 'all',
 		inFilters: { id: [input.assigneeId] }
 	});
-	const personnelById = new Map(PersonnelEntity.fromDbArray(personnelRows).map((person) => [person.id, person]));
+	const personnelById = new Map(personnel.map((person) => [person.id, person]));
 	const conflicts = await findDutyCoverageConflicts(ctx, {
 		assigneeIds: [input.assigneeId],
 		coverageStart: `${input.date}T00:00:00`,
@@ -450,10 +451,11 @@ async function ensureManualAssignmentAvailability(
 
 async function ensureBatchAssignmentAvailability(ctx: WritePorts, records: DailyAssignmentSlotRecord[]): Promise<void> {
 	const assigneeIds = [...new Set(records.map((record) => record.assigneeId))];
-	const personnelRows = await ctx.store.findMany<Record<string, unknown>>('personnel', ctx.auth.orgId, undefined, {
+	const personnel = await loadRosterPersonnel(ctx, {
+		status: 'all',
 		inFilters: { id: assigneeIds }
 	});
-	const personnelById = new Map(PersonnelEntity.fromDbArray(personnelRows).map((person) => [person.id, person]));
+	const personnelById = new Map(personnel.map((person) => [person.id, person]));
 
 	const checks: DutyCoverageConflictCheck[] = records.map((record, index) => ({
 		key: String(index),

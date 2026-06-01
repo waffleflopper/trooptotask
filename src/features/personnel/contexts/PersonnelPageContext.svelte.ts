@@ -1,7 +1,6 @@
 import { SvelteDate, SvelteMap, SvelteSet } from 'svelte/reactivity';
 import type { Personnel, OrganizationMemberPermissions } from '$lib/types';
-import { groupAndSortPersonnel } from '$lib/domain/rosterGrouping';
-import type { PersonnelGroup } from '$lib/domain/rosterGrouping';
+import { createRosterReadModel, type PersonnelGroup, type RosterReadModelView } from '$lib/domain/rosterReadModel';
 import type { ClientAffordance, OrgContext } from '$lib/stores/orgContext.svelte';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
@@ -155,15 +154,7 @@ export class PersonnelPageContext {
 	// ---- Derived: filtered personnel ----
 
 	get filteredPersonnel(): Personnel[] {
-		const query = this.searchQuery.trim().toLowerCase();
-		if (!query) return this.#personnelStore.items;
-		return this.#personnelStore.items.filter(
-			(p) =>
-				p.lastName.toLowerCase().includes(query) ||
-				p.firstName.toLowerCase().includes(query) ||
-				p.rank.toLowerCase().includes(query) ||
-				p.clinicRole.toLowerCase().includes(query)
-		);
+		return this.rosterView.flatPersonnel;
 	}
 
 	get alphabeticalPersonnel(): Personnel[] {
@@ -175,14 +166,11 @@ export class PersonnelPageContext {
 	}
 
 	get personnelByGroup(): PersonnelGroup[] {
-		return groupAndSortPersonnel(this.filteredPersonnel, {
-			pinnedGroups: this.#pinnedGroupsStore.list,
-			fallbackGroupName: this.#data.orgName
-		});
+		return this.rosterView.personnelByGroup;
 	}
 
 	get totalPersonnel(): number {
-		return this.#personnelStore.items.length;
+		return this.allActivePersonnel.length;
 	}
 
 	get filteredCount(): number {
@@ -204,7 +192,7 @@ export class PersonnelPageContext {
 	 */
 	get upcomingLossMap(): SvelteMap<string, UpcomingLossRecord> {
 		const warningWindowDays = this.#data.lossWarningWindowDays ?? 180;
-		const losses = evaluateUpcomingLosses(this.#personnelStore.items, warningWindowDays, this.#today, {
+		const losses = evaluateUpcomingLosses(this.allActivePersonnel, warningWindowDays, this.#today, {
 			awardTrackingAcknowledgedPersonnelIds: this.#data.awardTrackingAcknowledgedPersonnelIds ?? []
 		});
 		const map = new SvelteMap<string, UpcomingLossRecord>();
@@ -232,6 +220,14 @@ export class PersonnelPageContext {
 		return this.#data.orgName;
 	}
 
+	get allActivePersonnel(): Personnel[] {
+		return this.rosterViewWithoutSearch.flatPersonnel;
+	}
+
+	getPersonnelById(personnelId: string): Personnel | undefined {
+		return this.rosterViewWithoutSearch.getById(personnelId);
+	}
+
 	// ---- Event handlers ----
 
 	handleAdd(): void {
@@ -252,5 +248,21 @@ export class PersonnelPageContext {
 		} else {
 			this.collapsedGroups.add(group);
 		}
+	}
+
+	private get rosterViewWithoutSearch(): RosterReadModelView {
+		return createRosterReadModel({
+			personnel: this.#personnelStore.items,
+			pinnedGroups: this.#pinnedGroupsStore.list,
+			fallbackGroupName: this.#data.orgName
+		}).full({ status: 'active' });
+	}
+
+	private get rosterView(): RosterReadModelView {
+		return createRosterReadModel({
+			personnel: this.#personnelStore.items,
+			pinnedGroups: this.#pinnedGroupsStore.list,
+			fallbackGroupName: this.#data.orgName
+		}).full({ status: 'active', search: this.searchQuery });
 	}
 }

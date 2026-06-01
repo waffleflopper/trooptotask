@@ -1,6 +1,6 @@
 import { fail } from '$lib/server/core/errors';
 import type { QueryPorts, WritePorts } from '$lib/server/core/ports';
-import { PersonnelEntity } from '$lib/server/entities/personnel';
+import type { Personnel } from '$lib/types';
 import type {
 	DutyRosterPoolPersonnel,
 	DutyRosterCorrectionPoolOverrideReason,
@@ -14,6 +14,7 @@ import {
 } from '$features/duty-roster/templates/dutyRosterCorrection';
 import { acceptedRunSnapshot, parseAcceptedRunSnapshot, type DutyRosterTemplateRunRow } from './acceptedRunRecord';
 import { syncAcceptedDutyRosterCorrectionToCalendar } from './acceptedRunCalendarSync';
+import { loadRosterPersonnel } from '../rosterReadModel';
 
 const DUTY_ROSTER_TEMPLATE_CORRECTION_TABLE = 'duty_roster_template_run_corrections';
 const DUTY_ROSTER_TEMPLATE_RUN_TABLE = 'duty_roster_template_runs';
@@ -131,9 +132,9 @@ export async function recordDutyRosterTemplateRunCorrection(
 		fail(400, 'Replacement Soldier must differ from the current Soldier.');
 	}
 
-	const replacement = await ctx.store.findOne<Record<string, unknown>>('personnel', ctx.auth.orgId, {
-		id: input.replacementAssigneeId,
-		archived_at: null
+	const [replacement] = await loadRosterPersonnel(ctx, {
+		status: 'active',
+		filters: { id: input.replacementAssigneeId }
 	});
 	if (!replacement) {
 		fail(400, 'Replacement Soldier is missing or archived.');
@@ -220,13 +221,13 @@ async function loadCorrectionPersonnelById(
 		return personnelById;
 	}
 
-	const rows = await ctx.store.findMany<Record<string, unknown>>('personnel', ctx.auth.orgId, undefined, {
-		inFilters: { id: personnelIds },
-		select: PersonnelEntity.select
+	const personnel = await loadRosterPersonnel(ctx, {
+		status: 'all',
+		inFilters: { id: personnelIds }
 	});
-	for (const row of rows) {
-		const person = toDutyRosterPoolPersonnel(row);
-		personnelById.set(person.id, person);
+	for (const person of personnel) {
+		const poolPerson = toDutyRosterPoolPersonnel(person);
+		personnelById.set(poolPerson.id, poolPerson);
 	}
 	return personnelById;
 }
@@ -318,8 +319,7 @@ function dbPersonnelDisplay(
 	};
 }
 
-function toDutyRosterPoolPersonnel(row: Record<string, unknown>): DutyRosterPoolPersonnel {
-	const person = PersonnelEntity.fromDb(row);
+function toDutyRosterPoolPersonnel(person: Personnel): DutyRosterPoolPersonnel {
 	return {
 		id: person.id,
 		rank: person.rank,

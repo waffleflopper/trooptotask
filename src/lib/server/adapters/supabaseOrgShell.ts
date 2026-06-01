@@ -45,13 +45,11 @@ import { fetchDashboardBootstrap, type DashboardBootstrap } from '../core/useCas
 import { fetchPersonnelBootstrap, fetchRatingSchemeBootstrap } from '../core/useCases/personnelWorkspaceQuery';
 import { fetchCriticalTasksBootstrap } from '../core/useCases/criticalTasksWorkspaceQuery';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination';
-import { PersonnelEntity } from '$lib/server/entities/personnel';
 import { GroupEntity } from '$lib/server/entities/group';
 import { TrainingTypeEntity } from '$lib/server/entities/trainingType';
 import { TrainingViewEntity } from '$lib/server/entities/trainingView';
 import { PersonnelTrainingEntity } from '$lib/server/entities/personnelTraining';
 import { PinnedGroupsEntity } from '$lib/server/entities/pinnedGroups';
-import type { Personnel } from '$lib/types';
 import type { Group } from '$lib/stores/groups.svelte';
 import type { PersonnelTraining, TrainingType, TrainingView } from '$features/training/training.types';
 import { createSupabaseSubscriptionAdapter } from './supabaseSubscription';
@@ -62,6 +60,7 @@ import {
 	getPreferredOrganizationUrlSegment,
 	resolveOrganizationRouteIdentity
 } from '$lib/server/core/useCases/organizationUrlSlug';
+import { loadRosterPersonnel } from '../core/useCases/rosterReadModel';
 
 export interface SupabaseAppShellRequestDeps {
 	getLayoutClient?: typeof getLayoutClient;
@@ -491,15 +490,13 @@ export function createSupabaseTrainingWorkspacePort(
 					throw error;
 				});
 
-			const personnel = loadTrainingItems(
-				'personnel',
-				ctx.store.findMany<Record<string, unknown>>('personnel', canonicalOrgId, undefined, {
-					select: PersonnelEntity.select,
-					isNull: { archived_at: true },
-					orderBy: [{ column: 'last_name', ascending: true }]
-				}),
-				(rows) => PersonnelEntity.fromDbArray(rows) as Personnel[]
-			);
+			const personnel = loadRosterPersonnel(ctx, { status: 'active' }).catch((error) => {
+				console.error('[training-workspace] Failed to load personnel', {
+					orgId,
+					error
+				});
+				throw error;
+			});
 			const groups = loadTrainingItems(
 				'groups',
 				ctx.store.findMany<Record<string, unknown>>('groups', canonicalOrgId, undefined, {

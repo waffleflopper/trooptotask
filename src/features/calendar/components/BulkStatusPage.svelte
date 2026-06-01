@@ -9,8 +9,7 @@
 	import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 	import { availabilityStore } from '$features/calendar/stores/availability.svelte';
 	import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
-	import { groupAndSortPersonnel } from '$lib/domain/rosterGrouping';
-	import { scopePersonnelByGroupScopeSet } from '$lib/utils/scopePersonnel';
+	import { createRosterReadModel } from '$lib/domain/rosterReadModel';
 	import { page } from '$app/state';
 	import { goto, invalidate } from '$app/navigation';
 	import { resolve } from '$app/paths';
@@ -63,14 +62,15 @@
 
 	// ---- Personnel data ----
 	const calendarPersonnel = $derived(workspaceData.allPersonnel ?? workspaceData.personnel ?? []);
-	const personnelByGroup = $derived(
-		groupAndSortPersonnel(calendarPersonnel, {
+	const rosterView = $derived(
+		createRosterReadModel({
+			personnel: calendarPersonnel,
 			pinnedGroups: pinnedGroupsStore.list,
 			fallbackGroupName: data.orgName ?? ''
-		})
+		}).scoped(org.scopeSet, { status: 'active' })
 	);
-	const scopedPBG = $derived(scopePersonnelByGroupScopeSet(personnelByGroup, org.scopeSet));
-	const allPersonnelFlat = $derived(scopedPBG.flatMap((g) => g.personnel));
+	const scopedPBG = $derived(rosterView.personnelByGroup);
+	const allPersonnelFlat = $derived(rosterView.flatPersonnel);
 	const relatedLinks = $derived([{ label: 'Calendar', href: `/org/${orgUrlSegment}/calendar` }]);
 
 	// ---- Callbacks for child components ----

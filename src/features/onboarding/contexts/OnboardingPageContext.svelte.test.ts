@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { afterEach, describe, it, expect, vi } from 'vitest';
 
 const { invalidateMock } = vi.hoisted(() => ({
 	invalidateMock: vi.fn()
@@ -17,9 +17,13 @@ import {
 	formatTimestamp
 } from './OnboardingPageContext.svelte';
 import type { PersonnelOnboarding, OnboardingStepProgress } from '../onboarding.types';
-import { personnelStore } from '$features/personnel/stores/personnel.svelte';
+import { rosterStore } from '$lib/stores/roster.svelte';
 import type { CapabilityMap } from '$lib/access/memberAccessShape';
 import { createTestOrgContext, NONE_TEST_CAPABILITY_MAP } from '$lib/test-support/orgContextBuilder';
+
+afterEach(() => {
+	rosterStore.load([], 'org-test-reset');
+});
 
 // ── Fixtures ──────────────────────────────────────────────────
 
@@ -63,6 +67,7 @@ const baseCapabilityMap: CapabilityMap = {
 
 function makeOrgContext(capabilityMap: CapabilityMap = baseCapabilityMap) {
 	return createTestOrgContext({
+		orgId: 'org-1',
 		userRole: 'member',
 		capabilityMap,
 		scopeSet: { kind: 'groups', groupIds: ['g-1'] }
@@ -79,7 +84,7 @@ describe('OnboardingPageContext policy affordances', () => {
 	});
 
 	it('checks per-personnel scope for onboarding record actions', () => {
-		personnelStore.load(
+		rosterStore.load(
 			[
 				{
 					id: 'p-1',

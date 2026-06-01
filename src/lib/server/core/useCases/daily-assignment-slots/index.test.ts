@@ -11,6 +11,62 @@ function buildContext(overrides?: Parameters<typeof createWritePortsContext>[0])
 	return createWritePortsContext(overrides);
 }
 
+function seedDutyConflictForArchivedPersonnel(
+	ctx: ReturnType<typeof createWritePortsContext>,
+	personId = 'archived-person'
+) {
+	ctx.store.seed('personnel', [
+		{
+			id: personId,
+			organization_id: 'test-org',
+			rank: 'SGT',
+			last_name: 'Archived',
+			first_name: 'Avery',
+			mos: '11B',
+			clinic_role: 'Squad Leader',
+			group_id: 'group-hq',
+			group_name: 'Headquarters',
+			archived_at: '2026-03-01T00:00:00Z'
+		}
+	]);
+	ctx.store.seed('duty_events', [
+		{
+			id: 'duty-event-archived',
+			organization_id: 'test-org',
+			template_id: 'tmpl-1',
+			template_name: 'Battalion Staff Duty',
+			event_date: '2026-03-22',
+			coverage_start: '2026-03-22T06:00:00',
+			coverage_end: '2026-03-22T18:00:00',
+			coverage_mode: 'timed',
+			start_time: '06:00',
+			end_time: '18:00',
+			is_blocking: true,
+			cooldown_hours: 12,
+			fill_summary: {},
+			collision_summary: {},
+			rules_snapshot: {}
+		}
+	]);
+	ctx.store.seed('duty_event_slots', [
+		{
+			id: 'duty-slot-archived',
+			organization_id: 'test-org',
+			duty_event_id: 'duty-event-archived',
+			template_slot_id: 'slot-nco',
+			role_label: 'NCO',
+			slot_index: 0,
+			assignee_id: personId,
+			assignment_source: 'generated',
+			warning_state: 'none',
+			fairness_confidence: 'high',
+			selection_reason: null,
+			unfilled_reason: null,
+			sort_order: 0
+		}
+	]);
+}
+
 describe('Daily Assignment Slot writes', () => {
 	it('sets one slot through the Calendar-owned interface', async () => {
 		const ctx = buildContext();
@@ -70,6 +126,44 @@ describe('Daily Assignment Slot writes', () => {
 				assignee_id: 'person-1'
 			})
 		]);
+	});
+
+	it('rejects a single-slot assignment when an archived assignee has a duty conflict', async () => {
+		const ctx = buildContext();
+		seedDutyConflictForArchivedPersonnel(ctx);
+
+		await expect(
+			setDailyAssignmentSlot(ctx, {
+				date: '2026-03-22',
+				assignmentTypeId: 'type-a',
+				assigneeId: 'archived-person'
+			})
+		).rejects.toMatchObject({
+			status: 409,
+			message: 'SGT Archived is already assigned to duty coverage from 2026-03-22T06:00:00 to 2026-03-22T18:00:00.'
+		});
+		expect(await ctx.store.findMany('daily_assignments', 'test-org')).toEqual([]);
+	});
+
+	it('rejects a batch slot assignment when an archived assignee has a duty conflict', async () => {
+		const ctx = buildContext();
+		seedDutyConflictForArchivedPersonnel(ctx);
+
+		await expect(
+			replaceDailyAssignmentSlotsBatch(ctx, {
+				records: [
+					{
+						date: '2026-03-22',
+						assignmentTypeId: 'type-a',
+						assigneeId: 'archived-person'
+					}
+				]
+			})
+		).rejects.toMatchObject({
+			status: 409,
+			message: 'SGT Archived is already assigned to duty coverage from 2026-03-22T06:00:00 to 2026-03-22T18:00:00.'
+		});
+		expect(await ctx.store.findMany('daily_assignments', 'test-org')).toEqual([]);
 	});
 
 	it('rejects a multi-record replace day when one manual assignee has a duty conflict', async () => {

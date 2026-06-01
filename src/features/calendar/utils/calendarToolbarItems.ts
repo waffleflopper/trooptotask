@@ -97,6 +97,14 @@ export function buildCalendarToolbarItems(input: CalendarToolbarInput): Workspac
 		});
 	}
 
+	items.push({
+		id: 'calendar-reports',
+		label: 'Reports',
+		href: `/org/${orgRouteSegment}/calendar/reports`,
+		icon: 'chart',
+		displayMode: 'full'
+	});
+
 	if (input.canManageConfig) {
 		items.push({
 			id: 'calendar-settings',

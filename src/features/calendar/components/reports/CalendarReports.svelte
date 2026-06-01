@@ -27,11 +27,11 @@
 	let selectedReport = $state<ReportType>('status-days');
 
 	const reportOptions: { value: ReportType; label: string }[] = [
-		{ value: 'status-days', label: 'Status Days Summary' },
-		{ value: 'availability-forecast', label: 'Availability Forecast' },
-		{ value: 'personnel-tempo', label: 'Personnel Tempo (OPTEMPO)' },
-		{ value: 'assignment-coverage', label: 'Assignment Coverage' },
-		{ value: 'group-readiness', label: 'Group/Section Readiness' }
+		{ value: 'status-days', label: 'Status days by person' },
+		{ value: 'availability-forecast', label: 'Availability by day' },
+		{ value: 'personnel-tempo', label: 'Away days by person' },
+		{ value: 'assignment-coverage', label: 'Assignment load by person' },
+		{ value: 'group-readiness', label: 'Group availability by day' }
 	];
 	const relatedLinks = $derived([{ label: 'Calendar', href: `/org/${orgUrlSegment}/calendar` }]);
 </script>

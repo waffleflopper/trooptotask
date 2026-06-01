@@ -1,9 +1,12 @@
 <script lang="ts" generics="T">
+	import type { Snippet } from 'svelte';
 	import type {
 		ColumnDef,
 		DataTableCellSnippet,
 		DataTableHeaderSnippet,
+		DataTableRowDetailSnippet,
 		DataTableRowSnippet,
+		DataTableStateSnippet,
 		DataTableState
 	} from '$lib/components/ui/data-table/index.js';
 	import * as DataTable from '$lib/components/ui/data-table/index.js';
@@ -25,7 +28,14 @@
 		density?: 'default' | 'dense';
 		cell?: DataTableCellSnippet<T>;
 		row?: DataTableRowSnippet<T>;
+		rowDetail?: DataTableRowDetailSnippet<T>;
+		rowDetailVisible?: (row: T) => boolean;
+		onRowClick?: (row: T) => void;
+		rowActionLabel?: (row: T) => string;
 		headerCell?: DataTableHeaderSnippet<T>;
+		footer?: DataTableStateSnippet<T>;
+		actions?: Snippet;
+		summary?: Snippet;
 	};
 
 	let {
@@ -44,11 +54,18 @@
 		density = 'dense',
 		cell,
 		row,
-		headerCell
+		rowDetail,
+		rowDetailVisible,
+		onRowClick,
+		rowActionLabel,
+		headerCell,
+		footer,
+		actions,
+		summary
 	}: Props = $props();
 </script>
 
-<Section {title} {description} {meta}>
+<Section {title} {description} {meta} {actions} {summary}>
 	<DataTable.DataTable
 		{data}
 		{columns}
@@ -60,10 +77,15 @@
 		{searchPlaceholder}
 		{pageSize}
 		{density}
+		{onRowClick}
+		{rowActionLabel}
 		stickyHeader
 		maxHeight="28rem"
 		{cell}
 		{row}
+		{rowDetail}
+		{rowDetailVisible}
 		{headerCell}
+		{footer}
 	/>
 </Section>

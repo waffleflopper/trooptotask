@@ -2,10 +2,24 @@ export { default as Root } from './report-workspace-root.svelte';
 export { default as Header } from './report-workspace-header.svelte';
 export { default as Toolbar } from './report-workspace-toolbar.svelte';
 export { default as Filters } from './report-workspace-filters.svelte';
+export { default as OptionChips, type OptionChip } from './report-workspace-option-chips.svelte';
+export { default as OptionList, type OptionListItem } from './report-workspace-option-list.svelte';
 export { default as Content } from './report-workspace-content.svelte';
 export { default as Section } from './report-workspace-section.svelte';
+export { default as SummaryStrip, type SummaryStripTone } from './report-workspace-summary-strip.svelte';
 export { default as Chart } from './report-workspace-chart.svelte';
 export { default as Table } from './report-workspace-table.svelte';
 export { default as State } from './report-workspace-state.svelte';
 export { default as ExportActions } from './report-workspace-export-actions.svelte';
 export { default as ExportAction } from './report-workspace-export-action.svelte';
+export { default as DateRangeField } from './DateRangeField.svelte';
+export { createMultiSelect, type MultiSelect } from './createMultiSelect.svelte';
+export { createReportRun, type ReportRun, type ReportRunStatus } from './createReportRun.svelte';
+export {
+	FORECAST_PRESET,
+	WEEK_PRESETS,
+	YEAR_PRESETS,
+	createYearPresets,
+	formatLocalDate,
+	type DateRangePreset
+} from './DateRangeField.svelte';

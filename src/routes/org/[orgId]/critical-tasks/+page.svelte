@@ -7,15 +7,15 @@
 	import { Toggle } from '$lib/components/ui/toggle';
 	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
 	import { downloadBlob, filenameFromContentDisposition } from '$lib/export/workbook';
+	import { createRosterReadModel } from '$lib/domain/rosterReadModel';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
-	import { personnelStore } from '$features/personnel/stores/personnel.svelte';
+	import { rosterStore } from '$lib/stores/roster.svelte';
 	import { groupsStore } from '$lib/stores/groups.svelte';
 	import IctMatrix from '$features/critical-tasks/components/IctMatrix.svelte';
 	import IctCompletionModal from '$features/critical-tasks/components/IctCompletionModal.svelte';
 	import IctCompletionBulkImport from '$features/critical-tasks/components/IctCompletionBulkImport.svelte';
 	import { ictTasksStore } from '$features/critical-tasks/stores/ictTasks.svelte';
 	import { personnelIctCompletionsStore } from '$features/critical-tasks/stores/personnelIctCompletions.svelte';
-	import { matchesCriticalTasksPersonnelSearch } from '$features/critical-tasks/utils/criticalTasksMatrix';
 	import {
 		criticalTasksConfigureLibraryAffordance,
 		criticalTasksRecordCompletionAffordance,
@@ -44,7 +44,7 @@
 	const taskLibraryHref = $derived(`/org/${orgUrlSegment}/critical-tasks/library`);
 
 	const storesHydratedForOrg = $derived(
-		personnelStore.orgId === orgId &&
+		rosterStore.orgId === orgId &&
 			groupsStore.orgId === orgId &&
 			ictTasksStore.orgId === orgId &&
 			personnelIctCompletionsStore.orgId === orgId
@@ -52,7 +52,7 @@
 
 	const loading = $derived(
 		!storesHydratedForOrg ||
-			personnelStore.loading ||
+			rosterStore.loading ||
 			groupsStore.loading ||
 			ictTasksStore.loading ||
 			personnelIctCompletionsStore.loading
@@ -67,22 +67,47 @@
 	const canRecordCompletion = $derived(recordCompletionAffordance.allowed);
 	const canConfigureLibrary = $derived(configureLibraryAffordance.allowed);
 	const canInputTask = $derived(canViewReadiness && canRecordCompletion);
-	const activePersonnel = $derived(personnelStore.items.filter((person) => !person.archivedAt));
+	const groupOrder = $derived(
+		[...groupsStore.items]
+			.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.name.localeCompare(b.name))
+			.map((g) => g.name)
+	);
+	const rosterReadModel = $derived(
+		rosterStore.orgId === orgId
+			? rosterStore.readModel({
+					groupOrder,
+					fallbackGroupName: orgName
+				})
+			: createRosterReadModel({
+					personnel: [],
+					groupOrder,
+					fallbackGroupName: orgName
+				})
+	);
+	const activeRosterView = $derived(rosterReadModel.scoped(org.scopeSet, { status: 'active' }));
+	const activePersonnel = $derived(activeRosterView.flatPersonnel);
 	const canOpenTaskInput = $derived(canInputTask && activePersonnel.length > 0 && activeTasks.length > 0);
 	const canOpenCompletionImport = $derived(
-		canInputTask && personnelStore.items.length > 0 && ictTasksStore.items.length > 0
+		canInputTask && activePersonnel.length > 0 && ictTasksStore.items.length > 0
 	);
-	const groupFilterOptions = $derived([
-		{ value: '', label: 'Group: All' },
-		...groupsStore.items.map((group) => ({ value: group.id, label: group.name }))
-	]);
+	const groupFilterOptions = $derived(
+		activeRosterView.groupFilterOptions.map((option) => ({
+			value: option.value,
+			label: option.value ? option.label : 'Group: All'
+		}))
+	);
+	const effectiveSelectedGroupId = $derived(
+		selectedGroupId && groupFilterOptions.some((option) => option.value === selectedGroupId) ? selectedGroupId : ''
+	);
 	const matrixViewOptions = [
 		{ value: 'alphabetical', label: 'A-Z' },
 		{ value: 'by-group', label: 'Group' }
 	];
-	const activeFilterCount = $derived((selectedGroupId ? 1 : 0) + (gapsOnly ? 1 : 0) + (personnelSearch.trim() ? 1 : 0));
+	const activeFilterCount = $derived(
+		(effectiveSelectedGroupId ? 1 : 0) + (gapsOnly ? 1 : 0) + (personnelSearch.trim() ? 1 : 0)
+	);
 	const filteredPersonnel = $derived(
-		activePersonnel.filter((person) => matchesCriticalTasksPersonnelSearch(person, personnelSearch))
+		rosterReadModel.scoped(org.scopeSet, { status: 'active', search: personnelSearch }).flatPersonnel
 	);
 
 	interface ActiveCompletionCell {
@@ -94,12 +119,6 @@
 	let activeCompletionCell = $state<ActiveCompletionCell | null>(null);
 	let matrixExportLoading = $state(false);
 	let matrixExportError = $state('');
-
-	$effect(() => {
-		if (selectedGroupId && !groupsStore.items.some((group) => group.id === selectedGroupId)) {
-			selectedGroupId = '';
-		}
-	});
 
 	function readMetadataString(record: unknown, key: string): string | null {
 		if (!record || typeof record !== 'object') return null;
@@ -132,8 +151,8 @@
 
 	const matrixExportHref = $derived.by(() => {
 		const params = new SvelteURLSearchParams();
-		if (selectedGroupId) {
-			params.set('groupId', selectedGroupId);
+		if (effectiveSelectedGroupId) {
+			params.set('groupFilter', effectiveSelectedGroupId);
 		}
 		if (personnelSearch.trim()) {
 			params.set('search', personnelSearch.trim());
@@ -297,7 +316,7 @@
 					<WorkspaceToolbar.Select
 						ariaLabel="Critical Tasks group filter"
 						options={groupFilterOptions}
-						value={selectedGroupId}
+						value={effectiveSelectedGroupId}
 						onValueChange={(value) => (selectedGroupId = value)}
 					/>
 					<Toggle
@@ -360,7 +379,7 @@
 							settings={criticalTasksSettings}
 							canEdit={canRecordCompletion}
 							onSelectCell={handleMatrixCellSelection}
-							{selectedGroupId}
+							selectedGroupFilter={effectiveSelectedGroupId}
 							{gapsOnly}
 							{viewMode}
 							{orgName}
@@ -396,7 +415,7 @@
 
 {#if showCompletionImportModal}
 	<IctCompletionBulkImport
-		personnel={personnelStore.items}
+		personnel={activePersonnel}
 		tasks={ictTasksStore.items}
 		completions={personnelIctCompletionsStore.items}
 		onCancel={() => (showCompletionImportModal = false)}

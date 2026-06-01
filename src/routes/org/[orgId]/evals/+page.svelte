@@ -25,7 +25,8 @@
 	);
 
 	const ctx = $derived(new RatingSchemePageContext(pageData, modals, org, ratingSchemeStore));
+	const personnelLookup = $derived(workspaceData.personnelLookup);
 </script>
 
-<RatingSchemePageView {ctx} personnelLookup={workspaceData.personnelLookup} />
-<RatingSchemeModals {ctx} {modals} personnelLookup={workspaceData.personnelLookup} />
+<RatingSchemePageView {ctx} {personnelLookup} />
+<RatingSchemeModals {ctx} {modals} {personnelLookup} />

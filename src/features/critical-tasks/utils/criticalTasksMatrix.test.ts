@@ -206,6 +206,24 @@ describe('buildCriticalTasksMatrix', () => {
 		expect(bravoOnly.alphabeticalRows.map((row) => row.person.id)).toEqual(['jones']);
 	});
 
+	it('filters unassigned personnel through the roster group filter value', () => {
+		const assigned = person({ id: 'smith', lastName: 'Smith', groupId: 'group-alpha', groupName: 'Alpha' });
+		const unassigned = person({ id: 'nogroup', lastName: 'NoGroup', groupId: null, groupName: '' });
+		const matrix = buildCriticalTasksMatrix({
+			personnel: [assigned, unassigned],
+			tasks: [task({ id: 'universal', taskCode: 'A', title: 'Universal task', mos: [] })],
+			completions: [],
+			groups: [{ id: 'group-alpha', name: 'Alpha', sortOrder: 0 }],
+			settings,
+			selectedGroupFilter: 'name:Unassigned',
+			orgName: 'Test Unit'
+		});
+
+		expect(matrix.groups.map((group) => group.label)).toEqual(['Unassigned']);
+		expect(matrix.rows.map((row) => row.person.id)).toEqual(['nogroup']);
+		expect(matrix.alphabeticalRows.map((row) => row.person.id)).toEqual(['nogroup']);
+	});
+
 	it('matches personnel search against name, rank, and MOS fields', () => {
 		const subject = person({
 			rank: 'SSG',

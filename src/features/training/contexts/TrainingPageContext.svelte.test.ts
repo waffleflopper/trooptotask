@@ -77,6 +77,21 @@ const mockPerson2: Personnel = {
 	archivedAt: null
 } as unknown as Personnel;
 
+const unassignedPerson: Personnel = {
+	id: 'p-unassigned',
+	firstName: 'Taylor',
+	lastName: 'NoGroup',
+	rank: 'PFC',
+	clinicRole: 'Medic',
+	groupId: null,
+	groupName: '',
+	orgId: 'org-1',
+	phone: null,
+	email: null,
+	notes: null,
+	archivedAt: null
+} as unknown as Personnel;
+
 const mockType: TrainingType = {
 	id: 't-1',
 	name: 'CPR',
@@ -100,7 +115,8 @@ const mockType: TrainingType = {
 
 const mockGroups: Group[] = [
 	{ id: 'g-1', name: 'Alpha', sortOrder: 0 },
-	{ id: 'g-2', name: 'Bravo', sortOrder: 1 }
+	{ id: 'g-2', name: 'Bravo', sortOrder: 1 },
+	{ id: 'g-empty', name: 'Charlie', sortOrder: 2 }
 ];
 
 function makeData(overrides: Record<string, unknown> = {}) {
@@ -241,6 +257,42 @@ describe('TrainingPageContext', () => {
 			expect(ctx.filteredPersonnel).toHaveLength(1);
 			expect(ctx.filteredPersonnel[0].id).toBe('p-1');
 		});
+
+		it('filters unassigned personnel through the roster group filter value', () => {
+			rosterStore.load([mockPerson, mockPerson2, unassignedPerson], 'org-1');
+			const ctx = new TrainingPageContext(makeData(), modals, makeOrg());
+
+			expect(ctx.groupFilterOptions).toContainEqual({ value: 'name:Unassigned', label: 'Unassigned' });
+
+			ctx.setSelectedGroupId('name:Unassigned');
+
+			expect(ctx.filteredPersonnel.map((person) => person.id)).toEqual(['p-unassigned']);
+			expect(queueUserPreferencesPatchMock).toHaveBeenCalledWith('org-1', {
+				training: { selectedGroupId: 'name:Unassigned' }
+			});
+		});
+
+		it('preserves an empty group selection after stores hydrate', () => {
+			const ctx = new TrainingPageContext(
+				makeData({
+					userPreferences: {
+						...getDefaultUserOrgPreferences(),
+						training: {
+							selectedGroupId: 'g-empty',
+							selectedViewId: null,
+							matrixViewMode: 'by-group'
+						}
+					}
+				}),
+				modals,
+				makeOrg()
+			);
+
+			expect(ctx.groupFilterOptions).toContainEqual({ value: 'g-empty', label: 'Charlie' });
+			expect(ctx.filteredPersonnel).toEqual([]);
+			expect(ctx.selectedGroupId).toBe('g-empty');
+			expect(queueUserPreferencesPatchMock).not.toHaveBeenCalled();
+		});
 	});
 
 	describe('groups', () => {
@@ -248,7 +300,7 @@ describe('TrainingPageContext', () => {
 			const ctx = new TrainingPageContext(makeData(), modals, makeOrg());
 
 			expect(ctx.groups).toEqual(mockGroups);
-			expect(ctx.groupOrder).toEqual(['Alpha', 'Bravo']);
+			expect(ctx.groupOrder).toEqual(mockGroups.map((group) => group.name));
 		});
 	});
 

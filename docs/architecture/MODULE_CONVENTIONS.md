@@ -57,7 +57,7 @@ Keep feature-specific logic inside the feature module unless it is truly shared 
 - Page contexts are valid in v1, but they should not silently become god objects.
 - If a context starts to own too many unrelated concerns, that is a signal to deepen module boundaries rather than keep stuffing logic into it.
 - Prefer pushing stable calculations and business rules into smaller modules with thinner public interfaces.
-- The `Roster Read Model` is shared infrastructure under `$lib/stores`, because Calendar, Training, Dashboard, Onboarding, Rating Scheme, and shell hydration all read the same organization roster. Personnel-owned write workflows still belong under `$features/personnel`.
+- The `Roster Read Model` is shared infrastructure under `$lib/stores` and `$lib/server/core/useCases/rosterReadModel.ts`, because Calendar, Training, Dashboard, Onboarding, Rating Scheme, Duty Roster, settings archives, and shell hydration all read the same organization roster. Personnel-owned write workflows still belong under `$features/personnel`. See `docs/architecture/ROSTER_READ_MODEL.md` for the explicit `full`/`scoped` and `active`/`archived`/`all` usage contract.
 
 ### Client read models
 

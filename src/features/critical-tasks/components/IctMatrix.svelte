@@ -39,6 +39,7 @@
 		groups?: Group[];
 		settings?: CriticalTasksSettingsInput | null;
 		selectedGroupId?: string;
+		selectedGroupFilter?: string;
 		gapsOnly?: boolean;
 		viewMode?: IctMatrixViewMode;
 		asOf?: string | Date;
@@ -59,6 +60,7 @@
 		groups = [],
 		settings = null,
 		selectedGroupId = '',
+		selectedGroupFilter = '',
 		gapsOnly = false,
 		viewMode = 'by-group',
 		asOf,
@@ -75,6 +77,7 @@
 			groups,
 			settings,
 			selectedGroupId,
+			selectedGroupFilter,
 			gapsOnly,
 			asOf,
 			orgName

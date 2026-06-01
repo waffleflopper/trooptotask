@@ -51,14 +51,6 @@ vi.mock('$lib/stores/pinnedGroups.svelte', () => ({
 	pinnedGroupsStore: { list: [] }
 }));
 
-vi.mock('$lib/domain/rosterGrouping', () => ({
-	groupAndSortPersonnel: vi.fn(() => [])
-}));
-
-vi.mock('$lib/utils/scopePersonnel', () => ({
-	scopePersonnelByGroupScopeSet: vi.fn((value) => value)
-}));
-
 function renderPage() {
 	return render(BulkStatusPage, {
 		props: {

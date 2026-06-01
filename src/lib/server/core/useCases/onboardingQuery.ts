@@ -9,11 +9,11 @@ import type { Personnel } from '$lib/types';
 import { OnboardingTemplateEntity } from '$lib/server/entities/onboardingTemplate';
 import { OnboardingTemplateStepEntity } from '$lib/server/entities/onboardingTemplateStep';
 import { PersonnelOnboardingEntity } from '$lib/server/entities/personnelOnboarding';
-import { PersonnelEntity } from '$lib/server/entities/personnel';
 import { GroupEntity } from '$lib/server/entities/group';
 import { TrainingTypeEntity } from '$lib/server/entities/trainingType';
 import type { WritePorts } from '$lib/server/core/ports';
 import { requireOnboardingViewPolicy } from './onboardingPolicy';
+import { loadRosterPersonnel } from './rosterReadModel';
 
 export interface OnboardingBootstrap {
 	onboardingTemplates: OnboardingTemplate[];
@@ -83,34 +83,28 @@ export async function fetchOnboardingBootstrap(ctx: WritePorts): Promise<Onboard
 
 	const orgId = ctx.auth.orgId;
 
-	const [templateRows, templateStepRows, onboardingRows, personnelRows, groupRows, trainingTypeRows] =
-		await Promise.all([
-			ctx.store.findMany<Record<string, unknown>>('onboarding_templates', orgId, undefined, {
-				orderBy: [{ column: 'name', ascending: true }]
-			}),
-			ctx.store.findMany<Record<string, unknown>>('onboarding_template_steps', orgId, undefined, {
-				orderBy: [{ column: 'sort_order', ascending: true }]
-			}),
-			ctx.store.findMany<Record<string, unknown>>('personnel_onboardings', orgId, undefined, {
-				select: PersonnelOnboardingEntity.select
-			}),
-			ctx.store.findMany<Record<string, unknown>>('personnel', orgId, undefined, {
-				select: PersonnelEntity.select,
-				isNull: { archived_at: true },
-				orderBy: [{ column: 'last_name', ascending: true }]
-			}),
-			ctx.store.findMany<Record<string, unknown>>('groups', orgId, undefined, {
-				orderBy: [{ column: 'sort_order', ascending: true }]
-			}),
-			ctx.store.findMany<Record<string, unknown>>('training_types', orgId, undefined, {
-				orderBy: [{ column: 'sort_order', ascending: true }]
-			})
-		]);
+	const [templateRows, templateStepRows, onboardingRows, personnel, groupRows, trainingTypeRows] = await Promise.all([
+		ctx.store.findMany<Record<string, unknown>>('onboarding_templates', orgId, undefined, {
+			orderBy: [{ column: 'name', ascending: true }]
+		}),
+		ctx.store.findMany<Record<string, unknown>>('onboarding_template_steps', orgId, undefined, {
+			orderBy: [{ column: 'sort_order', ascending: true }]
+		}),
+		ctx.store.findMany<Record<string, unknown>>('personnel_onboardings', orgId, undefined, {
+			select: PersonnelOnboardingEntity.select
+		}),
+		loadRosterPersonnel(ctx, { status: 'active' }),
+		ctx.store.findMany<Record<string, unknown>>('groups', orgId, undefined, {
+			orderBy: [{ column: 'sort_order', ascending: true }]
+		}),
+		ctx.store.findMany<Record<string, unknown>>('training_types', orgId, undefined, {
+			orderBy: [{ column: 'sort_order', ascending: true }]
+		})
+	]);
 
 	const templates = OnboardingTemplateEntity.fromDbArray(templateRows);
 	const templateSteps = OnboardingTemplateStepEntity.fromDbArray(templateStepRows);
 	const allOnboardings = PersonnelOnboardingEntity.fromDbArray(onboardingRows);
-	const personnel = PersonnelEntity.fromDbArray(personnelRows);
 	const groups = GroupEntity.fromDbArray(groupRows);
 	const trainingTypes = TrainingTypeEntity.fromDbArray(trainingTypeRows);
 

@@ -7,7 +7,7 @@ import type {
 } from '$features/critical-tasks/criticalTasks.types';
 import type { Group } from '$lib/stores/groups.svelte';
 import type { Personnel } from '$lib/types';
-import { groupAndSortPersonnel } from '$lib/domain/rosterGrouping';
+import { createRosterReadModel } from '$lib/domain/rosterReadModel';
 import { getIctStatus } from './ictStatus';
 import { getActiveIctTasksForLibrary, isIctTaskApplicableToMos } from './ictTaskLibrary';
 
@@ -53,6 +53,7 @@ export interface BuildCriticalTasksMatrixOptions {
 	groups?: Group[];
 	settings?: CriticalTasksSettingsInput | null;
 	selectedGroupId?: string;
+	selectedGroupFilter?: string;
 	gapsOnly?: boolean;
 	asOf?: string | Date;
 	orgName?: string;
@@ -154,6 +155,7 @@ export function buildCriticalTasksMatrix({
 	groups = [],
 	settings = null,
 	selectedGroupId = '',
+	selectedGroupFilter = '',
 	gapsOnly = false,
 	asOf,
 	orgName = 'Unassigned'
@@ -161,17 +163,17 @@ export function buildCriticalTasksMatrix({
 	const activeTasks = getActiveIctTasksForLibrary(tasks);
 	const latestCompletions = getLatestCompletionLookup(completions);
 	const groupOrder = [...groups]
-		.sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name))
+		.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.name.localeCompare(b.name))
 		.map((g) => g.name);
-	const activePersonnel = personnel.filter((person) => !person.archivedAt);
-	const scopedPersonnel = selectedGroupId
-		? activePersonnel.filter((person) => person.groupId === selectedGroupId)
-		: activePersonnel;
-
-	const sortedGroups = groupAndSortPersonnel(scopedPersonnel, {
+	const sortedGroups = createRosterReadModel({
+		personnel,
 		groupOrder,
 		fallbackGroupName: orgName
-	});
+	}).full({
+		status: 'active',
+		groupId: selectedGroupFilter ? undefined : selectedGroupId || undefined,
+		groupFilter: selectedGroupFilter || undefined
+	}).personnelByGroup;
 
 	const allGroups = sortedGroups
 		.map((group) => {

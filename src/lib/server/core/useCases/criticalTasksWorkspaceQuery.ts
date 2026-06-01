@@ -10,8 +10,8 @@ import type { Personnel } from '$lib/types';
 import { normalizeCriticalTasksSettings } from '$features/critical-tasks/utils/ictStatus';
 import { GroupEntity } from '$lib/server/entities/group';
 import { IctTaskEntity } from '$lib/server/entities/ictTask';
-import { PersonnelEntity } from '$lib/server/entities/personnel';
 import { PersonnelIctCompletionEntity } from '$lib/server/entities/personnelIctCompletion';
+import { loadRosterPersonnel } from './rosterReadModel';
 
 interface OrgCriticalTasksSettingsRow {
 	critical_tasks_default_expiration_months?: number | null;
@@ -53,16 +53,13 @@ function loadCriticalTasksItems<T>(
 export async function fetchCriticalTasksBootstrap(ctx: QueryPorts): Promise<CriticalTasksBootstrap> {
 	const orgId = ctx.auth.orgId;
 	const settings = await fetchCriticalTasksSettings(ctx);
-	const personnel = loadCriticalTasksItems(
-		orgId,
-		'personnel',
-		ctx.store.findMany<Record<string, unknown>>('personnel', orgId, undefined, {
-			select: PersonnelEntity.select,
-			isNull: { archived_at: true },
-			orderBy: [{ column: 'last_name', ascending: true }]
-		}),
-		(rows) => PersonnelEntity.fromDbArray(rows) as Personnel[]
-	);
+	const personnel = loadRosterPersonnel(ctx, { status: 'active' }).catch((error) => {
+		console.error('[critical-tasks-workspace] Failed to load personnel', {
+			orgId,
+			error
+		});
+		throw error;
+	}) as Promise<Personnel[]>;
 	const groups = loadCriticalTasksItems(
 		orgId,
 		'groups',

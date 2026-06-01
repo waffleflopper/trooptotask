@@ -45,6 +45,7 @@ export type CriticalTasksReportRouteInput = z.infer<typeof criticalTasksReportIn
 
 export const criticalTasksMatrixExportInput = z.object({
 	groupId: z.string().optional(),
+	groupFilter: z.string().optional(),
 	gapsOnly: z.boolean().default(false),
 	search: z.string().optional()
 });
@@ -63,6 +64,7 @@ export function parseCriticalTasksReportInput(url: URL): CriticalTasksReportRout
 export function parseCriticalTasksMatrixExportInput(url: URL): CriticalTasksMatrixExportRouteInput {
 	return {
 		groupId: optionalParam(url.searchParams.get('groupId')),
+		groupFilter: optionalParam(url.searchParams.get('groupFilter')),
 		gapsOnly: parseBooleanParam(url.searchParams.get('gapsOnly')),
 		search: optionalParam(url.searchParams.get('search'))
 	};
@@ -84,6 +86,7 @@ export function toCriticalTasksMatrixExportInput(
 ): CriticalTasksMatrixExportInput {
 	return {
 		selectedGroupId: input.groupId,
+		selectedGroupFilter: input.groupFilter,
 		gapsOnly: input.gapsOnly,
 		search: input.search
 	};

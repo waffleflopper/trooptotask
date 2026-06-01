@@ -110,7 +110,26 @@ function makeCtx(
 	handleEdit = vi.fn(),
 	upcomingLossMap: Map<string, UpcomingLossRecord> = new Map()
 ): PersonnelPageContext {
-	return {
+	const filterPersonnel = (items: Personnel[], query: string): Personnel[] => {
+		const normalized = query.trim().toLowerCase();
+		if (!normalized) return items;
+		return items.filter((person) =>
+			[
+				person.rank,
+				person.firstName,
+				person.lastName,
+				`${person.firstName} ${person.lastName}`,
+				`${person.lastName}, ${person.firstName}`,
+				person.mos,
+				person.clinicRole,
+				person.groupName
+			].some((value) => value?.toLowerCase().includes(normalized))
+		);
+	};
+	const activePersonnel = () => personnelStore.items.filter((person) => !person.archivedAt);
+	let searchQuery = $state('');
+
+	const ctx = {
 		data: { orgId: 'org-1', scopedGroupId: null },
 		orgId: 'org-1',
 		canAddPersonnel: false,
@@ -121,13 +140,31 @@ function makeCtx(
 		personnelRecordAffordance: () => deniedAffordance(),
 		personnelArchiveAffordance: () => deniedAffordance(),
 		viewMode: 'alphabetical',
-		totalPersonnel: personnel.length,
+		get searchQuery() {
+			return searchQuery;
+		},
+		set searchQuery(value: string) {
+			searchQuery = value;
+		},
+		totalPersonnel: personnelStore.items.length,
+		get allActivePersonnel() {
+			return activePersonnel();
+		},
+		get alphabeticalPersonnel() {
+			return filterPersonnel(activePersonnel(), ctx.searchQuery);
+		},
+		get filteredPersonnel() {
+			return filterPersonnel(activePersonnel(), ctx.searchQuery);
+		},
+		getPersonnelById: (id: string) => personnelStore.getById(id),
 		upcomingLossMap,
 		handleEdit,
 		handleAdd: vi.fn(),
 		openGroupManager: vi.fn(),
 		readOnly: false
-	} as unknown as PersonnelPageContext;
+	};
+
+	return ctx as unknown as PersonnelPageContext;
 }
 
 function allowedAffordance(overrides: Partial<ClientAffordance> = {}): ClientAffordance {
@@ -307,7 +344,7 @@ describe('PersonnelPageView', () => {
 			props: { ctx, permissions: viewOnlyPermissions }
 		});
 
-		await fireEvent.input(screen.getByTestId('personnel-search'), { target: { value: 'Garcia' } });
+		await fireEvent.input(screen.getByTestId('personnel-search'), { target: { value: 'Luis Garcia' } });
 
 		expect(screen.getByText('Garcia, Luis')).toBeTruthy();
 		expect(screen.queryByText('Smith, Jane')).toBeNull();

@@ -6,10 +6,10 @@ import {
 import { fail } from '$lib/server/core/errors';
 import type { WritePorts } from '$lib/server/core/ports';
 import { IctTaskEntity } from '$lib/server/entities/ictTask';
-import { PersonnelEntity } from '$lib/server/entities/personnel';
 import { PersonnelIctCompletionEntity } from '$lib/server/entities/personnelIctCompletion';
 import { requirePolicyDecision } from './policyAuthorization';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+import { loadRosterPersonnel } from './rosterReadModel';
 
 const MAX_BATCH_SIZE = 500;
 
@@ -80,16 +80,10 @@ export async function importIctCompletionsBatch(
 		fail(400, `Maximum ${MAX_BATCH_SIZE} records per batch`);
 	}
 
-	const personnelRows = await ctx.store.findMany<Record<string, unknown>>(
-		PersonnelEntity.table,
-		ctx.auth.orgId,
-		undefined,
-		{ select: PersonnelEntity.select }
-	);
+	const personnel = await loadRosterPersonnel(ctx, { status: 'all' });
 	const taskRows = await ctx.store.findMany<Record<string, unknown>>(IctTaskEntity.table, ctx.auth.orgId, undefined, {
 		select: IctTaskEntity.select
 	});
-	const personnel = PersonnelEntity.fromDbArray(personnelRows);
 	const tasks = IctTaskEntity.fromDbArray(taskRows);
 
 	// First pass resolves only valid personnel/task references so we can scope access checks

@@ -1,5 +1,5 @@
 import type { Personnel, AvailabilityEntry, StatusType, AssignmentType, DailyAssignment } from '$lib/types';
-import { RANK_ORDER } from '$lib/domain/rosterGrouping';
+import { comparePersonnelByRankThenName } from '$lib/domain/personnelRank';
 
 // --- Shared helpers ---
 
@@ -30,13 +30,7 @@ export function allDatesInRange(startDate: string, endDate: string): string[] {
 }
 
 function sortByRank(personnel: Personnel[]): Personnel[] {
-	const rankIndex = new Map<string, number>(RANK_ORDER.map((r, i) => [r, i]));
-	return [...personnel].sort((a, b) => {
-		const ra = rankIndex.get(a.rank) ?? 999;
-		const rb = rankIndex.get(b.rank) ?? 999;
-		if (ra !== rb) return ra - rb;
-		return a.lastName.localeCompare(b.lastName) || a.firstName.localeCompare(b.firstName);
-	});
+	return [...personnel].sort(comparePersonnelByRankThenName);
 }
 
 function buildAvailabilityEntryDateIndex(

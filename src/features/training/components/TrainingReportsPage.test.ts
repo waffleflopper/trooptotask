@@ -32,6 +32,7 @@ vi.mock('$lib/stores/orgContext.svelte', () => ({
 			canManageMembers: true
 		},
 		scopedGroupId: null,
+		scopeSet: { kind: 'organization' },
 		readOnly: false
 	})
 }));

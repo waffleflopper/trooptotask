@@ -1,8 +1,7 @@
-import type { FindOptions, QueryWithRawStorePorts, RatingSchemePersonnelLookupRecord } from '$lib/server/core/ports';
+import type { QueryWithRawStorePorts, RatingSchemePersonnelLookupRecord } from '$lib/server/core/ports';
 import type { RatingSchemeEntry } from '$features/rating-scheme/rating-scheme.types';
 import type { Personnel, PersonnelLookup, StatusType } from '$lib/types';
 import type { Group } from '$lib/stores/groups.svelte';
-import { PersonnelEntity } from '$lib/server/entities/personnel';
 import { GroupEntity } from '$lib/server/entities/group';
 import { PinnedGroupsEntity } from '$lib/server/entities/pinnedGroups';
 import { RatingSchemeEntryEntity } from '$lib/server/entities/ratingSchemeEntry';
@@ -10,6 +9,7 @@ import { StatusTypeEntity } from '$lib/server/entities/statusType';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { listAwardTrackingAcknowledgedPersonnelIds } from './personnelAwardTracking';
 import { requireFeaturePolicy } from './featurePolicy';
+import { loadRosterPersonnel } from './rosterReadModel';
 
 export interface PersonnelBootstrap {
 	personnel: Personnel[];
@@ -29,12 +29,6 @@ export interface RatingSchemeBootstrap {
 	/** Org-configured loss warning window in days (default: 180). */
 	lossWarningWindowDays: number;
 }
-
-const activePersonnelFindOptions: FindOptions = {
-	select: PersonnelEntity.select,
-	orderBy: [{ column: 'last_name', ascending: true }],
-	isNull: { archived_at: true }
-};
 
 function toPersonnelLookup(rows: Personnel[]): PersonnelLookup[] {
 	return rows.map((person) => ({
@@ -103,16 +97,16 @@ export async function fetchPersonnelBootstrap(ctx: QueryWithRawStorePorts): Prom
 	await requireFeaturePolicy(ctx, POLICY_ACTION_CATALOG.personnel.viewRoster, { kind: 'unscoped' }, 'personnel');
 
 	const [
-		personnelRows,
-		allPersonnelRows,
+		personnel,
+		allPersonnel,
 		groupRows,
 		statusTypeRows,
 		pinnedGroupRows,
 		orgSettingsRow,
 		awardTrackingAcknowledgedPersonnelIds
 	] = await Promise.all([
-		ctx.store.findMany<Record<string, unknown>>('personnel', orgId, undefined, activePersonnelFindOptions),
-		ctx.rawStore.findMany<Record<string, unknown>>('personnel', orgId, undefined, activePersonnelFindOptions),
+		loadRosterPersonnel(ctx, { status: 'active' }),
+		loadRosterPersonnel({ auth: ctx.auth, store: ctx.rawStore }, { status: 'active' }),
 		ctx.store.findMany<Record<string, unknown>>('groups', orgId, undefined, {
 			orderBy: [{ column: 'sort_order', ascending: true }]
 		}),
@@ -135,12 +129,12 @@ export async function fetchPersonnelBootstrap(ctx: QueryWithRawStorePorts): Prom
 		listAwardTrackingAcknowledgedPersonnelIds(ctx.store, orgId)
 	]);
 
-	const scopedAllPersonnelRows = ctx.auth.scopeSet.kind === 'groups' ? personnelRows : allPersonnelRows;
+	const scopedAllPersonnel = ctx.auth.scopeSet.kind === 'groups' ? personnel : allPersonnel;
 	const lossWarningWindowDays = orgSettingsRow?.loss_warning_window_days ?? 180;
 
 	return {
-		personnel: PersonnelEntity.fromDbArray(personnelRows),
-		personnelLookup: toPersonnelLookup(PersonnelEntity.fromDbArray(scopedAllPersonnelRows)),
+		personnel,
+		personnelLookup: toPersonnelLookup(scopedAllPersonnel),
 		groups: GroupEntity.fromDbArray(groupRows),
 		statusTypes: StatusTypeEntity.fromDbArray(statusTypeRows),
 		pinnedGroups: PinnedGroupsEntity.fromDbArray(pinnedGroupRows),

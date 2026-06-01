@@ -6,15 +6,23 @@
  * underlying store exposed from the Personnel feature.
  */
 import { PERSONNEL_RANK_ORDER } from '$lib/domain/personnelRank';
+import {
+	createRosterReadModel,
+	type CreateRosterReadModelInput,
+	type RosterReadModel
+} from '$lib/domain/rosterReadModel';
 import { defineStore } from '$lib/stores/core';
 import type { Store } from '$lib/stores/core';
 import type { Personnel } from '$lib/types';
+
+export type RosterReadModelStoreOptions = Omit<CreateRosterReadModelInput, 'personnel'>;
 
 export interface RosterStoreExtensions extends Record<string, unknown> {
 	addBatchResults: (inserted: Personnel[]) => void;
 	removeLocal: (id: string) => void;
 	updateLocalWhere: (predicate: (item: Personnel) => boolean, updater: (item: Personnel) => Personnel) => void;
 	sortByRankAndName: () => Personnel[];
+	readModel: (options?: RosterReadModelStoreOptions) => RosterReadModel;
 }
 
 export type RosterWriteStore = Store<Personnel> & RosterStoreExtensions;
@@ -32,6 +40,7 @@ export type RosterReadStore = Pick<
 	| 'filter'
 	| 'find'
 	| 'sortByRankAndName'
+	| 'readModel'
 >;
 
 function enhance(base: Store<Personnel>): RosterStoreExtensions {
@@ -53,6 +62,13 @@ function enhance(base: Store<Personnel>): RosterStoreExtensions {
 				const rankDiff = ascendingRankOrder.indexOf(a.rank) - ascendingRankOrder.indexOf(b.rank);
 				if (rankDiff !== 0) return rankDiff;
 				return a.lastName.localeCompare(b.lastName);
+			});
+		},
+
+		readModel(options = {}) {
+			return createRosterReadModel({
+				personnel: base.rawItems,
+				...options
 			});
 		}
 	};

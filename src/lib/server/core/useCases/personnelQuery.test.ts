@@ -44,7 +44,7 @@ describe('queryPersonnel', () => {
 		expect(result[1].lastName).toBe('Zulu');
 	});
 
-	it('returns only archived personnel when archived: true', async () => {
+	it('returns only archived personnel when status is archived', async () => {
 		const ctx = createQueryPortsContext();
 		seedPersonnel(ctx, [
 			{ id: 'p1', last_name: 'Active', first_name: 'A', rank: 'SGT', clinic_role: 'medic', mos: '68W', group_id: null },
@@ -60,13 +60,13 @@ describe('queryPersonnel', () => {
 			}
 		]);
 
-		const result = await queryPersonnel(ctx, { archived: true });
+		const result = await queryPersonnel(ctx, { status: 'archived' });
 
 		expect(result).toHaveLength(1);
 		expect(result[0].lastName).toBe('Gone');
 	});
 
-	it('returns all personnel when archived: all', async () => {
+	it('returns all personnel when status is all', async () => {
 		const ctx = createQueryPortsContext();
 		seedPersonnel(ctx, [
 			{ id: 'p1', last_name: 'Active', first_name: 'A', rank: 'SGT', clinic_role: 'medic', mos: '68W', group_id: null },
@@ -82,7 +82,7 @@ describe('queryPersonnel', () => {
 			}
 		]);
 
-		const result = await queryPersonnel(ctx, { archived: 'all' });
+		const result = await queryPersonnel(ctx, { status: 'all' });
 
 		expect(result).toHaveLength(2);
 	});
@@ -107,6 +107,48 @@ describe('countPersonnel', () => {
 		]);
 
 		const count = await countPersonnel(ctx);
+
+		expect(count).toBe(2);
+	});
+
+	it('returns only archived personnel count when status is archived', async () => {
+		const ctx = createQueryPortsContext();
+		seedPersonnel(ctx, [
+			{ id: 'p1', last_name: 'Active', first_name: 'A', rank: 'SGT', clinic_role: 'medic', mos: '68W', group_id: null },
+			{
+				id: 'p2',
+				last_name: 'Gone',
+				first_name: 'B',
+				rank: 'CPT',
+				clinic_role: 'provider',
+				mos: '61H',
+				group_id: null,
+				archived_at: '2025-06-01'
+			}
+		]);
+
+		const count = await countPersonnel(ctx, { status: 'archived' });
+
+		expect(count).toBe(1);
+	});
+
+	it('returns all personnel count when status is all', async () => {
+		const ctx = createQueryPortsContext();
+		seedPersonnel(ctx, [
+			{ id: 'p1', last_name: 'Active', first_name: 'A', rank: 'SGT', clinic_role: 'medic', mos: '68W', group_id: null },
+			{
+				id: 'p2',
+				last_name: 'Gone',
+				first_name: 'B',
+				rank: 'CPT',
+				clinic_role: 'provider',
+				mos: '61H',
+				group_id: null,
+				archived_at: '2025-06-01'
+			}
+		]);
+
+		const count = await countPersonnel(ctx, { status: 'all' });
 
 		expect(count).toBe(2);
 	});

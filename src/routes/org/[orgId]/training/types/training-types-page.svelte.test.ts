@@ -2,10 +2,12 @@
 import { cleanup, render, screen } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import Page from './+page.svelte';
-import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
+import { rosterStore } from '$lib/stores/roster.svelte';
 import type { WorkspaceBootstrap } from '$lib/server/core/orgShell';
 import type { TrainingBootstrap } from '$lib/server/core/orgShell';
+import type { Personnel } from '$lib/types';
+import type { TrainingType } from '$features/training/training.types';
 
 vi.mock('$lib/stores/orgContext.svelte', () => ({
 	getOrgContext: () => ({
@@ -27,6 +29,7 @@ vi.mock('$lib/stores/orgContext.svelte', () => ({
 			canEditOnboarding: true,
 			canManageMembers: true
 		},
+		scopeSet: { kind: 'organization' },
 		readOnly: false,
 		affordanceForFeatureAction: () => ({
 			allowed: true,
@@ -55,15 +58,49 @@ function makeDeferredBootstrap(): WorkspaceBootstrap<TrainingBootstrap> {
 	};
 }
 
+const personnel: Personnel[] = [
+	{
+		id: 'person-1',
+		rank: 'SGT',
+		lastName: 'Smith',
+		firstName: 'Jane',
+		mos: '68W',
+		clinicRole: 'Medic',
+		groupId: 'group-1',
+		groupName: 'Alpha'
+	}
+] as Personnel[];
+
+const trainingType: TrainingType = {
+	id: 'type-1',
+	name: 'CPR',
+	description: null,
+	expirationMonths: 12,
+	warningDaysYellow: 60,
+	warningDaysOrange: 30,
+	appliesToRoles: [],
+	appliesToMos: [],
+	appliesToRanks: [],
+	excludedRoles: [],
+	excludedMos: [],
+	excludedRanks: [],
+	color: '#22c55e',
+	sortOrder: 0,
+	expirationDateOnly: false,
+	canBeExempted: false,
+	exemptPersonnelIds: [],
+	isOptional: false
+};
+
 describe('training types page', () => {
 	beforeEach(() => {
-		personnelStore.load([], 'org-stale');
+		rosterStore.load([], 'org-stale');
 		trainingTypesStore.load([], 'org-stale');
 	});
 
 	afterEach(() => {
 		cleanup();
-		personnelStore.load([], 'org-test-reset');
+		rosterStore.load([], 'org-test-reset');
 		trainingTypesStore.load([], 'org-test-reset');
 	});
 
@@ -80,5 +117,23 @@ describe('training types page', () => {
 
 		expect(await screen.findByText('Loading training types...')).toBeTruthy();
 		expect(screen.queryByText('No training types yet. Create one to get started.')).toBeNull();
+	});
+
+	it('renders the resolved page once current-org stores hydrate', async () => {
+		rosterStore.load(personnel, 'org-1');
+		trainingTypesStore.load([trainingType], 'org-1');
+
+		render(Page, {
+			props: {
+				data: {
+					training: {
+						data: Promise.resolve(makeDeferredBootstrap())
+					}
+				}
+			}
+		});
+
+		expect(await screen.findByRole('button', { name: /^CPR 12mo/ })).toBeTruthy();
+		expect(screen.queryByText('Loading training types...')).toBeNull();
 	});
 });

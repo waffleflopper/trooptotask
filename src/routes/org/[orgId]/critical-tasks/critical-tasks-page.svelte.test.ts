@@ -159,6 +159,8 @@ function expectBefore(a: Node, b: Node): void {
 
 describe('critical tasks page', () => {
 	beforeEach(() => {
+		vi.useFakeTimers({ toFake: ['Date'] });
+		vi.setSystemTime(new Date('2026-05-01T12:00:00.000Z'));
 		parseFileMock.mockReset();
 		mockOrgContext.role = 'owner';
 		mockOrgContext.isOwner = true;
@@ -178,6 +180,7 @@ describe('critical tasks page', () => {
 	afterEach(() => {
 		cleanup();
 		vi.restoreAllMocks();
+		vi.useRealTimers();
 		vi.unstubAllGlobals();
 		personnelStore.load([], 'org-test-reset');
 		groupsStore.load([], 'org-test-reset');

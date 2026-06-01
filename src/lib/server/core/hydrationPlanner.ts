@@ -1,4 +1,4 @@
-import type { HydrationItems, HydrationPlan, HydrationPlannerPort, WorkspaceKey } from './orgShell';
+import type { HydrationItems, HydrationPlan, HydrationPlannerPort, HydrationTarget, WorkspaceKey } from './orgShell';
 import type {
 	OnboardingTemplate,
 	OnboardingTemplateStep,
@@ -108,6 +108,154 @@ function createHydrationTarget<T>(items: HydrationItems<T>, mode: 'replace' | 'm
 	};
 }
 
+interface PlanFieldDescriptor {
+	detect(d: Record<string, unknown>, workspace: WorkspaceKey): boolean;
+	build(d: Record<string, unknown>, workspace: WorkspaceKey, plan: HydrationPlan): void;
+}
+
+function getDateRangeHydrationMode(workspace: WorkspaceKey): 'replace' | 'merge' {
+	return workspace === 'calendar' ? 'merge' : 'replace';
+}
+
+function getCalendarAssignmentEntries(
+	d: Record<string, unknown>,
+	workspace: WorkspaceKey
+): DailyAssignment[] | Promise<DailyAssignment[]> | undefined {
+	if (isHydratableItems(d.dailyAssignments)) {
+		return d.dailyAssignments as DailyAssignment[] | Promise<DailyAssignment[]>;
+	}
+
+	if (workspace === 'dashboard' && isHydratableItems(d.todayAssignments)) {
+		return d.todayAssignments as DailyAssignment[] | Promise<DailyAssignment[]>;
+	}
+
+	return undefined;
+}
+
+function simpleField<T>(
+	dataKey: string,
+	assign: (plan: HydrationPlan, target: HydrationTarget<T>) => void,
+	options: { dateRangeMode?: boolean } = {}
+): PlanFieldDescriptor {
+	return {
+		detect: (d) => isHydratableItems(d[dataKey]),
+		build: (d, workspace, plan) => {
+			assign(
+				plan,
+				createHydrationTarget(
+					d[dataKey] as HydrationItems<T>,
+					options.dateRangeMode ? getDateRangeHydrationMode(workspace) : 'replace'
+				)
+			);
+		}
+	};
+}
+
+const PLAN_FIELDS: PlanFieldDescriptor[] = [
+	{
+		detect: (d) => isHydratableItems(d.personnel) || isHydratableItems(d.allPersonnel),
+		build: (d, _workspace, plan) => {
+			const scoped = isHydratableItems(d.personnel) ? d.personnel : [];
+			plan.personnel = {
+				scoped: createHydrationTarget(scoped),
+				// `all` is only set when explicit all-org data was provided.
+				// Falling back to `personnel` would silently hydrate allPersonnelStore
+				// with scoped-only data once that store exists.
+				...(isHydratableItems(d.allPersonnel) && {
+					all: createHydrationTarget(d.allPersonnel)
+				})
+			};
+		}
+	},
+	simpleField('groups', (plan, target) => {
+		plan.groups = target;
+	}),
+	simpleField('statusTypes', (plan, target) => {
+		plan.statusTypes = target;
+	}),
+	simpleField<AvailabilityEntry>(
+		'availabilityEntries',
+		(plan, target) => {
+			plan.availabilityEntries = target;
+		},
+		{ dateRangeMode: true }
+	),
+	simpleField<SpecialDay>(
+		'specialDays',
+		(plan, target) => {
+			plan.specialDays = target;
+		},
+		{ dateRangeMode: true }
+	),
+	{
+		detect: (d, workspace) => {
+			const assignmentEntries = getCalendarAssignmentEntries(d, workspace);
+			return isHydratableItems(d.assignmentTypes) && isHydratableItems(assignmentEntries);
+		},
+		build: (d, workspace, plan) => {
+			const assignmentEntries = getCalendarAssignmentEntries(d, workspace);
+			if (!isHydratableItems(d.assignmentTypes) || !isHydratableItems(assignmentEntries)) return;
+
+			plan.calendarAssignments = createCalendarAssignmentsTarget(
+				d.assignmentTypes as AssignmentType[] | Promise<AssignmentType[]>,
+				assignmentEntries,
+				getDateRangeHydrationMode(workspace),
+				{
+					rangeStart: typeof d.rangeStart === 'string' ? d.rangeStart : undefined,
+					rangeEnd: typeof d.rangeEnd === 'string' ? d.rangeEnd : undefined
+				}
+			);
+		}
+	},
+	simpleField('trainingTypes', (plan, target) => {
+		plan.trainingTypes = target;
+	}),
+	simpleField('trainingViews', (plan, target) => {
+		plan.trainingViews = target;
+	}),
+	simpleField<PersonnelTraining>('personnelTrainings', (plan, target) => {
+		plan.personnelTrainings = target;
+	}),
+	simpleField<IctTask>('ictTasks', (plan, target) => {
+		plan.ictTasks = target;
+	}),
+	simpleField<PersonnelIctCompletion>('personnelIctCompletions', (plan, target) => {
+		plan.personnelIctCompletions = target;
+	}),
+	simpleField<string>('pinnedGroups', (plan, target) => {
+		plan.pinnedGroups = target;
+	}),
+	{
+		// Dashboard rating-scheme data is a summary-shaped subset, not the canonical store dataset.
+		detect: (d, workspace) => workspace !== 'dashboard' && isHydratableItems(d.ratingSchemeEntries),
+		build: (d, _workspace, plan) => {
+			plan.ratingSchemeEntries = createHydrationTarget(d.ratingSchemeEntries as HydrationItems<RatingSchemeEntry>);
+		}
+	},
+	{
+		detect: (d) => Array.isArray(d.onboardingTemplates) || Array.isArray(d.onboardingTemplateSteps),
+		build: (d, _workspace, plan) => {
+			plan.onboardingTemplates = {
+				mode: 'replace',
+				snapshotKey: createSnapshotKey({
+					onboardingTemplates: d.onboardingTemplates ?? [],
+					onboardingTemplateSteps: d.onboardingTemplateSteps ?? []
+				}),
+				templates: (d.onboardingTemplates as OnboardingTemplate[]) ?? [],
+				steps: (d.onboardingTemplateSteps as OnboardingTemplateStep[]) ?? []
+			};
+		}
+	},
+	{
+		// Dashboard exposes active onboardings for its widgets, but that should not replace the
+		// shared onboarding store, which owns active + completed/cancelled records.
+		detect: (d) => isHydratableItems(d.onboardings),
+		build: (d, _workspace, plan) => {
+			plan.onboardings = createHydrationTarget(d.onboardings as HydrationItems<PersonnelOnboarding>);
+		}
+	}
+];
+
 /**
  * Production `HydrationPlannerPort` implementation.
  *
@@ -122,142 +270,12 @@ export function createDefaultHydrationPlanner(orgId: string): HydrationPlannerPo
 			if (data == null || typeof data !== 'object' || Array.isArray(data)) return undefined;
 			const d = data as Record<string, unknown>;
 
-			const hasPersonnel = isHydratableItems(d.personnel) || isHydratableItems(d.allPersonnel);
-			const hasGroups = isHydratableItems(d.groups);
-			const hasStatusTypes = isHydratableItems(d.statusTypes);
-			const hasAvailabilityEntries = isHydratableItems(d.availabilityEntries);
-			const hasSpecialDays = isHydratableItems(d.specialDays);
-			const assignmentEntries = isHydratableItems(d.dailyAssignments)
-				? d.dailyAssignments
-				: workspace === 'dashboard' && isHydratableItems(d.todayAssignments)
-					? d.todayAssignments
-					: undefined;
-			const hasCalendarAssignments = isHydratableItems(d.assignmentTypes) && isHydratableItems(assignmentEntries);
-			const hasTrainingTypes = isHydratableItems(d.trainingTypes);
-			const hasTrainingViews = isHydratableItems(d.trainingViews);
-			const hasPersonnelTrainings = isHydratableItems(d.personnelTrainings);
-			const hasIctTasks = isHydratableItems(d.ictTasks);
-			const hasPersonnelIctCompletions = isHydratableItems(d.personnelIctCompletions);
-			const hasPinnedGroups = isHydratableItems(d.pinnedGroups);
-			// Dashboard rating-scheme data is a summary-shaped subset, not the canonical store dataset.
-			const hasRatingSchemeEntries = workspace !== 'dashboard' && isHydratableItems(d.ratingSchemeEntries);
-			const hasOnboardingTemplates = Array.isArray(d.onboardingTemplates) || Array.isArray(d.onboardingTemplateSteps);
-			// Dashboard exposes active onboardings for its widgets, but that should not replace the
-			// shared onboarding store, which owns active + completed/cancelled records.
-			const onboardingEntries = isHydratableItems(d.onboardings) ? d.onboardings : undefined;
-			const hasOnboardings = isHydratableItems(onboardingEntries);
-			const dateRangeHydrationMode = workspace === 'calendar' ? 'merge' : 'replace';
-
-			if (
-				!hasPersonnel &&
-				!hasGroups &&
-				!hasStatusTypes &&
-				!hasAvailabilityEntries &&
-				!hasSpecialDays &&
-				!hasCalendarAssignments &&
-				!hasTrainingTypes &&
-				!hasTrainingViews &&
-				!hasPersonnelTrainings &&
-				!hasIctTasks &&
-				!hasPersonnelIctCompletions &&
-				!hasPinnedGroups &&
-				!hasRatingSchemeEntries &&
-				!hasOnboardingTemplates &&
-				!hasOnboardings
-			) {
-				return undefined;
-			}
+			const presentFields = PLAN_FIELDS.filter((field) => field.detect(d, workspace));
+			if (presentFields.length === 0) return undefined;
 
 			const plan: HydrationPlan = { orgId };
-
-			if (hasPersonnel) {
-				const scoped = isHydratableItems(d.personnel) ? d.personnel : [];
-				plan.personnel = {
-					scoped: createHydrationTarget(scoped),
-					// `all` is only set when explicit all-org data was provided.
-					// Falling back to `personnel` would silently hydrate allPersonnelStore
-					// with scoped-only data once that store exists.
-					...(isHydratableItems(d.allPersonnel) && {
-						all: createHydrationTarget(d.allPersonnel)
-					})
-				};
-			}
-
-			if (hasGroups) {
-				plan.groups = createHydrationTarget(d.groups as unknown[] | Promise<unknown[]>);
-			}
-
-			if (hasStatusTypes) {
-				plan.statusTypes = createHydrationTarget(d.statusTypes as unknown[] | Promise<unknown[]>);
-			}
-
-			if (hasAvailabilityEntries) {
-				plan.availabilityEntries = createHydrationTarget(
-					d.availabilityEntries as HydrationItems<AvailabilityEntry>,
-					dateRangeHydrationMode
-				);
-			}
-
-			if (hasSpecialDays) {
-				plan.specialDays = createHydrationTarget(d.specialDays as HydrationItems<SpecialDay>, dateRangeHydrationMode);
-			}
-
-			if (hasCalendarAssignments) {
-				plan.calendarAssignments = createCalendarAssignmentsTarget(
-					d.assignmentTypes as AssignmentType[] | Promise<AssignmentType[]>,
-					assignmentEntries as DailyAssignment[] | Promise<DailyAssignment[]>,
-					dateRangeHydrationMode,
-					{
-						rangeStart: typeof d.rangeStart === 'string' ? d.rangeStart : undefined,
-						rangeEnd: typeof d.rangeEnd === 'string' ? d.rangeEnd : undefined
-					}
-				);
-			}
-
-			if (hasTrainingTypes) {
-				plan.trainingTypes = createHydrationTarget(d.trainingTypes as unknown[] | Promise<unknown[]>);
-			}
-
-			if (hasTrainingViews) {
-				plan.trainingViews = createHydrationTarget(d.trainingViews as unknown[] | Promise<unknown[]>);
-			}
-
-			if (hasPersonnelTrainings) {
-				plan.personnelTrainings = createHydrationTarget(d.personnelTrainings as HydrationItems<PersonnelTraining>);
-			}
-
-			if (hasIctTasks) {
-				plan.ictTasks = createHydrationTarget(d.ictTasks as HydrationItems<IctTask>);
-			}
-
-			if (hasPersonnelIctCompletions) {
-				plan.personnelIctCompletions = createHydrationTarget(
-					d.personnelIctCompletions as HydrationItems<PersonnelIctCompletion>
-				);
-			}
-
-			if (hasPinnedGroups) {
-				plan.pinnedGroups = createHydrationTarget(d.pinnedGroups as HydrationItems<string>);
-			}
-
-			if (hasRatingSchemeEntries) {
-				plan.ratingSchemeEntries = createHydrationTarget(d.ratingSchemeEntries as HydrationItems<RatingSchemeEntry>);
-			}
-
-			if (hasOnboardingTemplates) {
-				plan.onboardingTemplates = {
-					mode: 'replace',
-					snapshotKey: createSnapshotKey({
-						onboardingTemplates: d.onboardingTemplates ?? [],
-						onboardingTemplateSteps: d.onboardingTemplateSteps ?? []
-					}),
-					templates: (d.onboardingTemplates as OnboardingTemplate[]) ?? [],
-					steps: (d.onboardingTemplateSteps as OnboardingTemplateStep[]) ?? []
-				};
-			}
-
-			if (hasOnboardings) {
-				plan.onboardings = createHydrationTarget(onboardingEntries as HydrationItems<PersonnelOnboarding>);
+			for (const field of presentFields) {
+				field.build(d, workspace, plan);
 			}
 
 			return plan;

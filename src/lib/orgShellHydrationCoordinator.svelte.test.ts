@@ -187,6 +187,44 @@ describe('createOrgShellHydrationCoordinator', () => {
 		expect(groupsStore.items).toEqual([group('new')]);
 	});
 
+	it('does not let a stale async rejection clear a newer pending snapshot', async () => {
+		const coordinator = createOrgShellHydrationCoordinator();
+		const groupsStore = createLoadable<Group>();
+		const stores = createHydrationStores({ groupsStore: asGroupStore(groupsStore) });
+		const staleGroups = createDeferred<Group[]>();
+		const latestGroups = createDeferred<Group[]>();
+		const error = new Error('stale load failed');
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+		try {
+			const stale = coordinator.hydrate(
+				{
+					orgId: 'org-1',
+					groups: { mode: 'replace', snapshotKey: 'groups:old', items: staleGroups.promise }
+				},
+				stores
+			);
+			const latest = coordinator.hydrate(
+				{
+					orgId: 'org-1',
+					groups: { mode: 'replace', snapshotKey: 'groups:new', items: latestGroups.promise }
+				},
+				stores
+			);
+
+			staleGroups.reject(error);
+			await expect(stale).rejects.toThrow(error);
+			latestGroups.resolve([group('new')]);
+			await latest;
+		} finally {
+			consoleError.mockRestore();
+		}
+
+		expect(groupsStore.startLoadingCalls).toBe(2);
+		expect(groupsStore.loadCalls).toHaveLength(1);
+		expect(groupsStore.items).toEqual([group('new')]);
+	});
+
 	it('honors replace, merge, preserve-client, and merge bypass behavior for generic stores', async () => {
 		const coordinator = createOrgShellHydrationCoordinator();
 		const groupsStore = createLoadable<Group>({

@@ -2,22 +2,15 @@ import { z } from 'zod';
 import type { PersonnelFollowUp } from '$features/personnel/personnel-detail.types';
 import { fail } from '$lib/server/core/errors';
 import type { UseCaseContext } from '$lib/server/core/ports';
-import { requirePersonnelArtifactAccess, requirePersonnelArtifactReadAccess } from './personnelArtifactAuthorization';
-import { loadPersonnelContributorLabels, resolveContributorLabel } from './personnelContributorLabels';
-
-interface FollowUpRow {
-	id: string;
-	personnel_id: string;
-	title: string;
-	notes: string | null;
-	due_date: string | null;
-	status: 'open' | 'completed' | 'archived';
-	created_by: string;
-	created_at: string;
-	updated_at: string;
-	completed_at: string | null;
-	archived_at?: string | null;
-}
+import {
+	deleteArtifact,
+	listArtifacts,
+	loadPersonnelContributorLabels,
+	mapFollowUpRow,
+	PERSONNEL_FOLLOW_UP_SPEC,
+	requirePersonnelArtifactAccess,
+	type FollowUpRow
+} from './personnelArtifactLifecycle';
 
 export const personnelFollowUpInputSchema = z.object({
 	personnelId: z.string().min(1),
@@ -42,22 +35,6 @@ export const personnelFollowUpUpdateSchema = z.object({
 	dueDate: z.string().date().nullable().optional().default(null)
 });
 
-function mapFollowUpRow(row: FollowUpRow, contributorLabels = new Map<string, string>()): PersonnelFollowUp {
-	return {
-		id: row.id,
-		personnelId: row.personnel_id,
-		title: row.title,
-		notes: row.notes ?? '',
-		dueDate: row.due_date,
-		status: row.status,
-		createdBy: resolveContributorLabel(contributorLabels, row.created_by),
-		createdAt: row.created_at,
-		updatedAt: row.updated_at,
-		completedAt: row.completed_at,
-		archivedAt: row.archived_at ?? null
-	};
-}
-
 function requireUserId(ctx: UseCaseContext): string {
 	if (!ctx.auth.userId) fail(401, 'Authenticated user required');
 	return ctx.auth.userId;
@@ -69,29 +46,7 @@ export async function listPersonnelFollowUps(
 	limit?: number,
 	options: { archived?: boolean } = {}
 ): Promise<PersonnelFollowUp[]> {
-	await requirePersonnelArtifactReadAccess(ctx, personnelId);
-
-	const rows = await ctx.store.findMany<FollowUpRow>(
-		'personnel_follow_ups',
-		ctx.auth.orgId,
-		{ personnel_id: personnelId },
-		{
-			// Open sorts after completed lexicographically, so descending keeps active work first while archived is excluded.
-			orderBy: [
-				{ column: 'status', ascending: false },
-				...(options.archived ? [{ column: 'archived_at', ascending: false }] : []),
-				{ column: 'created_at', ascending: false }
-			],
-			...(options.archived ? { filters: { status: 'archived' } } : { notInFilters: { status: ['archived'] } }),
-			limit
-		}
-	);
-
-	const labels = await loadPersonnelContributorLabels(
-		ctx,
-		rows.map((row) => row.created_by)
-	);
-	return rows.map((row) => mapFollowUpRow(row, labels));
+	return listArtifacts(ctx, PERSONNEL_FOLLOW_UP_SPEC, personnelId, { limit, archived: options.archived });
 }
 
 export async function createPersonnelFollowUp(ctx: UseCaseContext, rawInput: unknown): Promise<PersonnelFollowUp> {
@@ -238,13 +193,5 @@ export async function deletePersonnelFollowUp(ctx: UseCaseContext, rawInput: unk
 		fail(400, parsed.error.issues.map((issue) => issue.message).join('; '));
 	}
 	const input = parsed.data;
-	await requirePersonnelArtifactAccess(ctx, input.personnelId);
-	const current = await ctx.store.findOne<FollowUpRow>('personnel_follow_ups', ctx.auth.orgId, {
-		id: input.followUpId,
-		personnel_id: input.personnelId
-	});
-	if (!current) fail(404, 'Follow-up not found');
-	if (current.status !== 'archived') fail(409, 'Archive follow-ups before deleting them');
-	await ctx.store.delete('personnel_follow_ups', ctx.auth.orgId, input.followUpId);
-	ctx.audit.log({ action: 'personnel.follow_up.deleted', resourceType: 'personnel', resourceId: input.personnelId });
+	return deleteArtifact(ctx, PERSONNEL_FOLLOW_UP_SPEC, { personnelId: input.personnelId, id: input.followUpId });
 }

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AccountSetupLinkAccessRequest, AccountSetupLinkRecord } from './accountSetupLinks';
 import {
 	createAccountSetupCompletionService,
@@ -163,6 +163,15 @@ const approvedRequest: AccountSetupLinkAccessRequest = {
 };
 
 describe('Account Setup completion', () => {
+	beforeEach(() => {
+		vi.useFakeTimers({ toFake: ['Date'] });
+		vi.setSystemTime(new Date('2026-05-18T12:00:00.000Z'));
+	});
+
+	afterEach(() => {
+		vi.useRealTimers();
+	});
+
 	it('creates a confirmed User Account, consumes the setup link, marks completion, and signs in', async () => {
 		const store = makeStore(approvedRequest);
 		await addSetupToken(store);

@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { orgShellCoordinator } from '$lib/orgShellCoordinator.svelte';
+	import { orgShellHydrationCoordinator } from '$lib/orgShellHydrationCoordinator.svelte';
 	import type { WorkspaceBootstrap } from '$lib/server/core/orgShell';
 	import type { TrainingBootstrap } from '$lib/server/core/orgShell';
 	import { isPromiseLike, observeDeferred, throwRenderError } from '$lib/utils/streamedRouteData';
 
-	const coordinator = orgShellCoordinator;
+	const coordinator = orgShellHydrationCoordinator;
 
 	let { children, data } = $props();
 	let hydrationError = $state<Error | null>(null);

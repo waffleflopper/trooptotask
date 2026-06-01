@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import IctCompletionModal from './IctCompletionModal.svelte';
 import { toastStore } from '$lib/stores/toast.svelte';
 import type { IctTask, PersonnelIctCompletion } from '$features/critical-tasks/criticalTasks.types';
@@ -66,9 +66,15 @@ async function chooseDate(label: RegExp): Promise<void> {
 	await fireEvent.click(day);
 }
 
+beforeEach(() => {
+	vi.useFakeTimers({ toFake: ['Date'] });
+	vi.setSystemTime(new Date('2026-05-01T12:00:00.000Z'));
+});
+
 afterEach(() => {
 	cleanup();
 	vi.restoreAllMocks();
+	vi.useRealTimers();
 });
 
 describe('IctCompletionModal', () => {

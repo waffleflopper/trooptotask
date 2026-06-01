@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { orgShellCoordinator } from '$lib/orgShellCoordinator.svelte';
+	import { orgShellHydrationCoordinator } from '$lib/orgShellHydrationCoordinator.svelte';
 
-	const coordinator = orgShellCoordinator;
+	const coordinator = orgShellHydrationCoordinator;
 
 	let { children, data } = $props();
 

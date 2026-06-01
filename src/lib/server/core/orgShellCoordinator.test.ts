@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { defineStore } from '$lib/stores/core';
-import { createOrgShellCoordinator as createClientOrgShellCoordinator } from '$lib/orgShellCoordinator.svelte';
+import { createOrgShellHydrationCoordinator } from '$lib/orgShellHydrationCoordinator.svelte';
 import type { HydrationStores } from '$lib/orgShellCoordinator';
 import { createInMemoryOrgWorkspacePort } from '$lib/server/adapters/inMemoryOrgShell';
 import { createDefaultHydrationPlanner } from './hydrationPlanner';
@@ -117,7 +117,7 @@ function createHydrationStores() {
 
 function createTestCoordinator() {
 	return createOrgShellCoordinator({
-		hydrationCoordinator: createClientOrgShellCoordinator()
+		hydrationCoordinator: createOrgShellHydrationCoordinator()
 	});
 }
 

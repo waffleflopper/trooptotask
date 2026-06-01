@@ -191,6 +191,8 @@ async function chooseCompletionDate(label: RegExp): Promise<void> {
 
 describe('IctPersonnelDetailPage', () => {
 	beforeEach(() => {
+		vi.useFakeTimers({ toFake: ['Date'] });
+		vi.setSystemTime(new Date('2026-05-01T12:00:00.000Z'));
 		mockOrgContext.permissions.canEditCriticalTasks = true;
 		mockOrgContext.readOnly = false;
 		mockOrgContext.capabilityMap.criticalTasks = 'configure';
@@ -205,6 +207,7 @@ describe('IctPersonnelDetailPage', () => {
 		ictTasksStore.load([], 'org-test-reset');
 		personnelIctCompletionsStore.load([], 'org-test-reset');
 		vi.restoreAllMocks();
+		vi.useRealTimers();
 	});
 
 	it('lists active applicable tasks for the selected soldier with their current details', () => {

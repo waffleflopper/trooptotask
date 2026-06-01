@@ -128,12 +128,15 @@ function makeLoadEvent(input: { token?: string; session?: unknown; cookies?: Ret
 }
 
 beforeEach(() => {
+	vi.useFakeTimers({ toFake: ['Date'] });
+	vi.setSystemTime(new Date('2026-05-18T12:00:00.000Z'));
 	vi.clearAllMocks();
 	vi.stubEnv('ACCOUNT_SETUP_SESSION_SECRET', 'test-account-setup-session-secret');
 	checkCompletionRateLimit.mockReturnValue({ limited: false });
 });
 
 afterEach(() => {
+	vi.useRealTimers();
 	vi.unstubAllEnvs();
 });
 

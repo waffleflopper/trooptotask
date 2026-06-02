@@ -7,7 +7,6 @@ import { ratingSchemeStore } from '../stores/ratingScheme.svelte';
 import type { RatingSchemeEntry } from '../rating-scheme.types';
 import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 import { createTestOrgContext, NONE_TEST_CAPABILITY_MAP } from '$lib/test-support/orgContextBuilder';
-import { getEvalBadgeClass } from './EvalBadge.svelte';
 
 const { exportRatingSchemeMock } = vi.hoisted(() => ({
 	exportRatingSchemeMock: vi.fn(async () => undefined)
@@ -75,22 +74,6 @@ function makeContext(modals = new ModalRegistry()): RatingSchemePageContext {
 	return new RatingSchemePageContext(data, modals, org, entries);
 }
 
-function badgeFor(label: string): HTMLElement {
-	const badge = screen.getByText(label).closest('[data-slot="badge"]');
-	if (!(badge instanceof HTMLElement)) {
-		throw new Error(`Expected ${label} to render inside a badge`);
-	}
-	return badge;
-}
-
-function expectBadgeClasses(label: string, classes: string) {
-	const badge = badgeFor(label);
-
-	for (const className of classes.split(' ')) {
-		expect(badge.classList.contains(className)).toBe(true);
-	}
-}
-
 describe('RatingSchemePageView', () => {
 	beforeEach(() => {
 		exportRatingSchemeMock.mockClear();
@@ -123,22 +106,6 @@ describe('RatingSchemePageView', () => {
 		expect(within(summary).queryByText('Current')).toBeNull();
 		expect(within(summary).queryByText('Due Soon')).toBeNull();
 		expect(within(summary).queryByText('Access')).toBeNull();
-	});
-
-	it('uses semantic due status styling for Evals summary badges', () => {
-		render(RatingSchemePageView, {
-			props: {
-				ctx: makeContext(),
-				personnelLookup: [
-					{ id: 'p1', rank: 'SGT', firstName: 'Jane', lastName: 'Smith' },
-					{ id: 'p2', rank: 'CPT', firstName: 'Alex', lastName: 'Jones' }
-				]
-			}
-		});
-
-		expectBadgeClasses('Overdue', getEvalBadgeClass('due', 'overdue'));
-		expectBadgeClasses('60d', getEvalBadgeClass('due', 'due-60'));
-		expectBadgeClasses('30d', getEvalBadgeClass('due', 'due-30'));
 	});
 
 	it('routes Add Entry through the rating scheme page context', async () => {

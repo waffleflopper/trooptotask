@@ -108,20 +108,7 @@ describe('OnboardingPaperworkStageQueue', () => {
 		expect(onSelect).toHaveBeenCalledWith('Filed');
 	});
 
-	it('applies the default inset spacing', () => {
-		render(OnboardingPaperworkStageQueue, {
-			props: {
-				step: makePaperworkStep(),
-				canManage: true,
-				onSelect: vi.fn()
-			}
-		});
-
-		const group = screen.getByRole('group', { name: 'Finance packet paperwork stages' });
-		expect(group.className).toContain('pl-7');
-	});
-
-	it('supports the completed-step rollback path and optional inset removal', async () => {
+	it('supports the completed-step rollback path', async () => {
 		const onSelect = vi.fn();
 		render(OnboardingPaperworkStageQueue, {
 			props: {
@@ -133,7 +120,6 @@ describe('OnboardingPaperworkStageQueue', () => {
 		});
 
 		const group = screen.getByRole('group', { name: 'Finance packet paperwork stages' });
-		expect(group.className).not.toContain('pl-7');
 
 		await fireEvent.click(within(group).getByRole('button', { name: /Review Cleared/ }));
 

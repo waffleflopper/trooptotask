@@ -459,13 +459,6 @@ describe('addNote', () => {
 		);
 	});
 
-	it('rejects when the actor is unauthenticated', async () => {
-		const ctx = buildContext({ auth: { userId: null } });
-		seedStep(ctx);
-
-		await expect(addNote(ctx, { stepId: 'step-1', text: 'hello' })).rejects.toThrow('Authentication required');
-	});
-
 	it('emits audit log on note addition', async () => {
 		const ctx = buildContext({ auth: { userId: 'user-abc' } });
 		seedStep(ctx);

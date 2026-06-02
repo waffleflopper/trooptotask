@@ -30,7 +30,6 @@ import {
 	BILLING_CANCEL_ACTION,
 	BILLING_CHECKOUT_ACTION,
 	BILLING_PORTAL_ACTION,
-	checkSensitiveAction,
 	sensitiveActionDecisionAuditDetails,
 	throwSensitiveActionFailure,
 	type SensitiveAction,
@@ -223,16 +222,6 @@ async function authorizeBillingSensitiveAction(
 	input: { action: SensitiveAction; deniedAuditAction: string; details?: Record<string, unknown> }
 ): Promise<Record<string, unknown>> {
 	const target = { type: 'organization', id: ctx.auth.orgId };
-	if (!ctx.auth.userId) {
-		const decision = checkSensitiveAction({
-			action: input.action,
-			target,
-			actor: { userId: null }
-		});
-		auditDeniedSensitiveBillingAction(ctx, input.deniedAuditAction, decision, input.details);
-		failSensitiveBillingAction(decision);
-	}
-
 	const decision = await ctx.sensitiveActionAuthorizer.authorize({
 		action: input.action,
 		actorUserId: ctx.auth.userId,

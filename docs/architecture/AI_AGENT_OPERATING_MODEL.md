@@ -62,7 +62,6 @@ When using `grill-me`, ask one question at a time.
 - Treat the current boolean-heavy authz implementation as tolerated current-state, not desired precedent.
 - Do not add new direct `locals.supabase` business logic outside auth-provider edges, ports/adapters, or an explicitly approved remediation slice.
 - Do not create new feature-permission piggybacking.
-- Do not deepen demo/sandbox behavior.
 - Preserve compatibility with legacy clinic-era names, but prefer the Army/military-oriented canonical term in docs, product copy, and new abstractions.
 - Treat `docs/architecture/GOVERNANCE_BASELINE.json` as the explicit record of currently tolerated route-level provider leaks and permission-lane exceptions.
 

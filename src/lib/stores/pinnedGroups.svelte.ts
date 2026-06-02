@@ -6,8 +6,7 @@
  * in-flight client changes during `load()`.
  *
  * Persisted server-side per user (see `pinnedGroupCrud.ts`). Loaded from layout data via
- * `pinnedGroupsStore.load(names, orgId)`. Sandbox users (no userId) are silently no-opped
- * on the server side.
+ * `pinnedGroupsStore.load(names, orgId)`.
  */
 class PinnedGroupsStore {
 	#pinnedGroups = $state.raw<string[]>([]);

@@ -110,7 +110,6 @@
 			"reason": "Suspension checks remain part of the session/auth gate."
 		}
 	],
-	"deprecatedDemoSandboxAllowlist": [],
 	"legacyAuthorizationAllowlist": [
 		{
 			"path": "supabase/migrations/20260526000100_normalize_member_access_replacement_storage.sql",

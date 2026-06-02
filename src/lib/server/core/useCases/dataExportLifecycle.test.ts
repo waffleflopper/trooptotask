@@ -6,10 +6,7 @@ describe('dataExportLifecycle use cases', () => {
 	it('creates a processing export record through the app-owned store', async () => {
 		const ctx = createTestContext();
 
-		const record = await startDataExport(
-			{ auth: ctx.auth, store: ctx.rawStore },
-			{ requestedBy: ctx.auth.userId ?? 'fallback-user' }
-		);
+		const record = await startDataExport({ auth: ctx.auth, store: ctx.rawStore }, { requestedBy: ctx.auth.userId });
 
 		const saved = await ctx.rawStore.findOne<Record<string, unknown>>('data_exports', ctx.auth.orgId, {
 			id: record.exportId
@@ -25,10 +22,7 @@ describe('dataExportLifecycle use cases', () => {
 
 	it('marks an export as completed with a file size', async () => {
 		const ctx = createTestContext();
-		const record = await startDataExport(
-			{ auth: ctx.auth, store: ctx.rawStore },
-			{ requestedBy: ctx.auth.userId ?? 'fallback-user' }
-		);
+		const record = await startDataExport({ auth: ctx.auth, store: ctx.rawStore }, { requestedBy: ctx.auth.userId });
 
 		await completeDataExport(
 			{ auth: ctx.auth, store: ctx.rawStore },
@@ -48,10 +42,7 @@ describe('dataExportLifecycle use cases', () => {
 
 	it('marks an export as failed when generation aborts', async () => {
 		const ctx = createTestContext();
-		const record = await startDataExport(
-			{ auth: ctx.auth, store: ctx.rawStore },
-			{ requestedBy: ctx.auth.userId ?? 'fallback-user' }
-		);
+		const record = await startDataExport({ auth: ctx.auth, store: ctx.rawStore }, { requestedBy: ctx.auth.userId });
 
 		await failDataExport({ auth: ctx.auth, store: ctx.rawStore }, { exportId: record.exportId });
 

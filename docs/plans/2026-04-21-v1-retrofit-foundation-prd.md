@@ -237,7 +237,6 @@ Highest-value ADRs to write as remediation starts:
 - Large-scale repo reshaping into a package or monorepo model
 - Full v2 terminology back-port into v1 current-state docs
 - Full Leaders Book rebuild during a governance-only pass
-- Demo/sandbox removal during a docs-only pass
 - Comprehensive CI enforcement before the first remediation slices stabilize the target shape
 
 ## Suggested Slicing Guidance

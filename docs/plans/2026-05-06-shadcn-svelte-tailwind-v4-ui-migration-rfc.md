@@ -94,7 +94,6 @@ If a route exposes a real reusable need, add a shared component variant or behav
 - Rebuilding the app from scratch.
 - Changing product workflows just because the component stack changes.
 - Replacing feature modules or route structure as part of visual migration.
-- Deepening demo/sandbox behavior.
 - Treating shadcn-svelte defaults as automatically sufficient for TroopToTask without calibration.
 - Preserving every legacy visual detail if it conflicts with the new shared baseline.
 - Allowing local visual escape hatches after calibration.

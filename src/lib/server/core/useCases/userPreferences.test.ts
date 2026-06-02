@@ -88,18 +88,4 @@ describe('user preferences', () => {
 		expect(result.training.selectedViewId).toBe('view-1');
 		expect(result.training.matrixViewMode).toBe('alphabetical');
 	});
-
-	it('returns an in-memory merge for sandbox users', async () => {
-		const ctx = buildContext({ auth: { userId: null } });
-
-		const result = await patchUserOrgPreferences(ctx, {
-			training: {
-				selectedGroupId: 'group-1'
-			}
-		});
-
-		expect(result.training.selectedGroupId).toBe('group-1');
-		const stored = await ctx.store.findMany('user_org_preferences', 'test-org');
-		expect(stored).toHaveLength(0);
-	});
 });

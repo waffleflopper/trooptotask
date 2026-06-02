@@ -257,4 +257,3 @@ Good tests verify external behavior (API contracts, rendered output, navigation)
 - The `onboardingLayoutServer.ts` file is eliminated — data loading moves to standard `+layout.server.ts` / `+page.server.ts` files.
 - All new API routes must use the `apiRoute` wrapper with proper permission, audit, and validation configuration per existing conventions.
 - Migration must handle existing production data: add new columns with defaults, create partial unique index, alter FK constraint. No destructive changes to existing rows.
-- Demo/sandbox data should be updated to showcase the rebuilt system with realistic templates and onboarding instances.

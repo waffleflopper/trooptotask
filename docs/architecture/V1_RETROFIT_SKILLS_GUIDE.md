@@ -13,15 +13,14 @@ Work in dependency waves rather than strict issue-number order.
 3. `#621` Give Critical Tasks its own permission lane
 4. `#620` Decide and document Rating Scheme vs Leader's Book boundaries
 5. `#624` Replace clinic-era terminology with documented compatibility rules
-6. `#625` Isolate and decommission demo/sandbox exceptions
-7. `#616` Extract dashboard invitation and membership flows from route-local Supabase logic
-8. `#617` Extract org settings member and invitation flows behind app-owned boundaries
-9. `#618` Extract organization provisioning from the org/new route
-10. `#626` Extract org settings ownership-transfer and destructive flows
-11. `#619` Harden billing and export route/provider seams
-12. `#627` Move Rating Scheme onto the approved permission boundary
-13. `#622` Deepen the dashboard surface after boundary cleanup
-14. `#623` Deepen calendar and duty-roster orchestration modules
+6. `#616` Extract dashboard invitation and membership flows from route-local Supabase logic
+7. `#617` Extract org settings member and invitation flows behind app-owned boundaries
+8. `#618` Extract organization provisioning from the org/new route
+9. `#626` Extract org settings ownership-transfer and destructive flows
+10. `#619` Harden billing and export route/provider seams
+11. `#627` Move Rating Scheme onto the approved permission boundary
+12. `#622` Deepen the dashboard surface after boundary cleanup
+13. `#623` Deepen calendar and duty-roster orchestration modules
 
 ## New Repo-Local Skills
 
@@ -88,14 +87,6 @@ Recommended skills: `v1-retrofit-slice`, `legacy-compat-rename`, `ubiquitous-lan
 
 ```text
 Use `v1-retrofit-slice`, `legacy-compat-rename`, `ubiquitous-language`, `clarify`, and `retrofit-slice-audit` for issue #624. Read the issue, `UBIQUITOUS_LANGUAGE.md`, `docs/architecture/DRIFT_LEDGER.md`, and `docs/architecture/V1_CHANGE_INTENT.md`. Inventory the highest-value clinic-era terms first, preserve runtime/schema compatibility, move docs and user-facing copy toward the canonical military terms, and stop if the work turns into a mass rename or migration slice.
-```
-
-### `#625` Demo/sandbox containment
-
-Recommended skills: `v1-retrofit-slice`, `retrofit-slice-audit`
-
-```text
-Use `v1-retrofit-slice` and `retrofit-slice-audit` for issue #625. Read the issue, `docs/architecture/ARCHITECTURE.md`, `docs/architecture/DRIFT_LEDGER.md`, `docs/architecture/V1_CHANGE_INTENT.md`, and `docs/architecture/GOVERNANCE_BASELINE.json`. Identify the highest-risk demo/sandbox exceptions, tighten containment or documentation where appropriate, and document the staged decommission path without expanding demo behavior or trying to remove everything in one pass.
 ```
 
 ### `#616` Dashboard invitation and membership seam

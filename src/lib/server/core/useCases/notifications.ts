@@ -12,7 +12,6 @@ interface NotificationOwnershipRow {
 }
 
 function authenticatedUserId(ctx: WritePorts): string {
-	if (!ctx.auth.userId) fail(401, 'Unauthorized');
 	return ctx.auth.userId;
 }
 

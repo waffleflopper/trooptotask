@@ -21,7 +21,7 @@ The root file now keeps only:
 
 ## Historical docs/agents Structure
 
-- `docs/agents/operating-rules.md`: communication, completion checks, data safety, demo/sandbox decommissioning.
+- `docs/agents/operating-rules.md`: communication, completion checks, data safety.
 - `docs/agents/svelte.md`: Svelte MCP flow and shadcn-svelte documentation entrypoint.
 - `docs/agents/ui-system.md`: current UI-system contract, route boundaries, shared-component authority.
 - `docs/agents/ui-migration.md`: compatibility pointer for older prompts.

@@ -195,8 +195,6 @@ These should be treated as deep modules with stable inputs and outputs rather th
 - Existing simple duties should be wrapped as simple templates for the new UX.
 - Existing simple records remain intact during rollout rather than being destructively rewritten.
 - Compatibility rollout is preferred over a hard cutover.
-- Demo/sandbox-specific duty behavior is deprecated and should not be expanded as part of this work.
-- If demo/sandbox duty paths are touched during implementation, they should be left clearly marked for later removal rather than deepened.
 
 ### API and Interaction Decisions
 
@@ -263,7 +261,6 @@ Good tests should validate external behavior, user-visible outcomes, and stable 
 - A phone-first workflow optimized for dense roster editing.
 - Forcing advanced team duties into a literal DA Form 6 export.
 - Automatic destructive migration of all legacy duty data into the new model.
-- Expanding or improving demo/sandbox-only duty behavior.
 - A complete recurrence-rule engine beyond the supported common date-pattern options.
 - Fully generalized optimization for whole-team cohesion beyond the agreed slot-level preference model.
 

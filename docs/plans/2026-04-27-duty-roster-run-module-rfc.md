@@ -36,7 +36,6 @@ This RFC is now historical. Use it as prior art for the retained run module and 
 - Do not generate final Excel/PDF/DA6 files inside the Duty Roster Run Module.
 - Do not add Calendar status A/D/U semantics in this slice.
 - Do not implement misconduct-driven `U` behavior until the product has an explicit human-readable status for it.
-- Do not expand deprecated demo/sandbox duty behavior.
 - Do not rebuild the full advanced duty template system in this slice.
 
 ## Vocabulary

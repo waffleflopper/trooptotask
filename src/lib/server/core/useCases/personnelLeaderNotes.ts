@@ -41,7 +41,7 @@ export async function createPersonnelLeaderNote(ctx: UseCaseContext, rawInput: u
 
 	const row = await ctx.store.insert<LeaderNoteRow>('leader_notes', ctx.auth.orgId, {
 		personnel_id: input.personnelId,
-		author: ctx.auth.userId ?? 'Unknown leader',
+		author: ctx.auth.userId,
 		text: input.text,
 		created_at: new Date().toISOString()
 	});

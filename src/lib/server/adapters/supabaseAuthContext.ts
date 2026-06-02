@@ -9,7 +9,7 @@ import type { PermissionContext } from '$lib/server/permissionContext';
 
 export function createSupabaseAuthContextAdapter(
 	permCtx: PermissionContext,
-	userId: string | null,
+	userId: string,
 	orgId: string
 ): AuthContext {
 	return {

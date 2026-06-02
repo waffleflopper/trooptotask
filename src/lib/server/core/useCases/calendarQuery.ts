@@ -126,16 +126,14 @@ export async function fetchCalendarData(ctx: QueryPorts, input: CalendarQueryInp
 			]
 		}),
 		// Pinned groups: filtered by userId
-		ctx.auth.userId
-			? ctx.store.findMany<Record<string, unknown>>(
-					'user_pinned_groups',
-					orgId,
-					{ user_id: ctx.auth.userId },
-					{
-						orderBy: [{ column: 'sort_order', ascending: true }]
-					}
-				)
-			: Promise.resolve([]),
+		ctx.store.findMany<Record<string, unknown>>(
+			'user_pinned_groups',
+			orgId,
+			{ user_id: ctx.auth.userId },
+			{
+				orderBy: [{ column: 'sort_order', ascending: true }]
+			}
+		),
 		// Advanced duty events: filtered by event_date window
 		listDutyEventsInRange(ctx, { rangeStart, rangeEnd })
 	]);
@@ -248,16 +246,14 @@ export async function fetchCalendarBootstrap(
 		ctx.store.findMany<Record<string, unknown>>('assignment_types', orgId, undefined, {
 			orderBy: [{ column: 'sort_order', ascending: true }]
 		}),
-		ctx.auth.userId
-			? ctx.store.findMany<Record<string, unknown>>(
-					'user_pinned_groups',
-					orgId,
-					{ user_id: ctx.auth.userId },
-					{
-						orderBy: [{ column: 'sort_order', ascending: true }]
-					}
-				)
-			: Promise.resolve([]),
+		ctx.store.findMany<Record<string, unknown>>(
+			'user_pinned_groups',
+			orgId,
+			{ user_id: ctx.auth.userId },
+			{
+				orderBy: [{ column: 'sort_order', ascending: true }]
+			}
+		),
 		withCalendarTiming(orgId, 'duty-event-hydration', () => listDutyEventsInRange(ctx, { rangeStart, rangeEnd })),
 		loadRosterPersonnel(ctx, {
 			status: 'active',

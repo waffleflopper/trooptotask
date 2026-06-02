@@ -46,7 +46,6 @@ Sensitive counseling data is protected by requiring edit-level permissions to ev
 25. As a team leader, I want the personnel list to be searchable and filterable by group, so that I can quickly find a Soldier in a large organization.
 26. As an admin, I want counseling PDF uploads stored securely with proper bucket RLS, so that only authorized users can access counseling documents.
 27. As a team leader, I want to delete a counseling entry or goal, so that I can correct mistakes (subject to the existing deletion approval system for non-privileged users).
-28. As a demo/sandbox user, I want to see sample Leaders Book data, so that I can evaluate the feature before committing to the platform.
 
 ## Implementation Decisions
 
@@ -99,7 +98,6 @@ Drop: `category`, `priority`, `target_date`, and whichever of `description`/`pro
 
 - Drop `counseling_types` table entirely
 - Clean migration since production data is test/demo only
-- Recreate demo/sandbox sample data for the new model
 
 ### Data Loading
 
@@ -163,6 +161,5 @@ Good tests verify external behavior (API contracts, rendered output, navigation)
 
 - The Leaders Book redesign aligns with the ongoing work to make data loading selective per route. The list page should declare that it does NOT need training data loaded in the layout.
 - The `counseling-files` Supabase storage bucket uses explicit versioned `storage.objects` policies, and the shared `FileUpload` component talks to app endpoints rather than browser-direct Storage APIs.
-- Demo/sandbox data should be recreated to showcase the new simplified model with realistic-looking Soldier Data Sheet entries, a few counseling PDFs, and sample goals.
 - The existing `src/features/counseling/` directory is being cleaned out by the user. The new feature module will be `src/features/leaders-book/` with its own components, stores, types, and utils following the established feature module pattern.
 - All new API routes must use the `apiRoute` wrapper with proper permission, audit, and validation configuration per existing conventions.

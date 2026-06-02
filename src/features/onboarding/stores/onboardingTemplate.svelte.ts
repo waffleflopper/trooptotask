@@ -170,67 +170,70 @@ export function createOnboardingTemplateWorkspace(input: {
 	data: OnboardingTemplateWorkspaceData;
 	adapter?: OnboardingTemplateWorkspaceAdapter;
 }): OnboardingTemplateWorkspace {
-	return new OnboardingTemplateWorkspace(
-		input.organization,
-		input.data,
-		input.adapter ?? createOnboardingTemplateWorkspaceHttpAdapter(input.organization.routeSegment)
-	);
+	const workspace = new OnboardingTemplateWorkspace(input.organization, input.data, input.adapter);
+	if (!input.adapter) {
+		workspace.setAdapter(createOnboardingTemplateWorkspaceHttpAdapter(() => workspace.organization.routeSegment));
+	}
+	return workspace;
 }
 
 export function createOnboardingTemplateWorkspaceHttpAdapter(
-	routeSegment: string,
+	routeSegment: string | (() => string),
 	fetchImpl: FetchLike = fetch
 ): OnboardingTemplateWorkspaceAdapter {
+	const routeUrl = (path: string) =>
+		`/org/${typeof routeSegment === 'function' ? routeSegment() : routeSegment}${path}`;
+
 	return {
 		createTemplate(input) {
-			return requestJson(fetchImpl, `/org/${routeSegment}/api/onboarding-templates`, {
+			return requestJson(fetchImpl, routeUrl('/api/onboarding-templates'), {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify(input)
 			});
 		},
 		updateTemplate(input) {
-			return requestJson(fetchImpl, `/org/${routeSegment}/api/onboarding-templates`, {
+			return requestJson(fetchImpl, routeUrl('/api/onboarding-templates'), {
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify(input)
 			});
 		},
 		deleteTemplate(id) {
-			return requestJson(fetchImpl, `/org/${routeSegment}/api/onboarding-templates`, {
+			return requestJson(fetchImpl, routeUrl('/api/onboarding-templates'), {
 				method: 'DELETE',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ id })
 			});
 		},
 		duplicateTemplate(id) {
-			return requestJson(fetchImpl, `/org/${routeSegment}/api/onboarding-templates/${id}/duplicate`, {
+			return requestJson(fetchImpl, routeUrl(`/api/onboarding-templates/${id}/duplicate`), {
 				method: 'POST'
 			});
 		},
 		createStep(input) {
-			return requestJson(fetchImpl, `/org/${routeSegment}/api/onboarding-template-steps`, {
+			return requestJson(fetchImpl, routeUrl('/api/onboarding-template-steps'), {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify(input)
 			});
 		},
 		updateStep(input) {
-			return requestJson(fetchImpl, `/org/${routeSegment}/api/onboarding-template-steps`, {
+			return requestJson(fetchImpl, routeUrl('/api/onboarding-template-steps'), {
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify(input)
 			});
 		},
 		deleteStep(id) {
-			return requestJson(fetchImpl, `/org/${routeSegment}/api/onboarding-template-steps`, {
+			return requestJson(fetchImpl, routeUrl('/api/onboarding-template-steps'), {
 				method: 'DELETE',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ id })
 			});
 		},
 		reorderSteps(templateId, orderedStepIds) {
-			return requestJson(fetchImpl, `/org/${routeSegment}/api/onboarding-template-steps/reorder`, {
+			return requestJson(fetchImpl, routeUrl('/api/onboarding-template-steps/reorder'), {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ templateId, orderedStepIds })
@@ -263,14 +266,26 @@ export class OnboardingTemplateWorkspace {
 	#savingStep = $state(false);
 	#duplicatingTemplateId = $state<string | null>(null);
 	#error = $state<OnboardingTemplateWorkspaceError | null>(null);
+	#adapter!: OnboardingTemplateWorkspaceAdapter;
 
 	constructor(
 		organization: OnboardingTemplateWorkspaceOrganization,
 		data: OnboardingTemplateWorkspaceData,
-		private readonly adapter: OnboardingTemplateWorkspaceAdapter
+		adapter?: OnboardingTemplateWorkspaceAdapter
 	) {
 		this.organization = organization;
 		this.replaceData(data);
+		if (adapter) {
+			this.#adapter = adapter;
+		}
+	}
+
+	setAdapter(adapter: OnboardingTemplateWorkspaceAdapter): void {
+		this.#adapter = adapter;
+	}
+
+	private get adapter(): OnboardingTemplateWorkspaceAdapter {
+		return this.#adapter;
 	}
 
 	get model(): OnboardingTemplateWorkspaceModel {
@@ -422,6 +437,7 @@ export class OnboardingTemplateWorkspace {
 				this.#creatingTemplate = false;
 				this.#mobileDetailOpen = true;
 				this.templateDraft = emptyTemplateDraft();
+				this.syncHydratedStore();
 				return result;
 			}
 
@@ -436,6 +452,7 @@ export class OnboardingTemplateWorkspace {
 			this.#templates = this.#templates.map((template) => (template.id === result.value.id ? result.value : template));
 			this.#editingTemplate = false;
 			this.templateDraft = emptyTemplateDraft();
+			this.syncHydratedStore();
 			return result;
 		} finally {
 			this.#savingTemplate = false;
@@ -469,6 +486,7 @@ export class OnboardingTemplateWorkspace {
 			this.#steps = [...this.#steps, ...result.value.templateSteps];
 			this.#selectedTemplateId = result.value.template.id;
 			this.#mobileDetailOpen = true;
+			this.syncHydratedStore();
 			return result;
 		} finally {
 			this.#duplicatingTemplateId = null;
@@ -528,6 +546,7 @@ export class OnboardingTemplateWorkspace {
 				if (!result.ok) return this.rememberError(result);
 				this.#steps = [...this.#steps, result.value];
 				this.cancelAddStep();
+				this.syncHydratedStore();
 				return result;
 			}
 
@@ -539,6 +558,7 @@ export class OnboardingTemplateWorkspace {
 			if (!result.ok) return this.rememberError(result);
 			this.#steps = this.#steps.map((step) => (step.id === result.value.id ? result.value : step));
 			this.cancelEditStep();
+			this.syncHydratedStore();
 			return result;
 		} finally {
 			this.#savingStep = false;
@@ -565,6 +585,7 @@ export class OnboardingTemplateWorkspace {
 			reorderedById[item.id] = item;
 		}
 		this.#steps = this.#steps.map((item) => reorderedById[item.id] ?? item);
+		this.syncHydratedStore();
 		return { ok: true, value: undefined };
 	}
 
@@ -602,9 +623,13 @@ export class OnboardingTemplateWorkspace {
 		if (!result.ok) return this.rememberError(result);
 		this.#templates = this.#templates.filter((template) => template.id !== templateId);
 		this.#steps = this.#steps.filter((step) => step.templateId !== templateId);
-		if (this.#selectedTemplateId === templateId) this.#selectedTemplateId = null;
+		if (this.#selectedTemplateId === templateId) {
+			this.#selectedTemplateId = null;
+			this.cancelTemplateEdit();
+		}
 		this.#mobileDetailOpen = false;
 		this.#confirmDelete = null;
+		this.syncHydratedStore();
 		return { ok: true, value: undefined };
 	}
 
@@ -614,6 +639,7 @@ export class OnboardingTemplateWorkspace {
 		this.#steps = this.#steps.filter((step) => step.id !== stepId);
 		if (this.#editingStepId === stepId) this.cancelEditStep();
 		this.#confirmDelete = null;
+		this.syncHydratedStore();
 		return { ok: true, value: undefined };
 	}
 
@@ -637,6 +663,15 @@ export class OnboardingTemplateWorkspace {
 	): OnboardingTemplateWorkspaceResult<T> {
 		this.#error = result.error;
 		return result;
+	}
+
+	private syncHydratedStore(): void {
+		if (hydratedOrgId !== this.organization.orgId) return;
+		hydratedTemplates = [...this.#templates];
+		hydratedSteps = [...this.#steps];
+		if (!activeTemplateId || !hydratedTemplates.some((template) => template.id === activeTemplateId)) {
+			activeTemplateId = hydratedTemplates[0]?.id ?? null;
+		}
 	}
 }
 

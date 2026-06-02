@@ -33,7 +33,7 @@ This definition of done is for v1 work in this repo. It applies to both implemen
 - `docs/architecture/DRIFT_LEDGER.md` is updated if drift was reduced, introduced, or newly identified.
 - `UBIQUITOUS_LANGUAGE.md` is updated if canonical terminology shifted.
 - `docs/architecture/V1_CHANGE_INTENT.md` is updated if the slice changes the intended replacement direction for a known drift area.
-- `docs/architecture/GOVERNANCE_BASELINE.json` is updated if the slice adds, removes, or reclassifies a tolerated provider-leak, permission-coupling, or demo/sandbox containment exception.
+- `docs/architecture/GOVERNANCE_BASELINE.json` is updated if the slice adds, removes, or reclassifies a tolerated provider-leak or permission-coupling exception.
 
 ## Required For Explicit Remediation Slices
 

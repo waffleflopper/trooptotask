@@ -32,8 +32,6 @@ For done criteria or workflow governance, also read:
 - [Definition of Done](../architecture/DEFINITION_OF_DONE.md)
 - [AI Agent Operating Model](../architecture/AI_AGENT_OPERATING_MODEL.md)
 
-Historical retrofit and migration docs are reference material. Read them only when the task explicitly asks about retrofit history, superseded decisions, or why a current guardrail exists.
-
 ## Current Guardrails
 
 - Treat `Organization` and `Group` as canonical v1 domain terms.

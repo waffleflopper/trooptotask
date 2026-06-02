@@ -70,8 +70,7 @@ function resolveRoutePolicyResource(
 	}
 
 	if (config.policyAction?.owner.kind === 'identity-owned') {
-		// No user id means the evaluator will deny as unauthenticated before comparing resource ownership.
-		return { kind: 'user', userId: auth.userId ?? '' };
+		return { kind: 'user', userId: auth.userId };
 	}
 
 	return { kind: 'organization' };

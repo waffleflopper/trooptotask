@@ -105,7 +105,6 @@ Date: 2026-04-21
 
 ## Links
 
-- Related PRD: `plans/2026-04-21-v1-retrofit-foundation-prd.md`
 - Related issue: [#615](https://github.com/waffleflopper/trooptotask/issues/615)
 - Related drift IDs: `D-01`, `D-03`, `D-04`
 - Related ADRs:
@@ -115,5 +114,4 @@ Date: 2026-04-21
   - `docs/architecture/DRIFT_LEDGER.md`
   - `docs/architecture/V1_CHANGE_INTENT.md`
   - `docs/architecture/ADR_BACKLOG.md`
-  - `docs/architecture/V1_RETROFIT_SKILLS_GUIDE.md`
   - `UBIQUITOUS_LANGUAGE.md`

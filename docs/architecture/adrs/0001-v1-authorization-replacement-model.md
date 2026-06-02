@@ -23,7 +23,6 @@ Date: 2026-04-21
 ### Decision pressure
 
 - Issue [#614](https://github.com/waffleflopper/trooptotask/issues/614) requires a concrete replacement v1 authorization model and migration plan without implementing runtime authz changes in this slice.
-- The v1 retrofit foundation PRD calls out authz replacement, feature-lane separation, auditability, and rollout sequencing as Phase 2 priorities.
 - Drift entries `D-01`, `D-03`, and `D-04` all depend on a shared source of truth before implementation slices can land safely.
 
 ## Decision
@@ -144,7 +143,6 @@ Date: 2026-04-21
 
 ## Links
 
-- Related PRD: `plans/2026-04-21-v1-retrofit-foundation-prd.md`
 - Related issue: [#614](https://github.com/waffleflopper/trooptotask/issues/614)
 - Related drift IDs: `D-01`, `D-03`, `D-04`
 - Related docs:

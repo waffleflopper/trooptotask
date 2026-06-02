@@ -17,7 +17,6 @@ Do not paste API keys, webhook secrets, raw webhook payloads, card details, or S
 | Item | Status | Owner | Notes |
 | --- | --- | --- | --- |
 | Checklist document created | Complete | Agent | This file records the launch gates and manual confirmations. |
-| Documentation test coverage | Complete | Agent | `src/tests/billing-launch-checklist-doc.test.ts` guards the required checklist topics. |
 | Portal assumptions documented | Complete | Agent | See "Customer Portal Configuration". |
 | Lifecycle verification reference | Complete | Agent | This checklist points to `docs/billing-launch-verification.md` and issue #1049. |
 | Test-mode Stripe Dashboard confirmation | Requires Robert confirmation | Robert | Agent can run local/test helpers only when test Stripe credentials and webhook forwarding are available. |

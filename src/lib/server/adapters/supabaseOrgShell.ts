@@ -123,6 +123,7 @@ export function createSupabaseAppShellRequest(
 			throw redirect(303, '/auth/login');
 		}
 
+		const user = config.locals.user;
 		const subscriptionAdapter = createSubscriptionAdapterFn(supabase, org.id);
 		const effectiveTierPromise = subscriptionAdapter.getEffectiveTier();
 
@@ -131,16 +132,16 @@ export function createSupabaseAppShellRequest(
 			orgUrlSegment,
 			access: createOrgAccessPortFn({
 				orgId: org.id,
-				userId: config.locals.user.id,
+				userId: user.id,
 				userSupabase: config.locals.supabase,
 				orgName: org.name ?? 'Organization',
 				getEffectiveTier: () => effectiveTierPromise,
 				wrapMembershipLoad: (loadMembershipRow) =>
-					getOrLoadRequestMembership(config.locals, config.locals.user?.id ?? null, org.id, loadMembershipRow)
+					getOrLoadRequestMembership(config.locals, user.id, org.id, loadMembershipRow)
 			}),
 			chrome: createFirstPaintChromePortFn({
 				orgId: org.id,
-				userId: config.locals.user.id,
+				userId: user.id,
 				userSupabase: config.locals.supabase,
 				supabase
 			})
@@ -516,20 +517,18 @@ export function createSupabaseTrainingWorkspacePort(
 				}),
 				(rows) => TrainingViewEntity.fromDbArray(rows) as TrainingView[]
 			);
-			const pinnedGroups = ctx.auth.userId
-				? loadTrainingItems(
-						'pinned groups',
-						ctx.store.findMany<Record<string, unknown>>(
-							'user_pinned_groups',
-							canonicalOrgId,
-							{ user_id: ctx.auth.userId },
-							{
-								orderBy: [{ column: 'sort_order', ascending: true }]
-							}
-						),
-						(rows) => PinnedGroupsEntity.fromDbArray(rows)
-					)
-				: Promise.resolve([]);
+			const pinnedGroups = loadTrainingItems(
+				'pinned groups',
+				ctx.store.findMany<Record<string, unknown>>(
+					'user_pinned_groups',
+					canonicalOrgId,
+					{ user_id: ctx.auth.userId },
+					{
+						orderBy: [{ column: 'sort_order', ascending: true }]
+					}
+				),
+				(rows) => PinnedGroupsEntity.fromDbArray(rows)
+			);
 
 			const personnelTrainings = loadTrainingItems(
 				'personnel trainings',

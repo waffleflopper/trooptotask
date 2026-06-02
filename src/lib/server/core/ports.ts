@@ -97,7 +97,7 @@ export interface DataStore {
 
 /** Abstracts permission enforcement — no SupabaseClient parameter needed */
 export interface AuthContext {
-	readonly userId: string | null;
+	readonly userId: string;
 	readonly orgId: string;
 	readonly role: 'owner' | 'admin' | 'member';
 	readonly isPrivileged: boolean;

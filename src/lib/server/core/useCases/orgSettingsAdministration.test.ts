@@ -527,50 +527,6 @@ describe('transferOrganizationOwnership', () => {
 		]);
 	});
 
-	it('denies ownership transfer without a signed-in actor before calling the authorizer port', async () => {
-		const ctx = createTestContext({
-			auth: {
-				orgId: 'org-1',
-				userId: null
-			}
-		});
-		const port = createOrganizationSettingsAdministrationPort();
-
-		await expect(
-			transferOrganizationOwnership(
-				{
-					auth: ctx.auth,
-					audit: ctx.audit,
-					notifications: ctx.notifications,
-					administration: port,
-					sensitiveActionAuthorizer: ctx.sensitiveActionAuthorizer
-				},
-				{ newOwnerId: '11111111-1111-4111-8111-111111111111', confirmTransferEmail: 'new-owner@example.com' }
-			)
-		).rejects.toMatchObject({
-			status: 403,
-			message: 'Please sign in again before continuing.'
-		});
-
-		expect(ctx.sensitiveActionAuthorizer.requests).toEqual([]);
-		expect(port.transferRequests).toEqual([]);
-		expect(ctx.auditPort.events).toEqual([
-			{
-				action: 'org.ownership_transfer_authorization_denied',
-				resourceType: 'organization',
-				resourceId: 'org-1',
-				details: {
-					newOwnerId: '11111111-1111-4111-8111-111111111111',
-					sensitiveAction: expect.objectContaining({
-						action: 'organization.transferOwnership',
-						reason: 'denied.unauthenticated'
-					})
-				},
-				severity: 'warning'
-			}
-		]);
-	});
-
 	it('preserves transfer provider failures without auditing or notifying', async () => {
 		const ctx = createTestContext();
 		const port = createOrganizationSettingsAdministrationPort({

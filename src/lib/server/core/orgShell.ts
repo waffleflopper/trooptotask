@@ -137,10 +137,6 @@ export function createReadyAppShell(config: {
 	firstPaintChrome: AppShellFirstPaintChrome;
 }): ReadyAppShell {
 	const { membership, orgState, firstPaintChrome } = config;
-	if (!membership.userId) {
-		throw new Error('Ready app shell requires an authenticated user id');
-	}
-
 	const isOwner = membership.role === 'owner';
 	const isAdmin = membership.role === 'admin';
 
@@ -286,7 +282,7 @@ export interface DeferredData<T> {
 export interface MembershipInfo {
 	orgId: string;
 	membershipId: string | null;
-	userId: string | null;
+	userId: string;
 	role: 'owner' | 'admin' | 'member';
 	capabilityMap: CapabilityMap;
 	scopeSet: ScopeSet;

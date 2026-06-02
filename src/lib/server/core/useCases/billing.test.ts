@@ -173,46 +173,6 @@ describe('billing use cases', () => {
 			]);
 		});
 
-		it('denies checkout without a signed-in actor before calling the authorizer port', async () => {
-			const ctx = createTestContext({
-				auth: {
-					userId: null
-				}
-			});
-
-			await expect(
-				checkout(ctx, {
-					tier: 'team',
-					priceId: 'price_team',
-					customerEmail: 'owner@test.com',
-					orgName: 'Test Org',
-					successUrl: 'http://localhost/success',
-					cancelUrl: 'http://localhost/canceled'
-				})
-			).rejects.toMatchObject({
-				status: 403,
-				message: 'Please sign in again before continuing.'
-			});
-
-			expect(ctx.sensitiveActionAuthorizer.requests).toEqual([]);
-			expect(ctx.billingPort.calls).toEqual([]);
-			expect(ctx.auditPort.events).toEqual([
-				{
-					action: 'billing.checkout_authorization_denied',
-					resourceType: 'organization',
-					resourceId: 'test-org',
-					details: {
-						tier: 'team',
-						sensitiveAction: expect.objectContaining({
-							action: 'billing.checkout',
-							reason: 'denied.unauthenticated'
-						})
-					},
-					severity: 'warning'
-				}
-			]);
-		});
-
 		it('passes existingCustomerId when provided', async () => {
 			const ctx = buildContext();
 

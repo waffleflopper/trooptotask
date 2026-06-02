@@ -1,8 +1,7 @@
 /**
  * Pinned group use cases — toggle which groups a user has pinned in the sidebar.
  *
- * Pin state is per-user (not per-org), stored in `user_pinned_groups`. Sandbox users
- * (userId === null) are silently no-opped — their UI state is ephemeral.
+ * Pin state is per-user (not per-org), stored in `user_pinned_groups`.
  *
  * Uses `UserWritePorts` (not `WritePorts`) because this writes user-specific, not
  * org-scoped, data and doesn't need audit or read-only checks.
@@ -10,10 +9,6 @@
 import type { UserWritePorts } from '$lib/server/core/ports';
 
 const TABLE = 'user_pinned_groups';
-
-function isSandbox(ctx: UserWritePorts): boolean {
-	return ctx.auth.userId === null;
-}
 
 export interface PinnedGroupResult {
 	id: string;
@@ -33,11 +28,7 @@ export interface PinnedGroupUseCases {
 export function createPinnedGroupUseCases(): PinnedGroupUseCases {
 	return {
 		async replace(ctx, groups) {
-			if (isSandbox(ctx)) {
-				return { success: true, groups: [] };
-			}
-
-			const userId = ctx.auth.userId!;
+			const userId = ctx.auth.userId;
 
 			// Delete existing pins for this user
 			await ctx.store.deleteWhere(TABLE, ctx.auth.orgId, { user_id: userId });
@@ -61,11 +52,7 @@ export function createPinnedGroupUseCases(): PinnedGroupUseCases {
 		},
 
 		async pin(ctx, data) {
-			if (isSandbox(ctx)) {
-				return { success: true };
-			}
-
-			const userId = ctx.auth.userId!;
+			const userId = ctx.auth.userId;
 
 			const row = await ctx.store.insert<Record<string, unknown>>(TABLE, ctx.auth.orgId, {
 				user_id: userId,
@@ -86,11 +73,7 @@ export function createPinnedGroupUseCases(): PinnedGroupUseCases {
 		},
 
 		async unpin(ctx, groupName) {
-			if (isSandbox(ctx)) {
-				return { success: true };
-			}
-
-			const userId = ctx.auth.userId!;
+			const userId = ctx.auth.userId;
 
 			await ctx.store.deleteWhere(TABLE, ctx.auth.orgId, {
 				user_id: userId,

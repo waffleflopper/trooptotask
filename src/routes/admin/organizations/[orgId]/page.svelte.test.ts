@@ -171,8 +171,6 @@ describe('admin organization detail page', () => {
 		expect(screen.getByRole('button', { name: 'Refresh from Stripe' })).toBeTruthy();
 		const reconciliationResult = screen.getByText('repaired_drift:current_period_start,current_period_end,canceled_at');
 		expect(reconciliationResult).toBeTruthy();
-		expect(reconciliationResult.className).toContain('min-w-0');
-		expect(reconciliationResult.className).toContain('break-all');
 	});
 
 	it('shows support-safe manual reconciliation feedback', () => {

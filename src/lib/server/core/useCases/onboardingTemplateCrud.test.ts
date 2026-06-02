@@ -218,6 +218,82 @@ describe('Onboarding Template Step ordering', () => {
 			})
 		).rejects.toMatchObject({ status: 409 });
 	});
+
+	it('rejects duplicate step IDs before applying sort updates', async () => {
+		const ctx = createWritePortsContext();
+		ctx.store.seed('onboarding_template_steps', [
+			{
+				id: 'step-a',
+				template_id: TMPL_ID,
+				name: 'A',
+				step_type: 'checkbox',
+				sort_order: 0,
+				organization_id: 'test-org'
+			},
+			{
+				id: 'step-b',
+				template_id: TMPL_ID,
+				name: 'B',
+				step_type: 'checkbox',
+				sort_order: 1,
+				organization_id: 'test-org'
+			}
+		]);
+
+		await expect(
+			reorderOnboardingTemplateSteps(ctx, {
+				templateId: TMPL_ID,
+				orderedStepIds: ['step-a', 'step-a']
+			})
+		).rejects.toMatchObject({ status: 409 });
+
+		const rows = await ctx.store.findMany<Record<string, unknown>>('onboarding_template_steps', 'test-org', {});
+		expect(rows.map((row) => ({ id: row.id, sort_order: row.sort_order }))).toEqual([
+			{ id: 'step-a', sort_order: 0 },
+			{ id: 'step-b', sort_order: 1 }
+		]);
+	});
+
+	it('allows scoped onboarding configurators to reorder unscoped workflow steps', async () => {
+		const ctx = createWritePortsContext({
+			auth: {
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'view',
+					training: 'none',
+					criticalTasks: 'none',
+					onboarding: 'configure',
+					ratingScheme: 'none'
+				},
+				scopeSet: { kind: 'groups', groupIds: ['group-alpha'] }
+			}
+		});
+		ctx.store.seed('onboarding_template_steps', [
+			{
+				id: 'step-a',
+				template_id: TMPL_ID,
+				name: 'A',
+				step_type: 'checkbox',
+				sort_order: 0,
+				organization_id: 'test-org'
+			},
+			{
+				id: 'step-b',
+				template_id: TMPL_ID,
+				name: 'B',
+				step_type: 'checkbox',
+				sort_order: 1,
+				organization_id: 'test-org'
+			}
+		]);
+
+		const result = await reorderOnboardingTemplateSteps(ctx, {
+			templateId: TMPL_ID,
+			orderedStepIds: ['step-b', 'step-a']
+		});
+
+		expect(result.map((step) => step.id)).toEqual(['step-b', 'step-a']);
+	});
 });
 
 describe('Onboarding Template deletion hooks', () => {

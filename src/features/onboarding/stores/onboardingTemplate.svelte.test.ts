@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
 	createOnboardingTemplateWorkspace,
+	createOnboardingTemplateWorkspaceHttpAdapter,
 	onboardingTemplateStore,
 	type OnboardingTemplateWorkspaceAdapter,
 	type OnboardingTemplateWorkspaceResult
@@ -170,6 +171,17 @@ describe('OnboardingTemplateWorkspace', () => {
 			'step-b:0',
 			'step-a:1'
 		]);
+	});
+
+	it('reports invalid JSON separately from network failures', async () => {
+		const adapter = createOnboardingTemplateWorkspaceHttpAdapter(
+			'org-1',
+			vi.fn(async () => new Response('not json', { status: 200 }))
+		);
+
+		const result = await adapter.createTemplate({ name: 'Arrival', description: null });
+
+		expect(result).toMatchObject({ ok: false, error: { code: 'invalid_json' } });
 	});
 });
 

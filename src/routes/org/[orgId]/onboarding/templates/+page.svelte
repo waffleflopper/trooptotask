@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { ArrowDown, ArrowUp, Copy, Pencil, Plus, Trash2 } from '@lucide/svelte';
+	import { untrack } from 'svelte';
 	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
 	import type { WorkspaceToolbarAction, WorkspaceToolbarNavItem } from '$lib/components/ui/workspace-toolbar';
 	import { Badge, type BadgeVariant } from '$lib/components/ui/badge';
@@ -57,6 +58,24 @@
 		}
 	});
 	const model = $derived(workspace.model);
+
+	$effect(() => {
+		const organization = {
+			orgId,
+			routeSegment: orgUrlSegment,
+			canConfigure: canMutate
+		};
+		const workspaceData = {
+			templates: data.templates,
+			templateSteps: data.templateSteps,
+			trainingTypes: data.trainingTypes ?? []
+		};
+
+		untrack(() => {
+			workspace.replaceOrganization(organization);
+			workspace.replaceData(workspaceData);
+		});
+	});
 
 	const onboardingNavItems = $derived<WorkspaceToolbarNavItem[]>([
 		{ label: 'Onboarding', href: `/org/${orgUrlSegment}/onboarding` }

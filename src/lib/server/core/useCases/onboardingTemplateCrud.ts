@@ -80,7 +80,7 @@ export async function reorderOnboardingTemplateSteps(
 	await requireFeaturePolicy(
 		ctx,
 		POLICY_ACTION_CATALOG.onboarding.configureWorkflows,
-		{ kind: 'organization' },
+		{ kind: 'unscoped' },
 		'onboarding_template_step'
 	);
 
@@ -93,7 +93,12 @@ export async function reorderOnboardingTemplateSteps(
 	const currentSteps = OnboardingTemplateStepEntity.fromDbArray(currentRows);
 	const currentIds = new Set(currentSteps.map((step) => step.id));
 
-	if (input.orderedStepIds.length !== currentIds.size || input.orderedStepIds.some((id) => !currentIds.has(id))) {
+	const orderedIds = new Set(input.orderedStepIds);
+	if (
+		orderedIds.size !== input.orderedStepIds.length ||
+		input.orderedStepIds.length !== currentIds.size ||
+		input.orderedStepIds.some((id) => !currentIds.has(id))
+	) {
 		fail(409, 'Step order does not match the selected onboarding template');
 	}
 

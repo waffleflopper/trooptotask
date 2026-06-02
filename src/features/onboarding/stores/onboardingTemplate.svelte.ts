@@ -42,6 +42,7 @@ export type OnboardingTemplateWorkspaceErrorCode =
 	| 'not_found'
 	| 'conflict'
 	| 'network'
+	| 'invalid_json'
 	| 'server';
 
 export interface OnboardingTemplateWorkspaceError {
@@ -684,7 +685,17 @@ async function requestJson<T>(
 				}
 			};
 		}
-		return { ok: true, value: (await response.json()) as T };
+		try {
+			return { ok: true, value: (await response.json()) as T };
+		} catch (error) {
+			return {
+				ok: false,
+				error: {
+					code: 'invalid_json',
+					message: error instanceof Error && error.message ? error.message : 'Invalid JSON'
+				}
+			};
+		}
 	} catch {
 		return {
 			ok: false,

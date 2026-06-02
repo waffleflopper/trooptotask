@@ -78,7 +78,7 @@ Each entry separates:
   - org settings invitation create/delete, member removal, and permission updates moved behind an app-owned use case and adapter in `#617`
   - org settings ownership transfer and delete flows moved behind an app-owned use case and Supabase adapter in `#626`
   - organization settings rename moved behind an app-owned use case and Supabase adapter in this architecture deepening slice
-  - organization governance pages now live under `/org/[orgId]/settings/*`; legacy `/org/[orgId]/admin/*` organization URLs redirect to those settings subroutes
+  - organization governance pages now live under `/org/[orgId]/settings/*`
 - Intended direction:
   - app-owned use cases and cleaner boundaries for membership, invitation, and organization-administration flows
 - Why this matters:

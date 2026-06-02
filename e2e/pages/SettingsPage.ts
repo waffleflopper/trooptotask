@@ -1,7 +1,7 @@
 import type { Page } from '@playwright/test';
 import { expect } from '@playwright/test';
 
-export class AdminPage {
+export class SettingsPage {
 	readonly page: Page;
 
 	constructor(page: Page) {
@@ -9,19 +9,19 @@ export class AdminPage {
 	}
 
 	async goto(orgId: string) {
-		await this.page.goto(`/org/${orgId}/admin`);
+		await this.page.goto(`/org/${orgId}/settings`);
 	}
 
 	async gotoApprovals(orgId: string) {
-		await this.page.goto(`/org/${orgId}/admin/approvals`);
+		await this.page.goto(`/org/${orgId}/settings/approvals`);
 	}
 
 	async gotoArchived(orgId: string) {
-		await this.page.goto(`/org/${orgId}/admin/archived`);
+		await this.page.goto(`/org/${orgId}/settings/archives`);
 	}
 
 	async gotoSettings(orgId: string) {
-		await this.page.goto(`/org/${orgId}/admin/settings`);
+		await this.page.goto(`/org/${orgId}/settings/general`);
 	}
 
 	async approveRequest(index: number = 0) {

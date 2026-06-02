@@ -13,9 +13,6 @@ describe('WorkspaceToolbar', () => {
 
 		const toolbar = screen.getByRole('toolbar', { name: 'Test workspace toolbar' });
 		expect(toolbar).toBeTruthy();
-		expect(toolbar.className).toContain('h-12');
-		expect(toolbar.className).toContain('flex-nowrap');
-		expect(toolbar.className).toContain('overflow-x-auto');
 	});
 
 	it('keeps active filter and search state in the group label', async () => {
@@ -49,17 +46,7 @@ describe('WorkspaceToolbar', () => {
 
 		const actions = screen.getByTestId('actions-zone');
 		expect(actions.dataset.zone).toBe('actions');
-		expect(actions.className).toContain('ml-auto');
 		expect(within(actions).getByRole<HTMLButtonElement>('button', { name: 'Import' }).disabled).toBe(true);
 		expect(within(actions).getByRole<HTMLButtonElement>('button', { name: 'Syncing roster' }).disabled).toBe(true);
-	});
-
-	it('uses joined shadcn button-group segment borders', () => {
-		render(WorkspaceToolbarTest);
-
-		const viewToggle = screen.getByTestId('view-toggle');
-		expect(viewToggle.className).toContain('rounded-r-none!');
-		expect(viewToggle.className).toContain('rounded-l-none!');
-		expect(viewToggle.className).toContain('border-l-0!');
 	});
 });

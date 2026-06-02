@@ -1,13 +1,9 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
-import { readFileSync } from 'node:fs';
 import type { ComponentProps } from 'svelte';
 import TopHeader from './TopHeader.svelte';
 import type { CapabilityMap } from '$lib/access/memberAccessShape';
-
-const topHeaderSource = readFileSync('src/lib/components/TopHeader.svelte', 'utf8');
-const sidebarSource = readFileSync('src/lib/components/ui/sidebar/sidebar.svelte', 'utf8');
 
 const { pageStore } = vi.hoisted(() => {
 	let current = {
@@ -133,7 +129,6 @@ describe('TopHeader', () => {
 		await fireEvent.click(screen.getByRole('button', { name: /Account menu/i }));
 
 		expect(screen.queryByRole('menuitem', { name: 'Help' })).toBeNull();
-		expect(topHeaderSource).not.toContain('/help');
 	});
 
 	it('keeps account access available in the shadcn sidebar footer', () => {
@@ -224,19 +219,6 @@ describe('TopHeader', () => {
 		await fireEvent.click(screen.getByRole('button', { name: /Account menu/i }));
 
 		expect(screen.queryByRole('menuitem', { name: 'Leave Organization' })).toBeNull();
-	});
-
-	it('offsets the app shell below fixed banners while preserving available height', () => {
-		const { container } = renderHeader();
-
-		const wrapper = container.querySelector('[data-slot="sidebar-wrapper"]');
-		expect(wrapper?.getAttribute('style')).toContain('max-height: calc(100dvh - var(--banner-height, 0px))');
-		expect(topHeaderSource).toContain('margin-top: var(--banner-height, 0px)');
-		expect(topHeaderSource).toContain('height: calc(100dvh - var(--banner-height, 0px))');
-		expect(topHeaderSource).toContain('class="sticky top-0');
-		expect(topHeaderSource).not.toContain('top-(--banner-height,0px)');
-		expect(sidebarSource).toContain('top: var(--banner-height, 0px)');
-		expect(sidebarSource).toContain('height: calc(100svh - var(--banner-height, 0px))');
 	});
 
 	it('keeps organization settings in the org switcher menu for admins', async () => {

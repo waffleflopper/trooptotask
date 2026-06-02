@@ -63,8 +63,7 @@ export function createSupabaseAccountSetupCompletionStore(client: SupabaseClient
 				.from('access_requests')
 				.update({
 					setup_completed_at: completedAt.toISOString(),
-					setup_user_id: userId,
-					invite_id: null
+					setup_user_id: userId
 				})
 				.eq('id', accessRequestId)
 				.is('setup_completed_at', null);

@@ -13,7 +13,7 @@ Date: 2026-04-22
   - `src/routes/org/[orgId]/api/rating-scheme/+server.ts` still uses `permission: 'leaders-book'`
   - `src/lib/server/core/useCases/ratingSchemeEntryCrud.ts` still requires `requireEdit('personnel')`
 - `Leader's Book` still exists in permissions, settings, help copy, dashboard links, exports, and plans, but the current `/leaders-book` route is hidden from primary navigation and redirects away while the remake is pending.
-- Current `Leader's Book`-adjacent data models are counseling records and development goals, and the Leaders Book redesign PRD already describes the remade surface as a per-Soldier administrative record.
+- Current `Leader's Book`-adjacent data models are counseling records and development goals.
 - [ADR 0001](0001-v1-authorization-replacement-model.md) and [ADR 0002](0002-v1-feature-permission-lane-map.md) already settled that:
   - Rating Scheme is a durable first-class lane
   - `Leader's Book` remains a real transitional compatibility lane
@@ -98,9 +98,6 @@ Date: 2026-04-22
 
 ## Links
 
-- Related PRD:
-  - `plans/2026-04-21-v1-retrofit-foundation-prd.md`
-  - `docs/plans/2026-03-19-leaders-book-redesign-prd.md`
 - Related issue:
   - [#620](https://github.com/waffleflopper/trooptotask/issues/620)
 - Related drift IDs:

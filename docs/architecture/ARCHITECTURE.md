@@ -71,8 +71,6 @@ This is a v1 document. It should describe the current SvelteKit repo honestly in
 - `Critical Tasks` is a real feature surface with its own UI and workflow identity.
 - Leader's Book is retired as an active product surface. Historical ADRs and superseded plans still mention it for auditability, but current per-Soldier workflows live under Personnel.
 - `Rating Scheme` is active and user-visible through the Evals primary nav route and owns a dedicated permission lane.
-- Deprecated demo and sandbox runtime flows have been removed from routes, org-shell loading, API context construction, and auth-context creation.
-- Migration `20260514000100_remove_demo_sandbox_schema.sql` removes demo/sandbox fields and RPCs from the current schema. Historical migration snapshots still show the old model for audit history only.
 
 ## Intended Guardrails Going Forward
 
@@ -115,8 +113,6 @@ This is a v1 document. It should describe the current SvelteKit repo honestly in
 
 ### Deprecated or unstable areas
 
-- Do not reintroduce demo/sandbox behavior.
-- Treat cookie-driven access, public service-role bootstrap, no-op auth contexts, and in-memory owner shells as rejected architecture options.
 - Do not treat hidden or transitional surfaces as stable precedent just because code still exists for them.
 - When you touch contradictory or transitional areas, document the contradiction instead of smoothing it over.
 
@@ -128,7 +124,6 @@ This is a v1 document. It should describe the current SvelteKit repo honestly in
 - Rating Scheme now owns its dedicated lane and a first-class Evals route; remaining drift is module/provider-specific, not lane ownership.
 - `clinicRole` and other clinic-era names still appear in schema and code.
 - Historical Leader's Book migrations and ADRs remain for auditability, but active per-Soldier workflows are Personnel-owned.
-- Demo/sandbox runtime bypass logic has been removed; remaining demo/sandbox residue is schema-history cleanup work.
 
 ## Not Precedent
 
@@ -139,9 +134,7 @@ The following patterns are tolerated current-state, not patterns to copy:
 - new feature permissions borrowing another feature's lane
 - clinic-specific naming in new domain language
 - treating UI permission presets as if they were persisted auth roles
-- using historical demo/sandbox behavior as a model for new product work
 - cookie-driven auth or org-shell bypasses
-- no-op auth contexts or in-memory owner shells that stand in for a real membership row
 
 ## When To Update This Document
 

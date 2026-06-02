@@ -36,7 +36,6 @@ export const personnelFollowUpUpdateSchema = z.object({
 });
 
 function requireUserId(ctx: UseCaseContext): string {
-	if (!ctx.auth.userId) fail(401, 'Authenticated user required');
 	return ctx.auth.userId;
 }
 

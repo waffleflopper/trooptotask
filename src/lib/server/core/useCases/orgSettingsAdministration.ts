@@ -5,7 +5,6 @@ import { sanitizeString, validateUUID } from '$lib/server/validation';
 import {
 	ORGANIZATION_DELETE_ACTION,
 	ORGANIZATION_TRANSFER_OWNERSHIP_ACTION,
-	checkSensitiveAction,
 	sensitiveActionDecisionAuditDetails,
 	throwSensitiveActionFailure,
 	type SensitiveAction,
@@ -221,16 +220,6 @@ async function authorizeOrganizationSensitiveAction(
 	input: { action: SensitiveAction; deniedAuditAction: string; details?: Record<string, unknown> }
 ): Promise<Record<string, unknown>> {
 	const target = { type: 'organization', id: ports.auth.orgId };
-	if (!ports.auth.userId) {
-		const decision = checkSensitiveAction({
-			action: input.action,
-			target,
-			actor: { userId: null }
-		});
-		auditDeniedSensitiveAction(ports, input.deniedAuditAction, decision, input.details);
-		throwSensitiveActionFailure(decision);
-	}
-
 	const decision = await ports.sensitiveActionAuthorizer.authorize({
 		action: input.action,
 		actorUserId: ports.auth.userId,

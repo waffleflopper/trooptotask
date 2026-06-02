@@ -164,7 +164,7 @@ export async function createPersonnelDocument(
 			file_path: filePath,
 			file_size_bytes: rawInput.file.size,
 			content_type: rawInput.file.type,
-			uploaded_by: ctx.auth.userId ?? 'Unknown leader',
+			uploaded_by: ctx.auth.userId,
 			created_at: new Date().toISOString()
 		});
 	} catch (error) {

@@ -1,4 +1,3 @@
-import { fail } from '$lib/server/core/errors';
 import type { UseCaseContext } from '$lib/server/core/ports';
 import { completeDataExport, failDataExport, startDataExport } from './dataExportLifecycle';
 import { readOrganizationPlanUsage } from './organizationPlanUsage';
@@ -35,8 +34,6 @@ export async function executeOrganizationDataExport<TArtifact extends Organizati
 ): Promise<OrganizationDataExportExecutionResult<TArtifact>> {
 	const orgId = ctx.auth.orgId;
 	const userId = ctx.auth.userId;
-
-	if (!userId) fail(403, 'Authenticated user required');
 
 	const lifecyclePorts = { auth: ctx.auth, store: ctx.rawStore };
 	const [policy, usage] = await Promise.all([

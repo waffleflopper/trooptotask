@@ -25,14 +25,6 @@ describe('Pinned groups — replace', () => {
 		expect(stored[0].group_name).toBe('Alpha');
 		expect(stored[1].group_name).toBe('Bravo');
 	});
-
-	it('returns no-op for sandbox mode (null userId)', async () => {
-		const ctx = buildContext({ auth: { userId: null } });
-		const { replace } = createPinnedGroupUseCases();
-
-		const result = await replace(ctx, ['Alpha']);
-		expect(result).toEqual({ success: true, groups: [] });
-	});
 });
 
 describe('Pinned groups — pin', () => {
@@ -47,14 +39,6 @@ describe('Pinned groups — pin', () => {
 
 		const stored = await ctx.store.findMany('user_pinned_groups', 'test-org');
 		expect(stored).toHaveLength(1);
-	});
-
-	it('returns no-op for sandbox mode', async () => {
-		const ctx = buildContext({ auth: { userId: null } });
-		const { pin } = createPinnedGroupUseCases();
-
-		const result = await pin(ctx, { groupName: 'Alpha', sortOrder: 0 });
-		expect(result).toEqual({ success: true });
 	});
 });
 
@@ -73,13 +57,5 @@ describe('Pinned groups — unpin', () => {
 		const stored = (await ctx.store.findMany('user_pinned_groups', 'test-org')) as Record<string, unknown>[];
 		expect(stored).toHaveLength(1);
 		expect(stored[0].group_name).toBe('Bravo');
-	});
-
-	it('returns no-op for sandbox mode', async () => {
-		const ctx = buildContext({ auth: { userId: null } });
-		const { unpin } = createPinnedGroupUseCases();
-
-		const result = await unpin(ctx, 'Alpha');
-		expect(result).toEqual({ success: true });
 	});
 });

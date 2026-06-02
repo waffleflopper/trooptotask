@@ -215,10 +215,6 @@ export async function addNote(ctx: WritePorts, input: AddNoteInput): Promise<Not
 	await requireOnboardingManagePolicyForStep(ctx, input.stepId);
 
 	const userId = ctx.auth.userId;
-	if (!userId) {
-		fail(401, 'Authentication required');
-	}
-
 	const step = await ctx.store.findOne<{
 		id: string;
 		notes: Array<{ text: string; timestamp: string; userId: string }>;

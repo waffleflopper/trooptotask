@@ -105,16 +105,14 @@ export async function fetchDashboardBootstrap(ctx: QueryPorts): Promise<Dashboar
 		ctx.store.findMany<Record<string, unknown>>('assignment_types', orgId, undefined, {
 			orderBy: [{ column: 'sort_order', ascending: true }]
 		}),
-		userId
-			? ctx.store.findMany<Record<string, unknown>>(
-					'user_pinned_groups',
-					orgId,
-					{ user_id: userId },
-					{
-						orderBy: [{ column: 'sort_order', ascending: true }]
-					}
-				)
-			: Promise.resolve([]),
+		ctx.store.findMany<Record<string, unknown>>(
+			'user_pinned_groups',
+			orgId,
+			{ user_id: userId },
+			{
+				orderBy: [{ column: 'sort_order', ascending: true }]
+			}
+		),
 		ctx.store.findMany<Record<string, unknown>>('rating_scheme_entries', orgId, undefined, {
 			select: 'id, rated_person_id, eval_type, rating_period_end, status',
 			orderBy: [{ column: 'rating_period_end', ascending: true }]
@@ -193,16 +191,14 @@ export async function fetchDashboardData(ctx: QueryPorts): Promise<DashboardData
 				{ column: 'date', op: 'lte', value: twoWeeksOut }
 			]
 		}),
-		userId
-			? ctx.store.findMany<Record<string, unknown>>(
-					'user_pinned_groups',
-					orgId,
-					{ user_id: userId },
-					{
-						orderBy: [{ column: 'sort_order', ascending: true }]
-					}
-				)
-			: Promise.resolve([]),
+		ctx.store.findMany<Record<string, unknown>>(
+			'user_pinned_groups',
+			orgId,
+			{ user_id: userId },
+			{
+				orderBy: [{ column: 'sort_order', ascending: true }]
+			}
+		),
 		ctx.store.findMany<Record<string, unknown>>('rating_scheme_entries', orgId, undefined, {
 			select: 'id, rated_person_id, eval_type, rating_period_end, status',
 			orderBy: [{ column: 'rating_period_end', ascending: true }]

@@ -159,7 +159,6 @@ src/
     training/                # Training types, matrix, reports, bulk import
     personnel/               # Personnel CRUD, bulk import, extended info
     calendar/                # Calendar views, availability, status, assignments
-    counseling/              # Legacy counseling entity support
     onboarding/              # Onboarding workflows, templates
     dashboard/               # Readiness, people/duty, and training/evaluation overview
     duty-roster/             # Duty roster generation

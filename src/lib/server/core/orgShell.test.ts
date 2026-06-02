@@ -69,17 +69,6 @@ describe('createReadyAppShell', () => {
 
 		expect(shell.user.id).toBe('user-1');
 	});
-
-	it('rejects ready shell creation without an authenticated user id', () => {
-		expect(() =>
-			createReadyAppShell({
-				orgUrlSegment: 'test-unit',
-				membership: { ...baseMembership, userId: null },
-				orgState: baseOrgState,
-				firstPaintChrome: baseFirstPaintChrome
-			})
-		).toThrow('Ready app shell requires an authenticated user id');
-	});
 });
 
 describe('createInMemoryOrgAccessPort', () => {

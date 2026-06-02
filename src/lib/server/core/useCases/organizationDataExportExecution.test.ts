@@ -51,23 +51,6 @@ function seedCompletedExports(ctx: ReturnType<typeof createTestContext>, count: 
 }
 
 describe('executeOrganizationDataExport', () => {
-	it('throws 403 without starting a lifecycle row when the authenticated user is missing', async () => {
-		const ctx = createTestContext({ auth: { userId: null } });
-		const buildArtifact = vi.fn(async () => jsonArtifact());
-
-		await expect(
-			executeOrganizationDataExport(ctx, {
-				requestedByEmail: undefined,
-				auditAction: 'export.created',
-				buildArtifact
-			})
-		).rejects.toMatchObject({ status: 403 });
-
-		const rows = await ctx.rawStore.findMany<Record<string, unknown>>('data_exports', ctx.auth.orgId);
-		expect(rows).toHaveLength(0);
-		expect(buildArtifact).not.toHaveBeenCalled();
-	});
-
 	it('returns rate_limited without starting a lifecycle row when pre-start quota denies', async () => {
 		const ctx = createTestContext();
 		seedCompletedExports(ctx, 3);

@@ -41,17 +41,6 @@ Accepted and superseded ADRs live in [ADR Index](ADR_INDEX.md). Do not use this 
   - API and schema naming
   - user-facing copy
 
-### Remaining Demo/Sandbox Schema Cleanup
-
-- Status: Open candidate only if cleanup needs a new architecture decision
-- Why:
-  - ADR 0005 accepts demo/sandbox decommissioning, and current runtime paths are removed. Applying or sequencing remaining schema cleanup may be operational rather than architectural.
-- Likely covers:
-  - production migration timing
-  - rollback constraints
-  - historical migration references
-  - whether any compatibility support remains
-
 ### Future Feature-Lane Expansion
 
 - Status: Open candidate
@@ -71,6 +60,5 @@ These are no longer backlog items because ADRs already exist:
 - Feature permission lane map: [ADR 0002](adrs/0002-v1-feature-permission-lane-map.md)
 - Leaders Book and Rating Scheme boundary: [ADR 0003](adrs/0003-leaders-book-and-rating-scheme-boundary.md)
 - Provider boundary contract: [ADR 0004](adrs/0004-v1-provider-boundary-contract.md)
-- Demo and sandbox decommissioning: [ADR 0005](adrs/0005-demo-and-sandbox-decommissioning.md)
 - Legacy terminology compatibility policy: [ADR 0006](adrs/0006-legacy-terminology-compatibility-policy.md)
 - Leaders Book retirement and Personnel absorption: [ADR 0008](adrs/0008-leaders-book-retirement-and-personnel-absorption.md)

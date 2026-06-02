@@ -5,7 +5,7 @@ Date: 2026-04-27
 
 ## Context
 
-TroopToTask v1 uses Supabase for auth, database access, RLS, storage-adjacent flows, and service-role operations. The repo already has an app-owned backend shape through `src/lib/server/core/useCases/*`, `src/lib/server/core/ports.ts`, `src/lib/server/entities/*`, and `src/lib/server/adapters/*`, but route-local `locals.supabase` logic still exists in auth, admin/platform, layout, demo/sandbox, and some edge workflows.
+TroopToTask v1 uses Supabase for auth, database access, RLS, storage-adjacent flows, and service-role operations. The repo already has an app-owned backend shape through `src/lib/server/core/useCases/*`, `src/lib/server/core/ports.ts`, `src/lib/server/entities/*`, and `src/lib/server/adapters/*`, but route-local `locals.supabase` logic still exists in auth, admin/platform, layout, and some edge workflows.
 
 The conflict is intentional current-state drift rather than an architecture option: some code still talks directly to Supabase because it has not been remediated yet, while new business logic is expected to move through use cases, ports, entities, and adapters.
 

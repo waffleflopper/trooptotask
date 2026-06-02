@@ -2,7 +2,7 @@ export const SENSITIVE_FILE_BUCKET = 'counseling-files';
 export const SENSITIVE_FILE_ACCEPT = 'application/pdf';
 export const SENSITIVE_FILE_MAX_BYTES = 10 * 1024 * 1024;
 
-export type SensitiveFileScope = 'sign-in-rosters' | 'counseling-records' | 'counseling-templates';
+export type SensitiveFileScope = 'sign-in-rosters' | 'counseling-records';
 
 export function sanitizeSensitiveFilename(filename: string): string {
 	return filename.replace(/[^a-zA-Z0-9._-]/g, '_');

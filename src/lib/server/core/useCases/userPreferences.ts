@@ -1,6 +1,5 @@
 import type { UserWritePorts } from '$lib/server/core/ports';
 import {
-	getDefaultUserOrgPreferences,
 	mergeUserOrgPreferences,
 	normalizeUserOrgPreferences,
 	type UserOrgPreferences,
@@ -12,10 +11,6 @@ const TABLE = 'user_org_preferences';
 export async function loadUserOrgPreferences(
 	ctx: Pick<UserWritePorts, 'store' | 'auth'> | { store: UserWritePorts['store']; auth: UserWritePorts['auth'] }
 ): Promise<UserOrgPreferences> {
-	if (!ctx.auth.userId) {
-		return getDefaultUserOrgPreferences();
-	}
-
 	const row = await ctx.store.findOne<Record<string, unknown>>(TABLE, ctx.auth.orgId, {
 		user_id: ctx.auth.userId
 	});
@@ -29,10 +24,6 @@ export async function patchUserOrgPreferences(
 ): Promise<UserOrgPreferences> {
 	const current = await loadUserOrgPreferences(ctx);
 	const merged = mergeUserOrgPreferences(current, patch);
-
-	if (!ctx.auth.userId) {
-		return merged;
-	}
 
 	const existing = await ctx.store.findOne<Record<string, unknown>>(TABLE, ctx.auth.orgId, {
 		user_id: ctx.auth.userId

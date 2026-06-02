@@ -103,27 +103,6 @@ Each entry separates:
 - Recommended next slice:
   - runtime abstraction and migration plan once a repo-wide rename is explicitly approved
 
-## D-06 Demo And Sandbox Paths
-
-- Current-state truth:
-  - Runtime demo and sandbox entrypoints have been removed: `/demo`, `/api/create-demo-sandbox`, and `/api/cleanup-demo-sandboxes` no longer exist as SvelteKit routes.
-  - Legacy demo cookies no longer influence unauthenticated `/org/*` routing, org-shell loading, API context creation, Supabase client selection, or auth-context creation.
-  - The no-op sandbox auth context and in-memory demo org-shell request path have been removed.
-  - Migration `20260514000100_remove_demo_sandbox_schema.sql` removes `demo_type`, `demo_expires_at`, `create_demo_sandbox`, and `cleanup_expired_demo_sandboxes` from the current schema.
-  - Historical migration snapshots still contain the old demo/sandbox objects for audit history only.
-- Intended direction:
-  - keep runtime behavior fully membership-backed
-  - remove remaining schema/RPC support through a dedicated database-coordination slice when production migration timing is explicit
-- Why this matters:
-  - demo/sandbox bypasses should no longer look like an architecture option for ordinary auth, org-shell, provider-boundary, or feature work
-  - applying the schema-level cleanup still needs normal production migration coordination
-- Guardrail until fixed:
-  - do not expand or deepen demo/sandbox behavior
-  - do not add new demo/sandbox cookies, no-op auth contexts, public service-role bootstrap paths, or replacement compatibility shims
-  - do not use historical demo/sandbox schema residue as precedent for runtime access
-- Recommended next slice:
-  - coordinate applying `20260514000100_remove_demo_sandbox_schema.sql` to production through the normal release process
-
 ## D-07 Large Orchestration Modules
 
 - Current-state truth:

@@ -389,17 +389,6 @@ describe('fetchCalendarData', () => {
 		expect(result.advancedDutyEvents[0].slotInstances[0].assigneeId).toBe('p1');
 	});
 
-	it('returns empty pinned groups when userId is null', async () => {
-		const ctx = buildCtx({ auth: { userId: null } });
-		ctx.store.seed('user_pinned_groups', [
-			{ id: 'pg1', organization_id: ORG, user_id: 'someone', group_name: 'Alpha', sort_order: 0 }
-		]);
-
-		const result = await fetchCalendarData(ctx, RANGE);
-
-		expect(result.pinnedGroups).toEqual([]);
-	});
-
 	it('filters pinned groups by userId', async () => {
 		const ctx = buildCtx({ auth: { userId: 'user-a' } });
 		ctx.store.seed('user_pinned_groups', [

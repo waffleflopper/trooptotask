@@ -16,7 +16,7 @@ For task-specific guidance, open only the files relevant to the work:
 
 - [Agent operating rules](docs/agents/operating-rules.md)
 - [Svelte and SvelteKit guidance](docs/agents/svelte.md)
-- [UI and design-system migration](docs/agents/ui-migration.md)
+- [UI system](docs/agents/ui-system.md)
 - [Architecture and governance](docs/agents/architecture-governance.md)
 - [Feature organization](docs/agents/feature-organization.md)
 - [Issue tracker](docs/agents/issue-tracker.md)

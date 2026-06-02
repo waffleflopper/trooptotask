@@ -97,7 +97,7 @@ export async function createPersonnelCounselingRecord(
 			subject: input.title,
 			summary: input.summary || null,
 			notes: input.summary || null,
-			uploaded_by: ctx.auth.userId ?? 'Unknown leader',
+			uploaded_by: ctx.auth.userId,
 			file_path: filePath,
 			status: 'completed',
 			created_at: new Date().toISOString()

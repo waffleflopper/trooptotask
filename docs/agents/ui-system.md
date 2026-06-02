@@ -10,8 +10,6 @@ Use this file for UI component work, shared styling, route UI changes, app-shell
 - `src/app.css` and `components.json` own global Tailwind v4, shadcn-svelte, token, and generated-component configuration.
 - `PRODUCT.md` and `DESIGN.md` describe the product and visual direction for design-heavy UI work.
 
-Historical migration plans and RFCs under `docs/plans/` are reference material. Read them only when the task asks about migration history, unresolved migration planning, or why a current UI rule exists.
-
 ## Default UI Rules
 
 - Use shared UI primitives before building route-local controls.
@@ -35,4 +33,3 @@ Historical migration plans and RFCs under `docs/plans/` are reference material. 
 - `components.json` records the implementation-time shadcn-svelte style and aliases.
 - Dark mode currently uses `documentElement[data-theme]`; Tailwind v4 dark variants also support `.dark` for shadcn compatibility.
 - Public marketing primitives live in `src/lib/components/public/**` and may have product-site-specific composition, but they should still avoid one-off route styling when a shared primitive exists.
-

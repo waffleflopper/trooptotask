@@ -90,8 +90,6 @@ BEGIN
       RETURN public.can_view_personnel(org_id);
     WHEN 'counseling-records' THEN
       RETURN public.can_view_personnel(org_id);
-    WHEN 'counseling-templates' THEN
-      RETURN public.can_view_personnel(org_id);
     ELSE
       RETURN FALSE;
   END CASE;
@@ -118,8 +116,6 @@ BEGIN
     WHEN 'sign-in-rosters' THEN
       RETURN public.can_edit_training(org_id);
     WHEN 'counseling-records' THEN
-      RETURN public.can_edit_personnel(org_id);
-    WHEN 'counseling-templates' THEN
       RETURN public.can_edit_personnel(org_id);
     ELSE
       RETURN FALSE;

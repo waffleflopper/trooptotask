@@ -12,7 +12,6 @@ import {
 	ORGANIZATION_MEMBER_INVITE_HIGH_PRIVILEGE_ACTION,
 	ORGANIZATION_MEMBER_REMOVE_HIGH_PRIVILEGE_ACTION,
 	ORGANIZATION_MEMBER_UPDATE_HIGH_PRIVILEGE_ACTION,
-	checkSensitiveAction,
 	sensitiveActionDecisionAuditDetails,
 	throwSensitiveActionFailure,
 	type SensitiveAction,
@@ -895,15 +894,6 @@ async function authorizeMemberManagementSensitiveAction(
 	}
 ): Promise<SensitiveActionDecision> {
 	const target = { type: input.targetType, id: input.targetId };
-	if (!ports.auth.userId) {
-		const decision = checkSensitiveAction({
-			action: input.action,
-			actor: { userId: null },
-			target
-		});
-		auditDeniedSensitiveAction(ports, input.deniedAuditAction, decision, input.details);
-		throwSensitiveActionFailure(decision);
-	}
 	if (!ports.sensitiveActionAuthorizer) {
 		fail(500, 'Sensitive action authorization is not configured');
 	}
@@ -944,10 +934,6 @@ function isHighPrivilegeAccess(role: string | null | undefined, canManageMembers
 }
 
 function requireActorUserId(auth: AuthContext): string {
-	if (!auth.userId) {
-		fail(401, 'Authentication required');
-	}
-
 	return auth.userId;
 }
 

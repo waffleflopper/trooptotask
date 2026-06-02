@@ -130,14 +130,6 @@ describe('fetchDashboardData', () => {
 		expect(result.activeOnboardings).toHaveLength(1);
 		expect(result.activeOnboardings[0].personnelId).toBe('p1');
 	});
-
-	it('returns empty pinned groups when no userId', async () => {
-		const ctx = buildCtx({ auth: { userId: null } });
-
-		const result = await fetchDashboardData(ctx);
-
-		expect(result.pinnedGroups).toEqual([]);
-	});
 });
 
 describe('fetchDashboardBootstrap', () => {

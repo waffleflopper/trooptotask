@@ -318,8 +318,6 @@ BEGIN
       RETURN public.can_edit_personnel(org_id);
     WHEN 'counseling-records' THEN
       RETURN public.can_edit_leaders_book(org_id);
-    WHEN 'counseling-templates' THEN
-      RETURN public.can_edit_leaders_book(org_id);
     ELSE
       RETURN FALSE;
   END CASE;
@@ -678,8 +676,6 @@ BEGIN
     WHEN 'sign-in-rosters' THEN
       RETURN public.can_view_personnel(org_id);
     WHEN 'counseling-records' THEN
-      RETURN public.can_view_leaders_book(org_id);
-    WHEN 'counseling-templates' THEN
       RETURN public.can_view_leaders_book(org_id);
     ELSE
       RETURN FALSE;
@@ -1340,7 +1336,7 @@ CREATE OR REPLACE FUNCTION "public"."is_valid_sensitive_file_path"("bucket_name"
   SELECT
     bucket_name = 'counseling-files'
     AND public.storage_object_org_id(object_name) IS NOT NULL
-    AND public.storage_object_scope(object_name) = ANY (ARRAY['sign-in-rosters', 'counseling-records', 'counseling-templates'])
+    AND public.storage_object_scope(object_name) = ANY (ARRAY['sign-in-rosters', 'counseling-records'])
     AND COALESCE(storage.extension(object_name), '') = 'pdf'
 $$;
 
@@ -5422,6 +5418,5 @@ with check (((bucket_id = 'counseling-files'::text) AND public.can_edit_personne
   for select
   to public
 using (((bucket_id = 'counseling-files'::text) AND public.can_view_personnel(((storage.foldername(name))[1])::uuid)));
-
 
 

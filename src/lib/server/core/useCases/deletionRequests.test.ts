@@ -88,12 +88,6 @@ describe('createDeletionRequest', () => {
 		});
 	});
 
-	it('rejects create when there is no authenticated requester', async () => {
-		const ctx = buildContext({ auth: { userId: null } });
-
-		await expect(createDeletionRequest(ctx, validInput)).rejects.toMatchObject({ status: 401 });
-	});
-
 	it('allows viewer, operator, editor, and owner/admin requesters through requester-owned policy', async () => {
 		for (const auth of [
 			{

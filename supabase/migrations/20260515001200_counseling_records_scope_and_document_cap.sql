@@ -105,8 +105,6 @@ BEGIN
             AND "personnel"."organization_id" = org_id
             AND "public"."member_access_group_scope_matches"(org_id, "personnel"."group_id")
         );
-    WHEN 'counseling-templates' THEN
-      RETURN public.can_view_personnel(org_id);
     ELSE
       RETURN FALSE;
   END CASE;
@@ -149,8 +147,6 @@ BEGIN
             AND "personnel"."organization_id" = org_id
             AND "public"."member_access_group_scope_matches"(org_id, "personnel"."group_id")
         );
-    WHEN 'counseling-templates' THEN
-      RETURN public.can_edit_personnel(org_id);
     ELSE
       RETURN FALSE;
   END CASE;

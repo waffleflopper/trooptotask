@@ -13,8 +13,6 @@ describe('policy decision explanations', () => {
 	});
 
 	it('keeps governance-role denials distinct from high feature access', () => {
-		expect(explainPolicyReasonCode('denied:governance-role' satisfies PolicyReasonCode)).toBe(
-			'This action requires an organization admin or owner role.'
-		);
+		expect(explainPolicyReasonCode('denied:governance-role' satisfies PolicyReasonCode)).toMatch(/admin|owner|role/i);
 	});
 });

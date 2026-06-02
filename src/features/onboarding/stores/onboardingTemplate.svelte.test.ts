@@ -1,111 +1,204 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { onboardingTemplateStore } from './onboardingTemplate.svelte';
+import { describe, expect, it, vi } from 'vitest';
+import {
+	createOnboardingTemplateWorkspace,
+	createOnboardingTemplateWorkspaceHttpAdapter,
+	onboardingTemplateStore,
+	type OnboardingTemplateWorkspaceAdapter,
+	type OnboardingTemplateWorkspaceResult
+} from './onboardingTemplate.svelte';
 import type { OnboardingTemplate, OnboardingTemplateStep } from '../onboarding.types';
+import type { TrainingType } from '$features/training/training.types';
 
-const mockTemplate: OnboardingTemplate = {
-	id: 'tmpl-1',
+const template: OnboardingTemplate = {
+	id: 'template-1',
 	orgId: 'org-1',
-	name: 'Default',
-	description: null,
-	createdAt: '2026-03-01'
+	name: 'Standard Arrival',
+	description: 'Default packet',
+	createdAt: '2026-01-01T00:00:00.000Z'
 };
 
-const mockStep: OnboardingTemplateStep = {
-	id: 'step-1',
-	templateId: 'tmpl-1',
-	name: 'Inprocess',
-	description: null,
-	stepType: 'checkbox',
-	trainingTypeId: null,
-	stages: null,
-	sortOrder: 0
-};
+const steps: OnboardingTemplateStep[] = [
+	{
+		id: 'step-a',
+		templateId: template.id,
+		name: 'Initial counseling',
+		description: null,
+		stepType: 'checkbox',
+		trainingTypeId: null,
+		stages: null,
+		sortOrder: 0
+	},
+	{
+		id: 'step-b',
+		templateId: template.id,
+		name: 'Access packet',
+		description: null,
+		stepType: 'paperwork',
+		trainingTypeId: null,
+		stages: ['Draft', 'Filed'],
+		sortOrder: 1
+	}
+];
 
-describe('onboardingTemplateStore - load during in-flight mutations (issue #113)', () => {
-	beforeEach(() => {
-		vi.restoreAllMocks();
-		onboardingTemplateStore.load([], [], 'org-1');
-	});
+const trainingTypes: TrainingType[] = [
+	{
+		id: 'training-cpr',
+		name: 'CPR',
+		description: null,
+		expirationMonths: 12,
+		warningDaysYellow: 60,
+		warningDaysOrange: 30,
+		appliesToRoles: [],
+		appliesToMos: [],
+		appliesToRanks: [],
+		excludedRoles: [],
+		excludedMos: [],
+		excludedRanks: [],
+		color: '#2563eb',
+		sortOrder: 0,
+		expirationDateOnly: false,
+		canBeExempted: true,
+		exemptPersonnelIds: [],
+		isOptional: false
+	}
+];
 
-	it('should not clobber optimistic step add when load is called mid-flight', async () => {
-		onboardingTemplateStore.load([mockTemplate], [mockStep], 'org-1');
-		onboardingTemplateStore.setActiveTemplate('tmpl-1');
+describe('onboardingTemplateStore hydration reads', () => {
+	it('loads templates and steps for active Onboarding consumers', () => {
+		onboardingTemplateStore.load([template], steps, 'org-1');
+		onboardingTemplateStore.setActiveTemplate(template.id);
 
-		let resolveFetch!: (value: unknown) => void;
-		const fetchPromise = new Promise((resolve) => {
-			resolveFetch = resolve;
-		});
-		vi.stubGlobal(
-			'fetch',
-			vi.fn().mockReturnValue(
-				fetchPromise.then(() => ({
-					ok: true,
-					status: 200,
-					json: () =>
-						Promise.resolve({
-							id: 'server-step-2',
-							templateId: 'tmpl-1',
-							name: 'Medical',
-							description: null,
-							stepType: 'checkbox',
-							trainingTypeId: null,
-							stages: null,
-							sortOrder: 1
-						})
-				}))
-			)
-		);
-
-		const addPromise = onboardingTemplateStore.add({
-			name: 'Medical',
-			description: null,
-			stepType: 'checkbox',
-			trainingTypeId: null,
-			stages: null,
-			sortOrder: 1
-		});
-
-		// Optimistic: should have 2 steps
-		expect(onboardingTemplateStore.list.length).toBe(2);
-
-		// Stale load (only original step)
-		onboardingTemplateStore.load([mockTemplate], [mockStep], 'org-1');
-
-		// Should NOT clobber optimistic add
-		expect(onboardingTemplateStore.list.length).toBe(2);
-		expect(onboardingTemplateStore.list.some((s) => s.name === 'Medical')).toBe(true);
-
-		resolveFetch(undefined);
-		await addPromise;
-	});
-
-	it('should allow load when org changes during in-flight mutation', async () => {
-		onboardingTemplateStore.load([mockTemplate], [mockStep], 'org-1');
-		onboardingTemplateStore.setActiveTemplate('tmpl-1');
-
-		let resolveFetch!: (value: unknown) => void;
-		vi.stubGlobal(
-			'fetch',
-			vi.fn().mockReturnValue(
-				new Promise((resolve) => {
-					resolveFetch = resolve;
-				}).then(() => ({ ok: true, status: 200, json: () => Promise.resolve({}) }))
-			)
-		);
-
-		onboardingTemplateStore.add({
-			name: 'Medical',
-			description: null,
-			stepType: 'checkbox',
-			trainingTypeId: null,
-			stages: null,
-			sortOrder: 1
-		});
-
-		// Different org — should go through
-		onboardingTemplateStore.load([], [], 'org-2');
-		expect(onboardingTemplateStore.templates).toEqual([]);
-
-		resolveFetch(undefined);
+		expect(onboardingTemplateStore.templates).toEqual([template]);
+		expect(onboardingTemplateStore.list.map((step) => step.id)).toEqual(['step-a', 'step-b']);
+		expect(onboardingTemplateStore.getById('step-b')?.name).toBe('Access packet');
 	});
 });
+
+describe('OnboardingTemplateWorkspace', () => {
+	it('creates a template through the workspace seam and selects it', async () => {
+		const created: OnboardingTemplate = {
+			id: 'template-created',
+			orgId: 'org-1',
+			name: 'New Arrival',
+			description: null,
+			createdAt: '2026-01-02T00:00:00.000Z'
+		};
+		const createTemplate = vi.fn(async (): Promise<OnboardingTemplateWorkspaceResult<OnboardingTemplate>> => {
+			return { ok: true, value: created };
+		});
+		const workspace = makeWorkspace({ createTemplate });
+
+		workspace.startCreateTemplate();
+		workspace.templateDraft.name = '  New Arrival  ';
+		workspace.templateDraft.description = '   ';
+		const result = await workspace.saveTemplate();
+
+		expect(result).toEqual({ ok: true, value: created });
+		expect(createTemplate).toHaveBeenCalledWith({ name: 'New Arrival', description: null });
+		expect(workspace.model.selectedTemplate?.id).toBe('template-created');
+		expect(workspace.model.templates.map((item) => item.id)).toContain('template-created');
+	});
+
+	it('normalizes paperwork stages at the workspace seam before creating a step', async () => {
+		const createStep = vi.fn(async (input): Promise<OnboardingTemplateWorkspaceResult<OnboardingTemplateStep>> => {
+			return {
+				ok: true,
+				value: {
+					id: 'step-created',
+					...input
+				}
+			};
+		});
+		const workspace = makeWorkspace({ createStep });
+
+		workspace.startAddStep();
+		workspace.stepDraft.name = '  Access Packet  ';
+		workspace.stepDraft.description = '  Submit account paperwork  ';
+		workspace.stepDraft.stepType = 'paperwork';
+		workspace.newStageName = ' with soldier ';
+		workspace.addStage();
+		workspace.newStageName = 'submitted';
+		workspace.addStage();
+
+		await workspace.saveStep();
+
+		expect(createStep).toHaveBeenCalledWith({
+			templateId: template.id,
+			name: 'Access Packet',
+			description: 'Submit account paperwork',
+			stepType: 'paperwork',
+			trainingTypeId: null,
+			stages: ['with soldier', 'submitted'],
+			sortOrder: 2
+		});
+		expect(workspace.model.selectedTemplateSteps.map((step) => step.id)).toEqual(['step-a', 'step-b', 'step-created']);
+	});
+
+	it('requires a Training Type before saving a training step', async () => {
+		const createStep = vi.fn();
+		const workspace = makeWorkspace({ createStep });
+
+		workspace.startAddStep();
+		workspace.stepDraft.name = 'CPR Certification';
+		workspace.stepDraft.stepType = 'training';
+		const result = await workspace.saveStep();
+
+		expect(result).toMatchObject({ ok: false, error: { code: 'validation' } });
+		expect(createStep).not.toHaveBeenCalled();
+	});
+
+	it('reorders steps through a full ordered-id command instead of swapping rows in the page', async () => {
+		const reorderSteps = vi.fn(
+			async (
+				_templateId: string,
+				_orderedStepIds: string[]
+			): Promise<OnboardingTemplateWorkspaceResult<OnboardingTemplateStep[]>> => {
+				return {
+					ok: true,
+					value: [
+						{ ...steps[1], sortOrder: 0 },
+						{ ...steps[0], sortOrder: 1 }
+					]
+				};
+			}
+		);
+		const workspace = makeWorkspace({ reorderSteps });
+
+		await workspace.moveStep(steps[1], 'up');
+
+		expect(reorderSteps).toHaveBeenCalledWith(template.id, ['step-b', 'step-a']);
+		expect(workspace.model.selectedTemplateSteps.map((step) => `${step.id}:${step.sortOrder}`)).toEqual([
+			'step-b:0',
+			'step-a:1'
+		]);
+	});
+
+	it('reports invalid JSON separately from network failures', async () => {
+		const adapter = createOnboardingTemplateWorkspaceHttpAdapter(
+			'org-1',
+			vi.fn(async () => new Response('not json', { status: 200 }))
+		);
+
+		const result = await adapter.createTemplate({ name: 'Arrival', description: null });
+
+		expect(result).toMatchObject({ ok: false, error: { code: 'invalid_json' } });
+	});
+});
+
+function makeWorkspace(overrides: Partial<OnboardingTemplateWorkspaceAdapter> = {}) {
+	return createOnboardingTemplateWorkspace({
+		organization: { orgId: 'org-1', routeSegment: 'org-1', canConfigure: true },
+		data: { templates: [template], templateSteps: steps, trainingTypes },
+		adapter: {
+			createTemplate: vi.fn(),
+			updateTemplate: vi.fn(),
+			deleteTemplate: vi.fn(),
+			duplicateTemplate: vi.fn(),
+			createStep: vi.fn(),
+			updateStep: vi.fn(),
+			deleteStep: vi.fn(),
+			reorderSteps: vi.fn(),
+			...overrides
+		} as OnboardingTemplateWorkspaceAdapter
+	});
+}

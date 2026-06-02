@@ -358,6 +358,14 @@ _Avoid_: Route-owned Critical Tasks settings query, generic layout helper
 The feature for template-driven in-processing workflows and onboarding progress.
 _Avoid_: Checklist feature
 
+**Onboarding Template**:
+A reusable workflow definition for starting and tracking **Onboarding**. It owns ordered steps, including checkbox steps, paperwork stages, and Training Type-linked steps.
+_Avoid_: Checklist, active onboarding record
+
+**Onboarding Template Workspace**:
+The app-owned workspace surface for configuring **Onboarding Template** rows and steps for an **Organization**.
+_Avoid_: Route-owned onboarding template editor, generic row CRUD surface
+
 **Follow-Up**:
 A leader-created action item tied to a **Soldier** on the Personnel detail page. Covers counseling reminders, award recommendations, developmental goals, and any other leader working-list item.
 _Avoid_: Development goal, task, to-do

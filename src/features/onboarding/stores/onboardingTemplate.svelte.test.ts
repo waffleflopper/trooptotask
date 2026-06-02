@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
 	createOnboardingTemplateWorkspace,
 	createOnboardingTemplateWorkspaceHttpAdapter,
@@ -15,6 +15,14 @@ const template: OnboardingTemplate = {
 	name: 'Standard Arrival',
 	description: 'Default packet',
 	createdAt: '2026-01-01T00:00:00.000Z'
+};
+
+const alternateTemplate: OnboardingTemplate = {
+	id: 'template-2',
+	orgId: 'org-1',
+	name: 'Leadership Arrival',
+	description: null,
+	createdAt: '2026-01-03T00:00:00.000Z'
 };
 
 const steps: OnboardingTemplateStep[] = [
@@ -62,6 +70,10 @@ const trainingTypes: TrainingType[] = [
 		isOptional: false
 	}
 ];
+
+afterEach(() => {
+	onboardingTemplateStore.load([], [], '');
+});
 
 describe('onboardingTemplateStore hydration reads', () => {
 	it('loads templates and steps for active Onboarding consumers', () => {
@@ -183,12 +195,74 @@ describe('OnboardingTemplateWorkspace', () => {
 
 		expect(result).toMatchObject({ ok: false, error: { code: 'invalid_json' } });
 	});
+
+	it('reads the current route segment when the default adapter makes requests', async () => {
+		let routeSegment = 'org-alpha';
+		const fetchImpl = vi.fn(async () => Response.json(template));
+		const adapter = createOnboardingTemplateWorkspaceHttpAdapter(() => routeSegment, fetchImpl);
+
+		await adapter.createTemplate({ name: 'Arrival', description: null });
+		routeSegment = 'org-bravo';
+		await adapter.updateTemplate({ id: template.id, name: 'Arrival Updated', description: null });
+
+		expect(fetchImpl).toHaveBeenNthCalledWith(1, '/org/org-alpha/api/onboarding-templates', expect.anything());
+		expect(fetchImpl).toHaveBeenNthCalledWith(2, '/org/org-bravo/api/onboarding-templates', expect.anything());
+	});
+
+	it('keeps the shared onboarding template store synced after workspace template mutations', async () => {
+		const created: OnboardingTemplate = {
+			id: 'template-created',
+			orgId: 'org-1',
+			name: 'New Arrival',
+			description: null,
+			createdAt: '2026-01-04T00:00:00.000Z'
+		};
+		onboardingTemplateStore.load([template], steps, 'org-1');
+		const createTemplate = vi.fn(async (): Promise<OnboardingTemplateWorkspaceResult<OnboardingTemplate>> => {
+			return { ok: true, value: created };
+		});
+		const workspace = makeWorkspace({
+			createTemplate
+		});
+
+		workspace.startCreateTemplate();
+		workspace.templateDraft.name = 'New Arrival';
+		await workspace.saveTemplate();
+
+		expect(onboardingTemplateStore.templates.map((item) => item.id)).toEqual(['template-created', 'template-1']);
+	});
+
+	it('clears edit state after deleting the edited template', async () => {
+		const deleteTemplate = vi.fn(async (): Promise<OnboardingTemplateWorkspaceResult<{ templateId: string }>> => {
+			return { ok: true, value: { templateId: template.id } };
+		});
+		const updateTemplate = vi.fn(async (): Promise<OnboardingTemplateWorkspaceResult<OnboardingTemplate>> => {
+			return { ok: true, value: alternateTemplate };
+		});
+		const workspace = makeWorkspace(
+			{ deleteTemplate, updateTemplate },
+			{ templates: [template, alternateTemplate], templateSteps: steps, trainingTypes }
+		);
+
+		workspace.startEditTemplate(template.id);
+		workspace.templateDraft.name = 'Deleted template draft';
+		workspace.requestDelete({ type: 'template', id: template.id, name: template.name });
+		await workspace.confirmDelete();
+		await workspace.saveTemplate();
+
+		expect(updateTemplate).not.toHaveBeenCalled();
+		expect(workspace.model.editingTemplate).toBe(false);
+		expect(workspace.model.selectedTemplate?.id).toBe(alternateTemplate.id);
+	});
 });
 
-function makeWorkspace(overrides: Partial<OnboardingTemplateWorkspaceAdapter> = {}) {
+function makeWorkspace(
+	overrides: Partial<OnboardingTemplateWorkspaceAdapter> = {},
+	data = { templates: [template], templateSteps: steps, trainingTypes }
+) {
 	return createOnboardingTemplateWorkspace({
 		organization: { orgId: 'org-1', routeSegment: 'org-1', canConfigure: true },
-		data: { templates: [template], templateSteps: steps, trainingTypes },
+		data,
 		adapter: {
 			createTemplate: vi.fn(),
 			updateTemplate: vi.fn(),

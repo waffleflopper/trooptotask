@@ -6,18 +6,6 @@ Accepted and superseded ADRs live in [ADR Index](ADR_INDEX.md). Do not use this 
 
 ## Open Candidates
 
-### Capability Storage And RLS Rollout
-
-- Status: Open candidate
-- Why:
-  - ADR 0001 accepts the authorization replacement model, but storage and RLS rollout details may still need a dedicated decision once implementation pressure is concrete.
-- Likely covers:
-  - capability-map storage
-  - shared scope-set storage
-  - compatibility with existing membership rows
-  - RLS transition strategy
-  - audit and rollback expectations
-
 ### Platform Admin Provider Boundary
 
 - Status: Open candidate

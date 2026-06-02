@@ -9,30 +9,6 @@ Each entry separates:
 - why the gap matters
 - how contributors should behave until remediation lands
 
-## D-01 Authorization Model
-
-- Current-state truth:
-  - membership role is `owner`, `admin`, or `member`
-  - migrated Policy Decision workflows now use stored member presets, capability overrides, and shared scope sets as their active runtime inputs
-  - legacy per-feature storage booleans plus `scoped_group_id` have been removed from memberships and invitations; historical migrations still name them for audit and transition history
-  - UI presets and derived labels are convenience shapes over that model
-  - platform admin uses a separate role system outside organization-membership authz
-- Intended direction:
-  - keep `owner`, `admin`, and `member` as the fixed organization-governance roles
-  - model member access as an assigned preset plus per-feature capability map, shared scope set, and explicit policy overlays
-  - use `Viewer`, `Operator`, and `Editor` as the starter member presets
-  - use per-lane capability levels of `none`, `view`, `operate`, and `configure`
-  - preserve preset lineage and explicit overrides for auditability
-- Why this matters:
-  - the current model is harder to audit, explain, evolve, and decouple from coarse early assumptions
-  - hidden partial-admin behavior and reverse-engineered labels would make the replacement model harder to trust
-- Guardrail until fixed:
-  - document the current model honestly, but do not deepen it by accident
-  - do not invent partial-admin member shapes or per-feature scope matrices
-  - do not reintroduce legacy permission flags or `scoped_group_id` as active authorization checks for migrated Policy Decision workflows
-- Recommended next slice:
-  - re-run `improve-codebase-architecture` on the remaining org-shell route-data compatibility fields and helper-name compatibility surface once the database-column removal migration is released
-
 ## D-02 Provider-Boundary Leaks
 
 - Current-state truth:

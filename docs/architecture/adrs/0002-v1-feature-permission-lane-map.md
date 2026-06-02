@@ -7,17 +7,15 @@ Date: 2026-04-21
 
 ### Current-state truth
 
-- The current runtime route and auth contract still exposes coarse feature lanes.
-- Membership booleans, current presets, and permission-aware UI still reflect that coarse lane set.
-- Critical Tasks is already a real feature surface, but its permission enforcement still borrows the Training lane across routes, entities, use cases, and RLS.
-- Rating Scheme is already active and user-visible, but did not yet have a dedicated permission lane.
-- Governance concerns are already partially modeled outside feature lanes in current code through fixed membership roles plus route-level concepts such as `manageMembers`, `privileged`, and `owner`.
+- Runtime authorization uses fixed membership roles plus per-lane member capabilities.
+- Critical Tasks and Rating Scheme are real feature surfaces with dedicated permission lanes.
+- Governance concerns are modeled outside feature lanes through fixed membership roles and policy overlays.
 
 ### Decision pressure
 
 - Issue [#615](https://github.com/waffleflopper/trooptotask/issues/615) requires a durable lane map so later implementation slices stop inventing feature ownership on the fly.
-- ADR 0001 already approved the replacement authorization model and named intended first-class lanes, but this repo still needed a dedicated artifact that clarifies lane ownership and remediation order.
-- Drift entry `D-03` needs a stable target before runtime remediation slices can proceed safely.
+- ADR 0001 approved the authorization model and named first-class lanes; this ADR keeps lane ownership explicit.
+- Drift entry `D-03` needed a stable target before runtime remediation slices could proceed safely.
 
 ## Decision
 
@@ -36,8 +34,8 @@ Date: 2026-04-21
   - destructive organization-danger operations
   - platform-admin concerns
 - Temporary route, page, or screen placement does not define durable lane ownership.
-- `Critical Tasks` owns its own durable lane and must stop borrowing `training`.
-- `Rating Scheme` owns its own durable lane even if UI placement changes during migration.
+- `Critical Tasks` owns its own durable lane.
+- `Rating Scheme` owns its own durable lane even if UI placement changes.
 - `Rating Scheme` should be independently grantable from `Personnel` in the approved member-access model.
 - Approved remediation order is:
   - implement the Critical Tasks lane split first, because its target ownership is already settled
@@ -55,9 +53,8 @@ Date: 2026-04-21
 ## Guardrails And Exceptions
 
 - Do not implement runtime lane changes in this decision slice.
-- Do not infer durable lane ownership from current page placement, help copy, or compatibility routes.
+- Do not infer durable lane ownership from current page placement or help copy.
 - Do not add new feature-permission piggybacking.
-- Current Training-lane coupling for Critical Tasks remains temporarily tolerated only until issue `#621` removes it.
 
 ## Consequences
 
@@ -67,21 +64,17 @@ Date: 2026-04-21
   - Rating Scheme no longer inherits long-term ownership from accidental Personnel placement
   - governance concerns stay separated from feature capabilities
 - New risks or migration costs:
-  - follow-up slices must keep docs and runtime aligned as each coupling is removed
-  - permission UI, preset migration, and storage changes still need careful staging against the approved lane map
+  - follow-up slices must keep docs and runtime aligned as feature surfaces evolve
+  - permission UI and preset behavior still need stewardship against the approved lane map
 
 ## Rollout And Follow-Up
 
-- Do not implement runtime changes in this ADR slice.
-- Follow-up sequence:
-  - issue `#621` to move Critical Tasks onto its approved lane
-  - issue `#627` to move Rating Scheme onto its approved runtime lane boundary
 - Later authz and preset work should treat this lane map as the durable taxonomy for member capability design.
 
 ## Links
 
 - Related issue: [#615](https://github.com/waffleflopper/trooptotask/issues/615)
-- Related drift IDs: `D-01`, `D-03`
+- Related drift IDs: `D-03`
 - Related ADRs:
   - [ADR 0001](0001-v1-authorization-replacement-model.md)
 - Related docs:

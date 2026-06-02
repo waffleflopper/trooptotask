@@ -7,22 +7,21 @@ Date: 2026-04-21
 
 ### Current-state truth
 
-- v1 organization authorization is currently anchored on organization membership plus:
+- v1 organization authorization is anchored on organization membership plus:
   - persisted membership role: `owner`, `admin`, or `member`
-  - per-feature boolean permission flags
-  - optional `scoped_group_id`
-- Current UI presets such as `Admin`, `Full Editor`, `Team Leader`, `Viewer`, and `Custom` are convenience shapes over that boolean-and-scope model. They are not persisted first-class authorization concepts.
-- Explainability is weak today because labels such as `Full Editor` and `Team Leader` are reverse-engineered from expanded booleans and scope rather than recorded as durable access concepts.
-- At acceptance time, the feature-lane contract was coarse:
-  - Critical Tasks still borrowed the Training lane
-  - Rating Scheme did not yet own a dedicated lane
-- Group scoping is currently single-group only in storage, runtime helpers, and RLS through `scoped_group_id`.
+  - stored member preset
+  - per-feature capability overrides
+  - shared scope set
+  - policy overlays
+- Current UI presets use `Viewer`, `Operator`, and `Editor` as first-class member-access shapes.
+- Explainability comes from the fixed governance role, assigned preset, capability map, scope set, and policy overlays.
+- Critical Tasks and Rating Scheme own dedicated feature lanes.
 - Platform admin uses a separate role system (`super_admin`, `support`, `billing`) and is not part of organization-membership authorization.
 
 ### Decision pressure
 
 - Issue [#614](https://github.com/waffleflopper/trooptotask/issues/614) requires a concrete replacement v1 authorization model and migration plan without implementing runtime authz changes in this slice.
-- Drift entries `D-01` and `D-03` depend on a shared source of truth before implementation slices can land safely.
+- Drift entry `D-03` depends on a shared source of truth before implementation slices can land safely.
 
 ## Decision
 
@@ -40,7 +39,6 @@ Date: 2026-04-21
 - Policy evaluation should be action-first. Routes, pages, and buttons should request decisions for stable policy actions, and every action should be owned by a durable feature lane or organization-governance semantics.
 - The first action catalog should use workflow-level actions, splitting actions when capability level, audit treatment, or UX explanation needs differ.
 - The replacement should proceed through vertical authorization slices, filed as implementation issues, that carry one meaningful workflow through storage, adapter, evaluator, route enforcement, UI affordance, audit behavior, and tests together.
-- Do not treat a compatibility adapter over current permission flags as the destination architecture.
 - The core policy evaluator should be pure TypeScript and provider-agnostic. Supabase-specific reads belong in an adapter that translates provider data into policy inputs.
 - Policy evaluation should return a structured decision result rather than a bare boolean, including explanation fields for UX and audit use.
 - Every policy decision should include a stable machine-readable reason code; human-facing copy should be mapped from reason codes outside the evaluator.
@@ -55,7 +53,6 @@ Date: 2026-04-21
   - `view`
   - `operate`
   - `configure`
-- Treat current labels such as `Team Leader` as composed states rather than canonical replacement presets. In the approved model, scope composes with member capabilities instead of being baked into the preset taxonomy.
 - Model scope as a shared member scope set across all scoped feature lanes:
   - organization-wide
   - one or more `Group`s
@@ -82,12 +79,12 @@ Date: 2026-04-21
   - Rejected because organization-governance powers become harder to explain, migrate, and audit.
 - Allow customizable or decomposable admins.
   - Rejected because governance over other people's access should stay fixed and auditable rather than turning into hidden partial-admin drift.
-- Keep `Team Leader` as a canonical replacement preset.
+- Make group-scoped access a named replacement preset.
   - Rejected because scope should compose with member capabilities rather than being embedded in preset names.
 - Allow per-feature scope matrices.
   - Rejected because they add complexity the current product model does not require and they are not aligned with the desired v1 mental model.
-- Leave the old permission system in place behind a long-lived compatibility adapter.
-  - Rejected because it preserves the current boolean-and-single-group model as hidden architecture instead of completing the replacement.
+- Hide member access behind a long-lived compatibility adapter.
+  - Rejected because compatibility shells make the durable member-access model harder to inspect and evolve.
 - Require a single big-bang authorization migration.
   - Rejected because the replacement can be safer and more agent-executable as multiple vertical slices.
 - Add organization-defined saved presets in the first rollout.
@@ -97,8 +94,6 @@ Date: 2026-04-21
 
 - Do not invent partial-admin member shapes.
 - Do not introduce per-feature scope matrices.
-- Continue documenting the current boolean-and-`scoped_group_id` model honestly until implementation slices replace it.
-- Do not leave current permission flags or single-group scope in place as a long-lived compatibility substrate for migrated authorization workflows.
 - Treat Critical Tasks and Rating Scheme lane borrowing as drift until dedicated implementation slices remove those couplings.
 - Keep platform admin separate from organization-membership authorization.
 
@@ -110,25 +105,21 @@ Date: 2026-04-21
   - a cleaner path for separating Critical Tasks and Rating Scheme into first-class lanes
   - member flexibility without muddying admin / owner responsibilities
 - Tradeoffs:
-  - the repo will temporarily carry both current-state booleans and the approved target model while vertical slices migrate workflows
   - follow-up slices still need to define exact `operate` versus `configure` actions per feature
   - action catalog granularity will need active stewardship so it does not drift into button-level permissions or broad catch-all feature edits
 - New risks or migration costs:
-  - multi-group scope and capability-map storage need careful migration and RLS work
-  - production rollout of member-access storage required careful lock-risk and chunked-backfill handling; that backfill has since completed and the legacy permission columns were dropped (`supabase/migrations/20260526000300_drop_legacy_member_access_columns.sql`)
   - docs can outrun implementation if follow-up slices do not land in a staged way
   - lane separation work must keep Rating Scheme independently owned
 
 ## Rollout And Follow-Up
 
 - Do not implement runtime authz changes in this slice.
-- Implementation should be split into vertical authorization issues rather than a long-lived compatibility shell over the old permission system.
+- Implementation should be split into vertical authorization issues rather than a long-lived compatibility shell.
 - Vertical authorization slices should cover:
   - explicit feature-lane mapping and documentation against this ADR
   - Critical Tasks lane separation from Training
   - Rating Scheme lane separation from borrowed adjacent lanes
-  - multi-group scope storage and RLS expansion
-  - migration away from current permission flags and `scoped_group_id` for each migrated workflow
+  - policy overlay coverage for member-facing workflows
 - Docs updated with this ADR:
   - `docs/architecture/AUTHORIZATION_AND_PROVIDER_BOUNDARIES.md`
   - `docs/architecture/V1_CHANGE_INTENT.md`
@@ -139,7 +130,7 @@ Date: 2026-04-21
 ## Links
 
 - Related issue: [#614](https://github.com/waffleflopper/trooptotask/issues/614)
-- Related drift IDs: `D-01`, `D-03`
+- Related drift IDs: `D-03`
 - Related docs:
   - `docs/architecture/AUTHORIZATION_AND_PROVIDER_BOUNDARIES.md`
   - `docs/architecture/DRIFT_LEDGER.md`

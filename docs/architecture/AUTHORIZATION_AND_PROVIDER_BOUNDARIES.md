@@ -26,13 +26,12 @@ This document separates what v1 authorization and provider ownership look like t
   - the stored member preset and per-lane capability overrides
   - the stored shared scope set
   - policy overlays such as read-only mode
-- Legacy per-feature boolean permission flags and `scoped_group_id` remain compatibility inputs for explicitly unmigrated flows and older membership rows, but they are not the active authorization substrate for migrated workflows once stored member-access columns are present.
 - Platform admin uses a separate role system (`super_admin`, `support`, `billing`) and is not part of organization-membership authorization.
 - Authorization is enforced in more than one layer:
   - app-layer permission context and auth context
   - route wrappers and use cases
   - SQL helper functions and RLS policies
-- Admin UI presets like `Full Editor`, `Team Leader`, `Viewer`, and `Custom` are convenience shapes over the current model. They are not persisted first-class auth roles.
+- Settings UI presets like `Viewer`, `Operator`, and `Editor` are convenience shapes over the current model. They are not persisted first-class auth roles.
 
 ### Current feature-lane reality
 
@@ -78,7 +77,7 @@ The approved v1 replacement direction keeps `Organization` and `Group` as canoni
 - The starter member presets are `Viewer`, `Operator`, and `Editor`.
 - Presets remain platform-defined in this phase; organizations do not get saved custom presets yet.
 - Manual tuning should preserve preset lineage for auditability rather than severing the preset relationship.
-- Current labels such as `Team Leader` become composed states, not canonical replacement presets.
+- Group-scoped member access composes scope with lane capabilities instead of becoming a separate role or preset.
 
 #### Capability model
 
@@ -110,11 +109,10 @@ The approved v1 replacement direction keeps `Organization` and `Group` as canoni
   - policy overlays
 - Policy evaluation should be action-first. Routes, pages, and buttons should request decisions for stable policy actions instead of defining authorization meaning from UI placement or route shape.
 - Every policy action should be owned by a durable feature lane, organization-governance semantics, or an explicitly identity-owned self-service workflow.
-- Identity-owned actions cover workflows where an authenticated member acts only on their own resources, such as personal notifications or their own deletion request submission/cancellation. They must validate resource ownership before mutation and must not borrow feature edit capability or full-editor compatibility.
+- Identity-owned actions cover workflows where an authenticated member acts only on their own resources, such as personal notifications or their own deletion request submission/cancellation. They must validate resource ownership before mutation and must not borrow feature edit capability.
 - The first action catalog should use workflow-level actions: meaningful user workflows rather than one action per button or one catch-all action per feature.
 - Split actions when they need different capability levels, audit treatment, or UX explanations.
 - The replacement should proceed through vertical authorization slices, filed as implementation issues, that carry one meaningful workflow through storage, adapter, evaluator, route enforcement, UI affordance, audit behavior, and tests together.
-- Do not treat a compatibility adapter over current permission flags as the destination architecture.
 - The core policy evaluator should be pure TypeScript and provider-agnostic. It should receive already-loaded facts such as actor role, capability map, scope set, resource context, and policy overlays.
 - Supabase-specific reads belong in an adapter that translates provider data into policy inputs before evaluation.
 - Policy evaluation should return a structured decision result, not a bare boolean. The result should include the final allow or deny value plus explanation fields such as reason code, matched capability, matched scope, and blocking overlay.
@@ -168,7 +166,7 @@ The approved v1 replacement direction keeps `Organization` and `Group` as canoni
   - policy overlays
 - Human-facing presets should map cleanly to the underlying app-owned model.
 - Auditable authorization behavior should come from app-owned concepts, not scattered boolean coincidence.
-- Stop inferring durable labels such as `Full Editor` from expanded booleans once the replacement model lands.
+- Every member should remain explainable from fixed governance role, assigned preset, lane-by-lane capability map, shared scope set, and policy overlays.
 
 ### Provider-boundary direction
 
@@ -179,8 +177,7 @@ The approved v1 replacement direction keeps `Organization` and `Group` as canoni
 ## Guardrails For Contributors
 
 - Do not add new direct `locals.supabase` business logic outside auth edges, ports/adapters, or an explicitly approved remediation slice.
-- Do not deepen boolean-only authz patterns just because the current schema still uses them.
-- Do not leave current permission flags or single-group scope in place as a long-lived compatibility substrate for migrated authorization workflows.
+- Keep member authorization on stored presets, per-lane capabilities, shared scope sets, and policy overlays.
 - Do not create new feature-permission piggybacking.
 - Do not invent partial-admin member shapes.
 - Do not introduce per-feature scope matrices.

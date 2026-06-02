@@ -479,7 +479,7 @@ describe('Personnel — archive', () => {
 		expect(ctx.subscription.tierCacheInvalidated).toBe(false);
 	});
 
-	it('archives directly for a configure-capable member without relying on full-editor compatibility', async () => {
+	it('archives directly for a configure-capable member', async () => {
 		const ctx = buildContext({
 			auth: {
 				role: 'member',

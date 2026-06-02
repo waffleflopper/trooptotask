@@ -831,7 +831,7 @@ describe('inviteOrganizationMember', () => {
 		expect(port.createdInvitations).toEqual([]);
 	});
 
-	it('rejects member invitations without a submitted Member Preset before writing compatibility fields', async () => {
+	it('rejects member invitations without a submitted Member Preset before creating an invitation', async () => {
 		const ctx = createTestContext({
 			auth: {
 				userId: 'actor-1',
@@ -2271,7 +2271,7 @@ describe('leaveOrganization', () => {
 });
 
 describe('updateOrganizationMemberAccess', () => {
-	it('rejects member access updates without a submitted Member Preset before writing compatibility fields', async () => {
+	it('rejects member access updates without a submitted Member Preset before updating access', async () => {
 		const ctx = createTestContext({
 			auth: {
 				userId: 'actor-1',

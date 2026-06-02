@@ -64,10 +64,10 @@ Focus entries:
 ## C-01 Authorization Replacement
 
 - Current-state truth:
-  - v1 authorization is membership-role plus boolean permissions plus optional group scope
+  - v1 authorization is membership-role plus stored member preset, capability map, shared scope set, and policy overlays
   - `owner`, `admin`, and `member` are the persisted organization roles
-  - current UI presets are convenience shapes over booleans and optional single-group scope
-  - current scoped access storage/runtime is still single-group via `scoped_group_id`
+  - settings UI presets are convenience shapes over the stored member-access model
+  - scoped access uses the shared member scope set
 - Why this is unsatisfying:
   - it is coarse, harder to audit cleanly, and forces adjacent features to borrow permission lanes
   - it encourages reverse-engineered labels instead of durable access concepts
@@ -84,11 +84,9 @@ Focus entries:
   - v1 data model reality
   - existing organizations and memberships
   - current route and feature surface availability
-  - the first implementation wave may preserve current single-group compatibility while the storage and RLS migration lands later
 - Open questions:
   - exact per-feature mapping of `operate` versus `configure`
-  - exact migration shape from current booleans into the replacement capability map
-  - exact storage and RLS rollout for true multi-group scope
+  - exact policy overlays for read-only mode, owner-only operations, and suspicious denied access
 - Suggested next skill or planning mode:
   - `grill-me` for unresolved policy shape, then `tdd` for staged implementation slices
 

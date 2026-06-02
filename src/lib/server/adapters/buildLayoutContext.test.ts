@@ -176,8 +176,6 @@ describe('buildLayoutContext', () => {
 		expect(select).toHaveBeenCalledWith(
 			'id, role, member_preset, capability_overrides, access_scope_kind, access_scope_group_ids'
 		);
-		expect(select).not.toHaveBeenCalledWith(expect.stringContaining('can_view_calendar'));
-		expect(select).not.toHaveBeenCalledWith(expect.stringContaining('scoped_group_id'));
 		expect(query.single).toHaveBeenCalledTimes(1);
 		expect(first.auth.scopeSet).toEqual({ kind: 'groups', groupIds: ['group-123'] });
 		expect(second.auth.scopeSet).toEqual({ kind: 'groups', groupIds: ['group-123'] });

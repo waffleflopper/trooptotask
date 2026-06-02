@@ -44,11 +44,11 @@ This is a v1 document. It should describe the current SvelteKit repo honestly in
 - Authentication is Supabase Auth plus app-owned session, redirect, and MFA flow logic in route and server helpers.
 - The current authorization model is:
   - persisted membership role: `owner`, `admin`, or `member`
-  - per-feature boolean permission flags on membership and invitation rows
-  - optional `scoped_group_id` to limit effective reach
+  - stored member preset plus per-feature capability overrides
+  - shared scope set storage
   - app-layer checks via `PermissionContext` / `AuthContext`
   - SQL helper functions and RLS policies in Supabase migrations
-- Admin UI presets like `Full Editor`, `Team Leader`, and `Viewer` exist today as convenience labels over the boolean-and-scope model. They are not persisted domain roles.
+- Settings UI presets like `Viewer`, `Operator`, and `Editor` are shortcuts over the stored member-access model. They are not persisted domain roles.
 - Current permission lanes still carry some historical complexity:
   - Critical Tasks now owns a dedicated permission lane
   - Rating Scheme now owns a dedicated permission lane across route guards, membership and invitation flags, RLS, and the first-class Evals route
@@ -117,7 +117,7 @@ This is a v1 document. It should describe the current SvelteKit repo honestly in
 ## Known Drift And Exceptions
 
 - Route-level `locals.supabase` islands still exist in multiple business-critical surfaces.
-- The current authz model is boolean-heavy, hard to audit cleanly, and not the intended steady state.
+- Member authorization uses stored presets, per-lane capabilities, shared scope sets, and policy overlays; keep new work on those app-owned concepts.
 - Critical Tasks now owns its dedicated lane; remaining Critical Tasks drift is module/provider-specific, not lane ownership.
 - Rating Scheme now owns its dedicated lane and a first-class Evals route; remaining drift is module/provider-specific, not lane ownership.
 - `clinicRole` and other clinic-era names still appear in schema and code.

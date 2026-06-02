@@ -49,7 +49,7 @@
 		{
 			question: 'Can I scope access so squad leaders only see their people?',
 			answer:
-				"Yes. When you invite someone to your organization, you can scope their access to a specific group. A Team Leader role can update statuses for their Soldiers and track their training, but they won't see counseling records, onboarding checklists, or personnel data for anyone outside their group. They get exactly the visibility they need to do their job."
+				"Yes. When you invite someone to your organization, you can scope their access to a specific group. Group-scoped access can let leaders update statuses for their Soldiers and track training, but they won't see counseling records, onboarding checklists, or personnel data for anyone outside their group. They get exactly the visibility they need to do their job."
 		},
 		{
 			question: 'I already have my roster in a spreadsheet. Do I have to re-enter everyone by hand?',

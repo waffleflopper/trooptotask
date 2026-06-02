@@ -136,7 +136,7 @@ describe('CalendarPageContext', () => {
 			expect(adminCtx.canManageConfig).toBe(true);
 		});
 
-		it('canManageConfig is true for Calendar configure capability without full-editor compatibility', () => {
+		it('canManageConfig is true for Calendar configure capability', () => {
 			const editorCtx = new CalendarPageContext(
 				mockData,
 				makeMockOrg({
@@ -153,7 +153,7 @@ describe('CalendarPageContext', () => {
 			expect(editorCtx.canManageConfig).toBe(true);
 		});
 
-		it('allows Calendar operate affordances without full-editor compatibility', () => {
+		it('allows Calendar operate affordances', () => {
 			const operatorCtx = new CalendarPageContext(
 				mockData,
 				makeMockOrg({

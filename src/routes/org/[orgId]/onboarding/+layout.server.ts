@@ -34,6 +34,7 @@ export function _createOnboardingLayoutLoad(deps: OnboardingLayoutLoadDeps = {})
 		((context: OnboardingLayoutRequestContext) =>
 			loadWithContext(context.locals, context.cookies, context.orgId, {
 				policyAction: POLICY_ACTION_CATALOG.onboarding.viewWorkflows,
+				policyResource: { kind: 'unscoped' },
 				fn: async () => undefined
 			}));
 

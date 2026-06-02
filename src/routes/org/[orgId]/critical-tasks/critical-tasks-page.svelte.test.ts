@@ -19,19 +19,6 @@ const { mockOrgContext, parseFileMock } = vi.hoisted(() => ({
 		isOwner: true,
 		isAdmin: false,
 		isPrivileged: true,
-		permissions: {
-			canViewCalendar: true,
-			canEditCalendar: true,
-			canViewPersonnel: true,
-			canEditPersonnel: true,
-			canViewTraining: true,
-			canEditTraining: true,
-			canViewCriticalTasks: true,
-			canEditCriticalTasks: true,
-			canViewOnboarding: true,
-			canEditOnboarding: true,
-			canManageMembers: true
-		},
 		readOnly: false,
 		capabilityMap: {
 			calendar: 'configure',
@@ -168,8 +155,6 @@ describe('critical tasks page', () => {
 		mockOrgContext.isPrivileged = true;
 		mockOrgContext.capabilityMap.criticalTasks = 'configure';
 		mockOrgContext.scopeSet = { kind: 'organization' };
-		mockOrgContext.permissions.canViewCriticalTasks = true;
-		mockOrgContext.permissions.canEditCriticalTasks = true;
 		mockOrgContext.readOnly = false;
 		personnelStore.startLoading();
 		groupsStore.startLoading();
@@ -194,12 +179,6 @@ describe('critical tasks page', () => {
 				data: {
 					orgId: 'org-1',
 					orgName: 'Test Unit',
-					permissions: {
-						canViewTraining: true,
-						canEditTraining: true,
-						canViewCriticalTasks: true,
-						canEditCriticalTasks: true
-					},
 					criticalTasks: {
 						data: new Promise(() => undefined)
 					}
@@ -221,13 +200,7 @@ describe('critical tasks page', () => {
 		render(Page, {
 			props: {
 				data: {
-					orgId: 'org-1',
-					permissions: {
-						canViewTraining: false,
-						canEditTraining: false,
-						canViewCriticalTasks: true,
-						canEditCriticalTasks: true
-					}
+					orgId: 'org-1'
 				}
 			}
 		});
@@ -251,14 +224,12 @@ describe('critical tasks page', () => {
 		}
 	});
 
-	it('uses Critical Tasks Policy Decisions instead of legacy view and edit flags for page affordances', () => {
+	it('uses Critical Tasks Policy Decisions for page affordances', () => {
 		mockOrgContext.role = 'member';
 		mockOrgContext.isOwner = false;
 		mockOrgContext.isAdmin = false;
 		mockOrgContext.isPrivileged = false;
 		mockOrgContext.capabilityMap.criticalTasks = 'configure';
-		mockOrgContext.permissions.canViewCriticalTasks = false;
-		mockOrgContext.permissions.canEditCriticalTasks = false;
 		personnelStore.load([person()], 'org-1');
 		groupsStore.load([alphaGroup], 'org-1');
 		ictTasksStore.load([ictTask], 'org-1');
@@ -268,11 +239,7 @@ describe('critical tasks page', () => {
 			props: {
 				data: {
 					orgId: 'org-1',
-					orgName: 'Test Unit',
-					permissions: {
-						canViewCriticalTasks: false,
-						canEditCriticalTasks: false
-					}
+					orgName: 'Test Unit'
 				}
 			}
 		});
@@ -294,13 +261,7 @@ describe('critical tasks page', () => {
 		render(Page, {
 			props: {
 				data: {
-					orgId: 'org-1',
-					permissions: {
-						canViewTraining: true,
-						canEditTraining: true,
-						canViewCriticalTasks: true,
-						canEditCriticalTasks: true
-					}
+					orgId: 'org-1'
 				}
 			}
 		});
@@ -345,12 +306,6 @@ describe('critical tasks page', () => {
 				data: {
 					orgId: 'org-1',
 					orgName: 'Test Unit',
-					permissions: {
-						canViewTraining: true,
-						canEditTraining: true,
-						canViewCriticalTasks: true,
-						canEditCriticalTasks: true
-					},
 					criticalTasks: criticalTasksLayoutData
 				}
 			}
@@ -417,13 +372,7 @@ describe('critical tasks page', () => {
 		render(Page, {
 			props: {
 				data: {
-					orgId: 'org-1',
-					permissions: {
-						canViewTraining: true,
-						canEditTraining: true,
-						canViewCriticalTasks: true,
-						canEditCriticalTasks: true
-					}
+					orgId: 'org-1'
 				}
 			}
 		});
@@ -466,12 +415,6 @@ describe('critical tasks page', () => {
 				data: {
 					orgId: 'org-1',
 					orgName: 'Test Unit',
-					permissions: {
-						canViewTraining: true,
-						canEditTraining: true,
-						canViewCriticalTasks: true,
-						canEditCriticalTasks: true
-					},
 					criticalTasks: criticalTasksLayoutData
 				}
 			}
@@ -524,12 +467,6 @@ describe('critical tasks page', () => {
 				data: {
 					orgId: 'org-1',
 					orgName: 'Test Unit',
-					permissions: {
-						canViewTraining: true,
-						canEditTraining: false,
-						canViewCriticalTasks: true,
-						canEditCriticalTasks: false
-					},
 					criticalTasks: criticalTasksLayoutData
 				}
 			}
@@ -572,12 +509,6 @@ describe('critical tasks page', () => {
 								full_name: 'Taylor Example'
 							}
 						}
-					},
-					permissions: {
-						canViewTraining: true,
-						canEditTraining: true,
-						canViewCriticalTasks: true,
-						canEditCriticalTasks: true
 					},
 					criticalTasks: criticalTasksLayoutData
 				}
@@ -689,12 +620,6 @@ describe('critical tasks page', () => {
 								full_name: 'Taylor Example'
 							}
 						}
-					},
-					permissions: {
-						canViewTraining: true,
-						canEditTraining: true,
-						canViewCriticalTasks: true,
-						canEditCriticalTasks: true
 					},
 					criticalTasks: criticalTasksLayoutData
 				}

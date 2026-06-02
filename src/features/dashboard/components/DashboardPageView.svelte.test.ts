@@ -14,13 +14,6 @@ function makeCtx(overrides: Record<string, unknown> = {}): DashboardScreenModel 
 		data: {
 			orgName: 'Test Unit',
 			orgId: 'org-1',
-			permissions: {
-				canViewPersonnel: true,
-				canViewCalendar: true,
-				canViewTraining: true,
-				canViewOnboarding: true,
-				canEditTraining: true
-			},
 			onboardingTemplateStepCount: 0,
 			ratingSchemeEntryCount: 0,
 			orgMemberCount: 0

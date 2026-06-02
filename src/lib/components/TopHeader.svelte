@@ -19,7 +19,6 @@
 		UserCircle
 	} from '@lucide/svelte';
 	import type { CapabilityMap } from '$lib/access/memberAccessShape';
-	import type { OrganizationMemberPermissions } from '$lib/types';
 	import { formatDate, formatRelativeDate } from '$lib/utils/dates';
 	import { formatDashboardDisplayDate } from '$lib/utils/dashboardDate';
 	import OrgNavIcon from './OrgNavIcon.svelte';
@@ -47,8 +46,7 @@
 		orgName: string;
 		userRole: string;
 		membershipId?: string | null;
-		permissions: OrganizationMemberPermissions;
-		capabilityMap?: CapabilityMap;
+		capabilityMap: CapabilityMap;
 		onToggleTheme: () => void;
 		isDarkTheme: boolean;
 		onFeedback?: () => void;
@@ -71,7 +69,6 @@
 		orgName,
 		userRole,
 		membershipId = null,
-		permissions,
 		capabilityMap,
 		onToggleTheme,
 		isDarkTheme,
@@ -105,7 +102,7 @@
 				? $page.data.breadcrumbLabel
 				: undefined
 	);
-	const allNavItems = $derived(getOrgNavigation(orgUrlSegment, capabilityMap ?? permissions));
+	const allNavItems = $derived(getOrgNavigation(orgUrlSegment, capabilityMap));
 	const navItems = $derived(allNavItems.filter((item) => item.visible));
 	const breadcrumbs = $derived(getOrgBreadcrumbs(pathname, orgName, allNavItems, routeLeafLabel));
 	const activeOrg = $derived(

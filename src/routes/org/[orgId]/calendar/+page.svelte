@@ -79,7 +79,7 @@
 
 		void rangeCoordinator.loadVisibleRange({
 			orgId: data.shell.org.id,
-			canViewCalendar: shell?.member.permissions.canViewCalendar ?? false,
+			canViewCalendar: org.hasCapability('calendar', 'view'),
 			currentDate: calendarStore.currentDate,
 			viewMode: ctx.viewMode
 		});
@@ -103,15 +103,13 @@
 						}
 					}
 				: undefined,
-			permissions: shell?.member.permissions,
 			activeOnboardingPersonnelIds: calendarBootstrap?.data.activeOnboardingPersonnelIds
 		})
 	);
 	const viewData = $derived.by(() => ({
 		orgId: pageData.orgId,
 		orgUrlSegment: data.shell.org.urlSegment,
-		orgName: pageData.orgName ?? 'Troop to Task',
-		permissions: pageData.permissions
+		orgName: pageData.orgName ?? 'Troop to Task'
 	}));
 	const ctx = new CalendarPageContext(() => pageData, org);
 

@@ -8,7 +8,6 @@ const { gotoMock, orgContextMock } = vi.hoisted(() => ({
 	orgContextMock: {
 		orgId: 'org-1',
 		isPrivileged: true,
-		isFullEditor: true,
 		readOnly: false,
 		affordanceForFeatureAction: vi.fn(() => ({ allowed: true, visible: true, disabled: false }))
 	}
@@ -69,7 +68,6 @@ describe('BulkStatusPage', () => {
 		cleanup();
 		gotoMock.mockReset();
 		orgContextMock.isPrivileged = true;
-		orgContextMock.isFullEditor = true;
 		orgContextMock.readOnly = false;
 		orgContextMock.affordanceForFeatureAction.mockReturnValue({ allowed: true, visible: true, disabled: false });
 	});
@@ -91,7 +89,6 @@ describe('BulkStatusPage', () => {
 
 	it('allows Calendar operators to use bulk status without full-editor compatibility', () => {
 		orgContextMock.isPrivileged = false;
-		orgContextMock.isFullEditor = false;
 		orgContextMock.affordanceForFeatureAction.mockReturnValue({ allowed: true, visible: true, disabled: false });
 
 		renderPage();

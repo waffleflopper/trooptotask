@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { error, type Cookies } from '@sveltejs/kit';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { createInMemoryOrgWorkspacePort } from '$lib/server/adapters/inMemoryOrgShell';
 import { createDefaultHydrationPlanner } from '$lib/server/core/hydrationPlanner';
 import type { Group } from '$lib/stores/groups.svelte';
@@ -12,6 +13,21 @@ import type {
 } from '$features/onboarding/onboarding.types';
 import type { TrainingType } from '$features/training/training.types';
 import type { Personnel } from '$lib/types';
+
+const { loadWithContextMock } = vi.hoisted(() => ({
+	loadWithContextMock: vi.fn()
+}));
+
+vi.mock('$lib/server/adapters/httpAdapter', async () => {
+	const actual = await vi.importActual<typeof import('$lib/server/adapters/httpAdapter')>(
+		'$lib/server/adapters/httpAdapter'
+	);
+	return {
+		...actual,
+		loadWithContext: loadWithContextMock
+	};
+});
+
 import { _createOnboardingLayoutLoad } from './+layout.server';
 
 function makeReadyParent(orgId = 'org-1') {
@@ -173,6 +189,48 @@ describe('onboarding layout server load', () => {
 			hydration: {
 				orgId: 'org-1'
 			}
+		});
+	});
+
+	it('authorizes the workspace entry with the unscoped onboarding view policy', async () => {
+		const onboardingData: OnboardingBootstrap = {
+			onboardingTemplates: [],
+			onboardingTemplateSteps: [],
+			onboardings: [],
+			trainingTypes: [],
+			personnel: [],
+			groups: []
+		};
+		const depends = vi.fn();
+		const workspacePort = createInMemoryOrgWorkspacePort(
+			new Map<WorkspaceKey, unknown>([['onboarding', onboardingData]])
+		);
+		const createWorkspacePort = vi.fn().mockReturnValue(workspacePort);
+		const createPlannerPort = vi.fn((orgId: string) => createDefaultHydrationPlanner(orgId));
+		const parent = makeReadyParent('org-1');
+		loadWithContextMock.mockResolvedValue(undefined);
+		const load = _createOnboardingLayoutLoad({
+			createWorkspacePort,
+			createPlannerPort
+		});
+		const locals = {} as App.Locals;
+		const cookies = {} as Cookies;
+
+		const result = await load({
+			params: { orgId: 'org-1' },
+			locals,
+			cookies,
+			depends,
+			parent
+		} as unknown as Parameters<typeof load>[0]);
+		if (!result) {
+			throw new Error('Expected onboarding layout load to return data');
+		}
+
+		expect(loadWithContextMock).toHaveBeenCalledWith(locals, cookies, 'org-1', {
+			policyAction: POLICY_ACTION_CATALOG.onboarding.viewWorkflows,
+			policyResource: { kind: 'unscoped' },
+			fn: expect.any(Function)
 		});
 	});
 

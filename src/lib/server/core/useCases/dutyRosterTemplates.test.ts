@@ -53,7 +53,6 @@ function createAuth(overrides: Partial<AuthContext> = {}): AuthContext {
 			onboarding: 'none',
 			ratingScheme: 'none'
 		},
-		compatibilityLanes: {},
 		scopeSet: { kind: 'groups', groupIds: ['group-1'] },
 		...overrides
 	};

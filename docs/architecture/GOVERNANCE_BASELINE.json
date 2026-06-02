@@ -113,56 +113,6 @@
 	"deprecatedDemoSandboxAllowlist": [],
 	"legacyAuthorizationAllowlist": [
 		{
-			"path": "src/features/groups/components/OrganizationMemberManager.svelte",
-			"classification": "compatibility-adapter",
-			"patterns": [
-				"canEdit*",
-				"scopedGroupId"
-			],
-			"ownerIssue": "#757",
-			"reason": "Member management still displays and submits legacy edit flags and single-Group scope while Capability Map and Scope Set are rolled out.",
-			"driftIds": [
-				"D-01"
-			]
-		},
-		{
-			"path": "src/lib/access/memberAccessShape.ts",
-			"classification": "compatibility-adapter",
-			"patterns": [
-				"canEdit*"
-			],
-			"ownerIssue": "#1113",
-			"reason": "Member access shape derives route-data Permission Flag compatibility from replacement Capability Map data only; it no longer reads legacy storage or single-Group storage.",
-			"driftIds": [
-				"D-01"
-			]
-		},
-		{
-			"path": "src/lib/access/memberAccessProjection.ts",
-			"classification": "compatibility-adapter",
-			"patterns": [
-				"canEdit*",
-				"scopedGroupId"
-			],
-			"ownerIssue": "#1113",
-			"reason": "Member access projection exposes route-data compatibility fields derived from replacement storage only; legacy Permission Flag and scoped_group_id fallback paths have been removed.",
-			"driftIds": [
-				"D-01"
-			]
-		},
-		{
-			"path": "src/lib/server/adapters/supabaseOrgShell.ts",
-			"classification": "compatibility-adapter",
-			"patterns": [
-				"scopedGroupId"
-			],
-			"ownerIssue": "#1113",
-			"reason": "Org shell still emits the old single-Group route-data field from replacement Scope Set for transitional callers; it no longer reads scoped_group_id.",
-			"driftIds": [
-				"D-01"
-			]
-		},
-		{
 			"path": "supabase/migrations/20260526000100_normalize_member_access_replacement_storage.sql",
 			"classification": "historical-migration",
 			"patterns": [
@@ -172,58 +122,6 @@
 			],
 			"ownerIssue": "#1108",
 			"reason": "Normalization migration intentionally derives replacement member access from legacy columns before app compatibility paths are removed.",
-			"driftIds": [
-				"D-01"
-			]
-		},
-		{
-			"path": "src/lib/server/core/orgShell.ts",
-			"classification": "compatibility-adapter",
-			"patterns": [
-				"isFullEditor",
-				"scopedGroupId"
-			],
-			"ownerIssue": "#757",
-			"reason": "Org shell domain types still expose legacy full-editor and single-Group scope compatibility data.",
-			"driftIds": [
-				"D-01"
-			]
-		},
-		{
-			"path": "src/lib/stores/orgContext.svelte.ts",
-			"classification": "compatibility-adapter",
-			"patterns": [
-				"isFullEditor",
-				"scopedGroupId"
-			],
-			"ownerIssue": "#757",
-			"reason": "Client org context derives new advisory affordances from Capability Map, Scope Set, and the historical compatibility policy data while retaining full-editor and single-Group compatibility fields for transitional callers.",
-			"driftIds": [
-				"D-01"
-			]
-		},
-		{
-			"path": "src/lib/types.ts",
-			"classification": "compatibility-adapter",
-			"patterns": [
-				"canEdit*",
-				"scopedGroupId"
-			],
-			"ownerIssue": "#767",
-			"reason": "Shared route data types retain legacy edit and single-Group compatibility fields for older route data while new authorization uses Capability Map, Scope Set, and Policy Decisions.",
-			"driftIds": [
-				"D-01"
-			]
-		},
-		{
-			"path": "src/routes/org/[orgId]/+layout.svelte",
-			"classification": "compatibility-adapter",
-			"patterns": [
-				"canEdit*",
-				"scopedGroupId"
-			],
-			"ownerIssue": "#757",
-			"reason": "Org layout passes Capability Map and Scope Set into client context while retaining legacy edit and single-Group compatibility data for transitional callers.",
 			"driftIds": [
 				"D-01"
 			]

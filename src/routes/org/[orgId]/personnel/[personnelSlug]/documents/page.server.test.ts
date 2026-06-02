@@ -30,7 +30,6 @@ describe('personnel documents page server load', () => {
 					onboarding: 'view',
 					ratingScheme: 'view'
 				},
-				compatibilityLanes: {},
 				scopeSet: { kind: 'organization' }
 			},
 			scope: {

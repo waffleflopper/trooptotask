@@ -43,7 +43,6 @@ function toUseCaseCtx(t: TestContext): UseCaseContext {
 			role: t.auth.role,
 			isPrivileged: t.auth.isPrivileged,
 			capabilityMap: t.auth.capabilityMap,
-			compatibilityLanes: t.auth.compatibilityLanes,
 			scopeSet: t.auth.scopeSet
 		},
 		readOnly: t.readOnly

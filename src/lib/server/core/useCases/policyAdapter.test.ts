@@ -28,7 +28,6 @@ describe('policy adapter', () => {
 					userId: 'user-1',
 					role: 'member',
 					capabilityMap: { ...noCapabilities, personnel: 'operate' },
-					compatibilityLanes: {},
 					scopeSet: { kind: 'groups', groupIds: ['group-alpha'] }
 				},
 				readOnlyGuard: readOnlyGuard(true)
@@ -45,7 +44,6 @@ describe('policy adapter', () => {
 			},
 			action: POLICY_ACTION_CATALOG.personnel.manageRecords,
 			capabilityMap: { personnel: 'operate' },
-			compatibilityLanes: {},
 			scopeSet: { kind: 'groups', groupIds: ['group-alpha'] },
 			resource: { kind: 'group', groupId: 'group-alpha' },
 			overlays: [{ id: 'read-only-mode', kind: 'read-only-mode', label: 'Organization is in read-only mode' }]

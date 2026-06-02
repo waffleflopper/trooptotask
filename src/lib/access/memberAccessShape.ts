@@ -1,5 +1,3 @@
-import type { OrganizationMemberPermissions } from '$lib/types';
-
 export type MembershipRole = 'owner' | 'admin' | 'member';
 export type MemberPreset = 'viewer' | 'operator' | 'editor' | 'custom';
 export type StoredMemberPreset = Exclude<MemberPreset, 'custom'>;
@@ -13,7 +11,6 @@ export type DurableFeatureLane =
 	| 'ratingScheme';
 
 export type CapabilityMap = Record<DurableFeatureLane, CapabilityLevel>;
-export type CompatibilityLaneMap = Record<string, never>;
 export type CapabilityOverrideMap = Partial<Record<DurableFeatureLane, CapabilityLevel>>;
 
 export type ScopeSet = { kind: 'organization' } | { kind: 'groups'; groupIds: string[] };
@@ -32,7 +29,6 @@ export interface MemberAccessShape {
 	membershipRole: MembershipRole;
 	memberPreset: MemberPreset;
 	capabilityMap: CapabilityMap;
-	compatibilityLanes: CompatibilityLaneMap;
 	scopeSet: ScopeSet;
 	canManageMembers: boolean;
 }
@@ -75,14 +71,6 @@ const EDITOR_CAPABILITY_MAP = createCapabilityMap('configure');
 const OPERATOR_CAPABILITY_MAP = createCapabilityMap('operate');
 const VIEWER_CAPABILITY_MAP = createCapabilityMap('view');
 
-export function toCurrentPermissionFlags(shape: MemberAccessShape): OrganizationMemberPermissions {
-	const permissions = fromCapabilityMap(shape.capabilityMap, shape.compatibilityLanes);
-	return {
-		...permissions,
-		canManageMembers: shape.membershipRole === 'owner' || shape.membershipRole === 'admin' || shape.canManageMembers
-	};
-}
-
 export function resolveStoredMemberAccessShape(input: StoredMemberAccessInput): MemberAccessShape {
 	const memberPreset = input.memberPreset;
 	const capabilityMap = applyCapabilityOverrides(
@@ -94,7 +82,6 @@ export function resolveStoredMemberAccessShape(input: StoredMemberAccessInput): 
 		membershipRole: input.membershipRole,
 		memberPreset,
 		capabilityMap,
-		compatibilityLanes: createCompatibilityLaneMap(),
 		scopeSet: normalizeScopeSet(input.scopeSet),
 		canManageMembers:
 			input.membershipRole === 'owner' || input.membershipRole === 'admin' || input.canManageMembers === true
@@ -137,35 +124,12 @@ export function createCapabilityMap(level: CapabilityLevel): CapabilityMap {
 	};
 }
 
-export function createCompatibilityLaneMap(): CompatibilityLaneMap {
-	return {};
-}
-
 export function capabilityMeets(actual: CapabilityLevel, required: Exclude<CapabilityLevel, 'none'>): boolean {
 	return CAPABILITY_RANK[actual] >= CAPABILITY_RANK[required];
 }
 
 export function hasOrganizationWideConfigureAccess(capabilityMap: CapabilityMap, scopeSet: ScopeSet): boolean {
 	return scopeSet.kind === 'organization' && DURABLE_FEATURE_LANES.every((lane) => capabilityMap[lane] === 'configure');
-}
-
-export function resolveRatingSchemePermissions(
-	permissions: Pick<
-		OrganizationMemberPermissions,
-		'canViewPersonnel' | 'canEditPersonnel' | 'canViewRatingScheme' | 'canEditRatingScheme'
-	>
-): { canViewRatingScheme: boolean; canEditRatingScheme: boolean } {
-	return {
-		canViewRatingScheme: permissions.canViewRatingScheme ?? permissions.canViewPersonnel,
-		canEditRatingScheme: permissions.canEditRatingScheme ?? permissions.canEditPersonnel
-	};
-}
-
-function toPermissionFlags(level: CapabilityLevel): { canView: boolean; canEdit: boolean } {
-	return {
-		canView: level !== 'none',
-		canEdit: level === 'configure'
-	};
 }
 
 function applyCapabilityOverrides(
@@ -218,35 +182,6 @@ function normalizeScopeSet(scopeSet?: ScopeSet | null): ScopeSet {
 
 	const groupIds = Array.from(new Set(scopeSet.groupIds.filter(Boolean)));
 	return groupIds.length > 0 ? { kind: 'groups', groupIds } : { kind: 'organization' };
-}
-
-function fromCapabilityMap(
-	capabilityMap: CapabilityMap,
-	compatibilityLanes: CompatibilityLaneMap
-): OrganizationMemberPermissions {
-	void compatibilityLanes;
-	const calendar = toPermissionFlags(capabilityMap.calendar);
-	const personnel = toPermissionFlags(capabilityMap.personnel);
-	const training = toPermissionFlags(capabilityMap.training);
-	const criticalTasks = toPermissionFlags(capabilityMap.criticalTasks);
-	const onboarding = toPermissionFlags(capabilityMap.onboarding);
-	const ratingScheme = toPermissionFlags(capabilityMap.ratingScheme);
-
-	return {
-		canViewCalendar: calendar.canView,
-		canEditCalendar: calendar.canEdit,
-		canViewPersonnel: personnel.canView,
-		canEditPersonnel: personnel.canEdit,
-		canViewTraining: training.canView,
-		canEditTraining: training.canEdit,
-		canViewCriticalTasks: criticalTasks.canView,
-		canEditCriticalTasks: criticalTasks.canEdit,
-		canViewOnboarding: onboarding.canView,
-		canEditOnboarding: onboarding.canEdit,
-		canViewRatingScheme: ratingScheme.canView,
-		canEditRatingScheme: ratingScheme.canEdit,
-		canManageMembers: false
-	};
 }
 
 function normalizeStoredMemberPreset(preset: string): StoredMemberPreset {

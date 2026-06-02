@@ -19,26 +19,10 @@ export function createReadyAppShellRouteData(
 		orgName?: string;
 		userId?: string;
 		role?: ReadyAppShell['member']['role'];
-		canViewCriticalTasks?: boolean;
+		criticalTasksCapability?: ReadyAppShell['member']['capabilityMap']['criticalTasks'];
 	} = {}
 ): AppShellRouteData {
 	const role = overrides.role ?? 'admin';
-	const criticalTaskAccess = overrides.canViewCriticalTasks !== false;
-	const permissions: ReadyAppShell['member']['permissions'] = {
-		canViewCalendar: true,
-		canEditCalendar: true,
-		canViewPersonnel: true,
-		canEditPersonnel: true,
-		canViewTraining: true,
-		canEditTraining: true,
-		canViewCriticalTasks: criticalTaskAccess,
-		canEditCriticalTasks: criticalTaskAccess,
-		canViewOnboarding: true,
-		canEditOnboarding: true,
-		canViewRatingScheme: true,
-		canEditRatingScheme: true,
-		canManageMembers: true
-	};
 	const member: ReadyAppShell['member'] = {
 		membershipId: 'membership-1',
 		role,
@@ -46,16 +30,13 @@ export function createReadyAppShellRouteData(
 			calendar: 'configure',
 			personnel: 'configure',
 			training: 'configure',
-			criticalTasks: criticalTaskAccess ? 'configure' : 'none',
+			criticalTasks: overrides.criticalTasksCapability ?? 'configure',
 			onboarding: 'configure',
 			ratingScheme: 'configure'
 		},
 		scopeSet: { kind: 'organization' },
-		permissions,
-		scopedGroupId: null,
 		isOwner: role === 'owner',
-		isAdmin: role === 'admin',
-		isFullEditor: role === 'member'
+		isAdmin: role === 'admin'
 	};
 
 	return {

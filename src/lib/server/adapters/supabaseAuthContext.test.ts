@@ -3,15 +3,6 @@ import { createSupabaseAuthContextAdapter } from './supabaseAuthContext';
 import type { PermissionContext } from '$lib/server/permissionContext';
 
 function makePermissionContext(overrides?: Partial<PermissionContext>): PermissionContext {
-	const allTrue = {
-		calendar: true,
-		personnel: true,
-		training: true,
-		'critical-tasks': true,
-		onboarding: true,
-		'rating-scheme': true
-	};
-
 	return {
 		role: 'admin',
 		isOwner: false,
@@ -25,10 +16,7 @@ function makePermissionContext(overrides?: Partial<PermissionContext>): Permissi
 			onboarding: 'configure',
 			ratingScheme: 'configure'
 		},
-		compatibilityLanes: {},
 		scopeSet: { kind: 'organization' },
-		canView: { ...allTrue },
-		canEdit: { ...allTrue },
 		canManageMembers: true,
 		...overrides
 	};

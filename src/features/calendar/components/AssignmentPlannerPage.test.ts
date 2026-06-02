@@ -70,15 +70,11 @@ function renderPage(
 		orgName?: string;
 		personnel?: Personnel[];
 		allPersonnel?: Personnel[];
-		scopedGroupId?: string | null;
-		permissions?: { canViewCalendar?: boolean; canEditCalendar?: boolean } | null;
 	} = {
 		orgId: 'org-1',
 		orgName: 'Test Org',
 		personnel,
-		allPersonnel: personnel,
-		scopedGroupId: null,
-		permissions: { canViewCalendar: true, canEditCalendar: true }
+		allPersonnel: personnel
 	}
 ) {
 	return render(AssignmentPlannerPage, { props: { data } });
@@ -87,7 +83,7 @@ function renderPage(
 describe('AssignmentPlannerPage', () => {
 	beforeEach(() => {
 		cleanup();
-		mockOrg = { ...mockOrg, isFullEditor: true, readOnly: false };
+		mockOrg = makeOrg();
 		dailyAssignmentsStore.load(assignmentTypes, [], 'org-1');
 		groupsStore.load([{ id: 'group-1', name: 'Alpha', sortOrder: 0 }], 'org-1');
 	});
@@ -114,9 +110,7 @@ describe('AssignmentPlannerPage', () => {
 			orgId: 'org-1',
 			orgName: 'Test Org',
 			personnel,
-			allPersonnel: personnel,
-			scopedGroupId: null,
-			permissions: { canViewCalendar: true, canEditCalendar: true }
+			allPersonnel: personnel
 		});
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Select assignment type' }));
@@ -136,9 +130,7 @@ describe('AssignmentPlannerPage', () => {
 			orgId: 'org-1',
 			orgName: 'Test Org',
 			personnel,
-			allPersonnel: personnel,
-			scopedGroupId: null,
-			permissions: { canViewCalendar: true, canEditCalendar: true }
+			allPersonnel: personnel
 		});
 
 		expect(screen.queryByText(/only personnel with MOS/i)).toBeNull();
@@ -161,9 +153,7 @@ describe('AssignmentPlannerPage', () => {
 			orgId: 'org-1',
 			orgName: 'Test Org',
 			personnel,
-			allPersonnel: personnel,
-			scopedGroupId: null,
-			permissions: { canViewCalendar: true, canEditCalendar: false }
+			allPersonnel: personnel
 		});
 
 		expect(screen.getByText('Access restricted.')).toBeTruthy();
@@ -186,9 +176,7 @@ describe('AssignmentPlannerPage', () => {
 			orgId: 'org-1',
 			orgName: 'Test Org',
 			personnel,
-			allPersonnel: personnel,
-			scopedGroupId: null,
-			permissions: { canViewCalendar: true, canEditCalendar: false }
+			allPersonnel: personnel
 		});
 
 		expect(screen.getByText('Quick Fill')).toBeTruthy();

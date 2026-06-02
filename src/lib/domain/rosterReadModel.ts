@@ -119,8 +119,8 @@ export function formatRosterPersonDisplayName(person: Personnel | undefined, fal
 
 function applyScope(personnel: Personnel[], scope: RosterScopeSelection): Personnel[] {
 	if (scope.scope === 'full' || scope.scopeSet.kind === 'organization') return personnel;
-	const scopedGroupIds = new Set(scope.scopeSet.groupIds);
-	return personnel.filter((person) => person.groupId !== null && scopedGroupIds.has(person.groupId));
+	const groupScopeIds = new Set(scope.scopeSet.groupIds);
+	return personnel.filter((person) => person.groupId !== null && groupScopeIds.has(person.groupId));
 }
 
 function applyRosterOptions(personnel: Personnel[], options: RosterViewOptions): Personnel[] {

@@ -21,9 +21,9 @@ export function createScopedDataStore(
 	scope: ScopeSet | string[] | string | null,
 	scopeRules: Map<string, GroupScopeRule>
 ): DataStore {
-	const scopedGroupIds = normalizeScopedGroupIds(scope);
-	if (!scopedGroupIds) return inner;
-	const groupIds = scopedGroupIds;
+	const groupScopeIds = normalizeScopedGroupIds(scope);
+	if (!groupScopeIds) return inner;
+	const groupIds = groupScopeIds;
 
 	let cachedPersonnelIds: string[] | null = null;
 

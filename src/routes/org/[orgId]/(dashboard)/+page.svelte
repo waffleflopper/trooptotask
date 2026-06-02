@@ -126,7 +126,6 @@
 			orgName: data.shell.org.name,
 			userId: shell?.user.id ?? null,
 			userRole: shell?.member.role,
-			permissions: shell?.member.permissions ?? null,
 			dashboard,
 			trainingSummary: summary.trainingSummary,
 			ictlSummary: summary.ictlSummary,

@@ -25,7 +25,6 @@
 		IctTask,
 		PersonnelIctCompletion
 	} from '$features/critical-tasks/criticalTasks.types';
-	import type { OrganizationMemberPermissions } from '$lib/types';
 	import { parseDate } from '$lib/utils/dates';
 
 	interface Props {
@@ -40,7 +39,6 @@
 					} | null;
 				} | null;
 			};
-			permissions?: Partial<OrganizationMemberPermissions> | null;
 			session?:
 				| (Record<string, unknown> & {
 						user?:

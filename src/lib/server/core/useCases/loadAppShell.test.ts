@@ -21,20 +21,7 @@ const membership: MembershipInfo = {
 		onboarding: 'none',
 		ratingScheme: 'none'
 	},
-	scopeSet: { kind: 'organization' },
-	permissions: {
-		canViewCalendar: true,
-		canEditCalendar: false,
-		canViewPersonnel: true,
-		canEditPersonnel: false,
-		canViewTraining: true,
-		canEditTraining: false,
-		canViewCriticalTasks: true,
-		canEditCriticalTasks: false,
-		canViewOnboarding: false,
-		canEditOnboarding: false,
-		canManageMembers: false
-	}
+	scopeSet: { kind: 'organization' }
 };
 
 const orgState: OrgState = {
@@ -73,7 +60,8 @@ describe('loadAppShellFirstPaint', () => {
 				member: expect.objectContaining({
 					membershipId: 'membership-1',
 					role: 'member',
-					permissions: membership.permissions
+					capabilityMap: membership.capabilityMap,
+					scopeSet: membership.scopeSet
 				}),
 				state: expect.objectContaining({
 					effectiveTier: orgState.effectiveTier,

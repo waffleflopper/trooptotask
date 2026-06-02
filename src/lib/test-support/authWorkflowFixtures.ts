@@ -1,4 +1,3 @@
-import type { OrganizationMemberPermissions } from '$lib/types';
 import type { TargetMemberAccessCommand } from '$lib/access/memberAccessCommands';
 import type {
 	AccessRequestSetupDeliveryStore,
@@ -109,7 +108,6 @@ export interface OrganizationMembershipFixture {
 	email: string | null;
 	role: 'owner' | 'admin' | 'member' | null;
 	canManageMembers: boolean | null;
-	permissions?: OrganizationMemberPermissions;
 	memberAccess: TargetMemberAccessCommand;
 }
 

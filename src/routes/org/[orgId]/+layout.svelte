@@ -13,23 +13,8 @@
 	import { whatsNewStore } from '$lib/stores/whatsNew.svelte';
 	import { changelog } from '$lib/data/changelog';
 	import { browser } from '$app/environment';
-	import type { OrganizationMemberPermissions } from '$lib/types';
 
 	let { children, data } = $props();
-
-	const NO_PERMISSIONS: OrganizationMemberPermissions = {
-		canViewCalendar: false,
-		canEditCalendar: false,
-		canViewPersonnel: false,
-		canEditPersonnel: false,
-		canViewTraining: false,
-		canEditTraining: false,
-		canViewCriticalTasks: false,
-		canEditCriticalTasks: false,
-		canViewOnboarding: false,
-		canEditOnboarding: false,
-		canManageMembers: false
-	};
 
 	const readyShell = $derived(data.shell.kind === 'ready' ? data.shell : null);
 	const suspendedShell = $derived(data.shell.kind === 'suspended' ? data.shell : null);
@@ -44,8 +29,6 @@
 			userRole: readyShell?.member.role ?? 'member',
 			capabilityMap: readyShell?.member.capabilityMap,
 			scopeSet: readyShell?.member.scopeSet,
-			permissions: readyShell?.member.permissions ?? NO_PERMISSIONS,
-			scopedGroupId: readyShell?.member.scopedGroupId ?? null,
 			isReadOnly: readyShell?.state.isReadOnly ?? suspendedShell?.state.isReadOnly ?? false
 		}))
 	);
@@ -139,7 +122,6 @@
 		orgName={readyShell.org.name}
 		userRole={readyShell.member.role}
 		membershipId={readyShell.member.membershipId}
-		permissions={readyShell.member.permissions}
 		capabilityMap={readyShell.member.capabilityMap}
 		onToggleTheme={() => themeStore.toggle()}
 		isDarkTheme={themeStore.isDark}

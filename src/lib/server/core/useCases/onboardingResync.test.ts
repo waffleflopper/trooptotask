@@ -12,10 +12,9 @@ const operateOnlyCapabilityMap: CapabilityMap = {
 	ratingScheme: 'none'
 };
 
-function buildContext(overrides?: { readOnly?: boolean; isFullEditor?: boolean }) {
+function buildContext(overrides?: { readOnly?: boolean }) {
 	return createWritePortsContext({
-		readOnly: overrides?.readOnly,
-		auth: { isFullEditor: overrides?.isFullEditor ?? true }
+		readOnly: overrides?.readOnly
 	});
 }
 

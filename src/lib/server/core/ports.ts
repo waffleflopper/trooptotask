@@ -1,9 +1,7 @@
 import type { BillingCancellationFeedback, EffectiveTier, ReadOnlyReason } from '$lib/types/subscription';
-import type { CapabilityMap, CompatibilityLaneMap, ScopeSet } from '$lib/access/memberAccessShape';
+import type { CapabilityMap, ScopeSet } from '$lib/access/memberAccessShape';
 import type { CheckoutSessionConfiguration } from '$lib/server/billing/checkoutConfiguration';
 import type { SensitiveActionAuthorizer } from '$lib/server/sensitiveActionAuthorizer';
-
-export type FeatureArea = 'calendar' | 'personnel' | 'training' | 'critical-tasks' | 'onboarding' | 'rating-scheme';
 
 /** Options for DataStore.findMany queries */
 export interface FindOptions {
@@ -105,7 +103,6 @@ export interface AuthContext {
 	readonly isPrivileged: boolean;
 	readonly canManageMembers: boolean;
 	readonly capabilityMap: CapabilityMap;
-	readonly compatibilityLanes: CompatibilityLaneMap;
 	readonly scopeSet: ScopeSet;
 }
 

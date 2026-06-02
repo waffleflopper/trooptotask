@@ -6,11 +6,11 @@ import {
 	type PolicyOverlay,
 	type PolicyResource
 } from '$lib/access/policyEvaluator';
-import type { CapabilityMap, CompatibilityLaneMap, ScopeSet } from '$lib/access/memberAccessShape';
+import type { CapabilityMap, ScopeSet } from '$lib/access/memberAccessShape';
 import type { AuthContext, ReadOnlyGuard } from '$lib/server/core/ports';
 
 type PolicyAdapterAuth = Pick<AuthContext, 'role' | 'capabilityMap' | 'scopeSet'> &
-	Partial<Pick<AuthContext, 'userId' | 'canManageMembers' | 'compatibilityLanes'>>;
+	Partial<Pick<AuthContext, 'userId' | 'canManageMembers'>>;
 
 export interface PolicyAdapterPorts {
 	auth: PolicyAdapterAuth;
@@ -20,7 +20,6 @@ export interface PolicyAdapterPorts {
 export interface AuthoritativePolicyDecisionOptions {
 	actorUserId?: string | null;
 	capabilityMap?: CapabilityMap;
-	compatibilityLanes?: CompatibilityLaneMap;
 	scopeSet?: ScopeSet;
 	enforceReadOnlyOverlay?: boolean;
 }
@@ -58,7 +57,6 @@ export async function buildAuthoritativePolicyInput(
 		},
 		action,
 		capabilityMap: options.capabilityMap ?? ports.auth.capabilityMap,
-		compatibilityLanes: options.compatibilityLanes ?? ports.auth.compatibilityLanes,
 		scopeSet: options.scopeSet ?? ports.auth.scopeSet,
 		resource,
 		overlays: await resolveAuthoritativePolicyOverlays(ports.readOnlyGuard, options)

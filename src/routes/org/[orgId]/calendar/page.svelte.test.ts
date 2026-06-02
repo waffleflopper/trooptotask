@@ -31,18 +31,20 @@ vi.mock('$lib/stores/orgContext.svelte', () => ({
 		isPrivileged: true,
 		scopeSet: { kind: 'organization' },
 		readOnly: false,
+		capabilityMap: {
+			calendar: 'configure',
+			personnel: 'configure',
+			training: 'configure',
+			onboarding: 'configure',
+			members: 'configure',
+			criticalTasks: 'configure',
+			ratingScheme: 'configure',
+			reports: 'configure',
+			dutyRoster: 'configure'
+		},
+		hasCapability: vi.fn(() => true),
 		affordanceForFeatureAction: vi.fn(() => ({ allowed: true, visible: true, disabled: false })),
-		permissions: {
-			canViewCalendar: true,
-			canEditCalendar: true,
-			canViewPersonnel: true,
-			canEditPersonnel: true,
-			canViewTraining: true,
-			canEditTraining: true,
-			canViewOnboarding: true,
-			canEditOnboarding: true,
-			canManageMembers: true
-		}
+		canAccessFeature: vi.fn(() => true)
 	})
 }));
 

@@ -4,7 +4,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { readFileSync } from 'node:fs';
 import type { ComponentProps } from 'svelte';
 import TopHeader from './TopHeader.svelte';
-import type { OrganizationMemberPermissions } from '$lib/types';
+import type { CapabilityMap } from '$lib/access/memberAccessShape';
 
 const topHeaderSource = readFileSync('src/lib/components/TopHeader.svelte', 'utf8');
 const sidebarSource = readFileSync('src/lib/components/ui/sidebar/sidebar.svelte', 'utf8');
@@ -50,18 +50,13 @@ vi.mock('$app/stores', () => {
 	};
 });
 
-const basePermissions: OrganizationMemberPermissions = {
-	canViewCalendar: true,
-	canEditCalendar: false,
-	canViewPersonnel: true,
-	canEditPersonnel: false,
-	canViewTraining: false,
-	canEditTraining: false,
-	canViewCriticalTasks: false,
-	canEditCriticalTasks: false,
-	canViewOnboarding: false,
-	canEditOnboarding: false,
-	canManageMembers: false
+const baseCapabilityMap: CapabilityMap = {
+	calendar: 'view',
+	personnel: 'view',
+	training: 'none',
+	criticalTasks: 'none',
+	onboarding: 'none',
+	ratingScheme: 'none'
 };
 
 afterEach(() => {
@@ -107,7 +102,7 @@ function renderHeader(overrides: Partial<ComponentProps<typeof TopHeader>> = {})
 			orgName: 'Test Org',
 			userRole: 'admin',
 			membershipId: 'membership-1',
-			permissions: basePermissions,
+			capabilityMap: baseCapabilityMap,
 			onToggleTheme: vi.fn(),
 			isDarkTheme: false,
 			...overrides
@@ -343,7 +338,7 @@ describe('TopHeader', () => {
 			orgUrlSegment: 'org-2',
 			userRole: 'admin',
 			membershipId: 'membership-2',
-			permissions: basePermissions,
+			capabilityMap: baseCapabilityMap,
 			onToggleTheme: vi.fn(),
 			isDarkTheme: false
 		});
@@ -411,9 +406,9 @@ describe('TopHeader', () => {
 		pageStore.setPath('/org/org-1/critical-tasks/person-1', { breadcrumbLabel: 'CPT Hayes, Emma' });
 
 		renderHeader({
-			permissions: {
-				...basePermissions,
-				canViewCriticalTasks: true
+			capabilityMap: {
+				...baseCapabilityMap,
+				criticalTasks: 'view'
 			}
 		});
 

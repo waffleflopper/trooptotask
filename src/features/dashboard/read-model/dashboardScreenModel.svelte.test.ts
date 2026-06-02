@@ -23,7 +23,6 @@ function makeData(overrides: Record<string, unknown> = {}, workspaceOverrides: R
 		orgId: 'org-1',
 		orgName: 'Test Unit',
 		userId: 'user-1',
-		permissions: null,
 		dashboard: {
 			workspace: 'dashboard',
 			data: {

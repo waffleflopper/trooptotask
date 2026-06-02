@@ -93,7 +93,7 @@ Date: 2026-05-18
 - Update approval and resend actions to create **Account Setup Links** instead of calling `inviteUserByEmail` as the main path.
 - Build `/auth/setup-account` to validate setup tokens and create or activate Supabase **User Accounts** after password entry.
 - Convert `/auth/renew-invite` into the fresh setup-link request path.
-- Remove `/auth/register` once legacy invite-code links no longer need a handoff route.
+- Removed `/auth/register` on 2026-06-01 after legacy invite-code links no longer needed a handoff route.
 - Update request-access copy so the user understands the 14-day setup window and the fresh-link path.
 - Add cleanup for stale setup-link records.
 - Keep tests around expired links, replaced links, duplicate requests, existing-user compatibility, and setup completion.

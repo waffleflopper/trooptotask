@@ -160,12 +160,6 @@
 				return;
 			}
 
-			try {
-				await fetch('/api/auth/complete-access-request', { method: 'POST' });
-			} catch (completionError) {
-				console.error('Failed to mark access request complete after password reset:', completionError);
-			}
-
 			success = true;
 			setTimeout(() => goto(resolve('/auth/login')), 3000);
 		} finally {

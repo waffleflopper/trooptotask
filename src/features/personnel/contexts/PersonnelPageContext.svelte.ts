@@ -1,5 +1,5 @@
 import { SvelteDate, SvelteMap, SvelteSet } from 'svelte/reactivity';
-import type { Personnel, OrganizationMemberPermissions } from '$lib/types';
+import type { Personnel } from '$lib/types';
 import { createRosterReadModel, type PersonnelGroup, type RosterReadModelView } from '$lib/domain/rosterReadModel';
 import type { ClientAffordance, OrgContext } from '$lib/stores/orgContext.svelte';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
@@ -14,7 +14,6 @@ export interface PersonnelPageData {
 	orgName: string;
 	pinnedGroups: string[];
 	personnel?: Personnel[];
-	permissions?: OrganizationMemberPermissions | null;
 	/** Org-configured loss warning window in days (default: 180). */
 	lossWarningWindowDays?: number;
 	/** Personnel IDs whose award tracking has been acknowledged. */
@@ -93,6 +92,12 @@ export class PersonnelPageContext {
 	}
 
 	// ---- Permission flags ----
+
+	get canViewRoster(): boolean {
+		return this.#org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.personnel.viewRoster, {
+			kind: 'unscoped'
+		}).allowed;
+	}
 
 	get canAddPersonnel(): boolean {
 		return this.#org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.personnel.createRecords).allowed;

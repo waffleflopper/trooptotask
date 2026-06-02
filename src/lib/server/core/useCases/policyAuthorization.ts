@@ -5,8 +5,7 @@ import { evaluateAuthoritativePolicyDecision } from './policyAdapter';
 import { denyPolicyDecision, policyDenialAuditDetails, type PolicyDenialAuditDetailsOptions } from './policyDenial';
 
 interface PolicyPorts {
-	auth: Pick<AuthContext, 'role' | 'capabilityMap' | 'compatibilityLanes' | 'scopeSet'> &
-		Partial<Pick<AuthContext, 'userId'>>;
+	auth: Pick<AuthContext, 'role' | 'capabilityMap' | 'scopeSet'> & Partial<Pick<AuthContext, 'userId'>>;
 	audit: AuditPort;
 	readOnlyGuard?: ReadOnlyGuard;
 }

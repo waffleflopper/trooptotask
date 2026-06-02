@@ -2,9 +2,7 @@ import type { Cookies } from '@sveltejs/kit';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
 import type { UseCaseContext } from '$lib/server/core/ports';
-import type { OrganizationMemberPermissions } from '$lib/types';
 import type { EffectiveTier } from '$lib/types/subscription';
-import { getSettingsPermissions } from './settingsPermissions.server';
 import type { AppShellRouteData } from '$lib/server/core/orgShell';
 
 export type SettingsSubrouteParentData = AppShellRouteData;
@@ -29,7 +27,6 @@ export interface CommonSettingsPageData {
 	orgUrlSlug: string | null;
 	orgName: string | null;
 	effectiveTier: EffectiveTier | null;
-	permissions: OrganizationMemberPermissions;
 	isAdmin: boolean;
 }
 
@@ -48,10 +45,9 @@ export async function loadSettingsPage<TSectionData extends Record<string, unkno
 	loadSectionData: SettingsSectionLoader<TSectionData>
 ): Promise<(CommonSettingsPageData & TSectionData) | Record<string, never>> {
 	const parentData = await event.parent();
-	const permissions = getSettingsPermissions(parentData);
-	if (!permissions) return {};
+	if (parentData.shell.kind === 'suspended') return {};
 
-	const common = buildCommonSettingsPageData(parentData, permissions);
+	const common = buildCommonSettingsPageData(parentData);
 	const organization = buildSettingsPageOrganization(parentData);
 
 	return loadWithContext(event.locals, event.cookies, common.orgId, {
@@ -64,10 +60,7 @@ export async function loadSettingsPage<TSectionData extends Record<string, unkno
 	});
 }
 
-export function buildCommonSettingsPageData(
-	parentData: SettingsSubrouteParentData,
-	permissions: OrganizationMemberPermissions
-): CommonSettingsPageData {
+export function buildCommonSettingsPageData(parentData: SettingsSubrouteParentData): CommonSettingsPageData {
 	if (parentData.shell.kind !== 'ready') {
 		throw new Error('Settings page data requires a ready app shell');
 	}
@@ -81,7 +74,6 @@ export function buildCommonSettingsPageData(
 		orgUrlSlug: orgUrlSegment !== shell.org.id ? orgUrlSegment : null,
 		orgName: shell.org.name,
 		effectiveTier: shell.state.effectiveTier,
-		permissions,
 		isAdmin: shell.member.isAdmin
 	};
 }

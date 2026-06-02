@@ -10,24 +10,7 @@ vi.mock('$lib/server/adapters/httpAdapter', () => ({
 }));
 
 import { buildCommonSettingsPageData, buildSettingsPageOrganization, loadSettingsPage } from './settingsLoad.server';
-import type { OrganizationMemberPermissions } from '$lib/types';
 import type { AppShellRouteData } from '$lib/server/core/orgShell';
-
-const permissions: OrganizationMemberPermissions = {
-	canViewCalendar: true,
-	canEditCalendar: false,
-	canViewPersonnel: true,
-	canEditPersonnel: false,
-	canViewTraining: true,
-	canEditTraining: false,
-	canViewCriticalTasks: true,
-	canEditCriticalTasks: false,
-	canViewOnboarding: true,
-	canEditOnboarding: false,
-	canViewRatingScheme: true,
-	canEditRatingScheme: false,
-	canManageMembers: true
-};
 
 const effectiveTier = {
 	tier: 'free',
@@ -58,11 +41,8 @@ function readyParent(overrides: Partial<AppShellRouteData['shell']> = {}): AppSh
 					ratingScheme: 'view'
 				},
 				scopeSet: { kind: 'organization' },
-				permissions,
-				scopedGroupId: null,
 				isOwner: false,
-				isAdmin: true,
-				isFullEditor: false
+				isAdmin: true
 			},
 			state: { effectiveTier, isReadOnly: false, orgSuspended: false },
 			preferences: {} as never,
@@ -80,13 +60,12 @@ describe('settings load helpers', () => {
 	it('builds shared settings page data from parent org context', () => {
 		const parentData = readyParent();
 
-		expect(buildCommonSettingsPageData(parentData, permissions)).toEqual({
+		expect(buildCommonSettingsPageData(parentData)).toEqual({
 			orgId: 'org-1',
 			orgUrlSegment: 'test-org',
 			orgUrlSlug: 'test-org',
 			orgName: 'Test Org',
 			effectiveTier,
-			permissions,
 			isAdmin: true
 		});
 		expect(buildSettingsPageOrganization(parentData)).toEqual({
@@ -138,7 +117,6 @@ describe('settings load helpers', () => {
 			orgUrlSegment: 'org-1',
 			orgUrlSlug: null,
 			orgName: 'Test Org',
-			permissions,
 			isAdmin: false,
 			sectionSettings: {
 				authOrgId: 'org-1',

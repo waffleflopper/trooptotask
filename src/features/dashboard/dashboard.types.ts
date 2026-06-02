@@ -1,6 +1,5 @@
 import type { DashboardBootstrap } from '$lib/server/core/useCases/dashboardQuery';
 import type { HydrationPlan } from '$lib/server/core/orgShell';
-import type { OrganizationMemberPermissions } from '$lib/types';
 import type { TrainingStats } from '$features/training/utils/trainingStatus';
 
 // ---------------------------------------------------------------------------
@@ -10,25 +9,6 @@ import type { TrainingStats } from '$features/training/utils/trainingStatus';
 export type DashboardTabId = 'overview' | 'unit-readiness' | 'people-duty' | 'training-evals';
 
 const ALL_TABS: DashboardTabId[] = ['overview', 'unit-readiness', 'people-duty', 'training-evals'];
-
-// ---------------------------------------------------------------------------
-// Dashboard permissions
-// ---------------------------------------------------------------------------
-
-export type DashboardPermission =
-	| 'canViewCalendar'
-	| 'canViewTraining'
-	| 'canViewCriticalTasks'
-	| 'canViewRatingScheme'
-	| 'canViewOnboarding'
-	| 'canViewPersonnel';
-
-export type DashboardPermissions = Partial<Record<DashboardPermission, boolean>> | null | undefined;
-
-export function hasDashboardPermission(permissions: DashboardPermissions, permission?: DashboardPermission): boolean {
-	if (!permission) return true;
-	return permissions?.[permission] === true;
-}
 
 // ---------------------------------------------------------------------------
 // Persisted dashboard config shape (stored in dashboard_configs.config JSONB)
@@ -135,7 +115,6 @@ export interface DashboardPageData {
 	orgId: string;
 	orgName: string;
 	userId: string | null;
-	permissions: OrganizationMemberPermissions | null;
 	dashboard: { data: DashboardBootstrap; hydration?: HydrationPlan; workspace: string };
 	trainingSummary: { stats: TrainingStats; issues: TrainingIssue[] } | null;
 	ictlSummary: DashboardIctlSummary | null;

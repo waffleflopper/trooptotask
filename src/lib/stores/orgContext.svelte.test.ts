@@ -1,36 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { createCapabilityMap } from '$lib/access/memberAccessShape';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { createOrgContext } from './orgContext.svelte';
-import type { OrganizationMemberPermissions } from '$lib/types';
-
-const fullPermissions: OrganizationMemberPermissions = {
-	canViewCalendar: true,
-	canEditCalendar: true,
-	canViewPersonnel: true,
-	canEditPersonnel: true,
-	canViewTraining: true,
-	canEditTraining: true,
-	canViewCriticalTasks: true,
-	canEditCriticalTasks: true,
-	canViewOnboarding: true,
-	canEditOnboarding: true,
-	canManageMembers: true
-};
-
-const viewerPermissions: OrganizationMemberPermissions = {
-	canViewCalendar: true,
-	canEditCalendar: false,
-	canViewPersonnel: true,
-	canEditPersonnel: false,
-	canViewTraining: true,
-	canEditTraining: false,
-	canViewCriticalTasks: true,
-	canEditCriticalTasks: false,
-	canViewOnboarding: true,
-	canEditOnboarding: false,
-	canManageMembers: false
-};
 
 function makeInput(overrides: Record<string, unknown> = {}) {
 	return {
@@ -38,8 +8,6 @@ function makeInput(overrides: Record<string, unknown> = {}) {
 		orgName: 'Test Org',
 		userId: 'user-1',
 		userRole: 'member' as const,
-		permissions: fullPermissions,
-		scopedGroupId: null as string | null,
 		isReadOnly: false,
 		readOnlyReason: null,
 		...overrides
@@ -84,62 +52,6 @@ describe('createOrgContext', () => {
 		expect(ctx.isPrivileged).toBe(false);
 	});
 
-	it('derives isFullEditor=true from organization-wide configure capabilities for nonprivileged members', () => {
-		const ctx = createOrgContext(
-			makeInput({
-				userRole: 'member',
-				capabilityMap: createCapabilityMap('configure'),
-				scopeSet: { kind: 'organization' }
-			})
-		);
-		expect(ctx.isFullEditor).toBe(true);
-	});
-
-	it('sets isFullEditor=false when Critical Tasks capability is not configure', () => {
-		const ctx = createOrgContext(
-			makeInput({
-				userRole: 'member',
-				capabilityMap: { ...createCapabilityMap('configure'), criticalTasks: 'view' },
-				scopeSet: { kind: 'organization' }
-			})
-		);
-		expect(ctx.isFullEditor).toBe(false);
-	});
-
-	it('sets isFullEditor=false when any capability is not configure', () => {
-		const ctx = createOrgContext(
-			makeInput({
-				userRole: 'member',
-				capabilityMap: { ...createCapabilityMap('configure'), calendar: 'operate' },
-				scopeSet: { kind: 'organization' }
-			})
-		);
-		expect(ctx.isFullEditor).toBe(false);
-	});
-
-	it('sets isFullEditor=false for privileged roles even with all permissions', () => {
-		const ctx = createOrgContext(
-			makeInput({
-				userRole: 'owner',
-				permissions: fullPermissions
-			})
-		);
-		// Owners/admins are privileged, not "full editors" (they're higher)
-		expect(ctx.isFullEditor).toBe(false);
-	});
-
-	it('sets isFullEditor=false when member has group scope even with configure capabilities', () => {
-		const ctx = createOrgContext(
-			makeInput({
-				userRole: 'member',
-				capabilityMap: createCapabilityMap('configure'),
-				scopeSet: { kind: 'groups', groupIds: ['group-1'] },
-				scopedGroupId: 'group-1'
-			})
-		);
-		expect(ctx.isFullEditor).toBe(false);
-	});
-
 	it('sets readOnly from isReadOnly flag', () => {
 		const ctx = createOrgContext(makeInput({ isReadOnly: true }));
 		expect(ctx.readOnly).toBe(true);
@@ -150,21 +62,6 @@ describe('createOrgContext', () => {
 		expect(ctx.readOnly).toBe(false);
 	});
 
-	it('preserves scopedGroupId', () => {
-		const ctx = createOrgContext(makeInput({ scopedGroupId: 'group-42' }));
-		expect(ctx.scopedGroupId).toBe('group-42');
-	});
-
-	it('preserves null scopedGroupId', () => {
-		const ctx = createOrgContext(makeInput({ scopedGroupId: null }));
-		expect(ctx.scopedGroupId).toBeNull();
-	});
-
-	it('preserves all permission fields', () => {
-		const ctx = createOrgContext(makeInput({ permissions: viewerPermissions }));
-		expect(ctx.permissions).toEqual(viewerPermissions);
-	});
-
 	it('preserves orgId, orgName, and userId', () => {
 		const ctx = createOrgContext(makeInput({ orgId: 'org-abc', orgName: 'Alpha Co', userId: 'user-xyz' }));
 		expect(ctx.orgId).toBe('org-abc');
@@ -173,21 +70,19 @@ describe('createOrgContext', () => {
 	});
 
 	it('can reflect updated layout data through an accessor input', () => {
-		let input = makeInput({ orgId: 'org-1', orgName: 'Alpha Co', userRole: 'member', permissions: viewerPermissions });
+		let input = makeInput({ orgId: 'org-1', orgName: 'Alpha Co', userRole: 'member' });
 
 		const ctx = createOrgContext(() => input);
 
 		expect(ctx.orgId).toBe('org-1');
 		expect(ctx.orgName).toBe('Alpha Co');
 		expect(ctx.isAdmin).toBe(false);
-		expect(ctx.permissions).toEqual(viewerPermissions);
 
-		input = makeInput({ orgId: 'org-2', orgName: 'Bravo Co', userRole: 'admin', permissions: fullPermissions });
+		input = makeInput({ orgId: 'org-2', orgName: 'Bravo Co', userRole: 'admin' });
 
 		expect(ctx.orgId).toBe('org-2');
 		expect(ctx.orgName).toBe('Bravo Co');
 		expect(ctx.isAdmin).toBe(true);
-		expect(ctx.permissions).toEqual(fullPermissions);
 	});
 
 	it('handles null userId', () => {

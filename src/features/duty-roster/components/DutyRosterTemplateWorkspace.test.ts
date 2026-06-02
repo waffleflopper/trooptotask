@@ -583,33 +583,39 @@ describe('DutyRosterTemplateWorkspace', () => {
 
 	it('renders an app-native invalidation confirmation before submitting', async () => {
 		const confirm = vi.spyOn(window, 'confirm');
-		render(DutyRosterTemplateWorkspace, {
-			props: {
-				data: {
-					orgId: 'org-1',
-					orgName: 'Able Company',
-					templates: [template],
-					selectedTemplate: template,
-					view: 'history',
-					acceptedRuns: [acceptedRunWithCalendarSync()],
-					historyDetailRunId: 'run-1',
-					historyDetailMode: 'roster'
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date('2026-06-01T12:00:00Z'));
+		try {
+			render(DutyRosterTemplateWorkspace, {
+				props: {
+					data: {
+						orgId: 'org-1',
+						orgName: 'Able Company',
+						templates: [template],
+						selectedTemplate: template,
+						view: 'history',
+						acceptedRuns: [acceptedRunWithCalendarSync()],
+						historyDetailRunId: 'run-1',
+						historyDetailMode: 'roster'
+					}
 				}
-			}
-		});
+			});
 
-		expect(screen.getByText('Duty Roster is newer than Calendar')).toBeTruthy();
-		const invalidateButton = screen.getByRole('button', { name: 'Invalidate run' });
-		await fireEvent.click(invalidateButton);
+			expect(screen.getByText('Duty Roster is newer than Calendar')).toBeTruthy();
+			const invalidateButton = screen.getByRole('button', { name: 'Invalidate run' });
+			await fireEvent.click(invalidateButton);
 
-		expect(screen.getByRole('heading', { name: 'Invalidate Duty Roster run?' })).toBeTruthy();
-		expect(screen.getByText(/Run 2026-06-01 to 2026-06-01 will be marked invalidated/)).toBeTruthy();
-		expect(screen.getAllByText(/came from this Accepted Duty Roster Run and will be removed/).length).toBeGreaterThan(
-			0
-		);
-		expect(screen.getByRole('button', { name: 'Confirm invalidation' })).toBeTruthy();
-		expect(screen.getByRole('button', { name: 'Cancel' })).toBeTruthy();
-		expect(confirm).not.toHaveBeenCalled();
+			expect(screen.getByRole('heading', { name: 'Invalidate Duty Roster run?' })).toBeTruthy();
+			expect(screen.getByText(/Run 2026-06-01 to 2026-06-01 will be marked invalidated/)).toBeTruthy();
+			expect(screen.getAllByText(/came from this Accepted Duty Roster Run and will be removed/).length).toBeGreaterThan(
+				0
+			);
+			expect(screen.getByRole('button', { name: 'Confirm invalidation' })).toBeTruthy();
+			expect(screen.getByRole('button', { name: 'Cancel' })).toBeTruthy();
+			expect(confirm).not.toHaveBeenCalled();
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 
 	it('keeps invalidated History visible but locked from normal actions', () => {

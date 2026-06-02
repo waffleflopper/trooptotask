@@ -18,11 +18,8 @@ import { setContext, getContext } from 'svelte';
 import {
 	capabilityMeets,
 	createCapabilityMap,
-	createCompatibilityLaneMap,
-	hasOrganizationWideConfigureAccess,
 	type CapabilityLevel,
 	type CapabilityMap,
-	type CompatibilityLaneMap,
 	type DurableFeatureLane,
 	type ScopeSet
 } from '$lib/access/memberAccessShape';
@@ -36,7 +33,6 @@ import {
 	type PolicyResource
 } from '$lib/access/policyEvaluator';
 import { explainPolicyReasonCode } from '$lib/access/policyDecisionExplanations';
-import type { OrganizationMemberPermissions } from '$lib/types';
 
 const ORG_CONTEXT_KEY = Symbol('org-context');
 
@@ -49,15 +45,8 @@ export interface OrgContext {
 	readonly isOwner: boolean;
 	readonly isAdmin: boolean;
 	readonly isPrivileged: boolean;
-	/** Transitional compatibility field. Prefer `capabilityMap` and `affordanceFor*()` for new client logic. */
-	readonly isFullEditor: boolean;
 	readonly capabilityMap: CapabilityMap;
-	readonly compatibilityLanes: CompatibilityLaneMap;
 	readonly scopeSet: ScopeSet;
-	/** Transitional compatibility field. Prefer `capabilityMap` and `affordanceFor*()` for new client logic. */
-	readonly permissions: OrganizationMemberPermissions;
-	/** Transitional compatibility field. Prefer `scopeSet` and `isResourceInScope()` for new client logic. */
-	readonly scopedGroupId: string | null;
 	readonly readOnly: boolean;
 	readonly affordanceForFeatureAction: (action: FeatureLanePolicyAction, resource?: PolicyResource) => ClientAffordance;
 	readonly affordanceForGovernanceAction: (
@@ -75,10 +64,7 @@ export interface CreateOrgContextInput {
 	userId: string | null;
 	userRole: 'owner' | 'admin' | 'member';
 	capabilityMap?: CapabilityMap;
-	compatibilityLanes?: CompatibilityLaneMap;
 	scopeSet?: ScopeSet;
-	permissions: OrganizationMemberPermissions;
-	scopedGroupId: string | null;
 	isReadOnly: boolean;
 }
 
@@ -99,7 +85,7 @@ function toInputAccessor(input: CreateOrgContextInput | OrgContextInputAccessor)
 
 /**
  * Builds an OrgContext from layout data, deriving computed fields
- * (isOwner, isAdmin, isPrivileged, isFullEditor, readOnly).
+ * (isOwner, isAdmin, isPrivileged, readOnly).
  */
 export function createOrgContext(input: CreateOrgContextInput | OrgContextInputAccessor): OrgContext {
 	const getInput = toInputAccessor(input);
@@ -111,7 +97,6 @@ export function createOrgContext(input: CreateOrgContextInput | OrgContextInputA
 				(current.userRole === 'owner' || current.userRole === 'admin'
 					? createCapabilityMap('configure')
 					: createCapabilityMap('none')),
-			compatibilityLanes: current.compatibilityLanes ?? createCompatibilityLaneMap(),
 			scopeSet: current.scopeSet ?? { kind: 'organization' }
 		};
 	};
@@ -141,26 +126,11 @@ export function createOrgContext(input: CreateOrgContextInput | OrgContextInputA
 			const role = getInput().userRole;
 			return role === 'owner' || role === 'admin';
 		},
-		get isFullEditor() {
-			const current = getInput();
-			const isPrivileged = current.userRole === 'owner' || current.userRole === 'admin';
-			const accessShape = getAccessShape();
-			return !isPrivileged && hasOrganizationWideConfigureAccess(accessShape.capabilityMap, accessShape.scopeSet);
-		},
 		get capabilityMap() {
 			return getAccessShape().capabilityMap;
 		},
-		get compatibilityLanes() {
-			return getAccessShape().compatibilityLanes;
-		},
 		get scopeSet() {
 			return getAccessShape().scopeSet;
-		},
-		get permissions() {
-			return getInput().permissions;
-		},
-		get scopedGroupId() {
-			return getInput().scopedGroupId;
 		},
 		get readOnly() {
 			return getInput().isReadOnly;
@@ -189,7 +159,7 @@ function isResourceAllowedByScope(scopeSet: ScopeSet, resource: PolicyResource):
 
 function evaluateClientAffordance(
 	input: CreateOrgContextInput,
-	accessShape: { capabilityMap: CapabilityMap; compatibilityLanes: CompatibilityLaneMap; scopeSet: ScopeSet },
+	accessShape: { capabilityMap: CapabilityMap; scopeSet: ScopeSet },
 	action: PolicyAction,
 	resource: PolicyResource
 ): ClientAffordance {
@@ -198,7 +168,6 @@ function evaluateClientAffordance(
 		actor: { membershipRole: input.userRole },
 		action,
 		capabilityMap: accessShape.capabilityMap,
-		compatibilityLanes: accessShape.compatibilityLanes,
 		scopeSet: accessShape.scopeSet,
 		resource,
 		overlays:

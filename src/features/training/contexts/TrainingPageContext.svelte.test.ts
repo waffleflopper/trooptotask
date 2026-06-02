@@ -123,13 +123,8 @@ function makeData(overrides: Record<string, unknown> = {}) {
 	return {
 		orgId: 'org-1',
 		orgName: 'Test Org',
-		permissions: {
-			canViewTraining: true,
-			canEditTraining: true
-		},
 		isOwner: false,
 		isAdmin: false,
-		isFullEditor: false,
 		...overrides
 	};
 }
@@ -172,18 +167,9 @@ describe('TrainingPageContext', () => {
 	});
 
 	describe('training policy affordances', () => {
-		it('allows an operator to record completions even when legacy canEditTraining is false', () => {
+		it('allows an operator to record completions with Training operate capability', () => {
 			const org = makePolicyOrg({ training: 'operate' });
-			const ctx = new TrainingPageContext(
-				makeData({
-					permissions: {
-						canViewTraining: true,
-						canEditTraining: false
-					}
-				}),
-				modals,
-				org
-			);
+			const ctx = new TrainingPageContext(makeData(), modals, org);
 
 			expect(ctx.canViewTraining).toBe(true);
 			expect(ctx.canRecordTraining).toBe(true);
@@ -201,17 +187,8 @@ describe('TrainingPageContext', () => {
 			expect(readOnlyOperator.canRecordTraining).toBe(false);
 		});
 
-		it('uses Training view policy instead of legacy canViewTraining', () => {
-			const ctx = new TrainingPageContext(
-				makeData({
-					permissions: {
-						canViewTraining: true,
-						canEditTraining: true
-					}
-				}),
-				modals,
-				makePolicyOrg({ training: 'none' })
-			);
+		it('uses Training view policy for page visibility', () => {
+			const ctx = new TrainingPageContext(makeData(), modals, makePolicyOrg({ training: 'none' }));
 
 			expect(ctx.canViewTraining).toBe(false);
 		});

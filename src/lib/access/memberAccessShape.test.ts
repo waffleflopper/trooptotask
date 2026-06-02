@@ -1,10 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
-	createCompatibilityLaneMap,
 	resolveStoredMemberAccessShape,
 	serializeScopeSetForStorage,
 	targetMemberAccessToStorage,
-	toCurrentPermissionFlags,
 	TARGET_MEMBER_PRESET_CAPABILITIES,
 	type MemberAccessShape
 } from './memberAccessShape';
@@ -80,7 +78,7 @@ describe('member access shape', () => {
 		});
 	});
 
-	it('can map target operate back to current view-only flags without pretending edit exists', () => {
+	it('represents target operate as capability levels instead of boolean edit flags', () => {
 		const shape: MemberAccessShape = {
 			membershipRole: 'member',
 			memberPreset: 'operator',
@@ -92,19 +90,15 @@ describe('member access shape', () => {
 				onboarding: 'operate',
 				ratingScheme: 'operate'
 			},
-			compatibilityLanes: createCompatibilityLaneMap(),
 			scopeSet: { kind: 'organization' },
 			canManageMembers: false
 		};
 
-		expect(toCurrentPermissionFlags(shape)).toMatchObject({
-			canViewCalendar: true,
-			canEditCalendar: false,
-			canViewPersonnel: true,
-			canEditPersonnel: false,
-			canViewRatingScheme: true,
-			canEditRatingScheme: false,
-			canManageMembers: false
+		expect(shape.capabilityMap).toMatchObject({
+			calendar: 'operate',
+			personnel: 'operate',
+			ratingScheme: 'operate'
 		});
+		expect(shape.canManageMembers).toBe(false);
 	});
 });

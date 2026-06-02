@@ -11,7 +11,7 @@ import {
 	removeOrganizationMember,
 	resendOrganizationInvitation,
 	revokeOrganizationInvitation,
-	updateOrganizationMemberPermissions
+	updateOrganizationMemberAccess
 } from '$lib/server/core/useCases/orgSettingsMemberManagement';
 import { toActionFailure } from '../settingsActionFailure.server';
 import { loadMembersSettings } from './membersSettings.server';
@@ -138,7 +138,7 @@ export const actions: Actions = {
 		}
 	},
 
-	updatePermissions: async (event) => {
+	updateMemberAccess: async (event) => {
 		const { request, locals } = event;
 		const user = locals.user;
 		if (!user) throw redirect(303, '/auth/login');
@@ -147,7 +147,7 @@ export const actions: Actions = {
 		try {
 			const ctx = await buildRouteContext(event);
 			const accessCommand = parseMemberAccessEditFormData(formData);
-			return await updateOrganizationMemberPermissions(
+			return await updateOrganizationMemberAccess(
 				{
 					auth: ctx.auth,
 					audit: ctx.audit,
@@ -164,7 +164,7 @@ export const actions: Actions = {
 				}
 			);
 		} catch (error) {
-			return toActionFailure('permissionError', error);
+			return toActionFailure('accessError', error);
 		}
 	}
 };

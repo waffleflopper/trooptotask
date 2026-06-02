@@ -106,16 +106,11 @@ describe('createPermissionContextFromMembership', () => {
 	it('maps replacement storage correctly for a member', () => {
 		const ctx = createPermissionContextFromMembership(baseMembership);
 
-		expect(ctx.canView.calendar).toBe(true);
-		expect(ctx.canEdit.calendar).toBe(false);
-		expect(ctx.canView.personnel).toBe(true);
-		expect(ctx.canEdit.personnel).toBe(false);
-		expect(ctx.canView.training).toBe(true);
-		expect(ctx.canEdit.training).toBe(false);
-		expect(ctx.canView['critical-tasks']).toBe(true);
-		expect(ctx.canEdit['critical-tasks']).toBe(false);
-		expect(ctx.canView['rating-scheme']).toBe(true);
-		expect(ctx.canEdit['rating-scheme']).toBe(false);
+		expect(ctx.capabilityMap.calendar).toBe('view');
+		expect(ctx.capabilityMap.personnel).toBe('view');
+		expect(ctx.capabilityMap.training).toBe('view');
+		expect(ctx.capabilityMap.criticalTasks).toBe('view');
+		expect(ctx.capabilityMap.ratingScheme).toBe('view');
 		expect(ctx.canManageMembers).toBe(false);
 	});
 
@@ -125,11 +120,10 @@ describe('createPermissionContextFromMembership', () => {
 			capability_overrides: { ratingScheme: 'none' }
 		});
 
-		expect(ctx.canView['rating-scheme']).toBe(false);
-		expect(ctx.canEdit['rating-scheme']).toBe(false);
+		expect(ctx.capabilityMap.ratingScheme).toBe('none');
 	});
 
-	it('grants all permissions for privileged roles regardless of flags', () => {
+	it('grants configure capabilities for privileged roles regardless of stored limits', () => {
 		const ctx = createPermissionContextFromMembership({
 			...baseMembership,
 			role: 'admin',
@@ -137,8 +131,7 @@ describe('createPermissionContextFromMembership', () => {
 			capability_overrides: { training: 'none' }
 		});
 
-		expect(ctx.canView.training).toBe(true);
-		expect(ctx.canEdit.training).toBe(true);
+		expect(ctx.capabilityMap.training).toBe('configure');
 	});
 
 	it('respects replacement Scope Set for members', () => {
@@ -161,7 +154,6 @@ describe('createPermissionContextFromMembership', () => {
 		});
 
 		expect(ctx.capabilityMap.personnel).toBe('operate');
-		expect(ctx.compatibilityLanes).toEqual({});
 		expect(ctx.scopeSet).toEqual({ kind: 'groups', groupIds: ['group-a', 'group-b'] });
 	});
 
@@ -179,21 +171,7 @@ describe('createPermissionContextFromMembership', () => {
 		expect(ctx.capabilityMap.personnel).toBe('operate');
 		expect(ctx.capabilityMap.training).toBe('configure');
 		expect(ctx.scopeSet).toEqual({ kind: 'groups', groupIds: ['group-a', 'group-b'] });
-		expect(ctx.canEdit.training).toBe(true);
-		expect(ctx.canEdit.personnel).toBe(false);
 		expect(ctx.canManageMembers).toBe(false);
-	});
-
-	it('keeps retired compatibility lanes out of the permission context', () => {
-		const ctx = createPermissionContextFromMembership({
-			...baseMembership,
-			member_preset: 'viewer',
-			capability_overrides: { personnel: 'operate' },
-			access_scope_kind: 'organization',
-			access_scope_group_ids: []
-		});
-
-		expect(ctx.compatibilityLanes).toEqual({});
 	});
 
 	it('uses replacement member access without legacy fallback inputs', () => {
@@ -238,7 +216,7 @@ describe('createPermissionContextFromMembership', () => {
 		});
 	});
 
-	it('does not map disabled critical tasks permissions to configure capability', () => {
+	it('preserves disabled critical tasks capability override', () => {
 		const ctx = createPermissionContextFromMembership({
 			role: 'member',
 			member_preset: 'editor',

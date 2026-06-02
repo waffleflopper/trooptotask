@@ -8,7 +8,6 @@ const { orgContextMock, statusTypesStoreMock, assignmentTypesStoreMock, specialD
 	orgContextMock: {
 		orgId: 'org-1',
 		isPrivileged: true,
-		isFullEditor: true,
 		readOnly: false,
 		affordanceForFeatureAction: vi.fn(() => ({ allowed: true, visible: true, disabled: false }))
 	},
@@ -57,7 +56,6 @@ describe('CalendarSettingsPage', () => {
 	beforeEach(() => {
 		cleanup();
 		orgContextMock.isPrivileged = true;
-		orgContextMock.isFullEditor = true;
 		orgContextMock.readOnly = false;
 		orgContextMock.affordanceForFeatureAction.mockReturnValue({ allowed: true, visible: true, disabled: false });
 		statusTypesStoreMock.items = [];
@@ -77,7 +75,6 @@ describe('CalendarSettingsPage', () => {
 
 	it('preserves the restricted settings state for non-managers', () => {
 		orgContextMock.isPrivileged = false;
-		orgContextMock.isFullEditor = false;
 		orgContextMock.affordanceForFeatureAction.mockReturnValue({ allowed: false, visible: false, disabled: false });
 
 		render(CalendarSettingsPage);
@@ -88,7 +85,6 @@ describe('CalendarSettingsPage', () => {
 
 	it('allows Calendar configure capability without full-editor compatibility', () => {
 		orgContextMock.isPrivileged = false;
-		orgContextMock.isFullEditor = false;
 		orgContextMock.affordanceForFeatureAction.mockReturnValue({ allowed: true, visible: true, disabled: false });
 
 		render(CalendarSettingsPage);

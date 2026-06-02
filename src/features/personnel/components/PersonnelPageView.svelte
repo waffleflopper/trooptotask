@@ -26,10 +26,9 @@
 
 	interface Props {
 		ctx: PersonnelPageContext;
-		permissions: import('$lib/types').OrganizationMemberPermissions | null | undefined;
 	}
 
-	let { ctx, permissions }: Props = $props();
+	let { ctx }: Props = $props();
 	const orgUrlSegment = $derived(ctx.orgUrlSegment ?? ctx.orgId);
 
 	const ROSTER_PAGE_SIZE = 75;
@@ -40,7 +39,7 @@
 	];
 
 	const readOnly = $derived(ctx.readOnly);
-	const canViewRoster = $derived(permissions?.canViewPersonnel ?? false);
+	const canViewRoster = $derived(ctx.canViewRoster);
 	const upcomingLossMap = $derived(ctx.upcomingLossMap);
 	const canAddPersonnel = $derived(ctx.canAddPersonnel);
 	const canImportPersonnel = $derived(ctx.canImportPersonnel);

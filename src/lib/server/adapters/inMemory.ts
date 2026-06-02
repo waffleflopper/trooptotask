@@ -41,12 +41,7 @@ import type {
 	SensitiveActionAuthorizer
 } from '$lib/server/sensitiveActionAuthorizer';
 import type { EffectiveTier } from '$lib/types/subscription';
-import {
-	createCompatibilityLaneMap,
-	type CapabilityMap,
-	type CompatibilityLaneMap,
-	type ScopeSet
-} from '$lib/access/memberAccessShape';
+import type { CapabilityMap, ScopeSet } from '$lib/access/memberAccessShape';
 import { createScopedDataStore } from './scopedDataStore';
 import { defaultScopeRules } from './scopeRules';
 import { createInMemoryCriticalTasksReadModelAdapter } from './inMemoryCriticalTasksReadModel';
@@ -63,7 +58,6 @@ const FULL_CAPABILITY_MAP: CapabilityMap = {
 	onboarding: 'configure',
 	ratingScheme: 'configure'
 };
-const FULL_COMPATIBILITY_LANES: CompatibilityLaneMap = createCompatibilityLaneMap();
 
 type TestAuthContextOverrides = Partial<AuthContext> & Record<string, unknown>;
 
@@ -331,7 +325,6 @@ export function createTestAuthContext(overrides?: TestAuthContextOverrides): Aut
 		isPrivileged: true,
 		canManageMembers: true,
 		capabilityMap: FULL_CAPABILITY_MAP,
-		compatibilityLanes: FULL_COMPATIBILITY_LANES,
 		scopeSet: { kind: 'organization' } satisfies ScopeSet
 	};
 

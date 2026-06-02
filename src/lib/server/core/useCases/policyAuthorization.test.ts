@@ -20,7 +20,6 @@ describe('policy authorization', () => {
 					auth: {
 						role: 'member',
 						capabilityMap: { ...baseCapabilityMap, personnel: 'view' },
-						compatibilityLanes: {},
 						scopeSet: { kind: 'organization' }
 					},
 					audit: auditSpy()
@@ -44,7 +43,6 @@ describe('policy authorization', () => {
 					auth: {
 						role: 'member',
 						capabilityMap: { ...baseCapabilityMap, personnel: 'operate' },
-						compatibilityLanes: {},
 						scopeSet: { kind: 'groups', groupIds: ['group-alpha'] }
 					},
 					audit

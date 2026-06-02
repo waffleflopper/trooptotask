@@ -201,7 +201,7 @@ interface LeaveOrganizationInput {
 	actorEmail?: string | null;
 }
 
-interface UpdateOrganizationMemberPermissionsInput {
+interface UpdateOrganizationMemberAccessInput {
 	membershipId: string;
 	membershipRole: EditableMembershipRole;
 	memberAccess?: TargetMemberAccessCommand | null;
@@ -785,10 +785,10 @@ export async function leaveOrganization(
 	return { success: true };
 }
 
-export async function updateOrganizationMemberPermissions(
+export async function updateOrganizationMemberAccess(
 	ports: OrganizationSettingsMemberManagementPorts,
-	input: UpdateOrganizationMemberPermissionsInput
-): Promise<{ permissionSuccess: true }> {
+	input: UpdateOrganizationMemberAccessInput
+): Promise<{ accessSuccess: true }> {
 	if (!validateUUID(input.membershipId)) {
 		fail(400, 'Invalid membership ID');
 	}
@@ -797,7 +797,7 @@ export async function updateOrganizationMemberPermissions(
 	const targetMembership = await ports.settings.findMembershipById(ports.auth.orgId, input.membershipId);
 
 	if (targetMembership?.role === 'owner') {
-		fail(400, 'Cannot modify owner permissions');
+		fail(400, 'Cannot modify owner access');
 	}
 
 	const updatesAdminRole = input.membershipRole === 'admin' || targetMembership?.role === 'admin';
@@ -845,7 +845,7 @@ export async function updateOrganizationMemberPermissions(
 	}
 
 	ports.audit.log({
-		action: 'member.permissions_changed',
+		action: 'member.access_changed',
 		resourceType: 'organization',
 		details: {
 			membershipId: input.membershipId,
@@ -870,14 +870,14 @@ export async function updateOrganizationMemberPermissions(
 			});
 		} else {
 			await ports.notifications.notifyUser(ports.auth.orgId, targetMembership.userId, {
-				type: 'member_permissions_changed',
-				title: 'Permissions Updated',
-				message: `Your permissions in "${orgName}" have been updated.`
+				type: 'member_access_changed',
+				title: 'Access Updated',
+				message: `Your access in "${orgName}" has been updated.`
 			});
 		}
 	}
 
-	return { permissionSuccess: true };
+	return { accessSuccess: true };
 }
 
 async function authorizeMemberManagementSensitiveAction(

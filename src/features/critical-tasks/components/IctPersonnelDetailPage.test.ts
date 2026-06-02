@@ -19,19 +19,6 @@ const { mockOrgContext } = vi.hoisted(() => ({
 		isOwner: true,
 		isAdmin: false,
 		isPrivileged: true,
-		isFullEditor: true,
-		permissions: {
-			canViewCalendar: true,
-			canEditCalendar: true,
-			canViewPersonnel: true,
-			canEditPersonnel: true,
-			canViewCriticalTasks: true,
-			canEditCriticalTasks: true,
-			canViewOnboarding: true,
-			canEditOnboarding: true,
-			canManageMembers: true
-		},
-		scopedGroupId: null,
 		readOnly: false,
 		capabilityMap: {
 			calendar: 'configure',
@@ -193,7 +180,6 @@ describe('IctPersonnelDetailPage', () => {
 	beforeEach(() => {
 		vi.useFakeTimers({ toFake: ['Date'] });
 		vi.setSystemTime(new Date('2026-05-01T12:00:00.000Z'));
-		mockOrgContext.permissions.canEditCriticalTasks = true;
 		mockOrgContext.readOnly = false;
 		mockOrgContext.capabilityMap.criticalTasks = 'configure';
 		mockOrgContext.scopeSet = { kind: 'organization' };
@@ -218,10 +204,6 @@ describe('IctPersonnelDetailPage', () => {
 			props: {
 				data: {
 					orgId: 'org-1',
-					permissions: {
-						canViewCriticalTasks: true,
-						canEditCriticalTasks: true
-					},
 					criticalTasks: criticalTasksLayoutData,
 					criticalTasksPersonnelHistory: {
 						...history,
@@ -257,10 +239,6 @@ describe('IctPersonnelDetailPage', () => {
 			props: {
 				data: {
 					orgId: 'org-1',
-					permissions: {
-						canViewCriticalTasks: true,
-						canEditCriticalTasks: true
-					},
 					criticalTasks: criticalTasksLayoutData,
 					criticalTasksPersonnelHistory: {
 						...history,
@@ -275,7 +253,6 @@ describe('IctPersonnelDetailPage', () => {
 	});
 
 	it('keeps the page read-only for members without Critical Tasks edit access', () => {
-		mockOrgContext.permissions.canEditCriticalTasks = false;
 		mockOrgContext.capabilityMap.criticalTasks = 'view';
 		ictTasksStore.load([activeTask, secondaryActiveTask], 'org-1');
 		personnelIctCompletionsStore.load([activeCompletion], 'org-1');
@@ -284,10 +261,6 @@ describe('IctPersonnelDetailPage', () => {
 			props: {
 				data: {
 					orgId: 'org-1',
-					permissions: {
-						canViewCriticalTasks: true,
-						canEditCriticalTasks: false
-					},
 					criticalTasks: criticalTasksLayoutData,
 					criticalTasksPersonnelHistory: {
 						...history,
@@ -303,7 +276,6 @@ describe('IctPersonnelDetailPage', () => {
 	});
 
 	it('shows completion actions from Critical Tasks record-completion Policy Decisions, not legacy edit flags', () => {
-		mockOrgContext.permissions.canEditCriticalTasks = false;
 		mockOrgContext.capabilityMap.criticalTasks = 'operate';
 		mockOrgContext.scopeSet = { kind: 'groups', groupIds: ['group-alpha'] };
 		ictTasksStore.load([activeTask, secondaryActiveTask], 'org-1');
@@ -313,10 +285,6 @@ describe('IctPersonnelDetailPage', () => {
 			props: {
 				data: {
 					orgId: 'org-1',
-					permissions: {
-						canViewCriticalTasks: true,
-						canEditCriticalTasks: false
-					},
 					criticalTasks: criticalTasksLayoutData,
 					criticalTasksPersonnelHistory: {
 						...history,
@@ -336,7 +304,6 @@ describe('IctPersonnelDetailPage', () => {
 	});
 
 	it('hides completion actions when the personnel record is outside the advisory Scope Set', () => {
-		mockOrgContext.permissions.canEditCriticalTasks = true;
 		mockOrgContext.capabilityMap.criticalTasks = 'operate';
 		mockOrgContext.scopeSet = { kind: 'groups', groupIds: ['group-alpha'] };
 		ictTasksStore.load([activeTask, secondaryActiveTask], 'org-1');
@@ -346,10 +313,6 @@ describe('IctPersonnelDetailPage', () => {
 			props: {
 				data: {
 					orgId: 'org-1',
-					permissions: {
-						canViewCriticalTasks: true,
-						canEditCriticalTasks: true
-					},
 					criticalTasks: criticalTasksLayoutData,
 					criticalTasksPersonnelHistory: {
 						...history,
@@ -379,10 +342,6 @@ describe('IctPersonnelDetailPage', () => {
 			props: {
 				data: {
 					orgId: 'org-1',
-					permissions: {
-						canViewCriticalTasks: true,
-						canEditCriticalTasks: true
-					},
 					session: {
 						access_token: 'access-token',
 						refresh_token: 'refresh-token',
@@ -474,10 +433,6 @@ describe('IctPersonnelDetailPage', () => {
 			props: {
 				data: {
 					orgId: 'org-1',
-					permissions: {
-						canViewCriticalTasks: true,
-						canEditCriticalTasks: true
-					},
 					criticalTasks: criticalTasksLayoutData,
 					criticalTasksPersonnelHistory: {
 						...history,
@@ -555,10 +510,6 @@ describe('IctPersonnelDetailPage', () => {
 			props: {
 				data: {
 					orgId: 'org-1',
-					permissions: {
-						canViewCriticalTasks: true,
-						canEditCriticalTasks: true
-					},
 					criticalTasks: criticalTasksLayoutData,
 					criticalTasksPersonnelHistory: {
 						...history,

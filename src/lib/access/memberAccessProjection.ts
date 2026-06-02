@@ -1,25 +1,13 @@
-import type { OrganizationMemberPermissions } from '$lib/types';
 import {
 	createCapabilityMap,
-	createCompatibilityLaneMap,
 	resolveStoredMemberAccessShape,
-	toCurrentPermissionFlags,
 	type CapabilityMap,
-	type CompatibilityLaneMap,
 	type CapabilityOverrideMap,
 	type MemberPreset,
 	type ScopeSet
 } from './memberAccessShape';
 
 export type MembershipRole = 'owner' | 'admin' | 'member';
-export type MemberAccessFeatureArea =
-	| 'calendar'
-	| 'personnel'
-	| 'training'
-	| 'critical-tasks'
-	| 'onboarding'
-	| 'rating-scheme';
-
 export interface MemberAccessProjectionRow {
 	role: MembershipRole;
 	member_preset?: unknown;
@@ -41,14 +29,9 @@ export interface EffectiveMemberAccessProjection {
 	isOwner: boolean;
 	isAdmin: boolean;
 	isPrivileged: boolean;
-	permissions: Required<OrganizationMemberPermissions>;
-	canView: Record<MemberAccessFeatureArea, boolean>;
-	canEdit: Record<MemberAccessFeatureArea, boolean>;
 	canManageMembers: boolean;
-	scopedGroupId: string | null;
 	memberPreset: MemberPreset;
 	capabilityMap: CapabilityMap;
-	compatibilityLanes: CompatibilityLaneMap;
 	scopeSet: ScopeSet;
 }
 
@@ -62,7 +45,6 @@ export function projectEffectiveMemberAccess(row: MemberAccessProjectionRow): Ef
 				membershipRole: role,
 				memberPreset: 'editor' as const,
 				capabilityMap: createCapabilityMap('configure'),
-				compatibilityLanes: createCompatibilityLaneMap(),
 				scopeSet: { kind: 'organization' } as ScopeSet,
 				canManageMembers: true
 			}
@@ -72,38 +54,15 @@ export function projectEffectiveMemberAccess(row: MemberAccessProjectionRow): Ef
 				capabilityOverrides: parseCapabilityOverrideMap(row.capability_overrides),
 				scopeSet: parseStoredScopeSet(row)
 			});
-	const permissions = toCurrentPermissionFlags(accessShape) as Required<OrganizationMemberPermissions>;
 
 	return {
 		role,
 		isOwner,
 		isAdmin,
 		isPrivileged,
-		permissions,
-		canView: {
-			calendar: permissions.canViewCalendar,
-			personnel: permissions.canViewPersonnel,
-			training: permissions.canViewTraining,
-			'critical-tasks': permissions.canViewCriticalTasks,
-			onboarding: permissions.canViewOnboarding,
-			'rating-scheme': permissions.canViewRatingScheme
-		},
-		canEdit: {
-			calendar: permissions.canEditCalendar,
-			personnel: permissions.canEditPersonnel,
-			training: permissions.canEditTraining,
-			'critical-tasks': permissions.canEditCriticalTasks,
-			onboarding: permissions.canEditOnboarding,
-			'rating-scheme': permissions.canEditRatingScheme
-		},
-		canManageMembers: permissions.canManageMembers,
-		scopedGroupId:
-			isPrivileged || accessShape.scopeSet.kind !== 'groups' || accessShape.scopeSet.groupIds.length !== 1
-				? null
-				: accessShape.scopeSet.groupIds[0],
+		canManageMembers: accessShape.canManageMembers,
 		memberPreset: accessShape.memberPreset,
 		capabilityMap: accessShape.capabilityMap,
-		compatibilityLanes: accessShape.compatibilityLanes,
 		scopeSet: accessShape.scopeSet
 	};
 }

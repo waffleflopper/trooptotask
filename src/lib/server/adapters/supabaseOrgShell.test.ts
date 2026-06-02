@@ -128,23 +128,7 @@ describe('createSupabaseOrgAccessPort', () => {
 				onboarding: 'view',
 				ratingScheme: 'view'
 			},
-			permissions: {
-				canViewCalendar: true,
-				canEditCalendar: false,
-				canViewPersonnel: true,
-				canEditPersonnel: true,
-				canViewTraining: false,
-				canEditTraining: false,
-				canViewCriticalTasks: false,
-				canEditCriticalTasks: false,
-				canViewOnboarding: true,
-				canEditOnboarding: false,
-				canViewRatingScheme: true,
-				canEditRatingScheme: false,
-				canManageMembers: false
-			},
 			scopeSet: { kind: 'groups', groupIds: ['group-123'] },
-			scopedGroupId: 'group-123',
 			orgSuspended: false
 		});
 	});
@@ -198,7 +182,6 @@ describe('createSupabaseOrgAccessPort', () => {
 		expect(result.capabilityMap.training).toBe('operate');
 		expect(result.capabilityMap.criticalTasks).toBe('configure');
 		expect(result.scopeSet).toEqual({ kind: 'groups', groupIds: ['group-alpha', 'group-bravo'] });
-		expect(result.scopedGroupId).toBeNull();
 	});
 
 	it('exposes organization-wide configure capability for admin governance roles', async () => {
@@ -229,6 +212,5 @@ describe('createSupabaseOrgAccessPort', () => {
 			ratingScheme: 'configure'
 		});
 		expect(result.scopeSet).toEqual({ kind: 'organization' });
-		expect(result.scopedGroupId).toBeNull();
 	});
 });

@@ -1,5 +1,4 @@
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import type { OrganizationMemberPermissions } from '$lib/types';
 import type { ClientAffordance, OrgContext } from '$lib/stores/orgContext.svelte';
 import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 import type { RatingSchemeEntry, WorkflowStatus } from '$features/rating-scheme/rating-scheme.types';
@@ -8,7 +7,6 @@ import { getRatingDueStatus } from '$features/rating-scheme/utils/ratingScheme';
 export interface RatingSchemePageData {
 	orgId: string;
 	orgName: string;
-	permissions?: OrganizationMemberPermissions | null;
 	ratingSchemeEntries: RatingSchemeEntry[];
 	lossWarningWindowDays?: number;
 	[key: string]: unknown;

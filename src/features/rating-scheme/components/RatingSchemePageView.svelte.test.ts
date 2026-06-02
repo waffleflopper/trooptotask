@@ -70,21 +70,6 @@ function makeContext(modals = new ModalRegistry()): RatingSchemePageContext {
 	const data: RatingSchemePageData = {
 		orgId: 'org-1',
 		orgName: 'Test Org',
-		permissions: {
-			canViewCalendar: false,
-			canEditCalendar: false,
-			canViewPersonnel: false,
-			canEditPersonnel: false,
-			canViewTraining: false,
-			canEditTraining: false,
-			canViewCriticalTasks: false,
-			canEditCriticalTasks: false,
-			canViewOnboarding: false,
-			canEditOnboarding: false,
-			canViewRatingScheme: true,
-			canEditRatingScheme: true,
-			canManageMembers: false
-		},
 		ratingSchemeEntries: entries
 	};
 	return new RatingSchemePageContext(data, modals, org, entries);

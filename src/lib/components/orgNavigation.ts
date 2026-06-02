@@ -1,4 +1,3 @@
-import type { OrganizationMemberPermissions } from '$lib/types';
 import type { CapabilityMap, DurableFeatureLane } from '$lib/access/memberAccessShape';
 
 export type OrgNavIcon =
@@ -63,26 +62,9 @@ const BILLING_CHILD_BREADCRUMBS: Record<string, string> = {
 	canceled: 'Canceled'
 };
 
-export function getOrgNavigation(orgId: string, access: OrganizationMemberPermissions | CapabilityMap): OrgNavItem[] {
+export function getOrgNavigation(orgId: string, access: CapabilityMap): OrgNavItem[] {
 	const canView = (lane: DurableFeatureLane) => {
-		if (isCapabilityMap(access)) {
-			return access[lane] !== 'none';
-		}
-
-		switch (lane) {
-			case 'calendar':
-				return access.canViewCalendar;
-			case 'personnel':
-				return access.canViewPersonnel;
-			case 'training':
-				return access.canViewTraining;
-			case 'criticalTasks':
-				return access.canViewCriticalTasks;
-			case 'onboarding':
-				return access.canViewOnboarding;
-			case 'ratingScheme':
-				return access.canViewRatingScheme === true;
-		}
+		return access[lane] !== 'none';
 	};
 
 	return [
@@ -157,10 +139,6 @@ export function getOrgNavigation(orgId: string, access: OrganizationMemberPermis
 			exactMatch: false
 		}
 	];
-}
-
-function isCapabilityMap(access: OrganizationMemberPermissions | CapabilityMap): access is CapabilityMap {
-	return 'calendar' in access;
 }
 
 export function isOrgNavItemActive(pathname: string, item: Pick<OrgNavItem, 'href' | 'exactMatch'>): boolean {

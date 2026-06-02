@@ -4,14 +4,6 @@ vi.mock('$lib/server/auto-accept-org-invites', () => ({
 	autoAcceptOrgInvites: vi.fn().mockResolvedValue({ accepted: 2 })
 }));
 
-vi.mock('$lib/server/accessRequestAuth', () => ({
-	markApprovedAccessRequestCompleted: vi.fn().mockResolvedValue({ updated: 1 })
-}));
-
-vi.mock('$lib/server/supabase', () => ({
-	getAdminClient: vi.fn().mockReturnValue({})
-}));
-
 vi.mock('$lib/server/userProfile', async (importOriginal) => {
 	const actual = await importOriginal<typeof import('$lib/server/userProfile')>();
 	return {
@@ -49,7 +41,7 @@ describe('POST /api/auth/finalize-invite', () => {
 		} as unknown as Parameters<typeof POST>[0]);
 
 		expect(response.status).toBe(200);
-		expect(await response.json()).toEqual({ ok: true, accepted: 2, completed: 1 });
+		expect(await response.json()).toEqual({ ok: true, accepted: 2, activated: true });
 		expect(upsertCurrentUserProfile).toHaveBeenCalledWith(expect.any(Object), {
 			firstName: 'Jane',
 			lastName: 'Smith',
@@ -74,7 +66,7 @@ describe('POST /api/auth/finalize-invite', () => {
 		expect(await response.json()).toEqual({
 			error: 'Your invite session is no longer active. Please reopen the invite link and try again.',
 			accepted: 0,
-			completed: 0
+			activated: false
 		});
 		expect(cookies.delete).not.toHaveBeenCalled();
 	});

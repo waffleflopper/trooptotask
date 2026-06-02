@@ -1,8 +1,6 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { autoAcceptOrgInvites } from '$lib/server/auto-accept-org-invites';
-import { getAdminClient } from '$lib/server/supabase';
-import { markApprovedAccessRequestCompleted } from '$lib/server/accessRequestAuth';
 import { getPendingAuthFlowCookieName } from '$lib/server/mfaGate';
 import { parseUserProfileForm, upsertCurrentUserProfile } from '$lib/server/userProfile';
 
@@ -21,7 +19,7 @@ export const POST: RequestHandler = async ({ locals, cookies }) => {
 			{
 				error: 'Your invite session is no longer active. Please reopen the invite link and try again.',
 				accepted: 0,
-				completed: 0
+				activated: false
 			},
 			{ status: 401 }
 		);
@@ -34,10 +32,9 @@ export const POST: RequestHandler = async ({ locals, cookies }) => {
 		}
 
 		const accepted = await autoAcceptOrgInvites(locals.supabase, user.email);
-		const completion = await markApprovedAccessRequestCompleted(getAdminClient(), user.email, user.id);
 		cookies.delete(getPendingAuthFlowCookieName(), { path: '/' });
 
-		return json({ ok: true, accepted: accepted.accepted, completed: completion.updated });
+		return json({ ok: true, accepted: accepted.accepted, activated: true });
 	} catch (error) {
 		console.error('Failed to finalize invite activation:', error);
 		return json(

@@ -627,9 +627,7 @@ Migration notes:
 - Training bulk import should follow after paste/upload source choice settles in the shared API.
 - Calendar bulk status add/remove/import should migrate after the import workspace proves partial-success and disabled-row handling.
 
-Legacy note:
-
-- `src/lib/components/ui/BulkImportTable.svelte` is deprecated for new work. It remains only because existing production consumers still use its mapping/editing behavior. New and migrated import flows should compose `BulkImportWorkspace.PreviewTable`, `BulkImportWorkspace.RowStatus`, `BulkImportWorkspace.ValidationSummary`, and route-owned parsing/mapping utilities instead.
+Compatibility note: the legacy `src/lib/components/ui/BulkImportTable.svelte` helper has been removed. Import flows should compose `BulkImportWorkspace.PreviewTable`, `BulkImportWorkspace.RowStatus`, `BulkImportWorkspace.ValidationSummary`, and route-owned parsing/mapping utilities.
 
 ---
 

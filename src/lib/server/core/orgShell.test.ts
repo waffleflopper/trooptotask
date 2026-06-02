@@ -36,20 +36,7 @@ const baseMembership: MembershipInfo = {
 	userId: 'user-1',
 	role: 'member',
 	capabilityMap: viewerCapabilityMap,
-	scopeSet: { kind: 'organization' },
-	permissions: {
-		canViewCalendar: true,
-		canEditCalendar: false,
-		canViewPersonnel: true,
-		canEditPersonnel: false,
-		canViewTraining: true,
-		canEditTraining: false,
-		canViewCriticalTasks: true,
-		canEditCriticalTasks: false,
-		canViewOnboarding: false,
-		canEditOnboarding: false,
-		canManageMembers: false
-	}
+	scopeSet: { kind: 'organization' }
 };
 
 const baseOrgState: OrgState = {

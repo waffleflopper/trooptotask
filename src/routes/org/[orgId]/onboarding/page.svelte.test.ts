@@ -25,17 +25,18 @@ vi.mock('$lib/stores/orgContext.svelte', () => ({
 		isAdmin: false,
 		isPrivileged: true,
 		readOnly: false,
-		permissions: {
-			canViewCalendar: true,
-			canEditCalendar: true,
-			canViewPersonnel: true,
-			canEditPersonnel: true,
-			canViewTraining: true,
-			canEditTraining: true,
-			canViewOnboarding: true,
-			canEditOnboarding: true,
-			canManageMembers: true
-		}
+		capabilityMap: {
+			calendar: 'configure',
+			personnel: 'configure',
+			training: 'configure',
+			onboarding: 'configure',
+			members: 'configure',
+			criticalTasks: 'configure',
+			ratingScheme: 'configure',
+			reports: 'configure',
+			dutyRoster: 'configure'
+		},
+		hasCapability: vi.fn(() => true)
 	})
 }));
 

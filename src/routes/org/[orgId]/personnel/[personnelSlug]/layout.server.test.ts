@@ -14,7 +14,6 @@ function makeAuth(overrides: Record<string, unknown> = {}) {
 			onboarding: 'view',
 			ratingScheme: 'view'
 		},
-		compatibilityLanes: {},
 		scopeSet: { kind: 'organization' },
 		...overrides
 	};

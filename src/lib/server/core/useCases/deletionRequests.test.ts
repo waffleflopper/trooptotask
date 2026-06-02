@@ -122,7 +122,19 @@ describe('createDeletionRequest', () => {
 					ratingScheme: 'operate' as const
 				}
 			},
-			{ userId: 'editor-user', role: 'member' as const, isPrivileged: false, isFullEditor: true },
+			{
+				userId: 'editor-user',
+				role: 'member' as const,
+				isPrivileged: false,
+				capabilityMap: {
+					calendar: 'configure' as const,
+					personnel: 'configure' as const,
+					training: 'configure' as const,
+					criticalTasks: 'configure' as const,
+					onboarding: 'configure' as const,
+					ratingScheme: 'configure' as const
+				}
+			},
 			{ userId: 'owner-user', role: 'owner' as const, isPrivileged: true }
 		]) {
 			const ctx = buildContext({ auth });
@@ -515,8 +527,7 @@ describe('governance policy guards', () => {
 		const ctx = buildContext({
 			auth: {
 				role: 'member',
-				isPrivileged: false,
-				isFullEditor: false
+				isPrivileged: false
 			}
 		});
 		seedPendingRequest(ctx);
@@ -528,8 +539,7 @@ describe('governance policy guards', () => {
 		const ctx = buildContext({
 			auth: {
 				role: 'member',
-				isPrivileged: false,
-				isFullEditor: false
+				isPrivileged: false
 			}
 		});
 		seedPendingRequest(ctx);

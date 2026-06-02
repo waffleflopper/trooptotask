@@ -13,17 +13,8 @@
  */
 import { error } from '@sveltejs/kit';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type {
-	CapabilityMap,
-	CompatibilityLaneMap,
-	CapabilityOverrideMap,
-	ScopeSet,
-	StoredMemberPreset
-} from '$lib/access/memberAccessShape';
+import type { CapabilityMap, CapabilityOverrideMap, ScopeSet, StoredMemberPreset } from '$lib/access/memberAccessShape';
 import { projectEffectiveMemberAccess } from '$lib/access/memberAccessProjection';
-import type { FeatureArea } from './core/ports';
-
-export type { FeatureArea };
 
 export interface PermissionContext {
 	readonly role: 'owner' | 'admin' | 'member';
@@ -31,10 +22,7 @@ export interface PermissionContext {
 	readonly isAdmin: boolean;
 	readonly isPrivileged: boolean;
 	readonly capabilityMap: CapabilityMap;
-	readonly compatibilityLanes: CompatibilityLaneMap;
 	readonly scopeSet: ScopeSet;
-	readonly canView: Record<FeatureArea, boolean>;
-	readonly canEdit: Record<FeatureArea, boolean>;
 	readonly canManageMembers: boolean;
 }
 
@@ -62,10 +50,7 @@ export function createPermissionContextFromMembership(membership: MembershipRow)
 		isAdmin: projection.isAdmin,
 		isPrivileged: projection.isPrivileged,
 		capabilityMap: projection.capabilityMap,
-		compatibilityLanes: projection.compatibilityLanes,
 		scopeSet: projection.scopeSet,
-		canView: projection.canView,
-		canEdit: projection.canEdit,
 		canManageMembers: projection.canManageMembers
 	};
 

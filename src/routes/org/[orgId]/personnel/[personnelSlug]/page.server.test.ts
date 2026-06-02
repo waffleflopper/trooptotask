@@ -12,7 +12,6 @@ const operateAuth = {
 		onboarding: 'view',
 		ratingScheme: 'view'
 	},
-	compatibilityLanes: {},
 	scopeSet: { kind: 'organization' }
 };
 

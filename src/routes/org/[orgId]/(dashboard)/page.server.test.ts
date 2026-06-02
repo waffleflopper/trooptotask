@@ -196,7 +196,7 @@ describe('dashboard page server load', () => {
 		});
 		const depends = vi.fn();
 		const parent = vi.fn().mockResolvedValue({
-			...createReadyAppShellRouteData({ orgId: ORG_ID, canViewCriticalTasks: true }),
+			...createReadyAppShellRouteData({ orgId: ORG_ID, criticalTasksCapability: 'view' }),
 			dashboard: {
 				data: workspaceBootstrap
 			}
@@ -306,7 +306,7 @@ describe('dashboard page server load', () => {
 			resolveWorkspace = resolve;
 		});
 		const parent = vi.fn().mockResolvedValue({
-			...createReadyAppShellRouteData({ orgId: ORG_ID, canViewCriticalTasks: false }),
+			...createReadyAppShellRouteData({ orgId: ORG_ID, criticalTasksCapability: 'none' }),
 			dashboard: {
 				data: workspaceBootstrap
 			}

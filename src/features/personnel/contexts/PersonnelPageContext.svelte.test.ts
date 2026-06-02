@@ -31,20 +31,6 @@ function makeData(overrides: Record<string, unknown> = {}) {
 		orgName: 'Test Org',
 		pinnedGroups: [] as string[],
 		personnel: [] as Personnel[],
-		permissions: {
-			canViewPersonnel: true,
-			canEditPersonnel: true,
-			canViewCalendar: true,
-			canEditCalendar: true,
-			canViewTraining: true,
-			canEditTraining: true,
-			canViewCriticalTasks: true,
-			canEditCriticalTasks: true,
-			canViewOnboarding: true,
-			canEditOnboarding: true,
-			canManageMembers: true
-		},
-		scopedGroupId: null as string | null,
 		awardTrackingAcknowledgedPersonnelIds: [] as string[],
 		...overrides
 	};
@@ -81,7 +67,7 @@ describe('PersonnelPageContext', () => {
 	describe('permission flags', () => {
 		it('canAddPersonnel is true when the Personnel create-records affordance is allowed', () => {
 			const ctx = new PersonnelPageContext(
-				makeData({ permissions: { canEditPersonnel: false }, scopedGroupId: 'legacy-group' }),
+				makeData(),
 				makeModals(),
 				makeOrg({
 					affordanceForFeatureAction: (action) => ({
@@ -95,6 +81,24 @@ describe('PersonnelPageContext', () => {
 				})
 			);
 			expect(ctx.canAddPersonnel).toBe(true);
+		});
+
+		it('lets scoped personnel operators view the roster workspace', () => {
+			const org = createTestOrgContext({
+				userRole: 'member',
+				capabilityMap: {
+					calendar: 'view',
+					personnel: 'operate',
+					training: 'view',
+					criticalTasks: 'view',
+					onboarding: 'operate',
+					ratingScheme: 'view'
+				},
+				scopeSet: { kind: 'groups', groupIds: ['g1'] }
+			});
+			const ctx = new PersonnelPageContext(makeData(), makeModals(), org);
+
+			expect(ctx.canViewRoster).toBe(true);
 		});
 
 		it('keeps add/import/group affordances separate from existing-record edits', () => {
@@ -120,7 +124,7 @@ describe('PersonnelPageContext', () => {
 
 		it('canAddPersonnel is false when the Personnel manage-records affordance is denied', () => {
 			const ctx = new PersonnelPageContext(
-				makeData({ permissions: { canEditPersonnel: true }, scopedGroupId: null }),
+				makeData(),
 				makeModals(),
 				makeOrg({
 					affordanceForFeatureAction: () => ({

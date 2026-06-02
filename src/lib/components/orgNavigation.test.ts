@@ -1,28 +1,21 @@
 import { describe, expect, it } from 'vitest';
-import type { OrganizationMemberPermissions } from '$lib/types';
+import type { CapabilityMap } from '$lib/access/memberAccessShape';
 import { getOrgBreadcrumbs, getOrgNavigation, isOrgNavItemActive } from './orgNavigation';
 
-const basePermissions: OrganizationMemberPermissions = {
-	canViewCalendar: false,
-	canEditCalendar: false,
-	canViewPersonnel: false,
-	canEditPersonnel: false,
-	canViewTraining: false,
-	canEditTraining: false,
-	canViewCriticalTasks: false,
-	canEditCriticalTasks: false,
-	canViewOnboarding: false,
-	canEditOnboarding: false,
-	canViewRatingScheme: false,
-	canEditRatingScheme: false,
-	canManageMembers: false
+const baseCapabilities: CapabilityMap = {
+	calendar: 'none',
+	personnel: 'none',
+	training: 'none',
+	criticalTasks: 'none',
+	onboarding: 'none',
+	ratingScheme: 'none'
 };
 
 describe('getOrgNavigation', () => {
 	it('builds generated organization links with the provided preferred URL segment', () => {
 		const nav = getOrgNavigation('1-11-bde', {
-			...basePermissions,
-			canViewCalendar: true
+			...baseCapabilities,
+			calendar: 'view'
 		});
 
 		expect(nav.find((item) => item.id === 'dashboard')?.href).toBe('/org/1-11-bde');
@@ -50,10 +43,10 @@ describe('getOrgNavigation', () => {
 
 	it('shows Critical Tasks for critical tasks viewers and hides it without critical tasks view access', () => {
 		const withCriticalTasks = getOrgNavigation('org-1', {
-			...basePermissions,
-			canViewCriticalTasks: true
+			...baseCapabilities,
+			criticalTasks: 'view'
 		});
-		const withoutCriticalTasks = getOrgNavigation('org-1', basePermissions);
+		const withoutCriticalTasks = getOrgNavigation('org-1', baseCapabilities);
 
 		expect(withCriticalTasks).toEqual(
 			expect.arrayContaining([
@@ -72,10 +65,10 @@ describe('getOrgNavigation', () => {
 
 	it('shows replacement Duty Rosters as a primary navigation item after Calendar', () => {
 		const withCalendar = getOrgNavigation('org-1', {
-			...basePermissions,
-			canViewCalendar: true
+			...baseCapabilities,
+			calendar: 'view'
 		});
-		const withoutCalendar = getOrgNavigation('org-1', basePermissions);
+		const withoutCalendar = getOrgNavigation('org-1', baseCapabilities);
 
 		expect(withCalendar).toEqual(
 			expect.arrayContaining([
@@ -94,8 +87,8 @@ describe('getOrgNavigation', () => {
 
 	it('treats replacement Duty Rosters child routes as active for the nav item', () => {
 		const item = getOrgNavigation('org-1', {
-			...basePermissions,
-			canViewCalendar: true
+			...baseCapabilities,
+			calendar: 'view'
 		}).find((navItem) => navItem.id === 'duty-rosters');
 
 		if (!item) {
@@ -107,8 +100,8 @@ describe('getOrgNavigation', () => {
 
 	it('treats Critical Tasks child routes as active for the nav item', () => {
 		const item = getOrgNavigation('org-1', {
-			...basePermissions,
-			canViewCriticalTasks: true
+			...baseCapabilities,
+			criticalTasks: 'view'
 		}).find((navItem) => navItem.id === 'critical-tasks');
 
 		if (!item) {
@@ -120,9 +113,9 @@ describe('getOrgNavigation', () => {
 
 	it('shows an Evals nav item when the member can view rating scheme', () => {
 		const nav = getOrgNavigation('org-1', {
-			...basePermissions,
-			canViewPersonnel: true,
-			canViewRatingScheme: true
+			...baseCapabilities,
+			personnel: 'view',
+			ratingScheme: 'view'
 		});
 
 		expect(nav).toEqual(
@@ -140,8 +133,8 @@ describe('getOrgNavigation', () => {
 
 	it('treats Evals child routes as active for the nav item', () => {
 		const item = getOrgNavigation('org-1', {
-			...basePermissions,
-			canViewRatingScheme: true
+			...baseCapabilities,
+			ratingScheme: 'view'
 		}).find((navItem) => navItem.id === 'rating-scheme');
 
 		if (!item) {
@@ -155,8 +148,8 @@ describe('getOrgNavigation', () => {
 describe('getOrgBreadcrumbs', () => {
 	it('includes Calendar subroute labels after the organization and primary section', () => {
 		const nav = getOrgNavigation('org-1', {
-			...basePermissions,
-			canViewCalendar: true
+			...baseCapabilities,
+			calendar: 'view'
 		});
 
 		expect(getOrgBreadcrumbs('/org/org-1/calendar/settings', 'Test Org', nav).map((crumb) => crumb.label)).toEqual([
@@ -168,8 +161,8 @@ describe('getOrgBreadcrumbs', () => {
 
 	it('uses first-class Duty Rosters breadcrumbs for the replacement route', () => {
 		const nav = getOrgNavigation('org-1', {
-			...basePermissions,
-			canViewCalendar: true
+			...baseCapabilities,
+			calendar: 'view'
 		});
 
 		expect(getOrgBreadcrumbs('/org/org-1/duty-rosters', 'Test Org', nav)).toEqual([
@@ -200,8 +193,8 @@ describe('getOrgBreadcrumbs', () => {
 
 	it('links parent breadcrumbs for Calendar subroutes', () => {
 		const nav = getOrgNavigation('org-1', {
-			...basePermissions,
-			canViewCalendar: true
+			...baseCapabilities,
+			calendar: 'view'
 		});
 
 		expect(getOrgBreadcrumbs('/org/org-1/calendar/settings', 'Test Org', nav)).toEqual([
@@ -213,8 +206,8 @@ describe('getOrgBreadcrumbs', () => {
 
 	it('includes linked Onboarding subroute breadcrumbs', () => {
 		const nav = getOrgNavigation('org-1', {
-			...basePermissions,
-			canViewOnboarding: true
+			...baseCapabilities,
+			onboarding: 'view'
 		});
 
 		expect(getOrgBreadcrumbs('/org/org-1/onboarding/templates', 'Test Org', nav)).toEqual([
@@ -231,8 +224,8 @@ describe('getOrgBreadcrumbs', () => {
 
 	it('includes linked Training subroute breadcrumbs', () => {
 		const nav = getOrgNavigation('org-1', {
-			...basePermissions,
-			canViewTraining: true
+			...baseCapabilities,
+			training: 'view'
 		});
 
 		expect(getOrgBreadcrumbs('/org/org-1/training/types', 'Test Org', nav)).toEqual([
@@ -249,8 +242,8 @@ describe('getOrgBreadcrumbs', () => {
 
 	it('includes linked Critical Tasks subroute breadcrumbs', () => {
 		const nav = getOrgNavigation('org-1', {
-			...basePermissions,
-			canViewCriticalTasks: true
+			...baseCapabilities,
+			criticalTasks: 'view'
 		});
 
 		expect(getOrgBreadcrumbs('/org/org-1/critical-tasks/library', 'Test Org', nav)).toEqual([
@@ -267,8 +260,8 @@ describe('getOrgBreadcrumbs', () => {
 
 	it('uses a personnel breadcrumb for Critical Tasks person records', () => {
 		const nav = getOrgNavigation('org-1', {
-			...basePermissions,
-			canViewCriticalTasks: true
+			...baseCapabilities,
+			criticalTasks: 'view'
 		});
 
 		expect(getOrgBreadcrumbs('/org/org-1/critical-tasks/person-1', 'Test Org', nav)).toEqual([
@@ -280,8 +273,8 @@ describe('getOrgBreadcrumbs', () => {
 
 	it('uses a route-provided personnel label for Critical Tasks person records', () => {
 		const nav = getOrgNavigation('org-1', {
-			...basePermissions,
-			canViewCriticalTasks: true
+			...baseCapabilities,
+			criticalTasks: 'view'
 		});
 
 		expect(getOrgBreadcrumbs('/org/org-1/critical-tasks/person-1', 'Test Org', nav, 'CPT Hayes, Emma')).toEqual([
@@ -292,7 +285,7 @@ describe('getOrgBreadcrumbs', () => {
 	});
 
 	it('uses support route breadcrumbs for Settings routes outside primary navigation', () => {
-		const nav = getOrgNavigation('org-1', basePermissions);
+		const nav = getOrgNavigation('org-1', baseCapabilities);
 
 		expect(getOrgBreadcrumbs('/org/org-1/settings', 'Test Org', nav)).toEqual([
 			{ label: 'Test Org', href: '/org/org-1' },
@@ -301,7 +294,7 @@ describe('getOrgBreadcrumbs', () => {
 	});
 
 	it('uses linked Billing breadcrumbs for billing result routes outside primary navigation', () => {
-		const nav = getOrgNavigation('org-1', basePermissions);
+		const nav = getOrgNavigation('org-1', baseCapabilities);
 
 		expect(getOrgBreadcrumbs('/org/org-1/billing/success', 'Test Org', nav)).toEqual([
 			{ label: 'Test Org', href: '/org/org-1' },

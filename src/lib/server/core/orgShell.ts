@@ -8,7 +8,6 @@
  * define the internal composition boundary. SvelteKit adapter implementations live in
  * src/lib/server/adapters/; in-memory test implementations live in inMemoryOrgShell.ts.
  */
-import type { OrganizationMemberPermissions } from '$lib/types';
 import type { EffectiveTier } from '$lib/types/subscription';
 import type { CapabilityMap, ScopeSet } from '$lib/access/memberAccessShape';
 import type { UserOrgPreferences } from '$lib/preferences/userPreferences';
@@ -64,11 +63,8 @@ export interface ReadyAppShell {
 		role: 'owner' | 'admin' | 'member';
 		capabilityMap: CapabilityMap;
 		scopeSet: ScopeSet;
-		permissions: OrganizationMemberPermissions;
-		scopedGroupId?: string | null;
 		isOwner: boolean;
 		isAdmin: boolean;
-		isFullEditor: boolean;
 	};
 	state: {
 		effectiveTier: EffectiveTier;
@@ -148,12 +144,6 @@ export function createReadyAppShell(config: {
 	const isOwner = membership.role === 'owner';
 	const isAdmin = membership.role === 'admin';
 
-	const isFullEditor =
-		!isOwner &&
-		!isAdmin &&
-		membership.scopeSet.kind === 'organization' &&
-		Object.values(membership.permissions).every(Boolean);
-
 	return {
 		kind: 'ready',
 		org: {
@@ -169,11 +159,8 @@ export function createReadyAppShell(config: {
 			role: membership.role,
 			capabilityMap: membership.capabilityMap,
 			scopeSet: membership.scopeSet,
-			permissions: membership.permissions,
-			scopedGroupId: membership.scopedGroupId ?? null,
 			isOwner,
-			isAdmin,
-			isFullEditor
+			isAdmin
 		},
 		state: {
 			effectiveTier: orgState.effectiveTier,
@@ -303,8 +290,6 @@ export interface MembershipInfo {
 	role: 'owner' | 'admin' | 'member';
 	capabilityMap: CapabilityMap;
 	scopeSet: ScopeSet;
-	permissions: OrganizationMemberPermissions;
-	scopedGroupId?: string | null;
 	orgSuspended?: boolean;
 }
 

@@ -11,7 +11,7 @@ import {
 	removeOrganizationMember,
 	resendOrganizationInvitation,
 	revokeOrganizationInvitation,
-	updateOrganizationMemberPermissions,
+	updateOrganizationMemberAccess,
 	type OrganizationInvitationAccessRequestBridgeInput,
 	type OrganizationInvitationCreateInput,
 	type OrganizationMembershipUpdateInput,
@@ -2270,7 +2270,7 @@ describe('leaveOrganization', () => {
 	});
 });
 
-describe('updateOrganizationMemberPermissions', () => {
+describe('updateOrganizationMemberAccess', () => {
 	it('rejects member access updates without a submitted Member Preset before writing compatibility fields', async () => {
 		const ctx = createTestContext({
 			auth: {
@@ -2288,7 +2288,7 @@ describe('updateOrganizationMemberPermissions', () => {
 		});
 
 		await expect(
-			updateOrganizationMemberPermissions(
+			updateOrganizationMemberAccess(
 				{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
 				{
 					membershipId: '11111111-1111-4111-8111-111111111111',
@@ -2321,7 +2321,7 @@ describe('updateOrganizationMemberPermissions', () => {
 		});
 
 		await expect(
-			updateOrganizationMemberPermissions(
+			updateOrganizationMemberAccess(
 				{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
 				{
 					membershipId: '11111111-1111-4111-8111-111111111111',
@@ -2365,7 +2365,7 @@ describe('updateOrganizationMemberPermissions', () => {
 		});
 
 		await expect(
-			updateOrganizationMemberPermissions(
+			updateOrganizationMemberAccess(
 				{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
 				{
 					membershipId: '11111111-1111-4111-8111-111111111111',
@@ -2410,7 +2410,7 @@ describe('updateOrganizationMemberPermissions', () => {
 		});
 
 		await expect(
-			updateOrganizationMemberPermissions(
+			updateOrganizationMemberAccess(
 				{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
 				{
 					membershipId: '11111111-1111-4111-8111-111111111111',
@@ -2419,7 +2419,7 @@ describe('updateOrganizationMemberPermissions', () => {
 					actorEmail: 'actor@example.com'
 				}
 			)
-		).resolves.toEqual({ permissionSuccess: true });
+		).resolves.toEqual({ accessSuccess: true });
 
 		expect(port.updatedMemberships).toEqual([
 			expect.objectContaining({
@@ -2435,7 +2435,7 @@ describe('updateOrganizationMemberPermissions', () => {
 		);
 	});
 
-	it('blocks owner permission changes before auth escalation checks', async () => {
+	it('blocks owner access changes before auth escalation checks', async () => {
 		const ctx = createTestContext();
 		const port = createOrganizationSettingsMemberManagementPort({
 			membership: {
@@ -2446,7 +2446,7 @@ describe('updateOrganizationMemberPermissions', () => {
 		});
 
 		await expect(
-			updateOrganizationMemberPermissions(
+			updateOrganizationMemberAccess(
 				{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
 				{
 					membershipId: '11111111-1111-4111-8111-111111111111',
@@ -2456,10 +2456,46 @@ describe('updateOrganizationMemberPermissions', () => {
 			)
 		).rejects.toMatchObject({
 			status: 400,
-			message: 'Cannot modify owner permissions'
+			message: 'Cannot modify owner access'
 		});
 
 		expect(port.updatedMemberships).toEqual([]);
+	});
+
+	it('returns not found before updating access for stale memberships', async () => {
+		const ctx = createTestContext({
+			auth: {
+				userId: 'owner-1',
+				orgId: 'org-1',
+				role: 'owner'
+			}
+		});
+		const port = createOrganizationSettingsMemberManagementPort({ membership: null });
+
+		await expect(
+			updateOrganizationMemberAccess(
+				{
+					auth: ctx.auth,
+					audit: ctx.audit,
+					notifications: ctx.notifications,
+					settings: port,
+					sensitiveActionAuthorizer: ctx.sensitiveActionAuthorizer
+				},
+				{
+					membershipId: '11111111-1111-4111-8111-111111111111',
+					membershipRole: 'member',
+					memberAccess: memberAccess(),
+					actorEmail: 'owner@example.com'
+				}
+			)
+		).rejects.toMatchObject({
+			status: 404,
+			message: 'Membership not found'
+		});
+
+		expect(port.membershipLookups).toEqual([{ orgId: 'org-1', membershipId: '11111111-1111-4111-8111-111111111111' }]);
+		expect(port.updatedMemberships).toEqual([]);
+		expect(ctx.auditPort.events).toEqual([]);
 	});
 
 	it('requires recent assurance before granting admin access', async () => {
@@ -2485,7 +2521,7 @@ describe('updateOrganizationMemberPermissions', () => {
 		});
 
 		await expect(
-			updateOrganizationMemberPermissions(
+			updateOrganizationMemberAccess(
 				{
 					auth: ctx.auth,
 					audit: ctx.audit,
@@ -2550,7 +2586,7 @@ describe('updateOrganizationMemberPermissions', () => {
 		});
 
 		await expect(
-			updateOrganizationMemberPermissions(
+			updateOrganizationMemberAccess(
 				{
 					auth: ctx.auth,
 					audit: ctx.audit,
@@ -2600,7 +2636,7 @@ describe('updateOrganizationMemberPermissions', () => {
 			}
 		});
 
-		const result = await updateOrganizationMemberPermissions(
+		const result = await updateOrganizationMemberAccess(
 			{
 				auth: ctx.auth,
 				audit: ctx.audit,
@@ -2616,7 +2652,7 @@ describe('updateOrganizationMemberPermissions', () => {
 			}
 		);
 
-		expect(result).toEqual({ permissionSuccess: true });
+		expect(result).toEqual({ accessSuccess: true });
 		expect(ctx.sensitiveActionAuthorizer.requests).toEqual([]);
 		expect(port.updatedMemberships).toEqual([
 			expect.objectContaining({
@@ -2641,7 +2677,7 @@ describe('updateOrganizationMemberPermissions', () => {
 			orgName: 'Alpha Company'
 		});
 
-		const result = await updateOrganizationMemberPermissions(
+		const result = await updateOrganizationMemberAccess(
 			{
 				auth: ctx.auth,
 				audit: ctx.audit,
@@ -2656,7 +2692,7 @@ describe('updateOrganizationMemberPermissions', () => {
 			}
 		);
 
-		expect(result).toEqual({ permissionSuccess: true });
+		expect(result).toEqual({ accessSuccess: true });
 		expect(port.membershipLookups).toEqual([{ orgId: 'org-1', membershipId: '11111111-1111-4111-8111-111111111111' }]);
 		expect(port.updatedMemberships).toEqual([
 			{
@@ -2671,7 +2707,7 @@ describe('updateOrganizationMemberPermissions', () => {
 		]);
 		expect(ctx.auditPort.events).toEqual([
 			{
-				action: 'member.permissions_changed',
+				action: 'member.access_changed',
 				resourceType: 'organization',
 				details: {
 					membershipId: '11111111-1111-4111-8111-111111111111',
@@ -2702,7 +2738,7 @@ describe('updateOrganizationMemberPermissions', () => {
 		]);
 	});
 
-	it('uses governance policy for non-admin updates and keeps the permission-change notification path', async () => {
+	it('uses governance policy for non-admin updates and keeps the member-access notification path', async () => {
 		const ctx = createTestContext({
 			auth: {
 				userId: 'actor-1',
@@ -2717,7 +2753,7 @@ describe('updateOrganizationMemberPermissions', () => {
 			},
 			orgName: 'Alpha Company'
 		});
-		const result = await updateOrganizationMemberPermissions(
+		const result = await updateOrganizationMemberAccess(
 			{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
 			{
 				membershipId: '11111111-1111-4111-8111-111111111111',
@@ -2729,7 +2765,7 @@ describe('updateOrganizationMemberPermissions', () => {
 			}
 		);
 
-		expect(result).toEqual({ permissionSuccess: true });
+		expect(result).toEqual({ accessSuccess: true });
 		expect(port.updatedMemberships).toEqual([
 			{
 				organizationId: 'org-1',
@@ -2747,15 +2783,15 @@ describe('updateOrganizationMemberPermissions', () => {
 				orgId: 'org-1',
 				userId: 'member-1',
 				notification: {
-					type: 'member_permissions_changed',
-					title: 'Permissions Updated',
-					message: 'Your permissions in "Alpha Company" have been updated.'
+					type: 'member_access_changed',
+					title: 'Access Updated',
+					message: 'Your access in "Alpha Company" has been updated.'
 				}
 			}
 		]);
 		expect(ctx.auditPort.events).toEqual([
 			{
-				action: 'member.permissions_changed',
+				action: 'member.access_changed',
 				resourceType: 'organization',
 				details: {
 					membershipId: '11111111-1111-4111-8111-111111111111',
@@ -2786,7 +2822,7 @@ describe('updateOrganizationMemberPermissions', () => {
 			}
 		});
 
-		const result = await updateOrganizationMemberPermissions(
+		const result = await updateOrganizationMemberAccess(
 			{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
 			{
 				membershipId: '11111111-1111-4111-8111-111111111111',
@@ -2806,7 +2842,7 @@ describe('updateOrganizationMemberPermissions', () => {
 			}
 		);
 
-		expect(result).toEqual({ permissionSuccess: true });
+		expect(result).toEqual({ accessSuccess: true });
 		expect(port.updatedMemberships).toEqual([
 			{
 				organizationId: 'org-1',

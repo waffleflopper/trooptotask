@@ -31,9 +31,6 @@ export function createSupabaseAuthContextAdapter(
 		get capabilityMap() {
 			return permCtx.capabilityMap;
 		},
-		get compatibilityLanes() {
-			return permCtx.compatibilityLanes;
-		},
 		get scopeSet() {
 			return permCtx.scopeSet;
 		}

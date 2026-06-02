@@ -2,7 +2,6 @@ import {
 	capabilityMeets,
 	type CapabilityLevel,
 	type CapabilityMap,
-	type CompatibilityLaneMap,
 	type DurableFeatureLane,
 	type MembershipRole,
 	type ScopeSet
@@ -93,7 +92,6 @@ export interface PolicyEvaluationInput {
 	actor: PolicyActor;
 	action: PolicyAction;
 	capabilityMap: CapabilityMap;
-	compatibilityLanes?: CompatibilityLaneMap;
 	scopeSet: ScopeSet;
 	resource: PolicyResource;
 	overlays?: PolicyOverlay[];
@@ -592,7 +590,7 @@ export function evaluatePolicyDecision(input: PolicyEvaluationInput): PolicyDeci
 	}
 
 	const action = input.action;
-	const matchedCapability = matchCapability(input.capabilityMap, input.compatibilityLanes, action);
+	const matchedCapability = matchCapability(input.capabilityMap, action);
 
 	if (!capabilityMeets(matchedCapability.actual, matchedCapability.required)) {
 		return buildDecision(input, {
@@ -744,14 +742,7 @@ function deriveAudit(action: PolicyAction, allowed: boolean): PolicyDecision['au
 	return { capture: false, category: 'ordinary-read' };
 }
 
-function matchCapability(
-	capabilityMap: CapabilityMap,
-	compatibilityLanes: CompatibilityLaneMap | undefined,
-	action: FeatureLanePolicyAction
-): MatchedCapability {
-	// Reserved for legacy lane aliases; v2 policy decisions currently read durable lanes directly.
-	void compatibilityLanes;
-
+function matchCapability(capabilityMap: CapabilityMap, action: FeatureLanePolicyAction): MatchedCapability {
 	return {
 		lane: action.owner.lane,
 		actual: capabilityMap[action.owner.lane] ?? 'none',

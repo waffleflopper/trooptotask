@@ -20,33 +20,13 @@ export interface PersonnelLookup {
 	firstName: string;
 }
 
-// ============================================================
-// Organization Member Permissions
-// ============================================================
-
-export interface OrganizationMemberPermissions {
-	canViewCalendar: boolean;
-	canEditCalendar: boolean;
-	canViewPersonnel: boolean;
-	canEditPersonnel: boolean;
-	canViewTraining: boolean;
-	canEditTraining: boolean;
-	canViewCriticalTasks: boolean;
-	canEditCriticalTasks: boolean;
-	canViewOnboarding: boolean;
-	canEditOnboarding: boolean;
-	canViewRatingScheme?: boolean;
-	canEditRatingScheme?: boolean;
-	canManageMembers: boolean;
-}
-
-export interface OrganizationMember extends OrganizationMemberPermissions {
+export interface OrganizationMember {
 	id: string;
 	organizationId: string;
 	userId: string;
 	email?: string; // From user lookup or invitation
 	role: 'owner' | 'admin' | 'member';
-	scopedGroupId: string | null;
+	canManageMembers: boolean;
 	memberPreset?: 'viewer' | 'operator' | 'editor' | string | null;
 	capabilityOverrides?: Record<string, unknown> | null;
 	accessScopeKind?: 'organization' | 'groups' | string | null;
@@ -59,12 +39,8 @@ export interface OrganizationInvitation {
 	organizationId: string;
 	email: string;
 	status: 'pending' | 'accepted' | 'revoked';
-	permissions: OrganizationMemberPermissions;
-	scopedGroupId: string | null;
 	createdAt: string;
 }
-
-export { resolveRatingSchemePermissions } from '$lib/access/memberAccessShape';
 
 // ============================================================
 // Calendar Display Types (shared across features)

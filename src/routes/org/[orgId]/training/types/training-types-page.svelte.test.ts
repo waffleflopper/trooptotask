@@ -9,38 +9,51 @@ import type { TrainingBootstrap } from '$lib/server/core/orgShell';
 import type { Personnel } from '$lib/types';
 import type { TrainingType } from '$features/training/training.types';
 
-vi.mock('$lib/stores/orgContext.svelte', () => ({
-	getOrgContext: () => ({
-		orgId: 'org-1',
-		orgName: 'Test Unit',
-		userId: 'user-1',
-		role: 'owner',
-		isOwner: true,
-		isAdmin: false,
-		isPrivileged: true,
-		permissions: {
-			canViewCalendar: true,
-			canEditCalendar: true,
-			canViewPersonnel: true,
-			canEditPersonnel: true,
-			canViewTraining: true,
-			canEditTraining: true,
-			canViewOnboarding: true,
-			canEditOnboarding: true,
-			canManageMembers: true
-		},
-		scopeSet: { kind: 'organization' },
-		readOnly: false,
-		affordanceForFeatureAction: () => ({
-			allowed: true,
-			visible: true,
-			disabled: false,
-			reason: 'allowed:capability',
-			explanation: '',
-			decision: {}
+vi.mock('$lib/stores/orgContext.svelte', () => {
+	const capabilityRank = ['none', 'view', 'operate', 'configure'];
+	const capabilityMap = {
+		calendar: 'configure',
+		personnel: 'configure',
+		training: 'configure',
+		onboarding: 'configure',
+		members: 'configure',
+		criticalTasks: 'configure',
+		ratingScheme: 'configure',
+		reports: 'configure',
+		dutyRoster: 'configure'
+	};
+	const hasCapability = (feature: string, action: string) => {
+		const value = capabilityMap[feature as keyof typeof capabilityMap];
+		if (Array.isArray(value)) return value.includes(action);
+		const actualRank = capabilityRank.indexOf(value);
+		const requiredRank = capabilityRank.indexOf(action);
+		return requiredRank >= 0 && actualRank >= requiredRank;
+	};
+
+	return {
+		getOrgContext: () => ({
+			orgId: 'org-1',
+			orgName: 'Test Unit',
+			userId: 'user-1',
+			role: 'owner',
+			isOwner: true,
+			isAdmin: false,
+			isPrivileged: true,
+			capabilityMap,
+			hasCapability,
+			scopeSet: { kind: 'organization' },
+			readOnly: false,
+			affordanceForFeatureAction: () => ({
+				allowed: true,
+				visible: true,
+				disabled: false,
+				reason: 'allowed:capability',
+				explanation: '',
+				decision: {}
+			})
 		})
-	})
-}));
+	};
+});
 
 function makeDeferredBootstrap(): WorkspaceBootstrap<TrainingBootstrap> {
 	const deferredItems = Promise.resolve([]);

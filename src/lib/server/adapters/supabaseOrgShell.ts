@@ -195,8 +195,6 @@ export function createSupabaseOrgAccessPort(config: {
 				role: membership.role,
 				capabilityMap: access.capabilityMap,
 				scopeSet: access.scopeSet,
-				permissions: access.permissions,
-				scopedGroupId: access.scopedGroupId,
 				// orgSuspended is checked and short-circuits before this adapter is ever
 				// instantiated, so we only reach getMembership() for non-suspended orgs.
 				orgSuspended: false

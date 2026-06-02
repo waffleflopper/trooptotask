@@ -31,7 +31,7 @@ const scopeRules = new Map<string, GroupScopeRule>([
 ]);
 
 describe('ScopedDataStore', () => {
-	describe('when scopedGroupId is null (admin/owner)', () => {
+	describe('when access is organization-wide', () => {
 		it('returns the inner store unchanged', () => {
 			const inner = createInMemoryDataStore();
 			const scoped = createScopedDataStore(inner, null, scopeRules);
@@ -40,7 +40,7 @@ describe('ScopedDataStore', () => {
 		});
 	});
 
-	describe('when scopedGroupId is set (scoped member)', () => {
+	describe('when access is limited to group scope', () => {
 		describe('group-scoped table (personnel)', () => {
 			it('findMany only returns personnel in the scoped group', async () => {
 				const inner = createInMemoryDataStore();

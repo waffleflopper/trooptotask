@@ -57,20 +57,7 @@ describe('createRootOrgLayoutLoad', () => {
 							onboarding: 'none',
 							ratingScheme: 'none'
 						},
-						scopeSet: { kind: 'organization' },
-						permissions: {
-							canViewCalendar: true,
-							canEditCalendar: false,
-							canViewPersonnel: true,
-							canEditPersonnel: false,
-							canViewTraining: true,
-							canEditTraining: false,
-							canViewCriticalTasks: true,
-							canEditCriticalTasks: false,
-							canViewOnboarding: false,
-							canEditOnboarding: false,
-							canManageMembers: false
-						}
+						scopeSet: { kind: 'organization' }
 					}),
 					getOrgState: vi.fn().mockImplementation(async () => ({
 						orgName: config.orgName,

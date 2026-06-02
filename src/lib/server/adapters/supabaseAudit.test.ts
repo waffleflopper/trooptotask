@@ -49,7 +49,7 @@ describe('SupabaseAuditAdapter', () => {
 		const audit = createSupabaseAuditAdapter(orgId, requestInfo);
 
 		audit.log({
-			action: 'member.permissions_changed',
+			action: 'member.access_changed',
 			resourceType: 'organization',
 			resourceId: 'membership-1',
 			severity: 'warning'
@@ -57,7 +57,7 @@ describe('SupabaseAuditAdapter', () => {
 
 		expect(mockAuditLog).toHaveBeenCalledWith(
 			{
-				action: 'member.permissions_changed',
+				action: 'member.access_changed',
 				resourceType: 'organization',
 				resourceId: 'membership-1',
 				orgId: 'org-123',

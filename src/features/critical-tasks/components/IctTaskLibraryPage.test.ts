@@ -7,17 +7,6 @@ import { personnelIctCompletionsStore } from '$features/critical-tasks/stores/pe
 import type { IctTask, PersonnelIctCompletion } from '$features/critical-tasks/criticalTasks.types';
 
 const orgContextMock = vi.hoisted(() => {
-	const permissions = {
-		canViewCalendar: true,
-		canEditCalendar: true,
-		canViewPersonnel: true,
-		canEditPersonnel: true,
-		canViewTraining: true,
-		canEditTraining: true,
-		canViewOnboarding: true,
-		canEditOnboarding: true,
-		canManageMembers: true
-	};
 	const ownerContext = () => ({
 		orgId: 'org-1',
 		orgName: 'Test Unit',
@@ -26,9 +15,6 @@ const orgContextMock = vi.hoisted(() => {
 		isOwner: true,
 		isAdmin: false,
 		isPrivileged: true,
-		isFullEditor: true,
-		permissions: { ...permissions },
-		scopedGroupId: null,
 		readOnly: false,
 		capabilityMap: {
 			calendar: 'configure',
@@ -171,8 +157,7 @@ describe('IctTaskLibraryPage', () => {
 			...orgContextMock.ownerContext(),
 			role: 'member',
 			isOwner: false,
-			isPrivileged: false,
-			isFullEditor: false
+			isPrivileged: false
 		};
 
 		render(IctTaskLibraryPage, { props: { data: { orgId: 'org-1' } } });

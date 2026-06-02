@@ -26,7 +26,6 @@ describe('member access projection', () => {
 
 		expect(projection.isPrivileged).toBe(true);
 		expect(projection.memberPreset).toBe('editor');
-		expect(projection.scopedGroupId).toBeNull();
 		expect(projection.scopeSet).toEqual({ kind: 'organization' });
 		expect(Object.values(projection.capabilityMap)).toEqual([
 			'configure',
@@ -36,8 +35,6 @@ describe('member access projection', () => {
 			'configure',
 			'configure'
 		]);
-		expect(Object.values(projection.canView)).toEqual([true, true, true, true, true, true]);
-		expect(Object.values(projection.canEdit)).toEqual([true, true, true, true, true, true]);
 		expect(projection.canManageMembers).toBe(true);
 	});
 
@@ -50,7 +47,6 @@ describe('member access projection', () => {
 			access_scope_group_ids: ['stored-group', 'stored-group', 'other-group']
 		});
 
-		expect(projection.scopedGroupId).toBeNull();
 		expect(projection.scopeSet).toEqual({ kind: 'groups', groupIds: ['stored-group', 'other-group'] });
 		expect(projection.memberPreset).toBe('viewer');
 		expect(projection.capabilityMap.calendar).toBe('operate');
@@ -76,9 +72,8 @@ describe('member access projection', () => {
 
 		expect(projection.role).toBe('member');
 		expect(projection.memberPreset).toBe('operator');
-		expect(projection.permissions.canEditCalendar).toBe(false);
-		expect(projection.permissions.canEditRatingScheme).toBe(true);
-		expect(projection.scopedGroupId).toBe('group-alpha');
+		expect(projection.capabilityMap.calendar).toBe('operate');
+		expect(projection.capabilityMap.ratingScheme).toBe('configure');
 		expect(projection.scopeSet).toEqual({ kind: 'groups', groupIds: ['group-alpha'] });
 	});
 
@@ -94,7 +89,7 @@ describe('member access projection', () => {
 		expect(projection.role).toBe('admin');
 		expect(projection.memberPreset).toBe('editor');
 		expect(projection.scopeSet).toEqual({ kind: 'organization' });
-		expect(projection.permissions.canManageMembers).toBe(true);
+		expect(projection.canManageMembers).toBe(true);
 	});
 
 	it('defaults invitations without a replacement role to member access', () => {
@@ -104,8 +99,8 @@ describe('member access projection', () => {
 		});
 
 		expect(projection.role).toBe('member');
-		expect(projection.permissions.canViewCalendar).toBe(true);
-		expect(projection.permissions.canManageMembers).toBe(false);
+		expect(projection.capabilityMap.calendar).toBe('configure');
+		expect(projection.canManageMembers).toBe(false);
 	});
 
 	it('does not project owner access from invitation role values', () => {

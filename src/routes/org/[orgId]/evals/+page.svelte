@@ -11,7 +11,6 @@
 
 	const org = getOrgContext();
 	const modals = new ModalRegistry();
-	const shell = $derived(data.shell.kind === 'ready' ? data.shell : null);
 	const workspaceData = $derived(data.ratingScheme.data);
 
 	const pageData = $derived.by(
@@ -19,7 +18,6 @@
 			orgId: data.shell.org.id,
 			orgName: data.shell.org.name,
 			ratingSchemeEntries: workspaceData.ratingSchemeEntries,
-			permissions: shell?.member.permissions,
 			lossWarningWindowDays: workspaceData.lossWarningWindowDays
 		})
 	);

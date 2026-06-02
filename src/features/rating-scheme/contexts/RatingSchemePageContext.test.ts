@@ -81,21 +81,6 @@ function makeData(overrides: Partial<RatingSchemePageData> = {}): RatingSchemePa
 	return {
 		orgId: 'test-org',
 		orgName: 'Test Org',
-		permissions: {
-			canViewCalendar: false,
-			canEditCalendar: false,
-			canViewPersonnel: false,
-			canEditPersonnel: false,
-			canViewTraining: false,
-			canEditTraining: false,
-			canViewCriticalTasks: false,
-			canEditCriticalTasks: false,
-			canViewOnboarding: false,
-			canEditOnboarding: false,
-			canViewRatingScheme: true,
-			canEditRatingScheme: true,
-			canManageMembers: false
-		},
 		ratingSchemeEntries: entries,
 		...overrides
 	};
@@ -135,17 +120,9 @@ describe('RatingSchemePageContext', () => {
 		expect(modals.payload<{ entry: RatingSchemeEntry }>('rating-modal')?.entry).toBe(entries[0]);
 	});
 
-	it('uses Rating Scheme advisory policy decisions instead of legacy Personnel permissions', () => {
+	it('uses Rating Scheme advisory policy decisions for page affordances', () => {
 		const ctx = new RatingSchemePageContext(
-			makeData({
-				permissions: {
-					...makeData().permissions!,
-					canViewPersonnel: true,
-					canEditPersonnel: true,
-					canViewRatingScheme: false,
-					canEditRatingScheme: false
-				}
-			}),
+			makeData(),
 			new ModalRegistry(),
 			makeOrg({
 				capabilityMap: { ...NONE_TEST_CAPABILITY_MAP, ratingScheme: 'operate' }

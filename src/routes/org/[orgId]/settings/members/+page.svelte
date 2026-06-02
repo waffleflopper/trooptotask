@@ -28,7 +28,7 @@
 	let { data, form }: PageProps = $props();
 
 	let inviteLoading = $state(false);
-	let permissionLoading = $state(false);
+	let accessLoading = $state(false);
 	let memberSearch = $state('');
 	let pendingRemoveMemberForm = $state<HTMLFormElement | null>(null);
 	let pendingRemoveMemberEmail = $state('');
@@ -290,8 +290,8 @@
 	</div>
 
 	{#if form?.memberError}<p class="text-sm text-destructive">{form.memberError}</p>{/if}
-	{#if form?.permissionError}<p class="text-sm text-destructive">{form.permissionError}</p>{/if}
-	{#if form?.permissionSuccess}<p class="text-sm text-muted-foreground">Permissions updated.</p>{/if}
+	{#if form?.accessError}<p class="text-sm text-destructive">{form.accessError}</p>{/if}
+	{#if form?.accessSuccess}<p class="text-sm text-muted-foreground">Access updated.</p>{/if}
 
 	{#if membersSection.invitations.length > 0}
 		<section
@@ -384,17 +384,17 @@
 			</Sheet.Header>
 			<form
 				method="POST"
-				action="?/updatePermissions"
+				action="?/updateMemberAccess"
 				class="grid gap-5 px-4 pb-4"
 				use:enhance={() => {
-					permissionLoading = true;
+					accessLoading = true;
 					return async ({ result, update }) => {
 						try {
 							if (result.type === 'failure' && redirectToSensitiveActionStepUp(result.data)) return;
 							await update();
 							if (result.type === 'success') memberAccess.closeMemberEditor(selectedMember.id);
 						} finally {
-							permissionLoading = false;
+							accessLoading = false;
 						}
 					};
 				}}
@@ -540,8 +540,8 @@
 					<Button type="button" variant="outline" onclick={() => memberAccess.closeMemberEditor(selectedMember.id)}>
 						Cancel
 					</Button>
-					<Button type="submit" disabled={permissionLoading || changeCount === 0}>
-						{#if permissionLoading}
+					<Button type="submit" disabled={accessLoading || changeCount === 0}>
+						{#if accessLoading}
 							Saving...
 						{:else if changeCount > 0}
 							Save {changeCount} {changeCount === 1 ? 'change' : 'changes'}

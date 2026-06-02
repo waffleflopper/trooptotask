@@ -13,7 +13,14 @@ export type {
 
 // Stores
 export { onboardingStore } from './stores/onboarding.svelte';
-export { onboardingTemplateStore } from './stores/onboardingTemplate.svelte';
+export { createOnboardingTemplateWorkspace, onboardingTemplateStore } from './stores/onboardingTemplate.svelte';
+export type {
+	OnboardingTemplateWorkspaceAdapter,
+	OnboardingTemplateWorkspaceData,
+	OnboardingTemplateWorkspaceModel,
+	OnboardingTemplateWorkspaceOrganization,
+	OnboardingTemplateWorkspaceResult
+} from './stores/onboardingTemplate.svelte';
 
 // Context
 export { OnboardingPageContext } from './contexts/OnboardingPageContext.svelte';

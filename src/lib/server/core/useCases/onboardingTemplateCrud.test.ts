@@ -1,10 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import { createWritePortsContext } from '$lib/server/adapters/inMemory';
 import type { CapabilityMap } from '$lib/access/memberAccessShape';
-import { OnboardingTemplateEntity } from '$lib/server/entities/onboardingTemplate';
-import { OnboardingTemplateStepEntity } from '$lib/server/entities/onboardingTemplateStep';
-import { getEntityAuditResource } from '$lib/server/entitySchema';
-import { createCrudUseCases } from './crud';
+import {
+	createOnboardingTemplate,
+	createOnboardingTemplateStep,
+	deleteOnboardingTemplate,
+	reorderOnboardingTemplateSteps,
+	updateOnboardingTemplateStep
+} from './onboardingTemplateCrud';
 import { duplicateOnboardingTemplate } from './onboardingTemplateDuplicate';
 
 const TMPL_ID = '00000000-0000-4000-a000-000000000001';
@@ -18,38 +21,14 @@ const operateOnlyCapabilityMap: CapabilityMap = {
 	ratingScheme: 'none'
 };
 
-// Same config entityHandlers() derives for template — with afterDelete hook
-const templateUseCases = createCrudUseCases({
-	entity: OnboardingTemplateEntity,
-	auditResource: getEntityAuditResource(OnboardingTemplateEntity),
-	policyAction: OnboardingTemplateEntity.policyAction!,
-	afterDelete: async (ctx, id) => {
-		await ctx.store.deleteWhere('onboarding_template_steps', ctx.auth.orgId, { template_id: id });
-
-		const onboardings = await ctx.store.findMany<{ id: string }>('personnel_onboardings', ctx.auth.orgId, {
-			template_id: id
-		});
-		for (const onboarding of onboardings) {
-			await ctx.store.update('personnel_onboardings', ctx.auth.orgId, onboarding.id, { template_id: null });
-		}
-	}
-});
-
-// Same config entityHandlers() derives for step — no hooks
-const stepUseCases = createCrudUseCases({
-	entity: OnboardingTemplateStepEntity,
-	auditResource: getEntityAuditResource(OnboardingTemplateStepEntity),
-	policyAction: OnboardingTemplateStepEntity.policyAction!
-});
-
 describe('Onboarding Template CRUD', () => {
-	it('creates a template and audits', async () => {
+	it('creates a normalized template and audits', async () => {
 		const ctx = createWritePortsContext();
 
-		const result = (await templateUseCases.create(ctx, {
-			name: 'New Soldier Checklist',
-			description: 'Standard onboarding for new arrivals'
-		})) as { name: string; description: string };
+		const result = await createOnboardingTemplate(ctx, {
+			name: '  New Soldier Checklist  ',
+			description: '  Standard onboarding for new arrivals  '
+		});
 
 		expect(result).toMatchObject({
 			name: 'New Soldier Checklist',
@@ -63,34 +42,40 @@ describe('Onboarding Template Step CRUD', () => {
 	it('creates a checkbox step and audits', async () => {
 		const ctx = createWritePortsContext();
 
-		const result = (await stepUseCases.create(ctx, {
+		const result = await createOnboardingTemplateStep(ctx, {
 			templateId: 'tmpl-1',
-			name: 'Has military email',
+			name: '  Has military email  ',
 			stepType: 'checkbox',
+			trainingTypeId: 'ignored-training',
+			stages: ['ignored stage'],
 			sortOrder: 0
-		})) as { name: string; stepType: string; templateId: string };
+		});
 
 		expect(result).toMatchObject({
 			name: 'Has military email',
 			stepType: 'checkbox',
-			templateId: 'tmpl-1'
+			templateId: 'tmpl-1',
+			trainingTypeId: null,
+			stages: null
 		});
 		expect(ctx.audit.events[0].action).toBe('onboarding_template_step.created');
 	});
 
-	it('creates a paperwork step with stages', async () => {
+	it('creates a paperwork step with normalized stages', async () => {
 		const ctx = createWritePortsContext();
 
-		const result = (await stepUseCases.create(ctx, {
+		const result = await createOnboardingTemplateStep(ctx, {
 			templateId: 'tmpl-1',
 			name: 'CAC Card Request',
 			stepType: 'paperwork',
-			stages: ['with soldier', 'received by manager', 'submitted', 'access granted'],
+			trainingTypeId: 'ignored-training',
+			stages: [' with soldier ', '', 'received by manager', ' submitted ', 'access granted'],
 			sortOrder: 1
-		})) as { name: string; stages: string[] };
+		});
 
 		expect(result).toMatchObject({
 			name: 'CAC Card Request',
+			trainingTypeId: null,
 			stages: ['with soldier', 'received by manager', 'submitted', 'access granted']
 		});
 	});
@@ -98,18 +83,140 @@ describe('Onboarding Template Step CRUD', () => {
 	it('creates a training step with trainingTypeId', async () => {
 		const ctx = createWritePortsContext();
 
-		const result = (await stepUseCases.create(ctx, {
+		const result = await createOnboardingTemplateStep(ctx, {
 			templateId: 'tmpl-1',
 			name: 'CPR Certification',
 			stepType: 'training',
-			trainingTypeId: 'tt-cpr',
+			trainingTypeId: ' tt-cpr ',
+			stages: ['ignored stage'],
 			sortOrder: 2
-		})) as { name: string; trainingTypeId: string };
+		});
 
 		expect(result).toMatchObject({
 			name: 'CPR Certification',
-			trainingTypeId: 'tt-cpr'
+			trainingTypeId: 'tt-cpr',
+			stages: null
 		});
+	});
+
+	it('rejects training steps without a Training Type', async () => {
+		const ctx = createWritePortsContext();
+
+		await expect(
+			createOnboardingTemplateStep(ctx, {
+				templateId: 'tmpl-1',
+				name: 'CPR Certification',
+				stepType: 'training',
+				trainingTypeId: null,
+				sortOrder: 2
+			})
+		).rejects.toMatchObject({ status: 400 });
+	});
+
+	it('updates step shape through the lifecycle interface without requiring unrelated fields', async () => {
+		const ctx = createWritePortsContext();
+		ctx.store.seed('onboarding_template_steps', [
+			{
+				id: 'step-1',
+				template_id: 'tmpl-1',
+				name: 'Access Packet',
+				description: null,
+				step_type: 'paperwork',
+				training_type_id: null,
+				stages: ['draft'],
+				sort_order: 0,
+				organization_id: 'test-org'
+			}
+		]);
+
+		const result = await updateOnboardingTemplateStep(ctx, {
+			id: 'step-1',
+			description: '  Bring completed packet  '
+		});
+
+		expect(result).toMatchObject({
+			name: 'Access Packet',
+			description: 'Bring completed packet',
+			stepType: 'paperwork',
+			stages: ['draft']
+		});
+	});
+});
+
+describe('Onboarding Template Step ordering', () => {
+	it('reorders every step in a template as contiguous sort orders', async () => {
+		const ctx = createWritePortsContext();
+		ctx.store.seed('onboarding_template_steps', [
+			{
+				id: 'step-a',
+				template_id: TMPL_ID,
+				name: 'A',
+				step_type: 'checkbox',
+				sort_order: 0,
+				organization_id: 'test-org'
+			},
+			{
+				id: 'step-b',
+				template_id: TMPL_ID,
+				name: 'B',
+				step_type: 'checkbox',
+				sort_order: 1,
+				organization_id: 'test-org'
+			},
+			{
+				id: 'step-c',
+				template_id: TMPL_ID,
+				name: 'C',
+				step_type: 'checkbox',
+				sort_order: 2,
+				organization_id: 'test-org'
+			}
+		]);
+
+		const result = await reorderOnboardingTemplateSteps(ctx, {
+			templateId: TMPL_ID,
+			orderedStepIds: ['step-c', 'step-a', 'step-b']
+		});
+
+		expect(result.map((step) => ({ id: step.id, sortOrder: step.sortOrder }))).toEqual([
+			{ id: 'step-c', sortOrder: 0 },
+			{ id: 'step-a', sortOrder: 1 },
+			{ id: 'step-b', sortOrder: 2 }
+		]);
+		expect(ctx.audit.events.at(-1)).toMatchObject({
+			action: 'onboarding_template_step.reordered',
+			resourceType: 'onboarding_template_step',
+			resourceId: TMPL_ID
+		});
+	});
+
+	it('rejects stale step ordering that omits a template step', async () => {
+		const ctx = createWritePortsContext();
+		ctx.store.seed('onboarding_template_steps', [
+			{
+				id: 'step-a',
+				template_id: TMPL_ID,
+				name: 'A',
+				step_type: 'checkbox',
+				sort_order: 0,
+				organization_id: 'test-org'
+			},
+			{
+				id: 'step-b',
+				template_id: TMPL_ID,
+				name: 'B',
+				step_type: 'checkbox',
+				sort_order: 1,
+				organization_id: 'test-org'
+			}
+		]);
+
+		await expect(
+			reorderOnboardingTemplateSteps(ctx, {
+				templateId: TMPL_ID,
+				orderedStepIds: ['step-b']
+			})
+		).rejects.toMatchObject({ status: 409 });
 	});
 });
 
@@ -123,7 +230,7 @@ describe('Onboarding Template deletion hooks', () => {
 			{ id: 'ts-other', template_id: 'tmpl-other', name: 'Unrelated', organization_id: 'test-org' }
 		]);
 
-		await templateUseCases.remove(ctx, TMPL_ID);
+		await deleteOnboardingTemplate(ctx, TMPL_ID);
 
 		const remaining = await ctx.store.findMany<Record<string, unknown>>('onboarding_template_steps', 'test-org', {});
 		expect(remaining).toHaveLength(1);
@@ -139,7 +246,7 @@ describe('Onboarding Template deletion hooks', () => {
 			{ id: 'ob-3', template_id: 'tmpl-other', personnel_id: 'p-3', status: 'in_progress', organization_id: 'test-org' }
 		]);
 
-		await templateUseCases.remove(ctx, TMPL_ID);
+		await deleteOnboardingTemplate(ctx, TMPL_ID);
 
 		const ob1 = await ctx.store.findOne<Record<string, unknown>>('personnel_onboardings', 'test-org', { id: 'ob-1' });
 		const ob2 = await ctx.store.findOne<Record<string, unknown>>('personnel_onboardings', 'test-org', { id: 'ob-2' });
@@ -159,13 +266,13 @@ describe('Onboarding Template deletion hooks', () => {
 			}
 		});
 
-		await expect(templateUseCases.create(ctx, { name: 'Blocked' })).rejects.toMatchObject({ status: 403 });
+		await expect(createOnboardingTemplate(ctx, { name: 'Blocked' })).rejects.toMatchObject({ status: 403 });
 	});
 
 	it('blocks mutations in read-only mode', async () => {
 		const ctx = createWritePortsContext({ readOnly: true });
 
-		await expect(templateUseCases.create(ctx, { name: 'Blocked' })).rejects.toMatchObject({ status: 403 });
+		await expect(createOnboardingTemplate(ctx, { name: 'Blocked' })).rejects.toMatchObject({ status: 403 });
 	});
 });
 

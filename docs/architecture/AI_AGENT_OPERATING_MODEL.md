@@ -43,15 +43,10 @@ In this mode:
 
 Use these workflows when applicable:
 
-- `v1-retrofit-slice` as the default wrapper for retrofit queue issues
 - `grill-me` when product, UX, architecture, or canonical language intent is unclear
-- `v1-authz-design` for HITL authz, lane, and boundary decision slices
-- `safe-provider-boundary-change` for approved provider-boundary remediation slices
-- `legacy-compat-rename` for terminology cleanup that preserves compatibility
-- `trooptotask-module-deepening` for explicit deep-module slices
-- `adr-from-retrofit-decision` when a settled retrofit decision should become an ADR
 - `improve-codebase-architecture` when the task is explicitly about deepening modules or tightening boundaries
-- `ubiquitous-language` when terminology is shifting or needs tightening
+- `tdd` when a behavior change should be driven through tests at the module seam
+- `to-issues` when a broad remediation plan needs to become bounded implementation issues
 
 When using `grill-me`, ask one question at a time.
 

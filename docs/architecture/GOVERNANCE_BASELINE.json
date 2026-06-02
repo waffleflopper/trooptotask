@@ -15,7 +15,6 @@
 		"docs/architecture/ADR_GUIDANCE.md",
 		"docs/architecture/GOVERNANCE_CHECKS.md",
 		"docs/architecture/LEGACY_AUTHORIZATION_INVENTORY.md",
-		"docs/architecture/V1_RETROFIT_SKILLS_GUIDE.md",
 		"docs/architecture/adrs/0000-template.md"
 	],
 	"routeSupabaseAllowlist": [

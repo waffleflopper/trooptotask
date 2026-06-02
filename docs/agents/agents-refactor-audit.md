@@ -24,7 +24,6 @@ The root file now keeps only:
 - `docs/agents/operating-rules.md`: communication, completion checks, data safety.
 - `docs/agents/svelte.md`: Svelte MCP flow and shadcn-svelte documentation entrypoint.
 - `docs/agents/ui-system.md`: current UI-system contract, route boundaries, shared-component authority.
-- `docs/agents/ui-migration.md`: compatibility pointer for older prompts.
 - `docs/agents/architecture-governance.md`: task-scoped architecture reading list and current guardrails.
 - `docs/agents/feature-organization.md`: path aliases and feature module conventions.
 - `docs/agents/issue-tracker.md`: GitHub issue tracker operations.

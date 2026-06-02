@@ -434,7 +434,7 @@ Rules:
 
 ## `ui/operational-matrix`
 
-`ui/operational-matrix` is a headless-first compound table primitive for dense row-by-column operational workflows. It follows `docs/plans/2026-05-08-headless-operational-matrix-spec.md`.
+`ui/operational-matrix` is a headless-first compound table primitive for dense row-by-column operational workflows.
 
 ```svelte
 <script lang="ts">

@@ -7,7 +7,7 @@ Date: 2026-05-14
 
 ### Current-state truth
 
-- The `/leaders-book` route has been hidden and redirecting since the secondary-route design pass. The Leaders Book PRD (`docs/plans/2026-03-19-leaders-book-redesign-prd.md`) described a standalone per-Soldier admin tool with tabbed Data Sheet, Counselings, Goals, and Training views.
+- The `/leaders-book` route has been hidden and redirecting since the secondary-route design pass.
 - The Personnel detail page (`/org/[orgId]/personnel/[personnelId]`) already surfaces readiness lanes, counseling records, extended info, leader notes, and a follow-ups panel. Issue [#875](https://github.com/waffleflopper/trooptotask/issues/875) adds first-class leader-created follow-ups to this page.
 - ADR 0003 documented that Leader's Book owns counseling records, development goals, and the future remade per-Soldier admin surface, while remaining a Compatibility Lane outside the durable first-class lane map.
 - CONTEXT.md and UBIQUITOUS_LANGUAGE.md still describe Leader's Book as a "transitional compatibility surface" with an open question about whether the remade surface would re-enter the durable lane taxonomy.
@@ -79,7 +79,6 @@ Date: 2026-05-14
 ## Links
 
 - Related PRD:
-  - `docs/plans/2026-03-19-leaders-book-redesign-prd.md` (superseded by this decision)
 - Related issues:
   - [#875](https://github.com/waffleflopper/trooptotask/issues/875)
 - Related ADRs:

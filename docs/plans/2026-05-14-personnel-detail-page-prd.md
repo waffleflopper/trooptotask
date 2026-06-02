@@ -2,7 +2,7 @@
 
 ## Problem Statement
 
-The Personnel detail page at `/org/[orgId]/personnel/[personnelId]` exists as a prototype with hardcoded mock data for readiness lanes, placeholder follow-ups (plain strings), fallback counseling records, and mock extended info. Meanwhile, the Leaders Book route is hidden and redirecting while its redesign PRD (`2026-03-19-leaders-book-redesign-prd.md`) describes a standalone per-Soldier admin tool that would overlap heavily with the Personnel detail page.
+The Personnel detail page at `/org/[orgId]/personnel/[personnelId]` exists as a prototype with hardcoded mock data for readiness lanes, placeholder follow-ups (plain strings), fallback counseling records, and mock extended info.
 
 Leaders need one place to manage a Soldier — not two competing surfaces. The Leaders Book as a separate feature is retired (ADR 0008). Its surviving content moves into the Personnel detail page, which becomes the single per-Soldier leader dashboard.
 
@@ -16,10 +16,6 @@ Rebuild the Personnel detail page as a real leader dashboard for a single Soldie
 - **One per-Soldier surface.** No separate Leaders Book route. Everything about a Soldier lives under Personnel.
 - **Simple filing, not workflows.** Counseling records and documents are storage with metadata. No signature tracking, status workflows, recurrence, or form building.
 - **Follow-ups replace development goals.** One flexible working list covers action items, counseling reminders, award recommendations, and developmental goals.
-
-## Supersedes
-
-- `docs/plans/2026-03-19-leaders-book-redesign-prd.md` — the standalone Leaders Book redesign is superseded by this PRD. Requirements from that document have been evaluated and either absorbed here or deliberately dropped.
 
 ## Related Decisions
 

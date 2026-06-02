@@ -91,7 +91,7 @@ Focus entries:
   - exact migration shape from current booleans into the replacement capability map
   - exact storage and RLS rollout for true multi-group scope
 - Suggested next skill or planning mode:
-  - `adr-from-retrofit-decision` then `tdd` for staged implementation slices
+  - `grill-me` for unresolved policy shape, then `tdd` for staged implementation slices
 
 ## C-02 Provider Boundary Hardening
 
@@ -113,7 +113,7 @@ Focus entries:
   - which remaining route clusters should move first after admin/platform operations
   - what intermediate adapter shapes make the migration safest
 - Suggested next skill or planning mode:
-  - `safe-provider-boundary-change`
+  - `tdd` for approved provider-boundary implementation slices
 
 ## C-03 Legacy Clinic Language Migration
 
@@ -134,7 +134,7 @@ Focus entries:
   - where a future runtime compatibility alias or abstraction should live during migration
   - when API and schema naming should be eligible for a real rename plan
 - Suggested next skill or planning mode:
-  - `legacy-compat-rename`, then `grill-me` if a repo-wide rename plan becomes in scope
+  - `grill-me` if a repo-wide rename plan becomes in scope
 
 ## C-04 Feature-Lane Separation
 
@@ -163,7 +163,7 @@ Focus entries:
 - Open questions:
   - when the remade `Leader's Book` should re-enter the durable lane taxonomy through a later ADR or equivalent review
 - Suggested next skill or planning mode:
-  - `retrofit-slice-audit` for `#627`, then `grill-me` plus `adr-from-retrofit-decision` again if the remade `Leader's Book` needs a later lane-taxonomy review
+  - `grill-me` if a future feature-lane addition needs a new lane-taxonomy decision
 
 ## C-05 Deep Module Reviews
 
@@ -179,7 +179,3 @@ Focus entries:
   - which cluster should be deepened first for the best leverage
 - Suggested next skill or planning mode:
   - `improve-codebase-architecture`
-
-  - when schema and RPC cleanup can land without blocking support or ops workflows
-- Suggested next skill or planning mode:
-  - `adr-from-retrofit-decision` once ADR-05 is concrete enough to ratify the staged removal order

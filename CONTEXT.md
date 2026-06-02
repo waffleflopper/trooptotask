@@ -140,10 +140,6 @@ _Avoid_: Shared permission bucket
 The durable permission owner for a feature, independent of temporary route, page, or screen placement.
 _Avoid_: Current page nesting
 
-**Compatibility Lane**:
-A temporary permission surface kept during migration so legacy flows still work while the durable lane map is remediated.
-_Avoid_: Durable feature lane
-
 **Group Scope**:
 The current single-group restriction stored through `scoped_group_id`.
 _Avoid_: Team leader role, future scope set
@@ -362,12 +358,8 @@ _Avoid_: Route-owned Critical Tasks settings query, generic layout helper
 The feature for template-driven in-processing workflows and onboarding progress.
 _Avoid_: Checklist feature
 
-**Leader's Book**:
-Retired. Formerly the transitional compatibility surface for counseling records, development goals, and per-Soldier administrative workflows. Its surviving content (counseling records, extended info / Soldier Data Sheet, follow-ups, leader notes) has been absorbed by **Personnel**. See ADR 0008.
-_Avoid_: Any new feature work, route, or permission lane under this name
-
 **Follow-Up**:
-A leader-created action item tied to a **Soldier** on the Personnel detail page. Covers counseling reminders, award recommendations, developmental goals, and any other leader working-list item. Replaces the former development goals concept.
+A leader-created action item tied to a **Soldier** on the Personnel detail page. Covers counseling reminders, award recommendations, developmental goals, and any other leader working-list item.
 _Avoid_: Development goal, task, to-do
 
 **Leader Note**:
@@ -380,11 +372,11 @@ _Avoid_: UUID in URL, rank in slug
 
 **Soldier Data Sheet**:
 The expanded extended info section on the Personnel detail page containing emergency contact, spouse, vehicle, address, personal contact, blood type, BASD, date of rank, marital status, dependents/children, civilian education, and military education. The digital equivalent of the traditional Army Soldier Data Sheet.
-_Avoid_: Leaders Book data sheet, extended info when discussing the full concept
+_Avoid_: Extended info when discussing the full concept
 
 **Rating Scheme**:
 The active v1 surface for evaluation-tracking records and workflows for rated individuals, exposed through the Evals route with its own durable lane ownership.
-_Avoid_: Personnel metadata, leaders-book-only data
+_Avoid_: Personnel metadata
 
 **Evals**:
 The primary navigation label and route surface for **Rating Scheme** workflows.
@@ -455,7 +447,6 @@ _Avoid_: Compliance status, readiness, training status, ICT status when the shar
 - The **Policy Evaluator** should be pure and provider-agnostic; provider-specific data loading belongs in a **Policy Adapter**.
 - The **Policy Evaluator** should receive already-loaded facts such as actor role, **Capability Map**, **Scope Set**, resource context, and **Policy Overlays**.
 - The durable first-class **Feature Lanes** are **Calendar**, **Personnel**, **Training**, **Critical Tasks**, **Onboarding**, and **Rating Scheme**.
-- **Leader's Book** is retired and fully removed. It is no longer a **Compatibility Lane** or part of any lane taxonomy. See ADR 0008.
 - **Counseling Records**, **Documents**, **Follow-Ups**, **Leader Notes**, and the **Soldier Data Sheet** are owned by the **Personnel** lane.
 - **Lane Ownership** does not change just because a feature is temporarily rendered inside another page or route shell.
 - **Organization Governance Actions** stay with `admin` and `owner`, while ownership transfer and destructive organization-danger actions stay `owner`-only.
@@ -622,7 +613,6 @@ _Avoid_: Compliance status, readiness, training status, ICT status when the shar
 - Training report CSV export uses the full filtered and sorted **Training Report Matrix** instead of the current paginated detail slice.
 - Training Type column sorting in Training reports preserves the existing status severity order: expired, warning-orange, warning-yellow, not-completed, current, not-required, exempt.
 - **Training Report Matrix** construction belongs in the **Training** report calculation layer, while server queries orchestrate authorization, data loading, filtering, sorting, pagination, and export output.
-- **Leader's Book** is retired. Do not create new features, routes, or permission surfaces under this name. Its content has been absorbed by **Personnel** (see ADR 0008).
 - **Lane Ownership** is not the same thing as route placement or nav treatment.
 - **Rating Scheme** is not just a detail inside **Personnel**; it owns evaluation-tracking records and workflows.
 - **Evals** is a navigation and route label, not the canonical domain term for the records.

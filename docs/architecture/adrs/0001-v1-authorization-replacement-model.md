@@ -14,16 +14,15 @@ Date: 2026-04-21
 - Current UI presets such as `Admin`, `Full Editor`, `Team Leader`, `Viewer`, and `Custom` are convenience shapes over that boolean-and-scope model. They are not persisted first-class authorization concepts.
 - Explainability is weak today because labels such as `Full Editor` and `Team Leader` are reverse-engineered from expanded booleans and scope rather than recorded as durable access concepts.
 - At acceptance time, the feature-lane contract was coarse:
-  - the core route/auth contract still exposes `calendar`, `personnel`, `training`, `onboarding`, and `leaders-book`
-  - Critical Tasks still borrows the Training lane
-  - Rating Scheme spanned borrowed lanes, with its route shell on Leaders Book permissions while core CRUD enforced Personnel edit access
+  - Critical Tasks still borrowed the Training lane
+  - Rating Scheme did not yet own a dedicated lane
 - Group scoping is currently single-group only in storage, runtime helpers, and RLS through `scoped_group_id`.
 - Platform admin uses a separate role system (`super_admin`, `support`, `billing`) and is not part of organization-membership authorization.
 
 ### Decision pressure
 
 - Issue [#614](https://github.com/waffleflopper/trooptotask/issues/614) requires a concrete replacement v1 authorization model and migration plan without implementing runtime authz changes in this slice.
-- Drift entries `D-01`, `D-03`, and `D-04` all depend on a shared source of truth before implementation slices can land safely.
+- Drift entries `D-01` and `D-03` depend on a shared source of truth before implementation slices can land safely.
 
 ## Decision
 
@@ -70,7 +69,6 @@ Date: 2026-04-21
   - `critical-tasks`
   - `onboarding`
   - `rating-scheme`
-- Treat `Leader's Book` as a documented transitional compatibility lane while its remake is pending. It remains real current-state authz surface area, but it should not dictate the durable preset taxonomy or long-term lane design.
 - Require every member's effective access to remain explainable as:
   - fixed governance role
   - assigned preset
@@ -99,7 +97,6 @@ Date: 2026-04-21
 
 - Do not invent partial-admin member shapes.
 - Do not introduce per-feature scope matrices.
-- Do not deepen `Leader's Book` as a durable default while its remake remains unsettled.
 - Continue documenting the current boolean-and-`scoped_group_id` model honestly until implementation slices replace it.
 - Do not leave current permission flags or single-group scope in place as a long-lived compatibility substrate for migrated authorization workflows.
 - Treat Critical Tasks and Rating Scheme lane borrowing as drift until dedicated implementation slices remove those couplings.
@@ -116,12 +113,11 @@ Date: 2026-04-21
   - the repo will temporarily carry both current-state booleans and the approved target model while vertical slices migrate workflows
   - follow-up slices still need to define exact `operate` versus `configure` actions per feature
   - action catalog granularity will need active stewardship so it does not drift into button-level permissions or broad catch-all feature edits
-  - `Leader's Book` remains a transitional compatibility concern rather than a fully resolved boundary
 - New risks or migration costs:
   - multi-group scope and capability-map storage need careful migration and RLS work
   - production rollout of member-access storage required careful lock-risk and chunked-backfill handling; that backfill has since completed and the legacy permission columns were dropped (`supabase/migrations/20260526000300_drop_legacy_member_access_columns.sql`)
   - docs can outrun implementation if follow-up slices do not land in a staged way
-  - lane separation work must avoid pretending Rating Scheme and Leaders Book boundaries are already clean
+  - lane separation work must keep Rating Scheme independently owned
 
 ## Rollout And Follow-Up
 
@@ -129,7 +125,6 @@ Date: 2026-04-21
 - Implementation should be split into vertical authorization issues rather than a long-lived compatibility shell over the old permission system.
 - Vertical authorization slices should cover:
   - explicit feature-lane mapping and documentation against this ADR
-  - `Leader's Book` versus `Rating Scheme` boundary decisions
   - Critical Tasks lane separation from Training
   - Rating Scheme lane separation from borrowed adjacent lanes
   - multi-group scope storage and RLS expansion
@@ -144,7 +139,7 @@ Date: 2026-04-21
 ## Links
 
 - Related issue: [#614](https://github.com/waffleflopper/trooptotask/issues/614)
-- Related drift IDs: `D-01`, `D-03`, `D-04`
+- Related drift IDs: `D-01`, `D-03`
 - Related docs:
   - `docs/architecture/AUTHORIZATION_AND_PROVIDER_BOUNDARIES.md`
   - `docs/architecture/DRIFT_LEDGER.md`

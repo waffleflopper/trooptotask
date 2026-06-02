@@ -85,7 +85,6 @@ Focus entries:
   - existing organizations and memberships
   - current route and feature surface availability
   - the first implementation wave may preserve current single-group compatibility while the storage and RLS migration lands later
-  - `Leader's Book` remains a documented transitional compatibility lane while remake decisions are still pending
 - Open questions:
   - exact per-feature mapping of `operate` versus `configure`
   - exact migration shape from current booleans into the replacement capability map
@@ -135,35 +134,6 @@ Focus entries:
   - when API and schema naming should be eligible for a real rename plan
 - Suggested next skill or planning mode:
   - `grill-me` if a repo-wide rename plan becomes in scope
-
-## C-04 Feature-Lane Separation
-
-- Current-state truth:
-  - the core route/auth contract still only exposes coarse feature lanes
-  - Critical Tasks now owns its dedicated lane across the shared route/auth contract, membership flags, and RLS
-  - Rating Scheme now owns its dedicated lane across the shared route/auth contract, membership and invitation flags, first-class Evals route access, and RLS-backed scoped record checks
-  - Rating Scheme already stores evaluation-tracking records that are distinct from counseling and development-goal records
-  - Rating Scheme now renders through the Evals primary nav route instead of the Personnel page
-  - `Leader's Book` is hidden from primary nav and redirected during redesign, but its permissions and compatibility paths still exist
-- Why this is unsatisfying:
-  - feature boundaries and audits stay muddy
-- Intended v1 direction:
-  - the intended first-class v1 lanes are `calendar`, `personnel`, `training`, `critical-tasks`, `onboarding`, and `rating-scheme`
-  - the lane map covers product feature surfaces only; governance, billing, member-management, and platform concerns stay outside it
-  - `Leader's Book` remains a documented transitional compatibility lane until its remake shape is settled, and it is not part of the current durable first-class lane map
-  - `Rating Scheme` owns evaluation-tracking records and workflows and should be independently grantable from both `Personnel` and `Leader's Book`
-  - `Leader's Book` owns counseling records, development goals, and the remade per-Soldier leader-reference or administrative surface
-  - `Personnel` owns roster administration, but Rating Scheme may use app-owned roster reference queries without borrowing the Personnel lane
-  - route placement and current primary-nav visibility do not define lane ownership during the current transition
-  - each first-class lane should own its own capability levels inside the shared member capability map
-- Constraints to preserve:
-  - no fake feature split that the rest of the codebase cannot support yet
-  - do not let the transitional `Leader's Book` state block the approved authz direction
-  - do not treat route placement or current `Leader's Book` compatibility wiring as permission precedent
-- Open questions:
-  - when the remade `Leader's Book` should re-enter the durable lane taxonomy through a later ADR or equivalent review
-- Suggested next skill or planning mode:
-  - `grill-me` if a future feature-lane addition needs a new lane-taxonomy decision
 
 ## C-05 Deep Module Reviews
 

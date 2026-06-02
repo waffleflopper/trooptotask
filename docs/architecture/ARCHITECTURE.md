@@ -52,7 +52,6 @@ This is a v1 document. It should describe the current SvelteKit repo honestly in
 - Current permission lanes still carry some historical complexity:
   - Critical Tasks now owns a dedicated permission lane
   - Rating Scheme now owns a dedicated permission lane across route guards, membership and invitation flags, RLS, and the first-class Evals route
-  - historical migrations and ADRs still mention the retired Leader's Book lane for auditability
   - Personnel now owns the surviving per-Soldier counseling, notes, follow-up, and document workflows
 
 ### Provider ownership
@@ -69,7 +68,6 @@ This is a v1 document. It should describe the current SvelteKit repo honestly in
 ### Product surface reality
 
 - `Critical Tasks` is a real feature surface with its own UI and workflow identity.
-- Leader's Book is retired as an active product surface. Historical ADRs and superseded plans still mention it for auditability, but current per-Soldier workflows live under Personnel.
 - `Rating Scheme` is active and user-visible through the Evals primary nav route and owns a dedicated permission lane.
 
 ## Intended Guardrails Going Forward
@@ -123,7 +121,6 @@ This is a v1 document. It should describe the current SvelteKit repo honestly in
 - Critical Tasks now owns its dedicated lane; remaining Critical Tasks drift is module/provider-specific, not lane ownership.
 - Rating Scheme now owns its dedicated lane and a first-class Evals route; remaining drift is module/provider-specific, not lane ownership.
 - `clinicRole` and other clinic-era names still appear in schema and code.
-- Historical Leader's Book migrations and ADRs remain for auditability, but active per-Soldier workflows are Personnel-owned.
 
 ## Not Precedent
 

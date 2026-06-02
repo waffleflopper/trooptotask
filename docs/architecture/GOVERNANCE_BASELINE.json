@@ -362,7 +362,7 @@
 				"can_edit_*"
 			],
 			"ownerIssue": "#891",
-			"reason": "Leader's Book retirement migration historically redefines the existing sensitive-file storage helper API so counseling attachment reads and writes dispatch to Personnel helpers before the old Leaders Book helpers are dropped.",
+			"reason": "Historical migration redefines the existing sensitive-file storage helper API so counseling attachment reads and writes dispatch to Personnel helpers before obsolete helpers are dropped.",
 			"driftIds": [
 				"D-01"
 			]
@@ -375,7 +375,7 @@
 				"can_manage_members"
 			],
 			"ownerIssue": "#891",
-			"reason": "Leader's Book retirement repair migration historically redefines the existing Groups RLS helper API so Personnel bootstrap can read groups through durable member-access capabilities instead of dropped Leaders Book flags.",
+			"reason": "Historical repair migration redefines the existing Groups RLS helper API so Personnel bootstrap can read groups through durable member-access capabilities instead of obsolete flags.",
 			"driftIds": [
 				"D-01"
 			]

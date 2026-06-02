@@ -2462,6 +2462,42 @@ describe('updateOrganizationMemberAccess', () => {
 		expect(port.updatedMemberships).toEqual([]);
 	});
 
+	it('returns not found before updating access for stale memberships', async () => {
+		const ctx = createTestContext({
+			auth: {
+				userId: 'owner-1',
+				orgId: 'org-1',
+				role: 'owner'
+			}
+		});
+		const port = createOrganizationSettingsMemberManagementPort({ membership: null });
+
+		await expect(
+			updateOrganizationMemberAccess(
+				{
+					auth: ctx.auth,
+					audit: ctx.audit,
+					notifications: ctx.notifications,
+					settings: port,
+					sensitiveActionAuthorizer: ctx.sensitiveActionAuthorizer
+				},
+				{
+					membershipId: '11111111-1111-4111-8111-111111111111',
+					membershipRole: 'member',
+					memberAccess: memberAccess(),
+					actorEmail: 'owner@example.com'
+				}
+			)
+		).rejects.toMatchObject({
+			status: 404,
+			message: 'Membership not found'
+		});
+
+		expect(port.membershipLookups).toEqual([{ orgId: 'org-1', membershipId: '11111111-1111-4111-8111-111111111111' }]);
+		expect(port.updatedMemberships).toEqual([]);
+		expect(ctx.auditPort.events).toEqual([]);
+	});
+
 	it('requires recent assurance before granting admin access', async () => {
 		const ctx = createTestContext({
 			auth: {

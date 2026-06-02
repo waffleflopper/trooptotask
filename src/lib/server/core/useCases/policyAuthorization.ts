@@ -1,11 +1,11 @@
 import type { PolicyAction, PolicyDecision, PolicyResource } from '$lib/access/policyEvaluator';
 import type { ScopeSet } from '$lib/access/memberAccessShape';
-import type { AuditPort, AuthContext, ReadOnlyGuard } from '$lib/server/core/ports';
-import { evaluateAuthoritativePolicyDecision } from './policyAdapter';
+import type { AuditPort, ReadOnlyGuard } from '$lib/server/core/ports';
+import { evaluateAuthoritativePolicyDecision, type PolicyAdapterPorts } from './policyAdapter';
 import { denyPolicyDecision, policyDenialAuditDetails, type PolicyDenialAuditDetailsOptions } from './policyDenial';
 
 interface PolicyPorts {
-	auth: Pick<AuthContext, 'role' | 'capabilityMap' | 'scopeSet'> & Partial<Pick<AuthContext, 'userId'>>;
+	auth: PolicyAdapterPorts['auth'];
 	audit: AuditPort;
 	readOnlyGuard?: ReadOnlyGuard;
 }

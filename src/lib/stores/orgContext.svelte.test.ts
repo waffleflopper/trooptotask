@@ -70,19 +70,45 @@ describe('createOrgContext', () => {
 	});
 
 	it('can reflect updated layout data through an accessor input', () => {
-		let input = makeInput({ orgId: 'org-1', orgName: 'Alpha Co', userRole: 'member' });
+		let input = makeInput({
+			orgId: 'org-1',
+			orgName: 'Alpha Co',
+			userRole: 'member',
+			capabilityMap: {
+				calendar: 'view',
+				personnel: 'none',
+				training: 'none',
+				criticalTasks: 'none',
+				onboarding: 'none',
+				ratingScheme: 'none'
+			}
+		});
 
 		const ctx = createOrgContext(() => input);
 
 		expect(ctx.orgId).toBe('org-1');
 		expect(ctx.orgName).toBe('Alpha Co');
 		expect(ctx.isAdmin).toBe(false);
+		expect(ctx.hasCapability('calendar', 'operate')).toBe(false);
 
-		input = makeInput({ orgId: 'org-2', orgName: 'Bravo Co', userRole: 'admin' });
+		input = makeInput({
+			orgId: 'org-2',
+			orgName: 'Bravo Co',
+			userRole: 'admin',
+			capabilityMap: {
+				calendar: 'operate',
+				personnel: 'none',
+				training: 'none',
+				criticalTasks: 'none',
+				onboarding: 'none',
+				ratingScheme: 'none'
+			}
+		});
 
 		expect(ctx.orgId).toBe('org-2');
 		expect(ctx.orgName).toBe('Bravo Co');
 		expect(ctx.isAdmin).toBe(true);
+		expect(ctx.hasCapability('calendar', 'operate')).toBe(true);
 	});
 
 	it('handles null userId', () => {

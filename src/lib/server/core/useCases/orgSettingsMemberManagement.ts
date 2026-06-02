@@ -796,6 +796,10 @@ export async function updateOrganizationMemberAccess(
 	const actorUserId = requireActorUserId(ports.auth);
 	const targetMembership = await ports.settings.findMembershipById(ports.auth.orgId, input.membershipId);
 
+	if (!targetMembership) {
+		fail(404, 'Membership not found');
+	}
+
 	if (targetMembership?.role === 'owner') {
 		fail(400, 'Cannot modify owner access');
 	}

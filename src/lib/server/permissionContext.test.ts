@@ -225,6 +225,6 @@ describe('createPermissionContextFromMembership', () => {
 			access_scope_group_ids: []
 		});
 
-		expect(ctx.capabilityMap.criticalTasks).not.toBe('configure');
+		expect(ctx.capabilityMap.criticalTasks).toBe('none');
 	});
 });

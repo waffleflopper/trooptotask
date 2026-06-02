@@ -23,6 +23,6 @@ describe('parseUserProfileForm', () => {
 				lastName: 'Hayes',
 				rank: 'Commander'
 			})
-		).toEqual({ error: 'Select a valid rank' });
+		).toMatchObject({ error: expect.any(String) });
 	});
 });

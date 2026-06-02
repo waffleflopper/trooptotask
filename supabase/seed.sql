@@ -155,25 +155,11 @@ INSERT INTO "auth"."identities" ("provider_id", "user_id", "identity_data", "pro
 
 
 --
--- Data for Name: registration_invites; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-INSERT INTO "public"."registration_invites" ("id", "code", "email", "used_by", "used_at", "expires_at", "created_by", "created_at") VALUES
-	('cfe7797b-1b96-48a1-9f62-cfbb53dcc20e', 'supabase-invite-1776368107231', 'requester-renew-1776368106275@example.test', NULL, NULL, NULL, '983ec9c1-ed13-471a-9437-6f9cf66d5b39', '2026-04-16 19:35:07.232228+00'),
-	('3cc31a68-6804-4ad3-8294-33c344615368', 'supabase-invite-1776368107938', 'requester-invite-1776368107587@example.test', '9405cf43-3cb5-46c6-a74f-a0f6e253faea', '2026-04-16 19:35:08.496+00', NULL, 'a945f9f5-42b9-4f18-9306-0e17613fce42', '2026-04-16 19:35:07.939233+00'),
-	('aa73a5b5-2462-48da-8eaf-00bfb7146f36', 'supabase-invite-1776368109353', 'requester-recovery-1776368109003@example.test', 'd054e2d2-9896-4b77-9fb2-c4361d62c464', '2026-04-16 19:35:10.185+00', NULL, '159e5566-c142-41f7-a471-dda1d6ab18a5', '2026-04-16 19:35:09.35424+00'),
-	('83761071-9488-46aa-bcda-e36fe3a01951', 'supabase-invite-1776368290001', 'requester-renew-1776368289061@example.test', NULL, NULL, NULL, '7bfd0fa8-76a4-4a80-a843-345902bb1697', '2026-04-16 19:38:10.001603+00'),
-	('4e441d7b-0682-4063-a410-19259eab6a3d', 'supabase-invite-1776368290691', 'requester-invite-1776368290329@example.test', 'ba546de3-6646-4518-afdf-fa8a16caa26b', '2026-04-16 19:38:11.331+00', NULL, 'dbbdf611-98e9-4bbf-a304-ff36f021fd90', '2026-04-16 19:38:10.691188+00'),
-	('5ca5f5ab-933a-466c-8375-ba29f1fa5946', 'supabase-invite-1776368292202', 'requester-recovery-1776368291850@example.test', '04685dc0-3f10-4bb9-af9f-22069ce23c7f', '2026-04-16 19:38:13.067+00', NULL, 'e238b44b-85c0-4271-939f-55143fc80c04', '2026-04-16 19:38:12.202018+00'),
-	('5828a054-7175-44b1-b7e9-ec2cc7c74624', 'supabase-invite-1776368895944', 'localdev@test.com', '368c9ed1-8b6e-46f3-ac17-277b022006dd', '2026-04-16 19:49:05.744+00', NULL, 'a66f8bd7-92e1-416e-9dbe-11da5a7f7f3c', '2026-04-16 19:48:15.945732+00');
-
-
---
 -- Data for Name: access_requests; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-INSERT INTO "public"."access_requests" ("id", "email", "name", "reason", "status", "reviewed_by", "reviewed_at", "invite_id", "created_at") VALUES
-	('284ebdbf-93aa-418b-89d9-97c80261d0dc', 'localdev@test.com', 'LocalDev', 'merrr', 'approved', 'a66f8bd7-92e1-416e-9dbe-11da5a7f7f3c', '2026-04-16 19:48:15.95+00', '5828a054-7175-44b1-b7e9-ec2cc7c74624', '2026-04-16 19:45:19.715958+00');
+INSERT INTO "public"."access_requests" ("id", "email", "name", "reason", "status", "reviewed_by", "reviewed_at", "created_at") VALUES
+	('284ebdbf-93aa-418b-89d9-97c80261d0dc', 'localdev@test.com', 'LocalDev', 'merrr', 'approved', 'a66f8bd7-92e1-416e-9dbe-11da5a7f7f3c', '2026-04-16 19:48:15.95+00', '2026-04-16 19:45:19.715958+00');
 
 
 --

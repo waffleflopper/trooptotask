@@ -14,6 +14,7 @@ Date: 2026-05-18
 - When the link expires, Supabase may already have a partial **User Account**, which makes the recovery path feel like password reset even though the recipient thinks they are still trying to register.
 - `/auth/renew-invite` already provides a self-service escape hatch for approved incomplete requests, but the default approval link still creates avoidable expiry pressure.
 - The legacy `/auth/register` invite-code path no longer has known unused codes in the wild.
+- Follow-up update, 2026-06-01: `/auth/register`, `registration_invites`, and `access_requests.invite_id` were fully removed.
 - **Access Requests** exist for beta-period platform access control and cost control by the developer, not as a permanent replacement for organization governance.
 
 ### Decision pressure
@@ -40,7 +41,7 @@ Date: 2026-05-18
 - Existing **Organization Invitation** and membership acceptance behavior remains a separate organization-governance workflow.
 - `/auth/renew-invite` becomes the self-service path for fresh **Account Setup Links** when a setup link expires or is replaced.
 - `/auth/request-access` should route duplicate approved-but-incomplete emails into fresh setup delivery instead of creating another pending request.
-- `/auth/register` invite-code registration is deprecated and should redirect to the new request/setup paths rather than remaining a parallel registration system.
+- `/auth/register` invite-code registration is deprecated and should not remain a parallel registration system.
 - Cleanup should revoke or delete stale setup-link records. It should not delete **Access Requests** or Supabase **User Accounts** by default.
 
 ## Rejected Or Deferred Alternatives
@@ -92,7 +93,7 @@ Date: 2026-05-18
 - Update approval and resend actions to create **Account Setup Links** instead of calling `inviteUserByEmail` as the main path.
 - Build `/auth/setup-account` to validate setup tokens and create or activate Supabase **User Accounts** after password entry.
 - Convert `/auth/renew-invite` into the fresh setup-link request path.
-- Convert `/auth/register` into a redirect or handoff route for request access, setup renewal, and login.
+- Remove `/auth/register` once legacy invite-code links no longer need a handoff route.
 - Update request-access copy so the user understands the 14-day setup window and the fresh-link path.
 - Add cleanup for stale setup-link records.
 - Keep tests around expired links, replaced links, duplicate requests, existing-user compatibility, and setup completion.

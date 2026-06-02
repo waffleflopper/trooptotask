@@ -17,7 +17,6 @@ const ORGANIZATION_EXPORT_EXCLUDED_TABLES = [
 	'development_goals',
 	'platform_admins',
 	'platform_announcements',
-	'registration_invites',
 	'stripe_webhook_events',
 	'user_profiles',
 	'user_suspensions'

@@ -61,13 +61,15 @@ function renderTemplatesPage({
 } = {}) {
 	return render(Page, {
 		props: {
+			params: { orgId: 'org-1' },
 			data: {
 				session: null,
 				orgId: 'org-1',
 				templates,
 				templateSteps,
 				trainingTypes: []
-			}
+			},
+			form: null
 		}
 	});
 }
@@ -149,7 +151,7 @@ describe('onboarding templates page', () => {
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Duplicate Template' }));
 
-		await waitFor(() => expect(screen.getByText('Standard Arrival Copy')).toBeTruthy());
+		await waitFor(() => expect(screen.getAllByText('Standard Arrival Copy').length).toBeGreaterThan(0));
 		expect(screen.getByRole('button', { name: 'Duplicate Standard Arrival Copy' })).toBeTruthy();
 		expect(fetchMock).toHaveBeenCalledWith('/org/org-1/api/onboarding-templates/template-1/duplicate', {
 			method: 'POST'

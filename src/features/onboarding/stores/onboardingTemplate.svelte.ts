@@ -170,11 +170,11 @@ export function createOnboardingTemplateWorkspace(input: {
 	data: OnboardingTemplateWorkspaceData;
 	adapter?: OnboardingTemplateWorkspaceAdapter;
 }): OnboardingTemplateWorkspace {
-	return new OnboardingTemplateWorkspace(
-		input.organization,
-		input.data,
-		input.adapter ?? createOnboardingTemplateWorkspaceHttpAdapter(() => input.organization.routeSegment)
-	);
+	const workspace = new OnboardingTemplateWorkspace(input.organization, input.data, input.adapter);
+	if (!input.adapter) {
+		workspace.setAdapter(createOnboardingTemplateWorkspaceHttpAdapter(() => workspace.organization.routeSegment));
+	}
+	return workspace;
 }
 
 export function createOnboardingTemplateWorkspaceHttpAdapter(
@@ -266,14 +266,26 @@ export class OnboardingTemplateWorkspace {
 	#savingStep = $state(false);
 	#duplicatingTemplateId = $state<string | null>(null);
 	#error = $state<OnboardingTemplateWorkspaceError | null>(null);
+	#adapter!: OnboardingTemplateWorkspaceAdapter;
 
 	constructor(
 		organization: OnboardingTemplateWorkspaceOrganization,
 		data: OnboardingTemplateWorkspaceData,
-		private readonly adapter: OnboardingTemplateWorkspaceAdapter
+		adapter?: OnboardingTemplateWorkspaceAdapter
 	) {
 		this.organization = organization;
 		this.replaceData(data);
+		if (adapter) {
+			this.#adapter = adapter;
+		}
+	}
+
+	setAdapter(adapter: OnboardingTemplateWorkspaceAdapter): void {
+		this.#adapter = adapter;
+	}
+
+	private get adapter(): OnboardingTemplateWorkspaceAdapter {
+		return this.#adapter;
 	}
 
 	get model(): OnboardingTemplateWorkspaceModel {

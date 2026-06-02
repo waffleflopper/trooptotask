@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
 	createOnboardingTemplateWorkspace,
 	createOnboardingTemplateWorkspaceHttpAdapter,
@@ -70,6 +70,10 @@ const trainingTypes: TrainingType[] = [
 		isOptional: false
 	}
 ];
+
+afterEach(() => {
+	onboardingTemplateStore.load([], [], '');
+});
 
 describe('onboardingTemplateStore hydration reads', () => {
 	it('loads templates and steps for active Onboarding consumers', () => {

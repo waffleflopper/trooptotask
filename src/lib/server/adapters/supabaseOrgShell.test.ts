@@ -113,8 +113,6 @@ describe('createSupabaseOrgAccessPort', () => {
 		expect(selectCall?.args[0]).toBe(
 			'id, role, member_preset, capability_overrides, access_scope_kind, access_scope_group_ids'
 		);
-		expect(selectCall?.args[0]).not.toContain('can_view_calendar');
-		expect(selectCall?.args[0]).not.toContain('scoped_group_id');
 		expect(result).toEqual({
 			orgId: 'org-1',
 			membershipId: 'membership-1',

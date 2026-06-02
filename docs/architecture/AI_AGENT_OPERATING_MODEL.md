@@ -54,7 +54,7 @@ When using `grill-me`, ask one question at a time.
 
 - Treat `Organization` and `Group` as canonical v1 nouns.
 - Do not back-port v2 `Account` / `Unit` / `Element` terminology into v1 current-state docs or code.
-- Treat the current boolean-heavy authz implementation as tolerated current-state, not desired precedent.
+- Keep member authorization on stored presets, per-lane capabilities, shared scope sets, and policy overlays.
 - Do not add new direct `locals.supabase` business logic outside auth-provider edges, ports/adapters, or an explicitly approved remediation slice.
 - Do not create new feature-permission piggybacking.
 - Preserve compatibility with legacy clinic-era names, but prefer the Army/military-oriented canonical term in docs, product copy, and new abstractions.

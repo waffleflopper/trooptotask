@@ -83,7 +83,7 @@ describe('CalendarSettingsPage', () => {
 		expect(screen.getByRole('link', { name: 'View calendar' }).getAttribute('href')).toBe('/org/org-1/calendar');
 	});
 
-	it('allows Calendar configure capability without full-editor compatibility', () => {
+	it('allows Calendar configure capability', () => {
 		orgContextMock.isPrivileged = false;
 		orgContextMock.affordanceForFeatureAction.mockReturnValue({ allowed: true, visible: true, disabled: false });
 

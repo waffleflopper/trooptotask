@@ -4,18 +4,6 @@ import { getAdminClient } from './supabase';
 
 export type AdminRole = 'super_admin' | 'support' | 'billing';
 
-export async function isPlatformAdmin(supabase: SupabaseClient, _userId: string): Promise<boolean> {
-	// Use the database function which is SECURITY DEFINER and bypasses RLS
-	const { data, error: err } = await supabase.rpc('is_platform_admin');
-
-	if (err) {
-		console.error('Error checking platform admin status:', err);
-		return false;
-	}
-
-	return data === true;
-}
-
 const PAGE_ACCESS: Record<string, AdminRole[]> = {
 	dashboard: ['super_admin', 'support', 'billing'],
 	users: ['super_admin', 'support'],

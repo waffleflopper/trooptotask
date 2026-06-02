@@ -9,30 +9,6 @@ Each entry separates:
 - why the gap matters
 - how contributors should behave until remediation lands
 
-## D-01 Authorization Model
-
-- Current-state truth:
-  - membership role is `owner`, `admin`, or `member`
-  - migrated Policy Decision workflows now use stored member presets, capability overrides, and shared scope sets as their active runtime inputs
-  - legacy per-feature storage booleans plus `scoped_group_id` have been removed from memberships and invitations; historical migrations still name them for audit and transition history
-  - UI presets and derived labels are convenience shapes over that model
-  - platform admin uses a separate role system outside organization-membership authz
-- Intended direction:
-  - keep `owner`, `admin`, and `member` as the fixed organization-governance roles
-  - model member access as an assigned preset plus per-feature capability map, shared scope set, and explicit policy overlays
-  - use `Viewer`, `Operator`, and `Editor` as the starter member presets
-  - use per-lane capability levels of `none`, `view`, `operate`, and `configure`
-  - preserve preset lineage and explicit overrides for auditability
-- Why this matters:
-  - the current model is harder to audit, explain, evolve, and decouple from coarse early assumptions
-  - hidden partial-admin behavior and reverse-engineered labels would make the replacement model harder to trust
-- Guardrail until fixed:
-  - document the current model honestly, but do not deepen it by accident
-  - do not invent partial-admin member shapes or per-feature scope matrices
-  - do not reintroduce legacy permission flags or `scoped_group_id` as active authorization checks for migrated Policy Decision workflows
-- Recommended next slice:
-  - re-run `improve-codebase-architecture` on the remaining org-shell route-data compatibility fields and helper-name compatibility surface once the database-column removal migration is released
-
 ## D-02 Provider-Boundary Leaks
 
 - Current-state truth:
@@ -59,32 +35,6 @@ Each entry separates:
   - the earlier Training piggyback made feature ownership and authz audits harder to explain
 - Guardrail going forward:
   - do not re-borrow the Training lane for Critical Tasks behavior, exports, or route access
-
-## D-04 Rating Scheme And Leaders Book Coupling (Resolved In #627)
-
-- Current-state truth:
-  - Rating Scheme is active
-  - its record model already represents evaluation-tracking records rather than counseling or development-goal records
-  - it now uses its own dedicated lane across route guards, CRUD, membership and invitation booleans, and scoped RLS checks
-  - it now renders through the first-class Evals primary nav route, without requiring Personnel access
-  - `Leader's Book` still exists in permissions, help, dashboard links, exports, settings, and plans
-  - the main navigation currently hides `Leader's Book` during redesign and the route redirects away
-  - `#765` policy-converted remaining supported `Leader's Book` compatibility authorization with explicit Policy Decision actions and a separate compatibility lane map
-- Intended direction:
-  - Rating Scheme owns evaluation-tracking records and workflows and remains its own first-class lane
-  - Rating Scheme should be independently grantable from both `Personnel` and `Leader's Book`
-  - `Personnel` owns roster administration, but Rating Scheme may use app-owned roster reference queries without inheriting Personnel lane ownership
-  - temporary screen placement and current nav visibility do not define lane ownership during the current transition
-  - `Leader's Book` remains a real documented transitional compatibility lane for counseling records, development goals, and the future per-Soldier leader-reference or administrative surface while its remake is pending
-  - `Leader's Book` is not part of the current durable first-class lane map; a later ADR may revisit that once the rebuilt feature is real enough to evaluate
-  - `Leader's Book` compatibility Policy Decisions must stay outside the durable preset taxonomy until that future decision is made
-- Why this matters:
-  - boundary confusion leaks into permissions, exports, copy, and remediation planning
-- Guardrail going forward:
-  - do not re-borrow the Personnel or `Leader's Book` lanes for Rating Scheme access; route placement and nav treatment still do not define lane ownership
-  - do not add hidden `Leader's Book` runtime authorization checks through `isFullEditor`, `requireFullEditor`, or feature edit flags; use the explicit compatibility Policy Decision actions
-- Recommended next slice:
-  - revisit whether the remade `Leader's Book` re-enters the durable lane taxonomy once that rebuilt feature is concrete enough to evaluate
 
 ## D-05 Legacy Clinic Vocabulary
 
@@ -128,7 +78,7 @@ Each entry separates:
   - org settings invitation create/delete, member removal, and permission updates moved behind an app-owned use case and adapter in `#617`
   - org settings ownership transfer and delete flows moved behind an app-owned use case and Supabase adapter in `#626`
   - organization settings rename moved behind an app-owned use case and Supabase adapter in this architecture deepening slice
-  - organization governance pages now live under `/org/[orgId]/settings/*`; legacy `/org/[orgId]/admin/*` organization URLs redirect to those settings subroutes
+  - organization governance pages now live under `/org/[orgId]/settings/*`
 - Intended direction:
   - app-owned use cases and cleaner boundaries for membership, invitation, and organization-administration flows
 - Why this matters:

@@ -21,7 +21,7 @@ describe('ReportWorkspace', () => {
 
 		expect(screen.getByRole('toolbar', { name: 'Readiness report controls' })).toBeInTheDocument();
 		expect(screen.getByRole('group', { name: 'Report filters, 1 active' })).toBeInTheDocument();
-		expect(screen.getByRole('link', { name: 'Export CSV' })).toHaveAttribute('href', '/export.csv');
+		expect(screen.getByRole('link', { name: 'Export workbook' })).toHaveAttribute('href', '/export.xlsx');
 
 		const disabledExport = screen.getByRole('button', { name: 'Export PDF: Select a date range first' });
 		expect(disabledExport).toBeDisabled();

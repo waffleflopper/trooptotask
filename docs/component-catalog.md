@@ -22,7 +22,6 @@ Replacement previews:
 - Legacy `FileUpload` is represented by the native shadcn `input type="file"` example.
 - Legacy `FormField` is replaced by the shadcn-backed `ui/field` compound primitives plus `Input`, `Textarea`, `Select`, `Checkbox`, `RadioGroup`, `Switch`, `Combobox`, and `MultiSelect`.
 - Legacy `SearchSelect` is replaced by the shadcn-style `ui/combobox` compound API.
-- Legacy `MultiTagSelect` is replaced by the shadcn-style `ui/multi-select` compound API with chips.
 - Legacy `Spinner` is represented by the shadcn `spinner` component.
 - Platform admin no longer has a custom `admin-*` CSS layer. `/admin/**` composes the shared sidebar, page-shell, card, field, command, tabs, alert, empty, badge, button, input/select/textarea, and table primitives with Tailwind layout utilities.
 
@@ -38,7 +37,7 @@ Rules:
 - Stop and ask permission before creating a route-specific wrapper around a shared component to change behavior.
 - If a durable visual need appears, add it centrally and document it here before any route consumes it.
 - If a shared component does not fit a route, report the design-system gap and propose a shared component/API extension instead of patching the route locally.
-- Production work must not import legacy TroopToTask component wrappers such as the old toolbar family, `EmptyState`, `FileUpload`, `SearchSelect`, `MultiTagSelect`, or legacy spinner wrappers when shadcn replacements exist.
+- Production work must not import legacy TroopToTask component wrappers such as the old toolbar family, `EmptyState`, `FileUpload`, `SearchSelect`, or legacy spinner wrappers when shadcn replacements exist.
 - The current dark-mode source remains `documentElement[data-theme]`; Tailwind v4 dark variants also support `.dark` during the transition for shadcn compatibility.
 
 Foundation files:
@@ -265,7 +264,7 @@ Migration guidance:
 		</WorkspaceToolbar.Group>
 		<WorkspaceToolbar.Group label="Training report exports" zone="actions">
 			<ReportWorkspace.ExportActions>
-				<ReportWorkspace.ExportAction label="Export CSV" href={exportHref} state={exportState} disabledReason={exportDisabledReason} />
+				<ReportWorkspace.ExportAction label="Export workbook" href={exportHref} state={exportState} disabledReason={exportDisabledReason} />
 			</ReportWorkspace.ExportActions>
 		</WorkspaceToolbar.Group>
 	</ReportWorkspace.Toolbar>
@@ -1040,29 +1039,6 @@ Toolbar compact pattern:
 - Use the same object option shape as `Combobox.Root` when labels differ from submitted values, options need group headings, or selected chips should announce readable labels.
 - Provide `name` when selected values must participate in native form submission.
 - Do not pass color props or visual classes from routes. Domain colors require an explicit shared API and component catalog example.
-
-## Deprecated `ui/MultiTagSelect.svelte`
-
-`MultiTagSelect.svelte` is deprecated for new work. Use `ui/multi-select`.
-
-```svelte
-<MultiTagSelect
-    options={mosValues.map((mos) => ({ value: mos, label: mos }))}
-    value={selectedMos}
-    placeholder="All MOS"
-    ariaLabel="Filter by MOS"
-    onChange={(values) => (selectedMos = values)}
-/>
-```
-
-Props: `options: { value: string; label: string }[]`, `value: string[]`, `placeholder?: string` (default `'Select...'`), `ariaLabel?: string`, `disabled?: boolean`, `onChange: (values: string[]) => void`
-
-- Typing filters the dropdown; keyboard arrows + Enter toggle the highlighted option; Backspace removes the last selected value when the input is empty
-- Selected values render as mono badges with remove buttons
-- The dropdown stays open while selecting multiple options and repositions on scroll/resize
-- Prefer concise `ariaLabel` text that describes the field, such as `"Filter by MOS"` or `"Template scope groups"`
-
----
 
 ## `ui/date-cell`
 

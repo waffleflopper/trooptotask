@@ -1,7 +1,7 @@
 import { test, expect } from '../fixtures/auth';
 import { CalendarPage } from '../pages/CalendarPage';
 import { PersonnelPage } from '../pages/PersonnelPage';
-import { AdminPage } from '../pages/AdminPage';
+import { SettingsPage } from '../pages/SettingsPage';
 
 test.describe('Pages load without training data (lazy-load verification)', () => {
 	test('calendar page loads without console errors', async ({ ownerPage, orgId }) => {
@@ -30,16 +30,19 @@ test.describe('Pages load without training data (lazy-load verification)', () =>
 		expect(errors.filter((e) => /training|undefined|null|map/i.test(e))).toEqual([]);
 	});
 
-	test('admin page loads without console errors', async ({ ownerPage, orgId }) => {
+	test('settings page loads without console errors', async ({ ownerPage, orgId }) => {
 		const errors: string[] = [];
 		ownerPage.on('console', (msg) => {
 			if (msg.type() === 'error') errors.push(msg.text());
 		});
 
-		const adminPage = new AdminPage(ownerPage);
-		await adminPage.gotoApprovals(orgId);
+		const settingsPage = new SettingsPage(ownerPage);
+		await settingsPage.gotoApprovals(orgId);
 
-		await expect(ownerPage.getByRole('heading', { name: 'Approvals' })).toBeVisible({ timeout: 10000 });
+		await expect(ownerPage.getByRole('heading', { name: 'Organization Settings' })).toBeVisible({
+			timeout: 10000
+		});
+		await expect(ownerPage.getByRole('link', { name: 'Approvals' })).toBeVisible();
 		expect(errors.filter((e) => /training|undefined|null|map/i.test(e))).toEqual([]);
 	});
 });

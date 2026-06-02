@@ -290,7 +290,7 @@ Data-heavy work is first-class.
 
 - **Don't** visually retune shared components inside production routes unless Robert explicitly approves that exact visual exception.
 - **Don't** add route-local wrappers whose purpose is to change shared component spacing, radius, borders, shadows, typography, color, animation, density, or internal styling.
-- **Don't** import legacy wrappers when shadcn/shared replacements exist, including old toolbar, EmptyState, FileUpload, SearchSelect, MultiTagSelect, or spinner wrappers.
+- **Don't** import legacy wrappers when shadcn/shared replacements exist, including old toolbar, EmptyState, FileUpload, SearchSelect, or spinner wrappers.
 - **Don't** use consumer/startup SaaS aesthetics: pastel gradients, playful illustrations, bouncy animations, or "delightful" empty states.
 - **Don't** use legacy military-software aesthetics: green-on-gray brutalism, tiny system fonts, or modal-first workflows.
 - **Don't** use `#000`, `#fff`, achromatic gray, gradient text, decorative glassmorphism, or colored side-stripe borders.

@@ -14,13 +14,17 @@ const SECTION_MAP: Record<string, string> = {
 	personnel: 'Personnel',
 	onboarding: 'Onboarding',
 	settings: 'Settings',
+	'settings/general': 'Settings',
+	'settings/members': 'Settings',
+	'settings/policies': 'Settings',
+	'settings/archives': 'Settings',
+	'settings/approvals': 'Settings',
+	'settings/logs': 'Settings',
+	'settings/exports': 'Settings',
+	'settings/danger': 'Settings',
 	billing: 'Billing',
 	audit: 'Audit Log',
-	admin: 'Admin',
-	'admin/settings': 'Settings',
-	'admin/approvals': 'Settings',
-	'admin/audit': 'Settings',
-	'admin/archived': 'Settings'
+	admin: 'Admin'
 };
 
 function getPageSection(pageUrl?: string): string | null {

@@ -26,13 +26,12 @@ This document separates what v1 authorization and provider ownership look like t
   - the stored member preset and per-lane capability overrides
   - the stored shared scope set
   - policy overlays such as read-only mode
-- Legacy per-feature boolean permission flags and `scoped_group_id` remain compatibility inputs for explicitly unmigrated flows and older membership rows, but they are not the active authorization substrate for migrated workflows once stored member-access columns are present.
 - Platform admin uses a separate role system (`super_admin`, `support`, `billing`) and is not part of organization-membership authorization.
 - Authorization is enforced in more than one layer:
   - app-layer permission context and auth context
   - route wrappers and use cases
   - SQL helper functions and RLS policies
-- Admin UI presets like `Full Editor`, `Team Leader`, `Viewer`, and `Custom` are convenience shapes over the current model. They are not persisted first-class auth roles.
+- Settings UI presets like `Viewer`, `Operator`, and `Editor` are convenience shapes over the current model. They are not persisted first-class auth roles.
 
 ### Current feature-lane reality
 
@@ -41,8 +40,8 @@ This document separates what v1 authorization and provider ownership look like t
   - its current primary surface is the first-class Evals route
   - rating-scheme-only members can use that Evals route without Personnel access
   - its record model remains distinct from counseling and development-goal records
-- Leader's Book is retired as an active product surface. Historical migrations and ADRs remain for auditability, while surviving per-Soldier counseling, follow-up, notes, and document workflows are Personnel-owned.
-- Rating Scheme remains independently grantable and no longer borrows a Leader's Book compatibility lane.
+- Per-Soldier counseling, follow-up, notes, and document workflows are Personnel-owned.
+- Rating Scheme remains independently grantable.
 - Some settings and admin actions still bypass use-case boundaries, but organization settings rename now runs through an app-owned use case and Supabase adapter.
 
 ### Current provider-boundary drift
@@ -78,7 +77,7 @@ The approved v1 replacement direction keeps `Organization` and `Group` as canoni
 - The starter member presets are `Viewer`, `Operator`, and `Editor`.
 - Presets remain platform-defined in this phase; organizations do not get saved custom presets yet.
 - Manual tuning should preserve preset lineage for auditability rather than severing the preset relationship.
-- Current labels such as `Team Leader` become composed states, not canonical replacement presets.
+- Group-scoped member access composes scope with lane capabilities instead of becoming a separate role or preset.
 
 #### Capability model
 
@@ -110,11 +109,10 @@ The approved v1 replacement direction keeps `Organization` and `Group` as canoni
   - policy overlays
 - Policy evaluation should be action-first. Routes, pages, and buttons should request decisions for stable policy actions instead of defining authorization meaning from UI placement or route shape.
 - Every policy action should be owned by a durable feature lane, organization-governance semantics, or an explicitly identity-owned self-service workflow.
-- Identity-owned actions cover workflows where an authenticated member acts only on their own resources, such as personal notifications or their own deletion request submission/cancellation. They must validate resource ownership before mutation and must not borrow feature edit capability or full-editor compatibility.
+- Identity-owned actions cover workflows where an authenticated member acts only on their own resources, such as personal notifications or their own deletion request submission/cancellation. They must validate resource ownership before mutation and must not borrow feature edit capability.
 - The first action catalog should use workflow-level actions: meaningful user workflows rather than one action per button or one catch-all action per feature.
 - Split actions when they need different capability levels, audit treatment, or UX explanations.
 - The replacement should proceed through vertical authorization slices, filed as implementation issues, that carry one meaningful workflow through storage, adapter, evaluator, route enforcement, UI affordance, audit behavior, and tests together.
-- Do not treat a compatibility adapter over current permission flags as the destination architecture.
 - The core policy evaluator should be pure TypeScript and provider-agnostic. It should receive already-loaded facts such as actor role, capability map, scope set, resource context, and policy overlays.
 - Supabase-specific reads belong in an adapter that translates provider data into policy inputs before evaluation.
 - Policy evaluation should return a structured decision result, not a bare boolean. The result should include the final allow or deny value plus explanation fields such as reason code, matched capability, matched scope, and blocking overlay.
@@ -139,8 +137,6 @@ The approved v1 replacement direction keeps `Organization` and `Group` as canoni
   - rating-scheme
 - The lane map covers product feature surfaces only.
 - Governance concerns such as member management, organization settings, billing, destructive org-danger actions, and platform-admin concerns remain outside the feature-lane map and stay governed by fixed roles plus policy overlays.
-- Leader's Book is retired as an active product surface and is not part of the durable first-class lane map.
-- Historical migrations and ADRs may still mention the old lane for auditability, but current counseling, follow-up, leader-note, Soldier Data Sheet, and Personnel document workflows are Personnel-owned.
 - Temporary route or screen placement does not define durable lane ownership.
 - Current primary-nav visibility also does not define feature existence or lane ownership during this transition.
 - Rating Scheme owns its own durable lane and now uses the Evals route as its primary UI; nav treatment can change independently without redefining lane ownership.
@@ -155,7 +151,6 @@ The approved v1 replacement direction keeps `Organization` and `Group` as canoni
 - Approved lane-remediation order is:
   - Critical Tasks lane implementation first, because its target ownership is already settled
   - Critical Tasks lane implementation is now complete in `#621`
-  - `#620` now documents the Rating Scheme versus `Leader's Book` boundary and the transitional nav rule in [ADR 0003](adrs/0003-leaders-book-and-rating-scheme-boundary.md)
   - Rating Scheme runtime lane remediation is now complete in `#627`
 
 ### Auditability direction
@@ -171,7 +166,7 @@ The approved v1 replacement direction keeps `Organization` and `Group` as canoni
   - policy overlays
 - Human-facing presets should map cleanly to the underlying app-owned model.
 - Auditable authorization behavior should come from app-owned concepts, not scattered boolean coincidence.
-- Stop inferring durable labels such as `Full Editor` from expanded booleans once the replacement model lands.
+- Every member should remain explainable from fixed governance role, assigned preset, lane-by-lane capability map, shared scope set, and policy overlays.
 
 ### Provider-boundary direction
 
@@ -182,14 +177,12 @@ The approved v1 replacement direction keeps `Organization` and `Group` as canoni
 ## Guardrails For Contributors
 
 - Do not add new direct `locals.supabase` business logic outside auth edges, ports/adapters, or an explicitly approved remediation slice.
-- Do not deepen boolean-only authz patterns just because the current schema still uses them.
-- Do not leave current permission flags or single-group scope in place as a long-lived compatibility substrate for migrated authorization workflows.
+- Keep member authorization on stored presets, per-lane capabilities, shared scope sets, and policy overlays.
 - Do not create new feature-permission piggybacking.
 - Do not invent partial-admin member shapes.
 - Do not introduce per-feature scope matrices.
 - Do not treat UI presets as if they solve the deeper authorization model problem.
 - Do not let retired or historical lanes dictate the durable member preset design.
-- Do not treat current Personnel-page placement or historical compatibility wiring as permission precedent for Rating Scheme.
 - If a task is unrelated to authz or provider boundaries and it runs into one of these seams, document the seam and stop.
 - If a task is an explicitly approved remediation slice in one of these areas, it may cross adjacent seams as needed, but it must:
   - reduce drift rather than spread it

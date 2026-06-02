@@ -30,7 +30,7 @@
 		</WorkspaceToolbar.Group>
 		<WorkspaceToolbar.Group label="Report actions" zone="actions">
 			<ReportWorkspace.ExportActions>
-				<ReportWorkspace.ExportAction label="Export CSV" href="/export.csv" />
+				<ReportWorkspace.ExportAction label="Export workbook" href="/export.xlsx" />
 				<ReportWorkspace.ExportAction label="Export PDF" disabledReason="Select a date range first" />
 				<ReportWorkspace.ExportAction label="Export XLSX" state="loading" loadingLabel="Preparing XLSX" />
 				<ReportWorkspace.ExportAction label="Export packet" state="error" errorReason="Export service is unavailable" />

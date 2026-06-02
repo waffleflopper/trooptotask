@@ -6,18 +6,6 @@ Accepted and superseded ADRs live in [ADR Index](ADR_INDEX.md). Do not use this 
 
 ## Open Candidates
 
-### Capability Storage And RLS Rollout
-
-- Status: Open candidate
-- Why:
-  - ADR 0001 accepts the authorization replacement model, but storage and RLS rollout details may still need a dedicated decision once implementation pressure is concrete.
-- Likely covers:
-  - capability-map storage
-  - shared scope-set storage
-  - compatibility with existing membership rows
-  - RLS transition strategy
-  - audit and rollback expectations
-
 ### Platform Admin Provider Boundary
 
 - Status: Open candidate
@@ -58,7 +46,5 @@ These are no longer backlog items because ADRs already exist:
 
 - V1 authorization replacement model: [ADR 0001](adrs/0001-v1-authorization-replacement-model.md)
 - Feature permission lane map: [ADR 0002](adrs/0002-v1-feature-permission-lane-map.md)
-- Leaders Book and Rating Scheme boundary: [ADR 0003](adrs/0003-leaders-book-and-rating-scheme-boundary.md)
 - Provider boundary contract: [ADR 0004](adrs/0004-v1-provider-boundary-contract.md)
 - Legacy terminology compatibility policy: [ADR 0006](adrs/0006-legacy-terminology-compatibility-policy.md)
-- Leaders Book retirement and Personnel absorption: [ADR 0008](adrs/0008-leaders-book-retirement-and-personnel-absorption.md)

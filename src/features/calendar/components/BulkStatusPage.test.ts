@@ -87,7 +87,7 @@ describe('BulkStatusPage', () => {
 		expect(screen.getByRole('link', { name: 'Calendar' })).toBeTruthy();
 	});
 
-	it('allows Calendar operators to use bulk status without full-editor compatibility', () => {
+	it('allows Calendar operators to use bulk status', () => {
 		orgContextMock.isPrivileged = false;
 		orgContextMock.affordanceForFeatureAction.mockReturnValue({ allowed: true, visible: true, disabled: false });
 

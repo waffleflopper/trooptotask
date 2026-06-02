@@ -9,8 +9,7 @@ function createMembershipLookupBuilder() {
 		data: {
 			user_id: 'member-1',
 			role: 'member',
-			email: 'member@example.com',
-			can_manage_members: true
+			email: 'member@example.com'
 		},
 		error: null
 	};

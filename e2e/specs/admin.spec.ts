@@ -1,26 +1,26 @@
 import { test, expect } from '../fixtures/auth';
-import { AdminPage } from '../pages/AdminPage';
+import { SettingsPage } from '../pages/SettingsPage';
 
-test.describe('Admin Hub', () => {
-	let adminPage: AdminPage;
+test.describe('Organization Settings', () => {
+	let settingsPage: SettingsPage;
 
 	test('view approvals page', async ({ ownerPage, orgId }) => {
-		adminPage = new AdminPage(ownerPage);
-		await adminPage.gotoApprovals(orgId);
-		// Verify page loads — heading should be visible
-		await expect(ownerPage.getByRole('heading', { name: 'Approvals' })).toBeVisible();
+		settingsPage = new SettingsPage(ownerPage);
+		await settingsPage.gotoApprovals(orgId);
+		await expect(ownerPage.getByRole('heading', { name: 'Organization Settings' })).toBeVisible();
+		await expect(ownerPage.getByRole('link', { name: 'Approvals' })).toBeVisible();
 	});
 
 	test('view archived personnel page', async ({ ownerPage, orgId }) => {
-		adminPage = new AdminPage(ownerPage);
-		await adminPage.gotoArchived(orgId);
-		// Verify page loads — heading should be visible
-		await expect(ownerPage.getByRole('heading', { name: 'Archived Personnel' })).toBeVisible();
+		settingsPage = new SettingsPage(ownerPage);
+		await settingsPage.gotoArchived(orgId);
+		await expect(ownerPage.getByRole('heading', { name: 'Organization Settings' })).toBeVisible();
+		await expect(ownerPage.getByRole('heading', { name: 'Archived Records' })).toBeVisible();
 	});
 
 	test('view settings page', async ({ ownerPage, orgId }) => {
-		adminPage = new AdminPage(ownerPage);
-		await adminPage.gotoSettings(orgId);
+		settingsPage = new SettingsPage(ownerPage);
+		await settingsPage.gotoSettings(orgId);
 		await expect(ownerPage.getByRole('heading', { name: 'Organization Settings' })).toBeVisible();
 	});
 });

@@ -8,7 +8,7 @@ export class PersonnelPage {
 
 	constructor(page: Page) {
 		this.page = page;
-		this.addButton = page.getByTestId('add-personnel-btn');
+		this.addButton = page.getByRole('group', { name: 'Personnel actions' }).getByRole('button', { name: 'Add Person' });
 		// Search input: searchbox "Search by name, rank, or role..."
 		this.searchInput = page.getByRole('searchbox', { name: /search by name/i });
 	}

@@ -348,7 +348,7 @@ describe('Rating scheme entry — delete', () => {
 		expect(stored).not.toBeNull();
 	});
 
-	it('does not allow full-editor compatibility to directly delete Rating Scheme entries', async () => {
+	it('does not allow configure-capable members to bypass delete approval for Rating Scheme entries', async () => {
 		const ctx = buildContext({
 			auth: {
 				isPrivileged: false,

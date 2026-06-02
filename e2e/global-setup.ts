@@ -86,15 +86,14 @@ async function globalSetup() {
 
 		// Scope the member user to the test group
 		if (role === 'member') {
-			memberData.scoped_group_id = TEST_GROUP.id;
-			// Give member basic view permissions
-			memberData.can_view_calendar = true;
-			memberData.can_view_personnel = true;
-			memberData.can_view_training = true;
-			memberData.can_edit_calendar = false;
-			memberData.can_edit_personnel = false;
-			memberData.can_edit_training = false;
-			memberData.can_manage_members = false;
+			memberData.member_preset = 'viewer';
+			memberData.capability_overrides = {
+				criticalTasks: 'none',
+				onboarding: 'none',
+				ratingScheme: 'none'
+			};
+			memberData.access_scope_kind = 'groups';
+			memberData.access_scope_group_ids = [TEST_GROUP.id];
 		}
 
 		const { error } = await adminClient.from('organization_memberships').insert(memberData);

@@ -153,8 +153,6 @@ describe('settings member access read model', () => {
 				organizationGovernanceActions: []
 			}
 		});
-		expect(JSON.stringify(invitation)).not.toContain('can_view');
-		expect(JSON.stringify(invitation)).not.toContain('scoped_group_id');
 	});
 
 	it('keeps org-wide invitations as organization Scope Set access', () => {

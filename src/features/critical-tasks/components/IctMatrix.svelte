@@ -117,6 +117,7 @@
 	const ICT_MATRIX_GROUP_HEIGHT = 32;
 	const ICT_MATRIX_FALLBACK_VIEWPORT_HEIGHT = 640;
 	const ICT_MATRIX_OVERSCAN_PX = ICT_MATRIX_ROW_HEIGHT * 2;
+	const VIRTUAL_BODY_ROW_INDEX_OFFSET = 1;
 
 	let scrollTop = $state(0);
 	let measuredViewportHeight = $state(0);
@@ -289,7 +290,8 @@
 {/snippet}
 
 {#snippet matrixRow(row: MatrixRow, virtualIndex?: number)}
-	<OperationalMatrix.Row {row} {virtualIndex} class="h-[72px] bg-card hover:bg-muted/20">
+	{@const ariaRowIndex = virtualIndex === undefined ? undefined : virtualIndex + VIRTUAL_BODY_ROW_INDEX_OFFSET}
+	<OperationalMatrix.Row {row} virtualIndex={ariaRowIndex} class="h-[72px] bg-card hover:bg-muted/20">
 		{@render rowHeader(row)}
 		{#each matrixColumns as column (column.id)}
 			{@const cell = row.source.cellsByTaskId.get(column.source.id)}
@@ -403,7 +405,7 @@
 							<OperationalMatrix.RowGroup
 								group={item.group}
 								columnSpan={totalColumns}
-								virtualIndex={item.virtualIndex}
+								virtualIndex={item.virtualIndex + VIRTUAL_BODY_ROW_INDEX_OFFSET}
 								class="h-8 bg-muted/50 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground [&_th]:px-3 [&_th]:py-1.5 [&_th]:text-left"
 							>
 								{item.group.label}

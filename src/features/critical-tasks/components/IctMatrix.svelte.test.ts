@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import IctMatrix from './IctMatrix.svelte';
 import type {
@@ -152,7 +152,7 @@ describe('IctMatrix', () => {
 		expect(missingCell.querySelector('svg')).toBeTruthy();
 	});
 
-	it('windows dense personnel rows while preserving all task columns', () => {
+	it('windows dense personnel rows while preserving all task columns', async () => {
 		const densePersonnel = Array.from({ length: 500 }, (_, index) =>
 			person({
 				id: `person-${index + 1}`,
@@ -197,8 +197,14 @@ describe('IctMatrix', () => {
 		expect(bodyRows.length).toBeLessThan(40);
 		expect(bodyRows.length).toBeGreaterThan(1);
 		expect(within(rowgroups[1]!).getAllByRole('rowheader').length).toBeLessThan(densePersonnel.length);
+		expect(screen.queryByRole('rowheader', { name: /Soldier-250/ })).toBeNull();
 		expect(scrollContainer.getAttribute('data-slot')).toBe('operational-matrix-viewport');
 		expect(scrollContainer.getAttribute('data-virtualized')).toBe('true');
+
+		await fireEvent.scroll(scrollContainer, { target: { scrollTop: 12_600 } });
+		await waitFor(() => {
+			expect(screen.getByRole('rowheader', { name: /Soldier-250/ })).toBeTruthy();
+		});
 	});
 
 	it('selects editable applicable cells and ignores not-applicable cells', async () => {

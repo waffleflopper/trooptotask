@@ -38,7 +38,8 @@ export function buildVirtualMatrixWindow<Row extends OperationalMatrixRow>(
 	{ scrollTop, viewportHeight, overscanPx }: VirtualMatrixWindowInput
 ): VirtualMatrixWindow<Row> {
 	const positionedItems = positionItems(items);
-	const totalHeight = positionedItems.at(-1) ? positionedItems.at(-1)!.top + positionedItems.at(-1)!.height : 0;
+	const lastItem = positionedItems.at(-1);
+	const totalHeight = lastItem ? lastItem.top + lastItem.height : 0;
 
 	if (positionedItems.length === 0 || totalHeight === 0) {
 		return {

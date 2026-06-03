@@ -7,9 +7,10 @@
 		group: OperationalMatrixRowGroup;
 		columnSpan?: number;
 		children?: Snippet;
+		virtualIndex?: number;
 	};
 
-	let { group, columnSpan, children, ...restProps }: Props = $props();
+	let { group, columnSpan, children, virtualIndex, ...restProps }: Props = $props();
 </script>
 
 <tr
@@ -17,6 +18,7 @@
 	data-matrix-row-group
 	data-row-group-id={group.id}
 	data-collapsed={group.collapsed || undefined}
+	aria-rowindex={virtualIndex}
 	{...restProps}
 >
 	<th scope="rowgroup" colspan={columnSpan}>

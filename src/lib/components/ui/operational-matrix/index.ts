@@ -20,6 +20,12 @@ export type {
 	OperationalMatrixRowGroup,
 	OperationalMatrixSelectHandler
 } from './types.js';
+export {
+	buildVirtualMatrixWindow,
+	type PositionedVirtualMatrixItem,
+	type VirtualMatrixItem,
+	type VirtualMatrixWindow
+} from './virtualRows.js';
 
 export {
 	Root,

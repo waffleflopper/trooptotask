@@ -113,7 +113,51 @@
 					rows: group.rows.map(toMatrixRow)
 				}))
 	);
+	const ICT_MATRIX_ROW_HEIGHT = 72;
+	const ICT_MATRIX_GROUP_HEIGHT = 32;
+	const ICT_MATRIX_FALLBACK_VIEWPORT_HEIGHT = 640;
+	const ICT_MATRIX_OVERSCAN_PX = ICT_MATRIX_ROW_HEIGHT * 2;
+
+	let scrollTop = $state(0);
+	let measuredViewportHeight = $state(0);
+	const viewportHeight = $derived(measuredViewportHeight || ICT_MATRIX_FALLBACK_VIEWPORT_HEIGHT);
 	const totalColumns = $derived(matrixColumns.length + 1);
+	const virtualItems = $derived<OperationalMatrix.VirtualMatrixItem<MatrixRow>[]>(
+		viewMode === 'alphabetical'
+			? matrixRows.map((row) => ({
+					kind: 'row',
+					key: row.id,
+					row,
+					height: ICT_MATRIX_ROW_HEIGHT
+				}))
+			: groupedMatrixRows.flatMap((groupBlock) => [
+					{
+						kind: 'group' as const,
+						key: groupBlock.group.id,
+						group: {
+							...groupBlock.group,
+							meta: {
+								readinessPercent: groupBlock.readinessPercent,
+								rowCount: groupBlock.rows.length
+							}
+						},
+						height: ICT_MATRIX_GROUP_HEIGHT
+					},
+					...groupBlock.rows.map((row) => ({
+						kind: 'row' as const,
+						key: `${groupBlock.group.id}:${row.id}`,
+						row,
+						height: ICT_MATRIX_ROW_HEIGHT
+					}))
+				])
+	);
+	const virtualWindow = $derived(
+		OperationalMatrix.buildVirtualMatrixWindow(virtualItems, {
+			scrollTop,
+			viewportHeight,
+			overscanPx: ICT_MATRIX_OVERSCAN_PX
+		})
+	);
 
 	const legendItems: Array<{ status: IctStatus | 'not-required'; label: string }> = [
 		{ status: 'current', label: 'Current' },
@@ -175,13 +219,25 @@
 		if (status === 'expired') return 'bg-danger-muted text-danger-foreground';
 		return 'bg-muted text-muted-foreground';
 	}
+
+	function handleViewportScroll(event: Event): void {
+		scrollTop = (event.currentTarget as HTMLElement).scrollTop;
+	}
+
+	function groupMetaNumber(
+		group: OperationalMatrix.OperationalMatrixRowGroup,
+		key: 'readinessPercent' | 'rowCount'
+	): number {
+		const value = group.meta?.[key];
+		return typeof value === 'number' ? value : 0;
+	}
 </script>
 
 {#snippet rowHeader(row: MatrixRow)}
 	<OperationalMatrix.RowHeader
 		{row}
 		sticky
-		class="sticky left-0 z-10 w-64 min-w-56 max-w-64 border border-border bg-card px-3 py-2 text-left align-middle"
+		class="sticky left-0 z-10 h-[72px] w-64 min-w-56 max-w-64 border border-border bg-card px-3 py-2 text-left align-middle"
 	>
 		{#if orgId}
 			<a
@@ -232,8 +288,8 @@
 	</OperationalMatrix.RowHeader>
 {/snippet}
 
-{#snippet matrixRow(row: MatrixRow)}
-	<OperationalMatrix.Row {row} class="bg-card hover:bg-muted/20">
+{#snippet matrixRow(row: MatrixRow, virtualIndex?: number)}
+	<OperationalMatrix.Row {row} {virtualIndex} class="h-[72px] bg-card hover:bg-muted/20">
 		{@render rowHeader(row)}
 		{#each matrixColumns as column (column.id)}
 			{@const cell = row.source.cellsByTaskId.get(column.source.id)}
@@ -288,6 +344,9 @@
 		ariaLabel="Critical Tasks matrix viewport"
 		class="h-full min-h-0 rounded-lg border border-border bg-card"
 		data-testid="critical-tasks-matrix-scroll"
+		virtualized
+		onViewportHeightChange={(height) => (measuredViewportHeight = height)}
+		onscroll={handleViewportScroll}
 	>
 		<OperationalMatrix.Table
 			ariaLabel="Critical Tasks readiness matrix"
@@ -333,26 +392,37 @@
 							No personnel match the current Critical Tasks filters.
 						</td>
 					</tr>
-				{:else if groupedMatrixRows.length > 0}
-					{#each groupedMatrixRows as groupBlock (groupBlock.group.id)}
-						<OperationalMatrix.RowGroup
-							group={groupBlock.group}
-							columnSpan={totalColumns}
-							class="h-8 bg-muted/50 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground [&_th]:px-3 [&_th]:py-1.5 [&_th]:text-left"
-						>
-							{groupBlock.group.label}
-							<span class="ml-2 normal-case tracking-normal">
-								{groupBlock.rows.length} personnel ({groupBlock.readinessPercent}% Readiness)
-							</span>
-						</OperationalMatrix.RowGroup>
-						{#each groupBlock.rows as row (row.id)}
-							{@render matrixRow(row)}
-						{/each}
-					{/each}
 				{:else}
-					{#each matrixRows as row (row.id)}
-						{@render matrixRow(row)}
+					{#if virtualWindow.topSpacerHeight > 0}
+						<tr aria-hidden="true" data-matrix-spacer="top">
+							<td colspan={totalColumns} style:height={`${virtualWindow.topSpacerHeight}px`}></td>
+						</tr>
+					{/if}
+					{#each virtualWindow.visibleItems as item (item.key)}
+						{#if item.kind === 'group'}
+							<OperationalMatrix.RowGroup
+								group={item.group}
+								columnSpan={totalColumns}
+								virtualIndex={item.virtualIndex}
+								class="h-8 bg-muted/50 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground [&_th]:px-3 [&_th]:py-1.5 [&_th]:text-left"
+							>
+								{item.group.label}
+								<span class="ml-2 normal-case tracking-normal">
+									{groupMetaNumber(item.group, 'rowCount')} personnel ({groupMetaNumber(
+										item.group,
+										'readinessPercent'
+									)}% Readiness)
+								</span>
+							</OperationalMatrix.RowGroup>
+						{:else}
+							{@render matrixRow(item.row, item.virtualIndex)}
+						{/if}
 					{/each}
+					{#if virtualWindow.bottomSpacerHeight > 0}
+						<tr aria-hidden="true" data-matrix-spacer="bottom">
+							<td colspan={totalColumns} style:height={`${virtualWindow.bottomSpacerHeight}px`}></td>
+						</tr>
+					{/if}
 				{/if}
 			</OperationalMatrix.Body>
 		</OperationalMatrix.Table>

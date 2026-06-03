@@ -152,8 +152,8 @@ describe('IctMatrix', () => {
 		expect(missingCell.querySelector('svg')).toBeTruthy();
 	});
 
-	it('wraps dense matrices in a horizontal scroll container for large personnel and task counts', () => {
-		const densePersonnel = Array.from({ length: 24 }, (_, index) =>
+	it('windows dense personnel rows while preserving all task columns', () => {
+		const densePersonnel = Array.from({ length: 500 }, (_, index) =>
 			person({
 				id: `person-${index + 1}`,
 				lastName: `Soldier-${String(index + 1).padStart(2, '0')}`,
@@ -162,7 +162,7 @@ describe('IctMatrix', () => {
 				groupName: 'Alpha'
 			})
 		);
-		const denseTasks = Array.from({ length: 18 }, (_, index) =>
+		const denseTasks = Array.from({ length: 75 }, (_, index) =>
 			task({
 				id: `task-${index + 1}`,
 				taskCode: `181-105-${String(index + 1).padStart(4, '0')}`,
@@ -193,9 +193,12 @@ describe('IctMatrix', () => {
 		expect(table).toBeTruthy();
 		expect(within(table).getAllByRole('columnheader')).toHaveLength(denseTasks.length + 1);
 		expect(screen.getByRole('columnheader', { name: /181-105-0001 Task 1/ })).toBeTruthy();
-		expect(screen.getByRole('columnheader', { name: /181-105-0018 Task 18/ })).toBeTruthy();
-		expect(bodyRows).toHaveLength(densePersonnel.length + 1);
+		expect(screen.getByRole('columnheader', { name: /181-105-0075 Task 75/ })).toBeTruthy();
+		expect(bodyRows.length).toBeLessThan(40);
+		expect(bodyRows.length).toBeGreaterThan(1);
+		expect(within(rowgroups[1]!).getAllByRole('rowheader').length).toBeLessThan(densePersonnel.length);
 		expect(scrollContainer.getAttribute('data-slot')).toBe('operational-matrix-viewport');
+		expect(scrollContainer.getAttribute('data-virtualized')).toBe('true');
 	});
 
 	it('selects editable applicable cells and ignores not-applicable cells', async () => {

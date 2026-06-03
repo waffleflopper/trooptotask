@@ -31,19 +31,14 @@ export function useDataTable<T>(options: DataTableOptions<T>): DataTableState<T>
 	let currentPageSize = $state(resolveInitialOption(options.pageSize) ?? 0);
 	const collapsedGroups = new SvelteSet<string>();
 
-	function getColumns(): ColumnDef<T>[] {
-		return typeof options.columns === 'function' ? options.columns() : options.columns;
-	}
-
-	function getColumn(key: string): ColumnDef<T> | undefined {
-		return getColumns().find((column) => column.key === key) ?? options.resolveColumn?.(key);
-	}
-
-	function getGroupDef(): GroupDef<T> | undefined {
-		return typeof options.groupBy === 'function' ? options.groupBy() : options.groupBy;
-	}
-
-	function getFilteredRows(): T[] {
+	const columns = $derived.by((): ColumnDef<T>[] =>
+		typeof options.columns === 'function' ? options.columns() : options.columns
+	);
+	const columnsByKey = $derived.by(() => new SvelteMap(columns.map((column) => [column.key, column])));
+	const groupDef = $derived.by((): GroupDef<T> | undefined =>
+		typeof options.groupBy === 'function' ? options.groupBy() : options.groupBy
+	);
+	const filteredRows = $derived.by((): T[] => {
 		const data = options.data();
 		if (!search) return data;
 
@@ -51,7 +46,7 @@ export function useDataTable<T>(options: DataTableOptions<T>): DataTableState<T>
 		if (filterFn) return data.filter((row) => filterFn(row, search));
 
 		const query = search.toLowerCase();
-		const searchableColumns = getColumns().filter((column) => column.searchable !== false);
+		const searchableColumns = columns.filter((column) => column.searchable !== false);
 
 		return data.filter((row) =>
 			searchableColumns.some((column) => {
@@ -59,59 +54,56 @@ export function useDataTable<T>(options: DataTableOptions<T>): DataTableState<T>
 				return text.toLowerCase().includes(query);
 			})
 		);
-	}
-
-	function getSortedRows(): T[] {
-		const rows = getFilteredRows();
-		if (!sortKey) return rows;
+	});
+	const sortedRows = $derived.by((): T[] => {
+		if (!sortKey) return filteredRows;
 
 		const column = getColumn(sortKey);
-		if (!column || column.sortable === false) return rows;
+		if (!column || column.sortable === false) return filteredRows;
 
 		const direction = sortDirection === 'asc' ? 1 : -1;
-		return [...rows].sort((a, b) => compareRows(a, b, column, direction));
-	}
+		return [...filteredRows].sort((a, b) => compareRows(a, b, column, direction));
+	});
+	const totalRows = $derived(sortedRows.length);
+	const totalPages = $derived(currentPageSize > 0 ? Math.max(1, Math.ceil(totalRows / currentPageSize)) : 1);
+	const pagedRows = $derived.by((): T[] => {
+		if (currentPageSize <= 0) return sortedRows;
 
-	function getPagedRows(): T[] {
-		const rows = getSortedRows();
-		if (currentPageSize <= 0) return rows;
-
-		const currentPage = clampPage(page, getTotalPages());
-		if (currentPage !== page) page = currentPage;
-
+		const currentPage = clampPage(page, totalPages);
 		const start = (currentPage - 1) * currentPageSize;
-		return rows.slice(start, start + currentPageSize);
-	}
-
-	function getGroups(): DataTableGroup<T>[] {
-		const groupBy = getGroupDef();
-		if (!groupBy) return [];
+		return sortedRows.slice(start, start + currentPageSize);
+	});
+	const groupRows = $derived.by((): Array<Omit<DataTableGroup<T>, 'collapsed'>> => {
+		if (!groupDef) return [];
 
 		const groupedRows = new SvelteMap<string, T[]>();
-		for (const row of getSortedRows()) {
-			const key = groupBy.key(row);
+		for (const row of sortedRows) {
+			const key = groupDef.key(row);
 			const rows = groupedRows.get(key);
 			if (rows) rows.push(row);
 			else groupedRows.set(key, [row]);
 		}
 
 		const keys = [...groupedRows.keys()];
-		if (groupBy.compare) keys.sort(groupBy.compare);
+		if (groupDef.compare) keys.sort(groupDef.compare);
 
 		return keys.map((key) => ({
 			key,
-			label: groupBy.label?.(key) ?? key,
-			rows: groupedRows.get(key) ?? [],
-			collapsed: collapsedGroups.has(key)
+			label: groupDef.label?.(key) ?? key,
+			rows: groupedRows.get(key) ?? []
 		}));
+	});
+	const groups = $derived.by((): DataTableGroup<T>[] =>
+		groupRows.map((group) => ({ ...group, collapsed: collapsedGroups.has(group.key) }))
+	);
+
+	function getColumn(key: string): ColumnDef<T> | undefined {
+		return columnsByKey.get(key) ?? options.resolveColumn?.(key);
 	}
 
-	function getTotalRows(): number {
-		return getSortedRows().length;
-	}
-
-	function getTotalPages(): number {
-		return currentPageSize > 0 ? Math.max(1, Math.ceil(getTotalRows() / currentPageSize)) : 1;
+	function repairPage(): void {
+		const currentPage = clampPage(page, totalPages);
+		if (currentPage !== page) page = currentPage;
 	}
 
 	function getRowKey(row: T, index: number): RowKey {
@@ -125,22 +117,24 @@ export function useDataTable<T>(options: DataTableOptions<T>): DataTableState<T>
 
 	return {
 		get columns() {
-			return getColumns();
+			return columns;
 		},
 		get rows() {
-			return getPagedRows();
+			repairPage();
+			return pagedRows;
 		},
 		get allRows() {
-			return getSortedRows();
+			return sortedRows;
 		},
 		get groups() {
-			return getGroups();
+			return groups;
 		},
 		get totalRows() {
-			return getTotalRows();
+			return totalRows;
 		},
 		get totalPages() {
-			return getTotalPages();
+			repairPage();
+			return totalPages;
 		},
 		get sortKey() {
 			return sortKey;
@@ -167,13 +161,14 @@ export function useDataTable<T>(options: DataTableOptions<T>): DataTableState<T>
 			page = 1;
 		},
 		get page() {
+			repairPage();
 			return page;
 		},
 		get pageSize() {
 			return currentPageSize;
 		},
 		setPage(nextPage: number) {
-			page = clampPage(nextPage, getTotalPages());
+			page = clampPage(nextPage, totalPages);
 		},
 		setPageSize(size: number) {
 			currentPageSize = Math.max(0, size);
@@ -187,7 +182,7 @@ export function useDataTable<T>(options: DataTableOptions<T>): DataTableState<T>
 			collapsedGroups.clear();
 		},
 		collapseAll() {
-			const keys = getGroups().map((group) => group.key);
+			const keys = groups.map((group) => group.key);
 			collapsedGroups.clear();
 			for (const key of keys) collapsedGroups.add(key);
 		},

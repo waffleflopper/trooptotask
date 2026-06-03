@@ -84,6 +84,9 @@ function renderCalendar(
 		assignments: DailyAssignment[];
 		dutyEvents: DutyEvent[];
 		showPersonnelRoles: boolean;
+		canEdit: boolean;
+		canEditAssignments: boolean;
+		onDateClick: (date: Date) => void;
 		onNavigateToMonth: (year: number, month: number) => void;
 		upcomingLossMap: Map<string, UpcomingLossRecord>;
 	}> = {}
@@ -103,6 +106,9 @@ function renderCalendar(
 			assignments: overrides.assignments ?? [],
 			dutyEvents: overrides.dutyEvents ?? [],
 			showPersonnelRoles: overrides.showPersonnelRoles ?? false,
+			canEdit: overrides.canEdit,
+			canEditAssignments: overrides.canEditAssignments,
+			onDateClick: overrides.onDateClick,
 			onPrevMonth: () => {},
 			onNextMonth: () => {},
 			onGoToToday: () => {},
@@ -179,6 +185,17 @@ function makeDutyEvent(eventDate: string, assigneeId: string, templateName = 'Ba
 }
 
 describe('Calendar', () => {
+	it('keeps date headers editable for Daily Assignment managers without availability access', async () => {
+		const onDateClick = vi.fn();
+		const { container } = renderCalendar({ canEdit: false, canEditAssignments: true, onDateClick });
+		const dateHeaderButtons = container.querySelectorAll('.date-headers button');
+
+		await fireEvent.click(dateHeaderButtons[1]!);
+
+		expect(onDateClick).toHaveBeenCalledTimes(1);
+		expect(onDateClick.mock.calls[0]?.[0]).toBeInstanceOf(Date);
+	});
+
 	it('keeps header scroll synced without restoring the old scroll-left CSS variable', async () => {
 		const { container } = renderCalendar();
 		const calendarBody = container.querySelector('.calendar-body') as HTMLDivElement | null;

@@ -23,20 +23,17 @@ import {
 import {
 	acceptedRunSnapshot,
 	toAcceptedDutyRosterTemplateRun,
-	type DutyRosterTemplateLinkedCalendarAssignmentRow,
 	type DutyRosterTemplateRunRow
 } from './acceptedRunRecord';
 import {
-	acceptedDutyRosterRunCalendarAssignmentsWereEdited,
 	applyAcceptedDutyRosterRunCalendarSync,
 	applyReviewedAcceptedDutyRosterRunCalendarSyncPlan,
+	cleanupAcceptedDutyRosterRunCalendarAssignmentsForInvalidation,
 	hydrateAcceptedDutyRosterRunCalendarSyncState,
 	loadAcceptedDutyRosterRunLinkedCalendarAssignmentsByRunId,
 	loadAcceptedDutyRosterRunCalendarSyncState,
 	logAcceptedDutyRosterRunAppliedToCalendar,
 	logAcceptedDutyRosterRunInvalidated,
-	removeAcceptedDutyRosterRunLinkedCalendarAssignments,
-	rollbackAcceptedDutyRosterRunCalendarSync,
 	type AcceptedDutyRosterRunCalendarSyncApplyResult
 } from './acceptedRunCalendarSync';
 import {
@@ -340,14 +337,7 @@ export async function applyAcceptedDutyRosterTemplateRun(
 		return applyReviewedAcceptedDutyRosterRunCalendarSyncPlan(ctx, run, state.plan);
 	}
 
-	try {
-		return await applyAcceptedDutyRosterRunCalendarSync(ctx, run);
-	} catch (error) {
-		if (!run.appliedAt) {
-			await tryRollbackAcceptedDutyRosterRunCalendarSync(ctx, run.id);
-		}
-		throw error;
-	}
+	return applyAcceptedDutyRosterRunCalendarSync(ctx, run);
 }
 
 export async function recordDutyRosterTemplateRunCorrection(
@@ -392,15 +382,6 @@ export async function invalidateLatestDutyRosterTemplateRun(
 	const linkedRowsByRunId = await loadAcceptedDutyRosterRunLinkedCalendarAssignmentsByRunId(ctx, targetRows);
 	const targetRuns = await hydrateAcceptedRunCorrections(ctx, targetRows.map(toAcceptedDutyRosterTemplateRun));
 	const targetRunsById = new Map(targetRuns.map((target) => [target.id, target]));
-	const calendarAssignmentsEditedByRunId = new Map(
-		targetRows.map((target) => [
-			target.id,
-			acceptedDutyRosterRunCalendarAssignmentsWereEdited(
-				targetRunsById.get(target.id) ?? toAcceptedDutyRosterTemplateRun(target),
-				linkedRowsByRunId.get(target.id) ?? []
-			)
-		])
-	);
 
 	const invalidatedAt = new Date().toISOString();
 	await assertDutyRosterRunsAreInvalidatableAtWriteTime(ctx, {
@@ -418,39 +399,38 @@ export async function invalidateLatestDutyRosterTemplateRun(
 			})
 		);
 	}
-	let calendarRemoval: { cleared: number };
-	const removedCalendarAssignmentCountByRunId = new Map<string, number>();
-	const removedCalendarRows: DutyRosterTemplateLinkedCalendarAssignmentRow[] = [];
+	let calendarCleanup: Awaited<ReturnType<typeof cleanupAcceptedDutyRosterRunCalendarAssignmentsForInvalidation>>;
 	try {
-		calendarRemoval = { cleared: 0 };
-		for (const target of targetRows) {
-			const targetLinkedRows = linkedRowsByRunId.get(target.id) ?? [];
-			const targetRemoval = await removeAcceptedDutyRosterRunLinkedCalendarAssignments(
-				ctx,
-				target.id,
-				targetLinkedRows
-			);
-			const deletedIdSet = new Set(targetRemoval.deletedIds);
-			removedCalendarRows.push(...targetLinkedRows.filter((row) => deletedIdSet.has(row.id)));
-			removedCalendarAssignmentCountByRunId.set(target.id, targetRemoval.cleared);
-			calendarRemoval.cleared += targetRemoval.cleared;
-		}
+		calendarCleanup = await cleanupAcceptedDutyRosterRunCalendarAssignmentsForInvalidation(
+			ctx,
+			targetRows.map((target) => ({
+				run: targetRunsById.get(target.id) ?? toAcceptedDutyRosterTemplateRun(target),
+				linkedRows: linkedRowsByRunId.get(target.id) ?? []
+			}))
+		);
 	} catch (error) {
-		await tryRestoreLinkedCalendarAssignments(ctx, removedCalendarRows);
+		const rollbackErrors: unknown[] = [];
 		for (const updated of updatedRows) {
-			await ctx.store.update<DutyRosterTemplateRunRow>(DUTY_ROSTER_TEMPLATE_RUN_TABLE, ctx.auth.orgId, updated.id, {
-				status: 'accepted',
-				invalidated_at: null,
-				invalidated_by_user_id: null
-			});
+			try {
+				await ctx.store.update<DutyRosterTemplateRunRow>(DUTY_ROSTER_TEMPLATE_RUN_TABLE, ctx.auth.orgId, updated.id, {
+					status: 'accepted',
+					invalidated_at: null,
+					invalidated_by_user_id: null
+				});
+			} catch (rollbackError) {
+				rollbackErrors.push(rollbackError);
+			}
+		}
+		if (rollbackErrors.length > 0) {
+			throw invalidationRollbackFailureError(error, rollbackErrors);
 		}
 		throw error;
 	}
 
 	for (const updated of updatedRows) {
 		await tryLogAcceptedDutyRosterRunInvalidated(ctx, updated.id, {
-			removedCalendarAssignments: removedCalendarAssignmentCountByRunId.get(updated.id) ?? 0,
-			calendarAssignmentsEdited: calendarAssignmentsEditedByRunId.get(updated.id) ?? false
+			removedCalendarAssignments: calendarCleanup.removedCalendarAssignmentCountByRunId.get(updated.id) ?? 0,
+			calendarAssignmentsEdited: calendarCleanup.calendarAssignmentsEditedByRunId.get(updated.id) ?? false
 		});
 	}
 
@@ -458,9 +438,21 @@ export async function invalidateLatestDutyRosterTemplateRun(
 	return {
 		invalidatedRun: invalidatedRuns.find((run) => run.id === row.id) ?? invalidatedRuns[0]!,
 		invalidatedRuns,
-		removedCalendarAssignments: calendarRemoval.cleared,
-		calendarAssignmentsEdited: [...calendarAssignmentsEditedByRunId.values()].some(Boolean)
+		removedCalendarAssignments: calendarCleanup.removedCalendarAssignments,
+		calendarAssignmentsEdited: calendarCleanup.calendarAssignmentsEdited
 	};
+}
+
+function invalidationRollbackFailureError(primaryError: unknown, rollbackErrors: unknown[]): Error {
+	const error = new Error(
+		`cleanupAcceptedDutyRosterRunCalendarAssignmentsForInvalidation failed; failed to revert ${rollbackErrors.length} updatedRows using ctx.store.update on ${DUTY_ROSTER_TEMPLATE_RUN_TABLE}. Primary failure: ${errorMessage(primaryError)}. Rollback failures: ${rollbackErrors.map(errorMessage).join('; ')}.`
+	);
+	return Object.assign(error, { primaryError, rollbackErrors });
+}
+
+function errorMessage(error: unknown): string {
+	const message = error instanceof Error ? error.message : String(error);
+	return message.replace(/[.]+$/, '');
 }
 
 function isFollowOnDutyRosterRun(candidate: DutyRosterTemplateRunRow, selected: DutyRosterTemplateRunRow): boolean {
@@ -513,7 +505,6 @@ export async function acceptAndApplyDutyRosterTemplatePreview(
 	try {
 		result = await applyAcceptedDutyRosterRunCalendarSync(ctx, acceptedRun, { audit: false });
 	} catch (error) {
-		await tryRollbackAcceptedDutyRosterRunCalendarSync(ctx, acceptedRun.id);
 		await tryRollbackAcceptedDutyRosterTemplateRun(ctx, acceptedRun.id);
 		throw error;
 	}
@@ -524,36 +515,6 @@ export async function acceptAndApplyDutyRosterTemplatePreview(
 		cleared: result.clearedCount
 	});
 	return result;
-}
-
-async function restoreLinkedCalendarAssignments(
-	ctx: WritePorts,
-	rows: DutyRosterTemplateLinkedCalendarAssignmentRow[]
-): Promise<void> {
-	if (rows.length === 0) return;
-	await ctx.store.insertMany(
-		'daily_assignments',
-		ctx.auth.orgId,
-		rows.map((row) => ({
-			id: row.id,
-			date: row.date,
-			assignment_type_id: row.assignment_type_id,
-			assignee_id: row.assignee_id,
-			duty_roster_template_run_id: row.duty_roster_template_run_id,
-			duty_roster_template_run_row_date: row.duty_roster_template_run_row_date
-		}))
-	);
-}
-
-async function tryRestoreLinkedCalendarAssignments(
-	ctx: WritePorts,
-	rows: Parameters<typeof restoreLinkedCalendarAssignments>[1]
-): Promise<void> {
-	try {
-		await restoreLinkedCalendarAssignments(ctx, rows);
-	} catch {
-		// Preserve the cleanup failure; callers need the primary invalidation error.
-	}
 }
 
 async function tryLogAcceptedDutyRosterRunInvalidated(
@@ -596,14 +557,6 @@ async function tryLogAcceptedDutyRosterRunAppliedToCalendar(
 
 async function rollbackAcceptedDutyRosterTemplateRun(ctx: WritePorts, runId: string): Promise<void> {
 	await ctx.store.delete(DUTY_ROSTER_TEMPLATE_RUN_TABLE, ctx.auth.orgId, runId);
-}
-
-async function tryRollbackAcceptedDutyRosterRunCalendarSync(ctx: WritePorts, runId: string): Promise<void> {
-	try {
-		await rollbackAcceptedDutyRosterRunCalendarSync(ctx, runId);
-	} catch {
-		// Preserve the original apply error; callers still need the primary failure.
-	}
 }
 
 async function tryRollbackAcceptedDutyRosterTemplateRun(ctx: WritePorts, runId: string): Promise<void> {

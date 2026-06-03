@@ -627,7 +627,7 @@ describe('DutyRosterTemplateWorkspace', () => {
 					templates: [template],
 					selectedTemplate: template,
 					view: 'history',
-					acceptedRuns: [acceptedRun({ invalidated: true, corrected: true })],
+					acceptedRuns: [acceptedRun({ applied: true, invalidated: true, corrected: true })],
 					historyDetailRunId: 'run-1',
 					historyDetailMode: 'roster'
 				}
@@ -635,6 +635,7 @@ describe('DutyRosterTemplateWorkspace', () => {
 		});
 
 		expect(screen.getByText('Invalidated')).toBeTruthy();
+		expect(within(screen.getByLabelText('Run status')).queryByText('Applied')).toBeNull();
 		expect(screen.getByText('Non-counting because this run is invalidated.')).toBeTruthy();
 		expect(screen.getByRole('table', { name: 'Accepted Duty Roster list' })).toBeTruthy();
 		expect(screen.queryByRole('button', { name: 'Print Roster' })).toBeNull();

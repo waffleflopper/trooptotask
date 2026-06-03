@@ -46,6 +46,7 @@
 		activeOnboardingPersonnelIds?: string[];
 		highlightOnboarding?: boolean;
 		canEdit?: boolean;
+		canEditAssignments?: boolean;
 		showStatusText?: boolean;
 		showPersonnelRoles?: boolean;
 		/** Map of personId → UpcomingLossRecord for per-row loss indicators. */
@@ -80,6 +81,7 @@
 		activeOnboardingPersonnelIds = [],
 		highlightOnboarding = true,
 		canEdit = true,
+		canEditAssignments = canEdit,
 		showStatusText = false,
 		showPersonnelRoles = false,
 		upcomingLossMap,
@@ -219,7 +221,7 @@
 		{onNextMonth}
 		{onGoToToday}
 		{onNavigateToMonth}
-		onDateClick={canEdit ? onDateClick : undefined}
+		onDateClick={canEditAssignments ? onDateClick : undefined}
 		{scrollLeft}
 		{scrollbarWidth}
 		{viewMode}

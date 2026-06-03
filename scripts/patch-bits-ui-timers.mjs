@@ -25,7 +25,8 @@ function patchFile({ filePath, patchName, replacements }) {
 	console.log(`[patch-bits-ui] Applied ${patchName} patch.`);
 }
 
-const bitsUiDist = join(process.cwd(), 'node_modules', 'bits-ui', 'dist', 'bits');
+const bitsUiPackageDist = join(process.cwd(), 'node_modules', 'bits-ui', 'dist');
+const bitsUiDist = join(bitsUiPackageDist, 'bits');
 
 patchFile({
 	patchName: 'dismissible layer timeout cleanup',
@@ -53,6 +54,192 @@ patchFile({
             layerRegistrationTimeout = afterSleep(1, () => {
                 layerRegistrationTimeout = undefined;
                 if (!this.opts.ref.current)`
+		}
+	]
+});
+
+patchFile({
+	patchName: 'dismissible layer focus tick cleanup',
+	filePath: join(bitsUiDist, 'utilities', 'dismissible-layer', 'use-dismissable-layer.svelte.js'),
+	replacements: [
+		{
+			original: `    #handleFocus = (event) => {
+        if (event.defaultPrevented)
+            return;
+        if (!this.opts.ref.current)
+            return;
+        afterTick(() => {
+            if (!this.opts.ref.current || this.#isTargetWithinLayer(event.target))
+                return;
+            if (event.target && !this.#isFocusInsideDOMTree) {
+                this.#onFocusOutside.current?.(event);
+            }
+        });
+    };`,
+			patched: `    #handleFocus = (event) => {
+        if (event.defaultPrevented)
+            return;
+        const layerNode = this.opts.ref.current;
+        if (!layerNode)
+            return;
+        afterTick(() => {
+            if (!globalThis.bitsDismissableLayers.has(this) || isOrContainsTarget(layerNode, event.target))
+                return;
+            if (event.target && !this.#isFocusInsideDOMTree) {
+                this.#onFocusOutside.current?.(event);
+            }
+        });
+    };`
+		}
+	]
+});
+
+patchFile({
+	patchName: 'menu deferred focus cleanup',
+	filePath: join(bitsUiDist, 'menu', 'menu.svelte.js'),
+	replacements: [
+		{
+			original: `    #timer = 0;
+    #handleTypeaheadSearch;
+    mounted = $state(false);
+    #isSub;`,
+			patched: `    #timer = 0;
+    #handleTypeaheadSearch;
+    mounted = $state(false);
+    #isSub;
+    #destroyed = false;`
+		},
+		{
+			original: `        this.rovingFocusGroup = new RovingFocusGroup({
+            rootNode: boxWith(() => this.parentMenu.contentNode),
+            candidateAttr: this.parentMenu.root.getBitsAttr("item"),
+            loop: this.opts.loop,
+            orientation: boxWith(() => "vertical"),
+        });`,
+			patched: `        this.rovingFocusGroup = new RovingFocusGroup({
+            rootNode: boxWith(() => this.parentMenu.contentNode),
+            candidateAttr: this.parentMenu.root.getBitsAttr("item"),
+            loop: this.opts.loop,
+            orientation: boxWith(() => "vertical"),
+        });
+        onDestroyEffect(() => {
+            this.#destroyed = true;
+        });`
+		},
+		{
+			original: `            const handler = () => {
+                afterTick(() => {
+                    if (!this.parentMenu.root.isUsingKeyboard.current)
+                        return;
+                    this.rovingFocusGroup.focusFirstCandidate();
+                });
+            };`,
+			patched: `            const handler = () => {
+                const isUsingKeyboard = this.parentMenu.root.isUsingKeyboard.current;
+                afterTick(() => {
+                    if (this.#destroyed || !isUsingKeyboard)
+                        return;
+                    this.rovingFocusGroup.focusFirstCandidate();
+                });
+            };`
+		},
+		{
+			original: `    onfocus(_) {
+        if (!this.parentMenu.root.isUsingKeyboard.current)
+            return;
+        afterTick(() => this.rovingFocusGroup.focusFirstCandidate());
+    }`,
+			patched: `    onfocus(_) {
+        if (!this.parentMenu.root.isUsingKeyboard.current)
+            return;
+        afterTick(() => {
+            if (this.#destroyed)
+                return;
+            this.rovingFocusGroup.focusFirstCandidate();
+        });
+    }`
+		},
+		{
+			original: `    #isFocused = $state(false);
+    constructor(opts, content) {
+        this.opts = opts;`,
+			patched: `    #isFocused = $state(false);
+    #destroyed = false;
+    constructor(opts, content) {
+        this.opts = opts;`
+		},
+		{
+			original: `        this.onfocus = this.onfocus.bind(this);
+        this.onblur = this.onblur.bind(this);
+    }`,
+			patched: `        this.onfocus = this.onfocus.bind(this);
+        this.onblur = this.onblur.bind(this);
+        onDestroyEffect(() => {
+            this.#destroyed = true;
+        });
+    }`
+		},
+		{
+			original: `    onfocus(e) {
+        afterTick(() => {
+            if (e.defaultPrevented || this.opts.disabled.current)
+                return;
+            this.#isFocused = true;
+        });
+    }
+    onblur(e) {
+        afterTick(() => {
+            if (e.defaultPrevented)
+                return;
+            this.#isFocused = false;
+        });
+    }`,
+			patched: `    onfocus(e) {
+        const disabled = this.opts.disabled.current;
+        afterTick(() => {
+            if (this.#destroyed || e.defaultPrevented || disabled)
+                return;
+            this.#isFocused = true;
+        });
+    }
+    onblur(e) {
+        afterTick(() => {
+            if (this.#destroyed || e.defaultPrevented)
+                return;
+            this.#isFocused = false;
+        });
+    }`
+		}
+	]
+});
+
+patchFile({
+	patchName: 'presence animation tick cleanup',
+	filePath: join(bitsUiPackageDist, 'internal', 'animations-complete.js'),
+	replacements: [
+		{
+			original: `        const executeIfCurrent = () => {
+            if (runId !== this.#runId)
+                return;
+            this.#executeCallback(fn);
+        };`,
+			patched: `        const executeIfCurrent = () => {
+            if (runId !== this.#runId)
+                return;
+            this.#executeCallback(fn, runId);
+        };`
+		},
+		{
+			original: `    #executeCallback(fn) {
+        const execute = () => {
+            fn();
+        };`,
+			patched: `    #executeCallback(fn, runId = this.#runId) {
+        const execute = () => {
+            if (runId !== this.#runId)
+                return;
+            fn();
+        };`
 		}
 	]
 });

@@ -143,15 +143,19 @@ describe('Rating Scheme entry draft', () => {
 		draft.showIntermediate = true;
 		draft.intermediateRater.personId = 'ir-1';
 		draft.intermediateRater.name = 'ignored';
+		draft.workflowStatus = 'ir-signed';
 		removeIntermediateRaterFromDraft(draft);
 		expect(draft.showIntermediate).toBe(false);
 		expect(draft.intermediateRater.personId).toBe('');
 		expect(draft.intermediateRater.name).toBe('');
+		expect(draft.workflowStatus).toBe('');
 
 		draft.showReviewer = true;
 		draft.reviewer.personId = 'reviewer-1';
+		draft.workflowStatus = 'with-reviewer';
 		removeReviewerFromDraft(draft);
 		expect(draft.showReviewer).toBe(false);
 		expect(draft.reviewer.personId).toBe('');
+		expect(draft.workflowStatus).toBe('');
 	});
 });

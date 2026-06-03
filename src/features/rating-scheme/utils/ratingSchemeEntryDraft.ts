@@ -122,12 +122,18 @@ export function removeIntermediateRaterFromDraft(draft: RatingSchemeEntryDraft):
 	draft.showIntermediate = false;
 	draft.intermediateRater.personId = '';
 	draft.intermediateRater.name = '';
+	if (draft.workflowStatus === 'with-intermediate-rater' || draft.workflowStatus === 'ir-signed') {
+		draft.workflowStatus = '';
+	}
 }
 
 export function removeReviewerFromDraft(draft: RatingSchemeEntryDraft): void {
 	draft.showReviewer = false;
 	draft.reviewer.personId = '';
 	draft.reviewer.name = '';
+	if (draft.workflowStatus === 'with-reviewer' || draft.workflowStatus === 'reviewer-signed') {
+		draft.workflowStatus = '';
+	}
 }
 
 export function removeWorkflowFromDraft(draft: RatingSchemeEntryDraft): void {

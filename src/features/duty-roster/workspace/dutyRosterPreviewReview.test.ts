@@ -127,7 +127,8 @@ describe('dutyRosterPreviewReview', () => {
 
 	it('shapes accepted history rows from the saved snapshot and latest correction', () => {
 		const model = buildDutyRosterAcceptedRunReviewModel({
-			run: acceptedRun()
+			run: acceptedRun(),
+			todayDate: '2026-06-01'
 		});
 
 		expect(model.snapshot.finalRows[0]?.finalAssigneeId).toBe('person-1');
@@ -161,7 +162,8 @@ describe('dutyRosterPreviewReview', () => {
 	it('marks out-of-pool correction options and summaries as overrides', () => {
 		const run = acceptedRun({ poolOverride: true });
 		const model = buildDutyRosterAcceptedRunReviewModel({
-			run
+			run,
+			todayDate: '2026-06-01'
 		});
 
 		expect(model.rows[0]).toMatchObject({
@@ -195,7 +197,8 @@ describe('dutyRosterPreviewReview', () => {
 		const run = acceptedRun();
 		const snapshot = run.snapshotPayload as unknown as DutyRosterTemplateAcceptedSnapshot;
 		const model = buildDutyRosterAcceptedRunReviewModel({
-			run
+			run,
+			todayDate: '2026-06-01'
 		});
 
 		expect(model.matrix.rows).toEqual([

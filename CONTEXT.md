@@ -386,6 +386,10 @@ _Avoid_: Extended info when discussing the full concept
 The active v1 surface for evaluation-tracking records and workflows for rated individuals, exposed through the Evals route with its own durable lane ownership.
 _Avoid_: Personnel metadata
 
+**Rating Scheme Entry Draft**:
+The temporary app-side editing state for one **Rating Scheme** entry before it is saved. It owns evaluator source modes, required-field validation, report-type date behavior, workflow-step visibility, and save payload shaping for the entry modal. It is not persisted evaluation history and should not own provider access or route authorization.
+_Avoid_: Modal state, rating scheme row, evaluation record
+
 **Evals**:
 The primary navigation label and route surface for **Rating Scheme** workflows.
 _Avoid_: Separate domain from Rating Scheme

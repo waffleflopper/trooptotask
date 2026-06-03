@@ -324,6 +324,49 @@ describe('Accepted Duty Roster Run Calendar Sync', () => {
 		}
 	});
 
+	it('surfaces Calendar rollback failure when marking a first apply fails', async () => {
+		const ctx = buildContext();
+		seedRunRow(ctx);
+		ctx.store.seed('daily_assignments', [
+			{
+				id: 'manual-1',
+				organization_id: 'test-org',
+				date: '2026-06-01',
+				assignment_type_id: 'type-a',
+				assignee_id: 'person-9',
+				duty_roster_template_run_id: null,
+				duty_roster_template_run_row_date: null
+			}
+		]);
+		const originalUpdate = ctx.store.update.bind(ctx.store);
+		const originalInsertMany = ctx.store.insertMany.bind(ctx.store);
+		const updateSpy = vi.spyOn(ctx.store, 'update').mockImplementation(async (table, orgId, id, data) => {
+			if (table === 'duty_roster_template_runs' && id === 'run-1' && 'applied_at' in data) {
+				throw new Error('Apply marker failed.');
+			}
+			return originalUpdate(table, orgId, id, data);
+		});
+		let dailyAssignmentInsertAttempts = 0;
+		const insertManySpy = vi.spyOn(ctx.store, 'insertMany').mockImplementation(async (table, orgId, rows) => {
+			if (table === 'daily_assignments') {
+				dailyAssignmentInsertAttempts += 1;
+				if (dailyAssignmentInsertAttempts === 2) {
+					throw new Error('Calendar rollback failed.');
+				}
+			}
+			return originalInsertMany(table, orgId, rows);
+		});
+
+		try {
+			await expect(applyAcceptedDutyRosterRunCalendarSync(ctx, acceptedRun())).rejects.toThrow(
+				'Failed to roll back Calendar assignments after accepted run applied marker failure. Primary failure: Apply marker failed. Rollback failure: Calendar rollback failed.'
+			);
+		} finally {
+			updateSpy.mockRestore();
+			insertManySpy.mockRestore();
+		}
+	});
+
 	it('restores the prior Calendar slot when first apply slot writes fail after clearing', async () => {
 		const ctx = buildContext();
 		seedRunRow(ctx);
@@ -458,6 +501,86 @@ describe('Accepted Duty Roster Run Calendar Sync', () => {
 			).toEqual(['linked-1', 'linked-2']);
 		} finally {
 			deleteManyByIdsSpy.mockRestore();
+		}
+	});
+
+	it('surfaces restore failure when invalidation cleanup rollback cannot restore linked Calendar assignments', async () => {
+		const ctx = buildContext();
+		ctx.store.seed('daily_assignments', [
+			{
+				id: 'linked-1',
+				organization_id: 'test-org',
+				date: '2026-06-01',
+				assignment_type_id: 'type-a',
+				assignee_id: 'person-1',
+				duty_roster_template_run_id: 'run-1',
+				duty_roster_template_run_row_date: '2026-06-01'
+			},
+			{
+				id: 'linked-2',
+				organization_id: 'test-org',
+				date: '2026-06-02',
+				assignment_type_id: 'type-a',
+				assignee_id: 'person-2',
+				duty_roster_template_run_id: 'run-2',
+				duty_roster_template_run_row_date: '2026-06-02'
+			}
+		]);
+		const originalDeleteManyByIds = ctx.store.deleteManyByIds.bind(ctx.store);
+		const originalInsertMany = ctx.store.insertMany.bind(ctx.store);
+		let cleanupCalls = 0;
+		const deleteManyByIdsSpy = vi.spyOn(ctx.store, 'deleteManyByIds').mockImplementation(async (table, orgId, ids) => {
+			if (table === 'daily_assignments') {
+				cleanupCalls += 1;
+				if (cleanupCalls === 2) {
+					throw new Error('Calendar cleanup failed.');
+				}
+			}
+			return originalDeleteManyByIds(table, orgId, ids);
+		});
+		const insertManySpy = vi.spyOn(ctx.store, 'insertMany').mockImplementation(async (table, orgId, rows) => {
+			if (table === 'daily_assignments') {
+				throw new Error('Calendar restore failed.');
+			}
+			return originalInsertMany(table, orgId, rows);
+		});
+
+		try {
+			await expect(
+				cleanupAcceptedDutyRosterRunCalendarAssignmentsForInvalidation(ctx, [
+					{
+						run: acceptedRun({ id: 'run-1', appliedAt: '2026-05-04T12:01:00.000Z' }),
+						linkedRows: [
+							{
+								id: 'linked-1',
+								duty_roster_template_run_id: 'run-1',
+								duty_roster_template_run_row_date: '2026-06-01',
+								date: '2026-06-01',
+								assignment_type_id: 'type-a',
+								assignee_id: 'person-1'
+							}
+						]
+					},
+					{
+						run: acceptedRun({ id: 'run-2', startDate: '2026-06-02', endDate: '2026-06-02' }),
+						linkedRows: [
+							{
+								id: 'linked-2',
+								duty_roster_template_run_id: 'run-2',
+								duty_roster_template_run_row_date: '2026-06-02',
+								date: '2026-06-02',
+								assignment_type_id: 'type-a',
+								assignee_id: 'person-2'
+							}
+						]
+					}
+				])
+			).rejects.toThrow(
+				'Failed to restore linked Calendar assignments after invalidation cleanup failure. Primary failure: Calendar cleanup failed. Rollback failure: Calendar restore failed.'
+			);
+		} finally {
+			deleteManyByIdsSpy.mockRestore();
+			insertManySpy.mockRestore();
 		}
 	});
 

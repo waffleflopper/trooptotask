@@ -2349,6 +2349,61 @@ describe('Duty Roster Template use cases', () => {
 		]);
 	});
 
+	it('attempts every updatedRows revert when invalidation Calendar cleanup rollback has row failures', async () => {
+		const ctx = createCtx(createAuth({ scopeSet: { kind: 'groups', groupIds: ['alpha'] } }));
+		personnelRows.push(
+			personnelRow({ id: 'alpha', rank: 'SGT', last_name: 'Able', first_name: 'Ann', group_id: 'alpha' }),
+			personnelRow({ id: 'bravo', rank: 'SGT', last_name: 'Baker', first_name: 'Ben', group_id: 'alpha' })
+		);
+		const template = await createDutyRosterTemplate(ctx, { name: 'CQ NCO', shortCode: 'CQ' });
+		for (const [index, date] of ['2026-06-01', '2026-06-02', '2026-06-03'].entries()) {
+			const preview = await generateDutyRosterTemplatePreview(ctx, {
+				templateId: template.id,
+				startDate: date,
+				endDate: date
+			});
+			await acceptAndApplyDutyRosterTemplatePreview(ctx, {
+				preview: JSON.stringify(preview)
+			});
+			acceptedRunRows[index].accepted_at = `2026-06-0${index + 1}T00:00:00.000Z`;
+		}
+		const deleteManyByIdsSpy = vi
+			.spyOn(store, 'deleteManyByIds')
+			.mockRejectedValueOnce(new Error('Calendar cleanup failed.'));
+		const originalUpdate = store.update.bind(store);
+		const revertAttempts: string[] = [];
+		const updateSpy = vi.spyOn(store, 'update').mockImplementation(async (table, orgId, id, data) => {
+			if (
+				table === 'duty_roster_template_runs' &&
+				data.status === 'accepted' &&
+				data.invalidated_at === null &&
+				data.invalidated_by_user_id === null
+			) {
+				revertAttempts.push(id);
+				if (id === 'run-2') {
+					throw new Error('Run revert failed.');
+				}
+			}
+			return originalUpdate(table, orgId, id, data);
+		});
+
+		try {
+			await expect(invalidateLatestDutyRosterTemplateRun(ctx, { runId: 'run-1', cascade: true })).rejects.toThrow(
+				'cleanupAcceptedDutyRosterRunCalendarAssignmentsForInvalidation failed; failed to revert 1 updatedRows using ctx.store.update on duty_roster_template_runs. Primary failure: Calendar cleanup failed. Rollback failures: Run revert failed.'
+			);
+
+			expect(revertAttempts).toEqual(['run-1', 'run-2', 'run-3']);
+			expect(acceptedRunRows.map((row) => ({ id: row.id, status: row.status }))).toEqual([
+				{ id: 'run-1', status: 'accepted' },
+				{ id: 'run-2', status: 'invalidated' },
+				{ id: 'run-3', status: 'accepted' }
+			]);
+		} finally {
+			deleteManyByIdsSpy.mockRestore();
+			updateSpy.mockRestore();
+		}
+	});
+
 	it('restores earlier Calendar cleanup when cascade invalidation fails part way through', async () => {
 		const ctx = createCtx(createAuth({ scopeSet: { kind: 'groups', groupIds: ['alpha'] } }));
 		personnelRows.push(

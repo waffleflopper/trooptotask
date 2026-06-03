@@ -409,12 +409,20 @@ export async function invalidateLatestDutyRosterTemplateRun(
 			}))
 		);
 	} catch (error) {
+		const rollbackErrors: unknown[] = [];
 		for (const updated of updatedRows) {
-			await ctx.store.update<DutyRosterTemplateRunRow>(DUTY_ROSTER_TEMPLATE_RUN_TABLE, ctx.auth.orgId, updated.id, {
-				status: 'accepted',
-				invalidated_at: null,
-				invalidated_by_user_id: null
-			});
+			try {
+				await ctx.store.update<DutyRosterTemplateRunRow>(DUTY_ROSTER_TEMPLATE_RUN_TABLE, ctx.auth.orgId, updated.id, {
+					status: 'accepted',
+					invalidated_at: null,
+					invalidated_by_user_id: null
+				});
+			} catch (rollbackError) {
+				rollbackErrors.push(rollbackError);
+			}
+		}
+		if (rollbackErrors.length > 0) {
+			throw invalidationRollbackFailureError(error, rollbackErrors);
 		}
 		throw error;
 	}
@@ -433,6 +441,18 @@ export async function invalidateLatestDutyRosterTemplateRun(
 		removedCalendarAssignments: calendarCleanup.removedCalendarAssignments,
 		calendarAssignmentsEdited: calendarCleanup.calendarAssignmentsEdited
 	};
+}
+
+function invalidationRollbackFailureError(primaryError: unknown, rollbackErrors: unknown[]): Error {
+	const error = new Error(
+		`cleanupAcceptedDutyRosterRunCalendarAssignmentsForInvalidation failed; failed to revert ${rollbackErrors.length} updatedRows using ctx.store.update on ${DUTY_ROSTER_TEMPLATE_RUN_TABLE}. Primary failure: ${errorMessage(primaryError)}. Rollback failures: ${rollbackErrors.map(errorMessage).join('; ')}.`
+	);
+	return Object.assign(error, { primaryError, rollbackErrors });
+}
+
+function errorMessage(error: unknown): string {
+	const message = error instanceof Error ? error.message : String(error);
+	return message.replace(/[.]+$/, '');
 }
 
 function isFollowOnDutyRosterRun(candidate: DutyRosterTemplateRunRow, selected: DutyRosterTemplateRunRow): boolean {

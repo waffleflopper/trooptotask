@@ -60,7 +60,12 @@ export async function applyAcceptedDutyRosterRunCalendarSync(
 	try {
 		result = await batchDailyAssignments(ctx, { records });
 	} catch (error) {
-		await tryRollbackCalendarSyncRecords(ctx, rollbackRecords);
+		await tryRollbackCalendarSyncRecords(
+			ctx,
+			rollbackRecords,
+			error,
+			'Failed to roll back Calendar assignments after accepted run Calendar write failure'
+		);
 		throw error;
 	}
 
@@ -72,7 +77,12 @@ export async function applyAcceptedDutyRosterRunCalendarSync(
 			applied_by_user_id: ctx.auth.userId
 		});
 	} catch (error) {
-		await tryRollbackCalendarSyncRecords(ctx, rollbackRecords);
+		await tryRollbackCalendarSyncRecords(
+			ctx,
+			rollbackRecords,
+			error,
+			'Failed to roll back Calendar assignments after accepted run applied marker failure'
+		);
 		throw error;
 	}
 
@@ -108,7 +118,12 @@ export async function applyReviewedAcceptedDutyRosterRunCalendarSyncPlan(
 			records: plan.changes.map((change) => planChangeToDailyAssignmentRecord(change, run.id))
 		});
 	} catch (error) {
-		await tryRollbackReviewedCalendarSyncPlan(ctx, rollbackRecords);
+		await tryRollbackReviewedCalendarSyncPlan(
+			ctx,
+			rollbackRecords,
+			error,
+			'Failed to roll back reviewed Calendar sync plan after Calendar write failure'
+		);
 		throw error;
 	}
 	const appliedAt = new Date().toISOString();
@@ -135,7 +150,12 @@ export async function applyReviewedAcceptedDutyRosterRunCalendarSyncPlan(
 			clearedCount: result.cleared
 		};
 	} catch (error) {
-		await tryRollbackReviewedCalendarSyncPlan(ctx, rollbackRecords);
+		await tryRollbackReviewedCalendarSyncPlan(
+			ctx,
+			rollbackRecords,
+			error,
+			'Failed to roll back reviewed Calendar sync plan after accepted run applied marker failure'
+		);
 		throw error;
 	}
 }
@@ -297,7 +317,7 @@ export async function cleanupAcceptedDutyRosterRunCalendarAssignmentsForInvalida
 			removedCalendarAssignments += targetRemoval.cleared;
 		}
 	} catch (error) {
-		await tryRestoreLinkedCalendarAssignments(ctx, removedCalendarRows);
+		await tryRestoreLinkedCalendarAssignments(ctx, removedCalendarRows, error);
 		throw error;
 	}
 
@@ -824,27 +844,51 @@ async function restoreLinkedCalendarAssignments(
 
 async function tryRestoreLinkedCalendarAssignments(
 	ctx: WritePorts,
-	rows: DutyRosterTemplateLinkedCalendarAssignmentRow[]
+	rows: DutyRosterTemplateLinkedCalendarAssignmentRow[],
+	primaryError: unknown
 ): Promise<void> {
 	try {
 		await restoreLinkedCalendarAssignments(ctx, rows);
-	} catch {
-		// Preserve the cleanup failure; callers need the primary invalidation error.
+	} catch (restoreError) {
+		throw calendarRollbackFailureError(
+			'Failed to restore linked Calendar assignments after invalidation cleanup failure',
+			primaryError,
+			restoreError
+		);
 	}
 }
 
 async function tryRollbackReviewedCalendarSyncPlan(
 	ctx: WritePorts,
-	records: DailyAssignmentSlotRecord[]
+	records: DailyAssignmentSlotRecord[],
+	primaryError: unknown,
+	message: string
 ): Promise<void> {
-	await tryRollbackCalendarSyncRecords(ctx, records);
+	await tryRollbackCalendarSyncRecords(ctx, records, primaryError, message);
 }
 
-async function tryRollbackCalendarSyncRecords(ctx: WritePorts, records: DailyAssignmentSlotRecord[]): Promise<void> {
+async function tryRollbackCalendarSyncRecords(
+	ctx: WritePorts,
+	records: DailyAssignmentSlotRecord[],
+	primaryError: unknown,
+	message: string
+): Promise<void> {
 	if (records.length === 0) return;
 	try {
 		await batchDailyAssignments(ctx, { records });
-	} catch {
-		// Preserve the original failure; the caller needs the primary write error.
+	} catch (rollbackError) {
+		throw calendarRollbackFailureError(message, primaryError, rollbackError);
 	}
+}
+
+function calendarRollbackFailureError(message: string, primaryError: unknown, rollbackError: unknown): Error {
+	const error = new Error(
+		`${message}. Primary failure: ${errorMessage(primaryError)}. Rollback failure: ${errorMessage(rollbackError)}.`
+	);
+	return Object.assign(error, { primaryError, rollbackError });
+}
+
+function errorMessage(error: unknown): string {
+	const message = error instanceof Error ? error.message : String(error);
+	return message.replace(/[.]+$/, '');
 }

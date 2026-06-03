@@ -37,24 +37,54 @@ export type AcceptedDutyRosterRunCalendarSyncApplyResult = {
 	clearedCount: number;
 };
 
+export type AcceptedDutyRosterRunInvalidationCalendarCleanupTarget = {
+	run: DutyRosterTemplateAcceptedRun;
+	linkedRows: DutyRosterTemplateLinkedCalendarAssignmentRow[];
+};
+
+export type AcceptedDutyRosterRunInvalidationCalendarCleanupResult = {
+	removedCalendarAssignments: number;
+	removedCalendarAssignmentCountByRunId: Map<string, number>;
+	calendarAssignmentsEditedByRunId: Map<string, boolean>;
+	calendarAssignmentsEdited: boolean;
+};
+
 export async function applyAcceptedDutyRosterRunCalendarSync(
 	ctx: WritePorts,
 	run: DutyRosterTemplateAcceptedRun,
 	options: { audit?: boolean } = {}
 ): Promise<AcceptedDutyRosterRunCalendarSyncApplyResult> {
-	const result = await batchDailyAssignments(ctx, {
-		records: applyRecordsFromAcceptedRun(run)
-	});
+	const records = applyRecordsFromAcceptedRun(run);
+	const rollbackRecords = await loadDailyAssignmentRollbackRecords(ctx, records);
+	let result: Awaited<ReturnType<typeof batchDailyAssignments>>;
+	try {
+		result = await batchDailyAssignments(ctx, { records });
+	} catch (error) {
+		await tryRollbackCalendarSyncRecords(
+			ctx,
+			rollbackRecords,
+			error,
+			'Failed to roll back Calendar assignments after accepted run Calendar write failure'
+		);
+		throw error;
+	}
+
 	const appliedAt = new Date().toISOString();
-	const updated = await ctx.store.update<DutyRosterTemplateRunRow>(
-		DUTY_ROSTER_TEMPLATE_RUN_TABLE,
-		ctx.auth.orgId,
-		run.id,
-		{
+	let updated: DutyRosterTemplateRunRow;
+	try {
+		updated = await ctx.store.update<DutyRosterTemplateRunRow>(DUTY_ROSTER_TEMPLATE_RUN_TABLE, ctx.auth.orgId, run.id, {
 			applied_at: appliedAt,
 			applied_by_user_id: ctx.auth.userId
-		}
-	);
+		});
+	} catch (error) {
+		await tryRollbackCalendarSyncRecords(
+			ctx,
+			rollbackRecords,
+			error,
+			'Failed to roll back Calendar assignments after accepted run applied marker failure'
+		);
+		throw error;
+	}
 
 	if (options.audit !== false) {
 		await tryLogAcceptedDutyRosterRunAppliedToCalendar(ctx, run.id, {
@@ -88,7 +118,12 @@ export async function applyReviewedAcceptedDutyRosterRunCalendarSyncPlan(
 			records: plan.changes.map((change) => planChangeToDailyAssignmentRecord(change, run.id))
 		});
 	} catch (error) {
-		await tryRollbackReviewedCalendarSyncPlan(ctx, rollbackRecords);
+		await tryRollbackReviewedCalendarSyncPlan(
+			ctx,
+			rollbackRecords,
+			error,
+			'Failed to roll back reviewed Calendar sync plan after Calendar write failure'
+		);
 		throw error;
 	}
 	const appliedAt = new Date().toISOString();
@@ -115,7 +150,12 @@ export async function applyReviewedAcceptedDutyRosterRunCalendarSyncPlan(
 			clearedCount: result.cleared
 		};
 	} catch (error) {
-		await tryRollbackReviewedCalendarSyncPlan(ctx, rollbackRecords);
+		await tryRollbackReviewedCalendarSyncPlan(
+			ctx,
+			rollbackRecords,
+			error,
+			'Failed to roll back reviewed Calendar sync plan after accepted run applied marker failure'
+		);
 		throw error;
 	}
 }
@@ -248,6 +288,45 @@ export async function removeAcceptedDutyRosterRunLinkedCalendarAssignments(
 
 	const deletedCount = await ctx.store.deleteManyByIds('daily_assignments', ctx.auth.orgId, deletedIds);
 	return { cleared: deletedCount, deletedIds };
+}
+
+export async function cleanupAcceptedDutyRosterRunCalendarAssignmentsForInvalidation(
+	ctx: WritePorts,
+	targets: AcceptedDutyRosterRunInvalidationCalendarCleanupTarget[]
+): Promise<AcceptedDutyRosterRunInvalidationCalendarCleanupResult> {
+	const removedCalendarAssignmentCountByRunId = new Map<string, number>();
+	const calendarAssignmentsEditedByRunId = new Map(
+		targets.map((target) => [
+			target.run.id,
+			acceptedDutyRosterRunCalendarAssignmentsWereEdited(target.run, target.linkedRows)
+		])
+	);
+	const removedCalendarRows: DutyRosterTemplateLinkedCalendarAssignmentRow[] = [];
+	let removedCalendarAssignments = 0;
+
+	try {
+		for (const target of targets) {
+			const targetRemoval = await removeAcceptedDutyRosterRunLinkedCalendarAssignments(
+				ctx,
+				target.run.id,
+				target.linkedRows
+			);
+			const deletedIdSet = new Set(targetRemoval.deletedIds);
+			removedCalendarRows.push(...target.linkedRows.filter((row) => deletedIdSet.has(row.id)));
+			removedCalendarAssignmentCountByRunId.set(target.run.id, targetRemoval.cleared);
+			removedCalendarAssignments += targetRemoval.cleared;
+		}
+	} catch (error) {
+		await tryRestoreLinkedCalendarAssignments(ctx, removedCalendarRows, error);
+		throw error;
+	}
+
+	return {
+		removedCalendarAssignments,
+		removedCalendarAssignmentCountByRunId,
+		calendarAssignmentsEditedByRunId,
+		calendarAssignmentsEdited: [...calendarAssignmentsEditedByRunId.values()].some(Boolean)
+	};
 }
 
 export async function hydrateAcceptedDutyRosterRunCalendarSyncState(
@@ -658,6 +737,49 @@ function personDisplayLabel(display: DutyRosterPoolPersonnelDisplay | null | und
 	return display ? `${display.rank} ${display.lastName}, ${display.firstName}` : null;
 }
 
+async function loadDailyAssignmentRollbackRecords(
+	ctx: QueryPorts,
+	records: DailyAssignmentSlotRecord[]
+): Promise<DailyAssignmentSlotRecord[]> {
+	const coordinates = [
+		...new Map(records.map((record) => [calendarCoordinateKey(record.date, record.assignmentTypeId), record])).values()
+	];
+	const dates = [...new Set(coordinates.map((record) => record.date))];
+	const assignmentTypeIds = [...new Set(coordinates.map((record) => record.assignmentTypeId))];
+	if (dates.length === 0 || assignmentTypeIds.length === 0) return [];
+
+	const existingRows = await ctx.store.findMany<DutyRosterTemplateCalendarAssignmentRow>(
+		'daily_assignments',
+		ctx.auth.orgId,
+		{},
+		{
+			inFilters: { date: dates, assignment_type_id: assignmentTypeIds },
+			select:
+				'id, duty_roster_template_run_id, duty_roster_template_run_row_date, date, assignment_type_id, assignee_id'
+		}
+	);
+	const existingRowsByCoordinate = calendarRowsByCoordinate(existingRows);
+	return coordinates.map((record) => {
+		const existingRow =
+			existingRowsByCoordinate.get(calendarCoordinateKey(record.date, record.assignmentTypeId)) ?? null;
+		if (!existingRow?.assignee_id) {
+			return {
+				date: record.date,
+				assignmentTypeId: record.assignmentTypeId,
+				assigneeId: '',
+				sourceLineage: null
+			};
+		}
+
+		return {
+			date: existingRow.date,
+			assignmentTypeId: existingRow.assignment_type_id,
+			assigneeId: existingRow.assignee_id,
+			sourceLineage: calendarSourceLineage(existingRow)
+		};
+	});
+}
+
 function planChangeToDailyAssignmentRecord(
 	change: AcceptedDutyRosterRunCalendarSyncPlanChange,
 	runId: string
@@ -701,13 +823,72 @@ async function tryLogAcceptedDutyRosterRunAppliedToCalendar(
 	}
 }
 
-async function tryRollbackReviewedCalendarSyncPlan(
+async function restoreLinkedCalendarAssignments(
 	ctx: WritePorts,
-	records: DailyAssignmentSlotRecord[]
+	rows: DutyRosterTemplateLinkedCalendarAssignmentRow[]
+): Promise<void> {
+	if (rows.length === 0) return;
+	await ctx.store.insertMany(
+		'daily_assignments',
+		ctx.auth.orgId,
+		rows.map((row) => ({
+			id: row.id,
+			date: row.date,
+			assignment_type_id: row.assignment_type_id,
+			assignee_id: row.assignee_id,
+			duty_roster_template_run_id: row.duty_roster_template_run_id,
+			duty_roster_template_run_row_date: row.duty_roster_template_run_row_date
+		}))
+	);
+}
+
+async function tryRestoreLinkedCalendarAssignments(
+	ctx: WritePorts,
+	rows: DutyRosterTemplateLinkedCalendarAssignmentRow[],
+	primaryError: unknown
 ): Promise<void> {
 	try {
-		await batchDailyAssignments(ctx, { records });
-	} catch {
-		// Preserve the original failure; the caller needs the primary write error.
+		await restoreLinkedCalendarAssignments(ctx, rows);
+	} catch (restoreError) {
+		throw calendarRollbackFailureError(
+			'Failed to restore linked Calendar assignments after invalidation cleanup failure',
+			primaryError,
+			restoreError
+		);
 	}
+}
+
+async function tryRollbackReviewedCalendarSyncPlan(
+	ctx: WritePorts,
+	records: DailyAssignmentSlotRecord[],
+	primaryError: unknown,
+	message: string
+): Promise<void> {
+	await tryRollbackCalendarSyncRecords(ctx, records, primaryError, message);
+}
+
+async function tryRollbackCalendarSyncRecords(
+	ctx: WritePorts,
+	records: DailyAssignmentSlotRecord[],
+	primaryError: unknown,
+	message: string
+): Promise<void> {
+	if (records.length === 0) return;
+	try {
+		await batchDailyAssignments(ctx, { records });
+	} catch (rollbackError) {
+		throw calendarRollbackFailureError(message, primaryError, rollbackError);
+	}
+}
+
+function calendarRollbackFailureError(message: string, primaryError: unknown, rollbackError: unknown): Error {
+	const error = new Error(
+		`${message}. Primary failure: ${errorMessage(primaryError)}. Rollback failure: ${errorMessage(rollbackError)}.`
+	);
+	return Object.assign(error, { primaryError, rollbackError });
+}
+
+function errorMessage(error: unknown): string {
+	const message = error instanceof Error ? error.message : String(error);
+	return message.replace(/[.]+$/, '');
 }

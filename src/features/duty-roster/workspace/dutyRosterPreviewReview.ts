@@ -62,6 +62,7 @@ export type DutyRosterAcceptedHistoryTableRow = {
 	} | null;
 	correctionLockedText: string | null;
 	reasonText: string | null;
+	calendarStepLabel: 'Closed' | 'Applied' | 'Needs sync' | 'Not applied';
 	canCorrect: boolean;
 	correctionOptions: Array<{ value: string; label: string; description?: string }>;
 	correctionOverrideWarnings: Record<string, string>;
@@ -162,6 +163,9 @@ export function buildDutyRosterAcceptedRunReviewModel(input: {
 	const calendarState = calendarActionState(input.run);
 	const todayDate = input.todayDate ?? dutyRosterTodayDate();
 	const canInvalidate = !isInvalidated && input.run.endDate >= todayDate;
+	const calendarSyncRowDates = new Set(
+		input.run.calendarSyncState?.plan.changes.map((change) => change.sourceRowKey) ?? []
+	);
 	const rows = snapshot.finalRows.map((row) => {
 		const correction = latestCorrectionForDate(input.run, row.date);
 		const sourceLabel: DutyRosterAcceptedHistoryTableRow['sourceLabel'] = correction
@@ -200,6 +204,7 @@ export function buildDutyRosterAcceptedRunReviewModel(input: {
 					? 'Correction trail is locked with this invalidated run.'
 					: null,
 			reasonText: row.reason,
+			calendarStepLabel: calendarStepLabelForRow(input.run, isInvalidated, calendarSyncRowDates, row.date),
 			canCorrect: !isInvalidated && Boolean(row.finalAssigneeId),
 			correctionOptions: personnelOptionItems(snapshot.selectionPersonnel, row.finalAssigneeId),
 			correctionOverrideWarnings: correctionOverrideWarnings(snapshot, row.finalAssigneeId)
@@ -286,6 +291,18 @@ export function calendarActionState(run: DutyRosterTemplateAcceptedRun): 'apply'
 	if (!run.appliedAt) return 'apply';
 	if (run.calendarAssignmentsEdited) return 'reapply';
 	return 'applied';
+}
+
+function calendarStepLabelForRow(
+	run: DutyRosterTemplateAcceptedRun,
+	isInvalidated: boolean,
+	calendarSyncRowDates: Set<string>,
+	date: string
+): DutyRosterAcceptedHistoryTableRow['calendarStepLabel'] {
+	if (isInvalidated) return 'Closed';
+	if (!run.appliedAt) return 'Not applied';
+	if (calendarSyncRowDates.size > 0) return calendarSyncRowDates.has(date) ? 'Needs sync' : 'Applied';
+	return run.calendarAssignmentsEdited ? 'Needs sync' : 'Applied';
 }
 
 export function correctionKey(runId: string, date: string): string {

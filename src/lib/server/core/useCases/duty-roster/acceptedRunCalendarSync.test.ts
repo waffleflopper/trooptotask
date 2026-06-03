@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { DutyRosterTemplateAcceptedRun } from '$features/duty-roster/templates/dutyRosterTemplates';
 import { createWritePortsContext } from '$lib/server/adapters/inMemory';
 import {
@@ -6,6 +6,7 @@ import {
 	applyAcceptedDutyRosterRunCalendarSync,
 	applyReviewedAcceptedDutyRosterRunCalendarSyncPlan,
 	buildAcceptedDutyRosterRunCalendarSyncState,
+	cleanupAcceptedDutyRosterRunCalendarAssignmentsForInvalidation,
 	hydrateAcceptedDutyRosterRunCalendarSyncState,
 	loadAcceptedDutyRosterRunCalendarSyncState,
 	removeAcceptedDutyRosterRunLinkedCalendarAssignments,
@@ -284,6 +285,180 @@ describe('Accepted Duty Roster Run Calendar Sync', () => {
 				duty_roster_template_run_id: 'run-1'
 			})
 		]);
+	});
+
+	it('restores the prior Calendar slot when marking a first apply fails', async () => {
+		const ctx = buildContext();
+		seedRunRow(ctx);
+		ctx.store.seed('daily_assignments', [
+			{
+				id: 'manual-1',
+				organization_id: 'test-org',
+				date: '2026-06-01',
+				assignment_type_id: 'type-a',
+				assignee_id: 'person-9',
+				duty_roster_template_run_id: null,
+				duty_roster_template_run_row_date: null
+			}
+		]);
+		const originalUpdate = ctx.store.update.bind(ctx.store);
+		const updateSpy = vi.spyOn(ctx.store, 'update').mockImplementation(async (table, orgId, id, data) => {
+			if (table === 'duty_roster_template_runs' && id === 'run-1' && 'applied_at' in data) {
+				throw new Error('Apply marker failed.');
+			}
+			return originalUpdate(table, orgId, id, data);
+		});
+
+		try {
+			await expect(applyAcceptedDutyRosterRunCalendarSync(ctx, acceptedRun())).rejects.toThrow('Apply marker failed.');
+
+			expect(await ctx.store.findMany('daily_assignments', 'test-org')).toEqual([
+				expect.objectContaining({
+					date: '2026-06-01',
+					assignment_type_id: 'type-a',
+					assignee_id: 'person-9'
+				})
+			]);
+		} finally {
+			updateSpy.mockRestore();
+		}
+	});
+
+	it('restores the prior Calendar slot when first apply slot writes fail after clearing', async () => {
+		const ctx = buildContext();
+		seedRunRow(ctx);
+		ctx.store.seed('daily_assignments', [
+			{
+				id: 'manual-1',
+				organization_id: 'test-org',
+				date: '2026-06-01',
+				assignment_type_id: 'type-a',
+				assignee_id: 'person-9',
+				duty_roster_template_run_id: null,
+				duty_roster_template_run_row_date: null
+			}
+		]);
+		const originalInsertMany = ctx.store.insertMany.bind(ctx.store);
+		let dailyAssignmentInsertAttempts = 0;
+		const insertManySpy = vi.spyOn(ctx.store, 'insertMany').mockImplementation(async (table, orgId, rows) => {
+			if (table === 'daily_assignments') {
+				dailyAssignmentInsertAttempts += 1;
+				if (dailyAssignmentInsertAttempts === 1) {
+					throw new Error('Calendar insert failed.');
+				}
+			}
+			return originalInsertMany(table, orgId, rows);
+		});
+
+		try {
+			await expect(applyAcceptedDutyRosterRunCalendarSync(ctx, acceptedRun())).rejects.toThrow(
+				'Calendar insert failed.'
+			);
+
+			expect(await ctx.store.findMany('daily_assignments', 'test-org')).toEqual([
+				expect.objectContaining({
+					date: '2026-06-01',
+					assignment_type_id: 'type-a',
+					assignee_id: 'person-9'
+				})
+			]);
+		} finally {
+			insertManySpy.mockRestore();
+		}
+	});
+
+	it('restores removed Calendar assignments when invalidation cleanup fails after partial cleanup', async () => {
+		const ctx = buildContext();
+		ctx.store.seed('daily_assignments', [
+			{
+				id: 'linked-1',
+				organization_id: 'test-org',
+				date: '2026-06-01',
+				assignment_type_id: 'type-a',
+				assignee_id: 'person-1',
+				duty_roster_template_run_id: 'run-1',
+				duty_roster_template_run_row_date: '2026-06-01'
+			},
+			{
+				id: 'linked-2',
+				organization_id: 'test-org',
+				date: '2026-06-02',
+				assignment_type_id: 'type-a',
+				assignee_id: 'person-2',
+				duty_roster_template_run_id: 'run-2',
+				duty_roster_template_run_row_date: '2026-06-02'
+			}
+		]);
+		const originalDeleteManyByIds = ctx.store.deleteManyByIds.bind(ctx.store);
+		let cleanupCalls = 0;
+		const deleteManyByIdsSpy = vi.spyOn(ctx.store, 'deleteManyByIds').mockImplementation(async (table, orgId, ids) => {
+			if (table === 'daily_assignments') {
+				cleanupCalls += 1;
+				if (cleanupCalls === 2) {
+					throw new Error('Calendar cleanup failed.');
+				}
+			}
+			return originalDeleteManyByIds(table, orgId, ids);
+		});
+
+		try {
+			await expect(
+				cleanupAcceptedDutyRosterRunCalendarAssignmentsForInvalidation(ctx, [
+					{
+						run: acceptedRun({ id: 'run-1', appliedAt: '2026-05-04T12:01:00.000Z' }),
+						linkedRows: [
+							{
+								id: 'linked-1',
+								duty_roster_template_run_id: 'run-1',
+								duty_roster_template_run_row_date: '2026-06-01',
+								date: '2026-06-01',
+								assignment_type_id: 'type-a',
+								assignee_id: 'person-1'
+							}
+						]
+					},
+					{
+						run: acceptedRun({
+							id: 'run-2',
+							startDate: '2026-06-02',
+							endDate: '2026-06-02',
+							appliedAt: '2026-05-04T12:01:00.000Z',
+							snapshotPayload: {
+								...acceptedRun().snapshotPayload,
+								finalRows: [
+									{
+										date: '2026-06-02',
+										generatedAssigneeId: 'person-2',
+										finalAssigneeId: 'person-2',
+										assignmentSource: 'generated',
+										generatedDisplay: null,
+										finalDisplay: null,
+										reason: null,
+										warnings: []
+									}
+								]
+							}
+						}),
+						linkedRows: [
+							{
+								id: 'linked-2',
+								duty_roster_template_run_id: 'run-2',
+								duty_roster_template_run_row_date: '2026-06-02',
+								date: '2026-06-02',
+								assignment_type_id: 'type-a',
+								assignee_id: 'person-2'
+							}
+						]
+					}
+				])
+			).rejects.toThrow('Calendar cleanup failed.');
+
+			expect(
+				(await ctx.store.findMany<{ id: string }>('daily_assignments', 'test-org')).map((row) => row.id).sort()
+			).toEqual(['linked-1', 'linked-2']);
+		} finally {
+			deleteManyByIdsSpy.mockRestore();
+		}
 	});
 
 	it('detects linked Calendar assignments edited away from accepted run lineage', () => {

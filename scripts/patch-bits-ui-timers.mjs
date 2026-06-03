@@ -3,8 +3,7 @@ import { join } from 'node:path';
 
 function patchFile({ filePath, patchName, replacements }) {
 	if (!existsSync(filePath)) {
-		console.warn(`[patch-bits-ui] Skipping ${patchName}: ${filePath} does not exist.`);
-		return;
+		throw new Error(`[patch-bits-ui] Patch target missing for ${patchName}: ${filePath}`);
 	}
 
 	let source = readFileSync(filePath, 'utf8');
@@ -25,8 +24,26 @@ function patchFile({ filePath, patchName, replacements }) {
 	console.log(`[patch-bits-ui] Applied ${patchName} patch.`);
 }
 
-const bitsUiPackageDist = join(process.cwd(), 'node_modules', 'bits-ui', 'dist');
+const auditedBitsUiVersion = '2.18.1';
+const bitsUiPackageRoot = join(process.cwd(), 'node_modules', 'bits-ui');
+const bitsUiPackageJsonPath = join(bitsUiPackageRoot, 'package.json');
+const bitsUiPackageDist = join(bitsUiPackageRoot, 'dist');
 const bitsUiDist = join(bitsUiPackageDist, 'bits');
+
+function assertAuditedBitsUiVersion() {
+	if (!existsSync(bitsUiPackageJsonPath)) {
+		throw new Error(`[patch-bits-ui] bits-ui package.json not found at ${bitsUiPackageJsonPath}`);
+	}
+
+	const packageJson = JSON.parse(readFileSync(bitsUiPackageJsonPath, 'utf8'));
+	if (packageJson.version !== auditedBitsUiVersion) {
+		throw new Error(
+			`[patch-bits-ui] Refusing to patch bits-ui ${packageJson.version ?? 'unknown'}; audited version is ${auditedBitsUiVersion}.`
+		);
+	}
+}
+
+assertAuditedBitsUiVersion();
 
 patchFile({
 	patchName: 'dismissible layer timeout cleanup',

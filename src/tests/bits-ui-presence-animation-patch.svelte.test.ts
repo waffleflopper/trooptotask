@@ -14,34 +14,38 @@ describe('bits-ui presence animation cleanup patch', () => {
 			pathToFileURL(join(bitsUiDist, 'internal/animations-complete.js')).href
 		);
 		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-		const node = document.createElement('div');
-		let callbackCalls = 0;
 
-		const cleanup = $effect.root(() => {
-			const source = $state(true);
-			const open = $derived(source);
-			const manager = new AnimationsComplete({
-				ref: { current: node },
-				afterTick: {
-					get current() {
-						return open;
+		try {
+			const node = document.createElement('div');
+			let callbackCalls = 0;
+
+			const cleanup = $effect.root(() => {
+				const source = $state(true);
+				const open = $derived(source);
+				const manager = new AnimationsComplete({
+					ref: { current: node },
+					afterTick: {
+						get current() {
+							return open;
+						}
 					}
-				}
+				});
+
+				manager.run(() => {
+					callbackCalls += 1;
+					void open;
+				});
 			});
 
-			manager.run(() => {
-				callbackCalls += 1;
-				void open;
-			});
-		});
+			flushSync();
+			cleanup();
+			await tick();
+			await Promise.resolve();
 
-		flushSync();
-		cleanup();
-		await tick();
-		await Promise.resolve();
-
-		expect(callbackCalls).toBe(0);
-		expect(warn.mock.calls.some((call) => call.map(String).join(' ').includes('derived_inert'))).toBe(false);
-		warn.mockRestore();
+			expect(callbackCalls).toBe(0);
+			expect(warn.mock.calls.some((call) => call.map(String).join(' ').includes('derived_inert'))).toBe(false);
+		} finally {
+			warn.mockRestore();
+		}
 	});
 });

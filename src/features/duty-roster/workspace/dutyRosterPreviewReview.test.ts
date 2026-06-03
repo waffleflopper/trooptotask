@@ -176,6 +176,61 @@ describe('dutyRosterPreviewReview', () => {
 		});
 	});
 
+	it('marks only changed accepted-history rows as needing Calendar sync', () => {
+		const run = acceptedRun();
+		const snapshot = run.snapshotPayload as unknown as DutyRosterTemplateAcceptedSnapshot;
+		snapshot.finalRows.push({
+			date: '2026-06-02',
+			generatedAssigneeId: 'person-2',
+			finalAssigneeId: 'person-2',
+			assignmentSource: 'generated',
+			generatedDisplay: previewPerson('person-2', 'SGT', 'Baker', 'Ben', 'Alpha'),
+			finalDisplay: previewPerson('person-2', 'SGT', 'Baker', 'Ben', 'Alpha'),
+			reason: null,
+			warnings: []
+		});
+		run.appliedAt = '2026-05-04T01:00:00Z';
+		run.calendarAssignmentsEdited = true;
+		run.calendarSyncState = {
+			status: 'calendar-manually-changed',
+			label: 'Calendar was manually changed',
+			summary: '1 linked Calendar assignment differs from this accepted run. Review before overwriting.',
+			invalidationRemovalSummary: null,
+			plan: {
+				token: 'plan-1',
+				changes: [
+					{
+						id: 'run-1:2026-06-02',
+						date: '2026-06-02',
+						sourceRowKey: '2026-06-02',
+						assignmentTypeId: 'template-1',
+						action: 'update',
+						currentAssignmentTypeId: 'template-1',
+						currentAssigneeId: 'person-1',
+						currentAssigneeLabel: 'SGT Able, Ann',
+						currentSourceLineage: {
+							sourceKind: 'duty-roster-run',
+							sourceId: 'run-1',
+							sourceRowKey: '2026-06-02'
+						},
+						plannedAssigneeId: 'person-2',
+						plannedAssigneeLabel: 'SGT Baker, Ben',
+						reason: 'Accepted Duty Roster Run assignment',
+						correctionReason: null
+					}
+				]
+			}
+		};
+
+		const model = buildDutyRosterAcceptedRunReviewModel({ run });
+
+		expect(model.calendarStepLabel).toBe('Needs sync');
+		expect(model.rows.map((row) => ({ date: row.date, calendarStepLabel: row.calendarStepLabel }))).toEqual([
+			{ date: '2026-06-01', calendarStepLabel: 'Applied' },
+			{ date: '2026-06-02', calendarStepLabel: 'Needs sync' }
+		]);
+	});
+
 	it('shapes invalidated accepted history as locked non-counting review state', () => {
 		const model = buildDutyRosterAcceptedRunReviewModel({
 			run: acceptedRun({ invalidated: true })
@@ -185,6 +240,7 @@ describe('dutyRosterPreviewReview', () => {
 		expect(model.calendarStepLabel).toBe('Closed');
 		expect(model.rows[0]).toMatchObject({
 			isInvalidated: true,
+			calendarStepLabel: 'Closed',
 			canCorrect: false,
 			correctionLockedText: 'Correction trail is locked with this invalidated run.',
 			correctionSummary: {

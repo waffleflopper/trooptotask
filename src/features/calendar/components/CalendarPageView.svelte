@@ -175,6 +175,7 @@
 						activeOnboardingPersonnelIds={ctx.activeOnboardingPersonnelIds}
 						highlightOnboarding={ctx.highlightOnboarding}
 						canEdit={ctx.canManageAvailability}
+						canEditAssignments={ctx.canManageAssignments}
 						showStatusText={ctx.showStatusText}
 						showPersonnelRoles={ctx.showPersonnelRoles}
 						upcomingLossMap={ctx.upcomingLossMap}

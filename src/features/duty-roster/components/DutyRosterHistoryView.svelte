@@ -418,7 +418,7 @@
 					<Button variant="outline" size="sm" href={historyListHref()}>Back to history</Button>
 					<div class="flex flex-wrap items-center gap-2 text-xs text-muted-foreground" aria-label="Run status">
 						<DutyRosterStatusBadge status={runStatusBadge(historyDetailRun)} />
-						{#if historyDetailRun.appliedAt}
+						{#if historyDetailRun.appliedAt && !detailReview.isInvalidated}
 							<span class="inline-flex items-center gap-1"><Calendar size={14} aria-hidden="true" /> Applied</span>
 						{/if}
 						<span class="inline-flex items-center gap-1" title={`Accepted by ${acceptedByLabel(historyDetailRun)}`}>
@@ -544,7 +544,7 @@
 											<span class="block text-xs font-medium"
 												>{historyDetailRun.appliedAt ? 'Calendar' : 'History'}</span
 											>
-											<span class="block text-xs text-muted-foreground">{detailReview.calendarStepLabel}</span>
+											<span class="block text-xs text-muted-foreground">{tableRow.calendarStepLabel}</span>
 										</td>
 										<td class="px-3 py-2">
 											{#if !isArchivedTemplate && tableRow.canCorrect}

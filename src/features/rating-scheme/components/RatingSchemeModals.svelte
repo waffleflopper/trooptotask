@@ -41,11 +41,13 @@
 </script>
 
 {#if modals.isOpen('rating-modal')}
-	<RatingSchemeEntryModal
-		entry={editingEntry}
-		personnel={personnelLookup}
-		onSave={handleSaveRatingEntry}
-		onDelete={editingEntry ? handleDeleteRatingEntry : undefined}
-		onClose={modals.closerFor('rating-modal')}
-	/>
+	{#key editingEntry?.id ?? 'new-rating-entry'}
+		<RatingSchemeEntryModal
+			entry={editingEntry}
+			personnel={personnelLookup}
+			onSave={handleSaveRatingEntry}
+			onDelete={editingEntry ? handleDeleteRatingEntry : undefined}
+			onClose={modals.closerFor('rating-modal')}
+		/>
+	{/key}
 {/if}

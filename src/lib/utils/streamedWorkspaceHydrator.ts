@@ -26,7 +26,10 @@ export function hydrateStreamedWorkspace<TWorkspace>(options: HydrateStreamedWor
 				if (cancelled) return;
 				return options.hydrate(workspace);
 			})
-		: Promise.resolve().then(() => options.hydrate(streamedWorkspace));
+		: Promise.resolve().then(() => {
+				if (cancelled) return;
+				return options.hydrate(streamedWorkspace);
+			});
 
 	void observeDeferred(Promise.resolve(hydration), {
 		fallbackMessage: options.fallbackMessage,

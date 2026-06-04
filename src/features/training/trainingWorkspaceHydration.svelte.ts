@@ -57,6 +57,15 @@ function isPromiseLike<T>(value: unknown): value is Promise<T> {
 	return !!value && typeof value === 'object' && typeof (value as { then?: unknown }).then === 'function';
 }
 
+function storeMovedToAnotherOrg(
+	descriptor: TrainingHydrationTargetDescriptor,
+	orgId: string,
+	initialStoreOrgId: string
+): boolean {
+	const storeOrgId = descriptor.storeOrgId();
+	return storeOrgId !== '' && storeOrgId !== orgId && storeOrgId !== initialStoreOrgId;
+}
+
 function createTargetDescriptor<T>(
 	target: TrainingWorkspaceHydrationTarget<T>,
 	store: TrainingHydrationLoadable<T>,
@@ -97,11 +106,16 @@ export function createTrainingWorkspaceHydrator(): TrainingWorkspaceHydrator {
 		pendingSnapshotKeys.set(targetName, { orgId, snapshotKey });
 
 		if (isPromiseLike<unknown>(descriptor.items)) {
+			const initialStoreOrgId = descriptor.storeOrgId();
 			descriptor.startLoading?.();
 			try {
 				const items = await descriptor.items;
 				const latestPending = pendingSnapshotKeys.get(targetName);
 				if (latestPending?.orgId !== orgId || latestPending.snapshotKey !== snapshotKey) return;
+				if (storeMovedToAnotherOrg(descriptor, orgId, initialStoreOrgId)) {
+					pendingSnapshotKeys.delete(targetName);
+					return;
+				}
 				descriptor.apply(items);
 				pendingSnapshotKeys.delete(targetName);
 				appliedSnapshotKeys.set(targetName, { orgId, snapshotKey });

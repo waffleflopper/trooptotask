@@ -61,6 +61,24 @@ describe('streamed workspace hydrator', () => {
 		expect(onReject).not.toHaveBeenCalled();
 	});
 
+	it('skips immediate workspace hydration when cancelled before the hydration microtask runs', async () => {
+		const hydrate = vi.fn().mockResolvedValue(undefined);
+		const onReject = vi.fn();
+
+		const cancel = hydrateStreamedWorkspace({
+			streamedWorkspace: { data: { hydration: 'stale' } },
+			fallbackMessage: 'Failed to hydrate workspace',
+			hydrate,
+			onReject
+		});
+
+		cancel();
+		await new Promise((resolve) => setTimeout(resolve, 0));
+
+		expect(hydrate).not.toHaveBeenCalled();
+		expect(onReject).not.toHaveBeenCalled();
+	});
+
 	it('reports lane hydration failures for immediate workspace values', async () => {
 		const onReject = vi.fn();
 

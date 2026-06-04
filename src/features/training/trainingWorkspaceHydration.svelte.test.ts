@@ -140,6 +140,58 @@ describe('Training workspace hydration adapter', () => {
 		expect(stores.personnelTrainingsStore.items).toEqual([freshTraining]);
 	});
 
+	it('hydrates deferred Training targets for a new org while the store still holds a previous org', async () => {
+		const stores = createStores();
+		const hydrator = createTrainingWorkspaceHydrator();
+		const groups = deferred<Group[]>();
+		const previousGroup = { id: 'previous-group', name: 'Previous', sortOrder: 0 } as Group;
+		const freshGroup = { id: 'fresh-group', name: 'Fresh', sortOrder: 1 } as Group;
+		stores.groupsStore.load([previousGroup], 'org-old');
+		const hydration: TrainingWorkspaceHydration = {
+			orgId: 'org-new',
+			personnel: { mode: 'replace', snapshotKey: 'new-personnel', items: [] },
+			groups: { mode: 'replace', deferred: true, snapshotKey: 'new-groups', items: groups.promise },
+			trainingTypes: { mode: 'replace', snapshotKey: 'new-types', items: [] },
+			trainingViews: { mode: 'replace', snapshotKey: 'new-views', items: [] },
+			personnelTrainings: { mode: 'replace', snapshotKey: 'new-trainings', items: [] },
+			pinnedGroups: { mode: 'replace', snapshotKey: 'new-pinned', items: [] }
+		};
+
+		const pending = hydrator.hydrate(hydration, stores);
+		groups.resolve([freshGroup]);
+		await pending;
+
+		expect(stores.groupsStore.orgId).toBe('org-new');
+		expect(stores.groupsStore.items).toEqual([freshGroup]);
+	});
+
+	it('ignores stale deferred Training targets when another lane has loaded the store for a newer org', async () => {
+		const stores = createStores();
+		const hydrator = createTrainingWorkspaceHydrator();
+		const staleGroups = deferred<Group[]>();
+		const freshGroup = { id: 'fresh-group', name: 'Fresh', sortOrder: 1 } as Group;
+		const staleGroup = { id: 'stale-group', name: 'Stale', sortOrder: 0 } as Group;
+		const staleHydration: TrainingWorkspaceHydration = {
+			orgId: 'org-old',
+			personnel: { mode: 'replace', snapshotKey: 'old-personnel', items: [] },
+			groups: { mode: 'replace', deferred: true, snapshotKey: 'old-groups', items: staleGroups.promise },
+			trainingTypes: { mode: 'replace', snapshotKey: 'old-types', items: [] },
+			trainingViews: { mode: 'replace', snapshotKey: 'old-views', items: [] },
+			personnelTrainings: { mode: 'replace', snapshotKey: 'old-trainings', items: [] },
+			pinnedGroups: { mode: 'replace', snapshotKey: 'old-pinned', items: [] }
+		};
+
+		const stalePending = hydrator.hydrate(staleHydration, stores);
+		expect(stores.groupsStore.loading).toBe(true);
+
+		stores.groupsStore.load([freshGroup], 'org-new');
+		staleGroups.resolve([staleGroup]);
+		await stalePending;
+
+		expect(stores.groupsStore.orgId).toBe('org-new');
+		expect(stores.groupsStore.items).toEqual([freshGroup]);
+	});
+
 	it('skips already-applied Training target snapshots until reset clears the adapter state', async () => {
 		const stores = createStores();
 		const hydrator = createTrainingWorkspaceHydrator();

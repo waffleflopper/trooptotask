@@ -17,7 +17,7 @@ import type {
 	PersonnelOnboarding
 } from '$features/onboarding/onboarding.types';
 import type { RatingSchemeEntry } from '$features/rating-scheme/rating-scheme.types';
-import type { PersonnelTraining, TrainingType, TrainingView } from '$features/training/training.types';
+import type { PersonnelTraining } from '$features/training/training.types';
 import type {
 	CriticalTasksSettings,
 	IctTask,
@@ -172,14 +172,7 @@ export function createReadyAppShell(config: {
 // Workspace types
 // ---------------------------------------------------------------------------
 
-export type WorkspaceKey =
-	| 'dashboard'
-	| 'calendar'
-	| 'personnel'
-	| 'rating-scheme'
-	| 'training'
-	| 'critical-tasks'
-	| 'onboarding';
+export type WorkspaceKey = 'dashboard' | 'calendar' | 'personnel' | 'rating-scheme' | 'critical-tasks' | 'onboarding';
 
 /**
  * Serializable description of how each client store should be hydrated.
@@ -191,15 +184,6 @@ export type WorkspaceKey =
  */
 export type HydrationMode = 'replace' | 'merge' | 'preserve-client';
 export type HydrationItems<T = unknown> = T[] | Promise<T[]>;
-
-export interface TrainingBootstrap {
-	personnelTrainings: HydrationItems<PersonnelTraining>;
-	trainingTypes: HydrationItems<TrainingType>;
-	trainingViews: HydrationItems<TrainingView>;
-	personnel: HydrationItems<Personnel>;
-	groups: HydrationItems<Group>;
-	pinnedGroups: HydrationItems<string>;
-}
 
 export interface CriticalTasksBootstrap {
 	settings: CriticalTasksSettings;

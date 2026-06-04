@@ -4,8 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import Page from './+page.svelte';
 import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
 import { rosterStore } from '$lib/stores/roster.svelte';
-import type { WorkspaceBootstrap } from '$lib/server/core/orgShell';
-import type { TrainingBootstrap } from '$lib/server/core/orgShell';
+import type { TrainingWorkspaceResult } from '$features/training/server/trainingWorkspaceBootstrap';
 import type { Personnel } from '$lib/types';
 import type { TrainingType } from '$features/training/training.types';
 
@@ -55,18 +54,28 @@ vi.mock('$lib/stores/orgContext.svelte', () => {
 	};
 });
 
-function makeDeferredBootstrap(): WorkspaceBootstrap<TrainingBootstrap> {
+function makeDeferredBootstrap(): TrainingWorkspaceResult {
 	const deferredItems = Promise.resolve([]);
+	const data = {
+		personnel: deferredItems,
+		groups: deferredItems,
+		trainingTypes: deferredItems,
+		trainingViews: deferredItems,
+		personnelTrainings: deferredItems,
+		pinnedGroups: deferredItems
+	};
 
 	return {
-		workspace: 'training',
-		data: {
-			personnel: deferredItems,
-			groups: deferredItems,
-			trainingTypes: deferredItems,
-			trainingViews: deferredItems,
-			personnelTrainings: deferredItems,
-			pinnedGroups: deferredItems
+		laneKey: 'training',
+		data,
+		hydration: {
+			orgId: 'org-1',
+			personnel: { mode: 'replace', snapshotKey: 'personnel:1', items: data.personnel },
+			groups: { mode: 'replace', snapshotKey: 'groups:1', items: data.groups },
+			trainingTypes: { mode: 'replace', snapshotKey: 'types:1', items: data.trainingTypes },
+			trainingViews: { mode: 'replace', snapshotKey: 'views:1', items: data.trainingViews },
+			personnelTrainings: { mode: 'replace', snapshotKey: 'trainings:1', items: data.personnelTrainings },
+			pinnedGroups: { mode: 'replace', snapshotKey: 'pinned:1', items: data.pinnedGroups }
 		}
 	};
 }

@@ -1,12 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { Cookies } from '@sveltejs/kit';
-import { createInMemoryOrgWorkspacePort } from '$lib/server/adapters/inMemoryOrgShell';
-import { createDefaultHydrationPlanner } from '$lib/server/core/hydrationPlanner';
 import type { Group } from '$lib/stores/groups.svelte';
 import type { PersonnelTraining, TrainingType, TrainingView } from '$features/training/training.types';
 import type { Personnel } from '$lib/types';
-import type { WorkspaceBootstrap, WorkspaceKey } from '$lib/server/core/orgShell';
-import type { TrainingBootstrap } from '$lib/server/core/orgShell';
+import type { TrainingWorkspaceRouteData } from '$features/training/server/trainingWorkspaceBootstrap';
 import { createReadyAppShellRouteData } from '$lib/test-support/appShellRouteData';
 import { _createTrainingLayoutLoad } from './+layout.server';
 
@@ -23,7 +20,7 @@ describe('training layout server load', () => {
 				certificateUrl: null
 			} satisfies PersonnelTraining
 		]);
-		const trainingData: TrainingBootstrap = {
+		const trainingData = {
 			personnelTrainings,
 			trainingTypes: [{ id: 'tt1', name: 'CPR' } as TrainingType],
 			trainingViews: [
@@ -41,13 +38,30 @@ describe('training layout server load', () => {
 			pinnedGroups: ['Alpha']
 		};
 		const depends = vi.fn();
-		const workspacePort = createInMemoryOrgWorkspacePort(new Map<WorkspaceKey, unknown>([['training', trainingData]]));
-		const plannerPort = createDefaultHydrationPlanner('org-1');
-		const createWorkspacePort = vi.fn().mockReturnValue(workspacePort);
-		const createPlannerPort = vi.fn().mockReturnValue(plannerPort);
+		const streamTrainingWorkspace = vi.fn().mockResolvedValue({
+			training: {
+				data: Promise.resolve({
+					laneKey: 'training',
+					data: trainingData,
+					hydration: {
+						orgId: 'org-1',
+						personnel: { mode: 'replace', items: trainingData.personnel, snapshotKey: 'personnel:1' },
+						groups: { mode: 'replace', items: trainingData.groups, snapshotKey: 'groups:1' },
+						trainingTypes: { mode: 'replace', items: trainingData.trainingTypes, snapshotKey: 'types:1' },
+						trainingViews: { mode: 'replace', items: trainingData.trainingViews, snapshotKey: 'views:1' },
+						personnelTrainings: {
+							mode: 'replace',
+							items: personnelTrainings,
+							deferred: true,
+							snapshotKey: 'personnel-trainings:1'
+						},
+						pinnedGroups: { mode: 'replace', items: trainingData.pinnedGroups, snapshotKey: 'pinned:1' }
+					}
+				})
+			}
+		} satisfies TrainingWorkspaceRouteData);
 		const load = _createTrainingLayoutLoad({
-			createWorkspacePort,
-			createPlannerPort
+			streamTrainingWorkspace
 		});
 		const locals = {} as App.Locals;
 		const cookies = {} as Cookies;
@@ -67,12 +81,11 @@ describe('training layout server load', () => {
 		expect(depends).toHaveBeenCalledTimes(1);
 		expect(depends).toHaveBeenCalledWith('app:org-core', 'app:training-data');
 		expect(parent).toHaveBeenCalledTimes(1);
-		expect(createWorkspacePort).toHaveBeenCalledWith({ locals, cookies, orgId: 'org-1' });
-		expect(createPlannerPort).toHaveBeenCalledWith('org-1');
+		expect(streamTrainingWorkspace).toHaveBeenCalledWith({ locals, cookies, orgId: 'org-1' });
 		expect(result.training.data).toBeInstanceOf(Promise);
 
 		await expect(result.training.data).resolves.toMatchObject({
-			workspace: 'training',
+			laneKey: 'training',
 			data: trainingData,
 			hydration: {
 				orgId: 'org-1',
@@ -80,9 +93,9 @@ describe('training layout server load', () => {
 					mode: 'replace',
 					items: personnelTrainings,
 					deferred: true,
-					snapshotKey: expect.any(String)
+					snapshotKey: 'personnel-trainings:1'
 				})
 			}
-		} satisfies WorkspaceBootstrap<TrainingBootstrap>);
+		});
 	});
 });

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Cookies } from '@sveltejs/kit';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import type { TrainingBootstrap } from '$lib/server/core/orgShell';
+import type { TrainingWorkspaceData } from './trainingWorkspaceBootstrap';
 
 const { findManyMock, loadWithContextMock, mockCtx } = vi.hoisted(() => {
 	const findManyMock = vi.fn();
@@ -22,17 +22,19 @@ const { findManyMock, loadWithContextMock, mockCtx } = vi.hoisted(() => {
 	};
 });
 
-vi.mock('./httpAdapter', async () => {
-	const actual = await vi.importActual<typeof import('./httpAdapter')>('./httpAdapter');
+vi.mock('$lib/server/adapters/httpAdapter', async () => {
+	const actual = await vi.importActual<typeof import('$lib/server/adapters/httpAdapter')>(
+		'$lib/server/adapters/httpAdapter'
+	);
 	return {
 		...actual,
 		loadWithContext: loadWithContextMock
 	};
 });
 
-import { createSupabaseTrainingWorkspacePort } from './supabaseOrgShell';
+import { streamTrainingWorkspaceBootstrap } from './trainingWorkspaceBootstrap';
 
-describe('createSupabaseTrainingWorkspacePort', () => {
+describe('streamTrainingWorkspaceBootstrap', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		loadWithContextMock.mockImplementation((_locals, _cookies, _orgId, config) => {
@@ -41,7 +43,7 @@ describe('createSupabaseTrainingWorkspacePort', () => {
 		});
 	});
 
-	it('streams the outer training bootstrap before deferred reference queries resolve', async () => {
+	it('streams a lane-keyed Training workspace result with explicit Training hydration targets', async () => {
 		const deferredRows = new Promise<Record<string, unknown>[]>(() => undefined);
 
 		findManyMock.mockImplementation((table: string) => {
@@ -58,12 +60,15 @@ describe('createSupabaseTrainingWorkspacePort', () => {
 			}
 		});
 
-		const port = createSupabaseTrainingWorkspacePort({} as App.Locals, {} as Cookies, '1-11-bde');
-		const streamed = await port.streamWorkspaceData<TrainingBootstrap>('training');
-		let bootstrap: TrainingBootstrap | undefined;
+		const routeData = await streamTrainingWorkspaceBootstrap({
+			locals: {} as App.Locals,
+			cookies: {} as Cookies,
+			orgId: '1-11-bde'
+		});
+		let workspace: Awaited<typeof routeData.training.data> | undefined;
 
-		void streamed.data.then((value) => {
-			bootstrap = value;
+		void routeData.training.data.then((value) => {
+			workspace = value;
 		});
 
 		await new Promise((resolve) => setTimeout(resolve, 0));
@@ -79,13 +84,29 @@ describe('createSupabaseTrainingWorkspacePort', () => {
 			})
 		);
 		expect(loadWithContextMock.mock.calls[0]?.[3]).not.toHaveProperty('permission');
-		expect(bootstrap).toBeDefined();
-		expect(bootstrap?.personnel).toBeInstanceOf(Promise);
-		expect(bootstrap?.groups).toBeInstanceOf(Promise);
-		expect(bootstrap?.trainingTypes).toBeInstanceOf(Promise);
-		expect(bootstrap?.trainingViews).toBeInstanceOf(Promise);
-		expect(bootstrap?.pinnedGroups).toBeInstanceOf(Promise);
-		expect(bootstrap?.personnelTrainings).toBeInstanceOf(Promise);
+		expect(workspace).toBeDefined();
+		expect(workspace?.laneKey).toBe('training');
+		expect(workspace?.data.personnel).toBeInstanceOf(Promise);
+		expect(workspace?.data.groups).toBeInstanceOf(Promise);
+		expect(workspace?.data.trainingTypes).toBeInstanceOf(Promise);
+		expect(workspace?.data.trainingViews).toBeInstanceOf(Promise);
+		expect(workspace?.data.pinnedGroups).toBeInstanceOf(Promise);
+		expect(workspace?.data.personnelTrainings).toBeInstanceOf(Promise);
+		expect(workspace?.hydration).toMatchObject({
+			orgId: '11111111-1111-1111-1111-111111111111',
+			trainingTypes: expect.objectContaining({
+				mode: 'replace',
+				items: (workspace?.data as TrainingWorkspaceData | undefined)?.trainingTypes,
+				deferred: true,
+				snapshotKey: expect.any(String)
+			}),
+			personnelTrainings: expect.objectContaining({
+				mode: 'replace',
+				items: (workspace?.data as TrainingWorkspaceData | undefined)?.personnelTrainings,
+				deferred: true,
+				snapshotKey: expect.any(String)
+			})
+		});
 		expect(findManyMock).toHaveBeenCalledWith(
 			'training_types',
 			'11111111-1111-1111-1111-111111111111',

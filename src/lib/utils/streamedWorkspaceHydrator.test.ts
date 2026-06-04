@@ -44,6 +44,23 @@ describe('streamed workspace hydrator', () => {
 		expect(onReject).toHaveBeenCalledWith(expect.objectContaining({ message: 'Failed to hydrate workspace' }));
 	});
 
+	it.each([0, false, ''])('hydrates immediate falsy workspace value %#', async (workspace) => {
+		const hydrate = vi.fn().mockResolvedValue(undefined);
+		const onReject = vi.fn();
+
+		hydrateStreamedWorkspace({
+			streamedWorkspace: { data: workspace },
+			fallbackMessage: 'Failed to hydrate workspace',
+			hydrate,
+			onReject
+		});
+
+		await new Promise((resolve) => setTimeout(resolve, 0));
+
+		expect(hydrate).toHaveBeenCalledWith(workspace);
+		expect(onReject).not.toHaveBeenCalled();
+	});
+
 	it('reports lane hydration failures for immediate workspace values', async () => {
 		const onReject = vi.fn();
 
@@ -57,5 +74,22 @@ describe('streamed workspace hydrator', () => {
 		await new Promise((resolve) => setTimeout(resolve, 0));
 
 		expect(onReject).toHaveBeenCalledWith(expect.objectContaining({ message: 'store error' }));
+	});
+
+	it('reports synchronous lane hydration failures for immediate workspace values', async () => {
+		const onReject = vi.fn();
+
+		hydrateStreamedWorkspace({
+			streamedWorkspace: { data: { hydration: 'ready' } },
+			fallbackMessage: 'Failed to hydrate workspace',
+			hydrate: () => {
+				throw new Error('sync store error');
+			},
+			onReject
+		});
+
+		await new Promise((resolve) => setTimeout(resolve, 0));
+
+		expect(onReject).toHaveBeenCalledWith(expect.objectContaining({ message: 'sync store error' }));
 	});
 });

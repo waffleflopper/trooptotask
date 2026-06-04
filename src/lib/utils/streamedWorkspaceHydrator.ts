@@ -15,7 +15,7 @@ export function hydrateStreamedWorkspace<TWorkspace>(options: HydrateStreamedWor
 	let cancelled = false;
 	const streamedWorkspace = options.streamedWorkspace?.data;
 
-	if (!streamedWorkspace) {
+	if (streamedWorkspace == null) {
 		return () => {
 			cancelled = true;
 		};
@@ -26,7 +26,7 @@ export function hydrateStreamedWorkspace<TWorkspace>(options: HydrateStreamedWor
 				if (cancelled) return;
 				return options.hydrate(workspace);
 			})
-		: Promise.resolve(options.hydrate(streamedWorkspace));
+		: Promise.resolve().then(() => options.hydrate(streamedWorkspace));
 
 	void observeDeferred(Promise.resolve(hydration), {
 		fallbackMessage: options.fallbackMessage,

@@ -9,6 +9,7 @@ import { loadWithContext } from '$lib/server/adapters/httpAdapter';
 import type { DeferredData, HydrationItems } from '$lib/server/core/orgShell';
 import type { UseCaseContext } from '$lib/server/core/ports';
 import { loadRosterPersonnel } from '$lib/server/core/useCases/rosterReadModel';
+import { withTrainingTiming, type TrainingLoadPhase } from '$lib/server/utils/trainingTiming';
 import type { Group } from '$lib/stores/groups.svelte';
 import type { Personnel } from '$lib/types';
 import type { PersonnelTraining, TrainingType, TrainingView } from '../training.types';
@@ -117,10 +118,11 @@ function createTrainingWorkspaceHydration(orgId: string, data: TrainingWorkspace
 function loadTrainingItems<T>(config: {
 	orgId: string;
 	label: string;
-	load: Promise<Record<string, unknown>[]>;
+	phase: TrainingLoadPhase;
+	load: () => Promise<Record<string, unknown>[]>;
 	mapRows: (rows: Record<string, unknown>[]) => T;
 }): Promise<T> {
-	return config.load.then(config.mapRows).catch((error) => {
+	return withTrainingTiming(config.orgId, config.phase, () => config.load().then(config.mapRows)).catch((error) => {
 		console.error(`[training-workspace] Failed to load ${config.label}`, {
 			orgId: config.orgId,
 			error
@@ -131,7 +133,9 @@ function loadTrainingItems<T>(config: {
 
 function fetchTrainingWorkspaceData(ctx: UseCaseContext, requestedOrgId: string): TrainingWorkspaceData {
 	const canonicalOrgId = ctx.auth.orgId;
-	const personnel = loadRosterPersonnel(ctx, { status: 'active' }).catch((error) => {
+	const personnel = withTrainingTiming(requestedOrgId, 'personnel', () =>
+		loadRosterPersonnel(ctx, { status: 'active' })
+	).catch((error) => {
 		console.error('[training-workspace] Failed to load personnel', {
 			orgId: requestedOrgId,
 			error
@@ -141,44 +145,53 @@ function fetchTrainingWorkspaceData(ctx: UseCaseContext, requestedOrgId: string)
 	const groups = loadTrainingItems({
 		orgId: requestedOrgId,
 		label: 'groups',
-		load: ctx.store.findMany<Record<string, unknown>>('groups', canonicalOrgId, undefined, {
-			orderBy: [{ column: 'sort_order', ascending: true }]
-		}),
+		phase: 'groups',
+		load: () =>
+			ctx.store.findMany<Record<string, unknown>>('groups', canonicalOrgId, undefined, {
+				orderBy: [{ column: 'sort_order', ascending: true }]
+			}),
 		mapRows: (rows) => GroupEntity.fromDbArray(rows) as Group[]
 	});
 	const trainingTypes = loadTrainingItems({
 		orgId: requestedOrgId,
 		label: 'training types',
-		load: ctx.store.findMany<Record<string, unknown>>('training_types', canonicalOrgId, undefined, {
-			orderBy: [{ column: 'sort_order', ascending: true }]
-		}),
+		phase: 'training-types',
+		load: () =>
+			ctx.store.findMany<Record<string, unknown>>('training_types', canonicalOrgId, undefined, {
+				orderBy: [{ column: 'sort_order', ascending: true }]
+			}),
 		mapRows: (rows) => TrainingTypeEntity.fromDbArray(rows) as TrainingType[]
 	});
 	const trainingViews = loadTrainingItems({
 		orgId: requestedOrgId,
 		label: 'training views',
-		load: ctx.store.findMany<Record<string, unknown>>('training_views', canonicalOrgId, undefined, {
-			orderBy: [{ column: 'name', ascending: true }]
-		}),
+		phase: 'training-views',
+		load: () =>
+			ctx.store.findMany<Record<string, unknown>>('training_views', canonicalOrgId, undefined, {
+				orderBy: [{ column: 'name', ascending: true }]
+			}),
 		mapRows: (rows) => TrainingViewEntity.fromDbArray(rows) as TrainingView[]
 	});
 	const pinnedGroups = loadTrainingItems({
 		orgId: requestedOrgId,
 		label: 'pinned groups',
-		load: ctx.store.findMany<Record<string, unknown>>(
-			'user_pinned_groups',
-			canonicalOrgId,
-			{ user_id: ctx.auth.userId },
-			{
-				orderBy: [{ column: 'sort_order', ascending: true }]
-			}
-		),
+		phase: 'pinned-groups',
+		load: () =>
+			ctx.store.findMany<Record<string, unknown>>(
+				'user_pinned_groups',
+				canonicalOrgId,
+				{ user_id: ctx.auth.userId },
+				{
+					orderBy: [{ column: 'sort_order', ascending: true }]
+				}
+			),
 		mapRows: (rows) => PinnedGroupsEntity.fromDbArray(rows)
 	});
 	const personnelTrainings = loadTrainingItems({
 		orgId: requestedOrgId,
 		label: 'personnel trainings',
-		load: ctx.store.findMany<Record<string, unknown>>('personnel_trainings', canonicalOrgId),
+		phase: 'personnel-trainings',
+		load: () => ctx.store.findMany<Record<string, unknown>>('personnel_trainings', canonicalOrgId),
 		mapRows: (rows) => PersonnelTrainingEntity.fromDbArray(rows) as PersonnelTraining[]
 	});
 

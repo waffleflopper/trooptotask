@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Check } from '@lucide/svelte';
+	import Check from '@lucide/svelte/icons/check';
 	import { getStepperItemContext } from './context';
 	import type { StepperIndicatorProps } from './types';
 	import { cn } from '$lib/utils';

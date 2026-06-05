@@ -1,10 +1,8 @@
 <script lang="ts">
-	import { orgShellHydrationCoordinator } from '$lib/orgShellHydrationCoordinator.svelte';
-	import type { WorkspaceBootstrap } from '$lib/server/core/orgShell';
-	import type { CalendarBootstrap } from '$lib/server/core/useCases/calendarQuery';
-	import { isPromiseLike, observeDeferred, throwRenderError } from '$lib/utils/streamedRouteData';
-
-	const coordinator = orgShellHydrationCoordinator;
+	import { calendarWorkspaceHydrator } from '$features/calendar/calendarWorkspaceHydration.svelte';
+	import type { CalendarWorkspaceResult } from '$features/calendar/server/calendarWorkspaceBootstrap';
+	import { throwRenderError } from '$lib/utils/streamedRouteData';
+	import { hydrateStreamedWorkspace } from '$lib/utils/streamedWorkspaceHydrator';
 
 	let { children, data } = $props();
 	let hydrationError = $state<Error | null>(null);
@@ -16,44 +14,16 @@
 	});
 
 	$effect(() => {
-		let cancelled = false;
-		const streamedCalendar = data.calendar?.data;
-
 		hydrationError = null;
 
-		if (!streamedCalendar) {
-			return;
-		}
-
-		if (!isPromiseLike(streamedCalendar)) {
-			void observeDeferred(coordinator.hydrate((streamedCalendar as WorkspaceBootstrap<CalendarBootstrap>).hydration), {
-				fallbackMessage: 'Failed to hydrate calendar workspace',
-				onReject: (error) => {
-					hydrationError = error;
-				},
-				isCancelled: () => cancelled
-			});
-			return () => {
-				cancelled = true;
-			};
-		}
-
-		void observeDeferred(
-			streamedCalendar.then((calendar: WorkspaceBootstrap<CalendarBootstrap>) =>
-				coordinator.hydrate(calendar.hydration)
-			),
-			{
-				fallbackMessage: 'Failed to hydrate calendar workspace',
-				onReject: (error) => {
-					hydrationError = error;
-				},
-				isCancelled: () => cancelled
+		return hydrateStreamedWorkspace<CalendarWorkspaceResult>({
+			streamedWorkspace: data.calendar,
+			fallbackMessage: 'Failed to hydrate calendar workspace',
+			hydrate: (calendar) => calendarWorkspaceHydrator.hydrate(calendar.hydration),
+			onReject: (error) => {
+				hydrationError = error;
 			}
-		);
-
-		return () => {
-			cancelled = true;
-		};
+		});
 	});
 </script>
 

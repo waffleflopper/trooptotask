@@ -369,7 +369,7 @@ describe('IctPersonnelDetailPage', () => {
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Log completion for 181-105-1003' }));
 
-		expect(screen.getByRole('dialog', { name: 'Log ICT Completion' })).toBeTruthy();
+		expect(await screen.findByRole('dialog', { name: 'Log ICT Completion' })).toBeTruthy();
 
 		await chooseCompletionDate(/May 10, 2026/i);
 		await fireEvent.change(screen.getByLabelText(/Validation Method/i), {
@@ -444,7 +444,7 @@ describe('IctPersonnelDetailPage', () => {
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Input Task' }));
 
-		expect(screen.getByRole('dialog', { name: 'Log ICT Completion' })).toBeTruthy();
+		expect(await screen.findByRole('dialog', { name: 'Log ICT Completion' })).toBeTruthy();
 		expect(screen.queryByRole('button', { name: 'Person' })).toBeNull();
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Critical Task' }));
@@ -521,7 +521,7 @@ describe('IctPersonnelDetailPage', () => {
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Edit completion for 181-105-1001' }));
 
-		expect(screen.getByRole('dialog', { name: 'Edit ICT Completion' })).toBeTruthy();
+		expect(await screen.findByRole('dialog', { name: 'Edit ICT Completion' })).toBeTruthy();
 
 		await fireEvent.change(screen.getByLabelText(/Validation Method/i), {
 			target: { value: 'Simulation' }

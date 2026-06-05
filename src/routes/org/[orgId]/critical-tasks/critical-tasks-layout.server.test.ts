@@ -1,12 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { Cookies } from '@sveltejs/kit';
-import { createInMemoryOrgWorkspacePort } from '$lib/server/adapters/inMemoryOrgShell';
-import { createDefaultHydrationPlanner } from '$lib/server/core/hydrationPlanner';
 import type { Group } from '$lib/stores/groups.svelte';
 import type { IctTask, PersonnelIctCompletion } from '$features/critical-tasks/criticalTasks.types';
 import type { Personnel } from '$lib/types';
-import type { WorkspaceBootstrap, WorkspaceKey } from '$lib/server/core/orgShell';
-import type { CriticalTasksBootstrap } from '$lib/server/core/orgShell';
+import type { CriticalTasksWorkspaceRouteData } from '$features/critical-tasks/server/criticalTasksWorkspaceBootstrap';
 import { createReadyAppShellRouteData } from '$lib/test-support/appShellRouteData';
 import { _createCriticalTasksLayoutLoad } from './+layout.server';
 
@@ -25,7 +22,7 @@ describe('critical tasks layout server load', () => {
 				createdAt: '2026-04-01T12:00:00Z'
 			} satisfies PersonnelIctCompletion
 		]);
-		const criticalTasksData: CriticalTasksBootstrap = {
+		const criticalTasksData = {
 			settings: {
 				defaultExpirationMonths: 18,
 				expiringSoonWarningDays: 45
@@ -48,15 +45,43 @@ describe('critical tasks layout server load', () => {
 			groups: [{ id: 'g1', name: 'Alpha', sortOrder: 0 } as Group]
 		};
 		const depends = vi.fn();
-		const workspacePort = createInMemoryOrgWorkspacePort(
-			new Map<WorkspaceKey, unknown>([['critical-tasks', criticalTasksData]])
-		);
-		const plannerPort = createDefaultHydrationPlanner('org-1');
-		const createWorkspacePort = vi.fn().mockReturnValue(workspacePort);
-		const createPlannerPort = vi.fn().mockReturnValue(plannerPort);
+		const streamCriticalTasksWorkspace = vi.fn().mockResolvedValue({
+			criticalTasks: {
+				data: Promise.resolve({
+					laneKey: 'critical-tasks',
+					data: criticalTasksData,
+					hydration: {
+						orgId: 'org-1',
+						personnel: {
+							mode: 'replace',
+							items: criticalTasksData.personnel,
+							deferred: false,
+							snapshotKey: 'personnel:1'
+						},
+						groups: {
+							mode: 'replace',
+							items: criticalTasksData.groups,
+							deferred: false,
+							snapshotKey: 'groups:1'
+						},
+						ictTasks: {
+							mode: 'replace',
+							items: criticalTasksData.ictTasks,
+							deferred: false,
+							snapshotKey: 'ict-tasks:1'
+						},
+						personnelIctCompletions: {
+							mode: 'replace',
+							items: personnelIctCompletions,
+							deferred: true,
+							snapshotKey: 'personnel-ict-completions:1'
+						}
+					}
+				})
+			}
+		} satisfies CriticalTasksWorkspaceRouteData);
 		const load = _createCriticalTasksLayoutLoad({
-			createWorkspacePort,
-			createPlannerPort
+			streamCriticalTasksWorkspace
 		});
 		const locals = {} as App.Locals;
 		const cookies = {} as Cookies;
@@ -76,11 +101,12 @@ describe('critical tasks layout server load', () => {
 		expect(depends).toHaveBeenCalledTimes(1);
 		expect(depends).toHaveBeenCalledWith('app:org-core', 'app:critical-tasks-data');
 		expect(parent).toHaveBeenCalledTimes(1);
-		expect(createWorkspacePort).toHaveBeenCalledWith({ locals, cookies, orgId: 'org-1' });
-		expect(createPlannerPort).toHaveBeenCalledWith('org-1');
+		expect(streamCriticalTasksWorkspace).toHaveBeenCalledWith({ locals, cookies, orgId: 'org-1' });
 		expect(result).not.toHaveProperty('criticalTasksSettings');
-		expect(result.criticalTasks).toMatchObject({
-			workspace: 'critical-tasks',
+		expect(result.criticalTasks.data).toBeInstanceOf(Promise);
+
+		await expect(result.criticalTasks.data).resolves.toMatchObject({
+			laneKey: 'critical-tasks',
 			data: criticalTasksData,
 			hydration: {
 				orgId: 'org-1',
@@ -97,6 +123,37 @@ describe('critical tasks layout server load', () => {
 					snapshotKey: expect.any(String)
 				})
 			}
-		} satisfies WorkspaceBootstrap<CriticalTasksBootstrap>);
+		});
+	});
+
+	it('preserves rejected streamed Critical Tasks data for the client error boundary', async () => {
+		const depends = vi.fn();
+		const rejection = new Error('policy denied');
+		const streamCriticalTasksWorkspace = vi.fn().mockResolvedValue({
+			criticalTasks: {
+				data: Promise.reject(rejection)
+			}
+		} satisfies CriticalTasksWorkspaceRouteData);
+		const load = _createCriticalTasksLayoutLoad({
+			streamCriticalTasksWorkspace
+		});
+		const locals = {} as App.Locals;
+		const cookies = {} as Cookies;
+		const parent = vi.fn().mockResolvedValue(createReadyAppShellRouteData({ orgId: 'org-1' }));
+
+		const result = await load({
+			params: { orgId: '1-11-bde' },
+			locals,
+			cookies,
+			depends,
+			parent
+		} as unknown as Parameters<typeof load>[0]);
+		if (!result) {
+			throw new Error('Expected critical tasks layout load to return data');
+		}
+
+		expect(depends).toHaveBeenCalledWith('app:org-core', 'app:critical-tasks-data');
+		expect(streamCriticalTasksWorkspace).toHaveBeenCalledWith({ locals, cookies, orgId: 'org-1' });
+		await expect(result.criticalTasks.data).rejects.toThrow('policy denied');
 	});
 });

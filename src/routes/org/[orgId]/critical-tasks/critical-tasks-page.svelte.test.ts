@@ -314,7 +314,7 @@ describe('critical tasks page', () => {
 		expect(screen.getByRole('button', { name: /Smith 181-105-1001: not recorded/i })).toBeTruthy();
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Import Completions' }));
-		await fireEvent.change(screen.getByLabelText('Upload file'), {
+		await fireEvent.change(await screen.findByLabelText('Upload file'), {
 			target: {
 				files: [new File(['fake'], 'ict-completions.csv', { type: 'text/csv' })]
 			}
@@ -517,7 +517,7 @@ describe('critical tasks page', () => {
 
 		await fireEvent.click(screen.getByRole('button', { name: /Smith 181-105-1001: not recorded/ }));
 
-		expect(screen.getByRole('dialog', { name: 'Log ICT Completion' })).toBeTruthy();
+		expect(await screen.findByRole('dialog', { name: 'Log ICT Completion' })).toBeTruthy();
 
 		await chooseCompletionDate(/May 10, 2026/i);
 		await fireEvent.change(screen.getByLabelText(/Validation Method/i), {
@@ -628,7 +628,7 @@ describe('critical tasks page', () => {
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Record Completion' }));
 
-		expect(screen.getByRole('dialog', { name: 'Log ICT Completion' })).toBeTruthy();
+		expect(await screen.findByRole('dialog', { name: 'Log ICT Completion' })).toBeTruthy();
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Person' }));
 		const personCombo = await screen.findByRole('combobox', { name: 'Person' });

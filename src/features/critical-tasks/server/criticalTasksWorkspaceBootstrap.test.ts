@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Cookies } from '@sveltejs/kit';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import type { CriticalTasksBootstrap } from '$lib/server/core/orgShell';
+import type { CriticalTasksWorkspaceData } from './criticalTasksWorkspaceBootstrap';
 
 const { findManyMock, findOneMock, loadWithContextMock, mockCtx } = vi.hoisted(() => {
 	const findManyMock = vi.fn();
@@ -25,17 +25,19 @@ const { findManyMock, findOneMock, loadWithContextMock, mockCtx } = vi.hoisted((
 	};
 });
 
-vi.mock('./httpAdapter', async () => {
-	const actual = await vi.importActual<typeof import('./httpAdapter')>('./httpAdapter');
+vi.mock('$lib/server/adapters/httpAdapter', async () => {
+	const actual = await vi.importActual<typeof import('$lib/server/adapters/httpAdapter')>(
+		'$lib/server/adapters/httpAdapter'
+	);
 	return {
 		...actual,
 		loadWithContext: loadWithContextMock
 	};
 });
 
-import { createSupabaseCriticalTasksWorkspacePort } from './supabaseOrgShell';
+import { streamCriticalTasksWorkspaceBootstrap } from './criticalTasksWorkspaceBootstrap';
 
-describe('createSupabaseCriticalTasksWorkspacePort', () => {
+describe('streamCriticalTasksWorkspaceBootstrap', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		findOneMock.mockResolvedValue({
@@ -48,7 +50,7 @@ describe('createSupabaseCriticalTasksWorkspacePort', () => {
 		});
 	});
 
-	it('streams the Critical Tasks bootstrap before deferred workspace queries resolve', async () => {
+	it('streams a lane-keyed Critical Tasks workspace result with explicit hydration targets', async () => {
 		const deferredRows = new Promise<Record<string, unknown>[]>(() => undefined);
 
 		findManyMock.mockImplementation((table: string) => {
@@ -63,12 +65,15 @@ describe('createSupabaseCriticalTasksWorkspacePort', () => {
 			}
 		});
 
-		const port = createSupabaseCriticalTasksWorkspacePort({} as App.Locals, {} as Cookies, '1-11-bde');
-		const streamed = await port.streamWorkspaceData<CriticalTasksBootstrap>('critical-tasks');
-		let bootstrap: CriticalTasksBootstrap | undefined;
+		const routeData = await streamCriticalTasksWorkspaceBootstrap({
+			locals: {} as App.Locals,
+			cookies: {} as Cookies,
+			orgId: '1-11-bde'
+		});
+		let workspace: Awaited<typeof routeData.criticalTasks.data> | undefined;
 
-		void streamed.data.then((value) => {
-			bootstrap = value;
+		void routeData.criticalTasks.data.then((value) => {
+			workspace = value;
 		});
 
 		await new Promise((resolve) => setTimeout(resolve, 0));
@@ -83,16 +88,32 @@ describe('createSupabaseCriticalTasksWorkspacePort', () => {
 				defer: true
 			})
 		);
-		expect(loadWithContextMock.mock.calls[0][3]).not.toHaveProperty('permission');
-		expect(bootstrap).toBeDefined();
-		expect(bootstrap?.settings).toEqual({
+		expect(loadWithContextMock.mock.calls[0]?.[3]).not.toHaveProperty('permission');
+		expect(workspace).toBeDefined();
+		expect(workspace?.laneKey).toBe('critical-tasks');
+		expect(workspace?.data.settings).toEqual({
 			defaultExpirationMonths: 18,
 			expiringSoonWarningDays: 45
 		});
-		expect(bootstrap?.personnel).toBeInstanceOf(Promise);
-		expect(bootstrap?.groups).toBeInstanceOf(Promise);
-		expect(bootstrap?.ictTasks).toBeInstanceOf(Promise);
-		expect(bootstrap?.personnelIctCompletions).toBeInstanceOf(Promise);
+		expect(workspace?.data.personnel).toBeInstanceOf(Promise);
+		expect(workspace?.data.groups).toBeInstanceOf(Promise);
+		expect(workspace?.data.ictTasks).toBeInstanceOf(Promise);
+		expect(workspace?.data.personnelIctCompletions).toBeInstanceOf(Promise);
+		expect(workspace?.hydration).toMatchObject({
+			orgId: '11111111-1111-1111-1111-111111111111',
+			ictTasks: expect.objectContaining({
+				mode: 'replace',
+				items: (workspace?.data as CriticalTasksWorkspaceData | undefined)?.ictTasks,
+				deferred: true,
+				snapshotKey: expect.any(String)
+			}),
+			personnelIctCompletions: expect.objectContaining({
+				mode: 'replace',
+				items: (workspace?.data as CriticalTasksWorkspaceData | undefined)?.personnelIctCompletions,
+				deferred: true,
+				snapshotKey: expect.any(String)
+			})
+		});
 		expect(findManyMock).toHaveBeenCalledWith(
 			'ict_tasks',
 			'11111111-1111-1111-1111-111111111111',

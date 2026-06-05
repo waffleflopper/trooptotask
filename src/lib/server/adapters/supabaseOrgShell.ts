@@ -37,16 +37,11 @@ import {
 } from '../core/useCases/loadAppShell';
 import { loadWithContext, getLayoutClient } from './httpAdapter';
 import { getOrLoadRequestMembership } from '$lib/server/membershipContextCache';
-import { fetchCalendarBootstrap, type CalendarBootstrap, type CalendarDateRange } from '../core/useCases/calendarQuery';
-import { getActiveOnboardingPersonnelIds } from '../core/useCases/calendarQuery';
-import { withCalendarTiming } from '$lib/server/utils/calendarTiming';
 import { fetchOnboardingBootstrap } from '../core/useCases/onboardingQuery';
 import { fetchDashboardBootstrap, type DashboardBootstrap } from '../core/useCases/dashboardQuery';
 import { fetchPersonnelBootstrap, fetchRatingSchemeBootstrap } from '../core/useCases/personnelWorkspaceQuery';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination';
 import { createSupabaseSubscriptionAdapter } from './supabaseSubscription';
-import { createInitialCalendarBufferedRange } from '$features/calendar/utils/calendarRange';
-import { CALENDAR_ANCHOR_COOKIE, resolveCalendarAnchorDate } from '$features/calendar/utils/calendarAnchorDate';
 import {
 	getPreferredOrganizationUrlSegment,
 	resolveOrganizationRouteIdentity
@@ -397,63 +392,6 @@ async function loadOrganizationSwitcherOrgs(config: {
 				})
 			};
 		});
-}
-
-export function createSupabaseCalendarWorkspacePort(
-	locals: App.Locals,
-	cookies: Cookies,
-	orgId: string,
-	options: { specialDaysRange?: CalendarDateRange } = {}
-): StreamableOrgWorkspacePort {
-	function getCalendarData(): Promise<CalendarBootstrap>;
-	function getCalendarData(defer: true): Promise<DeferredData<CalendarBootstrap>>;
-	function getCalendarData(defer = false) {
-		const anchorDate = resolveCalendarAnchorDate(cookies.get(CALENDAR_ANCHOR_COOKIE), new Date());
-		const { rangeStart, rangeEnd } = createInitialCalendarBufferedRange(anchorDate);
-
-		const fn = async (ctx: UseCaseContext) =>
-			withCalendarTiming(orgId, 'workspace-bootstrap', async () => {
-				const [calendarData, activeOnboardingPersonnelIds] = await Promise.all([
-					fetchCalendarBootstrap(ctx, { rangeStart, rangeEnd, specialDaysRange: options.specialDaysRange }),
-					getActiveOnboardingPersonnelIds(ctx)
-				]);
-				return { ...calendarData, activeOnboardingPersonnelIds };
-			});
-
-		if (defer) {
-			return loadWithContext(locals, cookies, orgId, {
-				policyAction: POLICY_ACTION_CATALOG.calendar.viewAvailability,
-				policyResource: { kind: 'unscoped' },
-				defer: true,
-				fn
-			});
-		}
-
-		return loadWithContext(locals, cookies, orgId, {
-			policyAction: POLICY_ACTION_CATALOG.calendar.viewAvailability,
-			policyResource: { kind: 'unscoped' },
-			fn
-		});
-	}
-
-	return {
-		async getWorkspaceData<T>(workspace: WorkspaceKey): Promise<T> {
-			if (workspace !== 'calendar') {
-				throw new Error(`createSupabaseCalendarWorkspacePort: unsupported workspace '${workspace}'`);
-			}
-
-			const data = await getCalendarData();
-
-			return data as T;
-		},
-		async streamWorkspaceData<T>(workspace: WorkspaceKey) {
-			if (workspace !== 'calendar') {
-				throw new Error(`createSupabaseCalendarWorkspacePort: unsupported workspace '${workspace}'`);
-			}
-
-			return getCalendarData(true) as Promise<DeferredData<T>>;
-		}
-	};
 }
 
 export function createSupabaseOnboardingWorkspacePort(

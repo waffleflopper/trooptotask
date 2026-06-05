@@ -1,8 +1,7 @@
 <script lang="ts">
 	import AssignmentPlannerPage from '$features/calendar/components/AssignmentPlannerPage.svelte';
 	import { Spinner } from '$lib/components/ui/spinner';
-	import type { WorkspaceBootstrap } from '$lib/server/core/orgShell';
-	import type { CalendarBootstrap } from '$lib/server/core/useCases/calendarQuery';
+	import type { CalendarWorkspaceResult } from '$features/calendar/server/calendarWorkspaceBootstrap';
 	import {
 		isPromiseLike,
 		materializeWorkspaceData,
@@ -11,7 +10,7 @@
 	} from '$lib/utils/streamedRouteData';
 
 	let { data } = $props();
-	let calendarBootstrap = $state<WorkspaceBootstrap<CalendarBootstrap> | null>(null);
+	let calendarBootstrap = $state<CalendarWorkspaceResult | null>(null);
 	let loadError = $state<Error | null>(null);
 
 	$effect(() => {
@@ -26,7 +25,7 @@
 		}
 
 		if (!isPromiseLike(streamedCalendar)) {
-			calendarBootstrap = streamedCalendar as WorkspaceBootstrap<CalendarBootstrap>;
+			calendarBootstrap = streamedCalendar as CalendarWorkspaceResult;
 			return;
 		}
 

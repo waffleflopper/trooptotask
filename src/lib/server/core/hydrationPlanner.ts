@@ -6,7 +6,6 @@ import type {
 } from '$features/onboarding/onboarding.types';
 import type { RatingSchemeEntry } from '$features/rating-scheme/rating-scheme.types';
 import type { PersonnelTraining } from '$features/training/training.types';
-import type { IctTask, PersonnelIctCompletion } from '$features/critical-tasks/criticalTasks.types';
 import type { AssignmentType, AvailabilityEntry, DailyAssignment, SpecialDay } from '$lib/types';
 
 const deferredSnapshotKeys = new WeakMap<object, string>();
@@ -215,12 +214,6 @@ const PLAN_FIELDS: PlanFieldDescriptor[] = [
 	}),
 	simpleField<PersonnelTraining>('personnelTrainings', (plan, target) => {
 		plan.personnelTrainings = target;
-	}),
-	simpleField<IctTask>('ictTasks', (plan, target) => {
-		plan.ictTasks = target;
-	}),
-	simpleField<PersonnelIctCompletion>('personnelIctCompletions', (plan, target) => {
-		plan.personnelIctCompletions = target;
 	}),
 	simpleField<string>('pinnedGroups', (plan, target) => {
 		plan.pinnedGroups = target;

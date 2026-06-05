@@ -272,7 +272,7 @@ describe('IctTaskLibraryPage', () => {
 		await fireEvent.click(screen.getByRole('button', { name: /Perform tactical combat casualty care/ }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Archive Task' }));
 
-		expect(screen.getByText(/2 personnel completion records are tied to this task/)).toBeTruthy();
+		expect(await screen.findByText(/2 personnel completion records are tied to this task/)).toBeTruthy();
 
 		await fireEvent.click(screen.getAllByRole('button', { name: 'Archive Task' }).at(-1)!);
 

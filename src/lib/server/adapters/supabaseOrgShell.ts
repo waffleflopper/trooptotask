@@ -43,10 +43,8 @@ import { withCalendarTiming } from '$lib/server/utils/calendarTiming';
 import { fetchOnboardingBootstrap } from '../core/useCases/onboardingQuery';
 import { fetchDashboardBootstrap, type DashboardBootstrap } from '../core/useCases/dashboardQuery';
 import { fetchPersonnelBootstrap, fetchRatingSchemeBootstrap } from '../core/useCases/personnelWorkspaceQuery';
-import { fetchCriticalTasksBootstrap } from '../core/useCases/criticalTasksWorkspaceQuery';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination';
 import { createSupabaseSubscriptionAdapter } from './supabaseSubscription';
-import type { CriticalTasksBootstrap } from '../core/orgShell';
 import { createInitialCalendarBufferedRange } from '$features/calendar/utils/calendarRange';
 import { CALENDAR_ANCHOR_COOKIE, resolveCalendarAnchorDate } from '$features/calendar/utils/calendarAnchorDate';
 import {
@@ -454,54 +452,6 @@ export function createSupabaseCalendarWorkspacePort(
 			}
 
 			return getCalendarData(true) as Promise<DeferredData<T>>;
-		}
-	};
-}
-
-export function createSupabaseCriticalTasksWorkspacePort(
-	locals: App.Locals,
-	cookies: Cookies,
-	orgId: string
-): StreamableOrgWorkspacePort {
-	function getCriticalTasksData(): Promise<CriticalTasksBootstrap>;
-	function getCriticalTasksData(defer: true): Promise<DeferredData<CriticalTasksBootstrap>>;
-	function getCriticalTasksData(
-		defer: boolean = false
-	): Promise<CriticalTasksBootstrap> | Promise<DeferredData<CriticalTasksBootstrap>> {
-		const fn = async (ctx: UseCaseContext) => fetchCriticalTasksBootstrap(ctx);
-
-		if (defer) {
-			return loadWithContext(locals, cookies, orgId, {
-				policyAction: POLICY_ACTION_CATALOG.criticalTasks.viewReadiness,
-				policyResource: { kind: 'unscoped' },
-				defer: true,
-				fn
-			});
-		}
-
-		return loadWithContext(locals, cookies, orgId, {
-			policyAction: POLICY_ACTION_CATALOG.criticalTasks.viewReadiness,
-			policyResource: { kind: 'unscoped' },
-			fn
-		});
-	}
-
-	return {
-		async getWorkspaceData<T>(workspace: WorkspaceKey): Promise<T> {
-			if (workspace !== 'critical-tasks') {
-				throw new Error(`createSupabaseCriticalTasksWorkspacePort: unsupported workspace '${workspace}'`);
-			}
-
-			const data = await getCriticalTasksData();
-
-			return data as T;
-		},
-		async streamWorkspaceData<T>(workspace: WorkspaceKey) {
-			if (workspace !== 'critical-tasks') {
-				throw new Error(`createSupabaseCriticalTasksWorkspacePort: unsupported workspace '${workspace}'`);
-			}
-
-			return getCriticalTasksData(true) as Promise<DeferredData<T>>;
 		}
 	};
 }

@@ -2,8 +2,7 @@
 	import { CalendarPageContext } from '$features/calendar/contexts/CalendarPageContext.svelte';
 	import { CalendarRangeCoordinator } from '$features/calendar/contexts/CalendarRangeCoordinator.svelte';
 	import type { CalendarPageData } from '$features/calendar/contexts/CalendarPageContext.svelte';
-	import type { WorkspaceBootstrap } from '$lib/server/core/orgShell';
-	import type { CalendarBootstrap } from '$lib/server/core/useCases/calendarQuery';
+	import type { CalendarWorkspaceResult } from '$features/calendar/server/calendarWorkspaceBootstrap';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
 	import { calendarStore } from '$features/calendar/stores/calendar.svelte';
 	import { buildCalendarAnchorCookie } from '$features/calendar/utils/calendarAnchorDate';
@@ -18,7 +17,7 @@
 	const org = getOrgContext();
 	const rangeCoordinator = new CalendarRangeCoordinator();
 	const shell = $derived(data.shell.kind === 'ready' ? data.shell : null);
-	let calendarBootstrap = $state<WorkspaceBootstrap<CalendarBootstrap> | null>(null);
+	let calendarBootstrap = $state<CalendarWorkspaceResult | null>(null);
 	let loadError = $state<Error | null>(null);
 	const renderLoadError = $derived.by(() => {
 		if (loadError) {
@@ -39,7 +38,7 @@
 		}
 
 		if (!isPromiseLike(streamedCalendar)) {
-			calendarBootstrap = streamedCalendar as WorkspaceBootstrap<CalendarBootstrap>;
+			calendarBootstrap = streamedCalendar as CalendarWorkspaceResult;
 			return;
 		}
 

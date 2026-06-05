@@ -1,62 +1,35 @@
-import type { Cookies } from '@sveltejs/kit';
 import type { LayoutServerLoad } from './$types';
-import { createSupabaseCalendarWorkspacePort } from '$lib/server/adapters/supabaseOrgShell';
-import { createDefaultHydrationPlanner } from '$lib/server/core/hydrationPlanner';
-import type { HydrationPlannerPort, StreamableOrgWorkspacePort } from '$lib/server/core/orgShell';
-import { createOrgShellCoordinator, type OrgShellCoordinator } from '$lib/server/core/orgShellCoordinator';
-import type { CalendarBootstrap, CalendarDateRange } from '$lib/server/core/useCases/calendarQuery';
-import { requireReadyAppShell } from '$lib/server/core/appShellRouteData';
-
-interface CalendarLayoutRequestContext {
-	locals: App.Locals;
-	cookies: Cookies;
-	orgId: string;
-	specialDaysRange?: CalendarDateRange;
-}
+import { streamReadyFeatureLaneWorkspace } from '$lib/server/core/featureLaneWorkspaceLoad';
+import {
+	streamCalendarWorkspaceBootstrap,
+	type CalendarWorkspaceRequestContext,
+	type CalendarWorkspaceRouteData
+} from '$features/calendar/server/calendarWorkspaceBootstrap';
+import type { CalendarDateRange } from '$lib/server/core/useCases/calendarQuery';
+import { CALENDAR_ANCHOR_COOKIE, resolveCalendarAnchorDate } from '$features/calendar/utils/calendarAnchorDate';
 
 export interface CalendarLayoutLoadDeps {
-	coordinator?: OrgShellCoordinator;
-	createWorkspacePort?: (context: CalendarLayoutRequestContext) => StreamableOrgWorkspacePort;
-	createPlannerPort?: (orgId: string) => HydrationPlannerPort;
+	streamCalendarWorkspace?: (context: CalendarWorkspaceRequestContext) => Promise<CalendarWorkspaceRouteData>;
 }
 
 export function _createCalendarLayoutLoad(deps: CalendarLayoutLoadDeps = {}): LayoutServerLoad {
-	const coordinator = deps.coordinator ?? createOrgShellCoordinator();
-	const createWorkspacePort =
-		deps.createWorkspacePort ??
-		(({ locals, cookies, orgId, specialDaysRange }: CalendarLayoutRequestContext) =>
-			createSupabaseCalendarWorkspacePort(locals, cookies, orgId, { specialDaysRange }));
-	const createPlannerPort = deps.createPlannerPort ?? createDefaultHydrationPlanner;
+	const streamCalendarWorkspace = deps.streamCalendarWorkspace ?? streamCalendarWorkspaceBootstrap;
 
-	return async ({
-		locals,
-		cookies,
-		url,
-		depends,
-		parent
-	}: {
-		locals: App.Locals;
-		cookies: Cookies;
-		url: URL;
-		depends: (...deps: string[]) => void;
-		parent: () => Promise<Parameters<typeof requireReadyAppShell>[0]>;
-	}) => {
-		depends('app:org-core', 'app:calendar-data');
-
-		const shell = requireReadyAppShell(await parent());
-		const orgId = shell.org.id;
-		const requestContext: CalendarLayoutRequestContext = { locals, cookies, orgId };
-		if (isCalendarSettingsPath(url.pathname)) {
-			requestContext.specialDaysRange = createCalendarSettingsSpecialDaysRange(new Date());
-		}
-		const workspacePort = createWorkspacePort(requestContext);
-		const plannerPort = createPlannerPort(orgId);
-
-		return coordinator.streamWorkspace<CalendarBootstrap, 'calendar'>('calendar', {
-			workspace: workspacePort,
-			planner: plannerPort
+	return async (event) =>
+		streamReadyFeatureLaneWorkspace<CalendarWorkspaceRouteData, CalendarWorkspaceRequestContext>(event, {
+			dependencies: ['app:org-core', 'app:calendar-data'],
+			createContext: ({ locals, cookies, url }, shell) => ({
+				locals,
+				cookies,
+				orgId: shell.org.id,
+				...(isCalendarSettingsPath(url.pathname) && {
+					specialDaysRange: createCalendarSettingsSpecialDaysRange(
+						resolveCalendarAnchorDate(cookies.get(CALENDAR_ANCHOR_COOKIE), new Date())
+					)
+				})
+			}),
+			streamWorkspace: streamCalendarWorkspace
 		});
-	};
 }
 
 function isCalendarSettingsPath(pathname: string): boolean {

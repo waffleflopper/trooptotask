@@ -3,13 +3,10 @@
 	import Calendar from '$features/calendar/components/Calendar.svelte';
 	import LongRangeView from '$features/calendar/components/LongRangeView.svelte';
 	import StatusLegend from '$features/calendar/components/StatusLegend.svelte';
-	import AvailabilityModal from '$features/calendar/components/AvailabilityModal.svelte';
-	import DailyAssignmentModal from '$features/calendar/components/DailyAssignmentModal.svelte';
 	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
 	import * as Empty from '$lib/components/ui/empty';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { buildCalendarToolbarItems } from '$features/calendar/utils/calendarToolbarItems';
-	import { exportMonthToExcel, printMonthCalendar } from '$features/calendar/utils/calendarExport';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { calendarStore } from '$features/calendar/stores/calendar.svelte';
 	import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
@@ -59,9 +56,17 @@
 			onTogglePersonnelRoles: () => ctx.toggleShowPersonnelRoles(),
 			onToggleHighlightOnboarding: () => ctx.toggleHighlightOnboarding(),
 			onToggleDutyStartDayOnly: () => ctx.toggleDutyStartDayOnly(),
-			onExportExcel: () => exportMonthToExcel(calendarStore.year, calendarStore.month, getExportData()),
+			onExportExcel: async () => {
+				try {
+					const { exportMonthToExcel } = await import('$features/calendar/utils/calendarExport');
+					await exportMonthToExcel(calendarStore.year, calendarStore.month, getExportData());
+				} catch (err) {
+					toastStore.error(err instanceof Error ? err.message : 'Excel export failed');
+				}
+			},
 			onExportPDF: async () => {
 				try {
+					const { printMonthCalendar } = await import('$features/calendar/utils/calendarExport');
 					await printMonthCalendar(calendarStore.year, calendarStore.month, getExportData());
 				} catch (err) {
 					toastStore.error(err instanceof Error ? err.message : 'PDF export failed');
@@ -79,6 +84,26 @@
 	const activeCalendarFilterCount = $derived(
 		(ctx.calendarGroupFilter ? 1 : 0) + (ctx.calendarPersonnelSearch.trim() ? 1 : 0)
 	);
+
+	async function loadAvailabilityModal() {
+		try {
+			return await import('$features/calendar/components/AvailabilityModal.svelte');
+		} catch (error) {
+			toastStore.error(error instanceof Error ? error.message : 'Availability editor failed to load');
+			ctx.closeAvailabilityModal();
+			throw error;
+		}
+	}
+
+	async function loadDailyAssignmentModal() {
+		try {
+			return await import('$features/calendar/components/DailyAssignmentModal.svelte');
+		} catch (error) {
+			toastStore.error(error instanceof Error ? error.message : 'Daily assignment editor failed to load');
+			ctx.closeAssignmentModal();
+			throw error;
+		}
+	}
 </script>
 
 <svelte:head>
@@ -199,30 +224,38 @@
 </div>
 
 {#if ctx.selectedPerson && ctx.selectedDate}
-	<AvailabilityModal
-		person={ctx.selectedPerson}
-		date={ctx.selectedDate}
-		statusTypes={statusTypesStore.items}
-		existingEntries={availabilityStore.items}
-		onAdd={(entry) => ctx.handleAddAvailability(entry)}
-		onRemove={(id) => ctx.handleRemoveAvailability(id)}
-		onClose={() => ctx.closeAvailabilityModal()}
-		dutyEvents={ctx.advancedDutyEvents}
-		dutyRosterHref={`/org/${data.orgUrlSegment ?? data.orgId}/duty-rosters/`}
-	/>
+	{#await loadAvailabilityModal() then { default: AvailabilityModal }}
+		<AvailabilityModal
+			person={ctx.selectedPerson}
+			date={ctx.selectedDate}
+			statusTypes={statusTypesStore.items}
+			existingEntries={availabilityStore.items}
+			onAdd={(entry) => ctx.handleAddAvailability(entry)}
+			onRemove={(id) => ctx.handleRemoveAvailability(id)}
+			onClose={() => ctx.closeAvailabilityModal()}
+			dutyEvents={ctx.advancedDutyEvents}
+			dutyRosterHref={`/org/${data.orgUrlSegment ?? data.orgId}/duty-rosters/`}
+		/>
+	{:catch}
+		<span class="sr-only">Availability editor failed to load.</span>
+	{/await}
 {/if}
 
 {#if ctx.assignmentDate}
-	<DailyAssignmentModal
-		date={ctx.assignmentDate}
-		assignmentTypes={dailyAssignmentsStore.types}
-		assignments={dailyAssignmentsStore.assignments}
-		personnelByGroup={ctx.personnelByGroup}
-		groups={groupsStore.names}
-		onSetAssignment={(date, typeId, assigneeId) => dailyAssignmentsStore.setAssignment(date, typeId, assigneeId)}
-		onRemoveAssignment={(date, typeId) => dailyAssignmentsStore.removeAssignment(date, typeId)}
-		onClose={() => ctx.closeAssignmentModal()}
-		dutyEvents={ctx.advancedDutyEvents}
-		dutyRosterHref={`/org/${data.orgUrlSegment ?? data.orgId}/duty-rosters/`}
-	/>
+	{#await loadDailyAssignmentModal() then { default: DailyAssignmentModal }}
+		<DailyAssignmentModal
+			date={ctx.assignmentDate}
+			assignmentTypes={dailyAssignmentsStore.types}
+			assignments={dailyAssignmentsStore.assignments}
+			personnelByGroup={ctx.personnelByGroup}
+			groups={groupsStore.names}
+			onSetAssignment={(date, typeId, assigneeId) => dailyAssignmentsStore.setAssignment(date, typeId, assigneeId)}
+			onRemoveAssignment={(date, typeId) => dailyAssignmentsStore.removeAssignment(date, typeId)}
+			onClose={() => ctx.closeAssignmentModal()}
+			dutyEvents={ctx.advancedDutyEvents}
+			dutyRosterHref={`/org/${data.orgUrlSegment ?? data.orgId}/duty-rosters/`}
+		/>
+	{:catch}
+		<span class="sr-only">Daily assignment editor failed to load.</span>
+	{/await}
 {/if}

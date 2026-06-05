@@ -2,11 +2,21 @@ import { describe, it, expect } from 'vitest';
 import { isHttpError } from '@sveltejs/kit';
 import { createTestContext, createInMemoryDataStore, createTestAuthContext } from './inMemory';
 import type { UseCaseContext } from '$lib/server/core/ports';
-import { loadWithContextCore } from './httpAdapter';
+import { loadWithContextCore, loadWithDeferredContext } from './httpAdapter';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 
 function buildCtx(overrides?: { auth?: Parameters<typeof createTestAuthContext>[0] }): UseCaseContext {
 	return createTestContext({ auth: overrides?.auth });
+}
+
+function deferred<T>() {
+	let resolve!: (value: T) => void;
+	let reject!: (reason?: unknown) => void;
+	const promise = new Promise<T>((res, rej) => {
+		resolve = res;
+		reject = rej;
+	});
+	return { promise, resolve, reject };
 }
 
 describe('loadWithContextCore', () => {
@@ -180,5 +190,26 @@ describe('loadWithContextCore with defer: true', () => {
 		expect(fnFinished).toBe(false);
 		await data;
 		expect(fnFinished).toBe(true);
+	});
+
+	it('does not await context construction before returning a deferred data promise', async () => {
+		const context = deferred<UseCaseContext>();
+		let fnCalled = false;
+
+		const { data } = loadWithDeferredContext(context.promise, {
+			policyAction: POLICY_ACTION_CATALOG.identity.viewDashboard,
+			fn: async () => {
+				fnCalled = true;
+				return { done: true };
+			},
+			defer: true
+		});
+
+		expect(data).toBeInstanceOf(Promise);
+		expect(fnCalled).toBe(false);
+
+		context.resolve(buildCtx());
+		await expect(data).resolves.toEqual({ done: true });
+		expect(fnCalled).toBe(true);
 	});
 });

@@ -20,7 +20,6 @@ import type { CalendarBootstrap } from './useCases/calendarQuery';
 import type { DashboardBootstrap } from './useCases/dashboardQuery';
 import type { OnboardingBootstrap } from './useCases/onboardingQuery';
 import type { PersonnelBootstrap } from './useCases/personnelWorkspaceQuery';
-import type { TrainingBootstrap } from './orgShell';
 import type { CriticalTasksBootstrap } from './orgShell';
 
 function createInspectableLoadable<T>() {
@@ -357,93 +356,6 @@ describe('OrgShellCoordinator', () => {
 				planner
 			})
 		).rejects.toThrow('Missing calendar access');
-	});
-
-	it('returns the canonical training workspace payload with deferred personnelTrainings hydration', async () => {
-		const coordinator = createTestCoordinator();
-		const personnelTrainings = Promise.resolve([
-			{
-				id: 'pt1',
-				personnelId: 'p1',
-				trainingTypeId: 'tt1',
-				completionDate: null,
-				expirationDate: null,
-				notes: null,
-				certificateUrl: null
-			} satisfies PersonnelTraining
-		]);
-		const trainingData: TrainingBootstrap = {
-			personnelTrainings,
-			trainingTypes: [{ id: 'tt1', name: 'CPR' } as TrainingType],
-			trainingViews: [
-				{
-					id: 'tv1',
-					name: 'All Personnel',
-					columnIds: [],
-					createdBy: 'u1',
-					createdAt: '2024-01-01',
-					updatedAt: '2024-01-01'
-				} as TrainingView
-			],
-			personnel: [{ id: 'p1', firstName: 'John', lastName: 'Smith' } as Personnel],
-			groups: [{ id: 'g1', name: 'Alpha', sortOrder: 0 } as Group],
-			pinnedGroups: ['Alpha']
-		};
-		const workspacePort = createInMemoryOrgWorkspacePort(new Map<WorkspaceKey, unknown>([['training', trainingData]]));
-		const planner = createDefaultHydrationPlanner('org-1');
-
-		const result = await coordinator.loadWorkspace<TrainingBootstrap, 'training'>('training', {
-			workspace: workspacePort,
-			planner
-		});
-
-		expect(result).toMatchObject({
-			training: {
-				workspace: 'training',
-				data: trainingData,
-				hydration: {
-					orgId: 'org-1',
-					groups: expect.objectContaining({
-						mode: 'replace',
-						items: trainingData.groups,
-						deferred: false,
-						snapshotKey: expect.any(String)
-					}),
-					personnel: {
-						scoped: expect.objectContaining({
-							mode: 'replace',
-							items: trainingData.personnel,
-							deferred: false,
-							snapshotKey: expect.any(String)
-						})
-					},
-					trainingTypes: expect.objectContaining({
-						mode: 'replace',
-						items: trainingData.trainingTypes,
-						deferred: false,
-						snapshotKey: expect.any(String)
-					}),
-					trainingViews: expect.objectContaining({
-						mode: 'replace',
-						items: trainingData.trainingViews,
-						deferred: false,
-						snapshotKey: expect.any(String)
-					}),
-					personnelTrainings: expect.objectContaining({
-						mode: 'replace',
-						items: personnelTrainings,
-						deferred: true,
-						snapshotKey: expect.any(String)
-					}),
-					pinnedGroups: expect.objectContaining({
-						mode: 'replace',
-						items: trainingData.pinnedGroups,
-						deferred: false,
-						snapshotKey: expect.any(String)
-					})
-				}
-			} satisfies WorkspaceBootstrap<TrainingBootstrap>
-		});
 	});
 
 	it('returns the canonical Critical Tasks workspace payload with deferred completions hydration', async () => {
@@ -834,17 +746,10 @@ describe('OrgShellCoordinator', () => {
 
 	it('omits workspace hydration when the planner returns no plan', async () => {
 		const coordinator = createTestCoordinator();
-		const trainingData: TrainingBootstrap = {
-			personnelTrainings: Promise.resolve([]),
-			trainingTypes: [],
-			trainingViews: [],
-			personnel: [],
-			groups: [],
-			pinnedGroups: []
-		};
-		const workspacePort = createInMemoryOrgWorkspacePort(new Map<WorkspaceKey, unknown>([['training', trainingData]]));
+		const workspaceData = { message: 'no hydratable fields' };
+		const workspacePort = createInMemoryOrgWorkspacePort(new Map<WorkspaceKey, unknown>([['calendar', workspaceData]]));
 
-		const result = await coordinator.loadWorkspace<TrainingBootstrap, 'training'>('training', {
+		const result = await coordinator.loadWorkspace<typeof workspaceData, 'calendar'>('calendar', {
 			workspace: workspacePort,
 			planner: {
 				createPlan: () => undefined
@@ -852,10 +757,10 @@ describe('OrgShellCoordinator', () => {
 		});
 
 		expect(result).toEqual({
-			training: {
-				workspace: 'training',
-				data: trainingData
-			} satisfies WorkspaceBootstrap<TrainingBootstrap>
+			calendar: {
+				workspace: 'calendar',
+				data: workspaceData
+			} satisfies WorkspaceBootstrap<typeof workspaceData>
 		});
 	});
 

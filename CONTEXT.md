@@ -140,6 +140,10 @@ _Avoid_: Shared permission bucket
 The durable permission owner for a feature, independent of temporary route, page, or screen placement.
 _Avoid_: Current page nesting
 
+**Feature Lane Workspace Bootstrap**:
+The lane-owned module that prepares one **Feature Lane**'s route workspace for first use, including its server load shape, required **Policy Action**, streaming or blocking behavior, hydration target construction, and client store hydration adapter. The **App Shell** and route should coordinate or render it without knowing lane-specific store fields, query details, or hydration internals.
+_Avoid_: Org Shell workspace registry, route-owned workspace loader, central hydration map
+
 **Group Scope**:
 The current single-group restriction stored through `scoped_group_id`.
 _Avoid_: Team leader role, future scope set
@@ -459,6 +463,13 @@ _Avoid_: Compliance status, readiness, training status, ICT status when the shar
 - The **Policy Evaluator** should be pure and provider-agnostic; provider-specific data loading belongs in a **Policy Adapter**.
 - The **Policy Evaluator** should receive already-loaded facts such as actor role, **Capability Map**, **Scope Set**, resource context, and **Policy Overlays**.
 - The durable first-class **Feature Lanes** are **Calendar**, **Personnel**, **Training**, **Critical Tasks**, **Onboarding**, and **Rating Scheme**.
+- Each route should import its owning **Feature Lane Workspace Bootstrap** directly rather than going through a central **App Shell** workspace registry.
+- A **Feature Lane Workspace Bootstrap** owns hydration targets for both lane-specific stores and shared stores, such as **Roster Read Model** and **Groups**, when those stores are part of that lane's workspace load shape.
+- A **Feature Lane Workspace Bootstrap** should return an explicit, typed, lane-owned hydration object rather than relying on generic property-name detection over route data.
+- All **Feature Lane Workspace Bootstrap** modules should stream their workspace payloads; blocking workspace loads are drift unless a later explicit decision creates an exception.
+- Streamed route data for **Feature Lane Workspace Bootstrap** modules should use a consistent `{ laneKey: { data: Promise<FeatureLaneWorkspaceResult> } }` shape so route layouts differ only by their lane key and lane-owned hydration adapter.
+- Shared streamed workspace hydration code may own promise, cancellation, and error rendering mechanics, but lane-owned hydration adapters own store semantics and should be the only modules that know lane-specific store fields.
+- The **App Shell** may coordinate SvelteKit load ceremony for **Feature Lane Workspace Bootstrap** modules, but it should not own lane-specific query fields, store fields, or hydration maps.
 - **Counseling Records**, **Documents**, **Follow-Ups**, **Leader Notes**, and the **Soldier Data Sheet** are owned by the **Personnel** lane.
 - **Lane Ownership** does not change just because a feature is temporarily rendered inside another page or route shell.
 - **Organization Governance Actions** stay with `admin` and `owner`, while ownership transfer and destructive organization-danger actions stay `owner`-only.

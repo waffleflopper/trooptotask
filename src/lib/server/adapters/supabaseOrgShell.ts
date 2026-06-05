@@ -45,22 +45,14 @@ import { fetchDashboardBootstrap, type DashboardBootstrap } from '../core/useCas
 import { fetchPersonnelBootstrap, fetchRatingSchemeBootstrap } from '../core/useCases/personnelWorkspaceQuery';
 import { fetchCriticalTasksBootstrap } from '../core/useCases/criticalTasksWorkspaceQuery';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination';
-import { GroupEntity } from '$lib/server/entities/group';
-import { TrainingTypeEntity } from '$lib/server/entities/trainingType';
-import { TrainingViewEntity } from '$lib/server/entities/trainingView';
-import { PersonnelTrainingEntity } from '$lib/server/entities/personnelTraining';
-import { PinnedGroupsEntity } from '$lib/server/entities/pinnedGroups';
-import type { Group } from '$lib/stores/groups.svelte';
-import type { PersonnelTraining, TrainingType, TrainingView } from '$features/training/training.types';
 import { createSupabaseSubscriptionAdapter } from './supabaseSubscription';
-import type { CriticalTasksBootstrap, TrainingBootstrap } from '../core/orgShell';
+import type { CriticalTasksBootstrap } from '../core/orgShell';
 import { createInitialCalendarBufferedRange } from '$features/calendar/utils/calendarRange';
 import { CALENDAR_ANCHOR_COOKIE, resolveCalendarAnchorDate } from '$features/calendar/utils/calendarAnchorDate';
 import {
 	getPreferredOrganizationUrlSegment,
 	resolveOrganizationRouteIdentity
 } from '$lib/server/core/useCases/organizationUrlSlug';
-import { loadRosterPersonnel } from '../core/useCases/rosterReadModel';
 
 export interface SupabaseAppShellRequestDeps {
 	getLayoutClient?: typeof getLayoutClient;
@@ -462,122 +454,6 @@ export function createSupabaseCalendarWorkspacePort(
 			}
 
 			return getCalendarData(true) as Promise<DeferredData<T>>;
-		}
-	};
-}
-
-export function createSupabaseTrainingWorkspacePort(
-	locals: App.Locals,
-	cookies: Cookies,
-	orgId: string
-): StreamableOrgWorkspacePort {
-	function getTrainingData(): Promise<TrainingBootstrap>;
-	function getTrainingData(defer: true): Promise<DeferredData<TrainingBootstrap>>;
-	function getTrainingData(defer: boolean = false): Promise<TrainingBootstrap | DeferredData<TrainingBootstrap>> {
-		const fn = async (ctx: UseCaseContext) => {
-			const canonicalOrgId = ctx.auth.orgId;
-			const loadTrainingItems = <T>(
-				label: string,
-				load: Promise<Record<string, unknown>[]>,
-				mapRows: (rows: Record<string, unknown>[]) => T
-			): Promise<T> =>
-				load.then(mapRows).catch((error) => {
-					console.error(`[training-workspace] Failed to load ${label}`, {
-						orgId,
-						error
-					});
-					throw error;
-				});
-
-			const personnel = loadRosterPersonnel(ctx, { status: 'active' }).catch((error) => {
-				console.error('[training-workspace] Failed to load personnel', {
-					orgId,
-					error
-				});
-				throw error;
-			});
-			const groups = loadTrainingItems(
-				'groups',
-				ctx.store.findMany<Record<string, unknown>>('groups', canonicalOrgId, undefined, {
-					orderBy: [{ column: 'sort_order', ascending: true }]
-				}),
-				(rows) => GroupEntity.fromDbArray(rows) as Group[]
-			);
-			const trainingTypes = loadTrainingItems(
-				'training types',
-				ctx.store.findMany<Record<string, unknown>>('training_types', canonicalOrgId, undefined, {
-					orderBy: [{ column: 'sort_order', ascending: true }]
-				}),
-				(rows) => TrainingTypeEntity.fromDbArray(rows) as TrainingType[]
-			);
-			const trainingViews = loadTrainingItems(
-				'training views',
-				ctx.store.findMany<Record<string, unknown>>('training_views', canonicalOrgId, undefined, {
-					orderBy: [{ column: 'name', ascending: true }]
-				}),
-				(rows) => TrainingViewEntity.fromDbArray(rows) as TrainingView[]
-			);
-			const pinnedGroups = loadTrainingItems(
-				'pinned groups',
-				ctx.store.findMany<Record<string, unknown>>(
-					'user_pinned_groups',
-					canonicalOrgId,
-					{ user_id: ctx.auth.userId },
-					{
-						orderBy: [{ column: 'sort_order', ascending: true }]
-					}
-				),
-				(rows) => PinnedGroupsEntity.fromDbArray(rows)
-			);
-
-			const personnelTrainings = loadTrainingItems(
-				'personnel trainings',
-				ctx.store.findMany<Record<string, unknown>>('personnel_trainings', canonicalOrgId),
-				(rows) => PersonnelTrainingEntity.fromDbArray(rows) as PersonnelTraining[]
-			);
-
-			return {
-				personnel,
-				groups,
-				pinnedGroups,
-				trainingTypes,
-				trainingViews,
-				personnelTrainings
-			};
-		};
-
-		if (defer) {
-			return loadWithContext(locals, cookies, orgId, {
-				policyAction: POLICY_ACTION_CATALOG.training.viewMatrix,
-				policyResource: { kind: 'unscoped' },
-				defer: true,
-				fn
-			});
-		}
-
-		return loadWithContext(locals, cookies, orgId, {
-			policyAction: POLICY_ACTION_CATALOG.training.viewMatrix,
-			policyResource: { kind: 'unscoped' },
-			fn
-		});
-	}
-
-	return {
-		async getWorkspaceData<T>(workspace: WorkspaceKey): Promise<T> {
-			if (workspace !== 'training') {
-				throw new Error(`createSupabaseTrainingWorkspacePort: unsupported workspace '${workspace}'`);
-			}
-
-			const data = await getTrainingData();
-
-			return data as T;
-		},
-		async streamWorkspaceData<T>(workspace: WorkspaceKey) {
-			if (workspace !== 'training') {
-				throw new Error(`createSupabaseTrainingWorkspacePort: unsupported workspace '${workspace}'`);
-			}
-
-			return getTrainingData(true) as Promise<DeferredData<T>>;
 		}
 	};
 }

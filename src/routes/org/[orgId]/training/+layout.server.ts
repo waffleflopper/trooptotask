@@ -1,55 +1,25 @@
-import type { Cookies } from '@sveltejs/kit';
 import type { LayoutServerLoad } from './$types';
-import { createSupabaseTrainingWorkspacePort } from '$lib/server/adapters/supabaseOrgShell';
-import { createDefaultHydrationPlanner } from '$lib/server/core/hydrationPlanner';
-import type { HydrationPlannerPort, StreamableOrgWorkspacePort } from '$lib/server/core/orgShell';
-import { createOrgShellCoordinator, type OrgShellCoordinator } from '$lib/server/core/orgShellCoordinator';
-import type { TrainingBootstrap } from '$lib/server/core/orgShell';
-import { requireReadyAppShell } from '$lib/server/core/appShellRouteData';
-
-interface TrainingLayoutRequestContext {
-	locals: App.Locals;
-	cookies: Cookies;
-	orgId: string;
-}
+import {
+	streamReadyFeatureLaneWorkspace,
+	type FeatureLaneWorkspaceRequestContext
+} from '$lib/server/core/featureLaneWorkspaceLoad';
+import {
+	streamTrainingWorkspaceBootstrap,
+	type TrainingWorkspaceRouteData
+} from '$features/training/server/trainingWorkspaceBootstrap';
 
 export interface TrainingLayoutLoadDeps {
-	coordinator?: OrgShellCoordinator;
-	createWorkspacePort?: (context: TrainingLayoutRequestContext) => StreamableOrgWorkspacePort;
-	createPlannerPort?: (orgId: string) => HydrationPlannerPort;
+	streamTrainingWorkspace?: (context: FeatureLaneWorkspaceRequestContext) => Promise<TrainingWorkspaceRouteData>;
 }
 
 export function _createTrainingLayoutLoad(deps: TrainingLayoutLoadDeps = {}): LayoutServerLoad {
-	const coordinator = deps.coordinator ?? createOrgShellCoordinator();
-	const createWorkspacePort =
-		deps.createWorkspacePort ??
-		(({ locals, cookies, orgId }: TrainingLayoutRequestContext) =>
-			createSupabaseTrainingWorkspacePort(locals, cookies, orgId));
-	const createPlannerPort = deps.createPlannerPort ?? createDefaultHydrationPlanner;
+	const streamTrainingWorkspace = deps.streamTrainingWorkspace ?? streamTrainingWorkspaceBootstrap;
 
-	return async ({
-		locals,
-		cookies,
-		depends,
-		parent
-	}: {
-		locals: App.Locals;
-		cookies: Cookies;
-		depends: (...deps: string[]) => void;
-		parent: () => Promise<Parameters<typeof requireReadyAppShell>[0]>;
-	}) => {
-		depends('app:org-core', 'app:training-data');
-
-		const shell = requireReadyAppShell(await parent());
-		const orgId = shell.org.id;
-		const workspacePort = createWorkspacePort({ locals, cookies, orgId });
-		const plannerPort = createPlannerPort(orgId);
-
-		return coordinator.streamWorkspace<TrainingBootstrap, 'training'>('training', {
-			workspace: workspacePort,
-			planner: plannerPort
+	return async (event) =>
+		streamReadyFeatureLaneWorkspace(event, {
+			dependencies: ['app:org-core', 'app:training-data'],
+			streamWorkspace: streamTrainingWorkspace
 		});
-	};
 }
 
 export const load: LayoutServerLoad = _createTrainingLayoutLoad();

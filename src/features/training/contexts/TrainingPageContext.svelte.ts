@@ -1,15 +1,11 @@
 import { SvelteMap, SvelteSet } from 'svelte/reactivity';
-import { invalidate, goto } from '$app/navigation';
 import { resolve } from '$app/paths';
 import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
 import { trainingViewsStore } from '$features/training/stores/trainingViews.svelte';
 import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
 import { rosterStore } from '$lib/stores/roster.svelte';
 import { subscriptionStore } from '$lib/stores/subscription.svelte';
-import { toastStore } from '$lib/stores/toast.svelte';
 import { getTrainingStats } from '$features/training/utils/trainingStatus';
-import { submitDeletionRequest } from '$lib/utils/deletionRequests';
-import { queueUserPreferencesPatch } from '$lib/preferences/userPreferences.client';
 import { groupsStore } from '$lib/stores/groups.svelte';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { createRosterReadModel, type PersonnelGroup, type RosterReadModelView } from '$lib/domain/rosterReadModel';
@@ -27,6 +23,35 @@ import type { TrainingType, PersonnelTraining } from '$features/training/trainin
 import type { OverflowItem } from '$lib/components/ui/OverflowMenu.types';
 
 const TRAINING_POLICY_RESOURCE = { kind: 'unscoped' } as const;
+type NavigationModule = typeof import('$app/navigation');
+type DeletionRequestsModule = typeof import('$lib/utils/deletionRequests');
+type ToastStoreModule = typeof import('$lib/stores/toast.svelte');
+type UserPreferencesClientModule = typeof import('$lib/preferences/userPreferences.client');
+
+let navigationModule: Promise<NavigationModule> | undefined;
+let deletionRequestsModule: Promise<DeletionRequestsModule> | undefined;
+let toastStoreModule: Promise<ToastStoreModule> | undefined;
+let userPreferencesClientModule: Promise<UserPreferencesClientModule> | undefined;
+
+function loadNavigation() {
+	navigationModule ??= import('$app/navigation');
+	return navigationModule;
+}
+
+function loadDeletionRequests() {
+	deletionRequestsModule ??= import('$lib/utils/deletionRequests');
+	return deletionRequestsModule;
+}
+
+function loadToastStore() {
+	toastStoreModule ??= import('$lib/stores/toast.svelte');
+	return toastStoreModule;
+}
+
+function loadUserPreferencesClient() {
+	userPreferencesClientModule ??= import('$lib/preferences/userPreferences.client');
+	return userPreferencesClientModule;
+}
 
 // ---------------------------------------------------------------------------
 // Page data shape (from +page.server.ts + layout)
@@ -180,7 +205,12 @@ export class TrainingPageContext {
 	get trainingOverflowItems(): OverflowItem[] {
 		const items: OverflowItem[] = [];
 		items.push({ label: 'Sign-In Rosters', onclick: () => this.#modals.open('sign-in-rosters') });
-		items.push({ label: 'Reports', onclick: () => goto(resolve(`/org/${this.orgUrlSegment}/training/reports`)) });
+		items.push({
+			label: 'Reports',
+			onclick: () => {
+				void loadNavigation().then(({ goto }) => goto(resolve(`/org/${this.orgUrlSegment}/training/reports`)));
+			}
+		});
 		if (this.canManageConfig) {
 			items.push({
 				label: 'Bulk Import',
@@ -190,7 +220,9 @@ export class TrainingPageContext {
 			});
 			items.push({
 				label: 'Manage Types',
-				onclick: () => goto(resolve(`/org/${this.orgUrlSegment}/training/types`))
+				onclick: () => {
+					void loadNavigation().then(({ goto }) => goto(resolve(`/org/${this.orgUrlSegment}/training/types`)));
+				}
 			});
 		}
 		return items;
@@ -257,6 +289,7 @@ export class TrainingPageContext {
 			const person = this.personnel.find((p) => p.id === training.personnelId);
 			const type = trainingTypesStore.items.find((t) => t.id === training.trainingTypeId);
 			const desc = `${type?.name ?? 'Training'} record for ${person ? `${person.rank} ${person.lastName}` : 'unknown'}`;
+			const { submitDeletionRequest } = await loadDeletionRequests();
 			await submitDeletionRequest(this.orgId, 'personnel_training', id, desc, `/org/${this.orgId}/training`);
 		}
 	}
@@ -273,6 +306,7 @@ export class TrainingPageContext {
 		const type = trainingTypesStore.items.find((t) => t.id === id);
 		const result = await trainingTypesStore.remove(id);
 		if (result === 'approval_required' && type) {
+			const { submitDeletionRequest } = await loadDeletionRequests();
 			await submitDeletionRequest(
 				this.orgId,
 				'training_type',
@@ -294,6 +328,7 @@ export class TrainingPageContext {
 	}
 
 	async handleBulkImportComplete(): Promise<void> {
+		const { invalidate } = await loadNavigation();
 		await invalidate('app:training-data');
 		this.#modals.close('bulk-import');
 	}
@@ -375,8 +410,10 @@ export class TrainingPageContext {
 
 	private async persistPreferences(preferences: UserOrgPreferencesPatch): Promise<void> {
 		try {
+			const { queueUserPreferencesPatch } = await loadUserPreferencesClient();
 			await queueUserPreferencesPatch(this.orgId, preferences);
 		} catch (error) {
+			const { toastStore } = await loadToastStore();
 			toastStore.error(error instanceof Error ? error.message : 'Failed to save your training preferences');
 		}
 	}

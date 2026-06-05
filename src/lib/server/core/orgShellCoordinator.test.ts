@@ -12,7 +12,6 @@ import type {
 } from '$features/onboarding/onboarding.types';
 import type { RatingSchemeEntry } from '$features/rating-scheme/rating-scheme.types';
 import type { PersonnelTraining, TrainingType, TrainingView } from '$features/training/training.types';
-import type { IctTask, PersonnelIctCompletion } from '$features/critical-tasks/criticalTasks.types';
 import type { AssignmentType, AvailabilityEntry, DailyAssignment, Personnel, SpecialDay, StatusType } from '$lib/types';
 import type { WorkspaceBootstrap, WorkspaceKey } from './orgShell';
 import { createOrgShellCoordinator } from './orgShellCoordinator';
@@ -20,7 +19,6 @@ import type { CalendarBootstrap } from './useCases/calendarQuery';
 import type { DashboardBootstrap } from './useCases/dashboardQuery';
 import type { OnboardingBootstrap } from './useCases/onboardingQuery';
 import type { PersonnelBootstrap } from './useCases/personnelWorkspaceQuery';
-import type { CriticalTasksBootstrap } from './orgShell';
 
 function createInspectableLoadable<T>() {
 	return {
@@ -71,13 +69,11 @@ function createNoopOnboardingTemplatesStore() {
 
 function createHydrationStores() {
 	const personnelTrainings = defineStore<PersonnelTraining>({ table: 'personnel_trainings' });
-	const personnelIctCompletions = defineStore<PersonnelIctCompletion>({ table: 'personnel_ict_completions' });
 	const calendarAssignments = createNoopCalendarAssignmentsStore();
 	const availabilityEntriesStore = createInspectableLoadable<AvailabilityEntry>();
 	const specialDaysStore = createInspectableLoadable<SpecialDay>();
 	const personnel = defineStore<Personnel>({ table: 'personnel' });
 	const groups = defineStore<Group>({ table: 'groups' });
-	const ictTasks = createInspectableLoadable<IctTask>();
 	const pinnedGroups = createInspectableLoadable<string>();
 	const onboardingTemplates = createNoopOnboardingTemplatesStore();
 	const onboardings = defineStore<PersonnelOnboarding>({ table: 'personnel_onboardings' });
@@ -93,8 +89,6 @@ function createHydrationStores() {
 			trainingTypesStore: createInspectableLoadable<TrainingType>() as HydrationStores['trainingTypesStore'],
 			trainingViewsStore: createInspectableLoadable<TrainingView>() as HydrationStores['trainingViewsStore'],
 			personnelTrainingsStore: personnelTrainings as unknown as HydrationStores['personnelTrainingsStore'],
-			ictTasksStore: ictTasks,
-			personnelIctCompletionsStore: personnelIctCompletions,
 			pinnedGroupsStore: pinnedGroups as HydrationStores['pinnedGroupsStore'],
 			ratingSchemeStore: createInspectableLoadable<never>() as HydrationStores['ratingSchemeStore'],
 			onboardingTemplateStore: onboardingTemplates as HydrationStores['onboardingTemplateStore'],
@@ -102,12 +96,10 @@ function createHydrationStores() {
 		} satisfies HydrationStores,
 		personnel,
 		groups,
-		ictTasks,
 		pinnedGroups,
 		onboardingTemplates,
 		onboardings,
 		personnelTrainings,
-		personnelIctCompletions,
 		availabilityEntriesStore,
 		specialDaysStore,
 		calendarAssignments
@@ -356,90 +348,6 @@ describe('OrgShellCoordinator', () => {
 				planner
 			})
 		).rejects.toThrow('Missing calendar access');
-	});
-
-	it('returns the canonical Critical Tasks workspace payload with deferred completions hydration', async () => {
-		const coordinator = createTestCoordinator();
-		const personnelIctCompletions = Promise.resolve([
-			{
-				id: 'ictc1',
-				personnelId: 'p1',
-				ictTaskId: 'task1',
-				completedAt: '2026-04-01',
-				validationMethod: 'Lecture',
-				validatedBy: null,
-				notes: null,
-				loggedBy: 'user-1',
-				createdAt: '2026-04-01T12:00:00Z'
-			} satisfies PersonnelIctCompletion
-		]);
-		const criticalTasksData: CriticalTasksBootstrap = {
-			settings: {
-				defaultExpirationMonths: 18,
-				expiringSoonWarningDays: 45
-			},
-			personnelIctCompletions,
-			ictTasks: [
-				{
-					id: 'task1',
-					taskCode: '181-105-1001',
-					title: 'Perform tactical combat casualty care',
-					description: null,
-					mos: ['68W'],
-					expirationMonths: 12,
-					sortOrder: 0,
-					archivedAt: null,
-					createdAt: '2026-04-01T12:00:00Z'
-				} satisfies IctTask
-			],
-			personnel: [{ id: 'p1', firstName: 'John', lastName: 'Smith' } as Personnel],
-			groups: [{ id: 'g1', name: 'Alpha', sortOrder: 0 } as Group]
-		};
-		const workspacePort = createInMemoryOrgWorkspacePort(
-			new Map<WorkspaceKey, unknown>([['critical-tasks', criticalTasksData]])
-		);
-		const planner = createDefaultHydrationPlanner('org-1');
-
-		const result = await coordinator.loadWorkspace<CriticalTasksBootstrap, 'critical-tasks'>('critical-tasks', {
-			workspace: workspacePort,
-			planner
-		});
-
-		expect(result).toMatchObject({
-			'critical-tasks': {
-				workspace: 'critical-tasks',
-				data: criticalTasksData,
-				hydration: {
-					orgId: 'org-1',
-					groups: expect.objectContaining({
-						mode: 'replace',
-						items: criticalTasksData.groups,
-						deferred: false,
-						snapshotKey: expect.any(String)
-					}),
-					personnel: {
-						scoped: expect.objectContaining({
-							mode: 'replace',
-							items: criticalTasksData.personnel,
-							deferred: false,
-							snapshotKey: expect.any(String)
-						})
-					},
-					ictTasks: expect.objectContaining({
-						mode: 'replace',
-						items: criticalTasksData.ictTasks,
-						deferred: false,
-						snapshotKey: expect.any(String)
-					}),
-					personnelIctCompletions: expect.objectContaining({
-						mode: 'replace',
-						items: personnelIctCompletions,
-						deferred: true,
-						snapshotKey: expect.any(String)
-					})
-				}
-			} satisfies WorkspaceBootstrap<CriticalTasksBootstrap>
-		});
 	});
 
 	it('returns the canonical onboarding workspace payload with onboarding hydration through the coordinator boundary', async () => {
@@ -800,64 +708,6 @@ describe('OrgShellCoordinator', () => {
 
 		expect(personnelTrainings.items).toEqual([hydratedTraining]);
 		expect(personnelTrainings.loading).toBe(false);
-	});
-
-	it('marks deferred personnelIctCompletions as loading before coordinator hydration resolves', async () => {
-		const coordinator = createTestCoordinator();
-		const { stores, personnelIctCompletions, ictTasks, personnelTrainings } = createHydrationStores();
-		let resolveCompletions!: (items: PersonnelIctCompletion[]) => void;
-		const deferredCompletions = new Promise<PersonnelIctCompletion[]>((resolve) => {
-			resolveCompletions = resolve;
-		});
-		const hydratedTask = {
-			id: 'task1',
-			taskCode: '181-105-1001',
-			title: 'Perform tactical combat casualty care',
-			description: null,
-			mos: ['68W'],
-			expirationMonths: 12,
-			sortOrder: 0,
-			archivedAt: null,
-			createdAt: '2026-04-01T12:00:00Z'
-		} satisfies IctTask;
-		const hydratedCompletion = {
-			id: 'ictc1',
-			personnelId: 'p1',
-			ictTaskId: 'task1',
-			completedAt: '2026-04-01',
-			validationMethod: 'Lecture',
-			validatedBy: null,
-			notes: null,
-			loggedBy: 'user-1',
-			createdAt: '2026-04-01T12:00:00Z'
-		} satisfies PersonnelIctCompletion;
-
-		const hydrationPromise = coordinator.hydrate(
-			{
-				orgId: 'org-1',
-				ictTasks: {
-					mode: 'replace',
-					snapshotKey: 'ict-tasks:1',
-					items: [hydratedTask]
-				},
-				personnelIctCompletions: {
-					mode: 'replace',
-					snapshotKey: 'personnel-ict-completions:deferred:1',
-					items: deferredCompletions
-				}
-			},
-			stores
-		);
-
-		expect(personnelIctCompletions.loading).toBe(true);
-
-		resolveCompletions([hydratedCompletion]);
-		await hydrationPromise;
-
-		expect(ictTasks.items).toEqual([hydratedTask]);
-		expect(personnelIctCompletions.items).toEqual([hydratedCompletion]);
-		expect(personnelIctCompletions.loading).toBe(false);
-		expect(personnelTrainings.items).toEqual([]);
 	});
 
 	it('marks deferred calendarAssignments as loading before coordinator hydration resolves', async () => {

@@ -6,14 +6,11 @@
 	import * as ButtonGroup from '$lib/components/ui/button-group';
 	import { Toggle } from '$lib/components/ui/toggle';
 	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
-	import { downloadBlob, filenameFromContentDisposition } from '$lib/export/workbook';
 	import { createRosterReadModel } from '$lib/domain/rosterReadModel';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
 	import { rosterStore } from '$lib/stores/roster.svelte';
 	import { groupsStore } from '$lib/stores/groups.svelte';
 	import IctMatrix from '$features/critical-tasks/components/IctMatrix.svelte';
-	import IctCompletionModal from '$features/critical-tasks/components/IctCompletionModal.svelte';
-	import IctCompletionBulkImport from '$features/critical-tasks/components/IctCompletionBulkImport.svelte';
 	import { ictTasksStore } from '$features/critical-tasks/stores/ictTasks.svelte';
 	import { personnelIctCompletionsStore } from '$features/critical-tasks/stores/personnelIctCompletions.svelte';
 	import {
@@ -187,6 +184,7 @@
 				throw new Error('Failed to export critical task matrix');
 			}
 			const blob = await response.blob();
+			const { downloadBlob, filenameFromContentDisposition } = await import('$lib/export/workbook');
 			downloadBlob(
 				blob,
 				filenameFromContentDisposition(response.headers.get('Content-Disposition'), 'critical-task-matrix.xlsx')
@@ -392,33 +390,39 @@
 </div>
 
 {#if activeCompletionCell}
-	<IctCompletionModal
-		person={activeCompletionCell.person}
-		task={activeCompletionCell.task}
-		existingCompletion={activeCompletionCell.completion}
-		settings={criticalTasksSettings}
-		{currentUserDisplayName}
-		onSave={handleCompletionSave}
-		onClose={() => (activeCompletionCell = null)}
-	/>
+	{#await import('$features/critical-tasks/components/IctCompletionModal.svelte') then { default: IctCompletionModal }}
+		<IctCompletionModal
+			person={activeCompletionCell.person}
+			task={activeCompletionCell.task}
+			existingCompletion={activeCompletionCell.completion}
+			settings={criticalTasksSettings}
+			{currentUserDisplayName}
+			onSave={handleCompletionSave}
+			onClose={() => (activeCompletionCell = null)}
+		/>
+	{/await}
 {:else if showTaskInputModal}
-	<IctCompletionModal
-		personnelOptions={activePersonnel}
-		taskOptions={activeTasks}
-		completions={personnelIctCompletionsStore.items}
-		settings={criticalTasksSettings}
-		{currentUserDisplayName}
-		onSave={handleCompletionSave}
-		onClose={() => (showTaskInputModal = false)}
-	/>
+	{#await import('$features/critical-tasks/components/IctCompletionModal.svelte') then { default: IctCompletionModal }}
+		<IctCompletionModal
+			personnelOptions={activePersonnel}
+			taskOptions={activeTasks}
+			completions={personnelIctCompletionsStore.items}
+			settings={criticalTasksSettings}
+			{currentUserDisplayName}
+			onSave={handleCompletionSave}
+			onClose={() => (showTaskInputModal = false)}
+		/>
+	{/await}
 {/if}
 
 {#if showCompletionImportModal}
-	<IctCompletionBulkImport
-		personnel={activePersonnel}
-		tasks={ictTasksStore.items}
-		completions={personnelIctCompletionsStore.items}
-		onCancel={() => (showCompletionImportModal = false)}
-		onDone={() => (showCompletionImportModal = false)}
-	/>
+	{#await import('$features/critical-tasks/components/IctCompletionBulkImport.svelte') then { default: IctCompletionBulkImport }}
+		<IctCompletionBulkImport
+			personnel={activePersonnel}
+			tasks={ictTasksStore.items}
+			completions={personnelIctCompletionsStore.items}
+			onCancel={() => (showCompletionImportModal = false)}
+			onDone={() => (showCompletionImportModal = false)}
+		/>
+	{/await}
 {/if}

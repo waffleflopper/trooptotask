@@ -18,13 +18,7 @@ import type {
 } from '$features/onboarding/onboarding.types';
 import type { RatingSchemeEntry } from '$features/rating-scheme/rating-scheme.types';
 import type { PersonnelTraining } from '$features/training/training.types';
-import type {
-	CriticalTasksSettings,
-	IctTask,
-	PersonnelIctCompletion
-} from '$features/critical-tasks/criticalTasks.types';
-import type { AssignmentType, AvailabilityEntry, DailyAssignment, Personnel, SpecialDay } from '$lib/types';
-import type { Group } from '$lib/stores/groups.svelte';
+import type { AssignmentType, AvailabilityEntry, DailyAssignment, SpecialDay } from '$lib/types';
 
 // ---------------------------------------------------------------------------
 // Announcement — defined here as a domain type (not tied to the DB query)
@@ -172,7 +166,7 @@ export function createReadyAppShell(config: {
 // Workspace types
 // ---------------------------------------------------------------------------
 
-export type WorkspaceKey = 'dashboard' | 'calendar' | 'personnel' | 'rating-scheme' | 'critical-tasks' | 'onboarding';
+export type WorkspaceKey = 'dashboard' | 'calendar' | 'personnel' | 'rating-scheme' | 'onboarding';
 
 /**
  * Serializable description of how each client store should be hydrated.
@@ -184,14 +178,6 @@ export type WorkspaceKey = 'dashboard' | 'calendar' | 'personnel' | 'rating-sche
  */
 export type HydrationMode = 'replace' | 'merge' | 'preserve-client';
 export type HydrationItems<T = unknown> = T[] | Promise<T[]>;
-
-export interface CriticalTasksBootstrap {
-	settings: CriticalTasksSettings;
-	personnelIctCompletions: HydrationItems<PersonnelIctCompletion>;
-	ictTasks: HydrationItems<IctTask>;
-	personnel: HydrationItems<Personnel>;
-	groups: HydrationItems<Group>;
-}
 
 export interface CalendarAssignmentsHydrationItems {
 	types: AssignmentType[];
@@ -241,8 +227,6 @@ export interface HydrationPlan {
 	trainingTypes?: HydrationTarget;
 	trainingViews?: HydrationTarget;
 	personnelTrainings?: HydrationTarget<PersonnelTraining>;
-	ictTasks?: HydrationTarget<IctTask>;
-	personnelIctCompletions?: HydrationTarget<PersonnelIctCompletion>;
 	pinnedGroups?: HydrationTarget<string>;
 	ratingSchemeEntries?: HydrationTarget<RatingSchemeEntry>;
 	onboardingTemplates?: OnboardingTemplatesHydrationTarget;

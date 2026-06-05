@@ -1,5 +1,5 @@
 import type { QueryPorts } from '$lib/server/core/ports';
-import type { CriticalTasksBootstrap } from '$lib/server/core/orgShell';
+import type { CriticalTasksWorkspaceData } from '$features/critical-tasks/server/criticalTasksWorkspaceBootstrap';
 import type {
 	CriticalTasksSettings,
 	IctTask,
@@ -50,7 +50,7 @@ function loadCriticalTasksItems<T>(
 	});
 }
 
-export async function fetchCriticalTasksBootstrap(ctx: QueryPorts): Promise<CriticalTasksBootstrap> {
+export async function fetchCriticalTasksBootstrap(ctx: QueryPorts): Promise<CriticalTasksWorkspaceData> {
 	const orgId = ctx.auth.orgId;
 	const settings = await fetchCriticalTasksSettings(ctx);
 	const personnel = loadRosterPersonnel(ctx, { status: 'active' }).catch((error) => {

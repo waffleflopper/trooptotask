@@ -5,7 +5,6 @@
 	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
 	import type { WorkspaceToolbarAction } from '$lib/components/ui/workspace-toolbar';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
-	import IctCompletionModal from '$features/critical-tasks/components/IctCompletionModal.svelte';
 	import { ictTasksStore } from '$features/critical-tasks/stores/ictTasks.svelte';
 	import { personnelIctCompletionsStore } from '$features/critical-tasks/stores/personnelIctCompletions.svelte';
 	import {
@@ -779,23 +778,27 @@
 </main>
 
 {#if activeEditorRow}
-	<IctCompletionModal
-		person={history.personnel}
-		task={activeEditorRow.task}
-		existingCompletion={activeEditorRow.completion}
-		{settings}
-		{currentUserDisplayName}
-		onSave={handleCompletionSave}
-		onClose={() => (activeEditorRow = null)}
-	/>
+	{#await import('$features/critical-tasks/components/IctCompletionModal.svelte') then { default: IctCompletionModal }}
+		<IctCompletionModal
+			person={history.personnel}
+			task={activeEditorRow.task}
+			existingCompletion={activeEditorRow.completion}
+			{settings}
+			{currentUserDisplayName}
+			onSave={handleCompletionSave}
+			onClose={() => (activeEditorRow = null)}
+		/>
+	{/await}
 {:else if showTaskInputModal}
-	<IctCompletionModal
-		person={history.personnel}
-		taskOptions={applicableTaskOptions}
-		completions={personnelIctCompletionsStore.items}
-		{settings}
-		{currentUserDisplayName}
-		onSave={handleCompletionSave}
-		onClose={() => (showTaskInputModal = false)}
-	/>
+	{#await import('$features/critical-tasks/components/IctCompletionModal.svelte') then { default: IctCompletionModal }}
+		<IctCompletionModal
+			person={history.personnel}
+			taskOptions={applicableTaskOptions}
+			completions={personnelIctCompletionsStore.items}
+			{settings}
+			{currentUserDisplayName}
+			onSave={handleCompletionSave}
+			onClose={() => (showTaskInputModal = false)}
+		/>
+	{/await}
 {/if}

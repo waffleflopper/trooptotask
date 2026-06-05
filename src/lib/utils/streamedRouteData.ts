@@ -1,5 +1,3 @@
-import type { WorkspaceBootstrap } from '$lib/server/core/orgShell';
-
 export function isPromiseLike<T>(value: T | Promise<T> | null | undefined): value is Promise<T> {
 	return !!value && typeof (value as Promise<T>).then === 'function';
 }
@@ -8,7 +6,7 @@ export function materializeWorkspaceData<
 	TData extends Record<string, unknown>,
 	TWorkspaceKey extends keyof TData & string,
 	TWorkspaceData
->(data: TData, workspaceKey: TWorkspaceKey, bootstrap: WorkspaceBootstrap<TWorkspaceData> | null | undefined): TData {
+>(data: TData, workspaceKey: TWorkspaceKey, bootstrap: { data: TWorkspaceData } | null | undefined): TData {
 	if (!bootstrap) {
 		return data;
 	}

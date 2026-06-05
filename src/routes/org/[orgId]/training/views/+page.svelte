@@ -4,13 +4,12 @@
 	import TrainingViewsPage from '$features/training/components/TrainingViewsPage.svelte';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
-	import type { WorkspaceBootstrap } from '$lib/server/core/orgShell';
-	import type { TrainingBootstrap } from '$lib/server/core/orgShell';
+	import type { TrainingWorkspaceResult } from '$features/training/server/trainingWorkspaceBootstrap';
 	import { isPromiseLike, observeDeferred, throwRenderError } from '$lib/utils/streamedRouteData';
 
 	let { data } = $props();
 	const org = getOrgContext();
-	let trainingBootstrap = $state<WorkspaceBootstrap<TrainingBootstrap> | null>(null);
+	let trainingBootstrap = $state<TrainingWorkspaceResult | null>(null);
 	let loadError = $state<Error | null>(null);
 
 	$effect(() => {
@@ -25,7 +24,7 @@
 		}
 
 		if (!isPromiseLike(streamedTraining)) {
-			trainingBootstrap = streamedTraining as WorkspaceBootstrap<TrainingBootstrap>;
+			trainingBootstrap = streamedTraining as TrainingWorkspaceResult;
 			return;
 		}
 

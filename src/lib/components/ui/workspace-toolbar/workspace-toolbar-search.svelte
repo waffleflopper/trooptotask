@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Search } from '@lucide/svelte';
+	import Search from '@lucide/svelte/icons/search';
 	import * as InputGroup from '$lib/components/ui/input-group';
 
 	type Props = {

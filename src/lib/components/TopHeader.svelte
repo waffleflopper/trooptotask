@@ -4,20 +4,18 @@
 	import { page } from '$app/stores';
 	import { onMount } from 'svelte';
 	import type { Snippet } from 'svelte';
-	import {
-		BadgeCheck,
-		Bell,
-		Building2,
-		Check,
-		ChevronsUpDownIcon,
-		LogOut,
-		Megaphone,
-		MessageSquareText,
-		Moon,
-		Settings,
-		Sun,
-		UserCircle
-	} from '@lucide/svelte';
+	import BadgeCheck from '@lucide/svelte/icons/badge-check';
+	import Bell from '@lucide/svelte/icons/bell';
+	import Building2 from '@lucide/svelte/icons/building-2';
+	import Check from '@lucide/svelte/icons/check';
+	import ChevronsUpDownIcon from '@lucide/svelte/icons/chevrons-up-down';
+	import LogOut from '@lucide/svelte/icons/log-out';
+	import Megaphone from '@lucide/svelte/icons/megaphone';
+	import MessageSquareText from '@lucide/svelte/icons/message-square-text';
+	import Moon from '@lucide/svelte/icons/moon';
+	import Settings from '@lucide/svelte/icons/settings';
+	import Sun from '@lucide/svelte/icons/sun';
+	import UserCircle from '@lucide/svelte/icons/user-circle';
 	import type { CapabilityMap } from '$lib/access/memberAccessShape';
 	import { formatDate, formatRelativeDate } from '$lib/utils/dates';
 	import { formatDashboardDisplayDate } from '$lib/utils/dashboardDate';

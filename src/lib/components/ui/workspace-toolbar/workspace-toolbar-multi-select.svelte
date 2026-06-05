@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { ListFilter } from '@lucide/svelte';
+	import ListFilter from '@lucide/svelte/icons/list-filter';
 	import { Button } from '$lib/components/ui/button';
 	import * as Checkbox from '$lib/components/ui/checkbox';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';

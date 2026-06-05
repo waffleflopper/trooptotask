@@ -18,6 +18,24 @@ const { gotoMock, invalidateMock, queueUserPreferencesPatchMock } = vi.hoisted((
 	queueUserPreferencesPatchMock: vi.fn()
 }));
 
+async function waitForAsyncSideEffect(assertion: () => void): Promise<void> {
+	const timeoutAt = Date.now() + 1000;
+	let lastError: unknown;
+
+	while (Date.now() < timeoutAt) {
+		try {
+			assertion();
+			return;
+		} catch (error) {
+			lastError = error;
+			await new Promise((resolve) => setTimeout(resolve, 10));
+		}
+	}
+
+	if (lastError instanceof Error) throw lastError;
+	throw new Error('Timed out waiting for async side effect');
+}
+
 vi.mock('$app/navigation', () => ({
 	goto: gotoMock,
 	invalidate: invalidateMock
@@ -235,7 +253,7 @@ describe('TrainingPageContext', () => {
 			expect(ctx.filteredPersonnel[0].id).toBe('p-1');
 		});
 
-		it('filters unassigned personnel through the roster group filter value', () => {
+		it('filters unassigned personnel through the roster group filter value', async () => {
 			rosterStore.load([mockPerson, mockPerson2, unassignedPerson], 'org-1');
 			const ctx = new TrainingPageContext(makeData(), modals, makeOrg());
 
@@ -244,8 +262,10 @@ describe('TrainingPageContext', () => {
 			ctx.setSelectedGroupId('name:Unassigned');
 
 			expect(ctx.filteredPersonnel.map((person) => person.id)).toEqual(['p-unassigned']);
-			expect(queueUserPreferencesPatchMock).toHaveBeenCalledWith('org-1', {
-				training: { selectedGroupId: 'name:Unassigned' }
+			await waitForAsyncSideEffect(() => {
+				expect(queueUserPreferencesPatchMock).toHaveBeenCalledWith('org-1', {
+					training: { selectedGroupId: 'name:Unassigned' }
+				});
 			});
 		});
 
@@ -387,7 +407,7 @@ describe('TrainingPageContext', () => {
 			expect(ctx.selectedViewId).toBeNull();
 		});
 
-		it('persists a reconciled selection patch only once even when multiple getters are read', () => {
+		it('persists a reconciled selection patch only once even when multiple getters are read', async () => {
 			groupsStore.load([], 'org-stale');
 			trainingViewsStore.load([], 'org-stale');
 
@@ -418,12 +438,14 @@ describe('TrainingPageContext', () => {
 			void ctx.basePersonnel;
 			void ctx.filteredPersonnel;
 
-			expect(queueUserPreferencesPatchMock).toHaveBeenCalledTimes(1);
-			expect(queueUserPreferencesPatchMock).toHaveBeenCalledWith('org-1', {
-				training: {
-					selectedGroupId: null,
-					selectedViewId: null
-				}
+			await waitForAsyncSideEffect(() => {
+				expect(queueUserPreferencesPatchMock).toHaveBeenCalledTimes(1);
+				expect(queueUserPreferencesPatchMock).toHaveBeenCalledWith('org-1', {
+					training: {
+						selectedGroupId: null,
+						selectedViewId: null
+					}
+				});
 			});
 		});
 	});

@@ -399,6 +399,15 @@ export function loadWithContextCore<T>(ctx: UseCaseContext, config: LoadConfig<T
 	);
 }
 
+export function loadWithDeferredContext<T>(
+	context: Promise<UseCaseContext>,
+	config: LoadConfig<T> & { defer: true }
+): { data: Promise<T> } {
+	return {
+		data: withHttpErrorBoundary(context.then((ctx) => loadWithContextCore(ctx, config).data))
+	};
+}
+
 /**
  * Page loader wrapper with mandatory permission declaration.
  * Wraps buildLayoutContext() for use in +page.server.ts / +layout.server.ts load functions.
@@ -426,11 +435,14 @@ export async function loadWithContext<T>(
 	orgId: string,
 	config: LoadConfig<T>
 ): Promise<T | { data: Promise<T> }> {
+	const context = buildLayoutContext(locals, cookies, orgId);
+
+	if (config.defer) {
+		return loadWithDeferredContext(context, config as LoadConfig<T> & { defer: true });
+	}
+
 	return withHttpErrorBoundary(
-		(async () => {
-			const ctx = await buildLayoutContext(locals, cookies, orgId);
-			return loadWithContextCore(ctx, config);
-		})()
+		context.then((ctx) => loadWithContextCore(ctx, config as LoadConfig<T> & { defer?: false | undefined }))
 	);
 }
 

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import { MoreHorizontal } from '@lucide/svelte';
+	import MoreHorizontal from '@lucide/svelte/icons/more-horizontal';
 	import { getContext } from 'svelte';
 	import { Button } from '$lib/components/ui/button';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';

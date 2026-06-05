@@ -57,7 +57,9 @@ describe('critical tasks layout client hydration', () => {
 			props: {
 				children,
 				data: {
-					orgId: 'org-1',
+					shell: {
+						org: { id: 'org-1' }
+					},
 					criticalTasks: {
 						data: streamedWorkspace.promise
 					}

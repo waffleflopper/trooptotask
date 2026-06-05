@@ -12,7 +12,14 @@
 	let { children, data } = $props();
 	let hydrationError = $state<Error | null>(null);
 	let workspacePending = $state(false);
-	const orgId = $derived(typeof data.orgId === 'string' ? data.orgId : null);
+	const orgId = $derived.by(() => {
+		if (typeof data.orgId === 'string') {
+			return data.orgId;
+		}
+
+		const shellOrgId = data.shell?.org?.id;
+		return typeof shellOrgId === 'string' ? shellOrgId : null;
+	});
 	const renderHydrationError = $derived.by(() => {
 		if (hydrationError) {
 			throwRenderError(hydrationError, 'Failed to hydrate Critical Tasks workspace');

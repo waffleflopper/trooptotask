@@ -56,7 +56,9 @@
 	);
 
 	const activeTasks = $derived(getActiveIctTasksForLibrary(ictTasksStore.items));
-	const criticalTasksSettings = $derived(normalizeCriticalTasksSettings(criticalTasksSettingsFromWorkspaceData(data)));
+	const criticalTasksSettings = $derived(
+		normalizeCriticalTasksSettings(criticalTasksSettingsFromWorkspaceData(data, orgId))
+	);
 	const viewReadinessAffordance = $derived(criticalTasksViewReadinessAffordance(org));
 	const recordCompletionAffordance = $derived(criticalTasksRecordCompletionAffordance(org));
 	const configureLibraryAffordance = $derived(criticalTasksConfigureLibraryAffordance(org));

@@ -37,7 +37,9 @@ describe('criticalTasksSettingsFromWorkspaceData', () => {
 	it('uses materialized streamed workspace settings for the matching org', () => {
 		const workspace = createWorkspace('org-1');
 		const data = {
-			orgId: 'org-1',
+			shell: {
+				org: { id: 'org-1' }
+			},
 			criticalTasks: {
 				data: Promise.resolve(workspace)
 			}
@@ -48,6 +50,23 @@ describe('criticalTasksSettingsFromWorkspaceData', () => {
 		markCriticalTasksWorkspaceResolved(workspace);
 
 		expect(criticalTasksSettingsFromWorkspaceData(data)).toEqual({
+			defaultExpirationMonths: 18,
+			expiringSoonWarningDays: 45
+		});
+	});
+
+	it('uses an explicit canonical org id when route data only has a slug', () => {
+		const workspace = createWorkspace('11111111-1111-1111-1111-111111111111');
+		const data = {
+			orgId: '1-11-bde',
+			criticalTasks: {
+				data: Promise.resolve(workspace)
+			}
+		};
+
+		markCriticalTasksWorkspaceResolved(workspace);
+
+		expect(criticalTasksSettingsFromWorkspaceData(data, '11111111-1111-1111-1111-111111111111')).toEqual({
 			defaultExpirationMonths: 18,
 			expiringSoonWarningDays: 45
 		});

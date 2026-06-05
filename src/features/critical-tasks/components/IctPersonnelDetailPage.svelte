@@ -65,7 +65,7 @@
 	const history = $derived(data.criticalTasksPersonnelHistory);
 	const personnelDisplayName = $derived(`${history.personnel.lastName}, ${history.personnel.firstName}`);
 	const personnelName = $derived([history.personnel.rank, personnelDisplayName].filter(Boolean).join(' '));
-	const settings = $derived(normalizeCriticalTasksSettings(criticalTasksSettingsFromWorkspaceData(data)));
+	const settings = $derived(normalizeCriticalTasksSettings(criticalTasksSettingsFromWorkspaceData(data, org.orgId)));
 	const recordCompletionAffordance = $derived(
 		criticalTasksRecordCompletionAffordance(org, criticalTasksPolicyResourceForGroup(history.personnel.groupId))
 	);

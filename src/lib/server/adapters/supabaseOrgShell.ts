@@ -37,7 +37,6 @@ import {
 } from '../core/useCases/loadAppShell';
 import { loadWithContext, getLayoutClient } from './httpAdapter';
 import { getOrLoadRequestMembership } from '$lib/server/membershipContextCache';
-import { fetchOnboardingBootstrap } from '../core/useCases/onboardingQuery';
 import { fetchDashboardBootstrap, type DashboardBootstrap } from '../core/useCases/dashboardQuery';
 import { fetchPersonnelBootstrap, fetchRatingSchemeBootstrap } from '../core/useCases/personnelWorkspaceQuery';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination';
@@ -392,52 +391,6 @@ async function loadOrganizationSwitcherOrgs(config: {
 				})
 			};
 		});
-}
-
-export function createSupabaseOnboardingWorkspacePort(
-	locals: App.Locals,
-	cookies: Cookies,
-	orgId: string
-): StreamableOrgWorkspacePort {
-	function getOnboardingData(): Promise<Awaited<ReturnType<typeof fetchOnboardingBootstrap>>>;
-	function getOnboardingData(defer: true): Promise<DeferredData<Awaited<ReturnType<typeof fetchOnboardingBootstrap>>>>;
-	function getOnboardingData(defer = false) {
-		const fn = async (ctx: UseCaseContext) => fetchOnboardingBootstrap(ctx);
-
-		if (defer) {
-			return loadWithContext(locals, cookies, orgId, {
-				policyAction: POLICY_ACTION_CATALOG.onboarding.viewWorkflows,
-				policyResource: { kind: 'unscoped' },
-				defer: true,
-				fn
-			});
-		}
-
-		return loadWithContext(locals, cookies, orgId, {
-			policyAction: POLICY_ACTION_CATALOG.onboarding.viewWorkflows,
-			policyResource: { kind: 'unscoped' },
-			fn
-		});
-	}
-
-	return {
-		async getWorkspaceData<T>(workspace: WorkspaceKey): Promise<T> {
-			if (workspace !== 'onboarding') {
-				throw new Error(`createSupabaseOnboardingWorkspacePort: unsupported workspace '${workspace}'`);
-			}
-
-			const data = await getOnboardingData();
-
-			return data as T;
-		},
-		async streamWorkspaceData<T>(workspace: WorkspaceKey) {
-			if (workspace !== 'onboarding') {
-				throw new Error(`createSupabaseOnboardingWorkspacePort: unsupported workspace '${workspace}'`);
-			}
-
-			return getOnboardingData(true) as Promise<DeferredData<T>>;
-		}
-	};
 }
 
 export function createSupabasePersonnelWorkspacePort(

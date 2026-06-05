@@ -2,8 +2,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, waitFor } from '@testing-library/svelte';
 import VisibleStub from '$lib/test-stubs/VisibleStub.svelte';
-import type { WorkspaceBootstrap } from '$lib/server/core/orgShell';
-import type { OnboardingBootstrap } from '$lib/server/core/useCases/onboardingQuery';
+import type { OnboardingWorkspaceResult } from '$features/onboarding/server/onboardingWorkspaceBootstrap';
 
 const throwRenderErrorMock = vi.fn();
 
@@ -74,9 +73,9 @@ function createDeferred<T>() {
 	};
 }
 
-function makeBootstrap(): WorkspaceBootstrap<OnboardingBootstrap> {
+function makeBootstrap(): OnboardingWorkspaceResult {
 	return {
-		workspace: 'onboarding',
+		laneKey: 'onboarding',
 		data: {
 			onboardingTemplates: [],
 			onboardingTemplateSteps: [],
@@ -84,6 +83,14 @@ function makeBootstrap(): WorkspaceBootstrap<OnboardingBootstrap> {
 			personnel: [],
 			groups: [],
 			trainingTypes: []
+		},
+		hydration: {
+			orgId: 'org-1',
+			personnel: { mode: 'replace', snapshotKey: 'personnel:1', items: [] },
+			groups: { mode: 'replace', snapshotKey: 'groups:1', items: [] },
+			trainingTypes: { mode: 'replace', snapshotKey: 'training-types:1', items: [] },
+			onboardingTemplates: { mode: 'replace', snapshotKey: 'templates:1', templates: [], steps: [] },
+			onboardings: { mode: 'replace', snapshotKey: 'onboardings:1', items: [] }
 		}
 	};
 }
@@ -102,11 +109,11 @@ describe('onboarding page', () => {
 		});
 
 		expect(screen.queryByRole('status')).toBeNull();
-		expect(screen.getAllByTestId('visible-stub')).toHaveLength(2);
+		expect(screen.getAllByTestId('visible-stub')).toHaveLength(1);
 	});
 
 	it('renders a loading shell while onboarding workspace data is still streaming', async () => {
-		const deferred = createDeferred<WorkspaceBootstrap<OnboardingBootstrap>>();
+		const deferred = createDeferred<OnboardingWorkspaceResult>();
 
 		render(Page, {
 			props: {
@@ -126,11 +133,11 @@ describe('onboarding page', () => {
 		await waitFor(() => {
 			expect(screen.queryByRole('status')).toBeNull();
 		});
-		expect(screen.getAllByTestId('visible-stub')).toHaveLength(2);
+		expect(screen.getAllByTestId('visible-stub')).toHaveLength(1);
 	});
 
 	it('invokes the render error path when onboarding workspace loading fails', async () => {
-		const deferred = createDeferred<WorkspaceBootstrap<OnboardingBootstrap>>();
+		const deferred = createDeferred<OnboardingWorkspaceResult>();
 
 		render(Page, {
 			props: {

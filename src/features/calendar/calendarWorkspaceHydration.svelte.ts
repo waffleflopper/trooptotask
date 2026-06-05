@@ -235,9 +235,10 @@ export function createCalendarWorkspaceHydrator(): CalendarWorkspaceHydrator {
 				const latestPending = pendingSnapshotKeys.get(targetName);
 				if (latestPending?.orgId === orgId && latestPending.snapshotKey === snapshotKey) {
 					pendingSnapshotKeys.delete(targetName);
+					console.error(`[calendar-hydration] Failed to load ${targetName} for org ${orgId}`, error);
+					throw error;
 				}
-				console.error(`[calendar-hydration] Failed to load ${targetName} for org ${orgId}`, error);
-				throw error;
+				return;
 			}
 		}
 

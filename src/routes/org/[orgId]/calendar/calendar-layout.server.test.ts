@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Cookies } from '@sveltejs/kit';
 import { createReadyAppShellRouteData } from '$lib/test-support/appShellRouteData';
 import type { CalendarWorkspaceRouteData } from '$features/calendar/server/calendarWorkspaceBootstrap';
+import { CALENDAR_ANCHOR_COOKIE } from '$features/calendar/utils/calendarAnchorDate';
 import { _createCalendarLayoutLoad } from './+layout.server';
 
 describe('calendar layout server load', () => {
@@ -37,6 +38,9 @@ describe('calendar layout server load', () => {
 	it('requests full settings-year special days for calendar settings hydration', async () => {
 		vi.useFakeTimers();
 		vi.setSystemTime(new Date('2026-05-01T00:00:00Z'));
+		const cookies = {
+			get: vi.fn((name: string) => (name === CALENDAR_ANCHOR_COOKIE ? '2024-02-15' : undefined))
+		} as unknown as Cookies;
 		const streamCalendarWorkspace = vi.fn<() => Promise<CalendarWorkspaceRouteData>>().mockResolvedValue({
 			calendar: { data: Promise.resolve({ laneKey: 'calendar' } as never) }
 		});
@@ -45,7 +49,7 @@ describe('calendar layout server load', () => {
 		await load({
 			params: { orgId: '1-11-bde' },
 			locals: {} as App.Locals,
-			cookies: {} as Cookies,
+			cookies,
 			url: new URL('https://app.test/org/org-1/calendar/settings'),
 			depends: vi.fn(),
 			parent: async () => createReadyAppShellRouteData({ orgId: 'org-1' })
@@ -53,9 +57,9 @@ describe('calendar layout server load', () => {
 
 		expect(streamCalendarWorkspace).toHaveBeenCalledWith({
 			locals: {},
-			cookies: {},
+			cookies,
 			orgId: 'org-1',
-			specialDaysRange: { rangeStart: '2025-01-01', rangeEnd: '2028-12-31' }
+			specialDaysRange: { rangeStart: '2023-01-01', rangeEnd: '2026-12-31' }
 		});
 	});
 });

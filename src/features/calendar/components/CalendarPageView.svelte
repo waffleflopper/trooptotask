@@ -57,8 +57,12 @@
 			onToggleHighlightOnboarding: () => ctx.toggleHighlightOnboarding(),
 			onToggleDutyStartDayOnly: () => ctx.toggleDutyStartDayOnly(),
 			onExportExcel: async () => {
-				const { exportMonthToExcel } = await import('$features/calendar/utils/calendarExport');
-				await exportMonthToExcel(calendarStore.year, calendarStore.month, getExportData());
+				try {
+					const { exportMonthToExcel } = await import('$features/calendar/utils/calendarExport');
+					await exportMonthToExcel(calendarStore.year, calendarStore.month, getExportData());
+				} catch (err) {
+					toastStore.error(err instanceof Error ? err.message : 'Excel export failed');
+				}
 			},
 			onExportPDF: async () => {
 				try {

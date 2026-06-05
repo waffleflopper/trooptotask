@@ -6,6 +6,7 @@ import {
 	type CalendarWorkspaceRouteData
 } from '$features/calendar/server/calendarWorkspaceBootstrap';
 import type { CalendarDateRange } from '$lib/server/core/useCases/calendarQuery';
+import { CALENDAR_ANCHOR_COOKIE, resolveCalendarAnchorDate } from '$features/calendar/utils/calendarAnchorDate';
 
 export interface CalendarLayoutLoadDeps {
 	streamCalendarWorkspace?: (context: CalendarWorkspaceRequestContext) => Promise<CalendarWorkspaceRouteData>;
@@ -22,7 +23,9 @@ export function _createCalendarLayoutLoad(deps: CalendarLayoutLoadDeps = {}): La
 				cookies,
 				orgId: shell.org.id,
 				...(isCalendarSettingsPath(url.pathname) && {
-					specialDaysRange: createCalendarSettingsSpecialDaysRange(new Date())
+					specialDaysRange: createCalendarSettingsSpecialDaysRange(
+						resolveCalendarAnchorDate(cookies.get(CALENDAR_ANCHOR_COOKIE), new Date())
+					)
 				})
 			}),
 			streamWorkspace: streamCalendarWorkspace

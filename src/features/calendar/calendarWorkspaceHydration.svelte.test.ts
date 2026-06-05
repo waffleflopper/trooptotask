@@ -223,12 +223,7 @@ describe('Calendar workspace hydration adapter', () => {
 	it('skips stale deferred data when a newer snapshot wins the same target', async () => {
 		const stores = createStores();
 		const hydrator = createCalendarWorkspaceHydrator();
-		const staleAvailability = {
-			id: 'av-stale',
-			personnelId: 'p1',
-			startDate: '2026-05-01',
-			endDate: '2026-05-01'
-		} as AvailabilityEntry;
+		const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 		const freshAvailability = {
 			id: 'av-fresh',
 			personnelId: 'p2',
@@ -253,17 +248,22 @@ describe('Calendar workspace hydration adapter', () => {
 			}
 		});
 
-		const staleRun = hydrator.hydrate(staleHydration, stores);
-		const freshRun = hydrator.hydrate(freshHydration, stores);
+		try {
+			const staleRun = hydrator.hydrate(staleHydration, stores);
+			const freshRun = hydrator.hydrate(freshHydration, stores);
 
-		freshDeferred.resolve([freshAvailability]);
-		await freshRun;
+			freshDeferred.resolve([freshAvailability]);
+			await freshRun;
 
-		staleDeferred.resolve([staleAvailability]);
-		await staleRun;
+			staleDeferred.reject(new Error('stale network failed'));
+			await expect(staleRun).resolves.toBeUndefined();
 
-		expect(stores.availabilityEntriesStore.items).toEqual([freshAvailability]);
-		expect(stores.availabilityEntriesStore.loadCount).toBe(1);
+			expect(stores.availabilityEntriesStore.items).toEqual([freshAvailability]);
+			expect(stores.availabilityEntriesStore.loadCount).toBe(1);
+			expect(consoleErrorSpy).not.toHaveBeenCalled();
+		} finally {
+			consoleErrorSpy.mockRestore();
+		}
 	});
 
 	it('does not apply deferred data after the backing store moved to another org', async () => {
@@ -318,14 +318,17 @@ describe('Calendar workspace hydration adapter', () => {
 			}
 		});
 
-		const rejectedRun = hydrator.hydrate(rejectedHydration, stores);
-		rejectedDeferred.reject(new Error('network failed'));
-		await expect(rejectedRun).rejects.toThrow('network failed');
+		try {
+			const rejectedRun = hydrator.hydrate(rejectedHydration, stores);
+			rejectedDeferred.reject(new Error('network failed'));
+			await expect(rejectedRun).rejects.toThrow('network failed');
 
-		await hydrator.hydrate(retryHydration, stores);
+			await hydrator.hydrate(retryHydration, stores);
 
-		expect(stores.availabilityEntriesStore.items).toEqual([availability]);
-		consoleErrorSpy.mockRestore();
+			expect(stores.availabilityEntriesStore.items).toEqual([availability]);
+		} finally {
+			consoleErrorSpy.mockRestore();
+		}
 	});
 
 	it('preserves client-owned targets without loading stores', async () => {

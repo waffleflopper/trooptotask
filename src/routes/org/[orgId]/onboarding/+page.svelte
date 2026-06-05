@@ -1,11 +1,10 @@
 <script lang="ts">
 	import { OnboardingPageContext } from '$features/onboarding/contexts/OnboardingPageContext.svelte';
-	import type { WorkspaceBootstrap } from '$lib/server/core/orgShell';
-	import type { OnboardingBootstrap } from '$lib/server/core/useCases/onboardingQuery';
+	import type { OnboardingWorkspaceResult } from '$features/onboarding/server/onboardingWorkspaceBootstrap';
 	import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
 	import OnboardingKanbanView from '$features/onboarding/components/OnboardingKanbanView.svelte';
-	import OnboardingModals from '$features/onboarding/components/OnboardingModals.svelte';
+	import { MODAL_IDS } from '$features/onboarding/contexts/OnboardingPageContext.svelte';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { isPromiseLike, observeDeferred, throwRenderError } from '$lib/utils/streamedRouteData';
 
@@ -14,7 +13,10 @@
 	const org = getOrgContext();
 	const modals = new ModalRegistry();
 	const loadingSkeletonItems = [0, 1, 2];
-	let onboardingBootstrap = $state<WorkspaceBootstrap<OnboardingBootstrap> | null>(null);
+	let onboardingBootstrap = $state<OnboardingWorkspaceResult | null>(null);
+	let OnboardingModals = $state<
+		typeof import('$features/onboarding/components/OnboardingModals.svelte').default | null
+	>(null);
 	let loadError = $state<Error | null>(null);
 	const renderLoadError = $derived.by(() => {
 		if (loadError) {
@@ -35,7 +37,7 @@
 		}
 
 		if (!isPromiseLike(streamedOnboarding)) {
-			onboardingBootstrap = streamedOnboarding as WorkspaceBootstrap<OnboardingBootstrap>;
+			onboardingBootstrap = streamedOnboarding as OnboardingWorkspaceResult;
 			return;
 		}
 
@@ -59,6 +61,29 @@
 
 	const workspacePending = $derived(!!data.onboarding?.data && onboardingBootstrap === null && loadError === null);
 	const ctx = $derived(onboardingBootstrap ? new OnboardingPageContext(modals, org) : null);
+	const needsModalSurface = $derived(
+		!!ctx &&
+			(ctx.modals.isOpen(MODAL_IDS.startOnboarding) ||
+				!!ctx.cancellingId ||
+				!!ctx.completingId ||
+				!!ctx.switchingTemplateId ||
+				!!ctx.assigningTemplateId)
+	);
+
+	$effect(() => {
+		if (!needsModalSurface || OnboardingModals) return;
+
+		let cancelled = false;
+		void import('$features/onboarding/components/OnboardingModals.svelte').then((module) => {
+			if (!cancelled) {
+				OnboardingModals = module.default;
+			}
+		});
+
+		return () => {
+			cancelled = true;
+		};
+	});
 </script>
 
 <svelte:head>
@@ -86,5 +111,7 @@
 	</section>
 {:else if ctx}
 	<OnboardingKanbanView {ctx} />
-	<OnboardingModals {ctx} />
+	{#if needsModalSurface && OnboardingModals}
+		<OnboardingModals {ctx} />
+	{/if}
 {/if}

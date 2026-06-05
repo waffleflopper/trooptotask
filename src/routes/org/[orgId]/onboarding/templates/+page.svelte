@@ -1,11 +1,15 @@
 <script lang="ts">
-	import { ArrowDown, ArrowUp, Copy, Pencil, Plus, Trash2 } from '@lucide/svelte';
+	import ArrowDown from '@lucide/svelte/icons/arrow-down';
+	import ArrowUp from '@lucide/svelte/icons/arrow-up';
+	import Copy from '@lucide/svelte/icons/copy';
+	import Pencil from '@lucide/svelte/icons/pencil';
+	import Plus from '@lucide/svelte/icons/plus';
+	import Trash2 from '@lucide/svelte/icons/trash-2';
 	import { untrack } from 'svelte';
 	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
 	import type { WorkspaceToolbarAction, WorkspaceToolbarNavItem } from '$lib/components/ui/workspace-toolbar';
 	import { Badge, type BadgeVariant } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
-	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import * as Empty from '$lib/components/ui/empty';
 	import * as Field from '$lib/components/ui/field';
 	import { Input } from '$lib/components/ui/input';
@@ -24,6 +28,7 @@
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
+	let ConfirmDialog = $state<typeof import('$lib/components/ui/ConfirmDialog.svelte').default | null>(null);
 
 	const org = getOrgContext();
 	const orgId = $derived(org.orgId);
@@ -75,6 +80,21 @@
 			workspace.replaceOrganization(organization);
 			workspace.replaceData(workspaceData);
 		});
+	});
+
+	$effect(() => {
+		if (!model.confirmDelete || ConfirmDialog) return;
+
+		let cancelled = false;
+		void import('$lib/components/ui/ConfirmDialog.svelte').then((module) => {
+			if (!cancelled) {
+				ConfirmDialog = module.default;
+			}
+		});
+
+		return () => {
+			cancelled = true;
+		};
 	});
 
 	const onboardingNavItems = $derived<WorkspaceToolbarNavItem[]>([
@@ -475,7 +495,7 @@
 	</TypeWorkspace.Layout>
 </TypeWorkspace.Root>
 
-{#if model.confirmDelete}
+{#if model.confirmDelete && ConfirmDialog}
 	<ConfirmDialog
 		title="Delete {model.confirmDelete.type === 'template' ? 'Template' : 'Step'}"
 		message="Are you sure you want to delete &quot;{model.confirmDelete.name}&quot;?{model.confirmDelete.type ===

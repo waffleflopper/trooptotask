@@ -17,8 +17,29 @@
 
 	let { data }: { data: PersonnelLayoutData } = $props();
 
+	class PersonnelWorkspaceGroups {
+		groups = $state<Group[]>([]);
+		error = $state<Error | null>(null);
+
+		constructor(workspace: Promise<PersonnelWorkspaceResult>) {
+			void workspace
+				.then((personnelWorkspace) => {
+					this.groups = personnelWorkspace.data.groups;
+				})
+				.catch((error: unknown) => {
+					this.error = error instanceof Error ? error : new Error(String(error));
+				});
+		}
+	}
+
 	const org = getOrgContext();
-	const pendingGroups: Group[] = [];
+	const workspaceGroups = $derived(new PersonnelWorkspaceGroups(data.personnel.data));
+	const renderWorkspaceError = $derived.by(() => {
+		if (workspaceGroups.error) {
+			throwRenderError(workspaceGroups.error, 'Failed to load personnel workspace');
+		}
+		return null;
+	});
 	const person = $derived(data.personnelDetailHeader.person);
 	const archiveResource = $derived(
 		person.groupId ? { kind: 'group' as const, groupId: person.groupId } : { kind: 'organization' as const }
@@ -34,26 +55,16 @@
 	);
 </script>
 
-{#await data.personnel.data}
+{#if workspaceGroups.error}
+	{renderWorkspaceError}
+{:else}
 	<PersonnelDetailPageView
 		orgId={org.orgId}
 		orgUrlSegment={org.orgUrlSegment}
 		{person}
-		groups={pendingGroups}
+		groups={workspaceGroups.groups}
 		orgName={org.orgName}
 		detail={data.personnelDetail}
 		{canArchivePersonnel}
 	/>
-{:then personnelWorkspace}
-	<PersonnelDetailPageView
-		orgId={org.orgId}
-		orgUrlSegment={org.orgUrlSegment}
-		{person}
-		groups={personnelWorkspace.data.groups}
-		orgName={org.orgName}
-		detail={data.personnelDetail}
-		{canArchivePersonnel}
-	/>
-{:catch error}
-	{throwRenderError(error, 'Failed to load personnel workspace')}
-{/await}
+{/if}

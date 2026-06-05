@@ -140,15 +140,21 @@ export function createPersonnelWorkspaceHydrator(): PersonnelWorkspaceHydrator {
 				return;
 			} catch (error) {
 				const latestPending = pendingSnapshotKeys.get(targetName);
-				if (latestPending?.orgId === orgId && latestPending.snapshotKey === snapshotKey) {
-					pendingSnapshotKeys.delete(targetName);
+				if (latestPending?.orgId !== orgId || latestPending.snapshotKey !== snapshotKey) {
+					return;
 				}
+				pendingSnapshotKeys.delete(targetName);
 				console.error(`[personnel-hydration] Failed to load ${targetName} for org ${orgId}`, error);
 				throw error;
 			}
 		}
 
-		descriptor.apply(descriptor.items);
+		try {
+			descriptor.apply(descriptor.items);
+		} catch (error) {
+			pendingSnapshotKeys.delete(targetName);
+			throw error;
+		}
 		pendingSnapshotKeys.delete(targetName);
 		appliedSnapshotKeys.set(targetName, { orgId, snapshotKey });
 	}

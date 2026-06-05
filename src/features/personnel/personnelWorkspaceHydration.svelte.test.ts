@@ -128,6 +128,37 @@ describe('Personnel workspace hydration adapter', () => {
 		expect(stores.personnelStore.items).toEqual([freshPerson]);
 	});
 
+	it('ignores stale deferred Personnel rejections when a newer org hydration wins', async () => {
+		const stores = createStores();
+		const hydrator = createPersonnelWorkspaceHydrator();
+		const stalePersonnel = deferred<Personnel[]>();
+		const freshPerson = { id: 'fresh', firstName: 'Jane', lastName: 'Jones' } as Personnel;
+		const staleHydration: PersonnelWorkspaceHydration = {
+			orgId: 'org-old',
+			personnel: { mode: 'replace', deferred: true, snapshotKey: 'old-personnel', items: stalePersonnel.promise },
+			groups: { mode: 'replace', snapshotKey: 'old-groups', items: [] },
+			statusTypes: { mode: 'replace', snapshotKey: 'old-status', items: [] },
+			pinnedGroups: { mode: 'replace', snapshotKey: 'old-pinned', items: [] }
+		};
+		const freshHydration: PersonnelWorkspaceHydration = {
+			...staleHydration,
+			orgId: 'org-new',
+			personnel: {
+				mode: 'replace',
+				snapshotKey: 'new-personnel',
+				items: [freshPerson]
+			}
+		};
+
+		const stalePending = hydrator.hydrate(staleHydration, stores);
+		await hydrator.hydrate(freshHydration, stores);
+		stalePersonnel.reject(new Error('stale personnel failed'));
+		await stalePending;
+
+		expect(stores.personnelStore.orgId).toBe('org-new');
+		expect(stores.personnelStore.items).toEqual([freshPerson]);
+	});
+
 	it('clears pending Personnel targets after rejection so a later hydration can apply', async () => {
 		const stores = createStores();
 		const hydrator = createPersonnelWorkspaceHydrator();
@@ -155,6 +186,40 @@ describe('Personnel workspace hydration adapter', () => {
 		await hydrator.hydrate(
 			{
 				...rejectedHydration,
+				personnel: { mode: 'replace', snapshotKey: 'personnel:fresh', items: [freshPerson] }
+			},
+			stores
+		);
+
+		expect(stores.personnelStore.items).toEqual([freshPerson]);
+		expect(stores.personnelStore.orgId).toBe('org-1');
+	});
+
+	it('clears pending Personnel targets after synchronous load throw so a later hydration can apply', async () => {
+		const stores = createStores();
+		const hydrator = createPersonnelWorkspaceHydrator();
+		const originalLoad = stores.personnelStore.load.bind(stores.personnelStore);
+		const freshPerson = { id: 'fresh', firstName: 'Jane', lastName: 'Jones' } as Personnel;
+		let shouldThrow = true;
+		stores.personnelStore.load = (items: Personnel[], orgId: string) => {
+			if (shouldThrow) {
+				throw new Error('personnel load exploded');
+			}
+			originalLoad(items, orgId);
+		};
+		const failedHydration: PersonnelWorkspaceHydration = {
+			orgId: 'org-1',
+			personnel: { mode: 'replace', snapshotKey: 'personnel:failed', items: [freshPerson] },
+			groups: { mode: 'replace', snapshotKey: 'groups:1', items: [] },
+			statusTypes: { mode: 'replace', snapshotKey: 'status:1', items: [] },
+			pinnedGroups: { mode: 'replace', snapshotKey: 'pinned:1', items: [] }
+		};
+
+		await expect(hydrator.hydrate(failedHydration, stores)).rejects.toThrow('personnel load exploded');
+		shouldThrow = false;
+		await hydrator.hydrate(
+			{
+				...failedHydration,
 				personnel: { mode: 'replace', snapshotKey: 'personnel:fresh', items: [freshPerson] }
 			},
 			stores

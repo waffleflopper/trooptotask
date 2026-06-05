@@ -1,13 +1,34 @@
 <script lang="ts">
-	import { orgShellHydrationCoordinator } from '$lib/orgShellHydrationCoordinator.svelte';
-
-	const coordinator = orgShellHydrationCoordinator;
+	import { personnelWorkspaceHydrator } from '$features/personnel/personnelWorkspaceHydration.svelte';
+	import type { PersonnelWorkspaceResult } from '$features/personnel/server/personnelWorkspaceBootstrap';
+	import { throwRenderError } from '$lib/utils/streamedRouteData';
+	import { hydrateStreamedWorkspace } from '$lib/utils/streamedWorkspaceHydrator';
 
 	let { children, data } = $props();
+	let hydrationError = $state<Error | null>(null);
+	const renderHydrationError = $derived.by(() => {
+		if (hydrationError) {
+			throwRenderError(hydrationError, 'Failed to hydrate personnel workspace');
+		}
+		return null;
+	});
 
 	$effect(() => {
-		void coordinator.hydrate(data.personnel?.hydration);
+		hydrationError = null;
+
+		return hydrateStreamedWorkspace<PersonnelWorkspaceResult>({
+			streamedWorkspace: data.personnel,
+			fallbackMessage: 'Failed to hydrate personnel workspace',
+			hydrate: (personnel) => personnelWorkspaceHydrator.hydrate(personnel.hydration),
+			onReject: (error) => {
+				hydrationError = error;
+			}
+		});
 	});
 </script>
 
-{@render children()}
+{#if hydrationError}
+	{renderHydrationError}
+{:else}
+	{@render children()}
+{/if}

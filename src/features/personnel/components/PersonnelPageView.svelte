@@ -2,17 +2,13 @@
 	import { goto, invalidateAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { personnelStore } from '$features/personnel/stores/personnel.svelte';
-	import { archivePersonnel } from '$features/personnel/utils/archivePersonnel';
-	import { bulkArchivePersonnel } from '$features/personnel/utils/bulkArchivePersonnel';
 	import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
-	import { toastStore } from '$lib/stores/toast.svelte';
 	import ArchiveIcon from '@lucide/svelte/icons/archive';
 	import DownloadIcon from '@lucide/svelte/icons/download';
 	import UsersIcon from '@lucide/svelte/icons/users';
 	import { Badge, badgeVariants } from '$lib/components/ui/badge';
 	import { Button, buttonVariants } from '$lib/components/ui/button';
 	import * as ButtonGroup from '$lib/components/ui/button-group';
-	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import * as DataTable from '$lib/components/ui/data-table';
 	import * as Empty from '$lib/components/ui/empty/index.js';
 	import { Input } from '$lib/components/ui/input';
@@ -201,6 +197,7 @@
 		if (!archiveTarget || archiveSubmitting) return;
 		archiveSubmitting = true;
 		try {
+			const { archivePersonnel } = await import('$features/personnel/utils/archivePersonnel');
 			const result = await archivePersonnel({ orgId: ctx.orgId, person: archiveTarget });
 			if (result === 'archived') {
 				locallyArchivedIds.add(archiveTarget.id);
@@ -216,6 +213,10 @@
 		if (selectedArchiveIds.size === 0 || bulkArchiveSubmitting) return;
 		bulkArchiveSubmitting = true;
 		try {
+			const [{ bulkArchivePersonnel }, { toastStore }] = await Promise.all([
+				import('$features/personnel/utils/bulkArchivePersonnel'),
+				import('$lib/stores/toast.svelte')
+			]);
 			const result = await bulkArchivePersonnel(
 				ctx.orgId,
 				selectedArchivePersonnel.map((person) => person.id)
@@ -500,25 +501,29 @@
 </div>
 
 {#if archiveTarget}
-	<ConfirmDialog
-		title="Archive Personnel"
-		message="Archive {archiveTarget.rank} {archiveTarget.lastName}? They will be removed from active rosters, calendars, and reports, but their records remain available in archived personnel."
-		confirmLabel="Archive"
-		variant="warning"
-		loading={archiveSubmitting}
-		onConfirm={confirmArchive}
-		onCancel={() => (archiveTarget = null)}
-	/>
+	{#await import('$lib/components/ui/ConfirmDialog.svelte') then { default: ConfirmDialog }}
+		<ConfirmDialog
+			title="Archive Personnel"
+			message="Archive {archiveTarget.rank} {archiveTarget.lastName}? They will be removed from active rosters, calendars, and reports, but their records remain available in archived personnel."
+			confirmLabel="Archive"
+			variant="warning"
+			loading={archiveSubmitting}
+			onConfirm={confirmArchive}
+			onCancel={() => (archiveTarget = null)}
+		/>
+	{/await}
 {/if}
 
 {#if showBulkArchiveConfirm}
-	<ConfirmDialog
-		title="Archive Personnel"
-		message="Archive {selectedArchiveIds.size} personnel? They will leave active rosters, calendars, and reports. Records are not erased, and some archives may require approval."
-		confirmLabel="Archive"
-		variant="warning"
-		loading={bulkArchiveSubmitting}
-		onConfirm={confirmBulkArchive}
-		onCancel={() => (showBulkArchiveConfirm = false)}
-	/>
+	{#await import('$lib/components/ui/ConfirmDialog.svelte') then { default: ConfirmDialog }}
+		<ConfirmDialog
+			title="Archive Personnel"
+			message="Archive {selectedArchiveIds.size} personnel? They will leave active rosters, calendars, and reports. Records are not erased, and some archives may require approval."
+			confirmLabel="Archive"
+			variant="warning"
+			loading={bulkArchiveSubmitting}
+			onConfirm={confirmBulkArchive}
+			onCancel={() => (showBulkArchiveConfirm = false)}
+		/>
+	{/await}
 {/if}

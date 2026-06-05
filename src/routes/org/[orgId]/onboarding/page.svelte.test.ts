@@ -5,6 +5,9 @@ import VisibleStub from '$lib/test-stubs/VisibleStub.svelte';
 import type { OnboardingWorkspaceResult } from '$features/onboarding/server/onboardingWorkspaceBootstrap';
 
 const throwRenderErrorMock = vi.fn();
+const modalRegistryState = vi.hoisted(() => ({
+	startOnboardingOpen: false
+}));
 
 vi.mock('$features/onboarding/components/OnboardingKanbanView.svelte', () => ({
 	default: VisibleStub
@@ -12,6 +15,26 @@ vi.mock('$features/onboarding/components/OnboardingKanbanView.svelte', () => ({
 
 vi.mock('$features/onboarding/components/OnboardingModals.svelte', () => ({
 	default: VisibleStub
+}));
+
+vi.mock('$lib/utils/modalRegistry.svelte', () => ({
+	ModalRegistry: class {
+		isOpen(id: string) {
+			return id === 'startOnboarding' && modalRegistryState.startOnboardingOpen;
+		}
+
+		open(id: string) {
+			if (id === 'startOnboarding') modalRegistryState.startOnboardingOpen = true;
+		}
+
+		close(id: string) {
+			if (id === 'startOnboarding') modalRegistryState.startOnboardingOpen = false;
+		}
+
+		closerFor(id: string) {
+			return () => this.close(id);
+		}
+	}
 }));
 
 vi.mock('$lib/stores/orgContext.svelte', () => ({
@@ -56,6 +79,7 @@ import Page from './+page.svelte';
 afterEach(() => {
 	cleanup();
 	throwRenderErrorMock.mockReset();
+	modalRegistryState.startOnboardingOpen = false;
 });
 
 function createDeferred<T>() {
@@ -110,6 +134,25 @@ describe('onboarding page', () => {
 
 		expect(screen.queryByRole('status')).toBeNull();
 		expect(screen.getAllByTestId('visible-stub')).toHaveLength(1);
+	});
+
+	it('loads the modal surface when start onboarding is open', async () => {
+		modalRegistryState.startOnboardingOpen = true;
+
+		render(Page, {
+			props: {
+				data: {
+					session: null,
+					onboarding: {
+						data: makeBootstrap()
+					}
+				}
+			}
+		});
+
+		await waitFor(() => {
+			expect(screen.getAllByTestId('visible-stub')).toHaveLength(2);
+		});
 	});
 
 	it('renders a loading shell while onboarding workspace data is still streaming', async () => {

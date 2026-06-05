@@ -2,10 +2,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, waitFor } from '@testing-library/svelte';
 import VisibleStub from '$lib/test-stubs/VisibleStub.svelte';
-import type { WorkspaceBootstrap } from '$lib/server/core/orgShell';
-import type { OnboardingBootstrap } from '$lib/server/core/useCases/onboardingQuery';
+import type { OnboardingWorkspaceResult } from '$features/onboarding/server/onboardingWorkspaceBootstrap';
 
 const throwRenderErrorMock = vi.fn();
+const modalRegistryState = vi.hoisted(() => ({
+	startOnboardingOpen: false
+}));
 
 vi.mock('$features/onboarding/components/OnboardingKanbanView.svelte', () => ({
 	default: VisibleStub
@@ -13,6 +15,26 @@ vi.mock('$features/onboarding/components/OnboardingKanbanView.svelte', () => ({
 
 vi.mock('$features/onboarding/components/OnboardingModals.svelte', () => ({
 	default: VisibleStub
+}));
+
+vi.mock('$lib/utils/modalRegistry.svelte', () => ({
+	ModalRegistry: class {
+		isOpen(id: string) {
+			return id === 'startOnboarding' && modalRegistryState.startOnboardingOpen;
+		}
+
+		open(id: string) {
+			if (id === 'startOnboarding') modalRegistryState.startOnboardingOpen = true;
+		}
+
+		close(id: string) {
+			if (id === 'startOnboarding') modalRegistryState.startOnboardingOpen = false;
+		}
+
+		closerFor(id: string) {
+			return () => this.close(id);
+		}
+	}
 }));
 
 vi.mock('$lib/stores/orgContext.svelte', () => ({
@@ -57,6 +79,7 @@ import Page from './+page.svelte';
 afterEach(() => {
 	cleanup();
 	throwRenderErrorMock.mockReset();
+	modalRegistryState.startOnboardingOpen = false;
 });
 
 function createDeferred<T>() {
@@ -74,9 +97,9 @@ function createDeferred<T>() {
 	};
 }
 
-function makeBootstrap(): WorkspaceBootstrap<OnboardingBootstrap> {
+function makeBootstrap(): OnboardingWorkspaceResult {
 	return {
-		workspace: 'onboarding',
+		laneKey: 'onboarding',
 		data: {
 			onboardingTemplates: [],
 			onboardingTemplateSteps: [],
@@ -84,6 +107,14 @@ function makeBootstrap(): WorkspaceBootstrap<OnboardingBootstrap> {
 			personnel: [],
 			groups: [],
 			trainingTypes: []
+		},
+		hydration: {
+			orgId: 'org-1',
+			personnel: { mode: 'replace', snapshotKey: 'personnel:1', items: [] },
+			groups: { mode: 'replace', snapshotKey: 'groups:1', items: [] },
+			trainingTypes: { mode: 'replace', snapshotKey: 'training-types:1', items: [] },
+			onboardingTemplates: { mode: 'replace', snapshotKey: 'templates:1', templates: [], steps: [] },
+			onboardings: { mode: 'replace', snapshotKey: 'onboardings:1', items: [] }
 		}
 	};
 }
@@ -102,11 +133,30 @@ describe('onboarding page', () => {
 		});
 
 		expect(screen.queryByRole('status')).toBeNull();
-		expect(screen.getAllByTestId('visible-stub')).toHaveLength(2);
+		expect(screen.getAllByTestId('visible-stub')).toHaveLength(1);
+	});
+
+	it('loads the modal surface when start onboarding is open', async () => {
+		modalRegistryState.startOnboardingOpen = true;
+
+		render(Page, {
+			props: {
+				data: {
+					session: null,
+					onboarding: {
+						data: makeBootstrap()
+					}
+				}
+			}
+		});
+
+		await waitFor(() => {
+			expect(screen.getAllByTestId('visible-stub')).toHaveLength(2);
+		});
 	});
 
 	it('renders a loading shell while onboarding workspace data is still streaming', async () => {
-		const deferred = createDeferred<WorkspaceBootstrap<OnboardingBootstrap>>();
+		const deferred = createDeferred<OnboardingWorkspaceResult>();
 
 		render(Page, {
 			props: {
@@ -126,11 +176,11 @@ describe('onboarding page', () => {
 		await waitFor(() => {
 			expect(screen.queryByRole('status')).toBeNull();
 		});
-		expect(screen.getAllByTestId('visible-stub')).toHaveLength(2);
+		expect(screen.getAllByTestId('visible-stub')).toHaveLength(1);
 	});
 
 	it('invokes the render error path when onboarding workspace loading fails', async () => {
-		const deferred = createDeferred<WorkspaceBootstrap<OnboardingBootstrap>>();
+		const deferred = createDeferred<OnboardingWorkspaceResult>();
 
 		render(Page, {
 			props: {

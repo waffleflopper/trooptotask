@@ -1,10 +1,8 @@
 <script lang="ts">
-	import { orgShellHydrationCoordinator } from '$lib/orgShellHydrationCoordinator.svelte';
-	import type { WorkspaceBootstrap } from '$lib/server/core/orgShell';
-	import type { OnboardingBootstrap } from '$lib/server/core/useCases/onboardingQuery';
-	import { isPromiseLike, observeDeferred, throwRenderError } from '$lib/utils/streamedRouteData';
-
-	const coordinator = orgShellHydrationCoordinator;
+	import { onboardingWorkspaceHydrator } from '$features/onboarding/onboardingWorkspaceHydration.svelte';
+	import type { OnboardingWorkspaceResult } from '$features/onboarding/server/onboardingWorkspaceBootstrap';
+	import { throwRenderError } from '$lib/utils/streamedRouteData';
+	import { hydrateStreamedWorkspace } from '$lib/utils/streamedWorkspaceHydrator';
 
 	let { children, data } = $props();
 	let hydrationError = $state<Error | null>(null);
@@ -16,47 +14,16 @@
 	});
 
 	$effect(() => {
-		let cancelled = false;
-		const streamedOnboarding = data.onboarding?.data;
-
 		hydrationError = null;
 
-		if (!streamedOnboarding) {
-			return;
-		}
-
-		if (!isPromiseLike(streamedOnboarding)) {
-			void observeDeferred(
-				coordinator.hydrate((streamedOnboarding as WorkspaceBootstrap<OnboardingBootstrap>).hydration),
-				{
-					fallbackMessage: 'Failed to hydrate onboarding workspace',
-					onReject: (error) => {
-						hydrationError = error;
-					},
-					isCancelled: () => cancelled
-				}
-			);
-			return () => {
-				cancelled = true;
-			};
-		}
-
-		void observeDeferred(
-			streamedOnboarding.then((onboarding: WorkspaceBootstrap<OnboardingBootstrap>) =>
-				coordinator.hydrate(onboarding.hydration)
-			),
-			{
-				fallbackMessage: 'Failed to hydrate onboarding workspace',
-				onReject: (error) => {
-					hydrationError = error;
-				},
-				isCancelled: () => cancelled
+		return hydrateStreamedWorkspace<OnboardingWorkspaceResult>({
+			streamedWorkspace: data.onboarding,
+			fallbackMessage: 'Failed to hydrate onboarding workspace',
+			hydrate: (onboarding) => onboardingWorkspaceHydrator.hydrate(onboarding.hydration),
+			onReject: (error) => {
+				hydrationError = error;
 			}
-		);
-
-		return () => {
-			cancelled = true;
-		};
+		});
 	});
 </script>
 

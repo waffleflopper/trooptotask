@@ -16,7 +16,6 @@ import type {
 	OnboardingTemplateStep,
 	PersonnelOnboarding
 } from '$features/onboarding/onboarding.types';
-import type { RatingSchemeEntry } from '$features/rating-scheme/rating-scheme.types';
 import type { PersonnelTraining } from '$features/training/training.types';
 import type { AssignmentType, AvailabilityEntry, DailyAssignment, SpecialDay } from '$lib/types';
 
@@ -228,7 +227,6 @@ export interface HydrationPlan {
 	trainingViews?: HydrationTarget;
 	personnelTrainings?: HydrationTarget<PersonnelTraining>;
 	pinnedGroups?: HydrationTarget<string>;
-	ratingSchemeEntries?: HydrationTarget<RatingSchemeEntry>;
 	onboardingTemplates?: OnboardingTemplatesHydrationTarget;
 	onboardings?: HydrationTarget<PersonnelOnboarding>;
 }

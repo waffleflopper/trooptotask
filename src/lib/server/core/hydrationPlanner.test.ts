@@ -23,16 +23,16 @@ describe('createDefaultHydrationPlanner', () => {
 		expect(planner.createPlan('calendar', {})).toBeUndefined();
 	});
 
-	it('excludes dashboard rating scheme entries even when present', () => {
+	it('excludes rating scheme entries from central hydration even when present', () => {
 		const planner = createDefaultHydrationPlanner('org-1');
 
-		const plan = planner.createPlan('dashboard', {
+		const plan = planner.createPlan('rating-scheme', {
 			groups: [{ id: 'group-1' }],
 			ratingSchemeEntries: [{ id: 'rating-1' }]
 		});
 
 		expect(plan?.groups).toBeDefined();
-		expect(plan?.ratingSchemeEntries).toBeUndefined();
+		expect(plan).not.toHaveProperty('ratingSchemeEntries');
 	});
 
 	it('maps dashboard today assignments to calendar assignments and ignores them elsewhere', () => {

@@ -5,7 +5,6 @@ import type {
 	OnboardingTemplateStep,
 	PersonnelOnboarding
 } from '$features/onboarding/onboarding.types';
-import type { RatingSchemeEntry } from '$features/rating-scheme/rating-scheme.types';
 import type { PersonnelTraining, TrainingType, TrainingView } from '$features/training/training.types';
 import type { HydrationPlan } from '$lib/server/core/orgShell';
 
@@ -40,7 +39,6 @@ export interface HydrationStores {
 	trainingViewsStore: Loadable<TrainingView>;
 	personnelTrainingsStore: Loadable<PersonnelTraining>;
 	pinnedGroupsStore: Loadable<string>;
-	ratingSchemeStore: Loadable<RatingSchemeEntry>;
 	onboardingTemplateStore: OnboardingTemplatesLoadable;
 	onboardingStore: Loadable<PersonnelOnboarding>;
 }

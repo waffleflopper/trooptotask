@@ -90,7 +90,6 @@ function createHydrationStores() {
 			trainingViewsStore: createInspectableLoadable<TrainingView>() as HydrationStores['trainingViewsStore'],
 			personnelTrainingsStore: personnelTrainings as unknown as HydrationStores['personnelTrainingsStore'],
 			pinnedGroupsStore: pinnedGroups as HydrationStores['pinnedGroupsStore'],
-			ratingSchemeStore: createInspectableLoadable<never>() as HydrationStores['ratingSchemeStore'],
 			onboardingTemplateStore: onboardingTemplates as HydrationStores['onboardingTemplateStore'],
 			onboardingStore: onboardings as unknown as HydrationStores['onboardingStore']
 		} satisfies HydrationStores,
@@ -642,7 +641,7 @@ describe('OrgShellCoordinator', () => {
 			} satisfies WorkspaceBootstrap<DashboardBootstrap>
 		});
 
-		expect(result.dashboard.hydration?.ratingSchemeEntries).toBeUndefined();
+		expect(result.dashboard.hydration).not.toHaveProperty('ratingSchemeEntries');
 		expect(result.dashboard.hydration?.onboardings).toBeUndefined();
 		await expect(result.dashboard.hydration?.calendarAssignments?.items).resolves.toEqual({
 			types: dashboardData.assignmentTypes,

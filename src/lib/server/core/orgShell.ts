@@ -1,23 +1,14 @@
 /**
- * App shell/workspace type contracts and port interfaces for the org shell split (RFC #415).
+ * App shell type contracts and port interfaces for the org shell split (RFC #415).
  *
  * `AppShellRouteData` — first-paint identity, access, org state, preferences, and announcements.
- * `WorkspaceBootstrap<T>` — workspace-specific payload with an optional typed hydration plan.
- * Port interfaces (`OrgAccessPort`, `AppShellFirstPaintChromePort`, `AppShellDeferredChromePort`,
- * `OrgWorkspacePort`, `HydrationPlannerPort`)
+ * Port interfaces (`OrgAccessPort`, `AppShellFirstPaintChromePort`, `AppShellDeferredChromePort`)
  * define the internal composition boundary. SvelteKit adapter implementations live in
  * src/lib/server/adapters/; in-memory test implementations live in inMemoryOrgShell.ts.
  */
 import type { EffectiveTier } from '$lib/types/subscription';
 import type { CapabilityMap, ScopeSet } from '$lib/access/memberAccessShape';
 import type { UserOrgPreferences } from '$lib/preferences/userPreferences';
-import type {
-	OnboardingTemplate,
-	OnboardingTemplateStep,
-	PersonnelOnboarding
-} from '$features/onboarding/onboarding.types';
-import type { PersonnelTraining } from '$features/training/training.types';
-import type { AssignmentType, AvailabilityEntry, DailyAssignment, SpecialDay } from '$lib/types';
 
 // ---------------------------------------------------------------------------
 // Announcement — defined here as a domain type (not tied to the DB query)
@@ -162,86 +153,6 @@ export function createReadyAppShell(config: {
 }
 
 // ---------------------------------------------------------------------------
-// Workspace types
-// ---------------------------------------------------------------------------
-
-export type WorkspaceKey = 'dashboard' | 'calendar' | 'personnel' | 'rating-scheme' | 'onboarding';
-
-/**
- * Serializable description of how each client store should be hydrated.
- * The shell layer intentionally uses `unknown[]` slots — workspace assemblers own the
- * concrete types and cast when consuming the plan. The explicit `mode` and `snapshotKey`
- * fields give the coordinator hydration boundary a typed place to preserve optimistic
- * client state and skip unchanged server snapshots instead of relying on route-local
- * heuristics.
- */
-export type HydrationMode = 'replace' | 'merge' | 'preserve-client';
-export type HydrationItems<T = unknown> = T[] | Promise<T[]>;
-
-export interface CalendarAssignmentsHydrationItems {
-	types: AssignmentType[];
-	assignments: DailyAssignment[];
-}
-
-export interface HydrationTarget<T = unknown> {
-	mode: HydrationMode;
-	deferred?: boolean;
-	/**
-	 * Stable identity for the server snapshot backing this target.
-	 * The coordinator hydration boundary uses this to avoid re-loading unchanged data.
-	 */
-	snapshotKey: string;
-	items: HydrationItems<T>;
-}
-
-export interface CalendarAssignmentsHydrationTarget {
-	mode: HydrationMode;
-	deferred?: boolean;
-	snapshotKey: string;
-	rangeStart?: string;
-	rangeEnd?: string;
-	items: CalendarAssignmentsHydrationItems | Promise<CalendarAssignmentsHydrationItems>;
-}
-
-export interface OnboardingTemplatesHydrationTarget {
-	mode: HydrationMode;
-	deferred?: boolean;
-	snapshotKey: string;
-	templates: OnboardingTemplate[];
-	steps: OnboardingTemplateStep[];
-}
-
-export interface HydrationPlan {
-	orgId: string;
-	personnel?: {
-		scoped: HydrationTarget;
-		/** Only present when explicit all-org data was available. Absent for scoped members. */
-		all?: HydrationTarget;
-	};
-	groups?: HydrationTarget;
-	statusTypes?: HydrationTarget;
-	availabilityEntries?: HydrationTarget<AvailabilityEntry>;
-	specialDays?: HydrationTarget<SpecialDay>;
-	calendarAssignments?: CalendarAssignmentsHydrationTarget;
-	trainingTypes?: HydrationTarget;
-	trainingViews?: HydrationTarget;
-	personnelTrainings?: HydrationTarget<PersonnelTraining>;
-	pinnedGroups?: HydrationTarget<string>;
-	onboardingTemplates?: OnboardingTemplatesHydrationTarget;
-	onboardings?: HydrationTarget<PersonnelOnboarding>;
-}
-
-export interface WorkspaceBootstrap<T> {
-	workspace: WorkspaceKey;
-	data: T;
-	hydration?: HydrationPlan;
-}
-
-export interface DeferredData<T> {
-	data: Promise<T>;
-}
-
-// ---------------------------------------------------------------------------
 // Port input/output types
 // ---------------------------------------------------------------------------
 
@@ -267,16 +178,4 @@ export interface OrgState {
 export interface OrgAccessPort {
 	getMembership(): Promise<MembershipInfo>;
 	getOrgState(): Promise<OrgState>;
-}
-
-export interface OrgWorkspacePort {
-	getWorkspaceData<T>(workspace: WorkspaceKey): Promise<T>;
-}
-
-export interface StreamableOrgWorkspacePort extends OrgWorkspacePort {
-	streamWorkspaceData<T>(workspace: WorkspaceKey): Promise<DeferredData<T>>;
-}
-
-export interface HydrationPlannerPort {
-	createPlan(workspace: WorkspaceKey, data: unknown): HydrationPlan | undefined;
 }

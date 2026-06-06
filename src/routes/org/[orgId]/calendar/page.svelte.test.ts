@@ -3,8 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { calendarStore } from '$features/calendar/stores/calendar.svelte';
 import { CALENDAR_ANCHOR_COOKIE } from '$features/calendar/utils/calendarAnchorDate';
-import type { WorkspaceBootstrap } from '$lib/server/core/orgShell';
-import type { CalendarBootstrap, CalendarRangeData } from '$lib/server/core/useCases/calendarQuery';
+import type { CalendarRangeData } from '$lib/server/core/useCases/calendarQuery';
+import type { CalendarWorkspaceResult } from '$features/calendar/server/calendarWorkspaceBootstrap';
 import { createReadyAppShellRouteData } from '$lib/test-support/appShellRouteData';
 
 const { exportMonthToExcelMock, loadCalendarRangeMock, mergeCalendarRangeIntoStoresMock, printMonthCalendarMock } =
@@ -79,9 +79,9 @@ vi.mock('$lib/stores/pinnedGroups.svelte', () => ({
 
 import Page from './+page.svelte';
 
-function makeBootstrap(): WorkspaceBootstrap<CalendarBootstrap> {
+function makeBootstrap(): CalendarWorkspaceResult {
 	return {
-		workspace: 'calendar',
+		laneKey: 'calendar',
 		data: {
 			rangeStart: '2026-03-01',
 			rangeEnd: '2026-05-31',
@@ -120,6 +120,20 @@ function makeBootstrap(): WorkspaceBootstrap<CalendarBootstrap> {
 			statusTypes: [],
 			activeOnboardingPersonnelIds: [],
 			lossWarningWindowDays: 180
+		},
+		hydration: {
+			orgId: 'org-1',
+			personnel: { mode: 'replace', snapshotKey: 'personnel:1', items: [] },
+			groups: { mode: 'replace', snapshotKey: 'groups:1', items: [] },
+			statusTypes: { mode: 'replace', snapshotKey: 'status-types:1', items: [] },
+			availabilityEntries: { mode: 'merge', snapshotKey: 'availability:1', items: [] },
+			specialDays: { mode: 'merge', snapshotKey: 'special-days:1', items: [] },
+			calendarAssignments: {
+				mode: 'merge',
+				snapshotKey: 'assignments:1',
+				items: { types: [], assignments: [] }
+			},
+			pinnedGroups: { mode: 'replace', snapshotKey: 'pinned:1', items: [] }
 		}
 	};
 }

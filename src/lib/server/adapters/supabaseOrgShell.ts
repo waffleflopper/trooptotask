@@ -1,5 +1,5 @@
 /**
- * Supabase-backed implementations of App Shell and workspace ports for the org shell split
+ * Supabase-backed implementations of App Shell ports for the org shell split
  * (RFC #415). These are the production adapters; in-memory equivalents for tests live in
  * `inMemoryOrgShell.ts`.
  *
@@ -12,31 +12,25 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { projectEffectiveMemberAccess } from '$lib/access/memberAccessProjection';
 import type { EffectiveTier } from '$lib/types/subscription';
 import { assertNormalizedMembershipRow, type MembershipRow } from '$lib/server/permissionContext';
-import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { getDefaultUserOrgPreferences, normalizeUserOrgPreferences } from '$lib/preferences/userPreferences';
 import type {
 	AppShellDeferredChromePort,
 	AppShellFirstPaintChrome,
 	AppShellFirstPaintChromePort,
 	AppShellRequest,
-	DeferredData,
 	OrgAccessPort,
-	StreamableOrgWorkspacePort,
-	WorkspaceKey,
 	MembershipInfo,
 	OrgState,
 	Announcement,
 	OrganizationSwitcherOrg
 } from '../core/orgShell';
-import type { UseCaseContext } from '../core/ports';
 import {
 	loadAppShellDeferredChrome,
 	loadAppShellFirstPaint,
 	type AppShellFirstPaintRequest
 } from '../core/useCases/loadAppShell';
-import { loadWithContext, getLayoutClient } from './httpAdapter';
+import { getLayoutClient } from './httpAdapter';
 import { getOrLoadRequestMembership } from '$lib/server/membershipContextCache';
-import { fetchDashboardBootstrap, type DashboardBootstrap } from '../core/useCases/dashboardQuery';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination';
 import { createSupabaseSubscriptionAdapter } from './supabaseSubscription';
 import {
@@ -389,48 +383,4 @@ async function loadOrganizationSwitcherOrgs(config: {
 				})
 			};
 		});
-}
-
-export function createSupabaseDashboardWorkspacePort(
-	locals: App.Locals,
-	cookies: Cookies,
-	orgId: string
-): StreamableOrgWorkspacePort {
-	function getDashboardData(): Promise<DashboardBootstrap>;
-	function getDashboardData(defer: true): Promise<DeferredData<DashboardBootstrap>>;
-	function getDashboardData(defer = false) {
-		const fn = async (ctx: UseCaseContext) => fetchDashboardBootstrap(ctx);
-
-		if (defer) {
-			return loadWithContext(locals, cookies, orgId, {
-				policyAction: POLICY_ACTION_CATALOG.identity.viewDashboard,
-				defer: true,
-				fn
-			});
-		}
-
-		return loadWithContext(locals, cookies, orgId, {
-			policyAction: POLICY_ACTION_CATALOG.identity.viewDashboard,
-			fn
-		});
-	}
-
-	return {
-		async getWorkspaceData<T>(workspace: WorkspaceKey): Promise<T> {
-			if (workspace !== 'dashboard') {
-				throw new Error(`createSupabaseDashboardWorkspacePort: unsupported workspace '${workspace}'`);
-			}
-
-			const data = await getDashboardData();
-
-			return data as T;
-		},
-		async streamWorkspaceData<T>(workspace: WorkspaceKey) {
-			if (workspace !== 'dashboard') {
-				throw new Error(`createSupabaseDashboardWorkspacePort: unsupported workspace '${workspace}'`);
-			}
-
-			return getDashboardData(true) as Promise<DeferredData<T>>;
-		}
-	};
 }

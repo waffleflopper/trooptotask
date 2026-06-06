@@ -1,7 +1,7 @@
 import type { Cookies } from '@sveltejs/kit';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
-import type { DeferredData, HydrationItems } from '$lib/server/core/orgShell';
+import type { DeferredData, HydrationItems } from '$lib/server/core/streamedWorkspace';
 import { fetchCriticalTasksBootstrap } from '$lib/server/core/useCases/criticalTasksWorkspaceQuery';
 import type { Group } from '$lib/stores/groups.svelte';
 import type { Personnel } from '$lib/types';

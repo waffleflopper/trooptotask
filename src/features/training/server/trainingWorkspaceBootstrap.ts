@@ -6,7 +6,7 @@ import { PinnedGroupsEntity } from '$lib/server/entities/pinnedGroups';
 import { TrainingTypeEntity } from '$lib/server/entities/trainingType';
 import { TrainingViewEntity } from '$lib/server/entities/trainingView';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
-import type { DeferredData, HydrationItems } from '$lib/server/core/orgShell';
+import type { DeferredData, HydrationItems } from '$lib/server/core/streamedWorkspace';
 import type { UseCaseContext } from '$lib/server/core/ports';
 import { loadRosterPersonnel } from '$lib/server/core/useCases/rosterReadModel';
 import { withTrainingTiming, type TrainingLoadPhase } from '$lib/server/utils/trainingTiming';

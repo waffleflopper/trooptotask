@@ -3,6 +3,8 @@ import type { AvailabilityEntry, Personnel, StatusType } from '$lib/types';
 import type { Group } from '$lib/stores/groups.svelte';
 import type { AssignmentType, DailyAssignment } from '$lib/types';
 import { createDashboardScreenModel, type DashboardStoragePort } from './dashboardScreenModel.svelte';
+import type { DashboardWorkspaceResult } from '../server/dashboardWorkspaceBootstrap';
+import type { DashboardPageData } from '../dashboard.types';
 
 function createMemoryStorage(initial: Record<string, string> = {}): DashboardStoragePort & {
 	values: Record<string, string>;
@@ -18,13 +20,16 @@ function createMemoryStorage(initial: Record<string, string> = {}): DashboardSto
 	};
 }
 
-function makeData(overrides: Record<string, unknown> = {}, workspaceOverrides: Record<string, unknown> = {}) {
+function makeData(
+	overrides: Partial<DashboardPageData> = {},
+	workspaceOverrides: Record<string, unknown> = {}
+): DashboardPageData {
 	return {
 		orgId: 'org-1',
 		orgName: 'Test Unit',
 		userId: 'user-1',
 		dashboard: {
-			workspace: 'dashboard',
+			workspaceKey: 'dashboard',
 			data: {
 				availabilityEntries: [],
 				assignmentTypes: [],
@@ -40,7 +45,8 @@ function makeData(overrides: Record<string, unknown> = {}, workspaceOverrides: R
 				lossWarningWindowDays: 180,
 				awardTrackingAcknowledgedPersonnelIds: [],
 				...workspaceOverrides
-			}
+			},
+			hydration: { orgId: 'org-1' } as DashboardWorkspaceResult['hydration']
 		},
 		trainingSummary: null,
 		ictlSummary: null,
@@ -220,7 +226,15 @@ describe('createDashboardScreenModel', () => {
 			makeData(
 				{
 					trainingSummary: {
-						stats: { current: 3, expired: 1, warningOrange: 2, warningYellow: 0 },
+						stats: {
+							current: 3,
+							expired: 1,
+							warningOrange: 2,
+							warningYellow: 0,
+							notCompleted: 0,
+							notRequired: 0,
+							total: 6
+						},
 						issues: [
 							{ personName: 'SGT Smith', typeName: 'CPR', status: 'warning-orange', label: 'Due 20d' },
 							{ personName: 'SGT Smith', typeName: 'BLS', status: 'expired', label: 'Expired 5d' },

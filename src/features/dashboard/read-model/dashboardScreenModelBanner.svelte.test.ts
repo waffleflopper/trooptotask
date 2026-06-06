@@ -5,6 +5,8 @@ import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 import { availabilityStore } from '$features/calendar/stores/availability.svelte';
 import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
 import { groupsStore } from '$lib/stores/groups.svelte';
+import type { DashboardWorkspaceResult } from '../server/dashboardWorkspaceBootstrap';
+import type { DashboardPageData } from '../dashboard.types';
 
 const mutableRosterStore = rosterStore as unknown as { items: Array<Record<string, unknown>> };
 const mutableStatusTypesStore = statusTypesStore as unknown as { items: Array<Record<string, unknown>> };
@@ -14,6 +16,15 @@ const mutableAvailabilityStore = availabilityStore as unknown as {
 };
 const mutableDailyAssignmentsStore = dailyAssignmentsStore as unknown as { loading: boolean };
 const mutableGroupsStore = groupsStore as unknown as { loading: boolean };
+const emptyTrainingStats = {
+	current: 0,
+	expired: 0,
+	warningOrange: 0,
+	warningYellow: 0,
+	notCompleted: 0,
+	notRequired: 0,
+	total: 0
+};
 
 // ---------------------------------------------------------------------------
 // Minimal stubs for stores & browser APIs
@@ -75,12 +86,19 @@ function makeWorkspaceData(overrides: Record<string, unknown> = {}) {
 	};
 }
 
-function makeData(overrides: Record<string, unknown> = {}, workspaceOverrides: Record<string, unknown> = {}) {
+function makeData(
+	overrides: Partial<DashboardPageData> = {},
+	workspaceOverrides: Record<string, unknown> = {}
+): DashboardPageData {
 	return {
 		orgId: 'org-1',
 		orgName: 'Test Unit',
 		userId: 'user-1',
-		dashboard: { data: makeWorkspaceData(workspaceOverrides), hydration: undefined, workspace: 'dashboard' },
+		dashboard: {
+			workspaceKey: 'dashboard',
+			data: makeWorkspaceData(workspaceOverrides),
+			hydration: { orgId: 'org-1' } as DashboardWorkspaceResult['hydration']
+		},
 		trainingSummary: null,
 		ictlSummary: null,
 		onboardingTrainingCompletions: [],
@@ -217,7 +235,15 @@ describe('DashboardScreenModel (migrated context coverage)', () => {
 		});
 
 		it('uses server-provided stats when trainingSummary is present', () => {
-			const stats = { current: 5, expired: 1, 'warning-orange': 2, 'warning-yellow': 0 };
+			const stats = {
+				current: 5,
+				expired: 1,
+				warningOrange: 2,
+				warningYellow: 0,
+				notCompleted: 0,
+				notRequired: 0,
+				total: 8
+			};
 			const dataWithStats = makeData({ trainingSummary: { stats, issues: [] } });
 			const c = createDashboardScreenModel(dataWithStats);
 			expect(c.trainingStats).toEqual(stats);
@@ -231,7 +257,7 @@ describe('DashboardScreenModel (migrated context coverage)', () => {
 
 		it('returns issues from trainingSummary', () => {
 			const issues = [{ personName: 'SGT Smith', typeName: 'CPR', status: 'expired', label: 'Expired' }];
-			const c = createDashboardScreenModel(makeData({ trainingSummary: { stats: {}, issues } }));
+			const c = createDashboardScreenModel(makeData({ trainingSummary: { stats: emptyTrainingStats, issues } }));
 			expect(c.topTrainingIssues).toHaveLength(1);
 			expect(c.topTrainingIssues[0].personName).toBe('SGT Smith');
 		});
@@ -242,7 +268,7 @@ describe('DashboardScreenModel (migrated context coverage)', () => {
 				{ personName: 'PFC Jones', typeName: 'BLS', status: 'warning-orange', label: 'Expiring' },
 				{ personName: 'SPC Clark', typeName: 'SHARP', status: 'expired', label: 'Expired' }
 			];
-			const c = createDashboardScreenModel(makeData({ trainingSummary: { stats: {}, issues } }));
+			const c = createDashboardScreenModel(makeData({ trainingSummary: { stats: emptyTrainingStats, issues } }));
 			expect(c.topTrainingIssues).toHaveLength(3);
 			expect(c.topTrainingIssues[1].typeName).toBe('BLS');
 		});

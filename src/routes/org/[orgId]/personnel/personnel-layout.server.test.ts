@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { Cookies } from '@sveltejs/kit';
-import type { DeferredData, ReadyAppShell } from '$lib/server/core/orgShell';
+import type { ReadyAppShell } from '$lib/server/core/orgShell';
+import type { DeferredData } from '$lib/server/core/streamedWorkspace';
 import type { PersonnelWorkspaceResult } from '$features/personnel/server/personnelWorkspaceBootstrap';
 import { _createPersonnelLayoutLoad } from './+layout.server';
 

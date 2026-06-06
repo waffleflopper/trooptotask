@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { DashboardBootstrap } from '$lib/server/core/useCases/dashboardQuery';
-import type { WorkspaceBootstrap } from '$lib/server/core/orgShell';
+import type {
+	DashboardWorkspaceData,
+	DashboardWorkspaceResult
+} from '$features/dashboard/server/dashboardWorkspaceBootstrap';
 import { createReadyAppShellRouteData } from '$lib/test-support/appShellRouteData';
 
 const {
@@ -190,8 +192,8 @@ describe('dashboard page server load', () => {
 
 	it('streams dashboard summary without starting non-critical support queries in the page server load', async () => {
 		const consoleInfoSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
-		let resolveWorkspace: ((value: WorkspaceBootstrap<DashboardBootstrap>) => void) | undefined;
-		const workspaceBootstrap = new Promise<WorkspaceBootstrap<DashboardBootstrap>>((resolve) => {
+		let resolveWorkspace: ((value: DashboardWorkspaceResult) => void) | undefined;
+		const workspaceBootstrap = new Promise<DashboardWorkspaceResult>((resolve) => {
 			resolveWorkspace = resolve;
 		});
 		const depends = vi.fn();
@@ -219,7 +221,7 @@ describe('dashboard page server load', () => {
 		expect(findManyMock).not.toHaveBeenCalled();
 
 		resolveWorkspace?.({
-			workspace: 'dashboard',
+			workspaceKey: 'dashboard',
 			data: {
 				availabilityEntries: [],
 				assignmentTypes: [],
@@ -233,7 +235,8 @@ describe('dashboard page server load', () => {
 				statusTypes: [],
 				trainingTypes: [],
 				lossWarningWindowDays: 180
-			} as unknown as DashboardBootstrap
+			} as unknown as DashboardWorkspaceData,
+			hydration: { orgId: ORG_ID } as DashboardWorkspaceResult['hydration']
 		});
 
 		await expect(result.summary).resolves.toEqual({
@@ -301,8 +304,8 @@ describe('dashboard page server load', () => {
 	});
 
 	it('does not fetch or return Critical Tasks dashboard data without Critical Tasks view access', async () => {
-		let resolveWorkspace: ((value: WorkspaceBootstrap<DashboardBootstrap>) => void) | undefined;
-		const workspaceBootstrap = new Promise<WorkspaceBootstrap<DashboardBootstrap>>((resolve) => {
+		let resolveWorkspace: ((value: DashboardWorkspaceResult) => void) | undefined;
+		const workspaceBootstrap = new Promise<DashboardWorkspaceResult>((resolve) => {
 			resolveWorkspace = resolve;
 		});
 		const parent = vi.fn().mockResolvedValue({
@@ -321,7 +324,7 @@ describe('dashboard page server load', () => {
 		} as never);
 
 		resolveWorkspace?.({
-			workspace: 'dashboard',
+			workspaceKey: 'dashboard',
 			data: {
 				availabilityEntries: [],
 				assignmentTypes: [],
@@ -335,7 +338,8 @@ describe('dashboard page server load', () => {
 				statusTypes: [],
 				trainingTypes: [],
 				lossWarningWindowDays: 180
-			} as unknown as DashboardBootstrap
+			} as unknown as DashboardWorkspaceData,
+			hydration: { orgId: ORG_ID } as DashboardWorkspaceResult['hydration']
 		});
 
 		await expect(result.summary).resolves.toEqual({

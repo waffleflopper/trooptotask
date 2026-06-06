@@ -4,7 +4,6 @@ import type {
 	OnboardingTemplateStep,
 	PersonnelOnboarding
 } from '$features/onboarding/onboarding.types';
-import type { RatingSchemeEntry } from '$features/rating-scheme/rating-scheme.types';
 import type { PersonnelTraining } from '$features/training/training.types';
 import type { AssignmentType, AvailabilityEntry, DailyAssignment, SpecialDay } from '$lib/types';
 
@@ -218,13 +217,6 @@ const PLAN_FIELDS: PlanFieldDescriptor[] = [
 	simpleField<string>('pinnedGroups', (plan, target) => {
 		plan.pinnedGroups = target;
 	}),
-	{
-		// Dashboard rating-scheme data is a summary-shaped subset, not the canonical store dataset.
-		detect: (d, workspace) => workspace !== 'dashboard' && isHydratableItems(d.ratingSchemeEntries),
-		build: (d, _workspace, plan) => {
-			plan.ratingSchemeEntries = createHydrationTarget(d.ratingSchemeEntries as HydrationItems<RatingSchemeEntry>);
-		}
-	},
 	{
 		detect: (d) => Array.isArray(d.onboardingTemplates) || Array.isArray(d.onboardingTemplateSteps),
 		build: (d, _workspace, plan) => {

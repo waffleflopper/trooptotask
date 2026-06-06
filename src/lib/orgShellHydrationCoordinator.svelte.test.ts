@@ -84,7 +84,6 @@ function createHydrationStores(overrides: Partial<HydrationStores> = {}) {
 		trainingViewsStore: createLoadable(),
 		personnelTrainingsStore: createLoadable(),
 		pinnedGroupsStore: createLoadable<string>(),
-		ratingSchemeStore: createLoadable(),
 		onboardingTemplateStore: createOnboardingTemplatesStore(),
 		onboardingStore: createLoadable(),
 		...overrides

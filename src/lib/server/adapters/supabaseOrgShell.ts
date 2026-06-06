@@ -21,7 +21,6 @@ import type {
 	AppShellRequest,
 	DeferredData,
 	OrgAccessPort,
-	OrgWorkspacePort,
 	StreamableOrgWorkspacePort,
 	WorkspaceKey,
 	MembershipInfo,
@@ -38,7 +37,6 @@ import {
 import { loadWithContext, getLayoutClient } from './httpAdapter';
 import { getOrLoadRequestMembership } from '$lib/server/membershipContextCache';
 import { fetchDashboardBootstrap, type DashboardBootstrap } from '../core/useCases/dashboardQuery';
-import { fetchRatingSchemeBootstrap } from '../core/useCases/personnelWorkspaceQuery';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination';
 import { createSupabaseSubscriptionAdapter } from './supabaseSubscription';
 import {
@@ -391,28 +389,6 @@ async function loadOrganizationSwitcherOrgs(config: {
 				})
 			};
 		});
-}
-
-export function createSupabaseRatingSchemeWorkspacePort(
-	locals: App.Locals,
-	cookies: Cookies,
-	orgId: string
-): OrgWorkspacePort {
-	return {
-		async getWorkspaceData<T>(workspace: WorkspaceKey): Promise<T> {
-			if (workspace !== 'rating-scheme') {
-				throw new Error(`createSupabaseRatingSchemeWorkspacePort: unsupported workspace '${workspace}'`);
-			}
-
-			const data = await loadWithContext(locals, cookies, orgId, {
-				policyAction: POLICY_ACTION_CATALOG.ratingScheme.viewEntries,
-				policyResource: { kind: 'unscoped' },
-				fn: async (ctx) => fetchRatingSchemeBootstrap(ctx)
-			});
-
-			return data as T;
-		}
-	};
 }
 
 export function createSupabaseDashboardWorkspacePort(

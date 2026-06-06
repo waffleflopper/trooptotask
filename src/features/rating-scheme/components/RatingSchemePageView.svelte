@@ -15,7 +15,6 @@
 	import RatingSchemeTableView from '$features/rating-scheme/components/RatingSchemeTableView.svelte';
 	import RatingSchemeGroupedView from '$features/rating-scheme/components/RatingSchemeGroupedView.svelte';
 	import EvalBadge from '$features/rating-scheme/components/EvalBadge.svelte';
-	import { exportRatingScheme } from '$features/rating-scheme/utils/ratingSchemeExport';
 	import type { RatingSchemePageContext } from '$features/rating-scheme/contexts/RatingSchemePageContext.svelte';
 
 	interface Props {
@@ -74,6 +73,7 @@
 				onclick: async () => {
 					exportLoading = true;
 					try {
+						const { exportRatingScheme } = await import('$features/rating-scheme/utils/ratingSchemeExport');
 						await exportRatingScheme(ctx.filteredRatingEntries, personnelLookup);
 					} catch (err) {
 						toastStore.error(err instanceof Error ? err.message : 'Export failed');

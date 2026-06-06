@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import RatingSchemePageView from './RatingSchemePageView.svelte';
 import { RatingSchemePageContext, type RatingSchemePageData } from '../contexts/RatingSchemePageContext.svelte';
@@ -142,6 +142,8 @@ describe('RatingSchemePageView', () => {
 		expect(ctx.ratingViewMode).toBe('table');
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Export' }));
-		expect(exportRatingSchemeMock).toHaveBeenCalledWith(ctx.filteredRatingEntries, personnelLookup);
+		await waitFor(() => {
+			expect(exportRatingSchemeMock).toHaveBeenCalledWith(ctx.filteredRatingEntries, personnelLookup);
+		});
 	});
 });

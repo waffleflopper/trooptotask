@@ -1,15 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { Cookies } from '@sveltejs/kit';
-import { createInMemoryOrgWorkspacePort } from '$lib/server/adapters/inMemoryOrgShell';
-import { createDefaultHydrationPlanner } from '$lib/server/core/hydrationPlanner';
-import type { WorkspaceBootstrap, WorkspaceKey } from '$lib/server/core/orgShell';
-import type { RatingSchemeBootstrap } from '$lib/server/core/useCases/personnelWorkspaceQuery';
+import { createReadyAppShellRouteData } from '$lib/test-support/appShellRouteData';
 import type { RatingSchemeEntry } from '$features/rating-scheme/rating-scheme.types';
 import type { PersonnelLookup } from '$lib/types';
+import type { RatingSchemeWorkspaceRouteData } from '$features/rating-scheme/server/ratingSchemeWorkspaceBootstrap';
 import { _createEvalsLayoutLoad } from './+layout.server';
 
 describe('evals layout server load', () => {
-	it('loads the rating-scheme workspace behind the dedicated rating-scheme route', async () => {
+	it('registers Evals dependencies and streams the Rating Scheme-owned workspace bootstrap', async () => {
 		const ratingSchemeEntries = [
 			{
 				id: 'rs1',
@@ -31,21 +29,30 @@ describe('evals layout server load', () => {
 				workflowStatus: 'drafting'
 			} satisfies RatingSchemeEntry
 		];
-		const evalsData: RatingSchemeBootstrap = {
+		const evalsData = {
 			personnelLookup: [{ id: 'p1', rank: 'SGT', firstName: 'John', lastName: 'Smith' } as PersonnelLookup],
 			ratingSchemeEntries,
 			lossWarningWindowDays: 180
 		};
 		const depends = vi.fn();
-		const workspacePort = createInMemoryOrgWorkspacePort(
-			new Map<WorkspaceKey, unknown>([['rating-scheme', evalsData]])
-		);
-		const plannerPort = createDefaultHydrationPlanner('org-1');
-		const createWorkspacePort = vi.fn().mockReturnValue(workspacePort);
-		const createPlannerPort = vi.fn().mockReturnValue(plannerPort);
+		const streamRatingSchemeWorkspace = vi.fn<() => Promise<RatingSchemeWorkspaceRouteData>>().mockResolvedValue({
+			ratingScheme: {
+				data: Promise.resolve({
+					laneKey: 'ratingScheme',
+					data: evalsData,
+					hydration: {
+						orgId: 'org-1',
+						ratingSchemeEntries: {
+							mode: 'replace',
+							items: ratingSchemeEntries,
+							snapshotKey: 'rating-scheme:1'
+						}
+					}
+				})
+			}
+		});
 		const load = _createEvalsLayoutLoad({
-			createWorkspacePort,
-			createPlannerPort
+			streamRatingSchemeWorkspace
 		});
 		const locals = {} as App.Locals;
 		const cookies = {} as Cookies;
@@ -55,26 +62,29 @@ describe('evals layout server load', () => {
 			locals,
 			cookies,
 			depends,
+			parent: async () => createReadyAppShellRouteData({ orgId: 'org-1' }),
 			url: new URL('https://example.test/org/org-1/evals')
 		} as unknown as Parameters<typeof load>[0]);
 
 		expect(depends).toHaveBeenCalledWith('app:org-core', 'app:rating-scheme-data');
-		expect(createWorkspacePort).toHaveBeenCalledWith({ locals, cookies, orgId: 'org-1' });
-		expect(createPlannerPort).toHaveBeenCalledWith('org-1');
-		expect(result).toMatchObject({
-			ratingScheme: {
-				workspace: 'rating-scheme',
-				data: evalsData,
-				hydration: {
-					orgId: 'org-1',
-					ratingSchemeEntries: expect.objectContaining({
-						mode: 'replace',
-						items: evalsData.ratingSchemeEntries,
-						deferred: false,
-						snapshotKey: expect.any(String)
-					})
-				}
-			} satisfies WorkspaceBootstrap<RatingSchemeBootstrap>
+		expect(streamRatingSchemeWorkspace).toHaveBeenCalledWith({ locals, cookies, orgId: 'org-1' });
+		expect(result).toEqual({
+			ratingScheme: { data: expect.any(Promise) }
+		});
+		if (!result) {
+			throw new Error('Expected Evals layout load to return data');
+		}
+		await expect(result.ratingScheme.data).resolves.toMatchObject({
+			laneKey: 'ratingScheme',
+			data: evalsData,
+			hydration: {
+				orgId: 'org-1',
+				ratingSchemeEntries: expect.objectContaining({
+					mode: 'replace',
+					items: ratingSchemeEntries,
+					snapshotKey: 'rating-scheme:1'
+				})
+			}
 		});
 	});
 });

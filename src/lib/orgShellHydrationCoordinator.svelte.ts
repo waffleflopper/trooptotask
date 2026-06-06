@@ -1,7 +1,6 @@
 import { SvelteMap } from 'svelte/reactivity';
 import { onboardingTemplateStore } from '$features/onboarding/stores/onboardingTemplate.svelte';
 import { onboardingStore } from '$features/onboarding/stores/onboarding.svelte';
-import { ratingSchemeStore } from '$features/rating-scheme/stores/ratingScheme.svelte';
 import { trainingViewsStore } from '$features/training/stores/trainingViews.svelte';
 import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
 import { rosterStore } from '$lib/stores/roster.svelte';
@@ -40,7 +39,6 @@ const defaultStores: HydrationStores = {
 	trainingViewsStore,
 	personnelTrainingsStore,
 	pinnedGroupsStore,
-	ratingSchemeStore,
 	onboardingTemplateStore,
 	onboardingStore
 };
@@ -243,7 +241,6 @@ export function createOrgShellHydrationCoordinator(): OrgShellHydrationCoordinat
 				createTargetDescriptor(plan.trainingViews, stores.trainingViewsStore, orgId, 'trainingViews'),
 				createTargetDescriptor(plan.personnelTrainings, stores.personnelTrainingsStore, orgId, 'personnelTrainings'),
 				createTargetDescriptor(plan.pinnedGroups, stores.pinnedGroupsStore, orgId, 'pinnedGroups'),
-				createTargetDescriptor(plan.ratingSchemeEntries, stores.ratingSchemeStore, orgId, 'ratingSchemeEntries'),
 				createOnboardingTemplatesDescriptor(
 					plan.onboardingTemplates,
 					stores.onboardingTemplateStore,

@@ -1,43 +1,25 @@
-import type { Cookies } from '@sveltejs/kit';
 import type { LayoutServerLoad } from './$types';
-import { createSupabasePersonnelWorkspacePort } from '$lib/server/adapters/supabaseOrgShell';
-import { createDefaultHydrationPlanner } from '$lib/server/core/hydrationPlanner';
-import type { HydrationPlannerPort, OrgWorkspacePort } from '$lib/server/core/orgShell';
-import { createOrgShellCoordinator, type OrgShellCoordinator } from '$lib/server/core/orgShellCoordinator';
-import type { PersonnelBootstrap } from '$lib/server/core/useCases/personnelWorkspaceQuery';
-
-interface PersonnelLayoutRequestContext {
-	locals: App.Locals;
-	cookies: Cookies;
-	orgId: string;
-}
+import {
+	streamReadyFeatureLaneWorkspace,
+	type FeatureLaneWorkspaceRequestContext
+} from '$lib/server/core/featureLaneWorkspaceLoad';
+import {
+	streamPersonnelWorkspaceBootstrap,
+	type PersonnelWorkspaceRouteData
+} from '$features/personnel/server/personnelWorkspaceBootstrap';
 
 export interface PersonnelLayoutLoadDeps {
-	coordinator?: OrgShellCoordinator;
-	createWorkspacePort?: (context: PersonnelLayoutRequestContext) => OrgWorkspacePort;
-	createPlannerPort?: (orgId: string) => HydrationPlannerPort;
+	streamPersonnelWorkspace?: (context: FeatureLaneWorkspaceRequestContext) => Promise<PersonnelWorkspaceRouteData>;
 }
 
 export function _createPersonnelLayoutLoad(deps: PersonnelLayoutLoadDeps = {}): LayoutServerLoad {
-	const coordinator = deps.coordinator ?? createOrgShellCoordinator();
-	const createWorkspacePort =
-		deps.createWorkspacePort ??
-		(({ locals, cookies, orgId }: PersonnelLayoutRequestContext) =>
-			createSupabasePersonnelWorkspacePort(locals, cookies, orgId));
-	const createPlannerPort = deps.createPlannerPort ?? createDefaultHydrationPlanner;
+	const streamPersonnelWorkspace = deps.streamPersonnelWorkspace ?? streamPersonnelWorkspaceBootstrap;
 
-	return async ({ params, locals, cookies, depends }) => {
-		depends('app:org-core', 'app:personnel-data');
-
-		const { orgId } = params;
-		const workspacePort = createWorkspacePort({ locals, cookies, orgId });
-		const plannerPort = createPlannerPort(orgId);
-
-		return coordinator.loadWorkspace<PersonnelBootstrap, 'personnel'>('personnel', {
-			workspace: workspacePort,
-			planner: plannerPort
+	return async (event) =>
+		streamReadyFeatureLaneWorkspace(event, {
+			dependencies: ['app:org-core', 'app:personnel-data'],
+			streamWorkspace: streamPersonnelWorkspace
 		});
-	};
 }
 
 export const load: LayoutServerLoad = _createPersonnelLayoutLoad();

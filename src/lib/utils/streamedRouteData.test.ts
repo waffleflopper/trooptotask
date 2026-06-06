@@ -1,5 +1,4 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { WorkspaceBootstrap } from '$lib/server/core/orgShell';
 import { isPromiseLike, materializeWorkspaceData, observeDeferred, normalizeDeferredError } from './streamedRouteData';
 
 function deferred<T>() {
@@ -14,8 +13,8 @@ function deferred<T>() {
 
 describe('streamedRouteData helpers', () => {
 	it('replaces a streamed workspace payload with resolved bootstrap data', () => {
-		const bootstrap: WorkspaceBootstrap<{ personnel: string[] }> = {
-			workspace: 'calendar',
+		const bootstrap = {
+			laneKey: 'calendar',
 			data: { personnel: ['p1'] }
 		};
 		const streamedData = {

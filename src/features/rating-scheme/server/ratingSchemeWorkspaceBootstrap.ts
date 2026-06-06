@@ -2,7 +2,7 @@ import type { Cookies } from '@sveltejs/kit';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
 import type { QueryWithRawStorePorts, RatingSchemePersonnelLookupRecord } from '$lib/server/core/ports';
-import type { DeferredData, HydrationItems } from '$lib/server/core/orgShell';
+import type { DeferredData, HydrationItems } from '$lib/server/core/streamedWorkspace';
 import { requireFeaturePolicy } from '$lib/server/core/useCases/featurePolicy';
 import { RatingSchemeEntryEntity } from '$lib/server/entities/ratingSchemeEntry';
 import type { PersonnelLookup } from '$lib/types';

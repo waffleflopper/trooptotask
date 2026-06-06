@@ -1,7 +1,7 @@
 import type { Cookies } from '@sveltejs/kit';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
-import type { CalendarAssignmentsHydrationItems, DeferredData, HydrationItems } from '$lib/server/core/orgShell';
+import type { DeferredData, HydrationItems } from '$lib/server/core/streamedWorkspace';
 import {
 	fetchCalendarBootstrap,
 	getActiveOnboardingPersonnelIds,
@@ -41,6 +41,11 @@ export interface CalendarAssignmentsWorkspaceHydrationTarget {
 	rangeStart?: string;
 	rangeEnd?: string;
 	items: CalendarAssignmentsHydrationItems | Promise<CalendarAssignmentsHydrationItems>;
+}
+
+export interface CalendarAssignmentsHydrationItems {
+	types: AssignmentType[];
+	assignments: DailyAssignment[];
 }
 
 export interface CalendarWorkspaceHydration {

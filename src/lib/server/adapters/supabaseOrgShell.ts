@@ -38,7 +38,7 @@ import {
 import { loadWithContext, getLayoutClient } from './httpAdapter';
 import { getOrLoadRequestMembership } from '$lib/server/membershipContextCache';
 import { fetchDashboardBootstrap, type DashboardBootstrap } from '../core/useCases/dashboardQuery';
-import { fetchPersonnelBootstrap, fetchRatingSchemeBootstrap } from '../core/useCases/personnelWorkspaceQuery';
+import { fetchRatingSchemeBootstrap } from '../core/useCases/personnelWorkspaceQuery';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination';
 import { createSupabaseSubscriptionAdapter } from './supabaseSubscription';
 import {
@@ -391,28 +391,6 @@ async function loadOrganizationSwitcherOrgs(config: {
 				})
 			};
 		});
-}
-
-export function createSupabasePersonnelWorkspacePort(
-	locals: App.Locals,
-	cookies: Cookies,
-	orgId: string
-): OrgWorkspacePort {
-	return {
-		async getWorkspaceData<T>(workspace: WorkspaceKey): Promise<T> {
-			if (workspace !== 'personnel') {
-				throw new Error(`createSupabasePersonnelWorkspacePort: unsupported workspace '${workspace}'`);
-			}
-
-			const data = await loadWithContext(locals, cookies, orgId, {
-				policyAction: POLICY_ACTION_CATALOG.personnel.viewRoster,
-				policyResource: { kind: 'unscoped' },
-				fn: async (ctx) => fetchPersonnelBootstrap(ctx)
-			});
-
-			return data as T;
-		}
-	};
 }
 
 export function createSupabaseRatingSchemeWorkspacePort(

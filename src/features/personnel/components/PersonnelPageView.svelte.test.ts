@@ -51,6 +51,11 @@ const personnel: Personnel[] = [
 	}
 ];
 
+async function confirmArchiveDialog(): Promise<void> {
+	const dialog = await screen.findByRole('alertdialog');
+	await fireEvent.click(within(dialog).getByRole('button', { name: 'Archive' }));
+}
+
 function makePerson(index: number): Personnel {
 	return {
 		id: `person-${index}`,
@@ -532,13 +537,15 @@ describe('PersonnelPageView', () => {
 		});
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Archive SGT Smith, Jane' }));
-		await fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Archive' }));
+		await confirmArchiveDialog();
 
-		expect(fetchMock).toHaveBeenCalledWith('/org/org-1/api/personnel', {
-			method: 'DELETE',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ id: 'person-1' })
-		});
+		await waitFor(() =>
+			expect(fetchMock).toHaveBeenCalledWith('/org/org-1/api/personnel', {
+				method: 'DELETE',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ id: 'person-1' })
+			})
+		);
 		await waitFor(() => expect(invalidateAllMock).toHaveBeenCalled());
 		expect(screen.queryByText('Smith, Jane')).toBeNull();
 	});
@@ -562,13 +569,15 @@ describe('PersonnelPageView', () => {
 		await fireEvent.click(screen.getByRole('button', { name: 'Archive' }));
 		await fireEvent.click(screen.getByRole('checkbox', { name: 'Select SGT Smith, Jane' }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Confirm Archive' }));
-		await fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Archive' }));
+		await confirmArchiveDialog();
 
-		expect(fetchMock).toHaveBeenCalledWith('/org/org-1/api/personnel/archive-batch', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ ids: ['person-1'] })
-		});
+		await waitFor(() =>
+			expect(fetchMock).toHaveBeenCalledWith('/org/org-1/api/personnel/archive-batch', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ ids: ['person-1'] })
+			})
+		);
 		await waitFor(() => expect(invalidateAllMock).toHaveBeenCalled());
 		expect(screen.queryByText('Smith, Jane')).toBeNull();
 	});
@@ -601,10 +610,14 @@ describe('PersonnelPageView', () => {
 		await fireEvent.click(screen.getByRole('button', { name: 'Select shown' }));
 		expect(screen.getByText('75 of 76 selected')).toBeTruthy();
 		await fireEvent.click(screen.getByRole('button', { name: 'Confirm Archive' }));
-		await fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Archive' }));
+		await confirmArchiveDialog();
 
-		await waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
-		const request = JSON.parse(String(fetchMock.mock.calls[0][1]?.body)) as { ids: string[] };
+		await waitFor(() =>
+			expect(fetchMock).toHaveBeenCalledWith('/org/org-1/api/personnel/archive-batch', expect.any(Object))
+		);
+		const archiveCall = fetchMock.mock.calls.find(([url]) => url === '/org/org-1/api/personnel/archive-batch');
+		expect(archiveCall).toBeDefined();
+		const request = JSON.parse(String(archiveCall?.[1]?.body)) as { ids: string[] };
 		expect(request.ids).toHaveLength(75);
 		expect(request.ids).toContain('person-1');
 		expect(request.ids).not.toContain('person-76');
@@ -629,7 +642,7 @@ describe('PersonnelPageView', () => {
 		await fireEvent.click(screen.getByRole('button', { name: 'Archive' }));
 		await fireEvent.click(screen.getByRole('checkbox', { name: 'Select SGT Smith, Jane' }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Confirm Archive' }));
-		await fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Archive' }));
+		await confirmArchiveDialog();
 
 		await waitFor(() =>
 			expect(toastInfoMock).toHaveBeenCalledWith('1 archival requests submitted for admin approval.', {
@@ -667,7 +680,7 @@ describe('PersonnelPageView', () => {
 		await fireEvent.click(screen.getByRole('button', { name: 'Archive' }));
 		await fireEvent.click(screen.getByRole('checkbox', { name: 'Select SGT Smith, Jane' }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Confirm Archive' }));
-		await fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Archive' }));
+		await confirmArchiveDialog();
 
 		await waitFor(() =>
 			expect(toastErrorMock).toHaveBeenCalledWith('1 personnel could not be archived.', {

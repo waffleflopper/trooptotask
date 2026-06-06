@@ -1,10 +1,8 @@
 <script lang="ts">
-	import { orgShellHydrationCoordinator } from '$lib/orgShellHydrationCoordinator.svelte';
-	import type { WorkspaceBootstrap } from '$lib/server/core/orgShell';
-	import type { DashboardBootstrap } from '$lib/server/core/useCases/dashboardQuery';
-	import { isPromiseLike, observeDeferred, throwRenderError } from '$lib/utils/streamedRouteData';
-
-	const coordinator = orgShellHydrationCoordinator;
+	import { dashboardWorkspaceHydrator } from '$features/dashboard/dashboardWorkspaceHydration.svelte';
+	import type { DashboardWorkspaceResult } from '$features/dashboard/server/dashboardWorkspaceBootstrap';
+	import { throwRenderError } from '$lib/utils/streamedRouteData';
+	import { hydrateStreamedWorkspace } from '$lib/utils/streamedWorkspaceHydrator';
 
 	let { children, data } = $props();
 	let hydrationError = $state<Error | null>(null);
@@ -16,47 +14,16 @@
 	});
 
 	$effect(() => {
-		let cancelled = false;
-		const streamedDashboard = data.dashboard?.data;
-
 		hydrationError = null;
 
-		if (!streamedDashboard) {
-			return;
-		}
-
-		if (!isPromiseLike(streamedDashboard)) {
-			void observeDeferred(
-				coordinator.hydrate((streamedDashboard as WorkspaceBootstrap<DashboardBootstrap>).hydration),
-				{
-					fallbackMessage: 'Failed to hydrate dashboard workspace',
-					onReject: (error) => {
-						hydrationError = error;
-					},
-					isCancelled: () => cancelled
-				}
-			);
-			return () => {
-				cancelled = true;
-			};
-		}
-
-		void observeDeferred(
-			streamedDashboard.then((dashboard: WorkspaceBootstrap<DashboardBootstrap>) =>
-				coordinator.hydrate(dashboard.hydration)
-			),
-			{
-				fallbackMessage: 'Failed to hydrate dashboard workspace',
-				onReject: (error) => {
-					hydrationError = error;
-				},
-				isCancelled: () => cancelled
+		return hydrateStreamedWorkspace<DashboardWorkspaceResult>({
+			streamedWorkspace: data.dashboard,
+			fallbackMessage: 'Failed to hydrate dashboard workspace',
+			hydrate: (dashboard) => dashboardWorkspaceHydrator.hydrate(dashboard.hydration),
+			onReject: (error) => {
+				hydrationError = error;
 			}
-		);
-
-		return () => {
-			cancelled = true;
-		};
+		});
 	});
 </script>
 

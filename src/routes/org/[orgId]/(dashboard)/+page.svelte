@@ -1,12 +1,14 @@
 <script lang="ts">
-	import { createDashboardScreenModel, DashboardPageView } from '$features/dashboard';
-	import type { DashboardScreenModel, DashboardSupportData } from '$features/dashboard';
+	import DashboardPageView from '$features/dashboard/components/DashboardPageView.svelte';
 	import type { DashboardPageData } from '$features/dashboard/dashboard.types';
+	import {
+		createDashboardScreenModel,
+		type DashboardScreenModel,
+		type DashboardSupportData
+	} from '$features/dashboard/read-model/dashboardScreenModel.svelte';
 	import type { PageData } from './$types';
 	import type { DashboardPageSummaryData } from './+page.server';
-	import type { WorkspaceBootstrap } from '$lib/server/core/orgShell';
-	import type { DashboardBootstrap } from '$lib/server/core/useCases/dashboardQuery';
-	import { Button } from '$lib/components/ui/button';
+	import type { DashboardWorkspaceResult } from '$features/dashboard/server/dashboardWorkspaceBootstrap';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import {
 		isPromiseLike,
@@ -21,7 +23,7 @@
 
 	let { data }: { data: DashboardRouteData } = $props();
 
-	let dashboardBootstrap = $state<WorkspaceBootstrap<DashboardBootstrap> | null>(null);
+	let dashboardBootstrap = $state<DashboardWorkspaceResult | null>(null);
 	let summaryData = $state<DashboardPageSummaryData | null>(null);
 	let supportData = $state<DashboardSupportData | null>(null);
 	let supportLoading = $state(false);
@@ -50,7 +52,7 @@
 		}
 
 		if (!isPromiseLike(streamedDashboard)) {
-			dashboardBootstrap = streamedDashboard as WorkspaceBootstrap<DashboardBootstrap>;
+			dashboardBootstrap = streamedDashboard as DashboardWorkspaceResult;
 			return;
 		}
 
@@ -117,7 +119,7 @@
 
 	function toDashboardPageData(
 		data: DashboardRouteData,
-		dashboard: WorkspaceBootstrap<DashboardBootstrap>,
+		dashboard: DashboardWorkspaceResult,
 		summary: DashboardPageSummaryData
 	): DashboardPageData {
 		return {
@@ -225,9 +227,9 @@
 	{:else if canLoadSupport && supportError}
 		<section class="workspace-support-notice workspace-support-notice--error" aria-live="polite" role="status">
 			<p>Workspace support is temporarily unavailable.</p>
-			<Button
-				variant="outline"
-				size="sm"
+			<button
+				type="button"
+				class="workspace-support-notice__retry"
 				onclick={() => {
 					if (ctx) {
 						void loadSupportData(ctx);
@@ -235,7 +237,7 @@
 				}}
 			>
 				Retry checklist
-			</Button>
+			</button>
 		</section>
 	{/if}
 {/if}
@@ -286,6 +288,26 @@
 		border-color: var(--accent);
 		background: color-mix(in srgb, var(--accent) 8%, var(--card));
 		color: var(--foreground);
+	}
+
+	.workspace-support-notice__retry {
+		min-height: 2rem;
+		border: 1px solid var(--input);
+		border-radius: calc(var(--radius) - 2px);
+		background: var(--background);
+		padding: 0.375rem 0.75rem;
+		font-size: 0.875rem;
+		font-weight: 500;
+		color: var(--foreground);
+		transition:
+			background-color 0.15s ease,
+			color 0.15s ease,
+			border-color 0.15s ease;
+	}
+
+	.workspace-support-notice__retry:hover {
+		background: var(--accent);
+		color: var(--accent-foreground);
 	}
 
 	@media (max-width: 720px) {

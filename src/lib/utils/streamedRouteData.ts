@@ -4,9 +4,9 @@ export function isPromiseLike<T>(value: T | Promise<T> | null | undefined): valu
 
 export function materializeWorkspaceData<
 	TData extends Record<string, unknown>,
-	TWorkspaceKey extends keyof TData & string,
+	TStreamedDataKey extends keyof TData & string,
 	TWorkspaceData
->(data: TData, workspaceKey: TWorkspaceKey, bootstrap: { data: TWorkspaceData } | null | undefined): TData {
+>(data: TData, workspaceKey: TStreamedDataKey, bootstrap: { data: TWorkspaceData } | null | undefined): TData {
 	if (!bootstrap) {
 		return data;
 	}

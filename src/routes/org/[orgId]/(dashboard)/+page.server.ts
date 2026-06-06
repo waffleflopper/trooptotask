@@ -3,15 +3,14 @@ import type { Actions, PageServerLoadEvent } from './$types';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { buildLayoutContext, buildRouteContext, loadWithContextCore } from '$lib/server/adapters/httpAdapter';
 import { createSupabaseOrgSettingsMemberManagementPort } from '$lib/server/adapters/supabaseOrgSettingsMemberManagement';
-import type { DashboardBootstrap } from '$lib/server/core/useCases/dashboardQuery';
 import { fetchDashboardTrainingSummary } from '$lib/server/core/useCases/trainingSummaryQuery';
 import { fetchCriticalTasksReportDashboard } from '$lib/server/core/useCases/criticalTasksReportsQuery';
 import { leaveOrganization } from '$lib/server/core/useCases/orgSettingsMemberManagement';
 import type { UseCaseContext } from '$lib/server/core/ports';
-import type { WorkspaceBootstrap } from '$lib/server/core/orgShell';
 import { withDashboardTiming } from '$lib/server/utils/dashboardTiming';
 import type { IctReportDashboard } from '$features/critical-tasks/utils/ictReports';
 import type { DashboardIctlSummary } from '$features/dashboard/dashboard.types';
+import type { DashboardWorkspaceResult } from '$features/dashboard/server/dashboardWorkspaceBootstrap';
 
 export interface DashboardPageSummaryData {
 	trainingSummary: Awaited<ReturnType<typeof fetchDashboardTrainingSummary>>['trainingSummary'];
@@ -88,7 +87,7 @@ export const load = async ({ params, locals, cookies, depends, parent }: PageSer
 		fn: async () =>
 			withDashboardTiming(orgId, 'summary', async () => {
 				const parentData = await parentDataPromise;
-				const workspaceBootstrap = parentData.dashboard.data as Promise<WorkspaceBootstrap<DashboardBootstrap>>;
+				const workspaceBootstrap = parentData.dashboard.data as Promise<DashboardWorkspaceResult>;
 				const workspaceData = (await workspaceBootstrap).data;
 				const canViewCriticalTasks =
 					parentData.shell.kind === 'ready' && parentData.shell.member.capabilityMap.criticalTasks !== 'none';

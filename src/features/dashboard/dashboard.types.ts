@@ -1,5 +1,4 @@
-import type { DashboardBootstrap } from '$lib/server/core/useCases/dashboardQuery';
-import type { HydrationPlan } from '$lib/server/core/orgShell';
+import type { DashboardWorkspaceResult } from './server/dashboardWorkspaceBootstrap';
 import type { TrainingStats } from '$features/training/utils/trainingStatus';
 
 // ---------------------------------------------------------------------------
@@ -115,7 +114,7 @@ export interface DashboardPageData {
 	orgId: string;
 	orgName: string;
 	userId: string | null;
-	dashboard: { data: DashboardBootstrap; hydration?: HydrationPlan; workspace: string };
+	dashboard: DashboardWorkspaceResult;
 	trainingSummary: { stats: TrainingStats; issues: TrainingIssue[] } | null;
 	ictlSummary: DashboardIctlSummary | null;
 	onboardingTrainingCompletions: string[];

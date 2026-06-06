@@ -1,43 +1,25 @@
-import type { Cookies } from '@sveltejs/kit';
 import type { LayoutServerLoad } from './$types';
-import { createSupabaseDashboardWorkspacePort } from '$lib/server/adapters/supabaseOrgShell';
-import { createDefaultHydrationPlanner } from '$lib/server/core/hydrationPlanner';
-import type { HydrationPlannerPort, StreamableOrgWorkspacePort } from '$lib/server/core/orgShell';
-import { createOrgShellCoordinator, type OrgShellCoordinator } from '$lib/server/core/orgShellCoordinator';
-import type { DashboardBootstrap } from '$lib/server/core/useCases/dashboardQuery';
-
-interface DashboardLayoutRequestContext {
-	locals: App.Locals;
-	cookies: Cookies;
-	orgId: string;
-}
+import {
+	streamReadyFeatureLaneWorkspace,
+	type FeatureLaneWorkspaceRequestContext
+} from '$lib/server/core/featureLaneWorkspaceLoad';
+import {
+	streamDashboardWorkspaceBootstrap,
+	type DashboardWorkspaceRouteData
+} from '$features/dashboard/server/dashboardWorkspaceBootstrap';
 
 export interface DashboardLayoutLoadDeps {
-	coordinator?: OrgShellCoordinator;
-	createWorkspacePort?: (context: DashboardLayoutRequestContext) => StreamableOrgWorkspacePort;
-	createPlannerPort?: (orgId: string) => HydrationPlannerPort;
+	streamDashboardWorkspace?: (context: FeatureLaneWorkspaceRequestContext) => Promise<DashboardWorkspaceRouteData>;
 }
 
 export function _createDashboardLayoutLoad(deps: DashboardLayoutLoadDeps = {}): LayoutServerLoad {
-	const coordinator = deps.coordinator ?? createOrgShellCoordinator();
-	const createWorkspacePort =
-		deps.createWorkspacePort ??
-		(({ locals, cookies, orgId }: DashboardLayoutRequestContext) =>
-			createSupabaseDashboardWorkspacePort(locals, cookies, orgId));
-	const createPlannerPort = deps.createPlannerPort ?? createDefaultHydrationPlanner;
+	const streamDashboardWorkspace = deps.streamDashboardWorkspace ?? streamDashboardWorkspaceBootstrap;
 
-	return async ({ params, locals, cookies, depends }) => {
-		depends('app:org-core', 'app:dashboard-data');
-
-		const { orgId } = params;
-		const workspacePort = createWorkspacePort({ locals, cookies, orgId });
-		const plannerPort = createPlannerPort(orgId);
-
-		return coordinator.streamWorkspace<DashboardBootstrap, 'dashboard'>('dashboard', {
-			workspace: workspacePort,
-			planner: plannerPort
+	return async (event) =>
+		streamReadyFeatureLaneWorkspace(event, {
+			dependencies: ['app:org-core', 'app:dashboard-data'],
+			streamWorkspace: streamDashboardWorkspace
 		});
-	};
 }
 
 export const load: LayoutServerLoad = _createDashboardLayoutLoad();

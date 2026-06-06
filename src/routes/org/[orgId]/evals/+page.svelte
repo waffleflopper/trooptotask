@@ -65,4 +65,6 @@
 	{#await import('$features/rating-scheme/components/RatingSchemeModals.svelte') then { default: RatingSchemeModals }}
 		<RatingSchemeModals {ctx} {modals} {personnelLookup} />
 	{/await}
+{:else}
+	{throwRenderError(new Error('Missing Rating Scheme workspace data'), 'Failed to load Rating Scheme workspace')}
 {/if}

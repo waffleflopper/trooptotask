@@ -113,6 +113,17 @@ function makeRouteData(workspace: RatingSchemeWorkspaceResult | Promise<RatingSc
 	};
 }
 
+function makeRouteDataWithoutRatingScheme() {
+	return {
+		shell: {
+			org: {
+				id: 'org-1',
+				name: 'Test Unit'
+			}
+		}
+	};
+}
+
 describe('evals page', () => {
 	it('renders the Rating Scheme surface immediately when workspace data is resolved', async () => {
 		render(Page, {
@@ -160,6 +171,21 @@ describe('evals page', () => {
 		await waitFor(() => {
 			expect(throwRenderErrorMock).toHaveBeenCalledWith(
 				expect.objectContaining({ message: 'rating scheme failed' }),
+				'Failed to load Rating Scheme workspace'
+			);
+		});
+	});
+
+	it('invokes the render error path when Rating Scheme route data is missing', async () => {
+		render(Page, {
+			props: {
+				data: makeRouteDataWithoutRatingScheme()
+			}
+		});
+
+		await waitFor(() => {
+			expect(throwRenderErrorMock).toHaveBeenCalledWith(
+				expect.objectContaining({ message: 'Missing Rating Scheme workspace data' }),
 				'Failed to load Rating Scheme workspace'
 			);
 		});

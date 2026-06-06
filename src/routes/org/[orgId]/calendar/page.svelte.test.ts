@@ -126,10 +126,10 @@ function makeBootstrap(): CalendarWorkspaceResult {
 			personnel: { mode: 'replace', snapshotKey: 'personnel:1', items: [] },
 			groups: { mode: 'replace', snapshotKey: 'groups:1', items: [] },
 			statusTypes: { mode: 'replace', snapshotKey: 'status-types:1', items: [] },
-			availabilityEntries: { mode: 'replace', snapshotKey: 'availability:1', items: [] },
-			specialDays: { mode: 'replace', snapshotKey: 'special-days:1', items: [] },
+			availabilityEntries: { mode: 'merge', snapshotKey: 'availability:1', items: [] },
+			specialDays: { mode: 'merge', snapshotKey: 'special-days:1', items: [] },
 			calendarAssignments: {
-				mode: 'replace',
+				mode: 'merge',
 				snapshotKey: 'assignments:1',
 				items: { types: [], assignments: [] }
 			},

@@ -33,7 +33,11 @@ const deferredSnapshotKeys = new WeakMap<object, string>();
 let fallbackSnapshotCounter = 0;
 
 export function isPromiseLike<T>(value: unknown): value is Promise<T> {
-	return !!value && typeof value === 'object' && typeof (value as { then?: unknown }).then === 'function';
+	return (
+		!!value &&
+		(typeof value === 'object' || typeof value === 'function') &&
+		typeof (value as { then?: unknown }).then === 'function'
+	);
 }
 
 function generateSnapshotId(prefix: string): string {
@@ -89,7 +93,11 @@ export function createCompositeWorkspaceSnapshotKey(
 	options: CreateSnapshotKeyOptions = {}
 ): string {
 	return createWorkspaceSnapshotKey(
-		Object.fromEntries(Object.entries(parts).map(([key, value]) => [key, createWorkspaceSnapshotKey(value, options)])),
+		Object.fromEntries(
+			Object.keys(parts)
+				.sort()
+				.map((key) => [key, createWorkspaceSnapshotKey(parts[key], options)])
+		),
 		options
 	);
 }

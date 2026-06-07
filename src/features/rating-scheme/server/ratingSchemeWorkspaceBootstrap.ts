@@ -2,7 +2,12 @@ import type { Cookies } from '@sveltejs/kit';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
 import type { QueryWithRawStorePorts, RatingSchemePersonnelLookupRecord } from '$lib/server/core/ports';
-import type { DeferredData, HydrationItems } from '$lib/server/core/streamedWorkspace';
+import {
+	createWorkspaceHydrationTarget,
+	type DeferredData,
+	type HydrationItems,
+	type WorkspaceHydrationTarget
+} from '$lib/server/core/streamedWorkspace';
 import { requireFeaturePolicy } from '$lib/server/core/useCases/featurePolicy';
 import { RatingSchemeEntryEntity } from '$lib/server/entities/ratingSchemeEntry';
 import type { PersonnelLookup } from '$lib/types';
@@ -24,12 +29,7 @@ export interface RatingSchemeWorkspaceData {
 
 export type RatingSchemeWorkspaceHydrationMode = 'replace' | 'preserve-client';
 
-export interface RatingSchemeWorkspaceHydrationTarget<T> {
-	mode: RatingSchemeWorkspaceHydrationMode;
-	deferred?: boolean;
-	snapshotKey: string;
-	items: HydrationItems<T>;
-}
+export type RatingSchemeWorkspaceHydrationTarget<T> = WorkspaceHydrationTarget<T, RatingSchemeWorkspaceHydrationMode>;
 
 export interface RatingSchemeWorkspaceHydration {
 	orgId: string;
@@ -44,40 +44,6 @@ export interface RatingSchemeWorkspaceResult {
 
 export interface RatingSchemeWorkspaceRouteData {
 	ratingScheme: DeferredData<RatingSchemeWorkspaceResult>;
-}
-
-const deferredSnapshotKeys = new WeakMap<object, string>();
-let fallbackSnapshotCounter = 0;
-
-function isPromiseLike<T>(value: unknown): value is Promise<T> {
-	return !!value && typeof value === 'object' && typeof (value as { then?: unknown }).then === 'function';
-}
-
-function generateSnapshotId(prefix: string): string {
-	const randomId = globalThis.crypto?.randomUUID?.();
-	if (randomId) {
-		return `${prefix}:${randomId}`;
-	}
-
-	fallbackSnapshotCounter = (fallbackSnapshotCounter + 1) % 1_000_000;
-	return `${prefix}:fallback:${fallbackSnapshotCounter}`;
-}
-
-function createSnapshotKey(value: unknown): string {
-	if (isPromiseLike(value)) {
-		let key = deferredSnapshotKeys.get(value);
-		if (!key) {
-			key = generateSnapshotId('deferred');
-			deferredSnapshotKeys.set(value, key);
-		}
-		return key;
-	}
-
-	try {
-		return `resolved:${JSON.stringify(value)}`;
-	} catch {
-		return generateSnapshotId('resolved:fallback');
-	}
 }
 
 function toPersonnelLookup(rows: RatingSchemePersonnelLookupRecord[]): PersonnelLookup[] {
@@ -99,12 +65,7 @@ async function loadRatingSchemePersonnelLookup(ctx: QueryWithRawStorePorts): Pro
 }
 
 function createHydrationTarget<T>(items: HydrationItems<T>): RatingSchemeWorkspaceHydrationTarget<T> {
-	return {
-		mode: 'replace',
-		deferred: isPromiseLike(items),
-		snapshotKey: createSnapshotKey(items),
-		items
-	};
+	return createWorkspaceHydrationTarget(items, { mode: 'replace', resolvedSnapshotKey: 'json' });
 }
 
 function createRatingSchemeWorkspaceHydration(

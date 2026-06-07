@@ -1,4 +1,3 @@
-import { SvelteMap } from 'svelte/reactivity';
 import { personnelTrainingsStore } from './stores/personnelTrainings.svelte';
 import { trainingTypesStore } from './stores/trainingTypes.svelte';
 import { trainingViewsStore } from './stores/trainingViews.svelte';
@@ -6,6 +5,10 @@ import type { PersonnelTraining, TrainingType, TrainingView } from './training.t
 import { groupsStore, type Group } from '$lib/stores/groups.svelte';
 import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
 import { rosterStore } from '$lib/stores/roster.svelte';
+import {
+	createFeatureLaneWorkspaceHydrator,
+	type FeatureLaneWorkspaceHydrationTargetDescriptor
+} from '$lib/utils/featureLaneWorkspaceHydration.svelte';
 import type { Personnel } from '$lib/types';
 import type { TrainingWorkspaceHydration, TrainingWorkspaceHydrationTarget } from './server/trainingWorkspaceBootstrap';
 
@@ -30,20 +33,6 @@ export interface TrainingWorkspaceHydrator {
 	reset(): void;
 }
 
-interface TargetSnapshotState {
-	orgId: string;
-	snapshotKey: string;
-}
-
-interface TrainingHydrationTargetDescriptor {
-	targetName: string;
-	snapshotKey: string;
-	items: unknown | Promise<unknown>;
-	storeOrgId(): string;
-	startLoading?(): void;
-	apply(resolved: unknown): void;
-}
-
 const defaultTrainingHydrationStores: TrainingHydrationStores = {
 	personnelStore: rosterStore,
 	groupsStore,
@@ -53,25 +42,12 @@ const defaultTrainingHydrationStores: TrainingHydrationStores = {
 	pinnedGroupsStore
 };
 
-function isPromiseLike<T>(value: unknown): value is Promise<T> {
-	return !!value && typeof value === 'object' && typeof (value as { then?: unknown }).then === 'function';
-}
-
-function storeMovedToAnotherOrg(
-	descriptor: TrainingHydrationTargetDescriptor,
-	orgId: string,
-	initialStoreOrgId: string
-): boolean {
-	const storeOrgId = descriptor.storeOrgId();
-	return storeOrgId !== '' && storeOrgId !== orgId && storeOrgId !== initialStoreOrgId;
-}
-
 function createTargetDescriptor<T>(
 	target: TrainingWorkspaceHydrationTarget<T>,
 	store: TrainingHydrationLoadable<T>,
 	orgId: string,
 	targetName: string
-): TrainingHydrationTargetDescriptor | undefined {
+): FeatureLaneWorkspaceHydrationTargetDescriptor | undefined {
 	if (target.mode === 'preserve-client') return undefined;
 
 	return {
@@ -85,60 +61,11 @@ function createTargetDescriptor<T>(
 }
 
 export function createTrainingWorkspaceHydrator(): TrainingWorkspaceHydrator {
-	const appliedSnapshotKeys = new SvelteMap<string, TargetSnapshotState>();
-	const pendingSnapshotKeys = new SvelteMap<string, TargetSnapshotState>();
-
-	async function applyDescriptor(descriptor: TrainingHydrationTargetDescriptor, orgId: string): Promise<void> {
-		const { targetName, snapshotKey } = descriptor;
-
-		const appliedState = appliedSnapshotKeys.get(targetName);
-		if (
-			descriptor.storeOrgId() === orgId &&
-			appliedState?.orgId === orgId &&
-			appliedState.snapshotKey === snapshotKey
-		) {
-			return;
-		}
-
-		const pendingState = pendingSnapshotKeys.get(targetName);
-		if (pendingState?.orgId === orgId && pendingState.snapshotKey === snapshotKey) return;
-
-		pendingSnapshotKeys.set(targetName, { orgId, snapshotKey });
-
-		if (isPromiseLike<unknown>(descriptor.items)) {
-			const initialStoreOrgId = descriptor.storeOrgId();
-			descriptor.startLoading?.();
-			try {
-				const items = await descriptor.items;
-				const latestPending = pendingSnapshotKeys.get(targetName);
-				if (latestPending?.orgId !== orgId || latestPending.snapshotKey !== snapshotKey) return;
-				if (storeMovedToAnotherOrg(descriptor, orgId, initialStoreOrgId)) {
-					pendingSnapshotKeys.delete(targetName);
-					return;
-				}
-				descriptor.apply(items);
-				pendingSnapshotKeys.delete(targetName);
-				appliedSnapshotKeys.set(targetName, { orgId, snapshotKey });
-				return;
-			} catch (error) {
-				const latestPending = pendingSnapshotKeys.get(targetName);
-				if (latestPending?.orgId === orgId && latestPending.snapshotKey === snapshotKey) {
-					pendingSnapshotKeys.delete(targetName);
-				}
-				console.error(`[training-hydration] Failed to load ${targetName} for org ${orgId}`, error);
-				throw error;
-			}
-		}
-
-		descriptor.apply(descriptor.items);
-		pendingSnapshotKeys.delete(targetName);
-		appliedSnapshotKeys.set(targetName, { orgId, snapshotKey });
-	}
+	const hydrationTargets = createFeatureLaneWorkspaceHydrator({ logTag: 'training-hydration' });
 
 	return {
 		reset() {
-			appliedSnapshotKeys.clear();
-			pendingSnapshotKeys.clear();
+			hydrationTargets.reset();
 		},
 
 		async hydrate(
@@ -159,9 +86,9 @@ export function createTrainingWorkspaceHydrator(): TrainingWorkspaceHydrator {
 					'personnelTrainings'
 				),
 				createTargetDescriptor(hydration.pinnedGroups, stores.pinnedGroupsStore, orgId, 'pinnedGroups')
-			].filter((descriptor): descriptor is TrainingHydrationTargetDescriptor => descriptor !== undefined);
+			].filter((descriptor): descriptor is FeatureLaneWorkspaceHydrationTargetDescriptor => descriptor !== undefined);
 
-			await Promise.all(descriptors.map((descriptor) => applyDescriptor(descriptor, orgId)));
+			await hydrationTargets.applyDescriptors(orgId, descriptors);
 		}
 	};
 }

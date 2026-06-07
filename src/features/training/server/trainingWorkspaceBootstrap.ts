@@ -6,7 +6,12 @@ import { PinnedGroupsEntity } from '$lib/server/entities/pinnedGroups';
 import { TrainingTypeEntity } from '$lib/server/entities/trainingType';
 import { TrainingViewEntity } from '$lib/server/entities/trainingView';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
-import type { DeferredData, HydrationItems } from '$lib/server/core/streamedWorkspace';
+import {
+	createWorkspaceHydrationTarget,
+	type DeferredData,
+	type HydrationItems,
+	type WorkspaceHydrationTarget
+} from '$lib/server/core/streamedWorkspace';
 import type { UseCaseContext } from '$lib/server/core/ports';
 import { loadRosterPersonnel } from '$lib/server/core/useCases/rosterReadModel';
 import { withTrainingTiming, type TrainingLoadPhase } from '$lib/server/utils/trainingTiming';
@@ -33,12 +38,7 @@ export interface TrainingWorkspaceData {
 
 export type TrainingWorkspaceHydrationMode = 'replace' | 'preserve-client';
 
-export interface TrainingWorkspaceHydrationTarget<T> {
-	mode: TrainingWorkspaceHydrationMode;
-	deferred?: boolean;
-	snapshotKey: string;
-	items: HydrationItems<T>;
-}
+export type TrainingWorkspaceHydrationTarget<T> = WorkspaceHydrationTarget<T, TrainingWorkspaceHydrationMode>;
 
 export interface TrainingWorkspaceHydration {
 	orgId: string;
@@ -60,47 +60,8 @@ export interface TrainingWorkspaceRouteData {
 	[TRAINING_WORKSPACE_LANE_KEY]: DeferredData<TrainingWorkspaceResult>;
 }
 
-const deferredSnapshotKeys = new WeakMap<object, string>();
-let fallbackSnapshotCounter = 0;
-
-function isPromiseLike<T>(value: unknown): value is Promise<T> {
-	return !!value && typeof value === 'object' && typeof (value as { then?: unknown }).then === 'function';
-}
-
-function generateSnapshotId(prefix: string): string {
-	const randomId = globalThis.crypto?.randomUUID?.();
-	if (randomId) {
-		return `${prefix}:${randomId}`;
-	}
-
-	fallbackSnapshotCounter = (fallbackSnapshotCounter + 1) % 1_000_000;
-	return `${prefix}:fallback:${fallbackSnapshotCounter}`;
-}
-
-function createSnapshotKey(value: unknown): string {
-	if (isPromiseLike(value)) {
-		let key = deferredSnapshotKeys.get(value);
-		if (!key) {
-			key = generateSnapshotId('deferred');
-			deferredSnapshotKeys.set(value, key);
-		}
-		return key;
-	}
-
-	try {
-		return `resolved:${JSON.stringify(value)}`;
-	} catch {
-		return generateSnapshotId('resolved:fallback');
-	}
-}
-
 function createTrainingHydrationTarget<T>(items: HydrationItems<T>): TrainingWorkspaceHydrationTarget<T> {
-	return {
-		mode: 'replace',
-		deferred: isPromiseLike(items),
-		snapshotKey: createSnapshotKey(items),
-		items
-	};
+	return createWorkspaceHydrationTarget(items, { mode: 'replace', resolvedSnapshotKey: 'json' });
 }
 
 function createTrainingWorkspaceHydration(orgId: string, data: TrainingWorkspaceData): TrainingWorkspaceHydration {

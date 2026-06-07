@@ -1,7 +1,15 @@
 import type { Cookies } from '@sveltejs/kit';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
-import type { DeferredData, HydrationItems } from '$lib/server/core/streamedWorkspace';
+import {
+	createWorkspaceHydrationTarget,
+	createWorkspaceValueHydrationTarget,
+	isPromiseLike,
+	type DeferredData,
+	type HydrationItems,
+	type WorkspaceHydrationTarget,
+	type WorkspaceValueHydrationTarget
+} from '$lib/server/core/streamedWorkspace';
 import { fetchDashboardBootstrap, type DashboardBootstrap } from '$lib/server/core/useCases/dashboardQuery';
 import type { Group } from '$lib/stores/groups.svelte';
 import type { AssignmentType, AvailabilityEntry, DailyAssignment, Personnel, StatusType } from '$lib/types';
@@ -19,24 +27,17 @@ export type DashboardWorkspaceData = DashboardBootstrap;
 
 export type DashboardWorkspaceHydrationMode = 'replace' | 'preserve-client';
 
-export interface DashboardWorkspaceHydrationTarget<T> {
-	mode: DashboardWorkspaceHydrationMode;
-	deferred?: boolean;
-	snapshotKey: string;
-	items: HydrationItems<T>;
+export type DashboardWorkspaceHydrationTarget<T> = WorkspaceHydrationTarget<T, DashboardWorkspaceHydrationMode>;
+
+export interface DashboardAssignmentsHydrationItems {
+	types: AssignmentType[];
+	assignments: DailyAssignment[];
 }
 
-export interface DashboardAssignmentsWorkspaceHydrationTarget {
-	mode: DashboardWorkspaceHydrationMode;
-	deferred?: boolean;
-	snapshotKey: string;
-	items:
-		| { types: AssignmentType[]; assignments: DailyAssignment[] }
-		| Promise<{
-				types: AssignmentType[];
-				assignments: DailyAssignment[];
-		  }>;
-}
+export type DashboardAssignmentsWorkspaceHydrationTarget = WorkspaceValueHydrationTarget<
+	DashboardAssignmentsHydrationItems,
+	DashboardWorkspaceHydrationMode
+>;
 
 export interface DashboardWorkspaceHydration {
 	orgId: string;
@@ -59,57 +60,8 @@ export interface DashboardWorkspaceRouteData {
 	[DASHBOARD_WORKSPACE_KEY]: DeferredData<DashboardWorkspaceResult>;
 }
 
-const deferredSnapshotKeys = new WeakMap<object, string>();
-let fallbackSnapshotCounter = 0;
-
-function isPromiseLike<T>(value: unknown): value is Promise<T> {
-	return !!value && typeof value === 'object' && typeof (value as { then?: unknown }).then === 'function';
-}
-
-function generateSnapshotId(prefix: string): string {
-	const randomId = globalThis.crypto?.randomUUID?.();
-	if (randomId) {
-		return `${prefix}:${randomId}`;
-	}
-
-	fallbackSnapshotCounter = (fallbackSnapshotCounter + 1) % 1_000_000;
-	return `${prefix}:fallback:${fallbackSnapshotCounter}`;
-}
-
-function hashSnapshotContent(content: string): string {
-	let hash = 2166136261;
-	for (let index = 0; index < content.length; index += 1) {
-		hash ^= content.charCodeAt(index);
-		hash = Math.imul(hash, 16777619);
-	}
-	return (hash >>> 0).toString(36);
-}
-
-function createSnapshotKey(value: unknown): string {
-	if (isPromiseLike(value)) {
-		let key = deferredSnapshotKeys.get(value);
-		if (!key) {
-			key = generateSnapshotId('deferred');
-			deferredSnapshotKeys.set(value, key);
-		}
-		return key;
-	}
-
-	try {
-		const content = JSON.stringify(value) ?? String(value);
-		return `resolved:${content.length}:${hashSnapshotContent(content)}`;
-	} catch {
-		return generateSnapshotId('resolved');
-	}
-}
-
 function createDashboardHydrationTarget<T>(items: HydrationItems<T>): DashboardWorkspaceHydrationTarget<T> {
-	return {
-		mode: 'replace',
-		deferred: isPromiseLike(items),
-		snapshotKey: createSnapshotKey(items),
-		items
-	};
+	return createWorkspaceHydrationTarget(items, { mode: 'replace', resolvedSnapshotKey: 'hash' });
 }
 
 function createDashboardAssignmentsItems(
@@ -133,12 +85,7 @@ function createDashboardAssignmentsHydrationTarget(
 ): DashboardAssignmentsWorkspaceHydrationTarget {
 	const items = createDashboardAssignmentsItems(data);
 
-	return {
-		mode: 'replace',
-		deferred: isPromiseLike(items),
-		snapshotKey: createSnapshotKey(items),
-		items
-	};
+	return createWorkspaceValueHydrationTarget(items, { mode: 'replace', resolvedSnapshotKey: 'hash' });
 }
 
 function createDashboardWorkspaceHydration(orgId: string, data: DashboardWorkspaceData): DashboardWorkspaceHydration {

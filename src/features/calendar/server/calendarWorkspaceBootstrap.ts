@@ -1,7 +1,16 @@
 import type { Cookies } from '@sveltejs/kit';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
-import type { DeferredData, HydrationItems } from '$lib/server/core/streamedWorkspace';
+import {
+	createCompositeWorkspaceSnapshotKey,
+	createWorkspaceHydrationTarget,
+	createWorkspaceValueHydrationTarget,
+	isPromiseLike,
+	type DeferredData,
+	type HydrationItems,
+	type WorkspaceHydrationTarget,
+	type WorkspaceValueHydrationTarget
+} from '$lib/server/core/streamedWorkspace';
 import {
 	fetchCalendarBootstrap,
 	getActiveOnboardingPersonnelIds,
@@ -27,20 +36,14 @@ export type CalendarWorkspaceData = CalendarBootstrap;
 
 export type CalendarWorkspaceHydrationMode = 'replace' | 'merge' | 'preserve-client';
 
-export interface CalendarWorkspaceHydrationTarget<T> {
-	mode: CalendarWorkspaceHydrationMode;
-	deferred?: boolean;
-	snapshotKey: string;
-	items: HydrationItems<T>;
-}
+export type CalendarWorkspaceHydrationTarget<T> = WorkspaceHydrationTarget<T, CalendarWorkspaceHydrationMode>;
 
-export interface CalendarAssignmentsWorkspaceHydrationTarget {
-	mode: CalendarWorkspaceHydrationMode;
-	deferred?: boolean;
-	snapshotKey: string;
+export interface CalendarAssignmentsWorkspaceHydrationTarget extends WorkspaceValueHydrationTarget<
+	CalendarAssignmentsHydrationItems,
+	CalendarWorkspaceHydrationMode
+> {
 	rangeStart?: string;
 	rangeEnd?: string;
-	items: CalendarAssignmentsHydrationItems | Promise<CalendarAssignmentsHydrationItems>;
 }
 
 export interface CalendarAssignmentsHydrationItems {
@@ -69,56 +72,11 @@ export interface CalendarWorkspaceRouteData {
 	[CALENDAR_WORKSPACE_LANE_KEY]: DeferredData<CalendarWorkspaceResult>;
 }
 
-const deferredSnapshotKeys = new WeakMap<object, string>();
-let fallbackSnapshotCounter = 0;
-
-function isPromiseLike<T>(value: unknown): value is Promise<T> {
-	return !!value && typeof value === 'object' && typeof (value as { then?: unknown }).then === 'function';
-}
-
-function generateSnapshotId(prefix: string): string {
-	const randomId = globalThis.crypto?.randomUUID?.();
-	if (randomId) {
-		return `${prefix}:${randomId}`;
-	}
-
-	fallbackSnapshotCounter = (fallbackSnapshotCounter + 1) % 1_000_000;
-	return `${prefix}:fallback:${fallbackSnapshotCounter}`;
-}
-
-function createSnapshotKey(value: unknown): string {
-	if (isPromiseLike(value)) {
-		let key = deferredSnapshotKeys.get(value);
-		if (!key) {
-			key = generateSnapshotId('deferred');
-			deferredSnapshotKeys.set(value, key);
-		}
-		return key;
-	}
-
-	try {
-		return `resolved:${JSON.stringify(value)}`;
-	} catch {
-		return generateSnapshotId('resolved:fallback');
-	}
-}
-
-function createCompositeSnapshotKey(parts: Record<string, unknown>): string {
-	return createSnapshotKey(
-		Object.fromEntries(Object.entries(parts).map(([key, value]) => [key, createSnapshotKey(value)]))
-	);
-}
-
 function createCalendarHydrationTarget<T>(
 	items: HydrationItems<T>,
 	mode: CalendarWorkspaceHydrationMode = 'replace'
 ): CalendarWorkspaceHydrationTarget<T> {
-	return {
-		mode,
-		deferred: isPromiseLike(items),
-		snapshotKey: createSnapshotKey(items),
-		items
-	};
+	return createWorkspaceHydrationTarget(items, { mode, resolvedSnapshotKey: 'json' });
 }
 
 function createCalendarAssignmentsItems(
@@ -142,19 +100,21 @@ function createCalendarAssignmentsHydrationTarget(
 	data: CalendarWorkspaceData
 ): CalendarAssignmentsWorkspaceHydrationTarget {
 	const items = createCalendarAssignmentsItems(data.assignmentTypes, data.dailyAssignments);
+	const target = createWorkspaceValueHydrationTarget(items, { mode: 'merge', resolvedSnapshotKey: 'json' });
 
 	return {
-		mode: 'merge',
-		deferred: isPromiseLike(items),
-		snapshotKey: createCompositeSnapshotKey({
-			assignmentTypes: data.assignmentTypes,
-			dailyAssignments: data.dailyAssignments,
-			rangeStart: data.rangeStart,
-			rangeEnd: data.rangeEnd
-		}),
+		...target,
+		snapshotKey: createCompositeWorkspaceSnapshotKey(
+			{
+				assignmentTypes: data.assignmentTypes,
+				dailyAssignments: data.dailyAssignments,
+				rangeStart: data.rangeStart,
+				rangeEnd: data.rangeEnd
+			},
+			{ resolved: 'json' }
+		),
 		rangeStart: data.rangeStart,
-		rangeEnd: data.rangeEnd,
-		items
+		rangeEnd: data.rangeEnd
 	};
 }
 

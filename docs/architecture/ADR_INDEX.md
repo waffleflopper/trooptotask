@@ -20,6 +20,7 @@ This index is the current map of architecture decisions. Use it before reading i
 | [0007: Advanced Duty Snapshot Custody](adrs/0007-advanced-duty-snapshot-custody.md) | Superseded | Old Advanced Duty Run snapshot custody | Historical only after removal of the old Advanced Duty Run server flow and `/api/duty-events/**` write/revision endpoints. |
 | [0009: Beta Access Request Account Setup Links](adrs/0009-beta-access-request-account-setup-links.md) | Accepted | Beta access and account setup | Read before changing access requests, account setup links, Supabase invite replacement, invite-code registration, or setup-link cleanup. |
 | [0010: Native Workbook Export Boundary](adrs/0010-native-workbook-export-boundary.md) | Accepted | Excel export module boundary | Read before adding or changing Excel-labeled exports, workbook generation helpers, or export download/response behavior. |
+| [0011: Platform Administration Boundary](adrs/0011-platform-administration-boundary.md) | Accepted | Platform admin product boundary | Read before changing `/admin`, platform-wide support operations, service-role platform reads, or Platform Administration terminology. |
 
 ## Reading Rules
 
@@ -28,3 +29,4 @@ This index is the current map of architecture decisions. Use it before reading i
 - For beta access, account setup, invite replacement, or `/auth/register` deprecation, read ADR 0009.
 - For terminology work, read ADR 0006 and `UBIQUITOUS_LANGUAGE.md`.
 - For Excel-labeled exports, read ADR 0010.
+- For Platform Administration work, read ADR 0011.

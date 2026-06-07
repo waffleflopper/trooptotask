@@ -20,6 +20,7 @@ export interface PlatformAdministrationTierCounts {
 export interface PlatformAdministrationOrganizationTierRow {
 	tier: string | null;
 	gift_tier: string | null;
+	count?: number;
 }
 
 export interface PlatformAdministrationRecentActivity {
@@ -134,7 +135,7 @@ function buildTierCounts(rows: PlatformAdministrationOrganizationTierRow[]): Pla
 	for (const org of rows) {
 		const effectiveTier = org.gift_tier ?? org.tier ?? 'free';
 		if (effectiveTier in tierCounts) {
-			tierCounts[effectiveTier as keyof PlatformAdministrationTierCounts] += 1;
+			tierCounts[effectiveTier as keyof PlatformAdministrationTierCounts] += org.count ?? 1;
 		}
 	}
 	return tierCounts;

@@ -9,8 +9,11 @@ import {
 
 describe('streamed workspace hydration target helpers', () => {
 	it('detects promise-like streamed values', () => {
+		const callableThenable = Object.assign(() => undefined, { then: () => undefined });
+
 		expect(isPromiseLike(Promise.resolve([]))).toBe(true);
 		expect(isPromiseLike({ then: () => undefined })).toBe(true);
+		expect(isPromiseLike(callableThenable)).toBe(true);
 		expect(isPromiseLike([])).toBe(false);
 		expect(isPromiseLike(undefined)).toBe(false);
 	});
@@ -77,8 +80,13 @@ describe('streamed workspace hydration target helpers', () => {
 			{ deferredPart, rangeStart: '2026-01-01', rangeEnd: '2026-01-31' },
 			{ resolved: 'hash' }
 		);
+		const samePartsDifferentOrder = createCompositeWorkspaceSnapshotKey(
+			{ rangeEnd: '2026-01-31', deferredPart, rangeStart: '2026-01-01' },
+			{ resolved: 'hash' }
+		);
 
 		expect(second).toBe(first);
+		expect(samePartsDifferentOrder).toBe(first);
 		expect(first).toMatch(/^resolved:\d+:/);
 	});
 });

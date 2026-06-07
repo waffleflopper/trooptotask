@@ -1,4 +1,3 @@
-import { SvelteMap } from 'svelte/reactivity';
 import { onboardingStore } from './stores/onboarding.svelte';
 import { onboardingTemplateStore } from './stores/onboardingTemplate.svelte';
 import type {
@@ -10,6 +9,10 @@ import { trainingTypesStore } from '$features/training/stores/trainingTypes.svel
 import type { TrainingType } from '$features/training/training.types';
 import { groupsStore, type Group } from '$lib/stores/groups.svelte';
 import { rosterStore } from '$lib/stores/roster.svelte';
+import {
+	createFeatureLaneWorkspaceHydrator,
+	type FeatureLaneWorkspaceHydrationTargetDescriptor
+} from '$lib/utils/featureLaneWorkspaceHydration.svelte';
 import type { Personnel } from '$lib/types';
 import type {
 	OnboardingTemplatesWorkspaceHydrationTarget,
@@ -42,20 +45,6 @@ export interface OnboardingWorkspaceHydrator {
 	reset(): void;
 }
 
-interface TargetSnapshotState {
-	orgId: string;
-	snapshotKey: string;
-}
-
-interface OnboardingHydrationTargetDescriptor {
-	targetName: string;
-	snapshotKey: string;
-	items: unknown | Promise<unknown>;
-	storeOrgId(): string;
-	startLoading?(): void;
-	apply(resolved: unknown): void;
-}
-
 type OnboardingTemplatesResolved = Pick<OnboardingTemplatesWorkspaceHydrationTarget, 'templates' | 'steps'>;
 
 const defaultOnboardingHydrationStores: OnboardingHydrationStores = {
@@ -66,25 +55,12 @@ const defaultOnboardingHydrationStores: OnboardingHydrationStores = {
 	onboardingStore
 };
 
-function isPromiseLike<T>(value: unknown): value is Promise<T> {
-	return !!value && typeof value === 'object' && typeof (value as { then?: unknown }).then === 'function';
-}
-
-function storeMovedToAnotherOrg(
-	descriptor: OnboardingHydrationTargetDescriptor,
-	orgId: string,
-	initialStoreOrgId: string
-): boolean {
-	const storeOrgId = descriptor.storeOrgId();
-	return storeOrgId !== '' && storeOrgId !== orgId && storeOrgId !== initialStoreOrgId;
-}
-
 function createTargetDescriptor<T>(
 	target: OnboardingWorkspaceHydrationTarget<T>,
 	store: OnboardingHydrationLoadable<T>,
 	orgId: string,
 	targetName: string
-): OnboardingHydrationTargetDescriptor | undefined {
+): FeatureLaneWorkspaceHydrationTargetDescriptor | undefined {
 	if (target.mode === 'preserve-client') return undefined;
 
 	return {
@@ -102,7 +78,7 @@ function createTemplatesTargetDescriptor(
 	store: OnboardingTemplatesHydrationLoadable,
 	orgId: string,
 	targetName: string
-): OnboardingHydrationTargetDescriptor | undefined {
+): FeatureLaneWorkspaceHydrationTargetDescriptor | undefined {
 	if (target.mode === 'preserve-client') return undefined;
 
 	return {
@@ -118,60 +94,11 @@ function createTemplatesTargetDescriptor(
 }
 
 export function createOnboardingWorkspaceHydrator(): OnboardingWorkspaceHydrator {
-	const appliedSnapshotKeys = new SvelteMap<string, TargetSnapshotState>();
-	const pendingSnapshotKeys = new SvelteMap<string, TargetSnapshotState>();
-
-	async function applyDescriptor(descriptor: OnboardingHydrationTargetDescriptor, orgId: string): Promise<void> {
-		const { targetName, snapshotKey } = descriptor;
-
-		const appliedState = appliedSnapshotKeys.get(targetName);
-		if (
-			descriptor.storeOrgId() === orgId &&
-			appliedState?.orgId === orgId &&
-			appliedState.snapshotKey === snapshotKey
-		) {
-			return;
-		}
-
-		const pendingState = pendingSnapshotKeys.get(targetName);
-		if (pendingState?.orgId === orgId && pendingState.snapshotKey === snapshotKey) return;
-
-		pendingSnapshotKeys.set(targetName, { orgId, snapshotKey });
-
-		if (isPromiseLike<unknown>(descriptor.items)) {
-			const initialStoreOrgId = descriptor.storeOrgId();
-			descriptor.startLoading?.();
-			try {
-				const items = await descriptor.items;
-				const latestPending = pendingSnapshotKeys.get(targetName);
-				if (latestPending?.orgId !== orgId || latestPending.snapshotKey !== snapshotKey) return;
-				if (storeMovedToAnotherOrg(descriptor, orgId, initialStoreOrgId)) {
-					pendingSnapshotKeys.delete(targetName);
-					return;
-				}
-				descriptor.apply(items);
-				pendingSnapshotKeys.delete(targetName);
-				appliedSnapshotKeys.set(targetName, { orgId, snapshotKey });
-				return;
-			} catch (error) {
-				const latestPending = pendingSnapshotKeys.get(targetName);
-				if (latestPending?.orgId === orgId && latestPending.snapshotKey === snapshotKey) {
-					pendingSnapshotKeys.delete(targetName);
-				}
-				console.error(`[onboarding-hydration] Failed to load ${targetName} for org ${orgId}`, error);
-				throw error;
-			}
-		}
-
-		descriptor.apply(descriptor.items);
-		pendingSnapshotKeys.delete(targetName);
-		appliedSnapshotKeys.set(targetName, { orgId, snapshotKey });
-	}
+	const hydrationTargets = createFeatureLaneWorkspaceHydrator({ logTag: 'onboarding-hydration' });
 
 	return {
 		reset() {
-			appliedSnapshotKeys.clear();
-			pendingSnapshotKeys.clear();
+			hydrationTargets.reset();
 		},
 
 		async hydrate(
@@ -191,9 +118,9 @@ export function createOnboardingWorkspaceHydrator(): OnboardingWorkspaceHydrator
 					'onboardingTemplates'
 				),
 				createTargetDescriptor(hydration.onboardings, stores.onboardingStore, orgId, 'onboardings')
-			].filter((descriptor): descriptor is OnboardingHydrationTargetDescriptor => descriptor !== undefined);
+			].filter((descriptor): descriptor is FeatureLaneWorkspaceHydrationTargetDescriptor => descriptor !== undefined);
 
-			await Promise.all(descriptors.map((descriptor) => applyDescriptor(descriptor, orgId)));
+			await hydrationTargets.applyDescriptors(orgId, descriptors);
 		}
 	};
 }

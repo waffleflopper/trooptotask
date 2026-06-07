@@ -1,7 +1,13 @@
 import type { Cookies } from '@sveltejs/kit';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
-import type { DeferredData, HydrationItems } from '$lib/server/core/streamedWorkspace';
+import {
+	createWorkspaceHydrationTarget,
+	createWorkspaceSnapshotKey,
+	type DeferredData,
+	type HydrationItems,
+	type WorkspaceHydrationTarget
+} from '$lib/server/core/streamedWorkspace';
 import { fetchOnboardingBootstrap, type OnboardingBootstrap } from '$lib/server/core/useCases/onboardingQuery';
 import type {
 	OnboardingTemplate,
@@ -24,12 +30,7 @@ export type OnboardingWorkspaceData = OnboardingBootstrap;
 
 export type OnboardingWorkspaceHydrationMode = 'replace' | 'preserve-client';
 
-export interface OnboardingWorkspaceHydrationTarget<T> {
-	mode: OnboardingWorkspaceHydrationMode;
-	deferred?: boolean;
-	snapshotKey: string;
-	items: HydrationItems<T>;
-}
+export type OnboardingWorkspaceHydrationTarget<T> = WorkspaceHydrationTarget<T, OnboardingWorkspaceHydrationMode>;
 
 export interface OnboardingTemplatesWorkspaceHydrationTarget {
 	mode: OnboardingWorkspaceHydrationMode;
@@ -58,43 +59,8 @@ export interface OnboardingWorkspaceRouteData {
 	[ONBOARDING_WORKSPACE_LANE_KEY]: DeferredData<OnboardingWorkspaceResult>;
 }
 
-const deferredSnapshotKeys = new WeakMap<object, string>();
-let fallbackSnapshotCounter = 0;
-
-function isPromiseLike<T>(value: unknown): value is Promise<T> {
-	return !!value && typeof value === 'object' && typeof (value as { then?: unknown }).then === 'function';
-}
-
-function generateSnapshotId(prefix: string): string {
-	const randomId = globalThis.crypto?.randomUUID?.();
-	if (randomId) {
-		return `${prefix}:${randomId}`;
-	}
-
-	fallbackSnapshotCounter = (fallbackSnapshotCounter + 1) % 1_000_000;
-	return `${prefix}:fallback:${fallbackSnapshotCounter}`;
-}
-
-function createSnapshotKey(value: unknown): string {
-	if (isPromiseLike(value)) {
-		let key = deferredSnapshotKeys.get(value);
-		if (!key) {
-			key = generateSnapshotId('deferred');
-			deferredSnapshotKeys.set(value, key);
-		}
-		return key;
-	}
-
-	return generateSnapshotId('resolved');
-}
-
 function createHydrationTarget<T>(items: HydrationItems<T>): OnboardingWorkspaceHydrationTarget<T> {
-	return {
-		mode: 'replace',
-		deferred: isPromiseLike(items),
-		snapshotKey: createSnapshotKey(items),
-		items
-	};
+	return createWorkspaceHydrationTarget(items, { mode: 'replace', resolvedSnapshotKey: 'random' });
 }
 
 function createTemplatesHydrationTarget(data: OnboardingWorkspaceData): OnboardingTemplatesWorkspaceHydrationTarget {
@@ -103,7 +69,7 @@ function createTemplatesHydrationTarget(data: OnboardingWorkspaceData): Onboardi
 
 	return {
 		mode: 'replace',
-		snapshotKey: createSnapshotKey({ templates, steps }),
+		snapshotKey: createWorkspaceSnapshotKey({ templates, steps }, { resolved: 'random' }),
 		templates,
 		steps
 	};

@@ -6,17 +6,6 @@ Accepted and superseded ADRs live in [ADR Index](ADR_INDEX.md). Do not use this 
 
 ## Open Candidates
 
-### Platform Admin Provider Boundary
-
-- Status: Open candidate
-- Why:
-  - route-level provider coupling remains concentrated around admin/platform operations.
-- Likely covers:
-  - which platform-admin operations stay provider-adjacent
-  - which operations move behind use cases and adapters
-  - service-role boundaries
-  - audit behavior for privileged platform actions
-
 ### Legacy Clinic Terminology Runtime Rename
 
 - Status: Open candidate
@@ -48,3 +37,4 @@ These are no longer backlog items because ADRs already exist:
 - Feature permission lane map: [ADR 0002](adrs/0002-v1-feature-permission-lane-map.md)
 - Provider boundary contract: [ADR 0004](adrs/0004-v1-provider-boundary-contract.md)
 - Legacy terminology compatibility policy: [ADR 0006](adrs/0006-legacy-terminology-compatibility-policy.md)
+- Platform Administration boundary: [ADR 0011](adrs/0011-platform-administration-boundary.md)

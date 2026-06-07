@@ -15,10 +15,10 @@ function makeStore(overrides: Partial<PlatformAdministrationStore> = {}): Platfo
 		listDailySignupsLast30Days: vi.fn().mockResolvedValue([{ date: '2026-06-01', count: 2 }]),
 		countOrganizations: vi.fn().mockResolvedValue(4),
 		listOrganizationTiers: vi.fn().mockResolvedValue([
-			{ tier: 'free', gift_tier: null },
-			{ tier: 'free', gift_tier: 'team' },
-			{ tier: 'unit', gift_tier: null },
-			{ tier: null, gift_tier: null }
+			{ tier: 'free', gift_tier: null, count: 2 },
+			{ tier: 'free', gift_tier: 'team', count: 3 },
+			{ tier: 'unit', gift_tier: null, count: 1 },
+			{ tier: null, gift_tier: null, count: 4 }
 		]),
 		countPendingAccessRequests: vi.fn().mockResolvedValue(5),
 		countPendingFeedback: vi.fn().mockResolvedValue(6),
@@ -59,7 +59,7 @@ describe('Platform Administration', () => {
 		vi.clearAllMocks();
 	});
 
-	it('builds dashboard data and computes effective tier counts', async () => {
+	it('builds dashboard data and computes effective aggregate tier counts', async () => {
 		const { admin, store } = makeDeps();
 
 		const dashboard = await admin.dashboard();
@@ -68,7 +68,7 @@ describe('Platform Administration', () => {
 			userStats: { total: 12, last_30_days: 3 },
 			signupTrend: [{ date: '2026-06-01', count: 2 }],
 			totalOrganizations: 4,
-			tierCounts: { free: 2, team: 1, unit: 1 },
+			tierCounts: { free: 6, team: 3, unit: 1 },
 			pendingAccessRequests: 5,
 			pendingFeedback: 6,
 			recentActivity: [{ id: 'event-1' }]
@@ -173,6 +173,21 @@ describe('Platform Administration', () => {
 			organizationId: VALID_ORG_ID,
 			suspendedAt: NOW
 		});
+	});
+
+	it('does not audit or report success when a suspension adapter rejects', async () => {
+		const audit = vi.fn();
+		const store = makeStore({
+			unsuspendOrganization: vi.fn().mockRejectedValue(new Error('table organizations unsuspend update failed'))
+		});
+		const { admin } = makeDeps({ store, audit });
+
+		await expect(admin.updateSuspension({ type: 'org', targetId: VALID_ORG_ID, action: 'unsuspend' })).rejects.toThrow(
+			'table organizations unsuspend update failed'
+		);
+
+		expect(store.unsuspendOrganization).toHaveBeenCalledWith(VALID_ORG_ID);
+		expect(audit).not.toHaveBeenCalled();
 	});
 
 	it('rejects malformed suspension commands before calling the store', async () => {

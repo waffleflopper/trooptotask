@@ -1,6 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { AdminContext } from './adminAdapter';
-import { selectAllSupabaseRows } from '$lib/server/supabasePagination';
 import {
 	createPlatformAdministration,
 	type PlatformAdministration,
@@ -12,124 +11,180 @@ import {
 	type PlatformAdministrationUserStats
 } from '$lib/server/core/useCases/platformAdministration';
 
-type SupabaseQueryResult<T> = Promise<{ data: T | null; error: unknown; count?: number | null }>;
+type SupabaseResponse<T> = {
+	data: T | null;
+	error: unknown;
+	count?: number | null;
+	status?: number;
+	statusText?: string;
+};
 
-function throwOperationFailed(error: unknown): void {
-	if (error) {
-		throw new Error('Operation failed');
+type SupabaseQueryResult<T> = Promise<SupabaseResponse<T>>;
+
+interface PlatformAdministrationOrganizationTierAggregateRow {
+	tier: string | null;
+	gift_tier: string | null;
+	count: number | string | null;
+}
+
+function formatSupabaseError(error: unknown): string {
+	if (error instanceof Error) return error.message;
+	if (typeof error === 'string') return error;
+	if (error && typeof error === 'object') {
+		const candidate = error as { message?: unknown; code?: unknown };
+		const message = typeof candidate.message === 'string' ? candidate.message : JSON.stringify(error);
+		return typeof candidate.code === 'string' ? `${message} (${candidate.code})` : message;
 	}
+	return String(error);
+}
+
+function assertSupabaseSuccess<T>(operation: string, response: SupabaseResponse<T>): void {
+	if (response.error) {
+		throw new Error(`${operation} failed: ${formatSupabaseError(response.error)}`);
+	}
+}
+
+function assertSupabaseAffectedRow(operation: string, response: SupabaseResponse<unknown>): void {
+	assertSupabaseSuccess(operation, response);
+	if (response.count == null) {
+		throw new Error(`${operation} failed: affected row count unavailable`);
+	}
+	if (response.count < 1) {
+		throw new Error(`${operation} failed: no rows affected`);
+	}
+}
+
+function mapOrganizationTierAggregateRow(
+	row: PlatformAdministrationOrganizationTierAggregateRow
+): PlatformAdministrationOrganizationTierRow {
+	const count = Number(row.count ?? 0);
+	return {
+		tier: row.tier,
+		gift_tier: row.gift_tier,
+		count: Number.isFinite(count) && count > 0 ? count : 0
+	};
 }
 
 export function createSupabasePlatformAdministrationStore(supabase: SupabaseClient): PlatformAdministrationStore {
 	return {
 		async countPlatformUsers(): Promise<PlatformAdministrationUserStats | null> {
-			const { data } = await supabase.rpc('count_platform_users');
-			return (data as PlatformAdministrationUserStats | null) ?? null;
+			const response = await supabase.rpc('count_platform_users');
+			assertSupabaseSuccess('rpc count_platform_users', response);
+			return (response.data as PlatformAdministrationUserStats | null) ?? null;
 		},
 
 		async listDailySignupsLast30Days() {
-			const { data } = await supabase.rpc('daily_signups_last_30_days');
-			return (data as Array<{ date: string; count: number }> | null) ?? null;
+			const response = await supabase.rpc('daily_signups_last_30_days');
+			assertSupabaseSuccess('rpc daily_signups_last_30_days', response);
+			return (response.data as Array<{ date: string; count: number }> | null) ?? null;
 		},
 
 		async countOrganizations() {
-			const { count } = await supabase.from('organizations').select('*', { count: 'exact', head: true });
-			return count ?? null;
+			const response = await supabase.from('organizations').select('*', { count: 'exact', head: true });
+			assertSupabaseSuccess('table organizations count', response);
+			return response.count ?? null;
 		},
 
 		async listOrganizationTiers(): Promise<PlatformAdministrationOrganizationTierRow[]> {
-			const { data } = await selectAllSupabaseRows<PlatformAdministrationOrganizationTierRow>(
-				(from, to) =>
-					supabase.from('organizations').select('tier, gift_tier').range(from, to) as unknown as Promise<{
-						data: PlatformAdministrationOrganizationTierRow[] | null;
-						error: unknown;
-					}>
+			const response = await supabase.rpc('list_platform_organization_tier_counts');
+			assertSupabaseSuccess('rpc list_platform_organization_tier_counts', response);
+			return ((response.data as PlatformAdministrationOrganizationTierAggregateRow[] | null) ?? []).map(
+				mapOrganizationTierAggregateRow
 			);
-			return data ?? [];
 		},
 
 		async countPendingAccessRequests() {
-			const { count } = await supabase
+			const response = await supabase
 				.from('access_requests')
 				.select('*', { count: 'exact', head: true })
 				.eq('status', 'pending');
-			return count ?? null;
+			assertSupabaseSuccess('table access_requests pending count', response);
+			return response.count ?? null;
 		},
 
 		async countPendingFeedback() {
-			const { count } = await supabase
+			const response = await supabase
 				.from('beta_feedback')
 				.select('*', { count: 'exact', head: true })
 				.eq('status', 'new');
-			return count ?? null;
+			assertSupabaseSuccess('table beta_feedback new count', response);
+			return response.count ?? null;
 		},
 
 		async listRecentActivity(limit: number): Promise<PlatformAdministrationRecentActivity[]> {
-			const { data } = await supabase
+			const response = await supabase
 				.from('audit_logs')
 				.select('*')
 				.order('timestamp', { ascending: false })
 				.limit(limit);
-			return (data as PlatformAdministrationRecentActivity[] | null) ?? [];
+			assertSupabaseSuccess('table audit_logs recent activity', response);
+			return (response.data as PlatformAdministrationRecentActivity[] | null) ?? [];
 		},
 
 		async searchUsersByEmail(input): Promise<PlatformAdministrationSearchUserRow[]> {
-			const { data } = await supabase.rpc('search_users_by_email', {
+			const response = await supabase.rpc('search_users_by_email', {
 				search_query: input.query,
 				max_results: input.maxResults
 			});
-			return (data as PlatformAdministrationSearchUserRow[] | null) ?? [];
+			assertSupabaseSuccess('rpc search_users_by_email', response);
+			return (response.data as PlatformAdministrationSearchUserRow[] | null) ?? [];
 		},
 
 		async countOrganizationsForUser(userId: string) {
-			const { count } = await supabase
+			const response = await supabase
 				.from('organization_memberships')
 				.select('*', { count: 'exact', head: true })
 				.eq('user_id', userId);
-			return count ?? null;
+			assertSupabaseSuccess('table organization_memberships user count', response);
+			return response.count ?? null;
 		},
 
 		async searchOrganizationsByName(input): Promise<PlatformAdministrationSearchOrganizationRow[]> {
-			const { data } = (await supabase
+			const response = (await supabase
 				.from('organizations')
 				.select('id, name, tier')
 				.ilike('name', `%${input.query}%`)
 				.limit(input.maxResults)) as Awaited<SupabaseQueryResult<PlatformAdministrationSearchOrganizationRow[]>>;
-			return (data as PlatformAdministrationSearchOrganizationRow[] | null) ?? [];
+			assertSupabaseSuccess('table organizations search', response);
+			return (response.data as PlatformAdministrationSearchOrganizationRow[] | null) ?? [];
 		},
 
 		async countActivePersonnelForOrganization(organizationId: string) {
-			const { count } = await supabase
+			const response = await supabase
 				.from('personnel')
 				.select('*', { count: 'exact', head: true })
 				.eq('organization_id', organizationId)
 				.is('archived_at', null);
-			return count ?? null;
+			assertSupabaseSuccess('table personnel active count', response);
+			return response.count ?? null;
 		},
 
 		async suspendUser(input) {
-			const { error } = await supabase
+			const response = await supabase
 				.from('user_suspensions')
 				.upsert({ user_id: input.userId, suspended_by: input.suspendedBy, reason: input.reason });
-			throwOperationFailed(error);
+			assertSupabaseSuccess('table user_suspensions upsert', response);
 		},
 
 		async unsuspendUser(userId) {
-			const { error } = await supabase.from('user_suspensions').delete().eq('user_id', userId);
-			throwOperationFailed(error);
+			const response = await supabase.from('user_suspensions').delete({ count: 'exact' }).eq('user_id', userId);
+			assertSupabaseAffectedRow('table user_suspensions delete', response);
 		},
 
 		async suspendOrganization(input) {
-			const { error } = await supabase
+			const response = await supabase
 				.from('organizations')
-				.update({ suspended_at: input.suspendedAt.toISOString() })
+				.update({ suspended_at: input.suspendedAt.toISOString() }, { count: 'exact' })
 				.eq('id', input.organizationId);
-			throwOperationFailed(error);
+			assertSupabaseAffectedRow('table organizations suspend update', response);
 		},
 
 		async unsuspendOrganization(organizationId) {
-			const { error } = await supabase.from('organizations').update({ suspended_at: null }).eq('id', organizationId);
-			throwOperationFailed(error);
+			const response = await supabase
+				.from('organizations')
+				.update({ suspended_at: null }, { count: 'exact' })
+				.eq('id', organizationId);
+			assertSupabaseAffectedRow('table organizations unsuspend update', response);
 		}
 	};
 }

@@ -35,7 +35,7 @@ The platform-admin workflow for reviewing **Access Requests**, issuing or resend
 _Avoid_: Invite-code admin, organization member approval, Supabase invite management
 
 **Platform Administration**:
-The platform-admin workflow for inspecting and operating TroopToTask-wide concerns across **User Accounts**, **Organizations**, beta queues, billing support, announcements, audit visibility, and suspension controls. It is separate from **Organization Governance Actions** and must keep provider-specific reads and commands behind app-owned modules.
+The platform-admin workflow for inspecting and operating TroopToTask-wide concerns across **User Accounts**, **Organizations**, beta queues, billing support, announcements, audit visibility, and suspension controls. It is separate from **Organization Governance Actions** and must keep provider-specific reads and commands behind app-owned modules. See [ADR 0011](docs/architecture/adrs/0011-platform-administration-boundary.md).
 _Avoid_: Organization admin, route-owned admin query, raw platform Supabase access
 
 **User Profile**:

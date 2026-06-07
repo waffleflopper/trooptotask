@@ -1,4 +1,3 @@
-import { SvelteMap } from 'svelte/reactivity';
 import { availabilityStore } from '$features/calendar/stores/availability.svelte';
 import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
 import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
@@ -6,6 +5,10 @@ import { trainingTypesStore } from '$features/training/stores/trainingTypes.svel
 import { groupsStore, type Group } from '$lib/stores/groups.svelte';
 import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
 import { rosterStore } from '$lib/stores/roster.svelte';
+import {
+	createFeatureLaneWorkspaceHydrator,
+	type FeatureLaneWorkspaceHydrationTargetDescriptor
+} from '$lib/utils/featureLaneWorkspaceHydration.svelte';
 import type { TrainingType } from '$features/training/training.types';
 import type { AssignmentType, AvailabilityEntry, DailyAssignment, Personnel, StatusType } from '$lib/types';
 import type {
@@ -47,20 +50,6 @@ export interface DashboardWorkspaceHydrator {
 	reset(): void;
 }
 
-interface TargetSnapshotState {
-	orgId: string;
-	snapshotKey: string;
-}
-
-interface DashboardHydrationTargetDescriptor {
-	targetName: string;
-	snapshotKey: string;
-	items: unknown | Promise<unknown>;
-	storeOrgId(): string;
-	startLoading?(): void;
-	apply(resolved: unknown): void;
-}
-
 const defaultDashboardHydrationStores: DashboardHydrationStores = {
 	personnelStore: rosterStore,
 	groupsStore,
@@ -71,25 +60,12 @@ const defaultDashboardHydrationStores: DashboardHydrationStores = {
 	pinnedGroupsStore
 };
 
-function isPromiseLike<T>(value: unknown): value is Promise<T> {
-	return !!value && typeof value === 'object' && typeof (value as { then?: unknown }).then === 'function';
-}
-
-function storeMovedToAnotherOrg(
-	descriptor: DashboardHydrationTargetDescriptor,
-	orgId: string,
-	initialStoreOrgId: string
-): boolean {
-	const storeOrgId = descriptor.storeOrgId();
-	return storeOrgId !== '' && storeOrgId !== orgId && storeOrgId !== initialStoreOrgId;
-}
-
 function createTargetDescriptor<T>(
 	target: DashboardWorkspaceHydrationTarget<T>,
 	store: DashboardHydrationLoadable<T>,
 	orgId: string,
 	targetName: string
-): DashboardHydrationTargetDescriptor | undefined {
+): FeatureLaneWorkspaceHydrationTargetDescriptor | undefined {
 	if (target.mode === 'preserve-client') return undefined;
 
 	return {
@@ -107,7 +83,7 @@ function createCalendarAssignmentsDescriptor(
 	store: DashboardAssignmentsHydrationLoadable,
 	orgId: string,
 	targetName: string
-): DashboardHydrationTargetDescriptor | undefined {
+): FeatureLaneWorkspaceHydrationTargetDescriptor | undefined {
 	if (target.mode === 'preserve-client') return undefined;
 
 	return {
@@ -128,7 +104,7 @@ function createPinnedGroupsDescriptor(
 	store: DashboardPinnedGroupsHydrationLoadable,
 	orgId: string,
 	targetName: string
-): DashboardHydrationTargetDescriptor | undefined {
+): FeatureLaneWorkspaceHydrationTargetDescriptor | undefined {
 	if (target.mode === 'preserve-client') return undefined;
 
 	return {
@@ -141,60 +117,11 @@ function createPinnedGroupsDescriptor(
 }
 
 export function createDashboardWorkspaceHydrator(): DashboardWorkspaceHydrator {
-	const appliedSnapshotKeys = new SvelteMap<string, TargetSnapshotState>();
-	const pendingSnapshotKeys = new SvelteMap<string, TargetSnapshotState>();
-
-	async function applyDescriptor(descriptor: DashboardHydrationTargetDescriptor, orgId: string): Promise<void> {
-		const { targetName, snapshotKey } = descriptor;
-
-		const appliedState = appliedSnapshotKeys.get(targetName);
-		if (
-			descriptor.storeOrgId() === orgId &&
-			appliedState?.orgId === orgId &&
-			appliedState.snapshotKey === snapshotKey
-		) {
-			return;
-		}
-
-		const pendingState = pendingSnapshotKeys.get(targetName);
-		if (pendingState?.orgId === orgId && pendingState.snapshotKey === snapshotKey) return;
-
-		pendingSnapshotKeys.set(targetName, { orgId, snapshotKey });
-
-		if (isPromiseLike<unknown>(descriptor.items)) {
-			const initialStoreOrgId = descriptor.storeOrgId();
-			descriptor.startLoading?.();
-			try {
-				const items = await descriptor.items;
-				const latestPending = pendingSnapshotKeys.get(targetName);
-				if (latestPending?.orgId !== orgId || latestPending.snapshotKey !== snapshotKey) return;
-				if (storeMovedToAnotherOrg(descriptor, orgId, initialStoreOrgId)) {
-					pendingSnapshotKeys.delete(targetName);
-					return;
-				}
-				descriptor.apply(items);
-				pendingSnapshotKeys.delete(targetName);
-				appliedSnapshotKeys.set(targetName, { orgId, snapshotKey });
-				return;
-			} catch (error) {
-				const latestPending = pendingSnapshotKeys.get(targetName);
-				if (latestPending?.orgId === orgId && latestPending.snapshotKey === snapshotKey) {
-					pendingSnapshotKeys.delete(targetName);
-				}
-				console.error(`[dashboard-hydration] Failed to load ${targetName} for org ${orgId}`, error);
-				throw error;
-			}
-		}
-
-		descriptor.apply(descriptor.items);
-		pendingSnapshotKeys.delete(targetName);
-		appliedSnapshotKeys.set(targetName, { orgId, snapshotKey });
-	}
+	const hydrationTargets = createFeatureLaneWorkspaceHydrator({ logTag: 'dashboard-hydration' });
 
 	return {
 		reset() {
-			appliedSnapshotKeys.clear();
-			pendingSnapshotKeys.clear();
+			hydrationTargets.reset();
 		},
 
 		async hydrate(
@@ -221,9 +148,9 @@ export function createDashboardWorkspaceHydrator(): DashboardWorkspaceHydrator {
 				),
 				createTargetDescriptor(hydration.trainingTypes, stores.trainingTypesStore, orgId, 'trainingTypes'),
 				createPinnedGroupsDescriptor(hydration.pinnedGroups, stores.pinnedGroupsStore, orgId, 'pinnedGroups')
-			].filter((descriptor): descriptor is DashboardHydrationTargetDescriptor => descriptor !== undefined);
+			].filter((descriptor): descriptor is FeatureLaneWorkspaceHydrationTargetDescriptor => descriptor !== undefined);
 
-			await Promise.all(descriptors.map((descriptor) => applyDescriptor(descriptor, orgId)));
+			await hydrationTargets.applyDescriptors(orgId, descriptors);
 		}
 	};
 }

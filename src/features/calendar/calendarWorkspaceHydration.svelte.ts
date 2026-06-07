@@ -1,4 +1,3 @@
-import { SvelteMap } from 'svelte/reactivity';
 import { availabilityStore } from './stores/availability.svelte';
 import { dailyAssignmentsStore } from './stores/dailyAssignments.svelte';
 import { specialDaysStore } from './stores/specialDays.svelte';
@@ -7,6 +6,10 @@ import { groupsStore, type Group } from '$lib/stores/groups.svelte';
 import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
 import { rosterStore } from '$lib/stores/roster.svelte';
 import { mergeById } from '$lib/utils/mergeById';
+import {
+	createFeatureLaneWorkspaceHydrator,
+	type FeatureLaneWorkspaceHydrationTargetDescriptor
+} from '$lib/utils/featureLaneWorkspaceHydration.svelte';
 import type { AssignmentType, AvailabilityEntry, DailyAssignment, Personnel, SpecialDay, StatusType } from '$lib/types';
 import type {
 	CalendarAssignmentsWorkspaceHydrationTarget,
@@ -48,20 +51,6 @@ export interface CalendarWorkspaceHydrator {
 	reset(): void;
 }
 
-interface TargetSnapshotState {
-	orgId: string;
-	snapshotKey: string;
-}
-
-interface CalendarHydrationTargetDescriptor {
-	targetName: string;
-	snapshotKey: string;
-	items: unknown | Promise<unknown>;
-	storeOrgId(): string;
-	startLoading?(): void;
-	apply(resolved: unknown): void;
-}
-
 const defaultCalendarHydrationStores: CalendarHydrationStores = {
 	personnelStore: rosterStore,
 	groupsStore,
@@ -71,10 +60,6 @@ const defaultCalendarHydrationStores: CalendarHydrationStores = {
 	calendarAssignmentsStore: dailyAssignmentsStore,
 	pinnedGroupsStore
 };
-
-function isPromiseLike<T>(value: unknown): value is Promise<T> {
-	return !!value && typeof value === 'object' && typeof (value as { then?: unknown }).then === 'function';
-}
 
 function hasStringId(value: unknown): value is { id: string } {
 	return !!value && typeof value === 'object' && typeof (value as { id?: unknown }).id === 'string';
@@ -125,21 +110,12 @@ function mergeCalendarAssignments(
 	};
 }
 
-function storeMovedToAnotherOrg(
-	descriptor: CalendarHydrationTargetDescriptor,
-	orgId: string,
-	initialStoreOrgId: string
-): boolean {
-	const storeOrgId = descriptor.storeOrgId();
-	return storeOrgId !== '' && storeOrgId !== orgId && storeOrgId !== initialStoreOrgId;
-}
-
 function createTargetDescriptor<T>(
 	target: CalendarWorkspaceHydrationTarget<T>,
 	store: CalendarHydrationLoadable<T>,
 	orgId: string,
 	targetName: string
-): CalendarHydrationTargetDescriptor | undefined {
+): FeatureLaneWorkspaceHydrationTargetDescriptor | undefined {
 	if (target.mode === 'preserve-client') return undefined;
 
 	return {
@@ -157,7 +133,7 @@ function createCalendarAssignmentsDescriptor(
 	store: CalendarAssignmentsHydrationLoadable,
 	orgId: string,
 	targetName: string
-): CalendarHydrationTargetDescriptor | undefined {
+): FeatureLaneWorkspaceHydrationTargetDescriptor | undefined {
 	if (target.mode === 'preserve-client') return undefined;
 
 	return {
@@ -183,7 +159,7 @@ function createPinnedGroupsDescriptor(
 	store: CalendarPinnedGroupsHydrationLoadable,
 	orgId: string,
 	targetName: string
-): CalendarHydrationTargetDescriptor | undefined {
+): FeatureLaneWorkspaceHydrationTargetDescriptor | undefined {
 	if (target.mode === 'preserve-client') return undefined;
 
 	return {
@@ -196,61 +172,11 @@ function createPinnedGroupsDescriptor(
 }
 
 export function createCalendarWorkspaceHydrator(): CalendarWorkspaceHydrator {
-	const appliedSnapshotKeys = new SvelteMap<string, TargetSnapshotState>();
-	const pendingSnapshotKeys = new SvelteMap<string, TargetSnapshotState>();
-
-	async function applyDescriptor(descriptor: CalendarHydrationTargetDescriptor, orgId: string): Promise<void> {
-		const { targetName, snapshotKey } = descriptor;
-
-		const appliedState = appliedSnapshotKeys.get(targetName);
-		if (
-			descriptor.storeOrgId() === orgId &&
-			appliedState?.orgId === orgId &&
-			appliedState.snapshotKey === snapshotKey
-		) {
-			return;
-		}
-
-		const pendingState = pendingSnapshotKeys.get(targetName);
-		if (pendingState?.orgId === orgId && pendingState.snapshotKey === snapshotKey) return;
-
-		pendingSnapshotKeys.set(targetName, { orgId, snapshotKey });
-
-		if (isPromiseLike<unknown>(descriptor.items)) {
-			const initialStoreOrgId = descriptor.storeOrgId();
-			descriptor.startLoading?.();
-			try {
-				const items = await descriptor.items;
-				const latestPending = pendingSnapshotKeys.get(targetName);
-				if (latestPending?.orgId !== orgId || latestPending.snapshotKey !== snapshotKey) return;
-				if (storeMovedToAnotherOrg(descriptor, orgId, initialStoreOrgId)) {
-					pendingSnapshotKeys.delete(targetName);
-					return;
-				}
-				descriptor.apply(items);
-				pendingSnapshotKeys.delete(targetName);
-				appliedSnapshotKeys.set(targetName, { orgId, snapshotKey });
-				return;
-			} catch (error) {
-				const latestPending = pendingSnapshotKeys.get(targetName);
-				if (latestPending?.orgId === orgId && latestPending.snapshotKey === snapshotKey) {
-					pendingSnapshotKeys.delete(targetName);
-					console.error(`[calendar-hydration] Failed to load ${targetName} for org ${orgId}`, error);
-					throw error;
-				}
-				return;
-			}
-		}
-
-		descriptor.apply(descriptor.items);
-		pendingSnapshotKeys.delete(targetName);
-		appliedSnapshotKeys.set(targetName, { orgId, snapshotKey });
-	}
+	const hydrationTargets = createFeatureLaneWorkspaceHydrator({ logTag: 'calendar-hydration' });
 
 	return {
 		reset() {
-			appliedSnapshotKeys.clear();
-			pendingSnapshotKeys.clear();
+			hydrationTargets.reset();
 		},
 
 		async hydrate(
@@ -277,9 +203,9 @@ export function createCalendarWorkspaceHydrator(): CalendarWorkspaceHydrator {
 					'calendarAssignments'
 				),
 				createPinnedGroupsDescriptor(hydration.pinnedGroups, stores.pinnedGroupsStore, orgId, 'pinnedGroups')
-			].filter((descriptor): descriptor is CalendarHydrationTargetDescriptor => descriptor !== undefined);
+			].filter((descriptor): descriptor is FeatureLaneWorkspaceHydrationTargetDescriptor => descriptor !== undefined);
 
-			await Promise.all(descriptors.map((descriptor) => applyDescriptor(descriptor, orgId)));
+			await hydrationTargets.applyDescriptors(orgId, descriptors);
 		}
 	};
 }

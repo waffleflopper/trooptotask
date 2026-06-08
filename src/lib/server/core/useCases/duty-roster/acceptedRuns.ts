@@ -57,6 +57,7 @@ export type DutyRosterTemplateInvalidateResult = {
 
 export type AcceptedDutyRosterRunCountSource = DutyRosterTemplateCountReadModel & {
 	continuationHistory: DutyRosterCountSourceModel['continuationHistory'];
+	futureRunConflict: DutyRosterCountSourceModel['futureRunConflict'];
 };
 
 export type ListAcceptedDutyRosterTemplateRunsOptions = {
@@ -229,6 +230,8 @@ export async function loadAcceptedDutyRosterRunCountSource(
 		template: DutyRosterTemplate;
 		personnel: DutyRosterPoolPersonnel[];
 		baselineStartDate?: string;
+		previewStartDate?: string;
+		previewEndDate?: string;
 	}
 ): Promise<AcceptedDutyRosterRunCountSource> {
 	const runRows = await ctx.store.findMany<DutyRosterTemplateRunRow>(
@@ -264,7 +267,9 @@ export async function loadAcceptedDutyRosterRunCountSource(
 		template: input.template,
 		resolvedPool,
 		runs,
-		baselineStartDate: input.baselineStartDate
+		baselineStartDate: input.baselineStartDate,
+		previewStartDate: input.previewStartDate,
+		previewEndDate: input.previewEndDate
 	});
 }
 

@@ -165,6 +165,75 @@ describe('buildDutyRosterTemplatePreview', () => {
 		]);
 	});
 
+	it('continues visible DA6 counts from accepted history even when the next run starts after a gap', () => {
+		const personnel = [
+			person({ id: 'alpha', rank: 'SGT', lastName: 'Able' }),
+			person({ id: 'bravo', rank: 'SGT', lastName: 'Baker' })
+		];
+		const templateWithBaseline = {
+			...template,
+			manualBaselineCounts: {
+				alpha: 25,
+				bravo: 30
+			}
+		};
+		const firstPreviewCountSource = buildDutyRosterCountSource({
+			template: templateWithBaseline,
+			resolvedPool: personnel,
+			runs: [],
+			baselineStartDate: '2026-06-30'
+		});
+		const firstPreview = buildDutyRosterTemplatePreview({
+			template: templateWithBaseline,
+			personnel,
+			availabilityEntries: [],
+			statusTypes,
+			specialDays: [],
+			continuationHistory: firstPreviewCountSource.continuationHistory,
+			startDate: '2026-06-30',
+			endDate: '2026-06-30'
+		});
+		const acceptedSnapshot = buildDutyRosterTemplateAcceptedSnapshot({
+			preview: firstPreview,
+			acceptedAt: '2026-06-30T20:00:00.000Z',
+			acceptedByUserId: 'user-1'
+		});
+
+		const nextPreviewCountSource = buildDutyRosterCountSource({
+			template: templateWithBaseline,
+			resolvedPool: personnel,
+			runs: [
+				{
+					id: 'june-run',
+					status: 'accepted',
+					acceptedAt: '2026-06-30T20:00:00.000Z',
+					snapshot: acceptedSnapshot,
+					corrections: []
+				}
+			],
+			baselineStartDate: '2026-07-08',
+			previewStartDate: '2026-07-08',
+			previewEndDate: '2026-07-31'
+		});
+		const nextPreview = buildDutyRosterTemplatePreview({
+			template: templateWithBaseline,
+			personnel,
+			availabilityEntries: [],
+			statusTypes,
+			specialDays: [],
+			continuationHistory: nextPreviewCountSource.continuationHistory,
+			startDate: '2026-07-08',
+			endDate: '2026-07-08'
+		});
+
+		expect(firstPreview.rosterRows).toEqual([{ date: '2026-06-30', assigneeId: 'bravo' }]);
+		expect(nextPreview.rosterRows).toEqual([{ date: '2026-07-08', assigneeId: 'alpha' }]);
+		expect(nextPreview.da6.rows.find((row) => row.personnelId === 'alpha')?.cells[0]).toMatchObject({
+			assigned: true,
+			sequenceNumber: 26
+		});
+	});
+
 	it('keeps preview generation read-only while showing A, D, and future U matrix markings', () => {
 		const preview = buildDutyRosterTemplatePreview({
 			template,

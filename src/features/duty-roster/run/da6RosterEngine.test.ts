@@ -5,7 +5,7 @@ import {
 	type AvailabilityClassification,
 	type Da6RosterEngineInput
 } from './da6RosterEngine';
-import type { DutyRosterSnapshotPersonnel } from './dutyRosterRun.types';
+import type { DutyRosterSequenceKey, DutyRosterSnapshotPersonnel } from './dutyRosterRun.types';
 
 const available: AvailabilityClassification = {
 	selectable: true,
@@ -249,8 +249,12 @@ describe('Duty Priority', () => {
 });
 
 describe('DA6 Numbering', () => {
+	function initialCount(personId: string, count: number): Map<string, Map<DutyRosterSequenceKey, number>> {
+		return new Map([[personId, new Map<DutyRosterSequenceKey, number>([['single', count]])]]);
+	}
+
 	it('does not increment for an A cell and resumes from the interrupted sequence number', () => {
-		const numbering = __testing.createDa6Numbering(new Map([['alpha', 2]]));
+		const numbering = __testing.createDa6Numbering(initialCount('alpha', 2));
 
 		expect(numbering.current('alpha', 'single', true)).toBe(2);
 		numbering.record('alpha', 'single', { assigned: false, chargeable: true });
@@ -274,7 +278,7 @@ describe('DA6 Numbering', () => {
 	});
 
 	it('resets the next displayed number to 1 after an assignment', () => {
-		const numbering = __testing.createDa6Numbering(new Map([['alpha', 5]]));
+		const numbering = __testing.createDa6Numbering(initialCount('alpha', 5));
 
 		expect(numbering.current('alpha', 'single', true)).toBe(5);
 		numbering.record('alpha', 'single', { assigned: true, chargeable: true });
@@ -283,7 +287,7 @@ describe('DA6 Numbering', () => {
 	});
 
 	it('uses Manual DA6 Baseline counts as the first displayed number', () => {
-		const numbering = __testing.createDa6Numbering(new Map([['alpha', 4]]));
+		const numbering = __testing.createDa6Numbering(initialCount('alpha', 4));
 
 		expect(numbering.current('alpha', 'single', true)).toBe(4);
 	});

@@ -299,7 +299,8 @@ function templatePreview(): DutyRosterTemplatePreview {
 				reason: 'Commander directed swap',
 				warnings: []
 			}
-		]
+		],
+		futureRunConflict: null
 	};
 }
 

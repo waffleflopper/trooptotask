@@ -926,7 +926,8 @@ function preview(options: { manual?: boolean } = {}): DutyRosterTemplatePreview 
 			da6,
 			sequencePeriods: []
 		},
-		warnings: []
+		warnings: [],
+		futureRunConflict: null
 	};
 }
 

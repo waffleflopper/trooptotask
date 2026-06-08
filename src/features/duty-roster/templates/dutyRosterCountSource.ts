@@ -5,6 +5,7 @@ import type {
 	DutyRosterPoolPersonnel,
 	DutyRosterPoolPersonnelDisplay,
 	DutyRosterTemplate,
+	DutyRosterTemplateFutureRunConflict,
 	DutyRosterTemplateCountReadModel,
 	DutyRosterTemplateCountRow
 } from './dutyRosterTemplates';
@@ -25,6 +26,7 @@ export type DutyRosterCountSourceRun = {
 
 export type DutyRosterCountSourceModel = DutyRosterTemplateCountReadModel & {
 	continuationHistory: DutyRosterContinuationHistoryItem[];
+	futureRunConflict: DutyRosterTemplateFutureRunConflict | null;
 };
 
 export function buildDutyRosterCountSource(input: {
@@ -32,20 +34,32 @@ export function buildDutyRosterCountSource(input: {
 	resolvedPool: DutyRosterPoolPersonnel[];
 	runs: DutyRosterCountSourceRun[];
 	baselineStartDate?: string;
+	previewStartDate?: string;
+	previewEndDate?: string;
 }): DutyRosterCountSourceModel {
-	const runs = [...input.runs].sort((left, right) => left.acceptedAt.localeCompare(right.acceptedAt));
+	const runs = [...input.runs].sort(compareRunsByDutyWindow);
+	const continuationRuns = input.previewStartDate
+		? runs.filter((run) => run.snapshot.config.endDate < input.previewStartDate!)
+		: runs;
+	const futureRunConflict =
+		input.previewStartDate && input.previewEndDate
+			? buildFutureRunConflict(runs, {
+					previewStartDate: input.previewStartDate,
+					previewEndDate: input.previewEndDate
+				})
+			: null;
 	const acceptedRunPersonnelIds = new Set(
-		runs
+		continuationRuns
 			.filter((run) => run.status === 'accepted')
 			.flatMap((run) => dutyRosterAcceptedSnapshotPersonnelIds(run.snapshot))
 	);
-	const continuationHistory = runs
+	const continuationHistory = continuationRuns
 		.filter((run) => run.status === 'accepted')
 		.map((run) => applyDutyRosterCorrectionsToSnapshot(run.snapshot, run.corrections))
 		.map((snapshot) => acceptedSnapshotToContinuationHistory(snapshot));
-	const acceptedRunCount = runs.filter((run) => run.status === 'accepted').length;
+	const acceptedRunCount = continuationRuns.filter((run) => run.status === 'accepted').length;
 	const invalidatedRunCount = runs.filter((run) => run.status === 'invalidated').length;
-	const countingCorrectionCount = runs
+	const countingCorrectionCount = continuationRuns
 		.filter((run) => run.status === 'accepted')
 		.reduce((total, run) => total + run.corrections.length, 0);
 	const nonCountingCorrectionCount = runs
@@ -81,7 +95,49 @@ export function buildDutyRosterCountSource(input: {
 		invalidatedRunCount,
 		countingCorrectionCount,
 		nonCountingCorrectionCount,
-		continuationHistory: effectiveHistory
+		continuationHistory: effectiveHistory,
+		futureRunConflict
+	};
+}
+
+function compareRunsByDutyWindow(left: DutyRosterCountSourceRun, right: DutyRosterCountSourceRun): number {
+	const startDiff = left.snapshot.config.startDate.localeCompare(right.snapshot.config.startDate);
+	if (startDiff !== 0) return startDiff;
+
+	const endDiff = left.snapshot.config.endDate.localeCompare(right.snapshot.config.endDate);
+	if (endDiff !== 0) return endDiff;
+
+	const acceptedDiff = left.acceptedAt.localeCompare(right.acceptedAt);
+	if (acceptedDiff !== 0) return acceptedDiff;
+
+	return left.id.localeCompare(right.id);
+}
+
+function buildFutureRunConflict(
+	runs: DutyRosterCountSourceRun[],
+	input: { previewStartDate: string; previewEndDate: string }
+): DutyRosterTemplateFutureRunConflict | null {
+	const affectedRuns = runs
+		.filter((run) => run.status === 'accepted')
+		.filter((run) => run.snapshot.config.endDate >= input.previewStartDate)
+		.sort(compareRunsByDutyWindow);
+	if (affectedRuns.length === 0) {
+		return null;
+	}
+
+	const first = affectedRuns[0]!;
+	const latestEndDate = affectedRuns.reduce(
+		(latest, run) => (run.snapshot.config.endDate > latest ? run.snapshot.config.endDate : latest),
+		first.snapshot.config.endDate
+	);
+	return {
+		code: 'future-accepted-runs',
+		affectedRunCount: affectedRuns.length,
+		firstAffectedRunId: first.id,
+		firstAffectedRunStartDate: first.snapshot.config.startDate,
+		firstAffectedRunEndDate: first.snapshot.config.endDate,
+		latestAffectedRunEndDate: latestEndDate,
+		message: `This preview starts before ${affectedRuns.length === 1 ? 'an accepted run' : `${affectedRuns.length} accepted runs`} already on this template. Accepting it can change the DA6 counts those later runs should have used.`
 	};
 }
 
@@ -258,9 +314,39 @@ function acceptedSnapshotToContinuationHistory(
 			reason: row.reason ?? undefined
 		})),
 		config: {
-			historySource: 'accepted-duty-roster-run'
+			historySource: 'accepted-duty-roster-run',
+			da6ContinuationCounts: buildDa6ContinuationCounts(snapshot)
 		}
 	};
+}
+
+function buildDa6ContinuationCounts(
+	snapshot: DutyRosterTemplateAcceptedSnapshot
+): Record<string, Record<string, number>> {
+	const counts: Record<string, Record<string, number>> = {};
+	const finalAssigneeByDate = new Map(snapshot.finalRows.map((row) => [row.date, row.finalAssigneeId]));
+
+	for (const [columnIndex, column] of snapshot.da6.columns.entries()) {
+		for (const row of snapshot.da6.rows) {
+			const cell = row.cells[columnIndex];
+			if (!cell || cell.sequenceNumber === null) {
+				continue;
+			}
+
+			const finalAssigned = finalAssigneeByDate.get(column.date) === row.personnelId;
+			const nextCount = finalAssigned ? 1 : cell.chargeable ? cell.sequenceNumber + 1 : cell.sequenceNumber;
+			if (!Number.isInteger(nextCount) || nextCount <= 0) {
+				continue;
+			}
+
+			counts[row.personnelId] = {
+				...(counts[row.personnelId] ?? {}),
+				[column.sequenceKey]: nextCount
+			};
+		}
+	}
+
+	return counts;
 }
 
 function poolDisplay(person: DutyRosterPoolPersonnel): DutyRosterPoolPersonnelDisplay {

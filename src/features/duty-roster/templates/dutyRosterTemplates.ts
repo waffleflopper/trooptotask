@@ -89,6 +89,16 @@ export interface DutyRosterTemplateCountReadModel {
 	nonCountingCorrectionCount: number;
 }
 
+export interface DutyRosterTemplateFutureRunConflict {
+	code: 'future-accepted-runs';
+	message: string;
+	affectedRunCount: number;
+	firstAffectedRunId: string;
+	firstAffectedRunStartDate: string;
+	firstAffectedRunEndDate: string;
+	latestAffectedRunEndDate: string;
+}
+
 export interface DutyRosterTemplateSettingsInput {
 	templateId: string;
 	name?: string | null;
@@ -122,6 +132,7 @@ export interface DutyRosterTemplateManualSelectionInput {
 
 export interface DutyRosterTemplateAcceptPreviewInput {
 	preview: string;
+	futureRunConflictResolution?: 'acknowledge' | 'invalidate-following' | null;
 }
 
 export interface DutyRosterTemplateAcceptedRun {

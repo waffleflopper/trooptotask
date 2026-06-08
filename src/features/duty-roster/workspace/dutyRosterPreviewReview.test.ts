@@ -416,7 +416,8 @@ function previewSnapshot(): DutyRosterTemplatePreview {
 			},
 			sequencePeriods: []
 		},
-		warnings: []
+		warnings: [],
+		futureRunConflict: null
 	};
 }
 

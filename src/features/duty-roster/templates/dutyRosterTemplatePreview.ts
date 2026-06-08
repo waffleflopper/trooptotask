@@ -7,7 +7,11 @@ import type {
 	DutyRosterRunSnapshot
 } from '$features/duty-roster/run/dutyRosterRun.types';
 import type { AssignmentType, AvailabilityEntry, Personnel, SpecialDay, StatusType } from '$lib/types';
-import type { DutyRosterPoolPersonnel, DutyRosterTemplate } from './dutyRosterTemplates';
+import type {
+	DutyRosterPoolPersonnel,
+	DutyRosterTemplate,
+	DutyRosterTemplateFutureRunConflict
+} from './dutyRosterTemplates';
 import { resolveDutyRosterPool } from './dutyRosterPool';
 
 export type DutyRosterTemplateManualSelectionWarningCode = 'outside-pool' | 'unavailable-or-conflicting';
@@ -93,12 +97,14 @@ export interface DutyRosterTemplatePreviewInput {
 	pattern?: DutyEventSeriesPattern;
 	selectedWeekdays?: number[];
 	skipHolidaysAndDonsas?: boolean;
+	futureRunConflict?: DutyRosterTemplateFutureRunConflict | null;
 	generatedAt?: string;
 }
 
 export type DutyRosterTemplatePreview = DutyRosterRunSnapshot & {
 	selectionPersonnel: DutyRosterTemplatePreviewPersonnel[];
 	manualSelections: DutyRosterTemplateManualSelection[];
+	futureRunConflict: DutyRosterTemplateFutureRunConflict | null;
 };
 
 export function buildDutyRosterTemplatePreview(input: DutyRosterTemplatePreviewInput): DutyRosterTemplatePreview {
@@ -136,7 +142,8 @@ export function buildDutyRosterTemplatePreview(input: DutyRosterTemplatePreviewI
 	return deepFreeze({
 		...generated,
 		selectionPersonnel: input.personnel.map(toPreviewPersonnel),
-		manualSelections: []
+		manualSelections: [],
+		futureRunConflict: input.futureRunConflict ?? null
 	});
 }
 

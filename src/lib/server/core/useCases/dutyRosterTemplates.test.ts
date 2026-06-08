@@ -2770,6 +2770,114 @@ describe('Duty Roster Template use cases', () => {
 		expect(nextPreview.rosterRows).toEqual([{ date: '2026-06-02', assigneeId: 'alpha' }]);
 	});
 
+	it('continues visible DA6 counts from the prior accepted run before the preview start date', async () => {
+		const ctx = createCtx();
+		personnelRows.push(
+			personnelRow({ id: 'alpha', rank: 'SGT', last_name: 'Able', first_name: 'Ann', group_id: 'alpha' }),
+			personnelRow({ id: 'bravo', rank: 'SGT', last_name: 'Baker', first_name: 'Ben', group_id: 'alpha' })
+		);
+		const template = await createDutyRosterTemplate(ctx, { name: 'CQ NCO', shortCode: 'CQ' });
+		await updateDutyRosterTemplateSettings(ctx, {
+			templateId: template.id,
+			poolCriteria: {
+				rankValues: ['SGT'],
+				groupIds: ['alpha'],
+				mosValues: [],
+				dutyRoleValues: []
+			},
+			exemptPersonnelIds: [],
+			manualBaselineCounts: { alpha: 25, bravo: 30 }
+		});
+		const firstPreview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: template.id,
+			startDate: '2026-06-30',
+			endDate: '2026-06-30'
+		});
+		await acceptDutyRosterTemplatePreview(ctx, {
+			preview: JSON.stringify(firstPreview)
+		});
+
+		const nextPreview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: template.id,
+			startDate: '2026-07-08',
+			endDate: '2026-07-08'
+		});
+
+		expect(firstPreview.rosterRows).toEqual([{ date: '2026-06-30', assigneeId: 'bravo' }]);
+		expect(nextPreview.futureRunConflict).toBeNull();
+		expect(nextPreview.rosterRows).toEqual([{ date: '2026-07-08', assigneeId: 'alpha' }]);
+		expect(nextPreview.da6.rows.find((row) => row.personnelId === 'alpha')?.cells[0]).toMatchObject({
+			assigned: true,
+			sequenceNumber: 26
+		});
+	});
+
+	it('requires a choice before accepting a backfill preview that affects later accepted runs', async () => {
+		const ctx = createCtx();
+		personnelRows.push(
+			personnelRow({ id: 'alpha', rank: 'SGT', last_name: 'Able', first_name: 'Ann', group_id: 'alpha' }),
+			personnelRow({ id: 'bravo', rank: 'SGT', last_name: 'Baker', first_name: 'Ben', group_id: 'alpha' })
+		);
+		const template = await createDutyRosterTemplate(ctx, { name: 'CQ NCO', shortCode: 'CQ' });
+		await updateDutyRosterTemplateSettings(ctx, {
+			templateId: template.id,
+			poolCriteria: {
+				rankValues: ['SGT'],
+				groupIds: ['alpha'],
+				mosValues: [],
+				dutyRoleValues: []
+			},
+			exemptPersonnelIds: [],
+			manualBaselineCounts: {}
+		});
+		const junePreview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: template.id,
+			startDate: '2026-06-30',
+			endDate: '2026-06-30'
+		});
+		await acceptDutyRosterTemplatePreview(ctx, {
+			preview: JSON.stringify(junePreview)
+		});
+		const laterPreview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: template.id,
+			startDate: '2026-07-15',
+			endDate: '2026-07-31'
+		});
+		const laterRun = await acceptDutyRosterTemplatePreview(ctx, {
+			preview: JSON.stringify(laterPreview)
+		});
+
+		const backfillPreview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: template.id,
+			startDate: '2026-07-01',
+			endDate: '2026-07-14'
+		});
+
+		expect(backfillPreview.futureRunConflict).toMatchObject({
+			code: 'future-accepted-runs',
+			affectedRunCount: 1,
+			firstAffectedRunId: laterRun.id,
+			firstAffectedRunStartDate: '2026-07-15',
+			firstAffectedRunEndDate: '2026-07-31'
+		});
+		await expect(
+			acceptDutyRosterTemplatePreview(ctx, {
+				preview: JSON.stringify(backfillPreview)
+			})
+		).rejects.toMatchObject({
+			status: 409,
+			message: 'Choose how to handle later accepted runs before accepting this Duty Roster preview.'
+		});
+
+		const backfillRun = await acceptDutyRosterTemplatePreview(ctx, {
+			preview: JSON.stringify(backfillPreview),
+			futureRunConflictResolution: 'invalidate-following'
+		});
+
+		expect(acceptedRunRows.find((row) => row.id === laterRun.id)).toMatchObject({ status: 'invalidated' });
+		expect(acceptedRunRows.find((row) => row.id === backfillRun.id)).toMatchObject({ status: 'accepted' });
+	});
+
 	it('reports Manual DA6 Baseline as the count read model until the first accepted run', async () => {
 		const ctx = createCtx();
 		personnelRows.push(

@@ -342,7 +342,11 @@ function applyDa6ContinuationCounts(counts: Map<string, Map<DutyRosterSequenceKe
 			}
 		}
 		if (sequenceCounts.size > 0) {
-			counts.set(personnelId, sequenceCounts);
+			const existingCounts = counts.get(personnelId) ?? new Map<DutyRosterSequenceKey, number>();
+			for (const [sequenceKey, count] of sequenceCounts) {
+				existingCounts.set(sequenceKey, count);
+			}
+			counts.set(personnelId, existingCounts);
 		}
 	}
 }

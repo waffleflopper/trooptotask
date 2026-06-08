@@ -160,13 +160,14 @@ function initialDa6CountsFromManualBaseline(
 }
 
 function priorityCountsFromInitialDa6Counts(
-	initialDa6Counts: Map<string, Map<DutyRosterSequenceKey, number>>
+	initialDa6Counts: Map<string, Map<DutyRosterSequenceKey, number>>,
+	sequenceKey: DutyRosterSequenceKey
 ): Map<string, number> {
 	return new Map(
 		[...initialDa6Counts]
 			.map(([personId, counts]) => {
-				const values = [...counts.values()].filter((count) => Number.isInteger(count) && count > 0);
-				return values.length > 0 ? ([personId, Math.max(...values)] as const) : null;
+				const count = counts.get(sequenceKey) ?? counts.get('single');
+				return typeof count === 'number' && Number.isInteger(count) && count > 0 ? ([personId, count] as const) : null;
 			})
 			.filter((entry): entry is readonly [string, number] => entry !== null)
 	);
@@ -218,11 +219,8 @@ function buildCell(
 
 export function computeDa6Roster(input: Da6RosterEngineInput): Da6RosterEngineOutput {
 	const initialDa6Counts = input.initialDa6Counts ?? initialDa6CountsFromManualBaseline(input.manualBaselineCounts);
-	const priorityCountSeed = priorityCountsFromInitialDa6Counts(initialDa6Counts);
-	const priority =
-		priorityCountSeed.size > 0
-			? baselineCountPriority(priorityCountSeed)
-			: lastDutyDatePriority(input.priorLastDutyDates);
+	const datePriority = lastDutyDatePriority(input.priorLastDutyDates);
+	const sequencePriorities = new Map<DutyRosterSequenceKey, DutyPriority>();
 	const cellsByPersonnelId = new Map<string, Da6Cell[]>(input.pool.map((person) => [person.id, []]));
 	const columns: Da6Column[] = [];
 	const sequencePeriodCounters = new Map<DutyRosterSequenceKey, number>([
@@ -235,6 +233,12 @@ export function computeDa6Roster(input: Da6RosterEngineInput): Da6RosterEngineOu
 
 	for (const date of input.dutyDates) {
 		const { sequenceKind, sequenceKey } = getSequenceInfo(input, date);
+		let priority = sequencePriorities.get(sequenceKey);
+		if (!priority) {
+			const priorityCountSeed = priorityCountsFromInitialDa6Counts(initialDa6Counts, sequenceKey);
+			priority = priorityCountSeed.size > 0 ? baselineCountPriority(priorityCountSeed) : datePriority;
+			sequencePriorities.set(sequenceKey, priority);
+		}
 		const classifications = new Map(input.pool.map((person) => [person.id, getClassification(input, person.id, date)]));
 		const rankedPersonnel = [...input.pool].sort((a, b) => priority.compare(a, b));
 		const queue = rankedPersonnel.filter((person) => classifications.get(person.id)?.chargeable);

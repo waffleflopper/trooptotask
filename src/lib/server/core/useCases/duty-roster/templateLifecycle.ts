@@ -876,7 +876,8 @@ export async function acceptDutyRosterTemplatePreviewLifecycle(
 	assertFutureRunConflictResolution(preview, resolution);
 	return acceptReviewedDutyRosterTemplatePreview(ctx, {
 		preview,
-		afterAccept: () => applyFutureRunConflictResolution(ctx, preview, resolution)
+		afterAccept: (acceptedRun) =>
+			applyFutureRunConflictResolution(ctx, preview, resolution, { excludeRunIds: [acceptedRun.id] })
 	});
 }
 
@@ -942,12 +943,14 @@ function assertFutureRunConflictResolution(
 async function applyFutureRunConflictResolution(
 	ctx: WritePorts,
 	preview: DutyRosterTemplatePreview,
-	resolution: DutyRosterTemplateAcceptPreviewInput['futureRunConflictResolution'] | null
+	resolution: DutyRosterTemplateAcceptPreviewInput['futureRunConflictResolution'] | null,
+	options: { excludeRunIds?: string[] } = {}
 ): Promise<void> {
 	if (preview.futureRunConflict?.firstAffectedRunId && resolution === 'invalidate-following') {
 		await invalidateLatestRunLifecycle(ctx, {
 			runId: preview.futureRunConflict.firstAffectedRunId,
-			cascade: true
+			cascade: true,
+			excludeRunIds: options.excludeRunIds
 		});
 	}
 }
@@ -999,7 +1002,8 @@ export async function acceptAndApplyDutyRosterTemplatePreviewLifecycle(
 	assertFutureRunConflictResolution(preview, resolution);
 	return acceptAndApplyAcceptedRunLifecycle(ctx, {
 		preview,
-		afterAccept: () => applyFutureRunConflictResolution(ctx, preview, resolution)
+		afterAccept: (acceptedRun) =>
+			applyFutureRunConflictResolution(ctx, preview, resolution, { excludeRunIds: [acceptedRun.id] })
 	});
 }
 

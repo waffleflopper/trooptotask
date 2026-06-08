@@ -278,12 +278,16 @@ export async function loadAcceptedDutyRosterRunCountSource(
 
 export async function acceptReviewedDutyRosterTemplatePreview(
 	ctx: WritePorts,
-	input: { preview: DutyRosterTemplatePreview; acceptedAt?: string; afterAccept?: () => Promise<void> }
+	input: {
+		preview: DutyRosterTemplatePreview;
+		acceptedAt?: string;
+		afterAccept?: (acceptedRun: DutyRosterTemplateAcceptedRun) => Promise<void>;
+	}
 ): Promise<DutyRosterTemplateAcceptedRun> {
 	const acceptedRun = await insertAcceptedDutyRosterTemplatePreview(ctx, input);
 
 	try {
-		await input.afterAccept?.();
+		await input.afterAccept?.(acceptedRun);
 	} catch (error) {
 		await rollbackAcceptedDutyRosterTemplateRunAfterAcceptedStepFailure(ctx, {
 			runId: acceptedRun.id,
@@ -366,7 +370,7 @@ export async function recordDutyRosterTemplateRunCorrection(
 
 export async function invalidateLatestDutyRosterTemplateRun(
 	ctx: WritePorts,
-	input: { runId: string; cascade?: boolean }
+	input: { runId: string; cascade?: boolean; excludeRunIds?: string[] }
 ): Promise<DutyRosterTemplateInvalidateResult> {
 	const row = await ctx.store.findOne<DutyRosterTemplateRunRow>(DUTY_ROSTER_TEMPLATE_RUN_TABLE, ctx.auth.orgId, {
 		id: input.runId
@@ -391,8 +395,13 @@ export async function invalidateLatestDutyRosterTemplateRun(
 		}
 	);
 	const selectedRun = templateRuns.find((candidate) => candidate.id === row.id) ?? row;
+	const excludeRunIds = new Set(input.excludeRunIds ?? []);
 	const targetRows = input.cascade
-		? templateRuns.filter((candidate) => candidate.id === row.id || isFollowOnDutyRosterRun(candidate, selectedRun))
+		? templateRuns.filter(
+				(candidate) =>
+					!excludeRunIds.has(candidate.id) &&
+					(candidate.id === row.id || isFollowOnDutyRosterRun(candidate, selectedRun))
+			)
 		: [selectedRun];
 	assertDutyRosterRunsCanBeInvalidated(targetRows, dutyRosterTodayDate());
 
@@ -515,7 +524,10 @@ async function assertDutyRosterRunsAreInvalidatableAtWriteTime(
 
 export async function acceptAndApplyDutyRosterTemplatePreview(
 	ctx: WritePorts,
-	input: { preview: DutyRosterTemplatePreview; afterAccept?: () => Promise<void> }
+	input: {
+		preview: DutyRosterTemplatePreview;
+		afterAccept?: (acceptedRun: DutyRosterTemplateAcceptedRun) => Promise<void>;
+	}
 ): Promise<DutyRosterTemplateApplyResult> {
 	const acceptedRun = await insertAcceptedDutyRosterTemplatePreview(ctx, input);
 	let compensated: Awaited<ReturnType<typeof applyAcceptedDutyRosterRunCalendarSyncWithCompensation>>;
@@ -527,7 +539,7 @@ export async function acceptAndApplyDutyRosterTemplatePreview(
 	}
 
 	try {
-		await input.afterAccept?.();
+		await input.afterAccept?.(acceptedRun);
 	} catch (error) {
 		await rollbackAcceptedDutyRosterTemplateRunAfterAcceptedStepFailure(ctx, {
 			runId: acceptedRun.id,

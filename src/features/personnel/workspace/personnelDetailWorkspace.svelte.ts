@@ -12,11 +12,21 @@ import type {
 	PersonnelReadinessLaneTone
 } from '$features/personnel/personnel-detail.types';
 import { archivePersonnel } from '$features/personnel/utils/archivePersonnel';
-import { derivePersonnelDocumentTitle } from '$features/personnel/utils/documentTitles';
 import { downloadBlob, filenameFromContentDisposition } from '$lib/export/workbook';
 import type { Group } from '$lib/stores/groups.svelte';
 import type { Personnel } from '$lib/types';
 import { SvelteDate } from 'svelte/reactivity';
+import { ArtifactDraft } from './artifactDraft.svelte';
+import {
+	counselingRecordDraftSpec,
+	documentDraftSpec,
+	followUpDraftSpec,
+	leaderNoteDraftSpec,
+	type CounselingRecordDraftInput,
+	type DocumentDraftInput,
+	type FollowUpDraftInput,
+	type LeaderNoteDraftInput
+} from './personnelArtifactDraftSpecs';
 
 export type PersonnelDetailTone = PersonnelReadinessLaneTone;
 
@@ -102,6 +112,11 @@ export class PersonnelDetailWorkspace {
 	readonly #getInput: () => PersonnelDetailWorkspaceInput;
 	readonly #deps: Required<PersonnelDetailWorkspaceDeps>;
 
+	followUps: ArtifactDraft<FollowUpDraftInput, PersonnelFollowUp>;
+	leaderNotes: ArtifactDraft<LeaderNoteDraftInput, PersonnelLeaderNote>;
+	counselingRecords: ArtifactDraft<CounselingRecordDraftInput, PersonnelCounselingRecord>;
+	documents: ArtifactDraft<DocumentDraftInput, PersonnelDocument>;
+
 	updatedPerson = $state<Personnel | null>(null);
 	showDataSheet = $state(false);
 	showArchiveConfirm = $state(false);
@@ -119,33 +134,8 @@ export class PersonnelDetailWorkspace {
 	basicInfoSaving = $state(false);
 	basicInfoError = $state('');
 
-	updatedFollowUps = $state<PersonnelFollowUp[]>([]);
 	togglingFollowUpId = $state('');
-	followUpError = $state('');
-	followUpTitle = $state('');
-	followUpNotes = $state('');
-	followUpDueDate = $state('');
-	followUpSaving = $state(false);
-
-	leaderNoteText = $state('');
-	leaderNoteSaving = $state(false);
-	leaderNoteError = $state('');
-	createdLeaderNotes = $state<PersonnelLeaderNote[]>([]);
-
-	counselingDate = $state(new SvelteDate().toISOString().slice(0, 10));
-	counselingTitle = $state('');
-	counselingSummary = $state('');
-	counselingFile = $state<File | null>(null);
-	counselingSaving = $state(false);
-	counselingError = $state('');
-	createdCounselingRecords = $state<PersonnelCounselingRecord[]>([]);
-
-	documentTitle = $state('');
-	documentFile = $state<File | null>(null);
-	documentSaving = $state(false);
-	documentError = $state('');
 	openingDocumentId = $state('');
-	createdDocuments = $state<PersonnelDocument[]>([]);
 
 	exportSubmitting = $state(false);
 	exportError = $state('');
@@ -153,6 +143,14 @@ export class PersonnelDetailWorkspace {
 	constructor(input: PersonnelDetailWorkspaceInputSource, deps: PersonnelDetailWorkspaceDeps = {}) {
 		this.#getInput = typeof input === 'function' ? input : () => input;
 		this.#deps = { ...defaultDeps, ...deps };
+		const draftDeps = {
+			context: () => ({ orgId: this.orgId, personId: this.currentPerson.id }),
+			fetch: this.#deps.fetch
+		};
+		this.followUps = new ArtifactDraft(followUpDraftSpec, draftDeps);
+		this.leaderNotes = new ArtifactDraft(leaderNoteDraftSpec, draftDeps);
+		this.counselingRecords = new ArtifactDraft(counselingRecordDraftSpec, draftDeps);
+		this.documents = new ArtifactDraft(documentDraftSpec, draftDeps);
 	}
 
 	get #input(): PersonnelDetailWorkspaceInput {
@@ -282,14 +280,7 @@ export class PersonnelDetailWorkspace {
 	}
 
 	mergeUpdatedFollowUps(loaded: PersonnelFollowUp[]): PersonnelFollowUp[] {
-		// These are transient lookup tables for one synchronous merge, not reactive state.
-		// eslint-disable-next-line svelte/prefer-svelte-reactivity
-		const updatedById = new Map(this.updatedFollowUps.map((item) => [item.id, item]));
-		const merged = loaded.map((item) => updatedById.get(item.id) ?? item);
-		// eslint-disable-next-line svelte/prefer-svelte-reactivity
-		const loadedIds = new Set(loaded.map((item) => item.id));
-		const created = this.updatedFollowUps.filter((item) => !loadedIds.has(item.id) && item.status !== 'archived');
-		return this.sortFollowUps([...created, ...merged.filter((item) => item.status !== 'archived')]);
+		return this.sortFollowUps(this.followUps.mergeLoaded(loaded).filter((item) => item.status !== 'archived'));
 	}
 
 	sortFollowUps(items: PersonnelFollowUp[]): PersonnelFollowUp[] {
@@ -372,7 +363,7 @@ export class PersonnelDetailWorkspace {
 	};
 
 	setFollowUpStatus = async (followUp: PersonnelFollowUp, status: 'open' | 'completed'): Promise<void> => {
-		this.followUpError = '';
+		this.followUps.error = '';
 		this.togglingFollowUpId = followUp.id;
 		try {
 			const response = await this.#deps.fetch(
@@ -385,43 +376,11 @@ export class PersonnelDetailWorkspace {
 			);
 			if (!response.ok) throw new Error('Unable to update follow-up.');
 			const updated = (await response.json()) as PersonnelFollowUp;
-			this.updatedFollowUps = [updated, ...this.updatedFollowUps.filter((item) => item.id !== updated.id)];
+			this.followUps.upsert(updated);
 		} catch (caught) {
-			this.followUpError = caught instanceof Error ? caught.message : 'Unable to update follow-up.';
+			this.followUps.error = caught instanceof Error ? caught.message : 'Unable to update follow-up.';
 		} finally {
 			this.togglingFollowUpId = '';
-		}
-	};
-
-	submitFollowUp = async (): Promise<void> => {
-		this.followUpError = '';
-		const title = this.followUpTitle.trim();
-		if (!title) {
-			this.followUpError = 'Enter a follow-up title.';
-			return;
-		}
-
-		this.followUpSaving = true;
-		try {
-			const response = await this.#deps.fetch(`/org/${this.orgId}/api/personnel/${this.currentPerson.id}/follow-ups`, {
-				method: 'POST',
-				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({
-					title,
-					notes: this.followUpNotes.trim(),
-					dueDate: this.followUpDueDate || null
-				})
-			});
-			if (!response.ok) throw new Error('Unable to add follow-up.');
-			const created = (await response.json()) as PersonnelFollowUp;
-			this.updatedFollowUps = [created, ...this.updatedFollowUps.filter((item) => item.id !== created.id)];
-			this.followUpTitle = '';
-			this.followUpNotes = '';
-			this.followUpDueDate = '';
-		} catch (caught) {
-			this.followUpError = caught instanceof Error ? caught.message : 'Unable to add follow-up.';
-		} finally {
-			this.followUpSaving = false;
 		}
 	};
 
@@ -445,83 +404,18 @@ export class PersonnelDetailWorkspace {
 		];
 	}
 
-	submitLeaderNote = async (): Promise<void> => {
-		this.leaderNoteError = '';
-		const text = this.leaderNoteText.trim();
-		if (!text) {
-			this.leaderNoteError = 'Enter a leader note before saving.';
-			return;
-		}
-
-		this.leaderNoteSaving = true;
-		try {
-			const response = await this.#deps.fetch(
-				`/org/${this.orgId}/api/personnel/${this.currentPerson.id}/leader-notes`,
-				{
-					method: 'POST',
-					headers: { 'content-type': 'application/json' },
-					body: JSON.stringify({ text })
-				}
-			);
-			if (!response.ok) throw new Error('Unable to save leader note.');
-			const note = (await response.json()) as PersonnelLeaderNote;
-			this.createdLeaderNotes = [note, ...this.createdLeaderNotes];
-			this.leaderNoteText = '';
-		} catch (caught) {
-			this.leaderNoteError = caught instanceof Error ? caught.message : 'Unable to save leader note.';
-		} finally {
-			this.leaderNoteSaving = false;
-		}
-	};
-
 	updateCounselingFile = (event: Event): void => {
 		const input = event.currentTarget as HTMLInputElement;
-		this.counselingFile = input.files?.[0] ?? null;
+		this.counselingRecords.selectFile(input.files?.[0] ?? null);
 	};
 
 	updateDocumentFile = (event: Event): void => {
 		const input = event.currentTarget as HTMLInputElement;
-		this.documentFile = input.files?.[0] ?? null;
-		if (this.documentFile && !this.documentTitle.trim()) {
-			this.documentTitle = derivePersonnelDocumentTitle({ filename: this.documentFile.name });
-		}
-	};
-
-	submitDocument = async (): Promise<void> => {
-		this.documentError = '';
-		if (!this.documentFile) {
-			this.documentError = 'Choose a PDF, JPEG, PNG, or HEIC file.';
-			return;
-		}
-		if (!this.documentTitle.trim()) {
-			this.documentError = 'Enter a document title.';
-			return;
-		}
-
-		const formData = new FormData();
-		formData.set('title', this.documentTitle.trim());
-		formData.set('file', this.documentFile);
-
-		this.documentSaving = true;
-		try {
-			const response = await this.#deps.fetch(`/org/${this.orgId}/api/personnel/${this.currentPerson.id}/documents`, {
-				method: 'POST',
-				body: formData
-			});
-			if (!response.ok) throw new Error('Unable to upload document.');
-			const record = (await response.json()) as PersonnelDocument;
-			this.createdDocuments = [record, ...this.createdDocuments];
-			this.documentTitle = '';
-			this.documentFile = null;
-		} catch (caught) {
-			this.documentError = caught instanceof Error ? caught.message : 'Unable to upload document.';
-		} finally {
-			this.documentSaving = false;
-		}
+		this.documents.selectFile(input.files?.[0] ?? null);
 	};
 
 	openDocument = async (documentId: string): Promise<void> => {
-		this.documentError = '';
+		this.documents.error = '';
 		this.openingDocumentId = documentId;
 		try {
 			const response = await this.#deps.fetch(
@@ -531,7 +425,7 @@ export class PersonnelDetailWorkspace {
 			const { url } = (await response.json()) as { url: string };
 			this.#deps.openDocumentUrl(url);
 		} catch (caught) {
-			this.documentError = caught instanceof Error ? caught.message : 'Unable to open document.';
+			this.documents.error = caught instanceof Error ? caught.message : 'Unable to open document.';
 		} finally {
 			this.openingDocumentId = '';
 		}
@@ -556,45 +450,6 @@ export class PersonnelDetailWorkspace {
 			this.exportError = caught instanceof Error ? caught.message : 'Unable to export personnel records.';
 		} finally {
 			this.exportSubmitting = false;
-		}
-	};
-
-	submitCounselingRecord = async (): Promise<void> => {
-		this.counselingError = '';
-		if (!this.counselingFile) {
-			this.counselingError = 'Choose a signed counseling PDF.';
-			return;
-		}
-		if (!this.counselingTitle.trim()) {
-			this.counselingError = 'Enter a counseling title.';
-			return;
-		}
-
-		const formData = new FormData();
-		formData.set('dateConducted', this.counselingDate);
-		formData.set('title', this.counselingTitle.trim());
-		formData.set('summary', this.counselingSummary.trim());
-		formData.set('file', this.counselingFile);
-
-		this.counselingSaving = true;
-		try {
-			const response = await this.#deps.fetch(
-				`/org/${this.orgId}/api/personnel/${this.currentPerson.id}/counseling-records`,
-				{
-					method: 'POST',
-					body: formData
-				}
-			);
-			if (!response.ok) throw new Error('Unable to upload counseling PDF.');
-			const record = (await response.json()) as PersonnelCounselingRecord;
-			this.createdCounselingRecords = [record, ...this.createdCounselingRecords];
-			this.counselingTitle = '';
-			this.counselingSummary = '';
-			this.counselingFile = null;
-		} catch (caught) {
-			this.counselingError = caught instanceof Error ? caught.message : 'Unable to upload counseling PDF.';
-		} finally {
-			this.counselingSaving = false;
 		}
 	};
 }

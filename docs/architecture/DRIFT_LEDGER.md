@@ -61,6 +61,7 @@ Each entry separates:
   - the calendar page now has a feature-owned range coordinator for client-side range expansion, store merging, retry state, and advanced duty event hydration
   - calendar reports now compose the shared Report Workspace and shared report-run/filter-selection primitives instead of maintaining five separate report chrome implementations
   - the duty-roster page now keeps advanced-duty template normalization and applied-duty timeline collection rules behind a feature-owned module
+  - the Personnel detail artifact creation flows now compose a client-side `ArtifactDraft` seam for Follow-Ups, Leader Notes, Documents, and Counseling Records instead of keeping four cloned submit/state flows in the workspace
 - Intended direction:
   - deeper modules with thinner public interfaces
 - Why this matters:

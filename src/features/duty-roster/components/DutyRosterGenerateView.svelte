@@ -25,12 +25,9 @@
 		DateRangeControls,
 		DutyRosterStatusBadge,
 		WarningSummary,
-		toDa6MatrixCell,
-		type DA6MatrixCell,
-		type DA6MatrixColumn,
-		type DA6MatrixFooterRow,
+		buildDa6MatrixDisplay,
 		type DA6MatrixMetadataItem,
-		type DA6MatrixRow
+		type Da6MatrixDisplay
 	} from '$features/duty-roster/components/shared';
 	import type { DutyRosterTemplateAcceptedRun } from '$features/duty-roster/templates/dutyRosterTemplates';
 	import type { DutyRosterTemplatePreview } from '$features/duty-roster/templates/dutyRosterTemplatePreview';
@@ -130,45 +127,13 @@
 	const previewIsCommitReady = $derived(previewRequiresActionCount === 0 && previewWarningCount === 0);
 	const recentAcceptedRuns = $derived(acceptedRuns.slice(0, 3));
 
-	const previewMatrixColumns = $derived<DA6MatrixColumn[]>(
-		(previewReview?.matrix.columns ?? []).map((column) => ({
-			id: column.date,
-			weekday: dateParts(column.date).weekday,
-			date: dayMonthLabel(column.date),
-			sequenceKind: da6SequenceKind(column.sequenceKind)
-		}))
+	const previewMatrixDisplay = $derived<Da6MatrixDisplay | null>(
+		previewReview ? buildDa6MatrixDisplay(previewReview.da6Matrix, 'draft') : null
 	);
-	const previewMatrixRows = $derived<DA6MatrixRow[]>(
-		(previewReview?.matrix.rows ?? []).map((row) => ({
-			id: row.personnelId,
-			label: row.soldierLabel
-		}))
-	);
-	const previewMatrixCells = $derived<Record<string, Record<string, DA6MatrixCell>>>(
-		Object.fromEntries(
-			(previewReview?.matrix.rows ?? []).map((row) => [
-				row.personnelId,
-				Object.fromEntries(row.cells.map((cell) => [cell.date, toDa6MatrixCell(cell, row.soldierLabel, 'draft')]))
-			])
-		)
-	);
-	const previewMatrixFooterRows = $derived<DA6MatrixFooterRow[]>([
-		{
-			label: 'Assigned Count',
-			values: Object.fromEntries(
-				(previewReview?.matrix.columns ?? []).map((column) => [
-					column.date,
-					previewReview?.rows.filter((row) => row.date === column.date && row.finalAssignee).length ?? 0
-				])
-			)
-		},
-		{
-			label: 'Required Count',
-			values: Object.fromEntries(
-				(previewReview?.matrix.columns ?? []).map((column) => [column.date, column.chargeableCount])
-			)
-		}
-	]);
+	const previewMatrixColumns = $derived(previewMatrixDisplay?.columns ?? []);
+	const previewMatrixRows = $derived(previewMatrixDisplay?.rows ?? []);
+	const previewMatrixCells = $derived(previewMatrixDisplay?.cells ?? {});
+	const previewMatrixFooterRows = $derived(previewMatrixDisplay?.footerRows ?? []);
 	const previewMatrixMetadata = $derived<DA6MatrixMetadataItem[]>([
 		{ label: 'Duty Position', value: selectedTemplate.name },
 		{ label: 'Date Range', value: `${dayMonthLabel(generateStartDate)} to ${dayMonthLabel(generateEndDate)}` },
@@ -290,12 +255,6 @@
 		const monthPart = parts.find((part) => part.type === 'month')?.value.toUpperCase() ?? '';
 
 		return `${dayPart}-${monthPart}`;
-	}
-
-	function da6SequenceKind(
-		sequenceKind: 'weekday' | 'weekend' | 'holiday' | 'weekend-holiday'
-	): DA6MatrixColumn['sequenceKind'] {
-		return sequenceKind === 'weekday' ? 'weekday' : 'weekend-holiday';
 	}
 </script>
 
@@ -1088,7 +1047,9 @@
 								</div>
 								<div class="grid grid-cols-[minmax(3rem,auto)_minmax(0,1fr)] items-baseline gap-3">
 									<dt class="font-mono text-[0.75rem] font-bold uppercase text-foreground">Soldiers</dt>
-									<dd class="text-[0.92rem] leading-snug text-muted-foreground">{preview.da6.rows.length}</dd>
+									<dd class="text-[0.92rem] leading-snug text-muted-foreground">
+										{previewMatrixDisplay?.rows.length ?? preview.da6.rows.length}
+									</dd>
 								</div>
 								<div class="grid grid-cols-[minmax(3rem,auto)_minmax(0,1fr)] items-baseline gap-3">
 									<dt class="font-mono text-[0.75rem] font-bold uppercase text-foreground">Assigned</dt>

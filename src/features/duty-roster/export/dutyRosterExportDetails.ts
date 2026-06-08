@@ -3,6 +3,7 @@ import type { Da6Matrix, DutyRosterExportModel } from '../run';
 import {
 	manualSelectionForDate,
 	previewFinalAssigneeId,
+	buildDutyRosterTemplatePreviewDa6,
 	type DutyRosterTemplateAcceptedSnapshot,
 	type DutyRosterTemplatePreview,
 	type DutyRosterTemplatePreviewPersonnel
@@ -128,7 +129,7 @@ export function getDutyRosterExportDetails(input: BrowserExportInput): BrowserEx
 					warnings: manualSelection?.warnings.map((warning) => warning.message) ?? []
 				};
 			}),
-			da6: input.templatePreview.da6
+			da6: buildDutyRosterTemplatePreviewDa6(input.templatePreview)
 		};
 	}
 

@@ -3,9 +3,10 @@ import { describe, expect, it, vi } from 'vitest';
 import ExcelJS from 'exceljs';
 import { buildDutyRosterRunSnapshot } from '../run';
 import type { DutyRosterRunInput } from '../run';
-import type {
-	DutyRosterTemplateAcceptedSnapshot,
-	DutyRosterTemplatePreview
+import {
+	buildDutyRosterTemplateAcceptedSnapshot,
+	type DutyRosterTemplateAcceptedSnapshot,
+	type DutyRosterTemplatePreview
 } from '../templates/dutyRosterTemplatePreview';
 import type { AssignmentType, Personnel } from '$lib/types';
 import { buildDutyRosterBrowserExportHtml, printDutyRosterForBrowser } from './dutyRosterBrowserExport';
@@ -195,8 +196,25 @@ describe('exportDutyRosterForBrowser', () => {
 		expect(html).toContain('MANUAL');
 		expect(html).toContain('Generated: SGT Able, Avery');
 		expect(html).toContain('Commander directed swap');
-		expect(html).toContain('<p>Authorized markings only: roster numbers, A, D#, and U#.</p>');
-		expect(html).not.toContain('da6-assigned">X');
+		expect(html).toContain('<p>Authorized markings only: X, roster numbers, A, D#, and U#.</p>');
+		expect(html).toContain('da6-assigned">X');
+	});
+
+	it('builds draft DA6 export output from preview final manual selections', async () => {
+		const preview = templatePreview();
+
+		const workbook = await buildDutyRosterWorkbook({ templatePreview: preview, statusLabel: 'Draft' });
+		const parsed = new ExcelJS.Workbook();
+		await parsed.xlsx.load(toWorkbookBuffer(await workbook.xlsx.writeBuffer()));
+		const sheet = parsed.getWorksheet('DA6 Matrix');
+		const html = buildDutyRosterBrowserExportHtml({ templatePreview: preview, statusLabel: 'Draft' });
+
+		expect(sheet?.getCell('B2').value).toBe('Able, Avery');
+		expect(sheet?.getCell('C2').value).toBe('1');
+		expect(sheet?.getCell('B3').value).toBe('Baker, Blake');
+		expect(sheet?.getCell('C3').value).toBe('X');
+		expect(html).toContain('<tr><td>SGT</td><td>Able, Avery</td><td class="da6-position">1</td></tr>');
+		expect(html).toContain('<tr><td>SGT</td><td>Baker, Blake</td><td class="da6-assigned">X</td></tr>');
 	});
 
 	it('builds official output from accepted snapshots', () => {
@@ -208,7 +226,8 @@ describe('exportDutyRosterForBrowser', () => {
 		expect(html).toContain('Baker, Blake');
 		expect(html).toContain('MANUAL');
 		expect(html).toContain('Generated: SGT Able, Avery');
-		expect(html).not.toContain('da6-assigned">X');
+		expect(html).toContain('<tr><td>SGT</td><td>Able, Avery</td><td class="da6-position">1</td></tr>');
+		expect(html).toContain('<tr><td>SGT</td><td>Baker, Blake</td><td class="da6-assigned">X</td></tr>');
 	});
 
 	it('opens a browser print window for roster output', () => {
@@ -286,35 +305,9 @@ function templatePreview(): DutyRosterTemplatePreview {
 
 function acceptedTemplateSnapshot(): DutyRosterTemplateAcceptedSnapshot {
 	const preview = templatePreview();
-	return {
-		snapshotVersion: 1,
-		template: {
-			id: preview.assignmentType.id,
-			name: preview.assignmentType.name,
-			shortCode: preview.assignmentType.shortName
-		},
-		generatedAt: preview.generatedAt,
+	return buildDutyRosterTemplateAcceptedSnapshot({
+		preview,
 		acceptedAt: '2026-05-01T12:00:00.000Z',
-		acceptedByUserId: 'user-1',
-		config: preview.config,
-		resolvedPool: preview.personnel,
-		selectionPersonnel: preview.selectionPersonnel,
-		generatedRows: preview.rosterRows,
-		finalRows: [
-			{
-				date: '2026-05-01',
-				generatedAssigneeId: 'alpha',
-				finalAssigneeId: 'bravo',
-				assignmentSource: 'manual',
-				generatedDisplay: preview.selectionPersonnel[0],
-				finalDisplay: preview.selectionPersonnel[1],
-				reason: 'Commander directed swap',
-				warnings: []
-			}
-		],
-		manualSelections: preview.manualSelections,
-		da6: preview.da6,
-		exportModel: preview.exportModel,
-		warnings: []
-	};
+		acceptedByUserId: 'user-1'
+	});
 }

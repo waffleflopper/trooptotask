@@ -3047,6 +3047,62 @@ describe('Duty Roster Template use cases', () => {
 		}
 	});
 
+	it('rolls back partially invalidated follow-on runs when invalidate-following fails mid-cascade', async () => {
+		const ctx = createCtx();
+		personnelRows.push(
+			personnelRow({ id: 'alpha', rank: 'SGT', last_name: 'Able', first_name: 'Ann', group_id: 'alpha' }),
+			personnelRow({ id: 'bravo', rank: 'SGT', last_name: 'Baker', first_name: 'Ben', group_id: 'alpha' })
+		);
+		const template = await createDutyRosterTemplate(ctx, { name: 'CQ NCO', shortCode: 'CQ' });
+		const firstLaterPreview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: template.id,
+			startDate: '2026-07-15',
+			endDate: '2026-07-15'
+		});
+		const firstLaterRun = await acceptDutyRosterTemplatePreview(ctx, {
+			preview: JSON.stringify(firstLaterPreview)
+		});
+		const secondLaterPreview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: template.id,
+			startDate: '2026-07-16',
+			endDate: '2026-07-16'
+		});
+		const secondLaterRun = await acceptDutyRosterTemplatePreview(ctx, {
+			preview: JSON.stringify(secondLaterPreview)
+		});
+		const backfillPreview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: template.id,
+			startDate: '2026-07-01',
+			endDate: '2026-07-14'
+		});
+		const originalUpdate = store.update.bind(store);
+		const updateSpy = vi.spyOn(store, 'update').mockImplementation(async (table, orgId, id, data, select) => {
+			if (table === 'duty_roster_template_runs' && id === secondLaterRun.id && data.status === 'invalidated') {
+				throw new Error('Second invalidation failed.');
+			}
+			return originalUpdate(table, orgId, id, data, select);
+		});
+
+		try {
+			await expect(
+				acceptDutyRosterTemplatePreview(ctx, {
+					preview: JSON.stringify(backfillPreview),
+					futureRunConflictResolution: 'invalidate-following'
+				})
+			).rejects.toThrow('Second invalidation failed.');
+
+			expect(acceptedRunRows.map((row) => ({ id: row.id, status: row.status }))).toEqual([
+				{ id: firstLaterRun.id, status: 'accepted' },
+				{ id: secondLaterRun.id, status: 'accepted' }
+			]);
+			expect(auditEvents).not.toContainEqual(
+				expect.objectContaining({ action: 'duty_roster_template_run.accepted', resourceId: 'run-3' })
+			);
+		} finally {
+			updateSpy.mockRestore();
+		}
+	});
+
 	it('runs after-accept compensation before removing a newly accepted run after callback failure', async () => {
 		const ctx = createCtx();
 		personnelRows.push(

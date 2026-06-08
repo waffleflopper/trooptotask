@@ -423,14 +423,22 @@ export async function invalidateLatestDutyRosterTemplateRun(
 		todayDate: dutyRosterTodayDate()
 	});
 	const updatedRows: DutyRosterTemplateRunRow[] = [];
-	for (const target of targetRows) {
-		updatedRows.push(
-			await ctx.store.update<DutyRosterTemplateRunRow>(DUTY_ROSTER_TEMPLATE_RUN_TABLE, ctx.auth.orgId, target.id, {
-				status: 'invalidated',
-				invalidated_at: invalidatedAt,
-				invalidated_by_user_id: ctx.auth.userId
-			})
-		);
+	try {
+		for (const target of targetRows) {
+			updatedRows.push(
+				await ctx.store.update<DutyRosterTemplateRunRow>(DUTY_ROSTER_TEMPLATE_RUN_TABLE, ctx.auth.orgId, target.id, {
+					status: 'invalidated',
+					invalidated_at: invalidatedAt,
+					invalidated_by_user_id: ctx.auth.userId
+				})
+			);
+		}
+	} catch (error) {
+		const rollbackErrors = await rollbackAcceptedDutyRosterRunInvalidationRows(ctx, updatedRows);
+		if (rollbackErrors.length > 0) {
+			throw invalidationRollbackFailureError(error, rollbackErrors, 'ctx.store.update');
+		}
+		throw error;
 	}
 	let calendarCleanup: Awaited<ReturnType<typeof cleanupAcceptedDutyRosterRunCalendarAssignmentsForInvalidation>>;
 	try {
@@ -442,18 +450,7 @@ export async function invalidateLatestDutyRosterTemplateRun(
 			}))
 		);
 	} catch (error) {
-		const rollbackErrors: unknown[] = [];
-		for (const updated of updatedRows) {
-			try {
-				await ctx.store.update<DutyRosterTemplateRunRow>(DUTY_ROSTER_TEMPLATE_RUN_TABLE, ctx.auth.orgId, updated.id, {
-					status: 'accepted',
-					invalidated_at: null,
-					invalidated_by_user_id: null
-				});
-			} catch (rollbackError) {
-				rollbackErrors.push(rollbackError);
-			}
-		}
+		const rollbackErrors = await rollbackAcceptedDutyRosterRunInvalidationRows(ctx, updatedRows);
 		if (rollbackErrors.length > 0) {
 			throw invalidationRollbackFailureError(error, rollbackErrors);
 		}
@@ -476,9 +473,32 @@ export async function invalidateLatestDutyRosterTemplateRun(
 	};
 }
 
-function invalidationRollbackFailureError(primaryError: unknown, rollbackErrors: unknown[]): Error {
+async function rollbackAcceptedDutyRosterRunInvalidationRows(
+	ctx: WritePorts,
+	updatedRows: DutyRosterTemplateRunRow[]
+): Promise<unknown[]> {
+	const rollbackErrors: unknown[] = [];
+	for (const updated of updatedRows) {
+		try {
+			await ctx.store.update<DutyRosterTemplateRunRow>(DUTY_ROSTER_TEMPLATE_RUN_TABLE, ctx.auth.orgId, updated.id, {
+				status: 'accepted',
+				invalidated_at: null,
+				invalidated_by_user_id: null
+			});
+		} catch (rollbackError) {
+			rollbackErrors.push(rollbackError);
+		}
+	}
+	return rollbackErrors;
+}
+
+function invalidationRollbackFailureError(
+	primaryError: unknown,
+	rollbackErrors: unknown[],
+	phase = 'cleanupAcceptedDutyRosterRunCalendarAssignmentsForInvalidation'
+): Error {
 	const error = new Error(
-		`cleanupAcceptedDutyRosterRunCalendarAssignmentsForInvalidation failed; failed to revert ${rollbackErrors.length} updatedRows using ctx.store.update on ${DUTY_ROSTER_TEMPLATE_RUN_TABLE}. Primary failure: ${errorMessage(primaryError)}. Rollback failures: ${rollbackErrors.map(errorMessage).join('; ')}.`
+		`${phase} failed; failed to revert ${rollbackErrors.length} updatedRows using ctx.store.update on ${DUTY_ROSTER_TEMPLATE_RUN_TABLE}. Primary failure: ${errorMessage(primaryError)}. Rollback failures: ${rollbackErrors.map(errorMessage).join('; ')}.`
 	);
 	return Object.assign(error, { primaryError, rollbackErrors });
 }

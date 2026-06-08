@@ -874,9 +874,10 @@ export async function acceptDutyRosterTemplatePreviewLifecycle(
 	const preview = await buildReviewedDutyRosterTemplatePreview(ctx, input);
 	const resolution = parseAcceptPreviewInput(input).futureRunConflictResolution ?? null;
 	assertFutureRunConflictResolution(preview, resolution);
-	const acceptedRun = await acceptReviewedDutyRosterTemplatePreview(ctx, { preview });
-	await applyFutureRunConflictResolution(ctx, preview, resolution);
-	return acceptedRun;
+	return acceptReviewedDutyRosterTemplatePreview(ctx, {
+		preview,
+		afterAccept: () => applyFutureRunConflictResolution(ctx, preview, resolution)
+	});
 }
 
 async function buildReviewedDutyRosterTemplatePreview(
@@ -996,9 +997,10 @@ export async function acceptAndApplyDutyRosterTemplatePreviewLifecycle(
 	const preview = await buildReviewedDutyRosterTemplatePreview(ctx, input);
 	const resolution = parseAcceptPreviewInput(input).futureRunConflictResolution ?? null;
 	assertFutureRunConflictResolution(preview, resolution);
-	const result = await acceptAndApplyAcceptedRunLifecycle(ctx, { preview });
-	await applyFutureRunConflictResolution(ctx, preview, resolution);
-	return result;
+	return acceptAndApplyAcceptedRunLifecycle(ctx, {
+		preview,
+		afterAccept: () => applyFutureRunConflictResolution(ctx, preview, resolution)
+	});
 }
 
 export async function applyDutyRosterTemplatePreviewManualSelectionLifecycle(

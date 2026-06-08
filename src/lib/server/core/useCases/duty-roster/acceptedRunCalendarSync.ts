@@ -37,6 +37,11 @@ export type AcceptedDutyRosterRunCalendarSyncApplyResult = {
 	clearedCount: number;
 };
 
+export type AcceptedDutyRosterRunCalendarSyncCompensation = {
+	result: AcceptedDutyRosterRunCalendarSyncApplyResult;
+	rollbackRecords: DailyAssignmentSlotRecord[];
+};
+
 export type AcceptedDutyRosterRunInvalidationCalendarCleanupTarget = {
 	run: DutyRosterTemplateAcceptedRun;
 	linkedRows: DutyRosterTemplateLinkedCalendarAssignmentRow[];
@@ -54,6 +59,15 @@ export async function applyAcceptedDutyRosterRunCalendarSync(
 	run: DutyRosterTemplateAcceptedRun,
 	options: { audit?: boolean } = {}
 ): Promise<AcceptedDutyRosterRunCalendarSyncApplyResult> {
+	const compensated = await applyAcceptedDutyRosterRunCalendarSyncWithCompensation(ctx, run, options);
+	return compensated.result;
+}
+
+export async function applyAcceptedDutyRosterRunCalendarSyncWithCompensation(
+	ctx: WritePorts,
+	run: DutyRosterTemplateAcceptedRun,
+	options: { audit?: boolean } = {}
+): Promise<AcceptedDutyRosterRunCalendarSyncCompensation> {
 	const records = applyRecordsFromAcceptedRun(run);
 	const rollbackRecords = await loadDailyAssignmentRollbackRecords(ctx, records);
 	let result: Awaited<ReturnType<typeof batchDailyAssignments>>;
@@ -94,9 +108,12 @@ export async function applyAcceptedDutyRosterRunCalendarSync(
 	}
 
 	return {
-		acceptedRun: toAcceptedDutyRosterTemplateRun(updated),
-		insertedCount: result.inserted.length,
-		clearedCount: result.cleared
+		result: {
+			acceptedRun: toAcceptedDutyRosterTemplateRun(updated),
+			insertedCount: result.inserted.length,
+			clearedCount: result.cleared
+		},
+		rollbackRecords
 	};
 }
 
@@ -160,7 +177,16 @@ export async function applyReviewedAcceptedDutyRosterRunCalendarSyncPlan(
 	}
 }
 
-export async function rollbackAcceptedDutyRosterRunCalendarSync(ctx: WritePorts, runId: string): Promise<void> {
+export async function rollbackAcceptedDutyRosterRunCalendarSync(
+	ctx: WritePorts,
+	runId: string,
+	rollbackRecords?: DailyAssignmentSlotRecord[]
+): Promise<void> {
+	if (rollbackRecords) {
+		if (rollbackRecords.length === 0) return;
+		await batchDailyAssignments(ctx, { records: rollbackRecords });
+		return;
+	}
 	await ctx.store.deleteWhere('daily_assignments', ctx.auth.orgId, { duty_roster_template_run_id: runId });
 }
 

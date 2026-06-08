@@ -124,8 +124,12 @@
 	const previewManualCount = $derived(previewMetrics.manualCount);
 	const previewRequiresActionCount = $derived(previewMetrics.requiresActionCount);
 	const previewWarningCount = $derived(previewMetrics.warningCount);
-	const previewIsCommitReady = $derived(previewRequiresActionCount === 0 && previewWarningCount === 0);
+	const futureRunConflict = $derived(preview?.futureRunConflict ?? null);
+	const previewIsCommitReady = $derived(
+		previewRequiresActionCount === 0 && previewWarningCount === 0 && !futureRunConflict
+	);
 	const recentAcceptedRuns = $derived(acceptedRuns.slice(0, 3));
+	const generatePath = $derived(historyPath.replace(/\/history$/, '/generate'));
 
 	const previewMatrixDisplay = $derived<Da6MatrixDisplay | null>(
 		previewReview ? buildDa6MatrixDisplay(previewReview.da6Matrix, 'draft') : null
@@ -591,33 +595,89 @@
 						<span class="font-mono text-[0.7rem] font-semibold uppercase tracking-[0.1em] text-muted-foreground"
 							>Official</span
 						>
-						<form
-							class="flex items-center gap-2"
-							method="POST"
-							action={acceptPreviewAction}
-							use:enhancePostForm={handleOfficialRunEnhance}
-						>
-							<input type="hidden" name="preview" value={previewReview?.previewPayload ?? ''} />
-							<Button variant="outline" size="sm" type="submit" disabled={pendingOfficialAction !== null}>
-								<CheckCircle2 size={16} aria-hidden="true" />
-								{pendingOfficialAction === 'accept' ? 'Accepting...' : 'Accept Run'}
-							</Button>
-							<Button
-								variant="outline"
-								size="sm"
-								type="submit"
-								name="intent"
-								value="print"
-								disabled={pendingOfficialAction !== null}
+						{#if futureRunConflict}
+							<form
+								class="flex flex-wrap items-center gap-2"
+								method="POST"
+								action={acceptPreviewAction}
+								use:enhancePostForm={handleOfficialRunEnhance}
 							>
-								<Printer size={16} aria-hidden="true" />
-								{pendingOfficialAction === 'print' ? 'Printing...' : 'Accept Run + Print'}
-							</Button>
-							<Button size="sm" type="submit" formaction={applyPreviewAction} disabled={pendingOfficialAction !== null}>
-								<Calendar size={16} aria-hidden="true" />
-								{pendingOfficialAction === 'apply' ? 'Applying...' : 'Accept + Apply to Calendar'}
-							</Button>
-						</form>
+								<input type="hidden" name="preview" value={previewReview?.previewPayload ?? ''} />
+								<Button
+									variant="outline"
+									size="sm"
+									href={resolve(generatePath as `/org/${string}/duty-rosters/${string}/${string}`)}
+								>
+									<X size={16} aria-hidden="true" />
+									Cancel
+								</Button>
+								<Button
+									variant="outline"
+									size="sm"
+									type="submit"
+									name="futureRunConflictResolution"
+									value="acknowledge"
+									disabled={pendingOfficialAction !== null}
+								>
+									<CheckCircle2 size={16} aria-hidden="true" />
+									{pendingOfficialAction === 'accept' ? 'Accepting...' : 'Run Anyway'}
+								</Button>
+								<Button
+									size="sm"
+									type="submit"
+									name="futureRunConflictResolution"
+									value="invalidate-following"
+									disabled={pendingOfficialAction !== null}
+								>
+									<AlertTriangle size={16} aria-hidden="true" />
+									{pendingOfficialAction === 'accept' ? 'Invalidating...' : 'Run + Invalidate Later Runs'}
+								</Button>
+								<Button
+									size="sm"
+									type="submit"
+									formaction={applyPreviewAction}
+									name="futureRunConflictResolution"
+									value="invalidate-following"
+									disabled={pendingOfficialAction !== null}
+								>
+									<Calendar size={16} aria-hidden="true" />
+									{pendingOfficialAction === 'apply' ? 'Applying...' : 'Run + Apply + Invalidate Later Runs'}
+								</Button>
+							</form>
+						{:else}
+							<form
+								class="flex items-center gap-2"
+								method="POST"
+								action={acceptPreviewAction}
+								use:enhancePostForm={handleOfficialRunEnhance}
+							>
+								<input type="hidden" name="preview" value={previewReview?.previewPayload ?? ''} />
+								<Button variant="outline" size="sm" type="submit" disabled={pendingOfficialAction !== null}>
+									<CheckCircle2 size={16} aria-hidden="true" />
+									{pendingOfficialAction === 'accept' ? 'Accepting...' : 'Accept Run'}
+								</Button>
+								<Button
+									variant="outline"
+									size="sm"
+									type="submit"
+									name="intent"
+									value="print"
+									disabled={pendingOfficialAction !== null}
+								>
+									<Printer size={16} aria-hidden="true" />
+									{pendingOfficialAction === 'print' ? 'Printing...' : 'Accept Run + Print'}
+								</Button>
+								<Button
+									size="sm"
+									type="submit"
+									formaction={applyPreviewAction}
+									disabled={pendingOfficialAction !== null}
+								>
+									<Calendar size={16} aria-hidden="true" />
+									{pendingOfficialAction === 'apply' ? 'Applying...' : 'Accept + Apply to Calendar'}
+								</Button>
+							</form>
+						{/if}
 					</div>
 				</div>
 			</div>
@@ -634,6 +694,26 @@
 					Calendar events.
 				</p>
 			</div>
+
+			{#if futureRunConflict}
+				<section
+					class="grid gap-3 rounded-md border border-warning bg-warning-muted px-4 py-3 text-sm"
+					aria-labelledby="future-run-conflict-heading"
+				>
+					<div class="flex items-start gap-3">
+						<AlertTriangle size={20} class="mt-0.5 text-warning-foreground" aria-hidden="true" />
+						<div class="grid gap-1">
+							<h3 id="future-run-conflict-heading" class="font-semibold text-foreground">Later accepted runs found</h3>
+							<p class="leading-relaxed text-muted-foreground">{futureRunConflict.message}</p>
+							<p class="leading-relaxed text-muted-foreground">
+								First affected run: {dayMonthLabel(futureRunConflict.firstAffectedRunStartDate)} to
+								{dayMonthLabel(futureRunConflict.firstAffectedRunEndDate)}. Latest affected end date:
+								{dayMonthLabel(futureRunConflict.latestAffectedRunEndDate)}.
+							</p>
+						</div>
+					</div>
+				</section>
+			{/if}
 
 			<section
 				class="grid gap-3 rounded-md border border-border p-4 lg:grid-cols-[minmax(0,1fr)_auto_auto]"

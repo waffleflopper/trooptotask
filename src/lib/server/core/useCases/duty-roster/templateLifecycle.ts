@@ -125,7 +125,8 @@ const acceptPreviewSchema = z.object({
 		.string()
 		.trim()
 		.min(1, 'Generate the preview again before accepting.')
-		.max(MAX_SUBMITTED_PREVIEW_PAYLOAD_LENGTH, PREVIEW_PAYLOAD_TOO_LARGE_MESSAGE)
+		.max(MAX_SUBMITTED_PREVIEW_PAYLOAD_LENGTH, PREVIEW_PAYLOAD_TOO_LARGE_MESSAGE),
+	futureRunConflictResolution: z.enum(['acknowledge', 'invalidate-following']).nullable().optional()
 });
 const correctionSchema = z.object({
 	runId: z.string().trim().min(1, 'Accepted Duty Roster Run is required'),
@@ -870,9 +871,12 @@ export async function acceptDutyRosterTemplatePreviewLifecycle(
 	ctx: WritePorts,
 	input: DutyRosterTemplateAcceptPreviewInput
 ): Promise<DutyRosterTemplateAcceptedRun> {
-	return acceptReviewedDutyRosterTemplatePreview(ctx, {
-		preview: await buildReviewedDutyRosterTemplatePreview(ctx, input)
-	});
+	const preview = await buildReviewedDutyRosterTemplatePreview(ctx, input);
+	const resolution = parseAcceptPreviewInput(input).futureRunConflictResolution ?? null;
+	assertFutureRunConflictResolution(preview, resolution);
+	const acceptedRun = await acceptReviewedDutyRosterTemplatePreview(ctx, { preview });
+	await applyFutureRunConflictResolution(ctx, preview, resolution);
+	return acceptedRun;
 }
 
 async function buildReviewedDutyRosterTemplatePreview(
@@ -925,6 +929,28 @@ async function buildReviewedDutyRosterTemplatePreview(
 	return acceptedPreview;
 }
 
+function assertFutureRunConflictResolution(
+	preview: DutyRosterTemplatePreview,
+	resolution: DutyRosterTemplateAcceptPreviewInput['futureRunConflictResolution'] | null
+): void {
+	if (preview.futureRunConflict && !resolution) {
+		fail(409, 'Choose how to handle later accepted runs before accepting this Duty Roster preview.');
+	}
+}
+
+async function applyFutureRunConflictResolution(
+	ctx: WritePorts,
+	preview: DutyRosterTemplatePreview,
+	resolution: DutyRosterTemplateAcceptPreviewInput['futureRunConflictResolution'] | null
+): Promise<void> {
+	if (preview.futureRunConflict?.firstAffectedRunId && resolution === 'invalidate-following') {
+		await invalidateLatestRunLifecycle(ctx, {
+			runId: preview.futureRunConflict.firstAffectedRunId,
+			cascade: true
+		});
+	}
+}
+
 export async function applyAcceptedDutyRosterTemplateRunLifecycle(
 	ctx: WritePorts,
 	input: { runId: string; calendarSyncPlanToken?: string | null }
@@ -967,9 +993,12 @@ export async function acceptAndApplyDutyRosterTemplatePreviewLifecycle(
 	ctx: WritePorts,
 	input: DutyRosterTemplateAcceptPreviewInput
 ) {
-	return acceptAndApplyAcceptedRunLifecycle(ctx, {
-		preview: await buildReviewedDutyRosterTemplatePreview(ctx, input)
-	});
+	const preview = await buildReviewedDutyRosterTemplatePreview(ctx, input);
+	const resolution = parseAcceptPreviewInput(input).futureRunConflictResolution ?? null;
+	assertFutureRunConflictResolution(preview, resolution);
+	const result = await acceptAndApplyAcceptedRunLifecycle(ctx, { preview });
+	await applyFutureRunConflictResolution(ctx, preview, resolution);
+	return result;
 }
 
 export async function applyDutyRosterTemplatePreviewManualSelectionLifecycle(

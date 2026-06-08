@@ -303,6 +303,50 @@ function getManualBaselineCounts(input: DutyRosterRunInput): Map<string, number>
 	return counts;
 }
 
+function getInitialDa6Counts(input: DutyRosterRunInput): Map<string, Map<DutyRosterSequenceKey, number>> {
+	const counts = new Map<string, Map<DutyRosterSequenceKey, number>>();
+	for (const historyItem of input.rosterHistory ?? []) {
+		if (historyItem.assignmentTypeId !== input.assignmentType.id) {
+			continue;
+		}
+		applyManualBaselineCounts(counts, historyItem.config.manualBaselineCounts);
+		applyDa6ContinuationCounts(counts, historyItem.config.da6ContinuationCounts);
+	}
+	return counts;
+}
+
+function applyManualBaselineCounts(counts: Map<string, Map<DutyRosterSequenceKey, number>>, rawCounts: unknown): void {
+	if (!rawCounts || typeof rawCounts !== 'object' || Array.isArray(rawCounts)) {
+		return;
+	}
+	for (const [personnelId, count] of Object.entries(rawCounts)) {
+		if (typeof count === 'number' && Number.isInteger(count) && count > 0) {
+			counts.set(personnelId, new Map([['single', count]]));
+		}
+	}
+}
+
+function applyDa6ContinuationCounts(counts: Map<string, Map<DutyRosterSequenceKey, number>>, rawCounts: unknown): void {
+	if (!rawCounts || typeof rawCounts !== 'object' || Array.isArray(rawCounts)) {
+		return;
+	}
+	for (const [personnelId, rawSequenceCounts] of Object.entries(rawCounts)) {
+		if (!rawSequenceCounts || typeof rawSequenceCounts !== 'object' || Array.isArray(rawSequenceCounts)) {
+			continue;
+		}
+		const sequenceCounts = new Map<DutyRosterSequenceKey, number>();
+		for (const sequenceKey of ['single', 'weekday', 'weekend-holiday'] as const) {
+			const count = (rawSequenceCounts as Record<string, unknown>)[sequenceKey];
+			if (typeof count === 'number' && Number.isInteger(count) && count > 0) {
+				sequenceCounts.set(sequenceKey, count);
+			}
+		}
+		if (sequenceCounts.size > 0) {
+			counts.set(personnelId, sequenceCounts);
+		}
+	}
+}
+
 function isPersonInAdvancedDuty(event: DutyEvent, personnelId: string): boolean {
 	return event.slotInstances.some((slot) => {
 		if (slot.assigneeId !== personnelId) {
@@ -682,6 +726,7 @@ export function buildDutyRosterRunSnapshot(input: DutyRosterRunInput): DutyRoste
 	const dutyDates = buildDutyDates(config, input.specialDays, specialDaysByDate);
 	const indexes = buildRunIndexes(input, config, dutyDates, specialDaysByDate);
 	const manualBaselineCounts = getManualBaselineCounts(input);
+	const initialDa6Counts = getInitialDa6Counts(input);
 	const sequenceByDate: Da6RosterEngineInput['sequenceByDate'] = new Map(
 		dutyDates.map((date) => {
 			const sequenceKind = classifySequenceKind(date, indexes.specialDaysByDate);
@@ -701,7 +746,8 @@ export function buildDutyRosterRunSnapshot(input: DutyRosterRunInput): DutyRoste
 		sequenceByDate,
 		classificationByPersonDate,
 		priorLastDutyDates: getLastDutyDates(personnel, input, config.startDate),
-		manualBaselineCounts
+		manualBaselineCounts,
+		initialDa6Counts
 	});
 	const columns = engineOutput.columns.map((column) => ({
 		...column,

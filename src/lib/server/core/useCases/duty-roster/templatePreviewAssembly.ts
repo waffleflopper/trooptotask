@@ -35,13 +35,20 @@ export async function listActiveDutyRosterPersonnel(ctx: QueryPorts): Promise<Du
 export async function loadDutyRosterTemplateCountReadModelSource(
 	ctx: QueryPorts,
 	template: DutyRosterTemplate,
-	input: { baselineStartDate?: string; personnel?: DutyRosterPoolPersonnel[] } = {}
+	input: {
+		baselineStartDate?: string;
+		previewStartDate?: string;
+		previewEndDate?: string;
+		personnel?: DutyRosterPoolPersonnel[];
+	} = {}
 ): Promise<AcceptedDutyRosterRunCountSource> {
 	const personnel = input.personnel ?? (await listActiveDutyRosterPersonnel(ctx));
 	return loadAcceptedDutyRosterRunCountSource(ctx, {
 		template,
 		personnel,
-		baselineStartDate: input.baselineStartDate
+		baselineStartDate: input.baselineStartDate,
+		previewStartDate: input.previewStartDate,
+		previewEndDate: input.previewEndDate
 	});
 }
 
@@ -96,6 +103,8 @@ export async function buildDutyRosterTemplatePreviewFromCurrentState(
 		}),
 		loadDutyRosterTemplateCountReadModelSource(ctx, input.template, {
 			baselineStartDate: input.startDate,
+			previewStartDate: input.startDate,
+			previewEndDate: input.endDate,
 			personnel
 		})
 	]);
@@ -107,6 +116,7 @@ export async function buildDutyRosterTemplatePreviewFromCurrentState(
 		statusTypes: StatusTypeEntity.fromDbArray(statusTypeRows),
 		specialDays: SpecialDayEntity.fromDbArray(specialDayRows),
 		continuationHistory: countReadModel.continuationHistory,
+		futureRunConflict: countReadModel.futureRunConflict,
 		startDate: input.startDate,
 		endDate: input.endDate,
 		pattern: input.pattern,
@@ -138,6 +148,7 @@ function reviewedPreviewPayload(preview: DutyRosterTemplatePreview): Record<stri
 		rosterRows: preview.rosterRows,
 		da6: preview.da6,
 		exportModel: preview.exportModel,
-		warnings: preview.warnings
+		warnings: preview.warnings,
+		futureRunConflict: preview.futureRunConflict
 	};
 }

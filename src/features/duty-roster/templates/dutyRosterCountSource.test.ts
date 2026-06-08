@@ -184,6 +184,50 @@ describe('buildDutyRosterCountSource', () => {
 			})
 		]);
 	});
+
+	it('uses only accepted runs before the preview start and reports affected later runs', () => {
+		const countSource = buildDutyRosterCountSource({
+			template,
+			resolvedPool: pool,
+			runs: [
+				run({
+					id: 'june-run',
+					status: 'accepted',
+					acceptedAt: '2026-06-30T12:00:00.000Z',
+					assigneeId: 'alpha',
+					date: '2026-06-30'
+				}),
+				run({
+					id: 'later-july-run',
+					status: 'accepted',
+					acceptedAt: '2026-07-15T12:00:00.000Z',
+					assigneeId: 'bravo',
+					date: '2026-07-15'
+				})
+			],
+			baselineStartDate: '2026-07-01',
+			previewStartDate: '2026-07-01',
+			previewEndDate: '2026-07-14'
+		});
+
+		expect(countSource).toMatchObject({
+			source: 'accepted-history',
+			acceptedRunCount: 1,
+			futureRunConflict: {
+				code: 'future-accepted-runs',
+				affectedRunCount: 1,
+				firstAffectedRunId: 'later-july-run',
+				firstAffectedRunStartDate: '2026-07-15',
+				firstAffectedRunEndDate: '2026-07-15',
+				latestAffectedRunEndDate: '2026-07-15'
+			}
+		});
+		expect(countSource.rows.map((row) => [row.personnelId, row.count, row.lastDutyDate])).toEqual([
+			['alpha', 1, '2026-06-30'],
+			['bravo', 0, null],
+			['charlie', 0, null]
+		]);
+	});
 });
 
 function person(overrides: Partial<DutyRosterPoolPersonnel>): DutyRosterPoolPersonnel {

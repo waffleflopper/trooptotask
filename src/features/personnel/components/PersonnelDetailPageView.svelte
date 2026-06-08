@@ -118,30 +118,30 @@
 								<Button href={`${workspace.detailBasePath}/follow-ups`} variant="outline" size="sm">Show all</Button>
 							</div>
 						</div>
-						{#if workspace.followUpError}
-							<p class="border-b px-4 py-3 text-sm text-destructive">{workspace.followUpError}</p>
+						{#if workspace.followUps.error}
+							<p class="border-b px-4 py-3 text-sm text-destructive">{workspace.followUps.error}</p>
 						{/if}
 						<form
 							class="grid gap-3 border-b p-4"
-							onsubmit={(event) => (event.preventDefault(), workspace.submitFollowUp())}
+							onsubmit={(event) => (event.preventDefault(), workspace.followUps.submit())}
 						>
 							<div class="grid gap-3 md:grid-cols-[1fr_10rem_auto]">
 								<Input
-									bind:value={workspace.followUpTitle}
+									bind:value={workspace.followUps.fields.title}
 									aria-label="Follow-up title"
 									placeholder="Follow-up title"
 								/>
 								<DatePicker
-									bind:value={workspace.followUpDueDate}
+									bind:value={workspace.followUps.fields.dueDate}
 									aria-label="Follow-up due date"
 									placeholder="Due date"
 								/>
-								<Button type="submit" size="sm" disabled={workspace.followUpSaving}>
-									{workspace.followUpSaving ? 'Adding...' : 'Add'}
+								<Button type="submit" size="sm" disabled={workspace.followUps.saving}>
+									{workspace.followUps.saving ? 'Adding...' : 'Add'}
 								</Button>
 							</div>
 							<Textarea
-								bind:value={workspace.followUpNotes}
+								bind:value={workspace.followUps.fields.notes}
 								rows={2}
 								aria-label="Follow-up notes"
 								placeholder="Optional notes"
@@ -187,7 +187,7 @@
 				{#await workspace.detail.counselingRecords}
 					{@render PanelSkeleton('Recent counseling and uploads')}
 				{:then counselingRecords}
-					{@const records = [...workspace.createdCounselingRecords, ...counselingRecords]}
+					{@const records = workspace.counselingRecords.mergeLoaded(counselingRecords)}
 					<section class="rounded-md border bg-card">
 						<div class="flex flex-wrap items-center justify-between gap-3 border-b p-4">
 							<div class="flex items-center gap-2">
@@ -200,22 +200,22 @@
 						</div>
 						<form
 							class="grid gap-3 border-b p-4"
-							onsubmit={(event) => (event.preventDefault(), workspace.submitCounselingRecord())}
+							onsubmit={(event) => (event.preventDefault(), workspace.counselingRecords.submit())}
 						>
 							<div class="grid gap-3 md:grid-cols-[9rem_1fr]">
 								<DatePicker
-									bind:value={workspace.counselingDate}
+									bind:value={workspace.counselingRecords.fields.dateConducted}
 									aria-label="Counseling date conducted"
 									placeholder="Date conducted"
 								/>
 								<Input
-									bind:value={workspace.counselingTitle}
+									bind:value={workspace.counselingRecords.fields.title}
 									aria-label="Counseling title"
 									placeholder="Counseling title"
 								/>
 							</div>
 							<Textarea
-								bind:value={workspace.counselingSummary}
+								bind:value={workspace.counselingRecords.fields.summary}
 								rows={2}
 								aria-label="Counseling summary"
 								placeholder="Optional summary"
@@ -227,12 +227,12 @@
 									aria-label="Counseling PDF"
 									onchange={workspace.updateCounselingFile}
 								/>
-								<Button type="submit" size="sm" disabled={workspace.counselingSaving}>
-									{workspace.counselingSaving ? 'Uploading...' : 'Upload PDF'}
+								<Button type="submit" size="sm" disabled={workspace.counselingRecords.saving}>
+									{workspace.counselingRecords.saving ? 'Uploading...' : 'Upload PDF'}
 								</Button>
 							</div>
-							{#if workspace.counselingError}
-								<p class="text-sm text-destructive">{workspace.counselingError}</p>
+							{#if workspace.counselingRecords.error}
+								<p class="text-sm text-destructive">{workspace.counselingRecords.error}</p>
 							{/if}
 						</form>
 						<div class="divide-y">
@@ -266,7 +266,7 @@
 				{#await workspace.detail.documents}
 					{@render PanelSkeleton('Recent documents')}
 				{:then loadedDocuments}
-					{@const documents = [...workspace.createdDocuments, ...loadedDocuments]}
+					{@const documents = workspace.documents.mergeLoaded(loadedDocuments)}
 					<section class="rounded-md border bg-card">
 						<div class="flex flex-wrap items-center justify-between gap-3 border-b p-4">
 							<div class="flex items-center gap-2">
@@ -277,12 +277,16 @@
 						</div>
 						<form
 							class="grid gap-3 border-b p-4"
-							onsubmit={(event) => (event.preventDefault(), workspace.submitDocument())}
+							onsubmit={(event) => (event.preventDefault(), workspace.documents.submit())}
 						>
 							<div class="grid gap-3 md:grid-cols-[1fr_auto]">
-								<Input bind:value={workspace.documentTitle} aria-label="Document title" placeholder="Document title" />
-								<Button type="submit" size="sm" disabled={workspace.documentSaving}>
-									{workspace.documentSaving ? 'Uploading...' : 'Upload'}
+								<Input
+									bind:value={workspace.documents.fields.title}
+									aria-label="Document title"
+									placeholder="Document title"
+								/>
+								<Button type="submit" size="sm" disabled={workspace.documents.saving}>
+									{workspace.documents.saving ? 'Uploading...' : 'Upload'}
 								</Button>
 							</div>
 							<Input
@@ -291,8 +295,8 @@
 								aria-label="Document file"
 								onchange={workspace.updateDocumentFile}
 							/>
-							{#if workspace.documentError}
-								<p class="text-sm text-destructive">{workspace.documentError}</p>
+							{#if workspace.documents.error}
+								<p class="text-sm text-destructive">{workspace.documents.error}</p>
 							{/if}
 						</form>
 						<div class="divide-y">
@@ -439,21 +443,21 @@
 						</div>
 						<Button href={`${workspace.detailBasePath}/notes`} variant="outline" size="sm">Show all</Button>
 					</div>
-					<form class="mt-4 space-y-2" onsubmit={(event) => (event.preventDefault(), workspace.submitLeaderNote())}>
+					<form class="mt-4 space-y-2" onsubmit={(event) => (event.preventDefault(), workspace.leaderNotes.submit())}>
 						<Textarea
-							bind:value={workspace.leaderNoteText}
+							bind:value={workspace.leaderNotes.fields.text}
 							placeholder="Add an observation or accomplishment"
 							aria-label="New leader note"
 							rows={3}
 						/>
 						<div class="flex items-center justify-between gap-3">
-							{#if workspace.leaderNoteError}
-								<p class="text-xs text-destructive">{workspace.leaderNoteError}</p>
+							{#if workspace.leaderNotes.error}
+								<p class="text-xs text-destructive">{workspace.leaderNotes.error}</p>
 							{:else}
 								<p class="text-xs text-muted-foreground">Observation journal</p>
 							{/if}
-							<Button type="submit" size="sm" disabled={workspace.leaderNoteSaving}>
-								{workspace.leaderNoteSaving ? 'Saving...' : 'Add note'}
+							<Button type="submit" size="sm" disabled={workspace.leaderNotes.saving}>
+								{workspace.leaderNotes.saving ? 'Saving...' : 'Add note'}
 							</Button>
 						</div>
 					</form>
@@ -464,7 +468,7 @@
 							<Skeleton class="h-3 w-5/6" />
 						</div>
 					{:then leaderNotes}
-						{@const notes = [...workspace.createdLeaderNotes, ...leaderNotes]}
+						{@const notes = workspace.leaderNotes.mergeLoaded(leaderNotes)}
 						{#if notes.length === 0}
 							<p class="mt-3 rounded-md border border-dashed p-3 text-sm text-muted-foreground">
 								No leader notes have been added for this Soldier yet.

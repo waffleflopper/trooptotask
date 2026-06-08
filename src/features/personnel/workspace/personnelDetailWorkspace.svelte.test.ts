@@ -100,10 +100,10 @@ describe('PersonnelDetailWorkspace', () => {
 		});
 		const workspace = makeWorkspace({ fetch: fetchMock as typeof fetch });
 
-		workspace.followUpTitle = ' Schedule packet review ';
-		workspace.followUpNotes = ' Bring checklist ';
+		workspace.followUps.fields.title = ' Schedule packet review ';
+		workspace.followUps.fields.notes = ' Bring checklist ';
 
-		await workspace.submitFollowUp();
+		await workspace.followUps.submit();
 
 		expect(fetchMock).toHaveBeenCalledWith('/org/org-1/api/personnel/person-1/follow-ups', {
 			method: 'POST',
@@ -114,9 +114,68 @@ describe('PersonnelDetailWorkspace', () => {
 				dueDate: null
 			})
 		});
-		expect(workspace.followUpTitle).toBe('');
-		expect(workspace.followUpNotes).toBe('');
+		expect(workspace.followUps.fields.title).toBe('');
+		expect(workspace.followUps.fields.notes).toBe('');
 		expect(workspace.mergeUpdatedFollowUps([])).toEqual([created]);
+	});
+
+	it('updates dashboard follow-up status through the draft-backed collection', async () => {
+		const loaded: PersonnelFollowUp = {
+			id: 'follow-up-1',
+			personnelId: 'person-1',
+			title: 'Complete BLC packet',
+			notes: '',
+			dueDate: null,
+			status: 'open',
+			createdBy: 'leader-1',
+			createdAt: '2026-05-01T10:00:00Z',
+			updatedAt: '2026-05-01T10:00:00Z',
+			completedAt: null
+		};
+		const updated: PersonnelFollowUp = {
+			...loaded,
+			status: 'completed',
+			updatedAt: '2026-05-02T10:00:00Z',
+			completedAt: '2026-05-02T10:00:00Z'
+		};
+		const fetchMock = vi.fn().mockResolvedValue({
+			ok: true,
+			json: () => Promise.resolve(updated)
+		});
+		const workspace = makeWorkspace({ fetch: fetchMock as typeof fetch });
+
+		await workspace.setFollowUpStatus(loaded, 'completed');
+
+		expect(fetchMock).toHaveBeenCalledWith('/org/org-1/api/personnel/person-1/follow-ups/follow-up-1', {
+			method: 'PATCH',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ status: 'completed' })
+		});
+		expect(workspace.followUps.items).toEqual([updated]);
+		expect(workspace.mergeUpdatedFollowUps([loaded])).toEqual([updated]);
+	});
+
+	it('surfaces follow-up status update failures on the follow-up draft', async () => {
+		const loaded: PersonnelFollowUp = {
+			id: 'follow-up-1',
+			personnelId: 'person-1',
+			title: 'Complete BLC packet',
+			notes: '',
+			dueDate: null,
+			status: 'open',
+			createdBy: 'leader-1',
+			createdAt: '2026-05-01T10:00:00Z',
+			updatedAt: '2026-05-01T10:00:00Z',
+			completedAt: null
+		};
+		const fetchMock = vi.fn().mockResolvedValue({ ok: false });
+		const workspace = makeWorkspace({ fetch: fetchMock as typeof fetch });
+
+		await workspace.setFollowUpStatus(loaded, 'completed');
+
+		expect(workspace.followUps.error).toBe('Unable to update follow-up.');
+		expect(workspace.followUps.items).toEqual([]);
+		expect(workspace.mergeUpdatedFollowUps([loaded])).toEqual([loaded]);
 	});
 
 	it('keeps basic info save and slug navigation inside the workspace', async () => {

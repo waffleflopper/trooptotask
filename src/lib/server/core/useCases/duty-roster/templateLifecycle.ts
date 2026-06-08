@@ -45,6 +45,7 @@ import {
 	loadAcceptedDutyRosterTemplateRunPersonnelIds,
 	listAcceptedDutyRosterTemplateRunHistory as listAcceptedRunHistoryLifecycle,
 	listAcceptedDutyRosterTemplateRuns as listAcceptedRunsLifecycle,
+	type DutyRosterTemplateInvalidateResult,
 	type DutyRosterTemplateRunHistoryPage,
 	type ListAcceptedDutyRosterTemplateRunsOptions,
 	recordDutyRosterTemplateRunCorrection as recordRunCorrectionLifecycle
@@ -58,6 +59,7 @@ import {
 } from './templatePreviewAssembly';
 
 const DUTY_ROSTER_TEMPLATE_TABLE = 'duty_roster_templates';
+const DUTY_ROSTER_TEMPLATE_RUN_TABLE = 'duty_roster_template_runs';
 const ASSIGNMENT_TYPE_TABLE = 'assignment_types';
 const MAX_PREVIEW_DAYS = 62;
 const MAX_SUBMITTED_PREVIEW_PAYLOAD_LENGTH = 2 * 1024 * 1024;
@@ -876,8 +878,7 @@ export async function acceptDutyRosterTemplatePreviewLifecycle(
 	assertFutureRunConflictResolution(preview, resolution);
 	return acceptReviewedDutyRosterTemplatePreview(ctx, {
 		preview,
-		afterAccept: (acceptedRun) =>
-			applyFutureRunConflictResolution(ctx, preview, resolution, { excludeRunIds: [acceptedRun.id] })
+		afterAccept: futureRunConflictAfterAccept(ctx, preview, resolution)
 	});
 }
 
@@ -945,14 +946,41 @@ async function applyFutureRunConflictResolution(
 	preview: DutyRosterTemplatePreview,
 	resolution: DutyRosterTemplateAcceptPreviewInput['futureRunConflictResolution'] | null,
 	options: { excludeRunIds?: string[] } = {}
-): Promise<void> {
+): Promise<DutyRosterTemplateInvalidateResult | null> {
 	if (preview.futureRunConflict?.firstAffectedRunId && resolution === 'invalidate-following') {
-		await invalidateLatestRunLifecycle(ctx, {
+		return invalidateLatestRunLifecycle(ctx, {
 			runId: preview.futureRunConflict.firstAffectedRunId,
 			cascade: true,
 			excludeRunIds: options.excludeRunIds
 		});
 	}
+	return null;
+}
+
+function futureRunConflictAfterAccept(
+	ctx: WritePorts,
+	preview: DutyRosterTemplatePreview,
+	resolution: DutyRosterTemplateAcceptPreviewInput['futureRunConflictResolution'] | null
+) {
+	let invalidatedRunIds: string[] = [];
+
+	return {
+		async commit(acceptedRun: DutyRosterTemplateAcceptedRun): Promise<void> {
+			const result = await applyFutureRunConflictResolution(ctx, preview, resolution, {
+				excludeRunIds: [acceptedRun.id]
+			});
+			invalidatedRunIds = result?.invalidatedRuns.map((run) => run.id) ?? [];
+		},
+		async compensate(): Promise<void> {
+			for (const runId of invalidatedRunIds) {
+				await ctx.store.update(DUTY_ROSTER_TEMPLATE_RUN_TABLE, ctx.auth.orgId, runId, {
+					status: 'accepted',
+					invalidated_at: null,
+					invalidated_by_user_id: null
+				});
+			}
+		}
+	};
 }
 
 export async function applyAcceptedDutyRosterTemplateRunLifecycle(
@@ -964,7 +992,7 @@ export async function applyAcceptedDutyRosterTemplateRunLifecycle(
 }
 
 async function assertAcceptedRunTemplateIsActive(ctx: WritePorts, runId: string): Promise<void> {
-	const run = await ctx.store.findOne<{ template_id: string }>('duty_roster_template_runs', ctx.auth.orgId, {
+	const run = await ctx.store.findOne<{ template_id: string }>(DUTY_ROSTER_TEMPLATE_RUN_TABLE, ctx.auth.orgId, {
 		id: runId
 	});
 	if (!run) {
@@ -1002,8 +1030,7 @@ export async function acceptAndApplyDutyRosterTemplatePreviewLifecycle(
 	assertFutureRunConflictResolution(preview, resolution);
 	return acceptAndApplyAcceptedRunLifecycle(ctx, {
 		preview,
-		afterAccept: (acceptedRun) =>
-			applyFutureRunConflictResolution(ctx, preview, resolution, { excludeRunIds: [acceptedRun.id] })
+		afterAccept: futureRunConflictAfterAccept(ctx, preview, resolution)
 	});
 }
 

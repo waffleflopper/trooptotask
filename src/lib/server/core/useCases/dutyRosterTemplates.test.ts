@@ -19,6 +19,10 @@ import {
 	recordDutyRosterTemplateRunCorrection,
 	updateDutyRosterTemplateSettings
 } from './dutyRosterTemplates';
+import {
+	acceptReviewedDutyRosterTemplatePreview as acceptReviewedDutyRosterTemplatePreviewDirect,
+	invalidateLatestDutyRosterTemplateRun as invalidateAcceptedRunDirect
+} from './duty-roster/acceptedRuns';
 
 const rows: Record<string, unknown>[] = [];
 const assignmentTypeRows: Record<string, unknown>[] = [];
@@ -2349,6 +2353,31 @@ describe('Duty Roster Template use cases', () => {
 		]);
 	});
 
+	it('keeps the requested run in a cascade invalidation even when it is excluded from follow-ons', async () => {
+		const ctx = createCtx();
+		personnelRows.push(
+			personnelRow({ id: 'alpha', rank: 'SGT', last_name: 'Able', first_name: 'Ann', group_id: 'alpha' }),
+			personnelRow({ id: 'bravo', rank: 'SGT', last_name: 'Baker', first_name: 'Ben', group_id: 'alpha' })
+		);
+		const template = await createDutyRosterTemplate(ctx, { name: 'CQ NCO', shortCode: 'CQ' });
+		for (const [index, date] of ['2026-06-01', '2026-06-02', '2026-06-03'].entries()) {
+			const preview = await generateDutyRosterTemplatePreview(ctx, {
+				templateId: template.id,
+				startDate: date,
+				endDate: date
+			});
+			await acceptDutyRosterTemplatePreview(ctx, {
+				preview: JSON.stringify(preview)
+			});
+			acceptedRunRows[index].accepted_at = `2026-06-0${index + 1}T00:00:00.000Z`;
+		}
+
+		const result = await invalidateAcceptedRunDirect(ctx, { runId: 'run-1', cascade: true, excludeRunIds: ['run-1'] });
+
+		expect(result.invalidatedRun.id).toBe('run-1');
+		expect(result.invalidatedRuns.map((run) => run.id)).toEqual(['run-1', 'run-2', 'run-3']);
+	});
+
 	it('attempts every updatedRows revert when invalidation Calendar cleanup rollback has row failures', async () => {
 		const ctx = createCtx(createAuth({ scopeSet: { kind: 'groups', groupIds: ['alpha'] } }));
 		personnelRows.push(
@@ -2558,6 +2587,52 @@ describe('Duty Roster Template use cases', () => {
 				resourceId: applied.acceptedRun.id
 			})
 		);
+	});
+
+	it('keeps accept durable when post-commit audit fails', async () => {
+		const ctx = createCtx(createAuth({ scopeSet: { kind: 'groups', groupIds: ['alpha'] } }));
+		personnelRows.push(
+			personnelRow({ id: 'alpha', rank: 'SGT', last_name: 'Able', first_name: 'Ann', group_id: 'alpha' })
+		);
+		const template = await createDutyRosterTemplate(ctx, { name: 'CQ NCO', shortCode: 'CQ' });
+		const preview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: template.id,
+			startDate: '2026-06-01',
+			endDate: '2026-06-01'
+		});
+		const originalAuditLog = audit.log.bind(audit);
+		const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+		audit.log = (event) => {
+			if (event.action === 'duty_roster_template_run.accepted') {
+				throw new Error('audit unavailable');
+			}
+			originalAuditLog(event);
+		};
+
+		try {
+			const result = await acceptDutyRosterTemplatePreview(ctx, {
+				preview: JSON.stringify(preview)
+			});
+
+			expect(result).toMatchObject({
+				id: 'run-1',
+				status: 'accepted',
+				startDate: '2026-06-01'
+			});
+			expect(acceptedRunRows).toEqual([expect.objectContaining({ id: result.id, status: 'accepted' })]);
+			expect(consoleErrorSpy).toHaveBeenCalledWith(
+				'[duty-roster] Failed to log accepted Duty Roster Run audit event:',
+				expect.objectContaining({
+					orgId: ctx.auth.orgId,
+					userId: ctx.auth.userId,
+					runId: result.id,
+					error: expect.any(Error)
+				})
+			);
+		} finally {
+			audit.log = originalAuditLog;
+			consoleErrorSpy.mockRestore();
+		}
 	});
 
 	it('keeps accept-and-apply durable when post-commit audit fails', async () => {
@@ -2970,6 +3045,42 @@ describe('Duty Roster Template use cases', () => {
 		} finally {
 			updateSpy.mockRestore();
 		}
+	});
+
+	it('runs after-accept compensation before removing a newly accepted run after callback failure', async () => {
+		const ctx = createCtx();
+		personnelRows.push(
+			personnelRow({ id: 'alpha', rank: 'SGT', last_name: 'Able', first_name: 'Ann', group_id: 'alpha' })
+		);
+		const template = await createDutyRosterTemplate(ctx, { name: 'CQ NCO', shortCode: 'CQ' });
+		const preview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: template.id,
+			startDate: '2026-07-01',
+			endDate: '2026-07-01'
+		});
+		const sideEffects = new Set<string>();
+		let compensated = false;
+
+		await expect(
+			acceptReviewedDutyRosterTemplatePreviewDirect(ctx, {
+				preview,
+				afterAccept: {
+					async commit(acceptedRun) {
+						sideEffects.add(acceptedRun.id);
+						throw new Error('after accept failed.');
+					},
+					async compensate(acceptedRun) {
+						compensated = true;
+						expect(acceptedRunRows).toContainEqual(expect.objectContaining({ id: acceptedRun.id }));
+						sideEffects.delete(acceptedRun.id);
+					}
+				}
+			})
+		).rejects.toThrow('after accept failed.');
+
+		expect(compensated).toBe(true);
+		expect([...sideEffects]).toEqual([]);
+		expect(acceptedRunRows).toEqual([]);
 	});
 
 	it('restores Calendar slots when invalidate-following fails after accept-and-apply', async () => {

@@ -58,6 +58,11 @@ export type DutyRosterTemplateInvalidateResult = {
 	calendarAssignmentsEdited: boolean;
 };
 
+type AcceptedRunAfterAcceptStep = {
+	commit(acceptedRun: DutyRosterTemplateAcceptedRun): Promise<void>;
+	compensate(acceptedRun: DutyRosterTemplateAcceptedRun): Promise<void>;
+};
+
 export type AcceptedDutyRosterRunCountSource = DutyRosterTemplateCountReadModel & {
 	continuationHistory: DutyRosterCountSourceModel['continuationHistory'];
 	futureRunConflict: DutyRosterCountSourceModel['futureRunConflict'];
@@ -281,21 +286,23 @@ export async function acceptReviewedDutyRosterTemplatePreview(
 	input: {
 		preview: DutyRosterTemplatePreview;
 		acceptedAt?: string;
-		afterAccept?: (acceptedRun: DutyRosterTemplateAcceptedRun) => Promise<void>;
+		afterAccept?: AcceptedRunAfterAcceptStep;
 	}
 ): Promise<DutyRosterTemplateAcceptedRun> {
 	const acceptedRun = await insertAcceptedDutyRosterTemplatePreview(ctx, input);
 
 	try {
-		await input.afterAccept?.(acceptedRun);
+		await input.afterAccept?.commit(acceptedRun);
 	} catch (error) {
+		const afterAccept = input.afterAccept;
 		await rollbackAcceptedDutyRosterTemplateRunAfterAcceptedStepFailure(ctx, {
 			runId: acceptedRun.id,
-			primaryError: error
+			primaryError: error,
+			afterAcceptCompensator: afterAccept ? () => afterAccept.compensate(acceptedRun) : undefined
 		});
 	}
 
-	await logAcceptedDutyRosterTemplateRun(ctx, acceptedRun.id);
+	await tryLogAcceptedDutyRosterTemplateRun(ctx, acceptedRun.id);
 
 	return acceptedRun;
 }
@@ -399,8 +406,8 @@ export async function invalidateLatestDutyRosterTemplateRun(
 	const targetRows = input.cascade
 		? templateRuns.filter(
 				(candidate) =>
-					!excludeRunIds.has(candidate.id) &&
-					(candidate.id === row.id || isFollowOnDutyRosterRun(candidate, selectedRun))
+					candidate.id === row.id ||
+					(!excludeRunIds.has(candidate.id) && isFollowOnDutyRosterRun(candidate, selectedRun))
 			)
 		: [selectedRun];
 	assertDutyRosterRunsCanBeInvalidated(targetRows, dutyRosterTodayDate());
@@ -526,7 +533,7 @@ export async function acceptAndApplyDutyRosterTemplatePreview(
 	ctx: WritePorts,
 	input: {
 		preview: DutyRosterTemplatePreview;
-		afterAccept?: (acceptedRun: DutyRosterTemplateAcceptedRun) => Promise<void>;
+		afterAccept?: AcceptedRunAfterAcceptStep;
 	}
 ): Promise<DutyRosterTemplateApplyResult> {
 	const acceptedRun = await insertAcceptedDutyRosterTemplatePreview(ctx, input);
@@ -539,12 +546,14 @@ export async function acceptAndApplyDutyRosterTemplatePreview(
 	}
 
 	try {
-		await input.afterAccept?.(acceptedRun);
+		await input.afterAccept?.commit(acceptedRun);
 	} catch (error) {
+		const afterAccept = input.afterAccept;
 		await rollbackAcceptedDutyRosterTemplateRunAfterAcceptedStepFailure(ctx, {
 			runId: acceptedRun.id,
 			primaryError: error,
-			calendarRollbackRecords: compensated.rollbackRecords
+			calendarRollbackRecords: compensated.rollbackRecords,
+			afterAcceptCompensator: afterAccept ? () => afterAccept.compensate(acceptedRun) : undefined
 		});
 	}
 
@@ -601,9 +610,22 @@ async function rollbackAcceptedDutyRosterTemplateRun(ctx: WritePorts, runId: str
 
 async function rollbackAcceptedDutyRosterTemplateRunAfterAcceptedStepFailure(
 	ctx: WritePorts,
-	input: { runId: string; primaryError: unknown; calendarRollbackRecords?: DailyAssignmentSlotRecord[] }
+	input: {
+		runId: string;
+		primaryError: unknown;
+		calendarRollbackRecords?: DailyAssignmentSlotRecord[];
+		afterAcceptCompensator?: () => Promise<void>;
+	}
 ): Promise<never> {
 	const rollbackErrors: unknown[] = [];
+	if (input.afterAcceptCompensator) {
+		try {
+			await input.afterAcceptCompensator();
+		} catch (rollbackError) {
+			rollbackErrors.push(rollbackError);
+		}
+	}
+
 	if (input.calendarRollbackRecords) {
 		try {
 			await rollbackAcceptedDutyRosterRunCalendarSync(ctx, input.runId, input.calendarRollbackRecords);

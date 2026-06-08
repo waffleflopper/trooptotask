@@ -222,6 +222,41 @@ describe('computeDa6Roster', () => {
 
 		expect(output.rosterRows).toEqual([{ date: '2026-05-02', assigneeId: 'bravo' }]);
 	});
+
+	it('carries baseline-seeded selections into later unseeded sequence ordering', () => {
+		const output = computeDa6Roster(
+			engineInput({
+				pool: [soldier({ id: 'alpha', lastName: 'Able' }), soldier({ id: 'bravo', lastName: 'Baker' })],
+				dutyDates: ['2026-05-01', '2026-05-02'],
+				sequenceByDate: new Map([
+					['2026-05-01', { sequenceKind: 'weekday', sequenceKey: 'weekday' }],
+					['2026-05-02', { sequenceKind: 'weekend', sequenceKey: 'weekend-holiday' }]
+				]),
+				classificationByPersonDate: new Map([
+					[
+						'alpha',
+						new Map([
+							['2026-05-01', available],
+							['2026-05-02', available]
+						])
+					],
+					[
+						'bravo',
+						new Map([
+							['2026-05-01', available],
+							['2026-05-02', available]
+						])
+					]
+				]),
+				initialDa6Counts: new Map([
+					['alpha', new Map<DutyRosterSequenceKey, number>([['weekday', 5]])],
+					['bravo', new Map<DutyRosterSequenceKey, number>([['weekday', 1]])]
+				])
+			})
+		);
+
+		expect(output.rosterRows.map((row) => row.assigneeId)).toEqual(['alpha', 'bravo']);
+	});
 });
 
 describe('Duty Priority', () => {

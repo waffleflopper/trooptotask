@@ -239,6 +239,7 @@ export function computeDa6Roster(input: Da6RosterEngineInput): Da6RosterEngineOu
 			priority = priorityCountSeed.size > 0 ? baselineCountPriority(priorityCountSeed) : datePriority;
 			sequencePriorities.set(sequenceKey, priority);
 		}
+		const usesSharedDatePriority = priority === datePriority;
 		const classifications = new Map(input.pool.map((person) => [person.id, getClassification(input, person.id, date)]));
 		const rankedPersonnel = [...input.pool].sort((a, b) => priority.compare(a, b));
 		const queue = rankedPersonnel.filter((person) => classifications.get(person.id)?.chargeable);
@@ -262,6 +263,9 @@ export function computeDa6Roster(input: Da6RosterEngineInput): Da6RosterEngineOu
 
 		if (assigned) {
 			priority.recordSelection(assigned.id, date);
+			if (!usesSharedDatePriority) {
+				datePriority.recordSelection(assigned.id, date);
+			}
 		}
 
 		for (const person of input.pool) {

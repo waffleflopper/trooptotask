@@ -22,11 +22,15 @@ function da6CellKind(cell: Da6Cell, display: string): DA6MatrixCellKind {
 	return 'not-assigned';
 }
 
-function da6CellDisplay(cell: Da6Cell): string {
+export function da6CellGlyph(cell: Da6Cell): string {
 	if (cell.assigned) return 'X';
 	if (cell.da6Code === 'A') return 'A';
 	if (cell.da6Code === 'D' || cell.da6Code === 'U') return cell.da6Code;
 	return cell.sequenceNumber === null ? '' : String(cell.sequenceNumber);
+}
+
+function da6CellDisplay(cell: Da6Cell): string {
+	return da6CellGlyph(cell);
 }
 
 function formatDa6MatrixDate(date: string, mode: DA6MatrixMode): string {

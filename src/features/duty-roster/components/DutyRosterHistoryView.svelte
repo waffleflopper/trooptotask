@@ -28,12 +28,9 @@
 		DA6Matrix,
 		DutyRosterStatusBadge,
 		WarningSummary,
-		toDa6MatrixCell,
-		type DA6MatrixCell,
-		type DA6MatrixColumn,
-		type DA6MatrixFooterRow,
+		buildDa6MatrixDisplay,
 		type DA6MatrixMetadataItem,
-		type DA6MatrixRow,
+		type Da6MatrixDisplay,
 		type DutyRosterStatus
 	} from '$features/duty-roster/components/shared';
 	import { printDutyRosterForBrowser } from '$features/duty-roster/export/dutyRosterBrowserExport';
@@ -306,45 +303,13 @@
 	const selectedCorrectionRow = $derived(
 		detailReview?.rows.find((row) => correctionKey(row.run.id, row.date) === selectedCorrectionKey) ?? null
 	);
-	const acceptedMatrixColumns = $derived<DA6MatrixColumn[]>(
-		(detailReview?.matrix.columns ?? []).map((column) => ({
-			id: column.date,
-			weekday: formatDutyDate(column.date).split(' ')[0] ?? '',
-			date: formatDutyDate(column.date).split(' ').slice(1).join('-'),
-			sequenceKind: da6SequenceKind(column.sequenceKind)
-		}))
+	const acceptedMatrixDisplay = $derived<Da6MatrixDisplay | null>(
+		detailReview ? buildDa6MatrixDisplay(detailReview.snapshot.da6, 'official') : null
 	);
-	const acceptedMatrixRows = $derived<DA6MatrixRow[]>(
-		(detailReview?.matrix.rows ?? []).map((row) => ({
-			id: row.personnelId,
-			label: row.soldierLabel
-		}))
-	);
-	const acceptedMatrixCells = $derived<Record<string, Record<string, DA6MatrixCell>>>(
-		Object.fromEntries(
-			(detailReview?.matrix.rows ?? []).map((row) => [
-				row.personnelId,
-				Object.fromEntries(row.cells.map((cell) => [cell.date, toDa6MatrixCell(cell, row.soldierLabel, 'official')]))
-			])
-		)
-	);
-	const acceptedMatrixFooterRows = $derived<DA6MatrixFooterRow[]>([
-		{
-			label: 'Assigned Count',
-			values: Object.fromEntries(
-				(detailReview?.matrix.columns ?? []).map((column) => [
-					column.date,
-					detailReview?.rows.filter((row) => row.date === column.date && row.finalRow.finalDisplay).length ?? 0
-				])
-			)
-		},
-		{
-			label: 'Required Count',
-			values: Object.fromEntries(
-				(detailReview?.matrix.columns ?? []).map((column) => [column.date, column.chargeableCount])
-			)
-		}
-	]);
+	const acceptedMatrixColumns = $derived(acceptedMatrixDisplay?.columns ?? []);
+	const acceptedMatrixRows = $derived(acceptedMatrixDisplay?.rows ?? []);
+	const acceptedMatrixCells = $derived(acceptedMatrixDisplay?.cells ?? {});
+	const acceptedMatrixFooterRows = $derived(acceptedMatrixDisplay?.footerRows ?? []);
 	const acceptedMatrixMetadata = $derived<DA6MatrixMetadataItem[]>(
 		historyDetailRun
 			? [
@@ -383,12 +348,6 @@
 			left.endDate.localeCompare(right.endDate) ||
 			left.acceptedAt.localeCompare(right.acceptedAt)
 		);
-	}
-
-	function da6SequenceKind(
-		sequenceKind: 'weekday' | 'weekend' | 'holiday' | 'weekend-holiday'
-	): DA6MatrixColumn['sequenceKind'] {
-		return sequenceKind === 'weekday' ? 'weekday' : 'weekend-holiday';
 	}
 </script>
 

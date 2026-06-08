@@ -1,5 +1,6 @@
 import type { DA6Data } from '../stores/dutyRosterHistory.svelte';
 import type { Da6Matrix } from '../run';
+import { da6CellGlyph } from '../components/shared/da6MatrixCell';
 import {
 	displayDutyRosterPersonName,
 	getDutyRosterExportDetails,
@@ -29,19 +30,6 @@ function escapeHtml(value: string | null | undefined): string {
 		.replace(/>/g, '&gt;')
 		.replace(/"/g, '&quot;')
 		.replace(/'/g, '&#39;');
-}
-
-function formatDa6CellLabel(cell: Da6Matrix['rows'][number]['cells'][number]): string {
-	if (cell.assigned) {
-		return 'X';
-	}
-	if (cell.da6Code === 'A') {
-		return 'A';
-	}
-	if (cell.da6Code === 'D' || cell.da6Code === 'U') {
-		return cell.da6Code;
-	}
-	return cell.sequenceNumber === null ? '' : String(cell.sequenceNumber);
 }
 
 function renderRosterRows(details: BrowserExportDetails): string {
@@ -88,7 +76,11 @@ function renderDa6Matrix(da6: Da6Matrix): string {
 	const bodyRows = da6.rows
 		.map((row) => {
 			const cells = row.cells
-				.map((cell) => `<td class="da6-position">${escapeHtml(formatDa6CellLabel(cell))}</td>`)
+				.map((cell) => {
+					const glyph = da6CellGlyph(cell);
+					const className = cell.assigned ? 'da6-assigned' : 'da6-position';
+					return `<td class="${className}">${escapeHtml(glyph)}</td>`;
+				})
 				.join('');
 			return `<tr><td>${escapeHtml(row.display.rank)}</td><td>${escapeHtml(`${row.display.lastName}, ${row.display.firstName}`)}</td>${cells}</tr>`;
 		})
@@ -96,7 +88,7 @@ function renderDa6Matrix(da6: Da6Matrix): string {
 
 	return `
 		<h2>DA6 Matrix</h2>
-		<p>Authorized markings only: roster numbers, A, D#, and U#.</p>
+		<p>Authorized markings only: X, roster numbers, A, D#, and U#.</p>
 		<table>
 			<tr>
 				<th>Rank</th>

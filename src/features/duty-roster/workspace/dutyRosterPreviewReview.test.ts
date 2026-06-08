@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { buildDa6MatrixDisplay } from '$features/duty-roster/components/shared';
 import { buildDutyRosterAcceptedRunReviewModel, buildDutyRosterPreviewReviewModel } from './dutyRosterPreviewReview';
 import type {
 	DutyRosterTemplateAcceptedSnapshot,
@@ -93,7 +94,7 @@ describe('dutyRosterPreviewReview', () => {
 		});
 
 		expect(model.rows[1]?.liveWarnings).toEqual(['Selected Soldier is outside this template pool.']);
-		expect(model.matrix.rows.find((row) => row.personnelId === 'person-3')?.cells[0]).toMatchObject({
+		expect(model.da6Matrix.rows.find((row) => row.personnelId === 'person-3')?.cells[0]).toMatchObject({
 			date: '2026-06-01',
 			personnelId: 'person-3',
 			code: 'blocked-by-duty',
@@ -107,22 +108,40 @@ describe('dutyRosterPreviewReview', () => {
 		});
 	});
 
-	it('carries preview DA6 matrix cells through as engine cells', () => {
+	it('builds the draft DA6 matrix from final manual selections without renumbering', () => {
 		const preview = previewSnapshot();
 		const model = buildDutyRosterPreviewReviewModel({ preview });
 
-		expect(model.matrix.columns).toEqual([
+		expect(model.da6Matrix.columns).toEqual([
 			expect.objectContaining({ date: '2026-06-01' }),
 			expect.objectContaining({ date: '2026-06-02' })
 		]);
-		expect(model.matrix.rows).toEqual([
+		expect(model.da6Matrix.rows.map((row) => row.personnelId)).toEqual(['person-1', 'person-2']);
+		expect(model.da6Matrix.rows[0]?.cells[0]).toMatchObject({
+			personnelId: 'person-1',
+			date: '2026-06-01',
+			assigned: false,
+			code: 'available-not-selected',
+			sequenceNumber: 1
+		});
+		expect(model.da6Matrix.rows[1]?.cells[0]).toMatchObject({
+			personnelId: 'person-2',
+			date: '2026-06-01',
+			assigned: true,
+			code: 'assigned',
+			da6Code: null,
+			sequenceNumber: 1
+		});
+		expect(buildDa6MatrixDisplay(model.da6Matrix, 'draft').footerRows).toEqual([
 			{
-				personnelId: 'person-1',
-				soldierLabel: 'SGT Able',
-				cells: preview.da6.rows[0]?.cells
+				label: 'Assigned Count',
+				values: { '2026-06-01': 1, '2026-06-02': 0 }
+			},
+			{
+				label: 'Required Count',
+				values: { '2026-06-01': 1, '2026-06-02': 0 }
 			}
 		]);
-		expect(model.matrix.rows[0]?.cells).toBe(preview.da6.rows[0]?.cells);
 	});
 
 	it('shapes accepted history rows from the saved snapshot and latest correction', () => {
@@ -247,24 +266,6 @@ describe('dutyRosterPreviewReview', () => {
 				countText: 'Non-counting because this run is invalidated.'
 			}
 		});
-	});
-
-	it('carries accepted DA6 matrix cells through as engine cells', () => {
-		const run = acceptedRun();
-		const snapshot = run.snapshotPayload as unknown as DutyRosterTemplateAcceptedSnapshot;
-		const model = buildDutyRosterAcceptedRunReviewModel({
-			run,
-			todayDate: '2026-06-01'
-		});
-
-		expect(model.matrix.rows).toEqual([
-			{
-				personnelId: 'person-1',
-				soldierLabel: 'SGT Able',
-				cells: snapshot.da6.rows[0]?.cells
-			}
-		]);
-		expect(model.matrix.rows[0]?.cells).toBe(snapshot.da6.rows[0]?.cells);
 	});
 
 	it('allows non-latest accepted history to be invalidated while its end date is today or later', () => {

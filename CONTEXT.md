@@ -382,6 +382,10 @@ _Avoid_: Development goal, task, to-do
 A leader-authored observation, accomplishment, or assessment recorded against a **Soldier** on the Personnel detail page. Used for NCOER bullets, award justifications, and general context — distinct from **Follow-Ups**, which are action-oriented.
 _Avoid_: Follow-up when there is no action to take
 
+**Personnel Artifact Draft**:
+The client-side per-artifact create seam on the Personnel detail surface. One reactive module owns a single artifact type's input fields, saving/error state, optimistic created list, and `submit()` flow, built from a spec for endpoint, encoding, validation, reset, and optional file selection. It is the client mirror of the server **Personnel Artifact** lifecycle spec.
+_Avoid_: Per-artifact submit clone, workspace-wide flat submit state
+
 **Personnel Slug**:
 A human-readable route key for one **Personnel Record**, derived from `lastName-firstName` and unique inside its **Organization**. Collisions get a numeric suffix (`smith-john-2`). The slug auto-regenerates when the Soldier's name changes, with collision suffixes re-evaluated only for the person whose name changed. No stale slug redirects. The internal personnel id remains the stable database identity.
 _Avoid_: UUID in URL, rank in slug

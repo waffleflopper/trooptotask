@@ -2878,6 +2878,118 @@ describe('Duty Roster Template use cases', () => {
 		expect(acceptedRunRows.find((row) => row.id === backfillRun.id)).toMatchObject({ status: 'accepted' });
 	});
 
+	it('removes a newly accepted backfill run when invalidate-following fails', async () => {
+		const ctx = createCtx();
+		personnelRows.push(
+			personnelRow({ id: 'alpha', rank: 'SGT', last_name: 'Able', first_name: 'Ann', group_id: 'alpha' }),
+			personnelRow({ id: 'bravo', rank: 'SGT', last_name: 'Baker', first_name: 'Ben', group_id: 'alpha' })
+		);
+		const template = await createDutyRosterTemplate(ctx, { name: 'CQ NCO', shortCode: 'CQ' });
+		const laterPreview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: template.id,
+			startDate: '2026-07-15',
+			endDate: '2026-07-31'
+		});
+		const laterRun = await acceptDutyRosterTemplatePreview(ctx, {
+			preview: JSON.stringify(laterPreview)
+		});
+		const backfillPreview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: template.id,
+			startDate: '2026-07-01',
+			endDate: '2026-07-14'
+		});
+		const originalUpdate = store.update.bind(store);
+		const updateSpy = vi.spyOn(store, 'update').mockImplementation(async (table, orgId, id, data, select) => {
+			if (table === 'duty_roster_template_runs' && id === laterRun.id && data.status === 'invalidated') {
+				throw new Error('Invalidation failed.');
+			}
+			return originalUpdate(table, orgId, id, data, select);
+		});
+
+		try {
+			await expect(
+				acceptDutyRosterTemplatePreview(ctx, {
+					preview: JSON.stringify(backfillPreview),
+					futureRunConflictResolution: 'invalidate-following'
+				})
+			).rejects.toThrow('Invalidation failed.');
+
+			expect(acceptedRunRows.map((row) => ({ id: row.id, status: row.status }))).toEqual([
+				{ id: laterRun.id, status: 'accepted' }
+			]);
+			expect(auditEvents).not.toContainEqual(
+				expect.objectContaining({ action: 'duty_roster_template_run.accepted', resourceId: 'run-2' })
+			);
+		} finally {
+			updateSpy.mockRestore();
+		}
+	});
+
+	it('restores Calendar slots when invalidate-following fails after accept-and-apply', async () => {
+		const ctx = createCtx(createAuth({ scopeSet: { kind: 'groups', groupIds: ['alpha'] } }));
+		personnelRows.push(
+			personnelRow({ id: 'alpha', rank: 'SGT', last_name: 'Able', first_name: 'Ann', group_id: 'alpha' }),
+			personnelRow({ id: 'bravo', rank: 'SGT', last_name: 'Baker', first_name: 'Ben', group_id: 'alpha' }),
+			personnelRow({ id: 'charlie', rank: 'SGT', last_name: 'Charlie', first_name: 'Cal', group_id: 'alpha' })
+		);
+		const template = await createDutyRosterTemplate(ctx, { name: 'CQ NCO', shortCode: 'CQ' });
+		const laterPreview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: template.id,
+			startDate: '2026-07-15',
+			endDate: '2026-07-31'
+		});
+		const laterRun = await acceptDutyRosterTemplatePreview(ctx, {
+			preview: JSON.stringify(laterPreview)
+		});
+		dailyAssignmentRows.push({
+			id: 'daily-assignment-manual',
+			organization_id: ctx.auth.orgId,
+			date: '2026-07-01',
+			assignment_type_id: template.assignmentTypeId,
+			assignee_id: 'charlie',
+			duty_roster_template_run_id: null,
+			duty_roster_template_run_row_date: null
+		});
+		const backfillPreview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: template.id,
+			startDate: '2026-07-01',
+			endDate: '2026-07-02'
+		});
+		const originalUpdate = store.update.bind(store);
+		const updateSpy = vi.spyOn(store, 'update').mockImplementation(async (table, orgId, id, data, select) => {
+			if (table === 'duty_roster_template_runs' && id === laterRun.id && data.status === 'invalidated') {
+				throw new Error('Invalidation failed.');
+			}
+			return originalUpdate(table, orgId, id, data, select);
+		});
+
+		try {
+			await expect(
+				acceptAndApplyDutyRosterTemplatePreview(ctx, {
+					preview: JSON.stringify(backfillPreview),
+					futureRunConflictResolution: 'invalidate-following'
+				})
+			).rejects.toThrow('Invalidation failed.');
+
+			expect(acceptedRunRows.map((row) => ({ id: row.id, status: row.status }))).toEqual([
+				{ id: laterRun.id, status: 'accepted' }
+			]);
+			expect(dailyAssignmentRows).toEqual([
+				expect.objectContaining({
+					date: '2026-07-01',
+					assignment_type_id: template.assignmentTypeId,
+					assignee_id: 'charlie'
+				})
+			]);
+			expect(dailyAssignmentRows).not.toContainEqual(expect.objectContaining({ duty_roster_template_run_id: 'run-2' }));
+			expect(auditEvents).not.toContainEqual(
+				expect.objectContaining({ action: 'duty_roster_template_run.applied_to_calendar', resourceId: 'run-2' })
+			);
+		} finally {
+			updateSpy.mockRestore();
+		}
+	});
+
 	it('reports Manual DA6 Baseline as the count read model until the first accepted run', async () => {
 		const ctx = createCtx();
 		personnelRows.push(

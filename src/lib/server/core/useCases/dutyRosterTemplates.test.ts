@@ -2878,6 +2878,53 @@ describe('Duty Roster Template use cases', () => {
 		expect(acceptedRunRows.find((row) => row.id === backfillRun.id)).toMatchObject({ status: 'accepted' });
 	});
 
+	it('keeps an overlapping backfill replacement accepted when invalidating the conflicted run', async () => {
+		const ctx = createCtx();
+		personnelRows.push(
+			personnelRow({ id: 'alpha', rank: 'SGT', last_name: 'Able', first_name: 'Ann', group_id: 'alpha' }),
+			personnelRow({ id: 'bravo', rank: 'SGT', last_name: 'Baker', first_name: 'Ben', group_id: 'alpha' })
+		);
+		const template = await createDutyRosterTemplate(ctx, { name: 'CQ NCO', shortCode: 'CQ' });
+		await updateDutyRosterTemplateSettings(ctx, {
+			templateId: template.id,
+			poolCriteria: {
+				rankValues: ['SGT'],
+				groupIds: ['alpha'],
+				mosValues: [],
+				dutyRoleValues: []
+			},
+			exemptPersonnelIds: [],
+			manualBaselineCounts: {}
+		});
+		const originalPreview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: template.id,
+			startDate: '2026-07-01',
+			endDate: '2026-07-31'
+		});
+		const originalRun = await acceptDutyRosterTemplatePreview(ctx, {
+			preview: JSON.stringify(originalPreview)
+		});
+
+		const replacementPreview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: template.id,
+			startDate: '2026-07-15',
+			endDate: '2026-07-20'
+		});
+
+		expect(replacementPreview.futureRunConflict).toMatchObject({
+			firstAffectedRunId: originalRun.id,
+			firstAffectedRunStartDate: '2026-07-01',
+			firstAffectedRunEndDate: '2026-07-31'
+		});
+		const replacementRun = await acceptDutyRosterTemplatePreview(ctx, {
+			preview: JSON.stringify(replacementPreview),
+			futureRunConflictResolution: 'invalidate-following'
+		});
+
+		expect(acceptedRunRows.find((row) => row.id === originalRun.id)).toMatchObject({ status: 'invalidated' });
+		expect(acceptedRunRows.find((row) => row.id === replacementRun.id)).toMatchObject({ status: 'accepted' });
+	});
+
 	it('removes a newly accepted backfill run when invalidate-following fails', async () => {
 		const ctx = createCtx();
 		personnelRows.push(

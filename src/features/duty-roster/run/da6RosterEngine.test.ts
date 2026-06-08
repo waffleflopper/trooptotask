@@ -58,7 +58,8 @@ function engineInput(overrides: Partial<Da6RosterEngineInput> = {}): Da6RosterEn
 			overrides.classificationByPersonDate ??
 			new Map(pool.map((person) => [person.id, new Map(dutyDates.map((date) => [date, available]))])),
 		priorLastDutyDates: overrides.priorLastDutyDates ?? new Map(pool.map((person) => [person.id, null])),
-		manualBaselineCounts: overrides.manualBaselineCounts ?? new Map()
+		manualBaselineCounts: overrides.manualBaselineCounts ?? new Map(),
+		initialDa6Counts: overrides.initialDa6Counts
 	};
 }
 
@@ -188,6 +189,38 @@ describe('computeDa6Roster', () => {
 
 		expect(output.columns.map((column) => column.sequenceKey)).toEqual(['weekday', 'weekend-holiday']);
 		expect(output.cellsByPersonnelId.get('alpha')?.map((cell) => cell.sequenceNumber)).toEqual([5, 5]);
+	});
+
+	it('seeds Duty Priority from the active sequence count when weekday and weekend counts differ', () => {
+		const output = computeDa6Roster(
+			engineInput({
+				pool: [soldier({ id: 'alpha', lastName: 'Able' }), soldier({ id: 'bravo', lastName: 'Baker' })],
+				dutyDates: ['2026-05-02'],
+				sequenceByDate: new Map([['2026-05-02', { sequenceKind: 'weekend', sequenceKey: 'weekend-holiday' }]]),
+				classificationByPersonDate: new Map([
+					['alpha', new Map([['2026-05-02', available]])],
+					['bravo', new Map([['2026-05-02', available]])]
+				]),
+				initialDa6Counts: new Map([
+					[
+						'alpha',
+						new Map<DutyRosterSequenceKey, number>([
+							['weekday', 10],
+							['weekend-holiday', 1]
+						])
+					],
+					[
+						'bravo',
+						new Map<DutyRosterSequenceKey, number>([
+							['weekday', 1],
+							['weekend-holiday', 5]
+						])
+					]
+				])
+			})
+		);
+
+		expect(output.rosterRows).toEqual([{ date: '2026-05-02', assigneeId: 'bravo' }]);
 	});
 });
 

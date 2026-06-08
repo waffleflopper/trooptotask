@@ -34,6 +34,10 @@ _Avoid_: Supabase invite, temporary password, magic login
 The platform-admin workflow for reviewing **Access Requests**, issuing or resending **Account Setup Links**, explaining setup state, rejecting requests, and blocking linked **Organization Invitations** when platform access is denied. It does not create **User Accounts** directly and does not create **Organization Members**.
 _Avoid_: Invite-code admin, organization member approval, Supabase invite management
 
+**Platform Administration**:
+The platform-admin workflow for inspecting and operating TroopToTask-wide concerns across **User Accounts**, **Organizations**, beta queues, billing support, announcements, audit visibility, and suspension controls. It is separate from **Organization Governance Actions** and must keep provider-specific reads and commands behind app-owned modules. See [ADR 0011](docs/architecture/adrs/0011-platform-administration-boundary.md).
+_Avoid_: Organization admin, route-owned admin query, raw platform Supabase access
+
 **User Profile**:
 The personal profile details attached to a **User Account**, such as first name, last name, rank, and future display information. A **User Profile** is not the same as a **Personnel Record** and should not automatically sync to roster data.
 _Avoid_: Personnel Record, Organization Member

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
 	counselingRecordDraftSpec,
 	documentDraftSpec,
@@ -7,6 +7,10 @@ import {
 } from './personnelArtifactDraftSpecs';
 
 describe('personnel artifact draft specs', () => {
+	afterEach(() => {
+		vi.useRealTimers();
+	});
+
 	it('returns artifact-specific validation messages', () => {
 		expect(followUpDraftSpec.validate({ title: '', notes: '', dueDate: '' })).toBe('Enter a follow-up title.');
 		expect(leaderNoteDraftSpec.validate({ text: '' })).toBe('Enter a leader note before saving.');
@@ -53,6 +57,14 @@ describe('personnel artifact draft specs', () => {
 
 		expect(input.file?.name).toBe('orders.pdf');
 		expect(input.title).toBe('BLS Card 2026');
+	});
+
+	it('defaults counseling records to the local calendar date', () => {
+		const localNow = new Date(2026, 0, 31, 23, 45);
+		vi.useFakeTimers();
+		vi.setSystemTime(localNow);
+
+		expect(counselingRecordDraftSpec.createEmptyInput().dateConducted).toBe('2026-01-31');
 	});
 
 	it('encodes document uploads as multipart form data', () => {

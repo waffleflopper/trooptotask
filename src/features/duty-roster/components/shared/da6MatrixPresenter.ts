@@ -37,12 +37,9 @@ export function buildDa6MatrixDisplay(matrix: Da6Matrix, mode: DA6MatrixMode): D
 			{
 				label: 'Assigned Count',
 				values: Object.fromEntries(
-					matrix.columns.map((column) => [
-						column.date,
-						matrix.rows.reduce(
-							(total, row) => total + (row.cells.some((cell) => cell.date === column.date && cell.assigned) ? 1 : 0),
-							0
-						)
+					columns.map((column) => [
+						column.id,
+						rows.reduce((total, row) => total + (cells[row.id]?.[column.id]?.kind === 'assigned' ? 1 : 0), 0)
 					])
 				)
 			},

@@ -50,6 +50,7 @@ import {
 	type ListAcceptedDutyRosterTemplateRunsOptions,
 	recordDutyRosterTemplateRunCorrection as recordRunCorrectionLifecycle
 } from './acceptedRuns';
+import type { DutyRosterTemplateRunRow } from './acceptedRunRecord';
 import {
 	assertReviewedDutyRosterTemplatePreviewIsCurrent,
 	buildDutyRosterTemplatePreviewFromCurrentState,
@@ -947,14 +948,52 @@ async function applyFutureRunConflictResolution(
 	resolution: DutyRosterTemplateAcceptPreviewInput['futureRunConflictResolution'] | null,
 	options: { excludeRunIds?: string[] } = {}
 ): Promise<DutyRosterTemplateInvalidateResult | null> {
-	if (preview.futureRunConflict?.firstAffectedRunId && resolution === 'invalidate-following') {
-		return invalidateLatestRunLifecycle(ctx, {
-			runId: preview.futureRunConflict.firstAffectedRunId,
-			cascade: true,
-			excludeRunIds: options.excludeRunIds
-		});
+	if (resolution !== 'invalidate-following') {
+		return null;
 	}
-	return null;
+
+	const firstAffectedRunId = await loadFirstAcceptedRunAffectedByPreview(ctx, preview, options);
+	if (!firstAffectedRunId) {
+		return null;
+	}
+
+	return invalidateLatestRunLifecycle(ctx, {
+		runId: firstAffectedRunId,
+		cascade: true,
+		excludeRunIds: options.excludeRunIds
+	});
+}
+
+async function loadFirstAcceptedRunAffectedByPreview(
+	ctx: WritePorts,
+	preview: DutyRosterTemplatePreview,
+	options: { excludeRunIds?: string[] } = {}
+): Promise<string | null> {
+	const excludeRunIds = new Set(options.excludeRunIds ?? []);
+	const rows = await ctx.store.findMany<DutyRosterTemplateRunRow>(
+		DUTY_ROSTER_TEMPLATE_RUN_TABLE,
+		ctx.auth.orgId,
+		{ template_id: preview.assignmentType.id },
+		{
+			inFilters: { status: ['accepted'] },
+			rangeFilters: [{ column: 'end_date', op: 'gte', value: preview.config.startDate }]
+		}
+	);
+
+	return rows.filter((row) => !excludeRunIds.has(row.id)).sort(compareAcceptedRunRowsByDutyWindow)[0]?.id ?? null;
+}
+
+function compareAcceptedRunRowsByDutyWindow(left: DutyRosterTemplateRunRow, right: DutyRosterTemplateRunRow): number {
+	const startDiff = left.start_date.localeCompare(right.start_date);
+	if (startDiff !== 0) return startDiff;
+
+	const endDiff = left.end_date.localeCompare(right.end_date);
+	if (endDiff !== 0) return endDiff;
+
+	const acceptedDiff = left.accepted_at.localeCompare(right.accepted_at);
+	if (acceptedDiff !== 0) return acceptedDiff;
+
+	return left.id.localeCompare(right.id);
 }
 
 function futureRunConflictAfterAccept(

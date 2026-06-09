@@ -148,6 +148,31 @@ describe('buildDutyRosterCountSource', () => {
 		]);
 	});
 
+	it('counts a corrected outside-pool final assignee in DA6 continuation history', () => {
+		const countSource = buildDutyRosterCountSource({
+			template,
+			resolvedPool: pool,
+			runs: [
+				run({
+					id: 'run-1',
+					status: 'accepted',
+					acceptedAt: '2026-06-01T00:00:00.000Z',
+					assigneeId: 'alpha',
+					date: '2026-06-01',
+					corrections: [{ runRowDate: '2026-06-01', replacementAssigneeId: 'charlie', reason: 'Actually served.' }]
+				})
+			],
+			baselineStartDate: '2026-06-02'
+		});
+
+		expect(countSource.continuationHistory[0]?.roster).toEqual([
+			expect.objectContaining({ assigneeId: 'charlie', reason: 'Actually served.' })
+		]);
+		expect(countSource.continuationHistory[0]?.config.da6ContinuationCounts).toMatchObject({
+			charlie: { single: 1 }
+		});
+	});
+
 	it('uses Manual DA6 Baseline again when all accepted runs are invalidated', () => {
 		const countSource = buildDutyRosterCountSource({
 			template: {
@@ -264,6 +289,46 @@ function run(input: {
 function snapshot(input: { date: string; assigneeId: string; acceptedAt: string }): DutyRosterTemplateAcceptedSnapshot {
 	const display = pool.find((personnel) => personnel.id === input.assigneeId) ?? null;
 	const previewDisplay = display ? { ...display, archivedAt: display.archivedAt ?? null } : null;
+	const da6 = {
+		numberingMode: 'single-sequence' as const,
+		columns: [
+			{
+				date: input.date,
+				sequenceKind: 'weekday' as const,
+				sequenceKey: 'single' as const,
+				specialDayIds: [],
+				chargeSequenceStart: 1,
+				chargeableCount: 1
+			}
+		],
+		rows: [
+			{
+				personnelId: input.assigneeId,
+				display: previewDisplay ?? {
+					id: input.assigneeId,
+					rank: '',
+					lastName: '',
+					firstName: '',
+					groupId: null,
+					groupName: ''
+				},
+				cells: [
+					{
+						date: input.date,
+						personnelId: input.assigneeId,
+						code: 'assigned' as const,
+						da6Code: null,
+						chargeable: true,
+						queuePosition: 1,
+						sequenceNumber: 1,
+						assigned: true,
+						reason: null,
+						reasonCode: null
+					}
+				]
+			}
+		]
+	};
 	return {
 		snapshotVersion: 1,
 		template: {
@@ -304,14 +369,14 @@ function snapshot(input: { date: string; assigneeId: string; acceptedAt: string 
 			}
 		],
 		manualSelections: [],
-		da6: { numberingMode: 'single-sequence', columns: [], rows: [] },
+		da6,
 		exportModel: {
 			assignmentType: { id: 'assignment-type-1', name: 'CQ NCO', shortName: 'CQ', color: '#8a5a22' },
 			startDate: input.date,
 			endDate: input.date,
 			numberingMode: 'single-sequence',
 			rosterRows: [{ date: input.date, assigneeId: input.assigneeId }],
-			da6: { numberingMode: 'single-sequence', columns: [], rows: [] },
+			da6,
 			sequencePeriods: []
 		},
 		warnings: []

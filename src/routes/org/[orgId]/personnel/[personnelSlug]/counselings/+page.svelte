@@ -20,10 +20,24 @@
 		counselingRecords.mergeLoaded(data.records).filter((record) => !archivedIds.includes(record.id))
 	);
 	let actionId = $state('');
+	let fileInput = $state<HTMLInputElement | null>(null);
 
 	function updateFile(event: Event) {
 		const input = event.currentTarget as HTMLInputElement;
 		counselingRecords.selectFile(input.files?.[0] ?? null);
+	}
+
+	function clearFileInput() {
+		if (fileInput) {
+			fileInput.value = '';
+			if (typeof DataTransfer !== 'undefined') fileInput.files = new DataTransfer().files;
+		}
+		counselingRecords.selectFile(null);
+	}
+
+	async function submitCounselingRecord() {
+		await counselingRecords.submit();
+		if (!counselingRecords.error) clearFileInput();
 	}
 
 	async function archiveRecord(record: PersonnelCounselingRecord) {
@@ -60,7 +74,7 @@
 			<h2 class="text-lg font-semibold">{data.title}</h2>
 		</div>
 		<div class="space-y-5 p-6">
-			<form class="grid gap-3" onsubmit={(event) => (event.preventDefault(), counselingRecords.submit())}>
+			<form class="grid gap-3" onsubmit={(event) => (event.preventDefault(), submitCounselingRecord())}>
 				<div class="grid gap-3 md:grid-cols-[10rem_1fr]">
 					<DatePicker
 						bind:value={counselingRecords.fields.dateConducted}
@@ -80,7 +94,13 @@
 					placeholder="Optional summary"
 				/>
 				<div class="flex flex-wrap items-center justify-between gap-3">
-					<Input type="file" accept="application/pdf,.pdf" aria-label="Counseling PDF" onchange={updateFile} />
+					<Input
+						bind:ref={fileInput}
+						type="file"
+						accept="application/pdf,.pdf"
+						aria-label="Counseling PDF"
+						onchange={updateFile}
+					/>
 					<Button type="submit" disabled={counselingRecords.saving}>
 						{counselingRecords.saving ? 'Uploading...' : 'Upload PDF'}
 					</Button>

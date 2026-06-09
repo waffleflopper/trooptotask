@@ -166,6 +166,30 @@ describe('personnel artifact subpages', () => {
 		expect((screen.getByLabelText('Follow-up title') as HTMLInputElement).value).toBe('');
 	});
 
+	it('exits edit mode when archiving the follow-up being edited', async () => {
+		fetchMock.mockResolvedValueOnce(
+			jsonResponse(makeFollowUp({ status: 'archived', archivedAt: '2026-06-08T10:05:00.000Z' }))
+		);
+		renderFollowUps([makeFollowUp()]);
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+		const titleInput = screen.getByLabelText('Follow-up title') as HTMLInputElement;
+		expect(titleInput.value).toBe('Dental readiness');
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Archive' }));
+
+		await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+		expect(fetchMock).toHaveBeenCalledWith('/org/org-1/api/personnel/person-1/follow-ups/follow-up-1', {
+			method: 'PATCH',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ status: 'archived' })
+		});
+		await screen.findByText('No artifact records yet');
+		expect(titleInput.value).toBe('');
+		expect(screen.queryByRole('button', { name: 'Cancel edit' })).toBeNull();
+		expect(screen.getByRole('button', { name: 'Add' })).toBeTruthy();
+	});
+
 	it('creates leader notes with the shared JSON draft contract', async () => {
 		fetchMock.mockResolvedValueOnce(jsonResponse(makeLeaderNote()));
 		renderNotes();
@@ -190,7 +214,8 @@ describe('personnel artifact subpages', () => {
 		renderDocuments();
 
 		const file = new File(['card'], 'BLS_Card-2026.pdf', { type: 'application/pdf' });
-		await fireEvent.change(screen.getByLabelText('Document file'), {
+		const fileInput = screen.getByLabelText('Document file') as HTMLInputElement;
+		await fireEvent.change(fileInput, {
 			target: { files: [file] }
 		});
 
@@ -209,6 +234,7 @@ describe('personnel artifact subpages', () => {
 		expect((request.body as FormData).get('file')).toBe(file);
 		await screen.findByText('BLS Card 2026');
 		expect(titleInput.value).toBe('');
+		expect(fileInput.files?.length ?? 0).toBe(0);
 	});
 
 	it('creates counseling records with the shared local-date multipart draft contract', async () => {
@@ -218,13 +244,14 @@ describe('personnel artifact subpages', () => {
 		renderCounselings();
 
 		const file = new File(['counseling'], 'monthly-counseling.pdf', { type: 'application/pdf' });
+		const fileInput = screen.getByLabelText('Counseling PDF') as HTMLInputElement;
 		await fireEvent.input(screen.getByLabelText('Counseling title'), {
 			target: { value: '  Monthly counseling  ' }
 		});
 		await fireEvent.input(screen.getByLabelText('Counseling summary'), {
 			target: { value: '  Goals reviewed  ' }
 		});
-		await fireEvent.change(screen.getByLabelText('Counseling PDF'), {
+		await fireEvent.change(fileInput, {
 			target: { files: [file] }
 		});
 		await fireEvent.submit(screen.getByLabelText('Counseling title').closest('form') as HTMLFormElement);
@@ -240,5 +267,6 @@ describe('personnel artifact subpages', () => {
 		expect((request.body as FormData).get('file')).toBe(file);
 		await screen.findByText('Monthly counseling');
 		expect((screen.getByLabelText('Counseling title') as HTMLInputElement).value).toBe('');
+		expect(fileInput.files?.length ?? 0).toBe(0);
 	});
 });

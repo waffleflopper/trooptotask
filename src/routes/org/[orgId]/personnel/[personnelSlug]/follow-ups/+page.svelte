@@ -87,6 +87,7 @@
 			followUps.upsert(updated);
 			if (status === 'archived') {
 				archivedRecordIds = [...archivedRecordIds, record.id];
+				if (editingId === record.id) resetForm();
 			}
 		} catch (caught) {
 			followUps.error = caught instanceof Error ? caught.message : 'Unable to update follow-up.';

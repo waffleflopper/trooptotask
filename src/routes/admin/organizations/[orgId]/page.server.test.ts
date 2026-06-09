@@ -7,7 +7,9 @@ const {
 	reconcileOrganizationBillingMock,
 	grantFeatureOverrideMock,
 	revokeFeatureOverrideMock,
-	platformGiftingMock
+	platformGiftingMock,
+	platformAuditMock,
+	platformMetricsMock
 } = vi.hoisted(() => ({
 	invalidateTierCacheMock: vi.fn(),
 	pauseSubscriptionMock: vi.fn(),
@@ -21,6 +23,14 @@ const {
 		grantGift: vi.fn(),
 		revokeGift: vi.fn(),
 		extendGift: vi.fn()
+	},
+	platformAuditMock: {
+		listLogs: vi.fn(),
+		listRecentByOrganization: vi.fn(),
+		listRecentByUser: vi.fn()
+	},
+	platformMetricsMock: {
+		countActivePersonnelForOrganization: vi.fn()
 	}
 }));
 
@@ -64,9 +74,37 @@ vi.mock('$lib/server/adapters/supabasePlatformGifting', () => ({
 	createSupabasePlatformGifting: () => platformGiftingMock
 }));
 
+vi.mock('$lib/server/adapters/supabasePlatformAudit', () => ({
+	createSupabasePlatformAudit: () => platformAuditMock
+}));
+
+vi.mock('$lib/server/adapters/supabasePlatformMetrics', () => ({
+	createSupabasePlatformMetrics: () => platformMetricsMock
+}));
+
 vi.mock('$lib/server/core/useCases/planFeatureOverrides', () => ({
 	grantOrganizationPlanFeatureOverride: grantFeatureOverrideMock,
 	revokeOrganizationPlanFeatureOverride: revokeFeatureOverrideMock
+}));
+
+vi.mock('$lib/server/core/useCases/planPolicy', () => ({
+	isPlanFeatureKey: (value: string) => value === 'advanced_reporting',
+	readEffectivePlanPolicy: vi.fn().mockResolvedValue({
+		source: 'tier',
+		billingSource: 'legacy_organization',
+		entitlements: {}
+	})
+}));
+
+vi.mock('$lib/server/core/useCases/organizationPlanUsage', () => ({
+	readOrganizationPlanUsage: vi.fn().mockResolvedValue({
+		organizationId: '11111111-1111-4111-8111-111111111111',
+		sources: {}
+	})
+}));
+
+vi.mock('$lib/server/core/useCases/planAdminDiagnostics', () => ({
+	buildPlanAdminDiagnostics: vi.fn(() => ({ overLimitReasons: [] }))
 }));
 
 vi.mock('$lib/server/billing/priceCatalog', () => ({
@@ -75,7 +113,7 @@ vi.mock('$lib/server/billing/priceCatalog', () => ({
 	]
 }));
 
-import { actions } from './+page.server';
+import { actions, load } from './+page.server';
 
 function makeRequest(form: Record<string, string>): Request {
 	const body = new URLSearchParams(form);
@@ -105,6 +143,53 @@ function makeNoOrganizationGiftClient() {
 	return {
 		from: vi.fn((table: string) => {
 			if (table === 'organizations') throw new Error('route must use PlatformGifting for gift actions');
+			throw new Error(`Unexpected table ${table}`);
+		})
+	};
+}
+
+function makeOrgDetailLoadClient() {
+	const orgRow = {
+		id: '11111111-1111-4111-8111-111111111111',
+		name: 'Able Company',
+		tier: 'free',
+		suspended_at: null,
+		created_at: '2026-06-01T00:00:00.000Z'
+	};
+	const membershipRows = [{ user_id: 'user-1', role: 'owner', email: 'owner@example.com' }];
+
+	return {
+		from: vi.fn((table: string) => {
+			if (table === 'audit_logs') throw new Error('route must use PlatformAudit for recent organization activity');
+			if (table === 'organizations') {
+				return {
+					select: vi.fn(() => ({
+						eq: vi.fn(() => ({
+							single: vi.fn().mockResolvedValue({ data: orgRow, error: null })
+						}))
+					}))
+				};
+			}
+			if (table === 'organization_memberships') {
+				return {
+					select: vi.fn(() => ({
+						eq: vi.fn(() => ({
+							order: vi.fn(() => ({
+								range: vi.fn().mockResolvedValue({ data: membershipRows, error: null })
+							}))
+						}))
+					}))
+				};
+			}
+			if (table === 'organization_billing_snapshots') {
+				return {
+					select: vi.fn(() => ({
+						eq: vi.fn(() => ({
+							maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null })
+						}))
+					}))
+				};
+			}
 			throw new Error(`Unexpected table ${table}`);
 		})
 	};
@@ -142,6 +227,52 @@ describe('admin organization gifting actions', () => {
 		platformGiftingMock.grantGift.mockResolvedValue({ status: 'updated', action: 'gift', orgId: 'org-1' });
 		platformGiftingMock.revokeGift.mockResolvedValue({ status: 'updated', action: 'revoke', orgId: 'org-1' });
 		platformGiftingMock.extendGift.mockResolvedValue({ status: 'updated', action: 'extend', orgId: 'org-1' });
+		platformGiftingMock.getOrganizationGiftState.mockResolvedValue({
+			id: '11111111-1111-4111-8111-111111111111',
+			name: 'Able Company',
+			tier: 'free',
+			giftTier: null,
+			giftExpiresAt: null,
+			giftedBy: null,
+			stripeSubscriptionId: null,
+			subscriptionStatus: null,
+			stripeCustomerId: null
+		});
+		platformMetricsMock.countActivePersonnelForOrganization.mockResolvedValue(3);
+		platformAuditMock.listRecentByOrganization.mockResolvedValue([
+			{
+				id: 'audit-1',
+				action: 'admin.org.extend_gift',
+				userId: 'admin-1',
+				timestamp: '2026-06-08T16:00:00.000Z',
+				severity: 'info',
+				resourceType: 'organization',
+				resourceId: '11111111-1111-4111-8111-111111111111'
+			}
+		]);
+	});
+
+	it('loads recent organization activity through PlatformAudit', async () => {
+		const result = (await load({
+			__ctx: makeContext(makeOrgDetailLoadClient()),
+			params: { orgId: '11111111-1111-4111-8111-111111111111' }
+		} as unknown as Parameters<typeof load>[0])) as { auditEvents: unknown };
+
+		expect(platformAuditMock.listRecentByOrganization).toHaveBeenCalledWith({
+			orgId: '11111111-1111-4111-8111-111111111111',
+			limit: 10
+		});
+		expect(result.auditEvents).toEqual([
+			{
+				id: 'audit-1',
+				action: 'admin.org.extend_gift',
+				userId: 'admin-1',
+				timestamp: '2026-06-08T16:00:00.000Z',
+				severity: 'info',
+				resourceType: 'organization',
+				resourceId: '11111111-1111-4111-8111-111111111111'
+			}
+		]);
 	});
 
 	it('routes gifting from the organization detail page through PlatformGifting', async () => {

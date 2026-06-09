@@ -19,6 +19,7 @@ Each entry separates:
 		- the legacy platform invite-code runtime route has been removed
 		- Platform Administration aggregate Organization metrics now route through the `PlatformMetrics` use case and Supabase adapter instead of the route-level helper
 		- Platform Administration announcements CRUD now routes through the `PlatformAnnouncements` use case and Supabase adapter instead of direct route-level table calls
+		- Platform Administration beta feedback list/update now routes through the `PlatformFeedback` use case and Supabase adapter instead of direct route-level table calls
 		- multiple non-adapter routes still depend directly on `locals.supabase`, especially admin operations and some remaining layout helpers
 - Intended direction:
   - outside auth and adapter edges, business logic should be provider-agnostic

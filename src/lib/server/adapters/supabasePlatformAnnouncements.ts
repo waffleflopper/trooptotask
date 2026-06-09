@@ -105,8 +105,11 @@ export function createSupabasePlatformAnnouncementsStore(supabase: SupabaseClien
 			const updateResponse = (await supabase
 				.from('platform_announcements')
 				.update({ is_active: nextActive, updated_by: input.updatedBy })
-				.eq('id', input.id)) as SupabaseResponse<unknown>;
+				.eq('id', input.id)
+				.select('id')
+				.maybeSingle()) as SupabaseResponse<{ id: string }>;
 			assertSupabaseSuccess('table platform_announcements toggle update', updateResponse);
+			if (!updateResponse.data) return null;
 			return { id: input.id, isActive: nextActive };
 		},
 

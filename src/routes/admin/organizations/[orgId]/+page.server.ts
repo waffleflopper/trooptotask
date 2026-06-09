@@ -11,6 +11,7 @@ import { getConfiguredPriceCatalog } from '$lib/server/billing/priceCatalog';
 import { createSupabaseBillingReconciliationStore } from '$lib/server/adapters/supabaseBillingReconciliation';
 import { createSupabaseDataStore } from '$lib/server/adapters/supabaseDataStore';
 import { createSupabaseSubscriptionAdapter } from '$lib/server/adapters/supabaseSubscription';
+import { createSupabasePlatformAudit } from '$lib/server/adapters/supabasePlatformAudit';
 import {
 	grantOrganizationPlanFeatureOverride,
 	revokeOrganizationPlanFeatureOverride
@@ -145,12 +146,7 @@ export const load: PageServerLoad = loadWithAdminContext({
 
 		const personnelCount = await createSupabasePlatformMetrics(ctx).countActivePersonnelForOrganization(orgId);
 
-		const { data: auditEvents } = await adminClient
-			.from('audit_logs')
-			.select('id, action, user_id, timestamp, severity, resource_type, resource_id')
-			.eq('org_id', orgId)
-			.order('timestamp', { ascending: false })
-			.limit(10);
+		const auditEvents = await createSupabasePlatformAudit(ctx).listRecentByOrganization({ orgId, limit: 10 });
 
 		const { data: billingSnapshotRow } = await adminClient
 			.from('organization_billing_snapshots')
@@ -201,15 +197,7 @@ export const load: PageServerLoad = loadWithAdminContext({
 			cancellationSummary: billingSnapshot ? summarizeBillingCancellation(billingSnapshot) : null,
 			members,
 			personnelCount,
-			auditEvents: (auditEvents ?? []).map((e) => ({
-				id: e.id as string,
-				action: e.action as string,
-				userId: e.user_id as string | null,
-				timestamp: e.timestamp as string,
-				severity: e.severity as string,
-				resourceType: e.resource_type as string,
-				resourceId: e.resource_id as string | null
-			}))
+			auditEvents
 		};
 	}
 });

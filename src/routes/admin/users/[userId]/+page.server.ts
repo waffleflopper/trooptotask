@@ -4,6 +4,7 @@ import { loadWithAdminContext, adminAction } from '$lib/server/adapters/adminAda
 import { getAuthConfirmRedirectTo } from '$lib/server/authConfirm';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination';
 import { createSupabasePlatformMetrics } from '$lib/server/adapters/supabasePlatformMetrics';
+import { createSupabasePlatformAudit } from '$lib/server/adapters/supabasePlatformAudit';
 
 export const load: PageServerLoad = loadWithAdminContext({
 	page: 'users',
@@ -33,12 +34,7 @@ export const load: PageServerLoad = loadWithAdminContext({
 				.select('user_id, suspended_at, suspended_by, reason')
 				.eq('user_id', userId)
 				.maybeSingle(),
-			adminClient
-				.from('audit_logs')
-				.select('id, action, resource_type, resource_id, org_id, timestamp, details, severity')
-				.eq('user_id', userId)
-				.order('timestamp', { ascending: false })
-				.limit(10)
+			createSupabasePlatformAudit(ctx).listRecentByUser({ userId, limit: 10 })
 		]);
 
 		const orgIds = (orgsResult.data ?? [])
@@ -65,15 +61,7 @@ export const load: PageServerLoad = loadWithAdminContext({
 				}
 			: null;
 
-		const recentActivity = (auditResult.data ?? []).map((a: Record<string, unknown>) => ({
-			id: a.id as string,
-			action: a.action as string,
-			resourceType: a.resource_type as string,
-			resourceId: a.resource_id as string | null,
-			orgId: a.org_id as string | null,
-			timestamp: a.timestamp as string,
-			severity: a.severity as string
-		}));
+		const recentActivity = auditResult;
 
 		return {
 			user: {

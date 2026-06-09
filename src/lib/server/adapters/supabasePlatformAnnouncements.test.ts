@@ -50,12 +50,24 @@ describe('createSupabasePlatformAnnouncementsStore', () => {
 	it('returns the toggled announcement state when the row exists', async () => {
 		const { store, from } = createStoreWithResults(
 			{ data: { id: ANNOUNCEMENT_ID, is_active: false }, error: null },
-			{ data: null, error: null }
+			{ data: { id: ANNOUNCEMENT_ID }, error: null }
 		);
 
 		const result = await store.toggleAnnouncementActive({ id: ANNOUNCEMENT_ID, updatedBy: 'admin-1' });
 
 		expect(result).toEqual({ id: ANNOUNCEMENT_ID, isActive: true });
+		expect(from).toHaveBeenCalledTimes(2);
+	});
+
+	it('returns null when a toggle target disappears before the update returns', async () => {
+		const { store, from } = createStoreWithResults(
+			{ data: { id: ANNOUNCEMENT_ID, is_active: false }, error: null },
+			{ data: null, error: null }
+		);
+
+		const result = await store.toggleAnnouncementActive({ id: ANNOUNCEMENT_ID, updatedBy: 'admin-1' });
+
+		expect(result).toBeNull();
 		expect(from).toHaveBeenCalledTimes(2);
 	});
 

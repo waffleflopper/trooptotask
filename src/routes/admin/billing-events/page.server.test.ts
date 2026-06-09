@@ -1,36 +1,96 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import type { AdminContext } from '$lib/server/adapters/adminAdapter';
+import type { PlatformBillingEventRecord } from '$lib/server/core/useCases/platformBillingEvents';
+import { mapBillingEventDiagnostics } from '$lib/server/core/useCases/platformBillingEvents';
 
-const { recordAttemptMock, processRecordedMock } = vi.hoisted(() => ({
-	recordAttemptMock: vi.fn(),
-	processRecordedMock: vi.fn()
+const { recordAttemptMock, processRecordedMock, platformBillingEventsMock, createPlatformBillingEventsMock } =
+	vi.hoisted(() => {
+		const billingEvents = {
+			listDiagnostics: vi.fn(),
+			getEventById: vi.fn()
+		};
+
+		return {
+			recordAttemptMock: vi.fn(),
+			processRecordedMock: vi.fn(),
+			platformBillingEventsMock: billingEvents,
+			createPlatformBillingEventsMock: vi.fn(() => billingEvents)
+		};
+	});
+
+vi.mock('$lib/server/adapters/adminAdapter', () => ({
+	adminAction: (config: { fn: (ctx: unknown, event: unknown) => unknown }) => (event: { __ctx: unknown }) =>
+		config.fn(event.__ctx, event),
+	loadWithAdminContext: (config: { fn: (ctx: unknown, event: unknown) => unknown }) => (event: { __ctx: unknown }) =>
+		config.fn(event.__ctx, event)
 }));
+
+vi.mock('$lib/server/adapters/supabasePlatformBillingEvents', () => ({
+	createSupabasePlatformBillingEvents: createPlatformBillingEventsMock
+}));
+
+const retryEventDefaults: PlatformBillingEventRecord = {
+	id: 'evt_retry',
+	type: 'checkout.session.completed',
+	data: { object: { id: 'cs_123', metadata: { orgId: 'org-1', tier: 'team' }, subscription: 'sub_123' } },
+	objectId: 'cs_123',
+	secondaryDedupeKey: 'checkout.session.completed:cs_123',
+	eventCreatedAt: '2026-05-23T00:00:00.000Z',
+	processed: false,
+	processedAt: null,
+	processingState: 'retryable_failed',
+	attemptCount: 3,
+	lastError: 'temporary error',
+	processingResult: 'retryable processing failure',
+	createdAt: '2026-05-23T00:00:01.000Z',
+	updatedAt: '2026-05-23T00:00:02.000Z'
+};
+
+function makeRetryEvent(overrides: Partial<PlatformBillingEventRecord> = {}): PlatformBillingEventRecord {
+	return { ...retryEventDefaults, ...overrides };
+}
+
+function mapLegacyRow(row: Record<string, unknown>): PlatformBillingEventRecord {
+	return makeRetryEvent({
+		id: row.id as string,
+		type: row.type as string,
+		data: row.data as PlatformBillingEventRecord['data'],
+		objectId: row.object_id as string | null,
+		secondaryDedupeKey: row.secondary_dedupe_key as string | null,
+		eventCreatedAt: row.event_created_at as string | null,
+		processed: row.processed as boolean | null,
+		processedAt: row.processed_at as string | null,
+		processingState: row.processing_state as PlatformBillingEventRecord['processingState'],
+		attemptCount: row.attempt_count as number | null,
+		lastError: row.last_error as string | null,
+		processingResult: row.processing_result as string | null,
+		createdAt: row.created_at as string | null,
+		updatedAt: row.updated_at as string | null
+	});
+}
 
 vi.mock('$lib/server/billing/stripeWebhookProcessing', () => ({
 	_recordRetryableStripeWebhookEventAttempt: recordAttemptMock,
 	_processRecordedStripeWebhookEvent: processRecordedMock
 }));
 
-import { _mapBillingEventDiagnostics, _retryBillingEventCore } from './+page.server';
+import { _retryBillingEventCore, load } from './+page.server';
 
 type QueryResponse = { data: unknown; error: unknown };
 
 function createAdminClient(rowResponse: QueryResponse) {
 	const filters: Array<[string, unknown]> = [];
+	if (rowResponse.error) {
+		platformBillingEventsMock.getEventById.mockRejectedValueOnce(rowResponse.error);
+	} else {
+		platformBillingEventsMock.getEventById.mockResolvedValueOnce(
+			rowResponse.data ? mapLegacyRow(rowResponse.data as Record<string, unknown>) : null
+		);
+	}
 	return {
 		filters,
 		from(table: string) {
-			if (table !== 'stripe_webhook_events') throw new Error(`Unexpected table ${table}`);
-			return {
-				select: () => ({
-					eq(column: string, value: unknown) {
-						filters.push([column, value]);
-						return {
-							single: async () => rowResponse
-						};
-					}
-				})
-			};
+			throw new Error(`Unexpected route-level provider read from ${table}`);
 		}
 	};
 }
@@ -48,6 +108,10 @@ function createAdminContext(adminClient: unknown): AdminContext {
 describe('admin billing event diagnostics', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		platformBillingEventsMock.listDiagnostics.mockResolvedValue({
+			events: [],
+			diagnosticsError: false
+		});
 		processRecordedMock.mockResolvedValue({
 			ok: true,
 			state: 'processed',
@@ -57,31 +121,31 @@ describe('admin billing event diagnostics', () => {
 	});
 
 	it('maps safe event metadata and links organizations without exposing payload data', () => {
-		const diagnostics = _mapBillingEventDiagnostics(
+		const diagnostics = mapBillingEventDiagnostics(
 			[
 				{
 					id: 'evt_123',
 					type: 'checkout.session.completed',
-					object_id: 'cs_123',
-					secondary_dedupe_key: 'checkout.session.completed:cs_123',
-					event_created_at: '2026-05-23T00:00:00.000Z',
+					objectId: 'cs_123',
+					secondaryDedupeKey: 'checkout.session.completed:cs_123',
+					eventCreatedAt: '2026-05-23T00:00:00.000Z',
 					processed: false,
-					processed_at: null,
-					processing_state: 'retryable_failed',
-					attempt_count: 2,
-					last_error: 'temporary database error',
-					processing_result: 'retryable processing failure',
-					created_at: '2026-05-23T00:00:01.000Z',
-					updated_at: '2026-05-23T00:00:02.000Z',
+					processedAt: null,
+					processingState: 'retryable_failed',
+					attemptCount: 2,
+					lastError: 'temporary database error',
+					processingResult: 'retryable processing failure',
+					createdAt: '2026-05-23T00:00:01.000Z',
+					updatedAt: '2026-05-23T00:00:02.000Z',
 					data: { object: { secret: 'not-for-admin-ui' } }
 				}
 			],
 			[
 				{
-					organization_id: 'org-1',
-					stripe_customer_id: 'cus_123',
-					stripe_subscription_id: null,
-					last_stripe_event_id: 'evt_123'
+					organizationId: 'org-1',
+					stripeCustomerId: 'cus_123',
+					stripeSubscriptionId: null,
+					lastStripeEventId: 'evt_123'
 				}
 			],
 			[{ id: 'org-1', name: 'Alpha Company' }]
@@ -99,6 +163,51 @@ describe('admin billing event diagnostics', () => {
 			})
 		]);
 		expect(diagnostics[0]).not.toHaveProperty('data');
+	});
+
+	it('loads billing event diagnostics through the platform billing-events seam', async () => {
+		platformBillingEventsMock.listDiagnostics.mockResolvedValueOnce({
+			events: [
+				{
+					id: 'evt_123',
+					type: 'checkout.session.completed',
+					objectId: 'cs_123',
+					secondaryDedupeKey: 'checkout.session.completed:cs_123',
+					eventCreatedAt: '2026-05-23T00:00:00.000Z',
+					processed: false,
+					processedAt: null,
+					processingState: 'retryable_failed',
+					attemptCount: 2,
+					lastError: 'temporary database error',
+					processingResult: 'retryable processing failure',
+					createdAt: '2026-05-23T00:00:01.000Z',
+					updatedAt: '2026-05-23T00:00:02.000Z',
+					canRetry: true,
+					organization: { id: 'org-1', name: 'Alpha Company' }
+				}
+			],
+			diagnosticsError: false
+		});
+		const ctx = createAdminContext({
+			from: vi.fn((table: string) => {
+				throw new Error(`route must use PlatformBillingEvents instead of ${table}`);
+			})
+		});
+
+		const result = await load({ __ctx: ctx } as unknown as Parameters<typeof load>[0]);
+
+		expect(createPlatformBillingEventsMock).toHaveBeenCalledWith(ctx);
+		expect(platformBillingEventsMock.listDiagnostics).toHaveBeenCalledWith({ limit: 50 });
+		expect(result).toEqual({
+			events: [
+				expect.objectContaining({
+					id: 'evt_123',
+					organization: { id: 'org-1', name: 'Alpha Company' },
+					canRetry: true
+				})
+			],
+			diagnosticsError: false
+		});
 	});
 
 	it('records a new attempt and processes retryable failures through the shared webhook processor', async () => {
@@ -274,6 +383,25 @@ describe('admin billing event diagnostics', () => {
 				})
 			})
 		);
+	});
+
+	it('returns a server error when retry event lookup fails', async () => {
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+		const adminClient = createAdminClient({
+			data: null,
+			error: new Error('database offline')
+		});
+
+		const result = await _retryBillingEventCore(createAdminContext(adminClient), 'evt_lookup_error');
+
+		expect(result).toEqual({ ok: false, status: 500, error: 'Failed to fetch billing event.' });
+		expect(consoleError).toHaveBeenCalledWith(
+			'Admin billing event lookup failed:',
+			expect.objectContaining({ eventId: 'evt_lookup_error', err: expect.any(Error) })
+		);
+		expect(recordAttemptMock).not.toHaveBeenCalled();
+		expect(processRecordedMock).not.toHaveBeenCalled();
+		consoleError.mockRestore();
 	});
 
 	it.each(['processed', 'ignored', 'permanently_failed', 'superseded'])(

@@ -1,50 +1,24 @@
 import { fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 import { loadWithAdminContext, adminAction } from '$lib/server/adapters/adminAdapter';
+import { createSupabasePlatformAnnouncements } from '$lib/server/adapters/supabasePlatformAnnouncements';
 import { validateAnnouncement } from '$lib/server/admin';
 import { validateUUID } from '$lib/server/validation';
-import { selectAllSupabaseRows } from '$lib/server/supabasePagination';
-
-interface AnnouncementRow {
-	id: string;
-	title: string;
-	message: string;
-	type: string;
-	is_active: boolean;
-	created_at: string;
-	expires_at: string | null;
-}
 
 export const load: PageServerLoad = loadWithAdminContext({
 	page: 'announcements',
 	fn: async (ctx) => {
-		const { adminClient } = ctx;
-
-		const { data: announcements, error: err } = await selectAllSupabaseRows<AnnouncementRow>(
-			(from, to) =>
-				adminClient
-					.from('platform_announcements')
-					.select('*')
-					.order('created_at', { ascending: false })
-					.range(from, to) as unknown as Promise<{
-					data: AnnouncementRow[] | null;
-					error: unknown;
-				}>
-		);
-
-		if (err) {
-			console.error('Failed to load announcements');
-		}
+		const announcements = await createSupabasePlatformAnnouncements(ctx).list();
 
 		return {
-			announcements: (announcements ?? []).map((announcement) => ({
+			announcements: announcements.map((announcement) => ({
 				id: announcement.id,
 				title: announcement.title,
 				message: announcement.message,
 				type: announcement.type,
-				is_active: announcement.is_active,
-				created_at: announcement.created_at,
-				expires_at: announcement.expires_at
+				is_active: announcement.isActive,
+				created_at: announcement.createdAt,
+				expires_at: announcement.expiresAt
 			}))
 		};
 	}
@@ -55,7 +29,6 @@ export const actions: Actions = {
 		page: 'announcements',
 		requiredRole: 'super_admin',
 		fn: async (ctx, event) => {
-			const { adminClient } = ctx;
 			const formData = await event.request.formData();
 			const validation = validateAnnouncement({
 				title: String(formData.get('title') ?? ''),
@@ -67,32 +40,19 @@ export const actions: Actions = {
 			if (!validation.valid) {
 				return fail(400, { error: validation.error });
 			}
+			const { title, message, type, expiresAt } = validation;
 
-			const { data: announcement, error: err } = await adminClient
-				.from('platform_announcements')
-				.insert({
-					title: validation.title,
-					message: validation.message,
-					type: validation.type,
-					is_active: true,
-					expires_at: validation.expiresAt ?? null,
-					created_by: ctx.adminUser.id
-				})
-				.select()
-				.single();
-
-			if (err) {
-				console.error('Failed to create announcement');
+			try {
+				await createSupabasePlatformAnnouncements(ctx).create({
+					title,
+					message,
+					type,
+					expiresAt: expiresAt ?? null
+				});
+			} catch (error) {
+				console.error('Failed to create announcement', error);
 				return fail(500, { error: 'Failed to create announcement' });
 			}
-
-			ctx.audit({
-				action: 'announcement_create',
-				resourceType: 'platform_announcement',
-				resourceId: announcement.id,
-				details: { title: validation.title, type: validation.type },
-				severity: 'info'
-			});
 
 			return { success: true };
 		}
@@ -102,7 +62,6 @@ export const actions: Actions = {
 		page: 'announcements',
 		requiredRole: 'super_admin',
 		fn: async (ctx, event) => {
-			const { adminClient } = ctx;
 			const formData = await event.request.formData();
 			const id = String(formData.get('id') ?? '');
 
@@ -110,35 +69,15 @@ export const actions: Actions = {
 				return fail(400, { error: 'Invalid announcement ID' });
 			}
 
-			const { data: existing, error: fetchErr } = await adminClient
-				.from('platform_announcements')
-				.select('id, is_active')
-				.eq('id', id)
-				.single();
-
-			if (fetchErr || !existing) {
-				return fail(404, { error: 'Announcement not found' });
-			}
-
-			const newActive = !existing.is_active;
-
-			const { error: updateErr } = await adminClient
-				.from('platform_announcements')
-				.update({ is_active: newActive, updated_by: ctx.adminUser.id })
-				.eq('id', id);
-
-			if (updateErr) {
-				console.error('Failed to toggle announcement');
+			try {
+				const result = await createSupabasePlatformAnnouncements(ctx).toggleActive(id);
+				if (result.status === 'not_found') {
+					return fail(404, { error: 'Announcement not found' });
+				}
+			} catch (error) {
+				console.error('Failed to toggle announcement', error);
 				return fail(500, { error: 'Failed to update announcement' });
 			}
-
-			ctx.audit({
-				action: newActive ? 'announcement_activate' : 'announcement_deactivate',
-				resourceType: 'platform_announcement',
-				resourceId: id,
-				details: { is_active: newActive },
-				severity: 'info'
-			});
 
 			return { success: true };
 		}
@@ -148,7 +87,6 @@ export const actions: Actions = {
 		page: 'announcements',
 		requiredRole: 'super_admin',
 		fn: async (ctx, event) => {
-			const { adminClient } = ctx;
 			const formData = await event.request.formData();
 			const id = String(formData.get('id') ?? '');
 
@@ -156,19 +94,12 @@ export const actions: Actions = {
 				return fail(400, { error: 'Invalid announcement ID' });
 			}
 
-			const { error: deleteErr } = await adminClient.from('platform_announcements').delete().eq('id', id);
-
-			if (deleteErr) {
-				console.error('Failed to delete announcement');
+			try {
+				await createSupabasePlatformAnnouncements(ctx).delete(id);
+			} catch (error) {
+				console.error('Failed to delete announcement', error);
 				return fail(500, { error: 'Failed to delete announcement' });
 			}
-
-			ctx.audit({
-				action: 'announcement_delete',
-				resourceType: 'platform_announcement',
-				resourceId: id,
-				severity: 'warning'
-			});
 
 			return { success: true };
 		}

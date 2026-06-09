@@ -9,12 +9,8 @@ import { buildPlanAdminDiagnostics, type PlanAdminDiagnostics } from '$lib/serve
 import { readOrganizationPlanUsage } from '$lib/server/core/useCases/organizationPlanUsage';
 import { readEffectivePlanPolicy } from '$lib/server/core/useCases/planPolicy';
 import { visibleBillingSnapshotForAdminRole } from '$lib/server/adminBillingVisibility';
-import {
-	type AdminMetricsClient,
-	displayOwnerMembership,
-	fetchOwnerMembershipsByOrganization,
-	fetchPersonnelCountsByOrganization
-} from '../adminOrganizationMetrics.server';
+import { createSupabasePlatformMetrics } from '$lib/server/adapters/supabasePlatformMetrics';
+import { displayOwnerMembership } from '$lib/server/core/useCases/platformMetrics';
 
 function getPersonnelCapForTier(tier: string): number | null {
 	const config = TIER_CONFIG[tier as Tier];
@@ -143,10 +139,10 @@ export const load: PageServerLoad = loadWithAdminContext({
 		}
 
 		const orgIds = (orgs ?? []).map((org) => org.id);
-		const metricsClient = adminClient as unknown as AdminMetricsClient;
+		const platformMetrics = createSupabasePlatformMetrics(ctx);
 		const [personnelCounts, ownerMemberships, snapshotRows] = await Promise.all([
-			fetchPersonnelCountsByOrganization(metricsClient, orgIds),
-			fetchOwnerMembershipsByOrganization(metricsClient, orgIds),
+			platformMetrics.countActivePersonnelByOrganization(orgIds),
+			platformMetrics.getOwnerMembershipsByOrganization(orgIds),
 			orgIds.length
 				? selectAllSupabaseRows<AdminBillingSnapshotRow>(
 						(from, to) =>

@@ -15,9 +15,18 @@ Each entry separates:
 	- many server paths already use ports, adapters, entities, and use cases
 	- billing organization-state reads and writes plus the shared export-record lifecycle now run through app-owned store-backed helpers in `#619`
 	- billing cancellation now acknowledges successful Stripe cancellation even if the immediate local organization reset fails, relying on the existing Stripe deleted-subscription webhook as the documented reconciliation path in `#637`
-	- Critical Tasks workspace settings now load through an app-owned use case instead of the route layout
-	- the legacy platform invite-code runtime route has been removed
-	- multiple non-adapter routes still depend directly on `locals.supabase`, especially admin operations and some remaining layout helpers
+		- Critical Tasks workspace settings now load through an app-owned use case instead of the route layout
+		- the legacy platform invite-code runtime route has been removed
+		- Platform Administration aggregate Organization metrics now route through the `PlatformMetrics` use case and Supabase adapter instead of the route-level helper
+		- Platform Administration membership and owner aggregate metrics now use service-role aggregate RPCs instead of adapter-side membership-row pagination
+		- Platform Administration announcements CRUD now routes through the `PlatformAnnouncements` use case and Supabase adapter instead of direct route-level table calls
+		- Platform Administration beta feedback list/update now routes through the `PlatformFeedback` use case and Supabase adapter instead of direct route-level table calls
+			- Platform Administration gifting list/grant/revoke/extend and organization-detail gift state now route through the `PlatformGifting` use case and Supabase adapter instead of route-level gift table calls
+			- Platform Administration audit-log list/action/recent reads now route through the `PlatformAudit` use case and Supabase adapter instead of direct route-level audit table calls
+				- Platform Administration organization-detail member reads, make-admin, and ownership transfer now route through the `PlatformMembershipAdministration` use case and Supabase adapter instead of route-level membership table calls
+				- Platform Administration billing-event diagnostics now route recent event, event-by-id, billing snapshot link, and organization-name reads through the `PlatformBillingEvents` use case and Supabase adapter instead of route-level billing table calls
+				- Platform Administration user-directory list/detail shaping now routes auth users, memberships, suspensions, and active personnel counts through the `PlatformUserDirectory` use case and Supabase adapter instead of route-level row shaping
+				- multiple non-adapter routes still depend directly on `locals.supabase`, especially admin operations and some remaining layout helpers
 - Intended direction:
   - outside auth and adapter edges, business logic should be provider-agnostic
 - Why this matters:

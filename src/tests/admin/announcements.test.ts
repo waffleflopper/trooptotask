@@ -8,8 +8,7 @@ describe('validateAnnouncement', () => {
 			message: 'System will be down Saturday 2-4am EST.',
 			type: 'maintenance'
 		});
-		expect(result.valid).toBe(true);
-		expect(result.title).toBe('Maintenance Window');
+		expect(result).toMatchObject({ valid: true, title: 'Maintenance Window' });
 	});
 
 	it('rejects empty title', () => {
@@ -40,13 +39,16 @@ describe('validateAnnouncement', () => {
 	it('accepts valid expiry date', () => {
 		const future = new Date(Date.now() + 86400000).toISOString();
 		const result = validateAnnouncement({ title: 'test', message: 'test', type: 'info', expiresAt: future });
-		expect(result.valid).toBe(true);
-		expect(result.expiresAt).toBe(future);
+		expect(result).toMatchObject({ valid: true, expiresAt: future });
 	});
 
 	it('allows null expiry', () => {
 		const result = validateAnnouncement({ title: 'test', message: 'test', type: 'info' });
-		expect(result.valid).toBe(true);
-		expect(result.expiresAt).toBeUndefined();
+		expect(result).toEqual({
+			valid: true,
+			title: 'test',
+			message: 'test',
+			type: 'info'
+		});
 	});
 });

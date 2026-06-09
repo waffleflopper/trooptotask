@@ -2,93 +2,25 @@ import { error, fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 import { loadWithAdminContext, adminAction } from '$lib/server/adapters/adminAdapter';
 import { getAuthConfirmRedirectTo } from '$lib/server/authConfirm';
-import { selectAllSupabaseRows } from '$lib/server/supabasePagination';
-import { type AdminMetricsClient, fetchPersonnelCountsByOrganization } from '../../adminOrganizationMetrics.server';
+import { createSupabasePlatformAudit } from '$lib/server/adapters/supabasePlatformAudit';
+import { createSupabasePlatformUserDirectory } from '$lib/server/adapters/supabasePlatformUserDirectory';
+import { validateUUID } from '$lib/server/validation';
 
 export const load: PageServerLoad = loadWithAdminContext({
 	page: 'users',
 	fn: async (ctx, event) => {
-		const { adminClient } = ctx;
 		const userId = event.params.userId as string;
+		if (!validateUUID(userId)) throw error(400, 'Invalid user ID');
 
-		const { data: authUser, error: authError } = await adminClient.auth.admin.getUserById(userId);
-		if (authError || !authUser?.user) {
-			throw error(404, 'User not found');
-		}
+		const userDetail = await createSupabasePlatformUserDirectory(ctx).getUserDetail(userId);
+		if (userDetail.status === 'not_found') throw error(404, 'User not found');
+		if (userDetail.status === 'auth_error') throw error(500, 'Failed to load user identity');
 
-		const [orgsResult, suspensionResult, auditResult] = await Promise.all([
-			selectAllSupabaseRows<Record<string, unknown>>(
-				(from, to) =>
-					adminClient
-						.from('organization_memberships')
-						.select('organization_id, role, organizations(id, name, tier, gift_tier)')
-						.eq('user_id', userId)
-						.range(from, to) as unknown as Promise<{
-						data: Record<string, unknown>[] | null;
-						error: unknown;
-					}>
-			),
-			adminClient
-				.from('user_suspensions')
-				.select('user_id, suspended_at, suspended_by, reason')
-				.eq('user_id', userId)
-				.maybeSingle(),
-			adminClient
-				.from('audit_logs')
-				.select('id, action, resource_type, resource_id, org_id, timestamp, details, severity')
-				.eq('user_id', userId)
-				.order('timestamp', { ascending: false })
-				.limit(10)
-		]);
-
-		const orgIds = (orgsResult.data ?? [])
-			.map((o: Record<string, unknown>) => (o.organizations as Record<string, unknown> | null)?.id)
-			.filter((id): id is string => typeof id === 'string');
-		const personnelCounts = await fetchPersonnelCountsByOrganization(
-			adminClient as unknown as AdminMetricsClient,
-			orgIds
-		);
-
-		const organizations = (orgsResult.data ?? []).map((o: Record<string, unknown>) => {
-			const org = o.organizations as Record<string, unknown> | null;
-			return {
-				id: org?.id ?? null,
-				name: (org?.name as string) ?? 'Unknown',
-				role: o.role as string,
-				subscriptionTier: (org?.gift_tier ?? org?.tier ?? 'free') as string,
-				personnelCount: typeof org?.id === 'string' ? (personnelCounts.get(org.id) ?? 0) : 0
-			};
-		});
-
-		const suspension = suspensionResult.data
-			? {
-					suspendedAt: suspensionResult.data.suspended_at as string,
-					suspendedBy: suspensionResult.data.suspended_by as string,
-					reason: suspensionResult.data.reason as string | null
-				}
-			: null;
-
-		const recentActivity = (auditResult.data ?? []).map((a: Record<string, unknown>) => ({
-			id: a.id as string,
-			action: a.action as string,
-			resourceType: a.resource_type as string,
-			resourceId: a.resource_id as string | null,
-			orgId: a.org_id as string | null,
-			timestamp: a.timestamp as string,
-			severity: a.severity as string
-		}));
+		const recentActivity = await createSupabasePlatformAudit(ctx).listRecentByUser({ userId, limit: 10 });
 
 		return {
-			user: {
-				id: userId,
-				email: authUser.user.email || 'No email',
-				createdAt: authUser.user.created_at,
-				lastSignInAt: authUser.user.last_sign_in_at ?? null
-			},
-			organizations,
-			suspension,
-			recentActivity,
-			isSuspended: !!suspension
+			...userDetail.detail,
+			recentActivity
 		};
 	}
 });
@@ -99,6 +31,7 @@ export const actions: Actions = {
 		fn: async (ctx, event) => {
 			const { adminClient } = ctx;
 			const userId = event.params.userId as string;
+			if (!validateUUID(userId)) return fail(400, { error: 'Invalid user ID' });
 
 			const { data: authUser, error: authError } = await adminClient.auth.admin.getUserById(userId);
 			if (authError || !authUser?.user?.email) {
@@ -130,6 +63,7 @@ export const actions: Actions = {
 		fn: async (ctx, event) => {
 			const { adminClient } = ctx;
 			const userId = event.params.userId as string;
+			if (!validateUUID(userId)) return fail(400, { error: 'Invalid user ID' });
 
 			const { data: authUser, error: authError } = await adminClient.auth.admin.getUserById(userId);
 			if (authError || !authUser?.user?.email) {

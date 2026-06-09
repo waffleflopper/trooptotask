@@ -18,6 +18,7 @@ Each entry separates:
 		- Critical Tasks workspace settings now load through an app-owned use case instead of the route layout
 		- the legacy platform invite-code runtime route has been removed
 		- Platform Administration aggregate Organization metrics now route through the `PlatformMetrics` use case and Supabase adapter instead of the route-level helper
+		- Platform Administration membership and owner aggregate metrics now use service-role aggregate RPCs instead of adapter-side membership-row pagination
 		- Platform Administration announcements CRUD now routes through the `PlatformAnnouncements` use case and Supabase adapter instead of direct route-level table calls
 		- Platform Administration beta feedback list/update now routes through the `PlatformFeedback` use case and Supabase adapter instead of direct route-level table calls
 			- Platform Administration gifting list/grant/revoke/extend and organization-detail gift state now route through the `PlatformGifting` use case and Supabase adapter instead of route-level gift table calls

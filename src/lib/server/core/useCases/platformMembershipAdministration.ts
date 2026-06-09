@@ -53,6 +53,7 @@ export type PlatformTransferOwnershipResult =
 	| { status: 'target_not_member' }
 	| { status: 'already_owner' }
 	| { status: 'no_current_owner' }
+	| { status: 'current_owner_lookup_failed' }
 	| { status: 'demotion_failed' }
 	| { status: 'promotion_failed' }
 	| { status: 'rollback_failed' };
@@ -104,7 +105,16 @@ export function createPlatformMembershipAdministration(
 			if (!targetMembership) return { status: 'target_not_member' };
 			if (targetMembership.role === 'owner') return { status: 'already_owner' };
 
-			const currentOwner = await deps.store.getCurrentOwner(input.orgId);
+			let currentOwner: PlatformMembershipRecord | null;
+			try {
+				currentOwner = await deps.store.getCurrentOwner(input.orgId);
+			} catch (error) {
+				console.error('[admin] Failed to read current organization owner:', {
+					orgId: input.orgId,
+					error
+				});
+				return { status: 'current_owner_lookup_failed' };
+			}
 			if (!currentOwner) return { status: 'no_current_owner' };
 
 			try {
@@ -132,7 +142,7 @@ export function createPlatformMembershipAdministration(
 			}
 
 			deps.audit({
-				action: 'transfer_org_ownership',
+				action: 'admin.org.transfer_ownership',
 				resourceType: 'organization',
 				resourceId: input.orgId,
 				orgId: input.orgId,

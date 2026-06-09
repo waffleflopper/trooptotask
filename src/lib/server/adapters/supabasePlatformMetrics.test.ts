@@ -120,6 +120,45 @@ describe('createSupabasePlatformMetricsStore', () => {
 		expect(consoleWarn).toHaveBeenCalledWith('[admin] Organization has unexpected owner membership count:', 'org-2', 2);
 	});
 
+	it('returns aggregate owner counts without synthetic owner user IDs', async () => {
+		const { store } = createStoreWithRpcResults({
+			list_platform_owner_membership_metrics: {
+				data: [
+					{
+						organization_id: 'org-1',
+						owner_count: 1,
+						owner_user_id: 'owner-1',
+						owner_email: 'owner-1@example.mil'
+					},
+					{
+						organization_id: 'org-2',
+						owner_count: '2',
+						owner_user_id: null,
+						owner_email: null
+					}
+				],
+				error: null
+			}
+		});
+
+		await expect(store.listOwnerMembershipMetricsByOrganization(['org-1', 'org-2'])).resolves.toEqual([
+			{
+				organizationId: 'org-1',
+				ownerCount: 1,
+				singleOwner: {
+					organizationId: 'org-1',
+					userId: 'owner-1',
+					email: 'owner-1@example.mil'
+				}
+			},
+			{
+				organizationId: 'org-2',
+				ownerCount: 2,
+				singleOwner: null
+			}
+		]);
+	});
+
 	it('keeps empty metric fallbacks when aggregate RPCs fail', async () => {
 		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
 		const { store } = createStoreWithRpcResults({

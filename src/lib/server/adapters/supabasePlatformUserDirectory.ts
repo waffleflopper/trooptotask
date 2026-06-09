@@ -23,6 +23,11 @@ interface RawAuthUser {
 	last_sign_in_at?: string | null;
 }
 
+interface AuthUsersPage {
+	users?: RawAuthUser[];
+	nextPage?: number | null;
+}
+
 interface MembershipUserRow {
 	user_id: string;
 }
@@ -127,10 +132,11 @@ export function createSupabasePlatformUserDirectoryStore(supabase: SupabaseClien
 					return { status: 'auth_error', message: formatSupabaseError(error) };
 				}
 
-				const pageUsers = ((data?.users ?? []) as RawAuthUser[]).map(mapAuthUser);
+				const pageData = data as AuthUsersPage | null;
+				const pageUsers = (pageData?.users ?? []).map(mapAuthUser);
 				users.push(...pageUsers);
-				if (pageUsers.length < 1000) break;
-				page += 1;
+				if (!pageData?.nextPage) break;
+				page = pageData.nextPage;
 			}
 
 			return { status: 'ok', users };

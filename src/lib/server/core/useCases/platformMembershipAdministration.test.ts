@@ -106,7 +106,7 @@ describe('PlatformMembershipAdministration', () => {
 			role: 'owner'
 		});
 		expect(audit).toHaveBeenCalledWith({
-			action: 'transfer_org_ownership',
+			action: 'admin.org.transfer_ownership',
 			resourceType: 'organization',
 			resourceId: 'org-1',
 			orgId: 'org-1',
@@ -215,5 +215,33 @@ describe('PlatformMembershipAdministration', () => {
 			role: 'member'
 		});
 		expect(audit).not.toHaveBeenCalled();
+	});
+
+	it('stops ownership transfer when the current owner lookup fails', async () => {
+		const audit = vi.fn();
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+		const store = createInMemoryPlatformMembershipAdministrationStore({
+			organizations: [{ id: 'org-1', name: 'Able Company' }],
+			memberships: [
+				{ orgId: 'org-1', userId: 'owner-1', role: 'owner' },
+				{ orgId: 'org-1', userId: 'owner-2', role: 'owner' },
+				{ orgId: 'org-1', userId: 'member-1', role: 'member' }
+			]
+		});
+		const admin = createPlatformMembershipAdministration({ store, audit });
+
+		await expect(
+			admin.transferOwnership({ orgId: 'org-1', targetUserId: 'member-1', confirmName: 'Able Company' })
+		).resolves.toEqual({ status: 'current_owner_lookup_failed' });
+
+		await expect(store.getMembership({ orgId: 'org-1', userId: 'member-1' })).resolves.toMatchObject({
+			role: 'member'
+		});
+		expect(audit).not.toHaveBeenCalled();
+		expect(consoleError).toHaveBeenCalledWith(
+			'[admin] Failed to read current organization owner:',
+			expect.objectContaining({ orgId: 'org-1', error: expect.any(Error) })
+		);
+		consoleError.mockRestore();
 	});
 });

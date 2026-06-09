@@ -2,6 +2,7 @@ CREATE OR REPLACE FUNCTION "public"."count_memberships_by_organization"("p_org_i
 RETURNS TABLE("organization_id" "uuid", "membership_count" bigint)
 LANGUAGE "sql"
 STABLE
+SECURITY INVOKER
 SET "search_path" = "public"
 AS $$
 	SELECT "organization_memberships"."organization_id", COUNT(*)::bigint AS "membership_count"
@@ -14,6 +15,7 @@ CREATE OR REPLACE FUNCTION "public"."list_platform_owner_membership_metrics"("p_
 RETURNS TABLE("organization_id" "uuid", "owner_count" bigint, "owner_user_id" "uuid", "owner_email" "text")
 LANGUAGE "sql"
 STABLE
+SECURITY INVOKER
 SET "search_path" = "public"
 AS $$
 	WITH "owner_rows" AS (

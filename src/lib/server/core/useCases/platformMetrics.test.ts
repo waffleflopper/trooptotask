@@ -102,7 +102,7 @@ describe('PlatformMetrics', () => {
 			countActivePersonnelForOrganization: async () => {
 				throw new Error('single personnel read failed');
 			},
-			listOwnerMembershipsByOrganization: async () => {
+			listOwnerMembershipMetricsByOrganization: async () => {
 				throw new Error('owner read failed');
 			}
 		};

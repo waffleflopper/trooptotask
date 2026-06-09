@@ -3,6 +3,7 @@ import type { AdminContext } from './adminAdapter';
 import {
 	createPlatformMetrics,
 	type PlatformMetrics,
+	type PlatformOwnerMembershipMetric,
 	type PlatformMetricsStore,
 	type PlatformOwnerMembershipRow
 } from '$lib/server/core/useCases/platformMetrics';
@@ -37,30 +38,26 @@ function countRowsByOrganizationId<T extends string>(
 	return counts;
 }
 
-function expandOwnerMembershipMetric(row: OwnerMembershipMetricRow): PlatformOwnerMembershipRow[] {
+function readOwnerMembershipMetric(row: OwnerMembershipMetricRow): PlatformOwnerMembershipMetric {
 	const ownerCount = readCount(row.owner_count);
-	if (ownerCount === 0) return [];
+	let singleOwner: PlatformOwnerMembershipRow | null = null;
 	if (ownerCount === 1) {
 		if (!row.owner_user_id) {
 			console.error('[admin] Single-owner Organization metric returned null user_id:', row.organization_id);
-		}
-		return [
-			{
+		} else {
+			singleOwner = {
 				organizationId: row.organization_id,
-				userId: row.owner_user_id ?? '',
+				userId: row.owner_user_id,
 				email: row.owner_email
-			}
-		];
+			};
+		}
 	}
 
-	// The public store port still returns owner membership rows. Multiple-owner
-	// callers only consume the count, so expand the aggregate count without
-	// pulling every owner row back across the adapter boundary.
-	return Array.from({ length: ownerCount }, (_, index) => ({
+	return {
 		organizationId: row.organization_id,
-		userId: `${row.organization_id}:owner-${index + 1}`,
-		email: null
-	}));
+		ownerCount,
+		singleOwner
+	};
 }
 
 export function createSupabasePlatformMetricsStore(supabase: SupabaseClient): PlatformMetricsStore {
@@ -91,12 +88,12 @@ export function createSupabasePlatformMetricsStore(supabase: SupabaseClient): Pl
 			return response.count ?? null;
 		},
 
-		async listOwnerMembershipsByOrganization(organizationIds) {
+		async listOwnerMembershipMetricsByOrganization(organizationIds) {
 			const { data, error } = (await supabase.rpc('list_platform_owner_membership_metrics', {
 				p_org_ids: organizationIds
 			})) as { data: OwnerMembershipMetricRow[] | null; error: unknown };
 			throwIfSupabaseError(error);
-			return (data ?? []).flatMap(expandOwnerMembershipMetric);
+			return (data ?? []).map(readOwnerMembershipMetric);
 		}
 	};
 }

@@ -2,7 +2,7 @@ import { error, fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 import { loadWithAdminContext, adminAction } from '$lib/server/adapters/adminAdapter';
 import { validateUUID } from '$lib/server/validation';
-import { createStripeBillingReconciliationProvider, pauseSubscription, resumeSubscription } from '$lib/server/stripe';
+import { createStripeBillingReconciliationProvider } from '$lib/server/stripe';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination';
 import { invalidateTierCache } from '$lib/server/subscription';
 import { summarizeBillingCancellation } from '$lib/server/core/useCases/billingState';
@@ -21,8 +21,8 @@ import { buildPlanAdminDiagnostics } from '$lib/server/core/useCases/planAdminDi
 import { visibleBillingSnapshotForAdminRole } from '$lib/server/adminBillingVisibility';
 import type { BillingSnapshot } from '$lib/types/subscription';
 import { createSupabasePlatformMetrics } from '$lib/server/adapters/supabasePlatformMetrics';
-
-const TIER_RANK: Record<string, number> = { free: 1, team: 2, unit: 3 };
+import { createSupabasePlatformGifting } from '$lib/server/adapters/supabasePlatformGifting';
+import { isPlatformGiftTier } from '$lib/server/core/useCases/platformGifting';
 
 function sanitizeBillingReconciliationDiagnostic(value: unknown): string {
 	const message = value instanceof Error ? value.message : String(value ?? 'unknown_error');
@@ -116,11 +116,13 @@ export const load: PageServerLoad = loadWithAdminContext({
 
 		const { data: org, error: orgError } = await adminClient
 			.from('organizations')
-			.select('id, name, tier, gift_tier, gift_expires_at, suspended_at, created_at')
+			.select('id, name, tier, suspended_at, created_at')
 			.eq('id', orgId)
 			.single();
 
 		if (orgError || !org) throw error(404, 'Organization not found');
+		const giftState = await createSupabasePlatformGifting(ctx).getOrganizationGiftState(orgId);
+		if (!giftState) throw error(404, 'Organization not found');
 
 		const { data: memberships } = await selectAllSupabaseRows<{ user_id: string; role: string; email: string | null }>(
 			(from, to) =>
@@ -174,7 +176,7 @@ export const load: PageServerLoad = loadWithAdminContext({
 		]);
 		const planDiagnostics = buildPlanAdminDiagnostics(planPolicy, planUsage);
 
-		const effectiveTier = (org.gift_tier ?? org.tier ?? 'free') as string;
+		const effectiveTier = (giftState.giftTier ?? org.tier ?? 'free') as string;
 
 		return {
 			adminRole: ctx.adminUser.role,
@@ -182,8 +184,8 @@ export const load: PageServerLoad = loadWithAdminContext({
 				id: org.id,
 				name: org.name,
 				subscriptionTier: org.tier as string,
-				giftTier: org.gift_tier as string | null,
-				giftExpiresAt: org.gift_expires_at as string | null,
+				giftTier: giftState.giftTier,
+				giftExpiresAt: giftState.giftExpiresAt,
 				suspendedAt: org.suspended_at as string | null,
 				createdAt: org.created_at as string,
 				effectiveTier,
@@ -294,54 +296,21 @@ export const actions: Actions = {
 	giftTier: adminAction({
 		page: 'gifting',
 		fn: async (ctx, event) => {
-			const { adminClient } = ctx;
 			const orgId = event.params.orgId as string;
 			const formData = await event.request.formData();
 			const giftTier = formData.get('giftTier') as string;
 			const days = parseInt(formData.get('days') as string);
 
 			if (!giftTier || !days || days < 1) return fail(400, { error: { message: 'Missing or invalid fields' } });
-			if (giftTier !== 'team' && giftTier !== 'unit') return fail(400, { error: { message: 'Invalid gift tier' } });
+			if (!isPlatformGiftTier(giftTier)) return fail(400, { error: { message: 'Invalid gift tier' } });
 
-			const { data: org, error: orgError } = await adminClient
-				.from('organizations')
-				.select('id, tier, stripe_subscription_id, subscription_status')
-				.eq('id', orgId)
-				.single();
-
-			if (orgError || !org) return fail(404, { error: { message: 'Organization not found' } });
-
-			const expiresAt = new Date();
-			expiresAt.setDate(expiresAt.getDate() + days);
-
-			const { error: updateError } = await adminClient
-				.from('organizations')
-				.update({ gift_tier: giftTier, gift_expires_at: expiresAt.toISOString(), gifted_by: ctx.adminUser.id })
-				.eq('id', orgId);
-
-			if (updateError) return fail(500, { error: { message: 'Failed to gift tier' } });
-
-			if (
-				org.stripe_subscription_id &&
-				org.subscription_status === 'active' &&
-				TIER_RANK[giftTier] >= TIER_RANK[org.tier]
-			) {
-				try {
-					await pauseSubscription(org.stripe_subscription_id);
-				} catch (err) {
-					console.error('[admin] Failed to pause subscription:', err);
-				}
+			try {
+				const result = await createSupabasePlatformGifting(ctx).grantGift({ orgId, giftTier, days });
+				if (result.status === 'not_found') return fail(404, { error: { message: 'Organization not found' } });
+			} catch {
+				return fail(500, { error: { message: 'Failed to gift tier' } });
 			}
 
-			ctx.audit({
-				action: 'admin.org.gift_tier',
-				resourceType: 'organization',
-				resourceId: orgId,
-				orgId,
-				details: { giftTier, days },
-				severity: 'warning'
-			});
-			invalidateTierCache(orgId);
 			return { success: true };
 		}
 	}),
@@ -349,40 +318,15 @@ export const actions: Actions = {
 	revokeGift: adminAction({
 		page: 'gifting',
 		fn: async (ctx, event) => {
-			const { adminClient } = ctx;
 			const orgId = event.params.orgId as string;
 
-			const { data: org, error: orgError } = await adminClient
-				.from('organizations')
-				.select('id, stripe_subscription_id, subscription_status')
-				.eq('id', orgId)
-				.single();
-
-			if (orgError || !org) return fail(404, { error: { message: 'Organization not found' } });
-
-			const { error: updateError } = await adminClient
-				.from('organizations')
-				.update({ gift_tier: null, gift_expires_at: null, gifted_by: null })
-				.eq('id', orgId);
-
-			if (updateError) return fail(500, { error: { message: 'Failed to revoke gift' } });
-
-			if (org.stripe_subscription_id && org.subscription_status === 'paused') {
-				try {
-					await resumeSubscription(org.stripe_subscription_id);
-				} catch (err) {
-					console.error('[admin] Failed to resume subscription:', err);
-				}
+			try {
+				const result = await createSupabasePlatformGifting(ctx).revokeGift(orgId);
+				if (result.status === 'not_found') return fail(404, { error: { message: 'Organization not found' } });
+			} catch {
+				return fail(500, { error: { message: 'Failed to revoke gift' } });
 			}
 
-			ctx.audit({
-				action: 'admin.org.revoke_gift',
-				resourceType: 'organization',
-				resourceId: orgId,
-				orgId,
-				severity: 'warning'
-			});
-			invalidateTierCache(orgId);
 			return { success: true };
 		}
 	}),
@@ -390,42 +334,22 @@ export const actions: Actions = {
 	extendGift: adminAction({
 		page: 'gifting',
 		fn: async (ctx, event) => {
-			const { adminClient } = ctx;
 			const orgId = event.params.orgId as string;
 			const formData = await event.request.formData();
 			const days = parseInt(formData.get('days') as string);
 
 			if (!days || days < 1) return fail(400, { error: { message: 'Missing or invalid days' } });
 
-			const { data: org, error: orgError } = await adminClient
-				.from('organizations')
-				.select('id, gift_tier, gift_expires_at')
-				.eq('id', orgId)
-				.single();
+			try {
+				const result = await createSupabasePlatformGifting(ctx).extendGift({ orgId, days });
+				if (result.status === 'not_found') return fail(404, { error: { message: 'Organization not found' } });
+				if (result.status === 'no_active_gift') {
+					return fail(400, { error: { message: 'Organization does not have an active gift' } });
+				}
+			} catch {
+				return fail(500, { error: { message: 'Failed to extend gift' } });
+			}
 
-			if (orgError || !org) return fail(404, { error: { message: 'Organization not found' } });
-			if (!org.gift_tier) return fail(400, { error: { message: 'Organization does not have an active gift' } });
-
-			const currentExpiry = org.gift_expires_at ? new Date(org.gift_expires_at) : new Date();
-			const baseDate = currentExpiry > new Date() ? currentExpiry : new Date();
-			baseDate.setDate(baseDate.getDate() + days);
-
-			const { error: updateError } = await adminClient
-				.from('organizations')
-				.update({ gift_expires_at: baseDate.toISOString() })
-				.eq('id', orgId);
-
-			if (updateError) return fail(500, { error: { message: 'Failed to extend gift' } });
-
-			ctx.audit({
-				action: 'admin.org.extend_gift',
-				resourceType: 'organization',
-				resourceId: orgId,
-				orgId,
-				details: { days },
-				severity: 'info'
-			});
-			invalidateTierCache(orgId);
 			return { success: true };
 		}
 	}),

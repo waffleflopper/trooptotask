@@ -6,14 +6,22 @@ const {
 	resumeSubscriptionMock,
 	reconcileOrganizationBillingMock,
 	grantFeatureOverrideMock,
-	revokeFeatureOverrideMock
+	revokeFeatureOverrideMock,
+	platformGiftingMock
 } = vi.hoisted(() => ({
 	invalidateTierCacheMock: vi.fn(),
 	pauseSubscriptionMock: vi.fn(),
 	resumeSubscriptionMock: vi.fn(),
 	reconcileOrganizationBillingMock: vi.fn(),
 	grantFeatureOverrideMock: vi.fn(),
-	revokeFeatureOverrideMock: vi.fn()
+	revokeFeatureOverrideMock: vi.fn(),
+	platformGiftingMock: {
+		listOrganizations: vi.fn(),
+		getOrganizationGiftState: vi.fn(),
+		grantGift: vi.fn(),
+		revokeGift: vi.fn(),
+		extendGift: vi.fn()
+	}
 }));
 
 vi.mock('$lib/server/adapters/adminAdapter', () => ({
@@ -50,6 +58,10 @@ vi.mock('$lib/server/adapters/supabaseBillingReconciliation', () => ({
 
 vi.mock('$lib/server/adapters/supabaseDataStore', () => ({
 	createSupabaseDataStore: (client: unknown) => ({ client })
+}));
+
+vi.mock('$lib/server/adapters/supabasePlatformGifting', () => ({
+	createSupabasePlatformGifting: () => platformGiftingMock
 }));
 
 vi.mock('$lib/server/core/useCases/planFeatureOverrides', () => ({
@@ -89,6 +101,15 @@ function makeAdminClient(org: Record<string, unknown>) {
 	};
 }
 
+function makeNoOrganizationGiftClient() {
+	return {
+		from: vi.fn((table: string) => {
+			if (table === 'organizations') throw new Error('route must use PlatformGifting for gift actions');
+			throw new Error(`Unexpected table ${table}`);
+		})
+	};
+}
+
 function makeContext(adminClient: unknown, role = 'super_admin') {
 	return {
 		adminClient,
@@ -118,16 +139,13 @@ describe('admin organization gifting actions', () => {
 			id: '22222222-2222-4222-8222-222222222222',
 			feature_key: 'advanced_reporting'
 		});
+		platformGiftingMock.grantGift.mockResolvedValue({ status: 'updated', action: 'gift', orgId: 'org-1' });
+		platformGiftingMock.revokeGift.mockResolvedValue({ status: 'updated', action: 'revoke', orgId: 'org-1' });
+		platformGiftingMock.extendGift.mockResolvedValue({ status: 'updated', action: 'extend', orgId: 'org-1' });
 	});
 
-	it('invalidates effective tier cache after gifting from the organization detail page', async () => {
-		const adminClient = makeAdminClient({
-			id: 'org-1',
-			tier: 'free',
-			stripe_subscription_id: null,
-			subscription_status: null
-		});
-		const ctx = makeContext(adminClient.client);
+	it('routes gifting from the organization detail page through PlatformGifting', async () => {
+		const ctx = makeContext(makeNoOrganizationGiftClient());
 
 		const result = await actions.giftTier({
 			__ctx: ctx,
@@ -136,51 +154,29 @@ describe('admin organization gifting actions', () => {
 		} as unknown as Parameters<(typeof actions)['giftTier']>[0]);
 
 		expect(result).toEqual({ success: true });
-		expect(invalidateTierCacheMock).toHaveBeenCalledWith('org-1');
-		expect(ctx.audit).toHaveBeenCalledWith(
-			expect.objectContaining({
-				action: 'admin.org.gift_tier',
-				resourceType: 'organization',
-				resourceId: 'org-1',
-				orgId: 'org-1',
-				details: { giftTier: 'team', days: 30 },
-				severity: 'warning'
-			})
-		);
+		expect(platformGiftingMock.grantGift).toHaveBeenCalledWith({ orgId: 'org-1', giftTier: 'team', days: 30 });
 	});
 
-	it('invalidates effective tier cache after revoking a gift from the organization detail page', async () => {
-		const adminClient = makeAdminClient({
-			id: 'org-1',
-			stripe_subscription_id: null,
-			subscription_status: null
-		});
-
+	it('routes gift revocation from the organization detail page through PlatformGifting', async () => {
 		const result = await actions.revokeGift({
-			__ctx: makeContext(adminClient.client),
+			__ctx: makeContext(makeNoOrganizationGiftClient()),
 			params: { orgId: 'org-1' },
 			request: makeRequest({})
 		} as unknown as Parameters<(typeof actions)['revokeGift']>[0]);
 
 		expect(result).toEqual({ success: true });
-		expect(invalidateTierCacheMock).toHaveBeenCalledWith('org-1');
+		expect(platformGiftingMock.revokeGift).toHaveBeenCalledWith('org-1');
 	});
 
-	it('invalidates effective tier cache after extending a gift from the organization detail page', async () => {
-		const adminClient = makeAdminClient({
-			id: 'org-1',
-			gift_tier: 'team',
-			gift_expires_at: new Date('2026-05-01T00:00:00.000Z').toISOString()
-		});
-
+	it('routes gift extension from the organization detail page through PlatformGifting', async () => {
 		const result = await actions.extendGift({
-			__ctx: makeContext(adminClient.client),
+			__ctx: makeContext(makeNoOrganizationGiftClient()),
 			params: { orgId: 'org-1' },
 			request: makeRequest({ days: '15' })
 		} as unknown as Parameters<(typeof actions)['extendGift']>[0]);
 
 		expect(result).toEqual({ success: true });
-		expect(invalidateTierCacheMock).toHaveBeenCalledWith('org-1');
+		expect(platformGiftingMock.extendGift).toHaveBeenCalledWith({ orgId: 'org-1', days: 15 });
 	});
 
 	it('runs manual billing reconciliation and audits support-safe diagnostics', async () => {

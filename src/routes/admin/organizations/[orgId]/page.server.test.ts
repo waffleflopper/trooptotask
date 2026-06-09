@@ -315,6 +315,26 @@ describe('admin organization gifting actions', () => {
 		expect(platformGiftingMock.grantGift).toHaveBeenCalledWith({ orgId: 'org-1', giftTier: 'team', days: 30 });
 	});
 
+	it('rejects organization detail gift attempts below the current tier', async () => {
+		const ctx = makeContext(makeNoOrganizationGiftClient());
+		platformGiftingMock.grantGift.mockResolvedValueOnce({
+			status: 'tier_below_current',
+			currentTier: 'unit',
+			giftTier: 'team'
+		});
+
+		const result = await actions.giftTier({
+			__ctx: ctx,
+			params: { orgId: 'org-1' },
+			request: makeRequest({ giftTier: 'team', days: '30' })
+		} as unknown as Parameters<(typeof actions)['giftTier']>[0]);
+
+		expect(result).toEqual({
+			status: 400,
+			data: { error: { message: "Gift tier cannot be below the organization's current tier" } }
+		});
+	});
+
 	it('routes ownership transfer through PlatformMembershipAdministration', async () => {
 		const ctx = makeContext(makeNoMembershipAdministrationClient());
 

@@ -60,6 +60,50 @@ describe('PlatformGifting', () => {
 		expect(invalidateTierCache).toHaveBeenCalledWith('org-1');
 	});
 
+	it('rejects gifts below the organization current tier without applying side effects', async () => {
+		const audit = vi.fn();
+		const pauseSubscription = vi.fn();
+		const invalidateTierCache = vi.fn();
+		const store = createInMemoryPlatformGiftingStore({
+			organizations: [
+				{
+					id: 'org-1',
+					name: 'Able Company',
+					tier: 'unit',
+					giftTier: null,
+					giftExpiresAt: null,
+					giftedBy: null,
+					stripeSubscriptionId: 'sub_123',
+					subscriptionStatus: 'active',
+					stripeCustomerId: 'cus_123'
+				}
+			]
+		});
+		const gifting = createPlatformGifting({
+			store,
+			actorUserId: 'admin-1',
+			audit,
+			now: () => new Date('2026-06-01T12:00:00.000Z'),
+			subscriptions: { pause: pauseSubscription, resume: vi.fn() },
+			invalidateTierCache
+		});
+
+		await expect(gifting.grantGift({ orgId: 'org-1', giftTier: 'team', days: 30 })).resolves.toEqual({
+			status: 'tier_below_current',
+			currentTier: 'unit',
+			giftTier: 'team'
+		});
+		await expect(gifting.getOrganizationGiftState('org-1')).resolves.toMatchObject({
+			tier: 'unit',
+			giftTier: null,
+			giftExpiresAt: null,
+			giftedBy: null
+		});
+		expect(pauseSubscription).not.toHaveBeenCalled();
+		expect(audit).not.toHaveBeenCalled();
+		expect(invalidateTierCache).not.toHaveBeenCalled();
+	});
+
 	it('revokes a gift and resumes paused subscriptions through the public interface', async () => {
 		const audit = vi.fn();
 		const resumeSubscription = vi.fn().mockResolvedValue(undefined);

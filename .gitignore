@@ -59,3 +59,6 @@ docs/pr74_full_diff.txt
 
 # Local v2 workspace
 /v2/
+
+# Teaching workspace (/teach skill)
+/.teach/

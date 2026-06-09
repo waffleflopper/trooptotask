@@ -424,7 +424,8 @@ describe('Duty Roster Template view route', () => {
 		});
 
 		expect(acceptDutyRosterTemplatePreviewMock).toHaveBeenCalledWith(mockCtx, {
-			preview: JSON.stringify(currentPreview)
+			preview: JSON.stringify(currentPreview),
+			futureRunConflictResolution: null
 		});
 	});
 
@@ -444,11 +445,38 @@ describe('Duty Roster Template view route', () => {
 		} as never);
 
 		expect(acceptDutyRosterTemplatePreviewMock).toHaveBeenCalledWith(mockCtx, {
-			preview: JSON.stringify(currentPreview)
+			preview: JSON.stringify(currentPreview),
+			futureRunConflictResolution: null
 		});
 		expect(result).toMatchObject({
 			acceptedRun: { id: 'run-1', templateName: 'CQ NCO' },
 			printAcceptedRun: true
+		});
+	});
+
+	it('passes future-run acknowledgement when accepting a conflict preview', async () => {
+		const currentPreview = preview();
+		const request = new Request('http://localhost', {
+			method: 'POST',
+			body: new URLSearchParams({
+				preview: JSON.stringify(currentPreview),
+				futureRunConflictResolution: 'acknowledge'
+			})
+		});
+
+		await expect(
+			actions.acceptPreview({
+				request,
+				params: { orgId: 'org-1', templateSlug: 'cq-nco' }
+			} as never)
+		).rejects.toMatchObject({
+			status: 303,
+			location: '/org/org-1/duty-rosters/cq-nco/history/run-1'
+		});
+
+		expect(acceptDutyRosterTemplatePreviewMock).toHaveBeenCalledWith(mockCtx, {
+			preview: JSON.stringify(currentPreview),
+			futureRunConflictResolution: 'acknowledge'
 		});
 	});
 
@@ -472,7 +500,34 @@ describe('Duty Roster Template view route', () => {
 		});
 
 		expect(acceptAndApplyDutyRosterTemplatePreviewMock).toHaveBeenCalledWith(mockCtx, {
-			preview: JSON.stringify(currentPreview)
+			preview: JSON.stringify(currentPreview),
+			futureRunConflictResolution: null
+		});
+	});
+
+	it('passes future-run invalidation when accepting and applying a conflict preview', async () => {
+		const currentPreview = preview();
+		const request = new Request('http://localhost', {
+			method: 'POST',
+			body: new URLSearchParams({
+				preview: JSON.stringify(currentPreview),
+				futureRunConflictResolution: 'invalidate-following'
+			})
+		});
+
+		await expect(
+			actions.applyPreview({
+				request,
+				params: { orgId: 'org-1', templateSlug: 'cq-nco' }
+			} as never)
+		).rejects.toMatchObject({
+			status: 303,
+			location: '/org/org-1/duty-rosters/cq-nco/history/run-1'
+		});
+
+		expect(acceptAndApplyDutyRosterTemplatePreviewMock).toHaveBeenCalledWith(mockCtx, {
+			preview: JSON.stringify(currentPreview),
+			futureRunConflictResolution: 'invalidate-following'
 		});
 	});
 
@@ -781,7 +836,8 @@ function preview(options: { manual?: boolean } = {}) {
 			]
 		},
 		exportModel: {},
-		warnings: []
+		warnings: [],
+		futureRunConflict: null
 	};
 }
 

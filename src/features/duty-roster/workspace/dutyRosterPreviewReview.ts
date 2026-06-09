@@ -2,6 +2,7 @@ import {
 	manualSelectionForDate,
 	previewFinalAssigneeId,
 	reviewDutyRosterTemplateManualSelection,
+	buildDutyRosterTemplatePreviewDa6,
 	type DutyRosterTemplateAcceptedSnapshot,
 	type DutyRosterTemplateManualSelection,
 	type DutyRosterTemplatePreview,
@@ -13,7 +14,7 @@ import type {
 	DutyRosterTemplateRunCorrection
 } from '$features/duty-roster/templates/dutyRosterTemplates';
 import { dutyRosterTodayDate } from '$features/duty-roster/templates/dutyRosterDatePolicy';
-import type { Da6Cell } from '$features/duty-roster/run/dutyRosterRun.types';
+import type { Da6Matrix } from '$features/duty-roster/run/dutyRosterRun.types';
 import type { ColumnDef } from '$lib/components/ui/data-table';
 
 export const DUTY_ROSTER_CORRECTION_OVERRIDE_WARNING = 'Outside normal pool. Saved as an override.';
@@ -32,14 +33,7 @@ export type DutyRosterPreviewReviewModel = {
 	rows: DutyRosterPreviewReviewRow[];
 	selectionOptions: Array<{ value: string; label: string; description?: string }>;
 	previewPayload: string;
-	matrix: {
-		columns: DutyRosterTemplatePreview['da6']['columns'];
-		rows: Array<{
-			personnelId: string;
-			soldierLabel: string;
-			cells: Da6Cell[];
-		}>;
-	};
+	da6Matrix: Da6Matrix;
 };
 
 export type DutyRosterAcceptedHistoryTableRow = {
@@ -77,14 +71,6 @@ export type DutyRosterAcceptedRunReviewModel = {
 	invalidateDisabledReason: string | null;
 	calendarStepLabel: 'Closed' | 'Applied' | 'Needs sync' | 'Not applied';
 	rows: DutyRosterAcceptedHistoryTableRow[];
-	matrix: {
-		columns: DutyRosterTemplateAcceptedSnapshot['da6']['columns'];
-		rows: Array<{
-			personnelId: string;
-			soldierLabel: string;
-			cells: Da6Cell[];
-		}>;
-	};
 };
 
 export const acceptedHistoryColumns: ColumnDef<DutyRosterAcceptedHistoryTableRow>[] = [
@@ -143,14 +129,7 @@ export function buildDutyRosterPreviewReviewModel(input: {
 		}),
 		selectionOptions: personnelOptionItems(input.preview.selectionPersonnel),
 		previewPayload: previewFormValue(input.preview),
-		matrix: {
-			columns: input.preview.da6.columns,
-			rows: input.preview.da6.rows.map((row) => ({
-				personnelId: row.personnelId,
-				soldierLabel: `${row.display.rank} ${row.display.lastName}`,
-				cells: row.cells
-			}))
-		}
+		da6Matrix: buildDutyRosterTemplatePreviewDa6(input.preview)
 	};
 }
 
@@ -226,15 +205,7 @@ export function buildDutyRosterAcceptedRunReviewModel(input: {
 				: calendarState === 'reapply'
 					? 'Needs sync'
 					: 'Not applied',
-		rows,
-		matrix: {
-			columns: snapshot.da6.columns,
-			rows: snapshot.da6.rows.map((row) => ({
-				personnelId: row.personnelId,
-				soldierLabel: `${row.display.rank} ${row.display.lastName}`,
-				cells: row.cells
-			}))
-		}
+		rows
 	};
 }
 

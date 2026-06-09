@@ -45,10 +45,12 @@ import {
 	loadAcceptedDutyRosterTemplateRunPersonnelIds,
 	listAcceptedDutyRosterTemplateRunHistory as listAcceptedRunHistoryLifecycle,
 	listAcceptedDutyRosterTemplateRuns as listAcceptedRunsLifecycle,
+	type DutyRosterTemplateInvalidateResult,
 	type DutyRosterTemplateRunHistoryPage,
 	type ListAcceptedDutyRosterTemplateRunsOptions,
 	recordDutyRosterTemplateRunCorrection as recordRunCorrectionLifecycle
 } from './acceptedRuns';
+import type { DutyRosterTemplateRunRow } from './acceptedRunRecord';
 import {
 	assertReviewedDutyRosterTemplatePreviewIsCurrent,
 	buildDutyRosterTemplatePreviewFromCurrentState,
@@ -58,6 +60,7 @@ import {
 } from './templatePreviewAssembly';
 
 const DUTY_ROSTER_TEMPLATE_TABLE = 'duty_roster_templates';
+const DUTY_ROSTER_TEMPLATE_RUN_TABLE = 'duty_roster_template_runs';
 const ASSIGNMENT_TYPE_TABLE = 'assignment_types';
 const MAX_PREVIEW_DAYS = 62;
 const MAX_SUBMITTED_PREVIEW_PAYLOAD_LENGTH = 2 * 1024 * 1024;
@@ -125,7 +128,8 @@ const acceptPreviewSchema = z.object({
 		.string()
 		.trim()
 		.min(1, 'Generate the preview again before accepting.')
-		.max(MAX_SUBMITTED_PREVIEW_PAYLOAD_LENGTH, PREVIEW_PAYLOAD_TOO_LARGE_MESSAGE)
+		.max(MAX_SUBMITTED_PREVIEW_PAYLOAD_LENGTH, PREVIEW_PAYLOAD_TOO_LARGE_MESSAGE),
+	futureRunConflictResolution: z.enum(['acknowledge', 'invalidate-following']).nullable().optional()
 });
 const correctionSchema = z.object({
 	runId: z.string().trim().min(1, 'Accepted Duty Roster Run is required'),
@@ -870,8 +874,12 @@ export async function acceptDutyRosterTemplatePreviewLifecycle(
 	ctx: WritePorts,
 	input: DutyRosterTemplateAcceptPreviewInput
 ): Promise<DutyRosterTemplateAcceptedRun> {
+	const preview = await buildReviewedDutyRosterTemplatePreview(ctx, input);
+	const resolution = parseAcceptPreviewInput(input).futureRunConflictResolution ?? null;
+	assertFutureRunConflictResolution(preview, resolution);
 	return acceptReviewedDutyRosterTemplatePreview(ctx, {
-		preview: await buildReviewedDutyRosterTemplatePreview(ctx, input)
+		preview,
+		afterAccept: futureRunConflictAfterAccept(ctx, preview, resolution)
 	});
 }
 
@@ -925,6 +933,95 @@ async function buildReviewedDutyRosterTemplatePreview(
 	return acceptedPreview;
 }
 
+function assertFutureRunConflictResolution(
+	preview: DutyRosterTemplatePreview,
+	resolution: DutyRosterTemplateAcceptPreviewInput['futureRunConflictResolution'] | null
+): void {
+	if (preview.futureRunConflict && !resolution) {
+		fail(409, 'Choose how to handle later accepted runs before accepting this Duty Roster preview.');
+	}
+}
+
+async function applyFutureRunConflictResolution(
+	ctx: WritePorts,
+	preview: DutyRosterTemplatePreview,
+	resolution: DutyRosterTemplateAcceptPreviewInput['futureRunConflictResolution'] | null,
+	options: { excludeRunIds?: string[] } = {}
+): Promise<DutyRosterTemplateInvalidateResult | null> {
+	if (resolution !== 'invalidate-following') {
+		return null;
+	}
+
+	const firstAffectedRunId = await loadFirstAcceptedRunAffectedByPreview(ctx, preview, options);
+	if (!firstAffectedRunId) {
+		return null;
+	}
+
+	return invalidateLatestRunLifecycle(ctx, {
+		runId: firstAffectedRunId,
+		cascade: true,
+		excludeRunIds: options.excludeRunIds
+	});
+}
+
+async function loadFirstAcceptedRunAffectedByPreview(
+	ctx: WritePorts,
+	preview: DutyRosterTemplatePreview,
+	options: { excludeRunIds?: string[] } = {}
+): Promise<string | null> {
+	const excludeRunIds = new Set(options.excludeRunIds ?? []);
+	const rows = await ctx.store.findMany<DutyRosterTemplateRunRow>(
+		DUTY_ROSTER_TEMPLATE_RUN_TABLE,
+		ctx.auth.orgId,
+		{ template_id: preview.assignmentType.id },
+		{
+			inFilters: { status: ['accepted'] },
+			rangeFilters: [{ column: 'end_date', op: 'gte', value: preview.config.startDate }]
+		}
+	);
+
+	return rows.filter((row) => !excludeRunIds.has(row.id)).sort(compareAcceptedRunRowsByDutyWindow)[0]?.id ?? null;
+}
+
+function compareAcceptedRunRowsByDutyWindow(left: DutyRosterTemplateRunRow, right: DutyRosterTemplateRunRow): number {
+	const startDiff = left.start_date.localeCompare(right.start_date);
+	if (startDiff !== 0) return startDiff;
+
+	const endDiff = left.end_date.localeCompare(right.end_date);
+	if (endDiff !== 0) return endDiff;
+
+	const acceptedDiff = left.accepted_at.localeCompare(right.accepted_at);
+	if (acceptedDiff !== 0) return acceptedDiff;
+
+	return left.id.localeCompare(right.id);
+}
+
+function futureRunConflictAfterAccept(
+	ctx: WritePorts,
+	preview: DutyRosterTemplatePreview,
+	resolution: DutyRosterTemplateAcceptPreviewInput['futureRunConflictResolution'] | null
+) {
+	let invalidatedRunIds: string[] = [];
+
+	return {
+		async commit(acceptedRun: DutyRosterTemplateAcceptedRun): Promise<void> {
+			const result = await applyFutureRunConflictResolution(ctx, preview, resolution, {
+				excludeRunIds: [acceptedRun.id]
+			});
+			invalidatedRunIds = result?.invalidatedRuns.map((run) => run.id) ?? [];
+		},
+		async compensate(): Promise<void> {
+			for (const runId of invalidatedRunIds) {
+				await ctx.store.update(DUTY_ROSTER_TEMPLATE_RUN_TABLE, ctx.auth.orgId, runId, {
+					status: 'accepted',
+					invalidated_at: null,
+					invalidated_by_user_id: null
+				});
+			}
+		}
+	};
+}
+
 export async function applyAcceptedDutyRosterTemplateRunLifecycle(
 	ctx: WritePorts,
 	input: { runId: string; calendarSyncPlanToken?: string | null }
@@ -934,7 +1031,7 @@ export async function applyAcceptedDutyRosterTemplateRunLifecycle(
 }
 
 async function assertAcceptedRunTemplateIsActive(ctx: WritePorts, runId: string): Promise<void> {
-	const run = await ctx.store.findOne<{ template_id: string }>('duty_roster_template_runs', ctx.auth.orgId, {
+	const run = await ctx.store.findOne<{ template_id: string }>(DUTY_ROSTER_TEMPLATE_RUN_TABLE, ctx.auth.orgId, {
 		id: runId
 	});
 	if (!run) {
@@ -967,8 +1064,12 @@ export async function acceptAndApplyDutyRosterTemplatePreviewLifecycle(
 	ctx: WritePorts,
 	input: DutyRosterTemplateAcceptPreviewInput
 ) {
+	const preview = await buildReviewedDutyRosterTemplatePreview(ctx, input);
+	const resolution = parseAcceptPreviewInput(input).futureRunConflictResolution ?? null;
+	assertFutureRunConflictResolution(preview, resolution);
 	return acceptAndApplyAcceptedRunLifecycle(ctx, {
-		preview: await buildReviewedDutyRosterTemplatePreview(ctx, input)
+		preview,
+		afterAccept: futureRunConflictAfterAccept(ctx, preview, resolution)
 	});
 }
 

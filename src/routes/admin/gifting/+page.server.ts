@@ -88,6 +88,9 @@ export const actions: Actions = {
 			try {
 				const result = await createSupabasePlatformGifting(ctx).revokeGift(orgId);
 				if (result.status === 'not_found') return fail(404, { error: 'Organization not found' });
+				if (result.status === 'no_active_gift') {
+					return fail(400, { error: 'Organization does not have an active gift' });
+				}
 			} catch (error) {
 				console.error('[admin/gifting] Failed to revoke gift:', error);
 				return fail(500, { error: 'Failed to revoke gift' });

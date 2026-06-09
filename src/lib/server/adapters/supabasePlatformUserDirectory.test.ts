@@ -67,6 +67,36 @@ describe('createSupabasePlatformUserDirectoryStore', () => {
 		});
 	});
 
+	it('keeps auth pagination monotonic when the provider returns a backwards next page', async () => {
+		const listUsers = vi.fn(async ({ page }: { page: number }) => ({
+			data: {
+				users: [
+					{
+						id: `user-${page}`,
+						email: `user-${page}@example.test`,
+						created_at: '2026-06-01T00:00:00.000Z',
+						last_sign_in_at: null
+					}
+				],
+				nextPage: page < 10 ? page + 1 : page === 10 ? 1 : null
+			},
+			error: null
+		}));
+		const store = createSupabasePlatformUserDirectoryStore({
+			auth: { admin: { listUsers } }
+		} as never);
+
+		const result = await store.listAuthUsers();
+
+		expect(listUsers).toHaveBeenCalledTimes(11);
+		expect(listUsers).toHaveBeenNthCalledWith(10, { page: 10, perPage: 1000 });
+		expect(listUsers).toHaveBeenNthCalledWith(11, { page: 11, perPage: 1000 });
+		expect(result).toMatchObject({
+			status: 'ok',
+			users: expect.arrayContaining([expect.objectContaining({ id: 'user-11' })])
+		});
+	});
+
 	it('maps user memberships and suspension rows from provider-shaped records', async () => {
 		const membershipRange = vi.fn().mockResolvedValue({
 			data: [
@@ -151,7 +181,8 @@ describe('createSupabasePlatformUserDirectoryStore', () => {
 				error: null
 			})
 			.mockResolvedValueOnce({ data: null, error: { status: 404, message: 'User not found' } })
-			.mockResolvedValueOnce({ data: null, error: { message: 'identity provider unavailable' } });
+			.mockResolvedValueOnce({ data: null, error: { message: 'identity provider unavailable' } })
+			.mockResolvedValueOnce({ data: null, error: { message: 'preference not found' } });
 		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
 		const store = createSupabasePlatformUserDirectoryStore({
 			auth: { admin: { listUsers: vi.fn(), getUserById } }
@@ -171,6 +202,10 @@ describe('createSupabasePlatformUserDirectoryStore', () => {
 			await expect(store.getAuthUser('user-2')).resolves.toEqual({
 				status: 'auth_error',
 				message: 'identity provider unavailable'
+			});
+			await expect(store.getAuthUser('user-3')).resolves.toEqual({
+				status: 'auth_error',
+				message: 'preference not found'
 			});
 		} finally {
 			consoleError.mockRestore();

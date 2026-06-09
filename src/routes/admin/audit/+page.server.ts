@@ -7,7 +7,8 @@ export const load: PageServerLoad = loadWithAdminContext({
 	fn: async (ctx, event) => {
 		const { url } = event;
 
-		const page = parseInt(url.searchParams.get('page') || '1');
+		const parsedPage = parseInt(url.searchParams.get('page') || '1');
+		const page = Number.isFinite(parsedPage) && parsedPage > 0 ? parsedPage : 1;
 		const action = url.searchParams.get('action') || '';
 		const severity = url.searchParams.get('severity') || '';
 		const orgId = url.searchParams.get('org') || '';

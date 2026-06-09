@@ -26,8 +26,21 @@ vi.mock('$lib/server/adapters/supabasePlatformGifting', () => ({
 }));
 
 vi.mock('$lib/server/adapters/supabasePlatformMetrics', () => ({
-	createSupabasePlatformMetrics: () => platformMetricsMock,
-	displayOwnerMembership: (owner: { email?: string | null } | undefined) => owner?.email ?? '(unknown)'
+	createSupabasePlatformMetrics: () => platformMetricsMock
+}));
+
+vi.mock('$lib/server/core/useCases/platformMetrics', () => ({
+	displayOwnerMembership: (
+		owner:
+			| { kind: 'single'; membership: { email?: string | null } }
+			| { kind: 'multiple'; count: number }
+			| { kind: 'none' }
+			| undefined
+	) => {
+		if (!owner || owner.kind === 'none') return 'No owner';
+		if (owner.kind === 'multiple') return 'Multiple owners';
+		return owner.membership.email ?? '';
+	}
 }));
 
 import { actions, load } from './+page.server';
@@ -195,6 +208,14 @@ describe('admin gifting route', () => {
 				request: makeRequest({ orgId: 'missing-org' })
 			} as unknown as Parameters<(typeof actions)['revokeGift']>[0])
 		).resolves.toEqual({ status: 404, data: { error: 'Organization not found' } });
+
+		platformGiftingMock.revokeGift.mockResolvedValueOnce({ status: 'no_active_gift' });
+		await expect(
+			actions.revokeGift({
+				__ctx: makeContext(),
+				request: makeRequest({ orgId: 'org-a' })
+			} as unknown as Parameters<(typeof actions)['revokeGift']>[0])
+		).resolves.toEqual({ status: 400, data: { error: 'Organization does not have an active gift' } });
 
 		platformGiftingMock.extendGift.mockResolvedValueOnce({ status: 'no_active_gift' });
 		await expect(

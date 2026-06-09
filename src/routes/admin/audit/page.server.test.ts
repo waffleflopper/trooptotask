@@ -97,4 +97,17 @@ describe('admin audit route', () => {
 			availableActions: ['admin.org.gift_tier']
 		});
 	});
+
+	it('defaults invalid audit page params before calling PlatformAudit', async () => {
+		await load({
+			__ctx: makeContext(),
+			url: new URL('http://localhost/admin/audit?page=abc')
+		} as unknown as Parameters<typeof load>[0]);
+
+		expect(platformAuditMock.listLogs).toHaveBeenCalledWith(
+			expect.objectContaining({
+				page: 1
+			})
+		);
+	});
 });

@@ -54,6 +54,8 @@ Date: 2026-06-06
 
 - Keep the current Platform Administration dashboard and suspension commands behind the platform administration use case and Supabase adapter.
 - Prefer narrow aggregate RPCs or adapter-owned provider queries for platform-wide dashboard metrics so the UI does not scan full tables.
+- When retiring the remaining route-level `adminClient` reads (drift D-02), shape the work as several narrow per-domain Platform Administration modules — for example `PlatformMetrics`, `PlatformAnnouncements`, `PlatformFeedback`, `PlatformGifting`, `PlatformUserDirectory`, and `PlatformAudit` — each with its own scoped store port and a Supabase plus in-memory test adapter. Do not absorb these into one extended `platformAdministration.ts` interface: the existing module is deep because its store port is scoped to one job, and a grab-bag store would rebuild the orchestration-heavy shape this boundary is meant to avoid.
+- For Platform Administration user-directory work, the row shaping (auth users joined with memberships, suspensions, and counts) belongs behind a store port, while raw `auth.admin.*` identity/email calls may stay inside that adapter as acknowledged auth-provider edges under ADR 0004.
 - Update this ADR if Platform Administration later gains a formal policy-action catalog or non-Supabase provider.
 
 ## Links

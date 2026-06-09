@@ -1,77 +1,37 @@
 import { fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 import { loadWithAdminContext, adminAction } from '$lib/server/adapters/adminAdapter';
-import { pauseSubscription, resumeSubscription } from '$lib/server/stripe';
+import { createSupabasePlatformGifting } from '$lib/server/adapters/supabasePlatformGifting';
+import { isPlatformGiftTier } from '$lib/server/core/useCases/platformGifting';
 import type { Tier } from '$lib/types/subscription';
-import { invalidateTierCache } from '$lib/server/subscription';
-import { selectAllSupabaseRows } from '$lib/server/supabasePagination';
-import {
-	type AdminMetricsClient,
-	displayOwnerMembership,
-	fetchOwnerMembershipsByOrganization,
-	fetchPersonnelCountsByOrganization
-} from '../adminOrganizationMetrics.server';
-
-const TIER_RANK: Record<string, number> = { free: 1, team: 2, unit: 3 };
-
-interface OrgRow {
-	id: string;
-	name: string;
-	tier: Tier;
-	gift_tier: string | null;
-	gift_expires_at: string | null;
-	gifted_by: string | null;
-	stripe_subscription_id: string | null;
-	subscription_status: string | null;
-	stripe_customer_id: string | null;
-}
+import { createSupabasePlatformMetrics } from '$lib/server/adapters/supabasePlatformMetrics';
+import { displayOwnerMembership } from '$lib/server/core/useCases/platformMetrics';
 
 export const load: PageServerLoad = loadWithAdminContext({
 	page: 'gifting',
 	fn: async (ctx, event) => {
-		const { adminClient } = ctx;
 		const search = event.url.searchParams.get('search') || '';
-
-		const { data: orgs, error: orgsError } = await selectAllSupabaseRows<OrgRow>(
-			(from, to) =>
-				adminClient
-					.from('organizations')
-					.select(
-						'id, name, tier, gift_tier, gift_expires_at, gifted_by, stripe_subscription_id, subscription_status, stripe_customer_id'
-					)
-					.order('name')
-					.range(from, to) as unknown as Promise<{
-					data: OrgRow[] | null;
-					error: unknown;
-				}>
-		);
-
-		if (orgsError) {
-			console.error('[admin/gifting] Failed to fetch organizations:', orgsError);
-			return { organizations: [], search };
-		}
-
-		const allOrgs = (orgs ?? []) as OrgRow[];
+		const allOrgs = await createSupabasePlatformGifting(ctx).listOrganizations();
 
 		const orgIds = allOrgs.map((org) => org.id);
-		const metricsClient = adminClient as unknown as AdminMetricsClient;
+		const platformMetrics = createSupabasePlatformMetrics(ctx);
 		const [personnelCounts, ownerMemberships] = await Promise.all([
-			fetchPersonnelCountsByOrganization(metricsClient, orgIds),
-			fetchOwnerMembershipsByOrganization(metricsClient, orgIds)
+			platformMetrics.countActivePersonnelByOrganization(orgIds),
+			platformMetrics.getOwnerMembershipsByOrganization(orgIds)
 		]);
 
 		let organizations = allOrgs.map((org) => ({
 			id: org.id,
 			name: org.name,
 			ownerEmail: displayOwnerMembership(ownerMemberships.get(org.id)),
-			tier: org.tier as Tier,
-			giftTier: org.gift_tier as Tier | null,
-			giftExpiresAt: org.gift_expires_at,
-			giftedBy: org.gifted_by,
+			tier: org.tier,
+			giftTier: org.giftTier as Tier | null,
+			giftExpiresAt: org.giftExpiresAt,
+			giftedBy: org.giftedBy,
 			personnelCount: personnelCounts.get(org.id) ?? 0,
-			hasActiveSubscription: !!org.stripe_subscription_id && org.subscription_status === 'active',
-			subscriptionStatus: org.subscription_status,
-			stripeSubscriptionId: org.stripe_subscription_id
+			hasActiveSubscription: !!org.stripeSubscriptionId && org.subscriptionStatus === 'active',
+			subscriptionStatus: org.subscriptionStatus,
+			stripeSubscriptionId: org.stripeSubscriptionId
 		}));
 
 		if (search) {
@@ -89,7 +49,6 @@ export const actions: Actions = {
 	giftTier: adminAction({
 		page: 'gifting',
 		fn: async (ctx, event) => {
-			const { adminClient } = ctx;
 			const formData = await event.request.formData();
 			const orgId = formData.get('orgId') as string;
 			const giftTier = formData.get('giftTier') as string;
@@ -99,58 +58,21 @@ export const actions: Actions = {
 				return fail(400, { error: 'Missing or invalid fields' });
 			}
 
-			if (giftTier !== 'team' && giftTier !== 'unit') {
+			if (!isPlatformGiftTier(giftTier)) {
 				return fail(400, { error: 'Invalid gift tier' });
 			}
 
-			const { data: org, error: orgError } = await adminClient
-				.from('organizations')
-				.select('id, tier, stripe_subscription_id, subscription_status')
-				.eq('id', orgId)
-				.single();
-
-			if (orgError || !org) {
-				return fail(404, { error: 'Organization not found' });
-			}
-
-			const expiresAt = new Date();
-			expiresAt.setDate(expiresAt.getDate() + days);
-
-			const { error: updateError } = await adminClient
-				.from('organizations')
-				.update({
-					gift_tier: giftTier,
-					gift_expires_at: expiresAt.toISOString(),
-					gifted_by: ctx.adminUser.id
-				})
-				.eq('id', orgId);
-
-			if (updateError) {
-				console.error('[admin/gifting] Failed to gift tier:', updateError);
+			try {
+				const result = await createSupabasePlatformGifting(ctx).grantGift({ orgId, giftTier, days });
+				if (result.status === 'not_found') return fail(404, { error: 'Organization not found' });
+				if (result.status === 'tier_below_current') {
+					return fail(400, { error: "Gift tier cannot be below the organization's current tier" });
+				}
+			} catch (error) {
+				console.error('[admin/gifting] Failed to gift tier:', error);
 				return fail(500, { error: 'Failed to gift tier' });
 			}
 
-			if (
-				org.stripe_subscription_id &&
-				org.subscription_status === 'active' &&
-				TIER_RANK[giftTier] >= TIER_RANK[org.tier]
-			) {
-				try {
-					await pauseSubscription(org.stripe_subscription_id);
-				} catch (err) {
-					console.error('[admin/gifting] Failed to pause subscription:', err);
-				}
-			}
-
-			ctx.audit({
-				action: 'admin.org.gift_tier',
-				resourceType: 'organization',
-				resourceId: orgId,
-				orgId,
-				details: { giftTier, days },
-				severity: 'warning'
-			});
-			invalidateTierCache(orgId);
 			return { success: true, action: 'gift' };
 		}
 	}),
@@ -158,52 +80,22 @@ export const actions: Actions = {
 	revokeGift: adminAction({
 		page: 'gifting',
 		fn: async (ctx, event) => {
-			const { adminClient } = ctx;
 			const formData = await event.request.formData();
 			const orgId = formData.get('orgId') as string;
 
 			if (!orgId) return fail(400, { error: 'Missing org ID' });
 
-			const { data: org, error: orgError } = await adminClient
-				.from('organizations')
-				.select('id, stripe_subscription_id, subscription_status')
-				.eq('id', orgId)
-				.single();
-
-			if (orgError || !org) {
-				return fail(404, { error: 'Organization not found' });
-			}
-
-			const { error: updateError } = await adminClient
-				.from('organizations')
-				.update({
-					gift_tier: null,
-					gift_expires_at: null,
-					gifted_by: null
-				})
-				.eq('id', orgId);
-
-			if (updateError) {
-				console.error('[admin/gifting] Failed to revoke gift:', updateError);
+			try {
+				const result = await createSupabasePlatformGifting(ctx).revokeGift(orgId);
+				if (result.status === 'not_found') return fail(404, { error: 'Organization not found' });
+				if (result.status === 'no_active_gift') {
+					return fail(400, { error: 'Organization does not have an active gift' });
+				}
+			} catch (error) {
+				console.error('[admin/gifting] Failed to revoke gift:', error);
 				return fail(500, { error: 'Failed to revoke gift' });
 			}
 
-			if (org.stripe_subscription_id && org.subscription_status === 'paused') {
-				try {
-					await resumeSubscription(org.stripe_subscription_id);
-				} catch (err) {
-					console.error('[admin/gifting] Failed to resume subscription:', err);
-				}
-			}
-
-			ctx.audit({
-				action: 'admin.org.revoke_gift',
-				resourceType: 'organization',
-				resourceId: orgId,
-				orgId,
-				severity: 'warning'
-			});
-			invalidateTierCache(orgId);
 			return { success: true, action: 'revoke' };
 		}
 	}),
@@ -211,7 +103,6 @@ export const actions: Actions = {
 	extendGift: adminAction({
 		page: 'gifting',
 		fn: async (ctx, event) => {
-			const { adminClient } = ctx;
 			const formData = await event.request.formData();
 			const orgId = formData.get('orgId') as string;
 			const days = parseInt(formData.get('days') as string);
@@ -220,45 +111,17 @@ export const actions: Actions = {
 				return fail(400, { error: 'Missing or invalid fields' });
 			}
 
-			const { data: org, error: orgError } = await adminClient
-				.from('organizations')
-				.select('id, gift_tier, gift_expires_at')
-				.eq('id', orgId)
-				.single();
-
-			if (orgError || !org) {
-				return fail(404, { error: 'Organization not found' });
-			}
-
-			if (!org.gift_tier) {
-				return fail(400, { error: 'Organization does not have an active gift' });
-			}
-
-			const currentExpiry = org.gift_expires_at ? new Date(org.gift_expires_at) : new Date();
-			const baseDate = currentExpiry > new Date() ? currentExpiry : new Date();
-			baseDate.setDate(baseDate.getDate() + days);
-
-			const { error: updateError } = await adminClient
-				.from('organizations')
-				.update({
-					gift_expires_at: baseDate.toISOString()
-				})
-				.eq('id', orgId);
-
-			if (updateError) {
-				console.error('[admin/gifting] Failed to extend gift:', updateError);
+			try {
+				const result = await createSupabasePlatformGifting(ctx).extendGift({ orgId, days });
+				if (result.status === 'not_found') return fail(404, { error: 'Organization not found' });
+				if (result.status === 'no_active_gift') {
+					return fail(400, { error: 'Organization does not have an active gift' });
+				}
+			} catch (error) {
+				console.error('[admin/gifting] Failed to extend gift:', error);
 				return fail(500, { error: 'Failed to extend gift' });
 			}
 
-			ctx.audit({
-				action: 'admin.org.extend_gift',
-				resourceType: 'organization',
-				resourceId: orgId,
-				orgId,
-				details: { days },
-				severity: 'info'
-			});
-			invalidateTierCache(orgId);
 			return { success: true, action: 'extend' };
 		}
 	})

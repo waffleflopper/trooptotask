@@ -94,14 +94,18 @@ interface AnnouncementInput {
 	expiresAt?: string;
 }
 
-interface AnnouncementValidation {
-	valid: boolean;
-	title?: string;
-	message?: string;
-	type?: 'info' | 'warning' | 'maintenance';
-	expiresAt?: string;
-	error?: string;
-}
+type AnnouncementValidation =
+	| {
+			valid: true;
+			title: string;
+			message: string;
+			type: 'info' | 'warning' | 'maintenance';
+			expiresAt?: string;
+	  }
+	| {
+			valid: false;
+			error: string;
+	  };
 
 export function validateAnnouncement(input: AnnouncementInput): AnnouncementValidation {
 	const title = input.title?.trim();

@@ -3,7 +3,6 @@ import type { PageServerLoad, Actions } from './$types';
 import { loadWithAdminContext, adminAction } from '$lib/server/adapters/adminAdapter';
 import { validateUUID } from '$lib/server/validation';
 import { createStripeBillingReconciliationProvider } from '$lib/server/stripe';
-import { selectAllSupabaseRows } from '$lib/server/supabasePagination';
 import { invalidateTierCache } from '$lib/server/subscription';
 import { summarizeBillingCancellation } from '$lib/server/core/useCases/billingState';
 import { reconcileOrganizationBilling } from '$lib/server/core/useCases/billingReconciliation';
@@ -12,6 +11,7 @@ import { createSupabaseBillingReconciliationStore } from '$lib/server/adapters/s
 import { createSupabaseDataStore } from '$lib/server/adapters/supabaseDataStore';
 import { createSupabaseSubscriptionAdapter } from '$lib/server/adapters/supabaseSubscription';
 import { createSupabasePlatformAudit } from '$lib/server/adapters/supabasePlatformAudit';
+import { createSupabasePlatformMembershipAdministration } from '$lib/server/adapters/supabasePlatformMembershipAdministration';
 import {
 	grantOrganizationPlanFeatureOverride,
 	revokeOrganizationPlanFeatureOverride
@@ -125,23 +125,11 @@ export const load: PageServerLoad = loadWithAdminContext({
 		const giftState = await createSupabasePlatformGifting(ctx).getOrganizationGiftState(orgId);
 		if (!giftState) throw error(404, 'Organization not found');
 
-		const { data: memberships } = await selectAllSupabaseRows<{ user_id: string; role: string; email: string | null }>(
-			(from, to) =>
-				adminClient
-					.from('organization_memberships')
-					.select('user_id, role, email')
-					.eq('organization_id', orgId)
-					.order('role')
-					.range(from, to) as unknown as Promise<{
-					data: { user_id: string; role: string; email: string | null }[] | null;
-					error: unknown;
-				}>
-		);
-
-		const members = (memberships ?? []).map((m) => ({
-			userId: m.user_id,
+		const memberships = await createSupabasePlatformMembershipAdministration(ctx).listMembers(orgId);
+		const members = memberships.map((m) => ({
+			userId: m.userId,
 			email: m.email ?? '(unknown)',
-			role: m.role as string
+			role: m.role
 		}));
 
 		const personnelCount = await createSupabasePlatformMetrics(ctx).countActivePersonnelForOrganization(orgId);
@@ -203,11 +191,36 @@ export const load: PageServerLoad = loadWithAdminContext({
 });
 
 export const actions: Actions = {
+	makeAdmin: adminAction({
+		page: 'organizations',
+		requiredRole: 'super_admin',
+		fn: async (ctx, event) => {
+			const orgId = event.params.orgId as string;
+			if (!validateUUID(orgId)) return fail(400, { error: { message: 'Invalid organization ID' } });
+
+			const formData = await event.request.formData();
+			const targetUserId = formData.get('targetUserId')?.toString() ?? '';
+			if (!validateUUID(targetUserId)) return fail(400, { error: { message: 'Invalid target user ID' } });
+
+			const result = await createSupabasePlatformMembershipAdministration(ctx).makeAdmin({ orgId, targetUserId });
+
+			switch (result.status) {
+				case 'updated':
+					return { success: true };
+				case 'target_not_member':
+					return fail(400, { error: { message: 'Target user is not a member of this organization' } });
+				case 'already_admin':
+					return fail(400, { error: { message: 'Target user is already an admin' } });
+				case 'already_owner':
+					return fail(400, { error: { message: 'Target user is already the owner' } });
+			}
+		}
+	}),
+
 	transferOwnership: adminAction({
 		page: 'organizations',
 		requiredRole: 'super_admin',
 		fn: async (ctx, event) => {
-			const { adminClient } = ctx;
 			const orgId = event.params.orgId as string;
 			if (!validateUUID(orgId)) return fail(400, { error: { message: 'Invalid organization ID' } });
 
@@ -217,67 +230,34 @@ export const actions: Actions = {
 
 			if (!validateUUID(targetUserId)) return fail(400, { error: { message: 'Invalid target user ID' } });
 
-			const { data: org } = await adminClient.from('organizations').select('id, name').eq('id', orgId).single();
-			if (!org) return fail(404, { error: { message: 'Organization not found' } });
-			if (confirmName !== org.name) return fail(400, { error: { message: 'Organization name does not match' } });
-
-			const { data: targetMembership } = await adminClient
-				.from('organization_memberships')
-				.select('user_id, role')
-				.eq('organization_id', orgId)
-				.eq('user_id', targetUserId)
-				.single();
-
-			if (!targetMembership)
-				return fail(400, { error: { message: 'Target user is not a member of this organization' } });
-			if (targetMembership.role === 'owner')
-				return fail(400, { error: { message: 'Target user is already the owner' } });
-
-			const { data: currentOwnerMembership } = await adminClient
-				.from('organization_memberships')
-				.select('user_id')
-				.eq('organization_id', orgId)
-				.eq('role', 'owner')
-				.single();
-
-			if (!currentOwnerMembership) return fail(500, { error: { message: 'Could not find current owner' } });
-
-			const { error: demoteError } = await adminClient
-				.from('organization_memberships')
-				.update({ role: 'admin' })
-				.eq('organization_id', orgId)
-				.eq('user_id', currentOwnerMembership.user_id);
-
-			if (demoteError) return fail(500, { error: { message: 'Transfer failed during demotion' } });
-
-			const { error: promoteError } = await adminClient
-				.from('organization_memberships')
-				.update({ role: 'owner' })
-				.eq('organization_id', orgId)
-				.eq('user_id', targetUserId);
-
-			if (promoteError) {
-				await adminClient
-					.from('organization_memberships')
-					.update({ role: 'owner' })
-					.eq('organization_id', orgId)
-					.eq('user_id', currentOwnerMembership.user_id);
-				return fail(500, { error: { message: 'Transfer failed during promotion' } });
-			}
-
-			ctx.audit({
-				action: 'transfer_org_ownership',
-				resourceType: 'organization',
-				resourceId: orgId,
-				details: {
-					fromUserId: currentOwnerMembership.user_id,
-					toUserId: targetUserId,
-					orgName: org.name
-				},
-				severity: 'critical'
+			const result = await createSupabasePlatformMembershipAdministration(ctx).transferOwnership({
+				orgId,
+				targetUserId,
+				confirmName
 			});
 
-			return { success: true };
+			switch (result.status) {
+				case 'updated':
+					return { success: true };
+				case 'organization_not_found':
+					return fail(404, { error: { message: 'Organization not found' } });
+				case 'name_mismatch':
+					return fail(400, { error: { message: 'Organization name does not match' } });
+				case 'target_not_member':
+					return fail(400, { error: { message: 'Target user is not a member of this organization' } });
+				case 'already_owner':
+					return fail(400, { error: { message: 'Target user is already the owner' } });
+				case 'no_current_owner':
+					return fail(500, { error: { message: 'Could not find current owner' } });
+				case 'demotion_failed':
+					return fail(500, { error: { message: 'Transfer failed during demotion' } });
+				case 'promotion_failed':
+					return fail(500, { error: { message: 'Transfer failed during promotion' } });
+				case 'rollback_failed':
+					return fail(500, {
+						error: { message: 'Transfer failed during promotion; original owner could not be restored automatically' }
+					});
+			}
 		}
 	}),
 

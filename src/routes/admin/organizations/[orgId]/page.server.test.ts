@@ -9,7 +9,8 @@ const {
 	revokeFeatureOverrideMock,
 	platformGiftingMock,
 	platformAuditMock,
-	platformMetricsMock
+	platformMetricsMock,
+	platformMembershipAdministrationMock
 } = vi.hoisted(() => ({
 	invalidateTierCacheMock: vi.fn(),
 	pauseSubscriptionMock: vi.fn(),
@@ -31,6 +32,11 @@ const {
 	},
 	platformMetricsMock: {
 		countActivePersonnelForOrganization: vi.fn()
+	},
+	platformMembershipAdministrationMock: {
+		listMembers: vi.fn(),
+		makeAdmin: vi.fn(),
+		transferOwnership: vi.fn()
 	}
 }));
 
@@ -80,6 +86,10 @@ vi.mock('$lib/server/adapters/supabasePlatformAudit', () => ({
 
 vi.mock('$lib/server/adapters/supabasePlatformMetrics', () => ({
 	createSupabasePlatformMetrics: () => platformMetricsMock
+}));
+
+vi.mock('$lib/server/adapters/supabasePlatformMembershipAdministration', () => ({
+	createSupabasePlatformMembershipAdministration: () => platformMembershipAdministrationMock
 }));
 
 vi.mock('$lib/server/core/useCases/planFeatureOverrides', () => ({
@@ -148,6 +158,14 @@ function makeNoOrganizationGiftClient() {
 	};
 }
 
+function makeNoMembershipAdministrationClient() {
+	return {
+		from: vi.fn((table: string) => {
+			throw new Error(`route must use PlatformMembershipAdministration for role actions, not ${table}`);
+		})
+	};
+}
+
 function makeOrgDetailLoadClient() {
 	const orgRow = {
 		id: '11111111-1111-4111-8111-111111111111',
@@ -156,27 +174,16 @@ function makeOrgDetailLoadClient() {
 		suspended_at: null,
 		created_at: '2026-06-01T00:00:00.000Z'
 	};
-	const membershipRows = [{ user_id: 'user-1', role: 'owner', email: 'owner@example.com' }];
-
 	return {
 		from: vi.fn((table: string) => {
 			if (table === 'audit_logs') throw new Error('route must use PlatformAudit for recent organization activity');
+			if (table === 'organization_memberships')
+				throw new Error('route must use PlatformMembershipAdministration for organization members');
 			if (table === 'organizations') {
 				return {
 					select: vi.fn(() => ({
 						eq: vi.fn(() => ({
 							single: vi.fn().mockResolvedValue({ data: orgRow, error: null })
-						}))
-					}))
-				};
-			}
-			if (table === 'organization_memberships') {
-				return {
-					select: vi.fn(() => ({
-						eq: vi.fn(() => ({
-							order: vi.fn(() => ({
-								range: vi.fn().mockResolvedValue({ data: membershipRows, error: null })
-							}))
 						}))
 					}))
 				};
@@ -239,6 +246,20 @@ describe('admin organization gifting actions', () => {
 			stripeCustomerId: null
 		});
 		platformMetricsMock.countActivePersonnelForOrganization.mockResolvedValue(3);
+		platformMembershipAdministrationMock.listMembers.mockResolvedValue([
+			{ userId: 'user-1', role: 'owner', email: 'owner@example.com' }
+		]);
+		platformMembershipAdministrationMock.makeAdmin.mockResolvedValue({
+			status: 'updated',
+			orgId: '11111111-1111-4111-8111-111111111111',
+			targetUserId: '33333333-3333-4333-8333-333333333333'
+		});
+		platformMembershipAdministrationMock.transferOwnership.mockResolvedValue({
+			status: 'updated',
+			orgId: '11111111-1111-4111-8111-111111111111',
+			fromUserId: '22222222-2222-4222-8222-222222222222',
+			toUserId: '33333333-3333-4333-8333-333333333333'
+		});
 		platformAuditMock.listRecentByOrganization.mockResolvedValue([
 			{
 				id: 'audit-1',
@@ -261,6 +282,12 @@ describe('admin organization gifting actions', () => {
 		expect(platformAuditMock.listRecentByOrganization).toHaveBeenCalledWith({
 			orgId: '11111111-1111-4111-8111-111111111111',
 			limit: 10
+		});
+		expect(platformMembershipAdministrationMock.listMembers).toHaveBeenCalledWith(
+			'11111111-1111-4111-8111-111111111111'
+		);
+		expect(result).toMatchObject({
+			members: [{ userId: 'user-1', email: 'owner@example.com', role: 'owner' }]
 		});
 		expect(result.auditEvents).toEqual([
 			{
@@ -286,6 +313,82 @@ describe('admin organization gifting actions', () => {
 
 		expect(result).toEqual({ success: true });
 		expect(platformGiftingMock.grantGift).toHaveBeenCalledWith({ orgId: 'org-1', giftTier: 'team', days: 30 });
+	});
+
+	it('routes ownership transfer through PlatformMembershipAdministration', async () => {
+		const ctx = makeContext(makeNoMembershipAdministrationClient());
+
+		const result = await actions.transferOwnership({
+			__ctx: ctx,
+			params: { orgId: '11111111-1111-4111-8111-111111111111' },
+			request: makeRequest({
+				targetUserId: '33333333-3333-4333-8333-333333333333',
+				confirmName: 'Able Company'
+			})
+		} as unknown as Parameters<(typeof actions)['transferOwnership']>[0]);
+
+		expect(result).toEqual({ success: true });
+		expect(platformMembershipAdministrationMock.transferOwnership).toHaveBeenCalledWith({
+			orgId: '11111111-1111-4111-8111-111111111111',
+			targetUserId: '33333333-3333-4333-8333-333333333333',
+			confirmName: 'Able Company'
+		});
+		expect(ctx.audit).not.toHaveBeenCalled();
+	});
+
+	it('routes make-admin role changes through PlatformMembershipAdministration', async () => {
+		const ctx = makeContext(makeNoMembershipAdministrationClient());
+
+		const result = await actions.makeAdmin({
+			__ctx: ctx,
+			params: { orgId: '11111111-1111-4111-8111-111111111111' },
+			request: makeRequest({ targetUserId: '33333333-3333-4333-8333-333333333333' })
+		} as unknown as Parameters<(typeof actions)['makeAdmin']>[0]);
+
+		expect(result).toEqual({ success: true });
+		expect(platformMembershipAdministrationMock.makeAdmin).toHaveBeenCalledWith({
+			orgId: '11111111-1111-4111-8111-111111111111',
+			targetUserId: '33333333-3333-4333-8333-333333333333'
+		});
+		expect(ctx.audit).not.toHaveBeenCalled();
+	});
+
+	it('preserves the ownership transfer promotion failure response', async () => {
+		platformMembershipAdministrationMock.transferOwnership.mockResolvedValueOnce({ status: 'promotion_failed' });
+
+		const result = await actions.transferOwnership({
+			__ctx: makeContext(makeNoMembershipAdministrationClient()),
+			params: { orgId: '11111111-1111-4111-8111-111111111111' },
+			request: makeRequest({
+				targetUserId: '33333333-3333-4333-8333-333333333333',
+				confirmName: 'Able Company'
+			})
+		} as unknown as Parameters<(typeof actions)['transferOwnership']>[0]);
+
+		expect(result).toEqual({
+			status: 500,
+			data: { error: { message: 'Transfer failed during promotion' } }
+		});
+	});
+
+	it('reports when ownership transfer rollback needs manual recovery', async () => {
+		platformMembershipAdministrationMock.transferOwnership.mockResolvedValueOnce({ status: 'rollback_failed' });
+
+		const result = await actions.transferOwnership({
+			__ctx: makeContext(makeNoMembershipAdministrationClient()),
+			params: { orgId: '11111111-1111-4111-8111-111111111111' },
+			request: makeRequest({
+				targetUserId: '33333333-3333-4333-8333-333333333333',
+				confirmName: 'Able Company'
+			})
+		} as unknown as Parameters<(typeof actions)['transferOwnership']>[0]);
+
+		expect(result).toEqual({
+			status: 500,
+			data: {
+				error: { message: 'Transfer failed during promotion; original owner could not be restored automatically' }
+			}
+		});
 	});
 
 	it('routes gift revocation from the organization detail page through PlatformGifting', async () => {

@@ -2,43 +2,20 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Textarea } from '$lib/components/ui/textarea';
 	import type { PersonnelLeaderNote, PersonnelNotesPageData } from '$features/personnel/personnel-detail.types';
+	import { ArtifactDraft } from '$features/personnel/workspace/artifactDraft.svelte';
+	import { leaderNoteDraftSpec } from '$features/personnel/workspace/personnelArtifactDraftSpecs';
 
 	let { data }: { data: PersonnelNotesPageData } = $props();
-	let noteText = $state('');
-	let localNotes = $state<PersonnelLeaderNote[] | null>(null);
-	const notes = $derived(localNotes ?? data.notes);
-	let saving = $state(false);
+	const leaderNotes = new ArtifactDraft(leaderNoteDraftSpec, {
+		context: () => ({ orgId: data.orgId, personId: data.personnelId }),
+		fetch: (input, init) => fetch(input, init)
+	});
+	let archivedNoteIds = $state<string[]>([]);
+	const notes = $derived(leaderNotes.mergeLoaded(data.notes).filter((note) => !archivedNoteIds.includes(note.id)));
 	let actionId = $state('');
-	let error = $state('');
-
-	async function submitNote() {
-		error = '';
-		const text = noteText.trim();
-		if (!text) {
-			error = 'Enter a leader note before saving.';
-			return;
-		}
-
-		saving = true;
-		try {
-			const response = await fetch(`/org/${data.orgId}/api/personnel/${data.personnelId}/leader-notes`, {
-				method: 'POST',
-				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({ text })
-			});
-			if (!response.ok) throw new Error('Unable to save leader note.');
-			const note = (await response.json()) as PersonnelLeaderNote;
-			localNotes = [note, ...notes];
-			noteText = '';
-		} catch (caught) {
-			error = caught instanceof Error ? caught.message : 'Unable to save leader note.';
-		} finally {
-			saving = false;
-		}
-	}
 
 	async function archiveNote(note: PersonnelLeaderNote) {
-		error = '';
+		leaderNotes.error = '';
 		actionId = note.id;
 		try {
 			const response = await fetch(`/org/${data.orgId}/api/personnel/${data.personnelId}/leader-notes/${note.id}`, {
@@ -47,9 +24,9 @@
 				body: JSON.stringify({ action: 'archive' })
 			});
 			if (!response.ok) throw new Error('Unable to archive leader note.');
-			localNotes = notes.filter((item) => item.id !== note.id);
+			archivedNoteIds = [...archivedNoteIds, note.id];
 		} catch (caught) {
-			error = caught instanceof Error ? caught.message : 'Unable to archive leader note.';
+			leaderNotes.error = caught instanceof Error ? caught.message : 'Unable to archive leader note.';
 		} finally {
 			actionId = '';
 		}
@@ -62,20 +39,20 @@
 			<h2 class="text-lg font-semibold">{data.title}</h2>
 		</div>
 		<div class="space-y-5 p-6">
-			<form class="space-y-3" onsubmit={(event) => (event.preventDefault(), submitNote())}>
+			<form class="space-y-3" onsubmit={(event) => (event.preventDefault(), leaderNotes.submit())}>
 				<Textarea
-					bind:value={noteText}
+					bind:value={leaderNotes.fields.text}
 					rows={4}
 					aria-label="New leader note"
 					placeholder="Add an observation or accomplishment"
 				/>
 				<div class="flex items-center justify-between gap-3">
-					{#if error}
-						<p class="text-sm text-destructive">{error}</p>
+					{#if leaderNotes.error}
+						<p class="text-sm text-destructive">{leaderNotes.error}</p>
 					{:else}
 						<p class="text-sm text-muted-foreground">Newest notes appear first.</p>
 					{/if}
-					<Button type="submit" disabled={saving}>{saving ? 'Saving...' : 'Add note'}</Button>
+					<Button type="submit" disabled={leaderNotes.saving}>{leaderNotes.saving ? 'Saving...' : 'Add note'}</Button>
 				</div>
 			</form>
 

@@ -7,61 +7,41 @@
 		PersonnelCounselingRecord,
 		PersonnelCounselingsPageData
 	} from '$features/personnel/personnel-detail.types';
+	import { ArtifactDraft } from '$features/personnel/workspace/artifactDraft.svelte';
+	import { counselingRecordDraftSpec } from '$features/personnel/workspace/personnelArtifactDraftSpecs';
 
 	let { data }: { data: PersonnelCounselingsPageData } = $props();
-	let localRecords = $state<PersonnelCounselingRecord[] | null>(null);
-	const records = $derived(localRecords ?? data.records);
-	let dateConducted = $state(new Date().toISOString().slice(0, 10));
-	let title = $state('');
-	let summary = $state('');
-	let file = $state<File | null>(null);
-	let saving = $state(false);
+	const counselingRecords = new ArtifactDraft(counselingRecordDraftSpec, {
+		context: () => ({ orgId: data.orgId, personId: data.personnelId }),
+		fetch: (input, init) => fetch(input, init)
+	});
+	let archivedIds = $state<string[]>([]);
+	const records = $derived(
+		counselingRecords.mergeLoaded(data.records).filter((record) => !archivedIds.includes(record.id))
+	);
 	let actionId = $state('');
-	let error = $state('');
+	let fileInput = $state<HTMLInputElement | null>(null);
 
 	function updateFile(event: Event) {
 		const input = event.currentTarget as HTMLInputElement;
-		file = input.files?.[0] ?? null;
+		counselingRecords.selectFile(input.files?.[0] ?? null);
 	}
 
-	async function submitRecord() {
-		error = '';
-		if (!file) {
-			error = 'Choose a signed counseling PDF.';
-			return;
+	function clearFileInput() {
+		if (fileInput) {
+			fileInput.value = '';
+			if (typeof DataTransfer !== 'undefined') fileInput.files = new DataTransfer().files;
 		}
-		if (!title.trim()) {
-			error = 'Enter a counseling title.';
-			return;
-		}
+		counselingRecords.selectFile(null);
+	}
 
-		const formData = new FormData();
-		formData.set('dateConducted', dateConducted);
-		formData.set('title', title.trim());
-		formData.set('summary', summary.trim());
-		formData.set('file', file);
-
-		saving = true;
-		try {
-			const response = await fetch(`/org/${data.orgId}/api/personnel/${data.personnelId}/counseling-records`, {
-				method: 'POST',
-				body: formData
-			});
-			if (!response.ok) throw new Error('Unable to upload counseling PDF.');
-			const record = (await response.json()) as PersonnelCounselingRecord;
-			localRecords = [record, ...records];
-			title = '';
-			summary = '';
-			file = null;
-		} catch (caught) {
-			error = caught instanceof Error ? caught.message : 'Unable to upload counseling PDF.';
-		} finally {
-			saving = false;
-		}
+	async function submitCounselingRecord() {
+		await counselingRecords.submit();
+		if (!counselingRecords.error) clearFileInput();
 	}
 
 	async function archiveRecord(record: PersonnelCounselingRecord) {
-		error = '';
+		counselingRecords.error = '';
 		actionId = record.id;
 		try {
 			const response = await fetch(
@@ -73,9 +53,9 @@
 				}
 			);
 			if (!response.ok) throw new Error('Unable to archive counseling record.');
-			localRecords = records.filter((item) => item.id !== record.id);
+			archivedIds = [...archivedIds, record.id];
 		} catch (caught) {
-			error = caught instanceof Error ? caught.message : 'Unable to archive counseling record.';
+			counselingRecords.error = caught instanceof Error ? caught.message : 'Unable to archive counseling record.';
 		} finally {
 			actionId = '';
 		}
@@ -94,18 +74,39 @@
 			<h2 class="text-lg font-semibold">{data.title}</h2>
 		</div>
 		<div class="space-y-5 p-6">
-			<form class="grid gap-3" onsubmit={(event) => (event.preventDefault(), submitRecord())}>
+			<form class="grid gap-3" onsubmit={(event) => (event.preventDefault(), submitCounselingRecord())}>
 				<div class="grid gap-3 md:grid-cols-[10rem_1fr]">
-					<DatePicker bind:value={dateConducted} aria-label="Counseling date conducted" placeholder="Date conducted" />
-					<Input bind:value={title} aria-label="Counseling title" placeholder="Counseling title" />
+					<DatePicker
+						bind:value={counselingRecords.fields.dateConducted}
+						aria-label="Counseling date conducted"
+						placeholder="Date conducted"
+					/>
+					<Input
+						bind:value={counselingRecords.fields.title}
+						aria-label="Counseling title"
+						placeholder="Counseling title"
+					/>
 				</div>
-				<Textarea bind:value={summary} rows={3} aria-label="Counseling summary" placeholder="Optional summary" />
+				<Textarea
+					bind:value={counselingRecords.fields.summary}
+					rows={3}
+					aria-label="Counseling summary"
+					placeholder="Optional summary"
+				/>
 				<div class="flex flex-wrap items-center justify-between gap-3">
-					<Input type="file" accept="application/pdf,.pdf" aria-label="Counseling PDF" onchange={updateFile} />
-					<Button type="submit" disabled={saving}>{saving ? 'Uploading...' : 'Upload PDF'}</Button>
+					<Input
+						bind:ref={fileInput}
+						type="file"
+						accept="application/pdf,.pdf"
+						aria-label="Counseling PDF"
+						onchange={updateFile}
+					/>
+					<Button type="submit" disabled={counselingRecords.saving}>
+						{counselingRecords.saving ? 'Uploading...' : 'Upload PDF'}
+					</Button>
 				</div>
-				{#if error}
-					<p class="text-sm text-destructive">{error}</p>
+				{#if counselingRecords.error}
+					<p class="text-sm text-destructive">{counselingRecords.error}</p>
 				{/if}
 			</form>
 

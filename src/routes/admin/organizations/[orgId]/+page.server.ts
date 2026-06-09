@@ -20,6 +20,7 @@ import { readOrganizationPlanUsage } from '$lib/server/core/useCases/organizatio
 import { buildPlanAdminDiagnostics } from '$lib/server/core/useCases/planAdminDiagnostics';
 import { visibleBillingSnapshotForAdminRole } from '$lib/server/adminBillingVisibility';
 import type { BillingSnapshot } from '$lib/types/subscription';
+import { createSupabasePlatformMetrics } from '$lib/server/adapters/supabasePlatformMetrics';
 
 const TIER_RANK: Record<string, number> = { free: 1, team: 2, unit: 3 };
 
@@ -140,11 +141,7 @@ export const load: PageServerLoad = loadWithAdminContext({
 			role: m.role as string
 		}));
 
-		const { count: personnelCount } = await adminClient
-			.from('personnel')
-			.select('*', { count: 'exact', head: true })
-			.eq('organization_id', orgId)
-			.is('archived_at', null);
+		const personnelCount = await createSupabasePlatformMetrics(ctx).countActivePersonnelForOrganization(orgId);
 
 		const { data: auditEvents } = await adminClient
 			.from('audit_logs')
@@ -201,7 +198,7 @@ export const load: PageServerLoad = loadWithAdminContext({
 			planDiagnostics,
 			cancellationSummary: billingSnapshot ? summarizeBillingCancellation(billingSnapshot) : null,
 			members,
-			personnelCount: personnelCount ?? 0,
+			personnelCount,
 			auditEvents: (auditEvents ?? []).map((e) => ({
 				id: e.id as string,
 				action: e.action as string,

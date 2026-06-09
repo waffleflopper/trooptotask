@@ -1,13 +1,8 @@
 import type { PageServerLoad } from './$types';
 import { loadWithAdminContext } from '$lib/server/adapters/adminAdapter';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination';
-import {
-	type AdminMetricsClient,
-	displayOwnerMembership,
-	fetchMembershipCountsByOrganization,
-	fetchOwnerMembershipsByOrganization,
-	fetchPersonnelCountsByOrganization
-} from '../adminOrganizationMetrics.server';
+import { createSupabasePlatformMetrics } from '$lib/server/adapters/supabasePlatformMetrics';
+import { displayOwnerMembership } from '$lib/server/core/useCases/platformMetrics';
 
 export const load: PageServerLoad = loadWithAdminContext({
 	page: 'organizations',
@@ -47,21 +42,16 @@ export const load: PageServerLoad = loadWithAdminContext({
 		}
 
 		const orgIds = (orgs ?? []).map((org) => org.id);
-		const metricsClient = adminClient as unknown as AdminMetricsClient;
-		const [memberCounts, personnelCounts, ownerMemberships] = await Promise.all([
-			fetchMembershipCountsByOrganization(metricsClient, orgIds),
-			fetchPersonnelCountsByOrganization(metricsClient, orgIds),
-			fetchOwnerMembershipsByOrganization(metricsClient, orgIds)
-		]);
+		const metrics = await createSupabasePlatformMetrics(ctx).getOrganizationMetrics(orgIds);
 
 		const enrichedOrgs = (orgs ?? []).map((org) => {
-			const ownerEmail = displayOwnerMembership(ownerMemberships.get(org.id));
+			const ownerEmail = displayOwnerMembership(metrics.ownerMemberships.get(org.id));
 
 			return {
 				...org,
 				effectiveTier: (org.gift_tier ?? org.tier ?? 'free') as string,
-				memberCount: memberCounts.get(org.id) ?? 0,
-				personnelCount: personnelCounts.get(org.id) ?? 0,
+				memberCount: metrics.memberCounts.get(org.id) ?? 0,
+				personnelCount: metrics.activePersonnelCounts.get(org.id) ?? 0,
 				ownerEmail,
 				isSuspended: !!org.suspended_at
 			};

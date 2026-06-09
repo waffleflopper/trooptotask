@@ -1,8 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { toDa6MatrixCell } from './da6MatrixCell';
+import { da6CellGlyph, toDa6MatrixCell } from './da6MatrixCell';
 import type { Da6Cell } from '$features/duty-roster/run/dutyRosterRun.types';
 
 describe('toDa6MatrixCell', () => {
+	it('uses one DA6 glyph rule for assignments, DA6 codes, sequence numbers, and blanks', () => {
+		expect(da6CellGlyph(da6Cell({ assigned: true, sequenceNumber: 4 }))).toBe('X');
+		expect(da6CellGlyph(da6Cell({ da6Code: 'A', sequenceNumber: null }))).toBe('A');
+		expect(da6CellGlyph(da6Cell({ da6Code: 'D', sequenceNumber: 3 }))).toBe('D');
+		expect(da6CellGlyph(da6Cell({ da6Code: 'U', sequenceNumber: 3 }))).toBe('U');
+		expect(da6CellGlyph(da6Cell({ sequenceNumber: 7 }))).toBe('7');
+		expect(da6CellGlyph(da6Cell({ sequenceNumber: null }))).toBe('');
+	});
+
 	it('renders assigned cells with the DA6 X glyph and assigned kind', () => {
 		expect(
 			toDa6MatrixCell(

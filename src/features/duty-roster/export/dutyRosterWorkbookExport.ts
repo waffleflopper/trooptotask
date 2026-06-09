@@ -9,6 +9,7 @@ import {
 } from '$lib/export/workbook';
 import type { DA6Data } from '../stores/dutyRosterHistory.svelte';
 import type { Da6Matrix } from '../run';
+import { da6CellGlyph } from '../components/shared/da6MatrixCell';
 import {
 	displayDutyRosterPersonName,
 	dutyRosterExportFilename,
@@ -41,13 +42,6 @@ function formatShortDate(dateStr: string): string {
 function formatDayName(dateStr: string): string {
 	const date = new Date(`${dateStr}T00:00:00`);
 	return date.toLocaleDateString('en-US', { weekday: 'short' });
-}
-
-function formatDa6CellLabel(cell: Da6Matrix['rows'][number]['cells'][number]): string {
-	if (cell.assigned) return 'X';
-	if (cell.da6Code === 'A') return 'A';
-	if (cell.da6Code === 'D' || cell.da6Code === 'U') return cell.da6Code;
-	return cell.sequenceNumber === null ? '' : String(cell.sequenceNumber);
 }
 
 function rosterRows(details: BrowserExportDetails): WorkbookRow[] {
@@ -99,7 +93,7 @@ function addDa6MatrixSheet(workbook: Workbook, da6: Da6Matrix): void {
 	const rows = da6.rows.map((row) => ({
 		rank: row.display.rank,
 		name: `${row.display.lastName}, ${row.display.firstName}`,
-		...Object.fromEntries(row.cells.map((cell) => [cell.date, formatDa6CellLabel(cell)]))
+		...Object.fromEntries(row.cells.map((cell) => [cell.date, da6CellGlyph(cell)]))
 	}));
 	const sheet = addTableSheet(workbook, { name: 'DA6 Matrix', columns, rows });
 	da6.rows.forEach((row, rowIndex) => {

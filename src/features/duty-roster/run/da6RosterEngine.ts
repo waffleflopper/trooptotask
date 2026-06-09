@@ -37,6 +37,7 @@ export interface Da6RosterEngineInput {
 	classificationByPersonDate: Map<string, Map<string, AvailabilityClassification>>;
 	priorLastDutyDates: Map<string, string | null>;
 	manualBaselineCounts: Map<string, number>;
+	initialDa6Counts?: Map<string, Map<DutyRosterSequenceKey, number>>;
 }
 
 export interface Da6RosterEngineOutput {
@@ -113,17 +114,22 @@ function baselineCountPriority(seed: Map<string, number>): DutyPriority {
 	};
 }
 
-function createDa6Numbering(manualBaselineCounts: Map<string, number>): Da6Numbering {
+function createDa6Numbering(initialDa6Counts: Map<string, Map<DutyRosterSequenceKey, number>>): Da6Numbering {
 	const sequenceNumberByPerson = new Map<string, number>();
 
 	function keyFor(personId: string, sequenceKey: DutyRosterSequenceKey): string {
 		return `${sequenceKey}::${personId}`;
 	}
 
+	function initialCount(personId: string, sequenceKey: DutyRosterSequenceKey): number | undefined {
+		const counts = initialDa6Counts.get(personId);
+		return counts?.get(sequenceKey) ?? counts?.get('single');
+	}
+
 	function current(personId: string, sequenceKey: DutyRosterSequenceKey, isChargeableThisDate: boolean): number | null {
 		let sequenceNumber = sequenceNumberByPerson.get(keyFor(personId, sequenceKey));
 		if (sequenceNumber === undefined) {
-			sequenceNumber = manualBaselineCounts.get(personId);
+			sequenceNumber = initialCount(personId, sequenceKey);
 		}
 		if (sequenceNumber === undefined && isChargeableThisDate) {
 			sequenceNumber = 1;
@@ -145,6 +151,26 @@ function createDa6Numbering(manualBaselineCounts: Map<string, number>): Da6Numbe
 			}
 		}
 	};
+}
+
+function initialDa6CountsFromManualBaseline(
+	manualBaselineCounts: Map<string, number>
+): Map<string, Map<DutyRosterSequenceKey, number>> {
+	return new Map([...manualBaselineCounts].map(([personId, count]) => [personId, new Map([['single', count]])]));
+}
+
+function priorityCountsFromInitialDa6Counts(
+	initialDa6Counts: Map<string, Map<DutyRosterSequenceKey, number>>,
+	sequenceKey: DutyRosterSequenceKey
+): Map<string, number> {
+	return new Map(
+		[...initialDa6Counts]
+			.map(([personId, counts]) => {
+				const count = counts.get(sequenceKey) ?? counts.get('single');
+				return typeof count === 'number' && Number.isInteger(count) && count > 0 ? ([personId, count] as const) : null;
+			})
+			.filter((entry): entry is readonly [string, number] => entry !== null)
+	);
 }
 
 function getSequenceInfo(input: Da6RosterEngineInput, date: string): Da6RosterSequenceInfo {
@@ -192,10 +218,9 @@ function buildCell(
 }
 
 export function computeDa6Roster(input: Da6RosterEngineInput): Da6RosterEngineOutput {
-	const priority =
-		input.manualBaselineCounts.size > 0
-			? baselineCountPriority(input.manualBaselineCounts)
-			: lastDutyDatePriority(input.priorLastDutyDates);
+	const initialDa6Counts = input.initialDa6Counts ?? initialDa6CountsFromManualBaseline(input.manualBaselineCounts);
+	const datePriority = lastDutyDatePriority(input.priorLastDutyDates);
+	const sequencePriorities = new Map<DutyRosterSequenceKey, DutyPriority>();
 	const cellsByPersonnelId = new Map<string, Da6Cell[]>(input.pool.map((person) => [person.id, []]));
 	const columns: Da6Column[] = [];
 	const sequencePeriodCounters = new Map<DutyRosterSequenceKey, number>([
@@ -203,11 +228,18 @@ export function computeDa6Roster(input: Da6RosterEngineInput): Da6RosterEngineOu
 		['weekday', 0],
 		['weekend-holiday', 0]
 	]);
-	const numbering = createDa6Numbering(input.manualBaselineCounts);
+	const numbering = createDa6Numbering(initialDa6Counts);
 	const rosterRows: Da6RosterEngineRow[] = [];
 
 	for (const date of input.dutyDates) {
 		const { sequenceKind, sequenceKey } = getSequenceInfo(input, date);
+		let priority = sequencePriorities.get(sequenceKey);
+		if (!priority) {
+			const priorityCountSeed = priorityCountsFromInitialDa6Counts(initialDa6Counts, sequenceKey);
+			priority = priorityCountSeed.size > 0 ? baselineCountPriority(priorityCountSeed) : datePriority;
+			sequencePriorities.set(sequenceKey, priority);
+		}
+		const usesSharedDatePriority = priority === datePriority;
 		const classifications = new Map(input.pool.map((person) => [person.id, getClassification(input, person.id, date)]));
 		const rankedPersonnel = [...input.pool].sort((a, b) => priority.compare(a, b));
 		const queue = rankedPersonnel.filter((person) => classifications.get(person.id)?.chargeable);
@@ -231,6 +263,9 @@ export function computeDa6Roster(input: Da6RosterEngineInput): Da6RosterEngineOu
 
 		if (assigned) {
 			priority.recordSelection(assigned.id, date);
+			if (!usesSharedDatePriority) {
+				datePriority.recordSelection(assigned.id, date);
+			}
 		}
 
 		for (const person of input.pool) {

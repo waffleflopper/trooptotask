@@ -27,6 +27,7 @@ import {
 } from './acceptedRunRecord';
 import {
 	applyAcceptedDutyRosterRunCalendarSync,
+	applyAcceptedDutyRosterRunCalendarSyncWithCompensation,
 	applyReviewedAcceptedDutyRosterRunCalendarSyncPlan,
 	cleanupAcceptedDutyRosterRunCalendarAssignmentsForInvalidation,
 	hydrateAcceptedDutyRosterRunCalendarSyncState,
@@ -34,8 +35,10 @@ import {
 	loadAcceptedDutyRosterRunCalendarSyncState,
 	logAcceptedDutyRosterRunAppliedToCalendar,
 	logAcceptedDutyRosterRunInvalidated,
+	rollbackAcceptedDutyRosterRunCalendarSync,
 	type AcceptedDutyRosterRunCalendarSyncApplyResult
 } from './acceptedRunCalendarSync';
+import type { DailyAssignmentSlotRecord } from '../daily-assignment-slots';
 import {
 	hydrateAcceptedRunCorrections,
 	loadDutyRosterRunCorrectionsByRunId,
@@ -55,8 +58,14 @@ export type DutyRosterTemplateInvalidateResult = {
 	calendarAssignmentsEdited: boolean;
 };
 
+type AcceptedRunAfterAcceptStep = {
+	commit(acceptedRun: DutyRosterTemplateAcceptedRun): Promise<void>;
+	compensate(acceptedRun: DutyRosterTemplateAcceptedRun): Promise<void>;
+};
+
 export type AcceptedDutyRosterRunCountSource = DutyRosterTemplateCountReadModel & {
 	continuationHistory: DutyRosterCountSourceModel['continuationHistory'];
+	futureRunConflict: DutyRosterCountSourceModel['futureRunConflict'];
 };
 
 export type ListAcceptedDutyRosterTemplateRunsOptions = {
@@ -229,6 +238,8 @@ export async function loadAcceptedDutyRosterRunCountSource(
 		template: DutyRosterTemplate;
 		personnel: DutyRosterPoolPersonnel[];
 		baselineStartDate?: string;
+		previewStartDate?: string;
+		previewEndDate?: string;
 	}
 ): Promise<AcceptedDutyRosterRunCountSource> {
 	const runRows = await ctx.store.findMany<DutyRosterTemplateRunRow>(
@@ -264,17 +275,34 @@ export async function loadAcceptedDutyRosterRunCountSource(
 		template: input.template,
 		resolvedPool,
 		runs,
-		baselineStartDate: input.baselineStartDate
+		baselineStartDate: input.baselineStartDate,
+		previewStartDate: input.previewStartDate,
+		previewEndDate: input.previewEndDate
 	});
 }
 
 export async function acceptReviewedDutyRosterTemplatePreview(
 	ctx: WritePorts,
-	input: { preview: DutyRosterTemplatePreview; acceptedAt?: string }
+	input: {
+		preview: DutyRosterTemplatePreview;
+		acceptedAt?: string;
+		afterAccept?: AcceptedRunAfterAcceptStep;
+	}
 ): Promise<DutyRosterTemplateAcceptedRun> {
 	const acceptedRun = await insertAcceptedDutyRosterTemplatePreview(ctx, input);
 
-	await logAcceptedDutyRosterTemplateRun(ctx, acceptedRun.id);
+	try {
+		await input.afterAccept?.commit(acceptedRun);
+	} catch (error) {
+		const afterAccept = input.afterAccept;
+		await rollbackAcceptedDutyRosterTemplateRunAfterAcceptedStepFailure(ctx, {
+			runId: acceptedRun.id,
+			primaryError: error,
+			afterAcceptCompensator: afterAccept ? () => afterAccept.compensate(acceptedRun) : undefined
+		});
+	}
+
+	await tryLogAcceptedDutyRosterTemplateRun(ctx, acceptedRun.id);
 
 	return acceptedRun;
 }
@@ -349,7 +377,7 @@ export async function recordDutyRosterTemplateRunCorrection(
 
 export async function invalidateLatestDutyRosterTemplateRun(
 	ctx: WritePorts,
-	input: { runId: string; cascade?: boolean }
+	input: { runId: string; cascade?: boolean; excludeRunIds?: string[] }
 ): Promise<DutyRosterTemplateInvalidateResult> {
 	const row = await ctx.store.findOne<DutyRosterTemplateRunRow>(DUTY_ROSTER_TEMPLATE_RUN_TABLE, ctx.auth.orgId, {
 		id: input.runId
@@ -374,8 +402,13 @@ export async function invalidateLatestDutyRosterTemplateRun(
 		}
 	);
 	const selectedRun = templateRuns.find((candidate) => candidate.id === row.id) ?? row;
+	const excludeRunIds = new Set(input.excludeRunIds ?? []);
 	const targetRows = input.cascade
-		? templateRuns.filter((candidate) => candidate.id === row.id || isFollowOnDutyRosterRun(candidate, selectedRun))
+		? templateRuns.filter(
+				(candidate) =>
+					candidate.id === row.id ||
+					(!excludeRunIds.has(candidate.id) && isFollowOnDutyRosterRun(candidate, selectedRun))
+			)
 		: [selectedRun];
 	assertDutyRosterRunsCanBeInvalidated(targetRows, dutyRosterTodayDate());
 
@@ -390,14 +423,22 @@ export async function invalidateLatestDutyRosterTemplateRun(
 		todayDate: dutyRosterTodayDate()
 	});
 	const updatedRows: DutyRosterTemplateRunRow[] = [];
-	for (const target of targetRows) {
-		updatedRows.push(
-			await ctx.store.update<DutyRosterTemplateRunRow>(DUTY_ROSTER_TEMPLATE_RUN_TABLE, ctx.auth.orgId, target.id, {
-				status: 'invalidated',
-				invalidated_at: invalidatedAt,
-				invalidated_by_user_id: ctx.auth.userId
-			})
-		);
+	try {
+		for (const target of targetRows) {
+			updatedRows.push(
+				await ctx.store.update<DutyRosterTemplateRunRow>(DUTY_ROSTER_TEMPLATE_RUN_TABLE, ctx.auth.orgId, target.id, {
+					status: 'invalidated',
+					invalidated_at: invalidatedAt,
+					invalidated_by_user_id: ctx.auth.userId
+				})
+			);
+		}
+	} catch (error) {
+		const rollbackErrors = await rollbackAcceptedDutyRosterRunInvalidationRows(ctx, updatedRows);
+		if (rollbackErrors.length > 0) {
+			throw invalidationRollbackFailureError(error, rollbackErrors, 'ctx.store.update');
+		}
+		throw error;
 	}
 	let calendarCleanup: Awaited<ReturnType<typeof cleanupAcceptedDutyRosterRunCalendarAssignmentsForInvalidation>>;
 	try {
@@ -409,18 +450,7 @@ export async function invalidateLatestDutyRosterTemplateRun(
 			}))
 		);
 	} catch (error) {
-		const rollbackErrors: unknown[] = [];
-		for (const updated of updatedRows) {
-			try {
-				await ctx.store.update<DutyRosterTemplateRunRow>(DUTY_ROSTER_TEMPLATE_RUN_TABLE, ctx.auth.orgId, updated.id, {
-					status: 'accepted',
-					invalidated_at: null,
-					invalidated_by_user_id: null
-				});
-			} catch (rollbackError) {
-				rollbackErrors.push(rollbackError);
-			}
-		}
+		const rollbackErrors = await rollbackAcceptedDutyRosterRunInvalidationRows(ctx, updatedRows);
 		if (rollbackErrors.length > 0) {
 			throw invalidationRollbackFailureError(error, rollbackErrors);
 		}
@@ -443,9 +473,32 @@ export async function invalidateLatestDutyRosterTemplateRun(
 	};
 }
 
-function invalidationRollbackFailureError(primaryError: unknown, rollbackErrors: unknown[]): Error {
+async function rollbackAcceptedDutyRosterRunInvalidationRows(
+	ctx: WritePorts,
+	updatedRows: DutyRosterTemplateRunRow[]
+): Promise<unknown[]> {
+	const rollbackErrors: unknown[] = [];
+	for (const updated of updatedRows) {
+		try {
+			await ctx.store.update<DutyRosterTemplateRunRow>(DUTY_ROSTER_TEMPLATE_RUN_TABLE, ctx.auth.orgId, updated.id, {
+				status: 'accepted',
+				invalidated_at: null,
+				invalidated_by_user_id: null
+			});
+		} catch (rollbackError) {
+			rollbackErrors.push(rollbackError);
+		}
+	}
+	return rollbackErrors;
+}
+
+function invalidationRollbackFailureError(
+	primaryError: unknown,
+	rollbackErrors: unknown[],
+	phase = 'cleanupAcceptedDutyRosterRunCalendarAssignmentsForInvalidation'
+): Error {
 	const error = new Error(
-		`cleanupAcceptedDutyRosterRunCalendarAssignmentsForInvalidation failed; failed to revert ${rollbackErrors.length} updatedRows using ctx.store.update on ${DUTY_ROSTER_TEMPLATE_RUN_TABLE}. Primary failure: ${errorMessage(primaryError)}. Rollback failures: ${rollbackErrors.map(errorMessage).join('; ')}.`
+		`${phase} failed; failed to revert ${rollbackErrors.length} updatedRows using ctx.store.update on ${DUTY_ROSTER_TEMPLATE_RUN_TABLE}. Primary failure: ${errorMessage(primaryError)}. Rollback failures: ${rollbackErrors.map(errorMessage).join('; ')}.`
 	);
 	return Object.assign(error, { primaryError, rollbackErrors });
 }
@@ -498,17 +551,33 @@ async function assertDutyRosterRunsAreInvalidatableAtWriteTime(
 
 export async function acceptAndApplyDutyRosterTemplatePreview(
 	ctx: WritePorts,
-	input: { preview: DutyRosterTemplatePreview }
+	input: {
+		preview: DutyRosterTemplatePreview;
+		afterAccept?: AcceptedRunAfterAcceptStep;
+	}
 ): Promise<DutyRosterTemplateApplyResult> {
 	const acceptedRun = await insertAcceptedDutyRosterTemplatePreview(ctx, input);
-	let result: DutyRosterTemplateApplyResult;
+	let compensated: Awaited<ReturnType<typeof applyAcceptedDutyRosterRunCalendarSyncWithCompensation>>;
 	try {
-		result = await applyAcceptedDutyRosterRunCalendarSync(ctx, acceptedRun, { audit: false });
+		compensated = await applyAcceptedDutyRosterRunCalendarSyncWithCompensation(ctx, acceptedRun, { audit: false });
 	} catch (error) {
 		await tryRollbackAcceptedDutyRosterTemplateRun(ctx, acceptedRun.id);
 		throw error;
 	}
 
+	try {
+		await input.afterAccept?.commit(acceptedRun);
+	} catch (error) {
+		const afterAccept = input.afterAccept;
+		await rollbackAcceptedDutyRosterTemplateRunAfterAcceptedStepFailure(ctx, {
+			runId: acceptedRun.id,
+			primaryError: error,
+			calendarRollbackRecords: compensated.rollbackRecords,
+			afterAcceptCompensator: afterAccept ? () => afterAccept.compensate(acceptedRun) : undefined
+		});
+	}
+
+	const { result } = compensated;
 	await tryLogAcceptedDutyRosterTemplateRun(ctx, acceptedRun.id);
 	await tryLogAcceptedDutyRosterRunAppliedToCalendar(ctx, result.acceptedRun.id, {
 		inserted: result.insertedCount,
@@ -559,10 +628,55 @@ async function rollbackAcceptedDutyRosterTemplateRun(ctx: WritePorts, runId: str
 	await ctx.store.delete(DUTY_ROSTER_TEMPLATE_RUN_TABLE, ctx.auth.orgId, runId);
 }
 
+async function rollbackAcceptedDutyRosterTemplateRunAfterAcceptedStepFailure(
+	ctx: WritePorts,
+	input: {
+		runId: string;
+		primaryError: unknown;
+		calendarRollbackRecords?: DailyAssignmentSlotRecord[];
+		afterAcceptCompensator?: () => Promise<void>;
+	}
+): Promise<never> {
+	const rollbackErrors: unknown[] = [];
+	if (input.afterAcceptCompensator) {
+		try {
+			await input.afterAcceptCompensator();
+		} catch (rollbackError) {
+			rollbackErrors.push(rollbackError);
+		}
+	}
+
+	if (input.calendarRollbackRecords) {
+		try {
+			await rollbackAcceptedDutyRosterRunCalendarSync(ctx, input.runId, input.calendarRollbackRecords);
+		} catch (rollbackError) {
+			rollbackErrors.push(rollbackError);
+		}
+	}
+
+	try {
+		await rollbackAcceptedDutyRosterTemplateRun(ctx, input.runId);
+	} catch (rollbackError) {
+		rollbackErrors.push(rollbackError);
+	}
+
+	if (rollbackErrors.length > 0) {
+		throw acceptedRunRollbackFailureError(input.primaryError, rollbackErrors);
+	}
+	throw input.primaryError;
+}
+
 async function tryRollbackAcceptedDutyRosterTemplateRun(ctx: WritePorts, runId: string): Promise<void> {
 	try {
 		await rollbackAcceptedDutyRosterTemplateRun(ctx, runId);
 	} catch {
 		// Preserve the original apply error; callers still need the primary failure.
 	}
+}
+
+function acceptedRunRollbackFailureError(primaryError: unknown, rollbackErrors: unknown[]): Error {
+	const error = new Error(
+		`Failed to roll back accepted Duty Roster Run after accepted step failure; rollback failures: ${rollbackErrors.map(errorMessage).join('; ')}. Primary failure: ${errorMessage(primaryError)}.`
+	);
+	return Object.assign(error, { primaryError, rollbackErrors });
 }

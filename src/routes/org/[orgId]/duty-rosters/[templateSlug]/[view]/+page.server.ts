@@ -59,6 +59,12 @@ function parseHistoryPage(value: string | null): number {
 	return Math.max(DEFAULT_HISTORY_PAGE, Math.trunc(parsed));
 }
 
+function parseFutureRunConflictResolution(
+	value: FormDataEntryValue | null
+): 'acknowledge' | 'invalidate-following' | null {
+	return value === 'acknowledge' || value === 'invalidate-following' ? value : null;
+}
+
 export const load: PageServerLoad = async ({ params, url, locals, cookies, parent }) => {
 	const { orgId, templateSlug, view } = params;
 	const shell = requireReadyAppShell(await parent());
@@ -178,7 +184,8 @@ export const actions: Actions = {
 		try {
 			const ctx = await buildRouteContext(event);
 			const acceptedRun = await acceptDutyRosterTemplatePreview(ctx, {
-				preview: String(formData.get('preview') ?? '')
+				preview: String(formData.get('preview') ?? ''),
+				futureRunConflictResolution: parseFutureRunConflictResolution(formData.get('futureRunConflictResolution'))
 			});
 			acceptedRunId = acceptedRun.id;
 			if (String(formData.get('intent') ?? '') === 'print') {
@@ -203,7 +210,8 @@ export const actions: Actions = {
 		try {
 			const ctx = await buildRouteContext(event);
 			const result = await acceptAndApplyDutyRosterTemplatePreview(ctx, {
-				preview: String(formData.get('preview') ?? '')
+				preview: String(formData.get('preview') ?? ''),
+				futureRunConflictResolution: parseFutureRunConflictResolution(formData.get('futureRunConflictResolution'))
 			});
 			acceptedRunId = result.acceptedRun.id;
 		} catch (errorValue) {

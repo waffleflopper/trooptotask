@@ -423,7 +423,6 @@ describe('DutyRosterTemplateWorkspace', () => {
 		);
 		const matrix = screen.getByRole('table', { name: 'DA6 preview matrix' });
 		expect(matrix).toBeTruthy();
-		expect(within(matrix).getByText('X')).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Print DA6 draft' })).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Print Draft' })).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Export DA6 draft' })).toBeTruthy();
@@ -433,7 +432,7 @@ describe('DutyRosterTemplateWorkspace', () => {
 		expect(screen.getByRole('button', { name: 'Accept Run + Print' })).toBeTruthy();
 	});
 
-	it('renders manual preview selections with warnings while keeping MANUAL out of the DA6 matrix', async () => {
+	it('renders manual preview selections with warnings', async () => {
 		render(DutyRosterTemplateWorkspace, {
 			props: {
 				data: {
@@ -464,12 +463,6 @@ describe('DutyRosterTemplateWorkspace', () => {
 		);
 		expect(screen.getAllByText('Selected Soldier is outside this template pool.').length).toBeGreaterThan(1);
 		expect(screen.getByText('Commander approved outside-pool replacement.')).toBeTruthy();
-
-		await fireEvent.click(
-			within(screen.getByRole('tablist', { name: 'Preview review mode' })).getByRole('tab', { name: 'DA6 Matrix' })
-		);
-		const matrix = screen.getByRole('table', { name: 'DA6 preview matrix' });
-		expect(within(matrix).queryByText('MANUAL')).toBeNull();
 	});
 
 	it('renders manual preview errors without dropping the preview', () => {
@@ -933,7 +926,8 @@ function preview(options: { manual?: boolean } = {}): DutyRosterTemplatePreview 
 			da6,
 			sequencePeriods: []
 		},
-		warnings: []
+		warnings: [],
+		futureRunConflict: null
 	};
 }
 

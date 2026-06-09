@@ -1,12 +1,17 @@
 import { buildDutyRosterRunSnapshot } from '$features/duty-roster/run/dutyRosterRun';
 import type { DutyEventSeriesPattern } from '$features/duty-roster/duty-roster.types';
 import type {
+	Da6Cell,
 	DutyRosterContinuationHistoryItem,
 	DutyRosterRunDuration,
 	DutyRosterRunSnapshot
 } from '$features/duty-roster/run/dutyRosterRun.types';
 import type { AssignmentType, AvailabilityEntry, Personnel, SpecialDay, StatusType } from '$lib/types';
-import type { DutyRosterPoolPersonnel, DutyRosterTemplate } from './dutyRosterTemplates';
+import type {
+	DutyRosterPoolPersonnel,
+	DutyRosterTemplate,
+	DutyRosterTemplateFutureRunConflict
+} from './dutyRosterTemplates';
 import { resolveDutyRosterPool } from './dutyRosterPool';
 
 export type DutyRosterTemplateManualSelectionWarningCode = 'outside-pool' | 'unavailable-or-conflicting';
@@ -92,12 +97,14 @@ export interface DutyRosterTemplatePreviewInput {
 	pattern?: DutyEventSeriesPattern;
 	selectedWeekdays?: number[];
 	skipHolidaysAndDonsas?: boolean;
+	futureRunConflict?: DutyRosterTemplateFutureRunConflict | null;
 	generatedAt?: string;
 }
 
 export type DutyRosterTemplatePreview = DutyRosterRunSnapshot & {
 	selectionPersonnel: DutyRosterTemplatePreviewPersonnel[];
 	manualSelections: DutyRosterTemplateManualSelection[];
+	futureRunConflict: DutyRosterTemplateFutureRunConflict | null;
 };
 
 export function buildDutyRosterTemplatePreview(input: DutyRosterTemplatePreviewInput): DutyRosterTemplatePreview {
@@ -135,7 +142,8 @@ export function buildDutyRosterTemplatePreview(input: DutyRosterTemplatePreviewI
 	return deepFreeze({
 		...generated,
 		selectionPersonnel: input.personnel.map(toPreviewPersonnel),
-		manualSelections: []
+		manualSelections: [],
+		futureRunConflict: input.futureRunConflict ?? null
 	});
 }
 
@@ -225,7 +233,7 @@ export function buildDutyRosterTemplateAcceptedSnapshot(input: {
 	acceptedByUserId: string | null;
 }): DutyRosterTemplateAcceptedSnapshot {
 	const finalRows = input.preview.rosterRows.map((row) => acceptedSnapshotRow(input.preview, row.date));
-	const da6 = buildAcceptedDa6(input.preview, finalRows);
+	const da6 = buildDa6FromFinalRows(input.preview, finalRows);
 	const exportModel = {
 		...input.preview.exportModel,
 		rosterRows: finalRows.map((row) => ({
@@ -256,6 +264,15 @@ export function buildDutyRosterTemplateAcceptedSnapshot(input: {
 		exportModel,
 		warnings: input.preview.warnings
 	});
+}
+
+export function buildDutyRosterTemplatePreviewDa6(
+	preview: DutyRosterTemplatePreview
+): DutyRosterTemplatePreview['da6'] {
+	return buildDa6FromFinalRows(
+		preview,
+		preview.rosterRows.map((row) => acceptedSnapshotRow(preview, row.date))
+	);
 }
 
 export function assertDutyRosterTemplatePreview(value: unknown): asserts value is DutyRosterTemplatePreview {
@@ -360,46 +377,120 @@ function acceptedSnapshotRow(preview: DutyRosterTemplatePreview, date: string): 
 	};
 }
 
-function buildAcceptedDa6(
+function buildDa6FromFinalRows(
 	preview: DutyRosterTemplatePreview,
 	finalRows: DutyRosterTemplateAcceptedSnapshotRow[]
 ): DutyRosterTemplatePreview['da6'] {
 	const finalAssigneeByDate = new Map(finalRows.map((row) => [row.date, row.finalAssigneeId]));
+	const baseRows = preview.da6.rows.map((row) => ({
+		...row,
+		display: { ...row.display },
+		cells: row.cells.map((cell) => finalDa6Cell(cell, row.personnelId, finalAssigneeByDate))
+	}));
+	const existingPersonnelIds = new Set(baseRows.map((row) => row.personnelId));
+	const missingFinalAssigneeIds = Array.from(
+		new Set(
+			finalRows
+				.map((row) => row.finalAssigneeId)
+				.filter(
+					(assigneeId): assigneeId is string => typeof assigneeId === 'string' && !existingPersonnelIds.has(assigneeId)
+				)
+		)
+	);
+	const originallyAssignedCellByDate = new Map(
+		preview.da6.rows.flatMap((row) => row.cells.filter((cell) => cell.assigned).map((cell) => [cell.date, cell]))
+	);
 
 	return {
 		...preview.da6,
 		columns: preview.da6.columns.map((column) => ({ ...column, specialDayIds: [...column.specialDayIds] })),
-		rows: preview.da6.rows.map((row) => ({
-			...row,
-			display: { ...row.display },
-			cells: row.cells.map((cell) => {
-				const assigned = finalAssigneeByDate.get(cell.date) === row.personnelId;
-				if (assigned) {
-					return {
-						...cell,
-						code: 'assigned' as const,
-						da6Code: null,
-						assigned: true,
-						reason: null,
-						reasonCode: null
-					};
-				}
-				if (cell.assigned) {
-					return {
-						...cell,
-						code: 'available-not-selected' as const,
-						da6Code: null,
-						assigned: false,
-						reason: null,
-						reasonCode: null
-					};
-				}
-				return {
-					...cell,
-					assigned: false
-				};
+		rows: [
+			...baseRows,
+			...missingFinalAssigneeIds.flatMap((assigneeId) => {
+				const display = previewAssignee(preview, assigneeId);
+				if (!display) return [];
+				return [
+					{
+						personnelId: assigneeId,
+						display: {
+							id: display.id,
+							rank: display.rank,
+							lastName: display.lastName,
+							firstName: display.firstName,
+							groupId: display.groupId,
+							groupName: display.groupName
+						},
+						cells: preview.da6.columns.map((column) => {
+							const assigned = finalAssigneeByDate.get(column.date) === assigneeId;
+							if (assigned) {
+								return assignedDa6CellForMissingRow(
+									originallyAssignedCellByDate.get(column.date),
+									column.date,
+									assigneeId
+								);
+							}
+							return blankDa6Cell(column.date, assigneeId);
+						})
+					}
+				];
 			})
-		}))
+		]
+	};
+}
+
+function finalDa6Cell(cell: Da6Cell, personnelId: string, finalAssigneeByDate: Map<string, string | null>): Da6Cell {
+	const assigned = finalAssigneeByDate.get(cell.date) === personnelId;
+	if (assigned) {
+		return {
+			...cell,
+			code: 'assigned',
+			da6Code: null,
+			assigned: true,
+			reason: null,
+			reasonCode: null
+		};
+	}
+	if (cell.assigned) {
+		return {
+			...cell,
+			code: 'available-not-selected',
+			da6Code: null,
+			assigned: false,
+			reason: null,
+			reasonCode: null
+		};
+	}
+	return {
+		...cell,
+		assigned: false
+	};
+}
+
+function assignedDa6CellForMissingRow(source: Da6Cell | undefined, date: string, personnelId: string): Da6Cell {
+	return {
+		...(source ?? blankDa6Cell(date, personnelId)),
+		date,
+		personnelId,
+		code: 'assigned',
+		da6Code: null,
+		assigned: true,
+		reason: null,
+		reasonCode: null
+	};
+}
+
+function blankDa6Cell(date: string, personnelId: string): Da6Cell {
+	return {
+		date,
+		personnelId,
+		code: 'available-not-selected',
+		da6Code: null,
+		chargeable: false,
+		queuePosition: null,
+		sequenceNumber: null,
+		assigned: false,
+		reason: null,
+		reasonCode: null
 	};
 }
 

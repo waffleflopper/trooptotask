@@ -19,6 +19,11 @@ import {
 	recordDutyRosterTemplateRunCorrection,
 	updateDutyRosterTemplateSettings
 } from './dutyRosterTemplates';
+import {
+	acceptReviewedDutyRosterTemplatePreview as acceptReviewedDutyRosterTemplatePreviewDirect,
+	invalidateLatestDutyRosterTemplateRun as invalidateAcceptedRunDirect
+} from './duty-roster/acceptedRuns';
+import { buildDutyRosterTemplateAcceptedSnapshot } from '$features/duty-roster/templates/dutyRosterTemplatePreview';
 
 const rows: Record<string, unknown>[] = [];
 const assignmentTypeRows: Record<string, unknown>[] = [];
@@ -2349,6 +2354,31 @@ describe('Duty Roster Template use cases', () => {
 		]);
 	});
 
+	it('keeps the requested run in a cascade invalidation even when it is excluded from follow-ons', async () => {
+		const ctx = createCtx();
+		personnelRows.push(
+			personnelRow({ id: 'alpha', rank: 'SGT', last_name: 'Able', first_name: 'Ann', group_id: 'alpha' }),
+			personnelRow({ id: 'bravo', rank: 'SGT', last_name: 'Baker', first_name: 'Ben', group_id: 'alpha' })
+		);
+		const template = await createDutyRosterTemplate(ctx, { name: 'CQ NCO', shortCode: 'CQ' });
+		for (const [index, date] of ['2026-06-01', '2026-06-02', '2026-06-03'].entries()) {
+			const preview = await generateDutyRosterTemplatePreview(ctx, {
+				templateId: template.id,
+				startDate: date,
+				endDate: date
+			});
+			await acceptDutyRosterTemplatePreview(ctx, {
+				preview: JSON.stringify(preview)
+			});
+			acceptedRunRows[index].accepted_at = `2026-06-0${index + 1}T00:00:00.000Z`;
+		}
+
+		const result = await invalidateAcceptedRunDirect(ctx, { runId: 'run-1', cascade: true, excludeRunIds: ['run-1'] });
+
+		expect(result.invalidatedRun.id).toBe('run-1');
+		expect(result.invalidatedRuns.map((run) => run.id)).toEqual(['run-1', 'run-2', 'run-3']);
+	});
+
 	it('attempts every updatedRows revert when invalidation Calendar cleanup rollback has row failures', async () => {
 		const ctx = createCtx(createAuth({ scopeSet: { kind: 'groups', groupIds: ['alpha'] } }));
 		personnelRows.push(
@@ -2560,6 +2590,52 @@ describe('Duty Roster Template use cases', () => {
 		);
 	});
 
+	it('keeps accept durable when post-commit audit fails', async () => {
+		const ctx = createCtx(createAuth({ scopeSet: { kind: 'groups', groupIds: ['alpha'] } }));
+		personnelRows.push(
+			personnelRow({ id: 'alpha', rank: 'SGT', last_name: 'Able', first_name: 'Ann', group_id: 'alpha' })
+		);
+		const template = await createDutyRosterTemplate(ctx, { name: 'CQ NCO', shortCode: 'CQ' });
+		const preview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: template.id,
+			startDate: '2026-06-01',
+			endDate: '2026-06-01'
+		});
+		const originalAuditLog = audit.log.bind(audit);
+		const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+		audit.log = (event) => {
+			if (event.action === 'duty_roster_template_run.accepted') {
+				throw new Error('audit unavailable');
+			}
+			originalAuditLog(event);
+		};
+
+		try {
+			const result = await acceptDutyRosterTemplatePreview(ctx, {
+				preview: JSON.stringify(preview)
+			});
+
+			expect(result).toMatchObject({
+				id: 'run-1',
+				status: 'accepted',
+				startDate: '2026-06-01'
+			});
+			expect(acceptedRunRows).toEqual([expect.objectContaining({ id: result.id, status: 'accepted' })]);
+			expect(consoleErrorSpy).toHaveBeenCalledWith(
+				'[duty-roster] Failed to log accepted Duty Roster Run audit event:',
+				expect.objectContaining({
+					orgId: ctx.auth.orgId,
+					userId: ctx.auth.userId,
+					runId: result.id,
+					error: expect.any(Error)
+				})
+			);
+		} finally {
+			audit.log = originalAuditLog;
+			consoleErrorSpy.mockRestore();
+		}
+	});
+
 	it('keeps accept-and-apply durable when post-commit audit fails', async () => {
 		const ctx = createCtx(createAuth({ scopeSet: { kind: 'groups', groupIds: ['alpha'] } }));
 		personnelRows.push(
@@ -2768,6 +2844,435 @@ describe('Duty Roster Template use cases', () => {
 		});
 
 		expect(nextPreview.rosterRows).toEqual([{ date: '2026-06-02', assigneeId: 'alpha' }]);
+	});
+
+	it('continues visible DA6 counts from the prior accepted run before the preview start date', async () => {
+		const ctx = createCtx();
+		personnelRows.push(
+			personnelRow({ id: 'alpha', rank: 'SGT', last_name: 'Able', first_name: 'Ann', group_id: 'alpha' }),
+			personnelRow({ id: 'bravo', rank: 'SGT', last_name: 'Baker', first_name: 'Ben', group_id: 'alpha' })
+		);
+		const template = await createDutyRosterTemplate(ctx, { name: 'CQ NCO', shortCode: 'CQ' });
+		await updateDutyRosterTemplateSettings(ctx, {
+			templateId: template.id,
+			poolCriteria: {
+				rankValues: ['SGT'],
+				groupIds: ['alpha'],
+				mosValues: [],
+				dutyRoleValues: []
+			},
+			exemptPersonnelIds: [],
+			manualBaselineCounts: { alpha: 25, bravo: 30 }
+		});
+		const firstPreview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: template.id,
+			startDate: '2026-06-30',
+			endDate: '2026-06-30'
+		});
+		await acceptDutyRosterTemplatePreview(ctx, {
+			preview: JSON.stringify(firstPreview)
+		});
+
+		const nextPreview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: template.id,
+			startDate: '2026-07-08',
+			endDate: '2026-07-08'
+		});
+
+		expect(firstPreview.rosterRows).toEqual([{ date: '2026-06-30', assigneeId: 'bravo' }]);
+		expect(nextPreview.futureRunConflict).toBeNull();
+		expect(nextPreview.rosterRows).toEqual([{ date: '2026-07-08', assigneeId: 'alpha' }]);
+		expect(nextPreview.da6.rows.find((row) => row.personnelId === 'alpha')?.cells[0]).toMatchObject({
+			assigned: true,
+			sequenceNumber: 26
+		});
+	});
+
+	it('requires a choice before accepting a backfill preview that affects later accepted runs', async () => {
+		const ctx = createCtx();
+		personnelRows.push(
+			personnelRow({ id: 'alpha', rank: 'SGT', last_name: 'Able', first_name: 'Ann', group_id: 'alpha' }),
+			personnelRow({ id: 'bravo', rank: 'SGT', last_name: 'Baker', first_name: 'Ben', group_id: 'alpha' })
+		);
+		const template = await createDutyRosterTemplate(ctx, { name: 'CQ NCO', shortCode: 'CQ' });
+		await updateDutyRosterTemplateSettings(ctx, {
+			templateId: template.id,
+			poolCriteria: {
+				rankValues: ['SGT'],
+				groupIds: ['alpha'],
+				mosValues: [],
+				dutyRoleValues: []
+			},
+			exemptPersonnelIds: [],
+			manualBaselineCounts: {}
+		});
+		const junePreview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: template.id,
+			startDate: '2026-06-30',
+			endDate: '2026-06-30'
+		});
+		await acceptDutyRosterTemplatePreview(ctx, {
+			preview: JSON.stringify(junePreview)
+		});
+		const laterPreview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: template.id,
+			startDate: '2026-07-15',
+			endDate: '2026-07-31'
+		});
+		const laterRun = await acceptDutyRosterTemplatePreview(ctx, {
+			preview: JSON.stringify(laterPreview)
+		});
+
+		const backfillPreview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: template.id,
+			startDate: '2026-07-01',
+			endDate: '2026-07-14'
+		});
+
+		expect(backfillPreview.futureRunConflict).toMatchObject({
+			code: 'future-accepted-runs',
+			affectedRunCount: 1,
+			firstAffectedRunId: laterRun.id,
+			firstAffectedRunStartDate: '2026-07-15',
+			firstAffectedRunEndDate: '2026-07-31'
+		});
+		await expect(
+			acceptDutyRosterTemplatePreview(ctx, {
+				preview: JSON.stringify(backfillPreview)
+			})
+		).rejects.toMatchObject({
+			status: 409,
+			message: 'Choose how to handle later accepted runs before accepting this Duty Roster preview.'
+		});
+
+		const backfillRun = await acceptDutyRosterTemplatePreview(ctx, {
+			preview: JSON.stringify(backfillPreview),
+			futureRunConflictResolution: 'invalidate-following'
+		});
+
+		expect(acceptedRunRows.find((row) => row.id === laterRun.id)).toMatchObject({ status: 'invalidated' });
+		expect(acceptedRunRows.find((row) => row.id === backfillRun.id)).toMatchObject({ status: 'accepted' });
+	});
+
+	it('keeps an overlapping backfill replacement accepted when invalidating the conflicted run', async () => {
+		const ctx = createCtx();
+		personnelRows.push(
+			personnelRow({ id: 'alpha', rank: 'SGT', last_name: 'Able', first_name: 'Ann', group_id: 'alpha' }),
+			personnelRow({ id: 'bravo', rank: 'SGT', last_name: 'Baker', first_name: 'Ben', group_id: 'alpha' })
+		);
+		const template = await createDutyRosterTemplate(ctx, { name: 'CQ NCO', shortCode: 'CQ' });
+		await updateDutyRosterTemplateSettings(ctx, {
+			templateId: template.id,
+			poolCriteria: {
+				rankValues: ['SGT'],
+				groupIds: ['alpha'],
+				mosValues: [],
+				dutyRoleValues: []
+			},
+			exemptPersonnelIds: [],
+			manualBaselineCounts: {}
+		});
+		const originalPreview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: template.id,
+			startDate: '2026-07-01',
+			endDate: '2026-07-31'
+		});
+		const originalRun = await acceptDutyRosterTemplatePreview(ctx, {
+			preview: JSON.stringify(originalPreview)
+		});
+
+		const replacementPreview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: template.id,
+			startDate: '2026-07-15',
+			endDate: '2026-07-20'
+		});
+
+		expect(replacementPreview.futureRunConflict).toMatchObject({
+			firstAffectedRunId: originalRun.id,
+			firstAffectedRunStartDate: '2026-07-01',
+			firstAffectedRunEndDate: '2026-07-31'
+		});
+		const replacementRun = await acceptDutyRosterTemplatePreview(ctx, {
+			preview: JSON.stringify(replacementPreview),
+			futureRunConflictResolution: 'invalidate-following'
+		});
+
+		expect(acceptedRunRows.find((row) => row.id === originalRun.id)).toMatchObject({ status: 'invalidated' });
+		expect(acceptedRunRows.find((row) => row.id === replacementRun.id)).toMatchObject({ status: 'accepted' });
+	});
+
+	it('recomputes the first conflicted accepted run after accepting a backfill preview', async () => {
+		const ctx = createCtx();
+		personnelRows.push(
+			personnelRow({ id: 'alpha', rank: 'SGT', last_name: 'Able', first_name: 'Ann', group_id: 'alpha' }),
+			personnelRow({ id: 'bravo', rank: 'SGT', last_name: 'Baker', first_name: 'Ben', group_id: 'alpha' })
+		);
+		const template = await createDutyRosterTemplate(ctx, { name: 'CQ NCO', shortCode: 'CQ' });
+		const laterPreview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: template.id,
+			startDate: '2026-07-15',
+			endDate: '2026-07-31'
+		});
+		const laterRun = await acceptDutyRosterTemplatePreview(ctx, {
+			preview: JSON.stringify(laterPreview)
+		});
+		const backfillPreview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: template.id,
+			startDate: '2026-07-01',
+			endDate: '2026-07-14'
+		});
+		const concurrentPreview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: template.id,
+			startDate: '2026-07-10',
+			endDate: '2026-07-10'
+		});
+		const originalInsert = store.insert.bind(store);
+		const insertSpy = vi.spyOn(store, 'insert').mockImplementation(async (table, orgId, data, select) => {
+			const inserted = await originalInsert(table, orgId, data, select);
+			if (table === 'duty_roster_template_runs' && data.start_date === '2026-07-01') {
+				acceptedRunRows.push({
+					id: 'run-concurrent-july-10',
+					organization_id: orgId,
+					template_id: template.id,
+					template_name: template.name,
+					status: 'accepted',
+					start_date: '2026-07-10',
+					end_date: '2026-07-10',
+					snapshot_payload: buildDutyRosterTemplateAcceptedSnapshot({
+						preview: concurrentPreview,
+						acceptedAt: '2026-05-04T12:00:01.000Z',
+						acceptedByUserId: 'user-2'
+					}) as unknown as Record<string, unknown>,
+					accepted_by_user_id: 'user-2',
+					accepted_at: '2026-05-04T12:00:01.000Z',
+					applied_by_user_id: null,
+					applied_at: null,
+					invalidated_by_user_id: null,
+					invalidated_at: null,
+					created_at: '2026-05-04T12:00:01.000Z'
+				});
+			}
+			return inserted;
+		});
+
+		try {
+			const backfillRun = await acceptDutyRosterTemplatePreview(ctx, {
+				preview: JSON.stringify(backfillPreview),
+				futureRunConflictResolution: 'invalidate-following'
+			});
+
+			expect(acceptedRunRows.find((row) => row.id === 'run-concurrent-july-10')).toMatchObject({
+				status: 'invalidated'
+			});
+			expect(acceptedRunRows.find((row) => row.id === laterRun.id)).toMatchObject({ status: 'invalidated' });
+			expect(acceptedRunRows.find((row) => row.id === backfillRun.id)).toMatchObject({ status: 'accepted' });
+		} finally {
+			insertSpy.mockRestore();
+		}
+	});
+
+	it('removes a newly accepted backfill run when invalidate-following fails', async () => {
+		const ctx = createCtx();
+		personnelRows.push(
+			personnelRow({ id: 'alpha', rank: 'SGT', last_name: 'Able', first_name: 'Ann', group_id: 'alpha' }),
+			personnelRow({ id: 'bravo', rank: 'SGT', last_name: 'Baker', first_name: 'Ben', group_id: 'alpha' })
+		);
+		const template = await createDutyRosterTemplate(ctx, { name: 'CQ NCO', shortCode: 'CQ' });
+		const laterPreview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: template.id,
+			startDate: '2026-07-15',
+			endDate: '2026-07-31'
+		});
+		const laterRun = await acceptDutyRosterTemplatePreview(ctx, {
+			preview: JSON.stringify(laterPreview)
+		});
+		const backfillPreview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: template.id,
+			startDate: '2026-07-01',
+			endDate: '2026-07-14'
+		});
+		const originalUpdate = store.update.bind(store);
+		const updateSpy = vi.spyOn(store, 'update').mockImplementation(async (table, orgId, id, data, select) => {
+			if (table === 'duty_roster_template_runs' && id === laterRun.id && data.status === 'invalidated') {
+				throw new Error('Invalidation failed.');
+			}
+			return originalUpdate(table, orgId, id, data, select);
+		});
+
+		try {
+			await expect(
+				acceptDutyRosterTemplatePreview(ctx, {
+					preview: JSON.stringify(backfillPreview),
+					futureRunConflictResolution: 'invalidate-following'
+				})
+			).rejects.toThrow('Invalidation failed.');
+
+			expect(acceptedRunRows.map((row) => ({ id: row.id, status: row.status }))).toEqual([
+				{ id: laterRun.id, status: 'accepted' }
+			]);
+			expect(auditEvents).not.toContainEqual(
+				expect.objectContaining({ action: 'duty_roster_template_run.accepted', resourceId: 'run-2' })
+			);
+		} finally {
+			updateSpy.mockRestore();
+		}
+	});
+
+	it('rolls back partially invalidated follow-on runs when invalidate-following fails mid-cascade', async () => {
+		const ctx = createCtx();
+		personnelRows.push(
+			personnelRow({ id: 'alpha', rank: 'SGT', last_name: 'Able', first_name: 'Ann', group_id: 'alpha' }),
+			personnelRow({ id: 'bravo', rank: 'SGT', last_name: 'Baker', first_name: 'Ben', group_id: 'alpha' })
+		);
+		const template = await createDutyRosterTemplate(ctx, { name: 'CQ NCO', shortCode: 'CQ' });
+		const firstLaterPreview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: template.id,
+			startDate: '2026-07-15',
+			endDate: '2026-07-15'
+		});
+		const firstLaterRun = await acceptDutyRosterTemplatePreview(ctx, {
+			preview: JSON.stringify(firstLaterPreview)
+		});
+		const secondLaterPreview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: template.id,
+			startDate: '2026-07-16',
+			endDate: '2026-07-16'
+		});
+		const secondLaterRun = await acceptDutyRosterTemplatePreview(ctx, {
+			preview: JSON.stringify(secondLaterPreview)
+		});
+		const backfillPreview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: template.id,
+			startDate: '2026-07-01',
+			endDate: '2026-07-14'
+		});
+		const originalUpdate = store.update.bind(store);
+		const updateSpy = vi.spyOn(store, 'update').mockImplementation(async (table, orgId, id, data, select) => {
+			if (table === 'duty_roster_template_runs' && id === secondLaterRun.id && data.status === 'invalidated') {
+				throw new Error('Second invalidation failed.');
+			}
+			return originalUpdate(table, orgId, id, data, select);
+		});
+
+		try {
+			await expect(
+				acceptDutyRosterTemplatePreview(ctx, {
+					preview: JSON.stringify(backfillPreview),
+					futureRunConflictResolution: 'invalidate-following'
+				})
+			).rejects.toThrow('Second invalidation failed.');
+
+			expect(acceptedRunRows.map((row) => ({ id: row.id, status: row.status }))).toEqual([
+				{ id: firstLaterRun.id, status: 'accepted' },
+				{ id: secondLaterRun.id, status: 'accepted' }
+			]);
+			expect(auditEvents).not.toContainEqual(
+				expect.objectContaining({ action: 'duty_roster_template_run.accepted', resourceId: 'run-3' })
+			);
+		} finally {
+			updateSpy.mockRestore();
+		}
+	});
+
+	it('runs after-accept compensation before removing a newly accepted run after callback failure', async () => {
+		const ctx = createCtx();
+		personnelRows.push(
+			personnelRow({ id: 'alpha', rank: 'SGT', last_name: 'Able', first_name: 'Ann', group_id: 'alpha' })
+		);
+		const template = await createDutyRosterTemplate(ctx, { name: 'CQ NCO', shortCode: 'CQ' });
+		const preview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: template.id,
+			startDate: '2026-07-01',
+			endDate: '2026-07-01'
+		});
+		const sideEffects = new Set<string>();
+		let compensated = false;
+
+		await expect(
+			acceptReviewedDutyRosterTemplatePreviewDirect(ctx, {
+				preview,
+				afterAccept: {
+					async commit(acceptedRun) {
+						sideEffects.add(acceptedRun.id);
+						throw new Error('after accept failed.');
+					},
+					async compensate(acceptedRun) {
+						compensated = true;
+						expect(acceptedRunRows).toContainEqual(expect.objectContaining({ id: acceptedRun.id }));
+						sideEffects.delete(acceptedRun.id);
+					}
+				}
+			})
+		).rejects.toThrow('after accept failed.');
+
+		expect(compensated).toBe(true);
+		expect([...sideEffects]).toEqual([]);
+		expect(acceptedRunRows).toEqual([]);
+	});
+
+	it('restores Calendar slots when invalidate-following fails after accept-and-apply', async () => {
+		const ctx = createCtx(createAuth({ scopeSet: { kind: 'groups', groupIds: ['alpha'] } }));
+		personnelRows.push(
+			personnelRow({ id: 'alpha', rank: 'SGT', last_name: 'Able', first_name: 'Ann', group_id: 'alpha' }),
+			personnelRow({ id: 'bravo', rank: 'SGT', last_name: 'Baker', first_name: 'Ben', group_id: 'alpha' }),
+			personnelRow({ id: 'charlie', rank: 'SGT', last_name: 'Charlie', first_name: 'Cal', group_id: 'alpha' })
+		);
+		const template = await createDutyRosterTemplate(ctx, { name: 'CQ NCO', shortCode: 'CQ' });
+		const laterPreview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: template.id,
+			startDate: '2026-07-15',
+			endDate: '2026-07-31'
+		});
+		const laterRun = await acceptDutyRosterTemplatePreview(ctx, {
+			preview: JSON.stringify(laterPreview)
+		});
+		dailyAssignmentRows.push({
+			id: 'daily-assignment-manual',
+			organization_id: ctx.auth.orgId,
+			date: '2026-07-01',
+			assignment_type_id: template.assignmentTypeId,
+			assignee_id: 'charlie',
+			duty_roster_template_run_id: null,
+			duty_roster_template_run_row_date: null
+		});
+		const backfillPreview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: template.id,
+			startDate: '2026-07-01',
+			endDate: '2026-07-02'
+		});
+		const originalUpdate = store.update.bind(store);
+		const updateSpy = vi.spyOn(store, 'update').mockImplementation(async (table, orgId, id, data, select) => {
+			if (table === 'duty_roster_template_runs' && id === laterRun.id && data.status === 'invalidated') {
+				throw new Error('Invalidation failed.');
+			}
+			return originalUpdate(table, orgId, id, data, select);
+		});
+
+		try {
+			await expect(
+				acceptAndApplyDutyRosterTemplatePreview(ctx, {
+					preview: JSON.stringify(backfillPreview),
+					futureRunConflictResolution: 'invalidate-following'
+				})
+			).rejects.toThrow('Invalidation failed.');
+
+			expect(acceptedRunRows.map((row) => ({ id: row.id, status: row.status }))).toEqual([
+				{ id: laterRun.id, status: 'accepted' }
+			]);
+			expect(dailyAssignmentRows).toEqual([
+				expect.objectContaining({
+					date: '2026-07-01',
+					assignment_type_id: template.assignmentTypeId,
+					assignee_id: 'charlie'
+				})
+			]);
+			expect(dailyAssignmentRows).not.toContainEqual(expect.objectContaining({ duty_roster_template_run_id: 'run-2' }));
+			expect(auditEvents).not.toContainEqual(
+				expect.objectContaining({ action: 'duty_roster_template_run.applied_to_calendar', resourceId: 'run-2' })
+			);
+		} finally {
+			updateSpy.mockRestore();
+		}
 	});
 
 	it('reports Manual DA6 Baseline as the count read model until the first accepted run', async () => {

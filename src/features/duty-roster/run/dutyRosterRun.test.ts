@@ -802,6 +802,46 @@ describe('buildDutyRosterRunSnapshot', () => {
 		]);
 	});
 
+	it('merges continuation counts for separate DA6 sequences across accepted history', () => {
+		const snapshot = buildDutyRosterRunSnapshot(
+			baseInput({
+				personnel: [person({ id: 'alpha', rank: 'SGT', lastName: 'Alpha' })],
+				rosterHistory: [
+					{
+						assignmentTypeId: assignmentType.id,
+						startDate: '2026-04-25',
+						endDate: '2026-04-25',
+						roster: [],
+						config: { da6ContinuationCounts: { alpha: { 'weekend-holiday': 4 } } }
+					},
+					{
+						assignmentTypeId: assignmentType.id,
+						startDate: '2026-05-01',
+						endDate: '2026-05-01',
+						roster: [],
+						config: { da6ContinuationCounts: { alpha: { weekday: 7 } } }
+					}
+				],
+				config: {
+					startDate: '2026-05-02',
+					endDate: '2026-05-02',
+					dutyDuration: 'daily',
+					excludedStatusIds: [],
+					excludeWeekends: false,
+					excludeHolidays: false,
+					excludeOrgClosures: false,
+					numberingMode: 'separate-weekend-holiday'
+				}
+			})
+		);
+
+		expect(snapshot.da6.columns[0]).toMatchObject({ sequenceKey: 'weekend-holiday' });
+		expect(snapshot.da6.rows.find((row) => row.personnelId === 'alpha')?.cells[0]).toMatchObject({
+			assigned: true,
+			sequenceNumber: 4
+		});
+	});
+
 	it('captures display fields immutably and represents future misconduct U cells without selecting them', () => {
 		const alpha = person({ id: 'alpha', rank: 'SGT', lastName: 'Able' });
 		const snapshot = buildDutyRosterRunSnapshot(

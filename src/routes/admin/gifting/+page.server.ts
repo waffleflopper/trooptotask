@@ -65,6 +65,9 @@ export const actions: Actions = {
 			try {
 				const result = await createSupabasePlatformGifting(ctx).grantGift({ orgId, giftTier, days });
 				if (result.status === 'not_found') return fail(404, { error: 'Organization not found' });
+				if (result.status === 'tier_below_current') {
+					return fail(400, { error: "Gift tier cannot be below the organization's current tier" });
+				}
 			} catch (error) {
 				console.error('[admin/gifting] Failed to gift tier:', error);
 				return fail(500, { error: 'Failed to gift tier' });

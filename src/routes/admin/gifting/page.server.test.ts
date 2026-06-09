@@ -173,6 +173,21 @@ describe('admin gifting route', () => {
 			} as unknown as Parameters<(typeof actions)['giftTier']>[0])
 		).resolves.toEqual({ status: 404, data: { error: 'Organization not found' } });
 
+		platformGiftingMock.grantGift.mockResolvedValueOnce({
+			status: 'tier_below_current',
+			currentTier: 'unit',
+			giftTier: 'team'
+		});
+		await expect(
+			actions.giftTier({
+				__ctx: makeContext(),
+				request: makeRequest({ orgId: 'org-a', giftTier: 'team', days: '45' })
+			} as unknown as Parameters<(typeof actions)['giftTier']>[0])
+		).resolves.toEqual({
+			status: 400,
+			data: { error: "Gift tier cannot be below the organization's current tier" }
+		});
+
 		platformGiftingMock.revokeGift.mockResolvedValueOnce({ status: 'not_found' });
 		await expect(
 			actions.revokeGift({

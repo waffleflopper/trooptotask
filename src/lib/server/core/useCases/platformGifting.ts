@@ -60,7 +60,8 @@ export type PlatformGiftUpdateResult =
 			giftExpiresAt?: string;
 	  }
 	| { status: 'not_found' }
-	| { status: 'no_active_gift' };
+	| { status: 'no_active_gift' }
+	| { status: 'tier_below_current'; currentTier: Tier; giftTier: PlatformGiftTier };
 
 export interface PlatformGifting {
 	listOrganizations(): Promise<PlatformGiftOrganization[]>;
@@ -134,6 +135,9 @@ export function createPlatformGifting(deps: PlatformGiftingDependencies): Platfo
 		async grantGift(input) {
 			const org = await deps.store.getOrganizationGiftState(input.orgId);
 			if (!org) return { status: 'not_found' };
+			if (TIER_RANK[input.giftTier] < TIER_RANK[org.tier]) {
+				return { status: 'tier_below_current', currentTier: org.tier, giftTier: input.giftTier };
+			}
 
 			const giftExpiresAt = addDays(now(), input.days).toISOString();
 			await deps.store.grantGift({

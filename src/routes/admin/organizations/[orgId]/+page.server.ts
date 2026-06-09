@@ -123,7 +123,7 @@ export const load: PageServerLoad = loadWithAdminContext({
 
 		if (orgError || !org) throw error(404, 'Organization not found');
 		const giftState = await createSupabasePlatformGifting(ctx).getOrganizationGiftState(orgId);
-		if (!giftState) throw error(404, 'Organization not found');
+		if (!giftState) throw error(500, 'Organization gift state could not be loaded');
 
 		const memberships = await createSupabasePlatformMembershipAdministration(ctx).listMembers(orgId);
 		const members = memberships.map((m) => ({
@@ -275,6 +275,9 @@ export const actions: Actions = {
 			try {
 				const result = await createSupabasePlatformGifting(ctx).grantGift({ orgId, giftTier, days });
 				if (result.status === 'not_found') return fail(404, { error: { message: 'Organization not found' } });
+				if (result.status === 'tier_below_current') {
+					return fail(400, { error: { message: "Gift tier cannot be below the organization's current tier" } });
+				}
 			} catch {
 				return fail(500, { error: { message: 'Failed to gift tier' } });
 			}

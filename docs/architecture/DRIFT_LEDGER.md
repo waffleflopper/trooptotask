@@ -20,10 +20,11 @@ Each entry separates:
 		- Platform Administration aggregate Organization metrics now route through the `PlatformMetrics` use case and Supabase adapter instead of the route-level helper
 		- Platform Administration announcements CRUD now routes through the `PlatformAnnouncements` use case and Supabase adapter instead of direct route-level table calls
 		- Platform Administration beta feedback list/update now routes through the `PlatformFeedback` use case and Supabase adapter instead of direct route-level table calls
-		- Platform Administration gifting list/grant/revoke/extend and organization-detail gift state now route through the `PlatformGifting` use case and Supabase adapter instead of route-level gift table calls
-		- Platform Administration audit-log list/action/recent reads now route through the `PlatformAudit` use case and Supabase adapter instead of direct route-level audit table calls
-		- Platform Administration organization-detail member reads, make-admin, and ownership transfer now route through the `PlatformMembershipAdministration` use case and Supabase adapter instead of route-level membership table calls
-		- multiple non-adapter routes still depend directly on `locals.supabase`, especially admin operations and some remaining layout helpers
+			- Platform Administration gifting list/grant/revoke/extend and organization-detail gift state now route through the `PlatformGifting` use case and Supabase adapter instead of route-level gift table calls
+			- Platform Administration audit-log list/action/recent reads now route through the `PlatformAudit` use case and Supabase adapter instead of direct route-level audit table calls
+			- Platform Administration organization-detail member reads, make-admin, and ownership transfer now route through the `PlatformMembershipAdministration` use case and Supabase adapter instead of route-level membership table calls
+			- Platform Administration billing-event diagnostics now route recent event, event-by-id, billing snapshot link, and organization-name reads through the `PlatformBillingEvents` use case and Supabase adapter instead of route-level billing table calls
+			- multiple non-adapter routes still depend directly on `locals.supabase`, especially admin operations and some remaining layout helpers
 - Intended direction:
   - outside auth and adapter edges, business logic should be provider-agnostic
 - Why this matters:

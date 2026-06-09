@@ -22,6 +22,7 @@ Each entry separates:
 		- Platform Administration beta feedback list/update now routes through the `PlatformFeedback` use case and Supabase adapter instead of direct route-level table calls
 		- Platform Administration gifting list/grant/revoke/extend and organization-detail gift state now route through the `PlatformGifting` use case and Supabase adapter instead of route-level gift table calls
 		- Platform Administration audit-log list/action/recent reads now route through the `PlatformAudit` use case and Supabase adapter instead of direct route-level audit table calls
+		- Platform Administration organization-detail member reads, make-admin, and ownership transfer now route through the `PlatformMembershipAdministration` use case and Supabase adapter instead of route-level membership table calls
 		- multiple non-adapter routes still depend directly on `locals.supabase`, especially admin operations and some remaining layout helpers
 - Intended direction:
   - outside auth and adapter edges, business logic should be provider-agnostic

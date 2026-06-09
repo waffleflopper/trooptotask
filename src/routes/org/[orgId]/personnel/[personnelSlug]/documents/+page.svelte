@@ -14,6 +14,7 @@
 	let actionId = $state('');
 	let archivedIds = $state<string[]>([]);
 	let records = $derived(documents.mergeLoaded(data.records).filter((record) => !archivedIds.includes(record.id)));
+	let fileInput = $state<HTMLInputElement | null>(null);
 
 	function formatDate(value: string) {
 		const date = new Date(value);
@@ -30,6 +31,19 @@
 	function updateFile(event: Event) {
 		const input = event.currentTarget as HTMLInputElement;
 		documents.selectFile(input.files?.[0] ?? null);
+	}
+
+	function clearFileInput() {
+		if (fileInput) {
+			fileInput.value = '';
+			if (typeof DataTransfer !== 'undefined') fileInput.files = new DataTransfer().files;
+		}
+		documents.selectFile(null);
+	}
+
+	async function submitDocument() {
+		await documents.submit();
+		if (!documents.error) clearFileInput();
 	}
 
 	async function openDocument(documentId: string) {
@@ -74,12 +88,13 @@
 			<h2 class="text-lg font-semibold">{data.title}</h2>
 		</div>
 		<div class="space-y-5 p-6">
-			<form class="grid gap-3" onsubmit={(event) => (event.preventDefault(), documents.submit())}>
+			<form class="grid gap-3" onsubmit={(event) => (event.preventDefault(), submitDocument())}>
 				<div class="grid gap-3 md:grid-cols-[1fr_auto]">
 					<Input bind:value={documents.fields.title} aria-label="Document title" placeholder="Document title" />
 					<Button type="submit" disabled={documents.saving}>{documents.saving ? 'Uploading...' : 'Upload'}</Button>
 				</div>
 				<Input
+					bind:ref={fileInput}
 					type="file"
 					accept="application/pdf,image/jpeg,image/png,image/heic,image/heif,.pdf,.jpg,.jpeg,.png,.heic"
 					aria-label="Document file"

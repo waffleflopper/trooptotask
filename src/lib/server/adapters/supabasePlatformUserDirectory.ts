@@ -16,6 +16,8 @@ import type { Tier } from '$lib/types/subscription';
 type SupabaseQueryResult<T> = Promise<{ data: T[] | null; error: unknown }>;
 type SupabaseResponse<T> = { data: T | null; error: unknown };
 
+const AUTH_USERS_PER_PAGE = 1000;
+
 interface RawAuthUser {
 	id: string;
 	email?: string | null;
@@ -75,7 +77,15 @@ function isNotFoundAuthError(error: unknown): boolean {
 	if (!error || typeof error !== 'object') return false;
 	const candidate = error as { status?: unknown; code?: unknown; message?: unknown };
 	if (candidate.status === 404 || candidate.code === 'user_not_found') return true;
-	return typeof candidate.message === 'string' && /user.*not found|not found/i.test(candidate.message);
+	return typeof candidate.message === 'string' && /\buser\b.*\bnot\s+found\b/i.test(candidate.message);
+}
+
+function getNextAuthUsersPage(currentPage: number, pageData: AuthUsersPage | null): number | null {
+	const nextPage = pageData?.nextPage;
+	if (typeof nextPage !== 'number' || !Number.isFinite(nextPage) || nextPage < 1) return null;
+	// auth-js 2.106.1 can truncate page 10+ Link values to the first digit.
+	// Keep pagination monotonic while still honoring provider continuation.
+	return nextPage > currentPage ? nextPage : currentPage + 1;
 }
 
 function mapAuthUser(user: RawAuthUser): PlatformDirectoryAuthUser {
@@ -126,7 +136,7 @@ export function createSupabasePlatformUserDirectoryStore(supabase: SupabaseClien
 			const users: PlatformDirectoryAuthUser[] = [];
 
 			while (true) {
-				const { data, error } = await supabase.auth.admin.listUsers({ page, perPage: 1000 });
+				const { data, error } = await supabase.auth.admin.listUsers({ page, perPage: AUTH_USERS_PER_PAGE });
 				if (error) {
 					console.error('[admin/users] auth.admin.listUsers error:', error);
 					return { status: 'auth_error', message: formatSupabaseError(error) };
@@ -135,8 +145,9 @@ export function createSupabasePlatformUserDirectoryStore(supabase: SupabaseClien
 				const pageData = data as AuthUsersPage | null;
 				const pageUsers = (pageData?.users ?? []).map(mapAuthUser);
 				users.push(...pageUsers);
-				if (!pageData?.nextPage) break;
-				page = pageData.nextPage;
+				const nextPage = getNextAuthUsersPage(page, pageData);
+				if (!nextPage) break;
+				page = nextPage;
 			}
 
 			return { status: 'ok', users };

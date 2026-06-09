@@ -15,7 +15,7 @@ export interface PlatformFeedbackItem {
 export interface PlatformFeedbackUpdateInput {
 	id: string;
 	status?: PlatformFeedbackStatus;
-	adminNotes?: string;
+	adminNotes?: string | null;
 }
 
 export interface PlatformFeedbackStoreUpdateResult {

@@ -37,8 +37,8 @@ export function createInMemoryPlatformFeedbackStore(
 			if (!existing) return null;
 			const updated: PlatformFeedbackItem = {
 				...existing,
-				status: input.status ?? existing.status,
-				adminNotes: input.adminNotes ?? existing.adminNotes
+				status: input.status !== undefined ? input.status : existing.status,
+				adminNotes: input.adminNotes !== undefined ? input.adminNotes : existing.adminNotes
 			};
 			items.set(input.id, updated);
 			return { id: input.id };

@@ -77,7 +77,7 @@ export function createSupabasePlatformFeedbackStore(supabase: SupabaseClient): P
 		},
 
 		async updateFeedback(input: PlatformFeedbackUpdateInput): Promise<PlatformFeedbackStoreUpdateResult | null> {
-			const updateData: Record<string, string> = {};
+			const updateData: { status?: PlatformFeedbackStatus; admin_notes?: string | null } = {};
 			if (input.status !== undefined) updateData.status = input.status;
 			if (input.adminNotes !== undefined) updateData.admin_notes = input.adminNotes;
 

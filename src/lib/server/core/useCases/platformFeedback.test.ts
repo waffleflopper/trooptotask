@@ -74,6 +74,25 @@ describe('PlatformFeedback', () => {
 		);
 	});
 
+	it('allows feedback admin notes to be cleared through the public interface', async () => {
+		const feedback = makeFeedback();
+
+		await expect(feedback.update({ id: SECOND_ID, adminNotes: null })).resolves.toEqual({
+			status: 'updated',
+			id: SECOND_ID
+		});
+
+		await expect(feedback.list()).resolves.toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					id: SECOND_ID,
+					status: 'reviewed',
+					adminNotes: null
+				})
+			])
+		);
+	});
+
 	it('returns not-found when feedback cannot be updated', async () => {
 		const feedback = makeFeedback();
 

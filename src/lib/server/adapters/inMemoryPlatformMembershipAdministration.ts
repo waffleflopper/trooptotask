@@ -50,9 +50,11 @@ export function createInMemoryPlatformMembershipAdministrationStore(
 		},
 
 		async getCurrentOwner(orgId) {
-			const owner = Array.from(memberships.values()).find(
+			const owners = Array.from(memberships.values()).filter(
 				(membership) => membership.orgId === orgId && membership.role === 'owner'
 			);
+			if (owners.length > 1) throw new Error('multiple current owners found');
+			const owner = owners[0];
 			return owner ? cloneMembership(owner) : null;
 		},
 

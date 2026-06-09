@@ -18,6 +18,10 @@ function createThenableQueryBuilder(result: SupabaseResult) {
 		select: track('select'),
 		eq: track('eq'),
 		order: track('order'),
+		limit: (...args: unknown[]) => {
+			calls.push({ method: 'limit', args });
+			return resolved;
+		},
 		range: (...args: unknown[]) => {
 			calls.push({ method: 'range', args });
 			return resolved;
@@ -100,6 +104,40 @@ describe('createSupabasePlatformMembershipAdministrationStore', () => {
 
 		await expect(store.getMembership({ orgId: 'org-1', userId: 'member-1' })).rejects.toThrow(
 			'table organization_memberships membership fetch failed: database offline (XX000)'
+		);
+	});
+
+	it('reads the current owner without relying on single-row provider semantics', async () => {
+		const { store, builders } = createStoreWithResults({
+			data: [{ organization_id: 'org-1', user_id: 'owner-1', role: 'owner' }],
+			error: null
+		});
+
+		await expect(store.getCurrentOwner('org-1')).resolves.toEqual({
+			orgId: 'org-1',
+			userId: 'owner-1',
+			role: 'owner'
+		});
+
+		expect(builders[0].calls).toEqual([
+			{ method: 'select', args: ['organization_id, user_id, role'] },
+			{ method: 'eq', args: ['organization_id', 'org-1'] },
+			{ method: 'eq', args: ['role', 'owner'] },
+			{ method: 'limit', args: [2] }
+		]);
+	});
+
+	it('rejects current-owner reads when organization data has multiple owners', async () => {
+		const { store } = createStoreWithResults({
+			data: [
+				{ organization_id: 'org-1', user_id: 'owner-1', role: 'owner' },
+				{ organization_id: 'org-1', user_id: 'owner-2', role: 'owner' }
+			],
+			error: null
+		});
+
+		await expect(store.getCurrentOwner('org-1')).rejects.toThrow(
+			'table organization_memberships current owner fetch failed: multiple owners'
 		);
 	});
 

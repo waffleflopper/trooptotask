@@ -97,11 +97,28 @@ function mapOrganization(row: OrganizationLinkRow): PlatformBillingOrganizationL
 	};
 }
 
+function partitionStripeObjectIds(objectIds: string[]): { customerIds: string[]; subscriptionIds: string[] } {
+	const customerIds: string[] = [];
+	const subscriptionIds: string[] = [];
+	for (const objectId of objectIds) {
+		if (objectId.startsWith('cus_')) {
+			customerIds.push(objectId);
+		} else if (objectId.startsWith('sub_')) {
+			subscriptionIds.push(objectId);
+		} else {
+			customerIds.push(objectId);
+			subscriptionIds.push(objectId);
+		}
+	}
+	return { customerIds, subscriptionIds };
+}
+
 function buildSnapshotFilters(input: { eventIds: string[]; objectIds: string[] }): string[] {
+	const { customerIds, subscriptionIds } = partitionStripeObjectIds(input.objectIds);
 	return [
 		input.eventIds.length ? `last_stripe_event_id.in.(${input.eventIds.join(',')})` : null,
-		input.objectIds.length ? `stripe_subscription_id.in.(${input.objectIds.join(',')})` : null,
-		input.objectIds.length ? `stripe_customer_id.in.(${input.objectIds.join(',')})` : null
+		subscriptionIds.length ? `stripe_subscription_id.in.(${subscriptionIds.join(',')})` : null,
+		customerIds.length ? `stripe_customer_id.in.(${customerIds.join(',')})` : null
 	].filter((filter): filter is string => !!filter);
 }
 

@@ -7,12 +7,27 @@ describe('createSupabasePlatformUserDirectoryStore', () => {
 			.fn()
 			.mockResolvedValueOnce({
 				data: {
+					users: [
+						{
+							id: 'user-first',
+							email: 'user-first@example.test',
+							created_at: '2026-06-01T00:00:00.000Z',
+							last_sign_in_at: null
+						}
+					],
+					nextPage: 2
+				},
+				error: null
+			})
+			.mockResolvedValueOnce({
+				data: {
 					users: Array.from({ length: 1000 }, (_, index) => ({
 						id: `user-${index}`,
 						email: `user-${index}@example.test`,
 						created_at: '2026-06-01T00:00:00.000Z',
 						last_sign_in_at: null
-					}))
+					})),
+					nextPage: 3
 				},
 				error: null
 			})
@@ -35,7 +50,10 @@ describe('createSupabasePlatformUserDirectoryStore', () => {
 
 		const result = await store.listAuthUsers();
 
-		expect(listUsers).toHaveBeenCalledTimes(2);
+		expect(listUsers).toHaveBeenCalledTimes(3);
+		expect(listUsers).toHaveBeenNthCalledWith(1, { page: 1, perPage: 1000 });
+		expect(listUsers).toHaveBeenNthCalledWith(2, { page: 2, perPage: 1000 });
+		expect(listUsers).toHaveBeenNthCalledWith(3, { page: 3, perPage: 1000 });
 		expect(result).toMatchObject({
 			status: 'ok',
 			users: expect.arrayContaining([

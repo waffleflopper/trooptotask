@@ -171,6 +171,8 @@ function makeOrgDetailLoadClient() {
 		id: '11111111-1111-4111-8111-111111111111',
 		name: 'Able Company',
 		tier: 'free',
+		gift_tier: null,
+		gift_expires_at: null,
 		suspended_at: null,
 		created_at: '2026-06-01T00:00:00.000Z'
 	};
@@ -302,6 +304,21 @@ describe('admin organization gifting actions', () => {
 		]);
 	});
 
+	it('falls back to the loaded organization gift columns when the gift-state seam fails', async () => {
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+		platformGiftingMock.getOrganizationGiftState.mockRejectedValueOnce(new Error('gift state unavailable'));
+
+		const result = (await load({
+			__ctx: makeContext(makeOrgDetailLoadClient()),
+			params: { orgId: '11111111-1111-4111-8111-111111111111' }
+		} as unknown as Parameters<typeof load>[0])) as { org: { giftTier: string | null; giftExpiresAt: string | null } };
+
+		expect(result.org.giftTier).toBeNull();
+		expect(result.org.giftExpiresAt).toBeNull();
+		expect(consoleError).toHaveBeenCalledWith('[admin/organizations] Failed to load gift state:', expect.any(Error));
+		consoleError.mockRestore();
+	});
+
 	it('routes gifting from the organization detail page through PlatformGifting', async () => {
 		const ctx = makeContext(makeNoOrganizationGiftClient());
 
@@ -373,6 +390,58 @@ describe('admin organization gifting actions', () => {
 		expect(ctx.audit).not.toHaveBeenCalled();
 	});
 
+	it.each([
+		['target_not_member', 'Target user is not a member of this organization'],
+		['already_admin', 'Target user is already an admin'],
+		['already_owner', 'Target user is already the owner']
+	] as const)('returns a structured make-admin validation error for %s', async (status, message) => {
+		platformMembershipAdministrationMock.makeAdmin.mockResolvedValueOnce({ status });
+
+		const result = await actions.makeAdmin({
+			__ctx: makeContext(makeNoMembershipAdministrationClient()),
+			params: { orgId: '11111111-1111-4111-8111-111111111111' },
+			request: makeRequest({ targetUserId: '33333333-3333-4333-8333-333333333333' })
+		} as unknown as Parameters<(typeof actions)['makeAdmin']>[0]);
+
+		expect(result).toEqual({
+			status: 400,
+			data: { error: { message } }
+		});
+	});
+
+	it('returns a structured error when make-admin role updates fail', async () => {
+		platformMembershipAdministrationMock.makeAdmin.mockRejectedValueOnce(new Error('membership update failed'));
+
+		const result = await actions.makeAdmin({
+			__ctx: makeContext(makeNoMembershipAdministrationClient()),
+			params: { orgId: '11111111-1111-4111-8111-111111111111' },
+			request: makeRequest({ targetUserId: '33333333-3333-4333-8333-333333333333' })
+		} as unknown as Parameters<(typeof actions)['makeAdmin']>[0]);
+
+		expect(result).toEqual({
+			status: 500,
+			data: { error: { message: 'Failed to update membership' } }
+		});
+	});
+
+	it('returns a structured error when ownership transfer throws unexpectedly', async () => {
+		platformMembershipAdministrationMock.transferOwnership.mockRejectedValueOnce(new Error('membership lookup failed'));
+
+		const result = await actions.transferOwnership({
+			__ctx: makeContext(makeNoMembershipAdministrationClient()),
+			params: { orgId: '11111111-1111-4111-8111-111111111111' },
+			request: makeRequest({
+				targetUserId: '33333333-3333-4333-8333-333333333333',
+				confirmName: 'Able Company'
+			})
+		} as unknown as Parameters<(typeof actions)['transferOwnership']>[0]);
+
+		expect(result).toEqual({
+			status: 500,
+			data: { error: { message: 'Transfer failed' } }
+		});
+	});
+
 	it('preserves the ownership transfer promotion failure response', async () => {
 		platformMembershipAdministrationMock.transferOwnership.mockResolvedValueOnce({ status: 'promotion_failed' });
 
@@ -388,6 +457,26 @@ describe('admin organization gifting actions', () => {
 		expect(result).toEqual({
 			status: 500,
 			data: { error: { message: 'Transfer failed during promotion' } }
+		});
+	});
+
+	it('reports when the current owner cannot be verified during ownership transfer', async () => {
+		platformMembershipAdministrationMock.transferOwnership.mockResolvedValueOnce({
+			status: 'current_owner_lookup_failed'
+		});
+
+		const result = await actions.transferOwnership({
+			__ctx: makeContext(makeNoMembershipAdministrationClient()),
+			params: { orgId: '11111111-1111-4111-8111-111111111111' },
+			request: makeRequest({
+				targetUserId: '33333333-3333-4333-8333-333333333333',
+				confirmName: 'Able Company'
+			})
+		} as unknown as Parameters<(typeof actions)['transferOwnership']>[0]);
+
+		expect(result).toEqual({
+			status: 500,
+			data: { error: { message: 'Could not verify current owner' } }
 		});
 	});
 
@@ -420,6 +509,21 @@ describe('admin organization gifting actions', () => {
 
 		expect(result).toEqual({ success: true });
 		expect(platformGiftingMock.revokeGift).toHaveBeenCalledWith('org-1');
+	});
+
+	it('reports gift revocation attempts when no active gift exists', async () => {
+		platformGiftingMock.revokeGift.mockResolvedValueOnce({ status: 'no_active_gift' });
+
+		const result = await actions.revokeGift({
+			__ctx: makeContext(makeNoOrganizationGiftClient()),
+			params: { orgId: 'org-1' },
+			request: makeRequest({})
+		} as unknown as Parameters<(typeof actions)['revokeGift']>[0]);
+
+		expect(result).toEqual({
+			status: 400,
+			data: { error: { message: 'Organization does not have an active gift' } }
+		});
 	});
 
 	it('routes gift extension from the organization detail page through PlatformGifting', async () => {

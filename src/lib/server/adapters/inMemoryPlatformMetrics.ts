@@ -1,4 +1,4 @@
-import type { PlatformMetricsStore, PlatformOwnerMembershipRow } from '$lib/server/core/useCases/platformMetrics';
+import type { PlatformMetricsStore, PlatformOwnerMembershipMetric } from '$lib/server/core/useCases/platformMetrics';
 
 export interface InMemoryPlatformMetricsMembership {
 	organizationId: string;
@@ -46,15 +46,28 @@ export function createInMemoryPlatformMetricsStore(seed: InMemoryPlatformMetrics
 			return personnel.filter((row) => row.organizationId === organizationId && row.archivedAt == null).length;
 		},
 
-		async listOwnerMembershipsByOrganization(organizationIds): Promise<PlatformOwnerMembershipRow[]> {
+		async listOwnerMembershipMetricsByOrganization(organizationIds): Promise<PlatformOwnerMembershipMetric[]> {
 			const requestedIds = new Set(organizationIds);
-			return memberships
-				.filter((row) => requestedIds.has(row.organizationId) && row.role === 'owner')
-				.map((row) => ({
-					organizationId: row.organizationId,
-					userId: row.userId,
-					email: row.email
-				}));
+			return organizationIds
+				.filter((organizationId) => requestedIds.has(organizationId))
+				.flatMap((organizationId) => {
+					const owners = memberships.filter((row) => row.organizationId === organizationId && row.role === 'owner');
+					if (owners.length === 0) return [];
+					return [
+						{
+							organizationId,
+							ownerCount: owners.length,
+							singleOwner:
+								owners.length === 1
+									? {
+											organizationId,
+											userId: owners[0].userId,
+											email: owners[0].email
+										}
+									: null
+						}
+					];
+				});
 		}
 	};
 }

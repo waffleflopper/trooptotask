@@ -132,9 +132,13 @@ export function createSupabasePlatformMembershipAdministrationStore(
 				.select('organization_id, user_id, role')
 				.eq('organization_id', orgId)
 				.eq('role', 'owner')
-				.maybeSingle()) as SupabaseResponse<MembershipRow>;
+				.limit(2)) as SupabaseResponse<MembershipRow[]>;
 			assertSupabaseSuccess('table organization_memberships current owner fetch', response);
-			return response.data ? mapMembership(response.data) : null;
+			const rows = response.data ?? [];
+			if (rows.length > 1) {
+				throw new Error('table organization_memberships current owner fetch failed: multiple owners');
+			}
+			return rows[0] ? mapMembership(rows[0]) : null;
 		},
 
 		async setMembershipRole(input) {

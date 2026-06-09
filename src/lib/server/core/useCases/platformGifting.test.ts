@@ -302,6 +302,7 @@ describe('PlatformGifting', () => {
 		await expect(gifting.grantGift({ orgId: 'missing-org', giftTier: 'team', days: 30 })).resolves.toEqual({
 			status: 'not_found'
 		});
+		await expect(gifting.revokeGift('org-1')).resolves.toEqual({ status: 'no_active_gift' });
 		await expect(gifting.extendGift({ orgId: 'org-1', days: 30 })).resolves.toEqual({ status: 'no_active_gift' });
 		expect(audit).not.toHaveBeenCalled();
 		expect(invalidateTierCache).not.toHaveBeenCalled();

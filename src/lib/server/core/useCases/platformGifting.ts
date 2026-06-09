@@ -171,6 +171,7 @@ export function createPlatformGifting(deps: PlatformGiftingDependencies): Platfo
 		async revokeGift(orgId) {
 			const org = await deps.store.getOrganizationGiftState(orgId);
 			if (!org) return { status: 'not_found' };
+			if (!org.giftTier) return { status: 'no_active_gift' };
 
 			await deps.store.revokeGift(orgId);
 			await resumeSubscriptionIfNeeded(org);

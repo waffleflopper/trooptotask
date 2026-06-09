@@ -117,13 +117,20 @@ export const load: PageServerLoad = loadWithAdminContext({
 
 		const { data: org, error: orgError } = await adminClient
 			.from('organizations')
-			.select('id, name, tier, suspended_at, created_at')
+			.select('id, name, tier, gift_tier, gift_expires_at, suspended_at, created_at')
 			.eq('id', orgId)
 			.single();
 
 		if (orgError || !org) throw error(404, 'Organization not found');
-		const giftState = await createSupabasePlatformGifting(ctx).getOrganizationGiftState(orgId);
-		if (!giftState) throw error(500, 'Organization gift state could not be loaded');
+		const giftState = (await createSupabasePlatformGifting(ctx)
+			.getOrganizationGiftState(orgId)
+			.catch((readError) => {
+				console.error('[admin/organizations] Failed to load gift state:', readError);
+				return null;
+			})) ?? {
+			giftTier: org.gift_tier,
+			giftExpiresAt: org.gift_expires_at
+		};
 
 		const memberships = await createSupabasePlatformMembershipAdministration(ctx).listMembers(orgId);
 		const members = memberships.map((m) => ({
@@ -202,17 +209,21 @@ export const actions: Actions = {
 			const targetUserId = formData.get('targetUserId')?.toString() ?? '';
 			if (!validateUUID(targetUserId)) return fail(400, { error: { message: 'Invalid target user ID' } });
 
-			const result = await createSupabasePlatformMembershipAdministration(ctx).makeAdmin({ orgId, targetUserId });
+			try {
+				const result = await createSupabasePlatformMembershipAdministration(ctx).makeAdmin({ orgId, targetUserId });
 
-			switch (result.status) {
-				case 'updated':
-					return { success: true };
-				case 'target_not_member':
-					return fail(400, { error: { message: 'Target user is not a member of this organization' } });
-				case 'already_admin':
-					return fail(400, { error: { message: 'Target user is already an admin' } });
-				case 'already_owner':
-					return fail(400, { error: { message: 'Target user is already the owner' } });
+				switch (result.status) {
+					case 'updated':
+						return { success: true };
+					case 'target_not_member':
+						return fail(400, { error: { message: 'Target user is not a member of this organization' } });
+					case 'already_admin':
+						return fail(400, { error: { message: 'Target user is already an admin' } });
+					case 'already_owner':
+						return fail(400, { error: { message: 'Target user is already the owner' } });
+				}
+			} catch {
+				return fail(500, { error: { message: 'Failed to update membership' } });
 			}
 		}
 	}),
@@ -230,33 +241,39 @@ export const actions: Actions = {
 
 			if (!validateUUID(targetUserId)) return fail(400, { error: { message: 'Invalid target user ID' } });
 
-			const result = await createSupabasePlatformMembershipAdministration(ctx).transferOwnership({
-				orgId,
-				targetUserId,
-				confirmName
-			});
+			try {
+				const result = await createSupabasePlatformMembershipAdministration(ctx).transferOwnership({
+					orgId,
+					targetUserId,
+					confirmName
+				});
 
-			switch (result.status) {
-				case 'updated':
-					return { success: true };
-				case 'organization_not_found':
-					return fail(404, { error: { message: 'Organization not found' } });
-				case 'name_mismatch':
-					return fail(400, { error: { message: 'Organization name does not match' } });
-				case 'target_not_member':
-					return fail(400, { error: { message: 'Target user is not a member of this organization' } });
-				case 'already_owner':
-					return fail(400, { error: { message: 'Target user is already the owner' } });
-				case 'no_current_owner':
-					return fail(500, { error: { message: 'Could not find current owner' } });
-				case 'demotion_failed':
-					return fail(500, { error: { message: 'Transfer failed during demotion' } });
-				case 'promotion_failed':
-					return fail(500, { error: { message: 'Transfer failed during promotion' } });
-				case 'rollback_failed':
-					return fail(500, {
-						error: { message: 'Transfer failed during promotion; original owner could not be restored automatically' }
-					});
+				switch (result.status) {
+					case 'updated':
+						return { success: true };
+					case 'organization_not_found':
+						return fail(404, { error: { message: 'Organization not found' } });
+					case 'name_mismatch':
+						return fail(400, { error: { message: 'Organization name does not match' } });
+					case 'target_not_member':
+						return fail(400, { error: { message: 'Target user is not a member of this organization' } });
+					case 'already_owner':
+						return fail(400, { error: { message: 'Target user is already the owner' } });
+					case 'no_current_owner':
+						return fail(500, { error: { message: 'Could not find current owner' } });
+					case 'current_owner_lookup_failed':
+						return fail(500, { error: { message: 'Could not verify current owner' } });
+					case 'demotion_failed':
+						return fail(500, { error: { message: 'Transfer failed during demotion' } });
+					case 'promotion_failed':
+						return fail(500, { error: { message: 'Transfer failed during promotion' } });
+					case 'rollback_failed':
+						return fail(500, {
+							error: { message: 'Transfer failed during promotion; original owner could not be restored automatically' }
+						});
+				}
+			} catch {
+				return fail(500, { error: { message: 'Transfer failed' } });
 			}
 		}
 	}),
@@ -294,6 +311,9 @@ export const actions: Actions = {
 			try {
 				const result = await createSupabasePlatformGifting(ctx).revokeGift(orgId);
 				if (result.status === 'not_found') return fail(404, { error: { message: 'Organization not found' } });
+				if (result.status === 'no_active_gift') {
+					return fail(400, { error: { message: 'Organization does not have an active gift' } });
+				}
 			} catch {
 				return fail(500, { error: { message: 'Failed to revoke gift' } });
 			}

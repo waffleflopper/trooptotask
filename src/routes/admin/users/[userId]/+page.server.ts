@@ -4,11 +4,13 @@ import { loadWithAdminContext, adminAction } from '$lib/server/adapters/adminAda
 import { getAuthConfirmRedirectTo } from '$lib/server/authConfirm';
 import { createSupabasePlatformAudit } from '$lib/server/adapters/supabasePlatformAudit';
 import { createSupabasePlatformUserDirectory } from '$lib/server/adapters/supabasePlatformUserDirectory';
+import { validateUUID } from '$lib/server/validation';
 
 export const load: PageServerLoad = loadWithAdminContext({
 	page: 'users',
 	fn: async (ctx, event) => {
 		const userId = event.params.userId as string;
+		if (!validateUUID(userId)) throw error(400, 'Invalid user ID');
 
 		const userDetail = await createSupabasePlatformUserDirectory(ctx).getUserDetail(userId);
 		if (userDetail.status === 'not_found') throw error(404, 'User not found');
@@ -29,6 +31,7 @@ export const actions: Actions = {
 		fn: async (ctx, event) => {
 			const { adminClient } = ctx;
 			const userId = event.params.userId as string;
+			if (!validateUUID(userId)) return fail(400, { error: 'Invalid user ID' });
 
 			const { data: authUser, error: authError } = await adminClient.auth.admin.getUserById(userId);
 			if (authError || !authUser?.user?.email) {
@@ -60,6 +63,7 @@ export const actions: Actions = {
 		fn: async (ctx, event) => {
 			const { adminClient } = ctx;
 			const userId = event.params.userId as string;
+			if (!validateUUID(userId)) return fail(400, { error: 'Invalid user ID' });
 
 			const { data: authUser, error: authError } = await adminClient.auth.admin.getUserById(userId);
 			if (authError || !authUser?.user?.email) {

@@ -80,4 +80,26 @@ describe('Supabase PlatformBillingEvents adapter', () => {
 			'table stripe_webhook_events recent events failed: database offline (XX000)'
 		);
 	});
+
+	it('partitions Stripe object identifiers before linking billing snapshots', async () => {
+		const query = {
+			select: vi.fn(() => query),
+			or: vi.fn(async () => ({ data: [], error: null }))
+		};
+		const supabase = {
+			from: vi.fn(() => query)
+		};
+
+		await expect(
+			createSupabasePlatformBillingEventsStore(supabase as never).listSnapshotsForEvents({
+				eventIds: ['evt_123'],
+				objectIds: ['cus_123', 'sub_123', 'manual_object']
+			})
+		).resolves.toEqual([]);
+
+		expect(supabase.from).toHaveBeenCalledWith('organization_billing_snapshots');
+		expect(query.or).toHaveBeenCalledWith(
+			'last_stripe_event_id.in.(evt_123),stripe_subscription_id.in.(sub_123,manual_object),stripe_customer_id.in.(cus_123,manual_object)'
+		);
+	});
 });

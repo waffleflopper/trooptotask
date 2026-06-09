@@ -4,6 +4,12 @@ export interface PlatformOwnerMembershipRow {
 	email: string | null;
 }
 
+export interface PlatformOwnerMembershipMetric {
+	organizationId: string;
+	ownerCount: number;
+	singleOwner: PlatformOwnerMembershipRow | null;
+}
+
 export type PlatformOwnerMembershipStatus =
 	| { kind: 'single'; membership: PlatformOwnerMembershipRow }
 	| { kind: 'none' }
@@ -19,7 +25,7 @@ export interface PlatformMetricsStore {
 	countMembershipsByOrganization(organizationIds: string[]): Promise<Map<string, number>>;
 	countActivePersonnelByOrganization(organizationIds: string[]): Promise<Map<string, number>>;
 	countActivePersonnelForOrganization(organizationId: string): Promise<number | null>;
-	listOwnerMembershipsByOrganization(organizationIds: string[]): Promise<PlatformOwnerMembershipRow[]>;
+	listOwnerMembershipMetricsByOrganization(organizationIds: string[]): Promise<PlatformOwnerMembershipMetric[]>;
 }
 
 export interface PlatformMetrics {
@@ -47,23 +53,29 @@ function normalizeOrganizationIds(organizationIds: string[]): string[] {
 
 function buildOwnerMembershipStatuses(
 	organizationIds: string[],
-	ownerRows: PlatformOwnerMembershipRow[]
+	ownerMetrics: PlatformOwnerMembershipMetric[]
 ): Map<string, PlatformOwnerMembershipStatus> {
-	const ownerRowsByOrg = new Map<string, PlatformOwnerMembershipRow[]>();
-	for (const membership of ownerRows) {
-		const rows = ownerRowsByOrg.get(membership.organizationId) ?? [];
-		rows.push(membership);
-		ownerRowsByOrg.set(membership.organizationId, rows);
+	const ownerMetricsByOrg = new Map<string, PlatformOwnerMembershipMetric>();
+	for (const metric of ownerMetrics) {
+		ownerMetricsByOrg.set(metric.organizationId, metric);
 	}
 
 	const ownersByOrg = new Map<string, PlatformOwnerMembershipStatus>();
 	for (const orgId of organizationIds) {
-		const rows = ownerRowsByOrg.get(orgId) ?? [];
-		if (rows.length === 1) {
-			ownersByOrg.set(orgId, { kind: 'single', membership: rows[0] });
+		const metric = ownerMetricsByOrg.get(orgId);
+		const ownerCount = metric?.ownerCount ?? 0;
+		if (ownerCount === 1 && metric?.singleOwner) {
+			ownersByOrg.set(orgId, { kind: 'single', membership: metric.singleOwner });
 		} else {
-			console.warn('[admin] Organization has unexpected owner membership count:', orgId, rows.length);
-			ownersByOrg.set(orgId, rows.length === 0 ? { kind: 'none' } : { kind: 'multiple', count: rows.length });
+			if (ownerCount === 1) {
+				console.error('[admin] Single-owner Organization metric did not include an owner membership:', orgId);
+			} else if (ownerCount !== 0) {
+				console.warn('[admin] Organization has unexpected owner membership count:', orgId, ownerCount);
+			}
+			ownersByOrg.set(
+				orgId,
+				ownerCount === 0 || ownerCount === 1 ? { kind: 'none' } : { kind: 'multiple', count: ownerCount }
+			);
 		}
 	}
 	return ownersByOrg;
@@ -109,7 +121,7 @@ export function createPlatformMetrics(deps: PlatformMetricsDependencies): Platfo
 			try {
 				return buildOwnerMembershipStatuses(
 					normalizedIds,
-					await deps.store.listOwnerMembershipsByOrganization(normalizedIds)
+					await deps.store.listOwnerMembershipMetricsByOrganization(normalizedIds)
 				);
 			} catch (error) {
 				console.error('[admin] Failed to batch owner memberships:', error);

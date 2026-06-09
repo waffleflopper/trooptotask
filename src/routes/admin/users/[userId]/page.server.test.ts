@@ -1,13 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { platformAuditMock, platformMetricsMock } = vi.hoisted(() => ({
+const { platformAuditMock, platformUserDirectoryMock } = vi.hoisted(() => ({
 	platformAuditMock: {
 		listLogs: vi.fn(),
 		listRecentByOrganization: vi.fn(),
 		listRecentByUser: vi.fn()
 	},
-	platformMetricsMock: {
-		countActivePersonnelByOrganization: vi.fn()
+	platformUserDirectoryMock: {
+		getUserDetail: vi.fn()
 	}
 }));
 
@@ -22,8 +22,8 @@ vi.mock('$lib/server/adapters/supabasePlatformAudit', () => ({
 	createSupabasePlatformAudit: () => platformAuditMock
 }));
 
-vi.mock('$lib/server/adapters/supabasePlatformMetrics', () => ({
-	createSupabasePlatformMetrics: () => platformMetricsMock
+vi.mock('$lib/server/adapters/supabasePlatformUserDirectory', () => ({
+	createSupabasePlatformUserDirectory: () => platformUserDirectoryMock
 }));
 
 import { actions, load } from './+page.server';
@@ -32,48 +32,14 @@ function makeUserDetailLoadClient() {
 	return {
 		auth: {
 			admin: {
-				getUserById: vi.fn().mockResolvedValue({
-					data: {
-						user: {
-							email: 'soldier@example.mil',
-							created_at: '2026-06-01T00:00:00.000Z',
-							last_sign_in_at: '2026-06-08T00:00:00.000Z'
-						}
-					},
-					error: null
+				getUserById: vi.fn(() => {
+					throw new Error('route must use PlatformUserDirectory for user detail shaping');
 				})
 			}
 		},
 		from: vi.fn((table: string) => {
 			if (table === 'audit_logs') throw new Error('route must use PlatformAudit for recent user activity');
-			if (table === 'organization_memberships') {
-				return {
-					select: vi.fn(() => ({
-						eq: vi.fn(() => ({
-							range: vi.fn().mockResolvedValue({
-								data: [
-									{
-										organization_id: 'org-1',
-										role: 'owner',
-										organizations: { id: 'org-1', name: 'Able Company', tier: 'free', gift_tier: null }
-									}
-								],
-								error: null
-							})
-						}))
-					}))
-				};
-			}
-			if (table === 'user_suspensions') {
-				return {
-					select: vi.fn(() => ({
-						eq: vi.fn(() => ({
-							maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null })
-						}))
-					}))
-				};
-			}
-			throw new Error(`Unexpected table ${table}`);
+			throw new Error(`route must not shape ${table} rows directly`);
 		})
 	};
 }
@@ -98,7 +64,28 @@ describe('admin user auth email actions', () => {
 		});
 		inviteUserByEmail.mockResolvedValue({ error: null });
 		resetPasswordForEmail.mockResolvedValue({ error: null });
-		platformMetricsMock.countActivePersonnelByOrganization.mockResolvedValue(new Map([['org-1', 5]]));
+		platformUserDirectoryMock.getUserDetail.mockResolvedValue({
+			status: 'found',
+			detail: {
+				user: {
+					id: 'user-1',
+					email: 'soldier@example.mil',
+					createdAt: '2026-06-01T00:00:00.000Z',
+					lastSignInAt: '2026-06-08T00:00:00.000Z'
+				},
+				organizations: [
+					{
+						id: 'org-1',
+						name: 'Able Company',
+						role: 'owner',
+						subscriptionTier: 'free',
+						personnelCount: 5
+					}
+				],
+				suspension: null,
+				isSuspended: false
+			}
+		});
 		platformAuditMock.listRecentByUser.mockResolvedValue([
 			{
 				id: 'audit-1',
@@ -113,27 +100,66 @@ describe('admin user auth email actions', () => {
 	});
 
 	it('loads recent user activity through PlatformAudit', async () => {
-		const result = (await load({
+		const result = await load({
 			__ctx: {
 				adminClient: makeUserDetailLoadClient(),
 				adminUser: { id: 'admin-1', role: 'super_admin' },
 				audit
 			},
 			params: { userId: 'user-1' }
-		} as unknown as Parameters<typeof load>[0])) as { recentActivity: unknown };
+		} as unknown as Parameters<typeof load>[0]);
 
+		expect(platformUserDirectoryMock.getUserDetail).toHaveBeenCalledWith('user-1');
 		expect(platformAuditMock.listRecentByUser).toHaveBeenCalledWith({ userId: 'user-1', limit: 10 });
-		expect(result.recentActivity).toEqual([
-			{
-				id: 'audit-1',
-				action: 'admin.user.resend_invite',
-				resourceType: 'user',
-				resourceId: 'user-1',
-				orgId: 'org-1',
-				timestamp: '2026-06-08T15:00:00.000Z',
-				severity: 'warning'
-			}
-		]);
+		expect(result).toMatchObject({
+			user: {
+				id: 'user-1',
+				email: 'soldier@example.mil',
+				createdAt: '2026-06-01T00:00:00.000Z',
+				lastSignInAt: '2026-06-08T00:00:00.000Z'
+			},
+			organizations: [
+				{
+					id: 'org-1',
+					name: 'Able Company',
+					role: 'owner',
+					subscriptionTier: 'free',
+					personnelCount: 5
+				}
+			],
+			suspension: null,
+			isSuspended: false,
+			recentActivity: [
+				{
+					id: 'audit-1',
+					action: 'admin.user.resend_invite',
+					resourceType: 'user',
+					resourceId: 'user-1',
+					orgId: 'org-1',
+					timestamp: '2026-06-08T15:00:00.000Z',
+					severity: 'warning'
+				}
+			]
+		});
+	});
+
+	it('reports auth-provider user detail failures as server errors', async () => {
+		platformUserDirectoryMock.getUserDetail.mockResolvedValueOnce({
+			status: 'auth_error',
+			message: 'identity provider unavailable'
+		});
+
+		await expect(
+			load({
+				__ctx: {
+					adminClient: makeUserDetailLoadClient(),
+					adminUser: { id: 'admin-1', role: 'super_admin' },
+					audit
+				},
+				params: { userId: 'user-1' }
+			} as unknown as Parameters<typeof load>[0])
+		).rejects.toMatchObject({ status: 500 });
+		expect(platformAuditMock.listRecentByUser).not.toHaveBeenCalled();
 	});
 
 	it('resendInvite uses the app-owned invite confirmation redirect', async () => {

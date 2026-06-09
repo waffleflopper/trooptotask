@@ -15,10 +15,11 @@ Each entry separates:
 	- many server paths already use ports, adapters, entities, and use cases
 	- billing organization-state reads and writes plus the shared export-record lifecycle now run through app-owned store-backed helpers in `#619`
 	- billing cancellation now acknowledges successful Stripe cancellation even if the immediate local organization reset fails, relying on the existing Stripe deleted-subscription webhook as the documented reconciliation path in `#637`
-	- Critical Tasks workspace settings now load through an app-owned use case instead of the route layout
-	- the legacy platform invite-code runtime route has been removed
-	- Platform Administration aggregate Organization metrics now route through the `PlatformMetrics` use case and Supabase adapter instead of the route-level helper
-	- multiple non-adapter routes still depend directly on `locals.supabase`, especially admin operations and some remaining layout helpers
+		- Critical Tasks workspace settings now load through an app-owned use case instead of the route layout
+		- the legacy platform invite-code runtime route has been removed
+		- Platform Administration aggregate Organization metrics now route through the `PlatformMetrics` use case and Supabase adapter instead of the route-level helper
+		- Platform Administration announcements CRUD now routes through the `PlatformAnnouncements` use case and Supabase adapter instead of direct route-level table calls
+		- multiple non-adapter routes still depend directly on `locals.supabase`, especially admin operations and some remaining layout helpers
 - Intended direction:
   - outside auth and adapter edges, business logic should be provider-agnostic
 - Why this matters:

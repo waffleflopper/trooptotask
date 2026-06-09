@@ -3,7 +3,7 @@ import type { PageServerLoad, Actions } from './$types';
 import { loadWithAdminContext, adminAction } from '$lib/server/adapters/adminAdapter';
 import { getAuthConfirmRedirectTo } from '$lib/server/authConfirm';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination';
-import { type AdminMetricsClient, fetchPersonnelCountsByOrganization } from '../../adminOrganizationMetrics.server';
+import { createSupabasePlatformMetrics } from '$lib/server/adapters/supabasePlatformMetrics';
 
 export const load: PageServerLoad = loadWithAdminContext({
 	page: 'users',
@@ -44,10 +44,7 @@ export const load: PageServerLoad = loadWithAdminContext({
 		const orgIds = (orgsResult.data ?? [])
 			.map((o: Record<string, unknown>) => (o.organizations as Record<string, unknown> | null)?.id)
 			.filter((id): id is string => typeof id === 'string');
-		const personnelCounts = await fetchPersonnelCountsByOrganization(
-			adminClient as unknown as AdminMetricsClient,
-			orgIds
-		);
+		const personnelCounts = await createSupabasePlatformMetrics(ctx).countActivePersonnelByOrganization(orgIds);
 
 		const organizations = (orgsResult.data ?? []).map((o: Record<string, unknown>) => {
 			const org = o.organizations as Record<string, unknown> | null;

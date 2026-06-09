@@ -17,6 +17,7 @@ Each entry separates:
 	- billing cancellation now acknowledges successful Stripe cancellation even if the immediate local organization reset fails, relying on the existing Stripe deleted-subscription webhook as the documented reconciliation path in `#637`
 	- Critical Tasks workspace settings now load through an app-owned use case instead of the route layout
 	- the legacy platform invite-code runtime route has been removed
+	- Platform Administration aggregate Organization metrics now route through the `PlatformMetrics` use case and Supabase adapter instead of the route-level helper
 	- multiple non-adapter routes still depend directly on `locals.supabase`, especially admin operations and some remaining layout helpers
 - Intended direction:
   - outside auth and adapter edges, business logic should be provider-agnostic

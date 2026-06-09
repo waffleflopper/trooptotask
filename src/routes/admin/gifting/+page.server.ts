@@ -5,12 +5,8 @@ import { pauseSubscription, resumeSubscription } from '$lib/server/stripe';
 import type { Tier } from '$lib/types/subscription';
 import { invalidateTierCache } from '$lib/server/subscription';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination';
-import {
-	type AdminMetricsClient,
-	displayOwnerMembership,
-	fetchOwnerMembershipsByOrganization,
-	fetchPersonnelCountsByOrganization
-} from '../adminOrganizationMetrics.server';
+import { createSupabasePlatformMetrics } from '$lib/server/adapters/supabasePlatformMetrics';
+import { displayOwnerMembership } from '$lib/server/core/useCases/platformMetrics';
 
 const TIER_RANK: Record<string, number> = { free: 1, team: 2, unit: 3 };
 
@@ -54,10 +50,10 @@ export const load: PageServerLoad = loadWithAdminContext({
 		const allOrgs = (orgs ?? []) as OrgRow[];
 
 		const orgIds = allOrgs.map((org) => org.id);
-		const metricsClient = adminClient as unknown as AdminMetricsClient;
+		const platformMetrics = createSupabasePlatformMetrics(ctx);
 		const [personnelCounts, ownerMemberships] = await Promise.all([
-			fetchPersonnelCountsByOrganization(metricsClient, orgIds),
-			fetchOwnerMembershipsByOrganization(metricsClient, orgIds)
+			platformMetrics.countActivePersonnelByOrganization(orgIds),
+			platformMetrics.getOwnerMembershipsByOrganization(orgIds)
 		]);
 
 		let organizations = allOrgs.map((org) => ({

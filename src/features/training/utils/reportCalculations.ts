@@ -1,6 +1,12 @@
 import type { Personnel } from '$lib/types';
 import type { TrainingType, PersonnelTraining, TrainingStatus } from '$features/training/training.types';
 import { getTrainingStatus, type TrainingStatusInfo } from './trainingStatus';
+import {
+	tallyReadiness,
+	tallyReadinessBy,
+	type ReadinessFact,
+	type ReadinessTallyConfig
+} from '$lib/domain/readinessRollup';
 import { addTableSheet, createWorkbook, downloadWorkbook, type Workbook, type WorkbookRow } from '$lib/export/workbook';
 
 export interface ReportFilters {
@@ -76,15 +82,35 @@ function buildTrainingMap(trainings: PersonnelTraining[]): Map<string, Personnel
 	return map;
 }
 
-function computeReadinessFromStatuses(statuses: TrainingStatusInfo[]): number {
-	let current = 0;
-	let applicable = 0;
-	for (const s of statuses) {
-		if (s.status === 'not-required' || s.status === 'exempt') continue;
-		applicable++;
-		if (s.status === 'current') current++;
+/**
+ * Training's Readiness Rollup convention: ready = current ONLY (warning states
+ * are applicable but not ready), exempt/not-required cells stay visible in
+ * stateCounts without entering the denominator, and an empty denominator
+ * reports 0% (the ICT matrix diverges to null — see CONTEXT.md).
+ */
+const TRAINING_ROLLUP: ReadinessTallyConfig<TrainingStatus, 0> = {
+	readyStates: ['current'],
+	inapplicableStates: ['not-required', 'exempt'],
+	zeroApplicablePercent: 0
+};
+
+// Non-compliance is a second fold with the non-compliant states as numerator,
+// never 100 − compliance: rounding makes the two figures non-complementary.
+const TRAINING_NON_COMPLIANCE: ReadinessTallyConfig<TrainingStatus, 0> = {
+	...TRAINING_ROLLUP,
+	readyStates: ['warning-yellow', 'warning-orange', 'expired', 'not-completed']
+};
+
+/** Required (non-optional) Training Report Matrix cells as Readiness Rollup facts. */
+function matrixToReadinessFacts(matrix: TrainingReportMatrix): ReadinessFact<TrainingStatus>[] {
+	const facts: ReadinessFact<TrainingStatus>[] = [];
+	for (const row of matrix.rows) {
+		for (const cell of row.cells.values()) {
+			if (cell.isOptional) continue;
+			facts.push({ subjectKey: row.person.id, requirementKey: cell.trainingTypeId, state: cell.status });
+		}
 	}
-	return applicable === 0 ? 0 : Math.round((current / applicable) * 100);
+	return facts;
 }
 
 export function filterPersonnel(personnel: Personnel[], filters: ReportFilters): Personnel[] {
@@ -128,125 +154,75 @@ export function buildTrainingReportMatrix(
 
 export function computeReadinessDashboardFromMatrix(matrix: TrainingReportMatrix): ReadinessDashboard {
 	const requiredTypes = matrix.trainingTypes.filter((type) => !type.isOptional);
+	const requiredTypeIds = requiredTypes.map((type) => type.id);
+	const facts = matrixToReadinessFacts(matrix);
 
+	const overall = tallyReadiness(facts, TRAINING_ROLLUP);
 	const statusCounts = {
-		current: 0,
-		warningYellow: 0,
-		warningOrange: 0,
-		expired: 0,
-		notCompleted: 0
+		current: overall.stateCounts.get('current') ?? 0,
+		warningYellow: overall.stateCounts.get('warning-yellow') ?? 0,
+		warningOrange: overall.stateCounts.get('warning-orange') ?? 0,
+		expired: overall.stateCounts.get('expired') ?? 0,
+		notCompleted: overall.stateCounts.get('not-completed') ?? 0
 	};
 
-	const allStatuses: TrainingStatusInfo[] = [];
-	for (const row of matrix.rows) {
-		for (const cell of row.cells.values()) {
-			if (cell.isOptional) continue;
-			const statusInfo = cellToStatusInfo(cell);
-			allStatuses.push(statusInfo);
+	// Per-type breakdown and worst types: two folds over the same facts.
+	const byType = tallyReadinessBy(facts, TRAINING_ROLLUP, (fact) => fact.requirementKey, {
+		seedKeys: requiredTypeIds
+	});
+	const byTypeNonCompliance = tallyReadinessBy(facts, TRAINING_NON_COMPLIANCE, (fact) => fact.requirementKey, {
+		seedKeys: requiredTypeIds
+	});
 
-			switch (statusInfo.status) {
-				case 'current':
-					statusCounts.current++;
-					break;
-				case 'warning-yellow':
-					statusCounts.warningYellow++;
-					break;
-				case 'warning-orange':
-					statusCounts.warningOrange++;
-					break;
-				case 'expired':
-					statusCounts.expired++;
-					break;
-				case 'not-completed':
-					statusCounts.notCompleted++;
-					break;
-			}
-		}
-	}
-
-	const readinessPercent = computeReadinessFromStatuses(allStatuses);
-
-	// Per-type breakdown and worst types (reuse cached statuses)
-	const typeBreakdown: TypeBreakdown[] = [];
-	const typeStats: Array<{ typeId: string; typeName: string; nonComplianceRate: number }> = [];
-	for (const type of requiredTypes) {
-		let applicable = 0;
-		let nonCompliant = 0;
-		let current = 0;
-		let warningYellow = 0;
-		let warningOrange = 0;
-		let expired = 0;
-		let notCompleted = 0;
-		for (const row of matrix.rows) {
-			const cell = row.cells.get(type.id);
-			if (!cell) continue;
-			const statusInfo = cellToStatusInfo(cell);
-			if (statusInfo.status === 'not-required' || statusInfo.status === 'exempt') continue;
-			applicable++;
-			switch (statusInfo.status) {
-				case 'current':
-					current++;
-					break;
-				case 'warning-yellow':
-					warningYellow++;
-					nonCompliant++;
-					break;
-				case 'warning-orange':
-					warningOrange++;
-					nonCompliant++;
-					break;
-				case 'expired':
-					expired++;
-					nonCompliant++;
-					break;
-				case 'not-completed':
-					notCompleted++;
-					nonCompliant++;
-					break;
-			}
-		}
-		const nonComplianceRate = applicable === 0 ? 0 : Math.round((nonCompliant / applicable) * 100);
-		const complianceRate = applicable === 0 ? 0 : Math.round((current / applicable) * 100);
-		typeStats.push({ typeId: type.id, typeName: type.name, nonComplianceRate });
-		typeBreakdown.push({
+	const typeBreakdown: TypeBreakdown[] = requiredTypes.map((type) => {
+		const tally = byType.get(type.id)!;
+		return {
 			typeId: type.id,
 			typeName: type.name,
-			complianceRate,
-			current,
-			warningYellow,
-			warningOrange,
-			expired,
-			notCompleted,
-			applicable
-		});
-	}
+			complianceRate: tally.percent,
+			current: tally.stateCounts.get('current') ?? 0,
+			warningYellow: tally.stateCounts.get('warning-yellow') ?? 0,
+			warningOrange: tally.stateCounts.get('warning-orange') ?? 0,
+			expired: tally.stateCounts.get('expired') ?? 0,
+			notCompleted: tally.stateCounts.get('not-completed') ?? 0,
+			applicable: tally.applicable
+		};
+	});
 
-	typeStats.sort((a, b) => b.nonComplianceRate - a.nonComplianceRate);
-	const worstTypes = typeStats.filter((t) => t.nonComplianceRate > 0).slice(0, 5);
+	const worstTypes = requiredTypes
+		.map((type) => ({
+			typeId: type.id,
+			typeName: type.name,
+			nonComplianceRate: byTypeNonCompliance.get(type.id)!.percent
+		}))
+		.sort((a, b) => b.nonComplianceRate - a.nonComplianceRate)
+		.filter((t) => t.nonComplianceRate > 0)
+		.slice(0, 5);
 
-	// Group comparison (reuse cached statuses)
-	const groupMap = new Map<string, { groupName: string; statuses: TrainingStatusInfo[] }>();
+	// Group comparison: subject-group fold. Seeds keep groups present even when
+	// every cell for the group is optional (zero facts); first row's name wins.
+	const groupIds: string[] = [];
+	const groupOf = new Map<string, string>();
+	const groupNames = new Map<string, string>();
 	for (const row of matrix.rows) {
-		const person = row.person;
-		const gid = person.groupId ?? 'unassigned';
-		const gname = person.groupName || 'Unassigned';
-		if (!groupMap.has(gid)) {
-			groupMap.set(gid, { groupName: gname, statuses: [] });
-		}
-		const group = groupMap.get(gid)!;
-		for (const type of requiredTypes) {
-			const cell = row.cells.get(type.id);
-			if (cell) group.statuses.push(cellToStatusInfo(cell));
+		const gid = row.person.groupId ?? 'unassigned';
+		groupOf.set(row.person.id, gid);
+		if (!groupNames.has(gid)) {
+			groupNames.set(gid, row.person.groupName || 'Unassigned');
+			groupIds.push(gid);
 		}
 	}
+	const byGroup = tallyReadinessBy(facts, TRAINING_ROLLUP, (fact) => groupOf.get(fact.subjectKey)!, {
+		seedKeys: groupIds
+	});
 
-	const groupComparison = Array.from(groupMap.entries()).map(([groupId, { groupName, statuses }]) => ({
+	const groupComparison = Array.from(byGroup.entries()).map(([groupId, tally]) => ({
 		groupId,
-		groupName,
-		readinessPercent: computeReadinessFromStatuses(statuses)
+		groupName: groupNames.get(groupId)!,
+		readinessPercent: tally.percent
 	}));
 
-	return { readinessPercent, statusCounts, worstTypes, groupComparison, typeBreakdown };
+	return { readinessPercent: overall.percent, statusCounts, worstTypes, groupComparison, typeBreakdown };
 }
 
 export function computeReadinessDashboard(
@@ -277,15 +253,6 @@ export function buildPivotTable(
 	trainings: PersonnelTraining[]
 ): PivotRow[] {
 	return buildPivotTableFromMatrix(buildTrainingReportMatrix(personnel, types, trainings));
-}
-
-function cellToStatusInfo(cell: TrainingReportMatrixCell): TrainingStatusInfo {
-	return {
-		status: cell.status,
-		color: '',
-		label: cell.label,
-		daysUntilExpiration: null
-	};
 }
 
 function trainingReportWorkbookColumns(types: TrainingType[]) {

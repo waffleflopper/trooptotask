@@ -446,6 +446,10 @@ _Avoid_: Training type
 The shared, provider-free determination of whether a dated requirement is still current, expiring, expired, or has no usable date, given a completion or expiration date, a resolved expiration window, ordered warning thresholds, and an as-of date. It is the single currency clock behind both **Training Type** status and **Critical Task** status. Currency Status does not decide applicability or exemption (that gate runs before it and is feature-owned), does not own display color or label text (that presenter runs after it), and does not interpret a null expiration window — each feature resolves its effective window first, since a null window means "never expires" for **Training** but "use the org default" for **Critical Tasks**. The four currency states are `not-recorded`, `current`, `expiring`, and `expired`.
 _Avoid_: Compliance status, readiness, training status, ICT status when the shared currency determination is meant
 
+**Readiness Rollup**:
+The shared, provider-free aggregation fold that turns already-classified **Soldier** × requirement facts into ready/applicable tallies, per-state counts, and the single rounded readiness percent — overall, per key, or on a two-dimensional grid such as MOS × task category. It is the aggregation layer above **Currency Status** and the one home for the percent convention `Math.round((ready / applicable) × 100)` with an explicit per-feature zero-applicable knob (`0` for **Training**, `null` for the **Critical Tasks** readiness matrix). It receives facts already classified by feature adapters, including all as-of time travel, and treats feature states as opaque; applicability gating and archived-record skipping run before it, and labels, colors, tiers, thresholds, display names, headcounts, semantic sorting, and top-N selection run after it as feature presenters — the same before/after discipline as **Currency Status**. Seeded keys let callers guarantee axis values that exist with zero facts, such as a MOS whose Soldiers have no applicable tasks. The **Training Report Matrix** stays feature-owned and is a source of facts for a Readiness Rollup, never a product of one.
+_Avoid_: Readiness calculation helper, compliance engine, per-feature readiness counting loop, dashboard math, pivot builder when the shared fold is meant
+
 ## Relationships
 
 - An **Organization** contains **Groups**, **Personnel Records**, settings, and organization-scoped feature data.
@@ -601,6 +605,9 @@ _Avoid_: Compliance status, readiness, training status, ICT status when the shar
 - Reapplying an **Advanced Duty Revision Draft** may allow reviewable conflicts such as overlapping duty, cooldown, unavailable status, replacement of an existing slot assignment, or soft-preference warnings only with explicit confirmation and a required reason.
 - **Advanced Duty Revision Change Sets** should be visible in the **Advanced Duty Workspace** as a simple revision history with date, actor, reason, and changed slots.
 - The **Advanced Duty Workspace** should keep the active run review primary while moving applied-event inspection to a reachable but separate view.
+- **Training** and **Critical Tasks** readiness numbers should come from **Readiness Rollup** folds rather than hand-rolled per-feature counting loops; "ready" stays feature-defined (`current` for **Training**; `current` or `expiring-soon` for **Critical Tasks**).
+- A **Readiness Rollup** keeps today's divergent conventions as explicit per-feature configuration — zero-applicable percent and inapplicable states — rather than silently unifying them; unifying a convention is a separate, reviewable decision.
+- Non-compliance rates are a second **Readiness Rollup** fold with an inverted ready set, never `100 − percent`, because rounding makes the two figures non-complementary.
 
 ## Example Dialogue
 

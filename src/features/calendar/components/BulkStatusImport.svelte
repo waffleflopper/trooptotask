@@ -161,6 +161,10 @@
 		selection.toggleAllPageRows(true);
 	}
 
+	function hasPreviewRows(rows: string[][]): boolean {
+		return buildPreviewRows(rows).length > 0;
+	}
+
 	async function handleFileUpload(e: Event) {
 		const input = e.target as HTMLInputElement;
 		const file = input.files?.[0];
@@ -169,7 +173,7 @@
 		try {
 			const parsedRows = await parseFile(file);
 
-			if (parsedRows.length < 2) {
+			if (!hasPreviewRows(parsedRows)) {
 				parseError = 'File appears to be empty or has no data rows.';
 				rawRows = [];
 				return;
@@ -186,7 +190,7 @@
 		try {
 			const parsedRows = await parseCSVText(pasteText);
 
-			if (parsedRows.length < 2) {
+			if (!hasPreviewRows(parsedRows)) {
 				parseError = 'No data rows found in pasted text.';
 				rawRows = [];
 				return;
@@ -246,8 +250,14 @@
 			if (inserted.length > 0) {
 				toastStore.success(`Imported ${inserted.length} status ${inserted.length === 1 ? 'entry' : 'entries'}`);
 				notifyCompleteOnce();
+			} else {
+				toastStore.error('No status entries were imported. Review the results and try again.');
 			}
 			step = 'results';
+		} catch {
+			importResult = { inserted: 0, notInserted: plan.records.length, skipped: plan.skipped.length };
+			step = 'results';
+			toastStore.error('No status entries were imported. Review the results and try again.');
 		} finally {
 			importing = false;
 		}

@@ -2,6 +2,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import BulkStatusImport from './BulkStatusImport.svelte';
+import { availabilityStore } from '$features/calendar/stores/availability.svelte';
 import type { Personnel, StatusType } from '$lib/types';
 
 afterEach(() => {
@@ -19,10 +20,12 @@ describe('BulkStatusImport', () => {
 			} as Response;
 		});
 		vi.stubGlobal('fetch', fetchMock);
+		// Submission goes through the availability store's batch seam, which resolves its
+		// endpoint from the loaded org.
+		availabilityStore.load([], 'org-1');
 
 		render(BulkStatusImport, {
 			props: {
-				orgId: 'org-1',
 				personnel: [
 					{
 						id: 'person-1',

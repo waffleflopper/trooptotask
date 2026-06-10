@@ -43,18 +43,59 @@ describe('availabilityStore', () => {
 	});
 
 	describe('addBatch', () => {
+		function record(n: number): Omit<AvailabilityEntry, 'id'> {
+			return { personnelId: `p${n}`, statusTypeId: 'st1', startDate: '2026-04-01', endDate: '2026-04-05', note: null };
+		}
+
 		it('should add multiple entries optimistically', async () => {
-			const inserted: AvailabilityEntry[] = [
-				{ id: '4', personnelId: 'p3', statusTypeId: 'st1', startDate: '2026-04-01', endDate: '2026-04-05', note: null }
-			];
+			const inserted: AvailabilityEntry[] = [{ id: '4', ...record(3) }];
 			vi.stubGlobal('fetch', mockFetch({ inserted }));
 
-			const result = await availabilityStore.addBatch([
-				{ personnelId: 'p3', statusTypeId: 'st1', startDate: '2026-04-01', endDate: '2026-04-05', note: null }
-			]);
+			const result = await availabilityStore.addBatch([record(3)]);
 
 			expect(result).toHaveLength(1);
 			expect(availabilityStore.items).toHaveLength(4);
+		});
+
+		it('submits large batches in 500-record chunks', async () => {
+			const fetchMock = vi.fn().mockImplementation((_url: string, init: RequestInit) => {
+				const { records } = JSON.parse(init.body as string);
+				const inserted = records.map((r: Omit<AvailabilityEntry, 'id'>, i: number) => ({ id: `new-${i}`, ...r }));
+				return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ inserted }) });
+			});
+			vi.stubGlobal('fetch', fetchMock);
+
+			const result = await availabilityStore.addBatch(Array.from({ length: 501 }, (_, i) => record(i)));
+
+			expect(fetchMock).toHaveBeenCalledTimes(2);
+			expect(JSON.parse(fetchMock.mock.calls[0][1].body).records).toHaveLength(500);
+			expect(JSON.parse(fetchMock.mock.calls[1][1].body).records).toHaveLength(1);
+			expect(result).toHaveLength(501);
+		});
+
+		it('keeps going past a failed chunk and returns the inserted entries', async () => {
+			let call = 0;
+			const fetchMock = vi.fn().mockImplementation((_url: string, init: RequestInit) => {
+				call += 1;
+				if (call === 1) return Promise.resolve({ ok: false, status: 500, json: () => Promise.resolve({}) });
+				const { records } = JSON.parse(init.body as string);
+				const inserted = records.map((r: Omit<AvailabilityEntry, 'id'>, i: number) => ({ id: `new-${i}`, ...r }));
+				return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ inserted }) });
+			});
+			vi.stubGlobal('fetch', fetchMock);
+
+			const result = await availabilityStore.addBatch(Array.from({ length: 501 }, (_, i) => record(i)));
+
+			expect(result).toHaveLength(1);
+		});
+
+		it('resolves to an empty list when every chunk fails', async () => {
+			vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 500, json: () => Promise.resolve({}) }));
+
+			const result = await availabilityStore.addBatch([record(3)]);
+
+			expect(result).toEqual([]);
+			expect(availabilityStore.items).toHaveLength(3);
 		});
 	});
 

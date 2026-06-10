@@ -10,21 +10,29 @@
 	import { NativeSelect } from '$lib/components/ui/native-select';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { Textarea } from '$lib/components/ui/textarea';
-	import { parseFile, parseCSVText, parseDateString } from '$lib/utils/csvParser';
+	import { parseFile, parseCSVText } from '$lib/utils/csvParser';
 	import { autoMapColumns, detectHeaderRow, STATUS_IMPORT_COLUMNS } from '$lib/utils/columnMapping';
-	import { validateDateRange, type AvailabilityRecord } from '$features/calendar/utils/availabilityMutation';
+	import {
+		buildAvailabilityImportPlan,
+		buildRosterNameIndex,
+		planStatusResolution,
+		validateAvailabilityImportRow,
+		type AvailabilityImportIssueCode,
+		type AvailabilityImportRowValidation,
+		type StatusResolution
+	} from '$features/calendar/utils/availabilityImport';
+	import { availabilityStore } from '$features/calendar/stores/availability.svelte';
 	import type { Personnel, StatusType } from '$lib/types';
 	import { tick } from 'svelte';
-	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
+	import { SvelteMap } from 'svelte/reactivity';
 
 	interface Props {
 		personnel: Personnel[];
 		statusTypes: StatusType[];
-		orgId: string;
 		onComplete: () => void;
 	}
 
-	let { personnel, statusTypes, orgId, onComplete }: Props = $props();
+	let { personnel, statusTypes, onComplete }: Props = $props();
 
 	// State machine
 	type Step = 'upload' | 'preview' | 'resolve' | 'results';
@@ -38,23 +46,37 @@
 	// Resolve state
 	type StatusMapping = { csvName: string; count: number; resolvedId: string | null };
 	let unmatchedStatuses = $state<StatusMapping[]>([]);
-	let savedCheckedRows = $state<Record<string, string>[]>([]);
+	let savedCheckedRows = $state<{ rowNumber: number; values: Record<string, string> }[]>([]);
 
 	// Import state
 	let importing = $state(false);
-	let importResult = $state<{ inserted: number; errors: { row: number; message: string }[] } | null>(null);
+	let importResult = $state<{ inserted: number; notInserted: number; skipped: number } | null>(null);
 	let completionNotified = false;
 
-	type RowValidation = {
-		valid: boolean;
-		cellErrors: Record<string, string>;
-		cellWarnings: Record<string, string>;
+	/**
+	 * The Availability Status Import rules module is string-free; this map is the one
+	 * place its issue codes become user-facing copy.
+	 */
+	const ISSUE_COPY: Record<AvailabilityImportIssueCode, string> = {
+		'last-name-required': 'Last name is required',
+		'first-name-required': 'First name is required',
+		'person-not-found': 'Person not found',
+		'ambiguous-name': 'Multiple people with this name — add Rank column to disambiguate',
+		'ambiguous-name-and-rank': 'Multiple people match this name and rank',
+		'rank-no-match': 'Rank does not match any person with this name',
+		'rank-conflict': 'Rank does not match this person’s roster rank — the row will import against them',
+		'start-date-required': 'Start date is required',
+		'start-date-invalid': 'Invalid start date',
+		'end-date-required': 'End date is required',
+		'end-date-invalid': 'Invalid end date',
+		'end-before-start': 'End date must be on or after start date',
+		'status-required': 'Status is required'
 	};
 
 	type PreviewRow = {
 		rowNumber: number;
 		values: Record<string, string>;
-		validation: RowValidation;
+		validation: AvailabilityImportRowValidation;
 	};
 
 	const previewRows = $derived.by<PreviewRow[]>(() => buildPreviewRows(rawRows));
@@ -66,7 +88,9 @@
 	}));
 	const validationSummary = $derived.by(() => {
 		const invalidCount = previewRows.filter((row) => !row.validation.valid).length;
-		const warningCount = previewRows.filter((row) => Object.keys(row.validation.cellWarnings).length > 0).length;
+		const warningCount = previewRows.filter((row) =>
+			row.validation.issues.some((issue) => issue.severity === 'warning')
+		).length;
 		return { invalidCount, warningCount };
 	});
 	const selection = DataTable.useDataTableSelection<PreviewRow>({
@@ -75,26 +99,7 @@
 		disabledRow: (row) => !row.validation.valid
 	});
 
-	// Personnel lookup map: "lastname|firstname" -> Personnel[]
-	const personnelMap = $derived.by(() => {
-		const map = new SvelteMap<string, Personnel[]>();
-		for (const p of personnel) {
-			const key = `${p.lastName.toLowerCase()}|${p.firstName.toLowerCase()}`;
-			const existing = map.get(key) || [];
-			existing.push(p);
-			map.set(key, existing);
-		}
-		return map;
-	});
-
-	// Status type lookup map: lowercase name -> StatusType
-	const statusTypeMap = $derived.by(() => {
-		const map = new SvelteMap<string, StatusType>();
-		for (const st of statusTypes) {
-			map.set(st.name.toLowerCase(), st);
-		}
-		return map;
-	});
+	const rosterNameIndex = $derived(buildRosterNameIndex(personnel));
 
 	const allResolved = $derived(unmatchedStatuses.length === 0 || unmatchedStatuses.every((s) => s.resolvedId !== null));
 
@@ -121,7 +126,7 @@
 				}
 			}
 
-			const validation = validateRow(values);
+			const validation = validateAvailabilityImportRow(values, rosterNameIndex);
 			return {
 				rowNumber: rowIndex + (hasHeaders ? 2 : 1),
 				values,
@@ -130,12 +135,19 @@
 		});
 	}
 
+	function issueCopy(severity: 'error' | 'warning', row: PreviewRow): string {
+		return row.validation.issues
+			.filter((issue) => issue.severity === severity)
+			.map((issue) => ISSUE_COPY[issue.code])
+			.join('; ');
+	}
+
 	function rowStatus(row: PreviewRow): BulkImportRowStatus {
 		if (!row.validation.valid) {
-			return { tone: 'error', label: 'Error', description: Object.values(row.validation.cellErrors).join('; ') };
+			return { tone: 'error', label: 'Error', description: issueCopy('error', row) };
 		}
-		if (Object.keys(row.validation.cellWarnings).length > 0) {
-			return { tone: 'warning', label: 'Review', description: Object.values(row.validation.cellWarnings).join('; ') };
+		if (row.validation.issues.some((issue) => issue.severity === 'warning')) {
+			return { tone: 'warning', label: 'Review', description: issueCopy('warning', row) };
 		}
 		return { tone: 'valid', label: 'Ready' };
 	}
@@ -184,96 +196,18 @@
 		}
 	}
 
-	function validateRow(row: Record<string, string>): RowValidation {
-		const errors: Record<string, string> = {};
-
-		// Personnel matching
-		const lastName = (row.lastName || '').trim();
-		const firstName = (row.firstName || '').trim();
-		if (!lastName) {
-			errors.lastName = 'Required';
-		} else if (!firstName) {
-			errors.firstName = 'Required';
-		} else {
-			const key = `${lastName.toLowerCase()}|${firstName.toLowerCase()}`;
-			const matches = personnelMap.get(key) || [];
-			if (matches.length === 0) {
-				errors.lastName = 'Person not found';
-			} else if (matches.length > 1) {
-				const rank = (row.rank || '').trim().toLowerCase();
-				if (rank) {
-					const rankMatches = matches.filter((p) => p.rank?.toLowerCase() === rank);
-					if (rankMatches.length === 0) {
-						errors.rank = 'Rank does not match any person with this name';
-					} else if (rankMatches.length > 1) {
-						errors.lastName = 'Multiple people match this name and rank';
-					}
-				} else {
-					errors.lastName = 'Multiple people with this name — add Rank column to disambiguate';
-				}
-			}
-		}
-
-		// Date validation
-		const startDate = parseDateString((row.startDate || '').trim());
-		const endDate = parseDateString((row.endDate || '').trim());
-		if (!row.startDate?.trim()) {
-			errors.startDate = 'Required';
-		} else if (!startDate) {
-			errors.startDate = 'Invalid date';
-		}
-		if (!row.endDate?.trim()) {
-			errors.endDate = 'Required';
-		} else if (!endDate) {
-			errors.endDate = 'Invalid date';
-		}
-		if (startDate && endDate) {
-			const rangeError = validateDateRange(startDate, endDate).error;
-			if (rangeError) errors.endDate = rangeError;
-		}
-
-		// Status — just check it's present (resolution happens in Step 3)
-		if (!(row.statusType || '').trim()) {
-			errors.statusType = 'Required';
-		}
-
-		return {
-			valid: Object.keys(errors).length === 0,
-			cellErrors: errors,
-			cellWarnings: {}
-		};
-	}
-
 	function handlePreviewNext() {
-		const checkedRows = selection.selectedRows.map((row) => row.values);
+		const checkedRows = selection.selectedRows.map((row) => ({ rowNumber: row.rowNumber, values: row.values }));
 		if (checkedRows.length === 0) return;
 		savedCheckedRows = checkedRows;
 
-		// Collect unique status names and check matches
-		const statusCounts = new SvelteMap<string, number>();
-		for (const row of checkedRows) {
-			const name = (row.statusType || '').trim();
-			if (name) {
-				const lower = name.toLowerCase();
-				statusCounts.set(lower, (statusCounts.get(lower) || 0) + 1);
-			}
-		}
-
-		// Build unmatched list
-		const unmatched: StatusMapping[] = [];
-		for (const [lower, count] of statusCounts) {
-			const matched = statusTypeMap.get(lower);
-			if (!matched) {
-				const originalName =
-					checkedRows.find((r) => (r.statusType || '').trim().toLowerCase() === lower)?.statusType?.trim() || lower;
-				unmatched.push({ csvName: originalName, count, resolvedId: null });
-			}
-		}
-
-		unmatchedStatuses = unmatched;
+		unmatchedStatuses = planStatusResolution(
+			checkedRows.map((row) => row.values),
+			statusTypes
+		).map((unresolved) => ({ ...unresolved, resolvedId: null }));
 
 		// If no unmatched, go straight to import
-		if (unmatched.length === 0) {
+		if (unmatchedStatuses.length === 0) {
 			handleImport();
 		} else {
 			step = 'resolve';
@@ -281,93 +215,35 @@
 	}
 
 	async function handleImport() {
-		const checkedRows = savedCheckedRows;
-		if (checkedRows.length === 0) return;
+		if (savedCheckedRows.length === 0) return;
 
-		// Build status resolution map: lowercase csv name -> statusTypeId
-		const statusResolutionMap = new SvelteMap<string, string>();
-		// Add matched statuses
-		for (const [lower, st] of statusTypeMap) {
-			statusResolutionMap.set(lower, st.id);
-		}
-		// Add resolved unmatched statuses
-		for (const mapping of unmatchedStatuses) {
-			if (mapping.resolvedId && mapping.resolvedId !== '__skip__') {
-				statusResolutionMap.set(mapping.csvName.toLowerCase(), mapping.resolvedId);
-			}
-		}
-
-		// Build records
-		const records: AvailabilityRecord[] = [];
-		const skippedStatuses = new SvelteSet(
-			unmatchedStatuses.filter((m) => m.resolvedId === '__skip__').map((m) => m.csvName.toLowerCase())
+		const resolutions = new SvelteMap<string, StatusResolution>(
+			unmatchedStatuses
+				.filter((mapping) => mapping.resolvedId !== null)
+				.map((mapping) => [
+					mapping.csvName.toLowerCase(),
+					mapping.resolvedId === '__skip__' ? 'skip' : (mapping.resolvedId as string)
+				])
 		);
+		const plan = buildAvailabilityImportPlan(savedCheckedRows, { personnel, statusTypes, resolutions });
 
-		for (const row of checkedRows) {
-			const statusName = (row.statusType || '').trim().toLowerCase();
-			if (skippedStatuses.has(statusName)) continue;
-
-			const statusTypeId = statusResolutionMap.get(statusName);
-			if (!statusTypeId) continue;
-
-			// Resolve personnel
-			const key = `${(row.lastName || '').trim().toLowerCase()}|${(row.firstName || '').trim().toLowerCase()}`;
-			const matches = personnelMap.get(key) || [];
-			let person: Personnel | undefined;
-			if (matches.length === 1) {
-				person = matches[0];
-			} else if (matches.length > 1 && row.rank) {
-				person = matches.find((p) => p.rank?.toLowerCase() === row.rank.trim().toLowerCase());
-			}
-			if (!person) continue;
-
-			const startDate = parseDateString((row.startDate || '').trim());
-			const endDate = parseDateString((row.endDate || '').trim());
-			if (!startDate || !endDate) continue;
-
-			const note = (row.note || '').trim() || null;
-			records.push({ personnelId: person.id, statusTypeId, startDate, endDate, note });
-		}
-
-		if (records.length === 0) {
-			importResult = { inserted: 0, errors: [{ row: 0, message: 'No valid records to import after filtering.' }] };
+		if (plan.records.length === 0) {
+			importResult = { inserted: 0, notInserted: 0, skipped: plan.skipped.length };
 			step = 'results';
 			return;
 		}
 
 		importing = true;
 		try {
-			// Batch in groups of 500
-			let totalInserted = 0;
-			const allErrors: { row: number; message: string }[] = [];
-
-			for (let i = 0; i < records.length; i += 500) {
-				const batch = records.slice(i, i + 500);
-				const response = await fetch(`/org/${orgId}/api/availability/batch`, {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ records: batch })
-				});
-
-				if (response.ok) {
-					const data = await response.json();
-					totalInserted += data.inserted?.length || 0;
-				} else {
-					const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-					allErrors.push({ row: i + 1, message: errorData.error || `Batch failed (${response.status})` });
-				}
-			}
-
-			importResult = { inserted: totalInserted, errors: allErrors };
-			if (totalInserted > 0) {
+			const inserted = await availabilityStore.addBatch(plan.records);
+			importResult = {
+				inserted: inserted.length,
+				notInserted: plan.records.length - inserted.length,
+				skipped: plan.skipped.length
+			};
+			if (inserted.length > 0) {
 				notifyCompleteOnce();
 			}
-			step = 'results';
-		} catch (err) {
-			importResult = {
-				inserted: 0,
-				errors: [{ row: 0, message: err instanceof Error ? err.message : 'Import failed' }]
-			};
 			step = 'results';
 		} finally {
 			importing = false;
@@ -515,19 +391,22 @@
 						</div>
 					{/if}
 
-					{#if importResult.errors.length > 0}
-						<div class="flex flex-col gap-2">
-							<h4 class="font-semibold text-destructive">Errors</h4>
-							{#each importResult.errors as error, idx (idx)}
-								<div class="flex gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm">
-									{#if error.row > 0}<span class="text-muted-foreground">Row {error.row}:</span>{/if}
-									<span>{error.message}</span>
-								</div>
-							{/each}
+					{#if importResult.notInserted > 0}
+						<div class="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm">
+							<strong>{importResult.notInserted}</strong>
+							{importResult.notInserted === 1 ? 'entry' : 'entries'} failed to import. Re-run the import for the missing rows
+							or try again later.
 						</div>
 					{/if}
 
-					{#if importResult.inserted === 0 && importResult.errors.length === 0}
+					{#if importResult.skipped > 0}
+						<p class="text-sm text-muted-foreground">
+							{importResult.skipped}
+							{importResult.skipped === 1 ? 'row was' : 'rows were'} skipped by your status selections.
+						</p>
+					{/if}
+
+					{#if importResult.inserted === 0 && importResult.notInserted === 0 && importResult.skipped === 0}
 						<p class="text-sm text-muted-foreground">No records were imported.</p>
 					{/if}
 				{/if}

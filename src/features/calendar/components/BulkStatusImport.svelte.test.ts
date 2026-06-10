@@ -8,12 +8,45 @@ import type { Personnel, StatusType } from '$lib/types';
 
 afterEach(() => {
 	cleanup();
+	vi.restoreAllMocks();
 	vi.unstubAllGlobals();
 });
 
+function renderImporter({
+	onComplete = vi.fn(),
+	personnel = [
+		{
+			id: 'person-1',
+			firstName: 'John',
+			lastName: 'Smith',
+			rank: 'SGT'
+		}
+	] as Personnel[],
+	statusTypes = [
+		{
+			id: 'status-1',
+			name: 'Leave',
+			color: '#2563eb',
+			textColor: '#ffffff'
+		}
+	] as StatusType[]
+}: {
+	onComplete?: () => void;
+	personnel?: Personnel[];
+	statusTypes?: StatusType[];
+} = {}) {
+	render(BulkStatusImport, {
+		props: {
+			personnel,
+			statusTypes,
+			onComplete
+		}
+	});
+	return { onComplete };
+}
+
 describe('BulkStatusImport', () => {
 	it('shows a success toast and notifies the parent after a successful import inserts rows', async () => {
-		const onComplete = vi.fn();
 		const successToast = vi.spyOn(toastStore, 'success').mockImplementation(() => 'toast-id');
 		const fetchMock = vi.fn(async () => {
 			return {
@@ -26,27 +59,7 @@ describe('BulkStatusImport', () => {
 		// endpoint from the loaded org.
 		availabilityStore.load([], 'org-1');
 
-		render(BulkStatusImport, {
-			props: {
-				personnel: [
-					{
-						id: 'person-1',
-						firstName: 'John',
-						lastName: 'Smith',
-						rank: 'SGT'
-					}
-				] as Personnel[],
-				statusTypes: [
-					{
-						id: 'status-1',
-						name: 'Leave',
-						color: '#2563eb',
-						textColor: '#ffffff'
-					}
-				] as StatusType[],
-				onComplete
-			}
-		});
+		const { onComplete } = renderImporter();
 
 		await fireEvent.input(screen.getByLabelText('Paste CSV data'), {
 			target: {
@@ -77,6 +90,60 @@ describe('BulkStatusImport', () => {
 		expect(successToast).toHaveBeenCalledWith('Imported 1 status entry');
 	});
 
+	it('previews a single headerless pasted row', async () => {
+		renderImporter();
+
+		await fireEvent.input(screen.getByLabelText('Paste CSV data'), {
+			target: {
+				value: 'Smith,John,2026-01-01,2026-01-03,Leave'
+			}
+		});
+		await fireEvent.click(screen.getByRole('button', { name: 'Parse' }));
+
+		expect(await screen.findByRole('heading', { name: 'Review parsed rows' })).toBeTruthy();
+		const nextButton = await screen.findByRole('button', { name: 'Next' });
+		expect(nextButton.hasAttribute('disabled')).toBe(false);
+	});
+
+	it('previews a single headerless uploaded CSV row', async () => {
+		renderImporter();
+		const file = new File(['Smith,John,2026-01-01,2026-01-03,Leave'], 'status.csv', { type: 'text/csv' });
+
+		await fireEvent.change(screen.getByLabelText('Upload a file'), {
+			target: { files: [file] }
+		});
+
+		expect(await screen.findByRole('heading', { name: 'Review parsed rows' })).toBeTruthy();
+		const nextButton = await screen.findByRole('button', { name: 'Next' });
+		expect(nextButton.hasAttribute('disabled')).toBe(false);
+	});
+
+	it('shows a results failure and error toast when all import rows fail to insert', async () => {
+		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
+		const fetchMock = vi.fn(async () => {
+			return {
+				ok: false,
+				json: async () => ({ inserted: [] })
+			} as Response;
+		});
+		vi.stubGlobal('fetch', fetchMock);
+		availabilityStore.load([], 'org-1');
+		const { onComplete } = renderImporter();
+
+		await fireEvent.input(screen.getByLabelText('Paste CSV data'), {
+			target: {
+				value: 'last name,first name,start date,end date,status\nSmith,John,2026-01-01,2026-01-03,Leave'
+			}
+		});
+		await fireEvent.click(screen.getByRole('button', { name: 'Parse' }));
+		await fireEvent.click(await screen.findByRole('button', { name: 'Next' }));
+
+		expect(await screen.findByRole('heading', { name: 'Import complete' })).toBeTruthy();
+		expect(screen.getByText(/failed to import/)).toBeTruthy();
+		expect(errorToast).toHaveBeenCalledWith('No status entries were imported. Review the results and try again.');
+		expect(onComplete).not.toHaveBeenCalled();
+	});
+
 	it('shows a rank-conflict warning and still imports the row against the matched person', async () => {
 		const onComplete = vi.fn();
 		const fetchMock = vi.fn(async () => {
@@ -88,26 +155,16 @@ describe('BulkStatusImport', () => {
 		vi.stubGlobal('fetch', fetchMock);
 		availabilityStore.load([], 'org-1');
 
-		render(BulkStatusImport, {
-			props: {
-				personnel: [
-					{
-						id: 'person-1',
-						firstName: 'John',
-						lastName: 'Smith',
-						rank: 'PFC'
-					}
-				] as Personnel[],
-				statusTypes: [
-					{
-						id: 'status-1',
-						name: 'Leave',
-						color: '#2563eb',
-						textColor: '#ffffff'
-					}
-				] as StatusType[],
-				onComplete
-			}
+		renderImporter({
+			personnel: [
+				{
+					id: 'person-1',
+					firstName: 'John',
+					lastName: 'Smith',
+					rank: 'PFC'
+				}
+			] as Personnel[],
+			onComplete
 		});
 
 		await fireEvent.input(screen.getByLabelText('Paste CSV data'), {

@@ -144,6 +144,51 @@ describe('BulkStatusImport', () => {
 		expect(onComplete).not.toHaveBeenCalled();
 	});
 
+	it('shows partial-success results without an error toast when some rows insert', async () => {
+		const successToast = vi.spyOn(toastStore, 'success').mockImplementation(() => 'toast-id');
+		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
+		const fetchMock = vi.fn(async () => {
+			return {
+				ok: true,
+				json: async () => ({ inserted: [{ id: 'availability-1' }] })
+			} as Response;
+		});
+		vi.stubGlobal('fetch', fetchMock);
+		availabilityStore.load([], 'org-1');
+		const { onComplete } = renderImporter({
+			personnel: [
+				{
+					id: 'person-1',
+					firstName: 'John',
+					lastName: 'Smith',
+					rank: 'SGT'
+				},
+				{
+					id: 'person-2',
+					firstName: 'Jane',
+					lastName: 'Doe',
+					rank: 'SSG'
+				}
+			] as Personnel[]
+		});
+
+		await fireEvent.input(screen.getByLabelText('Paste CSV data'), {
+			target: {
+				value:
+					'last name,first name,start date,end date,status\nSmith,John,2026-01-01,2026-01-03,Leave\nDoe,Jane,2026-01-04,2026-01-05,Leave'
+			}
+		});
+		await fireEvent.click(screen.getByRole('button', { name: 'Parse' }));
+		await fireEvent.click(await screen.findByRole('button', { name: 'Next' }));
+
+		expect(await screen.findByRole('heading', { name: 'Import complete' })).toBeTruthy();
+		expect(screen.getByText(/status entry imported successfully/)).toBeTruthy();
+		expect(screen.getByText(/failed to import/)).toBeTruthy();
+		expect(successToast).toHaveBeenCalledWith('Imported 1 status entry');
+		expect(errorToast).not.toHaveBeenCalled();
+		expect(onComplete).toHaveBeenCalledTimes(1);
+	});
+
 	it('shows a rank-conflict warning and still imports the row against the matched person', async () => {
 		const onComplete = vi.fn();
 		const fetchMock = vi.fn(async () => {
@@ -182,6 +227,8 @@ describe('BulkStatusImport', () => {
 		const nextButton = await screen.findByRole('button', { name: 'Next' });
 		expect(nextButton.hasAttribute('disabled')).toBe(false);
 		await fireEvent.click(nextButton);
+		await fireEvent.click(nextButton);
+		await fireEvent.click(nextButton);
 
 		await waitFor(() => {
 			expect(fetchMock).toHaveBeenCalledWith(
@@ -201,6 +248,7 @@ describe('BulkStatusImport', () => {
 				})
 			);
 		});
+		expect(fetchMock).toHaveBeenCalledTimes(1);
 		expect(onComplete).toHaveBeenCalledTimes(1);
 	});
 });

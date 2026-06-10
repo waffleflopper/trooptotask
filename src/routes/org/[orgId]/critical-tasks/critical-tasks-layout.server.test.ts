@@ -199,4 +199,40 @@ describe('critical tasks layout server load', () => {
 			includeArchivedTasks: true
 		});
 	});
+
+	it('keeps archived ICT task definitions out of the parent stream without library configure access', async () => {
+		const depends = vi.fn();
+		const streamCriticalTasksWorkspace = vi.fn().mockResolvedValue({
+			criticalTasks: {
+				data: Promise.resolve({ laneKey: 'critical-tasks' })
+			}
+		} as unknown as CriticalTasksWorkspaceRouteData);
+		const load = _createCriticalTasksLayoutLoad({
+			streamCriticalTasksWorkspace
+		});
+		const locals = {} as App.Locals;
+		const cookies = {} as Cookies;
+		const parent = vi.fn().mockResolvedValue(
+			createReadyAppShellRouteData({
+				orgId: 'org-1',
+				criticalTasksCapability: 'operate'
+			})
+		);
+
+		await load({
+			params: { orgId: '1-11-bde' },
+			locals,
+			cookies,
+			url: new URL('https://example.test/org/1-11-bde/critical-tasks/library'),
+			depends,
+			parent
+		} as unknown as Parameters<typeof load>[0]);
+
+		expect(streamCriticalTasksWorkspace).toHaveBeenCalledWith({
+			locals,
+			cookies,
+			orgId: 'org-1',
+			includeArchivedTasks: false
+		});
+	});
 });

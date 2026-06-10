@@ -11,6 +11,7 @@
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { Textarea } from '$lib/components/ui/textarea';
 	import { parseFile, parseCSVText } from '$lib/utils/csvParser';
+	import { toastStore } from '$lib/stores/toast.svelte';
 	import { autoMapColumns, detectHeaderRow, STATUS_IMPORT_COLUMNS } from '$lib/utils/columnMapping';
 	import {
 		buildAvailabilityImportPlan,
@@ -243,6 +244,7 @@
 				skipped: plan.skipped.length
 			};
 			if (inserted.length > 0) {
+				toastStore.success(`Imported ${inserted.length} status ${inserted.length === 1 ? 'entry' : 'entries'}`);
 				notifyCompleteOnce();
 			}
 			step = 'results';

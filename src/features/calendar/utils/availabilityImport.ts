@@ -240,7 +240,7 @@ export function buildAvailabilityImportPlan(
 
 		const startDate = parseDateString((values.startDate ?? '').trim());
 		const endDate = parseDateString((values.endDate ?? '').trim());
-		if (!startDate || !endDate) {
+		if (!startDate || !endDate || !validateDateRange(startDate, endDate).valid) {
 			skipped.push({ rowNumber, code: 'date-invalid' });
 			continue;
 		}

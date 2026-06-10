@@ -22,14 +22,14 @@
 	interface Props {
 		personnelByGroup: GroupData[];
 		statusTypes: StatusType[];
-		/** Applies the status to the given people and resolves with how many entries were inserted. */
+		/** Applies the status to the given people and resolves with the personnel ids that were inserted. */
 		onApply: (
 			personnelIds: string[],
 			statusTypeId: string,
 			startDate: string,
 			endDate: string,
 			note: string | null
-		) => Promise<number>;
+		) => Promise<string[]>;
 		onComplete: () => void;
 	}
 
@@ -80,18 +80,26 @@
 		if (!isValid || isSubmitting) return;
 		isSubmitting = true;
 		try {
-			const ids = selection.selectedRows.map((p) => p.id);
-			const inserted = await onApply(ids, selectedStatusId, startDate, endDate, note.trim() || null);
-			if (inserted === 0) {
+			const selected = [...selection.selectedRows];
+			const ids = selected.map((p) => p.id);
+			const insertedIds = await onApply(ids, selectedStatusId, startDate, endDate, note.trim() || null);
+			if (insertedIds.length === 0) {
 				toastStore.error('Failed to apply status');
 				return;
 			}
-			if (inserted < ids.length) {
-				toastStore.error(`Applied status to ${inserted} of ${ids.length} people — the rest failed`);
+			if (insertedIds.length < ids.length) {
+				// Keep the failed subset selected so the operator can retry just those people.
+				const insertedSet = new Set(insertedIds);
+				const failed = selected.filter((p) => !insertedSet.has(p.id));
+				selection.clear();
+				for (const p of failed) selection.toggleRow(p, 0, true);
+				toastStore.error(
+					`Applied status to ${insertedIds.length} of ${ids.length} people — the ${failed.length} who failed are still selected so you can retry`
+				);
 			} else {
-				toastStore.success(`Applied status to ${inserted} ${inserted === 1 ? 'person' : 'people'}`);
+				toastStore.success(`Applied status to ${insertedIds.length} ${insertedIds.length === 1 ? 'person' : 'people'}`);
+				selection.clear();
 			}
-			selection.clear();
 			step = 'select';
 			onComplete();
 		} finally {

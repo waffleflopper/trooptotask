@@ -230,7 +230,8 @@ describe('buildAvailabilityImportPlan', () => {
 			[
 				{ rowNumber: 2, values: row({ statusType: 'Unknown' }) },
 				{ rowNumber: 3, values: row({ lastName: 'Nobody' }) },
-				{ rowNumber: 4, values: row({ startDate: 'bogus' }) }
+				{ rowNumber: 4, values: row({ startDate: 'bogus' }) },
+				{ rowNumber: 5, values: row({ startDate: '2026-02-05', endDate: '2026-02-01' }) }
 			],
 			{ personnel, statusTypes: [leave] }
 		);
@@ -238,7 +239,8 @@ describe('buildAvailabilityImportPlan', () => {
 		expect(plan.skipped).toEqual([
 			{ rowNumber: 2, code: 'status-unresolved' },
 			{ rowNumber: 3, code: 'person-unmatched' },
-			{ rowNumber: 4, code: 'date-invalid' }
+			{ rowNumber: 4, code: 'date-invalid' },
+			{ rowNumber: 5, code: 'date-invalid' }
 		]);
 	});
 });

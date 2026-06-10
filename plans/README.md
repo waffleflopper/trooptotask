@@ -10,7 +10,7 @@ The operator explicitly excluded automatic CI trigger work from this batch. Do n
 
 | Plan | Title                                             | Priority | Effort | Depends on | Status |
 | ---- | ------------------------------------------------- | -------- | ------ | ---------- | ------ |
-| 001  | Harden sensitive RPC execute privileges           | P1       | M      | -          | TODO   |
+| 001  | Harden sensitive RPC execute privileges           | P1       | M      | -          | DONE   |
 | 002  | Reject unset cleanup bearer secrets               | P1       | S      | -          | TODO   |
 | 003  | Refresh org ownership RPC definitions             | P1       | M      | -          | TODO   |
 | 004  | Replace stale calendar range records              | P1       | M      | -          | TODO   |

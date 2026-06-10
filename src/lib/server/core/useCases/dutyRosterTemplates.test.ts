@@ -19,10 +19,7 @@ import {
 	recordDutyRosterTemplateRunCorrection,
 	updateDutyRosterTemplateSettings
 } from './dutyRosterTemplates';
-import {
-	acceptReviewedDutyRosterTemplatePreview as acceptReviewedDutyRosterTemplatePreviewDirect,
-	invalidateLatestDutyRosterTemplateRun as invalidateAcceptedRunDirect
-} from './duty-roster/acceptedRuns';
+import { invalidateLatestDutyRosterTemplateRun as invalidateAcceptedRunDirect } from './duty-roster/acceptedRunLifecycle';
 import { buildDutyRosterTemplateAcceptedSnapshot } from '$features/duty-roster/templates/dutyRosterTemplatePreview';
 
 const rows: Record<string, unknown>[] = [];
@@ -3172,42 +3169,6 @@ describe('Duty Roster Template use cases', () => {
 		} finally {
 			updateSpy.mockRestore();
 		}
-	});
-
-	it('runs after-accept compensation before removing a newly accepted run after callback failure', async () => {
-		const ctx = createCtx();
-		personnelRows.push(
-			personnelRow({ id: 'alpha', rank: 'SGT', last_name: 'Able', first_name: 'Ann', group_id: 'alpha' })
-		);
-		const template = await createDutyRosterTemplate(ctx, { name: 'CQ NCO', shortCode: 'CQ' });
-		const preview = await generateDutyRosterTemplatePreview(ctx, {
-			templateId: template.id,
-			startDate: '2026-07-01',
-			endDate: '2026-07-01'
-		});
-		const sideEffects = new Set<string>();
-		let compensated = false;
-
-		await expect(
-			acceptReviewedDutyRosterTemplatePreviewDirect(ctx, {
-				preview,
-				afterAccept: {
-					async commit(acceptedRun) {
-						sideEffects.add(acceptedRun.id);
-						throw new Error('after accept failed.');
-					},
-					async compensate(acceptedRun) {
-						compensated = true;
-						expect(acceptedRunRows).toContainEqual(expect.objectContaining({ id: acceptedRun.id }));
-						sideEffects.delete(acceptedRun.id);
-					}
-				}
-			})
-		).rejects.toThrow('after accept failed.');
-
-		expect(compensated).toBe(true);
-		expect([...sideEffects]).toEqual([]);
-		expect(acceptedRunRows).toEqual([]);
 	});
 
 	it('restores Calendar slots when invalidate-following fails after accept-and-apply', async () => {

@@ -18,6 +18,10 @@ interface OrgCriticalTasksSettingsRow {
 	critical_tasks_expiring_soon_warning_days?: number | null;
 }
 
+export interface CriticalTasksBootstrapOptions {
+	includeArchivedTasks?: boolean;
+}
+
 export async function fetchCriticalTasksSettings(
 	ctx: Pick<QueryPorts, 'auth' | 'store'>
 ): Promise<CriticalTasksSettings> {
@@ -50,7 +54,10 @@ function loadCriticalTasksItems<T>(
 	});
 }
 
-export async function fetchCriticalTasksBootstrap(ctx: QueryPorts): Promise<CriticalTasksWorkspaceData> {
+export async function fetchCriticalTasksBootstrap(
+	ctx: QueryPorts,
+	options: CriticalTasksBootstrapOptions = {}
+): Promise<CriticalTasksWorkspaceData> {
 	const orgId = ctx.auth.orgId;
 	const settings = await fetchCriticalTasksSettings(ctx);
 	const personnel = loadRosterPersonnel(ctx, { status: 'active' }).catch((error) => {
@@ -72,7 +79,7 @@ export async function fetchCriticalTasksBootstrap(ctx: QueryPorts): Promise<Crit
 		orgId,
 		'ICT tasks',
 		ctx.store.findMany<Record<string, unknown>>('ict_tasks', orgId, undefined, {
-			isNull: { archived_at: true },
+			...(options.includeArchivedTasks ? {} : { isNull: { archived_at: true } }),
 			orderBy: [
 				{ column: 'sort_order', ascending: true },
 				{ column: 'task_code', ascending: true }

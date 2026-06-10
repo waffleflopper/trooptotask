@@ -63,6 +63,19 @@ describe('criticalTasksWorkspaceQuery', () => {
 				sort_order: 0,
 				archived_at: null,
 				created_at: '2026-04-01T12:00:00Z'
+			},
+			{
+				id: 'task-archived',
+				organization_id: 'test-org',
+				task_code: '181-105-9999',
+				title: 'Archived casualty care task',
+				description: null,
+				category: null,
+				mos: ['68W'],
+				expiration_months: 12,
+				sort_order: 1,
+				archived_at: '2026-04-03T12:00:00Z',
+				created_at: '2026-04-01T12:00:00Z'
 			}
 		]);
 		ctx.store.seed('personnel_ict_completions', [
@@ -109,6 +122,18 @@ describe('criticalTasksWorkspaceQuery', () => {
 			expect.objectContaining({
 				id: 'task-1',
 				taskCode: '181-105-1001'
+			})
+		]);
+		const libraryBootstrap = await fetchCriticalTasksBootstrap(ctx, { includeArchivedTasks: true });
+		await expect(libraryBootstrap.ictTasks).resolves.toEqual([
+			expect.objectContaining({
+				id: 'task-1',
+				taskCode: '181-105-1001'
+			}),
+			expect.objectContaining({
+				id: 'task-archived',
+				taskCode: '181-105-9999',
+				archivedAt: '2026-04-03T12:00:00Z'
 			})
 		]);
 		await expect(bootstrap.personnelIctCompletions).resolves.toEqual([

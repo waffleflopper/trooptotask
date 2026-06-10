@@ -407,6 +407,25 @@ describe('Duty Roster Template use cases', () => {
 		);
 	});
 
+	it('archives legacy templates whose companion assignment type id falls back to the template id', async () => {
+		const ctx = createCtx();
+		const template = await createDutyRosterTemplate(ctx, { name: 'CQ NCO', shortCode: 'CQ' });
+		delete rows[0].assignment_type_id;
+
+		await archiveDutyRosterTemplate(ctx, { templateId: template.id, archiveAssignmentType: true });
+
+		expect(assignmentTypeRows.find((row) => row.id === template.id)?.archived_at).toBe('2026-05-04T12:00:00.000Z');
+		expect(auditEvents).toContainEqual(
+			expect.objectContaining({
+				action: 'duty_roster_template.archived',
+				details: {
+					archiveAssignmentType: true,
+					assignmentTypeId: template.id
+				}
+			})
+		);
+	});
+
 	it('blocks Calendar apply for accepted runs that belong to archived templates', async () => {
 		const ctx = createCtx();
 		personnelRows.push(
@@ -677,6 +696,27 @@ describe('Duty Roster Template use cases', () => {
 		});
 		expect(assignmentTypeRows[0]).toMatchObject({
 			id: template.assignmentTypeId,
+			name: 'Staff Duty NCO',
+			short_name: 'SD'
+		});
+	});
+
+	it('updates legacy templates whose companion assignment type id falls back to the template id', async () => {
+		const ctx = createCtx();
+		const template = await createDutyRosterTemplate(ctx, { name: 'CQ NCO', shortCode: 'CQ' });
+		delete rows[0].assignment_type_id;
+
+		await updateDutyRosterTemplateSettings(ctx, {
+			templateId: template.id,
+			name: 'Staff Duty NCO',
+			slug: 'staff-duty-nco',
+			shortCode: 'SD',
+			poolCriteria: template.poolCriteria,
+			exemptPersonnelIds: [],
+			manualBaselineCounts: {}
+		});
+
+		expect(assignmentTypeRows.find((row) => row.id === template.id)).toMatchObject({
 			name: 'Staff Duty NCO',
 			short_name: 'SD'
 		});
@@ -1171,7 +1211,7 @@ describe('Duty Roster Template use cases', () => {
 		});
 	});
 
-	it('generates preview dates from selected weekdays while skipping holidays and DONSAs', async () => {
+	it('generates and accepts preview dates from selected weekdays while skipping holidays and DONSAs', async () => {
 		const ctx = createCtx();
 		personnelRows.push(
 			personnelRow({ id: 'alpha', rank: 'SGT', last_name: 'Able', first_name: 'Ann', group_id: 'group-1' }),
@@ -1210,6 +1250,24 @@ describe('Duty Roster Template use cases', () => {
 			selectedWeekdays: [1, 3, 5],
 			excludeHolidays: true,
 			excludeOrgClosures: true
+		});
+
+		const accepted = await acceptDutyRosterTemplatePreview(ctx, {
+			preview: JSON.stringify(preview)
+		});
+
+		expect(acceptedRunRows[0].snapshot_payload).toMatchObject({
+			config: {
+				pattern: 'selected-weekdays',
+				selectedWeekdays: [1, 3, 5],
+				excludeHolidays: true,
+				excludeOrgClosures: true
+			},
+			generatedRows: [{ date: '2026-06-01', assigneeId: 'alpha' }]
+		});
+		expect(accepted).toMatchObject({
+			startDate: '2026-06-01',
+			endDate: '2026-06-07'
 		});
 	});
 

@@ -386,6 +386,7 @@ export async function updateDutyRosterTemplateSettings(
 	if (!existing) {
 		fail(404, 'Duty Roster Template not found');
 	}
+	const assignmentTypeId = existing.assignment_type_id ?? existing.id;
 
 	const identity = parseSettingsIdentityInput(input, existing);
 	const slugRows = await ctx.store.findMany<{ id: string }>(DUTY_ROSTER_TEMPLATE_TABLE, ctx.auth.orgId, {
@@ -457,7 +458,7 @@ export async function updateDutyRosterTemplateSettings(
 		}
 		throw error;
 	}
-	await ctx.store.update<Record<string, unknown>>(ASSIGNMENT_TYPE_TABLE, ctx.auth.orgId, existing.assignment_type_id, {
+	await ctx.store.update<Record<string, unknown>>(ASSIGNMENT_TYPE_TABLE, ctx.auth.orgId, assignmentTypeId, {
 		name: identity.name,
 		short_name: defaultDutyRosterAssignmentShortName(identity)
 	});
@@ -483,6 +484,7 @@ export async function archiveDutyRosterTemplate(
 	if (!existing) {
 		fail(404, 'Duty Roster Template not found');
 	}
+	const assignmentTypeId = existing.assignment_type_id ?? existing.id;
 
 	const archivedAt = new Date().toISOString();
 	const row = await ctx.store.update<DutyRosterTemplateRow>(
@@ -497,14 +499,9 @@ export async function archiveDutyRosterTemplate(
 	);
 
 	if (parsed.archiveAssignmentType) {
-		await ctx.store.update<Record<string, unknown>>(
-			ASSIGNMENT_TYPE_TABLE,
-			ctx.auth.orgId,
-			existing.assignment_type_id,
-			{
-				archived_at: archivedAt
-			}
-		);
+		await ctx.store.update<Record<string, unknown>>(ASSIGNMENT_TYPE_TABLE, ctx.auth.orgId, assignmentTypeId, {
+			archived_at: archivedAt
+		});
 	}
 
 	ctx.audit.log({
@@ -513,7 +510,7 @@ export async function archiveDutyRosterTemplate(
 		resourceId: row.id,
 		details: {
 			archiveAssignmentType: parsed.archiveAssignmentType,
-			assignmentTypeId: existing.assignment_type_id
+			assignmentTypeId
 		}
 	});
 

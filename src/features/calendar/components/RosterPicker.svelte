@@ -36,6 +36,10 @@
 
 	const allPersonnel = $derived(personnelByGroup.flatMap((g) => g.personnel));
 
+	function mosOrDutyRole(person: Personnel): string {
+		return person.mos.trim() || person.clinicRole.trim() || 'N/A';
+	}
+
 	const columns: ColumnDef<Personnel>[] = [
 		{ key: 'select', header: '', value: () => '', searchable: false },
 		{ key: 'rank', header: 'Rank', value: (p) => p.rank },
@@ -45,7 +49,7 @@
 			value: (p) => `${p.lastName}, ${p.firstName}`,
 			searchValue: (p) => `${p.lastName} ${p.firstName}`
 		},
-		{ key: 'mos', header: 'MOS / Duty Role', value: (p) => p.mos || p.clinicRole }
+		{ key: 'mos', header: 'MOS / Duty Role', value: mosOrDutyRole }
 	];
 
 	const table = useDataTable<Personnel>({

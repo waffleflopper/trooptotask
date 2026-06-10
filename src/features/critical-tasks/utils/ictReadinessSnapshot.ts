@@ -5,13 +5,34 @@ import type {
 	PersonnelIctCompletion
 } from '$features/critical-tasks/criticalTasks.types';
 import type { Personnel } from '$lib/types';
-import { calculateIctExpirationDate, getIctStatus, normalizeCriticalTasksSettings } from './ictStatus';
+import { getIctStatus } from './ictStatus';
 import { isIctTaskApplicableToMos } from './ictTaskLibrary';
+import {
+	tallyReadiness,
+	tallyReadinessBy,
+	type ReadinessFact,
+	type ReadinessTallyConfig
+} from '$lib/domain/readinessRollup';
 import { formatDate, parseDate } from '$lib/utils/dates';
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 
 export const CRITICAL_TASK_READINESS_THRESHOLD_PERCENT = 70;
+
+/** The one home for Critical Tasks' "ready" definition. */
+export const ICT_READY_STATES = ['current', 'expiring-soon'] as const satisfies readonly IctStatus[];
+
+/**
+ * Critical Tasks' Readiness Rollup convention: ready = current OR
+ * expiring-soon, applicability is gated at fact emission rather than by state,
+ * and counting surfaces report 0% on an empty denominator. The MOS × category
+ * readiness matrix diverges to a null zero-applicable percent and declares
+ * that explicitly at its own call site (see CONTEXT.md).
+ */
+export const ICT_READINESS_ROLLUP: ReadinessTallyConfig<IctStatus, 0> = {
+	readyStates: ICT_READY_STATES,
+	zeroApplicablePercent: 0
+};
 
 export interface IctTaskBelowThresholdRow {
 	taskId: string;
@@ -64,12 +85,6 @@ export interface CriticalTasksSoldierReadinessSummary {
 	expiringSoonCount: number;
 	expiredCount: number;
 	notRecordedCount: number;
-}
-
-interface TaskReadinessSummary {
-	task: IctTask;
-	applicableCount: number;
-	readyCount: number;
 }
 
 interface ReadinessCounts {
@@ -147,16 +162,8 @@ export function buildLatestIctCompletionLookup(
 	return lookup;
 }
 
-export function computeCriticalTasksReadinessPercent(readyCount: number, applicableCount: number): number {
-	if (applicableCount === 0) {
-		return 0;
-	}
-
-	return Math.round((readyCount / applicableCount) * 100);
-}
-
 export function isCriticalTaskStatusReady(status: IctStatus): boolean {
-	return status === 'current' || status === 'expiring-soon';
+	return (ICT_READY_STATES as readonly IctStatus[]).includes(status);
 }
 
 export function isCriticalTaskCompletionReady(
@@ -169,6 +176,53 @@ export function isCriticalTaskCompletionReady(
 	return isCriticalTaskStatusReady(status);
 }
 
+interface IctReadinessFactInput {
+	activeTasks: IctTask[];
+	latestCompletions: Map<string, PersonnelIctCompletion>;
+	settings?: CriticalTasksSettingsInput | null;
+	asOf?: string | Date;
+}
+
+function appendPersonIctReadinessFacts(
+	facts: ReadinessFact<IctStatus>[],
+	person: Pick<Personnel, 'id' | 'mos'>,
+	input: IctReadinessFactInput
+): void {
+	for (const task of input.activeTasks) {
+		if (!isIctTaskApplicableToMos(task, person.mos)) {
+			continue;
+		}
+
+		const completion = input.latestCompletions.get(ictCompletionKey(person.id, task.id));
+		facts.push({
+			subjectKey: person.id,
+			requirementKey: task.id,
+			state: getIctStatus(completion?.completedAt ?? null, task, input.settings, input.asOf).status
+		});
+	}
+}
+
+/**
+ * Classifies every applicable (Soldier × Critical Task) pair into a Readiness
+ * Rollup fact. Owns the gates that run BEFORE the fold — archived Personnel
+ * Records are skipped in-loop and MOS-inapplicable tasks emit no fact — and
+ * the getIctStatus classification, including asOf time travel.
+ */
+export function buildIctReadinessFacts(
+	input: IctReadinessFactInput & { personnel: Personnel[] }
+): ReadinessFact<IctStatus>[] {
+	const facts: ReadinessFact<IctStatus>[] = [];
+	for (const person of input.personnel) {
+		if (person.archivedAt) {
+			continue;
+		}
+
+		appendPersonIctReadinessFacts(facts, person, input);
+	}
+
+	return facts;
+}
+
 export function buildCriticalTasksSoldierReadinessSummary(input: {
 	person: Pick<Personnel, 'id' | 'mos'>;
 	activeTasks: IctTask[];
@@ -179,46 +233,24 @@ export function buildCriticalTasksSoldierReadinessSummary(input: {
 }): CriticalTasksSoldierReadinessSummary {
 	const latestCompletions =
 		input.latestCompletions ?? buildLatestIctCompletionLookup(input.completions ?? [], input.asOf);
-	let applicableCount = 0;
-	let readyCount = 0;
-	let currentCount = 0;
-	let expiringSoonCount = 0;
-	let expiredCount = 0;
-	let notRecordedCount = 0;
+	const facts: ReadinessFact<IctStatus>[] = [];
+	appendPersonIctReadinessFacts(facts, input.person, {
+		activeTasks: input.activeTasks,
+		latestCompletions,
+		settings: input.settings,
+		asOf: input.asOf
+	});
+	const tally = tallyReadiness(facts, ICT_READINESS_ROLLUP);
 
-	for (const task of input.activeTasks) {
-		if (!isIctTaskApplicableToMos(task, input.person.mos)) {
-			continue;
-		}
-
-		applicableCount += 1;
-		const completion = latestCompletions.get(ictCompletionKey(input.person.id, task.id));
-		const status = getIctStatus(completion?.completedAt ?? null, task, input.settings, input.asOf).status;
-		if (status === 'current') {
-			currentCount += 1;
-		} else if (status === 'expiring-soon') {
-			expiringSoonCount += 1;
-		} else if (status === 'expired') {
-			expiredCount += 1;
-		} else {
-			notRecordedCount += 1;
-		}
-
-		if (isCriticalTaskStatusReady(status)) {
-			readyCount += 1;
-		}
-	}
-
-	const attentionCount = applicableCount - readyCount;
 	return {
-		readinessPercent: computeCriticalTasksReadinessPercent(readyCount, applicableCount),
-		applicableCount,
-		readyCount,
-		attentionCount,
-		currentCount,
-		expiringSoonCount,
-		expiredCount,
-		notRecordedCount
+		readinessPercent: tally.percent,
+		applicableCount: tally.applicable,
+		readyCount: tally.ready,
+		attentionCount: tally.applicable - tally.ready,
+		currentCount: tally.stateCounts.get('current') ?? 0,
+		expiringSoonCount: tally.stateCounts.get('expiring-soon') ?? 0,
+		expiredCount: tally.stateCounts.get('expired') ?? 0,
+		notRecordedCount: tally.stateCounts.get('not-recorded') ?? 0
 	};
 }
 
@@ -291,96 +323,66 @@ export function buildCriticalTasksReadinessSnapshot(input: {
 	const latestCompletions = buildLatestIctCompletionLookup(input.completions, input.asOf);
 	const lastIctUpdates = buildLastIctUpdateLookup(input);
 	const asOfDate = resolveCriticalTasksAsOfDate(input.asOf);
-	const asOfText = formatDate(asOfDate);
-	const expiringSoonWindowDays = normalizeCriticalTasksSettings(input.settings).expiringSoonWarningDays;
-	const expiringSoonWindowEndText = formatDate(addCriticalTasksDays(asOfDate, expiringSoonWindowDays));
-	const taskSummaries = new Map<string, TaskReadinessSummary>();
+	const personnelById = new Map(input.personnel.map((person) => [person.id, person]));
+	const tasksById = new Map(input.activeTasks.map((task) => [task.id, task]));
+
+	// One classification pass, three folds: overall, per Soldier, per task. A
+	// Soldier with zero applicable tasks emits no facts and so gets no row.
+	const facts = buildIctReadinessFacts({ ...input, latestCompletions });
+	const overall = tallyReadiness(facts, ICT_READINESS_ROLLUP);
+	const bySoldier = tallyReadinessBy(facts, ICT_READINESS_ROLLUP, (fact) => fact.subjectKey);
+	const byTask = tallyReadinessBy(facts, ICT_READINESS_ROLLUP, (fact) => fact.requirementKey);
+
 	const atRiskSoldierRows: IctAtRiskSoldierRow[] = [];
-	let applicableCount = 0;
-	let readyCount = 0;
 	let soldiersBelowThresholdCount = 0;
-
-	for (const person of input.personnel) {
-		if (person.archivedAt) {
-			continue;
-		}
-
-		let soldierApplicableCount = 0;
-		let soldierReadyCount = 0;
-		let soldierExpiringSoonCount = 0;
-		for (const task of input.activeTasks) {
-			if (!isIctTaskApplicableToMos(task, person.mos)) {
-				continue;
-			}
-
-			applicableCount += 1;
-			soldierApplicableCount += 1;
-			const taskSummary = taskSummaries.get(task.id) ?? { task, applicableCount: 0, readyCount: 0 };
-			taskSummary.applicableCount += 1;
-
-			const completion = latestCompletions.get(ictCompletionKey(person.id, task.id));
-			const expirationDate = calculateIctExpirationDate(completion?.completedAt ?? null, task, input.settings);
-			if (isCriticalTaskCompletionReady(completion?.completedAt ?? null, task, input.settings, input.asOf)) {
-				readyCount += 1;
-				soldierReadyCount += 1;
-				taskSummary.readyCount += 1;
-			}
-			if (expirationDate && expirationDate >= asOfText && expirationDate <= expiringSoonWindowEndText) {
-				soldierExpiringSoonCount += 1;
-			}
-
-			taskSummaries.set(task.id, taskSummary);
-		}
-
-		if (soldierApplicableCount === 0) {
-			continue;
-		}
-
-		const lastUpdate = lastIctUpdates.get(person.id) ?? null;
-		const readinessPercent = computeCriticalTasksReadinessPercent(soldierReadyCount, soldierApplicableCount);
+	for (const [personnelId, tally] of bySoldier) {
+		const person = personnelById.get(personnelId)!;
+		const lastUpdate = lastIctUpdates.get(personnelId) ?? null;
 		atRiskSoldierRows.push({
-			personnelId: person.id,
+			personnelId,
 			soldierName: soldierName(person),
 			mos: person.mos,
 			rank: person.rank,
 			groupName: person.groupName,
-			readinessPercent,
-			applicableCount: soldierApplicableCount,
-			readyCount: soldierReadyCount,
-			tasksExpiringSoonCount: soldierExpiringSoonCount,
+			readinessPercent: tally.percent,
+			applicableCount: tally.applicable,
+			readyCount: tally.ready,
+			tasksExpiringSoonCount: tally.stateCounts.get('expiring-soon') ?? 0,
 			daysSinceLastIctUpdate: lastUpdate
 				? daysBetweenDates(dateOnlyFromTimestamp(lastUpdate.createdAt), asOfDate)
 				: null,
 			lastIctUpdateAt: lastUpdate?.createdAt ?? null
 		});
 
-		if (readinessPercent < CRITICAL_TASK_READINESS_THRESHOLD_PERCENT) {
+		if (tally.percent < CRITICAL_TASK_READINESS_THRESHOLD_PERCENT) {
 			soldiersBelowThresholdCount += 1;
 		}
 	}
 	atRiskSoldierRows.sort(compareAtRiskSoldierRows);
 
 	const tasksBelowThresholdRows: IctTaskBelowThresholdRow[] = [];
-	for (const counts of taskSummaries.values()) {
-		const percentComplete = computeCriticalTasksReadinessPercent(counts.readyCount, counts.applicableCount);
-		if (counts.applicableCount > 0 && percentComplete < CRITICAL_TASK_READINESS_THRESHOLD_PERCENT) {
-			tasksBelowThresholdRows.push({
-				taskId: counts.task.id,
-				taskCode: counts.task.taskCode,
-				taskName: counts.task.title,
-				percentComplete,
-				soldierGapCount: counts.applicableCount - counts.readyCount,
-				applicableCount: counts.applicableCount,
-				completeCount: counts.readyCount
-			});
+	for (const [taskId, tally] of byTask) {
+		if (tally.applicable === 0 || tally.percent >= CRITICAL_TASK_READINESS_THRESHOLD_PERCENT) {
+			continue;
 		}
+
+		const task = tasksById.get(taskId)!;
+		tasksBelowThresholdRows.push({
+			taskId,
+			taskCode: task.taskCode,
+			taskName: task.title,
+			percentComplete: tally.percent,
+			soldierGapCount: tally.applicable - tally.ready,
+			applicableCount: tally.applicable,
+			completeCount: tally.ready
+		});
 	}
 	tasksBelowThresholdRows.sort(compareBelowThresholdTaskRows);
 
 	return {
-		percent: computeCriticalTasksReadinessPercent(readyCount, applicableCount),
-		readyCount,
-		applicableCount,
+		percent: overall.percent,
+		readyCount: overall.ready,
+		applicableCount: overall.applicable,
 		soldiersBelowThresholdCount,
 		tasksBelowThresholdRows,
 		atRiskSoldierRows,
@@ -395,35 +397,23 @@ export function countCriticalTasksExpiringSoon(input: {
 	settings?: CriticalTasksSettingsInput | null;
 	asOf?: string | Date;
 }): { count: number; affectedSoldiers: number } {
-	const asOfDate = resolveCriticalTasksAsOfDate(input.asOf);
-	const asOfText = formatDate(asOfDate);
-	const windowDays = normalizeCriticalTasksSettings(input.settings).expiringSoonWarningDays;
-	const windowEndText = formatDate(addCriticalTasksDays(asOfDate, windowDays));
-	const affectedSoldierIds = new Set<string>();
-	let count = 0;
+	// The expiring-soon window test is the `expiring-soon` classification:
+	// getIctStatus marks a pair expiring-soon exactly when its expiration date
+	// falls inside [asOf, asOf + expiringSoonWarningDays].
+	const facts = buildIctReadinessFacts(input);
+	const overall = tallyReadiness(facts, ICT_READINESS_ROLLUP);
+	const bySoldier = tallyReadinessBy(facts, ICT_READINESS_ROLLUP, (fact) => fact.subjectKey);
 
-	for (const person of input.personnel) {
-		if (person.archivedAt) {
-			continue;
-		}
-
-		for (const task of input.activeTasks) {
-			if (!isIctTaskApplicableToMos(task, person.mos)) {
-				continue;
-			}
-
-			const completion = input.latestCompletions.get(ictCompletionKey(person.id, task.id));
-			const expirationDate = calculateIctExpirationDate(completion?.completedAt ?? null, task, input.settings);
-			if (expirationDate && expirationDate >= asOfText && expirationDate <= windowEndText) {
-				count += 1;
-				affectedSoldierIds.add(person.id);
-			}
+	let affectedSoldiers = 0;
+	for (const tally of bySoldier.values()) {
+		if ((tally.stateCounts.get('expiring-soon') ?? 0) > 0) {
+			affectedSoldiers += 1;
 		}
 	}
 
 	return {
-		count,
-		affectedSoldiers: affectedSoldierIds.size
+		count: overall.stateCounts.get('expiring-soon') ?? 0,
+		affectedSoldiers
 	};
 }
 
@@ -439,54 +429,43 @@ export function buildCriticalTasksReadinessCounts(input: {
 	const latestCompletions =
 		input.latestCompletions ?? buildLatestIctCompletionLookup(input.completions ?? [], input.asOf);
 	const comparisonMos = input.comparisonMos ?? [];
-	const comparisonMosSet = new Set(comparisonMos.map(({ mos }) => mos));
-	const mosCounts = new Map<string, { readyCount: number; applicableCount: number }>(
-		comparisonMos.map(({ mos }) => [mos, { readyCount: 0, applicableCount: 0 }])
-	);
-	let readyCount = 0;
-	let applicableCount = 0;
-
+	const mosByPersonnelId = new Map<string, string>();
 	for (const person of input.personnel) {
 		if (person.archivedAt) {
 			continue;
 		}
 
-		const mos = normalizeCriticalTasksMosName(person.mos);
-		const selectedMosCounts = comparisonMosSet.has(mos) ? mosCounts.get(mos) : undefined;
-		for (const task of input.activeTasks) {
-			if (!isIctTaskApplicableToMos(task, person.mos)) {
-				continue;
-			}
-
-			applicableCount += 1;
-			if (selectedMosCounts) {
-				selectedMosCounts.applicableCount += 1;
-			}
-
-			const completion = latestCompletions.get(ictCompletionKey(person.id, task.id));
-			if (isCriticalTaskCompletionReady(completion?.completedAt ?? null, task, input.settings, input.asOf)) {
-				readyCount += 1;
-				if (selectedMosCounts) {
-					selectedMosCounts.readyCount += 1;
-				}
-			}
-		}
+		mosByPersonnelId.set(person.id, normalizeCriticalTasksMosName(person.mos));
 	}
+
+	const facts = buildIctReadinessFacts({
+		personnel: input.personnel,
+		activeTasks: input.activeTasks,
+		latestCompletions,
+		settings: input.settings,
+		asOf: input.asOf
+	});
+	const overall = tallyReadiness(facts, ICT_READINESS_ROLLUP);
+	// Seeds keep every comparison MOS present (at zero) even when none of its
+	// Soldiers have applicable tasks; non-comparison MOS keys are simply unread.
+	const byMos = tallyReadinessBy(facts, ICT_READINESS_ROLLUP, (fact) => mosByPersonnelId.get(fact.subjectKey)!, {
+		seedKeys: comparisonMos.map(({ mos }) => mos)
+	});
 
 	return {
 		overall: {
-			percent: computeCriticalTasksReadinessPercent(readyCount, applicableCount),
-			readyCount,
-			applicableCount
+			percent: overall.percent,
+			readyCount: overall.ready,
+			applicableCount: overall.applicable
 		},
 		mosReadiness: comparisonMos.map(({ mos, personnelCount }) => {
-			const counts = mosCounts.get(mos) ?? { readyCount: 0, applicableCount: 0 };
+			const tally = byMos.get(mos)!;
 			return {
 				mos,
 				personnelCount,
-				readinessPercent: computeCriticalTasksReadinessPercent(counts.readyCount, counts.applicableCount),
-				readyCount: counts.readyCount,
-				applicableCount: counts.applicableCount
+				readinessPercent: tally.percent,
+				readyCount: tally.ready,
+				applicableCount: tally.applicable
 			};
 		})
 	};

@@ -6,6 +6,12 @@ import type {
 	DutyRosterTemplateCountReadModel,
 	DutyRosterPoolPersonnel
 } from '$features/duty-roster/templates/dutyRosterTemplates';
+import { resolveDutyRosterPool } from '$features/duty-roster/templates/dutyRosterPool';
+import {
+	buildDutyRosterCountSource,
+	type DutyRosterCountSourceModel,
+	type DutyRosterCountSourceRun
+} from '$features/duty-roster/templates/dutyRosterCountSource';
 import {
 	buildDutyRosterTemplatePreview,
 	type DutyRosterTemplatePreview
@@ -14,7 +20,67 @@ import { AvailabilityEntryEntity } from '$lib/server/entities/availabilityEntry'
 import { SpecialDayEntity } from '$lib/server/entities/specialDay';
 import { StatusTypeEntity } from '$lib/server/entities/statusType';
 import { loadRosterReadModel } from '$lib/server/core/useCases/rosterReadModel';
-import { loadAcceptedDutyRosterRunCountSource, type AcceptedDutyRosterRunCountSource } from './acceptedRuns';
+import {
+	acceptedRunSnapshot,
+	loadDutyRosterRunCorrectionsByRunId,
+	type DutyRosterTemplateRunRow
+} from './acceptedRunRecord';
+
+const DUTY_ROSTER_TEMPLATE_RUN_TABLE = 'duty_roster_template_runs';
+
+export type AcceptedDutyRosterRunCountSource = DutyRosterTemplateCountReadModel & {
+	continuationHistory: DutyRosterCountSourceModel['continuationHistory'];
+	futureRunConflict: DutyRosterCountSourceModel['futureRunConflict'];
+};
+
+export async function loadAcceptedDutyRosterRunCountSource(
+	ctx: QueryPorts,
+	input: {
+		template: DutyRosterTemplate;
+		personnel: DutyRosterPoolPersonnel[];
+		baselineStartDate?: string;
+		previewStartDate?: string;
+		previewEndDate?: string;
+	}
+): Promise<AcceptedDutyRosterRunCountSource> {
+	const runRows = await ctx.store.findMany<DutyRosterTemplateRunRow>(
+		DUTY_ROSTER_TEMPLATE_RUN_TABLE,
+		ctx.auth.orgId,
+		{ template_id: input.template.id },
+		{
+			inFilters: { status: ['accepted', 'invalidated'] },
+			orderBy: [{ column: 'accepted_at', ascending: true }]
+		}
+	);
+	const correctionsByRunId = await loadDutyRosterRunCorrectionsByRunId(
+		ctx,
+		runRows.map((row) => row.id)
+	);
+	const resolvedPool = resolveDutyRosterPool({
+		criteria: input.template.poolCriteria,
+		personnel: input.personnel
+	}).filter((person) => !input.template.exemptPersonnelIds.includes(person.id));
+	const runs: DutyRosterCountSourceRun[] = runRows.map((row) => ({
+		id: row.id,
+		status: row.status,
+		acceptedAt: row.accepted_at,
+		snapshot: acceptedRunSnapshot(row),
+		corrections: (correctionsByRunId.get(row.id) ?? []).map((correction) => ({
+			runRowDate: correction.run_row_date,
+			replacementAssigneeId: correction.replacement_assignee_id,
+			reason: correction.reason
+		}))
+	}));
+
+	return buildDutyRosterCountSource({
+		template: input.template,
+		resolvedPool,
+		runs,
+		baselineStartDate: input.baselineStartDate,
+		previewStartDate: input.previewStartDate,
+		previewEndDate: input.previewEndDate
+	});
+}
 
 export async function listActiveDutyRosterPersonnel(ctx: QueryPorts): Promise<DutyRosterPoolPersonnel[]> {
 	const roster = await loadRosterReadModel(ctx, { status: 'active' });

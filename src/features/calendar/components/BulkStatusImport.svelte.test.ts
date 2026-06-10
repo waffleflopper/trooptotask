@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import BulkStatusImport from './BulkStatusImport.svelte';
 import { availabilityStore } from '$features/calendar/stores/availability.svelte';
+import { toastStore } from '$lib/stores/toast.svelte';
 import type { Personnel, StatusType } from '$lib/types';
 
 afterEach(() => {
@@ -11,8 +12,9 @@ afterEach(() => {
 });
 
 describe('BulkStatusImport', () => {
-	it('notifies the parent after a successful import inserts rows', async () => {
+	it('shows a success toast and notifies the parent after a successful import inserts rows', async () => {
 		const onComplete = vi.fn();
+		const successToast = vi.spyOn(toastStore, 'success').mockImplementation(() => 'toast-id');
 		const fetchMock = vi.fn(async () => {
 			return {
 				ok: true,
@@ -72,6 +74,7 @@ describe('BulkStatusImport', () => {
 			});
 		});
 		expect(onComplete).toHaveBeenCalledTimes(1);
+		expect(successToast).toHaveBeenCalledWith('Imported 1 status entry');
 	});
 
 	it('shows a rank-conflict warning and still imports the row against the matched person', async () => {

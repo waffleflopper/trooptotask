@@ -1,5 +1,6 @@
 import type {
 	CriticalTasksSettingsInput,
+	IctStatus,
 	IctTask,
 	PersonnelIctCompletion
 } from '$features/critical-tasks/criticalTasks.types';
@@ -8,21 +9,37 @@ import { calculateIctExpirationDate, normalizeCriticalTasksSettings } from './ic
 import { getActiveIctTasksForLibrary, isIctTaskApplicableToMos } from './ictTaskLibrary';
 import { formatDate } from '$lib/utils/dates';
 import {
+	tallyReadinessBy,
+	tallyReadinessGrid,
+	type ReadinessFact,
+	type ReadinessTallyConfig
+} from '$lib/domain/readinessRollup';
+import {
 	CRITICAL_TASK_READINESS_THRESHOLD_PERCENT,
+	ICT_READY_STATES,
 	addCriticalTasksDays,
 	buildCriticalTasksReadinessCounts,
 	buildCriticalTasksReadinessSnapshot,
+	buildIctReadinessFacts,
 	buildLatestIctCompletionLookup,
 	compareIctCompletionRecency,
-	computeCriticalTasksReadinessPercent,
 	countCriticalTasksExpiringSoon,
 	ictCompletionKey,
-	isCriticalTaskCompletionReady,
 	normalizeCriticalTasksMosName,
 	resolveCriticalTasksAsOfDate,
 	type IctAtRiskSoldierRow,
 	type IctTaskBelowThresholdRow
 } from './ictReadinessSnapshot';
+
+/**
+ * The readiness matrix's declared divergence from the shared counting
+ * convention: an empty denominator renders as a null "not applicable" cell
+ * rather than 0% (see Readiness Rollup in CONTEXT.md).
+ */
+const ICT_MATRIX_ROLLUP: ReadinessTallyConfig<IctStatus, null> = {
+	readyStates: ICT_READY_STATES,
+	zeroApplicablePercent: null
+};
 
 const UNCATEGORIZED_TASK_CATEGORY_KEY = '__uncategorized__';
 const UNCATEGORIZED_TASK_CATEGORY_LABEL = 'Uncategorized';
@@ -315,7 +332,7 @@ function buildReadinessMatrix(input: {
 	asOf?: string | Date;
 }): IctReadinessMatrix {
 	const categoriesByKey = new Map<string, IctReadinessMatrixCategory>();
-	const tasksByCategoryKey = new Map<string, IctTask[]>();
+	const categoryKeyByTaskId = new Map<string, string>();
 	let hasCategorizedTasks = false;
 
 	for (const task of input.activeTasks) {
@@ -327,72 +344,58 @@ function buildReadinessMatrix(input: {
 			categoriesByKey.set(category.key, category);
 		}
 
-		const tasksForCategory = tasksByCategoryKey.get(category.key) ?? [];
-		tasksForCategory.push(task);
-		tasksByCategoryKey.set(category.key, tasksForCategory);
+		categoryKeyByTaskId.set(task.id, category.key);
 	}
 
 	const categories = [...categoriesByKey.values()];
-	const personnelByMos = new Map<string, Personnel[]>();
+	const mosByPersonnelId = new Map<string, string>();
+	const headcounts = new Map<string, number>();
 	for (const person of input.personnel) {
 		if (person.archivedAt) {
 			continue;
 		}
 
 		const mos = normalizeCriticalTasksMosName(person.mos);
-		const people = personnelByMos.get(mos) ?? [];
-		people.push(person);
-		personnelByMos.set(mos, people);
+		mosByPersonnelId.set(person.id, mos);
+		headcounts.set(mos, (headcounts.get(mos) ?? 0) + 1);
 	}
 
-	const rows = [...personnelByMos.entries()]
-		.map(([mos, people]) => {
-			let rowReadyCount = 0;
-			let rowApplicableCount = 0;
-			const cells = categories.map((category) => {
-				let readyCount = 0;
-				let applicableCount = 0;
-				const tasks = tasksByCategoryKey.get(category.key) ?? [];
+	// Seeded rows keep every MOS visible even when none of its Soldiers have
+	// applicable tasks; seeded columns keep the grid rectangular per category.
+	const facts = buildIctReadinessFacts(input);
+	const rowKeyOf = (fact: ReadinessFact<IctStatus>) => mosByPersonnelId.get(fact.subjectKey)!;
+	const colKeyOf = (fact: ReadinessFact<IctStatus>) => categoryKeyByTaskId.get(fact.requirementKey)!;
+	const seedRowKeys = [...headcounts.keys()];
+	const grid = tallyReadinessGrid(facts, ICT_MATRIX_ROLLUP, rowKeyOf, colKeyOf, {
+		seedRowKeys,
+		seedColKeys: categories.map((category) => category.key)
+	});
+	// A row total is the same fold one level coarser.
+	const rowTotals = tallyReadinessBy(facts, ICT_MATRIX_ROLLUP, rowKeyOf, { seedKeys: seedRowKeys });
 
-				for (const person of people) {
-					for (const task of tasks) {
-						if (!isIctTaskApplicableToMos(task, person.mos)) {
-							continue;
-						}
-
-						applicableCount += 1;
-						const completion = input.latestCompletions.get(ictCompletionKey(person.id, task.id));
-						if (isCriticalTaskCompletionReady(completion?.completedAt ?? null, task, input.settings, input.asOf)) {
-							readyCount += 1;
-						}
-					}
-				}
-
-				rowReadyCount += readyCount;
-				rowApplicableCount += applicableCount;
-				const readinessPercent =
-					applicableCount > 0 ? computeCriticalTasksReadinessPercent(readyCount, applicableCount) : null;
-
-				return {
-					categoryKey: category.key,
-					categoryLabel: category.label,
-					readinessPercent,
-					readyCount,
-					applicableCount,
-					tier: readinessTierForPercent(readinessPercent)
-				};
-			});
-			const averageReadinessPercent =
-				rowApplicableCount > 0 ? computeCriticalTasksReadinessPercent(rowReadyCount, rowApplicableCount) : null;
+	const rows = [...grid.entries()]
+		.map(([mos, cellsByCategory]) => {
+			const total = rowTotals.get(mos)!;
 
 			return {
 				mos,
-				personnelCount: people.length,
-				averageReadinessPercent,
-				averageReadyCount: rowReadyCount,
-				averageApplicableCount: rowApplicableCount,
-				averageTier: readinessTierForPercent(averageReadinessPercent),
-				cells
+				personnelCount: headcounts.get(mos) ?? 0,
+				averageReadinessPercent: total.percent,
+				averageReadyCount: total.ready,
+				averageApplicableCount: total.applicable,
+				averageTier: readinessTierForPercent(total.percent),
+				cells: categories.map((category) => {
+					const cell = cellsByCategory.get(category.key)!;
+
+					return {
+						categoryKey: category.key,
+						categoryLabel: category.label,
+						readinessPercent: cell.percent,
+						readyCount: cell.ready,
+						applicableCount: cell.applicable,
+						tier: readinessTierForPercent(cell.percent)
+					};
+				})
 			};
 		})
 		.sort((left, right) => right.personnelCount - left.personnelCount || left.mos.localeCompare(right.mos));

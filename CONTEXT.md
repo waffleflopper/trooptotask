@@ -290,6 +290,10 @@ _Avoid_: Route slug, unique template identity
 The resolved set of **Personnel Records** included in a **Duty Roster Template** before duty-specific exemptions are removed.
 _Avoid_: Exemption list, date availability, all personnel
 
+**Duty Roster Template Administration**:
+The server module owning **Duty Roster Template** setup: create, configured create, settings, slug identity, archive, pool criteria, duty-specific exemptions, and **Manual DA6 Baseline** locking against accepted history. It may read **Accepted Duty Roster Run Lifecycle** facts for baseline locking, but it does not own preview generation, accepted history, or policy gating.
+_Avoid_: Template lifecycle, template CRUD route logic
+
 **DA6 Roster Order**:
 The standard order for a new DA Form 6: alphabetically within pay grade, beginning with the highest pay grade.
 _Avoid_: Current-count order, random starting order
@@ -313,6 +317,10 @@ _Avoid_: Preview, draft print, unsaved generation
 **Accepted Duty Roster Run Calendar Sync**:
 The workflow that makes **Calendar** assignments match an **Accepted Duty Roster Run** while preserving **Daily Assignment Source Lineage**. It covers applying an accepted run, later applying history, syncing **Duty Roster Corrections** into Calendar, detecting edited linked Calendar assignments, explaining out-of-sync states, and removing linked assignments when an **Accepted Duty Roster Run** is invalidated. It does not own preview acceptance, DA Form 6 count derivation, or accepted-history storage.
 _Avoid_: Duty Roster lifecycle, Calendar assignment batch only, preview apply logic
+
+**Accepted Duty Roster Run Lifecycle**:
+The server module owning the official-history side of one **Duty Roster Template**: preview generation, reviewed-preview acceptance with future-run conflict resolution and compensation, later apply from history, **Duty Roster Corrections**, invalidation with rollback, and accepted-history reads. It consumes the **DA6 Roster Engine** and **Accepted Duty Roster Run Calendar Sync** and owns neither; it does not own template setup or policy gating, and it never imports **Duty Roster Template Administration**.
+_Avoid_: Accepted runs helper, run CRUD, calendar sync
 
 **Manual Duty Roster Selection**:
 A pre-acceptance human change to a generated roster row that replaces the proposed Soldier for a duty date.
@@ -546,6 +554,8 @@ _Avoid_: Compliance status, readiness, training status, ICT status when the shar
 - When statuses overlap during **Duty Roster** generation, the selected DA6 treatment follows the documented priority: future **Misconduct Unavailable** first once enabled, then **Authorized Absence**, then **Other Duty**.
 - **Calendar** assignments stay in **Calendar**; applying an accepted **Duty Roster Run** may create or update Calendar records, but the DA Form 6 history belongs to **Duty Roster**.
 - **Accepted Duty Roster Run Calendar Sync** owns the seam where accepted Duty Roster history changes Calendar assignments; it should not become the owner of preview acceptance, DA Form 6 count derivation, or accepted-history storage.
+- **Duty Roster Template Administration** and **Accepted Duty Roster Run Lifecycle** sit behind one policy-gated Duty Roster Template use-case interface; routes consume that interface and never import either module directly.
+- **Duty Roster Template Administration** may read **Accepted Duty Roster Run Lifecycle** facts such as has-accepted-run and accepted-run personnel ids; the **Accepted Duty Roster Run Lifecycle** asserts template state through store reads and never imports **Duty Roster Template Administration**.
 - **Accepted Duty Roster Run Calendar Sync** should behave as all-or-reverted: applying, later applying, correction sync, invalidation cleanup, and rollback should not leave callers responsible for partial Calendar sync state.
 - **Accepted Duty Roster Run Calendar Sync** should expose sync state before writes, including in-sync, Duty Roster newer than Calendar, Calendar manually changed, and needs-review cases.
 - Reapplying **Accepted Duty Roster Run Calendar Sync** changes should require a confirmation that explains which Calendar assignments will change and why, including **Duty Roster Correction** reasons when available.

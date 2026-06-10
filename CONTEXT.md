@@ -266,6 +266,14 @@ _Avoid_: Calendar color only
 The optional duty-roster meaning attached to a **Status Type** for DA Form 6 availability and numbering.
 _Avoid_: Status type, DA6 code, color
 
+**Availability Status Import**:
+The bulk workflow that turns spreadsheet rows into **Availability Status** entries. Its rules module owns import row validation, **Personnel Record** matching by name with **Rank** disambiguation, **Status Type** name resolution with explicit skip, and batch record building. The module boundary is string-free: it emits stable reason codes such as `person-not-found`, `ambiguous-name`, and `rank-conflict`, and the import surface maps codes to copy, the same discipline as a **Policy Reason Code** outside the **Policy Evaluator**. A **Rank** that contradicts a unique name match is a reviewable warning, not a hard block.
+_Avoid_: CSV helper, component-owned matching, free-form validation text in the rules module
+
+**Roster Picker**:
+The fixed-purpose grouped multi-select over the **Roster** used by bulk Calendar workflows to choose **Personnel Records**, with whole-**Group** toggles, typed search, and select-shown/clear affordances. Callers supply grouped roster rows and a selection; they do not configure columns or cells.
+_Avoid_: configurable data-table wrapper, per-surface selection plumbing
+
 **Duty Roster**:
 The replacement DA Form 6 planning surface for recurring one-duty roster templates, generated runs, accepted history, exports, and optional Calendar application.
 _Avoid_: Advanced duty roster, simple duty roster, Assignments / Taskings when the DA6 roster feature is meant
@@ -290,6 +298,10 @@ _Avoid_: Route slug, unique template identity
 The resolved set of **Personnel Records** included in a **Duty Roster Template** before duty-specific exemptions are removed.
 _Avoid_: Exemption list, date availability, all personnel
 
+**Duty Roster Template Administration**:
+The server module owning **Duty Roster Template** setup: create, configured create, settings, slug identity, archive, pool criteria, duty-specific exemptions, and **Manual DA6 Baseline** locking against accepted history. It may read **Accepted Duty Roster Run Lifecycle** facts for baseline locking, but it does not own preview generation, accepted history, or policy gating.
+_Avoid_: Template lifecycle, template CRUD route logic
+
 **DA6 Roster Order**:
 The standard order for a new DA Form 6: alphabetically within pay grade, beginning with the highest pay grade.
 _Avoid_: Current-count order, random starting order
@@ -313,6 +325,10 @@ _Avoid_: Preview, draft print, unsaved generation
 **Accepted Duty Roster Run Calendar Sync**:
 The workflow that makes **Calendar** assignments match an **Accepted Duty Roster Run** while preserving **Daily Assignment Source Lineage**. It covers applying an accepted run, later applying history, syncing **Duty Roster Corrections** into Calendar, detecting edited linked Calendar assignments, explaining out-of-sync states, and removing linked assignments when an **Accepted Duty Roster Run** is invalidated. It does not own preview acceptance, DA Form 6 count derivation, or accepted-history storage.
 _Avoid_: Duty Roster lifecycle, Calendar assignment batch only, preview apply logic
+
+**Accepted Duty Roster Run Lifecycle**:
+The server module owning the official-history side of one **Duty Roster Template**: preview generation, reviewed-preview acceptance with future-run conflict resolution and compensation, later apply from history, **Duty Roster Corrections**, invalidation with rollback, and accepted-history reads. It consumes the **DA6 Roster Engine** and **Accepted Duty Roster Run Calendar Sync** and owns neither; it does not own template setup or policy gating, and it never imports **Duty Roster Template Administration**.
+_Avoid_: Accepted runs helper, run CRUD, calendar sync
 
 **Manual Duty Roster Selection**:
 A pre-acceptance human change to a generated roster row that replaces the proposed Soldier for a duty date.
@@ -446,6 +462,10 @@ _Avoid_: Training type
 The shared, provider-free determination of whether a dated requirement is still current, expiring, expired, or has no usable date, given a completion or expiration date, a resolved expiration window, ordered warning thresholds, and an as-of date. It is the single currency clock behind both **Training Type** status and **Critical Task** status. Currency Status does not decide applicability or exemption (that gate runs before it and is feature-owned), does not own display color or label text (that presenter runs after it), and does not interpret a null expiration window — each feature resolves its effective window first, since a null window means "never expires" for **Training** but "use the org default" for **Critical Tasks**. The four currency states are `not-recorded`, `current`, `expiring`, and `expired`.
 _Avoid_: Compliance status, readiness, training status, ICT status when the shared currency determination is meant
 
+**Readiness Rollup**:
+The shared, provider-free aggregation fold that turns already-classified **Soldier** × requirement facts into ready/applicable tallies, per-state counts, and the single rounded readiness percent — overall, per key, or on a two-dimensional grid such as MOS × task category. It is the aggregation layer above **Currency Status** and the one home for the percent convention `Math.round((ready / applicable) × 100)` with an explicit per-feature zero-applicable knob (`0` for **Training**, `null` for the **Critical Tasks** readiness matrix). It receives facts already classified by feature adapters, including all as-of time travel, and treats feature states as opaque; applicability gating and archived-record skipping run before it, and labels, colors, tiers, thresholds, display names, headcounts, semantic sorting, and top-N selection run after it as feature presenters — the same before/after discipline as **Currency Status**. Seeded keys let callers guarantee axis values that exist with zero facts, such as a MOS whose Soldiers have no applicable tasks. The **Training Report Matrix** stays feature-owned and is a source of facts for a Readiness Rollup, never a product of one.
+_Avoid_: Readiness calculation helper, compliance engine, per-feature readiness counting loop, dashboard math, pivot builder when the shared fold is meant
+
 ## Relationships
 
 - An **Organization** contains **Groups**, **Personnel Records**, settings, and organization-scoped feature data.
@@ -506,6 +526,8 @@ _Avoid_: Compliance status, readiness, training status, ICT status when the shar
 - Existing **Status Types** may be backfilled by conservative name matching for common seeded labels, while custom or unclear names should default to no **DA6 Availability Treatment**.
 - **Duty Roster Runs** should consume **DA6 Availability Treatment** from **Status Types** instead of asking users to redefine excluded statuses per run.
 - When multiple **Availability Statuses** overlap on one duty date, **Authorized Absence** takes precedence over **Other Duty** because approved leave or another authorized absence is nonchargeable; future **Misconduct Unavailable** takes precedence once enabled.
+- **Availability Status Import** submits through the Calendar availability batch seam, which owns chunked submission and returns the inserted entries; partial failure is reported by comparing attempted and inserted counts rather than per-chunk error prose.
+- The **Roster Picker** is consumed by the bulk add and bulk remove **Availability Status** surfaces; new bulk selection surfaces should consume it rather than rebuilding grouped selection plumbing.
 - The replacement **Duty Roster** surface supersedes the old simple duty roster, advanced duty roster, and Assignments / Taskings duty-roster surfaces.
 - A **Duty Roster Template** describes one duty position such as CQ NCO or CQ runner; separate duty positions use separate templates so each keeps its own DA Form 6 counts.
 - The **Duty Roster** route is template-first: each **Duty Roster Template** should expose generate, history, and settings actions from its own **Duty Roster Template Workspace**.
@@ -546,6 +568,8 @@ _Avoid_: Compliance status, readiness, training status, ICT status when the shar
 - When statuses overlap during **Duty Roster** generation, the selected DA6 treatment follows the documented priority: future **Misconduct Unavailable** first once enabled, then **Authorized Absence**, then **Other Duty**.
 - **Calendar** assignments stay in **Calendar**; applying an accepted **Duty Roster Run** may create or update Calendar records, but the DA Form 6 history belongs to **Duty Roster**.
 - **Accepted Duty Roster Run Calendar Sync** owns the seam where accepted Duty Roster history changes Calendar assignments; it should not become the owner of preview acceptance, DA Form 6 count derivation, or accepted-history storage.
+- **Duty Roster Template Administration** and **Accepted Duty Roster Run Lifecycle** sit behind one policy-gated Duty Roster Template use-case interface; routes consume that interface and never import either module directly.
+- **Duty Roster Template Administration** may read **Accepted Duty Roster Run Lifecycle** facts such as has-accepted-run and accepted-run personnel ids; the **Accepted Duty Roster Run Lifecycle** asserts template state through store reads and never imports **Duty Roster Template Administration**.
 - **Accepted Duty Roster Run Calendar Sync** should behave as all-or-reverted: applying, later applying, correction sync, invalidation cleanup, and rollback should not leave callers responsible for partial Calendar sync state.
 - **Accepted Duty Roster Run Calendar Sync** should expose sync state before writes, including in-sync, Duty Roster newer than Calendar, Calendar manually changed, and needs-review cases.
 - Reapplying **Accepted Duty Roster Run Calendar Sync** changes should require a confirmation that explains which Calendar assignments will change and why, including **Duty Roster Correction** reasons when available.
@@ -601,6 +625,9 @@ _Avoid_: Compliance status, readiness, training status, ICT status when the shar
 - Reapplying an **Advanced Duty Revision Draft** may allow reviewable conflicts such as overlapping duty, cooldown, unavailable status, replacement of an existing slot assignment, or soft-preference warnings only with explicit confirmation and a required reason.
 - **Advanced Duty Revision Change Sets** should be visible in the **Advanced Duty Workspace** as a simple revision history with date, actor, reason, and changed slots.
 - The **Advanced Duty Workspace** should keep the active run review primary while moving applied-event inspection to a reachable but separate view.
+- **Training** and **Critical Tasks** readiness numbers should come from **Readiness Rollup** folds rather than hand-rolled per-feature counting loops; "ready" stays feature-defined (`current` for **Training**; `current` or `expiring-soon` for **Critical Tasks**).
+- A **Readiness Rollup** keeps today's divergent conventions as explicit per-feature configuration — zero-applicable percent and inapplicable states — rather than silently unifying them; unifying a convention is a separate, reviewable decision.
+- Non-compliance rates are a second **Readiness Rollup** fold with an inverted ready set, never `100 − percent`, because rounding makes the two figures non-complementary.
 
 ## Example Dialogue
 

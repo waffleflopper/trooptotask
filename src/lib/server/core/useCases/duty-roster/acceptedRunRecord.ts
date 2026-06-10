@@ -2,7 +2,10 @@ import { fail } from '$lib/server/core/errors';
 import type { DutyRosterTemplateAcceptedRun } from '$features/duty-roster/templates/dutyRosterTemplates';
 import { effectiveDutyRosterAssigneeId } from '$features/duty-roster/templates/dutyRosterCorrection';
 import type { DutyRosterTemplateAcceptedSnapshot } from '$features/duty-roster/templates/dutyRosterTemplatePreview';
+import type { QueryPorts } from '$lib/server/core/ports';
 import type { DailyAssignmentSlotRecord } from '../daily-assignment-slots';
+
+export const DUTY_ROSTER_TEMPLATE_CORRECTION_TABLE = 'duty_roster_template_run_corrections';
 
 export type DutyRosterTemplateRunRow = {
 	id: string;
@@ -21,6 +24,54 @@ export type DutyRosterTemplateRunRow = {
 	invalidated_at: string | null;
 	created_at: string;
 };
+
+export type DutyRosterTemplateRunCorrectionRow = {
+	id: string;
+	organization_id: string;
+	run_id: string;
+	run_row_date: string;
+	original_assignee_id: string;
+	replacement_assignee_id: string;
+	reason: string;
+	corrected_by_user_id: string | null;
+	corrected_at: string;
+	created_at: string;
+};
+
+export async function loadDutyRosterRunCorrectionsByRunId(
+	ctx: QueryPorts,
+	runIds: string[]
+): Promise<Map<string, DutyRosterTemplateRunCorrectionRow[]>> {
+	if (runIds.length === 0) {
+		return new Map();
+	}
+
+	const rows = await ctx.store.findMany<DutyRosterTemplateRunCorrectionRow>(
+		DUTY_ROSTER_TEMPLATE_CORRECTION_TABLE,
+		ctx.auth.orgId,
+		{},
+		{
+			inFilters: { run_id: runIds },
+			orderBy: [
+				{ column: 'run_row_date', ascending: true },
+				{ column: 'corrected_at', ascending: true }
+			]
+		}
+	);
+	return groupCorrectionsByRunId(rows);
+}
+
+function groupCorrectionsByRunId(
+	rows: DutyRosterTemplateRunCorrectionRow[]
+): Map<string, DutyRosterTemplateRunCorrectionRow[]> {
+	const correctionsByRunId = new Map<string, DutyRosterTemplateRunCorrectionRow[]>();
+	for (const row of rows) {
+		const runRows = correctionsByRunId.get(row.run_id) ?? [];
+		runRows.push(row);
+		correctionsByRunId.set(row.run_id, runRows);
+	}
+	return correctionsByRunId;
+}
 
 export type DutyRosterTemplateLinkedCalendarAssignmentRow = {
 	id: string;

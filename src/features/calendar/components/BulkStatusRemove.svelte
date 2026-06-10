@@ -5,8 +5,7 @@
 	import { CalendarStatusBadge } from '$lib/components/ui/calendar-status-badge';
 	import { Badge as UiBadge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
-	import * as DataTable from '$lib/components/ui/data-table';
-	import { useDataTable, useDataTableSelection, type ColumnDef } from '$lib/components/ui/data-table';
+	import { useDataTableSelection } from '$lib/components/ui/data-table';
 	import { DatePicker } from '$lib/components/ui/date-picker';
 	import * as Field from '$lib/components/ui/field';
 	import { NativeSelect } from '$lib/components/ui/native-select';
@@ -17,6 +16,7 @@
 		validateDateRange,
 		type ClassifiedOverlaps
 	} from '$features/calendar/utils/availabilityMutation';
+	import RosterPicker from './RosterPicker.svelte';
 
 	interface GroupData {
 		group: string;
@@ -47,69 +47,7 @@
 	let isSubmitting = $state(false);
 
 	const allPersonnel = $derived(personnelByGroup.flatMap((g) => g.personnel));
-
-	// ---- DataTable setup ----
-	const columns: ColumnDef<Personnel>[] = [
-		{ key: 'select', header: '', value: () => '', searchable: false },
-		{ key: 'rank', header: 'Rank', value: (p) => p.rank },
-		{
-			key: 'name',
-			header: 'Name',
-			value: (p) => `${p.lastName}, ${p.firstName}`,
-			searchValue: (p) => `${p.lastName} ${p.firstName}`
-		},
-		{ key: 'mos', header: 'MOS / Duty Role', value: (p) => p.mos || p.clinicRole }
-	];
-
-	const table = useDataTable<Personnel>({
-		data: () => allPersonnel,
-		columns,
-		groupBy: {
-			key: (p) => p.groupName || 'Unassigned'
-		},
-		filterFn: (p, query) => {
-			const q = query.toLowerCase();
-			return (
-				p.lastName.toLowerCase().includes(q) ||
-				p.firstName.toLowerCase().includes(q) ||
-				p.rank.toLowerCase().includes(q) ||
-				p.mos.toLowerCase().includes(q) ||
-				p.clinicRole.toLowerCase().includes(q)
-			);
-		}
-	});
-
 	const selection = useDataTableSelection<Personnel>({ rows: () => allPersonnel, rowKey: (p) => p.id });
-
-	// ---- Selection logic ----
-	function visiblePersonnel(): Personnel[] {
-		const grouped = table.groups.flatMap((g) => g.rows);
-		return grouped.length > 0 ? grouped : table.rows;
-	}
-
-	function selectVisible() {
-		for (const p of visiblePersonnel()) selection.toggleRow(p, 0, true);
-	}
-
-	function selectNone() {
-		selection.clear();
-	}
-
-	function getGroupSelectionState(groupKey: string): 'none' | 'some' | 'all' {
-		const group = table.groups.find((g) => g.key === groupKey);
-		if (!group || group.rows.length === 0) return 'none';
-		const count = group.rows.filter((p) => selection.isSelected(p, 0)).length;
-		if (count === 0) return 'none';
-		if (count === group.rows.length) return 'all';
-		return 'some';
-	}
-
-	function toggleGroup(groupKey: string) {
-		const group = table.groups.find((g) => g.key === groupKey);
-		if (!group) return;
-		const shouldSelect = getGroupSelectionState(groupKey) !== 'all';
-		for (const p of group.rows) selection.toggleRow(p, 0, shouldSelect);
-	}
 
 	// ---- Validation ----
 	const range = $derived(validateDateRange(startDate, endDate));
@@ -260,59 +198,7 @@
 			</aside>
 
 			<section class="selection-column">
-				<div class="selection-card">
-					<div class="pane-heading selection-heading">
-						<span class="pane-eyebrow">Step 2</span>
-						<h2 class="pane-title">Choose personnel</h2>
-						<p class="pane-copy">Search by name, select an entire group, or click individual rows.</p>
-					</div>
-
-					<div class="personnel-section">
-						<DataTable.DataTable
-							{columns}
-							{table}
-							compact
-							showSearch
-							searchPlaceholder="Search by name, rank, MOS, or role..."
-							emptyMessage="No personnel available"
-							onRowClick={(person) => selection.toggleRow(person, 0)}
-						>
-							{#snippet toolbar()}
-								<DataTable.BulkActions selectedCount={selection.selectedCount} totalCount={table.totalRows}>
-									<Button type="button" variant="outline" size="sm" onclick={selectVisible}>Select shown</Button>
-									<Button type="button" variant="outline" size="sm" onclick={selectNone}>Clear</Button>
-								</DataTable.BulkActions>
-							{/snippet}
-
-							{#snippet groupHeader(ctx)}
-								{@const selState = getGroupSelectionState(ctx.key)}
-								<DataTable.SelectionCheckbox
-									checked={selState === 'all'}
-									indeterminate={selState === 'some'}
-									ariaLabel={`Select ${ctx.label} group`}
-									onCheckedChange={() => toggleGroup(ctx.key)}
-								/>
-								<Button type="button" variant="ghost" onclick={ctx.toggle}>
-									{ctx.collapsed ? 'Expand' : 'Collapse'}
-									{ctx.label}
-									<UiBadge variant="outline">{ctx.count}</UiBadge>
-								</Button>
-							{/snippet}
-
-							{#snippet cell(row, col)}
-								{#if col.key === 'select'}
-									<DataTable.SelectionCheckbox
-										checked={selection.isSelected(row, 0)}
-										ariaLabel={`Select ${row.rank} ${row.lastName}, ${row.firstName}`}
-										onCheckedChange={() => selection.toggleRow(row, 0)}
-									/>
-								{:else}
-									{String(col.value(row) ?? '')}
-								{/if}
-							{/snippet}
-						</DataTable.DataTable>
-					</div>
-				</div>
+				<RosterPicker {personnelByGroup} {selection} tone="destructive" />
 			</section>
 		</div>
 	{:else}
@@ -432,7 +318,6 @@
 	}
 
 	.controls-card,
-	.selection-card,
 	.confirm-card {
 		border: 1px solid var(--border);
 		border-radius: var(--radius);
@@ -444,11 +329,6 @@
 		flex-direction: column;
 		gap: 1.5rem;
 		padding: 1.5rem;
-	}
-
-	.selection-card {
-		display: flex;
-		flex-direction: column;
 	}
 
 	.confirm-card {
@@ -463,7 +343,6 @@
 		gap: 0.25rem;
 	}
 
-	.selection-heading,
 	.confirm-heading {
 		padding: 1.5rem;
 		border-bottom: 1px solid var(--border);
@@ -560,10 +439,6 @@
 
 	.summary-copy.error {
 		color: var(--destructive);
-	}
-
-	.personnel-section {
-		padding: 0;
 	}
 
 	.confirm-stage {
@@ -701,7 +576,6 @@
 
 	@media (max-width: 640px) {
 		.controls-card,
-		.selection-heading,
 		.confirm-heading,
 		.confirm-content,
 		.confirm-criteria,

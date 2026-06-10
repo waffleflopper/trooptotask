@@ -18,6 +18,7 @@ export interface CriticalTasksWorkspaceRequestContext {
 	locals: App.Locals;
 	cookies: Cookies;
 	orgId: string;
+	includeArchivedTasks?: boolean;
 }
 
 export interface CriticalTasksWorkspaceData {
@@ -75,7 +76,9 @@ export async function streamCriticalTasksWorkspaceBootstrap(
 		policyResource: { kind: 'unscoped' },
 		defer: true,
 		fn: async (ctx) => {
-			const data = await fetchCriticalTasksBootstrap(ctx);
+			const data = await fetchCriticalTasksBootstrap(ctx, {
+				includeArchivedTasks: context.includeArchivedTasks
+			});
 			return {
 				laneKey: CRITICAL_TASKS_WORKSPACE_LANE_KEY,
 				data,

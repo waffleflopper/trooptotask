@@ -80,11 +80,11 @@
 		startDate: string,
 		endDate: string,
 		note: string | null
-	): Promise<number> {
+	): Promise<string[]> {
 		const inserted = await availabilityStore.addBatch(
 			buildAddRecords(personnelIds, statusTypeId, startDate, endDate, note)
 		);
-		return inserted.length;
+		return inserted.map((entry) => entry.personnelId);
 	}
 
 	async function handleBulkRemove(ids: string[]): Promise<boolean> {

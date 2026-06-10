@@ -197,6 +197,7 @@
 	}
 
 	function handlePreviewNext() {
+		if (importing) return;
 		const checkedRows = selection.selectedRows.map((row) => ({ rowNumber: row.rowNumber, values: row.values }));
 		if (checkedRows.length === 0) return;
 		savedCheckedRows = checkedRows;
@@ -215,7 +216,7 @@
 	}
 
 	async function handleImport() {
-		if (savedCheckedRows.length === 0) return;
+		if (importing || savedCheckedRows.length === 0) return;
 
 		const resolutions = new SvelteMap<string, StatusResolution>(
 			unmatchedStatuses
@@ -463,12 +464,16 @@
 		{#if step === 'preview'}
 			<Button
 				variant="outline"
+				disabled={importing}
 				onclick={() => {
 					step = 'upload';
 					rawRows = [];
 				}}>Back</Button
 			>
-			<Button onclick={handlePreviewNext} disabled={selection.selectedCount === 0}>Next</Button>
+			<Button onclick={handlePreviewNext} disabled={selection.selectedCount === 0 || importing}>
+				{#if importing}<Spinner />{/if}
+				{importing ? 'Importing...' : 'Next'}
+			</Button>
 		{:else if step === 'resolve'}
 			<Button
 				variant="outline"

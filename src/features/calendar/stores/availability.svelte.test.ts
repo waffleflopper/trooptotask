@@ -58,9 +58,10 @@ describe('availabilityStore', () => {
 		});
 
 		it('submits large batches in 500-record chunks', async () => {
+			let idCounter = 0;
 			const fetchMock = vi.fn().mockImplementation((_url: string, init: RequestInit) => {
 				const { records } = JSON.parse(init.body as string);
-				const inserted = records.map((r: Omit<AvailabilityEntry, 'id'>, i: number) => ({ id: `new-${i}`, ...r }));
+				const inserted = records.map((r: Omit<AvailabilityEntry, 'id'>) => ({ id: `new-${idCounter++}`, ...r }));
 				return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ inserted }) });
 			});
 			vi.stubGlobal('fetch', fetchMock);
@@ -71,15 +72,17 @@ describe('availabilityStore', () => {
 			expect(JSON.parse(fetchMock.mock.calls[0][1].body).records).toHaveLength(500);
 			expect(JSON.parse(fetchMock.mock.calls[1][1].body).records).toHaveLength(1);
 			expect(result).toHaveLength(501);
+			expect(new Set(result.map((entry) => entry.id)).size).toBe(501);
 		});
 
 		it('keeps going past a failed chunk and returns the inserted entries', async () => {
 			let call = 0;
+			let idCounter = 0;
 			const fetchMock = vi.fn().mockImplementation((_url: string, init: RequestInit) => {
 				call += 1;
 				if (call === 1) return Promise.resolve({ ok: false, status: 500, json: () => Promise.resolve({}) });
 				const { records } = JSON.parse(init.body as string);
-				const inserted = records.map((r: Omit<AvailabilityEntry, 'id'>, i: number) => ({ id: `new-${i}`, ...r }));
+				const inserted = records.map((r: Omit<AvailabilityEntry, 'id'>) => ({ id: `new-${idCounter++}`, ...r }));
 				return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ inserted }) });
 			});
 			vi.stubGlobal('fetch', fetchMock);

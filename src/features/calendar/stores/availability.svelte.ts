@@ -20,6 +20,9 @@ import { rangesOverlap } from '$features/calendar/utils/availabilityMutation';
 
 let orgIdRef = '';
 
+/** Records per request for chunked batch creation; large imports submit in slices this size. */
+const CREATE_BATCH_CHUNK_SIZE = 500;
+
 function createAvailabilityBatchAdapter(): BatchApiAdapter<AvailabilityEntry> {
 	const headers = { 'Content-Type': 'application/json' };
 	function url() {
@@ -69,15 +72,30 @@ function createAvailabilityBatchAdapter(): BatchApiAdapter<AvailabilityEntry> {
 			}
 		},
 
+		/**
+		 * Chunked batch create. Keeps going past a failed chunk and returns the entries that
+		 * made it in, so callers detect partial failure by comparing attempted and inserted
+		 * counts. Throws only when nothing was inserted at all.
+		 */
 		async createBatch(items) {
-			const res = await fetch(`${url()}/batch`, {
-				method: 'POST',
-				headers,
-				body: JSON.stringify({ records: items })
-			});
-			if (!res.ok) throw new Error('Failed to add availability batch');
-			const data = await res.json();
-			return data.inserted;
+			const inserted: AvailabilityEntry[] = [];
+			for (let i = 0; i < items.length; i += CREATE_BATCH_CHUNK_SIZE) {
+				const chunk = items.slice(i, i + CREATE_BATCH_CHUNK_SIZE);
+				try {
+					const res = await fetch(`${url()}/batch`, {
+						method: 'POST',
+						headers,
+						body: JSON.stringify({ records: chunk })
+					});
+					if (!res.ok) continue;
+					const data = await res.json();
+					inserted.push(...(data.inserted ?? []));
+				} catch {
+					// A failed chunk must not abandon the remaining chunks.
+				}
+			}
+			if (items.length > 0 && inserted.length === 0) throw new Error('Failed to add availability batch');
+			return inserted;
 		},
 
 		async removeBatch(ids) {

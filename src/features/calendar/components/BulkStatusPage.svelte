@@ -80,8 +80,11 @@
 		startDate: string,
 		endDate: string,
 		note: string | null
-	) {
-		await availabilityStore.addBatch(buildAddRecords(personnelIds, statusTypeId, startDate, endDate, note));
+	): Promise<number> {
+		const inserted = await availabilityStore.addBatch(
+			buildAddRecords(personnelIds, statusTypeId, startDate, endDate, note)
+		);
+		return inserted.length;
 	}
 
 	async function handleBulkRemove(ids: string[]): Promise<boolean> {
@@ -143,7 +146,6 @@
 				<BulkStatusImport
 					personnel={allPersonnelFlat}
 					statusTypes={statusTypesStore.items}
-					orgId={data.orgId}
 					onComplete={handleComplete}
 				/>
 			{/if}

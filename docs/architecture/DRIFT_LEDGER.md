@@ -72,6 +72,7 @@ Each entry separates:
   - the duty-roster page now keeps advanced-duty template normalization and applied-duty timeline collection rules behind a feature-owned module
   - the Personnel detail artifact creation flows now compose a client-side `ArtifactDraft` seam for Follow-Ups, Leader Notes, Documents, and Counseling Records instead of keeping four cloned submit/state flows in the workspace
   - the Duty Roster server use cases now collapse the former templateLifecycle/acceptedRuns/dutyRosterCorrection layering into two concept modules behind the frozen policy-gated facade: Duty Roster Template Administration and Accepted Duty Roster Run Lifecycle, with shared row mapping in templateRecord/acceptedRunRecord and the afterAccept callback seam inlined
+  - the bulk Availability Status surfaces now keep Availability Status Import rules (personnel matching, row validation, status resolution, record building) in a string-free reason-coded feature module, submit through the availability store's chunked batch seam instead of component-owned fetch, and share one Roster Picker instead of duplicated grouped-selection plumbing in the add and remove components
 - Intended direction:
   - deeper modules with thinner public interfaces
 - Why this matters:

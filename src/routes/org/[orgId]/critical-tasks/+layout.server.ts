@@ -1,17 +1,19 @@
 import type { LayoutServerLoad } from './$types';
-import {
-	streamReadyFeatureLaneWorkspace,
-	type FeatureLaneWorkspaceRequestContext
-} from '$lib/server/core/featureLaneWorkspaceLoad';
+import { streamReadyFeatureLaneWorkspace } from '$lib/server/core/featureLaneWorkspaceLoad';
 import {
 	streamCriticalTasksWorkspaceBootstrap,
+	type CriticalTasksWorkspaceRequestContext,
 	type CriticalTasksWorkspaceRouteData
 } from '$features/critical-tasks/server/criticalTasksWorkspaceBootstrap';
 
 export interface CriticalTasksLayoutLoadDeps {
 	streamCriticalTasksWorkspace?: (
-		context: FeatureLaneWorkspaceRequestContext
+		context: CriticalTasksWorkspaceRequestContext
 	) => Promise<CriticalTasksWorkspaceRouteData>;
+}
+
+function shouldIncludeArchivedIctTasks(pathname: string): boolean {
+	return /\/critical-tasks\/library\/?$/.test(pathname);
 }
 
 export function _createCriticalTasksLayoutLoad(deps: CriticalTasksLayoutLoadDeps = {}): LayoutServerLoad {
@@ -20,6 +22,12 @@ export function _createCriticalTasksLayoutLoad(deps: CriticalTasksLayoutLoadDeps
 	return async (event) =>
 		streamReadyFeatureLaneWorkspace(event, {
 			dependencies: ['app:org-core', 'app:critical-tasks-data'],
+			createContext: (event, shell) => ({
+				locals: event.locals,
+				cookies: event.cookies,
+				orgId: shell.org.id,
+				includeArchivedTasks: shouldIncludeArchivedIctTasks(event.url.pathname)
+			}),
 			streamWorkspace: streamCriticalTasksWorkspace
 		});
 }

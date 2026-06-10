@@ -127,4 +127,38 @@ describe('streamCriticalTasksWorkspaceBootstrap', () => {
 			})
 		);
 	});
+
+	it('omits the archived-task filter when the library route requests archived definitions', async () => {
+		const deferredRows = new Promise<Record<string, unknown>[]>(() => undefined);
+		findManyMock.mockReturnValue(deferredRows);
+
+		const routeData = await streamCriticalTasksWorkspaceBootstrap({
+			locals: {} as App.Locals,
+			cookies: {} as Cookies,
+			orgId: '1-11-bde',
+			includeArchivedTasks: true
+		});
+		void routeData.criticalTasks.data.catch(() => undefined);
+		await new Promise((resolve) => setTimeout(resolve, 0));
+
+		expect(findManyMock).toHaveBeenCalledWith(
+			'ict_tasks',
+			'11111111-1111-1111-1111-111111111111',
+			undefined,
+			expect.not.objectContaining({
+				isNull: expect.anything()
+			})
+		);
+		expect(findManyMock).toHaveBeenCalledWith(
+			'ict_tasks',
+			'11111111-1111-1111-1111-111111111111',
+			undefined,
+			expect.objectContaining({
+				orderBy: [
+					{ column: 'sort_order', ascending: true },
+					{ column: 'task_code', ascending: true }
+				]
+			})
+		);
+	});
 });

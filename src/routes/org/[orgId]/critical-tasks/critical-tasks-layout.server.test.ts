@@ -91,6 +91,7 @@ describe('critical tasks layout server load', () => {
 			params: { orgId: '1-11-bde' },
 			locals,
 			cookies,
+			url: new URL('https://example.test/org/1-11-bde/critical-tasks'),
 			depends,
 			parent
 		} as unknown as Parameters<typeof load>[0]);
@@ -101,7 +102,12 @@ describe('critical tasks layout server load', () => {
 		expect(depends).toHaveBeenCalledTimes(1);
 		expect(depends).toHaveBeenCalledWith('app:org-core', 'app:critical-tasks-data');
 		expect(parent).toHaveBeenCalledTimes(1);
-		expect(streamCriticalTasksWorkspace).toHaveBeenCalledWith({ locals, cookies, orgId: 'org-1' });
+		expect(streamCriticalTasksWorkspace).toHaveBeenCalledWith({
+			locals,
+			cookies,
+			orgId: 'org-1',
+			includeArchivedTasks: false
+		});
 		expect(result).not.toHaveProperty('criticalTasksSettings');
 		expect(result.criticalTasks.data).toBeInstanceOf(Promise);
 
@@ -145,6 +151,7 @@ describe('critical tasks layout server load', () => {
 			params: { orgId: '1-11-bde' },
 			locals,
 			cookies,
+			url: new URL('https://example.test/org/1-11-bde/critical-tasks'),
 			depends,
 			parent
 		} as unknown as Parameters<typeof load>[0]);
@@ -153,7 +160,43 @@ describe('critical tasks layout server load', () => {
 		}
 
 		expect(depends).toHaveBeenCalledWith('app:org-core', 'app:critical-tasks-data');
-		expect(streamCriticalTasksWorkspace).toHaveBeenCalledWith({ locals, cookies, orgId: 'org-1' });
+		expect(streamCriticalTasksWorkspace).toHaveBeenCalledWith({
+			locals,
+			cookies,
+			orgId: 'org-1',
+			includeArchivedTasks: false
+		});
 		await expect(result.criticalTasks.data).rejects.toThrow('policy denied');
+	});
+
+	it('requests archived ICT task definitions for the library child route', async () => {
+		const depends = vi.fn();
+		const streamCriticalTasksWorkspace = vi.fn().mockResolvedValue({
+			criticalTasks: {
+				data: Promise.resolve({ laneKey: 'critical-tasks' })
+			}
+		} as unknown as CriticalTasksWorkspaceRouteData);
+		const load = _createCriticalTasksLayoutLoad({
+			streamCriticalTasksWorkspace
+		});
+		const locals = {} as App.Locals;
+		const cookies = {} as Cookies;
+		const parent = vi.fn().mockResolvedValue(createReadyAppShellRouteData({ orgId: 'org-1' }));
+
+		await load({
+			params: { orgId: '1-11-bde' },
+			locals,
+			cookies,
+			url: new URL('https://example.test/org/1-11-bde/critical-tasks/library'),
+			depends,
+			parent
+		} as unknown as Parameters<typeof load>[0]);
+
+		expect(streamCriticalTasksWorkspace).toHaveBeenCalledWith({
+			locals,
+			cookies,
+			orgId: 'org-1',
+			includeArchivedTasks: true
+		});
 	});
 });

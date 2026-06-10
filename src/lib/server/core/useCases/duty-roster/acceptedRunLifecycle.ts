@@ -351,12 +351,18 @@ async function buildReviewedDutyRosterTemplatePreview(
 	const previewRange = parseGenerateInput({
 		templateId: preview.assignmentType.id,
 		startDate: preview.config.startDate,
-		endDate: preview.config.endDate
+		endDate: preview.config.endDate,
+		pattern: preview.config.pattern,
+		selectedWeekdays: preview.config.selectedWeekdays,
+		skipHolidaysAndDonsas: preview.config.excludeHolidays || preview.config.excludeOrgClosures
 	});
 	let acceptedPreview = await buildDutyRosterTemplatePreviewFromCurrentState(ctx, {
 		template: toDutyRosterTemplate(existing),
 		startDate: previewRange.startDate,
 		endDate: previewRange.endDate,
+		pattern: previewRange.pattern,
+		selectedWeekdays: previewRange.selectedWeekdays,
+		skipHolidaysAndDonsas: previewRange.skipHolidaysAndDonsas,
 		generatedAt: preview.generatedAt
 	});
 	assertReviewedDutyRosterTemplatePreviewIsCurrent({

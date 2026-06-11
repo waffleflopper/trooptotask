@@ -15,7 +15,7 @@ The operator explicitly excluded automatic CI trigger work from this batch. Do n
 | 003  | Refresh org ownership RPC definitions             | P1       | M      | -          | DONE   |
 | 004  | Replace stale calendar range records              | P1       | M      | -          | DONE   |
 | 005  | Include existing duty events in template previews | P1       | M      | -          | DONE   |
-| 006  | Add a manual Supabase DB contract gate            | P2       | M      | 001, 003   | TODO   |
+| 006  | Add a manual Supabase DB contract gate            | P2       | M      | 001, 003   | DONE   |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line rationale).
 

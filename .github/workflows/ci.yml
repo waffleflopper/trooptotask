@@ -4,6 +4,32 @@ on:
   workflow_dispatch:
 
 jobs:
+  db-contracts:
+    name: Supabase DB contracts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm install -g npm@11.12.1
+
+      - run: npm ci
+
+      - uses: supabase/setup-cli@v2
+        with:
+          version: latest
+          github-token: ${{ github.token }}
+
+      - name: Start local Supabase
+        run: supabase start
+
+      - name: Run DB contracts
+        run: npm run db:test
+
   unit:
     name: Type check & unit tests
     runs-on: ubuntu-latest

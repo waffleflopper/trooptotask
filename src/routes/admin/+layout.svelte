@@ -25,6 +25,9 @@
 	import { themeStore } from '$lib/stores/theme.svelte';
 
 	let { children, data } = $props();
+	const canUseGlobalAdminSearch = $derived(
+		data.accessiblePages.includes('users') || data.accessiblePages.includes('organizations')
+	);
 
 	const navIconByPage = {
 		dashboard: Gauge,
@@ -130,9 +133,11 @@
 				<p class="truncate text-sm font-medium">Platform Oversight</p>
 				<p class="truncate text-xs text-muted-foreground">Internal admin workspace</p>
 			</div>
-			<div class="hidden min-w-0 flex-1 justify-center lg:flex">
-				<AdminSearch />
-			</div>
+			{#if canUseGlobalAdminSearch}
+				<div class="hidden min-w-0 flex-1 justify-center lg:flex">
+					<AdminSearch />
+				</div>
+			{/if}
 			<Button variant="ghost" size="icon-sm" onclick={() => themeStore.toggle()} aria-label="Toggle theme">
 				{#if themeStore.isDark}
 					<Sun />
@@ -142,9 +147,11 @@
 			</Button>
 			<Badge variant="outline" class="hidden md:inline-flex">{formatRole(data.adminRole)}</Badge>
 		</header>
-		<div class="border-b bg-background px-4 py-3 lg:hidden">
-			<AdminSearch />
-		</div>
+		{#if canUseGlobalAdminSearch}
+			<div class="border-b bg-background px-4 py-3 lg:hidden">
+				<AdminSearch />
+			</div>
+		{/if}
 		{@render children()}
 	</Sidebar.Inset>
 </Sidebar.Provider>

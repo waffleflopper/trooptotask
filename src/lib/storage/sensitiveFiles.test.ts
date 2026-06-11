@@ -5,8 +5,11 @@ import {
 	SENSITIVE_FILE_MAX_BYTES,
 	buildSensitiveFilePath,
 	sanitizeSensitiveFilename,
-	validateSensitiveFileSelection
+	validateSensitiveFileSelection,
+	validateSensitivePdfFile
 } from './sensitiveFiles';
+
+const PDF_BYTES = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d]);
 
 describe('sensitiveFiles', () => {
 	it('builds an org-scoped storage path with a sanitized filename', () => {
@@ -28,6 +31,18 @@ describe('sensitiveFiles', () => {
 		expect(validateSensitiveFileSelection({ type: 'application/pdf', size: SENSITIVE_FILE_MAX_BYTES + 1 })).toBe(
 			'File must be under 10MB.'
 		);
+	});
+
+	it('rejects PDF uploads when the bytes do not match the PDF signature', async () => {
+		const file = new File(['not a pdf'], 'spoofed.pdf', { type: 'application/pdf' });
+
+		await expect(validateSensitivePdfFile(file)).resolves.toBe('Only PDF files are allowed.');
+	});
+
+	it('accepts PDF uploads when the bytes match the PDF signature', async () => {
+		const file = new File([PDF_BYTES], 'signed-roster.pdf', { type: 'application/pdf' });
+
+		await expect(validateSensitivePdfFile(file)).resolves.toBeNull();
 	});
 
 	it('sanitizes filenames consistently for storage-safe paths', () => {

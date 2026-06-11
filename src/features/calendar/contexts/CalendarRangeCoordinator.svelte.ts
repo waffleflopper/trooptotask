@@ -9,8 +9,10 @@ import {
 } from '$features/calendar/utils/calendarRange';
 import { loadCalendarRange, mergeCalendarRangeIntoStores } from '$features/calendar/utils/calendarRangeLoader';
 import { mergeById } from '$lib/utils/mergeById';
+import { formatDate, parseDate } from '$lib/utils/dates';
 
 type CalendarBootstrapRangeData = Pick<CalendarBootstrap, 'rangeStart' | 'rangeEnd' | 'advancedDutyEvents'>;
+type CalendarRangeWindow = Pick<CalendarRangeData, 'rangeStart' | 'rangeEnd'>;
 
 interface CalendarRangeCoordinatorDeps {
 	loadRange?: typeof loadCalendarRange;
@@ -22,6 +24,17 @@ interface LoadVisibleRangeInput {
 	canViewCalendar: boolean;
 	currentDate: Date;
 	viewMode: CalendarViewMode;
+}
+
+function nextDateOnly(date: string): string {
+	const value = parseDate(date);
+	value.setDate(value.getDate() + 1);
+	return formatDate(value);
+}
+
+function keepAdvancedDutyEventsOutsideRange(events: DutyEvent[], range: CalendarRangeWindow): DutyEvent[] {
+	const rangeEndNextDay = nextDateOnly(range.rangeEnd);
+	return events.filter((event) => event.coverageStart >= rangeEndNextDay || event.coverageEnd <= range.rangeStart);
 }
 
 export class CalendarRangeCoordinator {
@@ -151,7 +164,10 @@ export class CalendarRangeCoordinator {
 			const loadedRange = untrack(() => this.loadedRange);
 			const advancedDutyEvents = untrack(() => this.advancedDutyEvents);
 			this.#mergeRangeIntoStores(orgId, rangeData);
-			this.advancedDutyEvents = mergeById(advancedDutyEvents, rangeData.advancedDutyEvents);
+			this.advancedDutyEvents = mergeById(
+				keepAdvancedDutyEventsOutsideRange(advancedDutyEvents, rangeData),
+				rangeData.advancedDutyEvents
+			);
 			this.loadedRange = loadedRange
 				? {
 						rangeStart: rangeData.rangeStart < loadedRange.rangeStart ? rangeData.rangeStart : loadedRange.rangeStart,

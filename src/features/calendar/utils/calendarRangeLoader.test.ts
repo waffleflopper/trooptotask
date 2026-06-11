@@ -96,6 +96,36 @@ describe('calendarRangeLoader', () => {
 	});
 
 	it('merges ranged calendar data into the existing org-scoped stores', () => {
+		availabilityStoreMock.items = [
+			{
+				id: 'stale-availability-in-range',
+				personnelId: 'p1',
+				statusTypeId: 'st1',
+				startDate: '2026-03-15',
+				endDate: '2026-03-16',
+				note: null
+			},
+			{
+				id: 'kept-availability-out-of-range',
+				personnelId: 'p1',
+				statusTypeId: 'st1',
+				startDate: '2026-02-15',
+				endDate: '2026-02-16',
+				note: null
+			},
+			{
+				id: 'a1',
+				personnelId: 'p1',
+				statusTypeId: 'st1',
+				startDate: '2026-03-01',
+				endDate: '2026-03-05',
+				note: null
+			}
+		];
+		specialDaysStoreMock.items = [
+			{ id: 'stale-special-day-in-range', name: 'Stale', date: '2026-03-15', type: 'org-closure' },
+			{ id: 'kept-special-day-out-of-range', name: 'Retained', date: '2026-02-15', type: 'org-closure' }
+		];
 		dailyAssignmentsStoreMock.assignments = [
 			{ id: 'stale-in-range', date: '2026-03-15', assignmentTypeId: 'at1', assigneeId: 'p1' },
 			{ id: 'kept-out-of-range', date: '2026-02-15', assignmentTypeId: 'at1', assigneeId: 'p1' }
@@ -123,6 +153,14 @@ describe('calendarRangeLoader', () => {
 		expect(availabilityStoreMock.load).toHaveBeenCalledWith(
 			[
 				{
+					id: 'kept-availability-out-of-range',
+					personnelId: 'p1',
+					statusTypeId: 'st1',
+					startDate: '2026-02-15',
+					endDate: '2026-02-16',
+					note: null
+				},
+				{
 					id: 'a1',
 					personnelId: 'p1',
 					statusTypeId: 'st2',
@@ -136,7 +174,7 @@ describe('calendarRangeLoader', () => {
 		);
 		expect(specialDaysStoreMock.load).toHaveBeenCalledWith(
 			[
-				{ id: 'sd1', name: 'Existing', date: '2026-03-01', type: 'org-closure' },
+				{ id: 'kept-special-day-out-of-range', name: 'Retained', date: '2026-02-15', type: 'org-closure' },
 				{ id: 'sd2', name: 'Incoming', date: '2026-06-01', type: 'org-closure' }
 			],
 			'org-1'

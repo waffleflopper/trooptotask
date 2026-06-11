@@ -3,17 +3,23 @@ import { CalendarRangeCoordinator } from './CalendarRangeCoordinator.svelte';
 import type { CalendarRangeData } from '$lib/server/core/useCases/calendarQuery';
 import type { DutyEvent } from '$features/duty-roster/duty-roster.types';
 
-function makeDutyEvent(id: string, coverageStart = '2026-04-01T08:00:00'): DutyEvent {
+function makeDutyEvent(
+	id: string,
+	coverageStart = '2026-04-01T08:00:00',
+	overrides: Partial<DutyEvent> = {}
+): DutyEvent {
+	const eventDate = coverageStart.slice(0, 10);
+
 	return {
 		id,
 		orgId: 'org-1',
 		runId: null,
 		templateId: 'tmpl-1',
 		templateName: 'Staff Duty',
-		eventDate: coverageStart.slice(0, 10),
+		eventDate,
 		coverageMode: 'timed',
 		coverageStart,
-		coverageEnd: '2026-04-02T08:00:00',
+		coverageEnd: `${eventDate}T20:00:00`,
 		isBlocking: true,
 		cooldownHours: 24,
 		fillSummary: { totalSlots: 1, filledSlots: 1, unfilledSlots: 0 },
@@ -35,7 +41,8 @@ function makeDutyEvent(id: string, coverageStart = '2026-04-01T08:00:00'): DutyE
 		},
 		slotInstances: [],
 		createdAt: '2026-04-01T00:00:00.000Z',
-		updatedAt: '2026-04-01T00:00:00.000Z'
+		updatedAt: '2026-04-01T00:00:00.000Z',
+		...overrides
 	};
 }
 
@@ -131,6 +138,50 @@ describe('CalendarRangeCoordinator', () => {
 		expect(coordinator.loading).toBe(false);
 		expect(coordinator.error).toBeNull();
 		expect(coordinator.advancedDutyEvents.map((event) => event.id)).toEqual(['event-bootstrap', 'event-from-range']);
+	});
+
+	it('replaces advanced duty events inside later loaded ranges while retaining outside events', async () => {
+		coordinator.includeBootstrap({
+			rangeStart: '2026-04-01',
+			rangeEnd: '2026-04-30',
+			advancedDutyEvents: [
+				makeDutyEvent('stale-spanning-may', '2026-04-30T08:00:00', {
+					coverageEnd: '2026-05-01T08:00:00'
+				}),
+				makeDutyEvent('april-only', '2026-04-10T08:00:00', {
+					coverageEnd: '2026-04-10T20:00:00'
+				}),
+				makeDutyEvent('event-replaced', '2026-04-15T08:00:00', {
+					coverageEnd: '2026-04-15T20:00:00',
+					templateName: 'Old Staff Duty'
+				})
+			]
+		});
+		loadRange.mockResolvedValueOnce(
+			makeRangeData({
+				advancedDutyEvents: [
+					makeDutyEvent('event-replaced', '2026-05-02T08:00:00', {
+						coverageEnd: '2026-05-02T20:00:00',
+						templateName: 'Updated Staff Duty'
+					})
+				]
+			})
+		);
+
+		await coordinator.loadVisibleRange({
+			orgId: 'org-1',
+			canViewCalendar: true,
+			currentDate: new Date(2026, 4, 1),
+			viewMode: 'month'
+		});
+
+		expect(coordinator.loadedRange).toEqual({ rangeStart: '2026-04-01', rangeEnd: '2026-05-31' });
+		expect(coordinator.advancedDutyEvents.map((event) => event.id)).toEqual(['april-only', 'event-replaced']);
+		expect(coordinator.advancedDutyEvents.find((event) => event.id === 'stale-spanning-may')).toBeUndefined();
+		expect(coordinator.advancedDutyEvents.find((event) => event.id === 'event-replaced')).toMatchObject({
+			coverageStart: '2026-05-02T08:00:00',
+			templateName: 'Updated Staff Duty'
+		});
 	});
 
 	it('does not reload the same failed range until retry is requested', async () => {

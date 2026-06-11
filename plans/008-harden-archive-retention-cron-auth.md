@@ -1,6 +1,6 @@
 # 008 - Harden archive-retention cron authorization
 
-Status: TODO
+Status: DONE
 Priority: P1
 Effort: S
 Created: 2026-06-11
@@ -15,7 +15,7 @@ Depends on: `002-reject-unset-cleanup-bearer-secrets`
 
 - `src/routes/api/cleanup-archived-records/+server.ts` defines local `isAuthorized(...)` logic:
   - It accepts `typeof cleanupSecret === 'string'`.
-  - It compares the header to ``Bearer ${cleanupSecret}``.
+  - It compares the header to `Bearer ${cleanupSecret}`.
   - It does not trim configured secrets.
   - It does not fail closed when no usable secret is configured.
 - `src/lib/server/cronEndpointAuth.ts` already provides `assertCronEndpointAuthorized(...)`.
@@ -61,19 +61,19 @@ Archive-retention cleanup authorization uses the same hardened cron auth helper 
 
 ```ts
 assertCronEndpointAuthorized(input.request.headers.get('authorization'), [
-  input.env.CLEANUP_SECRET,
-  input.env.CRON_SECRET
+	input.env.CLEANUP_SECRET,
+	input.env.CRON_SECRET
 ]);
 ```
 
-   - In `GET`, call the same helper before building Supabase clients or stores.
+- In `GET`, call the same helper before building Supabase clients or stores.
 
 3. Keep the compatibility alias intact.
    - Confirm `src/routes/api/cleanup-archived-personnel/+server.ts` still re-exports the same handler if that file is currently just an alias.
    - Do not duplicate auth logic there.
 
 4. Remove stale auth code and search for similar leftovers.
-   - Verify the archive-retention route no longer contains `function isAuthorized` or direct ``Bearer ${...}`` secret comparisons.
+   - Verify the archive-retention route no longer contains `function isAuthorized` or direct `Bearer ${...}` secret comparisons.
    - Do not broaden the slice to unrelated endpoints unless the same exact local helper remains in the archive-retention route family.
 
 ## Suggested Tests

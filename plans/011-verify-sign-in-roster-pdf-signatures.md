@@ -1,6 +1,6 @@
 # 011 - Verify sign-in roster PDF signatures
 
-Status: TODO
+Status: DONE
 Priority: P2
 Effort: S
 Created: 2026-06-11

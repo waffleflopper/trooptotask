@@ -53,7 +53,10 @@ export const GET: RequestHandler = async ({ request }) => {
 
 	return _runArchiveRetentionCleanupEndpointCore({
 		request,
-		env,
+		env: {
+			CLEANUP_SECRET: env.CLEANUP_SECRET,
+			CRON_SECRET: env.CRON_SECRET
+		},
 		orgConfigs,
 		runCleanup: (configs) => cleanupArchivedRecords({ store, storage }, configs)
 	});

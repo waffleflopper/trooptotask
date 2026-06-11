@@ -2,11 +2,7 @@ import { json } from '@sveltejs/kit';
 import type { RequestEvent } from '@sveltejs/kit';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { fail } from '$lib/server/core/errors';
-import {
-	buildSensitiveFilePath,
-	SENSITIVE_FILE_BUCKET,
-	validateSensitiveFileSelection
-} from '$lib/storage/sensitiveFiles';
+import { buildSensitiveFilePath, SENSITIVE_FILE_BUCKET, validateSensitivePdfFile } from '$lib/storage/sensitiveFiles';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 
 export const _getConfig: RouteConfig<{ rosterId: string }, { url: string }> = {
@@ -44,7 +40,7 @@ export const _postConfig: RouteConfig<{ rosterId: string; file: File }, { filePa
 	},
 	fn: async (ctx, input) => {
 		if (!input.file) fail(400, 'No file provided');
-		const validationError = validateSensitiveFileSelection(input.file);
+		const validationError = await validateSensitivePdfFile(input.file);
 		if (validationError) fail(400, validationError);
 
 		const storagePath = buildSensitiveFilePath({

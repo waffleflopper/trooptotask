@@ -73,35 +73,15 @@ export function createScopedDataStore(
 		return { filters, options, needsPersonnelFilter: rule.personnelColumn };
 	}
 
-	/** Strip pagination from options so the inner query fetches all rows for in-memory filtering */
-	function stripPagination(options?: FindOptions): FindOptions | undefined {
-		if (!options) return undefined;
-		const rest: FindOptions = { ...options };
-		delete rest.range;
-		delete rest.limit;
-		return Object.keys(rest).length > 0 ? rest : undefined;
-	}
-
-	/** Apply pagination (range/limit) to an already-filtered result set */
-	function applyPagination<T>(results: T[], options?: FindOptions): T[] {
-		let sliced = results;
-		if (options?.range) {
-			sliced = sliced.slice(options.range.from, options.range.to + 1);
-		}
-		if (options?.limit !== undefined) {
-			sliced = sliced.slice(0, options.limit);
-		}
-		return sliced;
-	}
-
-	async function filterByPersonnel<T extends Record<string, unknown>>(
-		results: T[],
+	async function addPersonnelScopeOptions(
 		orgId: string,
-		personnelColumn: string
-	): Promise<T[]> {
+		personnelColumn: string,
+		options?: FindOptions
+	): Promise<FindOptions | null> {
 		const ids = await getInScopePersonnelIds(orgId);
-		const idSet = new Set(ids);
-		return results.filter((row) => idSet.has(row[personnelColumn] as string));
+		const scopedIds = intersectInFilterValues(options?.inFilters?.[personnelColumn], ids);
+		if (scopedIds.length === 0) return null;
+		return mergeInFilter(options, personnelColumn, scopedIds);
 	}
 
 	return {
@@ -147,11 +127,9 @@ export function createScopedDataStore(
 			const scoped = addScopeFilters(table, orgId, filters, options);
 
 			if (scoped.needsPersonnelFilter) {
-				// Fetch all rows (no pagination) so in-memory personnel filter sees everything
-				const unpaginated = stripPagination(scoped.options);
-				const results = await inner.findMany<T & Record<string, unknown>>(table, orgId, scoped.filters, unpaginated);
-				const filtered = await filterByPersonnel(results, orgId, scoped.needsPersonnelFilter);
-				return applyPagination(filtered, scoped.options) as T[];
+				const scopedOptions = await addPersonnelScopeOptions(orgId, scoped.needsPersonnelFilter, scoped.options);
+				if (!scopedOptions) return [];
+				return inner.findMany<T>(table, orgId, scoped.filters, scopedOptions);
 			}
 
 			return inner.findMany<T>(table, orgId, scoped.filters, scoped.options);
@@ -166,11 +144,9 @@ export function createScopedDataStore(
 			const scoped = addScopeFilters(table, orgId, filters, options);
 
 			if (scoped.needsPersonnelFilter) {
-				// Fetch all rows (no pagination) so in-memory personnel filter sees everything
-				const unpaginated = stripPagination(scoped.options);
-				const results = await inner.findMany<T & Record<string, unknown>>(table, orgId, scoped.filters, unpaginated);
-				const filtered = await filterByPersonnel(results, orgId, scoped.needsPersonnelFilter);
-				return { data: applyPagination(filtered, scoped.options) as T[], count: filtered.length };
+				const scopedOptions = await addPersonnelScopeOptions(orgId, scoped.needsPersonnelFilter, scoped.options);
+				if (!scopedOptions) return { data: [], count: 0 };
+				return inner.findManyWithCount<T>(table, orgId, scoped.filters, scopedOptions);
 			}
 
 			return inner.findManyWithCount<T>(table, orgId, scoped.filters, scoped.options);
@@ -205,7 +181,7 @@ function normalizeScopedGroupIds(scope: ScopeSet | string[] | string | null): st
 	return groupIds.length > 0 ? groupIds : null;
 }
 
-function mergeInFilter(options: FindOptions | undefined, column: string, values: string[]): FindOptions {
+function mergeInFilter(options: FindOptions | undefined, column: string, values: unknown[]): FindOptions {
 	return {
 		...(options ?? {}),
 		inFilters: {
@@ -213,4 +189,10 @@ function mergeInFilter(options: FindOptions | undefined, column: string, values:
 			[column]: values
 		}
 	};
+}
+
+function intersectInFilterValues(existingValues: unknown[] | undefined, scopedValues: string[]): unknown[] {
+	if (!existingValues) return scopedValues;
+	const scopedSet = new Set<unknown>(scopedValues);
+	return existingValues.filter((value) => scopedSet.has(value));
 }

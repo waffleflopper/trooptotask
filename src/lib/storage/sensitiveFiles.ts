@@ -1,6 +1,9 @@
+import { hasPdfFileSignature } from './fileSignatures';
+
 export const SENSITIVE_FILE_BUCKET = 'counseling-files';
 export const SENSITIVE_FILE_ACCEPT = 'application/pdf';
 export const SENSITIVE_FILE_MAX_BYTES = 10 * 1024 * 1024;
+const PDF_SIGNATURE_BYTE_LENGTH = 4;
 
 export type SensitiveFileScope = 'sign-in-rosters' | 'counseling-records';
 
@@ -25,6 +28,16 @@ export function validateSensitiveFileSelection(file: { type: string; size: numbe
 	if (file.size > SENSITIVE_FILE_MAX_BYTES) {
 		return 'File must be under 10MB.';
 	}
+
+	return null;
+}
+
+export async function validateSensitivePdfFile(file: File): Promise<string | null> {
+	const validationError = validateSensitiveFileSelection(file);
+	if (validationError) return validationError;
+
+	const bytes = new Uint8Array(await file.slice(0, PDF_SIGNATURE_BYTE_LENGTH).arrayBuffer());
+	if (!hasPdfFileSignature(bytes)) return 'Only PDF files are allowed.';
 
 	return null;
 }

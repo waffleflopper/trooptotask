@@ -9,6 +9,7 @@ import {
 } from './dutyRosterTemplatePreview';
 import { buildDutyRosterCountSource } from './dutyRosterCountSource';
 import type { DutyRosterPoolPersonnel, DutyRosterTemplate } from './dutyRosterTemplates';
+import type { DutyEvent } from '$features/duty-roster/duty-roster.types';
 import type { StatusType } from '$lib/types';
 
 const statusTypes: StatusType[] = [
@@ -72,6 +73,71 @@ function person(overrides: Partial<DutyRosterPoolPersonnel>): DutyRosterPoolPers
 	};
 }
 
+function advancedDutyEvent(overrides: Partial<DutyEvent> & { assigneeId: string }): DutyEvent {
+	return {
+		id: overrides.id ?? 'advanced-duty',
+		orgId: 'org-1',
+		runId: null,
+		templateId: 'advanced-duty-template',
+		templateName: 'Staff Duty',
+		eventDate: '2026-06-01',
+		coverageMode: 'timed',
+		coverageStart: overrides.coverageStart ?? '2026-06-01T06:00:00',
+		coverageEnd: overrides.coverageEnd ?? '2026-06-01T18:00:00',
+		isBlocking: overrides.isBlocking ?? true,
+		cooldownHours: overrides.cooldownHours ?? 0,
+		rulesSnapshot: {
+			templateId: 'advanced-duty-template',
+			templateName: 'Staff Duty',
+			templateStatus: 'active',
+			coverageMode: 'timed',
+			startTime: '06:00',
+			endTime: '18:00',
+			scopeType: 'organization',
+			scopeGroupIds: [],
+			isBlocking: true,
+			cooldownHours: overrides.cooldownHours ?? 0,
+			slots: [
+				{
+					templateSlotId: 'slot-nco',
+					roleLabel: 'NCO',
+					quantity: 1,
+					allowedRanks: [],
+					allowedGroupIds: [],
+					preferredGroupIds: [],
+					allowedMosValues: [],
+					allowedRoleValues: [],
+					rotationPoolKey: 'nco',
+					blockingMode: 'inherit',
+					sortOrder: 0
+				}
+			]
+		},
+		fillSummary: { totalSlots: 1, filledSlots: 1, unfilledSlots: 0 },
+		collisionSummary: { hasConflicts: false, conflicts: [] },
+		originalProposal: null,
+		createdAt: '2026-05-31T00:00:00.000Z',
+		updatedAt: '2026-05-31T00:00:00.000Z',
+		slotInstances: [
+			{
+				id: `${overrides.id ?? 'advanced-duty'}-slot`,
+				dutyEventId: overrides.id ?? 'advanced-duty',
+				templateSlotId: 'slot-nco',
+				roleLabel: 'NCO',
+				slotIndex: 0,
+				assigneeId: overrides.assigneeId,
+				assignmentSource: 'generated',
+				warningState: 'none',
+				fairnessConfidence: 'high',
+				selectionReason: null,
+				unfilledReason: null,
+				sortOrder: 0
+			}
+		],
+		...overrides
+	};
+}
+
 describe('buildDutyRosterTemplatePreview', () => {
 	it('starts a new roster from DA6 roster order when there is no baseline or accepted history', () => {
 		const preview = buildDutyRosterTemplatePreview({
@@ -81,6 +147,7 @@ describe('buildDutyRosterTemplatePreview', () => {
 				person({ id: 'senior-b', rank: 'SSG', lastName: 'Baker' }),
 				person({ id: 'senior-a', rank: 'SSG', lastName: 'Able' })
 			],
+			advancedDutyEvents: [],
 			availabilityEntries: [],
 			statusTypes,
 			specialDays: [],
@@ -115,6 +182,7 @@ describe('buildDutyRosterTemplatePreview', () => {
 		const preview = buildDutyRosterTemplatePreview({
 			template: templateWithBaseline,
 			personnel,
+			advancedDutyEvents: [],
 			availabilityEntries: [],
 			statusTypes,
 			specialDays: [],
@@ -149,6 +217,7 @@ describe('buildDutyRosterTemplatePreview', () => {
 		const preview = buildDutyRosterTemplatePreview({
 			template: templateWithBaseline,
 			personnel,
+			advancedDutyEvents: [],
 			availabilityEntries: [],
 			statusTypes,
 			specialDays: [],
@@ -186,6 +255,7 @@ describe('buildDutyRosterTemplatePreview', () => {
 		const firstPreview = buildDutyRosterTemplatePreview({
 			template: templateWithBaseline,
 			personnel,
+			advancedDutyEvents: [],
 			availabilityEntries: [],
 			statusTypes,
 			specialDays: [],
@@ -218,6 +288,7 @@ describe('buildDutyRosterTemplatePreview', () => {
 		const nextPreview = buildDutyRosterTemplatePreview({
 			template: templateWithBaseline,
 			personnel,
+			advancedDutyEvents: [],
 			availabilityEntries: [],
 			statusTypes,
 			specialDays: [],
@@ -243,6 +314,7 @@ describe('buildDutyRosterTemplatePreview', () => {
 				person({ id: 'charlie', rank: 'SGT', lastName: 'Charlie' }),
 				person({ id: 'delta', rank: 'SGT', lastName: 'Delta' })
 			],
+			advancedDutyEvents: [],
 			availabilityEntries: [
 				{
 					id: 'leave-alpha',
@@ -277,6 +349,46 @@ describe('buildDutyRosterTemplatePreview', () => {
 		expect(Object.isFrozen(preview)).toBe(true);
 	});
 
+	it('blocks advanced-duty overlap and cooldown cells from normal preview selection', () => {
+		const preview = buildDutyRosterTemplatePreview({
+			template,
+			personnel: [
+				person({ id: 'alpha', rank: 'SGT', lastName: 'Able' }),
+				person({ id: 'bravo', rank: 'SGT', lastName: 'Baker' }),
+				person({ id: 'charlie', rank: 'SGT', lastName: 'Charlie' })
+			],
+			advancedDutyEvents: [
+				advancedDutyEvent({ id: 'overlap-alpha', assigneeId: 'alpha' }),
+				advancedDutyEvent({
+					id: 'cooldown-bravo',
+					assigneeId: 'bravo',
+					coverageStart: '2026-05-31T08:00:00',
+					coverageEnd: '2026-05-31T20:00:00',
+					cooldownHours: 12
+				})
+			],
+			availabilityEntries: [],
+			statusTypes,
+			specialDays: [],
+			startDate: '2026-06-01',
+			endDate: '2026-06-01'
+		});
+
+		expect(preview.rosterRows).toEqual([{ date: '2026-06-01', assigneeId: 'charlie' }]);
+		expect(preview.da6.rows.find((row) => row.personnelId === 'alpha')?.cells[0]).toMatchObject({
+			code: 'blocked-by-duty',
+			da6Code: 'D',
+			chargeable: true,
+			assigned: false
+		});
+		expect(preview.da6.rows.find((row) => row.personnelId === 'bravo')?.cells[0]).toMatchObject({
+			code: 'blocked-by-cooldown',
+			da6Code: 'D',
+			chargeable: true,
+			assigned: false
+		});
+	});
+
 	it('applies clean manual selections without requiring a reason while preserving the generated Soldier', () => {
 		const preview = buildDutyRosterTemplatePreview({
 			template,
@@ -284,6 +396,7 @@ describe('buildDutyRosterTemplatePreview', () => {
 				person({ id: 'alpha', rank: 'SGT', lastName: 'Able' }),
 				person({ id: 'bravo', rank: 'SGT', lastName: 'Baker' })
 			],
+			advancedDutyEvents: [],
 			availabilityEntries: [],
 			statusTypes,
 			specialDays: [],
@@ -314,6 +427,7 @@ describe('buildDutyRosterTemplatePreview', () => {
 				person({ id: 'alpha', rank: 'SGT', lastName: 'Able' }),
 				person({ id: 'bravo', rank: 'SGT', lastName: 'Baker' })
 			],
+			advancedDutyEvents: [],
 			availabilityEntries: [],
 			statusTypes,
 			specialDays: [],
@@ -349,6 +463,7 @@ describe('buildDutyRosterTemplatePreview', () => {
 				person({ id: 'alpha', rank: 'SGT', lastName: 'Able' }),
 				person({ id: 'archived', rank: 'SGT', lastName: 'Archived', archivedAt: '2026-05-01T00:00:00Z' })
 			],
+			advancedDutyEvents: [],
 			availabilityEntries: [],
 			statusTypes,
 			specialDays: [],
@@ -384,6 +499,7 @@ describe('buildDutyRosterTemplatePreview', () => {
 				person({ id: 'bravo', rank: 'SGT', lastName: 'Baker', groupId: 'alpha' }),
 				person({ id: 'charlie', rank: 'SGT', lastName: 'Charlie', groupId: 'bravo' })
 			],
+			advancedDutyEvents: [],
 			availabilityEntries: [
 				{
 					id: 'detail-bravo',
@@ -445,6 +561,7 @@ describe('buildDutyRosterTemplatePreview', () => {
 				person({ id: 'bravo', rank: 'SGT', lastName: 'Baker' }),
 				person({ id: 'charlie', rank: 'SGT', lastName: 'Charlie' })
 			],
+			advancedDutyEvents: [],
 			availabilityEntries: [
 				{
 					id: 'detail-bravo',

@@ -80,8 +80,8 @@ ALTER TABLE "public"."organization_memberships"
 ## Commands You Will Need
 
 | Purpose                 | Command                                                                                                                                     | Expected on success                                   |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- | ----------------- | ------------------------------------- | ----------------------------------------------- |
-| Check final definitions | `rg -n "create_org_with_owner                                                                                                               | transfer_org_ownership                                | can_view_calendar | scoped_group_id" supabase/migrations` | Confirms current drift and no later replacement |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| Check final definitions | See command block below                                                                                                                     | Confirms current drift and no later replacement       |
 | Local DB                | `supabase start`                                                                                                                            | Local Supabase is running; do not point at production |
 | DB contract             | `supabase test db supabase/tests/org_ownership_rpc_contract.sql`                                                                            | pgTAP passes                                          |
 | Adapter tests           | `npm run test -- src/lib/server/adapters/supabaseOrgProvisioning.test.ts src/lib/server/adapters/supabaseOrgSettingsAdministration.test.ts` | pass                                                  |
@@ -90,6 +90,12 @@ ALTER TABLE "public"."organization_memberships"
 | Governance              | `npm run governance:check`                                                                                                                  | exits 0                                               |
 | Typecheck               | `npm run check`                                                                                                                             | exits 0                                               |
 | Unit tests              | `npm run test`                                                                                                                              | exits 0                                               |
+
+Check final definitions command:
+
+```bash
+rg -n "create_org_with_owner|transfer_org_ownership|can_view_calendar|scoped_group_id" supabase/migrations
+```
 
 ## Scope
 

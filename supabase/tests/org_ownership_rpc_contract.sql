@@ -2,7 +2,7 @@ BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 
-SELECT plan(7);
+SELECT plan(10);
 
 SELECT is(
 	pg_get_functiondef('public.create_org_with_owner(text)'::regprocedure)
@@ -62,6 +62,24 @@ VALUES
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', '10000000-0000-4000-8000-000000003001', true);
 SELECT set_config('request.jwt.claim.email', 'org-rpc-owner-3001@example.test', true);
+SELECT throws_ok(
+	$$ SELECT public.create_org_with_owner(NULL::text) $$,
+	'P0001',
+	'Organization name is required',
+	'create_org_with_owner rejects null organization names'
+);
+SELECT throws_ok(
+	$$ SELECT public.create_org_with_owner('   ') $$,
+	'P0001',
+	'Organization name is required',
+	'create_org_with_owner rejects blank organization names'
+);
+SELECT throws_ok(
+	$$ SELECT public.create_org_with_owner(repeat('x', 101)) $$,
+	'P0001',
+	'Organization name must be 100 characters or fewer',
+	'create_org_with_owner rejects overlong organization names'
+);
 SELECT set_config('trooptotask.test.created_org_id', public.create_org_with_owner('RPC Contract Unit')::text, true);
 
 RESET ROLE;

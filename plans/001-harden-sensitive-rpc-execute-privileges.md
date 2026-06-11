@@ -57,8 +57,8 @@ GRANT ALL ON FUNCTION "public"."search_users_by_email"("search_query" "text", "m
 ## Commands You Will Need
 
 | Purpose                 | Command                                                        | Expected on success                                   |
-| ----------------------- | -------------------------------------------------------------- | ----------------------------------------------------- | ------------------------------------------------ | -------------------------------------------- |
-| Check final definitions | `rg -n "search_users_by_email                                  | cleanup_old_audit_logs                                | cleanup_old_webhook_events" supabase/migrations` | Shows no later migration already fixing this |
+| ----------------------- | -------------------------------------------------------------- | ----------------------------------------------------- |
+| Check final definitions | See command block below                                        | Shows no later migration already fixing this          |
 | Local DB                | `supabase start`                                               | Local Supabase is running; do not point at production |
 | DB contract             | `supabase test db supabase/tests/sensitive_rpc_privileges.sql` | pgTAP passes                                          |
 | Format                  | `npm run format`                                               | exits 0                                               |
@@ -66,6 +66,12 @@ GRANT ALL ON FUNCTION "public"."search_users_by_email"("search_query" "text", "m
 | Governance              | `npm run governance:check`                                     | exits 0                                               |
 | Typecheck               | `npm run check`                                                | exits 0                                               |
 | Unit tests              | `npm run test`                                                 | exits 0                                               |
+
+Check final definitions command:
+
+```bash
+rg -n "search_users_by_email|cleanup_old_audit_logs|cleanup_old_webhook_events" supabase/migrations
+```
 
 ## Scope
 

@@ -13,6 +13,12 @@
 - **Depends on**: none
 - **Category**: security
 - **Planned at**: commit `679b6113`, 2026-06-10
+- **Execution status**: DONE on 2026-06-11. The implementation was integrated on branch `codex/improve-plan-work`; `npm run format`, `npm run lint`, `npm run governance:check`, `npm run check`, and `npm run test` all passed there.
+
+## Execution Notes
+
+- The first isolated temp-worktree execution hit environment-sensitive full-suite failures because fresh worktrees do not include the repo's local `.env` files. The same scoped implementation passed the complete gate after being integrated into `codex/improve-plan-work`.
+- Implementation scope stayed limited to `src/lib/server/cronEndpointAuth.ts`, `src/lib/server/cronEndpointAuth.test.ts`, and the three cleanup route files listed in scope.
 
 ## Why This Matters
 
@@ -162,13 +168,13 @@ All commands exit 0.
 
 ## Done Criteria
 
-- [ ] The three affected cleanup endpoints no longer compare against `Bearer ${cleanupSecret}` or `Bearer ${cronSecret}` directly.
-- [ ] Undefined, empty, and blank secrets are never accepted.
-- [ ] At least one nonblank configured secret is required before a request can be authorized.
-- [ ] Targeted helper test passes.
-- [ ] Full npm gate passes: `format`, `lint`, `governance:check`, `check`, `test`.
-- [ ] No files outside the in-scope list are modified.
-- [ ] `plans/README.md` status row updated.
+- [x] The three affected cleanup endpoints no longer compare against `Bearer ${cleanupSecret}` or `Bearer ${cronSecret}` directly.
+- [x] Undefined, empty, and blank secrets are never accepted.
+- [x] At least one nonblank configured secret is required before a request can be authorized.
+- [x] Targeted helper test passes.
+- [x] Full npm gate passes: `format`, `lint`, `governance:check`, `check`, `test`.
+- [x] No files outside the in-scope list are modified.
+- [x] `plans/README.md` status row updated.
 
 ## STOP Conditions
 

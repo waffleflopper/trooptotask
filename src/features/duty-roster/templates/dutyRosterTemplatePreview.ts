@@ -1,5 +1,5 @@
 import { buildDutyRosterRunSnapshot } from '$features/duty-roster/run/dutyRosterRun';
-import type { DutyEventSeriesPattern } from '$features/duty-roster/duty-roster.types';
+import type { DutyEvent, DutyEventSeriesPattern } from '$features/duty-roster/duty-roster.types';
 import type {
 	Da6Cell,
 	DutyRosterContinuationHistoryItem,
@@ -87,6 +87,7 @@ export interface DutyRosterTemplateAcceptedSnapshot {
 export interface DutyRosterTemplatePreviewInput {
 	template: DutyRosterTemplate;
 	personnel: DutyRosterPoolPersonnel[];
+	advancedDutyEvents: DutyEvent[];
 	availabilityEntries: AvailabilityEntry[];
 	statusTypes: StatusType[];
 	specialDays: SpecialDay[];
@@ -118,7 +119,7 @@ export function buildDutyRosterTemplatePreview(input: DutyRosterTemplatePreviewI
 		personnel: resolvedPool.map(toPersonnel),
 		assignments: [],
 		rosterHistory: input.continuationHistory ?? [],
-		advancedDutyEvents: [],
+		advancedDutyEvents: input.advancedDutyEvents,
 		availabilityEntries: input.availabilityEntries,
 		statusTypes: input.statusTypes,
 		specialDays: input.specialDays,

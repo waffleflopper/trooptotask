@@ -25,6 +25,7 @@ import {
 	loadDutyRosterRunCorrectionsByRunId,
 	type DutyRosterTemplateRunRow
 } from './acceptedRunRecord';
+import { listDutyEventsForRosterPreviewWindow } from '../dutyEventCrud';
 
 const DUTY_ROSTER_TEMPLATE_RUN_TABLE = 'duty_roster_template_runs';
 
@@ -147,7 +148,7 @@ export async function buildDutyRosterTemplatePreviewFromCurrentState(
 	}
 ): Promise<DutyRosterTemplatePreview> {
 	const personnel = await listActiveDutyRosterPersonnel(ctx);
-	const [statusTypeRows, availabilityRows, specialDayRows, countReadModel] = await Promise.all([
+	const [statusTypeRows, availabilityRows, specialDayRows, dutyEvents, countReadModel] = await Promise.all([
 		ctx.store.findMany<Record<string, unknown>>('status_types', ctx.auth.orgId, undefined, {
 			select: StatusTypeEntity.select,
 			orderBy: [{ column: 'sort_order', ascending: true }]
@@ -167,6 +168,7 @@ export async function buildDutyRosterTemplatePreviewFromCurrentState(
 			],
 			orderBy: [{ column: 'date', ascending: true }]
 		}),
+		listDutyEventsForRosterPreviewWindow(ctx, { startDate: input.startDate, endDate: input.endDate }),
 		loadDutyRosterTemplateCountReadModelSource(ctx, input.template, {
 			baselineStartDate: input.startDate,
 			previewStartDate: input.startDate,
@@ -178,6 +180,7 @@ export async function buildDutyRosterTemplatePreviewFromCurrentState(
 	return buildDutyRosterTemplatePreview({
 		template: input.template,
 		personnel,
+		advancedDutyEvents: dutyEvents,
 		availabilityEntries: AvailabilityEntryEntity.fromDbArray(availabilityRows),
 		statusTypes: StatusTypeEntity.fromDbArray(statusTypeRows),
 		specialDays: SpecialDayEntity.fromDbArray(specialDayRows),

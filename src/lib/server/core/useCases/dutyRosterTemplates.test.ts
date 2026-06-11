@@ -1141,6 +1141,66 @@ describe('Duty Roster Template use cases', () => {
 		expect(auditEvents).toEqual([]);
 	});
 
+	it('generates a preview that blocks Soldiers assigned to overlapping duty events', async () => {
+		const ctx = createCtx();
+		personnelRows.push(
+			personnelRow({ id: 'alpha', rank: 'SGT', last_name: 'Able', first_name: 'Ann', group_id: 'alpha' }),
+			personnelRow({ id: 'bravo', rank: 'SGT', last_name: 'Baker', first_name: 'Ben', group_id: 'alpha' })
+		);
+		const template = await createDutyRosterTemplate(ctx, { name: 'CQ NCO', shortCode: 'CQ' });
+		dutyEventRows.push(dutyEventRow({ id: 'duty-alpha', event_date: '2026-06-01' }));
+		dutyEventSlotRows.push(
+			dutyEventSlotRow({ id: 'duty-alpha-slot', duty_event_id: 'duty-alpha', assignee_id: 'alpha' })
+		);
+
+		const preview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: template.id,
+			startDate: '2026-06-01',
+			endDate: '2026-06-01'
+		});
+
+		expect(preview.rosterRows).toEqual([{ date: '2026-06-01', assigneeId: 'bravo' }]);
+		expect(preview.da6.rows.find((row) => row.personnelId === 'alpha')?.cells[0]).toMatchObject({
+			code: 'blocked-by-duty',
+			da6Code: 'D',
+			assigned: false
+		});
+	});
+
+	it('generates a preview that applies cooldown from duty events before the preview starts', async () => {
+		const ctx = createCtx();
+		personnelRows.push(
+			personnelRow({ id: 'alpha', rank: 'SGT', last_name: 'Able', first_name: 'Ann', group_id: 'alpha' }),
+			personnelRow({ id: 'bravo', rank: 'SGT', last_name: 'Baker', first_name: 'Ben', group_id: 'alpha' })
+		);
+		const template = await createDutyRosterTemplate(ctx, { name: 'CQ NCO', shortCode: 'CQ' });
+		dutyEventRows.push(
+			dutyEventRow({
+				id: 'cooldown-alpha',
+				event_date: '2026-05-31',
+				coverage_start: '2026-05-31T08:00:00',
+				coverage_end: '2026-05-31T20:00:00',
+				cooldown_hours: 12
+			})
+		);
+		dutyEventSlotRows.push(
+			dutyEventSlotRow({ id: 'cooldown-alpha-slot', duty_event_id: 'cooldown-alpha', assignee_id: 'alpha' })
+		);
+
+		const preview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: template.id,
+			startDate: '2026-06-01',
+			endDate: '2026-06-01'
+		});
+
+		expect(preview.rosterRows).toEqual([{ date: '2026-06-01', assigneeId: 'bravo' }]);
+		expect(preview.da6.rows.find((row) => row.personnelId === 'alpha')?.cells[0]).toMatchObject({
+			code: 'blocked-by-cooldown',
+			da6Code: 'D',
+			assigned: false
+		});
+	});
+
 	it('rejects invalid or oversized Generate preview ranges before loading preview data', async () => {
 		const ctx = createCtx();
 		const template = await createDutyRosterTemplate(ctx, { name: 'CQ NCO', shortCode: 'CQ' });
@@ -1424,6 +1484,34 @@ describe('Duty Roster Template use cases', () => {
 		await expect(
 			acceptDutyRosterTemplatePreview(ctx, {
 				preview: JSON.stringify(tamperedPreview)
+			})
+		).rejects.toMatchObject({
+			status: 409,
+			message: 'Duty Roster preview changed. Generate the preview again before accepting.'
+		});
+		expect(acceptedRunRows).toHaveLength(0);
+	});
+
+	it('rejects accepted previews when a new blocking duty event appears after review', async () => {
+		const ctx = createCtx();
+		personnelRows.push(
+			personnelRow({ id: 'alpha', rank: 'SGT', last_name: 'Able', first_name: 'Ann', group_id: 'alpha' }),
+			personnelRow({ id: 'bravo', rank: 'SGT', last_name: 'Baker', first_name: 'Ben', group_id: 'alpha' })
+		);
+		const template = await createDutyRosterTemplate(ctx, { name: 'CQ NCO', shortCode: 'CQ' });
+		const preview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: template.id,
+			startDate: '2026-06-01',
+			endDate: '2026-06-01'
+		});
+		dutyEventRows.push(dutyEventRow({ id: 'duty-alpha', event_date: '2026-06-01' }));
+		dutyEventSlotRows.push(
+			dutyEventSlotRow({ id: 'duty-alpha-slot', duty_event_id: 'duty-alpha', assignee_id: 'alpha' })
+		);
+
+		await expect(
+			acceptDutyRosterTemplatePreview(ctx, {
+				preview: JSON.stringify(preview)
 			})
 		).rejects.toMatchObject({
 			status: 409,
@@ -3572,6 +3660,77 @@ function statusTypeRow(overrides: Record<string, unknown>): Record<string, unkno
 		da6_availability_treatment: null,
 		da6_treatment_reviewed: true,
 		sort_order: 0,
+		...overrides
+	};
+}
+
+function dutyEventRow(overrides: Record<string, unknown>): Record<string, unknown> {
+	const id = String(overrides.id ?? 'duty-event');
+	const cooldownHours = Number(overrides.cooldown_hours ?? 0);
+	return {
+		id,
+		organization_id: 'org-1',
+		run_id: null,
+		template_id: 'advanced-duty-template',
+		template_name: 'Staff Duty',
+		event_date: '2026-06-01',
+		coverage_mode: 'timed',
+		coverage_start: '2026-06-01T06:00:00',
+		coverage_end: '2026-06-01T18:00:00',
+		is_blocking: true,
+		cooldown_hours: cooldownHours,
+		fill_summary: { totalSlots: 1, filledSlots: 1, unfilledSlots: 0 },
+		collision_summary: { hasConflicts: false, conflicts: [] },
+		rules_snapshot: {
+			templateId: 'advanced-duty-template',
+			templateName: 'Staff Duty',
+			templateStatus: 'active',
+			coverageMode: 'timed',
+			startTime: '06:00',
+			endTime: '18:00',
+			scopeType: 'organization',
+			scopeGroupIds: [],
+			isBlocking: true,
+			cooldownHours,
+			slots: [
+				{
+					templateSlotId: 'slot-nco',
+					roleLabel: 'NCO',
+					quantity: 1,
+					allowedRanks: [],
+					allowedGroupIds: [],
+					preferredGroupIds: [],
+					allowedMosValues: [],
+					allowedRoleValues: [],
+					rotationPoolKey: 'nco',
+					blockingMode: 'inherit',
+					sortOrder: 0
+				}
+			]
+		},
+		original_proposal: null,
+		created_at: '2026-05-31T00:00:00.000Z',
+		updated_at: '2026-05-31T00:00:00.000Z',
+		...overrides
+	};
+}
+
+function dutyEventSlotRow(overrides: Record<string, unknown>): Record<string, unknown> {
+	return {
+		id: 'duty-event-slot',
+		organization_id: 'org-1',
+		duty_event_id: 'duty-event',
+		template_slot_id: 'slot-nco',
+		role_label: 'NCO',
+		slot_index: 0,
+		assignee_id: 'alpha',
+		assignment_source: 'generated',
+		warning_state: 'none',
+		fairness_confidence: 'high',
+		selection_reason: null,
+		unfilled_reason: null,
+		sort_order: 0,
+		created_at: '2026-05-31T00:00:00.000Z',
 		...overrides
 	};
 }

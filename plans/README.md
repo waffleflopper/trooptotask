@@ -19,7 +19,7 @@ The operator explicitly excluded automatic CI trigger work from this batch. Do n
 | 006  | Add a manual Supabase DB contract gate            | P2       | M      | 001, 003   | DONE   |
 | 007  | Restrict global admin search to support roles     | P1       | S      | -          | DONE   |
 | 008  | Harden archive-retention cron authorization       | P1       | S      | 002        | DONE   |
-| 009  | Make Calendar assignment replacement atomic       | P1       | M      | -          | TODO   |
+| 009  | Make Calendar assignment replacement atomic       | P1       | M      | -          | DONE   |
 | 010  | Preserve scoped-store database pagination         | P2       | M      | -          | DONE   |
 | 011  | Verify sign-in roster PDF signatures              | P2       | S      | -          | DONE   |
 

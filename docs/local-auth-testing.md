@@ -92,7 +92,15 @@ supabase start
 supabase test db supabase/tests/auth_workflow_authorization.sql
 ```
 
-Use only a local or disposable database URL for this contract. Do not run it against production.
+Run every local database authorization contract with:
+
+```bash
+supabase start
+npm run db:test
+```
+
+Use only local or disposable Supabase for these contracts. Do not run them against production. The
+tests wrap fixture rows in transactions and should not require a table reset.
 
 ## Manual Account Setup Link check
 

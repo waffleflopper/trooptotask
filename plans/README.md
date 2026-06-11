@@ -20,7 +20,7 @@ The operator explicitly excluded automatic CI trigger work from this batch. Do n
 | 007  | Restrict global admin search to support roles     | P1       | S      | -          | TODO   |
 | 008  | Harden archive-retention cron authorization       | P1       | S      | 002        | TODO   |
 | 009  | Make Calendar assignment replacement atomic       | P1       | M      | -          | TODO   |
-| 010  | Preserve scoped-store database pagination         | P2       | M      | -          | TODO   |
+| 010  | Preserve scoped-store database pagination         | P2       | M      | -          | DONE   |
 | 011  | Verify sign-in roster PDF signatures              | P2       | S      | -          | TODO   |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line rationale).

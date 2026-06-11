@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { createInMemoryDataStore } from './inMemory';
 import { createScopedDataStore } from './scopedDataStore';
 import { defaultScopeRules } from './scopeRules';
@@ -240,6 +240,71 @@ describe('ScopedDataStore', () => {
 				// Should return 2 items for this page, but count should be 4 (total matching)
 				expect(result.data).toHaveLength(2);
 				expect(result.count).toBe(4);
+			});
+
+			it('delegates range and personnel scope to inner findMany', async () => {
+				const inner = createInMemoryDataStore();
+				seedPaginationData(inner);
+				const findManySpy = vi.spyOn(inner, 'findMany');
+				const scoped = createScopedDataStore(inner, GROUP_A, scopeRules);
+
+				const range = { from: 1, to: 2 };
+
+				await scoped.findMany<{ id: string }>('training_records', ORG, undefined, {
+					range,
+					orderBy: [{ column: 'id', ascending: true }],
+					inFilters: { id: ['tr-1', 'tr-3', 'tr-4', 'tr-6'] }
+				});
+
+				const targetCall = findManySpy.mock.calls.find(([table]) => table === 'training_records');
+				expect(targetCall?.[3]).toEqual({
+					range,
+					orderBy: [{ column: 'id', ascending: true }],
+					inFilters: {
+						id: ['tr-1', 'tr-3', 'tr-4', 'tr-6'],
+						personnel_id: ['p-1', 'p-3', 'p-4']
+					}
+				});
+			});
+
+			it('delegates limit, count, and intersected personnel scope to inner findManyWithCount', async () => {
+				const inner = createInMemoryDataStore();
+				seedPaginationData(inner);
+				const findManyWithCountSpy = vi.spyOn(inner, 'findManyWithCount');
+				const scoped = createScopedDataStore(inner, GROUP_A, scopeRules);
+
+				await scoped.findManyWithCount<{ id: string }>('training_records', ORG, undefined, {
+					count: 'exact',
+					limit: 2,
+					inFilters: { personnel_id: ['p-2', 'p-3', 'p-4'] }
+				});
+
+				expect(findManyWithCountSpy).toHaveBeenCalledTimes(1);
+				expect(findManyWithCountSpy.mock.calls[0][3]).toEqual({
+					count: 'exact',
+					limit: 2,
+					inFilters: { personnel_id: ['p-3', 'p-4'] }
+				});
+			});
+
+			it('returns empty personnel-scoped pages without reading the target table when scope is empty', async () => {
+				const inner = createInMemoryDataStore();
+				seedPaginationData(inner);
+				const findManySpy = vi.spyOn(inner, 'findMany');
+				const findManyWithCountSpy = vi.spyOn(inner, 'findManyWithCount');
+				const scoped = createScopedDataStore(inner, GROUP_C, scopeRules);
+
+				const rows = await scoped.findMany<{ id: string }>('training_records', ORG, undefined, {
+					range: { from: 0, to: 1 }
+				});
+				const result = await scoped.findManyWithCount<{ id: string }>('training_records', ORG, undefined, {
+					limit: 2
+				});
+
+				expect(rows).toEqual([]);
+				expect(result).toEqual({ data: [], count: 0 });
+				expect(findManySpy.mock.calls.some(([table]) => table === 'training_records')).toBe(false);
+				expect(findManyWithCountSpy).not.toHaveBeenCalled();
 			});
 		});
 

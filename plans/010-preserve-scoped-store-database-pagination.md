@@ -1,6 +1,6 @@
 # 010 - Preserve database pagination for scoped personnel tables
 
-Status: TODO
+Status: DONE
 Priority: P2
 Effort: M
 Created: 2026-06-11

@@ -1,6 +1,6 @@
 # 007 - Restrict global admin search to support-authorized roles
 
-Status: TODO
+Status: DONE
 Priority: P1
 Effort: S
 Created: 2026-06-11

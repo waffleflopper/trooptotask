@@ -1,6 +1,6 @@
 # 009 - Make Calendar assignment replacement atomic
 
-Status: TODO
+Status: DONE
 Priority: P1
 Effort: M
 Created: 2026-06-11

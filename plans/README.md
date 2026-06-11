@@ -17,7 +17,7 @@ The operator explicitly excluded automatic CI trigger work from this batch. Do n
 | 004  | Replace stale calendar range records              | P1       | M      | -          | DONE   |
 | 005  | Include existing duty events in template previews | P1       | M      | -          | DONE   |
 | 006  | Add a manual Supabase DB contract gate            | P2       | M      | 001, 003   | DONE   |
-| 007  | Restrict global admin search to support roles     | P1       | S      | -          | TODO   |
+| 007  | Restrict global admin search to support roles     | P1       | S      | -          | DONE   |
 | 008  | Harden archive-retention cron authorization       | P1       | S      | 002        | TODO   |
 | 009  | Make Calendar assignment replacement atomic       | P1       | M      | -          | TODO   |
 | 010  | Preserve scoped-store database pagination         | P2       | M      | -          | DONE   |

@@ -24,7 +24,7 @@ The operator explicitly excluded automatic CI trigger work from this batch. Do n
 | 009  | Make Calendar assignment replacement atomic       | P1       | M      | -          | DONE   |
 | 010  | Preserve scoped-store database pagination         | P2       | M      | -          | DONE   |
 | 011  | Verify sign-in roster PDF signatures              | P2       | S      | -          | DONE   |
-| 012  | Fail closed on suspension-check RPC errors        | P1       | S      | -          | TODO   |
+| 012  | Fail closed on suspension-check RPC errors        | P1       | S      | -          | DONE   |
 | 013  | Resolve critical vitest advisory, triage audit    | P1       | S      | -          | TODO   |
 | 014  | Fix Excel serial date UTC shift in imports        | P1       | S      | -          | DONE   |
 | 015  | pgTAP cross-org isolation contracts (5 tables)    | P2       | L      | -          | TODO   |

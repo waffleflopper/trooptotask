@@ -43,23 +43,23 @@ logic lives in one tested helper.
 
 ```ts
 // src/lib/server/adapters/httpAdapter.ts:269-283 (as of 79cfef20)
-	if (isHttpError(err) || isRedirect(err)) {
-		throw err;
-	}
+if (isHttpError(err) || isRedirect(err)) {
+	throw err;
+}
 
-	if (err && typeof err === 'object' && 'status' in err) {
-		const { status } = err as { status?: unknown };
-		if (typeof status === 'number' && status >= 400 && status <= 599) {
-			const message = err instanceof Error ? err.message : 'Request failed';
-			throw error(status, message);
-		}
+if (err && typeof err === 'object' && 'status' in err) {
+	const { status } = err as { status?: unknown };
+	if (typeof status === 'number' && status >= 400 && status <= 599) {
+		const message = err instanceof Error ? err.message : 'Request failed';
+		throw error(status, message);
 	}
-	console.error('[http-adapter] Unhandled route error:', err);
-	throw error(500, 'Internal server error');
+}
+console.error('[http-adapter] Unhandled route error:', err);
+throw error(500, 'Internal server error');
 ```
 
-  This is the ONLY `console.error` in the file
-  (`grep -n "console.error" src/lib/server/adapters/httpAdapter.ts` → one match at line 281).
+This is the ONLY `console.error` in the file
+(`grep -n "console.error" src/lib/server/adapters/httpAdapter.ts` → one match at line 281).
 
 - `src/lib/server/auditLog.ts` — the existing PII-masking exemplar (`sanitizeDetails`,
   `maskEmail`, `isEmailKey` around lines 109–183). Those helpers are module-private and shaped
@@ -77,15 +77,15 @@ logic lives in one tested helper.
 
 ## Commands you will need
 
-| Purpose    | Command                                             | Expected on success |
-| ---------- | --------------------------------------------------- | ------------------- |
-| Unit tests | `npx vitest run src/lib/server/logSanitize.test.ts` | all pass            |
-| Adapter tests | `npx vitest run src/lib/server/adapters`          | all pass            |
-| Full tests | `npm run test`                                       | exit 0              |
-| Typecheck  | `npm run check`                                      | exit 0, 0 errors    |
-| Lint       | `npm run lint`                                       | exit 0              |
-| Format     | `npm run format`                                     | exit 0              |
-| Governance | `npm run governance:check`                           | exit 0              |
+| Purpose       | Command                                             | Expected on success |
+| ------------- | --------------------------------------------------- | ------------------- |
+| Unit tests    | `npx vitest run src/lib/server/logSanitize.test.ts` | all pass            |
+| Adapter tests | `npx vitest run src/lib/server/adapters`            | all pass            |
+| Full tests    | `npm run test`                                      | exit 0              |
+| Typecheck     | `npm run check`                                     | exit 0, 0 errors    |
+| Lint          | `npm run lint`                                      | exit 0              |
+| Format        | `npm run format`                                    | exit 0              |
+| Governance    | `npm run governance:check`                          | exit 0              |
 
 ## Scope
 

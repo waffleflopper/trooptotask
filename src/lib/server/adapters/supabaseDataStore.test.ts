@@ -25,6 +25,7 @@ function createMockQueryBuilder(returnData: unknown = null, returnError: unknown
 		range: track('range'),
 		limit: track('limit'),
 		insert: track('insert'),
+		upsert: track('upsert'),
 		update: track('update'),
 		delete: track('delete'),
 		single: (...args: unknown[]) => {
@@ -486,6 +487,40 @@ describe('SupabaseDataStore', () => {
 			const store = createSupabaseDataStore(supabase);
 
 			await expect(store.insertMany('t', 'org-1', [{ id: 'x' }])).rejects.toThrow('batch insert failed');
+		});
+	});
+
+	describe('upsertMany', () => {
+		it('upserts multiple rows with conflict columns and default select', async () => {
+			const rows = [
+				{
+					id: 'pt-1',
+					personnel_id: 'p-1',
+					training_type_id: 'tt-1',
+					organization_id: 'org-1'
+				}
+			];
+			const { builder, calls } = createMockQueryBuilder(rows);
+			const supabase = createMockSupabase(builder);
+			const store = createSupabaseDataStore(supabase);
+
+			const result = await store.upsertMany(
+				'personnel_trainings',
+				'org-1',
+				[{ personnel_id: 'p-1', training_type_id: 'tt-1' }],
+				{ onConflict: 'organization_id,personnel_id,training_type_id' }
+			);
+
+			expect(result).toEqual(rows);
+
+			const upsertCalls = calls.filter((c) => c.method === 'upsert');
+			expect(upsertCalls[0].args).toEqual([
+				[{ personnel_id: 'p-1', training_type_id: 'tt-1', organization_id: 'org-1' }],
+				{ onConflict: 'organization_id,personnel_id,training_type_id' }
+			]);
+
+			const selectCalls = calls.filter((c) => c.method === 'select');
+			expect(selectCalls[0]).toEqual({ method: 'select', args: ['*'] });
 		});
 	});
 

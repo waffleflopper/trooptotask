@@ -86,13 +86,13 @@ test.describe('Calendar & Status', () => {
 
 ## Commands you will need
 
-| Purpose            | Command                                                                              | Expected on success |
-| ------------------ | ------------------------------------------------------------------------------------ | ------------------- |
-| Local Supabase up  | `supabase status` (run `supabase start` if not running)                              | services listed     |
-| Sanity: existing suite | `npx playwright test --config=e2e/playwright.config.ts e2e/specs/calendar.spec.ts` | all pass            |
-| New spec           | `npx playwright test --config=e2e/playwright.config.ts e2e/specs/duty-roster.spec.ts` | all pass            |
-| Full e2e           | `npm run test:e2e`                                                                    | exit 0              |
-| Lint/format        | `npm run lint && npm run format`                                                      | exit 0              |
+| Purpose                | Command                                                                               | Expected on success |
+| ---------------------- | ------------------------------------------------------------------------------------- | ------------------- |
+| Local Supabase up      | `supabase status` (run `supabase start` if not running)                               | services listed     |
+| Sanity: existing suite | `npx playwright test --config=e2e/playwright.config.ts e2e/specs/calendar.spec.ts`    | all pass            |
+| New spec               | `npx playwright test --config=e2e/playwright.config.ts e2e/specs/duty-roster.spec.ts` | all pass            |
+| Full e2e               | `npm run test:e2e`                                                                    | exit 0              |
+| Lint/format            | `npm run lint && npm run format`                                                      | exit 0              |
 
 Note: `npm run test`, `npm run check`, `npm run governance:check` should also pass, but this plan
 adds no `src/` code, so they are a formality.

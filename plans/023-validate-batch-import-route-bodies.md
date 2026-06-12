@@ -180,14 +180,14 @@ describe('/api/daily-assignments/batch route config', () => {
 
 ## Commands you will need
 
-| Purpose    | Command                                                                  | Expected on success |
-| ---------- | ------------------------------------------------------------------------ | ------------------- |
-| Unit tests | `npx vitest run "src/routes/org/[orgId]/api"`                            | all pass            |
-| Full tests | `npm run test`                                                            | exit 0              |
-| Typecheck  | `npm run check`                                                           | exit 0, 0 errors    |
-| Lint       | `npm run lint`                                                            | exit 0              |
-| Format     | `npm run format`                                                          | exit 0              |
-| Governance | `npm run governance:check`                                                | exit 0              |
+| Purpose    | Command                                       | Expected on success |
+| ---------- | --------------------------------------------- | ------------------- |
+| Unit tests | `npx vitest run "src/routes/org/[orgId]/api"` | all pass            |
+| Full tests | `npm run test`                                | exit 0              |
+| Typecheck  | `npm run check`                               | exit 0, 0 errors    |
+| Lint       | `npm run lint`                                | exit 0              |
+| Format     | `npm run format`                              | exit 0              |
+| Governance | `npm run governance:check`                    | exit 0              |
 
 ## Scope
 
@@ -288,9 +288,7 @@ other two routes (exported `_postConfig` + `export const POST = handle(_postConf
 ```ts
 const batchInput = z.object({
 	mode: z.enum(['create-only', 'upsert']),
-	records: z
-		.array(z.object({ rowNumber: z.number(), values: z.record(z.string(), z.string()) }))
-		.default([])
+	records: z.array(z.object({ rowNumber: z.number(), values: z.record(z.string(), z.string()) })).default([])
 });
 ```
 

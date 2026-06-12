@@ -50,12 +50,12 @@ origin allowlist, account-setup session secret) whose authoritative list lives o
 
 ## Commands you will need
 
-| Purpose      | Command                                  | Expected on success        |
-| ------------ | ---------------------------------------- | -------------------------- |
-| Ignore check | `git check-ignore .env.example; echo $?` | prints `1` (not ignored)   |
-| Format       | `npm run format`                         | exit 0                     |
-| Lint         | `npm run lint`                           | exit 0                     |
-| Full gate    | `npm run governance:check && npm run check && npm run test` | all exit 0 |
+| Purpose      | Command                                                     | Expected on success      |
+| ------------ | ----------------------------------------------------------- | ------------------------ |
+| Ignore check | `git check-ignore .env.example; echo $?`                    | prints `1` (not ignored) |
+| Format       | `npm run format`                                            | exit 0                   |
+| Lint         | `npm run lint`                                              | exit 0                   |
+| Full gate    | `npm run governance:check && npm run check && npm run test` | all exit 0               |
 
 ## Scope
 

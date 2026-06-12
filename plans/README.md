@@ -26,7 +26,7 @@ The operator explicitly excluded automatic CI trigger work from this batch. Do n
 | 011  | Verify sign-in roster PDF signatures              | P2       | S      | -          | DONE   |
 | 012  | Fail closed on suspension-check RPC errors        | P1       | S      | -          | TODO   |
 | 013  | Resolve critical vitest advisory, triage audit    | P1       | S      | -          | TODO   |
-| 014  | Fix Excel serial date UTC shift in imports        | P1       | S      | -          | TODO   |
+| 014  | Fix Excel serial date UTC shift in imports        | P1       | S      | -          | DONE   |
 | 015  | pgTAP cross-org isolation contracts (5 tables)    | P2       | L      | -          | TODO   |
 | 016  | Stripe webhook E2E coverage                       | P2       | M      | 013 (soft) | TODO   |
 | 017  | Wire local verification gate (hook, gate, env)    | P2       | S      | -          | TODO   |

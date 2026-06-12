@@ -219,7 +219,7 @@ In `src/lib/server/adapters/inMemory.ts`, implement matching behavior:
 In `src/lib/server/adapters/scopedDataStore.ts`, pass the method through with the other writes:
 
 ```ts
-upsertMany: inner.upsertMany.bind(inner);
+upsertMany: inner.upsertMany.bind(inner),
 ```
 
 Update any test-only `DataStore` fakes that fail typecheck by delegating to an in-memory store or

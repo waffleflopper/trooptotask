@@ -25,7 +25,7 @@ The operator explicitly excluded automatic CI trigger work from this batch. Do n
 | 010  | Preserve scoped-store database pagination         | P2       | M      | -          | DONE   |
 | 011  | Verify sign-in roster PDF signatures              | P2       | S      | -          | DONE   |
 | 012  | Fail closed on suspension-check RPC errors        | P1       | S      | -          | DONE   |
-| 013  | Resolve critical vitest advisory, triage audit    | P1       | S      | -          | TODO   |
+| 013  | Resolve critical vitest advisory, triage audit    | P1       | S      | -          | DONE   |
 | 014  | Fix Excel serial date UTC shift in imports        | P1       | S      | -          | DONE   |
 | 015  | pgTAP cross-org isolation contracts (5 tables)    | P2       | L      | -          | DONE   |
 | 016  | Stripe webhook E2E coverage                       | P2       | M      | 013 (soft) | TODO   |
@@ -60,7 +60,10 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJE
 
 - Automatic CI triggers: intentionally skipped. Robert said CI was turned off because GitHub limits were being exhausted, so this batch must not re-enable automatic workflow triggers.
 - Critical Tasks first-run test wobble: not planned. Targeted reruns and a second full `npm run test` passed, so this remains a residual flake watch item rather than a plan.
-- Production dependency audit warnings: not planned in this batch. Some `npm audit` suggestions looked like unsafe downgrades, so this needs a separate dependency triage plan.
+- npm audit acceptances (triaged 2026-06-11, plan 013): exceljs/uuid moderates have no forward
+  fix (suggested "fix" is a major downgrade) and the app never calls uuid directly — accepted,
+  re-check when exceljs ships a major. @sveltejs/* and bits-ui/runed lows have downgrade-only
+  fixes — accepted. Critical vitest advisory fixed in plan 013.
 - `bits-ui` postinstall patch: real dependency debt, but lower leverage than the selected security, database, and calendar/duty-roster correctness work. Re-confirmed 2026-06-11 (finding F10): still deferred; the version pin is honored by plan 013's scope.
 
 Rejected in the 2026-06-11 full audit (commit `22e6e184`):

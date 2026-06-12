@@ -36,7 +36,7 @@ The operator explicitly excluded automatic CI trigger work from this batch. Do n
 | 020  | Batch Training mark-all-complete saves            | P1       | S      | -          | DONE   |
 | 021  | Bulk upsert Training batch import rows            | P2       | M      | 020 (soft) | DONE   |
 | 022  | Bulk delete onboarding retention rows             | P2       | S      | -          | DONE   |
-| 023  | Validate batch import route bodies with zod       | P1       | S      | -          | TODO   |
+| 023  | Validate batch import route bodies with zod       | P1       | S      | -          | DONE   |
 | 024  | Sanitize unhandled route error logs               | P2       | S      | -          | TODO   |
 | 025  | Duty-roster workflow E2E Playwright spec          | P2       | M      | -          | TODO   |
 | 026  | Add documented .env.example                       | P3       | S      | -          | TODO   |

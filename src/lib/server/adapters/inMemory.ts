@@ -313,6 +313,46 @@ export function createInMemoryDataStore(): DataStore & { seed(table: string, row
 				inserted.push(row);
 			}
 			return inserted as T[];
+		},
+
+		async upsertMany<T>(
+			table: string,
+			orgId: string,
+			rows: Record<string, unknown>[],
+			options: { onConflict: string }
+		): Promise<T[]> {
+			if (rows.length === 0) return [];
+
+			const conflictColumns = options.onConflict
+				.split(',')
+				.map((column) => column.trim())
+				.filter(Boolean);
+			if (conflictColumns.length === 0) {
+				throw new Error('upsertMany requires at least one conflict column');
+			}
+
+			const orgColumn = getOrgColumn(table);
+			const tableRows = getRows(table);
+			const upserted: Row[] = [];
+
+			for (const data of rows) {
+				const withOrg: Row = { ...data, [orgColumn]: orgId };
+				const existing = tableRows.find(
+					(row) => row[orgColumn] === orgId && conflictColumns.every((column) => row[column] === withOrg[column])
+				);
+
+				if (existing) {
+					Object.assign(existing, withOrg, { id: existing.id });
+					upserted.push(existing);
+					continue;
+				}
+
+				const inserted: Row = { id: crypto.randomUUID(), ...withOrg };
+				tableRows.push(inserted);
+				upserted.push(inserted);
+			}
+
+			return upserted as T[];
 		}
 	};
 }

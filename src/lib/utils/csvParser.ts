@@ -211,14 +211,14 @@ export function parseDateString(str: string): string | null {
 	if (/^\d+$/.test(trimmed)) {
 		const serial = parseInt(trimmed, 10);
 		if (serial >= 25569 && serial <= 60000) {
-			// Excel epoch: Jan 1, 1900, with the leap year bug
-			const excelEpoch = new Date(1900, 0, 1);
-			const ms = excelEpoch.getTime() + (serial - 2) * 86400000;
+			// Excel epoch: Jan 1, 1900, with the leap year bug (UTC to keep imports timezone-independent)
+			const ms = Date.UTC(1900, 0, 1) + (serial - 2) * 86400000;
 			const d = new Date(ms);
 			if (!isNaN(d.getTime())) {
 				return d.toISOString().slice(0, 10);
 			}
 		}
+		return null;
 	}
 
 	// Fallback: JS Date.parse (use local date parts to avoid UTC offset shifting the date)

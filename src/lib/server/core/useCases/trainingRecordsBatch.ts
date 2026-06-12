@@ -104,8 +104,7 @@ export async function importTrainingRecords(
 	const existingMap = new Map(existingRecords.map((e) => [`${e.personnel_id}:${e.training_type_id}`, e.id]));
 
 	const batchErrors: BatchError[] = [];
-	const insertRows: Array<{ index: number; row: Record<string, unknown> }> = [];
-	const updateRows: Array<{ index: number; id: string; row: Record<string, unknown> }> = [];
+	const completedRows: Record<string, unknown>[] = [];
 	const exemptionUpdates: Map<string, Set<string>> = new Map();
 
 	for (let i = 0; i < records.length; i++) {
@@ -146,49 +145,37 @@ export async function importTrainingRecords(
 			? completionDate
 			: calculateExpirationDate(completionDate, type.expiration_months);
 
-		const existingId = existingMap.get(`${rec.personnelId}:${rec.trainingTypeId}`);
-
-		if (existingId) {
-			updateRows.push({
-				index: i,
-				id: existingId,
-				row: {
-					completion_date: completionDate,
-					expiration_date: expirationDate,
-					notes: rec.notes ?? null,
-					updated_at: new Date().toISOString()
-				}
-			});
-		} else {
-			insertRows.push({
-				index: i,
-				row: {
-					organization_id: ctx.auth.orgId,
-					personnel_id: rec.personnelId,
-					training_type_id: rec.trainingTypeId,
-					completion_date: completionDate,
-					expiration_date: expirationDate,
-					notes: rec.notes ?? null
-				}
-			});
-		}
+		completedRows.push({
+			personnel_id: rec.personnelId,
+			training_type_id: rec.trainingTypeId,
+			completion_date: completionDate,
+			expiration_date: expirationDate,
+			notes: rec.notes ?? null,
+			updated_at: new Date().toISOString()
+		});
 	}
 
-	// Bulk insert
-	let insertedData: Record<string, unknown>[] = [];
-	if (insertRows.length > 0) {
-		insertedData = await ctx.store.insertMany<Record<string, unknown>>(
+	const insertedData: Record<string, unknown>[] = [];
+	const updatedData: Record<string, unknown>[] = [];
+	if (completedRows.length > 0) {
+		const dedupedCompletedRows = [
+			...new Map(completedRows.map((row) => [`${row.personnel_id}:${row.training_type_id}`, row] as const)).values()
+		];
+		const upsertedData = await ctx.store.upsertMany<Record<string, unknown>>(
 			entity.table,
 			ctx.auth.orgId,
-			insertRows.map((r) => r.row)
+			dedupedCompletedRows,
+			{ onConflict: 'organization_id,personnel_id,training_type_id' }
 		);
-	}
 
-	// Individual updates
-	const updatedData: Record<string, unknown>[] = [];
-	for (const rec of updateRows) {
-		const updated = await ctx.store.update<Record<string, unknown>>(entity.table, ctx.auth.orgId, rec.id, rec.row);
-		updatedData.push(updated);
+		for (const row of upsertedData) {
+			const key = `${row.personnel_id}:${row.training_type_id}`;
+			if (existingMap.has(key)) {
+				updatedData.push(row);
+			} else {
+				insertedData.push(row);
+			}
+		}
 	}
 
 	// Persist exemption updates

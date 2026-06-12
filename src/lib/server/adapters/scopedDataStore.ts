@@ -164,7 +164,8 @@ export function createScopedDataStore(
 		deleteWhere: inner.deleteWhere.bind(inner),
 		deleteWhereAny: inner.deleteWhereAny.bind(inner),
 		deleteManyByIds: inner.deleteManyByIds.bind(inner),
-		insertMany: inner.insertMany.bind(inner)
+		insertMany: inner.insertMany.bind(inner),
+		upsertMany: inner.upsertMany.bind(inner)
 	};
 }
 

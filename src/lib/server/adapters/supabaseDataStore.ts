@@ -358,6 +358,26 @@ export function createSupabaseDataStore(supabase: SupabaseClient): DataStore {
 
 			if (error) throw new Error(error.message);
 			return (data ?? []) as T[];
+		},
+
+		async upsertMany<T>(
+			table: string,
+			orgId: string,
+			rows: Record<string, unknown>[],
+			options: { onConflict: string; select?: string }
+		): Promise<T[]> {
+			if (rows.length === 0) return [];
+
+			const orgColumn = getOrgColumn(table);
+			const withOrg = rows.map((row) => ({ ...row, [orgColumn]: orgId }));
+
+			const { data, error } = await supabase
+				.from(table)
+				.upsert(withOrg, { onConflict: options.onConflict })
+				.select(options.select ?? '*');
+
+			if (error) throw new Error(error.message);
+			return (data ?? []) as T[];
 		}
 	};
 }

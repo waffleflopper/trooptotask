@@ -97,6 +97,7 @@
 				trainingTypes={trainingTypesStore.items}
 				trainings={personnelTrainingsStore.items}
 				onSave={ctx.handleSaveTraining.bind(ctx)}
+				onSaveBatch={ctx.handleSaveTrainingBatch.bind(ctx)}
 				onRemove={ctx.handleRemoveTraining.bind(ctx)}
 				onClose={modals.closerFor('person-editor')}
 				onToggleExempt={(typeId, exempt) => ctx.handleToggleExempt(typeId, pe.person.id, exempt)}

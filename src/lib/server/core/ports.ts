@@ -85,6 +85,13 @@ export interface DataStore {
 
 	insertMany<T>(table: string, orgId: string, rows: Record<string, unknown>[], select?: string): Promise<T[]>;
 
+	upsertMany<T>(
+		table: string,
+		orgId: string,
+		rows: Record<string, unknown>[],
+		options: { onConflict: string; select?: string }
+	): Promise<T[]>;
+
 	findManyWithCount<T>(
 		table: string,
 		orgId: string,

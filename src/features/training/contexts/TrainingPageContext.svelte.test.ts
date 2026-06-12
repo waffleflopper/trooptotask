@@ -6,7 +6,7 @@ import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 import { createTestOrgContext, NONE_TEST_CAPABILITY_MAP } from '$lib/test-support/orgContextBuilder';
 import type { Personnel } from '$lib/types';
 import type { Group } from '$lib/stores/groups.svelte';
-import type { TrainingType } from '$features/training/training.types';
+import type { PersonnelTraining, TrainingType } from '$features/training/training.types';
 import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
 import { rosterStore } from '$lib/stores/roster.svelte';
 import { groupsStore } from '$lib/stores/groups.svelte';
@@ -156,6 +156,7 @@ describe('TrainingPageContext', () => {
 
 	beforeEach(() => {
 		vi.restoreAllMocks();
+		vi.unstubAllGlobals();
 		modals = makeModals();
 		queueUserPreferencesPatchMock.mockReset();
 		queueUserPreferencesPatchMock.mockResolvedValue(undefined);
@@ -341,6 +342,71 @@ describe('TrainingPageContext', () => {
 				certificateUrl: null
 			})
 		).rejects.toThrow('insert blocked by policy');
+	});
+
+	describe('handleSaveTrainingBatch', () => {
+		const batchRecords = [
+			{
+				personnelId: mockPerson.id,
+				trainingTypeId: mockType.id,
+				completionDate: '2026-04-06',
+				status: 'completed' as const
+			}
+		];
+
+		const insertedTraining: PersonnelTraining = {
+			id: 'training-inserted',
+			personnelId: mockPerson.id,
+			trainingTypeId: mockType.id,
+			completionDate: '2026-04-06',
+			expirationDate: '2027-04-06',
+			notes: null,
+			certificateUrl: null
+		};
+
+		const updatedTraining: PersonnelTraining = {
+			...insertedTraining,
+			id: 'training-updated',
+			completionDate: '2026-05-01',
+			expirationDate: '2027-05-01'
+		};
+
+		it('posts one batch request and merges inserted and updated results', async () => {
+			const ctx = new TrainingPageContext(makeData(), modals, makeOrg());
+			const addBatchResults = vi.spyOn(personnelTrainingsStore, 'addBatchResults').mockImplementation(() => {});
+			const fetchMock = vi.fn().mockResolvedValue({
+				ok: true,
+				status: 200,
+				json: () => Promise.resolve({ inserted: [insertedTraining], updated: [updatedTraining] })
+			});
+			vi.stubGlobal('fetch', fetchMock);
+
+			await ctx.handleSaveTrainingBatch(batchRecords);
+
+			expect(fetchMock).toHaveBeenCalledTimes(1);
+			expect(fetchMock).toHaveBeenCalledWith('/org/org-1/api/personnel-trainings/batch', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ records: batchRecords })
+			});
+			expect(addBatchResults).toHaveBeenCalledWith([insertedTraining], [updatedTraining]);
+		});
+
+		it('throws on non-OK response and does not mutate the training store', async () => {
+			const ctx = new TrainingPageContext(makeData(), modals, makeOrg());
+			const addBatchResults = vi.spyOn(personnelTrainingsStore, 'addBatchResults').mockImplementation(() => {});
+			vi.stubGlobal(
+				'fetch',
+				vi.fn().mockResolvedValue({
+					ok: false,
+					status: 403,
+					json: () => Promise.resolve({ message: 'recording denied' })
+				})
+			);
+
+			await expect(ctx.handleSaveTrainingBatch(batchRecords)).rejects.toThrow('recording denied');
+			expect(addBatchResults).not.toHaveBeenCalled();
+		});
 	});
 
 	describe('default viewMode', () => {

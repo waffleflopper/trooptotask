@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { createInMemoryDataStore, createQueryPortsContext, createTestAuthContext } from '$lib/server/adapters/inMemory';
 import type { QueryPorts } from '$lib/server/core/ports';
 import { fetchDashboardBootstrap, fetchDashboardData } from './dashboardQuery';
@@ -125,8 +125,12 @@ describe('fetchDashboardData', () => {
 			}
 		]);
 
+		const findManySpy = vi.spyOn(ctx.store, 'findMany');
 		const result = await fetchDashboardData(ctx);
+		const onboardingCalls = findManySpy.mock.calls.filter(([table]) => table === 'personnel_onboardings');
 
+		expect(onboardingCalls).toHaveLength(1);
+		expect(onboardingCalls[0][2]).toEqual({ status: 'in_progress' });
 		expect(result.activeOnboardings).toHaveLength(1);
 		expect(result.activeOnboardings[0].personnelId).toBe('p1');
 	});
@@ -174,5 +178,44 @@ describe('fetchDashboardBootstrap', () => {
 		const result = await fetchDashboardBootstrap(ctx);
 
 		expect(result.awardTrackingAcknowledgedPersonnelIds).toEqual(['p-1']);
+	});
+
+	it('filters onboardings at query time', async () => {
+		const ctx = buildCtx();
+		const store = ctx.store as ReturnType<typeof createInMemoryDataStore>;
+
+		store.seed('personnel_onboardings', [
+			{
+				id: 'po1',
+				organization_id: ORG,
+				personnel_id: 'p1',
+				started_at: '2026-03-01',
+				completed_at: null,
+				cancelled_at: null,
+				status: 'in_progress',
+				template_id: null,
+				onboarding_step_progress: []
+			},
+			{
+				id: 'po2',
+				organization_id: ORG,
+				personnel_id: 'p2',
+				started_at: '2026-03-01',
+				completed_at: '2026-03-15',
+				cancelled_at: null,
+				status: 'completed',
+				template_id: null,
+				onboarding_step_progress: []
+			}
+		]);
+
+		const findManySpy = vi.spyOn(ctx.store, 'findMany');
+		const result = await fetchDashboardBootstrap(ctx);
+		const onboardingCalls = findManySpy.mock.calls.filter(([table]) => table === 'personnel_onboardings');
+
+		expect(onboardingCalls).toHaveLength(1);
+		expect(onboardingCalls[0][2]).toEqual({ status: 'in_progress' });
+		expect(result.activeOnboardings).toHaveLength(1);
+		expect(result.activeOnboardings[0].personnelId).toBe('p1');
 	});
 });

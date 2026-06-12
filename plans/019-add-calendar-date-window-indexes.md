@@ -103,19 +103,19 @@ CREATE INDEX "idx_special_days_org" ON "public"."special_days" USING "btree" ("o
 ```
 
 - There is a daily-assignment uniqueness constraint on `(organization_id, assignment_type_id,
-  date)`, but it is not a substitute for `(organization_id, date)` range reads because
+date)`, but it is not a substitute for `(organization_id, date)` range reads because
   `assignment_type_id` sits between the org and date columns.
 
 ## Commands you will need
 
-| Purpose             | Command                                                           | Expected on success |
-|---------------------|-------------------------------------------------------------------|---------------------|
-| Supabase status     | `supabase status`                                                 | local project shown |
-| Apply migration     | `supabase migration up`                                           | new migration applied locally |
-| DB test (if added)  | `supabase test db supabase/tests/calendar_date_window_indexes.sql` | pgTAP exits 0       |
-| Governance          | `npm run governance:check`                                        | exit 0              |
-| Typecheck           | `npm run check`                                                   | exit 0, 0 errors    |
-| Full tests          | `npm run test`                                                    | exit 0              |
+| Purpose            | Command                                                            | Expected on success           |
+| ------------------ | ------------------------------------------------------------------ | ----------------------------- |
+| Supabase status    | `supabase status`                                                  | local project shown           |
+| Apply migration    | `supabase migration up`                                            | new migration applied locally |
+| DB test (if added) | `supabase test db supabase/tests/calendar_date_window_indexes.sql` | pgTAP exits 0                 |
+| Governance         | `npm run governance:check`                                         | exit 0                        |
+| Typecheck          | `npm run check`                                                    | exit 0, 0 errors              |
+| Full tests         | `npm run test`                                                     | exit 0                        |
 
 Do not run `supabase db reset` unless Robert explicitly gives permission in the current thread.
 Never point these commands at the remote production database.

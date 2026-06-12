@@ -40,19 +40,19 @@ infrastructure is degraded. After this plan, an RPC failure produces a 500 for t
 
 ```ts
 // src/hooks.server.ts:204-216 (as of 22e6e184)
-	// Check user suspension (skip for auth routes, api routes, and the suspended page itself)
-	const skipSuspensionCheck = ['/auth', '/api/auth', '/suspended'].some((p) => event.url.pathname.startsWith(p));
-	if (event.locals.user && !skipSuspensionCheck) {
-		const { data: isSuspended } = await event.locals.supabase.rpc('is_user_suspended', {
-			check_user_id: event.locals.user.id
+// Check user suspension (skip for auth routes, api routes, and the suspended page itself)
+const skipSuspensionCheck = ['/auth', '/api/auth', '/suspended'].some((p) => event.url.pathname.startsWith(p));
+if (event.locals.user && !skipSuspensionCheck) {
+	const { data: isSuspended } = await event.locals.supabase.rpc('is_user_suspended', {
+		check_user_id: event.locals.user.id
+	});
+	if (isSuspended) {
+		return new Response(null, {
+			status: 302,
+			headers: { Location: '/suspended' }
 		});
-		if (isSuspended) {
-			return new Response(null, {
-				status: 302,
-				headers: { Location: '/suspended' }
-			});
-		}
 	}
+}
 ```
 
 - The file's imports at line 2 are currently:
@@ -62,7 +62,7 @@ infrastructure is degraded. After this plan, an RPC failure produces a 500 for t
 import { type Handle, redirect } from '@sveltejs/kit';
 ```
 
-  `error` is NOT yet imported from `@sveltejs/kit`.
+`error` is NOT yet imported from `@sveltejs/kit`.
 
 - Repo convention for Supabase RPC calls is to destructure **both** `data` and `error` and handle
   the error explicitly. Exemplar: `src/lib/server/subscription.ts` (the `getEffectiveTier` path)
@@ -100,23 +100,25 @@ import { type Handle, redirect } from '@sveltejs/kit';
 
 ## Commands you will need
 
-| Purpose    | Command                                          | Expected on success |
-|------------|--------------------------------------------------|---------------------|
-| Unit tests | `npx vitest run src/hooks.server.test.ts`        | all pass            |
-| Full tests | `npm run test`                                   | exit 0              |
-| Typecheck  | `npm run check`                                  | exit 0, 0 errors    |
-| Lint       | `npm run lint`                                   | exit 0              |
-| Format     | `npm run format`                                 | exit 0              |
-| Governance | `npm run governance:check`                       | exit 0              |
+| Purpose    | Command                                   | Expected on success |
+| ---------- | ----------------------------------------- | ------------------- |
+| Unit tests | `npx vitest run src/hooks.server.test.ts` | all pass            |
+| Full tests | `npm run test`                            | exit 0              |
+| Typecheck  | `npm run check`                           | exit 0, 0 errors    |
+| Lint       | `npm run lint`                            | exit 0              |
+| Format     | `npm run format`                          | exit 0              |
+| Governance | `npm run governance:check`                | exit 0              |
 
 ## Scope
 
 **In scope** (the only files you should modify):
+
 - `src/hooks.server.ts`
 - `src/hooks.server.test.ts`
 - `plans/README.md` (status row only)
 
 **Out of scope** (do NOT touch, even though they look related):
+
 - The `is_user_suspended` SQL function or any file under `supabase/migrations/` — the RPC is
   fine; the bug is the unchecked client-side call.
 - `src/lib/server/mfaGate.ts`, `src/lib/server/authSession.ts` — read-only references.
@@ -141,21 +143,21 @@ In `src/hooks.server.ts`:
 2. Change the suspension block (lines 204-216) to destructure and handle the error:
 
 ```ts
-	if (event.locals.user && !skipSuspensionCheck) {
-		const { data: isSuspended, error: suspensionError } = await event.locals.supabase.rpc('is_user_suspended', {
-			check_user_id: event.locals.user.id
-		});
-		if (suspensionError) {
-			console.error('Failed to check user suspension status:', suspensionError.message);
-			error(500, 'Unable to verify account status');
-		}
-		if (isSuspended) {
-			return new Response(null, {
-				status: 302,
-				headers: { Location: '/suspended' }
-			});
-		}
+if (event.locals.user && !skipSuspensionCheck) {
+	const { data: isSuspended, error: suspensionError } = await event.locals.supabase.rpc('is_user_suspended', {
+		check_user_id: event.locals.user.id
+	});
+	if (suspensionError) {
+		console.error('Failed to check user suspension status:', suspensionError.message);
+		error(500, 'Unable to verify account status');
 	}
+	if (isSuspended) {
+		return new Response(null, {
+			status: 302,
+			headers: { Location: '/suspended' }
+		});
+	}
+}
 ```
 
 Design decision (do not relitigate): a suspension gate must fail **closed**. A transient RPC

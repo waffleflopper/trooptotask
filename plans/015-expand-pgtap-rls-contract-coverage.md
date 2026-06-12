@@ -54,13 +54,13 @@ RLS regressions fail `npm run db:test` instead of becoming production incidents.
   this file for each `CREATE TABLE` before writing INSERTs.
 - Target tables for this plan (all RLS-enabled, all org-scoped):
 
-  | Table | Why it's in the top five |
-  |---|---|
-  | `personnel` | The roster itself — most sensitive PII surface |
-  | `availability_entries` | Calendar/availability statuses per person |
-  | `personnel_trainings` | Training records (readiness data) |
-  | `duty_roster_templates` | Duty roster configuration |
-  | `notifications` | Per-user rows — must be isolated per user, not just per org |
+  | Table                   | Why it's in the top five                                    |
+  | ----------------------- | ----------------------------------------------------------- |
+  | `personnel`             | The roster itself — most sensitive PII surface              |
+  | `availability_entries`  | Calendar/availability statuses per person                   |
+  | `personnel_trainings`   | Training records (readiness data)                           |
+  | `duty_roster_templates` | Duty roster configuration                                   |
+  | `notifications`         | Per-user rows — must be isolated per user, not just per org |
 
 - The runner: `npm run db:test` executes
   `for file in supabase/tests/*.sql; do supabase test db "$file" || exit 1; done`
@@ -71,20 +71,22 @@ RLS regressions fail `npm run db:test` instead of becoming production incidents.
 
 ## Commands you will need
 
-| Purpose | Command | Expected on success |
-|---|---|---|
-| Local stack status | `supabase status` | services running (else `supabase start`) |
-| Run one pgTAP file | `supabase test db supabase/tests/core_table_rls_isolation.sql` | all tests pass |
-| Run all DB tests | `npm run db:test` | exit 0, 4 files pass |
-| App test suite (unchanged) | `npm run test` | exit 0 |
+| Purpose                    | Command                                                        | Expected on success                      |
+| -------------------------- | -------------------------------------------------------------- | ---------------------------------------- |
+| Local stack status         | `supabase status`                                              | services running (else `supabase start`) |
+| Run one pgTAP file         | `supabase test db supabase/tests/core_table_rls_isolation.sql` | all tests pass                           |
+| Run all DB tests           | `npm run db:test`                                              | exit 0, 4 files pass                     |
+| App test suite (unchanged) | `npm run test`                                                 | exit 0                                   |
 
 ## Scope
 
 **In scope** (the only files you should create/modify):
+
 - `supabase/tests/core_table_rls_isolation.sql` (create)
 - `plans/README.md` (status row only)
 
 **Out of scope** (do NOT touch):
+
 - Any file under `supabase/migrations/` — if a test exposes a policy that looks WRONG, that is a
   STOP condition (report the finding), not a license to change policies.
 - The three existing pgTAP files.

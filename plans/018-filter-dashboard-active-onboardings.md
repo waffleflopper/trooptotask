@@ -91,14 +91,14 @@ ON "public"."personnel_onboardings" USING "btree" ("organization_id");
 
 ## Commands you will need
 
-| Purpose            | Command                                                         | Expected on success |
-|--------------------|-----------------------------------------------------------------|---------------------|
-| Focused tests      | `npx vitest run src/lib/server/core/useCases/dashboardQuery.test.ts` | all pass            |
-| Typecheck          | `npm run check`                                                 | exit 0, 0 errors    |
-| Lint               | `npm run lint`                                                  | exit 0              |
-| Format             | `npm run format`                                                | exit 0              |
-| Governance         | `npm run governance:check`                                      | exit 0              |
-| Full tests         | `npm run test`                                                  | exit 0              |
+| Purpose       | Command                                                              | Expected on success |
+| ------------- | -------------------------------------------------------------------- | ------------------- |
+| Focused tests | `npx vitest run src/lib/server/core/useCases/dashboardQuery.test.ts` | all pass            |
+| Typecheck     | `npm run check`                                                      | exit 0, 0 errors    |
+| Lint          | `npm run lint`                                                       | exit 0              |
+| Format        | `npm run format`                                                     | exit 0              |
+| Governance    | `npm run governance:check`                                           | exit 0              |
+| Full tests    | `npm run test`                                                       | exit 0              |
 
 ## Scope
 

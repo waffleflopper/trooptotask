@@ -79,17 +79,18 @@ echo "Local pre-push checks passed."
 
 ## Commands you will need
 
-| Purpose | Command | Expected on success |
-|---|---|---|
-| Gate (new) | `npm run gate` | runs all five checks, exit 0 |
-| Hook wiring check | `git config core.hooksPath` | `.githooks` |
-| Hook smoke test | `sh .githooks/pre-push` | all checks pass, exit 0 |
-| Install lifecycle | `npm install` | exit 0; bits-ui patch still applies |
-| Full suite | `npm run test` | exit 0 |
+| Purpose           | Command                     | Expected on success                 |
+| ----------------- | --------------------------- | ----------------------------------- |
+| Gate (new)        | `npm run gate`              | runs all five checks, exit 0        |
+| Hook wiring check | `git config core.hooksPath` | `.githooks`                         |
+| Hook smoke test   | `sh .githooks/pre-push`     | all checks pass, exit 0             |
+| Install lifecycle | `npm install`               | exit 0; bits-ui patch still applies |
+| Full suite        | `npm run test`              | exit 0                              |
 
 ## Scope
 
 **In scope** (the only files you should create/modify):
+
 - `package.json` (add `gate` and `prepare` scripts only)
 - `scripts/setup-githooks.mjs` (create)
 - `.env.example` (create)
@@ -97,6 +98,7 @@ echo "Local pre-push checks passed."
 - `plans/README.md` (status row only)
 
 **Out of scope** (do NOT touch):
+
 - `.github/workflows/` — automatic CI triggers stay disabled; this plan must not add any.
 - `.githooks/pre-push` content — it already matches CLAUDE.md's required gates
   (`format:check` in the hook vs `format` in CLAUDE.md is intentional: hooks must not mutate
@@ -188,6 +190,7 @@ key (manual scan — placeholders only).
 ### Step 4: Update README
 
 In `README.md`:
+
 1. Line 80: change "SvelteKit 2.5 + Svelte 5 (runes)" → "SvelteKit 2 + Svelte 5 (runes)"
    (version-floor-free so it can't go stale again).
 2. In the setup section (around line 117): point step 4 at `cp .env.example .env` first, keeping

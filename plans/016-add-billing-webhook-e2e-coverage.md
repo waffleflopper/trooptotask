@@ -82,13 +82,13 @@ export const POST: RequestHandler = async ({ request }) => handleStripeWebhookPo
 
 ## Commands you will need
 
-| Purpose | Command | Expected on success |
-|---|---|---|
-| Local stack | `supabase status` | running (else `supabase start`) |
-| New billing E2E | `npm run test:e2e:billing` (added in Step 4) | exit 0 |
-| Existing E2E (regression) | `npm run test:e2e` | exit 0, unchanged spec count |
-| Unit tests | `npm run test` | exit 0 |
-| Typecheck / lint / governance | `npm run check && npm run lint && npm run governance:check` | exit 0 |
+| Purpose                       | Command                                                     | Expected on success             |
+| ----------------------------- | ----------------------------------------------------------- | ------------------------------- |
+| Local stack                   | `supabase status`                                           | running (else `supabase start`) |
+| New billing E2E               | `npm run test:e2e:billing` (added in Step 4)                | exit 0                          |
+| Existing E2E (regression)     | `npm run test:e2e`                                          | exit 0, unchanged spec count    |
+| Unit tests                    | `npm run test`                                              | exit 0                          |
+| Typecheck / lint / governance | `npm run check && npm run lint && npm run governance:check` | exit 0                          |
 
 ## Suggested executor toolkit
 
@@ -100,6 +100,7 @@ export const POST: RequestHandler = async ({ request }) => handleStripeWebhookPo
 ## Scope
 
 **In scope** (the only files you should create/modify):
+
 - `e2e/specs/billing-webhook.spec.ts` (create)
 - `e2e/playwright.billing.config.ts` (create — ONLY if Step 1 shows the webhook path needs env
   the shared config must not carry; otherwise reuse the shared config and skip this file)
@@ -107,6 +108,7 @@ export const POST: RequestHandler = async ({ request }) => handleStripeWebhookPo
 - `plans/README.md` (status row only)
 
 **Out of scope** (do NOT touch):
+
 - `src/` — any production code. If the webhook path can't be exercised without changing app
   code, that's a STOP condition, not an invitation.
 - `e2e/playwright.config.ts` and existing specs/fixtures — do not add billing env vars to the

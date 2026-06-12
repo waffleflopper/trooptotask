@@ -109,8 +109,9 @@ SUPABASE_SERVICE_ROLE_KEY=your_local_service_role_key
 # ... (one commented line per variable from Step 1, with a one-line purpose comment)
 ```
 
-Required variables get real placeholder lines; optional ones are commented out. Every variable
-from Step 1 appears exactly once.
+Required variables get real placeholder lines; optional ones are commented out, except static
+public variables that SvelteKit must see during check/build, such as
+`PUBLIC_BILLING_ENABLED=false`. Every variable from Step 1 appears exactly once.
 
 **Verify**: `git check-ignore .env.example; echo $?` → prints `1`. And
 `grep -c "SUPABASE" .env.example` → ≥3.

@@ -1,4 +1,6 @@
 const EMAIL_PATTERN = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g;
+const FORMATTED_ID_PATTERN = /\b\d{3}[-\s]\d{2}[-\s]\d{4}\b/g;
+const FORMATTED_PHONE_PATTERN = /(?:\+?1[\s.-]?)?(?:\(\d{3}\)|\d{3})[\s.-]?\d{3}[\s.-]?\d{4}/g;
 const LONG_DIGIT_PATTERN = /\d{7,}/g;
 const MAX_LOG_LENGTH = 1000;
 const TRUNCATED_MARKER = '… [truncated]';
@@ -49,5 +51,9 @@ function extractDiagnosticString(err: unknown): string {
 }
 
 function maskSensitiveText(value: string): string {
-	return value.replace(EMAIL_PATTERN, '[email]').replace(LONG_DIGIT_PATTERN, '[number]');
+	return value
+		.replace(EMAIL_PATTERN, '[email]')
+		.replace(FORMATTED_ID_PATTERN, '[number]')
+		.replace(FORMATTED_PHONE_PATTERN, '[number]')
+		.replace(LONG_DIGIT_PATTERN, '[number]');
 }

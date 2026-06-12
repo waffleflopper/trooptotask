@@ -3,12 +3,14 @@ import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { importPersonnelBatch } from '$lib/server/core/useCases/personnelBatch';
 import { z } from 'zod';
 
+const requiredPersonnelCell = z.preprocess((value) => (value === undefined ? '' : value), z.string());
+
 const batchInput = z.object({
 	records: z.array(
 		z.object({
-			rank: z.string(),
-			lastName: z.string(),
-			firstName: z.string(),
+			rank: requiredPersonnelCell,
+			lastName: requiredPersonnelCell,
+			firstName: requiredPersonnelCell,
 			mos: z.string().nullable().optional(),
 			clinicRole: z.string().nullable().optional(),
 			groupName: z.string().nullable().optional(),

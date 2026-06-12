@@ -29,7 +29,7 @@ export class OnboardingPage {
 		await combobox.waitFor({ state: 'visible', timeout: 5000 });
 		await combobox.fill(name);
 
-		const option = this.page.getByRole('option', { name: new RegExp(name, 'i') }).first();
+		const option = this.page.getByRole('option', { name: new RegExp(escapeRegExp(name), 'i') }).first();
 		await option.waitFor({ state: 'visible', timeout: 5000 });
 		await option.click();
 	}
@@ -51,16 +51,31 @@ export class OnboardingPage {
 	}
 
 	async toggleCheckbox(stepName: string) {
-		await expect(this.page.getByText(stepName, { exact: true })).toBeVisible({ timeout: 5000 });
-		const checkbox = this.page.getByRole('checkbox').first();
+		const checkbox = this.stepCheckbox(stepName);
+		await expect(checkbox).toBeVisible({ timeout: 5000 });
 		await checkbox.click();
 	}
 
-	async expectStepChecked(_stepName: string) {
-		await expect(this.page.getByText('1/2')).toBeVisible({ timeout: 5000 });
+	async expectStepChecked(stepName: string) {
+		await expect(this.stepCheckbox(stepName)).toBeChecked({ timeout: 5000 });
 	}
 
 	private packetTrigger(personName: string) {
-		return this.page.getByRole('button', { name: new RegExp(personName, 'i') }).first();
+		return this.page.getByRole('button', { name: new RegExp(escapeRegExp(personName), 'i') }).first();
 	}
+
+	private step(stepName: string) {
+		return this.page
+			.getByRole('listitem')
+			.filter({ has: this.page.getByText(stepName, { exact: true }) })
+			.first();
+	}
+
+	private stepCheckbox(stepName: string) {
+		return this.step(stepName).getByRole('checkbox', { name: /Mark (?:complete|incomplete)/ });
+	}
+}
+
+function escapeRegExp(value: string) {
+	return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }

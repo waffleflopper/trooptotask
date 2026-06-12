@@ -20,7 +20,6 @@ test.describe('Training Records', () => {
 
 		await trainingPage.addRecord('Smith', 'Weapons Qualification');
 
-		// Verify the training matrix still shows the training type
-		await trainingPage.expectRecordVisible('Smith', 'Weapons Qualification');
+		await trainingPage.expectTrainingCellStatus('Smith', 'Weapons Qualification', 'Current');
 	});
 });

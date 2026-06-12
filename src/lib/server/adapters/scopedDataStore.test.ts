@@ -346,6 +346,32 @@ describe('ScopedDataStore', () => {
 				const found = await inner.findOne('personnel', ORG, { id: 'p-1' });
 				expect(found).toBeNull();
 			});
+
+			it('upsertMany passes through to inner store', async () => {
+				const inner = createInMemoryDataStore();
+				const upsertManySpy = vi.spyOn(inner, 'upsertMany');
+				const scoped = createScopedDataStore(inner, GROUP_A, scopeRules);
+
+				await scoped.upsertMany(
+					'personnel_trainings',
+					ORG,
+					[{ personnel_id: 'p-1', training_type_id: 'tt-1', completion_date: '2026-06-01' }],
+					{ onConflict: 'organization_id,personnel_id,training_type_id' }
+				);
+
+				expect(upsertManySpy).toHaveBeenCalledWith(
+					'personnel_trainings',
+					ORG,
+					[{ personnel_id: 'p-1', training_type_id: 'tt-1', completion_date: '2026-06-01' }],
+					{ onConflict: 'organization_id,personnel_id,training_type_id' }
+				);
+
+				const found = await inner.findOne('personnel_trainings', ORG, {
+					personnel_id: 'p-1',
+					training_type_id: 'tt-1'
+				});
+				expect(found).toMatchObject({ completion_date: '2026-06-01' });
+			});
 		});
 	});
 });

@@ -256,6 +256,9 @@ const store: DataStore = {
 		}
 		return inserted;
 	},
+	async upsertMany() {
+		throw new Error('upsertMany is not implemented in this test store');
+	},
 	findManyWithCount: vi.fn(),
 	listDistinctAuditActions: vi.fn()
 } as DataStore;

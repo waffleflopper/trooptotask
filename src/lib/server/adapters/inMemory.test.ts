@@ -327,6 +327,81 @@ describe('InMemoryDataStore', () => {
 		});
 	});
 
+	describe('upsertMany', () => {
+		it('updates matching conflict rows and inserts non-matching rows', async () => {
+			const store = createInMemoryDataStore();
+			store.seed('personnel_trainings', [
+				{
+					id: 'pt-1',
+					organization_id: 'org-1',
+					personnel_id: 'p-1',
+					training_type_id: 'tt-1',
+					completion_date: '2024-01-01',
+					notes: 'old'
+				},
+				{
+					id: 'pt-other-org',
+					organization_id: 'org-2',
+					personnel_id: 'p-1',
+					training_type_id: 'tt-1',
+					completion_date: '2024-02-01',
+					notes: 'other org'
+				}
+			]);
+
+			const result = await store.upsertMany<{
+				id: string;
+				personnel_id: string;
+				training_type_id: string;
+				completion_date: string;
+				notes: string | null;
+			}>(
+				'personnel_trainings',
+				'org-1',
+				[
+					{
+						id: 'different-id',
+						personnel_id: 'p-1',
+						training_type_id: 'tt-1',
+						completion_date: '2025-06-01',
+						notes: 'updated'
+					},
+					{
+						personnel_id: 'p-2',
+						training_type_id: 'tt-1',
+						completion_date: '2025-07-01',
+						notes: null
+					}
+				],
+				{ onConflict: 'organization_id,personnel_id,training_type_id' }
+			);
+
+			expect(result).toHaveLength(2);
+			expect(result[0]).toMatchObject({
+				id: 'pt-1',
+				personnel_id: 'p-1',
+				training_type_id: 'tt-1',
+				completion_date: '2025-06-01',
+				notes: 'updated'
+			});
+			expect(result[1]).toMatchObject({
+				personnel_id: 'p-2',
+				training_type_id: 'tt-1',
+				completion_date: '2025-07-01',
+				notes: null,
+				organization_id: 'org-1'
+			});
+			expect(result[1].id).toMatch(/^[0-9a-f-]{36}$/);
+
+			const org1Rows = await store.findMany<{ id: string; completion_date: string }>('personnel_trainings', 'org-1');
+			expect(org1Rows).toHaveLength(2);
+			expect(org1Rows.find((row) => row.id === 'pt-1')?.completion_date).toBe('2025-06-01');
+
+			const org2Rows = await store.findMany<{ id: string; completion_date: string }>('personnel_trainings', 'org-2');
+			expect(org2Rows).toEqual([expect.objectContaining({ id: 'pt-other-org', completion_date: '2024-02-01' })]);
+		});
+	});
+
 	describe('multi-org isolation', () => {
 		it('findMany only returns records for the queried org', async () => {
 			const store = createInMemoryDataStore();

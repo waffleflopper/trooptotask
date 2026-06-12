@@ -56,4 +56,46 @@ describe('POST /api/personnel/batch', () => {
 			capError: 'Personnel cap reached — upgrade or archive personnel before adding this record'
 		});
 	});
+
+	it('accepts structurally valid Personnel batch records', () => {
+		const result = _postConfig.input.safeParse({
+			records: [
+				{
+					rank: 'SGT',
+					lastName: 'Smith',
+					firstName: 'Jordan',
+					mos: '68W',
+					clinicRole: null,
+					groupName: 'Alpha Team',
+					ets: '2027-05-01',
+					deros: '2026-11-30'
+				}
+			]
+		});
+
+		expect(result.success).toBe(true);
+	});
+
+	it('rejects non-array Personnel batch records', () => {
+		const result = _postConfig.input.safeParse({ records: {} });
+
+		expect(result.success).toBe(false);
+	});
+
+	it('strips unknown Personnel batch record fields', () => {
+		const result = _postConfig.input.safeParse({
+			records: [
+				{
+					rank: 'SGT',
+					lastName: 'Smith',
+					firstName: 'Jordan',
+					isAdmin: true
+				}
+			]
+		});
+
+		expect(result.success).toBe(true);
+		if (!result.success) throw new Error('expected valid Personnel batch payload');
+		expect(result.data.records[0]).not.toHaveProperty('isAdmin');
+	});
 });

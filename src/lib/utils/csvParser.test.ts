@@ -76,6 +76,17 @@ describe('parseDateString', () => {
 	it('returns null for empty string', () => {
 		expect(parseDateString('')).toBeNull();
 	});
+
+	it('parses Excel serial dates independent of timezone', () => {
+		expect(parseDateString('25569')).toBe('1970-01-01');
+		expect(parseDateString('45292')).toBe('2024-01-01');
+		expect(parseDateString('60000')).toBe('2064-04-08');
+	});
+
+	it('rejects integers outside the Excel serial window', () => {
+		expect(parseDateString('25568')).toBeNull();
+		expect(parseDateString('60001')).toBeNull();
+	});
 });
 
 describe('parseTrainingStatus', () => {

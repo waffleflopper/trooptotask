@@ -18,9 +18,9 @@ test.describe('Training Records', () => {
 		trainingPage = new TrainingPage(ownerPage);
 		await trainingPage.goto(orgId);
 
-		await trainingPage.addRecord('Doe', 'Weapons Qualification');
+		await trainingPage.addRecord('Smith', 'Weapons Qualification');
 
 		// Verify the training matrix still shows the training type
-		await trainingPage.expectRecordVisible('Doe', 'Weapons Qualification');
+		await trainingPage.expectRecordVisible('Smith', 'Weapons Qualification');
 	});
 });

@@ -24,44 +24,34 @@ test.describe('Calendar & Status', () => {
 		calendarPage = new CalendarPage(ownerPage);
 		await calendarPage.goto(orgId);
 
-		// Click on a person's name in the calendar grid to open AvailabilityModal
-		// Person names appear as buttons in the personnel column
-		const personButton = ownerPage.getByRole('button', { name: /Doe/ }).first();
-		await personButton.click();
+		await calendarPage.openFirstDateCellForPerson(/Doe/);
 
-		// The AvailabilityModal opens with title "Set Status"
-		await expect(ownerPage.getByRole('heading', { name: 'Set Status' })).toBeVisible({ timeout: 5000 });
+		await expect(ownerPage.getByRole('dialog', { name: 'Set Personnel Status' })).toBeVisible({ timeout: 10000 });
 
-		// Status type defaults to first option, dates default to clicked date
-		// Just click "Add Status" to add with defaults
 		await ownerPage.getByRole('button', { name: 'Add Status' }).click();
 
-		// Verify status was added — the modal stays open showing the new entry
-		// Look for "Current Status" section that appears when entries exist
 		await expect(ownerPage.getByText('Current Status').first()).toBeVisible({ timeout: 5000 });
 	});
 
-	test('view today breakdown', async ({ ownerPage, orgId }) => {
+	test('shows the status legend for the current calendar grid', async ({ ownerPage, orgId }) => {
 		calendarPage = new CalendarPage(ownerPage);
 		await calendarPage.goto(orgId);
 
-		await calendarPage.expectTodayBreakdownExpanded(true);
-		await expect(ownerPage.getByTestId('today-breakdown-panel')).toContainText(/present/i);
-
-		await calendarPage.toggleTodayBreakdownFromToolbar();
-		await calendarPage.expectTodayBreakdownExpanded(false);
-
-		await calendarPage.toggleTodayBreakdownFromToolbar();
-		await calendarPage.expectTodayBreakdownExpanded(true);
+		const legend = ownerPage.getByLabel('Status color legend');
+		await expect(legend.getByText('Present')).toBeVisible();
+		await expect(legend.getByText('Leave')).toBeVisible();
+		await expect(legend.getByText('TDY')).toBeVisible();
 	});
 
-	test('today breakdown starts collapsed on mobile', async ({ ownerPage, orgId }) => {
+	test('calendar actions start compact on mobile', async ({ ownerPage, orgId }) => {
 		await ownerPage.setViewportSize({ width: 390, height: 844 });
 
 		calendarPage = new CalendarPage(ownerPage);
 		await calendarPage.goto(orgId);
 
-		await calendarPage.expectTodayBreakdownExpanded(false);
+		await expect(calendarPage.bulkStatusButton).toBeHidden();
+		await expect(calendarPage.planningButton).toBeHidden();
+		await expect(calendarPage.moreActionsButton).toBeVisible();
 	});
 
 	test('smart toolbar re-expands items after the viewport grows again', async ({ ownerPage, orgId }) => {
@@ -77,9 +67,9 @@ test.describe('Calendar & Status', () => {
 		await ownerPage.setViewportSize({ width: 390, height: 844 });
 		await expect(calendarPage.bulkStatusButton).toBeHidden();
 		await expect(calendarPage.planningButton).toBeHidden();
-		await calendarPage.moreActionsButton.click();
+		await calendarPage.openMoreActions();
 		await expect(ownerPage.getByRole('menu').getByText('Bulk Status')).toBeVisible();
-		await expect(ownerPage.getByRole('menuitem', { name: 'Add Bulk' })).toBeVisible();
+		await expect(ownerPage.getByRole('menu').getByText('Planning')).toBeVisible();
 
 		await ownerPage.setViewportSize({ width: 1400, height: 900 });
 		await expect(calendarPage.bulkStatusButton).toBeVisible();

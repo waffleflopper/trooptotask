@@ -38,7 +38,7 @@ The operator explicitly excluded automatic CI trigger work from this batch. Do n
 | 022  | Bulk delete onboarding retention rows             | P2       | S      | -          | DONE   |
 | 023  | Validate batch import route bodies with zod       | P1       | S      | -          | DONE   |
 | 024  | Sanitize unhandled route error logs               | P2       | S      | -          | DONE   |
-| 025  | Duty-roster workflow E2E Playwright spec          | P2       | M      | -          | TODO   |
+| 025  | Duty-roster workflow E2E Playwright spec          | P2       | M      | -          | DONE   |
 | 026  | Add documented .env.example                       | P3       | S      | -          | DONE   |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line rationale).

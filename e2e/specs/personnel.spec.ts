@@ -46,16 +46,7 @@ test.describe('Personnel Management', () => {
 		// Wait for modal
 		await expect(ownerPage.getByRole('heading', { name: 'Edit Personnel' })).toBeVisible({ timeout: 5000 });
 
-		// Look for archive/delete button in modal footer
-		const archiveBtn = ownerPage.getByRole('button', { name: /archive|delete/i }).first();
-		await archiveBtn.click();
-
-		// Confirm dialog
-		await expect(ownerPage.getByRole('heading', { name: /archive|confirm/i })).toBeVisible({ timeout: 5000 });
-		await ownerPage
-			.getByRole('button', { name: /archive|confirm|yes/i })
-			.last()
-			.click();
+		await personnelPage.archiveOpenPerson();
 
 		// Jones should no longer be visible
 		await personnelPage.expectPersonnelNotVisible('Jones');

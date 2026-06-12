@@ -34,6 +34,35 @@ interface NotificationPayload {
 	link?: string | null;
 }
 
+function retentionCutoff(now: Date, retentionMonths: number): string {
+	const targetMonthStart = new Date(
+		Date.UTC(
+			now.getUTCFullYear(),
+			now.getUTCMonth() - retentionMonths,
+			1,
+			now.getUTCHours(),
+			now.getUTCMinutes(),
+			now.getUTCSeconds(),
+			now.getUTCMilliseconds()
+		)
+	);
+	const lastTargetMonthDay = new Date(
+		Date.UTC(targetMonthStart.getUTCFullYear(), targetMonthStart.getUTCMonth() + 1, 0)
+	).getUTCDate();
+	const cutoff = new Date(
+		Date.UTC(
+			targetMonthStart.getUTCFullYear(),
+			targetMonthStart.getUTCMonth(),
+			Math.min(now.getUTCDate(), lastTargetMonthDay),
+			now.getUTCHours(),
+			now.getUTCMinutes(),
+			now.getUTCSeconds(),
+			now.getUTCMilliseconds()
+		)
+	);
+	return cutoff.toISOString();
+}
+
 async function notifyAdminsViaStore(
 	store: DataStore,
 	orgId: string,
@@ -74,48 +103,43 @@ export async function cleanupExpiredOnboardings(store: DataStore, orgConfigs: Or
 	const affectedOrgs = new Set<string>();
 
 	for (const org of orgConfigs) {
-		const completed = await store.findMany<OnboardingRow>('personnel_onboardings', org.id, {
-			status: 'completed'
-		});
-		const cancelled = await store.findMany<OnboardingRow>('personnel_onboardings', org.id, {
-			status: 'cancelled'
-		});
-
-		const toDelete: OnboardingRow[] = [];
-
-		for (const ob of [...completed, ...cancelled]) {
-			const dateField = ob.status === 'completed' ? ob.completed_at : ob.cancelled_at;
-			if (!dateField) continue;
-
-			const expiresAt = new Date(dateField);
-			expiresAt.setMonth(expiresAt.getMonth() + org.retentionMonths);
-
-			if (now > expiresAt) {
-				toDelete.push(ob);
+		const cutoff = retentionCutoff(now, org.retentionMonths);
+		const completed = await store.findMany<OnboardingRow>(
+			'personnel_onboardings',
+			org.id,
+			{ status: 'completed' },
+			{
+				select: 'id, status, completed_at, cancelled_at',
+				rangeFilters: [{ column: 'completed_at', op: 'lt', value: cutoff }],
+				isNull: { completed_at: false }
 			}
-		}
+		);
+		const cancelled = await store.findMany<OnboardingRow>(
+			'personnel_onboardings',
+			org.id,
+			{ status: 'cancelled' },
+			{
+				select: 'id, status, completed_at, cancelled_at',
+				rangeFilters: [{ column: 'cancelled_at', op: 'lt', value: cutoff }],
+				isNull: { cancelled_at: false }
+			}
+		);
 
-		if (toDelete.length === 0) continue;
+		const expiredIds = [...completed, ...cancelled].map((ob) => ob.id);
+		if (expiredIds.length === 0) continue;
+
+		const stepProgressFilters = expiredIds.map((id) => ({ onboarding_id: id }));
+		await store.deleteWhereAny('onboarding_step_progress', org.id, stepProgressFilters);
+		const deletedCount = await store.deleteManyByIds('personnel_onboardings', org.id, expiredIds);
+		if (deletedCount === 0) continue;
 
 		affectedOrgs.add(org.id);
-
-		for (const ob of toDelete) {
-			// Cascade: delete step progress rows for this onboarding
-			const steps = await store.findMany<{ id: string }>('onboarding_step_progress', org.id, {
-				onboarding_id: ob.id
-			});
-			for (const step of steps) {
-				await store.delete('onboarding_step_progress', org.id, step.id);
-			}
-			await store.delete('personnel_onboardings', org.id, ob.id);
-		}
-
-		totalDeleted += toDelete.length;
+		totalDeleted += deletedCount;
 
 		await notifyAdminsViaStore(store, org.id, null, {
 			type: 'onboarding_auto_deleted',
 			title: 'Onboarding Records Auto-Deleted',
-			message: `${toDelete.length} onboarding record${toDelete.length === 1 ? '' : 's'} auto-deleted after retention period`
+			message: `${deletedCount} onboarding record${deletedCount === 1 ? '' : 's'} auto-deleted after retention period`
 		});
 	}
 

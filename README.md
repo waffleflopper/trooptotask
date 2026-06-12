@@ -77,7 +77,7 @@ A military unit management platform for personnel tracking, calendar/availabilit
 
 ## Tech Stack
 
-- **Framework**: SvelteKit 2.5 + Svelte 5 (runes)
+- **Framework**: SvelteKit 2 + Svelte 5 (runes)
 - **Language**: TypeScript
 - **Database**: Supabase (PostgreSQL + Row Level Security)
 - **Authentication**: Supabase Auth
@@ -114,12 +114,11 @@ A military unit management platform for personnel tracking, calendar/availabilit
    supabase start
    ```
 
-4. Create a `.env` file with your Supabase credentials:
+4. Create a `.env` file from the template, then fill in your local Supabase credentials:
 
-   ```
-   PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
-   PUBLIC_SUPABASE_ANON_KEY=your_local_anon_key
-   SUPABASE_SERVICE_ROLE_KEY=your_local_service_role_key
+   ```bash
+   cp .env.example .env
+   supabase status -o env
    ```
 
 5. Start the development server:
@@ -144,11 +143,19 @@ A military unit management platform for personnel tracking, calendar/availabilit
 npm run dev          # Start dev server
 npm run build        # Production build
 npm run check        # TypeScript/Svelte type checking
+npm run gate         # Run format check, lint, governance, check, and tests
 npm run lint         # ESLint
 npm run format       # Prettier formatting
 npm run test         # Unit tests (Vitest)
 npm run test:e2e     # E2E tests (Playwright)
 ```
+
+### Verification Gate
+
+Run `npm run gate` before shipping changes; it runs the five required local checks in order:
+format check, lint, governance, Svelte/TypeScript check, and unit tests. `npm install` also
+configures `.githooks/pre-push` so pushes run the same gate automatically. To opt out of the
+local hook wiring, run `git config --unset core.hooksPath`.
 
 ## Project Structure
 

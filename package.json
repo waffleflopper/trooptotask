@@ -10,10 +10,12 @@
 	"scripts": {
 		"dev": "vite dev",
 		"postinstall": "node ./scripts/patch-bits-ui-timers.mjs",
+		"prepare": "node ./scripts/setup-githooks.mjs",
 		"build": "vite build",
 		"preview": "vite preview",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
+		"gate": "npm run format:check && npm run lint && npm run governance:check && npm run check && npm run test",
 		"governance:check": "node ./scripts/check-governance.mjs",
 		"db:test": "sh -c 'for file in supabase/tests/*.sql; do supabase test db \"$file\" || exit 1; done'",
 		"test": "vitest run",

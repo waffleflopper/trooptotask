@@ -23,6 +23,13 @@ import type { TrainingType, PersonnelTraining } from '$features/training/trainin
 import type { OverflowItem } from '$lib/components/ui/OverflowMenu.types';
 
 const TRAINING_POLICY_RESOURCE = { kind: 'unscoped' } as const;
+type TrainingBatchCompletionRecord = {
+	personnelId: string;
+	trainingTypeId: string;
+	completionDate: string | null;
+	notes?: string;
+	status: 'completed';
+};
 type NavigationModule = typeof import('$app/navigation');
 type DeletionRequestsModule = typeof import('$lib/utils/deletionRequests');
 type ToastStoreModule = typeof import('$lib/stores/toast.svelte');
@@ -280,6 +287,21 @@ export class TrainingPageContext {
 	// ---- async handlers ----
 	async handleSaveTraining(data: Omit<PersonnelTraining, 'id'>): Promise<void> {
 		await personnelTrainingsStore.add(data);
+	}
+
+	async handleSaveTrainingBatch(records: TrainingBatchCompletionRecord[]): Promise<void> {
+		const res = await fetch(`/org/${this.orgId}/api/personnel-trainings/batch`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ records })
+		});
+
+		const data = await res.json().catch(() => ({}));
+		if (!res.ok) {
+			throw new Error(data.message ?? `HTTP ${res.status}`);
+		}
+
+		personnelTrainingsStore.addBatchResults(data.inserted ?? [], data.updated ?? []);
 	}
 
 	async handleRemoveTraining(id: string): Promise<void> {

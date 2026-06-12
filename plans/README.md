@@ -32,7 +32,7 @@ The operator explicitly excluded automatic CI trigger work from this batch. Do n
 | 017  | Wire local verification gate (hook, gate, env)    | P2       | S      | -          | DONE   |
 | 018  | Filter dashboard active onboardings at query time | P1       | S      | -          | DONE   |
 | 019  | Add Calendar date-window indexes                  | P1       | M      | -          | DONE   |
-| 020  | Batch Training mark-all-complete saves            | P1       | S      | -          | TODO   |
+| 020  | Batch Training mark-all-complete saves            | P1       | S      | -          | DONE   |
 | 021  | Bulk upsert Training batch import rows            | P2       | M      | 020 (soft) | TODO   |
 | 022  | Bulk delete onboarding retention rows             | P2       | S      | -          | DONE   |
 

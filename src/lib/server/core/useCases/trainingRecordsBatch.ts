@@ -158,10 +158,13 @@ export async function importTrainingRecords(
 	const insertedData: Record<string, unknown>[] = [];
 	const updatedData: Record<string, unknown>[] = [];
 	if (completedRows.length > 0) {
+		const dedupedCompletedRows = [
+			...new Map(completedRows.map((row) => [`${row.personnel_id}:${row.training_type_id}`, row] as const)).values()
+		];
 		const upsertedData = await ctx.store.upsertMany<Record<string, unknown>>(
 			entity.table,
 			ctx.auth.orgId,
-			completedRows,
+			dedupedCompletedRows,
 			{ onConflict: 'organization_id,personnel_id,training_type_id' }
 		);
 

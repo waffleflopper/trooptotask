@@ -275,6 +275,58 @@ describe('importTrainingRecords', () => {
 		});
 	});
 
+	it('deduplicates repeated completed records before the bulk upsert', async () => {
+		const ctx = buildContext();
+		seedPersonnel(ctx);
+		seedTrainingType(ctx, { expiration_months: 12 });
+		ctx.store.seed('personnel_trainings', [
+			{
+				id: 'ptr-1',
+				organization_id: 'test-org',
+				personnel_id: 'p-1',
+				training_type_id: 'tt-1',
+				completion_date: '2024-01-01',
+				expiration_date: '2025-01-01',
+				notes: 'old notes'
+			}
+		]);
+		const upsertManySpy = vi.spyOn(ctx.store, 'upsertMany');
+
+		const result = await importTrainingRecords(ctx, {
+			records: [
+				{ personnelId: 'p-1', trainingTypeId: 'tt-1', completionDate: '2025-06-01', status: 'completed' },
+				{
+					personnelId: 'p-1',
+					trainingTypeId: 'tt-1',
+					completionDate: '2025-07-01',
+					status: 'completed',
+					notes: 'latest row wins'
+				}
+			]
+		});
+
+		expect(upsertManySpy).toHaveBeenCalledTimes(1);
+		expect(upsertManySpy.mock.calls[0][2]).toEqual([
+			expect.objectContaining({
+				personnel_id: 'p-1',
+				training_type_id: 'tt-1',
+				completion_date: '2025-07-01',
+				expiration_date: '2026-07-01',
+				notes: 'latest row wins'
+			})
+		]);
+		expect(result.updated).toHaveLength(1);
+		expect(result.inserted).toHaveLength(0);
+		expect(result.updated[0]).toEqual(
+			expect.objectContaining({
+				personnelId: 'p-1',
+				completionDate: '2025-07-01',
+				notes: 'latest row wins'
+			})
+		);
+		expect(result.errors).toHaveLength(0);
+	});
+
 	it('excludes error and exempt rows from completed-record upsert payload', async () => {
 		const ctx = buildContext();
 		seedPersonnel(ctx);

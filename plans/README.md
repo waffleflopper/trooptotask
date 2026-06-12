@@ -28,7 +28,7 @@ The operator explicitly excluded automatic CI trigger work from this batch. Do n
 | 013  | Resolve critical vitest advisory, triage audit    | P1       | S      | -          | DONE   |
 | 014  | Fix Excel serial date UTC shift in imports        | P1       | S      | -          | DONE   |
 | 015  | pgTAP cross-org isolation contracts (5 tables)    | P2       | L      | -          | DONE   |
-| 016  | Stripe webhook E2E coverage                       | P2       | M      | 013 (soft) | TODO   |
+| 016  | Stripe webhook E2E coverage                       | P2       | M      | 013 (soft) | DONE   |
 | 017  | Wire local verification gate (hook, gate, env)    | P2       | S      | -          | DONE   |
 | 018  | Filter dashboard active onboardings at query time | P1       | S      | -          | DONE   |
 | 019  | Add Calendar date-window indexes                  | P1       | M      | -          | DONE   |

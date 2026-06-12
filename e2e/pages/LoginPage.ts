@@ -1,4 +1,4 @@
-import type { Page, Locator } from '@playwright/test';
+import { expect, type Page, type Locator } from '@playwright/test';
 
 export class LoginPage {
 	readonly page: Page;
@@ -12,7 +12,7 @@ export class LoginPage {
 		this.emailInput = page.getByTestId('login-email');
 		this.passwordInput = page.getByTestId('login-password');
 		this.submitButton = page.getByTestId('login-submit');
-		this.errorMessage = page.getByTestId('login-error');
+		this.errorMessage = page.getByRole('alert');
 	}
 
 	async goto() {
@@ -28,12 +28,9 @@ export class LoginPage {
 	}
 
 	async expectError(text?: string) {
-		await this.errorMessage.waitFor({ state: 'visible', timeout: 15000 });
+		await expect(this.errorMessage).toBeVisible({ timeout: 15000 });
 		if (text) {
-			await this.page.waitForFunction(
-				(expected) => document.querySelector('[data-testid="login-error"]')?.textContent?.includes(expected),
-				text
-			);
+			await expect(this.errorMessage).toContainText(text);
 		}
 	}
 

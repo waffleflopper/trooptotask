@@ -1,9 +1,11 @@
 import { test, expect } from '../fixtures/auth';
 import { adminClient } from '../fixtures/supabase';
-import { TEST_ORG } from '../fixtures/test-data';
+import { TEST_ORG, TEST_PERSONNEL } from '../fixtures/test-data';
 import { OnboardingPage } from '../pages/OnboardingPage';
 
 const TEMPLATE_ID = '00000000-e2e0-7e57-0000-000000000040';
+const DUPLICATE_GUARD_ONBOARDING_ID = '00000000-e2e0-7e57-0000-000000000043';
+const DOE_PERSONNEL_ID = TEST_PERSONNEL[0].id;
 const STEP_IDS = {
 	checkbox: '00000000-e2e0-7e57-0000-000000000041',
 	paperwork: '00000000-e2e0-7e57-0000-000000000042'
@@ -81,6 +83,22 @@ test.describe('Onboarding', () => {
 	});
 
 	test('cannot start second onboarding for same soldier', async ({ ownerPage, orgId }) => {
+		await adminClient
+			.from('personnel_onboardings')
+			.delete()
+			.eq('organization_id', TEST_ORG.id)
+			.eq('personnel_id', DOE_PERSONNEL_ID);
+
+		const { error: onboardingError } = await adminClient.from('personnel_onboardings').insert({
+			id: DUPLICATE_GUARD_ONBOARDING_ID,
+			organization_id: TEST_ORG.id,
+			personnel_id: DOE_PERSONNEL_ID,
+			started_at: new Date().toISOString().slice(0, 10),
+			status: 'in_progress',
+			template_id: TEMPLATE_ID
+		});
+		if (onboardingError) throw new Error(`Failed to seed active onboarding: ${onboardingError.message}`);
+
 		const onboarding = new OnboardingPage(ownerPage);
 		await onboarding.goto(orgId);
 
@@ -88,16 +106,13 @@ test.describe('Onboarding', () => {
 		// The start modal should filter him out
 		await onboarding.openStartModal();
 
-		// Doe should not be in the available personnel list
-		// Open the SearchSelect dropdown
-		const trigger = ownerPage.getByRole('button', { name: /Search for a person/i });
+		const trigger = ownerPage.getByRole('button', { name: 'Member' });
 		await trigger.click();
 
 		const combobox = ownerPage.getByRole('combobox');
 		await combobox.waitFor({ state: 'visible', timeout: 5000 });
 		await combobox.fill('Doe');
 
-		// The dropdown should show "No matches" or not show Doe as an option
 		await ownerPage.waitForTimeout(500);
 		const doeOption = ownerPage.getByRole('option', { name: /Doe/ });
 		await expect(doeOption).not.toBeVisible();

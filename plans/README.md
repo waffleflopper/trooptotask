@@ -62,7 +62,7 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJE
 - Critical Tasks first-run test wobble: not planned. Targeted reruns and a second full `npm run test` passed, so this remains a residual flake watch item rather than a plan.
 - npm audit acceptances (triaged 2026-06-11, plan 013): exceljs/uuid moderates have no forward
   fix (suggested "fix" is a major downgrade) and the app never calls uuid directly — accepted,
-  re-check when exceljs ships a major. @sveltejs/* and bits-ui/runed lows have downgrade-only
+  re-check when exceljs ships a major. @sveltejs/\* and bits-ui/runed lows have downgrade-only
   fixes — accepted. Critical vitest advisory fixed in plan 013.
 - `bits-ui` postinstall patch: real dependency debt, but lower leverage than the selected security, database, and calendar/duty-roster correctness work. Re-confirmed 2026-06-11 (finding F10): still deferred; the version pin is honored by plan 013's scope.
 

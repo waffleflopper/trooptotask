@@ -41,23 +41,23 @@ inconsistency, not a design choice. The fix makes the serial branch timezone-ind
 
 ```ts
 // src/lib/utils/csvParser.ts:210-222 (as of 22e6e184)
-	// Excel serial number
-	if (/^\d+$/.test(trimmed)) {
-		const serial = parseInt(trimmed, 10);
-		if (serial >= 25569 && serial <= 60000) {
-			// Excel epoch: Jan 1, 1900, with the leap year bug
-			const excelEpoch = new Date(1900, 0, 1);            // ← local-time epoch
-			const ms = excelEpoch.getTime() + (serial - 2) * 86400000;
-			const d = new Date(ms);
-			if (!isNaN(d.getTime())) {
-				return d.toISOString().slice(0, 10);             // ← UTC formatting
-			}
+// Excel serial number
+if (/^\d+$/.test(trimmed)) {
+	const serial = parseInt(trimmed, 10);
+	if (serial >= 25569 && serial <= 60000) {
+		// Excel epoch: Jan 1, 1900, with the leap year bug
+		const excelEpoch = new Date(1900, 0, 1); // ← local-time epoch
+		const ms = excelEpoch.getTime() + (serial - 2) * 86400000;
+		const d = new Date(ms);
+		if (!isNaN(d.getTime())) {
+			return d.toISOString().slice(0, 10); // ← UTC formatting
 		}
 	}
+}
 ```
 
-  The `(serial - 2)` arithmetic is correct (1-based serial plus Excel's 1900 leap-year bug);
-  keep it. Only the local/UTC mismatch is wrong.
+The `(serial - 2)` arithmetic is correct (1-based serial plus Excel's 1900 leap-year bug);
+keep it. Only the local/UTC mismatch is wrong.
 
 - The fallback branch immediately after (lines 224-231) shows the repo's intended convention —
   it formats from local date parts precisely to avoid offset shifting:
@@ -86,23 +86,25 @@ inconsistency, not a design choice. The fix makes the serial branch timezone-ind
 
 ## Commands you will need
 
-| Purpose | Command | Expected on success |
-|---|---|---|
-| Targeted tests | `npx vitest run src/lib/utils/csvParser.test.ts` | all pass |
-| Targeted tests under UTC+9 | `TZ=Asia/Seoul npx vitest run src/lib/utils/csvParser.test.ts` | all pass |
-| Targeted tests under UTC-5 | `TZ=America/New_York npx vitest run src/lib/utils/csvParser.test.ts` | all pass |
-| Full tests | `npm run test` | exit 0 |
-| Typecheck | `npm run check` | exit 0 |
-| Lint / format / governance | `npm run lint && npm run format && npm run governance:check` | exit 0 |
+| Purpose                    | Command                                                              | Expected on success |
+| -------------------------- | -------------------------------------------------------------------- | ------------------- |
+| Targeted tests             | `npx vitest run src/lib/utils/csvParser.test.ts`                     | all pass            |
+| Targeted tests under UTC+9 | `TZ=Asia/Seoul npx vitest run src/lib/utils/csvParser.test.ts`       | all pass            |
+| Targeted tests under UTC-5 | `TZ=America/New_York npx vitest run src/lib/utils/csvParser.test.ts` | all pass            |
+| Full tests                 | `npm run test`                                                       | exit 0              |
+| Typecheck                  | `npm run check`                                                      | exit 0              |
+| Lint / format / governance | `npm run lint && npm run format && npm run governance:check`         | exit 0              |
 
 ## Scope
 
 **In scope** (the only files you should modify):
+
 - `src/lib/utils/csvParser.ts` (the Excel serial branch only)
 - `src/lib/utils/csvParser.test.ts`
 - `plans/README.md` (status row only)
 
 **Out of scope** (do NOT touch):
+
 - The ISO, US-format, and free-form fallback branches of `parseDateString` — they are correct.
 - `parseFile`, `parseDelimitedText`, `parseTrainingStatus`, `cellToString` in the same file.
 - Any import feature code that calls `parseDateString` (bulk availability import, training
@@ -122,16 +124,16 @@ inconsistency, not a design choice. The fix makes the serial branch timezone-ind
 Add to the `describe('parseDateString')` block in `src/lib/utils/csvParser.test.ts`:
 
 ```ts
-	it('parses Excel serial dates independent of timezone', () => {
-		expect(parseDateString('25569')).toBe('1970-01-01');
-		expect(parseDateString('45292')).toBe('2024-01-01');
-		expect(parseDateString('60000')).toBe('2064-04-08');
-	});
+it('parses Excel serial dates independent of timezone', () => {
+	expect(parseDateString('25569')).toBe('1970-01-01');
+	expect(parseDateString('45292')).toBe('2024-01-01');
+	expect(parseDateString('60000')).toBe('2064-04-08');
+});
 
-	it('rejects integers outside the Excel serial window', () => {
-		expect(parseDateString('25568')).toBeNull();
-		expect(parseDateString('60001')).toBeNull();
-	});
+it('rejects integers outside the Excel serial window', () => {
+	expect(parseDateString('25568')).toBeNull();
+	expect(parseDateString('60001')).toBeNull();
+});
 ```
 
 **Verify**: `TZ=Asia/Seoul npx vitest run src/lib/utils/csvParser.test.ts` → the new
@@ -144,18 +146,18 @@ Replace the epoch construction and formatting in the Excel serial branch of
 `src/lib/utils/csvParser.ts` so both ends of the arithmetic are UTC:
 
 ```ts
-	// Excel serial number
-	if (/^\d+$/.test(trimmed)) {
-		const serial = parseInt(trimmed, 10);
-		if (serial >= 25569 && serial <= 60000) {
-			// Excel epoch: Jan 1, 1900, with the leap year bug (UTC to keep imports timezone-independent)
-			const ms = Date.UTC(1900, 0, 1) + (serial - 2) * 86400000;
-			const d = new Date(ms);
-			if (!isNaN(d.getTime())) {
-				return d.toISOString().slice(0, 10);
-			}
+// Excel serial number
+if (/^\d+$/.test(trimmed)) {
+	const serial = parseInt(trimmed, 10);
+	if (serial >= 25569 && serial <= 60000) {
+		// Excel epoch: Jan 1, 1900, with the leap year bug (UTC to keep imports timezone-independent)
+		const ms = Date.UTC(1900, 0, 1) + (serial - 2) * 86400000;
+		const d = new Date(ms);
+		if (!isNaN(d.getTime())) {
+			return d.toISOString().slice(0, 10);
 		}
 	}
+}
 ```
 
 `Date.UTC(...)` + `toISOString()` are both UTC, so the round trip is exact for any process

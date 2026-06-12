@@ -123,16 +123,16 @@ ALTER TABLE ONLY "public"."personnel_trainings"
 
 ## Commands you will need
 
-| Purpose             | Command                                                                                                                       | Expected on success |
-|---------------------|-------------------------------------------------------------------------------------------------------------------------------|---------------------|
-| Use-case tests      | `npx vitest run src/lib/server/core/useCases/trainingRecordsBatch.test.ts`                                                    | all pass            |
-| Adapter tests       | `npx vitest run src/lib/server/adapters/inMemory.test.ts src/lib/server/adapters/scopedDataStore.test.ts src/lib/server/adapters/supabaseDataStore.test.ts` | all pass |
-| Batch route test    | `npx vitest run src/routes/org/'[orgId]'/api/personnel-trainings/batch/server.test.ts`                                        | all pass            |
-| Typecheck           | `npm run check`                                                                                                               | exit 0, 0 errors    |
-| Lint                | `npm run lint`                                                                                                                | exit 0              |
-| Format              | `npm run format`                                                                                                              | exit 0              |
-| Governance          | `npm run governance:check`                                                                                                    | exit 0              |
-| Full tests          | `npm run test`                                                                                                                | exit 0              |
+| Purpose          | Command                                                                                                                                                     | Expected on success |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------- |
+| Use-case tests   | `npx vitest run src/lib/server/core/useCases/trainingRecordsBatch.test.ts`                                                                                  | all pass            |
+| Adapter tests    | `npx vitest run src/lib/server/adapters/inMemory.test.ts src/lib/server/adapters/scopedDataStore.test.ts src/lib/server/adapters/supabaseDataStore.test.ts` | all pass            |
+| Batch route test | `npx vitest run src/routes/org/'[orgId]'/api/personnel-trainings/batch/server.test.ts`                                                                      | all pass            |
+| Typecheck        | `npm run check`                                                                                                                                             | exit 0, 0 errors    |
+| Lint             | `npm run lint`                                                                                                                                              | exit 0              |
+| Format           | `npm run format`                                                                                                                                            | exit 0              |
+| Governance       | `npm run governance:check`                                                                                                                                  | exit 0              |
+| Full tests       | `npm run test`                                                                                                                                              | exit 0              |
 
 ## Scope
 
@@ -219,7 +219,7 @@ In `src/lib/server/adapters/inMemory.ts`, implement matching behavior:
 In `src/lib/server/adapters/scopedDataStore.ts`, pass the method through with the other writes:
 
 ```ts
-upsertMany: inner.upsertMany.bind(inner)
+upsertMany: inner.upsertMany.bind(inner);
 ```
 
 Update any test-only `DataStore` fakes that fail typecheck by delegating to an in-memory store or

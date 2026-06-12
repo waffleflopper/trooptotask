@@ -138,15 +138,15 @@ The batch use case accepts `{ records }`, where each record has `personnelId`, `
 
 ## Commands you will need
 
-| Purpose            | Command                                                                                                  | Expected on success |
-|--------------------|----------------------------------------------------------------------------------------------------------|---------------------|
-| Component/context tests | `npx vitest run src/features/training/contexts/TrainingPageContext.svelte.test.ts src/features/training/components/PersonTrainingEditor.svelte.test.ts` | all pass |
-| Existing route test | `npx vitest run src/routes/org/'[orgId]'/api/personnel-trainings/batch/server.test.ts`                | all pass            |
-| Typecheck          | `npm run check`                                                                                          | exit 0, 0 errors    |
-| Lint               | `npm run lint`                                                                                           | exit 0              |
-| Format             | `npm run format`                                                                                         | exit 0              |
-| Governance         | `npm run governance:check`                                                                               | exit 0              |
-| Full tests         | `npm run test`                                                                                           | exit 0              |
+| Purpose                 | Command                                                                                                                                                 | Expected on success |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------- |
+| Component/context tests | `npx vitest run src/features/training/contexts/TrainingPageContext.svelte.test.ts src/features/training/components/PersonTrainingEditor.svelte.test.ts` | all pass            |
+| Existing route test     | `npx vitest run src/routes/org/'[orgId]'/api/personnel-trainings/batch/server.test.ts`                                                                  | all pass            |
+| Typecheck               | `npm run check`                                                                                                                                         | exit 0, 0 errors    |
+| Lint                    | `npm run lint`                                                                                                                                          | exit 0              |
+| Format                  | `npm run format`                                                                                                                                        | exit 0              |
+| Governance              | `npm run governance:check`                                                                                                                              | exit 0              |
+| Full tests              | `npm run test`                                                                                                                                          | exit 0              |
 
 Because this touches Svelte files, follow the repo's Svelte MCP/autofixer workflow from
 `AGENTS.md` if those tools are available in your environment.

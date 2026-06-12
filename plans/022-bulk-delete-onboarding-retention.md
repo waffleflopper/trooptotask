@@ -107,14 +107,14 @@ ALTER TABLE ONLY "public"."onboarding_step_progress"
 
 ## Commands you will need
 
-| Purpose       | Command                                                              | Expected on success |
-|---------------|----------------------------------------------------------------------|---------------------|
+| Purpose       | Command                                                                   | Expected on success |
+| ------------- | ------------------------------------------------------------------------- | ------------------- |
 | Focused tests | `npx vitest run src/lib/server/core/useCases/onboardingRetention.test.ts` | all pass            |
-| Typecheck     | `npm run check`                                                      | exit 0, 0 errors    |
-| Lint          | `npm run lint`                                                       | exit 0              |
-| Format        | `npm run format`                                                     | exit 0              |
-| Governance    | `npm run governance:check`                                           | exit 0              |
-| Full tests    | `npm run test`                                                       | exit 0              |
+| Typecheck     | `npm run check`                                                           | exit 0, 0 errors    |
+| Lint          | `npm run lint`                                                            | exit 0              |
+| Format        | `npm run format`                                                          | exit 0              |
+| Governance    | `npm run governance:check`                                                | exit 0              |
+| Full tests    | `npm run test`                                                            | exit 0              |
 
 ## Scope
 

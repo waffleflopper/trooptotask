@@ -25,6 +25,7 @@ import {
 import { cacheRequestMembership, getOrLoadRequestMembership } from '$lib/server/membershipContextCache';
 import { validateUUID } from '$lib/server/validation';
 import { getRequestInfo } from '$lib/server/auditLog';
+import { sanitizeErrorForLog } from '$lib/server/logSanitize';
 import { createSupabaseDataStore } from './supabaseDataStore';
 import { createSupabaseAuthContextAdapter } from './supabaseAuthContext';
 import { createSupabaseScopeEnforcementAdapter } from './supabaseScopeEnforcement';
@@ -278,7 +279,7 @@ export function rethrowOrWrap(err: unknown): never {
 			throw error(status, message);
 		}
 	}
-	console.error('[http-adapter] Unhandled route error:', err);
+	console.error('[http-adapter] Unhandled route error:', sanitizeErrorForLog(err));
 	throw error(500, 'Internal server error');
 }
 

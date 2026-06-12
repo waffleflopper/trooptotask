@@ -155,7 +155,10 @@ describe('POST /api/auth/confirm-sensitive-action', () => {
 			} as never)
 		).rejects.toMatchObject({ status: 500 });
 
-		expect(consoleError).toHaveBeenCalledWith('[http-adapter] Unhandled route error:', expect.any(Error));
+		expect(consoleError).toHaveBeenCalledWith(
+			'[http-adapter] Unhandled route error:',
+			expect.stringContaining('name=Error message=network unavailable')
+		);
 		consoleError.mockRestore();
 	});
 

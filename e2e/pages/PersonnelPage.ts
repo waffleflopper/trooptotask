@@ -28,13 +28,20 @@ export class PersonnelPage {
 	}
 
 	async fillForm(data: { firstName: string; lastName: string; rank?: string }) {
-		// Fields: textbox "Last Name *" (placeholder: Smith), textbox "First Name *" (placeholder: John)
 		await this.page.getByRole('textbox', { name: 'Last Name' }).fill(data.lastName);
 		await this.page.getByRole('textbox', { name: 'First Name' }).fill(data.firstName);
 		if (data.rank) {
-			// Rank is a combobox "Rank"
-			await this.page.getByRole('combobox', { name: 'Rank' }).selectOption(data.rank);
+			await this.selectRank(data.rank);
 		}
+	}
+
+	async selectRank(rank: string) {
+		const dialog = this.page.getByRole('dialog', { name: /Add Personnel|Edit Personnel/ });
+		await dialog.getByRole('button', { name: 'Rank', exact: true }).click();
+		const rankSearch = this.page.getByPlaceholder('Select rank...');
+		await expect(rankSearch).toBeVisible({ timeout: 5000 });
+		await rankSearch.fill(rank);
+		await this.page.getByRole('option', { name: rank, exact: true }).click();
 	}
 
 	async save() {
@@ -56,15 +63,26 @@ export class PersonnelPage {
 	}
 
 	async clickPerson(name: string) {
-		// Find the row containing the person's name and click its Edit button
 		const row = this.page
 			.getByRole('row')
-			.filter({ hasText: new RegExp(name) })
+			.filter({ hasText: new RegExp(escapeRegExp(name)) })
 			.first();
 		await row.getByRole('button', { name: 'Edit' }).click();
+	}
+
+	async archiveOpenPerson() {
+		const dialog = this.page.getByRole('dialog', { name: 'Edit Personnel' });
+		await dialog.getByTestId('personnel-archive').click();
+
+		const confirmDialog = this.page.getByRole('alertdialog', { name: 'Archive Personnel' });
+		await confirmDialog.getByRole('button', { name: 'Archive' }).click();
 	}
 
 	async search(query: string) {
 		await this.searchInput.fill(query);
 	}
+}
+
+function escapeRegExp(value: string) {
+	return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }

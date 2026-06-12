@@ -7,43 +7,45 @@ export class TrainingPage {
 
 	constructor(page: Page) {
 		this.page = page;
-		this.trainingMatrix = page
-			.locator('.view-panel:not(.hidden-view)')
-			.getByRole('table', { name: 'Training status matrix' });
+		this.trainingMatrix = page.getByRole('table', { name: 'Training status matrix' });
 	}
 
 	async goto(orgId: string) {
 		await this.page.goto(`/org/${orgId}/training`);
-		// Wait for the training page to load
-		await expect(this.page.getByText('Training & Certifications').first()).toBeVisible({ timeout: 10000 });
+		await expect(this.trainingMatrix).toBeVisible({ timeout: 10000 });
 	}
 
 	async addRecord(personName: string, trainingType: string) {
-		// Click on the person's name button in the training matrix to open PersonTrainingEditor
-		const personButton = this.trainingMatrix.getByRole('button', { name: new RegExp(personName) }).first();
-		await personButton.click();
+		const trainingCell = this.trainingCell(personName, trainingType);
+		await expect(trainingCell).toBeVisible({ timeout: 5000 });
+		await trainingCell.click();
 
-		// Wait for the PersonTrainingEditor dialog to open
-		await expect(this.page.getByRole('heading', { name: 'Training Records' })).toBeVisible({ timeout: 5000 });
-
-		// Find the training type row and click the "Complete" button (quick complete for today)
-		// or the "Today" button which marks as completed today
-		const trainingItem = this.page.locator('.training-item').filter({ hasText: trainingType });
-		const todayButton = trainingItem.getByRole('button', { name: 'Today' });
-		const completeButton = trainingItem.getByRole('button', { name: 'Complete' });
-
-		// Try "Today" first (for expiring training), then "Complete" (for never-expires)
-		if (await todayButton.isVisible()) {
-			await todayButton.click();
-		} else if (await completeButton.isVisible()) {
-			await completeButton.click();
+		const dialog = this.page.getByRole('dialog', { name: /Add Training Record|Edit Training Record/ });
+		await expect(dialog).toBeVisible({ timeout: 5000 });
+		const completeCheckbox = dialog.getByRole('checkbox', { name: 'Mark as Complete' });
+		if ((await completeCheckbox.count()) > 0 && !(await completeCheckbox.isChecked())) {
+			await completeCheckbox.click();
 		}
-
-		// Close the PersonTrainingEditor via the footer Close button
-		await this.page.locator('.modal-footer').getByRole('button', { name: 'Close' }).click();
+		const saveButton = dialog.getByTestId('training-save');
+		await expect(saveButton).toBeEnabled({ timeout: 5000 });
+		await saveButton.click();
+		await expect(dialog).not.toBeVisible({ timeout: 10000 });
 	}
 
-	async expectRecordVisible(personName: string, trainingType: string) {
-		await expect(this.trainingMatrix.getByText(trainingType).first()).toBeVisible();
+	async expectTrainingCellStatus(personName: string, trainingType: string, status: string) {
+		await expect(this.trainingCell(personName, trainingType, status)).toBeVisible({ timeout: 10000 });
 	}
+
+	private trainingCell(personName: string, trainingType: string, status?: string) {
+		const statusPattern = status ? escapeRegExp(status) : '.+';
+		return this.trainingMatrix
+			.getByRole('button', {
+				name: new RegExp(`^${escapeRegExp(personName)}\\s+${escapeRegExp(trainingType)}:\\s+${statusPattern}$`, 'i')
+			})
+			.first();
+	}
+}
+
+function escapeRegExp(value: string) {
+	return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }

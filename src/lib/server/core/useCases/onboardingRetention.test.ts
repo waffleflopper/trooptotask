@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { createInMemoryDataStore } from '$lib/server/adapters/inMemory';
 import { cleanupExpiredOnboardings } from './onboardingRetention';
 
@@ -156,6 +156,159 @@ describe('cleanupExpiredOnboardings', () => {
 
 		const steps = await store.findMany('onboarding_step_progress', 'org-1');
 		expect(steps).toHaveLength(0);
+	});
+
+	it('uses bulk operations for expired onboardings and step progress cleanup', async () => {
+		const store = buildStore();
+		store.seed('personnel_onboardings', [
+			{
+				id: 'ob-expired-completed',
+				organization_id: 'org-1',
+				personnel_id: 'p-1',
+				template_id: 'tmpl-1',
+				status: 'completed',
+				started_at: monthsAgo(18),
+				completed_at: monthsAgo(13),
+				cancelled_at: null
+			},
+			{
+				id: 'ob-expired-cancelled',
+				organization_id: 'org-1',
+				personnel_id: 'p-2',
+				template_id: 'tmpl-1',
+				status: 'cancelled',
+				started_at: monthsAgo(18),
+				completed_at: null,
+				cancelled_at: monthsAgo(13)
+			},
+			{
+				id: 'ob-recent',
+				organization_id: 'org-1',
+				personnel_id: 'p-3',
+				template_id: 'tmpl-1',
+				status: 'completed',
+				started_at: monthsAgo(6),
+				completed_at: monthsAgo(3),
+				cancelled_at: null
+			},
+			{
+				id: 'ob-active',
+				organization_id: 'org-1',
+				personnel_id: 'p-4',
+				template_id: 'tmpl-1',
+				status: 'in_progress',
+				started_at: monthsAgo(18),
+				completed_at: null,
+				cancelled_at: null
+			}
+		]);
+		store.seed('onboarding_step_progress', [
+			{
+				id: 'sp-completed-1',
+				onboarding_id: 'ob-expired-completed',
+				step_name: 'Step A',
+				step_type: 'checkbox',
+				completed: true,
+				active: true,
+				organization_id: 'org-1'
+			},
+			{
+				id: 'sp-completed-2',
+				onboarding_id: 'ob-expired-completed',
+				step_name: 'Step B',
+				step_type: 'paperwork',
+				completed: false,
+				active: true,
+				organization_id: 'org-1'
+			},
+			{
+				id: 'sp-cancelled-1',
+				onboarding_id: 'ob-expired-cancelled',
+				step_name: 'Step C',
+				step_type: 'checkbox',
+				completed: false,
+				active: true,
+				organization_id: 'org-1'
+			},
+			{
+				id: 'sp-cancelled-2',
+				onboarding_id: 'ob-expired-cancelled',
+				step_name: 'Step D',
+				step_type: 'paperwork',
+				completed: false,
+				active: true,
+				organization_id: 'org-1'
+			},
+			{
+				id: 'sp-recent',
+				onboarding_id: 'ob-recent',
+				step_name: 'Step E',
+				step_type: 'checkbox',
+				completed: false,
+				active: true,
+				organization_id: 'org-1'
+			},
+			{
+				id: 'sp-active',
+				onboarding_id: 'ob-active',
+				step_name: 'Step F',
+				step_type: 'checkbox',
+				completed: false,
+				active: true,
+				organization_id: 'org-1'
+			}
+		]);
+
+		const findManySpy = vi.spyOn(store, 'findMany');
+		const deleteWhereAnySpy = vi.spyOn(store, 'deleteWhereAny');
+		const deleteManyByIdsSpy = vi.spyOn(store, 'deleteManyByIds');
+		const deleteSpy = vi.spyOn(store, 'delete');
+
+		const result = await cleanupExpiredOnboardings(store, [org1Config]);
+
+		expect(result).toEqual({ deletedCount: 2, orgsAffected: 1 });
+		expect(findManySpy).toHaveBeenCalledWith(
+			'personnel_onboardings',
+			'org-1',
+			{ status: 'completed' },
+			expect.objectContaining({
+				select: 'id, status, completed_at, cancelled_at',
+				isNull: { completed_at: false },
+				rangeFilters: [expect.objectContaining({ column: 'completed_at', op: 'lt' })]
+			})
+		);
+		expect(findManySpy).toHaveBeenCalledWith(
+			'personnel_onboardings',
+			'org-1',
+			{ status: 'cancelled' },
+			expect.objectContaining({
+				select: 'id, status, completed_at, cancelled_at',
+				isNull: { cancelled_at: false },
+				rangeFilters: [expect.objectContaining({ column: 'cancelled_at', op: 'lt' })]
+			})
+		);
+		expect(deleteWhereAnySpy).toHaveBeenCalledTimes(1);
+		expect(deleteWhereAnySpy).toHaveBeenCalledWith('onboarding_step_progress', 'org-1', [
+			{ onboarding_id: 'ob-expired-completed' },
+			{ onboarding_id: 'ob-expired-cancelled' }
+		]);
+		expect(deleteManyByIdsSpy).toHaveBeenCalledTimes(1);
+		expect(deleteManyByIdsSpy).toHaveBeenCalledWith('personnel_onboardings', 'org-1', [
+			'ob-expired-completed',
+			'ob-expired-cancelled'
+		]);
+		expect(deleteSpy).not.toHaveBeenCalled();
+
+		const remainingOnboardings = await store.findMany<{ id: string }>('personnel_onboardings', 'org-1');
+		expect(remainingOnboardings.map((row) => row.id).sort()).toEqual(['ob-active', 'ob-recent']);
+		const remainingSteps = await store.findMany<{ onboarding_id: string }>('onboarding_step_progress', 'org-1');
+		expect(remainingSteps.map((row) => row.onboarding_id).sort()).toEqual(['ob-active', 'ob-recent']);
+		const notifications = await store.findMany<Record<string, unknown>>('notifications', 'org-1');
+		expect(notifications).toHaveLength(1);
+		expect(notifications[0]).toMatchObject({
+			user_id: 'admin-1',
+			message: '2 onboarding records auto-deleted after retention period'
+		});
 	});
 
 	it('respects per-org retention settings', async () => {

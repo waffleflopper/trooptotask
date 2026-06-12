@@ -13,13 +13,14 @@ import { adminClient } from '../fixtures/supabase';
  * - This spec uses checkout.session.completed. That processing path writes through
  *   Supabase and does not call outbound Stripe helpers; subscription update gift
  *   syncing can call pause/resume, so those event types are intentionally avoided.
- * - The shared E2E config still discovers this file, so tests skip when the Stripe
- *   webhook env is absent there.
+ * - The shared E2E config ignores this file. The explicit billing-only flag keeps
+ *   this spec inert if it is invoked outside e2e/playwright.billing.config.ts.
  */
 
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY ?? '';
 const stripeWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET ?? '';
-const billingWebhookEnvConfigured = Boolean(stripeSecretKey && stripeWebhookSecret);
+const billingWebhookEnvConfigured =
+	process.env.E2E_BILLING_WEBHOOK === 'true' && Boolean(stripeSecretKey && stripeWebhookSecret);
 const stripe = new Stripe(stripeSecretKey || 'sk_test_dummy');
 
 let createdSequence = 0;

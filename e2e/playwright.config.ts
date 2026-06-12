@@ -5,6 +5,7 @@ const port = Number(new URL(baseURL).port || '4173');
 
 export default defineConfig({
 	testDir: './specs',
+	testIgnore: /billing-webhook\.spec\.ts/,
 	fullyParallel: false,
 	workers: 1,
 	retries: process.env.CI ? 2 : 0,

@@ -34,7 +34,18 @@ interface NotificationPayload {
 	link?: string | null;
 }
 
+const RETENTION_DELETE_CHUNK_SIZE = 100;
+
+function chunksOf<T>(items: T[], size: number): T[][] {
+	const chunks: T[][] = [];
+	for (let i = 0; i < items.length; i += size) {
+		chunks.push(items.slice(i, i + size));
+	}
+	return chunks;
+}
+
 function retentionCutoff(now: Date, retentionMonths: number): string {
+	// Clamp month-end cutoffs to the target month's last day so UTC subtraction cannot roll into the next month.
 	const targetMonthStart = new Date(
 		Date.UTC(
 			now.getUTCFullYear(),
@@ -128,9 +139,12 @@ export async function cleanupExpiredOnboardings(store: DataStore, orgConfigs: Or
 		const expiredIds = [...completed, ...cancelled].map((ob) => ob.id);
 		if (expiredIds.length === 0) continue;
 
-		const stepProgressFilters = expiredIds.map((id) => ({ onboarding_id: id }));
-		await store.deleteWhereAny('onboarding_step_progress', org.id, stepProgressFilters);
-		const deletedCount = await store.deleteManyByIds('personnel_onboardings', org.id, expiredIds);
+		let deletedCount = 0;
+		for (const expiredIdChunk of chunksOf(expiredIds, RETENTION_DELETE_CHUNK_SIZE)) {
+			const stepProgressFilters = expiredIdChunk.map((id) => ({ onboarding_id: id }));
+			await store.deleteWhereAny('onboarding_step_progress', org.id, stepProgressFilters);
+			deletedCount += await store.deleteManyByIds('personnel_onboardings', org.id, expiredIdChunk);
+		}
 		if (deletedCount === 0) continue;
 
 		affectedOrgs.add(org.id);

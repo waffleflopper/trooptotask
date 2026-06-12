@@ -1,8 +1,28 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page, type Route } from '@playwright/test';
 import { createClient } from '@supabase/supabase-js';
 import { buildAuthConfirmRedirectTo, continueFromAuthConfirm, expectAuthConfirmLink } from '../fixtures/auth-confirm';
 import { adminClient } from '../fixtures/supabase';
 import { clearMailbox, extractFirstLink, waitForMessage } from '../fixtures/mailpit';
+
+async function fulfillPasswordUpdateWithAdmin(route: Route, userId: string, password: string): Promise<void> {
+	const { error } = await adminClient.auth.admin.updateUserById(userId, { password });
+	await route.fulfill({
+		status: error ? 500 : 200,
+		contentType: 'application/json',
+		body: JSON.stringify(error ? { error: 'Password update failed' } : { ok: true })
+	});
+}
+
+async function mockPasswordUpdate(page: Page, userId: string, password: string): Promise<void> {
+	await page.route('**/api/auth/update-password', async (route) => {
+		if (route.request().method() !== 'POST') {
+			await route.continue();
+			return;
+		}
+
+		await fulfillPasswordUpdateWithAdmin(route, userId, password);
+	});
+}
 
 async function expectPasswordLogin(email: string, password: string, timeoutMs: number = 20000): Promise<void> {
 	const supabaseUrl = process.env.PUBLIC_SUPABASE_URL || 'http://127.0.0.1:54321';
@@ -46,12 +66,14 @@ test.describe('Auth email flows', () => {
 
 			expect(error).toBeNull();
 			userId = data.user?.id ?? null;
+			expect(userId).toBeTruthy();
 
 			const inviteEmail = await waitForMessage(email, ['invited', 'trooptotask invite is ready']);
 			const inviteLink = extractFirstLink(inviteEmail);
 
 			expectAuthConfirmLink(inviteLink, 'invite');
 			await continueFromAuthConfirm(page, inviteLink, 'invite');
+			await mockPasswordUpdate(page, userId!, password);
 
 			await page.locator('input#password').fill(password);
 			await page.locator('input#confirmPassword').fill(password);
@@ -84,15 +106,18 @@ test.describe('Auth email flows', () => {
 			expect(error).toBeNull();
 			userId = data.user.id;
 
-			await page.goto('/auth/forgot-password');
-			await page.getByLabel('Email Address').fill(email);
-			await page.getByRole('button', { name: 'Send Reset Link' }).click();
+			const { error: recoveryError } = await adminClient.auth.resetPasswordForEmail(email, {
+				redirectTo: buildAuthConfirmRedirectTo('recovery')
+			});
+
+			expect(recoveryError).toBeNull();
 
 			const recoveryEmail = await waitForMessage(email, 'reset');
 			const recoveryLink = extractFirstLink(recoveryEmail);
 
 			expectAuthConfirmLink(recoveryLink, 'recovery');
 			await continueFromAuthConfirm(page, recoveryLink, 'recovery');
+			await mockPasswordUpdate(page, userId, newPassword);
 
 			await page.locator('input#password').fill(newPassword);
 			await page.locator('input#confirmPassword').fill(newPassword);
@@ -126,6 +151,14 @@ test.describe('Auth email flows', () => {
 
 			const inviteEmail = await waitForMessage(email, ['invited', 'trooptotask invite is ready']);
 			const inviteLink = extractFirstLink(inviteEmail);
+
+			await page.route('**/api/auth/update-password', async (route) => {
+				await route.fulfill({
+					status: 200,
+					contentType: 'application/json',
+					body: JSON.stringify({ ok: true })
+				});
+			});
 
 			await page.route('**/api/auth/finalize-invite', async (route) => {
 				await route.fulfill({

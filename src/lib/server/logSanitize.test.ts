@@ -20,6 +20,24 @@ describe('sanitizeErrorForLog', () => {
 		expect(sanitized).not.toContain('5551234567');
 	});
 
+	it('masks formatted phone numbers in Error messages', () => {
+		const sanitized = sanitizeErrorForLog(new Error('Failed for phone 555-123-4567 and (907) 555-0101'));
+
+		expect(sanitized).toContain('[number]');
+		expect(sanitized).not.toContain('555-123-4567');
+		expect(sanitized).not.toContain('(907) 555-0101');
+	});
+
+	it('masks formatted ID numbers in Supabase diagnostics', () => {
+		const sanitized = sanitizeErrorForLog({
+			message: 'duplicate key',
+			details: 'Key (ssn)=(123-45-6789) already exists.'
+		});
+
+		expect(sanitized).toContain('details=Key (ssn)=([number]) already exists.');
+		expect(sanitized).not.toContain('123-45-6789');
+	});
+
 	it('extracts Supabase-shaped diagnostics and masks emails', () => {
 		const sanitized = sanitizeErrorForLog({
 			message: 'duplicate key',

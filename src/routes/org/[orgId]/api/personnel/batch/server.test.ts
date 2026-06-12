@@ -57,6 +57,22 @@ describe('POST /api/personnel/batch', () => {
 		});
 	});
 
+	it('preserves importer per-row errors when required Personnel cells are omitted', async () => {
+		const ctx = createTestContext();
+
+		const result = await handleUseCaseRequest(_postConfig, ctx, {
+			records: [
+				{ lastName: 'Missing', firstName: 'Rank' },
+				{ rank: 'SGT', lastName: 'Smith', firstName: 'Jordan' }
+			]
+		});
+
+		expect(result).toMatchObject({
+			errors: [{ index: 0, message: 'Rank, Last Name, and First Name are required' }],
+			inserted: [expect.objectContaining({ rank: 'SGT', lastName: 'Smith', firstName: 'Jordan' })]
+		});
+	});
+
 	it('accepts structurally valid Personnel batch records', () => {
 		const result = _postConfig.input.safeParse({
 			records: [

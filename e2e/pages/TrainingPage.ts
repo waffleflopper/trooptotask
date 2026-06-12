@@ -16,9 +16,8 @@ export class TrainingPage {
 	}
 
 	async addRecord(personName: string, trainingType: string) {
-		const trainingCell = this.trainingMatrix
-			.getByRole('button', { name: new RegExp(`${personName} ${trainingType}`, 'i') })
-			.first();
+		const trainingCell = this.trainingCell(personName, trainingType);
+		await expect(trainingCell).toBeVisible({ timeout: 5000 });
 		await trainingCell.click();
 
 		const dialog = this.page.getByRole('dialog', { name: /Add Training Record|Edit Training Record/ });
@@ -33,7 +32,20 @@ export class TrainingPage {
 		await expect(dialog).not.toBeVisible({ timeout: 10000 });
 	}
 
-	async expectRecordVisible(personName: string, trainingType: string) {
-		await expect(this.trainingMatrix.getByText(trainingType).first()).toBeVisible();
+	async expectTrainingCellStatus(personName: string, trainingType: string, status: string) {
+		await expect(this.trainingCell(personName, trainingType, status)).toBeVisible({ timeout: 10000 });
 	}
+
+	private trainingCell(personName: string, trainingType: string, status?: string) {
+		const statusPattern = status ? escapeRegExp(status) : '.+';
+		return this.trainingMatrix
+			.getByRole('button', {
+				name: new RegExp(`^${escapeRegExp(personName)}\\s+${escapeRegExp(trainingType)}:\\s+${statusPattern}$`, 'i')
+			})
+			.first();
+	}
+}
+
+function escapeRegExp(value: string) {
+	return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }

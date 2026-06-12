@@ -38,8 +38,10 @@ export class PersonnelPage {
 	async selectRank(rank: string) {
 		const dialog = this.page.getByRole('dialog', { name: /Add Personnel|Edit Personnel/ });
 		await dialog.getByRole('button', { name: 'Rank', exact: true }).click();
-		await this.page.getByRole('combobox').fill(rank);
-		await this.page.getByRole('option', { name: rank }).click();
+		const rankSearch = this.page.getByPlaceholder('Select rank...');
+		await expect(rankSearch).toBeVisible({ timeout: 5000 });
+		await rankSearch.fill(rank);
+		await this.page.getByRole('option', { name: rank, exact: true }).click();
 	}
 
 	async save() {
@@ -63,7 +65,7 @@ export class PersonnelPage {
 	async clickPerson(name: string) {
 		const row = this.page
 			.getByRole('row')
-			.filter({ hasText: new RegExp(name) })
+			.filter({ hasText: new RegExp(escapeRegExp(name)) })
 			.first();
 		await row.getByRole('button', { name: 'Edit' }).click();
 	}
@@ -79,4 +81,8 @@ export class PersonnelPage {
 	async search(query: string) {
 		await this.searchInput.fill(query);
 	}
+}
+
+function escapeRegExp(value: string) {
+	return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }

@@ -64,6 +64,16 @@ export interface DashboardBootstrap {
 	awardTrackingAcknowledgedPersonnelIds: string[];
 }
 
+async function loadActiveOnboardings(ctx: QueryPorts, orgId: string) {
+	const rows = await ctx.store.findMany<Record<string, unknown>>(
+		'personnel_onboardings',
+		orgId,
+		{ status: 'in_progress' },
+		{ select: PersonnelOnboardingEntity.select }
+	);
+	return PersonnelOnboardingEntity.fromDbArray(rows);
+}
+
 export async function fetchDashboardBootstrap(ctx: QueryPorts): Promise<DashboardBootstrap> {
 	const orgId = ctx.auth.orgId;
 	const userId = ctx.auth.userId;
@@ -93,7 +103,7 @@ export async function fetchDashboardBootstrap(ctx: QueryPorts): Promise<Dashboar
 		assignmentTypeRows,
 		pinnedGroupRows,
 		ratingSchemeRows,
-		onboardingRows,
+		activeOnboardings,
 		todayDutyEvents,
 		personnel,
 		groupRows,
@@ -117,9 +127,7 @@ export async function fetchDashboardBootstrap(ctx: QueryPorts): Promise<Dashboar
 			select: 'id, rated_person_id, eval_type, rating_period_end, status',
 			orderBy: [{ column: 'rating_period_end', ascending: true }]
 		}),
-		ctx.store.findMany<Record<string, unknown>>('personnel_onboardings', orgId, undefined, {
-			select: PersonnelOnboardingEntity.select
-		}),
+		loadActiveOnboardings(ctx, orgId),
 		listDutyEventsInRange(ctx, { rangeStart: today, rangeEnd: today }).catch(() => [] as DutyEvent[]),
 		loadRosterPersonnel(ctx, { status: 'active' }),
 		ctx.store.findMany<Record<string, unknown>>('groups', orgId, undefined, {
@@ -136,8 +144,6 @@ export async function fetchDashboardBootstrap(ctx: QueryPorts): Promise<Dashboar
 			.catch(() => null),
 		listAwardTrackingAcknowledgedPersonnelIds(ctx.store, orgId)
 	]);
-	const allOnboardings = PersonnelOnboardingEntity.fromDbArray(onboardingRows);
-	const activeOnboardings = allOnboardings.filter((o) => o.status === 'in_progress');
 	const lossWarningWindowDays = orgSettingsRow?.loss_warning_window_days ?? 180;
 
 	return {
@@ -172,7 +178,7 @@ export async function fetchDashboardData(ctx: QueryPorts): Promise<DashboardData
 		dailyAssignmentRows,
 		pinnedGroupRows,
 		ratingSchemeRows,
-		onboardingRows,
+		activeOnboardings,
 		todayDutyEvents
 	] = await Promise.all([
 		ctx.store.findMany<Record<string, unknown>>('availability_entries', orgId, undefined, {
@@ -203,14 +209,9 @@ export async function fetchDashboardData(ctx: QueryPorts): Promise<DashboardData
 			select: 'id, rated_person_id, eval_type, rating_period_end, status',
 			orderBy: [{ column: 'rating_period_end', ascending: true }]
 		}),
-		ctx.store.findMany<Record<string, unknown>>('personnel_onboardings', orgId, undefined, {
-			select: PersonnelOnboardingEntity.select
-		}),
+		loadActiveOnboardings(ctx, orgId),
 		listDutyEventsInRange(ctx, { rangeStart: today, rangeEnd: today }).catch(() => [] as DutyEvent[])
 	]);
-
-	const allOnboardings = PersonnelOnboardingEntity.fromDbArray(onboardingRows);
-	const activeOnboardings = allOnboardings.filter((o) => o.status === 'in_progress');
 
 	return {
 		availabilityEntries: AvailabilityEntryEntity.fromDbArray(availabilityRows),

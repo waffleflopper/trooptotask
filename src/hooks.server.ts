@@ -1,5 +1,5 @@
 import { createServerClient } from '@supabase/ssr';
-import { type Handle, redirect } from '@sveltejs/kit';
+import { type Handle, error, redirect } from '@sveltejs/kit';
 import { PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY } from '$env/static/public';
 import { checkRateLimit } from '$lib/server/rateLimit';
 import { auditLog } from '$lib/server/auditLog';
@@ -204,9 +204,13 @@ export const handle: Handle = async ({ event, resolve }) => {
 	// Check user suspension (skip for auth routes, api routes, and the suspended page itself)
 	const skipSuspensionCheck = ['/auth', '/api/auth', '/suspended'].some((p) => event.url.pathname.startsWith(p));
 	if (event.locals.user && !skipSuspensionCheck) {
-		const { data: isSuspended } = await event.locals.supabase.rpc('is_user_suspended', {
+		const { data: isSuspended, error: suspensionError } = await event.locals.supabase.rpc('is_user_suspended', {
 			check_user_id: event.locals.user.id
 		});
+		if (suspensionError) {
+			console.error('Failed to check user suspension status:', suspensionError.message);
+			error(500, 'Unable to verify account status');
+		}
 		if (isSuspended) {
 			return new Response(null, {
 				status: 302,

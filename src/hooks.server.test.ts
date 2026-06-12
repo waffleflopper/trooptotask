@@ -4,7 +4,87 @@ import type { Handle } from '@sveltejs/kit';
 describe('server auth hook', () => {
 	beforeEach(() => {
 		vi.resetModules();
+		vi.restoreAllMocks();
 	});
+
+	async function createAuthenticatedHookHarness(rpcResult: {
+		data: boolean | null;
+		error: { message: string } | null;
+	}) {
+		const now = new Date();
+		const user = {
+			id: 'user-1',
+			aud: 'authenticated',
+			email: 'user@example.com',
+			app_metadata: {},
+			user_metadata: {},
+			created_at: now.toISOString(),
+			last_sign_in_at: now.toISOString(),
+			role: 'authenticated'
+		};
+		const getSession = vi.fn().mockResolvedValue({
+			data: {
+				session: {
+					access_token: 'token',
+					user
+				}
+			},
+			error: null
+		});
+		const getClaims = vi.fn().mockResolvedValue({
+			data: {
+				claims: {
+					sub: user.id,
+					aud: 'authenticated',
+					email: user.email,
+					role: 'authenticated',
+					iat: Math.floor(now.getTime() / 1000),
+					app_metadata: {},
+					user_metadata: {}
+				}
+			},
+			error: null
+		});
+		const getAuthenticatorAssuranceLevel = vi.fn().mockResolvedValue({
+			data: { currentLevel: 'aal1', nextLevel: 'aal1' },
+			error: null
+		});
+		const rpc = vi.fn().mockResolvedValue(rpcResult);
+		const createServerClient = vi.fn(() => ({
+			auth: {
+				getSession,
+				getClaims,
+				mfa: {
+					getAuthenticatorAssuranceLevel
+				}
+			},
+			rpc
+		}));
+		const resolve = vi.fn().mockResolvedValue(new Response('ok'));
+
+		vi.doMock('@supabase/ssr', () => ({ createServerClient }));
+		vi.doMock('$env/static/public', () => ({
+			PUBLIC_SUPABASE_URL: 'https://example.supabase.co',
+			PUBLIC_SUPABASE_ANON_KEY: 'anon-key'
+		}));
+		vi.doMock('$lib/server/env', () => ({}));
+
+		const { handle } = await import('./hooks.server');
+		const event = {
+			url: new URL('http://localhost/dashboard'),
+			request: new Request('http://localhost/dashboard'),
+			locals: {},
+			getClientAddress: () => '127.0.0.1',
+			cookies: {
+				getAll: () => [{ name: 'sb-example-auth-token', value: 'session' }],
+				get: vi.fn(),
+				set: vi.fn(),
+				delete: vi.fn()
+			}
+		} as never;
+
+		return { handle: handle as Handle, event, resolve, rpc };
+	}
 
 	it('clears stale Supabase auth cookies when refresh token lookup fails', async () => {
 		const refreshError = Object.assign(new Error('Invalid Refresh Token: Refresh Token Not Found'), {
@@ -58,5 +138,32 @@ describe('server auth hook', () => {
 		expect(resolve).toHaveBeenCalled();
 		expect(deleteCookie).toHaveBeenCalledWith('sb-example-auth-token', { path: '/' });
 		expect(deleteCookie).toHaveBeenCalledWith('sb-example-auth-token.0', { path: '/' });
+	});
+
+	it('fails closed when the suspension RPC returns an error', async () => {
+		vi.spyOn(console, 'error').mockImplementation(() => undefined);
+		const { handle, event, resolve, rpc } = await createAuthenticatedHookHarness({
+			data: null,
+			error: { message: 'connection refused' }
+		});
+
+		await expect(handle({ event, resolve })).rejects.toMatchObject({ status: 500 });
+
+		expect(rpc).toHaveBeenCalledWith('is_user_suspended', { check_user_id: 'user-1' });
+		expect(resolve).not.toHaveBeenCalled();
+	});
+
+	it('redirects suspended users to /suspended', async () => {
+		const { handle, event, resolve, rpc } = await createAuthenticatedHookHarness({
+			data: true,
+			error: null
+		});
+
+		const response = await handle({ event, resolve });
+
+		expect(rpc).toHaveBeenCalledWith('is_user_suspended', { check_user_id: 'user-1' });
+		expect(response.status).toBe(302);
+		expect(response.headers.get('Location')).toBe('/suspended');
+		expect(resolve).not.toHaveBeenCalled();
 	});
 });

@@ -24,17 +24,26 @@
 		isDirty: boolean;
 	}
 
+	type TrainingBatchCompletionRecord = {
+		personnelId: string;
+		trainingTypeId: string;
+		completionDate: string | null;
+		notes?: string;
+		status: 'completed';
+	};
+
 	interface Props {
 		person: Personnel;
 		trainingTypes: TrainingType[];
 		trainings: PersonnelTraining[];
 		onSave: (data: Omit<PersonnelTraining, 'id'>) => Promise<void>;
+		onSaveBatch?: (records: TrainingBatchCompletionRecord[]) => Promise<void>;
 		onRemove: (id: string) => Promise<void>;
 		onClose: () => void;
 		onToggleExempt?: (typeId: string, exempt: boolean) => void;
 	}
 
-	let { person, trainingTypes, trainings, onSave, onRemove, onClose, onToggleExempt }: Props = $props();
+	let { person, trainingTypes, trainings, onSave, onSaveBatch, onRemove, onClose, onToggleExempt }: Props = $props();
 
 	const trainingMap = $derived.by(() => {
 		const map = new SvelteMap<string, PersonnelTraining>();
@@ -248,17 +257,28 @@
 		showMarkAllConfirm = false;
 		const applicableTypes = trainingTypes.filter((t) => !t.expirationDateOnly);
 		const today = formatDate(new Date());
+		const records = applicableTypes.map((type) => ({
+			personnelId: person.id,
+			trainingTypeId: type.id,
+			completionDate: today,
+			notes: undefined,
+			status: 'completed' as const
+		}));
 
-		for (const type of applicableTypes) {
-			const expirationDate = calculateExpirationDate(today, type.expirationMonths);
-			await onSave({
-				personnelId: person.id,
-				trainingTypeId: type.id,
-				completionDate: today,
-				expirationDate,
-				notes: null,
-				certificateUrl: null
-			});
+		if (onSaveBatch) {
+			await onSaveBatch(records);
+		} else {
+			for (const type of applicableTypes) {
+				const expirationDate = calculateExpirationDate(today, type.expirationMonths);
+				await onSave({
+					personnelId: person.id,
+					trainingTypeId: type.id,
+					completionDate: today,
+					expirationDate,
+					notes: null,
+					certificateUrl: null
+				});
+			}
 		}
 
 		for (const type of applicableTypes) {

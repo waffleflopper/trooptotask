@@ -36,13 +36,14 @@ async function expectSanitizedServerError(loadResult: unknown, message: string) 
 		expect.unreachable('Expected load to throw');
 	} catch (err) {
 		expect(isHttpError(err)).toBe(true);
-		expect(err).toMatchObject({
-			status: 500,
-			body: { message }
-		});
-		expect(err).not.toMatchObject({
-			body: { message: expect.stringContaining('database offline') }
-		});
+		if (!isHttpError(err)) {
+			throw err;
+		}
+		expect(err.status).toBe(500);
+
+		const errorMessage = err.body.message;
+		expect(errorMessage).toBe(message);
+		expect(errorMessage).not.toContain('database offline');
 	}
 }
 

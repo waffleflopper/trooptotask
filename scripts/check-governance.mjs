@@ -1,5 +1,6 @@
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const repoRoot = process.cwd();
 const baselinePath = path.join(repoRoot, 'docs/architecture/GOVERNANCE_BASELINE.json');
@@ -125,24 +126,42 @@ function ensureDriftIdsExist(ids, contextLabel) {
 	}
 }
 
+function collectSupabasePropertyBindings(properties) {
+	const bindings = new Set();
+
+	for (const property of properties.split(',')) {
+		const trimmed = property.trim();
+		if (!trimmed) continue;
+
+		const aliasMatch = trimmed.match(/^supabase\s*:\s*([A-Za-z_$][\w$]*)\b/);
+		if (aliasMatch) {
+			bindings.add(aliasMatch[1]);
+			continue;
+		}
+
+		if (/^supabase(?:\s*=|\s*$)/.test(trimmed)) {
+			bindings.add('supabase');
+		}
+	}
+
+	return bindings;
+}
+
 function collectDestructuredLocalSupabaseBindings(content) {
 	const bindings = new Set();
-	const destructuringPattern = /\b(?:const|let|var)\s*\{(?<properties>[^}]*\bsupabase\b[^}]*)\}\s*=\s*locals\b/g;
+	const destructuringPattern =
+		/\b(?:const|let|var)\s*\{(?<properties>[^}]*\bsupabase\b[^}]*)\}\s*=\s*(?:[A-Za-z_$][\w$]*\.)?locals\b/g;
+	const nestedLocalsPattern = /\blocals\s*:\s*\{(?<properties>[^}]*\bsupabase\b[^}]*)\}/g;
 
 	for (const match of content.matchAll(destructuringPattern)) {
-		for (const property of match.groups.properties.split(',')) {
-			const trimmed = property.trim();
-			if (!trimmed) continue;
+		for (const binding of collectSupabasePropertyBindings(match.groups.properties)) {
+			bindings.add(binding);
+		}
+	}
 
-			const aliasMatch = trimmed.match(/^supabase\s*:\s*([A-Za-z_$][\w$]*)\b/);
-			if (aliasMatch) {
-				bindings.add(aliasMatch[1]);
-				continue;
-			}
-
-			if (/^supabase(?:\s*=|\s*$)/.test(trimmed)) {
-				bindings.add('supabase');
-			}
+	for (const match of content.matchAll(nestedLocalsPattern)) {
+		for (const binding of collectSupabasePropertyBindings(match.groups.properties)) {
+			bindings.add(binding);
 		}
 	}
 
@@ -276,20 +295,28 @@ function checkDeletedRouteAuthorizationFramework() {
 	}
 }
 
-ensureRequiredFiles();
-checkRouteSupabaseAllowlist();
-checkFeaturePermissionCouplings();
-checkDeletedRouteAuthorizationFramework();
+function runGovernanceChecks() {
+	ensureRequiredFiles();
+	checkRouteSupabaseAllowlist();
+	checkFeaturePermissionCouplings();
+	checkDeletedRouteAuthorizationFramework();
 
-if (errors.length > 0) {
-	console.error('Governance check failed:\n');
-	for (const issue of errors) {
-		console.error(`- ${issue}`);
+	if (errors.length > 0) {
+		console.error('Governance check failed:\n');
+		for (const issue of errors) {
+			console.error(`- ${issue}`);
+		}
+		process.exit(1);
 	}
-	process.exit(1);
+
+	console.log('Governance checks passed.');
+	console.log(`- required files: ${baseline.requiredFiles.length}`);
+	console.log(`- route-level locals.supabase allowlist entries: ${baseline.routeSupabaseAllowlist.length}`);
+	console.log(`- documented feature permission couplings: ${baseline.featurePermissionCouplings.length}`);
 }
 
-console.log('Governance checks passed.');
-console.log(`- required files: ${baseline.requiredFiles.length}`);
-console.log(`- route-level locals.supabase allowlist entries: ${baseline.routeSupabaseAllowlist.length}`);
-console.log(`- documented feature permission couplings: ${baseline.featurePermissionCouplings.length}`);
+if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
+	runGovernanceChecks();
+}
+
+export { collectDestructuredLocalSupabaseBindings, hasRouteSupabaseUsage, runGovernanceChecks };

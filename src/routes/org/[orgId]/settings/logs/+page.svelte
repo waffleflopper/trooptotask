@@ -2,9 +2,16 @@
 	import * as DataTable from '$lib/components/ui/data-table/index.js';
 	import type { ColumnDef } from '$lib/components/ui/data-table/index.js';
 	import type { PageProps } from './$types';
+	import type { LogsSettingsData } from '../settingsLogs.server';
 	import { formatAuditTimestamp, getAuditActionParts } from '../settingsWorkspaceFormatters';
 
-	let { data }: PageProps = $props();
+	type LogsPageProps = PageProps & {
+		data: PageProps['data'] & {
+			logsSettings: LogsSettingsData;
+		};
+	};
+
+	let { data }: LogsPageProps = $props();
 
 	const auditLog = $derived(data.logsSettings.sections.logs.auditLogPage);
 	const auditColumns: ColumnDef<(typeof auditLog.logs)[number]>[] = [

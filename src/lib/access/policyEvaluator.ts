@@ -414,6 +414,11 @@ export const POLICY_ACTION_CATALOG = {
 			label: 'Access organization governance',
 			access: 'admin-or-owner'
 		}),
+		accessAuditLogs: governanceAction({
+			id: 'organization.accessAuditLogs',
+			label: 'Access organization audit logs',
+			access: 'owner-only'
+		}),
 		accessBilling: governanceAction({
 			id: 'organization.accessBilling',
 			label: 'Access organization billing',

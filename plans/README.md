@@ -41,7 +41,7 @@ The operator explicitly excluded automatic CI trigger work from this batch. Do n
 | 024  | Sanitize unhandled route error logs               | P2       | S      | -          | DONE   |
 | 025  | Duty-roster workflow E2E Playwright spec          | P2       | M      | -          | DONE   |
 | 026  | Add documented .env.example                       | P3       | S      | -          | DONE   |
-| 027  | Restrict audit-log settings to owner-only access  | P1       | M      | -          | TODO   |
+| 027  | Restrict audit-log settings to owner-only access  | P1       | M      | -          | DONE   |
 | 028  | Approve deletion requests after resource effects  | P1       | M      | -          | TODO   |
 | 029  | Remove active onboarding after snapshot failure   | P1       | M      | -          | TODO   |
 | 030  | Patch high-severity build-tool advisories         | P1       | M      | -          | TODO   |

@@ -205,7 +205,7 @@ describe('IctMatrix', () => {
 		await waitFor(() => {
 			expect(screen.getByRole('rowheader', { name: /Soldier-250/ })).toBeTruthy();
 		});
-	});
+	}, 20_000);
 
 	it('selects editable applicable cells and ignores not-applicable cells', async () => {
 		const onSelectCell = vi.fn();

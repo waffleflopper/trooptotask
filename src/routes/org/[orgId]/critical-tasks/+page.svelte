@@ -10,6 +10,8 @@
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
 	import { rosterStore } from '$lib/stores/roster.svelte';
 	import { groupsStore } from '$lib/stores/groups.svelte';
+	import IctCompletionBulkImport from '$features/critical-tasks/components/IctCompletionBulkImport.svelte';
+	import IctCompletionModal from '$features/critical-tasks/components/IctCompletionModal.svelte';
 	import IctMatrix from '$features/critical-tasks/components/IctMatrix.svelte';
 	import { ictTasksStore } from '$features/critical-tasks/stores/ictTasks.svelte';
 	import { personnelIctCompletionsStore } from '$features/critical-tasks/stores/personnelIctCompletions.svelte';
@@ -392,39 +394,33 @@
 </div>
 
 {#if activeCompletionCell}
-	{#await import('$features/critical-tasks/components/IctCompletionModal.svelte') then { default: IctCompletionModal }}
-		<IctCompletionModal
-			person={activeCompletionCell.person}
-			task={activeCompletionCell.task}
-			existingCompletion={activeCompletionCell.completion}
-			settings={criticalTasksSettings}
-			{currentUserDisplayName}
-			onSave={handleCompletionSave}
-			onClose={() => (activeCompletionCell = null)}
-		/>
-	{/await}
+	<IctCompletionModal
+		person={activeCompletionCell.person}
+		task={activeCompletionCell.task}
+		existingCompletion={activeCompletionCell.completion}
+		settings={criticalTasksSettings}
+		{currentUserDisplayName}
+		onSave={handleCompletionSave}
+		onClose={() => (activeCompletionCell = null)}
+	/>
 {:else if showTaskInputModal}
-	{#await import('$features/critical-tasks/components/IctCompletionModal.svelte') then { default: IctCompletionModal }}
-		<IctCompletionModal
-			personnelOptions={activePersonnel}
-			taskOptions={activeTasks}
-			completions={personnelIctCompletionsStore.items}
-			settings={criticalTasksSettings}
-			{currentUserDisplayName}
-			onSave={handleCompletionSave}
-			onClose={() => (showTaskInputModal = false)}
-		/>
-	{/await}
+	<IctCompletionModal
+		personnelOptions={activePersonnel}
+		taskOptions={activeTasks}
+		completions={personnelIctCompletionsStore.items}
+		settings={criticalTasksSettings}
+		{currentUserDisplayName}
+		onSave={handleCompletionSave}
+		onClose={() => (showTaskInputModal = false)}
+	/>
 {/if}
 
 {#if showCompletionImportModal}
-	{#await import('$features/critical-tasks/components/IctCompletionBulkImport.svelte') then { default: IctCompletionBulkImport }}
-		<IctCompletionBulkImport
-			personnel={activePersonnel}
-			tasks={ictTasksStore.items}
-			completions={personnelIctCompletionsStore.items}
-			onCancel={() => (showCompletionImportModal = false)}
-			onDone={() => (showCompletionImportModal = false)}
-		/>
-	{/await}
+	<IctCompletionBulkImport
+		personnel={activePersonnel}
+		tasks={ictTasksStore.items}
+		completions={personnelIctCompletionsStore.items}
+		onCancel={() => (showCompletionImportModal = false)}
+		onDone={() => (showCompletionImportModal = false)}
+	/>
 {/if}

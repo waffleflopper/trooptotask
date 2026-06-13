@@ -80,4 +80,41 @@ describe('StartOnboardingModal', () => {
 			expect(onSubmit).toHaveBeenCalledWith('person-1', '2026-03-15', 'template-1');
 		});
 	});
+
+	it('uses the local calendar date for the default start date', async () => {
+		const originalTimezone = process.env.TZ;
+		process.env.TZ = 'America/Anchorage';
+		vi.useFakeTimers({ shouldAdvanceTime: true });
+		vi.setSystemTime(new Date('2026-05-05T02:00:00.000Z'));
+		const onSubmit = vi.fn();
+
+		try {
+			render(StartOnboardingModal, {
+				props: {
+					personnel,
+					existingOnboardingPersonnelIds: [],
+					groups: [],
+					templates: [template],
+					onSubmit,
+					onAddPerson: vi.fn(),
+					onClose: vi.fn()
+				}
+			});
+
+			await fireEvent.click(screen.getByRole('button', { name: 'Member' }));
+			await fireEvent.click(await screen.findByRole('option', { name: 'SGT Smith, Jane' }));
+			await fireEvent.click(screen.getByRole('button', { name: 'Start Onboarding' }));
+
+			await waitFor(() => {
+				expect(onSubmit).toHaveBeenCalledWith('person-1', '2026-05-04', 'template-1');
+			});
+		} finally {
+			vi.useRealTimers();
+			if (originalTimezone === undefined) {
+				delete process.env.TZ;
+			} else {
+				process.env.TZ = originalTimezone;
+			}
+		}
+	});
 });

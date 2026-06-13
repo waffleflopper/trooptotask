@@ -149,6 +149,40 @@ describe('POST /api/feedback', () => {
 		expect(JSON.stringify(adminClient.insert.mock.calls[0][0])).not.toContain('Spoofed Organization');
 	});
 
+	it('preserves page context when feedback comes from the organization URL slug', async () => {
+		const adminClient = createAdminClient({
+			data: {
+				organizations: {
+					id: ORG_ID,
+					name: 'Alpha Company',
+					url_slug: 'alpha-company'
+				}
+			},
+			error: null
+		});
+		getAdminClientMock.mockReturnValue(adminClient.client);
+
+		const response = await POST(
+			makeEvent({
+				body: {
+					organizationId: ORG_ID,
+					pageUrl: '/org/alpha-company/training?tab=matrix'
+				}
+			})
+		);
+
+		expect(response.status).toBe(200);
+		expect(adminClient.membershipQuery.eq).toHaveBeenCalledWith('organization_id', ORG_ID);
+		expect(adminClient.insert).toHaveBeenCalledWith(
+			expect.objectContaining({
+				organization_id: ORG_ID,
+				organization_name: 'Alpha Company',
+				page_url: '/org/alpha-company/training?tab=matrix',
+				page_section: 'Training'
+			})
+		);
+	});
+
 	it('rejects organization ids the user does not belong to without inserting', async () => {
 		const adminClient = createAdminClient({ data: null, error: null });
 		getAdminClientMock.mockReturnValue(adminClient.client);

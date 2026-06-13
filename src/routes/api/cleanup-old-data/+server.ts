@@ -30,6 +30,10 @@ export async function _runCleanupOldDataEndpointCore(input: CleanupOldDataEndpoi
 	const [auditResult, webhookResult] = await Promise.all([input.runAuditCleanup(), input.runWebhookCleanup()]);
 
 	if (auditResult.error || webhookResult.error) {
+		console.error('Cleanup old data RPC failure', {
+			auditError: auditResult.error ?? null,
+			webhookError: webhookResult.error ?? null
+		});
 		throw error(500, 'Failed to cleanup old data');
 	}
 

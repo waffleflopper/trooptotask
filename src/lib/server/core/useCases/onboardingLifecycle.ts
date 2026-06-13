@@ -184,7 +184,7 @@ export async function startOnboarding(ctx: WritePorts, input: StartInput): Promi
 
 function resolveStartedAt(startedAt?: string): string {
 	if (startedAt === undefined) {
-		return new Date().toISOString();
+		return new Date().toISOString().split('T')[0];
 	}
 
 	if (!/^\d{4}-\d{2}-\d{2}$/.test(startedAt)) {
@@ -197,8 +197,7 @@ function resolveStartedAt(startedAt?: string): string {
 		fail(400, 'Start date must be a valid calendar date');
 	}
 
-	// Store date-only input at UTC start-of-day so the selected calendar date is stable.
-	return date.toISOString();
+	return startedAt;
 }
 
 interface LifecycleResult {

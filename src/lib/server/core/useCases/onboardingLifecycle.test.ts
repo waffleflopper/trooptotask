@@ -76,7 +76,7 @@ describe('startOnboarding', () => {
 		expect(result.steps[2].templateStepId).toBe('ts-3');
 	});
 
-	it('persists a supplied start date at UTC start-of-day', async () => {
+	it('persists a supplied start date as a date-only calendar value', async () => {
 		const ctx = buildContext();
 		seedTemplateWithSteps(ctx);
 
@@ -86,12 +86,12 @@ describe('startOnboarding', () => {
 			startedAt: '2026-03-15'
 		});
 
-		expect(result.startedAt).toBe('2026-03-15T00:00:00.000Z');
+		expect(result.startedAt).toBe('2026-03-15');
 		await expect(
 			ctx.store.findMany<{ started_at: string }>('personnel_onboardings', 'test-org', {
 				personnel_id: 'p-1'
 			})
-		).resolves.toEqual([expect.objectContaining({ started_at: '2026-03-15T00:00:00.000Z' })]);
+		).resolves.toEqual([expect.objectContaining({ started_at: '2026-03-15' })]);
 	});
 
 	it('rejects non-date-only start dates', async () => {

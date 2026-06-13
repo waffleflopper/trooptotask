@@ -79,7 +79,7 @@ export async function loadAppShellDeferredChrome(
 		return {
 			part,
 			ok: false,
-			reason: cause instanceof Error ? cause.message : 'Unknown error'
+			reason: 'Unable to load app shell chrome'
 		};
 	}
 }

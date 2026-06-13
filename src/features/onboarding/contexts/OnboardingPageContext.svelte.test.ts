@@ -8,6 +8,21 @@ vi.mock('$app/navigation', () => ({
 	invalidate: invalidateMock
 }));
 
+const { startOnboardingMock } = vi.hoisted(() => ({
+	startOnboardingMock: vi.fn()
+}));
+
+vi.mock('$features/onboarding/stores/onboarding.svelte', async (importOriginal) => {
+	const actual = await importOriginal<typeof import('$features/onboarding/stores/onboarding.svelte')>();
+	return {
+		...actual,
+		onboardingStore: {
+			...actual.onboardingStore,
+			startOnboarding: startOnboardingMock
+		}
+	};
+});
+
 import {
 	OnboardingPageContext,
 	getProgress,
@@ -23,6 +38,7 @@ import { createTestOrgContext, NONE_TEST_CAPABILITY_MAP } from '$lib/test-suppor
 
 afterEach(() => {
 	rosterStore.load([], 'org-test-reset');
+	startOnboardingMock.mockReset();
 });
 
 // ── Fixtures ──────────────────────────────────────────────────
@@ -113,6 +129,18 @@ describe('OnboardingPageContext policy affordances', () => {
 
 		expect(ctx.canManageOnboarding(makeOnboarding({ personnelId: 'p-1' }))).toBe(true);
 		expect(ctx.canManageOnboarding(makeOnboarding({ personnelId: 'p-2' }))).toBe(false);
+	});
+});
+
+describe('OnboardingPageContext onboarding actions', () => {
+	it('passes selected start date to the onboarding store and closes the modal', async () => {
+		const close = vi.fn();
+		const ctx = new OnboardingPageContext({ close } as never, makeOrgContext());
+
+		await ctx.handleStartOnboarding('p-1', '2026-03-15', 'tpl-1');
+
+		expect(startOnboardingMock).toHaveBeenCalledWith('p-1', '2026-03-15', 'tpl-1');
+		expect(close).toHaveBeenCalledWith('startOnboarding');
 	});
 });
 

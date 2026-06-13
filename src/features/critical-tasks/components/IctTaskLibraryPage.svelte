@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button';
 	import * as ButtonGroup from '$lib/components/ui/button-group';
+	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import * as Empty from '$lib/components/ui/empty';
 	import * as Field from '$lib/components/ui/field';
 	import { Input } from '$lib/components/ui/input';
@@ -9,6 +10,7 @@
 	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
 	import type { WorkspaceToolbarAction } from '$lib/components/ui/workspace-toolbar';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
+	import IctTaskBulkImport from '$features/critical-tasks/components/IctTaskBulkImport.svelte';
 	import { ictTasksStore } from '$features/critical-tasks/stores/ictTasks.svelte';
 	import { personnelIctCompletionsStore } from '$features/critical-tasks/stores/personnelIctCompletions.svelte';
 	import type { IctTask } from '$features/critical-tasks/criticalTasks.types';
@@ -396,9 +398,7 @@
 			</section>
 		{:else if importingTasks}
 			<section>
-				{#await import('$features/critical-tasks/components/IctTaskBulkImport.svelte') then { default: IctTaskBulkImport }}
-					<IctTaskBulkImport tasks={ictTasksStore.items} onCancel={cancelImport} onDone={cancelImport} />
-				{/await}
+				<IctTaskBulkImport tasks={ictTasksStore.items} onCancel={cancelImport} onDone={cancelImport} />
 			</section>
 		{:else}
 			<div class="grid gap-5 lg:grid-cols-[minmax(290px,360px)_minmax(0,1fr)]">
@@ -651,14 +651,12 @@
 {/if}
 
 {#if confirmArchive}
-	{#await import('$lib/components/ui/ConfirmDialog.svelte') then { default: ConfirmDialog }}
-		<ConfirmDialog
-			title="Archive ICT Task"
-			message={archiveMessage(confirmArchive)}
-			confirmLabel="Archive Task"
-			variant="warning"
-			onConfirm={confirmArchiveTask}
-			onCancel={() => (confirmArchive = null)}
-		/>
-	{/await}
+	<ConfirmDialog
+		title="Archive ICT Task"
+		message={archiveMessage(confirmArchive)}
+		confirmLabel="Archive Task"
+		variant="warning"
+		onConfirm={confirmArchiveTask}
+		onCancel={() => (confirmArchive = null)}
+	/>
 {/if}

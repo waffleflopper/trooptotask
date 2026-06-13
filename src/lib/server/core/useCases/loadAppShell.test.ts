@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
 	createInMemoryAppShellDeferredChromePort,
 	createInMemoryAppShellFirstPaintChromePort,
@@ -121,5 +121,63 @@ describe('loadAppShellDeferredChrome', () => {
 			ok: true,
 			organizations: [{ id: 'org-1', name: 'Test Unit', role: 'owner', urlSegment: 'test-unit' }]
 		});
+	});
+
+	it('hides backend error details from notification-count failures', async () => {
+		const cause = new Error('relation "notifications" does not exist');
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+		try {
+			const result = await loadAppShellDeferredChrome('notification-count', {
+				getUnreadNotificationCount: () => Promise.reject(cause),
+				getOrganizationSwitcherOrgs: () => Promise.resolve([])
+			});
+
+			expect(result).toEqual({
+				part: 'notification-count',
+				ok: false,
+				reason: 'Unable to load app shell chrome'
+			});
+			if (!result.ok) {
+				expect(result.reason).not.toContain('notifications');
+				expect(result.reason).not.toContain('relation');
+				expect(result.reason).not.toContain(cause.message);
+			}
+			expect(consoleError).toHaveBeenCalledWith(
+				"[app-shell] Failed to load deferred chrome part 'notification-count':",
+				cause
+			);
+		} finally {
+			consoleError.mockRestore();
+		}
+	});
+
+	it('hides backend error details from organization-switcher failures', async () => {
+		const cause = new Error('Failed to load organization memberships: policy denied');
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+		try {
+			const result = await loadAppShellDeferredChrome('organization-switcher', {
+				getUnreadNotificationCount: () => Promise.resolve(0),
+				getOrganizationSwitcherOrgs: () => Promise.reject(cause)
+			});
+
+			expect(result).toEqual({
+				part: 'organization-switcher',
+				ok: false,
+				reason: 'Unable to load app shell chrome'
+			});
+			if (!result.ok) {
+				expect(result.reason).not.toContain('memberships');
+				expect(result.reason).not.toContain('policy');
+				expect(result.reason).not.toContain(cause.message);
+			}
+			expect(consoleError).toHaveBeenCalledWith(
+				"[app-shell] Failed to load deferred chrome part 'organization-switcher':",
+				cause
+			);
+		} finally {
+			consoleError.mockRestore();
+		}
 	});
 });

@@ -30,7 +30,7 @@
 		groups={ctx.groups}
 		templates={ctx.templates}
 		hasTemplateSteps={ctx.hasTemplateSteps}
-		onSubmit={(personnelId, _startedAt, templateId) => ctx.handleStartOnboarding(personnelId, templateId)}
+		onSubmit={(personnelId, startedAt, templateId) => ctx.handleStartOnboarding(personnelId, startedAt, templateId)}
 		onAddPerson={ctx.handleAddPerson.bind(ctx)}
 		onClose={ctx.modals.closerFor(MODAL_IDS.startOnboarding)}
 	/>

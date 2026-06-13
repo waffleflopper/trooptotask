@@ -161,6 +161,58 @@ describe('SignInRosterModal', () => {
 		expect(body.filterConfig).toEqual(expect.objectContaining({ groups: [], ranks: expect.arrayContaining(['SGT']) }));
 	});
 
+	it('uses the local calendar date for the default roster date', async () => {
+		const originalTimezone = process.env.TZ;
+		process.env.TZ = 'America/Anchorage';
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date('2026-05-05T02:00:00.000Z'));
+
+		try {
+			const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+				if ((init?.method ?? 'GET') === 'POST') {
+					return jsonResponse({ id: 'roster-2' });
+				}
+
+				return jsonResponse({ rosters: [], total: 0 });
+			});
+			vi.stubGlobal('fetch', fetchMock);
+
+			renderModal();
+
+			await waitFor(() => expect(screen.getByRole('button', { name: 'New Roster' })).toBeTruthy());
+
+			await fireEvent.click(screen.getByRole('button', { name: 'New Roster' }));
+			await fireEvent.input(screen.getByLabelText(/Title/i), {
+				target: { value: 'Local Date Roster' }
+			});
+			await fireEvent.click(screen.getByRole('button', { name: 'Generate & Print' }));
+
+			await waitFor(() => expect(mockJsPDF).toHaveBeenCalledTimes(1));
+
+			const postCall = fetchMock.mock.calls.find(([, init]) => init?.method === 'POST');
+			const body = JSON.parse(String(postCall?.[1]?.body));
+			expect(body.rosterDate).toBe('2026-05-04');
+
+			await fireEvent.click(screen.getByRole('button', { name: 'New Roster' }));
+			await fireEvent.input(screen.getByLabelText(/Title/i), {
+				target: { value: 'Second Local Date Roster' }
+			});
+			await fireEvent.click(screen.getByRole('button', { name: 'Generate & Print' }));
+
+			await waitFor(() => expect(mockJsPDF).toHaveBeenCalledTimes(2));
+			const secondPostCall = fetchMock.mock.calls.filter(([, init]) => init?.method === 'POST').at(-1);
+			const secondBody = JSON.parse(String(secondPostCall?.[1]?.body));
+			expect(secondBody.rosterDate).toBe('2026-05-04');
+		} finally {
+			vi.useRealTimers();
+			if (originalTimezone === undefined) {
+				delete process.env.TZ;
+			} else {
+				process.env.TZ = originalTimezone;
+			}
+		}
+	});
+
 	it('persists rank and group filters in the generated roster payload', async () => {
 		const filteredPersonnel: Personnel[] = [
 			...personnel,

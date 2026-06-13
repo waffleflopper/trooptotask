@@ -15,7 +15,8 @@ export const _postConfig = {
 	fn: (ctx, input) =>
 		startOnboarding(ctx, {
 			personnelId: input.personnelId as string,
-			templateId: input.templateId as string
+			templateId: input.templateId as string,
+			startedAt: input.startedAt as string | undefined
 		})
 } satisfies RouteConfig<Record<string, unknown>, unknown>;
 

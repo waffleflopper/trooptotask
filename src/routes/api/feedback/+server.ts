@@ -1,7 +1,7 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getAdminClient } from '$lib/server/supabase';
-import { sanitizeString } from '$lib/server/validation';
+import { sanitizeString, validateUUID } from '$lib/server/validation';
 import { env } from '$env/dynamic/private';
 
 const GITHUB_REPO = 'waffleflopper/trooptotask';
@@ -29,8 +29,9 @@ const SECTION_MAP: Record<string, string> = {
 
 function getPageSection(pageUrl?: string): string | null {
 	if (!pageUrl) return null;
+	const pagePath = pageUrl.split(/[?#]/, 1)[0];
 	// Strip /org/<uuid>/ prefix and trailing slashes
-	const match = pageUrl.match(/^\/org\/[^/]+\/?(.*?)\/?$/);
+	const match = pagePath.match(/^\/org\/[^/]+\/?(.*?)\/?$/);
 	const slug = match?.[1] ?? '';
 	if (!slug) return 'Dashboard';
 	return SECTION_MAP[slug] ?? slug;
@@ -41,6 +42,101 @@ const CATEGORY_LABELS: Record<string, string[]> = {
 	feature: ['enhancement', 'user-feedback'],
 	general: ['user-feedback']
 };
+
+interface FeedbackOrganizationMembershipRow {
+	organizations:
+		| {
+				id: string;
+				name: string;
+				url_slug?: string | null;
+		  }
+		| {
+				id: string;
+				name: string;
+				url_slug?: string | null;
+		  }[]
+		| null;
+}
+
+interface FeedbackOrganizationContext {
+	organizationId: string | null;
+	organizationName: string | null;
+	pageUrl: string | null;
+}
+
+function normalizeFeedbackPageUrl(pageUrl: unknown, organizationSegments: readonly string[] = []): string | null {
+	if (typeof pageUrl !== 'string') return null;
+
+	const trimmed = pageUrl.trim();
+	if (!trimmed) return null;
+
+	const normalizePath = (path: string) => {
+		if (!path.startsWith('/') || path.startsWith('//')) return null;
+		if (organizationSegments.length > 0) {
+			const orgSegment = path.match(/^\/org\/([^/?#]+)(?=$|[/?#])/)?.[1];
+			if (!orgSegment || !organizationSegments.includes(orgSegment)) return null;
+		}
+		return path;
+	};
+
+	if (trimmed.startsWith('/')) {
+		return normalizePath(trimmed);
+	}
+
+	if (organizationSegments.length === 0) return null;
+
+	try {
+		const parsed = new URL(trimmed);
+		return normalizePath(`${parsed.pathname}${parsed.search}${parsed.hash}`);
+	} catch {
+		return null;
+	}
+}
+
+async function resolveFeedbackOrganizationContext(
+	adminClient: ReturnType<typeof getAdminClient>,
+	userId: string,
+	organizationId: unknown,
+	pageUrl: unknown
+): Promise<FeedbackOrganizationContext> {
+	if (!organizationId) {
+		return {
+			organizationId: null,
+			organizationName: null,
+			pageUrl: normalizeFeedbackPageUrl(pageUrl)
+		};
+	}
+
+	if (typeof organizationId !== 'string' || !validateUUID(organizationId)) {
+		throw error(400, 'Invalid organization ID');
+	}
+
+	const { data, error: membershipError } = await adminClient
+		.from('organization_memberships')
+		.select('organizations(id, name, url_slug)')
+		.eq('organization_id', organizationId)
+		.eq('user_id', userId)
+		.maybeSingle<FeedbackOrganizationMembershipRow>();
+
+	if (membershipError) {
+		console.error('Failed to resolve feedback organization context:', membershipError);
+		throw error(500, 'Failed to submit feedback');
+	}
+
+	const organization = Array.isArray(data?.organizations) ? data?.organizations[0] : data?.organizations;
+	if (!organization) {
+		throw error(403, 'Organization access denied');
+	}
+
+	return {
+		organizationId: organization.id,
+		organizationName: organization.name,
+		pageUrl: normalizeFeedbackPageUrl(
+			pageUrl,
+			[organization.id, organization.url_slug].filter((segment): segment is string => Boolean(segment))
+		)
+	};
+}
 
 async function createGitHubIssue(params: {
 	category: string;
@@ -107,7 +203,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	if (!user) throw error(401, 'Authentication required');
 
 	const body = await request.json();
-	const { category, pageUrl, organizationId, organizationName } = body;
+	const { category, pageUrl, organizationId } = body;
 	const message = sanitizeString(body.message, 5000);
 
 	if (!message) {
@@ -118,28 +214,29 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		throw error(400, 'Invalid category');
 	}
 
-	const pageSection = getPageSection(pageUrl);
+	const adminClient = getAdminClient();
+	const organizationContext = await resolveFeedbackOrganizationContext(adminClient, user.id, organizationId, pageUrl);
+	const pageSection = getPageSection(organizationContext.pageUrl ?? undefined);
 
 	// Create GitHub issue (non-blocking — feedback still saved to DB even if this fails)
 	const githubResult = await createGitHubIssue({
 		category: category || 'general',
 		message,
-		pageUrl,
+		pageUrl: organizationContext.pageUrl ?? undefined,
 		pageSection,
-		organizationName,
+		organizationName: organizationContext.organizationName ?? undefined,
 		userEmail: user.email
 	});
 
 	// Save to database as backup record
-	const adminClient = getAdminClient();
 	const { error: insertError } = await adminClient.from('beta_feedback').insert({
 		user_id: user.id,
 		user_email: user.email,
-		organization_id: organizationId || null,
-		organization_name: organizationName || null,
+		organization_id: organizationContext.organizationId,
+		organization_name: organizationContext.organizationName,
 		category: category || 'general',
 		message,
-		page_url: pageUrl || null,
+		page_url: organizationContext.pageUrl,
 		page_section: pageSection || null,
 		github_issue_number: githubResult?.issueNumber || null,
 		github_issue_url: githubResult?.issueUrl || null

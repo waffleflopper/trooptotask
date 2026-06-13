@@ -297,8 +297,8 @@ export class OnboardingPageContext {
 
 	// ── Event handlers ─────────────────────────────────────────
 
-	async handleStartOnboarding(personnelId: string, templateId: string | null) {
-		await onboardingStore.startOnboarding(personnelId, templateId);
+	async handleStartOnboarding(personnelId: string, startedAt: string, templateId: string | null) {
+		await onboardingStore.startOnboarding(personnelId, startedAt, templateId);
 		this.modals.close(MODAL_IDS.startOnboarding);
 	}
 

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { readOrganizationPlanUsage } from './organizationPlanUsage';
 
@@ -167,5 +167,113 @@ describe('organization plan usage read model', () => {
 			endExclusive: '2026-06-01T00:00:00.000Z'
 		});
 		expect(usage.sources.monthlyExports.included).toContain('status = any export attempt');
+	});
+
+	it('uses count queries for simple totals and skinny pending invitation reads', async () => {
+		const ctx = buildContext();
+		ctx.rawStore.seed('personnel', [
+			{ id: 'p-active', organization_id: 'org-1', archived_at: null },
+			{ id: 'p-archived', organization_id: 'org-1', archived_at: '2026-05-01T00:00:00.000Z' }
+		]);
+		ctx.rawStore.seed('organization_memberships', [
+			{ id: 'm-owner', organization_id: 'org-1', user_id: 'owner-1', role: 'owner' }
+		]);
+		ctx.rawStore.seed('organization_invitations', [
+			{
+				id: 'invite-no-expiry',
+				organization_id: 'org-1',
+				email: 'NoExpiry@example.com',
+				normalized_email: 'noexpiry@example.com',
+				status: 'pending',
+				expires_at: null
+			},
+			{
+				id: 'invite-future',
+				organization_id: 'org-1',
+				email: 'future@example.com',
+				normalized_email: 'future@example.com',
+				status: 'pending',
+				expires_at: '2026-06-01T00:00:00.000Z'
+			},
+			{
+				id: 'invite-expired',
+				organization_id: 'org-1',
+				email: 'expired@example.com',
+				normalized_email: 'expired@example.com',
+				status: 'pending',
+				expires_at: '2026-05-01T00:00:00.000Z'
+			},
+			{
+				id: 'invite-accepted',
+				organization_id: 'org-1',
+				email: 'accepted@example.com',
+				normalized_email: 'accepted@example.com',
+				status: 'accepted',
+				expires_at: '2026-06-01T00:00:00.000Z'
+			}
+		]);
+		ctx.rawStore.seed('data_exports', [
+			{ id: 'export-current', org_id: 'org-1', created_at: '2026-05-24T11:00:00.000Z', status: 'completed' },
+			{ id: 'export-prior-month', org_id: 'org-1', created_at: '2026-04-30T23:59:59.999Z', status: 'completed' }
+		]);
+		const findManySpy = vi.spyOn(ctx.rawStore, 'findMany');
+		const findManyWithCountSpy = vi.spyOn(ctx.rawStore, 'findManyWithCount');
+
+		const usage = await readOrganizationPlanUsage({ auth: ctx.auth, store: ctx.rawStore }, { now: NOW });
+
+		expect(usage.activePersonnelCount).toBe(1);
+		expect(usage.activeOrganizationMemberCount).toBe(1);
+		expect(usage.pendingUnexpiredInvitationCount).toBe(2);
+		expect(usage.monthlyExportCount).toBe(1);
+		expect(findManyWithCountSpy).toHaveBeenCalledTimes(3);
+		expect(findManySpy.mock.calls.some(([table]) => table !== 'organization_invitations')).toBe(false);
+
+		const countCallsByTable = new Map(findManyWithCountSpy.mock.calls.map((call) => [call[0], call]));
+		expect(countCallsByTable.get('personnel')?.[3]).toEqual({
+			isNull: { archived_at: true },
+			select: 'id',
+			range: { from: 0, to: 0 },
+			count: 'exact'
+		});
+		expect(countCallsByTable.get('organization_memberships')?.[3]).toEqual({
+			select: 'id',
+			range: { from: 0, to: 0 },
+			count: 'exact'
+		});
+		expect(countCallsByTable.get('data_exports')?.[3]).toEqual({
+			rangeFilters: [
+				{ column: 'created_at', op: 'gte', value: '2026-05-01T00:00:00.000Z' },
+				{ column: 'created_at', op: 'lt', value: '2026-06-01T00:00:00.000Z' }
+			],
+			select: 'id',
+			range: { from: 0, to: 0 },
+			count: 'exact'
+		});
+
+		const invitationCalls = findManySpy.mock.calls.filter(([table]) => table === 'organization_invitations');
+		expect(invitationCalls).toHaveLength(2);
+		for (const call of invitationCalls) {
+			expect(call[2]).toEqual({ status: 'pending' });
+			expect(call[3]?.select).toBe('email, normalized_email, expires_at');
+			expect(call[3]?.select).not.toBe('*');
+		}
+		expect(invitationCalls).toEqual(
+			expect.arrayContaining([
+				expect.arrayContaining([
+					'organization_invitations',
+					'org-1',
+					{ status: 'pending' },
+					expect.objectContaining({ isNull: { expires_at: true } })
+				]),
+				expect.arrayContaining([
+					'organization_invitations',
+					'org-1',
+					{ status: 'pending' },
+					expect.objectContaining({
+						rangeFilters: [{ column: 'expires_at', op: 'gt', value: '2026-05-24T12:00:00.000Z' }]
+					})
+				])
+			])
+		);
 	});
 });

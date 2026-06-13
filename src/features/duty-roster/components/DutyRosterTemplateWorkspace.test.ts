@@ -575,8 +575,9 @@ describe('DutyRosterTemplateWorkspace', () => {
 	});
 
 	it('renders an app-native invalidation confirmation before submitting', async () => {
+		vi.stubGlobal('confirm', vi.fn());
 		const confirm = vi.spyOn(window, 'confirm');
-		vi.useFakeTimers();
+		vi.useFakeTimers({ toFake: ['Date'] });
 		vi.setSystemTime(new Date('2026-06-01T12:00:00Z'));
 		try {
 			render(DutyRosterTemplateWorkspace, {

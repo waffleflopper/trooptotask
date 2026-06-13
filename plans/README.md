@@ -44,7 +44,7 @@ The operator explicitly excluded automatic CI trigger work from this batch. Do n
 | 027  | Restrict audit-log settings to owner-only access  | P1       | M      | -          | DONE   |
 | 028  | Approve deletion requests after resource effects  | P1       | M      | -          | DONE   |
 | 029  | Remove active onboarding after snapshot failure   | P1       | M      | -          | DONE   |
-| 030  | Patch high-severity build-tool advisories         | P1       | M      | -          | TODO   |
+| 030  | Patch high-severity build-tool advisories         | P1       | M      | -          | DONE   |
 | 031  | Derive feedback org context server-side           | P2       | S-M    | -          | TODO   |
 | 032  | Disclose performance analytics in privacy page    | P2       | S      | -          | DONE   |
 | 033  | Hide deferred chrome backend error details        | P2       | S      | -          | DONE   |

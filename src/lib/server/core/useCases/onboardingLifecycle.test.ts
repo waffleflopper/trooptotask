@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { createWritePortsContext } from '$lib/server/adapters/inMemory';
 import type { CapabilityMap } from '$lib/access/memberAccessShape';
 import { startOnboarding, cancelOnboarding, reopenOnboarding, completeOnboarding } from './onboardingLifecycle';
@@ -109,6 +109,52 @@ describe('startOnboarding', () => {
 		await expect(startOnboarding(ctx, { personnelId: 'p-1', templateId: 'tmpl-1' })).rejects.toThrow(
 			'Soldier already has an active onboarding'
 		);
+	});
+
+	it('removes the active onboarding parent when step snapshot creation fails', async () => {
+		const ctx = buildContext();
+		seedTemplateWithSteps(ctx);
+		const originalInsertMany = ctx.store.insertMany.bind(ctx.store);
+		vi.spyOn(ctx.store, 'insertMany').mockImplementation(async (table, orgId, rows, select) => {
+			if (table === 'onboarding_step_progress') {
+				throw new Error('step snapshot failed');
+			}
+			return originalInsertMany(table, orgId, rows, select);
+		});
+
+		await expect(startOnboarding(ctx, { personnelId: 'p-1', templateId: 'tmpl-1' })).rejects.toThrow(
+			'step snapshot failed'
+		);
+
+		await expect(
+			ctx.store.findMany('personnel_onboardings', 'test-org', {
+				personnel_id: 'p-1',
+				status: 'in_progress'
+			})
+		).resolves.toHaveLength(0);
+	});
+
+	it('removes the active onboarding parent when training lookup fails', async () => {
+		const ctx = buildContext();
+		seedTemplateWithSteps(ctx);
+		const originalFindMany = ctx.store.findMany.bind(ctx.store);
+		vi.spyOn(ctx.store, 'findMany').mockImplementation(async (table, orgId, filters, options) => {
+			if (table === 'personnel_trainings') {
+				throw new Error('training lookup failed');
+			}
+			return originalFindMany(table, orgId, filters, options);
+		});
+
+		await expect(startOnboarding(ctx, { personnelId: 'p-1', templateId: 'tmpl-1' })).rejects.toThrow(
+			'training lookup failed'
+		);
+
+		await expect(
+			ctx.store.findMany('personnel_onboardings', 'test-org', {
+				personnel_id: 'p-1',
+				status: 'in_progress'
+			})
+		).resolves.toHaveLength(0);
 	});
 
 	it('starts through Onboarding operate policy without the legacy edit flag and audits policy denials', async () => {

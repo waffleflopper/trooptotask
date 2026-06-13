@@ -196,6 +196,13 @@ export function buildTrainingReportUrl(input: TrainingReportPageUrlInput): strin
 	return `/org/${encodeURIComponent(input.orgId)}/api/training-reports?${params.toString()}`;
 }
 
+export function buildTrainingReportDetailUrl(input: TrainingReportPageUrlInput): string {
+	const params = new URLSearchParams(buildTrainingReportQueryString(input));
+	params.set('page', String(input.page));
+	params.set('pageSize', String(input.pageSize));
+	return `/org/${encodeURIComponent(input.orgId)}/api/training-reports/detail?${params.toString()}`;
+}
+
 export function buildTrainingReportExportUrl(input: TrainingReportUrlInput): string {
 	return `/org/${encodeURIComponent(input.orgId)}/api/training-reports/export?${buildTrainingReportQueryString(input)}`;
 }

@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import ExcelJS from 'exceljs';
 import { createInMemoryDataStore, createQueryPortsContext } from '$lib/server/adapters/inMemory';
 import {
+	fetchTrainingReportDetailPage,
 	fetchTrainingReportPage,
 	fetchTrainingReportsData,
 	generateTrainingReportWorkbookExport
@@ -185,6 +186,72 @@ describe('fetchTrainingReportsData', () => {
 		expect(result.detail.totalPages).toBe(2);
 		expect(result.detail.page).toBe(2);
 		expect(result.detail.rows).toHaveLength(5);
+	});
+
+	it('returns a detail-only report page without aggregate metadata', async () => {
+		const ctx = buildCtx();
+		const store = ctx.store as ReturnType<typeof createInMemoryDataStore>;
+
+		store.seed('personnel', [
+			{
+				id: 'p-smith',
+				organization_id: ORG,
+				rank: 'SGT',
+				last_name: 'Smith',
+				first_name: 'Jane',
+				mos: '68W',
+				clinic_role: 'Medic',
+				group_id: null,
+				archived_at: null,
+				groups: null
+			},
+			{
+				id: 'p-adams',
+				organization_id: ORG,
+				rank: 'SPC',
+				last_name: 'Adams',
+				first_name: 'John',
+				mos: '11B',
+				clinic_role: 'Line',
+				group_id: null,
+				archived_at: null,
+				groups: null
+			}
+		]);
+		store.seed('training_types', [
+			{
+				id: 'type-cpr',
+				organization_id: ORG,
+				name: 'CPR',
+				description: null,
+				expiration_months: null,
+				warning_days_yellow: 60,
+				warning_days_orange: 30,
+				applies_to_roles: [],
+				applies_to_mos: [],
+				applies_to_ranks: [],
+				excluded_roles: [],
+				excluded_mos: [],
+				excluded_ranks: [],
+				color: '#22c55e',
+				sort_order: 0,
+				expiration_date_only: false,
+				can_be_exempted: false,
+				exempt_personnel_ids: [],
+				is_optional: false
+			}
+		]);
+
+		const detail = await fetchTrainingReportDetailPage(ctx, {
+			sort: { column: 'name', direction: 'asc' },
+			pagination: { page: 2, pageSize: 1 }
+		});
+
+		expect(detail.totalRows).toBe(2);
+		expect(detail.page).toBe(2);
+		expect(detail.rows).toHaveLength(1);
+		expect(detail.rows[0].person.id).toBe('p-smith');
+		expect(detail.sort).toEqual({ column: 'name', direction: 'asc' });
 	});
 
 	it('limits report rows to the caller scoped group', async () => {
@@ -392,6 +459,7 @@ describe('fetchTrainingReportsData', () => {
 
 		await expect(fetchTrainingReportsData(ctx)).rejects.toMatchObject({ status: 403 });
 		await expect(fetchTrainingReportPage(ctx)).rejects.toMatchObject({ status: 403 });
+		await expect(fetchTrainingReportDetailPage(ctx)).rejects.toMatchObject({ status: 403 });
 		await expect(generateTrainingReportWorkbookExport(ctx)).rejects.toMatchObject({ status: 403 });
 	});
 

@@ -46,7 +46,7 @@ The operator explicitly excluded automatic CI trigger work from this batch. Do n
 | 029  | Remove active onboarding after snapshot failure   | P1       | M      | -          | DONE   |
 | 030  | Patch high-severity build-tool advisories         | P1       | M      | -          | TODO   |
 | 031  | Derive feedback org context server-side           | P2       | S-M    | -          | TODO   |
-| 032  | Disclose performance analytics in privacy page    | P2       | S      | -          | TODO   |
+| 032  | Disclose performance analytics in privacy page    | P2       | S      | -          | DONE   |
 | 033  | Hide deferred chrome backend error details        | P2       | S      | -          | TODO   |
 | 034  | Thread onboarding start date through API          | P2       | S      | 029        | TODO   |
 | 035  | Use local date for sign-in roster defaults        | P2       | S      | -          | TODO   |

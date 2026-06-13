@@ -78,9 +78,10 @@
 	<PublicContentSection label="07 // Cookies &amp; Tracking">
 		{#snippet title()}Essential only, no surveillance.{/snippet}
 		<p>
-			We use only essential cookies required for authentication and session management. We do not use tracking cookies,
-			analytics beacons, or third-party advertising pixels. We do not participate in cross-site tracking or data broker
-			networks.
+			We use only essential cookies required for authentication and session management. We collect aggregate site
+			analytics and performance signals to understand reliability, performance, and product health. We do not use
+			third-party advertising pixels, sell analytics data, participate in cross-site tracking or data broker networks,
+			or use analytics to profile individual people.
 		</p>
 	</PublicContentSection>
 

@@ -48,10 +48,12 @@ interface FeedbackOrganizationMembershipRow {
 		| {
 				id: string;
 				name: string;
+				url_slug?: string | null;
 		  }
 		| {
 				id: string;
 				name: string;
+				url_slug?: string | null;
 		  }[]
 		| null;
 }
@@ -62,7 +64,7 @@ interface FeedbackOrganizationContext {
 	pageUrl: string | null;
 }
 
-function normalizeFeedbackPageUrl(pageUrl: unknown, organizationId: string | null): string | null {
+function normalizeFeedbackPageUrl(pageUrl: unknown, organizationSegments: readonly string[] = []): string | null {
 	if (typeof pageUrl !== 'string') return null;
 
 	const trimmed = pageUrl.trim();
@@ -70,7 +72,10 @@ function normalizeFeedbackPageUrl(pageUrl: unknown, organizationId: string | nul
 
 	const normalizePath = (path: string) => {
 		if (!path.startsWith('/') || path.startsWith('//')) return null;
-		if (organizationId && !path.startsWith(`/org/${organizationId}`)) return null;
+		if (organizationSegments.length > 0) {
+			const orgSegment = path.match(/^\/org\/([^/?#]+)(?=$|[/?#])/)?.[1];
+			if (!orgSegment || !organizationSegments.includes(orgSegment)) return null;
+		}
 		return path;
 	};
 
@@ -78,7 +83,7 @@ function normalizeFeedbackPageUrl(pageUrl: unknown, organizationId: string | nul
 		return normalizePath(trimmed);
 	}
 
-	if (!organizationId) return null;
+	if (organizationSegments.length === 0) return null;
 
 	try {
 		const parsed = new URL(trimmed);
@@ -98,7 +103,7 @@ async function resolveFeedbackOrganizationContext(
 		return {
 			organizationId: null,
 			organizationName: null,
-			pageUrl: normalizeFeedbackPageUrl(pageUrl, null)
+			pageUrl: normalizeFeedbackPageUrl(pageUrl)
 		};
 	}
 
@@ -108,7 +113,7 @@ async function resolveFeedbackOrganizationContext(
 
 	const { data, error: membershipError } = await adminClient
 		.from('organization_memberships')
-		.select('organizations(id, name)')
+		.select('organizations(id, name, url_slug)')
 		.eq('organization_id', organizationId)
 		.eq('user_id', userId)
 		.maybeSingle<FeedbackOrganizationMembershipRow>();
@@ -126,7 +131,10 @@ async function resolveFeedbackOrganizationContext(
 	return {
 		organizationId: organization.id,
 		organizationName: organization.name,
-		pageUrl: normalizeFeedbackPageUrl(pageUrl, organization.id)
+		pageUrl: normalizeFeedbackPageUrl(
+			pageUrl,
+			[organization.id, organization.url_slug].filter((segment): segment is string => Boolean(segment))
+		)
 	};
 }
 

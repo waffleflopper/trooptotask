@@ -10,6 +10,7 @@
 	import { DatePicker } from '$lib/components/ui/date-picker';
 	import * as Field from '$lib/components/ui/field';
 	import * as Select from '$lib/components/ui/select';
+	import { formatDate } from '$lib/utils/dates';
 	import TriangleAlert from '@lucide/svelte/icons/triangle-alert';
 
 	interface Props {
@@ -35,7 +36,7 @@
 	}: Props = $props();
 
 	let selectedPersonnelId = $state('');
-	let startDate = $state(new Date().toISOString().split('T')[0]);
+	let startDate = $state(formatDate(new Date()));
 	let selectedTemplateId = $state<string>('');
 	let showAddPersonModal = $state(false);
 

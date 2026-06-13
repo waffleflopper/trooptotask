@@ -6,6 +6,8 @@ Updated by the improve skill on 2026-06-11 at commit `22e6e184` with plans 012-0
 Updated by the improve skill on 2026-06-11 at commit `22e6e184` with performance plans 018-022.
 Updated by the improve skill on 2026-06-11 at commit `79cfef20` with plans 023-026 (follow-up audit excluding all prior planned/rejected findings; run non-interactively, so the top findings by leverage were planned by default).
 Updated by the improve skill on 2026-06-12 at commit `a2b09628` with plans 027-038 (deep audit follow-up; Robert selected all findings and narrowed the privacy item to analytics disclosure only).
+Updated by the improve skill on 2026-06-13 at commit `0a6e6000` with plans 039-044 (Robert selected findings 1-6 from the 2026-06-13 standard audit).
+Updated by the improve skill on 2026-06-13 at commit `0a6e6000` with performance plans 045-049.
 
 Execute in the order below unless dependencies say otherwise. Each executor must read the selected plan fully before starting, honor its STOP conditions, run every verification command, and update the status row when done.
 
@@ -53,6 +55,17 @@ The operator explicitly excluded automatic CI trigger work from this batch. Do n
 | 036  | Check cleanup-old-data RPC errors                 | P3       | S      | -          | DONE   |
 | 037  | Close route Supabase governance blind spot        | P3       | S      | -          | DONE   |
 | 038  | Pin Critical Tasks RLS helper search path         | P3       | S      | -          | DONE   |
+| 039  | Revoke client execute from service RPCs           | P1       | S      | -          | TODO   |
+| 040  | Lock down privileged state read RPCs              | P1       | M      | 039        | TODO   |
+| 041  | Surface admin ledger load failures                | P1       | S-M    | -          | TODO   |
+| 042  | Paginate platform admin org ledgers               | P1       | M      | 041        | TODO   |
+| 043  | Filter onboarding workspace bootstrap             | P2       | M      | -          | TODO   |
+| 044  | Add platform audit global timestamp index         | P2       | S-M    | -          | TODO   |
+| 045  | Count plan usage without full row loads           | P1       | S-M    | -          | TODO   |
+| 046  | Add lightweight Critical Tasks dashboard summary  | P1       | M      | -          | TODO   |
+| 047  | Split Training report detail from aggregate work  | P1       | M      | -          | TODO   |
+| 048  | Index long-range Calendar date cells              | P2       | S      | -          | TODO   |
+| 049  | Precompute DA6 matrix lookup maps                 | P2       | S      | -          | TODO   |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line rationale).
 
@@ -80,9 +93,25 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJE
 - 030 is dependency/toolchain work. Do not run it in the same worktree as other plans because `package-lock.json` churn can make unrelated verification failures harder to attribute.
 - 031 and 032 are related only by product area. 031 fixes active beta feedback data attribution; 032 updates privacy copy for Vercel performance analytics. 032 explicitly does not remove or change the temporary GitHub beta feedback mirror.
 - 038 is local Supabase migration work. Do not run it in parallel with other agents adding migrations, never target production, and do not reset or delete the local database without Robert's explicit permission.
+- 039 and 040 both harden RPC privileges and both edit `supabase/tests/sensitive_rpc_privileges.sql`; run 039 first, then 040. Do not run either in parallel with another agent adding migrations.
+- 040 preserves current server suspension checks by making `is_user_suspended(uuid)` self-scoped for authenticated callers instead of blindly revoking authenticated execute. If that SQL contract cannot be preserved, stop and ask Robert before moving suspension checks to broader service-role reads.
+- 041 and 042 are related Platform Administration ledger work. Run 041 first so primary-load failures are truthful before 042 moves the query behind bounded pagination and narrower modules.
+- 042 should not run in parallel with other edits to `src/routes/admin/subscriptions` or `src/routes/admin/organizations`.
+- 043 is independent from the admin and RPC plans. It touches onboarding streamed workspace hydration and should not run in parallel with other onboarding route/bootstrap refactors.
+- 044 is independent but adds a migration. Do not run it in parallel with 039, 040, or any other agent adding migrations. Never target production, and do not reset or delete the local database without Robert's explicit permission.
+- 045 is independent and touches organization plan usage counting only. It can run in parallel with UI plans, but avoid pairing it with broad DataStore adapter refactors.
+- 046 is independent from the migration/security batch. It touches Critical Tasks report summary code and the dashboard route; do not run it in parallel with other edits to `criticalTasksReportsQuery.ts`, `ictReports.ts`, or `src/routes/org/[orgId]/(dashboard)`.
+- 047 is independent from 046 by feature area but touches Training report routes, read models, and a Svelte component. Do not run it in parallel with other Training reports/API refactors.
+- 048 and 049 are small independent Svelte-adjacent render optimizations. They can run in parallel in isolated worktrees because they touch Calendar and Duty Roster respectively. If their executors edit Svelte files, they must follow the Svelte MCP documentation flow and run `svelte-autofixer` until clean.
+- 046, 047, 048, and 049 add no migrations. They do not require local or remote database schema changes.
 
 ## Findings Considered And Rejected
 
+- Platform access request enrichment pagination (2026-06-13 performance audit): real admin-only scaling issue, but lower leverage than user-facing dashboard/report/render hot paths in this batch. Revisit with a dedicated platform-admin performance pass.
+- Training Matrix full-grid virtualization (2026-06-13 performance audit): real render risk for very large unit/training-type combinations, but it is a broader UX interaction change. Deferred until after the narrower Training report server/detail split is complete and measured.
+- Critical Tasks completion-history read model for report/export workloads (2026-06-13 performance audit): real L-effort follow-up. Plan 046 addresses the dashboard-specific waste first; keep bounded history or aggregate SQL for full reports/exports as a separate plan.
+- Organization export streaming/capping (2026-06-13 performance audit): real L-effort export semantics and product guardrail work. Not included in this focused performance batch.
+- Org slug identity reuse in child route loads (2026-06-13 performance audit): real shared route-context optimization, but higher regression risk than the selected isolated findings. Defer until a route-context batch can cover authorization and slug edge cases together.
 - Automatic CI triggers: intentionally skipped. Robert said CI was turned off because GitHub limits were being exhausted, so this batch must not re-enable automatic workflow triggers.
 - Critical Tasks first-run test wobble: not planned. Targeted reruns and a second full `npm run test` passed, so this remains a residual flake watch item rather than a plan.
 - npm audit acceptances (triaged 2026-06-11, plan 013): exceljs/uuid moderates have no forward

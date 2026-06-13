@@ -116,7 +116,7 @@ describe('admin subscriptions server diagnostics', () => {
 		});
 	});
 
-	it('passes page, page size, and organization-name search params into the Platform Organization Ledger', async () => {
+	it('passes page, page size, search, and filter params into the Platform Organization Ledger', async () => {
 		organizationLedgerMock.listSubscriptions.mockResolvedValueOnce({
 			subscriptions: [{ id: 'org-1', name: 'Able Company' }],
 			pagination: {
@@ -124,7 +124,9 @@ describe('admin subscriptions server diagnostics', () => {
 				pageSize: 50,
 				totalCount: 77,
 				totalPages: 2,
-				q: 'Able'
+				q: 'Able',
+				tier: 'unit',
+				status: 'drifted'
 			},
 			billingDiagnosticsError: false,
 			planDiagnosticsError: false
@@ -132,7 +134,7 @@ describe('admin subscriptions server diagnostics', () => {
 
 		const result = (await load({
 			__ctx: makeContext(),
-			url: new URL('http://localhost/admin/subscriptions?page=2&pageSize=50&q=Able')
+			url: new URL('http://localhost/admin/subscriptions?page=2&pageSize=50&q=Able&tier=unit&status=drifted')
 		} as unknown as Parameters<typeof load>[0])) as PageData;
 
 		expect(createOrganizationLedgerMock).toHaveBeenCalledWith(
@@ -141,9 +143,18 @@ describe('admin subscriptions server diagnostics', () => {
 		expect(organizationLedgerMock.listSubscriptions).toHaveBeenCalledWith({
 			page: '2',
 			pageSize: '50',
-			q: 'Able'
+			q: 'Able',
+			tier: 'unit',
+			status: 'drifted'
 		});
-		expect(result.pagination).toMatchObject({ page: 2, pageSize: 50, totalCount: 77, q: 'Able' });
+		expect(result.pagination).toMatchObject({
+			page: 2,
+			pageSize: 50,
+			totalCount: 77,
+			q: 'Able',
+			tier: 'unit',
+			status: 'drifted'
+		});
 	});
 
 	it('throws a sanitized load error when the primary organization ledger cannot load', async () => {

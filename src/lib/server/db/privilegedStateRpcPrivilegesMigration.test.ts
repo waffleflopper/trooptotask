@@ -16,6 +16,7 @@ describe('privileged state RPC privileges migration', () => {
 			expect(migration).toContain(`revoke all on function public.${signature} from anon`);
 			expect(migration).toContain(`revoke all on function public.${signature} from authenticated`);
 			expect(migration).toContain(`grant execute on function public.${signature} to service_role`);
+			expect(migration).not.toContain(`grant execute on function public.${signature} to public`);
 		}
 	});
 
@@ -24,6 +25,7 @@ describe('privileged state RPC privileges migration', () => {
 		expect(migration).toContain('revoke all on function public.is_user_suspended(uuid) from anon');
 		expect(migration).toContain('grant execute on function public.is_user_suspended(uuid) to authenticated');
 		expect(migration).toContain('grant execute on function public.is_user_suspended(uuid) to service_role');
+		expect(migration).not.toContain('grant execute on function public.is_user_suspended(uuid) to public');
 		expect(migration).not.toContain('grant execute on function public.is_user_suspended(uuid) to anon');
 	});
 

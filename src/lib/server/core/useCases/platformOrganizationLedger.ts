@@ -9,17 +9,25 @@ import { TIER_CONFIG, type BillingCancellationSummary, type BillingSnapshot, typ
 export const DEFAULT_PLATFORM_LEDGER_PAGE_SIZE = 25;
 export const MAX_PLATFORM_LEDGER_PAGE_SIZE = 100;
 const PLAN_DIAGNOSTICS_CONCURRENCY = 8;
+const TIER_FILTERS = new Set(['free', 'team', 'unit']);
+const ORGANIZATION_STATUS_FILTERS = new Set(['active', 'suspended']);
+const SUBSCRIPTION_STATUS_FILTERS = new Set(['active', 'suspended', 'gifted', 'canceling', 'canceled', 'drifted']);
 
 export interface PlatformOrganizationLedgerInput {
 	page?: number | string | null;
 	pageSize?: number | string | null;
 	q?: string | null;
+	tier?: string | null;
+	status?: string | null;
 }
 
 export interface PlatformOrganizationLedgerQuery {
 	page: number;
 	pageSize: number;
 	q: string;
+	tier: string;
+	status: string;
+	statusScope: 'organizations' | 'subscriptions';
 	from: number;
 	to: number;
 }
@@ -30,6 +38,8 @@ export interface PlatformOrganizationLedgerPageMetadata {
 	totalCount: number;
 	totalPages: number;
 	q: string;
+	tier: string;
+	status: string;
 }
 
 export interface PlatformOrganizationLedgerBaseRow {
@@ -103,19 +113,31 @@ function readPositiveInteger(value: number | string | null | undefined): number 
 	return parsed;
 }
 
+function normalizeFilter(value: string | null | undefined, allowedValues: ReadonlySet<string>): string {
+	const normalized = (value ?? '').trim().toLowerCase();
+	return allowedValues.has(normalized) ? normalized : 'all';
+}
+
 export function normalizePlatformOrganizationLedgerQuery(
-	input: PlatformOrganizationLedgerInput = {}
+	input: PlatformOrganizationLedgerInput = {},
+	statusFilters: ReadonlySet<string> = ORGANIZATION_STATUS_FILTERS,
+	statusScope: PlatformOrganizationLedgerQuery['statusScope'] = 'organizations'
 ): PlatformOrganizationLedgerQuery {
 	const page = readPositiveInteger(input.page) ?? 1;
 	const requestedPageSize = readPositiveInteger(input.pageSize) ?? DEFAULT_PLATFORM_LEDGER_PAGE_SIZE;
 	const pageSize = Math.min(requestedPageSize, MAX_PLATFORM_LEDGER_PAGE_SIZE);
 	const q = (input.q ?? '').trim();
+	const tier = normalizeFilter(input.tier, TIER_FILTERS);
+	const status = normalizeFilter(input.status, statusFilters);
 	const from = (page - 1) * pageSize;
 
 	return {
 		page,
 		pageSize,
 		q,
+		tier,
+		status,
+		statusScope,
 		from,
 		to: from + pageSize - 1
 	};
@@ -130,7 +152,9 @@ function buildPagination(
 		pageSize: query.pageSize,
 		totalCount,
 		totalPages: Math.max(1, Math.ceil(totalCount / query.pageSize)),
-		q: query.q
+		q: query.q,
+		tier: query.tier,
+		status: query.status
 	};
 }
 
@@ -200,13 +224,15 @@ async function readPlanDiagnostics(
 
 async function readOrganizationPage(
 	deps: PlatformOrganizationLedgerDependencies,
-	input: PlatformOrganizationLedgerInput = {}
+	input: PlatformOrganizationLedgerInput = {},
+	statusFilters: ReadonlySet<string> = ORGANIZATION_STATUS_FILTERS,
+	statusScope: PlatformOrganizationLedgerQuery['statusScope'] = 'organizations'
 ): Promise<{
 	query: PlatformOrganizationLedgerQuery;
 	rows: PlatformOrganizationLedgerBaseRow[];
 	pagination: PlatformOrganizationLedgerPageMetadata;
 }> {
-	const query = normalizePlatformOrganizationLedgerQuery(input);
+	const query = normalizePlatformOrganizationLedgerQuery(input, statusFilters, statusScope);
 	const page = await deps.store.listOrganizationsPage(query);
 
 	return {
@@ -221,7 +247,12 @@ export function createPlatformOrganizationLedger(
 ): PlatformOrganizationLedger {
 	return {
 		async listOrganizations(input = {}) {
-			const { rows, pagination } = await readOrganizationPage(deps, input);
+			const { rows, pagination } = await readOrganizationPage(
+				deps,
+				input,
+				ORGANIZATION_STATUS_FILTERS,
+				'organizations'
+			);
 			const orgIds = rows.map((org) => org.id);
 			const metrics = await deps.metrics.getOrganizationMetrics(orgIds);
 
@@ -243,7 +274,12 @@ export function createPlatformOrganizationLedger(
 		},
 
 		async listSubscriptions(input = {}) {
-			const { rows, pagination } = await readOrganizationPage(deps, input);
+			const { rows, pagination } = await readOrganizationPage(
+				deps,
+				input,
+				SUBSCRIPTION_STATUS_FILTERS,
+				'subscriptions'
+			);
 			const orgIds = rows.map((org) => org.id);
 
 			const [personnelCounts, ownerMemberships, billingRead, planRead] = await Promise.all([

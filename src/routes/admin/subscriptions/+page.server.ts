@@ -19,7 +19,9 @@ export const load: PageServerLoad = loadWithAdminContext({
 			return await createSupabasePlatformOrganizationLedger(ctx).listSubscriptions({
 				page: event.url.searchParams.get('page'),
 				pageSize: event.url.searchParams.get('pageSize'),
-				q: event.url.searchParams.get('q')
+				q: event.url.searchParams.get('q'),
+				tier: event.url.searchParams.get('tier'),
+				status: event.url.searchParams.get('status')
 			});
 		} catch (err) {
 			console.error('Admin subscriptions query failed:', err);

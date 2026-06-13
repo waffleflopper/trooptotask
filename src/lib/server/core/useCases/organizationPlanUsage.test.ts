@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { readOrganizationPlanUsage } from './organizationPlanUsage';
+import type { DataStore } from '../ports';
 
 const NOW = new Date('2026-05-24T12:00:00.000Z');
 
@@ -274,6 +275,17 @@ describe('organization plan usage read model', () => {
 					})
 				])
 			])
+		);
+	});
+
+	it('fails fast when a count query does not return a count', async () => {
+		const store = {
+			findManyWithCount: vi.fn(async () => ({ data: [{ id: 'only-returned-row' }], count: null })),
+			findMany: vi.fn(async () => [])
+		} as unknown as DataStore;
+
+		await expect(readOrganizationPlanUsage({ auth: { orgId: 'org-1' }, store }, { now: NOW })).rejects.toThrow(
+			'organizationPlanUsage.countRows expected a count for table "personnel" and org "org-1"'
 		);
 	});
 });

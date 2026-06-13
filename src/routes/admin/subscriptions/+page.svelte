@@ -17,23 +17,9 @@
 
 	let { data } = $props();
 
-	let tierFilter = $state('all');
-	let statusFilter = $state('all');
-
-	const filteredSubs = $derived.by(() => {
-		let result = data.subscriptions;
-
-		if (tierFilter !== 'all') result = result.filter((sub) => sub.effectiveTier === tierFilter);
-		if (statusFilter === 'active') result = result.filter((sub) => !sub.isSuspended && !sub.isGifted);
-		if (statusFilter === 'suspended') result = result.filter((sub) => sub.isSuspended);
-		if (statusFilter === 'gifted') result = result.filter((sub) => sub.isGifted);
-		if (statusFilter === 'canceling')
-			result = result.filter((sub) => sub.cancellationSummary?.state === 'canceling_at_period_end');
-		if (statusFilter === 'canceled') result = result.filter((sub) => sub.cancellationSummary?.state === 'canceled');
-		if (statusFilter === 'drifted') result = result.filter((sub) => sub.billingSnapshot?.driftDetected);
-
-		return result;
-	});
+	const tierFilter = $derived(data.pagination.tier ?? 'all');
+	const statusFilter = $derived(data.pagination.status ?? 'all');
+	const currentPageDriftCount = $derived(data.subscriptions.filter((sub) => sub.billingSnapshot?.driftDetected).length);
 
 	const showingStart = $derived(
 		data.subscriptions.length === 0 ? 0 : (data.pagination.page - 1) * data.pagination.pageSize + 1
@@ -61,6 +47,8 @@
 		params.set('page', pageNumber.toString());
 		params.set('pageSize', data.pagination.pageSize.toString());
 		if (data.pagination.q) params.set('q', data.pagination.q);
+		if (tierFilter !== 'all') params.set('tier', tierFilter);
+		if (statusFilter !== 'all') params.set('status', statusFilter);
 		return `/admin/subscriptions?${params.toString()}`;
 	}
 </script>
@@ -91,9 +79,9 @@
 			detail={`Page ${data.pagination.page} of ${data.pagination.totalPages}.`}
 		/>
 		<PageShell.Metric
-			label="Page Filtered"
-			value={filteredSubs.length}
-			detail={`${data.subscriptions.filter((sub) => sub.billingSnapshot?.driftDetected).length} current-page rows have billing drift.`}
+			label="Billing Drift"
+			value={currentPageDriftCount}
+			detail="Current-page rows with billing drift."
 		/>
 	</PageShell.FactGrid>
 
@@ -119,41 +107,38 @@
 
 	<Card.Root>
 		<Card.Header class="gap-3 xl:flex-row xl:items-end xl:justify-between">
-			<div class="grid flex-1 gap-3 xl:grid-cols-[minmax(18rem,1fr)_auto_auto] xl:items-end">
-				<form
-					method="GET"
-					action="/admin/subscriptions"
-					class="grid gap-3 sm:grid-cols-[minmax(16rem,1fr)_9rem_auto] sm:items-end"
-				>
-					<input type="hidden" name="page" value="1" />
-					<Field.Root>
-						<Field.Label for="subscription-search">Search</Field.Label>
-						<Field.Control>
-							<Input
-								id="subscription-search"
-								name="q"
-								type="search"
-								placeholder="Search by organization name..."
-								value={data.pagination.q}
-							/>
-						</Field.Control>
-					</Field.Root>
-					<Field.Root>
-						<Field.Label for="subscription-page-size">Rows</Field.Label>
-						<Field.Control>
-							<NativeSelect id="subscription-page-size" name="pageSize" value={String(data.pagination.pageSize)}>
-								<option value="25">25</option>
-								<option value="50">50</option>
-								<option value="100">100</option>
-							</NativeSelect>
-						</Field.Control>
-					</Field.Root>
-					<Button type="submit" variant="outline">Apply</Button>
-				</form>
+			<form
+				method="GET"
+				action="/admin/subscriptions"
+				class="grid flex-1 gap-3 xl:grid-cols-[minmax(18rem,1fr)_9rem_minmax(10rem,1fr)_minmax(10rem,1fr)_auto] xl:items-end"
+			>
+				<input type="hidden" name="page" value="1" />
+				<Field.Root>
+					<Field.Label for="subscription-search">Search</Field.Label>
+					<Field.Control>
+						<Input
+							id="subscription-search"
+							name="q"
+							type="search"
+							placeholder="Search by organization name..."
+							value={data.pagination.q}
+						/>
+					</Field.Control>
+				</Field.Root>
+				<Field.Root>
+					<Field.Label for="subscription-page-size">Rows</Field.Label>
+					<Field.Control>
+						<NativeSelect id="subscription-page-size" name="pageSize" value={String(data.pagination.pageSize)}>
+							<option value="25">25</option>
+							<option value="50">50</option>
+							<option value="100">100</option>
+						</NativeSelect>
+					</Field.Control>
+				</Field.Root>
 				<Field.Root>
 					<Field.Label for="subscription-tier">Tier</Field.Label>
 					<Field.Control>
-						<NativeSelect id="subscription-tier" bind:value={tierFilter}>
+						<NativeSelect id="subscription-tier" name="tier" value={tierFilter}>
 							<option value="all">All tiers</option>
 							<option value="free">Free</option>
 							<option value="team">Team</option>
@@ -164,7 +149,7 @@
 				<Field.Root>
 					<Field.Label for="subscription-status">Status</Field.Label>
 					<Field.Control>
-						<NativeSelect id="subscription-status" bind:value={statusFilter}>
+						<NativeSelect id="subscription-status" name="status" value={statusFilter}>
 							<option value="all">All statuses</option>
 							<option value="active">Active</option>
 							<option value="suspended">Suspended</option>
@@ -175,8 +160,9 @@
 						</NativeSelect>
 					</Field.Control>
 				</Field.Root>
-			</div>
-			<p class="text-sm text-muted-foreground">{filteredSubs.length} shown</p>
+				<Button type="submit" variant="outline">Apply</Button>
+			</form>
+			<p class="text-sm text-muted-foreground">{data.subscriptions.length} shown</p>
 		</Card.Header>
 		<Card.Content class="overflow-x-auto">
 			<Table.Root>
@@ -195,7 +181,7 @@
 					</Table.Row>
 				</Table.Header>
 				<Table.Body>
-					{#each filteredSubs as sub (sub.id)}
+					{#each data.subscriptions as sub (sub.id)}
 						<Table.Row>
 							<Table.Cell>
 								<div class="grid gap-1">
@@ -313,13 +299,7 @@
 					{:else}
 						<Table.Row>
 							<Table.Cell colspan={10}>
-								<Empty.Root class="border-0">
-									{#if data.subscriptions.length === 0}
-										No matching subscriptions.
-									{:else}
-										No subscriptions on this page match the current filters.
-									{/if}
-								</Empty.Root>
+								<Empty.Root class="border-0">No matching subscriptions.</Empty.Root>
 							</Table.Cell>
 						</Table.Row>
 					{/each}

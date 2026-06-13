@@ -40,6 +40,9 @@ describe('reject access request blocks linked invitations migration', () => {
 
 	it('revokes direct client execution in the follow-up privilege migration', () => {
 		expect(privilegeMigration).toContain(
+			'revoke all on function public.reject_access_request_and_block_linked_invitations(uuid, uuid) from public'
+		);
+		expect(privilegeMigration).toContain(
 			'revoke all on function public.reject_access_request_and_block_linked_invitations(uuid, uuid) from anon'
 		);
 		expect(privilegeMigration).toContain(
@@ -47,6 +50,9 @@ describe('reject access request blocks linked invitations migration', () => {
 		);
 		expect(privilegeMigration).toContain(
 			'grant execute on function public.reject_access_request_and_block_linked_invitations(uuid, uuid) to service_role'
+		);
+		expect(privilegeMigration).not.toContain(
+			'grant execute on function public.reject_access_request_and_block_linked_invitations(uuid, uuid) to public'
 		);
 		expect(privilegeMigration).not.toMatch(/\bcreate\s+or\s+replace\s+function\b/);
 		expect(privilegeMigration).not.toMatch(/\b(delete|insert|update)\s+(from\s+)?("?public"?\.)?"?access_requests"?/);

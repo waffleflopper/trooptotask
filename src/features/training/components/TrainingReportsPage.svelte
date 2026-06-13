@@ -184,9 +184,10 @@
 	async function loadReportPage(page: number): Promise<void> {
 		const baseReport = activeReport;
 		if (!baseReport) return;
+		const requestServerReportKey = serverReportKey;
 		const requestId = localReport.requestId + 1;
 		localReport = {
-			serverReportKey,
+			serverReportKey: requestServerReportKey,
 			report: localReportMatchesServer ? localReport.report : null,
 			loading: true,
 			error: null,
@@ -199,9 +200,9 @@
 			}
 			const nextDetail = (await response.json()) as TrainingReportDetail;
 			const nextReport = { ...baseReport, detail: nextDetail };
-			if (requestId === localReport.requestId) {
+			if (requestId === localReport.requestId && requestServerReportKey === serverReportKey) {
 				localReport = {
-					serverReportKey,
+					serverReportKey: requestServerReportKey,
 					report: nextReport,
 					loading: false,
 					error: null,
@@ -209,10 +210,10 @@
 				};
 			}
 		} catch (error) {
-			if (requestId === localReport.requestId) {
+			if (requestId === localReport.requestId && requestServerReportKey === serverReportKey) {
 				localReport = {
-					serverReportKey,
-					report: localReportMatchesServer ? localReport.report : null,
+					serverReportKey: requestServerReportKey,
+					report: localReport.serverReportKey === requestServerReportKey ? localReport.report : null,
 					loading: false,
 					error: error instanceof Error ? error.message : 'Failed to load training report page',
 					requestId
@@ -223,9 +224,10 @@
 
 	async function loadFullReportPage(page: number): Promise<void> {
 		if (!activeReport) return;
+		const requestServerReportKey = serverReportKey;
 		const requestId = localReport.requestId + 1;
 		localReport = {
-			serverReportKey,
+			serverReportKey: requestServerReportKey,
 			report: localReportMatchesServer ? localReport.report : null,
 			loading: true,
 			error: null,
@@ -237,9 +239,9 @@
 				throw new Error('Failed to load training report page');
 			}
 			const nextReport = (await response.json()) as TrainingReportData;
-			if (requestId === localReport.requestId) {
+			if (requestId === localReport.requestId && requestServerReportKey === serverReportKey) {
 				localReport = {
-					serverReportKey,
+					serverReportKey: requestServerReportKey,
 					report: nextReport,
 					loading: false,
 					error: null,
@@ -247,10 +249,10 @@
 				};
 			}
 		} catch (error) {
-			if (requestId === localReport.requestId) {
+			if (requestId === localReport.requestId && requestServerReportKey === serverReportKey) {
 				localReport = {
-					serverReportKey,
-					report: localReportMatchesServer ? localReport.report : null,
+					serverReportKey: requestServerReportKey,
+					report: localReport.serverReportKey === requestServerReportKey ? localReport.report : null,
 					loading: false,
 					error: error instanceof Error ? error.message : 'Failed to load training report page',
 					requestId

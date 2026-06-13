@@ -19,6 +19,7 @@ import {
 interface StartInput {
 	personnelId: string;
 	templateId: string;
+	startedAt?: string;
 }
 
 interface StepResult {
@@ -77,12 +78,12 @@ export async function startOnboarding(ctx: WritePorts, input: StartInput): Promi
 	);
 
 	// Create onboarding record
-	const now = new Date().toISOString();
+	const startedAt = resolveStartedAt(input.startedAt);
 	const onboarding = await ctx.store.insert<{ id: string }>('personnel_onboardings', ctx.auth.orgId, {
 		personnel_id: input.personnelId,
 		template_id: input.templateId,
 		status: 'in_progress',
-		started_at: now,
+		started_at: startedAt,
 		completed_at: null,
 		cancelled_at: null
 	});
@@ -153,7 +154,7 @@ export async function startOnboarding(ctx: WritePorts, input: StartInput): Promi
 			personnelId: input.personnelId,
 			templateId: input.templateId,
 			status: 'in_progress',
-			startedAt: now,
+			startedAt,
 			completedAt: null,
 			cancelledAt: null,
 			steps: steps.map((s) => ({
@@ -179,6 +180,25 @@ export async function startOnboarding(ctx: WritePorts, input: StartInput): Promi
 		}
 		throw error;
 	}
+}
+
+function resolveStartedAt(startedAt?: string): string {
+	if (startedAt === undefined) {
+		return new Date().toISOString();
+	}
+
+	if (!/^\d{4}-\d{2}-\d{2}$/.test(startedAt)) {
+		fail(400, 'Start date must be a YYYY-MM-DD date');
+	}
+
+	const [year, month, day] = startedAt.split('-').map(Number);
+	const date = new Date(Date.UTC(year, month - 1, day));
+	if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) {
+		fail(400, 'Start date must be a valid calendar date');
+	}
+
+	// Store date-only input at UTC start-of-day so the selected calendar date is stable.
+	return date.toISOString();
 }
 
 interface LifecycleResult {

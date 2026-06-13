@@ -76,6 +76,50 @@ describe('startOnboarding', () => {
 		expect(result.steps[2].templateStepId).toBe('ts-3');
 	});
 
+	it('persists a supplied start date at UTC start-of-day', async () => {
+		const ctx = buildContext();
+		seedTemplateWithSteps(ctx);
+
+		const result = await startOnboarding(ctx, {
+			personnelId: 'p-1',
+			templateId: 'tmpl-1',
+			startedAt: '2026-03-15'
+		});
+
+		expect(result.startedAt).toBe('2026-03-15T00:00:00.000Z');
+		await expect(
+			ctx.store.findMany<{ started_at: string }>('personnel_onboardings', 'test-org', {
+				personnel_id: 'p-1'
+			})
+		).resolves.toEqual([expect.objectContaining({ started_at: '2026-03-15T00:00:00.000Z' })]);
+	});
+
+	it('rejects non-date-only start dates', async () => {
+		const ctx = buildContext();
+		seedTemplateWithSteps(ctx);
+
+		await expect(
+			startOnboarding(ctx, {
+				personnelId: 'p-1',
+				templateId: 'tmpl-1',
+				startedAt: '2026-03-15T12:00:00.000Z'
+			})
+		).rejects.toMatchObject({ status: 400 });
+	});
+
+	it('rejects impossible calendar start dates', async () => {
+		const ctx = buildContext();
+		seedTemplateWithSteps(ctx);
+
+		await expect(
+			startOnboarding(ctx, {
+				personnelId: 'p-1',
+				templateId: 'tmpl-1',
+				startedAt: '2026-02-31'
+			})
+		).rejects.toMatchObject({ status: 400 });
+	});
+
 	it('initializes paperwork steps with first stage as currentStage', async () => {
 		const ctx = buildContext();
 		seedTemplateWithSteps(ctx);

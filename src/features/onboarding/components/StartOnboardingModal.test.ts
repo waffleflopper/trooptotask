@@ -30,6 +30,7 @@ afterEach(async () => {
 	cleanup();
 	await new Promise((resolve) => setTimeout(resolve, 30));
 	vi.restoreAllMocks();
+	vi.useRealTimers();
 });
 
 describe('StartOnboardingModal', () => {
@@ -52,7 +53,9 @@ describe('StartOnboardingModal', () => {
 		expect((screen.getByRole('button', { name: 'Start Onboarding' }) as HTMLButtonElement).disabled).toBe(true);
 	});
 
-	it('submits the selected member and template through the existing close-first flow', async () => {
+	it('submits the selected member, start date, and template through the existing close-first flow', async () => {
+		vi.useFakeTimers({ shouldAdvanceTime: true });
+		vi.setSystemTime(new Date('2026-03-15T12:00:00.000Z'));
 		const onSubmit = vi.fn();
 		const onClose = vi.fn();
 
@@ -74,7 +77,7 @@ describe('StartOnboardingModal', () => {
 
 		await waitFor(() => {
 			expect(onClose).toHaveBeenCalledTimes(1);
-			expect(onSubmit).toHaveBeenCalledWith('person-1', expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/), 'template-1');
+			expect(onSubmit).toHaveBeenCalledWith('person-1', '2026-03-15', 'template-1');
 		});
 	});
 });

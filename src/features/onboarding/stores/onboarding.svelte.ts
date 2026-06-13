@@ -2,7 +2,7 @@
  * Onboarding store — active and completed onboarding records for the org.
  *
  * Extended methods (all call server API routes):
- * - `startOnboarding(personnelId, templateId?)` — creates a new onboarding from a template
+ * - `startOnboarding(personnelId, startedAt, templateId?)` — creates a new onboarding from a template
  * - `toggleCheckbox(stepId, completed)` — marks a step complete/incomplete
  * - `advanceStage(stepId, stageName)` — advances a multi-stage step (e.g., training steps)
  * - `addNote(stepId, text)` — appends a timestamped note to a step
@@ -22,7 +22,11 @@ interface OnboardingExtensions extends Record<string, unknown> {
 	load: (onboardings: PersonnelOnboarding[], orgId: string) => void;
 	getByPersonnelId: (personnelId: string) => PersonnelOnboarding | undefined;
 	getById: (id: string) => PersonnelOnboarding | undefined;
-	startOnboarding: (personnelId: string, templateId: string | null) => Promise<PersonnelOnboarding | null>;
+	startOnboarding: (
+		personnelId: string,
+		startedAt: string,
+		templateId: string | null
+	) => Promise<PersonnelOnboarding | null>;
 	toggleCheckbox: (stepId: string, completed: boolean) => Promise<boolean>;
 	advanceStage: (stepId: string, stageName: string) => Promise<boolean>;
 	addNote: (stepId: string, text: string) => Promise<boolean>;
@@ -98,12 +102,16 @@ function enhance(
 			return getDisplay().find((o) => o.id === id);
 		},
 
-		async startOnboarding(personnelId: string, templateId: string | null): Promise<PersonnelOnboarding | null> {
+		async startOnboarding(
+			personnelId: string,
+			startedAt: string,
+			templateId: string | null
+		): Promise<PersonnelOnboarding | null> {
 			try {
 				const res = await fetch(apiUrl('onboarding'), {
 					method: 'POST',
 					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ personnelId, templateId })
+					body: JSON.stringify({ personnelId, templateId, startedAt })
 				});
 				if (!res.ok) throw new Error('Failed to start onboarding');
 				const newOnboarding = await res.json();

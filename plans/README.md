@@ -57,7 +57,7 @@ The operator explicitly excluded automatic CI trigger work from this batch. Do n
 | 038  | Pin Critical Tasks RLS helper search path         | P3       | S      | -          | DONE   |
 | 039  | Revoke client execute from service RPCs           | P1       | S      | -          | DONE   |
 | 040  | Lock down privileged state read RPCs              | P1       | M      | 039        | TODO   |
-| 041  | Surface admin ledger load failures                | P1       | S-M    | -          | TODO   |
+| 041  | Surface admin ledger load failures                | P1       | S-M    | -          | DONE   |
 | 042  | Paginate platform admin org ledgers               | P1       | M      | 041        | TODO   |
 | 043  | Filter onboarding workspace bootstrap             | P2       | M      | -          | TODO   |
 | 044  | Add platform audit global timestamp index         | P2       | S-M    | -          | TODO   |

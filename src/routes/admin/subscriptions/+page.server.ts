@@ -1,4 +1,5 @@
 import type { PageServerLoad } from './$types';
+import { error } from '@sveltejs/kit';
 import { loadWithAdminContext } from '$lib/server/adapters/adminAdapter';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination';
 import { TIER_CONFIG, type Tier } from '$lib/types/subscription';
@@ -136,6 +137,7 @@ export const load: PageServerLoad = loadWithAdminContext({
 
 		if (orgsError) {
 			console.error('Admin subscriptions query failed:', orgsError);
+			error(500, 'Unable to load platform subscriptions.');
 		}
 
 		const orgIds = (orgs ?? []).map((org) => org.id);

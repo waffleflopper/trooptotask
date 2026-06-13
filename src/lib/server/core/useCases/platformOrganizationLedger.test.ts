@@ -43,6 +43,9 @@ describe('normalizePlatformOrganizationLedgerQuery', () => {
 			page: 1,
 			pageSize: DEFAULT_PLATFORM_LEDGER_PAGE_SIZE,
 			q: '',
+			tier: 'all',
+			status: 'all',
+			statusScope: 'organizations',
 			from: 0,
 			to: DEFAULT_PLATFORM_LEDGER_PAGE_SIZE - 1
 		});
@@ -53,6 +56,9 @@ describe('normalizePlatformOrganizationLedgerQuery', () => {
 			page: 2,
 			pageSize: MAX_PLATFORM_LEDGER_PAGE_SIZE,
 			q: '',
+			tier: 'all',
+			status: 'all',
+			statusScope: 'organizations',
 			from: MAX_PLATFORM_LEDGER_PAGE_SIZE,
 			to: MAX_PLATFORM_LEDGER_PAGE_SIZE * 2 - 1
 		});
@@ -63,8 +69,27 @@ describe('normalizePlatformOrganizationLedgerQuery', () => {
 			page: 3,
 			pageSize: 25,
 			q: 'able',
+			tier: 'all',
+			status: 'all',
+			statusScope: 'organizations',
 			from: 50,
 			to: 74
+		});
+	});
+
+	it('normalizes tier and status filters into the bounded query', () => {
+		expect(
+			normalizePlatformOrganizationLedgerQuery(
+				{ tier: ' TEAM ', status: ' suspended ' },
+				new Set(['active', 'suspended'])
+			)
+		).toMatchObject({
+			tier: 'team',
+			status: 'suspended'
+		});
+		expect(normalizePlatformOrganizationLedgerQuery({ tier: 'enterprise', status: 'gifted' })).toMatchObject({
+			tier: 'all',
+			status: 'all'
 		});
 	});
 });
@@ -91,6 +116,9 @@ describe('createPlatformOrganizationLedger', () => {
 			page: 2,
 			pageSize: 5,
 			q: 'Able',
+			tier: 'all',
+			status: 'all',
+			statusScope: 'organizations',
 			from: 5,
 			to: 9
 		});
@@ -99,7 +127,9 @@ describe('createPlatformOrganizationLedger', () => {
 			pageSize: 5,
 			totalCount: 12,
 			totalPages: 3,
-			q: 'Able'
+			q: 'Able',
+			tier: 'all',
+			status: 'all'
 		});
 		expect(result.organizations).toHaveLength(2);
 	});
@@ -140,6 +170,11 @@ describe('createPlatformOrganizationLedger', () => {
 
 		await ledger.listSubscriptions({ page: 1, pageSize: 2 });
 
+		expect(store.listOrganizationsPage).toHaveBeenCalledWith(
+			expect.objectContaining({
+				statusScope: 'subscriptions'
+			})
+		);
 		expect(readPlanDiagnostics).toHaveBeenCalledTimes(2);
 		expect(readPlanDiagnostics).toHaveBeenCalledWith('org-1');
 		expect(readPlanDiagnostics).toHaveBeenCalledWith('org-2');

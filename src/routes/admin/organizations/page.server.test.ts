@@ -68,7 +68,7 @@ describe('admin organizations route load', () => {
 		vi.restoreAllMocks();
 	});
 
-	it('passes page, page size, and organization-name search params into the Platform Organization Ledger', async () => {
+	it('passes page, page size, search, and filter params into the Platform Organization Ledger', async () => {
 		organizationLedgerMock.listOrganizations.mockResolvedValueOnce({
 			organizations: [{ id: 'org-1', name: 'Able Company' }],
 			pagination: {
@@ -76,13 +76,15 @@ describe('admin organizations route load', () => {
 				pageSize: 50,
 				totalCount: 101,
 				totalPages: 3,
-				q: 'Able'
+				q: 'Able',
+				tier: 'team',
+				status: 'active'
 			}
 		});
 
 		const result = (await load({
 			__ctx: makeContext(),
-			url: new URL('http://localhost/admin/organizations?page=3&pageSize=50&q=Able')
+			url: new URL('http://localhost/admin/organizations?page=3&pageSize=50&q=Able&tier=team&status=active')
 		} as unknown as Parameters<typeof load>[0])) as PageData;
 
 		expect(createOrganizationLedgerMock).toHaveBeenCalledWith(
@@ -91,9 +93,18 @@ describe('admin organizations route load', () => {
 		expect(organizationLedgerMock.listOrganizations).toHaveBeenCalledWith({
 			page: '3',
 			pageSize: '50',
-			q: 'Able'
+			q: 'Able',
+			tier: 'team',
+			status: 'active'
 		});
-		expect(result.pagination).toMatchObject({ page: 3, pageSize: 50, totalCount: 101, q: 'Able' });
+		expect(result.pagination).toMatchObject({
+			page: 3,
+			pageSize: 50,
+			totalCount: 101,
+			q: 'Able',
+			tier: 'team',
+			status: 'active'
+		});
 	});
 
 	it('throws a sanitized load error when the primary organization ledger cannot load', async () => {

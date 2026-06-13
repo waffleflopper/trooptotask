@@ -81,7 +81,14 @@ async function countRows(
 		range: { from: 0, to: 0 },
 		count: options.count ?? 'exact'
 	});
-	return result.count ?? result.data.length;
+	if (result.count === null || result.count === undefined) {
+		throw new Error(
+			`organizationPlanUsage.countRows expected a count for table "${table}" and org "${orgId}". Context: ${JSON.stringify(
+				{ filters: filters ?? {}, options }
+			)}`
+		);
+	}
+	return result.count;
 }
 
 export async function readOrganizationPlanUsage(

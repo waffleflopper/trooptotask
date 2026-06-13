@@ -262,7 +262,9 @@ describe('admin subscriptions page', () => {
 						pageSize: 25,
 						totalCount: 50,
 						totalPages: 2,
-						q: 'Alpha'
+						q: 'Alpha',
+						tier: 'team',
+						status: 'drifted'
 					},
 					billingDiagnosticsError: false,
 					planDiagnosticsError: false
@@ -272,7 +274,7 @@ describe('admin subscriptions page', () => {
 
 		expect(screen.getByText('Showing 1-25 of 50')).toBeTruthy();
 		expect(screen.getByRole('link', { name: 'Next' }).getAttribute('href')).toBe(
-			'/admin/subscriptions?page=2&pageSize=25&q=Alpha'
+			'/admin/subscriptions?page=2&pageSize=25&q=Alpha&tier=team&status=drifted'
 		);
 		expect(screen.getByText('Page 1 of 2')).toBeTruthy();
 	});

@@ -28,8 +28,12 @@ import {
 type QueryStub = {
 	select: ReturnType<typeof vi.fn>;
 	order: ReturnType<typeof vi.fn>;
+	eq: ReturnType<typeof vi.fn>;
 	ilike: ReturnType<typeof vi.fn>;
 	in: ReturnType<typeof vi.fn>;
+	is: ReturnType<typeof vi.fn>;
+	not: ReturnType<typeof vi.fn>;
+	or: ReturnType<typeof vi.fn>;
 	range: ReturnType<typeof vi.fn>;
 };
 
@@ -37,14 +41,22 @@ function createQueryStub(response: unknown): QueryStub {
 	const query = {
 		select: vi.fn(),
 		order: vi.fn(),
+		eq: vi.fn(),
 		ilike: vi.fn(),
 		in: vi.fn(),
+		is: vi.fn(),
+		not: vi.fn(),
+		or: vi.fn(),
 		range: vi.fn(async () => response)
 	};
 	query.select.mockReturnValue(query);
 	query.order.mockReturnValue(query);
+	query.eq.mockReturnValue(query);
 	query.ilike.mockReturnValue(query);
 	query.in.mockReturnValue(query);
+	query.is.mockReturnValue(query);
+	query.not.mockReturnValue(query);
+	query.or.mockReturnValue(query);
 	return query;
 }
 
@@ -93,6 +105,9 @@ describe('createSupabasePlatformOrganizationLedgerStore', () => {
 			page: 2,
 			pageSize: 25,
 			q: '',
+			tier: 'all',
+			status: 'all',
+			statusScope: 'organizations',
 			from: 25,
 			to: 49
 		});
@@ -124,11 +139,71 @@ describe('createSupabasePlatformOrganizationLedgerStore', () => {
 			page: 1,
 			pageSize: 25,
 			q: 'Able',
+			tier: 'all',
+			status: 'all',
+			statusScope: 'organizations',
 			from: 0,
 			to: 24
 		});
 
 		expect(organizationsQuery.ilike).toHaveBeenCalledWith('name', '%Able%');
+		expect(organizationsQuery.range).toHaveBeenCalledWith(0, 24);
+	});
+
+	it('applies tier and organization status filters before the bounded range', async () => {
+		const organizationsQuery = createQueryStub({
+			data: [],
+			count: 0,
+			error: null
+		});
+		const from = vi.fn(() => organizationsQuery);
+		const store = createSupabasePlatformOrganizationLedgerStore({ from } as never);
+
+		await store.listOrganizationsPage({
+			page: 1,
+			pageSize: 25,
+			q: '',
+			tier: 'team',
+			status: 'active',
+			statusScope: 'organizations',
+			from: 0,
+			to: 24
+		});
+
+		expect(organizationsQuery.or).toHaveBeenCalledWith('gift_tier.eq.team,and(gift_tier.is.null,tier.eq.team)');
+		expect(organizationsQuery.is).toHaveBeenCalledWith('suspended_at', null);
+		expect(organizationsQuery.is).not.toHaveBeenCalledWith('gift_tier', null);
+		expect(organizationsQuery.range).toHaveBeenCalledWith(0, 24);
+	});
+
+	it('applies subscription billing status filters before the bounded range', async () => {
+		const organizationsQuery = createQueryStub({
+			data: [],
+			count: 0,
+			error: null
+		});
+		const from = vi.fn(() => organizationsQuery);
+		const store = createSupabasePlatformOrganizationLedgerStore({ from } as never);
+
+		await store.listOrganizationsPage({
+			page: 1,
+			pageSize: 25,
+			q: '',
+			tier: 'all',
+			status: 'canceling',
+			statusScope: 'subscriptions',
+			from: 0,
+			to: 24
+		});
+
+		expect(organizationsQuery.select).toHaveBeenCalledWith(
+			'id, name, tier, gift_tier, gift_expires_at, suspended_at, created_at, organization_billing_snapshots!inner(organization_id)',
+			{ count: 'exact' }
+		);
+		expect(organizationsQuery.eq).toHaveBeenCalledWith('organization_billing_snapshots.cancel_at_period_end', true);
+		expect(organizationsQuery.or).toHaveBeenCalledWith('subscription_status.is.null,subscription_status.neq.canceled', {
+			referencedTable: 'organization_billing_snapshots'
+		});
 		expect(organizationsQuery.range).toHaveBeenCalledWith(0, 24);
 	});
 

@@ -19,6 +19,7 @@ import type { Tier } from '$lib/types/subscription';
 const ORGANIZATION_SELECT = 'id, name, tier, gift_tier, gift_expires_at, suspended_at, created_at';
 const BILLING_SNAPSHOT_SELECT =
 	'organization_id, source, commercial_plan, stripe_customer_id, stripe_subscription_id, stripe_product_id, stripe_price_id, subscription_status, collection_status, current_period_start, current_period_end, cancel_at_period_end, canceled_at, cancellation_reason, cancellation_feedback, trial_end, sync_status, last_stripe_event_id, last_stripe_event_type, last_stripe_event_created_at, last_processed_at, last_reconciled_at, reconciliation_result, drift_detected';
+const BILLING_SNAPSHOT_FILTER_STATUSES = new Set(['canceling', 'canceled', 'drifted']);
 
 type SupabasePageResponse<T> = {
 	data: T[] | null;
@@ -89,18 +90,64 @@ function mapAdminBillingSnapshot(row: AdminBillingSnapshotRow): BillingSnapshot 
 	};
 }
 
+function needsBillingSnapshotFilter(status: string): boolean {
+	return BILLING_SNAPSHOT_FILTER_STATUSES.has(status);
+}
+
+function mapOrganizationLedgerBaseRow(row: PlatformOrganizationLedgerBaseRow): PlatformOrganizationLedgerBaseRow {
+	return {
+		id: row.id,
+		name: row.name,
+		tier: row.tier,
+		gift_tier: row.gift_tier,
+		gift_expires_at: row.gift_expires_at,
+		suspended_at: row.suspended_at,
+		created_at: row.created_at
+	};
+}
+
 export function createSupabasePlatformOrganizationLedgerStore(
 	supabase: SupabaseClient
 ): PlatformOrganizationLedgerStore {
 	return {
 		async listOrganizationsPage(query: PlatformOrganizationLedgerQuery): Promise<PlatformOrganizationLedgerPage> {
+			const select = needsBillingSnapshotFilter(query.status)
+				? `${ORGANIZATION_SELECT}, organization_billing_snapshots!inner(organization_id)`
+				: ORGANIZATION_SELECT;
 			let builder = supabase
 				.from('organizations')
-				.select(ORGANIZATION_SELECT, { count: 'exact' })
+				.select(select, { count: 'exact' })
 				.order('created_at', { ascending: false });
 
 			if (query.q) {
 				builder = builder.ilike('name', `%${query.q}%`);
+			}
+
+			if (query.tier === 'free') {
+				builder = builder.or('and(gift_tier.is.null,tier.eq.free),and(gift_tier.is.null,tier.is.null)');
+			} else if (query.tier !== 'all') {
+				builder = builder.or(`gift_tier.eq.${query.tier},and(gift_tier.is.null,tier.eq.${query.tier})`);
+			}
+
+			if (query.status === 'active') {
+				builder = builder.is('suspended_at', null);
+				if (query.statusScope === 'subscriptions') {
+					builder = builder.is('gift_tier', null);
+				}
+			} else if (query.status === 'suspended') {
+				builder = builder.not('suspended_at', 'is', null);
+			} else if (query.status === 'gifted') {
+				builder = builder.not('gift_tier', 'is', null);
+			} else if (query.status === 'canceling') {
+				builder = builder
+					.eq('organization_billing_snapshots.cancel_at_period_end', true)
+					.or('subscription_status.is.null,subscription_status.neq.canceled', {
+						referencedTable: 'organization_billing_snapshots'
+					});
+			} else if (query.status === 'canceled') {
+				builder = builder.eq('organization_billing_snapshots.subscription_status', 'canceled');
+			} else if (query.status === 'drifted') {
+				builder = builder.eq('organization_billing_snapshots.drift_detected', true);
 			}
 
 			const response = (await builder.range(
@@ -110,7 +157,7 @@ export function createSupabasePlatformOrganizationLedgerStore(
 			throwIfSupabaseError(response.error);
 
 			return {
-				organizations: response.data ?? [],
+				organizations: (response.data ?? []).map(mapOrganizationLedgerBaseRow),
 				totalCount: response.count ?? 0
 			};
 		},

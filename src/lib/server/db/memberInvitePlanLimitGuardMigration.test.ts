@@ -39,6 +39,9 @@ describe('member invite plan limit guard migration', () => {
 
 	it('revokes direct client execution in the follow-up privilege migration', () => {
 		expect(privilegeMigration).toContain(
+			'revoke all on function public.block_invitation_if_member_cap_exceeded(uuid, uuid, uuid, integer, text) from public'
+		);
+		expect(privilegeMigration).toContain(
 			'revoke all on function public.block_invitation_if_member_cap_exceeded(uuid, uuid, uuid, integer, text) from anon'
 		);
 		expect(privilegeMigration).toContain(
@@ -46,6 +49,9 @@ describe('member invite plan limit guard migration', () => {
 		);
 		expect(privilegeMigration).toContain(
 			'grant execute on function public.block_invitation_if_member_cap_exceeded(uuid, uuid, uuid, integer, text) to service_role'
+		);
+		expect(privilegeMigration).not.toContain(
+			'grant execute on function public.block_invitation_if_member_cap_exceeded(uuid, uuid, uuid, integer, text) to public'
 		);
 		expect(privilegeMigration).not.toMatch(/\bcreate\s+or\s+replace\s+function\b/);
 		expect(privilegeMigration).not.toMatch(/\b(delete|insert|update)\s+(from\s+)?("?public"?\.)?"?access_requests"?/);

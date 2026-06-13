@@ -46,17 +46,17 @@ a narrow Platform Administration module.
 
 ## Commands you will need
 
-| Purpose | Command | Expected on success |
-| --- | --- | --- |
-| Install, if needed | `npm ci` | exit 0 |
-| Focused server tests | `npx vitest run src/routes/admin/subscriptions/page.server.test.ts src/routes/admin/organizations/page.server.test.ts` | all pass |
-| Focused component tests | `npx vitest run src/routes/admin/subscriptions/page.svelte.test.ts src/routes/admin/organizations` | all pass |
-| New use-case/adapter tests | `npx vitest run src/lib/server/core/useCases src/lib/server/adapters` | all pass |
-| Format | `npm run format` | exit 0 |
-| Lint | `npm run lint` | exit 0 |
-| Governance | `npm run governance:check` | exit 0 |
-| Typecheck | `npm run check` | exit 0 |
-| Full tests | `npm run test` | exit 0 |
+| Purpose                    | Command                                                                                                                | Expected on success |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------- | ------------------- |
+| Install, if needed         | `npm ci`                                                                                                               | exit 0              |
+| Focused server tests       | `npx vitest run src/routes/admin/subscriptions/page.server.test.ts src/routes/admin/organizations/page.server.test.ts` | all pass            |
+| Focused component tests    | `npx vitest run src/routes/admin/subscriptions/page.svelte.test.ts src/routes/admin/organizations`                     | all pass            |
+| New use-case/adapter tests | `npx vitest run src/lib/server/core/useCases src/lib/server/adapters`                                                  | all pass            |
+| Format                     | `npm run format`                                                                                                       | exit 0              |
+| Lint                       | `npm run lint`                                                                                                         | exit 0              |
+| Governance                 | `npm run governance:check`                                                                                             | exit 0              |
+| Typecheck                  | `npm run check`                                                                                                        | exit 0              |
+| Full tests                 | `npm run test`                                                                                                         | exit 0              |
 
 ## Scope
 
@@ -128,7 +128,7 @@ adminClient
 	.from('organizations')
 	.select('id, name, tier, gift_tier, gift_expires_at, suspended_at, created_at', { count: 'exact' })
 	.order('created_at', { ascending: false })
-	.range(from, to)
+	.range(from, to);
 ```
 
 Apply `ilike('name', ...)` only when a non-empty search query exists.

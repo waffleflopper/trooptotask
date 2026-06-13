@@ -62,16 +62,16 @@ const orgIds = (orgs ?? []).map((org) => org.id);
 
 ## Commands you will need
 
-| Purpose | Command | Expected on success |
-| --- | --- | --- |
-| Install, if needed | `npm ci` | exit 0 |
-| Focused subscriptions tests | `npx vitest run src/routes/admin/subscriptions/page.server.test.ts src/routes/admin/subscriptions/page.svelte.test.ts` | all pass |
-| Focused organizations tests | `npx vitest run src/routes/admin/organizations` | all pass |
-| Format | `npm run format` | exit 0 |
-| Lint | `npm run lint` | exit 0 |
-| Governance | `npm run governance:check` | exit 0 |
-| Typecheck | `npm run check` | exit 0 |
-| Full tests | `npm run test` | exit 0 |
+| Purpose                     | Command                                                                                                                | Expected on success |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------- | ------------------- |
+| Install, if needed          | `npm ci`                                                                                                               | exit 0              |
+| Focused subscriptions tests | `npx vitest run src/routes/admin/subscriptions/page.server.test.ts src/routes/admin/subscriptions/page.svelte.test.ts` | all pass            |
+| Focused organizations tests | `npx vitest run src/routes/admin/organizations`                                                                        | all pass            |
+| Format                      | `npm run format`                                                                                                       | exit 0              |
+| Lint                        | `npm run lint`                                                                                                         | exit 0              |
+| Governance                  | `npm run governance:check`                                                                                             | exit 0              |
+| Typecheck                   | `npm run check`                                                                                                        | exit 0              |
+| Full tests                  | `npm run test`                                                                                                         | exit 0              |
 
 ## Scope
 

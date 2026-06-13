@@ -49,11 +49,7 @@ const response = await query
   global timestamp:
 
 ```ts
-const response = await supabase
-	.from('audit_logs')
-	.select('*')
-	.order('timestamp', { ascending: false })
-	.limit(limit);
+const response = await supabase.from('audit_logs').select('*').order('timestamp', { ascending: false }).limit(limit);
 ```
 
 - `supabase/migrations/20260413001158_remote_schema.sql:2975-2983` has these audit indexes:
@@ -68,17 +64,17 @@ There is no global `timestamp desc` index.
 
 ## Commands you will need
 
-| Purpose | Command | Expected on success |
-| --- | --- | --- |
-| Install, if needed | `npm ci` | exit 0 |
-| Static migration test | `npx vitest run src/lib/server/db/platformAuditTimestampIndexMigration.test.ts` | all pass |
-| DB contract tests | `npm run db:test` | exit 0 |
-| Local migration, if local Supabase is running | `supabase migration up` | applies locally; never remote |
-| Format | `npm run format` | exit 0 |
-| Lint | `npm run lint` | exit 0 |
-| Governance | `npm run governance:check` | exit 0 |
-| Typecheck | `npm run check` | exit 0 |
-| Full tests | `npm run test` | exit 0 |
+| Purpose                                       | Command                                                                         | Expected on success           |
+| --------------------------------------------- | ------------------------------------------------------------------------------- | ----------------------------- |
+| Install, if needed                            | `npm ci`                                                                        | exit 0                        |
+| Static migration test                         | `npx vitest run src/lib/server/db/platformAuditTimestampIndexMigration.test.ts` | all pass                      |
+| DB contract tests                             | `npm run db:test`                                                               | exit 0                        |
+| Local migration, if local Supabase is running | `supabase migration up`                                                         | applies locally; never remote |
+| Format                                        | `npm run format`                                                                | exit 0                        |
+| Lint                                          | `npm run lint`                                                                  | exit 0                        |
+| Governance                                    | `npm run governance:check`                                                      | exit 0                        |
+| Typecheck                                     | `npm run check`                                                                 | exit 0                        |
+| Full tests                                    | `npm run test`                                                                  | exit 0                        |
 
 ## Scope
 

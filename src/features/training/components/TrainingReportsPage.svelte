@@ -15,8 +15,9 @@
 	import type { TrainingStatus } from '$features/training/training.types';
 	import type { Personnel } from '$lib/types';
 	import { groupsStore, type Group } from '$lib/stores/groups.svelte';
-	import type { TrainingReportData } from '$lib/server/core/useCases/trainingReportsQuery';
+	import type { TrainingReportData, TrainingReportDetail } from '$lib/server/core/useCases/trainingReportsQuery';
 	import {
+		buildTrainingReportDetailUrl,
 		buildTrainingReportExportUrl,
 		buildTrainingReportScreenModel,
 		buildTrainingReportUrl,
@@ -149,11 +150,21 @@
 			sortColumn = col;
 			sortAsc = true;
 		}
-		void reloadFirstReportPage();
+		void reloadFirstReportDetailPage();
 	}
 
-	function buildReportUrl(page: number): string {
+	function buildFullReportUrl(page: number): string {
 		return buildTrainingReportUrl({
+			orgId: org.orgId,
+			filters: reportFilters,
+			sort: reportSort,
+			page,
+			pageSize: screen.pageSize
+		});
+	}
+
+	function buildDetailReportUrl(page: number): string {
+		return buildTrainingReportDetailUrl({
 			orgId: org.orgId,
 			filters: reportFilters,
 			sort: reportSort,
@@ -171,6 +182,46 @@
 	}
 
 	async function loadReportPage(page: number): Promise<void> {
+		const baseReport = activeReport;
+		if (!baseReport) return;
+		const requestId = localReport.requestId + 1;
+		localReport = {
+			serverReportKey,
+			report: localReportMatchesServer ? localReport.report : null,
+			loading: true,
+			error: null,
+			requestId
+		};
+		try {
+			const response = await fetch(buildDetailReportUrl(page));
+			if (!response.ok) {
+				throw new Error('Failed to load training report page');
+			}
+			const nextDetail = (await response.json()) as TrainingReportDetail;
+			const nextReport = { ...baseReport, detail: nextDetail };
+			if (requestId === localReport.requestId) {
+				localReport = {
+					serverReportKey,
+					report: nextReport,
+					loading: false,
+					error: null,
+					requestId
+				};
+			}
+		} catch (error) {
+			if (requestId === localReport.requestId) {
+				localReport = {
+					serverReportKey,
+					report: localReportMatchesServer ? localReport.report : null,
+					loading: false,
+					error: error instanceof Error ? error.message : 'Failed to load training report page',
+					requestId
+				};
+			}
+		}
+	}
+
+	async function loadFullReportPage(page: number): Promise<void> {
 		if (!activeReport) return;
 		const requestId = localReport.requestId + 1;
 		localReport = {
@@ -181,7 +232,7 @@
 			requestId
 		};
 		try {
-			const response = await fetch(buildReportUrl(page));
+			const response = await fetch(buildFullReportUrl(page));
 			if (!response.ok) {
 				throw new Error('Failed to load training report page');
 			}
@@ -208,10 +259,16 @@
 		}
 	}
 
-	async function reloadFirstReportPage(): Promise<void> {
+	async function reloadFirstReportDetailPage(): Promise<void> {
 		if (!activeReport) return;
 		await tick();
 		await loadReportPage(1);
+	}
+
+	async function reloadFirstReportPage(): Promise<void> {
+		if (!activeReport) return;
+		await tick();
+		await loadFullReportPage(1);
 	}
 
 	async function exportExcel() {
@@ -271,7 +328,7 @@
 
 	function setStatusFilter(status: TrainingStatus | '') {
 		filterStatus = filterStatus === status ? '' : status;
-		void reloadFirstReportPage();
+		void reloadFirstReportDetailPage();
 	}
 
 	function readinessToneClass(pct: number): string {
@@ -488,7 +545,7 @@
 					value={filterStatus}
 					onValueChange={(value) => {
 						filterStatus = value as TrainingStatus | '';
-						void reloadFirstReportPage();
+						void reloadFirstReportDetailPage();
 					}}
 				/>
 				{#if screen.typeFilterOptions.length > 1}

@@ -84,4 +84,24 @@ describe('onboardingStore - load during in-flight mutations (issue #113)', () =>
 
 		resolveFetch(undefined);
 	});
+
+	it('includes the selected start date when creating an onboarding', async () => {
+		onboardingStore.load([], 'org-1');
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockResolvedValue({
+				ok: true,
+				status: 200,
+				json: () => Promise.resolve(mockOnboarding)
+			})
+		);
+
+		await onboardingStore.startOnboarding('p-1', '2026-03-15', 'template-1');
+
+		expect(fetch).toHaveBeenCalledWith('/org/org-1/api/onboarding', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ personnelId: 'p-1', templateId: 'template-1', startedAt: '2026-03-15' })
+		});
+	});
 });

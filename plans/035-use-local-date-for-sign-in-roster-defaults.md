@@ -56,15 +56,15 @@ export function formatDate(date: Date): string {
 
 ## Commands you will need
 
-| Purpose | Command | Expected on success |
-| --- | --- | --- |
-| Focused component tests | `npx vitest run src/features/sign-in-rosters/components/SignInRosterModal.test.ts` | all pass |
-| Date helper tests | `npx vitest run src/lib/utils/dates.test.ts` | all pass |
-| Format | `npm run format` | exit 0 |
-| Lint | `npm run lint` | exit 0 |
-| Governance | `npm run governance:check` | exit 0 |
-| Typecheck | `npm run check` | exit 0 |
-| Full tests | `npm run test` | exit 0 |
+| Purpose                 | Command                                                                            | Expected on success |
+| ----------------------- | ---------------------------------------------------------------------------------- | ------------------- |
+| Focused component tests | `npx vitest run src/features/sign-in-rosters/components/SignInRosterModal.test.ts` | all pass            |
+| Date helper tests       | `npx vitest run src/lib/utils/dates.test.ts`                                       | all pass            |
+| Format                  | `npm run format`                                                                   | exit 0              |
+| Lint                    | `npm run lint`                                                                     | exit 0              |
+| Governance              | `npm run governance:check`                                                         | exit 0              |
+| Typecheck               | `npm run check`                                                                    | exit 0              |
+| Full tests              | `npm run test`                                                                     | exit 0              |
 
 ## Suggested executor toolkit
 
@@ -101,7 +101,7 @@ Import `formatDate` from `$lib/utils/dates` in `SignInRosterModal.svelte`.
 Replace both `new Date().toISOString().split('T')[0]` occurrences with:
 
 ```ts
-formatDate(new Date())
+formatDate(new Date());
 ```
 
 Use a small local helper like `todayDateValue()` only if it makes the component clearer.

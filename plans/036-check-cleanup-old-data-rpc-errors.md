@@ -50,14 +50,14 @@ return json({
 
 ## Commands you will need
 
-| Purpose | Command | Expected on success |
-| --- | --- | --- |
-| Focused tests | `npx vitest run src/routes/api/cleanup-old-data/server.test.ts` | all pass |
-| Format | `npm run format` | exit 0 |
-| Lint | `npm run lint` | exit 0 |
-| Governance | `npm run governance:check` | exit 0 |
-| Typecheck | `npm run check` | exit 0 |
-| Full tests | `npm run test` | exit 0 |
+| Purpose       | Command                                                         | Expected on success |
+| ------------- | --------------------------------------------------------------- | ------------------- |
+| Focused tests | `npx vitest run src/routes/api/cleanup-old-data/server.test.ts` | all pass            |
+| Format        | `npm run format`                                                | exit 0              |
+| Lint          | `npm run lint`                                                  | exit 0              |
+| Governance    | `npm run governance:check`                                      | exit 0              |
+| Typecheck     | `npm run check`                                                 | exit 0              |
+| Full tests    | `npm run test`                                                  | exit 0              |
 
 ## Scope
 
@@ -104,8 +104,8 @@ similarly safe fixed message. Do not return raw database error text to the clien
 Keep `GET` responsible for reading `env`, creating `getAdminClient()`, and passing callbacks:
 
 ```ts
-runAuditCleanup: () => admin.rpc('cleanup_old_audit_logs')
-runWebhookCleanup: () => admin.rpc('cleanup_old_webhook_events')
+runAuditCleanup: () => admin.rpc('cleanup_old_audit_logs');
+runWebhookCleanup: () => admin.rpc('cleanup_old_webhook_events');
 ```
 
 Preserve the successful response shape:

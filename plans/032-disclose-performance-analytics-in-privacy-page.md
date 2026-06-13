@@ -34,11 +34,12 @@ privacy page matches that position.
 - `src/routes/+layout.svelte:14-18` loads analytics and speed insights:
 
 ```ts
-void Promise.all([import('@vercel/analytics'), import('@vercel/speed-insights')])
-	.then(([{ inject }, { injectSpeedInsights }]) => {
+void Promise.all([import('@vercel/analytics'), import('@vercel/speed-insights')]).then(
+	([{ inject }, { injectSpeedInsights }]) => {
 		inject();
 		injectSpeedInsights();
-	})
+	}
+);
 ```
 
 - `src/hooks.server.ts:24` allows Vercel analytics endpoints in CSP:
@@ -65,13 +66,13 @@ script-src ... https://va.vercel-scripts.com ...; connect-src ... https://vitals
 
 ## Commands you will need
 
-| Purpose | Command | Expected on success |
-| --- | --- | --- |
-| Typecheck | `npm run check` | exit 0 |
-| Format | `npm run format` | exit 0 |
-| Lint | `npm run lint` | exit 0 |
-| Governance | `npm run governance:check` | exit 0 |
-| Full tests | `npm run test` | exit 0 |
+| Purpose    | Command                    | Expected on success |
+| ---------- | -------------------------- | ------------------- |
+| Typecheck  | `npm run check`            | exit 0              |
+| Format     | `npm run format`           | exit 0              |
+| Lint       | `npm run lint`             | exit 0              |
+| Governance | `npm run governance:check` | exit 0              |
+| Full tests | `npm run test`             | exit 0              |
 
 ## Scope
 
@@ -133,7 +134,7 @@ Expected: no stale contradiction remains.
 
 - [ ] Privacy page discloses aggregate performance/site analytics.
 - [ ] Privacy page still says no advertising pixels, no data broker networks, and no person-level
-  analytics profiling.
+      analytics profiling.
 - [ ] Vercel Analytics and Speed Insights remain enabled.
 - [ ] GitHub feedback mirroring is untouched.
 - [ ] `plans/README.md` status row for 032 is updated.

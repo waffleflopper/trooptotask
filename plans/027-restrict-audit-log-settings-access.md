@@ -56,15 +56,15 @@ CREATE POLICY "Org owners can read own audit logs" ON "public"."audit_logs" FOR 
 
 ## Commands you will need
 
-| Purpose | Command | Expected on success |
-| --- | --- | --- |
-| Focused policy tests | `npx vitest run src/lib/access/policyEvaluator.test.ts` | all pass |
-| Focused settings tests | `npx vitest run "src/routes/org/[orgId]/settings"` | all pass |
-| Format | `npm run format` | exit 0 |
-| Lint | `npm run lint` | exit 0 |
-| Governance | `npm run governance:check` | exit 0 |
-| Typecheck | `npm run check` | exit 0 |
-| Full tests | `npm run test` | exit 0 |
+| Purpose                | Command                                                 | Expected on success |
+| ---------------------- | ------------------------------------------------------- | ------------------- |
+| Focused policy tests   | `npx vitest run src/lib/access/policyEvaluator.test.ts` | all pass            |
+| Focused settings tests | `npx vitest run "src/routes/org/[orgId]/settings"`      | all pass            |
+| Format                 | `npm run format`                                        | exit 0              |
+| Lint                   | `npm run lint`                                          | exit 0              |
+| Governance             | `npm run governance:check`                              | exit 0              |
+| Typecheck              | `npm run check`                                         | exit 0              |
+| Full tests             | `npm run test`                                          | exit 0              |
 
 ## Scope
 

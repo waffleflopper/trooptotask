@@ -61,15 +61,15 @@ high path = @sveltejs/adapter-vercel, @vitest/mocker, esbuild, vite, vite-node, 
 
 ## Commands you will need
 
-| Purpose | Command | Expected on success |
-| --- | --- | --- |
+| Purpose         | Command                               | Expected on success                                           |
+| --------------- | ------------------------------------- | ------------------------------------------------------------- |
 | Audit inventory | `npm audit --audit-level=high --json` | exits 0, or only documented accepted non-high findings remain |
-| Build sanity | `npm run build` | exit 0 |
-| Format | `npm run format` | exit 0 |
-| Lint | `npm run lint` | exit 0 |
-| Governance | `npm run governance:check` | exit 0 |
-| Typecheck | `npm run check` | exit 0 |
-| Full tests | `npm run test` | exit 0 |
+| Build sanity    | `npm run build`                       | exit 0                                                        |
+| Format          | `npm run format`                      | exit 0                                                        |
+| Lint            | `npm run lint`                        | exit 0                                                        |
+| Governance      | `npm run governance:check`            | exit 0                                                        |
+| Typecheck       | `npm run check`                       | exit 0                                                        |
+| Full tests      | `npm run test`                        | exit 0                                                        |
 
 ## Scope
 
@@ -158,9 +158,9 @@ accepted downgrade-only findings, leave them documented in `plans/README.md`.
 ## Done criteria
 
 - [ ] `npm audit --audit-level=high --json` exits 0, or any remaining high advisory has an explicit
-  reviewer-approved acceptance recorded in `plans/README.md`.
+      reviewer-approved acceptance recorded in `plans/README.md`.
 - [ ] `package-lock.json` no longer resolves vulnerable Vite/Vitest/esbuild packages in the high
-  advisory path.
+      advisory path.
 - [ ] `npm run build`, `npm run check`, and `npm run test` exit 0.
 - [ ] No application behavior changes are mixed into this dependency slice.
 - [ ] `plans/README.md` status row for 030 is updated.

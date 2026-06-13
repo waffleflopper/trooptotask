@@ -163,8 +163,7 @@ describe('settings layout server load', () => {
 				createReadyAppShellRouteData({
 					orgId: 'org-1',
 					orgName: 'Test Org',
-					orgUrlSegment: 'test-org',
-					role: 'owner'
+					orgUrlSegment: 'test-org'
 				})
 		} as never);
 

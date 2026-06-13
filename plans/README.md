@@ -52,7 +52,7 @@ The operator explicitly excluded automatic CI trigger work from this batch. Do n
 | 035  | Use local date for sign-in roster defaults        | P2       | S      | -          | DONE   |
 | 036  | Check cleanup-old-data RPC errors                 | P3       | S      | -          | DONE   |
 | 037  | Close route Supabase governance blind spot        | P3       | S      | -          | DONE   |
-| 038  | Pin Critical Tasks RLS helper search path         | P3       | S      | -          | TODO   |
+| 038  | Pin Critical Tasks RLS helper search path         | P3       | S      | -          | DONE   |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line rationale).
 

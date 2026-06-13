@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { _runCleanupOldDataEndpointCore } from './+server';
 
 function makeRequest(token?: string): Request {
@@ -12,6 +12,16 @@ function makeRpcResult(data: number | null, error: unknown = null) {
 }
 
 describe('cleanup old data endpoint core', () => {
+	let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
+
+	beforeEach(() => {
+		consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+	});
+
+	afterEach(() => {
+		consoleErrorSpy.mockRestore();
+	});
+
 	it('rejects missing bearer token', async () => {
 		const runAuditCleanup = vi.fn(async () => makeRpcResult(0));
 		const runWebhookCleanup = vi.fn(async () => makeRpcResult(0));
@@ -29,6 +39,7 @@ describe('cleanup old data endpoint core', () => {
 		).rejects.toMatchObject({ status: 401 });
 		expect(runAuditCleanup).not.toHaveBeenCalled();
 		expect(runWebhookCleanup).not.toHaveBeenCalled();
+		expect(consoleErrorSpy).not.toHaveBeenCalled();
 	});
 
 	it('accepts CLEANUP_SECRET bearer token and returns cleanup counts', async () => {
@@ -60,6 +71,7 @@ describe('cleanup old data endpoint core', () => {
 		});
 
 		expect(response.status).toBe(200);
+		expect(consoleErrorSpy).not.toHaveBeenCalled();
 	});
 
 	it('rejects audit RPC errors with a safe 500', async () => {
@@ -77,6 +89,10 @@ describe('cleanup old data endpoint core', () => {
 			status: 500,
 			body: { message: 'Failed to cleanup old data' }
 		});
+		expect(consoleErrorSpy).toHaveBeenCalledWith('Cleanup old data RPC failure', {
+			auditError: { message: 'database details' },
+			webhookError: null
+		});
 	});
 
 	it('rejects webhook RPC errors with a safe 500', async () => {
@@ -93,6 +109,10 @@ describe('cleanup old data endpoint core', () => {
 		).rejects.toMatchObject({
 			status: 500,
 			body: { message: 'Failed to cleanup old data' }
+		});
+		expect(consoleErrorSpy).toHaveBeenCalledWith('Cleanup old data RPC failure', {
+			auditError: null,
+			webhookError: { message: 'database details' }
 		});
 	});
 
@@ -113,5 +133,9 @@ describe('cleanup old data endpoint core', () => {
 		).rejects.toMatchObject({ status: 500 });
 		expect(runAuditCleanup).toHaveBeenCalledOnce();
 		expect(runWebhookCleanup).toHaveBeenCalledOnce();
+		expect(consoleErrorSpy).toHaveBeenCalledWith('Cleanup old data RPC failure', {
+			auditError: { message: 'audit failed' },
+			webhookError: null
+		});
 	});
 });

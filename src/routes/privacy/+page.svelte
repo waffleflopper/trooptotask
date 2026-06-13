@@ -83,10 +83,9 @@
 			Vercel Speed Insights to collect aggregate site analytics and performance signals, including visited URLs,
 			referrers, device and browser information, coarse geolocation, Web Vitals metrics, and timestamps. Vercel
 			identifies visits with a request hash, discards session data after 24 hours, and does not require persistent
-			analytics cookies. We strip or redact personal data from URLs and query parameters before analytics events are
-			sent. Learn more in <a href="https://vercel.com/legal/privacy-policy">Vercel's Privacy Notice</a>. We do not use
-			third-party advertising pixels, sell analytics data, participate in cross-site tracking or data broker networks,
-			or use analytics to profile individual people.
+			analytics cookies. Learn more in <a href="https://vercel.com/legal/privacy-policy">Vercel's Privacy Notice</a>. We
+			do not use third-party advertising pixels, sell analytics data, participate in cross-site tracking or data broker
+			networks, or use analytics to profile individual people.
 		</p>
 	</PublicContentSection>
 

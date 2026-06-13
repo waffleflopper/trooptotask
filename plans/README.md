@@ -49,7 +49,7 @@ The operator explicitly excluded automatic CI trigger work from this batch. Do n
 | 032  | Disclose performance analytics in privacy page    | P2       | S      | -          | DONE   |
 | 033  | Hide deferred chrome backend error details        | P2       | S      | -          | DONE   |
 | 034  | Thread onboarding start date through API          | P2       | S      | 029        | TODO   |
-| 035  | Use local date for sign-in roster defaults        | P2       | S      | -          | TODO   |
+| 035  | Use local date for sign-in roster defaults        | P2       | S      | -          | DONE   |
 | 036  | Check cleanup-old-data RPC errors                 | P3       | S      | -          | TODO   |
 | 037  | Close route Supabase governance blind spot        | P3       | S      | -          | TODO   |
 | 038  | Pin Critical Tasks RLS helper search path         | P3       | S      | -          | TODO   |

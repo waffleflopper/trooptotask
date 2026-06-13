@@ -125,11 +125,49 @@ function ensureDriftIdsExist(ids, contextLabel) {
 	}
 }
 
+function collectDestructuredLocalSupabaseBindings(content) {
+	const bindings = new Set();
+	const destructuringPattern = /\b(?:const|let|var)\s*\{(?<properties>[^}]*\bsupabase\b[^}]*)\}\s*=\s*locals\b/g;
+
+	for (const match of content.matchAll(destructuringPattern)) {
+		for (const property of match.groups.properties.split(',')) {
+			const trimmed = property.trim();
+			if (!trimmed) continue;
+
+			const aliasMatch = trimmed.match(/^supabase\s*:\s*([A-Za-z_$][\w$]*)\b/);
+			if (aliasMatch) {
+				bindings.add(aliasMatch[1]);
+				continue;
+			}
+
+			if (/^supabase(?:\s*=|\s*$)/.test(trimmed)) {
+				bindings.add('supabase');
+			}
+		}
+	}
+
+	return bindings;
+}
+
+function hasRouteSupabaseUsage(content) {
+	if (content.includes('locals.supabase')) return true;
+
+	const bindings = collectDestructuredLocalSupabaseBindings(content);
+	if (bindings.size === 0) return false;
+
+	for (const binding of bindings) {
+		const usagePattern = new RegExp(`\\b${binding}\\s*(?:\\.\\s*(?:from|rpc|auth|storage)\\b)`);
+		if (usagePattern.test(content)) return true;
+	}
+
+	return true;
+}
+
 function checkRouteSupabaseAllowlist() {
 	const routeFiles = walkRelative('src/routes').filter(
 		(filePath) => filePath.endsWith('.server.ts') || filePath.endsWith('/+server.ts')
 	);
-	const actualUsages = routeFiles.filter((filePath) => readRelativeFile(filePath).includes('locals.supabase'));
+	const actualUsages = routeFiles.filter((filePath) => hasRouteSupabaseUsage(readRelativeFile(filePath)));
 	const allowlistedPaths = baseline.routeSupabaseAllowlist.map((entry) => entry.path).sort();
 	const actualPaths = [...actualUsages].sort();
 	const allowlistedSet = new Set(allowlistedPaths);
@@ -143,15 +181,15 @@ function checkRouteSupabaseAllowlist() {
 			continue;
 		}
 
-		if (!readRelativeFile(entry.path).includes('locals.supabase')) {
-			errors.push(`${context} is stale because the file no longer uses locals.supabase`);
+		if (!hasRouteSupabaseUsage(readRelativeFile(entry.path))) {
+			errors.push(`${context} is stale because the file no longer uses route-level Supabase`);
 		}
 	}
 
 	for (const filePath of actualPaths) {
 		if (!allowlistedSet.has(filePath)) {
 			errors.push(
-				`Undocumented route-level locals.supabase usage: ${filePath}. Add a documented exception or move the logic behind an adapter/use case.`
+				`Undocumented route-level Supabase usage: ${filePath}. Add a documented exception or move the logic behind an adapter/use case.`
 			);
 		}
 	}

@@ -293,7 +293,7 @@ describe('policy evaluator', () => {
 		const decision = evaluatePolicyDecision({
 			decisionKind: 'server-authoritative',
 			actor: { membershipRole: 'admin' },
-			action: POLICY_ACTION_CATALOG.organization.deleteOrganization,
+			action: POLICY_ACTION_CATALOG.organization.accessAuditLogs,
 			capabilityMap: { ...baseCapabilityMap, personnel: 'configure' },
 			scopeSet: { kind: 'organization' },
 			resource: { kind: 'organization' },
@@ -307,6 +307,24 @@ describe('policy evaluator', () => {
 			audit: { capture: true, category: 'denied' }
 		});
 		expect(decision.matchedCapability).toBeUndefined();
+
+		const ownerDecision = evaluatePolicyDecision({
+			decisionKind: 'server-authoritative',
+			actor: { membershipRole: 'owner' },
+			action: POLICY_ACTION_CATALOG.organization.accessAuditLogs,
+			capabilityMap: baseCapabilityMap,
+			scopeSet: { kind: 'organization' },
+			resource: { kind: 'organization' },
+			overlays: []
+		});
+
+		expect(ownerDecision).toMatchObject({
+			allowed: true,
+			reasonCode: 'allowed:governance',
+			action: { owner: { kind: 'organization-governance', access: 'owner-only' } },
+			audit: { capture: true, category: 'governance' }
+		});
+		expect(ownerDecision.matchedCapability).toBeUndefined();
 	});
 
 	it('lets read-only overlays block governance writes after role checks pass', () => {
@@ -538,6 +556,11 @@ describe('policy evaluator', () => {
 	});
 
 	it('defines new rollout workflow actions with the settled ownership semantics', () => {
+		expect(POLICY_ACTION_CATALOG.organization.accessAuditLogs).toMatchObject({
+			id: 'organization.accessAuditLogs',
+			accessMode: 'governance',
+			owner: { kind: 'organization-governance', access: 'owner-only' }
+		});
 		expect(POLICY_ACTION_CATALOG.organization.manageBilling).toMatchObject({
 			id: 'organization.manageBilling',
 			accessMode: 'governance',

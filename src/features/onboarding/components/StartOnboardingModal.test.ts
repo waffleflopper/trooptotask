@@ -30,6 +30,7 @@ afterEach(async () => {
 	cleanup();
 	await new Promise((resolve) => setTimeout(resolve, 30));
 	vi.restoreAllMocks();
+	vi.useRealTimers();
 });
 
 describe('StartOnboardingModal', () => {
@@ -52,7 +53,9 @@ describe('StartOnboardingModal', () => {
 		expect((screen.getByRole('button', { name: 'Start Onboarding' }) as HTMLButtonElement).disabled).toBe(true);
 	});
 
-	it('submits the selected member and template through the existing close-first flow', async () => {
+	it('submits the selected member, start date, and template through the existing close-first flow', async () => {
+		vi.useFakeTimers({ shouldAdvanceTime: true });
+		vi.setSystemTime(new Date('2026-03-15T12:00:00.000Z'));
 		const onSubmit = vi.fn();
 		const onClose = vi.fn();
 
@@ -74,7 +77,44 @@ describe('StartOnboardingModal', () => {
 
 		await waitFor(() => {
 			expect(onClose).toHaveBeenCalledTimes(1);
-			expect(onSubmit).toHaveBeenCalledWith('person-1', expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/), 'template-1');
+			expect(onSubmit).toHaveBeenCalledWith('person-1', '2026-03-15', 'template-1');
 		});
+	});
+
+	it('uses the local calendar date for the default start date', async () => {
+		const originalTimezone = process.env.TZ;
+		process.env.TZ = 'America/Anchorage';
+		vi.useFakeTimers({ shouldAdvanceTime: true });
+		vi.setSystemTime(new Date('2026-05-05T02:00:00.000Z'));
+		const onSubmit = vi.fn();
+
+		try {
+			render(StartOnboardingModal, {
+				props: {
+					personnel,
+					existingOnboardingPersonnelIds: [],
+					groups: [],
+					templates: [template],
+					onSubmit,
+					onAddPerson: vi.fn(),
+					onClose: vi.fn()
+				}
+			});
+
+			await fireEvent.click(screen.getByRole('button', { name: 'Member' }));
+			await fireEvent.click(await screen.findByRole('option', { name: 'SGT Smith, Jane' }));
+			await fireEvent.click(screen.getByRole('button', { name: 'Start Onboarding' }));
+
+			await waitFor(() => {
+				expect(onSubmit).toHaveBeenCalledWith('person-1', '2026-05-04', 'template-1');
+			});
+		} finally {
+			vi.useRealTimers();
+			if (originalTimezone === undefined) {
+				delete process.env.TZ;
+			} else {
+				process.env.TZ = originalTimezone;
+			}
+		}
 	});
 });

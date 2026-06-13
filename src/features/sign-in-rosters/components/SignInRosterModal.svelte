@@ -18,6 +18,7 @@
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import { SENSITIVE_FILE_ACCEPT, validateSensitiveFileSelection } from '$lib/storage/sensitiveFiles';
 	import { toastStore } from '$lib/stores/toast.svelte';
+	import { formatDate as formatDateValue } from '$lib/utils/dates';
 	import { SvelteMap, SvelteSet, SvelteURLSearchParams } from 'svelte/reactivity';
 
 	interface Props {
@@ -54,7 +55,7 @@
 	// Create view state
 	let title = $state('');
 	let dateOption = $state<'specific' | 'blank'>('specific');
-	let rosterDate = $state(new Date().toISOString().split('T')[0]);
+	let rosterDate = $state(formatDateValue(new Date()));
 	let separateByGroup = $state(false);
 	let sortBy = $state<'alphabetical' | 'rank'>('alphabetical');
 	let selectedRanks = new SvelteSet<string>(ALL_RANKS);
@@ -289,7 +290,7 @@
 				// Reset create form
 				title = '';
 				dateOption = 'specific';
-				rosterDate = new Date().toISOString().split('T')[0];
+				rosterDate = formatDateValue(new Date());
 				separateByGroup = false;
 				sortBy = 'alphabetical';
 				resetCreateFilters();

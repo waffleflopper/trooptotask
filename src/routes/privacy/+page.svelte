@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import PublicContentSection from '$lib/components/public/PublicContentSection.svelte';
 	import PublicPageHeader from '$lib/components/public/PublicPageHeader.svelte';
 	import PublicShell from '$lib/components/public/PublicShell.svelte';
@@ -43,7 +44,7 @@
 		<p>
 			All data is encrypted at rest (AES-256) and in transit (TLS 1.2+). Data is stored on Supabase infrastructure
 			hosted in the United States. We implement role-based access controls, audit logging, and security headers aligned
-			with NIST SP 800-171. See our <a href="/security">Security page</a> for comprehensive details.
+			with NIST SP 800-171. See our <a href={resolve('/security')}>Security page</a> for comprehensive details.
 		</p>
 	</PublicContentSection>
 
@@ -78,9 +79,13 @@
 	<PublicContentSection label="07 // Cookies &amp; Tracking">
 		{#snippet title()}Essential only, no surveillance.{/snippet}
 		<p>
-			We use only essential cookies required for authentication and session management. We do not use tracking cookies,
-			analytics beacons, or third-party advertising pixels. We do not participate in cross-site tracking or data broker
-			networks.
+			We use only essential cookies required for authentication and session management. We use Vercel Web Analytics and
+			Vercel Speed Insights to collect aggregate site analytics and performance signals, including visited URLs,
+			referrers, device and browser information, coarse geolocation, Web Vitals metrics, and timestamps. Vercel
+			identifies visits with a request hash, discards session data after 24 hours, and does not require persistent
+			analytics cookies. Learn more in <a href="https://vercel.com/legal/privacy-policy">Vercel's Privacy Notice</a>. We
+			do not use third-party advertising pixels, sell analytics data, participate in cross-site tracking or data broker
+			networks, or use analytics to profile individual people.
 		</p>
 	</PublicContentSection>
 

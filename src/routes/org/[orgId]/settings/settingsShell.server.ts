@@ -31,7 +31,7 @@ export interface SettingsShell {
 		policies: true;
 		archives: true;
 		approvals: true;
-		logs: true;
+		logs: boolean;
 		exports: true;
 		danger: boolean;
 	};
@@ -84,7 +84,7 @@ export async function loadSettingsShell(
 			policies: true,
 			archives: true,
 			approvals: true,
-			logs: true,
+			logs: isOwner,
 			exports: true,
 			danger: isOwner
 		},

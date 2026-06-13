@@ -38,7 +38,9 @@
 				badge: settingsShell?.navBadges.pendingApprovalsCount || undefined,
 				badgeVariant: 'warning' as const
 			},
-			{ label: 'Logs', href: `${baseHref}/logs`, active: activePath.endsWith('/settings/logs') },
+			...(settingsShell?.tabVisibility.logs
+				? [{ label: 'Logs', href: `${baseHref}/logs`, active: activePath.endsWith('/settings/logs') }]
+				: []),
 			{ label: 'Exports', href: `${baseHref}/exports`, active: activePath.endsWith('/settings/exports') },
 			...(settingsShell?.tabVisibility.danger
 				? [{ label: 'Danger', href: `${baseHref}/danger`, active: activePath.endsWith('/settings/danger') }]

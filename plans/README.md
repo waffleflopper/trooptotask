@@ -5,6 +5,7 @@ Updated by the improve skill on 2026-06-11 at commit `c99874d0` with plans 007-0
 Updated by the improve skill on 2026-06-11 at commit `22e6e184` with plans 012-017 (fresh full audit; plans 001-011 verified DONE).
 Updated by the improve skill on 2026-06-11 at commit `22e6e184` with performance plans 018-022.
 Updated by the improve skill on 2026-06-11 at commit `79cfef20` with plans 023-026 (follow-up audit excluding all prior planned/rejected findings; run non-interactively, so the top findings by leverage were planned by default).
+Updated by the improve skill on 2026-06-12 at commit `a2b09628` with plans 027-038 (deep audit follow-up; Robert selected all findings and narrowed the privacy item to analytics disclosure only).
 
 Execute in the order below unless dependencies say otherwise. Each executor must read the selected plan fully before starting, honor its STOP conditions, run every verification command, and update the status row when done.
 
@@ -40,6 +41,18 @@ The operator explicitly excluded automatic CI trigger work from this batch. Do n
 | 024  | Sanitize unhandled route error logs               | P2       | S      | -          | DONE   |
 | 025  | Duty-roster workflow E2E Playwright spec          | P2       | M      | -          | DONE   |
 | 026  | Add documented .env.example                       | P3       | S      | -          | DONE   |
+| 027  | Restrict audit-log settings to owner-only access  | P1       | M      | -          | DONE   |
+| 028  | Approve deletion requests after resource effects  | P1       | M      | -          | DONE   |
+| 029  | Remove active onboarding after snapshot failure   | P1       | M      | -          | DONE   |
+| 030  | Patch high-severity build-tool advisories         | P1       | M      | -          | DONE   |
+| 031  | Derive feedback org context server-side           | P2       | S-M    | -          | DONE   |
+| 032  | Disclose performance analytics in privacy page    | P2       | S      | -          | DONE   |
+| 033  | Hide deferred chrome backend error details        | P2       | S      | -          | DONE   |
+| 034  | Thread onboarding start date through API          | P2       | S      | 029        | DONE   |
+| 035  | Use local date for sign-in roster defaults        | P2       | S      | -          | DONE   |
+| 036  | Check cleanup-old-data RPC errors                 | P3       | S      | -          | DONE   |
+| 037  | Close route Supabase governance blind spot        | P3       | S      | -          | DONE   |
+| 038  | Pin Critical Tasks RLS helper search path         | P3       | S      | -          | DONE   |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line rationale).
 
@@ -62,6 +75,11 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJE
 - 022 is independent retention cleanup work; it should not need a migration.
 - 023, 024, and 026 are independent of each other and of everything above; 023 and 024 touch different layers (route files vs. the adapter's error funnel) and can run in parallel.
 - 025 is test-only and requires a running local Supabase; do not run it in parallel with other agents that mutate `e2e/fixtures/test-data.ts`. It builds browser coverage on top of the calendar/duty-roster behavior pinned by plans 004, 005, 009, and 019 — execute it last in this batch.
+- 027, 028, 030, 031, 032, 033, 035, 036, 037, and 038 are independent of each other by source scope. They can run in parallel if each executor uses an isolated worktree and no two agents mutate `plans/README.md` at the same time.
+- 029 and 034 both touch `startOnboarding` and onboarding tests. Run 029 first so the failure-consistency fix lands before 034 changes the input contract and API payload shape.
+- 030 is dependency/toolchain work. Do not run it in the same worktree as other plans because `package-lock.json` churn can make unrelated verification failures harder to attribute.
+- 031 and 032 are related only by product area. 031 fixes active beta feedback data attribution; 032 updates privacy copy for Vercel performance analytics. 032 explicitly does not remove or change the temporary GitHub beta feedback mirror.
+- 038 is local Supabase migration work. Do not run it in parallel with other agents adding migrations, never target production, and do not reset or delete the local database without Robert's explicit permission.
 
 ## Findings Considered And Rejected
 
@@ -72,6 +90,7 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJE
   re-check when exceljs ships a major. @sveltejs/\* and bits-ui/runed lows have downgrade-only
   fixes — accepted. Critical vitest advisory fixed in plan 013.
 - `bits-ui` postinstall patch: real dependency debt, but lower leverage than the selected security, database, and calendar/duty-roster correctness work. Re-confirmed 2026-06-11 (finding F10): still deferred; the version pin is honored by plan 013's scope.
+- GitHub beta feedback mirror privacy remediation: not planned. Robert said the GitHub feedback mirror will go away after beta and does not need launch hardening. Plan 032 is scoped only to truthful disclosure of Vercel site/performance analytics without implying person-level analytics profiling.
 
 Rejected in the 2026-06-11 full audit (commit `22e6e184`):
 

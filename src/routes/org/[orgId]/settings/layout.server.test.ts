@@ -121,10 +121,61 @@ describe('settings layout server load', () => {
 					isOwner: false,
 					canManageMembers: true
 				},
+				tabVisibility: {
+					logs: false
+				},
 				navBadges: {
 					pendingInvitationsCount: 0,
 					archivedPersonnelCount: 0,
 					pendingApprovalsCount: 0
+				}
+			}
+		});
+	});
+
+	it('keeps the logs settings tab visible for owners', async () => {
+		const ctx = createTestContext({
+			auth: {
+				orgId: 'org-1',
+				role: 'owner',
+				isPrivileged: true,
+				capabilityMap: {
+					calendar: 'view',
+					personnel: 'view',
+					training: 'view',
+					criticalTasks: 'view',
+					onboarding: 'view',
+					ratingScheme: 'view'
+				},
+				scopeSet: { kind: 'organization' }
+			}
+		});
+		loadWithContextMock.mockImplementationOnce(async (_locals, _cookies, _orgId, config) =>
+			loadWithContextCore(ctx, config)
+		);
+
+		const result = await load({
+			params: { orgId: 'org-1' },
+			locals: {},
+			cookies: {},
+			route: { id: '/org/[orgId]/settings/general' },
+			parent: async () =>
+				createReadyAppShellRouteData({
+					orgId: 'org-1',
+					orgName: 'Test Org',
+					orgUrlSegment: 'test-org',
+					role: 'owner'
+				})
+		} as never);
+
+		expect(result).toMatchObject({
+			settingsShell: {
+				currentMember: {
+					role: 'owner',
+					isOwner: true
+				},
+				tabVisibility: {
+					logs: true
 				}
 			}
 		});

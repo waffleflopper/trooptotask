@@ -7,7 +7,8 @@ It is intentionally narrow. It does not prove the architecture is clean. It does
 ## What It Checks Today
 
 - required governance files exist
-- route-level `locals.supabase` usage under `src/routes/` stays inside an explicit allowlist
+- route-level Supabase usage under `src/routes/` stays inside an explicit allowlist, including
+  direct `locals.supabase` access and Supabase clients destructured or aliased from `locals`
 - known cross-feature permission-lane couplings stay explicitly documented
 - allowlisted drift references still point at real entries in `docs/architecture/DRIFT_LEDGER.md`
 

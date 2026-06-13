@@ -59,7 +59,7 @@ The operator explicitly excluded automatic CI trigger work from this batch. Do n
 | 040  | Lock down privileged state read RPCs              | P1       | M      | 039        | DONE   |
 | 041  | Surface admin ledger load failures                | P1       | S-M    | -          | DONE   |
 | 042  | Paginate platform admin org ledgers               | P1       | M      | 041        | TODO   |
-| 043  | Filter onboarding workspace bootstrap             | P2       | M      | -          | TODO   |
+| 043  | Filter onboarding workspace bootstrap             | P2       | M      | -          | DONE   |
 | 044  | Add platform audit global timestamp index         | P2       | S-M    | -          | TODO   |
 | 045  | Count plan usage without full row loads           | P1       | S-M    | -          | TODO   |
 | 046  | Add lightweight Critical Tasks dashboard summary  | P1       | M      | -          | TODO   |

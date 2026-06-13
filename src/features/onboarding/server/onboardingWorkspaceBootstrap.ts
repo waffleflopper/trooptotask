@@ -8,7 +8,11 @@ import {
 	type HydrationItems,
 	type WorkspaceHydrationTarget
 } from '$lib/server/core/streamedWorkspace';
-import { fetchOnboardingBootstrap, type OnboardingBootstrap } from '$lib/server/core/useCases/onboardingQuery';
+import {
+	fetchOnboardingBootstrap,
+	type OnboardingBootstrap,
+	type OnboardingBootstrapMode
+} from '$lib/server/core/useCases/onboardingQuery';
 import type {
 	OnboardingTemplate,
 	OnboardingTemplateStep,
@@ -24,6 +28,10 @@ export interface OnboardingWorkspaceRequestContext {
 	locals: App.Locals;
 	cookies: Cookies;
 	orgId: string;
+}
+
+export interface OnboardingWorkspaceBootstrapOptions {
+	mode?: OnboardingBootstrapMode;
 }
 
 export type OnboardingWorkspaceData = OnboardingBootstrap;
@@ -90,14 +98,15 @@ function createOnboardingWorkspaceHydration(
 }
 
 export async function streamOnboardingWorkspaceBootstrap(
-	context: OnboardingWorkspaceRequestContext
+	context: OnboardingWorkspaceRequestContext,
+	options: OnboardingWorkspaceBootstrapOptions = {}
 ): Promise<OnboardingWorkspaceRouteData> {
 	const deferred = await loadWithContext(context.locals, context.cookies, context.orgId, {
 		policyAction: POLICY_ACTION_CATALOG.onboarding.viewWorkflows,
 		policyResource: { kind: 'unscoped' },
 		defer: true,
 		fn: async (ctx) => {
-			const data = await fetchOnboardingBootstrap(ctx);
+			const data = await fetchOnboardingBootstrap(ctx, options);
 			return {
 				laneKey: ONBOARDING_WORKSPACE_LANE_KEY,
 				data,

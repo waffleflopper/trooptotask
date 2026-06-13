@@ -144,7 +144,33 @@ describe('streamOnboardingWorkspaceBootstrap', () => {
 			}
 		});
 		const workspace = await routeData.onboarding.data;
+		expect(fetchOnboardingBootstrapMock).toHaveBeenCalledWith(mockCtx, {});
 		expect(workspace.hydration.onboardingTemplates.snapshotKey).not.toContain('Reception');
 		expect(workspace.hydration.personnel.snapshotKey).not.toContain('Smith');
+	});
+
+	it('passes the requested onboarding bootstrap mode to the query use case', async () => {
+		const onboardingData = {
+			onboardingTemplates: [] as OnboardingTemplate[],
+			onboardingTemplateSteps: [] as OnboardingTemplateStep[],
+			onboardings: [] as PersonnelOnboarding[],
+			personnel: [] as Personnel[],
+			groups: [] as Group[],
+			trainingTypes: [] as TrainingType[]
+		};
+		fetchOnboardingBootstrapMock.mockResolvedValue(onboardingData);
+
+		const routeData = await streamOnboardingWorkspaceBootstrap(
+			{
+				locals: {} as App.Locals,
+				cookies: {} as Cookies,
+				orgId: '1-11-bde'
+			},
+			{ mode: 'history' }
+		);
+
+		await routeData.onboarding.data;
+
+		expect(fetchOnboardingBootstrapMock).toHaveBeenCalledWith(mockCtx, { mode: 'history' });
 	});
 });

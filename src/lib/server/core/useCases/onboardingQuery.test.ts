@@ -1,9 +1,24 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { createWritePortsContext } from '$lib/server/adapters/inMemory';
 import { fetchOnboardingBootstrap } from './onboardingQuery';
 import type { FindOptions } from '$lib/server/core/ports';
 
 const ORG = 'test-org';
+
+function makeOnboardingRow(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+	return {
+		id: 'ob1',
+		organization_id: ORG,
+		personnel_id: 'p1',
+		started_at: '2026-01-01',
+		completed_at: null,
+		cancelled_at: null,
+		status: 'in_progress',
+		template_id: null,
+		onboarding_step_progress: [],
+		...overrides
+	};
+}
 
 describe('fetchOnboardingBootstrap', () => {
 	it('returns onboarding data plus explicit reference collections for the org', async () => {
@@ -105,33 +120,83 @@ describe('fetchOnboardingBootstrap', () => {
 	it('returns all onboardings for an unscoped member', async () => {
 		const ctx = createWritePortsContext({ auth: { orgId: ORG } });
 		ctx.store.seed('personnel_onboardings', [
-			{
-				id: 'ob1',
-				organization_id: ORG,
-				personnel_id: 'p1',
-				started_at: '2026-01-01',
-				completed_at: null,
-				cancelled_at: null,
-				status: 'completed',
-				template_id: null,
-				onboarding_step_progress: []
-			},
-			{
+			makeOnboardingRow({ id: 'ob1', personnel_id: 'p1', status: 'in_progress' }),
+			makeOnboardingRow({
 				id: 'ob2',
-				organization_id: ORG,
 				personnel_id: 'p2',
-				started_at: '2026-01-01',
-				completed_at: null,
-				cancelled_at: null,
 				status: 'completed',
-				template_id: null,
-				onboarding_step_progress: []
-			}
+				completed_at: '2026-01-02'
+			}),
+			makeOnboardingRow({ id: 'ob3', personnel_id: 'p3', status: 'cancelled', cancelled_at: '2026-01-03' })
 		]);
 
 		const result = await fetchOnboardingBootstrap(ctx);
 
-		expect(result.onboardings).toHaveLength(2);
+		expect(result.onboardings).toHaveLength(3);
+		expect(result.onboardings.map((onboarding) => onboarding.status).sort()).toEqual([
+			'cancelled',
+			'completed',
+			'in_progress'
+		]);
+	});
+
+	it('returns only in-progress onboardings and passes a status filter in active mode', async () => {
+		const ctx = createWritePortsContext({ auth: { orgId: ORG } });
+		const findManySpy = vi.spyOn(ctx.store, 'findMany');
+		ctx.store.seed('personnel_onboardings', [
+			makeOnboardingRow({ id: 'active-ob', personnel_id: 'p1', status: 'in_progress' }),
+			makeOnboardingRow({
+				id: 'completed-ob',
+				personnel_id: 'p2',
+				status: 'completed',
+				completed_at: '2026-01-02'
+			}),
+			makeOnboardingRow({
+				id: 'cancelled-ob',
+				personnel_id: 'p3',
+				status: 'cancelled',
+				cancelled_at: '2026-01-03'
+			})
+		]);
+
+		const result = await fetchOnboardingBootstrap(ctx, { mode: 'active' });
+
+		expect(result.onboardings).toHaveLength(1);
+		expect(result.onboardings[0]).toMatchObject({ id: 'active-ob', status: 'in_progress' });
+		const onboardingCall = findManySpy.mock.calls.find(([table]) => table === 'personnel_onboardings');
+		expect(onboardingCall?.[2]).toEqual({ status: 'in_progress' });
+		expect(onboardingCall?.[3]).toMatchObject({ select: expect.any(String) });
+		expect(onboardingCall?.[3]?.inFilters).toBeUndefined();
+	});
+
+	it('returns only completed and cancelled onboardings and passes an in-filter in history mode', async () => {
+		const ctx = createWritePortsContext({ auth: { orgId: ORG } });
+		const findManySpy = vi.spyOn(ctx.store, 'findMany');
+		ctx.store.seed('personnel_onboardings', [
+			makeOnboardingRow({ id: 'active-ob', personnel_id: 'p1', status: 'in_progress' }),
+			makeOnboardingRow({
+				id: 'completed-ob',
+				personnel_id: 'p2',
+				status: 'completed',
+				completed_at: '2026-01-02'
+			}),
+			makeOnboardingRow({
+				id: 'cancelled-ob',
+				personnel_id: 'p3',
+				status: 'cancelled',
+				cancelled_at: '2026-01-03'
+			})
+		]);
+
+		const result = await fetchOnboardingBootstrap(ctx, { mode: 'history' });
+
+		expect(result.onboardings.map((onboarding) => onboarding.id).sort()).toEqual(['cancelled-ob', 'completed-ob']);
+		const onboardingCall = findManySpy.mock.calls.find(([table]) => table === 'personnel_onboardings');
+		expect(onboardingCall?.[2]).toBeUndefined();
+		expect(onboardingCall?.[3]).toMatchObject({
+			select: expect.any(String),
+			inFilters: { status: ['completed', 'cancelled'] }
+		});
 	});
 
 	it('filters onboardings to scoped group personnel only', async () => {
@@ -192,6 +257,55 @@ describe('fetchOnboardingBootstrap', () => {
 		expect(result.onboardings).toHaveLength(1);
 		expect(result.onboardings[0].personnelId).toBe('p1');
 		expect(result.personnel.map((p) => p.id)).toEqual(['p1']);
+	});
+
+	it('applies group-scoped personnel filtering after the active status query', async () => {
+		const ctx = createWritePortsContext({ auth: { orgId: ORG, scopeSet: { kind: 'groups', groupIds: ['g1'] } } });
+		const findManySpy = vi.spyOn(ctx.store, 'findMany');
+		ctx.store.seed('personnel', [
+			{
+				id: 'p1',
+				organization_id: ORG,
+				group_id: 'g1',
+				rank: 'SGT',
+				last_name: 'Smith',
+				first_name: 'John',
+				mos: '11B',
+				clinic_role: '',
+				archived_at: null,
+				groups: { name: 'Alpha' }
+			},
+			{
+				id: 'p2',
+				organization_id: ORG,
+				group_id: 'g2',
+				rank: 'CPL',
+				last_name: 'Jones',
+				first_name: 'Jane',
+				mos: '68W',
+				clinic_role: '',
+				archived_at: null,
+				groups: { name: 'Bravo' }
+			}
+		]);
+		ctx.store.seed('personnel_onboardings', [
+			makeOnboardingRow({ id: 'in-scope-active', personnel_id: 'p1', status: 'in_progress' }),
+			makeOnboardingRow({ id: 'out-of-scope-active', personnel_id: 'p2', status: 'in_progress' }),
+			makeOnboardingRow({
+				id: 'in-scope-history',
+				personnel_id: 'p1',
+				status: 'completed',
+				completed_at: '2026-01-02'
+			})
+		]);
+
+		const result = await fetchOnboardingBootstrap(ctx, { mode: 'active' });
+
+		expect(result.onboardings).toHaveLength(1);
+		expect(result.onboardings[0]).toMatchObject({ id: 'in-scope-active', personnelId: 'p1' });
+		expect(result.personnel.map((p) => p.id)).toEqual(['p1']);
+		const onboardingCall = findManySpy.mock.calls.find(([table]) => table === 'personnel_onboardings');
+		expect(onboardingCall?.[2]).toEqual({ status: 'in_progress' });
 	});
 
 	it('refreshes training step completion for active in-progress onboardings', async () => {
@@ -334,6 +448,103 @@ describe('fetchOnboardingBootstrap', () => {
 
 		const stored = await ctx.store.findOne<{ completed: boolean }>('onboarding_step_progress', ORG, { id: 'sp1' });
 		expect(stored?.completed).toBe(false);
+	});
+
+	it('limits training completion hydration to active training-backed onboardings', async () => {
+		const ctx = createWritePortsContext({ auth: { orgId: ORG } });
+		const findManyCalls: Array<{ table: string; filters?: Record<string, unknown>; options?: FindOptions }> = [];
+		const originalFindMany: typeof ctx.store.findMany = ctx.store.findMany.bind(ctx.store);
+
+		ctx.store.findMany = async <T>(
+			table: string,
+			orgId: string,
+			filters?: Record<string, unknown>,
+			options?: FindOptions
+		): Promise<T[]> => {
+			findManyCalls.push({ table, filters, options });
+			return originalFindMany<T>(table, orgId, filters, options);
+		};
+
+		const activeStep = {
+			id: 'sp-active',
+			onboarding_id: 'ob-active',
+			organization_id: ORG,
+			step_name: 'CPR',
+			step_type: 'training',
+			training_type_id: 'tt-active',
+			stages: null,
+			sort_order: 0,
+			completed: false,
+			current_stage: null,
+			notes: [],
+			template_step_id: null,
+			active: true
+		};
+		const historyStep = {
+			id: 'sp-history',
+			onboarding_id: 'ob-history',
+			organization_id: ORG,
+			step_name: 'First Aid',
+			step_type: 'training',
+			training_type_id: 'tt-history',
+			stages: null,
+			sort_order: 0,
+			completed: false,
+			current_stage: null,
+			notes: [],
+			template_step_id: null,
+			active: true
+		};
+
+		ctx.store.seed('personnel_onboardings', [
+			makeOnboardingRow({
+				id: 'ob-active',
+				personnel_id: 'p-active',
+				status: 'in_progress',
+				onboarding_step_progress: [activeStep]
+			}),
+			makeOnboardingRow({
+				id: 'ob-history',
+				personnel_id: 'p-history',
+				status: 'completed',
+				completed_at: '2026-01-02',
+				onboarding_step_progress: [historyStep]
+			})
+		]);
+		ctx.store.seed('personnel_trainings', [
+			{
+				id: 'pt-active',
+				organization_id: ORG,
+				personnel_id: 'p-active',
+				training_type_id: 'tt-active',
+				completed_date: '2026-01-01',
+				expiration_date: null,
+				exempted: false
+			},
+			{
+				id: 'pt-history',
+				organization_id: ORG,
+				personnel_id: 'p-history',
+				training_type_id: 'tt-history',
+				completed_date: '2026-01-02',
+				expiration_date: null,
+				exempted: false
+			}
+		]);
+
+		const result = await fetchOnboardingBootstrap(ctx);
+
+		const activeResultStep = result.onboardings.find((onboarding) => onboarding.id === 'ob-active')?.steps[0];
+		const historyResultStep = result.onboardings.find((onboarding) => onboarding.id === 'ob-history')?.steps[0];
+		expect(activeResultStep?.completed).toBe(true);
+		expect(historyResultStep?.completed).toBe(false);
+
+		const trainingRecordCalls = findManyCalls.filter((call) => call.table === 'personnel_trainings');
+		expect(trainingRecordCalls).toHaveLength(1);
+		expect(trainingRecordCalls[0].options?.inFilters).toEqual({
+			personnel_id: ['p-active'],
+			training_type_id: ['tt-active']
+		});
 	});
 
 	it('hydrates multiple active training-backed onboardings through one batched training-record read', async () => {

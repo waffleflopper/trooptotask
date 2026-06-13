@@ -1,4 +1,5 @@
 import type { PageServerLoad } from './$types';
+import { error } from '@sveltejs/kit';
 import { loadWithAdminContext } from '$lib/server/adapters/adminAdapter';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination';
 import { createSupabasePlatformMetrics } from '$lib/server/adapters/supabasePlatformMetrics';
@@ -39,6 +40,7 @@ export const load: PageServerLoad = loadWithAdminContext({
 
 		if (orgsError) {
 			console.error('Admin orgs query failed:', orgsError);
+			error(500, 'Unable to load platform organizations.');
 		}
 
 		const orgIds = (orgs ?? []).map((org) => org.id);

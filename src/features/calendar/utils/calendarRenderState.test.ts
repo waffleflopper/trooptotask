@@ -203,7 +203,20 @@ describe('calendarRenderState', () => {
 
 		expect(state.personHeader('missing-person')).toBeUndefined();
 		expect(state.personDateCells('missing-person')).toBeUndefined();
+		expect(state.personDateCell('missing-person', '2026-03-01')).toBeUndefined();
 		expect(state.personDateCell('person-1', '2026-03-09')).toBeUndefined();
+	});
+
+	it('returns indexed person-date cells from the cached row', () => {
+		const state = build();
+
+		const firstCell = state.personDateCell('person-1', '2026-03-01');
+		const cachedRow = state.personDateCells('person-1');
+		const secondCell = state.personDateCell('person-1', '2026-03-02');
+
+		expect(firstCell).toBe(cachedRow?.[0]);
+		expect(secondCell).toBe(cachedRow?.[1]);
+		expect(state.personDateCells('person-1')).toBe(cachedRow);
 	});
 
 	it('records diagnostics for missing linked records and duplicate special days', () => {

@@ -59,14 +59,14 @@ return json(await appShell.loadDeferredChrome(part as DeferredChromePart));
 
 ## Commands you will need
 
-| Purpose | Command | Expected on success |
-| --- | --- | --- |
-| Focused tests | `npx vitest run src/lib/server/core/useCases/loadAppShell.test.ts` | all pass |
-| Format | `npm run format` | exit 0 |
-| Lint | `npm run lint` | exit 0 |
-| Governance | `npm run governance:check` | exit 0 |
-| Typecheck | `npm run check` | exit 0 |
-| Full tests | `npm run test` | exit 0 |
+| Purpose       | Command                                                            | Expected on success |
+| ------------- | ------------------------------------------------------------------ | ------------------- |
+| Focused tests | `npx vitest run src/lib/server/core/useCases/loadAppShell.test.ts` | all pass            |
+| Format        | `npm run format`                                                   | exit 0              |
+| Lint          | `npm run lint`                                                     | exit 0              |
+| Governance    | `npm run governance:check`                                         | exit 0              |
+| Typecheck     | `npm run check`                                                    | exit 0              |
+| Full tests    | `npm run test`                                                     | exit 0              |
 
 ## Scope
 
@@ -110,7 +110,7 @@ In `loadAppShellDeferredChrome`, keep the `console.error` with the detailed `cau
 the returned reason to a stable generic string such as:
 
 ```ts
-reason: 'Unable to load app shell chrome'
+reason: 'Unable to load app shell chrome';
 ```
 
 Use the same generic reason for all thrown causes.

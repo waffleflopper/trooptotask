@@ -55,15 +55,15 @@ $$;
 
 ## Commands you will need
 
-| Purpose | Command | Expected on success |
-| --- | --- | --- |
-| Static migration test | `npx vitest run src/lib/server/db/criticalTasksLibraryMigration.test.ts` | all pass |
-| DB test gate | `npm run db:test` | exit 0 |
-| Format | `npm run format` | exit 0 |
-| Lint | `npm run lint` | exit 0 |
-| Governance | `npm run governance:check` | exit 0 |
-| Typecheck | `npm run check` | exit 0 |
-| Full tests | `npm run test` | exit 0 |
+| Purpose               | Command                                                                  | Expected on success |
+| --------------------- | ------------------------------------------------------------------------ | ------------------- |
+| Static migration test | `npx vitest run src/lib/server/db/criticalTasksLibraryMigration.test.ts` | all pass            |
+| DB test gate          | `npm run db:test`                                                        | exit 0              |
+| Format                | `npm run format`                                                         | exit 0              |
+| Lint                  | `npm run lint`                                                           | exit 0              |
+| Governance            | `npm run governance:check`                                               | exit 0              |
+| Typecheck             | `npm run check`                                                          | exit 0              |
+| Full tests            | `npm run test`                                                           | exit 0              |
 
 ## Scope
 

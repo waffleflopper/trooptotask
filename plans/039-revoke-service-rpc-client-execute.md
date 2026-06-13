@@ -71,17 +71,17 @@ expect(migration).not.toContain(
 
 ## Commands you will need
 
-| Purpose | Command | Expected on success |
-| --- | --- | --- |
-| Install, if needed | `npm ci` | exit 0 |
-| Static migration tests | `npx vitest run src/lib/server/db/rejectAccessRequestBlocksLinkedInvitationsMigration.test.ts src/lib/server/db/memberInvitePlanLimitGuardMigration.test.ts` | all pass |
-| DB contract tests | `npm run db:test` | exit 0 |
-| Local migration, if local Supabase is running | `supabase migration up` | applies locally; never remote |
-| Format | `npm run format` | exit 0 |
-| Lint | `npm run lint` | exit 0 |
-| Governance | `npm run governance:check` | exit 0 |
-| Typecheck | `npm run check` | exit 0 |
-| Full tests | `npm run test` | exit 0 |
+| Purpose                                       | Command                                                                                                                                                      | Expected on success           |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------- |
+| Install, if needed                            | `npm ci`                                                                                                                                                     | exit 0                        |
+| Static migration tests                        | `npx vitest run src/lib/server/db/rejectAccessRequestBlocksLinkedInvitationsMigration.test.ts src/lib/server/db/memberInvitePlanLimitGuardMigration.test.ts` | all pass                      |
+| DB contract tests                             | `npm run db:test`                                                                                                                                            | exit 0                        |
+| Local migration, if local Supabase is running | `supabase migration up`                                                                                                                                      | applies locally; never remote |
+| Format                                        | `npm run format`                                                                                                                                             | exit 0                        |
+| Lint                                          | `npm run lint`                                                                                                                                               | exit 0                        |
+| Governance                                    | `npm run governance:check`                                                                                                                                   | exit 0                        |
+| Typecheck                                     | `npm run check`                                                                                                                                              | exit 0                        |
+| Full tests                                    | `npm run test`                                                                                                                                               | exit 0                        |
 
 ## Scope
 

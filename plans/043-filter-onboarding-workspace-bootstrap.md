@@ -74,17 +74,17 @@ CREATE UNIQUE INDEX "personnel_onboardings_active_idx" ON "public"."personnel_on
 
 ## Commands you will need
 
-| Purpose | Command | Expected on success |
-| --- | --- | --- |
-| Install, if needed | `npm ci` | exit 0 |
-| Focused onboarding use-case tests | `npx vitest run src/lib/server/core/useCases/onboardingQuery.test.ts` | all pass |
-| Focused bootstrap/route tests | `npx vitest run src/features/onboarding/server/onboardingWorkspaceBootstrap.test.ts src/routes/org/[orgId]/onboarding` | all pass |
-| Focused Svelte tests | `npx vitest run src/features/onboarding src/routes/org/[orgId]/onboarding` | all pass |
-| Format | `npm run format` | exit 0 |
-| Lint | `npm run lint` | exit 0 |
-| Governance | `npm run governance:check` | exit 0 |
-| Typecheck | `npm run check` | exit 0 |
-| Full tests | `npm run test` | exit 0 |
+| Purpose                           | Command                                                                                                                | Expected on success |
+| --------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | ------------------- |
+| Install, if needed                | `npm ci`                                                                                                               | exit 0              |
+| Focused onboarding use-case tests | `npx vitest run src/lib/server/core/useCases/onboardingQuery.test.ts`                                                  | all pass            |
+| Focused bootstrap/route tests     | `npx vitest run src/features/onboarding/server/onboardingWorkspaceBootstrap.test.ts src/routes/org/[orgId]/onboarding` | all pass            |
+| Focused Svelte tests              | `npx vitest run src/features/onboarding src/routes/org/[orgId]/onboarding`                                             | all pass            |
+| Format                            | `npm run format`                                                                                                       | exit 0              |
+| Lint                              | `npm run lint`                                                                                                         | exit 0              |
+| Governance                        | `npm run governance:check`                                                                                             | exit 0              |
+| Typecheck                         | `npm run check`                                                                                                        | exit 0              |
+| Full tests                        | `npm run test`                                                                                                         | exit 0              |
 
 ## Suggested executor toolkit
 

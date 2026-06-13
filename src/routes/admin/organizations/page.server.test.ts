@@ -1,11 +1,12 @@
 import { isHttpError } from '@sveltejs/kit';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { PageData } from './$types';
 
-const { selectAllSupabaseRowsMock, platformMetricsMock } = vi.hoisted(() => ({
-	selectAllSupabaseRowsMock: vi.fn(),
-	platformMetricsMock: {
-		getOrganizationMetrics: vi.fn()
-	}
+const { organizationLedgerMock, createOrganizationLedgerMock } = vi.hoisted(() => ({
+	organizationLedgerMock: {
+		listOrganizations: vi.fn()
+	},
+	createOrganizationLedgerMock: vi.fn()
 }));
 
 vi.mock('$lib/server/adapters/adminAdapter', () => ({
@@ -13,12 +14,8 @@ vi.mock('$lib/server/adapters/adminAdapter', () => ({
 		config.fn(event.__ctx, event)
 }));
 
-vi.mock('$lib/server/supabasePagination', () => ({
-	selectAllSupabaseRows: selectAllSupabaseRowsMock
-}));
-
-vi.mock('$lib/server/adapters/supabasePlatformMetrics', () => ({
-	createSupabasePlatformMetrics: () => platformMetricsMock
+vi.mock('$lib/server/adapters/supabasePlatformOrganizationLedger', () => ({
+	createSupabasePlatformOrganizationLedger: createOrganizationLedgerMock
 }));
 
 import { load } from './+page.server';
@@ -53,11 +50,16 @@ describe('admin organizations route load', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		vi.spyOn(console, 'error').mockImplementation(() => undefined);
-		selectAllSupabaseRowsMock.mockResolvedValue({ data: [], error: null });
-		platformMetricsMock.getOrganizationMetrics.mockResolvedValue({
-			memberCounts: new Map(),
-			activePersonnelCounts: new Map(),
-			ownerMemberships: new Map()
+		createOrganizationLedgerMock.mockReturnValue(organizationLedgerMock);
+		organizationLedgerMock.listOrganizations.mockResolvedValue({
+			organizations: [],
+			pagination: {
+				page: 1,
+				pageSize: 25,
+				totalCount: 0,
+				totalPages: 1,
+				q: ''
+			}
 		});
 	});
 
@@ -65,18 +67,43 @@ describe('admin organizations route load', () => {
 		vi.restoreAllMocks();
 	});
 
-	it('throws a sanitized load error when the primary organization ledger cannot load', async () => {
-		selectAllSupabaseRowsMock.mockResolvedValueOnce({
-			data: null,
-			error: { message: 'database offline' }
+	it('passes page, page size, and organization-name search params into the Platform Organization Ledger', async () => {
+		organizationLedgerMock.listOrganizations.mockResolvedValueOnce({
+			organizations: [{ id: 'org-1', name: 'Able Company' }],
+			pagination: {
+				page: 3,
+				pageSize: 50,
+				totalCount: 101,
+				totalPages: 3,
+				q: 'Able'
+			}
 		});
+
+		const result = (await load({
+			__ctx: makeContext(),
+			url: new URL('http://localhost/admin/organizations?page=3&pageSize=50&q=Able')
+		} as unknown as Parameters<typeof load>[0])) as PageData;
+
+		expect(createOrganizationLedgerMock).toHaveBeenCalledWith(
+			expect.objectContaining({ adminUser: { id: 'admin-1', role: 'super_admin' } })
+		);
+		expect(organizationLedgerMock.listOrganizations).toHaveBeenCalledWith({
+			page: '3',
+			pageSize: '50',
+			q: 'Able'
+		});
+		expect(result.pagination).toMatchObject({ page: 3, pageSize: 50, totalCount: 101, q: 'Able' });
+	});
+
+	it('throws a sanitized load error when the primary organization ledger cannot load', async () => {
+		organizationLedgerMock.listOrganizations.mockRejectedValueOnce(new Error('database offline'));
 
 		await expectSanitizedServerError(
 			load({
-				__ctx: makeContext()
+				__ctx: makeContext(),
+				url: new URL('http://localhost/admin/organizations')
 			} as unknown as Parameters<typeof load>[0]),
 			'Unable to load platform organizations.'
 		);
-		expect(platformMetricsMock.getOrganizationMetrics).not.toHaveBeenCalled();
 	});
 });

@@ -58,7 +58,7 @@ The operator explicitly excluded automatic CI trigger work from this batch. Do n
 | 039  | Revoke client execute from service RPCs           | P1       | S      | -          | DONE   |
 | 040  | Lock down privileged state read RPCs              | P1       | M      | 039        | DONE   |
 | 041  | Surface admin ledger load failures                | P1       | S-M    | -          | DONE   |
-| 042  | Paginate platform admin org ledgers               | P1       | M      | 041        | TODO   |
+| 042  | Paginate platform admin org ledgers               | P1       | M      | 041        | DONE   |
 | 043  | Filter onboarding workspace bootstrap             | P2       | M      | -          | DONE   |
 | 044  | Add platform audit global timestamp index         | P2       | S-M    | -          | DONE   |
 | 045  | Count plan usage without full row loads           | P1       | S-M    | -          | DONE   |

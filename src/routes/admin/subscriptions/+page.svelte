@@ -13,23 +13,15 @@
 	import * as Field from '$lib/components/ui/field';
 	import * as PageShell from '$lib/components/ui/page-shell';
 	import * as Table from '$lib/components/ui/table';
+	import { SvelteURLSearchParams } from 'svelte/reactivity';
 
 	let { data } = $props();
 
-	let searchInput = $state('');
 	let tierFilter = $state('all');
 	let statusFilter = $state('all');
-	let currentPage = $state(1);
-
-	const PAGE_SIZE = 20;
 
 	const filteredSubs = $derived.by(() => {
 		let result = data.subscriptions;
-
-		if (searchInput.trim()) {
-			const q = searchInput.trim().toLowerCase();
-			result = result.filter((sub) => sub.name.toLowerCase().includes(q) || sub.ownerEmail.toLowerCase().includes(q));
-		}
 
 		if (tierFilter !== 'all') result = result.filter((sub) => sub.effectiveTier === tierFilter);
 		if (statusFilter === 'active') result = result.filter((sub) => !sub.isSuspended && !sub.isGifted);
@@ -43,11 +35,14 @@
 		return result;
 	});
 
-	const totalPages = $derived(Math.max(1, Math.ceil(filteredSubs.length / PAGE_SIZE)));
-	const pagedSubs = $derived.by(() => {
-		const start = (currentPage - 1) * PAGE_SIZE;
-		return filteredSubs.slice(start, start + PAGE_SIZE);
-	});
+	const showingStart = $derived(
+		data.subscriptions.length === 0 ? 0 : (data.pagination.page - 1) * data.pagination.pageSize + 1
+	);
+	const showingEnd = $derived(
+		data.subscriptions.length === 0
+			? 0
+			: Math.min(data.pagination.page * data.pagination.pageSize, data.pagination.totalCount)
+	);
 
 	function formatPersonnelCap(count: number, cap: number | null): string {
 		return cap === null ? `${count} / Unlimited` : `${count} / ${cap}`;
@@ -61,19 +56,12 @@
 		return value ? formatDisplayDateTime(value) : '-';
 	}
 
-	function updateSearchInput(event: Event) {
-		searchInput = (event.currentTarget as HTMLInputElement).value;
-		currentPage = 1;
-	}
-
-	function updateTierFilter(event: Event) {
-		tierFilter = (event.currentTarget as HTMLSelectElement).value;
-		currentPage = 1;
-	}
-
-	function updateStatusFilter(event: Event) {
-		statusFilter = (event.currentTarget as HTMLSelectElement).value;
-		currentPage = 1;
+	function pageHref(pageNumber: number): string {
+		const params = new SvelteURLSearchParams();
+		params.set('page', pageNumber.toString());
+		params.set('pageSize', data.pagination.pageSize.toString());
+		if (data.pagination.q) params.set('q', data.pagination.q);
+		return `/admin/subscriptions?${params.toString()}`;
 	}
 </script>
 
@@ -93,19 +81,19 @@
 
 	<PageShell.FactGrid layout="three">
 		<PageShell.Metric
-			label="Tracked Orgs"
+			label="Matching Orgs"
+			value={data.pagination.totalCount}
+			detail="Organizations matching the current search."
+		/>
+		<PageShell.Metric
+			label="Current Page"
 			value={data.subscriptions.length}
-			detail="Organizations currently represented in the subscription dataset."
+			detail={`Page ${data.pagination.page} of ${data.pagination.totalPages}.`}
 		/>
 		<PageShell.Metric
-			label="Filtered"
+			label="Page Filtered"
 			value={filteredSubs.length}
-			detail="Organizations matching the current billing filters."
-		/>
-		<PageShell.Metric
-			label="Drifted"
-			value={data.subscriptions.filter((sub) => sub.billingSnapshot?.driftDetected).length}
-			detail="Organizations whose last reconciliation found local billing drift."
+			detail={`${data.subscriptions.filter((sub) => sub.billingSnapshot?.driftDetected).length} current-page rows have billing drift.`}
 		/>
 	</PageShell.FactGrid>
 
@@ -131,23 +119,41 @@
 
 	<Card.Root>
 		<Card.Header class="gap-3 xl:flex-row xl:items-end xl:justify-between">
-			<div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(18rem,1fr)_12rem_12rem]">
-				<Field.Root>
-					<Field.Label for="subscription-search">Search</Field.Label>
-					<Field.Control>
-						<Input
-							id="subscription-search"
-							type="text"
-							placeholder="Search by org or owner..."
-							value={searchInput}
-							oninput={updateSearchInput}
-						/>
-					</Field.Control>
-				</Field.Root>
+			<div class="grid flex-1 gap-3 xl:grid-cols-[minmax(18rem,1fr)_auto_auto] xl:items-end">
+				<form
+					method="GET"
+					action="/admin/subscriptions"
+					class="grid gap-3 sm:grid-cols-[minmax(16rem,1fr)_9rem_auto] sm:items-end"
+				>
+					<input type="hidden" name="page" value="1" />
+					<Field.Root>
+						<Field.Label for="subscription-search">Search</Field.Label>
+						<Field.Control>
+							<Input
+								id="subscription-search"
+								name="q"
+								type="search"
+								placeholder="Search by organization name..."
+								value={data.pagination.q}
+							/>
+						</Field.Control>
+					</Field.Root>
+					<Field.Root>
+						<Field.Label for="subscription-page-size">Rows</Field.Label>
+						<Field.Control>
+							<NativeSelect id="subscription-page-size" name="pageSize" value={String(data.pagination.pageSize)}>
+								<option value="25">25</option>
+								<option value="50">50</option>
+								<option value="100">100</option>
+							</NativeSelect>
+						</Field.Control>
+					</Field.Root>
+					<Button type="submit" variant="outline">Apply</Button>
+				</form>
 				<Field.Root>
 					<Field.Label for="subscription-tier">Tier</Field.Label>
 					<Field.Control>
-						<NativeSelect id="subscription-tier" value={tierFilter} onchange={updateTierFilter}>
+						<NativeSelect id="subscription-tier" bind:value={tierFilter}>
 							<option value="all">All tiers</option>
 							<option value="free">Free</option>
 							<option value="team">Team</option>
@@ -158,7 +164,7 @@
 				<Field.Root>
 					<Field.Label for="subscription-status">Status</Field.Label>
 					<Field.Control>
-						<NativeSelect id="subscription-status" value={statusFilter} onchange={updateStatusFilter}>
+						<NativeSelect id="subscription-status" bind:value={statusFilter}>
 							<option value="all">All statuses</option>
 							<option value="active">Active</option>
 							<option value="suspended">Suspended</option>
@@ -170,7 +176,7 @@
 					</Field.Control>
 				</Field.Root>
 			</div>
-			<p class="text-sm text-muted-foreground">{pagedSubs.length} on page</p>
+			<p class="text-sm text-muted-foreground">{filteredSubs.length} shown</p>
 		</Card.Header>
 		<Card.Content class="overflow-x-auto">
 			<Table.Root>
@@ -189,7 +195,7 @@
 					</Table.Row>
 				</Table.Header>
 				<Table.Body>
-					{#each pagedSubs as sub (sub.id)}
+					{#each filteredSubs as sub (sub.id)}
 						<Table.Row>
 							<Table.Cell>
 								<div class="grid gap-1">
@@ -307,7 +313,13 @@
 					{:else}
 						<Table.Row>
 							<Table.Cell colspan={10}>
-								<Empty.Root class="border-0">No subscriptions found.</Empty.Root>
+								<Empty.Root class="border-0">
+									{#if data.subscriptions.length === 0}
+										No matching subscriptions.
+									{:else}
+										No subscriptions on this page match the current filters.
+									{/if}
+								</Empty.Root>
 							</Table.Cell>
 						</Table.Row>
 					{/each}
@@ -316,31 +328,27 @@
 		</Card.Content>
 	</Card.Root>
 
-	{#if filteredSubs.length > 0}
+	{#if data.pagination.totalCount > 0}
 		<div class="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
 			<p>
-				Showing {Math.min((currentPage - 1) * PAGE_SIZE + 1, filteredSubs.length)}-{Math.min(
-					currentPage * PAGE_SIZE,
-					filteredSubs.length
-				)}
-				of {filteredSubs.length}
+				Showing {showingStart}-{showingEnd} of {data.pagination.totalCount}
 			</p>
-			{#if totalPages > 1}
+			{#if data.pagination.totalPages > 1}
 				<div class="flex flex-wrap items-center gap-3">
 					<Button
+						href={pageHref(data.pagination.page - 1)}
 						variant="outline"
 						size="sm"
-						onclick={() => (currentPage = Math.max(1, currentPage - 1))}
-						disabled={currentPage === 1}
+						disabled={data.pagination.page === 1}
 					>
 						Previous
 					</Button>
-					<span>Page {currentPage} of {totalPages}</span>
+					<span>Page {data.pagination.page} of {data.pagination.totalPages}</span>
 					<Button
+						href={pageHref(data.pagination.page + 1)}
 						variant="outline"
 						size="sm"
-						onclick={() => (currentPage = Math.min(totalPages, currentPage + 1))}
-						disabled={currentPage === totalPages}
+						disabled={data.pagination.page === data.pagination.totalPages}
 					>
 						Next
 					</Button>

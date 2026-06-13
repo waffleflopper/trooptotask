@@ -1,5 +1,7 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { Badge } from '$lib/components/ui/badge';
+	import { Button } from '$lib/components/ui/button';
 	import * as Card from '$lib/components/ui/card';
 	import * as Empty from '$lib/components/ui/empty';
 	import * as Field from '$lib/components/ui/field';
@@ -9,20 +11,15 @@
 	import * as Table from '$lib/components/ui/table';
 	import { formatDisplayDate } from '$lib/utils/dates';
 	import { adminBadgeVariant, formatAdminLabel } from '$lib/components/admin/adminTheme';
+	import { SvelteURLSearchParams } from 'svelte/reactivity';
 
 	let { data } = $props();
 
-	let searchInput = $state('');
 	let tierFilter = $state('all');
 	let statusFilter = $state('all');
 
 	const filteredOrgs = $derived.by(() => {
 		let result = data.organizations;
-
-		if (searchInput.trim()) {
-			const q = searchInput.trim().toLowerCase();
-			result = result.filter((org) => org.name.toLowerCase().includes(q) || org.ownerEmail.toLowerCase().includes(q));
-		}
 
 		if (tierFilter !== 'all') result = result.filter((org) => org.effectiveTier === tierFilter);
 		if (statusFilter === 'active') result = result.filter((org) => !org.isSuspended);
@@ -30,6 +27,23 @@
 
 		return result;
 	});
+
+	const showingStart = $derived(
+		data.organizations.length === 0 ? 0 : (data.pagination.page - 1) * data.pagination.pageSize + 1
+	);
+	const showingEnd = $derived(
+		data.organizations.length === 0
+			? 0
+			: Math.min(data.pagination.page * data.pagination.pageSize, data.pagination.totalCount)
+	);
+
+	function pageHref(pageNumber: number): string {
+		const params = new SvelteURLSearchParams();
+		params.set('page', pageNumber.toString());
+		params.set('pageSize', data.pagination.pageSize.toString());
+		if (data.pagination.q) params.set('q', data.pagination.q);
+		return `/admin/organizations?${params.toString()}`;
+	}
 </script>
 
 <svelte:head>
@@ -44,24 +58,46 @@
 
 	<PageShell.FactGrid layout="two">
 		<PageShell.Metric
-			label="Total Organizations"
-			value={data.organizations.length}
-			detail="Every organization attached to the platform."
+			label="Matching Organizations"
+			value={data.pagination.totalCount}
+			detail="Organizations matching the current search."
 		/>
 		<PageShell.Metric
-			label="Filtered View"
-			value={filteredOrgs.length}
-			detail="Organizations matching current filters."
+			label="Current Page"
+			value={data.organizations.length}
+			detail={`Page ${data.pagination.page} of ${data.pagination.totalPages}; ${filteredOrgs.length} rows visible after filters.`}
 		/>
 	</PageShell.FactGrid>
 
 	<Card.Root>
 		<Card.Content class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-			<div class="grid flex-1 gap-4 md:grid-cols-[minmax(0,2fr)_minmax(10rem,1fr)_minmax(10rem,1fr)]">
-				<Field.Root>
-					<Field.Label for="org-search">Search</Field.Label>
-					<Input id="org-search" type="text" placeholder="Search by name or owner email..." bind:value={searchInput} />
-				</Field.Root>
+			<div class="grid flex-1 gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(10rem,1fr)_minmax(10rem,1fr)]">
+				<form
+					method="GET"
+					action="/admin/organizations"
+					class="grid gap-3 md:grid-cols-[minmax(16rem,1fr)_9rem_auto] md:items-end"
+				>
+					<input type="hidden" name="page" value="1" />
+					<Field.Root>
+						<Field.Label for="org-search">Search</Field.Label>
+						<Input
+							id="org-search"
+							name="q"
+							type="search"
+							placeholder="Search by organization name..."
+							value={data.pagination.q}
+						/>
+					</Field.Root>
+					<Field.Root>
+						<Field.Label for="org-page-size">Rows</Field.Label>
+						<NativeSelect id="org-page-size" name="pageSize" value={String(data.pagination.pageSize)}>
+							<option value="25">25</option>
+							<option value="50">50</option>
+							<option value="100">100</option>
+						</NativeSelect>
+					</Field.Root>
+					<Button type="submit" variant="outline">Apply</Button>
+				</form>
 				<Field.Root>
 					<Field.Label for="tier-filter">Tier</Field.Label>
 					<NativeSelect id="tier-filter" bind:value={tierFilter}>
@@ -103,7 +139,10 @@
 						<Table.Row>
 							<Table.Cell>
 								<div class="grid min-w-48 gap-1">
-									<a href="/admin/organizations/{org.id}" class="font-medium">{org.name}</a>
+									<a
+										href={resolve(`/admin/organizations/${org.id}` as `/admin/organizations/${string}`)}
+										class="font-medium">{org.name}</a
+									>
 									<code class="w-fit rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
 										{org.id.slice(0, 8)}...
 									</code>
@@ -132,7 +171,13 @@
 							<Table.Cell colspan={7}>
 								<Empty.Root>
 									<Empty.Header>
-										<Empty.Title>No organizations found.</Empty.Title>
+										<Empty.Title>
+											{#if data.organizations.length === 0}
+												No matching organizations.
+											{:else}
+												No organizations on this page match the current filters.
+											{/if}
+										</Empty.Title>
 									</Empty.Header>
 								</Empty.Root>
 							</Table.Cell>
@@ -142,4 +187,31 @@
 			</Table.Root>
 		</div>
 	</Card.Root>
+
+	{#if data.pagination.totalCount > 0}
+		<div class="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
+			<p>Showing {showingStart}-{showingEnd} of {data.pagination.totalCount}</p>
+			{#if data.pagination.totalPages > 1}
+				<div class="flex flex-wrap items-center gap-3">
+					<Button
+						href={pageHref(data.pagination.page - 1)}
+						variant="outline"
+						size="sm"
+						disabled={data.pagination.page === 1}
+					>
+						Previous
+					</Button>
+					<span>Page {data.pagination.page} of {data.pagination.totalPages}</span>
+					<Button
+						href={pageHref(data.pagination.page + 1)}
+						variant="outline"
+						size="sm"
+						disabled={data.pagination.page === data.pagination.totalPages}
+					>
+						Next
+					</Button>
+				</div>
+			{/if}
+		</div>
+	{/if}
 </PageShell.Root>

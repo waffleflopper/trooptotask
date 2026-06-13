@@ -160,7 +160,7 @@ function hasRouteSupabaseUsage(content) {
 		if (usagePattern.test(content)) return true;
 	}
 
-	return true;
+	return false;
 }
 
 function checkRouteSupabaseAllowlist() {

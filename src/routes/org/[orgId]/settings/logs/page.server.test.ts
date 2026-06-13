@@ -47,11 +47,11 @@ describe('logs settings page server', () => {
 			sections: {
 				logs: {
 					auditLogPage: {
-						items: [],
+						logs: [],
 						page: 1,
 						limit: 100,
-						total: 0,
-						totalPages: 0
+						totalCount: 0,
+						last30DaysCount: 0
 					}
 				}
 			}
@@ -169,11 +169,11 @@ describe('logs settings page server', () => {
 				sections: {
 					logs: {
 						auditLogPage: {
-							items: [],
+							logs: [],
 							page: 1,
 							limit: 100,
-							total: 0,
-							totalPages: 0
+							totalCount: 0,
+							last30DaysCount: 0
 						}
 					}
 				}

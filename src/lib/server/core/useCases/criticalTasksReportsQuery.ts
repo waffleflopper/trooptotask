@@ -16,9 +16,11 @@ import {
 } from '$features/critical-tasks/utils/ictWorkbookExport';
 import {
 	buildIctReportDashboard,
+	buildIctReportDashboardSummary,
 	buildIctReportSummary,
 	filterIctReportPersonnel,
 	type IctReportDashboard,
+	type IctReportDashboardSummary,
 	type IctReportFilters,
 	type IctReportScope,
 	type IctReportSummary
@@ -178,6 +180,27 @@ export async function fetchCriticalTasksReportDashboard(
 ): Promise<IctReportDashboard> {
 	const source = await loadCriticalTasksReportSource(ctx);
 	return buildDashboardFromSource(ctx, source, input);
+}
+
+export async function fetchCriticalTasksDashboardSummary(
+	ctx: QueryPorts,
+	input: CriticalTasksReportInput = {}
+): Promise<IctReportDashboardSummary> {
+	const source = await loadCriticalTasksReportSource(ctx);
+	const filteredPersonnel = filterIctReportPersonnel(source.personnel, input.filters ?? {});
+	const completions = await loadReportCompletions(
+		ctx,
+		filteredPersonnel.map((person) => person.id),
+		source.tasks.map((task) => task.id)
+	);
+
+	return buildIctReportDashboardSummary({
+		personnel: filteredPersonnel,
+		tasks: source.tasks,
+		completions,
+		settings: source.settings,
+		asOf: input.asOf
+	});
 }
 
 export async function fetchCriticalTasksReportsPageModel(

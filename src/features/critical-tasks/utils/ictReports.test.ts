@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import type { IctTask, PersonnelIctCompletion } from '$features/critical-tasks/criticalTasks.types';
 import type { Personnel } from '$lib/types';
-import { buildIctReportDashboard, buildIctReportSummary, filterIctReportPersonnel } from './ictReports';
+import {
+	buildIctReportDashboard,
+	buildIctReportDashboardSummary,
+	buildIctReportSummary,
+	filterIctReportPersonnel
+} from './ictReports';
 
 const medic: Personnel = {
 	id: 'person-medic',
@@ -124,6 +129,77 @@ describe('ictReports', () => {
 			count: 1,
 			thresholdPercent: 70
 		});
+	});
+
+	it('builds the lightweight dashboard summary from the same dashboard-facing values as the full report', () => {
+		const infantryReady: Personnel = {
+			...infantry,
+			id: 'person-infantry-ready',
+			lastName: 'Ready'
+		};
+		const infantryRisk: Personnel = {
+			...infantry,
+			id: 'person-infantry-risk',
+			lastName: 'Risk'
+		};
+		const input = {
+			personnel: [medic, infantryReady, infantryRisk],
+			tasks: [medicTask, commonTask],
+			completions: [
+				completion({ personnelId: medic.id, ictTaskId: medicTask.id, completedAt: '2026-01-15' }),
+				completion({
+					id: 'completion-current-common',
+					personnelId: medic.id,
+					ictTaskId: commonTask.id,
+					completedAt: '2026-02-10'
+				}),
+				completion({
+					id: 'completion-expiring-common',
+					personnelId: infantryReady.id,
+					ictTaskId: commonTask.id,
+					completedAt: '2025-03-25'
+				})
+			],
+			settings: {
+				defaultExpirationMonths: 12,
+				expiringSoonWarningDays: 60
+			},
+			asOf: '2026-02-15'
+		};
+
+		const full = buildIctReportDashboard(input);
+		const summary = buildIctReportDashboardSummary(input);
+
+		expect(summary.kpis).toEqual(full.kpis);
+		expect(summary.hasActiveTasks).toBe(true);
+		expect(summary.mosReadiness).toEqual(
+			full.readinessMatrix.rows.slice(0, 3).map((row) => ({
+				mos: row.mos,
+				personnelCount: row.personnelCount,
+				readinessPercent: row.averageReadinessPercent ?? 0,
+				readyCount: row.averageReadyCount,
+				applicableCount: row.averageApplicableCount
+			}))
+		);
+		expect(summary.readinessTrend.months).toEqual(
+			full.readinessTrend.months.slice(-6).map((point) => ({
+				month: point.month,
+				label: point.label,
+				overallReadinessPercent: point.overallReadinessPercent
+			}))
+		);
+		expect(summary.projectedReadinessAtMonth6).toEqual(full.expirationCliff.projectedReadinessAtMonth6);
+		expect(summary.tasksBelowThreshold).toEqual({
+			thresholdPercent: full.tasksBelowThreshold.thresholdPercent,
+			count: full.tasksBelowThreshold.rows.length,
+			rows: full.tasksBelowThreshold.rows.slice(0, 3)
+		});
+		expect(summary.atRiskSoldiers).toEqual({
+			totalApplicable: full.atRiskSoldiers.rows.length,
+			rows: full.atRiskSoldiers.rows.slice(0, 3)
+		});
+		expect(summary).not.toHaveProperty('readinessDistribution');
+		expect(summary).not.toHaveProperty('readinessMatrix');
 	});
 
 	it('builds a MOS by task-category readiness matrix from persisted task categories', () => {

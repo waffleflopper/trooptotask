@@ -4,6 +4,7 @@ import { createTestContext } from '$lib/server/adapters/inMemory';
 import type { IctReportDashboard } from '$features/critical-tasks/utils/ictReports';
 import { buildCriticalTasksReportWorkbook } from '$features/critical-tasks/utils/ictWorkbookExport';
 import {
+	fetchCriticalTasksDashboardSummary,
 	fetchCriticalTasksReportDashboard,
 	fetchCriticalTasksReportsPageModel,
 	fetchCriticalTasksReportSummary
@@ -198,6 +199,40 @@ describe('fetchCriticalTasksReportSummary', () => {
 				lastIctUpdateAt: '2026-01-15T00:00:00Z'
 			}
 		]);
+
+		const summary = await fetchCriticalTasksDashboardSummary(ctx, {
+			filters: { mos: ['68W', '11B'] },
+			asOf: '2026-02-01'
+		});
+
+		expect(summary.kpis).toEqual(dashboard.kpis);
+		expect(summary.mosReadiness).toEqual([
+			{
+				mos: '11B',
+				personnelCount: 1,
+				readinessPercent: 0,
+				readyCount: 0,
+				applicableCount: 1
+			},
+			{
+				mos: '68W',
+				personnelCount: 1,
+				readinessPercent: 100,
+				readyCount: 1,
+				applicableCount: 1
+			}
+		]);
+		expect(summary.tasksBelowThreshold).toEqual({
+			thresholdPercent: 70,
+			count: 1,
+			rows: dashboard.tasksBelowThreshold.rows
+		});
+		expect(summary.atRiskSoldiers).toEqual({
+			totalApplicable: 2,
+			rows: dashboard.atRiskSoldiers.rows
+		});
+		expect(summary).not.toHaveProperty('readinessDistribution');
+		expect(summary).not.toHaveProperty('readinessMatrix');
 	});
 
 	it('counts only MOS-applicable completion events in the report trend', async () => {

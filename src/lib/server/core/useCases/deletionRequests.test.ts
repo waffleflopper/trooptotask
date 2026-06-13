@@ -88,6 +88,22 @@ describe('createDeletionRequest', () => {
 		});
 	});
 
+	it('rejects unknown resource types without creating a request', async () => {
+		const ctx = buildContext();
+
+		await expect(
+			createDeletionRequest(ctx, {
+				...validInput,
+				resourceType: 'unknown_type',
+				resourceId: 'unknown-1',
+				resourceDescription: 'Unknown thing'
+			})
+		).rejects.toMatchObject({ status: 400 });
+
+		const stored = await ctx.store.findMany<Record<string, unknown>>('deletion_requests', 'test-org');
+		expect(stored).toHaveLength(0);
+	});
+
 	it('allows viewer, operator, editor, and owner/admin requesters through requester-owned policy', async () => {
 		for (const auth of [
 			{
@@ -337,6 +353,10 @@ describe('approveDeletionRequest', () => {
 		});
 
 		await expect(approveDeletionRequest(ctx, 'dr-1')).rejects.toMatchObject({ status: 400 });
+
+		const request = await ctx.store.findOne<Record<string, unknown>>('deletion_requests', 'test-org', { id: 'dr-1' });
+		expect(request).toMatchObject({ status: 'pending' });
+		expect(request!.reviewed_at).toBeUndefined();
 	});
 
 	it('hard-deletes non-personnel resources on approval', async () => {
@@ -362,6 +382,48 @@ describe('approveDeletionRequest', () => {
 			type: 'deletion_approved',
 			title: 'Deletion Approved'
 		});
+	});
+
+	it('leaves personnel deletion requests pending when archival fails', async () => {
+		const ctx = buildContext();
+		seedPendingRequest(ctx);
+		ctx.store.seed('personnel', [{ id: 'person-1', organization_id: 'test-org', archived_at: null }]);
+		const update = ctx.store.update;
+		ctx.store.update = (async (table, orgId, id, data, select) => {
+			if (table === 'personnel' && id === 'person-1') {
+				throw new Error('archive failed');
+			}
+			return update(table, orgId, id, data, select);
+		}) as typeof ctx.store.update;
+
+		await expect(approveDeletionRequest(ctx, 'dr-1')).rejects.toThrow('archive failed');
+
+		const request = await ctx.store.findOne<Record<string, unknown>>('deletion_requests', 'test-org', { id: 'dr-1' });
+		expect(request).toMatchObject({ status: 'pending' });
+		expect(request!.reviewed_at).toBeUndefined();
+	});
+
+	it('leaves non-personnel deletion requests pending when hard delete fails', async () => {
+		const ctx = buildContext();
+		seedPendingRequest(ctx, {
+			resource_type: 'counseling_record',
+			resource_id: 'cr-1',
+			resource_description: 'Counseling session'
+		});
+		ctx.store.seed('counseling_records', [{ id: 'cr-1', organization_id: 'test-org', notes: 'Some notes' }]);
+		const deleteRecord = ctx.store.delete;
+		ctx.store.delete = (async (table, orgId, id) => {
+			if (table === 'counseling_records' && id === 'cr-1') {
+				throw new Error('delete failed');
+			}
+			return deleteRecord(table, orgId, id);
+		}) as typeof ctx.store.delete;
+
+		await expect(approveDeletionRequest(ctx, 'dr-1')).rejects.toThrow('delete failed');
+
+		const request = await ctx.store.findOne<Record<string, unknown>>('deletion_requests', 'test-org', { id: 'dr-1' });
+		expect(request).toMatchObject({ status: 'pending' });
+		expect(request!.reviewed_at).toBeUndefined();
 	});
 
 	it('does not fail approval when requester notification delivery fails', async () => {

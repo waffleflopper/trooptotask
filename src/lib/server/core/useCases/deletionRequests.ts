@@ -41,6 +41,10 @@ export async function createDeletionRequest(
 	ctx: WriteWithNotificationsPorts,
 	input: CreateDeletionRequestInput
 ): Promise<Record<string, unknown>> {
+	if (!RESOURCE_TYPE_TABLE_MAP[input.resourceType]) {
+		fail(400, `Unsupported resource type: ${input.resourceType}`);
+	}
+
 	await requireIdentityOwnedPolicy(
 		ctx,
 		POLICY_ACTION_CATALOG.identity.createOwnDeletionRequest,
@@ -137,15 +141,6 @@ export async function approveDeletionRequest(ctx: WriteWithNotificationsPorts, r
 
 	const request = await fetchPendingRequest(ctx, requestId);
 
-	// Update request status
-	await ctx.store.update(TABLE, ctx.auth.orgId, requestId, {
-		status: 'approved',
-		reviewed_by: ctx.auth.userId,
-		reviewed_at: new Date().toISOString(),
-		denial_reason: null
-	});
-
-	// Execute the deletion effect
 	const resourceType = request.resource_type as string;
 	const resourceId = request.resource_id as string;
 	const tableName = RESOURCE_TYPE_TABLE_MAP[resourceType];
@@ -163,6 +158,14 @@ export async function approveDeletionRequest(ctx: WriteWithNotificationsPorts, r
 	} else {
 		await ctx.store.delete(tableName, ctx.auth.orgId, resourceId);
 	}
+
+	const reviewedAt = new Date().toISOString();
+	await ctx.store.update(TABLE, ctx.auth.orgId, requestId, {
+		status: 'approved',
+		reviewed_by: ctx.auth.userId,
+		reviewed_at: reviewedAt,
+		denial_reason: null
+	});
 
 	// Notify the requester
 	const isPersonnel = resourceType === 'personnel';

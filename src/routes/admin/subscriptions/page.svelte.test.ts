@@ -34,7 +34,16 @@ describe('admin subscriptions page', () => {
 								canceledAt: null
 							}
 						}
-					]
+					],
+					pagination: {
+						page: 1,
+						pageSize: 25,
+						totalCount: 1,
+						totalPages: 1,
+						q: ''
+					},
+					billingDiagnosticsError: false,
+					planDiagnosticsError: false
 				} as never
 			}
 		});
@@ -49,7 +58,15 @@ describe('admin subscriptions page', () => {
 			props: {
 				data: {
 					subscriptions: [],
-					billingDiagnosticsError: true
+					pagination: {
+						page: 1,
+						pageSize: 25,
+						totalCount: 0,
+						totalPages: 1,
+						q: ''
+					},
+					billingDiagnosticsError: true,
+					planDiagnosticsError: false
 				} as never
 			}
 		});
@@ -83,7 +100,16 @@ describe('admin subscriptions page', () => {
 								reconciliationResult: 'repaired_drift:subscription_status'
 							}
 						}
-					]
+					],
+					pagination: {
+						page: 1,
+						pageSize: 25,
+						totalCount: 1,
+						totalPages: 1,
+						q: ''
+					},
+					billingDiagnosticsError: false,
+					planDiagnosticsError: false
 				} as never
 			}
 		});
@@ -188,6 +214,13 @@ describe('admin subscriptions page', () => {
 							}
 						}
 					],
+					pagination: {
+						page: 1,
+						pageSize: 25,
+						totalCount: 1,
+						totalPages: 1,
+						q: ''
+					},
 					billingDiagnosticsError: false
 				} as never
 			}
@@ -204,5 +237,64 @@ describe('admin subscriptions page', () => {
 		expect(screen.getByText('2 plan blockers')).toBeTruthy();
 		expect(document.body.textContent).not.toContain('raw_payload');
 		expect(document.body.textContent).not.toContain('sk_');
+	});
+
+	it('renders server-side pagination links with page size and search query params', () => {
+		render(Page, {
+			props: {
+				data: {
+					subscriptions: [
+						{
+							id: 'org-25',
+							name: 'Alpha Company',
+							effectiveTier: 'team',
+							personnelCount: 12,
+							personnelCap: 80,
+							ownerEmail: 'owner@example.com',
+							isGifted: false,
+							isSuspended: false,
+							gift_expires_at: null,
+							created_at: '2026-05-01T00:00:00.000Z'
+						}
+					],
+					pagination: {
+						page: 1,
+						pageSize: 25,
+						totalCount: 50,
+						totalPages: 2,
+						q: 'Alpha'
+					},
+					billingDiagnosticsError: false,
+					planDiagnosticsError: false
+				} as never
+			}
+		});
+
+		expect(screen.getByText('Showing 1-25 of 50')).toBeTruthy();
+		expect(screen.getByRole('link', { name: 'Next' }).getAttribute('href')).toBe(
+			'/admin/subscriptions?page=2&pageSize=25&q=Alpha'
+		);
+		expect(screen.getByText('Page 1 of 2')).toBeTruthy();
+	});
+
+	it('uses a matching empty state for successful bounded queries without rows', () => {
+		render(Page, {
+			props: {
+				data: {
+					subscriptions: [],
+					pagination: {
+						page: 1,
+						pageSize: 25,
+						totalCount: 0,
+						totalPages: 1,
+						q: 'Nope'
+					},
+					billingDiagnosticsError: false,
+					planDiagnosticsError: false
+				} as never
+			}
+		});
+
+		expect(screen.getByText('No matching subscriptions.')).toBeTruthy();
 	});
 });

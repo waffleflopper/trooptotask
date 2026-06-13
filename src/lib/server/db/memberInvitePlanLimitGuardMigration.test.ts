@@ -7,6 +7,11 @@ const migration = readFileSync(
 	'utf8'
 ).toLowerCase();
 
+const privilegeMigration = readFileSync(
+	join(process.cwd(), 'supabase/migrations/20260613000100_restrict_service_role_mutation_rpc_grants.sql'),
+	'utf8'
+).toLowerCase();
+
 describe('member invite plan limit guard migration', () => {
 	it('serializes organization member-cap enforcement with an advisory lock', () => {
 		expect(migration).toContain('create or replace function "public"."block_invitation_if_member_cap_exceeded"');
@@ -29,6 +34,23 @@ describe('member invite plan limit guard migration', () => {
 		);
 		expect(migration).not.toContain(
 			'grant execute on function "public"."block_invitation_if_member_cap_exceeded"("uuid", "uuid", "uuid", integer, text) to "authenticated"'
+		);
+	});
+
+	it('revokes direct client execution in the follow-up privilege migration', () => {
+		expect(privilegeMigration).toContain(
+			'revoke all on function public.block_invitation_if_member_cap_exceeded(uuid, uuid, uuid, integer, text) from anon'
+		);
+		expect(privilegeMigration).toContain(
+			'revoke all on function public.block_invitation_if_member_cap_exceeded(uuid, uuid, uuid, integer, text) from authenticated'
+		);
+		expect(privilegeMigration).toContain(
+			'grant execute on function public.block_invitation_if_member_cap_exceeded(uuid, uuid, uuid, integer, text) to service_role'
+		);
+		expect(privilegeMigration).not.toMatch(/\bcreate\s+or\s+replace\s+function\b/);
+		expect(privilegeMigration).not.toMatch(/\b(delete|insert|update)\s+(from\s+)?("?public"?\.)?"?access_requests"?/);
+		expect(privilegeMigration).not.toMatch(
+			/\b(delete|insert|update)\s+(from\s+)?("?public"?\.)?"?organization_invitations"?/
 		);
 	});
 });

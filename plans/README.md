@@ -55,7 +55,7 @@ The operator explicitly excluded automatic CI trigger work from this batch. Do n
 | 036  | Check cleanup-old-data RPC errors                 | P3       | S      | -          | DONE   |
 | 037  | Close route Supabase governance blind spot        | P3       | S      | -          | DONE   |
 | 038  | Pin Critical Tasks RLS helper search path         | P3       | S      | -          | DONE   |
-| 039  | Revoke client execute from service RPCs           | P1       | S      | -          | TODO   |
+| 039  | Revoke client execute from service RPCs           | P1       | S      | -          | DONE   |
 | 040  | Lock down privileged state read RPCs              | P1       | M      | 039        | TODO   |
 | 041  | Surface admin ledger load failures                | P1       | S-M    | -          | TODO   |
 | 042  | Paginate platform admin org ledgers               | P1       | M      | 041        | TODO   |

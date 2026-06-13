@@ -2,7 +2,7 @@ BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 
-SELECT plan(15);
+SELECT plan(27);
 
 SELECT is(
 	has_function_privilege('anon', 'public.search_users_by_email(text, integer)', 'EXECUTE'),
@@ -28,6 +28,26 @@ SELECT is(
 	has_function_privilege('anon', 'public.block_invitation_if_member_cap_exceeded(uuid, uuid, uuid, integer, text)', 'EXECUTE'),
 	false,
 	'anon cannot execute member-cap invitation mutation RPC'
+);
+SELECT is(
+	has_function_privilege('anon', 'public.count_platform_users()', 'EXECUTE'),
+	false,
+	'anon cannot execute platform user count RPC'
+);
+SELECT is(
+	has_function_privilege('anon', 'public.daily_signups_last_30_days()', 'EXECUTE'),
+	false,
+	'anon cannot execute daily signup count RPC'
+);
+SELECT is(
+	has_function_privilege('anon', 'public.count_org_personnel(uuid)', 'EXECUTE'),
+	false,
+	'anon cannot execute organization personnel count RPC'
+);
+SELECT is(
+	has_function_privilege('anon', 'public.is_user_suspended(uuid)', 'EXECUTE'),
+	false,
+	'anon cannot execute user suspension state RPC'
 );
 
 SELECT is(
@@ -63,6 +83,26 @@ SELECT is(
 	false,
 	'authenticated users cannot execute member-cap invitation mutation RPC'
 );
+SELECT is(
+	has_function_privilege('authenticated', 'public.count_platform_users()', 'EXECUTE'),
+	false,
+	'authenticated users cannot execute platform user count RPC'
+);
+SELECT is(
+	has_function_privilege('authenticated', 'public.daily_signups_last_30_days()', 'EXECUTE'),
+	false,
+	'authenticated users cannot execute daily signup count RPC'
+);
+SELECT is(
+	has_function_privilege('authenticated', 'public.count_org_personnel(uuid)', 'EXECUTE'),
+	false,
+	'authenticated users cannot execute organization personnel count RPC'
+);
+SELECT is(
+	has_function_privilege('authenticated', 'public.is_user_suspended(uuid)', 'EXECUTE'),
+	true,
+	'authenticated users can execute guarded self-scoped user suspension state RPC'
+);
 
 SELECT is(
 	has_function_privilege('service_role', 'public.search_users_by_email(text, integer)', 'EXECUTE'),
@@ -96,6 +136,26 @@ SELECT is(
 	),
 	true,
 	'service role can execute member-cap invitation mutation RPC'
+);
+SELECT is(
+	has_function_privilege('service_role', 'public.count_platform_users()', 'EXECUTE'),
+	true,
+	'service role can execute platform user count RPC'
+);
+SELECT is(
+	has_function_privilege('service_role', 'public.daily_signups_last_30_days()', 'EXECUTE'),
+	true,
+	'service role can execute daily signup count RPC'
+);
+SELECT is(
+	has_function_privilege('service_role', 'public.count_org_personnel(uuid)', 'EXECUTE'),
+	true,
+	'service role can execute organization personnel count RPC'
+);
+SELECT is(
+	has_function_privilege('service_role', 'public.is_user_suspended(uuid)', 'EXECUTE'),
+	true,
+	'service role can execute user suspension state RPC'
 );
 
 SELECT * FROM finish();

@@ -75,7 +75,7 @@ describe('/api/sign-in-rosters/[id]/upload route config', () => {
 		expect(roster?.signed_file_path).toBe(result.filePath);
 	});
 
-	it('uses a unique storage path for repeated uploads with the same original filename', async () => {
+	it('uses a unique storage path and removes the previous scan after replacement succeeds', async () => {
 		const ctx = createRosterUploadContext();
 
 		const first = await handleUseCaseRequest(_postConfig, ctx, {
@@ -88,7 +88,7 @@ describe('/api/sign-in-rosters/[id]/upload route config', () => {
 		});
 
 		expect(first.filePath).not.toBe(second.filePath);
-		expect(ctx.storagePort.files.map((file) => file.path).sort()).toEqual([first.filePath, second.filePath].sort());
+		expect(ctx.storagePort.files.map((file) => file.path)).toEqual([second.filePath]);
 
 		const roster = await ctx.store.findOne<{ signed_file_path: string | null }>('sign_in_rosters', ctx.auth.orgId, {
 			id: 'roster-1'

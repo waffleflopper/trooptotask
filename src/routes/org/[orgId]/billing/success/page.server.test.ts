@@ -347,6 +347,7 @@ describe('billing success page server load', () => {
 		});
 		const checkoutAttempt = attempt();
 		const now = new Date('2026-05-24T12:00:00.000Z');
+		ctx.rawStore.seed(CHECKOUT_ATTEMPTS_TABLE, [checkoutAttempt as unknown as Record<string, unknown>]);
 		recoverCompletedCheckoutMock.mockResolvedValue(true);
 
 		await expect(

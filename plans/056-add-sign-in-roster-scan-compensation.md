@@ -140,17 +140,19 @@ different storage paths.
 
 Wrap the DB update after `ctx.storage.upload` in a try/catch. If the DB update fails, remove the
 newly uploaded path and rethrow the original error. If that cleanup removal also fails, log the
-cleanup failure as secondary and still rethrow the original DB update error. Match the personnel
-document/counseling record compensation style.
-
-Do not remove an existing previous scan path during upload in this plan unless you can prove the
-new DB update succeeded and the previous path is different.
+cleanup failure as secondary and still rethrow the original DB update error. After the DB update
+succeeds, remove the previous `signed_file_path` from storage when it exists and differs from the
+new uploaded path. Match the personnel document/counseling record compensation style.
 
 **Verify**: add a test where `ctx.store.update` fails after storage upload. Expected result:
 
 - the request rejects,
 - the newly uploaded file is removed,
 - the roster row still points at its previous `signed_file_path` value.
+
+Also add a success-path replacement test proving the roster row points at the new
+`signed_file_path` and the previous scan file is removed from storage only after the DB update
+succeeds.
 
 ### Step 3: Make scan unlink prefer DB truth over storage cleanup
 

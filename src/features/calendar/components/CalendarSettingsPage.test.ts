@@ -81,6 +81,17 @@ describe('CalendarSettingsPage', () => {
 		assignmentTypesStoreMock.addType.mockReset();
 		assignmentTypesStoreMock.updateType.mockReset();
 		assignmentTypesStoreMock.removeType.mockReset();
+		assignmentTypesStoreMock.addType.mockResolvedValue({
+			id: 'created-assignment',
+			name: 'Created Assignment',
+			shortName: 'CA',
+			assignTo: 'personnel',
+			color: '#2563eb',
+			exemptPersonnelIds: [],
+			showInDateHeader: false
+		});
+		assignmentTypesStoreMock.updateType.mockResolvedValue(true);
+		assignmentTypesStoreMock.removeType.mockResolvedValue(true);
 		specialDaysStoreMock.items = [];
 		specialDaysStoreMock.add.mockReset();
 		specialDaysStoreMock.update.mockReset();
@@ -309,6 +320,109 @@ describe('CalendarSettingsPage', () => {
 		expect(screen.getByRole('alertdialog', { name: 'Delete Status Type' })).toBeTruthy();
 		expect(availabilityStoreMock.removeByStatusTypeLocal).not.toHaveBeenCalled();
 		expect(errorToast).toHaveBeenCalledWith('Failed to delete status type');
+	});
+
+	it('keeps the add-assignment dialog open when creation fails', async () => {
+		assignmentTypesStoreMock.addType.mockResolvedValueOnce(null);
+		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
+
+		render(CalendarSettingsPage);
+
+		await fireEvent.click(screen.getByRole('button', { name: /Assignment Types/i }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Add new' }));
+		const dialog = screen.getByRole('dialog', { name: 'Add Assignment Type' });
+		await fireEvent.input(within(dialog).getByLabelText('Full name'), { target: { value: 'Staff Duty' } });
+		await fireEvent.input(within(dialog).getByLabelText('Short code'), { target: { value: 'SD' } });
+		await fireEvent.click(within(dialog).getByRole('button', { name: 'Add Assignment Type' }));
+
+		expect(screen.getByRole('dialog', { name: 'Add Assignment Type' })).toBeTruthy();
+		expect(errorToast).toHaveBeenCalledWith('Failed to add assignment type');
+	});
+
+	it('keeps the edit-assignment dialog open when save fails', async () => {
+		assignmentTypesStoreMock.types = [
+			{
+				id: 'cq',
+				name: 'Charge of Quarters',
+				shortName: 'CQ',
+				assignTo: 'personnel',
+				color: '#2563eb',
+				exemptPersonnelIds: [],
+				showInDateHeader: false
+			}
+		];
+		assignmentTypesStoreMock.updateType.mockResolvedValueOnce(false);
+		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
+
+		render(CalendarSettingsPage);
+
+		await fireEvent.click(screen.getByRole('button', { name: /Assignment Types/i }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Edit assignment type' }));
+		const dialog = screen.getByRole('dialog', { name: 'Edit Assignment Type' });
+		await fireEvent.input(within(dialog).getByLabelText('Full name'), { target: { value: 'Staff Duty' } });
+		await fireEvent.click(within(dialog).getByRole('button', { name: 'Save Changes' }));
+
+		expect(screen.getByRole('dialog', { name: 'Edit Assignment Type' })).toBeTruthy();
+		expect(errorToast).toHaveBeenCalledWith('Failed to save assignment type');
+	});
+
+	it('keeps delete assignment confirmation open when deletion fails', async () => {
+		assignmentTypesStoreMock.types = [
+			{
+				id: 'cq',
+				name: 'Charge of Quarters',
+				shortName: 'CQ',
+				assignTo: 'personnel',
+				color: '#2563eb',
+				exemptPersonnelIds: [],
+				showInDateHeader: false
+			}
+		];
+		assignmentTypesStoreMock.removeType.mockResolvedValueOnce(false);
+		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
+
+		render(CalendarSettingsPage);
+
+		await fireEvent.click(screen.getByRole('button', { name: /Assignment Types/i }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Delete assignment type' }));
+		const dialog = screen.getByRole('alertdialog', { name: 'Delete Assignment Type' });
+		await fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
+
+		expect(screen.getByRole('alertdialog', { name: 'Delete Assignment Type' })).toBeTruthy();
+		expect(errorToast).toHaveBeenCalledWith('Failed to delete assignment type');
+	});
+
+	it('reports assignment header selection failures', async () => {
+		assignmentTypesStoreMock.types = [
+			{
+				id: 'cq',
+				name: 'Charge of Quarters',
+				shortName: 'CQ',
+				assignTo: 'personnel',
+				color: '#2563eb',
+				exemptPersonnelIds: [],
+				showInDateHeader: true
+			},
+			{
+				id: 'sd',
+				name: 'Staff Duty',
+				shortName: 'SD',
+				assignTo: 'personnel',
+				color: '#047857',
+				exemptPersonnelIds: [],
+				showInDateHeader: false
+			}
+		];
+		assignmentTypesStoreMock.updateType.mockResolvedValueOnce(false);
+		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
+
+		render(CalendarSettingsPage);
+
+		await fireEvent.click(screen.getByRole('button', { name: /Assignment Types/i }));
+		await fireEvent.click(screen.getByRole('radio', { name: 'Show Staff Duty in date header' }));
+
+		expect(assignmentTypesStoreMock.updateType).toHaveBeenCalledWith('cq', { showInDateHeader: false });
+		expect(errorToast).toHaveBeenCalledWith('Failed to update header assignment type');
 	});
 
 	it('hides archived assignment types from Calendar settings management', async () => {

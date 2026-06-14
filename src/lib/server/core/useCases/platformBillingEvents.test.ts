@@ -358,6 +358,40 @@ describe('PlatformBillingEvents', () => {
 		);
 	});
 
+	it('audits retry processor exceptions and returns a structured server error', async () => {
+		const audit = vi.fn();
+		const retryProcessor = createRetryProcessor({
+			processRecordedEvent: vi.fn(async () => {
+				throw new Error('provider retry network failure');
+			})
+		});
+		const billingEvents = createPlatformBillingEvents({
+			store: createInMemoryPlatformBillingEventsStore({ events: [makeRetryEvent({ id: 'evt_processor_error' })] }),
+			retryProcessor,
+			audit
+		});
+
+		const result = await billingEvents.retryEvent('evt_processor_error');
+
+		expect(result).toEqual({ ok: false, status: 500, error: 'provider retry network failure' });
+		expect(audit).toHaveBeenCalledWith(
+			expect.objectContaining({
+				action: 'admin.billing_event.retry',
+				resourceType: 'stripe_webhook_event',
+				resourceId: 'evt_processor_error',
+				severity: 'warning',
+				details: expect.objectContaining({
+					eventType: 'checkout.session.completed',
+					objectId: 'cs_123',
+					processingStateBefore: 'retryable_failed',
+					attemptCountBefore: 3,
+					resultState: 'processing_error',
+					result: 'provider retry network failure'
+				})
+			})
+		);
+	});
+
 	it('audits retry-attempt races as ledger errors and returns conflict', async () => {
 		const audit = vi.fn();
 		const retryProcessor = createRetryProcessor({

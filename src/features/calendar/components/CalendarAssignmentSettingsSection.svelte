@@ -8,6 +8,7 @@
 	import { Label } from '$lib/components/ui/label';
 	import { NativeSelect } from '$lib/components/ui/native-select';
 	import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
+	import { toastStore } from '$lib/stores/toast.svelte';
 	import type { AssignmentType } from '$lib/types';
 	import Pencil from '@lucide/svelte/icons/pencil';
 	import Trash2 from '@lucide/svelte/icons/trash-2';
@@ -87,46 +88,86 @@
 		editAssignmentOpen = true;
 	}
 
+	function showAssignmentMutationError(message: string, error?: unknown) {
+		toastStore.error(error instanceof Error ? error.message : message);
+	}
+
 	async function addAssignType() {
 		if (!canMutate || !newAssignName.trim() || !newAssignShortName.trim()) return;
-		await dailyAssignmentsStore.addType({
-			name: newAssignName.trim(),
-			shortName: newAssignShortName.trim().toUpperCase(),
-			assignTo: newAssignTo,
-			color: newAssignColor,
-			exemptPersonnelIds: [],
-			showInDateHeader: false
-		});
+		try {
+			const created = await dailyAssignmentsStore.addType({
+				name: newAssignName.trim(),
+				shortName: newAssignShortName.trim().toUpperCase(),
+				assignTo: newAssignTo,
+				color: newAssignColor,
+				exemptPersonnelIds: [],
+				showInDateHeader: false
+			});
+			if (!created) {
+				showAssignmentMutationError('Failed to add assignment type');
+				return;
+			}
+		} catch (error) {
+			showAssignmentMutationError('Failed to add assignment type', error);
+			return;
+		}
 		resetAddAssignForm();
 		addAssignmentOpen = false;
 	}
 
 	async function saveEditAssign() {
-		if (!editingAssign || !editAssignName.trim() || !editAssignShortName.trim()) return;
-		await dailyAssignmentsStore.updateType(editingAssign.id, {
-			name: editAssignName.trim(),
-			shortName: editAssignShortName.trim().toUpperCase(),
-			assignTo: editAssignTo,
-			color: editAssignColor
-		});
+		if (!canMutate || !editingAssign || !editAssignName.trim() || !editAssignShortName.trim()) return;
+		try {
+			const saved = await dailyAssignmentsStore.updateType(editingAssign.id, {
+				name: editAssignName.trim(),
+				shortName: editAssignShortName.trim().toUpperCase(),
+				assignTo: editAssignTo,
+				color: editAssignColor
+			});
+			if (!saved) {
+				showAssignmentMutationError('Failed to save assignment type');
+				return;
+			}
+		} catch (error) {
+			showAssignmentMutationError('Failed to save assignment type', error);
+			return;
+		}
 		editAssignmentOpen = false;
 		editingAssign = null;
 	}
 
 	async function deleteAssignType(t: AssignmentType) {
 		if (!canMutate) return;
-		await dailyAssignmentsStore.removeType(t.id);
+		try {
+			const deleted = await dailyAssignmentsStore.removeType(t.id);
+			if (!deleted) {
+				showAssignmentMutationError('Failed to delete assignment type');
+				return;
+			}
+		} catch (error) {
+			showAssignmentMutationError('Failed to delete assignment type', error);
+			return;
+		}
 		confirmDeleteAssign = null;
 	}
 
 	async function setShowInDateHeader(id: string | null) {
 		if (!canMutate) return;
-		const prev = activeAssignmentTypes.find((t) => t.showInDateHeader);
-		if (prev && prev.id !== id) {
-			await dailyAssignmentsStore.updateType(prev.id, { showInDateHeader: false });
-		}
-		if (id) {
-			await dailyAssignmentsStore.updateType(id, { showInDateHeader: true });
+		try {
+			const prev = activeAssignmentTypes.find((t) => t.showInDateHeader);
+			if (prev && prev.id !== id) {
+				const cleared = await dailyAssignmentsStore.updateType(prev.id, { showInDateHeader: false });
+				if (!cleared) {
+					showAssignmentMutationError('Failed to update header assignment type');
+					return;
+				}
+			}
+			if (id) {
+				const saved = await dailyAssignmentsStore.updateType(id, { showInDateHeader: true });
+				if (!saved) showAssignmentMutationError('Failed to update header assignment type');
+			}
+		} catch (error) {
+			showAssignmentMutationError('Failed to update header assignment type', error);
 		}
 	}
 </script>

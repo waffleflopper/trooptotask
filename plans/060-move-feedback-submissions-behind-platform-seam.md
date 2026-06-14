@@ -85,7 +85,7 @@ export interface PlatformFeedback {
 | Route tests | `npx vitest run src/routes/api/feedback/server.test.ts` | exits 0 |
 | Use-case tests | `npx vitest run src/lib/server/core/useCases/platformFeedback.test.ts` | exits 0 |
 | Admin feedback tests | `npx vitest run src/routes/admin/feedback/page.server.test.ts` | exits 0 |
-| Provider-leak grep | `rg -n -e 'getAdminClient' -e 'beta_feedback' -e 'api.github.com' -e 'GITHUB_FEEDBACK_TOKEN' -e 'createGitHubIssue' -e 'resolveFeedbackOrganizationContext' src/routes/api/feedback/+server.ts` | no matches |
+| Provider-leak grep | `rg -n -e 'getAdminClient' -e 'beta_feedback' -e 'api.github.com' -e 'GITHUB_FEEDBACK_TOKEN' -e '$env/dynamic/private' -e 'createGitHubIssue' -e 'resolveFeedbackOrganizationContext' src/routes/api/feedback/+server.ts` | no matches |
 | Format | `npm run format` | exits 0 |
 | Lint | `npm run lint` | exits 0 |
 | Governance | `npm run governance:check` | exits 0 |

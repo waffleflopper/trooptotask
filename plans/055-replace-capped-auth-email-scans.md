@@ -266,9 +266,9 @@ rg -n "accept_organization_invitation|organization_memberships|current_email" su
 ```
 
 If the current accepted-invitation RPC is still the place where authenticated users become
-organization members, add a follow-up migration that upserts
-`public.user_email_identities(current_user_id, current_email)` inside the successful acceptance
-transaction before or after inserting `organization_memberships`.
+organization members, add a follow-up migration that upserts a row into
+`public.user_email_identities` with `current_user_id` and `current_email` inside the successful
+acceptance transaction before or after inserting `organization_memberships`.
 
 If the code has moved to a server adapter by execution time, maintain the identity in that server
 path instead.

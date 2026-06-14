@@ -110,11 +110,6 @@
 	],
 	"routeAdminProviderAllowlist": [
 		{
-			"path": "src/routes/admin/billing-events/+page.server.ts",
-			"classification": "platform-admin-edge",
-			"reason": "Platform Administration billing-event retry still passes the admin context client to Stripe webhook recovery helpers."
-		},
-		{
 			"path": "src/routes/admin/organizations/[orgId]/+page.server.ts",
 			"classification": "platform-admin-edge",
 			"reason": "Platform Administration organization detail still builds service-role Supabase adapters from the admin context client."

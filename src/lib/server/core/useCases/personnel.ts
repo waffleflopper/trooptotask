@@ -1,5 +1,5 @@
 /**
- * Personnel write use cases — create, update, archive.
+ * Personnel write use cases — create, update, archive, restore, and permanent delete.
  *
  * Personnel operations require `WriteWithSubscriptionPorts` because create checks seat
  * limits against the org's subscription tier. Archive triggers a deletion request
@@ -15,7 +15,7 @@ import type { WriteWithNotificationsPorts, WriteWithSubscriptionPorts } from '$l
 import { evaluateFeaturePolicy, policyResourceForGroup, requireFeaturePolicy } from './featurePolicy';
 import { buildUniquePersonnelSlug, isPersonnelSlugUniqueConstraintError } from './personnelSlug';
 import { createDeletionRequest } from './deletionRequests';
-import { archivePersonnelOwnedArtifacts } from './personnelArchivedArtifacts';
+import { archivePersonnelOwnedArtifacts, restorePersonnelOwnedArtifacts } from './personnelArchivedArtifacts';
 
 const entity = PersonnelEntity;
 const AUDIT_RESOURCE = 'personnel';
@@ -43,11 +43,21 @@ interface ArchiveCandidate {
 	archived_at: string | null;
 }
 
+interface PersonnelLifecycleRecord {
+	rank: string;
+	first_name: string;
+	last_name: string;
+	group_id: string | null;
+	archived_at: string | null;
+}
+
 export interface PersonnelUseCases {
 	create(ctx: WriteWithSubscriptionPorts, data: Record<string, unknown>): Promise<unknown>;
 	update(ctx: WriteWithSubscriptionPorts, data: Record<string, unknown>): Promise<unknown>;
 	archive(ctx: WriteWithSubscriptionPorts, id: string): Promise<{ requiresApproval: boolean } | void>;
 	archiveBatch(ctx: ArchiveBatchPorts, input: ArchivePersonnelBatchInput): Promise<ArchivePersonnelBatchResult>;
+	restore(ctx: WriteWithSubscriptionPorts, id: string): Promise<{ success: true } | { message: string | undefined }>;
+	permanentlyDelete(ctx: WriteWithNotificationsPorts, id: string): Promise<{ success: true }>;
 }
 
 function uniqueStrings(values: string[]): string[] {
@@ -62,6 +72,17 @@ function errorStatus(error: unknown): number | undefined {
 	return typeof error === 'object' && error !== null && 'status' in error
 		? (error as { status?: number }).status
 		: undefined;
+}
+
+function lifecycleLookupStore(ctx: {
+	store: WriteWithSubscriptionPorts['store'];
+	rawStore?: WriteWithSubscriptionPorts['store'];
+}) {
+	return ctx.rawStore ?? ctx.store;
+}
+
+function personnelName(person: Pick<PersonnelLifecycleRecord, 'rank' | 'last_name' | 'first_name'>): string {
+	return `${person.rank} ${person.last_name}, ${person.first_name}`;
 }
 
 export function createPersonnelUseCases(): PersonnelUseCases {
@@ -325,6 +346,85 @@ export function createPersonnelUseCases(): PersonnelUseCases {
 			}
 
 			return result;
+		},
+
+		async restore(ctx, id) {
+			if (!id) fail(400, 'Missing id');
+
+			const capCheck = await ctx.subscription.canAddPersonnel();
+			if (!capCheck.allowed) {
+				return { message: capCheck.message };
+			}
+
+			const person = await lifecycleLookupStore(ctx).findOne<PersonnelLifecycleRecord>(entity.table, ctx.auth.orgId, {
+				id
+			});
+
+			if (!person) fail(404, 'Personnel not found');
+			if (!person.archived_at) fail(400, 'Personnel is not archived');
+
+			await requireFeaturePolicy(
+				ctx,
+				POLICY_ACTION_CATALOG.personnel.restoreRecords,
+				policyResourceForGroup(person.group_id),
+				AUDIT_RESOURCE,
+				id
+			);
+
+			const personnelArchivedAt = person.archived_at;
+			await ctx.store.update(entity.table, ctx.auth.orgId, id, { archived_at: null });
+			await restorePersonnelOwnedArtifacts(ctx, [id], personnelArchivedAt);
+
+			ctx.subscription.invalidateTierCache();
+
+			ctx.audit.log({
+				action: `${AUDIT_RESOURCE}.restored`,
+				resourceType: AUDIT_RESOURCE,
+				resourceId: id,
+				details: {
+					name: personnelName(person)
+				}
+			});
+
+			return { success: true };
+		},
+
+		async permanentlyDelete(ctx, id) {
+			if (!id) fail(400, 'Missing id');
+
+			const person = await lifecycleLookupStore(ctx).findOne<PersonnelLifecycleRecord>(entity.table, ctx.auth.orgId, {
+				id
+			});
+
+			if (!person) fail(404, 'Personnel not found');
+			if (!person.archived_at) fail(400, 'Can only permanently delete archived personnel');
+
+			await requireFeaturePolicy(
+				ctx,
+				POLICY_ACTION_CATALOG.personnel.permanentlyDeleteRecords,
+				policyResourceForGroup(person.group_id),
+				AUDIT_RESOURCE,
+				id
+			);
+
+			await ctx.store.delete(entity.table, ctx.auth.orgId, id);
+
+			const name = personnelName(person);
+
+			ctx.audit.log({
+				action: `${AUDIT_RESOURCE}.permanently_deleted`,
+				resourceType: AUDIT_RESOURCE,
+				resourceId: id,
+				details: { name }
+			});
+
+			await ctx.notifications.notifyAdmins(ctx.auth.orgId, ctx.auth.userId, {
+				type: 'personnel_permanently_deleted',
+				title: 'Personnel Permanently Deleted',
+				message: `Personnel "${name}" was permanently deleted.`
+			});
+
+			return { success: true };
 		}
 	};
 }

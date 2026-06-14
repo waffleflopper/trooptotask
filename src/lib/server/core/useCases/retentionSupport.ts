@@ -1,4 +1,5 @@
 import type { DataStore } from '$lib/server/core/ports';
+import type { ArchiveRetentionOrgConfig } from './archiveRetention';
 
 export interface RetentionNotificationPayload {
 	type: string;
@@ -10,11 +11,6 @@ export interface RetentionNotificationPayload {
 export interface ArchiveRetentionSettingsRow {
 	id: string;
 	archive_retention_months: number | null;
-}
-
-export interface RetentionOrgConfig {
-	id: string;
-	retentionMonths: number | null;
 }
 
 export async function notifyAdminsViaStore(
@@ -76,7 +72,7 @@ export function retentionCutoff(now: Date, retentionMonths: number): string {
 	return cutoff.toISOString();
 }
 
-export function mapArchiveRetentionOrgConfigs(orgs: ArchiveRetentionSettingsRow[]): RetentionOrgConfig[] {
+export function mapArchiveRetentionOrgConfigs(orgs: ArchiveRetentionSettingsRow[]): ArchiveRetentionOrgConfig[] {
 	return orgs.map((org) => ({
 		id: org.id,
 		retentionMonths: org.archive_retention_months

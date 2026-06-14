@@ -72,7 +72,7 @@ The operator explicitly excluded automatic CI trigger work from this batch. Do n
 | 050  | Deepen billing-event retry seam                   | P1       | M      | -          | TODO   |
 | 051  | Add platform organization detail seam             | P1       | M      | -          | TODO   |
 | 052  | Move user identity commands behind seam           | P2       | S-M    | -          | TODO   |
-| 053  | Drop legacy clinic owner RPC                      | P1       | S      | -          | TODO   |
+| 053  | Drop legacy clinic owner RPC                      | P1       | S      | -          | DONE   |
 | 054  | Move logout mutation to POST                      | P1       | S      | -          | TODO   |
 | 055  | Replace capped Auth email scans                   | P1       | M      | -          | TODO   |
 | 056  | Add sign-in roster scan compensation              | P2       | M      | -          | TODO   |

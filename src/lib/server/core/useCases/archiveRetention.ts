@@ -1,6 +1,7 @@
 import type { DataStore, StoragePort } from '$lib/server/core/ports';
 import { COUNSELING_RECORDS_BUCKET } from './personnelCounselingRecords';
 import { PERSONNEL_DOCUMENTS_BUCKET } from './personnelDocuments';
+import { notifyAdminsViaStore, retentionCutoff } from './retentionSupport';
 
 export const DEFAULT_ARCHIVE_RETENTION_MONTHS = 36;
 const MIN_ARCHIVE_RETENTION_MONTHS = 1;
@@ -21,13 +22,6 @@ export interface ArchiveRetentionCleanupResult {
 	deletedCount: number;
 	orgsAffected: number;
 	families: ArchiveRetentionFamilyResult[];
-}
-
-interface NotificationPayload {
-	type: string;
-	title: string;
-	message: string;
-	link?: string | null;
 }
 
 interface ArchiveRetentionPorts {
@@ -120,65 +114,6 @@ const ARCHIVE_RETENTION_FAMILIES: CleanupFamily[] = [
 	}
 	// `duty_templates` is a legacy table and is intentionally excluded from archive retention cleanup.
 ];
-
-async function notifyAdminsViaStore(
-	store: DataStore,
-	orgId: string,
-	excludeUserId: string | null,
-	notification: NotificationPayload
-): Promise<void> {
-	const admins = await store.findMany<{ user_id: string; role: string }>(
-		'organization_memberships',
-		orgId,
-		{},
-		{
-			inFilters: { role: ['owner', 'admin'] }
-		}
-	);
-
-	const rows = admins
-		.filter((adm) => !excludeUserId || adm.user_id !== excludeUserId)
-		.map((adm) => ({
-			user_id: adm.user_id,
-			type: notification.type,
-			title: notification.title,
-			message: notification.message,
-			link: notification.link ?? null
-		}));
-
-	if (rows.length > 0) {
-		await store.insertMany('notifications', orgId, rows);
-	}
-}
-
-function retentionCutoff(now: Date, retentionMonths: number): string {
-	const targetMonthStart = new Date(
-		Date.UTC(
-			now.getUTCFullYear(),
-			now.getUTCMonth() - retentionMonths,
-			1,
-			now.getUTCHours(),
-			now.getUTCMinutes(),
-			now.getUTCSeconds(),
-			now.getUTCMilliseconds()
-		)
-	);
-	const lastTargetMonthDay = new Date(
-		Date.UTC(targetMonthStart.getUTCFullYear(), targetMonthStart.getUTCMonth() + 1, 0)
-	).getUTCDate();
-	const cutoff = new Date(
-		Date.UTC(
-			targetMonthStart.getUTCFullYear(),
-			targetMonthStart.getUTCMonth(),
-			Math.min(now.getUTCDate(), lastTargetMonthDay),
-			now.getUTCHours(),
-			now.getUTCMinutes(),
-			now.getUTCSeconds(),
-			now.getUTCMilliseconds()
-		)
-	);
-	return cutoff.toISOString();
-}
 
 function normalizeRetentionMonths(retentionMonths: number | null | undefined): number {
 	if (retentionMonths == null || !Number.isFinite(retentionMonths) || retentionMonths <= 0) {

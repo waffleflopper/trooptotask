@@ -8,6 +8,7 @@
  * This uses raw DataStore (not UseCaseContext) so it can run without a user session.
  */
 import type { DataStore } from '$lib/server/core/ports';
+import { notifyAdminsViaStore, retentionCutoff } from './retentionSupport';
 
 interface OnboardingRow {
 	id: string;
@@ -17,21 +18,17 @@ interface OnboardingRow {
 	cancelled_at: string | null;
 }
 
-interface OrgConfig {
+const DEFAULT_ONBOARDING_RETENTION_MONTHS = 36;
+const MIN_ONBOARDING_RETENTION_MONTHS = 1;
+
+export interface OnboardingRetentionOrgConfig {
 	id: string;
-	retentionMonths: number;
+	retentionMonths?: number | null;
 }
 
-interface CleanupResult {
+export interface OnboardingRetentionCleanupResult {
 	deletedCount: number;
 	orgsAffected: number;
-}
-
-interface NotificationPayload {
-	type: string;
-	title: string;
-	message: string;
-	link?: string | null;
 }
 
 const RETENTION_DELETE_CHUNK_SIZE = 100;
@@ -44,67 +41,17 @@ function chunksOf<T>(items: T[], size: number): T[][] {
 	return chunks;
 }
 
-function retentionCutoff(now: Date, retentionMonths: number): string {
-	// Clamp month-end cutoffs to the target month's last day so UTC subtraction cannot roll into the next month.
-	const targetMonthStart = new Date(
-		Date.UTC(
-			now.getUTCFullYear(),
-			now.getUTCMonth() - retentionMonths,
-			1,
-			now.getUTCHours(),
-			now.getUTCMinutes(),
-			now.getUTCSeconds(),
-			now.getUTCMilliseconds()
-		)
-	);
-	const lastTargetMonthDay = new Date(
-		Date.UTC(targetMonthStart.getUTCFullYear(), targetMonthStart.getUTCMonth() + 1, 0)
-	).getUTCDate();
-	const cutoff = new Date(
-		Date.UTC(
-			targetMonthStart.getUTCFullYear(),
-			targetMonthStart.getUTCMonth(),
-			Math.min(now.getUTCDate(), lastTargetMonthDay),
-			now.getUTCHours(),
-			now.getUTCMinutes(),
-			now.getUTCSeconds(),
-			now.getUTCMilliseconds()
-		)
-	);
-	return cutoff.toISOString();
-}
-
-async function notifyAdminsViaStore(
-	store: DataStore,
-	orgId: string,
-	excludeUserId: string | null,
-	notification: NotificationPayload
-): Promise<void> {
-	const admins = await store.findMany<{ user_id: string; role: string }>(
-		'organization_memberships',
-		orgId,
-		{},
-		{
-			inFilters: { role: ['owner', 'admin'] }
-		}
-	);
-
-	const rows = admins
-		.filter((adm) => !excludeUserId || adm.user_id !== excludeUserId)
-		.map((adm) => ({
-			user_id: adm.user_id,
-			type: notification.type,
-			title: notification.title,
-			message: notification.message,
-			link: notification.link ?? null
-		}));
-
-	if (rows.length > 0) {
-		await store.insertMany('notifications', orgId, rows);
+function normalizeRetentionMonths(retentionMonths: number | null | undefined): number {
+	if (retentionMonths == null || !Number.isFinite(retentionMonths) || retentionMonths <= 0) {
+		return DEFAULT_ONBOARDING_RETENTION_MONTHS;
 	}
+	return Math.max(MIN_ONBOARDING_RETENTION_MONTHS, retentionMonths);
 }
 
-export async function cleanupExpiredOnboardings(store: DataStore, orgConfigs: OrgConfig[]): Promise<CleanupResult> {
+export async function cleanupExpiredOnboardings(
+	store: DataStore,
+	orgConfigs: OnboardingRetentionOrgConfig[]
+): Promise<OnboardingRetentionCleanupResult> {
 	if (orgConfigs.length === 0) {
 		return { deletedCount: 0, orgsAffected: 0 };
 	}
@@ -114,7 +61,7 @@ export async function cleanupExpiredOnboardings(store: DataStore, orgConfigs: Or
 	const affectedOrgs = new Set<string>();
 
 	for (const org of orgConfigs) {
-		const cutoff = retentionCutoff(now, org.retentionMonths);
+		const cutoff = retentionCutoff(now, normalizeRetentionMonths(org.retentionMonths));
 		const completed = await store.findMany<OnboardingRow>(
 			'personnel_onboardings',
 			org.id,

@@ -5,11 +5,22 @@ import {
 } from '$lib/server/core/featureLaneWorkspaceLoad';
 import {
 	streamOnboardingWorkspaceBootstrap,
+	type OnboardingWorkspaceBootstrapOptions,
 	type OnboardingWorkspaceRouteData
 } from '$features/onboarding/server/onboardingWorkspaceBootstrap';
 
 export interface OnboardingLayoutLoadDeps {
-	streamOnboardingWorkspace?: (context: FeatureLaneWorkspaceRequestContext) => Promise<OnboardingWorkspaceRouteData>;
+	streamOnboardingWorkspace?: (
+		context: FeatureLaneWorkspaceRequestContext,
+		options?: OnboardingWorkspaceBootstrapOptions
+	) => Promise<OnboardingWorkspaceRouteData>;
+}
+
+function onboardingBootstrapOptionsForPath(pathname: string): OnboardingWorkspaceBootstrapOptions {
+	const normalizedPath = pathname.replace(/\/+$/, '');
+	return {
+		mode: normalizedPath.endsWith('/onboarding/history') ? 'history' : 'active'
+	};
 }
 
 export function _createOnboardingLayoutLoad(deps: OnboardingLayoutLoadDeps = {}): LayoutServerLoad {
@@ -18,7 +29,8 @@ export function _createOnboardingLayoutLoad(deps: OnboardingLayoutLoadDeps = {})
 	return async (event) =>
 		streamReadyFeatureLaneWorkspace(event, {
 			dependencies: ['app:org-core', 'app:onboarding-data'],
-			streamWorkspace: streamOnboardingWorkspace
+			streamWorkspace: (context) =>
+				streamOnboardingWorkspace(context, onboardingBootstrapOptionsForPath(event.url.pathname))
 		});
 }
 

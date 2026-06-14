@@ -4,11 +4,11 @@ import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { buildLayoutContext, buildRouteContext, loadWithContextCore } from '$lib/server/adapters/httpAdapter';
 import { createSupabaseOrgSettingsMemberManagementPort } from '$lib/server/adapters/supabaseOrgSettingsMemberManagement';
 import { fetchDashboardTrainingSummary } from '$lib/server/core/useCases/trainingSummaryQuery';
-import { fetchCriticalTasksReportDashboard } from '$lib/server/core/useCases/criticalTasksReportsQuery';
+import { fetchCriticalTasksDashboardSummary } from '$lib/server/core/useCases/criticalTasksReportsQuery';
 import { leaveOrganization } from '$lib/server/core/useCases/orgSettingsMemberManagement';
 import type { UseCaseContext } from '$lib/server/core/ports';
 import { withDashboardTiming } from '$lib/server/utils/dashboardTiming';
-import type { IctReportDashboard } from '$features/critical-tasks/utils/ictReports';
+import type { IctReportDashboardSummary } from '$features/critical-tasks/utils/ictReports';
 import type { DashboardIctlSummary } from '$features/dashboard/dashboard.types';
 import type { DashboardWorkspaceResult } from '$features/dashboard/server/dashboardWorkspaceBootstrap';
 
@@ -18,11 +18,11 @@ export interface DashboardPageSummaryData {
 	onboardingTrainingCompletions: string[];
 }
 
-function toDashboardIctlSummary(report: IctReportDashboard): DashboardIctlSummary {
+function toDashboardIctlSummary(report: IctReportDashboardSummary): DashboardIctlSummary {
 	const { overallReadiness, soldiersBelow70, tasksExpiringSoon, tasksBelowThreshold } = report.kpis;
 
 	return {
-		hasActiveTasks: report.readinessMatrix.categories.length > 0 || overallReadiness.applicableCount > 0,
+		hasActiveTasks: report.hasActiveTasks,
 		overallReadinessPercent: overallReadiness.percent,
 		overallDeltaPercent: overallReadiness.deltaPercent,
 		readyCount: overallReadiness.readyCount,
@@ -34,25 +34,25 @@ function toDashboardIctlSummary(report: IctReportDashboard): DashboardIctlSummar
 		expiringSoonAffectedSoldiers: tasksExpiringSoon.affectedSoldiers,
 		expiringSoonWindowDays: tasksExpiringSoon.windowDays,
 		tasksBelowThresholdCount: tasksBelowThreshold.count,
-		projectedReadinessPercent: report.expirationCliff.projectedReadinessAtMonth6.readinessPercent,
-		mosReadiness: report.readinessMatrix.rows.slice(0, 3).map((row) => ({
+		projectedReadinessPercent: report.projectedReadinessAtMonth6.readinessPercent,
+		mosReadiness: report.mosReadiness.map((row) => ({
 			mos: row.mos,
 			personnelCount: row.personnelCount,
-			readinessPercent: row.averageReadinessPercent ?? 0
+			readinessPercent: row.readinessPercent
 		})),
-		trend: report.readinessTrend.months.slice(-6).map((point) => ({
+		trend: report.readinessTrend.months.map((point) => ({
 			month: point.month,
 			label: point.label,
 			readinessPercent: point.overallReadinessPercent
 		})),
-		tasksBelowThreshold: report.tasksBelowThreshold.rows.slice(0, 3).map((row) => ({
+		tasksBelowThreshold: report.tasksBelowThreshold.rows.map((row) => ({
 			taskId: row.taskId,
 			taskCode: row.taskCode,
 			taskName: row.taskName,
 			percentComplete: row.percentComplete,
 			soldierGapCount: row.soldierGapCount
 		})),
-		atRiskSoldiers: report.atRiskSoldiers.rows.slice(0, 3).map((row) => ({
+		atRiskSoldiers: report.atRiskSoldiers.rows.map((row) => ({
 			personnelId: row.personnelId,
 			soldierName: row.soldierName,
 			mos: row.mos,
@@ -71,7 +71,7 @@ async function loadDashboardIctlSummary(
 ): Promise<DashboardIctlSummary | null> {
 	if (!canViewCriticalTasks) return null;
 
-	const report = await fetchCriticalTasksReportDashboard(ctx);
+	const report = await fetchCriticalTasksDashboardSummary(ctx);
 	return toDashboardIctlSummary(report);
 }
 

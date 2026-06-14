@@ -74,8 +74,13 @@ function createSupabaseMock(tables: TestTables) {
 					}
 					return Promise.resolve({ data: rows[0], error: null });
 				},
-				then: (resolve: (value: { data: TestRow[]; error: null }) => void, reject: (reason: unknown) => void) =>
-					Promise.resolve({ data: applyQuery(tables[table] ?? [], queryCalls), error: null }).then(resolve, reject)
+				then: (
+					resolve: (value: { data: TestRow[]; count: number; error: null }) => void,
+					reject: (reason: unknown) => void
+				) => {
+					const rows = applyQuery(tables[table] ?? [], queryCalls);
+					return Promise.resolve({ data: rows, count: rows.length, error: null }).then(resolve, reject);
+				}
 			};
 
 			return builder;

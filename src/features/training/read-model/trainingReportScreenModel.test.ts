@@ -4,6 +4,7 @@ import type { Personnel } from '$lib/types';
 import type { TrainingReportData } from '$lib/server/core/useCases/trainingReportsQuery';
 import type { PersonnelTraining, TrainingType } from '$features/training/training.types';
 import {
+	buildTrainingReportDetailUrl,
 	buildTrainingReportExportUrl,
 	buildTrainingReportScreenModel,
 	buildTrainingReportUrl,
@@ -219,5 +220,24 @@ describe('training report URL helpers', () => {
 		expect(params.get('sortDirection')).toBe('asc');
 		expect(params.has('page')).toBe(false);
 		expect(params.has('pageSize')).toBe(false);
+	});
+
+	it('encodes report filters, sort, and pagination for detail page requests', () => {
+		const url = buildTrainingReportDetailUrl({
+			orgId: 'org-1',
+			filters: withFilters({ status: 'not-completed', trainingTypeIds: ['type-1'] }),
+			sort: { column: 'type-1', ascending: true },
+			page: 3,
+			pageSize: 50
+		});
+		const params = new URLSearchParams(url.split('?')[1]);
+
+		expect(url).toContain('/org/org-1/api/training-reports/detail?');
+		expect(params.get('status')).toBe('not-completed');
+		expect(params.getAll('trainingTypeId')).toEqual(['type-1']);
+		expect(params.get('sortColumn')).toBe('type-1');
+		expect(params.get('sortDirection')).toBe('asc');
+		expect(params.get('page')).toBe('3');
+		expect(params.get('pageSize')).toBe('50');
 	});
 });

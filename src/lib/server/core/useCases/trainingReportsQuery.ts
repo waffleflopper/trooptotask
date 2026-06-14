@@ -138,24 +138,31 @@ interface BuiltTrainingReport {
 	sort: TrainingReportSort;
 }
 
-async function buildTrainingReport(ctx: QueryPorts, input: TrainingReportInput = {}): Promise<BuiltTrainingReport> {
+interface BuiltTrainingReportRows {
+	personnel: Personnel[];
+	pivotRows: PivotRow[];
+	trainingTypes: TrainingType[];
+	reportMatrix: ReturnType<typeof buildTrainingReportMatrix>;
+	sort: TrainingReportSort;
+}
+
+async function buildTrainingReportRows(
+	ctx: QueryPorts,
+	input: TrainingReportInput = {}
+): Promise<BuiltTrainingReportRows> {
 	await requireTrainingRecordView(ctx);
 	const orgId = ctx.auth.orgId;
 	const filters = input.filters ?? {};
 	const sort = normalizeSort(input.sort);
 
-	const [personnel, groupRows, typeRows, trainingRows] = await Promise.all([
+	const [personnel, typeRows, trainingRows] = await Promise.all([
 		loadRosterPersonnel(ctx, { status: 'active' }),
-		ctx.store.findMany<Record<string, unknown>>('groups', orgId, undefined, {
-			orderBy: [{ column: 'sort_order', ascending: true }]
-		}),
 		ctx.store.findMany<Record<string, unknown>>('training_types', orgId, undefined, {
 			orderBy: [{ column: 'sort_order', ascending: true }]
 		}),
 		ctx.store.findMany<Record<string, unknown>>('personnel_trainings', orgId)
 	]);
 
-	const groups = GroupEntity.fromDbArray(groupRows);
 	const trainingTypes = TrainingTypeEntity.fromDbArray(typeRows);
 	const trainings = PersonnelTrainingEntity.fromDbArray(trainingRows);
 
@@ -164,7 +171,6 @@ async function buildTrainingReport(ctx: QueryPorts, input: TrainingReportInput =
 		? trainingTypes.filter((type) => filters.trainingTypeIds?.includes(type.id))
 		: trainingTypes;
 	const reportMatrix = buildTrainingReportMatrix(filteredPersonnel, selectedTypes, trainings);
-	const dashboard = computeReadinessDashboardFromMatrix(reportMatrix);
 
 	let pivotRows = buildPivotTableFromMatrix(reportMatrix);
 	if (filters.status) {
@@ -195,10 +201,27 @@ async function buildTrainingReport(ctx: QueryPorts, input: TrainingReportInput =
 	});
 
 	return {
-		dashboard,
+		personnel,
 		pivotRows,
 		trainingTypes: selectedTypes,
-		reportTrainingTypes: selectedTypes.map(toReportTrainingType),
+		reportMatrix,
+		sort
+	};
+}
+
+async function buildTrainingReport(ctx: QueryPorts, input: TrainingReportInput = {}): Promise<BuiltTrainingReport> {
+	const orgId = ctx.auth.orgId;
+	const { personnel, pivotRows, trainingTypes, reportMatrix, sort } = await buildTrainingReportRows(ctx, input);
+	const groupRows = await ctx.store.findMany<Record<string, unknown>>('groups', orgId, undefined, {
+		orderBy: [{ column: 'sort_order', ascending: true }]
+	});
+	const groups = GroupEntity.fromDbArray(groupRows);
+
+	return {
+		dashboard: computeReadinessDashboardFromMatrix(reportMatrix),
+		pivotRows,
+		trainingTypes,
+		reportTrainingTypes: trainingTypes.map(toReportTrainingType),
 		filterOptions: {
 			groups,
 			mos: uniqueSorted(personnel.map((person) => person.mos)),
@@ -209,15 +232,13 @@ async function buildTrainingReport(ctx: QueryPorts, input: TrainingReportInput =
 	};
 }
 
-export async function fetchTrainingReportPage(
-	ctx: QueryPorts,
-	input: TrainingReportInput = {}
-): Promise<TrainingReportData> {
-	const { dashboard, pivotRows, trainingTypes, reportTrainingTypes, filterOptions, sort } = await buildTrainingReport(
-		ctx,
-		input
-	);
-	const pagination = normalizePagination(input.pagination);
+function buildTrainingReportDetail(
+	pivotRows: PivotRow[],
+	trainingTypes: TrainingType[],
+	sort: TrainingReportSort,
+	paginationInput: TrainingReportInput['pagination']
+): TrainingReportDetail {
+	const pagination = normalizePagination(paginationInput);
 	const totalRows = pivotRows.length;
 	const totalPages = Math.max(1, Math.ceil(totalRows / pagination.pageSize));
 	const page = Math.min(pagination.page, totalPages);
@@ -236,18 +257,38 @@ export async function fetchTrainingReportPage(
 	}));
 
 	return {
+		rows,
+		totalRows,
+		page,
+		pageSize: pagination.pageSize,
+		totalPages,
+		sort
+	};
+}
+
+export async function fetchTrainingReportPage(
+	ctx: QueryPorts,
+	input: TrainingReportInput = {}
+): Promise<TrainingReportData> {
+	const { dashboard, pivotRows, trainingTypes, reportTrainingTypes, filterOptions, sort } = await buildTrainingReport(
+		ctx,
+		input
+	);
+
+	return {
 		dashboard,
-		detail: {
-			rows,
-			totalRows,
-			page,
-			pageSize: pagination.pageSize,
-			totalPages,
-			sort
-		},
+		detail: buildTrainingReportDetail(pivotRows, trainingTypes, sort, input.pagination),
 		trainingTypes: reportTrainingTypes,
 		filterOptions
 	};
+}
+
+export async function fetchTrainingReportDetailPage(
+	ctx: QueryPorts,
+	input: TrainingReportInput = {}
+): Promise<TrainingReportDetail> {
+	const { pivotRows, trainingTypes, sort } = await buildTrainingReportRows(ctx, input);
+	return buildTrainingReportDetail(pivotRows, trainingTypes, sort, input.pagination);
 }
 
 export interface TrainingReportWorkbookExport {

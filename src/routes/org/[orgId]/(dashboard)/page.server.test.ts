@@ -9,7 +9,7 @@ const {
 	buildLayoutContextMock,
 	buildRouteContextMock,
 	createSupabaseOrgSettingsMemberManagementPortMock,
-	fetchCriticalTasksReportDashboardMock,
+	fetchCriticalTasksDashboardSummaryMock,
 	fetchDashboardTrainingSummaryMock,
 	findManyWithCountMock,
 	findManyMock,
@@ -24,7 +24,7 @@ const {
 		buildLayoutContextMock: vi.fn(),
 		buildRouteContextMock: vi.fn(),
 		createSupabaseOrgSettingsMemberManagementPortMock: vi.fn(),
-		fetchCriticalTasksReportDashboardMock: vi.fn(),
+		fetchCriticalTasksDashboardSummaryMock: vi.fn(),
 		fetchDashboardTrainingSummaryMock: vi.fn(),
 		findManyWithCountMock,
 		findManyMock,
@@ -84,7 +84,7 @@ vi.mock('$lib/server/core/useCases/trainingSummaryQuery', () => ({
 }));
 
 vi.mock('$lib/server/core/useCases/criticalTasksReportsQuery', () => ({
-	fetchCriticalTasksReportDashboard: fetchCriticalTasksReportDashboardMock
+	fetchCriticalTasksDashboardSummary: fetchCriticalTasksDashboardSummaryMock
 }));
 
 import { actions, load } from './+page.server';
@@ -107,15 +107,34 @@ describe('dashboard page server load', () => {
 			trainingSummary: { stats: null, issues: [] },
 			onboardingTrainingCompletions: new Set<string>()
 		});
-		fetchCriticalTasksReportDashboardMock.mockResolvedValue({
+		fetchCriticalTasksDashboardSummaryMock.mockResolvedValue({
+			hasActiveTasks: true,
 			kpis: {
 				overallReadiness: { percent: 68, deltaPercent: -4, readyCount: 17, applicableCount: 25 },
 				soldiersBelow70: { count: 3, totalApplicable: 8, thresholdPercent: 70 },
 				tasksExpiringSoon: { count: 5, affectedSoldiers: 4, windowDays: 60 },
 				tasksBelowThreshold: { count: 2, thresholdPercent: 70 }
 			},
+			mosReadiness: [{ mos: '11B', personnelCount: 5, readinessPercent: 60, readyCount: 12, applicableCount: 20 }],
+			readinessTrend: {
+				months: [
+					{
+						month: '2026-04',
+						label: 'Apr',
+						overallReadinessPercent: 68
+					}
+				]
+			},
+			projectedReadinessAtMonth6: {
+				month: '2026-10',
+				label: 'Oct',
+				readinessPercent: 64,
+				readyCount: 16,
+				applicableCount: 25
+			},
 			tasksBelowThreshold: {
 				thresholdPercent: 70,
+				count: 2,
 				rows: [
 					{
 						taskId: 'task-1',
@@ -129,6 +148,7 @@ describe('dashboard page server load', () => {
 				]
 			},
 			atRiskSoldiers: {
+				totalApplicable: 1,
 				rows: [
 					{
 						personnelId: 'person-1',
@@ -144,47 +164,7 @@ describe('dashboard page server load', () => {
 						lastIctUpdateAt: '2026-03-09'
 					}
 				]
-			},
-			readinessTrend: {
-				comparisonMos: ['11B'],
-				months: [
-					{
-						month: '2026-04',
-						label: 'Apr',
-						overallReadinessPercent: 68,
-						overallReadyCount: 17,
-						overallApplicableCount: 25,
-						mosReadiness: []
-					}
-				]
-			},
-			expirationCliff: {
-				mosSeries: [],
-				months: [],
-				projectedReadinessAtMonth6: {
-					month: '2026-10',
-					label: 'Oct',
-					readinessPercent: 64,
-					readyCount: 16,
-					applicableCount: 25
-				}
-			},
-			readinessMatrix: {
-				hasCategorizedTasks: false,
-				categories: [{ key: '__uncategorized__', label: 'Uncategorized', isUncategorized: true }],
-				rows: [
-					{
-						mos: '11B',
-						personnelCount: 5,
-						averageReadinessPercent: 60,
-						averageReadyCount: 12,
-						averageApplicableCount: 20,
-						averageTier: 'warn',
-						cells: []
-					}
-				]
-			},
-			readinessDistribution: { bins: [], defaultMos: null, series: [] }
+			}
 		});
 		findManyWithCountMock.mockResolvedValue({ count: 3 });
 		findManyMock.mockResolvedValue([{ dismissed_at: null }]);
@@ -300,7 +280,7 @@ describe('dashboard page server load', () => {
 				issueStatuses: ['expired', 'warning-orange']
 			}
 		});
-		expect(fetchCriticalTasksReportDashboardMock).toHaveBeenCalledOnce();
+		expect(fetchCriticalTasksDashboardSummaryMock).toHaveBeenCalledOnce();
 	});
 
 	it('does not fetch or return Critical Tasks dashboard data without Critical Tasks view access', async () => {
@@ -347,7 +327,7 @@ describe('dashboard page server load', () => {
 			onboardingTrainingCompletions: [],
 			ictlSummary: null
 		});
-		expect(fetchCriticalTasksReportDashboardMock).not.toHaveBeenCalled();
+		expect(fetchCriticalTasksDashboardSummaryMock).not.toHaveBeenCalled();
 	});
 
 	it('leaves the organization through the dashboard action and redirects away from the org', async () => {

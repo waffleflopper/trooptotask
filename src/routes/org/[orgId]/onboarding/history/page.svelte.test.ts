@@ -77,4 +77,87 @@ describe('onboarding history page', () => {
 		expect(screen.getByText('SGT Archived, Avery')).toBeTruthy();
 		expect(screen.queryByText('Unknown')).toBeNull();
 	});
+
+	it('renders completed and cancelled history records while excluding active onboardings', () => {
+		rosterStore.load(
+			[
+				{
+					id: 'p-completed',
+					rank: 'SGT',
+					firstName: 'Casey',
+					lastName: 'Complete',
+					mos: '11B',
+					clinicRole: 'Team Leader',
+					groupId: 'group-alpha',
+					groupName: 'Alpha'
+				},
+				{
+					id: 'p-cancelled',
+					rank: 'CPL',
+					firstName: 'Drew',
+					lastName: 'Cancelled',
+					mos: '68W',
+					clinicRole: 'Medic',
+					groupId: 'group-alpha',
+					groupName: 'Alpha'
+				},
+				{
+					id: 'p-active',
+					rank: 'PFC',
+					firstName: 'Riley',
+					lastName: 'Active',
+					mos: '25U',
+					clinicRole: 'Signal',
+					groupId: 'group-alpha',
+					groupName: 'Alpha'
+				}
+			],
+			'org-1'
+		);
+		onboardingStore.load(
+			[
+				{
+					id: 'completed-onboarding',
+					personnelId: 'p-completed',
+					startedAt: '2026-01-01T00:00:00Z',
+					completedAt: '2026-02-01T00:00:00Z',
+					cancelledAt: null,
+					status: 'completed',
+					steps: [],
+					templateId: null
+				},
+				{
+					id: 'cancelled-onboarding',
+					personnelId: 'p-cancelled',
+					startedAt: '2026-01-03T00:00:00Z',
+					completedAt: null,
+					cancelledAt: '2026-02-03T00:00:00Z',
+					status: 'cancelled',
+					steps: [],
+					templateId: null
+				},
+				{
+					id: 'active-onboarding',
+					personnelId: 'p-active',
+					startedAt: '2026-01-05T00:00:00Z',
+					completedAt: null,
+					cancelledAt: null,
+					status: 'in_progress',
+					steps: [],
+					templateId: null
+				}
+			],
+			'org-1'
+		);
+
+		render(Page, {
+			props: {
+				data: createReadyAppShellRouteData({ orgId: 'org-1' })
+			}
+		});
+
+		expect(screen.getByText('SGT Complete, Casey')).toBeTruthy();
+		expect(screen.getByText('CPL Cancelled, Drew')).toBeTruthy();
+		expect(screen.queryByText('PFC Active, Riley')).toBeNull();
+	});
 });

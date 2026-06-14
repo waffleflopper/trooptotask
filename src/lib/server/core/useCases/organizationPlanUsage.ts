@@ -1,4 +1,4 @@
-import type { DataStore } from '$lib/server/core/ports';
+import type { DataStore, FindOptions } from '$lib/server/core/ports';
 
 export interface OrganizationPlanUsagePorts {
 	store: DataStore;
@@ -37,28 +37,10 @@ export interface OrganizationPlanUsage {
 	};
 }
 
-interface PersonnelUsageRow {
-	id: string;
-	archived_at: string | null;
-}
-
-interface OrganizationMembershipUsageRow {
-	id: string;
-	user_id: string;
-}
-
 interface OrganizationInvitationUsageRow {
-	id: string;
 	email: string | null;
 	normalized_email: string | null;
-	status: string | null;
 	expires_at: string | null;
-	created_at?: string | null;
-}
-
-interface DataExportUsageRow {
-	id: string;
-	created_at: string | null;
 }
 
 const CLOSED_INVITATION_STATUSES = ['expired', 'declined', 'revoked', 'blocked', 'accepted'];
@@ -75,21 +57,38 @@ function normalizedInvitationEmail(invitation: OrganizationInvitationUsageRow): 
 	return normalized.length > 0 ? normalized : null;
 }
 
-function isPendingUnexpiredInvitation(invitation: OrganizationInvitationUsageRow, now: Date): boolean {
-	if (invitation.status !== 'pending') return false;
-	if (!invitation.expires_at) return true;
-	return new Date(invitation.expires_at).getTime() > now.getTime();
-}
-
-function countUniquePendingUnexpiredInvitations(invitations: OrganizationInvitationUsageRow[], now: Date): number {
+// Invitation queries already filter to pending, unexpired rows; this only handles email fallback and dedupe.
+function countUniquePendingUnexpiredInvitations(invitations: OrganizationInvitationUsageRow[]): number {
 	const pendingEmails = new Set<string>();
 	for (const invitation of invitations) {
-		if (!isPendingUnexpiredInvitation(invitation, now)) continue;
 		const email = normalizedInvitationEmail(invitation);
 		if (!email) continue;
 		pendingEmails.add(email);
 	}
 	return pendingEmails.size;
+}
+
+async function countRows(
+	store: DataStore,
+	table: string,
+	orgId: string,
+	filters?: Record<string, unknown>,
+	options: FindOptions = {}
+): Promise<number> {
+	const result = await store.findManyWithCount<{ id: string }>(table, orgId, filters, {
+		...options,
+		select: options.select ?? 'id',
+		range: { from: 0, to: 0 },
+		count: options.count ?? 'exact'
+	});
+	if (result.count === null || result.count === undefined) {
+		throw new Error(
+			`organizationPlanUsage.countRows expected a count for table "${table}" and org "${orgId}". Context: ${JSON.stringify(
+				{ filters: filters ?? {}, options }
+			)}`
+		);
+	}
+	return result.count;
 }
 
 export async function readOrganizationPlanUsage(
@@ -99,13 +98,39 @@ export async function readOrganizationPlanUsage(
 	const now = options.now ?? new Date();
 	const { start, endExclusive } = monthWindow(now);
 
-	const [activePersonnelRows, memberRows, invitationRows, exportRows] = await Promise.all([
-		ports.store.findMany<PersonnelUsageRow>('personnel', ports.auth.orgId, {}, { isNull: { archived_at: true } }),
-		ports.store.findMany<OrganizationMembershipUsageRow>('organization_memberships', ports.auth.orgId),
-		ports.store.findMany<OrganizationInvitationUsageRow>('organization_invitations', ports.auth.orgId, {
-			status: 'pending'
-		}),
-		ports.store.findMany<DataExportUsageRow>(
+	const [
+		activePersonnelCount,
+		activeOrganizationMemberCount,
+		pendingInvitationsWithoutExpiry,
+		pendingInvitationsWithFutureExpiry,
+		monthlyExportCount
+	] = await Promise.all([
+		countRows(ports.store, 'personnel', ports.auth.orgId, {}, { isNull: { archived_at: true } }),
+		countRows(ports.store, 'organization_memberships', ports.auth.orgId),
+		ports.store.findMany<OrganizationInvitationUsageRow>(
+			'organization_invitations',
+			ports.auth.orgId,
+			{
+				status: 'pending'
+			},
+			{
+				select: 'email, normalized_email, expires_at',
+				isNull: { expires_at: true }
+			}
+		),
+		ports.store.findMany<OrganizationInvitationUsageRow>(
+			'organization_invitations',
+			ports.auth.orgId,
+			{
+				status: 'pending'
+			},
+			{
+				select: 'email, normalized_email, expires_at',
+				rangeFilters: [{ column: 'expires_at', op: 'gt', value: now.toISOString() }]
+			}
+		),
+		countRows(
+			ports.store,
 			'data_exports',
 			ports.auth.orgId,
 			{},
@@ -117,14 +142,15 @@ export async function readOrganizationPlanUsage(
 			}
 		)
 	]);
+	const invitationRows = [...pendingInvitationsWithoutExpiry, ...pendingInvitationsWithFutureExpiry];
 
 	return {
 		organizationId: ports.auth.orgId,
 		asOf: now.toISOString(),
-		activePersonnelCount: activePersonnelRows.length,
-		activeOrganizationMemberCount: memberRows.length,
-		pendingUnexpiredInvitationCount: countUniquePendingUnexpiredInvitations(invitationRows, now),
-		monthlyExportCount: exportRows.length,
+		activePersonnelCount,
+		activeOrganizationMemberCount,
+		pendingUnexpiredInvitationCount: countUniquePendingUnexpiredInvitations(invitationRows),
+		monthlyExportCount,
 		sources: {
 			activePersonnel: {
 				table: 'personnel',

@@ -5,6 +5,10 @@ import { formatDate } from '$lib/utils/dates';
 import type { AvailabilityEntry, Personnel, StatusType } from '$lib/types';
 import BulkStatusRemove from './BulkStatusRemove.svelte';
 
+vi.mock('$lib/components/ui/date-picker', async () => ({
+	DatePicker: (await import('$lib/test-stubs/DatePickerInputStub.svelte')).default
+}));
+
 const person: Personnel = {
 	id: 'p1',
 	rank: 'SGT',
@@ -49,6 +53,15 @@ function renderRemove(overrides: Partial<Parameters<typeof render>[1]['props']> 
 			...overrides
 		}
 	});
+}
+
+function formatDateDisplay(dateStr: string): string {
+	const date = new Date(dateStr + 'T00:00:00');
+	return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+async function setDate(label: string, value: string) {
+	await fireEvent.input(screen.getByLabelText(label), { target: { value } });
 }
 
 async function selectPersonAndReview() {
@@ -123,5 +136,41 @@ describe('BulkStatusRemove', () => {
 		await waitFor(() => {
 			expect(screen.getByText(/exact match will be removed/)).toBeTruthy();
 		});
+	});
+
+	it('reviews against the criteria captured before async range loading resolves', async () => {
+		const today = formatDate(new Date());
+		let resolveRange: ((entries: AvailabilityEntry[]) => void) | undefined;
+		const loadAvailabilityRange = vi.fn(
+			() =>
+				new Promise<AvailabilityEntry[]>((resolve) => {
+					resolveRange = resolve;
+				})
+		);
+
+		renderRemove({ loadAvailabilityRange });
+
+		await selectPersonAndReview();
+		await setDate('Start Date', '2026-02-01');
+		await setDate('End Date', '2026-02-01');
+
+		resolveRange?.([availabilityEntry({ startDate: today, endDate: today })]);
+
+		await waitFor(() => {
+			expect(screen.getByText(/exact match will be removed/)).toBeTruthy();
+		});
+		expect(screen.getByText(formatDateDisplay(today))).toBeTruthy();
+		expect(screen.queryByText(formatDateDisplay('2026-02-01'))).toBeNull();
+	});
+
+	it('blocks ranges longer than the calendar range endpoint supports', async () => {
+		renderRemove();
+
+		await setDate('Start Date', '2026-01-01');
+		await setDate('End Date', '2027-01-02');
+		await fireEvent.click(screen.getByRole('checkbox', { name: 'Select SGT Able, Ann' }));
+
+		expect(screen.getAllByText('Remove date range cannot exceed 366 days')).toHaveLength(2);
+		expect((screen.getByRole('button', { name: 'Review Matching Entries' }) as HTMLButtonElement).disabled).toBe(true);
 	});
 });

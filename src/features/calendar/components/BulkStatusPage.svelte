@@ -96,8 +96,12 @@
 		rangeStart: string;
 		rangeEnd: string;
 	}): Promise<AvailabilityEntry[]> {
-		const rangeData = await loadCalendarRange(org.orgId, range);
-		mergeCalendarRangeIntoStores(org.orgId, rangeData);
+		const orgId = org.orgId;
+		const rangeData = await loadCalendarRange(orgId, range);
+		if (org.orgId !== orgId) {
+			throw new Error('Organization changed while loading availability range');
+		}
+		mergeCalendarRangeIntoStores(orgId, rangeData);
 		return availabilityStore.items;
 	}
 

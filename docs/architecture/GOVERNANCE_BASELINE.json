@@ -115,11 +115,6 @@
 			"reason": "Platform Administration organization detail actions still build service-role Supabase adapters and stores from the admin context client."
 		},
 		{
-			"path": "src/routes/api/access-requests/+server.ts",
-			"classification": "auth-edge",
-			"reason": "Public access-request submission still creates setup-delivery infrastructure with the service-role client."
-		},
-		{
 			"path": "src/routes/api/billing-reconciliation/+server.ts",
 			"classification": "billing-recovery-edge",
 			"reason": "Cron-authorized billing reconciliation still wires a service-role client into reconciliation stores and audit logging."
@@ -143,16 +138,6 @@
 			"path": "src/routes/api/cleanup-old-data/+server.ts",
 			"classification": "cron-edge",
 			"reason": "Cron old-data cleanup still invokes service-role cleanup RPCs directly from the route."
-		},
-		{
-			"path": "src/routes/auth/renew-invite/+page.server.ts",
-			"classification": "auth-edge",
-			"reason": "Account setup renewal still creates setup-delivery infrastructure with the service-role client."
-		},
-		{
-			"path": "src/routes/auth/setup-account/+page.server.ts",
-			"classification": "auth-edge",
-			"reason": "Account setup completion still creates service-role setup stores and auth adapters at the auth edge."
 		},
 		{
 			"path": "src/routes/org/[orgId]/settings/logs/+page.server.ts",

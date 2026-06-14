@@ -1,18 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { getAdminClientMock, requestFreshSetupLinkMock, checkRenewalRateLimitMock, auditLogMock } = vi.hoisted(() => ({
-	getAdminClientMock: vi.fn(),
+const { requestFreshSetupLinkMock, checkRenewalRateLimitMock, auditLogMock } = vi.hoisted(() => ({
 	requestFreshSetupLinkMock: vi.fn(),
 	checkRenewalRateLimitMock: vi.fn(),
 	auditLogMock: vi.fn()
 }));
 
-vi.mock('$lib/server/supabase', () => ({
-	getAdminClient: getAdminClientMock
-}));
-
 vi.mock('$lib/server/accessRequestSetupDelivery', () => ({
-	createSupabaseAccessRequestSetupDeliveryService: vi.fn(() => ({
+	createPublicAccessRequestSetupDeliveryService: vi.fn(() => ({
 		requestFreshSetupLink: requestFreshSetupLinkMock
 	}))
 }));
@@ -46,7 +41,6 @@ function makeActionEvent(input: { email?: string; ip?: string; origin?: string }
 describe('/auth/renew-invite actions', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
-		getAdminClientMock.mockReturnValue({ admin: true });
 		checkRenewalRateLimitMock.mockReturnValue({ limited: false });
 		requestFreshSetupLinkMock.mockResolvedValue({ status: 'no-public-action' });
 	});

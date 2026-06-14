@@ -12,6 +12,7 @@ import {
 } from './authEmailOutbox';
 import { addUtcDays } from './accountSetupDates';
 import { makePublicAppUrl } from './publicAppOrigin';
+import { getAdminClient } from './supabase';
 
 export const ACCESS_REQUEST_SETUP_RENEWAL_DAYS = 90;
 
@@ -248,4 +249,8 @@ export function createSupabaseAccessRequestSetupDeliveryService(client: Supabase
 		createSupabaseAccessRequestSetupDeliveryStore(client),
 		sendAccountSetupLinkEmail
 	);
+}
+
+export function createPublicAccessRequestSetupDeliveryService() {
+	return createSupabaseAccessRequestSetupDeliveryService(getAdminClient());
 }

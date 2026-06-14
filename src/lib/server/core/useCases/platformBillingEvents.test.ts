@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createInMemoryPlatformBillingEventsStore } from '$lib/server/adapters/inMemoryPlatformBillingEvents';
+import { _PermanentWebhookProcessingError } from '$lib/server/billing/stripeWebhookProcessing';
 import {
 	createPlatformBillingEvents,
 	type PlatformBillingEventRecord,
@@ -396,7 +397,7 @@ describe('PlatformBillingEvents', () => {
 		const audit = vi.fn();
 		const retryProcessor = createRetryProcessor({
 			recordRetryAttempt: vi.fn(async () => {
-				throw new Error('billing event is no longer retryable');
+				throw new _PermanentWebhookProcessingError('billing event is no longer retryable');
 			})
 		});
 		const billingEvents = createPlatformBillingEvents({
@@ -418,6 +419,24 @@ describe('PlatformBillingEvents', () => {
 				})
 			})
 		);
+	});
+
+	it('does not treat plain retry-attempt error text as a conflict signal', async () => {
+		const retryProcessor = createRetryProcessor({
+			recordRetryAttempt: vi.fn(async () => {
+				throw new Error('billing event is no longer retryable');
+			})
+		});
+		const billingEvents = createPlatformBillingEvents({
+			store: createInMemoryPlatformBillingEventsStore({ events: [makeRetryEvent({ id: 'evt_plain_error' })] }),
+			retryProcessor
+		});
+
+		await expect(billingEvents.retryEvent('evt_plain_error')).resolves.toEqual({
+			ok: false,
+			status: 500,
+			error: 'billing event is no longer retryable'
+		});
 	});
 
 	it('returns a sanitized server error and logs provider lookup failures', async () => {

@@ -353,7 +353,7 @@ export function createPersonnelUseCases(): PersonnelUseCases {
 
 			const capCheck = await ctx.subscription.canAddPersonnel();
 			if (!capCheck.allowed) {
-				return { message: capCheck.message };
+				return { message: capCheck.message ?? 'Personnel limit reached' };
 			}
 
 			const person = await lifecycleLookupStore(ctx).findOne<PersonnelLifecycleRecord>(entity.table, ctx.auth.orgId, {

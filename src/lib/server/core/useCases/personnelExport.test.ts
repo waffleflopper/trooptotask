@@ -6,6 +6,8 @@ import { exportPersonnelWorkbook } from './personnelExport';
 type TestContext = ReturnType<typeof createTestContext>;
 type WorkbookLoadBuffer = Parameters<ExcelJS.Workbook['xlsx']['load']>[0];
 
+const PERSONNEL_ID = '11111111-1111-4111-8111-111111111111';
+
 function toWorkbookBuffer(buffer: ArrayBuffer): WorkbookLoadBuffer {
 	return Buffer.from(buffer) as unknown as WorkbookLoadBuffer;
 }
@@ -41,7 +43,7 @@ function worksheetByName(workbook: ExcelJS.Workbook, name: string): ExcelJS.Work
 function seedPersonnelExportDataset(ctx: TestContext): void {
 	ctx.rawStore.seed('personnel', [
 		{
-			id: 'person-1',
+			id: PERSONNEL_ID,
 			organization_id: ctx.auth.orgId,
 			rank: 'SGT',
 			last_name: 'Smith',
@@ -65,7 +67,7 @@ function seedPersonnelExportDataset(ctx: TestContext): void {
 		{
 			id: 'extended-1',
 			organization_id: ctx.auth.orgId,
-			personnel_id: 'person-1',
+			personnel_id: PERSONNEL_ID,
 			emergency_contact_name: 'Taylor Smith',
 			emergency_contact_relationship: 'Spouse',
 			emergency_contact_phone: '555-0100',
@@ -94,7 +96,7 @@ function seedPersonnelExportDataset(ctx: TestContext): void {
 		{
 			id: 'training-1',
 			organization_id: ctx.auth.orgId,
-			personnel_id: 'person-1',
+			personnel_id: PERSONNEL_ID,
 			training_type_id: 'training-type-1',
 			completion_date: '2026-04-01',
 			expiration_date: '2027-04-01',
@@ -105,7 +107,7 @@ function seedPersonnelExportDataset(ctx: TestContext): void {
 		{
 			id: 'counseling-old',
 			organization_id: ctx.auth.orgId,
-			personnel_id: 'person-1',
+			personnel_id: PERSONNEL_ID,
 			date_conducted: '2026-04-10',
 			subject: 'Initial counseling',
 			key_points: 'Expectations',
@@ -117,7 +119,7 @@ function seedPersonnelExportDataset(ctx: TestContext): void {
 		{
 			id: 'counseling-new',
 			organization_id: ctx.auth.orgId,
-			personnel_id: 'person-1',
+			personnel_id: PERSONNEL_ID,
 			date_conducted: '2026-05-10',
 			subject: 'Performance counseling',
 			key_points: 'Sustain excellence',
@@ -138,7 +140,7 @@ function seedPersonnelExportDataset(ctx: TestContext): void {
 		{
 			id: 'availability-1',
 			organization_id: ctx.auth.orgId,
-			personnel_id: 'person-1',
+			personnel_id: PERSONNEL_ID,
 			status_type_id: 'status-type-1',
 			start_date: '2026-05-15',
 			end_date: '2026-05-17'
@@ -165,7 +167,7 @@ describe('Personnel export use case', () => {
 		});
 		ctx.rawStore.seed('personnel', [
 			{
-				id: 'person-1',
+				id: PERSONNEL_ID,
 				organization_id: ctx.auth.orgId,
 				rank: 'SGT',
 				last_name: 'Smith',
@@ -176,18 +178,30 @@ describe('Personnel export use case', () => {
 		]);
 		const findManySpy = vi.spyOn(ctx.rawStore, 'findMany');
 
-		await expect(exportPersonnelWorkbook(ctx, { personnelId: 'person-1' })).rejects.toMatchObject({
+		await expect(exportPersonnelWorkbook(ctx, { personnelId: PERSONNEL_ID })).rejects.toMatchObject({
 			status: 403
 		});
 
 		expect(findManySpy).not.toHaveBeenCalled();
 	});
 
+	it('rejects malformed personnel ids before querying storage', async () => {
+		const ctx = createTestContext();
+		const findOneSpy = vi.spyOn(ctx.rawStore, 'findOne');
+
+		await expect(exportPersonnelWorkbook(ctx, { personnelId: 'person-1' })).rejects.toMatchObject({
+			status: 400,
+			message: 'Invalid personnel ID'
+		});
+
+		expect(findOneSpy).not.toHaveBeenCalled();
+	});
+
 	it('exports the existing personnel workbook content, filename, and audit event', async () => {
 		const ctx = createTestContext();
 		seedPersonnelExportDataset(ctx);
 
-		const result = await exportPersonnelWorkbook(ctx, { personnelId: 'person-1' });
+		const result = await exportPersonnelWorkbook(ctx, { personnelId: PERSONNEL_ID });
 		const workbook = await parseWorkbook(result._buffer);
 		const dateStr = new Date().toISOString().split('T')[0];
 
@@ -201,7 +215,7 @@ describe('Personnel export use case', () => {
 		expect(ctx.auditPort.events.at(-1)).toMatchObject({
 			action: 'personnel.exported',
 			resourceType: 'personnel',
-			resourceId: 'person-1',
+			resourceId: PERSONNEL_ID,
 			details: {
 				name: 'SGT Smith, Jamie'
 			}

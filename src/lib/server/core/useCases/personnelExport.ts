@@ -9,6 +9,7 @@ import {
 } from '$lib/export/workbook';
 import { fail } from '$lib/server/core/errors';
 import type { UseCaseContext } from '$lib/server/core/ports';
+import { validateUUID } from '$lib/server/validation';
 import { policyResourceForGroup, requireFeaturePolicy } from './featurePolicy';
 
 export interface PersonnelExportInput {
@@ -26,6 +27,7 @@ export async function exportPersonnelWorkbook(
 ): Promise<PersonnelExportOutput> {
 	const orgId = ctx.auth.orgId;
 	const id = input.personnelId;
+	if (!validateUUID(id)) fail(400, 'Invalid personnel ID');
 
 	const person = await ctx.rawStore.findOne<Record<string, unknown>>('personnel', orgId, { id });
 

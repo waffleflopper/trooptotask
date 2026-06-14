@@ -647,6 +647,21 @@ describe('Personnel — restore', () => {
 		expect(ctx.audit.events).toHaveLength(0);
 	});
 
+	it('returns a fallback cap message when the subscription check has no message', async () => {
+		const ctx = buildContext({ subscriptionAllowed: false });
+		const { restore } = createPersonnelUseCases();
+		seedArchivedPersonnel(ctx);
+
+		const result = await restore(ctx, 'p-1');
+
+		expect(result).toEqual({ message: 'Personnel limit reached' });
+		await expect(ctx.store.findOne('personnel', ctx.auth.orgId, { id: 'p-1' })).resolves.toMatchObject({
+			archived_at: '2026-04-01T00:00:00Z'
+		});
+		expect(ctx.subscription.tierCacheInvalidated).toBe(false);
+		expect(ctx.audit.events).toHaveLength(0);
+	});
+
 	it('rejects restore when the personnel record is missing', async () => {
 		const ctx = buildContext();
 		const { restore } = createPersonnelUseCases();

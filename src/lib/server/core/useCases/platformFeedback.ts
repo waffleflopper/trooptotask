@@ -206,7 +206,7 @@ export function createPlatformFeedback(deps: PlatformFeedbackDependencies): Plat
 				return { status: 'validation_error', message: 'Invalid category' };
 			}
 
-			if (!deps.organizationContextStore || !deps.submissionStore) {
+			if (!deps.submissionStore) {
 				console.error('PlatformFeedback submission dependencies are not configured');
 				return { status: 'submission_failed', message: 'Failed to submit feedback' };
 			}
@@ -215,6 +215,10 @@ export function createPlatformFeedback(deps: PlatformFeedbackDependencies): Plat
 			if (input.organizationId) {
 				if (typeof input.organizationId !== 'string' || !validateUUID(input.organizationId)) {
 					return { status: 'validation_error', message: 'Invalid organization ID' };
+				}
+				if (!deps.organizationContextStore) {
+					console.error('PlatformFeedback organization context dependency is not configured');
+					return { status: 'submission_failed', message: 'Failed to submit feedback' };
 				}
 
 				try {

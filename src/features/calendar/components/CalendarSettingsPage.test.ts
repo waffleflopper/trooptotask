@@ -97,6 +97,14 @@ describe('CalendarSettingsPage', () => {
 		specialDaysStoreMock.update.mockReset();
 		specialDaysStoreMock.remove.mockReset();
 		specialDaysStoreMock.resetFederalHolidays.mockReset();
+		specialDaysStoreMock.add.mockResolvedValue({
+			id: 'created-closure',
+			date: '2026-01-15',
+			name: 'Created Closure',
+			type: 'org-closure'
+		});
+		specialDaysStoreMock.update.mockResolvedValue(true);
+		specialDaysStoreMock.remove.mockResolvedValue(true);
 	});
 
 	afterEach(() => {
@@ -457,6 +465,69 @@ describe('CalendarSettingsPage', () => {
 		expect(screen.getByText(/Currently showing:/)).toBeTruthy();
 		const settingsNav = screen.getByRole('navigation', { name: 'Calendar settings controls' });
 		expect(within(settingsNav).getByRole('button', { name: /Assignment Types/ }).textContent).toContain('1');
+	});
+
+	it('keeps the add-closure dialog open when creation fails', async () => {
+		specialDaysStoreMock.add.mockResolvedValueOnce(null);
+		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
+
+		render(CalendarSettingsPage);
+
+		await fireEvent.click(screen.getByRole('button', { name: /Closures/i }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Add new' }));
+		const dialog = screen.getByRole('dialog', { name: 'Add Closure' });
+		await fireEvent.input(within(dialog).getByLabelText('Name'), { target: { value: 'Training holiday' } });
+		await fireEvent.click(within(dialog).getByRole('button', { name: 'Add Closure' }));
+
+		expect(screen.getByRole('dialog', { name: 'Add Closure' })).toBeTruthy();
+		expect(errorToast).toHaveBeenCalledWith('Failed to add closure');
+	});
+
+	it('keeps the edit-closure dialog open when save fails', async () => {
+		specialDaysStoreMock.items = [
+			{
+				id: 'closure-1',
+				date: `${new Date().getFullYear()}-01-15`,
+				name: 'Training Day',
+				type: 'org-closure'
+			}
+		];
+		specialDaysStoreMock.update.mockResolvedValueOnce(false);
+		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
+
+		render(CalendarSettingsPage);
+
+		await fireEvent.click(screen.getByRole('button', { name: /Closures/i }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Edit closure' }));
+		const dialog = screen.getByRole('dialog', { name: 'Edit Closure' });
+		await fireEvent.input(within(dialog).getByLabelText('Name'), { target: { value: 'Updated Training Day' } });
+		await fireEvent.click(within(dialog).getByRole('button', { name: 'Save Changes' }));
+
+		expect(screen.getByRole('dialog', { name: 'Edit Closure' })).toBeTruthy();
+		expect(errorToast).toHaveBeenCalledWith('Failed to save closure');
+	});
+
+	it('keeps delete closure confirmation open when deletion fails', async () => {
+		specialDaysStoreMock.items = [
+			{
+				id: 'closure-1',
+				date: `${new Date().getFullYear()}-01-15`,
+				name: 'Training Day',
+				type: 'org-closure'
+			}
+		];
+		specialDaysStoreMock.remove.mockResolvedValueOnce(false);
+		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
+
+		render(CalendarSettingsPage);
+
+		await fireEvent.click(screen.getByRole('button', { name: /Closures/i }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Delete closure' }));
+		const dialog = screen.getByRole('alertdialog', { name: 'Remove Special Day' });
+		await fireEvent.click(within(dialog).getByRole('button', { name: 'Remove' }));
+
+		expect(screen.getByRole('alertdialog', { name: 'Remove Special Day' })).toBeTruthy();
+		expect(errorToast).toHaveBeenCalledWith('Failed to delete closure');
 	});
 
 	it('keeps the closures year visible after changing the filter', async () => {

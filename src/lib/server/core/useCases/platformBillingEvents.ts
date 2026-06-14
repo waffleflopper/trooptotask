@@ -1,7 +1,8 @@
 import type Stripe from 'stripe';
-import type {
-	RecordedWebhookProcessingResult,
-	WebhookProcessingState
+import {
+	_PermanentWebhookProcessingError,
+	type RecordedWebhookProcessingResult,
+	type WebhookProcessingState
 } from '$lib/server/billing/stripeWebhookProcessing';
 
 const RETRYABLE_STATE: WebhookProcessingState = 'retryable_failed';
@@ -259,7 +260,7 @@ export function createPlatformBillingEvents(deps: PlatformBillingEventsDependenc
 				});
 				return {
 					ok: false,
-					status: message.includes('no longer retryable') ? 409 : 500,
+					status: err instanceof _PermanentWebhookProcessingError ? 409 : 500,
 					error: message
 				};
 			}

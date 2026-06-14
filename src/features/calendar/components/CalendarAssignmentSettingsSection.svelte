@@ -57,6 +57,7 @@
 	);
 
 	export function openAddDialog() {
+		if (!canMutate) return;
 		addAssignmentOpen = true;
 	}
 

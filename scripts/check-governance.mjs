@@ -182,11 +182,59 @@ function hasRouteSupabaseUsage(content) {
 	return false;
 }
 
+function escapeRegExp(value) {
+	return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function collectAdminContextBindings(content) {
+	const bindings = new Set();
+
+	if (!/\b(?:loadWithAdminContext|adminAction|adminHandle)\s*\(/.test(content)) return bindings;
+
+	const fnPatterns = [
+		/\bfn\s*:\s*(?:async\s*)?\(\s*([A-Za-z_$][\w$]*)\b/g,
+		/\bfn\s*:\s*(?:async\s*)?([A-Za-z_$][\w$]*)\s*=>/g
+	];
+
+	for (const pattern of fnPatterns) {
+		for (const match of content.matchAll(pattern)) {
+			bindings.add(match[1]);
+		}
+	}
+
+	return bindings;
+}
+
+function hasAdminContextClientUsage(content) {
+	for (const binding of collectAdminContextBindings(content)) {
+		const escapedBinding = escapeRegExp(binding);
+		if (new RegExp(`\\b${escapedBinding}\\s*\\.\\s*adminClient\\b`).test(content)) return true;
+		if (new RegExp(`\\bconst\\s*\\{[^}]*\\badminClient\\b[^}]*\\}\\s*=\\s*${escapedBinding}\\b`).test(content)) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
+function hasAdminContextAdapterFactoryUsage(content) {
+	for (const binding of collectAdminContextBindings(content)) {
+		const escapedBinding = escapeRegExp(binding);
+		if (new RegExp(`\\bcreateSupabase[A-Za-z0-9_$]*\\s*\\(\\s*${escapedBinding}\\b`).test(content)) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
 function hasRouteAdminProviderUsage(content) {
 	return (
 		/\bgetAdminClient\s*\(/.test(content) ||
 		/\bctx\s*\.\s*adminClient\b/.test(content) ||
-		/\bconst\s*\{[^}]*\badminClient\b[^}]*\}\s*=\s*ctx\b/.test(content)
+		/\bconst\s*\{[^}]*\badminClient\b[^}]*\}\s*=\s*ctx\b/.test(content) ||
+		hasAdminContextClientUsage(content) ||
+		hasAdminContextAdapterFactoryUsage(content)
 	);
 }
 

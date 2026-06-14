@@ -79,7 +79,7 @@ The operator explicitly excluded automatic CI trigger work from this batch. Do n
 | 057  | Parallelize Dashboard organization access reads   | P2       | S      | -          | DONE   |
 | 058  | Align README runtime setup                        | P3       | S      | -          | DONE   |
 | 059  | Expand governance for admin route seams           | P1       | M      | -          | DONE   |
-| 060  | Move feedback submissions behind platform seam    | P2       | M      | -          | TODO   |
+| 060  | Move feedback submissions behind platform seam    | P2       | M      | -          | DONE   |
 | 061  | Share retention cleanup support                   | P1       | M      | -          | DONE   |
 | 062  | Move billing checkout recovery behind seam        | P1       | M      | -          | DONE   |
 | 063  | Move Personnel restore/delete into use cases      | P1       | M      | -          | TODO   |

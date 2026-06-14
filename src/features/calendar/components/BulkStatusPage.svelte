@@ -15,7 +15,8 @@
 	import { resolve } from '$app/paths';
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 	import { buildAddRecords } from '$features/calendar/utils/availabilityMutation';
-	import type { Personnel } from '$lib/types';
+	import { loadCalendarRange, mergeCalendarRangeIntoStores } from '$features/calendar/utils/calendarRangeLoader';
+	import type { AvailabilityEntry, Personnel } from '$lib/types';
 	import type { CalendarWorkspaceData } from '$features/calendar/calendar.types';
 
 	interface Props {
@@ -91,6 +92,19 @@
 		return await availabilityStore.removeBatch(ids);
 	}
 
+	async function loadAvailabilityEntriesForRange(range: {
+		rangeStart: string;
+		rangeEnd: string;
+	}): Promise<AvailabilityEntry[]> {
+		const orgId = org.orgId;
+		const rangeData = await loadCalendarRange(orgId, range);
+		if (org.orgId !== orgId) {
+			throw new Error('Organization changed while loading availability range');
+		}
+		mergeCalendarRangeIntoStores(orgId, rangeData);
+		return availabilityStore.items;
+	}
+
 	function handleComplete() {
 		invalidate('app:calendar-data');
 	}
@@ -139,6 +153,7 @@
 					statusTypes={statusTypesStore.items}
 					availabilityEntries={availabilityStore.items}
 					personnelList={calendarPersonnel}
+					loadAvailabilityRange={loadAvailabilityEntriesForRange}
 					onRemove={handleBulkRemove}
 					onComplete={handleComplete}
 				/>

@@ -76,7 +76,7 @@ Current excerpts:
 
 | Purpose | Command | Expected on success |
 | --- | --- | --- |
-| README checks | `rg -n "Node\\.js 18|npm install" README.md` | no stale setup matches |
+| README checks | `node -e "const text=require('fs').readFileSync('README.md','utf8'); const setup=text.split('## Available Scripts')[0]; if (/Node\\.js 18/.test(setup)) process.exit(1); if (/npm install(?! -g npm@11\\.12\\.1)/.test(setup)) process.exit(1);"` | no stale setup matches |
 | Format | `npm run format` | exits 0 |
 | Lint | `npm run lint` | exits 0 |
 | Governance | `npm run governance:check` | exits 0 |
@@ -137,10 +137,11 @@ Prefer not mentioning it here.
 
 ```bash
 rg -n "npm ci" README.md
-rg -n "npm install" README.md
+node -e "const text=require('fs').readFileSync('README.md','utf8'); const setup=text.split('## Available Scripts')[0]; if (/npm install(?! -g npm@11\\.12\\.1)/.test(setup)) process.exit(1);"
 ```
 
-The first command shows the install step; the second command has no stale setup-step match.
+The first command shows the install step; the second command has no stale setup-step match while
+allowing the prerequisite npm-version note.
 
 ### Step 3: Run the docs-safe gate
 

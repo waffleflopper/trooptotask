@@ -81,7 +81,7 @@ export interface OrganizationDataExportReadableSheetDefinition {
 | Export route tests | `npx vitest run src/routes/org/[orgId]/api/personnel/[id]/export/server.test.ts` | exits 0 |
 | New export use-case tests | `npx vitest run src/lib/server/core/useCases/personnelExport.test.ts` | exits 0 |
 | Workbook tests | `npx vitest run src/lib/export/workbook/workbook.test.ts` | exits 0 |
-| Route workbook grep | `rg -n "createWorkbook|addTableSheet|ctx\\.rawStore\\.findMany|personnel\\.exported|new Date\\(\\)\\.toISOString" src/routes/org/[orgId]/api/personnel/[id]/export/+server.ts` | no matches |
+| Route workbook grep | `rg -n "createWorkbook\|addTableSheet\|ctx\\.rawStore\\.findMany\|personnel\\.exported\|new Date\\(\\)\\.toISOString" src/routes/org/[orgId]/api/personnel/[id]/export/+server.ts` | no matches |
 | Format | `npm run format` | exits 0 |
 | Lint | `npm run lint` | exits 0 |
 | Governance | `npm run governance:check` | exits 0 |
@@ -171,7 +171,7 @@ After this step the route should not build sheets, load related records, or
 write audit details.
 
 **Verify**:
-`rg -n "createWorkbook|addTableSheet|ctx\\.rawStore\\.findMany|personnel\\.exported|new Date\\(\\)\\.toISOString" src/routes/org/[orgId]/api/personnel/[id]/export/+server.ts`
+`rg -n "createWorkbook\|addTableSheet\|ctx\\.rawStore\\.findMany\|personnel\\.exported\|new Date\\(\\)\\.toISOString" src/routes/org/[orgId]/api/personnel/[id]/export/+server.ts`
 returns no matches.
 
 ### Step 4: Keep route tests focused on transport
@@ -231,4 +231,3 @@ Stop and report back if:
 
 Future Personnel export fields should be added to the use case and its workbook
 tests, not directly to the route.
-

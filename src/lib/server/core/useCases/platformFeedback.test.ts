@@ -182,6 +182,51 @@ describe('PlatformFeedback', () => {
 		]);
 	});
 
+	it('submits non-organization feedback without an organization context dependency', async () => {
+		const store = createInMemoryPlatformFeedbackStore();
+		const feedback = createPlatformFeedback({ store, submissionStore: store });
+
+		await expect(
+			feedback.submit({
+				userId: USER_ID,
+				userEmail: 'member@example.com',
+				category: 'general',
+				message: 'This is not tied to an organization.',
+				pageUrl: '/feedback'
+			})
+		).resolves.toEqual({ status: 'submitted', githubIssue: null });
+
+		expect(store.submittedFeedback).toEqual([
+			expect.objectContaining({
+				userId: USER_ID,
+				organizationId: null,
+				organizationName: null,
+				pageUrl: '/feedback'
+			})
+		]);
+	});
+
+	it('requires an organization context dependency only when an organization id is supplied', async () => {
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+		const store = createInMemoryPlatformFeedbackStore();
+		const feedback = createPlatformFeedback({ store, submissionStore: store });
+
+		await expect(
+			feedback.submit({
+				userId: USER_ID,
+				userEmail: 'member@example.com',
+				category: 'general',
+				message: 'This should resolve membership first.',
+				organizationId: ORG_ID,
+				pageUrl: `/org/${ORG_ID}`
+			})
+		).resolves.toEqual({ status: 'submission_failed', message: 'Failed to submit feedback' });
+
+		expect(store.submittedFeedback).toEqual([]);
+		expect(consoleError).toHaveBeenCalledWith('PlatformFeedback organization context dependency is not configured');
+		consoleError.mockRestore();
+	});
+
 	it('derives organization name from membership and ignores spoofed organization names', async () => {
 		const { feedback, store } = makeSubmissionFeedback();
 		const input = {

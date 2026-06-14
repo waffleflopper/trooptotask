@@ -8,6 +8,7 @@
 	import { Label } from '$lib/components/ui/label';
 	import { NativeSelect } from '$lib/components/ui/native-select';
 	import { specialDaysStore } from '$features/calendar/stores/specialDays.svelte';
+	import { toastStore } from '$lib/stores/toast.svelte';
 	import { formatDate } from '$lib/utils/dates';
 	import type { SpecialDay } from '$lib/types';
 	import Pencil from '@lucide/svelte/icons/pencil';
@@ -84,29 +85,59 @@
 		editClosureOpen = true;
 	}
 
+	function showClosureMutationError(message: string, error?: unknown) {
+		toastStore.error(error instanceof Error ? error.message : message);
+	}
+
 	async function addSpecialDay() {
 		if (!canMutate || !newSpecialDate || !newSpecialName.trim()) return;
-		await specialDaysStore.add({ date: newSpecialDate, name: newSpecialName.trim(), type: newSpecialType });
-		resetAddClosureForm();
-		addClosureOpen = false;
+		try {
+			const created = await specialDaysStore.add({
+				date: newSpecialDate,
+				name: newSpecialName.trim(),
+				type: newSpecialType
+			});
+			if (!created) {
+				showClosureMutationError('Failed to add closure');
+				return;
+			}
+			resetAddClosureForm();
+			addClosureOpen = false;
+		} catch (error) {
+			showClosureMutationError('Failed to add closure', error);
+		}
 	}
 
 	async function saveEditSpecialDay() {
 		if (!editingSpecialDay || !editSpecialName.trim()) return;
-		const updated = await specialDaysStore.update(editingSpecialDay.id, {
-			name: editSpecialName.trim(),
-			type: editSpecialType
-		});
-		if (updated) {
+		try {
+			const updated = await specialDaysStore.update(editingSpecialDay.id, {
+				name: editSpecialName.trim(),
+				type: editSpecialType
+			});
+			if (!updated) {
+				showClosureMutationError('Failed to save closure');
+				return;
+			}
 			editClosureOpen = false;
 			editingSpecialDay = null;
+		} catch (error) {
+			showClosureMutationError('Failed to save closure', error);
 		}
 	}
 
 	async function deleteSpecialDay(d: SpecialDay) {
 		if (!canMutate) return;
-		await specialDaysStore.remove(d.id);
-		confirmDeleteSpecial = null;
+		try {
+			const removed = await specialDaysStore.remove(d.id);
+			if (!removed) {
+				showClosureMutationError('Failed to delete closure');
+				return;
+			}
+			confirmDeleteSpecial = null;
+		} catch (error) {
+			showClosureMutationError('Failed to delete closure', error);
+		}
 	}
 
 	function formatDisplayDate(dateStr: string): string {

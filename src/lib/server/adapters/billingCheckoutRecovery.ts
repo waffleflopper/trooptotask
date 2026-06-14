@@ -14,7 +14,7 @@ export function createSupabaseBillingCheckoutRecoveryPorts(orgId: string): Billi
 		retrieveCheckoutSession: retrieveCheckoutSessionForRecovery,
 		async reconcileOrganizationBilling(targetOrgId) {
 			if (targetOrgId !== orgId) {
-				throw new Error(`Billing checkout recovery org mismatch for ${targetOrgId}`);
+				throw new Error(`Billing checkout recovery org mismatch: expected ${orgId}, received ${targetOrgId}`);
 			}
 			const adminClient = getAdminClient();
 			await reconcileOrganizationBilling({

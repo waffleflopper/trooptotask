@@ -145,11 +145,6 @@
 			"reason": "Cron old-data cleanup still invokes service-role cleanup RPCs directly from the route."
 		},
 		{
-			"path": "src/routes/api/feedback/+server.ts",
-			"classification": "platform-admin-edge",
-			"reason": "Feedback submission still uses a service-role client for organization membership validation and beta-feedback persistence."
-		},
-		{
 			"path": "src/routes/auth/renew-invite/+page.server.ts",
 			"classification": "auth-edge",
 			"reason": "Account setup renewal still creates setup-delivery infrastructure with the service-role client."

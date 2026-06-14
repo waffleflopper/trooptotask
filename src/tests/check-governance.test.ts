@@ -114,6 +114,30 @@ describe('governance route admin-provider usage detection', () => {
 		).toBe(true);
 	});
 
+	it('detects admin context adapter factory seams', () => {
+		expect(
+			governance.hasRouteAdminProviderUsage(`
+				export const load = loadWithAdminContext({
+					fn: async (adminContext) => createSupabasePlatformUserIdentityCommands(adminContext).sendPasswordReset()
+				});
+			`)
+		).toBe(true);
+	});
+
+	it('detects admin API handler adapter factory seams', () => {
+		expect(
+			governance.hasRouteAdminProviderUsage(`
+				export const _getConfig = {
+					fn: async (ctx, rawQuery) => {
+						return createSupabasePlatformAdministration(ctx).search({ query: rawQuery });
+					}
+				};
+
+				export const GET = adminHandle(_getConfig);
+			`)
+		).toBe(true);
+	});
+
 	it('does not flag route orchestration without admin-provider wiring', () => {
 		expect(
 			governance.hasRouteAdminProviderUsage(`

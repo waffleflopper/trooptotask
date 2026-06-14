@@ -15,6 +15,7 @@
 
 	let { data } = $props();
 
+	const organizationsRouteRoot = resolve('/admin/organizations');
 	const tierFilter = $derived(data.pagination.tier ?? 'all');
 	const statusFilter = $derived(data.pagination.status ?? 'all');
 
@@ -34,7 +35,7 @@
 		if (data.pagination.q) params.set('q', data.pagination.q);
 		if (tierFilter !== 'all') params.set('tier', tierFilter);
 		if (statusFilter !== 'all') params.set('status', statusFilter);
-		return `/admin/organizations?${params.toString()}`;
+		return `${organizationsRouteRoot}?${params.toString()}`;
 	}
 </script>
 
@@ -65,7 +66,7 @@
 		<Card.Content class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
 			<form
 				method="GET"
-				action="/admin/organizations"
+				action={organizationsRouteRoot}
 				class="grid flex-1 gap-3 xl:grid-cols-[minmax(16rem,1fr)_9rem_minmax(10rem,1fr)_minmax(10rem,1fr)_auto] xl:items-end"
 			>
 				<input type="hidden" name="page" value="1" />

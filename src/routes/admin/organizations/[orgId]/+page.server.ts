@@ -4,25 +4,19 @@ import { loadWithAdminContext, adminAction } from '$lib/server/adapters/adminAda
 import { validateUUID } from '$lib/server/validation';
 import { createStripeBillingReconciliationProvider } from '$lib/server/stripe';
 import { invalidateTierCache } from '$lib/server/subscription';
-import { summarizeBillingCancellation } from '$lib/server/core/useCases/billingState';
 import { reconcileOrganizationBilling } from '$lib/server/core/useCases/billingReconciliation';
 import { getConfiguredPriceCatalog } from '$lib/server/billing/priceCatalog';
 import { createSupabaseBillingReconciliationStore } from '$lib/server/adapters/supabaseBillingReconciliation';
 import { createSupabaseDataStore } from '$lib/server/adapters/supabaseDataStore';
 import { createSupabaseSubscriptionAdapter } from '$lib/server/adapters/supabaseSubscription';
-import { createSupabasePlatformAudit } from '$lib/server/adapters/supabasePlatformAudit';
 import { createSupabasePlatformMembershipAdministration } from '$lib/server/adapters/supabasePlatformMembershipAdministration';
 import {
 	grantOrganizationPlanFeatureOverride,
 	revokeOrganizationPlanFeatureOverride
 } from '$lib/server/core/useCases/planFeatureOverrides';
-import { isPlanFeatureKey, readEffectivePlanPolicy } from '$lib/server/core/useCases/planPolicy';
-import { readOrganizationPlanUsage } from '$lib/server/core/useCases/organizationPlanUsage';
-import { buildPlanAdminDiagnostics } from '$lib/server/core/useCases/planAdminDiagnostics';
-import { visibleBillingSnapshotForAdminRole } from '$lib/server/adminBillingVisibility';
-import type { BillingSnapshot } from '$lib/types/subscription';
-import { createSupabasePlatformMetrics } from '$lib/server/adapters/supabasePlatformMetrics';
+import { isPlanFeatureKey } from '$lib/server/core/useCases/planPolicy';
 import { createSupabasePlatformGifting } from '$lib/server/adapters/supabasePlatformGifting';
+import { createSupabasePlatformOrganizationDetail } from '$lib/server/adapters/supabasePlatformOrganizationDetail';
 import { isPlatformGiftTier } from '$lib/server/core/useCases/platformGifting';
 
 function sanitizeBillingReconciliationDiagnostic(value: unknown): string {
@@ -50,150 +44,17 @@ function parseFeatureOverrideReason(value: string | null): string | null | { err
 	return reason;
 }
 
-type AdminOrganizationBillingSnapshotRow = {
-	organization_id: string;
-	source: BillingSnapshot['source'];
-	commercial_plan: BillingSnapshot['commercialPlan'];
-	stripe_customer_id: string | null;
-	stripe_subscription_id: string | null;
-	stripe_product_id: string | null;
-	stripe_price_id: string | null;
-	subscription_status: BillingSnapshot['subscriptionStatus'];
-	collection_status: string | null;
-	current_period_start: string | null;
-	current_period_end: string | null;
-	cancel_at_period_end: boolean | null;
-	canceled_at: string | null;
-	cancellation_reason: string | null;
-	cancellation_feedback: BillingSnapshot['cancellationFeedback'];
-	trial_end: string | null;
-	sync_status: BillingSnapshot['syncStatus'];
-	last_stripe_event_id: string | null;
-	last_stripe_event_type: string | null;
-	last_stripe_event_created_at: string | null;
-	last_processed_at: string | null;
-	last_reconciled_at: string | null;
-	reconciliation_result: string | null;
-	drift_detected: boolean | null;
-};
-
-function mapAdminOrganizationBillingSnapshot(row: AdminOrganizationBillingSnapshotRow): BillingSnapshot {
-	return {
-		organizationId: row.organization_id,
-		source: row.source,
-		commercialPlan: row.commercial_plan,
-		stripeCustomerId: row.stripe_customer_id,
-		stripeSubscriptionId: row.stripe_subscription_id,
-		stripeProductId: row.stripe_product_id,
-		stripePriceId: row.stripe_price_id,
-		subscriptionStatus: row.subscription_status,
-		collectionStatus: row.collection_status,
-		currentPeriodStart: row.current_period_start,
-		currentPeriodEnd: row.current_period_end,
-		cancelAtPeriodEnd: row.cancel_at_period_end ?? false,
-		canceledAt: row.canceled_at,
-		cancellationReason: row.cancellation_reason,
-		cancellationFeedback: row.cancellation_feedback,
-		trialEnd: row.trial_end,
-		syncStatus: row.sync_status,
-		lastStripeEventId: row.last_stripe_event_id,
-		lastStripeEventType: row.last_stripe_event_type,
-		lastStripeEventCreatedAt: row.last_stripe_event_created_at,
-		lastProcessedAt: row.last_processed_at,
-		lastReconciledAt: row.last_reconciled_at,
-		reconciliationResult: row.reconciliation_result,
-		driftDetected: row.drift_detected ?? false,
-		giftTier: null,
-		giftExpiresAt: null
-	};
-}
-
 export const load: PageServerLoad = loadWithAdminContext({
 	page: 'organizations',
 	fn: async (ctx, event) => {
-		const { adminClient } = ctx;
 		const orgId = event.params.orgId as string;
 		if (!validateUUID(orgId)) throw error(400, 'Invalid organization ID');
 
-		const { data: org, error: orgError } = await adminClient
-			.from('organizations')
-			.select('id, name, tier, gift_tier, gift_expires_at, suspended_at, created_at')
-			.eq('id', orgId)
-			.single();
+		const result = await createSupabasePlatformOrganizationDetail(ctx).getOrganizationDetail(orgId);
+		if (result.status === 'not_found') throw error(404, 'Organization not found');
+		if (result.status === 'provider_error') throw error(500, 'Failed to load organization detail');
 
-		if (orgError || !org) throw error(404, 'Organization not found');
-		const giftState = (await createSupabasePlatformGifting(ctx)
-			.getOrganizationGiftState(orgId)
-			.catch((readError) => {
-				console.error('[admin/organizations] Failed to load gift state:', readError);
-				return null;
-			})) ?? {
-			giftTier: org.gift_tier,
-			giftExpiresAt: org.gift_expires_at
-		};
-
-		const memberships = await createSupabasePlatformMembershipAdministration(ctx).listMembers(orgId);
-		const members = memberships.map((m) => ({
-			userId: m.userId,
-			email: m.email ?? '(unknown)',
-			role: m.role
-		}));
-
-		const personnelCount = await createSupabasePlatformMetrics(ctx).countActivePersonnelForOrganization(orgId);
-
-		const auditEvents = await createSupabasePlatformAudit(ctx).listRecentByOrganization({ orgId, limit: 10 });
-
-		const { data: billingSnapshotRow } = await adminClient
-			.from('organization_billing_snapshots')
-			.select(
-				'organization_id, source, commercial_plan, stripe_customer_id, stripe_subscription_id, stripe_product_id, stripe_price_id, subscription_status, collection_status, current_period_start, current_period_end, cancel_at_period_end, canceled_at, cancellation_reason, cancellation_feedback, trial_end, sync_status, last_stripe_event_id, last_stripe_event_type, last_stripe_event_created_at, last_processed_at, last_reconciled_at, reconciliation_result, drift_detected'
-			)
-			.eq('organization_id', orgId)
-			.maybeSingle<AdminOrganizationBillingSnapshotRow>();
-		const billingSnapshot = visibleBillingSnapshotForAdminRole(
-			ctx.adminUser.role,
-			billingSnapshotRow ? mapAdminOrganizationBillingSnapshot(billingSnapshotRow) : null
-		);
-		const dataStore = createSupabaseDataStore(adminClient);
-		const [planPolicy, planUsage] = await Promise.all([
-			readEffectivePlanPolicy({
-				store: dataStore,
-				auth: { orgId }
-			}),
-			readOrganizationPlanUsage({
-				store: dataStore,
-				auth: { orgId }
-			})
-		]);
-		const planDiagnostics = buildPlanAdminDiagnostics(planPolicy, planUsage);
-
-		const effectiveTier = (giftState.giftTier ?? org.tier ?? 'free') as string;
-
-		return {
-			adminRole: ctx.adminUser.role,
-			org: {
-				id: org.id,
-				name: org.name,
-				subscriptionTier: org.tier as string,
-				giftTier: giftState.giftTier,
-				giftExpiresAt: giftState.giftExpiresAt,
-				suspendedAt: org.suspended_at as string | null,
-				createdAt: org.created_at as string,
-				effectiveTier,
-				isSuspended: !!org.suspended_at
-			},
-			billingSnapshot,
-			planPolicy: {
-				source: planPolicy.source,
-				billingSource: planPolicy.billingSource,
-				entitlements: Object.values(planPolicy.entitlements)
-			},
-			planDiagnostics,
-			cancellationSummary: billingSnapshot ? summarizeBillingCancellation(billingSnapshot) : null,
-			members,
-			personnelCount,
-			auditEvents
-		};
+		return result.detail;
 	}
 });
 

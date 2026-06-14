@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { platformAuditMock, platformUserDirectoryMock } = vi.hoisted(() => ({
+const { platformAuditMock, platformUserDirectoryMock, platformUserIdentityCommandsMock } = vi.hoisted(() => ({
 	platformAuditMock: {
 		listLogs: vi.fn(),
 		listRecentByOrganization: vi.fn(),
@@ -8,6 +8,10 @@ const { platformAuditMock, platformUserDirectoryMock } = vi.hoisted(() => ({
 	},
 	platformUserDirectoryMock: {
 		getUserDetail: vi.fn()
+	},
+	platformUserIdentityCommandsMock: {
+		sendPasswordReset: vi.fn(),
+		resendInvite: vi.fn()
 	}
 }));
 
@@ -24,6 +28,10 @@ vi.mock('$lib/server/adapters/supabasePlatformAudit', () => ({
 
 vi.mock('$lib/server/adapters/supabasePlatformUserDirectory', () => ({
 	createSupabasePlatformUserDirectory: () => platformUserDirectoryMock
+}));
+
+vi.mock('$lib/server/adapters/supabasePlatformUserIdentityCommands', () => ({
+	createSupabasePlatformUserIdentityCommands: () => platformUserIdentityCommandsMock
 }));
 
 import { actions, load } from './+page.server';
@@ -46,26 +54,34 @@ function makeUserDetailLoadClient() {
 	};
 }
 
+function makeIdentityCommandActionClient() {
+	return {
+		get auth() {
+			throw new Error('route must use PlatformUserIdentityCommands for identity email commands');
+		},
+		from: vi.fn((table: string) => {
+			throw new Error(`route must not issue ${table} provider commands directly`);
+		})
+	};
+}
+
 describe('admin user auth email actions', () => {
-	const getUserById = vi.fn();
-	const inviteUserByEmail = vi.fn();
-	const resetPasswordForEmail = vi.fn();
 	const audit = vi.fn();
 
 	beforeEach(() => {
 		vi.clearAllMocks();
 		vi.unstubAllEnvs();
 
-		getUserById.mockResolvedValue({
-			data: {
-				user: {
-					email: 'soldier@example.mil'
-				}
-			},
-			error: null
+		platformUserIdentityCommandsMock.sendPasswordReset.mockResolvedValue({
+			status: 'sent',
+			email: 'soldier@example.mil',
+			message: 'Password reset email sent'
 		});
-		inviteUserByEmail.mockResolvedValue({ error: null });
-		resetPasswordForEmail.mockResolvedValue({ error: null });
+		platformUserIdentityCommandsMock.resendInvite.mockResolvedValue({
+			status: 'sent',
+			email: 'soldier@example.mil',
+			message: 'Invite email resent'
+		});
 		platformUserDirectoryMock.getUserDetail.mockResolvedValue({
 			status: 'found',
 			detail: {
@@ -180,40 +196,10 @@ describe('admin user auth email actions', () => {
 		expect(platformAuditMock.listRecentByUser).not.toHaveBeenCalled();
 	});
 
-	it('resendInvite uses the app-owned invite confirmation redirect', async () => {
-		const result = await actions.resendInvite({
-			__ctx: {
-				adminClient: {
-					auth: {
-						admin: {
-							getUserById,
-							inviteUserByEmail
-						}
-					}
-				},
-				audit
-			},
-			params: { userId: USER_ID },
-			url: new URL(`http://localhost:4173/admin/users/${USER_ID}`)
-		} as unknown as Parameters<(typeof actions)['resendInvite']>[0]);
-
-		expect(result).toEqual({ success: true, message: 'Invite email resent' });
-		expect(inviteUserByEmail).toHaveBeenCalledWith('soldier@example.mil', {
-			redirectTo: 'http://localhost:4173/auth/confirm?type=invite&next=%2Fauth%2Faccept-invite'
-		});
-	});
-
-	it('resetPassword uses the app-owned recovery confirmation redirect', async () => {
+	it('resetPassword calls the identity command seam and preserves success mapping', async () => {
 		const result = await actions.resetPassword({
 			__ctx: {
-				adminClient: {
-					auth: {
-						admin: {
-							getUserById
-						},
-						resetPasswordForEmail
-					}
-				},
+				adminClient: makeIdentityCommandActionClient(),
 				audit
 			},
 			params: { userId: USER_ID },
@@ -221,54 +207,111 @@ describe('admin user auth email actions', () => {
 		} as unknown as Parameters<(typeof actions)['resetPassword']>[0]);
 
 		expect(result).toEqual({ success: true, message: 'Password reset email sent' });
-		expect(resetPasswordForEmail).toHaveBeenCalledWith('soldier@example.mil', {
-			redirectTo: 'http://localhost:4173/auth/confirm?type=recovery&next=%2Fauth%2Freset-password'
+		expect(platformUserIdentityCommandsMock.sendPasswordReset).toHaveBeenCalledWith({
+			userId: USER_ID,
+			inboundOrigin: 'http://localhost:4173'
 		});
 	});
 
-	it('rejects malformed user IDs before admin-triggered auth emails', async () => {
+	it('resendInvite calls the identity command seam and preserves success mapping', async () => {
 		const result = await actions.resendInvite({
 			__ctx: {
-				adminClient: {
-					auth: {
-						admin: {
-							getUserById,
-							inviteUserByEmail
-						}
-					}
-				},
+				adminClient: makeIdentityCommandActionClient(),
+				audit
+			},
+			params: { userId: USER_ID },
+			url: new URL(`http://localhost:4173/admin/users/${USER_ID}`)
+		} as unknown as Parameters<(typeof actions)['resendInvite']>[0]);
+
+		expect(result).toEqual({ success: true, message: 'Invite email resent' });
+		expect(platformUserIdentityCommandsMock.resendInvite).toHaveBeenCalledWith({
+			userId: USER_ID,
+			inboundOrigin: 'http://localhost:4173'
+		});
+	});
+
+	it('rejects malformed user IDs before calling identity commands', async () => {
+		const resetResult = await actions.resetPassword({
+			__ctx: {
+				adminClient: makeIdentityCommandActionClient(),
+				audit
+			},
+			params: { userId: 'not-a-uuid' },
+			url: new URL('http://localhost:4173/admin/users/not-a-uuid')
+		} as unknown as Parameters<(typeof actions)['resetPassword']>[0]);
+		const inviteResult = await actions.resendInvite({
+			__ctx: {
+				adminClient: makeIdentityCommandActionClient(),
 				audit
 			},
 			params: { userId: 'not-a-uuid' },
 			url: new URL('http://localhost:4173/admin/users/not-a-uuid')
 		} as unknown as Parameters<(typeof actions)['resendInvite']>[0]);
 
-		expect(result).toEqual({ status: 400, data: { error: 'Invalid user ID' } });
-		expect(getUserById).not.toHaveBeenCalled();
-		expect(inviteUserByEmail).not.toHaveBeenCalled();
+		expect(resetResult).toEqual({ status: 400, data: { error: 'Invalid user ID' } });
+		expect(inviteResult).toEqual({ status: 400, data: { error: 'Invalid user ID' } });
+		expect(platformUserIdentityCommandsMock.sendPasswordReset).not.toHaveBeenCalled();
+		expect(platformUserIdentityCommandsMock.resendInvite).not.toHaveBeenCalled();
 	});
 
-	it('uses the configured public app origin for admin-triggered auth emails', async () => {
-		vi.stubEnv('APP_PUBLIC_ORIGIN', 'https://trooptotask.org');
+	it('maps identity command not-found results to the current 404 response', async () => {
+		platformUserIdentityCommandsMock.sendPasswordReset.mockResolvedValueOnce({ status: 'not_found' });
+		platformUserIdentityCommandsMock.resendInvite.mockResolvedValueOnce({ status: 'not_found' });
 
-		await actions.resendInvite({
+		const resetResult = await actions.resetPassword({
 			__ctx: {
-				adminClient: {
-					auth: {
-						admin: {
-							getUserById,
-							inviteUserByEmail
-						}
-					}
-				},
+				adminClient: makeIdentityCommandActionClient(),
 				audit
 			},
 			params: { userId: USER_ID },
-			url: new URL(`https://admin.trooptotask.org/admin/users/${USER_ID}`)
+			url: new URL(`http://localhost:4173/admin/users/${USER_ID}`)
+		} as unknown as Parameters<(typeof actions)['resetPassword']>[0]);
+		const inviteResult = await actions.resendInvite({
+			__ctx: {
+				adminClient: makeIdentityCommandActionClient(),
+				audit
+			},
+			params: { userId: USER_ID },
+			url: new URL(`http://localhost:4173/admin/users/${USER_ID}`)
 		} as unknown as Parameters<(typeof actions)['resendInvite']>[0]);
 
-		expect(inviteUserByEmail).toHaveBeenCalledWith('soldier@example.mil', {
-			redirectTo: 'https://trooptotask.org/auth/confirm?type=invite&next=%2Fauth%2Faccept-invite'
+		expect(resetResult).toEqual({ status: 404, data: { error: 'User not found' } });
+		expect(inviteResult).toEqual({ status: 404, data: { error: 'User not found' } });
+	});
+
+	it('maps provider failures to the current password reset error response', async () => {
+		platformUserIdentityCommandsMock.sendPasswordReset.mockResolvedValueOnce({
+			status: 'provider_error',
+			message: 'sanitized'
 		});
+
+		const result = await actions.resetPassword({
+			__ctx: {
+				adminClient: makeIdentityCommandActionClient(),
+				audit
+			},
+			params: { userId: USER_ID },
+			url: new URL(`http://localhost:4173/admin/users/${USER_ID}`)
+		} as unknown as Parameters<(typeof actions)['resetPassword']>[0]);
+
+		expect(result).toEqual({ status: 500, data: { error: 'Failed to send password reset' } });
+	});
+
+	it('maps provider failures to the current invite error response', async () => {
+		platformUserIdentityCommandsMock.resendInvite.mockResolvedValueOnce({
+			status: 'provider_error',
+			message: 'sanitized'
+		});
+
+		const result = await actions.resendInvite({
+			__ctx: {
+				adminClient: makeIdentityCommandActionClient(),
+				audit
+			},
+			params: { userId: USER_ID },
+			url: new URL(`http://localhost:4173/admin/users/${USER_ID}`)
+		} as unknown as Parameters<(typeof actions)['resendInvite']>[0]);
+
+		expect(result).toEqual({ status: 500, data: { error: 'Failed to resend invite' } });
 	});
 });

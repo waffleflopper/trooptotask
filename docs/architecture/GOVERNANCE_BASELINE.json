@@ -115,11 +115,6 @@
 			"reason": "Platform Administration organization detail actions still build service-role Supabase adapters and stores from the admin context client."
 		},
 		{
-			"path": "src/routes/admin/users/[userId]/+page.server.ts",
-			"classification": "platform-admin-edge",
-			"reason": "Platform Administration user detail still uses the admin context client for auth-admin password reset and invite actions."
-		},
-		{
 			"path": "src/routes/api/access-requests/+server.ts",
 			"classification": "auth-edge",
 			"reason": "Public access-request submission still creates setup-delivery infrastructure with the service-role client."

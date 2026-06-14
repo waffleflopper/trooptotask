@@ -26,6 +26,7 @@ Each entry separates:
 				- Platform Administration organization-detail member reads, make-admin, and ownership transfer now route through the `PlatformMembershipAdministration` use case and Supabase adapter instead of route-level membership table calls
 				- Platform Administration billing-event diagnostics and retry commands now route through the `PlatformBillingEvents` use case and Supabase adapter instead of route-level billing table calls or webhook processor calls
 				- Platform Administration user-directory list/detail shaping now routes auth users, memberships, suspensions, and active personnel counts through the `PlatformUserDirectory` use case and Supabase adapter instead of route-level row shaping
+				- Platform Administration user identity email commands now route through the `PlatformUserIdentityCommands` use case and Supabase adapter instead of route-local Supabase Auth calls
 				- Platform Administration organization-detail base reads and billing snapshot reads now route through the `PlatformOrganizationDetail` use case and Supabase adapter instead of route-level table calls
 				- multiple non-adapter routes still depend directly on `locals.supabase`, especially admin operations and some remaining layout helpers
 - Intended direction:

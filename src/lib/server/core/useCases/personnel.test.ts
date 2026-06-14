@@ -530,6 +530,282 @@ describe('Personnel — archive', () => {
 	});
 });
 
+describe('Personnel — restore', () => {
+	function seedArchivedPersonnel(ctx: ReturnType<typeof buildContext>, overrides: Record<string, unknown> = {}) {
+		ctx.store.seed('personnel', [
+			{
+				id: 'p-1',
+				rank: 'SGT',
+				last_name: 'Smith',
+				first_name: 'Jamie',
+				mos: '11B',
+				clinic_role: 'Team Leader',
+				group_id: null,
+				archived_at: '2026-04-01T00:00:00Z',
+				organization_id: ctx.auth.orgId,
+				...overrides
+			}
+		]);
+	}
+
+	function seedArchivedArtifacts(ctx: ReturnType<typeof buildContext>) {
+		ctx.store.seed('personnel_follow_ups', [
+			{
+				id: 'follow-up-restored',
+				organization_id: ctx.auth.orgId,
+				personnel_id: 'p-1',
+				status: 'archived',
+				archived_at: '2026-04-01T00:00:00Z'
+			},
+			{
+				id: 'follow-up-still-archived',
+				organization_id: ctx.auth.orgId,
+				personnel_id: 'p-1',
+				status: 'archived',
+				archived_at: '2026-03-01T00:00:00Z'
+			}
+		]);
+		ctx.store.seed('counseling_records', [
+			{
+				id: 'counseling-restored',
+				organization_id: ctx.auth.orgId,
+				personnel_id: 'p-1',
+				archived_at: '2026-04-01T00:00:00Z'
+			}
+		]);
+		ctx.store.seed('personnel_documents', [
+			{
+				id: 'document-restored',
+				organization_id: ctx.auth.orgId,
+				personnel_id: 'p-1',
+				archived_at: '2026-04-01T00:00:00Z'
+			}
+		]);
+		ctx.store.seed('leader_notes', [
+			{
+				id: 'note-restored',
+				organization_id: ctx.auth.orgId,
+				personnel_id: 'p-1',
+				archived_at: '2026-04-01T00:00:00Z'
+			}
+		]);
+	}
+
+	it('restores archived personnel, owned artifacts, cache, and audit state', async () => {
+		const ctx = buildContext();
+		const { restore } = createPersonnelUseCases();
+		seedArchivedPersonnel(ctx);
+		seedArchivedArtifacts(ctx);
+
+		const result = await restore(ctx, 'p-1');
+
+		expect(result).toEqual({ success: true });
+		await expect(ctx.store.findOne('personnel', ctx.auth.orgId, { id: 'p-1' })).resolves.toMatchObject({
+			archived_at: null
+		});
+		await expect(
+			ctx.store.findOne('personnel_follow_ups', ctx.auth.orgId, { id: 'follow-up-restored' })
+		).resolves.toMatchObject({
+			status: 'open',
+			archived_at: null
+		});
+		await expect(
+			ctx.store.findOne('personnel_follow_ups', ctx.auth.orgId, { id: 'follow-up-still-archived' })
+		).resolves.toMatchObject({ status: 'archived', archived_at: '2026-03-01T00:00:00Z' });
+		await expect(
+			ctx.store.findOne('counseling_records', ctx.auth.orgId, { id: 'counseling-restored' })
+		).resolves.toMatchObject({ archived_at: null });
+		await expect(
+			ctx.store.findOne('personnel_documents', ctx.auth.orgId, { id: 'document-restored' })
+		).resolves.toMatchObject({ archived_at: null });
+		await expect(ctx.store.findOne('leader_notes', ctx.auth.orgId, { id: 'note-restored' })).resolves.toMatchObject({
+			archived_at: null
+		});
+		expect(ctx.subscription.tierCacheInvalidated).toBe(true);
+		expect(ctx.audit.events).toContainEqual(
+			expect.objectContaining({
+				action: 'personnel.restored',
+				resourceType: 'personnel',
+				resourceId: 'p-1',
+				details: { name: 'SGT Smith, Jamie' }
+			})
+		);
+	});
+
+	it('returns a cap message without mutating when the subscription has no personnel slots', async () => {
+		const ctx = buildContext({ subscriptionAllowed: false, subscriptionMessage: 'Personnel limit reached (20)' });
+		const { restore } = createPersonnelUseCases();
+		seedArchivedPersonnel(ctx);
+
+		const result = await restore(ctx, 'p-1');
+
+		expect(result).toEqual({ message: 'Personnel limit reached (20)' });
+		await expect(ctx.store.findOne('personnel', ctx.auth.orgId, { id: 'p-1' })).resolves.toMatchObject({
+			archived_at: '2026-04-01T00:00:00Z'
+		});
+		expect(ctx.subscription.tierCacheInvalidated).toBe(false);
+		expect(ctx.audit.events).toHaveLength(0);
+	});
+
+	it('rejects restore when the personnel record is missing', async () => {
+		const ctx = buildContext();
+		const { restore } = createPersonnelUseCases();
+
+		await expect(restore(ctx, 'p-missing')).rejects.toMatchObject({ status: 404 });
+	});
+
+	it('rejects restore when the personnel record is not archived', async () => {
+		const ctx = buildContext();
+		const { restore } = createPersonnelUseCases();
+		seedArchivedPersonnel(ctx, { archived_at: null });
+
+		await expect(restore(ctx, 'p-1')).rejects.toMatchObject({ status: 400 });
+	});
+
+	it('enforces group scope using the archived personnel row group', async () => {
+		const ctx = buildContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: {
+					calendar: 'view',
+					personnel: 'configure',
+					training: 'view',
+					criticalTasks: 'view',
+					onboarding: 'view',
+					ratingScheme: 'view'
+				},
+				scopeSet: { kind: 'groups', groupIds: ['group-a'] }
+			}
+		});
+		const { restore } = createPersonnelUseCases();
+		seedArchivedPersonnel(ctx, { group_id: 'group-b' });
+
+		await expect(restore(ctx, 'p-1')).rejects.toMatchObject({ status: 403 });
+		expect(ctx.audit.events).toContainEqual(
+			expect.objectContaining({
+				action: 'policy.denied',
+				resourceType: 'personnel',
+				resourceId: 'p-1',
+				details: expect.objectContaining({
+					policyAction: 'personnel.restoreRecords',
+					reasonCode: 'denied:out-of-scope'
+				})
+			})
+		);
+	});
+});
+
+describe('Personnel — permanent delete', () => {
+	function seedPersonnel(ctx: ReturnType<typeof createTestContext>, overrides: Record<string, unknown> = {}) {
+		ctx.store.seed('personnel', [
+			{
+				id: 'p-1',
+				rank: 'SGT',
+				last_name: 'Smith',
+				first_name: 'Jamie',
+				mos: '11B',
+				clinic_role: 'Team Leader',
+				group_id: null,
+				archived_at: '2026-04-01T00:00:00Z',
+				organization_id: ctx.auth.orgId,
+				...overrides
+			}
+		]);
+	}
+
+	it('deletes archived personnel, audits, and notifies admins', async () => {
+		const ctx = createTestContext();
+		const { permanentlyDelete } = createPersonnelUseCases();
+		seedPersonnel(ctx);
+
+		const result = await permanentlyDelete(ctx, 'p-1');
+
+		expect(result).toEqual({ success: true });
+		await expect(ctx.store.findOne('personnel', ctx.auth.orgId, { id: 'p-1' })).resolves.toBeNull();
+		expect(ctx.auditPort.events).toContainEqual(
+			expect.objectContaining({
+				action: 'personnel.permanently_deleted',
+				resourceType: 'personnel',
+				resourceId: 'p-1',
+				details: { name: 'SGT Smith, Jamie' }
+			})
+		);
+		expect(ctx.notificationPort.notifications).toContainEqual({
+			target: 'admins',
+			orgId: ctx.auth.orgId,
+			excludeUserId: ctx.auth.userId,
+			notification: {
+				type: 'personnel_permanently_deleted',
+				title: 'Personnel Permanently Deleted',
+				message: 'Personnel "SGT Smith, Jamie" was permanently deleted.'
+			}
+		});
+	});
+
+	it('rejects permanent delete when id is missing', async () => {
+		const ctx = createTestContext();
+		const { permanentlyDelete } = createPersonnelUseCases();
+
+		await expect(permanentlyDelete(ctx, '')).rejects.toMatchObject({ status: 400 });
+	});
+
+	it('rejects permanent delete when the personnel record is missing', async () => {
+		const ctx = createTestContext();
+		const { permanentlyDelete } = createPersonnelUseCases();
+
+		await expect(permanentlyDelete(ctx, 'p-missing')).rejects.toMatchObject({ status: 404 });
+	});
+
+	it('rejects permanent delete for active personnel', async () => {
+		const ctx = createTestContext();
+		const { permanentlyDelete } = createPersonnelUseCases();
+		seedPersonnel(ctx, { archived_at: null });
+
+		await expect(permanentlyDelete(ctx, 'p-1')).rejects.toMatchObject({ status: 400 });
+		await expect(ctx.store.findOne('personnel', ctx.auth.orgId, { id: 'p-1' })).resolves.toMatchObject({
+			archived_at: null
+		});
+	});
+
+	it('enforces group scope using the archived personnel row group', async () => {
+		const ctx = createTestContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: {
+					calendar: 'view',
+					personnel: 'configure',
+					training: 'view',
+					criticalTasks: 'view',
+					onboarding: 'view',
+					ratingScheme: 'view'
+				},
+				scopeSet: { kind: 'groups', groupIds: ['group-a'] }
+			}
+		});
+		const { permanentlyDelete } = createPersonnelUseCases();
+		seedPersonnel(ctx, { group_id: 'group-b' });
+
+		await expect(permanentlyDelete(ctx, 'p-1')).rejects.toMatchObject({ status: 403 });
+		await expect(ctx.rawStore.findOne('personnel', ctx.auth.orgId, { id: 'p-1' })).resolves.toMatchObject({
+			archived_at: '2026-04-01T00:00:00Z'
+		});
+		expect(ctx.notificationPort.notifications).toHaveLength(0);
+		expect(ctx.auditPort.events).toContainEqual(
+			expect.objectContaining({
+				action: 'policy.denied',
+				resourceType: 'personnel',
+				resourceId: 'p-1',
+				details: expect.objectContaining({
+					policyAction: 'personnel.permanentlyDeleteRecords',
+					reasonCode: 'denied:out-of-scope'
+				})
+			})
+		);
+	});
+});
+
 describe('Personnel — archive batch', () => {
 	function seedPersonnel(ctx: ReturnType<typeof createTestContext>) {
 		ctx.store.seed('personnel', [

@@ -82,7 +82,7 @@ The operator explicitly excluded automatic CI trigger work from this batch. Do n
 | 060  | Move feedback submissions behind platform seam    | P2       | M      | -          | DONE   |
 | 061  | Share retention cleanup support                   | P1       | M      | -          | DONE   |
 | 062  | Move billing checkout recovery behind seam        | P1       | M      | -          | DONE   |
-| 063  | Move Personnel restore/delete into use cases      | P1       | M      | -          | TODO   |
+| 063  | Move Personnel restore/delete into use cases      | P1       | M      | -          | DONE   |
 | 064  | Move Personnel export behind use case             | P2       | M      | -          | TODO   |
 | 065  | Retire dormant Dashboard tab configuration        | P2       | M      | -          | TODO   |
 | 066  | Split Calendar settings and stale managers        | P2       | M      | -          | DONE   |

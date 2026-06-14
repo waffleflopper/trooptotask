@@ -17,6 +17,7 @@
 
 	let { data } = $props();
 
+	const subscriptionsRouteRoot = resolve('/admin/subscriptions');
 	const tierFilter = $derived(data.pagination.tier ?? 'all');
 	const statusFilter = $derived(data.pagination.status ?? 'all');
 	const currentPageDriftCount = $derived(data.subscriptions.filter((sub) => sub.billingSnapshot?.driftDetected).length);
@@ -49,7 +50,7 @@
 		if (data.pagination.q) params.set('q', data.pagination.q);
 		if (tierFilter !== 'all') params.set('tier', tierFilter);
 		if (statusFilter !== 'all') params.set('status', statusFilter);
-		return `/admin/subscriptions?${params.toString()}`;
+		return `${subscriptionsRouteRoot}?${params.toString()}`;
 	}
 </script>
 
@@ -109,7 +110,7 @@
 		<Card.Header class="gap-3 xl:flex-row xl:items-end xl:justify-between">
 			<form
 				method="GET"
-				action="/admin/subscriptions"
+				action={subscriptionsRouteRoot}
 				class="grid flex-1 gap-3 xl:grid-cols-[minmax(18rem,1fr)_9rem_minmax(10rem,1fr)_minmax(10rem,1fr)_auto] xl:items-end"
 			>
 				<input type="hidden" name="page" value="1" />

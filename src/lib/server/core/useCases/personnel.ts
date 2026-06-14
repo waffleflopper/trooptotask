@@ -361,7 +361,6 @@ export function createPersonnelUseCases(): PersonnelUseCases {
 			});
 
 			if (!person) fail(404, 'Personnel not found');
-			if (!person.archived_at) fail(400, 'Personnel is not archived');
 
 			await requireFeaturePolicy(
 				ctx,
@@ -370,6 +369,8 @@ export function createPersonnelUseCases(): PersonnelUseCases {
 				AUDIT_RESOURCE,
 				id
 			);
+
+			if (!person.archived_at) fail(400, 'Personnel is not archived');
 
 			const personnelArchivedAt = person.archived_at;
 			await ctx.store.update(entity.table, ctx.auth.orgId, id, { archived_at: null });
@@ -397,7 +398,6 @@ export function createPersonnelUseCases(): PersonnelUseCases {
 			});
 
 			if (!person) fail(404, 'Personnel not found');
-			if (!person.archived_at) fail(400, 'Can only permanently delete archived personnel');
 
 			await requireFeaturePolicy(
 				ctx,
@@ -406,6 +406,8 @@ export function createPersonnelUseCases(): PersonnelUseCases {
 				AUDIT_RESOURCE,
 				id
 			);
+
+			if (!person.archived_at) fail(400, 'Can only permanently delete archived personnel');
 
 			await ctx.store.delete(entity.table, ctx.auth.orgId, id);
 

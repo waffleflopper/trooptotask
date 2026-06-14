@@ -85,9 +85,9 @@ The operator explicitly excluded automatic CI trigger work from this batch. Do n
 | 063  | Move Personnel restore/delete into use cases      | P1       | M      | -          | DONE   |
 | 064  | Move Personnel export behind use case             | P2       | M      | -          | DONE   |
 | 065  | Retire dormant Dashboard tab configuration        | P2       | M      | -          | DONE   |
-| 066  | Split Calendar settings and stale managers        | P2       | M      | -          | DONE   |
+| 066  | Split Calendar settings and delete stale managers | P2       | M      | -          | DONE   |
 | 067  | Consolidate Account Setup route orchestration     | P2       | M-L    | -          | DONE   |
-| 068  | Consolidate workbook interop and unused icons     | P3       | S      | -          | DONE   |
+| 068  | Consolidate workbook interop and remove unused icons | P3       | S      | -          | DONE   |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line rationale).
 

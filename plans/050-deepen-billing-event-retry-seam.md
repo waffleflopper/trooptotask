@@ -57,7 +57,7 @@ same Platform Administration module as the billing-event ledger reads.
 | Install, if needed      | `npm ci`                                                                                                                                                                    | exit 0              |
 | Focused route test      | `npx vitest run src/routes/admin/billing-events/page.server.test.ts`                                                                                                        | all pass            |
 | Focused use-case tests  | `npx vitest run src/lib/server/core/useCases/platformBillingEvents.test.ts src/lib/server/adapters/supabasePlatformBillingEvents.test.ts`                                   | all pass            |
-| Provider-leak grep      | `rg -n "SupabaseClient|_recordRetryableStripeWebhookEventAttempt|_processRecordedStripeWebhookEvent|ctx\\.adminClient as SupabaseClient|type Stripe" src/routes/admin/billing-events/+page.server.ts` | no matches          |
+| Provider-leak grep      | `rg -n "SupabaseClient\|_recordRetryableStripeWebhookEventAttempt\|_processRecordedStripeWebhookEvent\|ctx\\.adminClient as SupabaseClient\|type Stripe" src/routes/admin/billing-events/+page.server.ts` | no matches          |
 | Format                  | `npm run format`                                                                                                                                                           | exit 0              |
 | Lint                    | `npm run lint`                                                                                                                                                             | exit 0              |
 | Governance              | `npm run governance:check`                                                                                                                                                  | exit 0              |
@@ -196,7 +196,7 @@ into `src/lib/server/core/useCases/platformBillingEvents.test.ts`. Cover at leas
 - success records an audit event with `severity: 'info'`,
 - processing failure records `severity: 'warning'`,
 - retry-attempt race records `resultState: 'ledger_error'` and returns 409,
-- lookup failure returns sanitized 500 and logs the provider error,
+- lookup failure returns sanitized 500 and logs the provider error through the use-case error path,
 - non-retryable states do not call the retry processor and do not audit success,
 - Stripe event reconstruction preserves `id`, `type`, `created`, and `data`.
 

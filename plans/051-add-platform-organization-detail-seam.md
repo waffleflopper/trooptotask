@@ -58,7 +58,7 @@ Supabase table details should live in its adapter.
 | Install, if needed         | `npm ci`                                                                                                                                      | exit 0              |
 | Focused route test         | `npx vitest run src/routes/admin/organizations/[orgId]/page.server.test.ts`                                                                   | all pass            |
 | Focused use-case tests     | `npx vitest run src/lib/server/core/useCases/platformOrganizationDetail.test.ts src/lib/server/adapters/supabasePlatformOrganizationDetail.test.ts` | all pass            |
-| Provider-read grep         | `rg -n "AdminOrganizationBillingSnapshotRow|mapAdminOrganizationBillingSnapshot|organization_billing_snapshots|\\.from\\('organizations'\\)" src/routes/admin/organizations/[orgId]/+page.server.ts` | no matches          |
+| Provider-read grep         | `rg -n "AdminOrganizationBillingSnapshotRow\|mapAdminOrganizationBillingSnapshot\|organization_billing_snapshots\|\\.from\\('organizations'\\)" src/routes/admin/organizations/[orgId]/+page.server.ts` | no matches          |
 | Format                     | `npm run format`                                                                                                                              | exit 0              |
 | Lint                       | `npm run lint`                                                                                                                                | exit 0              |
 | Governance                 | `npm run governance:check`                                                                                                                     | exit 0              |
@@ -131,13 +131,15 @@ The `detail` shape should preserve the current route payload:
 - `auditEvents`.
 
 Use dependency interfaces for the data the use case needs, rather than importing Supabase into the
-core module. At minimum, the provider-specific store should expose:
+core module. The provider-specific store should expose the base Organization and billing snapshot
+reads:
 
 - `getOrganizationById(orgId)`,
 - `getBillingSnapshotByOrganization(orgId)`.
 
 It is okay for the Supabase adapter to compose existing app-owned modules for gifting, membership,
-metrics, audit, and plan diagnostics. Keep the route out of that wiring.
+metrics, audit, plan policy, plan usage, and plan diagnostics through separate dependencies. Keep
+the route out of that wiring.
 
 Behavior to preserve:
 
@@ -247,7 +249,7 @@ Remove route-local imports that only supported the old detail load:
 Do not remove imports still needed by form actions.
 
 **Verify**:
-`rg -n "AdminOrganizationBillingSnapshotRow|mapAdminOrganizationBillingSnapshot|organization_billing_snapshots|\\.from\\('organizations'\\)" src/routes/admin/organizations/[orgId]/+page.server.ts`
+`rg -n "AdminOrganizationBillingSnapshotRow\|mapAdminOrganizationBillingSnapshot\|organization_billing_snapshots\|\\.from\\('organizations'\\)" src/routes/admin/organizations/[orgId]/+page.server.ts`
 returns no matches.
 
 ### Step 5: Update route tests around the new seam

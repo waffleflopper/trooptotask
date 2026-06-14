@@ -82,7 +82,7 @@ let addClosureOpen = $state(false);
 | --- | --- | --- |
 | Svelte docs flow | Svelte MCP `list-sections`, then `get-documentation` for relevant sections | docs read before Svelte edits |
 | Calendar settings tests | `npx vitest run src/features/calendar/components/CalendarSettingsPage.test.ts` | exits 0 |
-| Stale manager grep | `rg -n "StatusTypeManager|AssignmentTypeManager|SpecialDayManager|PersonStatusModal" src/features/calendar src/routes` | no matches |
+| Stale manager grep | `rg -n "StatusTypeManager\|AssignmentTypeManager\|SpecialDayManager\|PersonStatusModal" src/features/calendar src/routes` | no matches |
 | Svelte autofix | `svelte-autofixer` on edited Svelte files | no issues or suggestions |
 | Format | `npm run format` | exits 0 |
 | Lint | `npm run lint` | exits 0 |
@@ -148,7 +148,7 @@ If the only matches are the comments in `src/features/calendar/index.ts`, delete
 Remove the corresponding comments from `src/features/calendar/index.ts`.
 
 **Verify**:
-`rg -n "StatusTypeManager|AssignmentTypeManager|SpecialDayManager|PersonStatusModal" src/features/calendar src/routes`
+`rg -n "StatusTypeManager\|AssignmentTypeManager\|SpecialDayManager\|PersonStatusModal" src/features/calendar src/routes`
 returns no matches.
 
 ### Step 2: Extract the status settings section
@@ -273,4 +273,3 @@ Stop and report back if:
 
 Keep future Calendar settings work section-owned. If a fourth settings section
 is added, create a sibling section component instead of growing the coordinator.
-

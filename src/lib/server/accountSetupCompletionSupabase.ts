@@ -1,8 +1,11 @@
-import type { SupabaseClient, User } from '@supabase/supabase-js';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { createSupabaseAccountSetupLinkStore } from '$lib/server/accountSetupLinks';
 import type { AccountSetupAuthAdapter, AccountSetupCompletionStore } from '$lib/server/accountSetupCompletion';
-
-const FIND_USER_BY_EMAIL_MAX_PAGES = 20;
+import {
+	findUserEmailIdentityByEmail,
+	normalizeUserEmailIdentity,
+	upsertUserEmailIdentity
+} from '$lib/server/userEmailIdentities';
 
 function isExistingUserError(error: unknown): boolean {
 	const code =
@@ -22,35 +25,6 @@ function isExistingUserError(error: unknown): boolean {
 		message.includes('already been registered') ||
 		message.includes('already exists')
 	);
-}
-
-function normalizeEmail(email: string): string {
-	return email.trim().toLowerCase();
-}
-
-async function findUserByEmail(adminClient: SupabaseClient, email: string): Promise<User | null> {
-	const normalizedEmail = normalizeEmail(email);
-	let page = 1;
-
-	// Supabase Auth admin lookup is paginated here; the beta setup path is capped to avoid unbounded scans.
-	while (page <= FIND_USER_BY_EMAIL_MAX_PAGES) {
-		const { data, error } = await adminClient.auth.admin.listUsers({ page, perPage: 1000 });
-		if (error) {
-			throw error;
-		}
-
-		const user = data.users.find((candidate) => candidate.email?.toLowerCase() === normalizedEmail);
-		if (user) {
-			return user;
-		}
-
-		if (data.users.length < 1000) {
-			return null;
-		}
-		page += 1;
-	}
-
-	return null;
 }
 
 export function createSupabaseAccountSetupCompletionStore(client: SupabaseClient): AccountSetupCompletionStore {
@@ -95,7 +69,7 @@ export function createSupabaseAccountSetupAuthAdapter(
 ): AccountSetupAuthAdapter {
 	return {
 		async createOrActivateConfirmedUser(input) {
-			const email = normalizeEmail(input.email);
+			const email = normalizeUserEmailIdentity(input.email);
 			const created = await adminClient.auth.admin.createUser({
 				email,
 				password: input.password,
@@ -103,6 +77,7 @@ export function createSupabaseAccountSetupAuthAdapter(
 			});
 
 			if (!created.error && created.data.user) {
+				await upsertUserEmailIdentity(adminClient, { userId: created.data.user.id, email });
 				return { userId: created.data.user.id };
 			}
 
@@ -110,12 +85,12 @@ export function createSupabaseAccountSetupAuthAdapter(
 				throw created.error ?? new Error('Could not create User Account');
 			}
 
-			const existingUser = await findUserByEmail(adminClient, email);
-			if (!existingUser) {
-				throw created.error ?? new Error('Could not find existing User Account');
+			const existingIdentity = await findUserEmailIdentityByEmail(adminClient, email);
+			if (!existingIdentity) {
+				throw new Error('Could not find existing User Account email identity');
 			}
 
-			const updated = await adminClient.auth.admin.updateUserById(existingUser.id, {
+			const updated = await adminClient.auth.admin.updateUserById(existingIdentity.userId, {
 				password: input.password,
 				email_confirm: true
 			});
@@ -124,12 +99,14 @@ export function createSupabaseAccountSetupAuthAdapter(
 				throw updated.error;
 			}
 
-			return { userId: existingUser.id };
+			await upsertUserEmailIdentity(adminClient, { userId: existingIdentity.userId, email });
+
+			return { userId: existingIdentity.userId };
 		},
 
 		async signInWithPassword(input) {
 			const { error } = await sessionClient.auth.signInWithPassword({
-				email: normalizeEmail(input.email),
+				email: normalizeUserEmailIdentity(input.email),
 				password: input.password
 			});
 

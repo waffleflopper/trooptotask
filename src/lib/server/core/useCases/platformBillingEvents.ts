@@ -264,10 +264,30 @@ export function createPlatformBillingEvents(deps: PlatformBillingEventsDependenc
 				};
 			}
 
-			const result = await deps.retryProcessor.processRecordedEvent(event, {
-				secondaryDedupeKey: eventRow.secondaryDedupeKey ?? undefined,
-				eventCreatedAt
-			});
+			let result: RecordedWebhookProcessingResult;
+			try {
+				result = await deps.retryProcessor.processRecordedEvent(event, {
+					secondaryDedupeKey: eventRow.secondaryDedupeKey ?? undefined,
+					eventCreatedAt
+				});
+			} catch (err) {
+				const message = err instanceof Error ? err.message : 'Failed to process billing event retry.';
+				deps.audit?.({
+					action: 'admin.billing_event.retry',
+					resourceType: 'stripe_webhook_event',
+					resourceId: eventRow.id,
+					severity: 'warning',
+					details: {
+						eventType: eventRow.type,
+						objectId: eventRow.objectId,
+						processingStateBefore: eventRow.processingState,
+						attemptCountBefore,
+						resultState: 'processing_error',
+						result: message
+					}
+				});
+				return { ok: false, status: 500, error: message };
+			}
 
 			deps.audit?.({
 				action: 'admin.billing_event.retry',

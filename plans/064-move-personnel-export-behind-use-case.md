@@ -137,6 +137,9 @@ Return the same shape the route currently expects:
 { _buffer: ArrayBuffer; _filename: string }
 ```
 
+The route may keep its coarse `policyAction`/`policyResource` metadata for the HTTP adapter, but
+the use case owns the group-scoped export authorization after it has loaded the personnel row.
+
 **Verify**:
 `npx vitest run src/lib/server/core/useCases/personnelExport.test.ts` should
 fail until tests and implementation are present, then pass.
@@ -164,8 +167,10 @@ Model workbook parsing after
 ### Step 3: Thin the export route
 
 Update `src/routes/org/[orgId]/api/personnel/[id]/export/+server.ts` so
-`_getConfig.fn` delegates to the new use case. Keep `parseInput`,
-`policyAction`, `policyResource`, and `formatOutput` in the route.
+`_getConfig.fn` delegates to the new use case. Keep `parseInput`, the coarse route
+`policyAction`/`policyResource` metadata, and `formatOutput` in the route. Do not keep the
+group-scoped personnel export policy decision in the route; that belongs in the use case after the
+personnel row is loaded.
 
 After this step the route should not build sheets, load related records, or
 write audit details.

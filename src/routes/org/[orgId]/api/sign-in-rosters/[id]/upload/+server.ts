@@ -48,6 +48,11 @@ export const _postConfig: RouteConfig<{ rosterId: string; file: File }, { filePa
 		const validationError = await validateSensitivePdfFile(input.file);
 		if (validationError) fail(400, validationError);
 
+		const roster = await ctx.store.findOne<{ signed_file_path: string | null }>('sign_in_rosters', ctx.auth.orgId, {
+			id: input.rosterId
+		});
+		const previousSignedFilePath = roster?.signed_file_path ?? null;
+
 		const storagePath = buildSignInRosterScanFilePath({
 			orgId: ctx.auth.orgId,
 			rosterId: input.rosterId,
@@ -70,6 +75,17 @@ export const _postConfig: RouteConfig<{ rosterId: string; file: File }, { filePa
 				);
 			}
 			throw error;
+		}
+
+		if (previousSignedFilePath && previousSignedFilePath !== storagePath) {
+			try {
+				await ctx.storage.remove(SENSITIVE_FILE_BUCKET, [previousSignedFilePath]);
+			} catch (cleanupError) {
+				console.error(
+					'[sign-in-roster-scan-upload] Failed to clean up previous scan after DB update success:',
+					sanitizeErrorForLog(cleanupError)
+				);
+			}
 		}
 
 		ctx.audit.log({

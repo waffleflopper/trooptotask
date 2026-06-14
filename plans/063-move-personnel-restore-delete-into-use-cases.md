@@ -82,7 +82,7 @@ await ctx.notifications.notifyAdmins(ctx.auth.orgId, ctx.auth.userId, {
 | --- | --- | --- |
 | Core personnel tests | `npx vitest run src/lib/server/core/useCases/personnel.test.ts src/lib/server/core/useCases/personnelArchivedArtifacts.test.ts` | exits 0 |
 | Personnel route tests | `npx vitest run src/routes/org/[orgId]/api/personnel/server.test.ts src/routes/org/[orgId]/api/personnel/permanent/server.test.ts` | exits 0 |
-| Route lifecycle grep | `rg -n -e 'restorePersonnelOwnedArtifacts' -e 'personnel\\.restored' -e 'permanently_deleted' -e 'personnel_permanently_deleted' -e "ctx\\.store\\.delete\\('personnel'" -e "ctx\\.store\\.update\\('personnel'" src/routes/org/[orgId]/api/personnel/+server.ts src/routes/org/[orgId]/api/personnel/permanent/+server.ts` | no matches |
+| Route lifecycle grep | `rg -n -e 'restorePersonnelOwnedArtifacts' -e 'personnel\\.restored' -e 'permanently_deleted' -e 'personnel_permanently_deleted' -e 'ctx\\.audit\\.log' -e 'ctx\\.notifications\\.notifyAdmins' -e "ctx\\.store\\.delete\\('personnel'" -e "ctx\\.store\\.update\\('personnel'" src/routes/org/[orgId]/api/personnel/+server.ts src/routes/org/[orgId]/api/personnel/permanent/+server.ts` | no matches |
 | Format | `npm run format` | exits 0 |
 | Lint | `npm run lint` | exits 0 |
 | Governance | `npm run governance:check` | exits 0 |
@@ -131,7 +131,9 @@ permanentlyDelete(ctx: WriteWithNotificationsPorts, id: string): Promise<{ succe
 
 Use the narrowest existing port type that supports each operation. Restore needs
 subscription cache invalidation and artifact restoration; permanent delete needs
-notifications.
+notifications. Both operations may still use `fail(...)` for request errors such as missing ids,
+missing rows, or invalid lifecycle state, so the route can stay thin without adding route-local
+400/404 branching.
 
 **Verify**:
 `npx vitest run src/lib/server/core/useCases/personnel.test.ts` should fail

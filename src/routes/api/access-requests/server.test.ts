@@ -1,9 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { auditLogMock, checkRateLimitMock, getAdminClientMock, submitAccessRequestMock } = vi.hoisted(() => ({
+const { auditLogMock, checkRateLimitMock, submitAccessRequestMock } = vi.hoisted(() => ({
 	auditLogMock: vi.fn(),
 	checkRateLimitMock: vi.fn(),
-	getAdminClientMock: vi.fn(),
 	submitAccessRequestMock: vi.fn()
 }));
 
@@ -16,12 +15,8 @@ vi.mock('$lib/server/auditLog', () => ({
 	auditLog: auditLogMock
 }));
 
-vi.mock('$lib/server/supabase', () => ({
-	getAdminClient: getAdminClientMock
-}));
-
 vi.mock('$lib/server/accessRequestSetupDelivery', () => ({
-	createSupabaseAccessRequestSetupDeliveryService: vi.fn(() => ({
+	createPublicAccessRequestSetupDeliveryService: vi.fn(() => ({
 		submitAccessRequest: submitAccessRequestMock
 	}))
 }));
@@ -56,7 +51,6 @@ function makeEvent(request: Request = makeRequest()) {
 describe('POST /api/access-requests', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
-		getAdminClientMock.mockReturnValue({ admin: true });
 		checkRateLimitMock.mockResolvedValue({
 			limited: false,
 			namespace: 'access-request-submission',

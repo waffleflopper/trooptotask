@@ -7,9 +7,8 @@ import {
 } from '$lib/server/accessRequestRateLimit';
 import { auditLog } from '$lib/server/auditLog';
 import { durableRateLimitAuditDetails } from '$lib/server/durableRateLimit';
-import { getAdminClient } from '$lib/server/supabase';
 import { sanitizeString, validateEmail } from '$lib/server/validation';
-import { createSupabaseAccessRequestSetupDeliveryService } from '$lib/server/accessRequestSetupDelivery';
+import { createPublicAccessRequestSetupDeliveryService } from '$lib/server/accessRequestSetupDelivery';
 
 export const POST: RequestHandler = async ({ getClientAddress, request }) => {
 	const body = await request.json();
@@ -66,8 +65,7 @@ export const POST: RequestHandler = async ({ getClientAddress, request }) => {
 		);
 	}
 
-	const adminClient = getAdminClient();
-	const service = createSupabaseAccessRequestSetupDeliveryService(adminClient);
+	const service = createPublicAccessRequestSetupDeliveryService();
 
 	try {
 		const result = await service.submitAccessRequest({

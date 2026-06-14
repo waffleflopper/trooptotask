@@ -443,6 +443,26 @@ describe('cleanupExpiredOnboardings', () => {
 		expect(org2Remaining).toHaveLength(0);
 	});
 
+	it('defaults missing archive_retention_months to 36 months inside the use case', async () => {
+		vi.useFakeTimers();
+		try {
+			vi.setSystemTime(new Date('2026-05-30T12:00:00.000Z'));
+			const store = buildStore();
+			store.seed('personnel_onboardings', [
+				makeCompletedOnboarding('ob-expired-default', '2023-05-29T12:00:00.000Z'),
+				makeCompletedOnboarding('ob-recent-default', '2023-06-01T12:00:00.000Z')
+			]);
+
+			const result = await cleanupExpiredOnboardings(store, [{ id: 'org-1', retentionMonths: null }]);
+
+			expect(result).toEqual({ deletedCount: 1, orgsAffected: 1 });
+			const remaining = await store.findMany<{ id: string }>('personnel_onboardings', 'org-1');
+			expect(remaining.map((row) => row.id)).toEqual(['ob-recent-default']);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
 	it('notifies admins when records are cleaned up', async () => {
 		const store = buildStore();
 		store.seed('personnel_onboardings', [

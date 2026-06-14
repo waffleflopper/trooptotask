@@ -141,6 +141,11 @@
 		showLeaveOrganizationDialog = true;
 	}
 
+	function submitLogout(event: MouseEvent) {
+		event.preventDefault();
+		(event.currentTarget as HTMLElement).closest('form')?.requestSubmit();
+	}
+
 	function closeLeaveOrganizationDialog() {
 		leaveOrganizationConfirmText = '';
 		showLeaveOrganizationDialog = false;
@@ -468,10 +473,12 @@
 									</DropdownMenu.Item>
 									<DropdownMenu.Separator />
 								{/if}
-								<DropdownMenu.Item variant="destructive" onclick={() => goto(resolve('/auth/logout'))}>
-									<LogOut />
-									Sign Out
-								</DropdownMenu.Item>
+								<form method="POST" action={resolve('/auth/logout')}>
+									<DropdownMenu.Item variant="destructive" onclick={submitLogout}>
+										<LogOut />
+										Sign Out
+									</DropdownMenu.Item>
+								</form>
 							</DropdownMenu.Content>
 						</DropdownMenu.Root>
 					</Sidebar.MenuItem>

@@ -1,5 +1,9 @@
 import type Stripe from 'stripe';
-import type { WebhookProcessingState } from '$lib/server/billing/stripeWebhookProcessing';
+import {
+	_PermanentWebhookProcessingError,
+	type RecordedWebhookProcessingResult,
+	type WebhookProcessingState
+} from '$lib/server/billing/stripeWebhookProcessing';
 
 const RETRYABLE_STATE: WebhookProcessingState = 'retryable_failed';
 
@@ -62,17 +66,58 @@ export interface PlatformBillingEventsStore {
 	listOrganizationsById(ids: string[]): Promise<PlatformBillingOrganizationLink[]>;
 }
 
+export interface PlatformBillingEventRetryMetadata {
+	objectId?: string | null;
+	secondaryDedupeKey?: string;
+	eventCreatedAt?: string;
+}
+
+export type PlatformBillingEventRetryResult =
+	| { ok: true; state: WebhookProcessingState; result: string }
+	| { ok: false; status: number; error: string };
+
+export interface PlatformBillingEventRetryProcessor {
+	recordRetryAttempt(event: Stripe.Event, metadata: PlatformBillingEventRetryMetadata): Promise<number>;
+	processRecordedEvent(
+		event: Stripe.Event,
+		metadata: PlatformBillingEventRetryMetadata
+	): Promise<RecordedWebhookProcessingResult>;
+}
+
+export interface PlatformBillingEventRetryAuditEvent {
+	action: string;
+	resourceType: string;
+	resourceId?: string;
+	orgId?: string;
+	details?: Record<string, unknown>;
+	severity?: 'info' | 'warning' | 'critical';
+}
+
 export interface PlatformBillingEvents {
 	listDiagnostics(input: { limit: number }): Promise<{ events: BillingEventDiagnostic[]; diagnosticsError: boolean }>;
 	getEventById(id: string): Promise<PlatformBillingEventRecord | null>;
+	retryEvent(eventId: string): Promise<PlatformBillingEventRetryResult>;
 }
 
 export interface PlatformBillingEventsDependencies {
 	store: PlatformBillingEventsStore;
+	retryProcessor?: PlatformBillingEventRetryProcessor;
+	audit?: (event: PlatformBillingEventRetryAuditEvent) => void;
 }
 
 function normalizeAttemptCount(value: number | null): number {
 	return typeof value === 'number' ? value : 0;
+}
+
+function stripeEventFromLedgerRow(row: PlatformBillingEventRecord): Stripe.Event {
+	const eventCreatedAt = row.eventCreatedAt ?? row.createdAt ?? new Date(0).toISOString();
+	const createdSeconds = Math.floor(new Date(eventCreatedAt).getTime() / 1000);
+	return {
+		id: row.id,
+		type: row.type,
+		created: Number.isFinite(createdSeconds) ? createdSeconds : 0,
+		data: row.data ?? { object: {} }
+	} as Stripe.Event;
 }
 
 function uniqueValues(values: Array<string | null | undefined>): string[] {
@@ -161,6 +206,110 @@ export function createPlatformBillingEvents(deps: PlatformBillingEventsDependenc
 
 		getEventById(id) {
 			return deps.store.getEventById(id);
+		},
+
+		async retryEvent(eventId) {
+			const trimmedEventId = eventId.trim();
+			if (!trimmedEventId) return { ok: false, status: 400, error: 'Missing billing event ID.' };
+			if (!deps.retryProcessor) {
+				return { ok: false, status: 500, error: 'Billing event retry is not configured.' };
+			}
+
+			let eventRow: PlatformBillingEventRecord | null;
+			try {
+				eventRow = await deps.store.getEventById(trimmedEventId);
+			} catch (err) {
+				console.error('Admin billing event lookup failed:', { eventId: trimmedEventId, err });
+				return { ok: false, status: 500, error: 'Failed to fetch billing event.' };
+			}
+
+			if (!eventRow) return { ok: false, status: 404, error: 'Billing event was not found.' };
+			if (eventRow.processingState !== RETRYABLE_STATE || eventRow.processed === true) {
+				return {
+					ok: false,
+					status: 400,
+					error: `${eventRow.processingState ?? 'unknown'} billing events cannot be retried.`
+				};
+			}
+
+			const event = stripeEventFromLedgerRow(eventRow);
+			const eventCreatedAt = eventRow.eventCreatedAt ?? new Date(event.created * 1000).toISOString();
+			const attemptCountBefore = normalizeAttemptCount(eventRow.attemptCount);
+
+			try {
+				await deps.retryProcessor.recordRetryAttempt(event, {
+					objectId: eventRow.objectId,
+					secondaryDedupeKey: eventRow.secondaryDedupeKey ?? undefined,
+					eventCreatedAt
+				});
+			} catch (err) {
+				const message = err instanceof Error ? err.message : 'Failed to record billing event retry.';
+				deps.audit?.({
+					action: 'admin.billing_event.retry',
+					resourceType: 'stripe_webhook_event',
+					resourceId: eventRow.id,
+					severity: 'warning',
+					details: {
+						eventType: eventRow.type,
+						objectId: eventRow.objectId,
+						processingStateBefore: eventRow.processingState,
+						attemptCountBefore,
+						resultState: 'ledger_error',
+						result: message
+					}
+				});
+				return {
+					ok: false,
+					status: err instanceof _PermanentWebhookProcessingError ? 409 : 500,
+					error: message
+				};
+			}
+
+			let result: RecordedWebhookProcessingResult;
+			try {
+				result = await deps.retryProcessor.processRecordedEvent(event, {
+					secondaryDedupeKey: eventRow.secondaryDedupeKey ?? undefined,
+					eventCreatedAt
+				});
+			} catch (err) {
+				const message = err instanceof Error ? err.message : 'Failed to process billing event retry.';
+				deps.audit?.({
+					action: 'admin.billing_event.retry',
+					resourceType: 'stripe_webhook_event',
+					resourceId: eventRow.id,
+					severity: 'warning',
+					details: {
+						eventType: eventRow.type,
+						objectId: eventRow.objectId,
+						processingStateBefore: eventRow.processingState,
+						attemptCountBefore,
+						resultState: 'processing_error',
+						result: message
+					}
+				});
+				return { ok: false, status: 500, error: message };
+			}
+
+			deps.audit?.({
+				action: 'admin.billing_event.retry',
+				resourceType: 'stripe_webhook_event',
+				resourceId: eventRow.id,
+				severity: result.ok ? 'info' : 'warning',
+				details: {
+					eventType: eventRow.type,
+					objectId: eventRow.objectId,
+					processingStateBefore: eventRow.processingState,
+					attemptCountBefore,
+					resultState: result.state,
+					result: result.result
+				}
+			});
+
+			if (!result.ok) {
+				return { ok: false, status: result.status >= 400 ? result.status : 400, error: result.error ?? result.result };
+			}
+
+			return { ok: true, state: result.state, result: result.result };
 		}
 	};
 }

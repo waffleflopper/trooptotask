@@ -1,6 +1,51 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createInMemoryPlatformBillingEventsStore } from '$lib/server/adapters/inMemoryPlatformBillingEvents';
-import { createPlatformBillingEvents, type PlatformBillingEventsStore } from './platformBillingEvents';
+import { _PermanentWebhookProcessingError } from '$lib/server/billing/stripeWebhookProcessing';
+import {
+	createPlatformBillingEvents,
+	type PlatformBillingEventRecord,
+	type PlatformBillingEventRetryProcessor,
+	type PlatformBillingEventsStore
+} from './platformBillingEvents';
+
+const CHECKOUT_SESSION_COMPLETED_CREATED_AT_UNIX_SECONDS = 1779494400;
+const SUBSCRIPTION_UPDATED_CREATED_AT_UNIX_SECONDS = 1779626096;
+
+const retryEventDefaults: PlatformBillingEventRecord = {
+	id: 'evt_retry',
+	type: 'checkout.session.completed',
+	data: { object: { id: 'cs_123', metadata: { orgId: 'org-1', tier: 'team' }, subscription: 'sub_123' } },
+	objectId: 'cs_123',
+	secondaryDedupeKey: 'checkout.session.completed:cs_123',
+	eventCreatedAt: '2026-05-23T00:00:00.000Z',
+	processed: false,
+	processedAt: null,
+	processingState: 'retryable_failed',
+	attemptCount: 3,
+	lastError: 'temporary error',
+	processingResult: 'retryable processing failure',
+	createdAt: '2026-05-23T00:00:01.000Z',
+	updatedAt: '2026-05-23T00:00:02.000Z'
+};
+
+function makeRetryEvent(overrides: Partial<PlatformBillingEventRecord> = {}): PlatformBillingEventRecord {
+	return { ...retryEventDefaults, ...overrides };
+}
+
+function createRetryProcessor(
+	overrides: Partial<PlatformBillingEventRetryProcessor> = {}
+): PlatformBillingEventRetryProcessor {
+	return {
+		recordRetryAttempt: vi.fn(async () => 4),
+		processRecordedEvent: vi.fn(async () => ({
+			ok: true,
+			state: 'processed' as const,
+			result: 'checkout pending activation recorded',
+			status: 200
+		})),
+		...overrides
+	};
+}
 
 describe('PlatformBillingEvents', () => {
 	it('lists safe billing event diagnostics linked to organizations through billing snapshots', async () => {
@@ -236,5 +281,250 @@ describe('PlatformBillingEvents', () => {
 		});
 		expect(consoleError).toHaveBeenCalledWith('Admin billing event organization-link query failed:', expect.any(Error));
 		consoleError.mockRestore();
+	});
+
+	it('successfully retries a retryable event and records an info audit event', async () => {
+		const audit = vi.fn();
+		const retryProcessor = createRetryProcessor();
+		const billingEvents = createPlatformBillingEvents({
+			store: createInMemoryPlatformBillingEventsStore({ events: [makeRetryEvent()] }),
+			retryProcessor,
+			audit
+		});
+
+		const result = await billingEvents.retryEvent(' evt_retry ');
+
+		expect(result).toEqual({ ok: true, state: 'processed', result: 'checkout pending activation recorded' });
+		expect(retryProcessor.recordRetryAttempt).toHaveBeenCalledWith(
+			expect.objectContaining({ id: 'evt_retry', type: 'checkout.session.completed' }),
+			expect.objectContaining({
+				objectId: 'cs_123',
+				secondaryDedupeKey: 'checkout.session.completed:cs_123',
+				eventCreatedAt: '2026-05-23T00:00:00.000Z'
+			})
+		);
+		expect(retryProcessor.processRecordedEvent).toHaveBeenCalledWith(
+			expect.objectContaining({ id: 'evt_retry', created: CHECKOUT_SESSION_COMPLETED_CREATED_AT_UNIX_SECONDS }),
+			expect.objectContaining({
+				secondaryDedupeKey: 'checkout.session.completed:cs_123',
+				eventCreatedAt: '2026-05-23T00:00:00.000Z'
+			})
+		);
+		expect(audit).toHaveBeenCalledWith(
+			expect.objectContaining({
+				action: 'admin.billing_event.retry',
+				resourceType: 'stripe_webhook_event',
+				resourceId: 'evt_retry',
+				severity: 'info',
+				details: expect.objectContaining({
+					eventType: 'checkout.session.completed',
+					objectId: 'cs_123',
+					processingStateBefore: 'retryable_failed',
+					attemptCountBefore: 3,
+					resultState: 'processed',
+					result: 'checkout pending activation recorded'
+				})
+			})
+		);
+	});
+
+	it('audits processing failures with warning severity and preserves status mapping', async () => {
+		const audit = vi.fn();
+		const retryProcessor = createRetryProcessor({
+			processRecordedEvent: vi.fn(async () => ({
+				ok: false,
+				state: 'permanently_failed' as const,
+				result: 'permanent processing failure',
+				status: 200,
+				error: 'missing required Stripe metadata'
+			}))
+		});
+		const billingEvents = createPlatformBillingEvents({
+			store: createInMemoryPlatformBillingEventsStore({ events: [makeRetryEvent({ id: 'evt_permanent' })] }),
+			retryProcessor,
+			audit
+		});
+
+		const result = await billingEvents.retryEvent('evt_permanent');
+
+		expect(result).toEqual({ ok: false, status: 400, error: 'missing required Stripe metadata' });
+		expect(audit).toHaveBeenCalledWith(
+			expect.objectContaining({
+				severity: 'warning',
+				details: expect.objectContaining({
+					resultState: 'permanently_failed',
+					result: 'permanent processing failure'
+				})
+			})
+		);
+	});
+
+	it('audits retry processor exceptions and returns a structured server error', async () => {
+		const audit = vi.fn();
+		const retryProcessor = createRetryProcessor({
+			processRecordedEvent: vi.fn(async () => {
+				throw new Error('provider retry network failure');
+			})
+		});
+		const billingEvents = createPlatformBillingEvents({
+			store: createInMemoryPlatformBillingEventsStore({ events: [makeRetryEvent({ id: 'evt_processor_error' })] }),
+			retryProcessor,
+			audit
+		});
+
+		const result = await billingEvents.retryEvent('evt_processor_error');
+
+		expect(result).toEqual({ ok: false, status: 500, error: 'provider retry network failure' });
+		expect(audit).toHaveBeenCalledWith(
+			expect.objectContaining({
+				action: 'admin.billing_event.retry',
+				resourceType: 'stripe_webhook_event',
+				resourceId: 'evt_processor_error',
+				severity: 'warning',
+				details: expect.objectContaining({
+					eventType: 'checkout.session.completed',
+					objectId: 'cs_123',
+					processingStateBefore: 'retryable_failed',
+					attemptCountBefore: 3,
+					resultState: 'processing_error',
+					result: 'provider retry network failure'
+				})
+			})
+		);
+	});
+
+	it('audits retry-attempt races as ledger errors and returns conflict', async () => {
+		const audit = vi.fn();
+		const retryProcessor = createRetryProcessor({
+			recordRetryAttempt: vi.fn(async () => {
+				throw new _PermanentWebhookProcessingError('billing event is no longer retryable');
+			})
+		});
+		const billingEvents = createPlatformBillingEvents({
+			store: createInMemoryPlatformBillingEventsStore({ events: [makeRetryEvent({ id: 'evt_race' })] }),
+			retryProcessor,
+			audit
+		});
+
+		const result = await billingEvents.retryEvent('evt_race');
+
+		expect(result).toEqual({ ok: false, status: 409, error: 'billing event is no longer retryable' });
+		expect(retryProcessor.processRecordedEvent).not.toHaveBeenCalled();
+		expect(audit).toHaveBeenCalledWith(
+			expect.objectContaining({
+				severity: 'warning',
+				details: expect.objectContaining({
+					resultState: 'ledger_error',
+					result: 'billing event is no longer retryable'
+				})
+			})
+		);
+	});
+
+	it('does not treat plain retry-attempt error text as a conflict signal', async () => {
+		const retryProcessor = createRetryProcessor({
+			recordRetryAttempt: vi.fn(async () => {
+				throw new Error('billing event is no longer retryable');
+			})
+		});
+		const billingEvents = createPlatformBillingEvents({
+			store: createInMemoryPlatformBillingEventsStore({ events: [makeRetryEvent({ id: 'evt_plain_error' })] }),
+			retryProcessor
+		});
+
+		await expect(billingEvents.retryEvent('evt_plain_error')).resolves.toEqual({
+			ok: false,
+			status: 500,
+			error: 'billing event is no longer retryable'
+		});
+	});
+
+	it('returns a sanitized server error and logs provider lookup failures', async () => {
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+		const retryProcessor = createRetryProcessor();
+		const store: PlatformBillingEventsStore = {
+			...createInMemoryPlatformBillingEventsStore(),
+			async getEventById() {
+				throw new Error('provider database offline with internal detail');
+			}
+		};
+		const billingEvents = createPlatformBillingEvents({ store, retryProcessor, audit: vi.fn() });
+
+		const result = await billingEvents.retryEvent('evt_lookup_error');
+
+		expect(result).toEqual({ ok: false, status: 500, error: 'Failed to fetch billing event.' });
+		expect(consoleError).toHaveBeenCalledWith(
+			'Admin billing event lookup failed:',
+			expect.objectContaining({ eventId: 'evt_lookup_error', err: expect.any(Error) })
+		);
+		expect(retryProcessor.recordRetryAttempt).not.toHaveBeenCalled();
+		consoleError.mockRestore();
+	});
+
+	it.each(['processed', 'ignored', 'permanently_failed', 'superseded'])(
+		'denies retries for %s events without calling the retry processor',
+		async (processingState) => {
+			const audit = vi.fn();
+			const retryProcessor = createRetryProcessor();
+			const billingEvents = createPlatformBillingEvents({
+				store: createInMemoryPlatformBillingEventsStore({
+					events: [
+						makeRetryEvent({
+							id: `evt_${processingState}`,
+							type: 'customer.created',
+							objectId: 'cus_123',
+							secondaryDedupeKey: `customer.created:cus_123`,
+							processed: processingState === 'processed',
+							processingState: processingState as PlatformBillingEventRecord['processingState']
+						})
+					]
+				}),
+				retryProcessor,
+				audit
+			});
+
+			const result = await billingEvents.retryEvent(`evt_${processingState}`);
+
+			expect(result).toEqual({
+				ok: false,
+				status: 400,
+				error: `${processingState} billing events cannot be retried.`
+			});
+			expect(retryProcessor.recordRetryAttempt).not.toHaveBeenCalled();
+			expect(retryProcessor.processRecordedEvent).not.toHaveBeenCalled();
+			expect(audit).not.toHaveBeenCalled();
+		}
+	);
+
+	it('reconstructs Stripe events with id, type, created timestamp, and data payload', async () => {
+		const retryProcessor = createRetryProcessor();
+		const billingEvents = createPlatformBillingEvents({
+			store: createInMemoryPlatformBillingEventsStore({
+				events: [
+					makeRetryEvent({
+						id: 'evt_reconstruct',
+						type: 'customer.subscription.updated',
+						data: { object: { id: 'sub_123', metadata: { orgId: 'org-1' } } },
+						objectId: 'sub_123',
+						secondaryDedupeKey: 'customer.subscription.updated:sub_123',
+						eventCreatedAt: '2026-05-24T12:34:56.000Z'
+					})
+				]
+			}),
+			retryProcessor,
+			audit: vi.fn()
+		});
+
+		await billingEvents.retryEvent('evt_reconstruct');
+
+		expect(retryProcessor.recordRetryAttempt).toHaveBeenCalledWith(
+			expect.objectContaining({
+				id: 'evt_reconstruct',
+				type: 'customer.subscription.updated',
+				created: SUBSCRIPTION_UPDATED_CREATED_AT_UNIX_SECONDS,
+				data: { object: { id: 'sub_123', metadata: { orgId: 'org-1' } } }
+			}),
+			expect.any(Object)
+		);
 	});
 });

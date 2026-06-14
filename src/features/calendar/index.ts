@@ -31,15 +31,11 @@ export type { CalendarPageData } from './contexts/CalendarPageContext.svelte';
 // $features/calendar/components/CalendarHeader.svelte
 // $lib/components/ui/date-cell (shared UI primitive)
 // $features/calendar/components/AvailabilityModal.svelte
-// $features/calendar/components/StatusTypeManager.svelte
-// $features/calendar/components/SpecialDayManager.svelte
 // $features/calendar/components/BulkStatusPage.svelte
 // $features/calendar/components/BulkStatusAdd.svelte
 // $features/calendar/components/BulkStatusRemove.svelte
 // $features/calendar/components/BulkStatusImport.svelte
 // $features/calendar/components/StatusLegend.svelte
-// $features/calendar/components/PersonStatusModal.svelte
 // $features/calendar/components/DailyAssignmentModal.svelte
-// $features/calendar/components/AssignmentTypeManager.svelte
 // $features/calendar/components/MonthlyAssignmentPlanner.svelte
 // $features/calendar/components/LongRangeView.svelte

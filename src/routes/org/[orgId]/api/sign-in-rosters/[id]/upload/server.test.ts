@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
@@ -6,8 +6,9 @@ import { SENSITIVE_FILE_BUCKET } from '$lib/storage/sensitiveFiles';
 import { _deleteConfig, _getConfig, _postConfig } from './+server';
 
 const PDF_BYTES = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d]);
+const OLD_SCAN_PATH = 'test-org/sign-in-rosters/roster-1/old-scan.pdf';
 
-function createRosterUploadContext() {
+function createRosterUploadContext(signedFilePath: string | null = null) {
 	const ctx = createTestContext();
 	ctx.store.seed('sign_in_rosters', [
 		{
@@ -20,7 +21,7 @@ function createRosterUploadContext() {
 			sort_by: 'alphabetical',
 			personnel_snapshot: [],
 			filter_config: null,
-			signed_file_path: null,
+			signed_file_path: signedFilePath,
 			created_by: ctx.auth.userId,
 			created_at: '2026-05-02T10:00:00.000Z'
 		}
@@ -60,17 +61,198 @@ describe('/api/sign-in-rosters/[id]/upload route config', () => {
 		});
 
 		expect(result).toEqual({
-			filePath: 'test-org/sign-in-rosters/roster-1/signed-roster.pdf'
+			filePath: expect.stringMatching(/^test-org\/sign-in-rosters\/roster-1\/[0-9a-f-]{36}-signed-roster\.pdf$/)
 		});
 		expect(ctx.storagePort.files).toHaveLength(1);
 		expect(ctx.storagePort.files[0]).toMatchObject({
 			bucket: SENSITIVE_FILE_BUCKET,
-			path: 'test-org/sign-in-rosters/roster-1/signed-roster.pdf'
+			path: result.filePath
 		});
 
 		const roster = await ctx.store.findOne<{ signed_file_path: string | null }>('sign_in_rosters', ctx.auth.orgId, {
 			id: 'roster-1'
 		});
-		expect(roster?.signed_file_path).toBe('test-org/sign-in-rosters/roster-1/signed-roster.pdf');
+		expect(roster?.signed_file_path).toBe(result.filePath);
+	});
+
+	it('uses a unique storage path and removes the previous scan after replacement succeeds', async () => {
+		const ctx = createRosterUploadContext();
+
+		const first = await handleUseCaseRequest(_postConfig, ctx, {
+			rosterId: 'roster-1',
+			file: new File([PDF_BYTES], 'signed-roster.pdf', { type: 'application/pdf' })
+		});
+		const second = await handleUseCaseRequest(_postConfig, ctx, {
+			rosterId: 'roster-1',
+			file: new File([PDF_BYTES], 'signed-roster.pdf', { type: 'application/pdf' })
+		});
+
+		expect(first.filePath).not.toBe(second.filePath);
+		expect(ctx.storagePort.files.map((file) => file.path)).toEqual([second.filePath]);
+
+		const roster = await ctx.store.findOne<{ signed_file_path: string | null }>('sign_in_rosters', ctx.auth.orgId, {
+			id: 'roster-1'
+		});
+		expect(roster?.signed_file_path).toBe(second.filePath);
+	});
+
+	it('restores the old scan path and removes the replacement when previous cleanup fails', async () => {
+		const ctx = createRosterUploadContext(OLD_SCAN_PATH);
+		await ctx.storage.upload(SENSITIVE_FILE_BUCKET, OLD_SCAN_PATH, new File([PDF_BYTES], 'old-scan.pdf'));
+		const cleanupError = new Error('previous cleanup failed');
+		const remove = ctx.storage.remove.bind(ctx.storage);
+		ctx.storage.remove = async (bucket, paths) => {
+			if (paths.includes(OLD_SCAN_PATH)) throw cleanupError;
+			return remove(bucket, paths);
+		};
+
+		await expect(
+			handleUseCaseRequest(_postConfig, ctx, {
+				rosterId: 'roster-1',
+				file: new File([PDF_BYTES], 'signed-roster.pdf', { type: 'application/pdf' })
+			})
+		).rejects.toBe(cleanupError);
+
+		const roster = await ctx.store.findOne<{ signed_file_path: string | null }>('sign_in_rosters', ctx.auth.orgId, {
+			id: 'roster-1'
+		});
+		expect(roster?.signed_file_path).toBe(OLD_SCAN_PATH);
+		expect(ctx.storagePort.files.map((file) => file.path)).toEqual([OLD_SCAN_PATH]);
+		expect(ctx.auditPort.events).toEqual([]);
+	});
+
+	it('removes a newly uploaded scan if the DB update fails and preserves the previous scan', async () => {
+		const ctx = createRosterUploadContext(OLD_SCAN_PATH);
+		await ctx.storage.upload(SENSITIVE_FILE_BUCKET, OLD_SCAN_PATH, new File([PDF_BYTES], 'old-scan.pdf'));
+		const update = ctx.store.update.bind(ctx.store);
+		ctx.store.update = async (table, orgId, id, data) => {
+			if (table === 'sign_in_rosters') throw new Error('update failed');
+			return update(table, orgId, id, data);
+		};
+
+		await expect(
+			handleUseCaseRequest(_postConfig, ctx, {
+				rosterId: 'roster-1',
+				file: new File([PDF_BYTES], 'signed-roster.pdf', { type: 'application/pdf' })
+			})
+		).rejects.toThrow('update failed');
+
+		expect(ctx.storagePort.files).toHaveLength(1);
+		expect(ctx.storagePort.files[0]).toMatchObject({
+			bucket: SENSITIVE_FILE_BUCKET,
+			path: OLD_SCAN_PATH
+		});
+		const roster = await ctx.store.findOne<{ signed_file_path: string | null }>('sign_in_rosters', ctx.auth.orgId, {
+			id: 'roster-1'
+		});
+		expect(roster?.signed_file_path).toBe(OLD_SCAN_PATH);
+	});
+
+	it('rethrows the original DB error if upload cleanup removal also fails', async () => {
+		const ctx = createRosterUploadContext(OLD_SCAN_PATH);
+		await ctx.storage.upload(SENSITIVE_FILE_BUCKET, OLD_SCAN_PATH, new File([PDF_BYTES], 'old-scan.pdf'));
+		const dbError = new Error('update failed');
+		const cleanupError = new Error('cleanup remove failed');
+		const update = ctx.store.update.bind(ctx.store);
+		ctx.store.update = async (table, orgId, id, data) => {
+			if (table === 'sign_in_rosters') throw dbError;
+			return update(table, orgId, id, data);
+		};
+		ctx.storage.remove = async () => {
+			throw cleanupError;
+		};
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+		try {
+			await expect(
+				handleUseCaseRequest(_postConfig, ctx, {
+					rosterId: 'roster-1',
+					file: new File([PDF_BYTES], 'signed-roster.pdf', { type: 'application/pdf' })
+				})
+			).rejects.toBe(dbError);
+
+			expect(consoleError).toHaveBeenCalledWith(
+				'[sign-in-roster-scan-upload] Failed to clean up uploaded scan after DB update failure:',
+				expect.stringContaining('cleanup remove failed')
+			);
+		} finally {
+			consoleError.mockRestore();
+		}
+
+		const roster = await ctx.store.findOne<{ signed_file_path: string | null }>('sign_in_rosters', ctx.auth.orgId, {
+			id: 'roster-1'
+		});
+		expect(roster?.signed_file_path).toBe(OLD_SCAN_PATH);
+		expect(ctx.storagePort.files.map((file) => file.path)).toEqual([
+			OLD_SCAN_PATH,
+			expect.stringMatching(/^test-org\/sign-in-rosters\/roster-1\/[0-9a-f-]{36}-signed-roster\.pdf$/)
+		]);
+	});
+
+	it('preserves the DB path and stored scan when unlink storage cleanup fails', async () => {
+		const ctx = createRosterUploadContext(OLD_SCAN_PATH);
+		await ctx.storage.upload(SENSITIVE_FILE_BUCKET, OLD_SCAN_PATH, new File([PDF_BYTES], 'old-scan.pdf'));
+		const update = ctx.store.update.bind(ctx.store);
+		const updateCalls: Array<Record<string, unknown>> = [];
+		ctx.store.update = async (table, orgId, id, data) => {
+			updateCalls.push({ table, id, data });
+			return update(table, orgId, id, data);
+		};
+		ctx.storage.remove = async () => {
+			throw new Error('storage cleanup failed');
+		};
+
+		await expect(handleUseCaseRequest(_deleteConfig, ctx, { rosterId: 'roster-1' })).rejects.toThrow(
+			'storage cleanup failed'
+		);
+
+		expect(updateCalls).toEqual([]);
+		expect(ctx.storagePort.files).toEqual([
+			expect.objectContaining({ bucket: SENSITIVE_FILE_BUCKET, path: OLD_SCAN_PATH })
+		]);
+		const roster = await ctx.store.findOne<{ signed_file_path: string | null }>('sign_in_rosters', ctx.auth.orgId, {
+			id: 'roster-1'
+		});
+		expect(roster?.signed_file_path).toBe(OLD_SCAN_PATH);
+	});
+
+	it('removes the existing scan before clearing the DB path so retries keep a recoverable pointer', async () => {
+		const ctx = createRosterUploadContext(OLD_SCAN_PATH);
+		await ctx.storage.upload(SENSITIVE_FILE_BUCKET, OLD_SCAN_PATH, new File([PDF_BYTES], 'old-scan.pdf'));
+		const removeCalls: string[][] = [];
+		const remove = ctx.storage.remove.bind(ctx.storage);
+		ctx.storage.remove = async (bucket, paths) => {
+			removeCalls.push(paths);
+			return remove(bucket, paths);
+		};
+		const update = ctx.store.update.bind(ctx.store);
+		ctx.store.update = async (table, orgId, id, data) => {
+			if (table === 'sign_in_rosters') throw new Error('update failed');
+			return update(table, orgId, id, data);
+		};
+
+		await expect(handleUseCaseRequest(_deleteConfig, ctx, { rosterId: 'roster-1' })).rejects.toThrow('update failed');
+
+		expect(removeCalls).toEqual([[OLD_SCAN_PATH]]);
+		expect(ctx.storagePort.files).toEqual([]);
+		const roster = await ctx.store.findOne<{ signed_file_path: string | null }>('sign_in_rosters', ctx.auth.orgId, {
+			id: 'roster-1'
+		});
+		expect(roster?.signed_file_path).toBe(OLD_SCAN_PATH);
+	});
+
+	it('clears the DB path and removes the old scan when unlinking succeeds', async () => {
+		const ctx = createRosterUploadContext(OLD_SCAN_PATH);
+		await ctx.storage.upload(SENSITIVE_FILE_BUCKET, OLD_SCAN_PATH, new File([PDF_BYTES], 'old-scan.pdf'));
+
+		await expect(handleUseCaseRequest(_deleteConfig, ctx, { rosterId: 'roster-1' })).resolves.toEqual({
+			success: true
+		});
+
+		expect(ctx.storagePort.files).toHaveLength(0);
+		const roster = await ctx.store.findOne<{ signed_file_path: string | null }>('sign_in_rosters', ctx.auth.orgId, {
+			id: 'roster-1'
+		});
+		expect(roster?.signed_file_path).toBeNull();
 	});
 });

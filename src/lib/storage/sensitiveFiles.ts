@@ -20,6 +20,15 @@ export function buildSensitiveFilePath(input: {
 	return `${input.orgId}/${input.scope}/${input.recordId}/${sanitizeSensitiveFilename(input.filename)}`;
 }
 
+export function buildSignInRosterScanFilePath(input: { orgId: string; rosterId: string; filename: string }): string {
+	return buildSensitiveFilePath({
+		orgId: input.orgId,
+		scope: 'sign-in-rosters',
+		recordId: input.rosterId,
+		filename: `${crypto.randomUUID()}-${sanitizeSensitiveFilename(input.filename)}`
+	});
+}
+
 export function validateSensitiveFileSelection(file: { type: string; size: number }): string | null {
 	if (file.type !== SENSITIVE_FILE_ACCEPT) {
 		return 'Only PDF files are allowed.';

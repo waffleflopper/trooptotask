@@ -19,9 +19,11 @@ supabase/seed.sql
 # Documentation with pseudo-code
 CLAUDE.md
 docs/
+plans/*.md
 
 # Worktrees
 .claude/
+.worktrees/
 
 # Vendored agent skills
 .agents/skills/impeccable/

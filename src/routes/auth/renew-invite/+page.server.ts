@@ -1,7 +1,6 @@
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
-import { getAdminClient } from '$lib/server/supabase';
-import { createSupabaseAccessRequestSetupDeliveryService } from '$lib/server/accessRequestSetupDelivery';
+import { createPublicAccessRequestSetupDeliveryService } from '$lib/server/accessRequestSetupDelivery';
 import {
 	ACCOUNT_SETUP_RENEWAL_RATE_LIMIT_MESSAGE,
 	checkAccountSetupRenewalRateLimit
@@ -61,7 +60,7 @@ export const actions: Actions = {
 		}
 
 		try {
-			const renewal = await createSupabaseAccessRequestSetupDeliveryService(getAdminClient()).requestFreshSetupLink({
+			const renewal = await createPublicAccessRequestSetupDeliveryService().requestFreshSetupLink({
 				email,
 				origin: url.origin
 			});

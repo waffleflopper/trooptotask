@@ -3,6 +3,7 @@ import {
 	SENSITIVE_FILE_ACCEPT,
 	SENSITIVE_FILE_BUCKET,
 	SENSITIVE_FILE_MAX_BYTES,
+	buildSignInRosterScanFilePath,
 	buildSensitiveFilePath,
 	sanitizeSensitiveFilename,
 	validateSensitiveFileSelection,
@@ -21,6 +22,23 @@ describe('sensitiveFiles', () => {
 				filename: 'signed roster (final).pdf'
 			})
 		).toBe('org-1/sign-in-rosters/roster-1/signed_roster__final_.pdf');
+	});
+
+	it('builds unique sign-in roster scan paths for the same filename', () => {
+		const first = buildSignInRosterScanFilePath({
+			orgId: 'org-1',
+			rosterId: 'roster-1',
+			filename: 'signed roster.pdf'
+		});
+		const second = buildSignInRosterScanFilePath({
+			orgId: 'org-1',
+			rosterId: 'roster-1',
+			filename: 'signed roster.pdf'
+		});
+
+		expect(first).not.toBe(second);
+		expect(first).toMatch(/^org-1\/sign-in-rosters\/roster-1\/[0-9a-f-]{36}-signed_roster\.pdf$/);
+		expect(second).toMatch(/^org-1\/sign-in-rosters\/roster-1\/[0-9a-f-]{36}-signed_roster\.pdf$/);
 	});
 
 	it('validates the default file constraints for sensitive uploads', () => {

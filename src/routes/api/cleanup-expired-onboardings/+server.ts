@@ -3,8 +3,36 @@ import type { RequestHandler } from './$types';
 import { getAdminClient } from '$lib/server/supabase';
 import { env } from '$env/dynamic/private';
 import { createSupabaseDataStore } from '$lib/server/adapters/supabaseDataStore';
-import { cleanupExpiredOnboardings } from '$lib/server/core/useCases/onboardingRetention';
+import {
+	cleanupExpiredOnboardings,
+	type OnboardingRetentionCleanupResult,
+	type OnboardingRetentionOrgConfig
+} from '$lib/server/core/useCases/onboardingRetention';
+import { mapArchiveRetentionOrgConfigs } from '$lib/server/core/useCases/retentionSupport';
 import { assertCronEndpointAuthorized } from '$lib/server/cronEndpointAuth';
+
+interface OnboardingRetentionEndpointEnv {
+	CLEANUP_SECRET?: string;
+	CRON_SECRET?: string;
+}
+
+export interface OnboardingRetentionEndpointCoreInput {
+	request: Request;
+	env: OnboardingRetentionEndpointEnv;
+	orgConfigs: OnboardingRetentionOrgConfig[];
+	runCleanup: (orgConfigs: OnboardingRetentionOrgConfig[]) => Promise<OnboardingRetentionCleanupResult>;
+}
+
+export async function _runOnboardingRetentionCleanupEndpointCore(
+	input: OnboardingRetentionEndpointCoreInput
+): Promise<Response> {
+	assertCronEndpointAuthorized(input.request.headers.get('authorization'), [
+		input.env.CLEANUP_SECRET,
+		input.env.CRON_SECRET
+	]);
+
+	return json(await input.runCleanup(input.orgConfigs));
+}
 
 export const GET: RequestHandler = async ({ request }) => {
 	assertCronEndpointAuthorized(request.headers.get('authorization'), [env.CLEANUP_SECRET, env.CRON_SECRET]);
@@ -18,17 +46,16 @@ export const GET: RequestHandler = async ({ request }) => {
 		throw error(500, orgError.message);
 	}
 
-	if (!orgs || orgs.length === 0) {
-		return json({ deletedCount: 0, orgsAffected: 0 });
-	}
-
-	const orgConfigs = orgs.map((org) => ({
-		id: org.id as string,
-		retentionMonths: (org.archive_retention_months as number) ?? 36
-	}));
-
+	const orgConfigs = mapArchiveRetentionOrgConfigs(orgs ?? []);
 	const store = createSupabaseDataStore(admin);
-	const result = await cleanupExpiredOnboardings(store, orgConfigs);
 
-	return json(result);
+	return _runOnboardingRetentionCleanupEndpointCore({
+		request,
+		env: {
+			CLEANUP_SECRET: env.CLEANUP_SECRET,
+			CRON_SECRET: env.CRON_SECRET
+		},
+		orgConfigs,
+		runCleanup: (configs) => cleanupExpiredOnboardings(store, configs)
+	});
 };

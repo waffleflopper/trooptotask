@@ -113,9 +113,15 @@
 		</div>
 
 		<div class="flex flex-col gap-2 text-sm leading-relaxed text-muted-foreground">
-			<p>
-				Leave this verification step and <a href={resolve('/auth/logout')}>sign out</a>.
-			</p>
+			<div>
+				Leave this verification step and
+				<form method="POST" action={resolve('/auth/logout')} class="inline">
+					<button type="submit" class="font-medium underline-offset-4 hover:text-foreground hover:underline">
+						sign out
+					</button>
+				</form>
+				.
+			</div>
 		</div>
 	</div>
 </AuthShell>

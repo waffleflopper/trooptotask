@@ -427,14 +427,30 @@ describe('createSupabaseOrgSettingsMemberManagementPort', () => {
 		expect(expireCalls).toContainEqual({ method: 'lte', args: ['expires_at', expect.any(String)] });
 	});
 
-	it('looks up existing User Accounts through the admin auth boundary before bridging access requests', async () => {
+	it('looks up existing User Accounts through the indexed identity table before bridging access requests', async () => {
+		const calls: Call[] = [];
+		const builder: Record<string, unknown> = {
+			select: (...args: unknown[]) => {
+				calls.push({ method: 'select', args });
+				return builder;
+			},
+			eq: (...args: unknown[]) => {
+				calls.push({ method: 'eq', args });
+				return builder;
+			},
+			maybeSingle: (...args: unknown[]) => {
+				calls.push({ method: 'maybeSingle', args });
+				return {
+					data: { user_id: 'user-1', normalized_email: 'user@example.com' },
+					error: null
+				};
+			}
+		};
 		const adminSupabase = {
+			from: vi.fn(() => builder),
 			auth: {
 				admin: {
-					listUsers: vi.fn().mockResolvedValue({
-						data: { users: [{ id: 'user-1', email: 'USER@example.com' }] },
-						error: null
-					})
+					listUsers: vi.fn()
 				}
 			}
 		};
@@ -449,7 +465,10 @@ describe('createSupabaseOrgSettingsMemberManagementPort', () => {
 			id: 'user-1',
 			email: 'user@example.com'
 		});
-		expect(adminSupabase.auth.admin.listUsers).toHaveBeenCalledWith({ page: 1, perPage: 1000 });
+		expect(adminSupabase.from).toHaveBeenCalledWith('user_email_identities');
+		expect(calls).toContainEqual({ method: 'select', args: ['user_id, normalized_email'] });
+		expect(calls).toContainEqual({ method: 'eq', args: ['normalized_email', 'user@example.com'] });
+		expect(adminSupabase.auth.admin.listUsers).not.toHaveBeenCalled();
 	});
 
 	it('creates a pending Access Request and stores the originating Organization Invitation context for non-users', async () => {

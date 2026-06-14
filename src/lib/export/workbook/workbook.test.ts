@@ -10,6 +10,7 @@ import {
 	workbookResponse,
 	writeWorkbookBuffer
 } from './index';
+import { resolveExcelWorkbookConstructor } from '$lib/utils/excelWorkbook';
 
 type WorkbookLoadBuffer = Parameters<ExcelJS.Workbook['xlsx']['load']>[0];
 
@@ -18,6 +19,16 @@ function toWorkbookBuffer(buffer: ArrayBuffer): WorkbookLoadBuffer {
 }
 
 describe('workbook export helpers', () => {
+	it('resolves ExcelJS workbook constructors from the module export shape', () => {
+		class FakeWorkbook {}
+
+		expect(resolveExcelWorkbookConstructor<{ marker?: string }>({ Workbook: FakeWorkbook })).toBe(FakeWorkbook);
+		expect(resolveExcelWorkbookConstructor<{ marker?: string }>({ default: { Workbook: FakeWorkbook } })).toBe(
+			FakeWorkbook
+		);
+		expect(() => resolveExcelWorkbookConstructor({})).toThrow('ExcelJS Workbook constructor is unavailable');
+	});
+
 	it('creates parseable table workbooks with styled header rows', async () => {
 		const workbook = await createWorkbook();
 		addTableSheet(workbook, {

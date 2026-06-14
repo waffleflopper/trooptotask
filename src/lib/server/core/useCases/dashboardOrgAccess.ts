@@ -107,8 +107,11 @@ export async function loadDashboardOrgAccess(
 	port: DashboardOrgAccessPort,
 	input: DashboardOrgAccessInput
 ): Promise<DashboardOrgAccessResult> {
-	const organizations = await port.listOrganizationsForUser(input.userId);
-	const pendingInvitations = await port.listPendingInvitationsForEmail(normalizeEmail(input.email));
+	const normalizedEmail = normalizeEmail(input.email);
+	const [organizations, pendingInvitations] = await Promise.all([
+		port.listOrganizationsForUser(input.userId),
+		port.listPendingInvitationsForEmail(normalizedEmail)
+	]);
 
 	if (!input.forceShow && organizations.length === 1 && pendingInvitations.length === 0) {
 		return {

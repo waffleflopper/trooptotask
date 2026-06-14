@@ -16,18 +16,10 @@ import { formatDashboardDisplayDate } from '$lib/utils/dashboardDate';
 import { evaluateUpcomingLosses, type UpcomingLossRecord } from '$lib/domain/readinessSignals';
 import { SvelteDate, SvelteMap, SvelteSet } from 'svelte/reactivity';
 import type { AssignmentType, AvailabilityEntry, DailyAssignment, Personnel, StatusType } from '$lib/types';
-import type {
-	DashboardIctlAtRiskSoldier,
-	DashboardIctlMosReadiness,
-	DashboardIctlSummary,
-	DashboardIctlTaskConcern,
-	DashboardPageData,
-	TrainingIssue
-} from '$features/dashboard/dashboard.types';
+import type { DashboardPageData, TrainingIssue } from '$features/dashboard/dashboard.types';
 
 export type GroupedEntries<T> = Array<[string, T[]]>;
 export type UpcomingGroupBy = 'date' | 'group';
-export type OutTodayGroupBy = 'status' | 'group';
 
 export interface DashboardStoragePort {
 	getItem(key: string): string | null;
@@ -168,61 +160,6 @@ export interface DashboardUnitReadinessView {
 	>;
 }
 
-export interface DashboardPeopleDutyView {
-	dutyDays: DashboardDutyDayView[];
-	today: DashboardDutyDayView | undefined;
-	tomorrow: DashboardDutyDayView | undefined;
-	outToday: Pick<
-		DashboardGroupedPreferenceView<OutTodayGroupBy, DashboardOutTodayRow>,
-		'mode' | 'setMode' | 'byStatus' | 'byGroup'
-	>;
-	upcomingChanges: Pick<
-		DashboardGroupedPreferenceView<UpcomingGroupBy, DashboardUpcomingChangeRow>,
-		'mode' | 'setMode' | 'byGroup'
-	>;
-}
-
-export interface DashboardGroupedIndividualIssue {
-	personName: string;
-	typeNames: string;
-	label: string;
-	isExpired: boolean;
-}
-
-export interface DashboardTrainingEvalsView {
-	evalsDueSoon: ReturnType<DashboardScreenModel['ratingsDueSoon']>;
-	trainingColor: string;
-	hasTrainingIssues: boolean;
-	delinquencies: { groupName: string; count: number; pct: number }[];
-	maxGroupCount: number;
-	groupedIndividuals: DashboardGroupedIndividualIssue[];
-	ictl: DashboardIctlView;
-}
-
-export type DashboardIctlView =
-	| { state: 'hidden' }
-	| {
-			state: 'empty';
-			reportHref: string;
-	  }
-	| {
-			state: 'ready';
-			readinessColor: string;
-			readinessLabel: string;
-			deltaLabel: string;
-			readyCount: number;
-			applicableCount: number;
-			primaryConcern: string;
-			expiringSoonLabel: string;
-			tasksBelowThresholdLabel: string;
-			projectedReadinessLabel: string;
-			mosReadiness: DashboardIctlMosReadiness[];
-			tasksBelowThreshold: DashboardIctlTaskConcern[];
-			atRiskSoldiers: DashboardIctlAtRiskSoldier[];
-			reportHref: string;
-	  };
-
-const OUT_TODAY_KEY = 'dashboard-out-today-group-by';
 const UPCOMING_KEY = 'dashboard-upcoming-group-by';
 
 export function createDashboardScreenModel(
@@ -238,7 +175,6 @@ export class DashboardScreenModel {
 	private readonly sources: DashboardStoreSources;
 	private readonly storage: DashboardStoragePort | null;
 
-	private outTodayGroupBy = $state<OutTodayGroupBy>('status');
 	private upcomingGroupBy = $state<UpcomingGroupBy>('date');
 	private rosterView = $derived.by<RosterReadModelView>(() => {
 		const groupOrder = [...this.sources.groups.items]
@@ -266,7 +202,6 @@ export class DashboardScreenModel {
 		this.today = options.today ?? formatToday(new Date());
 		this.sources = options.sources ?? createDefaultDashboardStoreSources();
 		this.storage = options.storage ?? createBrowserStoragePort();
-		this.outTodayGroupBy = readPreference(this.storage, OUT_TODAY_KEY, ['status', 'group'], 'status');
 		this.upcomingGroupBy = readPreference(this.storage, UPCOMING_KEY, ['date', 'group'], 'date');
 
 		if (
@@ -712,40 +647,6 @@ export class DashboardScreenModel {
 			.sort((a, b) => b.count - a.count);
 	}
 
-	ratingsDueSoon(lookaheadDays: number): {
-		id: string;
-		personName: string;
-		ratingPeriodEnd: string;
-		status: 'overdue' | 'due-30' | 'due-60' | 'current';
-		daysUntil: number;
-		evalType: string;
-	}[] {
-		const today = new SvelteDate(`${this.today}T00:00:00`);
-		const results: ReturnType<DashboardScreenModel['ratingsDueSoon']> = [];
-
-		for (const entry of this.data.dashboard.data.ratingSchemeEntries) {
-			const status = getRatingDueStatus(entry.ratingPeriodEnd, entry.status);
-			if (status === 'completed' || status === 'current') continue;
-			const end = new SvelteDate(`${entry.ratingPeriodEnd}T00:00:00`);
-			const diffMs = end.getTime() - today.getTime();
-			const daysUntil = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-			if (daysUntil > lookaheadDays) continue;
-
-			const person = entry.ratedPersonId ? this.findRosterPerson(entry.ratedPersonId) : undefined;
-			const personName = person ? `${person.rank} ${person.lastName}` : (entry.ratedPersonId ?? 'Unknown');
-			results.push({
-				id: entry.id,
-				personName,
-				ratingPeriodEnd: entry.ratingPeriodEnd,
-				status: status as 'overdue' | 'due-30' | 'due-60',
-				daysUntil,
-				evalType: entry.evalType ?? ''
-			});
-		}
-
-		return results.sort((a, b) => a.daysUntil - b.daysUntil);
-	}
-
 	formatShortDate(dateStr: string): string {
 		const d = parseDate(dateStr);
 		const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -775,64 +676,6 @@ export class DashboardScreenModel {
 		};
 	}
 
-	get peopleDuty(): DashboardPeopleDutyView {
-		const dutyDays = this.dutyForDays(2);
-		return {
-			dutyDays,
-			today: dutyDays[0],
-			tomorrow: dutyDays[1],
-			outToday: {
-				mode: this.outTodayGroupBy,
-				setMode: (mode) => this.setOutTodayGroupBy(mode),
-				byStatus: this.outTodayByStatus,
-				byGroup: this.outTodayByGroup
-			},
-			upcomingChanges: {
-				mode: this.upcomingGroupBy,
-				setMode: (mode) => this.setUpcomingGroupBy(mode),
-				byGroup: this.upcomingChangesByGroup
-			}
-		};
-	}
-
-	get trainingEvals(): DashboardTrainingEvalsView {
-		const delinquencies = this.trainingGroupDelinquencies;
-		return {
-			evalsDueSoon: this.ratingsDueSoon(90),
-			trainingColor: availabilityColor(this.trainingCurrencyPct),
-			hasTrainingIssues:
-				this.trainingStats !== null && (this.trainingStats.expired > 0 || this.trainingStats.warningOrange > 0),
-			delinquencies,
-			maxGroupCount: delinquencies.length > 0 ? Math.max(...delinquencies.map((g) => g.count)) : 1,
-			groupedIndividuals: this.groupedTrainingIndividuals,
-			ictl: this.ictlView
-		};
-	}
-
-	private get ictlView(): DashboardIctlView {
-		const summary = this.data.ictlSummary;
-		if (!summary) return { state: 'hidden' };
-
-		const reportHref = `/org/${this.data.orgId}/critical-tasks/reports`;
-		if (!summary.hasActiveTasks) {
-			return { state: 'empty', reportHref };
-		}
-
-		return createReadyIctlView(summary, reportHref);
-	}
-
-	get outTodayByStatus(): GroupedEntries<DashboardOutTodayRow> {
-		return groupEntries(
-			this.nonAvailablePersonnel,
-			(person) => person.statusName,
-			(a, b) => a.localeCompare(b)
-		);
-	}
-
-	get outTodayByGroup(): GroupedEntries<DashboardOutTodayRow> {
-		return groupEntries(this.nonAvailablePersonnel, (person) => person.groupName, sortGroupName);
-	}
-
 	get upcomingChangesByGroup(): GroupedEntries<DashboardUpcomingChangeRow> {
 		return groupEntries(this.upcomingChanges, (change) => change.groupName, sortGroupName);
 	}
@@ -843,37 +686,6 @@ export class DashboardScreenModel {
 			(change) => change.date,
 			(a, b) => a.localeCompare(b)
 		);
-	}
-
-	private get groupedTrainingIndividuals(): DashboardGroupedIndividualIssue[] {
-		const byPerson = new SvelteMap<string, TrainingIssue[]>();
-		for (const issue of this.topTrainingIssues) {
-			const existing = byPerson.get(issue.personName) ?? [];
-			existing.push(issue);
-			byPerson.set(issue.personName, existing);
-		}
-
-		return [...byPerson.values()].map((personIssues) => {
-			const sorted = [...personIssues].sort((a, b) => {
-				if (a.status === 'expired' && b.status !== 'expired') return -1;
-				if (b.status === 'expired' && a.status !== 'expired') return 1;
-				const daysA = parseInt(a.label?.match(/\d+/)?.[0] ?? '0');
-				const daysB = parseInt(b.label?.match(/\d+/)?.[0] ?? '0');
-				return a.status === 'expired' ? daysB - daysA : daysA - daysB;
-			});
-
-			return {
-				personName: sorted[0].personName,
-				typeNames: sorted.map((i) => i.typeName).join(', '),
-				label: sorted[0].label || sorted[0].status,
-				isExpired: sorted[0].status === 'expired'
-			};
-		});
-	}
-
-	private setOutTodayGroupBy(mode: OutTodayGroupBy) {
-		this.outTodayGroupBy = mode;
-		writePreference(this.storage, OUT_TODAY_KEY, mode);
 	}
 
 	private setUpcomingGroupBy(mode: UpcomingGroupBy) {
@@ -932,47 +744,6 @@ function createBrowserStoragePort(): DashboardStoragePort | null {
 		setItem(key, value) {
 			storage.setItem(key, value);
 		}
-	};
-}
-
-function formatReadinessDelta(deltaPercent: number): string {
-	if (deltaPercent > 0) return `up ${deltaPercent} pts vs 30d`;
-	if (deltaPercent < 0) return `down ${Math.abs(deltaPercent)} pts vs 30d`;
-	return 'steady vs 30d';
-}
-
-function formatSoldiersBelowThreshold(summary: DashboardIctlSummary): string {
-	const soldierLabel = summary.soldiersBelowThresholdCount === 1 ? 'Soldier' : 'Soldiers';
-	return `${summary.soldiersBelowThresholdCount} of ${summary.soldiersBelowThresholdTotal} ${soldierLabel} below ${summary.thresholdPercent}%`;
-}
-
-function formatExpiringSoon(summary: DashboardIctlSummary): string {
-	const taskLabel = summary.expiringSoonCount === 1 ? 'task' : 'tasks';
-	const soldierLabel = summary.expiringSoonAffectedSoldiers === 1 ? 'Soldier' : 'Soldiers';
-	return `${summary.expiringSoonCount} ${taskLabel} expiring <=${summary.expiringSoonWindowDays}d across ${summary.expiringSoonAffectedSoldiers} ${soldierLabel}`;
-}
-
-function formatTasksBelowThreshold(summary: DashboardIctlSummary): string {
-	const taskLabel = summary.tasksBelowThresholdCount === 1 ? 'task' : 'tasks';
-	return `${summary.tasksBelowThresholdCount} ${taskLabel} below unit threshold`;
-}
-
-function createReadyIctlView(summary: DashboardIctlSummary, reportHref: string): DashboardIctlView {
-	return {
-		state: 'ready',
-		readinessColor: availabilityColor(summary.overallReadinessPercent),
-		readinessLabel: `${summary.overallReadinessPercent}% ready`,
-		deltaLabel: formatReadinessDelta(summary.overallDeltaPercent),
-		readyCount: summary.readyCount,
-		applicableCount: summary.applicableCount,
-		primaryConcern: formatSoldiersBelowThreshold(summary),
-		expiringSoonLabel: formatExpiringSoon(summary),
-		tasksBelowThresholdLabel: formatTasksBelowThreshold(summary),
-		projectedReadinessLabel: `${summary.projectedReadinessPercent}% projected in 6 months`,
-		mosReadiness: summary.mosReadiness,
-		tasksBelowThreshold: summary.tasksBelowThreshold,
-		atRiskSoldiers: summary.atRiskSoldiers,
-		reportHref
 	};
 }
 

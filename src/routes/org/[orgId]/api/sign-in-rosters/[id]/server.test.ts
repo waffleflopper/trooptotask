@@ -37,7 +37,34 @@ describe('/api/sign-in-rosters/[id] route config', () => {
 		expect(_deleteConfig.mutation).toBe(true);
 	});
 
-	it('does not remove the stored scan when deleting the DB row fails', async () => {
+	it('preserves the DB row and stored scan when storage cleanup fails', async () => {
+		const ctx = createRosterContext();
+		await ctx.storage.upload(SENSITIVE_FILE_BUCKET, SIGNED_SCAN_PATH, new File([PDF_BYTES], 'signed-scan.pdf'));
+		const deleteRow = ctx.store.delete.bind(ctx.store);
+		const deleteCalls: string[] = [];
+		ctx.store.delete = async (table, orgId, id) => {
+			deleteCalls.push(`${table}/${id}`);
+			return deleteRow(table, orgId, id);
+		};
+		ctx.storage.remove = async () => {
+			throw new Error('storage cleanup failed');
+		};
+
+		await expect(handleUseCaseRequest(_deleteConfig, ctx, { rosterId: 'roster-1' })).rejects.toThrow(
+			'storage cleanup failed'
+		);
+
+		expect(deleteCalls).toEqual([]);
+		expect(ctx.storagePort.files).toEqual([
+			expect.objectContaining({ bucket: SENSITIVE_FILE_BUCKET, path: SIGNED_SCAN_PATH })
+		]);
+		await expect(
+			ctx.store.findOne<{ signed_file_path: string | null }>('sign_in_rosters', ctx.auth.orgId, { id: 'roster-1' })
+		).resolves.toMatchObject({ signed_file_path: SIGNED_SCAN_PATH });
+		expect(ctx.auditPort.events).toEqual([]);
+	});
+
+	it('removes the stored scan before deleting the DB row so retries keep a recoverable pointer', async () => {
 		const ctx = createRosterContext();
 		await ctx.storage.upload(SENSITIVE_FILE_BUCKET, SIGNED_SCAN_PATH, new File([PDF_BYTES], 'signed-scan.pdf'));
 		const removeCalls: string[][] = [];
@@ -54,10 +81,8 @@ describe('/api/sign-in-rosters/[id] route config', () => {
 
 		await expect(handleUseCaseRequest(_deleteConfig, ctx, { rosterId: 'roster-1' })).rejects.toThrow('delete failed');
 
-		expect(removeCalls).toEqual([]);
-		expect(ctx.storagePort.files).toEqual([
-			expect.objectContaining({ bucket: SENSITIVE_FILE_BUCKET, path: SIGNED_SCAN_PATH })
-		]);
+		expect(removeCalls).toEqual([[SIGNED_SCAN_PATH]]);
+		expect(ctx.storagePort.files).toEqual([]);
 		await expect(
 			ctx.store.findOne<{ signed_file_path: string | null }>('sign_in_rosters', ctx.auth.orgId, { id: 'roster-1' })
 		).resolves.toMatchObject({ signed_file_path: SIGNED_SCAN_PATH });
@@ -82,23 +107,5 @@ describe('/api/sign-in-rosters/[id] route config', () => {
 				details: { title: 'Annual AT Sign-In' }
 			})
 		]);
-	});
-
-	it('preserves DB deletion and skips audit if storage cleanup fails after the row is deleted', async () => {
-		const ctx = createRosterContext();
-		await ctx.storage.upload(SENSITIVE_FILE_BUCKET, SIGNED_SCAN_PATH, new File([PDF_BYTES], 'signed-scan.pdf'));
-		ctx.storage.remove = async () => {
-			throw new Error('storage cleanup failed');
-		};
-
-		await expect(handleUseCaseRequest(_deleteConfig, ctx, { rosterId: 'roster-1' })).rejects.toThrow(
-			'storage cleanup failed'
-		);
-
-		await expect(ctx.store.findOne('sign_in_rosters', ctx.auth.orgId, { id: 'roster-1' })).resolves.toBeNull();
-		expect(ctx.storagePort.files).toEqual([
-			expect.objectContaining({ bucket: SENSITIVE_FILE_BUCKET, path: SIGNED_SCAN_PATH })
-		]);
-		expect(ctx.auditPort.events).toEqual([]);
 	});
 });

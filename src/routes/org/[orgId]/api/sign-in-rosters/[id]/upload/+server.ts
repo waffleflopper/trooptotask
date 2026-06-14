@@ -116,13 +116,13 @@ export const _deleteConfig: RouteConfig<{ rosterId: string }, { success: boolean
 		if (!roster) fail(404, 'Roster not found');
 		const signedFilePath = roster.signed_file_path;
 
-		await ctx.store.update('sign_in_rosters', ctx.auth.orgId, input.rosterId, {
-			signed_file_path: null
-		});
-
 		if (signedFilePath) {
 			await ctx.storage.remove(SENSITIVE_FILE_BUCKET, [signedFilePath]);
 		}
+
+		await ctx.store.update('sign_in_rosters', ctx.auth.orgId, input.rosterId, {
+			signed_file_path: null
+		});
 
 		return { success: true };
 	}

@@ -49,6 +49,17 @@ describe('user email identity lookup migration', () => {
 		expect(normalized).toContain('grant all on table "public"."user_email_identities" to "service_role"');
 	});
 
+	it('keeps identity rows synchronized when auth user emails change', () => {
+		const normalized = normalizedSql();
+
+		expect(normalized).toContain('create or replace function "public"."sync_user_email_identity_from_auth_user"');
+		expect(normalized).toContain(
+			'create trigger "sync_user_email_identities_from_auth_users" after insert or update of "email" on "auth"."users"'
+		);
+		expect(normalized).toContain('values (new."id", lower(btrim(new."email")))');
+		expect(normalized).toContain('on conflict ("user_id") do update');
+	});
+
 	it('keeps accepted invitation identities current without altering auth.users', () => {
 		const normalized = normalizedSql();
 		const membershipInsertIndex = normalized.indexOf('insert into "public"."organization_memberships"');
@@ -69,5 +80,28 @@ describe('user email identity lookup migration', () => {
 		expect(normalized).not.toMatch(/\balter\s+table\s+"auth"\."users"/);
 		expect(normalized).not.toMatch(/\bdelete\s+from\s+"auth"\."users"/);
 		expect(normalized).not.toMatch(/\bdrop\s+table\s+(if\s+exists\s+)?"auth"\."users"/);
+	});
+
+	it('bases invitation acceptance on replacement access columns only', () => {
+		const normalized = normalizedSql();
+		const selectIndex = normalized.indexOf('select "organization_invitations"."id"');
+		const insertIndex = normalized.indexOf('insert into "public"."organization_memberships"', selectIndex);
+		const valuesIndex = normalized.indexOf('values (', insertIndex);
+		const conflictIndex = normalized.indexOf('on conflict ("organization_id", "user_id")', valuesIndex);
+		const invitationAcceptFunction = normalized.slice(selectIndex, conflictIndex);
+
+		expect(invitationAcceptFunction).toContain('"organization_invitations"."member_preset"');
+		expect(invitationAcceptFunction).toContain('"organization_invitations"."capability_overrides"');
+		expect(invitationAcceptFunction).toContain('"organization_invitations"."access_scope_kind"');
+		expect(invitationAcceptFunction).not.toContain('can_view_calendar');
+		expect(invitationAcceptFunction).not.toContain('can_edit_calendar');
+		expect(invitationAcceptFunction).not.toContain('can_manage_members');
+		expect(invitationAcceptFunction).not.toContain('scoped_group_id');
+		expect(invitationAcceptFunction).toContain(
+			`when "invitation"."role" = 'admin'::"public"."organization_role" then 'editor'`
+		);
+		expect(invitationAcceptFunction).toContain(
+			`else coalesce("invitation"."access_scope_group_ids", array[]::"uuid"[])`
+		);
 	});
 });

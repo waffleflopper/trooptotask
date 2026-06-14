@@ -34,6 +34,35 @@ CREATE OR REPLACE TRIGGER "update_user_email_identities_updated_at"
 	BEFORE UPDATE ON "public"."user_email_identities"
 	FOR EACH ROW EXECUTE FUNCTION "public"."update_updated_at_column"();
 
+CREATE OR REPLACE FUNCTION "public"."sync_user_email_identity_from_auth_user"()
+RETURNS trigger
+LANGUAGE "plpgsql"
+SECURITY DEFINER
+SET "search_path" TO ''
+AS $$
+BEGIN
+	IF NEW."email" IS NULL OR btrim(NEW."email") = '' THEN
+		DELETE FROM "public"."user_email_identities"
+		WHERE "user_email_identities"."user_id" = NEW."id";
+		RETURN NEW;
+	END IF;
+
+	INSERT INTO "public"."user_email_identities" ("user_id", "normalized_email")
+	VALUES (NEW."id", lower(btrim(NEW."email")))
+	ON CONFLICT ("user_id") DO UPDATE
+	SET "normalized_email" = EXCLUDED."normalized_email";
+
+	RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS "sync_user_email_identities_from_auth_users"
+	ON "auth"."users";
+
+CREATE TRIGGER "sync_user_email_identities_from_auth_users"
+	AFTER INSERT OR UPDATE OF "email" ON "auth"."users"
+	FOR EACH ROW EXECUTE FUNCTION "public"."sync_user_email_identity_from_auth_user"();
+
 ALTER TABLE "public"."user_email_identities" ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Service role can manage user email identities"
@@ -85,20 +114,6 @@ BEGIN
 		"organization_invitations"."status",
 		"organization_invitations"."expires_at",
 		"organization_invitations"."role",
-		"organization_invitations"."can_view_calendar",
-		"organization_invitations"."can_edit_calendar",
-		"organization_invitations"."can_view_personnel",
-		"organization_invitations"."can_edit_personnel",
-		"organization_invitations"."can_view_training",
-		"organization_invitations"."can_edit_training",
-		"organization_invitations"."can_view_critical_tasks",
-		"organization_invitations"."can_edit_critical_tasks",
-		"organization_invitations"."can_view_onboarding",
-		"organization_invitations"."can_edit_onboarding",
-		"organization_invitations"."can_view_rating_scheme",
-		"organization_invitations"."can_edit_rating_scheme",
-		"organization_invitations"."can_manage_members",
-		"organization_invitations"."scoped_group_id",
 		"organization_invitations"."member_preset",
 		"organization_invitations"."capability_overrides",
 		"organization_invitations"."access_scope_kind",
@@ -173,20 +188,6 @@ BEGIN
 		"email",
 		"role",
 		"invited_by",
-		"can_view_calendar",
-		"can_edit_calendar",
-		"can_view_personnel",
-		"can_edit_personnel",
-		"can_view_training",
-		"can_edit_training",
-		"can_view_critical_tasks",
-		"can_edit_critical_tasks",
-		"can_view_onboarding",
-		"can_edit_onboarding",
-		"can_view_rating_scheme",
-		"can_edit_rating_scheme",
-		"can_manage_members",
-		"scoped_group_id",
 		"member_preset",
 		"capability_overrides",
 		"access_scope_kind",
@@ -198,24 +199,22 @@ BEGIN
 		"current_email",
 		COALESCE("invitation"."role", 'member'::"public"."organization_role"),
 		"invitation"."invited_by",
-		COALESCE("invitation"."can_view_calendar", TRUE),
-		COALESCE("invitation"."can_edit_calendar", TRUE),
-		COALESCE("invitation"."can_view_personnel", TRUE),
-		COALESCE("invitation"."can_edit_personnel", TRUE),
-		COALESCE("invitation"."can_view_training", TRUE),
-		COALESCE("invitation"."can_edit_training", TRUE),
-		COALESCE("invitation"."can_view_critical_tasks", TRUE),
-		COALESCE("invitation"."can_edit_critical_tasks", TRUE),
-		COALESCE("invitation"."can_view_onboarding", TRUE),
-		COALESCE("invitation"."can_edit_onboarding", TRUE),
-		COALESCE("invitation"."can_view_rating_scheme", "invitation"."can_view_personnel", TRUE),
-		COALESCE("invitation"."can_edit_rating_scheme", "invitation"."can_edit_personnel", TRUE),
-		COALESCE("invitation"."can_manage_members", FALSE),
-		"invitation"."scoped_group_id",
-		"invitation"."member_preset",
-		COALESCE("invitation"."capability_overrides", '{}'::jsonb),
-		"invitation"."access_scope_kind",
-		COALESCE("invitation"."access_scope_group_ids", ARRAY[]::"uuid"[])
+		CASE
+			WHEN "invitation"."role" = 'admin'::"public"."organization_role" THEN 'editor'
+			ELSE COALESCE("invitation"."member_preset", 'editor')
+		END,
+		CASE
+			WHEN "invitation"."role" = 'admin'::"public"."organization_role" THEN '{}'::jsonb
+			ELSE COALESCE("invitation"."capability_overrides", '{}'::jsonb)
+		END,
+		CASE
+			WHEN "invitation"."role" = 'admin'::"public"."organization_role" THEN 'organization'
+			ELSE COALESCE("invitation"."access_scope_kind", 'organization')
+		END,
+		CASE
+			WHEN "invitation"."role" = 'admin'::"public"."organization_role" THEN ARRAY[]::"uuid"[]
+			ELSE COALESCE("invitation"."access_scope_group_ids", ARRAY[]::"uuid"[])
+		END
 	)
 	ON CONFLICT ("organization_id", "user_id") DO NOTHING;
 

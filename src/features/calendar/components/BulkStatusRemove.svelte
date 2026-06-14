@@ -28,22 +28,33 @@
 		statusTypes: StatusType[];
 		availabilityEntries: AvailabilityEntry[];
 		personnelList: Personnel[];
+		loadAvailabilityRange?: (range: { rangeStart: string; rangeEnd: string }) => Promise<AvailabilityEntry[]>;
 		onRemove: (ids: string[]) => Promise<boolean>;
 		onComplete: () => void;
 	}
 
-	let { personnelByGroup, statusTypes, availabilityEntries, personnelList, onRemove, onComplete }: Props = $props();
+	let {
+		personnelByGroup,
+		statusTypes,
+		availabilityEntries,
+		personnelList,
+		loadAvailabilityRange = async () => availabilityEntries,
+		onRemove,
+		onComplete
+	}: Props = $props();
 
 	const todayStr = formatDate(new Date());
 
 	// Selection state
-	let selectedStatusId = $state('');
+	let selectedStatusSelection = $state('');
 	let startDate = $state(todayStr);
 	let endDate = $state(todayStr);
 
 	// Step state
 	let step = $state<'select' | 'confirm'>('select');
 	let matchResult = $state<ClassifiedOverlaps>({ exact: [], partial: [] });
+	let isLoadingMatches = $state(false);
+	let matchLoadError = $state<string | null>(null);
 	let isSubmitting = $state(false);
 
 	const allPersonnel = $derived(personnelByGroup.flatMap((g) => g.personnel));
@@ -51,37 +62,51 @@
 
 	// ---- Validation ----
 	const range = $derived(validateDateRange(startDate, endDate));
+	const selectedStatusId = $derived.by(() => {
+		if (statusTypes.some((s) => s.id === selectedStatusSelection)) return selectedStatusSelection;
+		return statusTypes[0]?.id ?? '';
+	});
 	const isValid = $derived(!!selectedStatusId && range.valid && selection.selectedCount > 0);
 	const selectedStatus = $derived(statusTypes.find((s) => s.id === selectedStatusId));
 	const personnelMap = $derived(new SvelteMap(personnelList.map((p) => [p.id, p])));
-
-	$effect(() => {
-		if (!selectedStatusId && statusTypes.length > 0) {
-			selectedStatusId = statusTypes[0].id;
-		}
-	});
 
 	function formatDateDisplay(dateStr: string): string {
 		const date = new Date(dateStr + 'T00:00:00');
 		return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 	}
 
-	// ---- Two-step flow ----
-	function handleFindMatching() {
-		if (!isValid) return;
+	function handleStatusTypeChange(event: Event) {
+		if (event.currentTarget instanceof HTMLSelectElement) {
+			selectedStatusSelection = event.currentTarget.value;
+		}
+	}
 
-		matchResult = classifyAvailabilityOverlaps(availabilityEntries, {
-			personnelIds: selection.selectedKeys,
-			statusTypeId: selectedStatusId,
-			startDate,
-			endDate
-		});
-		step = 'confirm';
+	// ---- Two-step flow ----
+	async function handleFindMatching() {
+		if (!isValid || isLoadingMatches) return;
+
+		isLoadingMatches = true;
+		matchLoadError = null;
+		try {
+			const loadedEntries = await loadAvailabilityRange({ rangeStart: startDate, rangeEnd: endDate });
+			matchResult = classifyAvailabilityOverlaps(loadedEntries, {
+				personnelIds: selection.selectedKeys,
+				statusTypeId: selectedStatusId,
+				startDate,
+				endDate
+			});
+			step = 'confirm';
+		} catch {
+			matchLoadError = 'Unable to load status entries for the selected date range. Try again.';
+		} finally {
+			isLoadingMatches = false;
+		}
 	}
 
 	function handleBack() {
 		step = 'select';
 		matchResult = { exact: [], partial: [] };
+		matchLoadError = null;
 	}
 
 	async function handleConfirmRemoval() {
@@ -127,7 +152,7 @@
 					<div class="config-grid">
 						<Field.Root>
 							<Field.Label for="removeStatusType">Status Type</Field.Label>
-							<NativeSelect id="removeStatusType" bind:value={selectedStatusId}>
+							<NativeSelect id="removeStatusType" value={selectedStatusId} onchange={handleStatusTypeChange}>
 								{#each statusTypes as status (status.id)}
 									<option value={status.id}>{status.name}</option>
 								{/each}
@@ -161,6 +186,10 @@
 						{#if range.error}
 							<div class="date-error" role="alert">{range.error}</div>
 						{/if}
+
+						{#if matchLoadError}
+							<div class="date-error" role="alert">{matchLoadError}</div>
+						{/if}
 					</div>
 
 					<div class="summary-card warning-summary" aria-live="polite">
@@ -191,8 +220,18 @@
 						{/if}
 					</div>
 
-					<Button variant="destructive" class="apply-button" disabled={!isValid} onclick={handleFindMatching}>
-						Review Matching Entries
+					<Button
+						variant="destructive"
+						class="apply-button"
+						disabled={!isValid || isLoadingMatches}
+						onclick={handleFindMatching}
+					>
+						{#if isLoadingMatches}
+							<Spinner />
+							Loading entries...
+						{:else}
+							Review Matching Entries
+						{/if}
 					</Button>
 				</section>
 			</aside>

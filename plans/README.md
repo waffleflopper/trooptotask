@@ -74,7 +74,7 @@ The operator explicitly excluded automatic CI trigger work from this batch. Do n
 | 052  | Move user identity commands behind seam           | P2       | S-M    | -          | DONE   |
 | 053  | Drop legacy clinic owner RPC                      | P1       | S      | -          | DONE   |
 | 054  | Move logout mutation to POST                      | P1       | S      | -          | DONE   |
-| 055  | Replace capped Auth email scans                   | P1       | M      | -          | TODO   |
+| 055  | Replace capped Auth email scans                   | P1       | M      | -          | DONE   |
 | 056  | Add sign-in roster scan compensation              | P2       | M      | -          | DONE   |
 | 057  | Parallelize Dashboard organization access reads   | P2       | S      | -          | DONE   |
 | 058  | Align README runtime setup                        | P3       | S      | -          | DONE   |

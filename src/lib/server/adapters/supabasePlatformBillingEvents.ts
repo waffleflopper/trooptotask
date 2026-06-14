@@ -4,12 +4,17 @@ import type { AdminContext } from './adminAdapter';
 import {
 	createPlatformBillingEvents,
 	type PlatformBillingEventRecord,
+	type PlatformBillingEventRetryProcessor,
 	type PlatformBillingEvents,
 	type PlatformBillingEventsStore,
 	type PlatformBillingOrganizationLink,
 	type PlatformBillingSnapshotLink
 } from '$lib/server/core/useCases/platformBillingEvents';
-import type { WebhookProcessingState } from '$lib/server/billing/stripeWebhookProcessing';
+import {
+	_processRecordedStripeWebhookEvent,
+	_recordRetryableStripeWebhookEventAttempt,
+	type WebhookProcessingState
+} from '$lib/server/billing/stripeWebhookProcessing';
 
 type SupabaseResponse<T> = {
 	data: T | null;
@@ -172,8 +177,21 @@ export function createSupabasePlatformBillingEventsStore(supabase: SupabaseClien
 	};
 }
 
+function createSupabaseBillingEventRetryProcessor(supabase: SupabaseClient): PlatformBillingEventRetryProcessor {
+	return {
+		recordRetryAttempt(event, metadata) {
+			return _recordRetryableStripeWebhookEventAttempt(supabase, event, metadata);
+		},
+		processRecordedEvent(event, metadata) {
+			return _processRecordedStripeWebhookEvent(supabase, event, metadata);
+		}
+	};
+}
+
 export function createSupabasePlatformBillingEvents(ctx: AdminContext): PlatformBillingEvents {
 	return createPlatformBillingEvents({
-		store: createSupabasePlatformBillingEventsStore(ctx.adminClient)
+		store: createSupabasePlatformBillingEventsStore(ctx.adminClient),
+		retryProcessor: createSupabaseBillingEventRetryProcessor(ctx.adminClient),
+		audit: (event) => ctx.audit(event)
 	});
 }

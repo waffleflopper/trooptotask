@@ -69,7 +69,7 @@ The operator explicitly excluded automatic CI trigger work from this batch. Do n
 | 047  | Split Training report detail from aggregate work  | P1       | M      | -          | DONE   |
 | 048  | Index long-range Calendar date cells              | P2       | S      | -          | DONE   |
 | 049  | Precompute DA6 matrix lookup maps                 | P2       | S      | -          | DONE   |
-| 050  | Deepen billing-event retry seam                   | P1       | M      | -          | TODO   |
+| 050  | Deepen billing-event retry seam                   | P1       | M      | -          | DONE   |
 | 051  | Add platform organization detail seam             | P1       | M      | -          | TODO   |
 | 052  | Move user identity commands behind seam           | P2       | S-M    | -          | TODO   |
 | 053  | Drop legacy clinic owner RPC                      | P1       | S      | -          | DONE   |

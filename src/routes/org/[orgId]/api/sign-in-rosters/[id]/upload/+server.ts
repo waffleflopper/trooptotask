@@ -81,10 +81,27 @@ export const _postConfig: RouteConfig<{ rosterId: string; file: File }, { filePa
 			try {
 				await ctx.storage.remove(SENSITIVE_FILE_BUCKET, [previousSignedFilePath]);
 			} catch (cleanupError) {
-				console.error(
-					'[sign-in-roster-scan-upload] Failed to clean up previous scan after DB update success:',
-					sanitizeErrorForLog(cleanupError)
-				);
+				try {
+					await ctx.store.update('sign_in_rosters', ctx.auth.orgId, input.rosterId, {
+						signed_file_path: previousSignedFilePath
+					});
+				} catch (rollbackError) {
+					console.error(
+						'[sign-in-roster-scan-upload] Failed to restore previous scan path after cleanup failure:',
+						sanitizeErrorForLog(rollbackError)
+					);
+				}
+
+				try {
+					await ctx.storage.remove(SENSITIVE_FILE_BUCKET, [storagePath]);
+				} catch (replacementCleanupError) {
+					console.error(
+						'[sign-in-roster-scan-upload] Failed to clean up replacement scan after previous cleanup failure:',
+						sanitizeErrorForLog(replacementCleanupError)
+					);
+				}
+
+				throw cleanupError;
 			}
 		}
 

@@ -677,6 +677,39 @@ describe('Personnel — restore', () => {
 		await expect(restore(ctx, 'p-1')).rejects.toMatchObject({ status: 400 });
 	});
 
+	it('authorizes restore before returning archive-state errors', async () => {
+		const ctx = buildContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: {
+					calendar: 'view',
+					personnel: 'configure',
+					training: 'view',
+					criticalTasks: 'view',
+					onboarding: 'view',
+					ratingScheme: 'view'
+				},
+				scopeSet: { kind: 'groups', groupIds: ['group-a'] }
+			}
+		});
+		const { restore } = createPersonnelUseCases();
+		seedArchivedPersonnel(ctx, { archived_at: null, group_id: 'group-b' });
+
+		await expect(restore(ctx, 'p-1')).rejects.toMatchObject({ status: 403 });
+		expect(ctx.audit.events).toContainEqual(
+			expect.objectContaining({
+				action: 'policy.denied',
+				resourceType: 'personnel',
+				resourceId: 'p-1',
+				details: expect.objectContaining({
+					policyAction: 'personnel.restoreRecords',
+					reasonCode: 'denied:out-of-scope'
+				})
+			})
+		);
+	});
+
 	it('enforces group scope using the archived personnel row group', async () => {
 		const ctx = buildContext({
 			auth: {
@@ -781,6 +814,43 @@ describe('Personnel — permanent delete', () => {
 		await expect(ctx.store.findOne('personnel', ctx.auth.orgId, { id: 'p-1' })).resolves.toMatchObject({
 			archived_at: null
 		});
+	});
+
+	it('authorizes permanent delete before returning archive-state errors', async () => {
+		const ctx = createTestContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: {
+					calendar: 'view',
+					personnel: 'configure',
+					training: 'view',
+					criticalTasks: 'view',
+					onboarding: 'view',
+					ratingScheme: 'view'
+				},
+				scopeSet: { kind: 'groups', groupIds: ['group-a'] }
+			}
+		});
+		const { permanentlyDelete } = createPersonnelUseCases();
+		seedPersonnel(ctx, { archived_at: null, group_id: 'group-b' });
+
+		await expect(permanentlyDelete(ctx, 'p-1')).rejects.toMatchObject({ status: 403 });
+		await expect(ctx.rawStore.findOne('personnel', ctx.auth.orgId, { id: 'p-1' })).resolves.toMatchObject({
+			archived_at: null
+		});
+		expect(ctx.notificationPort.notifications).toHaveLength(0);
+		expect(ctx.auditPort.events).toContainEqual(
+			expect.objectContaining({
+				action: 'policy.denied',
+				resourceType: 'personnel',
+				resourceId: 'p-1',
+				details: expect.objectContaining({
+					policyAction: 'personnel.permanentlyDeleteRecords',
+					reasonCode: 'denied:out-of-scope'
+				})
+			})
+		);
 	});
 
 	it('enforces group scope using the archived personnel row group', async () => {

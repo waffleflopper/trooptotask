@@ -96,6 +96,31 @@ describe('/api/sign-in-rosters/[id]/upload route config', () => {
 		expect(roster?.signed_file_path).toBe(second.filePath);
 	});
 
+	it('restores the old scan path and removes the replacement when previous cleanup fails', async () => {
+		const ctx = createRosterUploadContext(OLD_SCAN_PATH);
+		await ctx.storage.upload(SENSITIVE_FILE_BUCKET, OLD_SCAN_PATH, new File([PDF_BYTES], 'old-scan.pdf'));
+		const cleanupError = new Error('previous cleanup failed');
+		const remove = ctx.storage.remove.bind(ctx.storage);
+		ctx.storage.remove = async (bucket, paths) => {
+			if (paths.includes(OLD_SCAN_PATH)) throw cleanupError;
+			return remove(bucket, paths);
+		};
+
+		await expect(
+			handleUseCaseRequest(_postConfig, ctx, {
+				rosterId: 'roster-1',
+				file: new File([PDF_BYTES], 'signed-roster.pdf', { type: 'application/pdf' })
+			})
+		).rejects.toBe(cleanupError);
+
+		const roster = await ctx.store.findOne<{ signed_file_path: string | null }>('sign_in_rosters', ctx.auth.orgId, {
+			id: 'roster-1'
+		});
+		expect(roster?.signed_file_path).toBe(OLD_SCAN_PATH);
+		expect(ctx.storagePort.files.map((file) => file.path)).toEqual([OLD_SCAN_PATH]);
+		expect(ctx.auditPort.events).toEqual([]);
+	});
+
 	it('removes a newly uploaded scan if the DB update fails and preserves the previous scan', async () => {
 		const ctx = createRosterUploadContext(OLD_SCAN_PATH);
 		await ctx.storage.upload(SENSITIVE_FILE_BUCKET, OLD_SCAN_PATH, new File([PDF_BYTES], 'old-scan.pdf'));

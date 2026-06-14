@@ -108,5 +108,87 @@
 			"reason": "Suspension checks remain part of the session/auth gate."
 		}
 	],
+	"routeAdminProviderAllowlist": [
+		{
+			"path": "src/routes/admin/billing-events/+page.server.ts",
+			"classification": "platform-admin-edge",
+			"reason": "Platform Administration billing-event retry still passes the admin context client to Stripe webhook recovery helpers."
+		},
+		{
+			"path": "src/routes/admin/organizations/[orgId]/+page.server.ts",
+			"classification": "platform-admin-edge",
+			"reason": "Platform Administration organization detail still builds service-role Supabase adapters from the admin context client."
+		},
+		{
+			"path": "src/routes/admin/users/[userId]/+page.server.ts",
+			"classification": "platform-admin-edge",
+			"reason": "Platform Administration user detail still uses the admin context client for auth-admin password reset and invite actions."
+		},
+		{
+			"path": "src/routes/api/access-requests/+server.ts",
+			"classification": "auth-edge",
+			"reason": "Public access-request submission still creates setup-delivery infrastructure with the service-role client."
+		},
+		{
+			"path": "src/routes/api/billing-reconciliation/+server.ts",
+			"classification": "billing-recovery-edge",
+			"reason": "Cron-authorized billing reconciliation still wires a service-role client into reconciliation stores and audit logging."
+		},
+		{
+			"path": "src/routes/api/cleanup-account-setup-links/+server.ts",
+			"classification": "cron-edge",
+			"reason": "Cron cleanup of stale account setup links still builds its service-role cleanup store in the route."
+		},
+		{
+			"path": "src/routes/api/cleanup-archived-records/+server.ts",
+			"classification": "cron-edge",
+			"reason": "Cron archive-retention cleanup still creates service-role data and storage adapters in the route."
+		},
+		{
+			"path": "src/routes/api/cleanup-expired-onboardings/+server.ts",
+			"classification": "cron-edge",
+			"reason": "Cron onboarding-retention cleanup still reads organization settings and creates its service-role data store in the route."
+		},
+		{
+			"path": "src/routes/api/cleanup-old-data/+server.ts",
+			"classification": "cron-edge",
+			"reason": "Cron old-data cleanup still invokes service-role cleanup RPCs directly from the route."
+		},
+		{
+			"path": "src/routes/api/feedback/+server.ts",
+			"classification": "platform-admin-edge",
+			"reason": "Feedback submission still uses a service-role client for organization membership validation and beta-feedback persistence."
+		},
+		{
+			"path": "src/routes/auth/renew-invite/+page.server.ts",
+			"classification": "auth-edge",
+			"reason": "Account setup renewal still creates setup-delivery infrastructure with the service-role client."
+		},
+		{
+			"path": "src/routes/auth/setup-account/+page.server.ts",
+			"classification": "auth-edge",
+			"reason": "Account setup completion still creates service-role setup stores and auth adapters at the auth edge."
+		},
+		{
+			"path": "src/routes/org/[orgId]/billing/cancel/+server.ts",
+			"classification": "billing-recovery-edge",
+			"reason": "Billing cancellation still applies a service-role snapshot transition from the route as webhook reconciliation backup."
+		},
+		{
+			"path": "src/routes/org/[orgId]/billing/success/+page.server.ts",
+			"classification": "billing-recovery-edge",
+			"reason": "Checkout success recovery still creates service-role billing reconciliation adapters in the route."
+		},
+		{
+			"path": "src/routes/org/[orgId]/settings/logs/+page.server.ts",
+			"classification": "platform-admin-edge",
+			"reason": "Organization audit-log settings still creates a service-role data store in the route."
+		},
+		{
+			"path": "src/routes/org/[orgId]/settings/members/+page.server.ts",
+			"classification": "auth-edge",
+			"reason": "Organization member invitation actions still create service-role invitation delivery and rate-limit adapters in the route."
+		}
+	],
 	"featurePermissionCouplings": []
 }

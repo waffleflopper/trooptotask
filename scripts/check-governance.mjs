@@ -182,6 +182,14 @@ function hasRouteSupabaseUsage(content) {
 	return false;
 }
 
+function hasRouteAdminProviderUsage(content) {
+	return (
+		/\bgetAdminClient\s*\(/.test(content) ||
+		/\bctx\s*\.\s*adminClient\b/.test(content) ||
+		/\bconst\s*\{[^}]*\badminClient\b[^}]*\}\s*=\s*ctx\b/.test(content)
+	);
+}
+
 function checkRouteSupabaseAllowlist() {
 	const routeFiles = walkRelative('src/routes').filter(
 		(filePath) => filePath.endsWith('.server.ts') || filePath.endsWith('/+server.ts')
@@ -216,6 +224,45 @@ function checkRouteSupabaseAllowlist() {
 	for (const filePath of allowlistedPaths) {
 		if (!actualPaths.includes(filePath)) {
 			errors.push(`Stale route-level locals.supabase allowlist entry: ${filePath}`);
+		}
+	}
+}
+
+function checkRouteAdminProviderAllowlist() {
+	const routeFiles = walkRelative('src/routes').filter(
+		(filePath) => filePath.endsWith('.server.ts') || filePath.endsWith('/+server.ts')
+	);
+	const actualUsages = routeFiles.filter((filePath) => hasRouteAdminProviderUsage(readRelativeFile(filePath)));
+	const allowlist = baseline.routeAdminProviderAllowlist ?? [];
+	const allowlistedPaths = allowlist.map((entry) => entry.path).sort();
+	const actualPaths = [...actualUsages].sort();
+	const allowlistedSet = new Set(allowlistedPaths);
+
+	for (const entry of allowlist) {
+		const context = `Route admin-provider allowlist entry ${entry.path}`;
+		ensureDriftIdsExist(entry.driftIds, context);
+
+		if (!existsSync(path.join(repoRoot, entry.path))) {
+			errors.push(`${context} points to a missing file`);
+			continue;
+		}
+
+		if (!hasRouteAdminProviderUsage(readRelativeFile(entry.path))) {
+			errors.push(`${context} is stale because the file no longer uses route-level admin-provider wiring`);
+		}
+	}
+
+	for (const filePath of actualPaths) {
+		if (!allowlistedSet.has(filePath)) {
+			errors.push(
+				`Undocumented route-level admin-provider usage: ${filePath}. Add a documented exception or move the logic behind an adapter/use case.`
+			);
+		}
+	}
+
+	for (const filePath of allowlistedPaths) {
+		if (!actualPaths.includes(filePath)) {
+			errors.push(`Stale route-level admin-provider allowlist entry: ${filePath}`);
 		}
 	}
 }
@@ -298,6 +345,7 @@ function checkDeletedRouteAuthorizationFramework() {
 function runGovernanceChecks() {
 	ensureRequiredFiles();
 	checkRouteSupabaseAllowlist();
+	checkRouteAdminProviderAllowlist();
 	checkFeaturePermissionCouplings();
 	checkDeletedRouteAuthorizationFramework();
 
@@ -312,6 +360,7 @@ function runGovernanceChecks() {
 	console.log('Governance checks passed.');
 	console.log(`- required files: ${baseline.requiredFiles.length}`);
 	console.log(`- route-level locals.supabase allowlist entries: ${baseline.routeSupabaseAllowlist.length}`);
+	console.log(`- route-level admin-provider allowlist entries: ${(baseline.routeAdminProviderAllowlist ?? []).length}`);
 	console.log(`- documented feature permission couplings: ${baseline.featurePermissionCouplings.length}`);
 }
 
@@ -319,4 +368,9 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
 	runGovernanceChecks();
 }
 
-export { collectDestructuredLocalSupabaseBindings, hasRouteSupabaseUsage, runGovernanceChecks };
+export {
+	collectDestructuredLocalSupabaseBindings,
+	hasRouteAdminProviderUsage,
+	hasRouteSupabaseUsage,
+	runGovernanceChecks
+};

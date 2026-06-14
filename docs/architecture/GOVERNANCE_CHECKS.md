@@ -10,9 +10,23 @@ It is intentionally narrow. It does not prove the architecture is clean. It does
 - route-level Supabase usage under `src/routes/` stays inside an explicit allowlist, including
   direct `locals.supabase` access and Supabase clients destructured or aliased from `locals`
 - route-level admin-provider wiring under `src/routes/` stays inside a separate allowlist, including
-  `getAdminClient()` calls, `ctx.adminClient` usage, and service-role Supabase adapter creation
+  `getAdminClient()` calls, `ctx.adminClient` usage, `const { adminClient } = ctx` destructuring, and
+  service-role Supabase adapter creation
 - known cross-feature permission-lane couplings stay explicitly documented
 - allowlisted drift references still point at real entries in `docs/architecture/DRIFT_LEDGER.md`
+
+## Baseline Classifications
+
+Baseline entries use narrow classification labels so new exceptions can be reviewed against the route boundary
+they actually represent:
+
+- `auth-edge` means a route still performs provider-specific auth/session/invite work at the boundary.
+- `billing-recovery-edge` means a billing reconciliation or checkout recovery route still wires privileged
+  billing stores, subscription adapters, or audit writes directly from the route.
+- `cron-edge` means a scheduled maintenance route still builds service-role cleanup stores, storage adapters,
+  or privileged RPC calls directly from the route.
+- `platform-admin-edge` means a Platform Admin route still uses the admin context client or service-role
+  adapters for platform/org/user support operations at the route boundary.
 
 ## What It Does Not Claim
 

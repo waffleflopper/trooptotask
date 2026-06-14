@@ -76,7 +76,7 @@ The operator explicitly excluded automatic CI trigger work from this batch. Do n
 | 054  | Move logout mutation to POST                      | P1       | S      | -          | DONE   |
 | 055  | Replace capped Auth email scans                   | P1       | M      | -          | TODO   |
 | 056  | Add sign-in roster scan compensation              | P2       | M      | -          | DONE   |
-| 057  | Parallelize Dashboard organization access reads   | P2       | S      | -          | TODO   |
+| 057  | Parallelize Dashboard organization access reads   | P2       | S      | -          | DONE   |
 | 058  | Align README runtime setup                        | P3       | S      | -          | DONE   |
 | 059  | Expand governance for admin route seams           | P1       | M      | -          | DONE   |
 | 060  | Move feedback submissions behind platform seam    | P2       | M      | -          | TODO   |

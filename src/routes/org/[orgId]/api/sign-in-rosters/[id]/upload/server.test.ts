@@ -164,7 +164,34 @@ describe('/api/sign-in-rosters/[id]/upload route config', () => {
 		]);
 	});
 
-	it('does not remove the existing scan if unlinking fails before the DB path is cleared', async () => {
+	it('preserves the DB path and stored scan when unlink storage cleanup fails', async () => {
+		const ctx = createRosterUploadContext(OLD_SCAN_PATH);
+		await ctx.storage.upload(SENSITIVE_FILE_BUCKET, OLD_SCAN_PATH, new File([PDF_BYTES], 'old-scan.pdf'));
+		const update = ctx.store.update.bind(ctx.store);
+		const updateCalls: Array<Record<string, unknown>> = [];
+		ctx.store.update = async (table, orgId, id, data) => {
+			updateCalls.push({ table, id, data });
+			return update(table, orgId, id, data);
+		};
+		ctx.storage.remove = async () => {
+			throw new Error('storage cleanup failed');
+		};
+
+		await expect(handleUseCaseRequest(_deleteConfig, ctx, { rosterId: 'roster-1' })).rejects.toThrow(
+			'storage cleanup failed'
+		);
+
+		expect(updateCalls).toEqual([]);
+		expect(ctx.storagePort.files).toEqual([
+			expect.objectContaining({ bucket: SENSITIVE_FILE_BUCKET, path: OLD_SCAN_PATH })
+		]);
+		const roster = await ctx.store.findOne<{ signed_file_path: string | null }>('sign_in_rosters', ctx.auth.orgId, {
+			id: 'roster-1'
+		});
+		expect(roster?.signed_file_path).toBe(OLD_SCAN_PATH);
+	});
+
+	it('removes the existing scan before clearing the DB path so retries keep a recoverable pointer', async () => {
 		const ctx = createRosterUploadContext(OLD_SCAN_PATH);
 		await ctx.storage.upload(SENSITIVE_FILE_BUCKET, OLD_SCAN_PATH, new File([PDF_BYTES], 'old-scan.pdf'));
 		const removeCalls: string[][] = [];
@@ -181,10 +208,8 @@ describe('/api/sign-in-rosters/[id]/upload route config', () => {
 
 		await expect(handleUseCaseRequest(_deleteConfig, ctx, { rosterId: 'roster-1' })).rejects.toThrow('update failed');
 
-		expect(removeCalls).toEqual([]);
-		expect(ctx.storagePort.files).toEqual([
-			expect.objectContaining({ bucket: SENSITIVE_FILE_BUCKET, path: OLD_SCAN_PATH })
-		]);
+		expect(removeCalls).toEqual([[OLD_SCAN_PATH]]);
+		expect(ctx.storagePort.files).toEqual([]);
 		const roster = await ctx.store.findOne<{ signed_file_path: string | null }>('sign_in_rosters', ctx.auth.orgId, {
 			id: 'roster-1'
 		});

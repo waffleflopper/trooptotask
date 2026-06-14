@@ -20,11 +20,11 @@ export const _deleteConfig: RouteConfig<{ rosterId: string }, unknown> = {
 
 		if (!roster) fail(404, 'Roster not found');
 
-		await ctx.store.delete('sign_in_rosters', ctx.auth.orgId, input.rosterId);
-
 		if (roster.signed_file_path) {
 			await ctx.storage.remove(SENSITIVE_FILE_BUCKET, [roster.signed_file_path]);
 		}
+
+		await ctx.store.delete('sign_in_rosters', ctx.auth.orgId, input.rosterId);
 
 		ctx.audit.log({
 			action: 'sign_in_roster.deleted',

@@ -217,46 +217,24 @@ describe('TrainingReportsPage', () => {
 		const fetchMock = vi.fn(async () => ({
 			ok: true,
 			json: async () => ({
-				dashboard: {
-					readinessPercent: 50,
-					statusCounts: {
-						current: 1,
-						warningYellow: 0,
-						warningOrange: 0,
-						expired: 0,
-						notCompleted: 1
-					},
-					worstTypes: [],
-					groupComparison: [],
-					typeBreakdown: []
-				},
-				detail: {
-					rows: [
-						{
-							person: personnel[0],
-							cells: [
-								{
-									trainingTypeId: trainingType.id,
-									status: 'not-completed',
-									label: 'Not Done',
-									date: null
-								}
-							]
-						}
-					],
-					totalRows: 2,
-					page: 2,
-					pageSize: 1,
-					totalPages: 2,
-					sort: { column: 'name', direction: 'asc' }
-				},
-				trainingTypes: [trainingType],
-				filterOptions: {
-					groups,
-					mos: ['11B', '68W'],
-					roles: ['Line', 'Medic'],
-					ranks: ['SGT', 'SPC']
-				}
+				rows: [
+					{
+						person: personnel[0],
+						cells: [
+							{
+								trainingTypeId: trainingType.id,
+								status: 'not-completed',
+								label: 'Not Done',
+								date: null
+							}
+						]
+					}
+				],
+				totalRows: 2,
+				page: 2,
+				pageSize: 1,
+				totalPages: 2,
+				sort: { column: 'name', direction: 'asc' }
 			})
 		}));
 		vi.stubGlobal('fetch', fetchMock);
@@ -313,17 +291,89 @@ describe('TrainingReportsPage', () => {
 		await fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
 
 		await waitFor(() => {
-			expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/api/training-reports?'));
+			expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/api/training-reports/detail?'));
 			expect(((fetchMock.mock.calls.at(0) as unknown as [string]) ?? [''])[0]).toContain('page=2');
 			expect(screen.getByText('Smith, Jane')).toBeTruthy();
 		});
+		expect(screen.getByText('50%')).toBeTruthy();
 		expect(screen.queryByText('Adams, John')).toBeNull();
+	});
+
+	it('uses the detail endpoint for status-only filter changes', async () => {
+		const fetchMock = vi.fn(async () => ({
+			ok: true,
+			json: async () => ({
+				rows: [
+					{
+						person: personnel[0],
+						cells: [
+							{
+								trainingTypeId: trainingType.id,
+								status: 'current',
+								label: 'Current',
+								date: null
+							}
+						]
+					}
+				],
+				totalRows: 1,
+				page: 1,
+				pageSize: 1,
+				totalPages: 1,
+				sort: { column: 'name', direction: 'asc' }
+			})
+		}));
+		vi.stubGlobal('fetch', fetchMock);
+
+		render(TrainingReportsPage, {
+			props: {
+				data: {
+					trainingReport: makeServerReport(personnel[1])
+				}
+			}
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: /Current/ }));
+
+		await waitFor(() => {
+			const statusUrl = ((fetchMock.mock.calls.at(0) as unknown as [string]) ?? [''])[0];
+			expect(statusUrl).toContain('/org/org-1/api/training-reports/detail?');
+			expect(statusUrl).toContain('status=current');
+			expect(screen.getByText('Smith, Jane')).toBeTruthy();
+		});
+		expect(screen.getByText('50%')).toBeTruthy();
+	});
+
+	it('uses the full report endpoint for aggregate-changing group filters', async () => {
+		const fetchMock = vi.fn(async () => ({
+			ok: true,
+			json: async () => makeServerReport(personnel[0], { totalRows: 1, totalPages: 1 })
+		}));
+		vi.stubGlobal('fetch', fetchMock);
+
+		render(TrainingReportsPage, {
+			props: {
+				data: {
+					trainingReport: makeServerReport(personnel[1])
+				}
+			}
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Alpha' }));
+
+		await waitFor(() => {
+			const groupUrl = ((fetchMock.mock.calls.at(0) as unknown as [string]) ?? [''])[0];
+			expect(groupUrl).toContain('/org/org-1/api/training-reports?');
+			expect(groupUrl).not.toContain('/api/training-reports/detail?');
+			expect(groupUrl).toContain('groupId=group-1');
+			expect(screen.getByText('Smith, Jane')).toBeTruthy();
+		});
 	});
 
 	it('replaces a client-fetched report when fresh server report data arrives', async () => {
 		const fetchMock = vi.fn(async () => ({
 			ok: true,
-			json: async () => makeServerReport(personnel[0], { page: 2 })
+			json: async () => makeServerReport(personnel[0], { page: 2 }).detail
 		}));
 		vi.stubGlobal('fetch', fetchMock);
 

@@ -177,6 +177,7 @@ export function buildCalendarRenderState(input: CalendarRenderStateInput): Calen
 	});
 	const headerByDate = new Map(headerCells.map((header) => [header.dateKey, header]));
 	const rowCache = new Map<string, CalendarPersonDateCellState[]>();
+	const rowCellLookupCache = new Map<string, Map<CalendarDateKey, CalendarPersonDateCellState>>();
 
 	function personHeader(personnelId: string): CalendarPersonHeaderState | undefined {
 		if (!personnelById.has(personnelId)) return undefined;
@@ -229,11 +230,14 @@ export function buildCalendarRenderState(input: CalendarRenderStateInput): Calen
 		});
 
 		rowCache.set(personnelId, cells);
+		rowCellLookupCache.set(personnelId, new Map(cells.map((cell) => [cell.dateKey, cell])));
 		return cells;
 	}
 
 	function personDateCell(personnelId: string, dateKey: CalendarDateKey): CalendarPersonDateCellState | undefined {
-		return personDateCells(personnelId)?.find((cell) => cell.dateKey === dateKey);
+		if (!personnelById.has(personnelId)) return undefined;
+		personDateCells(personnelId);
+		return rowCellLookupCache.get(personnelId)?.get(dateKey);
 	}
 
 	return {

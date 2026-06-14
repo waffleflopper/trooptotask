@@ -3,14 +3,14 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, waitFor } from '@testing-library/svelte';
 import VisibleStub from '$lib/test-stubs/VisibleStub.svelte';
 import type { OnboardingWorkspaceResult } from '$features/onboarding/server/onboardingWorkspaceBootstrap';
+import type { PersonnelOnboarding } from '$features/onboarding/onboarding.types';
+import { onboardingStore } from '$features/onboarding/stores/onboarding.svelte';
+import { onboardingTemplateStore } from '$features/onboarding/stores/onboardingTemplate.svelte';
+import { rosterStore } from '$lib/stores/roster.svelte';
 
 const throwRenderErrorMock = vi.fn();
 const modalRegistryState = vi.hoisted(() => ({
 	startOnboardingOpen: false
-}));
-
-vi.mock('$features/onboarding/components/OnboardingKanbanView.svelte', () => ({
-	default: VisibleStub
 }));
 
 vi.mock('$features/onboarding/components/OnboardingModals.svelte', () => ({
@@ -46,6 +46,8 @@ vi.mock('$lib/stores/orgContext.svelte', () => ({
 		isOwner: true,
 		isAdmin: false,
 		isPrivileged: true,
+		orgUrlSegment: 'org-1',
+		scopeSet: { kind: 'organization' },
 		readOnly: false,
 		capabilityMap: {
 			calendar: 'configure',
@@ -58,7 +60,13 @@ vi.mock('$lib/stores/orgContext.svelte', () => ({
 			reports: 'configure',
 			dutyRoster: 'configure'
 		},
-		hasCapability: vi.fn(() => true)
+		hasCapability: vi.fn(() => true),
+		affordanceForFeatureAction: vi.fn(() => ({
+			visible: true,
+			allowed: true,
+			disabled: false,
+			explanation: null
+		}))
 	})
 }));
 
@@ -80,6 +88,9 @@ afterEach(() => {
 	cleanup();
 	throwRenderErrorMock.mockReset();
 	modalRegistryState.startOnboardingOpen = false;
+	onboardingStore.load([], 'org-test-reset');
+	onboardingTemplateStore.load([], [], 'org-test-reset');
+	rosterStore.load([], 'org-test-reset');
 });
 
 function createDeferred<T>() {
@@ -119,6 +130,20 @@ function makeBootstrap(): OnboardingWorkspaceResult {
 	};
 }
 
+function makeOnboarding(overrides: Partial<PersonnelOnboarding> = {}): PersonnelOnboarding {
+	return {
+		id: 'onboarding-1',
+		personnelId: 'personnel-1',
+		startedAt: '2026-01-01T00:00:00Z',
+		completedAt: null,
+		cancelledAt: null,
+		status: 'in_progress',
+		steps: [],
+		templateId: 'template-1',
+		...overrides
+	};
+}
+
 describe('onboarding page', () => {
 	it('renders the page immediately when onboarding workspace data is already resolved', () => {
 		render(Page, {
@@ -133,7 +158,7 @@ describe('onboarding page', () => {
 		});
 
 		expect(screen.queryByRole('status')).toBeNull();
-		expect(screen.getAllByTestId('visible-stub')).toHaveLength(1);
+		expect(screen.getByText('Onboarding Pipeline')).toBeTruthy();
 	});
 
 	it('loads the modal surface when start onboarding is open', async () => {
@@ -151,7 +176,7 @@ describe('onboarding page', () => {
 		});
 
 		await waitFor(() => {
-			expect(screen.getAllByTestId('visible-stub')).toHaveLength(2);
+			expect(screen.getAllByTestId('visible-stub')).toHaveLength(1);
 		});
 	});
 
@@ -176,7 +201,95 @@ describe('onboarding page', () => {
 		await waitFor(() => {
 			expect(screen.queryByRole('status')).toBeNull();
 		});
-		expect(screen.getAllByTestId('visible-stub')).toHaveLength(1);
+		expect(screen.getByText('Onboarding Pipeline')).toBeTruthy();
+	});
+
+	it('renders only active onboardings on the active board when mixed data is seeded', () => {
+		rosterStore.load(
+			[
+				{
+					id: 'p-active',
+					rank: 'SGT',
+					firstName: 'Riley',
+					lastName: 'Active',
+					mos: '25U',
+					clinicRole: 'Signal',
+					groupId: 'group-alpha',
+					groupName: 'Alpha'
+				},
+				{
+					id: 'p-completed',
+					rank: 'SSG',
+					firstName: 'Casey',
+					lastName: 'Complete',
+					mos: '11B',
+					clinicRole: 'Team Leader',
+					groupId: 'group-alpha',
+					groupName: 'Alpha'
+				},
+				{
+					id: 'p-cancelled',
+					rank: 'CPL',
+					firstName: 'Drew',
+					lastName: 'Cancelled',
+					mos: '68W',
+					clinicRole: 'Medic',
+					groupId: 'group-alpha',
+					groupName: 'Alpha'
+				}
+			],
+			'org-1'
+		);
+		onboardingTemplateStore.load(
+			[{ id: 'template-1', orgId: 'org-1', name: 'Reception', description: null, createdAt: '2026-01-01' }],
+			[
+				{
+					id: 'template-step-1',
+					templateId: 'template-1',
+					name: 'Sign in',
+					description: null,
+					stepType: 'checkbox',
+					trainingTypeId: null,
+					stages: null,
+					sortOrder: 0
+				}
+			],
+			'org-1'
+		);
+		onboardingStore.load(
+			[
+				makeOnboarding({ id: 'active-onboarding', personnelId: 'p-active', status: 'in_progress' }),
+				makeOnboarding({
+					id: 'completed-onboarding',
+					personnelId: 'p-completed',
+					status: 'completed',
+					completedAt: '2026-02-01T00:00:00Z'
+				}),
+				makeOnboarding({
+					id: 'cancelled-onboarding',
+					personnelId: 'p-cancelled',
+					status: 'cancelled',
+					cancelledAt: '2026-02-02T00:00:00Z'
+				})
+			],
+			'org-1'
+		);
+
+		render(Page, {
+			props: {
+				data: {
+					session: null,
+					onboarding: {
+						data: makeBootstrap()
+					}
+				}
+			}
+		});
+
+		expect(screen.getByText('1 active')).toBeTruthy();
+		expect(screen.getByText('SGT Active, Riley')).toBeTruthy();
+		expect(screen.queryByText('SSG Complete, Casey')).toBeNull();
+		expect(screen.queryByText('CPL Cancelled, Drew')).toBeNull();
 	});
 
 	it('invokes the render error path when onboarding workspace loading fails', async () => {

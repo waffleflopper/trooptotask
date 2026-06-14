@@ -50,7 +50,10 @@ describe('duty roster shared wrappers', () => {
 		expect(within(table).getByText('1-Jun')).toBeTruthy();
 		expect(within(table).getByText('SGT Able')).toBeTruthy();
 		expect(screen.getByLabelText(/SGT Able assigned on Mon 1-Jun/)).toBeTruthy();
+		expect(screen.getByLabelText(/SSG Baker other duty on Tue 2-Jun/)).toBeTruthy();
 		expect(screen.getByText('Assigned Count')).toBeTruthy();
+		expect(screen.getByLabelText('Assigned Count for Mon 1-Jun: 1')).toBeTruthy();
+		expect(screen.getByLabelText('Assigned Count for Tue 2-Jun: 0')).toBeTruthy();
 		expect(screen.getByText('Authorized absence pauses the count.')).toBeTruthy();
 		expect(screen.getByText('Manual override requiring review.')).toBeTruthy();
 	});

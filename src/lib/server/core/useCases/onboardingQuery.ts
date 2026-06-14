@@ -24,6 +24,26 @@ export interface OnboardingBootstrap {
 	trainingTypes: TrainingType[];
 }
 
+export type OnboardingBootstrapMode = 'all' | 'active' | 'history';
+
+export interface FetchOnboardingBootstrapOptions {
+	mode?: OnboardingBootstrapMode;
+}
+
+function onboardingQueryFiltersForMode(mode: OnboardingBootstrapMode): {
+	filters?: Record<string, unknown>;
+	inFilters?: Record<string, unknown[]>;
+} {
+	switch (mode) {
+		case 'active':
+			return { filters: { status: 'in_progress' } };
+		case 'history':
+			return { inFilters: { status: ['completed', 'cancelled'] } };
+		case 'all':
+			return {};
+	}
+}
+
 function applyTrainingCompletionStatuses(
 	onboarding: PersonnelOnboarding,
 	completedTrainingTypeIdsByPersonnelId: Map<string, Set<string>>
@@ -78,10 +98,14 @@ async function readCompletedTrainingTypeIdsByPersonnelId(
 	return completedTrainingTypeIdsByPersonnelId;
 }
 
-export async function fetchOnboardingBootstrap(ctx: WritePorts): Promise<OnboardingBootstrap> {
+export async function fetchOnboardingBootstrap(
+	ctx: WritePorts,
+	options: FetchOnboardingBootstrapOptions = {}
+): Promise<OnboardingBootstrap> {
 	await requireOnboardingViewPolicy(ctx);
 
 	const orgId = ctx.auth.orgId;
+	const onboardingQuery = onboardingQueryFiltersForMode(options.mode ?? 'all');
 
 	const [templateRows, templateStepRows, onboardingRows, personnel, groupRows, trainingTypeRows] = await Promise.all([
 		ctx.store.findMany<Record<string, unknown>>('onboarding_templates', orgId, undefined, {
@@ -90,8 +114,9 @@ export async function fetchOnboardingBootstrap(ctx: WritePorts): Promise<Onboard
 		ctx.store.findMany<Record<string, unknown>>('onboarding_template_steps', orgId, undefined, {
 			orderBy: [{ column: 'sort_order', ascending: true }]
 		}),
-		ctx.store.findMany<Record<string, unknown>>('personnel_onboardings', orgId, undefined, {
-			select: PersonnelOnboardingEntity.select
+		ctx.store.findMany<Record<string, unknown>>('personnel_onboardings', orgId, onboardingQuery.filters, {
+			select: PersonnelOnboardingEntity.select,
+			...(onboardingQuery.inFilters ? { inFilters: onboardingQuery.inFilters } : {})
 		}),
 		loadRosterPersonnel(ctx, { status: 'active' }),
 		ctx.store.findMany<Record<string, unknown>>('groups', orgId, undefined, {

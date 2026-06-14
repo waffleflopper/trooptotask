@@ -3,6 +3,7 @@ import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { _getConfig } from './+server';
+import { _getDetailConfig } from './detail/+server';
 
 describe('GET /api/training-reports', () => {
 	it('exports a training read RouteConfig', () => {
@@ -154,6 +155,116 @@ describe('GET /api/training-reports', () => {
 			},
 			trainingTypes: [],
 			filterOptions: { groups: [], mos: [], roles: [], ranks: [] }
+		});
+
+		expect(response?.headers.get('Cache-Control')).toBe('private, no-store');
+		expect(response?.headers.get('Vary')).toBe('Cookie');
+	});
+});
+
+describe('GET /api/training-reports/detail', () => {
+	it('exports a training read RouteConfig for detail-only pages', () => {
+		expect('permission' in _getDetailConfig).toBe(false);
+		expect(_getDetailConfig.policyAction).toBe(POLICY_ACTION_CATALOG.training.viewRecords);
+		expect(_getDetailConfig.policyResource).toEqual({ kind: 'unscoped' });
+		expect(_getDetailConfig.mutation).toBeUndefined();
+	});
+
+	it('denies training report detail access through the policy decision', async () => {
+		const ctx = createTestContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'none',
+					training: 'none',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				},
+				scopeSet: { kind: 'organization' }
+			}
+		});
+
+		await expect(
+			handleUseCaseRequest(_getDetailConfig, ctx, {
+				page: 1,
+				pageSize: 25,
+				sortColumn: 'name',
+				sortDirection: 'asc'
+			})
+		).rejects.toMatchObject({ status: 403 });
+		expect(ctx.auditPort.events).toEqual([
+			expect.objectContaining({
+				action: 'policy.denied',
+				resourceType: 'training.viewRecords'
+			})
+		]);
+	});
+
+	it('returns only the server-computed training report detail page', async () => {
+		const ctx = createTestContext();
+
+		ctx.store.seed('personnel', [
+			{
+				id: 'p-smith',
+				organization_id: ctx.auth.orgId,
+				rank: 'SGT',
+				last_name: 'Smith',
+				first_name: 'Jane',
+				mos: '68W',
+				clinic_role: 'Medic',
+				group_id: 'group-1',
+				archived_at: null,
+				groups: { name: 'Alpha' }
+			}
+		]);
+		ctx.store.seed('training_types', [
+			{
+				id: 'type-cpr',
+				organization_id: ctx.auth.orgId,
+				name: 'CPR',
+				description: null,
+				expiration_months: null,
+				warning_days_yellow: 60,
+				warning_days_orange: 30,
+				applies_to_roles: [],
+				applies_to_mos: [],
+				applies_to_ranks: [],
+				excluded_roles: [],
+				excluded_mos: [],
+				excluded_ranks: [],
+				color: '#22c55e',
+				sort_order: 0,
+				expiration_date_only: false,
+				can_be_exempted: false,
+				exempt_personnel_ids: [],
+				is_optional: false
+			}
+		]);
+
+		const result = await handleUseCaseRequest(_getDetailConfig, ctx, {
+			page: 1,
+			pageSize: 25,
+			sortColumn: 'name',
+			sortDirection: 'asc'
+		});
+
+		expect(result.totalRows).toBe(1);
+		expect(result.rows[0].person.id).toBe('p-smith');
+		expect('dashboard' in result).toBe(false);
+		expect('trainingTypes' in result).toBe(false);
+	});
+
+	it('marks detail responses private and non-cacheable', async () => {
+		const response = _getDetailConfig.formatOutput?.({
+			rows: [],
+			totalRows: 0,
+			page: 1,
+			pageSize: 25,
+			totalPages: 1,
+			sort: { column: 'name', direction: 'asc' }
 		});
 
 		expect(response?.headers.get('Cache-Control')).toBe('private, no-store');

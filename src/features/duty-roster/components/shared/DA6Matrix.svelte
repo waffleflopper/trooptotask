@@ -49,6 +49,18 @@
 			})
 		)
 	);
+	const matrixRowsById = $derived(new Map(matrixRows.map((row) => [row.id, row])));
+	const matrixColumnsById = $derived(new Map(matrixColumns.map((column) => [column.id, column])));
+	const matrixFooterRows = $derived(
+		footerRows.map(
+			(footer): OperationalMatrixRow => ({
+				id: footer.label,
+				label: footer.label,
+				readOnly: true
+			})
+		)
+	);
+	const matrixFooterRowsById = $derived(new Map(matrixFooterRows.map((row) => [row.id, row])));
 
 	function cellFor(row: DA6MatrixRow, column: DA6MatrixColumn): DA6MatrixCell {
 		return (
@@ -112,7 +124,7 @@
 							Soldier
 						</OperationalMatrix.CornerCell>
 						{#each columns as column (column.id)}
-							{@const operationalColumn = matrixColumns.find((item) => item.id === column.id) ?? matrixColumns[0]}
+							{@const operationalColumn = matrixColumnsById.get(column.id) ?? matrixColumns[0]}
 							<OperationalMatrix.ColumnHeader column={operationalColumn} sticky class="sticky top-0 z-20 bg-muted">
 								<span class="grid min-w-12 place-items-center gap-0.5 text-center text-xs leading-tight">
 									<span class="font-semibold">{column.weekday}</span>
@@ -124,7 +136,7 @@
 				</OperationalMatrix.Header>
 				<OperationalMatrix.Body>
 					{#each rows as row (row.id)}
-						{@const operationalRow = matrixRows.find((item) => item.id === row.id) ?? matrixRows[0]}
+						{@const operationalRow = matrixRowsById.get(row.id) ?? matrixRows[0]}
 						<OperationalMatrix.Row row={operationalRow} class="bg-card hover:bg-muted/20">
 							<OperationalMatrix.RowHeader
 								row={operationalRow}
@@ -139,7 +151,7 @@
 								</span>
 							</OperationalMatrix.RowHeader>
 							{#each columns as column (column.id)}
-								{@const operationalColumn = matrixColumns.find((item) => item.id === column.id) ?? matrixColumns[0]}
+								{@const operationalColumn = matrixColumnsById.get(column.id) ?? matrixColumns[0]}
 								{@const cell = cellFor(row, column)}
 								<OperationalMatrix.Cell
 									row={operationalRow}
@@ -155,18 +167,19 @@
 					{/each}
 
 					{#each footerRows as footer (footer.label)}
-						<OperationalMatrix.Row row={{ id: footer.label, label: footer.label, readOnly: true }} class="bg-muted/30">
+						{@const operationalFooterRow = matrixFooterRowsById.get(footer.label) ?? matrixFooterRows[0]}
+						<OperationalMatrix.Row row={operationalFooterRow} class="bg-muted/30">
 							<OperationalMatrix.RowHeader
-								row={{ id: footer.label, label: footer.label, readOnly: true }}
+								row={operationalFooterRow}
 								sticky
 								class="sticky left-0 z-10 w-48 min-w-48 border bg-muted px-3 py-2 text-left font-semibold"
 							>
 								{footer.label}
 							</OperationalMatrix.RowHeader>
 							{#each columns as column (column.id)}
-								{@const operationalColumn = matrixColumns.find((item) => item.id === column.id) ?? matrixColumns[0]}
+								{@const operationalColumn = matrixColumnsById.get(column.id) ?? matrixColumns[0]}
 								<OperationalMatrix.Cell
-									row={{ id: footer.label, label: footer.label, readOnly: true }}
+									row={operationalFooterRow}
 									column={operationalColumn}
 									readOnly
 									ariaLabel={`${footer.label} for ${column.weekday} ${column.date}: ${footerValue(footer, column)}`}

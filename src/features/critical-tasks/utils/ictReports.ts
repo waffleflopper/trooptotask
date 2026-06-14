@@ -7,7 +7,7 @@ import type {
 import type { Personnel } from '$lib/types';
 import { calculateIctExpirationDate, normalizeCriticalTasksSettings } from './ictStatus';
 import { getActiveIctTasksForLibrary, isIctTaskApplicableToMos } from './ictTaskLibrary';
-import { formatDate } from '$lib/utils/dates';
+import { formatDate, parseDate } from '$lib/utils/dates';
 import {
 	tallyReadinessBy,
 	tallyReadinessGrid,
@@ -16,6 +16,7 @@ import {
 } from '$lib/domain/readinessRollup';
 import {
 	CRITICAL_TASK_READINESS_THRESHOLD_PERCENT,
+	ICT_READINESS_ROLLUP,
 	ICT_READY_STATES,
 	addCriticalTasksDays,
 	buildCriticalTasksReadinessCounts,
@@ -43,6 +44,7 @@ const ICT_MATRIX_ROLLUP: ReadinessTallyConfig<IctStatus, null> = {
 
 const UNCATEGORIZED_TASK_CATEGORY_KEY = '__uncategorized__';
 const UNCATEGORIZED_TASK_CATEGORY_LABEL = 'Uncategorized';
+const MS_PER_DAY = 1000 * 60 * 60 * 24;
 const READINESS_DISTRIBUTION_BINS: IctReadinessDistributionBinDefinition[] = [
 	{ key: '0-20', label: '0-20%', minPercent: 0, maxPercent: 20 },
 	{ key: '20-40', label: '20-40%', minPercent: 20, maxPercent: 40 },
@@ -248,6 +250,25 @@ export interface IctReportDashboard {
 	readinessDistribution: IctReadinessDistribution;
 }
 
+export interface IctReportDashboardSummary {
+	hasActiveTasks: boolean;
+	kpis: IctReportDashboard['kpis'];
+	mosReadiness: IctReadinessTrendMosSnapshot[];
+	readinessTrend: {
+		months: Array<Pick<IctReadinessTrendMonth, 'month' | 'label' | 'overallReadinessPercent'>>;
+	};
+	projectedReadinessAtMonth6: IctExpirationCliff['projectedReadinessAtMonth6'];
+	tasksBelowThreshold: {
+		thresholdPercent: number;
+		count: number;
+		rows: IctTaskBelowThresholdRow[];
+	};
+	atRiskSoldiers: {
+		totalApplicable: number;
+		rows: IctAtRiskSoldierRow[];
+	};
+}
+
 function addMonths(date: Date, months: number): Date {
 	const next = new Date(date);
 	next.setMonth(next.getMonth() + months, 1);
@@ -264,6 +285,20 @@ function formatMonthKey(date: Date): string {
 
 function formatMonthLabel(date: Date): string {
 	return date.toLocaleString('en-US', { month: 'short', year: 'numeric' });
+}
+
+function daysBetweenDates(start: Date, end: Date): number {
+	const startDay = Date.UTC(start.getFullYear(), start.getMonth(), start.getDate()) / MS_PER_DAY;
+	const endDay = Date.UTC(end.getFullYear(), end.getMonth(), end.getDate()) / MS_PER_DAY;
+	return Math.max(0, endDay - startDay);
+}
+
+function dateOnlyFromTimestamp(timestamp: string): Date {
+	return parseDate(timestamp.slice(0, 10));
+}
+
+function soldierName(person: Personnel): string {
+	return `${person.lastName}, ${person.firstName}`;
 }
 
 function normalizeReportMosFilter(mos: string | string[] | undefined): string[] {
@@ -510,6 +545,81 @@ function buildReadinessTrend(input: {
 	};
 }
 
+function buildDashboardReadinessTrend(input: {
+	personnel: Personnel[];
+	activeTasks: IctTask[];
+	completions: PersonnelIctCompletion[];
+	settings?: CriticalTasksSettingsInput | null;
+	asOf?: string | Date;
+}): IctReportDashboardSummary['readinessTrend'] {
+	const asOfDate = resolveCriticalTasksAsOfDate(input.asOf);
+	const currentMonthStart = new Date(asOfDate.getFullYear(), asOfDate.getMonth(), 1);
+	const completionsByRecency = [...input.completions].sort(compareIctCompletionRecency);
+	const latestCompletions = new Map<string, PersonnelIctCompletion>();
+	let completionIndex = 0;
+	const months = Array.from({ length: 6 }, (_, index) => addMonths(currentMonthStart, index - 5)).map((monthStart) => {
+		const snapshotDate =
+			monthStart.getFullYear() === currentMonthStart.getFullYear() &&
+			monthStart.getMonth() === currentMonthStart.getMonth()
+				? asOfDate
+				: endOfMonth(monthStart);
+		const snapshotDateText = formatDate(snapshotDate);
+		while (
+			completionIndex < completionsByRecency.length &&
+			completionsByRecency[completionIndex].completedAt <= snapshotDateText
+		) {
+			const completion = completionsByRecency[completionIndex];
+			latestCompletions.set(ictCompletionKey(completion.personnelId, completion.ictTaskId), completion);
+			completionIndex += 1;
+		}
+		const snapshot = buildCriticalTasksReadinessCounts({
+			personnel: input.personnel,
+			activeTasks: input.activeTasks,
+			latestCompletions,
+			settings: input.settings,
+			asOf: snapshotDate
+		});
+
+		return {
+			month: formatMonthKey(monthStart),
+			label: formatMonthLabel(monthStart),
+			overallReadinessPercent: snapshot.overall.percent
+		};
+	});
+
+	return { months };
+}
+
+function buildDashboardProjectedReadiness(input: {
+	personnel: Personnel[];
+	activeTasks: IctTask[];
+	completions: PersonnelIctCompletion[];
+	settings?: CriticalTasksSettingsInput | null;
+	asOf?: string | Date;
+}): IctExpirationCliff['projectedReadinessAtMonth6'] {
+	const asOfDate = resolveCriticalTasksAsOfDate(input.asOf);
+	const asOfText = formatDate(asOfDate);
+	const currentMonthStart = new Date(asOfDate.getFullYear(), asOfDate.getMonth(), 1);
+	const projectionMonthStart = addMonths(currentMonthStart, 5);
+	const projectionAsOf = endOfMonth(projectionMonthStart);
+	const currentCompletions = input.completions.filter((completion) => completion.completedAt <= asOfText);
+	const projectedReadiness = buildCriticalTasksReadinessCounts({
+		personnel: input.personnel,
+		activeTasks: input.activeTasks,
+		completions: currentCompletions,
+		settings: input.settings,
+		asOf: projectionAsOf
+	});
+
+	return {
+		month: formatMonthKey(projectionMonthStart),
+		label: formatMonthLabel(projectionMonthStart),
+		readinessPercent: projectedReadiness.overall.percent,
+		readyCount: projectedReadiness.overall.readyCount,
+		applicableCount: projectedReadiness.overall.applicableCount
+	};
+}
+
 function buildExpirationCliff(input: {
 	personnel: Personnel[];
 	activeTasks: IctTask[];
@@ -630,6 +740,174 @@ function buildCompletionTrend(
 		.sort((left, right) => left.month.localeCompare(right.month));
 }
 
+function compareBelowThresholdTaskRows(left: IctTaskBelowThresholdRow, right: IctTaskBelowThresholdRow): number {
+	return (
+		left.percentComplete - right.percentComplete ||
+		right.soldierGapCount - left.soldierGapCount ||
+		left.taskCode.localeCompare(right.taskCode) ||
+		left.taskName.localeCompare(right.taskName) ||
+		left.taskId.localeCompare(right.taskId)
+	);
+}
+
+function compareOptionalDaysDescending(left: number | null, right: number | null): number {
+	if (left === null && right === null) return 0;
+	if (left === null) return 1;
+	if (right === null) return -1;
+	return right - left;
+}
+
+function compareAtRiskSoldierRows(left: IctAtRiskSoldierRow, right: IctAtRiskSoldierRow): number {
+	return (
+		left.readinessPercent - right.readinessPercent ||
+		right.tasksExpiringSoonCount - left.tasksExpiringSoonCount ||
+		compareOptionalDaysDescending(left.daysSinceLastIctUpdate, right.daysSinceLastIctUpdate) ||
+		left.soldierName.localeCompare(right.soldierName) ||
+		left.rank.localeCompare(right.rank) ||
+		left.personnelId.localeCompare(right.personnelId)
+	);
+}
+
+function retainTopRows<T>(rows: T[], row: T, compare: (left: T, right: T) => number, limit: number): void {
+	rows.push(row);
+	rows.sort(compare);
+	if (rows.length > limit) {
+		rows.pop();
+	}
+}
+
+function buildLastIctUpdateLookup(input: {
+	personnel: Personnel[];
+	activeTasks: IctTask[];
+	completions: PersonnelIctCompletion[];
+	asOf?: string | Date;
+}): Map<string, PersonnelIctCompletion> {
+	const asOfDate = input.asOf ? formatDate(resolveCriticalTasksAsOfDate(input.asOf)) : null;
+	const personnelById = new Map(input.personnel.map((person) => [person.id, person]));
+	const activeTasksById = new Map(input.activeTasks.map((task) => [task.id, task]));
+	const latestByPersonnel = new Map<string, PersonnelIctCompletion>();
+
+	for (const completion of input.completions) {
+		if (asOfDate && completion.completedAt > asOfDate) {
+			continue;
+		}
+
+		const person = personnelById.get(completion.personnelId);
+		const task = activeTasksById.get(completion.ictTaskId);
+		if (!person || person.archivedAt || !task || !isIctTaskApplicableToMos(task, person.mos)) {
+			continue;
+		}
+
+		const existing = latestByPersonnel.get(person.id);
+		if (!existing || completion.createdAt.localeCompare(existing.createdAt) > 0) {
+			latestByPersonnel.set(person.id, completion);
+		}
+	}
+
+	return latestByPersonnel;
+}
+
+function buildDashboardRiskRows(input: {
+	personnel: Personnel[];
+	activeTasks: IctTask[];
+	completions: PersonnelIctCompletion[];
+	latestCompletions: Map<string, PersonnelIctCompletion>;
+	settings?: CriticalTasksSettingsInput | null;
+	asOf?: string | Date;
+	limit: number;
+}): {
+	soldiersBelowThresholdCount: number;
+	totalApplicable: number;
+	rows: IctAtRiskSoldierRow[];
+} {
+	const asOfDate = resolveCriticalTasksAsOfDate(input.asOf);
+	const personnelById = new Map(input.personnel.map((person) => [person.id, person]));
+	const lastIctUpdates = buildLastIctUpdateLookup(input);
+	const facts = buildIctReadinessFacts(input);
+	const bySoldier = tallyReadinessBy(facts, ICT_READINESS_ROLLUP, (fact) => fact.subjectKey);
+	const rows: IctAtRiskSoldierRow[] = [];
+	let soldiersBelowThresholdCount = 0;
+
+	for (const [personnelId, tally] of bySoldier) {
+		const person = personnelById.get(personnelId)!;
+		const lastUpdate = lastIctUpdates.get(personnelId) ?? null;
+		if (tally.percent < CRITICAL_TASK_READINESS_THRESHOLD_PERCENT) {
+			soldiersBelowThresholdCount += 1;
+		}
+
+		retainTopRows(
+			rows,
+			{
+				personnelId,
+				soldierName: soldierName(person),
+				mos: person.mos,
+				rank: person.rank,
+				groupName: person.groupName,
+				readinessPercent: tally.percent,
+				applicableCount: tally.applicable,
+				readyCount: tally.ready,
+				tasksExpiringSoonCount: tally.stateCounts.get('expiring-soon') ?? 0,
+				daysSinceLastIctUpdate: lastUpdate
+					? daysBetweenDates(dateOnlyFromTimestamp(lastUpdate.createdAt), asOfDate)
+					: null,
+				lastIctUpdateAt: lastUpdate?.createdAt ?? null
+			},
+			compareAtRiskSoldierRows,
+			input.limit
+		);
+	}
+
+	return {
+		soldiersBelowThresholdCount,
+		totalApplicable: bySoldier.size,
+		rows
+	};
+}
+
+function buildDashboardTasksBelowThreshold(input: {
+	activeTasks: IctTask[];
+	latestCompletions: Map<string, PersonnelIctCompletion>;
+	personnel: Personnel[];
+	settings?: CriticalTasksSettingsInput | null;
+	asOf?: string | Date;
+	limit: number;
+}): IctReportDashboardSummary['tasksBelowThreshold'] {
+	const tasksById = new Map(input.activeTasks.map((task) => [task.id, task]));
+	const facts = buildIctReadinessFacts(input);
+	const byTask = tallyReadinessBy(facts, ICT_READINESS_ROLLUP, (fact) => fact.requirementKey);
+	const rows: IctTaskBelowThresholdRow[] = [];
+	let count = 0;
+
+	for (const [taskId, tally] of byTask) {
+		if (tally.applicable === 0 || tally.percent >= CRITICAL_TASK_READINESS_THRESHOLD_PERCENT) {
+			continue;
+		}
+
+		count += 1;
+		const task = tasksById.get(taskId)!;
+		retainTopRows(
+			rows,
+			{
+				taskId,
+				taskCode: task.taskCode,
+				taskName: task.title,
+				percentComplete: tally.percent,
+				soldierGapCount: tally.applicable - tally.ready,
+				applicableCount: tally.applicable,
+				completeCount: tally.ready
+			},
+			compareBelowThresholdTaskRows,
+			input.limit
+		);
+	}
+
+	return {
+		thresholdPercent: CRITICAL_TASK_READINESS_THRESHOLD_PERCENT,
+		count,
+		rows
+	};
+}
+
 export function filterIctReportPersonnel(personnel: Personnel[], filters: IctReportFilters): Personnel[] {
 	const mosFilters = normalizeReportMosFilter(filters.mos);
 	return personnel.filter((person) => {
@@ -726,6 +1004,104 @@ export function buildIctReportDashboard({
 			asOf: currentAsOfDate
 		}),
 		readinessDistribution: buildReadinessDistribution(currentSnapshot.atRiskSoldierRows)
+	};
+}
+
+export function buildIctReportDashboardSummary({
+	personnel,
+	tasks,
+	completions,
+	settings = null,
+	asOf
+}: BuildIctReportSummaryInput): IctReportDashboardSummary {
+	const activeTasks = getActiveIctTasksForLibrary(tasks);
+	const currentAsOfDate = resolveCriticalTasksAsOfDate(asOf);
+	const previousAsOf = addCriticalTasksDays(currentAsOfDate, -30);
+	const latestCompletions = buildLatestIctCompletionLookup(completions, currentAsOfDate);
+	const currentReadiness = buildCriticalTasksReadinessCounts({
+		personnel,
+		activeTasks,
+		latestCompletions,
+		settings,
+		asOf: currentAsOfDate,
+		comparisonMos: selectTopMosByHeadcount(personnel, 3)
+	});
+	const previousReadiness = buildCriticalTasksReadinessCounts({
+		personnel,
+		activeTasks,
+		completions,
+		settings,
+		asOf: previousAsOf
+	});
+	const expiringSoon = countCriticalTasksExpiringSoon({
+		personnel,
+		activeTasks,
+		latestCompletions,
+		settings,
+		asOf: currentAsOfDate
+	});
+	const atRiskSoldiers = buildDashboardRiskRows({
+		personnel,
+		activeTasks,
+		completions,
+		latestCompletions,
+		settings,
+		asOf: currentAsOfDate,
+		limit: 3
+	});
+	const tasksBelowThreshold = buildDashboardTasksBelowThreshold({
+		personnel,
+		activeTasks,
+		latestCompletions,
+		settings,
+		asOf: currentAsOfDate,
+		limit: 3
+	});
+	const expiringSoonWindowDays = normalizeCriticalTasksSettings(settings).expiringSoonWarningDays;
+
+	return {
+		hasActiveTasks: activeTasks.length > 0,
+		kpis: {
+			overallReadiness: {
+				percent: currentReadiness.overall.percent,
+				deltaPercent: currentReadiness.overall.percent - previousReadiness.overall.percent,
+				readyCount: currentReadiness.overall.readyCount,
+				applicableCount: currentReadiness.overall.applicableCount
+			},
+			soldiersBelow70: {
+				count: atRiskSoldiers.soldiersBelowThresholdCount,
+				totalApplicable: atRiskSoldiers.totalApplicable,
+				thresholdPercent: CRITICAL_TASK_READINESS_THRESHOLD_PERCENT
+			},
+			tasksExpiringSoon: {
+				...expiringSoon,
+				windowDays: expiringSoonWindowDays
+			},
+			tasksBelowThreshold: {
+				count: tasksBelowThreshold.count,
+				thresholdPercent: CRITICAL_TASK_READINESS_THRESHOLD_PERCENT
+			}
+		},
+		mosReadiness: currentReadiness.mosReadiness,
+		readinessTrend: buildDashboardReadinessTrend({
+			personnel,
+			activeTasks,
+			completions,
+			settings,
+			asOf: currentAsOfDate
+		}),
+		projectedReadinessAtMonth6: buildDashboardProjectedReadiness({
+			personnel,
+			activeTasks,
+			completions,
+			settings,
+			asOf: currentAsOfDate
+		}),
+		tasksBelowThreshold,
+		atRiskSoldiers: {
+			totalApplicable: atRiskSoldiers.totalApplicable,
+			rows: atRiskSoldiers.rows
+		}
 	};
 }
 

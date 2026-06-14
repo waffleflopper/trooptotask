@@ -234,6 +234,29 @@ describe('createPlatformOrganizationDetail', () => {
 		});
 	});
 
+	it('defaults nullable legacy subscription tiers to free', async () => {
+		const deps = makeDependencies({
+			store: {
+				getOrganizationById: vi.fn(async () => organization({ tier: null })),
+				getBillingSnapshotByOrganization: vi.fn(async () => null)
+			}
+		});
+
+		const result = await createPlatformOrganizationDetail(deps).getOrganizationDetail(
+			'11111111-1111-4111-8111-111111111111'
+		);
+
+		expect(result).toMatchObject({
+			status: 'found',
+			detail: {
+				org: {
+					subscriptionTier: 'free',
+					effectiveTier: 'free'
+				}
+			}
+		});
+	});
+
 	it('returns not_found when the organization does not exist', async () => {
 		const deps = makeDependencies({
 			store: {

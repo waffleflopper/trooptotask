@@ -145,7 +145,7 @@ export function createPlatformOrganizationDetail(
 						org: {
 							id: org.id,
 							name: org.name,
-							subscriptionTier: org.tier as string,
+							subscriptionTier: org.tier ?? 'free',
 							giftTier: giftState.giftTier,
 							giftExpiresAt: giftState.giftExpiresAt,
 							suspendedAt: org.suspended_at,

@@ -7,6 +7,9 @@ import {
 	type PlatformBillingEventsStore
 } from './platformBillingEvents';
 
+const CHECKOUT_SESSION_COMPLETED_CREATED_AT_UNIX_SECONDS = 1779494400;
+const SUBSCRIPTION_UPDATED_CREATED_AT_UNIX_SECONDS = 1779626096;
+
 const retryEventDefaults: PlatformBillingEventRecord = {
 	id: 'evt_retry',
 	type: 'checkout.session.completed',
@@ -300,7 +303,7 @@ describe('PlatformBillingEvents', () => {
 			})
 		);
 		expect(retryProcessor.processRecordedEvent).toHaveBeenCalledWith(
-			expect.objectContaining({ id: 'evt_retry', created: 1779494400 }),
+			expect.objectContaining({ id: 'evt_retry', created: CHECKOUT_SESSION_COMPLETED_CREATED_AT_UNIX_SECONDS }),
 			expect.objectContaining({
 				secondaryDedupeKey: 'checkout.session.completed:cs_123',
 				eventCreatedAt: '2026-05-23T00:00:00.000Z'
@@ -465,7 +468,7 @@ describe('PlatformBillingEvents', () => {
 			expect.objectContaining({
 				id: 'evt_reconstruct',
 				type: 'customer.subscription.updated',
-				created: 1779626096,
+				created: SUBSCRIPTION_UPDATED_CREATED_AT_UNIX_SECONDS,
 				data: { object: { id: 'sub_123', metadata: { orgId: 'org-1' } } }
 			}),
 			expect.any(Object)

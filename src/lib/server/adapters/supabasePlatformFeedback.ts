@@ -108,7 +108,6 @@ function createGitHubIssueBody(input: PlatformFeedbackMirrorInput): string {
 	if (input.pageSection) bodyParts.push(`**Section:** ${input.pageSection}`);
 	if (input.pageUrl) bodyParts.push(`**Page:** ${input.pageUrl}`);
 	if (input.organizationName) bodyParts.push(`**Organization:** ${input.organizationName}`);
-	if (input.userEmail) bodyParts.push(`**Submitted by:** ${input.userEmail}`);
 	bodyParts.push(`**Date:** ${new Date().toISOString()}`);
 
 	return [`## ${categoryTitle}`, ...bodyParts].join('\n');

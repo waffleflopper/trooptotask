@@ -10,6 +10,7 @@ import {
 	type ArchiveRetentionCleanupResult,
 	type ArchiveRetentionOrgConfig
 } from '$lib/server/core/useCases/archiveRetention';
+import { mapArchiveRetentionOrgConfigs } from '$lib/server/core/useCases/retentionSupport';
 
 interface ArchiveRetentionEndpointEnv {
 	CLEANUP_SECRET?: string;
@@ -44,10 +45,7 @@ export const GET: RequestHandler = async ({ request }) => {
 		throw error(500, orgError.message);
 	}
 
-	const orgConfigs = (orgs ?? []).map((org) => ({
-		id: org.id as string,
-		retentionMonths: org.archive_retention_months as number | null
-	}));
+	const orgConfigs = mapArchiveRetentionOrgConfigs(orgs ?? []);
 	const store = createSupabaseDataStore(admin);
 	const storage = createSupabaseStorageAdapter(admin);
 

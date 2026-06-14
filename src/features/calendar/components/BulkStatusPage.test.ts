@@ -143,4 +143,42 @@ describe('BulkStatusPage', () => {
 			expect.objectContaining({ rangeStart: '2026-01-01', rangeEnd: '2026-01-31' })
 		);
 	});
+
+	it('does not merge Remove review ranges after the organization changes', async () => {
+		let resolveRange: ((value: Awaited<ReturnType<typeof loadCalendarRangeMock>>) => void) | undefined;
+		loadCalendarRangeMock.mockImplementation(
+			() =>
+				new Promise((resolve) => {
+					resolveRange = resolve;
+				})
+		);
+		pageMock.url = new URL('http://localhost/org/org-a/calendar/bulk?tab=remove');
+		orgContextMock.orgId = 'org-a';
+		orgContextMock.orgUrlSegment = 'org-a';
+
+		renderPage();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Load Remove Range' }));
+
+		await waitFor(() => {
+			expect(loadCalendarRangeMock).toHaveBeenCalledWith('org-a', {
+				rangeStart: '2026-01-01',
+				rangeEnd: '2026-01-31'
+			});
+		});
+		orgContextMock.orgId = 'org-b';
+		resolveRange?.({
+			rangeStart: '2026-01-01',
+			rangeEnd: '2026-01-31',
+			availabilityEntries: [],
+			specialDays: [],
+			dailyAssignments: [],
+			advancedDutyEvents: []
+		});
+
+		await waitFor(() => {
+			expect(screen.getByRole('status').textContent).toContain('Remove range load failed');
+		});
+		expect(mergeCalendarRangeIntoStoresMock).not.toHaveBeenCalled();
+	});
 });

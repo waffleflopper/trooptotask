@@ -23,6 +23,14 @@
 		personnel: Personnel[];
 	}
 
+	interface ReviewCriteria {
+		personnelIds: Set<string>;
+		selectedCount: number;
+		statusTypeId: string;
+		startDate: string;
+		endDate: string;
+	}
+
 	interface Props {
 		personnelByGroup: GroupData[];
 		statusTypes: StatusType[];
@@ -43,6 +51,7 @@
 		onComplete
 	}: Props = $props();
 
+	const MAX_REMOVE_RANGE_DAYS = 366;
 	const todayStr = formatDate(new Date());
 
 	// Selection state
@@ -53,6 +62,7 @@
 	// Step state
 	let step = $state<'select' | 'confirm'>('select');
 	let matchResult = $state<ClassifiedOverlaps>({ exact: [], partial: [] });
+	let reviewCriteria = $state<ReviewCriteria | null>(null);
 	let isLoadingMatches = $state(false);
 	let matchLoadError = $state<string | null>(null);
 	let isSubmitting = $state(false);
@@ -61,13 +71,24 @@
 	const selection = useDataTableSelection<Personnel>({ rows: () => allPersonnel, rowKey: (p) => p.id });
 
 	// ---- Validation ----
-	const range = $derived(validateDateRange(startDate, endDate));
+	const range = $derived.by(() => {
+		const validated = validateDateRange(startDate, endDate);
+		if (validated.valid && validated.dayCount > MAX_REMOVE_RANGE_DAYS) {
+			return {
+				valid: false,
+				dayCount: validated.dayCount,
+				error: `Remove date range cannot exceed ${MAX_REMOVE_RANGE_DAYS} days`
+			};
+		}
+		return validated;
+	});
 	const selectedStatusId = $derived.by(() => {
 		if (statusTypes.some((s) => s.id === selectedStatusSelection)) return selectedStatusSelection;
 		return statusTypes[0]?.id ?? '';
 	});
 	const isValid = $derived(!!selectedStatusId && range.valid && selection.selectedCount > 0);
 	const selectedStatus = $derived(statusTypes.find((s) => s.id === selectedStatusId));
+	const reviewStatus = $derived(statusTypes.find((s) => s.id === reviewCriteria?.statusTypeId));
 	const personnelMap = $derived(new SvelteMap(personnelList.map((p) => [p.id, p])));
 
 	function formatDateDisplay(dateStr: string): string {
@@ -85,16 +106,28 @@
 	async function handleFindMatching() {
 		if (!isValid || isLoadingMatches) return;
 
+		const criteria: ReviewCriteria = {
+			personnelIds: new Set(Array.from(selection.selectedKeys, (id) => String(id))),
+			selectedCount: selection.selectedCount,
+			statusTypeId: selectedStatusId,
+			startDate,
+			endDate
+		};
+
 		isLoadingMatches = true;
 		matchLoadError = null;
 		try {
-			const loadedEntries = await loadAvailabilityRange({ rangeStart: startDate, rangeEnd: endDate });
-			matchResult = classifyAvailabilityOverlaps(loadedEntries, {
-				personnelIds: selection.selectedKeys,
-				statusTypeId: selectedStatusId,
-				startDate,
-				endDate
+			const loadedEntries = await loadAvailabilityRange({
+				rangeStart: criteria.startDate,
+				rangeEnd: criteria.endDate
 			});
+			matchResult = classifyAvailabilityOverlaps(loadedEntries, {
+				personnelIds: criteria.personnelIds,
+				statusTypeId: criteria.statusTypeId,
+				startDate: criteria.startDate,
+				endDate: criteria.endDate
+			});
+			reviewCriteria = criteria;
 			step = 'confirm';
 		} catch {
 			matchLoadError = 'Unable to load status entries for the selected date range. Try again.';
@@ -106,6 +139,7 @@
 	function handleBack() {
 		step = 'select';
 		matchResult = { exact: [], partial: [] };
+		reviewCriteria = null;
 		matchLoadError = null;
 	}
 
@@ -253,15 +287,17 @@
 				</div>
 
 				<div class="confirm-criteria">
-					{#if selectedStatus}
-						<CalendarStatusBadge statusType={selectedStatus}>{selectedStatus.name}</CalendarStatusBadge>
+					{#if reviewStatus}
+						<CalendarStatusBadge statusType={reviewStatus}>{reviewStatus.name}</CalendarStatusBadge>
 					{/if}
-					<UiBadge variant="outline">{selection.selectedCount} selected</UiBadge>
-					<UiBadge variant="outline">
-						{startDate === endDate
-							? formatDateDisplay(startDate)
-							: `${formatDateDisplay(startDate)} to ${formatDateDisplay(endDate)}`}
-					</UiBadge>
+					{#if reviewCriteria}
+						<UiBadge variant="outline">{reviewCriteria.selectedCount} selected</UiBadge>
+						<UiBadge variant="outline">
+							{reviewCriteria.startDate === reviewCriteria.endDate
+								? formatDateDisplay(reviewCriteria.startDate)
+								: `${formatDateDisplay(reviewCriteria.startDate)} to ${formatDateDisplay(reviewCriteria.endDate)}`}
+						</UiBadge>
+					{/if}
 				</div>
 
 				<div class="confirm-content">

@@ -9,6 +9,7 @@
 	import { NativeSelect } from '$lib/components/ui/native-select';
 	import { availabilityStore } from '$features/calendar/stores/availability.svelte';
 	import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
+	import { toastStore } from '$lib/stores/toast.svelte';
 	import {
 		DA6_AVAILABILITY_TREATMENT_OPTIONS,
 		DA6_TREATMENT_NONE,
@@ -95,45 +96,85 @@
 		editStatusOpen = true;
 	}
 
+	function showStatusMutationError(message: string, error?: unknown) {
+		toastStore.error(error instanceof Error ? error.message : message);
+	}
+
 	async function addStatus() {
 		if (!canMutate || !newStatusName.trim()) return;
-		await statusTypesStore.add({
-			name: newStatusName.trim(),
-			color: newStatusColor,
-			textColor: newStatusTextColor,
-			da6AvailabilityTreatment: toDa6AvailabilityTreatment(newStatusDa6Treatment),
-			da6TreatmentReviewed: true
-		});
+		try {
+			const created = await statusTypesStore.add({
+				name: newStatusName.trim(),
+				color: newStatusColor,
+				textColor: newStatusTextColor,
+				da6AvailabilityTreatment: toDa6AvailabilityTreatment(newStatusDa6Treatment),
+				da6TreatmentReviewed: true
+			});
+			if (!created) {
+				showStatusMutationError('Failed to add status type');
+				return;
+			}
+		} catch (error) {
+			showStatusMutationError('Failed to add status type', error);
+			return;
+		}
 		resetAddStatusForm();
 		addStatusOpen = false;
 	}
 
 	async function saveEditStatus() {
-		if (!editingStatus || !editStatusName.trim()) return;
-		await statusTypesStore.update(editingStatus.id, {
-			name: editStatusName.trim(),
-			color: editStatusColor,
-			textColor: editStatusTextColor,
-			da6AvailabilityTreatment: toDa6AvailabilityTreatment(editStatusDa6Treatment),
-			da6TreatmentReviewed: true
-		});
+		if (!canMutate || !editingStatus || !editStatusName.trim()) return;
+		try {
+			const saved = await statusTypesStore.update(editingStatus.id, {
+				name: editStatusName.trim(),
+				color: editStatusColor,
+				textColor: editStatusTextColor,
+				da6AvailabilityTreatment: toDa6AvailabilityTreatment(editStatusDa6Treatment),
+				da6TreatmentReviewed: true
+			});
+			if (!saved) {
+				showStatusMutationError('Failed to save status type');
+				return;
+			}
+		} catch (error) {
+			showStatusMutationError('Failed to save status type', error);
+			return;
+		}
 		editStatusOpen = false;
 		editingStatus = null;
 	}
 
 	async function deleteStatus(s: StatusType) {
 		if (!canMutate) return;
-		await statusTypesStore.remove(s.id);
-		availabilityStore.removeByStatusTypeLocal(s.id);
+		try {
+			const deleted = await statusTypesStore.remove(s.id);
+			if (!deleted) {
+				showStatusMutationError('Failed to delete status type');
+				return;
+			}
+		} catch (error) {
+			showStatusMutationError('Failed to delete status type', error);
+			return;
+		}
+		try {
+			availabilityStore.removeByStatusTypeLocal(s.id);
+		} catch (error) {
+			showStatusMutationError('Status type deleted, but local calendar cleanup failed', error);
+		}
 		confirmDeleteStatus = null;
 	}
 
 	async function markStatusDa6Reviewed(status: StatusType) {
 		if (!canMutate) return;
-		await statusTypesStore.update(status.id, {
-			da6AvailabilityTreatment: null,
-			da6TreatmentReviewed: true
-		});
+		try {
+			const saved = await statusTypesStore.update(status.id, {
+				da6AvailabilityTreatment: null,
+				da6TreatmentReviewed: true
+			});
+			if (!saved) showStatusMutationError('Failed to confirm DA6 treatment');
+		} catch (error) {
+			showStatusMutationError('Failed to confirm DA6 treatment', error);
+		}
 	}
 
 	function handleNewDa6TreatmentChange(event: Event) {

@@ -19,12 +19,12 @@ function toWorkbookBuffer(buffer: ArrayBuffer): WorkbookLoadBuffer {
 }
 
 describe('workbook export helpers', () => {
-	it('resolves ExcelJS workbook constructors from direct and default module shapes', () => {
+	it('resolves ExcelJS workbook constructors from the module export shape', () => {
 		class FakeWorkbook {}
 
 		expect(resolveExcelWorkbookConstructor<{ marker?: string }>({ Workbook: FakeWorkbook })).toBe(FakeWorkbook);
-		expect(resolveExcelWorkbookConstructor<{ marker?: string }>({ default: { Workbook: FakeWorkbook } })).toBe(
-			FakeWorkbook
+		expect(() => resolveExcelWorkbookConstructor({ default: { Workbook: FakeWorkbook } })).toThrow(
+			'ExcelJS Workbook constructor is unavailable'
 		);
 		expect(() => resolveExcelWorkbookConstructor({})).toThrow('ExcelJS Workbook constructor is unavailable');
 	});

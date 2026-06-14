@@ -85,7 +85,7 @@ export interface PlatformFeedback {
 | Route tests | `npx vitest run src/routes/api/feedback/server.test.ts` | exits 0 |
 | Use-case tests | `npx vitest run src/lib/server/core/useCases/platformFeedback.test.ts` | exits 0 |
 | Admin feedback tests | `npx vitest run src/routes/admin/feedback/page.server.test.ts` | exits 0 |
-| Provider-leak grep | `rg -n "getAdminClient\|beta_feedback\|api.github.com\|GITHUB_FEEDBACK_TOKEN\|createGitHubIssue\|resolveFeedbackOrganizationContext" src/routes/api/feedback/+server.ts` | no matches |
+| Provider-leak grep | `rg -n -e 'getAdminClient' -e 'beta_feedback' -e 'api.github.com' -e 'GITHUB_FEEDBACK_TOKEN' -e 'createGitHubIssue' -e 'resolveFeedbackOrganizationContext' src/routes/api/feedback/+server.ts` | no matches |
 | Format | `npm run format` | exits 0 |
 | Lint | `npm run lint` | exits 0 |
 | Governance | `npm run governance:check` | exits 0 |
@@ -192,7 +192,7 @@ second factory such as `createSupabasePlatformFeedbackForSubmission()` that
 constructs the service from `getAdminClient()` in the adapter module.
 
 **Verify**:
-`rg -n "getAdminClient\|beta_feedback\|api.github.com\|GITHUB_FEEDBACK_TOKEN\|createGitHubIssue\|resolveFeedbackOrganizationContext" src/routes/api/feedback/+server.ts`
+`rg -n -e 'getAdminClient' -e 'beta_feedback' -e 'api.github.com' -e 'GITHUB_FEEDBACK_TOKEN' -e 'createGitHubIssue' -e 'resolveFeedbackOrganizationContext' src/routes/api/feedback/+server.ts`
 returns no matches.
 
 ### Step 4: Move route behavior tests down

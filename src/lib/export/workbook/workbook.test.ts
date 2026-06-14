@@ -23,8 +23,8 @@ describe('workbook export helpers', () => {
 		class FakeWorkbook {}
 
 		expect(resolveExcelWorkbookConstructor<{ marker?: string }>({ Workbook: FakeWorkbook })).toBe(FakeWorkbook);
-		expect(() => resolveExcelWorkbookConstructor({ default: { Workbook: FakeWorkbook } })).toThrow(
-			'ExcelJS Workbook constructor is unavailable'
+		expect(resolveExcelWorkbookConstructor<{ marker?: string }>({ default: { Workbook: FakeWorkbook } })).toBe(
+			FakeWorkbook
 		);
 		expect(() => resolveExcelWorkbookConstructor({})).toThrow('ExcelJS Workbook constructor is unavailable');
 	});

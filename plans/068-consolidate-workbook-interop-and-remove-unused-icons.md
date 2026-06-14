@@ -8,7 +8,7 @@
 > the index.
 >
 > **Drift check (run first)**:
-> `git diff --stat 9a1e439b..HEAD -- src/lib/export/workbook/index.ts src/lib/export/workbook/workbook.test.ts src/lib/utils/csvParser.ts src/lib/utils/csvParser.test.ts src/lib/components/ui/icons`
+> `git diff --stat 9a1e439b..HEAD -- src/lib/export/workbook src/lib/utils src/lib/components/ui/icons`
 > If any in-scope file changed since this plan was written, compare the
 > "Current state" excerpts against the live code before proceeding; on a
 > mismatch, treat it as a STOP condition.
@@ -73,8 +73,8 @@ async function parseXlsxBuffer(buffer: ArrayBuffer): Promise<string[][]> {
 | Purpose | Command | Expected on success |
 | --- | --- | --- |
 | Workbook tests | `npx vitest run src/lib/export/workbook/workbook.test.ts src/lib/utils/csvParser.test.ts` | exits 0 |
-| Icon import grep | `rg -n "\\$lib/components/ui/icons\|from ['\\\"]\\$lib/components/ui/icons" src` | no matches |
-| ExcelJS duplication grep | `rg -n "ExcelJS Workbook constructor is unavailable\|default\\?\\.Workbook\|WorkbookCtor" src/lib/export/workbook/index.ts src/lib/utils/csvParser.ts src/lib/utils` | one shared helper path only |
+| Icon import grep | `rg -n -e "\\$lib/components/ui/icons" -e "from ['\\\"]\\$lib/components/ui/icons" src` | no matches |
+| ExcelJS duplication grep | `rg -n -e "ExcelJS Workbook constructor is unavailable" -e "default\\?\\.Workbook" -e "WorkbookCtor" src/lib/export/workbook/index.ts src/lib/utils/csvParser.ts src/lib/utils` | one shared helper path only |
 | Svelte autofix, if any icon files are edited instead of deleted | `svelte-autofixer` | no issues or suggestions |
 | Format | `npm run format` | exits 0 |
 | Lint | `npm run lint` | exits 0 |
@@ -174,7 +174,7 @@ Do not change active Lucide imports such as
 `@lucide/svelte/icons/pencil`.
 
 **Verify**:
-`rg -n "\$lib/components/ui/icons\|from ['\"]\$lib/components/ui/icons" src`
+`rg -n -e "\$lib/components/ui/icons" -e "from ['\"]\$lib/components/ui/icons" src`
 returns no matches.
 
 ### Step 4: Run the full gate

@@ -80,7 +80,7 @@ export const GET: RequestHandler = async ({ request }) => {
 | --- | --- | --- |
 | Retention tests | `npx vitest run src/lib/server/core/useCases/archiveRetention.test.ts src/lib/server/core/useCases/onboardingRetention.test.ts` | exits 0 |
 | Endpoint tests | `npx vitest run src/routes/api/cleanup-archived-records/server.test.ts src/routes/api/cleanup-expired-onboardings/server.test.ts` | exits 0 |
-| Duplication grep | `rg -n "function retentionCutoff\|function notifyAdminsViaStore" src/lib/server/core/useCases` | shared helper only |
+| Duplication grep | `rg -n -e 'function retentionCutoff' -e 'function notifyAdminsViaStore' src/lib/server/core/useCases` | shared helper only |
 | Format | `npm run format` | exits 0 |
 | Lint | `npm run lint` | exits 0 |
 | Governance | `npm run governance:check` | exits 0 |

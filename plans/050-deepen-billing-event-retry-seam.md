@@ -18,7 +18,7 @@
 - **Priority**: P1
 - **Effort**: M
 - **Risk**: MED
-- **Depends on**: none
+- **Depends on**: Plan 059 governance allowlist for admin-provider routes
 - **Category**: architecture
 - **Planned at**: commit `9a1e439b`, 2026-06-13 AKDT
 
@@ -57,7 +57,7 @@ same Platform Administration module as the billing-event ledger reads.
 | Install, if needed      | `npm ci`                                                                                                                                                                    | exit 0              |
 | Focused route test      | `npx vitest run src/routes/admin/billing-events/page.server.test.ts`                                                                                                        | all pass            |
 | Focused use-case tests  | `npx vitest run src/lib/server/core/useCases/platformBillingEvents.test.ts src/lib/server/adapters/supabasePlatformBillingEvents.test.ts`                                   | all pass            |
-| Provider-leak grep      | `rg -n "SupabaseClient\|_recordRetryableStripeWebhookEventAttempt\|_processRecordedStripeWebhookEvent\|ctx\\.adminClient as SupabaseClient\|type Stripe" src/routes/admin/billing-events/+page.server.ts` | no matches          |
+| Provider-leak grep      | `rg -n -e 'SupabaseClient' -e '_recordRetryableStripeWebhookEventAttempt' -e '_processRecordedStripeWebhookEvent' -e 'ctx\\.adminClient as SupabaseClient' -e 'type Stripe' src/routes/admin/billing-events/+page.server.ts` | no matches          |
 | Format                  | `npm run format`                                                                                                                                                           | exit 0              |
 | Lint                    | `npm run lint`                                                                                                                                                             | exit 0              |
 | Governance              | `npm run governance:check`                                                                                                                                                  | exit 0              |

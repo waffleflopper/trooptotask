@@ -85,7 +85,7 @@ const {
 | Success route tests | `npx vitest run src/routes/org/[orgId]/billing/success/page.server.test.ts` | exits 0 |
 | Cancel route tests | `npx vitest run src/routes/org/[orgId]/billing/cancel/server.test.ts` | exits 0 |
 | Billing use-case tests | `npx vitest run src/lib/server/core/useCases/billingReconciliation.test.ts src/lib/server/core/useCases/billingSnapshotTransitions.test.ts src/lib/server/core/useCases/billingOrganization.test.ts` | exits 0 |
-| Provider-leak grep | `rg -n "getAdminClient\|retrieveCheckoutSessionForRecovery\|createSupabaseBillingReconciliationStore\|createStripeBillingReconciliationProvider\|createSupabaseSubscriptionAdapter\|createSupabaseBillingSnapshotTransitionStore" src/routes/org/[orgId]/billing/success/+page.server.ts src/routes/org/[orgId]/billing/cancel/+server.ts` | no matches |
+| Provider-leak grep | `rg -n -e 'getAdminClient' -e 'retrieveCheckoutSessionForRecovery' -e 'createSupabaseBillingReconciliationStore' -e 'createStripeBillingReconciliationProvider' -e 'createSupabaseSubscriptionAdapter' -e 'createSupabaseBillingSnapshotTransitionStore' src/routes/org/[orgId]/billing/success/+page.server.ts src/routes/org/[orgId]/billing/cancel/+server.ts` | no matches |
 | Format | `npm run format` | exits 0 |
 | Lint | `npm run lint` | exits 0 |
 | Governance | `npm run governance:check` | exits 0 |
@@ -177,7 +177,7 @@ The route may import the adapter factory, but it must not import any of those
 provider details directly.
 
 **Verify**:
-`rg -n "getAdminClient\|retrieveCheckoutSessionForRecovery\|createSupabaseBillingReconciliationStore\|createStripeBillingReconciliationProvider\|createSupabaseSubscriptionAdapter" src/routes/org/[orgId]/billing/success/+page.server.ts`
+`rg -n -e 'getAdminClient' -e 'retrieveCheckoutSessionForRecovery' -e 'createSupabaseBillingReconciliationStore' -e 'createStripeBillingReconciliationProvider' -e 'createSupabaseSubscriptionAdapter' src/routes/org/[orgId]/billing/success/+page.server.ts`
 returns no matches.
 
 ### Step 3: Thin checkout success route recovery

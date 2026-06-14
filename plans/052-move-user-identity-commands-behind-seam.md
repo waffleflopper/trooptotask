@@ -56,7 +56,7 @@ should validate input, call a `PlatformUserIdentityCommands` seam, and map the r
 | Install, if needed         | `npm ci`                                                                                                                                  | exit 0              |
 | Focused route test         | `npx vitest run src/routes/admin/users/[userId]/page.server.test.ts`                                                                      | all pass            |
 | Focused use-case tests     | `npx vitest run src/lib/server/core/useCases/platformUserIdentityCommands.test.ts src/lib/server/adapters/supabasePlatformUserIdentityCommands.test.ts` | all pass            |
-| Provider-command grep      | `rg -n "auth\\.admin|getUserById|resetPasswordForEmail|inviteUserByEmail" src/routes/admin/users/[userId]/+page.server.ts`              | no matches          |
+| Provider-command grep      | `rg -n -e 'auth\\.admin' -e 'getUserById' -e 'resetPasswordForEmail' -e 'inviteUserByEmail' src/routes/admin/users/[userId]/+page.server.ts` | no matches          |
 | Format                     | `npm run format`                                                                                                                          | exit 0              |
 | Lint                       | `npm run lint`                                                                                                                            | exit 0              |
 | Governance                 | `npm run governance:check`                                                                                                                 | exit 0              |
@@ -219,7 +219,7 @@ The route should no longer:
 The route may continue to import and use `PlatformUserDirectory` and `PlatformAudit` for the load.
 
 **Verify**:
-`rg -n "auth\\.admin|getUserById|resetPasswordForEmail|inviteUserByEmail" src/routes/admin/users/[userId]/+page.server.ts`
+`rg -n -e 'auth\\.admin' -e 'getUserById' -e 'resetPasswordForEmail' -e 'inviteUserByEmail' src/routes/admin/users/[userId]/+page.server.ts`
 returns no matches.
 
 ### Step 5: Update route tests around the command seam

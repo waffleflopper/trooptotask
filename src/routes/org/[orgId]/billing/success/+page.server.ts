@@ -2,19 +2,11 @@ import type { PageServerLoad } from './$types';
 import type { UseCaseContext } from '$lib/server/core/ports';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import { createSupabaseBillingReconciliationStore } from '$lib/server/adapters/supabaseBillingReconciliation';
-import { createSupabaseSubscriptionAdapter } from '$lib/server/adapters/supabaseSubscription';
-import { getConfiguredPriceCatalog } from '$lib/server/billing/priceCatalog';
+import { createSupabaseBillingCheckoutRecoveryPorts } from '$lib/server/adapters/billingCheckoutRecovery';
 import { readCurrentBillingSnapshot } from '$lib/server/core/useCases/billingState';
-import {
-	CHECKOUT_ATTEMPTS_TABLE,
-	markCheckoutAttemptCompleted,
-	type CheckoutAttemptRow
-} from '$lib/server/core/useCases/billingCheckoutAttempts';
-import { reconcileOrganizationBilling } from '$lib/server/core/useCases/billingReconciliation';
+import { CHECKOUT_ATTEMPTS_TABLE, type CheckoutAttemptRow } from '$lib/server/core/useCases/billingCheckoutAttempts';
+import { recoverCompletedCheckout } from '$lib/server/core/useCases/billingCheckoutRecovery';
 import { requireGovernancePolicy } from '$lib/server/core/useCases/governancePolicy';
-import { getAdminClient } from '$lib/server/supabase';
-import { createStripeBillingReconciliationProvider, retrieveCheckoutSessionForRecovery } from '$lib/server/stripe';
 import type { BillingSnapshot } from '$lib/types/subscription';
 
 export type CheckoutSuccessState = 'active' | 'pending' | 'payment_incomplete' | 'still_syncing';
@@ -128,7 +120,7 @@ export async function _loadCheckoutSuccessPageData(
 			await requireGovernancePolicy(ctx, POLICY_ACTION_CATALOG.organization.manageBilling, {
 				enforceReadOnlyOverlay: false
 			});
-			const recovered = await (input.recoverCheckoutSuccess ?? _recoverCheckoutSuccessFromStripe)(ctx, {
+			const recovered = await (input.recoverCheckoutSuccess ?? _recoverCheckoutSuccess)(ctx, {
 				checkoutAttempt
 			});
 			if (recovered) {
@@ -159,31 +151,17 @@ export async function _loadCheckoutSuccessPageData(
 	};
 }
 
-export async function _recoverCheckoutSuccessFromStripe(
+export async function _recoverCheckoutSuccess(
 	ctx: CheckoutSuccessContext,
 	input: { checkoutAttempt: CheckoutAttemptRow; now?: Date }
 ): Promise<boolean> {
-	const attempt = input.checkoutAttempt;
-	if (!attempt.stripe_checkout_session_id || attempt.status !== 'in_progress') return false;
-
-	const session = await retrieveCheckoutSessionForRecovery(attempt.stripe_checkout_session_id);
-	if (session.status !== 'complete' || session.paymentStatus !== 'paid' || !session.subscriptionId) return false;
-	if (session.metadata?.orgId !== ctx.auth.orgId) return false;
-	if (session.metadata?.checkoutAttemptId !== attempt.id) return false;
-
-	const adminClient = getAdminClient();
-	await reconcileOrganizationBilling({
+	return recoverCompletedCheckout({
+		ports: createSupabaseBillingCheckoutRecoveryPorts(ctx.auth.orgId),
+		store: ctx.rawStore,
 		orgId: ctx.auth.orgId,
-		store: createSupabaseBillingReconciliationStore(adminClient),
-		provider: createStripeBillingReconciliationProvider(),
-		subscription: createSupabaseSubscriptionAdapter(adminClient, ctx.auth.orgId),
-		priceCatalog: getConfiguredPriceCatalog(),
-		dryRun: false
+		checkoutAttempt: input.checkoutAttempt,
+		now: input.now
 	});
-
-	await markCheckoutAttemptCompleted(ctx.rawStore, ctx.auth.orgId, attempt.id, input.now ?? new Date());
-
-	return true;
 }
 
 export const load: PageServerLoad = async ({ params, locals, cookies, url }) =>

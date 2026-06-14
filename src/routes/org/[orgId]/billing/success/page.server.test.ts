@@ -7,22 +7,18 @@ import type { BillingSnapshot } from '$lib/types/subscription';
 
 const {
 	readCurrentBillingSnapshotMock,
-	retrieveCheckoutSessionForRecoveryMock,
-	reconcileOrganizationBillingMock,
-	getAdminClientMock,
-	createSupabaseBillingReconciliationStoreMock,
-	createStripeBillingReconciliationProviderMock,
-	createSupabaseSubscriptionAdapterMock,
-	getConfiguredPriceCatalogMock
+	recoverCompletedCheckoutMock,
+	createSupabaseBillingCheckoutRecoveryPortsMock,
+	billingCheckoutRecoveryPorts
 } = vi.hoisted(() => ({
 	readCurrentBillingSnapshotMock: vi.fn(),
-	retrieveCheckoutSessionForRecoveryMock: vi.fn(),
-	reconcileOrganizationBillingMock: vi.fn(),
-	getAdminClientMock: vi.fn(() => ({ admin: true })),
-	createSupabaseBillingReconciliationStoreMock: vi.fn(() => ({ store: true })),
-	createStripeBillingReconciliationProviderMock: vi.fn(() => ({ provider: true })),
-	createSupabaseSubscriptionAdapterMock: vi.fn(() => ({ subscription: true })),
-	getConfiguredPriceCatalogMock: vi.fn(() => ({ prices: [] }))
+	recoverCompletedCheckoutMock: vi.fn(),
+	createSupabaseBillingCheckoutRecoveryPortsMock: vi.fn(),
+	billingCheckoutRecoveryPorts: {
+		retrieveCheckoutSession: vi.fn(),
+		reconcileOrganizationBilling: vi.fn(),
+		markCheckoutAttemptCompleted: vi.fn()
+	}
 }));
 
 vi.mock('$lib/server/core/useCases/billingState', async () => {
@@ -36,74 +32,24 @@ vi.mock('$lib/server/core/useCases/billingState', async () => {
 	};
 });
 
-vi.mock('$lib/server/stripe', async () => {
-	const actual = await vi.importActual<typeof import('$lib/server/stripe')>('$lib/server/stripe');
-
-	return {
-		...actual,
-		retrieveCheckoutSessionForRecovery: retrieveCheckoutSessionForRecoveryMock,
-		createStripeBillingReconciliationProvider: createStripeBillingReconciliationProviderMock
-	};
-});
-
-vi.mock('$lib/server/core/useCases/billingReconciliation', async () => {
-	const actual = await vi.importActual<typeof import('$lib/server/core/useCases/billingReconciliation')>(
-		'$lib/server/core/useCases/billingReconciliation'
+vi.mock('$lib/server/core/useCases/billingCheckoutRecovery', async () => {
+	const actual = await vi.importActual<typeof import('$lib/server/core/useCases/billingCheckoutRecovery')>(
+		'$lib/server/core/useCases/billingCheckoutRecovery'
 	);
 
 	return {
 		...actual,
-		reconcileOrganizationBilling: reconcileOrganizationBillingMock
+		recoverCompletedCheckout: recoverCompletedCheckoutMock
 	};
 });
 
-vi.mock('$lib/server/supabase', async () => {
-	const actual = await vi.importActual<typeof import('$lib/server/supabase')>('$lib/server/supabase');
-
+vi.mock('$lib/server/adapters/billingCheckoutRecovery', () => {
 	return {
-		...actual,
-		getAdminClient: getAdminClientMock
+		createSupabaseBillingCheckoutRecoveryPorts: createSupabaseBillingCheckoutRecoveryPortsMock
 	};
 });
 
-vi.mock('$lib/server/adapters/supabaseBillingReconciliation', async () => {
-	const actual = await vi.importActual<typeof import('$lib/server/adapters/supabaseBillingReconciliation')>(
-		'$lib/server/adapters/supabaseBillingReconciliation'
-	);
-
-	return {
-		...actual,
-		createSupabaseBillingReconciliationStore: createSupabaseBillingReconciliationStoreMock
-	};
-});
-
-vi.mock('$lib/server/adapters/supabaseSubscription', async () => {
-	const actual = await vi.importActual<typeof import('$lib/server/adapters/supabaseSubscription')>(
-		'$lib/server/adapters/supabaseSubscription'
-	);
-
-	return {
-		...actual,
-		createSupabaseSubscriptionAdapter: createSupabaseSubscriptionAdapterMock
-	};
-});
-
-vi.mock('$lib/server/billing/priceCatalog', async () => {
-	const actual = await vi.importActual<typeof import('$lib/server/billing/priceCatalog')>(
-		'$lib/server/billing/priceCatalog'
-	);
-
-	return {
-		...actual,
-		getConfiguredPriceCatalog: getConfiguredPriceCatalogMock
-	};
-});
-
-import {
-	_buildCheckoutSuccessStatus,
-	_loadCheckoutSuccessPageData,
-	_recoverCheckoutSuccessFromStripe
-} from './+page.server';
+import { _buildCheckoutSuccessStatus, _loadCheckoutSuccessPageData, _recoverCheckoutSuccess } from './+page.server';
 
 function snapshot(overrides: Partial<BillingSnapshot> = {}): BillingSnapshot {
 	return {
@@ -232,13 +178,9 @@ describe('_buildCheckoutSuccessStatus', () => {
 describe('billing success page server load', () => {
 	beforeEach(() => {
 		readCurrentBillingSnapshotMock.mockReset();
-		retrieveCheckoutSessionForRecoveryMock.mockReset();
-		reconcileOrganizationBillingMock.mockReset();
-		getAdminClientMock.mockClear();
-		createSupabaseBillingReconciliationStoreMock.mockClear();
-		createStripeBillingReconciliationProviderMock.mockClear();
-		createSupabaseSubscriptionAdapterMock.mockClear();
-		getConfiguredPriceCatalogMock.mockClear();
+		recoverCompletedCheckoutMock.mockReset();
+		createSupabaseBillingCheckoutRecoveryPortsMock.mockReset();
+		createSupabaseBillingCheckoutRecoveryPortsMock.mockReturnValue(billingCheckoutRecoveryPorts);
 	});
 
 	it('denies non-owner checkout success loads through billing policy', async () => {
@@ -397,37 +339,30 @@ describe('billing success page server load', () => {
 		});
 	});
 
-	it('keeps checkout attempts retryable when recovery reconciliation fails', async () => {
+	it('delegates default checkout recovery to the adapter-backed use case', async () => {
 		const ctx = createTestContext({
 			auth: {
 				orgId: 'org-1'
 			}
 		});
-		ctx.rawStore.seed(CHECKOUT_ATTEMPTS_TABLE, [attempt() as unknown as Record<string, unknown>]);
-		retrieveCheckoutSessionForRecoveryMock.mockResolvedValue({
-			status: 'complete',
-			paymentStatus: 'paid',
-			subscriptionId: 'sub_success',
-			metadata: {
-				orgId: 'org-1',
-				checkoutAttemptId: 'attempt-success-return'
-			}
-		});
-		reconcileOrganizationBillingMock.mockRejectedValue(new Error('reconciliation unavailable'));
+		const checkoutAttempt = attempt();
+		const now = new Date('2026-05-24T12:00:00.000Z');
+		recoverCompletedCheckoutMock.mockResolvedValue(true);
 
 		await expect(
-			_recoverCheckoutSuccessFromStripe(ctx, {
-				checkoutAttempt: attempt(),
-				now: new Date('2026-05-24T12:00:00.000Z')
+			_recoverCheckoutSuccess(ctx, {
+				checkoutAttempt,
+				now
 			})
-		).rejects.toThrow('reconciliation unavailable');
+		).resolves.toBe(true);
 
-		const storedAttempt = await ctx.rawStore.findOne<CheckoutAttemptRow>(CHECKOUT_ATTEMPTS_TABLE, 'org-1', {
-			id: 'attempt-success-return'
-		});
-		expect(storedAttempt).toMatchObject({
-			status: 'in_progress',
-			completed_at: null
+		expect(createSupabaseBillingCheckoutRecoveryPortsMock).toHaveBeenCalledWith('org-1');
+		expect(recoverCompletedCheckoutMock).toHaveBeenCalledWith({
+			ports: billingCheckoutRecoveryPorts,
+			store: ctx.rawStore,
+			orgId: 'org-1',
+			checkoutAttempt,
+			now
 		});
 	});
 });

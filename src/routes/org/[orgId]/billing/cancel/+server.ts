@@ -2,12 +2,10 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { isBillingEnabled } from '$lib/config/billing';
-import { createSupabaseBillingSnapshotTransitionStore } from '$lib/server/adapters/supabaseBillingSnapshotTransitions';
+import { createSupabaseBillingCancellationTransitionPort } from '$lib/server/adapters/billingCancellationTransition';
 import { buildRouteContext, handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { fail } from '$lib/server/core/errors';
-import { cancelBillingSubscriptionForOrganization } from '$lib/server/core/useCases/billingOrganization';
-import { applyBillingSnapshotTransition } from '$lib/server/core/useCases/billingSnapshotTransitions';
-import { getAdminClient } from '$lib/server/supabase';
+import { cancelBillingSubscriptionForOrganizationWithTransition } from '$lib/server/core/useCases/billingOrganization';
 import type { BillingCancellationFeedback } from '$lib/types/subscription';
 import { billingApiErrorResponse } from '../billingApiErrors';
 
@@ -59,34 +57,25 @@ export const POST: RequestHandler = async (event) => {
 		const ctx = await buildRouteContext(event);
 		const input = await parseCancellationRequest(event.request);
 
-		const result = await handleUseCaseRequest(
+		const result = await handleUseCaseRequest<CancellationRequest, { billingTransitionApplied: boolean }>(
 			{
 				policyAction: POLICY_ACTION_CATALOG.organization.manageBilling,
 				mutation: true,
-				fn: cancelBillingSubscriptionForOrganization,
+				fn: (useCaseCtx, useCaseInput) =>
+					cancelBillingSubscriptionForOrganizationWithTransition(
+						{
+							...useCaseCtx,
+							billingCancellationTransition: createSupabaseBillingCancellationTransitionPort()
+						},
+						useCaseInput
+					),
 				audit: { action: 'billing.cancel', resourceType: 'organization' }
 			},
 			ctx,
 			input
 		);
 
-		let billingTransitionApplied = false;
-		try {
-			await applyBillingSnapshotTransition(createSupabaseBillingSnapshotTransitionStore(getAdminClient()), {
-				kind: 'immediate_cancellation_requested',
-				orgId: ctx.auth.orgId,
-				stripeCustomerId: result.stripeCustomerId,
-				cancellationFeedback: input.cancellationFeedback
-			});
-			billingTransitionApplied = true;
-		} catch (snapshotError) {
-			console.warn(
-				`[billing] Immediate cancellation snapshot for organization ${ctx.auth.orgId} will be reconciled by Stripe webhook processing.`,
-				snapshotError
-			);
-		}
-
-		return json({ success: true, billingTransitionApplied });
+		return json({ success: true, billingTransitionApplied: result.billingTransitionApplied });
 	} catch (err) {
 		return billingApiErrorResponse(err, 'Failed to cancel subscription. Please try again.');
 	}

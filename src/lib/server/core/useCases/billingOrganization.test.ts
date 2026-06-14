@@ -1,8 +1,9 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import {
 	applyBillingCancellation,
 	cancelBillingSubscriptionForOrganization,
+	cancelBillingSubscriptionForOrganizationWithTransition,
 	persistBillingCustomerId,
 	readBillingOrganization
 } from './billingOrganization';
@@ -159,5 +160,86 @@ describe('billingOrganization use cases', () => {
 		).rejects.toMatchObject({ status: 400 });
 
 		expect(ctx.billingPort.calls).toEqual([]);
+	});
+
+	it('applies the immediate cancellation transition after provider cancellation succeeds', async () => {
+		const ctx = createTestContext();
+		const billingCancellationTransition = {
+			applyImmediateCancellation: vi.fn(async () => {})
+		};
+		ctx.rawStore.seed('organizations', [
+			{
+				id: ctx.auth.orgId,
+				name: 'Alpha Company',
+				stripe_customer_id: 'cus_123',
+				stripe_subscription_id: 'sub_123',
+				subscription_status: 'active',
+				tier: 'team'
+			}
+		]);
+
+		await expect(
+			cancelBillingSubscriptionForOrganizationWithTransition(
+				{ ...ctx, billingCancellationTransition },
+				{ confirmedImmediateCancellation: true, cancellationFeedback: 'unused' }
+			)
+		).resolves.toEqual({
+			success: true,
+			stripeCustomerId: 'cus_123',
+			canceledSubscriptionId: 'sub_123',
+			billingTransitionApplied: true
+		});
+
+		expect(ctx.billingPort.calls).toContainEqual({
+			method: 'cancelSubscription',
+			args: ['sub_123', { cancellationFeedback: 'unused' }]
+		});
+		expect(billingCancellationTransition.applyImmediateCancellation).toHaveBeenCalledWith({
+			orgId: ctx.auth.orgId,
+			stripeCustomerId: 'cus_123',
+			cancellationFeedback: 'unused'
+		});
+	});
+
+	it('keeps provider cancellation successful when the local cancellation transition fails', async () => {
+		const ctx = createTestContext();
+		const billingCancellationTransition = {
+			applyImmediateCancellation: vi.fn(async () => {
+				throw new Error('snapshot unavailable');
+			})
+		};
+		const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		ctx.rawStore.seed('organizations', [
+			{
+				id: ctx.auth.orgId,
+				name: 'Alpha Company',
+				stripe_customer_id: 'cus_123',
+				stripe_subscription_id: 'sub_123',
+				subscription_status: 'active',
+				tier: 'team'
+			}
+		]);
+
+		await expect(
+			cancelBillingSubscriptionForOrganizationWithTransition(
+				{ ...ctx, billingCancellationTransition },
+				{ confirmedImmediateCancellation: true }
+			)
+		).resolves.toEqual({
+			success: true,
+			stripeCustomerId: 'cus_123',
+			canceledSubscriptionId: 'sub_123',
+			billingTransitionApplied: false
+		});
+
+		expect(ctx.billingPort.calls).toContainEqual({
+			method: 'cancelSubscription',
+			args: ['sub_123', { cancellationFeedback: null }]
+		});
+		expect(warnSpy).toHaveBeenCalledWith(
+			expect.stringContaining('[billing] Immediate cancellation snapshot for organization test-org will be reconciled'),
+			expect.any(Error)
+		);
+		warnSpy.mockRestore();
 	});
 });

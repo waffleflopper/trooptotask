@@ -81,7 +81,7 @@ The operator explicitly excluded automatic CI trigger work from this batch. Do n
 | 059  | Expand governance for admin route seams           | P1       | M      | -          | DONE   |
 | 060  | Move feedback submissions behind platform seam    | P2       | M      | -          | TODO   |
 | 061  | Share retention cleanup support                   | P1       | M      | -          | DONE   |
-| 062  | Move billing checkout recovery behind seam        | P1       | M      | -          | TODO   |
+| 062  | Move billing checkout recovery behind seam        | P1       | M      | -          | DONE   |
 | 063  | Move Personnel restore/delete into use cases      | P1       | M      | -          | TODO   |
 | 064  | Move Personnel export behind use case             | P2       | M      | -          | TODO   |
 | 065  | Retire dormant Dashboard tab configuration        | P2       | M      | -          | TODO   |

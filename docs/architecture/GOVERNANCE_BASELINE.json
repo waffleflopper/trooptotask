@@ -160,16 +160,6 @@
 			"reason": "Account setup completion still creates service-role setup stores and auth adapters at the auth edge."
 		},
 		{
-			"path": "src/routes/org/[orgId]/billing/cancel/+server.ts",
-			"classification": "billing-recovery-edge",
-			"reason": "Billing cancellation still applies a service-role snapshot transition from the route as webhook reconciliation backup."
-		},
-		{
-			"path": "src/routes/org/[orgId]/billing/success/+page.server.ts",
-			"classification": "billing-recovery-edge",
-			"reason": "Checkout success recovery still creates service-role billing reconciliation adapters in the route."
-		},
-		{
 			"path": "src/routes/org/[orgId]/settings/logs/+page.server.ts",
 			"classification": "platform-admin-edge",
 			"reason": "Organization audit-log settings still creates a service-role data store in the route."

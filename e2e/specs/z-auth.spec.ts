@@ -28,17 +28,21 @@ test.describe('Authentication', () => {
 		expect(isInvalid).toBe(true);
 	});
 
-	test('logout redirects to login page', async ({ browser }) => {
-		// Start with an authenticated session
-		const context = await browser.newContext({
-			storageState: 'e2e/.auth/owner.json'
-		});
-		const page = await context.newPage();
-		await page.goto('/auth/logout');
+	test('logout redirects to login page', async ({ page }) => {
+		await loginPage.login(TEST_USERS.owner.email, TEST_USERS.owner.password);
+		await loginPage.expectRedirectToDashboard();
+		const whatsNewDismissButton = page.getByRole('button', { name: 'Got it' });
+		const dismissedWhatsNew = await whatsNewDismissButton
+			.click({ timeout: 5000 })
+			.then(() => true)
+			.catch(() => false);
+		if (dismissedWhatsNew) {
+			await expect(page.getByRole('dialog', { name: "What's New" })).toBeHidden({ timeout: 5000 });
+		}
+		await page.getByLabel('Account menu').click();
+		await page.getByRole('menuitem', { name: 'Sign Out' }).click();
 		// Logout redirects to '/' which then redirects to '/auth/login'
 		await page.waitForURL('**/', { timeout: 10000 });
 		await expect(page).toHaveURL(/\/auth\/login|\/$/);
-
-		await context.close();
 	});
 });

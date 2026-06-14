@@ -2,7 +2,12 @@ import { json } from '@sveltejs/kit';
 import type { RequestEvent } from '@sveltejs/kit';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { fail } from '$lib/server/core/errors';
-import { buildSensitiveFilePath, SENSITIVE_FILE_BUCKET, validateSensitivePdfFile } from '$lib/storage/sensitiveFiles';
+import { sanitizeErrorForLog } from '$lib/server/logSanitize';
+import {
+	buildSignInRosterScanFilePath,
+	SENSITIVE_FILE_BUCKET,
+	validateSensitivePdfFile
+} from '$lib/storage/sensitiveFiles';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 
 export const _getConfig: RouteConfig<{ rosterId: string }, { url: string }> = {
@@ -43,18 +48,29 @@ export const _postConfig: RouteConfig<{ rosterId: string; file: File }, { filePa
 		const validationError = await validateSensitivePdfFile(input.file);
 		if (validationError) fail(400, validationError);
 
-		const storagePath = buildSensitiveFilePath({
+		const storagePath = buildSignInRosterScanFilePath({
 			orgId: ctx.auth.orgId,
-			scope: 'sign-in-rosters',
-			recordId: input.rosterId,
+			rosterId: input.rosterId,
 			filename: input.file.name
 		});
 
 		await ctx.storage.upload(SENSITIVE_FILE_BUCKET, storagePath, input.file, { upsert: true });
 
-		await ctx.store.update('sign_in_rosters', ctx.auth.orgId, input.rosterId, {
-			signed_file_path: storagePath
-		});
+		try {
+			await ctx.store.update('sign_in_rosters', ctx.auth.orgId, input.rosterId, {
+				signed_file_path: storagePath
+			});
+		} catch (error) {
+			try {
+				await ctx.storage.remove(SENSITIVE_FILE_BUCKET, [storagePath]);
+			} catch (cleanupError) {
+				console.error(
+					'[sign-in-roster-scan-upload] Failed to clean up uploaded scan after DB update failure:',
+					sanitizeErrorForLog(cleanupError)
+				);
+			}
+			throw error;
+		}
 
 		ctx.audit.log({
 			action: 'sign_in_roster.scan_uploaded',
@@ -82,14 +98,15 @@ export const _deleteConfig: RouteConfig<{ rosterId: string }, { success: boolean
 		});
 
 		if (!roster) fail(404, 'Roster not found');
-
-		if (roster.signed_file_path) {
-			await ctx.storage.remove(SENSITIVE_FILE_BUCKET, [roster.signed_file_path]);
-		}
+		const signedFilePath = roster.signed_file_path;
 
 		await ctx.store.update('sign_in_rosters', ctx.auth.orgId, input.rosterId, {
 			signed_file_path: null
 		});
+
+		if (signedFilePath) {
+			await ctx.storage.remove(SENSITIVE_FILE_BUCKET, [signedFilePath]);
+		}
 
 		return { success: true };
 	}

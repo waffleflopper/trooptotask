@@ -23,65 +23,124 @@
 		personnel: Personnel[];
 	}
 
+	interface ReviewCriteria {
+		personnelIds: Set<string>;
+		selectedCount: number;
+		statusTypeId: string;
+		startDate: string;
+		endDate: string;
+	}
+
 	interface Props {
 		personnelByGroup: GroupData[];
 		statusTypes: StatusType[];
 		availabilityEntries: AvailabilityEntry[];
 		personnelList: Personnel[];
+		loadAvailabilityRange?: (range: { rangeStart: string; rangeEnd: string }) => Promise<AvailabilityEntry[]>;
 		onRemove: (ids: string[]) => Promise<boolean>;
 		onComplete: () => void;
 	}
 
-	let { personnelByGroup, statusTypes, availabilityEntries, personnelList, onRemove, onComplete }: Props = $props();
+	let {
+		personnelByGroup,
+		statusTypes,
+		availabilityEntries,
+		personnelList,
+		loadAvailabilityRange = async () => availabilityEntries,
+		onRemove,
+		onComplete
+	}: Props = $props();
 
+	const MAX_REMOVE_RANGE_DAYS = 366;
 	const todayStr = formatDate(new Date());
 
 	// Selection state
-	let selectedStatusId = $state('');
+	let selectedStatusSelection = $state('');
 	let startDate = $state(todayStr);
 	let endDate = $state(todayStr);
 
 	// Step state
 	let step = $state<'select' | 'confirm'>('select');
 	let matchResult = $state<ClassifiedOverlaps>({ exact: [], partial: [] });
+	let reviewCriteria = $state<ReviewCriteria | null>(null);
+	let isLoadingMatches = $state(false);
+	let matchLoadError = $state<string | null>(null);
 	let isSubmitting = $state(false);
 
 	const allPersonnel = $derived(personnelByGroup.flatMap((g) => g.personnel));
 	const selection = useDataTableSelection<Personnel>({ rows: () => allPersonnel, rowKey: (p) => p.id });
 
 	// ---- Validation ----
-	const range = $derived(validateDateRange(startDate, endDate));
+	const range = $derived.by(() => {
+		const validated = validateDateRange(startDate, endDate);
+		if (validated.valid && validated.dayCount > MAX_REMOVE_RANGE_DAYS) {
+			return {
+				valid: false,
+				dayCount: validated.dayCount,
+				error: `Remove date range cannot exceed ${MAX_REMOVE_RANGE_DAYS} days`
+			};
+		}
+		return validated;
+	});
+	const selectedStatusId = $derived.by(() => {
+		if (statusTypes.some((s) => s.id === selectedStatusSelection)) return selectedStatusSelection;
+		return statusTypes[0]?.id ?? '';
+	});
 	const isValid = $derived(!!selectedStatusId && range.valid && selection.selectedCount > 0);
 	const selectedStatus = $derived(statusTypes.find((s) => s.id === selectedStatusId));
+	const reviewStatus = $derived(statusTypes.find((s) => s.id === reviewCriteria?.statusTypeId));
 	const personnelMap = $derived(new SvelteMap(personnelList.map((p) => [p.id, p])));
-
-	$effect(() => {
-		if (!selectedStatusId && statusTypes.length > 0) {
-			selectedStatusId = statusTypes[0].id;
-		}
-	});
 
 	function formatDateDisplay(dateStr: string): string {
 		const date = new Date(dateStr + 'T00:00:00');
 		return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 	}
 
-	// ---- Two-step flow ----
-	function handleFindMatching() {
-		if (!isValid) return;
+	function handleStatusTypeChange(event: Event) {
+		if (event.currentTarget instanceof HTMLSelectElement) {
+			selectedStatusSelection = event.currentTarget.value;
+		}
+	}
 
-		matchResult = classifyAvailabilityOverlaps(availabilityEntries, {
-			personnelIds: selection.selectedKeys,
+	// ---- Two-step flow ----
+	async function handleFindMatching() {
+		if (!isValid || isLoadingMatches) return;
+
+		const criteria: ReviewCriteria = {
+			personnelIds: new Set(Array.from(selection.selectedKeys, (id) => String(id))),
+			selectedCount: selection.selectedCount,
 			statusTypeId: selectedStatusId,
 			startDate,
 			endDate
-		});
-		step = 'confirm';
+		};
+
+		isLoadingMatches = true;
+		matchLoadError = null;
+		try {
+			const loadedEntries = await loadAvailabilityRange({
+				rangeStart: criteria.startDate,
+				rangeEnd: criteria.endDate
+			});
+			matchResult = classifyAvailabilityOverlaps(loadedEntries, {
+				personnelIds: criteria.personnelIds,
+				statusTypeId: criteria.statusTypeId,
+				startDate: criteria.startDate,
+				endDate: criteria.endDate
+			});
+			reviewCriteria = criteria;
+			step = 'confirm';
+		} catch {
+			matchLoadError = 'Unable to load status entries for the selected date range. Try again.';
+		} finally {
+			isLoadingMatches = false;
+		}
 	}
 
 	function handleBack() {
 		step = 'select';
 		matchResult = { exact: [], partial: [] };
+		reviewCriteria = null;
+		matchLoadError = null;
 	}
 
 	async function handleConfirmRemoval() {
@@ -127,7 +186,7 @@
 					<div class="config-grid">
 						<Field.Root>
 							<Field.Label for="removeStatusType">Status Type</Field.Label>
-							<NativeSelect id="removeStatusType" bind:value={selectedStatusId}>
+							<NativeSelect id="removeStatusType" value={selectedStatusId} onchange={handleStatusTypeChange}>
 								{#each statusTypes as status (status.id)}
 									<option value={status.id}>{status.name}</option>
 								{/each}
@@ -161,6 +220,10 @@
 						{#if range.error}
 							<div class="date-error" role="alert">{range.error}</div>
 						{/if}
+
+						{#if matchLoadError}
+							<div class="date-error" role="alert">{matchLoadError}</div>
+						{/if}
 					</div>
 
 					<div class="summary-card warning-summary" aria-live="polite">
@@ -191,8 +254,18 @@
 						{/if}
 					</div>
 
-					<Button variant="destructive" class="apply-button" disabled={!isValid} onclick={handleFindMatching}>
-						Review Matching Entries
+					<Button
+						variant="destructive"
+						class="apply-button"
+						disabled={!isValid || isLoadingMatches}
+						onclick={handleFindMatching}
+					>
+						{#if isLoadingMatches}
+							<Spinner />
+							Loading entries...
+						{:else}
+							Review Matching Entries
+						{/if}
 					</Button>
 				</section>
 			</aside>
@@ -214,15 +287,17 @@
 				</div>
 
 				<div class="confirm-criteria">
-					{#if selectedStatus}
-						<CalendarStatusBadge statusType={selectedStatus}>{selectedStatus.name}</CalendarStatusBadge>
+					{#if reviewStatus}
+						<CalendarStatusBadge statusType={reviewStatus}>{reviewStatus.name}</CalendarStatusBadge>
 					{/if}
-					<UiBadge variant="outline">{selection.selectedCount} selected</UiBadge>
-					<UiBadge variant="outline">
-						{startDate === endDate
-							? formatDateDisplay(startDate)
-							: `${formatDateDisplay(startDate)} to ${formatDateDisplay(endDate)}`}
-					</UiBadge>
+					{#if reviewCriteria}
+						<UiBadge variant="outline">{reviewCriteria.selectedCount} selected</UiBadge>
+						<UiBadge variant="outline">
+							{reviewCriteria.startDate === reviewCriteria.endDate
+								? formatDateDisplay(reviewCriteria.startDate)
+								: `${formatDateDisplay(reviewCriteria.startDate)} to ${formatDateDisplay(reviewCriteria.endDate)}`}
+						</UiBadge>
+					{/if}
 				</div>
 
 				<div class="confirm-content">

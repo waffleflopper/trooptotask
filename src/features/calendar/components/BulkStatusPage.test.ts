@@ -1,17 +1,25 @@
 // @vitest-environment happy-dom
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import BulkStatusPage from './BulkStatusPage.svelte';
 
-const { gotoMock, orgContextMock } = vi.hoisted(() => ({
-	gotoMock: vi.fn(),
-	orgContextMock: {
-		orgId: 'org-1',
-		isPrivileged: true,
-		readOnly: false,
-		affordanceForFeatureAction: vi.fn(() => ({ allowed: true, visible: true, disabled: false }))
-	}
-}));
+const { gotoMock, loadCalendarRangeMock, mergeCalendarRangeIntoStoresMock, orgContextMock, pageMock } = vi.hoisted(
+	() => ({
+		gotoMock: vi.fn(),
+		loadCalendarRangeMock: vi.fn(),
+		mergeCalendarRangeIntoStoresMock: vi.fn(),
+		orgContextMock: {
+			orgId: 'org-1',
+			orgUrlSegment: 'org-1',
+			isPrivileged: true,
+			readOnly: false,
+			affordanceForFeatureAction: vi.fn(() => ({ allowed: true, visible: true, disabled: false }))
+		},
+		pageMock: {
+			url: new URL('http://localhost/org/org-1/calendar/bulk?tab=add')
+		}
+	})
+);
 
 vi.mock('$app/navigation', () => ({
 	goto: gotoMock,
@@ -19,7 +27,7 @@ vi.mock('$app/navigation', () => ({
 }));
 
 vi.mock('$app/state', () => ({
-	page: { url: new URL('http://localhost/org/org-1/calendar/bulk?tab=add') }
+	page: pageMock
 }));
 
 vi.mock('$lib/stores/orgContext.svelte', () => ({
@@ -31,7 +39,7 @@ vi.mock('./BulkStatusAdd.svelte', async () => ({
 }));
 
 vi.mock('./BulkStatusRemove.svelte', async () => ({
-	default: (await import('$lib/test-stubs/VisibleStub.svelte')).default
+	default: (await import('$lib/test-stubs/BulkStatusRemoveLoadRangeStub.svelte')).default
 }));
 
 vi.mock('./BulkStatusImport.svelte', async () => ({
@@ -44,6 +52,11 @@ vi.mock('$features/calendar/stores/statusTypes.svelte', () => ({
 
 vi.mock('$features/calendar/stores/availability.svelte', () => ({
 	availabilityStore: { items: [], addBatch: vi.fn(), removeBatch: vi.fn() }
+}));
+
+vi.mock('$features/calendar/utils/calendarRangeLoader', () => ({
+	loadCalendarRange: loadCalendarRangeMock,
+	mergeCalendarRangeIntoStores: mergeCalendarRangeIntoStoresMock
 }));
 
 vi.mock('$lib/stores/pinnedGroups.svelte', () => ({
@@ -67,6 +80,19 @@ describe('BulkStatusPage', () => {
 	beforeEach(() => {
 		cleanup();
 		gotoMock.mockReset();
+		loadCalendarRangeMock.mockReset();
+		loadCalendarRangeMock.mockResolvedValue({
+			rangeStart: '2026-01-01',
+			rangeEnd: '2026-01-31',
+			availabilityEntries: [],
+			specialDays: [],
+			dailyAssignments: [],
+			advancedDutyEvents: []
+		});
+		mergeCalendarRangeIntoStoresMock.mockReset();
+		pageMock.url = new URL('http://localhost/org/org-1/calendar/bulk?tab=add');
+		orgContextMock.orgId = 'org-1';
+		orgContextMock.orgUrlSegment = 'org-1';
 		orgContextMock.isPrivileged = true;
 		orgContextMock.readOnly = false;
 		orgContextMock.affordanceForFeatureAction.mockReturnValue({ allowed: true, visible: true, disabled: false });
@@ -95,5 +121,64 @@ describe('BulkStatusPage', () => {
 
 		expect(screen.getByRole('group', { name: 'Bulk status sections' })).toBeTruthy();
 		expect(screen.queryByText('Access restricted.')).toBeNull();
+	});
+
+	it('loads Remove review ranges with the canonical organization id', async () => {
+		pageMock.url = new URL('http://localhost/org/local-dev-test/calendar/bulk?tab=remove');
+		orgContextMock.orgId = 'canonical-org-id';
+		orgContextMock.orgUrlSegment = 'local-dev-test';
+
+		renderPage();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Load Remove Range' }));
+
+		await waitFor(() => {
+			expect(loadCalendarRangeMock).toHaveBeenCalledWith('canonical-org-id', {
+				rangeStart: '2026-01-01',
+				rangeEnd: '2026-01-31'
+			});
+		});
+		expect(mergeCalendarRangeIntoStoresMock).toHaveBeenCalledWith(
+			'canonical-org-id',
+			expect.objectContaining({ rangeStart: '2026-01-01', rangeEnd: '2026-01-31' })
+		);
+	});
+
+	it('does not merge Remove review ranges after the organization changes', async () => {
+		let resolveRange: ((value: Awaited<ReturnType<typeof loadCalendarRangeMock>>) => void) | undefined;
+		loadCalendarRangeMock.mockImplementation(
+			() =>
+				new Promise((resolve) => {
+					resolveRange = resolve;
+				})
+		);
+		pageMock.url = new URL('http://localhost/org/org-a/calendar/bulk?tab=remove');
+		orgContextMock.orgId = 'org-a';
+		orgContextMock.orgUrlSegment = 'org-a';
+
+		renderPage();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Load Remove Range' }));
+
+		await waitFor(() => {
+			expect(loadCalendarRangeMock).toHaveBeenCalledWith('org-a', {
+				rangeStart: '2026-01-01',
+				rangeEnd: '2026-01-31'
+			});
+		});
+		orgContextMock.orgId = 'org-b';
+		resolveRange?.({
+			rangeStart: '2026-01-01',
+			rangeEnd: '2026-01-31',
+			availabilityEntries: [],
+			specialDays: [],
+			dailyAssignments: [],
+			advancedDutyEvents: []
+		});
+
+		await waitFor(() => {
+			expect(screen.getByRole('status').textContent).toContain('Remove range load failed');
+		});
+		expect(mergeCalendarRangeIntoStoresMock).not.toHaveBeenCalled();
 	});
 });

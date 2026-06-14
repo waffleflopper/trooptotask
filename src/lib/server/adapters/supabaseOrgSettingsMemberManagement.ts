@@ -4,6 +4,7 @@ import type {
 	OrganizationSettingsMemberManagementPort
 } from '$lib/server/core/useCases/orgSettingsMemberManagement';
 import { getAdminClient } from '$lib/server/supabase';
+import { findUserEmailIdentityByEmail, normalizeUserEmailIdentity } from '$lib/server/userEmailIdentities';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 interface OrganizationInvitationLookupRow {
@@ -16,11 +17,6 @@ interface OrganizationInvitationLookupRow {
 
 interface AccessRequestLookupRow {
 	id: string;
-}
-
-interface SupabaseAuthUserRow {
-	id: string;
-	email?: string;
 }
 
 interface OrganizationMembershipLookupRow {
@@ -51,12 +47,6 @@ type MemberPlanLimitGuardRpcClient = {
 	): Promise<{ data: boolean | null; error: { message?: string } | null }>;
 };
 
-const FIND_USER_BY_EMAIL_MAX_PAGES = 20;
-
-function normalizeEmail(email: string): string {
-	return email.trim().toLowerCase();
-}
-
 function isUniqueConstraintError(error: unknown, constraintName: string): boolean {
 	if (!error || typeof error !== 'object') {
 		return false;
@@ -75,30 +65,9 @@ async function findUserAccountByEmail(
 	adminClient: SupabaseClient,
 	email: string
 ): Promise<{ id: string; email: string } | null> {
-	const normalizedEmail = normalizeEmail(email);
-	let page = 1;
+	const identity = await findUserEmailIdentityByEmail(adminClient, email);
 
-	// Supabase Auth admin has no targeted email lookup in the installed SDK, so this bounded scan mirrors setup activation.
-	while (page <= FIND_USER_BY_EMAIL_MAX_PAGES) {
-		const { data, error } = await adminClient.auth.admin.listUsers({ page, perPage: 1000 });
-		if (error) {
-			throw error;
-		}
-
-		const user = (data.users as SupabaseAuthUserRow[]).find(
-			(candidate) => candidate.email?.toLowerCase() === normalizedEmail
-		);
-		if (user?.email) {
-			return { id: user.id, email: normalizeEmail(user.email) };
-		}
-
-		if (data.users.length < 1000) {
-			return null;
-		}
-		page += 1;
-	}
-
-	return null;
+	return identity ? { id: identity.userId, email: identity.normalizedEmail } : null;
 }
 
 export function createSupabaseOrgSettingsMemberManagementPort(
@@ -389,7 +358,7 @@ async function findPendingAccessRequest(client: SupabaseClient, email: string): 
 	const { data, error } = await client
 		.from('access_requests')
 		.select('id')
-		.eq('email', normalizeEmail(email))
+		.eq('email', normalizeUserEmailIdentity(email))
 		.eq('status', 'pending')
 		.maybeSingle<AccessRequestLookupRow>();
 
@@ -406,7 +375,7 @@ async function insertPendingAccessRequest(
 ): Promise<
 	{ status: 'created'; accessRequest: AccessRequestLookupRow } | { status: 'failed'; message: string; error: unknown }
 > {
-	const normalizedEmail = normalizeEmail(email);
+	const normalizedEmail = normalizeUserEmailIdentity(email);
 	const { data, error } = await client
 		.from('access_requests')
 		.insert({

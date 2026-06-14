@@ -3,6 +3,7 @@ import { createInMemoryDataStore, createTestStoragePort } from '$lib/server/adap
 import { cleanupArchivedRecords, DEFAULT_ARCHIVE_RETENTION_MONTHS } from './archiveRetention';
 import { COUNSELING_RECORDS_BUCKET } from './personnelCounselingRecords';
 import { PERSONNEL_DOCUMENTS_BUCKET } from './personnelDocuments';
+import { notifyAdminsViaStore } from './retentionSupport';
 
 const NOW = new Date('2026-05-30T12:00:00.000Z');
 
@@ -374,5 +375,34 @@ describe('cleanupArchivedRecords', () => {
 		expect(result.deletedCount).toBe(0);
 		expect(result.orgsAffected).toBe(0);
 		await expect(ports.store.findMany('notifications', 'org-1')).resolves.toHaveLength(0);
+	});
+});
+
+describe('retention support', () => {
+	it('notifies organization admins and excludes the supplied user', async () => {
+		const store = createInMemoryDataStore();
+		store.seed('organization_memberships', [
+			{ id: 'membership-1', organization_id: 'org-1', user_id: 'owner-1', role: 'owner' },
+			{ id: 'membership-2', organization_id: 'org-1', user_id: 'admin-1', role: 'admin' },
+			{ id: 'membership-3', organization_id: 'org-1', user_id: 'member-1', role: 'member' }
+		]);
+
+		await notifyAdminsViaStore(store, 'org-1', 'admin-1', {
+			type: 'retention_test',
+			title: 'Retention Test',
+			message: 'Retention fanout test',
+			link: '/org/org-1/settings'
+		});
+
+		const notifications = await store.findMany<Record<string, unknown>>('notifications', 'org-1');
+		expect(notifications).toEqual([
+			expect.objectContaining({
+				user_id: 'owner-1',
+				type: 'retention_test',
+				title: 'Retention Test',
+				message: 'Retention fanout test',
+				link: '/org/org-1/settings'
+			})
+		]);
 	});
 });

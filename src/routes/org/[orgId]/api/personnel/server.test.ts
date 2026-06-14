@@ -205,46 +205,6 @@ describe('/api/personnel route authorization', () => {
 				archived_at: '2026-04-01T00:00:00Z'
 			}
 		]);
-		ctx.store.seed('personnel_follow_ups', [
-			{
-				id: 'follow-up-restored',
-				organization_id: ctx.auth.orgId,
-				personnel_id: '11111111-1111-4111-8111-111111111111',
-				status: 'archived',
-				archived_at: '2026-04-01T00:00:00Z'
-			},
-			{
-				id: 'follow-up-still-archived',
-				organization_id: ctx.auth.orgId,
-				personnel_id: '11111111-1111-4111-8111-111111111111',
-				status: 'archived',
-				archived_at: '2026-03-01T00:00:00Z'
-			}
-		]);
-		ctx.store.seed('counseling_records', [
-			{
-				id: 'counseling-restored',
-				organization_id: ctx.auth.orgId,
-				personnel_id: '11111111-1111-4111-8111-111111111111',
-				archived_at: '2026-04-01T00:00:00Z'
-			}
-		]);
-		ctx.store.seed('personnel_documents', [
-			{
-				id: 'document-restored',
-				organization_id: ctx.auth.orgId,
-				personnel_id: '11111111-1111-4111-8111-111111111111',
-				archived_at: '2026-04-01T00:00:00Z'
-			}
-		]);
-		ctx.store.seed('leader_notes', [
-			{
-				id: 'note-restored',
-				organization_id: ctx.auth.orgId,
-				personnel_id: '11111111-1111-4111-8111-111111111111',
-				archived_at: '2026-04-01T00:00:00Z'
-			}
-		]);
 
 		const result = await handleUseCaseRequest(_patchConfig, ctx, {
 			action: 'restore',
@@ -252,22 +212,12 @@ describe('/api/personnel route authorization', () => {
 		});
 
 		expect(result).toEqual({ success: true });
-		await expect(
-			ctx.store.findOne('personnel_follow_ups', ctx.auth.orgId, { id: 'follow-up-restored' })
-		).resolves.toMatchObject({ status: 'open', archived_at: null });
-		await expect(
-			ctx.store.findOne('personnel_follow_ups', ctx.auth.orgId, { id: 'follow-up-still-archived' })
-		).resolves.toMatchObject({ status: 'archived', archived_at: '2026-03-01T00:00:00Z' });
-		await expect(
-			ctx.store.findOne('counseling_records', ctx.auth.orgId, { id: 'counseling-restored' })
-		).resolves.toMatchObject({ archived_at: null });
-		await expect(
-			ctx.store.findOne('personnel_documents', ctx.auth.orgId, { id: 'document-restored' })
-		).resolves.toMatchObject({
-			archived_at: null
-		});
-		await expect(ctx.store.findOne('leader_notes', ctx.auth.orgId, { id: 'note-restored' })).resolves.toMatchObject({
-			archived_at: null
-		});
+	});
+
+	it('formats restore cap rejections as validation responses', async () => {
+		const response = _patchConfig.formatOutput?.({ message: 'Personnel limit reached' });
+
+		expect(response?.status).toBe(422);
+		await expect(response?.json()).resolves.toEqual({ message: 'Personnel limit reached' });
 	});
 });

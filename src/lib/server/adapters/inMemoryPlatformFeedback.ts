@@ -1,5 +1,9 @@
 import type {
 	PlatformFeedbackItem,
+	PlatformFeedbackOrganizationContextStore,
+	PlatformFeedbackResolvedOrganizationContext,
+	PlatformFeedbackSubmissionRecord,
+	PlatformFeedbackSubmissionStore,
 	PlatformFeedbackStore,
 	PlatformFeedbackUpdateInput,
 	PlatformFeedbackStoreUpdateResult
@@ -7,8 +11,20 @@ import type {
 
 interface InMemoryPlatformFeedbackOptions {
 	items?: PlatformFeedbackItem[];
+	organizationContexts?: Array<
+		PlatformFeedbackResolvedOrganizationContext & {
+			userId: string;
+		}
+	>;
 	listError?: Error;
 	updateError?: Error;
+	resolveOrganizationError?: Error;
+	insertError?: Error;
+}
+
+export interface InMemoryPlatformFeedbackStore
+	extends PlatformFeedbackStore, PlatformFeedbackOrganizationContextStore, PlatformFeedbackSubmissionStore {
+	readonly submittedFeedback: PlatformFeedbackSubmissionRecord[];
 }
 
 function cloneFeedback(item: PlatformFeedbackItem): PlatformFeedbackItem {
@@ -17,13 +33,16 @@ function cloneFeedback(item: PlatformFeedbackItem): PlatformFeedbackItem {
 
 export function createInMemoryPlatformFeedbackStore(
 	options: InMemoryPlatformFeedbackOptions = {}
-): PlatformFeedbackStore {
+): InMemoryPlatformFeedbackStore {
 	const items = new Map<string, PlatformFeedbackItem>();
 	for (const item of options.items ?? []) {
 		items.set(item.id, cloneFeedback(item));
 	}
+	const submittedFeedback: PlatformFeedbackSubmissionRecord[] = [];
 
 	return {
+		submittedFeedback,
+
 		async listFeedback() {
 			if (options.listError) throw options.listError;
 			return Array.from(items.values())
@@ -42,6 +61,24 @@ export function createInMemoryPlatformFeedbackStore(
 			};
 			items.set(input.id, updated);
 			return { id: input.id };
+		},
+
+		async resolveSubmissionOrganizationContext(input) {
+			if (options.resolveOrganizationError) throw options.resolveOrganizationError;
+			const context = options.organizationContexts?.find(
+				(candidate) => candidate.userId === input.userId && candidate.organizationId === input.organizationId
+			);
+			if (!context) return null;
+			return {
+				organizationId: context.organizationId,
+				organizationName: context.organizationName,
+				organizationUrlSlug: context.organizationUrlSlug
+			};
+		},
+
+		async insertFeedbackSubmission(input) {
+			if (options.insertError) throw options.insertError;
+			submittedFeedback.push({ ...input });
 		}
 	};
 }

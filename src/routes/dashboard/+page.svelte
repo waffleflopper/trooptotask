@@ -204,7 +204,9 @@
 
 			<div class="flex flex-wrap gap-3 border-t border-border pt-4">
 				<Button href="/org/new">Create Organization</Button>
-				<Button href="/auth/logout" variant="outline">Sign Out</Button>
+				<form method="POST" action={resolve('/auth/logout')}>
+					<Button type="submit" variant="outline">Sign Out</Button>
+				</form>
 			</div>
 		</section>
 	</div>

@@ -1,3 +1,4 @@
+import { isHttpError } from '@sveltejs/kit';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
@@ -10,7 +11,9 @@ const {
 	platformGiftingMock,
 	platformAuditMock,
 	platformMetricsMock,
-	platformMembershipAdministrationMock
+	platformMembershipAdministrationMock,
+	platformOrganizationDetailMock,
+	createPlatformOrganizationDetailMock
 } = vi.hoisted(() => ({
 	invalidateTierCacheMock: vi.fn(),
 	pauseSubscriptionMock: vi.fn(),
@@ -37,7 +40,11 @@ const {
 		listMembers: vi.fn(),
 		makeAdmin: vi.fn(),
 		transferOwnership: vi.fn()
-	}
+	},
+	platformOrganizationDetailMock: {
+		getOrganizationDetail: vi.fn()
+	},
+	createPlatformOrganizationDetailMock: vi.fn()
 }));
 
 vi.mock('$lib/server/adapters/adminAdapter', () => ({
@@ -90,6 +97,10 @@ vi.mock('$lib/server/adapters/supabasePlatformMetrics', () => ({
 
 vi.mock('$lib/server/adapters/supabasePlatformMembershipAdministration', () => ({
 	createSupabasePlatformMembershipAdministration: () => platformMembershipAdministrationMock
+}));
+
+vi.mock('$lib/server/adapters/supabasePlatformOrganizationDetail', () => ({
+	createSupabasePlatformOrganizationDetail: createPlatformOrganizationDetailMock
 }));
 
 vi.mock('$lib/server/core/useCases/planFeatureOverrides', () => ({
@@ -167,40 +178,63 @@ function makeNoMembershipAdministrationClient() {
 }
 
 function makeOrgDetailLoadClient() {
-	const orgRow = {
-		id: '11111111-1111-4111-8111-111111111111',
-		name: 'Able Company',
-		tier: 'free',
-		gift_tier: null,
-		gift_expires_at: null,
-		suspended_at: null,
-		created_at: '2026-06-01T00:00:00.000Z'
-	};
 	return {
 		from: vi.fn((table: string) => {
-			if (table === 'audit_logs') throw new Error('route must use PlatformAudit for recent organization activity');
-			if (table === 'organization_memberships')
-				throw new Error('route must use PlatformMembershipAdministration for organization members');
-			if (table === 'organizations') {
-				return {
-					select: vi.fn(() => ({
-						eq: vi.fn(() => ({
-							single: vi.fn().mockResolvedValue({ data: orgRow, error: null })
-						}))
-					}))
-				};
-			}
-			if (table === 'organization_billing_snapshots') {
-				return {
-					select: vi.fn(() => ({
-						eq: vi.fn(() => ({
-							maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null })
-						}))
-					}))
-				};
-			}
-			throw new Error(`Unexpected table ${table}`);
+			throw new Error(`route load must use PlatformOrganizationDetail, not ${table}`);
 		})
+	};
+}
+
+function makeOrgDetailLoadData() {
+	return {
+		adminRole: 'super_admin',
+		org: {
+			id: '11111111-1111-4111-8111-111111111111',
+			name: 'Able Company',
+			subscriptionTier: 'free',
+			giftTier: null,
+			giftExpiresAt: null,
+			suspendedAt: null,
+			createdAt: '2026-06-01T00:00:00.000Z',
+			effectiveTier: 'free',
+			isSuspended: false
+		},
+		billingSnapshot: null,
+		planPolicy: {
+			source: 'legacy_organization',
+			billingSource: 'legacy_organization',
+			entitlements: []
+		},
+		planDiagnostics: {
+			effectivePlan: {
+				commercialPlan: 'free',
+				tier: 'free',
+				source: 'legacy_organization',
+				sourceLabel: 'Organization tier',
+				billingSource: 'legacy_organization',
+				giftTier: null,
+				giftExpiresAt: null
+			},
+			grace: { mode: 'none', message: null },
+			readOnly: { enabled: false, reasons: [] },
+			usageRows: [],
+			overLimitReasons: [],
+			entitlements: []
+		},
+		cancellationSummary: null,
+		members: [{ userId: 'user-1', email: 'owner@example.com', role: 'owner' }],
+		personnelCount: 3,
+		auditEvents: [
+			{
+				id: 'audit-1',
+				action: 'admin.org.extend_gift',
+				userId: 'admin-1',
+				timestamp: '2026-06-08T16:00:00.000Z',
+				severity: 'info',
+				resourceType: 'organization',
+				resourceId: '11111111-1111-4111-8111-111111111111'
+			}
+		]
 	};
 }
 
@@ -215,6 +249,11 @@ function makeContext(adminClient: unknown, role = 'super_admin') {
 describe('admin organization gifting actions', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		createPlatformOrganizationDetailMock.mockReturnValue(platformOrganizationDetailMock);
+		platformOrganizationDetailMock.getOrganizationDetail.mockResolvedValue({
+			status: 'found',
+			detail: makeOrgDetailLoadData()
+		});
 		reconcileOrganizationBillingMock.mockResolvedValue({
 			ok: true,
 			status: 'repaired',
@@ -275,48 +314,76 @@ describe('admin organization gifting actions', () => {
 		]);
 	});
 
-	it('loads recent organization activity through PlatformAudit', async () => {
-		const result = (await load({
-			__ctx: makeContext(makeOrgDetailLoadClient()),
-			params: { orgId: '11111111-1111-4111-8111-111111111111' }
-		} as unknown as Parameters<typeof load>[0])) as { auditEvents: unknown };
+	it('rejects malformed organization IDs before calling the detail seam', async () => {
+		await expect(
+			load({
+				__ctx: makeContext(makeOrgDetailLoadClient()),
+				params: { orgId: 'not-a-uuid' }
+			} as unknown as Parameters<typeof load>[0])
+		).rejects.toMatchObject({
+			status: 400,
+			body: { message: 'Invalid organization ID' }
+		});
 
-		expect(platformAuditMock.listRecentByOrganization).toHaveBeenCalledWith({
-			orgId: '11111111-1111-4111-8111-111111111111',
-			limit: 10
-		});
-		expect(platformMembershipAdministrationMock.listMembers).toHaveBeenCalledWith(
-			'11111111-1111-4111-8111-111111111111'
-		);
-		expect(result).toMatchObject({
-			members: [{ userId: 'user-1', email: 'owner@example.com', role: 'owner' }]
-		});
-		expect(result.auditEvents).toEqual([
-			{
-				id: 'audit-1',
-				action: 'admin.org.extend_gift',
-				userId: 'admin-1',
-				timestamp: '2026-06-08T16:00:00.000Z',
-				severity: 'info',
-				resourceType: 'organization',
-				resourceId: '11111111-1111-4111-8111-111111111111'
-			}
-		]);
+		expect(createPlatformOrganizationDetailMock).not.toHaveBeenCalled();
+		expect(platformOrganizationDetailMock.getOrganizationDetail).not.toHaveBeenCalled();
 	});
 
-	it('falls back to the loaded organization gift columns when the gift-state seam fails', async () => {
-		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
-		platformGiftingMock.getOrganizationGiftState.mockRejectedValueOnce(new Error('gift state unavailable'));
+	it('returns found organization detail payloads unchanged through the detail seam', async () => {
+		const adminClient = makeOrgDetailLoadClient();
+		const ctx = makeContext(adminClient);
+		const detail = makeOrgDetailLoadData();
+		platformOrganizationDetailMock.getOrganizationDetail.mockResolvedValueOnce({ status: 'found', detail });
 
 		const result = (await load({
-			__ctx: makeContext(makeOrgDetailLoadClient()),
+			__ctx: ctx,
 			params: { orgId: '11111111-1111-4111-8111-111111111111' }
-		} as unknown as Parameters<typeof load>[0])) as { org: { giftTier: string | null; giftExpiresAt: string | null } };
+		} as unknown as Parameters<typeof load>[0])) as unknown;
 
-		expect(result.org.giftTier).toBeNull();
-		expect(result.org.giftExpiresAt).toBeNull();
-		expect(consoleError).toHaveBeenCalledWith('[admin/organizations] Failed to load gift state:', expect.any(Error));
-		consoleError.mockRestore();
+		expect(createPlatformOrganizationDetailMock).toHaveBeenCalledWith(ctx);
+		expect(platformOrganizationDetailMock.getOrganizationDetail).toHaveBeenCalledWith(
+			'11111111-1111-4111-8111-111111111111'
+		);
+		expect(result).toBe(detail);
+		expect(adminClient.from).not.toHaveBeenCalled();
+	});
+
+	it('maps missing organization detail results to 404', async () => {
+		platformOrganizationDetailMock.getOrganizationDetail.mockResolvedValueOnce({ status: 'not_found' });
+
+		await expect(
+			load({
+				__ctx: makeContext(makeOrgDetailLoadClient()),
+				params: { orgId: '11111111-1111-4111-8111-111111111111' }
+			} as unknown as Parameters<typeof load>[0])
+		).rejects.toMatchObject({
+			status: 404,
+			body: { message: 'Organization not found' }
+		});
+	});
+
+	it('maps provider failures to a sanitized 500', async () => {
+		platformOrganizationDetailMock.getOrganizationDetail.mockResolvedValueOnce({
+			status: 'provider_error',
+			message: 'database offline'
+		});
+
+		try {
+			await load({
+				__ctx: makeContext(makeOrgDetailLoadClient()),
+				params: { orgId: '11111111-1111-4111-8111-111111111111' }
+			} as unknown as Parameters<typeof load>[0]);
+			expect.unreachable('Expected load to throw');
+		} catch (err) {
+			expect(isHttpError(err)).toBe(true);
+			expect(err).toMatchObject({
+				status: 500,
+				body: { message: 'Failed to load organization detail' }
+			});
+			expect(err).not.toMatchObject({
+				body: { message: expect.stringContaining('database offline') }
+			});
+		}
 	});
 
 	it('routes gifting from the organization detail page through PlatformGifting', async () => {

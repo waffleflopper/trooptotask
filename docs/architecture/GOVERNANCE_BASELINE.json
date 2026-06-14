@@ -108,5 +108,112 @@
 			"reason": "Suspension checks remain part of the session/auth gate."
 		}
 	],
+	"routeAdminProviderAllowlist": [
+		{
+			"path": "src/routes/admin/+page.server.ts",
+			"classification": "platform-admin-edge",
+			"reason": "Platform Administration dashboard still builds a service-role platform administration adapter from the admin context."
+		},
+		{
+			"path": "src/routes/admin/access-requests/+page.server.ts",
+			"classification": "platform-admin-edge",
+			"reason": "Platform Administration access-request moderation still builds a service-role access request adapter from the admin context."
+		},
+		{
+			"path": "src/routes/admin/announcements/+page.server.ts",
+			"classification": "platform-admin-edge",
+			"reason": "Platform Administration announcement management still builds a service-role announcement adapter from the admin context."
+		},
+		{
+			"path": "src/routes/admin/api/search/+server.ts",
+			"classification": "platform-admin-edge",
+			"reason": "Platform Administration search still builds a service-role platform administration adapter from the admin context."
+		},
+		{
+			"path": "src/routes/admin/api/suspend/+server.ts",
+			"classification": "platform-admin-edge",
+			"reason": "Platform Administration suspension actions still build a service-role platform administration adapter from the admin context."
+		},
+		{
+			"path": "src/routes/admin/audit/+page.server.ts",
+			"classification": "platform-admin-edge",
+			"reason": "Platform Administration audit log browsing still builds a service-role audit adapter from the admin context."
+		},
+		{
+			"path": "src/routes/admin/billing-events/+page.server.ts",
+			"classification": "platform-admin-edge",
+			"reason": "Platform Administration billing event diagnostics still builds a service-role billing events adapter from the admin context."
+		},
+		{
+			"path": "src/routes/admin/feedback/+page.server.ts",
+			"classification": "platform-admin-edge",
+			"reason": "Platform Administration feedback moderation still builds a service-role feedback adapter from the admin context."
+		},
+		{
+			"path": "src/routes/admin/gifting/+page.server.ts",
+			"classification": "platform-admin-edge",
+			"reason": "Platform Administration gifting still builds service-role gifting and platform metrics adapters from the admin context."
+		},
+		{
+			"path": "src/routes/admin/organizations/+page.server.ts",
+			"classification": "platform-admin-edge",
+			"reason": "Platform Administration organization listing still builds a service-role organization ledger adapter from the admin context."
+		},
+		{
+			"path": "src/routes/admin/organizations/[orgId]/+page.server.ts",
+			"classification": "platform-admin-edge",
+			"reason": "Platform Administration organization detail actions still build service-role Supabase adapters and stores from the admin context client."
+		},
+		{
+			"path": "src/routes/admin/subscriptions/+page.server.ts",
+			"classification": "platform-admin-edge",
+			"reason": "Platform Administration subscription browsing still builds a service-role organization ledger adapter from the admin context."
+		},
+		{
+			"path": "src/routes/admin/users/+page.server.ts",
+			"classification": "platform-admin-edge",
+			"reason": "Platform Administration user listing still builds a service-role user directory adapter from the admin context."
+		},
+		{
+			"path": "src/routes/admin/users/[userId]/+page.server.ts",
+			"classification": "platform-admin-edge",
+			"reason": "Platform Administration user detail and identity commands still build service-role user directory, audit, and identity command adapters from the admin context."
+		},
+		{
+			"path": "src/routes/api/billing-reconciliation/+server.ts",
+			"classification": "billing-recovery-edge",
+			"reason": "Cron-authorized billing reconciliation still wires a service-role client into reconciliation stores and audit logging."
+		},
+		{
+			"path": "src/routes/api/cleanup-account-setup-links/+server.ts",
+			"classification": "cron-edge",
+			"reason": "Cron cleanup of stale account setup links still builds its service-role cleanup store in the route."
+		},
+		{
+			"path": "src/routes/api/cleanup-archived-records/+server.ts",
+			"classification": "cron-edge",
+			"reason": "Cron archive-retention cleanup still creates service-role data and storage adapters in the route."
+		},
+		{
+			"path": "src/routes/api/cleanup-expired-onboardings/+server.ts",
+			"classification": "cron-edge",
+			"reason": "Cron onboarding-retention cleanup still reads organization settings and creates its service-role data store in the route."
+		},
+		{
+			"path": "src/routes/api/cleanup-old-data/+server.ts",
+			"classification": "cron-edge",
+			"reason": "Cron old-data cleanup still invokes service-role cleanup RPCs directly from the route."
+		},
+		{
+			"path": "src/routes/org/[orgId]/settings/logs/+page.server.ts",
+			"classification": "platform-admin-edge",
+			"reason": "Organization audit-log settings still creates a service-role data store in the route."
+		},
+		{
+			"path": "src/routes/org/[orgId]/settings/members/+page.server.ts",
+			"classification": "auth-edge",
+			"reason": "Organization member invitation actions still create service-role invitation delivery and rate-limit adapters in the route."
+		}
+	],
 	"featurePermissionCouplings": []
 }

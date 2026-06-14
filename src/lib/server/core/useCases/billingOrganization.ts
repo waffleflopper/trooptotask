@@ -90,6 +90,22 @@ export interface CancelBillingSubscriptionResult {
 	canceledSubscriptionId: string;
 }
 
+export interface BillingCancellationTransitionPort {
+	applyImmediateCancellation(input: {
+		orgId: string;
+		stripeCustomerId: string | null;
+		cancellationFeedback: BillingCancellationFeedback | null;
+	}): Promise<void>;
+}
+
+interface BillingCancellationTransitionPorts extends BillingCancellationPorts {
+	billingCancellationTransition: BillingCancellationTransitionPort;
+}
+
+export interface CancelBillingSubscriptionWithTransitionResult extends CancelBillingSubscriptionResult {
+	billingTransitionApplied: boolean;
+}
+
 export async function cancelBillingSubscriptionForOrganization(
 	ports: BillingCancellationPorts,
 	input: { confirmedImmediateCancellation?: boolean; cancellationFeedback?: BillingCancellationFeedback | null } = {}
@@ -115,5 +131,32 @@ export async function cancelBillingSubscriptionForOrganization(
 		success: true,
 		stripeCustomerId: org.stripeCustomerId,
 		canceledSubscriptionId: subscriptionId
+	};
+}
+
+export async function cancelBillingSubscriptionForOrganizationWithTransition(
+	ports: BillingCancellationTransitionPorts,
+	input: { confirmedImmediateCancellation?: boolean; cancellationFeedback?: BillingCancellationFeedback | null } = {}
+): Promise<CancelBillingSubscriptionWithTransitionResult> {
+	const result = await cancelBillingSubscriptionForOrganization(ports, input);
+
+	let billingTransitionApplied = false;
+	try {
+		await ports.billingCancellationTransition.applyImmediateCancellation({
+			orgId: ports.auth.orgId,
+			stripeCustomerId: result.stripeCustomerId,
+			cancellationFeedback: input.cancellationFeedback ?? null
+		});
+		billingTransitionApplied = true;
+	} catch (snapshotError) {
+		console.warn(
+			`[billing] Immediate cancellation snapshot for organization ${ports.auth.orgId} will be reconciled by Stripe webhook processing.`,
+			snapshotError
+		);
+	}
+
+	return {
+		...result,
+		billingTransitionApplied
 	};
 }

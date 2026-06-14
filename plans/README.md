@@ -8,6 +8,9 @@ Updated by the improve skill on 2026-06-11 at commit `79cfef20` with plans 023-0
 Updated by the improve skill on 2026-06-12 at commit `a2b09628` with plans 027-038 (deep audit follow-up; Robert selected all findings and narrowed the privacy item to analytics disclosure only).
 Updated by the improve skill on 2026-06-13 at commit `0a6e6000` with plans 039-044 (Robert selected findings 1-6 from the 2026-06-13 standard audit).
 Updated by the improve skill on 2026-06-13 at commit `0a6e6000` with performance plans 045-049.
+Updated by the improve skill on 2026-06-13 at commit `9a1e439b` with plans 050-052 (Robert selected the three Platform Administration provider-seam deepening targets).
+Updated by the improve skill on 2026-06-14 at commit `9a1e439b` with plans 053-058 (Robert selected findings 1-7 from the follow-up audit, excluding finding 5).
+Updated by the improve skill on 2026-06-14 at commit `9a1e439b` with tech-debt plans 059-068 (Robert selected all vetted findings plus the small cleanup bundle).
 
 Execute in the order below unless dependencies say otherwise. Each executor must read the selected plan fully before starting, honor its STOP conditions, run every verification command, and update the status row when done.
 
@@ -66,6 +69,25 @@ The operator explicitly excluded automatic CI trigger work from this batch. Do n
 | 047  | Split Training report detail from aggregate work  | P1       | M      | -          | DONE   |
 | 048  | Index long-range Calendar date cells              | P2       | S      | -          | DONE   |
 | 049  | Precompute DA6 matrix lookup maps                 | P2       | S      | -          | DONE   |
+| 050  | Deepen billing-event retry seam                   | P1       | M      | -          | DONE   |
+| 051  | Add platform organization detail seam             | P1       | M      | -          | DONE   |
+| 052  | Move user identity commands behind seam           | P2       | S-M    | -          | DONE   |
+| 053  | Drop legacy clinic owner RPC                      | P1       | S      | -          | DONE   |
+| 054  | Move logout mutation to POST                      | P1       | S      | -          | DONE   |
+| 055  | Replace capped Auth email scans                   | P1       | M      | -          | DONE   |
+| 056  | Add sign-in roster scan compensation              | P2       | M      | -          | DONE   |
+| 057  | Parallelize Dashboard organization access reads   | P2       | S      | -          | DONE   |
+| 058  | Align README runtime setup                        | P3       | S      | -          | DONE   |
+| 059  | Expand governance for admin route seams           | P1       | M      | -          | DONE   |
+| 060  | Move feedback submissions behind platform seam    | P2       | M      | -          | DONE   |
+| 061  | Share retention cleanup support                   | P1       | M      | -          | DONE   |
+| 062  | Move billing checkout recovery behind seam        | P1       | M      | -          | DONE   |
+| 063  | Move Personnel restore/delete into use cases      | P1       | M      | -          | DONE   |
+| 064  | Move Personnel export behind use case             | P2       | M      | -          | DONE   |
+| 065  | Retire dormant Dashboard tab configuration        | P2       | M      | -          | DONE   |
+| 066  | Split Calendar settings and delete stale managers | P2       | M      | -          | DONE   |
+| 067  | Consolidate Account Setup route orchestration     | P2       | M-L    | -          | DONE   |
+| 068  | Consolidate workbook interop and remove unused icons | P3       | S      | -          | DONE   |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line rationale).
 
@@ -104,9 +126,30 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJE
 - 047 is independent from 046 by feature area but touches Training report routes, read models, and a Svelte component. Do not run it in parallel with other Training reports/API refactors.
 - 048 and 049 are small independent Svelte-adjacent render optimizations. They can run in parallel in isolated worktrees because they touch Calendar and Duty Roster respectively. If their executors edit Svelte files, they must follow the Svelte MCP documentation flow and run `svelte-autofixer` until clean.
 - 046, 047, 048, and 049 add no migrations. They do not require local or remote database schema changes.
+- 050, 051, and 052 are independent by runtime source scope, but they all deepen Platform Administration provider seams and may update `docs/architecture/DRIFT_LEDGER.md` plus `plans/README.md`; coordinate those doc/index edits if running them in parallel.
+- If serialized, run 050 first, then 051, then 052. 050 touches billing-event retry and should not run alongside Stripe webhook processor refactors. 051 touches the admin organization detail load and should not run alongside organization-detail load/billing seam work. 052 touches admin user identity commands and should not run alongside user-directory auth command work.
+- 050, 051, and 052 add no migrations. They do not require local or remote database schema changes.
+- 053, 055, and any other migration-adding plan must not run in parallel with each other or with other agents adding Supabase migrations. Never target production, and do not reset or delete the local database without Robert's explicit permission.
+- 053 is independent and should run before broader RPC/security cleanup only because it is small and closes a stale public surface.
+- 054 is independent from the database plans. If its executor edits Svelte files, it must follow the Svelte MCP documentation flow and run `svelte-autofixer` until clean.
+- 055 is independent from 053 and 054 but touches auth-adjacent account setup and organization invitation bridging. Do not run it in parallel with other Account Setup Link, organization invitation, or Auth identity work.
+- 056 is independent from 055 by feature area, but it touches sign-in roster route handlers and storage behavior. Do not run it in parallel with sign-in roster upload or Training records storage refactors.
+- 057 is a tiny use-case-only performance change and can run in parallel with non-dashboard work.
+- 058 is docs-only and can run at any time, but it should not be batched with dependency/toolchain changes that mutate `package-lock.json`.
+- 059 should run first in the 059-068 tech-debt batch when practical. It turns service-role/admin route seams into an explicit governance baseline so later seam-removal plans can remove or update their entries instead of leaving blind spots.
+- 060 is independent from the older feedback privacy plan. It preserves the temporary GitHub beta feedback mirror while moving submission behavior behind the Platform Feedback seam. If 059 has already landed, update the new admin-provider baseline entry for the feedback route.
+- 061 is independent retention cleanup support work and adds no migrations. Do not run it in parallel with other cleanup cron route refactors.
+- 062 is independent from database plans but touches billing checkout success/cancel routes. Do not run it in parallel with plan 050, Stripe webhook processor refactors, or billing reconciliation refactors.
+- 063 and 064 both touch Personnel API routes and should not run in parallel with each other. Run 063 first if both are serialized, because lifecycle writes are higher risk than export refactoring.
+- 065 touches Dashboard runtime surface and should not run in parallel with plan 057 or other Dashboard read-model/page work. Its executor must follow the Svelte MCP documentation flow and run `svelte-autofixer` for edited Svelte files.
+- 066 touches Calendar settings Svelte components and should not run in parallel with other Calendar settings work. Its executor must follow the Svelte MCP documentation flow and run `svelte-autofixer` until clean.
+- 067 should coordinate with plan 055 and any Account Setup Link, organization invitation, or Auth identity work. If 059 has already landed, update any new admin-provider baseline entries affected by the route seam changes.
+- 068 is a small independent cleanup. It can run alongside non-frontend work, but if the executor edits or removes Svelte icon files, it still needs the Svelte autofixer check described in the plan.
+- 059-068 add no migrations and do not require local or remote database schema changes. Never target production, and do not reset or delete the local database without Robert's explicit permission.
 
 ## Findings Considered And Rejected
 
+- Members settings unbounded history payloads (2026-06-14 follow-up audit finding 5): real admin-page scalability risk, but Robert explicitly excluded it from plans 053-058. Revisit in a future organization-settings/admin scalability batch.
 - Platform access request enrichment pagination (2026-06-13 performance audit): real admin-only scaling issue, but lower leverage than user-facing dashboard/report/render hot paths in this batch. Revisit with a dedicated platform-admin performance pass.
 - Training Matrix full-grid virtualization (2026-06-13 performance audit): real render risk for very large unit/training-type combinations, but it is a broader UX interaction change. Deferred until after the narrower Training report server/detail split is complete and measured.
 - Critical Tasks completion-history read model for report/export workloads (2026-06-13 performance audit): real L-effort follow-up. Plan 046 addresses the dashboard-specific waste first; keep bounded history or aggregate SQL for full reports/exports as a separate plan.

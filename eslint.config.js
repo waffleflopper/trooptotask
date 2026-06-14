@@ -71,6 +71,7 @@ export default ts.config(
 			'.claude/',
 			'.superpowers/',
 			'.sandcastle/',
+			'.worktrees/',
 			'.agents/skills/impeccable/agents/',
 			'.agents/skills/impeccable/scripts/',
 			'.vercel/',

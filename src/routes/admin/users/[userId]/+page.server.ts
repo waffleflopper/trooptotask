@@ -1,8 +1,8 @@
 import { error, fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 import { loadWithAdminContext, adminAction } from '$lib/server/adapters/adminAdapter';
-import { getAuthConfirmRedirectTo } from '$lib/server/authConfirm';
 import { createSupabasePlatformAudit } from '$lib/server/adapters/supabasePlatformAudit';
+import { createSupabasePlatformUserIdentityCommands } from '$lib/server/adapters/supabasePlatformUserIdentityCommands';
 import { createSupabasePlatformUserDirectory } from '$lib/server/adapters/supabasePlatformUserDirectory';
 import { validateUUID } from '$lib/server/validation';
 
@@ -29,64 +29,34 @@ export const actions: Actions = {
 	resetPassword: adminAction({
 		page: 'users',
 		fn: async (ctx, event) => {
-			const { adminClient } = ctx;
 			const userId = event.params.userId as string;
 			if (!validateUUID(userId)) return fail(400, { error: 'Invalid user ID' });
 
-			const { data: authUser, error: authError } = await adminClient.auth.admin.getUserById(userId);
-			if (authError || !authUser?.user?.email) {
-				return fail(404, { error: 'User not found' });
-			}
-
-			const { error: linkError } = await adminClient.auth.resetPasswordForEmail(authUser.user.email, {
-				redirectTo: getAuthConfirmRedirectTo(event.url.origin, 'recovery')
+			const result = await createSupabasePlatformUserIdentityCommands(ctx).sendPasswordReset({
+				userId,
+				inboundOrigin: event.url.origin
 			});
 
-			if (linkError) {
-				return fail(500, { error: 'Failed to send password reset' });
-			}
-
-			ctx.audit({
-				action: 'admin.user.password_reset',
-				resourceType: 'user',
-				resourceId: userId,
-				details: { targetEmail: authUser.user.email },
-				severity: 'warning'
-			});
-
-			return { success: true, message: 'Password reset email sent' };
+			if (result.status === 'not_found') return fail(404, { error: 'User not found' });
+			if (result.status === 'provider_error') return fail(500, { error: 'Failed to send password reset' });
+			return { success: true, message: result.message };
 		}
 	}),
 
 	resendInvite: adminAction({
 		page: 'users',
 		fn: async (ctx, event) => {
-			const { adminClient } = ctx;
 			const userId = event.params.userId as string;
 			if (!validateUUID(userId)) return fail(400, { error: 'Invalid user ID' });
 
-			const { data: authUser, error: authError } = await adminClient.auth.admin.getUserById(userId);
-			if (authError || !authUser?.user?.email) {
-				return fail(404, { error: 'User not found' });
-			}
-
-			const { error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(authUser.user.email, {
-				redirectTo: getAuthConfirmRedirectTo(event.url.origin, 'invite')
+			const result = await createSupabasePlatformUserIdentityCommands(ctx).resendInvite({
+				userId,
+				inboundOrigin: event.url.origin
 			});
 
-			if (inviteError) {
-				return fail(500, { error: 'Failed to resend invite' });
-			}
-
-			ctx.audit({
-				action: 'admin.user.resend_invite',
-				resourceType: 'user',
-				resourceId: userId,
-				details: { targetEmail: authUser.user.email },
-				severity: 'info'
-			});
-
-			return { success: true, message: 'Invite email resent' };
+			if (result.status === 'not_found') return fail(404, { error: 'User not found' });
+			if (result.status === 'provider_error') return fail(500, { error: 'Failed to resend invite' });
+			return { success: true, message: result.message };
 		}
 	})
 };

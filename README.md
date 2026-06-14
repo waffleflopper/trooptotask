@@ -90,7 +90,8 @@ A military unit management platform for personnel tracking, calendar/availabilit
 
 ### Prerequisites
 
-- Node.js 18+
+- Node.js 24.x (use `.nvmrc` with `nvm use` if you use nvm)
+- npm 11.12.1 (upgrade npm to 11.12.1 if your Node install ships a different version)
 - [Supabase CLI](https://supabase.com/docs/guides/cli) (for local development)
 
 ### Installation
@@ -105,7 +106,7 @@ A military unit management platform for personnel tracking, calendar/availabilit
 2. Install dependencies:
 
    ```bash
-   npm install
+   npm ci
    ```
 
 3. Start the local Supabase instance:
@@ -153,7 +154,7 @@ npm run test:e2e     # E2E tests (Playwright)
 ### Verification Gate
 
 Run `npm run gate` before shipping changes; it runs the five required local checks in order:
-format check, lint, governance, Svelte/TypeScript check, and unit tests. `npm install` also
+format check, lint, governance, Svelte/TypeScript check, and unit tests. Dependency setup also
 configures `.githooks/pre-push` so pushes run the same gate automatically. To opt out of the
 local hook wiring, run `git config --unset core.hooksPath`.
 

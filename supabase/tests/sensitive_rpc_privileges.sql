@@ -2,7 +2,7 @@ BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 
-SELECT plan(27);
+SELECT plan(28);
 
 SELECT is(
 	has_function_privilege('anon', 'public.search_users_by_email(text, integer)', 'EXECUTE'),
@@ -156,6 +156,12 @@ SELECT is(
 	has_function_privilege('service_role', 'public.is_user_suspended(uuid)', 'EXECUTE'),
 	true,
 	'service role can execute user suspension state RPC'
+);
+
+SELECT is(
+	to_regprocedure('public.create_clinic_with_owner(text)'),
+	NULL::regprocedure,
+	'legacy clinic owner RPC is absent'
 );
 
 SELECT * FROM finish();

@@ -13,7 +13,8 @@ describe('user email identity lookup migration', () => {
 	it('creates the service-owned user email identity table with unique normalized email', () => {
 		const normalized = normalizedSql();
 
-		expect(normalized).toContain('create table if not exists "public"."user_email_identities"');
+		expect(normalized).toContain('create table "public"."user_email_identities"');
+		expect(normalized).not.toContain('create table if not exists "public"."user_email_identities"');
 		expect(normalized).toContain('"user_id" uuid not null');
 		expect(normalized).toContain('"normalized_email" text not null');
 		expect(normalized).toContain('constraint "user_email_identities_normalized_email_key" unique ("normalized_email")');
@@ -39,6 +40,7 @@ describe('user email identity lookup migration', () => {
 		const normalized = normalizedSql();
 
 		expect(normalized).toContain('alter table "public"."user_email_identities" enable row level security');
+		expect(normalized).toContain('create or replace trigger "update_user_email_identities_updated_at"');
 		expect(normalized).toContain('create policy "service role can manage user email identities"');
 		expect(normalized).toContain('to "service_role"');
 		expect(normalized).toContain('revoke all on table "public"."user_email_identities" from public');

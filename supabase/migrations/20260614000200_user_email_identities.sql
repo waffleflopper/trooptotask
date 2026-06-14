@@ -16,7 +16,7 @@ BEGIN
 END;
 $$;
 
-CREATE TABLE IF NOT EXISTS "public"."user_email_identities" (
+CREATE TABLE "public"."user_email_identities" (
 	"user_id" uuid NOT NULL,
 	"normalized_email" text NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,

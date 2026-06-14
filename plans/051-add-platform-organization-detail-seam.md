@@ -18,7 +18,7 @@
 - **Priority**: P1
 - **Effort**: M
 - **Risk**: MED
-- **Depends on**: none
+- **Depends on**: Plan 059 governance allowlist for admin-provider routes
 - **Category**: architecture
 - **Planned at**: commit `9a1e439b`, 2026-06-13 AKDT
 
@@ -58,7 +58,7 @@ Supabase table details should live in its adapter.
 | Install, if needed         | `npm ci`                                                                                                                                      | exit 0              |
 | Focused route test         | `npx vitest run src/routes/admin/organizations/[orgId]/page.server.test.ts`                                                                   | all pass            |
 | Focused use-case tests     | `npx vitest run src/lib/server/core/useCases/platformOrganizationDetail.test.ts src/lib/server/adapters/supabasePlatformOrganizationDetail.test.ts` | all pass            |
-| Provider-read grep         | `rg -n "AdminOrganizationBillingSnapshotRow\|mapAdminOrganizationBillingSnapshot\|organization_billing_snapshots\|\\.from\\('organizations'\\)" src/routes/admin/organizations/[orgId]/+page.server.ts` | no matches          |
+| Provider-read grep         | `rg -n -e 'AdminOrganizationBillingSnapshotRow' -e 'mapAdminOrganizationBillingSnapshot' -e 'organization_billing_snapshots' -e "\\.from\\('organizations'\\)" src/routes/admin/organizations/[orgId]/+page.server.ts` | no matches          |
 | Format                     | `npm run format`                                                                                                                              | exit 0              |
 | Lint                       | `npm run lint`                                                                                                                                | exit 0              |
 | Governance                 | `npm run governance:check`                                                                                                                     | exit 0              |
@@ -249,7 +249,7 @@ Remove route-local imports that only supported the old detail load:
 Do not remove imports still needed by form actions.
 
 **Verify**:
-`rg -n "AdminOrganizationBillingSnapshotRow\|mapAdminOrganizationBillingSnapshot\|organization_billing_snapshots\|\\.from\\('organizations'\\)" src/routes/admin/organizations/[orgId]/+page.server.ts`
+`rg -n -e 'AdminOrganizationBillingSnapshotRow' -e 'mapAdminOrganizationBillingSnapshot' -e 'organization_billing_snapshots' -e "\\.from\\('organizations'\\)" src/routes/admin/organizations/[orgId]/+page.server.ts`
 returns no matches.
 
 ### Step 5: Update route tests around the new seam

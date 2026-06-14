@@ -135,7 +135,7 @@ supabase/migrations/20260614000200_user_email_identities.sql
 Create a table shaped for exact server lookup:
 
 ```sql
-CREATE TABLE IF NOT EXISTS public.user_email_identities (
+CREATE TABLE public.user_email_identities (
 	user_id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
 	normalized_email text NOT NULL UNIQUE,
 	created_at timestamp with time zone DEFAULT now() NOT NULL,
@@ -163,7 +163,7 @@ the unique constraint.
 **Verify**:
 
 ```bash
-rg -n "user_email_identities|auth\\.users|ENABLE ROW LEVEL SECURITY|REVOKE .*authenticated|GRANT .*service_role" supabase/migrations/20260614000200_user_email_identities.sql
+rg -n -e "user_email_identities" -e "auth\\.users" -e "ENABLE ROW LEVEL SECURITY" -e "REVOKE .*PUBLIC" -e "REVOKE .*authenticated" -e "CREATE OR REPLACE TRIGGER .*user_email_identities" -e "GRANT .*service_role" supabase/migrations/20260614000200_user_email_identities.sql
 ```
 
 shows the table, backfill, RLS, revokes, and service-role grant.

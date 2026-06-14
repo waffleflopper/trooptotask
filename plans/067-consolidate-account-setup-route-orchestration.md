@@ -91,7 +91,7 @@ const service = createSupabaseAccessRequestSetupDeliveryService(adminClient);
 | Setup-account route tests | `npx vitest run src/routes/auth/setup-account/page.server.test.ts` | exits 0 |
 | Access request route tests | `npx vitest run src/routes/auth/renew-invite/page.server.test.ts src/routes/api/access-requests/server.test.ts` | exits 0 |
 | Account setup service tests | `npx vitest run src/lib/server/accountSetupCompletion.test.ts src/lib/server/accountSetupLinks.test.ts src/lib/server/accessRequestSetupDelivery.test.ts` | exits 0 |
-| Route provider grep | `rg -n "getAdminClient\|createSupabaseAccountSetupCompletionStore\|createSupabaseAccountSetupAuthAdapter\|createSupabaseAccessRequestSetupDeliveryService\|createAccountSetupCompletionService\|createAccountSetupLinkService" src/routes/auth/setup-account/+page.server.ts src/routes/auth/renew-invite/+page.server.ts src/routes/api/access-requests/+server.ts` | no provider construction matches |
+| Route provider grep | `rg -n -e 'getAdminClient' -e 'createSupabaseAccountSetupCompletionStore' -e 'createSupabaseAccountSetupAuthAdapter' -e 'createSupabaseAccessRequestSetupDeliveryService' -e 'createAccountSetupCompletionService' -e 'createAccountSetupLinkService' src/routes/auth/setup-account/+page.server.ts src/routes/auth/renew-invite/+page.server.ts src/routes/api/access-requests/+server.ts` | no provider construction matches |
 | Format | `npm run format` | exits 0 |
 | Lint | `npm run lint` | exits 0 |
 | Governance | `npm run governance:check` | exits 0 |

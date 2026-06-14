@@ -8,7 +8,7 @@
 > the index.
 >
 > **Drift check (run first)**:
-> `git diff --stat 9a1e439b..HEAD -- src/routes/org/[orgId]/api/sign-in-rosters/[id] src/lib/server/core/useCases src/lib/storage/sensitiveFiles.ts src/lib/server/adapters/inMemory.ts`
+> `git diff --stat 9a1e439b..HEAD -- src/routes/org/[orgId]/api/sign-in-rosters/[id] src/lib/server/core/useCases src/lib/storage/sensitiveFiles.ts src/lib/storage/sensitiveFiles.test.ts src/lib/server/adapters/inMemory.ts src/routes/org/[orgId]/api/sign-in-rosters/[id]/server.test.ts src/routes/org/[orgId]/api/sign-in-rosters/[id]/upload/server.test.ts`
 > If any in-scope file changed since this plan was written, compare the
 > "Current state" excerpts against the live code before proceeding; on a
 > mismatch, treat it as a STOP condition.
@@ -139,8 +139,9 @@ different storage paths.
 ### Step 2: Add upload compensation
 
 Wrap the DB update after `ctx.storage.upload` in a try/catch. If the DB update fails, remove the
-newly uploaded path and rethrow the original error. Match the personnel document/counseling record
-compensation style.
+newly uploaded path and rethrow the original error. If that cleanup removal also fails, log the
+cleanup failure as secondary and still rethrow the original DB update error. Match the personnel
+document/counseling record compensation style.
 
 Do not remove an existing previous scan path during upload in this plan unless you can prove the
 new DB update succeeded and the previous path is different.

@@ -8,7 +8,7 @@
 > the index.
 >
 > **Drift check (run first)**:
-> `git diff --stat 9a1e439b..HEAD -- scripts/check-governance.mjs src/tests/check-governance.test.ts docs/architecture/GOVERNANCE_CHECKS.md docs/architecture/GOVERNANCE_BASELINE.json docs/architecture/DRIFT_LEDGER.md`
+> `git diff --stat 9a1e439b..HEAD -- scripts/check-governance.mjs src/tests/check-governance.test.ts docs/architecture/GOVERNANCE_CHECKS.md docs/architecture/GOVERNANCE_BASELINE.json docs/architecture/DRIFT_LEDGER.md plans/README.md`
 > If any in-scope file changed since this plan was written, compare the
 > "Current state" excerpts against the live code before proceeding; on a
 > mismatch, treat it as a STOP condition.
@@ -249,4 +249,3 @@ Stop and report back if:
 This plan intentionally creates a visible baseline of existing privileged route
 seams. Follow-up implementation plans should remove entries as they move route
 logic behind app-owned use cases or adapters.
-

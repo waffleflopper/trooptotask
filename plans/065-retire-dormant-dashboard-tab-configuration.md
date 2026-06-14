@@ -83,7 +83,7 @@ const view = $derived(ctx.unitReadiness);
 | --- | --- | --- |
 | Svelte docs flow | Svelte MCP `list-sections`, then `get-documentation` for relevant sections | docs read before Svelte edits |
 | Dashboard tests | `npx vitest run src/features/dashboard/components/DashboardPageView.svelte.test.ts src/features/dashboard/read-model/dashboardScreenModel.svelte.test.ts` | exits 0 |
-| Removed surface grep | `rg -n "dashboardTabStore\|dashboard-config\|DashboardTabId\|DashboardConfig\|DEFAULT_DASHBOARD_CONFIG\|normalizeDashboardConfig\|PeopleDutyTab\|TrainingEvalsTab\|UnitReadinessTab" src` | no runtime matches except intentional historical/data-store notes |
+| Removed surface grep | `rg -n -e 'dashboardTabStore' -e 'dashboard-config' -e 'DashboardTabId' -e 'DashboardConfig' -e 'DEFAULT_DASHBOARD_CONFIG' -e 'normalizeDashboardConfig' -e 'WidgetInstance' -e 'isDashboardTabId' -e 'resolveDashboardTab' -e 'PeopleDutyTab' -e 'TrainingEvalsTab' -e 'UnitReadinessTab' src` | no runtime matches except intentional historical/data-store notes |
 | Svelte autofix | `svelte-autofixer` on edited Svelte files | no issues or suggestions |
 | Format | `npm run format` | exits 0 |
 | Lint | `npm run lint` | exits 0 |
@@ -162,7 +162,7 @@ Update `src/features/dashboard/index.ts` so it no longer exports
 `DEFAULT_DASHBOARD_CONFIG`.
 
 **Verify**:
-`rg -n "dashboardTabStore\|dashboard-config\|DashboardTabId\|DashboardConfig\|DEFAULT_DASHBOARD_CONFIG\|normalizeDashboardConfig" src/features/dashboard src/routes`
+`rg -n -e 'dashboardTabStore' -e 'dashboard-config' -e 'DashboardTabId' -e 'DashboardConfig' -e 'DEFAULT_DASHBOARD_CONFIG' -e 'normalizeDashboardConfig' -e 'WidgetInstance' -e 'isDashboardTabId' -e 'resolveDashboardTab' src/features/dashboard src/routes`
 has no matches.
 
 ### Step 3: Remove obsolete dashboard config types
@@ -202,7 +202,7 @@ after component deletion, remove those interfaces/getters and their tests in the
 same slice. Leave any getters still used by `OverviewTab`.
 
 **Verify**:
-`rg -n "PeopleDutyTab\|TrainingEvalsTab\|UnitReadinessTab\|ctx\\.peopleDuty\|ctx\\.trainingEvals" src`
+`rg -n -e 'PeopleDutyTab' -e 'TrainingEvalsTab' -e 'UnitReadinessTab' -e 'ctx\\.peopleDuty' -e 'ctx\\.trainingEvals' src`
 has no matches.
 
 ### Step 5: Keep the active dashboard covered

@@ -78,7 +78,7 @@ The operator explicitly excluded automatic CI trigger work from this batch. Do n
 | 056  | Add sign-in roster scan compensation              | P2       | M      | -          | TODO   |
 | 057  | Parallelize Dashboard organization access reads   | P2       | S      | -          | TODO   |
 | 058  | Align README runtime setup                        | P3       | S      | -          | TODO   |
-| 059  | Expand governance for admin route seams           | P1       | M      | -          | TODO   |
+| 059  | Expand governance for admin route seams           | P1       | M      | -          | DONE   |
 | 060  | Move feedback submissions behind platform seam    | P2       | M      | -          | TODO   |
 | 061  | Share retention cleanup support                   | P1       | M      | -          | TODO   |
 | 062  | Move billing checkout recovery behind seam        | P1       | M      | -          | TODO   |

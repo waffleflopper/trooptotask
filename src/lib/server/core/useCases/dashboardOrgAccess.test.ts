@@ -53,6 +53,17 @@ function createDashboardOrgAccessPort(
 	};
 }
 
+function createDeferred<T>() {
+	let resolve!: (value: T | PromiseLike<T>) => void;
+	let reject!: (reason?: unknown) => void;
+	const promise = new Promise<T>((res, rej) => {
+		resolve = res;
+		reject = rej;
+	});
+
+	return { promise, resolve, reject };
+}
+
 function createRecordingAuditFactory(): {
 	auditFor: (organizationId: string) => AuditPort;
 	events: Array<{ organizationId: string; event: Parameters<AuditPort['log']>[0] }>;
@@ -87,6 +98,44 @@ describe('loadDashboardOrgAccess', () => {
 			redirectTo: '/org/1-11-bde'
 		});
 		expect(port.requestedInvitationEmails).toEqual(['user@example.com']);
+	});
+
+	it('starts organization and invitation reads before either resolves', async () => {
+		const events: string[] = [];
+		const organizationsRead = createDeferred<DashboardOrganizationSummary[]>();
+		const invitationsRead = createDeferred<DashboardPendingInvitationSummary[]>();
+		const port: DashboardOrgAccessPort = {
+			async listOrganizationsForUser() {
+				events.push('organizations:start');
+				return organizationsRead.promise;
+			},
+			async listPendingInvitationsForEmail(email) {
+				events.push(`invitations:start:${email}`);
+				return invitationsRead.promise;
+			},
+			async acceptInvitation() {
+				throw new Error('acceptInvitation should not be called');
+			},
+			async declineInvitation() {
+				throw new Error('declineInvitation should not be called');
+			}
+		};
+
+		const resultPromise = loadDashboardOrgAccess(port, {
+			userId: 'user-1',
+			email: ' USER@EXAMPLE.COM ',
+			forceShow: true
+		});
+
+		await Promise.resolve();
+
+		try {
+			expect(events).toEqual(['organizations:start', 'invitations:start:user@example.com']);
+		} finally {
+			organizationsRead.resolve([]);
+			invitationsRead.resolve([]);
+			await resultPromise;
+		}
 	});
 
 	it('redirects to organization creation when the user has no orgs and no invitations', async () => {

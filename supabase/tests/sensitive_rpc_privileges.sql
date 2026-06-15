@@ -2,7 +2,7 @@ BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 
-SELECT plan(28);
+SELECT plan(34);
 
 SELECT is(
 	has_function_privilege('anon', 'public.search_users_by_email(text, integer)', 'EXECUTE'),
@@ -48,6 +48,16 @@ SELECT is(
 	has_function_privilege('anon', 'public.is_user_suspended(uuid)', 'EXECUTE'),
 	false,
 	'anon cannot execute user suspension state RPC'
+);
+SELECT is(
+	has_function_privilege('anon', 'public.sensitive_file_object_is_readable(text, text)', 'EXECUTE'),
+	false,
+	'anon cannot execute sensitive file readability helper'
+);
+SELECT is(
+	has_function_privilege('anon', 'public.sensitive_file_object_is_writable(text, text)', 'EXECUTE'),
+	false,
+	'anon cannot execute sensitive file writability helper'
 );
 
 SELECT is(
@@ -103,6 +113,16 @@ SELECT is(
 	true,
 	'authenticated users can execute guarded self-scoped user suspension state RPC'
 );
+SELECT is(
+	has_function_privilege('authenticated', 'public.sensitive_file_object_is_readable(text, text)', 'EXECUTE'),
+	true,
+	'authenticated users can execute sensitive file readability helper'
+);
+SELECT is(
+	has_function_privilege('authenticated', 'public.sensitive_file_object_is_writable(text, text)', 'EXECUTE'),
+	true,
+	'authenticated users can execute sensitive file writability helper'
+);
 
 SELECT is(
 	has_function_privilege('service_role', 'public.search_users_by_email(text, integer)', 'EXECUTE'),
@@ -156,6 +176,16 @@ SELECT is(
 	has_function_privilege('service_role', 'public.is_user_suspended(uuid)', 'EXECUTE'),
 	true,
 	'service role can execute user suspension state RPC'
+);
+SELECT is(
+	has_function_privilege('service_role', 'public.sensitive_file_object_is_readable(text, text)', 'EXECUTE'),
+	true,
+	'service role can execute sensitive file readability helper'
+);
+SELECT is(
+	has_function_privilege('service_role', 'public.sensitive_file_object_is_writable(text, text)', 'EXECUTE'),
+	true,
+	'service role can execute sensitive file writability helper'
 );
 
 SELECT is(

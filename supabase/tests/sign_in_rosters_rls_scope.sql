@@ -2,7 +2,7 @@ BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 
-SELECT plan(10);
+SELECT plan(15);
 
 INSERT INTO auth.users (
 	instance_id,
@@ -164,6 +164,52 @@ VALUES
 		'rls-roster-other-org-070@example.test'
 	);
 
+INSERT INTO public.personnel (
+	id,
+	organization_id,
+	rank,
+	last_name,
+	first_name,
+	clinic_role,
+	group_id,
+	mos,
+	slug
+)
+VALUES
+	(
+		'60000000-0000-4000-8000-000000070001',
+		'20000000-0000-4000-8000-000000070001',
+		'SGT',
+		'Alpha',
+		'Avery',
+		'Medic',
+		'30000000-0000-4000-8000-000000070001',
+		'68W',
+		'alpha-avery-070'
+	),
+	(
+		'60000000-0000-4000-8000-000000070002',
+		'20000000-0000-4000-8000-000000070001',
+		'SGT',
+		'Bravo',
+		'Bailey',
+		'Medic',
+		'30000000-0000-4000-8000-000000070002',
+		'68W',
+		'bravo-bailey-070'
+	),
+	(
+		'60000000-0000-4000-8000-000000070003',
+		'20000000-0000-4000-8000-000000070002',
+		'SGT',
+		'Charlie',
+		'Casey',
+		'Medic',
+		'30000000-0000-4000-8000-000000070003',
+		'68W',
+		'charlie-casey-070'
+	);
+
 INSERT INTO public.sign_in_rosters (
 	id,
 	organization_id,
@@ -188,7 +234,7 @@ VALUES
 		false,
 		false,
 		'alphabetical',
-		'[]'::jsonb,
+		'[{"id": "60000000-0000-4000-8000-000000070001", "rank": "SGT", "lastName": "Alpha", "firstName": "Avery", "groupId": "30000000-0000-4000-8000-000000070001"}]'::jsonb,
 		ARRAY['60000000-0000-4000-8000-000000070001']::uuid[],
 		ARRAY['30000000-0000-4000-8000-000000070001']::uuid[],
 		NULL,
@@ -203,7 +249,10 @@ VALUES
 		false,
 		false,
 		'alphabetical',
-		'[]'::jsonb,
+		'[
+			{"id": "60000000-0000-4000-8000-000000070001", "rank": "SGT", "lastName": "Alpha", "firstName": "Avery", "groupId": "30000000-0000-4000-8000-000000070001"},
+			{"id": "60000000-0000-4000-8000-000000070002", "rank": "SGT", "lastName": "Bravo", "firstName": "Bailey", "groupId": "30000000-0000-4000-8000-000000070002"}
+		]'::jsonb,
 		ARRAY[
 			'60000000-0000-4000-8000-000000070001',
 			'60000000-0000-4000-8000-000000070002'
@@ -230,6 +279,25 @@ VALUES
 		NULL,
 		'10000000-0000-4000-8000-000000070001',
 		now()
+	);
+
+INSERT INTO storage.objects (id, bucket_id, name, owner, owner_id, metadata)
+VALUES
+	(
+		'70000000-0000-4000-8000-000000070001',
+		'counseling-files',
+		'20000000-0000-4000-8000-000000070001/sign-in-rosters/50000000-0000-4000-8000-000000070001/alpha-roster.pdf',
+		'10000000-0000-4000-8000-000000070001',
+		'10000000-0000-4000-8000-000000070001',
+		'{}'::jsonb
+	),
+	(
+		'70000000-0000-4000-8000-000000070002',
+		'counseling-files',
+		'20000000-0000-4000-8000-000000070001/sign-in-rosters/50000000-0000-4000-8000-000000070002/mixed-roster.pdf',
+		'10000000-0000-4000-8000-000000070001',
+		'10000000-0000-4000-8000-000000070001',
+		'{}'::jsonb
 	);
 
 SET LOCAL ROLE authenticated;
@@ -259,7 +327,126 @@ SELECT is_empty(
 	'group-scoped training viewer cannot read organization-only historical sign-in rosters'
 );
 
+SELECT is(
+	(
+		SELECT count(*)::integer
+		FROM storage.objects
+		WHERE id = '70000000-0000-4000-8000-000000070001'
+	),
+	1,
+	'group-scoped training viewer can read in-scope sign-in roster storage objects'
+);
+
+SELECT is(
+	(
+		SELECT count(*)::integer
+		FROM storage.objects
+		WHERE id = '70000000-0000-4000-8000-000000070002'
+	),
+	0,
+	'group-scoped training viewer cannot read mixed-scope sign-in roster storage objects'
+);
+
 SELECT set_config('request.jwt.claim.sub', '10000000-0000-4000-8000-000000070003', true);
+
+SELECT throws_ok(
+	$$INSERT INTO public.sign_in_rosters (
+		id,
+		organization_id,
+		title,
+		roster_date,
+		blank_date,
+		separate_by_group,
+		sort_by,
+		personnel_snapshot,
+		personnel_ids,
+		scope_group_ids,
+		filter_config,
+		created_by
+	)
+	VALUES (
+		'50000000-0000-4000-8000-000000070101',
+		'20000000-0000-4000-8000-000000070001',
+		'Null scope roster',
+		'2026-05-04',
+		false,
+		false,
+		'alphabetical',
+		'[{"id": "60000000-0000-4000-8000-000000070001"}]'::jsonb,
+		ARRAY['60000000-0000-4000-8000-000000070001']::uuid[],
+		ARRAY[NULL]::uuid[],
+		NULL,
+		'10000000-0000-4000-8000-000000070003'
+	)$$,
+	'new row violates row-level security policy for table "sign_in_rosters"',
+	'group-scoped training operator cannot insert rosters with null scope group ids'
+);
+
+SELECT throws_ok(
+	$$INSERT INTO public.sign_in_rosters (
+		id,
+		organization_id,
+		title,
+		roster_date,
+		blank_date,
+		separate_by_group,
+		sort_by,
+		personnel_snapshot,
+		personnel_ids,
+		scope_group_ids,
+		filter_config,
+		created_by
+	)
+	VALUES (
+		'50000000-0000-4000-8000-000000070102',
+		'20000000-0000-4000-8000-000000070001',
+		'Spoofed scope roster',
+		'2026-05-04',
+		false,
+		false,
+		'alphabetical',
+		'[{"id": "60000000-0000-4000-8000-000000070002"}]'::jsonb,
+		ARRAY['60000000-0000-4000-8000-000000070002']::uuid[],
+		ARRAY['30000000-0000-4000-8000-000000070001']::uuid[],
+		NULL,
+		'10000000-0000-4000-8000-000000070003'
+	)$$,
+	'new row violates row-level security policy for table "sign_in_rosters"',
+	'group-scoped training operator cannot insert rosters whose scope omits selected personnel groups'
+);
+
+SELECT throws_ok(
+	$$INSERT INTO public.sign_in_rosters (
+		id,
+		organization_id,
+		title,
+		roster_date,
+		blank_date,
+		separate_by_group,
+		sort_by,
+		personnel_snapshot,
+		personnel_ids,
+		scope_group_ids,
+		filter_config,
+		created_by
+	)
+	VALUES (
+		'50000000-0000-4000-8000-000000070103',
+		'20000000-0000-4000-8000-000000070001',
+		'Spoofed snapshot roster',
+		'2026-05-04',
+		false,
+		false,
+		'alphabetical',
+		'[{"id": "60000000-0000-4000-8000-000000070002"}]'::jsonb,
+		ARRAY['60000000-0000-4000-8000-000000070001']::uuid[],
+		ARRAY['30000000-0000-4000-8000-000000070001']::uuid[],
+		NULL,
+		'10000000-0000-4000-8000-000000070003'
+	)$$,
+	'new row violates row-level security policy for table "sign_in_rosters"',
+	'group-scoped training operator cannot insert rosters whose snapshot ids differ from personnel ids'
+);
 
 SELECT results_eq(
 	$$WITH updated AS (

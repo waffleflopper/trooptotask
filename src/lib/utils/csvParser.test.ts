@@ -55,14 +55,14 @@ describe('parseFile', () => {
 		]);
 	});
 
-	it('formats xlsx Date cells with local calendar date parts', async () => {
+	it('preserves xlsx Date cells as UTC date-only values', async () => {
 		const originalTimezone = process.env.TZ;
-		process.env.TZ = 'America/Anchorage';
+		process.env.TZ = 'America/Los_Angeles';
 		const workbook = new ExcelJS.Workbook();
 		const sheet = workbook.addWorksheet('Training');
 		sheet.addRows([
 			['Name', 'Completed'],
-			['Doe', new Date('2026-05-05T02:00:00.000Z')]
+			['Doe', new Date('2026-01-01T00:00:00.000Z')]
 		]);
 
 		try {
@@ -73,7 +73,7 @@ describe('parseFile', () => {
 
 			await expect(parseFile(file)).resolves.toEqual([
 				['Name', 'Completed'],
-				['Doe', '2026-05-04']
+				['Doe', '2026-01-01']
 			]);
 		} finally {
 			if (originalTimezone === undefined) {

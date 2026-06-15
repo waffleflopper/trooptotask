@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
@@ -44,13 +44,23 @@ describe('/api/sign-in-rosters route config', () => {
 
 	it('persists sign-in rosters through the Training record policy for operators', async () => {
 		let legacyEditCalled = false;
+		const findPersonnelForRosterSnapshot = vi.fn(async () => [
+			{
+				id: 'p-alpha',
+				rank: 'SGT',
+				last_name: 'Smith',
+				first_name: 'Jane',
+				group_id: GROUP_ALPHA,
+				group_name: 'Alpha'
+			}
+		]);
 		const ctx = createTestContext({
 			auth: {
 				role: 'member',
 				isPrivileged: false,
 				capabilityMap: {
 					calendar: 'view',
-					personnel: 'view',
+					personnel: 'none',
 					training: 'operate',
 					criticalTasks: 'view',
 					onboarding: 'view',
@@ -63,6 +73,7 @@ describe('/api/sign-in-rosters route config', () => {
 				}
 			}
 		});
+		ctx.signInRosterPersonnelLookup = { findPersonnelForRosterSnapshot };
 		seedPersonnel(ctx);
 
 		const result = (await handleUseCaseRequest(_postConfig, ctx, {
@@ -75,6 +86,7 @@ describe('/api/sign-in-rosters route config', () => {
 			filterConfig: { groups: ['Alpha'] }
 		})) as Record<string, unknown>;
 
+		expect(findPersonnelForRosterSnapshot).toHaveBeenCalledWith(ctx.auth.orgId, ['p-alpha']);
 		expect(result).toMatchObject({
 			title: 'Annual AT Sign-In',
 			sortBy: 'rank'
@@ -101,6 +113,59 @@ describe('/api/sign-in-rosters route config', () => {
 		expect(ctx.auditPort.events[0]).toMatchObject({
 			action: 'sign_in_roster.created',
 			resourceType: 'sign_in_roster'
+		});
+	});
+
+	it('marks rosters with unassigned personnel as organization-only', async () => {
+		const ctx = createTestContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: {
+					calendar: 'view',
+					personnel: 'none',
+					training: 'operate',
+					criticalTasks: 'view',
+					onboarding: 'view',
+					ratingScheme: 'view'
+				},
+				scopeSet: { kind: 'organization' }
+			}
+		});
+		ctx.signInRosterPersonnelLookup = {
+			findPersonnelForRosterSnapshot: vi.fn(async () => [
+				{
+					id: 'p-alpha',
+					rank: 'SGT',
+					last_name: 'Smith',
+					first_name: 'Jane',
+					group_id: GROUP_ALPHA,
+					group_name: 'Alpha'
+				},
+				{
+					id: 'p-unassigned',
+					rank: 'SPC',
+					last_name: 'Taylor',
+					first_name: 'Morgan',
+					group_id: null,
+					group_name: null
+				}
+			])
+		};
+
+		await handleUseCaseRequest(_postConfig, ctx, {
+			title: 'Mixed Assignment Sign-In',
+			personnelIds: ['p-alpha', 'p-unassigned']
+		});
+
+		const stored = await ctx.store.findMany('sign_in_rosters', ctx.auth.orgId);
+		expect(stored[0]).toMatchObject({
+			personnel_ids: ['p-alpha', 'p-unassigned'],
+			scope_group_ids: [],
+			personnel_snapshot: [
+				expect.objectContaining({ id: 'p-alpha', groupId: GROUP_ALPHA }),
+				expect.objectContaining({ id: 'p-unassigned', groupId: null, group: '' })
+			]
 		});
 	});
 

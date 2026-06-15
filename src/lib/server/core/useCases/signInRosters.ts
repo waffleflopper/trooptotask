@@ -1,19 +1,12 @@
 import type { ScopeSet } from '$lib/access/memberAccessShape';
 import { PERSONNEL_RANK_ORDER } from '$lib/domain/personnelRank';
 import { fail } from '$lib/server/core/errors';
-import type { UseCaseContext } from '$lib/server/core/ports';
+import type { SignInRosterPersonnelLookupRecord, UseCaseContext } from '$lib/server/core/ports';
 
 const MAX_ROSTER_PERSONNEL = 500;
 const RANK_INDEX = new Map<string, number>(PERSONNEL_RANK_ORDER.map((rank, index) => [rank, index]));
 
-interface PersonnelRow {
-	id: string;
-	rank?: string | null;
-	last_name?: string | null;
-	first_name?: string | null;
-	group_id?: string | null;
-	groups?: { name?: string | null } | null;
-}
+type PersonnelRow = SignInRosterPersonnelLookupRecord;
 
 export interface CanonicalSignInRosterSnapshot {
 	id: string;
@@ -43,7 +36,6 @@ export async function prepareSignInRosterSnapshot(
 		fail(400, 'Personnel selection includes unknown personnel');
 	}
 
-	await ctx.scope.requireGroupAccessBatch(personnelIds);
 	assertPersonnelRowsWithinScope(ctx.auth.scopeSet, rows);
 
 	const groupNames = await loadGroupNames(ctx, rows);
@@ -56,7 +48,7 @@ export async function prepareSignInRosterSnapshot(
 
 	return {
 		personnelIds,
-		scopeGroupIds: uniqueStrings(rows.map((row) => row.group_id).filter((id): id is string => typeof id === 'string')),
+		scopeGroupIds: scopeGroupIdsForRows(rows),
 		personnelSnapshot,
 		filterConfig: sanitizeFilterConfig(input.filterConfig),
 		sortBy
@@ -103,6 +95,12 @@ function validatePersonnelIds(values: unknown[], invalidMessage: string): string
 }
 
 async function loadPersonnelRows(ctx: UseCaseContext, personnelIds: string[]): Promise<PersonnelRow[]> {
+	if (ctx.signInRosterPersonnelLookup) {
+		const rows = await ctx.signInRosterPersonnelLookup.findPersonnelForRosterSnapshot(ctx.auth.orgId, personnelIds);
+		const order = new Map(personnelIds.map((id, index) => [id, index]));
+		return rows.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
+	}
+
 	const rows = await ctx.rawStore.findMany<PersonnelRow>('personnel', ctx.auth.orgId, undefined, {
 		select: 'id, rank, last_name, first_name, group_id, groups(name)',
 		inFilters: { id: personnelIds }
@@ -114,8 +112,9 @@ async function loadPersonnelRows(ctx: UseCaseContext, personnelIds: string[]): P
 async function loadGroupNames(ctx: UseCaseContext, rows: PersonnelRow[]): Promise<Map<string, string>> {
 	const names = new Map<string, string>();
 	for (const row of rows) {
-		if (row.group_id && typeof row.groups?.name === 'string') {
-			names.set(row.group_id, row.groups.name);
+		const groupName = groupNameForRow(row);
+		if (row.group_id && typeof groupName === 'string') {
+			names.set(row.group_id, groupName);
 		}
 	}
 
@@ -148,6 +147,20 @@ function assertPersonnelRowsWithinScope(scopeSet: ScopeSet, rows: PersonnelRow[]
 			fail(403, 'You do not have access to personnel outside your group');
 		}
 	}
+}
+
+function scopeGroupIdsForRows(rows: PersonnelRow[]): string[] {
+	if (rows.some((row) => !row.group_id)) return [];
+	return uniqueStrings(rows.map((row) => row.group_id).filter((id): id is string => typeof id === 'string'));
+}
+
+function groupNameForRow(row: PersonnelRow): string | null {
+	if (typeof row.group_name === 'string') return row.group_name;
+	if (Array.isArray(row.groups)) {
+		const first = row.groups.find((group) => typeof group?.name === 'string');
+		return first?.name ?? null;
+	}
+	return row.groups?.name ?? null;
 }
 
 function rowsById(rows: PersonnelRow[]): Map<string, PersonnelRow> {

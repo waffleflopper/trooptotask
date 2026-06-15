@@ -203,13 +203,7 @@ CREATE POLICY "sign_in_rosters_select"
 	ON "public"."sign_in_rosters"
 	FOR SELECT
 	USING (
-		"public"."can_access_sign_in_roster"(
-			"organization_id",
-			"personnel_ids",
-			"scope_group_ids",
-			"personnel_snapshot",
-			'view'
-		)
+		"public"."can_access_sign_in_roster_scope"("organization_id", "scope_group_ids", 'view')
 	);
 
 DROP POLICY IF EXISTS "sign_in_rosters_update" ON "public"."sign_in_rosters";
@@ -217,13 +211,7 @@ CREATE POLICY "sign_in_rosters_update"
 	ON "public"."sign_in_rosters"
 	FOR UPDATE
 	USING (
-		"public"."can_access_sign_in_roster"(
-			"organization_id",
-			"personnel_ids",
-			"scope_group_ids",
-			"personnel_snapshot",
-			'operate'
-		)
+		"public"."can_access_sign_in_roster_scope"("organization_id", "scope_group_ids", 'operate')
 	)
 	WITH CHECK (
 		"public"."can_access_sign_in_roster"(
@@ -240,13 +228,7 @@ CREATE POLICY "sign_in_rosters_delete"
 	ON "public"."sign_in_rosters"
 	FOR DELETE
 	USING (
-		"public"."can_access_sign_in_roster"(
-			"organization_id",
-			"personnel_ids",
-			"scope_group_ids",
-			"personnel_snapshot",
-			'operate'
-		)
+		"public"."can_access_sign_in_roster_scope"("organization_id", "scope_group_ids", 'operate')
 	);
 
 CREATE OR REPLACE FUNCTION "public"."sensitive_file_object_is_readable"("bucket_name" text, "object_name" text)
@@ -281,11 +263,9 @@ BEGIN
 				FROM "public"."sign_in_rosters"
 				WHERE "sign_in_rosters"."id" = roster_id
 					AND "sign_in_rosters"."organization_id" = org_id
-					AND "public"."can_access_sign_in_roster"(
+					AND "public"."can_access_sign_in_roster_scope"(
 						"sign_in_rosters"."organization_id",
-						"sign_in_rosters"."personnel_ids",
 						"sign_in_rosters"."scope_group_ids",
-						"sign_in_rosters"."personnel_snapshot",
 						'view'
 					)
 			);
@@ -348,11 +328,9 @@ BEGIN
 				FROM "public"."sign_in_rosters"
 				WHERE "sign_in_rosters"."id" = roster_id
 					AND "sign_in_rosters"."organization_id" = org_id
-					AND "public"."can_access_sign_in_roster"(
+					AND "public"."can_access_sign_in_roster_scope"(
 						"sign_in_rosters"."organization_id",
-						"sign_in_rosters"."personnel_ids",
 						"sign_in_rosters"."scope_group_ids",
-						"sign_in_rosters"."personnel_snapshot",
 						'operate'
 					)
 			);
@@ -384,9 +362,9 @@ GRANT EXECUTE ON FUNCTION "public"."sensitive_file_object_is_writable"(text, tex
 GRANT EXECUTE ON FUNCTION "public"."sensitive_file_object_is_writable"(text, text) TO "service_role";
 
 REVOKE ALL ON FUNCTION "public"."sign_in_roster_scope_matches_personnel"(uuid, uuid[], uuid[], jsonb) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION "public"."sign_in_roster_scope_matches_personnel"(uuid, uuid[], uuid[], jsonb) TO "authenticated";
+REVOKE EXECUTE ON FUNCTION "public"."sign_in_roster_scope_matches_personnel"(uuid, uuid[], uuid[], jsonb) FROM "anon";
+REVOKE EXECUTE ON FUNCTION "public"."sign_in_roster_scope_matches_personnel"(uuid, uuid[], uuid[], jsonb) FROM "authenticated";
 GRANT EXECUTE ON FUNCTION "public"."sign_in_roster_scope_matches_personnel"(uuid, uuid[], uuid[], jsonb) TO "service_role";
-GRANT EXECUTE ON FUNCTION "public"."sign_in_roster_scope_matches_personnel"(uuid, uuid[], uuid[], jsonb) TO "anon";
 
 REVOKE ALL ON FUNCTION "public"."can_access_sign_in_roster"(uuid, uuid[], uuid[], jsonb, text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION "public"."can_access_sign_in_roster"(uuid, uuid[], uuid[], jsonb, text) TO "authenticated";

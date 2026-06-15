@@ -2,7 +2,7 @@ BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 
-SELECT plan(22);
+SELECT plan(27);
 
 INSERT INTO auth.users (
 	instance_id,
@@ -208,6 +208,17 @@ VALUES
 		'30000000-0000-4000-8000-000000069003',
 		'68W',
 		'artifact-casey-069'
+	),
+	(
+		'50000000-0000-4000-8000-000000069004',
+		'20000000-0000-4000-8000-000000069001',
+		'PFC',
+		'Artifact',
+		'Drew',
+		'Medic',
+		NULL,
+		'68W',
+		'artifact-drew-069'
 	);
 
 INSERT INTO public.personnel_follow_ups (
@@ -248,6 +259,16 @@ VALUES
 		'Bravo follow up',
 		'Fixture follow up',
 		'2026-06-22',
+		'open',
+		'rls-artifact-fixture'
+	),
+	(
+		'60000000-0000-4000-8000-000000069006',
+		'20000000-0000-4000-8000-000000069001',
+		'50000000-0000-4000-8000-000000069004',
+		'Unassigned follow up',
+		'Fixture follow up',
+		'2026-06-24',
 		'open',
 		'rls-artifact-fixture'
 	);
@@ -327,6 +348,11 @@ SELECT is(
 	1,
 	'organization-scope personnel viewer can read in-org personnel documents'
 );
+SELECT is(
+	(SELECT count(*)::integer FROM public.personnel_follow_ups WHERE id = '60000000-0000-4000-8000-000000069006'),
+	1,
+	'organization-scope personnel viewer can read follow ups for unassigned personnel'
+);
 
 RESET ROLE;
 SET LOCAL ROLE authenticated;
@@ -347,6 +373,11 @@ SELECT is(
 	(SELECT count(*)::integer FROM public.personnel_follow_ups WHERE id = '60000000-0000-4000-8000-000000069002'),
 	0,
 	'group-scoped personnel viewer cannot read follow ups for another same-org group'
+);
+SELECT is(
+	(SELECT count(*)::integer FROM public.personnel_follow_ups WHERE id = '60000000-0000-4000-8000-000000069006'),
+	0,
+	'group-scoped personnel viewer cannot read follow ups for unassigned personnel'
 );
 SELECT is(
 	(SELECT count(*)::integer FROM public.personnel_documents WHERE id = '70000000-0000-4000-8000-000000069002'),
@@ -445,6 +476,33 @@ SELECT throws_ok(
 	'new row violates row-level security policy for table "personnel_follow_ups"',
 	'group-scoped personnel operator cannot insert follow ups for another same-org group'
 );
+SELECT throws_ok(
+	$$
+		INSERT INTO public.personnel_follow_ups (
+			id,
+			organization_id,
+			personnel_id,
+			title,
+			notes,
+			due_date,
+			status,
+			created_by
+		)
+		VALUES (
+			'60000000-0000-4000-8000-000000069007',
+			'20000000-0000-4000-8000-000000069001',
+			'50000000-0000-4000-8000-000000069004',
+			'Unassigned scoped operator follow up',
+			'Blocked insert',
+			'2026-06-24',
+			'open',
+			'rls-artifact-group-operator-069@example.test'
+		)
+	$$,
+	'42501',
+	'new row violates row-level security policy for table "personnel_follow_ups"',
+	'group-scoped personnel operator cannot insert follow ups for unassigned personnel'
+);
 WITH updated AS (
 	UPDATE public.personnel_follow_ups
 	SET notes = 'Allowed scoped update'
@@ -467,6 +525,17 @@ SELECT is(
 	0,
 	'group-scoped personnel operator cannot update follow ups for another same-org group'
 );
+WITH updated AS (
+	UPDATE public.personnel_follow_ups
+	SET notes = 'Blocked unassigned update'
+	WHERE id = '60000000-0000-4000-8000-000000069006'
+	RETURNING id
+)
+SELECT is(
+	(SELECT count(*)::integer FROM updated),
+	0,
+	'group-scoped personnel operator cannot update follow ups for unassigned personnel'
+);
 WITH deleted AS (
 	DELETE FROM public.personnel_follow_ups
 	WHERE id = '60000000-0000-4000-8000-000000069004'
@@ -486,6 +555,16 @@ SELECT is(
 	(SELECT count(*)::integer FROM deleted),
 	0,
 	'group-scoped personnel operator cannot delete follow ups for another same-org group'
+);
+WITH deleted AS (
+	DELETE FROM public.personnel_follow_ups
+	WHERE id = '60000000-0000-4000-8000-000000069006'
+	RETURNING id
+)
+SELECT is(
+	(SELECT count(*)::integer FROM deleted),
+	0,
+	'group-scoped personnel operator cannot delete follow ups for unassigned personnel'
 );
 
 SELECT lives_ok(

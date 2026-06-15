@@ -17,9 +17,27 @@ CREATE POLICY "Members can view personnel follow ups through scoped personnel ac
 			FROM "public"."personnel"
 			WHERE "personnel"."id" = "personnel_follow_ups"."personnel_id"
 				AND "personnel"."organization_id" = "personnel_follow_ups"."organization_id"
-				AND "public"."member_access_group_scope_matches"(
-					"personnel_follow_ups"."organization_id",
-					"personnel"."group_id"
+				AND (
+					(
+						"personnel"."group_id" IS NOT NULL
+						AND "public"."member_access_group_scope_matches"(
+							"personnel_follow_ups"."organization_id",
+							"personnel"."group_id"
+						)
+					)
+					OR (
+						"personnel"."group_id" IS NULL
+						AND EXISTS (
+							SELECT 1
+							FROM "public"."organization_memberships"
+							WHERE "organization_memberships"."organization_id" = "personnel_follow_ups"."organization_id"
+								AND "organization_memberships"."user_id" = "auth"."uid"()
+								AND (
+									"organization_memberships"."role" IN ('owner', 'admin')
+									OR "organization_memberships"."access_scope_kind" = 'organization'
+								)
+						)
+					)
 				)
 		)
 	);
@@ -34,9 +52,27 @@ CREATE POLICY "Operators can insert personnel follow ups through scoped personne
 			FROM "public"."personnel"
 			WHERE "personnel"."id" = "personnel_follow_ups"."personnel_id"
 				AND "personnel"."organization_id" = "personnel_follow_ups"."organization_id"
-				AND "public"."member_access_group_scope_matches"(
-					"personnel_follow_ups"."organization_id",
-					"personnel"."group_id"
+				AND (
+					(
+						"personnel"."group_id" IS NOT NULL
+						AND "public"."member_access_group_scope_matches"(
+							"personnel_follow_ups"."organization_id",
+							"personnel"."group_id"
+						)
+					)
+					OR (
+						"personnel"."group_id" IS NULL
+						AND EXISTS (
+							SELECT 1
+							FROM "public"."organization_memberships"
+							WHERE "organization_memberships"."organization_id" = "personnel_follow_ups"."organization_id"
+								AND "organization_memberships"."user_id" = "auth"."uid"()
+								AND (
+									"organization_memberships"."role" IN ('owner', 'admin')
+									OR "organization_memberships"."access_scope_kind" = 'organization'
+								)
+						)
+					)
 				)
 		)
 	);
@@ -51,9 +87,27 @@ CREATE POLICY "Operators can update personnel follow ups through scoped personne
 			FROM "public"."personnel"
 			WHERE "personnel"."id" = "personnel_follow_ups"."personnel_id"
 				AND "personnel"."organization_id" = "personnel_follow_ups"."organization_id"
-				AND "public"."member_access_group_scope_matches"(
-					"personnel_follow_ups"."organization_id",
-					"personnel"."group_id"
+				AND (
+					(
+						"personnel"."group_id" IS NOT NULL
+						AND "public"."member_access_group_scope_matches"(
+							"personnel_follow_ups"."organization_id",
+							"personnel"."group_id"
+						)
+					)
+					OR (
+						"personnel"."group_id" IS NULL
+						AND EXISTS (
+							SELECT 1
+							FROM "public"."organization_memberships"
+							WHERE "organization_memberships"."organization_id" = "personnel_follow_ups"."organization_id"
+								AND "organization_memberships"."user_id" = "auth"."uid"()
+								AND (
+									"organization_memberships"."role" IN ('owner', 'admin')
+									OR "organization_memberships"."access_scope_kind" = 'organization'
+								)
+						)
+					)
 				)
 		)
 	)
@@ -64,9 +118,27 @@ CREATE POLICY "Operators can update personnel follow ups through scoped personne
 			FROM "public"."personnel"
 			WHERE "personnel"."id" = "personnel_follow_ups"."personnel_id"
 				AND "personnel"."organization_id" = "personnel_follow_ups"."organization_id"
-				AND "public"."member_access_group_scope_matches"(
-					"personnel_follow_ups"."organization_id",
-					"personnel"."group_id"
+				AND (
+					(
+						"personnel"."group_id" IS NOT NULL
+						AND "public"."member_access_group_scope_matches"(
+							"personnel_follow_ups"."organization_id",
+							"personnel"."group_id"
+						)
+					)
+					OR (
+						"personnel"."group_id" IS NULL
+						AND EXISTS (
+							SELECT 1
+							FROM "public"."organization_memberships"
+							WHERE "organization_memberships"."organization_id" = "personnel_follow_ups"."organization_id"
+								AND "organization_memberships"."user_id" = "auth"."uid"()
+								AND (
+									"organization_memberships"."role" IN ('owner', 'admin')
+									OR "organization_memberships"."access_scope_kind" = 'organization'
+								)
+						)
+					)
 				)
 		)
 	);
@@ -81,9 +153,27 @@ CREATE POLICY "Operators can delete personnel follow ups through scoped personne
 			FROM "public"."personnel"
 			WHERE "personnel"."id" = "personnel_follow_ups"."personnel_id"
 				AND "personnel"."organization_id" = "personnel_follow_ups"."organization_id"
-				AND "public"."member_access_group_scope_matches"(
-					"personnel_follow_ups"."organization_id",
-					"personnel"."group_id"
+				AND (
+					(
+						"personnel"."group_id" IS NOT NULL
+						AND "public"."member_access_group_scope_matches"(
+							"personnel_follow_ups"."organization_id",
+							"personnel"."group_id"
+						)
+					)
+					OR (
+						"personnel"."group_id" IS NULL
+						AND EXISTS (
+							SELECT 1
+							FROM "public"."organization_memberships"
+							WHERE "organization_memberships"."organization_id" = "personnel_follow_ups"."organization_id"
+								AND "organization_memberships"."user_id" = "auth"."uid"()
+								AND (
+									"organization_memberships"."role" IN ('owner', 'admin')
+									OR "organization_memberships"."access_scope_kind" = 'organization'
+								)
+						)
+					)
 				)
 		)
 	);

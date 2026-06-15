@@ -1,6 +1,7 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
 	formatDate,
+	formatToday,
 	parseDate,
 	getMonthDates,
 	isWeekend,
@@ -21,6 +22,26 @@ describe('formatDate', () => {
 
 	it('pads single-digit months and days', () => {
 		expect(formatDate(new Date(2026, 0, 5))).toBe('2026-01-05');
+	});
+});
+
+describe('formatToday', () => {
+	it('uses the local calendar date near a UTC midnight boundary', () => {
+		const originalTimezone = process.env.TZ;
+		process.env.TZ = 'America/Anchorage';
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date('2026-05-05T02:00:00.000Z'));
+
+		try {
+			expect(formatToday()).toBe('2026-05-04');
+		} finally {
+			vi.useRealTimers();
+			if (originalTimezone === undefined) {
+				delete process.env.TZ;
+			} else {
+				process.env.TZ = originalTimezone;
+			}
+		}
 	});
 });
 

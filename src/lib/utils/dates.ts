@@ -39,6 +39,11 @@ export function formatDate(date: Date): string {
 	return `${year}-${month}-${day}`;
 }
 
+/** Current local "YYYY-MM-DD" date, injectable for timezone-boundary tests */
+export function formatToday(date = new Date()): string {
+	return formatDate(date);
+}
+
 export function parseDate(dateString: string): Date {
 	const [year, month, day] = dateString.split('-').map(Number);
 	return new Date(year, month - 1, day);

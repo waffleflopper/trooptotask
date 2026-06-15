@@ -11,6 +11,7 @@
 import { fail } from '$lib/server/core/errors';
 import type { WritePorts } from '$lib/server/core/ports';
 import { subjectDetails } from '$lib/server/auditDetails';
+import { formatToday } from '$lib/utils/dates';
 import {
 	requireOnboardingManagePolicyForOnboarding,
 	requireOnboardingManagePolicyForPersonnel
@@ -184,7 +185,7 @@ export async function startOnboarding(ctx: WritePorts, input: StartInput): Promi
 
 function resolveStartedAt(startedAt?: string): string {
 	if (startedAt === undefined) {
-		return new Date().toISOString().split('T')[0];
+		return formatToday();
 	}
 
 	if (!/^\d{4}-\d{2}-\d{2}$/.test(startedAt)) {

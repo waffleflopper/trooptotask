@@ -90,7 +90,7 @@ The operator explicitly excluded automatic CI trigger work from this batch. Do n
 | 066  | Split Calendar settings and delete stale managers | P2       | M      | -          | DONE   |
 | 067  | Consolidate Account Setup route orchestration     | P2       | M-L    | -          | DONE   |
 | 068  | Consolidate workbook interop and remove unused icons | P3       | S      | -          | DONE   |
-| 069  | Add pgTAP contracts for newer RLS surfaces        | P1       | M      | -          | BLOCKED - personnel_follow_ups RLS allows out-of-scope same-org group access; awaiting approval to expand scope |
+| 069  | Add pgTAP contracts for newer RLS surfaces        | P1       | M      | -          | DONE   |
 | 070  | Scope and validate sign-in roster snapshots       | P1       | M      | 069        | TODO   |
 | 071  | Activate feature permission-coupling governance   | P1       | S-M    | -          | DONE   |
 | 072  | Sanitize provider errors returned from 500 paths  | P2       | S      | -          | DONE   |

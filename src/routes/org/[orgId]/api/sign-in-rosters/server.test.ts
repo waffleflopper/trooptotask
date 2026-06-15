@@ -4,6 +4,34 @@ import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { _getConfig, _postConfig } from './+server';
 
+const GROUP_ALPHA = 'group-alpha';
+const GROUP_BRAVO = 'group-bravo';
+
+function seedPersonnel(ctx: ReturnType<typeof createTestContext>) {
+	ctx.rawStore.seed('groups', [
+		{ id: GROUP_ALPHA, organization_id: ctx.auth.orgId, name: 'Alpha' },
+		{ id: GROUP_BRAVO, organization_id: ctx.auth.orgId, name: 'Bravo' }
+	]);
+	ctx.rawStore.seed('personnel', [
+		{
+			id: 'p-alpha',
+			organization_id: ctx.auth.orgId,
+			rank: 'SGT',
+			last_name: 'Smith',
+			first_name: 'Jane',
+			group_id: GROUP_ALPHA
+		},
+		{
+			id: 'p-bravo',
+			organization_id: ctx.auth.orgId,
+			rank: 'SSG',
+			last_name: 'Jones',
+			first_name: 'Avery',
+			group_id: GROUP_BRAVO
+		}
+	]);
+}
+
 describe('/api/sign-in-rosters route config', () => {
 	it('uses policy-first route configs for sign-in roster reads and creation', () => {
 		expect('permission' in _getConfig).toBe(false);
@@ -35,6 +63,7 @@ describe('/api/sign-in-rosters route config', () => {
 				}
 			}
 		});
+		seedPersonnel(ctx);
 
 		const result = (await handleUseCaseRequest(_postConfig, ctx, {
 			title: 'Annual AT Sign-In',
@@ -42,7 +71,7 @@ describe('/api/sign-in-rosters route config', () => {
 			blankDate: false,
 			separateByGroup: true,
 			sortBy: 'rank',
-			personnelSnapshot: [{ id: 'p-1', rank: 'SGT', lastName: 'Smith', firstName: 'Jane' }],
+			personnelSnapshot: [{ id: 'p-alpha', rank: 'FAKE', lastName: 'Injected', firstName: 'Payload' }],
 			filterConfig: { groups: ['Alpha'] }
 		})) as Record<string, unknown>;
 
@@ -54,6 +83,21 @@ describe('/api/sign-in-rosters route config', () => {
 
 		const stored = await ctx.store.findMany('sign_in_rosters', ctx.auth.orgId);
 		expect(stored).toHaveLength(1);
+		expect(stored[0]).toMatchObject({
+			personnel_ids: ['p-alpha'],
+			scope_group_ids: [GROUP_ALPHA],
+			personnel_snapshot: [
+				{
+					id: 'p-alpha',
+					rank: 'SGT',
+					lastName: 'Smith',
+					firstName: 'Jane',
+					group: 'Alpha',
+					groupId: GROUP_ALPHA
+				}
+			],
+			filter_config: { groups: ['Alpha'], ranks: [] }
+		});
 		expect(ctx.auditPort.events[0]).toMatchObject({
 			action: 'sign_in_roster.created',
 			resourceType: 'sign_in_roster'
@@ -89,5 +133,131 @@ describe('/api/sign-in-rosters route config', () => {
 				resourceType: 'training.manageSignInRosters'
 			})
 		]);
+	});
+
+	it('rejects malformed and duplicate personnel selections before insert', async () => {
+		const malformed = createTestContext();
+		seedPersonnel(malformed);
+
+		await expect(
+			handleUseCaseRequest(_postConfig, malformed, {
+				title: 'Annual AT Sign-In',
+				personnelSnapshot: [{ rank: 'SGT' }]
+			})
+		).rejects.toMatchObject({ status: 400, message: 'Personnel snapshot contains a missing or invalid id' });
+		await expect(malformed.store.findMany('sign_in_rosters', malformed.auth.orgId)).resolves.toHaveLength(0);
+
+		const duplicate = createTestContext();
+		seedPersonnel(duplicate);
+
+		await expect(
+			handleUseCaseRequest(_postConfig, duplicate, {
+				title: 'Annual AT Sign-In',
+				personnelSnapshot: [{ id: 'p-alpha' }, { id: 'p-alpha' }]
+			})
+		).rejects.toMatchObject({ status: 400, message: 'Personnel selection contains duplicate ids' });
+		await expect(duplicate.store.findMany('sign_in_rosters', duplicate.auth.orgId)).resolves.toHaveLength(0);
+	});
+
+	it('rejects unknown and out-of-scope personnel selections before insert', async () => {
+		const unknown = createTestContext();
+		seedPersonnel(unknown);
+
+		await expect(
+			handleUseCaseRequest(_postConfig, unknown, {
+				title: 'Annual AT Sign-In',
+				personnelSnapshot: [{ id: 'p-missing' }]
+			})
+		).rejects.toMatchObject({ status: 400, message: 'Personnel selection includes unknown personnel' });
+		await expect(unknown.store.findMany('sign_in_rosters', unknown.auth.orgId)).resolves.toHaveLength(0);
+
+		const scoped = createTestContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: {
+					calendar: 'view',
+					personnel: 'view',
+					training: 'operate',
+					criticalTasks: 'view',
+					onboarding: 'view',
+					ratingScheme: 'view'
+				},
+				scopeSet: { kind: 'groups', groupIds: [GROUP_ALPHA] }
+			}
+		});
+		seedPersonnel(scoped);
+
+		await expect(
+			handleUseCaseRequest(_postConfig, scoped, {
+				title: 'Annual AT Sign-In',
+				personnelSnapshot: [{ id: 'p-bravo' }]
+			})
+		).rejects.toMatchObject({ status: 403, message: 'You do not have access to personnel outside your group' });
+		await expect(scoped.rawStore.findMany('sign_in_rosters', scoped.auth.orgId)).resolves.toHaveLength(0);
+	});
+
+	it('omits out-of-scope, mixed-scope, and organization-only rosters for group-scoped readers', async () => {
+		const ctx = createTestContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: {
+					calendar: 'view',
+					personnel: 'view',
+					training: 'view',
+					criticalTasks: 'view',
+					onboarding: 'view',
+					ratingScheme: 'view'
+				},
+				scopeSet: { kind: 'groups', groupIds: [GROUP_ALPHA] }
+			}
+		});
+		ctx.rawStore.seed('sign_in_rosters', [
+			{
+				id: 'roster-alpha',
+				organization_id: ctx.auth.orgId,
+				title: 'Alpha',
+				scope_group_ids: [GROUP_ALPHA],
+				personnel_ids: ['p-alpha'],
+				personnel_snapshot: [],
+				created_at: '2026-05-04T10:00:00.000Z'
+			},
+			{
+				id: 'roster-mixed',
+				organization_id: ctx.auth.orgId,
+				title: 'Mixed',
+				scope_group_ids: [GROUP_ALPHA, GROUP_BRAVO],
+				personnel_ids: ['p-alpha', 'p-bravo'],
+				personnel_snapshot: [],
+				created_at: '2026-05-03T10:00:00.000Z'
+			},
+			{
+				id: 'roster-bravo',
+				organization_id: ctx.auth.orgId,
+				title: 'Bravo',
+				scope_group_ids: [GROUP_BRAVO],
+				personnel_ids: ['p-bravo'],
+				personnel_snapshot: [],
+				created_at: '2026-05-02T10:00:00.000Z'
+			},
+			{
+				id: 'roster-org-only',
+				organization_id: ctx.auth.orgId,
+				title: 'Org Only',
+				scope_group_ids: [],
+				personnel_ids: [],
+				personnel_snapshot: [],
+				created_at: '2026-05-01T10:00:00.000Z'
+			}
+		]);
+
+		const result = (await handleUseCaseRequest(_getConfig, ctx, { limit: 20, offset: 0 })) as {
+			rosters: Array<{ id: string }>;
+			total: number;
+		};
+
+		expect(result.rosters.map((roster) => roster.id)).toEqual(['roster-alpha']);
+		expect(result.total).toBe(1);
 	});
 });

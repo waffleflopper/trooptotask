@@ -265,6 +265,19 @@
 					<Field.Description>Check the new inbox to confirm this change before using it to sign in.</Field.Description>
 				</Field.Root>
 
+				<Field.Root>
+					<Field.Label for="email-current-password">Current password</Field.Label>
+					<Field.Control>
+						<Input
+							id="email-current-password"
+							name="currentPassword"
+							type="password"
+							autocomplete="current-password"
+							required
+						/>
+					</Field.Control>
+				</Field.Root>
+
 				<div class="flex justify-end">
 					<Button type="submit" disabled={emailLoading}>
 						{#if emailLoading}<Spinner />{/if}

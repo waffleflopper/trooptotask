@@ -156,6 +156,21 @@ describe('ScopedDataStore', () => {
 			expect(orgOnly).toBeNull();
 		});
 
+		it('intersects caller-provided sign-in roster group filters with scoped groups', async () => {
+			const inner = createInMemoryDataStore();
+			inner.seed('sign_in_rosters', [
+				{ id: 'alpha', organization_id: ORG, scope_group_ids: [GROUP_A], created_at: '2026-05-01' },
+				{ id: 'bravo', organization_id: ORG, scope_group_ids: [GROUP_B], created_at: '2026-05-02' }
+			]);
+			const scoped = createScopedDataStore(inner, GROUP_A, defaultScopeRules);
+
+			const result = await scoped.findManyWithCount<{ id: string }>('sign_in_rosters', ORG, undefined, {
+				arrayContainedByFilters: { scope_group_ids: [GROUP_B] }
+			});
+
+			expect(result).toEqual({ data: [], count: 0 });
+		});
+
 		describe('table with no scope rule', () => {
 			it('passes through to inner store without filtering', async () => {
 				const inner = createInMemoryDataStore();

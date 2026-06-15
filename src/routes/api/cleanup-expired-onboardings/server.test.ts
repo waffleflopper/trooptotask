@@ -106,8 +106,8 @@ describe('cleanup expired onboardings endpoint core', () => {
 		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
 		const runCleanup = vi.fn(async () => ({ deletedCount: 0, orgsAffected: 0 }));
 
-		await expect(
-			_runOnboardingRetentionCleanupEndpoint({
+		try {
+			const rejection = _runOnboardingRetentionCleanupEndpoint({
 				request: makeRequest('cleanup-secret'),
 				env: {
 					CLEANUP_SECRET: 'cleanup-secret',
@@ -118,32 +118,21 @@ describe('cleanup expired onboardings endpoint core', () => {
 					error: { message: 'relation "organizations" does not exist provider_secret', code: '42P01' }
 				}),
 				runCleanup
-			})
-		).rejects.toMatchObject({
-			status: 500,
-			body: { message: 'Internal server error' }
-		});
-		await expect(
-			_runOnboardingRetentionCleanupEndpoint({
-				request: makeRequest('cleanup-secret'),
-				env: {
-					CLEANUP_SECRET: 'cleanup-secret',
-					CRON_SECRET: 'cron-secret'
-				},
-				loadOrgRows: async () => ({
-					data: null,
-					error: { message: 'relation "organizations" does not exist provider_secret', code: '42P01' }
-				}),
-				runCleanup
-			})
-		).rejects.not.toMatchObject({
-			body: { message: expect.stringContaining('provider_secret') }
-		});
-		expect(runCleanup).not.toHaveBeenCalled();
-		expect(consoleError).toHaveBeenCalledWith(
-			'[cleanup-expired-onboardings] Failed to load organization retention settings:',
-			expect.stringContaining('provider_secret')
-		);
-		consoleError.mockRestore();
+			});
+			await expect(rejection).rejects.toMatchObject({
+				status: 500,
+				body: { message: 'Internal server error' }
+			});
+			await expect(rejection).rejects.not.toMatchObject({
+				body: { message: expect.stringContaining('provider_secret') }
+			});
+			expect(runCleanup).not.toHaveBeenCalled();
+			expect(consoleError).toHaveBeenCalledWith(
+				'[cleanup-expired-onboardings] Failed to load organization retention settings:',
+				expect.stringContaining('provider_secret')
+			);
+		} finally {
+			consoleError.mockRestore();
+		}
 	});
 });

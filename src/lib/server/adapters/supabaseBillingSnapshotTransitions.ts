@@ -21,10 +21,11 @@ export function createSupabaseBillingSnapshotTransitionStore(supabase: SupabaseC
 			return data ?? null;
 		},
 
-		async writeSnapshotAndMirrorIfCurrent({ snapshot, mirror }) {
+		async writeSnapshotAndMirrorIfCurrent({ snapshot, mirror, eventPosition }) {
 			const { data, error } = await supabase.rpc('upsert_organization_billing_snapshot_and_mirror_if_current', {
 				p_snapshot: snapshot,
-				p_mirror: mirror
+				p_mirror: mirror,
+				p_event_position: eventPosition ?? null
 			});
 			if (error) throw new Error(`Failed to update billing snapshot and mirror: ${error.message}`);
 			return data === true;

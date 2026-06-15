@@ -201,11 +201,15 @@ function mergeInFilter(options: FindOptions | undefined, column: string, values:
 }
 
 function mergeArrayContainedByFilter(options: FindOptions | undefined, column: string, values: unknown[]): FindOptions {
+	const scopedSet = new Set(values);
+	const existing = options?.arrayContainedByFilters?.[column];
+	const mergedValues = Array.isArray(existing) ? existing.filter((value) => scopedSet.has(value)) : values;
+
 	return {
 		...(options ?? {}),
 		arrayContainedByFilters: {
 			...(options?.arrayContainedByFilters ?? {}),
-			[column]: values
+			[column]: mergedValues
 		}
 	};
 }

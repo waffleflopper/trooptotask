@@ -69,6 +69,14 @@ export function createScopedDataStore(
 			};
 		}
 
+		if (rule.type === 'group-array') {
+			let scopedOptions = mergeArrayContainedByFilter(options, rule.groupColumn, groupIds);
+			if (rule.requireNonEmpty) {
+				scopedOptions = mergeNonEmptyArrayFilter(scopedOptions, rule.groupColumn);
+			}
+			return { filters, options: scopedOptions };
+		}
+
 		// Personnel-scoped — need to filter by in-scope personnel IDs
 		return { filters, options, needsPersonnelFilter: rule.personnelColumn };
 	}
@@ -189,6 +197,23 @@ function mergeInFilter(options: FindOptions | undefined, column: string, values:
 			...(options?.inFilters ?? {}),
 			[column]: values
 		}
+	};
+}
+
+function mergeArrayContainedByFilter(options: FindOptions | undefined, column: string, values: unknown[]): FindOptions {
+	return {
+		...(options ?? {}),
+		arrayContainedByFilters: {
+			...(options?.arrayContainedByFilters ?? {}),
+			[column]: values
+		}
+	};
+}
+
+function mergeNonEmptyArrayFilter(options: FindOptions | undefined, column: string): FindOptions {
+	return {
+		...(options ?? {}),
+		nonEmptyArrayFilters: Array.from(new Set([...(options?.nonEmptyArrayFilters ?? []), column]))
 	};
 }
 

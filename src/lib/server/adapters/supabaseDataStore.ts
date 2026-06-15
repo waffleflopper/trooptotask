@@ -92,6 +92,18 @@ function applyFindOptions(query: any, filters?: Record<string, unknown>, options
 		}
 	}
 
+	if (options?.arrayContainedByFilters) {
+		for (const [key, values] of Object.entries(options.arrayContainedByFilters)) {
+			query = query.containedBy(key, values);
+		}
+	}
+
+	if (options?.nonEmptyArrayFilters) {
+		for (const key of options.nonEmptyArrayFilters) {
+			query = query.not(key, 'eq', '{}');
+		}
+	}
+
 	if (options?.isNull) {
 		for (const [key, shouldBeNull] of Object.entries(options.isNull)) {
 			query = shouldBeNull ? query.is(key, null) : query.not(key, 'is', null);

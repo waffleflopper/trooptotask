@@ -61,11 +61,15 @@ export type BillingSnapshotUpsert = {
 export interface BillingSnapshotTransitionStore {
 	readSnapshot(orgId: string): Promise<ExistingBillingSnapshot | null>;
 	/**
+	 * Implementations must write the canonical snapshot and legacy organization mirror as one operation.
 	 * When eventPosition is present, implementations must use the stale-event-protected write path.
-	 * The event fields in values remain the source of truth for persisted snapshot metadata.
+	 * The event fields in snapshot remain the source of truth for persisted snapshot metadata.
 	 */
-	upsertSnapshotIfCurrent(values: BillingSnapshotUpsert, eventPosition?: BillingEventPosition): Promise<boolean>;
-	updateOrganizationBillingMirror(orgId: string, values: Record<string, unknown>): Promise<void>;
+	writeSnapshotAndMirrorIfCurrent(input: {
+		snapshot: BillingSnapshotUpsert;
+		mirror: Record<string, unknown>;
+		eventPosition?: BillingEventPosition;
+	}): Promise<boolean>;
 }
 
 export interface BillingEventPosition {
@@ -174,7 +178,11 @@ export async function applyBillingSnapshotTransition(
 	}
 
 	const planned = planEventTransition(transition, snapshot);
-	const snapshotUpdated = await store.upsertSnapshotIfCurrent(planned.snapshot, eventPosition(transition.event));
+	const snapshotUpdated = await store.writeSnapshotAndMirrorIfCurrent({
+		snapshot: planned.snapshot,
+		mirror: planned.mirror,
+		eventPosition: eventPosition(transition.event)
+	});
 
 	if (!snapshotUpdated) {
 		return superseded(
@@ -184,7 +192,6 @@ export async function applyBillingSnapshotTransition(
 		);
 	}
 
-	await store.updateOrganizationBillingMirror(transition.orgId, planned.mirror);
 	invalidateTierCache(transition.orgId);
 
 	return {
@@ -211,8 +218,8 @@ async function writeImmediateCancellation(
 	processedAt: string
 ): Promise<BillingSnapshotTransitionResult> {
 	const stripeSubscriptionId = currentSnapshot?.stripe_subscription_id ?? null;
-	const snapshotUpdated = await store.upsertSnapshotIfCurrent(
-		{
+	const snapshotUpdated = await store.writeSnapshotAndMirrorIfCurrent({
+		snapshot: {
 			organization_id: transition.orgId,
 			source: 'stripe',
 			commercial_plan: 'free',
@@ -238,18 +245,18 @@ async function writeImmediateCancellation(
 			reconciliation_result: 'local_immediate_cancellation_pending_webhook',
 			drift_detected: false
 		},
-		transition.eventPosition ?? snapshotEventPosition(currentSnapshot)
-	);
+		mirror: {
+			tier: 'free',
+			subscription_status: null,
+			stripe_subscription_id: stripeSubscriptionId,
+			current_period_end: null
+		},
+		eventPosition: transition.eventPosition ?? snapshotEventPosition(currentSnapshot)
+	});
 	if (!snapshotUpdated) {
 		return superseded(transition.orgId, 'immediate cancellation', 'lost a concurrent billing snapshot update');
 	}
 
-	await store.updateOrganizationBillingMirror(transition.orgId, {
-		tier: 'free',
-		subscription_status: null,
-		stripe_subscription_id: stripeSubscriptionId,
-		current_period_end: null
-	});
 	invalidateTierCache(transition.orgId);
 
 	return {

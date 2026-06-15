@@ -97,7 +97,7 @@ The operator explicitly excluded automatic CI trigger work from this batch. Do n
 | 073  | Use local date-only helpers in onboarding/imports | P2       | S-M    | -          | DONE   |
 | 074  | Guard billing mirror writes with event ordering   | P1       | M      | 069-073    | TODO   |
 | 075  | Harden account email change and login errors      | P1       | M      | -          | DONE   |
-| 076  | Batch onboarding resync writes                    | P2       | S-M    | -          | TODO   |
+| 076  | Batch onboarding resync writes                    | P2       | S-M    | -          | DONE   |
 | 077  | Remove legacy PKCE code-exchange paths            | P3       | S      | -          | TODO   |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line rationale).

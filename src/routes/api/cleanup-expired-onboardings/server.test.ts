@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { _runOnboardingRetentionCleanupEndpointCore } from './+server';
+import { _runOnboardingRetentionCleanupEndpoint, _runOnboardingRetentionCleanupEndpointCore } from './+server';
 
 function makeRequest(token?: string): Request {
 	return new Request('http://localhost/api/cleanup-expired-onboardings', {
@@ -100,5 +100,50 @@ describe('cleanup expired onboardings endpoint core', () => {
 		});
 
 		expect(response.status).toBe(200);
+	});
+
+	it('returns a generic 500 when the organization query exposes provider details', async () => {
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+		const runCleanup = vi.fn(async () => ({ deletedCount: 0, orgsAffected: 0 }));
+
+		await expect(
+			_runOnboardingRetentionCleanupEndpoint({
+				request: makeRequest('cleanup-secret'),
+				env: {
+					CLEANUP_SECRET: 'cleanup-secret',
+					CRON_SECRET: 'cron-secret'
+				},
+				loadOrgRows: async () => ({
+					data: null,
+					error: { message: 'relation "organizations" does not exist provider_secret', code: '42P01' }
+				}),
+				runCleanup
+			})
+		).rejects.toMatchObject({
+			status: 500,
+			body: { message: 'Internal server error' }
+		});
+		await expect(
+			_runOnboardingRetentionCleanupEndpoint({
+				request: makeRequest('cleanup-secret'),
+				env: {
+					CLEANUP_SECRET: 'cleanup-secret',
+					CRON_SECRET: 'cron-secret'
+				},
+				loadOrgRows: async () => ({
+					data: null,
+					error: { message: 'relation "organizations" does not exist provider_secret', code: '42P01' }
+				}),
+				runCleanup
+			})
+		).rejects.not.toMatchObject({
+			body: { message: expect.stringContaining('provider_secret') }
+		});
+		expect(runCleanup).not.toHaveBeenCalled();
+		expect(consoleError).toHaveBeenCalledWith(
+			'[cleanup-expired-onboardings] Failed to load organization retention settings:',
+			expect.stringContaining('provider_secret')
+		);
+		consoleError.mockRestore();
 	});
 });

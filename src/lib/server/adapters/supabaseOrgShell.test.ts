@@ -69,6 +69,7 @@ describe('createSupabaseOrgAccessPort', () => {
 	});
 
 	it('throws 500 on real membership query failures', async () => {
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
 		const { builder } = createMembershipQueryBuilder(null, { code: '42P01', message: 'table not found' });
 		const userSupabase = createMockSupabase(builder);
 		const port = createSupabaseOrgAccessPort({
@@ -81,8 +82,16 @@ describe('createSupabaseOrgAccessPort', () => {
 
 		await expect(port.getMembership()).rejects.toMatchObject({
 			status: 500,
-			body: { message: 'table not found' }
+			body: { message: 'Internal server error' }
 		});
+		await expect(port.getMembership()).rejects.not.toMatchObject({
+			body: { message: expect.stringContaining('table not found') }
+		});
+		expect(consoleError).toHaveBeenCalledWith(
+			'[supabase-org-shell] Failed to load membership row:',
+			expect.stringContaining('table not found')
+		);
+		consoleError.mockRestore();
 	});
 
 	it('returns membership info while allowing the membership loader to be wrapped for request-scoped dedupe', async () => {

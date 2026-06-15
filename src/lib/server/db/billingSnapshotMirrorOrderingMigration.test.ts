@@ -18,6 +18,7 @@ describe('billing snapshot mirror ordering migration', () => {
 		expect(normalized).toContain(
 			'create or replace function "public"."upsert_organization_billing_snapshot_and_mirror_if_current"'
 		);
+		expect(normalized).toContain('security definer');
 		expect(normalized).toContain('on conflict ("organization_id") do update');
 		expect(normalized).toContain(
 			'"organization_billing_snapshots"."last_stripe_event_created_at" < excluded."last_stripe_event_created_at"'

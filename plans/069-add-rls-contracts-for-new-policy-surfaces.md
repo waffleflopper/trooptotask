@@ -153,7 +153,7 @@ Cover at least:
 - other-org members cannot select rows,
 - personnel operators can insert/update/delete only for personnel in scope,
 - authenticated callers cannot read storage objects for out-of-scope personnel
-  document paths if current storage policies cover those objects.
+  document paths.
 
 Keep fixture IDs unique from existing test files to avoid collisions if a
 developer runs multiple pgTAP files in one local database.
@@ -235,7 +235,8 @@ npm run test
 ## Done criteria
 
 - [ ] `supabase/tests/personnel_artifact_rls_group_scope.sql` exists and covers
-      scoped personnel artifacts and follow-ups.
+      scoped personnel artifacts, follow-ups, and personnel document storage
+      objects.
 - [ ] `supabase/tests/critical_tasks_rls_isolation.sql` exists and proves
       Critical Tasks policies do not piggyback on Training access.
 - [ ] `supabase/tests/organization_billing_snapshots_rls.sql` exists and proves

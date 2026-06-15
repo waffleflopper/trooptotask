@@ -329,6 +329,8 @@ npm run test
 
 - Route tests for create, list, delete, signed URL, scan upload, and scan unlink
   with organization-scope and group-scoped contexts.
+- Route tests for malformed, duplicate, missing/unknown, out-of-scope, and
+  oversized personnel selections before insert.
 - Server snapshot tests proving persisted snapshots are canonical server data,
   not arbitrary client JSON.
 - pgTAP tests for sign-in roster RLS scope.
@@ -340,6 +342,8 @@ npm run test
 - [ ] Sign-in rosters persist queryable personnel and group scope metadata.
 - [ ] Server-side creation derives or validates snapshots from canonical
       personnel rows.
+- [ ] Route tests cover malformed, duplicate, missing/unknown, out-of-scope,
+      and oversized personnel selection validation.
 - [ ] Group-scoped users cannot read/manage/download/upload/unlink/delete
       rosters containing out-of-scope personnel.
 - [ ] Mixed-scope rosters are not exposed via partial group overlap.

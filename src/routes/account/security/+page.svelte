@@ -28,6 +28,7 @@
 	let newPassword = $state('');
 	let confirmPassword = $state('');
 	let emailLoading = $state(false);
+	let emailCurrentPassword = $state('');
 
 	const mfaEnabled = $derived(mfaOverride ?? data.hasMFA);
 	const pendingEmail = $derived(form?.pendingEmail ?? data.pendingEmail);
@@ -224,9 +225,12 @@
 				action="?/updateEmail"
 				use:enhance={() => {
 					emailLoading = true;
-					return async ({ update }) => {
+					return async ({ result, update }) => {
 						emailLoading = false;
 						await update();
+						if (result.type === 'success') {
+							emailCurrentPassword = '';
+						}
 					};
 				}}
 				class="grid gap-4"
@@ -274,6 +278,7 @@
 							type="password"
 							autocomplete="current-password"
 							required
+							bind:value={emailCurrentPassword}
 						/>
 					</Field.Control>
 				</Field.Root>

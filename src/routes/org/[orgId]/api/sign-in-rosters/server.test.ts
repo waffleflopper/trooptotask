@@ -135,7 +135,7 @@ describe('/api/sign-in-rosters route config', () => {
 		]);
 	});
 
-	it('rejects malformed and duplicate personnel selections before insert', async () => {
+	it('rejects malformed, duplicate, and oversized personnel selections before insert', async () => {
 		const malformed = createTestContext();
 		seedPersonnel(malformed);
 
@@ -157,6 +157,17 @@ describe('/api/sign-in-rosters route config', () => {
 			})
 		).rejects.toMatchObject({ status: 400, message: 'Personnel selection contains duplicate ids' });
 		await expect(duplicate.store.findMany('sign_in_rosters', duplicate.auth.orgId)).resolves.toHaveLength(0);
+
+		const oversized = createTestContext();
+		seedPersonnel(oversized);
+
+		await expect(
+			handleUseCaseRequest(_postConfig, oversized, {
+				title: 'Annual AT Sign-In',
+				personnelSnapshot: Array.from({ length: 501 }, (_, index) => ({ id: `p-${index}` }))
+			})
+		).rejects.toMatchObject({ status: 400, message: 'Personnel selection is limited to 500 personnel' });
+		await expect(oversized.store.findMany('sign_in_rosters', oversized.auth.orgId)).resolves.toHaveLength(0);
 	});
 
 	it('rejects unknown and out-of-scope personnel selections before insert', async () => {

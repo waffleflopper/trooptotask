@@ -58,6 +58,7 @@ describe('POST /api/auth/update-password', () => {
 	it('updates the current user password after verifying the old password', async () => {
 		const signInWithPassword = vi.fn().mockResolvedValue({ error: null });
 		const updateUser = vi.fn().mockResolvedValue({ error: null });
+		const signOut = vi.fn().mockResolvedValue({ error: null });
 		const cookies = { delete: vi.fn() };
 
 		const response = await POST(
@@ -73,7 +74,8 @@ describe('POST /api/auth/update-password', () => {
 					supabase: {
 						auth: {
 							signInWithPassword,
-							updateUser
+							updateUser,
+							signOut
 						}
 					}
 				},
@@ -92,7 +94,49 @@ describe('POST /api/auth/update-password', () => {
 			password: 'OldSecurePass12'
 		});
 		expect(updateUser).toHaveBeenCalledWith({ password: 'SecurePass12' });
+		expect(signOut).toHaveBeenCalledWith({ scope: 'others' });
 		expect(cookies.delete).not.toHaveBeenCalled();
+	});
+
+	it('keeps a successful password response when revoking other sessions fails', async () => {
+		const signInWithPassword = vi.fn().mockResolvedValue({ error: null });
+		const updateUser = vi.fn().mockResolvedValue({ error: null });
+		const signOut = vi.fn().mockResolvedValue({ error: { message: 'revocation failed' } });
+
+		const response = await POST(
+			makeEvent({
+				body: {
+					currentPassword: 'OldSecurePass12',
+					password: 'SecurePass12',
+					confirmPassword: 'SecurePass12'
+				},
+				locals: {
+					session: { user: { id: 'user-123' } },
+					user: { id: 'user-123', email: 'user@example.test' },
+					supabase: {
+						auth: {
+							signInWithPassword,
+							updateUser,
+							signOut
+						}
+					}
+				}
+			})
+		);
+
+		expect(response.status).toBe(200);
+		expect(await response.json()).toEqual({ ok: true });
+		expect(signOut).toHaveBeenCalledWith({ scope: 'others' });
+		expect(auditLogMock).toHaveBeenCalledWith(
+			{
+				action: 'auth.session_revoke_failed',
+				resourceType: 'user',
+				resourceId: 'user-123',
+				severity: 'warning',
+				details: {}
+			},
+			{ userId: 'user-123' }
+		);
 	});
 
 	it('rate-limits in-app password updates before current-password verification', async () => {
@@ -313,6 +357,7 @@ describe('POST /api/auth/update-password', () => {
 
 	it('updates the password for an active recovery session and clears the recovery flow marker', async () => {
 		const updateUser = vi.fn().mockResolvedValue({ error: null });
+		const signOut = vi.fn().mockResolvedValue({ error: null });
 		const cookies = { delete: vi.fn() };
 
 		const response = await POST(
@@ -323,7 +368,8 @@ describe('POST /api/auth/update-password', () => {
 					authFlow: 'recovery',
 					supabase: {
 						auth: {
-							updateUser
+							updateUser,
+							signOut
 						}
 					}
 				},
@@ -338,6 +384,7 @@ describe('POST /api/auth/update-password', () => {
 			ip: '203.0.113.10'
 		});
 		expect(updateUser).toHaveBeenCalledWith({ password: 'SecurePass12' });
+		expect(signOut).toHaveBeenCalledWith({ scope: 'others' });
 		expect(cookies.delete).toHaveBeenCalledWith('ttt_pending_auth_flow', { path: '/' });
 	});
 
@@ -421,6 +468,7 @@ describe('POST /api/auth/update-password', () => {
 
 	it('does not clear the pending flow marker for invite sessions before invite finalization finishes', async () => {
 		const updateUser = vi.fn().mockResolvedValue({ error: null });
+		const signOut = vi.fn().mockResolvedValue({ error: null });
 		const cookies = { delete: vi.fn() };
 
 		const response = await POST(
@@ -431,7 +479,8 @@ describe('POST /api/auth/update-password', () => {
 					authFlow: 'invite',
 					supabase: {
 						auth: {
-							updateUser
+							updateUser,
+							signOut
 						}
 					}
 				},
@@ -446,6 +495,7 @@ describe('POST /api/auth/update-password', () => {
 			ip: '203.0.113.10'
 		});
 		expect(updateUser).toHaveBeenCalledWith({ password: 'SecurePass12' });
+		expect(signOut).toHaveBeenCalledWith({ scope: 'others' });
 		expect(cookies.delete).not.toHaveBeenCalled();
 	});
 });

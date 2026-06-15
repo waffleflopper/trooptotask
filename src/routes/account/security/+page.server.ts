@@ -38,6 +38,25 @@ export const actions: Actions = {
 			return fail(400, { emailError: 'Enter a different email address', email });
 		}
 
+		const currentPassword = String(formData.get('currentPassword') ?? '');
+		if (!currentPassword) {
+			return fail(400, { emailError: 'Enter your current password to change your email', email });
+		}
+
+		const currentEmail = locals.user.email;
+		if (!currentEmail) {
+			return fail(401, { emailError: 'Your session is no longer active. Sign in again.', email });
+		}
+
+		const { error: reauthError } = await locals.supabase.auth.signInWithPassword({
+			email: currentEmail,
+			password: currentPassword
+		});
+
+		if (reauthError) {
+			return fail(401, { emailError: 'Current password is incorrect', email });
+		}
+
 		const { error } = await locals.supabase.auth.updateUser({ email });
 
 		if (error) {

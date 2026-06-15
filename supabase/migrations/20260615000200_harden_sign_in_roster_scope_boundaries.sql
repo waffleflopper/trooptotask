@@ -311,6 +311,11 @@ BEGIN
 END;
 $$;
 
+REVOKE EXECUTE ON FUNCTION "public"."sensitive_file_object_is_readable"(text, text) FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION "public"."sensitive_file_object_is_readable"(text, text) FROM "anon";
+GRANT EXECUTE ON FUNCTION "public"."sensitive_file_object_is_readable"(text, text) TO "authenticated";
+GRANT EXECUTE ON FUNCTION "public"."sensitive_file_object_is_readable"(text, text) TO "service_role";
+
 CREATE OR REPLACE FUNCTION "public"."sensitive_file_object_is_writable"("bucket_name" text, "object_name" text)
 RETURNS boolean
 	LANGUAGE "plpgsql" STABLE SECURITY DEFINER
@@ -372,6 +377,11 @@ BEGIN
 	END CASE;
 END;
 $$;
+
+REVOKE EXECUTE ON FUNCTION "public"."sensitive_file_object_is_writable"(text, text) FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION "public"."sensitive_file_object_is_writable"(text, text) FROM "anon";
+GRANT EXECUTE ON FUNCTION "public"."sensitive_file_object_is_writable"(text, text) TO "authenticated";
+GRANT EXECUTE ON FUNCTION "public"."sensitive_file_object_is_writable"(text, text) TO "service_role";
 
 REVOKE ALL ON FUNCTION "public"."sign_in_roster_scope_matches_personnel"(uuid, uuid[], uuid[], jsonb) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION "public"."sign_in_roster_scope_matches_personnel"(uuid, uuid[], uuid[], jsonb) TO "authenticated";

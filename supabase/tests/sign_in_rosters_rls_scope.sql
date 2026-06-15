@@ -2,7 +2,7 @@ BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 
-SELECT plan(15);
+SELECT plan(17);
 
 INSERT INTO auth.users (
 	instance_id,
@@ -487,6 +487,32 @@ SELECT lives_ok(
 		SET title = 'Updated alpha roster'
 		WHERE id = '50000000-0000-4000-8000-000000070001'$$,
 	'group-scoped training operator can update an in-scope sign-in roster'
+);
+
+RESET ROLE;
+
+UPDATE public.personnel
+SET group_id = '30000000-0000-4000-8000-000000070002'
+WHERE id = '60000000-0000-4000-8000-000000070001';
+
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', '10000000-0000-4000-8000-000000070002', true);
+
+SELECT results_eq(
+	$$SELECT title FROM public.sign_in_rosters
+		WHERE id = '50000000-0000-4000-8000-000000070001'$$,
+	ARRAY['Updated alpha roster'::text],
+	'group-scoped training viewer can still read historical roster after personnel group move'
+);
+
+SELECT is(
+	(
+		SELECT count(*)::integer
+		FROM storage.objects
+		WHERE id = '70000000-0000-4000-8000-000000070001'
+	),
+	1,
+	'group-scoped training viewer can still read historical roster scan after personnel group move'
 );
 
 SELECT set_config('request.jwt.claim.sub', '10000000-0000-4000-8000-000000070004', true);

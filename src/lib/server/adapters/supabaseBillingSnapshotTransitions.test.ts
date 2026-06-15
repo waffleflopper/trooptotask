@@ -67,7 +67,12 @@ describe('createSupabaseBillingSnapshotTransitionStore', () => {
 
 		expect(stub.rpc).toHaveBeenCalledWith('upsert_organization_billing_snapshot_and_mirror_if_current', {
 			p_snapshot: snapshot,
-			p_mirror: mirror
+			p_mirror: mirror,
+			p_event_position: {
+				eventId: 'evt_123',
+				eventType: 'customer.subscription.updated',
+				eventCreatedAt: '2026-05-25T17:00:00.000Z'
+			}
 		});
 		expect(stub.from).not.toHaveBeenCalled();
 	});

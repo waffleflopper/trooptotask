@@ -58,8 +58,11 @@ export class OnboardingPage {
 
 	async expectStepChecked(stepName: string) {
 		const completedSection = this.page.getByRole('dialog').getByRole('button', { name: /^Completed\s+\d+$/ });
-		await completedSection.click();
-		await expect(this.stepCheckbox(stepName)).toBeChecked({ timeout: 5000 });
+		const checkbox = this.stepCheckbox(stepName);
+		if (!(await checkbox.isVisible())) {
+			await completedSection.click();
+		}
+		await expect(checkbox).toBeChecked({ timeout: 5000 });
 	}
 
 	private packetTrigger(personName: string) {

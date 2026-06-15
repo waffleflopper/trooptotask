@@ -80,18 +80,21 @@ describe('createSupabaseOrgAccessPort', () => {
 			getEffectiveTier: async () => effectiveTier
 		});
 
-		await expect(port.getMembership()).rejects.toMatchObject({
-			status: 500,
-			body: { message: 'Internal server error' }
-		});
-		await expect(port.getMembership()).rejects.not.toMatchObject({
-			body: { message: expect.stringContaining('table not found') }
-		});
-		expect(consoleError).toHaveBeenCalledWith(
-			'[supabase-org-shell] Failed to load membership row:',
-			expect.stringContaining('table not found')
-		);
-		consoleError.mockRestore();
+		try {
+			const thrown = await port.getMembership().catch((error: unknown) => error);
+
+			expect(thrown).toMatchObject({
+				status: 500,
+				body: { message: 'Internal server error' }
+			});
+			expect(JSON.stringify(thrown)).not.toContain('table not found');
+			expect(consoleError).toHaveBeenCalledWith(
+				'[supabase-org-shell] Failed to load membership row:',
+				expect.stringContaining('table not found')
+			);
+		} finally {
+			consoleError.mockRestore();
+		}
 	});
 
 	it('returns membership info while allowing the membership loader to be wrapped for request-scoped dedupe', async () => {

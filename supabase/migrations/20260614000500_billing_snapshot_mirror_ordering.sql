@@ -1,15 +1,24 @@
 CREATE OR REPLACE FUNCTION "public"."upsert_organization_billing_snapshot_and_mirror_if_current"(
 	"p_snapshot" jsonb,
-	"p_mirror" jsonb
+	"p_mirror" jsonb,
+	"p_event_position" jsonb DEFAULT NULL
 ) RETURNS boolean
 LANGUAGE "plpgsql"
 SECURITY DEFINER
 SET "search_path" = "public"
 AS $$
 DECLARE
+	v_input_event_created_at timestamp with time zone;
+	v_input_event_id text;
 	v_snapshot_row_count integer;
 	v_mirror_row_count integer;
 BEGIN
+	v_input_event_created_at := COALESCE(
+		NULLIF("p_event_position" ->> 'eventCreatedAt', '')::timestamp with time zone,
+		NULLIF("p_snapshot" ->> 'last_stripe_event_created_at', '')::timestamp with time zone
+	);
+	v_input_event_id := COALESCE("p_event_position" ->> 'eventId', "p_snapshot" ->> 'last_stripe_event_id', '');
+
 	INSERT INTO "public"."organization_billing_snapshots" (
 		"organization_id",
 		"source",
@@ -90,12 +99,12 @@ BEGIN
 		WHERE
 			"organization_billing_snapshots"."last_stripe_event_created_at" IS NULL
 			OR (
-				EXCLUDED."last_stripe_event_created_at" IS NOT NULL
+				v_input_event_created_at IS NOT NULL
 				AND (
-					"organization_billing_snapshots"."last_stripe_event_created_at" < EXCLUDED."last_stripe_event_created_at"
+					"organization_billing_snapshots"."last_stripe_event_created_at" < v_input_event_created_at
 					OR (
-						"organization_billing_snapshots"."last_stripe_event_created_at" = EXCLUDED."last_stripe_event_created_at"
-						AND COALESCE("organization_billing_snapshots"."last_stripe_event_id", '') <= COALESCE(EXCLUDED."last_stripe_event_id", '')
+						"organization_billing_snapshots"."last_stripe_event_created_at" = v_input_event_created_at
+						AND COALESCE("organization_billing_snapshots"."last_stripe_event_id", '') <= v_input_event_id
 					)
 				)
 			);
@@ -134,7 +143,7 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION "public"."upsert_organization_billing_snapshot_and_mirror_if_current"(jsonb, jsonb) FROM PUBLIC;
-REVOKE ALL ON FUNCTION "public"."upsert_organization_billing_snapshot_and_mirror_if_current"(jsonb, jsonb) FROM "anon";
-REVOKE ALL ON FUNCTION "public"."upsert_organization_billing_snapshot_and_mirror_if_current"(jsonb, jsonb) FROM "authenticated";
-GRANT EXECUTE ON FUNCTION "public"."upsert_organization_billing_snapshot_and_mirror_if_current"(jsonb, jsonb) TO "service_role";
+REVOKE ALL ON FUNCTION "public"."upsert_organization_billing_snapshot_and_mirror_if_current"(jsonb, jsonb, jsonb) FROM PUBLIC;
+REVOKE ALL ON FUNCTION "public"."upsert_organization_billing_snapshot_and_mirror_if_current"(jsonb, jsonb, jsonb) FROM "anon";
+REVOKE ALL ON FUNCTION "public"."upsert_organization_billing_snapshot_and_mirror_if_current"(jsonb, jsonb, jsonb) FROM "authenticated";
+GRANT EXECUTE ON FUNCTION "public"."upsert_organization_billing_snapshot_and_mirror_if_current"(jsonb, jsonb, jsonb) TO "service_role";

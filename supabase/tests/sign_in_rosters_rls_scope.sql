@@ -2,7 +2,7 @@ BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 
-SELECT plan(17);
+SELECT plan(18);
 
 INSERT INTO auth.users (
 	instance_id,
@@ -197,6 +197,17 @@ VALUES
 		'30000000-0000-4000-8000-000000070002',
 		'68W',
 		'bravo-bailey-070'
+	),
+	(
+		'60000000-0000-4000-8000-000000070004',
+		'20000000-0000-4000-8000-000000070001',
+		'SPC',
+		'Unassigned',
+		'Morgan',
+		'Medic',
+		NULL,
+		'68W',
+		'unassigned-morgan-070'
 	),
 	(
 		'60000000-0000-4000-8000-000000070003',
@@ -446,6 +457,45 @@ SELECT throws_ok(
 	)$$,
 	'new row violates row-level security policy for table "sign_in_rosters"',
 	'group-scoped training operator cannot insert rosters whose snapshot ids differ from personnel ids'
+);
+
+SELECT throws_ok(
+	$$INSERT INTO public.sign_in_rosters (
+		id,
+		organization_id,
+		title,
+		roster_date,
+		blank_date,
+		separate_by_group,
+		sort_by,
+		personnel_snapshot,
+		personnel_ids,
+		scope_group_ids,
+		filter_config,
+		created_by
+	)
+	VALUES (
+		'50000000-0000-4000-8000-000000070104',
+		'20000000-0000-4000-8000-000000070001',
+		'Unassigned roster',
+		'2026-05-04',
+		false,
+		false,
+		'alphabetical',
+		'[
+			{"id": "60000000-0000-4000-8000-000000070001"},
+			{"id": "60000000-0000-4000-8000-000000070004"}
+		]'::jsonb,
+		ARRAY[
+			'60000000-0000-4000-8000-000000070001',
+			'60000000-0000-4000-8000-000000070004'
+		]::uuid[],
+		ARRAY['30000000-0000-4000-8000-000000070001']::uuid[],
+		NULL,
+		'10000000-0000-4000-8000-000000070003'
+	)$$,
+	'new row violates row-level security policy for table "sign_in_rosters"',
+	'group-scoped training operator cannot insert rosters with unassigned personnel under group scope'
 );
 
 SELECT results_eq(

@@ -62,6 +62,20 @@ export interface RatingSchemePersonnelLookupPort {
 	listPersonnelLookup(orgId: string): Promise<RatingSchemePersonnelLookupRecord[]>;
 }
 
+export interface SignInRosterPersonnelLookupRecord {
+	id: string;
+	rank?: string | null;
+	last_name?: string | null;
+	first_name?: string | null;
+	group_id?: string | null;
+	group_name?: string | null;
+	groups?: { name?: string | null } | { name?: string | null }[] | null;
+}
+
+export interface SignInRosterPersonnelLookupPort {
+	findPersonnelForRosterSnapshot(orgId: string, personnelIds: string[]): Promise<SignInRosterPersonnelLookupRecord[]>;
+}
+
 /** Scope rule for ScopedDataStore — how a table relates to personnel groups */
 export type GroupScopeRule =
 	| { type: 'group'; groupColumn: string }
@@ -262,6 +276,7 @@ export interface UseCaseContext {
 	sensitiveActionAuthorizer: SensitiveActionAuthorizer;
 	criticalTasksReadModel: CriticalTasksReadModelPort;
 	ratingSchemePersonnelLookup?: RatingSchemePersonnelLookupPort;
+	signInRosterPersonnelLookup?: SignInRosterPersonnelLookupPort;
 	/** Unscoped DataStore — use only when business logic requires org-wide data (e.g. allPersonnel for dropdowns) */
 	rawStore: DataStore;
 }

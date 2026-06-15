@@ -133,6 +133,29 @@ describe('ScopedDataStore', () => {
 			expect(results.map((row) => row.id)).toEqual(['ict-1']);
 		});
 
+		it('uses the default scope rules to require every sign-in roster group to be in scope', async () => {
+			const inner = createInMemoryDataStore();
+			inner.seed('sign_in_rosters', [
+				{ id: 'alpha', organization_id: ORG, scope_group_ids: [GROUP_A], created_at: '2026-05-01' },
+				{ id: 'mixed', organization_id: ORG, scope_group_ids: [GROUP_A, GROUP_B], created_at: '2026-05-02' },
+				{ id: 'bravo', organization_id: ORG, scope_group_ids: [GROUP_B], created_at: '2026-05-03' },
+				{ id: 'org-only', organization_id: ORG, scope_group_ids: [], created_at: '2026-05-04' }
+			]);
+
+			const scoped = createScopedDataStore(inner, GROUP_A, defaultScopeRules);
+
+			const results = await scoped.findManyWithCount<{ id: string }>('sign_in_rosters', ORG, undefined, {
+				orderBy: [{ column: 'created_at', ascending: true }]
+			});
+			const mixed = await scoped.findOne<{ id: string }>('sign_in_rosters', ORG, { id: 'mixed' });
+			const orgOnly = await scoped.findOne<{ id: string }>('sign_in_rosters', ORG, { id: 'org-only' });
+
+			expect(results.data.map((row) => row.id)).toEqual(['alpha']);
+			expect(results.count).toBe(1);
+			expect(mixed).toBeNull();
+			expect(orgOnly).toBeNull();
+		});
+
 		describe('table with no scope rule', () => {
 			it('passes through to inner store without filtering', async () => {
 				const inner = createInMemoryDataStore();

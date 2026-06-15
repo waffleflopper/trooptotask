@@ -98,6 +98,21 @@ export const POST: RequestHandler = async ({ request, locals, cookies, getClient
 		);
 	}
 
+	// Rotating the password logs out other devices so a compromised session cannot persist.
+	const { error: revokeError } = await locals.supabase.auth.signOut({ scope: 'others' });
+	if (revokeError) {
+		auditLog(
+			{
+				action: 'auth.session_revoke_failed',
+				resourceType: 'user',
+				resourceId: userId ?? undefined,
+				severity: 'warning',
+				details: {}
+			},
+			{ userId }
+		);
+	}
+
 	if (locals.authFlow === 'recovery') {
 		cookies.delete(getPendingAuthFlowCookieName(), { path: '/' });
 	}

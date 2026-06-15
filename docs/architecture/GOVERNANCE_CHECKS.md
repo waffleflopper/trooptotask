@@ -12,7 +12,8 @@ It is intentionally narrow. It does not prove the architecture is clean. It does
 - route-level admin-provider wiring under `src/routes/` stays inside a separate allowlist, including
   `getAdminClient()` calls, `ctx.adminClient` usage, `const { adminClient } = ctx` destructuring, and
   service-role Supabase adapter creation
-- known cross-feature permission-lane couplings stay explicitly documented
+- configured feature families are scanned for cross-feature permission-lane couplings by default, and known
+  exceptions stay explicitly documented
 - allowlisted drift references still point at real entries in `docs/architecture/DRIFT_LEDGER.md`
 
 ## Baseline Classifications
@@ -45,6 +46,10 @@ Treat that file as a temporary truth table for tolerated exceptions:
 - if you remove a documented exception, remove or update the baseline entry in the same slice
 - if you add a new exception on purpose, document why, update the drift ledger, and update the baseline in the same slice
 - do not use the baseline to silently normalize accidental drift
+
+For feature permission couplings, `featurePermissionCouplings` is an exception list, not the list of feature
+families to scan. The checker scans configured feature families even when this array is empty; add entries only
+for intentional, drift-ledger-backed cross-feature permission-lane couplings.
 
 ## Current-State Truth Versus Guardrail
 

@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import ExcelJS from 'exceljs';
 import { parseCSVText, parseTrainingStatus, parseDateString, parseFile } from './csvParser';
 
@@ -54,6 +54,35 @@ describe('parseFile', () => {
 			['Doe', 'SGT']
 		]);
 	});
+
+	it('formats xlsx Date cells with local calendar date parts', async () => {
+		const originalTimezone = process.env.TZ;
+		process.env.TZ = 'America/Anchorage';
+		const workbook = new ExcelJS.Workbook();
+		const sheet = workbook.addWorksheet('Training');
+		sheet.addRows([
+			['Name', 'Completed'],
+			['Doe', new Date('2026-05-05T02:00:00.000Z')]
+		]);
+
+		try {
+			const buffer = await workbook.xlsx.writeBuffer();
+			const file = new File([buffer], 'training.xlsx', {
+				type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+			});
+
+			await expect(parseFile(file)).resolves.toEqual([
+				['Name', 'Completed'],
+				['Doe', '2026-05-04']
+			]);
+		} finally {
+			if (originalTimezone === undefined) {
+				delete process.env.TZ;
+			} else {
+				process.env.TZ = originalTimezone;
+			}
+		}
+	});
 });
 
 describe('parseDateString', () => {
@@ -103,9 +132,26 @@ describe('parseTrainingStatus', () => {
 		expect(parseTrainingStatus('x').type).toBe('completed');
 	});
 
-	it('sets today as date for completed values', () => {
-		const result = parseTrainingStatus('yes');
-		expect(result.date).toBe(new Date().toISOString().slice(0, 10));
+	it('sets today as the local calendar date for completed values', () => {
+		const originalTimezone = process.env.TZ;
+		process.env.TZ = 'America/Anchorage';
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date('2026-05-05T02:00:00.000Z'));
+
+		try {
+			expect(parseTrainingStatus('yes')).toEqual({
+				type: 'completed',
+				date: '2026-05-04',
+				raw: 'yes'
+			});
+		} finally {
+			vi.useRealTimers();
+			if (originalTimezone === undefined) {
+				delete process.env.TZ;
+			} else {
+				process.env.TZ = originalTimezone;
+			}
+		}
 	});
 
 	it('recognizes skip values', () => {

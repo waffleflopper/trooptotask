@@ -94,6 +94,33 @@ describe('startOnboarding', () => {
 		).resolves.toEqual([expect.objectContaining({ started_at: '2026-03-15' })]);
 	});
 
+	it('defaults omitted start dates to the local calendar date', async () => {
+		const originalTimezone = process.env.TZ;
+		process.env.TZ = 'America/Anchorage';
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date('2026-05-05T02:00:00.000Z'));
+		const ctx = buildContext();
+		seedTemplateWithSteps(ctx);
+
+		try {
+			const result = await startOnboarding(ctx, { personnelId: 'p-1', templateId: 'tmpl-1' });
+
+			expect(result.startedAt).toBe('2026-05-04');
+			await expect(
+				ctx.store.findMany<{ started_at: string }>('personnel_onboardings', 'test-org', {
+					personnel_id: 'p-1'
+				})
+			).resolves.toEqual([expect.objectContaining({ started_at: '2026-05-04' })]);
+		} finally {
+			vi.useRealTimers();
+			if (originalTimezone === undefined) {
+				delete process.env.TZ;
+			} else {
+				process.env.TZ = originalTimezone;
+			}
+		}
+	});
+
 	it('rejects non-date-only start dates', async () => {
 		const ctx = buildContext();
 		seedTemplateWithSteps(ctx);

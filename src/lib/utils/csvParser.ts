@@ -1,5 +1,6 @@
 // src/lib/utils/csvParser.ts
 import type ExcelJS from 'exceljs';
+import { formatDate, formatToday } from '$lib/utils/dates';
 import { resolveExcelWorkbookConstructor } from '$lib/utils/excelWorkbook';
 
 /**
@@ -73,7 +74,7 @@ async function parseXlsxBuffer(buffer: ArrayBuffer): Promise<string[][]> {
 
 function cellToString(value: unknown): string {
 	if (value == null) return '';
-	if (value instanceof Date) return value.toISOString().slice(0, 10);
+	if (value instanceof Date) return formatDate(value);
 	if (typeof value === 'object') {
 		if ('text' in value && typeof value.text === 'string') return value.text.trim();
 		if ('result' in value) return cellToString(value.result);
@@ -156,7 +157,7 @@ export function parseTrainingStatus(value: string): {
 
 	// Yes/completed values → completed today
 	if (['yes', 'y', 'true', '1', 'complete', 'completed', 'done', 'x'].includes(v)) {
-		const today = new Date().toISOString().slice(0, 10);
+		const today = formatToday();
 		return { type: 'completed', date: today, raw };
 	}
 

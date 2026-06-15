@@ -37,6 +37,7 @@ import {
 	getPreferredOrganizationUrlSegment,
 	resolveOrganizationRouteIdentity
 } from '$lib/server/core/useCases/organizationUrlSlug';
+import { sanitizeErrorForLog } from '$lib/server/logSanitize';
 
 export interface SupabaseAppShellRequestDeps {
 	getLayoutClient?: typeof getLayoutClient;
@@ -201,7 +202,8 @@ async function loadMembershipRow(config: {
 		.maybeSingle();
 
 	if (membershipError) {
-		throw error(500, membershipError.message);
+		console.error('[supabase-org-shell] Failed to load membership row:', sanitizeErrorForLog(membershipError));
+		throw error(500, 'Internal server error');
 	}
 
 	if (!data) {

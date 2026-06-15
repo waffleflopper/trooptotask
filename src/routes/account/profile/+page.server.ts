@@ -2,6 +2,7 @@ import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { ALL_RANKS } from '$lib/types';
 import { loadCurrentUserProfile, parseUserProfileForm, upsertCurrentUserProfile } from '$lib/server/userProfile';
+import { sanitizeErrorForLog } from '$lib/server/logSanitize';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	if (!locals.user) redirect(303, '/auth/login');
@@ -30,7 +31,8 @@ export const actions: Actions = {
 		try {
 			await upsertCurrentUserProfile(locals, profile);
 		} catch (error) {
-			return fail(500, { error: error instanceof Error ? error.message : 'Could not save profile' });
+			console.error('[profile] Failed to save profile:', sanitizeErrorForLog(error));
+			return fail(500, { error: 'An internal server error occurred' });
 		}
 
 		return { success: 'Profile saved.' };

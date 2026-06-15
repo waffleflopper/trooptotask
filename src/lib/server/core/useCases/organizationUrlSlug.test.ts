@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
 	getPreferredOrganizationUrlSegment,
 	resolveOrganizationRouteIdentity,
@@ -52,5 +52,35 @@ describe('organization URL slug helpers', () => {
 			urlSlug: '1-11-bde'
 		});
 		expect(calls).toContainEqual({ method: 'eq', args: ['url_slug', '1-11-bde'] });
+	});
+
+	it('sanitizes provider errors while resolving route identity', async () => {
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+		const query = {
+			select: () => query,
+			eq: () => query,
+			maybeSingle: async () => ({
+				data: null,
+				error: {
+					code: '42P01',
+					message: 'relation "organizations" does not exist provider_secret'
+				}
+			})
+		};
+		const supabase = { from: () => query };
+
+		await expect(resolveOrganizationRouteIdentity(supabase as never, '1-11-bde')).rejects.toMatchObject({
+			status: 500,
+			message: 'Internal server error'
+		});
+		await expect(resolveOrganizationRouteIdentity(supabase as never, '1-11-bde')).rejects.not.toThrow('organizations');
+		await expect(resolveOrganizationRouteIdentity(supabase as never, '1-11-bde')).rejects.not.toThrow(
+			'provider_secret'
+		);
+		expect(consoleError).toHaveBeenCalledWith(
+			'[organization-url-slug] Failed to resolve organization route identity:',
+			expect.stringContaining('provider_secret')
+		);
+		consoleError.mockRestore();
 	});
 });

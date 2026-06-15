@@ -92,7 +92,7 @@ The operator explicitly excluded automatic CI trigger work from this batch. Do n
 | 068  | Consolidate workbook interop and remove unused icons | P3       | S      | -          | DONE   |
 | 069  | Add pgTAP contracts for newer RLS surfaces        | P1       | M      | -          | BLOCKED - personnel_follow_ups RLS allows out-of-scope same-org group access; awaiting approval to expand scope |
 | 070  | Scope and validate sign-in roster snapshots       | P1       | M      | 069        | TODO   |
-| 071  | Activate feature permission-coupling governance   | P1       | S-M    | -          | TODO   |
+| 071  | Activate feature permission-coupling governance   | P1       | S-M    | -          | DONE   |
 | 072  | Sanitize provider errors returned from 500 paths  | P2       | S      | -          | TODO   |
 | 073  | Use local date-only helpers in onboarding/imports | P2       | S-M    | -          | TODO   |
 | 074  | Guard billing mirror writes with event ordering   | P1       | M      | 069-073    | TODO   |

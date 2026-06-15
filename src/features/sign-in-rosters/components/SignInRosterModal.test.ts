@@ -213,6 +213,19 @@ describe('SignInRosterModal', () => {
 		}
 	});
 
+	it('shows a list load error without clearing the roster array shape', async () => {
+		const fetchMock = vi.fn(async () => jsonResponse({ error: 'Sign-in rosters are unavailable.' }, false));
+		vi.stubGlobal('fetch', fetchMock);
+
+		renderModal();
+
+		await waitFor(() => {
+			expect(screen.getByText('Sign-in rosters are unavailable.')).toBeTruthy();
+		});
+
+		expect(screen.getByText('No sign-in rosters yet.')).toBeTruthy();
+	});
+
 	it('persists rank and group filters in the generated roster payload', async () => {
 		const filteredPersonnel: Personnel[] = [
 			...personnel,

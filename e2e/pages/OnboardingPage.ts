@@ -57,6 +57,8 @@ export class OnboardingPage {
 	}
 
 	async expectStepChecked(stepName: string) {
+		const completedSection = this.page.getByRole('dialog').getByRole('button', { name: /^Completed\s+\d+$/ });
+		await completedSection.click();
 		await expect(this.stepCheckbox(stepName)).toBeChecked({ timeout: 5000 });
 	}
 
@@ -64,15 +66,10 @@ export class OnboardingPage {
 		return this.page.getByRole('button', { name: new RegExp(escapeRegExp(personName), 'i') }).first();
 	}
 
-	private step(stepName: string) {
-		return this.page
-			.getByRole('listitem')
-			.filter({ has: this.page.getByText(stepName, { exact: true }) })
-			.first();
-	}
-
 	private stepCheckbox(stepName: string) {
-		return this.step(stepName).getByRole('checkbox', { name: /Mark (?:complete|incomplete)/ });
+		return this.page
+			.getByRole('dialog')
+			.getByRole('checkbox', { name: new RegExp(`Mark ${escapeRegExp(stepName)} (?:complete|incomplete)`, 'i') });
 	}
 }
 

@@ -94,7 +94,7 @@ The operator explicitly excluded automatic CI trigger work from this batch. Do n
 | 070  | Scope and validate sign-in roster snapshots       | P1       | M      | 069        | TODO   |
 | 071  | Activate feature permission-coupling governance   | P1       | S-M    | -          | DONE   |
 | 072  | Sanitize provider errors returned from 500 paths  | P2       | S      | -          | DONE   |
-| 073  | Use local date-only helpers in onboarding/imports | P2       | S-M    | -          | TODO   |
+| 073  | Use local date-only helpers in onboarding/imports | P2       | S-M    | -          | DONE   |
 | 074  | Guard billing mirror writes with event ordering   | P1       | M      | 069-073    | TODO   |
 | 075  | Harden account email change and login errors      | P1       | M      | -          | TODO   |
 | 076  | Batch onboarding resync writes                    | P2       | S-M    | -          | TODO   |

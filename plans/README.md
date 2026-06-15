@@ -98,7 +98,7 @@ The operator explicitly excluded automatic CI trigger work from this batch. Do n
 | 074  | Guard billing mirror writes with event ordering   | P1       | M      | 069-073    | TODO   |
 | 075  | Harden account email change and login errors      | P1       | M      | -          | DONE   |
 | 076  | Batch onboarding resync writes                    | P2       | S-M    | -          | DONE   |
-| 077  | Remove legacy PKCE code-exchange paths            | P3       | S      | -          | BLOCKED - awaiting Robert confirmation that production email templates use `/auth/confirm` token links |
+| 077  | Remove legacy PKCE code-exchange paths            | P3       | S      | -          | DONE   |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line rationale).
 

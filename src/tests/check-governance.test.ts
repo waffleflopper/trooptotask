@@ -2,6 +2,11 @@ import { describe, expect, it } from 'vitest';
 
 const governanceModuleUrl = new URL('../../scripts/check-governance.mjs', import.meta.url).href;
 const governance = (await import(/* @vite-ignore */ governanceModuleUrl)) as {
+	collectFeaturePermissionCouplingIssues(
+		sourceFiles: Array<{ path: string; content: string }>,
+		baselineEntries: Array<{ feature: string; path: string; pattern: string }>
+	): string[];
+	collectPermissionPatterns(content: string): string[];
 	collectDestructuredLocalSupabaseBindings(content: string): Set<string>;
 	hasRouteAdminProviderUsage(content: string): boolean;
 	hasRouteSupabaseUsage(content: string): boolean;
@@ -147,5 +152,66 @@ describe('governance route admin-provider usage detection', () => {
 				};
 			`)
 		).toBe(false);
+	});
+});
+
+describe('governance feature permission coupling detection', () => {
+	it('collects policy-catalog and legacy permission patterns', () => {
+		expect(
+			governance.collectPermissionPatterns(`
+				const canViewTraining = org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.training.viewRecords);
+				const canManagePersonnel = org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.personnel.manageRecords);
+				const canSeeCalendar = org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.calendar.viewAvailability);
+				const canUseOnboarding = org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.onboarding.manageWorkflows);
+				const legacyTraining = { permission: 'training' };
+				requireEdit('personnel');
+				requireView('calendar');
+			`)
+		).toEqual([
+			'POLICY_ACTION_CATALOG.calendar.viewAvailability',
+			'POLICY_ACTION_CATALOG.onboarding.manageWorkflows',
+			'POLICY_ACTION_CATALOG.personnel.manageRecords',
+			'POLICY_ACTION_CATALOG.training.viewRecords',
+			"permission: 'training'",
+			"requireEdit('personnel')",
+			"requireView('calendar')"
+		]);
+	});
+
+	it('flags foreign permission lanes for configured feature families when the baseline is empty', () => {
+		expect(
+			governance.collectFeaturePermissionCouplingIssues(
+				[
+					{
+						path: 'src/features/critical-tasks/example.ts',
+						content: `
+							const ownAction = POLICY_ACTION_CATALOG.criticalTasks.viewReadiness;
+							const borrowedAction = POLICY_ACTION_CATALOG.training.viewRecords;
+						`
+					}
+				],
+				[]
+			)
+		).toEqual([
+			'Undocumented critical-tasks permission coupling: src/features/critical-tasks/example.ts -> POLICY_ACTION_CATALOG.training.viewRecords. Document it or remove the coupling.'
+		]);
+	});
+
+	it('does not flag same-family policy references', () => {
+		expect(
+			governance.collectFeaturePermissionCouplingIssues(
+				[
+					{
+						path: 'src/features/critical-tasks/example.ts',
+						content: 'const action = POLICY_ACTION_CATALOG.criticalTasks.configureLibrary;'
+					},
+					{
+						path: 'src/features/rating-scheme/example.ts',
+						content: 'const action = POLICY_ACTION_CATALOG.ratingScheme.viewEntries;'
+					}
+				],
+				[]
+			)
+		).toEqual([]);
 	});
 });

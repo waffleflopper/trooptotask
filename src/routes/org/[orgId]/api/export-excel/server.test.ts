@@ -110,12 +110,12 @@ describe('POST /api/export-excel', () => {
 
 		expect(response?.status).toBe(429);
 		expect(payload).toEqual({
-			error: 'Export limit reached (3/month). Upgrade for unlimited exports.',
+			error: 'Export limit reached (3/month). Upgrade to Team for more monthly exports.',
 			denial: {
 				code: 'denied.export_quota',
 				dimension: 'monthly_exports',
-				message: 'Export limit reached (3/month). Upgrade for unlimited exports.',
-				remediation: 'Upgrade for unlimited exports or wait until next month.',
+				message: 'Export limit reached (3/month). Upgrade to Team for more monthly exports.',
+				remediation: 'Upgrade to Team for more monthly exports or wait until next month.',
 				upgradeTarget: 'team'
 			}
 		});
@@ -151,7 +151,7 @@ describe('POST /api/export-excel', () => {
 
 		expect(response?.status).toBe(429);
 		expect(payload).toMatchObject({
-			error: 'Export limit reached (3/month). Upgrade for unlimited exports.'
+			error: 'Export limit reached (3/month). Upgrade to Team for more monthly exports.'
 		});
 		expect(rows).toEqual(
 			expect.arrayContaining([
@@ -184,7 +184,7 @@ describe('POST /api/export-excel', () => {
 		expect(response?.headers.get('Content-Type')).toBe(WORKBOOK_MIME_TYPE);
 	});
 
-	it('allows Excel export when a paid team billing snapshot has unlimited exports', async () => {
+	it('allows Excel export below the paid team billing snapshot export cap', async () => {
 		const ctx = createTestContext();
 		const now = new Date().toISOString();
 		ctx.rawStore.seed('organization_billing_snapshots', [billingSnapshot({ commercial_plan: 'team' })]);

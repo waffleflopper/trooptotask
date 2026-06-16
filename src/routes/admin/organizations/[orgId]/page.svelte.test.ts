@@ -81,7 +81,7 @@ const planDiagnostics = {
 			limitLabel: 'Unlimited',
 			status: 'within_limit',
 			message: 'Export usage is 0 of Unlimited this month.',
-			remediation: 'Upgrade for unlimited exports or wait until next month.',
+			remediation: 'Contact support or wait until next month.',
 			upgradeTarget: null
 		}
 	],
@@ -293,7 +293,7 @@ describe('admin organization detail page', () => {
 								limitLabel: 'Unlimited',
 								status: 'within_limit',
 								message: 'Export usage is 2 of Unlimited this month.',
-								remediation: 'Upgrade for unlimited exports or wait until next month.',
+								remediation: 'Contact support or wait until next month.',
 								upgradeTarget: null
 							}
 						],

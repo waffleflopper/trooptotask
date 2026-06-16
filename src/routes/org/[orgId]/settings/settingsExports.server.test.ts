@@ -7,7 +7,8 @@ describe('exports settings read model', () => {
 			exportInfo: {
 				exportsUsed: 3,
 				exportsLimit: 3,
-				isLimited: true
+				isLimited: true,
+				upgradeTarget: 'team'
 			}
 		});
 
@@ -19,7 +20,9 @@ describe('exports settings read model', () => {
 						exportsLimit: 3,
 						isLimited: true,
 						limitReached: true,
-						planBadge: 'Plan limited'
+						planBadge: 'Plan limited',
+						upgradeTarget: 'team',
+						limitReachedRemediation: 'Export limit reached. Upgrade to Team for more monthly exports.'
 					},
 					commands: {
 						canExportJson: false,

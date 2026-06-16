@@ -7,7 +7,7 @@ This runbook defines the launch access review for TroopToTask. It is intended to
 - **Owner:** Robert.
 - **Launch cadence:** monthly while paid billing and support processes are being stabilized.
 - **Steady-state cadence:** quarterly, plus an out-of-cycle review after material auth, billing, storage, provider, or platform-admin changes.
-- **Evidence:** external evidence held by Robert, such as a dated review note, sanitized checklist, provider dashboard export, or issue reference that records reviewer, scope, exceptions, and follow-up actions.
+- **Evidence:** external evidence held by the security owner, such as a dated review note, sanitized checklist, provider dashboard export, or issue reference that records reviewer, scope, exceptions, and follow-up actions.
 
 ## Review Scope
 

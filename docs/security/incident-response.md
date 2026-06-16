@@ -84,7 +84,7 @@ Do not store raw webhook payloads, webhook signatures, card details, API keys, o
 
 ## 6. Evidence Handling
 
-Use external evidence held by Robert for:
+Use external evidence held by the security owner for:
 
 - incident timeline,
 - provider tickets,

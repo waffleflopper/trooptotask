@@ -39,7 +39,7 @@ describe('security posture docs and config', () => {
 		expect(OPERATIONAL_CONTROL_EVIDENCE).toMatch(/provisioning and deprovisioning/i);
 		expect(OPERATIONAL_CONTROL_EVIDENCE).toMatch(/backup and restore/i);
 		expect(OPERATIONAL_CONTROL_EVIDENCE).toMatch(/billing\/support security/i);
-		expect(OPERATIONAL_CONTROL_EVIDENCE).toContain('external evidence held by Robert');
+		expect(OPERATIONAL_CONTROL_EVIDENCE).toMatch(/external evidence held by the security owner/i);
 		expect(OPERATIONAL_CONTROL_EVIDENCE).toMatch(/\b(partial|planned|external)\b/);
 		expect(CONTROL_MAPPING).toContain('docs/security/operational-control-evidence.md');
 	});
@@ -56,7 +56,11 @@ describe('security posture docs and config', () => {
 
 		expect(combinedSecurityCopy).not.toMatch(/trooptotask\s+(is|has|holds|maintains)\s+fedramp/);
 		expect(combinedSecurityCopy).not.toMatch(/fedramp\s+(certified|authorized)\s+(platform|product|service|system)/);
-		expect(combinedSecurityCopy).not.toMatch(/certified\s+(by|under)\s+fedramp/);
+		expect(combinedSecurityCopy).not.toMatch(
+			/trooptotask\s+(is|has|holds|maintains)\s+fedramp\s+(certified|authorized)/
+		);
+		expect(combinedSecurityCopy).not.toMatch(/(certified|authorized)\s+(by|under)\s+fedramp/);
+		expect(combinedSecurityCopy).not.toMatch(/fedramp\s+(certification|authorization)\s+(by|for|of)\s+trooptotask/);
 		expect(combinedSecurityCopy).not.toMatch(/formal\s+federal\s+(certification|authorization|approval)/);
 		expect(combinedSecurityCopy).toContain('alignment statement');
 	});

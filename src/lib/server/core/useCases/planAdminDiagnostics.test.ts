@@ -126,7 +126,8 @@ describe('plan admin diagnostics', () => {
 				expect.objectContaining({
 					dimension: 'monthly_exports',
 					label: 'Monthly exports',
-					limit: 10,
+					limit: null,
+					limitLabel: 'Unlimited',
 					status: 'within_limit'
 				})
 			])

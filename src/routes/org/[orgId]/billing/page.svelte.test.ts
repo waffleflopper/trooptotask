@@ -73,7 +73,7 @@ const baseData = {
 			personnelCap: 80,
 			activeUserCap: null,
 			bulkExportsPerMonth: 10,
-			priceMonthly: 500
+			priceMonthly: 499
 		},
 		{
 			tier: 'unit',
@@ -81,7 +81,7 @@ const baseData = {
 			personnelCap: 500,
 			activeUserCap: null,
 			bulkExportsPerMonth: null,
-			priceMonthly: 1200
+			priceMonthly: 1099
 		}
 	],
 	cancellationSummary: {
@@ -490,10 +490,10 @@ describe('billing page toolbar', () => {
 							],
 							featureLosses: [
 								{
-									featureKey: 'advanced_reporting',
-									label: 'Advanced reporting',
-									message: 'Advanced reporting is available on the current plan but not on Free.',
-									remediation: 'Choose Unit to keep Advanced reporting.',
+									featureKey: 'bulk_export_unlimited',
+									label: 'Unlimited bulk exports',
+									message: 'Unlimited bulk exports is available on the current plan but not on Free.',
+									remediation: 'Choose Unit to keep Unlimited bulk exports.',
 									upgradeTarget: 'unit'
 								}
 							],
@@ -510,10 +510,10 @@ describe('billing page toolbar', () => {
 									upgradeTarget: 'team'
 								},
 								{
-									featureKey: 'advanced_reporting',
-									label: 'Advanced reporting',
-									message: 'Advanced reporting is available on the current plan but not on Free.',
-									remediation: 'Choose Unit to keep Advanced reporting.',
+									featureKey: 'bulk_export_unlimited',
+									label: 'Unlimited bulk exports',
+									message: 'Unlimited bulk exports is available on the current plan but not on Free.',
+									remediation: 'Choose Unit to keep Unlimited bulk exports.',
 									upgradeTarget: 'unit'
 								}
 							]
@@ -528,7 +528,7 @@ describe('billing page toolbar', () => {
 		expect(screen.getByText(/Existing data is preserved after downgrade/)).toBeTruthy();
 		expect(screen.getByText(/Personnel usage would be 90 of 20 on Free/)).toBeTruthy();
 		expect(screen.getByText('Archive personnel before downgrading or choose Team.')).toBeTruthy();
-		expect(screen.getByText('Choose Unit to keep Advanced reporting.')).toBeTruthy();
+		expect(screen.getByText('Choose Unit to keep Unlimited bulk exports.')).toBeTruthy();
 	});
 
 	it('uses the effective tier when past-due access has already been downgraded', () => {

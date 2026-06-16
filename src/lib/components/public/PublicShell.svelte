@@ -37,7 +37,7 @@
 		showFooter = true,
 		ctaTitleBefore = 'Ready to streamline',
 		ctaEmphasis = 'your unit?',
-		ctaSubtitle = 'Free to use. No credit card. Set up in minutes.',
+		ctaSubtitle = 'Request reviewed access and we will help configure the right plan for your formation.',
 		navOverlay = false,
 		navScrolled = false,
 		children,

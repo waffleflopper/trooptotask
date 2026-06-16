@@ -8,6 +8,10 @@ Issue #1049 covers launch verification for checkout, renewal, failed renewal, ca
 
 The broader launch go/no-go checklist is documented in [Billing Operations Launch Checklist](billing-operations-launch-checklist.md). That checklist separates test-mode verification, live-mode launch steps, environment variables, support process, and Robert-owned Stripe Dashboard confirmations.
 
+The public paid-plan contract is Team at $4.99/month and Unit at $10.99/month. Those prices are the customer-facing contract; Stripe product/price IDs, live Dashboard setup, tax setup, and support staffing remain Robert-owned launch confirmations. Plan differences are personnel capacity and export allowance only.
+
+Duty Rosters may carry a Beta label during paid launch. That label means the workflow is supported but still evolving. Critical Tasks is not Beta-labeled for launch.
+
 Cancellation behavior is documented in [Billing Cancellation Policy](billing-cancellation-policy.md). Customer Portal cancellation is the default owner path and should be configured for cancellation at period end. Immediate cancellation is limited to TroopToTask's confirmed Cancel Now path or platform-admin/support action.
 
 Customer Portal behavior is constrained by [Billing Customer Portal Contract](billing-customer-portal.md). Use that contract as the source of truth for supported portal outcomes and support/admin-handled states.

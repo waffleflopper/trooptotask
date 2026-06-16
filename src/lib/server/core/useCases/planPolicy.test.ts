@@ -373,7 +373,7 @@ describe('plan policy', () => {
 				{
 					id: 'override-1',
 					organizationId: 'org-1',
-					featureKey: 'advanced_reporting',
+					featureKey: 'bulk_export_unlimited',
 					state: 'granted',
 					expiresAt: '2999-01-01T00:00:00.000Z'
 				}
@@ -381,7 +381,7 @@ describe('plan policy', () => {
 			now: new Date('2026-05-24T00:00:00.000Z')
 		});
 
-		expect(policy.entitlements.advanced_reporting).toMatchObject({
+		expect(policy.entitlements.bulk_export_unlimited).toMatchObject({
 			available: true,
 			source: 'feature_override',
 			upgradeTarget: null,
@@ -406,7 +406,7 @@ describe('plan policy', () => {
 					{
 						id: 'override-2',
 						organizationId: 'org-1',
-						featureKey: 'advanced_reporting',
+						featureKey: 'bulk_export_unlimited',
 						state: 'denied',
 						expiresAt: null
 					}
@@ -415,7 +415,7 @@ describe('plan policy', () => {
 			}
 		);
 
-		expect(policy.entitlements.advanced_reporting).toMatchObject({
+		expect(policy.entitlements.bulk_export_unlimited).toMatchObject({
 			available: false,
 			source: 'feature_override',
 			upgradeTarget: null,
@@ -433,7 +433,7 @@ describe('plan policy', () => {
 				{
 					id: 'override-3',
 					organizationId: 'org-1',
-					featureKey: 'advanced_reporting',
+					featureKey: 'bulk_export_unlimited',
 					state: 'granted',
 					expiresAt: '2026-05-23T23:59:59.000Z'
 				}
@@ -441,12 +441,12 @@ describe('plan policy', () => {
 			now: new Date('2026-05-24T00:00:00.000Z')
 		});
 
-		expect(policy.entitlements.advanced_reporting).toMatchObject({
+		expect(policy.entitlements.bulk_export_unlimited).toMatchObject({
 			available: false,
 			source: 'stripe_billing',
 			upgradeTarget: 'unit'
 		});
-		expect(policy.entitlements.advanced_reporting).not.toHaveProperty('override');
+		expect(policy.entitlements.bulk_export_unlimited).not.toHaveProperty('override');
 	});
 
 	it('explains Stripe-backed entitlements separately from legacy base-plan entitlements', () => {
@@ -465,8 +465,8 @@ describe('plan policy', () => {
 			})
 		);
 
-		expect(stripePolicy.entitlements.advanced_reporting.source).toBe('stripe_billing');
-		expect(legacyPolicy.entitlements.advanced_reporting.source).toBe('base_plan');
+		expect(stripePolicy.entitlements.bulk_export_unlimited.source).toBe('stripe_billing');
+		expect(legacyPolicy.entitlements.bulk_export_unlimited.source).toBe('base_plan');
 	});
 
 	it('defines the free plan member cap and pending invitation policy in the central contract', () => {
@@ -588,7 +588,7 @@ describe('plan policy', () => {
 			{
 				id: 'override-1',
 				organization_id: 'org-1',
-				feature_key: 'advanced_reporting',
+				feature_key: 'bulk_export_unlimited',
 				override_state: 'granted',
 				expires_at: '2999-01-01T00:00:00.000Z',
 				revoked_at: null
@@ -597,7 +597,7 @@ describe('plan policy', () => {
 
 		const policy = await readEffectivePlanPolicy({ auth: ctx.auth, store: ctx.rawStore });
 
-		expect(policy.entitlements.advanced_reporting).toMatchObject({
+		expect(policy.entitlements.bulk_export_unlimited).toMatchObject({
 			available: true,
 			source: 'feature_override',
 			override: {
@@ -650,7 +650,7 @@ describe('plan policy', () => {
 			{
 				id: 'override-1',
 				organization_id: 'org-1',
-				feature_key: 'advanced_reporting',
+				feature_key: 'bulk_export_unlimited',
 				override_state: 'granted',
 				expires_at: '2999-01-01T00:00:00.000Z',
 				revoked_at: null
@@ -660,7 +660,7 @@ describe('plan policy', () => {
 		const policy = await readEffectivePlanPolicy({ auth: ctx.auth, store: ctx.rawStore });
 
 		expect(policy.source).toBe('billing_disabled_fallback');
-		expect(policy.entitlements.advanced_reporting).toMatchObject({
+		expect(policy.entitlements.bulk_export_unlimited).toMatchObject({
 			available: true,
 			source: 'feature_override',
 			override: {
@@ -713,7 +713,7 @@ describe('plan policy', () => {
 			{
 				id: 'override-1',
 				organization_id: 'org-1',
-				feature_key: 'advanced_reporting',
+				feature_key: 'bulk_export_unlimited',
 				override_state: 'granted',
 				expires_at: '2000-01-01T00:00:00.000Z',
 				revoked_at: null
@@ -722,11 +722,11 @@ describe('plan policy', () => {
 
 		const policy = await readEffectivePlanPolicy({ auth: ctx.auth, store: ctx.rawStore });
 
-		expect(policy.entitlements.advanced_reporting).toMatchObject({
+		expect(policy.entitlements.bulk_export_unlimited).toMatchObject({
 			available: false,
 			source: 'stripe_billing',
 			upgradeTarget: 'unit'
 		});
-		expect(policy.entitlements.advanced_reporting).not.toHaveProperty('override');
+		expect(policy.entitlements.bulk_export_unlimited).not.toHaveProperty('override');
 	});
 });

@@ -13,7 +13,7 @@ const planPolicy = {
 	billingSource: 'stripe',
 	entitlements: [
 		{
-			key: 'advanced_reporting',
+			key: 'bulk_export_unlimited',
 			available: false,
 			source: 'stripe_billing',
 			upgradeTarget: 'unit'
@@ -88,8 +88,8 @@ const planDiagnostics = {
 	overLimitReasons: [],
 	entitlements: [
 		{
-			key: 'advanced_reporting',
-			label: 'Advanced reporting',
+			key: 'bulk_export_unlimited',
+			label: 'Unlimited bulk exports',
 			description: 'Use advanced readiness and reporting workspaces.',
 			available: false,
 			source: 'stripe_billing',
@@ -325,8 +325,8 @@ describe('admin organization detail page', () => {
 						],
 						entitlements: [
 							{
-								key: 'advanced_reporting',
-								label: 'Advanced reporting',
+								key: 'bulk_export_unlimited',
+								label: 'Unlimited bulk exports',
 								description: 'Use advanced readiness and reporting workspaces.',
 								available: true,
 								source: 'feature_override',

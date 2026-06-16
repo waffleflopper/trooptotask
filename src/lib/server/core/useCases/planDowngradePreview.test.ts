@@ -120,11 +120,6 @@ describe('plan downgrade preview', () => {
 				featureKey: 'bulk_export_unlimited',
 				label: 'Unlimited bulk exports',
 				remediation: 'Choose Unit to keep Unlimited bulk exports.'
-			}),
-			expect.objectContaining({
-				featureKey: 'advanced_reporting',
-				label: 'Advanced reporting',
-				remediation: 'Choose Unit to keep Advanced reporting.'
 			})
 		]);
 		expect(preview.blockers.map((blocker) => blocker.label)).toEqual([
@@ -132,8 +127,7 @@ describe('plan downgrade preview', () => {
 			'Members',
 			'Pending invitations',
 			'Monthly exports',
-			'Unlimited bulk exports',
-			'Advanced reporting'
+			'Unlimited bulk exports'
 		]);
 	});
 
@@ -310,10 +304,7 @@ describe('plan downgrade preview', () => {
 				expect.objectContaining({ dimension: 'active_organization_members', status: 'within_limit' })
 			])
 		);
-		expect(preview.blockers).toEqual([
-			expect.objectContaining({ featureKey: 'bulk_export_unlimited' }),
-			expect.objectContaining({ featureKey: 'advanced_reporting' })
-		]);
+		expect(preview.blockers).toEqual([expect.objectContaining({ featureKey: 'bulk_export_unlimited' })]);
 		expect(preview.blockers).not.toContainEqual(expect.objectContaining({ dimension: 'active_personnel' }));
 		expect(preview.blockers).not.toContainEqual(expect.objectContaining({ dimension: 'active_organization_members' }));
 	});

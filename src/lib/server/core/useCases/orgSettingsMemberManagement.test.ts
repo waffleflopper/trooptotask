@@ -219,12 +219,6 @@ function createPlanPolicyPort(input: {
 				entitlements: {
 					bulk_export_unlimited: {
 						key: 'bulk_export_unlimited',
-						available: plan !== 'free',
-						source: 'base_plan',
-						upgradeTarget: plan === 'free' ? 'team' : null
-					},
-					advanced_reporting: {
-						key: 'advanced_reporting',
 						available: plan === 'unit',
 						source: 'base_plan',
 						upgradeTarget: plan === 'unit' ? null : 'unit'

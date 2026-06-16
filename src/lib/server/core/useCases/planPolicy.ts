@@ -135,12 +135,6 @@ export const PLAN_FEATURE_REGISTRY = {
 		label: 'Unlimited bulk exports',
 		description:
 			'Export organization data without the free-plan monthly export quota. Export routes enforce this through monthly_exports limits.'
-	},
-	advanced_reporting: {
-		key: 'advanced_reporting',
-		enforcement: 'binary_gate',
-		label: 'Advanced reporting',
-		description: 'Use advanced readiness and reporting workspaces.'
 	}
 } as const;
 
@@ -213,8 +207,6 @@ function featureAvailableOnPlan(feature: PlanFeatureKey, plan: Tier): boolean {
 	switch (feature) {
 		case 'bulk_export_unlimited':
 			return plan === 'unit';
-		case 'advanced_reporting':
-			return plan === 'unit';
 		default: {
 			const unhandledFeature: never = feature;
 			throw new Error(`Unhandled plan feature: ${String(unhandledFeature)}`);
@@ -226,8 +218,6 @@ function featureUpgradeTarget(feature: PlanFeatureKey, plan: Tier): Tier | null 
 	if (featureAvailableOnPlan(feature, plan)) return null;
 	switch (feature) {
 		case 'bulk_export_unlimited':
-			return 'unit';
-		case 'advanced_reporting':
 			return 'unit';
 		default: {
 			const unhandledFeature: never = feature;
@@ -280,12 +270,6 @@ function buildEntitlements(
 				available: featureAvailableOnPlan('bulk_export_unlimited', plan),
 				source: resolvedSource,
 				upgradeTarget: featureUpgradeTarget('bulk_export_unlimited', plan)
-			},
-			advanced_reporting: {
-				key: 'advanced_reporting',
-				available: featureAvailableOnPlan('advanced_reporting', plan),
-				source: resolvedSource,
-				upgradeTarget: featureUpgradeTarget('advanced_reporting', plan)
 			}
 		},
 		overrides,

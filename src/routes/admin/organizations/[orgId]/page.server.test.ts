@@ -109,7 +109,7 @@ vi.mock('$lib/server/core/useCases/planFeatureOverrides', () => ({
 }));
 
 vi.mock('$lib/server/core/useCases/planPolicy', () => ({
-	isPlanFeatureKey: (value: string) => value === 'advanced_reporting',
+	isPlanFeatureKey: (value: string) => value === 'bulk_export_unlimited',
 	readEffectivePlanPolicy: vi.fn().mockResolvedValue({
 		source: 'tier',
 		billingSource: 'legacy_organization',
@@ -265,12 +265,12 @@ describe('admin organization gifting actions', () => {
 		});
 		grantFeatureOverrideMock.mockResolvedValue({
 			id: 'override-1',
-			feature_key: 'advanced_reporting',
+			feature_key: 'bulk_export_unlimited',
 			override_state: 'granted'
 		});
 		revokeFeatureOverrideMock.mockResolvedValue({
 			id: '22222222-2222-4222-8222-222222222222',
-			feature_key: 'advanced_reporting'
+			feature_key: 'bulk_export_unlimited'
 		});
 		platformGiftingMock.grantGift.mockResolvedValue({ status: 'updated', action: 'gift', orgId: 'org-1' });
 		platformGiftingMock.revokeGift.mockResolvedValue({ status: 'updated', action: 'revoke', orgId: 'org-1' });
@@ -653,7 +653,7 @@ describe('admin organization gifting actions', () => {
 			__ctx: ctx,
 			params: { orgId: '11111111-1111-4111-8111-111111111111' },
 			request: makeRequest({
-				featureKey: 'advanced_reporting',
+				featureKey: 'bulk_export_unlimited',
 				state: 'granted',
 				expiresAt: '2999-01-01T00:00:00.000Z',
 				reason: 'Temporary support override'
@@ -665,7 +665,7 @@ describe('admin organization gifting actions', () => {
 			planFeatureOverride: {
 				action: 'set',
 				id: 'override-1',
-				featureKey: 'advanced_reporting',
+				featureKey: 'bulk_export_unlimited',
 				state: 'granted'
 			}
 		});
@@ -675,7 +675,7 @@ describe('admin organization gifting actions', () => {
 			}),
 			{
 				orgId: '11111111-1111-4111-8111-111111111111',
-				featureKey: 'advanced_reporting',
+				featureKey: 'bulk_export_unlimited',
 				state: 'granted',
 				expiresAt: '2999-01-01T00:00:00.000Z',
 				reason: 'Temporary support override'
@@ -691,7 +691,7 @@ describe('admin organization gifting actions', () => {
 			__ctx: makeContext(adminClient.client),
 			params: { orgId: '11111111-1111-4111-8111-111111111111' },
 			request: makeRequest({
-				featureKey: 'advanced_reporting',
+				featureKey: 'bulk_export_unlimited',
 				state: 'granted',
 				expiresAt: 'not-a-date'
 			})
@@ -718,7 +718,7 @@ describe('admin organization gifting actions', () => {
 			planFeatureOverride: {
 				action: 'revoke',
 				id: '22222222-2222-4222-8222-222222222222',
-				featureKey: 'advanced_reporting'
+				featureKey: 'bulk_export_unlimited'
 			}
 		});
 		expect(revokeFeatureOverrideMock).toHaveBeenCalledWith(expect.any(Object), {

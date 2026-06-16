@@ -157,7 +157,7 @@ describe('auditLog', () => {
 				resourceId: '11111111-1111-4111-8111-111111111111',
 				orgId: '11111111-1111-4111-8111-111111111111',
 				details: {
-					featureKey: 'advanced_reporting',
+					featureKey: 'bulk_export_unlimited',
 					overrideState: 'granted',
 					expiresAt: '2999-01-01T00:00:00.000Z',
 					hasReason: true,
@@ -178,7 +178,7 @@ describe('auditLog', () => {
 			action: 'admin.plan_feature_override.set',
 			org_id: '11111111-1111-4111-8111-111111111111',
 			details: {
-				featureKey: 'advanced_reporting',
+				featureKey: 'bulk_export_unlimited',
 				overrideState: 'granted',
 				expiresAt: '2999-01-01T00:00:00.000Z',
 				hasReason: true,

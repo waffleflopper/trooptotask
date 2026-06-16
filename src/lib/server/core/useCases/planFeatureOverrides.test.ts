@@ -16,7 +16,7 @@ describe('plan feature overrides', () => {
 
 		const result = await grantOrganizationPlanFeatureOverride(ports, {
 			orgId: 'org-1',
-			featureKey: 'advanced_reporting',
+			featureKey: 'bulk_export_unlimited',
 			state: 'granted',
 			expiresAt: '2999-01-01T00:00:00.000Z',
 			reason: 'Comp account for command pilot'
@@ -24,7 +24,7 @@ describe('plan feature overrides', () => {
 
 		expect(result).toMatchObject({
 			organization_id: 'org-1',
-			feature_key: 'advanced_reporting',
+			feature_key: 'bulk_export_unlimited',
 			override_state: 'granted',
 			expires_at: '2999-01-01T00:00:00.000Z',
 			created_by: 'admin-1',
@@ -38,7 +38,7 @@ describe('plan feature overrides', () => {
 				orgId: 'org-1',
 				severity: 'warning',
 				details: {
-					featureKey: 'advanced_reporting',
+					featureKey: 'bulk_export_unlimited',
 					overrideState: 'granted',
 					expiresAt: '2999-01-01T00:00:00.000Z',
 					hasReason: true
@@ -53,7 +53,7 @@ describe('plan feature overrides', () => {
 		await expect(
 			grantOrganizationPlanFeatureOverride(ports, {
 				orgId: 'org-1',
-				featureKey: 'advanced_reporting',
+				featureKey: 'bulk_export_unlimited',
 				state: 'granted',
 				expiresAt: 'not-a-date',
 				reason: null
@@ -63,7 +63,7 @@ describe('plan feature overrides', () => {
 		await expect(
 			grantOrganizationPlanFeatureOverride(ports, {
 				orgId: 'org-1',
-				featureKey: 'advanced_reporting',
+				featureKey: 'bulk_export_unlimited',
 				state: 'granted',
 				expiresAt: null,
 				reason: 'x'.repeat(501)
@@ -80,7 +80,7 @@ describe('plan feature overrides', () => {
 			{
 				id: 'override-1',
 				organization_id: 'org-1',
-				feature_key: 'advanced_reporting',
+				feature_key: 'bulk_export_unlimited',
 				override_state: 'granted',
 				expires_at: null,
 				reason: 'Temporary enablement',
@@ -111,7 +111,7 @@ describe('plan feature overrides', () => {
 				severity: 'warning',
 				details: {
 					overrideId: 'override-1',
-					featureKey: 'advanced_reporting',
+					featureKey: 'bulk_export_unlimited',
 					overrideState: 'granted'
 				}
 			}
@@ -124,7 +124,7 @@ describe('plan feature overrides', () => {
 			{
 				id: 'override-1',
 				organization_id: 'org-1',
-				feature_key: 'advanced_reporting',
+				feature_key: 'bulk_export_unlimited',
 				override_state: 'granted',
 				expires_at: null,
 				reason: 'Temporary enablement',
@@ -153,7 +153,7 @@ describe('plan feature overrides', () => {
 		await expect(
 			grantOrganizationPlanFeatureOverride(ports, {
 				orgId: 'org-1',
-				featureKey: 'advanced_reporting',
+				featureKey: 'bulk_export_unlimited',
 				state: 'granted',
 				expiresAt: null
 			})
@@ -169,7 +169,7 @@ describe('plan feature overrides', () => {
 			{
 				id: 'override-1',
 				organization_id: 'org-1',
-				feature_key: 'advanced_reporting',
+				feature_key: 'bulk_export_unlimited',
 				override_state: 'granted',
 				expires_at: null,
 				reason: null,
@@ -182,7 +182,7 @@ describe('plan feature overrides', () => {
 
 		await grantOrganizationPlanFeatureOverride(ports, {
 			orgId: 'org-1',
-			featureKey: 'advanced_reporting',
+			featureKey: 'bulk_export_unlimited',
 			state: 'denied',
 			expiresAt: null
 		});
@@ -213,7 +213,7 @@ describe('plan feature overrides', () => {
 				severity: 'warning',
 				details: {
 					overrideId: 'override-1',
-					featureKey: 'advanced_reporting',
+					featureKey: 'bulk_export_unlimited',
 					overrideState: 'granted',
 					replacementOverrideState: 'denied'
 				}
@@ -221,7 +221,7 @@ describe('plan feature overrides', () => {
 			expect.objectContaining({
 				action: 'admin.plan_feature_override.set',
 				details: expect.objectContaining({
-					featureKey: 'advanced_reporting',
+					featureKey: 'bulk_export_unlimited',
 					overrideState: 'denied'
 				})
 			})
@@ -234,7 +234,7 @@ describe('plan feature overrides', () => {
 			{
 				id: 'override-1',
 				organization_id: 'org-1',
-				feature_key: 'advanced_reporting',
+				feature_key: 'bulk_export_unlimited',
 				override_state: 'granted',
 				expires_at: null,
 				reason: null,
@@ -255,7 +255,7 @@ describe('plan feature overrides', () => {
 		await expect(
 			grantOrganizationPlanFeatureOverride(ports, {
 				orgId: 'org-1',
-				featureKey: 'advanced_reporting',
+				featureKey: 'bulk_export_unlimited',
 				state: 'denied',
 				expiresAt: null
 			})

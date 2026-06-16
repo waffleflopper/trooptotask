@@ -1,5 +1,6 @@
 // src/lib/utils/csvParser.ts
 import type ExcelJS from 'exceljs';
+import { formatToday } from '$lib/utils/dates';
 import { resolveExcelWorkbookConstructor } from '$lib/utils/excelWorkbook';
 
 /**
@@ -156,7 +157,7 @@ export function parseTrainingStatus(value: string): {
 
 	// Yes/completed values → completed today
 	if (['yes', 'y', 'true', '1', 'complete', 'completed', 'done', 'x'].includes(v)) {
-		const today = new Date().toISOString().slice(0, 10);
+		const today = formatToday();
 		return { type: 'completed', date: today, raw };
 	}
 

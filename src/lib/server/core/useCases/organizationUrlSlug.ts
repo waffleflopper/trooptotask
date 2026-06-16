@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { validateUUID } from '$lib/server/validation';
 import { fail } from '$lib/server/core/errors';
+import { sanitizeErrorForLog } from '$lib/server/logSanitize';
 
 export const ORGANIZATION_SLUG_MIN_LENGTH = 3;
 export const ORGANIZATION_SLUG_MAX_LENGTH = 48;
@@ -94,7 +95,8 @@ export async function resolveOrganizationRouteIdentity(
 		: await query.eq('url_slug', normalizedSegment).maybeSingle();
 
 	if (error) {
-		fail(500, error.message);
+		console.error('[organization-url-slug] Failed to resolve organization route identity:', sanitizeErrorForLog(error));
+		fail(500, 'Internal server error');
 	}
 
 	if (!data) {

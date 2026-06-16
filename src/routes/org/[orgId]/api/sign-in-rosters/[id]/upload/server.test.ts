@@ -7,6 +7,9 @@ import { _deleteConfig, _getConfig, _postConfig } from './+server';
 
 const PDF_BYTES = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d]);
 const OLD_SCAN_PATH = 'test-org/sign-in-rosters/roster-1/old-scan.pdf';
+const MIXED_SCAN_PATH = 'test-org/sign-in-rosters/roster-mixed/mixed-scan.pdf';
+const GROUP_ALPHA = 'group-alpha';
+const GROUP_BRAVO = 'group-bravo';
 
 function createRosterUploadContext(signedFilePath: string | null = null) {
 	const ctx = createTestContext();
@@ -20,7 +23,52 @@ function createRosterUploadContext(signedFilePath: string | null = null) {
 			separate_by_group: false,
 			sort_by: 'alphabetical',
 			personnel_snapshot: [],
+			personnel_ids: ['p-1'],
+			scope_group_ids: [GROUP_ALPHA],
 			filter_config: null,
+			signed_file_path: signedFilePath,
+			created_by: ctx.auth.userId,
+			created_at: '2026-05-02T10:00:00.000Z'
+		}
+	]);
+	return ctx;
+}
+
+function createScopedRosterUploadContext(signedFilePath: string | null = MIXED_SCAN_PATH) {
+	const ctx = createTestContext({
+		auth: {
+			role: 'member',
+			isPrivileged: false,
+			capabilityMap: {
+				calendar: 'view',
+				personnel: 'view',
+				training: 'operate',
+				criticalTasks: 'view',
+				onboarding: 'view',
+				ratingScheme: 'view'
+			},
+			scopeSet: { kind: 'groups', groupIds: [GROUP_ALPHA] }
+		}
+	});
+	ctx.rawStore.seed('sign_in_rosters', [
+		{
+			id: 'roster-alpha',
+			organization_id: ctx.auth.orgId,
+			title: 'Alpha roster',
+			personnel_snapshot: [],
+			personnel_ids: ['p-alpha'],
+			scope_group_ids: [GROUP_ALPHA],
+			signed_file_path: null,
+			created_by: ctx.auth.userId,
+			created_at: '2026-05-02T10:00:00.000Z'
+		},
+		{
+			id: 'roster-mixed',
+			organization_id: ctx.auth.orgId,
+			title: 'Mixed roster',
+			personnel_snapshot: [],
+			personnel_ids: ['p-alpha', 'p-bravo'],
+			scope_group_ids: [GROUP_ALPHA, GROUP_BRAVO],
 			signed_file_path: signedFilePath,
 			created_by: ctx.auth.userId,
 			created_at: '2026-05-02T10:00:00.000Z'
@@ -73,6 +121,30 @@ describe('/api/sign-in-rosters/[id]/upload route config', () => {
 			id: 'roster-1'
 		});
 		expect(roster?.signed_file_path).toBe(result.filePath);
+	});
+
+	it('denies signed URL creation for mixed-scope rosters outside the caller scope', async () => {
+		const ctx = createScopedRosterUploadContext(MIXED_SCAN_PATH);
+		await ctx.storage.upload(SENSITIVE_FILE_BUCKET, MIXED_SCAN_PATH, new File([PDF_BYTES], 'mixed-scan.pdf'));
+
+		await expect(handleUseCaseRequest(_getConfig, ctx, { rosterId: 'roster-mixed' })).rejects.toMatchObject({
+			status: 404,
+			message: 'No signed file found'
+		});
+	});
+
+	it('denies scan replacement for mixed-scope rosters before uploading a replacement', async () => {
+		const ctx = createScopedRosterUploadContext(MIXED_SCAN_PATH);
+		await ctx.storage.upload(SENSITIVE_FILE_BUCKET, MIXED_SCAN_PATH, new File([PDF_BYTES], 'mixed-scan.pdf'));
+
+		await expect(
+			handleUseCaseRequest(_postConfig, ctx, {
+				rosterId: 'roster-mixed',
+				file: new File([PDF_BYTES], 'signed-roster.pdf', { type: 'application/pdf' })
+			})
+		).rejects.toMatchObject({ status: 404, message: 'Roster not found' });
+
+		expect(ctx.storagePort.files.map((file) => file.path)).toEqual([MIXED_SCAN_PATH]);
 	});
 
 	it('uses a unique storage path and removes the previous scan after replacement succeeds', async () => {
@@ -254,5 +326,21 @@ describe('/api/sign-in-rosters/[id]/upload route config', () => {
 			id: 'roster-1'
 		});
 		expect(roster?.signed_file_path).toBeNull();
+	});
+
+	it('denies scan unlink for mixed-scope rosters outside the caller scope', async () => {
+		const ctx = createScopedRosterUploadContext(MIXED_SCAN_PATH);
+		await ctx.storage.upload(SENSITIVE_FILE_BUCKET, MIXED_SCAN_PATH, new File([PDF_BYTES], 'mixed-scan.pdf'));
+
+		await expect(handleUseCaseRequest(_deleteConfig, ctx, { rosterId: 'roster-mixed' })).rejects.toMatchObject({
+			status: 404,
+			message: 'Roster not found'
+		});
+
+		expect(ctx.storagePort.files.map((file) => file.path)).toEqual([MIXED_SCAN_PATH]);
+		const roster = await ctx.rawStore.findOne<{ signed_file_path: string | null }>('sign_in_rosters', ctx.auth.orgId, {
+			id: 'roster-mixed'
+		});
+		expect(roster?.signed_file_path).toBe(MIXED_SCAN_PATH);
 	});
 });

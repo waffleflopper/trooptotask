@@ -51,6 +51,7 @@ export const _postConfig: RouteConfig<{ rosterId: string; file: File }, { filePa
 		const roster = await ctx.store.findOne<{ signed_file_path: string | null }>('sign_in_rosters', ctx.auth.orgId, {
 			id: input.rosterId
 		});
+		if (!roster) fail(404, 'Roster not found');
 		const previousSignedFilePath = roster?.signed_file_path ?? null;
 
 		const storagePath = buildSignInRosterScanFilePath({

@@ -115,6 +115,25 @@ export function createInMemoryDataStore(): DataStore & { seed(table: string, row
 			}
 		}
 
+		if (options?.arrayContainedByFilters) {
+			for (const [key, values] of Object.entries(options.arrayContainedByFilters)) {
+				const allowedValues = new Set(values);
+				results = results.filter((row) => {
+					const rowValues = row[key];
+					return Array.isArray(rowValues) && rowValues.every((value) => allowedValues.has(value));
+				});
+			}
+		}
+
+		if (options?.nonEmptyArrayFilters) {
+			for (const key of options.nonEmptyArrayFilters) {
+				results = results.filter((row) => {
+					const rowValues = row[key];
+					return Array.isArray(rowValues) && rowValues.length > 0;
+				});
+			}
+		}
+
 		if (options?.isNull) {
 			for (const [key, shouldBeNull] of Object.entries(options.isNull)) {
 				results = results.filter((row) => (shouldBeNull ? row[key] == null : row[key] != null));

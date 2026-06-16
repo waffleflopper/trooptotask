@@ -47,6 +47,7 @@
 	let expandedId = $state<string | null>(null);
 	let deleting = $state<string | null>(null);
 	let confirmDeleteRoster = $state<SignInRoster | null>(null);
+	let loadError = $state('');
 	let signedScanDragOverId = $state<string | null>(null);
 	const signedScanUploadingIds = new SvelteSet<string>();
 	const signedScanErrors = new SvelteMap<string, string>();
@@ -66,17 +67,34 @@
 	async function fetchRosters(reset = false) {
 		if (reset) rosters = [];
 		loading = true;
+		loadError = '';
 		const offset = reset ? 0 : rosters.length;
 		const params = new SvelteURLSearchParams({ limit: '20', offset: String(offset) });
 		if (searchTitle) params.set('title', searchTitle);
 		if (dateFrom) params.set('from', dateFrom);
 		if (dateTo) params.set('to', dateTo);
 
-		const res = await fetch(`/org/${orgId}/api/sign-in-rosters?${params}`);
-		const data = await res.json();
-		rosters = reset ? data.rosters : [...rosters, ...data.rosters];
-		total = data.total;
-		loading = false;
+		try {
+			const res = await fetch(`/org/${orgId}/api/sign-in-rosters?${params}`);
+			const data = (await res.json().catch(() => ({}))) as {
+				rosters?: SignInRoster[];
+				total?: number;
+				error?: string;
+			};
+
+			if (!res.ok || !Array.isArray(data.rosters)) {
+				throw new Error(data.error ?? 'Unable to load sign-in rosters.');
+			}
+
+			rosters = reset ? data.rosters : [...rosters, ...data.rosters];
+			total = typeof data.total === 'number' ? data.total : rosters.length;
+		} catch (err) {
+			if (reset) rosters = [];
+			total = rosters.length;
+			loadError = err instanceof Error ? err.message : 'Unable to load sign-in rosters.';
+		} finally {
+			loading = false;
+		}
 	}
 
 	onMount(() => {
@@ -541,6 +559,11 @@
 						<Button size="sm" type="button" onclick={() => (view = 'create')}>New Roster</Button>
 					{/if}
 				</section>
+				{#if loadError}
+					<p class="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+						{loadError}
+					</p>
+				{/if}
 
 				{#if loading && rosters.length === 0}
 					<div class="flex justify-center p-8">

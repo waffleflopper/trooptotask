@@ -28,7 +28,11 @@
 	<div class="rounded-lg border border-border bg-card p-3">
 		<div class="flex items-center gap-2">
 			{#if step.stepType === 'checkbox' && canManage}
-				<Checkbox checked={false} onclick={() => ctx.handleToggleCheckbox(step)} />
+				<Checkbox
+					checked={false}
+					aria-label={`Mark ${step.stepName} complete`}
+					onclick={() => ctx.handleToggleCheckbox(step)}
+				/>
 			{:else}
 				<div class="h-5 w-5 shrink-0 rounded-full border-2 border-border"></div>
 			{/if}
@@ -71,7 +75,11 @@
 	<div class="rounded-md border border-border/40 bg-success/5 transition-colors">
 		<div class="flex items-center gap-2 p-2.5">
 			{#if step.stepType === 'checkbox' && canManage}
-				<Checkbox checked={true} onclick={() => ctx.handleToggleCheckbox(step)} />
+				<Checkbox
+					checked={true}
+					aria-label={`Mark ${step.stepName} incomplete`}
+					onclick={() => ctx.handleToggleCheckbox(step)}
+				/>
 			{:else}
 				<div class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-success text-white">
 					<svg

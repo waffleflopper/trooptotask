@@ -17,33 +17,44 @@ vi.mock('$lib/server/subscription', () => ({
 function createStore(
 	input: {
 		snapshot?: Awaited<ReturnType<BillingSnapshotTransitionStore['readSnapshot']>>;
-		upsertResult?: boolean;
-		mirrorError?: Error;
+		writeResult?: boolean;
+		writeError?: Error;
 	} = {}
 ): BillingSnapshotTransitionStore & {
+	combinedWrites: Array<{
+		snapshot: BillingSnapshotUpsert;
+		mirror: Record<string, unknown>;
+		eventPosition?: BillingEventPosition;
+	}>;
 	snapshotWrites: BillingSnapshotUpsert[];
 	snapshotWriteEventPositions: Array<BillingEventPosition | undefined>;
 	mirrorWrites: Array<{ orgId: string; values: Record<string, unknown> }>;
 } {
+	const combinedWrites: Array<{
+		snapshot: BillingSnapshotUpsert;
+		mirror: Record<string, unknown>;
+		eventPosition?: BillingEventPosition;
+	}> = [];
 	const snapshotWrites: BillingSnapshotUpsert[] = [];
 	const snapshotWriteEventPositions: Array<BillingEventPosition | undefined> = [];
 	const mirrorWrites: Array<{ orgId: string; values: Record<string, unknown> }> = [];
 
 	return {
+		combinedWrites,
 		snapshotWrites,
 		snapshotWriteEventPositions,
 		mirrorWrites,
 		async readSnapshot() {
 			return input.snapshot ?? null;
 		},
-		async upsertSnapshotIfCurrent(values, eventPosition) {
-			snapshotWrites.push(values);
+		async writeSnapshotAndMirrorIfCurrent({ snapshot, mirror, eventPosition }) {
+			combinedWrites.push({ snapshot, mirror, eventPosition });
+			if (input.writeError) throw input.writeError;
+			if (input.writeResult === false) return false;
+			snapshotWrites.push(snapshot);
 			snapshotWriteEventPositions.push(eventPosition);
-			return input.upsertResult ?? true;
-		},
-		async updateOrganizationBillingMirror(orgId, values) {
-			if (input.mirrorError) throw input.mirrorError;
-			mirrorWrites.push({ orgId, values });
+			mirrorWrites.push({ orgId: snapshot.organization_id, values: mirror });
+			return true;
 		}
 	};
 }
@@ -101,6 +112,25 @@ describe('applyBillingSnapshotTransition', () => {
 					stripe_subscription_id: 'sub_123',
 					subscription_status: 'incomplete',
 					current_period_end: null
+				}
+			}
+		]);
+		expect(store.combinedWrites).toEqual([
+			{
+				snapshot: expect.objectContaining({
+					organization_id: 'org-1',
+					last_stripe_event_id: 'evt_checkout'
+				}),
+				mirror: {
+					stripe_customer_id: 'cus_123',
+					stripe_subscription_id: 'sub_123',
+					subscription_status: 'incomplete',
+					current_period_end: null
+				},
+				eventPosition: {
+					eventId: 'evt_checkout',
+					eventType: 'checkout.session.completed',
+					eventCreatedAt: '1970-01-01T00:00:01.000Z'
 				}
 			}
 		]);
@@ -164,6 +194,27 @@ describe('applyBillingSnapshotTransition', () => {
 					stripe_subscription_id: 'sub_123',
 					subscription_status: 'active',
 					current_period_end: '2026-06-01T00:00:00.000Z'
+				}
+			}
+		]);
+		expect(store.combinedWrites).toEqual([
+			{
+				snapshot: expect.objectContaining({
+					organization_id: 'org-1',
+					commercial_plan: 'team',
+					last_stripe_event_id: 'evt_sub_updated'
+				}),
+				mirror: {
+					tier: 'team',
+					stripe_customer_id: 'cus_123',
+					stripe_subscription_id: 'sub_123',
+					subscription_status: 'active',
+					current_period_end: '2026-06-01T00:00:00.000Z'
+				},
+				eventPosition: {
+					eventId: 'evt_sub_updated',
+					eventType: 'customer.subscription.updated',
+					eventCreatedAt: '2026-05-25T17:00:00.000Z'
 				}
 			}
 		]);
@@ -358,12 +409,13 @@ describe('applyBillingSnapshotTransition', () => {
 			orgId: 'org-1'
 		});
 		expect(store.snapshotWrites).toEqual([]);
+		expect(store.combinedWrites).toEqual([]);
 		expect(store.mirrorWrites).toEqual([]);
 		expect(invalidateTierCacheMock).not.toHaveBeenCalled();
 	});
 
-	it('returns superseded and skips the mirror when the conditional snapshot write loses a race', async () => {
-		const store = createStore({ upsertResult: false });
+	it('returns superseded and skips the mirror when the combined write loses a race', async () => {
+		const store = createStore({ writeResult: false });
 
 		const result = await applyBillingSnapshotTransition(store, {
 			kind: 'payment_failed',
@@ -383,7 +435,62 @@ describe('applyBillingSnapshotTransition', () => {
 			result: 'payment failure for organization org-1 lost a concurrent billing snapshot update',
 			orgId: 'org-1'
 		});
-		expect(store.snapshotWrites).toHaveLength(1);
+		expect(store.combinedWrites).toHaveLength(1);
+		expect(store.snapshotWrites).toEqual([]);
+		expect(store.mirrorWrites).toEqual([]);
+		expect(invalidateTierCacheMock).not.toHaveBeenCalled();
+	});
+
+	it('does not apply a stale mirror payload when the combined write is rejected', async () => {
+		const store = createStore({ writeResult: false });
+
+		const result = await applyBillingSnapshotTransition(store, {
+			kind: 'subscription_updated',
+			orgId: 'org-1',
+			stripeCustomerId: 'cus_stale',
+			stripeSubscriptionId: 'sub_stale',
+			stripeProductId: 'prod_team',
+			stripePriceId: 'price_team',
+			status: 'active',
+			currentPeriodStart: '2026-05-01T00:00:00.000Z',
+			currentPeriodEnd: '2026-06-01T00:00:00.000Z',
+			cancelAtPeriodEnd: false,
+			canceledAt: null,
+			cancellationReason: null,
+			cancellationFeedback: null,
+			trialEnd: null,
+			priceCatalog: [
+				{
+					priceId: 'price_team',
+					commercialPlan: 'team',
+					stripeProductId: 'prod_team',
+					activeForCheckout: true
+				}
+			],
+			event: {
+				id: 'evt_stale_replay',
+				type: 'customer.subscription.updated',
+				createdAt: '2026-05-25T17:00:00.000Z'
+			}
+		});
+
+		expect(result).toEqual({
+			state: 'superseded',
+			result: 'subscription update for organization org-1 lost a concurrent billing snapshot update',
+			orgId: 'org-1'
+		});
+		expect(store.combinedWrites).toEqual([
+			expect.objectContaining({
+				mirror: {
+					tier: 'team',
+					stripe_customer_id: 'cus_stale',
+					stripe_subscription_id: 'sub_stale',
+					subscription_status: 'active',
+					current_period_end: '2026-06-01T00:00:00.000Z'
+				}
+			})
+		]);
+		expect(store.snapshotWrites).toEqual([]);
 		expect(store.mirrorWrites).toEqual([]);
 		expect(invalidateTierCacheMock).not.toHaveBeenCalled();
 	});
@@ -432,6 +539,26 @@ describe('applyBillingSnapshotTransition', () => {
 				eventCreatedAt: '2026-05-24T12:00:00.000Z'
 			}
 		]);
+		expect(store.combinedWrites).toEqual([
+			{
+				snapshot: expect.objectContaining({
+					organization_id: 'org-1',
+					commercial_plan: 'free',
+					subscription_status: 'canceled'
+				}),
+				mirror: {
+					tier: 'free',
+					subscription_status: null,
+					stripe_subscription_id: 'sub_123',
+					current_period_end: null
+				},
+				eventPosition: {
+					eventId: 'evt_123',
+					eventType: 'customer.subscription.updated',
+					eventCreatedAt: '2026-05-24T12:00:00.000Z'
+				}
+			}
+		]);
 		expect(store.mirrorWrites).toEqual([
 			{
 				orgId: 'org-1',
@@ -445,8 +572,8 @@ describe('applyBillingSnapshotTransition', () => {
 		]);
 	});
 
-	it('throws when the legacy mirror fails after the snapshot write so callers can retry safely', async () => {
-		const store = createStore({ mirrorError: new Error('mirror unavailable') });
+	it('throws when the combined snapshot and mirror write provider fails so callers can retry safely', async () => {
+		const store = createStore({ writeError: new Error('mirror unavailable') });
 
 		await expect(
 			applyBillingSnapshotTransition(store, {
@@ -458,7 +585,8 @@ describe('applyBillingSnapshotTransition', () => {
 			})
 		).rejects.toThrow('mirror unavailable');
 
-		expect(store.snapshotWrites).toHaveLength(1);
+		expect(store.combinedWrites).toHaveLength(1);
+		expect(store.snapshotWrites).toEqual([]);
 		expect(store.mirrorWrites).toEqual([]);
 		expect(invalidateTierCacheMock).not.toHaveBeenCalled();
 	});

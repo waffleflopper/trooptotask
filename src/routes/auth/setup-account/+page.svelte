@@ -31,7 +31,7 @@
 </svelte:head>
 
 <AuthShell
-	eyebrow="Beta Access"
+	eyebrow="Reviewed Access"
 	title="Set up your TroopToTask account."
 	description="Use the setup link from your approval email to choose your password and activate your User Account."
 	panelEyebrow="Account setup"

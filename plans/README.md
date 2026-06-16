@@ -100,7 +100,7 @@ The operator explicitly excluded automatic CI trigger work from this batch. Do n
 | 075  | Harden account email change and login errors      | P1       | M      | -          | DONE   |
 | 076  | Batch onboarding resync writes                    | P2       | S-M    | -          | DONE   |
 | 077  | Remove legacy PKCE code-exchange paths            | P3       | S      | -          | DONE   |
-| 078  | Billing launch rehearsal go/no-go pack            | P1       | M      | -          | TODO   |
+| 078  | Billing launch rehearsal go/no-go pack            | P1       | M      | -          | DONE   |
 | 079  | Reconcile paid-plan and beta-lane contract        | P1       | M      | 078        | TODO   |
 | 080  | Decide public acquisition path                    | P1       | M      | 079        | TODO   |
 | 081  | Surface first-run owner checklist                 | P2       | M      | 080        | TODO   |

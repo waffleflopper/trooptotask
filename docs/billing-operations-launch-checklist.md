@@ -7,6 +7,7 @@ Do not paste API keys, webhook secrets, raw webhook payloads, card details, or S
 ## References
 
 - [Billing Launch Verification](billing-launch-verification.md) covers checkout, renewal, failed renewal, portal period-end cancellation, immediate cancellation, failed payment recovery, reactivation after successful payment, plan changes, webhook processing, reconciliation, and owner/admin UI evidence. Issue #1049 is the tracker for that lifecycle verification work.
+- [Billing Launch Go/No-Go Evidence Pack](billing-launch-go-no-go.md) records the latest support-safe launch rehearsal evidence and verdict.
 - [Billing Customer Portal Contract](billing-customer-portal.md) defines supported portal outcomes and states that must stay support/admin handled.
 - [Billing Cancellation Policy](billing-cancellation-policy.md) defines period-end portal cancellation as the default owner path and immediate cancellation as an explicit confirmed action.
 - `npm run billing:launch-preflight` is the read-only Stripe test-mode preflight.
@@ -19,6 +20,7 @@ Do not paste API keys, webhook secrets, raw webhook payloads, card details, or S
 | Checklist document created | Complete | Agent | This file records the launch gates and manual confirmations. |
 | Portal assumptions documented | Complete | Agent | See "Customer Portal Configuration". |
 | Lifecycle verification reference | Complete | Agent | This checklist points to `docs/billing-launch-verification.md` and issue #1049. |
+| Go/no-go evidence pack created | Complete | Agent | See `docs/billing-launch-go-no-go.md`; current verdict is blocked pending scenario evidence and Robert-owned confirmations. |
 | Test-mode Stripe Dashboard confirmation | Requires Robert confirmation | Robert | Agent can run local/test helpers only when test Stripe credentials and webhook forwarding are available. |
 | Live-mode Stripe Dashboard confirmation | Requires Robert confirmation | Robert | Agent must not invent live Dashboard state. Robert must confirm before enabling live paid billing. |
 | Final pricing amounts | Requires Robert/business-owner confirmation | Robert | The catalog boundary exists, but final prices remain a business decision. |

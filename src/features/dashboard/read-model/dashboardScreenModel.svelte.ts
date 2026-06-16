@@ -64,6 +64,14 @@ export interface DashboardSupportData {
 	gettingStartedDismissed: boolean;
 }
 
+export interface DashboardGettingStartedItem {
+	id: string;
+	label: string;
+	description: string;
+	href: string;
+	complete: boolean;
+}
+
 export interface DashboardStatusBreakdown {
 	name: string;
 	color: string;
@@ -267,6 +275,69 @@ export class DashboardScreenModel {
 
 	get orgMemberCount(): number {
 		return this.supportData?.orgMemberCount ?? 0;
+	}
+
+	get gettingStartedItems(): DashboardGettingStartedItem[] {
+		const orgPath = `/org/${this.data.orgId}`;
+
+		return [
+			{
+				id: 'personnel',
+				label: 'Add the roster',
+				description: 'Add at least one service member so the dashboard can track strength.',
+				href: `${orgPath}/personnel`,
+				complete: this.personnelCount > 0
+			},
+			{
+				id: 'statuses',
+				label: 'Configure statuses',
+				description: 'Create the availability statuses your leaders use day to day.',
+				href: `${orgPath}/calendar/settings`,
+				complete: this.statusTypeCount > 0
+			},
+			{
+				id: 'training',
+				label: 'Add training types',
+				description: 'Define the training requirements you want to monitor.',
+				href: `${orgPath}/training/types`,
+				complete: this.trainingTypeCount > 0
+			},
+			{
+				id: 'assignments',
+				label: 'Set up assignments',
+				description: 'Create duty assignment types for daily tasking.',
+				href: `${orgPath}/calendar/settings`,
+				complete: this.assignmentTypeCount > 0
+			},
+			{
+				id: 'members',
+				label: 'Invite another leader',
+				description: 'Add at least one more Organization Member for shared administration.',
+				href: `${orgPath}/settings/members`,
+				complete: this.orgMemberCount > 1
+			},
+			{
+				id: 'onboarding',
+				label: 'Set up onboarding',
+				description: 'Configure template steps for new arrivals.',
+				href: `${orgPath}/onboarding/templates`,
+				complete: this.onboardingTemplateStepCount > 0
+			},
+			{
+				id: 'ratings',
+				label: 'Configure evals',
+				description: 'Add rating scheme entries for evaluation tracking.',
+				href: `${orgPath}/evals`,
+				complete: this.ratingSchemeEntryCount > 0
+			}
+		];
+	}
+
+	get shouldShowGettingStarted(): boolean {
+		if (!this.hasSupportData || this.gettingStartedDismissed) return false;
+		if (this.userRole !== 'owner' && this.userRole !== 'admin') return false;
+
+		return this.gettingStartedItems.some((item) => !item.complete);
 	}
 
 	applySupportData(data: DashboardSupportData) {

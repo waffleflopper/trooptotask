@@ -104,7 +104,7 @@ The operator explicitly excluded automatic CI trigger work from this batch. Do n
 | 078  | Billing launch rehearsal go/no-go pack            | P1       | M      | -          | DONE   |
 | 079  | Reconcile paid-plan and beta-lane contract        | P1       | M      | 078        | DONE   |
 | 080  | Decide public acquisition path                    | P1       | M      | 079        | DONE   |
-| 081  | Surface first-run owner checklist                 | P2       | M      | 080        | TODO   |
+| 081  | Surface first-run owner checklist                 | P2       | M      | 080        | DONE   |
 | 082  | Package operational security evidence             | P1       | M      | -          | DONE   |
 | 083  | Public account creation and abuse controls        | P1       | L      | 080        | TODO   |
 | 084  | Self-service organization creation and onboarding | P1       | M-L    | 083, 081   | TODO   |

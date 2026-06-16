@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
 import DashboardPageView from './DashboardPageView.svelte';
 import type { DashboardScreenModel } from '../read-model/dashboardScreenModel.svelte';
 
@@ -21,6 +21,8 @@ function makeCtx(overrides: Record<string, unknown> = {}): DashboardScreenModel 
 		userRole: 'member',
 		hasSupportData: true,
 		gettingStartedDismissed: true,
+		gettingStartedItems: [],
+		shouldShowGettingStarted: false,
 		isHydrating: false,
 		statusBreakdown: new Map(),
 		unitReadiness: {
@@ -112,5 +114,84 @@ describe('DashboardPageView', () => {
 
 		expect(screen.getByText('42')).toBeTruthy();
 		expect(screen.getByText('/ 50')).toBeTruthy();
+	});
+
+	it('renders the getting started checklist with incomplete and complete items', () => {
+		const ctx = makeCtx({
+			userRole: 'owner',
+			gettingStartedDismissed: false,
+			shouldShowGettingStarted: true,
+			gettingStartedItems: [
+				{
+					id: 'personnel',
+					label: 'Add the roster',
+					description: 'Add at least one service member so the dashboard can track strength.',
+					href: '/org/org-1/personnel',
+					complete: false
+				},
+				{
+					id: 'statuses',
+					label: 'Configure statuses',
+					description: 'Create the availability statuses your leaders use day to day.',
+					href: '/org/org-1/calendar/settings',
+					complete: true
+				}
+			]
+		});
+
+		render(DashboardPageView, { props: { ctx } });
+
+		expect(screen.getByText('Workspace setup')).toBeTruthy();
+		expect(screen.getByText('Add the roster')).toBeTruthy();
+		expect(screen.getByText('Configure statuses')).toBeTruthy();
+		expect(screen.getByText('1/2 complete')).toBeTruthy();
+		expect(screen.getByText('Done')).toBeTruthy();
+		expect(screen.getByRole('link', { name: 'Open Add the roster' }).getAttribute('href')).toBe('/org/org-1/personnel');
+	});
+
+	it('calls the model dismissal method from the checklist', async () => {
+		const dismissGettingStarted = vi.fn();
+		const ctx = makeCtx({
+			userRole: 'admin',
+			gettingStartedDismissed: false,
+			shouldShowGettingStarted: true,
+			dismissGettingStarted,
+			gettingStartedItems: [
+				{
+					id: 'members',
+					label: 'Invite another leader',
+					description: 'Add at least one more Organization Member for shared administration.',
+					href: '/org/org-1/settings/members',
+					complete: false
+				}
+			]
+		});
+
+		render(DashboardPageView, { props: { ctx } });
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }));
+
+		expect(dismissGettingStarted).toHaveBeenCalledOnce();
+	});
+
+	it('does not render the checklist when the model hides it', () => {
+		const ctx = makeCtx({
+			gettingStartedDismissed: true,
+			shouldShowGettingStarted: false,
+			gettingStartedItems: [
+				{
+					id: 'personnel',
+					label: 'Add the roster',
+					description: 'Add at least one service member so the dashboard can track strength.',
+					href: '/org/org-1/personnel',
+					complete: false
+				}
+			]
+		});
+
+		render(DashboardPageView, { props: { ctx } });
+
+		expect(screen.queryByText('Workspace setup')).toBeNull();
+		expect(screen.queryByText('Add the roster')).toBeNull();
 	});
 });

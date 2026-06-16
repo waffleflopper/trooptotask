@@ -284,6 +284,7 @@ describe('billing page toolbar', () => {
 			props: {
 				data: {
 					...baseData,
+					canManageSubscription: false,
 					effectiveTier: {
 						...baseData.effectiveTier,
 						tier: 'free',
@@ -549,6 +550,7 @@ describe('billing page toolbar', () => {
 			props: {
 				data: {
 					...baseData,
+					canManageSubscription: false,
 					effectiveTier: {
 						...baseData.effectiveTier,
 						tier: 'free',
@@ -715,6 +717,8 @@ describe('billing page toolbar', () => {
 			props: {
 				data: {
 					...baseData,
+					canManageSubscription: false,
+					billingSnapshot: null,
 					effectiveTier: {
 						...baseData.effectiveTier,
 						tier: 'free',
@@ -828,6 +832,8 @@ describe('billing page toolbar', () => {
 			props: {
 				data: {
 					...baseData,
+					canManageSubscription: false,
+					billingSnapshot: null,
 					effectiveTier: {
 						...baseData.effectiveTier,
 						tier: 'free',
@@ -864,6 +870,8 @@ describe('billing page toolbar', () => {
 			props: {
 				data: {
 					...baseData,
+					canManageSubscription: false,
+					billingSnapshot: null,
 					effectiveTier: {
 						...baseData.effectiveTier,
 						tier: 'free',
@@ -906,6 +914,8 @@ describe('billing page toolbar', () => {
 			props: {
 				data: {
 					...baseData,
+					canManageSubscription: false,
+					billingSnapshot: null,
 					effectiveTier: {
 						...baseData.effectiveTier,
 						tier: 'free',
@@ -954,6 +964,8 @@ describe('billing page toolbar', () => {
 			props: {
 				data: {
 					...baseData,
+					canManageSubscription: false,
+					billingSnapshot: null,
 					effectiveTier: {
 						...baseData.effectiveTier,
 						tier: 'free',

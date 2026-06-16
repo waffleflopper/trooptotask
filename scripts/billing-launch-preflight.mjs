@@ -225,9 +225,9 @@ function checkPortalConfiguration(results, configurations, prices) {
 	} else if ((update.products ?? []).length === 0) {
 		results.push(
 			result(
-				'pass',
+				'warn',
 				'Customer Portal plan switching',
-				'price changes enabled; confirm eligible Team/Unit products in the dashboard'
+				'Stripe API omitted eligible products; confirm the dashboard lists only current Team/Unit prices'
 			)
 		);
 	} else {

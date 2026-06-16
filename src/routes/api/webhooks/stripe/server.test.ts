@@ -1,15 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { getAdminClientMock, invalidateTierCacheMock, verifyWebhookSignatureMock } = vi.hoisted(() => ({
-	getAdminClientMock: vi.fn(),
-	invalidateTierCacheMock: vi.fn(),
-	verifyWebhookSignatureMock: vi.fn()
-}));
+const { getAdminClientMock, invalidateTierCacheMock, updateSubscriptionPlanMetadataMock, verifyWebhookSignatureMock } =
+	vi.hoisted(() => ({
+		getAdminClientMock: vi.fn(),
+		invalidateTierCacheMock: vi.fn(),
+		updateSubscriptionPlanMetadataMock: vi.fn(),
+		verifyWebhookSignatureMock: vi.fn()
+	}));
 
 vi.mock('$lib/server/stripe', () => ({
 	verifyWebhookSignature: verifyWebhookSignatureMock,
 	pauseSubscription: vi.fn(),
-	resumeSubscription: vi.fn()
+	resumeSubscription: vi.fn(),
+	updateSubscriptionPlanMetadata: updateSubscriptionPlanMetadataMock
 }));
 
 vi.mock('$lib/server/supabase', () => ({
@@ -1042,7 +1045,7 @@ describe('POST /api/webhooks/stripe', () => {
 		expect(invalidateTierCacheMock).not.toHaveBeenCalled();
 	});
 
-	it('fails closed when subscription metadata tier does not match the configured price', async () => {
+	it('trusts the subscription price over stale tier metadata after portal plan changes', async () => {
 		const supabase = createWebhookSupabaseStub();
 		getAdminClientMock.mockReturnValue(supabase.client);
 
@@ -1054,9 +1057,9 @@ describe('POST /api/webhooks/stripe', () => {
 				object: {
 					id: 'sub_123',
 					status: 'active',
-					metadata: { orgId: 'org-1', tier: 'unit' },
+					metadata: { orgId: 'org-1', tier: 'team' },
 					customer: 'cus_123',
-					items: { data: [{ price: { id: 'price_team', product: 'prod_team' } }] },
+					items: { data: [{ price: { id: 'price_unit', product: 'prod_unit' } }] },
 					current_period_end: 1_800_000_000,
 					cancel_at_period_end: false,
 					pause_collection: null
@@ -1064,18 +1067,40 @@ describe('POST /api/webhooks/stripe', () => {
 			}
 		});
 
-		expect(response.status).toBe(500);
-		expect(supabase.billingSnapshotUpserts).toEqual([]);
-		expect(supabase.orgUpdates).toEqual([]);
-		expect(supabase.webhookUpdates).toContainEqual(
+		expect(response.status).toBe(200);
+		expect(supabase.billingSnapshotUpserts).toContainEqual(
 			expect.objectContaining({
+				organization_id: 'org-1',
+				commercial_plan: 'unit',
+				stripe_product_id: 'prod_unit',
+				stripe_price_id: 'price_unit',
+				subscription_status: 'active',
+				collection_status: 'current'
+			})
+		);
+		expect(supabase.orgUpdates).toContainEqual(
+			expect.objectContaining({
+				value: 'org-1',
 				values: expect.objectContaining({
-					processing_state: 'retryable_failed',
-					last_error: 'customer.subscription.updated metadata tier unit does not match price catalog plan team'
+					tier: 'unit',
+					stripe_subscription_id: 'sub_123',
+					subscription_status: 'active'
 				})
 			})
 		);
-		expect(invalidateTierCacheMock).not.toHaveBeenCalled();
+		expect(supabase.webhookUpdates).toContainEqual(
+			expect.objectContaining({
+				values: expect.objectContaining({
+					processing_state: 'processed',
+					processing_result: 'subscription updated for organization org-1'
+				})
+			})
+		);
+		expect(invalidateTierCacheMock).toHaveBeenCalledWith('org-1');
+		expect(updateSubscriptionPlanMetadataMock).toHaveBeenCalledWith('sub_123', {
+			tier: 'unit',
+			priceId: 'price_unit'
+		});
 	});
 
 	it('does not permanently fail incomplete subscription updates for stale metadata tier mismatches', async () => {

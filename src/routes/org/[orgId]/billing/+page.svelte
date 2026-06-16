@@ -120,6 +120,7 @@
 		source === 'billing_disabled' || billingSnapshot?.source === 'billing_disabled'
 	);
 	const canOpenBillingPortal = $derived(data.canManageSubscription && !billingActionsDisabled);
+	const canManagePaidPlanChange = $derived(data.canManageSubscription && !billingActionsDisabled && source !== 'gift');
 	const billingRecovery = $derived(
 		buildBillingRecovery(billingSnapshot, tier, canOpenBillingPortal, billingActionsDisabled)
 	);
@@ -1163,6 +1164,11 @@
 							<Button class="w-full" variant="outline" onclick={handleManageSubscription} disabled={portalLoading}>
 								{#if portalLoading}<Spinner />{/if}
 								{portalLoading ? 'Opening...' : 'Downgrade'}
+							</Button>
+						{:else if canManagePaidPlanChange}
+							<Button class="w-full" variant="outline" onclick={handleManageSubscription} disabled={portalLoading}>
+								{#if portalLoading}<Spinner />{/if}
+								{portalLoading ? 'Opening...' : 'Manage Subscription'}
 							</Button>
 						{:else}
 							<Button class="w-full" onclick={() => handleSubscribeClick(plan.tier)} disabled={!!subscribingTier}>

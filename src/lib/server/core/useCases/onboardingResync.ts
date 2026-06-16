@@ -94,17 +94,12 @@ async function performDiff(ctx: WritePorts, onboardingId: string, templateId: st
 	);
 
 	const results: ResyncStepResult[] = [];
+	const existingRowUpserts: Record<string, unknown>[] = [];
 
 	// 1. Steps in instance but not in template → deactivate
 	for (const instanceStep of instanceSteps) {
 		if (instanceStep.template_step_id && !templateStepMap.has(instanceStep.template_step_id)) {
-			const updated = await ctx.store.update<StepProgressRow>(
-				'onboarding_step_progress',
-				ctx.auth.orgId,
-				instanceStep.id,
-				{ active: false }
-			);
-			results.push(mapToResult(updated));
+			existingRowUpserts.push({ ...instanceStep, active: false });
 		}
 	}
 
@@ -133,20 +128,25 @@ async function performDiff(ctx: WritePorts, onboardingId: string, templateId: st
 				}
 			}
 
-			const updated = await ctx.store.update<StepProgressRow>(
-				'onboarding_step_progress',
-				ctx.auth.orgId,
-				instanceStep.id,
-				updateData
-			);
-			results.push(mapToResult(updated));
+			existingRowUpserts.push({ ...instanceStep, ...updateData });
 		}
 	}
 
+	if (existingRowUpserts.length > 0) {
+		const upserted = await ctx.store.upsertMany<StepProgressRow>(
+			'onboarding_step_progress',
+			ctx.auth.orgId,
+			existingRowUpserts,
+			{ onConflict: 'id' }
+		);
+		for (const row of upserted) results.push(mapToResult(row));
+	}
+
 	// 3. Steps in template but not in instance → insert new
+	const newRows: Record<string, unknown>[] = [];
 	for (const templateStep of templateSteps) {
 		if (!instanceStepMap.has(templateStep.id)) {
-			const newRow = {
+			newRows.push({
 				onboarding_id: onboardingId,
 				template_step_id: templateStep.id,
 				step_name: templateStep.name,
@@ -161,11 +161,13 @@ async function performDiff(ctx: WritePorts, onboardingId: string, templateId: st
 						: null,
 				notes: [],
 				active: true
-			};
-
-			const inserted = await ctx.store.insert<StepProgressRow>('onboarding_step_progress', ctx.auth.orgId, newRow);
-			results.push(mapToResult(inserted));
+			});
 		}
+	}
+
+	if (newRows.length > 0) {
+		const inserted = await ctx.store.insertMany<StepProgressRow>('onboarding_step_progress', ctx.auth.orgId, newRows);
+		for (const row of inserted) results.push(mapToResult(row));
 	}
 
 	return results;

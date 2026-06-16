@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { createWritePortsContext } from '$lib/server/adapters/inMemory';
 import type { CapabilityMap } from '$lib/access/memberAccessShape';
 import { resyncOnboarding, switchTemplate } from './onboardingResync';
@@ -618,6 +618,110 @@ describe('resyncOnboarding', () => {
 		expect(added?.stepName).toBe('New Step');
 		expect(added?.active).toBe(true);
 		expect(added?.completed).toBe(false);
+	});
+
+	it('batches existing step updates and new step inserts', async () => {
+		const ctx = buildContext();
+		seedOnboarding(ctx);
+		seedTemplateSteps(ctx, [
+			{
+				id: 'ts-1',
+				template_id: 'tmpl-1',
+				name: 'Updated ID card step',
+				description: 'New desc',
+				step_type: 'checkbox',
+				training_type_id: null,
+				stages: null,
+				sort_order: 0,
+				organization_id: 'test-org'
+			},
+			{
+				id: 'ts-2',
+				template_id: 'tmpl-1',
+				name: 'Updated CAC Request',
+				description: 'Submit CAC form',
+				step_type: 'paperwork',
+				training_type_id: null,
+				stages: ['draft', 'review', 'approved'],
+				sort_order: 1,
+				organization_id: 'test-org'
+			},
+			{
+				id: 'ts-4',
+				template_id: 'tmpl-1',
+				name: 'Security Briefing',
+				description: 'Attend security brief',
+				step_type: 'checkbox',
+				training_type_id: null,
+				stages: null,
+				sort_order: 2,
+				organization_id: 'test-org'
+			},
+			{
+				id: 'ts-5',
+				template_id: 'tmpl-1',
+				name: 'New Paperwork',
+				description: 'Start new packet',
+				step_type: 'paperwork',
+				training_type_id: null,
+				stages: ['started', 'complete'],
+				sort_order: 3,
+				organization_id: 'test-org'
+			}
+		]);
+		seedInstanceSteps(ctx, [
+			{
+				id: 'sp-1',
+				onboarding_id: 'ob-1',
+				template_step_id: 'ts-1',
+				step_name: 'Get ID card',
+				step_type: 'checkbox',
+				training_type_id: null,
+				stages: null,
+				sort_order: 0,
+				completed: true,
+				current_stage: null,
+				notes: [],
+				active: true,
+				organization_id: 'test-org'
+			},
+			{
+				id: 'sp-2',
+				onboarding_id: 'ob-1',
+				template_step_id: 'ts-2',
+				step_name: 'CAC Request',
+				step_type: 'paperwork',
+				training_type_id: null,
+				stages: ['with soldier', 'submitted', 'approved'],
+				sort_order: 1,
+				completed: true,
+				current_stage: 'submitted',
+				notes: [],
+				active: true,
+				organization_id: 'test-org'
+			}
+		]);
+		const upsertManySpy = vi.spyOn(ctx.store, 'upsertMany');
+		const insertManySpy = vi.spyOn(ctx.store, 'insertMany');
+		const updateSpy = vi.spyOn(ctx.store, 'update');
+		const insertSpy = vi.spyOn(ctx.store, 'insert');
+
+		const result = await resyncOnboarding(ctx, 'ob-1');
+
+		expect(upsertManySpy).toHaveBeenCalledTimes(1);
+		expect(upsertManySpy.mock.calls[0][0]).toBe('onboarding_step_progress');
+		expect(upsertManySpy.mock.calls[0][2]).toHaveLength(2);
+		expect(upsertManySpy.mock.calls[0][3]).toEqual({ onConflict: 'id' });
+		expect(insertManySpy).toHaveBeenCalledTimes(1);
+		expect(insertManySpy.mock.calls[0][0]).toBe('onboarding_step_progress');
+		expect(insertManySpy.mock.calls[0][2]).toHaveLength(2);
+		expect(updateSpy).not.toHaveBeenCalled();
+		expect(insertSpy).not.toHaveBeenCalled();
+		expect(result.steps).toHaveLength(4);
+		expect(result.steps.find((s) => s.templateStepId === 'ts-1')?.stepName).toBe('Updated ID card step');
+		expect(result.steps.find((s) => s.templateStepId === 'ts-2')?.currentStage).toBe('draft');
+		expect(result.steps.find((s) => s.templateStepId === 'ts-4')?.active).toBe(true);
+		expect(result.steps.find((s) => s.templateStepId === 'ts-5')?.currentStage).toBe('started');
 	});
 
 	it('rejects resync when onboarding not found', async () => {

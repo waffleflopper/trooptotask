@@ -1,5 +1,18 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const { auditLogMock } = vi.hoisted(() => ({
+	auditLogMock: vi.fn()
+}));
+
+vi.mock('$lib/server/auditLog', () => ({
+	auditLog: auditLogMock
+}));
+
 import { actions, load } from './+page.server';
+
+beforeEach(() => {
+	vi.clearAllMocks();
+});
 
 describe('GET /auth/login', () => {
 	it('surfaces a generic auth-link error when redirected from a failed confirmation flow', async () => {
@@ -164,5 +177,46 @@ describe('GET /auth/login', () => {
 			status: 303,
 			location: '/dashboard'
 		});
+	});
+
+	it('returns a generic login failure while preserving the audit event', async () => {
+		const signInWithPassword = vi.fn().mockResolvedValue({ error: { message: 'Email not confirmed' } });
+		const formData = new FormData();
+		formData.set('email', 'OWNER@EXAMPLE.COM');
+		formData.set('password', 'wrong-password');
+		formData.set('next', '/dashboard');
+
+		const result = await actions.login({
+			request: new Request('http://localhost/auth/login?/login', {
+				method: 'POST',
+				body: formData
+			}),
+			locals: {
+				supabase: {
+					auth: {
+						signInWithPassword
+					}
+				}
+			}
+		} as never);
+
+		expect(result).toEqual({
+			status: 400,
+			data: {
+				error: 'Email or password is incorrect',
+				email: 'owner@example.com',
+				nextPath: '/dashboard'
+			}
+		});
+		expect(JSON.stringify(result)).not.toContain('Email not confirmed');
+		expect(auditLogMock).toHaveBeenCalledWith(
+			{
+				action: 'auth.login_failure',
+				resourceType: 'user',
+				severity: 'warning',
+				details: { email: 'owner@example.com' }
+			},
+			{ userId: null }
+		);
 	});
 });

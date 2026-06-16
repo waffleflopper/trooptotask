@@ -16,7 +16,7 @@
 import { json, error, isHttpError, isRedirect } from '@sveltejs/kit';
 import type { Cookies, RequestEvent, RequestHandler } from '@sveltejs/kit';
 import type { z } from 'zod';
-import { getApiContext } from '$lib/server/supabase';
+import { getAdminClient, getApiContext } from '$lib/server/supabase';
 import {
 	createPermissionContextFromMembership,
 	getMembershipRow,
@@ -39,6 +39,7 @@ import { createStripeBillingAdapter } from './stripeBilling';
 import { createSupabaseStorageAdapter } from './supabaseStorage';
 import { createSupabaseCriticalTasksReadModelAdapter } from './criticalTasksReadModel';
 import { createSupabaseRatingSchemePersonnelLookupPort } from './supabaseRatingSchemePersonnelLookup';
+import { createSupabaseSignInRosterPersonnelLookupPort } from './supabaseSignInRosterPersonnelLookup';
 import { createSupabaseSensitiveActionAuthorizer } from '$lib/server/sensitiveActionAuthorizer';
 import { resolveOrganizationRouteIdentity } from '$lib/server/core/useCases/organizationUrlSlug';
 import type { UseCaseContext, AuthContext } from '$lib/server/core/ports';
@@ -106,6 +107,7 @@ async function buildContextInternal(event: RequestEvent): Promise<BuildContextRe
 	const billing = createStripeBillingAdapter();
 	const criticalTasksReadModel = createSupabaseCriticalTasksReadModelAdapter(supabase);
 	const ratingSchemePersonnelLookup = createSupabaseRatingSchemePersonnelLookupPort(supabase);
+	const signInRosterPersonnelLookup = createSupabaseSignInRosterPersonnelLookupPort(getAdminClient);
 	const sensitiveActionAuthorizer = createSupabaseSensitiveActionAuthorizer({
 		supabase,
 		session: event.locals.session
@@ -125,6 +127,7 @@ async function buildContextInternal(event: RequestEvent): Promise<BuildContextRe
 			sensitiveActionAuthorizer,
 			criticalTasksReadModel,
 			ratingSchemePersonnelLookup,
+			signInRosterPersonnelLookup,
 			rawStore: store
 		},
 		supabase
@@ -172,6 +175,7 @@ export async function buildLayoutContext(locals: App.Locals, cookies: Cookies, o
 	const storage = createSupabaseStorageAdapter(supabase);
 	const criticalTasksReadModel = createSupabaseCriticalTasksReadModelAdapter(supabase);
 	const ratingSchemePersonnelLookup = createSupabaseRatingSchemePersonnelLookupPort(supabase);
+	const signInRosterPersonnelLookup = createSupabaseSignInRosterPersonnelLookupPort(getAdminClient);
 	const sensitiveActionAuthorizer = createSupabaseSensitiveActionAuthorizer({
 		supabase,
 		session: locals.session
@@ -190,6 +194,7 @@ export async function buildLayoutContext(locals: App.Locals, cookies: Cookies, o
 		sensitiveActionAuthorizer,
 		criticalTasksReadModel,
 		ratingSchemePersonnelLookup,
+		signInRosterPersonnelLookup,
 		rawStore: store
 	};
 }
@@ -229,6 +234,7 @@ export async function buildLayoutContextFromMembership(
 	const storage = createSupabaseStorageAdapter(supabase);
 	const criticalTasksReadModel = createSupabaseCriticalTasksReadModelAdapter(supabase);
 	const ratingSchemePersonnelLookup = createSupabaseRatingSchemePersonnelLookupPort(supabase);
+	const signInRosterPersonnelLookup = createSupabaseSignInRosterPersonnelLookupPort(getAdminClient);
 	const sensitiveActionAuthorizer = createSupabaseSensitiveActionAuthorizer({
 		supabase,
 		session: locals.session
@@ -247,6 +253,7 @@ export async function buildLayoutContextFromMembership(
 		sensitiveActionAuthorizer,
 		criticalTasksReadModel,
 		ratingSchemePersonnelLookup,
+		signInRosterPersonnelLookup,
 		rawStore: store
 	};
 }

@@ -112,14 +112,33 @@ function createWebhookSupabaseStub(options: WebhookSupabaseOptions = {}) {
 					});
 				}
 
-				if (name !== 'upsert_organization_billing_snapshot_if_current') {
-					throw new Error(`Unexpected rpc ${name}`);
+				if (name === 'upsert_organization_billing_snapshot_if_current') {
+					billingSnapshotUpserts.push(args.p_snapshot as Record<string, unknown>);
+					return Promise.resolve({
+						data: options.billingSnapshotRpcResult ?? true,
+						error: options.failBillingSnapshotRpc ? { message: options.failBillingSnapshotRpc } : null
+					});
 				}
-				billingSnapshotUpserts.push(args.p_snapshot as Record<string, unknown>);
-				return Promise.resolve({
-					data: options.billingSnapshotRpcResult ?? true,
-					error: options.failBillingSnapshotRpc ? { message: options.failBillingSnapshotRpc } : null
-				});
+
+				if (name === 'upsert_organization_billing_snapshot_and_mirror_if_current') {
+					const snapshot = args.p_snapshot as Record<string, unknown>;
+					billingSnapshotUpserts.push(snapshot);
+					const errorMessage = options.failBillingSnapshotRpc ?? options.failOrganizationUpdate;
+					const data = options.billingSnapshotRpcResult ?? true;
+					if (data === true && !errorMessage) {
+						orgUpdates.push({
+							values: args.p_mirror as Record<string, unknown>,
+							column: 'id',
+							value: snapshot.organization_id
+						});
+					}
+					return Promise.resolve({
+						data,
+						error: errorMessage ? { message: errorMessage } : null
+					});
+				}
+
+				throw new Error(`Unexpected rpc ${name}`);
 			},
 			from(table: string) {
 				if (table === 'stripe_webhook_events') {
@@ -603,9 +622,9 @@ describe('POST /api/webhooks/stripe', () => {
 					processed: false,
 					processing_state: 'retryable_failed',
 					last_error:
-						'Failed to update org org-1: db write failed [redacted_stripe_key] [redacted_webhook_secret] stripe-signature=[redacted]',
+						'Failed to update billing snapshot and mirror: db write failed [redacted_stripe_key] [redacted_webhook_secret] stripe-signature=[redacted]',
 					error:
-						'Failed to update org org-1: db write failed [redacted_stripe_key] [redacted_webhook_secret] stripe-signature=[redacted]',
+						'Failed to update billing snapshot and mirror: db write failed [redacted_stripe_key] [redacted_webhook_secret] stripe-signature=[redacted]',
 					processing_result: 'retryable processing failure'
 				}),
 				filters: expect.arrayContaining([

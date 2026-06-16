@@ -11,6 +11,8 @@ Updated by the improve skill on 2026-06-13 at commit `0a6e6000` with performance
 Updated by the improve skill on 2026-06-13 at commit `9a1e439b` with plans 050-052 (Robert selected the three Platform Administration provider-seam deepening targets).
 Updated by the improve skill on 2026-06-14 at commit `9a1e439b` with plans 053-058 (Robert selected findings 1-7 from the follow-up audit, excluding finding 5).
 Updated by the improve skill on 2026-06-14 at commit `9a1e439b` with tech-debt plans 059-068 (Robert selected all vetted findings plus the small cleanup bundle).
+Updated by the improve skill on 2026-06-14 at commit `b3acfabb` with plans 069-074 (Robert selected findings 1, 3, 4, 5, and 6 first, then billing mirror correctness as the follow-on).
+Updated by the improve skill on 2026-06-14 at commit `b3acfabb` with plans 075-077 (fresh standard audit; Robert selected the account-security hardening bundle, the resync batching, and the legacy PKCE cleanup. Most reported findings were false positives — see "Findings Considered And Rejected").
 
 Execute in the order below unless dependencies say otherwise. Each executor must read the selected plan fully before starting, honor its STOP conditions, run every verification command, and update the status row when done.
 
@@ -88,6 +90,15 @@ The operator explicitly excluded automatic CI trigger work from this batch. Do n
 | 066  | Split Calendar settings and delete stale managers | P2       | M      | -          | DONE   |
 | 067  | Consolidate Account Setup route orchestration     | P2       | M-L    | -          | DONE   |
 | 068  | Consolidate workbook interop and remove unused icons | P3       | S      | -          | DONE   |
+| 069  | Add pgTAP contracts for newer RLS surfaces        | P1       | M      | -          | DONE   |
+| 070  | Scope and validate sign-in roster snapshots       | P1       | M      | 069        | DONE   |
+| 071  | Activate feature permission-coupling governance   | P1       | S-M    | -          | DONE   |
+| 072  | Sanitize provider errors returned from 500 paths  | P2       | S      | -          | DONE   |
+| 073  | Use local date-only helpers in onboarding/imports | P2       | S-M    | -          | DONE   |
+| 074  | Guard billing mirror writes with event ordering   | P1       | M      | 069-073    | DONE   |
+| 075  | Harden account email change and login errors      | P1       | M      | -          | DONE   |
+| 076  | Batch onboarding resync writes                    | P2       | S-M    | -          | DONE   |
+| 077  | Remove legacy PKCE code-exchange paths            | P3       | S      | -          | DONE   |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line rationale).
 
@@ -146,9 +157,23 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJE
 - 067 should coordinate with plan 055 and any Account Setup Link, organization invitation, or Auth identity work. If 059 has already landed, update any new admin-provider baseline entries affected by the route seam changes.
 - 068 is a small independent cleanup. It can run alongside non-frontend work, but if the executor edits or removes Svelte icon files, it still needs the Svelte autofixer check described in the plan.
 - 059-068 add no migrations and do not require local or remote database schema changes. Never target production, and do not reset or delete the local database without Robert's explicit permission.
+- 069 should run before 070 so the new sign-in roster RLS contract can be added after the general newer-surface pgTAP fixtures are in place. 069 is local Supabase test work only unless it reveals a real policy defect; never target production and do not reset/delete the local database without Robert's explicit permission.
+- 070 is the selected sign-in roster security fix. It may add a migration and RLS contract. Do not run it in parallel with other sign-in roster, Training records storage, scoped-store, or Supabase migration work.
+- 071 is independent governance tooling. It should not redo plan 059's admin-provider route seam scanner; this plan is only for feature permission-lane coupling detection.
+- 072 is independent server error-response hardening. Keep it scoped to the concrete 500 provider-error leak paths in the plan; do not broad-rewrite every `error.message` occurrence.
+- 073 is independent date-only correctness work. It touches a Svelte store, so the executor must follow the Svelte MCP documentation flow and run `svelte-autofixer` on edited Svelte files until clean.
+- 074 should run after 069-073 because Robert asked to do the billing mirror correctness fix after the first selected batch. It is not code-dependent on those plans, but it should not run in parallel with Stripe webhook processor, billing reconciliation, or Supabase migration work.
+- 069, 070, and 074 may add local Supabase migrations or pgTAP contracts. Coordinate migration filenames if multiple agents execute plans in parallel, never target production, and do not reset or delete the local development database without Robert's explicit permission.
+- 075 is app-layer auth hardening (no migration). It bundles three related findings (email-change reauth, post-password-change session revocation, generic login error) across `/account/security`, `/api/auth/update-password`, and `/auth/login`. Do not run it in parallel with other Account Setup Link, MFA gate, or auth identity work. Its session-revocation step lives on the password-change path by design (email changes are pending until externally confirmed) — see the plan's "Scope note on B".
+- 076 is a self-contained perf change to `onboardingResync.performDiff` only. It uses the existing `insertMany`/`upsertMany` store methods and adds no DataStore method and no migration. Do not run it in parallel with onboarding lifecycle/template-edit refactors.
+- 077 is gated on operator confirmation that production email templates have migrated to the `/auth/confirm` flow. If that cannot be confirmed, the executor must mark it BLOCKED and remove no code. It touches only the two legacy auth route loaders and must not run in parallel with `/auth/confirm` or auth-entry work.
 
 ## Findings Considered And Rejected
 
+- Admin feedback retained-history pagination (2026-06-14 deep audit): real admin-only scalability risk, but lower priority than the selected security/authz, governance, date, and billing correctness plans. Revisit in a platform-admin performance pass.
+- Malformed public/auth JSON returning 500s (2026-06-14 deep audit): real small hardening item, but Robert selected raw provider-error 500 sanitization instead. Revisit as a focused public/auth validation plan.
+- Training report detail still building the full matrix before slicing (2026-06-14 deep audit): real residual performance issue after plan 047, but not selected for this batch. Revisit after the selected safety/correctness plans land.
+- Personnel archive/restore owned-artifact updates outside one transaction (2026-06-14 deep audit): real medium-risk consistency issue, but not selected for this batch.
 - Members settings unbounded history payloads (2026-06-14 follow-up audit finding 5): real admin-page scalability risk, but Robert explicitly excluded it from plans 053-058. Revisit in a future organization-settings/admin scalability batch.
 - Platform access request enrichment pagination (2026-06-13 performance audit): real admin-only scaling issue, but lower leverage than user-facing dashboard/report/render hot paths in this batch. Revisit with a dedicated platform-admin performance pass.
 - Training Matrix full-grid virtualization (2026-06-13 performance audit): real render risk for very large unit/training-type combinations, but it is a broader UX interaction change. Deferred until after the narrower Training report server/detail split is complete and measured.
@@ -163,6 +188,21 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJE
   fixes — accepted. Critical vitest advisory fixed in plan 013.
 - `bits-ui` postinstall patch: real dependency debt, but lower leverage than the selected security, database, and calendar/duty-roster correctness work. Re-confirmed 2026-06-11 (finding F10): still deferred; the version pin is honored by plan 013's scope.
 - GitHub beta feedback mirror privacy remediation: not planned. Robert said the GitHub feedback mirror will go away after beta and does not need launch hardening. Plan 032 is scoped only to truthful disclosure of Vercel site/performance analytics without implying person-level analytics profiling.
+
+Rejected in the 2026-06-14 standard audit (commit `b3acfabb`) — vetted false positives, do not re-audit:
+
+- Suspension check "fails open" in `sensitiveActionAuthorizer.ts:231`: FALSE. The decision logic at lines 116-124 returns `denied.suspensionStatusUnavailable` when `suspensionStatusAvailable === false` or `isSuspended` is non-boolean — it already fails closed (plan 012). The reporting agent read only line 231 and missed the guard.
+- Stripe portal session URL missing null check (`stripe.ts:108`): FALSE. `billingPortal.Session.url` is non-nullable in Stripe's types (unlike checkout session url, which is `string | null`). The asymmetry is by design.
+- `resumeSubscription` sends malformed `pause_collection: ''` (`stripe.ts:149`): FALSE. The empty string is Stripe's documented convention for clearing `pause_collection`.
+- Calendar export `months[0]`/`months[2]` out-of-bounds (`calendarExport.ts`): FALSE. `buildQuarterCalendarWorkbook` builds `months` with `for (i < 3)` — always exactly 3 elements.
+- `accept_organization_invitation` access-request race (migration `20260614000200`): FALSE. The RPC takes `SELECT ... FOR UPDATE` on the invitation row before all status/access-request checks, so a concurrent call blocks and returns `already_accepted`. Checks are atomic with the lock.
+- Membership context cache `anonymous:orgId` key collision (`membershipContextCache.ts`): FALSE. The cache lives in `locals` (per-request in SvelteKit); keys cannot collide across users/requests.
+- Feedback/cleanup routes untested (TEST-06): FALSE. `src/routes/api/feedback/server.test.ts` and all `cleanup-*` route tests exist.
+- Login `error.message` enumeration framed as broad: narrowed and planned as 075 step C (raw-message passthrough hardening) — not a high-severity enumeration vuln (Supabase mostly returns generic credentials messages).
+- SEC findings already triaged/covered: cookie@0.6.0 advisory (accepted in plan 013 npm-audit triage), Stripe webhook freshness (speculative — requires HMAC break), account-setup session cookie replay (expiry is in the signed payload and checked), Secure-flag `!import.meta.env.DEV` and SameSite=lax (standard patterns; CSRF covered by SvelteKit), pgTAP core-table contracts (covered by plans 015/069).
+- Onboarding resync update-loop batching beyond inserts/upserts (would need a new `updateMany`/`updateWhere` store method): out of scope of plan 076, which uses existing `upsertMany`/`insertMany`. Revisit only if a bulk partial-update store primitive is added.
+- Perf: notifications mark-all-read N+1, members-settings/feedback unbounded history, platform user-directory/access-request scans — already deferred in prior audits; unbounded gifting-org fetch (`supabasePlatformGifting.ts`) and inviter-email per-id auth lookups (`accessRequestInvitationOrigin.ts`) are real but admin-only/small-N; deferred to a future platform-admin scalability pass.
+- Direction: DA6 Matrix Presenter extraction is grounded (CONTEXT.md names the seam; DRIFT_LEDGER D-07) but the reason-text core (`da6ReasonText`) is already shared, so the residual per-view duplication is shallower than reported — modest leverage, not selected. Asymmetric bulk operations (Calendar has bulk add+remove; Training/Personnel lack bulk-archive) surfaced as a product-direction option, not selected. Readiness Rollup extraction was already surfaced in a prior audit.
 
 Rejected in the 2026-06-11 full audit (commit `22e6e184`):
 

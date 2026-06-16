@@ -24,11 +24,13 @@ This document is the repo-facing summary of where the current security remediati
 - **Hosted auth rollout flags**
   Local config documents the intended baseline, but production rollout for email confirmation and TOTP MFA is still environment-managed and may not match local defaults at every moment.
 - **NIST 800-171 alignment evidence**
-  The codebase now supports the core technical claims much better, but formal evidence for operational controls still lives outside the repo and is not fully represented here.
+  The codebase now supports the core technical claims much better, and `docs/security/operational-control-evidence.md` indexes the launch operational runbooks. Recurring review artifacts, provider dashboard evidence, incident records, and restore-drill evidence still live outside the repo with Robert, so this remains partial.
+- **Operational control evidence pack**
+  `docs/security/operational-control-evidence.md` links the launch runbooks for incident response, access review, provisioning/deprovisioning, backup/restore, billing/support security, vulnerability disclosure, audit-log review, and environment/secrets review. Some rows remain partial or planned where evidence is external or not yet exercised.
 
 ## Planned
 
-- **Operational control evidence pack**
-  Add or link runbooks and review artifacts for incident response, access review, provisioning/deprovisioning, and backup/restore evidence.
+- **Restore drill evidence**
+  `docs/security/backup-restore.md` documents the restore request path and explicitly states that a full restore drill has not yet been recorded in the repo. Do not upgrade this status until Robert runs and records a non-production drill or approved provider restore exercise.
 - **Ongoing control-map maintenance**
   Keep this document updated as security-relevant architecture changes land so repo reviewers are not forced to infer posture from scattered issues and code comments.

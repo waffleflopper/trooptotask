@@ -10,6 +10,7 @@ Do not paste API keys, webhook secrets, raw webhook payloads, card details, or S
 - [Billing Launch Go/No-Go Evidence Pack](billing-launch-go-no-go.md) records the latest support-safe launch rehearsal evidence and verdict.
 - [Billing Customer Portal Contract](billing-customer-portal.md) defines supported portal outcomes and states that must stay support/admin handled.
 - [Billing Cancellation Policy](billing-cancellation-policy.md) defines period-end portal cancellation as the default owner path and immediate cancellation as an explicit confirmed action.
+- [Operational Control Evidence](security/operational-control-evidence.md) links the launch security runbooks, including [Incident Response](security/incident-response.md) and no-secret evidence handling rules for billing/support incidents.
 - `npm run billing:launch-preflight` is the read-only Stripe test-mode preflight.
 - `npm run billing:lifecycle` is the Stripe test-mode lifecycle helper.
 

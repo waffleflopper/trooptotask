@@ -1,0 +1,30 @@
+# Operational Control Evidence
+
+This index records the operational security controls that support launch readiness. It is not a certification package and should not be treated as proof of FedRAMP authorization or a formal federal compliance assessment.
+
+Do not store secrets, raw provider payloads, customer incident details, card data, webhook signatures, or screenshots that expose sensitive values in these docs. When evidence exists outside the repo, record the artifact type and location owner only.
+
+| Control area | Control family or purpose | Owner | Cadence | Current status | Evidence location | launch blocker | Notes |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| incident response | NIST 800-171 3.6; security event intake, containment, communication, recovery, and review | Robert | Review quarterly and after material auth, billing, storage, or admin changes | partial | [Incident Response Plan](incident-response.md); external evidence held by Robert for real incident records | No | The repo has a launch-safe runbook. Real incident timelines, customer communications, and provider tickets should remain external and sanitized. |
+| access review | Least privilege review for platform admins, Organization owners/admins, support/billing admins, and stale users | Robert | Monthly during launch ramp; quarterly after stable operations | partial | [Access Review Runbook](access-review.md); external evidence held by Robert for review notes and dashboard exports | No | Launch can proceed if Robert owns the first review and records exceptions outside the repo without secrets. |
+| provisioning and deprovisioning | Controlled admin/support access grants, revocation, user departures, and Organization admin transitions | Robert | Per access change; monthly stale-access sweep | partial | [Provisioning and Deprovisioning Runbook](provisioning-deprovisioning.md); external evidence held by Robert for approval notes | No | The runbook documents the process. Provider dashboard evidence should not be pasted into the repo. |
+| backup and restore | Backup availability, restore request path, recovery evidence, and restore drill planning | Robert | Confirm provider backup posture quarterly; request a non-production restore drill before higher-compliance claims | planned | [Backup and Restore Runbook](backup-restore.md); external evidence held by Robert for provider backup settings | No | Do not claim a restore drill has passed until Robert runs and records one. Do not run production restore tests casually. |
+| billing/support security | Support-safe billing operations, no-secret notes, payment incident escalation, and Stripe evidence handling | Robert | Review before paid launch and after billing workflow changes | partial | [Billing Operations Launch Checklist](../billing-operations-launch-checklist.md); [Incident Response Plan](incident-response.md) | No | Support notes may use Stripe customer/subscription IDs but must not include card details, raw webhook payloads, API keys, or webhook secrets. |
+| vulnerability disclosure | Responsible disclosure intake, acknowledgement, triage, and remediation communication | Robert | Review quarterly and after public security page changes | implemented | [Security Overview](security-overview.md); public `/security` page | No | Public contact is `security@trooptotask.org`. Disclosure records should be tracked externally without exploit secrets in repo docs. |
+| audit log review | Review of authentication, permission, export, billing/admin, and unusual access events | Robert | Monthly during launch ramp; after incidents or suspicious reports | partial | [Incident Response Plan](incident-response.md); app audit logs and provider dashboards as external evidence held by Robert | No | The app emits audit events, but routine review evidence lives outside the repo. Keep exports sanitized. |
+| environment/secrets review | Deployment variable inventory, provider credential ownership, rotation, and no-secret evidence capture | Robert | Before paid launch; after incident, staff change, provider change, or secret rotation | partial | [Provisioning and Deprovisioning Runbook](provisioning-deprovisioning.md); [Billing Operations Launch Checklist](../billing-operations-launch-checklist.md); external evidence held by Robert | No | Confirm existence, owner, and last-reviewed dates only. Never copy secret values into docs, issues, PRs, or screenshots. |
+
+## Status Definitions
+
+- `implemented`: the repo or linked launch docs contain enough process detail for a reviewer to understand the current control.
+- `partial`: the repo has the process or technical support, but recurring evidence, provider dashboard confirmation, or review artifacts are external or not yet complete.
+- `planned`: the repo documents the expected control, but a launch or post-launch exercise still needs to create evidence.
+- `external`: the control depends on evidence held outside the repo by Robert or a provider.
+
+## Evidence Handling Rules
+
+- Record the artifact type, owner, date, and sanitized summary instead of copying sensitive content.
+- Use ticket IDs, provider event IDs, Stripe customer or subscription IDs, and audit-log IDs only when they do not expose secrets or payment details.
+- Do not paste API keys, webhook secrets, session cookies, raw webhook payloads, card details, full customer exports, or incident screenshots with sensitive values.
+- Store real incident records, provider tickets, dashboard screenshots, and access-review exports outside the repo as external evidence held by Robert.

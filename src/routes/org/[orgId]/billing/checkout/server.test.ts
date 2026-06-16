@@ -155,35 +155,38 @@ describe('POST /billing/checkout', () => {
 		});
 	});
 
-	it('rejects checkout for organizations that already have a managed paid subscription', async () => {
-		const ctx = createTestContext();
-		seedBillingOrganization(ctx, {
-			tier: 'team',
-			stripe_customer_id: 'cus_existing',
-			stripe_subscription_id: 'sub_existing',
-			subscription_status: 'active'
-		});
-		buildRouteContextMock.mockResolvedValue(ctx);
+	it.each(['active', 'trialing'])(
+		'rejects checkout for organizations that already have a managed %s paid subscription',
+		async (subscriptionStatus) => {
+			const ctx = createTestContext();
+			seedBillingOrganization(ctx, {
+				tier: 'team',
+				stripe_customer_id: 'cus_existing',
+				stripe_subscription_id: 'sub_existing',
+				subscription_status: subscriptionStatus
+			});
+			buildRouteContextMock.mockResolvedValue(ctx);
 
-		const response = await POST({
-			request: new Request(`http://localhost/org/${ctx.auth.orgId}/billing/checkout`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ tier: 'unit' })
-			}),
-			locals: {
-				user: { email: 'owner@example.com' }
-			},
-			params: { orgId: ctx.auth.orgId },
-			url: new URL(`http://localhost/org/${ctx.auth.orgId}/billing/checkout`)
-		} as never);
+			const response = await POST({
+				request: new Request(`http://localhost/org/${ctx.auth.orgId}/billing/checkout`, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ tier: 'unit' })
+				}),
+				locals: {
+					user: { email: 'owner@example.com' }
+				},
+				params: { orgId: ctx.auth.orgId },
+				url: new URL(`http://localhost/org/${ctx.auth.orgId}/billing/checkout`)
+			} as never);
 
-		expect(response.status).toBe(409);
-		expect(await response.json()).toEqual({
-			error: 'This organization already has a paid subscription. Use Manage Subscription to change plans.'
-		});
-		expect(ctx.billingPort.calls).toEqual([]);
-	});
+			expect(response.status).toBe(409);
+			expect(await response.json()).toEqual({
+				error: 'This organization already has a paid subscription. Use Manage Subscription to change plans.'
+			});
+			expect(ctx.billingPort.calls).toEqual([]);
+		}
+	);
 
 	it('passes verified automatic-tax checkout options from server configuration', async () => {
 		checkoutConfigurationMock.billingAddressCollection = 'required';

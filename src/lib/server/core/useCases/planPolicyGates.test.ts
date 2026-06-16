@@ -145,6 +145,33 @@ describe('plan policy gates', () => {
 		expect(checkWithinPlanLimit(policy, 'monthly_exports', 100)).toEqual({ allowed: true });
 	});
 
+	it('makes denied Unit unlimited-export overrides enforce the capped export path', () => {
+		const policy = buildEffectivePlanPolicy(snapshot({ commercialPlan: 'unit' }), {
+			featureOverrides: [
+				{
+					id: 'override-denied',
+					organizationId: 'org-1',
+					featureKey: 'bulk_export_unlimited',
+					state: 'denied',
+					expiresAt: null
+				}
+			],
+			now: new Date('2026-05-24T00:00:00.000Z')
+		});
+
+		expect(policy.exportQuota).toMatchObject({ limit: 10, unlimited: false, upgradeTarget: null });
+		expect(checkWithinPlanLimit(policy, 'monthly_exports', 10)).toEqual({
+			allowed: false,
+			denial: {
+				code: 'denied.export_quota',
+				dimension: 'monthly_exports',
+				message: 'Export limit reached (10/month). Contact support for export access.',
+				remediation: 'Contact support for export access or wait until next month.',
+				upgradeTarget: null
+			}
+		});
+	});
+
 	it('allows post-create usage at the limit but denies usage over the limit', () => {
 		const policy = buildEffectivePlanPolicy(snapshot({ commercialPlan: 'free' }));
 

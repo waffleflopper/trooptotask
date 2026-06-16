@@ -277,6 +277,34 @@ function buildEntitlements(
 	);
 }
 
+function buildExportQuota(
+	plan: Tier,
+	hasUnlimitedFallback: boolean,
+	entitlement: PlanFeatureEntitlement
+): ExportQuotaPolicy {
+	if (hasUnlimitedFallback || entitlement.available) {
+		return {
+			limit: null,
+			unlimited: true,
+			period: 'calendar_month',
+			denialCode: 'denied.export_quota',
+			upgradeTarget: null
+		};
+	}
+
+	const deniedUnlimitedUnitOverride = plan === 'unit' && entitlement.override?.state === 'denied';
+	const effectivePlanForQuota = deniedUnlimitedUnitOverride ? 'team' : plan;
+	const quotaLimit = limit(TIER_CONFIG[effectivePlanForQuota].bulkExportsPerMonth);
+
+	return {
+		limit: quotaLimit,
+		unlimited: quotaLimit === null,
+		period: 'calendar_month',
+		denialCode: 'denied.export_quota',
+		upgradeTarget: quotaLimit === null ? null : plan === 'free' ? 'team' : deniedUnlimitedUnitOverride ? null : 'unit'
+	};
+}
+
 function effectiveTierSource(source: PlanPolicySource): TierSource {
 	switch (source) {
 		case 'admin_gift':
@@ -433,9 +461,7 @@ export function buildEffectivePlanPolicy(
 		source !== 'admin_gift' &&
 		(snapshot.subscriptionStatus === 'past_due' || snapshot.collectionStatus === 'payment_failed_grace');
 	const entitlements = buildEntitlements(plan, source, options.featureOverrides ?? [], options.now ?? new Date());
-	const hasUnlimitedExportEntitlement = entitlements.bulk_export_unlimited.available;
-	const exportLimit =
-		hasUnlimitedFallback || hasUnlimitedExportEntitlement ? null : limit(tierConfig.bulkExportsPerMonth);
+	const exportQuota = buildExportQuota(plan, hasUnlimitedFallback, entitlements.bulk_export_unlimited);
 
 	return {
 		organizationId: snapshot.organizationId,
@@ -473,13 +499,7 @@ export function buildEffectivePlanPolicy(
 				upgradeTarget: plan === 'unit' ? null : 'unit'
 			}
 		},
-		exportQuota: {
-			limit: exportLimit,
-			unlimited: exportLimit === null,
-			period: 'calendar_month',
-			denialCode: 'denied.export_quota',
-			upgradeTarget: exportLimit === null ? null : plan === 'free' ? 'team' : 'unit'
-		},
+		exportQuota,
 		entitlements,
 		grace: {
 			mode: isPaymentFailedGrace ? 'payment_failed' : 'none',

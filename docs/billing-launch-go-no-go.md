@@ -25,12 +25,17 @@ Blocked reasons:
 | Command | Result | Pass | Warn | Fail | Follow-up owner | Notes |
 | --- | --- | ---: | ---: | ---: | --- | --- |
 | `npm run billing:launch-preflight -- --offline --json` | Passed | 10 | 0 | 0 | Agent | Confirmed required Stripe env names are present, billing is enabled locally, Stripe secret mode is test, webhook signing secret has the expected shape, automatic tax is disabled, and reconciliation authorization is present. |
-| `npm run billing:launch-preflight -- --json` | Passed | 24 | 1 | 0 | Robert | Confirmed Team and Unit prices are active monthly test-mode prices, Customer Portal is active, invoice history/payment updates/customer info/cancellation are enabled, cancellation is at period end, and the configured webhook endpoint includes all handled events. |
+| `npm run billing:launch-preflight -- --json` | Failed | 26 | 1 | 2 | Robert | Confirmed Team and Unit prices are active monthly test-mode USD prices, but the configured Stripe amounts are still Team $5.00 and Unit $12.00 instead of Team $4.99 and Unit $10.99. Customer Portal is active, invoice history/payment updates/customer info/cancellation are enabled, cancellation is at period end, and the configured webhook endpoint includes all handled events. |
 | `npm run billing:lifecycle -- help` | Passed | n/a | n/a | n/a | Agent | Helper listed create fixture, advance clock, switch plan, set payment mode, deliver events, cancel at period end, cancel now, and finish clock commands. |
 
 Online preflight warning:
 
 - The configured test webhook endpoint also sends `customer.subscription.created`. This remains a launch decision to confirm as support-safe ignored noise, matching the existing runbook.
+
+Online preflight failures:
+
+- `STRIPE_TEAM_PRICE_ID` currently resolves to a test-mode monthly USD price at $5.00; update the configured Stripe test price to the Team $4.99 launch contract and rerun the preflight.
+- `STRIPE_UNIT_PRICE_ID` currently resolves to a test-mode monthly USD price at $12.00; update the configured Stripe test price to the Unit $10.99 launch contract and rerun the preflight.
 
 Support-safe Stripe identifiers observed during preflight:
 

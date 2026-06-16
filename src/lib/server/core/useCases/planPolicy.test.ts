@@ -430,6 +430,11 @@ describe('plan policy', () => {
 				expiresAt: null
 			}
 		});
+		expect(policy.exportQuota).toMatchObject({
+			limit: 10,
+			unlimited: false,
+			upgradeTarget: null
+		});
 	});
 
 	it('ignores expired admin feature overrides when building entitlements', () => {

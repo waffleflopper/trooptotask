@@ -56,6 +56,8 @@ TroopToTask's security controls are aligned with NIST SP 800-171 Rev 2 for the p
 - Identification & Authentication (3.5)
 - System & Communications Protection (3.13)
 
+This is an alignment statement, not a formal certification, FedRAMP authorization, or federal procurement approval. Operational evidence for launch readiness is indexed in [Operational Control Evidence](operational-control-evidence.md), with incomplete or external evidence marked as partial, planned, or external instead of invented.
+
 ## Security Headers
 
 All responses include:
@@ -69,7 +71,7 @@ All responses include:
 
 ## Responsible Disclosure
 
-If you discover a security vulnerability, please email security@trooptotask.app. We commit to acknowledging reports within 48 hours and providing resolution updates within 7 days.
+If you discover a security vulnerability, please email security@trooptotask.org. We commit to acknowledging reports within 48 hours and providing resolution updates within 7 days.
 
 ## Rate Limiting
 

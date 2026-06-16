@@ -10,7 +10,11 @@ import {
 	type ArchiveRetentionCleanupResult,
 	type ArchiveRetentionOrgConfig
 } from '$lib/server/core/useCases/archiveRetention';
-import { mapArchiveRetentionOrgConfigs } from '$lib/server/core/useCases/retentionSupport';
+import {
+	mapArchiveRetentionOrgConfigs,
+	type ArchiveRetentionSettingsRow
+} from '$lib/server/core/useCases/retentionSupport';
+import { sanitizeErrorForLog } from '$lib/server/logSanitize';
 
 interface ArchiveRetentionEndpointEnv {
 	CLEANUP_SECRET?: string;
@@ -21,6 +25,13 @@ export interface ArchiveRetentionEndpointCoreInput {
 	request: Request;
 	env: ArchiveRetentionEndpointEnv;
 	orgConfigs: ArchiveRetentionOrgConfig[];
+	runCleanup: (orgConfigs: ArchiveRetentionOrgConfig[]) => Promise<ArchiveRetentionCleanupResult>;
+}
+
+export interface ArchiveRetentionEndpointInput {
+	request: Request;
+	env: ArchiveRetentionEndpointEnv;
+	loadOrgRows: () => Promise<{ data: ArchiveRetentionSettingsRow[] | null; error: unknown }>;
 	runCleanup: (orgConfigs: ArchiveRetentionOrgConfig[]) => Promise<ArchiveRetentionCleanupResult>;
 }
 
@@ -35,27 +46,39 @@ export async function _runArchiveRetentionCleanupEndpointCore(
 	return json(await input.runCleanup(input.orgConfigs));
 }
 
-export const GET: RequestHandler = async ({ request }) => {
-	assertCronEndpointAuthorized(request.headers.get('authorization'), [env.CLEANUP_SECRET, env.CRON_SECRET]);
+export async function _runArchiveRetentionCleanupEndpoint(input: ArchiveRetentionEndpointInput): Promise<Response> {
+	assertCronEndpointAuthorized(input.request.headers.get('authorization'), [
+		input.env.CLEANUP_SECRET,
+		input.env.CRON_SECRET
+	]);
 
-	const admin = getAdminClient();
-	const { data: orgs, error: orgError } = await admin.from('organizations').select('id, archive_retention_months');
+	const { data: orgs, error: orgError } = await input.loadOrgRows();
 
 	if (orgError) {
-		throw error(500, orgError.message);
+		console.error(
+			'[cleanup-archived-records] Failed to load organization retention settings:',
+			sanitizeErrorForLog(orgError)
+		);
+		throw error(500, 'Internal server error');
 	}
 
 	const orgConfigs = mapArchiveRetentionOrgConfigs(orgs ?? []);
+
+	return json(await input.runCleanup(orgConfigs));
+}
+
+export const GET: RequestHandler = async ({ request }) => {
+	const admin = getAdminClient();
 	const store = createSupabaseDataStore(admin);
 	const storage = createSupabaseStorageAdapter(admin);
 
-	return _runArchiveRetentionCleanupEndpointCore({
+	return _runArchiveRetentionCleanupEndpoint({
 		request,
 		env: {
 			CLEANUP_SECRET: env.CLEANUP_SECRET,
 			CRON_SECRET: env.CRON_SECRET
 		},
-		orgConfigs,
+		loadOrgRows: async () => admin.from('organizations').select('id, archive_retention_months'),
 		runCleanup: (configs) => cleanupArchivedRecords({ store, storage }, configs)
 	});
 };

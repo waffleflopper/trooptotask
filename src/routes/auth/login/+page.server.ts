@@ -44,7 +44,7 @@ export const actions: Actions = {
 					{ action: 'auth.login_failure', resourceType: 'user', severity: 'warning', details: { email } },
 					{ userId: null }
 				);
-				return fail(400, { error: error.message, email, nextPath });
+				return fail(400, { error: 'Email or password is incorrect', email, nextPath });
 			}
 
 			auditLog({ action: 'auth.login_success', resourceType: 'user', details: { email } }, { userId: null });

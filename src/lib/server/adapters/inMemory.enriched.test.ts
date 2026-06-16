@@ -108,6 +108,26 @@ describe('InMemoryDataStore — enriched FindOptions', () => {
 			expect(results.map((r) => r.id)).toEqual(['2', '3', '4']);
 		});
 	});
+
+	describe('array filters', () => {
+		it('filters rows whose array column is contained by an allowed set and non-empty', async () => {
+			const store = createInMemoryDataStore();
+			store.seed('rosters', [
+				{ id: 'alpha', organization_id: 'org-1', scope_group_ids: ['group-a'] },
+				{ id: 'mixed', organization_id: 'org-1', scope_group_ids: ['group-a', 'group-b'] },
+				{ id: 'empty', organization_id: 'org-1', scope_group_ids: [] },
+				{ id: 'missing', organization_id: 'org-1' }
+			]);
+
+			const result = await store.findManyWithCount<{ id: string }>('rosters', 'org-1', undefined, {
+				arrayContainedByFilters: { scope_group_ids: ['group-a'] },
+				nonEmptyArrayFilters: ['scope_group_ids']
+			});
+
+			expect(result.data.map((row) => row.id)).toEqual(['alpha']);
+			expect(result.count).toBe(1);
+		});
+	});
 });
 
 describe('InMemoryDataStore — findManyWithCount', () => {

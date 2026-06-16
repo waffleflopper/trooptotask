@@ -92,17 +92,25 @@ function loadTrainingItems<T>(config: {
 	});
 }
 
+async function loadTrainingRosterPersonnel(ctx: UseCaseContext): Promise<Personnel[]> {
+	if (ctx.signInRosterPersonnelLookup) {
+		return ctx.signInRosterPersonnelLookup.listPersonnelForRosterCandidates(ctx.auth.orgId, ctx.auth.scopeSet);
+	}
+
+	return loadRosterPersonnel(ctx, { status: 'active' });
+}
+
 function fetchTrainingWorkspaceData(ctx: UseCaseContext, requestedOrgId: string): TrainingWorkspaceData {
 	const canonicalOrgId = ctx.auth.orgId;
-	const personnel = withTrainingTiming(requestedOrgId, 'personnel', () =>
-		loadRosterPersonnel(ctx, { status: 'active' })
-	).catch((error) => {
-		console.error('[training-workspace] Failed to load personnel', {
-			orgId: requestedOrgId,
-			error
-		});
-		throw error;
-	});
+	const personnel = withTrainingTiming(requestedOrgId, 'personnel', () => loadTrainingRosterPersonnel(ctx)).catch(
+		(error) => {
+			console.error('[training-workspace] Failed to load personnel', {
+				orgId: requestedOrgId,
+				error
+			});
+			throw error;
+		}
+	);
 	const groups = loadTrainingItems({
 		orgId: requestedOrgId,
 		label: 'groups',

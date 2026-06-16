@@ -1,7 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type {
 	BillingSnapshotTransitionStore,
-	BillingSnapshotUpsert,
 	ExistingBillingSnapshot
 } from '$lib/server/core/useCases/billingSnapshotTransitions';
 
@@ -22,32 +21,14 @@ export function createSupabaseBillingSnapshotTransitionStore(supabase: SupabaseC
 			return data ?? null;
 		},
 
-		async upsertSnapshotIfCurrent(values, eventPosition) {
-			if (eventPosition) {
-				return upsertSnapshotThroughCurrentEventRpc(supabase, values);
-			}
-
-			const { error } = await supabase
-				.from('organization_billing_snapshots')
-				.upsert(values, { onConflict: 'organization_id' });
-			if (error) throw new Error(`Failed to update billing snapshot: ${error.message}`);
-			return true;
-		},
-
-		async updateOrganizationBillingMirror(orgId, values) {
-			const { error } = await supabase.from('organizations').update(values).eq('id', orgId);
-			if (error) throw new Error(`Failed to update org ${orgId}: ${error.message}`);
+		async writeSnapshotAndMirrorIfCurrent({ snapshot, mirror, eventPosition }) {
+			const { data, error } = await supabase.rpc('upsert_organization_billing_snapshot_and_mirror_if_current', {
+				p_snapshot: snapshot,
+				p_mirror: mirror,
+				p_event_position: eventPosition ?? null
+			});
+			if (error) throw new Error(`Failed to update billing snapshot and mirror: ${error.message}`);
+			return data === true;
 		}
 	};
-}
-
-async function upsertSnapshotThroughCurrentEventRpc(
-	supabase: SupabaseClient,
-	values: BillingSnapshotUpsert
-): Promise<boolean> {
-	const { data, error } = await supabase.rpc('upsert_organization_billing_snapshot_if_current', {
-		p_snapshot: values
-	});
-	if (error) throw new Error(`Failed to update billing snapshot: ${error.message}`);
-	return data === true;
 }

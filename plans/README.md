@@ -181,6 +181,10 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJE
 
 ## Findings Considered And Rejected
 
+- Admin feedback retained-history pagination (2026-06-14 deep audit): real admin-only scalability risk, but lower priority than the selected security/authz, governance, date, and billing correctness plans. Revisit in a platform-admin performance pass.
+- Malformed public/auth JSON returning 500s (2026-06-14 deep audit): real small hardening item, but Robert selected raw provider-error 500 sanitization instead. Revisit as a focused public/auth validation plan.
+- Training report detail still building the full matrix before slicing (2026-06-14 deep audit): real residual performance issue after plan 047, but not selected for this batch. Revisit after the selected safety/correctness plans land.
+- Personnel archive/restore owned-artifact updates outside one transaction (2026-06-14 deep audit): real medium-risk consistency issue, but not selected for this batch.
 - Members settings unbounded history payloads (2026-06-14 follow-up audit finding 5): real admin-page scalability risk, but Robert explicitly excluded it from plans 053-058. Revisit in a future organization-settings/admin scalability batch.
 - Platform access request enrichment pagination (2026-06-13 performance audit): real admin-only scaling issue, but lower leverage than user-facing dashboard/report/render hot paths in this batch. Revisit with a dedicated platform-admin performance pass.
 - Training Matrix full-grid virtualization (2026-06-13 performance audit): real render risk for very large unit/training-type combinations, but it is a broader UX interaction change. Deferred until after the narrower Training report server/detail split is complete and measured.
@@ -195,6 +199,21 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJE
   fixes — accepted. Critical vitest advisory fixed in plan 013.
 - `bits-ui` postinstall patch: real dependency debt, but lower leverage than the selected security, database, and calendar/duty-roster correctness work. Re-confirmed 2026-06-11 (finding F10): still deferred; the version pin is honored by plan 013's scope.
 - GitHub beta feedback mirror privacy remediation: not planned. Robert said the GitHub feedback mirror will go away after beta and does not need launch hardening. Plan 032 is scoped only to truthful disclosure of Vercel site/performance analytics without implying person-level analytics profiling.
+
+Rejected in the 2026-06-14 standard audit (commit `b3acfabb`) — vetted false positives, do not re-audit:
+
+- Suspension check "fails open" in `sensitiveActionAuthorizer.ts:231`: FALSE. The decision logic at lines 116-124 returns `denied.suspensionStatusUnavailable` when `suspensionStatusAvailable === false` or `isSuspended` is non-boolean — it already fails closed (plan 012). The reporting agent read only line 231 and missed the guard.
+- Stripe portal session URL missing null check (`stripe.ts:108`): FALSE. `billingPortal.Session.url` is non-nullable in Stripe's types (unlike checkout session url, which is `string | null`). The asymmetry is by design.
+- `resumeSubscription` sends malformed `pause_collection: ''` (`stripe.ts:149`): FALSE. The empty string is Stripe's documented convention for clearing `pause_collection`.
+- Calendar export `months[0]`/`months[2]` out-of-bounds (`calendarExport.ts`): FALSE. `buildQuarterCalendarWorkbook` builds `months` with `for (i < 3)` — always exactly 3 elements.
+- `accept_organization_invitation` access-request race (migration `20260614000200`): FALSE. The RPC takes `SELECT ... FOR UPDATE` on the invitation row before all status/access-request checks, so a concurrent call blocks and returns `already_accepted`. Checks are atomic with the lock.
+- Membership context cache `anonymous:orgId` key collision (`membershipContextCache.ts`): FALSE. The cache lives in `locals` (per-request in SvelteKit); keys cannot collide across users/requests.
+- Feedback/cleanup routes untested (TEST-06): FALSE. `src/routes/api/feedback/server.test.ts` and all `cleanup-*` route tests exist.
+- Login `error.message` enumeration framed as broad: narrowed and planned as 075 step C (raw-message passthrough hardening) — not a high-severity enumeration vuln (Supabase mostly returns generic credentials messages).
+- SEC findings already triaged/covered: cookie@0.6.0 advisory (accepted in plan 013 npm-audit triage), Stripe webhook freshness (speculative — requires HMAC break), account-setup session cookie replay (expiry is in the signed payload and checked), Secure-flag `!import.meta.env.DEV` and SameSite=lax (standard patterns; CSRF covered by SvelteKit), pgTAP core-table contracts (covered by plans 015/069).
+- Onboarding resync update-loop batching beyond inserts/upserts (would need a new `updateMany`/`updateWhere` store method): out of scope of plan 076, which uses existing `upsertMany`/`insertMany`. Revisit only if a bulk partial-update store primitive is added.
+- Perf: notifications mark-all-read N+1, members-settings/feedback unbounded history, platform user-directory/access-request scans — already deferred in prior audits; unbounded gifting-org fetch (`supabasePlatformGifting.ts`) and inviter-email per-id auth lookups (`accessRequestInvitationOrigin.ts`) are real but admin-only/small-N; deferred to a future platform-admin scalability pass.
+- Direction: DA6 Matrix Presenter extraction is grounded (CONTEXT.md names the seam; DRIFT_LEDGER D-07) but the reason-text core (`da6ReasonText`) is already shared, so the residual per-view duplication is shallower than reported — modest leverage, not selected. Asymmetric bulk operations (Calendar has bulk add+remove; Training/Personnel lack bulk-archive) surfaced as a product-direction option, not selected. Readiness Rollup extraction was already surfaced in a prior audit.
 
 Rejected in the 2026-06-11 full audit (commit `22e6e184`):
 

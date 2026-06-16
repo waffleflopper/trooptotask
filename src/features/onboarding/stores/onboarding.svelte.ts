@@ -15,6 +15,7 @@
  */
 import { defineStore } from '$lib/stores/core';
 import type { Store, StoreInternals } from '$lib/stores/core';
+import { formatToday } from '$lib/utils/dates';
 import type { PersonnelOnboarding, OnboardingStepProgress } from '../onboarding.types';
 
 interface OnboardingExtensions extends Record<string, unknown> {
@@ -343,7 +344,7 @@ function enhance(
 			const original = display.find((o) => o.id === id);
 			if (!original) return false;
 
-			const today = new Date().toISOString().split('T')[0];
+			const today = formatToday();
 			const mutationId = crypto.randomUUID();
 			internals.log.push({
 				type: 'update',

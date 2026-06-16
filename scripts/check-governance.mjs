@@ -9,6 +9,16 @@ const driftLedgerPath = path.join(repoRoot, 'docs/architecture/DRIFT_LEDGER.md')
 const driftLedger = readFileSync(driftLedgerPath, 'utf8');
 
 const errors = [];
+const FEATURE_PERMISSION_FAMILIES = [
+	{
+		feature: 'critical-tasks',
+		foreignPermissionLanes: ['calendar', 'personnel', 'training', 'onboarding', 'ratingScheme']
+	},
+	{
+		feature: 'rating-scheme',
+		foreignPermissionLanes: ['calendar', 'personnel', 'training', 'onboarding', 'criticalTasks']
+	}
+];
 const DELETED_ROUTE_AUTHORIZATION_SYMBOLS = [
 	'LegacyRoutePermission',
 	'enforceLegacyRoutePermission',
@@ -67,23 +77,93 @@ function hasFeatureFamilyMatch(filePath, feature) {
 
 function collectPermissionPatterns(content) {
 	const matches = new Set();
-	const pattern = /permission:\s*'([^']+)'|require(Edit|View)\('([^']+)'\)/g;
-	const featureLanes = new Set(['calendar', 'personnel', 'training', 'onboarding']);
+	const policyActionPattern =
+		/\bPOLICY_ACTION_CATALOG\s*\.\s*(calendar|personnel|training|onboarding|criticalTasks|ratingScheme)\s*\.\s*([A-Za-z_$][\w$]*)/g;
+	const legacyPattern = /permission:\s*'([^']+)'|require(Edit|View)\('([^']+)'\)/g;
+	const legacyFeatureLanes = new Set(['calendar', 'personnel', 'training', 'onboarding']);
 
-	for (const match of content.matchAll(pattern)) {
+	for (const match of content.matchAll(policyActionPattern)) {
+		matches.add(`POLICY_ACTION_CATALOG.${match[1]}.${match[2]}`);
+	}
+
+	for (const match of content.matchAll(legacyPattern)) {
 		if (match[1]) {
-			if (!featureLanes.has(match[1])) continue;
+			if (!legacyFeatureLanes.has(match[1])) continue;
 			matches.add(`permission: '${match[1]}'`);
 			continue;
 		}
 
 		if (match[2] && match[3]) {
-			if (!featureLanes.has(match[3])) continue;
+			if (!legacyFeatureLanes.has(match[3])) continue;
 			matches.add(`require${match[2]}('${match[3]}')`);
 		}
 	}
 
-	return [...matches];
+	return [...matches].sort();
+}
+
+function getPermissionPatternLane(patternText) {
+	const policyActionMatch = patternText.match(/^POLICY_ACTION_CATALOG\.([A-Za-z_$][\w$]*)\./);
+	if (policyActionMatch) return policyActionMatch[1];
+
+	const permissionMatch = patternText.match(/^permission: '([^']+)'$/);
+	if (permissionMatch) return permissionMatch[1];
+
+	const requireMatch = patternText.match(/^require(?:Edit|View)\('([^']+)'\)$/);
+	if (requireMatch) return requireMatch[1];
+
+	return undefined;
+}
+
+function collectFeaturePermissionCouplingIssues(sourceFiles, baselineEntries) {
+	const issues = [];
+	const entriesByFeature = new Map();
+
+	for (const entry of baselineEntries) {
+		const featureEntries = entriesByFeature.get(entry.feature) ?? [];
+		featureEntries.push(entry);
+		entriesByFeature.set(entry.feature, featureEntries);
+	}
+
+	for (const family of FEATURE_PERMISSION_FAMILIES) {
+		const entries = entriesByFeature.get(family.feature) ?? [];
+		const allowlistedPatterns = new Set(entries.map((entry) => `${entry.path}::${entry.pattern}`));
+		const featureFiles = sourceFiles.filter(({ path: filePath }) => hasFeatureFamilyMatch(filePath, family.feature));
+		const featureFilePaths = new Set(featureFiles.map(({ path: filePath }) => filePath));
+		const foreignPermissionLanes = new Set(family.foreignPermissionLanes);
+
+		for (const { path: filePath, content } of featureFiles) {
+			const patterns = collectPermissionPatterns(content);
+			for (const patternText of patterns) {
+				const lane = getPermissionPatternLane(patternText);
+				if (!foreignPermissionLanes.has(lane)) continue;
+
+				const key = `${filePath}::${patternText}`;
+				if (!allowlistedPatterns.has(key)) {
+					issues.push(
+						`Undocumented ${family.feature} permission coupling: ${filePath} -> ${patternText}. Document it or remove the coupling.`
+					);
+				}
+			}
+		}
+
+		for (const entry of entries) {
+			if (!featureFilePaths.has(entry.path)) {
+				issues.push(
+					`Permission coupling allowlist entry no longer matches the ${family.feature} file family: ${entry.path}`
+				);
+			}
+		}
+	}
+
+	const configuredFeatures = new Set(FEATURE_PERMISSION_FAMILIES.map((family) => family.feature));
+	for (const entry of baselineEntries) {
+		if (!configuredFeatures.has(entry.feature)) {
+			issues.push(`Permission coupling allowlist entry uses an unconfigured feature family: ${entry.feature}`);
+		}
+	}
+
+	return issues;
 }
 
 function isProductionSourceFile(filePath) {
@@ -316,18 +396,11 @@ function checkRouteAdminProviderAllowlist() {
 }
 
 function checkFeaturePermissionCouplings() {
-	const sourceFiles = walkRelative('src').filter((filePath) => {
-		if (!/\.(ts|js|svelte)$/.test(filePath)) return false;
-		if (/\.test\.(ts|js)$/.test(filePath)) return false;
-		return true;
-	});
+	const sourceFiles = walkRelative('src')
+		.filter(isProductionSourceFile)
+		.map((filePath) => ({ path: filePath, content: readRelativeFile(filePath) }));
 
-	const byFeature = new Map();
 	for (const entry of baseline.featurePermissionCouplings) {
-		const featureEntries = byFeature.get(entry.feature) ?? [];
-		featureEntries.push(entry);
-		byFeature.set(entry.feature, featureEntries);
-
 		const context = `Permission coupling allowlist entry ${entry.path} -> ${entry.pattern}`;
 		ensureDriftIdsExist(entry.driftIds, context);
 
@@ -341,27 +414,8 @@ function checkFeaturePermissionCouplings() {
 		}
 	}
 
-	for (const [feature, entries] of byFeature.entries()) {
-		const allowlistedPatterns = new Set(entries.map((entry) => `${entry.path}::${entry.pattern}`));
-		const featureFiles = sourceFiles.filter((filePath) => hasFeatureFamilyMatch(filePath, feature));
-
-		for (const filePath of featureFiles) {
-			const patterns = collectPermissionPatterns(readRelativeFile(filePath));
-			for (const patternText of patterns) {
-				const key = `${filePath}::${patternText}`;
-				if (!allowlistedPatterns.has(key)) {
-					errors.push(
-						`Undocumented ${feature} permission coupling: ${filePath} -> ${patternText}. Document it or remove the coupling.`
-					);
-				}
-			}
-		}
-
-		for (const entry of entries) {
-			if (!featureFiles.includes(entry.path)) {
-				errors.push(`Permission coupling allowlist entry no longer matches the ${feature} file family: ${entry.path}`);
-			}
-		}
+	for (const issue of collectFeaturePermissionCouplingIssues(sourceFiles, baseline.featurePermissionCouplings)) {
+		errors.push(issue);
 	}
 }
 
@@ -418,6 +472,8 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
 
 export {
 	collectDestructuredLocalSupabaseBindings,
+	collectFeaturePermissionCouplingIssues,
+	collectPermissionPatterns,
 	hasRouteAdminProviderUsage,
 	hasRouteSupabaseUsage,
 	runGovernanceChecks

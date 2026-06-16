@@ -104,4 +104,46 @@ describe('onboardingStore - load during in-flight mutations (issue #113)', () =>
 			body: JSON.stringify({ personnelId: 'p-1', templateId: 'template-1', startedAt: '2026-03-15' })
 		});
 	});
+
+	it('uses the local calendar date for optimistic completion', async () => {
+		const originalTimezone = process.env.TZ;
+		process.env.TZ = 'America/Anchorage';
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date('2026-05-05T02:00:00.000Z'));
+		onboardingStore.load([mockOnboarding], 'org-1');
+
+		let resolveFetch!: (value: unknown) => void;
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockReturnValue(
+				new Promise((resolve) => {
+					resolveFetch = resolve;
+				})
+			)
+		);
+
+		try {
+			const updatePromise = onboardingStore.completeOnboarding('ob-1');
+
+			expect(onboardingStore.getById('ob-1')).toMatchObject({
+				status: 'completed',
+				completedAt: '2026-05-04'
+			});
+			expect(fetch).toHaveBeenCalledWith('/org/org-1/api/onboarding', {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ id: 'ob-1', status: 'completed', completedAt: '2026-05-04' })
+			});
+
+			resolveFetch({ ok: true, status: 200 });
+			await expect(updatePromise).resolves.toBe(true);
+		} finally {
+			vi.useRealTimers();
+			if (originalTimezone === undefined) {
+				delete process.env.TZ;
+			} else {
+				process.env.TZ = originalTimezone;
+			}
+		}
+	});
 });

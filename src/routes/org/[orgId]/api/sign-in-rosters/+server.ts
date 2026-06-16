@@ -4,6 +4,7 @@ import { handle } from '$lib/server/adapters/httpAdapter';
 import type { RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { fail } from '$lib/server/core/errors';
 import type { FindOptions } from '$lib/server/core/ports';
+import { prepareSignInRosterSnapshot } from '$lib/server/core/useCases/signInRosters';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 
 function toClient(r: Record<string, unknown>) {
@@ -72,16 +73,18 @@ export const _postConfig: RouteConfig<Record<string, unknown>, unknown> = {
 	policyResource: { kind: 'unscoped' },
 	fn: async (ctx, input) => {
 		if (!input.title || !(input.title as string).trim()) fail(400, 'Title is required');
-		if (!(input.personnelSnapshot as unknown[])?.length) fail(400, 'Personnel snapshot is required');
+		const snapshot = await prepareSignInRosterSnapshot(ctx, input);
 
 		const row = await ctx.store.insert<Record<string, unknown>>('sign_in_rosters', ctx.auth.orgId, {
 			title: (input.title as string).trim(),
 			roster_date: input.rosterDate || null,
 			blank_date: input.blankDate ?? false,
 			separate_by_group: input.separateByGroup ?? false,
-			sort_by: input.sortBy || 'alphabetical',
-			personnel_snapshot: input.personnelSnapshot,
-			filter_config: input.filterConfig || null,
+			sort_by: snapshot.sortBy,
+			personnel_snapshot: snapshot.personnelSnapshot,
+			personnel_ids: snapshot.personnelIds,
+			scope_group_ids: snapshot.scopeGroupIds,
+			filter_config: snapshot.filterConfig,
 			signed_file_path: null,
 			created_by: ctx.auth.userId
 		});

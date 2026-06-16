@@ -28,6 +28,7 @@
 	let newPassword = $state('');
 	let confirmPassword = $state('');
 	let emailLoading = $state(false);
+	let emailCurrentPassword = $state('');
 
 	const mfaEnabled = $derived(mfaOverride ?? data.hasMFA);
 	const pendingEmail = $derived(form?.pendingEmail ?? data.pendingEmail);
@@ -224,9 +225,12 @@
 				action="?/updateEmail"
 				use:enhance={() => {
 					emailLoading = true;
-					return async ({ update }) => {
+					return async ({ result, update }) => {
 						emailLoading = false;
 						await update();
+						if (result.type === 'success') {
+							emailCurrentPassword = '';
+						}
 					};
 				}}
 				class="grid gap-4"
@@ -263,6 +267,20 @@
 						<Input id="email" name="email" type="email" autocomplete="email" required value={form?.email ?? ''} />
 					</Field.Control>
 					<Field.Description>Check the new inbox to confirm this change before using it to sign in.</Field.Description>
+				</Field.Root>
+
+				<Field.Root>
+					<Field.Label for="email-current-password">Current password</Field.Label>
+					<Field.Control>
+						<Input
+							id="email-current-password"
+							name="currentPassword"
+							type="password"
+							autocomplete="current-password"
+							required
+							bind:value={emailCurrentPassword}
+						/>
+					</Field.Control>
 				</Field.Root>
 
 				<div class="flex justify-end">

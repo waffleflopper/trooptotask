@@ -1,0 +1,2 @@
+-- No-op migration retained for environments that already recorded this version.
+-- The anon EXECUTE grant now lives in 20260614000400_sign_in_roster_scope_metadata.sql.

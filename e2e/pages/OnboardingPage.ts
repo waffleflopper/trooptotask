@@ -57,22 +57,22 @@ export class OnboardingPage {
 	}
 
 	async expectStepChecked(stepName: string) {
-		await expect(this.stepCheckbox(stepName)).toBeChecked({ timeout: 5000 });
+		const completedSection = this.page.getByRole('dialog').getByRole('button', { name: /^Completed\s+\d+$/ });
+		const checkbox = this.stepCheckbox(stepName);
+		if (!(await checkbox.isVisible())) {
+			await completedSection.click();
+		}
+		await expect(checkbox).toBeChecked({ timeout: 5000 });
 	}
 
 	private packetTrigger(personName: string) {
 		return this.page.getByRole('button', { name: new RegExp(escapeRegExp(personName), 'i') }).first();
 	}
 
-	private step(stepName: string) {
-		return this.page
-			.getByRole('listitem')
-			.filter({ has: this.page.getByText(stepName, { exact: true }) })
-			.first();
-	}
-
 	private stepCheckbox(stepName: string) {
-		return this.step(stepName).getByRole('checkbox', { name: /Mark (?:complete|incomplete)/ });
+		return this.page
+			.getByRole('dialog')
+			.getByRole('checkbox', { name: new RegExp(`Mark ${escapeRegExp(stepName)} (?:complete|incomplete)`, 'i') });
 	}
 }
 

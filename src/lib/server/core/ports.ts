@@ -2,6 +2,7 @@ import type { BillingCancellationFeedback, EffectiveTier, ReadOnlyReason } from 
 import type { CapabilityMap, ScopeSet } from '$lib/access/memberAccessShape';
 import type { CheckoutSessionConfiguration } from '$lib/server/billing/checkoutConfiguration';
 import type { SensitiveActionAuthorizer } from '$lib/server/sensitiveActionAuthorizer';
+import type { Personnel } from '$lib/types';
 
 /** Options for DataStore.findMany queries */
 export interface FindOptions {
@@ -9,6 +10,10 @@ export interface FindOptions {
 	filters?: Record<string, unknown>;
 	inFilters?: Record<string, unknown[]>;
 	notInFilters?: Record<string, unknown[]>;
+	/** Array containment filters: { scope_group_ids: ['g1'] } means column values must be contained by the given array */
+	arrayContainedByFilters?: Record<string, unknown[]>;
+	/** Require array columns to contain at least one value */
+	nonEmptyArrayFilters?: string[];
 	select?: string;
 	limit?: number;
 	/** Null-check filters: { archived_at: true } means IS NULL, false means IS NOT NULL */
@@ -58,8 +63,26 @@ export interface RatingSchemePersonnelLookupPort {
 	listPersonnelLookup(orgId: string): Promise<RatingSchemePersonnelLookupRecord[]>;
 }
 
+export interface SignInRosterPersonnelLookupRecord {
+	id: string;
+	rank?: string | null;
+	last_name?: string | null;
+	first_name?: string | null;
+	group_id?: string | null;
+	group_name?: string | null;
+	groups?: { name?: string | null } | { name?: string | null }[] | null;
+}
+
+export interface SignInRosterPersonnelLookupPort {
+	findPersonnelForRosterSnapshot(orgId: string, personnelIds: string[]): Promise<SignInRosterPersonnelLookupRecord[]>;
+	listPersonnelForRosterCandidates(orgId: string, scopeSet: ScopeSet): Promise<Personnel[]>;
+}
+
 /** Scope rule for ScopedDataStore — how a table relates to personnel groups */
-export type GroupScopeRule = { type: 'group'; groupColumn: string } | { type: 'personnel'; personnelColumn: string };
+export type GroupScopeRule =
+	| { type: 'group'; groupColumn: string }
+	| { type: 'group-array'; groupColumn: string; requireNonEmpty?: boolean }
+	| { type: 'personnel'; personnelColumn: string };
 
 /** Abstracts all persistence — business logic never imports Supabase */
 export interface DataStore {
@@ -255,6 +278,7 @@ export interface UseCaseContext {
 	sensitiveActionAuthorizer: SensitiveActionAuthorizer;
 	criticalTasksReadModel: CriticalTasksReadModelPort;
 	ratingSchemePersonnelLookup?: RatingSchemePersonnelLookupPort;
+	signInRosterPersonnelLookup?: SignInRosterPersonnelLookupPort;
 	/** Unscoped DataStore — use only when business logic requires org-wide data (e.g. allPersonnel for dropdowns) */
 	rawStore: DataStore;
 }

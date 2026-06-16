@@ -6,10 +6,16 @@ function createPersonnelQueryMock(result: unknown) {
 	const query = {
 		select: vi.fn(),
 		eq: vi.fn(),
-		in: vi.fn().mockResolvedValue(result)
+		is: vi.fn(),
+		in: vi.fn(),
+		order: vi.fn(),
+		then: vi.fn((resolve, reject) => Promise.resolve(result).then(resolve, reject))
 	};
 	query.select.mockReturnValue(query);
 	query.eq.mockReturnValue(query);
+	query.is.mockReturnValue(query);
+	query.in.mockReturnValue(query);
+	query.order.mockReturnValue(query);
 
 	const supabase = {
 		from: vi.fn().mockReturnValue(query)
@@ -89,5 +95,58 @@ describe('SupabaseSignInRosterPersonnelLookupPort', () => {
 		await expect(port.findPersonnelForRosterSnapshot('org-1', ['person-1'])).rejects.toThrow(
 			'permission denied for table personnel'
 		);
+	});
+
+	it('loads active roster candidates through the admin client within group scope', async () => {
+		const { supabase, query } = createPersonnelQueryMock({
+			data: [
+				{
+					id: 'person-1',
+					slug: 'smith-jane',
+					rank: 'SGT',
+					last_name: 'Smith',
+					first_name: 'Jane',
+					mos: '68W',
+					clinic_role: 'Medic',
+					ets: null,
+					deros: null,
+					group_id: 'group-1',
+					groups: { name: 'Alpha' },
+					archived_at: null
+				}
+			],
+			error: null
+		});
+		const getAdminClient = vi.fn(() => supabase as unknown as SupabaseClient);
+		const port = createSupabaseSignInRosterPersonnelLookupPort(getAdminClient);
+
+		const result = await port.listPersonnelForRosterCandidates('org-1', {
+			kind: 'groups',
+			groupIds: ['group-1']
+		});
+
+		expect(getAdminClient).toHaveBeenCalledOnce();
+		expect(supabase.from).toHaveBeenCalledWith('personnel');
+		expect(query.eq).toHaveBeenCalledWith('organization_id', 'org-1');
+		expect(query.is).toHaveBeenCalledWith('archived_at', null);
+		expect(query.in).toHaveBeenCalledWith('group_id', ['group-1']);
+		expect(query.order).toHaveBeenNthCalledWith(1, 'last_name', { ascending: true });
+		expect(query.order).toHaveBeenNthCalledWith(2, 'first_name', { ascending: true });
+		expect(result).toEqual([
+			{
+				id: 'person-1',
+				slug: 'smith-jane',
+				rank: 'SGT',
+				lastName: 'Smith',
+				firstName: 'Jane',
+				mos: '68W',
+				clinicRole: 'Medic',
+				ets: null,
+				deros: null,
+				groupId: 'group-1',
+				groupName: 'Alpha',
+				archivedAt: null
+			}
+		]);
 	});
 });

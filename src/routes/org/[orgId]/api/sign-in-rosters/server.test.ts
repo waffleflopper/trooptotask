@@ -73,7 +73,10 @@ describe('/api/sign-in-rosters route config', () => {
 				}
 			}
 		});
-		ctx.signInRosterPersonnelLookup = { findPersonnelForRosterSnapshot };
+		ctx.signInRosterPersonnelLookup = {
+			findPersonnelForRosterSnapshot,
+			listPersonnelForRosterCandidates: vi.fn(async () => [])
+		};
 		seedPersonnel(ctx);
 
 		const result = (await handleUseCaseRequest(_postConfig, ctx, {
@@ -133,6 +136,7 @@ describe('/api/sign-in-rosters route config', () => {
 			}
 		});
 		ctx.signInRosterPersonnelLookup = {
+			listPersonnelForRosterCandidates: vi.fn(async () => []),
 			findPersonnelForRosterSnapshot: vi.fn(async () => [
 				{
 					id: 'p-alpha',

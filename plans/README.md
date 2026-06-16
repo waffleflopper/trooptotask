@@ -11,6 +11,9 @@ Updated by the improve skill on 2026-06-13 at commit `0a6e6000` with performance
 Updated by the improve skill on 2026-06-13 at commit `9a1e439b` with plans 050-052 (Robert selected the three Platform Administration provider-seam deepening targets).
 Updated by the improve skill on 2026-06-14 at commit `9a1e439b` with plans 053-058 (Robert selected findings 1-7 from the follow-up audit, excluding finding 5).
 Updated by the improve skill on 2026-06-14 at commit `9a1e439b` with tech-debt plans 059-068 (Robert selected all vetted findings plus the small cleanup bundle).
+Updated by the improve skill on 2026-06-14 at commit `b3acfabb` with plans 069-074 (Robert selected findings 1, 3, 4, 5, and 6 first, then billing mirror correctness as the follow-on).
+Updated by the improve skill on 2026-06-14 at commit `b3acfabb` with plans 075-077 (fresh standard audit; Robert selected the account-security hardening bundle, the resync batching, and the legacy PKCE cleanup. Most reported findings were false positives — see "Findings Considered And Rejected").
+Updated by the improve skill on 2026-06-15 at commit `03af64cb` with plans 078-082 (Robert selected the recommended launch-readiness direction plans 1-5 from the `$improve next` audit, with the beta-lane packaging direction folded into plan 079).
 
 Execute in the order below unless dependencies say otherwise. Each executor must read the selected plan fully before starting, honor its STOP conditions, run every verification command, and update the status row when done.
 
@@ -88,6 +91,20 @@ The operator explicitly excluded automatic CI trigger work from this batch. Do n
 | 066  | Split Calendar settings and delete stale managers | P2       | M      | -          | DONE   |
 | 067  | Consolidate Account Setup route orchestration     | P2       | M-L    | -          | DONE   |
 | 068  | Consolidate workbook interop and remove unused icons | P3       | S      | -          | DONE   |
+| 069  | Add pgTAP contracts for newer RLS surfaces        | P1       | M      | -          | DONE   |
+| 070  | Scope and validate sign-in roster snapshots       | P1       | M      | 069        | DONE   |
+| 071  | Activate feature permission-coupling governance   | P1       | S-M    | -          | DONE   |
+| 072  | Sanitize provider errors returned from 500 paths  | P2       | S      | -          | DONE   |
+| 073  | Use local date-only helpers in onboarding/imports | P2       | S-M    | -          | DONE   |
+| 074  | Guard billing mirror writes with event ordering   | P1       | M      | 069-073    | DONE   |
+| 075  | Harden account email change and login errors      | P1       | M      | -          | DONE   |
+| 076  | Batch onboarding resync writes                    | P2       | S-M    | -          | DONE   |
+| 077  | Remove legacy PKCE code-exchange paths            | P3       | S      | -          | DONE   |
+| 078  | Billing launch rehearsal go/no-go pack            | P1       | M      | -          | TODO   |
+| 079  | Reconcile paid-plan and beta-lane contract        | P1       | M      | 078        | TODO   |
+| 080  | Decide public acquisition path                    | P1       | M      | 079        | TODO   |
+| 081  | Surface first-run owner checklist                 | P2       | M      | 080        | TODO   |
+| 082  | Package operational security evidence             | P1       | M      | -          | TODO   |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line rationale).
 
@@ -146,6 +163,21 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJE
 - 067 should coordinate with plan 055 and any Account Setup Link, organization invitation, or Auth identity work. If 059 has already landed, update any new admin-provider baseline entries affected by the route seam changes.
 - 068 is a small independent cleanup. It can run alongside non-frontend work, but if the executor edits or removes Svelte icon files, it still needs the Svelte autofixer check described in the plan.
 - 059-068 add no migrations and do not require local or remote database schema changes. Never target production, and do not reset or delete the local database without Robert's explicit permission.
+- 069 should run before 070 so the new sign-in roster RLS contract can be added after the general newer-surface pgTAP fixtures are in place. 069 is local Supabase test work only unless it reveals a real policy defect; never target production and do not reset/delete the local database without Robert's explicit permission.
+- 070 is the selected sign-in roster security fix. It may add a migration and RLS contract. Do not run it in parallel with other sign-in roster, Training records storage, scoped-store, or Supabase migration work.
+- 071 is independent governance tooling. It should not redo plan 059's admin-provider route seam scanner; this plan is only for feature permission-lane coupling detection.
+- 072 is independent server error-response hardening. Keep it scoped to the concrete 500 provider-error leak paths in the plan; do not broad-rewrite every `error.message` occurrence.
+- 073 is independent date-only correctness work. It touches a Svelte store, so the executor must follow the Svelte MCP documentation flow and run `svelte-autofixer` on edited Svelte files until clean.
+- 074 should run after 069-073 because Robert asked to do the billing mirror correctness fix after the first selected batch. It is not code-dependent on those plans, but it should not run in parallel with Stripe webhook processor, billing reconciliation, or Supabase migration work.
+- 069, 070, and 074 may add local Supabase migrations or pgTAP contracts. Coordinate migration filenames if multiple agents execute plans in parallel, never target production, and do not reset or delete the local development database without Robert's explicit permission.
+- 075 is app-layer auth hardening (no migration). It bundles three related findings (email-change reauth, post-password-change session revocation, generic login error) across `/account/security`, `/api/auth/update-password`, and `/auth/login`. Do not run it in parallel with other Account Setup Link, MFA gate, or auth identity work. Its session-revocation step lives on the password-change path by design (email changes are pending until externally confirmed) — see the plan's "Scope note on B".
+- 076 is a self-contained perf change to `onboardingResync.performDiff` only. It uses the existing `insertMany`/`upsertMany` store methods and adds no DataStore method and no migration. Do not run it in parallel with onboarding lifecycle/template-edit refactors.
+- 077 is gated on operator confirmation that production email templates have migrated to the `/auth/confirm` flow. If that cannot be confirmed, the executor must mark it BLOCKED and remove no code. It touches only the two legacy auth route loaders and must not run in parallel with `/auth/confirm` or auth-entry work.
+- 078 should run before 079 because the paid-plan contract should be reconciled against the latest billing rehearsal evidence, Stripe test-mode status, tax decision, and support blockers. It must not touch production data, live Stripe objects, or reset/delete the local database.
+- 079 depends on 078 and requires Robert's final pricing, launch-copy, and beta-lane support-boundary decisions before code edits. It touches public Svelte copy and plan/nav contracts, so its executor must follow the Svelte MCP documentation flow and run `svelte-autofixer` on edited Svelte files until clean.
+- 080 depends on 079 because public acquisition copy should not be decided until the paid-plan launch contract is known. If Robert chooses self-service signup/checkout, 080 should write follow-up implementation plans instead of attempting a broad funnel build in one slice.
+- 081 depends on 080 so the dashboard first-run checklist can align with the selected acquisition path and launch copy. It is otherwise a contained dashboard/read-model/UI slice; do not add schema unless the existing `getting_started_progress` table is proven insufficient.
+- 082 is independent from 078-081 and can run in parallel with them if no one else is editing `docs/security` or billing launch docs. It is documentation/test evidence work only; do not invent compliance evidence, claim formal certification, or touch production systems.
 
 ## Findings Considered And Rejected
 

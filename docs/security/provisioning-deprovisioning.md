@@ -6,7 +6,7 @@ This runbook covers launch-safe access grants and removals for platform administ
 
 - **Owner:** Robert.
 - **Cadence:** per access change, with a monthly stale-access sweep during launch ramp.
-- **Evidence:** external evidence held by Robert, such as approval notes, support tickets, provider audit entries, or a sanitized access-change log.
+- **Evidence:** external evidence held by the security owner, such as approval notes, support tickets, provider audit entries, or a sanitized access-change log.
 
 ## Provisioning Platform Admin Access
 

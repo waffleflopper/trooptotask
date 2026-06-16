@@ -391,6 +391,11 @@ describe('plan policy', () => {
 				expiresAt: '2999-01-01T00:00:00.000Z'
 			}
 		});
+		expect(policy.exportQuota).toMatchObject({
+			limit: null,
+			unlimited: true,
+			upgradeTarget: null
+		});
 	});
 
 	it('lets an active admin feature override deny a feature that the effective plan would include', () => {
@@ -605,6 +610,11 @@ describe('plan policy', () => {
 				state: 'granted',
 				expiresAt: '2999-01-01T00:00:00.000Z'
 			}
+		});
+		expect(policy.exportQuota).toMatchObject({
+			limit: null,
+			unlimited: true,
+			upgradeTarget: null
 		});
 	});
 

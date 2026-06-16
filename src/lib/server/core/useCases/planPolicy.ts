@@ -428,11 +428,14 @@ export function buildEffectivePlanPolicy(
 	const plan = snapshot.commercialPlan;
 	const tierConfig = TIER_CONFIG[plan];
 	const hasUnlimitedFallback = source === 'billing_disabled_fallback';
-	const exportLimit = hasUnlimitedFallback ? null : limit(tierConfig.bulkExportsPerMonth);
 	const readOnlyReasons = source === 'admin_gift' ? [] : readOnlyReasonsFor(snapshot);
 	const isPaymentFailedGrace =
 		source !== 'admin_gift' &&
 		(snapshot.subscriptionStatus === 'past_due' || snapshot.collectionStatus === 'payment_failed_grace');
+	const entitlements = buildEntitlements(plan, source, options.featureOverrides ?? [], options.now ?? new Date());
+	const hasUnlimitedExportEntitlement = entitlements.bulk_export_unlimited.available;
+	const exportLimit =
+		hasUnlimitedFallback || hasUnlimitedExportEntitlement ? null : limit(tierConfig.bulkExportsPerMonth);
 
 	return {
 		organizationId: snapshot.organizationId,
@@ -477,7 +480,7 @@ export function buildEffectivePlanPolicy(
 			denialCode: 'denied.export_quota',
 			upgradeTarget: exportLimit === null ? null : plan === 'free' ? 'team' : 'unit'
 		},
-		entitlements: buildEntitlements(plan, source, options.featureOverrides ?? [], options.now ?? new Date()),
+		entitlements,
 		grace: {
 			mode: isPaymentFailedGrace ? 'payment_failed' : 'none',
 			message: isPaymentFailedGrace

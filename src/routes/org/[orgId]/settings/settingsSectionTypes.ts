@@ -1,6 +1,6 @@
 import type { CapabilityLevel, DurableFeatureLane, MembershipRole, ScopeSet } from '$lib/access/memberAccessShape';
 import type { AuditLogQueryResult } from '$lib/server/core/useCases/auditLogQuery';
-import type { EffectiveTier } from '$lib/types/subscription';
+import type { EffectiveTier, Tier } from '$lib/types/subscription';
 import type { DeletionRequestRow } from './settingsRows.server';
 import type { EditablePreset } from './settingsMemberAccessConstants';
 import type { SettingsInvitationAccessRow, SettingsMemberAccessRow } from './settingsMemberAccessModel';
@@ -75,6 +75,8 @@ export type SettingsExportInfo = {
 	isLimited: boolean;
 	limitReached: boolean;
 	planBadge: string;
+	upgradeTarget: Tier | null;
+	limitReachedRemediation: string;
 };
 
 export type SettingsActivityData = {

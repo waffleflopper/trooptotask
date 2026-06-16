@@ -105,11 +105,44 @@ describe('plan policy gates', () => {
 			denial: {
 				code: 'denied.export_quota',
 				dimension: 'monthly_exports',
-				message: 'Export limit reached (3/month). Upgrade for unlimited exports.',
-				remediation: 'Upgrade for unlimited exports or wait until next month.',
+				message: 'Export limit reached (3/month). Upgrade to Team for more monthly exports.',
+				remediation: 'Upgrade to Team for more monthly exports or wait until next month.',
 				upgradeTarget: 'team'
 			}
 		});
+	});
+
+	it('points team export quota denials to Unit unlimited exports', () => {
+		const policy = buildEffectivePlanPolicy(snapshot({ commercialPlan: 'team' }));
+
+		expect(checkWithinPlanLimit(policy, 'monthly_exports', 10)).toEqual({
+			allowed: false,
+			denial: {
+				code: 'denied.export_quota',
+				dimension: 'monthly_exports',
+				message: 'Export limit reached (10/month). Upgrade to Unit for unlimited exports.',
+				remediation: 'Upgrade to Unit for unlimited exports or wait until next month.',
+				upgradeTarget: 'unit'
+			}
+		});
+	});
+
+	it('lets unlimited export feature overrides lift the quota', () => {
+		const policy = buildEffectivePlanPolicy(snapshot({ commercialPlan: 'free' }), {
+			featureOverrides: [
+				{
+					id: 'override-1',
+					organizationId: 'org-1',
+					featureKey: 'bulk_export_unlimited',
+					state: 'granted',
+					expiresAt: '2999-01-01T00:00:00.000Z'
+				}
+			],
+			now: new Date('2026-05-24T00:00:00.000Z')
+		});
+
+		expect(policy.exportQuota).toMatchObject({ limit: null, unlimited: true, upgradeTarget: null });
+		expect(checkWithinPlanLimit(policy, 'monthly_exports', 100)).toEqual({ allowed: true });
 	});
 
 	it('allows post-create usage at the limit but denies usage over the limit', () => {
@@ -129,7 +162,7 @@ describe('plan policy gates', () => {
 		const policy = buildEffectivePlanPolicy(snapshot({ commercialPlan: 'free' }));
 
 		expect(() => requireWithinPlanLimit(policy, 'monthly_exports', 3)).toThrow(
-			'Export limit reached (3/month). Upgrade for unlimited exports.'
+			'Export limit reached (3/month). Upgrade to Team for more monthly exports.'
 		);
 	});
 });

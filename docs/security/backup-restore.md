@@ -6,7 +6,7 @@ This runbook documents the current launch posture for backups and restores. It d
 
 - **Owner:** Robert.
 - **Cadence:** confirm provider backup posture quarterly, after material storage/database changes, and before making stronger compliance claims.
-- **Evidence:** external evidence held by Robert, such as provider backup setting notes, provider support tickets, restore-drill requests, or sanitized recovery summaries.
+- **Evidence:** external evidence held by the security owner, such as provider backup setting notes, provider support tickets, restore-drill requests, or sanitized recovery summaries.
 
 ## Current Backup Posture
 
@@ -47,7 +47,7 @@ Before making stronger operational or formal compliance claims, Robert should sc
 - time to restore,
 - gaps and follow-up actions.
 
-The drill record should remain external evidence held by Robert unless a sanitized summary is intentionally added later.
+The drill record should remain external evidence held by the security owner unless a sanitized summary is intentionally added later.
 
 ## Billing And Payment Recovery Notes
 

@@ -37,7 +37,7 @@ Manual human-only dashboard steps are marked as Robert-owned confirmations. Agen
 | --- | --- | --- | --- |
 | Stripe Dashboard is visibly in test mode | Requires Robert confirmation | Robert | Screenshot or note that the test/sandbox banner is visible. |
 | Stripe products for Team and Unit products exist | Requires Robert confirmation | Robert | Product IDs match the configured test prices and product naming. |
-| Team and Unit prices are active recurring monthly prices | Requires Robert confirmation | Robert/Agent with test credentials | `npm run billing:launch-preflight -- --json` output; price IDs only, no secrets. |
+| Team and Unit prices are active recurring monthly USD prices at $4.99 and $10.99 | Requires Robert confirmation | Robert/Agent with test credentials | `npm run billing:launch-preflight -- --json` output; price IDs only, no secrets. |
 | Price catalog maps only supported Stripe price IDs to Team and Unit | Complete | Agent | Covered by checkout/catalog tests and preflight checks. |
 | Checkout rejects arbitrary client price IDs | Complete | Agent | Covered by checkout server tests. |
 | Automatic tax stays disabled unless dashboard verification is complete | Complete | Agent | Checkout fails when `STRIPE_AUTOMATIC_TAX_ENABLED=true` without `STRIPE_TAX_DASHBOARD_VERIFIED=true`. |
@@ -69,7 +69,7 @@ Do not start these until test-mode verification is complete and Robert has made 
 | --- | --- | --- | --- |
 | Final Team and Unit prices are chosen | Complete | Robert/business owner | Public monthly prices are Team $4.99 and Unit $10.99. Product and price IDs remain separate Dashboard confirmations. |
 | Live Team and Unit products exist and match the customer-facing names | Requires Robert confirmation | Robert | Live product IDs and Dashboard screenshot or written confirmation. |
-| Live Team and Unit prices are active recurring monthly prices | Requires Robert confirmation | Robert | Live price IDs only; do not expose secret keys. |
+| Live Team and Unit prices are active recurring monthly USD prices at $4.99 and $10.99 | Requires Robert confirmation | Robert | Live price IDs only; do not expose secret keys. |
 | Live price IDs are configured in deployment environment variables | Requires Robert confirmation | Robert | Deployment variable names and last-updated note, not secret values. |
 | Test price IDs are not present in live deployment variables | Requires Robert confirmation | Robert | Deployment settings review. |
 | Live Stripe secret key is a live key and stored only in deployment secrets | Requires Robert confirmation | Robert | Secret existence/mode confirmation only. |

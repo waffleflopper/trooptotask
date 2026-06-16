@@ -31,7 +31,7 @@ Run the local preflight from the repo root:
 npm run billing:launch-preflight
 ```
 
-The helper is read-only. It loads `.env` and `.env.local`, requires a Stripe test secret key, retrieves the configured Team and Unit prices, checks the default Customer Portal configuration, and checks the enabled Stripe webhook events.
+The helper is read-only. It loads `.env` and `.env.local`, requires a Stripe test secret key, retrieves the configured Team and Unit prices, checks that they match the public $4.99 and $10.99 monthly USD contract, checks the default Customer Portal configuration, and checks the enabled Stripe webhook events.
 
 Warnings do not automatically block launch verification, but they identify manual setup that must be handled in the Stripe Dashboard.
 
@@ -57,7 +57,7 @@ Use app checkout for the checkout-specific scenario because the helper-created s
 Use the Stripe Dashboard in test mode:
 
 - Confirm the blue test/sandbox banner is visible before changing settings.
-- Confirm `STRIPE_TEAM_PRICE_ID` and `STRIPE_UNIT_PRICE_ID` point to active recurring monthly prices.
+- Confirm `STRIPE_TEAM_PRICE_ID` and `STRIPE_UNIT_PRICE_ID` point to active recurring monthly USD prices with unit amounts of 499 and 1099 cents.
 - Confirm `STRIPE_AUTOMATIC_TAX_ENABLED` is `false` unless Robert has completed the Stripe Tax launch review.
 - If `STRIPE_AUTOMATIC_TAX_ENABLED=true`, confirm `STRIPE_TAX_DASHBOARD_VERIFIED=true` only after checking Stripe Tax registrations, product tax behavior, and required customer address behavior in the Stripe Dashboard.
 - Confirm the webhook endpoint for `/api/webhooks/stripe` is enabled for the handled events listed below.

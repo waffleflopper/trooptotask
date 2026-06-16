@@ -14,6 +14,11 @@ const HANDLED_WEBHOOK_EVENTS = new Set([
 
 const OPTIONAL_STRIPE_EVENTS = new Set(['customer.subscription.created']);
 
+const EXPECTED_PRICE_CONTRACT = {
+	Team: { unitAmount: 499, currency: 'usd' },
+	Unit: { unitAmount: 1099, currency: 'usd' }
+};
+
 function parseArgs(argv) {
 	return {
 		json: argv.includes('--json'),
@@ -110,6 +115,7 @@ async function retrievePrice(stripe, priceId, label) {
 			active: price.active,
 			recurring: price.recurring?.interval ?? null,
 			currency: price.currency,
+			unitAmount: price.unit_amount,
 			productId: typeof price.product === 'string' ? price.product : price.product?.id
 		};
 	} catch (err) {
@@ -130,11 +136,16 @@ async function listAllStripeRows(listCall) {
 	return rows;
 }
 
+function formatCents(cents) {
+	return typeof cents === 'number' ? `$${(cents / 100).toFixed(2)}` : 'missing amount';
+}
+
 function checkPrice(results, price) {
 	if (!price.ok) {
 		results.push(result('fail', `${price.label} Stripe price`, price.error));
 		return;
 	}
+	const expected = EXPECTED_PRICE_CONTRACT[price.label];
 	results.push(
 		price.livemode === false
 			? result('pass', `${price.label} Stripe price mode`, 'test mode')
@@ -149,6 +160,24 @@ function checkPrice(results, price) {
 		price.recurring
 			? result('pass', `${price.label} Stripe price recurring`, price.recurring)
 			: result('fail', `${price.label} Stripe price recurring`, 'not a recurring price')
+	);
+	results.push(
+		price.unitAmount === expected.unitAmount
+			? result('pass', `${price.label} Stripe price amount`, `${price.id} is ${formatCents(price.unitAmount)}`)
+			: result(
+					'fail',
+					`${price.label} Stripe price amount`,
+					`${price.id} is ${formatCents(price.unitAmount)}, expected ${formatCents(expected.unitAmount)}`
+				)
+	);
+	results.push(
+		price.currency === expected.currency
+			? result('pass', `${price.label} Stripe price currency`, expected.currency)
+			: result(
+					'fail',
+					`${price.label} Stripe price currency`,
+					`${price.id} is ${price.currency ?? 'missing currency'}, expected ${expected.currency}`
+				)
 	);
 }
 

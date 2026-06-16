@@ -2,22 +2,37 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Cookies } from '@sveltejs/kit';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import type { TrainingWorkspaceData } from './trainingWorkspaceBootstrap';
+import type { Personnel } from '$lib/types';
+import type { ScopeSet } from '$lib/access/memberAccessShape';
+import type { SignInRosterPersonnelLookupPort } from '$lib/server/core/ports';
 
-const { findManyMock, loadWithContextMock, mockCtx } = vi.hoisted(() => {
+const { findManyMock, listRosterCandidatesMock, loadWithContextMock, mockCtx } = vi.hoisted(() => {
 	const findManyMock = vi.fn();
+	const listRosterCandidatesMock = vi.fn();
 	const loadWithContextMock = vi.fn();
 
 	return {
 		findManyMock,
+		listRosterCandidatesMock,
 		loadWithContextMock,
 		mockCtx: {
 			auth: {
 				userId: 'user-1',
-				orgId: '11111111-1111-1111-1111-111111111111'
+				orgId: '11111111-1111-1111-1111-111111111111',
+				capabilityMap: {
+					calendar: 'view',
+					personnel: 'configure',
+					training: 'configure',
+					criticalTasks: 'view',
+					onboarding: 'view',
+					ratingScheme: 'view'
+				},
+				scopeSet: { kind: 'organization' } as ScopeSet
 			},
 			store: {
 				findMany: findManyMock
-			}
+			},
+			signInRosterPersonnelLookup: undefined as SignInRosterPersonnelLookupPort | undefined
 		}
 	};
 });
@@ -37,6 +52,16 @@ import { streamTrainingWorkspaceBootstrap } from './trainingWorkspaceBootstrap';
 describe('streamTrainingWorkspaceBootstrap', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		mockCtx.auth.capabilityMap = {
+			calendar: 'view',
+			personnel: 'configure',
+			training: 'configure',
+			criticalTasks: 'view',
+			onboarding: 'view',
+			ratingScheme: 'view'
+		};
+		mockCtx.auth.scopeSet = { kind: 'organization' };
+		mockCtx.signInRosterPersonnelLookup = undefined;
 		loadWithContextMock.mockImplementation((_locals, _cookies, _orgId, config) => {
 			const data = config.fn(mockCtx as never);
 			return config.defer ? { data } : data;
@@ -115,5 +140,51 @@ describe('streamTrainingWorkspaceBootstrap', () => {
 				orderBy: [{ column: 'sort_order', ascending: true }]
 			})
 		);
+	});
+
+	it('loads Training roster candidates through the sign-in roster lookup without Personnel lane access', async () => {
+		const personnel = [
+			{
+				id: 'p-alpha',
+				slug: 'alpha-jane',
+				rank: 'SGT',
+				lastName: 'Alpha',
+				firstName: 'Jane',
+				mos: '68W',
+				clinicRole: 'Medic',
+				groupId: 'group-alpha',
+				groupName: 'Alpha',
+				archivedAt: null
+			}
+		] satisfies Personnel[];
+		mockCtx.auth.capabilityMap = {
+			calendar: 'view',
+			personnel: 'none',
+			training: 'operate',
+			criticalTasks: 'view',
+			onboarding: 'view',
+			ratingScheme: 'view'
+		};
+		mockCtx.auth.scopeSet = { kind: 'groups', groupIds: ['group-alpha'] };
+		mockCtx.signInRosterPersonnelLookup = {
+			findPersonnelForRosterSnapshot: vi.fn(),
+			listPersonnelForRosterCandidates: listRosterCandidatesMock
+		};
+		listRosterCandidatesMock.mockResolvedValue(personnel);
+		findManyMock.mockResolvedValue([]);
+
+		const routeData = await streamTrainingWorkspaceBootstrap({
+			locals: {} as App.Locals,
+			cookies: {} as Cookies,
+			orgId: '1-11-bde'
+		});
+		const workspace = await routeData.training.data;
+
+		await expect(workspace.data.personnel).resolves.toEqual(personnel);
+		expect(listRosterCandidatesMock).toHaveBeenCalledWith('11111111-1111-1111-1111-111111111111', {
+			kind: 'groups',
+			groupIds: ['group-alpha']
+		});
+		expect(findManyMock).not.toHaveBeenCalledWith('personnel', expect.anything(), expect.anything(), expect.anything());
 	});
 });

@@ -2,6 +2,7 @@ import type { BillingCancellationFeedback, EffectiveTier, ReadOnlyReason } from 
 import type { CapabilityMap, ScopeSet } from '$lib/access/memberAccessShape';
 import type { CheckoutSessionConfiguration } from '$lib/server/billing/checkoutConfiguration';
 import type { SensitiveActionAuthorizer } from '$lib/server/sensitiveActionAuthorizer';
+import type { Personnel } from '$lib/types';
 
 /** Options for DataStore.findMany queries */
 export interface FindOptions {
@@ -74,6 +75,7 @@ export interface SignInRosterPersonnelLookupRecord {
 
 export interface SignInRosterPersonnelLookupPort {
 	findPersonnelForRosterSnapshot(orgId: string, personnelIds: string[]): Promise<SignInRosterPersonnelLookupRecord[]>;
+	listPersonnelForRosterCandidates(orgId: string, scopeSet: ScopeSet): Promise<Personnel[]>;
 }
 
 /** Scope rule for ScopedDataStore — how a table relates to personnel groups */

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { existsSync, readFileSync } from 'node:fs';
+import { pathToFileURL } from 'node:url';
 import Stripe from 'stripe';
 
 const HANDLED_WEBHOOK_EVENTS = new Set([
@@ -220,7 +221,7 @@ function checkPortalConfiguration(results, configurations, prices) {
 	const unitConfigured = prices.unit.ok && updateProducts.get(prices.unit.productId)?.has(prices.unit.id);
 	if (!update?.enabled) {
 		results.push(
-			result('warn', 'Customer Portal plan switching', 'disabled; use dashboard/API plan changes until enabled')
+			result('fail', 'Customer Portal plan switching', 'disabled; enable Team/Unit plan changes before launch')
 		);
 	} else if ((update.products ?? []).length === 0) {
 		results.push(
@@ -235,9 +236,9 @@ function checkPortalConfiguration(results, configurations, prices) {
 			teamConfigured && unitConfigured
 				? result('pass', 'Customer Portal plan switching', 'Team and Unit prices are eligible')
 				: result(
-						'warn',
+						'fail',
 						'Customer Portal plan switching',
-						'enabled but missing Team/Unit product eligibility; use dashboard/API plan changes until fixed'
+						'enabled but missing Team/Unit product eligibility; update portal configuration before launch'
 					)
 		);
 	}
@@ -333,7 +334,11 @@ async function main() {
 	if (results.some((item) => item.level === 'fail')) process.exitCode = 1;
 }
 
-main().catch((err) => {
-	console.error(err instanceof Error ? err.message : err);
-	process.exitCode = 1;
-});
+export { checkPortalConfiguration };
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+	main().catch((err) => {
+		console.error(err instanceof Error ? err.message : err);
+		process.exitCode = 1;
+	});
+}

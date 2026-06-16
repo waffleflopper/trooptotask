@@ -314,6 +314,19 @@ describe('billing page toolbar', () => {
 		expect(within(getSubscriptionCard()).getByRole('button', { name: 'Manage Subscription' })).toBeTruthy();
 	});
 
+	it('shows the exact launch prices on authenticated plan cards', () => {
+		render(Page, {
+			props: {
+				data: baseData as never
+			}
+		});
+
+		expect(screen.getByText('$4.99/mo')).toBeTruthy();
+		expect(screen.getByText('$10.99/mo')).toBeTruthy();
+		expect(screen.queryByText('$5/mo')).toBeNull();
+		expect(screen.queryByText('$11/mo')).toBeNull();
+	});
+
 	it('shows policy-backed usage limits and remediation actions', () => {
 		render(Page, {
 			props: {

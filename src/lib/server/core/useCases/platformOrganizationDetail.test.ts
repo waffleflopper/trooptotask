@@ -90,9 +90,9 @@ function planPolicy(): EffectivePlanPolicy {
 		grace: { mode: 'none', message: null },
 		readOnly: { enabled: false, reasons: [] },
 		entitlements: {
-			advanced_reporting: {
-				key: 'advanced_reporting',
-				label: 'Advanced reporting',
+			bulk_export_unlimited: {
+				key: 'bulk_export_unlimited',
+				label: 'Unlimited bulk exports',
 				description: 'Detailed reports',
 				available: true,
 				source: 'base_plan',
@@ -219,7 +219,7 @@ describe('createPlatformOrganizationDetail', () => {
 				planPolicy: {
 					source: 'legacy_organization',
 					billingSource: 'legacy_organization',
-					entitlements: [expect.objectContaining({ key: 'advanced_reporting' })]
+					entitlements: [expect.objectContaining({ key: 'bulk_export_unlimited' })]
 				},
 				planDiagnostics: expect.objectContaining({
 					effectivePlan: expect.objectContaining({ commercialPlan: 'team' })

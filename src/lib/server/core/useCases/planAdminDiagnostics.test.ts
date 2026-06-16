@@ -69,7 +69,7 @@ describe('plan admin diagnostics', () => {
 				{
 					id: 'override-1',
 					organizationId: 'org-1',
-					featureKey: 'advanced_reporting',
+					featureKey: 'bulk_export_unlimited',
 					state: 'granted',
 					expiresAt: null
 				}
@@ -137,13 +137,6 @@ describe('plan admin diagnostics', () => {
 				expect.objectContaining({
 					key: 'bulk_export_unlimited',
 					label: 'Unlimited bulk exports',
-					available: false,
-					sourceLabel: 'Paid plan',
-					upgradeTarget: 'unit'
-				}),
-				expect.objectContaining({
-					key: 'advanced_reporting',
-					label: 'Advanced reporting',
 					available: true,
 					sourceLabel: 'Feature override',
 					override: {

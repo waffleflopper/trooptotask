@@ -69,16 +69,16 @@
 </svelte:head>
 
 <AuthShell
-	eyebrow="Beta Access"
-	title="Request access to the beta."
+	eyebrow="Reviewed Access"
+	title="Request access to TroopToTask."
 	description="Submit your information and we'll review your request. Approved users receive an Account Setup Link by email."
-	panelEyebrow="Beta request"
-	panelTitle={submitted ? 'Request submitted' : 'Request beta access'}
-	panelDescription={submitted ? 'Your beta request is in the queue.' : 'Tell us who you are and how to reach you.'}
+	panelEyebrow="Access request"
+	panelTitle={submitted ? 'Request submitted' : 'Request access'}
+	panelDescription={submitted ? 'Your request is in the queue.' : 'Tell us who you are and how to reach you.'}
 	imageSrc="/auth/auth-request-access-packet.png"
 	imageAlt="A military access packet with folders, a clipboard, and field desk materials."
 	supportLabel="What this is for"
-	supportTitle="Beta access only."
+	supportTitle="Reviewed access only."
 	supportDescription="If you are already approved, request a fresh setup link. If you already have an account, sign in."
 	supportPoints={[
 		'Approved users receive a setup link after review.',
@@ -167,7 +167,7 @@
 					inputElement="textarea"
 					bind:value={reason}
 					rows={4}
-					placeholder="Tell us your unit, role, or why you want beta access"
+					placeholder="Tell us your unit, role, or why you want access"
 					hint="Optional."
 				/>
 

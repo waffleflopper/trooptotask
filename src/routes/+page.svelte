@@ -2,43 +2,14 @@
 	import { onMount } from 'svelte';
 	import { resolve } from '$app/paths';
 	import PublicShell from '$lib/components/public/PublicShell.svelte';
+	import { PUBLIC_PLAN_PRESENTATION } from '$lib/types/subscription';
 
 	let { data } = $props();
 
 	let navScrolled = $state(false);
 	let openFaq = $state(-1);
 
-	const plans = [
-		{
-			name: 'Free',
-			price: '$0',
-			capacity: 'Up to 20 personnel',
-			accountUsers: 'Up to 2 active account users',
-			supporting: '3 exports per month'
-		},
-		{
-			name: 'Team',
-			price: '$5',
-			capacity: 'Up to 80 personnel',
-			accountUsers: 'Unlimited account users',
-			supporting: 'Unlimited exports',
-			featured: true
-		},
-		{
-			name: 'Unit',
-			price: '$12',
-			capacity: 'Up to 500 personnel',
-			accountUsers: 'Unlimited account users',
-			supporting: 'Unlimited exports'
-		},
-		{
-			name: 'Enterprise',
-			price: 'Contact us',
-			capacity: 'Larger formations',
-			accountUsers: 'Unlimited account users',
-			supporting: 'Custom capacity and support terms'
-		}
-	];
+	const plans = PUBLIC_PLAN_PRESENTATION;
 
 	const faqs = [
 		{
@@ -158,7 +129,7 @@
 					<a href="#pricing" class="btn-ghost">View Pricing</a>
 				</div>
 				<div class="hero__meta">
-					<span>Free during beta</span>
+					<span>Reviewed access</span>
 					<span class="hero__meta-sep" aria-hidden="true"></span>
 					<span>Built for DoD</span>
 					<span class="hero__meta-sep" aria-hidden="true"></span>
@@ -389,8 +360,9 @@
 					One platform,<br /><em>sized to the formation.</em>
 				</h2>
 				<p>
-					All plans are free during beta. Paid tiers later scale by personnel capacity, not by hiding core workflows
-					from smaller units. Account user limits are separate from personnel capacity.
+					Team and Unit prices are final for paid launch. Access remains reviewed until billing is enabled; plans scale
+					by personnel capacity and export allowance, not by hiding core workflows from smaller units. Account user
+					limits are separate from personnel capacity.
 				</p>
 			</div>
 
@@ -400,22 +372,23 @@
 						<div class="pricing__tier-header">
 							<div>
 								<h3>{plan.name}</h3>
-								<p>{plan.capacity}</p>
+								<p>{plan.personnelCapacity}</p>
 							</div>
 							{#if plan.featured}
 								<span>Most common</span>
 							{/if}
 						</div>
 						<div class="pricing__price">
-							<span class:pricing__price-text--contact={plan.price === 'Contact us'} class="pricing__price-text"
-								>{plan.price}</span
+							<span class:pricing__price-text--contact={plan.priceMonthly === null} class="pricing__price-text"
+								>{plan.priceLabel}</span
 							>
-							{#if plan.price !== '$0' && plan.price !== 'Contact us'}
-								<span class="pricing__price-suffix">/mo</span>
+							{#if plan.priceSuffix}
+								<span class="pricing__price-suffix">{plan.priceSuffix}</span>
 							{/if}
 						</div>
 						<p class="pricing__account-users">{plan.accountUsers}</p>
-						<p class="pricing__supporting">{plan.supporting}</p>
+						<p class="pricing__supporting">{plan.exportAllowance}</p>
+						<p class="pricing__supporting">{plan.launchAvailability}</p>
 					</article>
 				{/each}
 			</div>
@@ -481,7 +454,7 @@
 				READY TO RUN<br /><em>A TIGHTER UNIT?</em>
 			</h2>
 			<p class="cta-final__body">
-				Request free beta access for your unit. We work with you to configure your structure, import your roster, and
+				Request reviewed access for your unit. We work with you to configure your structure, import your roster, and
 				train your team leads.
 			</p>
 			<div class="cta-final__actions">
@@ -492,7 +465,7 @@
 				{/if}
 				<a href="#pricing" class="btn-ghost">View Pricing</a>
 			</div>
-			<div class="cta-final__meta">Free during beta · Paid plans later</div>
+			<div class="cta-final__meta">Reviewed access now / Billing launch gated</div>
 		</div>
 	</section>
 </PublicShell>

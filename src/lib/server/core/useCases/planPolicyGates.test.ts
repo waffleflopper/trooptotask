@@ -3,10 +3,8 @@ import type { BillingSnapshot } from '$lib/types/subscription';
 import { buildEffectivePlanPolicy } from './planPolicy';
 import {
 	checkAfterPlanLimitMutation,
-	checkPlanFeature,
 	checkPlanFeatureByKey,
 	checkWithinPlanLimit,
-	requirePlanFeature,
 	requireWithinPlanLimit
 } from './planPolicyGates';
 
@@ -43,7 +41,7 @@ function snapshot(overrides: Partial<BillingSnapshot> = {}): BillingSnapshot {
 }
 
 describe('plan policy gates', () => {
-	it('reports feature availability and upgrade targets by plan', () => {
+	it('reports export entitlement availability and upgrade targets by plan', () => {
 		const freePolicy = buildEffectivePlanPolicy(snapshot({ commercialPlan: 'free' }));
 		const teamPolicy = buildEffectivePlanPolicy(snapshot({ commercialPlan: 'team' }));
 		const unitPolicy = buildEffectivePlanPolicy(snapshot({ commercialPlan: 'unit' }));
@@ -57,14 +55,14 @@ describe('plan policy gates', () => {
 			upgradeTarget: 'unit'
 		});
 		expect(unitPolicy.entitlements.bulk_export_unlimited).toMatchObject({ available: true });
-		expect(checkPlanFeature(teamPolicy, 'advanced_reporting')).toMatchObject({
+		expect(checkPlanFeatureByKey(teamPolicy, 'bulk_export_unlimited')).toMatchObject({
 			allowed: false,
 			denial: { upgradeTarget: 'unit' }
 		});
-		expect(checkPlanFeature(unitPolicy, 'advanced_reporting')).toMatchObject({ allowed: true });
+		expect(checkPlanFeatureByKey(unitPolicy, 'bulk_export_unlimited')).toMatchObject({ allowed: true });
 	});
 
-	it('honors gift precedence for feature availability', () => {
+	it('honors gift precedence for export entitlement availability', () => {
 		const policy = buildEffectivePlanPolicy(
 			snapshot({
 				source: 'gift',
@@ -74,10 +72,10 @@ describe('plan policy gates', () => {
 			})
 		);
 
-		expect(checkPlanFeature(policy, 'advanced_reporting')).toMatchObject({
+		expect(checkPlanFeatureByKey(policy, 'bulk_export_unlimited')).toMatchObject({
 			allowed: true,
 			value: {
-				key: 'advanced_reporting',
+				key: 'bulk_export_unlimited',
 				source: 'admin_gift'
 			}
 		});
@@ -97,14 +95,6 @@ describe('plan policy gates', () => {
 				upgradeTarget: null
 			}
 		});
-	});
-
-	it('throws from requirePlanFeature for a known but unavailable feature', () => {
-		const policy = buildEffectivePlanPolicy(snapshot({ commercialPlan: 'free' }));
-
-		expect(() => requirePlanFeature(policy, 'advanced_reporting')).toThrow(
-			'Advanced reporting is not available on your current plan.'
-		);
 	});
 
 	it('returns structured denial data when a plan limit is reached', () => {

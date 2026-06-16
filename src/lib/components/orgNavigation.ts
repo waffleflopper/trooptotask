@@ -124,7 +124,6 @@ export function getOrgNavigation(orgId: string, access: CapabilityMap): OrgNavIt
 			href: `/org/${orgId}/critical-tasks`,
 			label: 'Critical Tasks',
 			compactLabel: 'ICTLs',
-			badgeLabel: 'Beta',
 			icon: 'critical-tasks',
 			visible: canView('criticalTasks'),
 			exactMatch: false

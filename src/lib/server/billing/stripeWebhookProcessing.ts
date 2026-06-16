@@ -1,6 +1,11 @@
 import type Stripe from 'stripe';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { verifyWebhookSignature, pauseSubscription, resumeSubscription } from '$lib/server/stripe';
+import {
+	verifyWebhookSignature,
+	pauseSubscription,
+	resumeSubscription,
+	updateSubscriptionPlanMetadata
+} from '$lib/server/stripe';
 import { getAdminClient } from '$lib/server/supabase';
 import type { Tier } from '$lib/types/subscription';
 import { getConfiguredPriceCatalog } from '$lib/server/billing/priceCatalog';
@@ -245,6 +250,27 @@ async function checkGiftPauseBestEffort(
 	}
 }
 
+async function syncSubscriptionPlanMetadataBestEffort(
+	subscription: Stripe.Subscription,
+	commercialPlan: Tier,
+	priceId: string | null
+): Promise<void> {
+	if (commercialPlan === 'free' || !priceId) return;
+	if (
+		subscription.metadata?.tier === commercialPlan &&
+		subscription.metadata?.commercialPlan === commercialPlan &&
+		subscription.metadata?.priceId === priceId
+	) {
+		return;
+	}
+
+	try {
+		await updateSubscriptionPlanMetadata(subscription.id, { tier: commercialPlan, priceId });
+	} catch (err) {
+		console.error(`Subscription metadata sync failed for ${subscription.id}:`, _sanitizeWebhookError(err));
+	}
+}
+
 // ---------------------------------------------------------------------------
 // Event handlers
 // ---------------------------------------------------------------------------
@@ -330,6 +356,7 @@ async function handleSubscriptionUpdated(
 	// Check if a gift should pause/resume this subscription
 	if (result.state === 'processed' && result.commercialPlan) {
 		await checkGiftPauseBestEffort(supabase, orgId, result.commercialPlan, subscription);
+		await syncSubscriptionPlanMetadataBestEffort(subscription, result.commercialPlan, priceId);
 	}
 	return result;
 }

@@ -334,7 +334,7 @@ describe('reconcileOrganizationBilling', () => {
 		expect(store.updateOrganizationBillingMirror).not.toHaveBeenCalled();
 	});
 
-	it('fails closed for tier metadata that does not match the price catalog', async () => {
+	it('repairs stale tier metadata by trusting the subscription price catalog entry', async () => {
 		const store = createStore();
 
 		const result = await reconcileOrganizationBilling({
@@ -343,23 +343,35 @@ describe('reconcileOrganizationBilling', () => {
 			provider: createProvider({
 				retrieveSubscription: vi.fn().mockResolvedValue({
 					...subscription,
-					metadata: { orgId: 'org-1', tier: 'unit' }
+					priceId: 'price_unit',
+					productId: 'prod_unit',
+					metadata: { orgId: 'org-1', tier: 'team' }
 				})
 			}),
 			subscription: createSubscriptionPort(),
 			priceCatalog: [
-				{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: 'prod_team', activeForCheckout: true }
+				{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: 'prod_team', activeForCheckout: true },
+				{ priceId: 'price_unit', commercialPlan: 'unit', stripeProductId: 'prod_unit', activeForCheckout: true }
 			],
 			now: () => new Date('2026-05-23T00:00:00.000Z')
 		});
 
-		expect(result).toMatchObject({
-			ok: false,
-			status: 'failed',
-			diagnostics: ['metadata_tier_price_mismatch']
-		});
-		expect(store.upsertSnapshot).not.toHaveBeenCalled();
-		expect(store.updateOrganizationBillingMirror).not.toHaveBeenCalled();
+		expect(result).toMatchObject({ ok: true, status: 'repaired', driftDetected: true });
+		expect(store.upsertSnapshot).toHaveBeenCalledWith(
+			expect.objectContaining({
+				commercial_plan: 'unit',
+				stripe_product_id: 'prod_unit',
+				stripe_price_id: 'price_unit'
+			})
+		);
+		expect(store.updateOrganizationBillingMirror).toHaveBeenCalledWith(
+			'org-1',
+			expect.objectContaining({
+				tier: 'unit',
+				stripe_subscription_id: 'sub_123',
+				subscription_status: 'active'
+			})
+		);
 	});
 
 	it('does not write snapshot diagnostics when the organization is gone', async () => {

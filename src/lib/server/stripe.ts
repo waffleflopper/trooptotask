@@ -2,6 +2,7 @@ import Stripe from 'stripe';
 import { STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET } from '$env/static/private';
 import type { CheckoutSessionConfiguration } from '$lib/server/billing/checkoutConfiguration';
 import type { BillingReconciliationProviderSubscription } from '$lib/server/core/useCases/billingReconciliation';
+import type { Tier } from '$lib/types/subscription';
 
 function getStripe(): Stripe {
 	if (!STRIPE_SECRET_KEY) throw new Error('STRIPE_SECRET_KEY not set');
@@ -147,6 +148,20 @@ export async function resumeSubscription(subscriptionId: string): Promise<void> 
 	const stripe = getStripe();
 	await stripe.subscriptions.update(subscriptionId, {
 		pause_collection: ''
+	});
+}
+
+export async function updateSubscriptionPlanMetadata(
+	subscriptionId: string,
+	metadata: { tier: Exclude<Tier, 'free'>; priceId: string }
+): Promise<void> {
+	const stripe = getStripe();
+	await stripe.subscriptions.update(subscriptionId, {
+		metadata: {
+			tier: metadata.tier,
+			commercialPlan: metadata.tier,
+			priceId: metadata.priceId
+		}
 	});
 }
 

@@ -270,7 +270,7 @@ describe('POST /auth/sign-up', () => {
 			const result = await actions.default(makeActionEvent({ signUp }));
 
 			expect(result).toEqual({
-				status: 400,
+				status: 503,
 				data: {
 					error: 'We could not start account creation. Please try again later.',
 					email: 'soldier@example.mil'
@@ -344,7 +344,7 @@ describe('POST /auth/sign-up', () => {
 			const result = await actions.default(makeActionEvent({ signUp }));
 
 			expect(result).toEqual({
-				status: 400,
+				status: 503,
 				data: {
 					error: 'We could not start account creation. Please try again later.',
 					email: 'soldier@example.mil'

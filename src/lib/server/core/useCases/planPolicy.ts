@@ -357,7 +357,7 @@ export function effectiveActivePersonnelLimitForPlanPolicy(
 	usage: PersonnelUsageForPlanPolicy
 ): number | null {
 	const personnelLimit = policy.limits.activePersonnel.limit;
-	if (policy.source === 'legacy_organization' && policy.tier === 'unit' && personnelLimit !== null) {
+	if (policy.tier === 'unit' && personnelLimit !== null) {
 		return Math.max(personnelLimit, usage.activePersonnelCount);
 	}
 	return personnelLimit;

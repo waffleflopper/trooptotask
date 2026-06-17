@@ -57,6 +57,38 @@ describe('Read-Only Mode', () => {
 		});
 	});
 
+	it('preserves paid Unit compatibility when active Personnel exceeds the base Unit limit', async () => {
+		const ctx = seededBillingContext();
+		ctx.rawStore.seed('organization_billing_snapshots', [
+			billingSnapshot({
+				commercial_plan: 'unit'
+			})
+		]);
+		ctx.rawStore.seed('personnel', personnel(501));
+
+		await expect(readReadOnlyModeState({ auth: ctx.auth, store: ctx.rawStore })).resolves.toEqual({
+			isReadOnly: false,
+			reason: null,
+			message: null
+		});
+	});
+
+	it('preserves gifted Unit compatibility when active Personnel exceeds the base Unit limit', async () => {
+		const ctx = seededBillingContext({
+			organization: {
+				gift_tier: 'unit',
+				gift_expires_at: '2099-01-01T00:00:00.000Z'
+			}
+		});
+		ctx.rawStore.seed('personnel', personnel(501));
+
+		await expect(readReadOnlyModeState({ auth: ctx.auth, store: ctx.rawStore })).resolves.toEqual({
+			isReadOnly: false,
+			reason: null,
+			message: null
+		});
+	});
+
 	it('preserves legacy Unit compatibility when active Personnel exceeds the base Unit limit', async () => {
 		const ctx = seededBillingContext();
 		ctx.rawStore.seed('organization_billing_snapshots', [
@@ -75,9 +107,14 @@ describe('Read-Only Mode', () => {
 	});
 });
 
-function seededBillingContext(options: { billingEnabled?: boolean } = {}) {
+function seededBillingContext(options: { billingEnabled?: boolean; organization?: Record<string, unknown> } = {}) {
 	billingEnabledMock.mockReturnValue(options.billingEnabled ?? true);
 	const ctx = createTestContext({ auth: { orgId: 'org-1' } });
+	seedBillingOrganization(ctx, options.organization);
+	return ctx;
+}
+
+function seedBillingOrganization(ctx: ReturnType<typeof createTestContext>, overrides: Record<string, unknown> = {}) {
 	ctx.rawStore.seed('organizations', [
 		{
 			id: 'org-1',
@@ -87,10 +124,10 @@ function seededBillingContext(options: { billingEnabled?: boolean } = {}) {
 			subscription_status: null,
 			current_period_end: null,
 			gift_tier: null,
-			gift_expires_at: null
+			gift_expires_at: null,
+			...overrides
 		}
 	]);
-	return ctx;
 }
 
 function billingSnapshot(overrides: Record<string, unknown> = {}) {

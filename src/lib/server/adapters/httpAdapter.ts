@@ -63,6 +63,10 @@ function policyScopeGroupIds(auth: AuthContext): string[] | string | null {
 	return auth.scopeSet.kind === 'groups' ? auth.scopeSet.groupIds : null;
 }
 
+function createOrgWideReadOnlyGuard(orgId: string) {
+	return createSupabaseReadOnlyGuard(getAdminClient(), orgId);
+}
+
 async function createRequestAuthorizationPorts(config: {
 	locals: App.Locals;
 	supabase: ReturnType<typeof getApiContext>['supabase'];
@@ -92,7 +96,7 @@ async function buildContextInternal(event: RequestEvent): Promise<BuildContextRe
 	const requestInfo = getRequestInfo(event);
 
 	const store = createSupabaseDataStore(supabase);
-	const readOnlyGuard = createSupabaseReadOnlyGuard(supabase, orgId);
+	const readOnlyGuard = createOrgWideReadOnlyGuard(orgId);
 	const audit = createSupabaseAuditAdapter(orgId, requestInfo);
 
 	const { auth, scope } = await createRequestAuthorizationPorts({
@@ -159,7 +163,7 @@ export async function buildLayoutContext(locals: App.Locals, cookies: Cookies, o
 	const canonicalOrgId = validateUUID(orgId) ? orgId : await resolveOrganizationIdForRequest(supabase, orgId);
 
 	const store = createSupabaseDataStore(supabase);
-	const readOnlyGuard = createSupabaseReadOnlyGuard(supabase, canonicalOrgId);
+	const readOnlyGuard = createOrgWideReadOnlyGuard(canonicalOrgId);
 	const audit = { log() {} };
 
 	const { auth, scope } = await createRequestAuthorizationPorts({
@@ -216,7 +220,7 @@ export async function buildLayoutContextFromMembership(
 	const { supabase, userId } = getApiContext(locals, cookies, orgId);
 
 	const store = createSupabaseDataStore(supabase);
-	const readOnlyGuard = createSupabaseReadOnlyGuard(supabase, orgId);
+	const readOnlyGuard = createOrgWideReadOnlyGuard(orgId);
 	const audit = { log() {} };
 
 	cacheRequestMembership(locals, userId, orgId, membership);

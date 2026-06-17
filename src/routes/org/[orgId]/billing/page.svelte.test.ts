@@ -154,6 +154,24 @@ function getSubscriptionCard(): HTMLElement {
 	return card as HTMLElement;
 }
 
+function freeDefaultData() {
+	return {
+		...baseData,
+		canManageSubscription: false,
+		effectiveTier: {
+			...baseData.effectiveTier,
+			tier: 'free',
+			source: 'default',
+			personnelCount: 0,
+			personnelCap: 20,
+			isReadOnly: false,
+			readOnlyReason: null
+		},
+		billingSnapshot: null,
+		planUsageSummary: null
+	};
+}
+
 describe('billing page toolbar', () => {
 	it.each([
 		['active', 'The paid subscription is active and TroopToTask is applying the paid plan.', 'Active'],
@@ -326,6 +344,54 @@ describe('billing page toolbar', () => {
 		expect(screen.getByText('$10.99/mo')).toBeTruthy();
 		expect(screen.queryByText('$5/mo')).toBeNull();
 		expect(screen.queryByText('$11/mo')).toBeNull();
+	});
+
+	it('shows Free-first upgrade choices for self-service owners without trial copy', () => {
+		render(Page, {
+			props: {
+				data: freeDefaultData() as never
+			}
+		});
+
+		expect(screen.getByText(/explicit Team or Unit upgrades/)).toBeTruthy();
+		expect(screen.getByText(/New Organizations can stay on Free/)).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Current Plan' })).toBeTruthy();
+		expect(screen.getByText('$4.99/mo')).toBeTruthy();
+		expect(screen.getByText('$10.99/mo')).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Upgrade to Team' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Upgrade to Unit' })).toBeTruthy();
+		expect(screen.queryByText(/Start Trial/i)).toBeNull();
+	});
+
+	it('starts Team checkout from the Free plan with server-side tier selection', async () => {
+		const fetchMock = vi.fn().mockResolvedValue(
+			new Response(JSON.stringify({ url: 'https://checkout.test/team' }), {
+				status: 200,
+				headers: { 'Content-Type': 'application/json' }
+			})
+		);
+		vi.stubGlobal('fetch', fetchMock);
+
+		render(Page, {
+			props: {
+				data: freeDefaultData() as never
+			}
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Upgrade to Team' }));
+		expect(screen.getByRole('heading', { name: 'Upgrade to Team' })).toBeTruthy();
+		expect(screen.getByText(/remains on its current plan until checkout is complete/)).toBeTruthy();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Continue to Checkout' }));
+
+		await waitFor(() =>
+			expect(fetchMock).toHaveBeenCalledWith('/org/org-1/billing/checkout', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ tier: 'team' })
+			})
+		);
+		expect(window.location.href).toBe('https://checkout.test/team');
 	});
 
 	it('shows policy-backed usage limits and remediation actions', () => {
@@ -843,12 +909,12 @@ describe('billing page toolbar', () => {
 			}
 		});
 
-		await fireEvent.click(screen.getAllByRole('button', { name: 'Subscribe' })[0]);
+		await fireEvent.click(screen.getByRole('button', { name: 'Upgrade to Team' }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Continue to Checkout' }));
 
 		expect(screen.getByText('Confirm your password')).toBeTruthy();
 		expect(screen.getByLabelText('Password')).toBeTruthy();
-		expect((screen.getAllByRole('button', { name: 'Subscribe' })[0] as HTMLButtonElement).disabled).toBe(false);
+		expect((screen.getByRole('button', { name: 'Upgrade to Team' }) as HTMLButtonElement).disabled).toBe(false);
 	});
 
 	it('redirects to MFA verification when checkout requires MFA step-up', async () => {
@@ -881,7 +947,7 @@ describe('billing page toolbar', () => {
 			}
 		});
 
-		await fireEvent.click(screen.getAllByRole('button', { name: 'Subscribe' })[0]);
+		await fireEvent.click(screen.getByRole('button', { name: 'Upgrade to Team' }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Continue to Checkout' }));
 
 		expect(window.location.pathname).toBe('/auth/mfa-verify');
@@ -925,7 +991,7 @@ describe('billing page toolbar', () => {
 			}
 		});
 
-		await fireEvent.click(screen.getAllByRole('button', { name: 'Subscribe' })[0]);
+		await fireEvent.click(screen.getByRole('button', { name: 'Upgrade to Team' }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Continue to Checkout' }));
 		await fireEvent.input(screen.getByLabelText('Password'), { target: { value: 'wrong-password' } });
 		await fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
@@ -975,7 +1041,7 @@ describe('billing page toolbar', () => {
 			}
 		});
 
-		await fireEvent.click(screen.getAllByRole('button', { name: 'Subscribe' })[0]);
+		await fireEvent.click(screen.getByRole('button', { name: 'Upgrade to Team' }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Continue to Checkout' }));
 		await fireEvent.input(screen.getByLabelText('Password'), { target: { value: 'correct-password' } });
 		await fireEvent.click(screen.getByRole('button', { name: 'Continue' }));

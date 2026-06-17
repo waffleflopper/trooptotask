@@ -41,8 +41,10 @@ it must not imply that an unapproved public user can create an Organization or
 start checkout today.
 
 After the self-service plans ship and billing is enabled, the public CTA should
-move to account creation language such as `Start Trial`, `Create Account`, or
-`Get Started`, backed by a real route and email-confirmation flow.
+move to account creation language such as `Create Account` or `Get Started`,
+backed by a real route and email-confirmation flow. Do not use trial language
+for launch; new self-service Organizations start on Free until the owner chooses
+an explicit Team or Unit upgrade checkout from Billing.
 
 ## After approval or signup
 
@@ -60,8 +62,9 @@ Self-service target:
 1. The user creates a User Account through a public registration route.
 2. The user confirms email control before entering app-owned onboarding.
 3. The user creates an Organization or accepts an Organization Invitation.
-4. The user chooses Team or Unit checkout, or enters a supported trial/free
-   fallback state if that is part of the implementation plan.
+4. The new Organization lands on the owner dashboard with Free active.
+5. The owner can open Billing and choose `Upgrade to Team` or
+   `Upgrade to Unit` checkout, or continue on Free.
 
 ## Billing entry point
 
@@ -70,9 +73,11 @@ The current billing entry point remains authenticated Organization billing:
 catalog validation, and Organization billing authorization.
 
 Self-service billing must not start before email confirmation and Organization
-creation are settled. The follow-up checkout plan must define how abandoned
-checkout, failed payment, duplicate checkout attempts, and billing recovery are
-shown before any platform approval step exists.
+creation are settled. After Organization creation, the owner lands on the
+dashboard with Free active and can open Billing to choose Team or Unit checkout
+only when billing is enabled. Pending checkout, failed payment, duplicate
+checkout attempts, expired checkout, and cancellation recovery must use
+customer-safe copy before any platform approval step exists.
 
 ## Support
 

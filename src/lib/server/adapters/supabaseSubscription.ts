@@ -3,7 +3,6 @@
  * Handles personnel seat limits, tier compatibility lookups, and monthly export quotas.
  *
  * Personnel and tier compatibility reads use the plan-policy path and fetch fresh usage.
- * `invalidateTierCache()` remains for older direct `src/lib/server/subscription.ts` callers.
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { isBillingEnabled } from '$lib/config/billing';

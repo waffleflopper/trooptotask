@@ -295,7 +295,7 @@ describe('handleUseCaseRequest', () => {
 			const config: RouteConfig<void, string> = {
 				mutation: true,
 				policyAction: POLICY_ACTION_CATALOG.identity.updateOwnPreferences,
-				allowReadOnlyMutation: true,
+				readOnlyModeException: 'identity-owned-preference',
 				fn: async () => 'ok'
 			};
 

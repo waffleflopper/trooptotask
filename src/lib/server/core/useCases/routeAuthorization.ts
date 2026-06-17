@@ -5,6 +5,7 @@ import type {
 	PolicyAction,
 	PolicyResource
 } from '$lib/access/policyEvaluator';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import type { AuthContext, ReadOnlyGuard } from '$lib/server/core/ports';
 import { requirePolicyDecision } from './policyAuthorization';
 
@@ -24,12 +25,13 @@ export interface RouteAuthorizationConfig {
 	policyAction: RoutePolicyAction;
 	policyResource?: PolicyResource;
 	/**
-	 * Use only for policy-first writes that must remain available during org read-only
-	 * mode, such as user preferences or billing recovery paths. Ordinary writes should
-	 * let the policy overlay deny.
+	 * Use only for named writes that must remain available during Read-Only Mode.
+	 * Ordinary writes should let the policy overlay deny.
 	 */
-	allowReadOnlyMutation?: boolean;
+	readOnlyModeException?: ReadOnlyModeException;
 }
+
+export type ReadOnlyModeException = 'billing-recovery' | 'identity-owned-preference' | 'identity-owned-data-request';
 
 export interface LoadAuthorizationConfig {
 	policyAction: RoutePolicyAction;
@@ -43,7 +45,7 @@ export async function enforceRouteAuthorization(
 	config: RouteAuthorizationConfig
 ): Promise<void> {
 	await requirePolicyDecision(ports, config.policyAction, resolveRoutePolicyResource(ports.auth, config), {
-		enforceReadOnlyOverlay: !config.allowReadOnlyMutation
+		enforceReadOnlyOverlay: !allowsReadOnlyModeException(config)
 	});
 }
 
@@ -51,14 +53,18 @@ export function enforceLoadAuthorization(
 	ports: Pick<RouteAuthorizationPorts, 'auth' | 'audit' | 'readOnlyGuard'>,
 	config: LoadAuthorizationConfig
 ): void | Promise<void> {
-	return requirePolicyDecision(ports, config.policyAction, resolveRoutePolicyResource(ports.auth, config));
+	return requirePolicyDecision(ports, config.policyAction, resolveRoutePolicyResource(ports.auth, config), {
+		enforceReadOnlyOverlay: false
+	});
 }
 
 export function enforceLayoutPolicy(
 	ports: Pick<RouteAuthorizationPorts, 'auth' | 'audit' | 'readOnlyGuard'>,
 	config: LayoutPolicyAuthorizationConfig
 ): Promise<void> {
-	return requirePolicyDecision(ports, config.policyAction, resolveRoutePolicyResource(ports.auth, config));
+	return requirePolicyDecision(ports, config.policyAction, resolveRoutePolicyResource(ports.auth, config), {
+		enforceReadOnlyOverlay: false
+	});
 }
 
 function resolveRoutePolicyResource(
@@ -74,4 +80,26 @@ function resolveRoutePolicyResource(
 	}
 
 	return { kind: 'organization' };
+}
+
+function allowsReadOnlyModeException(
+	config: Pick<RouteAuthorizationConfig, 'policyAction' | 'readOnlyModeException'>
+): boolean {
+	switch (config.readOnlyModeException) {
+		case undefined:
+			return false;
+		case 'billing-recovery':
+			return config.policyAction.id === POLICY_ACTION_CATALOG.organization.manageBilling.id;
+		case 'identity-owned-preference':
+			return config.policyAction.id === POLICY_ACTION_CATALOG.identity.updateOwnPreferences.id;
+		case 'identity-owned-data-request':
+			return (
+				config.policyAction.id === POLICY_ACTION_CATALOG.identity.createOwnDeletionRequest.id ||
+				config.policyAction.id === POLICY_ACTION_CATALOG.identity.cancelOwnDeletionRequest.id
+			);
+		default: {
+			const unhandledException: never = config.readOnlyModeException;
+			throw new Error(`Unhandled Read-Only Mode exception: ${String(unhandledException)}`);
+		}
+	}
 }

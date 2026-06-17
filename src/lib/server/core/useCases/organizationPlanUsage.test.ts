@@ -285,7 +285,7 @@ describe('organization plan usage read model', () => {
 		} as unknown as DataStore;
 
 		await expect(readOrganizationPlanUsage({ auth: { orgId: 'org-1' }, store }, { now: NOW })).rejects.toThrow(
-			'organizationPlanUsage.countRows expected a count for table "personnel" and org "org-1"'
+			/organizationPlanUsage\.countRows expected a count for table "(personnel|organization_memberships|data_exports)" and org "org-1"/
 		);
 	});
 });

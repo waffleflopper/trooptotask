@@ -91,6 +91,10 @@ async function countRows(
 	return result.count;
 }
 
+export async function readActivePersonnelCount(ports: OrganizationPlanUsagePorts): Promise<number> {
+	return countRows(ports.store, 'personnel', ports.auth.orgId, {}, { isNull: { archived_at: true } });
+}
+
 export async function readOrganizationPlanUsage(
 	ports: OrganizationPlanUsagePorts,
 	options: OrganizationPlanUsageOptions = {}
@@ -105,7 +109,7 @@ export async function readOrganizationPlanUsage(
 		pendingInvitationsWithFutureExpiry,
 		monthlyExportCount
 	] = await Promise.all([
-		countRows(ports.store, 'personnel', ports.auth.orgId, {}, { isNull: { archived_at: true } }),
+		readActivePersonnelCount(ports),
 		countRows(ports.store, 'organization_memberships', ports.auth.orgId),
 		ports.store.findMany<OrganizationInvitationUsageRow>(
 			'organization_invitations',

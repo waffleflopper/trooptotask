@@ -7,7 +7,7 @@ const useCases = createPinnedGroupUseCases();
 export const _postConfig: RouteConfig<Record<string, unknown>, unknown> = {
 	policyAction: POLICY_ACTION_CATALOG.identity.updateOwnPreferences,
 	mutation: true,
-	allowReadOnlyMutation: true,
+	readOnlyModeException: 'identity-owned-preference',
 	fn: async (ctx, input) => {
 		if (input.action === 'replace') {
 			const groups = (input.groups as string[]) ?? [];
@@ -25,7 +25,7 @@ export const POST = handle(_postConfig);
 export const _deleteConfig: RouteConfig<Record<string, unknown>, unknown> = {
 	policyAction: POLICY_ACTION_CATALOG.identity.updateOwnPreferences,
 	mutation: true,
-	allowReadOnlyMutation: true,
+	readOnlyModeException: 'identity-owned-preference',
 	fn: (ctx, input) => useCases.unpin(ctx, input.groupName as string)
 };
 

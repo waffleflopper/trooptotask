@@ -4,6 +4,7 @@ import {
 	applyBillingCancellation,
 	cancelBillingSubscriptionForOrganization,
 	cancelBillingSubscriptionForOrganizationWithTransition,
+	canManageBillingSubscription,
 	persistBillingCustomerId,
 	readBillingOrganization
 } from './billingOrganization';
@@ -150,7 +151,7 @@ describe('billingOrganization use cases', () => {
 				name: 'Alpha Company',
 				stripe_customer_id: 'cus_123',
 				stripe_subscription_id: 'sub_123',
-				subscription_status: 'trialing',
+				subscription_status: 'incomplete',
 				tier: 'team'
 			}
 		]);
@@ -161,6 +162,18 @@ describe('billingOrganization use cases', () => {
 
 		expect(ctx.billingPort.calls).toEqual([]);
 	});
+
+	it.each(['active', 'trialing', 'past_due', 'paused'])(
+		'treats %s subscriptions as manageable billing subscriptions',
+		(subscriptionStatus) => {
+			expect(
+				canManageBillingSubscription({
+					stripeCustomerId: 'cus_123',
+					subscriptionStatus
+				})
+			).toBe(true);
+		}
+	);
 
 	it('applies the immediate cancellation transition after provider cancellation succeeds', async () => {
 		const ctx = createTestContext();

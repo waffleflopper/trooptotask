@@ -141,7 +141,7 @@ For each row include:
 - launch blocker: yes/no,
 - notes.
 
-If evidence exists outside the repo, say "external evidence held by Robert" and
+If evidence exists outside the repo, say "external evidence held by the security owner" and
 describe the artifact type without copying sensitive content.
 
 **Verify**:

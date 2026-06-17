@@ -137,7 +137,9 @@ function makeSettingsData(): SettingsStateTestData {
 					exportsLimit: Infinity,
 					isLimited: false,
 					limitReached: false,
-					planBadge: 'Unlimited exports'
+					planBadge: 'Unlimited exports',
+					upgradeTarget: null,
+					limitReachedRemediation: 'Export limit reached. Contact support for export access.'
 				},
 				commands: {
 					canExportJson: true,

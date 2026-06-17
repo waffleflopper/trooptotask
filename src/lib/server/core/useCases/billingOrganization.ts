@@ -62,7 +62,7 @@ export function canManageBillingSubscription(
 	return !!(
 		org.stripeCustomerId &&
 		org.subscriptionStatus &&
-		['active', 'past_due', 'paused'].includes(org.subscriptionStatus)
+		['active', 'trialing', 'past_due', 'paused'].includes(org.subscriptionStatus)
 	);
 }
 

@@ -221,6 +221,66 @@ describe('applyBillingSnapshotTransition', () => {
 		expect(invalidateTierCacheMock).toHaveBeenCalledWith('org-1');
 	});
 
+	it('uses the updated subscription price when portal changes leave tier metadata stale', async () => {
+		const store = createStore();
+
+		const result = await applyBillingSnapshotTransition(store, {
+			kind: 'subscription_updated',
+			orgId: 'org-1',
+			stripeCustomerId: 'cus_123',
+			stripeSubscriptionId: 'sub_123',
+			stripeProductId: 'prod_unit',
+			stripePriceId: 'price_unit',
+			status: 'active',
+			currentPeriodStart: '2026-05-01T00:00:00.000Z',
+			currentPeriodEnd: '2026-06-01T00:00:00.000Z',
+			cancelAtPeriodEnd: false,
+			canceledAt: null,
+			cancellationReason: null,
+			cancellationFeedback: null,
+			trialEnd: null,
+			metadataTier: 'team',
+			priceCatalog: [
+				{
+					priceId: 'price_team',
+					commercialPlan: 'team',
+					stripeProductId: 'prod_team',
+					activeForCheckout: true
+				},
+				{
+					priceId: 'price_unit',
+					commercialPlan: 'unit',
+					stripeProductId: 'prod_unit',
+					activeForCheckout: true
+				}
+			],
+			event: {
+				id: 'evt_portal_upgrade',
+				type: 'customer.subscription.updated',
+				createdAt: '2026-05-25T17:00:00.000Z'
+			},
+			processedAt: '2026-05-25T17:01:00.000Z'
+		});
+
+		expect(result).toMatchObject({ state: 'processed', orgId: 'org-1', commercialPlan: 'unit' });
+		expect(store.snapshotWrites).toContainEqual(
+			expect.objectContaining({
+				commercial_plan: 'unit',
+				stripe_product_id: 'prod_unit',
+				stripe_price_id: 'price_unit'
+			})
+		);
+		expect(store.mirrorWrites).toContainEqual({
+			orgId: 'org-1',
+			values: expect.objectContaining({
+				tier: 'unit',
+				stripe_subscription_id: 'sub_123',
+				subscription_status: 'active'
+			})
+		});
+		expect(invalidateTierCacheMock).toHaveBeenCalledWith('org-1');
+	});
+
 	it('records subscription deletion as free canceled state while preserving support timing in the snapshot', async () => {
 		const store = createStore({
 			snapshot: {

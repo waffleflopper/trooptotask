@@ -73,7 +73,7 @@ const baseData = {
 			personnelCap: 80,
 			activeUserCap: null,
 			bulkExportsPerMonth: 10,
-			priceMonthly: 500
+			priceMonthly: 499
 		},
 		{
 			tier: 'unit',
@@ -81,7 +81,7 @@ const baseData = {
 			personnelCap: 500,
 			activeUserCap: null,
 			bulkExportsPerMonth: null,
-			priceMonthly: 1200
+			priceMonthly: 1099
 		}
 	],
 	cancellationSummary: {
@@ -284,6 +284,7 @@ describe('billing page toolbar', () => {
 			props: {
 				data: {
 					...baseData,
+					canManageSubscription: false,
 					effectiveTier: {
 						...baseData.effectiveTier,
 						tier: 'free',
@@ -312,6 +313,19 @@ describe('billing page toolbar', () => {
 		});
 
 		expect(within(getSubscriptionCard()).getByRole('button', { name: 'Manage Subscription' })).toBeTruthy();
+	});
+
+	it('shows the exact launch prices on authenticated plan cards', () => {
+		render(Page, {
+			props: {
+				data: baseData as never
+			}
+		});
+
+		expect(screen.getByText('$4.99/mo')).toBeTruthy();
+		expect(screen.getByText('$10.99/mo')).toBeTruthy();
+		expect(screen.queryByText('$5/mo')).toBeNull();
+		expect(screen.queryByText('$11/mo')).toBeNull();
 	});
 
 	it('shows policy-backed usage limits and remediation actions', () => {
@@ -490,10 +504,10 @@ describe('billing page toolbar', () => {
 							],
 							featureLosses: [
 								{
-									featureKey: 'advanced_reporting',
-									label: 'Advanced reporting',
-									message: 'Advanced reporting is available on the current plan but not on Free.',
-									remediation: 'Choose Unit to keep Advanced reporting.',
+									featureKey: 'bulk_export_unlimited',
+									label: 'Unlimited bulk exports',
+									message: 'Unlimited bulk exports is available on the current plan but not on Free.',
+									remediation: 'Choose Unit to keep Unlimited bulk exports.',
 									upgradeTarget: 'unit'
 								}
 							],
@@ -510,10 +524,10 @@ describe('billing page toolbar', () => {
 									upgradeTarget: 'team'
 								},
 								{
-									featureKey: 'advanced_reporting',
-									label: 'Advanced reporting',
-									message: 'Advanced reporting is available on the current plan but not on Free.',
-									remediation: 'Choose Unit to keep Advanced reporting.',
+									featureKey: 'bulk_export_unlimited',
+									label: 'Unlimited bulk exports',
+									message: 'Unlimited bulk exports is available on the current plan but not on Free.',
+									remediation: 'Choose Unit to keep Unlimited bulk exports.',
 									upgradeTarget: 'unit'
 								}
 							]
@@ -528,7 +542,7 @@ describe('billing page toolbar', () => {
 		expect(screen.getByText(/Existing data is preserved after downgrade/)).toBeTruthy();
 		expect(screen.getByText(/Personnel usage would be 90 of 20 on Free/)).toBeTruthy();
 		expect(screen.getByText('Archive personnel before downgrading or choose Team.')).toBeTruthy();
-		expect(screen.getByText('Choose Unit to keep Advanced reporting.')).toBeTruthy();
+		expect(screen.getByText('Choose Unit to keep Unlimited bulk exports.')).toBeTruthy();
 	});
 
 	it('uses the effective tier when past-due access has already been downgraded', () => {
@@ -536,6 +550,7 @@ describe('billing page toolbar', () => {
 			props: {
 				data: {
 					...baseData,
+					canManageSubscription: false,
 					effectiveTier: {
 						...baseData.effectiveTier,
 						tier: 'free',
@@ -702,6 +717,8 @@ describe('billing page toolbar', () => {
 			props: {
 				data: {
 					...baseData,
+					canManageSubscription: false,
+					billingSnapshot: null,
 					effectiveTier: {
 						...baseData.effectiveTier,
 						tier: 'free',
@@ -815,6 +832,8 @@ describe('billing page toolbar', () => {
 			props: {
 				data: {
 					...baseData,
+					canManageSubscription: false,
+					billingSnapshot: null,
 					effectiveTier: {
 						...baseData.effectiveTier,
 						tier: 'free',
@@ -851,6 +870,8 @@ describe('billing page toolbar', () => {
 			props: {
 				data: {
 					...baseData,
+					canManageSubscription: false,
+					billingSnapshot: null,
 					effectiveTier: {
 						...baseData.effectiveTier,
 						tier: 'free',
@@ -893,6 +914,8 @@ describe('billing page toolbar', () => {
 			props: {
 				data: {
 					...baseData,
+					canManageSubscription: false,
+					billingSnapshot: null,
 					effectiveTier: {
 						...baseData.effectiveTier,
 						tier: 'free',
@@ -941,6 +964,8 @@ describe('billing page toolbar', () => {
 			props: {
 				data: {
 					...baseData,
+					canManageSubscription: false,
+					billingSnapshot: null,
 					effectiveTier: {
 						...baseData.effectiveTier,
 						tier: 'free',

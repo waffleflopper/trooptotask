@@ -7,8 +7,10 @@ Do not paste API keys, webhook secrets, raw webhook payloads, card details, or S
 ## References
 
 - [Billing Launch Verification](billing-launch-verification.md) covers checkout, renewal, failed renewal, portal period-end cancellation, immediate cancellation, failed payment recovery, reactivation after successful payment, plan changes, webhook processing, reconciliation, and owner/admin UI evidence. Issue #1049 is the tracker for that lifecycle verification work.
+- [Billing Launch Go/No-Go Evidence Pack](billing-launch-go-no-go.md) records the latest support-safe launch rehearsal evidence and verdict.
 - [Billing Customer Portal Contract](billing-customer-portal.md) defines supported portal outcomes and states that must stay support/admin handled.
 - [Billing Cancellation Policy](billing-cancellation-policy.md) defines period-end portal cancellation as the default owner path and immediate cancellation as an explicit confirmed action.
+- [Operational Control Evidence](security/operational-control-evidence.md) links the launch security runbooks, including [Incident Response](security/incident-response.md) and no-secret evidence handling rules for billing/support incidents.
 - `npm run billing:launch-preflight` is the read-only Stripe test-mode preflight.
 - `npm run billing:lifecycle` is the Stripe test-mode lifecycle helper.
 
@@ -19,9 +21,10 @@ Do not paste API keys, webhook secrets, raw webhook payloads, card details, or S
 | Checklist document created | Complete | Agent | This file records the launch gates and manual confirmations. |
 | Portal assumptions documented | Complete | Agent | See "Customer Portal Configuration". |
 | Lifecycle verification reference | Complete | Agent | This checklist points to `docs/billing-launch-verification.md` and issue #1049. |
+| Go/no-go evidence pack created | Complete | Agent | See `docs/billing-launch-go-no-go.md`; current verdict is blocked pending scenario evidence and Robert-owned confirmations. |
 | Test-mode Stripe Dashboard confirmation | Requires Robert confirmation | Robert | Agent can run local/test helpers only when test Stripe credentials and webhook forwarding are available. |
 | Live-mode Stripe Dashboard confirmation | Requires Robert confirmation | Robert | Agent must not invent live Dashboard state. Robert must confirm before enabling live paid billing. |
-| Final pricing amounts | Requires Robert/business-owner confirmation | Robert | The catalog boundary exists, but final prices remain a business decision. |
+| Final pricing amounts | Complete | Robert/business owner | Public monthly prices are Team $4.99 and Unit $10.99. Live Stripe price IDs and Dashboard setup still require Robert confirmation. |
 | Live environment variables | Requires Robert confirmation | Robert | Agent must not inspect or modify production secrets. |
 
 ## Test-Mode Verification
@@ -34,7 +37,7 @@ Manual human-only dashboard steps are marked as Robert-owned confirmations. Agen
 | --- | --- | --- | --- |
 | Stripe Dashboard is visibly in test mode | Requires Robert confirmation | Robert | Screenshot or note that the test/sandbox banner is visible. |
 | Stripe products for Team and Unit products exist | Requires Robert confirmation | Robert | Product IDs match the configured test prices and product naming. |
-| Team and Unit prices are active recurring monthly prices | Requires Robert confirmation | Robert/Agent with test credentials | `npm run billing:launch-preflight -- --json` output; price IDs only, no secrets. |
+| Team and Unit prices are active recurring monthly USD prices at $4.99 and $10.99 | Requires Robert confirmation | Robert/Agent with test credentials | `npm run billing:launch-preflight -- --json` output; price IDs only, no secrets. |
 | Price catalog maps only supported Stripe price IDs to Team and Unit | Complete | Agent | Covered by checkout/catalog tests and preflight checks. |
 | Checkout rejects arbitrary client price IDs | Complete | Agent | Covered by checkout server tests. |
 | Automatic tax stays disabled unless dashboard verification is complete | Complete | Agent | Checkout fails when `STRIPE_AUTOMATIC_TAX_ENABLED=true` without `STRIPE_TAX_DASHBOARD_VERIFIED=true`. |
@@ -64,9 +67,9 @@ Do not start these until test-mode verification is complete and Robert has made 
 
 | Check | Status | Owner | Evidence to record |
 | --- | --- | --- | --- |
-| Final Team and Unit prices are chosen | Requires Robert/business-owner confirmation | Robert | Final monthly amounts and product/price IDs. |
+| Final Team and Unit prices are chosen | Complete | Robert/business owner | Public monthly prices are Team $4.99 and Unit $10.99. Product and price IDs remain separate Dashboard confirmations. |
 | Live Team and Unit products exist and match the customer-facing names | Requires Robert confirmation | Robert | Live product IDs and Dashboard screenshot or written confirmation. |
-| Live Team and Unit prices are active recurring monthly prices | Requires Robert confirmation | Robert | Live price IDs only; do not expose secret keys. |
+| Live Team and Unit prices are active recurring monthly USD prices at $4.99 and $10.99 | Requires Robert confirmation | Robert | Live price IDs only; do not expose secret keys. |
 | Live price IDs are configured in deployment environment variables | Requires Robert confirmation | Robert | Deployment variable names and last-updated note, not secret values. |
 | Test price IDs are not present in live deployment variables | Requires Robert confirmation | Robert | Deployment settings review. |
 | Live Stripe secret key is a live key and stored only in deployment secrets | Requires Robert confirmation | Robert | Secret existence/mode confirmation only. |
@@ -113,6 +116,18 @@ Do not enable these as self-service portal outcomes without new product/code wor
 - Customer states that depend on local mirror fields rather than `organization_billing_snapshots`.
 
 If an unsupported setting is needed for a customer, treat it as support/admin handled and record the manual action in audit-safe notes.
+
+## Paid Launch Contract
+
+The public paid-plan contract for launch is:
+
+- Team is $4.99/month for up to 80 personnel and 10 exports per month.
+- Unit is $10.99/month for up to 500 personnel and unlimited exports.
+- Plan differences are personnel capacity and export allowance only. Do not add feature-only paid entitlements without a new approved plan.
+- Critical Tasks is part of the core workflow and should not carry a Beta badge.
+- Duty Rosters may keep a Beta badge for paid launch. That badge means the workflow is supported but still evolving; it is not an unsupported or best-effort feature.
+
+Acquisition remains environment-gated. While billing is disabled, keep reviewed request-access mechanics and copy. When paid billing is enabled, the target posture is open registration with email confirmation and no request-access gate, but that self-service acquisition flow belongs to plan 080 follow-up work and must not be implied by links to a route that does not exist.
 
 ## Webhook Events
 

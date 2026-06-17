@@ -481,20 +481,14 @@ describe('_loadBillingPageData', () => {
 					expect.objectContaining({ dimension: 'active_personnel', used: 90, limit: 20, status: 'over_limit' }),
 					expect.objectContaining({ dimension: 'monthly_exports', used: 4, limit: 3, status: 'over_limit' })
 				]),
-				featureLosses: expect.arrayContaining([
-					expect.objectContaining({ featureKey: 'bulk_export_unlimited' }),
-					expect.objectContaining({ featureKey: 'advanced_reporting' })
-				])
+				featureLosses: expect.arrayContaining([expect.objectContaining({ featureKey: 'bulk_export_unlimited' })])
 			}),
 			expect.objectContaining({
 				targetPlan: expect.objectContaining({ tier: 'team', sourceLabel: 'Stripe-backed billing' }),
 				rows: expect.arrayContaining([
 					expect.objectContaining({ dimension: 'active_personnel', used: 90, limit: 80, status: 'over_limit' })
 				]),
-				featureLosses: [
-					expect.objectContaining({ featureKey: 'bulk_export_unlimited' }),
-					expect.objectContaining({ featureKey: 'advanced_reporting' })
-				]
+				featureLosses: [expect.objectContaining({ featureKey: 'bulk_export_unlimited' })]
 			})
 		]);
 	});

@@ -8,6 +8,10 @@ Issue #1049 covers launch verification for checkout, renewal, failed renewal, ca
 
 The broader launch go/no-go checklist is documented in [Billing Operations Launch Checklist](billing-operations-launch-checklist.md). That checklist separates test-mode verification, live-mode launch steps, environment variables, support process, and Robert-owned Stripe Dashboard confirmations.
 
+The public paid-plan contract is Team at $4.99/month and Unit at $10.99/month. Those prices are the customer-facing contract; Stripe product/price IDs, live Dashboard setup, tax setup, and support staffing remain Robert-owned launch confirmations. Plan differences are personnel capacity and export allowance only.
+
+Duty Rosters may carry a Beta label during paid launch. That label means the workflow is supported but still evolving. Critical Tasks is not Beta-labeled for launch.
+
 Cancellation behavior is documented in [Billing Cancellation Policy](billing-cancellation-policy.md). Customer Portal cancellation is the default owner path and should be configured for cancellation at period end. Immediate cancellation is limited to TroopToTask's confirmed Cancel Now path or platform-admin/support action.
 
 Customer Portal behavior is constrained by [Billing Customer Portal Contract](billing-customer-portal.md). Use that contract as the source of truth for supported portal outcomes and support/admin-handled states.
@@ -27,7 +31,7 @@ Run the local preflight from the repo root:
 npm run billing:launch-preflight
 ```
 
-The helper is read-only. It loads `.env` and `.env.local`, requires a Stripe test secret key, retrieves the configured Team and Unit prices, checks the default Customer Portal configuration, and checks the enabled Stripe webhook events.
+The helper is read-only. It loads `.env` and `.env.local`, requires a Stripe test secret key, retrieves the configured Team and Unit prices, checks that they match the public $4.99 and $10.99 monthly USD contract, checks the default Customer Portal configuration, and checks the enabled Stripe webhook events.
 
 Warnings do not automatically block launch verification, but they identify manual setup that must be handled in the Stripe Dashboard.
 
@@ -53,7 +57,7 @@ Use app checkout for the checkout-specific scenario because the helper-created s
 Use the Stripe Dashboard in test mode:
 
 - Confirm the blue test/sandbox banner is visible before changing settings.
-- Confirm `STRIPE_TEAM_PRICE_ID` and `STRIPE_UNIT_PRICE_ID` point to active recurring monthly prices.
+- Confirm `STRIPE_TEAM_PRICE_ID` and `STRIPE_UNIT_PRICE_ID` point to active recurring monthly USD prices with unit amounts of 499 and 1099 cents.
 - Confirm `STRIPE_AUTOMATIC_TAX_ENABLED` is `false` unless Robert has completed the Stripe Tax launch review.
 - If `STRIPE_AUTOMATIC_TAX_ENABLED=true`, confirm `STRIPE_TAX_DASHBOARD_VERIFIED=true` only after checking Stripe Tax registrations, product tax behavior, and required customer address behavior in the Stripe Dashboard.
 - Confirm the webhook endpoint for `/api/webhooks/stripe` is enabled for the handled events listed below.

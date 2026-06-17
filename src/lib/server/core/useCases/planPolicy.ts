@@ -135,12 +135,6 @@ export const PLAN_FEATURE_REGISTRY = {
 		label: 'Unlimited bulk exports',
 		description:
 			'Export organization data without the free-plan monthly export quota. Export routes enforce this through monthly_exports limits.'
-	},
-	advanced_reporting: {
-		key: 'advanced_reporting',
-		enforcement: 'binary_gate',
-		label: 'Advanced reporting',
-		description: 'Use advanced readiness and reporting workspaces.'
 	}
 } as const;
 
@@ -213,8 +207,6 @@ function featureAvailableOnPlan(feature: PlanFeatureKey, plan: Tier): boolean {
 	switch (feature) {
 		case 'bulk_export_unlimited':
 			return plan === 'unit';
-		case 'advanced_reporting':
-			return plan === 'unit';
 		default: {
 			const unhandledFeature: never = feature;
 			throw new Error(`Unhandled plan feature: ${String(unhandledFeature)}`);
@@ -226,8 +218,6 @@ function featureUpgradeTarget(feature: PlanFeatureKey, plan: Tier): Tier | null 
 	if (featureAvailableOnPlan(feature, plan)) return null;
 	switch (feature) {
 		case 'bulk_export_unlimited':
-			return 'unit';
-		case 'advanced_reporting':
 			return 'unit';
 		default: {
 			const unhandledFeature: never = feature;
@@ -280,17 +270,39 @@ function buildEntitlements(
 				available: featureAvailableOnPlan('bulk_export_unlimited', plan),
 				source: resolvedSource,
 				upgradeTarget: featureUpgradeTarget('bulk_export_unlimited', plan)
-			},
-			advanced_reporting: {
-				key: 'advanced_reporting',
-				available: featureAvailableOnPlan('advanced_reporting', plan),
-				source: resolvedSource,
-				upgradeTarget: featureUpgradeTarget('advanced_reporting', plan)
 			}
 		},
 		overrides,
 		now
 	);
+}
+
+function buildExportQuota(
+	plan: Tier,
+	hasUnlimitedFallback: boolean,
+	entitlement: PlanFeatureEntitlement
+): ExportQuotaPolicy {
+	if (hasUnlimitedFallback || entitlement.available) {
+		return {
+			limit: null,
+			unlimited: true,
+			period: 'calendar_month',
+			denialCode: 'denied.export_quota',
+			upgradeTarget: null
+		};
+	}
+
+	const deniedUnlimitedUnitOverride = plan === 'unit' && entitlement.override?.state === 'denied';
+	const effectivePlanForQuota = deniedUnlimitedUnitOverride ? 'team' : plan;
+	const quotaLimit = limit(TIER_CONFIG[effectivePlanForQuota].bulkExportsPerMonth);
+
+	return {
+		limit: quotaLimit,
+		unlimited: quotaLimit === null,
+		period: 'calendar_month',
+		denialCode: 'denied.export_quota',
+		upgradeTarget: quotaLimit === null ? null : plan === 'free' ? 'team' : deniedUnlimitedUnitOverride ? null : 'unit'
+	};
 }
 
 function effectiveTierSource(source: PlanPolicySource): TierSource {
@@ -444,11 +456,12 @@ export function buildEffectivePlanPolicy(
 	const plan = snapshot.commercialPlan;
 	const tierConfig = TIER_CONFIG[plan];
 	const hasUnlimitedFallback = source === 'billing_disabled_fallback';
-	const exportLimit = hasUnlimitedFallback ? null : limit(tierConfig.bulkExportsPerMonth);
 	const readOnlyReasons = source === 'admin_gift' ? [] : readOnlyReasonsFor(snapshot);
 	const isPaymentFailedGrace =
 		source !== 'admin_gift' &&
 		(snapshot.subscriptionStatus === 'past_due' || snapshot.collectionStatus === 'payment_failed_grace');
+	const entitlements = buildEntitlements(plan, source, options.featureOverrides ?? [], options.now ?? new Date());
+	const exportQuota = buildExportQuota(plan, hasUnlimitedFallback, entitlements.bulk_export_unlimited);
 
 	return {
 		organizationId: snapshot.organizationId,
@@ -486,14 +499,8 @@ export function buildEffectivePlanPolicy(
 				upgradeTarget: plan === 'unit' ? null : 'unit'
 			}
 		},
-		exportQuota: {
-			limit: exportLimit,
-			unlimited: exportLimit === null,
-			period: 'calendar_month',
-			denialCode: 'denied.export_quota',
-			upgradeTarget: exportLimit === null ? null : plan === 'free' ? 'team' : 'unit'
-		},
-		entitlements: buildEntitlements(plan, source, options.featureOverrides ?? [], options.now ?? new Date()),
+		exportQuota,
+		entitlements,
 		grace: {
 			mode: isPaymentFailedGrace ? 'payment_failed' : 'none',
 			message: isPaymentFailedGrace

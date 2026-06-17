@@ -136,6 +136,136 @@ describe('createDashboardScreenModel', () => {
 		vi.unstubAllGlobals();
 	});
 
+	it('builds incomplete getting started items from workspace and support counts', () => {
+		const model = createDashboardScreenModel(
+			makeData(
+				{
+					userRole: 'owner',
+					onboardingTemplateStepCount: 0,
+					ratingSchemeEntryCount: 1,
+					orgMemberCount: 1,
+					gettingStartedDismissed: false
+				},
+				{
+					personnel: [{ id: 'p1' }],
+					statusTypes: [{ id: 'status-1' }],
+					trainingTypes: [],
+					assignmentTypes: [{ id: 'assignment-1' }]
+				}
+			),
+			{
+				storage: createMemoryStorage(),
+				sources: makeSources()
+			}
+		);
+
+		expect(model.gettingStartedItems.map((item) => [item.id, item.complete])).toEqual([
+			['personnel', true],
+			['statuses', true],
+			['training', false],
+			['assignments', true],
+			['members', false],
+			['onboarding', false],
+			['ratings', true]
+		]);
+		expect(model.shouldShowGettingStarted).toBe(true);
+	});
+
+	it('shows the checklist after deferred support data arrives', () => {
+		const model = createDashboardScreenModel(
+			makeData(
+				{
+					userRole: 'admin',
+					onboardingTemplateStepCount: undefined,
+					ratingSchemeEntryCount: undefined,
+					orgMemberCount: undefined,
+					gettingStartedDismissed: undefined
+				},
+				{
+					personnel: [{ id: 'p1' }],
+					statusTypes: [{ id: 'status-1' }],
+					trainingTypes: [{ id: 'training-1' }],
+					assignmentTypes: [{ id: 'assignment-1' }]
+				}
+			),
+			{
+				storage: createMemoryStorage(),
+				sources: makeSources()
+			}
+		);
+
+		expect(model.hasSupportData).toBe(false);
+		expect(model.shouldShowGettingStarted).toBe(false);
+
+		model.applySupportData({
+			onboardingTemplateStepCount: 1,
+			ratingSchemeEntryCount: 1,
+			orgMemberCount: 1,
+			gettingStartedDismissed: false
+		});
+
+		expect(model.hasSupportData).toBe(true);
+		expect(model.shouldShowGettingStarted).toBe(true);
+		expect(model.gettingStartedItems.find((item) => item.id === 'members')?.complete).toBe(false);
+	});
+
+	it('hides the checklist when all items are complete or dismissed', () => {
+		const model = createDashboardScreenModel(
+			makeData(
+				{
+					userRole: 'owner',
+					onboardingTemplateStepCount: 2,
+					ratingSchemeEntryCount: 1,
+					orgMemberCount: 2,
+					gettingStartedDismissed: false
+				},
+				{
+					personnel: [{ id: 'p1' }],
+					statusTypes: [{ id: 'status-1' }],
+					trainingTypes: [{ id: 'training-1' }],
+					assignmentTypes: [{ id: 'assignment-1' }]
+				}
+			),
+			{
+				storage: createMemoryStorage(),
+				sources: makeSources()
+			}
+		);
+
+		expect(model.gettingStartedItems.every((item) => item.complete)).toBe(true);
+		expect(model.shouldShowGettingStarted).toBe(false);
+
+		model.applySupportData({
+			onboardingTemplateStepCount: 0,
+			ratingSchemeEntryCount: 0,
+			orgMemberCount: 1,
+			gettingStartedDismissed: true
+		});
+
+		expect(model.gettingStartedDismissed).toBe(true);
+		expect(model.shouldShowGettingStarted).toBe(false);
+	});
+
+	it('does not show owner setup prompts to non-privileged members', () => {
+		const model = createDashboardScreenModel(
+			makeData({
+				userRole: 'member',
+				onboardingTemplateStepCount: 0,
+				ratingSchemeEntryCount: 0,
+				orgMemberCount: 1,
+				gettingStartedDismissed: false
+			}),
+			{
+				storage: createMemoryStorage(),
+				sources: makeSources()
+			}
+		);
+
+		expect(model.hasSupportData).toBe(true);
+		expect(model.gettingStartedItems.some((item) => !item.complete)).toBe(true);
+		expect(model.shouldShowGettingStarted).toBe(false);
+	});
+
 	it('pre-shapes upcoming changes with the persisted grouping mode', () => {
 		const storage = createMemoryStorage({ 'dashboard-upcoming-group-by': 'group' });
 		const model = createDashboardScreenModel(makeData(), {

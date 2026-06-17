@@ -329,14 +329,14 @@ function buildAccountSetupEmail(input: SendAccountSetupLinkEmailInput): {
 	const subject = 'Set up your TroopToTask account';
 	const setupUrlAttribute = escapeHtmlAttribute(input.setupUrl);
 	const text = [
-		'Your TroopToTask beta access request was approved.',
+		'Your TroopToTask access request was approved.',
 		'',
 		`Set up your account here: ${input.setupUrl}`,
 		'',
 		`This setup link expires ${expiresAt} UTC. If it expires, request a fresh setup link from TroopToTask.`
 	].join('\n');
 	const html = `
-		<p>Your TroopToTask beta access request was approved.</p>
+		<p>Your TroopToTask access request was approved.</p>
 		<p><a href="${setupUrlAttribute}">Set up your account</a></p>
 		<p>This setup link expires ${expiresAt} UTC. If it expires, request a fresh setup link from TroopToTask.</p>
 	`;

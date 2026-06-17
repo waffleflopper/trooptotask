@@ -9,7 +9,7 @@
 > you they maintain the index.
 >
 > **Drift check (run first)**:
-> `git diff --stat 0cafdd3e..HEAD -- docs/launch-acquisition-path.md e2e e2e/specs/auth-email-flows.spec.ts e2e/specs/access-request-auth.spec.ts e2e/specs/billing-webhook.spec.ts src/routes/auth src/routes/org/new src/routes/org/[orgId]/billing package.json`
+> `git diff --stat d485cdc5..HEAD -- docs/launch-acquisition-path.md e2e e2e/specs/auth-email-flows.spec.ts e2e/specs/access-request-auth.spec.ts e2e/specs/billing-webhook.spec.ts src/routes/auth src/routes/org/new 'src/routes/org/[orgId]/billing' package.json`
 > If any in-scope file changed since this plan was written, compare the
 > "Current state" excerpts against the live code before proceeding; on a
 > mismatch, treat it as a STOP condition.
@@ -21,7 +21,14 @@
 - **Risk**: MED
 - **Depends on**: plans/083-public-account-creation-abuse-controls.md, plans/084-self-service-organization-onboarding.md, plans/085-checkout-trial-entry-billing-recovery.md, plans/086-support-admin-visibility-self-service.md
 - **Category**: tests
-- **Planned at**: commit `0cafdd3e`, 2026-06-15
+- **Planned at**: commit `d485cdc5`, 2026-06-16 (reconciled; originally planned at `0cafdd3e`)
+
+## Reconciliation note
+
+On 2026-06-17, PR #1230 completed this plan after the `d485cdc5`
+reconciliation. The signup route from plan 083, first-Organization handoff from
+plan 084, checkout/recovery path from plan 085, support/admin visibility from
+plan 086, and focused `test:e2e:self-service-acquisition` script now exist.
 
 ## Why this matters
 
@@ -38,6 +45,8 @@ state recovery.
 - `npm run test:e2e:access-requests` runs
   `e2e/specs/access-request-auth.spec.ts`.
 - `npm run test:e2e:billing` uses a separate billing Playwright config.
+- `npm run test:e2e:self-service-acquisition` uses a dedicated self-service
+  acquisition Playwright config.
 - `e2e/specs/dashboard-invitation-auth.spec.ts` creates authenticated browser
   contexts and checks dashboard invitation behavior.
 - `e2e/fixtures/test-data.ts` has deterministic test Organization and user
@@ -49,7 +58,8 @@ Current excerpts:
 // package.json
 "test:e2e:auth": "playwright test --config=e2e/playwright.config.ts e2e/specs/auth-email-flows.spec.ts",
 "test:e2e:access-requests": "playwright test --config=e2e/playwright.config.ts e2e/specs/access-request-auth.spec.ts",
-"test:e2e:billing": "playwright test --config=e2e/playwright.billing.config.ts"
+"test:e2e:billing": "playwright test --config=e2e/playwright.billing.config.ts",
+"test:e2e:self-service-acquisition": "playwright test --config=e2e/playwright.self-service-acquisition.config.ts"
 ```
 
 ```ts
@@ -67,7 +77,7 @@ await expect.poll(() => pagePathAndSearch(acceptPage)).toMatch(/^\/(dashboard\?s
 
 | Purpose | Command | Expected on success |
 | --- | --- | --- |
-| Self-service E2E | new or updated npm script, for example `npm run test:e2e:self-service-acquisition` | all pass |
+| Self-service E2E | `npm run test:e2e:self-service-acquisition` | all pass |
 | Auth E2E | `npm run test:e2e:auth` | all pass |
 | Access request regression E2E | `npm run test:e2e:access-requests` | all pass |
 | Billing E2E | `npm run test:e2e:billing` | all pass when Stripe test-mode/local E2E config is available |

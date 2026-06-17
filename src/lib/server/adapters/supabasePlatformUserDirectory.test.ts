@@ -12,7 +12,8 @@ describe('createSupabasePlatformUserDirectoryStore', () => {
 							id: 'user-first',
 							email: 'user-first@example.test',
 							created_at: '2026-06-01T00:00:00.000Z',
-							last_sign_in_at: null
+							last_sign_in_at: null,
+							email_confirmed_at: '2026-06-01T00:05:00.000Z'
 						}
 					],
 					nextPage: 2
@@ -25,7 +26,8 @@ describe('createSupabasePlatformUserDirectoryStore', () => {
 						id: `user-${index}`,
 						email: `user-${index}@example.test`,
 						created_at: '2026-06-01T00:00:00.000Z',
-						last_sign_in_at: null
+						last_sign_in_at: null,
+						email_confirmed_at: null
 					})),
 					nextPage: 3
 				},
@@ -38,7 +40,8 @@ describe('createSupabasePlatformUserDirectoryStore', () => {
 							id: 'user-final',
 							email: null,
 							created_at: '2026-06-02T00:00:00.000Z',
-							last_sign_in_at: '2026-06-08T00:00:00.000Z'
+							last_sign_in_at: '2026-06-08T00:00:00.000Z',
+							confirmed_at: '2026-06-02T00:05:00.000Z'
 						}
 					]
 				},
@@ -61,7 +64,8 @@ describe('createSupabasePlatformUserDirectoryStore', () => {
 					id: 'user-final',
 					email: null,
 					createdAt: '2026-06-02T00:00:00.000Z',
-					lastSignInAt: '2026-06-08T00:00:00.000Z'
+					lastSignInAt: '2026-06-08T00:00:00.000Z',
+					emailConfirmedAt: '2026-06-02T00:05:00.000Z'
 				}
 			])
 		});
@@ -75,7 +79,8 @@ describe('createSupabasePlatformUserDirectoryStore', () => {
 						id: `user-${page}`,
 						email: `user-${page}@example.test`,
 						created_at: '2026-06-01T00:00:00.000Z',
-						last_sign_in_at: null
+						last_sign_in_at: null,
+						email_confirmed_at: null
 					}
 				],
 				nextPage: page < 10 ? page + 1 : page === 10 ? 1 : null
@@ -175,7 +180,8 @@ describe('createSupabasePlatformUserDirectoryStore', () => {
 						id: 'user-1',
 						email: 'soldier@example.test',
 						created_at: '2026-06-01T00:00:00.000Z',
-						last_sign_in_at: null
+						last_sign_in_at: null,
+						email_confirmed_at: '2026-06-01T00:05:00.000Z'
 					}
 				},
 				error: null
@@ -195,7 +201,8 @@ describe('createSupabasePlatformUserDirectoryStore', () => {
 					id: 'user-1',
 					email: 'soldier@example.test',
 					createdAt: '2026-06-01T00:00:00.000Z',
-					lastSignInAt: null
+					lastSignInAt: null,
+					emailConfirmedAt: '2026-06-01T00:05:00.000Z'
 				}
 			});
 			await expect(store.getAuthUser('missing-user')).resolves.toEqual({ status: 'not_found' });

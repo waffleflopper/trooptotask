@@ -134,6 +134,39 @@ test.describe('Auth email flows', () => {
 		}
 	});
 
+	test('signup confirmation lands on organization setup without creating an organization', async ({ page }) => {
+		const email = `signup-${Date.now()}@example.test`;
+		const password = 'SignupPassword123';
+		let userId: string | null = null;
+
+		try {
+			const { data, error } = await adminClient.auth.admin.generateLink({
+				type: 'signup',
+				email,
+				password,
+				options: {
+					redirectTo: buildAuthConfirmRedirectTo('signup')
+				}
+			});
+
+			expect(error).toBeNull();
+			userId = data.user?.id ?? null;
+			expect(userId).toBeTruthy();
+			expect(data.properties?.hashed_token).toBeTruthy();
+
+			const signupLink = `${buildAuthConfirmRedirectTo('signup')}&token_hash=${data.properties.hashed_token}`;
+
+			expectAuthConfirmLink(signupLink, 'signup');
+			await continueFromAuthConfirm(page, signupLink, 'signup');
+
+			await expect(page.getByRole('heading', { name: 'Create your first Organization' })).toBeVisible();
+		} finally {
+			if (userId) {
+				await adminClient.auth.admin.deleteUser(userId);
+			}
+		}
+	});
+
 	test('invite acceptance stays on the page and shows an error when finalization fails', async ({ page }) => {
 		const email = `invite-finalize-fail-${Date.now()}@example.test`;
 		const password = 'InvitePassword123';

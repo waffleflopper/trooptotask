@@ -2,21 +2,30 @@
 	import { enhance } from '$app/forms';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
+	import type { ActionData, PageData } from './$types';
 
-	let { form } = $props();
+	let { data, form }: { data: PageData; form: ActionData } = $props();
 	let loading = $state(false);
+	const canSubmit = $derived(data.emailConfirmed && data.canCreate && !loading);
+	const statusMessage = $derived(!data.emailConfirmed ? 'Email confirmation required' : data.canCreateMessage);
 </script>
 
 <svelte:head>
-	<title>Create Organization - Troop to Task</title>
+	<title>Create Your Organization - Troop to Task</title>
 </svelte:head>
 
 <div class="create-page">
 	<div class="create-card">
 		<div class="card-intro">
-			<p class="eyebrow">Organization Setup</p>
-			<h1>Create an Organization</h1>
-			<p class="subtitle">Stand up a workspace for scheduling, readiness tracking, and day-to-day unit management.</p>
+			<p class="eyebrow">First Organization Setup</p>
+			<h1>{data.emailConfirmed ? 'Create your first Organization' : 'Confirm your email first'}</h1>
+			<p class="subtitle">
+				{#if data.emailConfirmed}
+					Stand up the workspace your unit will use for rosters, schedules, readiness, and first-run setup.
+				{:else}
+					Open the newest confirmation email{data.userEmail ? ` for ${data.userEmail}` : ''} before creating a workspace.
+				{/if}
+			</p>
 		</div>
 
 		<form
@@ -33,9 +42,30 @@
 				<div class="error-message">{form.error}</div>
 			{/if}
 
+			{#if statusMessage}
+				<div class="status-message" data-testid="org-new-status">
+					<p class="seed-label">{statusMessage}</p>
+					<p>
+						{#if data.emailConfirmed}
+							Organization creation is paused for this account. Return to the dashboard or contact support if this looks
+							wrong.
+						{:else}
+							Signup only creates the User Account. Email confirmation must finish before Organization setup starts.
+						{/if}
+					</p>
+				</div>
+			{/if}
+
 			<div class="grid gap-2">
 				<label class="field-label" for="name">Organization Name</label>
-				<Input id="name" name="name" type="text" placeholder="e.g., Ft. Hood TMC" required />
+				<Input
+					id="name"
+					name="name"
+					type="text"
+					placeholder="e.g., 1st Battalion"
+					required
+					disabled={!data.emailConfirmed || !data.canCreate}
+				/>
 			</div>
 
 			<div class="seed-info">
@@ -44,11 +74,12 @@
 					Your organization starts with default groups, status types, assignment types, and federal holidays so you are
 					not staring at a blank page after setup.
 				</p>
+				<p>After creation, you will land on the owner dashboard with the first-run setup checklist.</p>
 			</div>
 
 			<div class="actions">
 				<Button href="/" variant="outline">Cancel</Button>
-				<Button type="submit" disabled={loading}>
+				<Button type="submit" disabled={!canSubmit}>
 					{loading ? 'Creating...' : 'Create Organization'}
 				</Button>
 			</div>
@@ -130,6 +161,25 @@
 		border-radius: var(--radius);
 		font-size: 0.8125rem;
 		margin-bottom: 1rem;
+	}
+
+	.status-message {
+		background: color-mix(in srgb, var(--accent) 10%, var(--card));
+		border: 1px solid var(--border);
+		color: var(--muted-foreground);
+		padding: 0.9rem 1rem;
+		border-radius: var(--radius);
+		font-size: 0.8125rem;
+		margin-bottom: 1rem;
+	}
+
+	.status-message p {
+		margin: 0;
+		line-height: 1.55;
+	}
+
+	.status-message p + p {
+		margin-top: 0.45rem;
 	}
 
 	.seed-info {

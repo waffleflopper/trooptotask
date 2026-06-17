@@ -24,13 +24,7 @@
 	import * as Select from '$lib/components/ui/select';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { redirectToSensitiveActionStepUp } from '$lib/auth/sensitiveActionStepUp';
-	import type {
-		BillingSnapshot,
-		BillingCancellationFeedback,
-		EffectiveTier,
-		SubscriptionStatus,
-		Tier
-	} from '$lib/types/subscription';
+	import type { BillingSnapshot, BillingCancellationFeedback, EffectiveTier, Tier } from '$lib/types/subscription';
 
 	type BillingApiResult = {
 		success?: boolean;
@@ -119,8 +113,23 @@
 	const billingActionsDisabled = $derived(
 		source === 'billing_disabled' || billingSnapshot?.source === 'billing_disabled'
 	);
-	const canOpenBillingPortal = $derived(data.canManageSubscription && !billingActionsDisabled);
-	const canManagePaidPlanChange = $derived(data.canManageSubscription && !billingActionsDisabled && source !== 'gift');
+	const hasPaidBillingSnapshot = $derived(isPaidBillingSnapshot(billingSnapshot));
+	const hasManageablePaidBillingSnapshot = $derived(
+		hasPaidBillingSnapshot &&
+			billingSnapshot?.subscriptionStatus !== 'canceled' &&
+			billingSnapshot?.subscriptionStatus !== 'incomplete_expired'
+	);
+	const hasRetainedBillingCustomer = $derived(!!(billingSnapshot?.stripeCustomerId || data.stripeCustomerId));
+	const isActiveFreeBillingState = $derived(isActiveFreeBillingSnapshot(billingSnapshot));
+	const canOpenBillingPortal = $derived(
+		data.canManageSubscription && !billingActionsDisabled && hasRetainedBillingCustomer && !isActiveFreeBillingState
+	);
+	const canManagePaidPlanChange = $derived(
+		canOpenBillingPortal && source !== 'gift' && hasManageablePaidBillingSnapshot
+	);
+	const canShowCancellationControls = $derived(
+		canOpenBillingPortal && source !== 'gift' && hasManageablePaidBillingSnapshot
+	);
 	const billingRecovery = $derived(
 		buildBillingRecovery(billingSnapshot, tier, canOpenBillingPortal, billingActionsDisabled)
 	);
@@ -130,6 +139,7 @@
 		data.canManageSubscription &&
 			!billingActionsDisabled &&
 			source !== 'gift' &&
+			hasManageablePaidBillingSnapshot &&
 			!!billingSnapshot?.stripeSubscriptionId
 	);
 	const selectedCancellationFeedback = $derived<BillingCancellationFeedback | null>(
@@ -179,27 +189,14 @@
 		}
 	}
 
-	function subscriptionStatusLabel(status: SubscriptionStatus | null | undefined): string {
-		switch (status) {
-			case 'active':
-				return 'Active';
-			case 'trialing':
-				return 'Trialing';
-			case 'past_due':
-				return 'Past Due';
-			case 'unpaid':
-				return 'Unpaid';
-			case 'canceled':
-				return 'Canceled';
-			case 'incomplete':
-				return 'Payment Pending';
-			case 'incomplete_expired':
-				return 'Checkout Expired';
-			case 'paused':
-				return 'Paused';
-			default:
-				return 'Free';
-		}
+	function isPaidBillingSnapshot(snapshot: BillingSnapshot | null): boolean {
+		return snapshot?.commercialPlan === 'team' || snapshot?.commercialPlan === 'unit';
+	}
+
+	function isActiveFreeBillingSnapshot(snapshot: BillingSnapshot | null): boolean {
+		return (
+			snapshot?.commercialPlan === 'free' && (snapshot.subscriptionStatus === 'active' || !snapshot.subscriptionStatus)
+		);
 	}
 
 	function buildBillingStatus(
@@ -229,6 +226,16 @@
 				statusLabel: 'Gifted',
 				variant: 'success',
 				actionHint: 'No payment recovery is needed while gifted access is active.'
+			};
+		}
+
+		if (isActiveFreeBillingSnapshot(snapshot)) {
+			return {
+				title: 'Free plan active.',
+				description: 'No active paid subscription is currently applied to this organization.',
+				statusLabel: 'Free',
+				variant: 'secondary',
+				actionHint: 'Choose a paid plan below to activate more capacity.'
 			};
 		}
 
@@ -558,6 +565,10 @@
 		return tierComparison.find((tierOption) => tierOption.tier === plan)?.name ?? plan;
 	}
 
+	function upgradeLabel(plan: { name: string }): string {
+		return `Upgrade to ${plan.name}`;
+	}
+
 	function openConfirmPasswordDialog(action: PendingBillingAction) {
 		pendingBillingAction = action;
 		confirmPassword = '';
@@ -847,7 +858,7 @@
 <PageShell.Root width="wide">
 	<PageShell.Header
 		title="Billing"
-		subtitle="Manage subscription status, plan limits, invoices, receipts, and billing details for this organization."
+		subtitle="Manage plan limits, invoices, receipts, billing details, and explicit Team or Unit upgrades for this Organization."
 	>
 		{#snippet meta()}
 			<Badge variant={sourceVariant(source)}>{sourceLabel(source)}</Badge>
@@ -928,7 +939,7 @@
 					</div>
 					<Card.Description>{billingStatus.description}</Card.Description>
 				</div>
-				{#if data.canManageSubscription && !billingActionsDisabled}
+				{#if canOpenBillingPortal}
 					<Button type="button" class="shrink-0" onclick={handleManageSubscription} disabled={portalLoading}>
 						{#if portalLoading}<Spinner />{/if}
 						{portalLoading ? 'Opening...' : 'Manage Subscription'}
@@ -940,7 +951,7 @@
 			<PageShell.FactGrid layout="three">
 				<PageShell.FactRow
 					label="Status"
-					value={subscriptionStatusLabel(billingSnapshot?.subscriptionStatus) +
+					value={billingStatus.statusLabel +
 						' (' +
 						(tierComparison.find((t) => t.tier === tier.tier)?.name ?? tier.tier) +
 						(isReadOnly ? ' *Limited' : '') +
@@ -1074,7 +1085,10 @@
 	<section class="grid gap-3" aria-labelledby="billing-pricing-heading">
 		<div class="grid gap-1">
 			<h2 id="billing-pricing-heading" class="text-xl font-semibold tracking-tight">Plans & Pricing</h2>
-			<p class="text-sm text-muted-foreground">Choose the plan that matches your organization size and export needs.</p>
+			<p class="text-sm text-muted-foreground">
+				New Organizations can stay on Free. Owners can explicitly upgrade to Team or Unit when they need more personnel
+				capacity or exports.
+			</p>
 		</div>
 
 		<div class="grid gap-3 lg:grid-cols-3">
@@ -1173,7 +1187,7 @@
 						{:else}
 							<Button class="w-full" onclick={() => handleSubscribeClick(plan.tier)} disabled={!!subscribingTier}>
 								{#if subscribingTier === plan.tier}<Spinner />{/if}
-								{subscribingTier === plan.tier ? 'Redirecting...' : 'Subscribe'}
+								{subscribingTier === plan.tier ? 'Redirecting...' : upgradeLabel(plan)}
 							</Button>
 						{/if}
 					</Card.Footer>
@@ -1182,7 +1196,7 @@
 		</div>
 	</section>
 
-	{#if data.canManageSubscription && !billingActionsDisabled && source !== 'gift'}
+	{#if canShowCancellationControls}
 		<Card.Root>
 			<Card.Header>
 				<Card.Title>Cancel Subscription</Card.Title>
@@ -1226,8 +1240,10 @@
 	<AppDialog.Root bind:open={subscribeConfirmOpen} onClose={closeSubscribeConfirmDialog}>
 		<AppDialog.Content>
 			<AppDialog.Header>
-				<AppDialog.Title>Confirm subscription</AppDialog.Title>
-				<AppDialog.Description>Review the details below before continuing to checkout.</AppDialog.Description>
+				<AppDialog.Title>
+					{subscribeConfirmPlan ? upgradeLabel(subscribeConfirmPlan) : 'Confirm upgrade'}
+				</AppDialog.Title>
+				<AppDialog.Description>Review the monthly plan before continuing to checkout.</AppDialog.Description>
 			</AppDialog.Header>
 
 			<AppDialog.Body class="grid gap-4">
@@ -1239,7 +1255,8 @@
 					</PageShell.FactGrid>
 				{/if}
 				<p class="text-sm text-muted-foreground">
-					You will be redirected to our payment provider to complete checkout. No charges until checkout is finalized.
+					You will be redirected to our payment provider to complete checkout. Your Organization remains on its current
+					plan until checkout is complete.
 				</p>
 			</AppDialog.Body>
 

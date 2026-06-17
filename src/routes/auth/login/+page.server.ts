@@ -14,7 +14,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 			reauth,
 			nextPath,
 			authLinkError:
-				'This email link is invalid or has expired. Request a fresh invite or password reset email and try again.'
+				'This email link is invalid or has expired. Request a fresh signup, invite, or password reset email and try again.'
 		};
 	}
 

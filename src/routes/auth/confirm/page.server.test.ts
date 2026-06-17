@@ -54,6 +54,56 @@ describe('GET /auth/confirm', () => {
 		expect(verifyOtp).not.toHaveBeenCalled();
 	});
 
+	it('renders a confirmation state for a valid signup email link without verifying the token', async () => {
+		const verifyOtp = vi.fn();
+
+		const result = await load({
+			url: new URL('http://localhost/auth/confirm?token_hash=signup-token&type=email&next=%2Forg%2Fnew'),
+			locals: {
+				supabase: {
+					auth: {
+						verifyOtp
+					}
+				}
+			}
+		} as unknown as Parameters<typeof load>[0]);
+
+		expect(result).toEqual({
+			confirmation: {
+				status: 'valid',
+				tokenHash: 'signup-token',
+				type: 'email',
+				next: '/org/new'
+			}
+		});
+		expect(verifyOtp).not.toHaveBeenCalled();
+	});
+
+	it('renders a confirmation state for the provider signup alias without verifying the token', async () => {
+		const verifyOtp = vi.fn();
+
+		const result = await load({
+			url: new URL('http://localhost/auth/confirm?token_hash=signup-token&type=signup&next=%2Forg%2Fnew'),
+			locals: {
+				supabase: {
+					auth: {
+						verifyOtp
+					}
+				}
+			}
+		} as unknown as Parameters<typeof load>[0]);
+
+		expect(result).toEqual({
+			confirmation: {
+				status: 'valid',
+				tokenHash: 'signup-token',
+				type: 'signup',
+				next: '/org/new'
+			}
+		});
+		expect(verifyOtp).not.toHaveBeenCalled();
+	});
+
 	it('returns an invalid confirmation state when the token is missing', async () => {
 		const result = await load({
 			url: new URL('http://localhost/auth/confirm?type=invite&next=%2Fauth%2Faccept-invite'),
@@ -69,7 +119,7 @@ describe('GET /auth/confirm', () => {
 
 	it('returns an invalid confirmation state for unsupported email types', async () => {
 		const result = await load({
-			url: new URL('http://localhost/auth/confirm?token_hash=signup-token&type=email&next=%2Fauth%2Faccept-invite'),
+			url: new URL('http://localhost/auth/confirm?token_hash=magic-token&type=magiclink&next=%2Forg%2Fnew'),
 			locals: {}
 		} as unknown as Parameters<typeof load>[0]);
 
@@ -170,6 +220,78 @@ describe('POST /auth/confirm', () => {
 		);
 	});
 
+	it('verifies a valid signup email token and redirects without setting a pending invite or recovery flow', async () => {
+		const verifyOtp = vi.fn().mockResolvedValue({ error: null });
+		const cookies = { set: vi.fn() };
+
+		await expect(
+			actions.default({
+				request: new Request('http://localhost/auth/confirm', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+					body: new URLSearchParams({
+						tokenHash: 'signup-token',
+						type: 'email',
+						next: '/org/new'
+					})
+				}),
+				locals: {
+					supabase: {
+						auth: {
+							verifyOtp
+						}
+					}
+				},
+				cookies
+			} as unknown as Parameters<(typeof actions)['default']>[0])
+		).rejects.toMatchObject({
+			status: 303,
+			location: '/org/new'
+		});
+
+		expect(verifyOtp).toHaveBeenCalledWith({
+			token_hash: 'signup-token',
+			type: 'email'
+		});
+		expect(cookies.set).not.toHaveBeenCalled();
+	});
+
+	it('verifies a provider signup token and redirects without setting a pending invite or recovery flow', async () => {
+		const verifyOtp = vi.fn().mockResolvedValue({ error: null });
+		const cookies = { set: vi.fn() };
+
+		await expect(
+			actions.default({
+				request: new Request('http://localhost/auth/confirm', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+					body: new URLSearchParams({
+						tokenHash: 'signup-token',
+						type: 'signup',
+						next: '/org/new'
+					})
+				}),
+				locals: {
+					supabase: {
+						auth: {
+							verifyOtp
+						}
+					}
+				},
+				cookies
+			} as unknown as Parameters<(typeof actions)['default']>[0])
+		).rejects.toMatchObject({
+			status: 303,
+			location: '/org/new'
+		});
+
+		expect(verifyOtp).toHaveBeenCalledWith({
+			token_hash: 'signup-token',
+			type: 'signup'
+		});
+		expect(cookies.set).not.toHaveBeenCalled();
+	});
+
 	it('redirects to login instead of following an unsafe next destination', async () => {
 		const verifyOtp = vi.fn();
 
@@ -182,6 +304,37 @@ describe('POST /auth/confirm', () => {
 						tokenHash: 'invite-token',
 						type: 'invite',
 						next: 'https://evil.example/offsite'
+					})
+				}),
+				locals: {
+					supabase: {
+						auth: {
+							verifyOtp
+						}
+					}
+				},
+				cookies: { set: vi.fn() }
+			} as unknown as Parameters<(typeof actions)['default']>[0])
+		).rejects.toMatchObject({
+			status: 303,
+			location: '/auth/login?error=auth_link_invalid'
+		});
+
+		expect(verifyOtp).not.toHaveBeenCalled();
+	});
+
+	it('redirects to login instead of accepting a signup email link with an invite destination', async () => {
+		const verifyOtp = vi.fn();
+
+		await expect(
+			actions.default({
+				request: new Request('http://localhost/auth/confirm', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+					body: new URLSearchParams({
+						tokenHash: 'signup-token',
+						type: 'email',
+						next: '/auth/accept-invite'
 					})
 				}),
 				locals: {

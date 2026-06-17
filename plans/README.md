@@ -15,6 +15,7 @@ Updated by the improve skill on 2026-06-14 at commit `b3acfabb` with plans 069-0
 Updated by the improve skill on 2026-06-14 at commit `b3acfabb` with plans 075-077 (fresh standard audit; Robert selected the account-security hardening bundle, the resync batching, and the legacy PKCE cleanup. Most reported findings were false positives — see "Findings Considered And Rejected").
 Updated by the improve skill on 2026-06-15 at commit `03af64cb` with plans 078-082 (Robert selected the recommended launch-readiness direction plans 1-5 from the `$improve next` audit, with the beta-lane packaging direction folded into plan 079).
 Updated by plan 080 on 2026-06-15 with plans 083-087 (self-service acquisition follow-ups for the selected billing-enabled public registration path).
+Updated by the improve skill on 2026-06-16 at commit `c6760c16` with plans 088-092 (follow-up `$improve next` direction audit; existing plans 083-087 remain the primary self-service launch path, with new plans covering invitation edge cases, paid-launch legal/trust/contact readiness, billing launch gating, billing health/support workflow, and post-checkout activation visibility).
 
 Execute in the order below unless dependencies say otherwise. Each executor must read the selected plan fully before starting, honor its STOP conditions, run every verification command, and update the status row when done.
 
@@ -111,6 +112,11 @@ The operator explicitly excluded automatic CI trigger work from this batch. Do n
 | 085  | Self-service checkout and billing recovery        | P1       | L      | 083, 084, 078 | TODO |
 | 086  | Support/admin visibility for self-service         | P1       | M-L    | 083, 084, 085, 082 | TODO |
 | 087  | Self-service acquisition E2E coverage             | P1       | L      | 083, 084, 085, 086 | TODO |
+| 088  | Self-service Organization Invitation branch       | P1       | M      | 083        | TODO   |
+| 089  | Paid-launch legal/trust/contact surface           | P1       | M      | -          | TODO   |
+| 090  | Billing launch readiness gate                     | P1       | M      | 083-087    | TODO   |
+| 091  | Billing health and support workflow               | P1       | M-L    | 085, 086   | TODO   |
+| 092  | Acquisition and activation health visibility      | P2       | M-L    | 081, 083-087 | TODO |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line rationale).
 
@@ -185,6 +191,11 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJE
 - 081 depends on 080 so the dashboard first-run checklist can align with the selected acquisition path and launch copy. It is otherwise a contained dashboard/read-model/UI slice; do not add schema unless the existing `getting_started_progress` table is proven insufficient.
 - 082 is independent from 078-081 and can run in parallel with them if no one else is editing `docs/security` or billing launch docs. It is documentation/test evidence work only; do not invent compliance evidence, claim formal certification, or touch production systems.
 - 083-087 implement the self-service acquisition target selected by 080. Keep them ordered so signup and email confirmation land before Organization creation, Organization creation lands before checkout/recovery, support visibility lands before final E2E, and no plan touches production DB, live Stripe, secrets, or resets local DB.
+- 088 was discovered after the 083-087 batch was written. If Robert wants the paid self-service invitation branch in launch scope, run 088 after 083 and before final broad acquisition E2E so invitee signup/confirmation/acceptance can be covered without forcing no-account invitees through reviewed access.
+- 089 is independent copy/legal/trust readiness and can run in parallel with technical self-service work, but it must stop for Robert-owned decisions on support mailbox, privacy/security domains, refunds, tax copy, and paid-launch terms. It should not invent legal policy.
+- 090 is the conservative launch gate and should run after 083-087 have landed or when their absence should intentionally keep the gate blocked. It must not access production env vars, live Stripe, live customers, or production databases.
+- 091 depends on 085 and 086 because billing health/support workflow should build on real checkout/recovery behavior and support/admin visibility. It may be designed earlier, but do not wire customer-facing health claims before those surfaces exist.
+- 092 depends on 081 and the 083-087 acquisition path because it measures whether self-service customers reach product value after signup, Organization creation, checkout, and first-run dashboard guidance. If it needs new persisted activation milestone state, stop and write a separate migration plan instead of adding schema inside 092.
 
 ## Findings Considered And Rejected
 
@@ -206,6 +217,11 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJE
   fixes — accepted. Critical vitest advisory fixed in plan 013.
 - `bits-ui` postinstall patch: real dependency debt, but lower leverage than the selected security, database, and calendar/duty-roster correctness work. Re-confirmed 2026-06-11 (finding F10): still deferred; the version pin is honored by plan 013's scope.
 - GitHub beta feedback mirror privacy remediation: not planned. Robert said the GitHub feedback mirror will go away after beta and does not need launch hardening. Plan 032 is scoped only to truthful disclosure of Vercel site/performance analytics without implying person-level analytics profiling.
+- Fresh `$improve next` finding, "execute 083-087 before planning more funnel build": accepted as the dependency posture rather than a separate plan. The current self-service launch path is already represented by plans 083-087; plans 088-092 are follow-ons or launch controls, not replacements.
+- Fresh `$improve next` finding, separate support-contact hardening: folded into plan 089 because the same public/legal/billing surfaces need the canonical paid-launch contact channel and owner-confirmed terms together.
+- Fresh `$improve next` finding, separate support-safe billing case template: folded into plan 091 because the support bundle should ship with billing health states and admin visibility rather than as detached prose.
+- Fresh `$improve next` finding, operational evidence cadence tracker: deferred. It is real and grounded in `docs/security/operational-control-evidence.md`, but lower leverage than the self-service invitation edge case, legal/trust readiness, launch gate, billing health workflow, and activation visibility for turning billing on.
+- Fresh `$improve next` findings around seeded defaults, roster import, Duty Roster first-week setup, and acquisition funnel instrumentation: folded into plan 092 as one activation-health slice so first-run checklist semantics and Robert-facing activation visibility stay aligned.
 
 Rejected in the 2026-06-14 standard audit (commit `b3acfabb`) — vetted false positives, do not re-audit:
 

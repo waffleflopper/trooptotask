@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 export interface SignupAuthProvider {
-	signUp(input: { email: string; password: string; emailRedirectTo: string }): Promise<{ error: unknown }>;
+	signUp(input: { email: string; password: string; options: { emailRedirectTo: string } }): Promise<{ error: unknown }>;
 }
 
 export function createSupabaseSignupAuthProvider(locals: { supabase: SupabaseClient }): SignupAuthProvider {
@@ -11,7 +11,7 @@ export function createSupabaseSignupAuthProvider(locals: { supabase: SupabaseCli
 				email: input.email,
 				password: input.password,
 				options: {
-					emailRedirectTo: input.emailRedirectTo
+					emailRedirectTo: input.options.emailRedirectTo
 				}
 			});
 

@@ -23,11 +23,10 @@
 
 ## Reconciliation note
 
-On 2026-06-16, this plan was refreshed at `d485cdc5`. Launch, billing, and
-security docs changed after the original `0cafdd3e` stamp, but the
-self-service support visibility gap remains because plans 083-085 are still
-TODO. Current admin billing diagnostics still load the most recent 50 events,
-and subscription drift is still counted only on the visible page.
+On 2026-06-17, PR #1230 completed this plan after the `d485cdc5`
+reconciliation. Support/admin visibility now builds on the completed
+self-service signup, first Organization, and checkout/recovery slices from
+plans 083-085.
 
 ## Why this matters
 

@@ -16,8 +16,15 @@ interface OrganizationSummary {
 	url_slug: string | null;
 }
 
+const SIGNUP_CONFIRMATION_SUBJECTS = ['confirm', 'confirmation', 'signup'];
+
 function hashRateLimitDimension(value: string): string {
 	return createHash('sha256').update(value).digest('hex');
+}
+
+function isSignupConfirmationEmailTimeout(error: unknown, email: string): boolean {
+	const expectedMessage = `Timed out waiting for "${SIGNUP_CONFIRMATION_SUBJECTS.join(', ')}" email for ${email}`;
+	return error instanceof Error && error.message === expectedMessage;
 }
 
 async function listAuthUsers(): Promise<AuthUserSummary[]> {
@@ -122,37 +129,50 @@ async function cleanupSignupRateLimitBuckets(email: string): Promise<void> {
 	}
 
 	for (const bucketKey of bucketKeys) {
-		await adminClient.from('durable_rate_limits').delete().eq('bucket_key', bucketKey);
+		const response = await adminClient.from('durable_rate_limits').delete().eq('bucket_key', bucketKey);
+		expect(response.error, `cleanup durable_rate_limits bucket ${bucketKey}`).toBeNull();
+		expect(response.status, `cleanup durable_rate_limits bucket ${bucketKey}`).toBeGreaterThanOrEqual(200);
+		expect(response.status, `cleanup durable_rate_limits bucket ${bucketKey}`).toBeLessThan(300);
 	}
 }
 
-async function continueFromSignupEmailOrLocalLogin(page: Page, email: string, password: string): Promise<string> {
-	try {
-		const message = await waitForMessage(email, ['confirm', 'confirmation', 'signup'], 4_000);
-		const confirmationLink = extractFirstLink(message);
+async function continueFromLocalConfirmedSignup(page: Page, email: string, password: string): Promise<string> {
+	// Local Supabase intentionally disables email confirmations for development.
+	// In that mode signup creates a confirmed account, so continue through login if
+	// the server-side signup action did not leave an authenticated browser session.
+	await page.goto('/org/new');
+	if (new URL(page.url()).pathname === '/org/new') return 'local-dev-session';
 
-		expectAuthConfirmLink(confirmationLink, 'email');
-		await continueFromAuthConfirm(page, confirmationLink, 'email');
-		return 'email-confirmation';
-	} catch {
-		// Local Supabase intentionally disables email confirmations for development.
-		// In that mode signup creates a confirmed account, so continue through login if
-		// the server-side signup action did not leave an authenticated browser session.
+	await page.goto(`/auth/login?next=${encodeURIComponent('/org/new')}`);
+	await page.getByTestId('login-email').fill(email);
+	await page.getByTestId('login-password').fill(password);
+	await page.getByTestId('login-submit').click();
+	await expect(page).toHaveURL(/\/(org\/new|dashboard|org\/)/, { timeout: 20_000 });
+
+	if (new URL(page.url()).pathname !== '/org/new') {
 		await page.goto('/org/new');
-		if (new URL(page.url()).pathname === '/org/new') return 'local-dev-session';
+	}
 
-		await page.goto(`/auth/login?next=${encodeURIComponent('/org/new')}`);
-		await page.getByTestId('login-email').fill(email);
-		await page.getByTestId('login-password').fill(password);
-		await page.getByTestId('login-submit').click();
-		await expect(page).toHaveURL(/\/(org\/new|dashboard|org\/)/, { timeout: 20_000 });
+	return 'local-dev-login';
+}
 
-		if (new URL(page.url()).pathname !== '/org/new') {
-			await page.goto('/org/new');
+async function continueFromSignupEmailOrLocalLogin(page: Page, email: string, password: string): Promise<string> {
+	let message: Awaited<ReturnType<typeof waitForMessage>>;
+	try {
+		message = await waitForMessage(email, SIGNUP_CONFIRMATION_SUBJECTS, 4_000);
+	} catch (error) {
+		if (!isSignupConfirmationEmailTimeout(error, email)) {
+			throw error;
 		}
 
-		return 'local-dev-login';
+		return continueFromLocalConfirmedSignup(page, email, password);
 	}
+
+	const confirmationLink = extractFirstLink(message);
+
+	expectAuthConfirmLink(confirmationLink, 'email');
+	await continueFromAuthConfirm(page, confirmationLink, 'email');
+	return 'email-confirmation';
 }
 
 test.describe('Self-service acquisition', () => {

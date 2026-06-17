@@ -25,12 +25,10 @@
 
 ## Reconciliation note
 
-On 2026-06-16, this plan was refreshed at `d485cdc5`. Billing checkout and
-owner recovery surfaces have changed since the original plan: checkout now uses
-the `billing-recovery` read-only-mode exception, tax configuration failure copy
-is explicit, and the billing page shows pending checkout plus read-only
-recovery states. The self-service checkout entry finding still exists because
-plans 083 and 084 have not yet landed.
+On 2026-06-17, PR #1230 completed this plan after the `d485cdc5`
+reconciliation. Billing checkout remains explicit from the authenticated
+Organization billing page, new self-service Organizations start on Free, and
+Team/Unit checkout starts only when the owner chooses an upgrade.
 
 ## Why this matters
 
@@ -52,8 +50,8 @@ the self-service first-run path without weakening billing authorization.
   attempts and current billing state for authenticated Organization context.
 - `docs/billing-launch-verification.md` documents checkout, renewal, failed
   payment, cancellation, and recovery scenarios.
-- `docs/billing-operations-launch-checklist.md` says self-service acquisition
-  must not be implied until real follow-up work exists.
+- `docs/billing-operations-launch-checklist.md` documents the environment-gated
+  acquisition path and the Free-first checkout entry.
 
 Current excerpts:
 
@@ -141,14 +139,13 @@ that a confirmed owner can land in an authenticated Organization context.
 `rg -n "sign-up|signup|org/new|PUBLIC_BILLING_ENABLED|billing" src/routes/auth src/routes/org docs/launch-acquisition-path.md`
 shows real signup, Organization creation, and billing-gated paths.
 
-### Step 2: Define the first-run billing decision
+### Step 2: Keep the Free-first billing decision
 
-Decide whether a new self-service Organization lands on Free first, starts a
-trial, or must choose Team/Unit checkout immediately. If trial semantics are not
-already represented in billing state and product policy, stop and ask Robert for
-a separate trial design.
+The first-run billing decision is already made: a new self-service Organization
+lands on Free first. Do not introduce trial language or require immediate
+checkout; Team and Unit remain explicit upgrades from Billing.
 
-Document the chosen behavior in `docs/launch-acquisition-path.md`.
+Keep the chosen behavior documented in `docs/launch-acquisition-path.md`.
 
 **Verify**:
 `rg -n "trial|Free|Team|Unit|checkout|billing entry point" docs/launch-acquisition-path.md docs/billing-operations-launch-checklist.md`

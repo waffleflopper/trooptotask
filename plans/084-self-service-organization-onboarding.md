@@ -25,12 +25,10 @@
 
 ## Reconciliation note
 
-On 2026-06-16, this plan was refreshed at `d485cdc5`. The first-run checklist
-from plan 081 has landed, and the getting-started endpoint now uses
-policy-first route configs with `identity-owned-preference` read-only-mode
-exceptions for dismissal writes. The core finding still exists: `/org/new`
-remains a generic authenticated Organization provisioning page, and there is no
-confirmed self-service signup route from plan 083 to build on yet.
+On 2026-06-17, PR #1230 completed this plan after the `d485cdc5`
+reconciliation. The first-run checklist from plan 081 is now connected to the
+billing-enabled signup path from plan 083, and `/org/new` serves the
+post-confirmation first Organization handoff.
 
 ## Why this matters
 
@@ -125,8 +123,8 @@ readOnlyModeException: 'identity-owned-preference'
 ### Step 1: Confirm Plan 083 and Plan 081 state
 
 Read the implemented signup route from Plan 083 and the first-run checklist
-work from Plan 081 if it has landed. If either has not landed, stop unless the
-operator explicitly tells you to rebase the plan.
+work from Plan 081. If either surface is unavailable or has regressed, stop
+unless the operator explicitly tells you to rebase the plan.
 
 **Verify**:
 `test -f docs/launch-acquisition-path.md && rg -n "self-service|signup|first-run|getting-started|org/new" docs/launch-acquisition-path.md plans/081-surface-first-run-owner-checklist.md src/routes/auth src/routes/org/new`
@@ -202,8 +200,8 @@ focused tests and the full repo gate.
 
 Stop and report back if:
 
-- Plan 083 has not landed and there is no confirmed self-service User Account
-  path to build on.
+- The confirmed self-service User Account path from Plan 083 is unavailable or
+  regresses.
 - Creating the first Organization requires a schema change not covered by this
   plan.
 - The change would create Organization Membership from Access Request
@@ -215,6 +213,6 @@ Stop and report back if:
 ## Maintenance notes
 
 This plan owns the transition from confirmed User Account to first Organization.
-Plan 085 owns the transition from Organization to billing/trial/checkout. Keep
+Plan 085 owns the transition from Organization to billing and checkout. Keep
 those boundaries separate so account identity, tenancy, and billing recovery
 remain reviewable.

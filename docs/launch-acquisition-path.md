@@ -13,10 +13,9 @@ TroopToTask will keep acquisition environment-gated for launch readiness:
   users receive an Account Setup Link.
 - When paid billing is turned on, the target path is open self-service
   registration with email confirmation and no request-access gate.
-- Plans 083 and 084 add the self-service signup identity layer and the
-  post-confirmation first Organization setup path. The full paid self-service
-  path still requires the remaining checkout, support/admin visibility, and E2E
-  follow-up implementation plans listed below.
+- Plans 083-087 add the self-service signup identity layer, post-confirmation
+  first Organization setup path, explicit Free-first checkout entry,
+  support/admin visibility, and focused E2E coverage.
 
 This document selects one launch direction: reviewed access remains the live
 public path until the self-service acquisition plans are complete and billing is
@@ -28,19 +27,19 @@ The reviewed path is for early paid-launch and pre-billing users whose account
 creation should still be manually approved before a User Account is activated.
 It is also the safe fallback while billing is disabled.
 
-The future self-service path is for public paid customers who should be able to
+The billing-enabled self-service path is for public paid customers who should be able to
 create a User Account, confirm email control, create an Organization, and enter
 checkout without a platform-admin approval step.
 
 ## Public CTA
 
-Until the full self-service acquisition path ships, public CTAs should continue
+While billing is disabled, public CTAs should continue
 to say `Request Access` and route unauthenticated users to
 `/auth/request-access`. Public pricing may show final Team and Unit prices, but
 it must not imply that an unapproved public user can create an Organization or
 start checkout today.
 
-After the self-service plans ship and billing is enabled, the public CTA should
+When billing is enabled and the self-service route is exposed, the public CTA should
 move to account creation language such as `Create Account` or `Get Started`,
 backed by a real route and email-confirmation flow. Do not use trial language
 for launch; new self-service Organizations start on Free until the owner chooses
@@ -61,7 +60,7 @@ Self-service target:
 
 1. The user creates a User Account through a public registration route.
 2. The user confirms email control before entering app-owned onboarding.
-3. The user creates an Organization or accepts an Organization Invitation.
+3. The user creates the first Organization.
 4. The new Organization lands on the owner dashboard with Free active.
 5. The owner can open Billing and choose `Upgrade to Team` or
    `Upgrade to Unit` checkout, or continue on Free.
@@ -126,9 +125,9 @@ replaces the request-access gate:
 ## Follow-up implementation plans
 
 The self-service target is larger than a copy update. Plan 080 created the
-following implementation plans; plans 083 and 084 now cover signup identity and
-first Organization setup, while checkout, support/admin visibility, and E2E
-coverage remain as follow-up slices:
+following implementation plans, and PR #1230 completed plans 083-087 as the
+baseline self-service acquisition path. The separate paid invitation branch
+remains tracked by plan 088.
 
 - `plans/083-public-account-creation-abuse-controls.md`
 - `plans/084-self-service-organization-onboarding.md`
@@ -143,6 +142,6 @@ Request approval still creates or renews an app-owned Account Setup Link, not a
 Supabase User Account, and it does not create an Organization Membership.
 
 The self-service registration path must not silently change ADR 0009 semantics.
-Plan 083 updates ADR 0009 with a billing-enabled signup exception for User
+Plan 083 updated ADR 0009 with a billing-enabled signup exception for User
 Account creation, while Access Request, Account Setup Link, User Account, and
 Organization Membership remain separate concepts.

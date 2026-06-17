@@ -17,6 +17,7 @@ Updated by the improve skill on 2026-06-15 at commit `03af64cb` with plans 078-0
 Updated by plan 080 on 2026-06-15 with plans 083-087 (self-service acquisition follow-ups for the selected billing-enabled public registration path).
 Updated by the improve skill on 2026-06-16 at commit `c6760c16` with plans 088-092 (follow-up `$improve next` direction audit; existing plans 083-087 remain the primary self-service launch path, with new plans covering invitation edge cases, paid-launch legal/trust/contact readiness, billing launch gating, billing health/support workflow, and post-checkout activation visibility).
 Reconciled by the improve skill on 2026-06-16 at commit `d485cdc5`: refreshed TODO plan drift baselines for plans 083-092 after the read-only billing gate landed; no plan was rejected, blocked, or newly completed during reconciliation.
+Completed by PR #1230 on 2026-06-17: plans 083-087 now implement the self-service acquisition path from signup through Organization creation, explicit Free-first checkout entry, support/admin visibility, and focused E2E coverage.
 
 Execute in the order below unless dependencies say otherwise. Each executor must read the selected plan fully before starting, honor its STOP conditions, run every verification command, and update the status row when done.
 
@@ -124,11 +125,11 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJE
 ## Reconciliation Notes
 
 - 2026-06-16 at `d485cdc5`: plans 001-082 remain DONE. This reconcile pass spot-checked recent launch-readiness records from plans 078-082 (`docs/launch-acquisition-path.md`, billing launch evidence/checklists, security evidence, and the dashboard getting-started checklist) and found no DONE plan that needed reopening.
-- Plans 083-087 drifted because launch acquisition docs, first-run checklist support, and billing recovery/read-only behavior landed after their original `0cafdd3e` plan stamp. Their plan files were refreshed in place and remain TODO.
+- Plans 083-087 were implemented by PR #1230 after the `d485cdc5` reconciliation. The refreshed plan notes now point at the completed signup, first Organization handoff, checkout/recovery, support/admin visibility, and focused E2E work instead of treating those surfaces as absent.
 - Plans 088-089 and 091 had no in-scope drift since `c6760c16`; their drift baselines were advanced to the current reconcile commit so executors can start from a clean check.
 - Plan 090 drifted because the read-only billing gate added `readOnlyMode` and route-authorization exceptions after `c6760c16`; the plan now calls that out as launch-readiness evidence.
 - Plan 092 drifted because the getting-started endpoint adopted policy-first route config/read-only preference exceptions after `c6760c16`; the activation-health finding still stands.
-- No BLOCKED or IN PROGRESS rows were present. The executable launch runway is still plans 083-092, with plan 089 independent and plans 083-087 remaining the primary self-service acquisition chain.
+- No BLOCKED or IN PROGRESS rows were present. After PR #1230, the remaining executable launch runway is plans 088-092, with plan 089 independent and plans 083-087 serving as the completed self-service acquisition foundation.
 
 ## Dependency Notes
 

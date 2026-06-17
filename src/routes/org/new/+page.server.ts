@@ -2,19 +2,20 @@ import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { createSupabaseOrgProvisioningPort } from '$lib/server/adapters/supabaseOrgProvisioning';
 import { loadOrganizationProvisioning, provisionOrganization } from '$lib/server/core/useCases/orgProvisioning';
+import {
+	verifyCurrentUserEmailConfirmation,
+	type CurrentUserEmailConfirmation
+} from '$lib/server/currentUserEmailConfirmation';
 
 const EMAIL_CONFIRMATION_REQUIRED_MESSAGE = 'Confirm your email before creating an Organization.';
+const EMAIL_CONFIRMATION_UNAVAILABLE_MESSAGE = 'Unable to verify email confirmation right now. Try again in a moment.';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	if (!locals.user) throw redirect(303, '/auth/login');
 
-	if (!hasConfirmedEmail(locals.user)) {
-		return {
-			emailConfirmed: false,
-			userEmail: locals.user.email ?? null,
-			canCreate: false,
-			canCreateMessage: EMAIL_CONFIRMATION_REQUIRED_MESSAGE
-		};
+	const emailConfirmation = await verifyCurrentUserEmailConfirmation(locals, locals.user);
+	if (emailConfirmation.status !== 'confirmed') {
+		return emailConfirmationLoadData(emailConfirmation);
 	}
 
 	const provisioning = await loadOrganizationProvisioning(createSupabaseOrgProvisioningPort(locals), {
@@ -24,7 +25,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 	return {
 		...provisioning,
 		emailConfirmed: true,
-		userEmail: locals.user.email ?? null
+		userEmail: emailConfirmation.email
 	};
 };
 
@@ -32,8 +33,12 @@ export const actions: Actions = {
 	default: async ({ request, locals }) => {
 		const user = locals.user;
 		if (!user) throw redirect(303, '/auth/login');
-		if (!hasConfirmedEmail(user)) {
+		const emailConfirmation = await verifyCurrentUserEmailConfirmation(locals, user);
+		if (emailConfirmation.status === 'unconfirmed') {
 			return fail(403, { error: EMAIL_CONFIRMATION_REQUIRED_MESSAGE });
+		}
+		if (emailConfirmation.status === 'unavailable') {
+			return fail(503, { error: EMAIL_CONFIRMATION_UNAVAILABLE_MESSAGE });
 		}
 
 		const formData = await request.formData();
@@ -43,7 +48,7 @@ export const actions: Actions = {
 			result = await provisionOrganization(createSupabaseOrgProvisioningPort(locals), {
 				name: (formData.get('name') as string) ?? '',
 				userId: user.id,
-				email: user.email
+				email: emailConfirmation.email
 			});
 		} catch (error) {
 			return toActionFailure(error);
@@ -53,12 +58,16 @@ export const actions: Actions = {
 	}
 };
 
-function hasConfirmedEmail(user: NonNullable<App.Locals['user']>): boolean {
-	return Boolean(user.email && (hasTimestamp(user.email_confirmed_at) || hasTimestamp(user.confirmed_at)));
-}
-
-function hasTimestamp(value: string | null | undefined): boolean {
-	return typeof value === 'string' && value.trim().length > 0;
+function emailConfirmationLoadData(emailConfirmation: CurrentUserEmailConfirmation) {
+	return {
+		emailConfirmed: false,
+		userEmail: emailConfirmation.email,
+		canCreate: false,
+		canCreateMessage:
+			emailConfirmation.status === 'unavailable'
+				? EMAIL_CONFIRMATION_UNAVAILABLE_MESSAGE
+				: EMAIL_CONFIRMATION_REQUIRED_MESSAGE
+	};
 }
 
 function toActionFailure(error: unknown) {

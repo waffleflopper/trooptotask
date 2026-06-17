@@ -24,13 +24,7 @@
 	import * as Select from '$lib/components/ui/select';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { redirectToSensitiveActionStepUp } from '$lib/auth/sensitiveActionStepUp';
-	import type {
-		BillingSnapshot,
-		BillingCancellationFeedback,
-		EffectiveTier,
-		SubscriptionStatus,
-		Tier
-	} from '$lib/types/subscription';
+	import type { BillingSnapshot, BillingCancellationFeedback, EffectiveTier, Tier } from '$lib/types/subscription';
 
 	type BillingApiResult = {
 		success?: boolean;
@@ -119,8 +113,11 @@
 	const billingActionsDisabled = $derived(
 		source === 'billing_disabled' || billingSnapshot?.source === 'billing_disabled'
 	);
-	const canOpenBillingPortal = $derived(data.canManageSubscription && !billingActionsDisabled);
-	const canManagePaidPlanChange = $derived(data.canManageSubscription && !billingActionsDisabled && source !== 'gift');
+	const hasPaidBillingSnapshot = $derived(isPaidBillingSnapshot(billingSnapshot));
+	const canOpenBillingPortal = $derived(
+		data.canManageSubscription && !billingActionsDisabled && hasPaidBillingSnapshot
+	);
+	const canManagePaidPlanChange = $derived(canOpenBillingPortal && source !== 'gift');
 	const billingRecovery = $derived(
 		buildBillingRecovery(billingSnapshot, tier, canOpenBillingPortal, billingActionsDisabled)
 	);
@@ -130,6 +127,7 @@
 		data.canManageSubscription &&
 			!billingActionsDisabled &&
 			source !== 'gift' &&
+			hasPaidBillingSnapshot &&
 			!!billingSnapshot?.stripeSubscriptionId
 	);
 	const selectedCancellationFeedback = $derived<BillingCancellationFeedback | null>(
@@ -179,27 +177,14 @@
 		}
 	}
 
-	function subscriptionStatusLabel(status: SubscriptionStatus | null | undefined): string {
-		switch (status) {
-			case 'active':
-				return 'Active';
-			case 'trialing':
-				return 'Trialing';
-			case 'past_due':
-				return 'Past Due';
-			case 'unpaid':
-				return 'Unpaid';
-			case 'canceled':
-				return 'Canceled';
-			case 'incomplete':
-				return 'Payment Pending';
-			case 'incomplete_expired':
-				return 'Checkout Expired';
-			case 'paused':
-				return 'Paused';
-			default:
-				return 'Free';
-		}
+	function isPaidBillingSnapshot(snapshot: BillingSnapshot | null): boolean {
+		return snapshot?.commercialPlan === 'team' || snapshot?.commercialPlan === 'unit';
+	}
+
+	function isActiveFreeBillingSnapshot(snapshot: BillingSnapshot | null): boolean {
+		return (
+			snapshot?.commercialPlan === 'free' && (snapshot.subscriptionStatus === 'active' || !snapshot.subscriptionStatus)
+		);
 	}
 
 	function buildBillingStatus(
@@ -229,6 +214,16 @@
 				statusLabel: 'Gifted',
 				variant: 'success',
 				actionHint: 'No payment recovery is needed while gifted access is active.'
+			};
+		}
+
+		if (isActiveFreeBillingSnapshot(snapshot)) {
+			return {
+				title: 'Free plan active.',
+				description: 'No active paid subscription is currently applied to this organization.',
+				statusLabel: 'Free',
+				variant: 'secondary',
+				actionHint: 'Choose a paid plan below to activate more capacity.'
 			};
 		}
 
@@ -932,7 +927,7 @@
 					</div>
 					<Card.Description>{billingStatus.description}</Card.Description>
 				</div>
-				{#if data.canManageSubscription && !billingActionsDisabled}
+				{#if canOpenBillingPortal}
 					<Button type="button" class="shrink-0" onclick={handleManageSubscription} disabled={portalLoading}>
 						{#if portalLoading}<Spinner />{/if}
 						{portalLoading ? 'Opening...' : 'Manage Subscription'}
@@ -944,7 +939,7 @@
 			<PageShell.FactGrid layout="three">
 				<PageShell.FactRow
 					label="Status"
-					value={subscriptionStatusLabel(billingSnapshot?.subscriptionStatus) +
+					value={billingStatus.statusLabel +
 						' (' +
 						(tierComparison.find((t) => t.tier === tier.tier)?.name ?? tier.tier) +
 						(isReadOnly ? ' *Limited' : '') +
@@ -1189,7 +1184,7 @@
 		</div>
 	</section>
 
-	{#if data.canManageSubscription && !billingActionsDisabled && source !== 'gift'}
+	{#if canOpenBillingPortal && source !== 'gift'}
 		<Card.Root>
 			<Card.Header>
 				<Card.Title>Cancel Subscription</Card.Title>

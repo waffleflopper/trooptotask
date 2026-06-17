@@ -363,6 +363,33 @@ describe('billing page toolbar', () => {
 		expect(screen.queryByText(/Start Trial/i)).toBeNull();
 	});
 
+	it('keeps Free-first upgrade choices when a free billing snapshot is active', () => {
+		render(Page, {
+			props: {
+				data: {
+					...freeDefaultData(),
+					canManageSubscription: true,
+					billingSnapshot: {
+						...baseData.billingSnapshot,
+						commercialPlan: 'free',
+						stripeSubscriptionId: 'sub_free',
+						stripeProductId: null,
+						stripePriceId: null,
+						subscriptionStatus: 'active',
+						currentPeriodEnd: null
+					}
+				} as never
+			}
+		});
+
+		expect(screen.getByText('No active paid subscription is currently applied to this organization.')).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Upgrade to Team' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Upgrade to Unit' })).toBeTruthy();
+		expect(screen.queryByText('The paid subscription is active and TroopToTask is applying the paid plan.')).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Manage Subscription' })).toBeNull();
+		expect(screen.queryByRole('heading', { name: 'Cancel Subscription' })).toBeNull();
+	});
+
 	it('starts Team checkout from the Free plan with server-side tier selection', async () => {
 		const fetchMock = vi.fn().mockResolvedValue(
 			new Response(JSON.stringify({ url: 'https://checkout.test/team' }), {

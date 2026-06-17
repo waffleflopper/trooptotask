@@ -27,7 +27,7 @@ export const GET = handle(_getConfig);
 export const _postConfig: RouteConfig<CreateDeletionRequestInput, unknown> = {
 	policyAction: POLICY_ACTION_CATALOG.identity.createOwnDeletionRequest,
 	mutation: true,
-	allowReadOnlyMutation: true,
+	readOnlyModeException: 'identity-owned-data-request',
 	parseInput: async (event: RequestEvent) => {
 		const body = await event.request.json();
 		return {
@@ -44,6 +44,7 @@ export const POST = handle(_postConfig);
 export const _deleteConfig: RouteConfig<Record<string, unknown>, unknown> = {
 	policyAction: POLICY_ACTION_CATALOG.identity.cancelOwnDeletionRequest,
 	mutation: true,
+	readOnlyModeException: 'identity-owned-data-request',
 	fn: async (ctx, input) => {
 		if (!input || typeof input !== 'object' || Array.isArray(input)) {
 			fail(400, 'Missing id');

@@ -167,6 +167,7 @@ export async function _recoverCheckoutSuccess(
 export const load: PageServerLoad = async ({ params, locals, cookies, url }) =>
 	loadWithContext(locals, cookies, params.orgId, {
 		policyAction: POLICY_ACTION_CATALOG.organization.accessBilling,
+		readOnlyModeException: 'billing-recovery',
 		fn: (ctx) =>
 			_loadCheckoutSuccessPageData(ctx, {
 				checkoutAttemptId: url.searchParams.get('checkout_attempt_id')

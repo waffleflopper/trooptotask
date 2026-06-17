@@ -9,7 +9,7 @@
 > you they maintain the index.
 >
 > **Drift check (run first)**:
-> `git diff --stat 0cafdd3e..HEAD -- docs/launch-acquisition-path.md docs/billing-operations-launch-checklist.md docs/billing-launch-verification.md src/lib/config/billing.ts src/routes/org/[orgId]/billing src/lib/server/core/useCases/billing.ts src/lib/server/core/useCases/billingCheckoutAttempts.ts src/lib/server/billing src/lib/types/subscription.ts`
+> `git diff --stat d485cdc5..HEAD -- docs/launch-acquisition-path.md docs/billing-operations-launch-checklist.md docs/billing-launch-verification.md src/lib/config/billing.ts 'src/routes/org/[orgId]/billing' src/lib/server/core/useCases/billing.ts src/lib/server/core/useCases/billingCheckoutAttempts.ts src/lib/server/billing src/lib/types/subscription.ts`
 > If any in-scope file changed since this plan was written, compare the
 > "Current state" excerpts against the live code before proceeding; on a
 > mismatch, treat it as a STOP condition.
@@ -21,7 +21,14 @@
 - **Risk**: HIGH
 - **Depends on**: plans/083-public-account-creation-abuse-controls.md, plans/084-self-service-organization-onboarding.md, plan 078
 - **Category**: direction
-- **Planned at**: commit `0cafdd3e`, 2026-06-15
+- **Planned at**: commit `d485cdc5`, 2026-06-16 (reconciled; originally planned at `0cafdd3e`)
+
+## Reconciliation note
+
+On 2026-06-17, PR #1230 completed this plan after the `d485cdc5`
+reconciliation. Billing checkout remains explicit from the authenticated
+Organization billing page, new self-service Organizations start on Free, and
+Team/Unit checkout starts only when the owner chooses an upgrade.
 
 ## Why this matters
 
@@ -37,13 +44,14 @@ the self-service first-run path without weakening billing authorization.
 - `src/lib/config/billing.ts` gates billing with `PUBLIC_BILLING_ENABLED`.
 - `src/routes/org/[orgId]/billing/checkout/+server.ts` rejects checkout when
   billing is disabled, rejects arbitrary Stripe price IDs, resolves the server
-  catalog entry, and requires `organization.manageBilling`.
+  catalog entry, requires `organization.manageBilling`, and allows only the
+  named `billing-recovery` read-only-mode exception.
 - `src/routes/org/[orgId]/billing/+page.server.ts` loads pending checkout
   attempts and current billing state for authenticated Organization context.
 - `docs/billing-launch-verification.md` documents checkout, renewal, failed
   payment, cancellation, and recovery scenarios.
-- `docs/billing-operations-launch-checklist.md` says self-service acquisition
-  must not be implied until real follow-up work exists.
+- `docs/billing-operations-launch-checklist.md` documents the environment-gated
+  acquisition path and the Free-first checkout entry.
 
 Current excerpts:
 
@@ -62,6 +70,11 @@ if (typeof body.priceId === 'string' && body.priceId.trim()) {
 ```
 
 ```ts
+// src/routes/org/[orgId]/billing/checkout/+server.ts
+readOnlyModeException: 'billing-recovery'
+```
+
+```ts
 // src/routes/org/[orgId]/billing/+page.server.ts
 const [billingSnapshot, effectivePlanPolicy, planUsage, pendingCheckoutSession] = await Promise.all([
 	readCurrentBillingSnapshot({ auth: ctx.auth, store: ctx.rawStore }),
@@ -77,7 +90,7 @@ const [billingSnapshot, effectivePlanPolicy, planUsage, pendingCheckoutSession] 
 | --- | --- | --- |
 | Svelte docs | Svelte MCP `list-sections`, then `get-documentation` for relevant Svelte/SvelteKit sections | docs read before editing `.svelte` files |
 | Svelte autofix | `svelte-autofixer` on edited Svelte files | no issues or suggestions remain |
-| Billing focused tests | `npx vitest run src/routes/org/[orgId]/billing/page.server.test.ts src/routes/org/[orgId]/billing/page.svelte.test.ts src/routes/org/[orgId]/billing/checkout/server.test.ts src/routes/org/[orgId]/billing/portal/server.test.ts src/routes/org/[orgId]/billing/cancel/server.test.ts` | all pass |
+| Billing focused tests | `npx vitest run 'src/routes/org/[orgId]/billing/page.server.test.ts' 'src/routes/org/[orgId]/billing/page.svelte.test.ts' 'src/routes/org/[orgId]/billing/checkout/server.test.ts' 'src/routes/org/[orgId]/billing/portal/server.test.ts' 'src/routes/org/[orgId]/billing/cancel/server.test.ts'` | all pass |
 | Billing E2E | `npm run test:e2e:billing` | all pass when Stripe test-mode/local E2E config is available |
 | Full repo gate | `npm run format && npm run lint && npm run governance:check && npm run check && npm run test` | all exit 0 |
 
@@ -126,14 +139,13 @@ that a confirmed owner can land in an authenticated Organization context.
 `rg -n "sign-up|signup|org/new|PUBLIC_BILLING_ENABLED|billing" src/routes/auth src/routes/org docs/launch-acquisition-path.md`
 shows real signup, Organization creation, and billing-gated paths.
 
-### Step 2: Define the first-run billing decision
+### Step 2: Keep the Free-first billing decision
 
-Decide whether a new self-service Organization lands on Free first, starts a
-trial, or must choose Team/Unit checkout immediately. If trial semantics are not
-already represented in billing state and product policy, stop and ask Robert for
-a separate trial design.
+The first-run billing decision is already made: a new self-service Organization
+lands on Free first. Do not introduce trial language or require immediate
+checkout; Team and Unit remain explicit upgrades from Billing.
 
-Document the chosen behavior in `docs/launch-acquisition-path.md`.
+Keep the chosen behavior documented in `docs/launch-acquisition-path.md`.
 
 **Verify**:
 `rg -n "trial|Free|Team|Unit|checkout|billing entry point" docs/launch-acquisition-path.md docs/billing-operations-launch-checklist.md`
@@ -146,7 +158,7 @@ or Unit and start checkout only when `PUBLIC_BILLING_ENABLED=true`. Keep the
 server checkout route as the authority for catalog selection and authorization.
 
 **Verify**:
-`npx vitest run src/routes/org/[orgId]/billing/page.svelte.test.ts src/routes/org/[orgId]/billing/checkout/server.test.ts`
+`npx vitest run 'src/routes/org/[orgId]/billing/page.svelte.test.ts' 'src/routes/org/[orgId]/billing/checkout/server.test.ts'`
 passes, including billing-disabled and billing-enabled cases.
 
 ### Step 4: Cover abandoned and failed checkout recovery
@@ -160,7 +172,7 @@ expired, failed, or canceled checkout.
 Do not bypass webhook-driven billing snapshots.
 
 **Verify**:
-`npx vitest run src/routes/org/[orgId]/billing/page.server.test.ts src/routes/org/[orgId]/billing/page.svelte.test.ts`
+`npx vitest run 'src/routes/org/[orgId]/billing/page.server.test.ts' 'src/routes/org/[orgId]/billing/page.svelte.test.ts'`
 passes with recovery-state assertions.
 
 ### Step 5: Update launch docs and run billing verification
@@ -171,7 +183,7 @@ repo gate.
 
 **Verify**:
 
-- `npx vitest run src/routes/org/[orgId]/billing/page.server.test.ts src/routes/org/[orgId]/billing/page.svelte.test.ts src/routes/org/[orgId]/billing/checkout/server.test.ts src/routes/org/[orgId]/billing/portal/server.test.ts src/routes/org/[orgId]/billing/cancel/server.test.ts` exits 0.
+- `npx vitest run 'src/routes/org/[orgId]/billing/page.server.test.ts' 'src/routes/org/[orgId]/billing/page.svelte.test.ts' 'src/routes/org/[orgId]/billing/checkout/server.test.ts' 'src/routes/org/[orgId]/billing/portal/server.test.ts' 'src/routes/org/[orgId]/billing/cancel/server.test.ts'` exits 0.
 - `npm run test:e2e:billing` passes, or the final report records the missing
   local Stripe/test-mode blocker.
 - `npm run format && npm run lint && npm run governance:check && npm run check && npm run test` exits 0.

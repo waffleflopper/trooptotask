@@ -9,7 +9,7 @@
 > and told you they maintain the index.
 >
 > **Drift check (run first)**:
-> `git diff --stat 0cafdd3e..HEAD -- docs/launch-acquisition-path.md docs/architecture/adrs/0009-beta-access-request-account-setup-links.md docs/architecture/ADR_INDEX.md CONTEXT.md src/routes/auth src/routes/api/access-requests src/lib/server/durableRateLimit.ts src/lib/server/accessRequestRateLimit.ts src/lib/server/authConfirm.ts e2e/specs/auth-email-flows.spec.ts`
+> `git diff --stat d485cdc5..HEAD -- docs/launch-acquisition-path.md docs/architecture/adrs/0009-beta-access-request-account-setup-links.md docs/architecture/ADR_INDEX.md CONTEXT.md src/routes/auth src/routes/api/access-requests src/lib/server/durableRateLimit.ts src/lib/server/accessRequestRateLimit.ts src/lib/server/authConfirm.ts e2e/specs/auth-email-flows.spec.ts`
 > If any in-scope file changed since this plan was written, compare the
 > "Current state" excerpts against the live code before proceeding; on a
 > mismatch, treat it as a STOP condition.
@@ -21,27 +21,33 @@
 - **Risk**: HIGH
 - **Depends on**: plan 080
 - **Category**: direction
-- **Planned at**: commit `0cafdd3e`, 2026-06-15
+- **Planned at**: commit `d485cdc5`, 2026-06-16 (reconciled; originally planned at `0cafdd3e`)
+
+## Reconciliation note
+
+On 2026-06-17, PR #1230 completed this plan after the `d485cdc5`
+reconciliation. The billing-enabled signup route, signup rate limit, and
+signup confirmation destination now exist while reviewed access remains the
+billing-disabled fallback.
 
 ## Why this matters
 
 Plan 080 selected an env-gated acquisition direction: reviewed access remains
-live while billing is disabled, and paid billing should eventually use open
-self-service registration with email confirmation and no request-access gate.
-The current app has strong reviewed Access Request and Account Setup Link
-guardrails, but no public account creation route. This plan adds the account
-creation layer without creating Organizations or starting checkout yet.
+live while billing is disabled, and paid billing uses open self-service
+registration with email confirmation and no request-access gate. This plan adds
+the account creation layer without creating Organizations or starting checkout.
 
 ## Current state
 
 - `docs/launch-acquisition-path.md` says self-service registration is the paid
-  target, but not implemented in Plan 080.
+  target.
+- Current HEAD has a billing-enabled `src/routes/auth/sign-up` route.
 - `src/routes/auth/request-access/+page.svelte` is the public entry point for
   reviewed access.
 - `src/routes/auth/setup-account/+page.server.ts` creates or activates a User
   Account only after a valid Account Setup Link and password selection.
-- `src/lib/server/authConfirm.ts` only accepts Supabase email link types
-  `invite` and `recovery`; `email` signup confirmation is currently invalid.
+- `src/lib/server/authConfirm.ts` accepts Supabase signup confirmation links and
+  routes them to `/org/new`.
 - `src/lib/server/durableRateLimit.ts` is the shared durable rate-limit helper.
 - `src/lib/server/accessRequestRateLimit.ts` and
   `src/lib/server/accountSetupRateLimit.ts` are examples for auth-adjacent
@@ -52,8 +58,10 @@ Current excerpts:
 ```ts
 // src/lib/server/authConfirm.ts
 const authConfirmDestinations = {
+	email: '/org/new',
 	invite: '/auth/accept-invite',
-	recovery: '/auth/reset-password'
+	recovery: '/auth/reset-password',
+	signup: '/org/new'
 } as const;
 ```
 

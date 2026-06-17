@@ -89,7 +89,9 @@ describe('admin user auth email actions', () => {
 					id: USER_ID,
 					email: 'soldier@example.mil',
 					createdAt: '2026-06-01T00:00:00.000Z',
-					lastSignInAt: '2026-06-08T00:00:00.000Z'
+					lastSignInAt: '2026-06-08T00:00:00.000Z',
+					emailConfirmedAt: '2026-06-01T00:05:00.000Z',
+					emailConfirmationStatus: 'confirmed'
 				},
 				organizations: [
 					{
@@ -134,7 +136,9 @@ describe('admin user auth email actions', () => {
 				id: USER_ID,
 				email: 'soldier@example.mil',
 				createdAt: '2026-06-01T00:00:00.000Z',
-				lastSignInAt: '2026-06-08T00:00:00.000Z'
+				lastSignInAt: '2026-06-08T00:00:00.000Z',
+				emailConfirmedAt: '2026-06-01T00:05:00.000Z',
+				emailConfirmationStatus: 'confirmed'
 			},
 			organizations: [
 				{

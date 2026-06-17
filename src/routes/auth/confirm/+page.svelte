@@ -12,23 +12,29 @@
 	const validConfirmation = $derived(data.confirmation.status === 'valid' ? data.confirmation : null);
 	const confirmationTitle = $derived(
 		validConfirmation
-			? validConfirmation.type === 'invite'
-				? 'Confirm your invite'
-				: 'Confirm your password reset'
+			? validConfirmation.type === 'email' || validConfirmation.type === 'signup'
+				? 'Confirm your account'
+				: validConfirmation.type === 'invite'
+					? 'Confirm your invite'
+					: 'Confirm your password reset'
 			: 'Link unavailable'
 	);
 	const confirmationDescription = $derived(
 		validConfirmation
-			? validConfirmation.type === 'invite'
-				? 'Continue into the invite setup flow.'
-				: 'Continue into the password reset flow.'
+			? validConfirmation.type === 'email' || validConfirmation.type === 'signup'
+				? 'Continue to organization setup.'
+				: validConfirmation.type === 'invite'
+					? 'Continue into the invite setup flow.'
+					: 'Continue into the password reset flow.'
 			: 'This email link can no longer be used.'
 	);
 	const submitLabel = $derived(
 		validConfirmation
-			? validConfirmation.type === 'invite'
-				? 'Continue to Invite Setup'
-				: 'Continue to Password Reset'
+			? validConfirmation.type === 'email' || validConfirmation.type === 'signup'
+				? 'Confirm Account'
+				: validConfirmation.type === 'invite'
+					? 'Continue to Invite Setup'
+					: 'Continue to Password Reset'
 			: ''
 	);
 </script>
@@ -48,6 +54,7 @@
 	supportTitle="Open the page, then confirm."
 	supportDescription="The link stays passive until you press the button on this page."
 	supportPoints={[
+		'Signup links confirm control of your email before organization setup.',
 		'Invite links continue to the first-time password setup flow.',
 		'Password reset links continue to the password change flow.',
 		'If the link has expired, request a fresh email and try again.'
@@ -90,11 +97,12 @@
 		{:else}
 			<AuthNotice tone="error" title="Link unavailable" centered>
 				<p>This email link is invalid or has expired.</p>
-				<p>Request a fresh invite or password reset email, then try again.</p>
+				<p>Request a fresh signup, invite, or password reset email, then try again.</p>
 			</AuthNotice>
 
 			<div class="flex flex-col gap-3">
 				<Button href="/auth/login" class="w-full">Back to Sign In</Button>
+				<Button href="/auth/sign-up" variant="outline" class="w-full">Create Account</Button>
 				<Button href="/auth/forgot-password" variant="outline" class="w-full">Reset Password</Button>
 				<Button href="/auth/renew-invite" variant="outline" class="w-full">Renew Invite</Button>
 			</div>

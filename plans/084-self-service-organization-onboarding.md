@@ -9,7 +9,7 @@
 > and told you they maintain the index.
 >
 > **Drift check (run first)**:
-> `git diff --stat 0cafdd3e..HEAD -- docs/launch-acquisition-path.md src/routes/org/new src/lib/server/core/useCases/orgProvisioning.ts src/lib/server/adapters/supabaseOrgProvisioning.ts src/routes/org/[orgId]/api/getting-started src/routes/org/[orgId]/\\(dashboard\\) src/features/dashboard plans/081-surface-first-run-owner-checklist.md`
+> `git diff --stat d485cdc5..HEAD -- docs/launch-acquisition-path.md src/routes/org/new src/lib/server/core/useCases/orgProvisioning.ts src/lib/server/adapters/supabaseOrgProvisioning.ts 'src/routes/org/[orgId]/api/getting-started' 'src/routes/org/[orgId]/(dashboard)' src/features/dashboard plans/081-surface-first-run-owner-checklist.md`
 > If any in-scope file changed since this plan was written, compare the
 > "Current state" excerpts against the live code before proceeding; on a
 > mismatch, treat it as a STOP condition.
@@ -21,7 +21,14 @@
 - **Risk**: MED
 - **Depends on**: plans/083-public-account-creation-abuse-controls.md, plan 081
 - **Category**: direction
-- **Planned at**: commit `0cafdd3e`, 2026-06-15
+- **Planned at**: commit `d485cdc5`, 2026-06-16 (reconciled; originally planned at `0cafdd3e`)
+
+## Reconciliation note
+
+On 2026-06-17, PR #1230 completed this plan after the `d485cdc5`
+reconciliation. The first-run checklist from plan 081 is now connected to the
+billing-enabled signup path from plan 083, and `/org/new` serves the
+post-confirmation first Organization handoff.
 
 ## Why this matters
 
@@ -40,8 +47,8 @@ post-signup first-run path.
   `provisionOrganization` through `createSupabaseOrgProvisioningPort`.
 - `src/routes/org/new/+page.svelte` says "Organization Setup" and creates a
   workspace with seeded defaults.
-- `plans/081-surface-first-run-owner-checklist.md` adds a dashboard owner
-  checklist after Plan 080.
+- Plan 081 has landed a dashboard owner getting-started checklist backed by
+  `src/routes/org/[orgId]/api/getting-started/+server.ts`.
 
 Current excerpts:
 
@@ -62,6 +69,12 @@ result = await provisionOrganization(createSupabaseOrgProvisioningPort(locals), 
 ```svelte
 <!-- src/routes/org/new/+page.svelte -->
 <p class="subtitle">Stand up a workspace for scheduling, readiness tracking, and day-to-day unit management.</p>
+```
+
+```ts
+// src/routes/org/[orgId]/api/getting-started/+server.ts
+policyAction: POLICY_ACTION_CATALOG.identity.viewDashboard
+readOnlyModeException: 'identity-owned-preference'
 ```
 
 ## Commands you will need
@@ -110,8 +123,8 @@ result = await provisionOrganization(createSupabaseOrgProvisioningPort(locals), 
 ### Step 1: Confirm Plan 083 and Plan 081 state
 
 Read the implemented signup route from Plan 083 and the first-run checklist
-work from Plan 081 if it has landed. If either has not landed, stop unless the
-operator explicitly tells you to rebase the plan.
+work from Plan 081. If either surface is unavailable or has regressed, stop
+unless the operator explicitly tells you to rebase the plan.
 
 **Verify**:
 `test -f docs/launch-acquisition-path.md && rg -n "self-service|signup|first-run|getting-started|org/new" docs/launch-acquisition-path.md plans/081-surface-first-run-owner-checklist.md src/routes/auth src/routes/org/new`
@@ -187,8 +200,8 @@ focused tests and the full repo gate.
 
 Stop and report back if:
 
-- Plan 083 has not landed and there is no confirmed self-service User Account
-  path to build on.
+- The confirmed self-service User Account path from Plan 083 is unavailable or
+  regresses.
 - Creating the first Organization requires a schema change not covered by this
   plan.
 - The change would create Organization Membership from Access Request
@@ -200,6 +213,6 @@ Stop and report back if:
 ## Maintenance notes
 
 This plan owns the transition from confirmed User Account to first Organization.
-Plan 085 owns the transition from Organization to billing/trial/checkout. Keep
+Plan 085 owns the transition from Organization to billing and checkout. Keep
 those boundaries separate so account identity, tenancy, and billing recovery
 remain reviewable.

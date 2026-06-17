@@ -22,19 +22,22 @@ describe('PlatformUserDirectory', () => {
 					id: 'user-old',
 					email: 'able@example.test',
 					createdAt: '2026-06-01T00:00:00.000Z',
-					lastSignInAt: null
+					lastSignInAt: null,
+					emailConfirmedAt: null
 				},
 				{
 					id: 'user-new',
 					email: 'bravo@example.test',
 					createdAt: '2026-06-03T00:00:00.000Z',
-					lastSignInAt: null
+					lastSignInAt: null,
+					emailConfirmedAt: '2026-06-03T00:05:00.000Z'
 				},
 				{
 					id: 'user-suspended',
 					email: 'bravo.suspended@example.test',
 					createdAt: '2026-06-02T00:00:00.000Z',
-					lastSignInAt: null
+					lastSignInAt: null,
+					emailConfirmedAt: null
 				}
 			],
 			memberships: [
@@ -73,7 +76,9 @@ describe('PlatformUserDirectory', () => {
 					email: 'bravo@example.test',
 					organizationCount: 2,
 					createdAt: '2026-06-03T00:00:00.000Z',
-					isSuspended: false
+					isSuspended: false,
+					emailConfirmedAt: '2026-06-03T00:05:00.000Z',
+					emailConfirmationStatus: 'confirmed'
 				}
 			],
 			totalCount: 2,
@@ -105,7 +110,8 @@ describe('PlatformUserDirectory', () => {
 						id: 'user-1',
 						email: 'commander@example.test',
 						createdAt: '2026-06-01T00:00:00.000Z',
-						lastSignInAt: '2026-06-08T00:00:00.000Z'
+						lastSignInAt: '2026-06-08T00:00:00.000Z',
+						emailConfirmedAt: '2026-06-01T00:05:00.000Z'
 					}
 				],
 				memberships: [
@@ -139,7 +145,9 @@ describe('PlatformUserDirectory', () => {
 					id: 'user-1',
 					email: 'commander@example.test',
 					createdAt: '2026-06-01T00:00:00.000Z',
-					lastSignInAt: '2026-06-08T00:00:00.000Z'
+					lastSignInAt: '2026-06-08T00:00:00.000Z',
+					emailConfirmedAt: '2026-06-01T00:05:00.000Z',
+					emailConfirmationStatus: 'confirmed'
 				},
 				organizations: [
 					{
@@ -170,7 +178,8 @@ describe('PlatformUserDirectory', () => {
 					id: 'user-1',
 					email: 'suspended@example.test',
 					createdAt: '2026-06-01T00:00:00.000Z',
-					lastSignInAt: null
+					lastSignInAt: null,
+					emailConfirmedAt: null
 				}
 			],
 			suspensions: [
@@ -203,7 +212,8 @@ describe('PlatformUserDirectory', () => {
 					id: 'user-1',
 					email: null,
 					createdAt: '2026-06-01T00:00:00.000Z',
-					lastSignInAt: null
+					lastSignInAt: null,
+					emailConfirmedAt: null
 				}
 			]
 		});
@@ -226,7 +236,8 @@ describe('PlatformUserDirectory', () => {
 					id: 'empty-email-user',
 					email: '',
 					createdAt: '2026-06-01T00:00:00.000Z',
-					lastSignInAt: null
+					lastSignInAt: null,
+					emailConfirmedAt: null
 				}
 			]
 		});

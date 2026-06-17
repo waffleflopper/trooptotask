@@ -46,7 +46,9 @@ describe('admin users route', () => {
 					email: 'soldier@example.test',
 					organizationCount: 2,
 					createdAt: '2026-06-01T00:00:00.000Z',
-					isSuspended: false
+					isSuspended: false,
+					emailConfirmedAt: '2026-06-01T00:05:00.000Z',
+					emailConfirmationStatus: 'confirmed'
 				}
 			],
 			totalCount: 1,
@@ -75,7 +77,9 @@ describe('admin users route', () => {
 					email: 'soldier@example.test',
 					organizationCount: 2,
 					createdAt: '2026-06-01T00:00:00.000Z',
-					isSuspended: false
+					isSuspended: false,
+					emailConfirmedAt: '2026-06-01T00:05:00.000Z',
+					emailConfirmationStatus: 'confirmed'
 				}
 			],
 			totalCount: 1,

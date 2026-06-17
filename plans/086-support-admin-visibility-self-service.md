@@ -7,7 +7,7 @@
 > unless a reviewer dispatched you and told you they maintain the index.
 >
 > **Drift check (run first)**:
-> `git diff --stat 0cafdd3e..HEAD -- docs/launch-acquisition-path.md docs/security docs/billing-operations-launch-checklist.md src/routes/admin src/lib/server/admin.ts src/lib/server/platformAccessRequestRateLimit.ts src/lib/server/core/useCases/billingState.ts src/routes/admin/billing-events`
+> `git diff --stat d485cdc5..HEAD -- docs/launch-acquisition-path.md docs/security docs/billing-operations-launch-checklist.md src/routes/admin src/lib/server/admin.ts src/lib/server/platformAccessRequestRateLimit.ts src/lib/server/core/useCases/billingState.ts src/routes/admin/billing-events`
 > If any in-scope file changed since this plan was written, compare the
 > "Current state" excerpts against the live code before proceeding; on a
 > mismatch, treat it as a STOP condition.
@@ -19,7 +19,14 @@
 - **Risk**: MED
 - **Depends on**: plans/083-public-account-creation-abuse-controls.md, plans/084-self-service-organization-onboarding.md, plans/085-checkout-trial-entry-billing-recovery.md, plan 082
 - **Category**: direction
-- **Planned at**: commit `0cafdd3e`, 2026-06-15
+- **Planned at**: commit `d485cdc5`, 2026-06-16 (reconciled; originally planned at `0cafdd3e`)
+
+## Reconciliation note
+
+On 2026-06-17, PR #1230 completed this plan after the `d485cdc5`
+reconciliation. Support/admin visibility now builds on the completed
+self-service signup, first Organization, and checkout/recovery slices from
+plans 083-085.
 
 ## Why this matters
 
@@ -45,6 +52,9 @@ reviewed access.
 - Current admin routes already include platform access request and billing
   event visibility, but they may not show self-service signup/confirmation
   state.
+- Billing-event diagnostics currently load only `RECENT_EVENT_LIMIT = 50`, and
+  subscription drift is summarized by `currentPageDriftCount` on the current
+  admin subscriptions page.
 
 Current excerpts:
 

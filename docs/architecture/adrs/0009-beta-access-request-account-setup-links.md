@@ -64,6 +64,11 @@ Date: 2026-05-18
 - Do not use Supabase invite email expiry as the product-level beta approval window.
 - Do not email temporary passwords.
 - Do not create unaffiliated Supabase **User Accounts** before a valid setup link is used and a password is chosen.
+- Exception, 2026-06-16: billing-enabled self-service signup may create a Supabase
+  **User Account** through the provider signup flow before app-owned onboarding, but
+  it must remain separate from reviewed **Access Requests**, require email
+  confirmation before Organization creation or checkout, and must not create an
+  **Organization Member** from signup confirmation alone.
 - Do not treat **Access Requests** as **Organization Invitations**.
 - Do not create **Organization Members** from beta **Access Request** completion.
 - Keep auth-provider-specific implementation at auth edges or adapters as allowed by ADR 0004.

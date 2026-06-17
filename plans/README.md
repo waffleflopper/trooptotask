@@ -16,6 +16,8 @@ Updated by the improve skill on 2026-06-14 at commit `b3acfabb` with plans 075-0
 Updated by the improve skill on 2026-06-15 at commit `03af64cb` with plans 078-082 (Robert selected the recommended launch-readiness direction plans 1-5 from the `$improve next` audit, with the beta-lane packaging direction folded into plan 079).
 Updated by plan 080 on 2026-06-15 with plans 083-087 (self-service acquisition follow-ups for the selected billing-enabled public registration path).
 Updated by the improve skill on 2026-06-16 at commit `c6760c16` with plans 088-092 (follow-up `$improve next` direction audit; existing plans 083-087 remain the primary self-service launch path, with new plans covering invitation edge cases, paid-launch legal/trust/contact readiness, billing launch gating, billing health/support workflow, and post-checkout activation visibility).
+Reconciled by the improve skill on 2026-06-16 at commit `d485cdc5`: refreshed TODO plan drift baselines for plans 083-092 after the read-only billing gate landed; no plan was rejected, blocked, or newly completed during reconciliation.
+Completed by PR #1230 on 2026-06-17: plans 083-087 now implement the self-service acquisition path from signup through Organization creation, explicit Free-first checkout entry, support/admin visibility, and focused E2E coverage.
 
 Execute in the order below unless dependencies say otherwise. Each executor must read the selected plan fully before starting, honor its STOP conditions, run every verification command, and update the status row when done.
 
@@ -107,11 +109,11 @@ The operator explicitly excluded automatic CI trigger work from this batch. Do n
 | 080  | Decide public acquisition path                    | P1       | M      | 079        | DONE   |
 | 081  | Surface first-run owner checklist                 | P2       | M      | 080        | DONE   |
 | 082  | Package operational security evidence             | P1       | M      | -          | DONE   |
-| 083  | Public account creation and abuse controls        | P1       | L      | 080        | TODO   |
-| 084  | Self-service organization creation and onboarding | P1       | M-L    | 083, 081   | TODO   |
-| 085  | Self-service checkout and billing recovery        | P1       | L      | 083, 084, 078 | TODO |
-| 086  | Support/admin visibility for self-service         | P1       | M-L    | 083, 084, 085, 082 | TODO |
-| 087  | Self-service acquisition E2E coverage             | P1       | L      | 083, 084, 085, 086 | TODO |
+| 083  | Public account creation and abuse controls        | P1       | L      | 080        | DONE   |
+| 084  | Self-service organization creation and onboarding | P1       | M-L    | 083, 081   | DONE   |
+| 085  | Self-service checkout and billing recovery        | P1       | L      | 083, 084, 078 | DONE |
+| 086  | Support/admin visibility for self-service         | P1       | M-L    | 083, 084, 085, 082 | DONE |
+| 087  | Self-service acquisition E2E coverage             | P1       | L      | 083, 084, 085, 086 | DONE |
 | 088  | Self-service Organization Invitation branch       | P1       | M      | 083        | TODO   |
 | 089  | Paid-launch legal/trust/contact surface           | P1       | M      | -          | TODO   |
 | 090  | Billing launch readiness gate                     | P1       | M      | 083-087    | TODO   |
@@ -119,6 +121,15 @@ The operator explicitly excluded automatic CI trigger work from this batch. Do n
 | 092  | Acquisition and activation health visibility      | P2       | M-L    | 081, 083-087 | TODO |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line rationale).
+
+## Reconciliation Notes
+
+- 2026-06-16 at `d485cdc5`: plans 001-082 remain DONE. This reconcile pass spot-checked recent launch-readiness records from plans 078-082 (`docs/launch-acquisition-path.md`, billing launch evidence/checklists, security evidence, and the dashboard getting-started checklist) and found no DONE plan that needed reopening.
+- Plans 083-087 were implemented by PR #1230 after the `d485cdc5` reconciliation. The refreshed plan notes now point at the completed signup, first Organization handoff, checkout/recovery, support/admin visibility, and focused E2E work instead of treating those surfaces as absent.
+- Plans 088-089 and 091 had no in-scope drift since `c6760c16`; their drift baselines were advanced to the current reconcile commit so executors can start from a clean check.
+- Plan 090 drifted because the read-only billing gate added `readOnlyMode` and route-authorization exceptions after `c6760c16`; the plan now calls that out as launch-readiness evidence.
+- Plan 092 drifted because the getting-started endpoint adopted policy-first route config/read-only preference exceptions after `c6760c16`; the activation-health finding still stands.
+- No BLOCKED or IN PROGRESS rows were present. After PR #1230, the remaining executable launch runway is plans 088-092, with plan 089 independent and plans 083-087 serving as the completed self-service acquisition foundation.
 
 ## Dependency Notes
 

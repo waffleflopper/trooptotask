@@ -23,6 +23,8 @@ interface RawAuthUser {
 	email?: string | null;
 	created_at: string;
 	last_sign_in_at?: string | null;
+	email_confirmed_at?: string | null;
+	confirmed_at?: string | null;
 }
 
 interface AuthUsersPage {
@@ -93,7 +95,8 @@ function mapAuthUser(user: RawAuthUser): PlatformDirectoryAuthUser {
 		id: user.id,
 		email: user.email ?? null,
 		createdAt: user.created_at,
-		lastSignInAt: user.last_sign_in_at ?? null
+		lastSignInAt: user.last_sign_in_at ?? null,
+		emailConfirmedAt: user.email_confirmed_at ?? user.confirmed_at ?? null
 	};
 }
 

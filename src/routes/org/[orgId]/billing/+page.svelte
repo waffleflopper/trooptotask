@@ -558,6 +558,10 @@
 		return tierComparison.find((tierOption) => tierOption.tier === plan)?.name ?? plan;
 	}
 
+	function upgradeLabel(plan: { name: string }): string {
+		return `Upgrade to ${plan.name}`;
+	}
+
 	function openConfirmPasswordDialog(action: PendingBillingAction) {
 		pendingBillingAction = action;
 		confirmPassword = '';
@@ -847,7 +851,7 @@
 <PageShell.Root width="wide">
 	<PageShell.Header
 		title="Billing"
-		subtitle="Manage subscription status, plan limits, invoices, receipts, and billing details for this organization."
+		subtitle="Manage plan limits, invoices, receipts, billing details, and explicit Team or Unit upgrades for this Organization."
 	>
 		{#snippet meta()}
 			<Badge variant={sourceVariant(source)}>{sourceLabel(source)}</Badge>
@@ -1074,7 +1078,10 @@
 	<section class="grid gap-3" aria-labelledby="billing-pricing-heading">
 		<div class="grid gap-1">
 			<h2 id="billing-pricing-heading" class="text-xl font-semibold tracking-tight">Plans & Pricing</h2>
-			<p class="text-sm text-muted-foreground">Choose the plan that matches your organization size and export needs.</p>
+			<p class="text-sm text-muted-foreground">
+				New Organizations can stay on Free. Owners can explicitly upgrade to Team or Unit when they need more personnel
+				capacity or exports.
+			</p>
 		</div>
 
 		<div class="grid gap-3 lg:grid-cols-3">
@@ -1173,7 +1180,7 @@
 						{:else}
 							<Button class="w-full" onclick={() => handleSubscribeClick(plan.tier)} disabled={!!subscribingTier}>
 								{#if subscribingTier === plan.tier}<Spinner />{/if}
-								{subscribingTier === plan.tier ? 'Redirecting...' : 'Subscribe'}
+								{subscribingTier === plan.tier ? 'Redirecting...' : upgradeLabel(plan)}
 							</Button>
 						{/if}
 					</Card.Footer>
@@ -1226,8 +1233,10 @@
 	<AppDialog.Root bind:open={subscribeConfirmOpen} onClose={closeSubscribeConfirmDialog}>
 		<AppDialog.Content>
 			<AppDialog.Header>
-				<AppDialog.Title>Confirm subscription</AppDialog.Title>
-				<AppDialog.Description>Review the details below before continuing to checkout.</AppDialog.Description>
+				<AppDialog.Title>
+					{subscribeConfirmPlan ? upgradeLabel(subscribeConfirmPlan) : 'Confirm upgrade'}
+				</AppDialog.Title>
+				<AppDialog.Description>Review the monthly plan before continuing to checkout.</AppDialog.Description>
 			</AppDialog.Header>
 
 			<AppDialog.Body class="grid gap-4">
@@ -1239,7 +1248,8 @@
 					</PageShell.FactGrid>
 				{/if}
 				<p class="text-sm text-muted-foreground">
-					You will be redirected to our payment provider to complete checkout. No charges until checkout is finalized.
+					You will be redirected to our payment provider to complete checkout. Your Organization remains on its current
+					plan until checkout is complete.
 				</p>
 			</AppDialog.Body>
 

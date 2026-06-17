@@ -269,6 +269,27 @@ describe('billing page toolbar', () => {
 		expect(screen.getByRole('link', { name: 'View Plans' })).toBeTruthy();
 	});
 
+	it.each(['canceled', 'incomplete_expired'])(
+		'shows fresh checkout controls instead of cancellation controls for ended %s paid snapshots',
+		(subscriptionStatus) => {
+			render(Page, {
+				props: {
+					data: {
+						...baseData,
+						billingSnapshot: {
+							...baseData.billingSnapshot,
+							subscriptionStatus
+						}
+					} as never
+				}
+			});
+
+			expect(screen.getByRole('button', { name: 'Upgrade to Unit' })).toBeTruthy();
+			expect(screen.queryByRole('heading', { name: 'Cancel Subscription' })).toBeNull();
+			expect(screen.queryByRole('button', { name: 'Cancel Now' })).toBeNull();
+		}
+	);
+
 	it.each([
 		['past_due', 'Payment recovery needed', 'Grace access may be read-only'],
 		['unpaid', 'Payment is required', 'Paid-plan writes are blocked'],

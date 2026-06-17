@@ -64,7 +64,7 @@ export const actions: Actions = {
 				clientIp,
 				userAgent: request.headers.get('user-agent') ?? ''
 			});
-			return fail(400, { error: SIGNUP_PROVIDER_ERROR_MESSAGE, email });
+			return fail(503, { error: SIGNUP_PROVIDER_ERROR_MESSAGE, email });
 		}
 
 		if (rateLimit.limited) {
@@ -102,7 +102,7 @@ export const actions: Actions = {
 				clientIp,
 				userAgent: request.headers.get('user-agent') ?? ''
 			});
-			return fail(400, { error: SIGNUP_PROVIDER_ERROR_MESSAGE, email });
+			return fail(503, { error: SIGNUP_PROVIDER_ERROR_MESSAGE, email });
 		}
 
 		const { error } = signUpResult;

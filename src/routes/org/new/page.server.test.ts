@@ -35,6 +35,29 @@ function confirmedUser(overrides: Record<string, unknown> = {}) {
 	};
 }
 
+function providerUser(overrides: Record<string, unknown> = {}) {
+	return confirmedUser(overrides);
+}
+
+function localsWithProviderUser(
+	options: {
+		user?: Record<string, unknown>;
+		providerUser?: Record<string, unknown> | null;
+		providerError?: unknown;
+	} = {}
+) {
+	const getUser = vi.fn().mockResolvedValue({
+		data: { user: options.providerUser === null ? null : providerUser(options.providerUser) },
+		error: options.providerError ?? null
+	});
+	const locals = {
+		user: options.user ?? confirmedUser(),
+		supabase: { auth: { getUser } }
+	};
+
+	return { locals, getUser };
+}
+
 describe('org/new page server', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
@@ -59,17 +82,17 @@ describe('org/new page server', () => {
 		expect(loadOrganizationProvisioningMock).not.toHaveBeenCalled();
 	});
 
-	it('blocks unconfirmed authenticated users before checking create-org access', async () => {
-		const result = await load({
-			locals: {
-				user: {
-					id: 'user-1',
-					email: 'pending@example.com',
-					confirmed_at: null,
-					email_confirmed_at: null
-				},
-				supabase: { ignored: true }
+	it('blocks provider-unconfirmed authenticated users before checking create-org access', async () => {
+		const { locals, getUser } = localsWithProviderUser({
+			providerUser: {
+				email: 'pending@example.com',
+				confirmed_at: null,
+				email_confirmed_at: null
 			}
+		});
+
+		const result = await load({
+			locals
 		} as never);
 
 		expect(result).toEqual({
@@ -78,6 +101,28 @@ describe('org/new page server', () => {
 			canCreate: false,
 			canCreateMessage: 'Confirm your email before creating an Organization.'
 		});
+		expect(getUser).toHaveBeenCalledOnce();
+		expect(createSupabaseOrgProvisioningPortMock).not.toHaveBeenCalled();
+		expect(loadOrganizationProvisioningMock).not.toHaveBeenCalled();
+	});
+
+	it('fails closed when load cannot verify provider confirmation state', async () => {
+		const { locals, getUser } = localsWithProviderUser({
+			providerUser: null,
+			providerError: new Error('auth unavailable')
+		});
+
+		const result = await load({
+			locals
+		} as never);
+
+		expect(result).toEqual({
+			emailConfirmed: false,
+			userEmail: 'owner@example.com',
+			canCreate: false,
+			canCreateMessage: 'Unable to verify email confirmation right now. Try again in a moment.'
+		});
+		expect(getUser).toHaveBeenCalledOnce();
 		expect(createSupabaseOrgProvisioningPortMock).not.toHaveBeenCalled();
 		expect(loadOrganizationProvisioningMock).not.toHaveBeenCalled();
 	});
@@ -87,12 +132,10 @@ describe('org/new page server', () => {
 			canCreate: false,
 			canCreateMessage: 'You can own up to 1 organization(s) on your current plan.'
 		});
+		const { locals, getUser } = localsWithProviderUser();
 
 		const result = await load({
-			locals: {
-				user: confirmedUser(),
-				supabase: { ignored: true }
-			}
+			locals
 		} as never);
 
 		expect(result).toEqual({
@@ -101,10 +144,8 @@ describe('org/new page server', () => {
 			canCreate: false,
 			canCreateMessage: 'You can own up to 1 organization(s) on your current plan.'
 		});
-		expect(createSupabaseOrgProvisioningPortMock).toHaveBeenCalledWith({
-			user: confirmedUser(),
-			supabase: { ignored: true }
-		});
+		expect(getUser).toHaveBeenCalledOnce();
+		expect(createSupabaseOrgProvisioningPortMock).toHaveBeenCalledWith(locals);
 		expect(loadOrganizationProvisioningMock).toHaveBeenCalledWith(
 			{ kind: 'org-provisioning-port' },
 			{ userId: 'user-1' }
@@ -129,33 +170,62 @@ describe('org/new page server', () => {
 		expect(provisionOrganizationMock).not.toHaveBeenCalled();
 	});
 
-	it('does not provision organizations for unconfirmed users', async () => {
+	it('does not provision organizations for provider-unconfirmed users', async () => {
+		const { locals, getUser } = localsWithProviderUser({
+			providerUser: {
+				email: 'pending@example.com',
+				confirmed_at: null,
+				email_confirmed_at: null
+			}
+		});
+
 		const result = await actions.default({
 			request: new Request('http://localhost/org/new', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
 				body: new URLSearchParams({ name: 'Alpha Company' })
 			}),
-			locals: {
-				user: {
-					id: 'user-1',
-					email: 'pending@example.com',
-					confirmed_at: null,
-					email_confirmed_at: null
-				},
-				supabase: { ignored: true }
-			}
+			locals
 		} as never);
 
 		expect(result).toMatchObject({
 			status: 403,
 			data: { error: 'Confirm your email before creating an Organization.' }
 		});
+		expect(getUser).toHaveBeenCalledOnce();
+		expect(createSupabaseOrgProvisioningPortMock).not.toHaveBeenCalled();
+		expect(provisionOrganizationMock).not.toHaveBeenCalled();
+	});
+
+	it('does not provision organizations when provider confirmation cannot be verified safely', async () => {
+		const { locals, getUser } = localsWithProviderUser({
+			providerUser: { id: 'other-user' }
+		});
+
+		const result = await actions.default({
+			request: new Request('http://localhost/org/new', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+				body: new URLSearchParams({ name: 'Alpha Company' })
+			}),
+			locals
+		} as never);
+
+		expect(result).toMatchObject({
+			status: 503,
+			data: { error: 'Unable to verify email confirmation right now. Try again in a moment.' }
+		});
+		expect(getUser).toHaveBeenCalledOnce();
 		expect(createSupabaseOrgProvisioningPortMock).not.toHaveBeenCalled();
 		expect(provisionOrganizationMock).not.toHaveBeenCalled();
 	});
 
 	it('redirects confirmed owners to the newly created organization dashboard after provisioning succeeds', async () => {
+		const { locals, getUser } = localsWithProviderUser({
+			user: confirmedUser({ email: 'stale-owner@example.com' }),
+			providerUser: { email: 'OWNER@EXAMPLE.COM' }
+		});
+
 		await expect(
 			actions.default({
 				request: new Request('http://localhost/org/new', {
@@ -163,16 +233,14 @@ describe('org/new page server', () => {
 					headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
 					body: new URLSearchParams({ name: '  Alpha Company  ' })
 				}),
-				locals: {
-					user: confirmedUser({ email: 'OWNER@EXAMPLE.COM' }),
-					supabase: { ignored: true }
-				}
+				locals
 			} as never)
 		).rejects.toMatchObject({
 			status: 303,
 			location: '/org/org-1'
 		});
 
+		expect(getUser).toHaveBeenCalledOnce();
 		expect(provisionOrganizationMock).toHaveBeenCalledWith(
 			{ kind: 'org-provisioning-port' },
 			{
@@ -187,6 +255,7 @@ describe('org/new page server', () => {
 		provisionOrganizationMock.mockRejectedValue(
 			Object.assign(new Error('Organization name is required'), { status: 400 })
 		);
+		const { locals } = localsWithProviderUser();
 
 		const result = await actions.default({
 			request: new Request('http://localhost/org/new', {
@@ -194,10 +263,7 @@ describe('org/new page server', () => {
 				headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
 				body: new URLSearchParams({ name: '' })
 			}),
-			locals: {
-				user: confirmedUser(),
-				supabase: { ignored: true }
-			}
+			locals
 		} as never);
 
 		expect(result).toMatchObject({

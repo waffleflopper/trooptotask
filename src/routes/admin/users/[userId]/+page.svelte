@@ -39,7 +39,7 @@
 	const formToastMessage = $derived(form?.success && form?.message ? `${form.message}` : null);
 	const formToastError = $derived(form && 'error' in form && form.error ? `${form.error}` : null);
 	const visibleToastMessage = $derived(toastMessage ?? formToastMessage);
-	const visibleToastError = $derived(toastError ?? formToastError);
+	const visibleToastError = $derived(visibleToastMessage ? null : (toastError ?? formToastError));
 	const emailConfirmationLabel = $derived(data.user.emailConfirmationStatus === 'confirmed' ? 'Confirmed' : 'Pending');
 	const emailConfirmationDetail = $derived(
 		data.user.emailConfirmedAt

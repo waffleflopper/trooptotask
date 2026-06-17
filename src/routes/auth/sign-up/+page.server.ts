@@ -53,10 +53,20 @@ export const actions: Actions = {
 		}
 
 		const clientIp = getClientAddress();
-		const rateLimit = await checkSignupRateLimit({
-			email,
-			ip: clientIp
-		});
+		let rateLimit: Awaited<ReturnType<typeof checkSignupRateLimit>>;
+		try {
+			rateLimit = await checkSignupRateLimit({
+				email,
+				ip: clientIp
+			});
+		} catch (error) {
+			recordSignupBackendFailure('auth.signup_rate_limit_check_failed', 'Signup rate-limit check failed:', error, {
+				clientIp,
+				userAgent: request.headers.get('user-agent') ?? ''
+			});
+			return fail(400, { error: SIGNUP_PROVIDER_ERROR_MESSAGE, email });
+		}
+
 		if (rateLimit.limited) {
 			auditLog(
 				{
@@ -78,13 +88,24 @@ export const actions: Actions = {
 		}
 
 		const redirectTo = getAuthConfirmRedirectTo(url.origin, 'email');
-		const { error } = await createSupabaseSignupAuthProvider(locals).signUp({
-			email,
-			password,
-			options: {
-				emailRedirectTo: redirectTo
-			}
-		});
+		let signUpResult: { error: unknown };
+		try {
+			signUpResult = await createSupabaseSignupAuthProvider(locals).signUp({
+				email,
+				password,
+				options: {
+					emailRedirectTo: redirectTo
+				}
+			});
+		} catch (error) {
+			recordSignupBackendFailure('auth.signup_provider_request_failed', 'Signup provider request failed:', error, {
+				clientIp,
+				userAgent: request.headers.get('user-agent') ?? ''
+			});
+			return fail(400, { error: SIGNUP_PROVIDER_ERROR_MESSAGE, email });
+		}
+
+		const { error } = signUpResult;
 
 		if (error) {
 			const passwordProviderError = mapProviderPasswordError(error);
@@ -103,6 +124,28 @@ export const actions: Actions = {
 		return { success: true, email, message: SIGNUP_SUCCESS_MESSAGE };
 	}
 };
+
+function recordSignupBackendFailure(
+	action: 'auth.signup_rate_limit_check_failed' | 'auth.signup_provider_request_failed',
+	logMessage: string,
+	error: unknown,
+	requestInfo: { clientIp: string; userAgent: string }
+): void {
+	console.error(logMessage, error);
+	auditLog(
+		{
+			action,
+			resourceType: 'user',
+			severity: 'critical',
+			details: { stage: action === 'auth.signup_rate_limit_check_failed' ? 'rate_limit_check' : 'provider_request' }
+		},
+		{
+			userId: null,
+			ip: requestInfo.clientIp,
+			userAgent: requestInfo.userAgent
+		}
+	);
+}
 
 function isDuplicateSignupError(error: unknown): boolean {
 	const code = getStringProperty(error, 'code').toLowerCase();

@@ -390,6 +390,47 @@ describe('billing page toolbar', () => {
 		expect(screen.queryByRole('heading', { name: 'Cancel Subscription' })).toBeNull();
 	});
 
+	it('keeps billing portal recovery visible for unpaid snapshots downgraded to Free', () => {
+		render(Page, {
+			props: {
+				data: {
+					...freeDefaultData(),
+					canManageSubscription: true,
+					stripeCustomerId: 'cus_123',
+					subscriptionStripeId: 'sub_123',
+					effectiveTier: {
+						...baseData.effectiveTier,
+						tier: 'free',
+						source: 'default',
+						isReadOnly: true,
+						readOnlyReason: 'billing_state'
+					},
+					billingSnapshot: {
+						...baseData.billingSnapshot,
+						commercialPlan: 'free',
+						subscriptionStatus: 'unpaid',
+						collectionStatus: 'unpaid',
+						stripeCustomerId: 'cus_123',
+						stripeSubscriptionId: 'sub_123',
+						stripeProductId: null,
+						stripePriceId: null
+					}
+				} as never
+			}
+		});
+
+		const subscriptionCard = within(getSubscriptionCard());
+		expect(
+			subscriptionCard.getByText(
+				'The subscription is unpaid, so this organization is on the free plan until billing is restored.'
+			)
+		).toBeTruthy();
+		expect(subscriptionCard.getByRole('button', { name: 'Manage Subscription' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Upgrade to Team' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Upgrade to Unit' })).toBeTruthy();
+		expect(screen.queryByRole('heading', { name: 'Cancel Subscription' })).toBeNull();
+	});
+
 	it('starts Team checkout from the Free plan with server-side tier selection', async () => {
 		const fetchMock = vi.fn().mockResolvedValue(
 			new Response(JSON.stringify({ url: 'https://checkout.test/team' }), {

@@ -261,6 +261,44 @@ describe('POST /auth/sign-up', () => {
 		expect(JSON.stringify(auditLogMock.mock.calls[0][0].details)).not.toContain('203.0.113.10');
 	});
 
+	it('returns generic failure copy when the signup rate-limit backend rejects', async () => {
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+		const signUp = vi.fn();
+		checkSignupRateLimitMock.mockRejectedValueOnce(new Error('rate limit backend failed with internal details'));
+
+		try {
+			const result = await actions.default(makeActionEvent({ signUp }));
+
+			expect(result).toEqual({
+				status: 400,
+				data: {
+					error: 'We could not start account creation. Please try again later.',
+					email: 'soldier@example.mil'
+				}
+			});
+			expect(signUp).not.toHaveBeenCalled();
+			expect(JSON.stringify(result)).not.toContain('rate limit backend failed');
+			expect(consoleError).toHaveBeenCalledWith('Signup rate-limit check failed:', expect.any(Error));
+			expect(auditLogMock).toHaveBeenCalledWith(
+				{
+					action: 'auth.signup_rate_limit_check_failed',
+					resourceType: 'user',
+					severity: 'critical',
+					details: { stage: 'rate_limit_check' }
+				},
+				{
+					userId: null,
+					ip: '203.0.113.10',
+					userAgent: 'vitest-agent'
+				}
+			);
+			expect(JSON.stringify(auditLogMock.mock.calls[0][0])).not.toContain('rate limit backend failed');
+			expect(JSON.stringify(auditLogMock.mock.calls[0][0])).not.toContain('soldier@example.mil');
+		} finally {
+			consoleError.mockRestore();
+		}
+	});
+
 	it('returns duplicate-safe success copy when the provider reports an existing account', async () => {
 		const signUp = vi.fn().mockResolvedValue({
 			data: null,
@@ -296,5 +334,41 @@ describe('POST /auth/sign-up', () => {
 		expect(JSON.stringify(result)).not.toContain('SMTP provider failed');
 
 		consoleError.mockRestore();
+	});
+
+	it('returns generic provider failure copy when the provider signup request rejects', async () => {
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+		const signUp = vi.fn().mockRejectedValueOnce(new Error('SMTP provider failed with internal details'));
+
+		try {
+			const result = await actions.default(makeActionEvent({ signUp }));
+
+			expect(result).toEqual({
+				status: 400,
+				data: {
+					error: 'We could not start account creation. Please try again later.',
+					email: 'soldier@example.mil'
+				}
+			});
+			expect(JSON.stringify(result)).not.toContain('SMTP provider failed');
+			expect(consoleError).toHaveBeenCalledWith('Signup provider request failed:', expect.any(Error));
+			expect(auditLogMock).toHaveBeenCalledWith(
+				{
+					action: 'auth.signup_provider_request_failed',
+					resourceType: 'user',
+					severity: 'critical',
+					details: { stage: 'provider_request' }
+				},
+				{
+					userId: null,
+					ip: '203.0.113.10',
+					userAgent: 'vitest-agent'
+				}
+			);
+			expect(JSON.stringify(auditLogMock.mock.calls[0][0])).not.toContain('SMTP provider failed');
+			expect(JSON.stringify(auditLogMock.mock.calls[0][0])).not.toContain('soldier@example.mil');
+		} finally {
+			consoleError.mockRestore();
+		}
 	});
 });

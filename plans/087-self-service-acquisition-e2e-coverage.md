@@ -25,12 +25,10 @@
 
 ## Reconciliation note
 
-On 2026-06-16, this plan was refreshed at `d485cdc5`. Drift since the original
-stamp came from launch acquisition docs and billing checkout/recovery
-hardening, not from self-service E2E work. The prerequisite implementation
-surfaces remain absent: there is still no signup route from plan 083, no
-self-service first-Organization handoff from plan 084, and no dedicated
-`test:e2e:self-service-acquisition` script.
+On 2026-06-17, PR #1230 completed this plan after the `d485cdc5`
+reconciliation. The signup route from plan 083, first-Organization handoff from
+plan 084, checkout/recovery path from plan 085, support/admin visibility from
+plan 086, and focused `test:e2e:self-service-acquisition` script now exist.
 
 ## Why this matters
 
@@ -47,6 +45,8 @@ state recovery.
 - `npm run test:e2e:access-requests` runs
   `e2e/specs/access-request-auth.spec.ts`.
 - `npm run test:e2e:billing` uses a separate billing Playwright config.
+- `npm run test:e2e:self-service-acquisition` uses a dedicated self-service
+  acquisition Playwright config.
 - `e2e/specs/dashboard-invitation-auth.spec.ts` creates authenticated browser
   contexts and checks dashboard invitation behavior.
 - `e2e/fixtures/test-data.ts` has deterministic test Organization and user
@@ -58,7 +58,8 @@ Current excerpts:
 // package.json
 "test:e2e:auth": "playwright test --config=e2e/playwright.config.ts e2e/specs/auth-email-flows.spec.ts",
 "test:e2e:access-requests": "playwright test --config=e2e/playwright.config.ts e2e/specs/access-request-auth.spec.ts",
-"test:e2e:billing": "playwright test --config=e2e/playwright.billing.config.ts"
+"test:e2e:billing": "playwright test --config=e2e/playwright.billing.config.ts",
+"test:e2e:self-service-acquisition": "playwright test --config=e2e/playwright.self-service-acquisition.config.ts"
 ```
 
 ```ts
@@ -76,7 +77,7 @@ await expect.poll(() => pagePathAndSearch(acceptPage)).toMatch(/^\/(dashboard\?s
 
 | Purpose | Command | Expected on success |
 | --- | --- | --- |
-| Self-service E2E | new or updated npm script, for example `npm run test:e2e:self-service-acquisition` | all pass |
+| Self-service E2E | `npm run test:e2e:self-service-acquisition` | all pass |
 | Auth E2E | `npm run test:e2e:auth` | all pass |
 | Access request regression E2E | `npm run test:e2e:access-requests` | all pass |
 | Billing E2E | `npm run test:e2e:billing` | all pass when Stripe test-mode/local E2E config is available |

@@ -114,10 +114,13 @@
 		source === 'billing_disabled' || billingSnapshot?.source === 'billing_disabled'
 	);
 	const hasPaidBillingSnapshot = $derived(isPaidBillingSnapshot(billingSnapshot));
+	const hasRetainedBillingCustomer = $derived(!!(billingSnapshot?.stripeCustomerId || data.stripeCustomerId));
+	const isActiveFreeBillingState = $derived(isActiveFreeBillingSnapshot(billingSnapshot));
 	const canOpenBillingPortal = $derived(
-		data.canManageSubscription && !billingActionsDisabled && hasPaidBillingSnapshot
+		data.canManageSubscription && !billingActionsDisabled && hasRetainedBillingCustomer && !isActiveFreeBillingState
 	);
-	const canManagePaidPlanChange = $derived(canOpenBillingPortal && source !== 'gift');
+	const canManagePaidPlanChange = $derived(canOpenBillingPortal && source !== 'gift' && hasPaidBillingSnapshot);
+	const canShowCancellationControls = $derived(canOpenBillingPortal && source !== 'gift' && hasPaidBillingSnapshot);
 	const billingRecovery = $derived(
 		buildBillingRecovery(billingSnapshot, tier, canOpenBillingPortal, billingActionsDisabled)
 	);
@@ -1184,7 +1187,7 @@
 		</div>
 	</section>
 
-	{#if canOpenBillingPortal && source !== 'gift'}
+	{#if canShowCancellationControls}
 		<Card.Root>
 			<Card.Header>
 				<Card.Title>Cancel Subscription</Card.Title>

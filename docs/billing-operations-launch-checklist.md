@@ -127,7 +127,7 @@ The public paid-plan contract for launch is:
 - Critical Tasks is part of the core workflow and should not carry a Beta badge.
 - Duty Rosters may keep a Beta badge for paid launch. That badge means the workflow is supported but still evolving; it is not an unsupported or best-effort feature.
 
-Acquisition remains environment-gated. While billing is disabled, keep reviewed request-access mechanics and copy. When paid billing is enabled, the target posture is open registration with email confirmation and no request-access gate, but that self-service acquisition flow belongs to plan 080 follow-up work and must not be implied by links to a route that does not exist.
+Acquisition remains environment-gated. While billing is disabled, keep reviewed request-access mechanics and copy. Plan 083 adds the self-service signup identity layer, but public acquisition copy must not imply a complete paid self-service path until Organization creation, checkout/recovery, support visibility, and E2E coverage have landed.
 
 ## Webhook Events
 

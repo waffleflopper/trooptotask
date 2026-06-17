@@ -2,8 +2,10 @@ import { expect, type Page } from '@playwright/test';
 import { appBaseUrl } from './app';
 
 const authConfirmDestinations = {
+	email: '/org/new',
 	invite: '/auth/accept-invite',
-	recovery: '/auth/reset-password'
+	recovery: '/auth/reset-password',
+	signup: '/org/new'
 } as const;
 
 export type AuthConfirmType = keyof typeof authConfirmDestinations;
@@ -30,8 +32,23 @@ export async function continueFromAuthConfirm(page: Page, link: string, type: Au
 	await expect(page).toHaveURL(/\/auth\/confirm/);
 	await page
 		.getByRole('button', {
-			name: type === 'invite' ? 'Continue to Invite Setup' : 'Continue to Password Reset'
+			name:
+				type === 'email' || type === 'signup'
+					? 'Confirm Account'
+					: type === 'invite'
+						? 'Continue to Invite Setup'
+						: 'Continue to Password Reset'
 		})
 		.click();
-	await expect(page).toHaveURL(new RegExp(type === 'invite' ? '/auth/accept-invite' : '/auth/reset-password'));
+	await expect(page).toHaveURL(
+		new RegExp(
+			type === 'email'
+				? '/org/new'
+				: type === 'signup'
+					? '/org/new'
+					: type === 'invite'
+						? '/auth/accept-invite'
+						: '/auth/reset-password'
+		)
+	);
 }

@@ -2,8 +2,10 @@ import type { EmailOtpType } from '@supabase/supabase-js';
 import { makePublicAppUrl } from './publicAppOrigin';
 
 const authConfirmDestinations = {
+	email: '/org/new',
 	invite: '/auth/accept-invite',
-	recovery: '/auth/reset-password'
+	recovery: '/auth/reset-password',
+	signup: '/org/new'
 } as const;
 
 export type SupportedAuthConfirmType = Extract<EmailOtpType, keyof typeof authConfirmDestinations>;
@@ -59,5 +61,5 @@ function normalizeAuthConfirmValue(value: string | null | undefined): string | n
 }
 
 function normalizeSupportedAuthConfirmType(value: string | null | undefined): SupportedAuthConfirmType | null {
-	return value === 'invite' || value === 'recovery' ? value : null;
+	return value === 'email' || value === 'invite' || value === 'recovery' || value === 'signup' ? value : null;
 }

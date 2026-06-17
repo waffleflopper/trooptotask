@@ -31,7 +31,9 @@ export const actions: Actions = {
 			redirect(303, '/auth/login?error=auth_link_invalid');
 		}
 
-		setPendingAuthFlowCookie(cookies, confirmation.type);
+		if (confirmation.type === 'invite' || confirmation.type === 'recovery') {
+			setPendingAuthFlowCookie(cookies, confirmation.type);
+		}
 		redirect(303, confirmation.next);
 	}
 };

@@ -9,7 +9,7 @@
 > reviewer dispatched you and told you they maintain the index.
 >
 > **Drift check (run first)**:
-> `git diff --stat c6760c16..HEAD -- src/routes/+page.svelte src/routes/privacy/+page.svelte src/routes/terms/+page.svelte src/routes/security/+page.svelte src/routes/about/+page.svelte src/lib/components/public docs/launch-acquisition-path.md docs/billing-operations-launch-checklist.md docs/billing-cancellation-policy.md docs/billing-customer-portal.md docs/security/operational-control-evidence.md docs/security/security-overview.md`
+> `git diff --stat d485cdc5..HEAD -- src/routes/+page.svelte src/routes/privacy/+page.svelte src/routes/terms/+page.svelte src/routes/security/+page.svelte src/routes/about/+page.svelte src/lib/components/public docs/launch-acquisition-path.md docs/billing-operations-launch-checklist.md docs/billing-cancellation-policy.md docs/billing-customer-portal.md docs/security/operational-control-evidence.md docs/security/security-overview.md`
 > If any in-scope file changed since this plan was written, compare the
 > "Current state" excerpts against the live code before proceeding; on a
 > mismatch, treat it as a STOP condition.
@@ -21,7 +21,13 @@
 - **Risk**: MED
 - **Depends on**: none
 - **Category**: direction
-- **Planned at**: commit `c6760c16`, 2026-06-16
+- **Planned at**: commit `d485cdc5`, 2026-06-16 (reconciled; originally planned at `c6760c16`)
+
+## Reconciliation note
+
+On 2026-06-16, this plan was refreshed at `d485cdc5`. No in-scope files changed
+since the original `c6760c16` stamp, and Robert-owned support, refund, tax,
+mailbox, and paid-launch legal-copy decisions remain the blocking prerequisite.
 
 ## Why this matters
 

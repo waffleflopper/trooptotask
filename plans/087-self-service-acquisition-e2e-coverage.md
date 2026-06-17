@@ -9,7 +9,7 @@
 > you they maintain the index.
 >
 > **Drift check (run first)**:
-> `git diff --stat 0cafdd3e..HEAD -- docs/launch-acquisition-path.md e2e e2e/specs/auth-email-flows.spec.ts e2e/specs/access-request-auth.spec.ts e2e/specs/billing-webhook.spec.ts src/routes/auth src/routes/org/new src/routes/org/[orgId]/billing package.json`
+> `git diff --stat d485cdc5..HEAD -- docs/launch-acquisition-path.md e2e e2e/specs/auth-email-flows.spec.ts e2e/specs/access-request-auth.spec.ts e2e/specs/billing-webhook.spec.ts src/routes/auth src/routes/org/new 'src/routes/org/[orgId]/billing' package.json`
 > If any in-scope file changed since this plan was written, compare the
 > "Current state" excerpts against the live code before proceeding; on a
 > mismatch, treat it as a STOP condition.
@@ -21,7 +21,16 @@
 - **Risk**: MED
 - **Depends on**: plans/083-public-account-creation-abuse-controls.md, plans/084-self-service-organization-onboarding.md, plans/085-checkout-trial-entry-billing-recovery.md, plans/086-support-admin-visibility-self-service.md
 - **Category**: tests
-- **Planned at**: commit `0cafdd3e`, 2026-06-15
+- **Planned at**: commit `d485cdc5`, 2026-06-16 (reconciled; originally planned at `0cafdd3e`)
+
+## Reconciliation note
+
+On 2026-06-16, this plan was refreshed at `d485cdc5`. Drift since the original
+stamp came from launch acquisition docs and billing checkout/recovery
+hardening, not from self-service E2E work. The prerequisite implementation
+surfaces remain absent: there is still no signup route from plan 083, no
+self-service first-Organization handoff from plan 084, and no dedicated
+`test:e2e:self-service-acquisition` script.
 
 ## Why this matters
 

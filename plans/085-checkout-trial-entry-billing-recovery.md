@@ -9,7 +9,7 @@
 > you they maintain the index.
 >
 > **Drift check (run first)**:
-> `git diff --stat 0cafdd3e..HEAD -- docs/launch-acquisition-path.md docs/billing-operations-launch-checklist.md docs/billing-launch-verification.md src/lib/config/billing.ts src/routes/org/[orgId]/billing src/lib/server/core/useCases/billing.ts src/lib/server/core/useCases/billingCheckoutAttempts.ts src/lib/server/billing src/lib/types/subscription.ts`
+> `git diff --stat d485cdc5..HEAD -- docs/launch-acquisition-path.md docs/billing-operations-launch-checklist.md docs/billing-launch-verification.md src/lib/config/billing.ts 'src/routes/org/[orgId]/billing' src/lib/server/core/useCases/billing.ts src/lib/server/core/useCases/billingCheckoutAttempts.ts src/lib/server/billing src/lib/types/subscription.ts`
 > If any in-scope file changed since this plan was written, compare the
 > "Current state" excerpts against the live code before proceeding; on a
 > mismatch, treat it as a STOP condition.
@@ -21,7 +21,16 @@
 - **Risk**: HIGH
 - **Depends on**: plans/083-public-account-creation-abuse-controls.md, plans/084-self-service-organization-onboarding.md, plan 078
 - **Category**: direction
-- **Planned at**: commit `0cafdd3e`, 2026-06-15
+- **Planned at**: commit `d485cdc5`, 2026-06-16 (reconciled; originally planned at `0cafdd3e`)
+
+## Reconciliation note
+
+On 2026-06-16, this plan was refreshed at `d485cdc5`. Billing checkout and
+owner recovery surfaces have changed since the original plan: checkout now uses
+the `billing-recovery` read-only-mode exception, tax configuration failure copy
+is explicit, and the billing page shows pending checkout plus read-only
+recovery states. The self-service checkout entry finding still exists because
+plans 083 and 084 have not yet landed.
 
 ## Why this matters
 
@@ -37,7 +46,8 @@ the self-service first-run path without weakening billing authorization.
 - `src/lib/config/billing.ts` gates billing with `PUBLIC_BILLING_ENABLED`.
 - `src/routes/org/[orgId]/billing/checkout/+server.ts` rejects checkout when
   billing is disabled, rejects arbitrary Stripe price IDs, resolves the server
-  catalog entry, and requires `organization.manageBilling`.
+  catalog entry, requires `organization.manageBilling`, and allows only the
+  named `billing-recovery` read-only-mode exception.
 - `src/routes/org/[orgId]/billing/+page.server.ts` loads pending checkout
   attempts and current billing state for authenticated Organization context.
 - `docs/billing-launch-verification.md` documents checkout, renewal, failed
@@ -62,6 +72,11 @@ if (typeof body.priceId === 'string' && body.priceId.trim()) {
 ```
 
 ```ts
+// src/routes/org/[orgId]/billing/checkout/+server.ts
+readOnlyModeException: 'billing-recovery'
+```
+
+```ts
 // src/routes/org/[orgId]/billing/+page.server.ts
 const [billingSnapshot, effectivePlanPolicy, planUsage, pendingCheckoutSession] = await Promise.all([
 	readCurrentBillingSnapshot({ auth: ctx.auth, store: ctx.rawStore }),
@@ -77,7 +92,7 @@ const [billingSnapshot, effectivePlanPolicy, planUsage, pendingCheckoutSession] 
 | --- | --- | --- |
 | Svelte docs | Svelte MCP `list-sections`, then `get-documentation` for relevant Svelte/SvelteKit sections | docs read before editing `.svelte` files |
 | Svelte autofix | `svelte-autofixer` on edited Svelte files | no issues or suggestions remain |
-| Billing focused tests | `npx vitest run src/routes/org/[orgId]/billing/page.server.test.ts src/routes/org/[orgId]/billing/page.svelte.test.ts src/routes/org/[orgId]/billing/checkout/server.test.ts src/routes/org/[orgId]/billing/portal/server.test.ts src/routes/org/[orgId]/billing/cancel/server.test.ts` | all pass |
+| Billing focused tests | `npx vitest run 'src/routes/org/[orgId]/billing/page.server.test.ts' 'src/routes/org/[orgId]/billing/page.svelte.test.ts' 'src/routes/org/[orgId]/billing/checkout/server.test.ts' 'src/routes/org/[orgId]/billing/portal/server.test.ts' 'src/routes/org/[orgId]/billing/cancel/server.test.ts'` | all pass |
 | Billing E2E | `npm run test:e2e:billing` | all pass when Stripe test-mode/local E2E config is available |
 | Full repo gate | `npm run format && npm run lint && npm run governance:check && npm run check && npm run test` | all exit 0 |
 
@@ -146,7 +161,7 @@ or Unit and start checkout only when `PUBLIC_BILLING_ENABLED=true`. Keep the
 server checkout route as the authority for catalog selection and authorization.
 
 **Verify**:
-`npx vitest run src/routes/org/[orgId]/billing/page.svelte.test.ts src/routes/org/[orgId]/billing/checkout/server.test.ts`
+`npx vitest run 'src/routes/org/[orgId]/billing/page.svelte.test.ts' 'src/routes/org/[orgId]/billing/checkout/server.test.ts'`
 passes, including billing-disabled and billing-enabled cases.
 
 ### Step 4: Cover abandoned and failed checkout recovery
@@ -160,7 +175,7 @@ expired, failed, or canceled checkout.
 Do not bypass webhook-driven billing snapshots.
 
 **Verify**:
-`npx vitest run src/routes/org/[orgId]/billing/page.server.test.ts src/routes/org/[orgId]/billing/page.svelte.test.ts`
+`npx vitest run 'src/routes/org/[orgId]/billing/page.server.test.ts' 'src/routes/org/[orgId]/billing/page.svelte.test.ts'`
 passes with recovery-state assertions.
 
 ### Step 5: Update launch docs and run billing verification
@@ -171,7 +186,7 @@ repo gate.
 
 **Verify**:
 
-- `npx vitest run src/routes/org/[orgId]/billing/page.server.test.ts src/routes/org/[orgId]/billing/page.svelte.test.ts src/routes/org/[orgId]/billing/checkout/server.test.ts src/routes/org/[orgId]/billing/portal/server.test.ts src/routes/org/[orgId]/billing/cancel/server.test.ts` exits 0.
+- `npx vitest run 'src/routes/org/[orgId]/billing/page.server.test.ts' 'src/routes/org/[orgId]/billing/page.svelte.test.ts' 'src/routes/org/[orgId]/billing/checkout/server.test.ts' 'src/routes/org/[orgId]/billing/portal/server.test.ts' 'src/routes/org/[orgId]/billing/cancel/server.test.ts'` exits 0.
 - `npm run test:e2e:billing` passes, or the final report records the missing
   local Stripe/test-mode blocker.
 - `npm run format && npm run lint && npm run governance:check && npm run check && npm run test` exits 0.

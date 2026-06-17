@@ -16,6 +16,7 @@ Updated by the improve skill on 2026-06-14 at commit `b3acfabb` with plans 075-0
 Updated by the improve skill on 2026-06-15 at commit `03af64cb` with plans 078-082 (Robert selected the recommended launch-readiness direction plans 1-5 from the `$improve next` audit, with the beta-lane packaging direction folded into plan 079).
 Updated by plan 080 on 2026-06-15 with plans 083-087 (self-service acquisition follow-ups for the selected billing-enabled public registration path).
 Updated by the improve skill on 2026-06-16 at commit `c6760c16` with plans 088-092 (follow-up `$improve next` direction audit; existing plans 083-087 remain the primary self-service launch path, with new plans covering invitation edge cases, paid-launch legal/trust/contact readiness, billing launch gating, billing health/support workflow, and post-checkout activation visibility).
+Reconciled by the improve skill on 2026-06-16 at commit `d485cdc5`: refreshed TODO plan drift baselines for plans 083-092 after the read-only billing gate landed; no plan was rejected, blocked, or newly completed during reconciliation.
 
 Execute in the order below unless dependencies say otherwise. Each executor must read the selected plan fully before starting, honor its STOP conditions, run every verification command, and update the status row when done.
 
@@ -119,6 +120,15 @@ The operator explicitly excluded automatic CI trigger work from this batch. Do n
 | 092  | Acquisition and activation health visibility      | P2       | M-L    | 081, 083-087 | TODO |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line rationale).
+
+## Reconciliation Notes
+
+- 2026-06-16 at `d485cdc5`: plans 001-082 remain DONE. This reconcile pass spot-checked recent launch-readiness records from plans 078-082 (`docs/launch-acquisition-path.md`, billing launch evidence/checklists, security evidence, and the dashboard getting-started checklist) and found no DONE plan that needed reopening.
+- Plans 083-087 drifted because launch acquisition docs, first-run checklist support, and billing recovery/read-only behavior landed after their original `0cafdd3e` plan stamp. Their plan files were refreshed in place and remain TODO.
+- Plans 088-089 and 091 had no in-scope drift since `c6760c16`; their drift baselines were advanced to the current reconcile commit so executors can start from a clean check.
+- Plan 090 drifted because the read-only billing gate added `readOnlyMode` and route-authorization exceptions after `c6760c16`; the plan now calls that out as launch-readiness evidence.
+- Plan 092 drifted because the getting-started endpoint adopted policy-first route config/read-only preference exceptions after `c6760c16`; the activation-health finding still stands.
+- No BLOCKED or IN PROGRESS rows were present. The executable launch runway is still plans 083-092, with plan 089 independent and plans 083-087 remaining the primary self-service acquisition chain.
 
 ## Dependency Notes
 

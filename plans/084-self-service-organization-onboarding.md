@@ -9,7 +9,7 @@
 > and told you they maintain the index.
 >
 > **Drift check (run first)**:
-> `git diff --stat 0cafdd3e..HEAD -- docs/launch-acquisition-path.md src/routes/org/new src/lib/server/core/useCases/orgProvisioning.ts src/lib/server/adapters/supabaseOrgProvisioning.ts src/routes/org/[orgId]/api/getting-started src/routes/org/[orgId]/\\(dashboard\\) src/features/dashboard plans/081-surface-first-run-owner-checklist.md`
+> `git diff --stat d485cdc5..HEAD -- docs/launch-acquisition-path.md src/routes/org/new src/lib/server/core/useCases/orgProvisioning.ts src/lib/server/adapters/supabaseOrgProvisioning.ts 'src/routes/org/[orgId]/api/getting-started' 'src/routes/org/[orgId]/(dashboard)' src/features/dashboard plans/081-surface-first-run-owner-checklist.md`
 > If any in-scope file changed since this plan was written, compare the
 > "Current state" excerpts against the live code before proceeding; on a
 > mismatch, treat it as a STOP condition.
@@ -21,7 +21,16 @@
 - **Risk**: MED
 - **Depends on**: plans/083-public-account-creation-abuse-controls.md, plan 081
 - **Category**: direction
-- **Planned at**: commit `0cafdd3e`, 2026-06-15
+- **Planned at**: commit `d485cdc5`, 2026-06-16 (reconciled; originally planned at `0cafdd3e`)
+
+## Reconciliation note
+
+On 2026-06-16, this plan was refreshed at `d485cdc5`. The first-run checklist
+from plan 081 has landed, and the getting-started endpoint now uses
+policy-first route configs with `identity-owned-preference` read-only-mode
+exceptions for dismissal writes. The core finding still exists: `/org/new`
+remains a generic authenticated Organization provisioning page, and there is no
+confirmed self-service signup route from plan 083 to build on yet.
 
 ## Why this matters
 
@@ -40,8 +49,8 @@ post-signup first-run path.
   `provisionOrganization` through `createSupabaseOrgProvisioningPort`.
 - `src/routes/org/new/+page.svelte` says "Organization Setup" and creates a
   workspace with seeded defaults.
-- `plans/081-surface-first-run-owner-checklist.md` adds a dashboard owner
-  checklist after Plan 080.
+- Plan 081 has landed a dashboard owner getting-started checklist backed by
+  `src/routes/org/[orgId]/api/getting-started/+server.ts`.
 
 Current excerpts:
 
@@ -62,6 +71,12 @@ result = await provisionOrganization(createSupabaseOrgProvisioningPort(locals), 
 ```svelte
 <!-- src/routes/org/new/+page.svelte -->
 <p class="subtitle">Stand up a workspace for scheduling, readiness tracking, and day-to-day unit management.</p>
+```
+
+```ts
+// src/routes/org/[orgId]/api/getting-started/+server.ts
+policyAction: POLICY_ACTION_CATALOG.identity.viewDashboard
+readOnlyModeException: 'identity-owned-preference'
 ```
 
 ## Commands you will need

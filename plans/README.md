@@ -112,7 +112,7 @@ The operator explicitly excluded automatic CI trigger work from this batch. Do n
 | 084  | Self-service organization creation and onboarding | P1       | M-L    | 083, 081   | DONE   |
 | 085  | Self-service checkout and billing recovery        | P1       | L      | 083, 084, 078 | DONE |
 | 086  | Support/admin visibility for self-service         | P1       | M-L    | 083, 084, 085, 082 | DONE |
-| 087  | Self-service acquisition E2E coverage             | P1       | L      | 083, 084, 085, 086 | TODO |
+| 087  | Self-service acquisition E2E coverage             | P1       | L      | 083, 084, 085, 086 | DONE |
 | 088  | Self-service Organization Invitation branch       | P1       | M      | 083        | TODO   |
 | 089  | Paid-launch legal/trust/contact surface           | P1       | M      | -          | TODO   |
 | 090  | Billing launch readiness gate                     | P1       | M      | 083-087    | TODO   |

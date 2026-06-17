@@ -6,7 +6,10 @@ export interface PlatformDirectoryAuthUser {
 	email: string | null;
 	createdAt: string;
 	lastSignInAt: string | null;
+	emailConfirmedAt: string | null;
 }
+
+export type PlatformDirectoryEmailConfirmationStatus = 'confirmed' | 'pending';
 
 export type PlatformDirectoryAuthUserListResult =
 	| { status: 'ok'; users: PlatformDirectoryAuthUser[] }
@@ -43,6 +46,8 @@ export interface PlatformUserDirectoryListItem {
 	organizationCount: number;
 	createdAt: string;
 	isSuspended: boolean;
+	emailConfirmedAt: string | null;
+	emailConfirmationStatus: PlatformDirectoryEmailConfirmationStatus;
 }
 
 export interface PlatformUserDirectoryList {
@@ -68,6 +73,8 @@ export interface PlatformUserDirectoryDetail {
 		email: string;
 		createdAt: string;
 		lastSignInAt: string | null;
+		emailConfirmedAt: string | null;
+		emailConfirmationStatus: PlatformDirectoryEmailConfirmationStatus;
 	};
 	organizations: PlatformUserDirectoryDetailOrganization[];
 	suspension: {
@@ -109,6 +116,10 @@ function countMembershipsByUserId(userIds: string[]): Map<string, number> {
 		counts.set(userId, (counts.get(userId) ?? 0) + 1);
 	}
 	return counts;
+}
+
+function emailConfirmationStatus(user: PlatformDirectoryAuthUser): PlatformDirectoryEmailConfirmationStatus {
+	return user.emailConfirmedAt ? 'confirmed' : 'pending';
 }
 
 async function readArrayOrEmpty<T>(
@@ -184,7 +195,9 @@ export function createPlatformUserDirectory(deps: PlatformUserDirectoryDependenc
 					email: user.email,
 					organizationCount: membershipCounts.get(user.id) ?? 0,
 					createdAt: user.createdAt,
-					isSuspended: suspendedUserIdSet.has(user.id)
+					isSuspended: suspendedUserIdSet.has(user.id),
+					emailConfirmedAt: user.emailConfirmedAt,
+					emailConfirmationStatus: emailConfirmationStatus(user)
 				})),
 				totalCount,
 				page: input.page,
@@ -217,7 +230,9 @@ export function createPlatformUserDirectory(deps: PlatformUserDirectoryDependenc
 						id: authUser.id,
 						email: authUser.email ?? 'No email',
 						createdAt: authUser.createdAt,
-						lastSignInAt: authUser.lastSignInAt
+						lastSignInAt: authUser.lastSignInAt,
+						emailConfirmedAt: authUser.emailConfirmedAt,
+						emailConfirmationStatus: emailConfirmationStatus(authUser)
 					},
 					organizations: memberships.map((membership) => {
 						const org = membership.organization;

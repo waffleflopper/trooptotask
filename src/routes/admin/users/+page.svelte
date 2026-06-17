@@ -31,6 +31,10 @@
 		goto(resolve(`/admin/users?${params.toString()}`));
 	}
 
+	function emailConfirmationLabel(status: string): string {
+		return status === 'confirmed' ? 'Email confirmed' : 'Email pending';
+	}
+
 	const totalPages = $derived(Math.ceil(data.totalCount / data.limit));
 </script>
 
@@ -102,7 +106,12 @@
 							<Table.Cell>
 								<div class="grid gap-1">
 									<strong class="text-sm font-medium">{user.email || 'No email'}</strong>
-									<span class="font-mono text-xs text-muted-foreground">{user.id.slice(0, 8)}...</span>
+									<div class="flex flex-wrap items-center gap-2">
+										<span class="font-mono text-xs text-muted-foreground">{user.id.slice(0, 8)}...</span>
+										<Badge variant={user.emailConfirmationStatus === 'confirmed' ? 'success' : 'warning'}>
+											{emailConfirmationLabel(user.emailConfirmationStatus)}
+										</Badge>
+									</div>
 								</div>
 							</Table.Cell>
 							<Table.Cell>{user.organizationCount}</Table.Cell>

@@ -91,12 +91,20 @@ follow the no-secret evidence rules in
 
 Support must be able to answer:
 
-- whether a user is still in reviewed access,
-- whether a self-service user confirmed email,
-- whether an Organization exists,
-- whether checkout is active, failed, expired, canceled, or pending recovery,
-- which Stripe customer/subscription/event IDs are safe to use for support
-  correlation.
+- whether a user is still in reviewed access from Admin -> Access Requests,
+- whether a self-service user confirmed email from Admin -> Users,
+- whether an Organization exists and who owns it from Admin -> Organizations
+  and the user's Organization memberships,
+- whether checkout is active, failed, expired, canceled, or pending recovery
+  from Admin -> Subscriptions and Admin -> Billing Events,
+- which Stripe customer ID, subscription ID, invoice ID, and webhook event ID
+  types are safe to use for support correlation.
+
+Support must not ask customers for card details, raw payment method data,
+webhook secrets, API keys, session cookies, or screenshots that expose secret
+values. Use Organization ID, user ID, Stripe customer ID, subscription ID,
+invoice ID, webhook event ID, and app audit-log ID as identifier types only in
+repo docs and PR notes.
 
 ## Anti-abuse and rate limits
 

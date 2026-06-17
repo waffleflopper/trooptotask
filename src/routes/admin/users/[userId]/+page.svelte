@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button';
 	import { enhance } from '$app/forms';
+	import { resolve } from '$app/paths';
 	import { formatDisplayDate, formatDisplayDateTime } from '$lib/utils/dates';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Spinner } from '$lib/components/ui/spinner';
@@ -34,12 +35,17 @@
 		}, 4000);
 	}
 
-	$effect(() => {
-		if (form?.success && form?.message) showToast(form.message as string);
-		else if (form && 'error' in form && form.error) showToast(form.error as string, true);
-	});
-
 	const initials = $derived(data.user.email.slice(0, 2).toUpperCase());
+	const formToastMessage = $derived(form?.success && form?.message ? `${form.message}` : null);
+	const formToastError = $derived(form && 'error' in form && form.error ? `${form.error}` : null);
+	const visibleToastMessage = $derived(toastMessage ?? formToastMessage);
+	const visibleToastError = $derived(toastError ?? formToastError);
+	const emailConfirmationLabel = $derived(data.user.emailConfirmationStatus === 'confirmed' ? 'Confirmed' : 'Pending');
+	const emailConfirmationDetail = $derived(
+		data.user.emailConfirmedAt
+			? `Confirmed ${formatDisplayDateTime(data.user.emailConfirmedAt)}`
+			: 'No email confirmation timestamp is available.'
+	);
 </script>
 
 <svelte:head>
@@ -47,14 +53,14 @@
 </svelte:head>
 
 <PageShell.Root width="wide" density="compact">
-	{#if toastMessage}
+	{#if visibleToastMessage}
 		<Alert.Root variant="success">
-			<Alert.Description>{toastMessage}</Alert.Description>
+			<Alert.Description>{visibleToastMessage}</Alert.Description>
 		</Alert.Root>
 	{/if}
-	{#if toastError}
+	{#if visibleToastError}
 		<Alert.Root variant="destructive">
-			<Alert.Description>{toastError}</Alert.Description>
+			<Alert.Description>{visibleToastError}</Alert.Description>
 		</Alert.Root>
 	{/if}
 
@@ -69,6 +75,9 @@
 		{/snippet}
 		{#snippet meta()}
 			<Badge variant="secondary">Identity Record</Badge>
+			<Badge variant={data.user.emailConfirmationStatus === 'confirmed' ? 'success' : 'warning'}>
+				Email {data.user.emailConfirmationStatus}
+			</Badge>
 		{/snippet}
 		{#snippet actions()}
 			<div class="flex size-12 items-center justify-center rounded-full border bg-muted text-sm font-semibold">
@@ -80,13 +89,14 @@
 		{/snippet}
 	</PageShell.Header>
 
-	<PageShell.FactGrid layout="two">
+	<PageShell.FactGrid layout="three">
 		<PageShell.Metric label="User ID" value={data.user.id} class="[&_strong]:font-mono [&_strong]:text-sm" />
 		<PageShell.Metric
 			label="Organizations"
 			value={data.organizations.length}
 			detail="Organizations where this account currently holds membership."
 		/>
+		<PageShell.Metric label="Email Confirmation" value={emailConfirmationLabel} detail={emailConfirmationDetail} />
 	</PageShell.FactGrid>
 
 	<div class="flex flex-wrap gap-2">
@@ -151,7 +161,7 @@
 								<Table.Cell>
 									{#if org.id}
 										<a
-											href="/admin/organizations/{org.id}"
+											href={resolve(`/admin/organizations/${org.id}`)}
 											class="text-sm font-medium underline-offset-4 hover:underline">{org.name}</a
 										>
 									{:else}

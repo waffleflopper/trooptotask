@@ -80,7 +80,7 @@ Do not start these until test-mode verification is complete and Robert has made 
 | `STRIPE_AUTOMATIC_TAX_ENABLED` and `STRIPE_TAX_DASHBOARD_VERIFIED` match the tax launch decision | Requires Robert confirmation | Robert | Tax decision record and Dashboard confirmation. |
 | Customer Portal live configuration matches the supported contract | Requires Robert confirmation | Robert | Dashboard confirmation. |
 | Billing retry, invoice, receipt, and customer email settings are reviewed in live mode | Requires Robert confirmation | Robert | Dashboard confirmation. |
-| Support process is staffed for launch | Requires Robert/business-owner confirmation | Robert | Who handles billing tickets, where Stripe IDs are searched, and how urgent payment failures are escalated. |
+| Support process is staffed for launch | Requires Robert/business-owner confirmation | Robert | Who handles billing tickets, where Stripe IDs are searched, where admin self-service signup state is checked, and how urgent payment failures are escalated. |
 
 ## Environment Variables
 
@@ -154,3 +154,20 @@ Before launch, Robert should confirm:
 - How to correlate a ticket using Stripe customer ID, subscription ID, latest webhook event, billing snapshot, admin diagnostics, and reconciliation result.
 
 Support should use the admin billing diagnostics and Stripe Dashboard IDs. Do not ask customers for card details, full payment method data, or screenshots containing secrets.
+
+Self-service acquisition support should start in the app before Stripe:
+
+- Admin -> Access Requests shows whether the user came through reviewed access.
+- Admin -> Users shows the account creation date, email confirmation status,
+  suspension state, and Organization memberships for signup and first-run
+  questions.
+- Admin -> Organizations shows whether the first Organization exists, who owns
+  it, and which plan or gift tier is active.
+- Admin -> Subscriptions and Admin -> Billing Events show support-safe checkout,
+  payment recovery, cancellation, and webhook state.
+
+Safe correlation identifier types are Organization ID, user ID, Stripe customer
+ID, subscription ID, invoice ID, webhook event ID, and app audit-log ID. Do not
+record raw webhook payloads, card details, API keys, webhook secrets, session
+cookies, or screenshots containing secret values in support notes, issues, PRs,
+or repo docs.

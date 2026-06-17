@@ -11,7 +11,7 @@
 > dispatched you and told you they maintain the index.
 >
 > **Drift check (run first)**:
-> `git diff --stat c6760c16..HEAD -- docs/launch-acquisition-path.md plans/081-surface-first-run-owner-checklist.md plans/086-support-admin-visibility-self-service.md src/routes/org/[orgId]/api/getting-started src/features/dashboard/read-model/dashboardScreenModel.svelte.ts src/features/dashboard/components src/routes/admin src/lib/server/adapters/supabasePlatformAdministration.ts src/lib/server/core/useCases/platformAdministration.ts src/features/personnel/components/PersonnelPageView.svelte src/features/personnel/components/PersonnelImportPage.svelte src/lib/server/core/useCases/orgProvisioning.ts supabase/migrations`
+> `git diff --stat d485cdc5..HEAD -- docs/launch-acquisition-path.md plans/081-surface-first-run-owner-checklist.md plans/086-support-admin-visibility-self-service.md 'src/routes/org/[orgId]/api/getting-started' src/features/dashboard/read-model/dashboardScreenModel.svelte.ts src/features/dashboard/components src/routes/admin src/lib/server/adapters/supabasePlatformAdministration.ts src/lib/server/core/useCases/platformAdministration.ts src/features/personnel/components/PersonnelPageView.svelte src/features/personnel/components/PersonnelImportPage.svelte src/lib/server/core/useCases/orgProvisioning.ts supabase/migrations`
 > If any in-scope file changed since this plan was written, compare the
 > "Current state" excerpts against the live code before proceeding; on a
 > mismatch, treat it as a STOP condition.
@@ -23,7 +23,16 @@
 - **Risk**: MED
 - **Depends on**: plans/081-surface-first-run-owner-checklist.md, plans/083-public-account-creation-abuse-controls.md, plans/084-self-service-organization-onboarding.md, plans/085-checkout-trial-entry-billing-recovery.md, plans/086-support-admin-visibility-self-service.md, plans/087-self-service-acquisition-e2e-coverage.md
 - **Category**: direction
-- **Planned at**: commit `c6760c16`, 2026-06-16
+- **Planned at**: commit `d485cdc5`, 2026-06-16 (reconciled; originally planned at `c6760c16`)
+
+## Reconciliation note
+
+On 2026-06-16, this plan was refreshed at `d485cdc5`. The getting-started
+endpoint changed after the original plan to use policy-first route configs and
+`identity-owned-preference` read-only-mode exceptions for dismissal writes. The
+activation-health finding still stands: the endpoint still returns only
+checklist support counts and dismissal state, not a post-checkout activation
+health model.
 
 ## Why this matters
 
@@ -44,7 +53,8 @@ not end at payment.
   and billing-state questions, not post-checkout activation questions.
 - `src/routes/org/[orgId]/api/getting-started/+server.ts:15-33` returns
   onboarding template step count, rating scheme entry count, org member count,
-  and dismissed state.
+  and dismissed state; writes use the `identity-owned-preference`
+  read-only-mode exception.
 - `src/features/dashboard/read-model/dashboardScreenModel.svelte.ts:283-333`
   defines getting-started items for roster, statuses, training, assignments,
   members, onboarding, and evals.
@@ -80,6 +90,12 @@ const DEFAULT_STATUS_TYPES: OrgProvisioningStatusTypeSeed[] = [
 ```sql
 -- supabase/migrations/20260413001158_remote_schema.sql:2138
 CREATE TABLE IF NOT EXISTS "public"."getting_started_progress" (
+```
+
+```ts
+// src/routes/org/[orgId]/api/getting-started/+server.ts
+policyAction: POLICY_ACTION_CATALOG.identity.viewDashboard
+readOnlyModeException: 'identity-owned-preference'
 ```
 
 ## Commands you will need

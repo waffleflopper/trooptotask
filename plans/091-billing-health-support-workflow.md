@@ -11,7 +11,7 @@
 > dispatched you and told you they maintain the index.
 >
 > **Drift check (run first)**:
-> `git diff --stat c6760c16..HEAD -- docs/billing-operations-launch-checklist.md docs/security/incident-response.md docs/security/operational-control-evidence.md src/routes/admin/billing-events src/routes/admin/subscriptions src/routes/admin/organizations src/lib/server/admin.ts src/lib/server/adapters/supabasePlatformBillingEvents.ts src/lib/server/core/useCases/platformBillingEvents.ts src/lib/server/core/useCases/billingReconciliationBatch.ts src/routes/api/billing-reconciliation`
+> `git diff --stat d485cdc5..HEAD -- docs/billing-operations-launch-checklist.md docs/security/incident-response.md docs/security/operational-control-evidence.md src/routes/admin/billing-events src/routes/admin/subscriptions src/routes/admin/organizations src/lib/server/admin.ts src/lib/server/adapters/supabasePlatformBillingEvents.ts src/lib/server/core/useCases/platformBillingEvents.ts src/lib/server/core/useCases/billingReconciliationBatch.ts src/routes/api/billing-reconciliation`
 > If any in-scope file changed since this plan was written, compare the
 > "Current state" excerpts against the live code before proceeding; on a
 > mismatch, treat it as a STOP condition.
@@ -23,7 +23,14 @@
 - **Risk**: MED
 - **Depends on**: plans/085-checkout-trial-entry-billing-recovery.md, plans/086-support-admin-visibility-self-service.md
 - **Category**: direction
-- **Planned at**: commit `c6760c16`, 2026-06-16
+- **Planned at**: commit `d485cdc5`, 2026-06-16 (reconciled; originally planned at `c6760c16`)
+
+## Reconciliation note
+
+On 2026-06-16, this plan was refreshed at `d485cdc5`. No in-scope files changed
+since the original `c6760c16` stamp. The current state remains valid: billing
+events still load the latest 50 diagnostics, and subscription drift is still
+summarized on the current admin subscriptions page.
 
 ## Why this matters
 

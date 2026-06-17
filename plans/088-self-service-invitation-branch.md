@@ -9,7 +9,7 @@
 > reviewer dispatched you and told you they maintain the index.
 >
 > **Drift check (run first)**:
-> `git diff --stat c6760c16..HEAD -- docs/launch-acquisition-path.md plans/083-public-account-creation-abuse-controls.md plans/084-self-service-organization-onboarding.md plans/087-self-service-acquisition-e2e-coverage.md src/lib/server/organizationInvitationDelivery.ts src/lib/server/organizationInvitationDelivery.test.ts src/lib/server/core/useCases/orgSettingsMemberManagement.ts src/lib/server/core/useCases/dashboardOrgAccess.ts src/routes/auth src/routes/dashboard`
+> `git diff --stat d485cdc5..HEAD -- docs/launch-acquisition-path.md plans/083-public-account-creation-abuse-controls.md plans/084-self-service-organization-onboarding.md plans/087-self-service-acquisition-e2e-coverage.md src/lib/server/organizationInvitationDelivery.ts src/lib/server/organizationInvitationDelivery.test.ts src/lib/server/core/useCases/orgSettingsMemberManagement.ts src/lib/server/core/useCases/dashboardOrgAccess.ts src/routes/auth src/routes/dashboard`
 > If any in-scope file changed since this plan was written, compare the
 > "Current state" excerpts against the live code before proceeding; on a
 > mismatch, treat it as a STOP condition.
@@ -21,7 +21,13 @@
 - **Risk**: MED
 - **Depends on**: plans/083-public-account-creation-abuse-controls.md
 - **Category**: direction
-- **Planned at**: commit `c6760c16`, 2026-06-16
+- **Planned at**: commit `d485cdc5`, 2026-06-16 (reconciled; originally planned at `c6760c16`)
+
+## Reconciliation note
+
+On 2026-06-16, this plan was refreshed at `d485cdc5`. No in-scope files changed
+since the original `c6760c16` stamp, and the current state remains valid:
+no-account invitation delivery still routes to `/auth/request-access`.
 
 ## Why this matters
 

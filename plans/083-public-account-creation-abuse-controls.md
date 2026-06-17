@@ -9,7 +9,7 @@
 > and told you they maintain the index.
 >
 > **Drift check (run first)**:
-> `git diff --stat 0cafdd3e..HEAD -- docs/launch-acquisition-path.md docs/architecture/adrs/0009-beta-access-request-account-setup-links.md docs/architecture/ADR_INDEX.md CONTEXT.md src/routes/auth src/routes/api/access-requests src/lib/server/durableRateLimit.ts src/lib/server/accessRequestRateLimit.ts src/lib/server/authConfirm.ts e2e/specs/auth-email-flows.spec.ts`
+> `git diff --stat d485cdc5..HEAD -- docs/launch-acquisition-path.md docs/architecture/adrs/0009-beta-access-request-account-setup-links.md docs/architecture/ADR_INDEX.md CONTEXT.md src/routes/auth src/routes/api/access-requests src/lib/server/durableRateLimit.ts src/lib/server/accessRequestRateLimit.ts src/lib/server/authConfirm.ts e2e/specs/auth-email-flows.spec.ts`
 > If any in-scope file changed since this plan was written, compare the
 > "Current state" excerpts against the live code before proceeding; on a
 > mismatch, treat it as a STOP condition.
@@ -21,7 +21,15 @@
 - **Risk**: HIGH
 - **Depends on**: plan 080
 - **Category**: direction
-- **Planned at**: commit `0cafdd3e`, 2026-06-15
+- **Planned at**: commit `d485cdc5`, 2026-06-16 (reconciled; originally planned at `0cafdd3e`)
+
+## Reconciliation note
+
+On 2026-06-16, this plan was refreshed at `d485cdc5`. Drift since the original
+`0cafdd3e` stamp was limited to launch acquisition docs, `CONTEXT.md`, and
+reviewed-access setup copy. The finding still exists: there is no
+`src/routes/auth/sign-up` route, and `src/lib/server/authConfirm.ts` still
+supports only `invite` and `recovery` confirmation destinations.
 
 ## Why this matters
 
@@ -36,6 +44,7 @@ creation layer without creating Organizations or starting checkout yet.
 
 - `docs/launch-acquisition-path.md` says self-service registration is the paid
   target, but not implemented in Plan 080.
+- Current HEAD still has no `src/routes/auth/sign-up` route.
 - `src/routes/auth/request-access/+page.svelte` is the public entry point for
   reviewed access.
 - `src/routes/auth/setup-account/+page.server.ts` creates or activates a User

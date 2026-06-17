@@ -81,7 +81,9 @@ export const actions: Actions = {
 		const { error } = await createSupabaseSignupAuthProvider(locals).signUp({
 			email,
 			password,
-			emailRedirectTo: redirectTo
+			options: {
+				emailRedirectTo: redirectTo
+			}
 		});
 
 		if (error) {

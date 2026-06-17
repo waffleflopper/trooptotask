@@ -10,7 +10,6 @@ const useCases = createRatingSchemeEntryUseCases();
 
 export const _postConfig: RouteConfig<Record<string, unknown>, unknown> = {
 	mutation: true,
-	allowReadOnlyMutation: true,
 	policyAction: POLICY_ACTION_CATALOG.ratingScheme.updateEntries,
 	policyResource: { kind: 'unscoped' },
 	fn: (ctx, input) => useCases.create(ctx, input)
@@ -18,7 +17,6 @@ export const _postConfig: RouteConfig<Record<string, unknown>, unknown> = {
 
 export const _putConfig: RouteConfig<Record<string, unknown>, unknown> = {
 	mutation: true,
-	allowReadOnlyMutation: true,
 	policyAction: POLICY_ACTION_CATALOG.ratingScheme.updateEntries,
 	policyResource: { kind: 'unscoped' },
 	fn: (ctx, input) => useCases.update(ctx, input)
@@ -26,7 +24,6 @@ export const _putConfig: RouteConfig<Record<string, unknown>, unknown> = {
 
 export const _deleteConfig: RouteConfig<Record<string, unknown>, Record<string, unknown>> = {
 	mutation: true,
-	allowReadOnlyMutation: true,
 	policyAction: POLICY_ACTION_CATALOG.ratingScheme.requestEntryDeletion,
 	policyResource: { kind: 'unscoped' },
 	fn: async (ctx, input) => {

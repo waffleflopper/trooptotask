@@ -113,7 +113,7 @@ describe('route authorization', () => {
 		});
 	});
 
-	it('allows explicit read-only bypasses for policy routes that need them', async () => {
+	it('allows named Read-Only Mode exceptions for matching policy routes', async () => {
 		const ctx = createTestContext({
 			readOnly: true,
 			auth: {
@@ -128,7 +128,31 @@ describe('route authorization', () => {
 		await enforceRouteAuthorization(ctx, {
 			mutation: true,
 			policyAction: POLICY_ACTION_CATALOG.identity.updateOwnPreferences,
-			allowReadOnlyMutation: true
+			readOnlyModeException: 'identity-owned-preference'
+		});
+	});
+
+	it('does not let a Read-Only Mode exception bypass unrelated writes', async () => {
+		const ctx = createTestContext({
+			readOnly: true,
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: { ...NO_CAPABILITIES, criticalTasks: 'operate' },
+				scopeSet: { kind: 'organization' }
+			}
+		});
+
+		await expect(
+			enforceRouteAuthorization(ctx, {
+				mutation: true,
+				policyAction: POLICY_ACTION_CATALOG.criticalTasks.recordCompletion,
+				policyResource: { kind: 'organization' },
+				readOnlyModeException: 'identity-owned-preference'
+			})
+		).rejects.toMatchObject({
+			status: 403,
+			message: 'Organization is in read-only mode'
 		});
 	});
 
@@ -145,6 +169,32 @@ describe('route authorization', () => {
 		await enforceLoadAuthorization(ctx, {
 			policyAction: POLICY_ACTION_CATALOG.training.viewRecords,
 			policyResource: { kind: 'organization' }
+		});
+	});
+
+	it('blocks ordinary read-only-gated loads in Read-Only Mode', async () => {
+		const ctx = createTestContext({
+			readOnly: true
+		});
+
+		await expect(
+			enforceLoadAuthorization(ctx, {
+				policyAction: POLICY_ACTION_CATALOG.organization.accessBilling
+			})
+		).rejects.toMatchObject({
+			status: 403,
+			message: 'Organization is in read-only mode'
+		});
+	});
+
+	it('allows the named billing recovery load during Read-Only Mode', async () => {
+		const ctx = createTestContext({
+			readOnly: true
+		});
+
+		await enforceLoadAuthorization(ctx, {
+			policyAction: POLICY_ACTION_CATALOG.organization.accessBilling,
+			readOnlyModeException: 'billing-recovery'
 		});
 	});
 

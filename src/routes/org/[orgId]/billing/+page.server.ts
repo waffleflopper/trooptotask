@@ -103,6 +103,7 @@ export const load: PageServerLoad = async ({ params, locals, cookies, parent }) 
 
 	return loadWithContext(locals, cookies, orgId, {
 		policyAction: POLICY_ACTION_CATALOG.organization.accessBilling,
+		readOnlyModeException: 'billing-recovery',
 		fn: async (ctx) => _loadBillingPageData(ctx, shell.state.effectiveTier)
 	});
 };

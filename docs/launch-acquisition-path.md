@@ -13,8 +13,9 @@ TroopToTask will keep acquisition environment-gated for launch readiness:
   users receive an Account Setup Link.
 - When paid billing is turned on, the target path is open self-service
   registration with email confirmation and no request-access gate.
-- The self-service paid path is not implemented in Plan 080. It requires the
-  follow-up implementation plans listed below.
+- Plan 083 adds the self-service signup identity layer. The full paid
+  self-service path still requires the remaining follow-up implementation plans
+  listed below.
 
 This document selects one launch direction: reviewed access remains the live
 public path until the self-service acquisition plans are complete and billing is
@@ -32,10 +33,11 @@ checkout without a platform-admin approval step.
 
 ## Public CTA
 
-Until self-service registration ships, public CTAs should continue to say
-`Request Access` and route unauthenticated users to `/auth/request-access`.
-Public pricing may show final Team and Unit prices, but it must not imply that
-an unapproved public user can create an account or start checkout today.
+Until the full self-service acquisition path ships, public CTAs should continue
+to say `Request Access` and route unauthenticated users to
+`/auth/request-access`. Public pricing may show final Team and Unit prices, but
+it must not imply that an unapproved public user can create an Organization or
+start checkout today.
 
 After the self-service plans ship and billing is enabled, the public CTA should
 move to account creation language such as `Start Trial`, `Create Account`, or
@@ -124,7 +126,7 @@ ADR 0009 still holds for the currently live reviewed access path. Access
 Request approval still creates or renews an app-owned Account Setup Link, not a
 Supabase User Account, and it does not create an Organization Membership.
 
-The future self-service registration path must not silently change ADR 0009
-semantics. A follow-up implementation may add a new ADR or update ADR 0009 when
-the self-service route is introduced. Until then, Access Request, Account Setup
-Link, User Account, and Organization Membership remain separate concepts.
+The self-service registration path must not silently change ADR 0009 semantics.
+Plan 083 updates ADR 0009 with a billing-enabled signup exception for User
+Account creation, while Access Request, Account Setup Link, User Account, and
+Organization Membership remain separate concepts.

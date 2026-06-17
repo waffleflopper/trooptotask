@@ -51,7 +51,7 @@ export async function createDeletionRequest(
 		ctx.auth.userId,
 		AUDIT_RESOURCE,
 		undefined,
-		{ enforceReadOnlyOverlay: input.resourceType !== 'personnel' }
+		{ enforceReadOnlyOverlay: false }
 	);
 
 	// Check for existing pending request for the same resource
@@ -245,7 +245,8 @@ export async function cancelDeletionRequest(ctx: WritePorts, requestId: string):
 		POLICY_ACTION_CATALOG.identity.cancelOwnDeletionRequest,
 		typeof request.requested_by === 'string' ? request.requested_by : null,
 		AUDIT_RESOURCE,
-		requestId
+		requestId,
+		{ enforceReadOnlyOverlay: false }
 	);
 
 	await ctx.store.update(TABLE, ctx.auth.orgId, requestId, {

@@ -113,7 +113,7 @@ describe('route authorization', () => {
 		});
 	});
 
-	it('allows explicit read-only bypasses for policy routes that need them', async () => {
+	it('allows named Read-Only Mode exceptions for matching policy routes', async () => {
 		const ctx = createTestContext({
 			readOnly: true,
 			auth: {
@@ -128,7 +128,31 @@ describe('route authorization', () => {
 		await enforceRouteAuthorization(ctx, {
 			mutation: true,
 			policyAction: POLICY_ACTION_CATALOG.identity.updateOwnPreferences,
-			allowReadOnlyMutation: true
+			readOnlyModeException: 'identity-owned-preference'
+		});
+	});
+
+	it('does not let a Read-Only Mode exception bypass unrelated writes', async () => {
+		const ctx = createTestContext({
+			readOnly: true,
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: { ...NO_CAPABILITIES, criticalTasks: 'operate' },
+				scopeSet: { kind: 'organization' }
+			}
+		});
+
+		await expect(
+			enforceRouteAuthorization(ctx, {
+				mutation: true,
+				policyAction: POLICY_ACTION_CATALOG.criticalTasks.recordCompletion,
+				policyResource: { kind: 'organization' },
+				readOnlyModeException: 'identity-owned-preference'
+			})
+		).rejects.toMatchObject({
+			status: 403,
+			message: 'Organization is in read-only mode'
 		});
 	});
 
@@ -145,6 +169,26 @@ describe('route authorization', () => {
 		await enforceLoadAuthorization(ctx, {
 			policyAction: POLICY_ACTION_CATALOG.training.viewRecords,
 			policyResource: { kind: 'organization' }
+		});
+	});
+
+	it('does not apply the read-only write gate to page loads', async () => {
+		const ctx = createTestContext({
+			readOnly: true
+		});
+
+		await enforceLoadAuthorization(ctx, {
+			policyAction: POLICY_ACTION_CATALOG.organization.accessBilling
+		});
+	});
+
+	it('does not apply the read-only write gate to layout loads', async () => {
+		const ctx = createTestContext({
+			readOnly: true
+		});
+
+		await enforceLayoutPolicy(ctx, {
+			policyAction: POLICY_ACTION_CATALOG.organization.accessGovernance
 		});
 	});
 

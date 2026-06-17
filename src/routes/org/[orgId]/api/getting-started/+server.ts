@@ -43,8 +43,9 @@ export const GET = handle(_getConfig);
 
 export const _postConfig: RouteConfig<void, unknown> = {
 	mutation: true,
-	allowReadOnlyMutation: true,
+	readOnlyModeException: 'identity-owned-preference',
 	policyAction: POLICY_ACTION_CATALOG.identity.updateOwnPreferences,
+	parseInput: () => undefined,
 	fn: async (ctx) => {
 		const userId = ctx.auth.userId;
 		if (!userId) fail(401, 'Unauthorized');
@@ -73,8 +74,9 @@ export const POST = handle(_postConfig);
 
 export const _deleteConfig: RouteConfig<void, unknown> = {
 	mutation: true,
-	allowReadOnlyMutation: true,
+	readOnlyModeException: 'identity-owned-preference',
 	policyAction: POLICY_ACTION_CATALOG.identity.updateOwnPreferences,
+	parseInput: () => undefined,
 	fn: async (ctx) => {
 		const userId = ctx.auth.userId;
 		if (!userId) fail(401, 'Unauthorized');

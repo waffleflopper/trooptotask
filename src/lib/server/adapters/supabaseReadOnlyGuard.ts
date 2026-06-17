@@ -1,20 +1,22 @@
 /**
  * ReadOnlyGuard implementation backed by Supabase.
- * Returns `true` when the org's subscription has lapsed and all writes should be blocked.
- * Use cases call `ctx.readOnlyGuard.check()` before any mutation that should be gated
- * by subscription status.
+ * Use cases call `ctx.readOnlyGuard.check()` before any mutation gated by Read-Only Mode.
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { ReadOnlyGuard } from '../core/ports';
-import { getOrgReadOnlyState, isOrgReadOnly } from '$lib/server/subscription';
+import { readReadOnlyModeState } from '$lib/server/core/useCases/readOnlyMode';
+import { createSupabaseDataStore } from './supabaseDataStore';
 
 export function createSupabaseReadOnlyGuard(supabase: SupabaseClient, orgId: string): ReadOnlyGuard {
+	const store = createSupabaseDataStore(supabase);
+	const readState = () => readReadOnlyModeState({ auth: { orgId }, store });
+
 	return {
 		async check(): Promise<boolean> {
-			return isOrgReadOnly(supabase, orgId);
+			return (await readState()).isReadOnly;
 		},
 		async checkState() {
-			return getOrgReadOnlyState(supabase, orgId);
+			return readState();
 		}
 	};
 }

@@ -213,7 +213,7 @@ The structured effective outcome for a requested action after role, capability, 
 _Avoid_: Checkbox
 
 **Read-Only Mode**:
-A billing-driven state where writes are blocked even if a member would otherwise have edit access.
+A billing-driven state where writes are blocked even if a member would otherwise have edit access. Read-Only Mode includes billing-state locks and active Personnel over-limit locks. Only named exceptions for billing recovery, identity-owned preferences, and identity-owned data requests may bypass the write gate.
 _Avoid_: Broken permissions
 
 **Billing Snapshot Transition**:

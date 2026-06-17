@@ -23,6 +23,7 @@ export const POST: RequestHandler = async (event) => {
 			{
 				policyAction: POLICY_ACTION_CATALOG.organization.manageBilling,
 				mutation: true,
+				readOnlyModeException: 'billing-recovery',
 				fn: async (c) => {
 					const customerId = await resolvePortalCustomerId(c);
 					return portal(c, {

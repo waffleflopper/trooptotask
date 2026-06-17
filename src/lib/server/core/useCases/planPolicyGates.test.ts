@@ -3,10 +3,8 @@ import type { BillingSnapshot } from '$lib/types/subscription';
 import { buildEffectivePlanPolicy } from './planPolicy';
 import {
 	checkAfterPlanLimitMutation,
-	checkPlanFeature,
 	checkPlanFeatureByKey,
 	checkWithinPlanLimit,
-	requirePlanFeature,
 	requireWithinPlanLimit
 } from './planPolicyGates';
 
@@ -43,7 +41,7 @@ function snapshot(overrides: Partial<BillingSnapshot> = {}): BillingSnapshot {
 }
 
 describe('plan policy gates', () => {
-	it('reports feature availability and upgrade targets by plan', () => {
+	it('reports export entitlement availability and upgrade targets by plan', () => {
 		const freePolicy = buildEffectivePlanPolicy(snapshot({ commercialPlan: 'free' }));
 		const teamPolicy = buildEffectivePlanPolicy(snapshot({ commercialPlan: 'team' }));
 		const unitPolicy = buildEffectivePlanPolicy(snapshot({ commercialPlan: 'unit' }));
@@ -57,14 +55,14 @@ describe('plan policy gates', () => {
 			upgradeTarget: 'unit'
 		});
 		expect(unitPolicy.entitlements.bulk_export_unlimited).toMatchObject({ available: true });
-		expect(checkPlanFeature(teamPolicy, 'advanced_reporting')).toMatchObject({
+		expect(checkPlanFeatureByKey(teamPolicy, 'bulk_export_unlimited')).toMatchObject({
 			allowed: false,
 			denial: { upgradeTarget: 'unit' }
 		});
-		expect(checkPlanFeature(unitPolicy, 'advanced_reporting')).toMatchObject({ allowed: true });
+		expect(checkPlanFeatureByKey(unitPolicy, 'bulk_export_unlimited')).toMatchObject({ allowed: true });
 	});
 
-	it('honors gift precedence for feature availability', () => {
+	it('honors gift precedence for export entitlement availability', () => {
 		const policy = buildEffectivePlanPolicy(
 			snapshot({
 				source: 'gift',
@@ -74,10 +72,10 @@ describe('plan policy gates', () => {
 			})
 		);
 
-		expect(checkPlanFeature(policy, 'advanced_reporting')).toMatchObject({
+		expect(checkPlanFeatureByKey(policy, 'bulk_export_unlimited')).toMatchObject({
 			allowed: true,
 			value: {
-				key: 'advanced_reporting',
+				key: 'bulk_export_unlimited',
 				source: 'admin_gift'
 			}
 		});
@@ -99,14 +97,6 @@ describe('plan policy gates', () => {
 		});
 	});
 
-	it('throws from requirePlanFeature for a known but unavailable feature', () => {
-		const policy = buildEffectivePlanPolicy(snapshot({ commercialPlan: 'free' }));
-
-		expect(() => requirePlanFeature(policy, 'advanced_reporting')).toThrow(
-			'Advanced reporting is not available on your current plan.'
-		);
-	});
-
 	it('returns structured denial data when a plan limit is reached', () => {
 		const policy = buildEffectivePlanPolicy(snapshot({ commercialPlan: 'free' }));
 
@@ -115,9 +105,69 @@ describe('plan policy gates', () => {
 			denial: {
 				code: 'denied.export_quota',
 				dimension: 'monthly_exports',
-				message: 'Export limit reached (3/month). Upgrade for unlimited exports.',
-				remediation: 'Upgrade for unlimited exports or wait until next month.',
+				message: 'Export limit reached (3/month). Upgrade to Team for more monthly exports.',
+				remediation: 'Upgrade to Team for more monthly exports or wait until next month.',
 				upgradeTarget: 'team'
+			}
+		});
+	});
+
+	it('points team export quota denials to Unit unlimited exports', () => {
+		const policy = buildEffectivePlanPolicy(snapshot({ commercialPlan: 'team' }));
+
+		expect(checkWithinPlanLimit(policy, 'monthly_exports', 10)).toEqual({
+			allowed: false,
+			denial: {
+				code: 'denied.export_quota',
+				dimension: 'monthly_exports',
+				message: 'Export limit reached (10/month). Upgrade to Unit for unlimited exports.',
+				remediation: 'Upgrade to Unit for unlimited exports or wait until next month.',
+				upgradeTarget: 'unit'
+			}
+		});
+	});
+
+	it('lets unlimited export feature overrides lift the quota', () => {
+		const policy = buildEffectivePlanPolicy(snapshot({ commercialPlan: 'free' }), {
+			featureOverrides: [
+				{
+					id: 'override-1',
+					organizationId: 'org-1',
+					featureKey: 'bulk_export_unlimited',
+					state: 'granted',
+					expiresAt: '2999-01-01T00:00:00.000Z'
+				}
+			],
+			now: new Date('2026-05-24T00:00:00.000Z')
+		});
+
+		expect(policy.exportQuota).toMatchObject({ limit: null, unlimited: true, upgradeTarget: null });
+		expect(checkWithinPlanLimit(policy, 'monthly_exports', 100)).toEqual({ allowed: true });
+	});
+
+	it('makes denied Unit unlimited-export overrides enforce the capped export path', () => {
+		const policy = buildEffectivePlanPolicy(snapshot({ commercialPlan: 'unit' }), {
+			featureOverrides: [
+				{
+					id: 'override-denied',
+					organizationId: 'org-1',
+					featureKey: 'bulk_export_unlimited',
+					state: 'denied',
+					expiresAt: null
+				}
+			],
+			now: new Date('2026-05-24T00:00:00.000Z')
+		});
+
+		expect(policy.exportQuota).toMatchObject({ limit: 10, unlimited: false, upgradeTarget: null });
+		expect(checkWithinPlanLimit(policy, 'monthly_exports', 10)).toEqual({
+			allowed: false,
+			denial: {
+				code: 'denied.export_quota',
+				dimension: 'monthly_exports',
+				message: 'Export limit reached (10/month). Contact support for export access.',
+				remediation: 'Contact support for export access or wait until next month.',
+				upgradeTarget: null
 			}
 		});
 	});
@@ -139,7 +189,7 @@ describe('plan policy gates', () => {
 		const policy = buildEffectivePlanPolicy(snapshot({ commercialPlan: 'free' }));
 
 		expect(() => requireWithinPlanLimit(policy, 'monthly_exports', 3)).toThrow(
-			'Export limit reached (3/month). Upgrade for unlimited exports.'
+			'Export limit reached (3/month). Upgrade to Team for more monthly exports.'
 		);
 	});
 });

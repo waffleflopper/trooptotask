@@ -320,15 +320,10 @@ function validateProviderSubscription(input: {
 		]);
 	}
 
-	const metadataTier = input.subscription.metadata.tier;
 	const shouldRetainCommercialPlan = retainsCommercialPlan(input.subscription.status);
 
 	if (!shouldRetainCommercialPlan) {
 		return { commercialPlan: 'free' };
-	}
-
-	if (!metadataTier) {
-		throw new BillingReconciliationError('Stripe subscription is missing tier metadata.', ['missing_tier_metadata']);
 	}
 
 	const catalogLookup = lookupPriceCatalogEntry(input.priceCatalog, input.subscription.priceId);
@@ -337,12 +332,6 @@ function validateProviderSubscription(input: {
 			`Stripe subscription price is not in the local catalog: ${catalogLookup.reason}.`,
 			[catalogLookup.reason]
 		);
-	}
-
-	if (metadataTier !== catalogLookup.entry.commercialPlan) {
-		throw new BillingReconciliationError('Stripe subscription tier metadata does not match the local price catalog.', [
-			'metadata_tier_price_mismatch'
-		]);
 	}
 
 	return { commercialPlan: catalogLookup.entry.commercialPlan };

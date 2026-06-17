@@ -27,7 +27,7 @@
 	imageAlt="A military command-post desk with a map, notebook, compass, and rugged laptop."
 	supportLabel="Need help?"
 	supportTitle="Choose the right path."
-	supportDescription="If you do not have an account yet, use your Account Setup Link, request a fresh setup link below, or request beta access."
+	supportDescription="If you do not have an account yet, use your Account Setup Link, request a fresh setup link below, or request access."
 	supportPoints={[
 		'If you have an account but cannot sign in, reset your password before requesting new access.',
 		'Account Setup Links expire. If yours is stale, request a fresh setup link from this page.',
@@ -121,7 +121,7 @@
 				Need a fresh setup link? <a href={resolve('/auth/renew-invite')}>Request one</a>.
 			</p>
 			<p>
-				Want beta access? <a href={resolve('/auth/request-access')}>Request access</a>.
+				Want access? <a href={resolve('/auth/request-access')}>Request access</a>.
 			</p>
 		</div>
 	</div>

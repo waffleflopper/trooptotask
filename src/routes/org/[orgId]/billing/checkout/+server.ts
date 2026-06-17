@@ -9,7 +9,11 @@ import {
 } from '$lib/server/billing/checkoutConfiguration';
 import { getConfiguredPriceCatalog, lookupCheckoutPriceCatalogEntry } from '$lib/server/billing/priceCatalog';
 import { checkout } from '$lib/server/core/useCases/billing';
-import { persistBillingCustomerId, readBillingOrganization } from '$lib/server/core/useCases/billingOrganization';
+import {
+	canManageBillingSubscription,
+	persistBillingCustomerId,
+	readBillingOrganization
+} from '$lib/server/core/useCases/billingOrganization';
 import { fail } from '$lib/server/core/errors';
 import { makePublicAppUrl } from '$lib/server/publicAppOrigin';
 import { billingApiErrorResponse } from '../billingApiErrors';
@@ -67,6 +71,9 @@ export const POST: RequestHandler = async (event) => {
 				allowReadOnlyMutation: true,
 				fn: async (c) => {
 					const org = await readBillingOrganization({ auth: c.auth, store: c.rawStore });
+					if (canManageBillingSubscription(org)) {
+						fail(409, 'This organization already has a paid subscription. Use Manage Subscription to change plans.');
+					}
 					const checkoutResult = await checkout(c, {
 						tier,
 						priceId: checkoutPrice.entry.priceId,

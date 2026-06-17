@@ -1,6 +1,7 @@
 import type { QueryWithRawStorePorts, UseCaseContext } from '$lib/server/core/ports';
 import { readOrganizationPlanUsage } from '$lib/server/core/useCases/organizationPlanUsage';
 import { readEffectivePlanPolicy } from '$lib/server/core/useCases/planPolicy';
+import type { Tier } from '$lib/types/subscription';
 import type { SettingsExportInfo, SettingsExportsSectionData } from './settingsSectionTypes';
 
 export interface ExportsSettingsData {
@@ -9,7 +10,10 @@ export interface ExportsSettingsData {
 	};
 }
 
-export type SettingsExportInfoSource = Pick<SettingsExportInfo, 'exportsUsed' | 'exportsLimit' | 'isLimited'>;
+export type SettingsExportInfoSource = Pick<
+	SettingsExportInfo,
+	'exportsUsed' | 'exportsLimit' | 'isLimited' | 'upgradeTarget'
+>;
 
 export interface BuildExportsSettingsDataInput {
 	exportInfo: SettingsExportInfoSource;
@@ -48,8 +52,15 @@ async function loadExportInfo(ctx: Pick<UseCaseContext, 'auth' | 'rawStore'>): P
 	return {
 		exportsUsed: usage.monthlyExportCount,
 		exportsLimit: exportLimit ?? Infinity,
-		isLimited: exportLimit !== null
+		isLimited: exportLimit !== null,
+		upgradeTarget: policy.exportQuota.upgradeTarget
 	};
+}
+
+function exportLimitRemediation(upgradeTarget: Tier | null): string {
+	if (upgradeTarget === 'unit') return 'Export limit reached. Upgrade to Unit for unlimited exports.';
+	if (upgradeTarget === 'team') return 'Export limit reached. Upgrade to Team for more monthly exports.';
+	return 'Export limit reached. Contact support for export access.';
 }
 
 function shapeExportInfo(source: SettingsExportInfoSource): SettingsExportInfo {
@@ -57,6 +68,7 @@ function shapeExportInfo(source: SettingsExportInfoSource): SettingsExportInfo {
 	return {
 		...source,
 		limitReached,
-		planBadge: source.isLimited ? 'Plan limited' : 'Unlimited exports'
+		planBadge: source.isLimited ? 'Plan limited' : 'Unlimited exports',
+		limitReachedRemediation: exportLimitRemediation(source.upgradeTarget)
 	};
 }

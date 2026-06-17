@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
+
 	interface Props {
 		user?: unknown;
 		titleBefore?: string;
@@ -10,7 +12,7 @@
 		user,
 		titleBefore = 'Ready to streamline',
 		emphasis = 'your unit?',
-		subtitle = 'Free to use. No credit card. Set up in minutes.'
+		subtitle = 'Request reviewed access and we will help configure the right plan for your formation.'
 	}: Props = $props();
 </script>
 
@@ -22,7 +24,7 @@
 		</h2>
 		<p class="cta-subtitle">{subtitle}</p>
 		{#if user}
-			<a href="/dashboard?show=all" class="cta-btn">
+			<a href={resolve('/dashboard?show=all')} class="cta-btn">
 				Go to Dashboard
 				<svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18">
 					<path
@@ -33,8 +35,8 @@
 				</svg>
 			</a>
 		{:else}
-			<a href="/auth/login" class="cta-btn">
-				Get Started Free
+			<a href={resolve('/auth/request-access')} class="cta-btn">
+				Request Access
 				<svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18">
 					<path
 						fill-rule="evenodd"

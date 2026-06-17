@@ -4,6 +4,7 @@
 	import { Separator } from '$lib/components/ui/separator';
 	import { CalendarStatusBadge } from '$lib/components/ui/calendar-status-badge';
 	import * as Card from '$lib/components/ui/card';
+	import GettingStartedCard from '../GettingStartedCard.svelte';
 	import type { DashboardScreenModel } from '../../read-model/dashboardScreenModel.svelte';
 
 	interface Props {
@@ -95,6 +96,12 @@
 </script>
 
 <section class="px-3 pb-12 sm:px-4">
+	{#if ctx.shouldShowGettingStarted}
+		<div class="pt-4">
+			<GettingStartedCard {ctx} />
+		</div>
+	{/if}
+
 	<div class="grid gap-3 py-4 md:grid-cols-2 lg:grid-cols-3">
 		<!-- ═══════ LARGE: Strength & Availability (spans 2 cols on lg) ═══════ -->
 		<Card.Root class="lg:col-span-2">

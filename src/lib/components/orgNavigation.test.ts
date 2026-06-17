@@ -55,11 +55,11 @@ describe('getOrgNavigation', () => {
 					href: '/org/org-1/critical-tasks',
 					label: 'Critical Tasks',
 					compactLabel: 'ICTLs',
-					badgeLabel: 'Beta',
 					visible: true
 				})
 			])
 		);
+		expect(withCriticalTasks.find((item) => item.id === 'critical-tasks')).not.toHaveProperty('badgeLabel');
 		expect(withoutCriticalTasks.find((item) => item.id === 'critical-tasks')?.visible).toBe(false);
 	});
 

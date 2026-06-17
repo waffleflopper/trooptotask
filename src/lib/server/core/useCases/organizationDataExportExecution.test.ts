@@ -65,7 +65,7 @@ describe('executeOrganizationDataExport', () => {
 		const rows = await ctx.rawStore.findMany<Record<string, unknown>>('data_exports', ctx.auth.orgId);
 		expect(result).toMatchObject({
 			status: 'rate_limited',
-			error: 'Export limit reached (3/month). Upgrade for unlimited exports.'
+			error: 'Export limit reached (3/month). Upgrade to Team for more monthly exports.'
 		});
 		expect(rows).toHaveLength(3);
 		expect(buildArtifact).not.toHaveBeenCalled();
@@ -100,7 +100,7 @@ describe('executeOrganizationDataExport', () => {
 		const rows = await ctx.rawStore.findMany<Record<string, unknown>>('data_exports', ctx.auth.orgId);
 		expect(result).toMatchObject({
 			status: 'rate_limited',
-			error: 'Export limit reached (3/month). Upgrade for unlimited exports.'
+			error: 'Export limit reached (3/month). Upgrade to Team for more monthly exports.'
 		});
 		expect(rows).toEqual(
 			expect.arrayContaining([
@@ -109,6 +109,31 @@ describe('executeOrganizationDataExport', () => {
 			])
 		);
 		expect(buildArtifact).not.toHaveBeenCalled();
+	});
+
+	it('allows exports above the base quota when support grants unlimited exports', async () => {
+		const ctx = createTestContext();
+		seedCompletedExports(ctx, 4);
+		ctx.rawStore.seed('organization_plan_feature_overrides', [
+			{
+				id: 'override-1',
+				organization_id: ctx.auth.orgId,
+				feature_key: 'bulk_export_unlimited',
+				override_state: 'granted',
+				expires_at: '2999-01-01T00:00:00.000Z',
+				revoked_at: null
+			}
+		]);
+		const buildArtifact = vi.fn(async () => jsonArtifact());
+
+		const result = await executeOrganizationDataExport(ctx, {
+			requestedByEmail: 'leader@example.com',
+			auditAction: 'export.created',
+			buildArtifact
+		});
+
+		expect(result).toEqual({ status: 'ready', artifact: jsonArtifact() });
+		expect(buildArtifact).toHaveBeenCalledOnce();
 	});
 
 	it('completes, audits, and notifies for a JSON artifact', async () => {

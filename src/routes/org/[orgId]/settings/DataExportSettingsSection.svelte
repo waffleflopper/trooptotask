@@ -81,7 +81,7 @@
 				{#if exportInfo.isLimited}
 					<Badge variant="outline">{exportInfo.exportsUsed} / {exportInfo.exportsLimit} used</Badge>
 					{#if exportLimitReached}
-						<p class="text-sm text-destructive">Export limit reached. Upgrade your plan for unlimited exports.</p>
+						<p class="text-sm text-destructive">{exportInfo.limitReachedRemediation}</p>
 					{/if}
 				{:else}
 					<Badge variant="outline">Unlimited exports</Badge>

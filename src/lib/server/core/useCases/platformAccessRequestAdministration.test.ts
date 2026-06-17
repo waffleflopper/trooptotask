@@ -46,7 +46,7 @@ function makeAccessRequestRow(overrides: Partial<PlatformAccessRequestAdminRow> 
 		id: 'request-1',
 		name: 'Test Soldier',
 		email: 'soldier@example.mil',
-		reason: 'Needs beta access',
+		reason: 'Needs access',
 		heard_about: 'other',
 		heard_about_details: null,
 		status: 'approved',

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { existsSync, readFileSync } from 'node:fs';
+import { pathToFileURL } from 'node:url';
 import Stripe from 'stripe';
 
 const HANDLED_WEBHOOK_EVENTS = new Set([
@@ -13,6 +14,11 @@ const HANDLED_WEBHOOK_EVENTS = new Set([
 ]);
 
 const OPTIONAL_STRIPE_EVENTS = new Set(['customer.subscription.created']);
+
+const EXPECTED_PRICE_CONTRACT = {
+	Team: { unitAmount: 499, currency: 'usd', interval: 'month', intervalCount: 1 },
+	Unit: { unitAmount: 1099, currency: 'usd', interval: 'month', intervalCount: 1 }
+};
 
 function parseArgs(argv) {
 	return {
@@ -109,7 +115,9 @@ async function retrievePrice(stripe, priceId, label) {
 			livemode: price.livemode,
 			active: price.active,
 			recurring: price.recurring?.interval ?? null,
+			recurringIntervalCount: price.recurring?.interval_count ?? null,
 			currency: price.currency,
+			unitAmount: price.unit_amount,
 			productId: typeof price.product === 'string' ? price.product : price.product?.id
 		};
 	} catch (err) {
@@ -130,11 +138,16 @@ async function listAllStripeRows(listCall) {
 	return rows;
 }
 
+function formatCents(cents) {
+	return typeof cents === 'number' ? `$${(cents / 100).toFixed(2)}` : 'missing amount';
+}
+
 function checkPrice(results, price) {
 	if (!price.ok) {
 		results.push(result('fail', `${price.label} Stripe price`, price.error));
 		return;
 	}
+	const expected = EXPECTED_PRICE_CONTRACT[price.label];
 	results.push(
 		price.livemode === false
 			? result('pass', `${price.label} Stripe price mode`, 'test mode')
@@ -146,9 +159,44 @@ function checkPrice(results, price) {
 			: result('fail', `${price.label} Stripe price active`, `${price.id} is inactive`)
 	);
 	results.push(
-		price.recurring
-			? result('pass', `${price.label} Stripe price recurring`, price.recurring)
-			: result('fail', `${price.label} Stripe price recurring`, 'not a recurring price')
+		price.recurring === expected.interval
+			? result('pass', `${price.label} Stripe price recurring`, expected.interval)
+			: result(
+					'fail',
+					`${price.label} Stripe price recurring`,
+					price.recurring
+						? `${price.id} recurs ${price.recurring}, expected ${expected.interval}`
+						: 'not a recurring price'
+				)
+	);
+	results.push(
+		price.recurringIntervalCount === expected.intervalCount
+			? result('pass', `${price.label} Stripe price interval count`, String(expected.intervalCount))
+			: result(
+					'fail',
+					`${price.label} Stripe price interval count`,
+					price.recurringIntervalCount
+						? `${price.id} interval count is ${price.recurringIntervalCount}, expected ${expected.intervalCount}`
+						: 'missing recurring interval count'
+				)
+	);
+	results.push(
+		price.unitAmount === expected.unitAmount
+			? result('pass', `${price.label} Stripe price amount`, `${price.id} is ${formatCents(price.unitAmount)}`)
+			: result(
+					'fail',
+					`${price.label} Stripe price amount`,
+					`${price.id} is ${formatCents(price.unitAmount)}, expected ${formatCents(expected.unitAmount)}`
+				)
+	);
+	results.push(
+		price.currency === expected.currency
+			? result('pass', `${price.label} Stripe price currency`, expected.currency)
+			: result(
+					'fail',
+					`${price.label} Stripe price currency`,
+					`${price.id} is ${price.currency ?? 'missing currency'}, expected ${expected.currency}`
+				)
 	);
 }
 
@@ -186,31 +234,70 @@ function checkPortalConfiguration(results, configurations, prices) {
 	);
 
 	const update = features.subscription_update;
-	const updateProducts = new Map((update?.products ?? []).map((item) => [item.product, new Set(item.prices ?? [])]));
+	const updateProductEntries = update?.products ?? [];
+	const allowedUpdates = new Set(update?.default_allowed_updates ?? []);
+	const updateProducts = new Map(updateProductEntries.map((item) => [item.product, new Set(item.prices ?? [])]));
 	const teamConfigured = prices.team.ok && updateProducts.get(prices.team.productId)?.has(prices.team.id);
 	const unitConfigured = prices.unit.ok && updateProducts.get(prices.unit.productId)?.has(prices.unit.id);
+	const adjustableQuantityProducts = updateProductEntries.filter((item) => {
+		const adjustableQuantity = item.adjustable_quantity;
+		return adjustableQuantity?.enabled === true;
+	});
 	if (!update?.enabled) {
 		results.push(
-			result('warn', 'Customer Portal plan switching', 'disabled; use dashboard/API plan changes until enabled')
+			result('fail', 'Customer Portal plan switching', 'disabled; enable Team/Unit plan changes before launch')
 		);
-	} else if ((update.products ?? []).length === 0) {
+		return;
+	}
+
+	if (allowedUpdates.has('quantity')) {
 		results.push(
 			result(
-				'pass',
+				'fail',
+				'Customer Portal quantity updates',
+				'default_allowed_updates includes quantity; disable customer quantity changes before launch'
+			)
+		);
+	}
+
+	if (!allowedUpdates.has('price')) {
+		results.push(
+			result(
+				'fail',
 				'Customer Portal plan switching',
-				'price changes enabled; confirm eligible Team/Unit products in the dashboard'
+				'default_allowed_updates must include price so customers manage existing subscriptions instead of creating new ones'
+			)
+		);
+	}
+
+	if (updateProductEntries.length === 0) {
+		results.push(
+			result(
+				'warn',
+				'Customer Portal plan switching',
+				'Stripe API omitted eligible products; confirm the dashboard lists only current Team/Unit prices'
 			)
 		);
 	} else {
-		results.push(
-			teamConfigured && unitConfigured
-				? result('pass', 'Customer Portal plan switching', 'Team and Unit prices are eligible')
-				: result(
-						'warn',
-						'Customer Portal plan switching',
-						'enabled but missing Team/Unit product eligibility; use dashboard/API plan changes until fixed'
-					)
-		);
+		if (!teamConfigured || !unitConfigured) {
+			results.push(
+				result(
+					'fail',
+					'Customer Portal plan switching',
+					'enabled but missing Team/Unit product eligibility; update portal configuration before launch'
+				)
+			);
+		} else if (adjustableQuantityProducts.length > 0) {
+			results.push(
+				result(
+					'fail',
+					'Customer Portal adjustable quantity',
+					`${adjustableQuantityProducts.map((item) => item.product).join(', ')} allows customer-adjustable quantity; disable adjustable quantity before launch`
+				)
+			);
+		} else if (!allowedUpdates.has('quantity')) {
+			results.push(result('pass', 'Customer Portal plan switching', 'Team and Unit prices are eligible'));
+		}
 	}
 }
 
@@ -304,7 +391,11 @@ async function main() {
 	if (results.some((item) => item.level === 'fail')) process.exitCode = 1;
 }
 
-main().catch((err) => {
-	console.error(err instanceof Error ? err.message : err);
-	process.exitCode = 1;
-});
+export { checkPortalConfiguration, checkPrice };
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+	main().catch((err) => {
+		console.error(err instanceof Error ? err.message : err);
+		process.exitCode = 1;
+	});
+}

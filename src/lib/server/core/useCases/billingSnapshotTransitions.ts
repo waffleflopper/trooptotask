@@ -326,17 +326,6 @@ function planSubscriptionUpdatedTransition(
 			`customer.subscription.updated cannot grant access for ${transition.orgId}: ${catalogLookup.reason}`
 		);
 	}
-	if (
-		retainsPlan &&
-		catalogLookup.ok &&
-		transition.metadataTier &&
-		transition.metadataTier !== catalogLookup.entry.commercialPlan
-	) {
-		throw new Error(
-			`customer.subscription.updated metadata tier ${transition.metadataTier} does not match price catalog plan ${catalogLookup.entry.commercialPlan}`
-		);
-	}
-
 	const commercialPlan = retainsPlan && catalogLookup.ok ? catalogLookup.entry.commercialPlan : 'free';
 	const cancellationDetails = fallbackCancellationDetails(
 		transition,

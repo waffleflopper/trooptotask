@@ -105,16 +105,24 @@ function planLimitDenied(
 	quota: EffectivePlanPolicy['exportQuota'],
 	dimension: 'monthly_exports'
 ): Exclude<PlanGateResult, { allowed: true }> {
+	const upgradeCopy = exportUpgradeCopy(quota.upgradeTarget);
+
 	return {
 		allowed: false,
 		denial: {
 			code: 'denied.export_quota',
 			dimension,
-			message: `Export limit reached (${quota.limit}/month). Upgrade for unlimited exports.`,
-			remediation: 'Upgrade for unlimited exports or wait until next month.',
+			message: `Export limit reached (${quota.limit}/month). ${upgradeCopy}.`,
+			remediation: `${upgradeCopy} or wait until next month.`,
 			upgradeTarget: quota.upgradeTarget
 		}
 	};
+}
+
+function exportUpgradeCopy(upgradeTarget: Tier | null): string {
+	if (upgradeTarget === 'unit') return 'Upgrade to Unit for unlimited exports';
+	if (upgradeTarget === 'team') return 'Upgrade to Team for more monthly exports';
+	return 'Contact support for export access';
 }
 
 export function requireWithinPlanLimit(

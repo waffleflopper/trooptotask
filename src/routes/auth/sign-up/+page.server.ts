@@ -9,8 +9,8 @@ import { createSupabaseSignupAuthProvider } from '$lib/server/signupAuthProvider
 import { checkSignupRateLimit, SIGNUP_RATE_LIMIT_MESSAGE } from '$lib/server/signupRateLimit';
 import { mapProviderPasswordError, sanitizeString, validateEmail, validatePassword } from '$lib/server/validation';
 
-export const SIGNUP_SUCCESS_MESSAGE = 'If this email can create a TroopToTask account, we sent a confirmation link.';
-export const SIGNUP_PROVIDER_ERROR_MESSAGE = 'We could not start account creation. Please try again later.';
+const SIGNUP_SUCCESS_MESSAGE = 'If this email can create a TroopToTask account, we sent a confirmation link.';
+const SIGNUP_PROVIDER_ERROR_MESSAGE = 'We could not start account creation. Please try again later.';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	if (locals.session) {

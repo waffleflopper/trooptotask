@@ -25,6 +25,16 @@ vi.mock('$lib/server/core/useCases/orgProvisioning', async () => {
 
 import { actions, load } from './+page.server';
 
+function confirmedUser(overrides: Record<string, unknown> = {}) {
+	return {
+		id: 'user-1',
+		email: 'owner@example.com',
+		confirmed_at: '2026-06-16T12:00:00.000Z',
+		email_confirmed_at: '2026-06-16T12:00:00.000Z',
+		...overrides
+	};
+}
+
 describe('org/new page server', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
@@ -49,6 +59,29 @@ describe('org/new page server', () => {
 		expect(loadOrganizationProvisioningMock).not.toHaveBeenCalled();
 	});
 
+	it('blocks unconfirmed authenticated users before checking create-org access', async () => {
+		const result = await load({
+			locals: {
+				user: {
+					id: 'user-1',
+					email: 'pending@example.com',
+					confirmed_at: null,
+					email_confirmed_at: null
+				},
+				supabase: { ignored: true }
+			}
+		} as never);
+
+		expect(result).toEqual({
+			emailConfirmed: false,
+			userEmail: 'pending@example.com',
+			canCreate: false,
+			canCreateMessage: 'Confirm your email before creating an Organization.'
+		});
+		expect(createSupabaseOrgProvisioningPortMock).not.toHaveBeenCalled();
+		expect(loadOrganizationProvisioningMock).not.toHaveBeenCalled();
+	});
+
 	it('loads create-org availability through the provisioning boundary', async () => {
 		loadOrganizationProvisioningMock.mockResolvedValue({
 			canCreate: false,
@@ -57,17 +90,19 @@ describe('org/new page server', () => {
 
 		const result = await load({
 			locals: {
-				user: { id: 'user-1', email: 'owner@example.com' },
+				user: confirmedUser(),
 				supabase: { ignored: true }
 			}
 		} as never);
 
 		expect(result).toEqual({
+			emailConfirmed: true,
+			userEmail: 'owner@example.com',
 			canCreate: false,
 			canCreateMessage: 'You can own up to 1 organization(s) on your current plan.'
 		});
 		expect(createSupabaseOrgProvisioningPortMock).toHaveBeenCalledWith({
-			user: { id: 'user-1', email: 'owner@example.com' },
+			user: confirmedUser(),
 			supabase: { ignored: true }
 		});
 		expect(loadOrganizationProvisioningMock).toHaveBeenCalledWith(
@@ -94,7 +129,33 @@ describe('org/new page server', () => {
 		expect(provisionOrganizationMock).not.toHaveBeenCalled();
 	});
 
-	it('redirects to the newly created organization after provisioning succeeds', async () => {
+	it('does not provision organizations for unconfirmed users', async () => {
+		const result = await actions.default({
+			request: new Request('http://localhost/org/new', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+				body: new URLSearchParams({ name: 'Alpha Company' })
+			}),
+			locals: {
+				user: {
+					id: 'user-1',
+					email: 'pending@example.com',
+					confirmed_at: null,
+					email_confirmed_at: null
+				},
+				supabase: { ignored: true }
+			}
+		} as never);
+
+		expect(result).toMatchObject({
+			status: 403,
+			data: { error: 'Confirm your email before creating an Organization.' }
+		});
+		expect(createSupabaseOrgProvisioningPortMock).not.toHaveBeenCalled();
+		expect(provisionOrganizationMock).not.toHaveBeenCalled();
+	});
+
+	it('redirects confirmed owners to the newly created organization dashboard after provisioning succeeds', async () => {
 		await expect(
 			actions.default({
 				request: new Request('http://localhost/org/new', {
@@ -103,7 +164,7 @@ describe('org/new page server', () => {
 					body: new URLSearchParams({ name: '  Alpha Company  ' })
 				}),
 				locals: {
-					user: { id: 'user-1', email: 'OWNER@EXAMPLE.COM' },
+					user: confirmedUser({ email: 'OWNER@EXAMPLE.COM' }),
 					supabase: { ignored: true }
 				}
 			} as never)
@@ -134,7 +195,7 @@ describe('org/new page server', () => {
 				body: new URLSearchParams({ name: '' })
 			}),
 			locals: {
-				user: { id: 'user-1', email: 'owner@example.com' },
+				user: confirmedUser(),
 				supabase: { ignored: true }
 			}
 		} as never);

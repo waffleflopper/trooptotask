@@ -159,7 +159,7 @@ test.describe('Auth email flows', () => {
 			expectAuthConfirmLink(signupLink, 'signup');
 			await continueFromAuthConfirm(page, signupLink, 'signup');
 
-			await expect(page.getByRole('heading', { name: 'Create an Organization' })).toBeVisible();
+			await expect(page.getByRole('heading', { name: 'Create your first Organization' })).toBeVisible();
 		} finally {
 			if (userId) {
 				await adminClient.auth.admin.deleteUser(userId);

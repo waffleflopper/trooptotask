@@ -109,7 +109,7 @@ The operator explicitly excluded automatic CI trigger work from this batch. Do n
 | 081  | Surface first-run owner checklist                 | P2       | M      | 080        | DONE   |
 | 082  | Package operational security evidence             | P1       | M      | -          | DONE   |
 | 083  | Public account creation and abuse controls        | P1       | L      | 080        | DONE   |
-| 084  | Self-service organization creation and onboarding | P1       | M-L    | 083, 081   | TODO   |
+| 084  | Self-service organization creation and onboarding | P1       | M-L    | 083, 081   | DONE   |
 | 085  | Self-service checkout and billing recovery        | P1       | L      | 083, 084, 078 | TODO |
 | 086  | Support/admin visibility for self-service         | P1       | M-L    | 083, 084, 085, 082 | TODO |
 | 087  | Self-service acquisition E2E coverage             | P1       | L      | 083, 084, 085, 086 | TODO |

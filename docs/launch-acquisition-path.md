@@ -13,9 +13,10 @@ TroopToTask will keep acquisition environment-gated for launch readiness:
   users receive an Account Setup Link.
 - When paid billing is turned on, the target path is open self-service
   registration with email confirmation and no request-access gate.
-- Plan 083 adds the self-service signup identity layer. The full paid
-  self-service path still requires the remaining follow-up implementation plans
-  listed below.
+- Plans 083 and 084 add the self-service signup identity layer and the
+  post-confirmation first Organization setup path. The full paid self-service
+  path still requires the remaining checkout, support/admin visibility, and E2E
+  follow-up implementation plans listed below.
 
 This document selects one launch direction: reviewed access remains the live
 public path until the self-service acquisition plans are complete and billing is
@@ -111,8 +112,10 @@ replaces the request-access gate:
 
 ## Follow-up implementation plans
 
-The self-service target is larger than a copy update. Plan 080 creates the
-following implementation plans and does not implement them:
+The self-service target is larger than a copy update. Plan 080 created the
+following implementation plans; plans 083 and 084 now cover signup identity and
+first Organization setup, while checkout, support/admin visibility, and E2E
+coverage remain as follow-up slices:
 
 - `plans/083-public-account-creation-abuse-controls.md`
 - `plans/084-self-service-organization-onboarding.md`

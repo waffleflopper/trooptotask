@@ -347,9 +347,20 @@ export function getAvailablePersonnelSlotsForPlanPolicy(
 	policy: EffectivePlanPolicy,
 	usage: PersonnelUsageForPlanPolicy
 ): number | null {
-	const personnelLimit = policy.limits.activePersonnel.limit;
+	const personnelLimit = effectiveActivePersonnelLimitForPlanPolicy(policy, usage);
 	if (personnelLimit === null) return null;
 	return Math.max(0, personnelLimit - usage.activePersonnelCount);
+}
+
+export function effectiveActivePersonnelLimitForPlanPolicy(
+	policy: EffectivePlanPolicy,
+	usage: PersonnelUsageForPlanPolicy
+): number | null {
+	const personnelLimit = policy.limits.activePersonnel.limit;
+	if (policy.source === 'legacy_organization' && policy.tier === 'unit' && personnelLimit !== null) {
+		return Math.max(personnelLimit, usage.activePersonnelCount);
+	}
+	return personnelLimit;
 }
 
 export function checkCanAddPersonnelForPlanPolicy(
@@ -364,7 +375,7 @@ export function checkCanAddPersonnelForPlanPolicy(
 		};
 	}
 
-	const personnelLimit = policy.limits.activePersonnel.limit;
+	const personnelLimit = effectiveActivePersonnelLimitForPlanPolicy(policy, usage);
 	if (personnelLimit !== null && usage.activePersonnelCount >= personnelLimit) {
 		return {
 			allowed: false,
@@ -379,11 +390,7 @@ export function toEffectiveTierFromPlanPolicy(
 	policy: EffectivePlanPolicy,
 	usage: PersonnelUsageForPlanPolicy
 ): EffectiveTier {
-	const personnelLimit = policy.limits.activePersonnel.limit;
-	const compatibilityPersonnelCap =
-		policy.source === 'legacy_organization' && policy.tier === 'unit' && personnelLimit !== null
-			? Math.max(personnelLimit, usage.activePersonnelCount)
-			: personnelLimit;
+	const compatibilityPersonnelCap = effectiveActivePersonnelLimitForPlanPolicy(policy, usage);
 	const isOverPersonnelLimit =
 		compatibilityPersonnelCap !== null && usage.activePersonnelCount > compatibilityPersonnelCap;
 	const policyReadOnlyReason = readOnlyReasonFromPolicy(policy.readOnly.reasons[0]?.code ?? null);

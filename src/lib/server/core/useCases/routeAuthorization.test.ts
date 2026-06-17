@@ -172,29 +172,23 @@ describe('route authorization', () => {
 		});
 	});
 
-	it('blocks ordinary read-only-gated loads in Read-Only Mode', async () => {
-		const ctx = createTestContext({
-			readOnly: true
-		});
-
-		await expect(
-			enforceLoadAuthorization(ctx, {
-				policyAction: POLICY_ACTION_CATALOG.organization.accessBilling
-			})
-		).rejects.toMatchObject({
-			status: 403,
-			message: 'Organization is in read-only mode'
-		});
-	});
-
-	it('allows the named billing recovery load during Read-Only Mode', async () => {
+	it('does not apply the read-only write gate to page loads', async () => {
 		const ctx = createTestContext({
 			readOnly: true
 		});
 
 		await enforceLoadAuthorization(ctx, {
-			policyAction: POLICY_ACTION_CATALOG.organization.accessBilling,
-			readOnlyModeException: 'billing-recovery'
+			policyAction: POLICY_ACTION_CATALOG.organization.accessBilling
+		});
+	});
+
+	it('does not apply the read-only write gate to layout loads', async () => {
+		const ctx = createTestContext({
+			readOnly: true
+		});
+
+		await enforceLayoutPolicy(ctx, {
+			policyAction: POLICY_ACTION_CATALOG.organization.accessGovernance
 		});
 	});
 

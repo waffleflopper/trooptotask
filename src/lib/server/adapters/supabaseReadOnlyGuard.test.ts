@@ -75,8 +75,9 @@ function createSupabaseMock(tables: TestTables) {
 					resolve: (value: { data: TestRow[]; count: number; error: null }) => void,
 					reject: (reason: unknown) => void
 				) => {
-					const rows = applyQuery(tables[table] ?? [], queryCalls);
-					return Promise.resolve({ data: rows, count: rows.length, error: null }).then(resolve, reject);
+					const filteredRows = applyFilters(tables[table] ?? [], queryCalls);
+					const rangedRows = applyRange(filteredRows, queryCalls);
+					return Promise.resolve({ data: rangedRows, count: filteredRows.length, error: null }).then(resolve, reject);
 				}
 			};
 
@@ -86,6 +87,10 @@ function createSupabaseMock(tables: TestTables) {
 }
 
 function applyQuery(rows: TestRow[], calls: Call[]): TestRow[] {
+	return applyRange(applyFilters(rows, calls), calls);
+}
+
+function applyFilters(rows: TestRow[], calls: Call[]): TestRow[] {
 	return rows.filter((row) => {
 		for (const call of calls) {
 			const [column, value] = call.args as [string, unknown];
@@ -97,6 +102,13 @@ function applyQuery(rows: TestRow[], calls: Call[]): TestRow[] {
 		}
 		return true;
 	});
+}
+
+function applyRange(rows: TestRow[], calls: Call[]): TestRow[] {
+	const rangeCall = [...calls].reverse().find((call) => call.method === 'range');
+	if (!rangeCall) return rows;
+	const [from, to] = rangeCall.args as [number, number];
+	return rows.slice(from, to + 1);
 }
 
 function baseTables(overrides: Partial<TestTables> = {}): TestTables {

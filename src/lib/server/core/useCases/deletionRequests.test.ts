@@ -65,9 +65,14 @@ describe('createDeletionRequest', () => {
 		});
 	});
 
-	it('rejects when read-only', async () => {
+	it('allows deletion requests when read-only so users can request data cleanup', async () => {
 		const ctx = buildContext({ readOnly: true });
-		await expect(createDeletionRequest(ctx, validInput)).rejects.toMatchObject({ status: 403 });
+
+		await expect(createDeletionRequest(ctx, validInput)).resolves.toMatchObject({
+			resource_type: 'counseling_record',
+			resource_id: 'rec-1',
+			status: 'pending'
+		});
 	});
 
 	it('allows personnel archival requests when read-only so organizations can return below limits', async () => {
@@ -567,14 +572,14 @@ describe('cancelDeletionRequest', () => {
 		expect(request!.status).toBe('pending');
 	});
 
-	it('lets read-only overlays block requester-owned cancellation', async () => {
+	it('allows requester-owned cancellation when read-only', async () => {
 		const ctx = buildContext({ auth: { userId: 'requester-user' }, readOnly: true });
 		seedPendingRequest(ctx);
 
-		await expect(cancelDeletionRequest(ctx, 'dr-1')).rejects.toMatchObject({ status: 403 });
+		await cancelDeletionRequest(ctx, 'dr-1');
 
 		const request = await ctx.store.findOne<Record<string, unknown>>('deletion_requests', 'test-org', { id: 'dr-1' });
-		expect(request).toMatchObject({ status: 'pending' });
+		expect(request).toMatchObject({ status: 'cancelled' });
 	});
 });
 

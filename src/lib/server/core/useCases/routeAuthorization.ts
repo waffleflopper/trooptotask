@@ -36,11 +36,6 @@ export type ReadOnlyModeException = 'billing-recovery' | 'identity-owned-prefere
 export interface LoadAuthorizationConfig {
 	policyAction: RoutePolicyAction;
 	policyResource?: PolicyResource;
-	/**
-	 * Use only for named loads that must remain available during Read-Only Mode.
-	 * Ordinary loads should let the policy overlay deny where governance requires it.
-	 */
-	readOnlyModeException?: ReadOnlyModeException;
 }
 
 export type LayoutPolicyAuthorizationConfig = LoadAuthorizationConfig;
@@ -59,7 +54,7 @@ export function enforceLoadAuthorization(
 	config: LoadAuthorizationConfig
 ): void | Promise<void> {
 	return requirePolicyDecision(ports, config.policyAction, resolveRoutePolicyResource(ports.auth, config), {
-		enforceReadOnlyOverlay: !allowsReadOnlyModeException(config)
+		enforceReadOnlyOverlay: false
 	});
 }
 
@@ -68,7 +63,7 @@ export function enforceLayoutPolicy(
 	config: LayoutPolicyAuthorizationConfig
 ): Promise<void> {
 	return requirePolicyDecision(ports, config.policyAction, resolveRoutePolicyResource(ports.auth, config), {
-		enforceReadOnlyOverlay: !allowsReadOnlyModeException(config)
+		enforceReadOnlyOverlay: false
 	});
 }
 
@@ -94,10 +89,7 @@ function allowsReadOnlyModeException(
 		case undefined:
 			return false;
 		case 'billing-recovery':
-			return (
-				config.policyAction.id === POLICY_ACTION_CATALOG.organization.accessBilling.id ||
-				config.policyAction.id === POLICY_ACTION_CATALOG.organization.manageBilling.id
-			);
+			return config.policyAction.id === POLICY_ACTION_CATALOG.organization.manageBilling.id;
 		case 'identity-owned-preference':
 			return config.policyAction.id === POLICY_ACTION_CATALOG.identity.updateOwnPreferences.id;
 		case 'identity-owned-data-request':

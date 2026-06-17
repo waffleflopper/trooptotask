@@ -39,10 +39,44 @@ describe('Read-Only Mode', () => {
 			message: 'Organization is in read-only mode. Please subscribe or remove personnel.'
 		});
 	});
+
+	it('does not enforce Read-Only Mode while billing is disabled', async () => {
+		const ctx = seededBillingContext({ billingEnabled: false });
+		ctx.rawStore.seed('organization_billing_snapshots', [
+			billingSnapshot({
+				subscription_status: 'canceled',
+				collection_status: 'canceled'
+			})
+		]);
+		ctx.rawStore.seed('personnel', personnel(21));
+
+		await expect(readReadOnlyModeState({ auth: ctx.auth, store: ctx.rawStore })).resolves.toEqual({
+			isReadOnly: false,
+			reason: null,
+			message: null
+		});
+	});
+
+	it('preserves legacy Unit compatibility when active Personnel exceeds the base Unit limit', async () => {
+		const ctx = seededBillingContext();
+		ctx.rawStore.seed('organization_billing_snapshots', [
+			billingSnapshot({
+				source: 'legacy_organization',
+				commercial_plan: 'unit'
+			})
+		]);
+		ctx.rawStore.seed('personnel', personnel(501));
+
+		await expect(readReadOnlyModeState({ auth: ctx.auth, store: ctx.rawStore })).resolves.toEqual({
+			isReadOnly: false,
+			reason: null,
+			message: null
+		});
+	});
 });
 
-function seededBillingContext() {
-	billingEnabledMock.mockReturnValue(true);
+function seededBillingContext(options: { billingEnabled?: boolean } = {}) {
+	billingEnabledMock.mockReturnValue(options.billingEnabled ?? true);
 	const ctx = createTestContext({ auth: { orgId: 'org-1' } });
 	ctx.rawStore.seed('organizations', [
 		{

@@ -3,11 +3,12 @@ import type { DataStore, ReadOnlyGuardState } from '$lib/server/core/ports';
 import type { ReadOnlyReason } from '$lib/types/subscription';
 import {
 	readEffectivePlanPolicy,
+	effectiveActivePersonnelLimitForPlanPolicy,
 	type EffectivePlanPolicy,
 	type PersonnelUsageForPlanPolicy,
 	type PlanPolicyDenialReason
 } from './planPolicy';
-import { readOrganizationPlanUsage } from './organizationPlanUsage';
+import { readActivePersonnelCount } from './organizationPlanUsage';
 
 interface ReadOnlyModePorts {
 	store: DataStore;
@@ -31,11 +32,11 @@ export async function readReadOnlyModeState(ports: ReadOnlyModePorts): Promise<R
 		return activeReadOnlyModeState();
 	}
 
-	const [policy, usage] = await Promise.all([
+	const [policy, activePersonnelCount] = await Promise.all([
 		readEffectivePlanPolicy(ports),
-		readOrganizationPlanUsage({ auth: ports.auth, store: ports.store })
+		readActivePersonnelCount({ auth: ports.auth, store: ports.store })
 	]);
-	return readOnlyModeStateForPlanPolicy(policy, usage);
+	return readOnlyModeStateForPlanPolicy(policy, { activePersonnelCount });
 }
 
 export function readOnlyModeStateForPlanPolicy(
@@ -52,7 +53,7 @@ export function readOnlyModeStateForPlanPolicy(
 		};
 	}
 
-	const personnelLimit = policy.limits.activePersonnel.limit;
+	const personnelLimit = effectiveActivePersonnelLimitForPlanPolicy(policy, usage);
 	if (personnelLimit !== null && usage.activePersonnelCount > personnelLimit) {
 		return {
 			isReadOnly: true,

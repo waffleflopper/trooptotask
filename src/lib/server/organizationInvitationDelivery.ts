@@ -364,7 +364,7 @@ export async function retryOrganizationInvitationOutboxDelivery(
 		return { status: 'expired' };
 	}
 
-	const retryRequiresAccountSetup = input.invitation.requiresAccountSetup || !input.invitation.recipientHasUserAccount;
+	const retryRequiresAccountSetup = !input.invitation.recipientHasUserAccount;
 	const retrySelfServiceSignupEnabled = retryRequiresAccountSetup && isBillingEnabled;
 
 	try {

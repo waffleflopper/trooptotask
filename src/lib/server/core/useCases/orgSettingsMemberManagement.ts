@@ -141,6 +141,7 @@ export interface OrganizationInvitationDeliveryPort {
 		invitedByEmail: string | null;
 		origin: string;
 		requiresAccountSetup: boolean;
+		selfServiceSignupEnabled: boolean;
 	}): Promise<{ status: 'sent'; outbox: { id: string } } | { status: 'failed'; outbox: { id: string }; error: string }>;
 }
 
@@ -321,6 +322,7 @@ export async function inviteOrganizationMember(
 		actorEmail: input.actorEmail ?? null,
 		origin: input.origin ?? '',
 		requiresAccountSetup: !existingUserAccount,
+		selfServiceSignupEnabled: !existingUserAccount && isBillingEnabled,
 		mode: 'initial',
 		rateLimit
 	});
@@ -531,13 +533,15 @@ export async function resendOrganizationInvitation(
 		invitationId: invitation.id
 	});
 	const existingUserAccount = await ports.settings.findUserAccountByEmail(invitation.email);
+	const requiresAccountSetup = invitation.requiresAccountSetup || !existingUserAccount;
 
 	const deliveryStatus = await deliverInvitationEmail(ports, {
 		invitationId: invitation.id,
 		email: invitation.email,
 		actorEmail: input.actorEmail ?? null,
 		origin: input.origin,
-		requiresAccountSetup: !existingUserAccount,
+		requiresAccountSetup,
+		selfServiceSignupEnabled: !invitation.requiresAccountSetup && requiresAccountSetup && isBillingEnabled,
 		mode: 'resend',
 		rateLimit
 	});
@@ -563,6 +567,7 @@ async function deliverInvitationEmail(
 		actorEmail: string | null;
 		origin: string;
 		requiresAccountSetup: boolean;
+		selfServiceSignupEnabled: boolean;
 		mode: 'initial' | 'resend';
 		rateLimit?: Record<string, unknown> | null;
 	}
@@ -581,7 +586,8 @@ async function deliverInvitationEmail(
 			organizationName,
 			invitedByEmail: input.actorEmail,
 			origin: input.origin,
-			requiresAccountSetup: input.requiresAccountSetup
+			requiresAccountSetup: input.requiresAccountSetup,
+			selfServiceSignupEnabled: input.selfServiceSignupEnabled
 		});
 	} catch (error) {
 		ports.audit.log({

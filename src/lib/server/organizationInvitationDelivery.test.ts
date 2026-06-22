@@ -309,7 +309,7 @@ describe('organization invitation delivery', () => {
 				organizationId: 'org-1',
 				email: 'invitee@example.mil',
 				status: 'pending',
-				requiresAccountSetup: true,
+				requiresAccountSetup: false,
 				recipientHasUserAccount: true,
 				expiresAt: new Date('2026-06-01T12:00:00.000Z')
 			}),
@@ -325,6 +325,46 @@ describe('organization invitation delivery', () => {
 			invitedByEmail: 'admin@example.mil',
 			inviteUrl: 'https://trooptotask.test/auth/login?next=%2Fdashboard',
 			requiresAccountSetup: false
+		});
+	});
+
+	it('keeps billing-enabled linked reviewed invitation retries on reviewed setup until setup completes', async () => {
+		billingEnabledMock.mockReturnValue(true);
+		vi.stubEnv('APP_PUBLIC_ORIGIN_ALLOWLIST', 'https://trooptotask.test');
+		const store = createOrganizationInvitationEmailOutboxStore();
+		const sendEmail = vi.fn().mockResolvedValue(undefined);
+		await store.insertInvitationEmailDelivery({
+			organizationId: 'org-1',
+			invitationId: 'invite-1',
+			recipient: 'invitee@example.mil',
+			createdAt: AUTH_WORKFLOW_NOW
+		});
+
+		const result = await retryOrganizationInvitationOutboxDelivery(store, sendEmail, {
+			outboxId: 'outbox-1',
+			origin: 'https://trooptotask.test',
+			invitation: organizationInvitationFixture({
+				id: 'invite-1',
+				organizationId: 'org-1',
+				email: 'invitee@example.mil',
+				status: 'pending',
+				requiresAccountSetup: true,
+				recipientHasUserAccount: true,
+				expiresAt: new Date('2026-06-01T12:00:00.000Z')
+			}),
+			organizationName: 'Alpha Company',
+			invitedByEmail: 'admin@example.mil',
+			now: AUTH_WORKFLOW_NOW
+		});
+
+		expect(result.status).toBe('sent');
+		expect(sendEmail).toHaveBeenCalledWith({
+			email: 'invitee@example.mil',
+			organizationName: 'Alpha Company',
+			invitedByEmail: 'admin@example.mil',
+			inviteUrl: 'https://trooptotask.test/auth/request-access',
+			requiresAccountSetup: true,
+			selfServiceSignupEnabled: false
 		});
 	});
 

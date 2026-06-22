@@ -364,8 +364,10 @@ export async function retryOrganizationInvitationOutboxDelivery(
 		return { status: 'expired' };
 	}
 
-	const retryRequiresAccountSetup = !input.invitation.recipientHasUserAccount;
-	const retrySelfServiceSignupEnabled = retryRequiresAccountSetup && isBillingEnabled;
+	const retryRequiresLinkedAccessSetup = input.invitation.requiresAccountSetup;
+	const retryRequiresAccountSetup = retryRequiresLinkedAccessSetup || !input.invitation.recipientHasUserAccount;
+	const retrySelfServiceSignupEnabled =
+		!retryRequiresLinkedAccessSetup && retryRequiresAccountSetup && isBillingEnabled;
 
 	try {
 		await sendEmail({
@@ -474,6 +476,7 @@ export function createSupabaseOrganizationInvitationDeliveryPort(
 			invitedByEmail: string | null;
 			origin: string;
 			requiresAccountSetup: boolean;
+			selfServiceSignupEnabled: boolean;
 		}) {
 			return sendOrganizationInvitationOutboxDelivery(store, sendEmail, {
 				organizationId: input.organizationId,
@@ -483,10 +486,10 @@ export function createSupabaseOrganizationInvitationDeliveryPort(
 				invitedByEmail: input.invitedByEmail,
 				inviteUrl: makeOrganizationInvitationUrl(input.origin, {
 					requiresAccountSetup: input.requiresAccountSetup,
-					selfServiceSignupEnabled: isBillingEnabled
+					selfServiceSignupEnabled: input.selfServiceSignupEnabled
 				}),
 				requiresAccountSetup: input.requiresAccountSetup,
-				selfServiceSignupEnabled: isBillingEnabled
+				selfServiceSignupEnabled: input.selfServiceSignupEnabled
 			});
 		}
 	};

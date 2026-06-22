@@ -12,7 +12,20 @@ interface OrganizationInvitationLookupRow {
 	email?: string;
 	created_at?: string;
 	expires_at?: string;
-	access_request_organization_invitation_links?: Array<{ id: string }> | { id: string } | null;
+	access_request_organization_invitation_links?:
+		| AccessRequestInvitationLinkRow[]
+		| AccessRequestInvitationLinkRow
+		| null;
+}
+
+interface AccessRequestInvitationLinkRow {
+	id: string;
+	access_requests?: AccessRequestInvitationLinkAccessRequestRow[] | AccessRequestInvitationLinkAccessRequestRow | null;
+}
+
+interface AccessRequestInvitationLinkAccessRequestRow {
+	email?: string | null;
+	setup_completed_at?: string | null;
 }
 
 interface AccessRequestLookupRow {
@@ -98,7 +111,9 @@ export function createSupabaseOrgSettingsMemberManagementPort(
 		async findPendingInvitationById(orgId, inviteId) {
 			const { data, error } = await supabase
 				.from('organization_invitations')
-				.select('id, email, expires_at, access_request_organization_invitation_links(id)')
+				.select(
+					'id, email, expires_at, access_request_organization_invitation_links(id, access_requests(email, setup_completed_at))'
+				)
 				.eq('id', inviteId)
 				.eq('organization_id', orgId)
 				.eq('status', 'pending')
@@ -115,7 +130,7 @@ export function createSupabaseOrgSettingsMemberManagementPort(
 					id: data.id,
 					email: data.email ?? '',
 					status: 'expired',
-					requiresAccountSetup: hasAccessRequestInvitationLink(data)
+					requiresAccountSetup: requiresLinkedAccessRequestSetup(data)
 				};
 			}
 
@@ -123,7 +138,7 @@ export function createSupabaseOrgSettingsMemberManagementPort(
 				id: data.id,
 				email: data.email ?? '',
 				status: 'pending',
-				requiresAccountSetup: hasAccessRequestInvitationLink(data)
+				requiresAccountSetup: requiresLinkedAccessRequestSetup(data)
 			};
 		},
 
@@ -349,9 +364,27 @@ async function expirePendingInvitationById(
 		.lte('expires_at', now.toISOString());
 }
 
-function hasAccessRequestInvitationLink(row: OrganizationInvitationLookupRow): boolean {
+function invitationLinks(row: OrganizationInvitationLookupRow): AccessRequestInvitationLinkRow[] {
 	const links = row.access_request_organization_invitation_links;
-	return Array.isArray(links) ? links.length > 0 : Boolean(links);
+	return Array.isArray(links) ? links : links ? [links] : [];
+}
+
+function linkAccessRequests(link: AccessRequestInvitationLinkRow): AccessRequestInvitationLinkAccessRequestRow[] {
+	const requests = link.access_requests;
+	return Array.isArray(requests) ? requests : requests ? [requests] : [];
+}
+
+function requiresLinkedAccessRequestSetup(row: OrganizationInvitationLookupRow): boolean {
+	const links = invitationLinks(row);
+	if (links.length === 0) return false;
+
+	const invitationEmail = normalizeUserEmailIdentity(row.email ?? '');
+	return !links.some((link) =>
+		linkAccessRequests(link).some(
+			(request) =>
+				Boolean(request.setup_completed_at) && normalizeUserEmailIdentity(request.email ?? '') === invitationEmail
+		)
+	);
 }
 
 async function findPendingAccessRequest(client: SupabaseClient, email: string): Promise<AccessRequestLookupRow | null> {

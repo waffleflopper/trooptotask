@@ -283,21 +283,21 @@ export async function inviteOrganizationMember(
 		actorUserId
 	});
 
-	const accessRequestBridgeStatus =
-		existingUserAccount || isBillingEnabled
-			? 'existing-user'
-			: await bridgeInvitationToAccessRequest(ports, {
-					organizationId: ports.auth.orgId,
-					invitationId: createResult.invitationId,
-					email,
-					invitedBy: actorUserId,
-					invitedAt: createResult.createdAt,
-					role: accessCommand.role,
-					memberPreset: accessCommand.memberPreset,
-					capabilityOverrides: accessCommand.capabilityOverrides,
-					accessScopeKind: accessCommand.accessScopeKind,
-					accessScopeGroupIds: accessCommand.accessScopeGroupIds
-				});
+	const shouldBridgeAccessRequest = !existingUserAccount && !isBillingEnabled;
+	const accessRequestBridgeStatus = shouldBridgeAccessRequest
+		? await bridgeInvitationToAccessRequest(ports, {
+				organizationId: ports.auth.orgId,
+				invitationId: createResult.invitationId,
+				email,
+				invitedBy: actorUserId,
+				invitedAt: createResult.createdAt,
+				role: accessCommand.role,
+				memberPreset: accessCommand.memberPreset,
+				capabilityOverrides: accessCommand.capabilityOverrides,
+				accessScopeKind: accessCommand.accessScopeKind,
+				accessScopeGroupIds: accessCommand.accessScopeGroupIds
+			})
+		: 'skipped';
 
 	if (accessRequestBridgeStatus === 'failed') {
 		fail(500, 'Invitation could not be created because platform access setup could not be linked');

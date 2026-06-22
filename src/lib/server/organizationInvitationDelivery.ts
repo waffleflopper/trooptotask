@@ -58,6 +58,7 @@ export interface OrganizationInvitationRetryRecord {
 	email: string;
 	status: 'pending' | 'accepted' | 'declined' | 'expired' | 'revoked' | 'blocked';
 	requiresAccountSetup: boolean;
+	recipientHasUserAccount: boolean;
 	expiresAt: Date;
 }
 
@@ -363,17 +364,20 @@ export async function retryOrganizationInvitationOutboxDelivery(
 		return { status: 'expired' };
 	}
 
+	const retryRequiresAccountSetup = input.invitation.requiresAccountSetup || !input.invitation.recipientHasUserAccount;
+	const retrySelfServiceSignupEnabled = retryRequiresAccountSetup && isBillingEnabled;
+
 	try {
 		await sendEmail({
 			email: normalizeEmail(input.invitation.email),
 			organizationName: input.organizationName,
 			invitedByEmail: input.invitedByEmail,
 			inviteUrl: makeOrganizationInvitationUrl(input.origin, {
-				requiresAccountSetup: input.invitation.requiresAccountSetup,
-				selfServiceSignupEnabled: isBillingEnabled
+				requiresAccountSetup: retryRequiresAccountSetup,
+				selfServiceSignupEnabled: retrySelfServiceSignupEnabled
 			}),
-			requiresAccountSetup: input.invitation.requiresAccountSetup,
-			...(input.invitation.requiresAccountSetup ? { selfServiceSignupEnabled: isBillingEnabled } : {})
+			requiresAccountSetup: retryRequiresAccountSetup,
+			...(retryRequiresAccountSetup ? { selfServiceSignupEnabled: retrySelfServiceSignupEnabled } : {})
 		});
 		return {
 			status: 'sent',

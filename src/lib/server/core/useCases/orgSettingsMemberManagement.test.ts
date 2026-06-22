@@ -1650,6 +1650,17 @@ describe('inviteOrganizationMember', () => {
 				requiresAccountSetup: true
 			})
 		]);
+		expect(ctx.auditPort.events).toContainEqual({
+			action: 'member.invite_email_resent',
+			resourceType: 'organization',
+			details: {
+				email: 'invitee@example.com',
+				invitationId: '11111111-1111-4111-8111-111111111111',
+				outboxId: 'outbox-1',
+				deliveryMode: 'resend'
+			},
+			severity: 'info'
+		});
 	});
 
 	it('keeps linked reviewed-access invitation resends in account-setup copy even when a User Account exists', async () => {
@@ -1684,6 +1695,17 @@ describe('inviteOrganizationMember', () => {
 				requiresAccountSetup: true
 			})
 		]);
+		expect(ctx.auditPort.events).toContainEqual({
+			action: 'member.invite_email_resent',
+			resourceType: 'organization',
+			details: {
+				email: 'invitee@example.com',
+				invitationId: '11111111-1111-4111-8111-111111111111',
+				outboxId: 'outbox-1',
+				deliveryMode: 'resend'
+			},
+			severity: 'info'
+		});
 	});
 
 	it('rate-limits invitation resend before enqueueing another invitation email', async () => {

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
 	ORGANIZATION_INVITATION_EMAIL_MAX_ATTEMPTS,
 	makeOrganizationInvitationUrl,
@@ -12,7 +12,21 @@ import {
 	organizationInvitationFixture
 } from '$lib/test-support/authWorkflowFixtures';
 
+const { billingEnabledMock } = vi.hoisted(() => ({
+	billingEnabledMock: vi.fn(() => false)
+}));
+
+vi.mock('$lib/config/billing', () => ({
+	get isBillingEnabled() {
+		return billingEnabledMock();
+	}
+}));
+
 describe('organization invitation delivery', () => {
+	beforeEach(() => {
+		billingEnabledMock.mockReturnValue(false);
+	});
+
 	afterEach(() => {
 		vi.unstubAllEnvs();
 	});
@@ -232,6 +246,46 @@ describe('organization invitation delivery', () => {
 			invitedByEmail: 'admin@example.mil',
 			inviteUrl: 'https://trooptotask.test/auth/login?next=%2Fdashboard',
 			requiresAccountSetup: false
+		});
+	});
+
+	it('retries billing-enabled non-user invitations without Access Request links to self-service signup', async () => {
+		billingEnabledMock.mockReturnValue(true);
+		vi.stubEnv('APP_PUBLIC_ORIGIN_ALLOWLIST', 'https://trooptotask.test');
+		const store = createOrganizationInvitationEmailOutboxStore();
+		const sendEmail = vi.fn().mockResolvedValue(undefined);
+		await store.insertInvitationEmailDelivery({
+			organizationId: 'org-1',
+			invitationId: 'invite-1',
+			recipient: 'invitee@example.mil',
+			createdAt: AUTH_WORKFLOW_NOW
+		});
+
+		const result = await retryOrganizationInvitationOutboxDelivery(store, sendEmail, {
+			outboxId: 'outbox-1',
+			origin: 'https://trooptotask.test',
+			invitation: organizationInvitationFixture({
+				id: 'invite-1',
+				organizationId: 'org-1',
+				email: 'invitee@example.mil',
+				status: 'pending',
+				requiresAccountSetup: false,
+				recipientHasUserAccount: false,
+				expiresAt: new Date('2026-06-01T12:00:00.000Z')
+			}),
+			organizationName: 'Alpha Company',
+			invitedByEmail: 'admin@example.mil',
+			now: AUTH_WORKFLOW_NOW
+		});
+
+		expect(result.status).toBe('sent');
+		expect(sendEmail).toHaveBeenCalledWith({
+			email: 'invitee@example.mil',
+			organizationName: 'Alpha Company',
+			invitedByEmail: 'admin@example.mil',
+			inviteUrl: 'https://trooptotask.test/auth/sign-up?next=%2Fdashboard',
+			requiresAccountSetup: true,
+			selfServiceSignupEnabled: true
 		});
 	});
 

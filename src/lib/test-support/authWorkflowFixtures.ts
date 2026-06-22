@@ -68,6 +68,7 @@ export interface OrganizationInvitationFixture {
 	status: 'pending' | 'accepted' | 'declined' | 'expired' | 'revoked' | 'blocked';
 	role: 'member' | 'admin';
 	requiresAccountSetup: boolean;
+	recipientHasUserAccount: boolean;
 	createdAt: Date;
 	expiresAt: Date;
 }
@@ -82,6 +83,7 @@ export function organizationInvitationFixture(
 		status: 'pending',
 		role: 'member',
 		requiresAccountSetup: false,
+		recipientHasUserAccount: true,
 		createdAt: AUTH_WORKFLOW_CREATED_AT,
 		expiresAt: AUTH_WORKFLOW_SETUP_EXPIRES_AT,
 		...overrides

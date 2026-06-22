@@ -1652,6 +1652,40 @@ describe('inviteOrganizationMember', () => {
 		]);
 	});
 
+	it('keeps linked reviewed-access invitation resends in account-setup copy even when a User Account exists', async () => {
+		const ctx = createTestContext();
+		const port = createOrganizationSettingsMemberManagementPort({
+			existingUserAccount: { id: 'existing-user-1', email: 'invitee@example.com' },
+			pendingInvitationRequiresAccountSetup: true,
+			orgName: 'Alpha Company'
+		});
+		const delivery = createInvitationDeliveryPort('sent');
+
+		await resendOrganizationInvitation(
+			{
+				auth: ctx.auth,
+				audit: ctx.audit,
+				notifications: ctx.notifications,
+				settings: port,
+				invitationDelivery: delivery
+			},
+			{
+				inviteId: '11111111-1111-4111-8111-111111111111',
+				actorEmail: 'actor@example.com',
+				origin: 'https://trooptotask.test'
+			}
+		);
+
+		expect(port.userAccountLookups).toContain('invitee@example.com');
+		expect(delivery.deliveries).toEqual([
+			expect.objectContaining({
+				invitationId: '11111111-1111-4111-8111-111111111111',
+				email: 'invitee@example.com',
+				requiresAccountSetup: true
+			})
+		]);
+	});
+
 	it('rate-limits invitation resend before enqueueing another invitation email', async () => {
 		const ctx = createTestContext();
 		const port = createOrganizationSettingsMemberManagementPort({ orgName: 'Alpha Company' });

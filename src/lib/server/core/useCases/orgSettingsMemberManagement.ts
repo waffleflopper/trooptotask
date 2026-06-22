@@ -537,7 +537,7 @@ export async function resendOrganizationInvitation(
 		email: invitation.email,
 		actorEmail: input.actorEmail ?? null,
 		origin: input.origin,
-		requiresAccountSetup: !existingUserAccount,
+		requiresAccountSetup: invitation.requiresAccountSetup || !existingUserAccount,
 		mode: 'resend',
 		rateLimit
 	});

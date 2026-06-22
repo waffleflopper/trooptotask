@@ -1,5 +1,6 @@
 import { env } from '$env/dynamic/private';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { isBillingEnabled } from '$lib/config/billing';
 import { makePublicAppUrl } from './publicAppOrigin';
 
 const RESEND_EMAILS_URL = 'https://api.resend.com/emails';
@@ -42,6 +43,7 @@ export interface SendOrganizationInvitationEmailInput {
 	invitedByEmail: string | null;
 	inviteUrl: string;
 	requiresAccountSetup: boolean;
+	selfServiceSignupEnabled?: boolean;
 }
 
 export type OrganizationInvitationEmailSender = (input: SendOrganizationInvitationEmailInput) => Promise<void>;
@@ -101,7 +103,7 @@ function assertSafeInvitationUrl(inviteUrl: string): void {
 
 function redactInviteUrls(message: string): string {
 	return message.replace(
-		/https?:\/\/[^\s"'<>]+\/auth\/(?:login\?next=[^\s"'<>]+|request-access[^\s"'<>]*)/gi,
+		/https?:\/\/[^\s"'<>]+\/auth\/(?:login\?next=[^\s"'<>]+|request-access[^\s"'<>]*|sign-up\?next=[^\s"'<>]+)/gi,
 		'[redacted invitation url]'
 	);
 }
@@ -131,9 +133,15 @@ function mapOutboxRow(row: OrganizationInvitationEmailOutboxRow): OrganizationIn
 
 export function makeOrganizationInvitationUrl(
 	origin: string,
-	options: { requiresAccountSetup?: boolean } = {}
+	options: { requiresAccountSetup?: boolean; selfServiceSignupEnabled?: boolean } = {}
 ): string {
-	return makePublicAppUrl(options.requiresAccountSetup ? '/auth/request-access' : '/auth/login?next=%2Fdashboard', {
+	const path = !options.requiresAccountSetup
+		? '/auth/login?next=%2Fdashboard'
+		: options.selfServiceSignupEnabled
+			? '/auth/sign-up?next=%2Fdashboard'
+			: '/auth/request-access';
+
+	return makePublicAppUrl(path, {
 		inboundOrigin: origin
 	});
 }
@@ -147,33 +155,52 @@ function buildOrganizationInvitationEmail(input: SendOrganizationInvitationEmail
 	const inviter = input.invitedByEmail ? `${input.invitedByEmail} invited you` : 'You have been invited';
 	const subject = `Invitation to join ${input.organizationName} on TroopToTask`;
 	const inviteUrlAttribute = escapeHtmlAttribute(input.inviteUrl);
-	const text = input.requiresAccountSetup
-		? [
-				`${inviter} to join ${input.organizationName} on TroopToTask.`,
-				'',
-				'Because you do not have a TroopToTask account yet, we submitted a platform access request for this email on your behalf.',
-				'You do not need to submit another access request.',
-				'',
-				`You can review the request here: ${input.inviteUrl}`,
-				'',
-				'After platform approval, use the separate Account Setup Link email to create your account. Then sign in to accept this organization invitation from your dashboard.'
-			].join('\n')
-		: [
-				`${inviter} to join ${input.organizationName} on TroopToTask.`,
-				'',
-				`Sign in to view and accept the organization invitation: ${input.inviteUrl}`,
-				'',
-				'This email does not grant membership by itself. Membership is created only after you sign in and accept the invitation.'
-			].join('\n');
-	const html = input.requiresAccountSetup
-		? `
+	const text =
+		input.requiresAccountSetup && input.selfServiceSignupEnabled
+			? [
+					`${inviter} to join ${input.organizationName} on TroopToTask.`,
+					'',
+					'Because you do not have a TroopToTask account yet, create your User Account and confirm your email first.',
+					'',
+					`Create your account here: ${input.inviteUrl}`,
+					'',
+					'After email confirmation, open your dashboard to accept this organization invitation.'
+				].join('\n')
+			: input.requiresAccountSetup
+				? [
+						`${inviter} to join ${input.organizationName} on TroopToTask.`,
+						'',
+						'Because you do not have a TroopToTask account yet, we submitted a platform access request for this email on your behalf.',
+						'You do not need to submit another access request.',
+						'',
+						`You can review the request here: ${input.inviteUrl}`,
+						'',
+						'After platform approval, use the separate Account Setup Link email to create your account. Then sign in to accept this organization invitation from your dashboard.'
+					].join('\n')
+				: [
+						`${inviter} to join ${input.organizationName} on TroopToTask.`,
+						'',
+						`Sign in to view and accept the organization invitation: ${input.inviteUrl}`,
+						'',
+						'This email does not grant membership by itself. Membership is created only after you sign in and accept the invitation.'
+					].join('\n');
+	const html =
+		input.requiresAccountSetup && input.selfServiceSignupEnabled
+			? `
+		<p>${escapeHtmlAttribute(inviter)} to join ${escapeHtmlAttribute(input.organizationName)} on TroopToTask.</p>
+		<p><a href="${inviteUrlAttribute}">Create your TroopToTask account</a></p>
+		<p>Because you do not have a TroopToTask account yet, create your User Account and confirm your email first.</p>
+		<p>After email confirmation, open your dashboard to accept this organization invitation.</p>
+	`
+			: input.requiresAccountSetup
+				? `
 		<p>${escapeHtmlAttribute(inviter)} to join ${escapeHtmlAttribute(input.organizationName)} on TroopToTask.</p>
 		<p><a href="${inviteUrlAttribute}">Review your platform access setup</a></p>
 		<p>Because you do not have a TroopToTask account yet, we submitted a platform access request for this email on your behalf.</p>
 		<p>You do not need to submit another access request.</p>
 		<p>After platform approval, use the separate Account Setup Link email to create your account. Then sign in to accept this organization invitation from your dashboard.</p>
 	`
-		: `
+				: `
 		<p>${escapeHtmlAttribute(inviter)} to join ${escapeHtmlAttribute(input.organizationName)} on TroopToTask.</p>
 		<p><a href="${inviteUrlAttribute}">Sign in to view and accept the invitation</a></p>
 		<p>This email does not grant membership by itself. Membership is created only after you sign in and accept the invitation.</p>
@@ -215,8 +242,8 @@ export async function sendOrganizationInvitationEmail(
 		return;
 	}
 
-	const apiKey = env.RESEND_API_KEY;
-	const from = env.RESEND_FROM_EMAIL;
+	const apiKey = env.RESEND_API_KEY ?? process.env.RESEND_API_KEY;
+	const from = env.RESEND_FROM_EMAIL ?? process.env.RESEND_FROM_EMAIL;
 	if (!apiKey || !from) {
 		throw new Error('Organization invitation email delivery is not configured');
 	}
@@ -256,6 +283,7 @@ export async function sendOrganizationInvitationOutboxDelivery(
 		invitedByEmail: string | null;
 		inviteUrl: string;
 		requiresAccountSetup: boolean;
+		selfServiceSignupEnabled?: boolean;
 		now?: Date;
 	}
 ): Promise<SendOrganizationInvitationOutboxDeliveryResult> {
@@ -273,7 +301,10 @@ export async function sendOrganizationInvitationOutboxDelivery(
 			organizationName: input.organizationName,
 			invitedByEmail: input.invitedByEmail,
 			inviteUrl: input.inviteUrl,
-			requiresAccountSetup: input.requiresAccountSetup
+			requiresAccountSetup: input.requiresAccountSetup,
+			...(input.selfServiceSignupEnabled === undefined
+				? {}
+				: { selfServiceSignupEnabled: input.selfServiceSignupEnabled })
 		});
 		return {
 			status: 'sent',
@@ -338,9 +369,11 @@ export async function retryOrganizationInvitationOutboxDelivery(
 			organizationName: input.organizationName,
 			invitedByEmail: input.invitedByEmail,
 			inviteUrl: makeOrganizationInvitationUrl(input.origin, {
-				requiresAccountSetup: input.invitation.requiresAccountSetup
+				requiresAccountSetup: input.invitation.requiresAccountSetup,
+				selfServiceSignupEnabled: isBillingEnabled
 			}),
-			requiresAccountSetup: input.invitation.requiresAccountSetup
+			requiresAccountSetup: input.invitation.requiresAccountSetup,
+			...(input.invitation.requiresAccountSetup ? { selfServiceSignupEnabled: isBillingEnabled } : {})
 		});
 		return {
 			status: 'sent',
@@ -444,8 +477,12 @@ export function createSupabaseOrganizationInvitationDeliveryPort(
 				email: input.email,
 				organizationName: input.organizationName,
 				invitedByEmail: input.invitedByEmail,
-				inviteUrl: makeOrganizationInvitationUrl(input.origin, { requiresAccountSetup: input.requiresAccountSetup }),
-				requiresAccountSetup: input.requiresAccountSetup
+				inviteUrl: makeOrganizationInvitationUrl(input.origin, {
+					requiresAccountSetup: input.requiresAccountSetup,
+					selfServiceSignupEnabled: isBillingEnabled
+				}),
+				requiresAccountSetup: input.requiresAccountSetup,
+				selfServiceSignupEnabled: isBillingEnabled
 			});
 		}
 	};

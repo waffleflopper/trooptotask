@@ -11,6 +11,7 @@ import { mapProviderPasswordError, sanitizeString, validateEmail, validatePasswo
 
 const SIGNUP_SUCCESS_MESSAGE = 'If this email can create a TroopToTask account, we sent a confirmation link.';
 const SIGNUP_PROVIDER_ERROR_MESSAGE = 'We could not start account creation. Please try again later.';
+const SIGNUP_CONFIRMATION_NEXT_ALLOWLIST = new Set(['/dashboard']);
 
 export const load: PageServerLoad = async ({ locals }) => {
 	if (locals.session) {
@@ -87,7 +88,7 @@ export const actions: Actions = {
 			});
 		}
 
-		const redirectTo = getAuthConfirmRedirectTo(url.origin, 'email');
+		const redirectTo = getAuthConfirmRedirectTo(url.origin, 'email', getSignupConfirmationNext(url.searchParams));
 		let signUpResult: { error: unknown };
 		try {
 			signUpResult = await createSupabaseSignupAuthProvider(locals).signUp({
@@ -165,4 +166,9 @@ function getStringProperty(value: unknown, property: string): string {
 	if (!value || typeof value !== 'object') return '';
 	const propertyValue = Reflect.get(value, property);
 	return typeof propertyValue === 'string' ? propertyValue : '';
+}
+
+function getSignupConfirmationNext(searchParams: URLSearchParams): '/org/new' | '/dashboard' {
+	const next = searchParams.get('next')?.trim();
+	return next && SIGNUP_CONFIRMATION_NEXT_ALLOWLIST.has(next) ? '/dashboard' : '/org/new';
 }

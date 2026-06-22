@@ -24,6 +24,7 @@ import {
 	type OrganizationInvitationRateLimitAction,
 	type OrganizationInvitationRateLimiter
 } from '$lib/server/organizationInvitationRateLimit';
+import { isBillingEnabled } from '$lib/config/billing';
 import { validateEmail, validateUUID } from '$lib/server/validation';
 import { requireGovernancePolicy } from './governancePolicy';
 import { normalizeInvitationEmail } from './invitationEmail';
@@ -282,20 +283,21 @@ export async function inviteOrganizationMember(
 		actorUserId
 	});
 
-	const accessRequestBridgeStatus = existingUserAccount
-		? 'existing-user'
-		: await bridgeInvitationToAccessRequest(ports, {
-				organizationId: ports.auth.orgId,
-				invitationId: createResult.invitationId,
-				email,
-				invitedBy: actorUserId,
-				invitedAt: createResult.createdAt,
-				role: accessCommand.role,
-				memberPreset: accessCommand.memberPreset,
-				capabilityOverrides: accessCommand.capabilityOverrides,
-				accessScopeKind: accessCommand.accessScopeKind,
-				accessScopeGroupIds: accessCommand.accessScopeGroupIds
-			});
+	const accessRequestBridgeStatus =
+		existingUserAccount || isBillingEnabled
+			? 'existing-user'
+			: await bridgeInvitationToAccessRequest(ports, {
+					organizationId: ports.auth.orgId,
+					invitationId: createResult.invitationId,
+					email,
+					invitedBy: actorUserId,
+					invitedAt: createResult.createdAt,
+					role: accessCommand.role,
+					memberPreset: accessCommand.memberPreset,
+					capabilityOverrides: accessCommand.capabilityOverrides,
+					accessScopeKind: accessCommand.accessScopeKind,
+					accessScopeGroupIds: accessCommand.accessScopeGroupIds
+				});
 
 	if (accessRequestBridgeStatus === 'failed') {
 		fail(500, 'Invitation could not be created because platform access setup could not be linked');
@@ -528,13 +530,14 @@ export async function resendOrganizationInvitation(
 		email: invitation.email,
 		invitationId: invitation.id
 	});
+	const existingUserAccount = await ports.settings.findUserAccountByEmail(invitation.email);
 
 	const deliveryStatus = await deliverInvitationEmail(ports, {
 		invitationId: invitation.id,
 		email: invitation.email,
 		actorEmail: input.actorEmail ?? null,
 		origin: input.origin,
-		requiresAccountSetup: invitation.requiresAccountSetup,
+		requiresAccountSetup: !existingUserAccount,
 		mode: 'resend',
 		rateLimit
 	});

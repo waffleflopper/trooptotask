@@ -1133,7 +1133,8 @@ describe('inviteOrganizationMember', () => {
 		expect(delivery.deliveries).toEqual([
 			expect.objectContaining({
 				email: 'new.user@example.com',
-				requiresAccountSetup: true
+				requiresAccountSetup: true,
+				selfServiceSignupEnabled: true
 			})
 		]);
 		expect(ctx.auditPort.events).not.toContainEqual(
@@ -1180,7 +1181,8 @@ describe('inviteOrganizationMember', () => {
 		expect(delivery.deliveries).toEqual([
 			expect.objectContaining({
 				email: 'new.user@example.com',
-				requiresAccountSetup: true
+				requiresAccountSetup: true,
+				selfServiceSignupEnabled: false
 			})
 		]);
 		expect(ctx.auditPort.events).toContainEqual({
@@ -1339,7 +1341,8 @@ describe('inviteOrganizationMember', () => {
 				organizationName: 'Alpha Company',
 				invitedByEmail: 'actor@example.com',
 				origin: 'https://trooptotask.test',
-				requiresAccountSetup: false
+				requiresAccountSetup: false,
+				selfServiceSignupEnabled: false
 			}
 		]);
 		expect(rateLimiter.checks).toEqual([
@@ -1462,7 +1465,8 @@ describe('inviteOrganizationMember', () => {
 		expect(delivery.deliveries).toEqual([
 			expect.objectContaining({
 				email: 'new.user@example.com',
-				requiresAccountSetup: true
+				requiresAccountSetup: true,
+				selfServiceSignupEnabled: false
 			})
 		]);
 	});
@@ -1647,7 +1651,8 @@ describe('inviteOrganizationMember', () => {
 			expect.objectContaining({
 				invitationId: '11111111-1111-4111-8111-111111111111',
 				email: 'invitee@example.com',
-				requiresAccountSetup: true
+				requiresAccountSetup: true,
+				selfServiceSignupEnabled: true
 			})
 		]);
 		expect(ctx.auditPort.events).toContainEqual({
@@ -1663,7 +1668,8 @@ describe('inviteOrganizationMember', () => {
 		});
 	});
 
-	it('resends linked reviewed-access invitations to sign-in once a User Account exists', async () => {
+	it('keeps linked reviewed-access invitation resends on reviewed setup until setup completes', async () => {
+		billingEnabledMock.mockReturnValue(true);
 		const ctx = createTestContext();
 		const port = createOrganizationSettingsMemberManagementPort({
 			existingUserAccount: { id: 'existing-user-1', email: 'invitee@example.com' },
@@ -1692,7 +1698,55 @@ describe('inviteOrganizationMember', () => {
 			expect.objectContaining({
 				invitationId: '11111111-1111-4111-8111-111111111111',
 				email: 'invitee@example.com',
-				requiresAccountSetup: false
+				requiresAccountSetup: true,
+				selfServiceSignupEnabled: false
+			})
+		]);
+		expect(ctx.auditPort.events).toContainEqual({
+			action: 'member.invite_email_resent',
+			resourceType: 'organization',
+			details: {
+				email: 'invitee@example.com',
+				invitationId: '11111111-1111-4111-8111-111111111111',
+				outboxId: 'outbox-1',
+				deliveryMode: 'resend'
+			},
+			severity: 'info'
+		});
+	});
+
+	it('resends linked reviewed-access invitations to sign-in once setup has completed', async () => {
+		billingEnabledMock.mockReturnValue(true);
+		const ctx = createTestContext();
+		const port = createOrganizationSettingsMemberManagementPort({
+			existingUserAccount: { id: 'existing-user-1', email: 'invitee@example.com' },
+			pendingInvitationRequiresAccountSetup: false,
+			orgName: 'Alpha Company'
+		});
+		const delivery = createInvitationDeliveryPort('sent');
+
+		await resendOrganizationInvitation(
+			{
+				auth: ctx.auth,
+				audit: ctx.audit,
+				notifications: ctx.notifications,
+				settings: port,
+				invitationDelivery: delivery
+			},
+			{
+				inviteId: '11111111-1111-4111-8111-111111111111',
+				actorEmail: 'actor@example.com',
+				origin: 'https://trooptotask.test'
+			}
+		);
+
+		expect(port.userAccountLookups).toContain('invitee@example.com');
+		expect(delivery.deliveries).toEqual([
+			expect.objectContaining({
+				invitationId: '11111111-1111-4111-8111-111111111111',
+				email: 'invitee@example.com',
+				requiresAccountSetup: false,
+				selfServiceSignupEnabled: false
 			})
 		]);
 		expect(ctx.auditPort.events).toContainEqual({

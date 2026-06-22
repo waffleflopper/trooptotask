@@ -365,7 +365,9 @@ describe('createSupabaseOrgSettingsMemberManagementPort', () => {
 		expect(supabase.from).toHaveBeenCalledWith('organization_invitations');
 		expect(calls).toContainEqual({
 			method: 'select',
-			args: ['id, email, expires_at, access_request_organization_invitation_links(id)']
+			args: [
+				'id, email, expires_at, access_request_organization_invitation_links(id, access_requests(email, setup_completed_at))'
+			]
 		});
 		expect(calls).toContainEqual({ method: 'eq', args: ['id', 'invite-1'] });
 		expect(calls).toContainEqual({ method: 'eq', args: ['organization_id', 'org-1'] });
@@ -373,13 +375,15 @@ describe('createSupabaseOrgSettingsMemberManagementPort', () => {
 		expect(calls).not.toContainEqual({ method: 'gt', args: ['expires_at', expect.any(String)] });
 	});
 
-	it('marks resend lookups as account-setup invitations when an access-request link exists', async () => {
+	it('marks resend lookups as account-setup invitations when a linked access request has not completed setup', async () => {
 		const { builder } = createPendingInvitationByIdBuilder({
 			data: {
 				id: 'invite-1',
 				email: 'invitee@example.com',
 				expires_at: '2099-05-23T12:00:00.000Z',
-				access_request_organization_invitation_links: [{ id: 'link-1' }]
+				access_request_organization_invitation_links: [
+					{ id: 'link-1', access_requests: { email: 'invitee@example.com', setup_completed_at: null } }
+				]
 			}
 		});
 		const port = createSupabaseOrgSettingsMemberManagementPort({
@@ -393,6 +397,34 @@ describe('createSupabaseOrgSettingsMemberManagementPort', () => {
 			email: 'invitee@example.com',
 			status: 'pending',
 			requiresAccountSetup: true
+		});
+	});
+
+	it('marks resend lookups as sign-in invitations when a linked access request has completed setup', async () => {
+		const { builder } = createPendingInvitationByIdBuilder({
+			data: {
+				id: 'invite-1',
+				email: 'Invitee@Example.com',
+				expires_at: '2099-05-23T12:00:00.000Z',
+				access_request_organization_invitation_links: [
+					{
+						id: 'link-1',
+						access_requests: { email: 'invitee@example.com', setup_completed_at: '2026-05-22T12:00:00.000Z' }
+					}
+				]
+			}
+		});
+		const port = createSupabaseOrgSettingsMemberManagementPort({
+			supabase: {
+				from: vi.fn(() => builder)
+			}
+		} as never);
+
+		await expect(port.findPendingInvitationById('org-1', 'invite-1')).resolves.toEqual({
+			id: 'invite-1',
+			email: 'Invitee@Example.com',
+			status: 'pending',
+			requiresAccountSetup: false
 		});
 	});
 

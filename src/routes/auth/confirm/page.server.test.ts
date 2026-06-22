@@ -79,6 +79,31 @@ describe('GET /auth/confirm', () => {
 		expect(verifyOtp).not.toHaveBeenCalled();
 	});
 
+	it('renders a confirmation state for an invitation-aware signup email link', async () => {
+		const verifyOtp = vi.fn();
+
+		const result = await load({
+			url: new URL('http://localhost/auth/confirm?token_hash=signup-token&type=email&next=%2Fdashboard'),
+			locals: {
+				supabase: {
+					auth: {
+						verifyOtp
+					}
+				}
+			}
+		} as unknown as Parameters<typeof load>[0]);
+
+		expect(result).toEqual({
+			confirmation: {
+				status: 'valid',
+				tokenHash: 'signup-token',
+				type: 'email',
+				next: '/dashboard'
+			}
+		});
+		expect(verifyOtp).not.toHaveBeenCalled();
+	});
+
 	it('renders a confirmation state for the provider signup alias without verifying the token', async () => {
 		const verifyOtp = vi.fn();
 
@@ -247,6 +272,42 @@ describe('POST /auth/confirm', () => {
 		).rejects.toMatchObject({
 			status: 303,
 			location: '/org/new'
+		});
+
+		expect(verifyOtp).toHaveBeenCalledWith({
+			token_hash: 'signup-token',
+			type: 'email'
+		});
+		expect(cookies.set).not.toHaveBeenCalled();
+	});
+
+	it('verifies an invitation-aware signup email token and redirects to the dashboard without accepting the invitation', async () => {
+		const verifyOtp = vi.fn().mockResolvedValue({ error: null });
+		const cookies = { set: vi.fn() };
+
+		await expect(
+			actions.default({
+				request: new Request('http://localhost/auth/confirm', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+					body: new URLSearchParams({
+						tokenHash: 'signup-token',
+						type: 'email',
+						next: '/dashboard'
+					})
+				}),
+				locals: {
+					supabase: {
+						auth: {
+							verifyOtp
+						}
+					}
+				},
+				cookies
+			} as unknown as Parameters<(typeof actions)['default']>[0])
+		).rejects.toMatchObject({
+			status: 303,
+			location: '/dashboard'
 		});
 
 		expect(verifyOtp).toHaveBeenCalledWith({

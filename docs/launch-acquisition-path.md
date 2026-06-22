@@ -31,6 +31,10 @@ The billing-enabled self-service path is for public paid customers who should be
 create a User Account, confirm email control, create an Organization, and enter
 checkout without a platform-admin approval step.
 
+Billing-enabled Organization Invitation recipients who do not yet have a User
+Account use the same public signup and email-confirmation path, then accept the
+pending invitation from their authenticated dashboard.
+
 ## Public CTA
 
 While billing is disabled, public CTAs should continue

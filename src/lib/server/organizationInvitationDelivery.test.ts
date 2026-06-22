@@ -289,6 +289,45 @@ describe('organization invitation delivery', () => {
 		});
 	});
 
+	it('retries billing-enabled invitations for recipients who now have accounts to sign-in', async () => {
+		billingEnabledMock.mockReturnValue(true);
+		vi.stubEnv('APP_PUBLIC_ORIGIN_ALLOWLIST', 'https://trooptotask.test');
+		const store = createOrganizationInvitationEmailOutboxStore();
+		const sendEmail = vi.fn().mockResolvedValue(undefined);
+		await store.insertInvitationEmailDelivery({
+			organizationId: 'org-1',
+			invitationId: 'invite-1',
+			recipient: 'invitee@example.mil',
+			createdAt: AUTH_WORKFLOW_NOW
+		});
+
+		const result = await retryOrganizationInvitationOutboxDelivery(store, sendEmail, {
+			outboxId: 'outbox-1',
+			origin: 'https://trooptotask.test',
+			invitation: organizationInvitationFixture({
+				id: 'invite-1',
+				organizationId: 'org-1',
+				email: 'invitee@example.mil',
+				status: 'pending',
+				requiresAccountSetup: true,
+				recipientHasUserAccount: true,
+				expiresAt: new Date('2026-06-01T12:00:00.000Z')
+			}),
+			organizationName: 'Alpha Company',
+			invitedByEmail: 'admin@example.mil',
+			now: AUTH_WORKFLOW_NOW
+		});
+
+		expect(result.status).toBe('sent');
+		expect(sendEmail).toHaveBeenCalledWith({
+			email: 'invitee@example.mil',
+			organizationName: 'Alpha Company',
+			invitedByEmail: 'admin@example.mil',
+			inviteUrl: 'https://trooptotask.test/auth/login?next=%2Fdashboard',
+			requiresAccountSetup: false
+		});
+	});
+
 	it.each(['accepted', 'declined', 'revoked', 'blocked', 'expired'] as const)(
 		'refuses to retry %s organization invitations',
 		async (status) => {

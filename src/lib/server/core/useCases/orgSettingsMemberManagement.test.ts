@@ -1663,7 +1663,7 @@ describe('inviteOrganizationMember', () => {
 		});
 	});
 
-	it('keeps linked reviewed-access invitation resends in account-setup copy even when a User Account exists', async () => {
+	it('resends linked reviewed-access invitations to sign-in once a User Account exists', async () => {
 		const ctx = createTestContext();
 		const port = createOrganizationSettingsMemberManagementPort({
 			existingUserAccount: { id: 'existing-user-1', email: 'invitee@example.com' },
@@ -1692,7 +1692,7 @@ describe('inviteOrganizationMember', () => {
 			expect.objectContaining({
 				invitationId: '11111111-1111-4111-8111-111111111111',
 				email: 'invitee@example.com',
-				requiresAccountSetup: true
+				requiresAccountSetup: false
 			})
 		]);
 		expect(ctx.auditPort.events).toContainEqual({

@@ -9,7 +9,7 @@
 > you and told you they maintain the index.
 >
 > **Drift check (run first)**:
-> `git diff --stat d485cdc5..HEAD -- docs/billing-launch-go-no-go.md docs/billing-operations-launch-checklist.md docs/billing-launch-verification.md docs/billing-customer-portal.md docs/billing-cancellation-policy.md scripts/billing-launch-preflight.mjs scripts/billing-lifecycle-simulate.mjs package.json src/routes/admin src/lib/server/billing src/lib/server/core/useCases`
+> `git diff --stat 0f69c5bc..HEAD -- docs/billing-launch-go-no-go.md docs/billing-operations-launch-checklist.md docs/billing-launch-verification.md docs/billing-customer-portal.md docs/billing-cancellation-policy.md docs/launch-acquisition-path.md scripts/billing-launch-preflight.mjs scripts/billing-lifecycle-simulate.mjs package.json src/routes/admin src/lib/server/billing src/lib/server/core/useCases`
 > If any in-scope file changed since this plan was written, compare the
 > "Current state" excerpts against the live code before proceeding; on a
 > mismatch, treat it as a STOP condition.
@@ -21,7 +21,7 @@
 - **Risk**: LOW-MED
 - **Depends on**: plans/083-public-account-creation-abuse-controls.md, plans/084-self-service-organization-onboarding.md, plans/085-checkout-trial-entry-billing-recovery.md, plans/086-support-admin-visibility-self-service.md, plans/087-self-service-acquisition-e2e-coverage.md
 - **Category**: direction
-- **Planned at**: commit `d485cdc5`, 2026-06-16 (reconciled; originally planned at `c6760c16`)
+- **Planned at**: commit `0f69c5bc`, 2026-06-24 (reconciled; originally planned at `c6760c16`)
 
 ## Reconciliation note
 
@@ -31,6 +31,14 @@ plus route-authorization read-only-mode exceptions. The readiness gate should
 include that gate as launch evidence, especially the `billing-recovery`
 exception that keeps payment recovery available while ordinary paid writes can
 be blocked.
+
+On 2026-06-24, this plan was refreshed at `0f69c5bc`. Plans 083-089 have
+landed and the launch docs now contain the Free-first checkout entry,
+billing-disabled fallback, paid launch pricing/tax/refund posture, canonical
+support/privacy/security mailboxes, and admin support lookup surfaces. The
+finding still stands because `package.json` exposes `billing:launch-preflight`
+and `billing:lifecycle`, but no single `billing:launch-readiness` command or
+equivalent machine-readable launch gate exists.
 
 ## Why this matters
 
@@ -51,8 +59,23 @@ confidence.
 - `docs/billing-launch-go-no-go.md:58-68` has blocked scenario rows for
   checkout, renewal, failed renewal, cancellation, recovery, plan change, and
   unsupported events.
+- `docs/billing-operations-launch-checklist.md:14-15` lists the existing
+  billing commands as `billing:launch-preflight` and `billing:lifecycle`; there
+  is still no readiness gate command.
 - `docs/billing-operations-launch-checklist.md:64-83` lists live-mode launch
-  checks that require Robert confirmation.
+  checks that require Robert confirmation, including final live Stripe setup,
+  deployment variables, tax posture, and staffed billing support.
+- `docs/billing-operations-launch-checklist.md:120-133` records the current
+  paid launch contract: Team at $4.99/month, Unit at $10.99/month, taxes
+  excluded where required, no automatic prorated refunds, no paid-service beta
+  framing, and Free-first self-service checkout.
+- `docs/billing-operations-launch-checklist.md:148-180` records the canonical
+  support/privacy/security mailboxes and support-safe identifier boundaries.
+- `docs/billing-launch-verification.md:120-132` now includes Free-first
+  checkout entry and billing-disabled fallback in the scenario matrix.
+- `docs/launch-acquisition-path.md:85-111` records Robert as support owner,
+  the canonical support channels, admin lookup surfaces, and no-secret support
+  note rules.
 - `scripts/billing-launch-preflight.mjs:69-78` requires a test key shape and is
   test-mode oriented by design.
 - `scripts/billing-lifecycle-simulate.mjs:69-72` refuses non-test Stripe keys.
@@ -60,6 +83,8 @@ confidence.
   failures into Organization read-only mode.
 - `src/lib/server/core/useCases/routeAuthorization.ts` includes the
   `billing-recovery` read-only-mode exception.
+- `package.json:37-39` exposes the preflight and lifecycle helpers but no
+  readiness command.
 
 Current excerpts:
 
@@ -83,6 +108,22 @@ if (!env.STRIPE_SECRET_KEY?.startsWith('sk_test_')) {
 ```ts
 // src/lib/server/core/useCases/routeAuthorization.ts
 export type ReadOnlyModeException = 'billing-recovery' | 'identity-owned-preference' | 'identity-owned-data-request';
+```
+
+```json
+// package.json:37-39
+"billing:launch-preflight": "node ./scripts/billing-launch-preflight.mjs",
+"billing:snapshot-backfill": "node ./scripts/billing-snapshot-backfill.mjs",
+"billing:lifecycle": "node ./scripts/billing-lifecycle-simulate.mjs"
+```
+
+```md
+<!-- docs/billing-operations-launch-checklist.md:150-154 -->
+Robert has confirmed the public support channels for paid launch:
+
+- Billing and account support: `support@trooptotask.org`.
+- Privacy: `privacy@trooptotask.org`.
+- Security: `security@trooptotask.org`.
 ```
 
 ## Commands you will need
@@ -142,6 +183,10 @@ Create a small result model for the launch gate. It should distinguish:
   `docs/billing-launch-go-no-go.md` or a support-safe evidence input;
 - Robert-owned confirmations for Dashboard, live env vars, tax, support, and
   final approval.
+- already-confirmed support channel decisions from
+  `docs/billing-operations-launch-checklist.md` and
+  `docs/launch-acquisition-path.md` without re-blocking those exact mailbox
+  choices.
 
 The result must be blocked unless all required launch gates are satisfied.
 

@@ -86,9 +86,10 @@ customer-safe copy before any platform approval step exists.
 
 Support owner: Robert.
 
-Support channel: Robert-owned launch support channel or mailbox, to be
-confirmed before enabling paid billing. Billing and account support notes must
-follow the no-secret evidence rules in
+Support channel: `support@trooptotask.org` for billing and account support.
+Privacy requests use `privacy@trooptotask.org`; security reports use
+`security@trooptotask.org`. Billing and account support notes must follow the
+no-secret evidence rules in
 `docs/security/operational-control-evidence.md` and
 `docs/billing-operations-launch-checklist.md`.
 

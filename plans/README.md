@@ -115,7 +115,7 @@ The operator explicitly excluded automatic CI trigger work from this batch. Do n
 | 086  | Support/admin visibility for self-service         | P1       | M-L    | 083, 084, 085, 082 | DONE |
 | 087  | Self-service acquisition E2E coverage             | P1       | L      | 083, 084, 085, 086 | DONE |
 | 088  | Self-service Organization Invitation branch       | P1       | M      | 083        | DONE   |
-| 089  | Paid-launch legal/trust/contact surface           | P1       | M      | -          | TODO   |
+| 089  | Paid-launch legal/trust/contact surface           | P1       | M      | -          | DONE   |
 | 090  | Billing launch readiness gate                     | P1       | M      | 083-087    | TODO   |
 | 091  | Billing health and support workflow               | P1       | M-L    | 085, 086   | TODO   |
 | 092  | Acquisition and activation health visibility      | P2       | M-L    | 081, 083-087 | TODO |
@@ -131,6 +131,8 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJE
 - Plan 092 drifted because the getting-started endpoint adopted policy-first route config/read-only preference exceptions after `c6760c16`; the activation-health finding still stands.
 - No BLOCKED or IN PROGRESS rows were present. After PR #1230, the remaining executable launch runway is plans 088-092, with plan 089 independent and plans 083-087 serving as the completed self-service acquisition foundation.
 - 2026-06-22: Plan 088 was completed in `.worktrees/088-self-service-invitation-branch` on branch `codex/088-self-service-invitation-branch` with commits `f5724b37`, `0fee5499`, and `751af217`. Reviewer reran the focused invitation/auth/dashboard tests and the full repo gate successfully.
+- 2026-06-23 at `b550f840`: Plan 089 was reconciled after doc drift from the completed self-service/invitation and billing-support work. The public-page finding still stands (`terms` beta wording, Privacy missing Stripe payment processing, homepage over-broad audit-log copy). The plan baseline was refreshed and remains TODO; execution must start with Robert's support mailbox, privacy/security domain, refund, tax, and paid-launch Terms decisions.
+- 2026-06-23: Plan 089 was completed on branch `codex/plan-89` after Robert confirmed the canonical `.org` support/privacy/security mailboxes, refund posture, tax posture, and paid-launch Terms posture. Reviewer approved the executor diff, CodeRabbit returned no findings, Claude findings were fixed, Chrome QA covered the changed public/legal/trust/contact surfaces, and the full repo gate passed with safe local/test env values.
 
 ## Dependency Notes
 

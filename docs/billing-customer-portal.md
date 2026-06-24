@@ -8,7 +8,7 @@ The Customer Portal may be used for:
 
 - Invoice history and receipt access for the current Organization customer.
 - Payment method updates for renewals and payment recovery.
-- Customer billing information updates, including billing address and tax details when Stripe is configured for them.
+- Customer billing information updates, including billing address and tax details when Stripe is configured for them. Launch keeps automatic tax disabled unless Robert explicitly verifies tax setup later; public prices exclude applicable taxes where required.
 - Subscription cancellation at period end. This is the default owner path for paid launch; paid access should remain available through the paid-through date until Stripe sends the terminal cancellation event.
 - Plan switches between Team and Unit only when Stripe Customer Portal subscription updates are enabled and the configured products/prices match the TroopToTask price catalog.
 

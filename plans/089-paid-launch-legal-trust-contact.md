@@ -9,7 +9,7 @@
 > reviewer dispatched you and told you they maintain the index.
 >
 > **Drift check (run first)**:
-> `git diff --stat d485cdc5..HEAD -- src/routes/+page.svelte src/routes/privacy/+page.svelte src/routes/terms/+page.svelte src/routes/security/+page.svelte src/routes/about/+page.svelte src/lib/components/public docs/launch-acquisition-path.md docs/billing-operations-launch-checklist.md docs/billing-cancellation-policy.md docs/billing-customer-portal.md docs/security/operational-control-evidence.md docs/security/security-overview.md`
+> `git diff --stat b550f840..HEAD -- src/routes/+page.svelte src/routes/privacy/+page.svelte src/routes/terms/+page.svelte src/routes/security/+page.svelte src/routes/about/+page.svelte src/lib/components/public docs/launch-acquisition-path.md docs/billing-operations-launch-checklist.md docs/billing-cancellation-policy.md docs/billing-customer-portal.md docs/security/operational-control-evidence.md docs/security/security-overview.md`
 > If any in-scope file changed since this plan was written, compare the
 > "Current state" excerpts against the live code before proceeding; on a
 > mismatch, treat it as a STOP condition.
@@ -21,13 +21,28 @@
 - **Risk**: MED
 - **Depends on**: none
 - **Category**: direction
-- **Planned at**: commit `d485cdc5`, 2026-06-16 (reconciled; originally planned at `c6760c16`)
+- **Planned at**: commit `b550f840`, 2026-06-23 (reconciled; originally planned at `c6760c16`)
 
 ## Reconciliation note
 
-On 2026-06-16, this plan was refreshed at `d485cdc5`. No in-scope files changed
-since the original `c6760c16` stamp, and Robert-owned support, refund, tax,
-mailbox, and paid-launch legal-copy decisions remain the blocking prerequisite.
+On 2026-06-23, this plan was refreshed at `b550f840`. The public Svelte pages
+still contain the original launch-copy finding: Terms is beta-only, Privacy
+omits Stripe payment processing, and the homepage overstates audit-log breadth.
+Docs changed after `d485cdc5` to add self-service support visibility,
+support-safe billing evidence handling, and explicit Stripe Dashboard/launch
+confirmation gates. Those doc updates should now be treated as source material
+for the executor. Robert-owned support, refund, tax, mailbox, and
+paid-launch legal-copy decisions remain the blocking prerequisite.
+
+## Completion note
+
+On 2026-06-23, Robert confirmed the canonical public `.org` support,
+privacy, and security mailboxes, the monthly subscription refund posture, the
+tax-disabled launch posture, and the paid-launch Terms posture. The plan was
+executed on `codex/089-paid-launch-legal-trust-contact`, reviewed, refined for
+CodeRabbit/Claude findings, and brought onto `codex/plan-89`. The public pages
+now align with the approved paid-launch contract and the plan index marks this
+slice DONE.
 
 ## Why this matters
 
@@ -48,14 +63,24 @@ staffed support/contact contract.
   cancellation, invoices, refunds, or tax.
 - `src/routes/privacy/+page.svelte:54-57` names Supabase and Vercel as
   infrastructure processors but omits Stripe payment processing.
+- `src/routes/+page.svelte:41-43` and `src/routes/+page.svelte:347-349`
+  still claim a "full audit log" / "full audit log of every action"; the
+  Security page is more precise and should be the copy standard.
 - `src/routes/security/+page.svelte:104-106` correctly names Stripe as the
   payment processor.
 - `docs/billing-cancellation-policy.md:3-8` defines period-end and immediate
   cancellation behavior.
 - `docs/billing-customer-portal.md:7-13` defines supported Customer Portal
   outcomes.
-- `docs/launch-acquisition-path.md:78-82` says the launch support channel is
-  still to be confirmed.
+- `docs/launch-acquisition-path.md:85-110` names Robert as support owner,
+  keeps the launch support channel to be confirmed, and documents no-secret
+  billing/account support evidence rules.
+- `docs/billing-operations-launch-checklist.md:120-130` records the paid launch
+  contract, and `docs/billing-operations-launch-checklist.md:145-173`
+  records support process confirmations and safe Stripe/app identifiers.
+- `docs/security/operational-control-evidence.md:13-16` now links
+  billing/support security, vulnerability disclosure, audit log review, and
+  environment/secrets review to the launch evidence rules.
 - Customer-facing emails are inconsistent: privacy uses
   `privacy@trooptotask.com`, terms and billing use `support@trooptotask.com`,
   and security uses `security@trooptotask.org`.
@@ -76,6 +101,12 @@ Our infrastructure providers (Supabase, Vercel) process data solely to deliver t
 ```svelte
 <!-- src/routes/+page.svelte:363-365 -->
 Team and Unit prices are final for paid launch. Access remains reviewed until billing is enabled...
+```
+
+```svelte
+<!-- src/routes/+page.svelte:41-43 -->
+TroopToTask aligns to NIST 800-171 with AES-256 encryption at rest...
+and a full audit log of every action...
 ```
 
 ## Commands you will need

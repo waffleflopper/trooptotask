@@ -462,7 +462,7 @@
 			actions.push({
 				id: 'contact-support',
 				label: 'Contact Support',
-				href: 'mailto:support@trooptotask.com',
+				href: 'mailto:support@trooptotask.org',
 				icon: 'support'
 			});
 		}

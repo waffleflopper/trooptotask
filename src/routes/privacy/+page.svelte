@@ -33,9 +33,9 @@
 		{#snippet title()}Purpose-driven, nothing more.{/snippet}
 		<p>
 			We use your information to: provide and maintain the TroopToTask service; authenticate your identity and manage
-			access; generate audit logs for compliance; send service-related notifications; improve the service based on
-			aggregate usage patterns. We do not use your data for advertising, profiling, or any purpose unrelated to
-			delivering the service.
+			access; generate security-relevant audit logs; process billing and support requests; send service-related
+			notifications; improve the service based on aggregate usage patterns. We do not use your data for advertising,
+			profiling, or any purpose unrelated to delivering the service.
 		</p>
 	</PublicContentSection>
 
@@ -43,17 +43,20 @@
 		{#snippet title()}Protected at every layer.{/snippet}
 		<p>
 			All data is encrypted at rest (AES-256) and in transit (TLS 1.2+). Data is stored on Supabase infrastructure
-			hosted in the United States. We implement role-based access controls, audit logging, and security headers aligned
-			with NIST SP 800-171. See our <a href={resolve('/security')}>Security page</a> for comprehensive details.
+			hosted in the United States. We implement role-based access controls, security-relevant audit logging, and
+			security headers aligned with NIST SP 800-171. See our <a href={resolve('/security')}>Security page</a> for comprehensive
+			details.
 		</p>
 	</PublicContentSection>
 
 	<PublicContentSection label="04 // Data Sharing" alternate>
 		{#snippet title()}Your data stays yours.{/snippet}
 		<p>
-			We do not sell, rent, or share your personal information or personnel data with third parties. We may disclose
-			information only when required by law, to enforce our terms, or to protect rights and safety. Our infrastructure
-			providers (Supabase, Vercel) process data solely to deliver the service under strict data processing agreements.
+			We do not sell or rent your personal information or personnel data. We may disclose information only when required
+			by law, to enforce our terms, or to protect rights and safety. Our service providers process data solely to
+			deliver the service under strict data processing agreements: Supabase for database, authentication, and file
+			storage; Vercel for application hosting, analytics, and performance signals; and Stripe for payment processing,
+			billing details, invoices, receipts, and tax-related billing information when provided.
 		</p>
 	</PublicContentSection>
 
@@ -122,7 +125,7 @@
 				<path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
 				<polyline points="22,6 12,13 2,6" />
 			</svg>
-			<a href="mailto:privacy@trooptotask.com">privacy@trooptotask.com</a>
+			<a href="mailto:privacy@trooptotask.org">privacy@trooptotask.org</a>
 		</div>
 	</PublicContentSection>
 </PublicShell>

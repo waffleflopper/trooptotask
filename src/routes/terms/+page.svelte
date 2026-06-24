@@ -34,7 +34,8 @@
 		<p>
 			TroopToTask is a web-based personnel management platform for military unit leaders. It provides calendar
 			management, training tracking, duty assignments, counseling records, in-processing checklists, and related tools.
-			The service is provided "as is" during the beta period.
+			The paid service is supported for launch; specific features such as Duty Rosters may still be labeled beta or
+			evolving when they are supported but still changing.
 		</p>
 	</PublicContentSection>
 
@@ -67,12 +68,38 @@
 		{#snippet title()}Your data belongs to you.{/snippet}
 		<p>
 			Your use of TroopToTask is also governed by our <a href="/privacy">Privacy Policy</a>. You retain ownership of all
-			data you enter into the platform. We do not sell, share, or monetize your data. See our Privacy Policy for full
-			details on data handling.
+			data you enter into the platform. We do not sell or monetize your data. We share data with service providers only
+			to deliver the service, as described in our Privacy Policy. See our Privacy Policy for full details on data
+			handling.
 		</p>
 	</PublicContentSection>
 
-	<PublicContentSection label="06 // Intellectual Property" alternate>
+	<PublicContentSection label="06 // Billing &amp; Subscriptions" alternate>
+		{#snippet title()}Paid plans renew monthly.{/snippet}
+		<p>
+			TroopToTask offers Team and Unit paid plans as recurring monthly subscriptions. Team is $4.99/month for up to 80
+			personnel and 10 exports per month. Unit is $10.99/month for up to 500 personnel and unlimited exports. Prices
+			exclude applicable taxes where required.
+		</p>
+		<p>
+			Payments are processed by Stripe. TroopToTask does not store credit card numbers or payment credentials. Owners
+			may use the Stripe Customer Portal for supported billing actions, including invoices, receipts, payment method
+			updates, billing details, cancellation at period end, and Team/Unit plan switches when those portal settings are
+			enabled.
+		</p>
+		<p>
+			Cancellation through the Customer Portal stops renewal at the end of the current billing period, and paid access
+			continues through the paid-through date. Immediate cancellation is a separate confirmed action in TroopToTask or a
+			support/admin-handled request, and it ends paid access immediately.
+		</p>
+		<p>
+			Monthly subscriptions are not automatically prorated or refunded after use. TroopToTask support may issue
+			discretionary refunds for duplicate charges, billing errors, or service-access failures. Unsupported portal
+			states, billing mismatches, or unresolved payment questions are handled by support.
+		</p>
+	</PublicContentSection>
+
+	<PublicContentSection label="07 // Intellectual Property">
 		{#snippet title()}Service ownership and your content.{/snippet}
 		<p>
 			The TroopToTask service, including its design, code, and documentation, is the property of TroopToTask and
@@ -80,7 +107,7 @@
 		</p>
 	</PublicContentSection>
 
-	<PublicContentSection label="07 // Limitation of Liability">
+	<PublicContentSection label="08 // Limitation of Liability" alternate>
 		{#snippet title()}Provided "as is" without warranty.{/snippet}
 		<p>
 			TroopToTask is provided "as is" without warranties of any kind, express or implied. To the maximum extent
@@ -94,7 +121,7 @@
 		</p>
 	</PublicContentSection>
 
-	<PublicContentSection label="08 // Termination" alternate>
+	<PublicContentSection label="09 // Termination">
 		{#snippet title()}Access may be revoked.{/snippet}
 		<p>
 			We may suspend or terminate your access to the service at any time for violation of these terms or for any other
@@ -103,7 +130,7 @@
 		</p>
 	</PublicContentSection>
 
-	<PublicContentSection label="09 // Governing Law">
+	<PublicContentSection label="10 // Governing Law" alternate>
 		{#snippet title()}Jurisdiction and disputes.{/snippet}
 		<p>
 			These terms shall be governed by and construed in accordance with the laws of the United States. Any disputes
@@ -111,7 +138,7 @@
 		</p>
 	</PublicContentSection>
 
-	<PublicContentSection label="10 // Contact" alternate>
+	<PublicContentSection label="11 // Contact">
 		{#snippet title()}Questions about these terms?{/snippet}
 		<p>If you have questions about these terms, contact us at:</p>
 		<div class="contact-card">
@@ -128,7 +155,7 @@
 				<path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
 				<polyline points="22,6 12,13 2,6" />
 			</svg>
-			<a href="mailto:support@trooptotask.com">support@trooptotask.com</a>
+			<a href="mailto:support@trooptotask.org">support@trooptotask.org</a>
 		</div>
 	</PublicContentSection>
 </PublicShell>

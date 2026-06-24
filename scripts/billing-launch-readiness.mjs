@@ -42,8 +42,16 @@ const OPERATIONS_CHECKLIST_PATH = 'docs/billing-operations-launch-checklist.md';
 const ACQUISITION_PATH = 'docs/launch-acquisition-path.md';
 const READ_ONLY_MODE_PATH = 'src/lib/server/core/useCases/readOnlyMode.ts';
 const ROUTE_AUTHORIZATION_PATH = 'src/lib/server/core/useCases/routeAuthorization.ts';
+const BILLING_CHECKOUT_ROUTE_PATH = 'src/routes/org/[orgId]/billing/checkout/+server.ts';
+const BILLING_PORTAL_ROUTE_PATH = 'src/routes/org/[orgId]/billing/portal/+server.ts';
 const SAFE_PREFLIGHT_PARSE_ERROR = 'Preflight did not emit parseable JSON. Re-run it directly to inspect raw output.';
 const SAFE_PREFLIGHT_EXECUTION_ERROR = 'Preflight could not be executed. Re-run it directly to inspect local setup.';
+const REQUIRED_SCENARIO_EVIDENCE_COLUMNS = [
+	'Snapshot state',
+	'Webhook ledger state',
+	'Reconciliation result',
+	'Owner/admin UI state'
+];
 
 function parseArgs(argv) {
 	const args = {
@@ -67,7 +75,11 @@ function parseArgs(argv) {
 
 function safeRead(path) {
 	if (!existsSync(path)) return null;
-	return readFileSync(path, 'utf8');
+	try {
+		return readFileSync(path, 'utf8');
+	} catch {
+		return null;
+	}
 }
 
 function runPreflight({ offline }) {
@@ -112,7 +124,18 @@ function isPlainObject(value) {
 }
 
 function isValidPreflightOutput(value) {
-	return isPlainObject(value) && isPlainObject(value.summary) && Array.isArray(value.results);
+	return (
+		isPlainObject(value) &&
+		isPlainObject(value.summary) &&
+		isNonNegativeNumber(value.summary.pass) &&
+		isNonNegativeNumber(value.summary.warn) &&
+		isNonNegativeNumber(value.summary.fail) &&
+		Array.isArray(value.results)
+	);
+}
+
+function isNonNegativeNumber(value) {
+	return typeof value === 'number' && Number.isFinite(value) && value >= 0;
 }
 
 function failedPreflightResult({ offline, exitCode = 1, error }) {
@@ -128,16 +151,42 @@ function failedPreflightResult({ offline, exitCode = 1, error }) {
 function parseScenarioEvidence(markdown) {
 	if (!markdown) return new Map();
 	const rows = new Map();
+	let headers = null;
 	for (const line of markdown.split(/\r?\n/)) {
 		if (!line.startsWith('|')) continue;
 		const cells = line
 			.split('|')
 			.slice(1, -1)
 			.map((cell) => cell.trim());
-		if (cells.length < 2 || cells[0] === 'Scenario' || cells[0].startsWith('---')) continue;
-		rows.set(cells[0], cells[1]);
+		if (cells.length < 2 || cells[0].startsWith('---')) continue;
+		if (cells.includes('Scenario') && cells.includes('Status')) {
+			headers = cells;
+			continue;
+		}
+
+		const row = scenarioRowFromCells(headers, cells);
+		if (row.scenario) rows.set(row.scenario, row);
 	}
 	return rows;
+}
+
+function scenarioRowFromCells(headers, cells) {
+	if (!headers) {
+		return {
+			scenario: cells[0] ?? '',
+			status: cells[1] ?? '',
+			evidence: Object.fromEntries(REQUIRED_SCENARIO_EVIDENCE_COLUMNS.map((column) => [column, '']))
+		};
+	}
+
+	const byHeader = new Map(headers.map((header, index) => [header, cells[index] ?? '']));
+	return {
+		scenario: byHeader.get('Scenario') ?? '',
+		status: byHeader.get('Status') ?? '',
+		evidence: Object.fromEntries(
+			REQUIRED_SCENARIO_EVIDENCE_COLUMNS.map((column) => [column, byHeader.get(column) ?? ''])
+		)
+	};
 }
 
 function parseConfirmationArtifacts(markdown) {
@@ -215,19 +264,23 @@ function evaluatePreflight(preflight) {
 function evaluateReadOnlyGate(files) {
 	const readOnlyMode = files[READ_ONLY_MODE_PATH] ?? '';
 	const routeAuthorization = files[ROUTE_AUTHORIZATION_PATH] ?? '';
+	const checkoutRoute = files[BILLING_CHECKOUT_ROUTE_PATH] ?? '';
+	const portalRoute = files[BILLING_PORTAL_ROUTE_PATH] ?? '';
 	const hasReadOnlyPolicyMapper = readOnlyMode.includes('readOnlyModeStateForPlanPolicy');
 	const hasBillingRecoveryException =
 		routeAuthorization.includes("'billing-recovery'") &&
 		routeAuthorization.includes('organization.manageBilling') &&
 		routeAuthorization.includes('enforceReadOnlyOverlay: !allowsReadOnlyModeException(config)');
+	const hasCheckoutRecoveryRoute = hasBillingRecoveryRouteWiring(checkoutRoute, 'checkout');
+	const hasPortalRecoveryRoute = hasBillingRecoveryRouteWiring(portalRoute, 'portal');
 
-	if (hasReadOnlyPolicyMapper && hasBillingRecoveryException) {
+	if (hasReadOnlyPolicyMapper && hasBillingRecoveryException && hasCheckoutRecoveryRoute && hasPortalRecoveryRoute) {
 		return {
 			id: 'machine.billing_read_only_gate',
 			label: 'Billing read-only gate and recovery exception',
 			status: 'go',
 			owner: 'Agent',
-			evidenceSource: `${READ_ONLY_MODE_PATH}; ${ROUTE_AUTHORIZATION_PATH}`,
+			evidenceSource: `${READ_ONLY_MODE_PATH}; ${ROUTE_AUTHORIZATION_PATH}; ${BILLING_CHECKOUT_ROUTE_PATH}; ${BILLING_PORTAL_ROUTE_PATH}`,
 			reason: 'Billing policy failures map into read-only mode while billing recovery remains available.'
 		};
 	}
@@ -237,9 +290,19 @@ function evaluateReadOnlyGate(files) {
 		label: 'Billing read-only gate and recovery exception',
 		status: 'blocked',
 		owner: 'Agent',
-		evidenceSource: `${READ_ONLY_MODE_PATH}; ${ROUTE_AUTHORIZATION_PATH}`,
+		evidenceSource: `${READ_ONLY_MODE_PATH}; ${ROUTE_AUTHORIZATION_PATH}; ${BILLING_CHECKOUT_ROUTE_PATH}; ${BILLING_PORTAL_ROUTE_PATH}`,
 		reason: 'Read-only billing policy evidence or billing recovery exception evidence is missing.'
 	};
+}
+
+function hasBillingRecoveryRouteWiring(source, useCaseName) {
+	return (
+		source.includes('handleUseCaseRequest') &&
+		/policyAction:\s*POLICY_ACTION_CATALOG\.organization\.manageBilling/.test(source) &&
+		/mutation:\s*true/.test(source) &&
+		/readOnlyModeException:\s*['"]billing-recovery['"]/.test(source) &&
+		new RegExp(`\\b${useCaseName}\\s*\\(`).test(source)
+	);
 }
 
 function evaluateSupportChannels(files) {
@@ -274,10 +337,12 @@ function evaluateSupportChannels(files) {
 function evaluateScenarios(scenarios) {
 	const missing = [];
 	const blocked = [];
+	const missingEvidence = [];
 	const needsConfirmation = [];
 
 	for (const scenario of REQUIRED_SCENARIOS) {
-		const status = scenarios.get(scenario);
+		const row = scenarios.get(scenario);
+		const status = scenarioStatus(row);
 		if (!status) {
 			missing.push(scenario);
 			continue;
@@ -285,10 +350,17 @@ function evaluateScenarios(scenarios) {
 
 		const normalized = normalizeEvidenceStatus(status);
 		if (normalized === 'blocked') blocked.push(scenario);
+		if (normalized !== 'blocked') {
+			const incompleteColumns = missingScenarioEvidenceColumns(row);
+			if (incompleteColumns.length > 0) {
+				missingEvidence.push(`${scenario} (${incompleteColumns.join(', ')})`);
+				continue;
+			}
+		}
 		if (normalized === 'needs_confirmation') needsConfirmation.push(scenario);
 	}
 
-	if (missing.length > 0 || blocked.length > 0) {
+	if (missing.length > 0 || blocked.length > 0 || missingEvidence.length > 0) {
 		return {
 			id: 'evidence.lifecycle_scenarios',
 			label: 'Billing lifecycle scenario evidence',
@@ -297,7 +369,10 @@ function evaluateScenarios(scenarios) {
 			evidenceSource: GO_NO_GO_PATH,
 			reason: [
 				missing.length ? `Missing scenario row(s): ${missing.join(', ')}.` : null,
-				blocked.length ? `Blocked scenario row(s): ${blocked.join(', ')}.` : null
+				blocked.length ? `Blocked scenario row(s): ${blocked.join(', ')}.` : null,
+				missingEvidence.length
+					? `Scenario row(s) missing required support-safe evidence: ${missingEvidence.join('; ')}.`
+					: null
 			]
 				.filter(Boolean)
 				.join(' ')
@@ -323,6 +398,27 @@ function evaluateScenarios(scenarios) {
 		evidenceSource: GO_NO_GO_PATH,
 		reason: 'Required billing lifecycle scenarios are represented as passed or complete.'
 	};
+}
+
+function scenarioStatus(row) {
+	if (typeof row === 'string') return row;
+	return row?.status;
+}
+
+function missingScenarioEvidenceColumns(row) {
+	if (!row || typeof row === 'string') return REQUIRED_SCENARIO_EVIDENCE_COLUMNS;
+	return REQUIRED_SCENARIO_EVIDENCE_COLUMNS.filter((column) => !hasSupportSafeScenarioEvidence(row.evidence[column]));
+}
+
+function hasSupportSafeScenarioEvidence(value) {
+	const normalized = String(value ?? '')
+		.trim()
+		.toLowerCase()
+		.replace(/\s+/g, ' ');
+	return (
+		Boolean(normalized) &&
+		!['-', 'n/a', 'na', 'none', 'pending', 'tbd', 'todo', 'not captured', 'not captured.'].includes(normalized)
+	);
 }
 
 function evaluateConfirmations(artifacts, confirmationsPath) {
@@ -406,7 +502,9 @@ async function main() {
 		[OPERATIONS_CHECKLIST_PATH]: safeRead(OPERATIONS_CHECKLIST_PATH),
 		[ACQUISITION_PATH]: safeRead(ACQUISITION_PATH),
 		[READ_ONLY_MODE_PATH]: safeRead(READ_ONLY_MODE_PATH),
-		[ROUTE_AUTHORIZATION_PATH]: safeRead(ROUTE_AUTHORIZATION_PATH)
+		[ROUTE_AUTHORIZATION_PATH]: safeRead(ROUTE_AUTHORIZATION_PATH),
+		[BILLING_CHECKOUT_ROUTE_PATH]: safeRead(BILLING_CHECKOUT_ROUTE_PATH),
+		[BILLING_PORTAL_ROUTE_PATH]: safeRead(BILLING_PORTAL_ROUTE_PATH)
 	};
 	const confirmationMarkdown = safeRead(args.confirmationsPath);
 	const result = buildReadinessResult({

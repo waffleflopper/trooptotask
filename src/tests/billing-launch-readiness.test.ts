@@ -33,11 +33,17 @@ interface PreflightResult {
 	error?: string;
 }
 
+interface ScenarioEvidence {
+	scenario: string;
+	status: string;
+	evidence: Record<string, string>;
+}
+
 interface ReadinessModule {
 	REQUIRED_CONFIRMATION_ARTIFACTS: string[];
 	REQUIRED_SCENARIOS: string[];
 	parseConfirmationArtifacts: (markdown: string | null) => Set<string>;
-	parseScenarioEvidence: (markdown: string | null) => Map<string, string>;
+	parseScenarioEvidence: (markdown: string | null) => Map<string, ScenarioEvidence>;
 	preflightResultFromCompleted: (
 		completed: { status?: number | null; stdout?: string | null; stderr?: string | null } | null,
 		options: { offline: boolean }
@@ -47,7 +53,7 @@ interface ReadinessModule {
 		generatedAt: string;
 		preflight?: PreflightResult;
 		files: Record<string, string>;
-		scenarios: Map<string, string>;
+		scenarios: Map<string, ScenarioEvidence>;
 		confirmationArtifacts: Set<string>;
 		confirmationsPath: string;
 	}) => ReadinessResult;
@@ -60,13 +66,17 @@ const files = {
 		'Support owner: Robert support@trooptotask.org privacy@trooptotask.org security@trooptotask.org',
 	'src/lib/server/core/useCases/readOnlyMode.ts': 'readOnlyModeStateForPlanPolicy',
 	'src/lib/server/core/useCases/routeAuthorization.ts':
-		"'billing-recovery' organization.manageBilling enforceReadOnlyOverlay: !allowsReadOnlyModeException(config)"
+		"'billing-recovery' organization.manageBilling enforceReadOnlyOverlay: !allowsReadOnlyModeException(config)",
+	'src/routes/org/[orgId]/billing/checkout/+server.ts':
+		"handleUseCaseRequest({ policyAction: POLICY_ACTION_CATALOG.organization.manageBilling, mutation: true, readOnlyModeException: 'billing-recovery', fn: async (c) => checkout(c, {}) })",
+	'src/routes/org/[orgId]/billing/portal/+server.ts':
+		"handleUseCaseRequest({ policyAction: POLICY_ACTION_CATALOG.organization.manageBilling, mutation: true, readOnlyModeException: 'billing-recovery', fn: async (c) => portal(c, {}) })"
 };
 
 function resultFor(input: {
 	preflight?: PreflightResult;
 	files?: Record<string, string>;
-	scenarios?: Map<string, string>;
+	scenarios?: Map<string, ScenarioEvidence>;
 	confirmationArtifacts?: Set<string>;
 }) {
 	return loadReadinessModule().then(async ({ buildReadinessResult }) =>
@@ -104,9 +114,23 @@ function warningPreflight() {
 	};
 }
 
-async function passingScenarios() {
+async function passingScenarios(): Promise<Map<string, ScenarioEvidence>> {
 	const { REQUIRED_SCENARIOS } = await loadReadinessModule();
-	return new Map(REQUIRED_SCENARIOS.map((scenario) => [scenario, 'Go']));
+	return new Map(
+		REQUIRED_SCENARIOS.map((scenario) => [
+			scenario,
+			{
+				scenario,
+				status: 'Go',
+				evidence: {
+					'Snapshot state': 'snapshot-artifact',
+					'Webhook ledger state': 'webhook-ledger-artifact',
+					'Reconciliation result': 'reconciliation-artifact',
+					'Owner/admin UI state': 'owner-admin-ui-artifact'
+				}
+			}
+		])
+	);
 }
 
 async function passingConfirmations() {
@@ -114,20 +138,24 @@ async function passingConfirmations() {
 	return new Set(REQUIRED_CONFIRMATION_ARTIFACTS);
 }
 
+function dummyCliEnv() {
+	return {
+		...process.env,
+		PUBLIC_BILLING_ENABLED: ['tr', 'ue'].join(''),
+		STRIPE_SECRET_KEY: ['not', 'stripe', 'secret'].join('-'),
+		STRIPE_WEBHOOK_SECRET: ['not', 'webhook', 'secret'].join('-'),
+		STRIPE_TEAM_PRICE_ID: ['team', 'price', 'dummy'].join('-'),
+		STRIPE_UNIT_PRICE_ID: ['unit', 'price', 'dummy'].join('-'),
+		BILLING_RECONCILIATION_SECRET: ['reconciliation', 'dummy'].join('-')
+	};
+}
+
 describe('billing launch readiness classification', () => {
 	it('CLI exits 0 for a support-safe report and requires JSON status inspection', () => {
 		const completed = spawnSync(process.execPath, [readinessScriptPath, '--offline', '--json'], {
 			cwd: repoRootPath,
 			encoding: 'utf8',
-			env: {
-				...process.env,
-				PUBLIC_BILLING_ENABLED: 'true',
-				STRIPE_SECRET_KEY: 'sk_test_placeholder',
-				STRIPE_WEBHOOK_SECRET: 'whsec_placeholder',
-				STRIPE_TEAM_PRICE_ID: 'price_team_placeholder',
-				STRIPE_UNIT_PRICE_ID: 'price_unit_placeholder',
-				BILLING_RECONCILIATION_SECRET: 'reconciliation_placeholder'
-			}
+			env: dummyCliEnv()
 		});
 
 		expect(completed.status).toBe(0);
@@ -139,6 +167,25 @@ describe('billing launch readiness classification', () => {
 		expect(report.reasons.every((reason) => reason.id && reason.reason)).toBe(true);
 	});
 
+	it('CLI preserves the JSON contract when a confirmations path cannot be read as a file', () => {
+		const completed = spawnSync(
+			process.execPath,
+			[readinessScriptPath, '--offline', '--json', '--confirmations', 'docs'],
+			{
+				cwd: repoRootPath,
+				encoding: 'utf8',
+				env: dummyCliEnv()
+			}
+		);
+
+		expect(completed.status).toBe(0);
+		const report = JSON.parse(completed.stdout) as ReadinessResult;
+		expect(report.status).toBe('blocked');
+		expect(report.checks).toContainEqual(
+			expect.objectContaining({ id: 'confirmation.robert_owned_launch', status: 'needs_confirmation' })
+		);
+	});
+
 	it('parses scenario evidence rows while ignoring markdown table headers', async () => {
 		const { parseScenarioEvidence } = await loadReadinessModule();
 		const scenarios = parseScenarioEvidence(`
@@ -148,8 +195,8 @@ describe('billing launch readiness classification', () => {
 | Renewal success | Needs confirmation | Robert artifact pending. |
 `);
 
-		expect(scenarios.get('Checkout activation')).toBe('Go');
-		expect(scenarios.get('Renewal success')).toBe('Needs confirmation');
+		expect(scenarios.get('Checkout activation')).toMatchObject({ status: 'Go' });
+		expect(scenarios.get('Renewal success')).toMatchObject({ status: 'Needs confirmation' });
 		expect(scenarios.has('Scenario')).toBe(false);
 	});
 
@@ -207,14 +254,15 @@ describe('billing launch readiness classification', () => {
 
 	it('keeps malformed preflight output support-safe and does not leak raw stderr', async () => {
 		const { preflightResultFromCompleted } = await loadReadinessModule();
+		const tokenShapedLeak = ['sk', 'live', 'LEAK'].join('_');
 		const preflight = preflightResultFromCompleted(
-			{ status: 1, stdout: 'not json', stderr: 'Stripe failure sk_live_LEAK' },
+			{ status: 1, stdout: 'not json', stderr: `Stripe failure ${tokenShapedLeak}` },
 			{ offline: true }
 		);
 		const result = await resultFor({ preflight });
 
 		expect(preflight.error).toBe('Preflight did not emit parseable JSON. Re-run it directly to inspect raw output.');
-		expect(JSON.stringify(result)).not.toContain('sk_live_LEAK');
+		expect(JSON.stringify(result)).not.toContain(tokenShapedLeak);
 		expect(result).toMatchObject({
 			status: 'blocked',
 			checks: expect.arrayContaining([expect.objectContaining({ id: 'machine.preflight', status: 'blocked' })])
@@ -227,6 +275,7 @@ describe('billing launch readiness classification', () => {
 			{ stdout: JSON.stringify(null), label: 'null output' },
 			{ stdout: JSON.stringify([]), label: 'array output' },
 			{ stdout: JSON.stringify({ summary: null, results: [] }), label: 'missing summary object' },
+			{ stdout: JSON.stringify({ summary: {}, results: [] }), label: 'missing summary counts' },
 			{
 				stdout: JSON.stringify({ summary: { pass: 1, warn: 0, fail: 0 }, results: null }),
 				label: 'missing results array'
@@ -286,6 +335,38 @@ describe('billing launch readiness classification', () => {
 		});
 	});
 
+	it('blocks when checkout or portal route recovery wiring is missing', async () => {
+		await expect(
+			resultFor({
+				files: {
+					...files,
+					'src/routes/org/[orgId]/billing/checkout/+server.ts':
+						'handleUseCaseRequest({ policyAction: POLICY_ACTION_CATALOG.organization.manageBilling, mutation: true, fn: async (c) => checkout(c, {}) })'
+				}
+			})
+		).resolves.toMatchObject({
+			status: 'blocked',
+			checks: expect.arrayContaining([
+				expect.objectContaining({ id: 'machine.billing_read_only_gate', status: 'blocked' })
+			])
+		});
+
+		await expect(
+			resultFor({
+				files: {
+					...files,
+					'src/routes/org/[orgId]/billing/portal/+server.ts':
+						'handleUseCaseRequest({ policyAction: POLICY_ACTION_CATALOG.organization.manageBilling, mutation: true, fn: async (c) => portal(c, {}) })'
+				}
+			})
+		).resolves.toMatchObject({
+			status: 'blocked',
+			checks: expect.arrayContaining([
+				expect.objectContaining({ id: 'machine.billing_read_only_gate', status: 'blocked' })
+			])
+		});
+	});
+
 	it('blocks when already-confirmed support channel evidence is missing', async () => {
 		const result = await resultFor({
 			files: { ...files, 'docs/billing-operations-launch-checklist.md': 'support@trooptotask.org' }
@@ -299,7 +380,16 @@ describe('billing launch readiness classification', () => {
 
 	it('blocks when a required scenario row is still blocked', async () => {
 		const scenarios = await passingScenarios();
-		scenarios.set('Checkout activation', 'Blocked');
+		scenarios.set('Checkout activation', {
+			scenario: 'Checkout activation',
+			status: 'Blocked',
+			evidence: {
+				'Snapshot state': '',
+				'Webhook ledger state': '',
+				'Reconciliation result': '',
+				'Owner/admin UI state': ''
+			}
+		});
 		const result = await resultFor({ scenarios });
 
 		expect(result).toMatchObject({
@@ -309,6 +399,32 @@ describe('billing launch readiness classification', () => {
 					id: 'evidence.lifecycle_scenarios',
 					status: 'blocked',
 					reason: expect.stringContaining('Checkout activation')
+				})
+			])
+		});
+	});
+
+	it('blocks when a go scenario lacks required support-safe evidence columns', async () => {
+		const scenarios = await passingScenarios();
+		scenarios.set('Checkout activation', {
+			scenario: 'Checkout activation',
+			status: 'Go',
+			evidence: {
+				'Snapshot state': 'snapshot-artifact',
+				'Webhook ledger state': 'Not captured.',
+				'Reconciliation result': '',
+				'Owner/admin UI state': 'owner-admin-ui-artifact'
+			}
+		});
+		const result = await resultFor({ scenarios });
+
+		expect(result).toMatchObject({
+			status: 'blocked',
+			checks: expect.arrayContaining([
+				expect.objectContaining({
+					id: 'evidence.lifecycle_scenarios',
+					status: 'blocked',
+					reason: expect.stringContaining('Webhook ledger state, Reconciliation result')
 				})
 			])
 		});

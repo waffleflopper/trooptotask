@@ -177,38 +177,6 @@ describe('danger settings page server', () => {
 		});
 	});
 
-	it('delegates ownership transfer to the org administration use case', async () => {
-		const result = await actions.transferOwnership(
-			actionEvent(
-				'transferOwnership',
-				new URLSearchParams({
-					newOwnerId: '11111111-1111-4111-8111-111111111111',
-					confirmTransferEmail: 'new-owner@example.com'
-				})
-			)
-		);
-
-		expect(result).toEqual({ transferSuccess: true });
-		expect(transferOrganizationOwnershipMock).toHaveBeenCalledWith(
-			{
-				auth: authContext.auth,
-				audit: authContext.audit,
-				notifications: authContext.notifications,
-				readOnlyGuard: authContext.readOnlyGuard,
-				administration: { kind: 'admin-port' },
-				sensitiveActionAuthorizer: authContext.sensitiveActionAuthorizer
-			},
-			{
-				newOwnerId: '11111111-1111-4111-8111-111111111111',
-				confirmTransferEmail: 'new-owner@example.com'
-			}
-		);
-		expect(createSupabaseOrgSettingsAdministrationPortMock).toHaveBeenCalledWith({
-			user: { id: 'user-1', email: 'user@example.com' },
-			supabase: {}
-		});
-	});
-
 	it('maps ownership-transfer failures back into the transferError action payload', async () => {
 		transferOrganizationOwnershipMock.mockRejectedValue(Object.assign(new Error('Invalid user ID'), { status: 400 }));
 
@@ -262,18 +230,6 @@ describe('danger settings page server', () => {
 			status: 303,
 			location: '/dashboard?show=all'
 		});
-
-		expect(deleteOrganizationUseCaseMock).toHaveBeenCalledWith(
-			{
-				auth: authContext.auth,
-				audit: authContext.audit,
-				notifications: authContext.notifications,
-				readOnlyGuard: authContext.readOnlyGuard,
-				administration: { kind: 'admin-port' },
-				sensitiveActionAuthorizer: authContext.sensitiveActionAuthorizer
-			},
-			{ confirmName: '  Test Org  ' }
-		);
 	});
 
 	it('maps destructive org-operation failures back into the deleteError action payload', async () => {

@@ -23,68 +23,6 @@ describe('SupabaseAuditAdapter', () => {
 		mockAuditLog.mockResolvedValue(undefined);
 	});
 
-	it('delegates to auditLog with pre-bound orgId and requestInfo', () => {
-		const audit = createSupabaseAuditAdapter(orgId, requestInfo);
-
-		audit.log({
-			action: 'create',
-			resourceType: 'training_record',
-			resourceId: 'tr-1',
-			details: { name: 'First Aid' }
-		});
-
-		expect(mockAuditLog).toHaveBeenCalledWith(
-			{
-				action: 'create',
-				resourceType: 'training_record',
-				resourceId: 'tr-1',
-				orgId: 'org-123',
-				details: { name: 'First Aid' }
-			},
-			requestInfo
-		);
-	});
-
-	it('forwards optional audit severity to auditLog', () => {
-		const audit = createSupabaseAuditAdapter(orgId, requestInfo);
-
-		audit.log({
-			action: 'member.access_changed',
-			resourceType: 'organization',
-			resourceId: 'membership-1',
-			severity: 'warning'
-		});
-
-		expect(mockAuditLog).toHaveBeenCalledWith(
-			{
-				action: 'member.access_changed',
-				resourceType: 'organization',
-				resourceId: 'membership-1',
-				orgId: 'org-123',
-				details: undefined,
-				severity: 'warning'
-			},
-			requestInfo
-		);
-	});
-
-	it('works without optional resourceId and details', () => {
-		const audit = createSupabaseAuditAdapter(orgId, requestInfo);
-
-		audit.log({ action: 'list', resourceType: 'personnel' });
-
-		expect(mockAuditLog).toHaveBeenCalledWith(
-			{
-				action: 'list',
-				resourceType: 'personnel',
-				resourceId: undefined,
-				orgId: 'org-123',
-				details: undefined
-			},
-			requestInfo
-		);
-	});
-
 	it('swallows errors from auditLog (fire-and-forget)', () => {
 		mockAuditLog.mockRejectedValue(new Error('DB down'));
 

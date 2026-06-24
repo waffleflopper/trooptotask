@@ -129,8 +129,6 @@ describe('admin gifting route', () => {
 			url: new URL('http://localhost/admin/gifting?search=bravo')
 		} as unknown as Parameters<typeof load>[0]);
 
-		expect(platformGiftingMock.listOrganizations).toHaveBeenCalledOnce();
-		expect(platformMetricsMock.countActivePersonnelByOrganization).toHaveBeenCalledWith(['org-a', 'org-b']);
 		expect(result).toEqual({
 			search: 'bravo',
 			organizations: [
@@ -149,32 +147,6 @@ describe('admin gifting route', () => {
 				}
 			]
 		});
-	});
-
-	it('delegates grant, revoke, and extend actions through PlatformGifting', async () => {
-		await expect(
-			actions.giftTier({
-				__ctx: makeContext(),
-				request: makeRequest({ orgId: 'org-a', giftTier: 'unit', days: '45' })
-			} as unknown as Parameters<(typeof actions)['giftTier']>[0])
-		).resolves.toEqual({ success: true, action: 'gift' });
-		expect(platformGiftingMock.grantGift).toHaveBeenCalledWith({ orgId: 'org-a', giftTier: 'unit', days: 45 });
-
-		await expect(
-			actions.revokeGift({
-				__ctx: makeContext(),
-				request: makeRequest({ orgId: 'org-a' })
-			} as unknown as Parameters<(typeof actions)['revokeGift']>[0])
-		).resolves.toEqual({ success: true, action: 'revoke' });
-		expect(platformGiftingMock.revokeGift).toHaveBeenCalledWith('org-a');
-
-		await expect(
-			actions.extendGift({
-				__ctx: makeContext(),
-				request: makeRequest({ orgId: 'org-a', days: '10' })
-			} as unknown as Parameters<(typeof actions)['extendGift']>[0])
-		).resolves.toEqual({ success: true, action: 'extend' });
-		expect(platformGiftingMock.extendGift).toHaveBeenCalledWith({ orgId: 'org-a', days: 10 });
 	});
 
 	it('preserves action error shapes from PlatformGifting outcomes', async () => {

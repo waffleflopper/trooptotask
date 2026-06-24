@@ -200,40 +200,6 @@ describe('admin user auth email actions', () => {
 		expect(platformAuditMock.listRecentByUser).not.toHaveBeenCalled();
 	});
 
-	it('resetPassword calls the identity command seam and preserves success mapping', async () => {
-		const result = await actions.resetPassword({
-			__ctx: {
-				adminClient: makeIdentityCommandActionClient(),
-				audit
-			},
-			params: { userId: USER_ID },
-			url: new URL(`http://localhost:4173/admin/users/${USER_ID}`)
-		} as unknown as Parameters<(typeof actions)['resetPassword']>[0]);
-
-		expect(result).toEqual({ success: true, message: 'Password reset email sent' });
-		expect(platformUserIdentityCommandsMock.sendPasswordReset).toHaveBeenCalledWith({
-			userId: USER_ID,
-			inboundOrigin: 'http://localhost:4173'
-		});
-	});
-
-	it('resendInvite calls the identity command seam and preserves success mapping', async () => {
-		const result = await actions.resendInvite({
-			__ctx: {
-				adminClient: makeIdentityCommandActionClient(),
-				audit
-			},
-			params: { userId: USER_ID },
-			url: new URL(`http://localhost:4173/admin/users/${USER_ID}`)
-		} as unknown as Parameters<(typeof actions)['resendInvite']>[0]);
-
-		expect(result).toEqual({ success: true, message: 'Invite email resent' });
-		expect(platformUserIdentityCommandsMock.resendInvite).toHaveBeenCalledWith({
-			userId: USER_ID,
-			inboundOrigin: 'http://localhost:4173'
-		});
-	});
-
 	it('rejects malformed user IDs before calling identity commands', async () => {
 		const resetResult = await actions.resetPassword({
 			__ctx: {

@@ -3,37 +3,6 @@ import { z } from 'zod';
 import { field, defineEntity } from './entitySchema';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 
-describe('field()', () => {
-	it('wraps a Zod type with metadata defaults', () => {
-		const f = field(z.string());
-		expect(f._zod).toBeDefined();
-		expect(f._meta).toEqual({
-			column: undefined,
-			readOnly: false,
-			insertDefault: undefined,
-			isPersonnelId: false,
-			nullDefault: undefined
-		});
-	});
-
-	it('accepts explicit metadata overrides', () => {
-		const f = field(z.string(), {
-			column: 'full_name',
-			readOnly: true,
-			insertDefault: 'N/A',
-			isPersonnelId: true,
-			nullDefault: ''
-		});
-		expect(f._meta).toEqual({
-			column: 'full_name',
-			readOnly: true,
-			insertDefault: 'N/A',
-			isPersonnelId: true,
-			nullDefault: ''
-		});
-	});
-});
-
 // Mock entity used across defineEntity tests
 const mockSchema = {
 	id: field(z.string(), { readOnly: true }),

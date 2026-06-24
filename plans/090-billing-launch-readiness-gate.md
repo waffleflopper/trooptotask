@@ -132,7 +132,7 @@ Robert has confirmed the public support channels for paid launch:
 | Purpose | Command | Expected on success |
 | --- | --- | --- |
 | Existing preflight | `npm run billing:launch-preflight -- --offline --json` | exits 0 and emits JSON without secrets |
-| New readiness gate | `npm run billing:launch-readiness -- --offline --json` or the command name chosen in this plan | exits 0 with `status: "blocked"` until all confirmations are present |
+| New readiness gate | `npm --silent run billing:launch-readiness -- --offline --json` | exits 0 with parseable JSON and `status: "blocked"` until all confirmations are present |
 | Script tests | `npx vitest run <new-readiness-script-test>` if script tests are added | all pass |
 | Full repo gate | `npm run format && npm run lint && npm run governance:check && npm run check && npm run test` | all exit 0 |
 
@@ -211,7 +211,7 @@ Expected behavior:
   confirmation records.
 
 **Verify**:
-`npm run billing:launch-readiness -- --offline --json` exits 0 and returns
+`npm --silent run billing:launch-readiness -- --offline --json` exits 0 and returns
 `"status":"blocked"` or equivalent blocked JSON while required confirmations
 are absent.
 

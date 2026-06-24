@@ -8,7 +8,7 @@ Verdict: **blocked**
 
 Latest readiness gate:
 
-- Command: `npm run billing:launch-readiness -- --offline --json`
+- Command: `npm --silent run billing:launch-readiness -- --offline --json`
 - Expected current result: `blocked`
 - Reason: scenario evidence and Robert-owned confirmation artifacts remain incomplete.
 - Confirmation record: `docs/billing-launch-confirmations.md` stores dates, owners, and artifact names only.
@@ -33,7 +33,7 @@ Blocked reasons:
 | Command | Result | Pass | Warn | Fail | Follow-up owner | Notes |
 | --- | --- | ---: | ---: | ---: | --- | --- |
 | `npm run billing:launch-preflight -- --offline --json` | Passed | 10 | 0 | 0 | Agent | Confirmed required Stripe env names are present, billing is enabled locally, Stripe secret mode is test, webhook signing secret has the expected shape, automatic tax is disabled, and reconciliation authorization is present. |
-| `npm run billing:launch-readiness -- --offline --json` | Blocked | n/a | n/a | n/a | Robert/Agent | Readiness gate is available. It stays blocked while scenario evidence and Robert-owned confirmation artifacts are incomplete. |
+| `npm --silent run billing:launch-readiness -- --offline --json` | Blocked | n/a | n/a | n/a | Robert/Agent | Readiness gate is available. It stays blocked while scenario evidence and Robert-owned confirmation artifacts are incomplete. Use the silent form when automation parses stdout as JSON. |
 | `npm run billing:launch-preflight -- --json` | Failed | 26 | 1 | 2 | Robert | Confirmed Team and Unit prices are active monthly test-mode USD prices, but the configured Stripe amounts are still Team $5.00 and Unit $12.00 instead of Team $4.99 and Unit $10.99. Customer Portal is active, invoice history/payment updates/customer info/cancellation are enabled, cancellation is at period end, and the configured webhook endpoint includes all handled events. |
 | `npm run billing:lifecycle -- help` | Passed | n/a | n/a | n/a | Agent | Helper listed create fixture, advance clock, switch plan, set payment mode, deliver events, cancel at period end, cancel now, and finish clock commands. |
 

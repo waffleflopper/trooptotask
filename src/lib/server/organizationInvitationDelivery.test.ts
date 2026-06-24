@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
 	ORGANIZATION_INVITATION_EMAIL_MAX_ATTEMPTS,
 	makeOrganizationInvitationUrl,
@@ -12,7 +12,21 @@ import {
 	organizationInvitationFixture
 } from '$lib/test-support/authWorkflowFixtures';
 
+const { billingEnabledMock } = vi.hoisted(() => ({
+	billingEnabledMock: vi.fn(() => false)
+}));
+
+vi.mock('$lib/config/billing', () => ({
+	get isBillingEnabled() {
+		return billingEnabledMock();
+	}
+}));
+
 describe('organization invitation delivery', () => {
+	beforeEach(() => {
+		billingEnabledMock.mockReturnValue(false);
+	});
+
 	afterEach(() => {
 		vi.unstubAllEnvs();
 	});
@@ -86,12 +100,23 @@ describe('organization invitation delivery', () => {
 		);
 	});
 
-	it('builds a request-access destination for invitees who still need account setup', () => {
+	it('builds a request-access destination for billing-disabled invitees who still need account setup', () => {
 		vi.stubEnv('APP_PUBLIC_ORIGIN_ALLOWLIST', 'https://trooptotask.test');
 
 		expect(makeOrganizationInvitationUrl('https://trooptotask.test', { requiresAccountSetup: true })).toBe(
 			'https://trooptotask.test/auth/request-access'
 		);
+	});
+
+	it('builds a self-service signup destination for billing-enabled invitees who still need account setup', () => {
+		vi.stubEnv('APP_PUBLIC_ORIGIN_ALLOWLIST', 'https://trooptotask.test');
+
+		expect(
+			makeOrganizationInvitationUrl('https://trooptotask.test', {
+				requiresAccountSetup: true,
+				selfServiceSignupEnabled: true
+			})
+		).toBe('https://trooptotask.test/auth/sign-up?next=%2Fdashboard');
 	});
 
 	it('sends email through the configured provider with sign-in acceptance copy', async () => {
@@ -120,7 +145,7 @@ describe('organization invitation delivery', () => {
 		expect(fetchImpl.mock.calls[0][1].body).toContain('Membership is created only after you sign in and accept');
 	});
 
-	it('sends account setup guidance for invitees without a User Account', async () => {
+	it('sends reviewed-access setup guidance for billing-disabled invitees without a User Account', async () => {
 		vi.stubEnv('RESEND_API_KEY', 'resend-key');
 		vi.stubEnv('RESEND_FROM_EMAIL', 'noreply@trooptotask.test');
 		const fetchImpl = vi.fn().mockResolvedValue({ ok: true, status: 202, text: async () => '' });
@@ -141,6 +166,31 @@ describe('organization invitation delivery', () => {
 		expect(body).toContain('You do not need to submit another access request');
 		expect(body).toContain('Account Setup Link email');
 		expect(body).not.toContain('Sign in to view and accept');
+	});
+
+	it('sends self-service signup guidance for billing-enabled invitees without a User Account', async () => {
+		vi.stubEnv('RESEND_API_KEY', 'resend-key');
+		vi.stubEnv('RESEND_FROM_EMAIL', 'noreply@trooptotask.test');
+		const fetchImpl = vi.fn().mockResolvedValue({ ok: true, status: 202, text: async () => '' });
+
+		await sendOrganizationInvitationEmail(
+			{
+				email: 'invitee@example.mil',
+				organizationName: 'Alpha Company',
+				invitedByEmail: 'admin@example.mil',
+				inviteUrl: 'https://trooptotask.test/auth/sign-up?next=%2Fdashboard',
+				requiresAccountSetup: true,
+				selfServiceSignupEnabled: true
+			},
+			fetchImpl
+		);
+
+		const body = fetchImpl.mock.calls[0][1].body as string;
+		expect(body).toContain('Create your TroopToTask account');
+		expect(body).toContain('confirm your email first');
+		expect(body).toContain('open your dashboard to accept this organization invitation');
+		expect(body).not.toContain('submitted a platform access request');
+		expect(body).not.toContain('Account Setup Link email');
 	});
 
 	it('rejects non-local HTTP invitation URLs before sending mail', async () => {
@@ -196,6 +246,124 @@ describe('organization invitation delivery', () => {
 			invitedByEmail: 'admin@example.mil',
 			inviteUrl: 'https://trooptotask.test/auth/login?next=%2Fdashboard',
 			requiresAccountSetup: false
+		});
+	});
+
+	it('keeps self-service invitation retries on signup after billing is disabled', async () => {
+		vi.stubEnv('APP_PUBLIC_ORIGIN_ALLOWLIST', 'https://trooptotask.test');
+		const store = createOrganizationInvitationEmailOutboxStore();
+		const sendEmail = vi.fn().mockResolvedValue(undefined);
+		await store.insertInvitationEmailDelivery({
+			organizationId: 'org-1',
+			invitationId: 'invite-1',
+			recipient: 'invitee@example.mil',
+			createdAt: AUTH_WORKFLOW_NOW
+		});
+
+		const result = await retryOrganizationInvitationOutboxDelivery(store, sendEmail, {
+			outboxId: 'outbox-1',
+			origin: 'https://trooptotask.test',
+			invitation: organizationInvitationFixture({
+				id: 'invite-1',
+				organizationId: 'org-1',
+				email: 'invitee@example.mil',
+				status: 'pending',
+				requiresAccountSetup: false,
+				recipientHasUserAccount: false,
+				expiresAt: new Date('2026-06-01T12:00:00.000Z')
+			}),
+			organizationName: 'Alpha Company',
+			invitedByEmail: 'admin@example.mil',
+			now: AUTH_WORKFLOW_NOW
+		});
+
+		expect(result.status).toBe('sent');
+		expect(sendEmail).toHaveBeenCalledWith({
+			email: 'invitee@example.mil',
+			organizationName: 'Alpha Company',
+			invitedByEmail: 'admin@example.mil',
+			inviteUrl: 'https://trooptotask.test/auth/sign-up?next=%2Fdashboard',
+			requiresAccountSetup: true,
+			selfServiceSignupEnabled: true
+		});
+	});
+
+	it('retries billing-enabled invitations for recipients who now have accounts to sign-in', async () => {
+		billingEnabledMock.mockReturnValue(true);
+		vi.stubEnv('APP_PUBLIC_ORIGIN_ALLOWLIST', 'https://trooptotask.test');
+		const store = createOrganizationInvitationEmailOutboxStore();
+		const sendEmail = vi.fn().mockResolvedValue(undefined);
+		await store.insertInvitationEmailDelivery({
+			organizationId: 'org-1',
+			invitationId: 'invite-1',
+			recipient: 'invitee@example.mil',
+			createdAt: AUTH_WORKFLOW_NOW
+		});
+
+		const result = await retryOrganizationInvitationOutboxDelivery(store, sendEmail, {
+			outboxId: 'outbox-1',
+			origin: 'https://trooptotask.test',
+			invitation: organizationInvitationFixture({
+				id: 'invite-1',
+				organizationId: 'org-1',
+				email: 'invitee@example.mil',
+				status: 'pending',
+				requiresAccountSetup: false,
+				recipientHasUserAccount: true,
+				expiresAt: new Date('2026-06-01T12:00:00.000Z')
+			}),
+			organizationName: 'Alpha Company',
+			invitedByEmail: 'admin@example.mil',
+			now: AUTH_WORKFLOW_NOW
+		});
+
+		expect(result.status).toBe('sent');
+		expect(sendEmail).toHaveBeenCalledWith({
+			email: 'invitee@example.mil',
+			organizationName: 'Alpha Company',
+			invitedByEmail: 'admin@example.mil',
+			inviteUrl: 'https://trooptotask.test/auth/login?next=%2Fdashboard',
+			requiresAccountSetup: false
+		});
+	});
+
+	it('keeps billing-enabled linked reviewed invitation retries on reviewed setup until setup completes', async () => {
+		billingEnabledMock.mockReturnValue(true);
+		vi.stubEnv('APP_PUBLIC_ORIGIN_ALLOWLIST', 'https://trooptotask.test');
+		const store = createOrganizationInvitationEmailOutboxStore();
+		const sendEmail = vi.fn().mockResolvedValue(undefined);
+		await store.insertInvitationEmailDelivery({
+			organizationId: 'org-1',
+			invitationId: 'invite-1',
+			recipient: 'invitee@example.mil',
+			createdAt: AUTH_WORKFLOW_NOW
+		});
+
+		const result = await retryOrganizationInvitationOutboxDelivery(store, sendEmail, {
+			outboxId: 'outbox-1',
+			origin: 'https://trooptotask.test',
+			invitation: organizationInvitationFixture({
+				id: 'invite-1',
+				organizationId: 'org-1',
+				email: 'invitee@example.mil',
+				status: 'pending',
+				requiresAccountSetup: true,
+				recipientHasUserAccount: true,
+				expiresAt: new Date('2026-06-01T12:00:00.000Z')
+			}),
+			organizationName: 'Alpha Company',
+			invitedByEmail: 'admin@example.mil',
+			now: AUTH_WORKFLOW_NOW
+		});
+
+		expect(result.status).toBe('sent');
+		expect(sendEmail).toHaveBeenCalledWith({
+			email: 'invitee@example.mil',
+			organizationName: 'Alpha Company',
+			invitedByEmail: 'admin@example.mil',
+			inviteUrl: 'https://trooptotask.test/auth/request-access',
+			requiresAccountSetup: true,
+			selfServiceSignupEnabled: false
 		});
 	});
 

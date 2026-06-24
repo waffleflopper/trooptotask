@@ -30,6 +30,7 @@ function makeActionEvent(input: {
 	password?: string;
 	confirmPassword?: string;
 	origin?: string;
+	next?: string;
 	ip?: string;
 	signUp?: ReturnType<typeof vi.fn>;
 	session?: unknown;
@@ -41,9 +42,11 @@ function makeActionEvent(input: {
 		password: input.password ?? 'ValidPassword123',
 		confirmPassword: input.confirmPassword ?? input.password ?? 'ValidPassword123'
 	});
+	const url = new URL(`${origin}/auth/sign-up`);
+	if (input.next) url.searchParams.set('next', input.next);
 
 	return {
-		request: new Request(`${origin}/auth/sign-up`, {
+		request: new Request(url, {
 			method: 'POST',
 			headers: {
 				'Content-Type': 'application/x-www-form-urlencoded',
@@ -62,7 +65,7 @@ function makeActionEvent(input: {
 			}
 		},
 		getClientAddress: vi.fn(() => input.ip ?? '203.0.113.10'),
-		url: new URL(`${origin}/auth/sign-up`)
+		url
 	} as unknown as SignupActionEvent;
 }
 
@@ -165,6 +168,34 @@ describe('POST /auth/sign-up', () => {
 				emailRedirectTo: 'http://localhost:4173/auth/confirm?type=email&next=%2Forg%2Fnew'
 			}
 		});
+	});
+
+	it('allows the invitation signup branch to confirm back to the dashboard', async () => {
+		const signUp = vi.fn().mockResolvedValue({ data: { user: { id: 'user-1' } }, error: null });
+
+		await actions.default(makeActionEvent({ signUp, next: '/dashboard' }));
+
+		expect(signUp).toHaveBeenCalledWith(
+			expect.objectContaining({
+				options: {
+					emailRedirectTo: 'http://localhost:4173/auth/confirm?type=email&next=%2Fdashboard'
+				}
+			})
+		);
+	});
+
+	it('ignores unsafe signup confirmation destinations', async () => {
+		const signUp = vi.fn().mockResolvedValue({ data: { user: { id: 'user-1' } }, error: null });
+
+		await actions.default(makeActionEvent({ signUp, next: 'https://evil.example/offsite' }));
+
+		expect(signUp).toHaveBeenCalledWith(
+			expect.objectContaining({
+				options: {
+					emailRedirectTo: 'http://localhost:4173/auth/confirm?type=email&next=%2Forg%2Fnew'
+				}
+			})
+		);
 	});
 
 	it('rejects invalid email before rate limiting or provider calls', async () => {

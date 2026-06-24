@@ -143,8 +143,7 @@ function createPendingInvitationByIdBuilder(
 		data: {
 			id: 'invite-1',
 			email: 'invitee@example.com',
-			expires_at: '2099-05-23T12:00:00.000Z',
-			access_request_organization_invitation_links: []
+			expires_at: '2099-05-23T12:00:00.000Z'
 		},
 		error: null,
 		...result
@@ -163,6 +162,38 @@ function createPendingInvitationByIdBuilder(
 		gt: track('gt'),
 		single: (...args: unknown[]) => {
 			calls.push({ method: 'single', args });
+			return resolvedResult;
+		}
+	};
+
+	return { builder, calls };
+}
+
+function createInvitationAccessRequestSetupLookupBuilder(
+	result: {
+		data?: Record<string, unknown> | null;
+		error?: unknown;
+	} = {}
+) {
+	const calls: Call[] = [];
+	const resolvedResult = {
+		data: null,
+		error: null,
+		...result
+	};
+
+	function track(method: string) {
+		return (...args: unknown[]) => {
+			calls.push({ method, args });
+			return builder;
+		};
+	}
+
+	const builder: Record<string, unknown> = {
+		select: track('select'),
+		eq: track('eq'),
+		maybeSingle: (...args: unknown[]) => {
+			calls.push({ method: 'maybeSingle', args });
 			return resolvedResult;
 		}
 	};
@@ -347,12 +378,19 @@ describe('createSupabaseOrgSettingsMemberManagementPort', () => {
 
 	it('finds pending invitations by id inside the organization without reading access snapshot fields', async () => {
 		const { builder, calls } = createPendingInvitationByIdBuilder();
+		const { builder: setupBuilder, calls: setupCalls } = createInvitationAccessRequestSetupLookupBuilder();
 		const supabase = {
 			from: vi.fn(() => builder)
 		};
-		const port = createSupabaseOrgSettingsMemberManagementPort({
-			supabase
-		} as never);
+		const adminSupabase = {
+			from: vi.fn(() => setupBuilder)
+		};
+		const port = createSupabaseOrgSettingsMemberManagementPort(
+			{
+				supabase
+			} as never,
+			{ getAdminClient: () => adminSupabase as never }
+		);
 
 		const result = await port.findPendingInvitationById('org-1', 'invite-1');
 
@@ -365,28 +403,45 @@ describe('createSupabaseOrgSettingsMemberManagementPort', () => {
 		expect(supabase.from).toHaveBeenCalledWith('organization_invitations');
 		expect(calls).toContainEqual({
 			method: 'select',
-			args: ['id, email, expires_at, access_request_organization_invitation_links(id)']
+			args: ['id, email, expires_at']
 		});
 		expect(calls).toContainEqual({ method: 'eq', args: ['id', 'invite-1'] });
 		expect(calls).toContainEqual({ method: 'eq', args: ['organization_id', 'org-1'] });
 		expect(calls).toContainEqual({ method: 'eq', args: ['status', 'pending'] });
 		expect(calls).not.toContainEqual({ method: 'gt', args: ['expires_at', expect.any(String)] });
+		expect(adminSupabase.from).toHaveBeenCalledWith('access_request_organization_invitation_links');
+		expect(setupCalls).toEqual([
+			{ method: 'select', args: ['id, access_requests(email, setup_completed_at)'] },
+			{ method: 'eq', args: ['organization_invitation_id', 'invite-1'] },
+			{ method: 'eq', args: ['organization_id', 'org-1'] },
+			{ method: 'maybeSingle', args: [] }
+		]);
 	});
 
-	it('marks resend lookups as account-setup invitations when an access-request link exists', async () => {
+	it('marks resend lookups as account-setup invitations when a linked access request has not completed setup', async () => {
 		const { builder } = createPendingInvitationByIdBuilder({
 			data: {
 				id: 'invite-1',
 				email: 'invitee@example.com',
-				expires_at: '2099-05-23T12:00:00.000Z',
-				access_request_organization_invitation_links: [{ id: 'link-1' }]
+				expires_at: '2099-05-23T12:00:00.000Z'
 			}
 		});
-		const port = createSupabaseOrgSettingsMemberManagementPort({
-			supabase: {
-				from: vi.fn(() => builder)
+		const { builder: setupBuilder } = createInvitationAccessRequestSetupLookupBuilder({
+			data: { id: 'link-1', access_requests: { email: 'invitee@example.com', setup_completed_at: null } }
+		});
+		const port = createSupabaseOrgSettingsMemberManagementPort(
+			{
+				supabase: {
+					from: vi.fn(() => builder)
+				}
+			} as never,
+			{
+				getAdminClient: () =>
+					({
+						from: vi.fn(() => setupBuilder)
+					}) as never
 			}
-		} as never);
+		);
 
 		await expect(port.findPendingInvitationById('org-1', 'invite-1')).resolves.toEqual({
 			id: 'invite-1',
@@ -396,20 +451,61 @@ describe('createSupabaseOrgSettingsMemberManagementPort', () => {
 		});
 	});
 
+	it('marks resend lookups as sign-in invitations when a linked access request has completed setup', async () => {
+		const { builder } = createPendingInvitationByIdBuilder({
+			data: {
+				id: 'invite-1',
+				email: 'Invitee@Example.com',
+				expires_at: '2099-05-23T12:00:00.000Z'
+			}
+		});
+		const { builder: setupBuilder } = createInvitationAccessRequestSetupLookupBuilder({
+			data: {
+				id: 'link-1',
+				access_requests: { email: 'invitee@example.com', setup_completed_at: '2026-05-22T12:00:00.000Z' }
+			}
+		});
+		const port = createSupabaseOrgSettingsMemberManagementPort(
+			{
+				supabase: {
+					from: vi.fn(() => builder)
+				}
+			} as never,
+			{
+				getAdminClient: () =>
+					({
+						from: vi.fn(() => setupBuilder)
+					}) as never
+			}
+		);
+
+		await expect(port.findPendingInvitationById('org-1', 'invite-1')).resolves.toEqual({
+			id: 'invite-1',
+			email: 'Invitee@Example.com',
+			status: 'pending',
+			requiresAccountSetup: false
+		});
+	});
+
 	it('materializes stale pending invitations as expired during resend lookup', async () => {
 		const { builder: lookupBuilder } = createPendingInvitationByIdBuilder({
 			data: {
 				id: 'invite-1',
 				email: 'invitee@example.com',
-				expires_at: '2000-05-21T12:00:00.000Z',
-				access_request_organization_invitation_links: []
+				expires_at: '2000-05-21T12:00:00.000Z'
 			}
 		});
+		const { builder: setupBuilder } = createInvitationAccessRequestSetupLookupBuilder();
 		const { builder: expireBuilder, calls: expireCalls } = createInvitationExpiryBuilder();
 		const supabase = {
 			from: vi.fn().mockReturnValueOnce(lookupBuilder).mockReturnValueOnce(expireBuilder)
 		};
-		const port = createSupabaseOrgSettingsMemberManagementPort({ supabase } as never);
+		const port = createSupabaseOrgSettingsMemberManagementPort({ supabase } as never, {
+			getAdminClient: () =>
+				({
+					from: vi.fn(() => setupBuilder)
+				}) as never
+		});
 
 		await expect(port.findPendingInvitationById('org-1', 'invite-1')).resolves.toEqual({
 			id: 'invite-1',
@@ -450,6 +546,10 @@ describe('createSupabaseOrgSettingsMemberManagementPort', () => {
 			from: vi.fn(() => builder),
 			auth: {
 				admin: {
+					getUserById: vi.fn().mockResolvedValue({
+						data: { user: { id: 'user-1', email_confirmed_at: '2026-06-16T12:00:00.000Z' } },
+						error: null
+					}),
 					listUsers: vi.fn()
 				}
 			}
@@ -463,12 +563,48 @@ describe('createSupabaseOrgSettingsMemberManagementPort', () => {
 
 		await expect(port.findUserAccountByEmail(' user@example.com ')).resolves.toEqual({
 			id: 'user-1',
-			email: 'user@example.com'
+			email: 'user@example.com',
+			emailConfirmed: true
 		});
 		expect(adminSupabase.from).toHaveBeenCalledWith('user_email_identities');
 		expect(calls).toContainEqual({ method: 'select', args: ['user_id, normalized_email'] });
 		expect(calls).toContainEqual({ method: 'eq', args: ['normalized_email', 'user@example.com'] });
+		expect(adminSupabase.auth.admin.getUserById).toHaveBeenCalledWith('user-1');
 		expect(adminSupabase.auth.admin.listUsers).not.toHaveBeenCalled();
+	});
+
+	it('marks indexed User Accounts as unconfirmed when provider confirmation timestamps are absent', async () => {
+		const builder: Record<string, unknown> = {
+			select: () => builder,
+			eq: () => builder,
+			maybeSingle: () => ({
+				data: { user_id: 'user-1', normalized_email: 'user@example.com' },
+				error: null
+			})
+		};
+		const adminSupabase = {
+			from: vi.fn(() => builder),
+			auth: {
+				admin: {
+					getUserById: vi.fn().mockResolvedValue({
+						data: { user: { id: 'user-1', email_confirmed_at: null, confirmed_at: null } },
+						error: null
+					})
+				}
+			}
+		};
+		const port = createSupabaseOrgSettingsMemberManagementPort(
+			{
+				supabase: { from: vi.fn() }
+			} as never,
+			{ getAdminClient: () => adminSupabase as never }
+		);
+
+		await expect(port.findUserAccountByEmail('user@example.com')).resolves.toEqual({
+			id: 'user-1',
+			email: 'user@example.com',
+			emailConfirmed: false
+		});
 	});
 
 	it('creates a pending Access Request and stores the originating Organization Invitation context for non-users', async () => {

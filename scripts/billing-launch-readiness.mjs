@@ -42,6 +42,8 @@ const OPERATIONS_CHECKLIST_PATH = 'docs/billing-operations-launch-checklist.md';
 const ACQUISITION_PATH = 'docs/launch-acquisition-path.md';
 const READ_ONLY_MODE_PATH = 'src/lib/server/core/useCases/readOnlyMode.ts';
 const ROUTE_AUTHORIZATION_PATH = 'src/lib/server/core/useCases/routeAuthorization.ts';
+const SAFE_PREFLIGHT_PARSE_ERROR = 'Preflight did not emit parseable JSON. Re-run it directly to inspect raw output.';
+const SAFE_PREFLIGHT_EXECUTION_ERROR = 'Preflight could not be executed. Re-run it directly to inspect local setup.';
 
 function parseArgs(argv) {
 	const args = {
@@ -72,13 +74,25 @@ function runPreflight({ offline }) {
 	const commandArgs = ['./scripts/billing-launch-preflight.mjs', '--json'];
 	if (offline) commandArgs.push('--offline');
 
-	const completed = spawnSync(process.execPath, commandArgs, {
-		encoding: 'utf8',
-		stdio: ['ignore', 'pipe', 'pipe']
-	});
-
 	try {
-		const parsed = JSON.parse(completed.stdout);
+		const completed = spawnSync(process.execPath, commandArgs, {
+			encoding: 'utf8',
+			stdio: ['ignore', 'pipe', 'pipe']
+		});
+		return preflightResultFromCompleted(completed, { offline });
+	} catch {
+		return failedPreflightResult({ offline, error: SAFE_PREFLIGHT_EXECUTION_ERROR });
+	}
+}
+
+function preflightResultFromCompleted(completed, { offline }) {
+	const stdout = typeof completed?.stdout === 'string' ? completed.stdout : '';
+	const stderr = typeof completed?.stderr === 'string' ? completed.stderr : '';
+	if (!stdout.trim() && !stderr.trim()) {
+		return failedPreflightResult({ offline, error: SAFE_PREFLIGHT_EXECUTION_ERROR });
+	}
+	try {
+		const parsed = JSON.parse(stdout);
 		return {
 			command: `npm run billing:launch-preflight -- ${offline ? '--offline ' : ''}--json`,
 			exitCode: completed.status ?? 1,
@@ -86,14 +100,18 @@ function runPreflight({ offline }) {
 			results: parsed.results
 		};
 	} catch {
-		return {
-			command: `npm run billing:launch-preflight -- ${offline ? '--offline ' : ''}--json`,
-			exitCode: completed.status ?? 1,
-			summary: null,
-			results: [],
-			error: completed.stderr.trim() || 'Preflight did not emit parseable JSON.'
-		};
+		return failedPreflightResult({ offline, exitCode: completed?.status ?? 1, error: SAFE_PREFLIGHT_PARSE_ERROR });
 	}
+}
+
+function failedPreflightResult({ offline, exitCode = 1, error }) {
+	return {
+		command: `npm run billing:launch-preflight -- ${offline ? '--offline ' : ''}--json`,
+		exitCode,
+		summary: null,
+		results: [],
+		error
+	};
 }
 
 function parseScenarioEvidence(markdown) {
@@ -396,6 +414,7 @@ export {
 	REQUIRED_CONFIRMATION_ARTIFACTS,
 	REQUIRED_SCENARIOS,
 	buildReadinessResult,
+	preflightResultFromCompleted,
 	parseConfirmationArtifacts,
 	parseScenarioEvidence
 };

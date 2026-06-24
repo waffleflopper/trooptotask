@@ -12,7 +12,7 @@ Do not paste API keys, webhook secrets, raw webhook payloads, card details, Stri
 - [Billing Cancellation Policy](billing-cancellation-policy.md) defines period-end portal cancellation as the default owner path and immediate cancellation as an explicit confirmed action.
 - [Operational Control Evidence](security/operational-control-evidence.md) links the launch security runbooks, including [Incident Response](security/incident-response.md) and no-secret evidence handling rules for billing/support incidents.
 - `npm run billing:launch-preflight` is the read-only Stripe test-mode preflight.
-- `npm run billing:launch-readiness -- --offline --json` is the read-only launch gate. It aggregates preflight, billing read-only gate evidence, scenario rows, support-channel decisions, and Robert-owned confirmation artifacts into top-level and per-check `go`, `blocked`, or `needs_confirmation` statuses. Any non-`go` status is not launch-ready.
+- `npm --silent run billing:launch-readiness -- --offline --json` is the parseable read-only launch gate invocation for operators and automation. It aggregates preflight, billing read-only gate evidence, scenario rows, support-channel decisions, and Robert-owned confirmation artifacts into top-level and per-check `go`, `blocked`, or `needs_confirmation` statuses. Any non-`go` status is not launch-ready.
 - `npm run billing:lifecycle` is the Stripe test-mode lifecycle helper.
 
 ## Issue #1078 Outcome
@@ -33,10 +33,10 @@ Do not paste API keys, webhook secrets, raw webhook payloads, card details, Stri
 Run the readiness gate before any paid launch rehearsal handoff:
 
 ```sh
-npm run billing:launch-readiness -- --offline --json
+npm --silent run billing:launch-readiness -- --offline --json
 ```
 
-The JSON result is support-safe by design. Each check has `id`, `label`, `status`, `owner`, `evidenceSource`, and `reason`. Top-level and check status values are exactly `go`, `blocked`, and `needs_confirmation`; any non-`go` status is not launch-ready, and the top-level result must not become `go` while any required Robert confirmation, scenario evidence row, or machine check is missing.
+Use `npm --silent` when automation consumes stdout; plain `npm run` prints npm lifecycle banners before the script output. The JSON result is support-safe by design. Each check has `id`, `label`, `status`, `owner`, `evidenceSource`, and `reason`. Top-level and check status values are exactly `go`, `blocked`, and `needs_confirmation`; any non-`go` status is not launch-ready, and the top-level result must not become `go` while any required Robert confirmation, scenario evidence row, or machine check is missing.
 
 Shell exit 0 only means the command produced a support-safe readiness report. Operators and automation must inspect the JSON `status`; anything other than `go` is not launch-ready and must not be treated as approval to enable paid billing.
 

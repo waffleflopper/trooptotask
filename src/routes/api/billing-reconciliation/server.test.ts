@@ -1,6 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { storeMock } = vi.hoisted(() => ({
+const { envMock, getAdminClientMock, providerMock, storeMock } = vi.hoisted(() => ({
+	envMock: {
+		BILLING_RECONCILIATION_SECRET: 'expected-secret',
+		CRON_SECRET: 'cron-secret'
+	},
+	getAdminClientMock: vi.fn(),
+	providerMock: {
+		retrieveSubscription: vi.fn(),
+		listSubscriptionsForCustomer: vi.fn()
+	},
 	storeMock: {
 		listCandidates: vi.fn(),
 		readOrganization: vi.fn(),
@@ -11,8 +20,20 @@ const { storeMock } = vi.hoisted(() => ({
 	}
 }));
 
+vi.mock('$env/dynamic/private', () => ({
+	env: envMock
+}));
+
+vi.mock('$lib/server/supabase', () => ({
+	getAdminClient: getAdminClientMock
+}));
+
 vi.mock('$lib/server/adapters/supabaseBillingReconciliation', () => ({
 	createSupabaseBillingReconciliationStore: () => storeMock
+}));
+
+vi.mock('$lib/server/stripe', () => ({
+	createStripeBillingReconciliationProvider: () => providerMock
 }));
 
 vi.mock('$lib/server/subscription', () => ({
@@ -37,7 +58,7 @@ vi.mock('$lib/server/billing/priceCatalog', () => ({
 	}
 }));
 
-import { _runBillingReconciliationEndpointCore } from './+server';
+import { GET } from './+server';
 
 const org = {
 	id: 'org-1',
@@ -73,11 +94,6 @@ const snapshot = {
 	drift_detected: false
 };
 
-const provider = {
-	retrieveSubscription: vi.fn(),
-	listSubscriptionsForCustomer: vi.fn()
-};
-
 function adminClientWithAudit(insert = vi.fn().mockResolvedValue({ error: null })) {
 	return {
 		from: vi.fn((table: string) => {
@@ -87,16 +103,27 @@ function adminClientWithAudit(insert = vi.fn().mockResolvedValue({ error: null }
 	};
 }
 
+async function runGet(url: string, authHeader?: string | null, adminClient = adminClientWithAudit()) {
+	getAdminClientMock.mockReturnValue(adminClient);
+	const request = new Request(url, {
+		headers: authHeader ? { authorization: authHeader } : undefined
+	});
+	const response = await GET({ request, url: new URL(url) } as never);
+	return response.json();
+}
+
 describe('billing reconciliation endpoint', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		envMock.BILLING_RECONCILIATION_SECRET = 'expected-secret';
+		envMock.CRON_SECRET = 'cron-secret';
 		storeMock.listCandidates.mockResolvedValue([{ orgId: 'org-1' }]);
 		storeMock.readOrganization.mockResolvedValue(org);
 		storeMock.readSnapshot.mockResolvedValue(snapshot);
 		storeMock.upsertSnapshot.mockResolvedValue(undefined);
 		storeMock.updateSnapshotDiagnostics.mockResolvedValue(undefined);
 		storeMock.updateOrganizationBillingMirror.mockResolvedValue(undefined);
-		provider.retrieveSubscription.mockResolvedValue({
+		providerMock.retrieveSubscription.mockResolvedValue({
 			id: 'sub_123',
 			customerId: 'cus_123',
 			status: 'active',
@@ -109,59 +136,35 @@ describe('billing reconciliation endpoint', () => {
 			trialEnd: null,
 			metadata: { orgId: 'org-1', tier: 'team' }
 		});
-		provider.listSubscriptionsForCustomer.mockResolvedValue([]);
+		providerMock.listSubscriptionsForCustomer.mockResolvedValue([]);
 	});
 
 	it('rejects requests without a bearer token', async () => {
-		await expect(
-			_runBillingReconciliationEndpointCore({
-				authHeader: null,
-				secrets: ['expected-secret'],
-				url: new URL('http://localhost/api/billing-reconciliation'),
-				adminClient: {} as never,
-				provider,
-				writeAudit: false
-			})
-		).rejects.toMatchObject({ status: 401 });
+		await expect(runGet('http://localhost/api/billing-reconciliation', null, {} as never)).rejects.toMatchObject({
+			status: 401
+		});
 		expect(storeMock.listCandidates).not.toHaveBeenCalled();
 	});
 
 	it('rejects requests without a matching configured bearer token', async () => {
 		await expect(
-			_runBillingReconciliationEndpointCore({
-				authHeader: 'Bearer wrong',
-				secrets: ['expected-secret'],
-				url: new URL('http://localhost/api/billing-reconciliation'),
-				adminClient: {} as never,
-				provider,
-				writeAudit: false
-			})
+			runGet('http://localhost/api/billing-reconciliation', 'Bearer wrong', {} as never)
 		).rejects.toMatchObject({ status: 401 });
 		expect(storeMock.listCandidates).not.toHaveBeenCalled();
 	});
 
 	it('accepts the cron bearer token as an alternate secret', async () => {
-		const result = await _runBillingReconciliationEndpointCore({
-			authHeader: 'Bearer cron-secret',
-			secrets: ['billing-secret', 'cron-secret'],
-			url: new URL('http://localhost/api/billing-reconciliation'),
-			adminClient: adminClientWithAudit() as never,
-			provider,
-			now: () => new Date('2026-05-23T00:00:00.000Z')
-		});
+		envMock.BILLING_RECONCILIATION_SECRET = 'billing-secret';
+		const result = await runGet('http://localhost/api/billing-reconciliation', 'Bearer cron-secret');
 
 		expect(result).toMatchObject({ processed: 1, failed: 0 });
 	});
 
 	it('runs a capped authorized batch without returning provider secrets', async () => {
-		const result = await _runBillingReconciliationEndpointCore({
-			authHeader: 'Bearer expected-secret',
-			secrets: ['expected-secret'],
-			url: new URL('http://localhost/api/billing-reconciliation?limit=500&timeoutMs=1000'),
-			adminClient: adminClientWithAudit() as never,
-			provider,
-			now: () => new Date('2026-05-23T00:00:00.000Z')
-		});
+		const result = await runGet(
+			'http://localhost/api/billing-reconciliation?limit=500&timeoutMs=1000',
+			'Bearer expected-secret'
+		);
 
 		expect(storeMock.listCandidates).toHaveBeenCalledWith({ limit: 100, cursor: null });
 		expect(result).toMatchObject({
@@ -175,15 +178,7 @@ describe('billing reconciliation endpoint', () => {
 	});
 
 	it('passes dry-run mode through to the reconciliation batch report', async () => {
-		const result = await _runBillingReconciliationEndpointCore({
-			authHeader: 'Bearer expected-secret',
-			secrets: ['expected-secret'],
-			url: new URL('http://localhost/api/billing-reconciliation?dryRun=1'),
-			adminClient: adminClientWithAudit() as never,
-			provider,
-			writeAudit: false,
-			now: () => new Date('2026-05-23T00:00:00.000Z')
-		});
+		const result = await runGet('http://localhost/api/billing-reconciliation?dryRun=1', 'Bearer expected-secret');
 
 		expect(result.dryRun).toBe(true);
 		expect(result.results[0]).toMatchObject({
@@ -197,14 +192,10 @@ describe('billing reconciliation endpoint', () => {
 	it('caps caller supplied timeout windows', async () => {
 		const dateNow = vi.spyOn(Date, 'now').mockReturnValueOnce(0).mockReturnValueOnce(60_000);
 		try {
-			const result = await _runBillingReconciliationEndpointCore({
-				authHeader: 'Bearer expected-secret',
-				secrets: ['expected-secret'],
-				url: new URL('http://localhost/api/billing-reconciliation?timeoutMs=3600000'),
-				adminClient: adminClientWithAudit() as never,
-				provider,
-				now: () => new Date('2026-05-23T00:00:00.000Z')
-			});
+			const result = await runGet(
+				'http://localhost/api/billing-reconciliation?timeoutMs=3600000',
+				'Bearer expected-secret'
+			);
 
 			expect(result).toMatchObject({
 				processed: 0,
@@ -217,20 +208,13 @@ describe('billing reconciliation endpoint', () => {
 	});
 
 	it('writes a durable support-safe audit entry for authorized batch runs', async () => {
-		provider.retrieveSubscription.mockRejectedValue(
+		providerMock.retrieveSubscription.mockRejectedValue(
 			new Error('provider failed sk_test_secret whsec_secret bearer top-secret')
 		);
 		const insert = vi.fn().mockResolvedValue({ error: null });
 		const adminClient = adminClientWithAudit(insert);
 
-		const result = await _runBillingReconciliationEndpointCore({
-			authHeader: 'Bearer expected-secret',
-			secrets: ['expected-secret'],
-			url: new URL('http://localhost/api/billing-reconciliation'),
-			adminClient: adminClient as never,
-			provider,
-			now: () => new Date('2026-05-23T00:00:00.000Z')
-		});
+		const result = await runGet('http://localhost/api/billing-reconciliation', 'Bearer expected-secret', adminClient);
 
 		expect(result.failed).toBe(1);
 		expect(insert).toHaveBeenCalledWith(

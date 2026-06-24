@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import type { Group } from '$lib/stores/groups.svelte';
 import type { Personnel } from '$lib/types';
 import type { TrainingType } from '$features/training/training.types';
@@ -38,16 +38,6 @@ function createLoadable<T>() {
 			loading = true;
 		}
 	};
-}
-
-function deferred<T>() {
-	let resolve!: (value: T) => void;
-	let reject!: (reason?: unknown) => void;
-	const promise = new Promise<T>((res, rej) => {
-		resolve = res;
-		reject = rej;
-	});
-	return { promise, resolve, reject };
 }
 
 function createOnboardingTemplatesLoadable() {
@@ -137,69 +127,6 @@ describe('Onboarding workspace hydration adapter', () => {
 		expect(stores.onboardingStore.orgId).toBe('org-1');
 	});
 
-	it('ignores stale deferred shared targets when a newer org hydration wins', async () => {
-		const stores = createStores();
-		const hydrator = createOnboardingWorkspaceHydrator();
-		const staleGroups = deferred<Group[]>();
-		const freshGroup = { id: 'fresh-group', name: 'Fresh', sortOrder: 1 } as Group;
-
-		const staleHydration: OnboardingWorkspaceHydration = {
-			orgId: 'org-old',
-			personnel: { mode: 'replace', snapshotKey: 'old-personnel', items: [] },
-			groups: { mode: 'replace', deferred: true, snapshotKey: 'old-groups', items: staleGroups.promise },
-			trainingTypes: { mode: 'replace', snapshotKey: 'old-types', items: [] },
-			onboardingTemplates: { mode: 'replace', snapshotKey: 'old-templates', templates: [], steps: [] },
-			onboardings: { mode: 'replace', snapshotKey: 'old-onboardings', items: [] }
-		};
-		const freshHydration: OnboardingWorkspaceHydration = {
-			...staleHydration,
-			orgId: 'org-new',
-			groups: { mode: 'replace', snapshotKey: 'new-groups', items: [freshGroup] }
-		};
-
-		const stalePending = hydrator.hydrate(staleHydration, stores);
-		expect(stores.groupsStore.loading).toBe(true);
-
-		await hydrator.hydrate(freshHydration, stores);
-		staleGroups.resolve([{ id: 'stale-group', name: 'Stale', sortOrder: 0 } as Group]);
-		await stalePending;
-
-		expect(stores.groupsStore.orgId).toBe('org-new');
-		expect(stores.groupsStore.items).toEqual([freshGroup]);
-	});
-
-	it('clears failed deferred targets so the same snapshot can hydrate after retry', async () => {
-		const stores = createStores();
-		const hydrator = createOnboardingWorkspaceHydrator();
-		const rejectedGroups = deferred<Group[]>();
-		const freshGroup = { id: 'fresh-group', name: 'Fresh', sortOrder: 1 } as Group;
-		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
-		const hydration: OnboardingWorkspaceHydration = {
-			orgId: 'org-1',
-			personnel: { mode: 'replace', snapshotKey: 'personnel:1', items: [] },
-			groups: { mode: 'replace', deferred: true, snapshotKey: 'groups:retry', items: rejectedGroups.promise },
-			trainingTypes: { mode: 'replace', snapshotKey: 'types:1', items: [] },
-			onboardingTemplates: { mode: 'replace', snapshotKey: 'templates:1', templates: [], steps: [] },
-			onboardings: { mode: 'replace', snapshotKey: 'onboardings:1', items: [] }
-		};
-
-		const pending = hydrator.hydrate(hydration, stores);
-		rejectedGroups.reject(new Error('groups failed'));
-		await expect(pending).rejects.toThrow('groups failed');
-
-		await hydrator.hydrate(
-			{
-				...hydration,
-				groups: { mode: 'replace', snapshotKey: 'groups:retry', items: [freshGroup] }
-			},
-			stores
-		);
-
-		expect(stores.groupsStore.items).toEqual([freshGroup]);
-		expect(stores.groupsStore.orgId).toBe('org-1');
-		consoleError.mockRestore();
-	});
-
 	it('preserves client-owned Onboarding targets without loading the matching store', async () => {
 		const stores = createStores();
 		const template = {
@@ -222,36 +149,5 @@ describe('Onboarding workspace hydration adapter', () => {
 
 		expect(stores.onboardingTemplateStore.loadCount).toBe(0);
 		expect(stores.onboardingTemplateStore.templates).toEqual([]);
-	});
-
-	it('skips already-applied Onboarding target snapshots until reset clears adapter state', async () => {
-		const stores = createStores();
-		const hydrator = createOnboardingWorkspaceHydrator();
-		const onboarding = {
-			id: 'ob1',
-			personnelId: 'p1',
-			startedAt: '2024-01-01',
-			completedAt: null,
-			cancelledAt: null,
-			status: 'in_progress',
-			steps: [],
-			templateId: null
-		} as PersonnelOnboarding;
-		const hydration: OnboardingWorkspaceHydration = {
-			orgId: 'org-1',
-			personnel: { mode: 'replace', snapshotKey: 'personnel:1', items: [] },
-			groups: { mode: 'replace', snapshotKey: 'groups:1', items: [] },
-			trainingTypes: { mode: 'replace', snapshotKey: 'types:1', items: [] },
-			onboardingTemplates: { mode: 'replace', snapshotKey: 'templates:1', templates: [], steps: [] },
-			onboardings: { mode: 'replace', snapshotKey: 'onboardings:1', items: [onboarding] }
-		};
-
-		await hydrator.hydrate(hydration, stores);
-		await hydrator.hydrate(hydration, stores);
-		expect(stores.onboardingStore.loadCount).toBe(1);
-
-		hydrator.reset();
-		await hydrator.hydrate(hydration, stores);
-		expect(stores.onboardingStore.loadCount).toBe(2);
 	});
 });

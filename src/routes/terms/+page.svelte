@@ -95,8 +95,7 @@
 		<p>
 			Monthly subscriptions are not automatically prorated or refunded after use. TroopToTask support may issue
 			discretionary refunds for duplicate charges, billing errors, or service-access failures. Unsupported portal
-			states, billing mismatches, coupons, credits, enterprise invoicing, multi-currency billing, metered usage, or
-			unresolved payment state questions are handled by support.
+			states, billing mismatches, or unresolved payment questions are handled by support.
 		</p>
 	</PublicContentSection>
 

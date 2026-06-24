@@ -68,8 +68,9 @@
 		{#snippet title()}Your data belongs to you.{/snippet}
 		<p>
 			Your use of TroopToTask is also governed by our <a href="/privacy">Privacy Policy</a>. You retain ownership of all
-			data you enter into the platform. We do not sell, share, or monetize your data. See our Privacy Policy for full
-			details on data handling.
+			data you enter into the platform. We do not sell or monetize your data. We share data with service providers only
+			to deliver the service, as described in our Privacy Policy. See our Privacy Policy for full details on data
+			handling.
 		</p>
 	</PublicContentSection>
 

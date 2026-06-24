@@ -155,7 +155,9 @@ describe('CalendarPageView', () => {
 		const personnelSearch = screen.getByRole('searchbox', { name: 'Search by name, rank, MOS, role, or group' });
 		await fireEvent.input(personnelSearch, { target: { value: 'medic' } });
 
-		expect(ctx.calendarPersonnelSearch).toBe('medic');
-		expect(ctx.filteredPBG).toEqual([{ group: 'Bravo', personnel: [filterPersonnel[1]] }]);
+		expect(await screen.findByRole('button', { name: /Jones, Bob/ })).toBeTruthy();
+		expect(screen.getByRole('button', { name: /Bravo/ })).toBeTruthy();
+		expect(screen.queryByRole('button', { name: /Smith, Alice/ })).toBeNull();
+		expect(screen.queryByRole('button', { name: /Alpha/ })).toBeNull();
 	});
 });

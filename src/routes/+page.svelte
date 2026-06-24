@@ -40,7 +40,7 @@
 		{
 			question: 'Is this secure enough for personnel data?',
 			answer:
-				'TroopToTask aligns to NIST 800-171 with AES-256 encryption at rest, TLS 1.2+ in transit, role-based access control with group scoping, and a full audit log of every action (exportable for IG inspections). It is not authorized for classified information, but for the administrative and personnel data that runs your day-to-day operations, the controls are where they need to be.'
+				'TroopToTask aligns to NIST 800-171 with AES-256 encryption at rest, TLS 1.2+ in transit, role-based access control with group scoping, and security-relevant audit logs for accountability and review. It is not authorized for classified information, but for the administrative and personnel data that runs your day-to-day operations, the controls are where they need to be.'
 		}
 	];
 
@@ -345,7 +345,7 @@
 				</div>
 				<div class="proof__point reveal" style="--reveal-delay: 0.18s">
 					<h3 class="proof__point-title">Replaces the handoff binder</h3>
-					<p class="proof__point-text">Full audit log means incoming leaders have context from day one.</p>
+					<p class="proof__point-text">Security-relevant audit logs give incoming leaders context from day one.</p>
 				</div>
 			</div>
 		</div>

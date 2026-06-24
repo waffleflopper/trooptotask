@@ -6,6 +6,13 @@ This evidence pack records the billing launch rehearsal run on 2026-06-15 AKDT f
 
 Verdict: **blocked**
 
+Latest readiness gate:
+
+- Command: `npm --silent run billing:launch-readiness -- --offline --json`
+- Expected current result: `blocked`
+- Reason: scenario evidence and Robert-owned confirmation artifacts remain incomplete.
+- Confirmation record: `docs/billing-launch-confirmations.md` stores dates, owners, and artifact names only.
+
 Blocked reasons:
 
 - Full lifecycle scenarios were not executed end to end through owner and platform-admin UI surfaces during this run.
@@ -19,12 +26,14 @@ Blocked reasons:
 - Local database safety: no local database reset or table deletion was performed by this plan.
 - Evidence safety: this document contains no secret values, provider signing headers, full payment details, or provider webhook bodies.
 - Support-safe identifiers such as Stripe price, portal configuration, webhook endpoint, customer, subscription, and event IDs may be recorded when available.
+- Readiness gate safety: `billing:launch-readiness` may report `go`, `blocked`, or `needs_confirmation` check statuses, but the launch remains blocked until the required scenario rows and Robert confirmation artifacts are present without storing secrets or production probing evidence.
 
 ## Preflight Evidence Summary
 
 | Command | Result | Pass | Warn | Fail | Follow-up owner | Notes |
 | --- | --- | ---: | ---: | ---: | --- | --- |
 | `npm run billing:launch-preflight -- --offline --json` | Passed | 10 | 0 | 0 | Agent | Confirmed required Stripe env names are present, billing is enabled locally, Stripe secret mode is test, webhook signing secret has the expected shape, automatic tax is disabled, and reconciliation authorization is present. |
+| `npm --silent run billing:launch-readiness -- --offline --json` | Blocked | n/a | n/a | n/a | Robert/Agent | Readiness gate is available. It stays blocked while scenario evidence and Robert-owned confirmation artifacts are incomplete. Use the silent form when automation parses stdout as JSON. |
 | `npm run billing:launch-preflight -- --json` | Failed | 26 | 1 | 2 | Robert | Confirmed Team and Unit prices are active monthly test-mode USD prices, but the configured Stripe amounts are still Team $5.00 and Unit $12.00 instead of Team $4.99 and Unit $10.99. Customer Portal is active, invoice history/payment updates/customer info/cancellation are enabled, cancellation is at period end, and the configured webhook endpoint includes all handled events. |
 | `npm run billing:lifecycle -- help` | Passed | n/a | n/a | n/a | Agent | Helper listed create fixture, advance clock, switch plan, set payment mode, deliver events, cancel at period end, cancel now, and finish clock commands. |
 
@@ -57,6 +66,8 @@ The target surfaces for every scenario are:
 
 | Scenario | Status | Evidence captured | Snapshot state | Webhook ledger state | Reconciliation result | Owner/admin UI state | Blocker or follow-up |
 | --- | --- | --- | --- | --- | --- | --- | --- |
+| Free-first checkout entry | Blocked | Free-first launch posture documented. | Not captured. | Not captured. | Not captured. | Not captured. | Requires owner entrypoint verification that self-service starts on Free before paid checkout. |
+| Billing-disabled fallback | Blocked | Billing-disabled fallback documented. | Not captured. | Not captured. | Not captured. | Not captured. | Requires local/test verification that checkout is unavailable when billing is disabled. |
 | Checkout activation | Blocked | Preflight confirmed test-mode prices and webhook endpoint readiness. | Not captured. | Not captured. | Not captured. | Not captured. | Requires a full owner checkout run against a local/test organization and UI evidence capture. |
 | Renewal success | Blocked | Lifecycle helper readiness confirmed. | Not captured. | Not captured. | Not captured. | Not captured. | Requires test-clock fixture execution plus webhook delivery and UI/admin verification. |
 | Failed renewal | Blocked | Lifecycle helper readiness confirmed. | Not captured. | Not captured. | Not captured. | Not captured. | Requires a failing renewal run, recovery state verification, and write-gate evidence. |

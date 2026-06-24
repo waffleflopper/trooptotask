@@ -15,6 +15,8 @@ Result contract:
 */
 
 const REQUIRED_SCENARIOS = [
+	'Free-first checkout entry',
+	'Billing-disabled fallback',
 	'Checkout activation',
 	'Renewal success',
 	'Failed renewal',
@@ -54,6 +56,15 @@ const REQUIRED_SCENARIO_EVIDENCE_COLUMNS = [
 	'Webhook ledger state',
 	'Reconciliation result',
 	'Owner/admin UI state'
+];
+const UNSAFE_SCENARIO_EVIDENCE_PATTERNS = [
+	/\b(?:sk|rk)_(?:test|live)_[a-z0-9_]+/i,
+	/\bwhsec[_][a-z0-9_]+/i,
+	/\bstripe[_ -]?(?:secret|key|payload|signature)\b/i,
+	/\b(?:raw|provider|webhook)[_ -]?payload\b/i,
+	/\bproduction[_ -]?(?:probe|probing|evidence|secret|env|environment)\b/i,
+	/\b(?:screenshot|screen shot|screen-shot|screencap|screen capture)\b/i,
+	/\.(?:png|jpe?g|gif|webp|heic|pdf)\b/i
 ];
 
 function parseArgs(argv) {
@@ -433,13 +444,15 @@ function missingScenarioEvidenceColumns(row) {
 }
 
 function hasSupportSafeScenarioEvidence(value) {
+	const raw = String(value ?? '').trim();
 	const normalized = String(value ?? '')
 		.trim()
 		.toLowerCase()
 		.replace(/\s+/g, ' ');
 	return (
 		Boolean(normalized) &&
-		!['-', 'n/a', 'na', 'none', 'pending', 'tbd', 'todo', 'not captured', 'not captured.'].includes(normalized)
+		!['-', 'n/a', 'na', 'none', 'pending', 'tbd', 'todo', 'not captured', 'not captured.'].includes(normalized) &&
+		!UNSAFE_SCENARIO_EVIDENCE_PATTERNS.some((pattern) => pattern.test(raw))
 	);
 }
 

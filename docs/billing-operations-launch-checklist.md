@@ -92,7 +92,7 @@ Do not start these until test-mode verification is complete and Robert has made 
 | `STRIPE_WEBHOOK_SECRET` | Yes | Must match the webhook endpoint mode. Never copy the value into notes. |
 | `STRIPE_TEAM_PRICE_ID` | Yes | Must point to the Team price for the same Stripe mode. |
 | `STRIPE_UNIT_PRICE_ID` | Yes | Must point to the Unit price for the same Stripe mode. |
-| `STRIPE_AUTOMATIC_TAX_ENABLED` | Decision-dependent | Keep `false` unless Robert has completed tax setup. |
+| `STRIPE_AUTOMATIC_TAX_ENABLED` | Decision-dependent | Launch with `false` unless Robert has completed and verified tax setup. |
 | `STRIPE_TAX_DASHBOARD_VERIFIED` | Decision-dependent | Set `true` only after Robert confirms Stripe Tax dashboard state for that mode. |
 | `BILLING_RECONCILIATION_SECRET` or `CRON_SECRET` | Recommended | Required to exercise scheduled reconciliation endpoints outside the admin UI. |
 
@@ -123,9 +123,12 @@ The public paid-plan contract for launch is:
 
 - Team is $4.99/month for up to 80 personnel and 10 exports per month.
 - Unit is $10.99/month for up to 500 personnel and unlimited exports.
+- Prices exclude applicable taxes where required. Launch keeps automatic tax disabled unless Robert explicitly verifies tax setup later.
+- Monthly subscriptions are not automatically prorated or refunded after use. Robert may issue discretionary refunds for duplicate charges, billing errors, or service-access failures.
 - Plan differences are personnel capacity and export allowance only. Do not add feature-only paid entitlements without a new approved plan.
 - Critical Tasks is part of the core workflow and should not carry a Beta badge.
 - Duty Rosters may keep a Beta badge for paid launch. That badge means the workflow is supported but still evolving; it is not an unsupported or best-effort feature.
+- Public Terms should not describe the paid service itself as beta-only.
 
 Acquisition remains environment-gated. While billing is disabled, keep reviewed request-access mechanics and copy. Plans 083-087 add the self-service signup identity layer, first Organization setup, explicit Free-first checkout entry, support/admin visibility, and focused E2E coverage. New self-service Organizations start on Free; owners explicitly choose Team or Unit upgrade checkout from Billing when billing is enabled.
 
@@ -144,9 +147,14 @@ Optional extra events, such as `customer.subscription.created`, may be enabled i
 
 ## Support Process
 
-Before launch, Robert should confirm:
+Robert has confirmed the public support channels for paid launch:
 
-- Which mailbox or support channel receives billing questions.
+- Billing and account support: `support@trooptotask.org`.
+- Privacy: `privacy@trooptotask.org`.
+- Security: `security@trooptotask.org`.
+
+Before launch, Robert should still confirm:
+
 - Who can access Stripe Dashboard in test and live mode.
 - Who can run admin billing refresh from TroopToTask.
 - Where to record support notes without exposing secrets or payment details.

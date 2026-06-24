@@ -583,7 +583,7 @@ describe('billing page toolbar', () => {
 		expect(screen.getByRole('link', { name: 'Manage Members' }).getAttribute('href')).toBe('/org/org-1/settings');
 		expect(screen.getByRole('link', { name: 'Compare Plans' }).getAttribute('href')).toBe('#billing-pricing-heading');
 		expect(screen.getByRole('link', { name: 'Contact Support' }).getAttribute('href')).toBe(
-			'mailto:support@trooptotask.com'
+			'mailto:support@trooptotask.org'
 		);
 	});
 

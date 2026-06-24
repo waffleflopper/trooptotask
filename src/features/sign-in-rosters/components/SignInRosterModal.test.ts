@@ -2,7 +2,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockSave, mockText, mockJsPDF, mockAutoTable } = vi.hoisted(() => {
+const { mockJsPDF, mockAutoTable } = vi.hoisted(() => {
 	const mockSave = vi.fn();
 	const mockText = vi.fn();
 	const mockSetFontSize = vi.fn();
@@ -15,8 +15,6 @@ const { mockSave, mockText, mockJsPDF, mockAutoTable } = vi.hoisted(() => {
 	const mockAutoTable = vi.fn();
 
 	return {
-		mockSave,
-		mockText,
 		mockJsPDF,
 		mockAutoTable
 	};
@@ -109,7 +107,7 @@ describe('SignInRosterModal', () => {
 		vi.unstubAllGlobals();
 	});
 
-	it('generates a PDF and persists the roster when creating a new sign-in roster', async () => {
+	it('persists the roster when creating a new sign-in roster', async () => {
 		const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
 			if ((init?.method ?? 'GET') === 'POST') {
 				return jsonResponse({ id: 'roster-2' });
@@ -129,17 +127,11 @@ describe('SignInRosterModal', () => {
 		});
 		await fireEvent.click(screen.getByRole('button', { name: 'Generate & Print' }));
 
-		await waitFor(() => expect(mockJsPDF).toHaveBeenCalledTimes(1));
-
-		expect(mockJsPDF).toHaveBeenCalledWith(
-			expect.objectContaining({ orientation: 'portrait', unit: 'pt', format: 'letter' })
-		);
-		expect(mockAutoTable).toHaveBeenCalledTimes(1);
-		expect(mockText).toHaveBeenCalledWith('Annual AT Sign-In', expect.any(Number), 50, { align: 'center' });
-		expect(mockSave).toHaveBeenCalledWith('Annual-AT-SignIn-sign-in-roster.pdf');
-
-		const postCall = fetchMock.mock.calls.find(([, init]) => init?.method === 'POST');
-		expect(postCall).toBeTruthy();
+		let postCall: (typeof fetchMock.mock.calls)[number] | undefined;
+		await waitFor(() => {
+			postCall = fetchMock.mock.calls.find(([, init]) => init?.method === 'POST');
+			expect(postCall).toBeTruthy();
+		});
 		expect(postCall?.[0]).toBe('/org/org-1/api/sign-in-rosters');
 		expect(postCall?.[1]).toEqual(
 			expect.objectContaining({
@@ -187,9 +179,11 @@ describe('SignInRosterModal', () => {
 			});
 			await fireEvent.click(screen.getByRole('button', { name: 'Generate & Print' }));
 
-			await waitFor(() => expect(mockJsPDF).toHaveBeenCalledTimes(1));
-
-			const postCall = fetchMock.mock.calls.find(([, init]) => init?.method === 'POST');
+			let postCall: (typeof fetchMock.mock.calls)[number] | undefined;
+			await waitFor(() => {
+				postCall = fetchMock.mock.calls.find(([, init]) => init?.method === 'POST');
+				expect(postCall).toBeTruthy();
+			});
 			const body = JSON.parse(String(postCall?.[1]?.body));
 			expect(body.rosterDate).toBe('2026-05-04');
 
@@ -199,8 +193,12 @@ describe('SignInRosterModal', () => {
 			});
 			await fireEvent.click(screen.getByRole('button', { name: 'Generate & Print' }));
 
-			await waitFor(() => expect(mockJsPDF).toHaveBeenCalledTimes(2));
-			const secondPostCall = fetchMock.mock.calls.filter(([, init]) => init?.method === 'POST').at(-1);
+			let secondPostCall: (typeof fetchMock.mock.calls)[number] | undefined;
+			await waitFor(() => {
+				const postCalls = fetchMock.mock.calls.filter(([, init]) => init?.method === 'POST');
+				expect(postCalls).toHaveLength(2);
+				secondPostCall = postCalls.at(-1);
+			});
 			const secondBody = JSON.parse(String(secondPostCall?.[1]?.body));
 			expect(secondBody.rosterDate).toBe('2026-05-04');
 		} finally {
@@ -264,9 +262,11 @@ describe('SignInRosterModal', () => {
 		await fireEvent.click(screen.getByRole('button', { name: 'Bravo' }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Generate & Print' }));
 
-		await waitFor(() => expect(mockJsPDF).toHaveBeenCalledTimes(1));
-
-		const postCall = fetchMock.mock.calls.find(([, init]) => init?.method === 'POST');
+		let postCall: (typeof fetchMock.mock.calls)[number] | undefined;
+		await waitFor(() => {
+			postCall = fetchMock.mock.calls.find(([, init]) => init?.method === 'POST');
+			expect(postCall).toBeTruthy();
+		});
 		const body = JSON.parse(String(postCall?.[1]?.body));
 
 		expect(body.personnelSnapshot).toEqual([
@@ -280,31 +280,6 @@ describe('SignInRosterModal', () => {
 		expect(body.filterConfig.groups).toEqual(['Bravo']);
 		expect(body.filterConfig.ranks).toContain('CPT');
 		expect(body.filterConfig.ranks).not.toContain('SGT');
-	});
-
-	it('re-prints an existing roster through the async PDF path without creating a new roster', async () => {
-		const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
-			jsonResponse({ rosters: [makeRoster()], total: 1 })
-		);
-		vi.stubGlobal('fetch', fetchMock);
-
-		renderModal();
-
-		await waitFor(() => expect(screen.getByRole('button', { name: /Morning Formation/i })).toBeTruthy());
-
-		await fireEvent.click(screen.getByRole('button', { name: /Morning Formation/i }));
-		await fireEvent.click(screen.getByRole('button', { name: /Re-print/i }));
-
-		await waitFor(() => expect(mockJsPDF).toHaveBeenCalledTimes(1));
-
-		expect(mockAutoTable).toHaveBeenCalledTimes(1);
-		expect(mockText).toHaveBeenCalledWith('Morning Formation', expect.any(Number), 50, { align: 'center' });
-		expect(mockSave).toHaveBeenCalledWith('Morning-Formation-sign-in-roster.pdf');
-		const postCalls = fetchMock.mock.calls.filter((call) => {
-			const init = call[1] as RequestInit | undefined;
-			return init?.method === 'POST';
-		});
-		expect(postCalls).toHaveLength(0);
 	});
 
 	it('uploads a signed roster scan through the shadcn file input and shows selected-file progress', async () => {

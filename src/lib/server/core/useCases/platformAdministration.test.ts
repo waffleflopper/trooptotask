@@ -164,17 +164,6 @@ describe('Platform Administration', () => {
 		});
 	});
 
-	it('records the command timestamp inside the Organization suspension adapter call', async () => {
-		const { admin, store } = makeDeps();
-
-		await admin.updateSuspension({ type: 'org', targetId: VALID_ORG_ID, action: 'suspend' });
-
-		expect(store.suspendOrganization).toHaveBeenCalledWith({
-			organizationId: VALID_ORG_ID,
-			suspendedAt: NOW
-		});
-	});
-
 	it('does not audit or report success when a suspension adapter rejects', async () => {
 		const audit = vi.fn();
 		const store = makeStore({

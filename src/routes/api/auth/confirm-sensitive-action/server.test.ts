@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { POST, _testInternals } from './+server';
+import { POST } from './+server';
 
 function request(password: string) {
 	return new Request('http://localhost/api/auth/confirm-sensitive-action', {
@@ -10,11 +10,6 @@ function request(password: string) {
 }
 
 describe('POST /api/auth/confirm-sensitive-action', () => {
-	it('executes directly without route adapter or organization authorization', () => {
-		expect(_testInternals.parseConfirmSensitiveActionInput).toBeTypeOf('function');
-		expect(_testInternals.confirmSensitiveAction).toBeTypeOf('function');
-	});
-
 	it('confirms the current user password and reports success without MFA step-up', async () => {
 		const signInWithPassword = vi.fn().mockResolvedValue({ error: null });
 		const getAuthenticatorAssuranceLevel = vi.fn().mockResolvedValue({

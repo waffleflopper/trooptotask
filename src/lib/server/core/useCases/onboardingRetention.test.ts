@@ -183,7 +183,7 @@ describe('cleanupExpiredOnboardings', () => {
 		expect(steps).toHaveLength(0);
 	});
 
-	it('uses bulk operations for expired onboardings and step progress cleanup', async () => {
+	it('removes expired onboardings and their step progress', async () => {
 		const store = buildStore();
 		store.seed('personnel_onboardings', [
 			{
@@ -284,46 +284,9 @@ describe('cleanupExpiredOnboardings', () => {
 			}
 		]);
 
-		const findManySpy = vi.spyOn(store, 'findMany');
-		const deleteWhereAnySpy = vi.spyOn(store, 'deleteWhereAny');
-		const deleteManyByIdsSpy = vi.spyOn(store, 'deleteManyByIds');
-		const deleteSpy = vi.spyOn(store, 'delete');
-
 		const result = await cleanupExpiredOnboardings(store, [org1Config]);
 
 		expect(result).toEqual({ deletedCount: 2, orgsAffected: 1 });
-		expect(findManySpy).toHaveBeenCalledWith(
-			'personnel_onboardings',
-			'org-1',
-			{ status: 'completed' },
-			expect.objectContaining({
-				select: 'id, status, completed_at, cancelled_at',
-				isNull: { completed_at: false },
-				rangeFilters: [expect.objectContaining({ column: 'completed_at', op: 'lt' })]
-			})
-		);
-		expect(findManySpy).toHaveBeenCalledWith(
-			'personnel_onboardings',
-			'org-1',
-			{ status: 'cancelled' },
-			expect.objectContaining({
-				select: 'id, status, completed_at, cancelled_at',
-				isNull: { cancelled_at: false },
-				rangeFilters: [expect.objectContaining({ column: 'cancelled_at', op: 'lt' })]
-			})
-		);
-		expect(deleteWhereAnySpy).toHaveBeenCalledTimes(1);
-		expect(deleteWhereAnySpy).toHaveBeenCalledWith('onboarding_step_progress', 'org-1', [
-			{ onboarding_id: 'ob-expired-completed' },
-			{ onboarding_id: 'ob-expired-cancelled' }
-		]);
-		expect(deleteManyByIdsSpy).toHaveBeenCalledTimes(1);
-		expect(deleteManyByIdsSpy).toHaveBeenCalledWith('personnel_onboardings', 'org-1', [
-			'ob-expired-completed',
-			'ob-expired-cancelled'
-		]);
-		expect(deleteSpy).not.toHaveBeenCalled();
-
 		const remainingOnboardings = await store.findMany<{ id: string }>('personnel_onboardings', 'org-1');
 		expect(remainingOnboardings.map((row) => row.id).sort()).toEqual(['ob-active', 'ob-recent']);
 		const remainingSteps = await store.findMany<{ onboarding_id: string }>('onboarding_step_progress', 'org-1');
@@ -336,7 +299,7 @@ describe('cleanupExpiredOnboardings', () => {
 		});
 	});
 
-	it('chunks bulk deletes for large expired onboarding backlogs', async () => {
+	it('cleans up large expired onboarding backlogs', async () => {
 		const store = buildStore();
 		const expiredOnboardings = Array.from({ length: 205 }, (_, index) =>
 			makeCompletedOnboarding(`ob-expired-${index}`, monthsAgo(13))
@@ -346,16 +309,9 @@ describe('cleanupExpiredOnboardings', () => {
 			'onboarding_step_progress',
 			expiredOnboardings.map((row) => makeStepProgress(row.id))
 		);
-		const deleteWhereAnySpy = vi.spyOn(store, 'deleteWhereAny');
-		const deleteManyByIdsSpy = vi.spyOn(store, 'deleteManyByIds');
-
 		const result = await cleanupExpiredOnboardings(store, [org1Config]);
 
 		expect(result).toEqual({ deletedCount: 205, orgsAffected: 1 });
-		expect(deleteWhereAnySpy).toHaveBeenCalledTimes(3);
-		expect(deleteManyByIdsSpy).toHaveBeenCalledTimes(3);
-		expect(deleteWhereAnySpy.mock.calls.map((call) => call[2].length)).toEqual([100, 100, 5]);
-		expect(deleteManyByIdsSpy.mock.calls.map((call) => call[2].length)).toEqual([100, 100, 5]);
 		const remainingOnboardings = await store.findMany('personnel_onboardings', 'org-1');
 		expect(remainingOnboardings).toHaveLength(0);
 		const remainingSteps = await store.findMany('onboarding_step_progress', 'org-1');

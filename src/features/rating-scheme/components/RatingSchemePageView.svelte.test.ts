@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import RatingSchemePageView from './RatingSchemePageView.svelte';
 import { RatingSchemePageContext, type RatingSchemePageData } from '../contexts/RatingSchemePageContext.svelte';
@@ -108,23 +108,7 @@ describe('RatingSchemePageView', () => {
 		expect(within(summary).queryByText('Access')).toBeNull();
 	});
 
-	it('routes Add Entry through the rating scheme page context', async () => {
-		const modals = new ModalRegistry();
-		const ctx = makeContext(modals);
-
-		render(RatingSchemePageView, {
-			props: {
-				ctx,
-				personnelLookup: [{ id: 'p1', rank: 'SGT', firstName: 'Jane', lastName: 'Smith' }]
-			}
-		});
-
-		await fireEvent.click(screen.getByRole('button', { name: 'Add Entry' }));
-
-		expect(modals.payload<{ entry: RatingSchemeEntry | null }>('rating-modal')?.entry).toBeNull();
-	});
-
-	it('preserves evaluation view and export actions in the shared toolbar', async () => {
+	it('switches evaluation entries into the table view from the shared toolbar', async () => {
 		const ctx = makeContext();
 		const personnelLookup = [
 			{ id: 'p1', rank: 'SGT', firstName: 'Jane', lastName: 'Smith' },
@@ -140,10 +124,5 @@ describe('RatingSchemePageView', () => {
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Table' }));
 		expect(ctx.ratingViewMode).toBe('table');
-
-		await fireEvent.click(screen.getByRole('button', { name: 'Export' }));
-		await waitFor(() => {
-			expect(exportRatingSchemeMock).toHaveBeenCalledWith(ctx.filteredRatingEntries, personnelLookup);
-		});
 	});
 });

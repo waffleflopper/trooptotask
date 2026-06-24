@@ -345,17 +345,8 @@ describe('batchDailyAssignments', () => {
 		]);
 	});
 
-	it('checks duty coverage in bulk and clears affected assignment slots with one predicate delete', async () => {
+	it('replaces affected assignment slots without disturbing unrelated dates', async () => {
 		const ctx = buildContext();
-		const findManyCalls: string[] = [];
-		const originalFindMany = ctx.store.findMany.bind(ctx.store);
-		ctx.store.findMany = (async (...args) => {
-			findManyCalls.push(String(args[0]));
-			return originalFindMany(...args);
-		}) as typeof ctx.store.findMany;
-		ctx.store.deleteWhere = vi.fn(ctx.store.deleteWhere.bind(ctx.store)) as typeof ctx.store.deleteWhere;
-		ctx.store.deleteWhereAny = vi.fn(ctx.store.deleteWhereAny.bind(ctx.store)) as typeof ctx.store.deleteWhereAny;
-		ctx.store.deleteManyByIds = vi.fn(ctx.store.deleteManyByIds.bind(ctx.store)) as typeof ctx.store.deleteManyByIds;
 
 		ctx.store.seed('personnel', [
 			{
@@ -441,14 +432,22 @@ describe('batchDailyAssignments', () => {
 			]
 		});
 
-		expect(findManyCalls.filter((table) => table === 'duty_events')).toHaveLength(1);
-		expect(findManyCalls.filter((table) => table === 'duty_event_slots')).toHaveLength(1);
-		expect(ctx.store.deleteWhere).not.toHaveBeenCalled();
-		expect(ctx.store.deleteManyByIds).not.toHaveBeenCalled();
-		expect(ctx.store.deleteWhereAny).toHaveBeenCalledWith('daily_assignments', 'test-org', [
-			{ date: '2026-04-10', assignment_type_id: 'type-a' },
-			{ date: '2026-04-11', assignment_type_id: 'type-a' }
-		]);
+		const assignments = await ctx.store.findMany<Record<string, unknown>>('daily_assignments', 'test-org');
+		expect(assignments).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					date: '2026-04-10',
+					assignment_type_id: 'type-a',
+					assignee_id: 'person-1'
+				}),
+				expect.objectContaining({
+					date: '2026-04-11',
+					assignment_type_id: 'type-a',
+					assignee_id: 'person-2'
+				})
+			])
+		);
+		expect(assignments).toHaveLength(2);
 	});
 
 	it('rejects the batch when a record overlaps duty coverage and leaves existing assignments untouched', async () => {

@@ -24,6 +24,7 @@ import {
 	type OrganizationInvitationRateLimitAction,
 	type OrganizationInvitationRateLimiter
 } from '$lib/server/organizationInvitationRateLimit';
+import { isBillingEnabled } from '$lib/config/billing';
 import { validateEmail, validateUUID } from '$lib/server/validation';
 import { requireGovernancePolicy } from './governancePolicy';
 import { normalizeInvitationEmail } from './invitationEmail';
@@ -106,7 +107,7 @@ export interface OrganizationInvitationRevokeResult {
 export interface OrganizationSettingsMemberManagementPort {
 	findPendingInvitation(orgId: string, email: string): Promise<{ id: string } | null>;
 	findPendingInvitationById(orgId: string, inviteId: string): Promise<OrganizationInvitationResendLookupResult | null>;
-	findUserAccountByEmail(email: string): Promise<{ id: string; email: string } | null>;
+	findUserAccountByEmail(email: string): Promise<{ id: string; email: string; emailConfirmed?: boolean } | null>;
 	createInvitation(input: OrganizationInvitationCreateInput): Promise<OrganizationInvitationCreateResult>;
 	createOrLinkPendingAccessRequestForInvitation(
 		input: OrganizationInvitationAccessRequestBridgeInput
@@ -140,6 +141,7 @@ export interface OrganizationInvitationDeliveryPort {
 		invitedByEmail: string | null;
 		origin: string;
 		requiresAccountSetup: boolean;
+		selfServiceSignupEnabled: boolean;
 	}): Promise<{ status: 'sent'; outbox: { id: string } } | { status: 'failed'; outbox: { id: string }; error: string }>;
 }
 
@@ -282,9 +284,9 @@ export async function inviteOrganizationMember(
 		actorUserId
 	});
 
-	const accessRequestBridgeStatus = existingUserAccount
-		? 'existing-user'
-		: await bridgeInvitationToAccessRequest(ports, {
+	const shouldBridgeAccessRequest = !existingUserAccount && !isBillingEnabled;
+	const accessRequestBridgeStatus = shouldBridgeAccessRequest
+		? await bridgeInvitationToAccessRequest(ports, {
 				organizationId: ports.auth.orgId,
 				invitationId: createResult.invitationId,
 				email,
@@ -295,7 +297,8 @@ export async function inviteOrganizationMember(
 				capabilityOverrides: accessCommand.capabilityOverrides,
 				accessScopeKind: accessCommand.accessScopeKind,
 				accessScopeGroupIds: accessCommand.accessScopeGroupIds
-			});
+			})
+		: 'skipped';
 
 	if (accessRequestBridgeStatus === 'failed') {
 		fail(500, 'Invitation could not be created because platform access setup could not be linked');
@@ -319,6 +322,7 @@ export async function inviteOrganizationMember(
 		actorEmail: input.actorEmail ?? null,
 		origin: input.origin ?? '',
 		requiresAccountSetup: !existingUserAccount,
+		selfServiceSignupEnabled: !existingUserAccount && isBillingEnabled,
 		mode: 'initial',
 		rateLimit
 	});
@@ -528,13 +532,18 @@ export async function resendOrganizationInvitation(
 		email: invitation.email,
 		invitationId: invitation.id
 	});
+	const existingUserAccount = await ports.settings.findUserAccountByEmail(invitation.email);
+	const hasUsableUserAccount = !!existingUserAccount && existingUserAccount.emailConfirmed !== false;
+	const requiresAccountSetup = invitation.requiresAccountSetup || !hasUsableUserAccount;
+	const selfServiceSignupEnabled = !invitation.requiresAccountSetup && requiresAccountSetup;
 
 	const deliveryStatus = await deliverInvitationEmail(ports, {
 		invitationId: invitation.id,
 		email: invitation.email,
 		actorEmail: input.actorEmail ?? null,
 		origin: input.origin,
-		requiresAccountSetup: invitation.requiresAccountSetup,
+		requiresAccountSetup,
+		selfServiceSignupEnabled,
 		mode: 'resend',
 		rateLimit
 	});
@@ -560,6 +569,7 @@ async function deliverInvitationEmail(
 		actorEmail: string | null;
 		origin: string;
 		requiresAccountSetup: boolean;
+		selfServiceSignupEnabled: boolean;
 		mode: 'initial' | 'resend';
 		rateLimit?: Record<string, unknown> | null;
 	}
@@ -578,7 +588,8 @@ async function deliverInvitationEmail(
 			organizationName,
 			invitedByEmail: input.actorEmail,
 			origin: input.origin,
-			requiresAccountSetup: input.requiresAccountSetup
+			requiresAccountSetup: input.requiresAccountSetup,
+			selfServiceSignupEnabled: input.selfServiceSignupEnabled
 		});
 	} catch (error) {
 		ports.audit.log({

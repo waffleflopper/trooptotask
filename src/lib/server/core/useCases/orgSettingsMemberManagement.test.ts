@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import {
 	createFakeOrganizationInvitationDeliveryPort as createInvitationDeliveryPort,
@@ -20,11 +20,25 @@ import {
 import { readOrganizationPlanUsage, type OrganizationPlanUsage } from './organizationPlanUsage';
 import type { EffectivePlanPolicy } from './planPolicy';
 
+const { billingEnabledMock } = vi.hoisted(() => ({
+	billingEnabledMock: vi.fn(() => false)
+}));
+
+vi.mock('$lib/config/billing', () => ({
+	get isBillingEnabled() {
+		return billingEnabledMock();
+	}
+}));
+
+beforeEach(() => {
+	billingEnabledMock.mockReturnValue(false);
+});
+
 function createOrganizationSettingsMemberManagementPort(
 	options: {
 		existingInvitationId?: string | null;
 		createInvitationError?: string | null;
-		existingUserAccount?: { id: string; email: string } | null;
+		existingUserAccount?: { id: string; email: string; emailConfirmed?: boolean } | null;
 		accessRequestBridgeResult?:
 			| { status: 'created' | 'linked' | 'already-linked'; accessRequestId: string }
 			| { status: 'failed'; message: string }
@@ -1083,6 +1097,106 @@ describe('inviteOrganizationMember', () => {
 		expect(port.accessRequestBridges).toEqual([]);
 	});
 
+	it('skips Access Request bridging for billing-enabled non-user invitations', async () => {
+		billingEnabledMock.mockReturnValue(true);
+		const ctx = createTestContext();
+		const port = createOrganizationSettingsMemberManagementPort({
+			existingUserAccount: null,
+			orgName: 'Alpha Company'
+		});
+		const delivery = createInvitationDeliveryPort('sent');
+
+		const result = await inviteOrganizationMember(
+			{
+				auth: ctx.auth,
+				audit: ctx.audit,
+				notifications: ctx.notifications,
+				settings: port,
+				invitationDelivery: delivery
+			},
+			{
+				email: 'new.user@example.com',
+				membershipRole: 'member',
+				memberAccess: memberAccess({ memberPreset: 'viewer' }),
+				actorEmail: 'actor@example.com',
+				origin: 'https://trooptotask.test'
+			}
+		);
+
+		expect(result).toMatchObject({
+			inviteSuccess: true,
+			inviteEmail: 'new.user@example.com'
+		});
+		expect(port.createdInvitations).toHaveLength(1);
+		expect(port.accessRequestBridges).toEqual([]);
+		expect(port.blockedInvitations).toEqual([]);
+		expect(delivery.deliveries).toEqual([
+			expect.objectContaining({
+				email: 'new.user@example.com',
+				requiresAccountSetup: true,
+				selfServiceSignupEnabled: true
+			})
+		]);
+		expect(ctx.auditPort.events).not.toContainEqual(
+			expect.objectContaining({
+				action: expect.stringMatching(/^member\.invite_access_request_/)
+			})
+		);
+	});
+
+	it('keeps Access Request bridging for billing-disabled non-user invitations', async () => {
+		const ctx = createTestContext();
+		const port = createOrganizationSettingsMemberManagementPort({
+			existingUserAccount: null,
+			accessRequestBridgeResult: { status: 'created', accessRequestId: 'access-request-1' },
+			orgName: 'Alpha Company'
+		});
+		const delivery = createInvitationDeliveryPort('sent');
+
+		await inviteOrganizationMember(
+			{
+				auth: ctx.auth,
+				audit: ctx.audit,
+				notifications: ctx.notifications,
+				settings: port,
+				invitationDelivery: delivery
+			},
+			{
+				email: 'new.user@example.com',
+				membershipRole: 'member',
+				memberAccess: memberAccess({ memberPreset: 'viewer' }),
+				actorEmail: 'actor@example.com',
+				origin: 'https://trooptotask.test'
+			}
+		);
+
+		expect(port.accessRequestBridges).toEqual([
+			expect.objectContaining({
+				organizationId: 'test-org',
+				invitationId: 'invite-created',
+				email: 'new.user@example.com',
+				invitedBy: 'test-user'
+			})
+		]);
+		expect(delivery.deliveries).toEqual([
+			expect.objectContaining({
+				email: 'new.user@example.com',
+				requiresAccountSetup: true,
+				selfServiceSignupEnabled: false
+			})
+		]);
+		expect(ctx.auditPort.events).toContainEqual({
+			action: 'member.invite_access_request_created',
+			resourceType: 'organization',
+			details: {
+				email: 'new.user@example.com',
+				invitationId: 'invite-created',
+				accessRequestId: 'access-request-1'
+			},
+			severity: 'info'
+		});
+	});
+
 	it('blocks the created invitation and fails when non-user Access Request linking fails', async () => {
 		const ctx = createTestContext();
 		const port = createOrganizationSettingsMemberManagementPort({
@@ -1227,7 +1341,8 @@ describe('inviteOrganizationMember', () => {
 				organizationName: 'Alpha Company',
 				invitedByEmail: 'actor@example.com',
 				origin: 'https://trooptotask.test',
-				requiresAccountSetup: false
+				requiresAccountSetup: false,
+				selfServiceSignupEnabled: false
 			}
 		]);
 		expect(rateLimiter.checks).toEqual([
@@ -1350,7 +1465,8 @@ describe('inviteOrganizationMember', () => {
 		expect(delivery.deliveries).toEqual([
 			expect.objectContaining({
 				email: 'new.user@example.com',
-				requiresAccountSetup: true
+				requiresAccountSetup: true,
+				selfServiceSignupEnabled: false
 			})
 		]);
 	});
@@ -1495,6 +1611,221 @@ describe('inviteOrganizationMember', () => {
 				outboxId: 'outbox-1',
 				deliveryMode: 'resend',
 				rateLimit: expect.objectContaining({ action: 'resend' })
+			},
+			severity: 'info'
+		});
+	});
+
+	it('resends billing-enabled non-user invitations without an Access Request link as account-setup deliveries', async () => {
+		billingEnabledMock.mockReturnValue(true);
+		const ctx = createTestContext();
+		const port = createOrganizationSettingsMemberManagementPort({
+			existingUserAccount: null,
+			pendingInvitationRequiresAccountSetup: false,
+			orgName: 'Alpha Company'
+		});
+		const delivery = createInvitationDeliveryPort('sent');
+
+		const result = await resendOrganizationInvitation(
+			{
+				auth: ctx.auth,
+				audit: ctx.audit,
+				notifications: ctx.notifications,
+				settings: port,
+				invitationDelivery: delivery
+			},
+			{
+				inviteId: '11111111-1111-4111-8111-111111111111',
+				actorEmail: 'actor@example.com',
+				origin: 'https://trooptotask.test'
+			}
+		);
+
+		expect(result).toMatchObject({
+			success: true,
+			inviteSuccess: true,
+			inviteDeliveryStatus: 'sent'
+		});
+		expect(port.userAccountLookups).toContain('invitee@example.com');
+		expect(delivery.deliveries).toEqual([
+			expect.objectContaining({
+				invitationId: '11111111-1111-4111-8111-111111111111',
+				email: 'invitee@example.com',
+				requiresAccountSetup: true,
+				selfServiceSignupEnabled: true
+			})
+		]);
+		expect(ctx.auditPort.events).toContainEqual({
+			action: 'member.invite_email_resent',
+			resourceType: 'organization',
+			details: {
+				email: 'invitee@example.com',
+				invitationId: '11111111-1111-4111-8111-111111111111',
+				outboxId: 'outbox-1',
+				deliveryMode: 'resend'
+			},
+			severity: 'info'
+		});
+	});
+
+	it('keeps self-service invitation resends stable when billing is later disabled', async () => {
+		billingEnabledMock.mockReturnValue(false);
+		const ctx = createTestContext();
+		const port = createOrganizationSettingsMemberManagementPort({
+			existingUserAccount: null,
+			pendingInvitationRequiresAccountSetup: false,
+			orgName: 'Alpha Company'
+		});
+		const delivery = createInvitationDeliveryPort('sent');
+
+		await resendOrganizationInvitation(
+			{
+				auth: ctx.auth,
+				audit: ctx.audit,
+				notifications: ctx.notifications,
+				settings: port,
+				invitationDelivery: delivery
+			},
+			{
+				inviteId: '11111111-1111-4111-8111-111111111111',
+				actorEmail: 'actor@example.com',
+				origin: 'https://trooptotask.test'
+			}
+		);
+
+		expect(delivery.deliveries).toEqual([
+			expect.objectContaining({
+				invitationId: '11111111-1111-4111-8111-111111111111',
+				email: 'invitee@example.com',
+				requiresAccountSetup: true,
+				selfServiceSignupEnabled: true
+			})
+		]);
+	});
+
+	it('keeps unconfirmed invitee signups on setup resend', async () => {
+		const ctx = createTestContext();
+		const port = createOrganizationSettingsMemberManagementPort({
+			existingUserAccount: { id: 'existing-user-1', email: 'invitee@example.com', emailConfirmed: false },
+			pendingInvitationRequiresAccountSetup: false,
+			orgName: 'Alpha Company'
+		});
+		const delivery = createInvitationDeliveryPort('sent');
+
+		await resendOrganizationInvitation(
+			{
+				auth: ctx.auth,
+				audit: ctx.audit,
+				notifications: ctx.notifications,
+				settings: port,
+				invitationDelivery: delivery
+			},
+			{
+				inviteId: '11111111-1111-4111-8111-111111111111',
+				actorEmail: 'actor@example.com',
+				origin: 'https://trooptotask.test'
+			}
+		);
+
+		expect(delivery.deliveries).toEqual([
+			expect.objectContaining({
+				invitationId: '11111111-1111-4111-8111-111111111111',
+				email: 'invitee@example.com',
+				requiresAccountSetup: true,
+				selfServiceSignupEnabled: true
+			})
+		]);
+	});
+
+	it('keeps linked reviewed-access invitation resends on reviewed setup until setup completes', async () => {
+		billingEnabledMock.mockReturnValue(true);
+		const ctx = createTestContext();
+		const port = createOrganizationSettingsMemberManagementPort({
+			existingUserAccount: { id: 'existing-user-1', email: 'invitee@example.com' },
+			pendingInvitationRequiresAccountSetup: true,
+			orgName: 'Alpha Company'
+		});
+		const delivery = createInvitationDeliveryPort('sent');
+
+		await resendOrganizationInvitation(
+			{
+				auth: ctx.auth,
+				audit: ctx.audit,
+				notifications: ctx.notifications,
+				settings: port,
+				invitationDelivery: delivery
+			},
+			{
+				inviteId: '11111111-1111-4111-8111-111111111111',
+				actorEmail: 'actor@example.com',
+				origin: 'https://trooptotask.test'
+			}
+		);
+
+		expect(port.userAccountLookups).toContain('invitee@example.com');
+		expect(delivery.deliveries).toEqual([
+			expect.objectContaining({
+				invitationId: '11111111-1111-4111-8111-111111111111',
+				email: 'invitee@example.com',
+				requiresAccountSetup: true,
+				selfServiceSignupEnabled: false
+			})
+		]);
+		expect(ctx.auditPort.events).toContainEqual({
+			action: 'member.invite_email_resent',
+			resourceType: 'organization',
+			details: {
+				email: 'invitee@example.com',
+				invitationId: '11111111-1111-4111-8111-111111111111',
+				outboxId: 'outbox-1',
+				deliveryMode: 'resend'
+			},
+			severity: 'info'
+		});
+	});
+
+	it('resends linked reviewed-access invitations to sign-in once setup has completed', async () => {
+		billingEnabledMock.mockReturnValue(true);
+		const ctx = createTestContext();
+		const port = createOrganizationSettingsMemberManagementPort({
+			existingUserAccount: { id: 'existing-user-1', email: 'invitee@example.com' },
+			pendingInvitationRequiresAccountSetup: false,
+			orgName: 'Alpha Company'
+		});
+		const delivery = createInvitationDeliveryPort('sent');
+
+		await resendOrganizationInvitation(
+			{
+				auth: ctx.auth,
+				audit: ctx.audit,
+				notifications: ctx.notifications,
+				settings: port,
+				invitationDelivery: delivery
+			},
+			{
+				inviteId: '11111111-1111-4111-8111-111111111111',
+				actorEmail: 'actor@example.com',
+				origin: 'https://trooptotask.test'
+			}
+		);
+
+		expect(port.userAccountLookups).toContain('invitee@example.com');
+		expect(delivery.deliveries).toEqual([
+			expect.objectContaining({
+				invitationId: '11111111-1111-4111-8111-111111111111',
+				email: 'invitee@example.com',
+				requiresAccountSetup: false,
+				selfServiceSignupEnabled: false
+			})
+		]);
+		expect(ctx.auditPort.events).toContainEqual({
+			action: 'member.invite_email_resent',
+			resourceType: 'organization',
+			details: {
+				email: 'invitee@example.com',
+				invitationId: '11111111-1111-4111-8111-111111111111',
+				outboxId: 'outbox-1',
+				deliveryMode: 'resend'
 			},
 			severity: 'info'
 		});

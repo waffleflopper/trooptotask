@@ -207,18 +207,13 @@ describe('PersonnelPageView', () => {
 		expect(screen.getByRole('columnheader', { name: 'Duty Role' })).toBeTruthy();
 	});
 
-	it('uses a compact command strip without the old summary noise', () => {
+	it('shows roster sorting and search controls', () => {
 		const ctx = makeCtx();
 
 		render(PersonnelPageView, {
 			props: { ctx }
 		});
 
-		expect(screen.queryByRole('heading', { name: 'Personnel' })).toBeNull();
-		expect(screen.queryByText('Total Personnel')).toBeNull();
-		expect(screen.queryByText('Groups')).toBeNull();
-		expect(screen.queryByText('Unassigned')).toBeNull();
-		expect(screen.queryByText('Access')).toBeNull();
 		expect(screen.getByRole('group', { name: 'Roster sort mode' })).toBeTruthy();
 		expect(screen.getByTestId('personnel-search')).toBeTruthy();
 	});

@@ -5,7 +5,6 @@
 		".github/ISSUE_TEMPLATE/config.yml",
 		".github/ISSUE_TEMPLATE/v1-retrofit-slice.yml",
 		".github/ISSUE_TEMPLATE/architecture-drift.yml",
-		"UBIQUITOUS_LANGUAGE.md",
 		"docs/architecture/ARCHITECTURE.md",
 		"docs/architecture/AUTHORIZATION_AND_PROVIDER_BOUNDARIES.md",
 		"docs/architecture/DEFINITION_OF_DONE.md",

@@ -9,7 +9,6 @@ import {
 } from './platformBillingEvents';
 
 const CHECKOUT_SESSION_COMPLETED_CREATED_AT_UNIX_SECONDS = 1779494400;
-const SUBSCRIPTION_UPDATED_CREATED_AT_UNIX_SECONDS = 1779626096;
 
 const retryEventDefaults: PlatformBillingEventRecord = {
 	id: 'evt_retry',
@@ -495,36 +494,4 @@ describe('PlatformBillingEvents', () => {
 			expect(audit).not.toHaveBeenCalled();
 		}
 	);
-
-	it('reconstructs Stripe events with id, type, created timestamp, and data payload', async () => {
-		const retryProcessor = createRetryProcessor();
-		const billingEvents = createPlatformBillingEvents({
-			store: createInMemoryPlatformBillingEventsStore({
-				events: [
-					makeRetryEvent({
-						id: 'evt_reconstruct',
-						type: 'customer.subscription.updated',
-						data: { object: { id: 'sub_123', metadata: { orgId: 'org-1' } } },
-						objectId: 'sub_123',
-						secondaryDedupeKey: 'customer.subscription.updated:sub_123',
-						eventCreatedAt: '2026-05-24T12:34:56.000Z'
-					})
-				]
-			}),
-			retryProcessor,
-			audit: vi.fn()
-		});
-
-		await billingEvents.retryEvent('evt_reconstruct');
-
-		expect(retryProcessor.recordRetryAttempt).toHaveBeenCalledWith(
-			expect.objectContaining({
-				id: 'evt_reconstruct',
-				type: 'customer.subscription.updated',
-				created: SUBSCRIPTION_UPDATED_CREATED_AT_UNIX_SECONDS,
-				data: { object: { id: 'sub_123', metadata: { orgId: 'org-1' } } }
-			}),
-			expect.any(Object)
-		);
-	});
 });

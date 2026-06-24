@@ -321,7 +321,7 @@ function evaluateConfirmations(artifacts, confirmationsPath) {
 
 function overallStatus(checks) {
 	if (checks.some((check) => check.status === 'blocked')) return 'blocked';
-	if (checks.some((check) => check.status === 'needs_confirmation')) return 'blocked';
+	if (checks.some((check) => check.status === 'needs_confirmation')) return 'needs_confirmation';
 	return 'go';
 }
 

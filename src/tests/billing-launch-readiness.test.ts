@@ -1,6 +1,6 @@
-import { resolve } from 'node:path';
-import { pathToFileURL } from 'node:url';
 import { describe, expect, it } from 'vitest';
+
+const readinessScriptUrl = new URL('../../scripts/billing-launch-readiness.mjs', import.meta.url);
 
 type ReadinessStatus = 'go' | 'blocked' | 'needs_confirmation';
 
@@ -44,7 +44,7 @@ const files = {
 };
 
 async function loadReadinessModule(): Promise<ReadinessModule> {
-	return import(pathToFileURL(resolve('scripts/billing-launch-readiness.mjs')).href);
+	return import(readinessScriptUrl.href);
 }
 
 function passingPreflight() {
@@ -103,13 +103,13 @@ describe('billing launch readiness classification', () => {
 			confirmationsPath: 'docs/billing-launch-confirmations.md'
 		});
 
-		expect(result.status).toBe('blocked');
+		expect(result.status).toBe('needs_confirmation');
 		expect(result.checks).toContainEqual(
 			expect.objectContaining({ id: 'machine.preflight', status: 'needs_confirmation' })
 		);
 	});
 
-	it('keeps the launch blocked when Robert confirmations are absent', async () => {
+	it('returns needs_confirmation when Robert confirmations are absent and other checks pass', async () => {
 		const { buildReadinessResult } = await loadReadinessModule();
 		const result = buildReadinessResult({
 			offline: true,
@@ -121,7 +121,7 @@ describe('billing launch readiness classification', () => {
 			confirmationsPath: 'docs/billing-launch-confirmations.md'
 		});
 
-		expect(result.status).toBe('blocked');
+		expect(result.status).toBe('needs_confirmation');
 		expect(result.checks).toContainEqual(
 			expect.objectContaining({ id: 'confirmation.robert_owned_launch', status: 'needs_confirmation' })
 		);

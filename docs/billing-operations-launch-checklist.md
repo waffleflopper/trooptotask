@@ -12,6 +12,7 @@ Do not paste API keys, webhook secrets, raw webhook payloads, card details, or S
 - [Billing Cancellation Policy](billing-cancellation-policy.md) defines period-end portal cancellation as the default owner path and immediate cancellation as an explicit confirmed action.
 - [Operational Control Evidence](security/operational-control-evidence.md) links the launch security runbooks, including [Incident Response](security/incident-response.md) and no-secret evidence handling rules for billing/support incidents.
 - `npm run billing:launch-preflight` is the read-only Stripe test-mode preflight.
+- `npm run billing:launch-readiness -- --offline --json` is the read-only launch gate. It aggregates preflight, billing read-only gate evidence, scenario rows, support-channel decisions, and Robert-owned confirmation artifacts into `go`, `blocked`, or `needs_confirmation` check statuses. The top-level result remains `blocked` until every required launch gate is satisfied.
 - `npm run billing:lifecycle` is the Stripe test-mode lifecycle helper.
 
 ## Issue #1078 Outcome
@@ -26,6 +27,28 @@ Do not paste API keys, webhook secrets, raw webhook payloads, card details, or S
 | Live-mode Stripe Dashboard confirmation | Requires Robert confirmation | Robert | Agent must not invent live Dashboard state. Robert must confirm before enabling live paid billing. |
 | Final pricing amounts | Complete | Robert/business owner | Public monthly prices are Team $4.99 and Unit $10.99. Live Stripe price IDs and Dashboard setup still require Robert confirmation. |
 | Live environment variables | Requires Robert confirmation | Robert | Agent must not inspect or modify production secrets. |
+
+## Readiness Gate
+
+Run the readiness gate before any paid launch rehearsal handoff:
+
+```sh
+npm run billing:launch-readiness -- --offline --json
+```
+
+The JSON result is support-safe by design. Each check has `id`, `label`, `status`, `owner`, `evidenceSource`, and `reason`. Status values are exactly `go`, `blocked`, and `needs_confirmation`; the top-level result must not become `go` while any required Robert confirmation, scenario evidence row, or machine check is missing.
+
+Robert-owned confirmations live in `docs/billing-launch-confirmations.md`. That file is intentionally limited to dates, owners, and artifact names. Do not store secrets, screenshots, Stripe keys, raw provider payloads, deployment probing evidence, or production environment values in repo docs.
+
+Required confirmation artifact names:
+
+- `test-stripe-dashboard-confirmation`
+- `live-stripe-dashboard-confirmation`
+- `final-live-price-ids-confirmation`
+- `live-deployment-variables-confirmation`
+- `stripe-tax-launch-decision`
+- `support-staffing-confirmation`
+- `final-paid-billing-launch-approval`
 
 ## Test-Mode Verification
 

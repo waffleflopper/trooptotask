@@ -9,7 +9,7 @@
 > reviewer dispatched you and told you they maintain the index.
 >
 > **Drift check (run first)**:
-> `git diff --stat d485cdc5..HEAD -- docs/launch-acquisition-path.md plans/083-public-account-creation-abuse-controls.md plans/084-self-service-organization-onboarding.md plans/087-self-service-acquisition-e2e-coverage.md src/lib/server/organizationInvitationDelivery.ts src/lib/server/organizationInvitationDelivery.test.ts src/lib/server/core/useCases/orgSettingsMemberManagement.ts src/lib/server/core/useCases/dashboardOrgAccess.ts src/routes/auth src/routes/dashboard`
+> `git diff --stat 97389a0e..HEAD -- docs/launch-acquisition-path.md src/lib/server/organizationInvitationDelivery.ts src/lib/server/organizationInvitationDelivery.test.ts src/lib/server/authConfirm.ts src/routes/auth/sign-up src/routes/auth/confirm src/lib/server/core/useCases/orgSettingsMemberManagement.ts src/lib/server/core/useCases/dashboardOrgAccess.ts src/routes/dashboard`
 > If any in-scope file changed since this plan was written, compare the
 > "Current state" excerpts against the live code before proceeding; on a
 > mismatch, treat it as a STOP condition.
@@ -21,13 +21,16 @@
 - **Risk**: MED
 - **Depends on**: plans/083-public-account-creation-abuse-controls.md
 - **Category**: direction
-- **Planned at**: commit `d485cdc5`, 2026-06-16 (reconciled; originally planned at `c6760c16`)
+- **Planned at**: commit `97389a0e`, 2026-06-22 (reconciled after PR #1230; originally planned at `c6760c16`)
 
 ## Reconciliation note
 
-On 2026-06-16, this plan was refreshed at `d485cdc5`. No in-scope files changed
-since the original `c6760c16` stamp, and the current state remains valid:
-no-account invitation delivery still routes to `/auth/request-access`.
+On 2026-06-22, this plan was refreshed after PR #1230 landed plans 083-087 on
+`main`. The public signup route, signup confirmation flow, dashboard invitation
+surface, and acquisition E2E baseline now exist. The remaining gap is narrower:
+no-account Organization Invitation delivery still routes invitees to reviewed
+`/auth/request-access`, and signup confirmation still defaults ordinary
+self-service users to first Organization creation at `/org/new`.
 
 ## Why this matters
 
@@ -40,12 +43,17 @@ not force invited staff into the old review queue when signup is enabled.
 
 ## Current state
 
-- `docs/launch-acquisition-path.md:55-61` defines the self-service target and
-  explicitly includes accepting an Organization Invitation after email
-  confirmation.
-- `src/lib/server/organizationInvitationDelivery.ts:136` builds invite URLs
+- `docs/launch-acquisition-path.md:59-66` defines the completed self-service
+  path as signup -> email confirmation -> first Organization -> Free/Billing,
+  while `docs/launch-acquisition-path.md:127-130` keeps this paid invitation
+  branch tracked separately by plan 088.
+- `src/routes/auth/sign-up/+page.server.ts:90-99` sends ordinary signup email
+  confirmation through `getAuthConfirmRedirectTo(url.origin, 'email')`.
+- `src/lib/server/authConfirm.ts:4-9` maps `email` and `signup`
+  confirmations to `/org/new`.
+- `src/lib/server/organizationInvitationDelivery.ts:132-139` builds invite URLs
   with `/auth/request-access` when `requiresAccountSetup` is true.
-- `src/lib/server/organizationInvitationDelivery.ts:159-174` tells no-account
+- `src/lib/server/organizationInvitationDelivery.ts:150-175` tells no-account
   invitees to use platform approval and a separate Account Setup Link.
 - `src/lib/server/organizationInvitationDelivery.test.ts:89-94` asserts that
   invitees who need account setup go to `/auth/request-access`.
@@ -62,15 +70,33 @@ return makePublicAppUrl(options.requiresAccountSetup ? '/auth/request-access' : 
 ```
 
 ```ts
+// src/lib/server/authConfirm.ts:4
+const authConfirmDestinations = {
+	email: '/org/new',
+	invite: '/auth/accept-invite',
+	recovery: '/auth/reset-password',
+	signup: '/org/new'
+} as const;
+```
+
+```ts
+// src/routes/auth/sign-up/+page.server.ts:90
+const redirectTo = getAuthConfirmRedirectTo(url.origin, 'email');
+```
+
+```ts
 // src/lib/server/organizationInvitationDelivery.test.ts:89
 it('builds a request-access destination for invitees who still need account setup', () => {
 ```
 
 ```md
-<!-- docs/launch-acquisition-path.md:57-60 -->
+<!-- docs/launch-acquisition-path.md:59-66 -->
+Self-service target:
+
 1. The user creates a User Account through a public registration route.
 2. The user confirms email control before entering app-owned onboarding.
-3. The user creates an Organization or accepts an Organization Invitation.
+3. The user creates the first Organization.
+4. The new Organization lands on the owner dashboard with Free active.
 ```
 
 ## Commands you will need
@@ -80,6 +106,7 @@ it('builds a request-access destination for invitees who still need account setu
 | Svelte docs | Svelte MCP `list-sections`, then `get-documentation` for relevant auth/SvelteKit sections if editing `.svelte` files | docs read before Svelte edits |
 | Svelte autofix | `svelte-autofixer` on edited Svelte files | no issues or suggestions remain |
 | Invitation delivery tests | `npx vitest run src/lib/server/organizationInvitationDelivery.test.ts` | all pass |
+| Signup confirmation tests | `npx vitest run src/routes/auth/sign-up/page.server.test.ts src/routes/auth/confirm/page.server.test.ts` | all pass |
 | Invitation acceptance tests | `npx vitest run src/lib/server/core/useCases/dashboardOrgAccess.test.ts src/routes/dashboard/page.server.test.ts` | all pass when files exist |
 | Auth confirmation tests | `npx vitest run src/routes/auth/confirm/page.server.test.ts` | all pass |
 | Full repo gate | `npm run format && npm run lint && npm run governance:check && npm run check && npm run test` | all exit 0 |
@@ -90,6 +117,11 @@ it('builds a request-access destination for invitees who still need account setu
 
 - `src/lib/server/organizationInvitationDelivery.ts`
 - `src/lib/server/organizationInvitationDelivery.test.ts`
+- `src/lib/server/authConfirm.ts` and `src/routes/auth/confirm/page.server.test.ts`
+  only to whitelist the invitation signup confirmation destination if needed.
+- `src/routes/auth/sign-up/+page.server.ts` and
+  `src/routes/auth/sign-up/page.server.test.ts` only to carry a whitelisted,
+  non-secret invitation handoff destination if needed.
 - Signup/auth confirmation handoff code from Plan 083 only as needed to carry
   invitation context safely.
 - Dashboard pending-invitation acceptance tests if the redirect/flow changes.
@@ -123,39 +155,47 @@ it('builds a request-access destination for invitees who still need account setu
 
 ### Step 1: Confirm Plan 083 signup exists
 
-Read the implemented signup route from Plan 083. If there is no real signup
+Read the implemented signup route from Plan 083. Confirm billing-enabled signup
+exists, billing-disabled signup falls back to reviewed access, and email
+confirmation can land on a whitelisted destination. If there is no real signup
 route and no signup email-confirmation destination, stop. This plan depends on
 the public User Account creation layer.
 
 **Verify**:
-`rg -n "sign-up|signup|type=email|/auth/confirm" src/routes/auth src/lib/server/authConfirm.ts`
+`rg -n "sign-up|signup|type=email|/auth/confirm|/dashboard|/org/new" src/routes/auth src/lib/server/authConfirm.ts`
 shows a real signup path and email confirmation support.
 
 ### Step 2: Define invitation-aware signup handoff
 
 Choose the smallest safe handoff from an Organization Invitation email to the
-signup path. Prefer a route or query shape that carries only non-secret,
-short-lived invitation context, and still lets the dashboard own final
-acceptance after authentication.
+signup path. A good default is a billing-enabled no-account invitation URL like
+`/auth/sign-up?next=%2Fdashboard`, with signup confirmation whitelisting
+`/dashboard` for this branch while ordinary signup keeps `/org/new`. This carries
+only a non-secret destination and lets the dashboard own final acceptance after
+authentication.
 
-Do not place raw invitation tokens, secrets, or unbounded user-provided `next`
-values in email URLs. Preserve `makePublicAppUrl` origin allowlist behavior.
+Do not place invitation IDs, raw invitation tokens, secrets, or unbounded
+user-provided `next` values in email URLs. Preserve `makePublicAppUrl` origin
+allowlist behavior. If you add a `next` query, validate it against a fixed
+allowlist before passing it into Supabase signup confirmation.
 
 **Verify**:
 Add or update tests in `src/lib/server/organizationInvitationDelivery.test.ts`
 for billing-enabled self-service invitees and billing-disabled reviewed-access
-invitees.
+invitees. Add or update signup/auth-confirm tests that prove unsafe `next`
+values are ignored or rejected.
 
 ### Step 3: Update invitation delivery copy
 
 When billing/self-service signup is enabled, no-account invitees should be told
 to create their User Account, confirm email, then accept the Organization
-Invitation from the dashboard or invitation destination. When billing is
-disabled, preserve the reviewed-access copy.
+Invitation from the dashboard. When billing is disabled, preserve the
+reviewed-access copy and `/auth/request-access` destination.
 
 **Verify**:
-`npx vitest run src/lib/server/organizationInvitationDelivery.test.ts` exits 0
-and asserts both copy branches.
+`npx vitest run src/lib/server/organizationInvitationDelivery.test.ts src/routes/auth/sign-up/page.server.test.ts src/routes/auth/confirm/page.server.test.ts`
+exits 0 and asserts both copy branches plus the whitelisted confirmation
+destination.
 
 ### Step 4: Preserve final invitation acceptance semantics
 
@@ -176,7 +216,7 @@ tests and full repo gate.
 
 **Verify**:
 
-- `npx vitest run src/routes/auth/confirm/page.server.test.ts src/lib/server/organizationInvitationDelivery.test.ts` exits 0.
+- `npx vitest run src/routes/auth/confirm/page.server.test.ts src/routes/auth/sign-up/page.server.test.ts src/lib/server/organizationInvitationDelivery.test.ts` exits 0.
 - Svelte autofixer reports no issues/suggestions for edited Svelte files.
 - `npm run format && npm run lint && npm run governance:check && npm run check && npm run test` exits 0.
 

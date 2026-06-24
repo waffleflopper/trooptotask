@@ -46,6 +46,9 @@ const BILLING_CHECKOUT_ROUTE_PATH = 'src/routes/org/[orgId]/billing/checkout/+se
 const BILLING_PORTAL_ROUTE_PATH = 'src/routes/org/[orgId]/billing/portal/+server.ts';
 const SAFE_PREFLIGHT_PARSE_ERROR = 'Preflight did not emit parseable JSON. Re-run it directly to inspect raw output.';
 const SAFE_PREFLIGHT_EXECUTION_ERROR = 'Preflight could not be executed. Re-run it directly to inspect local setup.';
+const SAFE_PREFLIGHT_TIMEOUT_ERROR =
+	'Preflight timed out before completing. Re-run it directly to inspect local setup.';
+const PREFLIGHT_TIMEOUT_MS = 60_000;
 const REQUIRED_SCENARIO_EVIDENCE_COLUMNS = [
 	'Snapshot state',
 	'Webhook ledger state',
@@ -89,7 +92,8 @@ function runPreflight({ offline }) {
 	try {
 		const completed = spawnSync(process.execPath, commandArgs, {
 			encoding: 'utf8',
-			stdio: ['ignore', 'pipe', 'pipe']
+			stdio: ['ignore', 'pipe', 'pipe'],
+			timeout: PREFLIGHT_TIMEOUT_MS
 		});
 		return preflightResultFromCompleted(completed, { offline });
 	} catch {
@@ -98,6 +102,24 @@ function runPreflight({ offline }) {
 }
 
 function preflightResultFromCompleted(completed, { offline }) {
+	if (completed?.error) {
+		const errorCode = typeof completed.error === 'object' ? completed.error.code : undefined;
+		const timedOut = errorCode === 'ETIMEDOUT' || completed.signal === 'SIGTERM';
+		return failedPreflightResult({
+			offline,
+			exitCode: completed.status ?? 1,
+			error: timedOut ? SAFE_PREFLIGHT_TIMEOUT_ERROR : SAFE_PREFLIGHT_EXECUTION_ERROR
+		});
+	}
+
+	if (completed?.signal) {
+		return failedPreflightResult({
+			offline,
+			exitCode: completed.status ?? 1,
+			error: SAFE_PREFLIGHT_EXECUTION_ERROR
+		});
+	}
+
 	const stdout = typeof completed?.stdout === 'string' ? completed.stdout : '';
 	const stderr = typeof completed?.stderr === 'string' ? completed.stderr : '';
 	if (!stdout.trim() && !stderr.trim()) {

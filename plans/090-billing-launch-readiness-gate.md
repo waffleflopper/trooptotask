@@ -36,9 +36,10 @@ On 2026-06-24, this plan was refreshed at `0f69c5bc`. Plans 083-089 have
 landed and the launch docs now contain the Free-first checkout entry,
 billing-disabled fallback, paid launch pricing/tax/refund posture, canonical
 support/privacy/security mailboxes, and admin support lookup surfaces. The
-finding still stands because `package.json` exposes `billing:launch-preflight`
-and `billing:lifecycle`, but no single `billing:launch-readiness` command or
-equivalent machine-readable launch gate exists.
+original finding stood because `package.json` exposed `billing:launch-preflight`
+and `billing:lifecycle`, but no single machine-readable launch gate. This plan
+now adds `scripts/billing-launch-readiness.mjs` and registers
+`billing:launch-readiness` in `package.json` as that gate.
 
 ## Why this matters
 

@@ -93,6 +93,9 @@ function preflightResultFromCompleted(completed, { offline }) {
 	}
 	try {
 		const parsed = JSON.parse(stdout);
+		if (!isValidPreflightOutput(parsed)) {
+			return failedPreflightResult({ offline, exitCode: completed?.status ?? 1, error: SAFE_PREFLIGHT_PARSE_ERROR });
+		}
 		return {
 			command: `npm run billing:launch-preflight -- ${offline ? '--offline ' : ''}--json`,
 			exitCode: completed.status ?? 1,
@@ -102,6 +105,14 @@ function preflightResultFromCompleted(completed, { offline }) {
 	} catch {
 		return failedPreflightResult({ offline, exitCode: completed?.status ?? 1, error: SAFE_PREFLIGHT_PARSE_ERROR });
 	}
+}
+
+function isPlainObject(value) {
+	return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isValidPreflightOutput(value) {
+	return isPlainObject(value) && isPlainObject(value.summary) && Array.isArray(value.results);
 }
 
 function failedPreflightResult({ offline, exitCode = 1, error }) {

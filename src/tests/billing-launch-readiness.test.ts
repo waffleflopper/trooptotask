@@ -1,6 +1,10 @@
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 const readinessScriptUrl = new URL('../../scripts/billing-launch-readiness.mjs', import.meta.url);
+const readinessScriptPath = fileURLToPath(readinessScriptUrl);
+const repoRootPath = fileURLToPath(new URL('../..', import.meta.url));
 
 type ReadinessStatus = 'go' | 'blocked' | 'needs_confirmation';
 
@@ -111,6 +115,28 @@ async function passingConfirmations() {
 }
 
 describe('billing launch readiness classification', () => {
+	it('CLI exits 0 for a support-safe blocked report and requires JSON status inspection', () => {
+		const completed = spawnSync(process.execPath, [readinessScriptPath, '--offline', '--json'], {
+			cwd: repoRootPath,
+			encoding: 'utf8',
+			env: {
+				...process.env,
+				PUBLIC_BILLING_ENABLED: 'true',
+				STRIPE_SECRET_KEY: 'sk_test_placeholder',
+				STRIPE_WEBHOOK_SECRET: 'whsec_placeholder',
+				STRIPE_TEAM_PRICE_ID: 'price_team_placeholder',
+				STRIPE_UNIT_PRICE_ID: 'price_unit_placeholder',
+				BILLING_RECONCILIATION_SECRET: 'reconciliation_placeholder'
+			}
+		});
+
+		expect(completed.status).toBe(0);
+		const report = JSON.parse(completed.stdout) as ReadinessResult;
+		expect(report.status).toBe('blocked');
+		expect(report.reasons.length).toBeGreaterThan(0);
+		expect(report.reasons.every((reason) => reason.id && reason.reason)).toBe(true);
+	});
+
 	it('parses scenario evidence rows while ignoring markdown table headers', async () => {
 		const { parseScenarioEvidence } = await loadReadinessModule();
 		const scenarios = parseScenarioEvidence(`

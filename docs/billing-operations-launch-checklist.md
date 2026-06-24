@@ -38,6 +38,8 @@ npm run billing:launch-readiness -- --offline --json
 
 The JSON result is support-safe by design. Each check has `id`, `label`, `status`, `owner`, `evidenceSource`, and `reason`. Status values are exactly `go`, `blocked`, and `needs_confirmation`; the top-level result must not become `go` while any required Robert confirmation, scenario evidence row, or machine check is missing.
 
+Shell exit 0 only means the command produced a support-safe readiness report. Operators and automation must inspect the JSON `status`; anything other than `go` is not launch-ready and must not be treated as approval to enable paid billing.
+
 Robert-owned confirmations live in `docs/billing-launch-confirmations.md`. That file is intentionally limited to dates, owners, and artifact names. Do not store secrets, screenshots, Stripe keys, raw provider payloads, deployment probing evidence, or production environment values in repo docs.
 
 Repository launch docs may record only dates, owners, artifact names, safe IDs, and brief safe notes. Screenshots, detailed Dashboard views, test invoices, emails, and other private evidence artifacts must stay outside repo docs; repo records should name that an artifact exists without embedding or describing private contents.

@@ -66,6 +66,8 @@ The target surfaces for every scenario are:
 
 | Scenario | Status | Evidence captured | Snapshot state | Webhook ledger state | Reconciliation result | Owner/admin UI state | Blocker or follow-up |
 | --- | --- | --- | --- | --- | --- | --- | --- |
+| Free-first checkout entry | Blocked | Free-first launch posture documented. | Not captured. | Not captured. | Not captured. | Not captured. | Requires owner entrypoint verification that self-service starts on Free before paid checkout. |
+| Billing-disabled fallback | Blocked | Billing-disabled fallback documented. | Not captured. | Not captured. | Not captured. | Not captured. | Requires local/test verification that checkout is unavailable when billing is disabled. |
 | Checkout activation | Blocked | Preflight confirmed test-mode prices and webhook endpoint readiness. | Not captured. | Not captured. | Not captured. | Not captured. | Requires a full owner checkout run against a local/test organization and UI evidence capture. |
 | Renewal success | Blocked | Lifecycle helper readiness confirmed. | Not captured. | Not captured. | Not captured. | Not captured. | Requires test-clock fixture execution plus webhook delivery and UI/admin verification. |
 | Failed renewal | Blocked | Lifecycle helper readiness confirmed. | Not captured. | Not captured. | Not captured. | Not captured. | Requires a failing renewal run, recovery state verification, and write-gate evidence. |

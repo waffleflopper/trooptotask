@@ -453,6 +453,42 @@ describe('billing launch readiness classification', () => {
 		});
 	});
 
+	it('blocks when a go scenario contains unsafe evidence literals', async () => {
+		const unsafeValues = [
+			['Stripe secret key', ['sk', 'live', 'example'].join('_')],
+			['Webhook signing secret', ['whsec', 'example'].join('_')],
+			['Raw provider payload', 'raw provider payload captured'],
+			['Screenshot artifact', 'billing-dashboard-screenshot.png'],
+			['Production probing evidence', 'production probing evidence']
+		];
+
+		for (const [label, unsafeValue] of unsafeValues) {
+			const scenarios = await passingScenarios();
+			scenarios.set('Checkout activation', {
+				scenario: 'Checkout activation',
+				status: 'Go',
+				evidence: {
+					'Snapshot state': 'snapshot-artifact',
+					'Webhook ledger state': unsafeValue,
+					'Reconciliation result': 'reconciliation-artifact',
+					'Owner/admin UI state': 'owner-admin-ui-artifact'
+				}
+			});
+			const result = await resultFor({ scenarios });
+
+			expect(result, label).toMatchObject({
+				status: 'blocked',
+				checks: expect.arrayContaining([
+					expect.objectContaining({
+						id: 'evidence.lifecycle_scenarios',
+						status: 'blocked',
+						reason: expect.stringContaining('Webhook ledger state')
+					})
+				])
+			});
+		}
+	});
+
 	it('returns needs_confirmation when Robert confirmations are absent and other checks pass', async () => {
 		const { buildReadinessResult } = await loadReadinessModule();
 		const result = buildReadinessResult({

@@ -2,7 +2,7 @@
 
 Use this checklist before enabling paid billing broadly. It separates agent-complete code and documentation work from Stripe Dashboard and business-owner decisions that require Robert.
 
-Do not paste API keys, webhook secrets, raw webhook payloads, card details, or Stripe signature values into GitHub issues, PRs, screenshots, or support notes.
+Do not paste API keys, webhook secrets, raw webhook payloads, card details, Stripe signature values, screenshots, or detailed private provider artifacts into GitHub issues, PRs, repo docs, or support notes.
 
 ## References
 
@@ -40,6 +40,8 @@ The JSON result is support-safe by design. Each check has `id`, `label`, `status
 
 Robert-owned confirmations live in `docs/billing-launch-confirmations.md`. That file is intentionally limited to dates, owners, and artifact names. Do not store secrets, screenshots, Stripe keys, raw provider payloads, deployment probing evidence, or production environment values in repo docs.
 
+Repository launch docs may record only dates, owners, artifact names, safe IDs, and brief safe notes. Screenshots, detailed Dashboard views, test invoices, emails, and other private evidence artifacts must stay outside repo docs; repo records should name that an artifact exists without embedding or describing private contents.
+
 Required confirmation artifact names:
 
 - `test-stripe-dashboard-confirmation`
@@ -56,15 +58,15 @@ Complete these in Stripe test mode or an approved Stripe sandbox before any live
 
 Manual human-only dashboard steps are marked as Robert-owned confirmations. Agent work can prepare code, documentation, tests, and preflight commands, but it cannot confirm private Stripe Dashboard state without Robert or explicit test credentials.
 
-| Check | Status | Owner | Evidence to record |
+| Check | Status | Owner | Repo-safe evidence to record |
 | --- | --- | --- | --- |
-| Stripe Dashboard is visibly in test mode | Requires Robert confirmation | Robert | Screenshot or note that the test/sandbox banner is visible. |
+| Stripe Dashboard is visibly in test mode | Requires Robert confirmation | Robert | Confirmation date, owner, artifact name, and a safe note that the test/sandbox mode check was completed. Keep any screenshot outside repo docs. |
 | Stripe products for Team and Unit products exist | Requires Robert confirmation | Robert | Product IDs match the configured test prices and product naming. |
 | Team and Unit prices are active recurring monthly USD prices at $4.99 and $10.99 | Requires Robert confirmation | Robert/Agent with test credentials | `npm run billing:launch-preflight -- --json` output; price IDs only, no secrets. |
 | Price catalog maps only supported Stripe price IDs to Team and Unit | Complete | Agent | Covered by checkout/catalog tests and preflight checks. |
 | Checkout rejects arbitrary client price IDs | Complete | Agent | Covered by checkout server tests. |
 | Automatic tax stays disabled unless dashboard verification is complete | Complete | Agent | Checkout fails when `STRIPE_AUTOMATIC_TAX_ENABLED=true` without `STRIPE_TAX_DASHBOARD_VERIFIED=true`. |
-| Stripe Tax registration, business address, product tax behavior, and address collection are verified if automatic tax will be enabled | Requires Robert confirmation | Robert | Dashboard notes plus a test invoice showing expected tax behavior. |
+| Stripe Tax registration, business address, product tax behavior, and address collection are verified if automatic tax will be enabled | Requires Robert confirmation | Robert | Confirmation date, owner, artifact name, safe IDs, and a safe note that tax behavior was verified. Keep Dashboard details and test invoice artifacts outside repo docs. |
 | Customer Portal default configuration is active | Requires Robert confirmation | Robert/Agent with test credentials | Preflight output and Dashboard confirmation. |
 | Customer Portal invoice history and receipts are enabled | Requires Robert confirmation | Robert | Dashboard confirmation. |
 | Customer Portal payment method updates are enabled | Requires Robert confirmation | Robert | Dashboard confirmation and payment recovery scenario evidence. |
@@ -88,10 +90,10 @@ Manual human-only dashboard steps are marked as Robert-owned confirmations. Agen
 
 Do not start these until test-mode verification is complete and Robert has made the final business decisions.
 
-| Check | Status | Owner | Evidence to record |
+| Check | Status | Owner | Repo-safe evidence to record |
 | --- | --- | --- | --- |
 | Final Team and Unit prices are chosen | Complete | Robert/business owner | Public monthly prices are Team $4.99 and Unit $10.99. Product and price IDs remain separate Dashboard confirmations. |
-| Live Team and Unit products exist and match the customer-facing names | Requires Robert confirmation | Robert | Live product IDs and Dashboard screenshot or written confirmation. |
+| Live Team and Unit products exist and match the customer-facing names | Requires Robert confirmation | Robert | Live product IDs, confirmation date, owner, artifact name, and safe note only. Keep any Dashboard screenshot or detailed private artifact outside repo docs. |
 | Live Team and Unit prices are active recurring monthly USD prices at $4.99 and $10.99 | Requires Robert confirmation | Robert | Live price IDs only; do not expose secret keys. |
 | Live price IDs are configured in deployment environment variables | Requires Robert confirmation | Robert | Deployment variable names and last-updated note, not secret values. |
 | Test price IDs are not present in live deployment variables | Requires Robert confirmation | Robert | Deployment settings review. |
@@ -184,7 +186,7 @@ Before launch, Robert should still confirm:
 - How to respond to payment failures, failed checkout, duplicate checkout attempts, portal access denials, cancellation questions, and over-limit billing locks.
 - How to correlate a ticket using Stripe customer ID, subscription ID, latest webhook event, billing snapshot, admin diagnostics, and reconciliation result.
 
-Support should use the admin billing diagnostics and Stripe Dashboard IDs. Do not ask customers for card details, full payment method data, or screenshots containing secrets.
+Support should use the admin billing diagnostics and Stripe Dashboard IDs. Do not ask customers for card details, full payment method data, or screenshots to place in repo docs.
 
 Self-service acquisition support should start in the app before Stripe:
 
@@ -200,5 +202,5 @@ Self-service acquisition support should start in the app before Stripe:
 Safe correlation identifier types are Organization ID, user ID, Stripe customer
 ID, subscription ID, invoice ID, webhook event ID, and app audit-log ID. Do not
 record raw webhook payloads, card details, API keys, webhook secrets, session
-cookies, or screenshots containing secret values in support notes, issues, PRs,
-or repo docs.
+cookies, screenshots, or detailed private provider artifacts in support notes,
+issues, PRs, or repo docs.

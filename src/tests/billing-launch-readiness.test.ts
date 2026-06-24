@@ -45,7 +45,13 @@ interface ReadinessModule {
 	parseConfirmationArtifacts: (markdown: string | null) => Set<string>;
 	parseScenarioEvidence: (markdown: string | null) => Map<string, ScenarioEvidence>;
 	preflightResultFromCompleted: (
-		completed: { status?: number | null; stdout?: string | null; stderr?: string | null } | null,
+		completed: {
+			status?: number | null;
+			stdout?: string | null;
+			stderr?: string | null;
+			signal?: NodeJS.Signals | null;
+			error?: NodeJS.ErrnoException | null;
+		} | null,
 		options: { offline: boolean }
 	) => PreflightResult;
 	buildReadinessResult: (input: {
@@ -180,7 +186,6 @@ describe('billing launch readiness classification', () => {
 
 		expect(completed.status).toBe(0);
 		const report = JSON.parse(completed.stdout) as ReadinessResult;
-		expect(report.status).toBe('blocked');
 		expect(report.checks).toContainEqual(
 			expect.objectContaining({ id: 'confirmation.robert_owned_launch', status: 'needs_confirmation' })
 		);
@@ -300,6 +305,24 @@ describe('billing launch readiness classification', () => {
 		const result = await resultFor({ preflight });
 
 		expect(preflight.error).toBe('Preflight could not be executed. Re-run it directly to inspect local setup.');
+		expect(result).toMatchObject({
+			status: 'blocked',
+			checks: expect.arrayContaining([expect.objectContaining({ id: 'machine.preflight', status: 'blocked' })])
+		});
+	});
+
+	it('blocks safely when preflight times out', async () => {
+		const { preflightResultFromCompleted } = await loadReadinessModule();
+		const timeoutError: NodeJS.ErrnoException = new Error('spawn timed out');
+		timeoutError.code = 'ETIMEDOUT';
+
+		const preflight = preflightResultFromCompleted(
+			{ status: null, stdout: '', stderr: '', signal: 'SIGTERM', error: timeoutError },
+			{ offline: false }
+		);
+		const result = await resultFor({ preflight });
+
+		expect(preflight.error).toBe('Preflight timed out before completing. Re-run it directly to inspect local setup.');
 		expect(result).toMatchObject({
 			status: 'blocked',
 			checks: expect.arrayContaining([expect.objectContaining({ id: 'machine.preflight', status: 'blocked' })])

@@ -13,7 +13,7 @@
 		</p>
 		<div class="contact-panel">
 			<p class="contact-label">Support</p>
-			<p class="contact">support@trooptotask.com</p>
+			<p class="contact">support@trooptotask.org</p>
 		</div>
 		<Button href="/auth/login" variant="outline">Back to Login</Button>
 	</div>

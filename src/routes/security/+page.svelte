@@ -18,7 +18,7 @@
 
 <svelte:head>
 	<title>Security — Troop to Task</title>
-	<meta name="description" content="Security practices and NIST 800-171 compliance information for Troop to Task." />
+	<meta name="description" content="Security practices and NIST 800-171 alignment information for Troop to Task." />
 </svelte:head>
 
 <PublicShell user={data.user} active="security">

@@ -104,7 +104,7 @@
 				This organization ({suspendedShell.org.name}) has been suspended. If you believe this is an error, please
 				contact support.
 			</p>
-			<p class="m-0 font-medium">support@trooptotask.com</p>
+			<p class="m-0 font-medium">support@trooptotask.org</p>
 			<Button href="/dashboard?show=all" variant="outline">Back to Dashboard</Button>
 		</div>
 	</div>

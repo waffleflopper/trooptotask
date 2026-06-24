@@ -288,9 +288,3 @@ export function computeDa6Roster(input: Da6RosterEngineInput): Da6RosterEngineOu
 
 	return { columns, rosterRows, cellsByPersonnelId };
 }
-
-export const __testing = {
-	baselineCountPriority,
-	createDa6Numbering,
-	lastDutyDatePriority
-};

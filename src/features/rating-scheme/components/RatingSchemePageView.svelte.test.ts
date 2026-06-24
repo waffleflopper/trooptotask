@@ -122,7 +122,20 @@ describe('RatingSchemePageView', () => {
 			}
 		});
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Table' }));
-		expect(ctx.ratingViewMode).toBe('table');
+		const groupedToggle = screen.getByRole('button', { name: 'Grouped' });
+		const tableToggle = screen.getByRole('button', { name: 'Table' });
+
+		expect(groupedToggle.getAttribute('aria-pressed')).toBe('true');
+		expect(tableToggle.getAttribute('aria-pressed')).toBe('false');
+		expect(screen.queryByRole('columnheader', { name: /Rated Individual/ })).toBeNull();
+
+		await fireEvent.click(tableToggle);
+
+		expect(groupedToggle.getAttribute('aria-pressed')).toBe('false');
+		expect(tableToggle.getAttribute('aria-pressed')).toBe('true');
+		expect(screen.getByRole('columnheader', { name: /Rated Individual/ })).toBeTruthy();
+		expect(screen.getByRole('columnheader', { name: /Thru Date/ })).toBeTruthy();
+		expect(screen.getByText('SGT Smith, Jane')).toBeTruthy();
+		expect(screen.getByText('CPT Jones, Alex')).toBeTruthy();
 	});
 });

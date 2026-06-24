@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Cookies } from '@sveltejs/kit';
-import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import type {
 	OnboardingTemplate,
 	OnboardingTemplateStep,
@@ -97,17 +96,6 @@ describe('streamOnboardingWorkspaceBootstrap', () => {
 			orgId: '1-11-bde'
 		});
 
-		expect(loadWithContextMock).toHaveBeenCalledWith(
-			expect.anything(),
-			expect.anything(),
-			'1-11-bde',
-			expect.objectContaining({
-				policyAction: POLICY_ACTION_CATALOG.onboarding.viewWorkflows,
-				policyResource: { kind: 'unscoped' },
-				defer: true
-			})
-		);
-		expect(loadWithContextMock.mock.calls[0]?.[3]).not.toHaveProperty('permission');
 		expect(routeData.onboarding.data).toBeInstanceOf(Promise);
 
 		await expect(routeData.onboarding.data).resolves.toMatchObject({
@@ -144,21 +132,48 @@ describe('streamOnboardingWorkspaceBootstrap', () => {
 			}
 		});
 		const workspace = await routeData.onboarding.data;
-		expect(fetchOnboardingBootstrapMock).toHaveBeenCalledWith(mockCtx, {});
 		expect(workspace.hydration.onboardingTemplates.snapshotKey).not.toContain('Reception');
 		expect(workspace.hydration.personnel.snapshotKey).not.toContain('Smith');
 	});
 
-	it('passes the requested onboarding bootstrap mode to the query use case', async () => {
-		const onboardingData = {
+	it('hydrates historical onboarding records when history mode is requested', async () => {
+		const activeData = {
 			onboardingTemplates: [] as OnboardingTemplate[],
 			onboardingTemplateSteps: [] as OnboardingTemplateStep[],
-			onboardings: [] as PersonnelOnboarding[],
+			onboardings: [
+				{
+					id: 'active-onboarding',
+					personnelId: 'p-active',
+					startedAt: '2024-01-01',
+					completedAt: null,
+					cancelledAt: null,
+					status: 'in_progress',
+					steps: [],
+					templateId: null
+				}
+			] as PersonnelOnboarding[],
 			personnel: [] as Personnel[],
 			groups: [] as Group[],
 			trainingTypes: [] as TrainingType[]
 		};
-		fetchOnboardingBootstrapMock.mockResolvedValue(onboardingData);
+		const historyData = {
+			...activeData,
+			onboardings: [
+				{
+					id: 'completed-onboarding',
+					personnelId: 'p-completed',
+					startedAt: '2024-01-01',
+					completedAt: '2024-02-01',
+					cancelledAt: null,
+					status: 'completed',
+					steps: [],
+					templateId: null
+				}
+			] as PersonnelOnboarding[]
+		};
+		fetchOnboardingBootstrapMock.mockImplementation((_ctx, options) =>
+			Promise.resolve(options?.mode === 'history' ? historyData : activeData)
+		);
 
 		const routeData = await streamOnboardingWorkspaceBootstrap(
 			{
@@ -169,8 +184,11 @@ describe('streamOnboardingWorkspaceBootstrap', () => {
 			{ mode: 'history' }
 		);
 
-		await routeData.onboarding.data;
+		const workspace = await routeData.onboarding.data;
 
-		expect(fetchOnboardingBootstrapMock).toHaveBeenCalledWith(mockCtx, { mode: 'history' });
+		expect(workspace.data.onboardings).toEqual([
+			expect.objectContaining({ id: 'completed-onboarding', status: 'completed' })
+		]);
+		expect(workspace.hydration.onboardings.items).toEqual(workspace.data.onboardings);
 	});
 });

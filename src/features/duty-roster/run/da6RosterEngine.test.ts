@@ -1,10 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-	__testing,
-	computeDa6Roster,
-	type AvailabilityClassification,
-	type Da6RosterEngineInput
-} from './da6RosterEngine';
+import { computeDa6Roster, type AvailabilityClassification, type Da6RosterEngineInput } from './da6RosterEngine';
 import type { DutyRosterSequenceKey, DutyRosterSnapshotPersonnel } from './dutyRosterRun.types';
 
 const available: AvailabilityClassification = {
@@ -31,6 +26,15 @@ const blockedByDuty: AvailabilityClassification = {
 	chargeable: true,
 	reasonCode: 'other-duty-status',
 	reasonParams: { statusNames: ['CQ'] }
+};
+
+const misconductUnavailable: AvailabilityClassification = {
+	selectable: false,
+	code: 'misconduct-unavailable',
+	da6Code: 'U',
+	chargeable: true,
+	reasonCode: 'misconduct-unavailable',
+	reasonParams: { statusNames: ['AWOL'] }
 };
 
 function soldier(overrides: Partial<DutyRosterSnapshotPersonnel>): DutyRosterSnapshotPersonnel {
@@ -257,124 +261,117 @@ describe('computeDa6Roster', () => {
 
 		expect(output.rosterRows.map((row) => row.assigneeId)).toEqual(['alpha', 'bravo']);
 	});
-});
 
-describe('Duty Priority', () => {
-	it('ranks never-assigned Soldiers before already-assigned Soldiers, then uses DA6 Roster Order', () => {
-		const alpha = soldier({ id: 'alpha', rank: 'SGT', lastName: 'Able' });
-		const bravo = soldier({ id: 'bravo', rank: 'SGT', lastName: 'Baker' });
-		const staff = soldier({ id: 'staff', rank: 'SSG', lastName: 'Zebra' });
-		const priority = __testing.lastDutyDatePriority(
-			new Map([
-				['alpha', '2026-05-01'],
-				['bravo', null],
-				['staff', null]
-			])
+	it('orders date-priority rosters by never-assigned status, DA6 order, and oldest last duty date', () => {
+		const output = computeDa6Roster(
+			engineInput({
+				pool: [
+					soldier({ id: 'alpha', rank: 'SGT', lastName: 'Able' }),
+					soldier({ id: 'bravo', rank: 'SGT', lastName: 'Baker' }),
+					soldier({ id: 'staff', rank: 'SSG', lastName: 'Zebra' })
+				],
+				dutyDates: ['2026-05-02', '2026-05-03', '2026-05-04'],
+				priorLastDutyDates: new Map([
+					['alpha', '2026-05-01'],
+					['bravo', null],
+					['staff', null]
+				])
+			})
 		);
 
-		expect(priority.compare(bravo, alpha)).toBeLessThan(0);
-		expect(priority.compare(alpha, bravo)).toBeGreaterThan(0);
-		expect(priority.compare(staff, bravo)).toBeLessThan(0);
+		expect(output.rosterRows.map((row) => row.assigneeId)).toEqual(['staff', 'bravo', 'alpha']);
 	});
 
-	it('updates last-duty-date priority when a Soldier is selected', () => {
-		const alpha = soldier({ id: 'alpha', rank: 'SGT', lastName: 'Able' });
-		const bravo = soldier({ id: 'bravo', rank: 'SGT', lastName: 'Baker' });
-		const priority = __testing.lastDutyDatePriority(
-			new Map([
-				['alpha', '2026-05-01'],
-				['bravo', null]
-			])
+	it('keeps baseline-priority rosters fair by raising passed-over Soldiers and resetting selected Soldiers', () => {
+		const output = computeDa6Roster(
+			engineInput({
+				pool: [
+					soldier({ id: 'alpha', rank: 'SGT', lastName: 'Able' }),
+					soldier({ id: 'bravo', rank: 'SGT', lastName: 'Baker' }),
+					soldier({ id: 'staff', rank: 'SSG', lastName: 'Zebra' })
+				],
+				dutyDates: ['2026-05-01', '2026-05-02', '2026-05-03'],
+				manualBaselineCounts: new Map([
+					['alpha', 2],
+					['bravo', 2],
+					['staff', 2]
+				])
+			})
 		);
 
-		priority.recordSelection('bravo', '2026-05-02');
-
-		expect(priority.compare(alpha, bravo)).toBeLessThan(0);
+		expect(output.rosterRows.map((row) => row.assigneeId)).toEqual(['staff', 'alpha', 'bravo']);
+		expect(output.cellsByPersonnelId.get('staff')?.map((cell) => cell.sequenceNumber)).toEqual([2, 1, 2]);
+		expect(output.cellsByPersonnelId.get('bravo')?.map((cell) => cell.sequenceNumber)).toEqual([2, 3, 4]);
 	});
 
-	it('raises passed-over Soldiers, resets selected Soldiers, and uses DA6 Roster Order for count ties', () => {
-		const alpha = soldier({ id: 'alpha', rank: 'SGT', lastName: 'Able' });
-		const bravo = soldier({ id: 'bravo', rank: 'SGT', lastName: 'Baker' });
-		const staff = soldier({ id: 'staff', rank: 'SSG', lastName: 'Zebra' });
-		const priority = __testing.baselineCountPriority(
-			new Map([
-				['alpha', 2],
-				['bravo', 2],
-				['staff', 2]
-			])
+	it('shows chargeable pass-overs, authorized absences, assignments, and resets in visible DA6 cells', () => {
+		const output = computeDa6Roster(
+			engineInput({
+				dutyDates: ['2026-05-01', '2026-05-02', '2026-05-03', '2026-05-04', '2026-05-05'],
+				classificationByPersonDate: new Map([
+					[
+						'alpha',
+						new Map([
+							['2026-05-01', blockedByDuty],
+							['2026-05-02', misconductUnavailable],
+							['2026-05-03', authorizedAbsence],
+							['2026-05-04', available],
+							['2026-05-05', blockedByDuty]
+						])
+					]
+				]),
+				initialDa6Counts: new Map([['alpha', new Map<DutyRosterSequenceKey, number>([['single', 2]])]])
+			})
 		);
 
-		expect(priority.compare(staff, alpha)).toBeLessThan(0);
-
-		priority.recordPassedOver('bravo');
-
-		expect(priority.compare(bravo, staff)).toBeLessThan(0);
-
-		priority.recordSelection('bravo', '2026-05-01');
-
-		expect(priority.compare(staff, bravo)).toBeLessThan(0);
-	});
-});
-
-describe('DA6 Numbering', () => {
-	function initialCount(personId: string, count: number): Map<string, Map<DutyRosterSequenceKey, number>> {
-		return new Map([[personId, new Map<DutyRosterSequenceKey, number>([['single', count]])]]);
-	}
-
-	it('does not increment for an A cell and resumes from the interrupted sequence number', () => {
-		const numbering = __testing.createDa6Numbering(initialCount('alpha', 2));
-
-		expect(numbering.current('alpha', 'single', true)).toBe(2);
-		numbering.record('alpha', 'single', { assigned: false, chargeable: true });
-
-		expect(numbering.current('alpha', 'single', false)).toBe(3);
-		numbering.record('alpha', 'single', { assigned: false, chargeable: false });
-
-		expect(numbering.current('alpha', 'single', true)).toBe(3);
+		const cells = output.cellsByPersonnelId.get('alpha') ?? [];
+		expect(cells.map((cell) => cell.da6Code)).toEqual(['D', 'U', 'A', null, 'D']);
+		expect(cells.map((cell) => cell.assigned)).toEqual([false, false, false, true, false]);
+		expect(cells.map((cell) => cell.sequenceNumber)).toEqual([2, 3, 4, 4, 1]);
 	});
 
-	it('increments through D and U chargeable outcomes', () => {
-		const numbering = __testing.createDa6Numbering(new Map());
+	it('leaves unseeded nonchargeable cells unnumbered until the Soldier is chargeable', () => {
+		const output = computeDa6Roster(
+			engineInput({
+				dutyDates: ['2026-05-01', '2026-05-02'],
+				classificationByPersonDate: new Map([
+					[
+						'alpha',
+						new Map([
+							['2026-05-01', authorizedAbsence],
+							['2026-05-02', blockedByDuty]
+						])
+					]
+				])
+			})
+		);
 
-		expect(numbering.current('alpha', 'single', true)).toBe(1);
-		numbering.record('alpha', 'single', { assigned: false, chargeable: true });
-
-		expect(numbering.current('alpha', 'single', true)).toBe(2);
-		numbering.record('alpha', 'single', { assigned: false, chargeable: true });
-
-		expect(numbering.current('alpha', 'single', true)).toBe(3);
+		expect(output.cellsByPersonnelId.get('alpha')?.map((cell) => cell.sequenceNumber)).toEqual([null, 1]);
 	});
 
-	it('resets the next displayed number to 1 after an assignment', () => {
-		const numbering = __testing.createDa6Numbering(initialCount('alpha', 5));
+	it('tracks DA6 numbering independently for weekday and weekend-holiday sequences', () => {
+		const output = computeDa6Roster(
+			engineInput({
+				dutyDates: ['2026-05-01', '2026-05-02', '2026-05-03'],
+				sequenceByDate: new Map([
+					['2026-05-01', { sequenceKind: 'weekday', sequenceKey: 'weekday' }],
+					['2026-05-02', { sequenceKind: 'weekend', sequenceKey: 'weekend-holiday' }],
+					['2026-05-03', { sequenceKind: 'weekday', sequenceKey: 'weekday' }]
+				]),
+				classificationByPersonDate: new Map([
+					[
+						'alpha',
+						new Map([
+							['2026-05-01', blockedByDuty],
+							['2026-05-02', blockedByDuty],
+							['2026-05-03', blockedByDuty]
+						])
+					]
+				])
+			})
+		);
 
-		expect(numbering.current('alpha', 'single', true)).toBe(5);
-		numbering.record('alpha', 'single', { assigned: true, chargeable: true });
-
-		expect(numbering.current('alpha', 'single', true)).toBe(1);
-	});
-
-	it('uses Manual DA6 Baseline counts as the first displayed number', () => {
-		const numbering = __testing.createDa6Numbering(initialCount('alpha', 4));
-
-		expect(numbering.current('alpha', 'single', true)).toBe(4);
-	});
-
-	it('starts an unseeded chargeable Soldier at 1', () => {
-		const numbering = __testing.createDa6Numbering(new Map());
-
-		expect(numbering.current('alpha', 'single', true)).toBe(1);
-		expect(numbering.current('bravo', 'single', false)).toBeNull();
-	});
-
-	it('tracks numbering independently per DA6 sequence key', () => {
-		const numbering = __testing.createDa6Numbering(new Map());
-
-		expect(numbering.current('alpha', 'single', true)).toBe(1);
-		numbering.record('alpha', 'single', { assigned: false, chargeable: true });
-
-		expect(numbering.current('alpha', 'single', true)).toBe(2);
-		expect(numbering.current('alpha', 'weekday', true)).toBe(1);
-		expect(numbering.current('alpha', 'weekend-holiday', true)).toBe(1);
+		expect(output.columns.map((column) => column.sequenceKey)).toEqual(['weekday', 'weekend-holiday', 'weekday']);
+		expect(output.cellsByPersonnelId.get('alpha')?.map((cell) => cell.sequenceNumber)).toEqual([1, 1, 2]);
 	});
 });

@@ -4,21 +4,6 @@ import {
 	createSupabasePlatformBillingEventsStore
 } from './supabasePlatformBillingEvents';
 
-const { recordRetryAttemptMock, processRecordedEventMock } = vi.hoisted(() => ({
-	recordRetryAttemptMock: vi.fn(async () => 4),
-	processRecordedEventMock: vi.fn(async () => ({
-		ok: true,
-		state: 'processed',
-		result: 'checkout pending activation recorded',
-		status: 200
-	}))
-}));
-
-vi.mock('$lib/server/billing/stripeWebhookProcessing', () => ({
-	_recordRetryableStripeWebhookEventAttempt: recordRetryAttemptMock,
-	_processRecordedStripeWebhookEvent: processRecordedEventMock
-}));
-
 function makeRecentEventsSupabase(rows: unknown[], error: unknown = null) {
 	const query = {
 		select: vi.fn(() => query),
@@ -44,6 +29,68 @@ function makeEventByIdSupabase(row: unknown, error: unknown = null) {
 		supabase: {
 			from: vi.fn(() => query)
 		}
+	};
+}
+
+function makeRetryEventSupabase(row: unknown) {
+	const webhookRetryAttempts: Array<{ name: string; args: Record<string, unknown> }> = [];
+	const webhookUpdates: Array<{ values: Record<string, unknown>; filters: Array<[string, string, unknown]> }> = [];
+
+	function webhookUpdate(values: Record<string, unknown>) {
+		const filters: Array<[string, string, unknown]> = [];
+		const chain = {
+			eq: vi.fn((column: string, value: unknown) => {
+				filters.push(['eq', column, value]);
+				return chain;
+			}),
+			lt: vi.fn((column: string, value: unknown) => {
+				filters.push(['lt', column, value]);
+				return chain;
+			}),
+			not: vi.fn((column: string, operator: string, value: unknown) => {
+				filters.push(['not', `${column}.${operator}`, value]);
+				return chain;
+			}),
+			neq: vi.fn((column: string, value: unknown) => {
+				filters.push(['neq', column, value]);
+				webhookUpdates.push({ values, filters });
+				return Promise.resolve({ error: null });
+			}),
+			then: (resolve: (value: { error: null }) => unknown, reject?: (reason: unknown) => unknown) => {
+				webhookUpdates.push({ values, filters });
+				return Promise.resolve({ error: null }).then(resolve, reject);
+			}
+		};
+		return chain;
+	}
+
+	const query = {
+		select: vi.fn(() => query),
+		eq: vi.fn(() => query),
+		maybeSingle: vi.fn(async () => ({ data: row, error: null })),
+		update: vi.fn(webhookUpdate)
+	};
+	const supabase = {
+		rpc: vi.fn(async (name: string, args: Record<string, unknown>) => {
+			if (name !== 'record_retryable_stripe_webhook_event_attempt') {
+				throw new Error(`Unexpected rpc ${name}`);
+			}
+			webhookRetryAttempts.push({ name, args });
+			return { data: 4, error: null };
+		}),
+		from: vi.fn((table: string) => {
+			if (table !== 'stripe_webhook_events') {
+				throw new Error(`Unexpected table ${table}`);
+			}
+			return query;
+		})
+	};
+
+	return {
+		supabase,
+		query,
+		webhookRetryAttempts,
+		webhookUpdates
 	};
 }
 
@@ -121,13 +168,13 @@ describe('Supabase PlatformBillingEvents adapter', () => {
 		);
 	});
 
-	it('wires retry processing through the webhook processor with the admin Supabase client', async () => {
+	it('retries a retryable billing event through the platform billing retry processor', async () => {
 		const row = {
 			id: 'evt_retry',
-			type: 'checkout.session.completed',
-			data: { object: { id: 'cs_123', metadata: { orgId: 'org-1', tier: 'team' }, subscription: 'sub_123' } },
-			object_id: 'cs_123',
-			secondary_dedupe_key: 'checkout.session.completed:cs_123',
+			type: 'billing.test.unsupported',
+			data: { object: { id: 'manual_object' } },
+			object_id: 'manual_object',
+			secondary_dedupe_key: 'billing.test.unsupported:manual_object',
 			event_created_at: '2026-05-23T00:00:00.000Z',
 			processed: false,
 			processed_at: null,
@@ -138,7 +185,7 @@ describe('Supabase PlatformBillingEvents adapter', () => {
 			created_at: '2026-05-23T00:00:01.000Z',
 			updated_at: '2026-05-23T00:00:02.000Z'
 		};
-		const { supabase } = makeEventByIdSupabase(row);
+		const { supabase, webhookRetryAttempts, webhookUpdates } = makeRetryEventSupabase(row);
 		const audit = vi.fn();
 
 		const result = await createSupabasePlatformBillingEvents({
@@ -149,30 +196,49 @@ describe('Supabase PlatformBillingEvents adapter', () => {
 			audit
 		}).retryEvent('evt_retry');
 
-		expect(result).toEqual({ ok: true, state: 'processed', result: 'checkout pending activation recorded' });
-		expect(recordRetryAttemptMock).toHaveBeenCalledWith(
-			supabase,
-			expect.objectContaining({ id: 'evt_retry', type: 'checkout.session.completed' }),
-			expect.objectContaining({
-				objectId: 'cs_123',
-				secondaryDedupeKey: 'checkout.session.completed:cs_123',
-				eventCreatedAt: '2026-05-23T00:00:00.000Z'
-			})
-		);
-		expect(processRecordedEventMock).toHaveBeenCalledWith(
-			supabase,
-			expect.objectContaining({ id: 'evt_retry', created: 1779494400 }),
-			expect.objectContaining({
-				secondaryDedupeKey: 'checkout.session.completed:cs_123',
-				eventCreatedAt: '2026-05-23T00:00:00.000Z'
-			})
-		);
+		expect(result).toEqual({
+			ok: true,
+			state: 'ignored',
+			result: 'unsupported event type billing.test.unsupported'
+		});
+		expect(webhookRetryAttempts).toEqual([
+			{
+				name: 'record_retryable_stripe_webhook_event_attempt',
+				args: expect.objectContaining({
+					p_id: 'evt_retry',
+					p_type: 'billing.test.unsupported',
+					p_object_id: 'manual_object',
+					p_secondary_dedupe_key: 'billing.test.unsupported:manual_object',
+					p_event_created_at: '2026-05-23T00:00:00.000Z'
+				})
+			}
+		]);
+		expect(webhookUpdates).toEqual([
+			{
+				values: expect.objectContaining({
+					processed: false,
+					processed_at: null,
+					processing_state: 'ignored',
+					processing_result: 'unsupported event type billing.test.unsupported',
+					last_error: null
+				}),
+				filters: [['eq', 'id', 'evt_retry']]
+			}
+		]);
 		expect(audit).toHaveBeenCalledWith(
 			expect.objectContaining({
 				action: 'admin.billing_event.retry',
 				resourceType: 'stripe_webhook_event',
 				resourceId: 'evt_retry',
-				severity: 'info'
+				severity: 'info',
+				details: expect.objectContaining({
+					eventType: 'billing.test.unsupported',
+					objectId: 'manual_object',
+					processingStateBefore: 'retryable_failed',
+					attemptCountBefore: 3,
+					resultState: 'ignored',
+					result: 'unsupported event type billing.test.unsupported'
+				})
 			})
 		);
 	});

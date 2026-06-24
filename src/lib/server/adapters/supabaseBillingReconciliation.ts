@@ -5,7 +5,7 @@ import type {
 } from '$lib/server/core/useCases/billingReconciliation';
 import type { BillingReconciliationBatchStore } from '$lib/server/core/useCases/billingReconciliationBatch';
 
-export function _mergeBillingReconciliationCandidateIds(input: {
+function mergeBillingReconciliationCandidateIds(input: {
 	organizationIds: string[];
 	snapshotOrganizationIds: string[];
 	limit: number;
@@ -68,7 +68,7 @@ export function createSupabaseBillingReconciliationStore(supabase: SupabaseClien
 				throw new Error(`Failed to list billing snapshot reconciliation candidates: ${snapshotResult.error.message}`);
 			}
 
-			return _mergeBillingReconciliationCandidateIds({
+			return mergeBillingReconciliationCandidateIds({
 				organizationIds: (organizationResult.data ?? []).flatMap(
 					(row) => billingReconciliationCandidateId(row, 'id') ?? []
 				),

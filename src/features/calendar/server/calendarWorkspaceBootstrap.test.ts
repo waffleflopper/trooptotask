@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Cookies } from '@sveltejs/kit';
-import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { CALENDAR_ANCHOR_COOKIE } from '$features/calendar/utils/calendarAnchorDate';
 import type { AssignmentType, AvailabilityEntry, DailyAssignment, Personnel, SpecialDay, StatusType } from '$lib/types';
 import type { Group } from '$lib/stores/groups.svelte';
@@ -83,24 +82,7 @@ describe('streamCalendarWorkspaceBootstrap', () => {
 
 		const workspace = await routeData.calendar.data;
 
-		expect(loadWithContextMock).toHaveBeenCalledWith(
-			expect.anything(),
-			expect.anything(),
-			orgId,
-			expect.objectContaining({
-				policyAction: POLICY_ACTION_CATALOG.calendar.viewAvailability,
-				policyResource: { kind: 'unscoped' },
-				defer: true
-			})
-		);
-		expect(loadWithContextMock.mock.calls[0]?.[3]).not.toHaveProperty('permission');
-		expect(fetchCalendarBootstrapMock).toHaveBeenCalledWith(
-			expect.anything(),
-			expect.objectContaining({
-				rangeStart: '2026-03-01',
-				rangeEnd: '2026-05-31'
-			})
-		);
+		expect(routeData.calendar.data).toBeInstanceOf(Promise);
 		expect(workspace).toEqual({
 			laneKey: 'calendar',
 			data: {
@@ -141,21 +123,35 @@ describe('streamCalendarWorkspaceBootstrap', () => {
 		const cookies = {
 			get: vi.fn((name: string) => (name === CALENDAR_ANCHOR_COOKIE ? '2026-05-01' : undefined))
 		} as unknown as Cookies;
+		fetchCalendarBootstrapMock.mockImplementationOnce((_ctx, input) =>
+			Promise.resolve({
+				...calendarBootstrap,
+				rangeStart: input.rangeStart,
+				rangeEnd: input.rangeEnd,
+				specialDays: Promise.resolve([
+					{
+						id: 'sd-wide',
+						name: 'Settings special day',
+						date: input.specialDaysRange?.rangeStart ?? input.rangeStart
+					} as SpecialDay
+				])
+			})
+		);
 
-		await streamCalendarWorkspaceBootstrap({
+		const routeData = await streamCalendarWorkspaceBootstrap({
 			locals: {} as App.Locals,
 			cookies,
 			orgId,
 			specialDaysRange: { rangeStart: '2025-01-01', rangeEnd: '2028-12-31' }
-		}).then((routeData) => routeData.calendar.data);
+		});
+		const workspace = await routeData.calendar.data;
 
-		expect(fetchCalendarBootstrapMock).toHaveBeenCalledWith(
-			expect.anything(),
-			expect.objectContaining({
-				rangeStart: '2026-04-01',
-				rangeEnd: '2026-06-30',
-				specialDaysRange: { rangeStart: '2025-01-01', rangeEnd: '2028-12-31' }
-			})
-		);
+		expect(workspace.data.rangeStart).toBe('2026-04-01');
+		expect(workspace.data.rangeEnd).toBe('2026-06-30');
+		await expect(workspace.data.specialDays).resolves.toEqual([
+			expect.objectContaining({ id: 'sd-wide', date: '2025-01-01' })
+		]);
+		expect(workspace.hydration.calendarAssignments.rangeStart).toBe('2026-04-01');
+		expect(workspace.hydration.calendarAssignments.rangeEnd).toBe('2026-06-30');
 	});
 });

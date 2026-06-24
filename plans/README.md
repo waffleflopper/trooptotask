@@ -114,7 +114,7 @@ The operator explicitly excluded automatic CI trigger work from this batch. Do n
 | 085  | Self-service checkout and billing recovery        | P1       | L      | 083, 084, 078 | DONE |
 | 086  | Support/admin visibility for self-service         | P1       | M-L    | 083, 084, 085, 082 | DONE |
 | 087  | Self-service acquisition E2E coverage             | P1       | L      | 083, 084, 085, 086 | DONE |
-| 088  | Self-service Organization Invitation branch       | P1       | M      | 083        | TODO   |
+| 088  | Self-service Organization Invitation branch       | P1       | M      | 083        | DONE   |
 | 089  | Paid-launch legal/trust/contact surface           | P1       | M      | -          | TODO   |
 | 090  | Billing launch readiness gate                     | P1       | M      | 083-087    | TODO   |
 | 091  | Billing health and support workflow               | P1       | M-L    | 085, 086   | TODO   |
@@ -130,6 +130,7 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJE
 - Plan 090 drifted because the read-only billing gate added `readOnlyMode` and route-authorization exceptions after `c6760c16`; the plan now calls that out as launch-readiness evidence.
 - Plan 092 drifted because the getting-started endpoint adopted policy-first route config/read-only preference exceptions after `c6760c16`; the activation-health finding still stands.
 - No BLOCKED or IN PROGRESS rows were present. After PR #1230, the remaining executable launch runway is plans 088-092, with plan 089 independent and plans 083-087 serving as the completed self-service acquisition foundation.
+- 2026-06-22: Plan 088 was completed in `.worktrees/088-self-service-invitation-branch` on branch `codex/088-self-service-invitation-branch` with commits `f5724b37`, `0fee5499`, and `751af217`. Reviewer reran the focused invitation/auth/dashboard tests and the full repo gate successfully.
 
 ## Dependency Notes
 

@@ -249,8 +249,7 @@ describe('organization invitation delivery', () => {
 		});
 	});
 
-	it('retries billing-enabled non-user invitations without Access Request links to self-service signup', async () => {
-		billingEnabledMock.mockReturnValue(true);
+	it('keeps self-service invitation retries on signup after billing is disabled', async () => {
 		vi.stubEnv('APP_PUBLIC_ORIGIN_ALLOWLIST', 'https://trooptotask.test');
 		const store = createOrganizationInvitationEmailOutboxStore();
 		const sendEmail = vi.fn().mockResolvedValue(undefined);

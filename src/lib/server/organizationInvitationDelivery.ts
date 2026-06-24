@@ -1,6 +1,5 @@
 import { env } from '$env/dynamic/private';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { isBillingEnabled } from '$lib/config/billing';
 import { makePublicAppUrl } from './publicAppOrigin';
 
 const RESEND_EMAILS_URL = 'https://api.resend.com/emails';
@@ -366,8 +365,7 @@ export async function retryOrganizationInvitationOutboxDelivery(
 
 	const retryRequiresLinkedAccessSetup = input.invitation.requiresAccountSetup;
 	const retryRequiresAccountSetup = retryRequiresLinkedAccessSetup || !input.invitation.recipientHasUserAccount;
-	const retrySelfServiceSignupEnabled =
-		!retryRequiresLinkedAccessSetup && retryRequiresAccountSetup && isBillingEnabled;
+	const retrySelfServiceSignupEnabled = !retryRequiresLinkedAccessSetup && retryRequiresAccountSetup;
 
 	try {
 		await sendEmail({

@@ -107,7 +107,7 @@ export interface OrganizationInvitationRevokeResult {
 export interface OrganizationSettingsMemberManagementPort {
 	findPendingInvitation(orgId: string, email: string): Promise<{ id: string } | null>;
 	findPendingInvitationById(orgId: string, inviteId: string): Promise<OrganizationInvitationResendLookupResult | null>;
-	findUserAccountByEmail(email: string): Promise<{ id: string; email: string } | null>;
+	findUserAccountByEmail(email: string): Promise<{ id: string; email: string; emailConfirmed?: boolean } | null>;
 	createInvitation(input: OrganizationInvitationCreateInput): Promise<OrganizationInvitationCreateResult>;
 	createOrLinkPendingAccessRequestForInvitation(
 		input: OrganizationInvitationAccessRequestBridgeInput
@@ -533,7 +533,9 @@ export async function resendOrganizationInvitation(
 		invitationId: invitation.id
 	});
 	const existingUserAccount = await ports.settings.findUserAccountByEmail(invitation.email);
-	const requiresAccountSetup = invitation.requiresAccountSetup || !existingUserAccount;
+	const hasUsableUserAccount = !!existingUserAccount && existingUserAccount.emailConfirmed !== false;
+	const requiresAccountSetup = invitation.requiresAccountSetup || !hasUsableUserAccount;
+	const selfServiceSignupEnabled = !invitation.requiresAccountSetup && requiresAccountSetup;
 
 	const deliveryStatus = await deliverInvitationEmail(ports, {
 		invitationId: invitation.id,
@@ -541,7 +543,7 @@ export async function resendOrganizationInvitation(
 		actorEmail: input.actorEmail ?? null,
 		origin: input.origin,
 		requiresAccountSetup,
-		selfServiceSignupEnabled: !invitation.requiresAccountSetup && requiresAccountSetup && isBillingEnabled,
+		selfServiceSignupEnabled,
 		mode: 'resend',
 		rateLimit
 	});

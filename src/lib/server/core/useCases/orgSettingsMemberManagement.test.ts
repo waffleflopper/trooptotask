@@ -38,7 +38,7 @@ function createOrganizationSettingsMemberManagementPort(
 	options: {
 		existingInvitationId?: string | null;
 		createInvitationError?: string | null;
-		existingUserAccount?: { id: string; email: string } | null;
+		existingUserAccount?: { id: string; email: string; emailConfirmed?: boolean } | null;
 		accessRequestBridgeResult?:
 			| { status: 'created' | 'linked' | 'already-linked'; accessRequestId: string }
 			| { status: 'failed'; message: string }
@@ -1666,6 +1666,75 @@ describe('inviteOrganizationMember', () => {
 			},
 			severity: 'info'
 		});
+	});
+
+	it('keeps self-service invitation resends stable when billing is later disabled', async () => {
+		billingEnabledMock.mockReturnValue(false);
+		const ctx = createTestContext();
+		const port = createOrganizationSettingsMemberManagementPort({
+			existingUserAccount: null,
+			pendingInvitationRequiresAccountSetup: false,
+			orgName: 'Alpha Company'
+		});
+		const delivery = createInvitationDeliveryPort('sent');
+
+		await resendOrganizationInvitation(
+			{
+				auth: ctx.auth,
+				audit: ctx.audit,
+				notifications: ctx.notifications,
+				settings: port,
+				invitationDelivery: delivery
+			},
+			{
+				inviteId: '11111111-1111-4111-8111-111111111111',
+				actorEmail: 'actor@example.com',
+				origin: 'https://trooptotask.test'
+			}
+		);
+
+		expect(delivery.deliveries).toEqual([
+			expect.objectContaining({
+				invitationId: '11111111-1111-4111-8111-111111111111',
+				email: 'invitee@example.com',
+				requiresAccountSetup: true,
+				selfServiceSignupEnabled: true
+			})
+		]);
+	});
+
+	it('keeps unconfirmed invitee signups on setup resend', async () => {
+		const ctx = createTestContext();
+		const port = createOrganizationSettingsMemberManagementPort({
+			existingUserAccount: { id: 'existing-user-1', email: 'invitee@example.com', emailConfirmed: false },
+			pendingInvitationRequiresAccountSetup: false,
+			orgName: 'Alpha Company'
+		});
+		const delivery = createInvitationDeliveryPort('sent');
+
+		await resendOrganizationInvitation(
+			{
+				auth: ctx.auth,
+				audit: ctx.audit,
+				notifications: ctx.notifications,
+				settings: port,
+				invitationDelivery: delivery
+			},
+			{
+				inviteId: '11111111-1111-4111-8111-111111111111',
+				actorEmail: 'actor@example.com',
+				origin: 'https://trooptotask.test'
+			}
+		);
+
+		expect(delivery.deliveries).toEqual([
+			expect.objectContaining({
+				invitationId: '11111111-1111-4111-8111-111111111111',
+				email: 'invitee@example.com',
+				requiresAccountSetup: true,
+				selfServiceSignupEnabled: true
+			})
+		]);
 	});
 
 	it('keeps linked reviewed-access invitation resends on reviewed setup until setup completes', async () => {

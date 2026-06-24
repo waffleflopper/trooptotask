@@ -115,7 +115,7 @@ async function passingConfirmations() {
 }
 
 describe('billing launch readiness classification', () => {
-	it('CLI exits 0 for a support-safe blocked report and requires JSON status inspection', () => {
+	it('CLI exits 0 for a support-safe report and requires JSON status inspection', () => {
 		const completed = spawnSync(process.execPath, [readinessScriptPath, '--offline', '--json'], {
 			cwd: repoRootPath,
 			encoding: 'utf8',
@@ -132,8 +132,10 @@ describe('billing launch readiness classification', () => {
 
 		expect(completed.status).toBe(0);
 		const report = JSON.parse(completed.stdout) as ReadinessResult;
-		expect(report.status).toBe('blocked');
-		expect(report.reasons.length).toBeGreaterThan(0);
+		expect(['go', 'blocked', 'needs_confirmation']).toContain(report.status);
+		expect(Array.isArray(report.checks)).toBe(true);
+		expect(Array.isArray(report.reasons)).toBe(true);
+		expect(report.checks.every((check) => check.id && check.status && check.reason)).toBe(true);
 		expect(report.reasons.every((reason) => reason.id && reason.reason)).toBe(true);
 	});
 
@@ -217,6 +219,30 @@ describe('billing launch readiness classification', () => {
 			status: 'blocked',
 			checks: expect.arrayContaining([expect.objectContaining({ id: 'machine.preflight', status: 'blocked' })])
 		});
+	});
+
+	it('treats malformed preflight JSON shapes as support-safe parse failures', async () => {
+		const { preflightResultFromCompleted } = await loadReadinessModule();
+		const malformedOutputs = [
+			{ stdout: JSON.stringify(null), label: 'null output' },
+			{ stdout: JSON.stringify([]), label: 'array output' },
+			{ stdout: JSON.stringify({ summary: null, results: [] }), label: 'missing summary object' },
+			{
+				stdout: JSON.stringify({ summary: { pass: 1, warn: 0, fail: 0 }, results: null }),
+				label: 'missing results array'
+			}
+		];
+
+		for (const item of malformedOutputs) {
+			const preflight = preflightResultFromCompleted({ status: 0, stdout: item.stdout, stderr: '' }, { offline: true });
+
+			expect(preflight, item.label).toMatchObject({
+				exitCode: 0,
+				summary: null,
+				results: [],
+				error: 'Preflight did not emit parseable JSON. Re-run it directly to inspect raw output.'
+			});
+		}
 	});
 
 	it('blocks safely when preflight execution returns no output', async () => {

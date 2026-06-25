@@ -71,6 +71,7 @@ const PAYMENT_RECOVERY_SUBSCRIPTION_STATUSES: Array<NonNullable<BillingSnapshot[
 ];
 const PAYMENT_RECOVERY_COLLECTION_STATUSES = ['payment_failed_grace', 'payment_failed_terminal'];
 const SAFE_POSTGREST_IN_FILTER_VALUE = /^[A-Za-z0-9_]+$/;
+const BILLING_CONTEXT_LINK_LIMIT = 500;
 
 function throwIfSupabaseError(error: unknown): void {
 	if (error) throw error;
@@ -230,7 +231,7 @@ export function createSupabasePlatformBillingHealthStore(supabase: SupabaseClien
 				.select(BILLING_HEALTH_SNAPSHOT_COLUMNS)
 				.or(filters.join(','))
 				.order('last_processed_at', { ascending: false, nullsFirst: false })
-				.limit(limit)) as SupabaseResponse<BillingHealthSnapshotRow[]>;
+				.limit(BILLING_CONTEXT_LINK_LIMIT)) as SupabaseResponse<BillingHealthSnapshotRow[]>;
 			throwIfSupabaseError(snapshotResponse.error);
 			return attachLinkedBillingContexts(events, snapshotResponse.data ?? []);
 		},

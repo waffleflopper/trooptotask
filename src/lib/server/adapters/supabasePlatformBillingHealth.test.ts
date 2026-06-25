@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { createSupabasePlatformBillingHealthStore } from './supabasePlatformBillingHealth';
 
 type TestRow = Record<string, unknown>;
+type QueryResult = { data: TestRow[] | null; error: unknown };
 
 interface QueryInspection {
 	table: string;
@@ -13,7 +14,7 @@ interface QueryInspection {
 	limitValue: number | null;
 }
 
-interface QueryStub {
+interface QueryStub extends PromiseLike<QueryResult> {
 	select: ReturnType<typeof vi.fn>;
 	eq: ReturnType<typeof vi.fn>;
 	in: ReturnType<typeof vi.fn>;
@@ -120,6 +121,11 @@ function createSupabaseStub(tables: Record<string, TestRow[]>, error: unknown = 
 			limitValue: null
 		};
 		const query = {} as QueryStub;
+		const resolveRows = (limitValue: number | null = null): QueryResult => {
+			if (error) return { data: null, error };
+			const rows = orderRows(applyFilters(tables[table] ?? [], inspection), inspection);
+			return { data: limitValue === null ? rows : rows.slice(0, limitValue), error: null };
+		};
 		query.select = vi.fn((columns: string) => {
 			inspection.selectColumns = columns;
 			return query;
@@ -142,10 +148,9 @@ function createSupabaseStub(tables: Record<string, TestRow[]>, error: unknown = 
 		});
 		query.limit = vi.fn(async (limitValue: number) => {
 			inspection.limitValue = limitValue;
-			if (error) return { data: null, error };
-			const rows = orderRows(applyFilters(tables[table] ?? [], inspection), inspection).slice(0, limitValue);
-			return { data: rows, error: null };
+			return resolveRows(limitValue);
 		});
+		query.then = (onfulfilled, onrejected) => Promise.resolve(resolveRows()).then(onfulfilled, onrejected);
 		queries.push(inspection);
 		return query;
 	});
@@ -286,6 +291,57 @@ describe('createSupabasePlatformBillingHealthStore', () => {
 		]);
 		expect(JSON.stringify(result)).not.toContain('raw payload should not be selected');
 		expect(JSON.stringify(result)).not.toContain('sk_test_secret');
+	});
+
+	it('links every capped failed event when the matching snapshot set is larger than the event cap', async () => {
+		const stub = createSupabaseStub({
+			stripe_webhook_events: [
+				eventRow({
+					id: 'evt_retry_newer',
+					object_id: 'sub_newer',
+					event_created_at: '2026-06-24T02:00:00.000Z',
+					processing_state: 'retryable_failed',
+					processing_result: 'retryable processing failure'
+				}),
+				eventRow({
+					id: 'evt_retry_older',
+					object_id: 'sub_older',
+					event_created_at: '2026-06-24T01:00:00.000Z',
+					processing_state: 'retryable_failed',
+					processing_result: 'retryable processing failure'
+				})
+			],
+			organization_billing_snapshots: [
+				snapshotRow({
+					organization_id: 'org-newer-primary',
+					organizations: { id: 'org-newer-primary', name: 'Newer Primary' },
+					stripe_subscription_id: 'sub_newer',
+					last_processed_at: '2026-06-24T03:00:00.000Z'
+				}),
+				snapshotRow({
+					organization_id: 'org-newer-secondary',
+					organizations: { id: 'org-newer-secondary', name: 'Newer Secondary' },
+					stripe_subscription_id: 'sub_newer',
+					last_processed_at: '2026-06-24T02:30:00.000Z'
+				}),
+				snapshotRow({
+					organization_id: 'org-older',
+					organizations: { id: 'org-older', name: 'Older Company' },
+					stripe_subscription_id: 'sub_older',
+					last_processed_at: '2026-06-24T01:30:00.000Z'
+				})
+			]
+		});
+
+		const result = await createSupabasePlatformBillingHealthStore(stub.supabase as never).listRecentHealthEvents(2);
+
+		expect(result.map((event) => event.id)).toEqual(['evt_retry_newer', 'evt_retry_older']);
+		expect(result.find((event) => event.id === 'evt_retry_newer')?.linkedBillingContext?.organizationId).toBe(
+			'org-newer-primary'
+		);
+		expect(result.find((event) => event.id === 'evt_retry_older')?.linkedBillingContext?.organizationId).toBe(
+			'org-older'
+		);
 	});
 
 	it('omits unsafe stored provider IDs from billing context link filters', async () => {

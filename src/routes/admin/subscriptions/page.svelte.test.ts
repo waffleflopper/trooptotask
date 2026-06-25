@@ -206,6 +206,55 @@ describe('admin subscriptions page', () => {
 		expect(document.body.textContent).not.toContain('webhook secret');
 	});
 
+	it('gives support bundle copy actions unique accessible names without changing the visible label', () => {
+		const billingHealth = billingHealthData();
+		const alphaIssue = billingHealth.issues[0]!;
+		billingHealth.issues = [
+			alphaIssue,
+			{
+				...alphaIssue,
+				id: 'event:evt_retry',
+				title: 'Retryable webhook failure',
+				detail: 'Bravo Company invoice.payment_failed is retryable_failed with 3 attempts.',
+				organization: { id: 'org-2', name: 'Bravo Company' },
+				latestEventIds: ['evt_retry'],
+				supportBundle: {
+					...alphaIssue.supportBundle,
+					organizationId: 'org-2',
+					organizationName: 'Bravo Company',
+					stripeEventIds: ['evt_retry'],
+					reconciliationResult: 'retryable processing failure',
+					nextSteps: ['Retry guarded webhook event']
+				}
+			}
+		];
+
+		render(Page, {
+			props: {
+				data: {
+					subscriptions: [],
+					pagination: {
+						page: 1,
+						pageSize: 25,
+						totalCount: 0,
+						totalPages: 1,
+						q: ''
+					},
+					billingDiagnosticsError: false,
+					planDiagnosticsError: false,
+					adminRole: 'support',
+					billingHealth
+				} as never
+			}
+		});
+
+		expect(screen.getByRole('button', { name: 'Copy bundle for Billing drift detected (Alpha Company)' })).toBeTruthy();
+		expect(
+			screen.getByRole('button', { name: 'Copy bundle for Retryable webhook failure (Bravo Company)' })
+		).toBeTruthy();
+		expect(screen.getAllByText('Copy bundle')).toHaveLength(2);
+	});
+
 	it('copies the support-safe billing health bundle text', async () => {
 		const writeText = vi.fn(async (_text: string) => undefined);
 		Object.defineProperty(navigator, 'clipboard', {
@@ -232,7 +281,9 @@ describe('admin subscriptions page', () => {
 			}
 		});
 
-		await fireEvent.click(screen.getByRole('button', { name: /Copy bundle/ }));
+		await fireEvent.click(
+			screen.getByRole('button', { name: 'Copy bundle for Billing drift detected (Alpha Company)' })
+		);
 
 		expect(writeText).toHaveBeenCalledTimes(1);
 		const copiedText = writeText.mock.calls[0]?.[0] ?? '';

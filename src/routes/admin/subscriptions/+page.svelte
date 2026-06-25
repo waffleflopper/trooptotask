@@ -64,6 +64,10 @@
 		return JSON.stringify(bundle, null, 2);
 	}
 
+	function supportBundleCopyLabel(issue: { title: string; organization: { name: string | null } | null }): string {
+		return `Copy bundle for ${issue.organization?.name ? `${issue.title} (${issue.organization.name})` : issue.title}`;
+	}
+
 	async function copySupportBundle(bundle: unknown): Promise<void> {
 		if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) return;
 		try {
@@ -178,6 +182,7 @@
 									type="button"
 									size="sm"
 									variant="outline"
+									aria-label={supportBundleCopyLabel(issue)}
 									onclick={() => copySupportBundle(issue.supportBundle)}
 								>
 									<Copy class="size-4" aria-hidden="true" />

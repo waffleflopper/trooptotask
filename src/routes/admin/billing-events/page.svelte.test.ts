@@ -1,11 +1,19 @@
 // @vitest-environment happy-dom
-import { afterEach, describe, expect, it } from 'vitest';
-import { cleanup, render, screen } from '@testing-library/svelte';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
 
 import Page from './+page.svelte';
 
+const originalClipboardDescriptor = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
+
 afterEach(() => {
 	cleanup();
+	vi.restoreAllMocks();
+	if (originalClipboardDescriptor) {
+		Object.defineProperty(navigator, 'clipboard', originalClipboardDescriptor);
+	} else {
+		Reflect.deleteProperty(navigator, 'clipboard');
+	}
 });
 
 const baseEvent = {
@@ -83,5 +91,105 @@ describe('admin billing events page', () => {
 
 		expect(screen.getByText('Some billing diagnostics could not be loaded.')).toBeTruthy();
 		expect(screen.getByText(/organization links may be incomplete/)).toBeTruthy();
+	});
+
+	function billingHealthData() {
+		return {
+			generatedAt: '2026-06-24T12:00:00.000Z',
+			overallState: 'needs_retry',
+			states: ['needs_retry', 'payment_recovery_attention'],
+			counts: {
+				retryableFailures: 3,
+				permanentFailures: 0,
+				staleFailedEvents: 1,
+				recentPaymentFailures: 1,
+				driftedOrganizations: 0,
+				staleReconciliation: 0,
+				supportAttentionItems: 1
+			},
+			issues: [
+				{
+					id: 'event:evt_retry',
+					primaryState: 'needs_retry',
+					states: ['needs_retry'],
+					severity: 'warning',
+					title: 'Retryable webhook failure',
+					detail: 'invoice.payment_failed is retryable_failed with 3 attempts.',
+					organization: null,
+					latestEventIds: ['evt_retry'],
+					supportBundle: {
+						organizationId: null,
+						organizationName: null,
+						stripeCustomerId: null,
+						stripeSubscriptionId: null,
+						stripeEventIds: ['evt_retry'],
+						billingState: {
+							source: null,
+							commercialPlan: null,
+							subscriptionStatus: null,
+							collectionStatus: null,
+							syncStatus: null,
+							driftDetected: false
+						},
+						reconciliationResult: 'retryable processing failure',
+						nextSteps: ['Retry guarded webhook event']
+					}
+				}
+			],
+			diagnosticsError: false
+		};
+	}
+
+	it('shows wider billing health counts and a support-safe bundle', () => {
+		render(Page, {
+			props: {
+				data: {
+					events: [],
+					diagnosticsError: false,
+					billingHealth: billingHealthData()
+				} as never,
+				form: null
+			}
+		});
+
+		expect(screen.getByText('Billing Health')).toBeTruthy();
+		expect(screen.getByText('Retryable webhook failure')).toBeTruthy();
+		expect(screen.getByText(/evt_retry/)).toBeTruthy();
+		expect(screen.getByText('3')).toBeTruthy();
+		expect(document.body.textContent).not.toContain('raw_payload');
+		expect(document.body.textContent).not.toContain('sk_test_');
+		expect(document.body.textContent).not.toContain('whsec_');
+	});
+
+	it('copies the support-safe billing health bundle text', async () => {
+		const writeText = vi.fn(async (_text: string) => undefined);
+		Object.defineProperty(navigator, 'clipboard', {
+			configurable: true,
+			value: { writeText }
+		});
+
+		render(Page, {
+			props: {
+				data: {
+					events: [],
+					diagnosticsError: false,
+					billingHealth: billingHealthData()
+				} as never,
+				form: null
+			}
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: /Copy bundle/ }));
+
+		expect(writeText).toHaveBeenCalledTimes(1);
+		const copiedText = writeText.mock.calls[0]?.[0] ?? '';
+		expect(copiedText).toContain('"stripeEventIds": [');
+		expect(copiedText).toContain('"evt_retry"');
+		expect(copiedText).toContain('"Retry guarded webhook event"');
+		expect(copiedText).not.toContain('raw_payload');
+		expect(copiedText).not.toContain('card');
+		expect(copiedText).not.toContain('sk_test_');
+		expect(copiedText).not.toContain('whsec_');
+		expect(copiedText).not.toContain('webhook secret');
 	});
 });

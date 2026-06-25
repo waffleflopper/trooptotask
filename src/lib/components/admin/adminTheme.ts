@@ -40,12 +40,15 @@ export function adminBadgeVariant(value: string | null | undefined): BadgeVarian
 		case 'active':
 		case 'approved':
 		case 'resolved':
+		case 'healthy':
 			return 'success';
 		case 'suspended':
 		case 'rejected':
 		case 'critical':
 		case 'bug':
 		case 'maintenance':
+		case 'permanent_failure':
+		case 'diagnostics_unavailable':
 			return 'danger';
 		case 'gifted':
 		case 'admin_gift':
@@ -54,6 +57,10 @@ export function adminBadgeVariant(value: string | null | undefined): BadgeVarian
 		case 'unit':
 		case 'owner':
 		case 'warning':
+		case 'needs_retry':
+		case 'drift_detected':
+		case 'payment_recovery_attention':
+		case 'reconciliation_stale':
 			return 'warning';
 		case 'stripe_billing':
 		case 'team':

@@ -117,7 +117,7 @@ The operator explicitly excluded automatic CI trigger work from this batch. Do n
 | 088  | Self-service Organization Invitation branch       | P1       | M      | 083        | DONE   |
 | 089  | Paid-launch legal/trust/contact surface           | P1       | M      | -          | DONE   |
 | 090  | Billing launch readiness gate                     | P1       | M      | 083-087    | DONE   |
-| 091  | Billing health and support workflow               | P1       | M-L    | 085, 086   | TODO   |
+| 091  | Billing health and support workflow               | P1       | M-L    | 085, 086   | DONE   |
 | 092  | Acquisition and activation health visibility      | P2       | M-L    | 081, 083-087 | TODO |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line rationale).
@@ -135,6 +135,7 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJE
 - 2026-06-23: Plan 089 was completed on branch `codex/plan-89` after Robert confirmed the canonical `.org` support/privacy/security mailboxes, refund posture, tax posture, and paid-launch Terms posture. Reviewer approved the executor diff, CodeRabbit returned no findings, Claude findings were fixed, Chrome QA covered the changed public/legal/trust/contact surfaces, and the full repo gate passed with safe local/test env values.
 - 2026-06-24 at `0f69c5bc`: Plan 090 was reconciled after launch-doc and support/admin visibility drift from completed plans 083-089. The readiness-gate finding still stands because `package.json` has `billing:launch-preflight` and `billing:lifecycle` but no machine-readable `billing:launch-readiness` command. The plan baseline was refreshed and remains TODO, now accounting for Free-first checkout, billing-disabled fallback, canonical support/privacy/security mailboxes, tax/refund posture, and admin self-service support lookup evidence.
 - 2026-06-24: Plan 090 was completed on branch `codex/plan-90` via the isolated execution worktree `.worktrees/090-billing-launch-readiness-gate`, then moved onto the correct Plan 090 branch after Robert clarified the original `codex/plan-89` target was stale. The branch adds the support-safe `billing:launch-readiness` report command, Robert-owned confirmation ledger, billing launch docs, and classification/CLI tests. CodeRabbit findings were fixed or declined with evidence: the branch-name finding was fixed by moving the reviewed stack to `codex/plan-90`, and the nonzero-exit finding was declined because the plan requires blocked JSON reports to exit 0 while docs/tests make automation inspect `status`. Claude evidence-safety findings were fixed, while Claude's nonzero-exit suggestion was declined for the same plan-contract reason. The full repo gate passed with safe local/test placeholder env values.
+- 2026-06-24 at `cc011a36`: Plan 091 was reconciled after plan 090 added the `billing:launch-readiness` gate and tightened support-safe launch evidence. The finding still stands because admin billing events still cap diagnostics at the latest 50 rows, admin subscriptions still count drift only on the visible page, and there is still no runtime billing health/support bundle. Plans 085 and 086 are DONE, so 091 is executable now.
 
 ## Dependency Notes
 

@@ -1,11 +1,19 @@
 // @vitest-environment happy-dom
-import { afterEach, describe, expect, it } from 'vitest';
-import { cleanup, render, screen } from '@testing-library/svelte';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
 
 import Page from './+page.svelte';
 
+const originalClipboardDescriptor = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
+
 afterEach(() => {
 	cleanup();
+	vi.restoreAllMocks();
+	if (originalClipboardDescriptor) {
+		Object.defineProperty(navigator, 'clipboard', originalClipboardDescriptor);
+	} else {
+		Reflect.deleteProperty(navigator, 'clipboard');
+	}
 });
 
 describe('admin subscriptions page', () => {
@@ -119,6 +127,124 @@ describe('admin subscriptions page', () => {
 		expect(screen.getByText(/Stripe \/ Unpaid/)).toBeTruthy();
 		expect(screen.getByText(/Last checked/)).toBeTruthy();
 		expect(screen.getByText('repaired_drift:subscription_status')).toBeTruthy();
+	});
+
+	function billingHealthData() {
+		return {
+			generatedAt: '2026-06-24T12:00:00.000Z',
+			overallState: 'drift_detected',
+			states: ['drift_detected', 'reconciliation_stale'],
+			counts: {
+				retryableFailures: 0,
+				permanentFailures: 0,
+				staleFailedEvents: 0,
+				recentPaymentFailures: 0,
+				driftedOrganizations: 2,
+				staleReconciliation: 1,
+				supportAttentionItems: 1
+			},
+			issues: [
+				{
+					id: 'snapshot:org-1',
+					primaryState: 'drift_detected',
+					states: ['drift_detected'],
+					severity: 'warning',
+					title: 'Billing drift detected',
+					detail: 'Alpha Company billing is needs_reconciliation.',
+					organization: { id: 'org-1', name: 'Alpha Company' },
+					latestEventIds: ['evt_safe'],
+					supportBundle: {
+						organizationId: 'org-1',
+						organizationName: 'Alpha Company',
+						stripeCustomerId: null,
+						stripeSubscriptionId: null,
+						stripeEventIds: ['evt_safe'],
+						billingState: {
+							source: 'stripe',
+							commercialPlan: 'team',
+							subscriptionStatus: 'active',
+							collectionStatus: 'current',
+							syncStatus: 'needs_reconciliation',
+							driftDetected: true
+						},
+						reconciliationResult: 'repaired_drift:subscription_status',
+						nextSteps: ['Run admin billing reconciliation']
+					}
+				}
+			],
+			diagnosticsError: false
+		};
+	}
+
+	it('renders an already-redacted support bundle without forbidden markers', () => {
+		render(Page, {
+			props: {
+				data: {
+					subscriptions: [],
+					pagination: {
+						page: 1,
+						pageSize: 25,
+						totalCount: 0,
+						totalPages: 1,
+						q: ''
+					},
+					billingDiagnosticsError: false,
+					planDiagnosticsError: false,
+					adminRole: 'support',
+					billingHealth: billingHealthData()
+				} as never
+			}
+		});
+
+		expect(screen.getByText('Billing Health')).toBeTruthy();
+		expect(screen.getByText('Billing drift detected')).toBeTruthy();
+		expect(screen.getByText(/Alpha Company billing is needs_reconciliation/)).toBeTruthy();
+		expect(screen.getByText(/evt_safe/)).toBeTruthy();
+		expect(document.body.textContent).not.toContain('cus_secret');
+		expect(document.body.textContent).not.toContain('sub_secret');
+		expect(document.body.textContent).not.toContain('card');
+		expect(document.body.textContent).not.toContain('webhook secret');
+	});
+
+	it('copies the support-safe billing health bundle text', async () => {
+		const writeText = vi.fn(async (_text: string) => undefined);
+		Object.defineProperty(navigator, 'clipboard', {
+			configurable: true,
+			value: { writeText }
+		});
+
+		render(Page, {
+			props: {
+				data: {
+					subscriptions: [],
+					pagination: {
+						page: 1,
+						pageSize: 25,
+						totalCount: 0,
+						totalPages: 1,
+						q: ''
+					},
+					billingDiagnosticsError: false,
+					planDiagnosticsError: false,
+					adminRole: 'support',
+					billingHealth: billingHealthData()
+				} as never
+			}
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: /Copy bundle/ }));
+
+		expect(writeText).toHaveBeenCalledTimes(1);
+		const copiedText = writeText.mock.calls[0]?.[0] ?? '';
+		expect(copiedText).toContain('"organizationId": "org-1"');
+		expect(copiedText).toContain('"organizationName": "Alpha Company"');
+		expect(copiedText).toContain('"evt_safe"');
+		expect(copiedText).toContain('"Run admin billing reconciliation"');
+		expect(copiedText).not.toContain('raw_payload');
+		expect(copiedText).not.toContain('card');
+		expect(copiedText).not.toContain('sk_test_');
+		expect(copiedText).not.toContain('whsec_');
+		expect(copiedText).not.toContain('webhook secret');
 	});
 
 	it('shows effective policy usage diagnostics without raw billing payloads', () => {

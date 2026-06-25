@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import { TriangleAlert } from '@lucide/svelte';
+	import { Copy, TriangleAlert } from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { NativeSelect } from '$lib/components/ui/native-select';
@@ -20,7 +20,23 @@
 	const subscriptionsRouteRoot = resolve('/admin/subscriptions');
 	const tierFilter = $derived(data.pagination.tier ?? 'all');
 	const statusFilter = $derived(data.pagination.status ?? 'all');
-	const currentPageDriftCount = $derived(data.subscriptions.filter((sub) => sub.billingSnapshot?.driftDetected).length);
+	const billingHealth = $derived(
+		data.billingHealth ?? {
+			overallState: 'healthy',
+			states: ['healthy'],
+			counts: {
+				retryableFailures: 0,
+				permanentFailures: 0,
+				staleFailedEvents: 0,
+				recentPaymentFailures: 0,
+				driftedOrganizations: 0,
+				staleReconciliation: 0,
+				supportAttentionItems: 0
+			},
+			issues: [],
+			diagnosticsError: false
+		}
+	);
 
 	const showingStart = $derived(
 		data.subscriptions.length === 0 ? 0 : (data.pagination.page - 1) * data.pagination.pageSize + 1
@@ -41,6 +57,19 @@
 
 	function formatOptionalDateTime(value: string | null | undefined): string {
 		return value ? formatDisplayDateTime(value) : '-';
+	}
+
+	function supportBundleText(bundle: unknown): string {
+		return JSON.stringify(bundle, null, 2);
+	}
+
+	async function copySupportBundle(bundle: unknown): Promise<void> {
+		if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) return;
+		try {
+			await navigator.clipboard.writeText(supportBundleText(bundle));
+		} catch (error) {
+			console.error('Failed to copy billing support bundle:', error);
+		}
 	}
 
 	function pageHref(pageNumber: number): string {
@@ -81,8 +110,8 @@
 		/>
 		<PageShell.Metric
 			label="Billing Drift"
-			value={currentPageDriftCount}
-			detail="Current-page rows with billing drift."
+			value={billingHealth.counts.driftedOrganizations}
+			detail="Organizations with billing drift from the latest health scan."
 		/>
 	</PageShell.FactGrid>
 
@@ -96,6 +125,16 @@
 		</Alert.Root>
 	{/if}
 
+	{#if billingHealth.diagnosticsError}
+		<Alert.Root variant="warning">
+			<TriangleAlert />
+			<Alert.Title>Billing health diagnostics could not be fully loaded.</Alert.Title>
+			<Alert.Description>
+				Retry, payment recovery, drift, and reconciliation counts may be incomplete until the health scan succeeds.
+			</Alert.Description>
+		</Alert.Root>
+	{/if}
+
 	{#if data.planDiagnosticsError}
 		<Alert.Root variant="warning">
 			<TriangleAlert />
@@ -105,6 +144,56 @@
 			</Alert.Description>
 		</Alert.Root>
 	{/if}
+
+	<Card.Root>
+		<Card.Header class="gap-2 sm:flex-row sm:items-center sm:justify-between">
+			<div>
+				<Card.Title>Billing Health</Card.Title>
+				<Card.Description>
+					{formatAdminLabel(billingHealth.overallState)} · {billingHealth.counts.retryableFailures} retryable ·
+					{billingHealth.counts.staleReconciliation} stale reconciliation
+				</Card.Description>
+			</div>
+			<div class="flex flex-wrap gap-2">
+				{#each billingHealth.states as state (state)}
+					<Badge variant={adminBadgeVariant(state)}>{formatAdminLabel(state)}</Badge>
+				{/each}
+			</div>
+		</Card.Header>
+		<Card.Content>
+			{#if billingHealth.issues.length > 0}
+				<div class="grid gap-3 lg:grid-cols-2">
+					{#each billingHealth.issues as issue (issue.id)}
+						<div class="grid gap-2 rounded-md border p-3">
+							<div class="flex flex-wrap items-center justify-between gap-2">
+								<div>
+									<p class="font-medium">{issue.title}</p>
+									<p class="text-sm text-muted-foreground">{issue.detail}</p>
+								</div>
+								<Badge variant={adminBadgeVariant(issue.primaryState)}>{formatAdminLabel(issue.primaryState)}</Badge>
+							</div>
+							<div class="flex justify-end">
+								<Button
+									type="button"
+									size="sm"
+									variant="outline"
+									onclick={() => copySupportBundle(issue.supportBundle)}
+								>
+									<Copy class="size-4" aria-hidden="true" />
+									Copy bundle
+								</Button>
+							</div>
+							<pre class="max-h-56 overflow-auto rounded-md bg-muted p-3 text-xs">{supportBundleText(
+									issue.supportBundle
+								)}</pre>
+						</div>
+					{/each}
+				</div>
+			{:else}
+				<p class="text-sm text-muted-foreground">No billing health support items found.</p>
+			{/if}
+		</Card.Content>
+	</Card.Root>
 
 	<Card.Root>
 		<Card.Header class="gap-3 xl:flex-row xl:items-end xl:justify-between">

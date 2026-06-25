@@ -2,12 +2,18 @@ import { isHttpError } from '@sveltejs/kit';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PageData } from './$types';
 
-const { organizationLedgerMock, createOrganizationLedgerMock } = vi.hoisted(() => ({
-	organizationLedgerMock: {
-		listSubscriptions: vi.fn()
-	},
-	createOrganizationLedgerMock: vi.fn()
-}));
+const { organizationLedgerMock, createOrganizationLedgerMock, billingHealthMock, createBillingHealthMock } = vi.hoisted(
+	() => ({
+		organizationLedgerMock: {
+			listSubscriptions: vi.fn()
+		},
+		createOrganizationLedgerMock: vi.fn(),
+		billingHealthMock: {
+			summarize: vi.fn()
+		},
+		createBillingHealthMock: vi.fn()
+	})
+);
 
 vi.mock('$lib/server/adapters/adminAdapter', () => ({
 	loadWithAdminContext: (config: { fn: (ctx: unknown, event: unknown) => unknown }) => (event: { __ctx: unknown }) =>
@@ -16,6 +22,10 @@ vi.mock('$lib/server/adapters/adminAdapter', () => ({
 
 vi.mock('$lib/server/adapters/supabasePlatformOrganizationLedger', () => ({
 	createSupabasePlatformOrganizationLedger: createOrganizationLedgerMock
+}));
+
+vi.mock('$lib/server/adapters/supabasePlatformBillingHealth', () => ({
+	createSupabasePlatformBillingHealth: createBillingHealthMock
 }));
 
 import { load } from './+page.server';
@@ -51,6 +61,7 @@ describe('admin subscriptions server diagnostics', () => {
 		vi.clearAllMocks();
 		vi.spyOn(console, 'error').mockImplementation(() => undefined);
 		createOrganizationLedgerMock.mockReturnValue(organizationLedgerMock);
+		createBillingHealthMock.mockReturnValue(billingHealthMock);
 		organizationLedgerMock.listSubscriptions.mockResolvedValue({
 			subscriptions: [],
 			pagination: {
@@ -62,6 +73,22 @@ describe('admin subscriptions server diagnostics', () => {
 			},
 			billingDiagnosticsError: false,
 			planDiagnosticsError: false
+		});
+		billingHealthMock.summarize.mockResolvedValue({
+			generatedAt: '2026-06-24T12:00:00.000Z',
+			overallState: 'healthy',
+			states: ['healthy'],
+			counts: {
+				retryableFailures: 0,
+				permanentFailures: 0,
+				staleFailedEvents: 0,
+				recentPaymentFailures: 0,
+				driftedOrganizations: 0,
+				staleReconciliation: 0,
+				supportAttentionItems: 0
+			},
+			issues: [],
+			diagnosticsError: false
 		});
 	});
 
@@ -93,6 +120,9 @@ describe('admin subscriptions server diagnostics', () => {
 		expect(createOrganizationLedgerMock).toHaveBeenCalledWith(
 			expect.objectContaining({ adminUser: { id: 'admin-1', role: 'super_admin' } })
 		);
+		expect(createBillingHealthMock).toHaveBeenCalledWith(
+			expect.objectContaining({ adminUser: { id: 'admin-1', role: 'super_admin' } })
+		);
 		expect(organizationLedgerMock.listSubscriptions).toHaveBeenCalledWith({
 			page: '2',
 			pageSize: '50',
@@ -100,6 +130,7 @@ describe('admin subscriptions server diagnostics', () => {
 			tier: 'unit',
 			status: 'drifted'
 		});
+		expect(billingHealthMock.summarize).toHaveBeenCalledWith();
 		expect(result.pagination).toMatchObject({
 			page: 2,
 			pageSize: 50,
@@ -107,6 +138,10 @@ describe('admin subscriptions server diagnostics', () => {
 			q: 'Able',
 			tier: 'unit',
 			status: 'drifted'
+		});
+		expect(result).toMatchObject({
+			adminRole: 'super_admin',
+			billingHealth: expect.objectContaining({ overallState: 'healthy' })
 		});
 	});
 
@@ -159,5 +194,45 @@ describe('admin subscriptions server diagnostics', () => {
 			billingSnapshot: null,
 			planDiagnostics: null
 		});
+	});
+
+	it('keeps the subscription ledger available when billing health unexpectedly fails', async () => {
+		organizationLedgerMock.listSubscriptions.mockResolvedValueOnce({
+			subscriptions: [{ id: 'org-1', name: 'Able Company' }],
+			pagination: {
+				page: 1,
+				pageSize: 25,
+				totalCount: 1,
+				totalPages: 1,
+				q: ''
+			},
+			billingDiagnosticsError: false,
+			planDiagnosticsError: false
+		});
+		billingHealthMock.summarize.mockRejectedValueOnce(new Error('health diagnostics offline'));
+
+		const result = (await load({
+			__ctx: makeContext(),
+			url: new URL('http://localhost/admin/subscriptions')
+		} as unknown as Parameters<typeof load>[0])) as PageData;
+
+		expect(result.subscriptions).toEqual([{ id: 'org-1', name: 'Able Company' }]);
+		expect(result.adminRole).toBe('super_admin');
+		expect(result.billingHealth).toMatchObject({
+			overallState: 'diagnostics_unavailable',
+			states: ['diagnostics_unavailable'],
+			diagnosticsError: true,
+			counts: {
+				retryableFailures: 0,
+				permanentFailures: 0,
+				staleFailedEvents: 0,
+				recentPaymentFailures: 0,
+				driftedOrganizations: 0,
+				staleReconciliation: 0,
+				supportAttentionItems: 0
+			},
+			issues: []
+		});
+		expect(console.error).toHaveBeenCalledWith('Admin subscriptions billing health query failed:', expect.any(Error));
 	});
 });

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { TriangleAlert } from '@lucide/svelte';
+	import { Copy, TriangleAlert } from '@lucide/svelte';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import * as Alert from '$lib/components/ui/alert';
@@ -14,6 +14,23 @@
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
 	const retryableCount = $derived(data.events.filter((event) => event.canRetry).length);
+	const billingHealth = $derived(
+		data.billingHealth ?? {
+			overallState: 'healthy',
+			states: ['healthy'],
+			counts: {
+				retryableFailures: retryableCount,
+				permanentFailures: 0,
+				staleFailedEvents: 0,
+				recentPaymentFailures: 0,
+				driftedOrganizations: 0,
+				staleReconciliation: 0,
+				supportAttentionItems: 0
+			},
+			issues: [],
+			diagnosticsError: false
+		}
+	);
 
 	function formatOptionalDateTime(value: string | null | undefined): string {
 		return value ? formatDisplayDateTime(value) : '-';
@@ -25,6 +42,19 @@
 
 	function stateLabel(state: string | null): string {
 		return state ? formatAdminLabel(state) : 'Unknown';
+	}
+
+	function supportBundleText(bundle: unknown): string {
+		return JSON.stringify(bundle, null, 2);
+	}
+
+	async function copySupportBundle(bundle: unknown): Promise<void> {
+		if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) return;
+		try {
+			await navigator.clipboard.writeText(supportBundleText(bundle));
+		} catch (error) {
+			console.error('Failed to copy billing support bundle:', error);
+		}
 	}
 </script>
 
@@ -42,13 +72,22 @@
 		{/snippet}
 	</PageShell.Header>
 
-	<PageShell.FactGrid layout="two">
+	<PageShell.FactGrid layout="three">
 		<PageShell.Metric
 			label="Recent Events"
 			value={data.events.length}
 			detail="Most recent billing webhook ledger rows."
 		/>
-		<PageShell.Metric label="Retryable Failures" value={retryableCount} detail="Events eligible for a guarded retry." />
+		<PageShell.Metric
+			label="Retryable Failures"
+			value={billingHealth.counts.retryableFailures}
+			detail="Health scan events eligible for guarded retry."
+		/>
+		<PageShell.Metric
+			label="Support Attention"
+			value={billingHealth.counts.supportAttentionItems}
+			detail="Billing health items needing review."
+		/>
 	</PageShell.FactGrid>
 
 	{#if data.diagnosticsError}
@@ -57,6 +96,16 @@
 			<Alert.Title>Some billing diagnostics could not be loaded.</Alert.Title>
 			<Alert.Description>
 				Event rows are still shown when available, but organization links may be incomplete.
+			</Alert.Description>
+		</Alert.Root>
+	{/if}
+
+	{#if billingHealth.diagnosticsError}
+		<Alert.Root variant="warning">
+			<TriangleAlert />
+			<Alert.Title>Billing health diagnostics could not be fully loaded.</Alert.Title>
+			<Alert.Description>
+				Use visible billing events cautiously until the health scan can read events and billing snapshots.
 			</Alert.Description>
 		</Alert.Root>
 	{/if}
@@ -72,6 +121,56 @@
 			</Alert.Description>
 		</Alert.Root>
 	{/if}
+
+	<Card.Root>
+		<Card.Header class="gap-2 sm:flex-row sm:items-center sm:justify-between">
+			<div>
+				<Card.Title>Billing Health</Card.Title>
+				<Card.Description>
+					{formatAdminLabel(billingHealth.overallState)} · {billingHealth.counts.permanentFailures} permanent failures · {billingHealth
+						.counts.recentPaymentFailures} payment recovery items
+				</Card.Description>
+			</div>
+			<div class="flex flex-wrap gap-2">
+				{#each billingHealth.states as state (state)}
+					<Badge variant={adminBadgeVariant(state)}>{formatAdminLabel(state)}</Badge>
+				{/each}
+			</div>
+		</Card.Header>
+		<Card.Content>
+			{#if billingHealth.issues.length > 0}
+				<div class="grid gap-3 lg:grid-cols-2">
+					{#each billingHealth.issues as issue (issue.id)}
+						<div class="grid gap-2 rounded-md border p-3">
+							<div class="flex flex-wrap items-center justify-between gap-2">
+								<div>
+									<p class="font-medium">{issue.title}</p>
+									<p class="text-sm text-muted-foreground">{issue.detail}</p>
+								</div>
+								<Badge variant={adminBadgeVariant(issue.primaryState)}>{formatAdminLabel(issue.primaryState)}</Badge>
+							</div>
+							<div class="flex justify-end">
+								<Button
+									type="button"
+									size="sm"
+									variant="outline"
+									onclick={() => copySupportBundle(issue.supportBundle)}
+								>
+									<Copy class="size-4" aria-hidden="true" />
+									Copy bundle
+								</Button>
+							</div>
+							<pre class="max-h-56 overflow-auto rounded-md bg-muted p-3 text-xs">{supportBundleText(
+									issue.supportBundle
+								)}</pre>
+						</div>
+					{/each}
+				</div>
+			{:else}
+				<p class="text-sm text-muted-foreground">No billing health support items found.</p>
+			{/if}
+		</Card.Content>
+	</Card.Root>
 
 	<Card.Root class="overflow-hidden">
 		<Card.Header class="gap-2 sm:flex-row sm:items-center sm:justify-between">

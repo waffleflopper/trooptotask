@@ -1,15 +1,25 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AdminContext } from '$lib/server/adapters/adminAdapter';
 
-const { platformBillingEventsMock, createPlatformBillingEventsMock } = vi.hoisted(() => {
+const {
+	platformBillingEventsMock,
+	createPlatformBillingEventsMock,
+	platformBillingHealthMock,
+	createPlatformBillingHealthMock
+} = vi.hoisted(() => {
 	const billingEvents = {
 		listDiagnostics: vi.fn(),
 		retryEvent: vi.fn()
 	};
+	const billingHealth = {
+		summarize: vi.fn()
+	};
 
 	return {
 		platformBillingEventsMock: billingEvents,
-		createPlatformBillingEventsMock: vi.fn(() => billingEvents)
+		createPlatformBillingEventsMock: vi.fn(() => billingEvents),
+		platformBillingHealthMock: billingHealth,
+		createPlatformBillingHealthMock: vi.fn(() => billingHealth)
 	};
 });
 
@@ -22,6 +32,10 @@ vi.mock('$lib/server/adapters/adminAdapter', () => ({
 
 vi.mock('$lib/server/adapters/supabasePlatformBillingEvents', () => ({
 	createSupabasePlatformBillingEvents: createPlatformBillingEventsMock
+}));
+
+vi.mock('$lib/server/adapters/supabasePlatformBillingHealth', () => ({
+	createSupabasePlatformBillingHealth: createPlatformBillingHealthMock
 }));
 
 import { actions, load } from './+page.server';
@@ -68,6 +82,22 @@ describe('admin billing event diagnostics route', () => {
 			events: [],
 			diagnosticsError: false
 		});
+		platformBillingHealthMock.summarize.mockResolvedValue({
+			generatedAt: '2026-06-24T12:00:00.000Z',
+			overallState: 'healthy',
+			states: ['healthy'],
+			counts: {
+				retryableFailures: 0,
+				permanentFailures: 0,
+				staleFailedEvents: 0,
+				recentPaymentFailures: 0,
+				driftedOrganizations: 0,
+				staleReconciliation: 0,
+				supportAttentionItems: 0
+			},
+			issues: [],
+			diagnosticsError: false
+		});
 		platformBillingEventsMock.retryEvent.mockResolvedValue({
 			ok: true,
 			state: 'processed',
@@ -103,7 +133,9 @@ describe('admin billing event diagnostics route', () => {
 		const result = await load({ __ctx: ctx } as unknown as Parameters<typeof load>[0]);
 
 		expect(createPlatformBillingEventsMock).toHaveBeenCalledWith(ctx);
+		expect(createPlatformBillingHealthMock).toHaveBeenCalledWith(ctx);
 		expect(platformBillingEventsMock.listDiagnostics).toHaveBeenCalledWith({ limit: 50 });
+		expect(platformBillingHealthMock.summarize).toHaveBeenCalledWith();
 		expect(result).toEqual({
 			events: [
 				expect.objectContaining({
@@ -112,8 +144,68 @@ describe('admin billing event diagnostics route', () => {
 					canRetry: true
 				})
 			],
-			diagnosticsError: false
+			diagnosticsError: false,
+			adminRole: 'billing',
+			billingHealth: expect.objectContaining({
+				overallState: 'healthy'
+			})
 		});
+	});
+
+	it('returns degraded billing health when health summarization fails', async () => {
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+		try {
+			platformBillingEventsMock.listDiagnostics.mockResolvedValueOnce({
+				events: [
+					{
+						id: 'evt_123',
+						type: 'checkout.session.completed',
+						objectId: 'cs_123',
+						secondaryDedupeKey: 'checkout.session.completed:cs_123',
+						eventCreatedAt: '2026-05-23T00:00:00.000Z',
+						processed: false,
+						processedAt: null,
+						processingState: 'retryable_failed',
+						attemptCount: 2,
+						lastError: 'temporary database error',
+						processingResult: 'retryable processing failure',
+						createdAt: '2026-05-23T00:00:01.000Z',
+						updatedAt: '2026-05-23T00:00:02.000Z',
+						canRetry: true,
+						organization: { id: 'org-1', name: 'Alpha Company' }
+					}
+				],
+				diagnosticsError: false
+			});
+			platformBillingHealthMock.summarize.mockRejectedValueOnce(new Error('health unavailable'));
+
+			const result = await load({ __ctx: createAdminContext() } as unknown as Parameters<typeof load>[0]);
+
+			expect(result).toMatchObject({
+				events: [expect.objectContaining({ id: 'evt_123' })],
+				diagnosticsError: false,
+				adminRole: 'billing',
+				billingHealth: {
+					overallState: 'diagnostics_unavailable',
+					states: ['diagnostics_unavailable'],
+					counts: {
+						retryableFailures: 0,
+						permanentFailures: 0,
+						staleFailedEvents: 0,
+						recentPaymentFailures: 0,
+						driftedOrganizations: 0,
+						staleReconciliation: 0,
+						supportAttentionItems: 0
+					},
+					issues: [],
+					diagnosticsError: true,
+					generatedAt: expect.any(String)
+				}
+			});
+			expect(consoleError).toHaveBeenCalledWith('Admin billing events health query failed:', expect.any(Error));
+		} finally {
+			consoleError.mockRestore();
+		}
 	});
 
 	it('delegates retry actions to the platform billing-events seam', async () => {

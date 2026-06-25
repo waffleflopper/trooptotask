@@ -4,8 +4,6 @@ import { cleanup, render, screen, waitFor } from '@testing-library/svelte';
 import VisibleStub from '$lib/test-stubs/VisibleStub.svelte';
 import type { RatingSchemeWorkspaceResult } from '$features/rating-scheme/server/ratingSchemeWorkspaceBootstrap';
 
-const throwRenderErrorMock = vi.fn();
-
 vi.mock('$features/rating-scheme/components/RatingSchemePageView.svelte', () => ({
 	default: VisibleStub
 }));
@@ -51,23 +49,11 @@ vi.mock('$lib/stores/orgContext.svelte', () => ({
 	})
 }));
 
-vi.mock('$lib/utils/streamedRouteData', async () => {
-	const actual = await vi.importActual<typeof import('$lib/utils/streamedRouteData')>('$lib/utils/streamedRouteData');
-
-	return {
-		...actual,
-		throwRenderError: (error: unknown, fallbackMessage: string) => {
-			throwRenderErrorMock(error, fallbackMessage);
-			return undefined as never;
-		}
-	};
-});
-
 import Page from './+page.svelte';
+import PageWithRouteBoundary from './RatingSchemeRouteTestBoundary.svelte';
 
 afterEach(() => {
 	cleanup();
-	throwRenderErrorMock.mockReset();
 });
 
 function deferred<T>() {
@@ -157,10 +143,10 @@ describe('evals page', () => {
 		});
 	});
 
-	it('invokes the render error path when Rating Scheme workspace loading fails', async () => {
+	it('shows the route error boundary when Rating Scheme workspace loading fails', async () => {
 		const workspace = deferred<RatingSchemeWorkspaceResult>();
 
-		render(Page, {
+		render(PageWithRouteBoundary, {
 			props: {
 				data: makeRouteData(workspace.promise)
 			}
@@ -169,25 +155,22 @@ describe('evals page', () => {
 		workspace.reject(new Error('rating scheme failed'));
 
 		await waitFor(() => {
-			expect(throwRenderErrorMock).toHaveBeenCalledWith(
-				expect.objectContaining({ message: 'rating scheme failed' }),
-				'Failed to load Rating Scheme workspace'
-			);
+			expect(screen.getByRole('alert').textContent).toContain('rating scheme failed');
 		});
+		expect(screen.queryByRole('status')).toBeNull();
+		expect(screen.queryAllByTestId('visible-stub')).toHaveLength(0);
 	});
 
-	it('invokes the render error path when Rating Scheme route data is missing', async () => {
-		render(Page, {
+	it('shows the route error boundary when Rating Scheme route data is missing', async () => {
+		render(PageWithRouteBoundary, {
 			props: {
 				data: makeRouteDataWithoutRatingScheme()
 			}
 		});
 
 		await waitFor(() => {
-			expect(throwRenderErrorMock).toHaveBeenCalledWith(
-				expect.objectContaining({ message: 'Missing Rating Scheme workspace data' }),
-				'Failed to load Rating Scheme workspace'
-			);
+			expect(screen.getByRole('alert').textContent).toContain('Missing Rating Scheme workspace data');
 		});
+		expect(screen.queryAllByTestId('visible-stub')).toHaveLength(0);
 	});
 });

@@ -1,16 +1,7 @@
 import type { PageServerLoad } from './$types';
 import { error } from '@sveltejs/kit';
 import { loadWithAdminContext } from '$lib/server/adapters/adminAdapter';
-import type { BillingSnapshot } from '$lib/types/subscription';
-import { visibleBillingSnapshotForAdminRole } from '$lib/server/adminBillingVisibility';
 import { createSupabasePlatformOrganizationLedger } from '$lib/server/adapters/supabasePlatformOrganizationLedger';
-
-export function _visibleBillingSnapshotForRole(
-	role: Parameters<typeof visibleBillingSnapshotForAdminRole>[0],
-	snapshot: BillingSnapshot | null
-): BillingSnapshot | null {
-	return visibleBillingSnapshotForAdminRole(role, snapshot);
-}
 
 export const load: PageServerLoad = loadWithAdminContext({
 	page: 'subscriptions',

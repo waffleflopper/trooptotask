@@ -99,24 +99,6 @@ async function cleanupOrganization(orgId: string): Promise<void> {
 	expect(error, 'cleanup organizations').toBeNull();
 }
 
-async function cleanupSelfServiceRun(input: {
-	email: string;
-	userId: string | null;
-	orgId: string | null;
-}): Promise<void> {
-	if (input.orgId) {
-		await cleanupOrganization(input.orgId);
-	}
-
-	if (input.userId) {
-		const { error } = await adminClient.auth.admin.deleteUser(input.userId);
-		expect(error, 'cleanup auth user').toBeNull();
-	}
-
-	await cleanupSignupRateLimitBuckets(input.email);
-	await clearMailbox();
-}
-
 async function cleanupSignupRateLimitBuckets(email: string): Promise<void> {
 	const bucketKeys = [`signup:email:${hashRateLimitDimension(email.toLowerCase())}`];
 	const loopbackAddresses =
@@ -136,10 +118,25 @@ async function cleanupSignupRateLimitBuckets(email: string): Promise<void> {
 	}
 }
 
+async function cleanupSelfServiceRun(input: {
+	email: string;
+	userId: string | null;
+	orgId: string | null;
+}): Promise<void> {
+	if (input.orgId) {
+		await cleanupOrganization(input.orgId);
+	}
+
+	if (input.userId) {
+		const { error } = await adminClient.auth.admin.deleteUser(input.userId);
+		expect(error, 'cleanup auth user').toBeNull();
+	}
+
+	await cleanupSignupRateLimitBuckets(input.email);
+	await clearMailbox();
+}
+
 async function continueFromLocalConfirmedSignup(page: Page, email: string, password: string): Promise<string> {
-	// Local Supabase intentionally disables email confirmations for development.
-	// In that mode signup creates a confirmed account, so continue through login if
-	// the server-side signup action did not leave an authenticated browser session.
 	await page.goto('/org/new');
 	if (new URL(page.url()).pathname === '/org/new') return 'local-dev-session';
 

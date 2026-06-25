@@ -21,32 +21,14 @@ interface ArchiveRetentionEndpointEnv {
 	CRON_SECRET?: string;
 }
 
-export interface ArchiveRetentionEndpointCoreInput {
-	request: Request;
-	env: ArchiveRetentionEndpointEnv;
-	orgConfigs: ArchiveRetentionOrgConfig[];
-	runCleanup: (orgConfigs: ArchiveRetentionOrgConfig[]) => Promise<ArchiveRetentionCleanupResult>;
-}
-
-export interface ArchiveRetentionEndpointInput {
+interface ArchiveRetentionEndpointInput {
 	request: Request;
 	env: ArchiveRetentionEndpointEnv;
 	loadOrgRows: () => Promise<{ data: ArchiveRetentionSettingsRow[] | null; error: unknown }>;
 	runCleanup: (orgConfigs: ArchiveRetentionOrgConfig[]) => Promise<ArchiveRetentionCleanupResult>;
 }
 
-export async function _runArchiveRetentionCleanupEndpointCore(
-	input: ArchiveRetentionEndpointCoreInput
-): Promise<Response> {
-	assertCronEndpointAuthorized(input.request.headers.get('authorization'), [
-		input.env.CLEANUP_SECRET,
-		input.env.CRON_SECRET
-	]);
-
-	return json(await input.runCleanup(input.orgConfigs));
-}
-
-export async function _runArchiveRetentionCleanupEndpoint(input: ArchiveRetentionEndpointInput): Promise<Response> {
+async function runArchiveRetentionCleanupEndpoint(input: ArchiveRetentionEndpointInput): Promise<Response> {
 	assertCronEndpointAuthorized(input.request.headers.get('authorization'), [
 		input.env.CLEANUP_SECRET,
 		input.env.CRON_SECRET
@@ -72,7 +54,7 @@ export const GET: RequestHandler = async ({ request }) => {
 	const store = createSupabaseDataStore(admin);
 	const storage = createSupabaseStorageAdapter(admin);
 
-	return _runArchiveRetentionCleanupEndpoint({
+	return runArchiveRetentionCleanupEndpoint({
 		request,
 		env: {
 			CLEANUP_SECRET: env.CLEANUP_SECRET,

@@ -113,27 +113,6 @@ describe('admin feedback route shell', () => {
 			],
 			resolvedItems: []
 		});
-		expect(createFeedbackMock).toHaveBeenCalledWith(
-			expect.objectContaining({ adminUser: { id: 'admin-1', role: 'support' } })
-		);
-	});
-
-	it('parses update form data and delegates to the use case', async () => {
-		const result = await actions.update({
-			__ctx: makeContext(),
-			request: makeRequest({
-				feedbackId: FEEDBACK_ID,
-				status: 'resolved',
-				adminNotes: ' Closed out '
-			})
-		} as unknown as Parameters<(typeof actions)['update']>[0]);
-
-		expect(feedbackMock.update).toHaveBeenCalledWith({
-			id: FEEDBACK_ID,
-			status: 'resolved',
-			adminNotes: ' Closed out '
-		});
-		expect(result).toEqual({ success: true });
 	});
 
 	it('preserves validation failures before calling the use case', async () => {

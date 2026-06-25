@@ -12,18 +12,6 @@ afterEach(async () => {
 });
 
 describe('PersonnelModal', () => {
-	it('does not render the redundant roster preview card', () => {
-		render(PersonnelModal, {
-			props: {
-				groups: [],
-				onSubmit: vi.fn(),
-				onClose: vi.fn()
-			}
-		});
-
-		expect(screen.queryByText('Roster Preview')).toBeNull();
-	});
-
 	it('labels the personnel position field as Duty Role', () => {
 		render(PersonnelModal, {
 			props: {

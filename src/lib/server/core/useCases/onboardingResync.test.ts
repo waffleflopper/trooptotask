@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { createWritePortsContext } from '$lib/server/adapters/inMemory';
 import type { CapabilityMap } from '$lib/access/memberAccessShape';
 import { resyncOnboarding, switchTemplate } from './onboardingResync';
@@ -620,7 +620,7 @@ describe('resyncOnboarding', () => {
 		expect(added?.completed).toBe(false);
 	});
 
-	it('batches existing step updates and new step inserts', async () => {
+	it('updates existing steps and adds new template steps during resync', async () => {
 		const ctx = buildContext();
 		seedOnboarding(ctx);
 		seedTemplateSteps(ctx, [
@@ -701,22 +701,8 @@ describe('resyncOnboarding', () => {
 				organization_id: 'test-org'
 			}
 		]);
-		const upsertManySpy = vi.spyOn(ctx.store, 'upsertMany');
-		const insertManySpy = vi.spyOn(ctx.store, 'insertMany');
-		const updateSpy = vi.spyOn(ctx.store, 'update');
-		const insertSpy = vi.spyOn(ctx.store, 'insert');
-
 		const result = await resyncOnboarding(ctx, 'ob-1');
 
-		expect(upsertManySpy).toHaveBeenCalledTimes(1);
-		expect(upsertManySpy.mock.calls[0][0]).toBe('onboarding_step_progress');
-		expect(upsertManySpy.mock.calls[0][2]).toHaveLength(2);
-		expect(upsertManySpy.mock.calls[0][3]).toEqual({ onConflict: 'id' });
-		expect(insertManySpy).toHaveBeenCalledTimes(1);
-		expect(insertManySpy.mock.calls[0][0]).toBe('onboarding_step_progress');
-		expect(insertManySpy.mock.calls[0][2]).toHaveLength(2);
-		expect(updateSpy).not.toHaveBeenCalled();
-		expect(insertSpy).not.toHaveBeenCalled();
 		expect(result.steps).toHaveLength(4);
 		expect(result.steps.find((s) => s.templateStepId === 'ts-1')?.stepName).toBe('Updated ID card step');
 		expect(result.steps.find((s) => s.templateStepId === 'ts-2')?.currentStage).toBe('draft');

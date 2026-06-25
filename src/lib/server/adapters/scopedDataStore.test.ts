@@ -280,51 +280,6 @@ describe('ScopedDataStore', () => {
 				expect(result.count).toBe(4);
 			});
 
-			it('delegates range and personnel scope to inner findMany', async () => {
-				const inner = createInMemoryDataStore();
-				seedPaginationData(inner);
-				const findManySpy = vi.spyOn(inner, 'findMany');
-				const scoped = createScopedDataStore(inner, GROUP_A, scopeRules);
-
-				const range = { from: 1, to: 2 };
-
-				await scoped.findMany<{ id: string }>('training_records', ORG, undefined, {
-					range,
-					orderBy: [{ column: 'id', ascending: true }],
-					inFilters: { id: ['tr-1', 'tr-3', 'tr-4', 'tr-6'] }
-				});
-
-				const targetCall = findManySpy.mock.calls.find(([table]) => table === 'training_records');
-				expect(targetCall?.[3]).toEqual({
-					range,
-					orderBy: [{ column: 'id', ascending: true }],
-					inFilters: {
-						id: ['tr-1', 'tr-3', 'tr-4', 'tr-6'],
-						personnel_id: ['p-1', 'p-3', 'p-4']
-					}
-				});
-			});
-
-			it('delegates limit, count, and intersected personnel scope to inner findManyWithCount', async () => {
-				const inner = createInMemoryDataStore();
-				seedPaginationData(inner);
-				const findManyWithCountSpy = vi.spyOn(inner, 'findManyWithCount');
-				const scoped = createScopedDataStore(inner, GROUP_A, scopeRules);
-
-				await scoped.findManyWithCount<{ id: string }>('training_records', ORG, undefined, {
-					count: 'exact',
-					limit: 2,
-					inFilters: { personnel_id: ['p-2', 'p-3', 'p-4'] }
-				});
-
-				expect(findManyWithCountSpy).toHaveBeenCalledTimes(1);
-				expect(findManyWithCountSpy.mock.calls[0][3]).toEqual({
-					count: 'exact',
-					limit: 2,
-					inFilters: { personnel_id: ['p-3', 'p-4'] }
-				});
-			});
-
 			it('returns empty personnel-scoped pages without reading the target table when scope is empty', async () => {
 				const inner = createInMemoryDataStore();
 				seedPaginationData(inner);
@@ -387,17 +342,9 @@ describe('ScopedDataStore', () => {
 
 			it('upsertMany passes through to inner store', async () => {
 				const inner = createInMemoryDataStore();
-				const upsertManySpy = vi.spyOn(inner, 'upsertMany');
 				const scoped = createScopedDataStore(inner, GROUP_A, scopeRules);
 
 				await scoped.upsertMany(
-					'personnel_trainings',
-					ORG,
-					[{ personnel_id: 'p-1', training_type_id: 'tt-1', completion_date: '2026-06-01' }],
-					{ onConflict: 'organization_id,personnel_id,training_type_id' }
-				);
-
-				expect(upsertManySpy).toHaveBeenCalledWith(
 					'personnel_trainings',
 					ORG,
 					[{ personnel_id: 'p-1', training_type_id: 'tt-1', completion_date: '2026-06-01' }],

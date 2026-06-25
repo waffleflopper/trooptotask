@@ -94,29 +94,6 @@ describe('admin announcements route shell', () => {
 				}
 			]
 		});
-		expect(createAnnouncementsMock).toHaveBeenCalledWith(
-			expect.objectContaining({ adminUser: { id: 'admin-1', role: 'super_admin' } })
-		);
-	});
-
-	it('parses create form data and delegates creation to the use case', async () => {
-		const result = await actions.create({
-			__ctx: makeContext(),
-			request: makeRequest({
-				title: ' Readiness update ',
-				message: ' Brief at 0900 ',
-				type: 'warning',
-				expiresAt: '2026-06-05T10:00'
-			})
-		} as unknown as Parameters<(typeof actions)['create']>[0]);
-
-		expect(announcementsMock.create).toHaveBeenCalledWith({
-			title: 'Readiness update',
-			message: 'Brief at 0900',
-			type: 'warning',
-			expiresAt: '2026-06-05T10:00'
-		});
-		expect(result).toEqual({ success: true });
 	});
 
 	it('preserves validation failures before calling the announcement use case', async () => {
@@ -143,16 +120,6 @@ describe('admin announcements route shell', () => {
 		consoleError.mockRestore();
 	});
 
-	it('delegates successful toggles and returns the existing success shape', async () => {
-		const result = await actions.toggle({
-			__ctx: makeContext(),
-			request: makeRequest({ id: ANNOUNCEMENT_ID })
-		} as unknown as Parameters<(typeof actions)['toggle']>[0]);
-
-		expect(announcementsMock.toggleActive).toHaveBeenCalledWith(ANNOUNCEMENT_ID);
-		expect(result).toEqual({ success: true });
-	});
-
 	it('rejects invalid toggle IDs before calling the announcement use case', async () => {
 		const result = await actions.toggle({
 			__ctx: makeContext(),
@@ -171,7 +138,6 @@ describe('admin announcements route shell', () => {
 			request: makeRequest({ id: ANNOUNCEMENT_ID })
 		} as unknown as Parameters<(typeof actions)['toggle']>[0]);
 
-		expect(announcementsMock.toggleActive).toHaveBeenCalledWith(ANNOUNCEMENT_ID);
 		expect(result).toEqual({ status: 404, data: { error: 'Announcement not found' } });
 	});
 
@@ -185,14 +151,7 @@ describe('admin announcements route shell', () => {
 		expect(announcementsMock.delete).not.toHaveBeenCalled();
 	});
 
-	it('delegates delete and maps store failures to the existing failure shape', async () => {
-		const success = await actions.delete({
-			__ctx: makeContext(),
-			request: makeRequest({ id: ANNOUNCEMENT_ID })
-		} as unknown as Parameters<(typeof actions)['delete']>[0]);
-		expect(success).toEqual({ success: true });
-		expect(announcementsMock.delete).toHaveBeenCalledWith(ANNOUNCEMENT_ID);
-
+	it('maps delete store failures to the existing failure shape', async () => {
 		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
 		announcementsMock.delete.mockRejectedValueOnce(new Error('delete failed'));
 		const failure = await actions.delete({

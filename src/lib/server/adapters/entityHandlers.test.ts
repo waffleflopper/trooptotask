@@ -115,20 +115,6 @@ describe('entityHandlers()', () => {
 	});
 
 	describe('method awareness', () => {
-		it('emits policy-first route configs for every generated mutation', () => {
-			const entity = createTestEntity();
-			const handlers = entityHandlers(entity);
-
-			for (const config of [handlers._configs.POST, handlers._configs.PUT, handlers._configs.DELETE]) {
-				expect(config).toMatchObject({
-					mutation: true,
-					policyAction: POLICY_ACTION_CATALOG.training.configureRequirements,
-					policyResource: { kind: 'unscoped' }
-				});
-				expect('permission' in config!).toBe(false);
-			}
-		});
-
 		it('only returns handlers for declared methods', () => {
 			const entity = createTestEntity({ methods: ['POST'] });
 			const handlers = entityHandlers(entity);

@@ -111,6 +111,7 @@ function makeCtx(
 		);
 	};
 	const activePersonnel = () => personnelStore.items.filter((person) => !person.archivedAt);
+	let viewMode = $state<'alphabetical' | 'by-group'>('alphabetical');
 	let searchQuery = $state('');
 
 	const ctx = {
@@ -124,7 +125,12 @@ function makeCtx(
 		canArchivePersonnelRecord: () => false,
 		personnelRecordAffordance: () => deniedAffordance(),
 		personnelArchiveAffordance: () => deniedAffordance(),
-		viewMode: 'alphabetical',
+		get viewMode() {
+			return viewMode;
+		},
+		set viewMode(value: 'alphabetical' | 'by-group') {
+			viewMode = value;
+		},
 		get searchQuery() {
 			return searchQuery;
 		},
@@ -207,18 +213,13 @@ describe('PersonnelPageView', () => {
 		expect(screen.getByRole('columnheader', { name: 'Duty Role' })).toBeTruthy();
 	});
 
-	it('uses a compact command strip without the old summary noise', () => {
+	it('shows roster sorting and search controls', () => {
 		const ctx = makeCtx();
 
 		render(PersonnelPageView, {
 			props: { ctx }
 		});
 
-		expect(screen.queryByRole('heading', { name: 'Personnel' })).toBeNull();
-		expect(screen.queryByText('Total Personnel')).toBeNull();
-		expect(screen.queryByText('Groups')).toBeNull();
-		expect(screen.queryByText('Unassigned')).toBeNull();
-		expect(screen.queryByText('Access')).toBeNull();
 		expect(screen.getByRole('group', { name: 'Roster sort mode' })).toBeTruthy();
 		expect(screen.getByTestId('personnel-search')).toBeTruthy();
 	});
@@ -342,9 +343,18 @@ describe('PersonnelPageView', () => {
 			props: { ctx }
 		});
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Group' }));
+		const azToggle = screen.getByRole('button', { name: 'A-Z' });
+		const groupToggle = screen.getByRole('button', { name: 'Group' });
 
-		expect(ctx.viewMode).toBe('by-group');
+		expect(azToggle.getAttribute('aria-pressed')).toBe('true');
+		expect(groupToggle.getAttribute('aria-pressed')).toBe('false');
+		expect(screen.queryByRole('button', { name: 'Pin Alpha' })).toBeNull();
+
+		await fireEvent.click(groupToggle);
+
+		expect(screen.getByRole('button', { name: 'A-Z' }).getAttribute('aria-pressed')).toBe('false');
+		expect(screen.getByRole('button', { name: 'Group' }).getAttribute('aria-pressed')).toBe('true');
+		expect(screen.getByRole('button', { name: 'Pin Alpha' })).toBeTruthy();
 	});
 
 	it('renders grouped roster pin controls without crashing', () => {

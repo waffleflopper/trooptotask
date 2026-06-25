@@ -22,8 +22,9 @@
 	const statusFilter = $derived(data.pagination.status ?? 'all');
 	const billingHealth = $derived(
 		data.billingHealth ?? {
-			overallState: 'healthy',
-			states: ['healthy'],
+			generatedAt: '',
+			overallState: 'diagnostics_unavailable',
+			states: ['diagnostics_unavailable'],
 			counts: {
 				retryableFailures: 0,
 				permanentFailures: 0,
@@ -34,7 +35,7 @@
 				supportAttentionItems: 0
 			},
 			issues: [],
-			diagnosticsError: false
+			diagnosticsError: true
 		}
 	);
 

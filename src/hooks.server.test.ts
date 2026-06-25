@@ -7,10 +7,13 @@ describe('server auth hook', () => {
 		vi.restoreAllMocks();
 	});
 
-	async function createAuthenticatedHookHarness(rpcResult: {
-		data: boolean | null;
-		error: { message: string } | null;
-	}) {
+	async function createAuthenticatedHookHarness(
+		rpcResult: {
+			data: boolean | null;
+			error: { message: string } | null;
+		},
+		options: { authenticatedUserId?: string } = {}
+	) {
 		const now = new Date();
 		const user = {
 			id: 'user-1',
@@ -22,6 +25,7 @@ describe('server auth hook', () => {
 			last_sign_in_at: now.toISOString(),
 			role: 'authenticated'
 		};
+		const authenticatedUser = { ...user, id: options.authenticatedUserId ?? user.id };
 		const session = {
 			access_token: 'token',
 			refresh_token: 'refresh-token',
@@ -56,7 +60,7 @@ describe('server auth hook', () => {
 			error: null
 		});
 		const getUser = vi.fn().mockResolvedValue({
-			data: { user },
+			data: { user: authenticatedUser },
 			error: null
 		});
 		const getAuthenticatorAssuranceLevel = vi.fn().mockResolvedValue({
@@ -85,6 +89,7 @@ describe('server auth hook', () => {
 		vi.doMock('$lib/server/env', () => ({}));
 
 		const { handle } = await import('./hooks.server');
+		const deleteCookie = vi.fn();
 		const event = {
 			url: new URL('http://localhost/dashboard'),
 			request: new Request('http://localhost/dashboard'),
@@ -94,11 +99,11 @@ describe('server auth hook', () => {
 				getAll: () => [{ name: 'sb-example-auth-token', value: 'session' }],
 				get: vi.fn(),
 				set: vi.fn(),
-				delete: vi.fn()
+				delete: deleteCookie
 			}
 		} as never;
 
-		return { handle: handle as Handle, event, resolve, rpc, getUser };
+		return { handle: handle as Handle, event, resolve, rpc, getUser, deleteCookie };
 	}
 
 	it('clears stale Supabase auth cookies when refresh token lookup fails', async () => {
@@ -200,5 +205,21 @@ describe('server auth hook', () => {
 		expect(locals.session?.user.id).toBe('user-1');
 		expect(locals.session?.access_token).toBe('token');
 		expect(resolve).toHaveBeenCalled();
+	});
+
+	it('clears Supabase auth cookies when the authenticated user does not match verified claims', async () => {
+		const { handle, event, resolve, rpc, deleteCookie } = await createAuthenticatedHookHarness(
+			{
+				data: false,
+				error: null
+			},
+			{ authenticatedUserId: 'user-2' }
+		);
+
+		await expect(handle({ event, resolve })).rejects.toMatchObject({ status: 303 });
+
+		expect(deleteCookie).toHaveBeenCalledWith('sb-example-auth-token', { path: '/' });
+		expect(rpc).not.toHaveBeenCalled();
+		expect(resolve).not.toHaveBeenCalled();
 	});
 });

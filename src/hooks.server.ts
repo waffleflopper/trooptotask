@@ -182,16 +182,18 @@ export const handle: Handle = async ({ event, resolve }) => {
 			}
 			throw error;
 		});
-		if (userError || !userData?.user || userData.user.id !== claimsData.claims.sub) {
-			if (isStaleSupabaseAuthError(userError)) {
+		const authenticatedUser = userData?.user ?? null;
+		const userMatchesClaims = authenticatedUser?.id === claimsData.claims.sub;
+		if (userError || !userMatchesClaims) {
+			if (isStaleSupabaseAuthError(userError) || (!userError && !userMatchesClaims)) {
 				clearSupabaseAuthCookies(event);
 			}
 			cachedSession = { session: null, user: null };
 			return cachedSession;
 		}
-		await requestUserStorage.setItem(`${SUPABASE_AUTH_STORAGE_KEY}-user`, JSON.stringify({ user: userData.user }));
+		await requestUserStorage.setItem(`${SUPABASE_AUTH_STORAGE_KEY}-user`, JSON.stringify({ user: authenticatedUser }));
 
-		const user = buildTrustedUserFromClaims(claimsData.claims, userData.user);
+		const user = buildTrustedUserFromClaims(claimsData.claims, authenticatedUser);
 		cachedSession = { session: buildTrustedSession(session, user), user };
 		return cachedSession;
 	};

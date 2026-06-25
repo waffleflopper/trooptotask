@@ -1,6 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Handle } from '@sveltejs/kit';
 
+interface TestUserStorage {
+	getItem(key: string): string | null;
+}
+
+interface TestServerClientOptions {
+	auth?: {
+		userStorage?: TestUserStorage;
+	};
+}
+
 describe('server auth hook', () => {
 	beforeEach(() => {
 		vi.resetModules();
@@ -65,22 +75,32 @@ describe('server auth hook', () => {
 			data: { user: authenticatedUser },
 			error: null
 		});
-		const getAuthenticatorAssuranceLevel = vi.fn().mockResolvedValue({
-			data: { currentLevel: 'aal1', nextLevel: 'aal1' },
-			error: null
+		let serverClientOptions: TestServerClientOptions | null = null;
+		const readStoredUserDuringMfa = vi.fn(() =>
+			serverClientOptions?.auth?.userStorage?.getItem('sb-example-auth-token-user')
+		);
+		const getAuthenticatorAssuranceLevel = vi.fn(async () => {
+			readStoredUserDuringMfa();
+			return {
+				data: { currentLevel: 'aal1', nextLevel: 'aal1' },
+				error: null
+			};
 		});
 		const rpc = vi.fn().mockResolvedValue(rpcResult);
-		const createServerClient = vi.fn(() => ({
-			auth: {
-				getSession,
-				getClaims,
-				getUser,
-				mfa: {
-					getAuthenticatorAssuranceLevel
-				}
-			},
-			rpc
-		}));
+		const createServerClient = vi.fn((_url: string, _key: string, options: TestServerClientOptions) => {
+			serverClientOptions = options;
+			return {
+				auth: {
+					getSession,
+					getClaims,
+					getUser,
+					mfa: {
+						getAuthenticatorAssuranceLevel
+					}
+				},
+				rpc
+			};
+		});
 		const resolve = vi.fn().mockResolvedValue(new Response('ok'));
 
 		vi.doMock('@supabase/ssr', () => ({ createServerClient }));
@@ -105,7 +125,7 @@ describe('server auth hook', () => {
 			}
 		} as never;
 
-		return { handle: handle as Handle, event, resolve, rpc, getUser, deleteCookie };
+		return { handle: handle as Handle, event, resolve, rpc, getUser, deleteCookie, readStoredUserDuringMfa };
 	}
 
 	it('clears stale Supabase auth cookies when refresh token lookup fails', async () => {
@@ -193,7 +213,7 @@ describe('server auth hook', () => {
 	});
 
 	it('builds request auth state without reading the user returned by getSession', async () => {
-		const { handle, event, resolve, getUser } = await createAuthenticatedHookHarness({
+		const { handle, event, resolve, getUser, readStoredUserDuringMfa } = await createAuthenticatedHookHarness({
 			data: false,
 			error: null
 		});
@@ -208,6 +228,7 @@ describe('server auth hook', () => {
 		expect(locals.session?.access_token).toBe('token');
 		expect(locals.session).not.toHaveProperty('provider_token');
 		expect(locals.session).not.toHaveProperty('provider_refresh_token');
+		expect(readStoredUserDuringMfa).toHaveReturnedWith(expect.stringContaining('"id":"user-1"'));
 		expect(resolve).toHaveBeenCalled();
 	});
 

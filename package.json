@@ -37,11 +37,9 @@
 		"billing:launch-preflight": "node ./scripts/billing-launch-preflight.mjs",
 		"billing:launch-readiness": "node ./scripts/billing-launch-readiness.mjs",
 		"billing:snapshot-backfill": "node ./scripts/billing-snapshot-backfill.mjs",
-		"billing:lifecycle": "node ./scripts/billing-lifecycle-simulate.mjs",
-		"sandcastle": "npx tsx .sandcastle/main.mts"
+		"billing:lifecycle": "node ./scripts/billing-lifecycle-simulate.mjs"
 	},
 	"devDependencies": {
-		"@ai-hero/sandcastle": "^0.5.6",
 		"@eslint/js": "^9.39.4",
 		"@playwright/test": "^1.60.0",
 		"@sveltejs/adapter-auto": "^7.0.1",

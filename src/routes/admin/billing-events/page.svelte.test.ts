@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
 
 import Page from './+page.svelte';
+import type { PageData } from './$types';
 
 const originalClipboardDescriptor = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
 
@@ -94,7 +95,7 @@ describe('admin billing events page', () => {
 		expect(screen.getByText(/health scan can read events and billing snapshots/)).toBeTruthy();
 	});
 
-	function billingHealthData() {
+	function billingHealthData(): NonNullable<PageData['billingHealth']> {
 		return {
 			generatedAt: '2026-06-24T12:00:00.000Z',
 			overallState: 'needs_retry',
@@ -162,6 +163,48 @@ describe('admin billing events page', () => {
 		expect(document.body.textContent).not.toContain('whsec_');
 	});
 
+	it('gives support bundle copy actions unique accessible names without changing the visible label', () => {
+		const billingHealth = billingHealthData();
+		const retryIssue = billingHealth.issues[0]!;
+		billingHealth.issues = [
+			{
+				...retryIssue,
+				organization: { id: 'org-alpha', name: 'Alpha Company' }
+			},
+			{
+				...retryIssue,
+				id: 'snapshot:org-bravo',
+				title: 'Billing drift detected',
+				organization: { id: 'org-bravo', name: 'Bravo Company' },
+				latestEventIds: ['evt_drift'],
+				supportBundle: {
+					...retryIssue.supportBundle,
+					organizationId: 'org-bravo',
+					organizationName: 'Bravo Company',
+					stripeEventIds: ['evt_drift'],
+					nextSteps: ['Run admin billing reconciliation']
+				}
+			}
+		];
+
+		render(Page, {
+			props: {
+				data: {
+					events: [],
+					diagnosticsError: false,
+					billingHealth
+				} as never,
+				form: null
+			}
+		});
+
+		expect(
+			screen.getByRole('button', { name: 'Copy bundle for Retryable webhook failure (Alpha Company)' })
+		).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Copy bundle for Billing drift detected (Bravo Company)' })).toBeTruthy();
+		expect(screen.getAllByText('Copy bundle')).toHaveLength(2);
+	});
+
 	it('copies the support-safe billing health bundle text', async () => {
 		const writeText = vi.fn(async (_text: string) => undefined);
 		Object.defineProperty(navigator, 'clipboard', {
@@ -180,7 +223,7 @@ describe('admin billing events page', () => {
 			}
 		});
 
-		await fireEvent.click(screen.getByRole('button', { name: /Copy bundle/ }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Copy bundle for Retryable webhook failure' }));
 
 		expect(writeText).toHaveBeenCalledTimes(1);
 		const copiedText = writeText.mock.calls[0]?.[0] ?? '';

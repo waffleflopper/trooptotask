@@ -61,8 +61,6 @@ type SafeSessionResult = { session: Session | null; user: User | null };
 
 function buildTrustedSession(session: Session, user: User): Session {
 	return {
-		provider_token: session.provider_token,
-		provider_refresh_token: session.provider_refresh_token,
 		access_token: session.access_token,
 		refresh_token: session.refresh_token,
 		expires_in: session.expires_in,

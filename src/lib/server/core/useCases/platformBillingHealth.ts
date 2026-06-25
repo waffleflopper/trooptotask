@@ -212,11 +212,20 @@ function visibleProviderId(role: AdminRole, value: string | null): string | null
 	return role === 'support' ? null : value;
 }
 
-function isUnresolvedPaymentFailureEvent(event: PlatformBillingHealthEventRecord): boolean {
+function billingStateNeedsPaymentRecovery(state: PlatformBillingHealthBillingStateContext | null | undefined): boolean {
 	return (
-		event.type === 'invoice.payment_failed' &&
-		(event.processingState === 'retryable_failed' || event.processingState === 'permanently_failed')
+		state?.subscriptionStatus === 'past_due' ||
+		state?.subscriptionStatus === 'unpaid' ||
+		state?.collectionStatus === 'payment_failed_grace' ||
+		state?.collectionStatus === 'payment_failed_terminal'
 	);
+}
+
+function isUnresolvedPaymentFailureEvent(event: PlatformBillingHealthEventRecord): boolean {
+	if (event.type !== 'invoice.payment_failed') return false;
+	if (event.processingState !== 'retryable_failed' && event.processingState !== 'permanently_failed') return false;
+	const currentBillingState = event.linkedBillingContext?.billingState;
+	return !currentBillingState || billingStateNeedsPaymentRecovery(currentBillingState);
 }
 
 function buildEventIssue(
@@ -267,12 +276,7 @@ function buildEventIssue(
 
 function snapshotStates(snapshot: PlatformBillingHealthSnapshotRecord, staleCutoff: Date): BillingHealthState[] {
 	const states: BillingHealthState[] = [];
-	if (
-		snapshot.subscriptionStatus === 'past_due' ||
-		snapshot.subscriptionStatus === 'unpaid' ||
-		snapshot.collectionStatus === 'payment_failed_grace' ||
-		snapshot.collectionStatus === 'payment_failed_terminal'
-	) {
+	if (billingStateNeedsPaymentRecovery(snapshot)) {
 		states.push('payment_recovery_attention');
 	}
 	if (snapshot.driftDetected || snapshot.syncStatus === 'needs_reconciliation') states.push('drift_detected');

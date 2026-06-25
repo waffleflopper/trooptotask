@@ -78,7 +78,7 @@ describe('admin billing events page', () => {
 		expect(screen.queryByText('not-for-admin-ui')).toBeNull();
 	});
 
-	it('warns when linked diagnostics are incomplete', () => {
+	it('uses billing health as the single diagnostics warning source', () => {
 		render(Page, {
 			props: {
 				data: {
@@ -89,8 +89,9 @@ describe('admin billing events page', () => {
 			}
 		});
 
-		expect(screen.getByText('Some billing diagnostics could not be loaded.')).toBeTruthy();
-		expect(screen.getByText(/organization links may be incomplete/)).toBeTruthy();
+		expect(screen.queryByText('Some billing diagnostics could not be loaded.')).toBeNull();
+		expect(screen.getByText('Billing health diagnostics could not be fully loaded.')).toBeTruthy();
+		expect(screen.getByText(/health scan can read events and billing snapshots/)).toBeTruthy();
 	});
 
 	function billingHealthData() {

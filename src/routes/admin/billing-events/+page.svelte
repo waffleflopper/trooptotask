@@ -91,16 +91,6 @@
 		/>
 	</PageShell.FactGrid>
 
-	{#if data.diagnosticsError}
-		<Alert.Root variant="warning">
-			<TriangleAlert />
-			<Alert.Title>Some billing diagnostics could not be loaded.</Alert.Title>
-			<Alert.Description>
-				Event rows are still shown when available, but organization links may be incomplete.
-			</Alert.Description>
-		</Alert.Root>
-	{/if}
-
 	{#if billingHealth.diagnosticsError}
 		<Alert.Root variant="warning">
 			<TriangleAlert />

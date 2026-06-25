@@ -97,21 +97,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 		}
 	}
 
-	const requestUserStorageItems = new Map<string, string>();
-	const requestUserStorage = {
-		getItem: (key: string) => requestUserStorageItems.get(key) ?? null,
-		setItem: (key: string, value: string) => {
-			requestUserStorageItems.set(key, value);
-		},
-		removeItem: (key: string) => {
-			requestUserStorageItems.delete(key);
-		}
-	};
-
 	event.locals.supabase = createServerClient(PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY, {
-		auth: {
-			userStorage: requestUserStorage
-		},
 		cookies: {
 			encode: 'tokens-only',
 			getAll: () => event.cookies.getAll(),
@@ -189,7 +175,6 @@ export const handle: Handle = async ({ event, resolve }) => {
 			cachedSession = { session: null, user: null };
 			return cachedSession;
 		}
-		await requestUserStorage.setItem(`${SUPABASE_AUTH_STORAGE_KEY}-user`, JSON.stringify({ user: authenticatedUser }));
 
 		const user = buildTrustedUserFromClaims(claimsData.claims, authenticatedUser);
 		cachedSession = { session: buildTrustedSession(session, user), user };

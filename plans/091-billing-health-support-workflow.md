@@ -30,11 +30,13 @@
 On 2026-06-24, this plan was refreshed at `cc011a36` after plan 090 completed.
 In-scope drift came from the billing launch readiness gate, support-safe launch
 evidence wording, admin subscriptions test-helper cleanup, and the
-billing-reconciliation endpoint test refactor. The finding still stands:
-billing events still load the latest 50 diagnostics, subscription drift is
-still summarized only on the current admin subscriptions page, and there is no
-runtime billing health/support bundle. Plans 085 and 086 are now DONE, so this
-plan is executable.
+billing-reconciliation endpoint test refactor. At refresh time, the pre-shipped
+finding was that billing events loaded only the latest 50 diagnostics,
+subscription drift was summarized only on the current admin subscriptions page,
+and there was no runtime billing health/support bundle. This implementation now
+adds copyable support bundles and in-app billing health visibility to Billing
+Events and Subscriptions. Plans 085 and 086 are DONE, so this plan was
+executable when dispatched.
 
 ## Why this matters
 

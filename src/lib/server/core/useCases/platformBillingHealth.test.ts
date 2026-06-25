@@ -356,6 +356,47 @@ describe('PlatformBillingHealth', () => {
 		expect(JSON.stringify(summary)).not.toContain('payment_recovery_attention');
 	});
 
+	it('keeps retry attention without payment recovery attention when a failed invoice event has recovered billing state', () => {
+		const summary = mapBillingHealthSummary({
+			now: NOW,
+			adminRole: 'billing',
+			events: [
+				event({
+					id: 'evt_retry_recovered_payment_failed',
+					type: 'invoice.payment_failed',
+					processingState: 'retryable_failed',
+					processingResult: 'retryable processing failure',
+					linkedBillingContext: linkedBillingContext({
+						organizationId: 'org-recovered',
+						organizationName: 'Recovered Company',
+						billingState: {
+							source: 'stripe',
+							commercialPlan: 'team',
+							subscriptionStatus: 'active',
+							collectionStatus: 'current',
+							syncStatus: 'synced',
+							driftDetected: false
+						}
+					})
+				})
+			],
+			snapshots: []
+		});
+
+		expect(summary.counts).toMatchObject({
+			retryableFailures: 1,
+			recentPaymentFailures: 0,
+			supportAttentionItems: 1
+		});
+		expect(summary.issues[0]).toMatchObject({
+			primaryState: 'needs_retry',
+			states: ['needs_retry'],
+			organization: { id: 'org-recovered', name: 'Recovered Company' }
+		});
+		expect(summary.issues[0].supportBundle.nextSteps).toEqual(['Retry guarded webhook event']);
+		expect(JSON.stringify(summary)).not.toContain('payment_recovery_attention');
+	});
+
 	it('keeps support role bundles free of provider identifiers while preserving next-step labels', () => {
 		const summary = mapBillingHealthSummary({
 			now: NOW,

@@ -31,6 +31,8 @@ describe('server auth hook', () => {
 			refresh_token: 'refresh-token',
 			expires_in: 3600,
 			expires_at: Math.floor(now.getTime() / 1000) + 3600,
+			provider_token: 'provider-token-should-not-serialize',
+			provider_refresh_token: 'provider-refresh-token-should-not-serialize',
 			token_type: 'bearer' as const
 		};
 		Object.defineProperty(session, 'user', {
@@ -204,6 +206,8 @@ describe('server auth hook', () => {
 		expect(locals.user?.id).toBe('user-1');
 		expect(locals.session?.user.id).toBe('user-1');
 		expect(locals.session?.access_token).toBe('token');
+		expect(locals.session).not.toHaveProperty('provider_token');
+		expect(locals.session).not.toHaveProperty('provider_refresh_token');
 		expect(resolve).toHaveBeenCalled();
 	});
 

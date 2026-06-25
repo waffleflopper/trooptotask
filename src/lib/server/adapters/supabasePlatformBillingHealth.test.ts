@@ -288,6 +288,41 @@ describe('createSupabasePlatformBillingHealthStore', () => {
 		expect(JSON.stringify(result)).not.toContain('sk_test_secret');
 	});
 
+	it('omits unsafe stored provider IDs from billing context link filters', async () => {
+		const stub = createSupabaseStub({
+			stripe_webhook_events: [
+				eventRow({
+					id: 'evt_safe',
+					object_id: 'sub_safe',
+					processing_state: 'retryable_failed',
+					processing_result: 'retryable processing failure'
+				}),
+				eventRow({
+					id: 'evt_bad),stripe_customer_id.eq.cus_attack',
+					object_id: 'sub_bad),stripe_customer_id.eq.cus_attack',
+					processing_state: 'retryable_failed',
+					processing_result: 'retryable processing failure'
+				})
+			],
+			organization_billing_snapshots: [
+				snapshotRow({
+					organization_id: 'org-safe',
+					organizations: { id: 'org-safe', name: 'Safe Company' },
+					stripe_subscription_id: 'sub_safe'
+				})
+			]
+		});
+
+		const result = await createSupabasePlatformBillingHealthStore(stub.supabase as never).listRecentHealthEvents(10);
+		const snapshotQuery = stub.queries.find((query) => query.table === 'organization_billing_snapshots');
+
+		expect(snapshotQuery?.orFilters.join(',')).toContain('evt_safe');
+		expect(snapshotQuery?.orFilters.join(',')).toContain('sub_safe');
+		expect(snapshotQuery?.orFilters.join(',')).not.toContain('cus_attack');
+		expect(result.find((event) => event.id === 'evt_safe')?.linkedBillingContext?.organizationId).toBe('org-safe');
+		expect(result.find((event) => event.id.startsWith('evt_bad'))?.linkedBillingContext).toBeUndefined();
+	});
+
 	it('prioritizes drift and payment recovery snapshots before stale reconciliation rows', async () => {
 		const stub = createSupabaseStub({
 			organization_billing_snapshots: [

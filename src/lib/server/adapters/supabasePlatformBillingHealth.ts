@@ -70,6 +70,7 @@ const PAYMENT_RECOVERY_SUBSCRIPTION_STATUSES: Array<NonNullable<BillingSnapshot[
 	'unpaid'
 ];
 const PAYMENT_RECOVERY_COLLECTION_STATUSES = ['payment_failed_grace', 'payment_failed_terminal'];
+const SAFE_POSTGREST_IN_FILTER_VALUE = /^[A-Za-z0-9_]+$/;
 
 function throwIfSupabaseError(error: unknown): void {
 	if (error) throw error;
@@ -110,9 +111,15 @@ function partitionStripeObjectIds(objectIds: string[]): { customerIds: string[];
 	return { customerIds, subscriptionIds };
 }
 
+function safePostgrestInFilterValues(values: string[]): string[] {
+	return [...new Set(values.filter((value) => SAFE_POSTGREST_IN_FILTER_VALUE.test(value)))];
+}
+
 function billingSnapshotLinkFilters(events: PlatformBillingHealthEventRecord[]): string[] {
-	const eventIds = events.map((event) => event.id).filter(Boolean);
-	const objectIds = events.map((event) => event.objectId).filter((objectId): objectId is string => !!objectId);
+	const eventIds = safePostgrestInFilterValues(events.map((event) => event.id).filter(Boolean));
+	const objectIds = safePostgrestInFilterValues(
+		events.map((event) => event.objectId).filter((objectId): objectId is string => !!objectId)
+	);
 	const { customerIds, subscriptionIds } = partitionStripeObjectIds(objectIds);
 	return [
 		eventIds.length ? `last_stripe_event_id.in.(${eventIds.join(',')})` : null,

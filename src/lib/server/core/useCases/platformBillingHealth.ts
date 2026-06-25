@@ -17,6 +17,23 @@ export type BillingHealthState =
 	| 'reconciliation_stale'
 	| 'diagnostics_unavailable';
 
+export interface PlatformBillingHealthBillingStateContext {
+	source: BillingSnapshotSource | null;
+	commercialPlan: Tier | null;
+	subscriptionStatus: SubscriptionStatus | null;
+	collectionStatus: string | null;
+	syncStatus: BillingSyncStatus | null;
+	driftDetected: boolean;
+}
+
+export interface PlatformBillingHealthLinkedBillingContext {
+	organizationId: string;
+	organizationName: string | null;
+	stripeCustomerId: string | null;
+	stripeSubscriptionId: string | null;
+	billingState: PlatformBillingHealthBillingStateContext;
+}
+
 export interface PlatformBillingHealthEventRecord {
 	id: string;
 	type: string;
@@ -27,6 +44,7 @@ export interface PlatformBillingHealthEventRecord {
 	processingResult: string | null;
 	createdAt: string | null;
 	updatedAt: string | null;
+	linkedBillingContext?: PlatformBillingHealthLinkedBillingContext | null;
 }
 
 export interface PlatformBillingHealthSnapshotRecord extends BillingSnapshot {
@@ -39,14 +57,7 @@ export interface PlatformBillingSupportBundle {
 	stripeCustomerId: string | null;
 	stripeSubscriptionId: string | null;
 	stripeEventIds: string[];
-	billingState: {
-		source: BillingSnapshotSource | null;
-		commercialPlan: Tier | null;
-		subscriptionStatus: SubscriptionStatus | null;
-		collectionStatus: string | null;
-		syncStatus: BillingSyncStatus | null;
-		driftDetected: boolean;
-	};
+	billingState: PlatformBillingHealthBillingStateContext;
 	reconciliationResult: string | null;
 	nextSteps: string[];
 }
@@ -186,11 +197,37 @@ function eventTimestamp(event: PlatformBillingHealthEventRecord): string | null 
 	return event.eventCreatedAt ?? event.updatedAt ?? event.createdAt;
 }
 
-function buildEventIssue(event: PlatformBillingHealthEventRecord, now: Date): PlatformBillingHealthIssue | null {
+function emptyBillingStateContext(): PlatformBillingHealthBillingStateContext {
+	return {
+		source: null,
+		commercialPlan: null,
+		subscriptionStatus: null,
+		collectionStatus: null,
+		syncStatus: null,
+		driftDetected: false
+	};
+}
+
+function visibleProviderId(role: AdminRole, value: string | null): string | null {
+	return role === 'support' ? null : value;
+}
+
+function isUnresolvedPaymentFailureEvent(event: PlatformBillingHealthEventRecord): boolean {
+	return (
+		event.type === 'invoice.payment_failed' &&
+		(event.processingState === 'retryable_failed' || event.processingState === 'permanently_failed')
+	);
+}
+
+function buildEventIssue(
+	event: PlatformBillingHealthEventRecord,
+	now: Date,
+	adminRole: AdminRole
+): PlatformBillingHealthIssue | null {
 	const states: BillingHealthState[] = [];
 	if (event.processingState === 'retryable_failed') states.push('needs_retry');
 	if (event.processingState === 'permanently_failed') states.push('permanent_failure');
-	if (event.type === 'invoice.payment_failed') states.push('payment_recovery_attention');
+	if (isUnresolvedPaymentFailureEvent(event)) states.push('payment_recovery_attention');
 
 	if (states.length === 0) return null;
 
@@ -201,6 +238,10 @@ function buildEventIssue(event: PlatformBillingHealthEventRecord, now: Date): Pl
 	const nextSteps = nextStepsFor(states);
 	if (isStaleFailure) nextSteps.push('Treat as stale failed webhook event');
 	const primaryState = states[0];
+	const linkedContext = event.linkedBillingContext ?? null;
+	const organization = linkedContext
+		? { id: linkedContext.organizationId, name: linkedContext.organizationName }
+		: null;
 
 	return {
 		id: `event:${event.id}`,
@@ -209,22 +250,15 @@ function buildEventIssue(event: PlatformBillingHealthEventRecord, now: Date): Pl
 		severity: severityFor(states),
 		title: titleFor(primaryState),
 		detail: `${event.type} is ${event.processingState ?? 'unknown'} with ${event.attemptCount ?? 0} attempts.`,
-		organization: null,
+		organization,
 		latestEventIds: [event.id],
 		supportBundle: {
-			organizationId: null,
-			organizationName: null,
-			stripeCustomerId: null,
-			stripeSubscriptionId: null,
+			organizationId: linkedContext?.organizationId ?? null,
+			organizationName: linkedContext?.organizationName ?? null,
+			stripeCustomerId: visibleProviderId(adminRole, linkedContext?.stripeCustomerId ?? null),
+			stripeSubscriptionId: visibleProviderId(adminRole, linkedContext?.stripeSubscriptionId ?? null),
 			stripeEventIds: [event.id],
-			billingState: {
-				source: null,
-				commercialPlan: null,
-				subscriptionStatus: null,
-				collectionStatus: null,
-				syncStatus: null,
-				driftDetected: false
-			},
+			billingState: linkedContext?.billingState ?? emptyBillingStateContext(),
 			reconciliationResult: event.processingResult,
 			nextSteps
 		}
@@ -246,10 +280,6 @@ function snapshotStates(snapshot: PlatformBillingHealthSnapshotRecord, staleCuto
 		states.push('reconciliation_stale');
 	}
 	return uniqueStates(states);
-}
-
-function visibleProviderId(role: AdminRole, value: string | null): string | null {
-	return role === 'support' ? null : value;
 }
 
 function snapshotDetailFor(snapshot: PlatformBillingHealthSnapshotRecord, primaryState: BillingHealthState): string {
@@ -335,7 +365,7 @@ export function mapBillingHealthSummary(input: {
 	const staleFailureCutoff = new Date(input.now.getTime() - STALE_FAILURE_MS);
 	const staleReconciliationCutoff = new Date(input.now.getTime() - STALE_RECONCILIATION_MS);
 	const eventIssues = input.events.flatMap((event) => {
-		const issue = buildEventIssue(event, input.now);
+		const issue = buildEventIssue(event, input.now, input.adminRole);
 		return issue ? [issue] : [];
 	});
 	const snapshotIssues = input.snapshots.flatMap((snapshot) => {
@@ -359,7 +389,7 @@ export function mapBillingHealthSummary(input: {
 			isBeforeIso(eventTimestamp(event), staleFailureCutoff)
 	).length;
 	const recentPaymentFailures =
-		input.events.filter((event) => event.type === 'invoice.payment_failed').length +
+		input.events.filter(isUnresolvedPaymentFailureEvent).length +
 		input.snapshots.filter((snapshot) =>
 			snapshotStates(snapshot, staleReconciliationCutoff).includes('payment_recovery_attention')
 		).length;

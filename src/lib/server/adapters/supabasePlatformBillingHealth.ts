@@ -4,6 +4,7 @@ import {
 	createPlatformBillingHealth,
 	type PlatformBillingHealth,
 	type PlatformBillingHealthEventRecord,
+	type PlatformBillingHealthLinkedBillingContext,
 	type PlatformBillingHealthSnapshotRecord,
 	type PlatformBillingHealthStore
 } from '$lib/server/core/useCases/platformBillingHealth';
@@ -62,6 +63,14 @@ const SAFE_HEALTH_EVENT_COLUMNS =
 const BILLING_HEALTH_SNAPSHOT_COLUMNS =
 	'organization_id, source, commercial_plan, stripe_customer_id, stripe_subscription_id, stripe_product_id, stripe_price_id, subscription_status, collection_status, current_period_start, current_period_end, cancel_at_period_end, canceled_at, cancellation_reason, cancellation_feedback, trial_end, sync_status, last_stripe_event_id, last_stripe_event_type, last_stripe_event_created_at, last_processed_at, last_reconciled_at, reconciliation_result, drift_detected, organizations!inner(id, name)';
 
+const FAILED_WEBHOOK_PROCESSING_STATES: WebhookProcessingState[] = ['retryable_failed', 'permanently_failed'];
+const PAID_COMMERCIAL_PLANS: Exclude<Tier, 'free'>[] = ['team', 'unit'];
+const PAYMENT_RECOVERY_SUBSCRIPTION_STATUSES: Array<NonNullable<BillingSnapshot['subscriptionStatus']>> = [
+	'past_due',
+	'unpaid'
+];
+const PAYMENT_RECOVERY_COLLECTION_STATUSES = ['payment_failed_grace', 'payment_failed_terminal'];
+
 function throwIfSupabaseError(error: unknown): void {
 	if (error) throw error;
 }
@@ -83,6 +92,72 @@ function mapHealthEvent(row: BillingHealthEventRow): PlatformBillingHealthEventR
 		createdAt: row.created_at,
 		updatedAt: row.updated_at
 	};
+}
+
+function partitionStripeObjectIds(objectIds: string[]): { customerIds: string[]; subscriptionIds: string[] } {
+	const customerIds: string[] = [];
+	const subscriptionIds: string[] = [];
+	for (const objectId of objectIds) {
+		if (objectId.startsWith('cus_')) {
+			customerIds.push(objectId);
+		} else if (objectId.startsWith('sub_')) {
+			subscriptionIds.push(objectId);
+		} else {
+			customerIds.push(objectId);
+			subscriptionIds.push(objectId);
+		}
+	}
+	return { customerIds, subscriptionIds };
+}
+
+function billingSnapshotLinkFilters(events: PlatformBillingHealthEventRecord[]): string[] {
+	const eventIds = events.map((event) => event.id).filter(Boolean);
+	const objectIds = events.map((event) => event.objectId).filter((objectId): objectId is string => !!objectId);
+	const { customerIds, subscriptionIds } = partitionStripeObjectIds(objectIds);
+	return [
+		eventIds.length ? `last_stripe_event_id.in.(${eventIds.join(',')})` : null,
+		subscriptionIds.length ? `stripe_subscription_id.in.(${subscriptionIds.join(',')})` : null,
+		customerIds.length ? `stripe_customer_id.in.(${customerIds.join(',')})` : null
+	].filter((filter): filter is string => !!filter);
+}
+
+function linkedBillingContext(row: BillingHealthSnapshotRow): PlatformBillingHealthLinkedBillingContext {
+	return {
+		organizationId: row.organization_id,
+		organizationName: organizationName(row),
+		stripeCustomerId: row.stripe_customer_id,
+		stripeSubscriptionId: row.stripe_subscription_id,
+		billingState: {
+			source: row.source,
+			commercialPlan: row.commercial_plan,
+			subscriptionStatus: row.subscription_status,
+			collectionStatus: row.collection_status,
+			syncStatus: row.sync_status,
+			driftDetected: row.drift_detected ?? false
+		}
+	};
+}
+
+function snapshotMatchesEvent(snapshot: BillingHealthSnapshotRow, event: PlatformBillingHealthEventRecord): boolean {
+	return (
+		snapshot.last_stripe_event_id === event.id ||
+		(!!event.objectId &&
+			(snapshot.stripe_customer_id === event.objectId || snapshot.stripe_subscription_id === event.objectId))
+	);
+}
+
+function attachLinkedBillingContexts(
+	events: PlatformBillingHealthEventRecord[],
+	snapshots: BillingHealthSnapshotRow[]
+): PlatformBillingHealthEventRecord[] {
+	return events.map((event) => {
+		const snapshot = snapshots.find((candidate) => snapshotMatchesEvent(candidate, event));
+		if (!snapshot) return event;
+		return {
+			...event,
+			linkedBillingContext: linkedBillingContext(snapshot)
+		};
+	});
 }
 
 function mapHealthSnapshot(row: BillingHealthSnapshotRow): PlatformBillingHealthSnapshotRecord {
@@ -117,39 +192,86 @@ function mapHealthSnapshot(row: BillingHealthSnapshotRow): PlatformBillingHealth
 	};
 }
 
+function dedupeSnapshotsByOrganization(rows: BillingHealthSnapshotRow[]): BillingHealthSnapshotRow[] {
+	const seen = new Set<string>();
+	const snapshots: BillingHealthSnapshotRow[] = [];
+	for (const row of rows) {
+		if (seen.has(row.organization_id)) continue;
+		seen.add(row.organization_id);
+		snapshots.push(row);
+	}
+	return snapshots;
+}
+
 export function createSupabasePlatformBillingHealthStore(supabase: SupabaseClient): PlatformBillingHealthStore {
 	return {
 		async listRecentHealthEvents(limit) {
 			const response = (await supabase
 				.from('stripe_webhook_events')
 				.select(SAFE_HEALTH_EVENT_COLUMNS)
+				.in('processing_state', FAILED_WEBHOOK_PROCESSING_STATES)
 				.order('event_created_at', { ascending: false, nullsFirst: false })
 				.order('created_at', { ascending: false })
 				.limit(limit)) as SupabaseResponse<BillingHealthEventRow[]>;
 			throwIfSupabaseError(response.error);
-			return (response.data ?? []).map(mapHealthEvent);
+			const events = (response.data ?? []).map(mapHealthEvent);
+			const filters = billingSnapshotLinkFilters(events);
+			if (filters.length === 0) return events;
+
+			const snapshotResponse = (await supabase
+				.from('organization_billing_snapshots')
+				.select(BILLING_HEALTH_SNAPSHOT_COLUMNS)
+				.or(filters.join(','))
+				.order('last_processed_at', { ascending: false, nullsFirst: false })
+				.limit(limit)) as SupabaseResponse<BillingHealthSnapshotRow[]>;
+			throwIfSupabaseError(snapshotResponse.error);
+			return attachLinkedBillingContexts(events, snapshotResponse.data ?? []);
 		},
 
 		async listBillingSnapshotsForHealth(input) {
-			const response = (await supabase
-				.from('organization_billing_snapshots')
-				.select(BILLING_HEALTH_SNAPSHOT_COLUMNS)
-				.eq('source', 'stripe')
-				.in('commercial_plan', ['team', 'unit'])
-				.or(
-					[
-						'drift_detected.eq.true',
-						'sync_status.eq.needs_reconciliation',
-						'subscription_status.in.(past_due,unpaid)',
-						'collection_status.in.(payment_failed_grace,payment_failed_terminal)',
-						'last_reconciled_at.is.null',
-						`last_reconciled_at.lt.${input.staleReconciledBefore}`
-					].join(',')
-				)
-				.order('last_reconciled_at', { ascending: true, nullsFirst: true })
-				.limit(input.limit)) as SupabaseResponse<BillingHealthSnapshotRow[]>;
-			throwIfSupabaseError(response.error);
-			return (response.data ?? []).map(mapHealthSnapshot);
+			const [driftResponse, paymentResponse, staleResponse] = (await Promise.all([
+				supabase
+					.from('organization_billing_snapshots')
+					.select(BILLING_HEALTH_SNAPSHOT_COLUMNS)
+					.or('drift_detected.eq.true,sync_status.eq.needs_reconciliation')
+					.order('last_processed_at', { ascending: false, nullsFirst: false })
+					.order('last_reconciled_at', { ascending: true, nullsFirst: true })
+					.limit(input.limit),
+				supabase
+					.from('organization_billing_snapshots')
+					.select(BILLING_HEALTH_SNAPSHOT_COLUMNS)
+					.or(
+						[
+							`subscription_status.in.(${PAYMENT_RECOVERY_SUBSCRIPTION_STATUSES.join(',')})`,
+							`collection_status.in.(${PAYMENT_RECOVERY_COLLECTION_STATUSES.join(',')})`
+						].join(',')
+					)
+					.order('last_processed_at', { ascending: false, nullsFirst: false })
+					.order('last_reconciled_at', { ascending: true, nullsFirst: true })
+					.limit(input.limit),
+				supabase
+					.from('organization_billing_snapshots')
+					.select(BILLING_HEALTH_SNAPSHOT_COLUMNS)
+					.eq('source', 'stripe')
+					.in('commercial_plan', PAID_COMMERCIAL_PLANS)
+					.or(`last_reconciled_at.is.null,last_reconciled_at.lt.${input.staleReconciledBefore}`)
+					.order('last_reconciled_at', { ascending: true, nullsFirst: true })
+					.limit(input.limit)
+			])) as [
+				SupabaseResponse<BillingHealthSnapshotRow[]>,
+				SupabaseResponse<BillingHealthSnapshotRow[]>,
+				SupabaseResponse<BillingHealthSnapshotRow[]>
+			];
+			throwIfSupabaseError(driftResponse.error);
+			throwIfSupabaseError(paymentResponse.error);
+			throwIfSupabaseError(staleResponse.error);
+			return dedupeSnapshotsByOrganization([
+				...(driftResponse.data ?? []),
+				...(paymentResponse.data ?? []),
+				...(staleResponse.data ?? [])
+			])
+				.slice(0, input.limit)
+				.map(mapHealthSnapshot);
 		}
 	};
 }

@@ -371,6 +371,48 @@ describe('POST /api/webhooks/stripe', () => {
 		expect(invalidateTierCacheMock).toHaveBeenCalledWith('org-1');
 	});
 
+	it('records invoice failures with subscription link metadata for billing health support bundles', async () => {
+		const supabase = createWebhookSupabaseStub({
+			paymentFailedOrgId: 'org-1',
+			failBillingSnapshotRpc: 'temporary billing snapshot write failed'
+		});
+		getAdminClientMock.mockReturnValue(supabase.client);
+
+		const response = await postWebhook({
+			id: 'evt_invoice_failed',
+			type: 'invoice.payment_failed',
+			created: 1,
+			data: {
+				object: {
+					id: 'in_123',
+					object: 'invoice',
+					parent: {
+						subscription_details: {
+							subscription: 'sub_123'
+						}
+					},
+					customer: 'cus_123'
+				}
+			}
+		});
+
+		expect(response.status).toBe(500);
+		expect(supabase.webhookAttemptRecords).toContainEqual(
+			expect.objectContaining({
+				p_id: 'evt_invoice_failed',
+				p_type: 'invoice.payment_failed',
+				p_object_id: 'sub_123',
+				p_secondary_dedupe_key: 'invoice.payment_failed:sub_123'
+			})
+		);
+		expect(supabase.webhookAttemptRecords).not.toContainEqual(
+			expect.objectContaining({
+				p_object_id: 'in_123',
+				p_secondary_dedupe_key: 'invoice.payment_failed:in_123'
+			})
+		);
+	});
+
 	it('marks older checkout completions superseded without overwriting the newer billing snapshot', async () => {
 		const supabase = createWebhookSupabaseStub({
 			existingBillingSnapshot: { last_stripe_event_created_at: '1970-01-01T00:00:10.000Z' }

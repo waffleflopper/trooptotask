@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr';
 import { type Handle, error, redirect } from '@sveltejs/kit';
+import type { Session, User } from '@supabase/supabase-js';
 import { PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY } from '$env/static/public';
 import { checkRateLimit } from '$lib/server/rateLimit';
 import { auditLog } from '$lib/server/auditLog';
@@ -56,6 +57,21 @@ function clearSupabaseAuthCookies(event: Parameters<Handle>[0]['event']): void {
 	}
 }
 
+type SafeSessionResult = { session: Session | null; user: User | null };
+
+function buildTrustedSession(session: Session, user: User): Session {
+	return {
+		provider_token: session.provider_token,
+		provider_refresh_token: session.provider_refresh_token,
+		access_token: session.access_token,
+		refresh_token: session.refresh_token,
+		expires_in: session.expires_in,
+		expires_at: session.expires_at,
+		token_type: session.token_type,
+		user
+	};
+}
+
 export const handle: Handle = async ({ event, resolve }) => {
 	// Rate limiting — skip for e2e tests (dev mode only, tree-shaken in production)
 	const clientIp = event.getClientAddress();
@@ -83,8 +99,23 @@ export const handle: Handle = async ({ event, resolve }) => {
 		}
 	}
 
+	const requestUserStorageItems = new Map<string, string>();
+	const requestUserStorage = {
+		getItem: (key: string) => requestUserStorageItems.get(key) ?? null,
+		setItem: (key: string, value: string) => {
+			requestUserStorageItems.set(key, value);
+		},
+		removeItem: (key: string) => {
+			requestUserStorageItems.delete(key);
+		}
+	};
+
 	event.locals.supabase = createServerClient(PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY, {
+		auth: {
+			userStorage: requestUserStorage
+		},
 		cookies: {
+			encode: 'tokens-only',
 			getAll: () => event.cookies.getAll(),
 			setAll: (cookiesToSet) => {
 				cookiesToSet.forEach(({ name, value, options }) => {
@@ -94,9 +125,8 @@ export const handle: Handle = async ({ event, resolve }) => {
 		}
 	});
 
-	// Cache getUser() result within a single request to avoid redundant auth API calls
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase auth types require casting to satisfy SvelteKit locals.session shape
-	let cachedSession: any = null;
+	// Cache auth verification within a single request to avoid redundant auth API calls.
+	let cachedSession: SafeSessionResult | null = null;
 	event.locals.safeGetSession = async () => {
 		if (cachedSession) return cachedSession;
 		const hasAuthCookie = hasSupabaseAuthCookie(
@@ -145,8 +175,24 @@ export const handle: Handle = async ({ event, resolve }) => {
 			return cachedSession;
 		}
 
-		const user = buildTrustedUserFromClaims(claimsData.claims, session.user);
-		cachedSession = { session: { ...session, user }, user };
+		const { data: userData, error: userError } = await event.locals.supabase.auth.getUser().catch((error) => {
+			if (isStaleSupabaseAuthError(error)) {
+				clearSupabaseAuthCookies(event);
+				return { data: null, error };
+			}
+			throw error;
+		});
+		if (userError || !userData?.user || userData.user.id !== claimsData.claims.sub) {
+			if (isStaleSupabaseAuthError(userError)) {
+				clearSupabaseAuthCookies(event);
+			}
+			cachedSession = { session: null, user: null };
+			return cachedSession;
+		}
+		await requestUserStorage.setItem(`${SUPABASE_AUTH_STORAGE_KEY}-user`, JSON.stringify({ user: userData.user }));
+
+		const user = buildTrustedUserFromClaims(claimsData.claims, userData.user);
+		cachedSession = { session: buildTrustedSession(session, user), user };
 		return cachedSession;
 	};
 	// Always attempt to get the session — public routes need user info for conditional rendering

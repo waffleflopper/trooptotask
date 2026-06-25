@@ -22,12 +22,22 @@ describe('server auth hook', () => {
 			last_sign_in_at: now.toISOString(),
 			role: 'authenticated'
 		};
+		const session = {
+			access_token: 'token',
+			refresh_token: 'refresh-token',
+			expires_in: 3600,
+			expires_at: Math.floor(now.getTime() / 1000) + 3600,
+			token_type: 'bearer' as const
+		};
+		Object.defineProperty(session, 'user', {
+			enumerable: true,
+			get() {
+				throw new Error('getSession user should not be trusted');
+			}
+		});
 		const getSession = vi.fn().mockResolvedValue({
 			data: {
-				session: {
-					access_token: 'token',
-					user
-				}
+				session
 			},
 			error: null
 		});
@@ -45,6 +55,10 @@ describe('server auth hook', () => {
 			},
 			error: null
 		});
+		const getUser = vi.fn().mockResolvedValue({
+			data: { user },
+			error: null
+		});
 		const getAuthenticatorAssuranceLevel = vi.fn().mockResolvedValue({
 			data: { currentLevel: 'aal1', nextLevel: 'aal1' },
 			error: null
@@ -54,6 +68,7 @@ describe('server auth hook', () => {
 			auth: {
 				getSession,
 				getClaims,
+				getUser,
 				mfa: {
 					getAuthenticatorAssuranceLevel
 				}
@@ -83,7 +98,7 @@ describe('server auth hook', () => {
 			}
 		} as never;
 
-		return { handle: handle as Handle, event, resolve, rpc };
+		return { handle: handle as Handle, event, resolve, rpc, getUser };
 	}
 
 	it('clears stale Supabase auth cookies when refresh token lookup fails', async () => {
@@ -96,6 +111,7 @@ describe('server auth hook', () => {
 		const createServerClient = vi.fn(() => ({
 			auth: {
 				getSession,
+				getUser: vi.fn(),
 				getClaims: vi.fn(),
 				mfa: {
 					getAuthenticatorAssuranceLevel: vi.fn()
@@ -142,28 +158,47 @@ describe('server auth hook', () => {
 
 	it('fails closed when the suspension RPC returns an error', async () => {
 		vi.spyOn(console, 'error').mockImplementation(() => undefined);
-		const { handle, event, resolve, rpc } = await createAuthenticatedHookHarness({
+		const { handle, event, resolve, rpc, getUser } = await createAuthenticatedHookHarness({
 			data: null,
 			error: { message: 'connection refused' }
 		});
 
 		await expect(handle({ event, resolve })).rejects.toMatchObject({ status: 500 });
 
+		expect(getUser).toHaveBeenCalledWith();
 		expect(rpc).toHaveBeenCalledWith('is_user_suspended', { check_user_id: 'user-1' });
 		expect(resolve).not.toHaveBeenCalled();
 	});
 
 	it('redirects suspended users to /suspended', async () => {
-		const { handle, event, resolve, rpc } = await createAuthenticatedHookHarness({
+		const { handle, event, resolve, rpc, getUser } = await createAuthenticatedHookHarness({
 			data: true,
 			error: null
 		});
 
 		const response = await handle({ event, resolve });
 
+		expect(getUser).toHaveBeenCalledWith();
 		expect(rpc).toHaveBeenCalledWith('is_user_suspended', { check_user_id: 'user-1' });
 		expect(response.status).toBe(302);
 		expect(response.headers.get('Location')).toBe('/suspended');
 		expect(resolve).not.toHaveBeenCalled();
+	});
+
+	it('builds request auth state without reading the user returned by getSession', async () => {
+		const { handle, event, resolve, getUser } = await createAuthenticatedHookHarness({
+			data: false,
+			error: null
+		});
+
+		const response = await handle({ event, resolve });
+		const locals = (event as unknown as { locals: App.Locals }).locals;
+
+		expect(response.status).toBe(200);
+		expect(getUser).toHaveBeenCalledWith();
+		expect(locals.user?.id).toBe('user-1');
+		expect(locals.session?.user.id).toBe('user-1');
+		expect(locals.session?.access_token).toBe('token');
+		expect(resolve).toHaveBeenCalled();
 	});
 });

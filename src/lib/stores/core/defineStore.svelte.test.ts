@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { defineStore, tableToResource, buildComparator } from './defineStore.svelte';
 import { createMockAdapter } from './ports';
+import type { Store, StoreInternals } from './createStore.svelte';
 import type { ApiAdapter } from './ports';
 
 interface TestItem {
@@ -9,6 +10,11 @@ interface TestItem {
 	rank?: number;
 	group?: string | null;
 }
+
+type InternalsEnhancements = {
+	batchEndpoint(path: string): string;
+	loadedNames(): string[];
+};
 
 function mockAdapter(overrides: Partial<ApiAdapter<TestItem>> = {}): ApiAdapter<TestItem> {
 	return createMockAdapter<TestItem>({
@@ -182,6 +188,29 @@ describe('defineStore (Tier 2 — enhance)', () => {
 		expect(store.items).toEqual([{ id: '1', name: 'Alpha' }]);
 		expect(store.findByName('Alpha')).toEqual({ id: '1', name: 'Alpha' });
 		expect(store.findByName('Missing')).toBeUndefined();
+	});
+});
+
+// ──────────────────────────────────────────────────────────────
+// defineStore — Tier 3: enhance with internals
+// ──────────────────────────────────────────────────────────────
+describe('defineStore (Tier 3 — enhance with internals)', () => {
+	it('enhanced stores can expose behavior built from live store internals', () => {
+		const store = defineStore<TestItem, InternalsEnhancements>(
+			{ table: 'test_items', overrides: { adapter: mockAdapter() } },
+			(_base: Store<TestItem>, internals: StoreInternals<TestItem>) => ({
+				batchEndpoint: (path: string) => `/org/${internals.orgId()}/api/${path}`,
+				loadedNames: () => internals.snapshot().map((item) => item.name)
+			})
+		);
+
+		store.load([{ id: '1', name: 'Alpha' }], 'org-1');
+		expect(store.batchEndpoint('test-items/batch')).toBe('/org/org-1/api/test-items/batch');
+		expect(store.loadedNames()).toEqual(['Alpha']);
+
+		store.load([{ id: '2', name: 'Bravo' }], 'org-2');
+		expect(store.batchEndpoint('test-items/batch')).toBe('/org/org-2/api/test-items/batch');
+		expect(store.loadedNames()).toEqual(['Bravo']);
 	});
 });
 

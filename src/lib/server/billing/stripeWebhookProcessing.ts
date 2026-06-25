@@ -90,8 +90,15 @@ export function _getStripeObjectId(object: unknown): string | null {
 	return typeof id === 'string' && id.length > 0 ? id : null;
 }
 
+function getWebhookLedgerObjectId(event: Stripe.Event): string | null {
+	if (event.type.startsWith('invoice.')) {
+		return getSubscriptionIdFromInvoice(event.data.object as Stripe.Invoice) ?? _getStripeObjectId(event.data.object);
+	}
+	return _getStripeObjectId(event.data.object);
+}
+
 export function _buildSecondaryDedupeKey(event: Stripe.Event): string {
-	const objectId = _getStripeObjectId(event.data.object);
+	const objectId = getWebhookLedgerObjectId(event);
 	return objectId ? `${event.type}:${objectId}` : `${event.type}:${event.id}`;
 }
 
@@ -500,7 +507,7 @@ export async function _recordStripeWebhookEventAttempt(
 		eventCreatedAt?: string;
 	} = {}
 ): Promise<boolean> {
-	const objectId = metadata.objectId ?? _getStripeObjectId(event.data.object);
+	const objectId = metadata.objectId ?? getWebhookLedgerObjectId(event);
 	const secondaryDedupeKey = metadata.secondaryDedupeKey ?? _buildSecondaryDedupeKey(event);
 	const eventCreatedAt = metadata.eventCreatedAt ?? new Date(event.created * 1000).toISOString();
 
@@ -528,7 +535,7 @@ export async function _recordRetryableStripeWebhookEventAttempt(
 		eventCreatedAt?: string;
 	} = {}
 ): Promise<number> {
-	const objectId = metadata.objectId ?? _getStripeObjectId(event.data.object);
+	const objectId = metadata.objectId ?? getWebhookLedgerObjectId(event);
 	const secondaryDedupeKey = metadata.secondaryDedupeKey ?? _buildSecondaryDedupeKey(event);
 	const eventCreatedAt = metadata.eventCreatedAt ?? new Date(event.created * 1000).toISOString();
 
@@ -657,7 +664,7 @@ export async function handleStripeWebhookPost(request: Request): Promise<Respons
 
 	// Service role client — bypasses RLS
 	const supabase = getAdminClient();
-	const objectId = _getStripeObjectId(event.data.object);
+	const objectId = getWebhookLedgerObjectId(event);
 	const secondaryDedupeKey = _buildSecondaryDedupeKey(event);
 	const eventCreatedAt = new Date(event.created * 1000).toISOString();
 

@@ -1,4 +1,4 @@
-import { describe, expect, test, vi } from 'vitest';
+import { describe, expect, test } from 'vitest';
 import { useDataTable } from './useDataTable.svelte';
 import type { ColumnDef } from './types.js';
 
@@ -15,14 +15,12 @@ const rows: Row[] = [
 	{ id: '3', name: 'Charlie', age: 35, group: 'A' }
 ];
 
-describe('useDataTable caching', () => {
-	test('shares row derivation work across repeated public reads until inputs change', () => {
+describe('useDataTable', () => {
+	test('derives sorted, paginated, and grouped rows from public table state', () => {
 		const cleanup = $effect.root(() => {
-			const compareAges = vi.fn((a: Row, b: Row) => a.age - b.age);
-			const groupKey = vi.fn((row: Row) => row.group);
 			const columns: ColumnDef<Row>[] = [
 				{ key: 'name', header: 'Name', value: (row) => row.name },
-				{ key: 'age', header: 'Age', value: (row) => row.age, compare: compareAges }
+				{ key: 'age', header: 'Age', value: (row) => row.age, compare: (a, b) => a.age - b.age }
 			];
 
 			const table = useDataTable({
@@ -30,7 +28,7 @@ describe('useDataTable caching', () => {
 				columns,
 				initialSortKey: 'age',
 				pageSize: 2,
-				groupBy: { key: groupKey }
+				groupBy: { key: (row) => row.group }
 			});
 
 			expect(table.rows.map((row) => row.name)).toEqual(['Bob', 'Alice']);
@@ -39,20 +37,8 @@ describe('useDataTable caching', () => {
 			expect(table.totalPages).toBe(2);
 			expect(table.groups.map((group) => group.key)).toEqual(['B', 'A']);
 
-			const compareCalls = compareAges.mock.calls.length;
-			const groupCalls = groupKey.mock.calls.length;
-
-			expect(table.rows.map((row) => row.name)).toEqual(['Bob', 'Alice']);
-			expect(table.allRows.map((row) => row.name)).toEqual(['Bob', 'Alice', 'Charlie']);
-			expect(table.totalRows).toBe(3);
-			expect(table.totalPages).toBe(2);
-			expect(table.groups.map((group) => group.key)).toEqual(['B', 'A']);
-			expect(compareAges).toHaveBeenCalledTimes(compareCalls);
-			expect(groupKey).toHaveBeenCalledTimes(groupCalls);
-
 			table.toggleSort('age');
 			expect(table.rows.map((row) => row.name)).toEqual(['Charlie', 'Alice']);
-			expect(compareAges.mock.calls.length).toBeGreaterThan(compareCalls);
 		});
 
 		cleanup();

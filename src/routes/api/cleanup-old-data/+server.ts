@@ -14,14 +14,14 @@ interface CleanupOldDataRpcResult {
 	error: unknown;
 }
 
-export interface CleanupOldDataEndpointCoreInput {
+interface CleanupOldDataEndpointCoreInput {
 	request: Request;
 	env: CleanupOldDataEndpointEnv;
 	runAuditCleanup: () => Promise<CleanupOldDataRpcResult>;
 	runWebhookCleanup: () => Promise<CleanupOldDataRpcResult>;
 }
 
-export async function _runCleanupOldDataEndpointCore(input: CleanupOldDataEndpointCoreInput): Promise<Response> {
+async function runCleanupOldDataEndpointCore(input: CleanupOldDataEndpointCoreInput): Promise<Response> {
 	assertCronEndpointAuthorized(input.request.headers.get('authorization'), [
 		input.env.CLEANUP_SECRET,
 		input.env.CRON_SECRET
@@ -46,7 +46,7 @@ export async function _runCleanupOldDataEndpointCore(input: CleanupOldDataEndpoi
 export const GET: RequestHandler = async ({ request }) => {
 	const admin = getAdminClient();
 
-	return _runCleanupOldDataEndpointCore({
+	return runCleanupOldDataEndpointCore({
 		request,
 		env: {
 			CLEANUP_SECRET: env.CLEANUP_SECRET,

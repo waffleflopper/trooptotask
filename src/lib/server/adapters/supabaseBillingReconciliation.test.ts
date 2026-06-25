@@ -1,8 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import {
-	_mergeBillingReconciliationCandidateIds,
-	createSupabaseBillingReconciliationStore
-} from '$lib/server/adapters/supabaseBillingReconciliation';
+import { createSupabaseBillingReconciliationStore } from '$lib/server/adapters/supabaseBillingReconciliation';
 
 function createQueryStub(result: { data: Record<string, unknown>[] | null; error: { message: string } | null }) {
 	const query = {
@@ -39,26 +36,6 @@ function createSupabaseStub(input: {
 }
 
 describe('supabase billing reconciliation adapter', () => {
-	it('merges legacy organization and billing snapshot candidates in cursor order', () => {
-		expect(
-			_mergeBillingReconciliationCandidateIds({
-				organizationIds: ['org-3', 'org-1'],
-				snapshotOrganizationIds: ['org-2', 'org-1'],
-				limit: 10
-			})
-		).toEqual([{ orgId: 'org-1' }, { orgId: 'org-2' }, { orgId: 'org-3' }]);
-	});
-
-	it('caps the merged candidate list after deduping', () => {
-		expect(
-			_mergeBillingReconciliationCandidateIds({
-				organizationIds: ['org-1', 'org-3'],
-				snapshotOrganizationIds: ['org-2', 'org-3'],
-				limit: 2
-			})
-		).toEqual([{ orgId: 'org-1' }, { orgId: 'org-2' }]);
-	});
-
 	it('lists candidates from legacy organization mirrors and billing snapshots', async () => {
 		const stub = createSupabaseStub({
 			organizations: { data: [{ id: 'org-3' }, { id: 'org-1' }], error: null },

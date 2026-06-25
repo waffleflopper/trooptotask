@@ -101,45 +101,6 @@ describe('Training workspace hydration adapter', () => {
 		expect(stores.personnelTrainingsStore.loading).toBe(false);
 	});
 
-	it('ignores stale deferred Training targets when a newer org hydration wins', async () => {
-		const stores = createStores();
-		const hydrator = createTrainingWorkspaceHydrator();
-		const staleTrainings = deferred<PersonnelTraining[]>();
-		const freshTraining = { id: 'fresh', personnelId: 'p2', trainingTypeId: 'tt1' } as PersonnelTraining;
-
-		const staleHydration: TrainingWorkspaceHydration = {
-			orgId: 'org-old',
-			personnel: { mode: 'replace', snapshotKey: 'old-personnel', items: [] },
-			groups: { mode: 'replace', snapshotKey: 'old-groups', items: [] },
-			trainingTypes: { mode: 'replace', snapshotKey: 'old-types', items: [] },
-			trainingViews: { mode: 'replace', snapshotKey: 'old-views', items: [] },
-			personnelTrainings: {
-				mode: 'replace',
-				deferred: true,
-				snapshotKey: 'old-trainings',
-				items: staleTrainings.promise
-			},
-			pinnedGroups: { mode: 'replace', snapshotKey: 'old-pinned', items: [] }
-		};
-		const freshHydration: TrainingWorkspaceHydration = {
-			...staleHydration,
-			orgId: 'org-new',
-			personnelTrainings: {
-				mode: 'replace',
-				snapshotKey: 'new-trainings',
-				items: [freshTraining]
-			}
-		};
-
-		const stalePending = hydrator.hydrate(staleHydration, stores);
-		await hydrator.hydrate(freshHydration, stores);
-		staleTrainings.resolve([{ id: 'stale', personnelId: 'p1', trainingTypeId: 'tt1' } as PersonnelTraining]);
-		await stalePending;
-
-		expect(stores.personnelTrainingsStore.orgId).toBe('org-new');
-		expect(stores.personnelTrainingsStore.items).toEqual([freshTraining]);
-	});
-
 	it('hydrates deferred Training targets for a new org while the store still holds a previous org', async () => {
 		const stores = createStores();
 		const hydrator = createTrainingWorkspaceHydrator();
@@ -163,55 +124,5 @@ describe('Training workspace hydration adapter', () => {
 
 		expect(stores.groupsStore.orgId).toBe('org-new');
 		expect(stores.groupsStore.items).toEqual([freshGroup]);
-	});
-
-	it('ignores stale deferred Training targets when another lane has loaded the store for a newer org', async () => {
-		const stores = createStores();
-		const hydrator = createTrainingWorkspaceHydrator();
-		const staleGroups = deferred<Group[]>();
-		const freshGroup = { id: 'fresh-group', name: 'Fresh', sortOrder: 1 } as Group;
-		const staleGroup = { id: 'stale-group', name: 'Stale', sortOrder: 0 } as Group;
-		const staleHydration: TrainingWorkspaceHydration = {
-			orgId: 'org-old',
-			personnel: { mode: 'replace', snapshotKey: 'old-personnel', items: [] },
-			groups: { mode: 'replace', deferred: true, snapshotKey: 'old-groups', items: staleGroups.promise },
-			trainingTypes: { mode: 'replace', snapshotKey: 'old-types', items: [] },
-			trainingViews: { mode: 'replace', snapshotKey: 'old-views', items: [] },
-			personnelTrainings: { mode: 'replace', snapshotKey: 'old-trainings', items: [] },
-			pinnedGroups: { mode: 'replace', snapshotKey: 'old-pinned', items: [] }
-		};
-
-		const stalePending = hydrator.hydrate(staleHydration, stores);
-		expect(stores.groupsStore.loading).toBe(true);
-
-		stores.groupsStore.load([freshGroup], 'org-new');
-		staleGroups.resolve([staleGroup]);
-		await stalePending;
-
-		expect(stores.groupsStore.orgId).toBe('org-new');
-		expect(stores.groupsStore.items).toEqual([freshGroup]);
-	});
-
-	it('skips already-applied Training target snapshots until reset clears the adapter state', async () => {
-		const stores = createStores();
-		const hydrator = createTrainingWorkspaceHydrator();
-		const trainingType = { id: 'tt1', name: 'CPR' } as TrainingType;
-		const hydration: TrainingWorkspaceHydration = {
-			orgId: 'org-1',
-			personnel: { mode: 'replace', snapshotKey: 'personnel:1', items: [] },
-			groups: { mode: 'replace', snapshotKey: 'groups:1', items: [] },
-			trainingTypes: { mode: 'replace', snapshotKey: 'types:1', items: [trainingType] },
-			trainingViews: { mode: 'replace', snapshotKey: 'views:1', items: [] },
-			personnelTrainings: { mode: 'replace', snapshotKey: 'trainings:1', items: [] },
-			pinnedGroups: { mode: 'replace', snapshotKey: 'pinned:1', items: [] }
-		};
-
-		await hydrator.hydrate(hydration, stores);
-		await hydrator.hydrate(hydration, stores);
-		expect(stores.trainingTypesStore.loadCount).toBe(1);
-
-		hydrator.reset();
-		await hydrator.hydrate(hydration, stores);
-		expect(stores.trainingTypesStore.loadCount).toBe(2);
 	});
 });

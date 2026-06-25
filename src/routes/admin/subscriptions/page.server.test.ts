@@ -1,7 +1,6 @@
 import { isHttpError } from '@sveltejs/kit';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PageData } from './$types';
-import type { BillingSnapshot } from '$lib/types/subscription';
 
 const { organizationLedgerMock, createOrganizationLedgerMock } = vi.hoisted(() => ({
 	organizationLedgerMock: {
@@ -19,7 +18,7 @@ vi.mock('$lib/server/adapters/supabasePlatformOrganizationLedger', () => ({
 	createSupabasePlatformOrganizationLedger: createOrganizationLedgerMock
 }));
 
-import { _visibleBillingSnapshotForRole, load } from './+page.server';
+import { load } from './+page.server';
 
 function makeContext() {
 	return {
@@ -47,38 +46,6 @@ async function expectSanitizedServerError(loadResult: unknown, message: string) 
 	}
 }
 
-function snapshot(overrides: Partial<BillingSnapshot> = {}): BillingSnapshot {
-	return {
-		organizationId: 'org-1',
-		source: 'stripe',
-		commercialPlan: 'team',
-		stripeCustomerId: 'cus_secret',
-		stripeSubscriptionId: 'sub_secret',
-		stripeProductId: 'prod_secret',
-		stripePriceId: 'price_secret',
-		subscriptionStatus: 'active',
-		collectionStatus: null,
-		currentPeriodStart: null,
-		currentPeriodEnd: null,
-		cancelAtPeriodEnd: false,
-		canceledAt: null,
-		cancellationReason: null,
-		cancellationFeedback: null,
-		trialEnd: null,
-		syncStatus: 'synced',
-		lastStripeEventId: 'evt_secret',
-		lastStripeEventType: 'customer.subscription.updated',
-		lastStripeEventCreatedAt: '2026-06-01T00:00:00.000Z',
-		lastProcessedAt: '2026-06-01T00:01:00.000Z',
-		lastReconciledAt: '2026-06-01T00:02:00.000Z',
-		reconciliationResult: null,
-		driftDetected: false,
-		giftTier: null,
-		giftExpiresAt: null,
-		...overrides
-	};
-}
-
 describe('admin subscriptions server diagnostics', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
@@ -100,20 +67,6 @@ describe('admin subscriptions server diagnostics', () => {
 
 	afterEach(() => {
 		vi.restoreAllMocks();
-	});
-
-	it('uses the shared admin billing visibility helper', () => {
-		expect(_visibleBillingSnapshotForRole('support', null)).toBeNull();
-		expect(_visibleBillingSnapshotForRole('support', snapshot())).toMatchObject({
-			stripeCustomerId: null,
-			stripeSubscriptionId: null,
-			stripeProductId: null,
-			stripePriceId: null,
-			lastStripeEventId: null,
-			lastStripeEventType: null,
-			lastStripeEventCreatedAt: null,
-			lastProcessedAt: null
-		});
 	});
 
 	it('passes page, page size, search, and filter params into the Platform Organization Ledger', async () => {

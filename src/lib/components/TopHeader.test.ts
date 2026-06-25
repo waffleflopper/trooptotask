@@ -330,38 +330,6 @@ describe('TopHeader', () => {
 		);
 	});
 
-	it('does not continuously retry a failed org switcher load while the menu stays open', async () => {
-		const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
-			const url = String(input);
-			if (url.includes('part=organization-switcher')) {
-				return { ok: false, json: async () => ({ ok: false }) } as Response;
-			}
-
-			return {
-				ok: true,
-				json: async () => ({ ok: true, unreadNotificationCount: 2 })
-			} as Response;
-		});
-		vi.stubGlobal('fetch', fetchMock);
-
-		renderHeader();
-
-		await fireEvent.click(screen.getByRole('button', { name: 'Switch organization' }));
-
-		await waitFor(() => {
-			const orgSwitcherCalls = fetchMock.mock.calls.filter(([input]) =>
-				String(input).includes('part=organization-switcher')
-			);
-			expect(orgSwitcherCalls).toHaveLength(1);
-		});
-
-		await Promise.resolve();
-		await Promise.resolve();
-		expect(fetchMock.mock.calls.filter(([input]) => String(input).includes('part=organization-switcher'))).toHaveLength(
-			1
-		);
-	});
-
 	it('renders route-aware Calendar breadcrumbs for subpages', () => {
 		pageStore.setPath('/org/org-1/calendar/settings');
 

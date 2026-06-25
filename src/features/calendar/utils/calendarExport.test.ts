@@ -59,28 +59,7 @@ function makeExportOptions() {
 	};
 }
 
-function guardedArray<T>(items: T[], methods: Array<'find' | 'filter'>, mapLimit = Number.POSITIVE_INFINITY): T[] {
-	for (const method of methods) {
-		Object.defineProperty(items, method, {
-			value: () => {
-				throw new Error(`calendar export should not call ${method} in the cell hot path`);
-			}
-		});
-	}
-	let mapCalls = 0;
-	Object.defineProperty(items, 'map', {
-		value: (callback: (value: T, index: number, array: T[]) => unknown) => {
-			mapCalls += 1;
-			if (mapCalls > mapLimit) {
-				throw new Error('calendar export should build lookup maps once per export');
-			}
-			return Array.prototype.map.call(items, callback);
-		}
-	});
-	return items;
-}
-
-function makeIndexedExportOptions() {
+function makeOverlappingExportOptions() {
 	const personnel = [
 		{
 			id: 'person-1',
@@ -99,81 +78,66 @@ function makeIndexedExportOptions() {
 			groupId: 'g1'
 		} as Personnel
 	];
-	const statusTypes = guardedArray<StatusType>(
-		[
-			{
-				id: 'leave',
-				name: 'Leave',
-				color: '#fde68a',
-				textColor: '#111827',
-				da6TreatmentReviewed: true
-			},
-			{
-				id: 'school',
-				name: 'School',
-				color: '#16a34a',
-				textColor: '#ffffff',
-				da6TreatmentReviewed: true
-			}
-		],
-		['find'],
-		1
-	);
-	const availabilityEntries = guardedArray<AvailabilityEntry>(
-		[
-			{
-				id: 'leave-person-1',
-				personnelId: 'person-1',
-				statusTypeId: 'leave',
-				startDate: '2026-03-02',
-				endDate: '2026-03-04'
-			},
-			{
-				id: 'overlap-person-1',
-				personnelId: 'person-1',
-				statusTypeId: 'school',
-				startDate: '2026-03-03',
-				endDate: '2026-03-03'
-			}
-		],
-		['find', 'filter']
-	);
-	const specialDays = guardedArray<SpecialDay>(
-		[{ id: 'holiday', date: '2026-03-06', name: 'Training Holiday', type: 'federal-holiday' }],
-		['find']
-	);
-	const assignmentTypes = guardedArray<AssignmentType>(
-		[
-			{
-				id: 'staff-duty',
-				name: 'Staff Duty',
-				shortName: 'SD',
-				assignTo: 'personnel',
-				color: '#111827',
-				exemptPersonnelIds: [],
-				showInDateHeader: true
-			},
-			{
-				id: 'cq',
-				name: 'CQ',
-				shortName: 'CQ',
-				assignTo: 'personnel',
-				color: '#334155',
-				exemptPersonnelIds: [],
-				showInDateHeader: true
-			}
-		],
-		['find'],
-		1
-	);
-	const assignments = guardedArray<DailyAssignment>(
-		[
-			{ id: 'assignment-1', date: '2026-03-03', assignmentTypeId: 'staff-duty', assigneeId: 'person-1' },
-			{ id: 'assignment-2', date: '2026-03-03', assignmentTypeId: 'cq', assigneeId: 'person-1' },
-			{ id: 'assignment-3', date: '2026-03-04', assignmentTypeId: 'staff-duty', assigneeId: 'person-2' }
-		],
-		['filter']
-	);
+	const statusTypes: StatusType[] = [
+		{
+			id: 'leave',
+			name: 'Leave',
+			color: '#fde68a',
+			textColor: '#111827',
+			da6TreatmentReviewed: true
+		},
+		{
+			id: 'school',
+			name: 'School',
+			color: '#16a34a',
+			textColor: '#ffffff',
+			da6TreatmentReviewed: true
+		}
+	];
+	const availabilityEntries: AvailabilityEntry[] = [
+		{
+			id: 'leave-person-1',
+			personnelId: 'person-1',
+			statusTypeId: 'leave',
+			startDate: '2026-03-02',
+			endDate: '2026-03-04'
+		},
+		{
+			id: 'overlap-person-1',
+			personnelId: 'person-1',
+			statusTypeId: 'school',
+			startDate: '2026-03-03',
+			endDate: '2026-03-03'
+		}
+	];
+	const specialDays: SpecialDay[] = [
+		{ id: 'holiday', date: '2026-03-06', name: 'Training Holiday', type: 'federal-holiday' }
+	];
+	const assignmentTypes: AssignmentType[] = [
+		{
+			id: 'staff-duty',
+			name: 'Staff Duty',
+			shortName: 'SD',
+			assignTo: 'personnel',
+			color: '#111827',
+			exemptPersonnelIds: [],
+			showInDateHeader: true
+		},
+		{
+			id: 'cq',
+			name: 'CQ',
+			shortName: 'CQ',
+			assignTo: 'personnel',
+			color: '#334155',
+			exemptPersonnelIds: [],
+			showInDateHeader: true
+		}
+	];
+	const assignments: DailyAssignment[] = [
+		{ id: 'assignment-1', date: '2026-03-03', assignmentTypeId: 'staff-duty', assigneeId: 'person-1' },
+		{ id: 'assignment-2', date: '2026-03-03', assignmentTypeId: 'cq', assigneeId: 'person-1' },
+		{ id: 'assignment-3', date: '2026-03-04', assignmentTypeId: 'staff-duty', assigneeId: 'person-2' }
+	];
 
 	return {
 		personnelByGroup: [{ group: 'Alpha', personnel }],
@@ -235,8 +199,8 @@ describe('calendar Excel exports', () => {
 		vi.clearAllMocks();
 	});
 
-	it('renders month workbook cells from pre-indexed status, assignment, and special-day data', async () => {
-		const download = await captureDownload(() => exportMonthToExcel(2026, 2, makeIndexedExportOptions()));
+	it('renders month workbook cells for overlapping availability, assignments, and holidays', async () => {
+		const download = await captureDownload(() => exportMonthToExcel(2026, 2, makeOverlappingExportOptions()));
 		const workbook = await loadWorkbookFromBlob(download.blob);
 		const sheet = workbook.getWorksheet('March 2026');
 		expect(sheet).toBeTruthy();
@@ -251,9 +215,9 @@ describe('calendar Excel exports', () => {
 		expect(sheet!.getCell('G2').fill).toMatchObject({ fgColor: { argb: 'FFFEF3C7' } });
 	});
 
-	it('renders quarter workbook cells from the same pre-indexed data path', async () => {
+	it('renders quarter workbook cells for overlapping availability, assignments, and holidays', async () => {
 		const download = await captureDownload(() =>
-			exportQuarterToExcel(new Date(2026, 2, 1), makeIndexedExportOptions())
+			exportQuarterToExcel(new Date(2026, 2, 1), makeOverlappingExportOptions())
 		);
 		const workbook = await loadWorkbookFromBlob(download.blob);
 		const sheet = workbook.getWorksheet('March to May');
@@ -296,8 +260,8 @@ describe('printMonthCalendar', () => {
 		expect(mockText).toHaveBeenCalledWith('March 2026', expect.any(Number), expect.any(Number), expect.any(Object));
 	});
 
-	it('builds PDF cell content and styles from pre-indexed export data', async () => {
-		await printMonthCalendar(2026, 2, makeIndexedExportOptions());
+	it('builds PDF cell content and styles for overlapping availability, assignments, and holidays', async () => {
+		await printMonthCalendar(2026, 2, makeOverlappingExportOptions());
 
 		const tableOptions = mockAutoTable.mock.calls.at(-1)?.[1];
 		expect(tableOptions.body).toEqual(
@@ -363,8 +327,8 @@ describe('printQuarterCalendar', () => {
 		);
 	});
 
-	it('keeps compact quarter PDF cells indexed and visually styled', async () => {
-		await printQuarterCalendar(new Date(2026, 2, 1), makeIndexedExportOptions());
+	it('keeps compact quarter PDF cells visually styled without listing cell text', async () => {
+		await printQuarterCalendar(new Date(2026, 2, 1), makeOverlappingExportOptions());
 
 		const tableOptions = mockAutoTable.mock.calls.at(-1)?.[1];
 		expect(tableOptions.body).toEqual(

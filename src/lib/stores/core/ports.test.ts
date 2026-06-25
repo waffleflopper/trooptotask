@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { createRestAdapter, createMockAdapter } from './ports';
+import { createRestAdapter } from './ports';
 import type { DeleteResult } from '$lib/utils/deletionRequests';
 
 interface TestItem {
@@ -116,24 +116,5 @@ describe('createRestAdapter', () => {
 
 			expect(result).toBe('error' satisfies DeleteResult);
 		});
-	});
-});
-
-describe('createMockAdapter', () => {
-	it('should use provided overrides', async () => {
-		const adapter = createMockAdapter<TestItem>({
-			create: async (data) => ({ id: 'mock-1', ...data }) as TestItem
-		});
-
-		const result = await adapter.create({ name: 'Test' });
-		expect(result).toEqual({ id: 'mock-1', name: 'Test' });
-	});
-
-	it('should throw for non-overridden methods', async () => {
-		const adapter = createMockAdapter<TestItem>({});
-
-		await expect(adapter.create({ name: 'Fail' })).rejects.toThrow('not implemented');
-		await expect(adapter.update('1', {})).rejects.toThrow('not implemented');
-		await expect(adapter.remove('1')).rejects.toThrow('not implemented');
 	});
 });

@@ -501,58 +501,6 @@ describe('CalendarPageContext', () => {
 		});
 	});
 
-	// ---- bulk handlers removed (moved to bulk page) -----------------------
-
-	describe('bulk handlers removed', () => {
-		it('does not have handleBulkStatusApply method', () => {
-			expect((ctx as unknown as Record<string, unknown>)['handleBulkStatusApply']).toBeUndefined();
-		});
-
-		it('does not have handleBulkStatusRemove method', () => {
-			expect((ctx as unknown as Record<string, unknown>)['handleBulkStatusRemove']).toBeUndefined();
-		});
-	});
-
-	// ---- legacy route-local overflow items removed
-
-	describe('calendarOverflowItems removed', () => {
-		it('does not have calendarOverflowItems getter', () => {
-			expect((ctx as unknown as Record<string, unknown>)['calendarOverflowItems']).toBeUndefined();
-		});
-	});
-
-	// ---- duty roster handlers removed (moved to duty-roster page) ---------
-
-	describe('duty roster handlers removed', () => {
-		it('does not have handleApplyRoster method', () => {
-			expect((ctx as unknown as Record<string, unknown>)['handleApplyRoster']).toBeUndefined();
-		});
-
-		it('does not have handleSaveRoster method', () => {
-			expect((ctx as unknown as Record<string, unknown>)['handleSaveRoster']).toBeUndefined();
-		});
-
-		it('does not have handleDeleteRoster method', () => {
-			expect((ctx as unknown as Record<string, unknown>)['handleDeleteRoster']).toBeUndefined();
-		});
-
-		it('does not have handleUpdateExemptions method', () => {
-			expect((ctx as unknown as Record<string, unknown>)['handleUpdateExemptions']).toBeUndefined();
-		});
-	});
-
-	// ---- export handlers removed (Phase 3.3) --------------------------------
-
-	describe('export handlers removed', () => {
-		it('does not have handleExportCSV method', () => {
-			expect((ctx as unknown as Record<string, unknown>)['handleExportCSV']).toBeUndefined();
-		});
-
-		it('does not have handleExportPDF method', () => {
-			expect((ctx as unknown as Record<string, unknown>)['handleExportPDF']).toBeUndefined();
-		});
-	});
-
 	// ---- upcomingLossMap -------------------------------------------------------
 
 	describe('upcomingLossMap', () => {

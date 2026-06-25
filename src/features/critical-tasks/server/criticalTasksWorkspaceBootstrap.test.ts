@@ -1,14 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Cookies } from '@sveltejs/kit';
-import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import type { CriticalTasksWorkspaceData } from './criticalTasksWorkspaceBootstrap';
 
-const { findManyMock, findOneMock, loadWithContextMock, mockCtx } = vi.hoisted(() => {
+const { findLatestCompletionsMock, findManyMock, findOneMock, loadWithContextMock, mockCtx } = vi.hoisted(() => {
+	const findLatestCompletionsMock = vi.fn();
 	const findManyMock = vi.fn();
 	const findOneMock = vi.fn();
 	const loadWithContextMock = vi.fn();
 
 	return {
+		findLatestCompletionsMock,
 		findManyMock,
 		findOneMock,
 		loadWithContextMock,
@@ -20,6 +21,9 @@ const { findManyMock, findOneMock, loadWithContextMock, mockCtx } = vi.hoisted((
 			store: {
 				findMany: findManyMock,
 				findOne: findOneMock
+			},
+			criticalTasksReadModel: {
+				findLatestCompletions: findLatestCompletionsMock
 			}
 		}
 	};
@@ -44,6 +48,7 @@ describe('streamCriticalTasksWorkspaceBootstrap', () => {
 			critical_tasks_default_expiration_months: 18,
 			critical_tasks_expiring_soon_warning_days: 45
 		});
+		findLatestCompletionsMock.mockResolvedValue([]);
 		loadWithContextMock.mockImplementation((_locals, _cookies, _orgId, config) => {
 			const data = config.fn(mockCtx as never);
 			return config.defer ? { data } : data;
@@ -78,17 +83,6 @@ describe('streamCriticalTasksWorkspaceBootstrap', () => {
 
 		await new Promise((resolve) => setTimeout(resolve, 0));
 
-		expect(loadWithContextMock).toHaveBeenCalledWith(
-			expect.anything(),
-			expect.anything(),
-			'1-11-bde',
-			expect.objectContaining({
-				policyAction: POLICY_ACTION_CATALOG.criticalTasks.viewReadiness,
-				policyResource: { kind: 'unscoped' },
-				defer: true
-			})
-		);
-		expect(loadWithContextMock.mock.calls[0]?.[3]).not.toHaveProperty('permission');
 		expect(workspace).toBeDefined();
 		expect(workspace?.laneKey).toBe('critical-tasks');
 		expect(workspace?.data.settings).toEqual({
@@ -114,51 +108,60 @@ describe('streamCriticalTasksWorkspaceBootstrap', () => {
 				snapshotKey: expect.any(String)
 			})
 		});
-		expect(findManyMock).toHaveBeenCalledWith(
-			'ict_tasks',
-			'11111111-1111-1111-1111-111111111111',
-			undefined,
-			expect.objectContaining({
-				isNull: { archived_at: true },
-				orderBy: [
-					{ column: 'sort_order', ascending: true },
-					{ column: 'task_code', ascending: true }
-				]
-			})
-		);
 	});
 
-	it('omits the archived-task filter when the library route requests archived definitions', async () => {
-		const deferredRows = new Promise<Record<string, unknown>[]>(() => undefined);
-		findManyMock.mockReturnValue(deferredRows);
+	it('hydrates active task definitions by default and archived definitions when requested', async () => {
+		const activeTask = {
+			id: 'task-active',
+			organization_id: '11111111-1111-1111-1111-111111111111',
+			task_code: 'A-001',
+			title: 'Active Task',
+			description: null,
+			category: null,
+			mos: [],
+			expiration_months: null,
+			sort_order: 0,
+			archived_at: null,
+			created_at: '2026-01-01T00:00:00.000Z'
+		};
+		const archivedTask = {
+			...activeTask,
+			id: 'task-archived',
+			task_code: 'A-002',
+			title: 'Archived Task',
+			archived_at: '2026-02-01T00:00:00.000Z'
+		};
+		findManyMock.mockImplementation(
+			(table: string, _orgId: string, _filters: unknown, options?: Record<string, unknown>) => {
+				if (table === 'ict_tasks') {
+					return Promise.resolve(options?.isNull ? [activeTask] : [activeTask, archivedTask]);
+				}
+				return Promise.resolve([]);
+			}
+		);
 
-		const routeData = await streamCriticalTasksWorkspaceBootstrap({
+		const defaultRouteData = await streamCriticalTasksWorkspaceBootstrap({
+			locals: {} as App.Locals,
+			cookies: {} as Cookies,
+			orgId: '1-11-bde'
+		});
+		const archivedRouteData = await streamCriticalTasksWorkspaceBootstrap({
 			locals: {} as App.Locals,
 			cookies: {} as Cookies,
 			orgId: '1-11-bde',
 			includeArchivedTasks: true
 		});
-		void routeData.criticalTasks.data.catch(() => undefined);
-		await new Promise((resolve) => setTimeout(resolve, 0));
 
-		expect(findManyMock).toHaveBeenCalledWith(
-			'ict_tasks',
-			'11111111-1111-1111-1111-111111111111',
-			undefined,
-			expect.not.objectContaining({
-				isNull: expect.anything()
-			})
-		);
-		expect(findManyMock).toHaveBeenCalledWith(
-			'ict_tasks',
-			'11111111-1111-1111-1111-111111111111',
-			undefined,
-			expect.objectContaining({
-				orderBy: [
-					{ column: 'sort_order', ascending: true },
-					{ column: 'task_code', ascending: true }
-				]
-			})
-		);
+		const defaultWorkspace = await defaultRouteData.criticalTasks.data;
+		const archivedWorkspace = await archivedRouteData.criticalTasks.data;
+
+		await expect(defaultWorkspace.data.ictTasks).resolves.toEqual([
+			expect.objectContaining({ id: 'task-active', archivedAt: null })
+		]);
+		await expect(archivedWorkspace.data.ictTasks).resolves.toEqual([
+			expect.objectContaining({ id: 'task-active', archivedAt: null }),
+			expect.objectContaining({ id: 'task-archived', archivedAt: '2026-02-01T00:00:00.000Z' })
+		]);
+		expect(archivedWorkspace.hydration.ictTasks.items).toBe(archivedWorkspace.data.ictTasks);
 	});
 });

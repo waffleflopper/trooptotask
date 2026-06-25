@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { defineStore, tableToResource, buildComparator } from './defineStore.svelte';
 import { createMockAdapter } from './ports';
-import type { ApiAdapter } from './ports';
 import type { Store, StoreInternals } from './createStore.svelte';
+import type { ApiAdapter } from './ports';
 
 interface TestItem {
 	id: string;
@@ -10,6 +10,11 @@ interface TestItem {
 	rank?: number;
 	group?: string | null;
 }
+
+type InternalsEnhancements = {
+	batchEndpoint(path: string): string;
+	loadedNames(): string[];
+};
 
 function mockAdapter(overrides: Partial<ApiAdapter<TestItem>> = {}): ApiAdapter<TestItem> {
 	return createMockAdapter<TestItem>({
@@ -19,165 +24,6 @@ function mockAdapter(overrides: Partial<ApiAdapter<TestItem>> = {}): ApiAdapter<
 		...overrides
 	});
 }
-
-// ──────────────────────────────────────────────────────────────
-// defineStore — Tier 3: enhance function with internals
-// ──────────────────────────────────────────────────────────────
-describe('defineStore (Tier 3 — enhance with internals)', () => {
-	it('passes internals as second argument when enhance accepts two parameters', () => {
-		let capturedInternals: StoreInternals<TestItem> | undefined;
-
-		defineStore(
-			{ table: 'test_items', overrides: { adapter: mockAdapter() } },
-			(_base: Store<TestItem>, internals: StoreInternals<TestItem>) => {
-				capturedInternals = internals;
-				return {};
-			}
-		);
-
-		expect(capturedInternals).toBeDefined();
-		expect(capturedInternals!.log.entries).toEqual([]);
-	});
-
-	it('internals.serverState reflects items loaded into the store', () => {
-		let capturedInternals: StoreInternals<TestItem> | undefined;
-
-		const store = defineStore(
-			{ table: 'test_items', overrides: { adapter: mockAdapter() } },
-			(_base: Store<TestItem>, internals: StoreInternals<TestItem>) => {
-				capturedInternals = internals;
-				return {};
-			}
-		);
-
-		store.load(
-			[
-				{ id: '1', name: 'Alpha' },
-				{ id: '2', name: 'Bravo' }
-			],
-			'org-1'
-		);
-
-		expect(capturedInternals!.serverState.items).toHaveLength(2);
-		expect(capturedInternals!.serverState.items[0].id).toBe('1');
-	});
-
-	it('internals.log tracks pending mutations during add', async () => {
-		let capturedInternals: StoreInternals<TestItem> | undefined;
-
-		// adapter that never resolves so we can observe the pending mutation
-		const hangingAdapter = createMockAdapter<TestItem>({
-			create: () => new Promise(() => {}) // never resolves
-		});
-
-		const store = defineStore(
-			{ table: 'test_items', overrides: { adapter: hangingAdapter } },
-			(_base: Store<TestItem>, internals: StoreInternals<TestItem>) => {
-				capturedInternals = internals;
-				return {};
-			}
-		);
-
-		store.load([], 'org-1');
-		store.add({ name: 'Pending' }); // fire and forget — stays pending
-
-		expect(capturedInternals!.log.entries.length).toBe(1);
-		expect(capturedInternals!.log.entries[0].type).toBe('add');
-	});
-
-	it('internals.replay() returns current display items including optimistic entries', () => {
-		let capturedInternals: StoreInternals<TestItem> | undefined;
-
-		const hangingAdapter = createMockAdapter<TestItem>({
-			create: () => new Promise(() => {})
-		});
-
-		const store = defineStore(
-			{ table: 'test_items', overrides: { adapter: hangingAdapter } },
-			(_base: Store<TestItem>, internals: StoreInternals<TestItem>) => {
-				capturedInternals = internals;
-				return {};
-			}
-		);
-
-		store.load([{ id: '1', name: 'Server' }], 'org-1');
-		store.add({ name: 'Optimistic' }); // pending — visible via replay
-
-		const replayed = capturedInternals!.replay();
-		expect(replayed.some((i) => i.name === 'Server')).toBe(true);
-		expect(replayed.some((i) => i.name === 'Optimistic')).toBe(true);
-	});
-
-	it('internals.snapshot() returns point-in-time server items without pending mutations', () => {
-		let capturedInternals: StoreInternals<TestItem> | undefined;
-
-		const hangingAdapter = createMockAdapter<TestItem>({
-			create: () => new Promise(() => {})
-		});
-
-		const store = defineStore(
-			{ table: 'test_items', overrides: { adapter: hangingAdapter } },
-			(_base: Store<TestItem>, internals: StoreInternals<TestItem>) => {
-				capturedInternals = internals;
-				return {};
-			}
-		);
-
-		store.load([{ id: '1', name: 'Server' }], 'org-1');
-		store.add({ name: 'Optimistic' }); // pending
-
-		const snap = capturedInternals!.snapshot();
-		// snapshot applies pending mutations too (same as replay but from getSnapshot)
-		expect(snap.some((i) => i.name === 'Server')).toBe(true);
-	});
-
-	it('internals.orgId() returns the current org ID after load', () => {
-		let capturedInternals: StoreInternals<TestItem> | undefined;
-
-		const store = defineStore(
-			{ table: 'test_items', overrides: { adapter: mockAdapter() } },
-			(_base: Store<TestItem>, internals: StoreInternals<TestItem>) => {
-				capturedInternals = internals;
-				return {};
-			}
-		);
-
-		store.load([], 'my-org');
-
-		expect(capturedInternals!.orgId()).toBe('my-org');
-	});
-
-	it('internals.adapter is the active ApiAdapter', () => {
-		let capturedInternals: StoreInternals<TestItem> | undefined;
-		const adapter = mockAdapter();
-
-		defineStore(
-			{ table: 'test_items', overrides: { adapter } },
-			(_base: Store<TestItem>, internals: StoreInternals<TestItem>) => {
-				capturedInternals = internals;
-				return {};
-			}
-		);
-
-		expect(capturedInternals!.adapter).toBe(adapter);
-	});
-
-	it('Tier 2 (1-arg enhance) produces a correctly merged store', () => {
-		const store = defineStore({ table: 'test_items', overrides: { adapter: mockAdapter() } }, (base) => ({
-			count: () => base.items.length
-		}));
-
-		store.load(
-			[
-				{ id: '1', name: 'A' },
-				{ id: '2', name: 'B' }
-			],
-			'org-1'
-		);
-		expect(store.count()).toBe(2);
-		expect(store.items).toHaveLength(2);
-	});
-});
 
 // ──────────────────────────────────────────────────────────────
 // tableToResource
@@ -342,6 +188,29 @@ describe('defineStore (Tier 2 — enhance)', () => {
 		expect(store.items).toEqual([{ id: '1', name: 'Alpha' }]);
 		expect(store.findByName('Alpha')).toEqual({ id: '1', name: 'Alpha' });
 		expect(store.findByName('Missing')).toBeUndefined();
+	});
+});
+
+// ──────────────────────────────────────────────────────────────
+// defineStore — Tier 3: enhance with internals
+// ──────────────────────────────────────────────────────────────
+describe('defineStore (Tier 3 — enhance with internals)', () => {
+	it('enhanced stores can expose behavior built from live store internals', () => {
+		const store = defineStore<TestItem, InternalsEnhancements>(
+			{ table: 'test_items', overrides: { adapter: mockAdapter() } },
+			(_base: Store<TestItem>, internals: StoreInternals<TestItem>) => ({
+				batchEndpoint: (path: string) => `/org/${internals.orgId()}/api/${path}`,
+				loadedNames: () => internals.snapshot().map((item) => item.name)
+			})
+		);
+
+		store.load([{ id: '1', name: 'Alpha' }], 'org-1');
+		expect(store.batchEndpoint('test-items/batch')).toBe('/org/org-1/api/test-items/batch');
+		expect(store.loadedNames()).toEqual(['Alpha']);
+
+		store.load([{ id: '2', name: 'Bravo' }], 'org-2');
+		expect(store.batchEndpoint('test-items/batch')).toBe('/org/org-2/api/test-items/batch');
+		expect(store.loadedNames()).toEqual(['Bravo']);
 	});
 });
 

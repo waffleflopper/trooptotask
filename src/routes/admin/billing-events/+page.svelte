@@ -16,10 +16,11 @@
 	const retryableCount = $derived(data.events.filter((event) => event.canRetry).length);
 	const billingHealth = $derived(
 		data.billingHealth ?? {
-			overallState: 'healthy',
-			states: ['healthy'],
+			generatedAt: '',
+			overallState: 'diagnostics_unavailable',
+			states: ['diagnostics_unavailable'],
 			counts: {
-				retryableFailures: retryableCount,
+				retryableFailures: 0,
 				permanentFailures: 0,
 				staleFailedEvents: 0,
 				recentPaymentFailures: 0,
@@ -28,7 +29,7 @@
 				supportAttentionItems: 0
 			},
 			issues: [],
-			diagnosticsError: false
+			diagnosticsError: true
 		}
 	);
 

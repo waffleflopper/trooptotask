@@ -3,28 +3,10 @@ import type { Actions, PageServerLoad } from './$types';
 import { adminAction, loadWithAdminContext } from '$lib/server/adapters/adminAdapter';
 import { createSupabasePlatformBillingEvents } from '$lib/server/adapters/supabasePlatformBillingEvents';
 import { createSupabasePlatformBillingHealth } from '$lib/server/adapters/supabasePlatformBillingHealth';
+import { degradedBillingHealthSummary } from '$lib/server/core/useCases/platformBillingHealthFallback';
 import type { PlatformBillingHealthSummary } from '$lib/server/core/useCases/platformBillingHealth';
 
 const RECENT_EVENT_LIMIT = 50;
-
-function degradedBillingHealthSummary(now = new Date()): PlatformBillingHealthSummary {
-	return {
-		generatedAt: now.toISOString(),
-		overallState: 'diagnostics_unavailable',
-		states: ['diagnostics_unavailable'],
-		counts: {
-			retryableFailures: 0,
-			permanentFailures: 0,
-			staleFailedEvents: 0,
-			recentPaymentFailures: 0,
-			driftedOrganizations: 0,
-			staleReconciliation: 0,
-			supportAttentionItems: 0
-		},
-		issues: [],
-		diagnosticsError: true
-	};
-}
 
 export const load: PageServerLoad = loadWithAdminContext({
 	page: 'billing-events',

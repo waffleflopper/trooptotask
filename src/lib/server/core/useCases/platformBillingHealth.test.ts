@@ -3,6 +3,7 @@ import {
 	createPlatformBillingHealth,
 	mapBillingHealthSummary,
 	type PlatformBillingHealthEventRecord,
+	type PlatformBillingHealthLinkedBillingContext,
 	type PlatformBillingHealthSnapshotRecord,
 	type PlatformBillingHealthStore
 } from './platformBillingHealth';
@@ -53,6 +54,26 @@ function snapshot(overrides: Partial<PlatformBillingHealthSnapshotRecord> = {}):
 		driftDetected: false,
 		giftTier: null,
 		giftExpiresAt: null,
+		...overrides
+	};
+}
+
+function linkedBillingContext(
+	overrides: Partial<PlatformBillingHealthLinkedBillingContext> = {}
+): PlatformBillingHealthLinkedBillingContext {
+	return {
+		organizationId: 'org-linked',
+		organizationName: 'Linked Company',
+		stripeCustomerId: 'cus_linked_safe_identifier',
+		stripeSubscriptionId: 'sub_linked_safe_identifier',
+		billingState: {
+			source: 'stripe',
+			commercialPlan: 'team',
+			subscriptionStatus: 'past_due',
+			collectionStatus: 'payment_failed_grace',
+			syncStatus: 'synced',
+			driftDetected: false
+		},
 		...overrides
 	};
 }
@@ -110,7 +131,7 @@ describe('PlatformBillingHealth', () => {
 			retryableFailures: 1,
 			permanentFailures: 1,
 			staleFailedEvents: 1,
-			recentPaymentFailures: 2,
+			recentPaymentFailures: 1,
 			driftedOrganizations: 1,
 			staleReconciliation: 1
 		});
@@ -226,6 +247,113 @@ describe('PlatformBillingHealth', () => {
 			detail: 'Payment Company payment recovery is past_due with payment_failed_grace collection.'
 		});
 		expect(summary.issues[0].detail).not.toContain('billing is synced');
+	});
+
+	it('attaches linked billing context to event issues while honoring billing visibility', () => {
+		const context = linkedBillingContext();
+		const linkedEvent = {
+			...event({
+				id: 'evt_linked_payment_failed',
+				type: 'invoice.payment_failed',
+				processingState: 'retryable_failed',
+				linkedBillingContext: context
+			}),
+			rawWebhookPayload: 'sk_test_should_not_leak whsec_should_not_leak',
+			paymentMethod: 'pm_should_not_leak',
+			sessionCookie: 'session_should_not_leak'
+		} as PlatformBillingHealthEventRecord;
+
+		const billingSummary = mapBillingHealthSummary({
+			now: NOW,
+			adminRole: 'billing',
+			events: [linkedEvent],
+			snapshots: []
+		});
+
+		expect(billingSummary.counts.recentPaymentFailures).toBe(1);
+		expect(billingSummary.issues[0]).toMatchObject({
+			id: 'event:evt_linked_payment_failed',
+			organization: { id: 'org-linked', name: 'Linked Company' },
+			states: ['needs_retry', 'payment_recovery_attention'],
+			supportBundle: {
+				organizationId: 'org-linked',
+				organizationName: 'Linked Company',
+				stripeCustomerId: 'cus_linked_safe_identifier',
+				stripeSubscriptionId: 'sub_linked_safe_identifier',
+				billingState: context.billingState
+			}
+		});
+		expect(JSON.stringify(billingSummary)).not.toContain('sk_test_should_not_leak');
+		expect(JSON.stringify(billingSummary)).not.toContain('whsec_should_not_leak');
+		expect(JSON.stringify(billingSummary)).not.toContain('pm_should_not_leak');
+		expect(JSON.stringify(billingSummary)).not.toContain('session_should_not_leak');
+
+		const supportSummary = mapBillingHealthSummary({
+			now: NOW,
+			adminRole: 'support',
+			events: [linkedEvent],
+			snapshots: []
+		});
+
+		expect(supportSummary.issues[0]).toMatchObject({
+			organization: { id: 'org-linked', name: 'Linked Company' },
+			supportBundle: {
+				organizationId: 'org-linked',
+				organizationName: 'Linked Company',
+				stripeCustomerId: null,
+				stripeSubscriptionId: null,
+				billingState: context.billingState
+			}
+		});
+		expect(JSON.stringify(supportSummary)).not.toContain('cus_linked_safe_identifier');
+		expect(JSON.stringify(supportSummary)).not.toContain('sub_linked_safe_identifier');
+	});
+
+	it('does not keep payment recovery attention for processed invoice failures once billing is recovered', () => {
+		const summary = mapBillingHealthSummary({
+			now: NOW,
+			adminRole: 'billing',
+			events: [
+				event({
+					id: 'evt_recovered_payment_failed',
+					type: 'invoice.payment_failed',
+					processingState: 'processed',
+					processingResult: 'payment failure snapshot recovered',
+					linkedBillingContext: linkedBillingContext({
+						organizationId: 'org-recovered',
+						organizationName: 'Recovered Company',
+						billingState: {
+							source: 'stripe',
+							commercialPlan: 'team',
+							subscriptionStatus: 'active',
+							collectionStatus: 'current',
+							syncStatus: 'synced',
+							driftDetected: false
+						}
+					})
+				})
+			],
+			snapshots: [
+				snapshot({
+					organizationId: 'org-recovered',
+					organizationName: 'Recovered Company',
+					subscriptionStatus: 'active',
+					collectionStatus: 'current',
+					syncStatus: 'synced'
+				})
+			]
+		});
+
+		expect(summary).toMatchObject({
+			overallState: 'healthy',
+			states: ['healthy'],
+			counts: {
+				recentPaymentFailures: 0,
+				supportAttentionItems: 0
+			}
+		});
+		expect(summary.issues).toEqual([]);
+		expect(JSON.stringify(summary)).not.toContain('payment_recovery_attention');
 	});
 
 	it('keeps support role bundles free of provider identifiers while preserving next-step labels', () => {

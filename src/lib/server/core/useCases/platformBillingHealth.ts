@@ -163,13 +163,39 @@ function severityFor(states: BillingHealthState[]): PlatformBillingHealthIssue['
 	return 'info';
 }
 
-function nextStepsFor(states: BillingHealthState[]): string[] {
+function canRetryBillingEvent(role: AdminRole): boolean {
+	return role === 'super_admin' || role === 'billing';
+}
+
+function canRefreshOrgDiagnostics(role: AdminRole): boolean {
+	return role === 'super_admin' || role === 'support';
+}
+
+function nextStepsFor(states: BillingHealthState[], adminRole: AdminRole): string[] {
 	const steps: string[] = [];
-	if (states.includes('needs_retry')) steps.push('Use Retry event on Billing Events');
+	if (states.includes('needs_retry')) {
+		steps.push(
+			canRetryBillingEvent(adminRole)
+				? 'Use Retry event on Billing Events'
+				: 'Copy bundle and ask billing admin to retry the event'
+		);
+	}
 	if (states.includes('permanent_failure')) steps.push('Copy bundle and escalate permanent webhook failure');
 	if (states.includes('payment_recovery_attention')) steps.push('Ask an owner to update payment in Billing Portal');
-	if (states.includes('drift_detected')) steps.push('Open org diagnostics and Refresh from Stripe');
-	if (states.includes('reconciliation_stale')) steps.push('Refresh from Stripe in org diagnostics');
+	if (states.includes('drift_detected')) {
+		steps.push(
+			canRefreshOrgDiagnostics(adminRole)
+				? 'Open org diagnostics and Refresh from Stripe'
+				: 'Copy bundle and ask support to refresh billing diagnostics'
+		);
+	}
+	if (states.includes('reconciliation_stale')) {
+		steps.push(
+			canRefreshOrgDiagnostics(adminRole)
+				? 'Refresh from Stripe in org diagnostics'
+				: 'Copy bundle and ask support to refresh reconciliation from Stripe'
+		);
+	}
 	if (states.includes('diagnostics_unavailable')) steps.push('Reload diagnostics before customer follow-up');
 	return steps;
 }
@@ -216,10 +242,10 @@ function visibleProviderEventIds(role: AdminRole, eventIds: string[]): string[] 
 	return role === 'support' ? [] : [...eventIds];
 }
 
-function eventIssueIdFor(event: PlatformBillingHealthEventRecord, role: AdminRole): string {
+function eventIssueIdFor(event: PlatformBillingHealthEventRecord, role: AdminRole, eventIndex: number): string {
 	if (role !== 'support') return `event:${event.id}`;
 	const organizationId = event.linkedBillingContext?.organizationId ?? 'unlinked';
-	return `event:${organizationId}:${event.type}:${event.processingState ?? 'unknown'}:${eventTimestamp(event) ?? 'unknown'}:${event.attemptCount ?? 0}`;
+	return `event:${organizationId}:${event.type}:${event.processingState ?? 'unknown'}:${eventTimestamp(event) ?? 'unknown'}:${event.attemptCount ?? 0}:${eventIndex}`;
 }
 
 function billingStateNeedsPaymentRecovery(state: PlatformBillingHealthBillingStateContext | null | undefined): boolean {
@@ -241,7 +267,8 @@ function isUnresolvedPaymentFailureEvent(event: PlatformBillingHealthEventRecord
 function buildEventIssue(
 	event: PlatformBillingHealthEventRecord,
 	now: Date,
-	adminRole: AdminRole
+	adminRole: AdminRole,
+	eventIndex: number
 ): PlatformBillingHealthIssue | null {
 	const states: BillingHealthState[] = [];
 	if (event.processingState === 'retryable_failed') states.push('needs_retry');
@@ -254,7 +281,7 @@ function buildEventIssue(
 	const isStaleFailure =
 		(event.processingState === 'retryable_failed' || event.processingState === 'permanently_failed') &&
 		isBeforeIso(eventTimestamp(event), staleCutoff);
-	const nextSteps = nextStepsFor(states);
+	const nextSteps = nextStepsFor(states, adminRole);
 	if (isStaleFailure) nextSteps.push('Copy bundle if retry does not clear stale failure');
 	const primaryState = states[0];
 	const linkedContext = event.linkedBillingContext ?? null;
@@ -264,7 +291,7 @@ function buildEventIssue(
 	const latestEventIds = visibleProviderEventIds(adminRole, [event.id]);
 
 	return {
-		id: eventIssueIdFor(event, adminRole),
+		id: eventIssueIdFor(event, adminRole, eventIndex),
 		primaryState,
 		states: uniqueStates(states),
 		severity: severityFor(states),
@@ -348,7 +375,7 @@ function buildSnapshotIssue(
 				driftDetected: snapshot.driftDetected
 			},
 			reconciliationResult: snapshot.reconciliationResult,
-			nextSteps: nextStepsFor(states)
+			nextSteps: nextStepsFor(states, adminRole)
 		}
 	};
 }
@@ -382,8 +409,8 @@ export function mapBillingHealthSummary(input: {
 }): PlatformBillingHealthSummary {
 	const staleFailureCutoff = new Date(input.now.getTime() - STALE_FAILURE_MS);
 	const staleReconciliationCutoff = new Date(input.now.getTime() - STALE_RECONCILIATION_MS);
-	const eventIssues = input.events.flatMap((event) => {
-		const issue = buildEventIssue(event, input.now, input.adminRole);
+	const eventIssues = input.events.flatMap((event, index) => {
+		const issue = buildEventIssue(event, input.now, input.adminRole, index);
 		return issue ? [issue] : [];
 	});
 	const snapshotIssues = input.snapshots.flatMap((snapshot) => {

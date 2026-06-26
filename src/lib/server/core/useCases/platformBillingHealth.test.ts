@@ -223,7 +223,7 @@ describe('PlatformBillingHealth', () => {
 		});
 		expect(summary.issues[0].supportBundle.nextSteps).toEqual(
 			expect.arrayContaining([
-				'Open org diagnostics and Refresh from Stripe',
+				'Copy bundle and ask support to refresh billing diagnostics',
 				'Ask an owner to update payment in Billing Portal'
 			])
 		);
@@ -365,6 +365,24 @@ describe('PlatformBillingHealth', () => {
 		expect(JSON.stringify(summary)).not.toContain('payment_recovery_attention');
 	});
 
+	it('keeps Billing Events retry guidance for roles that can access billing events', () => {
+		for (const adminRole of ['super_admin', 'billing'] as const) {
+			const summary = mapBillingHealthSummary({
+				now: NOW,
+				adminRole,
+				events: [
+					event({
+						id: `evt_retry_${adminRole}`,
+						processingState: 'retryable_failed'
+					})
+				],
+				snapshots: []
+			});
+
+			expect(summary.issues[0].supportBundle.nextSteps).toEqual(['Use Retry event on Billing Events']);
+		}
+	});
+
 	it('keeps retry attention without payment recovery attention when a failed invoice event has recovered billing state', () => {
 		const summary = mapBillingHealthSummary({
 			now: NOW,
@@ -406,6 +424,24 @@ describe('PlatformBillingHealth', () => {
 		expect(JSON.stringify(summary)).not.toContain('payment_recovery_attention');
 	});
 
+	it('uses support-safe retry guidance without referencing Billing Events', () => {
+		const summary = mapBillingHealthSummary({
+			now: NOW,
+			adminRole: 'support',
+			events: [
+				event({
+					id: 'evt_support_retry',
+					processingState: 'retryable_failed'
+				})
+			],
+			snapshots: []
+		});
+
+		expect(summary.issues[0].supportBundle.nextSteps).toEqual(['Copy bundle and ask billing admin to retry the event']);
+		expect(summary.issues[0].supportBundle.nextSteps.join(' ')).not.toContain('Billing Events');
+		expect(JSON.stringify(summary)).not.toContain('evt_support_retry');
+	});
+
 	it('keeps support role bundles free of provider identifiers while preserving next-step labels', () => {
 		const summary = mapBillingHealthSummary({
 			now: NOW,
@@ -426,6 +462,76 @@ describe('PlatformBillingHealth', () => {
 		expect(JSON.stringify(summary)).not.toContain('evt_snapshot');
 		expect(JSON.stringify(summary)).not.toContain('cus_safe_identifier');
 		expect(JSON.stringify(summary)).not.toContain('sub_safe_identifier');
+	});
+
+	it('keeps org diagnostics reconciliation guidance for roles that can access org diagnostics', () => {
+		for (const adminRole of ['super_admin', 'support'] as const) {
+			const summary = mapBillingHealthSummary({
+				now: NOW,
+				adminRole,
+				events: [],
+				snapshots: [
+					snapshot({
+						organizationId: `org-stale-${adminRole}`,
+						lastReconciledAt: '2026-06-18T00:00:00.000Z'
+					})
+				]
+			});
+
+			expect(summary.issues[0].supportBundle.nextSteps).toEqual(['Refresh from Stripe in org diagnostics']);
+		}
+	});
+
+	it('uses billing-safe escalation guidance for drift and stale reconciliation', () => {
+		const summary = mapBillingHealthSummary({
+			now: NOW,
+			adminRole: 'billing',
+			events: [],
+			snapshots: [
+				snapshot({
+					organizationId: 'org-billing-diagnostics',
+					driftDetected: true,
+					syncStatus: 'needs_reconciliation',
+					lastReconciledAt: '2026-06-18T00:00:00.000Z'
+				})
+			]
+		});
+
+		expect(summary.issues[0].supportBundle.nextSteps).toEqual([
+			'Copy bundle and ask support to refresh billing diagnostics',
+			'Copy bundle and ask support to refresh reconciliation from Stripe'
+		]);
+		expect(summary.issues[0].supportBundle.nextSteps.join(' ')).not.toContain('org diagnostics');
+	});
+
+	it('keeps duplicate-ish support event issue IDs unique without exposing provider event IDs', () => {
+		const context = linkedBillingContext({ organizationId: 'org-duplicate-events' });
+		const summary = mapBillingHealthSummary({
+			now: NOW,
+			adminRole: 'support',
+			events: [
+				event({
+					id: 'evt_duplicate_a',
+					type: 'checkout.session.completed',
+					processingState: 'retryable_failed',
+					linkedBillingContext: context
+				}),
+				event({
+					id: 'evt_duplicate_b',
+					type: 'checkout.session.completed',
+					processingState: 'retryable_failed',
+					linkedBillingContext: context
+				})
+			],
+			snapshots: []
+		});
+
+		const issueIds = summary.issues.map((issue) => issue.id);
+		expect(issueIds).toHaveLength(2);
+		expect(new Set(issueIds).size).toBe(2);
+		expect(summary.issues.every((issue) => issue.latestEventIds.length === 0)).toBe(true);
+		expect(JSON.stringify(summary)).not.toContain('evt_duplicate_a');
+		expect(JSON.stringify(summary)).not.toContain('evt_duplicate_b');
 	});
 
 	it('returns diagnostics_unavailable when the health store fails', async () => {

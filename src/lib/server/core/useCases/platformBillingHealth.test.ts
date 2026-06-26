@@ -534,6 +534,54 @@ describe('PlatformBillingHealth', () => {
 		expect(JSON.stringify(summary)).not.toContain('evt_duplicate_b');
 	});
 
+	it('preserves event-backed failures when the snapshot health scan fails', async () => {
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+		const store: PlatformBillingHealthStore = {
+			listRecentHealthEvents: vi.fn(async () => [
+				event({
+					id: 'evt_retry_visible',
+					processingState: 'retryable_failed',
+					linkedBillingContext: linkedBillingContext({
+						organizationId: 'org-visible',
+						organizationName: 'Visible Company'
+					})
+				})
+			]),
+			listBillingSnapshotsForHealth: vi.fn(async () => {
+				throw new Error('snapshot scan failed');
+			})
+		};
+
+		const summary = await createPlatformBillingHealth({
+			store,
+			adminRole: 'billing',
+			now: () => NOW
+		}).summarize();
+
+		expect(summary).toMatchObject({
+			overallState: 'diagnostics_unavailable',
+			states: ['diagnostics_unavailable', 'needs_retry'],
+			diagnosticsError: true,
+			counts: {
+				retryableFailures: 1,
+				permanentFailures: 0,
+				supportAttentionItems: 1
+			}
+		});
+		expect(summary.issues).toHaveLength(1);
+		expect(summary.issues[0]).toMatchObject({
+			id: 'event:evt_retry_visible',
+			primaryState: 'needs_retry',
+			organization: { id: 'org-visible', name: 'Visible Company' },
+			latestEventIds: ['evt_retry_visible'],
+			supportBundle: {
+				nextSteps: ['Use Retry event on Billing Events']
+			}
+		});
+		expect(consoleError).toHaveBeenCalledWith('Admin billing health snapshot query failed:', expect.any(Error));
+		consoleError.mockRestore();
+	});
+
 	it('returns diagnostics_unavailable when the health store fails', async () => {
 		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
 		const store: PlatformBillingHealthStore = {
@@ -563,7 +611,7 @@ describe('PlatformBillingHealth', () => {
 				supportAttentionItems: 0
 			}
 		});
-		expect(consoleError).toHaveBeenCalledWith('Admin billing health query failed:', expect.any(Error));
+		expect(consoleError).toHaveBeenCalledWith('Admin billing health event query failed:', expect.any(Error));
 		consoleError.mockRestore();
 	});
 });

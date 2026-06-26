@@ -168,7 +168,7 @@ describe('admin subscriptions page', () => {
 							driftDetected: true
 						},
 						reconciliationResult: 'repaired_drift:subscription_status',
-						nextSteps: ['Run admin billing reconciliation']
+						nextSteps: ['Open org diagnostics and Refresh from Stripe']
 					}
 				}
 			],
@@ -198,6 +198,16 @@ describe('admin subscriptions page', () => {
 
 		expect(screen.getByText('Billing Health')).toBeTruthy();
 		expect(screen.getByText('Billing drift detected')).toBeTruthy();
+		expect(screen.getByText(/Use the action on each item/)).toBeTruthy();
+		expect(screen.getByText('Next action')).toBeTruthy();
+		expect(screen.getByText('Open org diagnostics and Refresh from Stripe')).toBeTruthy();
+		expect(
+			screen
+				.getByRole('link', {
+					name: 'Open organization billing diagnostics for Billing drift detected (Alpha Company)'
+				})
+				.getAttribute('href')
+		).toBe('/admin/organizations/org-1#billing-diagnostics');
 		expect(screen.getByText(/Alpha Company billing is needs_reconciliation/)).toBeTruthy();
 		expect(screen.getByText(/evt_safe/)).toBeTruthy();
 		expect(document.body.textContent).not.toContain('cus_secret');
@@ -214,6 +224,8 @@ describe('admin subscriptions page', () => {
 			{
 				...alphaIssue,
 				id: 'event:evt_retry',
+				primaryState: 'needs_retry',
+				states: ['needs_retry'],
 				title: 'Retryable webhook failure',
 				detail: 'Bravo Company invoice.payment_failed is retryable_failed with 3 attempts.',
 				organization: { id: 'org-2', name: 'Bravo Company' },
@@ -224,7 +236,7 @@ describe('admin subscriptions page', () => {
 					organizationName: 'Bravo Company',
 					stripeEventIds: ['evt_retry'],
 					reconciliationResult: 'retryable processing failure',
-					nextSteps: ['Retry guarded webhook event']
+					nextSteps: ['Use Retry event on Billing Events']
 				}
 			}
 		];
@@ -252,6 +264,20 @@ describe('admin subscriptions page', () => {
 		expect(
 			screen.getByRole('button', { name: 'Copy bundle for Retryable webhook failure (Bravo Company)' })
 		).toBeTruthy();
+		expect(
+			screen
+				.getByRole('link', {
+					name: 'Open Billing Events for Retryable webhook failure (Bravo Company)'
+				})
+				.getAttribute('href')
+		).toBe('/admin/billing-events');
+		expect(
+			screen
+				.getByRole('link', {
+					name: 'Open organization billing diagnostics for Retryable webhook failure (Bravo Company)'
+				})
+				.getAttribute('href')
+		).toBe('/admin/organizations/org-2#billing-diagnostics');
 		expect(screen.getAllByText('Copy bundle')).toHaveLength(2);
 	});
 
@@ -290,7 +316,7 @@ describe('admin subscriptions page', () => {
 		expect(copiedText).toContain('"organizationId": "org-1"');
 		expect(copiedText).toContain('"organizationName": "Alpha Company"');
 		expect(copiedText).toContain('"evt_safe"');
-		expect(copiedText).toContain('"Run admin billing reconciliation"');
+		expect(copiedText).toContain('"Open org diagnostics and Refresh from Stripe"');
 		expect(copiedText).not.toContain('raw_payload');
 		expect(copiedText).not.toContain('card');
 		expect(copiedText).not.toContain('sk_test_');

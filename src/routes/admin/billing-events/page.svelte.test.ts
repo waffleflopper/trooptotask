@@ -134,7 +134,7 @@ describe('admin billing events page', () => {
 							driftDetected: false
 						},
 						reconciliationResult: 'retryable processing failure',
-						nextSteps: ['Retry guarded webhook event']
+						nextSteps: ['Use Retry event on Billing Events']
 					}
 				}
 			],
@@ -156,6 +156,10 @@ describe('admin billing events page', () => {
 
 		expect(screen.getByText('Billing Health')).toBeTruthy();
 		expect(screen.getByText('Retryable webhook failure')).toBeTruthy();
+		expect(screen.getByText(/Use the action on each item/)).toBeTruthy();
+		expect(screen.getByText('Next action')).toBeTruthy();
+		expect(screen.getByText('Use Retry event on Billing Events')).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Retry event for Retryable webhook failure evt_retry' })).toBeTruthy();
 		expect(screen.getByText(/evt_retry/)).toBeTruthy();
 		expect(screen.getByText('3')).toBeTruthy();
 		expect(document.body.textContent).not.toContain('raw_payload');
@@ -174,6 +178,8 @@ describe('admin billing events page', () => {
 			{
 				...retryIssue,
 				id: 'snapshot:org-bravo',
+				primaryState: 'drift_detected',
+				states: ['drift_detected'],
 				title: 'Billing drift detected',
 				organization: { id: 'org-bravo', name: 'Bravo Company' },
 				latestEventIds: ['evt_drift'],
@@ -182,7 +188,7 @@ describe('admin billing events page', () => {
 					organizationId: 'org-bravo',
 					organizationName: 'Bravo Company',
 					stripeEventIds: ['evt_drift'],
-					nextSteps: ['Run admin billing reconciliation']
+					nextSteps: ['Open org diagnostics and Refresh from Stripe']
 				}
 			}
 		];
@@ -202,6 +208,23 @@ describe('admin billing events page', () => {
 			screen.getByRole('button', { name: 'Copy bundle for Retryable webhook failure (Alpha Company)' })
 		).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Copy bundle for Billing drift detected (Bravo Company)' })).toBeTruthy();
+		expect(
+			screen.getByRole('button', { name: 'Retry event for Retryable webhook failure (Alpha Company) evt_retry' })
+		).toBeTruthy();
+		expect(
+			screen
+				.getByRole('link', {
+					name: 'Open organization billing diagnostics for Retryable webhook failure (Alpha Company)'
+				})
+				.getAttribute('href')
+		).toBe('/admin/organizations/org-alpha#billing-diagnostics');
+		expect(
+			screen
+				.getByRole('link', {
+					name: 'Open organization billing diagnostics for Billing drift detected (Bravo Company)'
+				})
+				.getAttribute('href')
+		).toBe('/admin/organizations/org-bravo#billing-diagnostics');
 		expect(screen.getAllByText('Copy bundle')).toHaveLength(2);
 	});
 
@@ -229,7 +252,7 @@ describe('admin billing events page', () => {
 		const copiedText = writeText.mock.calls[0]?.[0] ?? '';
 		expect(copiedText).toContain('"stripeEventIds": [');
 		expect(copiedText).toContain('"evt_retry"');
-		expect(copiedText).toContain('"Retry guarded webhook event"');
+		expect(copiedText).toContain('"Use Retry event on Billing Events"');
 		expect(copiedText).not.toContain('raw_payload');
 		expect(copiedText).not.toContain('card');
 		expect(copiedText).not.toContain('sk_test_');

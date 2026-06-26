@@ -165,11 +165,11 @@ function severityFor(states: BillingHealthState[]): PlatformBillingHealthIssue['
 
 function nextStepsFor(states: BillingHealthState[]): string[] {
 	const steps: string[] = [];
-	if (states.includes('needs_retry')) steps.push('Retry guarded webhook event');
-	if (states.includes('permanent_failure')) steps.push('Escalate permanent webhook failure');
-	if (states.includes('payment_recovery_attention')) steps.push('Check customer payment recovery state');
-	if (states.includes('drift_detected')) steps.push('Run admin billing reconciliation');
-	if (states.includes('reconciliation_stale')) steps.push('Refresh billing reconciliation');
+	if (states.includes('needs_retry')) steps.push('Use Retry event on Billing Events');
+	if (states.includes('permanent_failure')) steps.push('Copy bundle and escalate permanent webhook failure');
+	if (states.includes('payment_recovery_attention')) steps.push('Ask an owner to update payment in Billing Portal');
+	if (states.includes('drift_detected')) steps.push('Open org diagnostics and Refresh from Stripe');
+	if (states.includes('reconciliation_stale')) steps.push('Refresh from Stripe in org diagnostics');
 	if (states.includes('diagnostics_unavailable')) steps.push('Reload diagnostics before customer follow-up');
 	return steps;
 }
@@ -245,7 +245,7 @@ function buildEventIssue(
 		(event.processingState === 'retryable_failed' || event.processingState === 'permanently_failed') &&
 		isBeforeIso(eventTimestamp(event), staleCutoff);
 	const nextSteps = nextStepsFor(states);
-	if (isStaleFailure) nextSteps.push('Treat as stale failed webhook event');
+	if (isStaleFailure) nextSteps.push('Copy bundle if retry does not clear stale failure');
 	const primaryState = states[0];
 	const linkedContext = event.linkedBillingContext ?? null;
 	const organization = linkedContext

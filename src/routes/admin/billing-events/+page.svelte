@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { Copy, TriangleAlert } from '@lucide/svelte';
+	import { resolve } from '$app/paths';
+	import { Copy, ExternalLink, RefreshCw, TriangleAlert } from '@lucide/svelte';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import * as Alert from '$lib/components/ui/alert';
@@ -12,6 +13,8 @@
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
+
+	type BillingHealthIssue = NonNullable<PageData['billingHealth']>['issues'][number];
 
 	const retryableCount = $derived(data.events.filter((event) => event.canRetry).length);
 	const billingHealth = $derived(
@@ -51,6 +54,33 @@
 
 	function supportBundleCopyLabel(issue: { title: string; organization: { name: string | null } | null }): string {
 		return `Copy bundle for ${issue.organization?.name ? `${issue.title} (${issue.organization.name})` : issue.title}`;
+	}
+
+	function issueContextLabel(issue: BillingHealthIssue): string {
+		return issue.organization?.name ? `${issue.title} (${issue.organization.name})` : issue.title;
+	}
+
+	function issueNextSteps(issue: BillingHealthIssue): string {
+		return issue.supportBundle.nextSteps.length
+			? issue.supportBundle.nextSteps.join(' · ')
+			: 'Copy the support bundle and escalate with support-safe context.';
+	}
+
+	function retryEventId(issue: BillingHealthIssue): string | null {
+		return issue.states.includes('needs_retry') ? (issue.latestEventIds[0] ?? null) : null;
+	}
+
+	function organizationDiagnosticsHref(issue: BillingHealthIssue): string | null {
+		if (!issue.organization?.id) return null;
+		return `${resolve(`/admin/organizations/${issue.organization.id}` as `/admin/organizations/${string}`)}#billing-diagnostics`;
+	}
+
+	function retryEventLabel(issue: BillingHealthIssue, eventId: string): string {
+		return `Retry event for ${issueContextLabel(issue)} ${eventId}`;
+	}
+
+	function organizationDiagnosticsLabel(issue: BillingHealthIssue): string {
+		return `Open organization billing diagnostics for ${issueContextLabel(issue)}`;
 	}
 
 	async function copySupportBundle(bundle: unknown): Promise<void> {
@@ -123,7 +153,8 @@
 				<Card.Title>Billing Health</Card.Title>
 				<Card.Description>
 					{formatAdminLabel(billingHealth.overallState)} · {billingHealth.counts.permanentFailures} permanent failures · {billingHealth
-						.counts.recentPaymentFailures} payment recovery items
+						.counts.recentPaymentFailures} payment recovery items. Use the action on each item when TroopToTask has a repair
+					tool; otherwise copy the bundle for escalation.
 				</Card.Description>
 			</div>
 			<div class="flex flex-wrap gap-2">
@@ -136,6 +167,8 @@
 			{#if billingHealth.issues.length > 0}
 				<div class="grid gap-3 lg:grid-cols-2">
 					{#each billingHealth.issues as issue (issue.id)}
+						{@const eventId = retryEventId(issue)}
+						{@const diagnosticsHref = organizationDiagnosticsHref(issue)}
 						<div class="grid gap-2 rounded-md border p-3">
 							<div class="flex flex-wrap items-center justify-between gap-2">
 								<div>
@@ -144,7 +177,31 @@
 								</div>
 								<Badge variant={adminBadgeVariant(issue.primaryState)}>{formatAdminLabel(issue.primaryState)}</Badge>
 							</div>
-							<div class="flex justify-end">
+							<div class="grid gap-1 rounded-md bg-muted/40 px-3 py-2 text-sm">
+								<span class="font-medium">Next action</span>
+								<span class="text-muted-foreground">{issueNextSteps(issue)}</span>
+							</div>
+							<div class="flex flex-wrap justify-end gap-2">
+								{#if eventId}
+									<form method="POST" action="?/retry">
+										<input type="hidden" name="eventId" value={eventId} />
+										<Button type="submit" size="sm" variant="outline" aria-label={retryEventLabel(issue, eventId)}>
+											<RefreshCw class="size-4" aria-hidden="true" />
+											Retry event
+										</Button>
+									</form>
+								{/if}
+								{#if diagnosticsHref}
+									<Button
+										href={diagnosticsHref}
+										size="sm"
+										variant="outline"
+										aria-label={organizationDiagnosticsLabel(issue)}
+									>
+										<ExternalLink class="size-4" aria-hidden="true" />
+										Org diagnostics
+									</Button>
+								{/if}
 								<Button
 									type="button"
 									size="sm"

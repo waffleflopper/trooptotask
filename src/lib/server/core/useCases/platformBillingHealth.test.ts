@@ -222,7 +222,10 @@ describe('PlatformBillingHealth', () => {
 			title: 'Billing drift detected'
 		});
 		expect(summary.issues[0].supportBundle.nextSteps).toEqual(
-			expect.arrayContaining(['Run admin billing reconciliation', 'Check customer payment recovery state'])
+			expect.arrayContaining([
+				'Open org diagnostics and Refresh from Stripe',
+				'Ask an owner to update payment in Billing Portal'
+			])
 		);
 	});
 
@@ -393,7 +396,7 @@ describe('PlatformBillingHealth', () => {
 			states: ['needs_retry'],
 			organization: { id: 'org-recovered', name: 'Recovered Company' }
 		});
-		expect(summary.issues[0].supportBundle.nextSteps).toEqual(['Retry guarded webhook event']);
+		expect(summary.issues[0].supportBundle.nextSteps).toEqual(['Use Retry event on Billing Events']);
 		expect(JSON.stringify(summary)).not.toContain('payment_recovery_attention');
 	});
 
@@ -410,7 +413,7 @@ describe('PlatformBillingHealth', () => {
 			organizationName: 'Alpha Company',
 			stripeCustomerId: null,
 			stripeSubscriptionId: null,
-			nextSteps: ['Run admin billing reconciliation']
+			nextSteps: ['Open org diagnostics and Refresh from Stripe']
 		});
 		expect(JSON.stringify(summary)).not.toContain('cus_safe_identifier');
 		expect(JSON.stringify(summary)).not.toContain('sub_safe_identifier');

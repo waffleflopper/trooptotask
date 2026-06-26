@@ -154,6 +154,7 @@ describe('admin organization detail page', () => {
 		});
 
 		expect(screen.getByText('Billing Diagnostics')).toBeTruthy();
+		expect(screen.getByText('Billing Diagnostics').closest('#billing-diagnostics')).toBeTruthy();
 		expect(screen.getByText('cus_123')).toBeTruthy();
 		expect(screen.getByText('sub_123')).toBeTruthy();
 		expect(screen.getByText('prod_team')).toBeTruthy();

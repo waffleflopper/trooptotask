@@ -22,6 +22,8 @@
 	const billingEventsHref = resolve('/admin/billing-events');
 	const tierFilter = $derived(data.pagination.tier ?? 'all');
 	const statusFilter = $derived(data.pagination.status ?? 'all');
+	const canAccessBillingEvents = $derived(data.adminRole === 'super_admin' || data.adminRole === 'billing');
+	const canAccessOrganizationDiagnostics = $derived(data.adminRole === 'super_admin' || data.adminRole === 'support');
 	type BillingHealthIssue = NonNullable<PageData['billingHealth']>['issues'][number];
 	const billingHealth = $derived(
 		data.billingHealth ?? {
@@ -82,10 +84,11 @@
 	}
 
 	function needsBillingEvents(issue: BillingHealthIssue): boolean {
-		return issue.states.includes('needs_retry');
+		return canAccessBillingEvents && issue.states.includes('needs_retry');
 	}
 
 	function organizationDiagnosticsHref(issue: BillingHealthIssue): string | null {
+		if (!canAccessOrganizationDiagnostics) return null;
 		if (!issue.organization?.id) return null;
 		return `${resolve(`/admin/organizations/${issue.organization.id}` as `/admin/organizations/${string}`)}#billing-diagnostics`;
 	}

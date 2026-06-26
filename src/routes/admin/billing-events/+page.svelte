@@ -35,6 +35,7 @@
 			diagnosticsError: true
 		}
 	);
+	const hasDiagnosticsWarning = $derived(data.diagnosticsError || billingHealth.diagnosticsError);
 
 	function formatOptionalDateTime(value: string | null | undefined): string {
 		return value ? formatDisplayDateTime(value) : '-';
@@ -125,12 +126,13 @@
 		/>
 	</PageShell.FactGrid>
 
-	{#if billingHealth.diagnosticsError}
+	{#if hasDiagnosticsWarning}
 		<Alert.Root variant="warning">
 			<TriangleAlert />
-			<Alert.Title>Billing health diagnostics could not be fully loaded.</Alert.Title>
+			<Alert.Title>Some billing diagnostics could not be fully loaded.</Alert.Title>
 			<Alert.Description>
-				Use visible billing events cautiously until the health scan can read events and billing snapshots.
+				Use the billing events ledger and health summary cautiously until diagnostics can read events and billing
+				snapshots.
 			</Alert.Description>
 		</Alert.Root>
 	{/if}

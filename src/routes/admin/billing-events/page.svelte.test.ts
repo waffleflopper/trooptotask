@@ -79,20 +79,35 @@ describe('admin billing events page', () => {
 		expect(screen.queryByText('not-for-admin-ui')).toBeNull();
 	});
 
-	it('uses billing health as the single diagnostics warning source', () => {
+	it('shows a diagnostics warning when ledger diagnostics fail but billing health succeeds', () => {
 		render(Page, {
 			props: {
 				data: {
 					events: [],
-					diagnosticsError: true
+					diagnosticsError: true,
+					billingHealth: billingHealthData()
 				} as never,
 				form: null
 			}
 		});
 
-		expect(screen.queryByText('Some billing diagnostics could not be loaded.')).toBeNull();
-		expect(screen.getByText('Billing health diagnostics could not be fully loaded.')).toBeTruthy();
-		expect(screen.getByText(/health scan can read events and billing snapshots/)).toBeTruthy();
+		expect(screen.getByText('Some billing diagnostics could not be fully loaded.')).toBeTruthy();
+		expect(screen.getByText(/billing events ledger and health summary cautiously/)).toBeTruthy();
+	});
+
+	it('shows a diagnostics warning when billing health summary is degraded', () => {
+		render(Page, {
+			props: {
+				data: {
+					events: [],
+					diagnosticsError: false
+				} as never,
+				form: null
+			}
+		});
+
+		expect(screen.getByText('Some billing diagnostics could not be fully loaded.')).toBeTruthy();
+		expect(screen.getByText(/billing events ledger and health summary cautiously/)).toBeTruthy();
 	});
 
 	function billingHealthData(): NonNullable<PageData['billingHealth']> {

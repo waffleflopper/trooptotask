@@ -277,12 +277,14 @@ describe('PlatformBillingHealth', () => {
 		expect(billingSummary.issues[0]).toMatchObject({
 			id: 'event:evt_linked_payment_failed',
 			organization: { id: 'org-linked', name: 'Linked Company' },
+			latestEventIds: ['evt_linked_payment_failed'],
 			states: ['needs_retry', 'payment_recovery_attention'],
 			supportBundle: {
 				organizationId: 'org-linked',
 				organizationName: 'Linked Company',
 				stripeCustomerId: 'cus_linked_safe_identifier',
 				stripeSubscriptionId: 'sub_linked_safe_identifier',
+				stripeEventIds: ['evt_linked_payment_failed'],
 				billingState: context.billingState
 			}
 		});
@@ -300,14 +302,18 @@ describe('PlatformBillingHealth', () => {
 
 		expect(supportSummary.issues[0]).toMatchObject({
 			organization: { id: 'org-linked', name: 'Linked Company' },
+			latestEventIds: [],
 			supportBundle: {
 				organizationId: 'org-linked',
 				organizationName: 'Linked Company',
 				stripeCustomerId: null,
 				stripeSubscriptionId: null,
+				stripeEventIds: [],
 				billingState: context.billingState
 			}
 		});
+		expect(supportSummary.issues[0].id).not.toContain('evt_linked_payment_failed');
+		expect(JSON.stringify(supportSummary)).not.toContain('evt_linked_payment_failed');
 		expect(JSON.stringify(supportSummary)).not.toContain('cus_linked_safe_identifier');
 		expect(JSON.stringify(supportSummary)).not.toContain('sub_linked_safe_identifier');
 	});
@@ -413,8 +419,11 @@ describe('PlatformBillingHealth', () => {
 			organizationName: 'Alpha Company',
 			stripeCustomerId: null,
 			stripeSubscriptionId: null,
+			stripeEventIds: [],
 			nextSteps: ['Open org diagnostics and Refresh from Stripe']
 		});
+		expect(summary.issues[0].latestEventIds).toEqual([]);
+		expect(JSON.stringify(summary)).not.toContain('evt_snapshot');
 		expect(JSON.stringify(summary)).not.toContain('cus_safe_identifier');
 		expect(JSON.stringify(summary)).not.toContain('sub_safe_identifier');
 	});

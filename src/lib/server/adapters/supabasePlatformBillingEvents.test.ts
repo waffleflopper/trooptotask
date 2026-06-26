@@ -168,6 +168,68 @@ describe('Supabase PlatformBillingEvents adapter', () => {
 		);
 	});
 
+	it('recomputes legacy invoice metadata before recording admin retry attempts', async () => {
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+		const row = {
+			id: 'evt_invoice_retry',
+			type: 'invoice.payment_failed',
+			data: {
+				object: {
+					id: 'in_123',
+					object: 'invoice',
+					parent: {
+						subscription_details: {
+							subscription: 'sub_123'
+						}
+					},
+					customer: 'cus_123'
+				}
+			},
+			object_id: 'in_123',
+			secondary_dedupe_key: 'invoice.payment_failed:in_123',
+			event_created_at: '2026-05-23T00:00:00.000Z',
+			processed: false,
+			processed_at: null,
+			processing_state: 'retryable_failed',
+			attempt_count: 3,
+			last_error: 'temporary error',
+			processing_result: 'retryable processing failure',
+			created_at: '2026-05-23T00:00:01.000Z',
+			updated_at: '2026-05-23T00:00:02.000Z'
+		};
+		const { supabase, webhookRetryAttempts } = makeRetryEventSupabase(row);
+
+		const result = await createSupabasePlatformBillingEvents({
+			adminUser: { id: 'admin-1', role: 'billing' },
+			adminClient: supabase as never,
+			sessionClient: supabase as never,
+			session: null,
+			audit: vi.fn()
+		}).retryEvent('evt_invoice_retry');
+
+		expect(result).toMatchObject({
+			ok: false,
+			status: 500
+		});
+		expect(webhookRetryAttempts).toEqual([
+			{
+				name: 'record_retryable_stripe_webhook_event_attempt',
+				args: expect.objectContaining({
+					p_id: 'evt_invoice_retry',
+					p_type: 'invoice.payment_failed',
+					p_object_id: 'sub_123',
+					p_secondary_dedupe_key: 'invoice.payment_failed:sub_123',
+					p_event_created_at: '2026-05-23T00:00:00.000Z'
+				})
+			}
+		]);
+		expect(webhookRetryAttempts[0]?.args).not.toMatchObject({
+			p_object_id: 'in_123',
+			p_secondary_dedupe_key: 'invoice.payment_failed:in_123'
+		});
+		consoleError.mockRestore();
+	});
+
 	it('retries a retryable billing event through the platform billing retry processor', async () => {
 		const row = {
 			id: 'evt_retry',

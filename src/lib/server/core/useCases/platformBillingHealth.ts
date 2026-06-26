@@ -467,24 +467,28 @@ export function createPlatformBillingHealth(deps: PlatformBillingHealthDependenc
 		async summarize(input = {}) {
 			const now = input.now ?? deps.now?.() ?? new Date();
 			const staleReconciledBefore = new Date(now.getTime() - STALE_RECONCILIATION_MS).toISOString();
-			try {
-				const [events, snapshots] = await Promise.all([
-					deps.store.listRecentHealthEvents(HEALTH_EVENT_LIMIT),
-					deps.store.listBillingSnapshotsForHealth({
-						limit: HEALTH_SNAPSHOT_LIMIT,
-						staleReconciledBefore
-					})
-				]);
-				return mapBillingHealthSummary({
-					events,
-					snapshots,
-					adminRole: deps.adminRole,
-					now
-				});
-			} catch (error) {
-				console.error('Admin billing health query failed:', error);
-				return emptySummary(now, true);
+			const [eventsResult, snapshotsResult] = await Promise.allSettled([
+				deps.store.listRecentHealthEvents(HEALTH_EVENT_LIMIT),
+				deps.store.listBillingSnapshotsForHealth({
+					limit: HEALTH_SNAPSHOT_LIMIT,
+					staleReconciledBefore
+				})
+			]);
+
+			if (eventsResult.status === 'rejected') {
+				console.error('Admin billing health event query failed:', eventsResult.reason);
 			}
+			if (snapshotsResult.status === 'rejected') {
+				console.error('Admin billing health snapshot query failed:', snapshotsResult.reason);
+			}
+
+			return mapBillingHealthSummary({
+				events: eventsResult.status === 'fulfilled' ? eventsResult.value : [],
+				snapshots: snapshotsResult.status === 'fulfilled' ? snapshotsResult.value : [],
+				adminRole: deps.adminRole,
+				now,
+				diagnosticsError: eventsResult.status === 'rejected' || snapshotsResult.status === 'rejected'
+			});
 		}
 	};
 }

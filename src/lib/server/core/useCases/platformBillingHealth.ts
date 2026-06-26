@@ -212,6 +212,16 @@ function visibleProviderId(role: AdminRole, value: string | null): string | null
 	return role === 'support' ? null : value;
 }
 
+function visibleProviderEventIds(role: AdminRole, eventIds: string[]): string[] {
+	return role === 'support' ? [] : [...eventIds];
+}
+
+function eventIssueIdFor(event: PlatformBillingHealthEventRecord, role: AdminRole): string {
+	if (role !== 'support') return `event:${event.id}`;
+	const organizationId = event.linkedBillingContext?.organizationId ?? 'unlinked';
+	return `event:${organizationId}:${event.type}:${event.processingState ?? 'unknown'}:${eventTimestamp(event) ?? 'unknown'}:${event.attemptCount ?? 0}`;
+}
+
 function billingStateNeedsPaymentRecovery(state: PlatformBillingHealthBillingStateContext | null | undefined): boolean {
 	return (
 		state?.subscriptionStatus === 'past_due' ||
@@ -251,22 +261,23 @@ function buildEventIssue(
 	const organization = linkedContext
 		? { id: linkedContext.organizationId, name: linkedContext.organizationName }
 		: null;
+	const latestEventIds = visibleProviderEventIds(adminRole, [event.id]);
 
 	return {
-		id: `event:${event.id}`,
+		id: eventIssueIdFor(event, adminRole),
 		primaryState,
 		states: uniqueStates(states),
 		severity: severityFor(states),
 		title: titleFor(primaryState),
 		detail: `${event.type} is ${event.processingState ?? 'unknown'} with ${event.attemptCount ?? 0} attempts.`,
 		organization,
-		latestEventIds: [event.id],
+		latestEventIds,
 		supportBundle: {
 			organizationId: linkedContext?.organizationId ?? null,
 			organizationName: linkedContext?.organizationName ?? null,
 			stripeCustomerId: visibleProviderId(adminRole, linkedContext?.stripeCustomerId ?? null),
 			stripeSubscriptionId: visibleProviderId(adminRole, linkedContext?.stripeSubscriptionId ?? null),
-			stripeEventIds: [event.id],
+			stripeEventIds: latestEventIds,
 			billingState: linkedContext?.billingState ?? emptyBillingStateContext(),
 			reconciliationResult: event.processingResult,
 			nextSteps
@@ -308,7 +319,10 @@ function buildSnapshotIssue(
 	const states = sortStatesByPriority(snapshotStates(snapshot, staleCutoff));
 	if (states.length === 0) return null;
 	const primaryState = states[0];
-	const latestEventIds = snapshot.lastStripeEventId ? [snapshot.lastStripeEventId] : [];
+	const latestEventIds = visibleProviderEventIds(
+		adminRole,
+		snapshot.lastStripeEventId ? [snapshot.lastStripeEventId] : []
+	);
 
 	return {
 		id: `snapshot:${snapshot.organizationId}`,

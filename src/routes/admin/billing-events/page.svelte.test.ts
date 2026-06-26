@@ -41,7 +41,8 @@ describe('admin billing events page', () => {
 			props: {
 				data: {
 					events: [baseEvent],
-					diagnosticsError: false
+					diagnosticsError: false,
+					adminRole: 'billing'
 				} as never,
 				form: null
 			}
@@ -68,7 +69,8 @@ describe('admin billing events page', () => {
 							processingResult: 'processed safely'
 						}
 					],
-					diagnosticsError: false
+					diagnosticsError: false,
+					adminRole: 'billing'
 				} as never,
 				form: null
 			}
@@ -85,7 +87,8 @@ describe('admin billing events page', () => {
 				data: {
 					events: [],
 					diagnosticsError: true,
-					billingHealth: billingHealthData()
+					billingHealth: billingHealthData(),
+					adminRole: 'billing'
 				} as never,
 				form: null
 			}
@@ -100,7 +103,8 @@ describe('admin billing events page', () => {
 			props: {
 				data: {
 					events: [],
-					diagnosticsError: false
+					diagnosticsError: false,
+					adminRole: 'billing'
 				} as never,
 				form: null
 			}
@@ -157,32 +161,7 @@ describe('admin billing events page', () => {
 		};
 	}
 
-	it('shows wider billing health counts and a support-safe bundle', () => {
-		render(Page, {
-			props: {
-				data: {
-					events: [],
-					diagnosticsError: false,
-					billingHealth: billingHealthData()
-				} as never,
-				form: null
-			}
-		});
-
-		expect(screen.getByText('Billing Health')).toBeTruthy();
-		expect(screen.getByText('Retryable webhook failure')).toBeTruthy();
-		expect(screen.getByText(/Use the action on each item/)).toBeTruthy();
-		expect(screen.getByText('Next action')).toBeTruthy();
-		expect(screen.getByText('Use Retry event on Billing Events')).toBeTruthy();
-		expect(screen.getByRole('button', { name: 'Retry event for Retryable webhook failure evt_retry' })).toBeTruthy();
-		expect(screen.getByText(/evt_retry/)).toBeTruthy();
-		expect(screen.getByText('3')).toBeTruthy();
-		expect(document.body.textContent).not.toContain('raw_payload');
-		expect(document.body.textContent).not.toContain('sk_test_');
-		expect(document.body.textContent).not.toContain('whsec_');
-	});
-
-	it('gives support bundle copy actions unique accessible names without changing the visible label', () => {
+	function billingHealthDataWithOrganizations(): NonNullable<PageData['billingHealth']> {
 		const billingHealth = billingHealthData();
 		const retryIssue = billingHealth.issues[0]!;
 		billingHealth.issues = [
@@ -207,13 +186,45 @@ describe('admin billing events page', () => {
 				}
 			}
 		];
+		return billingHealth;
+	}
+
+	it('shows wider billing health counts and a support-safe bundle', () => {
+		render(Page, {
+			props: {
+				data: {
+					events: [],
+					diagnosticsError: false,
+					billingHealth: billingHealthData(),
+					adminRole: 'billing'
+				} as never,
+				form: null
+			}
+		});
+
+		expect(screen.getByText('Billing Health')).toBeTruthy();
+		expect(screen.getByText('Retryable webhook failure')).toBeTruthy();
+		expect(screen.getByText(/Use the action on each item/)).toBeTruthy();
+		expect(screen.getByText('Next action')).toBeTruthy();
+		expect(screen.getByText('Use Retry event on Billing Events')).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Retry event for Retryable webhook failure evt_retry' })).toBeTruthy();
+		expect(screen.getByText(/evt_retry/)).toBeTruthy();
+		expect(screen.getByText('3')).toBeTruthy();
+		expect(document.body.textContent).not.toContain('raw_payload');
+		expect(document.body.textContent).not.toContain('sk_test_');
+		expect(document.body.textContent).not.toContain('whsec_');
+	});
+
+	it('gives support bundle copy actions unique accessible names without changing the visible label', () => {
+		const billingHealth = billingHealthDataWithOrganizations();
 
 		render(Page, {
 			props: {
 				data: {
 					events: [],
 					diagnosticsError: false,
-					billingHealth
+					billingHealth,
+					adminRole: 'super_admin'
 				} as never,
 				form: null
 			}
@@ -243,6 +254,39 @@ describe('admin billing events page', () => {
 		expect(screen.getAllByText('Copy bundle')).toHaveLength(2);
 	});
 
+	it('hides organization diagnostics from billing admins while keeping retry and copy actions', () => {
+		render(Page, {
+			props: {
+				data: {
+					events: [],
+					diagnosticsError: false,
+					billingHealth: billingHealthDataWithOrganizations(),
+					adminRole: 'billing'
+				} as never,
+				form: null
+			}
+		});
+
+		expect(
+			screen.queryByRole('link', {
+				name: 'Open organization billing diagnostics for Retryable webhook failure (Alpha Company)'
+			})
+		).toBeNull();
+		expect(
+			screen.queryByRole('link', {
+				name: 'Open organization billing diagnostics for Billing drift detected (Bravo Company)'
+			})
+		).toBeNull();
+		expect(screen.queryByText('Org diagnostics')).toBeNull();
+		expect(
+			screen.getByRole('button', { name: 'Retry event for Retryable webhook failure (Alpha Company) evt_retry' })
+		).toBeTruthy();
+		expect(
+			screen.getByRole('button', { name: 'Copy bundle for Retryable webhook failure (Alpha Company)' })
+		).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Copy bundle for Billing drift detected (Bravo Company)' })).toBeTruthy();
+	});
+
 	it('copies the support-safe billing health bundle text', async () => {
 		const writeText = vi.fn(async (_text: string) => undefined);
 		Object.defineProperty(navigator, 'clipboard', {
@@ -255,7 +299,8 @@ describe('admin billing events page', () => {
 				data: {
 					events: [],
 					diagnosticsError: false,
-					billingHealth: billingHealthData()
+					billingHealth: billingHealthData(),
+					adminRole: 'billing'
 				} as never,
 				form: null
 			}

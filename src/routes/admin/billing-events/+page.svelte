@@ -36,6 +36,7 @@
 		}
 	);
 	const hasDiagnosticsWarning = $derived(data.diagnosticsError || billingHealth.diagnosticsError);
+	const canAccessOrganizationDiagnostics = $derived(data.adminRole === 'super_admin');
 
 	function formatOptionalDateTime(value: string | null | undefined): string {
 		return value ? formatDisplayDateTime(value) : '-';
@@ -72,6 +73,7 @@
 	}
 
 	function organizationDiagnosticsHref(issue: BillingHealthIssue): string | null {
+		if (!canAccessOrganizationDiagnostics) return null;
 		if (!issue.organization?.id) return null;
 		return `${resolve(`/admin/organizations/${issue.organization.id}` as `/admin/organizations/${string}`)}#billing-diagnostics`;
 	}

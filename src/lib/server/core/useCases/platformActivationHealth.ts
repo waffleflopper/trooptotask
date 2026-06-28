@@ -139,6 +139,13 @@ const ACTIVE_OR_RECOVERABLE_SUBSCRIPTION_STATUSES = new Set<SubscriptionStatus>(
 	'incomplete',
 	'paused'
 ]);
+const CHECKOUT_COMPLETED_SUBSCRIPTION_STATUSES = new Set<SubscriptionStatus>([
+	'active',
+	'trialing',
+	'past_due',
+	'unpaid',
+	'paused'
+]);
 
 function isStripePaidBillingContext(context: PlatformActivationBillingContext | null): boolean {
 	return (
@@ -150,12 +157,22 @@ function isStripePaidBillingContext(context: PlatformActivationBillingContext | 
 	);
 }
 
+function isStripeCheckoutCompletedBillingContext(context: PlatformActivationBillingContext | null): boolean {
+	return (
+		context?.source === 'stripe' &&
+		!!context.commercialPlan &&
+		PAID_PLANS.has(context.commercialPlan) &&
+		!!context.subscriptionStatus &&
+		CHECKOUT_COMPLETED_SUBSCRIPTION_STATUSES.has(context.subscriptionStatus)
+	);
+}
+
 function hasCheckoutStarted(facts: PlatformActivationOrganizationFacts): boolean {
 	return facts.checkout.attemptCount > 0 || isStripePaidBillingContext(facts.billing);
 }
 
 function hasCheckoutCompleted(facts: PlatformActivationOrganizationFacts): boolean {
-	return facts.checkout.completedCount > 0 || isStripePaidBillingContext(facts.billing);
+	return facts.checkout.completedCount > 0 || isStripeCheckoutCompletedBillingContext(facts.billing);
 }
 
 function hasCheckoutRecovered(facts: PlatformActivationOrganizationFacts): boolean {

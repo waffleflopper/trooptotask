@@ -11,7 +11,7 @@
 > dispatched you and told you they maintain the index.
 >
 > **Drift check (run first)**:
-> `git diff --stat d485cdc5..HEAD -- docs/launch-acquisition-path.md plans/081-surface-first-run-owner-checklist.md plans/086-support-admin-visibility-self-service.md 'src/routes/org/[orgId]/api/getting-started' src/features/dashboard/read-model/dashboardScreenModel.svelte.ts src/features/dashboard/components src/routes/admin src/lib/server/adapters/supabasePlatformAdministration.ts src/lib/server/core/useCases/platformAdministration.ts src/features/personnel/components/PersonnelPageView.svelte src/features/personnel/components/PersonnelImportPage.svelte src/lib/server/core/useCases/orgProvisioning.ts supabase/migrations`
+> `git diff --stat 88a2fbd5..HEAD -- docs/launch-acquisition-path.md docs/billing-operations-launch-checklist.md docs/security/incident-response.md plans/081-surface-first-run-owner-checklist.md plans/086-support-admin-visibility-self-service.md plans/091-billing-health-support-workflow.md 'src/routes/org/[orgId]/api/getting-started' src/features/dashboard/read-model/dashboardScreenModel.svelte.ts src/features/dashboard/components src/routes/admin src/lib/server/adapters/supabasePlatformAdministration.ts src/lib/server/adapters/supabasePlatformBillingHealth.ts src/lib/server/core/useCases/platformAdministration.ts src/lib/server/core/useCases/platformBillingHealth.ts src/lib/server/core/useCases/platformBillingHealthFallback.ts src/features/personnel/components/PersonnelPageView.svelte src/features/personnel/components/PersonnelImportPage.svelte src/lib/server/core/useCases/orgProvisioning.ts supabase/migrations`
 > If any in-scope file changed since this plan was written, compare the
 > "Current state" excerpts against the live code before proceeding; on a
 > mismatch, treat it as a STOP condition.
@@ -23,16 +23,19 @@
 - **Risk**: MED
 - **Depends on**: plans/081-surface-first-run-owner-checklist.md, plans/083-public-account-creation-abuse-controls.md, plans/084-self-service-organization-onboarding.md, plans/085-checkout-trial-entry-billing-recovery.md, plans/086-support-admin-visibility-self-service.md, plans/087-self-service-acquisition-e2e-coverage.md
 - **Category**: direction
-- **Planned at**: commit `d485cdc5`, 2026-06-16 (reconciled; originally planned at `c6760c16`)
+- **Planned at**: commit `88a2fbd5`, 2026-06-28 (reconciled after plan 091; originally planned at `c6760c16`, first refreshed at `d485cdc5`)
 
 ## Reconciliation note
 
-On 2026-06-16, this plan was refreshed at `d485cdc5`. The getting-started
-endpoint changed after the original plan to use policy-first route configs and
-`identity-owned-preference` read-only-mode exceptions for dismissal writes. The
-activation-health finding still stands: the endpoint still returns only
-checklist support counts and dismissal state, not a post-checkout activation
-health model.
+On 2026-06-28, this plan was refreshed at `88a2fbd5` after plan 091 merged.
+That work added Platform Administration billing-health summaries, copyable
+support bundles, and support-safe billing diagnostics to Admin -> Billing Events
+and Admin -> Subscriptions. Those surfaces are now the adjacent support-safe
+admin pattern for this plan, but they do not satisfy the activation-health
+finding: the getting-started endpoint still returns only checklist support
+counts and dismissal state, launch docs still stop at acquisition/billing
+support questions, and there is still no post-checkout Organization-level
+activation health read model.
 
 ## Why this matters
 
@@ -49,13 +52,21 @@ not end at payment.
 - `plans/086-support-admin-visibility-self-service.md:109-119` covers support
   visibility for signup, email confirmation, Organization creation, checkout,
   and billing recovery.
-- `docs/launch-acquisition-path.md:84-91` asks support to answer acquisition
+- `docs/launch-acquisition-path.md:96-105` asks support to answer acquisition
   and billing-state questions, not post-checkout activation questions.
-- `src/routes/org/[orgId]/api/getting-started/+server.ts:15-33` returns
+- `src/lib/server/core/useCases/platformBillingHealth.ts:11-104` and
+  `src/lib/server/adapters/supabasePlatformBillingHealth.ts:60-74` define the
+  current support-safe billing-health pattern. Reuse that shape where useful,
+  but do not duplicate billing health inside activation health.
+- `src/routes/admin/billing-events/+page.server.ts:15-22` and
+  `src/routes/admin/subscriptions/+page.server.ts:20-27` load billing health
+  with a degraded fallback; no admin page loads acquisition or activation
+  health.
+- `src/routes/org/[orgId]/api/getting-started/+server.ts:7-33` returns
   onboarding template step count, rating scheme entry count, org member count,
   and dismissed state; writes use the `identity-owned-preference`
   read-only-mode exception.
-- `src/features/dashboard/read-model/dashboardScreenModel.svelte.ts:283-333`
+- `src/features/dashboard/read-model/dashboardScreenModel.svelte.ts:280-333`
   defines getting-started items for roster, statuses, training, assignments,
   members, onboarding, and evals.
 - `src/features/dashboard/read-model/dashboardScreenModel.svelte.ts:285-289`
@@ -71,6 +82,15 @@ not end at payment.
   `getting_started_progress` only stores dismissal state.
 
 Current excerpts:
+
+```ts
+// src/lib/server/core/useCases/platformBillingHealth.ts:77-92
+export interface PlatformBillingHealthSummary {
+	generatedAt: string;
+	overallState: BillingHealthState;
+	states: BillingHealthState[];
+	counts: {
+```
 
 ```ts
 // src/features/dashboard/read-model/dashboardScreenModel.svelte.ts:285-289
@@ -93,7 +113,7 @@ CREATE TABLE IF NOT EXISTS "public"."getting_started_progress" (
 ```
 
 ```ts
-// src/routes/org/[orgId]/api/getting-started/+server.ts
+// src/routes/org/[orgId]/api/getting-started/+server.ts:36-48
 policyAction: POLICY_ACTION_CATALOG.identity.viewDashboard
 readOnlyModeException: 'identity-owned-preference'
 ```
@@ -106,7 +126,7 @@ readOnlyModeException: 'identity-owned-preference'
 | Svelte docs | Svelte MCP docs flow if editing `.svelte` files | docs read |
 | Svelte autofix | `svelte-autofixer` on edited Svelte files | no issues or suggestions remain |
 | Dashboard tests | `npx vitest run src/features/dashboard/read-model/dashboardScreenModel.svelte.test.ts src/features/dashboard/components/DashboardPageView.svelte.test.ts 'src/routes/org/[orgId]/(dashboard)/page.svelte.test.ts'` | all pass when files exist |
-| Admin tests | `npx vitest run src/routes/admin/page.server.test.ts` plus new activation-health tests | all pass |
+| Admin activation tests | `npx vitest run src/lib/server/core/useCases/platformActivationHealth.test.ts src/lib/server/adapters/supabasePlatformActivationHealth.test.ts src/routes/admin/organizations/page.server.test.ts src/routes/admin/organizations/page.svelte.test.ts` or the equivalent route-specific activation-health test files created by the implementation | all pass |
 | Governance | `npm run governance:check` | exits 0 |
 | Full repo gate | `npm run format && npm run lint && npm run governance:check && npm run check && npm run test` | all exit 0 |
 
@@ -117,6 +137,9 @@ readOnlyModeException: 'identity-owned-preference'
 - A support-safe acquisition/activation health read model for Platform
   Administration, or a design document plus follow-up plan if a schema change is
   required.
+- Reuse the plan 091 billing-health support-bundle pattern when it helps, but
+  keep the new model focused on acquisition and activation. Billing health is
+  already handled by plan 091.
 - Existing getting-started support endpoint/read model only where it can expose
   better milestones without broad schema churn.
 - First-run checklist copy/link improvements:

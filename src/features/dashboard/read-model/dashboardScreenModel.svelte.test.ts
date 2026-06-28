@@ -173,7 +173,7 @@ describe('createDashboardScreenModel', () => {
 		]);
 		expect(model.gettingStartedItems.find((item) => item.id === 'personnel')).toMatchObject({
 			label: 'Import or add the roster',
-			href: '/org/org-1/personnel/import'
+			href: '/org/org-1/personnel'
 		});
 		expect(model.gettingStartedItems.find((item) => item.id === 'statuses')).toMatchObject({
 			label: 'Review availability statuses'

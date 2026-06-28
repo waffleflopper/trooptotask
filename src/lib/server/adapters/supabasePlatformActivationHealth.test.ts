@@ -87,6 +87,26 @@ function createSupabaseStub(tables: Record<string, Row[]>): { supabase: Supabase
 describe('createSupabasePlatformActivationHealthStore', () => {
 	it('maps activation facts from safe aggregate fields without selecting checkout URLs or provider IDs', async () => {
 		const { supabase, calls } = createSupabaseStub({
+			organizations: [
+				{
+					id: 'org-1',
+					name: 'Able Company',
+					created_at: '2026-06-01T00:00:00.000Z',
+					created_by: 'user-secret-not-selected',
+					stripe_customer_id: 'cus_secret_not_selected',
+					stripe_subscription_id: 'sub_secret_not_selected'
+				},
+				{
+					id: 'org-free',
+					name: 'Free Company',
+					created_at: '2026-06-02T00:00:00.000Z'
+				},
+				{
+					id: 'org-2',
+					name: 'Bravo Company',
+					created_at: '2026-06-03T00:00:00.000Z'
+				}
+			],
 			organization_billing_snapshots: [
 				{
 					organization_id: 'org-1',
@@ -97,21 +117,6 @@ describe('createSupabasePlatformActivationHealthStore', () => {
 					sync_status: 'synced',
 					last_processed_at: '2026-06-02T00:00:00.000Z',
 					updated_at: '2026-06-02T00:00:00.000Z',
-					organizations: {
-						id: 'org-1',
-						name: 'Able Company',
-						created_at: '2026-06-01T00:00:00.000Z'
-					}
-				},
-				{
-					organization_id: 'org-1',
-					source: 'stripe',
-					commercial_plan: 'team',
-					subscription_status: 'past_due',
-					collection_status: 'payment_failed_grace',
-					sync_status: 'pending',
-					last_processed_at: '2026-06-01T00:00:00.000Z',
-					updated_at: '2026-06-01T00:00:00.000Z',
 					organizations: {
 						id: 'org-1',
 						name: 'Able Company',
@@ -223,9 +228,10 @@ describe('createSupabasePlatformActivationHealthStore', () => {
 		const facts = await createSupabasePlatformActivationHealthStore(supabase).listActivationOrganizationFacts({
 			limit: 10
 		});
+		const factsByOrgId = new Map(facts.map((item) => [item.organizationId, item]));
 
-		expect(facts).toHaveLength(2);
-		expect(facts[0]).toMatchObject({
+		expect(facts).toHaveLength(3);
+		expect(factsByOrgId.get('org-1')).toMatchObject({
 			organizationId: 'org-1',
 			organizationName: 'Able Company',
 			organizationCreatedAt: '2026-06-01T00:00:00.000Z',
@@ -257,7 +263,7 @@ describe('createSupabasePlatformActivationHealthStore', () => {
 				ratingSchemeEntries: 1
 			}
 		});
-		expect(facts[1]).toMatchObject({
+		expect(factsByOrgId.get('org-2')).toMatchObject({
 			organizationId: 'org-2',
 			organizationName: 'Bravo Company',
 			billing: null,
@@ -268,6 +274,27 @@ describe('createSupabasePlatformActivationHealthStore', () => {
 				latestStatus: 'in_progress'
 			}
 		});
+		expect(factsByOrgId.get('org-free')).toMatchObject({
+			organizationId: 'org-free',
+			organizationName: 'Free Company',
+			billing: null,
+			checkout: {
+				attemptCount: 0,
+				completedCount: 0,
+				interruptedCount: 0,
+				inProgressCount: 0,
+				latestStatus: null,
+				latestAt: null
+			}
+		});
+
+		const organizationSelects = calls.filter((call) => call.table === 'organizations' && call.method === 'select');
+		expect(organizationSelects.length).toBeGreaterThan(0);
+		for (const call of organizationSelects) {
+			expect(String(call.args[0])).not.toContain('created_by');
+			expect(String(call.args[0])).not.toContain('stripe_customer_id');
+			expect(String(call.args[0])).not.toContain('stripe_subscription_id');
+		}
 
 		const checkoutSelects = calls.filter(
 			(call) => call.table === 'organization_checkout_attempts' && call.method === 'select'

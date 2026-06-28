@@ -345,9 +345,6 @@ function nextStepsFor(facts: PlatformActivationOrganizationFacts): string[] {
 
 function stateFor(facts: PlatformActivationOrganizationFacts, nextSteps: string[]): PlatformActivationHealthState {
 	if (nextSteps.length === 0) return 'activated';
-	if (hasCheckoutCompleted(facts) && (!hasMeaningfulRoster(facts) || !hasAcceptedLeader(facts))) {
-		return 'needs_attention';
-	}
 	if (hasCheckoutCompleted(facts) && nextSteps.length > 0) return 'needs_attention';
 	return 'in_progress';
 }

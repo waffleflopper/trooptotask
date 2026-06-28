@@ -299,7 +299,7 @@ export class DashboardScreenModel {
 				id: 'personnel',
 				label: 'Import or add the roster',
 				description: 'Import an Excel/CSV roster or add service members so the dashboard can track strength.',
-				href: `${orgPath}/personnel/import`,
+				href: `${orgPath}/personnel`,
 				complete: this.personnelCount > 0
 			},
 			{

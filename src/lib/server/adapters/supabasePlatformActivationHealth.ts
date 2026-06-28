@@ -52,6 +52,7 @@ const ACTIVATION_BILLING_SNAPSHOT_COLUMNS =
 	'organization_id, source, commercial_plan, subscription_status, collection_status, sync_status, organizations!inner(id, name, created_at)';
 const ACTIVATION_CHECKOUT_ATTEMPT_COLUMNS =
 	'organization_id, status, commercial_plan, created_at, updated_at, completed_at, canceled_at, expires_at, organizations!inner(id, name, created_at)';
+const ACTIVATION_ORGANIZATION_COLUMNS = 'id, name, created_at';
 const PAID_COMMERCIAL_PLANS: Exclude<Tier, 'free'>[] = ['team', 'unit'];
 const ACTIVE_OR_RECOVERABLE_SUBSCRIPTION_STATUSES: SubscriptionStatus[] = [
 	'active',
@@ -98,7 +99,10 @@ function emptyCheckoutContext(): PlatformActivationCheckoutContext {
 }
 
 function checkoutAttemptTimestamp(row: ActivationCheckoutAttemptRow): string | null {
-	return row.completed_at ?? row.canceled_at ?? row.updated_at ?? row.expires_at ?? row.created_at;
+	if (row.completed_at) return row.completed_at;
+	if (row.canceled_at) return row.canceled_at;
+	if (row.status === 'expired') return row.expires_at ?? row.updated_at ?? row.created_at;
+	return row.updated_at ?? row.created_at ?? row.expires_at;
 }
 
 function isNewerTimestamp(candidate: string | null, current: string | null): boolean {
@@ -201,7 +205,12 @@ export function createSupabasePlatformActivationHealthStore(supabase: SupabaseCl
 	return {
 		async listActivationOrganizationFacts(input): Promise<PlatformActivationOrganizationFacts[]> {
 			const checkoutCandidateLimit = Math.max(input.limit * 5, input.limit);
-			const [snapshotResponse, checkoutCandidateResponse] = (await Promise.all([
+			const [organizationResponse, snapshotResponse, checkoutCandidateResponse] = (await Promise.all([
+				supabase
+					.from('organizations')
+					.select(ACTIVATION_ORGANIZATION_COLUMNS)
+					.order('created_at', { ascending: false })
+					.limit(input.limit),
 				supabase
 					.from('organization_billing_snapshots')
 					.select(ACTIVATION_BILLING_SNAPSHOT_COLUMNS)
@@ -217,11 +226,19 @@ export function createSupabasePlatformActivationHealthStore(supabase: SupabaseCl
 					.in('commercial_plan', PAID_COMMERCIAL_PLANS)
 					.order('created_at', { ascending: false })
 					.limit(checkoutCandidateLimit)
-			])) as [SupabaseResponse<ActivationBillingSnapshotRow[]>, SupabaseResponse<ActivationCheckoutAttemptRow[]>];
+			])) as [
+				SupabaseResponse<ActivationOrganizationRow[]>,
+				SupabaseResponse<ActivationBillingSnapshotRow[]>,
+				SupabaseResponse<ActivationCheckoutAttemptRow[]>
+			];
+			throwIfSupabaseError(organizationResponse.error);
 			throwIfSupabaseError(snapshotResponse.error);
 			throwIfSupabaseError(checkoutCandidateResponse.error);
 
 			const factsByOrgId = new Map<string, PlatformActivationOrganizationFacts>();
+			for (const row of organizationResponse.data ?? []) {
+				ensureFacts(factsByOrgId, row.id, row);
+			}
 			for (const row of snapshotResponse.data ?? []) {
 				const facts = ensureFacts(factsByOrgId, row.organization_id, organizationFromRow(row));
 				if (!facts.billing) facts.billing = billingContextFor(row);

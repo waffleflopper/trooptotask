@@ -46,6 +46,14 @@ function renderOrganizationsPage(data: Record<string, unknown>) {
 
 describe('admin organizations page', () => {
 	it('renders support-safe activation health without checkout URLs or personal analytics details', () => {
+		const sensitiveSentinels = [
+			'https://checkout.test/sentinel-checkout-url',
+			'cs_test_sensitive_checkout_session',
+			'203.0.113.44',
+			'va_sensitive_analytics_identifier',
+			'sk_test_sensitive_secret'
+		];
+
 		renderOrganizationsPage({
 			organizations: [
 				{
@@ -104,7 +112,12 @@ describe('admin organizations page', () => {
 									subscriptionStatus: 'active',
 									collectionStatus: 'current',
 									syncStatus: 'synced'
-								}
+								},
+								checkoutUrl: sensitiveSentinels[0],
+								stripeCheckoutSessionId: sensitiveSentinels[1],
+								rawIpAddress: sensitiveSentinels[2],
+								analyticsIdentifier: sensitiveSentinels[3],
+								secretKey: sensitiveSentinels[4]
 							},
 							activation: {
 								activePersonnel: 2,
@@ -144,6 +157,9 @@ describe('admin organizations page', () => {
 		expect(document.body.textContent).not.toContain('raw IP');
 		expect(document.body.textContent).not.toContain('analytics identifier');
 		expect(document.body.textContent).not.toContain('sk_test_');
+		for (const sentinel of sensitiveSentinels) {
+			expect(document.body.textContent).not.toContain(sentinel);
+		}
 	});
 
 	it('warns when activation health diagnostics are unavailable', () => {

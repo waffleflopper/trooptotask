@@ -104,6 +104,21 @@ describe('createSupabasePlatformActivationHealthStore', () => {
 					}
 				},
 				{
+					organization_id: 'org-1',
+					source: 'stripe',
+					commercial_plan: 'team',
+					subscription_status: 'past_due',
+					collection_status: 'payment_failed_grace',
+					sync_status: 'pending',
+					last_processed_at: '2026-06-01T00:00:00.000Z',
+					updated_at: '2026-06-01T00:00:00.000Z',
+					organizations: {
+						id: 'org-1',
+						name: 'Able Company',
+						created_at: '2026-06-01T00:00:00.000Z'
+					}
+				},
+				{
 					organization_id: 'org-free',
 					source: 'stripe',
 					commercial_plan: 'free',
@@ -129,6 +144,21 @@ describe('createSupabasePlatformActivationHealthStore', () => {
 					expires_at: '2026-06-01T01:00:00.000Z',
 					stripe_checkout_session_id: 'cs_secret_not_selected',
 					checkout_url: 'https://checkout.test/secret',
+					organizations: {
+						id: 'org-1',
+						name: 'Able Company',
+						created_at: '2026-06-01T00:00:00.000Z'
+					}
+				},
+				{
+					organization_id: 'org-1',
+					commercial_plan: 'team',
+					status: 'expired',
+					created_at: '2026-06-01T00:11:00.000Z',
+					updated_at: null,
+					completed_at: null,
+					canceled_at: null,
+					expires_at: '2026-06-01T01:30:00.000Z',
 					organizations: {
 						id: 'org-1',
 						name: 'Able Company',
@@ -207,12 +237,12 @@ describe('createSupabasePlatformActivationHealthStore', () => {
 				syncStatus: 'synced'
 			},
 			checkout: {
-				attemptCount: 2,
+				attemptCount: 3,
 				completedCount: 1,
-				interruptedCount: 1,
+				interruptedCount: 2,
 				inProgressCount: 0,
-				latestStatus: 'completed',
-				latestAt: '2026-06-01T00:10:00.000Z'
+				latestStatus: 'expired',
+				latestAt: '2026-06-01T01:30:00.000Z'
 			},
 			counts: {
 				activePersonnel: 2,
@@ -250,5 +280,61 @@ describe('createSupabasePlatformActivationHealthStore', () => {
 		);
 		expect(String(billingSelect?.args[0])).not.toContain('stripe_customer_id');
 		expect(String(billingSelect?.args[0])).not.toContain('stripe_subscription_id');
+	});
+
+	it('requeries selected organizations so checkout counts are complete beyond the discovery sample', async () => {
+		const organization = {
+			id: 'org-1',
+			name: 'Able Company',
+			created_at: '2026-06-01T00:00:00.000Z'
+		};
+		const checkoutRows = Array.from({ length: 6 }, (_, index) => ({
+			organization_id: 'org-1',
+			commercial_plan: 'team',
+			status: index === 0 ? 'completed' : index === 1 ? 'failed' : 'in_progress',
+			created_at: `2026-06-01T00:0${index}:00.000Z`,
+			updated_at: `2026-06-01T00:0${index}:30.000Z`,
+			completed_at: index === 0 ? '2026-06-01T00:00:45.000Z' : null,
+			canceled_at: null,
+			expires_at: `2026-06-01T01:0${index}:00.000Z`,
+			organizations: organization
+		}));
+		const { supabase, calls } = createSupabaseStub({
+			organization_billing_snapshots: [
+				{
+					organization_id: 'org-1',
+					source: 'stripe',
+					commercial_plan: 'team',
+					subscription_status: 'active',
+					collection_status: 'current',
+					sync_status: 'synced',
+					last_processed_at: '2026-06-02T00:00:00.000Z',
+					updated_at: '2026-06-02T00:00:00.000Z',
+					organizations: organization
+				}
+			],
+			organization_checkout_attempts: checkoutRows
+		});
+
+		const facts = await createSupabasePlatformActivationHealthStore(supabase).listActivationOrganizationFacts({
+			limit: 1
+		});
+
+		expect(facts).toHaveLength(1);
+		expect(facts[0]?.checkout).toMatchObject({
+			attemptCount: 6,
+			completedCount: 1,
+			interruptedCount: 1,
+			inProgressCount: 4
+		});
+		expect(
+			calls.some(
+				(call) =>
+					call.table === 'organization_checkout_attempts' &&
+					call.method === 'in' &&
+					call.args[0] === 'organization_id' &&
+					JSON.stringify(call.args[1]) === JSON.stringify(['org-1'])
+			)
+		).toBe(true);
 	});
 });

@@ -99,6 +99,8 @@ describe('dashboard page', () => {
 					onboardingTemplateStepCount: 1,
 					ratingSchemeEntryCount: 2,
 					orgMemberCount: 3,
+					dutyRosterTemplateCount: 0,
+					dutyRosterRunCount: 0,
 					gettingStartedDismissed: false
 				})
 			})
@@ -108,6 +110,8 @@ describe('dashboard page', () => {
 					onboardingTemplateStepCount: 4,
 					ratingSchemeEntryCount: 5,
 					orgMemberCount: 6,
+					dutyRosterTemplateCount: 1,
+					dutyRosterRunCount: 1,
 					gettingStartedDismissed: true
 				})
 			});
@@ -148,6 +152,8 @@ describe('dashboard page', () => {
 					onboardingTemplateStepCount: 1,
 					ratingSchemeEntryCount: 1,
 					orgMemberCount: 1,
+					dutyRosterTemplateCount: 0,
+					dutyRosterRunCount: 0,
 					gettingStartedDismissed: false
 				})
 			});

@@ -71,6 +71,8 @@ export interface DashboardPageData {
 	onboardingTemplateStepCount?: number;
 	ratingSchemeEntryCount?: number;
 	orgMemberCount?: number;
+	dutyRosterTemplateCount?: number;
+	dutyRosterRunCount?: number;
 	gettingStartedDismissed?: boolean;
 	[key: string]: unknown;
 }

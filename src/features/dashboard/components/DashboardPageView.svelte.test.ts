@@ -16,7 +16,9 @@ function makeCtx(overrides: Record<string, unknown> = {}): DashboardScreenModel 
 			orgId: 'org-1',
 			onboardingTemplateStepCount: 0,
 			ratingSchemeEntryCount: 0,
-			orgMemberCount: 0
+			orgMemberCount: 0,
+			dutyRosterTemplateCount: 0,
+			dutyRosterRunCount: 0
 		},
 		userRole: 'member',
 		hasSupportData: true,
@@ -124,15 +126,15 @@ describe('DashboardPageView', () => {
 			gettingStartedItems: [
 				{
 					id: 'personnel',
-					label: 'Add the roster',
-					description: 'Add at least one service member so the dashboard can track strength.',
-					href: '/org/org-1/personnel',
+					label: 'Import or add the roster',
+					description: 'Import an Excel/CSV roster or add service members so the dashboard can track strength.',
+					href: '/org/org-1/personnel/import',
 					complete: false
 				},
 				{
 					id: 'statuses',
-					label: 'Configure statuses',
-					description: 'Create the availability statuses your leaders use day to day.',
+					label: 'Review availability statuses',
+					description: 'Review the seeded availability statuses and adjust them for your unit.',
 					href: '/org/org-1/calendar/settings',
 					complete: true
 				}
@@ -142,11 +144,13 @@ describe('DashboardPageView', () => {
 		render(DashboardPageView, { props: { ctx } });
 
 		expect(screen.getByText('Workspace setup')).toBeTruthy();
-		expect(screen.getByText('Add the roster')).toBeTruthy();
-		expect(screen.getByText('Configure statuses')).toBeTruthy();
+		expect(screen.getByText('Import or add the roster')).toBeTruthy();
+		expect(screen.getByText('Review availability statuses')).toBeTruthy();
 		expect(screen.getByText('1/2 complete')).toBeTruthy();
 		expect(screen.getByText('Done')).toBeTruthy();
-		expect(screen.getByRole('link', { name: 'Open Add the roster' }).getAttribute('href')).toBe('/org/org-1/personnel');
+		expect(screen.getByRole('link', { name: 'Open Import or add the roster' }).getAttribute('href')).toBe(
+			'/org/org-1/personnel/import'
+		);
 	});
 
 	it('calls the model dismissal method from the checklist', async () => {
@@ -181,9 +185,9 @@ describe('DashboardPageView', () => {
 			gettingStartedItems: [
 				{
 					id: 'personnel',
-					label: 'Add the roster',
-					description: 'Add at least one service member so the dashboard can track strength.',
-					href: '/org/org-1/personnel',
+					label: 'Import or add the roster',
+					description: 'Import an Excel/CSV roster or add service members so the dashboard can track strength.',
+					href: '/org/org-1/personnel/import',
 					complete: false
 				}
 			]
@@ -192,6 +196,6 @@ describe('DashboardPageView', () => {
 		render(DashboardPageView, { props: { ctx } });
 
 		expect(screen.queryByText('Workspace setup')).toBeNull();
-		expect(screen.queryByText('Add the roster')).toBeNull();
+		expect(screen.queryByText('Import or add the roster')).toBeNull();
 	});
 });

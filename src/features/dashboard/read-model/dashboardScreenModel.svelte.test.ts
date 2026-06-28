@@ -144,6 +144,8 @@ describe('createDashboardScreenModel', () => {
 					onboardingTemplateStepCount: 0,
 					ratingSchemeEntryCount: 1,
 					orgMemberCount: 1,
+					dutyRosterTemplateCount: 0,
+					dutyRosterRunCount: 0,
 					gettingStartedDismissed: false
 				},
 				{
@@ -164,10 +166,21 @@ describe('createDashboardScreenModel', () => {
 			['statuses', true],
 			['training', false],
 			['assignments', true],
+			['duty-roster', false],
 			['members', false],
 			['onboarding', false],
 			['ratings', true]
 		]);
+		expect(model.gettingStartedItems.find((item) => item.id === 'personnel')).toMatchObject({
+			label: 'Import or add the roster',
+			href: '/org/org-1/personnel/import'
+		});
+		expect(model.gettingStartedItems.find((item) => item.id === 'statuses')).toMatchObject({
+			label: 'Review availability statuses'
+		});
+		expect(model.gettingStartedItems.find((item) => item.id === 'assignments')).toMatchObject({
+			label: 'Review duty assignments'
+		});
 		expect(model.shouldShowGettingStarted).toBe(true);
 	});
 
@@ -179,6 +192,8 @@ describe('createDashboardScreenModel', () => {
 					onboardingTemplateStepCount: undefined,
 					ratingSchemeEntryCount: undefined,
 					orgMemberCount: undefined,
+					dutyRosterTemplateCount: undefined,
+					dutyRosterRunCount: undefined,
 					gettingStartedDismissed: undefined
 				},
 				{
@@ -201,6 +216,8 @@ describe('createDashboardScreenModel', () => {
 			onboardingTemplateStepCount: 1,
 			ratingSchemeEntryCount: 1,
 			orgMemberCount: 1,
+			dutyRosterTemplateCount: 1,
+			dutyRosterRunCount: 0,
 			gettingStartedDismissed: false
 		});
 
@@ -217,6 +234,8 @@ describe('createDashboardScreenModel', () => {
 					onboardingTemplateStepCount: 2,
 					ratingSchemeEntryCount: 1,
 					orgMemberCount: 2,
+					dutyRosterTemplateCount: 1,
+					dutyRosterRunCount: 0,
 					gettingStartedDismissed: false
 				},
 				{
@@ -239,6 +258,8 @@ describe('createDashboardScreenModel', () => {
 			onboardingTemplateStepCount: 0,
 			ratingSchemeEntryCount: 0,
 			orgMemberCount: 1,
+			dutyRosterTemplateCount: 0,
+			dutyRosterRunCount: 0,
 			gettingStartedDismissed: true
 		});
 
@@ -253,6 +274,8 @@ describe('createDashboardScreenModel', () => {
 				onboardingTemplateStepCount: 0,
 				ratingSchemeEntryCount: 0,
 				orgMemberCount: 1,
+				dutyRosterTemplateCount: 0,
+				dutyRosterRunCount: 0,
 				gettingStartedDismissed: false
 			}),
 			{

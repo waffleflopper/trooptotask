@@ -11,7 +11,7 @@
 > dispatched you and told you they maintain the index.
 >
 > **Drift check (run first)**:
-> `git diff --stat d485cdc5..HEAD -- docs/billing-operations-launch-checklist.md docs/security/incident-response.md docs/security/operational-control-evidence.md src/routes/admin/billing-events src/routes/admin/subscriptions src/routes/admin/organizations src/lib/server/admin.ts src/lib/server/adapters/supabasePlatformBillingEvents.ts src/lib/server/core/useCases/platformBillingEvents.ts src/lib/server/core/useCases/billingReconciliationBatch.ts src/routes/api/billing-reconciliation`
+> `git diff --stat cc011a36..HEAD -- docs/billing-operations-launch-checklist.md docs/security/incident-response.md docs/security/operational-control-evidence.md src/routes/admin/billing-events src/routes/admin/subscriptions src/routes/admin/organizations src/lib/server/admin.ts src/lib/server/adapters/supabasePlatformBillingEvents.ts src/lib/server/core/useCases/platformBillingEvents.ts src/lib/server/core/useCases/billingReconciliationBatch.ts src/routes/api/billing-reconciliation`
 > If any in-scope file changed since this plan was written, compare the
 > "Current state" excerpts against the live code before proceeding; on a
 > mismatch, treat it as a STOP condition.
@@ -23,14 +23,20 @@
 - **Risk**: MED
 - **Depends on**: plans/085-checkout-trial-entry-billing-recovery.md, plans/086-support-admin-visibility-self-service.md
 - **Category**: direction
-- **Planned at**: commit `d485cdc5`, 2026-06-16 (reconciled; originally planned at `c6760c16`)
+- **Planned at**: commit `cc011a36`, 2026-06-24 (reconciled after plan 090; originally planned at `c6760c16`, first refreshed at `d485cdc5`)
 
 ## Reconciliation note
 
-On 2026-06-16, this plan was refreshed at `d485cdc5`. No in-scope files changed
-since the original `c6760c16` stamp. The current state remains valid: billing
-events still load the latest 50 diagnostics, and subscription drift is still
-summarized on the current admin subscriptions page.
+On 2026-06-24, this plan was refreshed at `cc011a36` after plan 090 completed.
+In-scope drift came from the billing launch readiness gate, support-safe launch
+evidence wording, admin subscriptions test-helper cleanup, and the
+billing-reconciliation endpoint test refactor. At refresh time, the pre-shipped
+finding was that billing events loaded only the latest 50 diagnostics,
+subscription drift was summarized only on the current admin subscriptions page,
+and there was no runtime billing health/support bundle. This implementation now
+adds copyable support bundles and in-app billing health visibility to Billing
+Events and Subscriptions. Plans 085 and 086 are DONE, so this plan was
+executable when dispatched.
 
 ## Why this matters
 
@@ -39,7 +45,9 @@ payment failures should not depend on Robert manually opening several admin
 pages at the right time. The app already has billing event diagnostics,
 subscription ledgers, reconciliation, and support-safe incident guidance. This
 plan turns those pieces into an operational health/support workflow so billing
-issues are visible, triageable, and safe to communicate about.
+issues are visible, triageable, and safe to communicate about. Plan 090 added a
+read-only launch readiness gate; this plan is the runtime counterpart for what
+Robert checks after launch.
 
 ## Current state
 
@@ -53,8 +61,18 @@ issues are visible, triageable, and safe to communicate about.
   failures or unexpected subscription changes.
 - `docs/security/incident-response.md:74-83` lists support-safe billing
   identifiers and forbidden sensitive data.
-- `docs/billing-operations-launch-checklist.md:145-156` lists support process
-  questions and failure modes Robert must be able to handle.
+- `docs/billing-operations-launch-checklist.md:36-46` documents the
+  `billing:launch-readiness` gate as a support-safe launch blocker, not an
+  ongoing billing-health surface.
+- `docs/billing-operations-launch-checklist.md:174-208` lists support channels,
+  self-service acquisition lookup surfaces, safe correlation identifiers, and
+  failure modes Robert must be able to handle.
+- `docs/security/operational-control-evidence.md:14` points billing/support
+  evidence at the launch checklist, acquisition path, and incident response,
+  but it remains process evidence rather than an app health read model.
+- `src/routes/api/billing-reconciliation/+server.ts:43-124` returns
+  support-safe batch reconciliation JSON and audit details, but no admin surface
+  turns stale reconciliation or drift into a health state.
 
 Current excerpts:
 
@@ -71,6 +89,11 @@ const RECENT_EVENT_LIMIT = 50;
 ```svelte
 <!-- src/routes/admin/subscriptions/+page.svelte:23 -->
 const currentPageDriftCount = $derived(data.subscriptions.filter((sub) => sub.billingSnapshot?.driftDetected).length);
+```
+
+```md
+<!-- docs/billing-operations-launch-checklist.md:36 -->
+npm --silent run billing:launch-readiness -- --offline --json
 ```
 
 ## Commands you will need
@@ -140,6 +163,9 @@ Define a small set of support states such as:
 - `diagnostics_unavailable`.
 
 Keep the states support-facing and conservative.
+Do not reuse launch readiness statuses (`go`, `blocked`, and
+`needs_confirmation`) as runtime health states; those belong to the launch gate
+from plan 090.
 
 **Verify**:
 Add a test fixture or documented type that maps raw billing facts to these

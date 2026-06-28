@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import { TriangleAlert } from '@lucide/svelte';
+	import { Copy, ExternalLink, TriangleAlert } from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { NativeSelect } from '$lib/components/ui/native-select';
@@ -14,13 +14,35 @@
 	import * as PageShell from '$lib/components/ui/page-shell';
 	import * as Table from '$lib/components/ui/table';
 	import { SvelteURLSearchParams } from 'svelte/reactivity';
+	import type { PageData } from './$types';
 
 	let { data } = $props();
 
 	const subscriptionsRouteRoot = resolve('/admin/subscriptions');
+	const billingEventsHref = resolve('/admin/billing-events');
 	const tierFilter = $derived(data.pagination.tier ?? 'all');
 	const statusFilter = $derived(data.pagination.status ?? 'all');
-	const currentPageDriftCount = $derived(data.subscriptions.filter((sub) => sub.billingSnapshot?.driftDetected).length);
+	const canAccessBillingEvents = $derived(data.adminRole === 'super_admin' || data.adminRole === 'billing');
+	const canAccessOrganizationDiagnostics = $derived(data.adminRole === 'super_admin' || data.adminRole === 'support');
+	type BillingHealthIssue = NonNullable<PageData['billingHealth']>['issues'][number];
+	const billingHealth = $derived(
+		data.billingHealth ?? {
+			generatedAt: '',
+			overallState: 'diagnostics_unavailable',
+			states: ['diagnostics_unavailable'],
+			counts: {
+				retryableFailures: 0,
+				permanentFailures: 0,
+				staleFailedEvents: 0,
+				recentPaymentFailures: 0,
+				driftedOrganizations: 0,
+				staleReconciliation: 0,
+				supportAttentionItems: 0
+			},
+			issues: [],
+			diagnosticsError: true
+		}
+	);
 
 	const showingStart = $derived(
 		data.subscriptions.length === 0 ? 0 : (data.pagination.page - 1) * data.pagination.pageSize + 1
@@ -41,6 +63,51 @@
 
 	function formatOptionalDateTime(value: string | null | undefined): string {
 		return value ? formatDisplayDateTime(value) : '-';
+	}
+
+	function supportBundleText(bundle: unknown): string {
+		return JSON.stringify(bundle, null, 2);
+	}
+
+	function supportBundleCopyLabel(issue: { title: string; organization: { name: string | null } | null }): string {
+		return `Copy bundle for ${issue.organization?.name ? `${issue.title} (${issue.organization.name})` : issue.title}`;
+	}
+
+	function issueContextLabel(issue: BillingHealthIssue): string {
+		return issue.organization?.name ? `${issue.title} (${issue.organization.name})` : issue.title;
+	}
+
+	function issueNextSteps(issue: BillingHealthIssue): string {
+		return issue.supportBundle.nextSteps.length
+			? issue.supportBundle.nextSteps.join(' · ')
+			: 'Copy the support bundle and escalate with support-safe context.';
+	}
+
+	function needsBillingEvents(issue: BillingHealthIssue): boolean {
+		return canAccessBillingEvents && issue.states.includes('needs_retry');
+	}
+
+	function organizationDiagnosticsHref(issue: BillingHealthIssue): string | null {
+		if (!canAccessOrganizationDiagnostics) return null;
+		if (!issue.organization?.id) return null;
+		return `${resolve(`/admin/organizations/${issue.organization.id}` as `/admin/organizations/${string}`)}#billing-diagnostics`;
+	}
+
+	function billingEventsLabel(issue: BillingHealthIssue): string {
+		return `Open Billing Events for ${issueContextLabel(issue)}`;
+	}
+
+	function organizationDiagnosticsLabel(issue: BillingHealthIssue): string {
+		return `Open organization billing diagnostics for ${issueContextLabel(issue)}`;
+	}
+
+	async function copySupportBundle(bundle: unknown): Promise<void> {
+		if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) return;
+		try {
+			await navigator.clipboard.writeText(supportBundleText(bundle));
+		} catch (error) {
+			console.error('Failed to copy billing support bundle:', error);
+		}
 	}
 
 	function pageHref(pageNumber: number): string {
@@ -81,8 +148,8 @@
 		/>
 		<PageShell.Metric
 			label="Billing Drift"
-			value={currentPageDriftCount}
-			detail="Current-page rows with billing drift."
+			value={billingHealth.counts.driftedOrganizations}
+			detail="Organizations with billing drift from the latest health scan."
 		/>
 	</PageShell.FactGrid>
 
@@ -96,6 +163,16 @@
 		</Alert.Root>
 	{/if}
 
+	{#if billingHealth.diagnosticsError}
+		<Alert.Root variant="warning">
+			<TriangleAlert />
+			<Alert.Title>Billing health diagnostics could not be fully loaded.</Alert.Title>
+			<Alert.Description>
+				Retry, payment recovery, drift, and reconciliation counts may be incomplete until the health scan succeeds.
+			</Alert.Description>
+		</Alert.Root>
+	{/if}
+
 	{#if data.planDiagnosticsError}
 		<Alert.Root variant="warning">
 			<TriangleAlert />
@@ -105,6 +182,80 @@
 			</Alert.Description>
 		</Alert.Root>
 	{/if}
+
+	<Card.Root>
+		<Card.Header class="gap-2 sm:flex-row sm:items-center sm:justify-between">
+			<div>
+				<Card.Title>Billing Health</Card.Title>
+				<Card.Description>
+					{formatAdminLabel(billingHealth.overallState)} · {billingHealth.counts.retryableFailures} retryable ·
+					{billingHealth.counts.staleReconciliation} stale reconciliation. Use the action on each item when TroopToTask has
+					a repair tool; otherwise copy the bundle for escalation.
+				</Card.Description>
+			</div>
+			<div class="flex flex-wrap gap-2">
+				{#each billingHealth.states as state (state)}
+					<Badge variant={adminBadgeVariant(state)}>{formatAdminLabel(state)}</Badge>
+				{/each}
+			</div>
+		</Card.Header>
+		<Card.Content>
+			{#if billingHealth.issues.length > 0}
+				<div class="grid gap-3 lg:grid-cols-2">
+					{#each billingHealth.issues as issue (issue.id)}
+						{@const diagnosticsHref = organizationDiagnosticsHref(issue)}
+						<div class="grid gap-2 rounded-md border p-3">
+							<div class="flex flex-wrap items-center justify-between gap-2">
+								<div>
+									<p class="font-medium">{issue.title}</p>
+									<p class="text-sm text-muted-foreground">{issue.detail}</p>
+								</div>
+								<Badge variant={adminBadgeVariant(issue.primaryState)}>{formatAdminLabel(issue.primaryState)}</Badge>
+							</div>
+							<div class="grid gap-1 rounded-md bg-muted/40 px-3 py-2 text-sm">
+								<span class="font-medium">Next action</span>
+								<span class="text-muted-foreground">{issueNextSteps(issue)}</span>
+							</div>
+							<div class="flex flex-wrap justify-end gap-2">
+								{#if needsBillingEvents(issue)}
+									<Button href={billingEventsHref} size="sm" variant="outline" aria-label={billingEventsLabel(issue)}>
+										<ExternalLink class="size-4" aria-hidden="true" />
+										Billing Events
+									</Button>
+								{/if}
+								{#if diagnosticsHref}
+									<Button
+										href={diagnosticsHref}
+										size="sm"
+										variant="outline"
+										aria-label={organizationDiagnosticsLabel(issue)}
+									>
+										<ExternalLink class="size-4" aria-hidden="true" />
+										Org diagnostics
+									</Button>
+								{/if}
+								<Button
+									type="button"
+									size="sm"
+									variant="outline"
+									aria-label={supportBundleCopyLabel(issue)}
+									onclick={() => copySupportBundle(issue.supportBundle)}
+								>
+									<Copy class="size-4" aria-hidden="true" />
+									Copy bundle
+								</Button>
+							</div>
+							<pre class="max-h-56 overflow-auto rounded-md bg-muted p-3 text-xs">{supportBundleText(
+									issue.supportBundle
+								)}</pre>
+						</div>
+					{/each}
+				</div>
+			{:else}
+				<p class="text-sm text-muted-foreground">No billing health support items found.</p>
+			{/if}
+		</Card.Content>
+	</Card.Root>
 
 	<Card.Root>
 		<Card.Header class="gap-3 xl:flex-row xl:items-end xl:justify-between">

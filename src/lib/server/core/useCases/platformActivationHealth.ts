@@ -224,6 +224,40 @@ function deferredMilestone(
 	};
 }
 
+function checkoutAttemptCountDetail(count: number): string {
+	return `${count} checkout attempt${count === 1 ? '' : 's'} recorded.`;
+}
+
+function billingStateDetail(context: PlatformActivationBillingContext): string {
+	return `${context.subscriptionStatus ?? 'unknown'} / ${context.collectionStatus ?? 'unknown'}`;
+}
+
+function checkoutStartedDetail(facts: PlatformActivationOrganizationFacts, checkoutStarted: boolean): string {
+	if (!checkoutStarted) return 'No checkout attempt or paid billing snapshot is visible.';
+	if (facts.checkout.attemptCount > 0) return checkoutAttemptCountDetail(facts.checkout.attemptCount);
+	if (facts.billing && isStripePaidBillingContext(facts.billing)) {
+		return `Paid billing snapshot is ${billingStateDetail(facts.billing)}; no checkout attempt rows were returned.`;
+	}
+	return 'Checkout start is visible from existing activation facts.';
+}
+
+function checkoutCompletedDetail(facts: PlatformActivationOrganizationFacts, checkoutCompleted: boolean): string {
+	if (checkoutCompleted) {
+		if (facts.checkout.completedCount > 0) {
+			return `${facts.checkout.completedCount} completed checkout attempt${facts.checkout.completedCount === 1 ? '' : 's'} recorded.`;
+		}
+		if (facts.billing && isStripeCheckoutCompletedBillingContext(facts.billing)) {
+			return `Paid billing snapshot is ${billingStateDetail(facts.billing)}.`;
+		}
+		return 'Checkout completion is visible from existing activation facts.';
+	}
+	if (facts.checkout.latestStatus) return `Latest checkout status is ${facts.checkout.latestStatus}.`;
+	if (facts.billing) {
+		return `Billing snapshot is ${billingStateDetail(facts.billing)}; checkout completion has not been confirmed.`;
+	}
+	return 'No completed checkout attempt or completed paid billing snapshot is visible.';
+}
+
 function milestonesFor(facts: PlatformActivationOrganizationFacts): PlatformActivationMilestone[] {
 	const checkoutStarted = hasCheckoutStarted(facts);
 	const checkoutCompleted = hasCheckoutCompleted(facts);
@@ -250,21 +284,12 @@ function milestonesFor(facts: PlatformActivationOrganizationFacts): PlatformActi
 				? `Created ${facts.organizationCreatedAt}.`
 				: 'Organization creation timestamp was unavailable.'
 		),
-		milestone(
-			'checkout_started',
-			'Checkout started',
-			checkoutStarted,
-			checkoutStarted
-				? `${facts.checkout.attemptCount} checkout attempt${facts.checkout.attemptCount === 1 ? '' : 's'} recorded.`
-				: 'No checkout attempt or paid billing snapshot is visible.'
-		),
+		milestone('checkout_started', 'Checkout started', checkoutStarted, checkoutStartedDetail(facts, checkoutStarted)),
 		milestone(
 			'checkout_completed',
 			checkoutRecovered ? 'Checkout recovered' : 'Checkout completed',
 			checkoutCompleted,
-			checkoutCompleted
-				? `Current billing state is ${facts.billing?.subscriptionStatus ?? 'available'} / ${facts.billing?.collectionStatus ?? 'unknown'}.`
-				: `Latest checkout status is ${facts.checkout.latestStatus ?? 'unknown'}.`
+			checkoutCompletedDetail(facts, checkoutCompleted)
 		),
 		milestone(
 			'meaningful_roster',
@@ -305,7 +330,7 @@ function nextStepsFor(facts: PlatformActivationOrganizationFacts): string[] {
 
 	if (!checkoutStarted) steps.push('Confirm the owner can open Billing and start Team or Unit checkout.');
 	if (checkoutStarted && !checkoutCompleted)
-		steps.push('Follow up on the incomplete checkout attempt before reading activation.');
+		steps.push('Follow up on checkout completion before evaluating activation.');
 	if (!hasMeaningfulRoster(facts)) {
 		steps.push(`Import or add at least ${MEANINGFUL_ROSTER_THRESHOLD} active personnel.`);
 	}

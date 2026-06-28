@@ -137,6 +137,43 @@ describe('mapActivationHealthSummary', () => {
 		expect(JSON.stringify(summary.organizations[0]?.supportBundle)).not.toContain('stripe_checkout_session_id');
 	});
 
+	it('uses billing-inferred checkout detail when no checkout attempt rows are available', () => {
+		const summary = mapActivationHealthSummary({
+			facts: [
+				facts({
+					checkout: {
+						attemptCount: 0,
+						completedCount: 0,
+						interruptedCount: 0,
+						inProgressCount: 0,
+						latestStatus: null,
+						latestAt: null
+					}
+				})
+			],
+			now: new Date('2026-06-28T12:00:00.000Z')
+		});
+
+		expect(summary.counts).toMatchObject({
+			checkoutStarted: 1,
+			checkoutCompleted: 1
+		});
+		expect(summary.organizations[0]?.milestones).toContainEqual(
+			expect.objectContaining({
+				id: 'checkout_started',
+				state: 'complete',
+				detail: 'Paid billing snapshot is active / current; no checkout attempt rows were returned.'
+			})
+		);
+		expect(summary.organizations[0]?.milestones).toContainEqual(
+			expect.objectContaining({
+				id: 'checkout_completed',
+				state: 'complete',
+				detail: 'Paid billing snapshot is active / current.'
+			})
+		);
+	});
+
 	it('does not treat an incomplete paid billing snapshot as checkout completed without a completed checkout attempt', () => {
 		const incompleteBilling = {
 			source: 'stripe',
@@ -176,7 +213,7 @@ describe('mapActivationHealthSummary', () => {
 		expect(summary.organizations[0]).toMatchObject({
 			organization: { id: 'org-incomplete', name: 'Incomplete Company' },
 			state: 'in_progress',
-			nextSteps: ['Follow up on the incomplete checkout attempt before reading activation.'],
+			nextSteps: ['Follow up on checkout completion before evaluating activation.'],
 			supportBundle: {
 				acquisition: {
 					checkoutStarted: true,

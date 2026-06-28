@@ -98,7 +98,7 @@ function emptyCheckoutContext(): PlatformActivationCheckoutContext {
 }
 
 function checkoutAttemptTimestamp(row: ActivationCheckoutAttemptRow): string | null {
-	return row.completed_at ?? row.canceled_at ?? row.updated_at ?? row.created_at ?? row.expires_at;
+	return row.completed_at ?? row.canceled_at ?? row.updated_at ?? row.expires_at ?? row.created_at;
 }
 
 function isNewerTimestamp(candidate: string | null, current: string | null): boolean {
@@ -200,8 +200,8 @@ function applyCounts(
 export function createSupabasePlatformActivationHealthStore(supabase: SupabaseClient): PlatformActivationHealthStore {
 	return {
 		async listActivationOrganizationFacts(input): Promise<PlatformActivationOrganizationFacts[]> {
-			const checkoutLimit = Math.max(input.limit * 5, input.limit);
-			const [snapshotResponse, checkoutResponse] = (await Promise.all([
+			const checkoutCandidateLimit = Math.max(input.limit * 5, input.limit);
+			const [snapshotResponse, checkoutCandidateResponse] = (await Promise.all([
 				supabase
 					.from('organization_billing_snapshots')
 					.select(ACTIVATION_BILLING_SNAPSHOT_COLUMNS)
@@ -216,23 +216,34 @@ export function createSupabasePlatformActivationHealthStore(supabase: SupabaseCl
 					.select(ACTIVATION_CHECKOUT_ATTEMPT_COLUMNS)
 					.in('commercial_plan', PAID_COMMERCIAL_PLANS)
 					.order('created_at', { ascending: false })
-					.limit(checkoutLimit)
+					.limit(checkoutCandidateLimit)
 			])) as [SupabaseResponse<ActivationBillingSnapshotRow[]>, SupabaseResponse<ActivationCheckoutAttemptRow[]>];
 			throwIfSupabaseError(snapshotResponse.error);
-			throwIfSupabaseError(checkoutResponse.error);
+			throwIfSupabaseError(checkoutCandidateResponse.error);
 
 			const factsByOrgId = new Map<string, PlatformActivationOrganizationFacts>();
 			for (const row of snapshotResponse.data ?? []) {
 				const facts = ensureFacts(factsByOrgId, row.organization_id, organizationFromRow(row));
-				facts.billing = billingContextFor(row);
+				if (!facts.billing) facts.billing = billingContextFor(row);
 			}
-			for (const row of checkoutResponse.data ?? []) {
-				const facts = ensureFacts(factsByOrgId, row.organization_id, organizationFromRow(row));
-				applyCheckoutAttempt(facts, row);
+			for (const row of checkoutCandidateResponse.data ?? []) {
+				ensureFacts(factsByOrgId, row.organization_id, organizationFromRow(row));
 			}
 
 			const organizationIds = [...factsByOrgId.keys()].slice(0, input.limit);
 			if (organizationIds.length === 0) return [];
+
+			const checkoutResponse = (await supabase
+				.from('organization_checkout_attempts')
+				.select(ACTIVATION_CHECKOUT_ATTEMPT_COLUMNS)
+				.in('commercial_plan', PAID_COMMERCIAL_PLANS)
+				.in('organization_id', organizationIds)
+				.order('created_at', { ascending: false })) as SupabaseResponse<ActivationCheckoutAttemptRow[]>;
+			throwIfSupabaseError(checkoutResponse.error);
+			for (const row of checkoutResponse.data ?? []) {
+				const facts = factsByOrgId.get(row.organization_id);
+				if (facts) applyCheckoutAttempt(facts, row);
+			}
 
 			const [
 				activePersonnelCounts,

@@ -136,6 +136,87 @@ describe('mapActivationHealthSummary', () => {
 		expect(JSON.stringify(summary.organizations[0]?.supportBundle)).not.toContain('checkout_url');
 		expect(JSON.stringify(summary.organizations[0]?.supportBundle)).not.toContain('stripe_checkout_session_id');
 	});
+
+	it('does not treat an incomplete paid billing snapshot as checkout completed without a completed checkout attempt', () => {
+		const incompleteBilling = {
+			source: 'stripe',
+			commercialPlan: 'team',
+			subscriptionStatus: 'incomplete',
+			collectionStatus: 'incomplete',
+			syncStatus: 'pending'
+		} as const;
+
+		const summary = mapActivationHealthSummary({
+			facts: [
+				facts({
+					organizationId: 'org-incomplete',
+					organizationName: 'Incomplete Company',
+					billing: incompleteBilling,
+					checkout: {
+						attemptCount: 1,
+						completedCount: 0,
+						interruptedCount: 0,
+						inProgressCount: 1,
+						latestStatus: 'in_progress',
+						latestAt: '2026-06-01T12:15:00.000Z'
+					}
+				})
+			],
+			now: new Date('2026-06-28T12:00:00.000Z')
+		});
+
+		expect(summary.overallState).toBe('in_progress');
+		expect(summary.counts).toMatchObject({
+			candidateOrganizations: 1,
+			activatedOrganizations: 0,
+			checkoutStarted: 1,
+			checkoutCompleted: 0,
+			paidBelowRosterThreshold: 0
+		});
+		expect(summary.organizations[0]).toMatchObject({
+			organization: { id: 'org-incomplete', name: 'Incomplete Company' },
+			state: 'in_progress',
+			nextSteps: ['Follow up on the incomplete checkout attempt before reading activation.'],
+			supportBundle: {
+				acquisition: {
+					checkoutStarted: true,
+					checkoutCompleted: false
+				}
+			}
+		});
+		expect(summary.organizations[0]?.milestones).toContainEqual(
+			expect.objectContaining({
+				id: 'checkout_completed',
+				state: 'incomplete'
+			})
+		);
+
+		const completedAttemptSummary = mapActivationHealthSummary({
+			facts: [
+				facts({
+					organizationId: 'org-completed-attempt',
+					billing: incompleteBilling,
+					checkout: {
+						attemptCount: 1,
+						completedCount: 1,
+						interruptedCount: 0,
+						inProgressCount: 0,
+						latestStatus: 'completed',
+						latestAt: '2026-06-01T12:20:00.000Z'
+					}
+				})
+			],
+			now: new Date('2026-06-28T12:00:00.000Z')
+		});
+
+		expect(completedAttemptSummary.counts.checkoutCompleted).toBe(1);
+		expect(completedAttemptSummary.organizations[0]?.milestones).toContainEqual(
+			expect.objectContaining({
+				id: 'checkout_completed',
+				state: 'complete'
+			})
+		);
+	});
 });
 
 describe('createPlatformActivationHealth', () => {

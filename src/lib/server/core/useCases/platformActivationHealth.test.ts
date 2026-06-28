@@ -119,6 +119,7 @@ describe('mapActivationHealthSummary', () => {
 		expect(summary.organizations[0]).toMatchObject({
 			organization: { id: 'org-empty', name: 'Empty Company' },
 			state: 'needs_attention',
+			score: 33,
 			nextSteps: [
 				`Import or add at least ${MEANINGFUL_ROSTER_THRESHOLD} active personnel.`,
 				'Invite another leader and confirm the Organization Membership is accepted.',

@@ -146,6 +146,11 @@ const CHECKOUT_COMPLETED_SUBSCRIPTION_STATUSES = new Set<SubscriptionStatus>([
 	'unpaid',
 	'paused'
 ]);
+const INFERRED_ACQUISITION_MILESTONES = new Set<PlatformActivationMilestoneId>([
+	'signup_submitted',
+	'email_confirmed',
+	'organization_created'
+]);
 
 function isStripePaidBillingContext(context: PlatformActivationBillingContext | null): boolean {
 	return (
@@ -345,12 +350,14 @@ function nextStepsFor(facts: PlatformActivationOrganizationFacts): string[] {
 
 function stateFor(facts: PlatformActivationOrganizationFacts, nextSteps: string[]): PlatformActivationHealthState {
 	if (nextSteps.length === 0) return 'activated';
-	if (hasCheckoutCompleted(facts) && nextSteps.length > 0) return 'needs_attention';
+	if (hasCheckoutCompleted(facts)) return 'needs_attention';
 	return 'in_progress';
 }
 
 function scoreFor(milestones: PlatformActivationMilestone[]): number {
-	const scoredMilestones = milestones.filter((item) => item.state !== 'deferred');
+	const scoredMilestones = milestones.filter(
+		(item) => item.state !== 'deferred' && !INFERRED_ACQUISITION_MILESTONES.has(item.id)
+	);
 	if (scoredMilestones.length === 0) return 0;
 	const completeCount = scoredMilestones.filter((item) => item.state === 'complete').length;
 	return Math.round((completeCount / scoredMilestones.length) * 100);

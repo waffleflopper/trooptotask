@@ -137,10 +137,7 @@ describe('admin organizations route load', () => {
 			tier: 'team',
 			status: 'active'
 		});
-		expect(result).toMatchObject({
-			adminRole: 'super_admin',
-			activationHealth: expect.objectContaining({ overallState: 'no_candidates' })
-		});
+		expect(result.activationHealth).toMatchObject({ overallState: 'no_candidates' });
 	});
 
 	it('throws a sanitized load error when the primary organization ledger cannot load', async () => {
@@ -174,7 +171,6 @@ describe('admin organizations route load', () => {
 		} as unknown as Parameters<typeof load>[0])) as PageData;
 
 		expect(result.organizations).toEqual([{ id: 'org-1', name: 'Able Company' }]);
-		expect(result.adminRole).toBe('super_admin');
 		expect(result.activationHealth).toMatchObject({
 			overallState: 'diagnostics_unavailable',
 			diagnosticsError: true,

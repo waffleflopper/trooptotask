@@ -182,6 +182,12 @@
 						</Table.Body>
 					</Table.Root>
 				</div>
+				{#if activationHealth.organizations.length < activationHealth.counts.candidateOrganizations}
+					<p class="mt-3 text-xs text-muted-foreground">
+						Showing top {activationHealth.organizations.length} of {activationHealth.counts.candidateOrganizations}
+						candidates.
+					</p>
+				{/if}
 			{:else}
 				<p class="text-sm text-muted-foreground">No self-service or paid activation health candidates found.</p>
 			{/if}

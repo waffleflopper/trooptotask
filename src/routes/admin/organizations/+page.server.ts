@@ -26,7 +26,7 @@ export const load: PageServerLoad = loadWithAdminContext({
 				console.error('Admin organizations activation health query failed:', err);
 				activationHealth = degradedActivationHealthSummary();
 			}
-			return { ...ledger, activationHealth, adminRole: ctx.adminUser.role };
+			return { ...ledger, activationHealth };
 		} catch (err) {
 			console.error('Admin orgs query failed:', err);
 			error(500, 'Unable to load platform organizations.');

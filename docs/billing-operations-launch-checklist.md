@@ -180,6 +180,22 @@ Robert has confirmed the public support channels for paid launch:
 - Privacy: `privacy@trooptotask.org`.
 - Security: `security@trooptotask.org`.
 
+After launch, use the runtime billing health surfaces before opening Stripe:
+
+- Admin -> Subscriptions shows Billing Health across paid Organizations, including retryable webhook failures, permanent failures, payment recovery attention, billing drift, and stale reconciliation. The Billing Drift metric comes from the health scan rather than the current table page.
+- Admin -> Billing Events shows the same health scan next to the webhook ledger so retryable failures are visible even when they are outside the latest 50 events.
+- Each Billing Health item exposes a support bundle with Organization ID/name, safe Stripe customer ID or subscription ID when the admin role is allowed to see it, latest webhook event IDs, billing state, reconciliation result, and next-step labels.
+- Copy the support bundle into support notes only when it does not include secrets. It must not include card details, payment method data, raw webhook payloads, API keys, webhook secrets, session cookies, or Stripe signature values.
+
+Billing health triage:
+
+- `needs_retry`: use Admin -> Billing Events to retry the guarded webhook event. If it remains stale after retry, escalate to Robert before taking provider action.
+- `permanent_failure`: do not retry blindly. Escalate with the support bundle and inspect the support-safe billing snapshot/reconciliation result.
+- `payment_recovery_attention`: confirm whether the Organization is in payment failed grace or terminal collection state. Ask the customer to update payment through the supported portal path; do not ask for card details or payment method screenshots.
+- `drift_detected`: use the Organization detail admin billing reconciliation action and record the support-safe reconciliation result.
+- `reconciliation_stale`: refresh reconciliation from the admin surface or scheduled reconciliation path before making customer-impacting statements.
+- `diagnostics_unavailable`: reload or investigate the admin health read before copying a bundle or communicating a billing conclusion.
+
 Before launch, Robert should still confirm:
 
 - Who can access Stripe Dashboard in test and live mode.

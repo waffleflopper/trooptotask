@@ -1,16 +1,29 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Handle } from '@sveltejs/kit';
 
+interface TestUserStorage {
+	getItem(key: string): string | null;
+}
+
+interface TestServerClientOptions {
+	auth?: {
+		userStorage?: TestUserStorage;
+	};
+}
+
 describe('server auth hook', () => {
 	beforeEach(() => {
 		vi.resetModules();
 		vi.restoreAllMocks();
 	});
 
-	async function createAuthenticatedHookHarness(rpcResult: {
-		data: boolean | null;
-		error: { message: string } | null;
-	}) {
+	async function createAuthenticatedHookHarness(
+		rpcResult: {
+			data: boolean | null;
+			error: { message: string } | null;
+		},
+		options: { authenticatedUserId?: string } = {}
+	) {
 		const now = new Date();
 		const user = {
 			id: 'user-1',
@@ -22,12 +35,25 @@ describe('server auth hook', () => {
 			last_sign_in_at: now.toISOString(),
 			role: 'authenticated'
 		};
+		const authenticatedUser = { ...user, id: options.authenticatedUserId ?? user.id };
+		const session = {
+			access_token: 'token',
+			refresh_token: 'refresh-token',
+			expires_in: 3600,
+			expires_at: Math.floor(now.getTime() / 1000) + 3600,
+			provider_token: 'provider-token-should-not-serialize',
+			provider_refresh_token: 'provider-refresh-token-should-not-serialize',
+			token_type: 'bearer' as const
+		};
+		Object.defineProperty(session, 'user', {
+			enumerable: true,
+			get() {
+				throw new Error('getSession user should not be trusted');
+			}
+		});
 		const getSession = vi.fn().mockResolvedValue({
 			data: {
-				session: {
-					access_token: 'token',
-					user
-				}
+				session
 			},
 			error: null
 		});
@@ -45,21 +71,36 @@ describe('server auth hook', () => {
 			},
 			error: null
 		});
-		const getAuthenticatorAssuranceLevel = vi.fn().mockResolvedValue({
-			data: { currentLevel: 'aal1', nextLevel: 'aal1' },
+		const getUser = vi.fn().mockResolvedValue({
+			data: { user: authenticatedUser },
 			error: null
 		});
+		let serverClientOptions: TestServerClientOptions | null = null;
+		const readStoredUserDuringMfa = vi.fn(() =>
+			serverClientOptions?.auth?.userStorage?.getItem('sb-example-auth-token-user')
+		);
+		const getAuthenticatorAssuranceLevel = vi.fn(async () => {
+			readStoredUserDuringMfa();
+			return {
+				data: { currentLevel: 'aal1', nextLevel: 'aal1' },
+				error: null
+			};
+		});
 		const rpc = vi.fn().mockResolvedValue(rpcResult);
-		const createServerClient = vi.fn(() => ({
-			auth: {
-				getSession,
-				getClaims,
-				mfa: {
-					getAuthenticatorAssuranceLevel
-				}
-			},
-			rpc
-		}));
+		const createServerClient = vi.fn((_url: string, _key: string, options: TestServerClientOptions) => {
+			serverClientOptions = options;
+			return {
+				auth: {
+					getSession,
+					getClaims,
+					getUser,
+					mfa: {
+						getAuthenticatorAssuranceLevel
+					}
+				},
+				rpc
+			};
+		});
 		const resolve = vi.fn().mockResolvedValue(new Response('ok'));
 
 		vi.doMock('@supabase/ssr', () => ({ createServerClient }));
@@ -70,6 +111,7 @@ describe('server auth hook', () => {
 		vi.doMock('$lib/server/env', () => ({}));
 
 		const { handle } = await import('./hooks.server');
+		const deleteCookie = vi.fn();
 		const event = {
 			url: new URL('http://localhost/dashboard'),
 			request: new Request('http://localhost/dashboard'),
@@ -79,11 +121,11 @@ describe('server auth hook', () => {
 				getAll: () => [{ name: 'sb-example-auth-token', value: 'session' }],
 				get: vi.fn(),
 				set: vi.fn(),
-				delete: vi.fn()
+				delete: deleteCookie
 			}
 		} as never;
 
-		return { handle: handle as Handle, event, resolve, rpc };
+		return { handle: handle as Handle, event, resolve, rpc, getUser, deleteCookie, readStoredUserDuringMfa };
 	}
 
 	it('clears stale Supabase auth cookies when refresh token lookup fails', async () => {
@@ -96,6 +138,7 @@ describe('server auth hook', () => {
 		const createServerClient = vi.fn(() => ({
 			auth: {
 				getSession,
+				getUser: vi.fn(),
 				getClaims: vi.fn(),
 				mfa: {
 					getAuthenticatorAssuranceLevel: vi.fn()
@@ -142,28 +185,66 @@ describe('server auth hook', () => {
 
 	it('fails closed when the suspension RPC returns an error', async () => {
 		vi.spyOn(console, 'error').mockImplementation(() => undefined);
-		const { handle, event, resolve, rpc } = await createAuthenticatedHookHarness({
+		const { handle, event, resolve, rpc, getUser } = await createAuthenticatedHookHarness({
 			data: null,
 			error: { message: 'connection refused' }
 		});
 
 		await expect(handle({ event, resolve })).rejects.toMatchObject({ status: 500 });
 
+		expect(getUser).toHaveBeenCalledWith();
 		expect(rpc).toHaveBeenCalledWith('is_user_suspended', { check_user_id: 'user-1' });
 		expect(resolve).not.toHaveBeenCalled();
 	});
 
 	it('redirects suspended users to /suspended', async () => {
-		const { handle, event, resolve, rpc } = await createAuthenticatedHookHarness({
+		const { handle, event, resolve, rpc, getUser } = await createAuthenticatedHookHarness({
 			data: true,
 			error: null
 		});
 
 		const response = await handle({ event, resolve });
 
+		expect(getUser).toHaveBeenCalledWith();
 		expect(rpc).toHaveBeenCalledWith('is_user_suspended', { check_user_id: 'user-1' });
 		expect(response.status).toBe(302);
 		expect(response.headers.get('Location')).toBe('/suspended');
+		expect(resolve).not.toHaveBeenCalled();
+	});
+
+	it('builds request auth state without reading the user returned by getSession', async () => {
+		const { handle, event, resolve, getUser, readStoredUserDuringMfa } = await createAuthenticatedHookHarness({
+			data: false,
+			error: null
+		});
+
+		const response = await handle({ event, resolve });
+		const locals = (event as unknown as { locals: App.Locals }).locals;
+
+		expect(response.status).toBe(200);
+		expect(getUser).toHaveBeenCalledWith();
+		expect(locals.user?.id).toBe('user-1');
+		expect(locals.session?.user.id).toBe('user-1');
+		expect(locals.session?.access_token).toBe('token');
+		expect(locals.session).not.toHaveProperty('provider_token');
+		expect(locals.session).not.toHaveProperty('provider_refresh_token');
+		expect(readStoredUserDuringMfa).toHaveReturnedWith(expect.stringContaining('"id":"user-1"'));
+		expect(resolve).toHaveBeenCalled();
+	});
+
+	it('clears Supabase auth cookies when the authenticated user does not match verified claims', async () => {
+		const { handle, event, resolve, rpc, deleteCookie } = await createAuthenticatedHookHarness(
+			{
+				data: false,
+				error: null
+			},
+			{ authenticatedUserId: 'user-2' }
+		);
+
+		await expect(handle({ event, resolve })).rejects.toMatchObject({ status: 303 });
+
+		expect(deleteCookie).toHaveBeenCalledWith('sb-example-auth-token', { path: '/' });
+		expect(rpc).not.toHaveBeenCalled();
 		expect(resolve).not.toHaveBeenCalled();
 	});
 });

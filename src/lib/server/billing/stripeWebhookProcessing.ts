@@ -90,8 +90,33 @@ export function _getStripeObjectId(object: unknown): string | null {
 	return typeof id === 'string' && id.length > 0 ? id : null;
 }
 
+function getWebhookLedgerObjectId(event: Stripe.Event): string | null {
+	if (event.type.startsWith('invoice.')) {
+		return getSubscriptionIdFromInvoice(event.data.object as Stripe.Invoice) ?? _getStripeObjectId(event.data.object);
+	}
+	return _getStripeObjectId(event.data.object);
+}
+
+function usesLegacyInvoiceObjectMetadata(event: Stripe.Event, objectId: string | null | undefined): boolean {
+	return event.type.startsWith('invoice.') && typeof objectId === 'string' && objectId.startsWith('in_');
+}
+
+function usesLegacyInvoiceDedupeMetadata(event: Stripe.Event, secondaryDedupeKey: string | undefined): boolean {
+	return event.type.startsWith('invoice.') && secondaryDedupeKey?.startsWith(`${event.type}:in_`) === true;
+}
+
+function retryObjectIdFor(event: Stripe.Event, objectId: string | null | undefined): string | null {
+	if (usesLegacyInvoiceObjectMetadata(event, objectId)) return getWebhookLedgerObjectId(event);
+	return objectId ?? getWebhookLedgerObjectId(event);
+}
+
+function retrySecondaryDedupeKeyFor(event: Stripe.Event, secondaryDedupeKey: string | undefined): string {
+	if (usesLegacyInvoiceDedupeMetadata(event, secondaryDedupeKey)) return _buildSecondaryDedupeKey(event);
+	return secondaryDedupeKey ?? _buildSecondaryDedupeKey(event);
+}
+
 export function _buildSecondaryDedupeKey(event: Stripe.Event): string {
-	const objectId = _getStripeObjectId(event.data.object);
+	const objectId = getWebhookLedgerObjectId(event);
 	return objectId ? `${event.type}:${objectId}` : `${event.type}:${event.id}`;
 }
 
@@ -500,7 +525,7 @@ export async function _recordStripeWebhookEventAttempt(
 		eventCreatedAt?: string;
 	} = {}
 ): Promise<boolean> {
-	const objectId = metadata.objectId ?? _getStripeObjectId(event.data.object);
+	const objectId = metadata.objectId ?? getWebhookLedgerObjectId(event);
 	const secondaryDedupeKey = metadata.secondaryDedupeKey ?? _buildSecondaryDedupeKey(event);
 	const eventCreatedAt = metadata.eventCreatedAt ?? new Date(event.created * 1000).toISOString();
 
@@ -528,8 +553,8 @@ export async function _recordRetryableStripeWebhookEventAttempt(
 		eventCreatedAt?: string;
 	} = {}
 ): Promise<number> {
-	const objectId = metadata.objectId ?? _getStripeObjectId(event.data.object);
-	const secondaryDedupeKey = metadata.secondaryDedupeKey ?? _buildSecondaryDedupeKey(event);
+	const objectId = retryObjectIdFor(event, metadata.objectId);
+	const secondaryDedupeKey = retrySecondaryDedupeKeyFor(event, metadata.secondaryDedupeKey);
 	const eventCreatedAt = metadata.eventCreatedAt ?? new Date(event.created * 1000).toISOString();
 
 	const { data: attemptCount, error: ledgerError } = await supabase.rpc(
@@ -561,7 +586,7 @@ export async function _processRecordedStripeWebhookEvent(
 		eventCreatedAt?: string;
 	} = {}
 ): Promise<RecordedWebhookProcessingResult> {
-	const secondaryDedupeKey = metadata.secondaryDedupeKey ?? _buildSecondaryDedupeKey(event);
+	const secondaryDedupeKey = retrySecondaryDedupeKeyFor(event, metadata.secondaryDedupeKey);
 	const eventCreatedAt = metadata.eventCreatedAt ?? new Date(event.created * 1000).toISOString();
 
 	try {
@@ -657,7 +682,7 @@ export async function handleStripeWebhookPost(request: Request): Promise<Respons
 
 	// Service role client — bypasses RLS
 	const supabase = getAdminClient();
-	const objectId = _getStripeObjectId(event.data.object);
+	const objectId = getWebhookLedgerObjectId(event);
 	const secondaryDedupeKey = _buildSecondaryDedupeKey(event);
 	const eventCreatedAt = new Date(event.created * 1000).toISOString();
 

@@ -189,7 +189,7 @@
 		</Card.Root>
 	</div>
 
-	<Card.Root>
+	<Card.Root id="billing-diagnostics">
 		<Card.Header>
 			<div class="flex flex-wrap items-start justify-between gap-3">
 				<div class="grid gap-1">

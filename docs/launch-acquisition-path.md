@@ -110,6 +110,34 @@ values. Use Organization ID, user ID, Stripe customer ID, subscription ID,
 invoice ID, webhook event ID, and app audit-log ID as identifier types only in
 repo docs and PR notes.
 
+## Activation health
+
+Acquisition support answers whether a customer reached the app and checkout.
+Activation health answers whether a self-service or paid Organization has enough
+coarse setup to reach first product value. It is an Organization-level support
+view, not personal analytics, and must use existing operational records unless a
+separate privacy-reviewed persistence plan is approved.
+
+| Stage | Existing support-safe source | Current handling |
+| --- | --- | --- |
+| Signup submitted | Admin -> Users account creation and signup support logs | User-level support fact; not copied into activation health rows. |
+| Email confirmed | Admin -> Users email confirmation state; Organization creation is already email-confirmation gated | Treat Organization creation as confirmation-gated; use Admin -> Users for exact user confirmation questions. |
+| Organization created | `organizations.created_at`, owner membership, and Admin -> Organizations | Computed directly. |
+| Checkout started | `organization_checkout_attempts.status` and `created_at` | Computed as a coarse checkout attempt count/status without checkout URLs or session IDs. |
+| Checkout completed or recovered | `organization_checkout_attempts.completed_at/status` plus `organization_billing_snapshots` state | Computed as completed/recovered at Organization level; detailed billing repair remains in Admin -> Subscriptions and Admin -> Billing Events. |
+| Meaningful roster | active `personnel` count | Computed as at least 5 active personnel. Exact roster import completion is deferred because no durable import milestone exists. |
+| Invited leader accepted | `organization_memberships` count | Computed as more than one accepted Organization Member. Pending invite analysis stays in member-management/support views. |
+| Seeded defaults reviewed | `status_types` and `assignment_types` counts only | Counts show defaults/configuration exist; they are not proof a leader reviewed them. Exact reviewed state requires a separate persistence plan. |
+| First Duty Roster activity | `duty_roster_templates`, `duty_roster_template_runs`, and legacy `duty_roster_history` counts | Computed when templates or runs/history exist. |
+| Onboarding, training, or eval setup started | `onboarding_template_steps`, `training_types`, and `rating_scheme_entries` counts | Computed as aggregate setup-started signals. |
+
+Activation health must not capture raw IP addresses, checkout URLs, Stripe
+Checkout session URLs, raw emails beyond existing account records, source URLs
+with secrets, Vercel Analytics identifiers, raw webhook payloads, card details,
+API keys, webhook secrets, session cookies, or personal behavior streams. If
+Robert needs exact milestone history later, create a separate schema and
+retention plan before adding new analytics persistence.
+
 ## Anti-abuse and rate limits
 
 Reviewed access already uses durable rate limiting around Access Request

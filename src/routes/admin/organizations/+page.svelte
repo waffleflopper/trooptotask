@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import { TriangleAlert } from '@lucide/svelte';
+	import * as Alert from '$lib/components/ui/alert';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import * as Card from '$lib/components/ui/card';
@@ -12,12 +14,34 @@
 	import { formatDisplayDate } from '$lib/utils/dates';
 	import { adminBadgeVariant, formatAdminLabel } from '$lib/components/admin/adminTheme';
 	import { SvelteURLSearchParams } from 'svelte/reactivity';
+	import type { PageData } from './$types';
 
 	let { data } = $props();
 
 	const organizationsRouteRoot = resolve('/admin/organizations');
 	const tierFilter = $derived(data.pagination.tier ?? 'all');
 	const statusFilter = $derived(data.pagination.status ?? 'all');
+	type ActivationOrganization = NonNullable<PageData['activationHealth']>['organizations'][number];
+	const activationHealth = $derived(
+		data.activationHealth ?? {
+			generatedAt: '',
+			overallState: 'diagnostics_unavailable',
+			counts: {
+				candidateOrganizations: 0,
+				activatedOrganizations: 0,
+				checkoutStarted: 0,
+				checkoutCompleted: 0,
+				meaningfulRosters: 0,
+				acceptedLeaders: 0,
+				dutyRosterStarted: 0,
+				setupStarted: 0,
+				paidBelowRosterThreshold: 0,
+				supportAttentionItems: 0
+			},
+			organizations: [],
+			diagnosticsError: true
+		}
+	);
 
 	const showingStart = $derived(
 		data.organizations.length === 0 ? 0 : (data.pagination.page - 1) * data.pagination.pageSize + 1
@@ -37,6 +61,20 @@
 		if (statusFilter !== 'all') params.set('status', statusFilter);
 		return `${organizationsRouteRoot}?${params.toString()}`;
 	}
+
+	function nextActivationStep(item: ActivationOrganization): string {
+		return item.nextSteps[0] ?? 'Activation milestones are complete.';
+	}
+
+	function dutyRosterSummary(item: ActivationOrganization): string {
+		const activation = item.supportBundle.activation;
+		return `${activation.dutyRosterTemplates} templates / ${activation.dutyRosterRuns + activation.dutyRosterHistory} runs`;
+	}
+
+	function setupSummary(item: ActivationOrganization): string {
+		const activation = item.supportBundle.activation;
+		return `${activation.onboardingTemplateSteps} onboarding / ${activation.trainingTypes} training / ${activation.ratingSchemeEntries} evals`;
+	}
 </script>
 
 <svelte:head>
@@ -49,7 +87,7 @@
 		subtitle="Review organization health, ownership, plan state, and suspension status from the central platform index."
 	/>
 
-	<PageShell.FactGrid layout="two">
+	<PageShell.FactGrid layout="three">
 		<PageShell.Metric
 			label="Matching Organizations"
 			value={data.pagination.totalCount}
@@ -60,7 +98,95 @@
 			value={data.organizations.length}
 			detail={`Page ${data.pagination.page} of ${data.pagination.totalPages}.`}
 		/>
+		<PageShell.Metric
+			label="Activation Attention"
+			value={activationHealth.counts.supportAttentionItems}
+			detail={`${activationHealth.counts.paidBelowRosterThreshold} paid Organizations below the 5-person roster threshold.`}
+		/>
 	</PageShell.FactGrid>
+
+	{#if activationHealth.diagnosticsError}
+		<Alert.Root variant="warning">
+			<TriangleAlert />
+			<Alert.Title>Activation health diagnostics could not be fully loaded.</Alert.Title>
+			<Alert.Description>
+				Checkout, roster, member, Duty Roster, and setup counts may be incomplete until the health scan succeeds.
+			</Alert.Description>
+		</Alert.Root>
+	{/if}
+
+	<Card.Root>
+		<Card.Header class="gap-2 lg:flex-row lg:items-start lg:justify-between">
+			<div>
+				<Card.Title>Acquisition and Activation Health</Card.Title>
+				<Card.Description>
+					{formatAdminLabel(activationHealth.overallState)} · {activationHealth.counts.candidateOrganizations}
+					self-service or paid candidates · {activationHealth.counts.activatedOrganizations} activated.
+				</Card.Description>
+			</div>
+			<div class="flex flex-wrap gap-2">
+				<Badge variant={adminBadgeVariant(activationHealth.overallState)}>
+					{formatAdminLabel(activationHealth.overallState)}
+				</Badge>
+				<Badge variant="secondary">{activationHealth.counts.checkoutCompleted} checkout complete</Badge>
+				<Badge variant="secondary">{activationHealth.counts.meaningfulRosters} meaningful rosters</Badge>
+			</div>
+		</Card.Header>
+		<Card.Content>
+			{#if activationHealth.organizations.length > 0}
+				<div class="overflow-x-auto">
+					<Table.Root>
+						<Table.Header>
+							<Table.Row>
+								<Table.Head>Organization</Table.Head>
+								<Table.Head>Health</Table.Head>
+								<Table.Head>Roster</Table.Head>
+								<Table.Head>Members</Table.Head>
+								<Table.Head>Duty Roster</Table.Head>
+								<Table.Head>Setup</Table.Head>
+								<Table.Head>Next Action</Table.Head>
+							</Table.Row>
+						</Table.Header>
+						<Table.Body>
+							{#each activationHealth.organizations as item (item.id)}
+								<Table.Row>
+									<Table.Cell>
+										<div class="grid min-w-48 gap-1">
+											<a
+												href={resolve(
+													`/admin/organizations/${item.organization.id}` as `/admin/organizations/${string}`
+												)}
+												class="font-medium">{item.organization.name ?? item.organization.id}</a
+											>
+											<code class="w-fit rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+												{item.organization.id.slice(0, 8)}...
+											</code>
+										</div>
+									</Table.Cell>
+									<Table.Cell>
+										<div class="grid gap-1">
+											<Badge variant={adminBadgeVariant(item.state)}>{formatAdminLabel(item.state)}</Badge>
+											<span class="text-xs text-muted-foreground">{item.score}% complete</span>
+										</div>
+									</Table.Cell>
+									<Table.Cell>
+										{item.supportBundle.activation.activePersonnel} / {item.supportBundle.activation
+											.meaningfulRosterThreshold}
+									</Table.Cell>
+									<Table.Cell>{item.supportBundle.activation.members}</Table.Cell>
+									<Table.Cell>{dutyRosterSummary(item)}</Table.Cell>
+									<Table.Cell>{setupSummary(item)}</Table.Cell>
+									<Table.Cell class="max-w-80 text-sm text-muted-foreground">{nextActivationStep(item)}</Table.Cell>
+								</Table.Row>
+							{/each}
+						</Table.Body>
+					</Table.Root>
+				</div>
+			{:else}
+				<p class="text-sm text-muted-foreground">No self-service or paid activation health candidates found.</p>
+			{/if}
+		</Card.Content>
+	</Card.Root>
 
 	<Card.Root>
 		<Card.Content class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">

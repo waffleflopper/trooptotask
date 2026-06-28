@@ -31,6 +31,11 @@ describe('GET /api/getting-started', () => {
 			{ id: 'member-1', organization_id: ctx.auth.orgId, user_id: ctx.auth.userId, role: 'owner' },
 			{ id: 'member-2', organization_id: ctx.auth.orgId, user_id: 'user-2', role: 'member' }
 		]);
+		ctx.store.seed('duty_roster_templates', [
+			{ id: 'template-1', organization_id: ctx.auth.orgId, status: 'active' },
+			{ id: 'template-archived', organization_id: ctx.auth.orgId, status: 'archived' }
+		]);
+		ctx.store.seed('duty_roster_template_runs', [{ id: 'run-1', organization_id: ctx.auth.orgId }]);
 		ctx.store.seed('getting_started_progress', [
 			{
 				id: 'progress-1',
@@ -46,6 +51,8 @@ describe('GET /api/getting-started', () => {
 			onboardingTemplateStepCount: 2,
 			ratingSchemeEntryCount: 1,
 			orgMemberCount: 2,
+			dutyRosterTemplateCount: 1,
+			dutyRosterRunCount: 1,
 			gettingStartedDismissed: true
 		});
 		expect(consoleInfoSpy).toHaveBeenCalledWith(

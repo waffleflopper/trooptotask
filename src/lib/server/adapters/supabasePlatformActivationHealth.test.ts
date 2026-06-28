@@ -269,17 +269,23 @@ describe('createSupabasePlatformActivationHealthStore', () => {
 			}
 		});
 
-		const checkoutSelect = calls.find(
+		const checkoutSelects = calls.filter(
 			(call) => call.table === 'organization_checkout_attempts' && call.method === 'select'
 		);
-		expect(String(checkoutSelect?.args[0])).not.toContain('checkout_url');
-		expect(String(checkoutSelect?.args[0])).not.toContain('stripe_checkout_session_id');
+		expect(checkoutSelects.length).toBeGreaterThan(0);
+		for (const call of checkoutSelects) {
+			expect(String(call.args[0])).not.toContain('checkout_url');
+			expect(String(call.args[0])).not.toContain('stripe_checkout_session_id');
+		}
 
-		const billingSelect = calls.find(
+		const billingSelects = calls.filter(
 			(call) => call.table === 'organization_billing_snapshots' && call.method === 'select'
 		);
-		expect(String(billingSelect?.args[0])).not.toContain('stripe_customer_id');
-		expect(String(billingSelect?.args[0])).not.toContain('stripe_subscription_id');
+		expect(billingSelects.length).toBeGreaterThan(0);
+		for (const call of billingSelects) {
+			expect(String(call.args[0])).not.toContain('stripe_customer_id');
+			expect(String(call.args[0])).not.toContain('stripe_subscription_id');
+		}
 	});
 
 	it('requeries selected organizations so checkout counts are complete beyond the discovery sample', async () => {

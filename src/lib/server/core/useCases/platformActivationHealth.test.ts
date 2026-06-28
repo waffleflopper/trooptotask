@@ -263,22 +263,26 @@ describe('createPlatformActivationHealth', () => {
 				throw new Error('database offline');
 			})
 		};
-		vi.spyOn(console, 'error').mockImplementation(() => undefined);
+		const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
 
-		const summary = await createPlatformActivationHealth({ store }).summarize({
-			now: new Date('2026-06-28T12:00:00.000Z')
-		});
+		try {
+			const summary = await createPlatformActivationHealth({ store }).summarize({
+				now: new Date('2026-06-28T12:00:00.000Z')
+			});
 
-		expect(summary).toMatchObject({
-			generatedAt: '2026-06-28T12:00:00.000Z',
-			overallState: 'diagnostics_unavailable',
-			diagnosticsError: true,
-			counts: {
-				candidateOrganizations: 0,
-				supportAttentionItems: 0
-			},
-			organizations: []
-		});
-		expect(console.error).toHaveBeenCalledWith('Admin activation health query failed:', expect.any(Error));
+			expect(summary).toMatchObject({
+				generatedAt: '2026-06-28T12:00:00.000Z',
+				overallState: 'diagnostics_unavailable',
+				diagnosticsError: true,
+				counts: {
+					candidateOrganizations: 0,
+					supportAttentionItems: 0
+				},
+				organizations: []
+			});
+			expect(errorSpy).toHaveBeenCalledWith('Admin activation health query failed:', expect.any(Error));
+		} finally {
+			errorSpy.mockRestore();
+		}
 	});
 });

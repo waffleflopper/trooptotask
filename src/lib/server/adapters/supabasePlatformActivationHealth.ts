@@ -201,6 +201,12 @@ function applyCounts(
 	}
 }
 
+function appendCandidateOrganizationId(ids: string[], seen: Set<string>, organizationId: string): void {
+	if (seen.has(organizationId)) return;
+	seen.add(organizationId);
+	ids.push(organizationId);
+}
+
 export function createSupabasePlatformActivationHealthStore(supabase: SupabaseClient): PlatformActivationHealthStore {
 	return {
 		async listActivationOrganizationFacts(input): Promise<PlatformActivationOrganizationFacts[]> {
@@ -247,7 +253,19 @@ export function createSupabasePlatformActivationHealthStore(supabase: SupabaseCl
 				ensureFacts(factsByOrgId, row.organization_id, organizationFromRow(row));
 			}
 
-			const organizationIds = [...factsByOrgId.keys()].slice(0, input.limit);
+			const candidateOrganizationIds: string[] = [];
+			const seenCandidateOrganizationIds = new Set<string>();
+			for (const row of snapshotResponse.data ?? []) {
+				appendCandidateOrganizationId(candidateOrganizationIds, seenCandidateOrganizationIds, row.organization_id);
+			}
+			for (const row of checkoutCandidateResponse.data ?? []) {
+				appendCandidateOrganizationId(candidateOrganizationIds, seenCandidateOrganizationIds, row.organization_id);
+			}
+			for (const row of organizationResponse.data ?? []) {
+				appendCandidateOrganizationId(candidateOrganizationIds, seenCandidateOrganizationIds, row.id);
+			}
+
+			const organizationIds = candidateOrganizationIds.slice(0, input.limit);
 			if (organizationIds.length === 0) return [];
 
 			const checkoutResponse = (await supabase
@@ -274,6 +292,7 @@ export function createSupabasePlatformActivationHealthStore(supabase: SupabaseCl
 				trainingTypeCounts,
 				ratingSchemeEntryCounts
 			] = await Promise.all([
+				// One read per source table keeps per-organization counts grouped without adding schema/RPCs.
 				countRowsByOrganization(supabase, 'personnel', organizationIds, { activePersonnelOnly: true }),
 				countRowsByOrganization(supabase, 'organization_memberships', organizationIds),
 				countRowsByOrganization(supabase, 'status_types', organizationIds),

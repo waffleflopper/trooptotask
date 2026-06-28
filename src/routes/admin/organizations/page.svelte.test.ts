@@ -78,7 +78,7 @@ describe('admin organizations page', () => {
 				generatedAt: '2026-06-28T12:00:00.000Z',
 				overallState: 'needs_attention',
 				counts: {
-					candidateOrganizations: 1,
+					candidateOrganizations: 3,
 					activatedOrganizations: 0,
 					checkoutStarted: 1,
 					checkoutCompleted: 1,
@@ -144,6 +144,7 @@ describe('admin organizations page', () => {
 		expect(screen.getAllByText('Needs Attention').length).toBeGreaterThan(0);
 		expect(document.body.textContent).toContain('self-service or paid candidates');
 		expect(document.body.textContent).toContain('0 activated');
+		expect(screen.getByText('Showing top 1 of 3 candidates.')).toBeTruthy();
 		expect(screen.getByText('2 / 5')).toBeTruthy();
 		expect(screen.getByText('1 templates / 1 runs')).toBeTruthy();
 		expect(screen.getByText('2 onboarding / 3 training / 1 evals')).toBeTruthy();

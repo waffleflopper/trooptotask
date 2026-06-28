@@ -370,4 +370,40 @@ describe('createSupabasePlatformActivationHealthStore', () => {
 			)
 		).toBe(true);
 	});
+
+	it('prioritizes paid candidates over newer free organizations when the candidate set is capped', async () => {
+		const paidOrganization = {
+			id: 'org-paid-old',
+			name: 'Paid Older Company',
+			created_at: '2026-06-01T00:00:00.000Z'
+		};
+		const { supabase } = createSupabaseStub({
+			organizations: [
+				{
+					id: 'org-free-new',
+					name: 'Newest Free Company',
+					created_at: '2026-06-28T00:00:00.000Z'
+				}
+			],
+			organization_billing_snapshots: [
+				{
+					organization_id: paidOrganization.id,
+					source: 'stripe',
+					commercial_plan: 'team',
+					subscription_status: 'active',
+					collection_status: 'current',
+					sync_status: 'synced',
+					last_processed_at: '2026-06-28T00:00:00.000Z',
+					updated_at: '2026-06-28T00:00:00.000Z',
+					organizations: paidOrganization
+				}
+			]
+		});
+
+		const facts = await createSupabasePlatformActivationHealthStore(supabase).listActivationOrganizationFacts({
+			limit: 1
+		});
+
+		expect(facts.map((item) => item.organizationId)).toEqual(['org-paid-old']);
+	});
 });

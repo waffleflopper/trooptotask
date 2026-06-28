@@ -166,7 +166,7 @@
 									<Table.Cell>
 										<div class="grid gap-1">
 											<Badge variant={adminBadgeVariant(item.state)}>{formatAdminLabel(item.state)}</Badge>
-											<span class="text-xs text-muted-foreground">{item.score}% complete</span>
+											<span class="text-xs text-muted-foreground">{item.score}% milestone coverage</span>
 										</div>
 									</Table.Cell>
 									<Table.Cell>

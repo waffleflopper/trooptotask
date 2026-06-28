@@ -128,7 +128,7 @@ describe('DashboardPageView', () => {
 					id: 'personnel',
 					label: 'Import or add the roster',
 					description: 'Import an Excel/CSV roster or add service members so the dashboard can track strength.',
-					href: '/org/org-1/personnel/import',
+					href: '/org/org-1/personnel',
 					complete: false
 				},
 				{
@@ -149,7 +149,7 @@ describe('DashboardPageView', () => {
 		expect(screen.getByText('1/2 complete')).toBeTruthy();
 		expect(screen.getByText('Done')).toBeTruthy();
 		expect(screen.getByRole('link', { name: 'Open Import or add the roster' }).getAttribute('href')).toBe(
-			'/org/org-1/personnel/import'
+			'/org/org-1/personnel'
 		);
 	});
 
@@ -187,7 +187,7 @@ describe('DashboardPageView', () => {
 					id: 'personnel',
 					label: 'Import or add the roster',
 					description: 'Import an Excel/CSV roster or add service members so the dashboard can track strength.',
-					href: '/org/org-1/personnel/import',
+					href: '/org/org-1/personnel',
 					complete: false
 				}
 			]

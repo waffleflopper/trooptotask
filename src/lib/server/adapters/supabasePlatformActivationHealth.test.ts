@@ -95,7 +95,7 @@ function createSupabaseStub(tables: Record<string, Row[]>): { supabase: Supabase
 		const counts = new Map<unknown, number>();
 		for (const row of rows) {
 			if (!organizationIds.includes(row.organization_id)) continue;
-			if (countField === 'personnel_count' && row.archived_at !== null) continue;
+			if (countField === 'personnel_count' && row.archived_at != null) continue;
 			counts.set(row.organization_id, (counts.get(row.organization_id) ?? 0) + 1);
 		}
 		return [...counts].map(([organization_id, count]) => ({

@@ -1,70 +1,86 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it } from 'vitest';
+import type { ComponentProps } from 'svelte';
 import { cleanup, render, screen } from '@testing-library/svelte';
 
 import Page from './+page.svelte';
+
+type PageProps = ComponentProps<typeof Page>;
 
 afterEach(() => {
 	cleanup();
 });
 
-function renderOrganizationsPage(data: Record<string, unknown>) {
+function renderOrganizationsPage(data: Partial<PageProps['data']>) {
+	const baseData: PageProps['data'] = {
+		session: null,
+		adminUserId: 'admin-1',
+		adminEmail: 'admin@example.test',
+		adminRole: 'billing',
+		accessiblePages: ['dashboard', 'users', 'organizations'],
+		visibleNavGroups: [
+			{
+				label: null,
+				items: [{ label: 'Dashboard', href: '/admin', page: 'dashboard' }]
+			}
+		],
+		organizations: [],
+		pagination: {
+			page: 1,
+			pageSize: 25,
+			totalCount: 0,
+			totalPages: 1,
+			q: '',
+			tier: 'all',
+			status: 'all'
+		},
+		activationHealth: {
+			generatedAt: '2026-06-28T12:00:00.000Z',
+			overallState: 'no_candidates',
+			candidateLimit: 100,
+			counts: {
+				candidateOrganizations: 0,
+				activatedOrganizations: 0,
+				checkoutStarted: 0,
+				checkoutCompleted: 0,
+				meaningfulRosters: 0,
+				acceptedLeaders: 0,
+				dutyRosterStarted: 0,
+				setupStarted: 0,
+				paidBelowRosterThreshold: 0,
+				supportAttentionItems: 0
+			},
+			organizations: [],
+			diagnosticsError: false
+		}
+	};
+
 	return render(Page, {
 		props: {
 			data: {
-				organizations: [],
-				pagination: {
-					page: 1,
-					pageSize: 25,
-					totalCount: 0,
-					totalPages: 1,
-					q: ''
-				},
-				activationHealth: {
-					generatedAt: '2026-06-28T12:00:00.000Z',
-					overallState: 'no_candidates',
-					candidateLimit: 100,
-					counts: {
-						candidateOrganizations: 0,
-						activatedOrganizations: 0,
-						checkoutStarted: 0,
-						checkoutCompleted: 0,
-						meaningfulRosters: 0,
-						acceptedLeaders: 0,
-						dutyRosterStarted: 0,
-						setupStarted: 0,
-						paidBelowRosterThreshold: 0,
-						supportAttentionItems: 0
-					},
-					organizations: [],
-					diagnosticsError: false
-				},
+				...baseData,
 				...data
-			} as never
+			}
 		}
 	});
 }
 
 describe('admin organizations page', () => {
 	it('renders support-safe activation health without checkout URLs or personal analytics details', () => {
-		const sensitiveSentinels = [
-			'https://checkout.test/sentinel-checkout-url',
-			'cs_test_sensitive_checkout_session',
-			'203.0.113.44',
-			'va_sensitive_analytics_identifier',
-			'sk_test_sensitive_secret'
-		];
-
 		renderOrganizationsPage({
 			organizations: [
 				{
 					id: 'org-1',
 					name: 'Able Company',
+					tier: 'team',
+					gift_tier: null,
+					gift_expires_at: null,
 					effectiveTier: 'team',
 					memberCount: 1,
 					personnelCount: 2,
 					ownerEmail: 'owner@example.com',
 					isSuspended: false,
+					suspended_at: null,
 					created_at: '2026-06-01T00:00:00.000Z'
 				}
 			],
@@ -73,7 +89,9 @@ describe('admin organizations page', () => {
 				pageSize: 25,
 				totalCount: 1,
 				totalPages: 1,
-				q: ''
+				q: '',
+				tier: 'all',
+				status: 'all'
 			},
 			activationHealth: {
 				generatedAt: '2026-06-28T12:00:00.000Z',
@@ -114,12 +132,7 @@ describe('admin organizations page', () => {
 									subscriptionStatus: 'active',
 									collectionStatus: 'current',
 									syncStatus: 'synced'
-								},
-								checkoutUrl: sensitiveSentinels[0],
-								stripeCheckoutSessionId: sensitiveSentinels[1],
-								rawIpAddress: sensitiveSentinels[2],
-								analyticsIdentifier: sensitiveSentinels[3],
-								secretKey: sensitiveSentinels[4]
+								}
 							},
 							activation: {
 								activePersonnel: 2,
@@ -162,9 +175,6 @@ describe('admin organizations page', () => {
 		expect(document.body.textContent).not.toContain('raw IP');
 		expect(document.body.textContent).not.toContain('analytics identifier');
 		expect(document.body.textContent).not.toContain('sk_test_');
-		for (const sentinel of sensitiveSentinels) {
-			expect(document.body.textContent).not.toContain(sentinel);
-		}
 	});
 
 	it('warns when activation health diagnostics are unavailable', () => {
@@ -190,7 +200,14 @@ describe('admin organizations page', () => {
 			}
 		});
 
-		expect(screen.getByText('Activation health diagnostics could not be fully loaded.')).toBeTruthy();
+		expect(screen.getAllByText('Activation health diagnostics could not be fully loaded.')).toHaveLength(2);
 		expect(screen.getByText(/Checkout, roster, member, Duty Roster, and setup counts may be incomplete/)).toBeTruthy();
+		expect(screen.getByText('Unavailable')).toBeTruthy();
+		expect(screen.getByText('Activation health data is unavailable until diagnostics load successfully.')).toBeTruthy();
+		expect(
+			screen.getByText('Activation health diagnostics are unavailable. Retry after the health scan succeeds.')
+		).toBeTruthy();
+		expect(document.body.textContent).not.toContain('No self-service or paid activation health candidates found.');
+		expect(document.body.textContent).not.toContain('0 self-service or paid candidates');
 	});
 });

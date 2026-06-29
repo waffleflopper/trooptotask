@@ -24,7 +24,7 @@ async function countRows(
 		...options,
 		select: options.select ?? 'id',
 		range: { from: 0, to: 0 },
-		count: options.count ?? 'exact'
+		count: options.count ?? 'estimated'
 	});
 	return result.count ?? 0;
 }
@@ -42,7 +42,7 @@ async function fetchGettingStartedSupport(ctx: UseCaseContext) {
 		countRows(ctx, 'onboarding_template_steps'),
 		countRows(ctx, 'rating_scheme_entries'),
 		countRows(ctx, 'organization_memberships'),
-		countRows(ctx, 'duty_roster_templates', { status: 'active' }),
+		countRows(ctx, 'duty_roster_templates'),
 		countRows(ctx, 'duty_roster_template_runs'),
 		countRows(ctx, 'duty_roster_history'),
 		ctx.auth.userId

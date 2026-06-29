@@ -121,7 +121,7 @@ The operator explicitly excluded automatic CI trigger work from this batch. Do n
 | 090  | Billing launch readiness gate                     | P1       | M      | 083-087    | DONE   |
 | 091  | Billing health and support workflow               | P1       | M-L    | 085, 086   | DONE   |
 | 092  | Acquisition and activation health visibility      | P2       | M-L    | 081, 083-087 | DONE |
-| 093  | Starter configuration packs for first-week workflows | P2    | M-L    | 081, 084, 092 | TODO |
+| 093  | Starter configuration packs for first-week workflows | P2    | M-L    | 081, 084, 092 | DONE |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line rationale).
 
@@ -142,6 +142,7 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJE
 - 2026-06-28 at `88a2fbd5`: Plan 092 was reconciled after plan 091 merged runtime billing-health summaries and copyable support bundles into Admin -> Billing Events and Admin -> Subscriptions. The activation-health finding still stands because the current getting-started endpoint returns setup counts/dismissal state only and launch docs cover acquisition/billing support questions rather than post-checkout activation milestones. Plan 092 remains TODO and is executable as the remaining launch-runway plan.
 - 2026-06-28: Plan 092 was completed on branch `codex/plan-92` after isolated execution in `.worktrees/092-acquisition-activation-health`. The branch adds support-safe Platform Administration activation health for self-service/paid Organizations using existing Organization-level facts only, tightens dashboard getting-started milestones without treating seeded defaults as reviewed state, documents the acquisition/activation privacy boundary, and adds no migrations or new analytics persistence. CodeRabbit was attempted and skipped after a recoverable rate-limit response per Robert's instruction; Claude review findings were fixed or recorded as follow-up-only residuals.
 - 2026-06-28: Plan 093 was added after Robert selected the top post-launch `$improve next` direction: opt-in starter configuration packs for first-week workflows. It builds on completed plans 081, 084, and 092 by composing existing Training Type, onboarding template, and Duty Roster template seams rather than adding more automatic Organization provisioning or activation analytics.
+- 2026-06-28: Plan 093 was completed on branch `codex/plan-93` after isolated `$improve execute` work in `.worktrees/093-starter-configuration-packs` was reviewed and brought onto the plan branch. The branch adds an opt-in **First Week Operations** starter pack using existing Training Type, onboarding template, and Duty Roster template write seams with no migrations or Organization-create auto-seeding. Local CodeRabbit findings were fixed through review follow-up commits until CodeRabbit returned zero findings; Claude's remaining duplicate Staff Duty assignment-type concern was declined as a product/seam decision outside this slice. Chrome QA covered dashboard apply/reload, training, onboarding template, duty-roster template, and mobile dashboard layout; the mobile artifact preview overflow found during QA was fixed before closeout.
 
 ## Dependency Notes
 

@@ -164,9 +164,9 @@ describe('createDashboardScreenModel', () => {
 
 		expect(model.gettingStartedItems.map((item) => [item.id, item.complete])).toEqual([
 			['personnel', true],
-			['statuses', true],
+			['statuses', false],
 			['training', false],
-			['assignments', true],
+			['assignments', false],
 			['duty-roster', false],
 			['members', false],
 			['onboarding', false],
@@ -258,7 +258,7 @@ describe('createDashboardScreenModel', () => {
 		expect(model.gettingStartedItems.find((item) => item.id === 'members')?.complete).toBe(false);
 	});
 
-	it('hides the checklist when all items are complete or dismissed', () => {
+	it('keeps seeded-default review tasks open until dismissed', () => {
 		const model = createDashboardScreenModel(
 			makeData(
 				{
@@ -284,8 +284,11 @@ describe('createDashboardScreenModel', () => {
 			}
 		);
 
-		expect(model.gettingStartedItems.every((item) => item.complete)).toBe(true);
-		expect(model.shouldShowGettingStarted).toBe(false);
+		expect(model.gettingStartedItems.filter((item) => !item.complete).map((item) => item.id)).toEqual([
+			'statuses',
+			'assignments'
+		]);
+		expect(model.shouldShowGettingStarted).toBe(true);
 
 		model.applySupportData({
 			onboardingTemplateStepCount: 0,

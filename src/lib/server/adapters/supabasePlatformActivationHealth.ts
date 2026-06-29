@@ -73,6 +73,7 @@ const COUNT_PAGE_SIZE = 1000;
 const EMPTY_COUNTS: PlatformActivationSetupCounts = {
 	activePersonnel: 0,
 	members: 0,
+	leaderMembers: 0,
 	statusTypes: 0,
 	assignmentTypes: 0,
 	dutyRosterTemplates: 0,
@@ -215,7 +216,7 @@ async function countRowsByOrganization(
 	supabase: SupabaseClient,
 	table: string,
 	organizationIds: string[],
-	options: { activeDutyRosterTemplatesOnly?: boolean } = {}
+	options: { activeDutyRosterTemplatesOnly?: boolean; roles?: Array<'owner' | 'admin' | 'member'> } = {}
 ): Promise<Map<string, number>> {
 	const rows: ActivationCountRow[] = [];
 	let from = 0;
@@ -229,6 +230,7 @@ async function countRowsByOrganization(
 			.order('id', { ascending: true })
 			.range(from, from + COUNT_PAGE_SIZE - 1);
 		if (options.activeDutyRosterTemplatesOnly) builder = builder.eq('status', 'active');
+		if (options.roles) builder = builder.in('role', options.roles);
 		const response = (await builder) as SupabaseResponse<ActivationCountRow[]>;
 		throwIfSupabaseError(response.error);
 
@@ -357,6 +359,7 @@ export function createSupabasePlatformActivationHealthStore(supabase: SupabaseCl
 			const [
 				activePersonnelCounts,
 				memberCounts,
+				leaderMemberCounts,
 				statusTypeCounts,
 				assignmentTypeCounts,
 				dutyRosterTemplateCounts,
@@ -368,6 +371,7 @@ export function createSupabasePlatformActivationHealthStore(supabase: SupabaseCl
 			] = await Promise.all([
 				countRowsByExistingRpc(supabase, 'count_personnel_by_organization', 'personnel_count', organizationIds),
 				countRowsByExistingRpc(supabase, 'count_memberships_by_organization', 'membership_count', organizationIds),
+				countRowsByOrganization(supabase, 'organization_memberships', organizationIds, { roles: ['owner', 'admin'] }),
 				countRowsByOrganization(supabase, 'status_types', organizationIds),
 				countRowsByOrganization(supabase, 'assignment_types', organizationIds),
 				countRowsByOrganization(supabase, 'duty_roster_templates', organizationIds, {
@@ -382,6 +386,7 @@ export function createSupabasePlatformActivationHealthStore(supabase: SupabaseCl
 
 			applyCounts(factsByOrgId, activePersonnelCounts, 'activePersonnel');
 			applyCounts(factsByOrgId, memberCounts, 'members');
+			applyCounts(factsByOrgId, leaderMemberCounts, 'leaderMembers');
 			applyCounts(factsByOrgId, statusTypeCounts, 'statusTypes');
 			applyCounts(factsByOrgId, assignmentTypeCounts, 'assignmentTypes');
 			applyCounts(factsByOrgId, dutyRosterTemplateCounts, 'dutyRosterTemplates');

@@ -11,6 +11,7 @@ const EXPECTED_CHECKOUT_SELECT =
 	'id, organization_id, status, commercial_plan, created_at, updated_at, completed_at, canceled_at, expires_at, organizations!inner(id, name, created_at)';
 const EXPECTED_BILLING_SELECT =
 	'organization_id, source, commercial_plan, subscription_status, collection_status, sync_status, organizations!inner(id, name, created_at)';
+const EXPECTED_COUNT_SELECT = 'id, organization_id';
 
 class FakeQuery implements PromiseLike<SupabaseResponse<Row[]>> {
 	private filters: Array<(row: Row) => boolean> = [];
@@ -256,9 +257,9 @@ describe('createSupabasePlatformActivationHealthStore', () => {
 				{ organization_id: 'org-2', archived_at: null }
 			],
 			organization_memberships: [
-				{ organization_id: 'org-1' },
-				{ organization_id: 'org-1' },
-				{ organization_id: 'org-2' }
+				{ id: 'membership-1', organization_id: 'org-1', role: 'owner' },
+				{ id: 'membership-2', organization_id: 'org-1', role: 'admin' },
+				{ id: 'membership-3', organization_id: 'org-2', role: 'owner' }
 			],
 			status_types: [{ organization_id: 'org-1' }],
 			assignment_types: [{ organization_id: 'org-1' }],
@@ -301,6 +302,7 @@ describe('createSupabasePlatformActivationHealthStore', () => {
 			counts: {
 				activePersonnel: 2,
 				members: 2,
+				leaderMembers: 2,
 				statusTypes: 1,
 				assignmentTypes: 1,
 				dutyRosterTemplates: 1,
@@ -353,6 +355,21 @@ describe('createSupabasePlatformActivationHealthStore', () => {
 		);
 		expect(billingSelects.length).toBeGreaterThan(0);
 		expect([...new Set(billingSelects.map((call) => String(call.args[0])))]).toEqual([EXPECTED_BILLING_SELECT]);
+
+		const membershipSelects = calls.filter(
+			(call) => call.table === 'organization_memberships' && call.method === 'select'
+		);
+		expect(membershipSelects.length).toBeGreaterThan(0);
+		expect([...new Set(membershipSelects.map((call) => String(call.args[0])))]).toEqual([EXPECTED_COUNT_SELECT]);
+		expect(
+			calls.some(
+				(call) =>
+					call.table === 'organization_memberships' &&
+					call.method === 'in' &&
+					call.args[0] === 'role' &&
+					JSON.stringify(call.args[1]) === JSON.stringify(['owner', 'admin'])
+			)
+		).toBe(true);
 	});
 
 	it('requeries selected organizations so checkout counts are complete beyond the discovery sample', async () => {

@@ -16,6 +16,8 @@ class FakeQuery implements PromiseLike<SupabaseResponse<Row[]>> {
 	private filters: Array<(row: Row) => boolean> = [];
 	private limitCount: number | null = null;
 	private orderSpecs: Array<{ column: string; ascending: boolean }> = [];
+	private rangeStart: number | null = null;
+	private rangeEnd: number | null = null;
 
 	constructor(
 		private table: string,
@@ -58,6 +60,13 @@ class FakeQuery implements PromiseLike<SupabaseResponse<Row[]>> {
 		return this;
 	}
 
+	range(from: number, to: number): this {
+		this.calls.push({ table: this.table, method: 'range', args: [from, to] });
+		this.rangeStart = from;
+		this.rangeEnd = to;
+		return this;
+	}
+
 	then<TResult1 = SupabaseResponse<Row[]>, TResult2 = never>(
 		onfulfilled?: ((value: SupabaseResponse<Row[]>) => TResult1 | PromiseLike<TResult1>) | null,
 		onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null
@@ -74,7 +83,8 @@ class FakeQuery implements PromiseLike<SupabaseResponse<Row[]>> {
 				return spec.ascending ? leftValue.localeCompare(rightValue) : rightValue.localeCompare(leftValue);
 			});
 		}
-		if (this.limitCount !== null) rows = rows.slice(0, this.limitCount);
+		if (this.rangeStart !== null && this.rangeEnd !== null) rows = rows.slice(this.rangeStart, this.rangeEnd + 1);
+		else if (this.limitCount !== null) rows = rows.slice(0, this.limitCount);
 		return { data: rows, error: null };
 	}
 }
@@ -367,6 +377,49 @@ describe('createSupabasePlatformActivationHealthStore', () => {
 					JSON.stringify(call.args[1]) === JSON.stringify(['org-1'])
 			)
 		).toBe(true);
+	});
+
+	it('paginates grouped count reads so large organizations do not undercount', async () => {
+		const organization = {
+			id: 'org-large',
+			name: 'Large Company',
+			created_at: '2026-06-01T00:00:00.000Z'
+		};
+		const { supabase, calls } = createSupabaseStub({
+			organization_billing_snapshots: [
+				{
+					organization_id: organization.id,
+					source: 'stripe',
+					commercial_plan: 'team',
+					subscription_status: 'active',
+					collection_status: 'current',
+					sync_status: 'synced',
+					last_processed_at: '2026-06-28T00:00:00.000Z',
+					updated_at: '2026-06-28T00:00:00.000Z',
+					organizations: organization
+				}
+			],
+			personnel: Array.from({ length: 1005 }, () => ({
+				organization_id: organization.id,
+				archived_at: null
+			}))
+		});
+
+		const facts = await createSupabasePlatformActivationHealthStore(supabase).listActivationOrganizationFacts({
+			limit: 1
+		});
+
+		expect(facts[0]?.counts.activePersonnel).toBe(1005);
+		expect(
+			calls.filter(
+				(call) => call.table === 'personnel' && call.method === 'range' && JSON.stringify(call.args) === '[0,999]'
+			)
+		).toHaveLength(1);
+		expect(
+			calls.filter(
+				(call) => call.table === 'personnel' && call.method === 'range' && JSON.stringify(call.args) === '[1000,1999]'
+			)
+		).toHaveLength(1);
 	});
 
 	it('prioritizes paid candidates over newer free organizations when the candidate set is capped', async () => {

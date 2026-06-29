@@ -138,6 +138,47 @@ describe('mapActivationHealthSummary', () => {
 		expect(JSON.stringify(summary.organizations[0]?.supportBundle)).not.toContain('stripe_checkout_session_id');
 	});
 
+	it('marks a healthy free Organization activated without requiring paid checkout', () => {
+		const summary = mapActivationHealthSummary({
+			facts: [
+				facts({
+					organizationId: 'org-free',
+					organizationName: 'Free Company',
+					billing: null,
+					checkout: {
+						attemptCount: 0,
+						completedCount: 0,
+						interruptedCount: 0,
+						inProgressCount: 0,
+						latestStatus: null,
+						latestAt: null
+					}
+				})
+			],
+			now: new Date('2026-06-28T12:00:00.000Z')
+		});
+
+		expect(summary.counts).toMatchObject({
+			activatedOrganizations: 1,
+			checkoutStarted: 0,
+			checkoutCompleted: 0,
+			supportAttentionItems: 0
+		});
+		expect(summary.organizations[0]).toMatchObject({
+			organization: { id: 'org-free', name: 'Free Company' },
+			state: 'activated',
+			score: 100,
+			nextSteps: []
+		});
+		expect(summary.organizations[0]?.milestones).toContainEqual(
+			expect.objectContaining({
+				id: 'checkout_started',
+				state: 'deferred',
+				detail: expect.stringContaining('No paid checkout signal')
+			})
+		);
+	});
+
 	it('uses billing-inferred checkout detail when no checkout attempt rows are available', () => {
 		const summary = mapActivationHealthSummary({
 			facts: [

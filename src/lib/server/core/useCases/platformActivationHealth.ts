@@ -180,6 +180,10 @@ function hasCheckoutCompleted(facts: PlatformActivationOrganizationFacts): boole
 	return facts.checkout.completedCount > 0 || isStripeCheckoutCompletedBillingContext(facts.billing);
 }
 
+function hasPaidAcquisitionSignal(facts: PlatformActivationOrganizationFacts): boolean {
+	return facts.checkout.attemptCount > 0 || isStripePaidBillingContext(facts.billing);
+}
+
 function hasCheckoutRecovered(facts: PlatformActivationOrganizationFacts): boolean {
 	return facts.checkout.interruptedCount > 0 && hasCheckoutCompleted(facts);
 }
@@ -264,6 +268,7 @@ function checkoutCompletedDetail(facts: PlatformActivationOrganizationFacts, che
 }
 
 function milestonesFor(facts: PlatformActivationOrganizationFacts): PlatformActivationMilestone[] {
+	const paidAcquisitionSignal = hasPaidAcquisitionSignal(facts);
 	const checkoutStarted = hasCheckoutStarted(facts);
 	const checkoutCompleted = hasCheckoutCompleted(facts);
 	const checkoutRecovered = hasCheckoutRecovered(facts);
@@ -289,13 +294,30 @@ function milestonesFor(facts: PlatformActivationOrganizationFacts): PlatformActi
 				? `Created ${facts.organizationCreatedAt}.`
 				: 'Organization creation timestamp was unavailable.'
 		),
-		milestone('checkout_started', 'Checkout started', checkoutStarted, checkoutStartedDetail(facts, checkoutStarted)),
-		milestone(
-			'checkout_completed',
-			checkoutRecovered ? 'Checkout recovered' : 'Checkout completed',
-			checkoutCompleted,
-			checkoutCompletedDetail(facts, checkoutCompleted)
-		),
+		paidAcquisitionSignal
+			? milestone(
+					'checkout_started',
+					'Checkout started',
+					checkoutStarted,
+					checkoutStartedDetail(facts, checkoutStarted)
+				)
+			: deferredMilestone(
+					'checkout_started',
+					'Checkout started',
+					'No paid checkout signal; free activation is scored from product-value milestones.'
+				),
+		paidAcquisitionSignal
+			? milestone(
+					'checkout_completed',
+					checkoutRecovered ? 'Checkout recovered' : 'Checkout completed',
+					checkoutCompleted,
+					checkoutCompletedDetail(facts, checkoutCompleted)
+				)
+			: deferredMilestone(
+					'checkout_completed',
+					'Checkout completed',
+					'No paid checkout signal; free activation is scored from product-value milestones.'
+				),
 		milestone(
 			'meaningful_roster',
 			'Meaningful roster',
@@ -330,11 +352,11 @@ function milestonesFor(facts: PlatformActivationOrganizationFacts): PlatformActi
 
 function nextStepsFor(facts: PlatformActivationOrganizationFacts): string[] {
 	const steps: string[] = [];
+	const paidAcquisitionSignal = hasPaidAcquisitionSignal(facts);
 	const checkoutStarted = hasCheckoutStarted(facts);
 	const checkoutCompleted = hasCheckoutCompleted(facts);
 
-	if (!checkoutStarted) steps.push('Confirm the owner can open Billing and start Team or Unit checkout.');
-	if (checkoutStarted && !checkoutCompleted)
+	if (paidAcquisitionSignal && checkoutStarted && !checkoutCompleted)
 		steps.push('Follow up on checkout completion before evaluating activation.');
 	if (!hasMeaningfulRoster(facts)) {
 		steps.push(`Import or add at least ${MEANINGFUL_ROSTER_THRESHOLD} active personnel.`);

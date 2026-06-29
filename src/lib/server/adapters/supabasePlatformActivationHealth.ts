@@ -63,6 +63,7 @@ const ACTIVE_OR_RECOVERABLE_SUBSCRIPTION_STATUSES: SubscriptionStatus[] = [
 	'paused'
 ];
 const CHECKOUT_INTERRUPTED_STATUSES = new Set(['canceled', 'expired', 'failed']);
+const COUNT_PAGE_SIZE = 1000;
 const EMPTY_COUNTS: PlatformActivationSetupCounts = {
 	activePersonnel: 0,
 	members: 0,
@@ -182,12 +183,28 @@ async function countRowsByOrganization(
 	organizationIds: string[],
 	options: { activePersonnelOnly?: boolean; activeDutyRosterTemplatesOnly?: boolean } = {}
 ): Promise<Map<string, number>> {
-	let builder = supabase.from(table).select('organization_id').in('organization_id', organizationIds);
-	if (options.activePersonnelOnly) builder = builder.is('archived_at', null);
-	if (options.activeDutyRosterTemplatesOnly) builder = builder.eq('status', 'active');
-	const response = (await builder) as SupabaseResponse<ActivationCountRow[]>;
-	throwIfSupabaseError(response.error);
-	return countByOrganization(response.data ?? []);
+	const rows: ActivationCountRow[] = [];
+	let from = 0;
+
+	while (true) {
+		let builder = supabase
+			.from(table)
+			.select('organization_id')
+			.in('organization_id', organizationIds)
+			.order('organization_id', { ascending: true })
+			.range(from, from + COUNT_PAGE_SIZE - 1);
+		if (options.activePersonnelOnly) builder = builder.is('archived_at', null);
+		if (options.activeDutyRosterTemplatesOnly) builder = builder.eq('status', 'active');
+		const response = (await builder) as SupabaseResponse<ActivationCountRow[]>;
+		throwIfSupabaseError(response.error);
+
+		const page = response.data ?? [];
+		rows.push(...page);
+		if (page.length < COUNT_PAGE_SIZE) break;
+		from += COUNT_PAGE_SIZE;
+	}
+
+	return countByOrganization(rows);
 }
 
 function applyCounts(
@@ -292,7 +309,6 @@ export function createSupabasePlatformActivationHealthStore(supabase: SupabaseCl
 				trainingTypeCounts,
 				ratingSchemeEntryCounts
 			] = await Promise.all([
-				// One read per source table keeps per-organization counts grouped without adding schema/RPCs.
 				countRowsByOrganization(supabase, 'personnel', organizationIds, { activePersonnelOnly: true }),
 				countRowsByOrganization(supabase, 'organization_memberships', organizationIds),
 				countRowsByOrganization(supabase, 'status_types', organizationIds),

@@ -256,19 +256,31 @@ the full repo gate.
 
 ## Done criteria
 
-- [ ] Robert can see support-safe activation health for self-service/paid
+- [x] Robert can see support-safe activation health for self-service/paid
       Organizations using existing data, or the plan stops with a separate
       persistence/migration follow-up.
-- [ ] First-run checklist points real units toward roster import and avoids
+- [x] First-run checklist points real units toward roster import and avoids
       overstating seeded defaults as reviewed setup.
-- [ ] Duty Roster/DA6 activation is either represented with cheap existing data
+- [x] Duty Roster/DA6 activation is either represented with cheap existing data
       or explicitly deferred with rationale.
-- [ ] Docs distinguish acquisition/billing support state from activation health.
-- [ ] No invasive personal analytics, raw IP capture, or secret-bearing data is
+- [x] Docs distinguish acquisition/billing support state from activation health.
+- [x] No invasive personal analytics, raw IP capture, or secret-bearing data is
       added.
-- [ ] Focused tests, governance, and full repo gate pass.
-- [ ] `plans/README.md` status row updated unless the reviewer maintains the
+- [x] Focused tests, governance, and full repo gate pass.
+- [x] `plans/README.md` status row updated unless the reviewer maintains the
       index.
+
+## Completion note
+
+Completed on 2026-06-28 on branch `codex/plan-92` after isolated execution in
+`.worktrees/092-acquisition-activation-health`. The implementation adds the
+support-safe activation health read model without migrations or new analytics
+persistence, uses existing Organization-level facts only, keeps seeded defaults
+as review tasks rather than durable reviewed state, and counts the leader
+milestone from accepted owner/admin Organization Memberships. CodeRabbit was
+attempted and skipped after a recoverable rate-limit response per Robert's
+instruction; Claude review findings were fixed or recorded as follow-up-only
+residuals.
 
 ## STOP conditions
 

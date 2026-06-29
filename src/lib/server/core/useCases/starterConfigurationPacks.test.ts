@@ -137,6 +137,75 @@ describe('starter configuration packs', () => {
 		expect(pack.isFullyApplied).toBe(false);
 	});
 
+	it('counts unique onboarding starter step names for readiness when duplicate rows exist', async () => {
+		const ctx = createTestContext();
+		ctx.store.seed('onboarding_templates', [
+			{
+				id: 'template-starter',
+				organization_id: ctx.auth.orgId,
+				name: 'New Arrival Packet',
+				description: null
+			}
+		]);
+		ctx.store.seed('onboarding_template_steps', [
+			{
+				id: 'step-duplicate-1',
+				organization_id: ctx.auth.orgId,
+				template_id: 'template-starter',
+				name: 'Confirm contact and roster details',
+				description: null,
+				step_type: 'checkbox',
+				training_type_id: null,
+				stages: null,
+				sort_order: 0
+			},
+			{
+				id: 'step-duplicate-2',
+				organization_id: ctx.auth.orgId,
+				template_id: 'template-starter',
+				name: 'Confirm contact and roster details',
+				description: null,
+				step_type: 'checkbox',
+				training_type_id: null,
+				stages: null,
+				sort_order: 1
+			},
+			{
+				id: 'step-duplicate-3',
+				organization_id: ctx.auth.orgId,
+				template_id: 'template-starter',
+				name: 'Confirm contact and roster details',
+				description: null,
+				step_type: 'checkbox',
+				training_type_id: null,
+				stages: null,
+				sort_order: 2
+			},
+			{
+				id: 'step-duplicate-4',
+				organization_id: ctx.auth.orgId,
+				template_id: 'template-starter',
+				name: 'Confirm contact and roster details',
+				description: null,
+				step_type: 'checkbox',
+				training_type_id: null,
+				stages: null,
+				sort_order: 3
+			}
+		]);
+
+		const [pack] = await listStarterConfigurationPacks(ctx);
+		const onboardingReadiness = pack.readiness.find((family) => family.family === 'onboarding-template');
+
+		expect(onboardingReadiness).toMatchObject({
+			configured: true,
+			starterArtifactCount: 2,
+			expectedArtifactCount: 5,
+			existingStarterArtifactNames: ['New Arrival Packet', 'Confirm contact and roster details']
+		});
+		expect(pack.isFullyApplied).toBe(false);
+	});
+
 	it('builds readiness from targeted lookup rows without requiring unrelated full-table reads', async () => {
 		const ctx = createTestContext();
 		ctx.store.seed('training_types', [

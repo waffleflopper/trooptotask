@@ -271,6 +271,30 @@ describe('DashboardPageView', () => {
 		expect(screen.getByText('Configure access needed')).toBeTruthy();
 	});
 
+	it('does not show configure access copy for already-applied starter packs', () => {
+		const ctx = makeCtx({
+			userRole: 'admin',
+			gettingStartedDismissed: false,
+			shouldShowGettingStarted: true,
+			firstStarterConfigurationPack: makeStarterPack({ canApply: false, isFullyApplied: true }),
+			gettingStartedItems: [
+				{
+					id: 'members',
+					label: 'Invite another Organization Member',
+					description: 'Add at least one more member for shared access.',
+					href: '/org/org-1/settings/members',
+					complete: false
+				}
+			]
+		});
+
+		render(DashboardPageView, { props: { ctx } });
+
+		expect(screen.getByText('Applied')).toBeTruthy();
+		expect(screen.queryByText('Configure access needed')).toBeNull();
+		expect(screen.queryByRole('button', { name: /Apply Pack/i })).toBeNull();
+	});
+
 	it('shows starter pack failure copy without changing checklist rendering', () => {
 		const ctx = makeCtx({
 			userRole: 'owner',

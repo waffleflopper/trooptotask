@@ -72,7 +72,7 @@
 								Apply Pack
 							{/if}
 						</Button>
-					{:else if !starterPack.canApply}
+					{:else if !starterPack.canApply && !starterPack.isFullyApplied}
 						<Badge variant="secondary">Configure access needed</Badge>
 					{/if}
 				</div>

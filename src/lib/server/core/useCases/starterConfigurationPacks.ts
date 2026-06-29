@@ -353,9 +353,18 @@ async function applyStarterOnboardingTemplate(
 				stages: starterStep.stepType === 'paperwork' ? starterStep.stages : null,
 				sortOrder: starterStep.sortOrder
 			});
+			existingStepNames.add(starterStep.name);
 			recordCreated(result, ONBOARDING_FAMILY, starterStep.name);
 		} catch (error) {
 			rethrowAuthorizationFailure(error);
+			if (isUniqueConflict(error)) {
+				const racedExisting = await findOnboardingTemplateStepByName(ctx, template.id, starterStep.name);
+				if (racedExisting) {
+					existingStepNames.add(starterStep.name);
+					recordSkipped(result, ONBOARDING_FAMILY, starterStep.name);
+					continue;
+				}
+			}
 			recordFailed(result, ONBOARDING_FAMILY, starterStep.name);
 		}
 	}
@@ -404,6 +413,17 @@ async function findOnboardingTemplateByName(
 ): Promise<OnboardingTemplate | null> {
 	const row = await ctx.store.findOne<Record<string, unknown>>('onboarding_templates', ctx.auth.orgId, { name });
 	return row ? ({ ...row, orgId: ctx.auth.orgId } as unknown as OnboardingTemplate) : null;
+}
+
+async function findOnboardingTemplateStepByName(
+	ctx: Pick<WritePorts, 'store' | 'auth'>,
+	templateId: string,
+	name: string
+): Promise<Record<string, unknown> | null> {
+	return ctx.store.findOne<Record<string, unknown>>('onboarding_template_steps', ctx.auth.orgId, {
+		template_id: templateId,
+		name
+	});
 }
 
 async function findDutyRosterTemplateBySlug(

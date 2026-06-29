@@ -183,6 +183,7 @@ describe('starter configuration packs', () => {
 		expect(await ctx.store.findMany('onboarding_templates', ctx.auth.orgId)).toHaveLength(1);
 		expect(await ctx.store.findMany('onboarding_template_steps', ctx.auth.orgId)).toHaveLength(4);
 		expect(await ctx.store.findMany('duty_roster_templates', ctx.auth.orgId)).toHaveLength(1);
+		expect(await ctx.store.findMany('assignment_types', ctx.auth.orgId)).toHaveLength(1);
 	});
 
 	it('treats raced unique starter artifacts as skipped when they can be re-read', async () => {
@@ -190,6 +191,7 @@ describe('starter configuration packs', () => {
 		const originalInsert = ctx.store.insert.bind(ctx.store);
 		let trainingRace = true;
 		let onboardingRace = true;
+		let onboardingStepRace = true;
 		let dutyRosterRace = true;
 
 		vi.spyOn(ctx.store, 'insert').mockImplementation(async (table, orgId, data, select) => {
@@ -203,6 +205,16 @@ describe('starter configuration packs', () => {
 				onboardingRace = false;
 				ctx.store.seed('onboarding_templates', [{ id: 'template-raced', organization_id: orgId, ...data }]);
 				throw new Error('duplicate key value violates unique constraint "onboarding_templates_org_name_unique"');
+			}
+
+			if (
+				table === 'onboarding_template_steps' &&
+				data.name === 'Confirm contact and roster details' &&
+				onboardingStepRace
+			) {
+				onboardingStepRace = false;
+				ctx.store.seed('onboarding_template_steps', [{ id: 'step-raced', organization_id: orgId, ...data }]);
+				throw new Error('duplicate key value violates unique constraint "onboarding_template_steps_template_name_key"');
 			}
 
 			if (table === 'duty_roster_templates' && data.slug === 'staff-duty' && dutyRosterRace) {
@@ -221,12 +233,12 @@ describe('starter configuration packs', () => {
 			expect.arrayContaining([
 				expect.objectContaining({ family: 'training-types', name: 'Unit Orientation' }),
 				expect.objectContaining({ family: 'onboarding-template', name: 'New Arrival Packet' }),
+				expect.objectContaining({ family: 'onboarding-template', name: 'Confirm contact and roster details' }),
 				expect.objectContaining({ family: 'duty-roster-template', name: 'Staff Duty' })
 			])
 		);
 		expect(result.created.map((item) => item.name)).toEqual([
 			'Required Annual Training',
-			'Confirm contact and roster details',
 			'Complete unit orientation',
 			'Review required documents',
 			'Assign duty role and Group'
@@ -264,11 +276,11 @@ describe('starter configuration packs', () => {
 	it('reports support-safe failed artifact details without provider messages', async () => {
 		const ctx = createTestContext();
 		const originalInsert = ctx.store.insert.bind(ctx.store);
-		vi.spyOn(ctx.store, 'insert').mockImplementation(async (table, orgId, data) => {
+		vi.spyOn(ctx.store, 'insert').mockImplementation(async (table, orgId, data, select) => {
 			if (table === 'training_types' && data.name === 'Required Annual Training') {
 				throw new Error('duplicate key value violates unique constraint training_types_name_key');
 			}
-			return originalInsert(table, orgId, data);
+			return originalInsert(table, orgId, data, select);
 		});
 
 		const result = await applyStarterConfigurationPack(ctx, 'first-week-operations');

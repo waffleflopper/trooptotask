@@ -107,7 +107,6 @@ function emptyCheckoutContext(): PlatformActivationCheckoutContext {
 function checkoutAttemptTimestamp(row: ActivationCheckoutAttemptRow): string | null {
 	if (row.completed_at) return row.completed_at;
 	if (row.canceled_at) return row.canceled_at;
-	if (row.status === 'expired') return row.updated_at ?? row.created_at ?? row.expires_at;
 	return row.updated_at ?? row.created_at ?? row.expires_at;
 }
 
@@ -215,7 +214,7 @@ async function countRowsByOrganization(
 	supabase: SupabaseClient,
 	table: string,
 	organizationIds: string[],
-	options: { activePersonnelOnly?: boolean; activeDutyRosterTemplatesOnly?: boolean } = {}
+	options: { activeDutyRosterTemplatesOnly?: boolean } = {}
 ): Promise<Map<string, number>> {
 	const rows: ActivationCountRow[] = [];
 	let from = 0;
@@ -228,7 +227,6 @@ async function countRowsByOrganization(
 			.order('organization_id', { ascending: true })
 			.order('id', { ascending: true })
 			.range(from, from + COUNT_PAGE_SIZE - 1);
-		if (options.activePersonnelOnly) builder = builder.is('archived_at', null);
 		if (options.activeDutyRosterTemplatesOnly) builder = builder.eq('status', 'active');
 		const response = (await builder) as SupabaseResponse<ActivationCountRow[]>;
 		throwIfSupabaseError(response.error);
@@ -307,6 +305,7 @@ export function createSupabasePlatformActivationHealthStore(supabase: SupabaseCl
 
 			const candidateOrganizationIds: string[] = [];
 			const seenCandidateOrganizationIds = new Set<string>();
+			// Paid/recoverable orgs anchor launch-health review; checkout-only and newest free orgs fill the cap.
 			for (const row of snapshotResponse.data ?? []) {
 				appendCandidateOrganizationId(candidateOrganizationIds, seenCandidateOrganizationIds, row.organization_id);
 			}

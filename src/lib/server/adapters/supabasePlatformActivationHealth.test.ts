@@ -407,7 +407,9 @@ describe('createSupabasePlatformActivationHealthStore', () => {
 			attemptCount: 6,
 			completedCount: 1,
 			interruptedCount: 4,
-			inProgressCount: 1
+			inProgressCount: 1,
+			latestStatus: 'expired',
+			latestAt: '2026-06-01T00:05:30.000Z'
 		});
 		expect(
 			calls.some(

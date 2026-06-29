@@ -45,8 +45,13 @@ interface ActivationCheckoutAttemptRow {
 }
 
 interface ActivationCountRow {
+	id: string;
 	organization_id: string;
 }
+
+type RpcCountRow<T extends string> = {
+	organization_id: string;
+} & Record<T, number | string | null>;
 
 const ACTIVATION_BILLING_SNAPSHOT_COLUMNS =
 	'organization_id, source, commercial_plan, subscription_status, collection_status, sync_status, organizations!inner(id, name, created_at)';
@@ -102,7 +107,7 @@ function emptyCheckoutContext(): PlatformActivationCheckoutContext {
 function checkoutAttemptTimestamp(row: ActivationCheckoutAttemptRow): string | null {
 	if (row.completed_at) return row.completed_at;
 	if (row.canceled_at) return row.canceled_at;
-	if (row.status === 'expired') return row.expires_at ?? row.updated_at ?? row.created_at;
+	if (row.status === 'expired') return row.updated_at ?? row.created_at ?? row.expires_at;
 	return row.updated_at ?? row.created_at ?? row.expires_at;
 }
 
@@ -177,6 +182,35 @@ function countByOrganization(rows: ActivationCountRow[]): Map<string, number> {
 	return counts;
 }
 
+function readRpcCount(value: number | string | null): number {
+	const count = typeof value === 'number' ? value : Number(value ?? 0);
+	return Number.isFinite(count) && count > 0 ? count : 0;
+}
+
+function countRpcRowsByOrganizationId<T extends string>(
+	rows: Array<RpcCountRow<T>>,
+	countField: T
+): Map<string, number> {
+	const counts = new Map<string, number>();
+	for (const row of rows) {
+		counts.set(row.organization_id, readRpcCount(row[countField]));
+	}
+	return counts;
+}
+
+async function countRowsByExistingRpc<T extends string>(
+	supabase: SupabaseClient,
+	functionName: string,
+	countField: T,
+	organizationIds: string[]
+): Promise<Map<string, number>> {
+	const response = (await supabase.rpc(functionName, {
+		p_org_ids: organizationIds
+	})) as SupabaseResponse<Array<RpcCountRow<T>>>;
+	throwIfSupabaseError(response.error);
+	return countRpcRowsByOrganizationId(response.data ?? [], countField);
+}
+
 async function countRowsByOrganization(
 	supabase: SupabaseClient,
 	table: string,
@@ -189,9 +223,10 @@ async function countRowsByOrganization(
 	while (true) {
 		let builder = supabase
 			.from(table)
-			.select('organization_id')
+			.select('id, organization_id')
 			.in('organization_id', organizationIds)
 			.order('organization_id', { ascending: true })
+			.order('id', { ascending: true })
 			.range(from, from + COUNT_PAGE_SIZE - 1);
 		if (options.activePersonnelOnly) builder = builder.is('archived_at', null);
 		if (options.activeDutyRosterTemplatesOnly) builder = builder.eq('status', 'active');
@@ -309,8 +344,8 @@ export function createSupabasePlatformActivationHealthStore(supabase: SupabaseCl
 				trainingTypeCounts,
 				ratingSchemeEntryCounts
 			] = await Promise.all([
-				countRowsByOrganization(supabase, 'personnel', organizationIds, { activePersonnelOnly: true }),
-				countRowsByOrganization(supabase, 'organization_memberships', organizationIds),
+				countRowsByExistingRpc(supabase, 'count_personnel_by_organization', 'personnel_count', organizationIds),
+				countRowsByExistingRpc(supabase, 'count_memberships_by_organization', 'membership_count', organizationIds),
 				countRowsByOrganization(supabase, 'status_types', organizationIds),
 				countRowsByOrganization(supabase, 'assignment_types', organizationIds),
 				countRowsByOrganization(supabase, 'duty_roster_templates', organizationIds, {

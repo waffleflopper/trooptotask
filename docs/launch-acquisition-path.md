@@ -131,6 +131,17 @@ separate privacy-reviewed persistence plan is approved.
 | First Duty Roster activity | `duty_roster_templates`, `duty_roster_template_runs`, and legacy `duty_roster_history` counts | Computed when templates or runs/history exist. |
 | Onboarding, training, or eval setup started | `onboarding_template_steps`, `training_types`, and `rating_scheme_entries` counts | Computed as aggregate setup-started signals. |
 
+Organization creation still seeds only the basic day-one defaults such as
+Groups, availability statuses, assignment types, and federal holidays. Starter
+configuration packs are opt-in from the first-run setup path and must not be
+silently applied during Organization creation.
+
+The First Week Operations starter pack creates editable workflow configuration
+artifacts: starter Training Types, an onboarding template with ordered steps,
+and a Duty Roster template scaffold. Treat those artifacts as setup progress
+for activation-health support views, not as proof that a workflow is high
+quality, formally reviewed, command-ready, certified, or doctrinally complete.
+
 Activation health must not capture raw IP addresses, checkout URLs, Stripe
 Checkout session URLs, raw emails beyond existing account records, source URLs
 with secrets, Vercel Analytics identifiers, raw webhook payloads, card details,

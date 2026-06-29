@@ -6,6 +6,12 @@ type Row = Record<string, unknown>;
 type SupabaseCall = { table: string; method: string; args: unknown[] };
 type SupabaseResponse<T> = { data: T | null; error: unknown };
 
+const EXPECTED_ORGANIZATION_SELECT = 'id, name, created_at';
+const EXPECTED_CHECKOUT_SELECT =
+	'organization_id, status, commercial_plan, created_at, updated_at, completed_at, canceled_at, expires_at, organizations!inner(id, name, created_at)';
+const EXPECTED_BILLING_SELECT =
+	'organization_id, source, commercial_plan, subscription_status, collection_status, sync_status, organizations!inner(id, name, created_at)';
+
 class FakeQuery implements PromiseLike<SupabaseResponse<Row[]>> {
 	private filters: Array<(row: Row) => boolean> = [];
 	private limitCount: number | null = null;
@@ -290,29 +296,21 @@ describe('createSupabasePlatformActivationHealthStore', () => {
 
 		const organizationSelects = calls.filter((call) => call.table === 'organizations' && call.method === 'select');
 		expect(organizationSelects.length).toBeGreaterThan(0);
-		for (const call of organizationSelects) {
-			expect(String(call.args[0])).not.toContain('created_by');
-			expect(String(call.args[0])).not.toContain('stripe_customer_id');
-			expect(String(call.args[0])).not.toContain('stripe_subscription_id');
-		}
+		expect([...new Set(organizationSelects.map((call) => String(call.args[0])))]).toEqual([
+			EXPECTED_ORGANIZATION_SELECT
+		]);
 
 		const checkoutSelects = calls.filter(
 			(call) => call.table === 'organization_checkout_attempts' && call.method === 'select'
 		);
 		expect(checkoutSelects.length).toBeGreaterThan(0);
-		for (const call of checkoutSelects) {
-			expect(String(call.args[0])).not.toContain('checkout_url');
-			expect(String(call.args[0])).not.toContain('stripe_checkout_session_id');
-		}
+		expect([...new Set(checkoutSelects.map((call) => String(call.args[0])))]).toEqual([EXPECTED_CHECKOUT_SELECT]);
 
 		const billingSelects = calls.filter(
 			(call) => call.table === 'organization_billing_snapshots' && call.method === 'select'
 		);
 		expect(billingSelects.length).toBeGreaterThan(0);
-		for (const call of billingSelects) {
-			expect(String(call.args[0])).not.toContain('stripe_customer_id');
-			expect(String(call.args[0])).not.toContain('stripe_subscription_id');
-		}
+		expect([...new Set(billingSelects.map((call) => String(call.args[0])))]).toEqual([EXPECTED_BILLING_SELECT]);
 	});
 
 	it('requeries selected organizations so checkout counts are complete beyond the discovery sample', async () => {

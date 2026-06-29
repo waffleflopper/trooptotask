@@ -21,6 +21,29 @@ describe('GET /api/getting-started', () => {
 		const consoleInfoSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
 		const findManyWithCountSpy = vi.spyOn(ctx.store, 'findManyWithCount');
 
+		ctx.store.seed('training_types', [
+			{
+				id: 'training-1',
+				organization_id: ctx.auth.orgId,
+				name: 'Unit Orientation',
+				description: null,
+				expiration_months: null,
+				warning_days_yellow: 60,
+				warning_days_orange: 30,
+				applies_to_roles: [],
+				applies_to_mos: [],
+				applies_to_ranks: [],
+				excluded_roles: [],
+				excluded_mos: [],
+				excluded_ranks: [],
+				color: '#6b7280',
+				sort_order: 0,
+				expiration_date_only: false,
+				can_be_exempted: false,
+				exempt_personnel_ids: [],
+				is_optional: false
+			}
+		]);
 		ctx.store.seed('onboarding_template_steps', [
 			{ id: 'step-1', organization_id: ctx.auth.orgId, title: 'Step 1' },
 			{ id: 'step-2', organization_id: ctx.auth.orgId, title: 'Step 2' }
@@ -50,14 +73,39 @@ describe('GET /api/getting-started', () => {
 		const result = await handleUseCaseRequest(_getConfig, ctx, undefined);
 
 		expect(result).toEqual({
+			trainingTypeCount: 1,
 			onboardingTemplateStepCount: 2,
 			ratingSchemeEntryCount: 1,
 			orgMemberCount: 2,
 			dutyRosterTemplateCount: 2,
 			dutyRosterRunCount: 1,
 			dutyRosterHistoryCount: 1,
-			gettingStartedDismissed: true
+			gettingStartedDismissed: true,
+			starterConfigurationPacks: [
+				expect.objectContaining({
+					id: 'first-week-operations',
+					name: 'First Week Operations',
+					canApply: true,
+					isFullyApplied: false,
+					artifacts: expect.arrayContaining([
+						expect.objectContaining({
+							family: 'training-types',
+							names: ['Unit Orientation', 'Required Annual Training']
+						})
+					])
+				})
+			]
 		});
+		expect(findManyWithCountSpy).toHaveBeenCalledWith(
+			'training_types',
+			ctx.auth.orgId,
+			undefined,
+			expect.objectContaining({
+				select: 'id',
+				range: { from: 0, to: 0 },
+				count: 'estimated'
+			})
+		);
 		expect(consoleInfoSpy).toHaveBeenCalledWith(
 			'[dashboard-load]',
 			expect.objectContaining({
@@ -116,7 +164,13 @@ describe('GET /api/getting-started', () => {
 		});
 
 		await expect(handleUseCaseRequest(_getConfig, ctx, undefined)).resolves.toMatchObject({
-			gettingStartedDismissed: false
+			gettingStartedDismissed: false,
+			starterConfigurationPacks: [
+				expect.objectContaining({
+					canApply: false,
+					deniedActions: expect.any(Array)
+				})
+			]
 		});
 	});
 });

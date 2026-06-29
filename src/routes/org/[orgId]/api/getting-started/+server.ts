@@ -3,8 +3,11 @@ import { fail } from '$lib/server/core/errors';
 import type { FindOptions, UseCaseContext } from '$lib/server/core/ports';
 import { withDashboardTiming } from '$lib/server/utils/dashboardTiming';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+import { listStarterConfigurationPacks } from '$lib/server/core/useCases/starterConfigurationPacks';
+import type { StarterConfigurationPackSupport } from '$lib/types/starterConfigurationPacks';
 
 interface GettingStartedSupportData {
+	trainingTypeCount: number;
 	onboardingTemplateStepCount: number;
 	ratingSchemeEntryCount: number;
 	orgMemberCount: number;
@@ -12,6 +15,7 @@ interface GettingStartedSupportData {
 	dutyRosterRunCount: number;
 	dutyRosterHistoryCount: number;
 	gettingStartedDismissed: boolean;
+	starterConfigurationPacks: StarterConfigurationPackSupport[];
 }
 
 async function countRows(
@@ -31,14 +35,17 @@ async function countRows(
 
 async function fetchGettingStartedSupport(ctx: UseCaseContext) {
 	const [
+		trainingTypeCount,
 		onboardingTemplateStepCount,
 		ratingSchemeEntryCount,
 		orgMemberCount,
 		dutyRosterTemplateCount,
 		dutyRosterRunCount,
 		dutyRosterHistoryCount,
-		gettingStartedRows
+		gettingStartedRows,
+		starterConfigurationPacks
 	] = await Promise.all([
+		countRows(ctx, 'training_types'),
 		countRows(ctx, 'onboarding_template_steps'),
 		countRows(ctx, 'rating_scheme_entries'),
 		countRows(ctx, 'organization_memberships'),
@@ -49,19 +56,22 @@ async function fetchGettingStartedSupport(ctx: UseCaseContext) {
 			? ctx.store.findMany<Record<string, unknown>>('getting_started_progress', ctx.auth.orgId, {
 					user_id: ctx.auth.userId
 				})
-			: Promise.resolve([])
+			: Promise.resolve([]),
+		listStarterConfigurationPacks(ctx)
 	]);
 
 	const gettingStartedData = gettingStartedRows.length > 0 ? gettingStartedRows[0] : null;
 
 	return {
+		trainingTypeCount,
 		onboardingTemplateStepCount,
 		ratingSchemeEntryCount,
 		orgMemberCount,
 		dutyRosterTemplateCount,
 		dutyRosterRunCount,
 		dutyRosterHistoryCount,
-		gettingStartedDismissed: (gettingStartedData as Record<string, unknown> | null)?.dismissed_at != null
+		gettingStartedDismissed: (gettingStartedData as Record<string, unknown> | null)?.dismissed_at != null,
+		starterConfigurationPacks
 	} satisfies GettingStartedSupportData;
 }
 

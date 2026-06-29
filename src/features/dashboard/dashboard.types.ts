@@ -1,5 +1,6 @@
 import type { DashboardWorkspaceResult } from './server/dashboardWorkspaceBootstrap';
 import type { TrainingStats } from '$features/training/utils/trainingStatus';
+import type { StarterConfigurationPackSupport } from '$lib/types/starterConfigurationPacks';
 
 export interface TrainingIssue {
 	personName: string;
@@ -68,6 +69,7 @@ export interface DashboardPageData {
 	trainingSummary: { stats: TrainingStats; issues: TrainingIssue[] } | null;
 	ictlSummary: DashboardIctlSummary | null;
 	onboardingTrainingCompletions: string[];
+	trainingTypeCount?: number;
 	onboardingTemplateStepCount?: number;
 	ratingSchemeEntryCount?: number;
 	orgMemberCount?: number;
@@ -75,5 +77,6 @@ export interface DashboardPageData {
 	dutyRosterRunCount?: number;
 	dutyRosterHistoryCount?: number;
 	gettingStartedDismissed?: boolean;
+	starterConfigurationPacks?: StarterConfigurationPackSupport[];
 	[key: string]: unknown;
 }

@@ -19,6 +19,7 @@ Updated by the improve skill on 2026-06-16 at commit `c6760c16` with plans 088-0
 Reconciled by the improve skill on 2026-06-16 at commit `d485cdc5`: refreshed TODO plan drift baselines for plans 083-092 after the read-only billing gate landed; no plan was rejected, blocked, or newly completed during reconciliation.
 Completed by PR #1230 on 2026-06-17: plans 083-087 now implement the self-service acquisition path from signup through Organization creation, explicit Free-first checkout entry, support/admin visibility, and focused E2E coverage.
 Reconciled by the improve skill on 2026-06-28 at commit `88a2fbd5`: refreshed plan 092 after plan 091 merged runtime billing health/support visibility. Plan 092 remains the only TODO launch-runway plan and is executable on the current post-plan-091 baseline.
+Updated by the improve follow-up on 2026-06-28 at commit `2f3bc4d6` with plan 093 (Robert selected starter configuration packs from the post-launch `$improve next` shortlist).
 
 Execute in the order below unless dependencies say otherwise. Each executor must read the selected plan fully before starting, honor its STOP conditions, run every verification command, and update the status row when done.
 
@@ -120,6 +121,7 @@ The operator explicitly excluded automatic CI trigger work from this batch. Do n
 | 090  | Billing launch readiness gate                     | P1       | M      | 083-087    | DONE   |
 | 091  | Billing health and support workflow               | P1       | M-L    | 085, 086   | DONE   |
 | 092  | Acquisition and activation health visibility      | P2       | M-L    | 081, 083-087 | DONE |
+| 093  | Starter configuration packs for first-week workflows | P2    | M-L    | 081, 084, 092 | TODO |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line rationale).
 
@@ -139,6 +141,7 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJE
 - 2026-06-24 at `cc011a36`: Plan 091 was reconciled after plan 090 added the `billing:launch-readiness` gate and tightened support-safe launch evidence. Plan 091 is now DONE: admin billing surfaces include runtime billing health visibility and copyable support bundles without external Slack, email, or SMS alerting.
 - 2026-06-28 at `88a2fbd5`: Plan 092 was reconciled after plan 091 merged runtime billing-health summaries and copyable support bundles into Admin -> Billing Events and Admin -> Subscriptions. The activation-health finding still stands because the current getting-started endpoint returns setup counts/dismissal state only and launch docs cover acquisition/billing support questions rather than post-checkout activation milestones. Plan 092 remains TODO and is executable as the remaining launch-runway plan.
 - 2026-06-28: Plan 092 was completed on branch `codex/plan-92` after isolated execution in `.worktrees/092-acquisition-activation-health`. The branch adds support-safe Platform Administration activation health for self-service/paid Organizations using existing Organization-level facts only, tightens dashboard getting-started milestones without treating seeded defaults as reviewed state, documents the acquisition/activation privacy boundary, and adds no migrations or new analytics persistence. CodeRabbit was attempted and skipped after a recoverable rate-limit response per Robert's instruction; Claude review findings were fixed or recorded as follow-up-only residuals.
+- 2026-06-28: Plan 093 was added after Robert selected the top post-launch `$improve next` direction: opt-in starter configuration packs for first-week workflows. It builds on completed plans 081, 084, and 092 by composing existing Training Type, onboarding template, and Duty Roster template seams rather than adding more automatic Organization provisioning or activation analytics.
 
 ## Dependency Notes
 
@@ -217,6 +220,7 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJE
 - 091 depends on 085 and 086 because billing health/support workflow should build on real checkout/recovery behavior and support/admin visibility. It may be designed earlier, but do not wire customer-facing health claims before those surfaces exist.
 - 092 depends on 081 and the 083-087 acquisition path because it measures whether self-service customers reach product value after signup, Organization creation, checkout, and first-run dashboard guidance. If it needs new persisted activation milestone state, stop and write a separate migration plan instead of adding schema inside 092.
 - Plan 091 is now complete and provides the Platform Administration billing-health/support-bundle pattern. Plan 092 may reuse that support-safe shape, but it must stay focused on acquisition and activation health rather than duplicating billing health.
+- Plan 093 should run after 092 because it uses the completed first-run checklist and activation-health semantics as its product boundary. It should not silently seed more workflows during Organization creation; the starter pack must be opt-in, editable after apply, and idempotent. If the executor discovers that pack application needs new persistence tables, stop and write a separate migration plan instead of adding schema inside 093.
 
 ## Findings Considered And Rejected
 

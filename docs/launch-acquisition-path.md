@@ -126,7 +126,7 @@ separate privacy-reviewed persistence plan is approved.
 | Checkout started | `organization_checkout_attempts.status` and `created_at` | Computed as a coarse checkout attempt count/status without checkout URLs or session IDs. |
 | Checkout completed or recovered | `organization_checkout_attempts.completed_at/status` plus `organization_billing_snapshots` state | Computed as completed/recovered at Organization level; detailed billing repair remains in Admin -> Subscriptions and Admin -> Billing Events. |
 | Meaningful roster | active `personnel` count | Computed as at least 5 active personnel. Exact roster import completion is deferred because no durable import milestone exists. |
-| Invited leader accepted | `organization_memberships` count | Computed as more than one accepted Organization Member. Pending invite analysis stays in member-management/support views. |
+| Invited leader accepted | `organization_memberships` owner/admin count | Computed as more than one accepted owner/admin Organization Membership. Pending invite analysis stays in member-management/support views. |
 | Seeded defaults reviewed | `status_types` and `assignment_types` counts only | Counts show defaults/configuration exist; they are not proof a leader reviewed them. Exact reviewed state requires a separate persistence plan. |
 | First Duty Roster activity | `duty_roster_templates`, `duty_roster_template_runs`, and legacy `duty_roster_history` counts | Computed when templates or runs/history exist. |
 | Onboarding, training, or eval setup started | `onboarding_template_steps`, `training_types`, and `rating_scheme_entries` counts | Computed as aggregate setup-started signals. |

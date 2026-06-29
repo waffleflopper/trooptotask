@@ -124,6 +124,7 @@ describe('admin organizations page', () => {
 							activation: {
 								activePersonnel: 2,
 								members: 1,
+								leaderMembers: 1,
 								statusTypes: 4,
 								assignmentTypes: 1,
 								dutyRosterTemplates: 1,

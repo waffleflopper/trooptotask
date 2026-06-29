@@ -43,6 +43,7 @@ export interface PlatformActivationCheckoutContext {
 export interface PlatformActivationSetupCounts {
 	activePersonnel: number;
 	members: number;
+	leaderMembers: number;
 	statusTypes: number;
 	assignmentTypes: number;
 	dutyRosterTemplates: number;
@@ -194,7 +195,7 @@ function hasMeaningfulRoster(facts: PlatformActivationOrganizationFacts): boolea
 }
 
 function hasAcceptedLeader(facts: PlatformActivationOrganizationFacts): boolean {
-	return facts.counts.members > 1;
+	return facts.counts.leaderMembers > 1;
 }
 
 function hasDutyRosterActivity(facts: PlatformActivationOrganizationFacts): boolean {
@@ -329,7 +330,7 @@ function milestonesFor(facts: PlatformActivationOrganizationFacts): PlatformActi
 			'leader_accepted',
 			'Leader accepted',
 			hasAcceptedLeader(facts),
-			`${facts.counts.members} accepted Organization Member${facts.counts.members === 1 ? '' : 's'} recorded.`
+			`${facts.counts.leaderMembers} accepted owner/admin membership${facts.counts.leaderMembers === 1 ? '' : 's'} recorded; ${facts.counts.members} total accepted Organization Member${facts.counts.members === 1 ? '' : 's'}.`
 		),
 		deferredMilestone(
 			'defaults_present',

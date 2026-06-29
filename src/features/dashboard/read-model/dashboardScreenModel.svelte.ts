@@ -314,7 +314,7 @@ export class DashboardScreenModel {
 				label: 'Review availability statuses',
 				description: 'Review the seeded availability statuses and adjust them for your unit.',
 				href: `${orgPath}/calendar/settings`,
-				complete: this.statusTypeCount > 0
+				complete: false
 			},
 			{
 				id: 'training',
@@ -328,7 +328,7 @@ export class DashboardScreenModel {
 				label: 'Review duty assignments',
 				description: 'Review the seeded Staff Duty assignment and add other duty types as needed.',
 				href: `${orgPath}/calendar/settings`,
-				complete: this.assignmentTypeCount > 0
+				complete: false
 			},
 			{
 				id: 'duty-roster',

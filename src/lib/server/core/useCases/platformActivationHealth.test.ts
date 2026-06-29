@@ -31,6 +31,7 @@ function facts(overrides: Partial<PlatformActivationOrganizationFacts> = {}): Pl
 		counts: {
 			activePersonnel: MEANINGFUL_ROSTER_THRESHOLD,
 			members: 2,
+			leaderMembers: 2,
 			statusTypes: 4,
 			assignmentTypes: 1,
 			dutyRosterTemplates: 1,
@@ -93,6 +94,7 @@ describe('mapActivationHealthSummary', () => {
 					counts: {
 						activePersonnel: 0,
 						members: 1,
+						leaderMembers: 1,
 						statusTypes: 4,
 						assignmentTypes: 1,
 						dutyRosterTemplates: 0,

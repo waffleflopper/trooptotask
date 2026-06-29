@@ -101,6 +101,7 @@ describe('dashboard page', () => {
 					orgMemberCount: 3,
 					dutyRosterTemplateCount: 0,
 					dutyRosterRunCount: 0,
+					dutyRosterHistoryCount: 0,
 					gettingStartedDismissed: false
 				})
 			})
@@ -112,6 +113,7 @@ describe('dashboard page', () => {
 					orgMemberCount: 6,
 					dutyRosterTemplateCount: 1,
 					dutyRosterRunCount: 1,
+					dutyRosterHistoryCount: 1,
 					gettingStartedDismissed: true
 				})
 			});
@@ -154,6 +156,7 @@ describe('dashboard page', () => {
 					orgMemberCount: 1,
 					dutyRosterTemplateCount: 0,
 					dutyRosterRunCount: 0,
+					dutyRosterHistoryCount: 0,
 					gettingStartedDismissed: false
 				})
 			});

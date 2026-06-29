@@ -146,6 +146,7 @@ describe('createDashboardScreenModel', () => {
 					orgMemberCount: 1,
 					dutyRosterTemplateCount: 0,
 					dutyRosterRunCount: 0,
+					dutyRosterHistoryCount: 0,
 					gettingStartedDismissed: false
 				},
 				{
@@ -184,6 +185,35 @@ describe('createDashboardScreenModel', () => {
 		expect(model.shouldShowGettingStarted).toBe(true);
 	});
 
+	it('treats legacy duty roster history as Duty Roster setup progress', () => {
+		const model = createDashboardScreenModel(
+			makeData(
+				{
+					userRole: 'owner',
+					onboardingTemplateStepCount: 0,
+					ratingSchemeEntryCount: 0,
+					orgMemberCount: 1,
+					dutyRosterTemplateCount: 0,
+					dutyRosterRunCount: 0,
+					dutyRosterHistoryCount: 1,
+					gettingStartedDismissed: false
+				},
+				{
+					personnel: [{ id: 'p1' }],
+					statusTypes: [{ id: 'status-1' }],
+					trainingTypes: [],
+					assignmentTypes: []
+				}
+			),
+			{
+				storage: createMemoryStorage(),
+				sources: makeSources()
+			}
+		);
+
+		expect(model.gettingStartedItems.find((item) => item.id === 'duty-roster')?.complete).toBe(true);
+	});
+
 	it('shows the checklist after deferred support data arrives', () => {
 		const model = createDashboardScreenModel(
 			makeData(
@@ -194,6 +224,7 @@ describe('createDashboardScreenModel', () => {
 					orgMemberCount: undefined,
 					dutyRosterTemplateCount: undefined,
 					dutyRosterRunCount: undefined,
+					dutyRosterHistoryCount: undefined,
 					gettingStartedDismissed: undefined
 				},
 				{
@@ -218,6 +249,7 @@ describe('createDashboardScreenModel', () => {
 			orgMemberCount: 1,
 			dutyRosterTemplateCount: 1,
 			dutyRosterRunCount: 0,
+			dutyRosterHistoryCount: 0,
 			gettingStartedDismissed: false
 		});
 
@@ -236,6 +268,7 @@ describe('createDashboardScreenModel', () => {
 					orgMemberCount: 2,
 					dutyRosterTemplateCount: 1,
 					dutyRosterRunCount: 0,
+					dutyRosterHistoryCount: 0,
 					gettingStartedDismissed: false
 				},
 				{
@@ -260,6 +293,7 @@ describe('createDashboardScreenModel', () => {
 			orgMemberCount: 1,
 			dutyRosterTemplateCount: 0,
 			dutyRosterRunCount: 0,
+			dutyRosterHistoryCount: 0,
 			gettingStartedDismissed: true
 		});
 
@@ -276,6 +310,7 @@ describe('createDashboardScreenModel', () => {
 				orgMemberCount: 1,
 				dutyRosterTemplateCount: 0,
 				dutyRosterRunCount: 0,
+				dutyRosterHistoryCount: 0,
 				gettingStartedDismissed: false
 			}),
 			{

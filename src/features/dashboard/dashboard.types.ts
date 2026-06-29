@@ -73,6 +73,7 @@ export interface DashboardPageData {
 	orgMemberCount?: number;
 	dutyRosterTemplateCount?: number;
 	dutyRosterRunCount?: number;
+	dutyRosterHistoryCount?: number;
 	gettingStartedDismissed?: boolean;
 	[key: string]: unknown;
 }

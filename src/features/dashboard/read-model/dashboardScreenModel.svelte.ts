@@ -63,6 +63,7 @@ export interface DashboardSupportData {
 	orgMemberCount: number;
 	dutyRosterTemplateCount: number;
 	dutyRosterRunCount: number;
+	dutyRosterHistoryCount: number;
 	gettingStartedDismissed: boolean;
 }
 
@@ -220,6 +221,7 @@ export class DashboardScreenModel {
 			typeof data.orgMemberCount === 'number' &&
 			typeof data.dutyRosterTemplateCount === 'number' &&
 			typeof data.dutyRosterRunCount === 'number' &&
+			typeof data.dutyRosterHistoryCount === 'number' &&
 			typeof data.gettingStartedDismissed === 'boolean'
 		) {
 			this.applySupportData({
@@ -228,6 +230,7 @@ export class DashboardScreenModel {
 				orgMemberCount: data.orgMemberCount,
 				dutyRosterTemplateCount: data.dutyRosterTemplateCount,
 				dutyRosterRunCount: data.dutyRosterRunCount,
+				dutyRosterHistoryCount: data.dutyRosterHistoryCount,
 				gettingStartedDismissed: data.gettingStartedDismissed
 			});
 		}
@@ -291,6 +294,10 @@ export class DashboardScreenModel {
 		return this.supportData?.dutyRosterRunCount ?? 0;
 	}
 
+	get dutyRosterHistoryCount(): number {
+		return this.supportData?.dutyRosterHistoryCount ?? 0;
+	}
+
 	get gettingStartedItems(): DashboardGettingStartedItem[] {
 		const orgPath = `/org/${this.data.orgId}`;
 
@@ -328,7 +335,7 @@ export class DashboardScreenModel {
 				label: 'Set up Duty Roster',
 				description: 'Create a Duty Roster template or accept a first run when the roster is ready.',
 				href: `${orgPath}/duty-rosters/new`,
-				complete: this.dutyRosterTemplateCount > 0 || this.dutyRosterRunCount > 0
+				complete: this.dutyRosterTemplateCount > 0 || this.dutyRosterRunCount > 0 || this.dutyRosterHistoryCount > 0
 			},
 			{
 				id: 'members',

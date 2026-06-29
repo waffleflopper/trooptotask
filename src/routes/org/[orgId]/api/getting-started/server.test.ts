@@ -37,6 +37,7 @@ describe('GET /api/getting-started', () => {
 			{ id: 'template-archived', organization_id: ctx.auth.orgId, status: 'archived' }
 		]);
 		ctx.store.seed('duty_roster_template_runs', [{ id: 'run-1', organization_id: ctx.auth.orgId }]);
+		ctx.store.seed('duty_roster_history', [{ id: 'history-1', organization_id: ctx.auth.orgId }]);
 		ctx.store.seed('getting_started_progress', [
 			{
 				id: 'progress-1',
@@ -54,6 +55,7 @@ describe('GET /api/getting-started', () => {
 			orgMemberCount: 2,
 			dutyRosterTemplateCount: 1,
 			dutyRosterRunCount: 1,
+			dutyRosterHistoryCount: 1,
 			gettingStartedDismissed: true
 		});
 		expect(consoleInfoSpy).toHaveBeenCalledWith(
@@ -79,6 +81,16 @@ describe('GET /api/getting-started', () => {
 			'duty_roster_templates',
 			ctx.auth.orgId,
 			{ status: 'active' },
+			expect.objectContaining({
+				select: 'id',
+				range: { from: 0, to: 0 },
+				count: 'exact'
+			})
+		);
+		expect(findManyWithCountSpy).toHaveBeenCalledWith(
+			'duty_roster_history',
+			ctx.auth.orgId,
+			undefined,
 			expect.objectContaining({
 				select: 'id',
 				range: { from: 0, to: 0 },

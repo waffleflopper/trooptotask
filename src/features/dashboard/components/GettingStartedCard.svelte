@@ -87,9 +87,11 @@
 					{/each}
 				</ul>
 				{#if applyState.status === 'success' && applyState.message}
-					<p class="mt-3 text-xs font-medium text-success-foreground">{applyState.message}</p>
+					<p class="mt-3 text-xs font-medium text-success-foreground" role="status" aria-live="polite">
+						{applyState.message}
+					</p>
 				{:else if applyState.status === 'error' && applyState.message}
-					<p class="mt-3 text-xs font-medium text-destructive">{applyState.message}</p>
+					<p class="mt-3 text-xs font-medium text-destructive" role="alert">{applyState.message}</p>
 				{/if}
 			</div>
 		{/if}

@@ -432,22 +432,38 @@ export class DashboardScreenModel {
 				return null;
 			}
 
-			const supportResponse = await fetch(`/org/${this.data.orgId}/api/getting-started`);
-			if (!supportResponse.ok) {
-				throw new Error(await responseMessage(supportResponse, 'Checklist could not refresh.'));
+			try {
+				const supportResponse = await fetch(`/org/${this.data.orgId}/api/getting-started`);
+				if (!supportResponse.ok) {
+					const detail = await responseMessage(supportResponse, 'Checklist could not refresh.');
+					this.starterPackApplyState = {
+						status: 'success',
+						message: checklistRefreshWarning(result.packName, detail),
+						result
+					};
+					return result;
+				}
+
+				this.applySupportData((await supportResponse.json()) as DashboardSupportData);
+			} catch (error) {
+				this.starterPackApplyState = {
+					status: 'success',
+					message: checklistRefreshWarning(result.packName, errorMessage(error, 'Checklist could not refresh.')),
+					result
+				};
+				return result;
 			}
 
-			this.applySupportData((await supportResponse.json()) as DashboardSupportData);
 			this.starterPackApplyState = {
 				status: 'success',
 				message: `${result.packName} applied. You can edit the created setup from each workflow.`,
 				result
 			};
 			return result;
-		} catch {
+		} catch (error) {
 			this.starterPackApplyState = {
 				status: 'error',
-				message: 'Starter pack could not be applied.',
+				message: errorMessage(error, 'Starter pack could not be applied.'),
 				result: null
 			};
 			return null;
@@ -958,6 +974,15 @@ function dashboardTrainingTypeCount(data: DashboardPageData): number {
 async function responseMessage(response: Response, fallback: string): Promise<string> {
 	const payload = (await response.json().catch(() => null)) as { message?: string; error?: string } | null;
 	return payload?.message ?? payload?.error ?? fallback;
+}
+
+function errorMessage(error: unknown, fallback: string): string {
+	return error instanceof Error && error.message ? error.message : fallback;
+}
+
+function checklistRefreshWarning(packName: string, detail: string): string {
+	const base = `${packName} applied, but the setup checklist could not refresh. Reload the page to see the latest setup state.`;
+	return detail && detail !== 'Checklist could not refresh.' ? `${base} ${detail}` : base;
 }
 
 function groupEntries<T>(

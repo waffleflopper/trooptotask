@@ -17,6 +17,11 @@ import { evaluateUpcomingLosses, type UpcomingLossRecord } from '$lib/domain/rea
 import { SvelteDate, SvelteMap, SvelteSet } from 'svelte/reactivity';
 import type { AssignmentType, AvailabilityEntry, DailyAssignment, Personnel, StatusType } from '$lib/types';
 import type { DashboardPageData, TrainingIssue } from '$features/dashboard/dashboard.types';
+import type {
+	StarterConfigurationPackApplyResult,
+	StarterConfigurationPackId,
+	StarterConfigurationPackSupport
+} from '$lib/types/starterConfigurationPacks';
 
 export type GroupedEntries<T> = Array<[string, T[]]>;
 export type UpcomingGroupBy = 'date' | 'group';
@@ -58,6 +63,7 @@ export interface DashboardScreenModelOptions {
 }
 
 export interface DashboardSupportData {
+	trainingTypeCount?: number;
 	onboardingTemplateStepCount: number;
 	ratingSchemeEntryCount: number;
 	orgMemberCount: number;
@@ -65,6 +71,13 @@ export interface DashboardSupportData {
 	dutyRosterRunCount: number;
 	dutyRosterHistoryCount: number;
 	gettingStartedDismissed: boolean;
+	starterConfigurationPacks?: StarterConfigurationPackSupport[];
+}
+
+export interface DashboardStarterPackApplyState {
+	status: 'idle' | 'pending' | 'success' | 'error';
+	message: string | null;
+	result: StarterConfigurationPackApplyResult | null;
 }
 
 export interface DashboardGettingStartedItem {
@@ -204,6 +217,11 @@ export class DashboardScreenModel {
 	// Banner / getting-started support state
 	// ---------------------------------------------------------------------------
 	gettingStartedDismissed = $state(false);
+	starterPackApplyState = $state<DashboardStarterPackApplyState>({
+		status: 'idle',
+		message: null,
+		result: null
+	});
 	private supportData = $state<DashboardSupportData | null>(null);
 
 	constructor(data: DashboardPageData, options: DashboardScreenModelOptions = {}) {
@@ -225,13 +243,15 @@ export class DashboardScreenModel {
 			typeof data.gettingStartedDismissed === 'boolean'
 		) {
 			this.applySupportData({
+				trainingTypeCount: data.trainingTypeCount,
 				onboardingTemplateStepCount: data.onboardingTemplateStepCount,
 				ratingSchemeEntryCount: data.ratingSchemeEntryCount,
 				orgMemberCount: data.orgMemberCount,
 				dutyRosterTemplateCount: data.dutyRosterTemplateCount,
 				dutyRosterRunCount: data.dutyRosterRunCount,
 				dutyRosterHistoryCount: data.dutyRosterHistoryCount,
-				gettingStartedDismissed: data.gettingStartedDismissed
+				gettingStartedDismissed: data.gettingStartedDismissed,
+				starterConfigurationPacks: data.starterConfigurationPacks
 			});
 		}
 	}
@@ -256,7 +276,7 @@ export class DashboardScreenModel {
 	}
 
 	get trainingTypeCount(): number {
-		return this.data.dashboard.data.trainingTypes.length;
+		return this.supportData?.trainingTypeCount ?? dashboardTrainingTypeCount(this.data);
 	}
 
 	get assignmentTypeCount(): number {
@@ -272,6 +292,14 @@ export class DashboardScreenModel {
 	// ---------------------------------------------------------------------------
 	get hasSupportData(): boolean {
 		return this.supportData !== null;
+	}
+
+	get starterConfigurationPacks(): StarterConfigurationPackSupport[] {
+		return this.supportData?.starterConfigurationPacks ?? [];
+	}
+
+	get firstStarterConfigurationPack(): StarterConfigurationPackSupport | null {
+		return this.starterConfigurationPacks[0] ?? null;
 	}
 
 	get onboardingTemplateStepCount(): number {
@@ -369,8 +397,61 @@ export class DashboardScreenModel {
 	}
 
 	applySupportData(data: DashboardSupportData) {
-		this.supportData = data;
+		this.supportData = {
+			...data,
+			trainingTypeCount: data.trainingTypeCount ?? dashboardTrainingTypeCount(this.data),
+			starterConfigurationPacks: data.starterConfigurationPacks ?? []
+		};
 		this.gettingStartedDismissed = data.gettingStartedDismissed;
+	}
+
+	async applyStarterConfigurationPack(
+		packId: StarterConfigurationPackId
+	): Promise<StarterConfigurationPackApplyResult | null> {
+		this.starterPackApplyState = {
+			status: 'pending',
+			message: null,
+			result: null
+		};
+
+		try {
+			const response = await fetch(`/org/${this.data.orgId}/api/starter-configuration-packs/${packId}/apply`, {
+				method: 'POST'
+			});
+			if (!response.ok) {
+				throw new Error(await responseMessage(response, 'Starter pack could not be applied.'));
+			}
+
+			const result = (await response.json()) as StarterConfigurationPackApplyResult;
+			if (result.failed.length > 0) {
+				this.starterPackApplyState = {
+					status: 'error',
+					message: 'Some starter artifacts could not be created.',
+					result
+				};
+				return null;
+			}
+
+			const supportResponse = await fetch(`/org/${this.data.orgId}/api/getting-started`);
+			if (!supportResponse.ok) {
+				throw new Error(await responseMessage(supportResponse, 'Checklist could not refresh.'));
+			}
+
+			this.applySupportData((await supportResponse.json()) as DashboardSupportData);
+			this.starterPackApplyState = {
+				status: 'success',
+				message: `${result.packName} applied. You can edit the created setup from each workflow.`,
+				result
+			};
+			return result;
+		} catch {
+			this.starterPackApplyState = {
+				status: 'error',
+				message: 'Starter pack could not be applied.',
+				result: null
+			};
+			return null;
+		}
 	}
 
 	async dismissGettingStarted() {
@@ -868,6 +949,15 @@ function writePreference(storage: DashboardStoragePort | null, key: string, valu
 	} catch {
 		// Preference persistence is best-effort; the UI state has already updated.
 	}
+}
+
+function dashboardTrainingTypeCount(data: DashboardPageData): number {
+	return data.dashboard?.data?.trainingTypes?.length ?? 0;
+}
+
+async function responseMessage(response: Response, fallback: string): Promise<string> {
+	const payload = (await response.json().catch(() => null)) as { message?: string; error?: string } | null;
+	return payload?.message ?? payload?.error ?? fallback;
 }
 
 function groupEntries<T>(

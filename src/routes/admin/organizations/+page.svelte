@@ -26,6 +26,7 @@
 		data.activationHealth ?? {
 			generatedAt: '',
 			overallState: 'diagnostics_unavailable',
+			candidateLimit: 100,
 			counts: {
 				candidateOrganizations: 0,
 				activatedOrganizations: 0,
@@ -101,7 +102,7 @@
 		<PageShell.Metric
 			label="Activation Attention"
 			value={activationHealth.counts.supportAttentionItems}
-			detail={`${activationHealth.counts.paidBelowRosterThreshold} paid Organizations below the 5-person roster threshold.`}
+			detail={`${activationHealth.counts.paidBelowRosterThreshold} paid Organizations below the 5-person roster threshold. Counts cover up to ${activationHealth.candidateLimit} launch candidates.`}
 		/>
 	</PageShell.FactGrid>
 
@@ -121,7 +122,8 @@
 				<Card.Title>Acquisition and Activation Health</Card.Title>
 				<Card.Description>
 					{formatAdminLabel(activationHealth.overallState)} · {activationHealth.counts.candidateOrganizations}
-					self-service or paid candidates · {activationHealth.counts.activatedOrganizations} activated.
+					self-service or paid candidates · {activationHealth.counts.activatedOrganizations} activated. Counts cover up to
+					{activationHealth.candidateLimit} launch candidates.
 				</Card.Description>
 			</div>
 			<div class="flex flex-wrap gap-2">

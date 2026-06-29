@@ -8,7 +8,7 @@ type SupabaseResponse<T> = { data: T | null; error: unknown };
 
 const EXPECTED_ORGANIZATION_SELECT = 'id, name, created_at';
 const EXPECTED_CHECKOUT_SELECT =
-	'organization_id, status, commercial_plan, created_at, updated_at, completed_at, canceled_at, expires_at, organizations!inner(id, name, created_at)';
+	'id, organization_id, status, commercial_plan, created_at, updated_at, completed_at, canceled_at, expires_at, organizations!inner(id, name, created_at)';
 const EXPECTED_BILLING_SELECT =
 	'organization_id, source, commercial_plan, subscription_status, collection_status, sync_status, organizations!inner(id, name, created_at)';
 
@@ -420,6 +420,68 @@ describe('createSupabasePlatformActivationHealthStore', () => {
 					JSON.stringify(call.args[1]) === JSON.stringify(['org-1'])
 			)
 		).toBe(true);
+	});
+
+	it('paginates checkout requery rows so selected organizations do not undercount attempts', async () => {
+		const organization = {
+			id: 'org-many-checkouts',
+			name: 'Many Checkouts Company',
+			created_at: '2026-06-01T00:00:00.000Z'
+		};
+		const checkoutRows = Array.from({ length: 1005 }, (_, index) => ({
+			id: `checkout-${String(index).padStart(4, '0')}`,
+			organization_id: organization.id,
+			commercial_plan: 'team',
+			status: 'failed',
+			created_at: new Date(Date.UTC(2026, 5, 1, 0, 0, index)).toISOString(),
+			updated_at: new Date(Date.UTC(2026, 5, 1, 0, 0, index, 500)).toISOString(),
+			completed_at: null,
+			canceled_at: null,
+			expires_at: new Date(Date.UTC(2026, 5, 1, 1, 0, index)).toISOString(),
+			organizations: organization
+		}));
+		const { supabase, calls } = createSupabaseStub({
+			organization_billing_snapshots: [
+				{
+					organization_id: organization.id,
+					source: 'stripe',
+					commercial_plan: 'team',
+					subscription_status: 'incomplete',
+					collection_status: 'incomplete',
+					sync_status: 'pending',
+					last_processed_at: '2026-06-28T00:00:00.000Z',
+					updated_at: '2026-06-28T00:00:00.000Z',
+					organizations: organization
+				}
+			],
+			organization_checkout_attempts: checkoutRows
+		});
+
+		const facts = await createSupabasePlatformActivationHealthStore(supabase).listActivationOrganizationFacts({
+			limit: 1
+		});
+
+		expect(facts[0]?.checkout).toMatchObject({
+			attemptCount: 1005,
+			interruptedCount: 1005,
+			latestStatus: 'failed'
+		});
+		expect(
+			calls.filter(
+				(call) =>
+					call.table === 'organization_checkout_attempts' &&
+					call.method === 'range' &&
+					JSON.stringify(call.args) === '[0,999]'
+			)
+		).toHaveLength(1);
+		expect(
+			calls.filter(
+				(call) =>
+					call.table === 'organization_checkout_attempts' &&
+					call.method === 'range' &&
+					JSON.stringify(call.args) === '[1000,1999]'
+			)
+		).toHaveLength(1);
 	});
 
 	it('surfaces paid checkout candidates that have no billing snapshot or organization sample row', async () => {

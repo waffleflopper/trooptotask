@@ -75,6 +75,7 @@ describe('admin organizations route load', () => {
 		activationHealthMock.summarize.mockResolvedValue({
 			generatedAt: '2026-06-28T12:00:00.000Z',
 			overallState: 'no_candidates',
+			candidateLimit: 100,
 			counts: {
 				candidateOrganizations: 0,
 				activatedOrganizations: 0,

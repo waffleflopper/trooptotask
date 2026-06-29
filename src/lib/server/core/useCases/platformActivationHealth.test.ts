@@ -54,6 +54,7 @@ describe('mapActivationHealthSummary', () => {
 		expect(summary).toMatchObject({
 			generatedAt: '2026-06-28T12:00:00.000Z',
 			overallState: 'activated',
+			candidateLimit: 100,
 			diagnosticsError: false,
 			counts: {
 				candidateOrganizations: 1,
@@ -315,6 +316,7 @@ describe('createPlatformActivationHealth', () => {
 			expect(summary).toMatchObject({
 				generatedAt: '2026-06-28T12:00:00.000Z',
 				overallState: 'diagnostics_unavailable',
+				candidateLimit: 100,
 				diagnosticsError: true,
 				counts: {
 					candidateOrganizations: 0,

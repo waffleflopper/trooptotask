@@ -23,6 +23,7 @@ function renderOrganizationsPage(data: Record<string, unknown>) {
 				activationHealth: {
 					generatedAt: '2026-06-28T12:00:00.000Z',
 					overallState: 'no_candidates',
+					candidateLimit: 100,
 					counts: {
 						candidateOrganizations: 0,
 						activatedOrganizations: 0,
@@ -77,6 +78,7 @@ describe('admin organizations page', () => {
 			activationHealth: {
 				generatedAt: '2026-06-28T12:00:00.000Z',
 				overallState: 'needs_attention',
+				candidateLimit: 100,
 				counts: {
 					candidateOrganizations: 3,
 					activatedOrganizations: 0,
@@ -144,6 +146,7 @@ describe('admin organizations page', () => {
 		expect(screen.getAllByText('Needs Attention').length).toBeGreaterThan(0);
 		expect(document.body.textContent).toContain('self-service or paid candidates');
 		expect(document.body.textContent).toContain('0 activated');
+		expect(document.body.textContent).toContain('Counts cover up to 100 launch candidates.');
 		expect(screen.getByText('Showing top 1 of 3 candidates.')).toBeTruthy();
 		expect(screen.getByText('2 / 5')).toBeTruthy();
 		expect(screen.getByText('1 templates / 1 runs')).toBeTruthy();
@@ -168,6 +171,7 @@ describe('admin organizations page', () => {
 			activationHealth: {
 				generatedAt: '2026-06-28T12:00:00.000Z',
 				overallState: 'diagnostics_unavailable',
+				candidateLimit: 100,
 				counts: {
 					candidateOrganizations: 0,
 					activatedOrganizations: 0,

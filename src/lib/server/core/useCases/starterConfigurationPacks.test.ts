@@ -422,6 +422,180 @@ describe('starter configuration packs', () => {
 		expect(racedStep?.id).toBe(racedStarterStepId);
 	});
 
+	it('treats a concurrent canonical Duty Roster starter create as skipped without leaving a duplicate active scaffold', async () => {
+		const ctx = createTestContext();
+		const originalInsert = ctx.store.insert.bind(ctx.store);
+		const dutyRosterTemplateInsertSlugs: string[] = [];
+		let dutyRosterRace = true;
+
+		vi.spyOn(ctx.store, 'insert').mockImplementation(async (table, orgId, data, select) => {
+			if (table === 'duty_roster_templates') {
+				dutyRosterTemplateInsertSlugs.push(String(data.slug));
+			}
+
+			if (table === 'duty_roster_templates' && data.slug === 'staff-duty' && dutyRosterRace) {
+				dutyRosterRace = false;
+				ctx.store.seed('assignment_types', [
+					{
+						id: 'template-concurrent-staff-duty',
+						organization_id: orgId,
+						name: 'Staff Duty',
+						short_name: 'SD',
+						assign_to: 'personnel',
+						color: '#8a5a22',
+						sort_order: 0,
+						show_in_date_header: false,
+						exempt_personnel_ids: [],
+						archived_at: null
+					}
+				]);
+				ctx.store.seed('duty_roster_templates', [
+					{
+						id: 'template-concurrent-staff-duty',
+						organization_id: orgId,
+						assignment_type_id: 'template-concurrent-staff-duty',
+						name: 'Staff Duty',
+						slug: 'staff-duty',
+						short_code: 'SD',
+						status: 'active',
+						pool_criteria: {},
+						exempt_personnel_ids: [],
+						manual_baseline_counts: {},
+						created_by_user_id: ctx.auth.userId,
+						created_at: '2026-05-04T12:00:00.000Z',
+						updated_at: '2026-05-04T12:00:00.000Z',
+						archived_at: null
+					}
+				]);
+				throw new Error('duplicate key value violates unique constraint "duty_roster_templates_org_slug_key"');
+			}
+
+			return originalInsert(table, orgId, data, select);
+		});
+
+		const result = await applyStarterConfigurationPack(ctx, 'first-week-operations');
+		const templates = (await ctx.store.findMany('duty_roster_templates', ctx.auth.orgId)) as Record<string, unknown>[];
+		const activeStaffDutyTemplates = templates.filter((row) => row.name === 'Staff Duty' && row.status === 'active');
+		const assignmentTypes = (await ctx.store.findMany('assignment_types', ctx.auth.orgId)) as Record<string, unknown>[];
+		const activeStaffDutyAssignmentTypes = assignmentTypes.filter(
+			(row) => row.name === 'Staff Duty' && !row.archived_at
+		);
+
+		expect(result.failed).toEqual([]);
+		expect(result.skipped).toContainEqual({ family: 'duty-roster-template', name: 'Staff Duty' });
+		expect(result.created).not.toContainEqual({ family: 'duty-roster-template', name: 'Staff Duty' });
+		expect(dutyRosterTemplateInsertSlugs).toEqual(['staff-duty']);
+		expect(activeStaffDutyTemplates).toEqual([
+			expect.objectContaining({
+				id: 'template-concurrent-staff-duty',
+				slug: 'staff-duty',
+				status: 'active'
+			})
+		]);
+		expect(activeStaffDutyAssignmentTypes).toEqual([
+			expect.objectContaining({
+				id: 'template-concurrent-staff-duty',
+				name: 'Staff Duty'
+			})
+		]);
+	});
+
+	it('treats a concurrent archived-slug Duty Roster starter replacement as skipped without suffixing again', async () => {
+		const ctx = createTestContext();
+		ctx.store.seed('duty_roster_templates', [
+			{
+				id: 'template-archived-staff-duty',
+				organization_id: ctx.auth.orgId,
+				assignment_type_id: 'template-archived-staff-duty',
+				name: 'Staff Duty',
+				slug: 'staff-duty',
+				short_code: 'SD',
+				status: 'archived',
+				pool_criteria: {},
+				exempt_personnel_ids: [],
+				manual_baseline_counts: {},
+				created_by_user_id: ctx.auth.userId,
+				created_at: '2026-05-04T12:00:00.000Z',
+				updated_at: '2026-05-04T12:00:00.000Z',
+				archived_at: '2026-05-05T12:00:00.000Z'
+			}
+		]);
+		const originalInsert = ctx.store.insert.bind(ctx.store);
+		const dutyRosterTemplateInsertSlugs: string[] = [];
+		let dutyRosterRace = true;
+
+		vi.spyOn(ctx.store, 'insert').mockImplementation(async (table, orgId, data, select) => {
+			if (table === 'duty_roster_templates') {
+				dutyRosterTemplateInsertSlugs.push(String(data.slug));
+			}
+
+			if (table === 'duty_roster_templates' && data.slug === 'staff-duty-2' && dutyRosterRace) {
+				dutyRosterRace = false;
+				ctx.store.seed('assignment_types', [
+					{
+						id: 'template-concurrent-staff-duty-2',
+						organization_id: orgId,
+						name: 'Staff Duty',
+						short_name: 'SD',
+						assign_to: 'personnel',
+						color: '#8a5a22',
+						sort_order: 0,
+						show_in_date_header: false,
+						exempt_personnel_ids: [],
+						archived_at: null
+					}
+				]);
+				ctx.store.seed('duty_roster_templates', [
+					{
+						id: 'template-concurrent-staff-duty-2',
+						organization_id: orgId,
+						assignment_type_id: 'template-concurrent-staff-duty-2',
+						name: 'Staff Duty',
+						slug: 'staff-duty-2',
+						short_code: 'SD',
+						status: 'active',
+						pool_criteria: {},
+						exempt_personnel_ids: [],
+						manual_baseline_counts: {},
+						created_by_user_id: ctx.auth.userId,
+						created_at: '2026-05-04T12:00:00.000Z',
+						updated_at: '2026-05-04T12:00:00.000Z',
+						archived_at: null
+					}
+				]);
+				throw new Error('duplicate key value violates unique constraint "duty_roster_templates_org_slug_key"');
+			}
+
+			return originalInsert(table, orgId, data, select);
+		});
+
+		const result = await applyStarterConfigurationPack(ctx, 'first-week-operations');
+		const templates = (await ctx.store.findMany('duty_roster_templates', ctx.auth.orgId)) as Record<string, unknown>[];
+		const activeStaffDutyTemplates = templates.filter((row) => row.name === 'Staff Duty' && row.status === 'active');
+		const assignmentTypes = (await ctx.store.findMany('assignment_types', ctx.auth.orgId)) as Record<string, unknown>[];
+		const activeStaffDutyAssignmentTypes = assignmentTypes.filter(
+			(row) => row.name === 'Staff Duty' && !row.archived_at
+		);
+
+		expect(result.failed).toEqual([]);
+		expect(result.skipped).toContainEqual({ family: 'duty-roster-template', name: 'Staff Duty' });
+		expect(result.created).not.toContainEqual({ family: 'duty-roster-template', name: 'Staff Duty' });
+		expect(dutyRosterTemplateInsertSlugs).toEqual(['staff-duty-2']);
+		expect(activeStaffDutyTemplates).toEqual([
+			expect.objectContaining({
+				id: 'template-concurrent-staff-duty-2',
+				slug: 'staff-duty-2',
+				status: 'active'
+			})
+		]);
+		expect(activeStaffDutyAssignmentTypes).toEqual([
+			expect.objectContaining({
+				id: 'template-concurrent-staff-duty-2',
+				name: 'Staff Duty'
+			})
+		]);
+	});
+
 	it('does not treat archived Staff Duty templates as starter readiness and creates an active replacement', async () => {
 		const ctx = createTestContext();
 		ctx.store.seed('duty_roster_templates', [

@@ -164,8 +164,8 @@ describe('DashboardPageView', () => {
 			gettingStartedItems: [
 				{
 					id: 'members',
-					label: 'Invite another leader',
-					description: 'Add at least one more Organization Member for shared administration.',
+					label: 'Invite another Organization Member',
+					description: 'Add at least one more member for shared access.',
 					href: '/org/org-1/settings/members',
 					complete: false
 				}

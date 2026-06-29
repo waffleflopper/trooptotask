@@ -19,6 +19,7 @@ describe('GET /api/getting-started', () => {
 	it('returns workspace support metadata and logs timing', async () => {
 		const ctx = createTestContext();
 		const consoleInfoSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
+		const findManyWithCountSpy = vi.spyOn(ctx.store, 'findManyWithCount');
 
 		ctx.store.seed('onboarding_template_steps', [
 			{ id: 'step-1', organization_id: ctx.auth.orgId, title: 'Step 1' },
@@ -31,6 +32,12 @@ describe('GET /api/getting-started', () => {
 			{ id: 'member-1', organization_id: ctx.auth.orgId, user_id: ctx.auth.userId, role: 'owner' },
 			{ id: 'member-2', organization_id: ctx.auth.orgId, user_id: 'user-2', role: 'member' }
 		]);
+		ctx.store.seed('duty_roster_templates', [
+			{ id: 'template-1', organization_id: ctx.auth.orgId, status: 'active' },
+			{ id: 'template-archived', organization_id: ctx.auth.orgId, status: 'archived' }
+		]);
+		ctx.store.seed('duty_roster_template_runs', [{ id: 'run-1', organization_id: ctx.auth.orgId }]);
+		ctx.store.seed('duty_roster_history', [{ id: 'history-1', organization_id: ctx.auth.orgId }]);
 		ctx.store.seed('getting_started_progress', [
 			{
 				id: 'progress-1',
@@ -46,6 +53,9 @@ describe('GET /api/getting-started', () => {
 			onboardingTemplateStepCount: 2,
 			ratingSchemeEntryCount: 1,
 			orgMemberCount: 2,
+			dutyRosterTemplateCount: 2,
+			dutyRosterRunCount: 1,
+			dutyRosterHistoryCount: 1,
 			gettingStartedDismissed: true
 		});
 		expect(consoleInfoSpy).toHaveBeenCalledWith(
@@ -55,6 +65,36 @@ describe('GET /api/getting-started', () => {
 				phase: 'support',
 				status: 'ok',
 				durationMs: expect.any(Number)
+			})
+		);
+		expect(findManyWithCountSpy).toHaveBeenCalledWith(
+			'duty_roster_template_runs',
+			ctx.auth.orgId,
+			undefined,
+			expect.objectContaining({
+				select: 'id',
+				range: { from: 0, to: 0 },
+				count: 'estimated'
+			})
+		);
+		expect(findManyWithCountSpy).toHaveBeenCalledWith(
+			'duty_roster_templates',
+			ctx.auth.orgId,
+			undefined,
+			expect.objectContaining({
+				select: 'id',
+				range: { from: 0, to: 0 },
+				count: 'estimated'
+			})
+		);
+		expect(findManyWithCountSpy).toHaveBeenCalledWith(
+			'duty_roster_history',
+			ctx.auth.orgId,
+			undefined,
+			expect.objectContaining({
+				select: 'id',
+				range: { from: 0, to: 0 },
+				count: 'estimated'
 			})
 		);
 	});

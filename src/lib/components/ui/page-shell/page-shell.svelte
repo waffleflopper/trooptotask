@@ -2,7 +2,7 @@
 	import { tv, type VariantProps } from 'tailwind-variants';
 
 	export const pageShellVariants = tv({
-		base: 'min-h-0 flex-1 overflow-x-hidden overflow-y-auto bg-background text-foreground',
+		base: 'min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto bg-background text-foreground',
 		variants: {
 			density: {
 				default: 'p-4 md:p-6',
@@ -21,7 +21,7 @@
 	});
 
 	export const pageShellBodyVariants = tv({
-		base: 'grid gap-6',
+		base: 'grid min-w-0 gap-6',
 		variants: {
 			width: {
 				full: '',

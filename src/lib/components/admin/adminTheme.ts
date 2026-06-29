@@ -41,6 +41,7 @@ export function adminBadgeVariant(value: string | null | undefined): BadgeVarian
 		case 'approved':
 		case 'resolved':
 		case 'healthy':
+		case 'activated':
 			return 'success';
 		case 'suspended':
 		case 'rejected':
@@ -61,12 +62,14 @@ export function adminBadgeVariant(value: string | null | undefined): BadgeVarian
 		case 'drift_detected':
 		case 'payment_recovery_attention':
 		case 'reconciliation_stale':
+		case 'needs_attention':
 			return 'warning';
 		case 'stripe_billing':
 		case 'team':
 		case 'admin':
 		case 'info':
 		case 'feature':
+		case 'in_progress':
 			return 'info';
 		default:
 			return 'secondary';

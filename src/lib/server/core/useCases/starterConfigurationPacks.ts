@@ -6,8 +6,13 @@ import { fail } from '$lib/server/core/errors';
 import type { UseCaseContext, WritePorts } from '$lib/server/core/ports';
 import { createCrudUseCases } from '$lib/server/core/useCases/crud';
 import { createOnboardingTemplate } from './onboardingTemplateCrud';
-import { createDutyRosterTemplate } from './dutyRosterTemplates';
+import { createConfiguredDutyRosterTemplate } from './dutyRosterTemplates';
 import { getEntityAuditResource } from '$lib/server/entitySchema';
+import {
+	buildUniqueDutyRosterTemplateSlug,
+	EMPTY_DUTY_ROSTER_POOL_CRITERIA,
+	type DutyRosterTemplate
+} from '$features/duty-roster/templates/dutyRosterTemplates';
 import { TrainingTypeEntity } from '$lib/server/entities/trainingType';
 import type { OnboardingTemplate } from '$features/onboarding/onboarding.types';
 import type { TrainingType } from '$features/training/training.types';
@@ -441,10 +446,12 @@ async function applyStarterDutyRosterTemplate(ctx: WritePorts, result: StarterCo
 	}
 
 	try {
-		await createDutyRosterTemplate(ctx, {
-			name: DUTY_ROSTER_TEMPLATE.name,
-			shortCode: DUTY_ROSTER_TEMPLATE.shortCode
-		});
+		const created = await createStarterDutyRosterTemplate(ctx);
+		if (!created) {
+			recordSkipped(result, DUTY_ROSTER_FAMILY, DUTY_ROSTER_TEMPLATE.name);
+			return;
+		}
+
 		recordCreated(result, DUTY_ROSTER_FAMILY, DUTY_ROSTER_TEMPLATE.name);
 	} catch (error) {
 		rethrowAuthorizationFailure(error);
@@ -457,6 +464,23 @@ async function applyStarterDutyRosterTemplate(ctx: WritePorts, result: StarterCo
 		}
 		recordFailed(result, DUTY_ROSTER_FAMILY, DUTY_ROSTER_TEMPLATE.name);
 	}
+}
+
+async function createStarterDutyRosterTemplate(ctx: WritePorts): Promise<DutyRosterTemplate | null> {
+	const activeExisting = await findActiveStarterDutyRosterTemplate(ctx);
+	if (activeExisting) {
+		return null;
+	}
+	const slug = await nextAvailableStarterDutyRosterSlug(ctx);
+
+	return createConfiguredDutyRosterTemplate(ctx, {
+		name: DUTY_ROSTER_TEMPLATE.name,
+		slug,
+		shortCode: DUTY_ROSTER_TEMPLATE.shortCode,
+		poolCriteria: EMPTY_DUTY_ROSTER_POOL_CRITERIA,
+		exemptPersonnelIds: [],
+		manualBaselineCounts: {}
+	});
 }
 
 async function createStarterOnboardingTemplateStep(
@@ -506,6 +530,19 @@ async function findOnboardingTemplateByName(
 ): Promise<OnboardingTemplate | null> {
 	const row = await ctx.store.findOne<Record<string, unknown>>('onboarding_templates', ctx.auth.orgId, { name });
 	return row ? ({ ...row, orgId: ctx.auth.orgId } as unknown as OnboardingTemplate) : null;
+}
+
+async function nextAvailableStarterDutyRosterSlug(ctx: Pick<WritePorts, 'store' | 'auth'>): Promise<string> {
+	const rows = await ctx.store.findMany<Record<string, unknown>>(
+		'duty_roster_templates',
+		ctx.auth.orgId,
+		{},
+		{ select: 'slug' }
+	);
+	return buildUniqueDutyRosterTemplateSlug({
+		name: DUTY_ROSTER_TEMPLATE.name,
+		existingSlugs: rows.map((row) => stringField(row, 'slug')).filter((slug): slug is string => !!slug)
+	});
 }
 
 async function findOnboardingTemplateStepByName(

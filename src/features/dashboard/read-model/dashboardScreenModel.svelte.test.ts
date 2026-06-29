@@ -5,6 +5,10 @@ import type { AssignmentType, DailyAssignment } from '$lib/types';
 import { createDashboardScreenModel, type DashboardStoragePort } from './dashboardScreenModel.svelte';
 import type { DashboardWorkspaceResult } from '../server/dashboardWorkspaceBootstrap';
 import type { DashboardPageData } from '../dashboard.types';
+import type {
+	StarterConfigurationPackApplyResult,
+	StarterConfigurationPackSupport
+} from '$lib/types/starterConfigurationPacks';
 
 function createMemoryStorage(initial: Record<string, string> = {}): DashboardStoragePort & {
 	values: Record<string, string>;
@@ -92,6 +96,41 @@ function makeSources(
 		pinnedGroups: {
 			list: input.pinnedGroups ?? []
 		}
+	};
+}
+
+function makeStarterPack(overrides: Partial<StarterConfigurationPackSupport> = {}): StarterConfigurationPackSupport {
+	return {
+		id: 'first-week-operations',
+		name: 'First Week Operations',
+		description: 'Optional starter configuration for common first-week setup.',
+		editableCopy: 'Creates editable workflow configuration artifacts.',
+		artifacts: [
+			{
+				family: 'training-types',
+				label: 'Training Types',
+				names: ['Unit Orientation', 'Required Annual Training'],
+				description: 'Adds starter training requirements.'
+			}
+		],
+		readiness: [],
+		canApply: true,
+		deniedActions: [],
+		isFullyApplied: false,
+		...overrides
+	};
+}
+
+function makeApplyResult(
+	overrides: Partial<StarterConfigurationPackApplyResult> = {}
+): StarterConfigurationPackApplyResult {
+	return {
+		packId: 'first-week-operations',
+		packName: 'First Week Operations',
+		created: [{ family: 'training-types', name: 'Unit Orientation' }],
+		skipped: [],
+		failed: [],
+		...overrides
 	};
 }
 
@@ -244,18 +283,21 @@ describe('createDashboardScreenModel', () => {
 		expect(model.shouldShowGettingStarted).toBe(false);
 
 		model.applySupportData({
+			trainingTypeCount: 1,
 			onboardingTemplateStepCount: 1,
 			ratingSchemeEntryCount: 1,
 			orgMemberCount: 1,
 			dutyRosterTemplateCount: 1,
 			dutyRosterRunCount: 0,
 			dutyRosterHistoryCount: 0,
-			gettingStartedDismissed: false
+			gettingStartedDismissed: false,
+			starterConfigurationPacks: [makeStarterPack()]
 		});
 
 		expect(model.hasSupportData).toBe(true);
 		expect(model.shouldShowGettingStarted).toBe(true);
 		expect(model.gettingStartedItems.find((item) => item.id === 'members')?.complete).toBe(false);
+		expect(model.firstStarterConfigurationPack?.name).toBe('First Week Operations');
 	});
 
 	it('keeps seeded-default review tasks open until dismissed', () => {
@@ -291,17 +333,163 @@ describe('createDashboardScreenModel', () => {
 		expect(model.shouldShowGettingStarted).toBe(true);
 
 		model.applySupportData({
+			trainingTypeCount: 0,
 			onboardingTemplateStepCount: 0,
 			ratingSchemeEntryCount: 0,
 			orgMemberCount: 1,
 			dutyRosterTemplateCount: 0,
 			dutyRosterRunCount: 0,
 			dutyRosterHistoryCount: 0,
-			gettingStartedDismissed: true
+			gettingStartedDismissed: true,
+			starterConfigurationPacks: []
 		});
 
 		expect(model.gettingStartedDismissed).toBe(true);
 		expect(model.shouldShowGettingStarted).toBe(false);
+	});
+
+	it('uses refreshed support training counts for checklist completion', () => {
+		const model = createDashboardScreenModel(
+			makeData(
+				{
+					userRole: 'owner',
+					onboardingTemplateStepCount: 0,
+					ratingSchemeEntryCount: 0,
+					orgMemberCount: 1,
+					dutyRosterTemplateCount: 0,
+					dutyRosterRunCount: 0,
+					dutyRosterHistoryCount: 0,
+					gettingStartedDismissed: false
+				},
+				{
+					personnel: [{ id: 'p1' }],
+					trainingTypes: []
+				}
+			),
+			{
+				storage: createMemoryStorage(),
+				sources: makeSources()
+			}
+		);
+
+		expect(model.gettingStartedItems.find((item) => item.id === 'training')?.complete).toBe(false);
+
+		model.applySupportData({
+			trainingTypeCount: 2,
+			onboardingTemplateStepCount: 0,
+			ratingSchemeEntryCount: 0,
+			orgMemberCount: 1,
+			dutyRosterTemplateCount: 0,
+			dutyRosterRunCount: 0,
+			dutyRosterHistoryCount: 0,
+			gettingStartedDismissed: false,
+			starterConfigurationPacks: [makeStarterPack()]
+		});
+
+		expect(model.trainingTypeCount).toBe(2);
+		expect(model.gettingStartedItems.find((item) => item.id === 'training')?.complete).toBe(true);
+	});
+
+	it('applies a starter pack and refreshes support data after success', async () => {
+		const fetchMock = vi
+			.fn()
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => makeApplyResult()
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({
+					trainingTypeCount: 2,
+					onboardingTemplateStepCount: 4,
+					ratingSchemeEntryCount: 0,
+					orgMemberCount: 1,
+					dutyRosterTemplateCount: 1,
+					dutyRosterRunCount: 0,
+					dutyRosterHistoryCount: 0,
+					gettingStartedDismissed: false,
+					starterConfigurationPacks: [makeStarterPack({ isFullyApplied: true })]
+				})
+			});
+		vi.stubGlobal('fetch', fetchMock);
+		const model = createDashboardScreenModel(makeData({ userRole: 'owner' }), {
+			storage: createMemoryStorage(),
+			sources: makeSources()
+		});
+		model.applySupportData({
+			trainingTypeCount: 0,
+			onboardingTemplateStepCount: 0,
+			ratingSchemeEntryCount: 0,
+			orgMemberCount: 1,
+			dutyRosterTemplateCount: 0,
+			dutyRosterRunCount: 0,
+			dutyRosterHistoryCount: 0,
+			gettingStartedDismissed: false,
+			starterConfigurationPacks: [makeStarterPack()]
+		});
+
+		const result = await model.applyStarterConfigurationPack('first-week-operations');
+
+		expect(result).toMatchObject({ packName: 'First Week Operations' });
+		expect(fetchMock).toHaveBeenNthCalledWith(
+			1,
+			'/org/org-1/api/starter-configuration-packs/first-week-operations/apply',
+			{
+				method: 'POST'
+			}
+		);
+		expect(fetchMock).toHaveBeenNthCalledWith(2, '/org/org-1/api/getting-started');
+		expect(model.starterPackApplyState.status).toBe('success');
+		expect(model.firstStarterConfigurationPack?.isFullyApplied).toBe(true);
+		expect(model.gettingStartedItems.find((item) => item.id === 'training')?.complete).toBe(true);
+		expect(model.gettingStartedItems.find((item) => item.id === 'onboarding')?.complete).toBe(true);
+		expect(model.gettingStartedItems.find((item) => item.id === 'duty-roster')?.complete).toBe(true);
+		vi.unstubAllGlobals();
+	});
+
+	it('keeps existing support data when starter pack application reports failed artifacts', async () => {
+		const fetchMock = vi.fn().mockResolvedValueOnce({
+			ok: true,
+			json: async () =>
+				makeApplyResult({
+					created: [],
+					failed: [
+						{
+							family: 'training-types',
+							name: 'Unit Orientation',
+							message: 'This starter artifact could not be created. Existing configuration was left unchanged.'
+						}
+					]
+				})
+		});
+		vi.stubGlobal('fetch', fetchMock);
+		const model = createDashboardScreenModel(makeData({ userRole: 'owner' }), {
+			storage: createMemoryStorage(),
+			sources: makeSources()
+		});
+		model.applySupportData({
+			trainingTypeCount: 0,
+			onboardingTemplateStepCount: 0,
+			ratingSchemeEntryCount: 0,
+			orgMemberCount: 1,
+			dutyRosterTemplateCount: 0,
+			dutyRosterRunCount: 0,
+			dutyRosterHistoryCount: 0,
+			gettingStartedDismissed: false,
+			starterConfigurationPacks: [makeStarterPack()]
+		});
+
+		const result = await model.applyStarterConfigurationPack('first-week-operations');
+
+		expect(result).toBeNull();
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+		expect(model.starterPackApplyState).toMatchObject({
+			status: 'error',
+			message: 'Some starter artifacts could not be created.'
+		});
+		expect(model.trainingTypeCount).toBe(0);
+		expect(model.firstStarterConfigurationPack?.isFullyApplied).toBe(false);
+		vi.unstubAllGlobals();
 	});
 
 	it('does not show owner setup prompts to non-privileged members', () => {

@@ -265,10 +265,14 @@ function buildReadiness(rows: StarterPackReadinessRows): StarterConfigurationPac
 
 	const starterTemplate = rows.onboardingTemplate;
 	const starterStepNames = new Set<string>(ONBOARDING_STEPS.map((step) => step.name));
-	const existingStarterStepNames = rows.onboardingTemplateSteps
-		.filter((row) => !!starterTemplate && stringField(row, 'template_id') === stringField(starterTemplate, 'id'))
-		.map((row) => stringField(row, 'name'))
-		.filter((name): name is string => !!name && starterStepNames.has(name));
+	const existingStarterStepNames = [
+		...new Set(
+			rows.onboardingTemplateSteps
+				.filter((row) => !!starterTemplate && stringField(row, 'template_id') === stringField(starterTemplate, 'id'))
+				.map((row) => stringField(row, 'name'))
+				.filter((name): name is string => !!name && starterStepNames.has(name))
+		)
+	];
 	const existingOnboardingNames = [...(starterTemplate ? [ONBOARDING_TEMPLATE.name] : []), ...existingStarterStepNames];
 
 	const starterDutyRoster = rows.activeDutyRosterTemplate;

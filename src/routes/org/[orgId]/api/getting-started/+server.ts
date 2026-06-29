@@ -1,6 +1,6 @@
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { fail } from '$lib/server/core/errors';
-import type { UseCaseContext } from '$lib/server/core/ports';
+import type { FindOptions, UseCaseContext } from '$lib/server/core/ports';
 import { withDashboardTiming } from '$lib/server/utils/dashboardTiming';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 
@@ -8,14 +8,43 @@ interface GettingStartedSupportData {
 	onboardingTemplateStepCount: number;
 	ratingSchemeEntryCount: number;
 	orgMemberCount: number;
+	dutyRosterTemplateCount: number;
+	dutyRosterRunCount: number;
+	dutyRosterHistoryCount: number;
 	gettingStartedDismissed: boolean;
 }
 
+async function countRows(
+	ctx: UseCaseContext,
+	table: string,
+	filters?: Record<string, unknown>,
+	options: FindOptions = {}
+): Promise<number> {
+	const result = await ctx.store.findManyWithCount<{ id: string }>(table, ctx.auth.orgId, filters, {
+		...options,
+		select: options.select ?? 'id',
+		range: { from: 0, to: 0 },
+		count: options.count ?? 'estimated'
+	});
+	return result.count ?? 0;
+}
+
 async function fetchGettingStartedSupport(ctx: UseCaseContext) {
-	const [onboardingTemplateStepCount, ratingSchemeEntryCount, orgMemberCount, gettingStartedRows] = await Promise.all([
-		ctx.store.findManyWithCount('onboarding_template_steps', ctx.auth.orgId),
-		ctx.store.findManyWithCount('rating_scheme_entries', ctx.auth.orgId),
-		ctx.store.findManyWithCount('organization_memberships', ctx.auth.orgId),
+	const [
+		onboardingTemplateStepCount,
+		ratingSchemeEntryCount,
+		orgMemberCount,
+		dutyRosterTemplateCount,
+		dutyRosterRunCount,
+		dutyRosterHistoryCount,
+		gettingStartedRows
+	] = await Promise.all([
+		countRows(ctx, 'onboarding_template_steps'),
+		countRows(ctx, 'rating_scheme_entries'),
+		countRows(ctx, 'organization_memberships'),
+		countRows(ctx, 'duty_roster_templates'),
+		countRows(ctx, 'duty_roster_template_runs'),
+		countRows(ctx, 'duty_roster_history'),
 		ctx.auth.userId
 			? ctx.store.findMany<Record<string, unknown>>('getting_started_progress', ctx.auth.orgId, {
 					user_id: ctx.auth.userId
@@ -26,9 +55,12 @@ async function fetchGettingStartedSupport(ctx: UseCaseContext) {
 	const gettingStartedData = gettingStartedRows.length > 0 ? gettingStartedRows[0] : null;
 
 	return {
-		onboardingTemplateStepCount: onboardingTemplateStepCount.count ?? 0,
-		ratingSchemeEntryCount: ratingSchemeEntryCount.count ?? 0,
-		orgMemberCount: orgMemberCount.count ?? 0,
+		onboardingTemplateStepCount,
+		ratingSchemeEntryCount,
+		orgMemberCount,
+		dutyRosterTemplateCount,
+		dutyRosterRunCount,
+		dutyRosterHistoryCount,
 		gettingStartedDismissed: (gettingStartedData as Record<string, unknown> | null)?.dismissed_at != null
 	} satisfies GettingStartedSupportData;
 }

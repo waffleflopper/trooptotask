@@ -61,6 +61,9 @@ export interface DashboardSupportData {
 	onboardingTemplateStepCount: number;
 	ratingSchemeEntryCount: number;
 	orgMemberCount: number;
+	dutyRosterTemplateCount: number;
+	dutyRosterRunCount: number;
+	dutyRosterHistoryCount: number;
 	gettingStartedDismissed: boolean;
 }
 
@@ -216,12 +219,18 @@ export class DashboardScreenModel {
 			typeof data.onboardingTemplateStepCount === 'number' &&
 			typeof data.ratingSchemeEntryCount === 'number' &&
 			typeof data.orgMemberCount === 'number' &&
+			typeof data.dutyRosterTemplateCount === 'number' &&
+			typeof data.dutyRosterRunCount === 'number' &&
+			typeof data.dutyRosterHistoryCount === 'number' &&
 			typeof data.gettingStartedDismissed === 'boolean'
 		) {
 			this.applySupportData({
 				onboardingTemplateStepCount: data.onboardingTemplateStepCount,
 				ratingSchemeEntryCount: data.ratingSchemeEntryCount,
 				orgMemberCount: data.orgMemberCount,
+				dutyRosterTemplateCount: data.dutyRosterTemplateCount,
+				dutyRosterRunCount: data.dutyRosterRunCount,
+				dutyRosterHistoryCount: data.dutyRosterHistoryCount,
 				gettingStartedDismissed: data.gettingStartedDismissed
 			});
 		}
@@ -277,23 +286,35 @@ export class DashboardScreenModel {
 		return this.supportData?.orgMemberCount ?? 0;
 	}
 
+	get dutyRosterTemplateCount(): number {
+		return this.supportData?.dutyRosterTemplateCount ?? 0;
+	}
+
+	get dutyRosterRunCount(): number {
+		return this.supportData?.dutyRosterRunCount ?? 0;
+	}
+
+	get dutyRosterHistoryCount(): number {
+		return this.supportData?.dutyRosterHistoryCount ?? 0;
+	}
+
 	get gettingStartedItems(): DashboardGettingStartedItem[] {
 		const orgPath = `/org/${this.data.orgId}`;
 
 		return [
 			{
 				id: 'personnel',
-				label: 'Add the roster',
-				description: 'Add at least one service member so the dashboard can track strength.',
+				label: 'Import or add the roster',
+				description: 'Import an Excel/CSV roster or add service members so the dashboard can track strength.',
 				href: `${orgPath}/personnel`,
 				complete: this.personnelCount > 0
 			},
 			{
 				id: 'statuses',
-				label: 'Configure statuses',
-				description: 'Create the availability statuses your leaders use day to day.',
+				label: 'Review availability statuses',
+				description: 'Review the seeded availability statuses and adjust them for your unit.',
 				href: `${orgPath}/calendar/settings`,
-				complete: this.statusTypeCount > 0
+				complete: false
 			},
 			{
 				id: 'training',
@@ -304,15 +325,22 @@ export class DashboardScreenModel {
 			},
 			{
 				id: 'assignments',
-				label: 'Set up assignments',
-				description: 'Create duty assignment types for daily tasking.',
+				label: 'Review duty assignments',
+				description: 'Review the seeded Staff Duty assignment and add other duty types as needed.',
 				href: `${orgPath}/calendar/settings`,
-				complete: this.assignmentTypeCount > 0
+				complete: false
+			},
+			{
+				id: 'duty-roster',
+				label: 'Set up Duty Roster',
+				description: 'Create a Duty Roster template or accept a first run when the roster is ready.',
+				href: `${orgPath}/duty-rosters/new`,
+				complete: this.dutyRosterTemplateCount > 0 || this.dutyRosterRunCount > 0 || this.dutyRosterHistoryCount > 0
 			},
 			{
 				id: 'members',
-				label: 'Invite another leader',
-				description: 'Add at least one more Organization Member for shared administration.',
+				label: 'Invite another Organization Member',
+				description: 'Add at least one more member for shared access.',
 				href: `${orgPath}/settings/members`,
 				complete: this.orgMemberCount > 1
 			},

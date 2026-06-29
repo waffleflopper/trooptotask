@@ -144,6 +144,9 @@ describe('createDashboardScreenModel', () => {
 					onboardingTemplateStepCount: 0,
 					ratingSchemeEntryCount: 1,
 					orgMemberCount: 1,
+					dutyRosterTemplateCount: 0,
+					dutyRosterRunCount: 0,
+					dutyRosterHistoryCount: 0,
 					gettingStartedDismissed: false
 				},
 				{
@@ -161,14 +164,54 @@ describe('createDashboardScreenModel', () => {
 
 		expect(model.gettingStartedItems.map((item) => [item.id, item.complete])).toEqual([
 			['personnel', true],
-			['statuses', true],
+			['statuses', false],
 			['training', false],
-			['assignments', true],
+			['assignments', false],
+			['duty-roster', false],
 			['members', false],
 			['onboarding', false],
 			['ratings', true]
 		]);
+		expect(model.gettingStartedItems.find((item) => item.id === 'personnel')).toMatchObject({
+			label: 'Import or add the roster',
+			href: '/org/org-1/personnel'
+		});
+		expect(model.gettingStartedItems.find((item) => item.id === 'statuses')).toMatchObject({
+			label: 'Review availability statuses'
+		});
+		expect(model.gettingStartedItems.find((item) => item.id === 'assignments')).toMatchObject({
+			label: 'Review duty assignments'
+		});
 		expect(model.shouldShowGettingStarted).toBe(true);
+	});
+
+	it('treats legacy duty roster history as Duty Roster setup progress', () => {
+		const model = createDashboardScreenModel(
+			makeData(
+				{
+					userRole: 'owner',
+					onboardingTemplateStepCount: 0,
+					ratingSchemeEntryCount: 0,
+					orgMemberCount: 1,
+					dutyRosterTemplateCount: 0,
+					dutyRosterRunCount: 0,
+					dutyRosterHistoryCount: 1,
+					gettingStartedDismissed: false
+				},
+				{
+					personnel: [{ id: 'p1' }],
+					statusTypes: [{ id: 'status-1' }],
+					trainingTypes: [],
+					assignmentTypes: []
+				}
+			),
+			{
+				storage: createMemoryStorage(),
+				sources: makeSources()
+			}
+		);
+
+		expect(model.gettingStartedItems.find((item) => item.id === 'duty-roster')?.complete).toBe(true);
 	});
 
 	it('shows the checklist after deferred support data arrives', () => {
@@ -179,6 +222,9 @@ describe('createDashboardScreenModel', () => {
 					onboardingTemplateStepCount: undefined,
 					ratingSchemeEntryCount: undefined,
 					orgMemberCount: undefined,
+					dutyRosterTemplateCount: undefined,
+					dutyRosterRunCount: undefined,
+					dutyRosterHistoryCount: undefined,
 					gettingStartedDismissed: undefined
 				},
 				{
@@ -201,6 +247,9 @@ describe('createDashboardScreenModel', () => {
 			onboardingTemplateStepCount: 1,
 			ratingSchemeEntryCount: 1,
 			orgMemberCount: 1,
+			dutyRosterTemplateCount: 1,
+			dutyRosterRunCount: 0,
+			dutyRosterHistoryCount: 0,
 			gettingStartedDismissed: false
 		});
 
@@ -209,7 +258,7 @@ describe('createDashboardScreenModel', () => {
 		expect(model.gettingStartedItems.find((item) => item.id === 'members')?.complete).toBe(false);
 	});
 
-	it('hides the checklist when all items are complete or dismissed', () => {
+	it('keeps seeded-default review tasks open until dismissed', () => {
 		const model = createDashboardScreenModel(
 			makeData(
 				{
@@ -217,6 +266,9 @@ describe('createDashboardScreenModel', () => {
 					onboardingTemplateStepCount: 2,
 					ratingSchemeEntryCount: 1,
 					orgMemberCount: 2,
+					dutyRosterTemplateCount: 1,
+					dutyRosterRunCount: 0,
+					dutyRosterHistoryCount: 0,
 					gettingStartedDismissed: false
 				},
 				{
@@ -232,13 +284,19 @@ describe('createDashboardScreenModel', () => {
 			}
 		);
 
-		expect(model.gettingStartedItems.every((item) => item.complete)).toBe(true);
-		expect(model.shouldShowGettingStarted).toBe(false);
+		expect(model.gettingStartedItems.filter((item) => !item.complete).map((item) => item.id)).toEqual([
+			'statuses',
+			'assignments'
+		]);
+		expect(model.shouldShowGettingStarted).toBe(true);
 
 		model.applySupportData({
 			onboardingTemplateStepCount: 0,
 			ratingSchemeEntryCount: 0,
 			orgMemberCount: 1,
+			dutyRosterTemplateCount: 0,
+			dutyRosterRunCount: 0,
+			dutyRosterHistoryCount: 0,
 			gettingStartedDismissed: true
 		});
 
@@ -253,6 +311,9 @@ describe('createDashboardScreenModel', () => {
 				onboardingTemplateStepCount: 0,
 				ratingSchemeEntryCount: 0,
 				orgMemberCount: 1,
+				dutyRosterTemplateCount: 0,
+				dutyRosterRunCount: 0,
+				dutyRosterHistoryCount: 0,
 				gettingStartedDismissed: false
 			}),
 			{

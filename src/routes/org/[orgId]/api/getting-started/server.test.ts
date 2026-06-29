@@ -19,6 +19,7 @@ describe('GET /api/getting-started', () => {
 	it('returns workspace support metadata and logs timing', async () => {
 		const ctx = createTestContext();
 		const consoleInfoSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
+		const findManyWithCountSpy = vi.spyOn(ctx.store, 'findManyWithCount');
 
 		ctx.store.seed('onboarding_template_steps', [
 			{ id: 'step-1', organization_id: ctx.auth.orgId, title: 'Step 1' },
@@ -62,6 +63,26 @@ describe('GET /api/getting-started', () => {
 				phase: 'support',
 				status: 'ok',
 				durationMs: expect.any(Number)
+			})
+		);
+		expect(findManyWithCountSpy).toHaveBeenCalledWith(
+			'duty_roster_template_runs',
+			ctx.auth.orgId,
+			undefined,
+			expect.objectContaining({
+				select: 'id',
+				range: { from: 0, to: 0 },
+				count: 'exact'
+			})
+		);
+		expect(findManyWithCountSpy).toHaveBeenCalledWith(
+			'duty_roster_templates',
+			ctx.auth.orgId,
+			{ status: 'active' },
+			expect.objectContaining({
+				select: 'id',
+				range: { from: 0, to: 0 },
+				count: 'exact'
 			})
 		);
 	});

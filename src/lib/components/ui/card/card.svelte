@@ -14,7 +14,7 @@
 <div
 	bind:this={ref}
 	data-slot="card"
-	class={cn('rounded-md border bg-card text-card-foreground', className)}
+	class={cn('min-w-0 rounded-md border bg-card text-card-foreground', className)}
 	{...restProps}
 >
 	{@render children?.()}

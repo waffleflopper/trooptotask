@@ -119,7 +119,7 @@ The operator explicitly excluded automatic CI trigger work from this batch. Do n
 | 089  | Paid-launch legal/trust/contact surface           | P1       | M      | -          | DONE   |
 | 090  | Billing launch readiness gate                     | P1       | M      | 083-087    | DONE   |
 | 091  | Billing health and support workflow               | P1       | M-L    | 085, 086   | DONE   |
-| 092  | Acquisition and activation health visibility      | P2       | M-L    | 081, 083-087 | TODO |
+| 092  | Acquisition and activation health visibility      | P2       | M-L    | 081, 083-087 | DONE |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line rationale).
 
@@ -138,6 +138,7 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJE
 - 2026-06-24: Plan 090 was completed on branch `codex/plan-90` via the isolated execution worktree `.worktrees/090-billing-launch-readiness-gate`, then moved onto the correct Plan 090 branch after Robert clarified the original `codex/plan-89` target was stale. The branch adds the support-safe `billing:launch-readiness` report command, Robert-owned confirmation ledger, billing launch docs, and classification/CLI tests. CodeRabbit findings were fixed or declined with evidence: the branch-name finding was fixed by moving the reviewed stack to `codex/plan-90`, and the nonzero-exit finding was declined because the plan requires blocked JSON reports to exit 0 while docs/tests make automation inspect `status`. Claude evidence-safety findings were fixed, while Claude's nonzero-exit suggestion was declined for the same plan-contract reason. The full repo gate passed with safe local/test placeholder env values.
 - 2026-06-24 at `cc011a36`: Plan 091 was reconciled after plan 090 added the `billing:launch-readiness` gate and tightened support-safe launch evidence. Plan 091 is now DONE: admin billing surfaces include runtime billing health visibility and copyable support bundles without external Slack, email, or SMS alerting.
 - 2026-06-28 at `88a2fbd5`: Plan 092 was reconciled after plan 091 merged runtime billing-health summaries and copyable support bundles into Admin -> Billing Events and Admin -> Subscriptions. The activation-health finding still stands because the current getting-started endpoint returns setup counts/dismissal state only and launch docs cover acquisition/billing support questions rather than post-checkout activation milestones. Plan 092 remains TODO and is executable as the remaining launch-runway plan.
+- 2026-06-28: Plan 092 was completed on branch `codex/plan-92` after isolated execution in `.worktrees/092-acquisition-activation-health`. The branch adds support-safe Platform Administration activation health for self-service/paid Organizations using existing Organization-level facts only, tightens dashboard getting-started milestones without treating seeded defaults as reviewed state, documents the acquisition/activation privacy boundary, and adds no migrations or new analytics persistence. CodeRabbit was attempted and skipped after a recoverable rate-limit response per Robert's instruction; Claude review findings were fixed or recorded as follow-up-only residuals.
 
 ## Dependency Notes
 

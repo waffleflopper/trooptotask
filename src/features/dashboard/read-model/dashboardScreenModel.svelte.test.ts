@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { AvailabilityEntry, Personnel, StatusType } from '$lib/types';
 import type { Group } from '$lib/stores/groups.svelte';
 import type { AssignmentType, DailyAssignment } from '$lib/types';
@@ -9,6 +9,10 @@ import type {
 	StarterConfigurationPackApplyResult,
 	StarterConfigurationPackSupport
 } from '$lib/types/starterConfigurationPacks';
+
+afterEach(() => {
+	vi.unstubAllGlobals();
+});
 
 function createMemoryStorage(initial: Record<string, string> = {}): DashboardStoragePort & {
 	values: Record<string, string>;
@@ -146,7 +150,6 @@ describe('createDashboardScreenModel', () => {
 
 		expect(model.gettingStartedDismissed).toBe(true);
 		expect(fetch).toHaveBeenCalledWith('/org/org-1/api/getting-started', { method: 'POST' });
-		vi.unstubAllGlobals();
 	});
 
 	it('rolls back getting started dismissal when the request fails', async () => {
@@ -159,7 +162,6 @@ describe('createDashboardScreenModel', () => {
 		await model.dismissGettingStarted();
 
 		expect(model.gettingStartedDismissed).toBe(false);
-		vi.unstubAllGlobals();
 	});
 
 	it('rolls back getting started dismissal when the request rejects', async () => {
@@ -172,7 +174,6 @@ describe('createDashboardScreenModel', () => {
 		await expect(model.dismissGettingStarted()).resolves.toBeUndefined();
 
 		expect(model.gettingStartedDismissed).toBe(false);
-		vi.unstubAllGlobals();
 	});
 
 	it('builds incomplete getting started items from workspace and support counts', () => {
@@ -444,7 +445,6 @@ describe('createDashboardScreenModel', () => {
 		expect(model.gettingStartedItems.find((item) => item.id === 'training')?.complete).toBe(true);
 		expect(model.gettingStartedItems.find((item) => item.id === 'onboarding')?.complete).toBe(true);
 		expect(model.gettingStartedItems.find((item) => item.id === 'duty-roster')?.complete).toBe(true);
-		vi.unstubAllGlobals();
 	});
 
 	it('keeps existing support data when starter pack application reports failed artifacts', async () => {
@@ -489,7 +489,69 @@ describe('createDashboardScreenModel', () => {
 		});
 		expect(model.trainingTypeCount).toBe(0);
 		expect(model.firstStarterConfigurationPack?.isFullyApplied).toBe(false);
-		vi.unstubAllGlobals();
+	});
+
+	it('preserves starter pack apply error details from failed responses', async () => {
+		const fetchMock = vi.fn().mockResolvedValueOnce({
+			ok: false,
+			json: async () => ({ message: 'Organization is in read-only mode' })
+		});
+		vi.stubGlobal('fetch', fetchMock);
+		const model = createDashboardScreenModel(makeData({ userRole: 'owner' }), {
+			storage: createMemoryStorage(),
+			sources: makeSources()
+		});
+
+		const result = await model.applyStarterConfigurationPack('first-week-operations');
+
+		expect(result).toBeNull();
+		expect(model.starterPackApplyState).toMatchObject({
+			status: 'error',
+			message: 'Organization is in read-only mode',
+			result: null
+		});
+	});
+
+	it('reports starter pack success when only checklist refresh fails', async () => {
+		const fetchMock = vi
+			.fn()
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => makeApplyResult()
+			})
+			.mockResolvedValueOnce({
+				ok: false,
+				json: async () => ({ error: 'Support data temporarily unavailable' })
+			});
+		vi.stubGlobal('fetch', fetchMock);
+		const model = createDashboardScreenModel(makeData({ userRole: 'owner' }), {
+			storage: createMemoryStorage(),
+			sources: makeSources()
+		});
+		model.applySupportData({
+			trainingTypeCount: 0,
+			onboardingTemplateStepCount: 0,
+			ratingSchemeEntryCount: 0,
+			orgMemberCount: 1,
+			dutyRosterTemplateCount: 0,
+			dutyRosterRunCount: 0,
+			dutyRosterHistoryCount: 0,
+			gettingStartedDismissed: false,
+			starterConfigurationPacks: [makeStarterPack()]
+		});
+
+		const result = await model.applyStarterConfigurationPack('first-week-operations');
+
+		expect(result).toMatchObject({ packName: 'First Week Operations' });
+		expect(model.starterPackApplyState).toMatchObject({
+			status: 'success',
+			result
+		});
+		expect(model.starterPackApplyState.message).toContain('First Week Operations applied');
+		expect(model.starterPackApplyState.message).toContain('setup checklist could not refresh');
+		expect(model.starterPackApplyState.message).toContain('Reload the page');
+		expect(model.starterPackApplyState.message).toContain('Support data temporarily unavailable');
+		expect(model.trainingTypeCount).toBe(0);
 	});
 
 	it('does not show owner setup prompts to non-privileged members', () => {

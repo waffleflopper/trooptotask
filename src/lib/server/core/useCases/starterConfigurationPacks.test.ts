@@ -89,6 +89,52 @@ describe('starter configuration packs', () => {
 		expect(pack.isFullyApplied).toBe(false);
 	});
 
+	it('does not count starter-named onboarding steps from unrelated templates as starter readiness', async () => {
+		const ctx = createTestContext();
+		ctx.store.seed('onboarding_templates', [
+			{
+				id: 'template-custom',
+				organization_id: ctx.auth.orgId,
+				name: 'Reception',
+				description: null
+			}
+		]);
+		ctx.store.seed('onboarding_template_steps', [
+			{
+				id: 'step-custom-1',
+				organization_id: ctx.auth.orgId,
+				template_id: 'template-custom',
+				name: 'Confirm contact and roster details',
+				description: null,
+				step_type: 'checkbox',
+				training_type_id: null,
+				stages: null,
+				sort_order: 0
+			},
+			{
+				id: 'step-custom-2',
+				organization_id: ctx.auth.orgId,
+				template_id: 'template-custom',
+				name: 'Complete unit orientation',
+				description: null,
+				step_type: 'training',
+				training_type_id: 'training-custom',
+				stages: null,
+				sort_order: 1
+			}
+		]);
+
+		const [pack] = await listStarterConfigurationPacks(ctx);
+		const onboardingReadiness = pack.readiness.find((family) => family.family === 'onboarding-template');
+
+		expect(onboardingReadiness).toMatchObject({
+			configured: true,
+			starterArtifactCount: 0,
+			existingStarterArtifactNames: []
+		});
+		expect(pack.isFullyApplied).toBe(false);
+	});
+
 	it('applies starter artifacts for an empty Organization', async () => {
 		const ctx = createTestContext();
 
@@ -137,6 +183,54 @@ describe('starter configuration packs', () => {
 		expect(await ctx.store.findMany('onboarding_templates', ctx.auth.orgId)).toHaveLength(1);
 		expect(await ctx.store.findMany('onboarding_template_steps', ctx.auth.orgId)).toHaveLength(4);
 		expect(await ctx.store.findMany('duty_roster_templates', ctx.auth.orgId)).toHaveLength(1);
+	});
+
+	it('treats raced unique starter artifacts as skipped when they can be re-read', async () => {
+		const ctx = createTestContext();
+		const originalInsert = ctx.store.insert.bind(ctx.store);
+		let trainingRace = true;
+		let onboardingRace = true;
+		let dutyRosterRace = true;
+
+		vi.spyOn(ctx.store, 'insert').mockImplementation(async (table, orgId, data, select) => {
+			if (table === 'training_types' && data.name === 'Unit Orientation' && trainingRace) {
+				trainingRace = false;
+				ctx.store.seed('training_types', [{ id: 'training-raced', organization_id: orgId, ...data }]);
+				throw new Error('duplicate key value violates unique constraint "training_types_clinic_id_name_key"');
+			}
+
+			if (table === 'onboarding_templates' && data.name === 'New Arrival Packet' && onboardingRace) {
+				onboardingRace = false;
+				ctx.store.seed('onboarding_templates', [{ id: 'template-raced', organization_id: orgId, ...data }]);
+				throw new Error('duplicate key value violates unique constraint "onboarding_templates_org_name_unique"');
+			}
+
+			if (table === 'duty_roster_templates' && data.slug === 'staff-duty' && dutyRosterRace) {
+				dutyRosterRace = false;
+				ctx.store.seed('duty_roster_templates', [{ id: String(data.id), organization_id: orgId, ...data }]);
+				throw new Error('duplicate key value violates unique constraint "duty_roster_templates_org_slug_key"');
+			}
+
+			return originalInsert(table, orgId, data, select);
+		});
+
+		const result = await applyStarterConfigurationPack(ctx, 'first-week-operations');
+
+		expect(result.failed).toEqual([]);
+		expect(result.skipped).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({ family: 'training-types', name: 'Unit Orientation' }),
+				expect.objectContaining({ family: 'onboarding-template', name: 'New Arrival Packet' }),
+				expect.objectContaining({ family: 'duty-roster-template', name: 'Staff Duty' })
+			])
+		);
+		expect(result.created.map((item) => item.name)).toEqual([
+			'Required Annual Training',
+			'Confirm contact and roster details',
+			'Complete unit orientation',
+			'Review required documents',
+			'Assign duty role and Group'
+		]);
 	});
 
 	it('stops before writes when any required configure permission is missing', async () => {

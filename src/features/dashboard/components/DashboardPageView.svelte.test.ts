@@ -295,8 +295,35 @@ describe('DashboardPageView', () => {
 
 		render(DashboardPageView, { props: { ctx } });
 
-		expect(screen.getByText('Starter pack could not be applied.')).toBeTruthy();
+		expect(screen.getByRole('alert').textContent).toContain('Starter pack could not be applied.');
 		expect(screen.getByText('Add training types')).toBeTruthy();
+	});
+
+	it('announces starter pack success copy as a status message', () => {
+		const ctx = makeCtx({
+			userRole: 'owner',
+			gettingStartedDismissed: false,
+			shouldShowGettingStarted: true,
+			firstStarterConfigurationPack: makeStarterPack(),
+			starterPackApplyState: {
+				status: 'success',
+				message: 'First Week Operations applied. You can edit the created setup from each workflow.',
+				result: null
+			},
+			gettingStartedItems: [
+				{
+					id: 'training',
+					label: 'Add training types',
+					description: 'Define the training requirements you want to monitor.',
+					href: '/org/org-1/training/types',
+					complete: false
+				}
+			]
+		});
+
+		render(DashboardPageView, { props: { ctx } });
+
+		expect(screen.getByRole('status').textContent).toContain('First Week Operations applied.');
 	});
 
 	it('calls the model dismissal method from the checklist', async () => {

@@ -198,7 +198,7 @@ function buildReadiness(rows: StarterPackReadinessRows): StarterConfigurationPac
 	const starterTemplate = rows.onboardingTemplates.find((row) => stringField(row, 'name') === ONBOARDING_TEMPLATE.name);
 	const starterStepNames = new Set<string>(ONBOARDING_STEPS.map((step) => step.name));
 	const existingStarterStepNames = rows.onboardingTemplateSteps
-		.filter((row) => !starterTemplate || stringField(row, 'template_id') === stringField(starterTemplate, 'id'))
+		.filter((row) => !!starterTemplate && stringField(row, 'template_id') === stringField(starterTemplate, 'id'))
 		.map((row) => stringField(row, 'name'))
 		.filter((name): name is string => !!name && starterStepNames.has(name));
 	const existingOnboardingNames = [...(starterTemplate ? [ONBOARDING_TEMPLATE.name] : []), ...existingStarterStepNames];
@@ -278,6 +278,14 @@ async function applyStarterTrainingTypes(
 			recordCreated(result, TRAINING_TYPE_FAMILY, starterType.name);
 		} catch (error) {
 			rethrowAuthorizationFailure(error);
+			if (isUniqueConflict(error)) {
+				const racedExisting = await findTrainingTypeByName(ctx, starterType.name);
+				if (racedExisting) {
+					trainingTypes.set(starterType.name, TrainingTypeEntity.fromDb(racedExisting));
+					recordSkipped(result, TRAINING_TYPE_FAMILY, starterType.name);
+					continue;
+				}
+			}
 			recordFailed(result, TRAINING_TYPE_FAMILY, starterType.name);
 		}
 	}
@@ -303,8 +311,18 @@ async function applyStarterOnboardingTemplate(
 			recordCreated(result, ONBOARDING_FAMILY, ONBOARDING_TEMPLATE.name);
 		} catch (error) {
 			rethrowAuthorizationFailure(error);
-			recordFailed(result, ONBOARDING_FAMILY, ONBOARDING_TEMPLATE.name);
-			return;
+			if (isUniqueConflict(error)) {
+				template = await findOnboardingTemplateByName(ctx, ONBOARDING_TEMPLATE.name);
+				if (template) {
+					recordSkipped(result, ONBOARDING_FAMILY, ONBOARDING_TEMPLATE.name);
+				} else {
+					recordFailed(result, ONBOARDING_FAMILY, ONBOARDING_TEMPLATE.name);
+					return;
+				}
+			} else {
+				recordFailed(result, ONBOARDING_FAMILY, ONBOARDING_TEMPLATE.name);
+				return;
+			}
 		}
 	}
 
@@ -365,6 +383,13 @@ async function applyStarterDutyRosterTemplate(ctx: WritePorts, result: StarterCo
 		recordCreated(result, DUTY_ROSTER_FAMILY, DUTY_ROSTER_TEMPLATE.name);
 	} catch (error) {
 		rethrowAuthorizationFailure(error);
+		if (isDutyRosterSlugConflict(error)) {
+			const racedExisting = await findDutyRosterTemplateBySlug(ctx, DUTY_ROSTER_TEMPLATE.slug);
+			if (racedExisting) {
+				recordSkipped(result, DUTY_ROSTER_FAMILY, DUTY_ROSTER_TEMPLATE.name);
+				return;
+			}
+		}
 		recordFailed(result, DUTY_ROSTER_FAMILY, DUTY_ROSTER_TEMPLATE.name);
 	}
 }
@@ -379,6 +404,13 @@ async function findOnboardingTemplateByName(
 ): Promise<OnboardingTemplate | null> {
 	const row = await ctx.store.findOne<Record<string, unknown>>('onboarding_templates', ctx.auth.orgId, { name });
 	return row ? ({ ...row, orgId: ctx.auth.orgId } as unknown as OnboardingTemplate) : null;
+}
+
+async function findDutyRosterTemplateBySlug(
+	ctx: Pick<WritePorts, 'store' | 'auth'>,
+	slug: string
+): Promise<Record<string, unknown> | null> {
+	return ctx.store.findOne<Record<string, unknown>>('duty_roster_templates', ctx.auth.orgId, { slug });
 }
 
 function createApplyResult(): StarterConfigurationPackApplyResult {
@@ -431,6 +463,24 @@ function rethrowAuthorizationFailure(error: unknown): void {
 	) {
 		throw error;
 	}
+}
+
+function isUniqueConflict(error: unknown): boolean {
+	if (!error || typeof error !== 'object') return false;
+	const candidate = error as { code?: unknown; message?: unknown; details?: unknown; constraint?: unknown };
+	const haystack = [candidate.code, candidate.message, candidate.details, candidate.constraint]
+		.filter((value): value is string => typeof value === 'string')
+		.join(' ')
+		.toLowerCase();
+	return haystack.includes('23505') || haystack.includes('duplicate') || haystack.includes('unique');
+}
+
+function isDutyRosterSlugConflict(error: unknown): boolean {
+	const message = error instanceof Error ? error.message.toLowerCase() : '';
+	return (
+		(isUniqueConflict(error) && (!message || message.includes('slug'))) ||
+		message.includes('duty roster template slug is already in use')
+	);
 }
 
 function stringField(row: Record<string, unknown> | null | undefined, field: string): string | null {

@@ -10,6 +10,7 @@ interface GettingStartedSupportData {
 	orgMemberCount: number;
 	dutyRosterTemplateCount: number;
 	dutyRosterRunCount: number;
+	dutyRosterHistoryCount: number;
 	gettingStartedDismissed: boolean;
 }
 
@@ -25,10 +26,7 @@ async function countRows(
 		range: { from: 0, to: 0 },
 		count: options.count ?? 'exact'
 	});
-	if (result.count === null || result.count === undefined) {
-		throw new Error(`getting-started expected a count for table "${table}"`);
-	}
-	return result.count;
+	return result.count ?? 0;
 }
 
 async function fetchGettingStartedSupport(ctx: UseCaseContext) {
@@ -38,6 +36,7 @@ async function fetchGettingStartedSupport(ctx: UseCaseContext) {
 		orgMemberCount,
 		dutyRosterTemplateCount,
 		dutyRosterRunCount,
+		dutyRosterHistoryCount,
 		gettingStartedRows
 	] = await Promise.all([
 		countRows(ctx, 'onboarding_template_steps'),
@@ -45,6 +44,7 @@ async function fetchGettingStartedSupport(ctx: UseCaseContext) {
 		countRows(ctx, 'organization_memberships'),
 		countRows(ctx, 'duty_roster_templates', { status: 'active' }),
 		countRows(ctx, 'duty_roster_template_runs'),
+		countRows(ctx, 'duty_roster_history'),
 		ctx.auth.userId
 			? ctx.store.findMany<Record<string, unknown>>('getting_started_progress', ctx.auth.orgId, {
 					user_id: ctx.auth.userId
@@ -60,6 +60,7 @@ async function fetchGettingStartedSupport(ctx: UseCaseContext) {
 		orgMemberCount,
 		dutyRosterTemplateCount,
 		dutyRosterRunCount,
+		dutyRosterHistoryCount,
 		gettingStartedDismissed: (gettingStartedData as Record<string, unknown> | null)?.dismissed_at != null
 	} satisfies GettingStartedSupportData;
 }

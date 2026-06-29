@@ -422,6 +422,49 @@ describe('createSupabasePlatformActivationHealthStore', () => {
 		).toBe(true);
 	});
 
+	it('surfaces paid checkout candidates that have no billing snapshot or organization sample row', async () => {
+		const organization = {
+			id: 'org-checkout-only',
+			name: 'Checkout Only Company',
+			created_at: '2026-06-01T00:00:00.000Z'
+		};
+		const { supabase } = createSupabaseStub({
+			organizations: [],
+			organization_billing_snapshots: [],
+			organization_checkout_attempts: [
+				{
+					organization_id: organization.id,
+					commercial_plan: 'team',
+					status: 'in_progress',
+					created_at: '2026-06-02T00:00:00.000Z',
+					updated_at: '2026-06-02T00:05:00.000Z',
+					completed_at: null,
+					canceled_at: null,
+					expires_at: '2026-06-02T01:00:00.000Z',
+					organizations: organization
+				}
+			]
+		});
+
+		const facts = await createSupabasePlatformActivationHealthStore(supabase).listActivationOrganizationFacts({
+			limit: 1
+		});
+
+		expect(facts).toHaveLength(1);
+		expect(facts[0]).toMatchObject({
+			organizationId: organization.id,
+			organizationName: organization.name,
+			organizationCreatedAt: organization.created_at,
+			billing: null,
+			checkout: {
+				attemptCount: 1,
+				inProgressCount: 1,
+				latestStatus: 'in_progress',
+				latestAt: '2026-06-02T00:05:00.000Z'
+			}
+		});
+	});
+
 	it('paginates setup count reads with a stable order so large organizations do not undercount', async () => {
 		const organization = {
 			id: 'org-large',

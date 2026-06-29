@@ -18,7 +18,8 @@ function makeCtx(overrides: Record<string, unknown> = {}): DashboardScreenModel 
 			ratingSchemeEntryCount: 0,
 			orgMemberCount: 0,
 			dutyRosterTemplateCount: 0,
-			dutyRosterRunCount: 0
+			dutyRosterRunCount: 0,
+			dutyRosterHistoryCount: 0
 		},
 		userRole: 'member',
 		hasSupportData: true,

@@ -53,7 +53,7 @@ describe('GET /api/getting-started', () => {
 			onboardingTemplateStepCount: 2,
 			ratingSchemeEntryCount: 1,
 			orgMemberCount: 2,
-			dutyRosterTemplateCount: 1,
+			dutyRosterTemplateCount: 2,
 			dutyRosterRunCount: 1,
 			dutyRosterHistoryCount: 1,
 			gettingStartedDismissed: true
@@ -74,17 +74,17 @@ describe('GET /api/getting-started', () => {
 			expect.objectContaining({
 				select: 'id',
 				range: { from: 0, to: 0 },
-				count: 'exact'
+				count: 'estimated'
 			})
 		);
 		expect(findManyWithCountSpy).toHaveBeenCalledWith(
 			'duty_roster_templates',
 			ctx.auth.orgId,
-			{ status: 'active' },
+			undefined,
 			expect.objectContaining({
 				select: 'id',
 				range: { from: 0, to: 0 },
-				count: 'exact'
+				count: 'estimated'
 			})
 		);
 		expect(findManyWithCountSpy).toHaveBeenCalledWith(
@@ -94,7 +94,7 @@ describe('GET /api/getting-started', () => {
 			expect.objectContaining({
 				select: 'id',
 				range: { from: 0, to: 0 },
-				count: 'exact'
+				count: 'estimated'
 			})
 		);
 	});

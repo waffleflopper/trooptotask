@@ -101,8 +101,10 @@
 		/>
 		<PageShell.Metric
 			label="Activation Attention"
-			value={activationHealth.counts.supportAttentionItems}
-			detail={`${activationHealth.counts.paidBelowRosterThreshold} paid Organizations below the 5-person roster threshold. Counts cover up to ${activationHealth.candidateLimit} launch candidates.`}
+			value={activationHealth.diagnosticsError ? 'Unavailable' : activationHealth.counts.supportAttentionItems}
+			detail={activationHealth.diagnosticsError
+				? 'Activation health diagnostics could not be fully loaded.'
+				: `${activationHealth.counts.paidBelowRosterThreshold} paid Organizations below the 5-person roster threshold. Counts cover up to ${activationHealth.candidateLimit} launch candidates.`}
 		/>
 	</PageShell.FactGrid>
 
@@ -121,21 +123,32 @@
 			<div>
 				<Card.Title>Acquisition and Activation Health</Card.Title>
 				<Card.Description>
-					{formatAdminLabel(activationHealth.overallState)} · {activationHealth.counts.candidateOrganizations}
-					self-service or paid candidates · {activationHealth.counts.activatedOrganizations} activated. Counts cover up to
-					{activationHealth.candidateLimit} launch candidates.
+					{#if activationHealth.diagnosticsError}
+						Activation health data is unavailable until diagnostics load successfully.
+					{:else}
+						{formatAdminLabel(activationHealth.overallState)} · {activationHealth.counts.candidateOrganizations}
+						self-service or paid candidates · {activationHealth.counts.activatedOrganizations} activated. Counts cover up
+						to
+						{activationHealth.candidateLimit} launch candidates.
+					{/if}
 				</Card.Description>
 			</div>
 			<div class="flex flex-wrap gap-2">
 				<Badge variant={adminBadgeVariant(activationHealth.overallState)}>
 					{formatAdminLabel(activationHealth.overallState)}
 				</Badge>
-				<Badge variant="secondary">{activationHealth.counts.checkoutCompleted} checkout complete</Badge>
-				<Badge variant="secondary">{activationHealth.counts.meaningfulRosters} meaningful rosters</Badge>
+				{#if !activationHealth.diagnosticsError}
+					<Badge variant="secondary">{activationHealth.counts.checkoutCompleted} checkout complete</Badge>
+					<Badge variant="secondary">{activationHealth.counts.meaningfulRosters} meaningful rosters</Badge>
+				{/if}
 			</div>
 		</Card.Header>
 		<Card.Content>
-			{#if activationHealth.organizations.length > 0}
+			{#if activationHealth.diagnosticsError}
+				<p class="text-sm text-muted-foreground">
+					Activation health diagnostics are unavailable. Retry after the health scan succeeds.
+				</p>
+			{:else if activationHealth.organizations.length > 0}
 				<div class="overflow-x-auto">
 					<Table.Root>
 						<Table.Header>

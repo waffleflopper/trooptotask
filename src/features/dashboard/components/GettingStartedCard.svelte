@@ -76,9 +76,9 @@
 						<Badge variant="secondary">Configure access needed</Badge>
 					{/if}
 				</div>
-				<ul class="mt-3 grid gap-2 md:grid-cols-3">
+				<ul class="mt-3 grid grid-cols-1 gap-2 md:grid-cols-3">
 					{#each starterPack.artifacts as artifact (artifact.family)}
-						<li class="rounded-sm bg-muted/40 p-2">
+						<li class="min-w-0 rounded-sm bg-muted/40 p-2">
 							<div class="text-xs font-medium text-foreground">{artifact.label}</div>
 							<div class="mt-1 truncate text-xs text-muted-foreground" title={artifact.names.join(', ')}>
 								{artifact.names.join(', ')}

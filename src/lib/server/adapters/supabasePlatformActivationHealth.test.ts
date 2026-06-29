@@ -91,7 +91,39 @@ class FakeQuery implements PromiseLike<SupabaseResponse<Row[]>> {
 
 function createSupabaseStub(tables: Record<string, Row[]>): { supabase: SupabaseClient; calls: SupabaseCall[] } {
 	const calls: SupabaseCall[] = [];
+	function countRowsByOrganization(rows: Row[], organizationIds: unknown[], countField: string): Row[] {
+		const counts = new Map<unknown, number>();
+		for (const row of rows) {
+			if (!organizationIds.includes(row.organization_id)) continue;
+			if (countField === 'personnel_count' && row.archived_at !== null) continue;
+			counts.set(row.organization_id, (counts.get(row.organization_id) ?? 0) + 1);
+		}
+		return [...counts].map(([organization_id, count]) => ({
+			organization_id,
+			[countField]: count
+		}));
+	}
+
 	const supabase = {
+		rpc(name: string, params?: unknown) {
+			calls.push({ table: 'rpc', method: name, args: [params] });
+			const organizationIds = Array.isArray((params as { p_org_ids?: unknown[] } | undefined)?.p_org_ids)
+				? ((params as { p_org_ids: unknown[] }).p_org_ids ?? [])
+				: [];
+			if (name === 'count_personnel_by_organization') {
+				return Promise.resolve({
+					data: countRowsByOrganization(tables.personnel ?? [], organizationIds, 'personnel_count'),
+					error: null
+				});
+			}
+			if (name === 'count_memberships_by_organization') {
+				return Promise.resolve({
+					data: countRowsByOrganization(tables.organization_memberships ?? [], organizationIds, 'membership_count'),
+					error: null
+				});
+			}
+			throw new Error(`Unexpected RPC ${name}`);
+		},
 		from(table: string) {
 			return new FakeQuery(table, tables[table] ?? [], calls);
 		}
@@ -175,7 +207,7 @@ describe('createSupabasePlatformActivationHealthStore', () => {
 					organization_id: 'org-1',
 					commercial_plan: 'team',
 					status: 'expired',
-					created_at: '2026-06-01T00:11:00.000Z',
+					created_at: '2026-06-01T00:03:00.000Z',
 					updated_at: null,
 					completed_at: null,
 					canceled_at: null,
@@ -263,8 +295,8 @@ describe('createSupabasePlatformActivationHealthStore', () => {
 				completedCount: 1,
 				interruptedCount: 2,
 				inProgressCount: 0,
-				latestStatus: 'expired',
-				latestAt: '2026-06-01T01:30:00.000Z'
+				latestStatus: 'completed',
+				latestAt: '2026-06-01T00:10:00.000Z'
 			},
 			counts: {
 				activePersonnel: 2,
@@ -332,11 +364,20 @@ describe('createSupabasePlatformActivationHealthStore', () => {
 		const checkoutRows = Array.from({ length: 6 }, (_, index) => ({
 			organization_id: 'org-1',
 			commercial_plan: 'team',
-			status: index === 0 ? 'completed' : index === 1 ? 'failed' : 'in_progress',
+			status:
+				index === 0
+					? 'completed'
+					: index === 1
+						? 'failed'
+						: index === 2
+							? 'in_progress'
+							: index === 3
+								? 'canceled'
+								: 'expired',
 			created_at: `2026-06-01T00:0${index}:00.000Z`,
 			updated_at: `2026-06-01T00:0${index}:30.000Z`,
 			completed_at: index === 0 ? '2026-06-01T00:00:45.000Z' : null,
-			canceled_at: null,
+			canceled_at: index === 3 ? '2026-06-01T00:03:45.000Z' : null,
 			expires_at: `2026-06-01T01:0${index}:00.000Z`,
 			organizations: organization
 		}));
@@ -365,8 +406,8 @@ describe('createSupabasePlatformActivationHealthStore', () => {
 		expect(facts[0]?.checkout).toMatchObject({
 			attemptCount: 6,
 			completedCount: 1,
-			interruptedCount: 1,
-			inProgressCount: 4
+			interruptedCount: 4,
+			inProgressCount: 1
 		});
 		expect(
 			calls.some(
@@ -379,7 +420,7 @@ describe('createSupabasePlatformActivationHealthStore', () => {
 		).toBe(true);
 	});
 
-	it('paginates grouped count reads so large organizations do not undercount', async () => {
+	it('paginates setup count reads with a stable order so large organizations do not undercount', async () => {
 		const organization = {
 			id: 'org-large',
 			name: 'Large Company',
@@ -399,9 +440,10 @@ describe('createSupabasePlatformActivationHealthStore', () => {
 					organizations: organization
 				}
 			],
-			personnel: Array.from({ length: 1005 }, () => ({
+			training_types: Array.from({ length: 1005 }, (_, index) => ({
+				id: `training-type-${String(index).padStart(4, '0')}`,
 				organization_id: organization.id,
-				archived_at: null
+				name: `Training ${index}`
 			}))
 		});
 
@@ -409,17 +451,21 @@ describe('createSupabasePlatformActivationHealthStore', () => {
 			limit: 1
 		});
 
-		expect(facts[0]?.counts.activePersonnel).toBe(1005);
+		expect(facts[0]?.counts.trainingTypes).toBe(1005);
 		expect(
 			calls.filter(
-				(call) => call.table === 'personnel' && call.method === 'range' && JSON.stringify(call.args) === '[0,999]'
+				(call) => call.table === 'training_types' && call.method === 'range' && JSON.stringify(call.args) === '[0,999]'
 			)
 		).toHaveLength(1);
 		expect(
 			calls.filter(
-				(call) => call.table === 'personnel' && call.method === 'range' && JSON.stringify(call.args) === '[1000,1999]'
+				(call) =>
+					call.table === 'training_types' && call.method === 'range' && JSON.stringify(call.args) === '[1000,1999]'
 			)
 		).toHaveLength(1);
+		expect(
+			calls.filter((call) => call.table === 'training_types' && call.method === 'order').map((call) => call.args[0])
+		).toEqual(['organization_id', 'id', 'organization_id', 'id']);
 	});
 
 	it('prioritizes paid candidates over newer free organizations when the candidate set is capped', async () => {

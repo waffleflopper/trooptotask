@@ -33,6 +33,7 @@ interface ActivationBillingSnapshotRow {
 }
 
 interface ActivationCheckoutAttemptRow {
+	id: string;
 	organization_id: string;
 	status: string | null;
 	commercial_plan: Exclude<Tier, 'free'> | null;
@@ -56,7 +57,7 @@ type RpcCountRow<T extends string> = {
 const ACTIVATION_BILLING_SNAPSHOT_COLUMNS =
 	'organization_id, source, commercial_plan, subscription_status, collection_status, sync_status, organizations!inner(id, name, created_at)';
 const ACTIVATION_CHECKOUT_ATTEMPT_COLUMNS =
-	'organization_id, status, commercial_plan, created_at, updated_at, completed_at, canceled_at, expires_at, organizations!inner(id, name, created_at)';
+	'id, organization_id, status, commercial_plan, created_at, updated_at, completed_at, canceled_at, expires_at, organizations!inner(id, name, created_at)';
 const ACTIVATION_ORGANIZATION_COLUMNS = 'id, name, created_at';
 const PAID_COMMERCIAL_PLANS: Exclude<Tier, 'free'>[] = ['team', 'unit'];
 const ACTIVE_OR_RECOVERABLE_SUBSCRIPTION_STATUSES: SubscriptionStatus[] = [
@@ -240,6 +241,33 @@ async function countRowsByOrganization(
 	return countByOrganization(rows);
 }
 
+async function listCheckoutAttemptsForOrganizations(
+	supabase: SupabaseClient,
+	organizationIds: string[]
+): Promise<ActivationCheckoutAttemptRow[]> {
+	const rows: ActivationCheckoutAttemptRow[] = [];
+	let from = 0;
+
+	while (true) {
+		const response = (await supabase
+			.from('organization_checkout_attempts')
+			.select(ACTIVATION_CHECKOUT_ATTEMPT_COLUMNS)
+			.in('commercial_plan', PAID_COMMERCIAL_PLANS)
+			.in('organization_id', organizationIds)
+			.order('created_at', { ascending: false })
+			.order('id', { ascending: false })
+			.range(from, from + COUNT_PAGE_SIZE - 1)) as SupabaseResponse<ActivationCheckoutAttemptRow[]>;
+		throwIfSupabaseError(response.error);
+
+		const page = response.data ?? [];
+		rows.push(...page);
+		if (page.length < COUNT_PAGE_SIZE) break;
+		from += COUNT_PAGE_SIZE;
+	}
+
+	return rows;
+}
+
 function applyCounts(
 	factsByOrgId: Map<string, PlatformActivationOrganizationFacts>,
 	counts: Map<string, number>,
@@ -281,6 +309,7 @@ export function createSupabasePlatformActivationHealthStore(supabase: SupabaseCl
 					.select(ACTIVATION_CHECKOUT_ATTEMPT_COLUMNS)
 					.in('commercial_plan', PAID_COMMERCIAL_PLANS)
 					.order('created_at', { ascending: false })
+					.order('id', { ascending: false })
 					.limit(checkoutCandidateLimit)
 			])) as [
 				SupabaseResponse<ActivationOrganizationRow[]>,
@@ -319,14 +348,8 @@ export function createSupabasePlatformActivationHealthStore(supabase: SupabaseCl
 			const organizationIds = candidateOrganizationIds.slice(0, input.limit);
 			if (organizationIds.length === 0) return [];
 
-			const checkoutResponse = (await supabase
-				.from('organization_checkout_attempts')
-				.select(ACTIVATION_CHECKOUT_ATTEMPT_COLUMNS)
-				.in('commercial_plan', PAID_COMMERCIAL_PLANS)
-				.in('organization_id', organizationIds)
-				.order('created_at', { ascending: false })) as SupabaseResponse<ActivationCheckoutAttemptRow[]>;
-			throwIfSupabaseError(checkoutResponse.error);
-			for (const row of checkoutResponse.data ?? []) {
+			const checkoutRows = await listCheckoutAttemptsForOrganizations(supabase, organizationIds);
+			for (const row of checkoutRows) {
 				const facts = factsByOrgId.get(row.organization_id);
 				if (facts) applyCheckoutAttempt(facts, row);
 			}

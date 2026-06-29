@@ -99,6 +99,7 @@ export interface PlatformActivationOrganizationHealth {
 export interface PlatformActivationHealthSummary {
 	generatedAt: string;
 	overallState: PlatformActivationHealthState;
+	candidateLimit: number;
 	counts: {
 		candidateOrganizations: number;
 		activatedOrganizations: number;
@@ -458,6 +459,7 @@ export function degradedActivationHealthSummary(now = new Date()): PlatformActiv
 	return {
 		generatedAt: now.toISOString(),
 		overallState: 'diagnostics_unavailable',
+		candidateLimit: ACTIVATION_ORGANIZATION_LIMIT,
 		counts: emptyCounts(),
 		organizations: [],
 		diagnosticsError: true
@@ -499,6 +501,7 @@ export function mapActivationHealthSummary(input: {
 	return {
 		generatedAt: input.now.toISOString(),
 		overallState,
+		candidateLimit: ACTIVATION_ORGANIZATION_LIMIT,
 		counts,
 		organizations: sortOrganizations(organizations).slice(0, VISIBLE_ORGANIZATION_LIMIT),
 		diagnosticsError: false

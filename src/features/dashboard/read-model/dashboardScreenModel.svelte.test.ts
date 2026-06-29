@@ -447,21 +447,37 @@ describe('createDashboardScreenModel', () => {
 		expect(model.gettingStartedItems.find((item) => item.id === 'duty-roster')?.complete).toBe(true);
 	});
 
-	it('keeps existing support data when starter pack application reports failed artifacts', async () => {
-		const fetchMock = vi.fn().mockResolvedValueOnce({
-			ok: true,
-			json: async () =>
-				makeApplyResult({
-					created: [],
-					failed: [
-						{
-							family: 'training-types',
-							name: 'Unit Orientation',
-							message: 'This starter artifact could not be created. Existing configuration was left unchanged.'
-						}
-					]
+	it('refreshes support data while keeping error state when starter pack application reports failed artifacts', async () => {
+		const fetchMock = vi
+			.fn()
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () =>
+					makeApplyResult({
+						created: [],
+						failed: [
+							{
+								family: 'training-types',
+								name: 'Unit Orientation',
+								message: 'This starter artifact could not be created. Existing configuration was left unchanged.'
+							}
+						]
+					})
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({
+					trainingTypeCount: 1,
+					onboardingTemplateStepCount: 4,
+					ratingSchemeEntryCount: 0,
+					orgMemberCount: 1,
+					dutyRosterTemplateCount: 1,
+					dutyRosterRunCount: 0,
+					dutyRosterHistoryCount: 0,
+					gettingStartedDismissed: false,
+					starterConfigurationPacks: [makeStarterPack({ isFullyApplied: false })]
 				})
-		});
+			});
 		vi.stubGlobal('fetch', fetchMock);
 		const model = createDashboardScreenModel(makeData({ userRole: 'owner' }), {
 			storage: createMemoryStorage(),
@@ -482,12 +498,20 @@ describe('createDashboardScreenModel', () => {
 		const result = await model.applyStarterConfigurationPack('first-week-operations');
 
 		expect(result).toBeNull();
-		expect(fetchMock).toHaveBeenCalledTimes(1);
+		expect(fetchMock).toHaveBeenNthCalledWith(
+			1,
+			'/org/org-1/api/starter-configuration-packs/first-week-operations/apply',
+			{
+				method: 'POST'
+			}
+		);
+		expect(fetchMock).toHaveBeenNthCalledWith(2, '/org/org-1/api/getting-started');
 		expect(model.starterPackApplyState).toMatchObject({
 			status: 'error',
 			message: 'Some starter artifacts could not be created.'
 		});
-		expect(model.trainingTypeCount).toBe(0);
+		expect(model.trainingTypeCount).toBe(1);
+		expect(model.gettingStartedItems.find((item) => item.id === 'onboarding')?.complete).toBe(true);
 		expect(model.firstStarterConfigurationPack?.isFullyApplied).toBe(false);
 	});
 

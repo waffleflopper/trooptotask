@@ -423,7 +423,21 @@ export class DashboardScreenModel {
 			}
 
 			const result = (await response.json()) as StarterConfigurationPackApplyResult;
-			if (result.failed.length > 0) {
+			const hasFailedArtifacts = result.failed.length > 0;
+			let refreshWarning: string | null = null;
+
+			try {
+				const supportResponse = await fetch(`/org/${this.data.orgId}/api/getting-started`);
+				if (!supportResponse.ok) {
+					refreshWarning = await responseMessage(supportResponse, 'Checklist could not refresh.');
+				} else {
+					this.applySupportData((await supportResponse.json()) as DashboardSupportData);
+				}
+			} catch (error) {
+				refreshWarning = errorMessage(error, 'Checklist could not refresh.');
+			}
+
+			if (hasFailedArtifacts) {
 				this.starterPackApplyState = {
 					status: 'error',
 					message: 'Some starter artifacts could not be created.',
@@ -432,23 +446,10 @@ export class DashboardScreenModel {
 				return null;
 			}
 
-			try {
-				const supportResponse = await fetch(`/org/${this.data.orgId}/api/getting-started`);
-				if (!supportResponse.ok) {
-					const detail = await responseMessage(supportResponse, 'Checklist could not refresh.');
-					this.starterPackApplyState = {
-						status: 'success',
-						message: checklistRefreshWarning(result.packName, detail),
-						result
-					};
-					return result;
-				}
-
-				this.applySupportData((await supportResponse.json()) as DashboardSupportData);
-			} catch (error) {
+			if (refreshWarning) {
 				this.starterPackApplyState = {
 					status: 'success',
-					message: checklistRefreshWarning(result.packName, errorMessage(error, 'Checklist could not refresh.')),
+					message: checklistRefreshWarning(result.packName, refreshWarning),
 					result
 				};
 				return result;

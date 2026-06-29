@@ -1,14 +1,14 @@
+import { createHash } from 'node:crypto';
 import { POLICY_ACTION_CATALOG, type PolicyAction } from '$lib/access/policyEvaluator';
 import { evaluateAuthoritativePolicyDecision } from '$lib/server/core/useCases/policyAdapter';
 import { requirePolicyDecision } from '$lib/server/core/useCases/policyAuthorization';
 import { fail } from '$lib/server/core/errors';
 import type { UseCaseContext, WritePorts } from '$lib/server/core/ports';
 import { createCrudUseCases } from '$lib/server/core/useCases/crud';
-import { createOnboardingTemplate, createOnboardingTemplateStep } from './onboardingTemplateCrud';
-import { createConfiguredDutyRosterTemplate } from './dutyRosterTemplates';
+import { createOnboardingTemplate } from './onboardingTemplateCrud';
+import { createDutyRosterTemplate } from './dutyRosterTemplates';
 import { getEntityAuditResource } from '$lib/server/entitySchema';
 import { TrainingTypeEntity } from '$lib/server/entities/trainingType';
-import { EMPTY_DUTY_ROSTER_POOL_CRITERIA } from '$features/duty-roster/templates/dutyRosterTemplates';
 import type { OnboardingTemplate } from '$features/onboarding/onboarding.types';
 import type { TrainingType } from '$features/training/training.types';
 import type {
@@ -122,9 +122,13 @@ const trainingTypeUseCases = createCrudUseCases<WritePorts>({
 
 interface StarterPackReadinessRows {
 	trainingTypes: Array<Record<string, unknown>>;
-	onboardingTemplates: Array<Record<string, unknown>>;
+	hasAnyTrainingType: boolean;
+	onboardingTemplate: Record<string, unknown> | null;
+	hasAnyOnboardingTemplate: boolean;
+	hasAnyOnboardingTemplateStep: boolean;
 	onboardingTemplateSteps: Array<Record<string, unknown>>;
-	dutyRosterTemplates: Array<Record<string, unknown>>;
+	activeDutyRosterTemplate: Record<string, unknown> | null;
+	hasAnyActiveDutyRosterTemplate: boolean;
 }
 
 export async function listStarterConfigurationPacks(ctx: UseCaseContext): Promise<StarterConfigurationPackSupport[]> {
@@ -179,14 +183,78 @@ async function buildFirstWeekOperationsSupport(ctx: UseCaseContext): Promise<Sta
 }
 
 async function fetchReadinessRows(ctx: Pick<UseCaseContext, 'store' | 'auth'>): Promise<StarterPackReadinessRows> {
-	const [trainingTypes, onboardingTemplates, onboardingTemplateSteps, dutyRosterTemplates] = await Promise.all([
-		ctx.store.findMany<Record<string, unknown>>('training_types', ctx.auth.orgId),
-		ctx.store.findMany<Record<string, unknown>>('onboarding_templates', ctx.auth.orgId),
-		ctx.store.findMany<Record<string, unknown>>('onboarding_template_steps', ctx.auth.orgId),
-		ctx.store.findMany<Record<string, unknown>>('duty_roster_templates', ctx.auth.orgId)
+	const starterTrainingNames = STARTER_TRAINING_TYPES.map((type) => type.name);
+	const starterStepNames = ONBOARDING_STEPS.map((step) => step.name);
+	const [
+		trainingTypes,
+		anyTrainingTypes,
+		starterOnboardingTemplates,
+		anyOnboardingTemplates,
+		anyOnboardingTemplateSteps,
+		activeDutyRosterBySlug,
+		activeDutyRosterByName,
+		anyActiveDutyRosterTemplates
+	] = await Promise.all([
+		ctx.store.findMany<Record<string, unknown>>(
+			'training_types',
+			ctx.auth.orgId,
+			{},
+			{ inFilters: { name: starterTrainingNames }, select: 'name' }
+		),
+		ctx.store.findMany<Record<string, unknown>>('training_types', ctx.auth.orgId, {}, { select: 'id', limit: 1 }),
+		ctx.store.findMany<Record<string, unknown>>(
+			'onboarding_templates',
+			ctx.auth.orgId,
+			{ name: ONBOARDING_TEMPLATE.name },
+			{ select: 'id, name', limit: 1 }
+		),
+		ctx.store.findMany<Record<string, unknown>>('onboarding_templates', ctx.auth.orgId, {}, { select: 'id', limit: 1 }),
+		ctx.store.findMany<Record<string, unknown>>(
+			'onboarding_template_steps',
+			ctx.auth.orgId,
+			{},
+			{ select: 'id', limit: 1 }
+		),
+		ctx.store.findMany<Record<string, unknown>>(
+			'duty_roster_templates',
+			ctx.auth.orgId,
+			{ slug: DUTY_ROSTER_TEMPLATE.slug, status: 'active' },
+			{ select: 'id, name, slug, status', limit: 1 }
+		),
+		ctx.store.findMany<Record<string, unknown>>(
+			'duty_roster_templates',
+			ctx.auth.orgId,
+			{ name: DUTY_ROSTER_TEMPLATE.name, status: 'active' },
+			{ select: 'id, name, slug, status', limit: 1 }
+		),
+		ctx.store.findMany<Record<string, unknown>>(
+			'duty_roster_templates',
+			ctx.auth.orgId,
+			{ status: 'active' },
+			{ select: 'id', limit: 1 }
+		)
 	]);
 
-	return { trainingTypes, onboardingTemplates, onboardingTemplateSteps, dutyRosterTemplates };
+	const onboardingTemplate = starterOnboardingTemplates[0] ?? null;
+	const onboardingTemplateSteps = onboardingTemplate
+		? await ctx.store.findMany<Record<string, unknown>>(
+				'onboarding_template_steps',
+				ctx.auth.orgId,
+				{ template_id: stringField(onboardingTemplate, 'id') },
+				{ inFilters: { name: starterStepNames }, select: 'name, template_id' }
+			)
+		: [];
+
+	return {
+		trainingTypes,
+		hasAnyTrainingType: anyTrainingTypes.length > 0,
+		onboardingTemplate,
+		hasAnyOnboardingTemplate: anyOnboardingTemplates.length > 0,
+		hasAnyOnboardingTemplateStep: anyOnboardingTemplateSteps.length > 0,
+		onboardingTemplateSteps,
+		activeDutyRosterTemplate: activeDutyRosterBySlug[0] ?? activeDutyRosterByName[0] ?? null,
+		hasAnyActiveDutyRosterTemplate: anyActiveDutyRosterTemplates.length > 0
+	};
 }
 
 function buildReadiness(rows: StarterPackReadinessRows): StarterConfigurationPackSupport['readiness'] {
@@ -195,7 +263,7 @@ function buildReadiness(rows: StarterPackReadinessRows): StarterConfigurationPac
 		.map((row) => stringField(row, 'name'))
 		.filter((name): name is string => !!name && starterTrainingNames.has(name));
 
-	const starterTemplate = rows.onboardingTemplates.find((row) => stringField(row, 'name') === ONBOARDING_TEMPLATE.name);
+	const starterTemplate = rows.onboardingTemplate;
 	const starterStepNames = new Set<string>(ONBOARDING_STEPS.map((step) => step.name));
 	const existingStarterStepNames = rows.onboardingTemplateSteps
 		.filter((row) => !!starterTemplate && stringField(row, 'template_id') === stringField(starterTemplate, 'id'))
@@ -203,15 +271,13 @@ function buildReadiness(rows: StarterPackReadinessRows): StarterConfigurationPac
 		.filter((name): name is string => !!name && starterStepNames.has(name));
 	const existingOnboardingNames = [...(starterTemplate ? [ONBOARDING_TEMPLATE.name] : []), ...existingStarterStepNames];
 
-	const starterDutyRoster = rows.dutyRosterTemplates.find(
-		(row) => stringField(row, 'slug') === DUTY_ROSTER_TEMPLATE.slug
-	);
+	const starterDutyRoster = rows.activeDutyRosterTemplate;
 
 	return [
 		{
 			family: TRAINING_TYPE_FAMILY,
 			label: 'Training Types',
-			configured: rows.trainingTypes.length > 0,
+			configured: rows.hasAnyTrainingType,
 			starterArtifactCount: existingStarterTrainingNames.length,
 			expectedArtifactCount: STARTER_TRAINING_TYPES.length,
 			existingStarterArtifactNames: existingStarterTrainingNames
@@ -219,7 +285,7 @@ function buildReadiness(rows: StarterPackReadinessRows): StarterConfigurationPac
 		{
 			family: ONBOARDING_FAMILY,
 			label: 'Onboarding Template',
-			configured: rows.onboardingTemplates.length > 0 || rows.onboardingTemplateSteps.length > 0,
+			configured: rows.hasAnyOnboardingTemplate || rows.hasAnyOnboardingTemplateStep,
 			starterArtifactCount: existingOnboardingNames.length,
 			expectedArtifactCount: 1 + ONBOARDING_STEPS.length,
 			existingStarterArtifactNames: existingOnboardingNames
@@ -227,7 +293,7 @@ function buildReadiness(rows: StarterPackReadinessRows): StarterConfigurationPac
 		{
 			family: DUTY_ROSTER_FAMILY,
 			label: 'Duty Roster Template',
-			configured: rows.dutyRosterTemplates.length > 0,
+			configured: rows.hasAnyActiveDutyRosterTemplate,
 			starterArtifactCount: starterDutyRoster ? 1 : 0,
 			expectedArtifactCount: 1,
 			existingStarterArtifactNames: starterDutyRoster ? [DUTY_ROSTER_TEMPLATE.name] : []
@@ -344,15 +410,7 @@ async function applyStarterOnboardingTemplate(
 		}
 
 		try {
-			await createOnboardingTemplateStep(ctx, {
-				templateId: template.id,
-				name: starterStep.name,
-				description: starterStep.description,
-				stepType: starterStep.stepType,
-				trainingTypeId,
-				stages: starterStep.stepType === 'paperwork' ? starterStep.stages : null,
-				sortOrder: starterStep.sortOrder
-			});
+			await createStarterOnboardingTemplateStep(ctx, template.id, starterStep, trainingTypeId);
 			existingStepNames.add(starterStep.name);
 			recordCreated(result, ONBOARDING_FAMILY, starterStep.name);
 		} catch (error) {
@@ -371,9 +429,7 @@ async function applyStarterOnboardingTemplate(
 }
 
 async function applyStarterDutyRosterTemplate(ctx: WritePorts, result: StarterConfigurationPackApplyResult) {
-	const existing = await ctx.store.findOne<Record<string, unknown>>('duty_roster_templates', ctx.auth.orgId, {
-		slug: DUTY_ROSTER_TEMPLATE.slug
-	});
+	const existing = await findActiveStarterDutyRosterTemplate(ctx);
 
 	if (existing) {
 		recordSkipped(result, DUTY_ROSTER_FAMILY, DUTY_ROSTER_TEMPLATE.name);
@@ -381,19 +437,15 @@ async function applyStarterDutyRosterTemplate(ctx: WritePorts, result: StarterCo
 	}
 
 	try {
-		await createConfiguredDutyRosterTemplate(ctx, {
+		await createDutyRosterTemplate(ctx, {
 			name: DUTY_ROSTER_TEMPLATE.name,
-			slug: DUTY_ROSTER_TEMPLATE.slug,
-			shortCode: DUTY_ROSTER_TEMPLATE.shortCode,
-			poolCriteria: EMPTY_DUTY_ROSTER_POOL_CRITERIA,
-			exemptPersonnelIds: [],
-			manualBaselineCounts: {}
+			shortCode: DUTY_ROSTER_TEMPLATE.shortCode
 		});
 		recordCreated(result, DUTY_ROSTER_FAMILY, DUTY_ROSTER_TEMPLATE.name);
 	} catch (error) {
 		rethrowAuthorizationFailure(error);
 		if (isDutyRosterSlugConflict(error)) {
-			const racedExisting = await findDutyRosterTemplateBySlug(ctx, DUTY_ROSTER_TEMPLATE.slug);
+			const racedExisting = await findActiveStarterDutyRosterTemplate(ctx);
 			if (racedExisting) {
 				recordSkipped(result, DUTY_ROSTER_FAMILY, DUTY_ROSTER_TEMPLATE.name);
 				return;
@@ -401,6 +453,43 @@ async function applyStarterDutyRosterTemplate(ctx: WritePorts, result: StarterCo
 		}
 		recordFailed(result, DUTY_ROSTER_FAMILY, DUTY_ROSTER_TEMPLATE.name);
 	}
+}
+
+async function createStarterOnboardingTemplateStep(
+	ctx: WritePorts,
+	templateId: string,
+	starterStep: (typeof ONBOARDING_STEPS)[number],
+	trainingTypeId: string | null
+): Promise<void> {
+	const stepId = deterministicStarterOnboardingStepId(templateId, starterStep.name);
+	const row = await ctx.store.insert<Record<string, unknown>>('onboarding_template_steps', ctx.auth.orgId, {
+		id: stepId,
+		template_id: templateId,
+		name: starterStep.name,
+		description: starterStep.description,
+		step_type: starterStep.stepType,
+		training_type_id: trainingTypeId,
+		stages: starterStep.stepType === 'paperwork' ? starterStep.stages : null,
+		sort_order: starterStep.sortOrder
+	});
+
+	ctx.audit.log({
+		action: 'onboarding_template_step.created',
+		resourceType: 'onboarding_template_step',
+		resourceId: stringField(row, 'id') ?? stepId
+	});
+}
+
+function deterministicStarterOnboardingStepId(templateId: string, stepName: string): string {
+	const hex = createHash('sha256')
+		.update(`trooptotask:starter-onboarding-step:${templateId}:${stepName}`)
+		.digest('hex')
+		.slice(0, 32)
+		.split('');
+	hex[12] = '5';
+	hex[16] = ((Number.parseInt(hex[16] ?? '0', 16) & 0x3) | 0x8).toString(16);
+	const value = hex.join('');
+	return `${value.slice(0, 8)}-${value.slice(8, 12)}-${value.slice(12, 16)}-${value.slice(16, 20)}-${value.slice(20)}`;
 }
 
 async function findTrainingTypeByName(ctx: Pick<WritePorts, 'store' | 'auth'>, name: string) {
@@ -426,11 +515,24 @@ async function findOnboardingTemplateStepByName(
 	});
 }
 
-async function findDutyRosterTemplateBySlug(
-	ctx: Pick<WritePorts, 'store' | 'auth'>,
-	slug: string
+async function findActiveStarterDutyRosterTemplate(
+	ctx: Pick<WritePorts, 'store' | 'auth'>
 ): Promise<Record<string, unknown> | null> {
-	return ctx.store.findOne<Record<string, unknown>>('duty_roster_templates', ctx.auth.orgId, { slug });
+	const [bySlug, byName] = await Promise.all([
+		ctx.store.findMany<Record<string, unknown>>(
+			'duty_roster_templates',
+			ctx.auth.orgId,
+			{ slug: DUTY_ROSTER_TEMPLATE.slug, status: 'active' },
+			{ select: 'id, name, slug, status', limit: 1 }
+		),
+		ctx.store.findMany<Record<string, unknown>>(
+			'duty_roster_templates',
+			ctx.auth.orgId,
+			{ name: DUTY_ROSTER_TEMPLATE.name, status: 'active' },
+			{ select: 'id, name, slug, status', limit: 1 }
+		)
+	]);
+	return bySlug[0] ?? byName[0] ?? null;
 }
 
 function createApplyResult(): StarterConfigurationPackApplyResult {

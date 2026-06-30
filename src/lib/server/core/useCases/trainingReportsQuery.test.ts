@@ -159,6 +159,57 @@ describe('fetchTrainingReportsData', () => {
 		expect(result.filterOptions.ranks).toEqual(['PO2', 'SSgt', 'SP4', 'LOCAL-CADET', 'SGT']);
 	});
 
+	it('sorts report rows by catalog rank precedence with unknown ranks last', async () => {
+		const ctx = buildCtx();
+		const store = ctx.store as ReturnType<typeof createInMemoryDataStore>;
+
+		store.seed('personnel', [
+			personnelRow({ id: 'p-unknown', rank: 'LOCAL-CADET', last_name: 'Able' }),
+			personnelRow({ id: 'p-navy', rank: 'PO2', last_name: 'Baker' }),
+			personnelRow({ id: 'p-army', rank: 'SGT', last_name: 'Able' }),
+			personnelRow({ id: 'p-air-force', rank: 'SSgt', last_name: 'Charlie' })
+		]);
+		store.seed('organization_rank_catalog', [
+			rankCatalogRow({ code: 'PO2', label: 'Petty Officer Second Class', service: 'navy', pay_grade: 'E-5' }),
+			rankCatalogRow({ code: 'SGT', label: 'Sergeant', service: 'army', pay_grade: 'E-5' }),
+			rankCatalogRow({ code: 'SSgt', label: 'Staff Sergeant', service: 'air-force', pay_grade: 'E-5' })
+		]);
+		store.seed('training_types', [
+			{
+				id: 'type-cpr',
+				organization_id: ORG,
+				name: 'CPR',
+				description: null,
+				expiration_months: null,
+				warning_days_yellow: 60,
+				warning_days_orange: 30,
+				applies_to_roles: [],
+				applies_to_mos: [],
+				applies_to_ranks: [],
+				excluded_roles: [],
+				excluded_mos: [],
+				excluded_ranks: [],
+				color: '#22c55e',
+				sort_order: 0,
+				expiration_date_only: false,
+				can_be_exempted: false,
+				exempt_personnel_ids: [],
+				is_optional: false
+			}
+		]);
+
+		const input = {
+			sort: { column: 'rank' as const, direction: 'asc' as const },
+			pagination: { page: 1, pageSize: 10 }
+		};
+
+		const page = await fetchTrainingReportPage(ctx, input);
+		const detail = await fetchTrainingReportDetailPage(ctx, input);
+
+		expect(page.detail.rows.map((row) => row.person.id)).toEqual(['p-navy', 'p-army', 'p-air-force', 'p-unknown']);
+		expect(detail.rows.map((row) => row.person.id)).toEqual(['p-navy', 'p-army', 'p-air-force', 'p-unknown']);
+	});
+
 	it('clamps oversized page requests to the last available report page', async () => {
 		const ctx = buildCtx();
 		const store = ctx.store as ReturnType<typeof createInMemoryDataStore>;

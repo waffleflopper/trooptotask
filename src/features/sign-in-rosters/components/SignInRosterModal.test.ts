@@ -335,6 +335,30 @@ describe('SignInRosterModal', () => {
 		expect(body.filterConfig.ranks).toEqual(expect.arrayContaining(['PO2', 'SSgt', 'LOCAL-CADET']));
 	});
 
+	it('does not show reset filters until a catalog-backed rank filter changes', async () => {
+		const fetchMock = vi.fn(async () => jsonResponse({ rosters: [], total: 0 }));
+		vi.stubGlobal('fetch', fetchMock);
+
+		renderModal({
+			personnel: [personnelRow({ id: 'person-army', rank: 'SGT' }), personnelRow({ id: 'person-navy', rank: 'PO2' })],
+			rankCatalog: [
+				rankCatalogEntry({ code: 'PO2', label: 'Petty Officer Second Class', service: 'navy' }),
+				rankCatalogEntry({ code: 'SGT', label: 'Sergeant', service: 'army' }),
+				rankCatalogEntry({ code: 'SSgt', label: 'Staff Sergeant', service: 'air-force' })
+			]
+		});
+
+		await waitFor(() => expect(screen.getByRole('button', { name: 'New Roster' })).toBeTruthy());
+
+		await fireEvent.click(screen.getByRole('button', { name: 'New Roster' }));
+
+		expect(screen.queryByRole('button', { name: 'Reset filters' })).toBeNull();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'PO2' }));
+
+		expect(screen.getByRole('button', { name: 'Reset filters' })).toBeTruthy();
+	});
+
 	it('uploads a signed roster scan through the shadcn file input and shows selected-file progress', async () => {
 		let resolveUpload: ((response: Response) => void) | undefined;
 		const uploadResponse = new Promise<Response>((resolve) => {

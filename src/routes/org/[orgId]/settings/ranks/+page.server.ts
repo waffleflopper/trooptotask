@@ -3,6 +3,7 @@ import type { Actions, PageServerLoad } from './$types';
 import type { RankCategory, RankPayGrade, RankService, RankState } from '$lib/domain/rankCatalog';
 import { buildRouteContext } from '$lib/server/adapters/httpAdapter';
 import { createSupabaseRankCatalogAdministrationPort } from '$lib/server/adapters/supabaseRankCatalogAdministration';
+import { fail } from '$lib/server/core/errors';
 import {
 	addOrganizationRankServicePack,
 	removeOrganizationRankCatalogEntry,
@@ -54,7 +55,7 @@ export const actions: Actions = {
 				category: getStringFormValue(formData, 'category') as RankCategory,
 				payGrade: getStringFormValue(formData, 'payGrade') as RankPayGrade,
 				state: getStringFormValue(formData, 'state') as RankState,
-				sortOrder: Number(getStringFormValue(formData, 'sortOrder'))
+				sortOrder: parseSortOrder(formData)
 			});
 
 			return { success: true, code: saved.code };
@@ -102,4 +103,13 @@ export const actions: Actions = {
 function getStringFormValue(formData: FormData, key: string): string {
 	const value = formData.get(key);
 	return typeof value === 'string' ? value : '';
+}
+
+function parseSortOrder(formData: FormData): number {
+	const rawSortOrder = getStringFormValue(formData, 'sortOrder').trim();
+	if (!/^-?\d+$/.test(rawSortOrder)) {
+		fail(400, 'Tie-break order must be a whole number.');
+	}
+
+	return Number(rawSortOrder);
 }

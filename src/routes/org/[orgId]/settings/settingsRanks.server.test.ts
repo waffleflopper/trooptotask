@@ -205,6 +205,131 @@ describe('rank settings read model', () => {
 		);
 	});
 
+	it('does not expose built-in rank metadata as editable while keeping retire available', () => {
+		const settings = buildRanksSettingsData({
+			canManageCatalog: true,
+			catalog: [
+				{
+					organizationId: 'test-org',
+					code: 'SGT',
+					label: 'Sergeant',
+					service: 'army',
+					category: 'enlisted',
+					payGrade: 'E-5',
+					state: 'active',
+					source: 'built-in',
+					sortOrder: 0
+				},
+				{
+					organizationId: 'test-org',
+					code: 'DET-SGT',
+					label: 'Detachment Sergeant',
+					service: 'custom',
+					category: 'custom',
+					payGrade: 'ungraded',
+					state: 'active',
+					source: 'custom',
+					sortOrder: 500
+				}
+			],
+			referenceSummaries: [
+				{
+					code: 'SGT',
+					activeReferences: {
+						personnel: 0,
+						trainingApplicability: 0,
+						dutyRosterTemplateFilters: 0,
+						legacyDutyTemplateSlots: 0,
+						total: 0
+					},
+					historicalReferences: {
+						signInRosterFilters: 0,
+						signInRosterSnapshots: 0,
+						acceptedDutyRosterSnapshots: 0,
+						total: 0
+					},
+					canDelete: true
+				},
+				{
+					code: 'DET-SGT',
+					activeReferences: {
+						personnel: 0,
+						trainingApplicability: 0,
+						dutyRosterTemplateFilters: 0,
+						legacyDutyTemplateSlots: 0,
+						total: 0
+					},
+					historicalReferences: {
+						signInRosterFilters: 0,
+						signInRosterSnapshots: 0,
+						acceptedDutyRosterSnapshots: 0,
+						total: 0
+					},
+					canDelete: true
+				}
+			]
+		});
+
+		expect(settings.sections.ranks.entries.active).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					code: 'SGT',
+					commands: {
+						canEdit: false,
+						canRetire: true,
+						canDelete: false,
+						deleteDisabledReason: 'Built-in ranks can be retired but not removed.'
+					}
+				}),
+				expect.objectContaining({
+					code: 'DET-SGT',
+					commands: expect.objectContaining({
+						canEdit: true,
+						canRetire: true,
+						canDelete: true
+					})
+				})
+			])
+		);
+	});
+
+	it('fails closed when a custom rank is missing its reference summary', () => {
+		const settings = buildRanksSettingsData({
+			canManageCatalog: true,
+			catalog: [
+				{
+					organizationId: 'test-org',
+					code: 'DET-SGT',
+					label: 'Detachment Sergeant',
+					service: 'custom',
+					category: 'custom',
+					payGrade: 'ungraded',
+					state: 'active',
+					source: 'custom',
+					sortOrder: 500
+				}
+			],
+			referenceSummaries: []
+		});
+
+		expect(settings.sections.ranks.entries.active).toEqual([
+			expect.objectContaining({
+				code: 'DET-SGT',
+				referenceSummary: expect.objectContaining({
+					canDelete: false,
+					activeReferences: expect.objectContaining({ total: 0 }),
+					historicalReferences: expect.objectContaining({ total: 0 })
+				}),
+				commands: {
+					canEdit: true,
+					canRetire: true,
+					canDelete: false,
+					deleteDisabledReason: 'Reference check unavailable; retire it instead.'
+				}
+			})
+		]);
+	});
+
 	it('marks Organization admins and owners as catalog managers without relying on Personnel edit permission', async () => {
 		const memberCtx = createTestContext({
 			auth: {
@@ -212,6 +337,13 @@ describe('rank settings read model', () => {
 				isPrivileged: false,
 				canManageMembers: false,
 				capabilityMap: { ...NO_CAPABILITIES, personnel: 'configure' }
+			}
+		});
+		const adminCtx = createTestContext({
+			auth: {
+				role: 'admin',
+				isPrivileged: true,
+				canManageMembers: true
 			}
 		});
 		const ownerCtx = createTestContext();
@@ -234,6 +366,27 @@ describe('rank settings read model', () => {
 				}
 			}
 		});
-		expect(memberCtx.auth.canManageMembers).toBe(false);
+		await expect(loadRanksSettings(adminCtx)).resolves.toMatchObject({
+			sections: {
+				ranks: {
+					commands: {
+						canManageCatalog: true,
+						canAddServicePack: true,
+						canAddCustomRank: true
+					}
+				}
+			}
+		});
+		await expect(loadRanksSettings(memberCtx)).resolves.toMatchObject({
+			sections: {
+				ranks: {
+					commands: {
+						canManageCatalog: false,
+						canAddServicePack: false,
+						canAddCustomRank: false
+					}
+				}
+			}
+		});
 	});
 });

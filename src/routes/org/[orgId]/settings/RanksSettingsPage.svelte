@@ -46,6 +46,11 @@
 	function sourceVariant(source: SettingsRankCatalogRow['source']): 'secondary' | 'outline' {
 		return source === 'built-in' ? 'secondary' : 'outline';
 	}
+
+	function rankDomId(code: string): string {
+		const safeCode = code.replace(/[^A-Za-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '');
+		return `rank-${safeCode || 'entry'}`;
+	}
 </script>
 
 <div class="grid max-w-6xl gap-4">
@@ -260,11 +265,12 @@
 </div>
 
 {#snippet rankCard(entry: SettingsRankCatalogRow)}
-	<article class="grid gap-3 rounded-lg border p-3" aria-labelledby={`rank-${entry.code}-heading`}>
+	{@const domId = rankDomId(entry.code)}
+	<article class="grid gap-3 rounded-lg border p-3" aria-labelledby={`${domId}-heading`}>
 		<div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
 			<div class="grid gap-2">
 				<div class="flex flex-wrap items-center gap-2">
-					<h3 id={`rank-${entry.code}-heading`} class="text-base font-semibold">
+					<h3 id={`${domId}-heading`} class="text-base font-semibold">
 						{entry.code} · {entry.label}
 					</h3>
 					<Badge variant={sourceVariant(entry.source)}>{entry.sourceLabel}</Badge>
@@ -335,103 +341,77 @@
 			<p class="text-sm text-muted-foreground">{entry.commands.deleteDisabledReason}</p>
 		{/if}
 
-		<details class="rounded-lg border bg-muted/30 p-3">
-			<summary class="flex cursor-pointer items-center gap-2 text-sm font-medium">
-				<PencilIcon aria-hidden class="size-4" />
-				Edit rank
-			</summary>
-			<form method="POST" action="?/saveRank" class="mt-3 grid gap-3" use:enhance={enhancedForm(`edit-${entry.code}`)}>
-				<div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-					<div class="grid gap-2">
-						<Label for={`edit-${entry.code}-code`}>Code</Label>
-						<Input id={`edit-${entry.code}-code`} name="code" value={entry.code} readonly />
+		{#if entry.commands.canEdit}
+			<details class="rounded-lg border bg-muted/30 p-3">
+				<summary class="flex cursor-pointer items-center gap-2 text-sm font-medium">
+					<PencilIcon aria-hidden class="size-4" />
+					Edit rank
+				</summary>
+				<form
+					method="POST"
+					action="?/saveRank"
+					class="mt-3 grid gap-3"
+					use:enhance={enhancedForm(`edit-${entry.code}`)}
+				>
+					<div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+						<div class="grid gap-2">
+							<Label for={`${domId}-edit-code`}>Code</Label>
+							<Input id={`${domId}-edit-code`} name="code" value={entry.code} readonly />
+						</div>
+						<div class="grid gap-2">
+							<Label for={`${domId}-edit-label`}>Label</Label>
+							<Input id={`${domId}-edit-label`} name="label" value={entry.label} maxlength={120} required />
+						</div>
+						<div class="grid gap-2">
+							<Label for={`${domId}-edit-service`}>Service</Label>
+							<NativeSelect.Root id={`${domId}-edit-service`} name="service" value={entry.service}>
+								{#each ranks.options.services as option (option.value)}
+									<NativeSelect.Option value={option.value}>{option.label}</NativeSelect.Option>
+								{/each}
+							</NativeSelect.Root>
+						</div>
+						<div class="grid gap-2">
+							<Label for={`${domId}-edit-category`}>Category</Label>
+							<NativeSelect.Root id={`${domId}-edit-category`} name="category" value={entry.category}>
+								{#each ranks.options.categories as option (option.value)}
+									<NativeSelect.Option value={option.value}>{option.label}</NativeSelect.Option>
+								{/each}
+							</NativeSelect.Root>
+						</div>
+						<div class="grid gap-2">
+							<Label for={`${domId}-edit-pay-grade`}>Pay grade</Label>
+							<NativeSelect.Root id={`${domId}-edit-pay-grade`} name="payGrade" value={entry.payGrade}>
+								{#each ranks.options.payGrades as option (option.value)}
+									<NativeSelect.Option value={option.value}>{option.label}</NativeSelect.Option>
+								{/each}
+							</NativeSelect.Root>
+						</div>
+						<div class="grid gap-2">
+							<Label for={`${domId}-edit-state`}>State</Label>
+							<NativeSelect.Root id={`${domId}-edit-state`} name="state" value={entry.state}>
+								{#each ranks.options.states as option (option.value)}
+									<NativeSelect.Option value={option.value}>{option.label}</NativeSelect.Option>
+								{/each}
+							</NativeSelect.Root>
+						</div>
+						<div class="grid gap-2">
+							<Label for={`${domId}-edit-sort-order`}>Tie-break order</Label>
+							<Input id={`${domId}-edit-sort-order`} name="sortOrder" type="number" value={entry.sortOrder} />
+						</div>
 					</div>
-					<div class="grid gap-2">
-						<Label for={`edit-${entry.code}-label`}>Label</Label>
-						<Input
-							id={`edit-${entry.code}-label`}
-							name="label"
-							value={entry.label}
-							maxlength={120}
-							disabled={!entry.commands.canEdit}
-							required
-						/>
-					</div>
-					<div class="grid gap-2">
-						<Label for={`edit-${entry.code}-service`}>Service</Label>
-						<NativeSelect.Root
-							id={`edit-${entry.code}-service`}
-							name="service"
-							value={entry.service}
-							disabled={!entry.commands.canEdit}
+					<div>
+						<Button
+							type="submit"
+							size="sm"
+							disabled={savingAction === `edit-${entry.code}`}
+							aria-label={`Save ${entry.code}`}
 						>
-							{#each ranks.options.services as option (option.value)}
-								<NativeSelect.Option value={option.value}>{option.label}</NativeSelect.Option>
-							{/each}
-						</NativeSelect.Root>
+							{#if savingAction === `edit-${entry.code}`}<Spinner />{:else}<SaveIcon aria-hidden />{/if}
+							Save
+						</Button>
 					</div>
-					<div class="grid gap-2">
-						<Label for={`edit-${entry.code}-category`}>Category</Label>
-						<NativeSelect.Root
-							id={`edit-${entry.code}-category`}
-							name="category"
-							value={entry.category}
-							disabled={!entry.commands.canEdit}
-						>
-							{#each ranks.options.categories as option (option.value)}
-								<NativeSelect.Option value={option.value}>{option.label}</NativeSelect.Option>
-							{/each}
-						</NativeSelect.Root>
-					</div>
-					<div class="grid gap-2">
-						<Label for={`edit-${entry.code}-pay-grade`}>Pay grade</Label>
-						<NativeSelect.Root
-							id={`edit-${entry.code}-pay-grade`}
-							name="payGrade"
-							value={entry.payGrade}
-							disabled={!entry.commands.canEdit}
-						>
-							{#each ranks.options.payGrades as option (option.value)}
-								<NativeSelect.Option value={option.value}>{option.label}</NativeSelect.Option>
-							{/each}
-						</NativeSelect.Root>
-					</div>
-					<div class="grid gap-2">
-						<Label for={`edit-${entry.code}-state`}>State</Label>
-						<NativeSelect.Root
-							id={`edit-${entry.code}-state`}
-							name="state"
-							value={entry.state}
-							disabled={!entry.commands.canEdit}
-						>
-							{#each ranks.options.states as option (option.value)}
-								<NativeSelect.Option value={option.value}>{option.label}</NativeSelect.Option>
-							{/each}
-						</NativeSelect.Root>
-					</div>
-					<div class="grid gap-2">
-						<Label for={`edit-${entry.code}-sort-order`}>Tie-break order</Label>
-						<Input
-							id={`edit-${entry.code}-sort-order`}
-							name="sortOrder"
-							type="number"
-							value={entry.sortOrder}
-							disabled={!entry.commands.canEdit}
-						/>
-					</div>
-				</div>
-				<div>
-					<Button
-						type="submit"
-						size="sm"
-						disabled={!entry.commands.canEdit || savingAction === `edit-${entry.code}`}
-						aria-label={`Save ${entry.code}`}
-					>
-						{#if savingAction === `edit-${entry.code}`}<Spinner />{:else}<SaveIcon aria-hidden />{/if}
-						Save
-					</Button>
-				</div>
-			</form>
-		</details>
+				</form>
+			</details>
+		{/if}
 	</article>
 {/snippet}

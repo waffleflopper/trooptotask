@@ -35,9 +35,10 @@ export function rankCodesForOptions(input: {
 		for (const rank of fallbackRanks) add(rank);
 	}
 
-	for (const rank of [...observedRanks].toSorted((left, right) =>
-		compareRankCodes(left, right, { catalog: rankCatalog })
-	)) {
+	for (const rank of observedRanks
+		.map((value) => value.trim())
+		.filter(Boolean)
+		.toSorted((left, right) => compareRankCodes(left, right, { catalog: rankCatalog }))) {
 		add(rank);
 	}
 	for (const rank of preserveRanks) add(rank);

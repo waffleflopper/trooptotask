@@ -172,6 +172,43 @@ describe('/api/sign-in-rosters route config', () => {
 		]);
 	});
 
+	it('does not read the Organization rank catalog for alphabetical snapshots', async () => {
+		const ctx = createTestContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: {
+					calendar: 'view',
+					personnel: 'none',
+					training: 'operate',
+					criticalTasks: 'view',
+					onboarding: 'view',
+					ratingScheme: 'view'
+				},
+				scopeSet: { kind: 'organization' }
+			}
+		});
+		ctx.signInRosterPersonnelLookup = {
+			listPersonnelForRosterCandidates: vi.fn(async () => []),
+			findPersonnelForRosterSnapshot: vi.fn(async () => [
+				signInPersonnel({ id: 'p-smith', rank: 'SGT', last_name: 'Smith', first_name: 'Jane' }),
+				signInPersonnel({ id: 'p-adams', rank: 'PO2', last_name: 'Adams', first_name: 'Avery' })
+			])
+		};
+		const findManySpy = vi.spyOn(ctx.rawStore, 'findMany');
+
+		await handleUseCaseRequest(_postConfig, ctx, {
+			title: 'Alphabetical Sign-In',
+			rosterDate: '2026-05-02',
+			blankDate: false,
+			separateByGroup: false,
+			sortBy: 'alphabetical',
+			personnelIds: ['p-smith', 'p-adams']
+		});
+
+		expect(findManySpy).not.toHaveBeenCalledWith('organization_rank_catalog', expect.any(String));
+	});
+
 	it('marks rosters with unassigned personnel as organization-only', async () => {
 		const ctx = createTestContext({
 			auth: {

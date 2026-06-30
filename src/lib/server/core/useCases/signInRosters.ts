@@ -40,8 +40,8 @@ export async function prepareSignInRosterSnapshot(
 	assertPersonnelRowsWithinScope(ctx.auth.scopeSet, rows);
 
 	const groupNames = await loadGroupNames(ctx, rows);
-	const rankCatalog = await loadSignInRosterRankCatalog(ctx);
 	const sortBy = input.sortBy === 'rank' ? 'rank' : 'alphabetical';
+	const rankCatalog = sortBy === 'rank' ? await loadSignInRosterRankCatalog(ctx) : [];
 	const rowById = rowsById(rows);
 	const personnelSnapshot = sortSnapshot(
 		personnelIds.map((id) => canonicalSnapshotFor(rowById.get(id)!, groupNames)),

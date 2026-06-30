@@ -209,11 +209,18 @@ export async function saveOrganizationRankCatalogEntry(
 		ports.auth.orgId,
 		{ code: entry.code }
 	);
-	const source = existing?.source ?? 'custom';
+	const builtInEntry = resolveBuiltInRank(entry.code);
+	const entryToSave = builtInEntry
+		? {
+				...builtInEntry,
+				state: existing?.source === 'built-in' ? existing.state : builtInEntry.state
+			}
+		: entry;
+	const source = builtInEntry ? 'built-in' : (existing?.source ?? 'custom');
 	const [saved] = await storeForRankCatalog(ports).upsertMany<OrganizationRankCatalogRow>(
 		RANK_CATALOG_TABLE,
 		ports.auth.orgId,
-		[serializeRankCatalogEntry(ports.auth.orgId, entry, source)],
+		[serializeRankCatalogEntry(ports.auth.orgId, entryToSave, source)],
 		{ onConflict: 'organization_id,code' }
 	);
 
@@ -284,9 +291,18 @@ export async function addOrganizationRankServicePack(
 }
 
 export async function loadOrganizationRankCatalogReferenceSummaries(
-	ports: Pick<RankCatalogPorts, 'auth' | 'store' | 'rawStore'>,
+	ports: Pick<RankCatalogPorts, 'auth' | 'store' | 'rawStore' | 'audit' | 'readOnlyGuard'>,
 	input: { codes: readonly string[] }
 ): Promise<OrganizationRankCatalogReferenceSummary[]> {
+	await requireFeaturePolicy(
+		ports,
+		POLICY_ACTION_CATALOG.personnel.viewRoster,
+		{ kind: 'unscoped' },
+		'organization_rank_catalog',
+		undefined,
+		{ enforceReadOnlyOverlay: false }
+	);
+
 	const codes = [...new Set(input.codes.map((code) => sanitizeString(code, 80)).filter(Boolean))];
 	const summaries = new Map(codes.map((code) => [code, createEmptyReferenceSummary(code)]));
 	const referenceMatcher = createRankReferenceMatcher(codes);

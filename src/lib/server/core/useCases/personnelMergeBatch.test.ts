@@ -171,7 +171,7 @@ describe('mergePersonnelBatch', () => {
 		]);
 	});
 
-	it('matches exact legacy ranks that collide with multiple catalog entries by case', async () => {
+	it('matches legacy ranks case-insensitively when they collide with multiple catalog entries by case', async () => {
 		const ctx = buildContext();
 		seedRankCatalog(ctx, [
 			{ code: 'CAPT', label: 'Captain', service: 'navy', category: 'officer', pay_grade: 'O-6' },
@@ -196,7 +196,7 @@ describe('mergePersonnelBatch', () => {
 		const result = await mergePersonnelBatch(ctx, {
 			records: [
 				{
-					rank: 'capt',
+					rank: 'cApT',
 					lastName: 'Smith',
 					firstName: 'Jamie',
 					ets: '2027-05-01'

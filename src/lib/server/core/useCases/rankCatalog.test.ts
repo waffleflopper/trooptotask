@@ -70,6 +70,13 @@ describe('organization rank catalog', () => {
 				rank: '  Field Marshal  ',
 				first_name: 'Casey',
 				last_name: 'Lee'
+			},
+			{
+				id: 'person-3',
+				organization_id: 'test-org',
+				rank: 'Field   Marshal',
+				first_name: 'Riley',
+				last_name: 'Jordan'
 			}
 		]);
 
@@ -91,6 +98,9 @@ describe('organization rank catalog', () => {
 		});
 		await expect(ctx.rawStore.findOne('personnel', 'test-org', { id: 'person-2' })).resolves.toMatchObject({
 			rank: '  Field Marshal  '
+		});
+		await expect(ctx.rawStore.findOne('personnel', 'test-org', { id: 'person-3' })).resolves.toMatchObject({
+			rank: 'Field   Marshal'
 		});
 	});
 

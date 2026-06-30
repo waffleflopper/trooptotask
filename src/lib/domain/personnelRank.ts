@@ -29,7 +29,7 @@ export function comparePersonnelByRankThenName(
 	a: Pick<Personnel, 'rank' | 'lastName' | 'firstName' | 'id'>,
 	b: Pick<Personnel, 'rank' | 'lastName' | 'firstName' | 'id'>
 ): number {
-	const rankDiff = compareRankCodes(a.rank, b.rank);
+	const rankDiff = getRankPrecedence(a.rank) - getRankPrecedence(b.rank);
 	if (rankDiff !== 0) {
 		return rankDiff;
 	}

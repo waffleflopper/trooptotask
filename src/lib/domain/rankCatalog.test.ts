@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { BUILT_IN_RANK_CATALOG, compareRankCodes, resolveBuiltInRank, resolveRank } from './rankCatalog';
+import {
+	BUILT_IN_RANK_CATALOG,
+	compareRankCodes,
+	resolveBuiltInRank,
+	resolveRank,
+	type RankCatalogEntry
+} from './rankCatalog';
 
 describe('rank catalog ordering', () => {
 	it('treats cross-service ranks with the same pay grade as equivalent precedence', () => {
@@ -62,9 +68,13 @@ describe('rank catalog ordering', () => {
 			code: 'Gen',
 			service: 'air-force'
 		});
-		expect(resolveBuiltInRank('gen')).toMatchObject({
-			code: 'GEN',
-			service: 'army'
+		expect(resolveBuiltInRank('gen')).toBeUndefined();
+		expect(resolveRank('gen')).toMatchObject({
+			code: 'gen',
+			label: 'gen',
+			service: 'custom',
+			category: 'custom',
+			payGrade: 'ungraded'
 		});
 	});
 
@@ -93,6 +103,47 @@ describe('rank catalog ordering', () => {
 		] as const;
 
 		expect(['B', 'A'].sort((a, b) => compareRankCodes(a, b, { catalog }))).toEqual(['A', 'B']);
+	});
+
+	it('reuses the rank index for repeated comparisons with the same catalog identity', () => {
+		let indexBuilds = 0;
+		const source: RankCatalogEntry[] = [
+			{
+				code: 'HIGH',
+				label: 'High',
+				service: 'custom',
+				category: 'custom',
+				payGrade: 'E-6',
+				state: 'active',
+				sortOrder: 0
+			},
+			{
+				code: 'LOW',
+				label: 'Low',
+				service: 'custom',
+				category: 'custom',
+				payGrade: 'E-5',
+				state: 'active',
+				sortOrder: 0
+			}
+		];
+		const catalog = new Proxy(source, {
+			get(target, property, receiver) {
+				if (property === Symbol.iterator) {
+					return function* () {
+						indexBuilds += 1;
+						yield* target;
+					};
+				}
+
+				return Reflect.get(target, property, receiver);
+			}
+		});
+
+		expect(compareRankCodes('LOW', 'HIGH', { catalog })).toBeGreaterThan(0);
+		expect(compareRankCodes('HIGH', 'LOW', { catalog })).toBeLessThan(0);
+		expect(resolveRank('LOW', catalog)).toMatchObject({ code: 'LOW' });
+		expect(indexBuilds).toBe(1);
 	});
 
 	it('keeps unknown rank strings displayable and sortable', () => {

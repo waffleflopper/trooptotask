@@ -3,6 +3,7 @@ import { BUILT_IN_RANK_CATALOG } from '$lib/domain/rankCatalog';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import {
 	addOrganizationRankServicePack,
+	buildDefaultRankCatalogSeeds,
 	ensureOrganizationRankCatalog,
 	loadOrganizationRankCatalog,
 	loadOrganizationRankCatalogReferenceSummaries,
@@ -11,6 +12,11 @@ import {
 	retireOrganizationRankCatalogEntry,
 	saveOrganizationRankCatalogEntry
 } from './rankCatalog';
+
+const DEFAULT_SEEDED_RANK_SERVICES = new Set(['army', 'civilian', 'custom']);
+const DEFAULT_SEEDED_RANK_COUNT = BUILT_IN_RANK_CATALOG.filter((entry) =>
+	DEFAULT_SEEDED_RANK_SERVICES.has(entry.service)
+).length;
 
 const NO_CAPABILITIES = {
 	calendar: 'none',
@@ -37,7 +43,7 @@ describe('organization rank catalog', () => {
 		const catalog = await ensureOrganizationRankCatalog(ctx);
 		const loaded = await loadOrganizationRankCatalog(ctx);
 
-		expect(catalog).toHaveLength(BUILT_IN_RANK_CATALOG.length);
+		expect(catalog).toHaveLength(DEFAULT_SEEDED_RANK_COUNT);
 		expect(loaded.find((entry) => entry.code === 'GEN')).toMatchObject({
 			organizationId: 'test-org',
 			code: 'GEN',
@@ -52,6 +58,16 @@ describe('organization rank catalog', () => {
 		await expect(ctx.rawStore.findOne('personnel', 'test-org', { id: 'person-1' })).resolves.toMatchObject({
 			rank: 'SGT'
 		});
+	});
+
+	it('keeps non-default military service packs opt-in when seeding defaults', () => {
+		const seeds = buildDefaultRankCatalogSeeds('test-org');
+
+		expect(new Set(seeds.map((entry) => entry.service))).toEqual(DEFAULT_SEEDED_RANK_SERVICES);
+		expect(seeds).toEqual(expect.arrayContaining([expect.objectContaining({ code: 'SGT', service: 'army' })]));
+		expect(seeds).toEqual(expect.arrayContaining([expect.objectContaining({ code: 'CIV', service: 'civilian' })]));
+		expect(seeds).not.toEqual(expect.arrayContaining([expect.objectContaining({ service: 'navy' })]));
+		expect(seeds).not.toEqual(expect.arrayContaining([expect.objectContaining({ service: 'air-force' })]));
 	});
 
 	it('preserves unknown Personnel rank strings as discovered Organization catalog entries', async () => {
@@ -126,12 +142,12 @@ describe('organization rank catalog', () => {
 
 		const catalog = await ensureOrganizationRankCatalog(ctx);
 
-		expect(catalog).toHaveLength(BUILT_IN_RANK_CATALOG.length);
+		expect(catalog).toHaveLength(DEFAULT_SEEDED_RANK_COUNT);
 		expect(catalog).not.toEqual(expect.arrayContaining([expect.objectContaining({ code: overlongRank })]));
 		expect(catalog).not.toEqual(expect.arrayContaining([expect.objectContaining({ code: 'X'.repeat(80) })]));
 	});
 
-	it('does not discover lower-case variants of built-in rank codes', async () => {
+	it('preserves Personnel rank strings from uninstalled service packs as discovered entries', async () => {
 		const ctx = createTestContext();
 		ctx.rawStore.seed('personnel', [
 			{
@@ -144,7 +160,7 @@ describe('organization rank catalog', () => {
 			{
 				id: 'person-2',
 				organization_id: 'test-org',
-				rank: 'gen',
+				rank: 'po3',
 				first_name: 'Casey',
 				last_name: 'Lee'
 			}
@@ -152,10 +168,32 @@ describe('organization rank catalog', () => {
 
 		const catalog = await ensureOrganizationRankCatalog(ctx);
 
-		expect(catalog).toEqual(expect.arrayContaining([expect.objectContaining({ code: 'CAPT' })]));
-		expect(catalog).toEqual(expect.arrayContaining([expect.objectContaining({ code: 'Capt' })]));
-		expect(catalog).not.toEqual(expect.arrayContaining([expect.objectContaining({ code: 'capt' })]));
-		expect(catalog).not.toEqual(expect.arrayContaining([expect.objectContaining({ code: 'gen' })]));
+		expect(catalog).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({ code: 'capt', source: 'discovered' }),
+				expect.objectContaining({ code: 'po3', source: 'discovered' })
+			])
+		);
+		expect(catalog).not.toEqual(expect.arrayContaining([expect.objectContaining({ code: 'CAPT' })]));
+		expect(catalog).not.toEqual(expect.arrayContaining([expect.objectContaining({ code: 'Capt' })]));
+	});
+
+	it('does not discover case-only variants of default seeded rank codes', async () => {
+		const ctx = createTestContext();
+		ctx.rawStore.seed('personnel', [
+			{
+				id: 'person-1',
+				organization_id: 'test-org',
+				rank: 'sgt',
+				first_name: 'Jamie',
+				last_name: 'Rivera'
+			}
+		]);
+
+		const catalog = await ensureOrganizationRankCatalog(ctx);
+
+		expect(catalog).toEqual(expect.arrayContaining([expect.objectContaining({ code: 'SGT' })]));
+		expect(catalog).not.toEqual(expect.arrayContaining([expect.objectContaining({ code: 'sgt' })]));
 	});
 
 	it('uses Personnel roster-view semantics for catalog reads', async () => {
@@ -283,7 +321,7 @@ describe('organization rank catalog', () => {
 				resourceType: 'organization_rank_catalog',
 				resourceId: 'test-org',
 				details: {
-					defaultCount: BUILT_IN_RANK_CATALOG.length,
+					defaultCount: DEFAULT_SEEDED_RANK_COUNT,
 					discoveredCount: 0
 				}
 			}
@@ -347,6 +385,42 @@ describe('organization rank catalog', () => {
 				})
 			})
 		]);
+	});
+
+	it('upgrades discovered ranks to built-in rows when their service pack is added', async () => {
+		const ctx = createTestContext();
+		ctx.rawStore.seed('personnel', [
+			{
+				id: 'person-1',
+				organization_id: 'test-org',
+				rank: 'po3',
+				first_name: 'Jamie',
+				last_name: 'Rivera'
+			}
+		]);
+		await ensureOrganizationRankCatalog(ctx);
+		ctx.auditPort.events.length = 0;
+
+		const before = await loadOrganizationRankCatalog(ctx);
+		expect(before.find((entry) => entry.code === 'po3')).toMatchObject({
+			service: 'custom',
+			payGrade: 'ungraded',
+			source: 'discovered'
+		});
+
+		const result = await addOrganizationRankServicePack(ctx, { service: 'navy' });
+		const loaded = await loadOrganizationRankCatalog(ctx);
+
+		expect(result.addedCount).toBeGreaterThan(0);
+		expect(result.skippedExistingCount).toBe(0);
+		expect(loaded.find((entry) => entry.code === 'po3')).toBeUndefined();
+		expect(loaded.filter((entry) => entry.code === 'PO3')).toHaveLength(1);
+		expect(loaded.find((entry) => entry.code === 'PO3')).toMatchObject({
+			label: 'Petty Officer Third Class',
+			service: 'navy',
+			payGrade: 'E-4',
+			source: 'built-in'
+		});
 	});
 
 	it('gates catalog writes with Organization governance instead of Personnel edit permission', async () => {

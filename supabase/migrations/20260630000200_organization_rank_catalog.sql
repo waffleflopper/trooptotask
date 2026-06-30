@@ -283,10 +283,11 @@ SELECT
   "default_rank_catalog"."sort_order"
 FROM "public"."organizations"
 CROSS JOIN default_rank_catalog
+WHERE "default_rank_catalog"."service" IN ('army', 'civilian', 'custom')
 ON CONFLICT ("organization_id", "code") DO NOTHING;
 
 WITH default_rank_codes AS (
-  SELECT "code"
+  SELECT "organization_id", "code"
   FROM "public"."organization_rank_catalog"
   WHERE "source" = 'built-in'
 ),
@@ -313,7 +314,8 @@ unknown_rank_codes AS (
   WHERE NOT EXISTS (
     SELECT 1
     FROM default_rank_codes
-    WHERE upper("default_rank_codes"."code") = upper("discovered_rank_codes"."code")
+    WHERE "default_rank_codes"."organization_id" = "discovered_rank_codes"."organization_id"
+      AND upper("default_rank_codes"."code") = upper("discovered_rank_codes"."code")
   )
 )
 INSERT INTO "public"."organization_rank_catalog" (

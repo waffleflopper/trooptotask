@@ -70,4 +70,13 @@ describe('personnel rank ordering', () => {
 
 		expect(ordered.map((item) => item.id)).toEqual(['sgt', 'x-a', 'x-z']);
 	});
+
+	it('uses name fallback for distinct custom ranks outside the legacy Army order', () => {
+		const ordered = [
+			person({ id: 'custom-z', rank: 'AAA-CUSTOM', lastName: 'Zulu' }),
+			person({ id: 'custom-a', rank: 'ZZZ-CUSTOM', lastName: 'Able' })
+		].sort(comparePersonnelByRankThenName);
+
+		expect(ordered.map((item) => item.id)).toEqual(['custom-a', 'custom-z']);
+	});
 });

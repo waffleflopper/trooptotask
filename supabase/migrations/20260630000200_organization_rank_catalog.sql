@@ -295,7 +295,7 @@ discovered_rank_codes AS (
   FROM (
     SELECT
       "personnel"."organization_id",
-      regexp_replace(btrim("personnel"."rank"), '[[:space:]]+', ' ', 'g') AS "code"
+      btrim(regexp_replace("personnel"."rank", '[[:space:]]+', ' ', 'g')) AS "code"
     FROM "public"."personnel"
   ) AS "normalized_personnel_ranks"
   WHERE length(COALESCE("normalized_personnel_ranks"."code", '')) BETWEEN 1 AND 80

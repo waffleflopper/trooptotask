@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { cleanup, render, screen } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import Page from './+page.svelte';
 
@@ -12,7 +12,7 @@ afterEach(() => {
 });
 
 describe('rank settings page', () => {
-	it('renders the rank catalog management surface with service packs, help text, warnings, and errors', () => {
+	it('renders the rank catalog management surface with service packs, help text, warnings, and errors', async () => {
 		render(Page, {
 			props: {
 				data: {
@@ -34,9 +34,13 @@ describe('rank settings page', () => {
 										value: 'navy',
 										label: 'Navy',
 										builtInCount: 25,
-										existingCount: 0,
-										missingCount: 25,
-										isInstalled: false
+										existingCount: 2,
+										activeCount: 2,
+										retiredCount: 0,
+										missingCount: 23,
+										isInstalled: false,
+										canBulkRetire: true,
+										canBulkReactivate: false
 									}
 								],
 								options: {
@@ -145,14 +149,28 @@ describe('rank settings page', () => {
 		});
 
 		expect(screen.getByRole('heading', { name: 'Rank Catalog' })).toBeTruthy();
+		expect(screen.getByRole('heading', { name: 'Branch Coverage' })).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Add Navy' })).toBeTruthy();
+		expect(screen.getAllByRole('columnheader', { name: 'Branch' }).length).toBeGreaterThan(0);
 		expect(screen.getByText(/Pay grade groups ranks/)).toBeTruthy();
 		expect(screen.getByText(/Tie-break order only decides display order/)).toBeTruthy();
 		expect(screen.getByText('Denied write')).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Add custom rank' })).toBeTruthy();
+		expect(document.querySelector('input[name="intent"][value="add"]')).toBeNull();
+		await fireEvent.click(screen.getByRole('button', { name: 'Add custom rank' }));
+		expect(document.querySelector('input[name="intent"][value="add"]')).toBeTruthy();
+		expect(screen.getByPlaceholderText('DET-SGT')).toBeTruthy();
+		expect(screen.getByPlaceholderText('Detachment Sergeant')).toBeTruthy();
+		expect(screen.getByText(/Only used when ranks share the same pay grade/)).toBeTruthy();
+		await fireEvent.click(screen.getByRole('button', { name: 'Retire active Navy ranks' }));
+		expect(screen.getByRole('heading', { name: 'Retire Navy ranks' })).toBeTruthy();
+		expect(screen.getByText(/2 Navy built-in ranks will be hidden/)).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Retire active ranks' })).toBeTruthy();
+		await fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+		await fireEvent.click(screen.getByRole('button', { name: /DET-SGT.*Detachment Sergeant/ }));
 		expect(
 			screen.getByText('Referenced by 2 active records or filters. Retire this rank to preserve existing records.')
 		).toBeTruthy();
-		expect(document.querySelector('input[name="intent"][value="add"]')).toBeTruthy();
 		expect(document.querySelector('input[name="intent"][value="edit"]')).toBeTruthy();
 		expect(document.querySelector('input[name="originalCode"][value="DET-SGT"]')).toBeTruthy();
 		expect(screen.queryByRole('button', { name: 'Remove DET-SGT' })).toBeNull();
@@ -240,16 +258,12 @@ describe('rank settings page', () => {
 			}
 		});
 
-		const heading = screen.getByRole('heading', { name: 'Lt Gen · Lieutenant General' });
-		const card = heading.closest('article');
-
-		expect(card?.getAttribute('aria-labelledby')).toBe(heading.id);
-		expect(heading.id).not.toContain(' ');
+		expect(screen.getByRole('button', { name: /Lt Gen.*Lieutenant General/ })).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Retire Lt Gen' })).toBeTruthy();
 		expect(screen.queryByText('Edit rank')).toBeNull();
 	});
 
-	it('renders retired built-in ranks with reactivate but no remove action', () => {
+	it('renders retired built-in ranks with reactivate but no remove action', async () => {
 		render(Page, {
 			props: {
 				data: {
@@ -331,6 +345,7 @@ describe('rank settings page', () => {
 
 		expect(screen.getByRole('button', { name: 'Reactivate SP4' })).toBeTruthy();
 		expect(screen.queryByRole('button', { name: 'Remove SP4' })).toBeNull();
+		await fireEvent.click(screen.getByRole('button', { name: /SP4.*Specialist Four/ }));
 		expect(screen.getByText('Built-in ranks can be retired but not removed.')).toBeTruthy();
 	});
 });

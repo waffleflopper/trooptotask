@@ -126,6 +126,89 @@ describe('rank settings page server', () => {
 		expect(result).toEqual({ success: true, addedCount: 1, skippedExistingCount: 0 });
 	});
 
+	it('retires active built-in ranks for a service branch in bulk', async () => {
+		loadRanksSettingsMock.mockResolvedValueOnce({
+			sections: {
+				ranks: {
+					entries: {
+						active: [
+							{
+								code: 'USMC-Cpl',
+								service: 'marine-corps',
+								source: 'built-in',
+								commands: { canRetire: true, canReactivate: false }
+							},
+							{
+								code: 'USMC-Sgt',
+								service: 'marine-corps',
+								source: 'built-in',
+								commands: { canRetire: true, canReactivate: false }
+							},
+							{
+								code: 'NAVY-PO2',
+								service: 'navy',
+								source: 'built-in',
+								commands: { canRetire: true, canReactivate: false }
+							},
+							{
+								code: 'MARINE-LIAISON',
+								service: 'marine-corps',
+								source: 'custom',
+								commands: { canRetire: true, canReactivate: false }
+							}
+						],
+						retired: []
+					}
+				}
+			}
+		});
+
+		const result = await actions.bulkRankState(
+			actionEvent('bulkRankState', new URLSearchParams({ service: 'marine-corps', targetState: 'retired' }))
+		);
+
+		expect(retireOrganizationRankCatalogEntryMock).toHaveBeenCalledTimes(2);
+		expect(retireOrganizationRankCatalogEntryMock).toHaveBeenNthCalledWith(1, routeContext, { code: 'USMC-Cpl' });
+		expect(retireOrganizationRankCatalogEntryMock).toHaveBeenNthCalledWith(2, routeContext, { code: 'USMC-Sgt' });
+		expect(reactivateOrganizationRankCatalogEntryMock).not.toHaveBeenCalled();
+		expect(result).toEqual({ success: true, service: 'marine-corps', state: 'retired', changedCount: 2 });
+	});
+
+	it('reactivates retired built-in ranks for a service branch in bulk', async () => {
+		loadRanksSettingsMock.mockResolvedValueOnce({
+			sections: {
+				ranks: {
+					entries: {
+						active: [],
+						retired: [
+							{
+								code: 'SP4',
+								service: 'army',
+								source: 'built-in',
+								commands: { canRetire: false, canReactivate: true }
+							},
+							{
+								code: 'DET-SP4',
+								service: 'army',
+								source: 'custom',
+								commands: { canRetire: false, canReactivate: true }
+							}
+						]
+					}
+				}
+			}
+		});
+
+		const result = await actions.bulkRankState(
+			actionEvent('bulkRankState', new URLSearchParams({ service: 'army', targetState: 'active' }))
+		);
+
+		expect(reactivateOrganizationRankCatalogEntryMock).toHaveBeenCalledTimes(1);
+		expect(reactivateOrganizationRankCatalogEntryMock).toHaveBeenCalledWith(routeContext, { code: 'SP4' });
+		expect(retireOrganizationRankCatalogEntryMock).not.toHaveBeenCalled();
+		expect(result).toEqual({ success: true, service: 'army', state: 'active', changedCount: 1 });
+	});
+
 	it('parses custom rank save fields before delegating to the use case', async () => {
 		const result = await actions.saveRank(
 			actionEvent(

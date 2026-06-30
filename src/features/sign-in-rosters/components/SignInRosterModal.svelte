@@ -470,7 +470,10 @@
 	const selectedRankCount = $derived(selectedRanks.size);
 	const selectedGroupCount = $derived(selectedGroups.size);
 	const hasActiveListFilters = $derived(!!searchTitle || !!dateFrom || !!dateTo);
-	const hasActiveCreateFilters = $derived(selectedRanks.size !== ALL_RANKS.length || selectedGroups.size > 0);
+	const allRankFiltersSelected = $derived.by(
+		() => selectedRanks.size === rankFilterOptions.length && rankFilterOptions.every((rank) => selectedRanks.has(rank))
+	);
+	const hasActiveCreateFilters = $derived(!allRankFiltersSelected || selectedGroups.size > 0);
 
 	function resetListFilters() {
 		searchTitle = '';

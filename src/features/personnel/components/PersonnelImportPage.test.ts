@@ -369,6 +369,52 @@ describe('PersonnelImportPage', () => {
 		expect(screen.getAllByText('1 ready').length).toBeGreaterThan(0);
 	});
 
+	it('accepts case-varied observed active personnel ranks for ETS / DEROS backfill', async () => {
+		parseFileMock.mockResolvedValue([
+			['Rank', 'Last Name', 'First Name', 'ETS'],
+			['sp4', 'Nolan', 'Avery', '2027-05-01']
+		]);
+		renderPage({
+			rankCatalog: [
+				{
+					code: 'SGT',
+					label: 'Sergeant',
+					service: 'army',
+					category: 'enlisted',
+					payGrade: 'E-5',
+					state: 'active',
+					sortOrder: 0
+				}
+			],
+			personnel: [
+				{
+					id: 'person-legacy',
+					firstName: 'Avery',
+					lastName: 'Nolan',
+					rank: 'SP4',
+					mos: '68W',
+					clinicRole: 'Medic',
+					groupId: 'group-1',
+					groupName: 'Alpha Team',
+					archivedAt: null,
+					ets: null,
+					deros: null
+				}
+			]
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Backfill ETS/DEROS' }));
+		const input = document.querySelector<HTMLInputElement>('#fileUpload');
+		await fireEvent.change(input!, {
+			target: { files: [new File(['records'], 'personnel.csv', { type: 'text/csv' })] }
+		});
+		await fireEvent.click(await screen.findByRole('button', { name: /Preview 1 Rows/i }));
+
+		expect(screen.getByLabelText('Row 2 Rank')).not.toHaveAttribute('data-cell-state', 'error');
+		expect(screen.getAllByText('1 ready').length).toBeGreaterThan(0);
+		expect(screen.getByRole('button', { name: 'Backfill ETS/DEROS checked rows' })).toBeEnabled();
+	});
+
 	it('blocks malformed ETS and DEROS values before submission', async () => {
 		parseFileMock.mockResolvedValue([
 			['Rank', 'Last Name', 'First Name', 'ETS', 'PCS / DEROS'],

@@ -469,6 +469,64 @@ describe('SignInRosterModal', () => {
 		expect(body.filterConfig.ranks).not.toContain('LOCAL-CMD');
 	});
 
+	it('includes case-varied observed rank aliases in catalog quick filter categories', async () => {
+		const aliasPersonnel: Personnel[] = [
+			personnelRow({ id: 'lowercase-sergeant', rank: 'sgt', lastName: 'Enlisted' }),
+			personnelRow({ id: 'civilian', rank: 'CIV', lastName: 'Civilian' })
+		];
+		const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+			if ((init?.method ?? 'GET') === 'POST') {
+				return jsonResponse({ id: 'roster-2' });
+			}
+
+			return jsonResponse({ rosters: [], total: 0 });
+		});
+		vi.stubGlobal('fetch', fetchMock);
+
+		renderModal({
+			personnel: aliasPersonnel,
+			rankCatalog: [
+				rankCatalogEntry({
+					code: 'SGT',
+					label: 'Sergeant',
+					category: 'enlisted',
+					payGrade: 'E-5'
+				}),
+				rankCatalogEntry({
+					code: 'CIV',
+					label: 'Civilian',
+					service: 'civilian',
+					category: 'civilian',
+					payGrade: 'ungraded'
+				})
+			]
+		});
+
+		await waitFor(() => expect(screen.getByRole('button', { name: 'New Roster' })).toBeTruthy());
+
+		await fireEvent.click(screen.getByRole('button', { name: 'New Roster' }));
+		await fireEvent.input(screen.getByLabelText(/Title/i), {
+			target: { value: 'Alias Quick Filter' }
+		});
+		for (const rank of ['SGT', 'sgt']) {
+			await fireEvent.click(screen.getByRole('button', { name: rank }));
+		}
+		await fireEvent.click(screen.getByRole('button', { name: 'All Enlisted' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Generate & Print' }));
+
+		let postCall: (typeof fetchMock.mock.calls)[number] | undefined;
+		await waitFor(() => {
+			postCall = fetchMock.mock.calls.find(([, init]) => init?.method === 'POST');
+			expect(postCall).toBeTruthy();
+		});
+		const body = JSON.parse(String(postCall?.[1]?.body));
+
+		expect(body.personnelSnapshot.map((row: { id: string }) => row.id)).toEqual(
+			expect.arrayContaining(['lowercase-sergeant', 'civilian'])
+		);
+		expect(body.filterConfig.ranks).toEqual(expect.arrayContaining(['SGT', 'sgt']));
+	});
+
 	it('uses catalog categories for retired ranks that are still visible in the roster', async () => {
 		const legacyPersonnel: Personnel[] = [
 			personnelRow({ id: 'legacy-specialist', rank: 'SP4', lastName: 'Legacy' }),

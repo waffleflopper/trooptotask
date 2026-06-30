@@ -45,6 +45,25 @@ ALTER TABLE "public"."organization_rank_catalog"
     )
   );
 
+CREATE OR REPLACE FUNCTION "public"."can_export_organization_data"("p_organization_id" uuid)
+RETURNS boolean
+  LANGUAGE "sql" STABLE SECURITY DEFINER
+  SET "search_path" TO ''
+  AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM "public"."organization_memberships"
+    WHERE "organization_memberships"."organization_id" = "p_organization_id"
+      AND "organization_memberships"."user_id" = "auth"."uid"()
+      AND (
+        "organization_memberships"."role" IN ('owner', 'admin')
+        OR "organization_memberships"."capability_overrides" ->> 'canManageMembers' = 'true'
+      )
+  );
+$$;
+
+ALTER FUNCTION "public"."can_export_organization_data"(uuid) OWNER TO "postgres";
+
 DROP POLICY IF EXISTS "Organization governors can manage organization rank catalog"
   ON "public"."organization_rank_catalog";
 DROP POLICY IF EXISTS "Users can view organization rank catalog if they can view personnel"
@@ -64,6 +83,7 @@ CREATE POLICY "Users can view organization rank catalog for rank-aware workspace
     OR "public"."can_view_calendar"("organization_id")
     OR "public"."can_view_training"("organization_id")
     OR "public"."can_view_critical_tasks"("organization_id")
+    OR "public"."can_export_organization_data"("organization_id")
     OR "public"."can_update_organization_settings"("organization_id")
   );
 
@@ -86,3 +106,7 @@ REVOKE ALL ON FUNCTION "public"."can_update_organization_settings"(uuid) FROM PU
 REVOKE ALL ON FUNCTION "public"."can_update_organization_settings"(uuid) FROM "anon";
 GRANT EXECUTE ON FUNCTION "public"."can_update_organization_settings"(uuid) TO "authenticated";
 GRANT EXECUTE ON FUNCTION "public"."can_update_organization_settings"(uuid) TO "service_role";
+REVOKE ALL ON FUNCTION "public"."can_export_organization_data"(uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION "public"."can_export_organization_data"(uuid) FROM "anon";
+GRANT EXECUTE ON FUNCTION "public"."can_export_organization_data"(uuid) TO "authenticated";
+GRANT EXECUTE ON FUNCTION "public"."can_export_organization_data"(uuid) TO "service_role";

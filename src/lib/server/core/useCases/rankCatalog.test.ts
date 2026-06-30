@@ -6,6 +6,7 @@ import {
 	ensureOrganizationRankCatalog,
 	loadOrganizationRankCatalog,
 	loadOrganizationRankCatalogReferenceSummaries,
+	reactivateOrganizationRankCatalogEntry,
 	removeOrganizationRankCatalogEntry,
 	retireOrganizationRankCatalogEntry,
 	saveOrganizationRankCatalogEntry
@@ -383,6 +384,66 @@ describe('organization rank catalog', () => {
 		}
 	});
 
+	it('rejects edited rank submissions when the original code no longer matches the target code', async () => {
+		const ctx = createTestContext();
+		await saveOrganizationRankCatalogEntry(ctx, {
+			code: 'DET-SGT',
+			label: 'Detachment Sergeant',
+			service: 'custom',
+			category: 'custom',
+			payGrade: 'ungraded',
+			state: 'active',
+			sortOrder: 500
+		});
+		ctx.auditPort.events.length = 0;
+
+		await expect(
+			saveOrganizationRankCatalogEntry(ctx, {
+				code: 'OTHER-SGT',
+				originalCode: 'DET-SGT',
+				intent: 'update',
+				label: 'Other Sergeant',
+				service: 'custom',
+				category: 'custom',
+				payGrade: 'ungraded',
+				state: 'active',
+				sortOrder: 501
+			})
+		).rejects.toMatchObject({
+			status: 400,
+			message: 'Rank code cannot be changed from this edit form.'
+		});
+
+		await expect(loadOrganizationRankCatalog(ctx)).resolves.not.toEqual(
+			expect.arrayContaining([expect.objectContaining({ code: 'OTHER-SGT' })])
+		);
+		expect(ctx.auditPort.events).toEqual([]);
+	});
+
+	it('rejects rank sort orders outside the PostgreSQL integer range before persistence', async () => {
+		const ctx = createTestContext();
+
+		await expect(
+			saveOrganizationRankCatalogEntry(ctx, {
+				code: 'DET-SGT',
+				label: 'Detachment Sergeant',
+				service: 'custom',
+				category: 'custom',
+				payGrade: 'ungraded',
+				state: 'active',
+				sortOrder: 2_147_483_648
+			})
+		).rejects.toMatchObject({
+			status: 400,
+			message: 'Tie-break order must fit within PostgreSQL integer range.'
+		});
+
+		await expect(loadOrganizationRankCatalog(ctx)).resolves.not.toEqual(
+			expect.arrayContaining([expect.objectContaining({ code: 'DET-SGT' })])
+		);
+		expect(ctx.auditPort.events).toEqual([]);
+	});
+
 	it('audits successful rank catalog saves after the entry is persisted', async () => {
 		const ctx = createTestContext();
 
@@ -678,6 +739,16 @@ describe('organization rank catalog', () => {
 		});
 	});
 
+	it('rejects service-pack values that are not offered as built-in service packs', async () => {
+		const ctx = createTestContext();
+
+		await expect(addOrganizationRankServicePack(ctx, { service: 'civilian' })).rejects.toMatchObject({
+			status: 400,
+			message: 'Invalid rank service pack'
+		});
+		expect(ctx.auditPort.events).toEqual([]);
+	});
+
 	it('canonicalizes unambiguous built-in rank aliases on save and preserves existing source', async () => {
 		const ctx = createTestContext();
 		await ensureOrganizationRankCatalog(ctx);
@@ -830,6 +901,39 @@ describe('organization rank catalog', () => {
 					payGrade: 'ungraded',
 					state: 'retired',
 					source: 'custom'
+				}
+			}
+		]);
+	});
+
+	it('reactivates retired built-in ranks through the governed catalog path', async () => {
+		const ctx = createTestContext();
+		await ensureOrganizationRankCatalog(ctx);
+		await retireOrganizationRankCatalogEntry(ctx, { code: 'SGT' });
+		ctx.auditPort.events.length = 0;
+
+		await reactivateOrganizationRankCatalogEntry(ctx, { code: 'SGT' });
+
+		await expect(loadOrganizationRankCatalog(ctx)).resolves.toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					code: 'SGT',
+					state: 'active',
+					source: 'built-in'
+				})
+			])
+		);
+		expect(ctx.auditPort.events).toEqual([
+			{
+				action: 'organization.rank_catalog.reactivated',
+				resourceType: 'organization_rank_catalog',
+				resourceId: 'SGT',
+				details: {
+					code: 'SGT',
+					label: 'Sergeant',
+					payGrade: 'E-5',
+					state: 'active',
+					source: 'built-in'
 				}
 			}
 		]);

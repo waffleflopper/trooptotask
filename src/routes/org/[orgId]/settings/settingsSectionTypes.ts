@@ -159,8 +159,12 @@ export type SettingsRankOption<Value extends string> = {
 export type SettingsRankServicePackOption = SettingsRankOption<RankService> & {
 	builtInCount: number;
 	existingCount: number;
+	activeCount: number;
+	retiredCount: number;
 	missingCount: number;
 	isInstalled: boolean;
+	canBulkRetire: boolean;
+	canBulkReactivate: boolean;
 };
 
 export type SettingsRankCatalogRow = {

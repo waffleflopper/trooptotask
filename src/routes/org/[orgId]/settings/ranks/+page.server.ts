@@ -45,6 +45,48 @@ export const actions: Actions = {
 		}
 	},
 
+	bulkRankState: async (event) => {
+		const { request, locals } = event;
+		if (!locals.user) throw redirect(303, '/auth/login');
+
+		const formData = await request.formData();
+		try {
+			const ctx = await buildRouteContext(event);
+			const service = getStringFormValue(formData, 'service') as RankService;
+			const targetState = getStringFormValue(formData, 'targetState') as RankState;
+			if (targetState !== 'active' && targetState !== 'retired') {
+				fail(400, 'Bulk rank state must be active or retired.');
+			}
+
+			const ranksSettings = await loadRanksSettings(ctx);
+			const targetRows = (
+				targetState === 'retired'
+					? ranksSettings.sections.ranks.entries.active
+					: ranksSettings.sections.ranks.entries.retired
+			).filter((entry) => {
+				if (entry.service !== service || entry.source !== 'built-in') return false;
+				return targetState === 'retired' ? entry.commands.canRetire : entry.commands.canReactivate;
+			});
+
+			for (const entry of targetRows) {
+				if (targetState === 'retired') {
+					await retireOrganizationRankCatalogEntry(ctx, { code: entry.code });
+				} else {
+					await reactivateOrganizationRankCatalogEntry(ctx, { code: entry.code });
+				}
+			}
+
+			return {
+				success: true,
+				service,
+				state: targetState,
+				changedCount: targetRows.length
+			};
+		} catch (error) {
+			return toActionFailure('rankError', error);
+		}
+	},
+
 	saveRank: async (event) => {
 		const { request, locals } = event;
 		if (!locals.user) throw redirect(303, '/auth/login');

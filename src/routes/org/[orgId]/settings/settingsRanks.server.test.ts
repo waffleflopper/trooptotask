@@ -410,6 +410,57 @@ describe('rank settings read model', () => {
 		);
 	});
 
+	it('summarizes branch service packs with active and retired built-in rank counts', () => {
+		const settings = buildRanksSettingsData({
+			canManageCatalog: true,
+			catalog: [
+				{
+					organizationId: 'test-org',
+					code: 'SGT',
+					label: 'Sergeant',
+					service: 'army',
+					category: 'enlisted',
+					payGrade: 'E-5',
+					state: 'active',
+					source: 'built-in',
+					sortOrder: 0
+				},
+				{
+					organizationId: 'test-org',
+					code: 'SP4',
+					label: 'Specialist Four',
+					service: 'army',
+					category: 'enlisted',
+					payGrade: 'E-4',
+					state: 'retired',
+					source: 'built-in',
+					sortOrder: 2
+				},
+				{
+					organizationId: 'test-org',
+					code: 'DET-SGT',
+					label: 'Detachment Sergeant',
+					service: 'army',
+					category: 'custom',
+					payGrade: 'ungraded',
+					state: 'active',
+					source: 'custom',
+					sortOrder: 500
+				}
+			],
+			referenceSummaries: []
+		});
+
+		expect(settings.sections.ranks.servicePacks.find((pack) => pack.value === 'army')).toMatchObject({
+			label: 'Army',
+			existingCount: 2,
+			activeCount: 1,
+			retiredCount: 1,
+			canBulkRetire: true,
+			canBulkReactivate: true
+		});
+	});
+
 	it('lets governors reactivate retired built-in ranks without exposing hard delete', () => {
 		const settings = buildRanksSettingsData({
 			canManageCatalog: true,

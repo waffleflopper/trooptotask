@@ -133,7 +133,7 @@ export function buildRanksSettingsData(input: BuildRanksSettingsDataInput): Rank
 					active: rows.filter((entry) => entry.state === 'active'),
 					retired: rows.filter((entry) => entry.state === 'retired')
 				},
-				servicePacks: buildServicePackOptions(input.catalog),
+				servicePacks: buildServicePackOptions(input.catalog, input.canManageCatalog),
 				options: {
 					services: SERVICE_OPTIONS,
 					categories: CATEGORY_OPTIONS,
@@ -189,12 +189,21 @@ function buildRankCatalogRow(
 	};
 }
 
-function buildServicePackOptions(catalog: OrganizationRankCatalogEntry[]): SettingsRankServicePackOption[] {
+function buildServicePackOptions(
+	catalog: OrganizationRankCatalogEntry[],
+	canManageCatalog: boolean
+): SettingsRankServicePackOption[] {
 	const existingCodes = new Set(catalog.map((entry) => entry.code));
 
 	return SERVICE_PACK_SERVICES.map((service) => {
 		const builtInEntries = BUILT_IN_RANK_CATALOG.filter((entry) => entry.service === service);
 		const existingCount = builtInEntries.filter((entry) => existingCodes.has(entry.code)).length;
+		const builtInCodes = new Set(builtInEntries.map((entry) => entry.code));
+		const existingBuiltInRows = catalog.filter(
+			(entry) => builtInCodes.has(entry.code) && entry.service === service && entry.source === 'built-in'
+		);
+		const activeCount = existingBuiltInRows.filter((entry) => entry.state === 'active').length;
+		const retiredCount = existingBuiltInRows.filter((entry) => entry.state === 'retired').length;
 		const missingCount = builtInEntries.length - existingCount;
 
 		return {
@@ -202,8 +211,12 @@ function buildServicePackOptions(catalog: OrganizationRankCatalogEntry[]): Setti
 			label: optionLabel(SERVICE_OPTIONS, service),
 			builtInCount: builtInEntries.length,
 			existingCount,
+			activeCount,
+			retiredCount,
 			missingCount,
-			isInstalled: missingCount === 0
+			isInstalled: missingCount === 0,
+			canBulkRetire: canManageCatalog && activeCount > 0,
+			canBulkReactivate: canManageCatalog && retiredCount > 0
 		};
 	});
 }

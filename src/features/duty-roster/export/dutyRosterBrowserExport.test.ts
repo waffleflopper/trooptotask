@@ -230,6 +230,16 @@ describe('exportDutyRosterForBrowser', () => {
 		expect(html).toContain('<tr><td>SGT</td><td>Baker, Blake</td><td class="da6-assigned">X</td></tr>');
 	});
 
+	it('keeps custom historical ranks readable in official accepted snapshot output', () => {
+		const acceptedSnapshot = acceptedTemplateSnapshot({ alphaRank: 'DET-RET', bravoRank: 'LOCAL-CMD' });
+
+		const html = buildDutyRosterBrowserExportHtml({ acceptedSnapshot, statusLabel: 'Official' });
+
+		expect(html).toContain('Generated: DET-RET Able, Avery');
+		expect(html).toContain('<tr><td>DET-RET</td><td>Able, Avery</td><td class="da6-position">1</td></tr>');
+		expect(html).toContain('<tr><td>LOCAL-CMD</td><td>Baker, Blake</td><td class="da6-assigned">X</td></tr>');
+	});
+
 	it('opens a browser print window for roster output', () => {
 		const preview = templatePreview();
 		const print = vi.fn();
@@ -260,12 +270,12 @@ describe('exportDutyRosterForBrowser', () => {
 	});
 });
 
-function templatePreview(): DutyRosterTemplatePreview {
+function templatePreview(input: { alphaRank?: string; bravoRank?: string } = {}): DutyRosterTemplatePreview {
 	const snapshot = buildDutyRosterRunSnapshot({
 		...runInput(),
 		personnel: [
-			person({ id: 'alpha', lastName: 'Able', firstName: 'Avery' }),
-			person({ id: 'bravo', lastName: 'Baker', firstName: 'Blake' })
+			person({ id: 'alpha', rank: input.alphaRank ?? 'SGT', lastName: 'Able', firstName: 'Avery' }),
+			person({ id: 'bravo', rank: input.bravoRank ?? 'SGT', lastName: 'Baker', firstName: 'Blake' })
 		]
 	});
 
@@ -274,7 +284,7 @@ function templatePreview(): DutyRosterTemplatePreview {
 		selectionPersonnel: [
 			{
 				id: 'alpha',
-				rank: 'SGT',
+				rank: input.alphaRank ?? 'SGT',
 				lastName: 'Able',
 				firstName: 'Avery',
 				groupId: 'group-a',
@@ -283,7 +293,7 @@ function templatePreview(): DutyRosterTemplatePreview {
 			},
 			{
 				id: 'bravo',
-				rank: 'SGT',
+				rank: input.bravoRank ?? 'SGT',
 				lastName: 'Baker',
 				firstName: 'Blake',
 				groupId: 'group-a',
@@ -304,8 +314,10 @@ function templatePreview(): DutyRosterTemplatePreview {
 	};
 }
 
-function acceptedTemplateSnapshot(): DutyRosterTemplateAcceptedSnapshot {
-	const preview = templatePreview();
+function acceptedTemplateSnapshot(
+	input: { alphaRank?: string; bravoRank?: string } = {}
+): DutyRosterTemplateAcceptedSnapshot {
+	const preview = templatePreview(input);
 	return buildDutyRosterTemplateAcceptedSnapshot({
 		preview,
 		acceptedAt: '2026-05-01T12:00:00.000Z',

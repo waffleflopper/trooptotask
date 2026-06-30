@@ -7,6 +7,16 @@ export type ChangelogEntry = {
 
 export const changelog: ChangelogEntry[] = [
 	{
+		id: '2026-06-29-organization-rank-catalogs',
+		date: '2026-06-29',
+		title: 'Organization Rank Catalogs',
+		items: [
+			'Organizations can now manage rank catalogs for joint-service ranks instead of being limited to one default rank list',
+			'Personnel imports can accept configured Navy ranks and other service-specific rank codes when they are active in the Organization catalog',
+			'Duty Roster, Sign-in Roster, and Training rank workflows now use pay-grade-aware ordering so cross-service ranks sort together more predictably'
+		]
+	},
+	{
 		id: '2026-05-23-organization-invite-setup-flow',
 		date: '2026-05-23',
 		title: 'Clearer Organization Invites',

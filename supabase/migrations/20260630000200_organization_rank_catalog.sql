@@ -291,12 +291,15 @@ WITH default_rank_codes AS (
   WHERE "source" = 'built-in'
 ),
 discovered_rank_codes AS (
-  SELECT
-    "personnel"."organization_id",
-    btrim("personnel"."rank") AS "code"
-  FROM "public"."personnel"
-  WHERE length(btrim(COALESCE("personnel"."rank", ''))) BETWEEN 1 AND 80
-  GROUP BY "personnel"."organization_id", btrim("personnel"."rank")
+  SELECT "normalized_personnel_ranks"."organization_id", "normalized_personnel_ranks"."code"
+  FROM (
+    SELECT
+      "personnel"."organization_id",
+      regexp_replace(btrim("personnel"."rank"), '[[:space:]]+', ' ', 'g') AS "code"
+    FROM "public"."personnel"
+  ) AS "normalized_personnel_ranks"
+  WHERE length(COALESCE("normalized_personnel_ranks"."code", '')) BETWEEN 1 AND 80
+  GROUP BY "normalized_personnel_ranks"."organization_id", "normalized_personnel_ranks"."code"
 ),
 unknown_rank_codes AS (
   SELECT

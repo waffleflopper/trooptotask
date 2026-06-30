@@ -204,10 +204,14 @@ export async function provisionOrganization(
 		type: holiday.type
 	}));
 	logBootstrapError('Holidays seed error:', await port.seedFederalHolidays(created.orgId, holidaySeeds));
-	logBootstrapError(
-		'Rank catalog seed error:',
-		await port.seedDefaultRankCatalog(created.orgId, buildDefaultRankCatalogProvisioningSeeds(created.orgId))
+	const rankCatalogSeedError = await port.seedDefaultRankCatalog(
+		created.orgId,
+		buildDefaultRankCatalogProvisioningSeeds(created.orgId)
 	);
+	if (rankCatalogSeedError) {
+		console.error('Rank catalog seed error:', rankCatalogSeedError);
+		fail(500, rankCatalogSeedError);
+	}
 
 	return { orgId: created.orgId };
 }

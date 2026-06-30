@@ -22,6 +22,7 @@ function createOrgProvisioningPort(
 		statusTypesError?: string | null;
 		assignmentTypesError?: string | null;
 		federalHolidaysError?: string | null;
+		rankCatalogError?: string | null;
 	} = {}
 ): OrgProvisioningPort & {
 	availabilityRequests: string[];
@@ -85,7 +86,7 @@ function createOrgProvisioningPort(
 		},
 		async seedDefaultRankCatalog(organizationId, entries) {
 			rankCatalogSeeds.push({ organizationId, entries });
-			return null;
+			return options.rankCatalogError ?? null;
 		}
 	};
 }
@@ -368,5 +369,26 @@ describe('provisionOrganization', () => {
 		expect(consoleErrorSpy).toHaveBeenCalledWith('Status types seed error:', 'statuses failed');
 		expect(consoleErrorSpy).toHaveBeenCalledWith('Assignment types seed error:', 'assignments failed');
 		expect(consoleErrorSpy).toHaveBeenCalledWith('Holidays seed error:', 'holidays failed');
+	});
+
+	it('fails the request when the default rank catalog cannot be seeded', async () => {
+		const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+		const port = createOrgProvisioningPort({
+			rankCatalogError: 'rank catalog failed'
+		});
+
+		await expect(
+			provisionOrganization(port, {
+				name: 'Alpha Company',
+				userId: 'user-1',
+				email: 'owner@example.com'
+			})
+		).rejects.toMatchObject({
+			status: 500,
+			message: 'rank catalog failed'
+		});
+
+		expect(port.rankCatalogSeeds).toHaveLength(1);
+		expect(consoleErrorSpy).toHaveBeenCalledWith('Rank catalog seed error:', 'rank catalog failed');
 	});
 });

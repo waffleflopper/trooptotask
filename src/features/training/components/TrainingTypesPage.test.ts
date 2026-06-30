@@ -172,6 +172,46 @@ describe('TrainingTypesPage', () => {
 		expect(screen.queryByRole('checkbox', { name: 'LOCAL-MISSING' })).toBeNull();
 	});
 
+	it('does not carry observed Personnel ranks retired by the catalog into new type applicability', async () => {
+		rosterStore.load(
+			[
+				...personnel,
+				{
+					id: 'person-retired-rank',
+					rank: 'DET-RET',
+					lastName: 'Legacy',
+					firstName: 'Taylor',
+					mos: '11B',
+					clinicRole: 'Rifleman',
+					groupId: 'group-1',
+					groupName: 'Alpha'
+				}
+			] as Personnel[],
+			'org-1'
+		);
+		render(TrainingTypesPage, {
+			props: {
+				data: {
+					training: {
+						data: {
+							trainingTypes: Promise.resolve([trainingType]),
+							rankCatalog: [
+								rankCatalogEntry({ code: 'DET-RET', state: 'retired' }),
+								rankCatalogEntry({ code: 'PO2', label: 'Petty Officer Second Class', service: 'navy' })
+							]
+						}
+					},
+					personnel: []
+				}
+			}
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: '+ New Type' }));
+
+		expect(screen.getAllByRole('checkbox', { name: 'PO2' }).length).toBeGreaterThan(0);
+		expect(screen.queryByRole('checkbox', { name: 'DET-RET' })).toBeNull();
+	});
+
 	it('uses the hydrated Organization rank catalog when route rank catalog data is still streamed', async () => {
 		const catalog = [
 			rankCatalogEntry({ code: 'PO2', label: 'Petty Officer Second Class', service: 'navy' }),

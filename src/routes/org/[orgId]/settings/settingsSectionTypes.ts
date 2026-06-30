@@ -181,6 +181,7 @@ export type SettingsRankCatalogRow = {
 	commands: {
 		canEdit: boolean;
 		canRetire: boolean;
+		canReactivate: boolean;
 		canDelete: boolean;
 		deleteDisabledReason: string | null;
 	};

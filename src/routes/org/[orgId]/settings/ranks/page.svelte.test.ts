@@ -87,6 +87,7 @@ describe('rank settings page', () => {
 											commands: {
 												canEdit: true,
 												canRetire: true,
+												canReactivate: false,
 												canDelete: false,
 												deleteDisabledReason: 'Referenced by active Organization data; retire it instead.'
 											}
@@ -127,6 +128,7 @@ describe('rank settings page', () => {
 											commands: {
 												canEdit: true,
 												canRetire: false,
+												canReactivate: true,
 												canDelete: true,
 												deleteDisabledReason: null
 											}
@@ -150,7 +152,11 @@ describe('rank settings page', () => {
 		expect(
 			screen.getByText('Referenced by 2 active records or filters. Retire this rank to preserve existing records.')
 		).toBeTruthy();
+		expect(document.querySelector('input[name="intent"][value="add"]')).toBeTruthy();
+		expect(document.querySelector('input[name="intent"][value="edit"]')).toBeTruthy();
+		expect(document.querySelector('input[name="originalCode"][value="DET-SGT"]')).toBeTruthy();
 		expect(screen.queryByRole('button', { name: 'Remove DET-SGT' })).toBeNull();
+		expect(screen.getByRole('button', { name: 'Reactivate OLD-SGT' })).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Remove OLD-SGT' })).toBeTruthy();
 	});
 
@@ -217,6 +223,7 @@ describe('rank settings page', () => {
 											commands: {
 												canEdit: false,
 												canRetire: true,
+												canReactivate: false,
 												canDelete: false,
 												deleteDisabledReason: 'Built-in ranks can be retired but not removed.'
 											}
@@ -240,5 +247,90 @@ describe('rank settings page', () => {
 		expect(heading.id).not.toContain(' ');
 		expect(screen.getByRole('button', { name: 'Retire Lt Gen' })).toBeTruthy();
 		expect(screen.queryByText('Edit rank')).toBeNull();
+	});
+
+	it('renders retired built-in ranks with reactivate but no remove action', () => {
+		render(Page, {
+			props: {
+				data: {
+					ranksSettings: {
+						sections: {
+							ranks: {
+								commands: {
+									canManageCatalog: true,
+									canAddServicePack: true,
+									canAddCustomRank: true
+								},
+								copy: {
+									payGradeHelp:
+										'Pay grade groups ranks for cross-service ordering without changing Personnel rank strings.',
+									tieBreakHelp: 'Tie-break order only decides display order when ranks share the same pay grade.'
+								},
+								servicePacks: [],
+								options: {
+									services: [{ value: 'army', label: 'Army' }],
+									categories: [{ value: 'enlisted', label: 'Enlisted' }],
+									payGrades: [{ value: 'E-4', label: 'E-4' }],
+									states: [
+										{ value: 'active', label: 'Active' },
+										{ value: 'retired', label: 'Retired' }
+									]
+								},
+								entries: {
+									active: [],
+									retired: [
+										{
+											code: 'SP4',
+											label: 'Specialist Four',
+											service: 'army',
+											serviceLabel: 'Army',
+											category: 'enlisted',
+											categoryLabel: 'Enlisted',
+											payGrade: 'E-4',
+											payGradeLabel: 'E-4',
+											state: 'retired',
+											source: 'built-in',
+											sourceLabel: 'Built-in',
+											sortOrder: 2,
+											referenceSummary: {
+												code: 'SP4',
+												activeReferences: {
+													personnel: 0,
+													trainingApplicability: 0,
+													dutyRosterTemplateFilters: 0,
+													legacyDutyTemplateSlots: 0,
+													total: 0
+												},
+												historicalReferences: {
+													signInRosterFilters: 0,
+													signInRosterSnapshots: 0,
+													acceptedDutyRosterSnapshots: 0,
+													total: 0
+												},
+												canDelete: true
+											},
+											warnings: [],
+											commands: {
+												canEdit: false,
+												canRetire: false,
+												canReactivate: true,
+												canDelete: false,
+												deleteDisabledReason: 'Built-in ranks can be retired but not removed.'
+											}
+										}
+									]
+								}
+							}
+						}
+					}
+				} as never,
+				form: null,
+				params: { orgId: 'org-1' }
+			}
+		});
+
+		expect(screen.getByRole('button', { name: 'Reactivate SP4' })).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'Remove SP4' })).toBeNull();
+		expect(screen.getByText('Built-in ranks can be retired but not removed.')).toBeTruthy();
 	});
 });

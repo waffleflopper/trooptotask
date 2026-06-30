@@ -6,6 +6,7 @@ import { createSupabaseRankCatalogAdministrationPort } from '$lib/server/adapter
 import { fail } from '$lib/server/core/errors';
 import {
 	addOrganizationRankServicePack,
+	reactivateOrganizationRankCatalogEntry,
 	removeOrganizationRankCatalogEntry,
 	retireOrganizationRankCatalogEntry,
 	saveOrganizationRankCatalogEntry
@@ -13,6 +14,9 @@ import {
 import { toActionFailure } from '../settingsActionFailure.server';
 import { loadSettingsPage } from '../settingsLoad.server';
 import { loadRanksSettings } from '../settingsRanks.server';
+
+const PG_INTEGER_MIN = -2_147_483_648;
+const PG_INTEGER_MAX = 2_147_483_647;
 
 export const load: PageServerLoad = (event) =>
 	loadSettingsPage(event, async (ctx) => ({
@@ -48,14 +52,22 @@ export const actions: Actions = {
 		const formData = await request.formData();
 		try {
 			const ctx = await buildRouteContext(event);
+			const code = getStringFormValue(formData, 'code');
+			const originalCode = getStringFormValue(formData, 'originalCode');
+			const intent = getRankSaveIntent(formData);
+			if (intent === 'update' && originalCode !== code) {
+				fail(400, 'Rank code cannot be changed from this edit form.');
+			}
 			const saved = await saveOrganizationRankCatalogEntry(ctx, {
-				code: getStringFormValue(formData, 'code'),
+				code,
 				label: getStringFormValue(formData, 'label'),
 				service: getStringFormValue(formData, 'service') as RankService,
 				category: getStringFormValue(formData, 'category') as RankCategory,
 				payGrade: getStringFormValue(formData, 'payGrade') as RankPayGrade,
 				state: getStringFormValue(formData, 'state') as RankState,
-				sortOrder: parseSortOrder(formData)
+				sortOrder: parseSortOrder(formData),
+				intent,
+				originalCode
 			});
 
 			return { success: true, code: saved.code };
@@ -72,6 +84,20 @@ export const actions: Actions = {
 		const code = getStringFormValue(formData, 'code');
 		try {
 			await retireOrganizationRankCatalogEntry(await buildRouteContext(event), { code });
+			return { success: true, code };
+		} catch (error) {
+			return toActionFailure('rankError', error);
+		}
+	},
+
+	reactivateRank: async (event) => {
+		const { request, locals } = event;
+		if (!locals.user) throw redirect(303, '/auth/login');
+
+		const formData = await request.formData();
+		const code = getStringFormValue(formData, 'code');
+		try {
+			await reactivateOrganizationRankCatalogEntry(await buildRouteContext(event), { code });
 			return { success: true, code };
 		} catch (error) {
 			return toActionFailure('rankError', error);
@@ -105,11 +131,20 @@ function getStringFormValue(formData: FormData, key: string): string {
 	return typeof value === 'string' ? value : '';
 }
 
+function getRankSaveIntent(formData: FormData): 'create' | 'update' {
+	return getStringFormValue(formData, 'intent') === 'edit' ? 'update' : 'create';
+}
+
 function parseSortOrder(formData: FormData): number {
 	const rawSortOrder = getStringFormValue(formData, 'sortOrder').trim();
 	if (!/^-?\d+$/.test(rawSortOrder)) {
 		fail(400, 'Tie-break order must be a whole number.');
 	}
 
-	return Number(rawSortOrder);
+	const sortOrder = Number(rawSortOrder);
+	if (!Number.isSafeInteger(sortOrder) || sortOrder < PG_INTEGER_MIN || sortOrder > PG_INTEGER_MAX) {
+		fail(400, 'Tie-break order must fit within PostgreSQL integer range.');
+	}
+
+	return sortOrder;
 }

@@ -931,7 +931,7 @@ describe('createSupabaseOrgSettingsMemberManagementPort', () => {
 			port.createOrLinkPendingAccessRequestForInvitation({
 				organizationId: 'org-1',
 				invitationId: 'invite-1',
-				email: 'approved@example.com',
+				email: ' Approved@Example.com \t',
 				invitedBy: 'owner-1',
 				invitedAt: '2026-05-22T12:00:00.000Z',
 				role: 'member',

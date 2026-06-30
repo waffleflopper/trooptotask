@@ -12,7 +12,11 @@ export function compareSignInRosterRowsByRank(
 	b: SignInRosterRankSortRow,
 	rankCatalog?: readonly RankCatalogEntry[]
 ): number {
-	const rankDiff = compareRankCodes(a.rank, b.rank, rankCatalog ? { catalog: rankCatalog } : undefined);
+	const rankDiff = compareRankCodes(
+		a.rank,
+		b.rank,
+		rankCatalog && rankCatalog.length > 0 ? { catalog: rankCatalog } : undefined
+	);
 	if (rankDiff !== 0) return rankDiff;
 
 	const lastDiff = a.lastName.localeCompare(b.lastName);

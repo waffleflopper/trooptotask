@@ -492,6 +492,17 @@ describe('ictReports', () => {
 		]);
 	});
 
+	it('matches rank filters against trimmed Personnel rank values', () => {
+		const people: Personnel[] = [
+			{ ...infantry, id: 'sfc', rank: ' SFC ' },
+			{ ...medic, id: 'sgt', rank: 'SGT' }
+		];
+
+		const filteredPersonnel = filterIctReportPersonnel(people, { rank: 'SFC' });
+
+		expect(filteredPersonnel.map((person) => person.id)).toEqual(['sfc']);
+	});
+
 	it('exposes fixed-bin individual readiness distributions by filtered MOS headcount', () => {
 		const taskAlpha: IctTask = {
 			...commonTask,

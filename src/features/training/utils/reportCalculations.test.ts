@@ -263,6 +263,14 @@ describe('filterPersonnel', () => {
 		expect(result[0].id).toBe('p-2');
 	});
 
+	it('matches rank filters against trimmed Personnel rank values', () => {
+		const paddedRankPeople = [makePerson({ id: 'p-sfc', rank: ' SFC ' }), makePerson({ id: 'p-sgt', rank: 'SGT' })];
+
+		const result = filterPersonnel(paddedRankPeople, { rank: 'SFC' });
+
+		expect(result.map((person) => person.id)).toEqual(['p-sfc']);
+	});
+
 	it('combines multiple filters with AND logic', () => {
 		const result = filterPersonnel(people, { groupId: 'g-1', role: 'NCO' });
 		expect(result).toHaveLength(1);

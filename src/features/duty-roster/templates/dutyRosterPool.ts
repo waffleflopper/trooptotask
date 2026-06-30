@@ -80,5 +80,5 @@ function matchesCategory(allowedValues: string[], value: string | null | undefin
 		return true;
 	}
 
-	return !!value && allowedValues.includes(value);
+	return !!value && allowedValues.includes(value.trim());
 }

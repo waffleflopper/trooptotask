@@ -132,6 +132,45 @@ describe('mergePersonnelBatch', () => {
 		});
 	});
 
+	it('matches legacy-cased stored ranks through the Organization rank catalog', async () => {
+		const ctx = buildContext();
+		ctx.store.seed('personnel', [
+			{
+				id: 'person-1',
+				organization_id: 'test-org',
+				rank: 'sgt',
+				last_name: 'Smith',
+				first_name: 'Jamie',
+				mos: '68W',
+				clinic_role: 'Medic',
+				group_id: null,
+				ets: null,
+				deros: null,
+				archived_at: null
+			}
+		]);
+
+		const result = await mergePersonnelBatch(ctx, {
+			records: [
+				{
+					rank: 'SGT',
+					lastName: 'Smith',
+					firstName: 'Jamie',
+					ets: '2027-05-01'
+				}
+			]
+		});
+
+		expect(result.errors).toHaveLength(0);
+		expect(result.updated).toEqual([
+			expect.objectContaining({
+				id: 'person-1',
+				rank: 'sgt',
+				ets: '2027-05-01'
+			})
+		]);
+	});
+
 	it('reports ambiguous and unmatched rows instead of guessing', async () => {
 		const ctx = buildContext();
 		ctx.store.seed('personnel', [

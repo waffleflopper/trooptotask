@@ -140,6 +140,17 @@ describe('rank settings read model', () => {
 					state: 'active',
 					source: 'custom',
 					sortOrder: 500
+				},
+				{
+					organizationId: 'test-org',
+					code: 'DISC-SGT',
+					label: 'Discovered Sergeant',
+					service: 'custom',
+					category: 'custom',
+					payGrade: 'ungraded',
+					state: 'active',
+					source: 'discovered',
+					sortOrder: 501
 				}
 			],
 			referenceSummaries: [
@@ -176,6 +187,23 @@ describe('rank settings read model', () => {
 						total: 0
 					},
 					canDelete: true
+				},
+				{
+					code: 'DISC-SGT',
+					activeReferences: {
+						personnel: 0,
+						trainingApplicability: 0,
+						dutyRosterTemplateFilters: 0,
+						legacyDutyTemplateSlots: 0,
+						total: 0
+					},
+					historicalReferences: {
+						signInRosterFilters: 0,
+						signInRosterSnapshots: 0,
+						acceptedDutyRosterSnapshots: 0,
+						total: 0
+					},
+					canDelete: true
 				}
 			]
 		});
@@ -194,6 +222,16 @@ describe('rank settings read model', () => {
 				}),
 				expect.objectContaining({
 					code: 'DET-SGT',
+					commands: {
+						canEdit: false,
+						canRetire: false,
+						canDelete: false,
+						deleteDisabledReason: null
+					}
+				}),
+				expect.objectContaining({
+					code: 'DISC-SGT',
+					source: 'discovered',
 					commands: {
 						canEdit: false,
 						canRetire: false,

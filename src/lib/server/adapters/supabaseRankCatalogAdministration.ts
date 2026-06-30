@@ -9,19 +9,15 @@ export function createSupabaseRankCatalogAdministrationPort(
 	const getAdminClientFn = deps.getAdminClient ?? getAdminClient;
 
 	return {
-		async deleteRankCatalogEntry(orgId, entryId) {
-			const { data, error } = await getAdminClientFn()
-				.from('organization_rank_catalog')
-				.delete()
-				.eq('organization_id', orgId)
-				.eq('id', entryId)
-				.select('id');
+		async deleteRankCatalogEntry(orgId, entryId, code) {
+			const { error } = await getAdminClientFn().rpc('delete_unused_organization_rank_catalog_entry', {
+				p_organization_id: orgId,
+				p_entry_id: entryId,
+				p_code: code
+			});
 
 			if (error) {
 				throw new Error(error.message);
-			}
-			if (data?.length !== 1) {
-				throw new Error('Rank catalog entry could not be removed');
 			}
 		}
 	};

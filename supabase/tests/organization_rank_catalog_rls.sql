@@ -2,7 +2,7 @@ BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 
-SELECT plan(10);
+SELECT plan(14);
 
 INSERT INTO auth.users (
 	instance_id,
@@ -368,6 +368,106 @@ SELECT throws_ok(
 );
 
 RESET ROLE;
+
+INSERT INTO public.organization_rank_catalog (
+	id,
+	organization_id,
+	code,
+	label,
+	service,
+	category,
+	pay_grade,
+	state,
+	source,
+	sort_order
+)
+VALUES
+	(
+		'40000000-0000-4000-8000-000000124703',
+		'20000000-0000-4000-8000-000000124701',
+		'ALPHA-RPC',
+		'Alpha RPC',
+		'custom',
+		'custom',
+		'ungraded',
+		'active',
+		'custom',
+		6
+	),
+	(
+		'40000000-0000-4000-8000-000000124704',
+		'20000000-0000-4000-8000-000000124701',
+		'ALPHA-BLOCKED',
+		'Alpha Blocked',
+		'custom',
+		'custom',
+		'ungraded',
+		'active',
+		'custom',
+		7
+	);
+
+INSERT INTO public.personnel (
+	id,
+	organization_id,
+	rank,
+	last_name,
+	first_name,
+	slug
+)
+VALUES (
+	'50000000-0000-4000-8000-000000124701',
+	'20000000-0000-4000-8000-000000124701',
+	'alpha-blocked',
+	'Blocked',
+	'Alex',
+	'alex-blocked-rank'
+);
+
+SELECT lives_ok(
+	$$
+		SELECT public.delete_unused_organization_rank_catalog_entry(
+			'20000000-0000-4000-8000-000000124701',
+			'40000000-0000-4000-8000-000000124703',
+			'ALPHA-RPC'
+		)
+	$$,
+	'atomic rank catalog delete removes unused custom ranks'
+);
+
+SELECT is(
+	(
+		SELECT count(*)::integer
+		FROM public.organization_rank_catalog
+		WHERE code = 'ALPHA-RPC'
+	),
+	0,
+	'atomic rank catalog delete removes the target row'
+);
+
+SELECT throws_ok(
+	$$
+		SELECT public.delete_unused_organization_rank_catalog_entry(
+			'20000000-0000-4000-8000-000000124701',
+			'40000000-0000-4000-8000-000000124704',
+			'ALPHA-BLOCKED'
+		)
+	$$,
+	'23503',
+	'Rank is referenced by active Organization data. Retire it instead.',
+	'atomic rank catalog delete blocks active normalized Personnel references'
+);
+
+SELECT is(
+	(
+		SELECT count(*)::integer
+		FROM public.organization_rank_catalog
+		WHERE code = 'ALPHA-BLOCKED'
+	),
+	1,
+	'blocked atomic rank catalog delete preserves the target row'
+);
+
 SELECT set_config('request.jwt.claim.sub', '', true);
 SELECT set_config('request.jwt.claim.email', '', true);
 

@@ -12,7 +12,32 @@ export type RankCategory = 'officer' | 'warrant' | 'enlisted' | 'civilian' | 'cu
 
 export type RankState = 'active' | 'retired';
 
-export type RankPayGrade = `${'O' | 'W' | 'E'}-${number}` | 'ungraded';
+export type RankPayGrade =
+	| 'O-1'
+	| 'O-2'
+	| 'O-3'
+	| 'O-4'
+	| 'O-5'
+	| 'O-6'
+	| 'O-7'
+	| 'O-8'
+	| 'O-9'
+	| 'O-10'
+	| 'W-1'
+	| 'W-2'
+	| 'W-3'
+	| 'W-4'
+	| 'W-5'
+	| 'E-1'
+	| 'E-2'
+	| 'E-3'
+	| 'E-4'
+	| 'E-5'
+	| 'E-6'
+	| 'E-7'
+	| 'E-8'
+	| 'E-9'
+	| 'ungraded';
 
 export interface RankCatalogEntry {
 	code: string;
@@ -204,6 +229,9 @@ function buildRankCatalogIndex(catalog: readonly RankCatalogEntry[]): RankCatalo
 	const normalized = new Map<string, RankCatalogEntry | typeof AMBIGUOUS_RANK_MATCH>();
 
 	for (const entry of catalog) {
+		if (exact.has(entry.code)) {
+			throw new Error(`Duplicate rank catalog code: ${entry.code}`);
+		}
 		exact.set(entry.code, entry);
 
 		const normalizedCode = entry.code.toUpperCase();

@@ -2,7 +2,7 @@ BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 
-SELECT plan(6);
+SELECT plan(9);
 
 INSERT INTO auth.users (
 	instance_id,
@@ -284,6 +284,76 @@ SELECT throws_ok(
 	'42501',
 	'new row violates row-level security policy for table "organization_rank_catalog"',
 	'alpha owner cannot insert bravo rank catalog entries'
+);
+
+SELECT throws_ok(
+	$$
+		DELETE FROM public.organization_rank_catalog
+		WHERE code = 'ALPHA-SGT'
+	$$,
+	'42501',
+	'permission denied for table organization_rank_catalog',
+	'alpha owner cannot directly delete rank catalog entries'
+);
+
+SELECT throws_ok(
+	$$
+		INSERT INTO public.organization_rank_catalog (
+			organization_id,
+			code,
+			label,
+			service,
+			category,
+			pay_grade,
+			state,
+			source,
+			sort_order
+		)
+		VALUES (
+			'20000000-0000-4000-8000-000000124701',
+			' ALPHA-SPACED ',
+			'Alpha Spaced',
+			'custom',
+			'custom',
+			'ungraded',
+			'active',
+			'custom',
+			4
+		)
+	$$,
+	'23514',
+	'new row for relation "organization_rank_catalog" violates check constraint "organization_rank_catalog_code_check"',
+	'alpha owner cannot insert non-canonical trimmed rank catalog codes'
+);
+
+SELECT throws_ok(
+	$$
+		INSERT INTO public.organization_rank_catalog (
+			organization_id,
+			code,
+			label,
+			service,
+			category,
+			pay_grade,
+			state,
+			source,
+			sort_order
+		)
+		VALUES (
+			'20000000-0000-4000-8000-000000124701',
+			'ALPHA-E10',
+			'Alpha E10',
+			'custom',
+			'custom',
+			'E-10',
+			'active',
+			'custom',
+			5
+		)
+	$$,
+	'23514',
+	'new row for relation "organization_rank_catalog" violates check constraint "organization_rank_catalog_pay_grade_check"',
+	'alpha owner cannot insert unsupported rank pay grades'
 );
 
 RESET ROLE;

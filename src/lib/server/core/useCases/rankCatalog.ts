@@ -28,6 +28,34 @@ const RANK_SERVICES = new Set<RankService>([
 ]);
 const RANK_CATEGORIES = new Set<RankCategory>(['officer', 'warrant', 'enlisted', 'civilian', 'custom']);
 const RANK_STATES = new Set<RankState>(['active', 'retired']);
+const RANK_PAY_GRADES = new Set<RankPayGrade>([
+	'O-1',
+	'O-2',
+	'O-3',
+	'O-4',
+	'O-5',
+	'O-6',
+	'O-7',
+	'O-8',
+	'O-9',
+	'O-10',
+	'W-1',
+	'W-2',
+	'W-3',
+	'W-4',
+	'W-5',
+	'E-1',
+	'E-2',
+	'E-3',
+	'E-4',
+	'E-5',
+	'E-6',
+	'E-7',
+	'E-8',
+	'E-9',
+	'ungraded'
+]);
+const BUILT_IN_RANK_CODES_NORMALIZED = new Set(BUILT_IN_RANK_CATALOG.map((entry) => entry.code.toUpperCase()));
 
 export type OrganizationRankCatalogSource = 'built-in' | 'discovered' | 'custom';
 
@@ -90,8 +118,18 @@ export async function ensureOrganizationRankCatalog(ports: RankCatalogPorts): Pr
 	const missingRows = [...missingDefaultRows, ...missingDiscoveredRows];
 
 	if (missingRows.length > 0) {
+		await requireGovernancePolicy(ports, POLICY_ACTION_CATALOG.organization.updateSettings);
 		await storeForRankCatalog(ports).upsertMany(RANK_CATALOG_TABLE, ports.auth.orgId, missingRows, {
 			onConflict: 'organization_id,code'
+		});
+		ports.audit.log({
+			action: 'organization.rank_catalog.reconciled',
+			resourceType: 'organization_rank_catalog',
+			resourceId: ports.auth.orgId,
+			details: {
+				defaultCount: missingDefaultRows.length,
+				discoveredCount: missingDiscoveredRows.length
+			}
 		});
 	}
 
@@ -105,10 +143,16 @@ export async function saveOrganizationRankCatalogEntry(
 	await requireGovernancePolicy(ports, POLICY_ACTION_CATALOG.organization.updateSettings);
 
 	const entry = sanitizeRankCatalogEntry(input);
+	const existing = await storeForRankCatalog(ports).findOne<OrganizationRankCatalogRow>(
+		RANK_CATALOG_TABLE,
+		ports.auth.orgId,
+		{ code: entry.code }
+	);
+	const source = existing?.source ?? 'custom';
 	const [saved] = await storeForRankCatalog(ports).upsertMany<OrganizationRankCatalogRow>(
 		RANK_CATALOG_TABLE,
 		ports.auth.orgId,
-		[serializeRankCatalogEntry(ports.auth.orgId, entry, 'custom')],
+		[serializeRankCatalogEntry(ports.auth.orgId, entry, source)],
 		{ onConflict: 'organization_id,code' }
 	);
 
@@ -182,8 +226,8 @@ async function buildDiscoveredRankCatalogSeeds(
 	const rows: OrganizationRankCatalogRow[] = [];
 
 	for (const personnel of personnelRows) {
-		const rank = personnel.rank?.trim();
-		if (!rank || existingCodes.has(rank) || discoveredCodes.has(rank) || resolveBuiltInRank(rank)) {
+		const rank = sanitizeDiscoveredRankCode(personnel.rank);
+		if (!rank || existingCodes.has(rank) || discoveredCodes.has(rank) || isKnownBuiltInRankCode(rank)) {
 			continue;
 		}
 
@@ -206,6 +250,20 @@ async function buildDiscoveredRankCatalogSeeds(
 	}
 
 	return rows;
+}
+
+function sanitizeDiscoveredRankCode(rank: string | null | undefined): string | null {
+	const canonicalRank = rank?.trim().replace(/\s+/g, ' ') ?? '';
+	if (!canonicalRank || canonicalRank.length > 80) {
+		return null;
+	}
+
+	const sanitizedRank = sanitizeString(rank, 80);
+	return sanitizedRank === canonicalRank ? sanitizedRank : null;
+}
+
+function isKnownBuiltInRankCode(code: string): boolean {
+	return Boolean(resolveBuiltInRank(code)) || BUILT_IN_RANK_CODES_NORMALIZED.has(code.toUpperCase());
 }
 
 function serializeRankCatalogEntry(
@@ -251,14 +309,14 @@ function sanitizeRankCatalogEntry(input: SaveOrganizationRankCatalogEntryInput):
 
 	return {
 		...input,
-		code,
+		code: resolveBuiltInRank(code)?.code ?? code,
 		label,
 		sortOrder: Number.isFinite(input.sortOrder) ? input.sortOrder : 0
 	};
 }
 
 function isValidRankPayGrade(payGrade: RankPayGrade): boolean {
-	return payGrade === 'ungraded' || /^[OWE]-[0-9]+$/.test(payGrade);
+	return RANK_PAY_GRADES.has(payGrade);
 }
 
 function deserializeRankCatalogRow(row: OrganizationRankCatalogRow): OrganizationRankCatalogEntry {

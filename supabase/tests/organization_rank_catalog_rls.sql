@@ -2,7 +2,7 @@ BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 
-SELECT plan(9);
+SELECT plan(10);
 
 INSERT INTO auth.users (
 	instance_id,
@@ -294,6 +294,17 @@ SELECT throws_ok(
 	'42501',
 	'permission denied for table organization_rank_catalog',
 	'alpha owner cannot directly delete rank catalog entries'
+);
+
+SELECT throws_ok(
+	$$
+		UPDATE public.organization_rank_catalog
+		SET organization_id = '20000000-0000-4000-8000-000000124702'
+		WHERE code = 'ALPHA-SGT'
+	$$,
+	'23514',
+	'organization_rank_catalog.organization_id cannot be changed',
+	'alpha owner cannot move rank catalog entries between organizations'
 );
 
 SELECT throws_ok(

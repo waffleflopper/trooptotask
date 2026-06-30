@@ -144,8 +144,11 @@ export function createSupabaseOrgSettingsMemberManagementPort(
 				};
 			}
 
-			const accessRequestLinks = await findInvitationAccessRequestLinksForSetup(getAdminClientFn(), orgId, inviteId);
-			const requiresAccountSetup = requiresLinkedAccessRequestSetup(data.email ?? '', accessRequestLinks);
+			const adminSupabase = getAdminClientFn();
+			const accessRequestLinks = await findInvitationAccessRequestLinksForSetup(adminSupabase, orgId, inviteId);
+			const requiresAccountSetup =
+				requiresLinkedAccessRequestSetup(data.email ?? '', accessRequestLinks) &&
+				!(await hasCompletedAccessRequestSetupForEmail(adminSupabase, data.email ?? ''));
 			return {
 				id: data.id,
 				email: data.email ?? '',
@@ -185,7 +188,7 @@ export function createSupabaseOrgSettingsMemberManagementPort(
 
 		async createOrLinkPendingAccessRequestForInvitation(input) {
 			const adminSupabase = getAdminClientFn();
-			let accessRequest = await findPendingAccessRequest(adminSupabase, input.email);
+			let accessRequest = await findReusableAccessRequestForInvitation(adminSupabase, input.email);
 			let status: 'created' | 'linked' = 'linked';
 
 			if (!accessRequest) {
@@ -423,7 +426,7 @@ async function findPendingAccessRequest(client: SupabaseClient, email: string): 
 	const { data, error } = await client
 		.from('access_requests')
 		.select('id')
-		.eq('email', normalizeUserEmailIdentity(email))
+		.ilike('email', normalizeUserEmailIdentity(email))
 		.eq('status', 'pending')
 		.maybeSingle<AccessRequestLookupRow>();
 
@@ -432,6 +435,52 @@ async function findPendingAccessRequest(client: SupabaseClient, email: string): 
 	}
 
 	return data ?? null;
+}
+
+async function findApprovedIncompleteAccessRequest(
+	client: SupabaseClient,
+	email: string
+): Promise<AccessRequestLookupRow | null> {
+	const { data, error } = await client
+		.from('access_requests')
+		.select('id')
+		.ilike('email', normalizeUserEmailIdentity(email))
+		.eq('status', 'approved')
+		.is('setup_completed_at', null)
+		.order('reviewed_at', { ascending: false, nullsFirst: false })
+		.order('created_at', { ascending: false })
+		.limit(1)
+		.maybeSingle<AccessRequestLookupRow>();
+
+	if (error) {
+		throw error;
+	}
+
+	return data ?? null;
+}
+
+async function findReusableAccessRequestForInvitation(
+	client: SupabaseClient,
+	email: string
+): Promise<AccessRequestLookupRow | null> {
+	return (await findPendingAccessRequest(client, email)) ?? findApprovedIncompleteAccessRequest(client, email);
+}
+
+async function hasCompletedAccessRequestSetupForEmail(client: SupabaseClient, email: string): Promise<boolean> {
+	const { data, error } = await client
+		.from('access_requests')
+		.select('id')
+		.ilike('email', normalizeUserEmailIdentity(email))
+		.eq('status', 'approved')
+		.not('setup_completed_at', 'is', null)
+		.limit(1)
+		.maybeSingle<AccessRequestLookupRow>();
+
+	if (error) {
+		throw error;
+	}
+
+	return Boolean(data?.id);
 }
 
 async function insertPendingAccessRequest(

@@ -20,6 +20,7 @@ WITH normalized_discovered_ranks AS (
     ) AS "normalized_code_already_exists"
   FROM "public"."organization_rank_catalog"
   WHERE "organization_rank_catalog"."source" = 'discovered'
+    AND btrim(regexp_replace("organization_rank_catalog"."code", '[[:space:]]+', ' ', 'g')) <> ''
     AND "organization_rank_catalog"."code" <> btrim(regexp_replace(
       "organization_rank_catalog"."code",
       '[[:space:]]+',

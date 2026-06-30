@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
+import type { SignInRosterPersonnelLookupRecord } from '$lib/server/core/ports';
 import { _getConfig, _postConfig } from './+server';
 
 const GROUP_ALPHA = 'group-alpha';
@@ -117,6 +118,58 @@ describe('/api/sign-in-rosters route config', () => {
 			action: 'sign_in_roster.created',
 			resourceType: 'sign_in_roster'
 		});
+	});
+
+	it('sorts rank snapshots with the Organization rank catalog and keeps unknown ranks last', async () => {
+		const ctx = createTestContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: {
+					calendar: 'view',
+					personnel: 'none',
+					training: 'operate',
+					criticalTasks: 'view',
+					onboarding: 'view',
+					ratingScheme: 'view'
+				},
+				scopeSet: { kind: 'organization' }
+			}
+		});
+		ctx.rawStore.seed('organization_rank_catalog', [
+			rankCatalogRow({ code: 'PO2', label: 'Petty Officer Second Class', service: 'navy', pay_grade: 'E-5' }),
+			rankCatalogRow({ code: 'SGT', label: 'Sergeant', service: 'army', pay_grade: 'E-5' }),
+			rankCatalogRow({ code: 'SSgt', label: 'Staff Sergeant', service: 'air-force', pay_grade: 'E-5' })
+		]);
+		ctx.signInRosterPersonnelLookup = {
+			listPersonnelForRosterCandidates: vi.fn(async () => []),
+			findPersonnelForRosterSnapshot: vi.fn(async () => [
+				signInPersonnel({ id: 'unknown', rank: 'LOCAL-CADET', last_name: 'Able' }),
+				signInPersonnel({ id: 'navy-e5', rank: 'PO2', last_name: 'Baker' }),
+				signInPersonnel({ id: 'army-e5', rank: 'SGT', last_name: 'Able' }),
+				signInPersonnel({ id: 'air-force-e5', rank: 'SSgt', last_name: 'Charlie' })
+			])
+		};
+
+		await handleUseCaseRequest(_postConfig, ctx, {
+			title: 'Joint Sign-In',
+			rosterDate: '2026-05-02',
+			blankDate: false,
+			separateByGroup: false,
+			sortBy: 'rank',
+			personnelIds: ['unknown', 'navy-e5', 'army-e5', 'air-force-e5']
+		});
+
+		const stored = await ctx.store.findMany<{ personnel_snapshot?: Array<{ id: string }> }>(
+			'sign_in_rosters',
+			ctx.auth.orgId
+		);
+		expect((stored[0]?.personnel_snapshot as Array<{ id: string }>).map((row) => row.id)).toEqual([
+			'navy-e5',
+			'army-e5',
+			'air-force-e5',
+			'unknown'
+		]);
 	});
 
 	it('marks rosters with unassigned personnel as organization-only', async () => {
@@ -341,3 +394,31 @@ describe('/api/sign-in-rosters route config', () => {
 		expect(result.total).toBe(1);
 	});
 });
+
+function signInPersonnel(overrides: Partial<SignInRosterPersonnelLookupRecord>): SignInRosterPersonnelLookupRecord {
+	return {
+		id: overrides.id ?? 'person-1',
+		rank: overrides.rank ?? 'SGT',
+		last_name: overrides.last_name ?? 'Able',
+		first_name: overrides.first_name ?? 'Alex',
+		group_id: GROUP_ALPHA,
+		group_name: 'Alpha',
+		...overrides
+	};
+}
+
+function rankCatalogRow(overrides: Record<string, unknown>): Record<string, unknown> {
+	return {
+		id: overrides.id ?? `rank-${overrides.code ?? 'SGT'}`,
+		organization_id: 'org-1',
+		code: overrides.code ?? 'SGT',
+		label: overrides.label ?? overrides.code ?? 'Sergeant',
+		service: overrides.service ?? 'army',
+		category: overrides.category ?? 'enlisted',
+		pay_grade: overrides.pay_grade ?? 'E-5',
+		state: overrides.state ?? 'active',
+		source: overrides.source ?? 'custom',
+		sort_order: overrides.sort_order ?? 0,
+		...overrides
+	};
+}

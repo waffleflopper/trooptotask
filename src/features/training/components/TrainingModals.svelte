@@ -70,6 +70,7 @@
 			orgId={ctx.orgId}
 			personnel={ctx.personnel}
 			groups={ctx.groups}
+			rankCatalog={ctx.rankCatalog}
 			canEdit={ctx.canRecordTraining}
 			onClose={modals.closerFor('sign-in-rosters')}
 		/>

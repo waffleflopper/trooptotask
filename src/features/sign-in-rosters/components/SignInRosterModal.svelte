@@ -1,9 +1,10 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import type { RankCatalogEntry } from '$lib/domain/rankCatalog';
 	import type { Personnel } from '$lib/types';
 	import type { SignInRoster } from '../sign-in-rosters.types';
 	import { ARMY_RANKS, ALL_RANKS } from '$lib/types';
-	import { PERSONNEL_RANK_ORDER } from '$lib/domain/personnelRank';
+	import { signInRosterRankOptions, sortSignInRosterRows } from '../signInRosterRankOrder';
 	import type { RowInput } from 'jspdf-autotable';
 	import * as AppDialog from '$lib/components/ui/app-dialog';
 	import { Badge } from '$lib/components/ui/badge';
@@ -25,14 +26,12 @@
 		orgId: string;
 		personnel: Personnel[];
 		groups: { id: string; name: string }[];
+		rankCatalog?: RankCatalogEntry[];
 		canEdit: boolean;
 		onClose: () => void;
 	}
 
-	let { orgId, personnel, groups, canEdit, onClose }: Props = $props();
-
-	// Pre-compute rank index map
-	const RANK_INDEX = new Map<string, number>(PERSONNEL_RANK_ORDER.map((rank, index) => [rank, index]));
+	let { orgId, personnel, groups, rankCatalog = undefined, canEdit, onClose }: Props = $props();
 
 	// View toggle
 	let view = $state<'list' | 'create'>('list');
@@ -59,7 +58,14 @@
 	let rosterDate = $state(formatDateValue(new Date()));
 	let separateByGroup = $state(false);
 	let sortBy = $state<'alphabetical' | 'rank'>('alphabetical');
-	let selectedRanks = new SvelteSet<string>(ALL_RANKS);
+	const rankFilterOptions = $derived(
+		signInRosterRankOptions(
+			rankCatalog,
+			personnel.map((person) => person.rank),
+			ALL_RANKS
+		)
+	);
+	const selectedRanks = new SvelteSet<string>();
 	let selectedGroups = new SvelteSet<string>();
 	let saving = $state(false);
 
@@ -98,6 +104,7 @@
 	}
 
 	onMount(() => {
+		resetCreateFilters();
 		void fetchRosters(true);
 	});
 
@@ -151,7 +158,7 @@
 
 	// Sort personnel for snapshot
 	function buildSnapshot(people: Personnel[]) {
-		const sorted = people.map((p) => ({
+		const snapshot = people.map((p) => ({
 			id: p.id,
 			rank: p.rank,
 			lastName: p.lastName,
@@ -159,24 +166,7 @@
 			group: p.groupName
 		}));
 
-		if (sortBy === 'rank') {
-			sorted.sort((a, b) => {
-				const rankA = RANK_INDEX.get(a.rank) ?? PERSONNEL_RANK_ORDER.length;
-				const rankB = RANK_INDEX.get(b.rank) ?? PERSONNEL_RANK_ORDER.length;
-				if (rankA !== rankB) return rankA - rankB;
-				const lastDiff = a.lastName.localeCompare(b.lastName);
-				if (lastDiff !== 0) return lastDiff;
-				return a.firstName.localeCompare(b.firstName);
-			});
-		} else {
-			sorted.sort((a, b) => {
-				const lastDiff = a.lastName.localeCompare(b.lastName);
-				if (lastDiff !== 0) return lastDiff;
-				return a.firstName.localeCompare(b.firstName);
-			});
-		}
-
-		return sorted;
+		return sortSignInRosterRows(snapshot, sortBy, rankCatalog);
 	}
 
 	// PDF generation using jsPDF
@@ -480,7 +470,10 @@
 	const selectedRankCount = $derived(selectedRanks.size);
 	const selectedGroupCount = $derived(selectedGroups.size);
 	const hasActiveListFilters = $derived(!!searchTitle || !!dateFrom || !!dateTo);
-	const hasActiveCreateFilters = $derived(selectedRanks.size !== ALL_RANKS.length || selectedGroups.size > 0);
+	const allRankFiltersSelected = $derived.by(
+		() => selectedRanks.size === rankFilterOptions.length && rankFilterOptions.every((rank) => selectedRanks.has(rank))
+	);
+	const hasActiveCreateFilters = $derived(!allRankFiltersSelected || selectedGroups.size > 0);
 
 	function resetListFilters() {
 		searchTitle = '';
@@ -491,7 +484,7 @@
 
 	function resetCreateFilters() {
 		selectedRanks.clear();
-		for (const rank of ALL_RANKS) {
+		for (const rank of rankFilterOptions) {
 			selectedRanks.add(rank);
 		}
 		selectedGroups.clear();
@@ -827,7 +820,7 @@
 						</Button>
 					</div>
 					<div class="flex flex-wrap gap-2">
-						{#each ALL_RANKS as rank (rank)}
+						{#each rankFilterOptions as rank (rank)}
 							<Button
 								variant={selectedRanks.has(rank) ? 'secondary' : 'outline'}
 								size="sm"

@@ -1,10 +1,11 @@
 import type { ScopeSet } from '$lib/access/memberAccessShape';
-import { PERSONNEL_RANK_ORDER } from '$lib/domain/personnelRank';
+import type { RankCatalogEntry } from '$lib/domain/rankCatalog';
+import { sortSignInRosterRows } from '$features/sign-in-rosters/signInRosterRankOrder';
 import { fail } from '$lib/server/core/errors';
 import type { SignInRosterPersonnelLookupRecord, UseCaseContext } from '$lib/server/core/ports';
 
 const MAX_ROSTER_PERSONNEL = 500;
-const RANK_INDEX = new Map<string, number>(PERSONNEL_RANK_ORDER.map((rank, index) => [rank, index]));
+const RANK_CATALOG_TABLE = 'organization_rank_catalog';
 
 type PersonnelRow = SignInRosterPersonnelLookupRecord;
 
@@ -39,11 +40,13 @@ export async function prepareSignInRosterSnapshot(
 	assertPersonnelRowsWithinScope(ctx.auth.scopeSet, rows);
 
 	const groupNames = await loadGroupNames(ctx, rows);
+	const rankCatalog = await loadSignInRosterRankCatalog(ctx);
 	const sortBy = input.sortBy === 'rank' ? 'rank' : 'alphabetical';
 	const rowById = rowsById(rows);
 	const personnelSnapshot = sortSnapshot(
 		personnelIds.map((id) => canonicalSnapshotFor(rowById.get(id)!, groupNames)),
-		sortBy
+		sortBy,
+		rankCatalog.length > 0 ? rankCatalog : undefined
 	);
 
 	return {
@@ -180,19 +183,32 @@ function canonicalSnapshotFor(row: PersonnelRow, groupNames: Map<string, string>
 
 function sortSnapshot(
 	snapshot: CanonicalSignInRosterSnapshot[],
-	sortBy: 'alphabetical' | 'rank'
+	sortBy: 'alphabetical' | 'rank',
+	rankCatalog?: readonly RankCatalogEntry[]
 ): CanonicalSignInRosterSnapshot[] {
-	return [...snapshot].sort((a, b) => {
-		if (sortBy === 'rank') {
-			const rankA = RANK_INDEX.get(a.rank) ?? PERSONNEL_RANK_ORDER.length;
-			const rankB = RANK_INDEX.get(b.rank) ?? PERSONNEL_RANK_ORDER.length;
-			if (rankA !== rankB) return rankA - rankB;
-		}
+	return sortSignInRosterRows(snapshot, sortBy, rankCatalog);
+}
 
-		const lastDiff = a.lastName.localeCompare(b.lastName);
-		if (lastDiff !== 0) return lastDiff;
-		return a.firstName.localeCompare(b.firstName);
-	});
+async function loadSignInRosterRankCatalog(ctx: UseCaseContext): Promise<RankCatalogEntry[]> {
+	const rows = await ctx.rawStore.findMany<{
+		code: string;
+		label: string;
+		service: RankCatalogEntry['service'];
+		category: RankCatalogEntry['category'];
+		pay_grade: RankCatalogEntry['payGrade'];
+		state: RankCatalogEntry['state'];
+		sort_order: number;
+	}>(RANK_CATALOG_TABLE, ctx.auth.orgId);
+
+	return rows.map((row) => ({
+		code: row.code,
+		label: row.label,
+		service: row.service,
+		category: row.category,
+		payGrade: row.pay_grade,
+		state: row.state,
+		sortOrder: row.sort_order
+	}));
 }
 
 function sanitizeFilterConfig(value: unknown): { groups: string[]; ranks: string[] } | null {

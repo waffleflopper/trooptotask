@@ -3,10 +3,10 @@ BEGIN
 	IF EXISTS (
 		SELECT 1
 		FROM (
-			SELECT lower(btrim("access_requests"."email")) AS "normalized_email"
+			SELECT lower(regexp_replace("access_requests"."email", '^[[:space:]]+|[[:space:]]+$', '', 'g')) AS "normalized_email"
 			FROM "public"."access_requests"
 			WHERE "access_requests"."status" = 'pending'
-			GROUP BY lower(btrim("access_requests"."email"))
+			GROUP BY lower(regexp_replace("access_requests"."email", '^[[:space:]]+|[[:space:]]+$', '', 'g'))
 			HAVING count(*) > 1
 		) AS "duplicate_pending_access_request_emails"
 	) THEN
@@ -16,8 +16,8 @@ END;
 $$;
 
 UPDATE "public"."access_requests"
-SET "email" = lower(btrim("email"))
-WHERE "email" <> lower(btrim("email"));
+SET "email" = lower(regexp_replace("email", '^[[:space:]]+|[[:space:]]+$', '', 'g'))
+WHERE "email" <> lower(regexp_replace("email", '^[[:space:]]+|[[:space:]]+$', '', 'g'));
 
 DO $$
 BEGIN
@@ -34,7 +34,7 @@ BEGIN
 	) THEN
 		ALTER TABLE "public"."access_requests"
 			ADD CONSTRAINT "access_requests_email_normalized_check"
-			CHECK ("email" = lower(btrim("email")));
+			CHECK ("email" = lower(regexp_replace("email", '^[[:space:]]+|[[:space:]]+$', '', 'g')));
 	END IF;
 END;
 $$;

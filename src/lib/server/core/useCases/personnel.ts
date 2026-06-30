@@ -169,9 +169,19 @@ export function createPersonnelUseCases(): PersonnelUseCases {
 
 			const nextRank = (validated as { rank?: string }).rank;
 			if (nextRank !== undefined) {
-				validated.rank = rankCodesMatchCanonical(nextRank, currentRecord?.rank)
-					? currentRecord?.rank
-					: await normalizeActivePersonnelRank(ctx, nextRank);
+				if (currentRecord?.rank !== undefined && nextRank.trim() === currentRecord.rank) {
+					validated.rank = currentRecord.rank;
+				} else {
+					try {
+						validated.rank = await normalizeActivePersonnelRank(ctx, nextRank);
+					} catch (error) {
+						if (errorStatus(error) === 400 && rankCodesMatchCanonical(nextRank, currentRecord?.rank)) {
+							validated.rank = currentRecord?.rank;
+						} else {
+							throw error;
+						}
+					}
+				}
 			}
 
 			const dbData = entity.toDbUpdate(validated);

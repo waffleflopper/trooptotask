@@ -108,10 +108,6 @@ export async function mergePersonnelBatch(ctx: WritePorts, input: MergeBatchInpu
 			continue;
 		}
 		const normalizedRank = rankResolver.normalize(rank);
-		if (!normalizedRank) {
-			errors.push({ index, message: rankResolver.errorMessage(rank) });
-			continue;
-		}
 
 		const desiredEts = sanitizeString(record.ets);
 		const desiredDeros = sanitizeString(record.deros);
@@ -127,14 +123,22 @@ export async function mergePersonnelBatch(ctx: WritePorts, input: MergeBatchInpu
 
 		const desiredGroupName = sanitizeString(record.groupName);
 		const candidates = people.filter((person) => {
-			if (rankResolver.normalize(person.rank as string) !== normalizedRank) return false;
+			const personRank = sanitizeString(person.rank as string, 80);
+			if (normalizedRank) {
+				if (rankResolver.normalize(personRank) !== normalizedRank) return false;
+			} else if (personRank !== rank) {
+				return false;
+			}
 			if (normalize(person.last_name as string) !== lastName.toLowerCase()) return false;
 			if (normalize(person.first_name as string) !== firstName.toLowerCase()) return false;
 			return true;
 		});
 
 		if (candidates.length === 0) {
-			errors.push({ index, message: 'No active personnel row matched this record' });
+			errors.push({
+				index,
+				message: normalizedRank ? 'No active personnel row matched this record' : rankResolver.errorMessage(rank)
+			});
 			continue;
 		}
 

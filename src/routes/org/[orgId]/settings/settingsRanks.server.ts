@@ -104,10 +104,14 @@ export interface BuildRanksSettingsDataInput {
 }
 
 export async function loadRanksSettings(ctx: UseCaseContext): Promise<RanksSettingsData> {
-	const catalog = await loadOrganizationRankCatalog(ctx);
-	const referenceSummaries = await loadOrganizationRankCatalogReferenceSummaries(ctx, {
-		codes: catalog.map((entry) => entry.code)
-	});
+	const catalog = await loadOrganizationRankCatalog(ctx, { authorization: 'organization-governance' });
+	const referenceSummaries = await loadOrganizationRankCatalogReferenceSummaries(
+		ctx,
+		{
+			codes: catalog.map((entry) => entry.code)
+		},
+		{ authorization: 'organization-governance' }
+	);
 
 	return buildRanksSettingsData({
 		catalog,
@@ -215,7 +219,10 @@ function deleteDisabledReason(
 		if (summary.activeReferences.total === 0 && summary.historicalReferences.total === 0) {
 			return 'Reference check unavailable; retire it instead.';
 		}
-		return 'Referenced by active Organization data; retire it instead.';
+		if (summary.activeReferences.total > 0) {
+			return 'Referenced by active Organization data; retire it instead.';
+		}
+		return 'Referenced by historical snapshots or saved filters; retire it instead.';
 	}
 	return null;
 }

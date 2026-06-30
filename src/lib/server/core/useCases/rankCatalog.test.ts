@@ -188,6 +188,44 @@ describe('organization rank catalog', () => {
 		});
 	});
 
+	it('supports Training and Organization governance authorization for rank catalog reads', async () => {
+		const ownerCtx = createTestContext();
+		await ensureOrganizationRankCatalog(ownerCtx);
+		const catalogRows = await ownerCtx.rawStore.findMany<Record<string, unknown>>(
+			'organization_rank_catalog',
+			'test-org'
+		);
+		const trainingViewerCtx = createTestContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				canManageMembers: false,
+				capabilityMap: { ...NO_CAPABILITIES, training: 'view' }
+			}
+		});
+		trainingViewerCtx.rawStore.seed('organization_rank_catalog', catalogRows);
+		const settingsAdminCtx = createTestContext({
+			auth: {
+				role: 'admin',
+				isPrivileged: true,
+				canManageMembers: true,
+				capabilityMap: NO_CAPABILITIES
+			}
+		});
+		settingsAdminCtx.rawStore.seed('organization_rank_catalog', catalogRows);
+
+		await expect(loadOrganizationRankCatalog(trainingViewerCtx, { authorization: 'training-view' })).resolves.toEqual(
+			expect.arrayContaining([expect.objectContaining({ code: 'SGT' })])
+		);
+		await expect(
+			loadOrganizationRankCatalog(settingsAdminCtx, { authorization: 'organization-governance' })
+		).resolves.toEqual(expect.arrayContaining([expect.objectContaining({ code: 'SGT' })]));
+		await expect(loadOrganizationRankCatalog(settingsAdminCtx)).rejects.toMatchObject({
+			status: 403,
+			message: 'You do not have permission to use personnel data'
+		});
+	});
+
 	it('does not let roster-view-only users trigger rank catalog seed writes', async () => {
 		const rosterViewerCtx = createTestContext({
 			auth: {
@@ -717,6 +755,46 @@ describe('organization rank catalog', () => {
 				}
 			}
 		]);
+	});
+
+	it('does not block deleting an unused case-variant rank because another variant is referenced', async () => {
+		const ctx = createTestContext();
+		await saveOrganizationRankCatalogEntry(ctx, {
+			code: 'DET',
+			label: 'Detachment',
+			service: 'custom',
+			category: 'custom',
+			payGrade: 'ungraded',
+			state: 'active',
+			sortOrder: 500
+		});
+		await saveOrganizationRankCatalogEntry(ctx, {
+			code: 'det',
+			label: 'Lowercase Detachment',
+			service: 'custom',
+			category: 'custom',
+			payGrade: 'ungraded',
+			state: 'active',
+			sortOrder: 501
+		});
+		ctx.rawStore.seed('personnel', [
+			{
+				id: 'person-1',
+				organization_id: 'test-org',
+				rank: 'DET',
+				first_name: 'Jamie',
+				last_name: 'Rivera'
+			}
+		]);
+
+		await removeOrganizationRankCatalogEntry(ctx, { code: 'det' });
+
+		await expect(loadOrganizationRankCatalog(ctx)).resolves.toEqual(
+			expect.arrayContaining([expect.objectContaining({ code: 'DET' })])
+		);
+		await expect(loadOrganizationRankCatalog(ctx)).resolves.not.toEqual(
+			expect.arrayContaining([expect.objectContaining({ code: 'det' })])
+		);
 	});
 
 	it('denies service-pack add and hard-delete writes to Personnel-only editors', async () => {

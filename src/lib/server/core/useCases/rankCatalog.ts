@@ -169,17 +169,45 @@ type RankCatalogReadPorts = Pick<RankCatalogPorts, 'auth' | 'store' | 'rawStore'
 	audit?: AuditPort;
 };
 
+type RankCatalogReadAuthorization = 'personnel-view' | 'training-view' | 'organization-governance';
+
+interface RankCatalogReadOptions {
+	authorization?: RankCatalogReadAuthorization;
+}
+
+const NOOP_AUDIT_PORT: AuditPort = { log() {} };
+
+async function requireRankCatalogReadPolicy(
+	ports: RankCatalogReadPorts,
+	authorization: RankCatalogReadAuthorization
+): Promise<void> {
+	if (authorization === 'organization-governance') {
+		await requireGovernancePolicy(
+			{
+				auth: ports.auth,
+				audit: ports.audit ?? NOOP_AUDIT_PORT,
+				readOnlyGuard: ports.readOnlyGuard
+			},
+			POLICY_ACTION_CATALOG.organization.accessGovernance,
+			{ enforceReadOnlyOverlay: false }
+		);
+		return;
+	}
+
+	const action =
+		authorization === 'training-view'
+			? POLICY_ACTION_CATALOG.training.viewMatrix
+			: POLICY_ACTION_CATALOG.personnel.viewRoster;
+	await requireFeaturePolicy(ports, action, { kind: 'unscoped' }, 'organization_rank_catalog', undefined, {
+		enforceReadOnlyOverlay: false
+	});
+}
+
 export async function loadOrganizationRankCatalog(
-	ports: RankCatalogReadPorts
+	ports: RankCatalogReadPorts,
+	options: RankCatalogReadOptions = {}
 ): Promise<OrganizationRankCatalogEntry[]> {
-	await requireFeaturePolicy(
-		ports,
-		POLICY_ACTION_CATALOG.personnel.viewRoster,
-		{ kind: 'unscoped' },
-		'organization_rank_catalog',
-		undefined,
-		{ enforceReadOnlyOverlay: false }
-	);
+	await requireRankCatalogReadPolicy(ports, options.authorization ?? 'personnel-view');
 	const rows = await storeForRankCatalog(ports).findMany<OrganizationRankCatalogRow>(
 		RANK_CATALOG_TABLE,
 		ports.auth.orgId
@@ -332,16 +360,10 @@ export async function addOrganizationRankServicePack(
 
 export async function loadOrganizationRankCatalogReferenceSummaries(
 	ports: Pick<RankCatalogPorts, 'auth' | 'store' | 'rawStore' | 'audit' | 'readOnlyGuard'>,
-	input: { codes: readonly string[] }
+	input: { codes: readonly string[] },
+	options: RankCatalogReadOptions = {}
 ): Promise<OrganizationRankCatalogReferenceSummary[]> {
-	await requireFeaturePolicy(
-		ports,
-		POLICY_ACTION_CATALOG.personnel.viewRoster,
-		{ kind: 'unscoped' },
-		'organization_rank_catalog',
-		undefined,
-		{ enforceReadOnlyOverlay: false }
-	);
+	await requireRankCatalogReadPolicy(ports, options.authorization ?? 'personnel-view');
 
 	const codes = [...new Set(input.codes.map((code) => sanitizeString(code, 80)).filter(Boolean))];
 	const summaries = new Map(codes.map((code) => [code, createEmptyReferenceSummary(code)]));
@@ -517,7 +539,15 @@ export async function removeOrganizationRankCatalogEntry(
 		fail(500, 'Rank catalog entry is missing its storage identifier');
 	}
 
-	const [references] = await loadOrganizationRankCatalogReferenceSummaries(ports, { codes: [code] });
+	const catalog = await loadOrganizationRankCatalog(ports, { authorization: 'organization-governance' });
+	const summaryCodes = [...new Set([code, ...catalog.map((entry) => entry.code)])];
+	const references = (
+		await loadOrganizationRankCatalogReferenceSummaries(
+			ports,
+			{ codes: summaryCodes },
+			{ authorization: 'organization-governance' }
+		)
+	).find((summary) => summary.code === code);
 	if (references?.activeReferences.total) {
 		fail(409, 'Rank is referenced by active Organization data. Retire it instead.');
 	}

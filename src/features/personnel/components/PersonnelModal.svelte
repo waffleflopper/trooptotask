@@ -25,11 +25,19 @@
 	let { personnel = null, groups, rankCatalog = [], onSubmit, onRemove, onClose }: Props = $props();
 
 	const COMMON_NEW_PERSONNEL_RANK = 'SPC';
+
+	function normalizeRankCode(value: string): string {
+		return value.trim().toUpperCase();
+	}
+
 	const activeRankOptions = $derived(
 		rankCatalog.filter((entry) => entry.state === 'active').map((entry) => ({ value: entry.code, label: entry.code }))
 	);
 	const rankOptions = $derived.by(() => {
-		if (!personnel?.rank || activeRankOptions.some((option) => option.value === personnel.rank)) {
+		if (
+			!personnel?.rank ||
+			activeRankOptions.some((option) => normalizeRankCode(option.value) === normalizeRankCode(personnel.rank))
+		) {
 			return activeRankOptions;
 		}
 
@@ -37,7 +45,7 @@
 	});
 
 	function defaultNewPersonnelRank(options: Array<{ value: string; label: string }>): string {
-		return options.some((option) => option.value === COMMON_NEW_PERSONNEL_RANK) ? COMMON_NEW_PERSONNEL_RANK : '';
+		return options.find((option) => normalizeRankCode(option.value) === COMMON_NEW_PERSONNEL_RANK)?.value ?? '';
 	}
 
 	let rank = $state(untrack(() => personnel?.rank ?? defaultNewPersonnelRank(activeRankOptions)));

@@ -257,13 +257,18 @@ function rankCatalogIndex(catalog: readonly RankCatalogEntry[]): RankCatalogInde
 	return index;
 }
 
+function normalizeRankCode(code: string): string {
+	return code.trim();
+}
+
 function resolveRankFromIndex(index: RankCatalogIndex, code: string): RankCatalogEntry | undefined {
-	const exactMatch = index.exact.get(code);
+	const normalizedCode = normalizeRankCode(code);
+	const exactMatch = index.exact.get(normalizedCode);
 	if (exactMatch) {
 		return exactMatch;
 	}
 
-	const normalizedMatch = index.normalized.get(code.toUpperCase());
+	const normalizedMatch = index.normalized.get(normalizedCode.toUpperCase());
 	return normalizedMatch === AMBIGUOUS_RANK_MATCH ? undefined : normalizedMatch;
 }
 
@@ -301,13 +306,14 @@ export function resolveRank(
 	code: string,
 	catalog: readonly RankCatalogEntry[] = BUILT_IN_RANK_CATALOG
 ): RankCatalogEntry {
+	const normalizedCode = normalizeRankCode(code);
 	const index = rankCatalogIndex(catalog);
-	const knownRank = resolveRankFromIndex(index, code);
+	const knownRank = resolveRankFromIndex(index, normalizedCode);
 
 	return (
 		knownRank ?? {
-			code,
-			label: code,
+			code: normalizedCode,
+			label: normalizedCode,
 			service: 'custom',
 			category: 'custom',
 			payGrade: 'ungraded',
@@ -318,13 +324,15 @@ export function resolveRank(
 }
 
 export function compareRankCodes(a: string, b: string, options: RankCompareOptions = {}): number {
+	const left = normalizeRankCode(a);
+	const right = normalizeRankCode(b);
 	const catalog = options.catalog ?? BUILT_IN_RANK_CATALOG;
 	const index = rankCatalogIndex(catalog);
-	const aEntry = resolveRankFromIndex(index, a);
-	const bEntry = resolveRankFromIndex(index, b);
+	const aEntry = resolveRankFromIndex(index, left);
+	const bEntry = resolveRankFromIndex(index, right);
 
 	const comparison =
-		aEntry && bEntry ? compareEntries(aEntry, bEntry) : aEntry ? -1 : bEntry ? 1 : a.localeCompare(b, 'en-US');
+		aEntry && bEntry ? compareEntries(aEntry, bEntry) : aEntry ? -1 : bEntry ? 1 : left.localeCompare(right, 'en-US');
 
 	return options.direction === 'lowest-to-highest' ? -comparison : comparison;
 }

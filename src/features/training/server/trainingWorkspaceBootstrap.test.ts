@@ -189,6 +189,7 @@ describe('streamTrainingWorkspaceBootstrap', () => {
 		const workspace = await routeData.training.data;
 
 		await expect(workspace.data.personnel).resolves.toEqual(personnel);
+		await expect(workspace.data.rankCatalog).resolves.toEqual([]);
 		expect(listRosterCandidatesMock).toHaveBeenCalledWith('11111111-1111-1111-1111-111111111111', {
 			kind: 'groups',
 			groupIds: ['group-alpha']

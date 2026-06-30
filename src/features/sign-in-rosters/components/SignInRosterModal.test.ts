@@ -335,6 +335,52 @@ describe('SignInRosterModal', () => {
 		expect(body.filterConfig.ranks).toEqual(expect.arrayContaining(['PO2', 'SSgt', 'LOCAL-CADET']));
 	});
 
+	it('keeps default rank filters selected when a streamed rank catalog expands after create view opens', async () => {
+		const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+			if ((init?.method ?? 'GET') === 'POST') {
+				return jsonResponse({ id: 'roster-2' });
+			}
+
+			return jsonResponse({ rosters: [], total: 0 });
+		});
+		vi.stubGlobal('fetch', fetchMock);
+		const view = renderModal({
+			personnel: [personnelRow({ id: 'army-e5', rank: 'SGT', lastName: 'Able' })]
+		});
+
+		await waitFor(() => expect(screen.getByRole('button', { name: 'New Roster' })).toBeTruthy());
+		await fireEvent.click(screen.getByRole('button', { name: 'New Roster' }));
+		await view.rerender({
+			orgId: 'org-1',
+			personnel: [
+				personnelRow({ id: 'army-e5', rank: 'SGT', lastName: 'Able' }),
+				personnelRow({ id: 'navy-e5', rank: 'PO2', lastName: 'Baker' })
+			],
+			groups,
+			rankCatalog: [
+				rankCatalogEntry({ code: 'PO2', label: 'Petty Officer Second Class', service: 'navy' }),
+				rankCatalogEntry({ code: 'SGT', label: 'Sergeant', service: 'army' })
+			],
+			canEdit: true,
+			onClose: vi.fn()
+		});
+
+		await fireEvent.input(screen.getByLabelText(/Title/i), {
+			target: { value: 'Streamed Catalog Formation' }
+		});
+		await fireEvent.click(screen.getByRole('button', { name: 'Generate & Print' }));
+
+		let postCall: (typeof fetchMock.mock.calls)[number] | undefined;
+		await waitFor(() => {
+			postCall = fetchMock.mock.calls.find(([, init]) => init?.method === 'POST');
+			expect(postCall).toBeTruthy();
+		});
+		const body = JSON.parse(String(postCall?.[1]?.body));
+
+		expect(body.personnelSnapshot.map((row: { id: string }) => row.id)).toEqual(['army-e5', 'navy-e5']);
+		expect(body.filterConfig.ranks).toEqual(expect.arrayContaining(['SGT', 'PO2']));
+	});
+
 	it('uses catalog categories for quick rank filters in generated roster payloads', async () => {
 		const jointPersonnel: Personnel[] = [
 			personnelRow({ id: 'navy-officer', rank: 'ADM', lastName: 'Officer' }),

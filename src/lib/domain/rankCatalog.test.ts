@@ -184,6 +184,17 @@ describe('rank catalog ordering', () => {
 		expect(['ZZZ', 'SGT', 'LOCAL'].sort(compareRankCodes)).toEqual(['SGT', 'LOCAL', 'ZZZ']);
 	});
 
+	it('trims surrounding whitespace before resolving and comparing rank codes', () => {
+		expect(resolveBuiltInRank(' SGT ')).toMatchObject({ code: 'SGT' });
+		expect(resolveRank(' LOCAL ')).toMatchObject({
+			code: 'LOCAL',
+			label: 'LOCAL',
+			service: 'custom'
+		});
+
+		expect([' PFC ', ' SGT ', ' LOCAL '].sort(compareRankCodes)).toEqual([' SGT ', ' PFC ', ' LOCAL ']);
+	});
+
 	it('keeps retired built-in ranks displayable and ordered by their pay grade', () => {
 		expect(resolveBuiltInRank('SP4')).toMatchObject({
 			label: 'Specialist Four',

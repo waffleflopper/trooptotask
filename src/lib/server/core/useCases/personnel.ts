@@ -86,6 +86,10 @@ function personnelName(person: Pick<PersonnelLifecycleRecord, 'rank' | 'last_nam
 	return `${person.rank} ${person.last_name}, ${person.first_name}`;
 }
 
+function rankCodesMatchCanonical(left: string, right: string | undefined): boolean {
+	return right !== undefined && left.trim().toUpperCase() === right.trim().toUpperCase();
+}
+
 export function createPersonnelUseCases(): PersonnelUseCases {
 	return {
 		async create(ctx, data) {
@@ -164,8 +168,10 @@ export function createPersonnelUseCases(): PersonnelUseCases {
 			}
 
 			const nextRank = (validated as { rank?: string }).rank;
-			if (nextRank !== undefined && nextRank !== currentRecord?.rank) {
-				validated.rank = await normalizeActivePersonnelRank(ctx, nextRank);
+			if (nextRank !== undefined) {
+				validated.rank = rankCodesMatchCanonical(nextRank, currentRecord?.rank)
+					? currentRecord?.rank
+					: await normalizeActivePersonnelRank(ctx, nextRank);
 			}
 
 			const dbData = entity.toDbUpdate(validated);

@@ -268,6 +268,57 @@ describe('dutyRosterWorkspaceReadModel', () => {
 		expect(model.settingsWorkspace?.rankOptions).toEqual(model.rankOptions);
 	});
 
+	it('falls back to default Duty Roster ranks when the Organization rank catalog is empty', () => {
+		const model = buildDutyRosterWorkspaceReadModel(
+			{
+				orgId: 'org-1',
+				orgName: 'Able Company',
+				templates: [template],
+				selectedTemplate: template,
+				view: 'settings',
+				settings: {
+					personnel: [],
+					resolvedPool: [],
+					baselineRows: [],
+					rankCatalog: []
+				}
+			},
+			null
+		);
+
+		expect(model.rankOptions).toEqual([
+			'GEN',
+			'LTG',
+			'MG',
+			'BG',
+			'COL',
+			'LTC',
+			'MAJ',
+			'CPT',
+			'1LT',
+			'2LT',
+			'CW5',
+			'CW4',
+			'CW3',
+			'CW2',
+			'WO1',
+			'CSM',
+			'SGM',
+			'1SG',
+			'MSG',
+			'SFC',
+			'SSG',
+			'SGT',
+			'CPL',
+			'SPC',
+			'PFC',
+			'PV2',
+			'PV1',
+			'CIV'
+		]);
+		expect(model.settingsWorkspace?.rankOptions).toEqual(model.rankOptions);
+	});
+
 	it('locks Manual DA6 Baseline only when non-invalidated accepted history exists', () => {
 		const invalidatedOnly = buildDutyRosterWorkspaceReadModel(
 			{

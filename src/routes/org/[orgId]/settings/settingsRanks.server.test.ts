@@ -115,6 +115,38 @@ describe('rank settings read model', () => {
 		});
 	});
 
+	it('loads rank settings for Organization admins without Personnel lane access', async () => {
+		const ctx = createTestContext({
+			auth: {
+				role: 'admin',
+				isPrivileged: true,
+				canManageMembers: true,
+				capabilityMap: NO_CAPABILITIES
+			}
+		});
+		ctx.rawStore.seed('organization_rank_catalog', [
+			{
+				id: 'rank-det-sgt',
+				organization_id: 'test-org',
+				code: 'DET-SGT',
+				label: 'Detachment Sergeant',
+				service: 'custom',
+				category: 'custom',
+				pay_grade: 'ungraded',
+				state: 'active',
+				source: 'custom',
+				sort_order: 500
+			}
+		]);
+
+		const settings = await loadRanksSettings(ctx);
+
+		expect(settings.sections.ranks.commands.canManageCatalog).toBe(true);
+		expect(settings.sections.ranks.entries.active).toEqual(
+			expect.arrayContaining([expect.objectContaining({ code: 'DET-SGT' })])
+		);
+	});
+
 	it('only offers hard delete for unused custom or discovered ranks and suppresses writes for non-governors', () => {
 		const settings = buildRanksSettingsData({
 			canManageCatalog: false,
@@ -244,6 +276,49 @@ describe('rank settings read model', () => {
 				})
 			])
 		);
+	});
+
+	it('uses historical-only delete blocker copy when reference summaries cannot allow deletion', () => {
+		const settings = buildRanksSettingsData({
+			canManageCatalog: true,
+			catalog: [
+				{
+					organizationId: 'test-org',
+					code: 'ARCHIVE-SGT',
+					label: 'Archive Sergeant',
+					service: 'custom',
+					category: 'custom',
+					payGrade: 'ungraded',
+					state: 'active',
+					source: 'custom',
+					sortOrder: 500
+				}
+			],
+			referenceSummaries: [
+				{
+					code: 'ARCHIVE-SGT',
+					activeReferences: {
+						personnel: 0,
+						trainingApplicability: 0,
+						dutyRosterTemplateFilters: 0,
+						legacyDutyTemplateSlots: 0,
+						total: 0
+					},
+					historicalReferences: {
+						signInRosterFilters: 1,
+						signInRosterSnapshots: 0,
+						acceptedDutyRosterSnapshots: 1,
+						total: 2
+					},
+					canDelete: false
+				}
+			]
+		});
+
+		expect(settings.sections.ranks.entries.active[0]?.commands).toMatchObject({
+			canDelete: false,
+			deleteDisabledReason: 'Referenced by historical snapshots or saved filters; retire it instead.'
+		});
 	});
 
 	it('does not expose built-in rank metadata as editable while keeping retire available', () => {
@@ -472,16 +547,9 @@ describe('rank settings read model', () => {
 				}
 			}
 		});
-		await expect(loadRanksSettings(memberCtx)).resolves.toMatchObject({
-			sections: {
-				ranks: {
-					commands: {
-						canManageCatalog: false,
-						canAddServicePack: false,
-						canAddCustomRank: false
-					}
-				}
-			}
+		await expect(loadRanksSettings(memberCtx)).rejects.toMatchObject({
+			status: 403,
+			message: 'This action requires an organization admin or owner role'
 		});
 	});
 });

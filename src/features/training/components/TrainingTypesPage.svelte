@@ -101,7 +101,11 @@
 				: undefined)
 	);
 	const preservedApplicabilityRanks = $derived(
-		types.flatMap((type) => [...type.appliesToRanks, ...type.excludedRanks])
+		creating || editing
+			? [...editAppliesToRanks, ...editExcludedRanks]
+			: selectedType
+				? [...selectedType.appliesToRanks, ...selectedType.excludedRanks]
+				: []
 	);
 	const availableRanks = $derived(
 		rankCodesForOptions({

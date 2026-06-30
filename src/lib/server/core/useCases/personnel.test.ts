@@ -371,6 +371,37 @@ describe('Personnel — update', () => {
 		});
 	});
 
+	it('preserves an existing retired rank when update echoes the same rank with casing or whitespace differences', async () => {
+		const ctx = buildContext();
+		const { update } = createPersonnelUseCases();
+		seedRankCatalog(ctx, [{ code: 'SP4', label: 'Specialist Four', pay_grade: 'E-4', state: 'retired' }]);
+		ctx.store.seed('personnel', [
+			{
+				id: 'p-retired-rank',
+				rank: 'SP4',
+				last_name: 'Legacy',
+				first_name: 'Sam',
+				mos: '11B',
+				clinic_role: 'Team Leader',
+				group_id: null,
+				archived_at: null,
+				organization_id: 'test-org'
+			}
+		]);
+
+		const result = (await update(ctx, {
+			id: 'p-retired-rank',
+			rank: ' sp4 ',
+			clinicRole: 'Operations'
+		})) as Record<string, unknown>;
+
+		expect(result).toMatchObject({ rank: 'SP4', clinicRole: 'Operations' });
+		await expect(ctx.store.findOne('personnel', ctx.auth.orgId, { id: 'p-retired-rank' })).resolves.toMatchObject({
+			rank: 'SP4',
+			clinic_role: 'Operations'
+		});
+	});
+
 	it('updates ETS and DEROS on update', async () => {
 		const ctx = buildContext();
 		const { update } = createPersonnelUseCases();

@@ -48,7 +48,7 @@
 	}
 
 	function rankDomId(code: string): string {
-		const safeCode = code.replace(/[^A-Za-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '');
+		const safeCode = Array.from(code, (char) => char.codePointAt(0)?.toString(36) ?? '0').join('-');
 		return `rank-${safeCode || 'entry'}`;
 	}
 </script>

@@ -516,7 +516,9 @@ describe('SignInRosterModal', () => {
 		const body = JSON.parse(String(postCall?.[1]?.body));
 
 		expect(body.personnelSnapshot.map((row: { id: string }) => row.id)).toEqual(['custom-local']);
-		expect(body.filterConfig.ranks).not.toEqual(expect.arrayContaining(['SGT', 'PO2', 'SSgt']));
+		expect(body.filterConfig.ranks).not.toContain('SGT');
+		expect(body.filterConfig.ranks).not.toContain('PO2');
+		expect(body.filterConfig.ranks).not.toContain('SSgt');
 		expect(body.filterConfig.ranks).toContain('LOCAL-CMD');
 	});
 

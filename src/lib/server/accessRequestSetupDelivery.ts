@@ -217,7 +217,7 @@ export function createSupabaseAccessRequestSetupDeliveryStore(client: SupabaseCl
 			const { data, error } = await client
 				.from('access_requests')
 				.select('id, email, status, created_at, reviewed_at, setup_completed_at')
-				.ilike('email', normalizeEmail(email));
+				.eq('email', normalizeEmail(email));
 
 			if (error) {
 				throw error;

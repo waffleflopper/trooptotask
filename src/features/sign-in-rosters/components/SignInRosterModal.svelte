@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import type { RankCatalogEntry } from '$lib/domain/rankCatalog';
+	import { BUILT_IN_RANK_CATALOG, type RankCatalogEntry } from '$lib/domain/rankCatalog';
 	import type { Personnel } from '$lib/types';
 	import type { SignInRoster } from '../sign-in-rosters.types';
-	import { ARMY_RANKS, ALL_RANKS } from '$lib/types';
+	import { ALL_RANKS } from '$lib/types';
 	import { signInRosterRankOptions, sortSignInRosterRows } from '../signInRosterRankOrder';
 	import type { RowInput } from 'jspdf-autotable';
 	import * as AppDialog from '$lib/components/ui/app-dialog';
@@ -118,22 +118,13 @@
 	}
 
 	// Category toggles
-	const fallbackQuickRankGroups: Record<RankQuickFilterCategory, readonly string[]> = {
-		officer: ARMY_RANKS.officer,
-		warrant: ARMY_RANKS.warrant,
-		enlisted: [...ARMY_RANKS.enlisted, ...ARMY_RANKS.nco],
-		civilian: ARMY_RANKS.civilian
-	};
 	const rankCategoryGroups = $derived.by(() => {
-		if (!rankCatalog || rankCatalog.length === 0) {
-			return fallbackQuickRankGroups;
-		}
-
 		const optionSet = new Set(rankFilterOptions);
-		const activeCatalogCategoriesByCode: Partial<Record<string, RankQuickFilterCategory>> = {};
-		for (const entry of rankCatalog) {
-			if (entry.state === 'active' && isQuickFilterCategory(entry.category) && optionSet.has(entry.code)) {
-				activeCatalogCategoriesByCode[entry.code] = entry.category;
+		const catalogForQuickFilters = rankCatalog && rankCatalog.length > 0 ? rankCatalog : BUILT_IN_RANK_CATALOG;
+		const catalogCategoriesByCode: Partial<Record<string, RankQuickFilterCategory>> = {};
+		for (const entry of catalogForQuickFilters) {
+			if (isQuickFilterCategory(entry.category) && optionSet.has(entry.code)) {
+				catalogCategoriesByCode[entry.code] = entry.category;
 			}
 		}
 		const groups: Record<RankQuickFilterCategory, string[]> = {
@@ -144,7 +135,7 @@
 		};
 
 		for (const rank of rankFilterOptions) {
-			const category = activeCatalogCategoriesByCode[rank];
+			const category = catalogCategoriesByCode[rank];
 			if (category) {
 				groups[category].push(rank);
 			}

@@ -344,6 +344,37 @@ describe('Personnel — update', () => {
 		});
 	});
 
+	it('normalizes legacy case-collided stored ranks when the selected active catalog code differs', async () => {
+		const ctx = buildContext();
+		const { update } = createPersonnelUseCases();
+		seedRankCatalog(ctx, [
+			{ code: 'CAPT', label: 'Captain', service: 'navy', category: 'officer', pay_grade: 'O-6' },
+			{ code: 'Capt', label: 'Captain', service: 'air-force', category: 'officer', pay_grade: 'O-3' }
+		]);
+		ctx.store.seed('personnel', [
+			{
+				id: 'p-case-collided-rank',
+				rank: 'capt',
+				last_name: 'Legacy',
+				first_name: 'Casey',
+				mos: '11B',
+				clinic_role: 'Team Leader',
+				group_id: null,
+				archived_at: null,
+				organization_id: 'test-org'
+			}
+		]);
+
+		const result = (await update(ctx, { id: 'p-case-collided-rank', rank: 'CAPT' })) as Record<string, unknown>;
+
+		expect(result.rank).toBe('CAPT');
+		await expect(ctx.store.findOne('personnel', ctx.auth.orgId, { id: 'p-case-collided-rank' })).resolves.toMatchObject(
+			{
+				rank: 'CAPT'
+			}
+		);
+	});
+
 	it('preserves an existing retired rank when update leaves rank unchanged', async () => {
 		const ctx = buildContext();
 		const { update } = createPersonnelUseCases();

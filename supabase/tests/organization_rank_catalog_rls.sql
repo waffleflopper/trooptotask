@@ -2,7 +2,7 @@ BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 
-SELECT plan(17);
+SELECT plan(19);
 
 INSERT INTO auth.users (
 	instance_id,
@@ -50,6 +50,32 @@ VALUES
 		'authenticated',
 		'authenticated',
 		'rank-bravo-owner-1247@example.test',
+		'',
+		now(),
+		'{"provider": "email", "providers": ["email"]}'::jsonb,
+		'{}'::jsonb,
+		now(),
+		now()
+	),
+	(
+		'00000000-0000-0000-0000-000000000000',
+		'10000000-0000-4000-8000-000000124704',
+		'authenticated',
+		'authenticated',
+		'rank-alpha-calendar-1247@example.test',
+		'',
+		now(),
+		'{"provider": "email", "providers": ["email"]}'::jsonb,
+		'{}'::jsonb,
+		now(),
+		now()
+	),
+	(
+		'00000000-0000-0000-0000-000000000000',
+		'10000000-0000-4000-8000-000000124705',
+		'authenticated',
+		'authenticated',
+		'rank-alpha-critical-tasks-1247@example.test',
 		'',
 		now(),
 		'{"provider": "email", "providers": ["email"]}'::jsonb,
@@ -117,6 +143,28 @@ VALUES
 		'organization',
 		ARRAY[]::uuid[],
 		'rank-bravo-owner-1247@example.test'
+	),
+	(
+		'30000000-0000-4000-8000-000000124704',
+		'20000000-0000-4000-8000-000000124701',
+		'10000000-0000-4000-8000-000000124704',
+		'member',
+		'viewer',
+		'{"calendar":"view","personnel":"none","training":"none","criticalTasks":"none","onboarding":"none","ratingScheme":"none"}'::jsonb,
+		'organization',
+		ARRAY[]::uuid[],
+		'rank-alpha-calendar-1247@example.test'
+	),
+	(
+		'30000000-0000-4000-8000-000000124705',
+		'20000000-0000-4000-8000-000000124701',
+		'10000000-0000-4000-8000-000000124705',
+		'member',
+		'viewer',
+		'{"calendar":"none","personnel":"none","training":"none","criticalTasks":"view","onboarding":"none","ratingScheme":"none"}'::jsonb,
+		'organization',
+		ARRAY[]::uuid[],
+		'rank-alpha-critical-tasks-1247@example.test'
 	);
 
 INSERT INTO public.organization_rank_catalog (
@@ -180,6 +228,41 @@ SELECT is(
 	0,
 	'alpha personnel editor cannot read bravo rank catalog entries'
 );
+
+RESET ROLE;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', '10000000-0000-4000-8000-000000124704', true);
+SELECT set_config('request.jwt.claim.email', 'rank-alpha-calendar-1247@example.test', true);
+
+SELECT is(
+	(
+		SELECT count(*)::integer
+		FROM public.organization_rank_catalog
+		WHERE code = 'ALPHA-SGT'
+	),
+	1,
+	'alpha calendar viewer can read alpha rank catalog entries for duty roster rank-aware workspaces'
+);
+
+RESET ROLE;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', '10000000-0000-4000-8000-000000124705', true);
+SELECT set_config('request.jwt.claim.email', 'rank-alpha-critical-tasks-1247@example.test', true);
+
+SELECT is(
+	(
+		SELECT count(*)::integer
+		FROM public.organization_rank_catalog
+		WHERE code = 'ALPHA-SGT'
+	),
+	1,
+	'alpha critical tasks viewer can read alpha rank catalog entries for readiness reports'
+);
+
+RESET ROLE;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', '10000000-0000-4000-8000-000000124702', true);
+SELECT set_config('request.jwt.claim.email', 'rank-alpha-editor-1247@example.test', true);
 
 WITH updated AS (
 	UPDATE public.organization_rank_catalog

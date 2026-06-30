@@ -61,7 +61,9 @@ CREATE POLICY "Users can view organization rank catalog for rank-aware workspace
   FOR SELECT
   USING (
     "public"."can_view_personnel"("organization_id")
+    OR "public"."can_view_calendar"("organization_id")
     OR "public"."can_view_training"("organization_id")
+    OR "public"."can_view_critical_tasks"("organization_id")
     OR "public"."can_update_organization_settings"("organization_id")
   );
 

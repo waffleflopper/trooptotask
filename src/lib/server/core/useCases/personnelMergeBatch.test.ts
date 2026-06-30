@@ -171,6 +171,49 @@ describe('mergePersonnelBatch', () => {
 		]);
 	});
 
+	it('matches exact legacy ranks that collide with multiple catalog entries by case', async () => {
+		const ctx = buildContext();
+		seedRankCatalog(ctx, [
+			{ code: 'CAPT', label: 'Captain', service: 'navy', category: 'officer', pay_grade: 'O-6' },
+			{ code: 'Capt', label: 'Captain', service: 'air-force', category: 'officer', pay_grade: 'O-3' }
+		]);
+		ctx.store.seed('personnel', [
+			{
+				id: 'person-legacy-capt',
+				organization_id: 'test-org',
+				rank: 'capt',
+				last_name: 'Smith',
+				first_name: 'Jamie',
+				mos: '68W',
+				clinic_role: 'Medic',
+				group_id: null,
+				ets: null,
+				deros: null,
+				archived_at: null
+			}
+		]);
+
+		const result = await mergePersonnelBatch(ctx, {
+			records: [
+				{
+					rank: 'capt',
+					lastName: 'Smith',
+					firstName: 'Jamie',
+					ets: '2027-05-01'
+				}
+			]
+		});
+
+		expect(result.errors).toHaveLength(0);
+		expect(result.updated).toEqual([
+			expect.objectContaining({
+				id: 'person-legacy-capt',
+				rank: 'capt',
+				ets: '2027-05-01'
+			})
+		]);
+	});
+
 	it('reports ambiguous and unmatched rows instead of guessing', async () => {
 		const ctx = buildContext();
 		ctx.store.seed('personnel', [

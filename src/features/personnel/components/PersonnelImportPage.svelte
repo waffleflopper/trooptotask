@@ -99,8 +99,13 @@
 	const dataRowCount = $derived(dataRows.length);
 	const sourceRowNumbers = $derived(dataRows.map((_, index) => index + (hasHeaders ? 2 : 1)));
 	const activePersonnelCount = $derived(personnel.filter((person) => !person.archivedAt).length);
+	const activePersonnelRanks = $derived(
+		personnel
+			.filter((person) => !person.archivedAt)
+			.map((person) => person.rank.trim())
+			.filter(Boolean)
+	);
 	const activeRankCatalog = $derived(rankCatalog.filter((entry) => entry.state === 'active'));
-	const validationRankCatalog = $derived(importMode === 'merge' ? rankCatalog : activeRankCatalog);
 	const autoMappings = $derived(rawRows.length > 0 ? autoMapColumns(rawRows[0], PERSONNEL_COLUMNS, hasHeaders) : []);
 	const mappings = $derived(
 		autoMappings
@@ -120,8 +125,11 @@
 		const rank = (row.rank ?? '').trim();
 		if (!rank) {
 			cellErrors.rank = 'Rank is required';
-		} else if (!resolveRankCode(rank, validationRankCatalog)) {
-			const catalogLabel = importMode === 'merge' ? 'Organization rank catalog' : 'active Organization rank catalog';
+		} else if (!isValidPreviewRank(rank)) {
+			const catalogLabel =
+				importMode === 'merge'
+					? 'Organization rank catalog or active Personnel rows'
+					: 'active Organization rank catalog';
 			cellErrors.rank = `"${rank}" is not in the ${catalogLabel}. Update Organization Settings -> Ranks, then try again.`;
 		}
 
@@ -144,6 +152,19 @@
 			cellErrors,
 			cellWarnings
 		};
+	}
+
+	function isValidPreviewRank(input: string): boolean {
+		if (importMode === 'merge') {
+			return !!resolveRankCode(input, rankCatalog) || hasObservedActivePersonnelRank(input);
+		}
+
+		return !!resolveRankCode(input, activeRankCatalog);
+	}
+
+	function hasObservedActivePersonnelRank(input: string): boolean {
+		const normalizedInput = input.toUpperCase();
+		return activePersonnelRanks.some((rank) => rank.toUpperCase() === normalizedInput);
 	}
 
 	function resolveRankCode(input: string, catalog: RankCatalogEntry[]): string | null {

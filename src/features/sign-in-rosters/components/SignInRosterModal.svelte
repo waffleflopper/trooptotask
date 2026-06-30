@@ -133,12 +133,20 @@
 
 	// Category toggles
 	const rankCategoryGroups = $derived.by(() => {
-		const optionSet = new Set(rankFilterOptions);
 		const catalogForQuickFilters = rankCatalog && rankCatalog.length > 0 ? rankCatalog : BUILT_IN_RANK_CATALOG;
 		const catalogCategoriesByCode: Partial<Record<string, RankQuickFilterCategory>> = {};
+		const catalogCategoriesByNormalizedCode: Partial<Record<string, RankQuickFilterCategory | null>> = {};
 		for (const entry of catalogForQuickFilters) {
-			if (isQuickFilterCategory(entry.category) && optionSet.has(entry.code)) {
+			if (isQuickFilterCategory(entry.category)) {
 				catalogCategoriesByCode[entry.code] = entry.category;
+
+				const normalizedCode = entry.code.toUpperCase();
+				const existingCategory = catalogCategoriesByNormalizedCode[normalizedCode];
+				if (existingCategory === undefined) {
+					catalogCategoriesByNormalizedCode[normalizedCode] = entry.category;
+				} else if (existingCategory !== entry.category) {
+					catalogCategoriesByNormalizedCode[normalizedCode] = null;
+				}
 			}
 		}
 		const groups: Record<RankQuickFilterCategory, string[]> = {
@@ -149,7 +157,7 @@
 		};
 
 		for (const rank of rankFilterOptions) {
-			const category = catalogCategoriesByCode[rank];
+			const category = catalogCategoriesByCode[rank] ?? catalogCategoriesByNormalizedCode[rank.toUpperCase()];
 			if (category) {
 				groups[category].push(rank);
 			}

@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS "public"."organization_rank_catalog" (
   "sort_order" integer DEFAULT 0 NOT NULL,
   "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
   "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
-  CONSTRAINT "organization_rank_catalog_code_check" CHECK ((length(btrim("code")) BETWEEN 1 AND 80)),
+  CONSTRAINT "organization_rank_catalog_code_check" CHECK (("code" = btrim("code") AND length("code") BETWEEN 1 AND 80)),
   CONSTRAINT "organization_rank_catalog_label_check" CHECK ((length(btrim("label")) BETWEEN 1 AND 120)),
   CONSTRAINT "organization_rank_catalog_service_check" CHECK (("service" = ANY (ARRAY['army'::"text", 'navy'::"text", 'air-force'::"text", 'marine-corps'::"text", 'coast-guard'::"text", 'space-force'::"text", 'civilian'::"text", 'custom'::"text"]))),
   CONSTRAINT "organization_rank_catalog_category_check" CHECK (("category" = ANY (ARRAY['officer'::"text", 'warrant'::"text", 'enlisted'::"text", 'civilian'::"text", 'custom'::"text"]))),
@@ -55,12 +55,17 @@ ALTER FUNCTION "public"."can_update_organization_settings"(uuid) OWNER TO "postg
 ALTER TABLE "public"."organization_rank_catalog" ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Users can view organization rank catalog if they can view personnel" ON "public"."organization_rank_catalog";
+DROP POLICY IF EXISTS "Users can view organization rank catalog for rank-aware workspaces" ON "public"."organization_rank_catalog";
 DROP POLICY IF EXISTS "Organization governors can manage organization rank catalog" ON "public"."organization_rank_catalog";
 
-CREATE POLICY "Users can view organization rank catalog if they can view personnel"
+CREATE POLICY "Users can view organization rank catalog for rank-aware workspaces"
   ON "public"."organization_rank_catalog"
   FOR SELECT
-  USING ("public"."can_view_personnel"("organization_id"));
+  USING (
+    "public"."can_view_personnel"("organization_id")
+    OR "public"."can_view_training"("organization_id")
+    OR "public"."can_update_organization_settings"("organization_id")
+  );
 
 CREATE POLICY "Organization governors can manage organization rank catalog"
   ON "public"."organization_rank_catalog"
@@ -72,9 +77,10 @@ REVOKE ALL ON TABLE "public"."organization_rank_catalog" FROM "anon";
 GRANT ALL ON TABLE "public"."organization_rank_catalog" TO "authenticated";
 GRANT ALL ON TABLE "public"."organization_rank_catalog" TO "service_role";
 
-GRANT ALL ON FUNCTION "public"."can_update_organization_settings"("p_organization_id" uuid) TO "anon";
-GRANT ALL ON FUNCTION "public"."can_update_organization_settings"("p_organization_id" uuid) TO "authenticated";
-GRANT ALL ON FUNCTION "public"."can_update_organization_settings"("p_organization_id" uuid) TO "service_role";
+REVOKE ALL ON FUNCTION "public"."can_update_organization_settings"("p_organization_id" uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION "public"."can_update_organization_settings"("p_organization_id" uuid) FROM "anon";
+GRANT EXECUTE ON FUNCTION "public"."can_update_organization_settings"("p_organization_id" uuid) TO "authenticated";
+GRANT EXECUTE ON FUNCTION "public"."can_update_organization_settings"("p_organization_id" uuid) TO "service_role";
 
 WITH default_rank_catalog (
   code,

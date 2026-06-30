@@ -79,6 +79,28 @@ describe('PersonnelModal', () => {
 		});
 	});
 
+	it('defaults new Personnel to the catalog-cased SPC option when catalog casing differs', async () => {
+		const onClose = vi.fn();
+		const onSubmit = vi.fn().mockResolvedValue(undefined);
+
+		render(PersonnelModal, {
+			props: {
+				groups: [],
+				rankCatalog: [{ ...armyRankCatalog[1], code: 'spc', label: 'Specialist' }],
+				onSubmit,
+				onClose
+			}
+		});
+
+		await fireEvent.input(screen.getByLabelText(/Last Name/i), { target: { value: 'Nolan' } });
+		await fireEvent.input(screen.getByLabelText(/First Name/i), { target: { value: 'Avery' } });
+		await fireEvent.click(screen.getByTestId('personnel-save'));
+
+		await waitFor(() => {
+			expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ rank: 'spc' }));
+		});
+	});
+
 	it('requires explicit rank selection when no common default is available', async () => {
 		const onClose = vi.fn();
 		const onSubmit = vi.fn().mockResolvedValue(undefined);

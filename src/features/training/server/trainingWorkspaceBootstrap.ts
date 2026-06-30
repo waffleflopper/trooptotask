@@ -12,9 +12,10 @@ import {
 	type HydrationItems,
 	type WorkspaceHydrationTarget
 } from '$lib/server/core/streamedWorkspace';
-import { compareRankCodes, type RankCatalogEntry } from '$lib/domain/rankCatalog';
+import type { RankCatalogEntry } from '$lib/domain/rankCatalog';
 import type { UseCaseContext } from '$lib/server/core/ports';
 import { loadRosterPersonnel } from '$lib/server/core/useCases/rosterReadModel';
+import { loadOrganizationRankCatalog } from '$lib/server/core/useCases/rankCatalog';
 import { withTrainingTiming, type TrainingLoadPhase } from '$lib/server/utils/trainingTiming';
 import type { Group } from '$lib/stores/groups.svelte';
 import type { Personnel } from '$lib/types';
@@ -108,26 +109,7 @@ async function loadTrainingRosterPersonnel(ctx: UseCaseContext): Promise<Personn
 }
 
 async function loadTrainingRankCatalog(ctx: UseCaseContext): Promise<RankCatalogEntry[]> {
-	const rows = await ctx.store.findMany<{
-		code: string;
-		label: string;
-		service: RankCatalogEntry['service'];
-		category: RankCatalogEntry['category'];
-		pay_grade: RankCatalogEntry['payGrade'];
-		state: RankCatalogEntry['state'];
-		sort_order: number;
-	}>('organization_rank_catalog', ctx.auth.orgId);
-	const catalog = rows.map((row) => ({
-		code: row.code,
-		label: row.label,
-		service: row.service,
-		category: row.category,
-		payGrade: row.pay_grade,
-		state: row.state,
-		sortOrder: row.sort_order
-	}));
-
-	return catalog.toSorted((left, right) => compareRankCodes(left.code, right.code, { catalog }));
+	return loadOrganizationRankCatalog(ctx, { authorization: 'training-view' });
 }
 
 function fetchTrainingWorkspaceData(ctx: UseCaseContext, requestedOrgId: string): TrainingWorkspaceData {

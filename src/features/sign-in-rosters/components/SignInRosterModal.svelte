@@ -67,9 +67,23 @@
 			ALL_RANKS
 		)
 	);
-	const selectedRanks = new SvelteSet<string>();
+	type RankFilterSelectionMode = 'all' | 'custom';
+	const customSelectedRanks = new SvelteSet<string>();
+	let rankFilterSelectionMode = $state<RankFilterSelectionMode>('all');
+	const selectedRankValues = $derived.by<ReadonlySet<string>>(() =>
+		rankFilterSelectionMode === 'all' ? new Set(rankFilterOptions) : customSelectedRanks
+	);
 	let selectedGroups = new SvelteSet<string>();
 	let saving = $state(false);
+
+	function beginCustomRankSelection() {
+		if (rankFilterSelectionMode === 'custom') return;
+		customSelectedRanks.clear();
+		for (const rank of rankFilterOptions) {
+			customSelectedRanks.add(rank);
+		}
+		rankFilterSelectionMode = 'custom';
+	}
 
 	// Fetch rosters
 	async function fetchRosters(reset = false) {
@@ -153,25 +167,27 @@
 	}
 
 	function areAllRanksSelected(ranks: readonly string[]): boolean {
-		return ranks.length > 0 && ranks.every((rank) => selectedRanks.has(rank));
+		return ranks.length > 0 && ranks.every((rank) => selectedRankValues.has(rank));
 	}
 
 	function toggleCategory(ranks: readonly string[]) {
 		if (ranks.length === 0) return;
 
-		const allSelected = ranks.every((r) => selectedRanks.has(r));
+		beginCustomRankSelection();
+		const allSelected = ranks.every((r) => customSelectedRanks.has(r));
 		if (allSelected) {
-			ranks.forEach((r) => selectedRanks.delete(r));
+			ranks.forEach((r) => customSelectedRanks.delete(r));
 		} else {
-			ranks.forEach((r) => selectedRanks.add(r));
+			ranks.forEach((r) => customSelectedRanks.add(r));
 		}
 	}
 
 	function toggleRank(rank: string) {
-		if (selectedRanks.has(rank)) {
-			selectedRanks.delete(rank);
+		beginCustomRankSelection();
+		if (customSelectedRanks.has(rank)) {
+			customSelectedRanks.delete(rank);
 		} else {
-			selectedRanks.add(rank);
+			customSelectedRanks.add(rank);
 		}
 	}
 
@@ -186,7 +202,7 @@
 	// Filtered personnel
 	const filteredPersonnel = $derived.by(() => {
 		return personnel.filter((p) => {
-			if (!selectedRanks.has(p.rank.trim())) return false;
+			if (!selectedRankValues.has(p.rank.trim())) return false;
 			if (selectedGroups.size > 0 && !selectedGroups.has(p.groupName)) return false;
 			return true;
 		});
@@ -326,7 +342,7 @@
 					...config,
 					filterConfig: {
 						groups: [...selectedGroups],
-						ranks: [...selectedRanks]
+						ranks: [...selectedRankValues]
 					}
 				})
 			});
@@ -503,11 +519,13 @@
 	}
 
 	const canGenerate = $derived(title.trim().length > 0 && filteredPersonnel.length > 0);
-	const selectedRankCount = $derived(selectedRanks.size);
+	const selectedRankCount = $derived(selectedRankValues.size);
 	const selectedGroupCount = $derived(selectedGroups.size);
 	const hasActiveListFilters = $derived(!!searchTitle || !!dateFrom || !!dateTo);
 	const allRankFiltersSelected = $derived.by(
-		() => selectedRanks.size === rankFilterOptions.length && rankFilterOptions.every((rank) => selectedRanks.has(rank))
+		() =>
+			selectedRankValues.size === rankFilterOptions.length &&
+			rankFilterOptions.every((rank) => selectedRankValues.has(rank))
 	);
 	const hasActiveCreateFilters = $derived(!allRankFiltersSelected || selectedGroups.size > 0);
 
@@ -519,10 +537,8 @@
 	}
 
 	function resetCreateFilters() {
-		selectedRanks.clear();
-		for (const rank of rankFilterOptions) {
-			selectedRanks.add(rank);
-		}
+		rankFilterSelectionMode = 'all';
+		customSelectedRanks.clear();
 		selectedGroups.clear();
 	}
 </script>
@@ -858,10 +874,10 @@
 					<div class="flex flex-wrap gap-2">
 						{#each rankFilterOptions as rank (rank)}
 							<Button
-								variant={selectedRanks.has(rank) ? 'secondary' : 'outline'}
+								variant={selectedRankValues.has(rank) ? 'secondary' : 'outline'}
 								size="sm"
 								type="button"
-								aria-pressed={selectedRanks.has(rank)}
+								aria-pressed={selectedRankValues.has(rank)}
 								onclick={() => toggleRank(rank)}
 							>
 								{rank}

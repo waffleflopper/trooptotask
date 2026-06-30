@@ -47,10 +47,23 @@ ALTER TABLE "public"."organization_rank_catalog"
 
 DROP POLICY IF EXISTS "Organization governors can manage organization rank catalog"
   ON "public"."organization_rank_catalog";
+DROP POLICY IF EXISTS "Users can view organization rank catalog if they can view personnel"
+  ON "public"."organization_rank_catalog";
+DROP POLICY IF EXISTS "Users can view organization rank catalog for rank-aware workspaces"
+  ON "public"."organization_rank_catalog";
 DROP POLICY IF EXISTS "Organization governors can insert organization rank catalog"
   ON "public"."organization_rank_catalog";
 DROP POLICY IF EXISTS "Organization governors can update organization rank catalog"
   ON "public"."organization_rank_catalog";
+
+CREATE POLICY "Users can view organization rank catalog for rank-aware workspaces"
+  ON "public"."organization_rank_catalog"
+  FOR SELECT
+  USING (
+    "public"."can_view_personnel"("organization_id")
+    OR "public"."can_view_training"("organization_id")
+    OR "public"."can_update_organization_settings"("organization_id")
+  );
 
 CREATE POLICY "Organization governors can insert organization rank catalog"
   ON "public"."organization_rank_catalog"
@@ -66,3 +79,8 @@ CREATE POLICY "Organization governors can update organization rank catalog"
 REVOKE ALL ON TABLE "public"."organization_rank_catalog" FROM "authenticated";
 GRANT SELECT, INSERT, UPDATE ON TABLE "public"."organization_rank_catalog" TO "authenticated";
 GRANT ALL ON TABLE "public"."organization_rank_catalog" TO "service_role";
+
+REVOKE ALL ON FUNCTION "public"."can_update_organization_settings"(uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION "public"."can_update_organization_settings"(uuid) FROM "anon";
+GRANT EXECUTE ON FUNCTION "public"."can_update_organization_settings"(uuid) TO "authenticated";
+GRANT EXECUTE ON FUNCTION "public"."can_update_organization_settings"(uuid) TO "service_role";

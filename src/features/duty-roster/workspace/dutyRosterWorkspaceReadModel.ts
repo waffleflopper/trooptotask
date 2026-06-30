@@ -353,7 +353,7 @@ export function dutyRosterRankOptions(
 		}
 	}
 
-	if (!rankCatalog) {
+	if (!rankCatalog || rankCatalog.length === 0) {
 		for (const rank of DUTY_ROSTER_RANK_OPTIONS) add(rank);
 	} else {
 		for (const entry of rankCatalog

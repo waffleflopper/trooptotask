@@ -190,17 +190,53 @@ const PAY_GRADE_CATEGORY_ORDER = new Map([
 	['E', 2]
 ]);
 
-function rankCatalogIndex(catalog: readonly RankCatalogEntry[]): Map<string, RankCatalogEntry> {
-	const index = new Map<string, RankCatalogEntry>();
+const AMBIGUOUS_RANK_MATCH = Symbol('ambiguous rank match');
+
+interface RankCatalogIndex {
+	exact: Map<string, RankCatalogEntry>;
+	normalized: Map<string, RankCatalogEntry | typeof AMBIGUOUS_RANK_MATCH>;
+}
+
+const rankCatalogIndexes = new WeakMap<readonly RankCatalogEntry[], RankCatalogIndex>();
+
+function buildRankCatalogIndex(catalog: readonly RankCatalogEntry[]): RankCatalogIndex {
+	const exact = new Map<string, RankCatalogEntry>();
+	const normalized = new Map<string, RankCatalogEntry | typeof AMBIGUOUS_RANK_MATCH>();
 
 	for (const entry of catalog) {
-		index.set(entry.code, entry);
-		if (!index.has(entry.code.toUpperCase())) {
-			index.set(entry.code.toUpperCase(), entry);
+		exact.set(entry.code, entry);
+
+		const normalizedCode = entry.code.toUpperCase();
+		const existing = normalized.get(normalizedCode);
+		if (!existing) {
+			normalized.set(normalizedCode, entry);
+		} else if (existing !== AMBIGUOUS_RANK_MATCH && existing.code !== entry.code) {
+			normalized.set(normalizedCode, AMBIGUOUS_RANK_MATCH);
 		}
 	}
 
+	return { exact, normalized };
+}
+
+function rankCatalogIndex(catalog: readonly RankCatalogEntry[]): RankCatalogIndex {
+	const cachedIndex = rankCatalogIndexes.get(catalog);
+	if (cachedIndex) {
+		return cachedIndex;
+	}
+
+	const index = buildRankCatalogIndex(catalog);
+	rankCatalogIndexes.set(catalog, index);
 	return index;
+}
+
+function resolveRankFromIndex(index: RankCatalogIndex, code: string): RankCatalogEntry | undefined {
+	const exactMatch = index.exact.get(code);
+	if (exactMatch) {
+		return exactMatch;
+	}
+
+	const normalizedMatch = index.normalized.get(code.toUpperCase());
+	return normalizedMatch === AMBIGUOUS_RANK_MATCH ? undefined : normalizedMatch;
 }
 
 function payGradePrecedence(payGrade: RankPayGrade): number {
@@ -230,7 +266,7 @@ function compareEntries(a: RankCatalogEntry, b: RankCatalogEntry): number {
 
 export function resolveBuiltInRank(code: string): RankCatalogEntry | undefined {
 	const index = rankCatalogIndex(BUILT_IN_RANK_CATALOG);
-	return index.get(code) ?? index.get(code.toUpperCase());
+	return resolveRankFromIndex(index, code);
 }
 
 export function resolveRank(
@@ -238,7 +274,7 @@ export function resolveRank(
 	catalog: readonly RankCatalogEntry[] = BUILT_IN_RANK_CATALOG
 ): RankCatalogEntry {
 	const index = rankCatalogIndex(catalog);
-	const knownRank = index.get(code) ?? index.get(code.toUpperCase());
+	const knownRank = resolveRankFromIndex(index, code);
 
 	return (
 		knownRank ?? {
@@ -256,8 +292,8 @@ export function resolveRank(
 export function compareRankCodes(a: string, b: string, options: RankCompareOptions = {}): number {
 	const catalog = options.catalog ?? BUILT_IN_RANK_CATALOG;
 	const index = rankCatalogIndex(catalog);
-	const aEntry = index.get(a) ?? index.get(a.toUpperCase());
-	const bEntry = index.get(b) ?? index.get(b.toUpperCase());
+	const aEntry = resolveRankFromIndex(index, a);
+	const bEntry = resolveRankFromIndex(index, b);
 
 	const comparison =
 		aEntry && bEntry ? compareEntries(aEntry, bEntry) : aEntry ? -1 : bEntry ? 1 : a.localeCompare(b, 'en-US');

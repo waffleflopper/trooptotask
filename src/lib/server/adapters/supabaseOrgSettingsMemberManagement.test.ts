@@ -242,6 +242,10 @@ function createAccessRequestLookupBuilder(result: { data: { id: string } | null;
 		select: track('select'),
 		ilike: track('ilike'),
 		eq: track('eq'),
+		is: track('is'),
+		not: track('not'),
+		order: track('order'),
+		limit: track('limit'),
 		maybeSingle: (...args: unknown[]) => {
 			calls.push({ method: 'maybeSingle', args });
 			return result;
@@ -429,6 +433,13 @@ describe('createSupabaseOrgSettingsMemberManagementPort', () => {
 		const { builder: setupBuilder } = createInvitationAccessRequestSetupLookupBuilder({
 			data: { id: 'link-1', access_requests: { email: 'invitee@example.com', setup_completed_at: null } }
 		});
+		const { builder: completedSetupBuilder } = createAccessRequestLookupBuilder({
+			data: null,
+			error: null
+		});
+		const adminSupabase = {
+			from: vi.fn().mockReturnValueOnce(setupBuilder).mockReturnValueOnce(completedSetupBuilder)
+		};
 		const port = createSupabaseOrgSettingsMemberManagementPort(
 			{
 				supabase: {
@@ -436,10 +447,7 @@ describe('createSupabaseOrgSettingsMemberManagementPort', () => {
 				}
 			} as never,
 			{
-				getAdminClient: () =>
-					({
-						from: vi.fn(() => setupBuilder)
-					}) as never
+				getAdminClient: () => adminSupabase as never
 			}
 		);
 
@@ -449,6 +457,8 @@ describe('createSupabaseOrgSettingsMemberManagementPort', () => {
 			status: 'pending',
 			requiresAccountSetup: true
 		});
+		expect(adminSupabase.from).toHaveBeenNthCalledWith(1, 'access_request_organization_invitation_links');
+		expect(adminSupabase.from).toHaveBeenNthCalledWith(2, 'access_requests');
 	});
 
 	it('marks resend lookups as sign-in invitations when a linked access request has completed setup', async () => {
@@ -485,6 +495,51 @@ describe('createSupabaseOrgSettingsMemberManagementPort', () => {
 			status: 'pending',
 			requiresAccountSetup: false
 		});
+	});
+
+	it('marks resend lookups as sign-in invitations when a separate same-email Access Request completed setup', async () => {
+		const { builder } = createPendingInvitationByIdBuilder({
+			data: {
+				id: 'invite-1',
+				email: 'Invitee@Example.com',
+				expires_at: '2099-05-23T12:00:00.000Z'
+			}
+		});
+		const { builder: setupBuilder } = createInvitationAccessRequestSetupLookupBuilder({
+			data: { id: 'link-1', access_requests: { email: 'invitee@example.com', setup_completed_at: null } }
+		});
+		const { builder: completedSetupBuilder, calls: completedSetupCalls } = createAccessRequestLookupBuilder({
+			data: { id: 'completed-request-1' },
+			error: null
+		});
+		const adminSupabase = {
+			from: vi.fn().mockReturnValueOnce(setupBuilder).mockReturnValueOnce(completedSetupBuilder)
+		};
+		const port = createSupabaseOrgSettingsMemberManagementPort(
+			{
+				supabase: {
+					from: vi.fn(() => builder)
+				}
+			} as never,
+			{
+				getAdminClient: () => adminSupabase as never
+			}
+		);
+
+		await expect(port.findPendingInvitationById('org-1', 'invite-1')).resolves.toEqual({
+			id: 'invite-1',
+			email: 'Invitee@Example.com',
+			status: 'pending',
+			requiresAccountSetup: false
+		});
+		expect(completedSetupCalls).toEqual([
+			{ method: 'select', args: ['id'] },
+			{ method: 'ilike', args: ['email', 'invitee@example.com'] },
+			{ method: 'eq', args: ['status', 'approved'] },
+			{ method: 'not', args: ['setup_completed_at', 'is', null] },
+			{ method: 'limit', args: [1] },
+			{ method: 'maybeSingle', args: [] }
+		]);
 	});
 
 	it('materializes stale pending invitations as expired during resend lookup', async () => {
@@ -612,6 +667,10 @@ describe('createSupabaseOrgSettingsMemberManagementPort', () => {
 			data: null,
 			error: null
 		});
+		const { builder: approvedLookupBuilder, calls: approvedLookupCalls } = createAccessRequestLookupBuilder({
+			data: null,
+			error: null
+		});
 		const { builder: requestInsertBuilder, calls: requestInsertCalls } = createAccessRequestInsertBuilder({
 			data: { id: 'access-request-1' },
 			error: null
@@ -623,6 +682,7 @@ describe('createSupabaseOrgSettingsMemberManagementPort', () => {
 			from: vi
 				.fn()
 				.mockReturnValueOnce(lookupBuilder)
+				.mockReturnValueOnce(approvedLookupBuilder)
 				.mockReturnValueOnce(requestInsertBuilder)
 				.mockReturnValueOnce(linkInsertBuilder)
 		};
@@ -649,9 +709,13 @@ describe('createSupabaseOrgSettingsMemberManagementPort', () => {
 		expect(result).toEqual({ status: 'created', accessRequestId: 'access-request-1' });
 		expect(adminSupabase.from).toHaveBeenNthCalledWith(1, 'access_requests');
 		expect(adminSupabase.from).toHaveBeenNthCalledWith(2, 'access_requests');
-		expect(adminSupabase.from).toHaveBeenNthCalledWith(3, 'access_request_organization_invitation_links');
-		expect(lookupCalls).toContainEqual({ method: 'eq', args: ['email', 'invitee@example.com'] });
+		expect(adminSupabase.from).toHaveBeenNthCalledWith(3, 'access_requests');
+		expect(adminSupabase.from).toHaveBeenNthCalledWith(4, 'access_request_organization_invitation_links');
+		expect(lookupCalls).toContainEqual({ method: 'ilike', args: ['email', 'invitee@example.com'] });
 		expect(lookupCalls).toContainEqual({ method: 'eq', args: ['status', 'pending'] });
+		expect(approvedLookupCalls).toContainEqual({ method: 'ilike', args: ['email', 'invitee@example.com'] });
+		expect(approvedLookupCalls).toContainEqual({ method: 'eq', args: ['status', 'approved'] });
+		expect(approvedLookupCalls).toContainEqual({ method: 'is', args: ['setup_completed_at', null] });
 		expect(requestInsertCalls).toContainEqual({
 			method: 'insert',
 			args: [
@@ -716,6 +780,59 @@ describe('createSupabaseOrgSettingsMemberManagementPort', () => {
 
 		expect(adminSupabase.from).toHaveBeenCalledTimes(2);
 		expect(adminSupabase.from).not.toHaveBeenNthCalledWith(2, 'access_requests');
+	});
+
+	it('links an approved incomplete Access Request to the new Organization Invitation without inserting a duplicate pending request', async () => {
+		const { builder: pendingLookupBuilder } = createAccessRequestLookupBuilder({
+			data: null,
+			error: null
+		});
+		const { builder: approvedLookupBuilder, calls: approvedLookupCalls } = createAccessRequestLookupBuilder({
+			data: { id: 'approved-request-1' },
+			error: null
+		});
+		const { builder: linkInsertBuilder } = createInvitationAccessRequestLinkInsertBuilder({ error: null });
+		const adminSupabase = {
+			from: vi
+				.fn()
+				.mockReturnValueOnce(pendingLookupBuilder)
+				.mockReturnValueOnce(approvedLookupBuilder)
+				.mockReturnValueOnce(linkInsertBuilder)
+		};
+		const port = createSupabaseOrgSettingsMemberManagementPort(
+			{
+				supabase: { from: vi.fn() }
+			} as never,
+			{ getAdminClient: () => adminSupabase as never }
+		);
+
+		await expect(
+			port.createOrLinkPendingAccessRequestForInvitation({
+				organizationId: 'org-1',
+				invitationId: 'invite-1',
+				email: 'approved@example.com',
+				invitedBy: 'owner-1',
+				invitedAt: '2026-05-22T12:00:00.000Z',
+				role: 'member',
+				memberPreset: 'viewer',
+				capabilityOverrides: {},
+				accessScopeKind: 'organization',
+				accessScopeGroupIds: []
+			})
+		).resolves.toEqual({ status: 'linked', accessRequestId: 'approved-request-1' });
+
+		expect(adminSupabase.from).toHaveBeenCalledTimes(3);
+		expect(approvedLookupCalls).toEqual([
+			{ method: 'select', args: ['id'] },
+			{ method: 'ilike', args: ['email', 'approved@example.com'] },
+			{ method: 'eq', args: ['status', 'approved'] },
+			{ method: 'is', args: ['setup_completed_at', null] },
+			{ method: 'order', args: ['reviewed_at', { ascending: false, nullsFirst: false }] },
+			{ method: 'order', args: ['created_at', { ascending: false }] },
+			{ method: 'limit', args: [1] },
+			{ method: 'maybeSingle', args: [] }
+		]);
+		expect(adminSupabase.from).not.toHaveBeenNthCalledWith(3, 'access_requests');
 	});
 
 	it('blocks a just-created invitation when the non-user Access Request bridge fails', async () => {
@@ -792,6 +909,10 @@ describe('createSupabaseOrgSettingsMemberManagementPort', () => {
 			data: null,
 			error: null
 		});
+		const { builder: approvedLookupBuilder } = createAccessRequestLookupBuilder({
+			data: null,
+			error: null
+		});
 		const { builder: requestInsertBuilder } = createAccessRequestInsertBuilder({
 			data: null,
 			error: {
@@ -800,7 +921,11 @@ describe('createSupabaseOrgSettingsMemberManagementPort', () => {
 			}
 		});
 		const adminSupabase = {
-			from: vi.fn().mockReturnValueOnce(lookupBuilder).mockReturnValueOnce(requestInsertBuilder)
+			from: vi
+				.fn()
+				.mockReturnValueOnce(lookupBuilder)
+				.mockReturnValueOnce(approvedLookupBuilder)
+				.mockReturnValueOnce(requestInsertBuilder)
 		};
 		const port = createSupabaseOrgSettingsMemberManagementPort(
 			{
@@ -826,7 +951,7 @@ describe('createSupabaseOrgSettingsMemberManagementPort', () => {
 			status: 'failed',
 			message: 'duplicate key value violates unique constraint "some_other_unique_idx"'
 		});
-		expect(adminSupabase.from).toHaveBeenCalledTimes(2);
+		expect(adminSupabase.from).toHaveBeenCalledTimes(3);
 	});
 
 	it('revokes invitations through the lifecycle transition RPC', async () => {

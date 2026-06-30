@@ -3,7 +3,14 @@ import { createTestContext, createWriteWithSubscriptionPortsContext } from '$lib
 import { createPersonnelUseCases } from './personnel';
 
 function buildContext(overrides?: Parameters<typeof createWriteWithSubscriptionPortsContext>[0]) {
-	return createWriteWithSubscriptionPortsContext(overrides);
+	const ctx = createWriteWithSubscriptionPortsContext(overrides);
+	seedRankCatalog(ctx, [
+		{ code: 'SPC', label: 'Specialist', pay_grade: 'E-4' },
+		{ code: 'PFC', label: 'Private First Class', pay_grade: 'E-3' },
+		{ code: 'SGT', label: 'Sergeant', pay_grade: 'E-5' },
+		{ code: 'SSG', label: 'Staff Sergeant', pay_grade: 'E-6' }
+	]);
+	return ctx;
 }
 
 const validInput = {
@@ -14,6 +21,24 @@ const validInput = {
 	clinicRole: 'Team Leader',
 	groupId: null
 };
+
+function seedRankCatalog(ctx: ReturnType<typeof buildContext>, entries: Array<Record<string, unknown>>) {
+	ctx.store.seed(
+		'organization_rank_catalog',
+		entries.map((entry, index) => ({
+			organization_id: ctx.auth.orgId,
+			code: 'SGT',
+			label: 'Sergeant',
+			service: 'army',
+			category: 'enlisted',
+			pay_grade: 'E-5',
+			state: 'active',
+			source: 'built-in',
+			sort_order: index,
+			...entry
+		}))
+	);
+}
 
 describe('Personnel — create', () => {
 	it('inserts personnel, invalidates tier cache, and audits', async () => {
@@ -233,6 +258,38 @@ describe('Personnel — create', () => {
 
 		await expect(create(ctx, { ...validInput })).rejects.toMatchObject({ status: 403 });
 	});
+
+	it('normalizes create rank input through the active Organization rank catalog', async () => {
+		const ctx = buildContext();
+		const { create } = createPersonnelUseCases();
+		seedRankCatalog(ctx, [
+			{
+				code: 'PO3',
+				label: 'Petty Officer Third Class',
+				service: 'navy',
+				pay_grade: 'E-4'
+			}
+		]);
+
+		const result = (await create(ctx, { ...validInput, rank: 'po3' })) as Record<string, unknown>;
+
+		expect(result.rank).toBe('PO3');
+		await expect(ctx.store.findOne('personnel', ctx.auth.orgId, { id: result.id })).resolves.toMatchObject({
+			rank: 'PO3'
+		});
+	});
+
+	it('rejects retired Organization catalog ranks on create with reactivation guidance', async () => {
+		const ctx = buildContext();
+		const { create } = createPersonnelUseCases();
+		seedRankCatalog(ctx, [{ code: 'SP4', label: 'Specialist Four', pay_grade: 'E-4', state: 'retired' }]);
+
+		await expect(create(ctx, { ...validInput, rank: 'SP4' })).rejects.toMatchObject({
+			status: 400,
+			message:
+				'Rank "SP4" is retired. Reactivate it in the Organization rank catalog before using it for Personnel create, edit, or import.'
+		});
+	});
 });
 
 describe('Personnel — update', () => {
@@ -263,6 +320,54 @@ describe('Personnel — update', () => {
 		expect(ctx.audit.events[0]).toMatchObject({
 			action: 'personnel.updated',
 			resourceId: 'p-1'
+		});
+	});
+
+	it('normalizes changed update rank input through the active Organization rank catalog', async () => {
+		const ctx = buildContext();
+		const { update } = createPersonnelUseCases();
+		seedPersonnel(ctx);
+		seedRankCatalog(ctx, [
+			{
+				code: 'PO3',
+				label: 'Petty Officer Third Class',
+				service: 'navy',
+				pay_grade: 'E-4'
+			}
+		]);
+
+		const result = (await update(ctx, { id: 'p-1', rank: 'po3' })) as Record<string, unknown>;
+
+		expect(result.rank).toBe('PO3');
+		await expect(ctx.store.findOne('personnel', ctx.auth.orgId, { id: 'p-1' })).resolves.toMatchObject({
+			rank: 'PO3'
+		});
+	});
+
+	it('preserves an existing retired rank when update leaves rank unchanged', async () => {
+		const ctx = buildContext();
+		const { update } = createPersonnelUseCases();
+		seedRankCatalog(ctx, [{ code: 'SP4', label: 'Specialist Four', pay_grade: 'E-4', state: 'retired' }]);
+		ctx.store.seed('personnel', [
+			{
+				id: 'p-retired-rank',
+				rank: 'SP4',
+				last_name: 'Legacy',
+				first_name: 'Sam',
+				mos: '11B',
+				clinic_role: 'Team Leader',
+				group_id: null,
+				archived_at: null,
+				organization_id: 'test-org'
+			}
+		]);
+
+		const result = (await update(ctx, { id: 'p-retired-rank', clinicRole: 'Operations' })) as Record<string, unknown>;
+
+		expect(result).toMatchObject({ rank: 'SP4', clinicRole: 'Operations' });
+		await expect(ctx.store.findOne('personnel', ctx.auth.orgId, { id: 'p-retired-rank' })).resolves.toMatchObject({
+			rank: 'SP4',
+			clinic_role: 'Operations'
 		});
 	});
 

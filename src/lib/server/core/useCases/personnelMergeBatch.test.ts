@@ -3,7 +3,30 @@ import { createTestContext } from '$lib/server/adapters/inMemory';
 import { mergePersonnelBatch } from './personnelMergeBatch';
 
 function buildContext(overrides?: Parameters<typeof createTestContext>[0]) {
-	return createTestContext(overrides);
+	const ctx = createTestContext(overrides);
+	seedRankCatalog(ctx, [
+		{ code: 'SGT', label: 'Sergeant', pay_grade: 'E-5' },
+		{ code: 'SSG', label: 'Staff Sergeant', pay_grade: 'E-6' }
+	]);
+	return ctx;
+}
+
+function seedRankCatalog(ctx: ReturnType<typeof buildContext>, entries: Array<Record<string, unknown>>) {
+	ctx.store.seed(
+		'organization_rank_catalog',
+		entries.map((entry, index) => ({
+			organization_id: ctx.auth.orgId,
+			code: 'SGT',
+			label: 'Sergeant',
+			service: 'army',
+			category: 'enlisted',
+			pay_grade: 'E-5',
+			state: 'active',
+			source: 'built-in',
+			sort_order: index,
+			...entry
+		}))
+	);
 }
 
 describe('mergePersonnelBatch', () => {
@@ -107,6 +130,30 @@ describe('mergePersonnelBatch', () => {
 		expect(result.updated).toHaveLength(0);
 		expect(result.ambiguous).toEqual([{ index: 0, message: 'Multiple personnel rows matched this record' }]);
 		expect(result.errors).toEqual([{ index: 1, message: 'No active personnel row matched this record' }]);
+	});
+
+	it('rejects unknown rank inputs with Organization rank catalog guidance', async () => {
+		const ctx = buildContext();
+
+		const result = await mergePersonnelBatch(ctx, {
+			records: [
+				{
+					rank: 'UNKNOWN',
+					lastName: 'Smith',
+					firstName: 'Jamie',
+					ets: '2027-05-01'
+				}
+			]
+		});
+
+		expect(result.updated).toHaveLength(0);
+		expect(result.errors).toEqual([
+			{
+				index: 0,
+				message:
+					'Unknown rank "UNKNOWN". Update the Organization rank catalog in Organization Settings -> Ranks, then try again.'
+			}
+		]);
 	});
 
 	it('skips rows that do not provide a new ETS or DEROS value to apply', async () => {

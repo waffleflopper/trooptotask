@@ -44,6 +44,19 @@ describe('streamPersonnelWorkspaceBootstrap', () => {
 		personnelLookup: [{ id: 'p1', rank: 'SGT', firstName: 'John', lastName: 'Smith' } as PersonnelLookup],
 		groups: [{ id: 'g1', name: 'Alpha', sortOrder: 0 } as Group],
 		statusTypes: [{ id: 'st1', name: 'Leave', color: '#ff0', textColor: '#000' } as StatusType],
+		rankCatalog: [
+			{
+				organizationId: '11111111-1111-1111-1111-111111111111',
+				code: 'SGT',
+				label: 'Sergeant',
+				service: 'army',
+				category: 'enlisted',
+				payGrade: 'E-5',
+				state: 'active',
+				source: 'built-in',
+				sortOrder: 0
+			}
+		],
 		pinnedGroups: ['Alpha'],
 		lossWarningWindowDays: 180,
 		awardTrackingAcknowledgedPersonnelIds: ['p1']

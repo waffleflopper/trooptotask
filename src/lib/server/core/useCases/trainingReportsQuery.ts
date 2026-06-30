@@ -15,6 +15,8 @@ import { TrainingTypeEntity } from '$lib/server/entities/trainingType';
 import { GroupEntity } from '$lib/server/entities/group';
 import type { Personnel } from '$lib/types';
 import type { Group } from '$lib/stores/groups.svelte';
+import type { RankCatalogEntry } from '$lib/domain/rankCatalog';
+import { rankCodesForOptions } from '$lib/domain/rankOptions';
 import {
 	buildPivotTableFromMatrix,
 	buildTrainingReportWorkbook,
@@ -121,6 +123,28 @@ function uniqueSorted(values: Array<string | null | undefined>): string[] {
 	return [...new Set(values.filter((value): value is string => !!value))].sort((a, b) => a.localeCompare(b));
 }
 
+async function loadReportRankCatalog(ctx: QueryPorts): Promise<RankCatalogEntry[]> {
+	const rows = await ctx.store.findMany<{
+		code: string;
+		label: string;
+		service: RankCatalogEntry['service'];
+		category: RankCatalogEntry['category'];
+		pay_grade: RankCatalogEntry['payGrade'];
+		state: RankCatalogEntry['state'];
+		sort_order: number;
+	}>('organization_rank_catalog', ctx.auth.orgId);
+
+	return rows.map((row) => ({
+		code: row.code,
+		label: row.label,
+		service: row.service,
+		category: row.category,
+		payGrade: row.pay_grade,
+		state: row.state,
+		sortOrder: row.sort_order
+	}));
+}
+
 function toReportTrainingType(type: TrainingType): TrainingReportTrainingType {
 	return {
 		id: type.id,
@@ -215,6 +239,7 @@ async function buildTrainingReport(ctx: QueryPorts, input: TrainingReportInput =
 	const groupRows = await ctx.store.findMany<Record<string, unknown>>('groups', orgId, undefined, {
 		orderBy: [{ column: 'sort_order', ascending: true }]
 	});
+	const rankCatalog = await loadReportRankCatalog(ctx);
 	const groups = GroupEntity.fromDbArray(groupRows);
 
 	return {
@@ -226,7 +251,10 @@ async function buildTrainingReport(ctx: QueryPorts, input: TrainingReportInput =
 			groups,
 			mos: uniqueSorted(personnel.map((person) => person.mos)),
 			roles: uniqueSorted(personnel.map((person) => person.clinicRole)),
-			ranks: uniqueSorted(personnel.map((person) => person.rank))
+			ranks: rankCodesForOptions({
+				rankCatalog: rankCatalog.length > 0 ? rankCatalog : undefined,
+				observedRanks: personnel.map((person) => person.rank)
+			})
 		},
 		sort
 	};

@@ -12,6 +12,7 @@ import {
 	type HydrationItems,
 	type WorkspaceHydrationTarget
 } from '$lib/server/core/streamedWorkspace';
+import { compareRankCodes, type RankCatalogEntry } from '$lib/domain/rankCatalog';
 import type { UseCaseContext } from '$lib/server/core/ports';
 import { loadRosterPersonnel } from '$lib/server/core/useCases/rosterReadModel';
 import { withTrainingTiming, type TrainingLoadPhase } from '$lib/server/utils/trainingTiming';
@@ -34,6 +35,7 @@ export interface TrainingWorkspaceData {
 	personnel: HydrationItems<Personnel>;
 	groups: HydrationItems<Group>;
 	pinnedGroups: HydrationItems<string>;
+	rankCatalog?: HydrationItems<RankCatalogEntry>;
 }
 
 export type TrainingWorkspaceHydrationMode = 'replace' | 'preserve-client';
@@ -48,6 +50,7 @@ export interface TrainingWorkspaceHydration {
 	trainingViews: TrainingWorkspaceHydrationTarget<TrainingView>;
 	personnelTrainings: TrainingWorkspaceHydrationTarget<PersonnelTraining>;
 	pinnedGroups: TrainingWorkspaceHydrationTarget<string>;
+	rankCatalog?: TrainingWorkspaceHydrationTarget<RankCatalogEntry>;
 }
 
 export interface TrainingWorkspaceResult {
@@ -65,7 +68,7 @@ function createTrainingHydrationTarget<T>(items: HydrationItems<T>): TrainingWor
 }
 
 function createTrainingWorkspaceHydration(orgId: string, data: TrainingWorkspaceData): TrainingWorkspaceHydration {
-	return {
+	const hydration: TrainingWorkspaceHydration = {
 		orgId,
 		personnel: createTrainingHydrationTarget(data.personnel),
 		groups: createTrainingHydrationTarget(data.groups),
@@ -74,6 +77,10 @@ function createTrainingWorkspaceHydration(orgId: string, data: TrainingWorkspace
 		personnelTrainings: createTrainingHydrationTarget(data.personnelTrainings),
 		pinnedGroups: createTrainingHydrationTarget(data.pinnedGroups)
 	};
+	if (data.rankCatalog) {
+		hydration.rankCatalog = createTrainingHydrationTarget(data.rankCatalog);
+	}
+	return hydration;
 }
 
 function loadTrainingItems<T>(config: {
@@ -98,6 +105,29 @@ async function loadTrainingRosterPersonnel(ctx: UseCaseContext): Promise<Personn
 	}
 
 	return loadRosterPersonnel(ctx, { status: 'active' });
+}
+
+async function loadTrainingRankCatalog(ctx: UseCaseContext): Promise<RankCatalogEntry[]> {
+	const rows = await ctx.store.findMany<{
+		code: string;
+		label: string;
+		service: RankCatalogEntry['service'];
+		category: RankCatalogEntry['category'];
+		pay_grade: RankCatalogEntry['payGrade'];
+		state: RankCatalogEntry['state'];
+		sort_order: number;
+	}>('organization_rank_catalog', ctx.auth.orgId);
+	const catalog = rows.map((row) => ({
+		code: row.code,
+		label: row.label,
+		service: row.service,
+		category: row.category,
+		payGrade: row.pay_grade,
+		state: row.state,
+		sortOrder: row.sort_order
+	}));
+
+	return catalog.toSorted((left, right) => compareRankCodes(left.code, right.code, { catalog }));
 }
 
 function fetchTrainingWorkspaceData(ctx: UseCaseContext, requestedOrgId: string): TrainingWorkspaceData {
@@ -163,6 +193,7 @@ function fetchTrainingWorkspaceData(ctx: UseCaseContext, requestedOrgId: string)
 		load: () => ctx.store.findMany<Record<string, unknown>>('personnel_trainings', canonicalOrgId),
 		mapRows: (rows) => PersonnelTrainingEntity.fromDbArray(rows) as PersonnelTraining[]
 	});
+	const rankCatalog = withTrainingTiming(requestedOrgId, 'rank-catalog', () => loadTrainingRankCatalog(ctx));
 
 	return {
 		personnel,
@@ -170,7 +201,8 @@ function fetchTrainingWorkspaceData(ctx: UseCaseContext, requestedOrgId: string)
 		pinnedGroups,
 		trainingTypes,
 		trainingViews,
-		personnelTrainings
+		personnelTrainings,
+		rankCatalog
 	};
 }
 

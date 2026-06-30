@@ -1,4 +1,5 @@
-import { comparePersonnelByRankThenName } from '$lib/domain/personnelRank';
+import type { RankCatalogEntry } from '$lib/domain/rankCatalog';
+import { comparePersonnelByCatalogRankThenName } from '$lib/domain/personnelRank';
 import type { Da6ReasonCode, Da6ReasonParams } from './da6ReasonText';
 import type {
 	Da6Cell,
@@ -32,6 +33,7 @@ export type Da6RosterEngineRow = {
 
 export interface Da6RosterEngineInput {
 	pool: DutyRosterSnapshotPersonnel[];
+	rankCatalog?: readonly RankCatalogEntry[];
 	dutyDates: string[];
 	sequenceByDate: Map<string, Da6RosterSequenceInfo>;
 	classificationByPersonDate: Map<string, Map<string, AvailabilityClassification>>;
@@ -74,7 +76,10 @@ function compareOldestFirst(a: string | null, b: string | null): number {
 	return 0;
 }
 
-function lastDutyDatePriority(seed: Map<string, string | null>): DutyPriority {
+function lastDutyDatePriority(
+	seed: Map<string, string | null>,
+	rankCatalog?: readonly RankCatalogEntry[]
+): DutyPriority {
 	const lastDutyDates = new Map(seed);
 
 	return {
@@ -83,7 +88,7 @@ function lastDutyDatePriority(seed: Map<string, string | null>): DutyPriority {
 			if (lastDutyDiff !== 0) {
 				return lastDutyDiff;
 			}
-			return comparePersonnelByRankThenName(a, b);
+			return comparePersonnelByCatalogRankThenName(a, b, rankCatalog);
 		},
 		recordSelection(personId, date) {
 			lastDutyDates.set(personId, date);
@@ -94,7 +99,7 @@ function lastDutyDatePriority(seed: Map<string, string | null>): DutyPriority {
 	};
 }
 
-function baselineCountPriority(seed: Map<string, number>): DutyPriority {
+function baselineCountPriority(seed: Map<string, number>, rankCatalog?: readonly RankCatalogEntry[]): DutyPriority {
 	const selectionCounts = new Map(seed);
 
 	return {
@@ -103,7 +108,7 @@ function baselineCountPriority(seed: Map<string, number>): DutyPriority {
 			if (countDiff !== 0) {
 				return countDiff;
 			}
-			return comparePersonnelByRankThenName(a, b);
+			return comparePersonnelByCatalogRankThenName(a, b, rankCatalog);
 		},
 		recordSelection(personId) {
 			selectionCounts.set(personId, 0);
@@ -219,7 +224,7 @@ function buildCell(
 
 export function computeDa6Roster(input: Da6RosterEngineInput): Da6RosterEngineOutput {
 	const initialDa6Counts = input.initialDa6Counts ?? initialDa6CountsFromManualBaseline(input.manualBaselineCounts);
-	const datePriority = lastDutyDatePriority(input.priorLastDutyDates);
+	const datePriority = lastDutyDatePriority(input.priorLastDutyDates, input.rankCatalog);
 	const sequencePriorities = new Map<DutyRosterSequenceKey, DutyPriority>();
 	const cellsByPersonnelId = new Map<string, Da6Cell[]>(input.pool.map((person) => [person.id, []]));
 	const columns: Da6Column[] = [];
@@ -236,7 +241,8 @@ export function computeDa6Roster(input: Da6RosterEngineInput): Da6RosterEngineOu
 		let priority = sequencePriorities.get(sequenceKey);
 		if (!priority) {
 			const priorityCountSeed = priorityCountsFromInitialDa6Counts(initialDa6Counts, sequenceKey);
-			priority = priorityCountSeed.size > 0 ? baselineCountPriority(priorityCountSeed) : datePriority;
+			priority =
+				priorityCountSeed.size > 0 ? baselineCountPriority(priorityCountSeed, input.rankCatalog) : datePriority;
 			sequencePriorities.set(sequenceKey, priority);
 		}
 		const usesSharedDatePriority = priority === datePriority;

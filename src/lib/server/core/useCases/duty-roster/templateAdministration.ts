@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { compareRankCodes, type RankCatalogEntry } from '$lib/domain/rankCatalog';
 import { fail } from '$lib/server/core/errors';
 import type { QueryPorts, WritePorts } from '$lib/server/core/ports';
 import {
@@ -38,6 +39,17 @@ import {
 } from './templateRecord';
 
 const ASSIGNMENT_TYPE_TABLE = 'assignment_types';
+const RANK_CATALOG_TABLE = 'organization_rank_catalog';
+
+interface DutyRosterRankCatalogRow extends Record<string, unknown> {
+	code: string;
+	label: string;
+	service: RankCatalogEntry['service'];
+	category: RankCatalogEntry['category'];
+	pay_grade: RankCatalogEntry['payGrade'];
+	state: RankCatalogEntry['state'];
+	sort_order: number;
+}
 
 const createTemplateSchema = z.object({
 	name: z.string().trim().min(1, 'Name is required').max(120, 'Name must be 120 characters or fewer'),
@@ -358,21 +370,46 @@ export async function loadDutyRosterTemplateSettings(
 	ctx: QueryPorts,
 	template: DutyRosterTemplate
 ): Promise<DutyRosterTemplateSettingsData> {
-	const personnel = await listActiveDutyRosterPersonnel(ctx);
+	const [personnel, rankCatalog] = await Promise.all([
+		listActiveDutyRosterPersonnel(ctx),
+		loadDutyRosterRankCatalog(ctx)
+	]);
 	const resolvedPool = resolveDutyRosterPool({ criteria: template.poolCriteria, personnel });
 	const baselineRows = buildDutyRosterBaselineRows({ template, resolvedPool });
 
 	return {
 		personnel,
 		resolvedPool,
-		baselineRows
+		baselineRows,
+		rankCatalog
 	};
 }
 
 export async function loadDutyRosterTemplateSetupOptions(ctx: QueryPorts): Promise<DutyRosterTemplateSetupOptions> {
+	const [personnel, rankCatalog] = await Promise.all([
+		listActiveDutyRosterPersonnel(ctx),
+		loadDutyRosterRankCatalog(ctx)
+	]);
+
 	return {
-		personnel: await listActiveDutyRosterPersonnel(ctx)
+		personnel,
+		rankCatalog
 	};
+}
+
+async function loadDutyRosterRankCatalog(ctx: QueryPorts): Promise<RankCatalogEntry[]> {
+	const rows = await ctx.store.findMany<DutyRosterRankCatalogRow>(RANK_CATALOG_TABLE, ctx.auth.orgId);
+	const catalog = rows.map((row) => ({
+		code: row.code,
+		label: row.label,
+		service: row.service,
+		category: row.category,
+		payGrade: row.pay_grade,
+		state: row.state,
+		sortOrder: row.sort_order
+	}));
+
+	return catalog.toSorted((left, right) => compareRankCodes(left.code, right.code, { catalog }));
 }
 
 export async function updateDutyRosterTemplateSettings(

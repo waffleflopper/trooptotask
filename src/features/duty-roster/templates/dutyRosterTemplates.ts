@@ -1,4 +1,5 @@
 import type { DutyEventSeriesPattern } from '$features/duty-roster/duty-roster.types';
+import type { RankCatalogEntry } from '$lib/domain/rankCatalog';
 
 export const DUTY_ROSTER_TEMPLATE_VIEWS = ['generate', 'history', 'settings'] as const;
 
@@ -61,10 +62,12 @@ export interface DutyRosterTemplateSettingsData {
 	personnel: DutyRosterPoolPersonnel[];
 	resolvedPool: DutyRosterPoolPersonnel[];
 	baselineRows: DutyRosterBaselineRow[];
+	rankCatalog?: RankCatalogEntry[];
 }
 
 export interface DutyRosterTemplateSetupOptions {
 	personnel: DutyRosterPoolPersonnel[];
+	rankCatalog?: RankCatalogEntry[];
 }
 
 export type DutyRosterTemplateCountSource = 'da6-roster-order' | 'manual-da6-baseline' | 'accepted-history';

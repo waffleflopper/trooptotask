@@ -13,6 +13,8 @@
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+	import type { RankCatalogEntry } from '$lib/domain/rankCatalog';
+	import { rankCodesForOptions } from '$lib/domain/rankOptions';
 	import { createRosterReadModel } from '$lib/domain/rosterReadModel';
 	import { rosterStore } from '$lib/stores/roster.svelte';
 	import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
@@ -88,8 +90,18 @@
 		[...new Set(personnel.map((p: { mos: string }) => p.mos))].filter(Boolean).sort() as string[]
 	);
 
+	const rankCatalog = $derived(
+		Array.isArray(workspaceData?.rankCatalog) ? (workspaceData.rankCatalog as RankCatalogEntry[]) : undefined
+	);
+	const preservedApplicabilityRanks = $derived(
+		types.flatMap((type) => [...type.appliesToRanks, ...type.excludedRanks])
+	);
 	const availableRanks = $derived(
-		[...new Set(personnel.map((p: { rank: string }) => p.rank))].filter(Boolean).sort() as string[]
+		rankCodesForOptions({
+			rankCatalog,
+			observedRanks: personnel.map((p: { rank: string }) => p.rank),
+			preserveRanks: preservedApplicabilityRanks
+		})
 	);
 
 	function selectType(id: string) {

@@ -1,4 +1,5 @@
 import type { DutyEvent, DutyEventSeriesPattern } from '$features/duty-roster/duty-roster.types';
+import type { RankCatalogEntry } from '$lib/domain/rankCatalog';
 import type { AssignmentType, AvailabilityEntry, DailyAssignment, Personnel, SpecialDay, StatusType } from '$lib/types';
 import type { Da6ReasonCode, Da6ReasonParams } from './da6ReasonText';
 
@@ -39,6 +40,7 @@ export interface DutyRosterRunInput {
 	availabilityEntries: AvailabilityEntry[];
 	statusTypes: StatusType[];
 	specialDays: SpecialDay[];
+	rankCatalog?: readonly RankCatalogEntry[];
 	config: DutyRosterRunConfig;
 	generatedAt?: string;
 }

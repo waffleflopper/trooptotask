@@ -4,6 +4,7 @@ import type {
 	DutyRosterTemplate,
 	DutyRosterTemplateAcceptedRun
 } from '$features/duty-roster/templates/dutyRosterTemplates';
+import type { RankCatalogEntry } from '$lib/domain/rankCatalog';
 
 const template: DutyRosterTemplate = {
 	id: 'template-1',
@@ -196,6 +197,49 @@ describe('dutyRosterWorkspaceReadModel', () => {
 		expect(model.dutyRoleOptions).toEqual(['Rifleman']);
 	});
 
+	it('uses active Organization ranks as Duty Roster rank filters and preserves saved missing ranks', () => {
+		const model = buildDutyRosterWorkspaceReadModel(
+			{
+				orgId: 'org-1',
+				orgName: 'Able Company',
+				templates: [],
+				selectedTemplate: {
+					...template,
+					poolCriteria: {
+						...template.poolCriteria,
+						rankValues: ['DET-RET', 'LOCAL-MISSING']
+					}
+				},
+				view: 'settings',
+				settings: {
+					personnel: [
+						{
+							id: 'person-1',
+							rank: 'SGT',
+							firstName: 'Ann',
+							lastName: 'Able',
+							mos: '11B',
+							dutyRole: 'Rifleman',
+							groupId: 'alpha',
+							groupName: 'Alpha'
+						}
+					],
+					resolvedPool: [],
+					baselineRows: [],
+					rankCatalog: [
+						rankCatalogEntry({ code: 'DET-RET', state: 'retired', payGrade: 'E-5' }),
+						rankCatalogEntry({ code: 'PO2', label: 'Petty Officer Second Class', service: 'navy', payGrade: 'E-5' }),
+						rankCatalogEntry({ code: 'SSgt', label: 'Staff Sergeant', service: 'air-force', payGrade: 'E-5' })
+					]
+				}
+			},
+			null
+		);
+
+		expect(model.rankOptions).toEqual(['PO2', 'SSgt', 'DET-RET', 'LOCAL-MISSING']);
+		expect(model.settingsWorkspace?.rankOptions).toEqual(model.rankOptions);
+	});
+
 	it('locks Manual DA6 Baseline only when non-invalidated accepted history exists', () => {
 		const invalidatedOnly = buildDutyRosterWorkspaceReadModel(
 			{
@@ -280,6 +324,18 @@ function withTimezone<T>(timezone: string, callback: () => T): T {
 			process.env.TZ = previousTimezone;
 		}
 	}
+}
+
+function rankCatalogEntry(overrides: Partial<RankCatalogEntry>): RankCatalogEntry {
+	return {
+		code: overrides.code ?? 'SGT',
+		label: overrides.label ?? overrides.code ?? 'Sergeant',
+		service: overrides.service ?? 'custom',
+		category: overrides.category ?? 'enlisted',
+		payGrade: overrides.payGrade ?? 'E-5',
+		state: overrides.state ?? 'active',
+		sortOrder: overrides.sortOrder ?? 0
+	};
 }
 
 function acceptedRun(

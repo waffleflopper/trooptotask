@@ -8,6 +8,7 @@ import type {
 } from '$features/duty-roster/templates/dutyRosterTemplates';
 import type { DutyRosterTemplatePreview } from '$features/duty-roster/templates/dutyRosterTemplatePreview';
 import { dutyRosterTodayDate, nextDutyRosterMonthRange } from '$features/duty-roster/templates/dutyRosterDatePolicy';
+import { compareRankCodes, type RankCatalogEntry } from '$lib/domain/rankCatalog';
 import { ARMY_RANKS } from '$lib/types';
 import { acceptedHistoryColumns } from './dutyRosterPreviewReview';
 
@@ -233,7 +234,12 @@ export function buildDutyRosterWorkspaceReadModel(
 	const settingsAction = selectedTemplate
 		? `${basePath}/${selectedTemplate.slug}/settings?/updateSettings`
 		: createAction;
-	const rankOptions = DUTY_ROSTER_RANK_OPTIONS;
+	const rankCatalog = data.settings?.rankCatalog ?? data.setupOptions?.rankCatalog;
+	const savedRankValues = [
+		...(selectedTemplate?.poolCriteria.rankValues ?? []),
+		...(actionForm?.values?.rankValues ?? [])
+	];
+	const rankOptions = dutyRosterRankOptions(rankCatalog, savedRankValues);
 	const groupOptions = uniqueGroupOptions(setupPersonnel);
 	const mosOptions = uniqueOptions(setupPersonnel.map((person) => person.mos).filter(Boolean));
 	const dutyRoleOptions = uniqueOptions(setupPersonnel.map((person) => person.dutyRole).filter(Boolean));
@@ -331,6 +337,35 @@ export function uniqueGroupOptions(
 
 export function optionItems(values: string[]): Array<{ value: string; label: string }> {
 	return values.map((value) => ({ value, label: value }));
+}
+
+export function dutyRosterRankOptions(
+	rankCatalog: readonly RankCatalogEntry[] | undefined,
+	preserveRankValues: string[] = []
+): string[] {
+	if (!rankCatalog) {
+		return DUTY_ROSTER_RANK_OPTIONS;
+	}
+
+	const options: string[] = [];
+	const seen = new Set<string>();
+	for (const entry of rankCatalog
+		.filter((entry) => entry.state === 'active')
+		.toSorted((left, right) => compareRankCodes(left.code, right.code, { catalog: rankCatalog }))) {
+		if (!seen.has(entry.code)) {
+			options.push(entry.code);
+			seen.add(entry.code);
+		}
+	}
+
+	for (const rank of preserveRankValues.map((value) => value.trim()).filter(Boolean)) {
+		if (!seen.has(rank)) {
+			options.push(rank);
+			seen.add(rank);
+		}
+	}
+
+	return options;
 }
 
 export function groupOptionItems(

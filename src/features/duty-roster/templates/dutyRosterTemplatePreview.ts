@@ -1,5 +1,6 @@
 import { buildDutyRosterRunSnapshot } from '$features/duty-roster/run/dutyRosterRun';
 import type { DutyEvent, DutyEventSeriesPattern } from '$features/duty-roster/duty-roster.types';
+import type { RankCatalogEntry } from '$lib/domain/rankCatalog';
 import type {
 	Da6Cell,
 	DutyRosterContinuationHistoryItem,
@@ -91,6 +92,7 @@ export interface DutyRosterTemplatePreviewInput {
 	availabilityEntries: AvailabilityEntry[];
 	statusTypes: StatusType[];
 	specialDays: SpecialDay[];
+	rankCatalog?: readonly RankCatalogEntry[];
 	startDate: string;
 	endDate: string;
 	continuationHistory?: DutyRosterContinuationHistoryItem[];
@@ -123,6 +125,7 @@ export function buildDutyRosterTemplatePreview(input: DutyRosterTemplatePreviewI
 		availabilityEntries: input.availabilityEntries,
 		statusTypes: input.statusTypes,
 		specialDays: input.specialDays,
+		rankCatalog: input.rankCatalog,
 		config: {
 			startDate: input.startDate,
 			endDate: input.endDate,

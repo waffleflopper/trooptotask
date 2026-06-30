@@ -1,6 +1,7 @@
 import { fail } from '$lib/server/core/errors';
 import type { DutyEventSeriesPattern } from '$features/duty-roster/duty-roster.types';
 import type { QueryPorts } from '$lib/server/core/ports';
+import { compareRankCodes, type RankCatalogEntry } from '$lib/domain/rankCatalog';
 import type {
 	DutyRosterTemplate,
 	DutyRosterTemplateCountReadModel,
@@ -33,6 +34,29 @@ export type AcceptedDutyRosterRunCountSource = DutyRosterTemplateCountReadModel 
 	continuationHistory: DutyRosterCountSourceModel['continuationHistory'];
 	futureRunConflict: DutyRosterCountSourceModel['futureRunConflict'];
 };
+
+async function loadDutyRosterPreviewRankCatalog(ctx: QueryPorts): Promise<RankCatalogEntry[]> {
+	const rows = await ctx.store.findMany<{
+		code: string;
+		label: string;
+		service: RankCatalogEntry['service'];
+		category: RankCatalogEntry['category'];
+		pay_grade: RankCatalogEntry['payGrade'];
+		state: RankCatalogEntry['state'];
+		sort_order: number;
+	}>('organization_rank_catalog', ctx.auth.orgId);
+	const catalog = rows.map((row) => ({
+		code: row.code,
+		label: row.label,
+		service: row.service,
+		category: row.category,
+		payGrade: row.pay_grade,
+		state: row.state,
+		sortOrder: row.sort_order
+	}));
+
+	return catalog.toSorted((left, right) => compareRankCodes(left.code, right.code, { catalog }));
+}
 
 export async function loadAcceptedDutyRosterRunCountSource(
 	ctx: QueryPorts,
@@ -148,34 +172,37 @@ export async function buildDutyRosterTemplatePreviewFromCurrentState(
 	}
 ): Promise<DutyRosterTemplatePreview> {
 	const personnel = await listActiveDutyRosterPersonnel(ctx);
-	const [statusTypeRows, availabilityRows, specialDayRows, dutyEvents, countReadModel] = await Promise.all([
-		ctx.store.findMany<Record<string, unknown>>('status_types', ctx.auth.orgId, undefined, {
-			select: StatusTypeEntity.select,
-			orderBy: [{ column: 'sort_order', ascending: true }]
-		}),
-		ctx.store.findMany<Record<string, unknown>>('availability_entries', ctx.auth.orgId, undefined, {
-			select: AvailabilityEntryEntity.select,
-			rangeFilters: [
-				{ column: 'end_date', op: 'gte', value: input.startDate },
-				{ column: 'start_date', op: 'lte', value: input.endDate }
-			]
-		}),
-		ctx.store.findMany<Record<string, unknown>>('special_days', ctx.auth.orgId, undefined, {
-			select: SpecialDayEntity.select,
-			rangeFilters: [
-				{ column: 'date', op: 'gte', value: input.startDate },
-				{ column: 'date', op: 'lte', value: input.endDate }
-			],
-			orderBy: [{ column: 'date', ascending: true }]
-		}),
-		listDutyEventsForRosterPreviewWindow(ctx, { startDate: input.startDate, endDate: input.endDate }),
-		loadDutyRosterTemplateCountReadModelSource(ctx, input.template, {
-			baselineStartDate: input.startDate,
-			previewStartDate: input.startDate,
-			previewEndDate: input.endDate,
-			personnel
-		})
-	]);
+	const [statusTypeRows, availabilityRows, specialDayRows, dutyEvents, countReadModel, rankCatalog] = await Promise.all(
+		[
+			ctx.store.findMany<Record<string, unknown>>('status_types', ctx.auth.orgId, undefined, {
+				select: StatusTypeEntity.select,
+				orderBy: [{ column: 'sort_order', ascending: true }]
+			}),
+			ctx.store.findMany<Record<string, unknown>>('availability_entries', ctx.auth.orgId, undefined, {
+				select: AvailabilityEntryEntity.select,
+				rangeFilters: [
+					{ column: 'end_date', op: 'gte', value: input.startDate },
+					{ column: 'start_date', op: 'lte', value: input.endDate }
+				]
+			}),
+			ctx.store.findMany<Record<string, unknown>>('special_days', ctx.auth.orgId, undefined, {
+				select: SpecialDayEntity.select,
+				rangeFilters: [
+					{ column: 'date', op: 'gte', value: input.startDate },
+					{ column: 'date', op: 'lte', value: input.endDate }
+				],
+				orderBy: [{ column: 'date', ascending: true }]
+			}),
+			listDutyEventsForRosterPreviewWindow(ctx, { startDate: input.startDate, endDate: input.endDate }),
+			loadDutyRosterTemplateCountReadModelSource(ctx, input.template, {
+				baselineStartDate: input.startDate,
+				previewStartDate: input.startDate,
+				previewEndDate: input.endDate,
+				personnel
+			}),
+			loadDutyRosterPreviewRankCatalog(ctx)
+		]
+	);
 
 	return buildDutyRosterTemplatePreview({
 		template: input.template,
@@ -184,6 +211,7 @@ export async function buildDutyRosterTemplatePreviewFromCurrentState(
 		availabilityEntries: AvailabilityEntryEntity.fromDbArray(availabilityRows),
 		statusTypes: StatusTypeEntity.fromDbArray(statusTypeRows),
 		specialDays: SpecialDayEntity.fromDbArray(specialDayRows),
+		rankCatalog: rankCatalog.length > 0 ? rankCatalog : undefined,
 		continuationHistory: countReadModel.continuationHistory,
 		futureRunConflict: countReadModel.futureRunConflict,
 		startDate: input.startDate,

@@ -24,6 +24,7 @@ interface AccessRequestInvitationLinkRow {
 interface AccessRequestInvitationLinkAccessRequestRow {
 	email?: string | null;
 	setup_completed_at?: string | null;
+	setup_user_id?: string | null;
 }
 
 interface AccessRequestLookupRow {
@@ -147,13 +148,17 @@ export function createSupabaseOrgSettingsMemberManagementPort(
 			}
 
 			const adminSupabase = getAdminClientFn();
+			const invitationEmail = data.email ?? '';
 			const accessRequestLinks = await findInvitationAccessRequestLinksForSetup(adminSupabase, orgId, inviteId);
+			const emailIdentity =
+				accessRequestLinks.length > 0 ? await findUserEmailIdentityByEmail(adminSupabase, invitationEmail) : null;
+			const emailIdentityUserId = emailIdentity?.userId ?? null;
 			const requiresAccountSetup =
-				requiresLinkedAccessRequestSetup(data.email ?? '', accessRequestLinks) &&
-				!(await hasCompletedAccessRequestSetupForEmail(adminSupabase, data.email ?? ''));
+				requiresLinkedAccessRequestSetup(invitationEmail, accessRequestLinks, emailIdentityUserId) &&
+				!(await hasCompletedAccessRequestSetupForEmail(adminSupabase, invitationEmail, emailIdentityUserId));
 			return {
 				id: data.id,
-				email: data.email ?? '',
+				email: invitationEmail,
 				status: 'pending',
 				requiresAccountSetup
 			};
@@ -386,14 +391,29 @@ function linkAccessRequests(link: AccessRequestInvitationLinkRow): AccessRequest
 	return Array.isArray(requests) ? requests : requests ? [requests] : [];
 }
 
-function requiresLinkedAccessRequestSetup(email: string, links: AccessRequestInvitationLinkRow[]): boolean {
+function isCompletedAccessRequestSetupForInvitation(
+	email: string,
+	userId: string | null,
+	request: AccessRequestInvitationLinkAccessRequestRow
+): boolean {
+	return (
+		Boolean(request.setup_completed_at) &&
+		normalizeUserEmailIdentity(request.email ?? '') === email &&
+		(request.setup_user_id == null || request.setup_user_id === userId)
+	);
+}
+
+function requiresLinkedAccessRequestSetup(
+	email: string,
+	links: AccessRequestInvitationLinkRow[],
+	userId: string | null
+): boolean {
 	if (links.length === 0) return false;
 
 	const invitationEmail = normalizeUserEmailIdentity(email);
 	return !links.some((link) =>
-		linkAccessRequests(link).some(
-			(request) =>
-				Boolean(request.setup_completed_at) && normalizeUserEmailIdentity(request.email ?? '') === invitationEmail
+		linkAccessRequests(link).some((request) =>
+			isCompletedAccessRequestSetupForInvitation(invitationEmail, userId, request)
 		)
 	);
 }
@@ -409,7 +429,7 @@ async function findInvitationAccessRequestLinksForSetup(
 ): Promise<AccessRequestInvitationLinkRow[]> {
 	const { data, error } = await client
 		.from('access_request_organization_invitation_links')
-		.select('id, access_requests(email, setup_completed_at)')
+		.select('id, access_requests(email, setup_completed_at, setup_user_id)')
 		.eq('organization_invitation_id', invitationId)
 		.eq('organization_id', organizationId)
 		.maybeSingle<AccessRequestInvitationLinkRow>();
@@ -444,13 +464,14 @@ async function findApprovedIncompleteAccessRequest(
 	email: string
 ): Promise<AccessRequestLookupRow | null> {
 	const renewalCutoff = addUtcDays(new Date(), -ACCESS_REQUEST_SETUP_RENEWAL_DAYS).toISOString();
+	const quotedRenewalCutoff = `"${renewalCutoff}"`;
 	const { data, error } = await client
 		.from('access_requests')
 		.select('id')
 		.eq('email', normalizeUserEmailIdentity(email))
 		.eq('status', 'approved')
 		.is('setup_completed_at', null)
-		.or(`reviewed_at.gte.${renewalCutoff},and(reviewed_at.is.null,created_at.gte.${renewalCutoff})`)
+		.or(`reviewed_at.gte.${quotedRenewalCutoff},and(reviewed_at.is.null,created_at.gte.${quotedRenewalCutoff})`)
 		.order('reviewed_at', { ascending: false, nullsFirst: false })
 		.order('created_at', { ascending: false })
 		.limit(1)
@@ -470,15 +491,21 @@ async function findReusableAccessRequestForInvitation(
 	return (await findPendingAccessRequest(client, email)) ?? findApprovedIncompleteAccessRequest(client, email);
 }
 
-async function hasCompletedAccessRequestSetupForEmail(client: SupabaseClient, email: string): Promise<boolean> {
-	const { data, error } = await client
+async function hasCompletedAccessRequestSetupForEmail(
+	client: SupabaseClient,
+	email: string,
+	userId: string | null
+): Promise<boolean> {
+	const query = client
 		.from('access_requests')
 		.select('id')
 		.eq('email', normalizeUserEmailIdentity(email))
 		.eq('status', 'approved')
-		.not('setup_completed_at', 'is', null)
-		.limit(1)
-		.maybeSingle<AccessRequestLookupRow>();
+		.not('setup_completed_at', 'is', null);
+	const scopedQuery = userId
+		? query.or(`setup_user_id.is.null,setup_user_id.eq.${userId}`)
+		: query.is('setup_user_id', null);
+	const { data, error } = await scopedQuery.limit(1).maybeSingle<AccessRequestLookupRow>();
 
 	if (error) {
 		throw error;

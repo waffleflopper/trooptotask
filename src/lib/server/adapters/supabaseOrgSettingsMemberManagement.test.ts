@@ -201,6 +201,41 @@ function createInvitationAccessRequestSetupLookupBuilder(
 	return { builder, calls };
 }
 
+function createUserEmailIdentityLookupBuilder(
+	result: {
+		data?: Record<string, unknown> | null;
+		error?: unknown;
+	} = {}
+) {
+	const calls: Call[] = [];
+	const resolvedResult = {
+		data: {
+			user_id: 'invitee-user-1',
+			normalized_email: 'invitee@example.com'
+		},
+		error: null,
+		...result
+	};
+
+	function track(method: string) {
+		return (...args: unknown[]) => {
+			calls.push({ method, args });
+			return builder;
+		};
+	}
+
+	const builder: Record<string, unknown> = {
+		select: track('select'),
+		eq: track('eq'),
+		maybeSingle: (...args: unknown[]) => {
+			calls.push({ method: 'maybeSingle', args });
+			return resolvedResult;
+		}
+	};
+
+	return { builder, calls };
+}
+
 function createInvitationExpiryBuilder() {
 	const calls: Call[] = [];
 
@@ -416,7 +451,7 @@ describe('createSupabaseOrgSettingsMemberManagementPort', () => {
 		expect(calls).not.toContainEqual({ method: 'gt', args: ['expires_at', expect.any(String)] });
 		expect(adminSupabase.from).toHaveBeenCalledWith('access_request_organization_invitation_links');
 		expect(setupCalls).toEqual([
-			{ method: 'select', args: ['id, access_requests(email, setup_completed_at)'] },
+			{ method: 'select', args: ['id, access_requests(email, setup_completed_at, setup_user_id)'] },
 			{ method: 'eq', args: ['organization_invitation_id', 'invite-1'] },
 			{ method: 'eq', args: ['organization_id', 'org-1'] },
 			{ method: 'maybeSingle', args: [] }
@@ -432,14 +467,22 @@ describe('createSupabaseOrgSettingsMemberManagementPort', () => {
 			}
 		});
 		const { builder: setupBuilder } = createInvitationAccessRequestSetupLookupBuilder({
-			data: { id: 'link-1', access_requests: { email: 'invitee@example.com', setup_completed_at: null } }
+			data: {
+				id: 'link-1',
+				access_requests: { email: 'invitee@example.com', setup_completed_at: null, setup_user_id: null }
+			}
 		});
+		const { builder: identityBuilder } = createUserEmailIdentityLookupBuilder();
 		const { builder: completedSetupBuilder } = createAccessRequestLookupBuilder({
 			data: null,
 			error: null
 		});
 		const adminSupabase = {
-			from: vi.fn().mockReturnValueOnce(setupBuilder).mockReturnValueOnce(completedSetupBuilder)
+			from: vi
+				.fn()
+				.mockReturnValueOnce(setupBuilder)
+				.mockReturnValueOnce(identityBuilder)
+				.mockReturnValueOnce(completedSetupBuilder)
 		};
 		const port = createSupabaseOrgSettingsMemberManagementPort(
 			{
@@ -459,7 +502,8 @@ describe('createSupabaseOrgSettingsMemberManagementPort', () => {
 			requiresAccountSetup: true
 		});
 		expect(adminSupabase.from).toHaveBeenNthCalledWith(1, 'access_request_organization_invitation_links');
-		expect(adminSupabase.from).toHaveBeenNthCalledWith(2, 'access_requests');
+		expect(adminSupabase.from).toHaveBeenNthCalledWith(2, 'user_email_identities');
+		expect(adminSupabase.from).toHaveBeenNthCalledWith(3, 'access_requests');
 	});
 
 	it('marks resend lookups as sign-in invitations when a linked access request has completed setup', async () => {
@@ -473,9 +517,14 @@ describe('createSupabaseOrgSettingsMemberManagementPort', () => {
 		const { builder: setupBuilder } = createInvitationAccessRequestSetupLookupBuilder({
 			data: {
 				id: 'link-1',
-				access_requests: { email: 'invitee@example.com', setup_completed_at: '2026-05-22T12:00:00.000Z' }
+				access_requests: {
+					email: 'invitee@example.com',
+					setup_completed_at: '2026-05-22T12:00:00.000Z',
+					setup_user_id: 'invitee-user-1'
+				}
 			}
 		});
+		const { builder: identityBuilder } = createUserEmailIdentityLookupBuilder();
 		const port = createSupabaseOrgSettingsMemberManagementPort(
 			{
 				supabase: {
@@ -485,7 +534,7 @@ describe('createSupabaseOrgSettingsMemberManagementPort', () => {
 			{
 				getAdminClient: () =>
 					({
-						from: vi.fn(() => setupBuilder)
+						from: vi.fn().mockReturnValueOnce(setupBuilder).mockReturnValueOnce(identityBuilder)
 					}) as never
 			}
 		);
@@ -498,6 +547,64 @@ describe('createSupabaseOrgSettingsMemberManagementPort', () => {
 		});
 	});
 
+	it('keeps resend lookups in setup mode when completed setup belongs to another user identity', async () => {
+		const { builder } = createPendingInvitationByIdBuilder({
+			data: {
+				id: 'invite-1',
+				email: 'Invitee@Example.com',
+				expires_at: '2099-05-23T12:00:00.000Z'
+			}
+		});
+		const { builder: setupBuilder } = createInvitationAccessRequestSetupLookupBuilder({
+			data: {
+				id: 'link-1',
+				access_requests: {
+					email: 'invitee@example.com',
+					setup_completed_at: '2026-05-22T12:00:00.000Z',
+					setup_user_id: 'previous-user-1'
+				}
+			}
+		});
+		const { builder: identityBuilder } = createUserEmailIdentityLookupBuilder({
+			data: {
+				user_id: 'invitee-user-1',
+				normalized_email: 'invitee@example.com'
+			}
+		});
+		const { builder: completedSetupBuilder, calls: completedSetupCalls } = createAccessRequestLookupBuilder({
+			data: null,
+			error: null
+		});
+		const adminSupabase = {
+			from: vi
+				.fn()
+				.mockReturnValueOnce(setupBuilder)
+				.mockReturnValueOnce(identityBuilder)
+				.mockReturnValueOnce(completedSetupBuilder)
+		};
+		const port = createSupabaseOrgSettingsMemberManagementPort(
+			{
+				supabase: {
+					from: vi.fn(() => builder)
+				}
+			} as never,
+			{
+				getAdminClient: () => adminSupabase as never
+			}
+		);
+
+		await expect(port.findPendingInvitationById('org-1', 'invite-1')).resolves.toEqual({
+			id: 'invite-1',
+			email: 'Invitee@Example.com',
+			status: 'pending',
+			requiresAccountSetup: true
+		});
+		expect(completedSetupCalls).toContainEqual({
+			method: 'or',
+			args: ['setup_user_id.is.null,setup_user_id.eq.invitee-user-1']
+		});
+	});
+
 	it('marks resend lookups as sign-in invitations when a separate same-email Access Request completed setup', async () => {
 		const { builder } = createPendingInvitationByIdBuilder({
 			data: {
@@ -507,14 +614,22 @@ describe('createSupabaseOrgSettingsMemberManagementPort', () => {
 			}
 		});
 		const { builder: setupBuilder } = createInvitationAccessRequestSetupLookupBuilder({
-			data: { id: 'link-1', access_requests: { email: 'invitee@example.com', setup_completed_at: null } }
+			data: {
+				id: 'link-1',
+				access_requests: { email: 'invitee@example.com', setup_completed_at: null, setup_user_id: null }
+			}
 		});
+		const { builder: identityBuilder } = createUserEmailIdentityLookupBuilder();
 		const { builder: completedSetupBuilder, calls: completedSetupCalls } = createAccessRequestLookupBuilder({
 			data: { id: 'completed-request-1' },
 			error: null
 		});
 		const adminSupabase = {
-			from: vi.fn().mockReturnValueOnce(setupBuilder).mockReturnValueOnce(completedSetupBuilder)
+			from: vi
+				.fn()
+				.mockReturnValueOnce(setupBuilder)
+				.mockReturnValueOnce(identityBuilder)
+				.mockReturnValueOnce(completedSetupBuilder)
 		};
 		const port = createSupabaseOrgSettingsMemberManagementPort(
 			{
@@ -538,6 +653,7 @@ describe('createSupabaseOrgSettingsMemberManagementPort', () => {
 			{ method: 'eq', args: ['email', 'invitee@example.com'] },
 			{ method: 'eq', args: ['status', 'approved'] },
 			{ method: 'not', args: ['setup_completed_at', 'is', null] },
+			{ method: 'or', args: ['setup_user_id.is.null,setup_user_id.eq.invitee-user-1'] },
 			{ method: 'limit', args: [1] },
 			{ method: 'maybeSingle', args: [] }
 		]);
@@ -719,7 +835,7 @@ describe('createSupabaseOrgSettingsMemberManagementPort', () => {
 		expect(approvedLookupCalls).toContainEqual({ method: 'is', args: ['setup_completed_at', null] });
 		expect(approvedLookupCalls).toContainEqual({
 			method: 'or',
-			args: [expect.stringContaining('and(reviewed_at.is.null,created_at.gte.')]
+			args: [expect.stringContaining('and(reviewed_at.is.null,created_at.gte."')]
 		});
 		expect(requestInsertCalls).toContainEqual({
 			method: 'insert',
@@ -834,7 +950,7 @@ describe('createSupabaseOrgSettingsMemberManagementPort', () => {
 			{ method: 'is', args: ['setup_completed_at', null] },
 			{
 				method: 'or',
-				args: [expect.stringContaining('and(reviewed_at.is.null,created_at.gte.')]
+				args: [expect.stringContaining('and(reviewed_at.is.null,created_at.gte."')]
 			},
 			{ method: 'order', args: ['reviewed_at', { ascending: false, nullsFirst: false }] },
 			{ method: 'order', args: ['created_at', { ascending: false }] },

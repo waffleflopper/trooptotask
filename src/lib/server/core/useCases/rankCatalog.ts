@@ -96,7 +96,7 @@ export interface OrganizationRankCatalogReferenceSummary {
 }
 
 export interface RankCatalogAdministrationPort {
-	deleteRankCatalogEntry(orgId: string, entryId: string): Promise<void>;
+	deleteRankCatalogEntry(orgId: string, entryId: string, code: string): Promise<void>;
 }
 
 interface RankReferenceMatcher {
@@ -441,7 +441,7 @@ export async function removeOrganizationRankCatalogEntry(
 	}
 
 	if (ports.rankCatalogAdministration) {
-		await ports.rankCatalogAdministration.deleteRankCatalogEntry(ports.auth.orgId, existing.id);
+		await ports.rankCatalogAdministration.deleteRankCatalogEntry(ports.auth.orgId, existing.id, code);
 	} else {
 		await storeForRankCatalog(ports).delete(RANK_CATALOG_TABLE, ports.auth.orgId, existing.id);
 	}

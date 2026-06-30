@@ -31,6 +31,8 @@
 		onClose: () => void;
 	}
 
+	type RankQuickFilterCategory = Extract<RankCatalogEntry['category'], 'officer' | 'warrant' | 'enlisted' | 'civilian'>;
+
 	let { orgId, personnel, groups, rankCatalog = undefined, canEdit, onClose }: Props = $props();
 
 	// View toggle
@@ -116,13 +118,56 @@
 	}
 
 	// Category toggles
-	const enlistedAndNco = [...ARMY_RANKS.enlisted, ...ARMY_RANKS.nco];
-	const allOfficersSelected = $derived(ARMY_RANKS.officer.every((r) => selectedRanks.has(r)));
-	const allWarrantSelected = $derived(ARMY_RANKS.warrant.every((r) => selectedRanks.has(r)));
-	const allEnlistedSelected = $derived(enlistedAndNco.every((r) => selectedRanks.has(r)));
-	const allCiviliansSelected = $derived(ARMY_RANKS.civilian.every((r) => selectedRanks.has(r)));
+	const fallbackQuickRankGroups: Record<RankQuickFilterCategory, readonly string[]> = {
+		officer: ARMY_RANKS.officer,
+		warrant: ARMY_RANKS.warrant,
+		enlisted: [...ARMY_RANKS.enlisted, ...ARMY_RANKS.nco],
+		civilian: ARMY_RANKS.civilian
+	};
+	const rankCategoryGroups = $derived.by(() => {
+		if (!rankCatalog || rankCatalog.length === 0) {
+			return fallbackQuickRankGroups;
+		}
+
+		const optionSet = new Set(rankFilterOptions);
+		const activeCatalogCategoriesByCode: Partial<Record<string, RankQuickFilterCategory>> = {};
+		for (const entry of rankCatalog) {
+			if (entry.state === 'active' && isQuickFilterCategory(entry.category) && optionSet.has(entry.code)) {
+				activeCatalogCategoriesByCode[entry.code] = entry.category;
+			}
+		}
+		const groups: Record<RankQuickFilterCategory, string[]> = {
+			officer: [],
+			warrant: [],
+			enlisted: [],
+			civilian: []
+		};
+
+		for (const rank of rankFilterOptions) {
+			const category = activeCatalogCategoriesByCode[rank];
+			if (category) {
+				groups[category].push(rank);
+			}
+		}
+
+		return groups;
+	});
+	const allOfficersSelected = $derived(areAllRanksSelected(rankCategoryGroups.officer));
+	const allWarrantSelected = $derived(areAllRanksSelected(rankCategoryGroups.warrant));
+	const allEnlistedSelected = $derived(areAllRanksSelected(rankCategoryGroups.enlisted));
+	const allCiviliansSelected = $derived(areAllRanksSelected(rankCategoryGroups.civilian));
+
+	function isQuickFilterCategory(category: RankCatalogEntry['category']): category is RankQuickFilterCategory {
+		return category === 'officer' || category === 'warrant' || category === 'enlisted' || category === 'civilian';
+	}
+
+	function areAllRanksSelected(ranks: readonly string[]): boolean {
+		return ranks.length > 0 && ranks.every((rank) => selectedRanks.has(rank));
+	}
 
 	function toggleCategory(ranks: readonly string[]) {
+		if (ranks.length === 0) return;
+
 		const allSelected = ranks.every((r) => selectedRanks.has(r));
 		if (allSelected) {
 			ranks.forEach((r) => selectedRanks.delete(r));
@@ -787,7 +832,7 @@
 							size="sm"
 							type="button"
 							aria-pressed={allOfficersSelected}
-							onclick={() => toggleCategory(ARMY_RANKS.officer)}
+							onclick={() => toggleCategory(rankCategoryGroups.officer)}
 						>
 							All Officers
 						</Button>
@@ -796,7 +841,7 @@
 							size="sm"
 							type="button"
 							aria-pressed={allWarrantSelected}
-							onclick={() => toggleCategory(ARMY_RANKS.warrant)}
+							onclick={() => toggleCategory(rankCategoryGroups.warrant)}
 						>
 							All Warrant
 						</Button>
@@ -805,7 +850,7 @@
 							size="sm"
 							type="button"
 							aria-pressed={allEnlistedSelected}
-							onclick={() => toggleCategory(enlistedAndNco)}
+							onclick={() => toggleCategory(rankCategoryGroups.enlisted)}
 						>
 							All Enlisted
 						</Button>
@@ -814,7 +859,7 @@
 							size="sm"
 							type="button"
 							aria-pressed={allCiviliansSelected}
-							onclick={() => toggleCategory(ARMY_RANKS.civilian)}
+							onclick={() => toggleCategory(rankCategoryGroups.civilian)}
 						>
 							Civilians
 						</Button>

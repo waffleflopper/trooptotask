@@ -335,6 +335,94 @@ describe('SignInRosterModal', () => {
 		expect(body.filterConfig.ranks).toEqual(expect.arrayContaining(['PO2', 'SSgt', 'LOCAL-CADET']));
 	});
 
+	it('uses catalog categories for quick rank filters in generated roster payloads', async () => {
+		const jointPersonnel: Personnel[] = [
+			personnelRow({ id: 'navy-officer', rank: 'ADM', lastName: 'Officer' }),
+			personnelRow({ id: 'navy-warrant', rank: 'CWO3', lastName: 'Warrant' }),
+			personnelRow({ id: 'air-force-enlisted', rank: 'SSgt', lastName: 'Enlisted' }),
+			personnelRow({ id: 'civilian', rank: 'CIV', lastName: 'Civilian' }),
+			personnelRow({ id: 'custom-local', rank: 'LOCAL-CMD', lastName: 'Custom' })
+		];
+		const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+			if ((init?.method ?? 'GET') === 'POST') {
+				return jsonResponse({ id: 'roster-2' });
+			}
+
+			return jsonResponse({ rosters: [], total: 0 });
+		});
+		vi.stubGlobal('fetch', fetchMock);
+
+		renderModal({
+			personnel: jointPersonnel,
+			rankCatalog: [
+				rankCatalogEntry({
+					code: 'ADM',
+					label: 'Admiral',
+					service: 'navy',
+					category: 'officer',
+					payGrade: 'O-10'
+				}),
+				rankCatalogEntry({
+					code: 'CWO3',
+					label: 'Chief Warrant Officer 3',
+					service: 'navy',
+					category: 'warrant',
+					payGrade: 'W-3'
+				}),
+				rankCatalogEntry({
+					code: 'SSgt',
+					label: 'Staff Sergeant',
+					service: 'air-force',
+					category: 'enlisted',
+					payGrade: 'E-5'
+				}),
+				rankCatalogEntry({
+					code: 'CIV',
+					label: 'Civilian',
+					service: 'civilian',
+					category: 'civilian',
+					payGrade: 'ungraded'
+				}),
+				rankCatalogEntry({
+					code: 'LOCAL-CMD',
+					label: 'Local command billet',
+					service: 'custom',
+					category: 'custom',
+					payGrade: 'ungraded'
+				})
+			]
+		});
+
+		await waitFor(() => expect(screen.getByRole('button', { name: 'New Roster' })).toBeTruthy());
+
+		await fireEvent.click(screen.getByRole('button', { name: 'New Roster' }));
+		await fireEvent.input(screen.getByLabelText(/Title/i), {
+			target: { value: 'Joint Quick Filters' }
+		});
+		for (const rank of ['ADM', 'CWO3', 'SSgt', 'CIV', 'LOCAL-CMD']) {
+			await fireEvent.click(screen.getByRole('button', { name: rank }));
+		}
+		await fireEvent.click(screen.getByRole('button', { name: 'All Officers' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'All Warrant' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'All Enlisted' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Civilians' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Generate & Print' }));
+
+		let postCall: (typeof fetchMock.mock.calls)[number] | undefined;
+		await waitFor(() => {
+			postCall = fetchMock.mock.calls.find(([, init]) => init?.method === 'POST');
+			expect(postCall).toBeTruthy();
+		});
+		const body = JSON.parse(String(postCall?.[1]?.body));
+
+		expect(body.personnelSnapshot.map((row: { id: string }) => row.id)).toEqual(
+			expect.arrayContaining(['navy-officer', 'navy-warrant', 'air-force-enlisted', 'civilian'])
+		);
+		expect(body.personnelSnapshot.map((row: { id: string }) => row.id)).not.toContain('custom-local');
+		expect(body.filterConfig.ranks).toEqual(expect.arrayContaining(['ADM', 'CWO3', 'SSgt', 'CIV']));
+		expect(body.filterConfig.ranks).not.toContain('LOCAL-CMD');
+	});
+
 	it('does not show reset filters until a catalog-backed rank filter changes', async () => {
 		const fetchMock = vi.fn(async () => jsonResponse({ rosters: [], total: 0 }));
 		vi.stubGlobal('fetch', fetchMock);

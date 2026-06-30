@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Personnel } from '$lib/types';
+	import type { RankCatalogEntry } from '$lib/domain/rankCatalog';
 	import type { Group } from '$lib/stores/groups.svelte';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
@@ -15,14 +16,26 @@
 	interface Props {
 		personnel?: Personnel | null;
 		groups: Group[];
+		rankCatalog?: RankCatalogEntry[];
 		onSubmit: (data: Omit<Personnel, 'id'>) => void | Promise<void>;
 		onRemove?: (id: string) => void | Promise<void>;
 		onClose: () => void;
 	}
 
-	let { personnel = null, groups, onSubmit, onRemove, onClose }: Props = $props();
+	let { personnel = null, groups, rankCatalog = [], onSubmit, onRemove, onClose }: Props = $props();
 
-	let rank = $state(untrack(() => personnel?.rank ?? 'SPC'));
+	const activeRankOptions = $derived(
+		rankCatalog.filter((entry) => entry.state === 'active').map((entry) => ({ value: entry.code, label: entry.code }))
+	);
+	const rankOptions = $derived.by(() => {
+		if (!personnel?.rank || activeRankOptions.some((option) => option.value === personnel.rank)) {
+			return activeRankOptions;
+		}
+
+		return [{ value: personnel.rank, label: personnel.rank }, ...activeRankOptions];
+	});
+
+	let rank = $state(untrack(() => personnel?.rank ?? activeRankOptions[0]?.value ?? ''));
 	let firstName = $state(untrack(() => personnel?.firstName ?? ''));
 	let lastName = $state(untrack(() => personnel?.lastName ?? ''));
 	let mos = $state(untrack(() => personnel?.mos ?? ''));
@@ -41,37 +54,6 @@
 
 	const selectedGroupName = $derived(groups.find((g) => g.id === groupId)?.name ?? '');
 	let isSaving = $state(false);
-
-	const rankOptions = [
-		'GEN',
-		'LTG',
-		'MG',
-		'BG',
-		'COL',
-		'LTC',
-		'MAJ',
-		'CPT',
-		'1LT',
-		'2LT',
-		'CW5',
-		'CW4',
-		'CW3',
-		'CW2',
-		'WO1',
-		'CSM',
-		'SGM',
-		'1SG',
-		'MSG',
-		'SFC',
-		'SSG',
-		'SGT',
-		'CPL',
-		'SPC',
-		'PFC',
-		'PV2',
-		'PV1',
-		'CIV'
-	].map((r) => ({ value: r, label: r }));
 
 	const groupOptions = $derived([
 		{ value: '', label: 'No Group Assigned' },

@@ -4,6 +4,22 @@ import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { _postConfig } from './+server';
 
+function seedRankCatalog(ctx: ReturnType<typeof createTestContext>) {
+	ctx.store.seed('organization_rank_catalog', [
+		{
+			organization_id: ctx.auth.orgId,
+			code: 'SGT',
+			label: 'Sergeant',
+			service: 'army',
+			category: 'enlisted',
+			pay_grade: 'E-5',
+			state: 'active',
+			source: 'built-in',
+			sort_order: 0
+		}
+	]);
+}
+
 describe('POST /api/personnel/batch', () => {
 	it('declares policy-first authorization for Personnel import', () => {
 		expect(_postConfig).toMatchObject({
@@ -30,6 +46,7 @@ describe('POST /api/personnel/batch', () => {
 				scopeSet: { kind: 'organization' }
 			}
 		});
+		seedRankCatalog(ctx);
 
 		const result = await handleUseCaseRequest(_postConfig, ctx, {
 			records: [{ rank: 'SGT', lastName: 'Smith', firstName: 'Jordan' }]
@@ -43,6 +60,7 @@ describe('POST /api/personnel/batch', () => {
 
 	it('returns HTTP-successful per-row errors when the personnel cap is reached', async () => {
 		const ctx = createTestContext();
+		seedRankCatalog(ctx);
 		ctx.subscription.getAvailablePersonnelSlots = async () => 0;
 
 		const result = await handleUseCaseRequest(_postConfig, ctx, {
@@ -59,6 +77,7 @@ describe('POST /api/personnel/batch', () => {
 
 	it('preserves importer per-row errors when required Personnel cells are omitted', async () => {
 		const ctx = createTestContext();
+		seedRankCatalog(ctx);
 
 		const result = await handleUseCaseRequest(_postConfig, ctx, {
 			records: [

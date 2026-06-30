@@ -8,12 +8,14 @@ import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { listAwardTrackingAcknowledgedPersonnelIds } from './personnelAwardTracking';
 import { requireFeaturePolicy } from './featurePolicy';
 import { loadRosterPersonnel } from './rosterReadModel';
+import { loadOrganizationRankCatalog, type OrganizationRankCatalogEntry } from './rankCatalog';
 
 export interface PersonnelBootstrap {
 	personnel: Personnel[];
 	personnelLookup: PersonnelLookup[];
 	groups: Group[];
 	statusTypes: StatusType[];
+	rankCatalog: OrganizationRankCatalogEntry[];
 	pinnedGroups: string[];
 	/** Org-configured loss warning window in days (default: 180). */
 	lossWarningWindowDays: number;
@@ -40,6 +42,7 @@ export async function fetchPersonnelBootstrap(ctx: QueryWithRawStorePorts): Prom
 		allPersonnel,
 		groupRows,
 		statusTypeRows,
+		rankCatalog,
 		pinnedGroupRows,
 		orgSettingsRow,
 		awardTrackingAcknowledgedPersonnelIds
@@ -52,6 +55,7 @@ export async function fetchPersonnelBootstrap(ctx: QueryWithRawStorePorts): Prom
 		ctx.store.findMany<Record<string, unknown>>('status_types', orgId, undefined, {
 			orderBy: [{ column: 'sort_order', ascending: true }]
 		}),
+		loadOrganizationRankCatalog(ctx),
 		userId
 			? ctx.store.findMany<Record<string, unknown>>(
 					'user_pinned_groups',
@@ -76,6 +80,7 @@ export async function fetchPersonnelBootstrap(ctx: QueryWithRawStorePorts): Prom
 		personnelLookup: toPersonnelLookup(scopedAllPersonnel),
 		groups: GroupEntity.fromDbArray(groupRows),
 		statusTypes: StatusTypeEntity.fromDbArray(statusTypeRows),
+		rankCatalog,
 		pinnedGroups: PinnedGroupsEntity.fromDbArray(pinnedGroupRows),
 		lossWarningWindowDays,
 		awardTrackingAcknowledgedPersonnelIds

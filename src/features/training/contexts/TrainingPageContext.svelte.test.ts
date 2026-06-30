@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { TrainingPageContext } from './TrainingPageContext.svelte';
 import { getDefaultUserOrgPreferences } from '$lib/preferences/userPreferences';
 import type { CapabilityMap } from '$lib/access/memberAccessShape';
+import type { RankCatalogEntry } from '$lib/domain/rankCatalog';
 import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 import { createTestOrgContext, NONE_TEST_CAPABILITY_MAP } from '$lib/test-support/orgContextBuilder';
 import type { Personnel } from '$lib/types';
@@ -10,6 +11,7 @@ import type { PersonnelTraining, TrainingType } from '$features/training/trainin
 import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
 import { rosterStore } from '$lib/stores/roster.svelte';
 import { groupsStore } from '$lib/stores/groups.svelte';
+import { trainingRankCatalogStore } from '$features/training/stores/rankCatalog.svelte';
 import { trainingViewsStore } from '$features/training/stores/trainingViews.svelte';
 
 const { gotoMock, invalidateMock, queueUserPreferencesPatchMock } = vi.hoisted(() => ({
@@ -162,6 +164,7 @@ describe('TrainingPageContext', () => {
 		queueUserPreferencesPatchMock.mockResolvedValue(undefined);
 		rosterStore.load([mockPerson, mockPerson2], 'org-1');
 		groupsStore.load(mockGroups, 'org-1');
+		trainingRankCatalogStore.load([], 'org-1');
 		trainingViewsStore.load([], 'org-1');
 	});
 
@@ -299,6 +302,20 @@ describe('TrainingPageContext', () => {
 
 			expect(ctx.groups).toEqual(mockGroups);
 			expect(ctx.groupOrder).toEqual(mockGroups.map((group) => group.name));
+		});
+	});
+
+	describe('rankCatalog', () => {
+		it('exposes the hydrated Organization rank catalog used by Sign-In Rosters', () => {
+			const catalog = [
+				rankCatalogEntry({ code: 'PO2', label: 'Petty Officer Second Class', service: 'navy' }),
+				rankCatalogEntry({ code: 'SSgt', label: 'Staff Sergeant', service: 'air-force' })
+			];
+			trainingRankCatalogStore.load(catalog, 'org-1');
+
+			const ctx = new TrainingPageContext(makeData(), modals, makeOrg());
+
+			expect(ctx.rankCatalog).toEqual(catalog);
 		});
 	});
 
@@ -571,3 +588,15 @@ describe('TrainingPageContext', () => {
 		});
 	});
 });
+
+function rankCatalogEntry(overrides: Partial<RankCatalogEntry>): RankCatalogEntry {
+	return {
+		code: overrides.code ?? 'SGT',
+		label: overrides.label ?? overrides.code ?? 'Sergeant',
+		service: overrides.service ?? 'army',
+		category: overrides.category ?? 'enlisted',
+		payGrade: overrides.payGrade ?? 'E-5',
+		state: overrides.state ?? 'active',
+		sortOrder: overrides.sortOrder ?? 0
+	};
+}

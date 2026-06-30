@@ -395,4 +395,43 @@ describe('createSupabaseOrgProvisioningPort', () => {
 			type: 'federal-holiday'
 		});
 	});
+
+	it('serializes rank catalog seeds for the organization rank catalog table and returns insert errors as strings', async () => {
+		const { builder, insert } = createInsertBuilder('rank catalog failed');
+		const supabase = {
+			from: vi.fn(() => builder)
+		};
+		const port = createSupabaseOrgProvisioningPort({
+			supabase
+		} as never);
+
+		const result = await port.seedDefaultRankCatalog('org-1', [
+			{
+				code: 'SGT',
+				label: 'Sergeant',
+				service: 'army',
+				category: 'enlisted',
+				payGrade: 'E-5',
+				state: 'active',
+				source: 'built-in',
+				sortOrder: 0
+			}
+		]);
+
+		expect(result).toBe('rank catalog failed');
+		expect(supabase.from).toHaveBeenCalledWith('organization_rank_catalog');
+		expect(insert).toHaveBeenCalledWith([
+			{
+				organization_id: 'org-1',
+				code: 'SGT',
+				label: 'Sergeant',
+				service: 'army',
+				category: 'enlisted',
+				pay_grade: 'E-5',
+				state: 'active',
+				source: 'built-in',
+				sort_order: 0
+			}
+		]);
+	});
 });

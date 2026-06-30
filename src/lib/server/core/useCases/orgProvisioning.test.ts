@@ -1,10 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { getDefaultFederalHolidays } from '$features/calendar/utils/federalHolidays';
+import { BUILT_IN_RANK_CATALOG } from '$lib/domain/rankCatalog';
 import {
 	loadOrganizationProvisioning,
 	provisionOrganization,
 	type OrgProvisioningAssignmentTypeSeed,
 	type OrgProvisioningGroupSeed,
+	type OrgProvisioningRankCatalogSeed,
 	type OrgProvisioningPort,
 	type OrgProvisioningSpecialDaySeed,
 	type OrgProvisioningStatusTypeSeed
@@ -29,6 +31,7 @@ function createOrgProvisioningPort(
 	statusTypeSeeds: Array<{ organizationId: string; statusTypes: OrgProvisioningStatusTypeSeed[] }>;
 	assignmentTypeSeeds: Array<{ organizationId: string; assignmentTypes: OrgProvisioningAssignmentTypeSeed[] }>;
 	federalHolidaySeeds: Array<{ organizationId: string; specialDays: OrgProvisioningSpecialDaySeed[] }>;
+	rankCatalogSeeds: Array<{ organizationId: string; entries: OrgProvisioningRankCatalogSeed[] }>;
 } {
 	const availabilityRequests: string[] = [];
 	const createRequests: string[] = [];
@@ -38,6 +41,7 @@ function createOrgProvisioningPort(
 	const assignmentTypeSeeds: Array<{ organizationId: string; assignmentTypes: OrgProvisioningAssignmentTypeSeed[] }> =
 		[];
 	const federalHolidaySeeds: Array<{ organizationId: string; specialDays: OrgProvisioningSpecialDaySeed[] }> = [];
+	const rankCatalogSeeds: Array<{ organizationId: string; entries: OrgProvisioningRankCatalogSeed[] }> = [];
 
 	return {
 		availabilityRequests,
@@ -47,6 +51,7 @@ function createOrgProvisioningPort(
 		statusTypeSeeds,
 		assignmentTypeSeeds,
 		federalHolidaySeeds,
+		rankCatalogSeeds,
 		async canCreateOrganization(userId) {
 			availabilityRequests.push(userId);
 			if (options.availabilityError) {
@@ -77,6 +82,10 @@ function createOrgProvisioningPort(
 		async seedFederalHolidays(organizationId, specialDays) {
 			federalHolidaySeeds.push({ organizationId, specialDays });
 			return options.federalHolidaysError ?? null;
+		},
+		async seedDefaultRankCatalog(organizationId, entries) {
+			rankCatalogSeeds.push({ organizationId, entries });
+			return null;
 		}
 	};
 }
@@ -227,6 +236,22 @@ describe('provisionOrganization', () => {
 			name: expectedHolidays[0]?.name,
 			type: expectedHolidays[0]?.type
 		});
+		expect(port.rankCatalogSeeds).toHaveLength(1);
+		expect(port.rankCatalogSeeds[0]?.organizationId).toBe('org-1');
+		expect(port.rankCatalogSeeds[0]?.entries).toHaveLength(BUILT_IN_RANK_CATALOG.length);
+		expect(port.rankCatalogSeeds[0]?.entries).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					code: 'SGT',
+					label: 'Sergeant',
+					service: 'army',
+					category: 'enlisted',
+					payGrade: 'E-5',
+					state: 'active',
+					source: 'built-in'
+				})
+			])
+		);
 	});
 
 	it('collapses repeated internal whitespace before creating the organization', async () => {

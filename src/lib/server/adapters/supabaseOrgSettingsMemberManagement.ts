@@ -3,6 +3,8 @@ import type {
 	OrganizationMembershipUpdateInput,
 	OrganizationSettingsMemberManagementPort
 } from '$lib/server/core/useCases/orgSettingsMemberManagement';
+import { ACCESS_REQUEST_SETUP_RENEWAL_DAYS } from '$lib/server/accessRequestSetupDelivery';
+import { addUtcDays } from '$lib/server/accountSetupDates';
 import { getAdminClient } from '$lib/server/supabase';
 import { findUserEmailIdentityByEmail, normalizeUserEmailIdentity } from '$lib/server/userEmailIdentities';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -426,7 +428,7 @@ async function findPendingAccessRequest(client: SupabaseClient, email: string): 
 	const { data, error } = await client
 		.from('access_requests')
 		.select('id')
-		.ilike('email', normalizeUserEmailIdentity(email))
+		.eq('email', normalizeUserEmailIdentity(email))
 		.eq('status', 'pending')
 		.maybeSingle<AccessRequestLookupRow>();
 
@@ -441,12 +443,14 @@ async function findApprovedIncompleteAccessRequest(
 	client: SupabaseClient,
 	email: string
 ): Promise<AccessRequestLookupRow | null> {
+	const renewalCutoff = addUtcDays(new Date(), -ACCESS_REQUEST_SETUP_RENEWAL_DAYS).toISOString();
 	const { data, error } = await client
 		.from('access_requests')
 		.select('id')
-		.ilike('email', normalizeUserEmailIdentity(email))
+		.eq('email', normalizeUserEmailIdentity(email))
 		.eq('status', 'approved')
 		.is('setup_completed_at', null)
+		.or(`reviewed_at.gte.${renewalCutoff},and(reviewed_at.is.null,created_at.gte.${renewalCutoff})`)
 		.order('reviewed_at', { ascending: false, nullsFirst: false })
 		.order('created_at', { ascending: false })
 		.limit(1)
@@ -470,7 +474,7 @@ async function hasCompletedAccessRequestSetupForEmail(client: SupabaseClient, em
 	const { data, error } = await client
 		.from('access_requests')
 		.select('id')
-		.ilike('email', normalizeUserEmailIdentity(email))
+		.eq('email', normalizeUserEmailIdentity(email))
 		.eq('status', 'approved')
 		.not('setup_completed_at', 'is', null)
 		.limit(1)

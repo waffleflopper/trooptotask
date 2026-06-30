@@ -244,6 +244,7 @@ function createAccessRequestLookupBuilder(result: { data: { id: string } | null;
 		eq: track('eq'),
 		is: track('is'),
 		not: track('not'),
+		or: track('or'),
 		order: track('order'),
 		limit: track('limit'),
 		maybeSingle: (...args: unknown[]) => {
@@ -534,7 +535,7 @@ describe('createSupabaseOrgSettingsMemberManagementPort', () => {
 		});
 		expect(completedSetupCalls).toEqual([
 			{ method: 'select', args: ['id'] },
-			{ method: 'ilike', args: ['email', 'invitee@example.com'] },
+			{ method: 'eq', args: ['email', 'invitee@example.com'] },
 			{ method: 'eq', args: ['status', 'approved'] },
 			{ method: 'not', args: ['setup_completed_at', 'is', null] },
 			{ method: 'limit', args: [1] },
@@ -711,11 +712,15 @@ describe('createSupabaseOrgSettingsMemberManagementPort', () => {
 		expect(adminSupabase.from).toHaveBeenNthCalledWith(2, 'access_requests');
 		expect(adminSupabase.from).toHaveBeenNthCalledWith(3, 'access_requests');
 		expect(adminSupabase.from).toHaveBeenNthCalledWith(4, 'access_request_organization_invitation_links');
-		expect(lookupCalls).toContainEqual({ method: 'ilike', args: ['email', 'invitee@example.com'] });
+		expect(lookupCalls).toContainEqual({ method: 'eq', args: ['email', 'invitee@example.com'] });
 		expect(lookupCalls).toContainEqual({ method: 'eq', args: ['status', 'pending'] });
-		expect(approvedLookupCalls).toContainEqual({ method: 'ilike', args: ['email', 'invitee@example.com'] });
+		expect(approvedLookupCalls).toContainEqual({ method: 'eq', args: ['email', 'invitee@example.com'] });
 		expect(approvedLookupCalls).toContainEqual({ method: 'eq', args: ['status', 'approved'] });
 		expect(approvedLookupCalls).toContainEqual({ method: 'is', args: ['setup_completed_at', null] });
+		expect(approvedLookupCalls).toContainEqual({
+			method: 'or',
+			args: [expect.stringContaining('and(reviewed_at.is.null,created_at.gte.')]
+		});
 		expect(requestInsertCalls).toContainEqual({
 			method: 'insert',
 			args: [
@@ -824,9 +829,13 @@ describe('createSupabaseOrgSettingsMemberManagementPort', () => {
 		expect(adminSupabase.from).toHaveBeenCalledTimes(3);
 		expect(approvedLookupCalls).toEqual([
 			{ method: 'select', args: ['id'] },
-			{ method: 'ilike', args: ['email', 'approved@example.com'] },
+			{ method: 'eq', args: ['email', 'approved@example.com'] },
 			{ method: 'eq', args: ['status', 'approved'] },
 			{ method: 'is', args: ['setup_completed_at', null] },
+			{
+				method: 'or',
+				args: [expect.stringContaining('and(reviewed_at.is.null,created_at.gte.')]
+			},
 			{ method: 'order', args: ['reviewed_at', { ascending: false, nullsFirst: false }] },
 			{ method: 'order', args: ['created_at', { ascending: false }] },
 			{ method: 'limit', args: [1] },

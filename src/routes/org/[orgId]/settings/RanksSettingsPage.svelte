@@ -1,18 +1,18 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import type { SubmitFunction } from '@sveltejs/kit';
-	import ArchiveIcon from '@lucide/svelte/icons/archive';
+	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import PencilIcon from '@lucide/svelte/icons/pencil';
 	import PlusIcon from '@lucide/svelte/icons/plus';
-	import RotateCcwIcon from '@lucide/svelte/icons/rotate-ccw';
 	import SaveIcon from '@lucide/svelte/icons/save';
-	import Trash2Icon from '@lucide/svelte/icons/trash-2';
 	import * as Alert from '$lib/components/ui/alert/index.js';
 	import { Badge } from '$lib/components/ui/badge/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
+	import * as ButtonGroup from '$lib/components/ui/button-group/index.js';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import * as DataTable from '$lib/components/ui/data-table/index.js';
-	import type { ColumnDef, DataTableState } from '$lib/components/ui/data-table/index.js';
+	import type { ColumnDef, DataTableRowAction, DataTableState } from '$lib/components/ui/data-table/index.js';
+	import * as Empty from '$lib/components/ui/empty/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
 	import { Label } from '$lib/components/ui/label/index.js';
 	import * as NativeSelect from '$lib/components/ui/native-select/index.js';
@@ -22,11 +22,11 @@
 	import type { SettingsRankCatalogRow, SettingsRankServicePackOption } from './settingsSectionTypes';
 
 	type RankServiceFilter = SettingsRankCatalogRow['service'] | 'all';
+	type RankStateFilter = 'all' | 'active' | 'retired';
 	type BulkRankTargetState = 'active' | 'retired';
 	type PendingBulkRankState = {
 		pack: SettingsRankServicePackOption;
 		targetState: BulkRankTargetState;
-		form: HTMLFormElement;
 	};
 
 	let {
@@ -34,22 +34,48 @@
 		form
 	}: {
 		ranksSettings: RanksSettingsData;
-		form: { [key: string]: unknown; rankError?: string } | null;
+		form: { [key: string]: unknown; rankError?: string; success?: boolean } | null;
 	} = $props();
 
 	let savingAction = $state<string | null>(null);
-	let activeServiceFilter = $state<RankServiceFilter>('all');
-	let retiredServiceFilter = $state<RankServiceFilter>('all');
+	let lastActionKey = $state<string | null>(null);
+	let stateFilter = $state<RankStateFilter>('active');
+	let branchFilter = $state<RankServiceFilter>('all');
 	let expandedRankCode = $state<string | null>(null);
 	let customRankOpen = $state(false);
 	let pendingBulkRankState = $state<PendingBulkRankState | null>(null);
-	let confirmedBulkRankForm = $state<HTMLFormElement | null>(null);
+	let pendingRankDelete = $state<SettingsRankCatalogRow | null>(null);
 
 	const ranks = $derived(ranksSettings.sections.ranks);
 	const rankError = $derived(typeof form?.rankError === 'string' ? form.rankError : null);
+	const actionSucceeded = $derived(Boolean(form?.success));
 	const branchFilterOptions = $derived([{ value: 'all' as const, label: 'All branches' }, ...ranks.options.services]);
-	const activeRankRows = $derived(filterRowsByService(ranks.entries.active, activeServiceFilter));
-	const retiredRankRows = $derived(filterRowsByService(ranks.entries.retired, retiredServiceFilter));
+
+	const stateFilterOptions: Array<{ value: RankStateFilter; label: string }> = [
+		{ value: 'all', label: 'All' },
+		{ value: 'active', label: 'Active' },
+		{ value: 'retired', label: 'Retired' }
+	];
+
+	const allRankRows = $derived([...ranks.entries.active, ...ranks.entries.retired]);
+	const hasNoRanks = $derived(allRankRows.length === 0);
+	const visibleRankRows = $derived(
+		allRankRows.filter(
+			(entry) =>
+				(stateFilter === 'all' || entry.state === stateFilter) &&
+				(branchFilter === 'all' || entry.service === branchFilter)
+		)
+	);
+
+	// Errors and successes return from the server without telling us which form failed,
+	// so attribute them to whichever action last submitted (see enhancedForm).
+	const rankErrorScope = $derived<'add' | 'edit' | 'global' | null>(
+		!rankError ? null : lastActionKey === 'rank-add' ? 'add' : lastActionKey?.startsWith('edit-') ? 'edit' : 'global'
+	);
+	const errorEditCode = $derived(
+		rankErrorScope === 'edit' && lastActionKey ? lastActionKey.slice('edit-'.length) : null
+	);
+	const customRankPanelOpen = $derived(customRankOpen || rankErrorScope === 'add');
 
 	const payGradeOrder = new Map(
 		[
@@ -88,7 +114,7 @@
 			value: (entry) => `${entry.code} ${entry.label}`,
 			searchValue: (entry) => `${entry.code} ${entry.label}`,
 			compare: compareRankPrecedence,
-			width: '20rem'
+			width: '22rem'
 		},
 		{
 			key: 'branch',
@@ -96,7 +122,14 @@
 			value: (entry) => entry.serviceLabel,
 			searchValue: (entry) => entry.serviceLabel,
 			compare: (a, b) => a.serviceLabel.localeCompare(b.serviceLabel) || compareRankPrecedence(a, b),
-			width: '10rem'
+			width: '9rem'
+		},
+		{
+			key: 'state',
+			header: 'State',
+			value: (entry) => entry.state,
+			compare: (a, b) => a.state.localeCompare(b.state) || compareRankPrecedence(a, b),
+			width: '7rem'
 		},
 		{
 			key: 'grade',
@@ -114,26 +147,28 @@
 		},
 		{
 			key: 'references',
-			header: 'Refs',
+			header: 'References',
 			value: totalReferences,
 			compare: (a, b) => totalReferences(a) - totalReferences(b),
 			align: 'right',
-			width: '5rem'
+			width: '7rem'
 		},
 		{
 			key: 'actions',
-			header: 'Actions',
+			header: '',
+			headerAriaLabel: 'Row actions',
 			value: () => '',
 			searchable: false,
 			sortable: false,
 			align: 'right',
-			width: '14rem'
+			width: '4rem'
 		}
 	];
 
 	function enhancedForm(key: string): SubmitFunction {
 		return () => {
 			savingAction = key;
+			lastActionKey = key;
 			return async ({ update }) => {
 				try {
 					await update();
@@ -144,12 +179,9 @@
 		};
 	}
 
-	function filterRowsByService(
-		rows: SettingsRankCatalogRow[],
-		serviceFilter: RankServiceFilter
-	): SettingsRankCatalogRow[] {
-		if (serviceFilter === 'all') return rows;
-		return rows.filter((entry) => entry.service === serviceFilter);
+	function submitFormById(id: string): void {
+		const element = document.getElementById(id);
+		if (element instanceof HTMLFormElement) element.requestSubmit();
 	}
 
 	function sourceVariant(source: SettingsRankCatalogRow['source']): 'secondary' | 'outline' {
@@ -163,6 +195,10 @@
 
 	function rankDetailId(code: string): string {
 		return `${rankDomId(code)}-detail`;
+	}
+
+	function rowFormId(intent: string, code: string): string {
+		return `${rankDomId(code)}-${intent}`;
 	}
 
 	function totalReferences(entry: SettingsRankCatalogRow): number {
@@ -191,37 +227,85 @@
 	}
 
 	function branchFilterLabel(filter: RankServiceFilter): string {
-		if (filter === 'all') return 'All branches';
+		if (filter === 'all') return 'all branches';
 		return ranks.options.services.find((option) => option.value === filter)?.label ?? filter;
 	}
 
-	function handleBulkRankStateSubmit(
-		event: SubmitEvent,
-		pack: SettingsRankServicePackOption,
-		targetState: BulkRankTargetState
-	): void {
-		const form = event.currentTarget;
-		if (!(form instanceof HTMLFormElement)) return;
-		if (confirmedBulkRankForm === form) {
-			confirmedBulkRankForm = null;
-			return;
+	const tableEmptyMessage = $derived(
+		`No ${stateFilter === 'all' ? '' : `${stateFilter} `}ranks match ${branchFilterLabel(branchFilter)}.`
+	);
+
+	function rankRowActions(entry: SettingsRankCatalogRow): DataTableRowAction<SettingsRankCatalogRow>[] {
+		const actions: DataTableRowAction<SettingsRankCatalogRow>[] = [];
+		if (entry.commands.canEdit) {
+			actions.push({
+				label: 'Edit',
+				onSelect: () => {
+					expandedRankCode = entry.code;
+				}
+			});
 		}
-
-		event.preventDefault();
-		if (bulkRankStateCount(pack, targetState) <= 0) return;
-		pendingBulkRankState = { pack, targetState, form };
+		if (entry.commands.canRetire) {
+			actions.push({
+				label: 'Retire',
+				onSelect: () => submitFormById(rowFormId('retire', entry.code))
+			});
+		}
+		if (entry.commands.canReactivate) {
+			actions.push({
+				label: 'Reactivate',
+				onSelect: () => submitFormById(rowFormId('reactivate', entry.code))
+			});
+		}
+		if (entry.commands.canDelete) {
+			actions.push({
+				label: 'Remove',
+				destructive: true,
+				onSelect: () => {
+					pendingRankDelete = entry;
+				}
+			});
+		}
+		return actions;
 	}
 
-	function submitPendingBulkRankState(): void {
+	function packActions(pack: SettingsRankServicePackOption): DataTableRowAction<SettingsRankServicePackOption>[] {
+		const actions: DataTableRowAction<SettingsRankServicePackOption>[] = [];
+		if (pack.canBulkRetire) {
+			actions.push({
+				label: `Retire active ranks (${pack.activeCount})`,
+				onSelect: () => {
+					pendingBulkRankState = { pack, targetState: 'retired' };
+				}
+			});
+		}
+		if (pack.canBulkReactivate) {
+			actions.push({
+				label: `Reactivate retired ranks (${pack.retiredCount})`,
+				onSelect: () => {
+					pendingBulkRankState = { pack, targetState: 'active' };
+				}
+			});
+		}
+		return actions;
+	}
+
+	function confirmBulkRankState(): void {
 		if (!pendingBulkRankState) return;
-		const form = pendingBulkRankState.form;
-		confirmedBulkRankForm = form;
+		const { pack, targetState } = pendingBulkRankState;
 		pendingBulkRankState = null;
-		form.requestSubmit();
+		submitFormById(`bulk-${targetState}-${pack.value}`);
 	}
 
-	function bulkRankStateCount(pack: SettingsRankServicePackOption, targetState: BulkRankTargetState): number {
-		return targetState === 'retired' ? pack.activeCount : pack.retiredCount;
+	function confirmRankDelete(): void {
+		if (!pendingRankDelete) return;
+		const code = pendingRankDelete.code;
+		pendingRankDelete = null;
+		submitFormById(rowFormId('delete', code));
+	}
+
+	function bulkRankStateCount(pending: PendingBulkRankState): number {
+		return pending.targetState === 'retired' ? pending.pack.activeCount : pending.pack.retiredCount;
 	}
 
 	function bulkRankStateTitle(pending: PendingBulkRankState): string {
@@ -231,7 +315,7 @@
 	}
 
 	function bulkRankStateMessage(pending: PendingBulkRankState): string {
-		const count = bulkRankStateCount(pending.pack, pending.targetState);
+		const count = bulkRankStateCount(pending);
 		if (pending.targetState === 'retired') {
 			return `${count} ${pending.pack.label} built-in ranks will be hidden from future rank selection. Existing Personnel records and historical references stay intact.`;
 		}
@@ -243,45 +327,52 @@
 	}
 </script>
 
-<div class="grid max-w-7xl gap-4">
-	<section class="grid gap-4 rounded-lg border bg-card p-4 text-card-foreground" aria-labelledby="rank-catalog-heading">
-		<div class="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
-			<div class="grid gap-1">
-				<h2 id="rank-catalog-heading" class="font-heading text-lg font-semibold tracking-tight">Rank Catalog</h2>
-				<p class="text-sm text-muted-foreground">
-					Manage the Organization vocabulary used for future rank selection, imports, and ordering.
-				</p>
-			</div>
+<div class="grid gap-5">
+	<header class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+		<div class="grid gap-1">
+			<h2 class="font-heading text-lg font-semibold tracking-tight">Rank Catalog</h2>
+			<p class="max-w-prose text-sm text-muted-foreground">
+				Manage the Organization vocabulary used for future rank selection, imports, and ordering.
+			</p>
+		</div>
+		<div class="flex flex-wrap items-center gap-2 sm:justify-end">
+			<Badge variant="outline">{ranks.entries.active.length} active</Badge>
+			<Badge variant="outline">{ranks.entries.retired.length} retired</Badge>
 			<Badge variant={ranks.commands.canManageCatalog ? 'secondary' : 'outline'}>
 				{ranks.commands.canManageCatalog ? 'Catalog manager' : 'View only'}
 			</Badge>
 		</div>
+	</header>
 
-		{#if rankError}
-			<Alert.Root variant="destructive">
-				<Alert.Description>{rankError}</Alert.Description>
-			</Alert.Root>
-		{/if}
+	{#if actionSucceeded}
+		<Alert.Root variant="success">
+			<Alert.Description>Rank catalog updated.</Alert.Description>
+		</Alert.Root>
+	{/if}
 
-		{#if !ranks.commands.canManageCatalog}
-			<Alert.Root>
-				<Alert.Description>
-					Organization admin or owner access is required to change service packs, custom ranks, or retirement state.
-				</Alert.Description>
-			</Alert.Root>
-		{/if}
+	{#if rankError && rankErrorScope === 'global'}
+		<Alert.Root variant="destructive">
+			<Alert.Description>{rankError}</Alert.Description>
+		</Alert.Root>
+	{/if}
 
-		<div class="grid gap-2 text-sm text-muted-foreground md:grid-cols-2">
-			<p>{ranks.copy.payGradeHelp}</p>
-			<p>{ranks.copy.tieBreakHelp}</p>
-		</div>
-	</section>
+	{#if !ranks.commands.canManageCatalog}
+		<Alert.Root>
+			<Alert.Description>
+				Organization admin or owner access is required to change branch packs, custom ranks, or retirement state.
+			</Alert.Description>
+		</Alert.Root>
+	{/if}
 
-	<section class="grid gap-4 rounded-lg border bg-card p-4 text-card-foreground" aria-labelledby="rank-service-packs">
+	<section
+		id="rank-branch-coverage"
+		class="grid gap-4 rounded-lg border bg-card p-4 text-card-foreground"
+		aria-labelledby="rank-service-packs"
+	>
 		<div class="grid gap-1">
 			<h2 id="rank-service-packs" class="font-heading text-lg font-semibold tracking-tight">Branch Coverage</h2>
 			<p class="text-sm text-muted-foreground">
-				Add missing built-in ranks by branch, or retire and reactivate a branch pack in one action.
+				Add missing built-in ranks by branch, or retire and reactivate a whole branch pack from the actions menu.
 			</p>
 		</div>
 		<Separator />
@@ -301,7 +392,7 @@
 							<span>{pack.missingCount} missing</span>
 						</div>
 					</div>
-					<div class="flex flex-wrap gap-2 lg:justify-end">
+					<div class="flex flex-wrap items-center gap-2 lg:justify-end">
 						<form method="POST" action="?/addServicePack" use:enhance={enhancedForm(`pack-${pack.value}`)}>
 							<input type="hidden" name="service" value={pack.value} />
 							<Button
@@ -317,46 +408,34 @@
 								{pack.isInstalled ? 'Added' : `Add ${pack.label}`}
 							</Button>
 						</form>
-						<form
-							method="POST"
-							action="?/bulkRankState"
-							onsubmit={(event) => handleBulkRankStateSubmit(event, pack, 'retired')}
-							use:enhance={enhancedForm(`bulk-retire-${pack.value}`)}
-						>
-							<input type="hidden" name="service" value={pack.value} />
-							<input type="hidden" name="targetState" value="retired" />
-							<Button
-								type="submit"
-								variant="outline"
-								size="sm"
-								disabled={!pack.canBulkRetire || savingAction === `bulk-retire-${pack.value}`}
-								aria-busy={savingAction === `bulk-retire-${pack.value}`}
-								aria-label={`Retire active ${pack.label} ranks`}
+
+						{#if pack.canBulkRetire || pack.canBulkReactivate}
+							<form
+								id={`bulk-retired-${pack.value}`}
+								method="POST"
+								action="?/bulkRankState"
+								class="hidden"
+								use:enhance={enhancedForm(`bulk-retire-${pack.value}`)}
 							>
-								<ArchiveIcon aria-hidden />
-								Retire active
-							</Button>
-						</form>
-						<form
-							method="POST"
-							action="?/bulkRankState"
-							onsubmit={(event) => handleBulkRankStateSubmit(event, pack, 'active')}
-							use:enhance={enhancedForm(`bulk-reactivate-${pack.value}`)}
-						>
-							<input type="hidden" name="service" value={pack.value} />
-							<input type="hidden" name="targetState" value="active" />
-							<Button
-								type="submit"
-								variant="outline"
-								size="sm"
-								disabled={!pack.canBulkReactivate || savingAction === `bulk-reactivate-${pack.value}`}
-								aria-busy={savingAction === `bulk-reactivate-${pack.value}`}
-								aria-label={`Reactivate retired ${pack.label} ranks`}
+								<input type="hidden" name="service" value={pack.value} />
+								<input type="hidden" name="targetState" value="retired" />
+							</form>
+							<form
+								id={`bulk-active-${pack.value}`}
+								method="POST"
+								action="?/bulkRankState"
+								class="hidden"
+								use:enhance={enhancedForm(`bulk-reactivate-${pack.value}`)}
 							>
-								<RotateCcwIcon aria-hidden />
-								Reactivate retired
-							</Button>
-						</form>
+								<input type="hidden" name="service" value={pack.value} />
+								<input type="hidden" name="targetState" value="active" />
+							</form>
+							<DataTable.RowActions
+								row={pack}
+								actions={packActions(pack)}
+								ariaLabel={`More actions for ${pack.label}`}
+							/>
+						{/if}
 					</div>
 				</div>
 			{/each}
@@ -366,19 +445,19 @@
 	<div>
 		<Button
 			type="button"
-			variant="link"
+			variant="outline"
 			size="sm"
 			disabled={!ranks.commands.canAddCustomRank}
-			aria-expanded={customRankOpen}
+			aria-expanded={customRankPanelOpen}
 			aria-controls="add-custom-rank-panel"
-			onclick={() => (customRankOpen = !customRankOpen)}
+			onclick={() => (customRankOpen = !customRankPanelOpen)}
 		>
 			<PlusIcon aria-hidden />
-			{customRankOpen ? 'Hide custom rank form' : 'Add custom rank'}
+			{customRankPanelOpen ? 'Hide custom rank form' : 'Add custom rank'}
 		</Button>
 	</div>
 
-	{#if customRankOpen}
+	{#if customRankPanelOpen}
 		<section
 			id="add-custom-rank-panel"
 			class="grid gap-4 rounded-lg border bg-card p-4 text-card-foreground"
@@ -391,6 +470,11 @@
 				</p>
 			</div>
 			<Separator />
+			{#if rankError && rankErrorScope === 'add'}
+				<Alert.Root variant="destructive">
+					<Alert.Description>{rankError}</Alert.Description>
+				</Alert.Root>
+			{/if}
 			<form method="POST" action="?/saveRank" class="grid gap-4" use:enhance={enhancedForm('rank-add')}>
 				<input type="hidden" name="intent" value="add" />
 				<div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -417,7 +501,7 @@
 						/>
 					</div>
 					<div class="grid gap-2">
-						<Label for="rank-service">Service</Label>
+						<Label for="rank-service">Branch</Label>
 						<NativeSelect.Root
 							id="rank-service"
 							name="service"
@@ -442,12 +526,14 @@
 							{/each}
 						</NativeSelect.Root>
 					</div>
-					<div class="grid gap-2">
+					<div class="grid gap-1.5">
 						<Label for="rank-pay-grade">Pay grade</Label>
+						<p id="rank-pay-grade-help" class="text-xs text-muted-foreground">{ranks.copy.payGradeHelp}</p>
 						<NativeSelect.Root
 							id="rank-pay-grade"
 							name="payGrade"
 							value="ungraded"
+							aria-describedby="rank-pay-grade-help"
 							disabled={!ranks.commands.canAddCustomRank}
 						>
 							{#each ranks.options.payGrades as option (option.value)}
@@ -465,9 +551,7 @@
 					</div>
 					<div class="grid gap-1.5">
 						<Label for="rank-sort-order">Tie-break order</Label>
-						<p id="rank-sort-order-help" class="text-xs text-muted-foreground">
-							Only used when ranks share the same pay grade; lower numbers sort earlier.
-						</p>
+						<p id="rank-sort-order-help" class="text-xs text-muted-foreground">{ranks.copy.tieBreakHelp}</p>
 						<Input
 							id="rank-sort-order"
 							name="sortOrder"
@@ -492,59 +576,50 @@
 		</section>
 	{/if}
 
-	<section class="grid gap-4 rounded-lg border bg-card p-4 text-card-foreground" aria-labelledby="active-ranks-heading">
-		<div class="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-			<div class="grid gap-1">
-				<h2 id="active-ranks-heading" class="font-heading text-lg font-semibold tracking-tight">Active Ranks</h2>
-				<p class="text-sm text-muted-foreground">Available for future selection and import matching.</p>
-			</div>
-			<Badge variant="outline">{ranks.entries.active.length} active</Badge>
+	<section class="grid gap-4 rounded-lg border bg-card p-4 text-card-foreground" aria-labelledby="ranks-heading">
+		<div class="grid gap-1">
+			<h2 id="ranks-heading" class="font-heading text-lg font-semibold tracking-tight">Ranks</h2>
+			<p class="text-sm text-muted-foreground">
+				Active ranks are available for future selection and import matching; retired ranks are hidden from selection
+				while existing references are preserved.
+			</p>
 		</div>
-		<DataTable.DataTable
-			data={activeRankRows}
-			columns={rankColumns}
-			ariaLabel="Active organization ranks"
-			emptyMessage={`No active ranks match ${branchFilterLabel(activeServiceFilter)}.`}
-			density="dense"
-			pageSize={25}
-			initialSortKey="rank"
-			rowKey={(entry) => entry.code}
-			onRowClick={toggleExpandedRank}
-			rowActionLabel={(entry) => `${isRankExpanded(entry) ? 'Hide' : 'Show'} details for ${entry.code}`}
-			cell={rankCell}
-			rowDetail={rankDetail}
-			rowDetailVisible={isRankExpanded}
-			toolbar={activeRankToolbar}
-		/>
-	</section>
 
-	<section
-		class="grid gap-4 rounded-lg border bg-card p-4 text-card-foreground"
-		aria-labelledby="retired-ranks-heading"
-	>
-		<div class="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-			<div class="grid gap-1">
-				<h2 id="retired-ranks-heading" class="font-heading text-lg font-semibold tracking-tight">Retired Ranks</h2>
-				<p class="text-sm text-muted-foreground">Hidden from future selection while preserving existing references.</p>
-			</div>
-			<Badge variant="outline">{ranks.entries.retired.length} retired</Badge>
-		</div>
-		<DataTable.DataTable
-			data={retiredRankRows}
-			columns={rankColumns}
-			ariaLabel="Retired organization ranks"
-			emptyMessage={`No retired ranks match ${branchFilterLabel(retiredServiceFilter)}.`}
-			density="dense"
-			pageSize={25}
-			initialSortKey="rank"
-			rowKey={(entry) => entry.code}
-			onRowClick={toggleExpandedRank}
-			rowActionLabel={(entry) => `${isRankExpanded(entry) ? 'Hide' : 'Show'} details for ${entry.code}`}
-			cell={rankCell}
-			rowDetail={rankDetail}
-			rowDetailVisible={isRankExpanded}
-			toolbar={retiredRankToolbar}
-		/>
+		{#if hasNoRanks}
+			<Empty.Root>
+				<Empty.Header>
+					<Empty.Title>No ranks in this catalog yet.</Empty.Title>
+					<Empty.Description>
+						Add a branch pack from Branch Coverage above to import standard ranks, or create a custom rank.
+					</Empty.Description>
+				</Empty.Header>
+				{#if ranks.commands.canAddCustomRank}
+					<Empty.Content>
+						<Button type="button" variant="outline" size="sm" onclick={() => (customRankOpen = true)}>
+							<PlusIcon aria-hidden />
+							Add custom rank
+						</Button>
+					</Empty.Content>
+				{/if}
+			</Empty.Root>
+		{:else}
+			<DataTable.DataTable
+				data={visibleRankRows}
+				columns={rankColumns}
+				ariaLabel="Organization ranks"
+				emptyMessage={tableEmptyMessage}
+				density="dense"
+				pageSize={25}
+				initialSortKey="rank"
+				rowKey={(entry) => entry.code}
+				onRowClick={toggleExpandedRank}
+				rowActionLabel={(entry) => `${isRankExpanded(entry) ? 'Hide' : 'Show'} details for ${entry.code}`}
+				cell={rankCell}
+				rowDetail={rankDetail}
+				rowDetailVisible={isRankExpanded}
+				toolbar={rankToolbar}
+			/>
+		{/if}
 	</section>
 </div>
 
@@ -554,52 +629,55 @@
 		message={bulkRankStateMessage(pendingBulkRankState)}
 		confirmLabel={bulkRankStateConfirmLabel(pendingBulkRankState)}
 		variant="warning"
-		onConfirm={submitPendingBulkRankState}
+		onConfirm={confirmBulkRankState}
 		onCancel={() => (pendingBulkRankState = null)}
 	/>
 {/if}
 
-{#snippet activeRankToolbar(table: DataTableState<SettingsRankCatalogRow>)}
-	<WorkspaceToolbar.Root ariaLabel="Active rank table controls">
-		<WorkspaceToolbar.Group label="Search active ranks">
-			<DataTable.Search {table} ariaLabel="Search active ranks" placeholder="Search active ranks" />
-		</WorkspaceToolbar.Group>
-		<WorkspaceToolbar.Group label="Filter active ranks by branch">
-			<NativeSelect.Root
-				id="active-rank-branch-filter"
-				size="sm"
-				bind:value={activeServiceFilter}
-				aria-label="Filter active ranks by branch"
-			>
-				{#each branchFilterOptions as option (option.value)}
-					<NativeSelect.Option value={option.value}>{option.label}</NativeSelect.Option>
-				{/each}
-			</NativeSelect.Root>
-		</WorkspaceToolbar.Group>
-		<WorkspaceToolbar.Group label="Active rank count" zone="meta">
-			<WorkspaceToolbar.Meta>{table.totalRows} shown</WorkspaceToolbar.Meta>
-		</WorkspaceToolbar.Group>
-	</WorkspaceToolbar.Root>
-{/snippet}
+{#if pendingRankDelete}
+	<ConfirmDialog
+		title={`Remove ${pendingRankDelete.code}`}
+		message={`${pendingRankDelete.code} ${pendingRankDelete.label} will be permanently removed from the catalog. This cannot be undone.`}
+		confirmLabel="Remove rank"
+		variant="destructive"
+		onConfirm={confirmRankDelete}
+		onCancel={() => (pendingRankDelete = null)}
+	/>
+{/if}
 
-{#snippet retiredRankToolbar(table: DataTableState<SettingsRankCatalogRow>)}
-	<WorkspaceToolbar.Root ariaLabel="Retired rank table controls">
-		<WorkspaceToolbar.Group label="Search retired ranks">
-			<DataTable.Search {table} ariaLabel="Search retired ranks" placeholder="Search retired ranks" />
+{#snippet rankToolbar(table: DataTableState<SettingsRankCatalogRow>)}
+	<WorkspaceToolbar.Root ariaLabel="Rank table controls">
+		<WorkspaceToolbar.Group label="Search ranks">
+			<DataTable.Search {table} ariaLabel="Search ranks" placeholder="Search ranks" />
 		</WorkspaceToolbar.Group>
-		<WorkspaceToolbar.Group label="Filter retired ranks by branch">
+		<WorkspaceToolbar.Group label="Filter ranks by state">
+			<ButtonGroup.Root aria-label="Filter ranks by state">
+				{#each stateFilterOptions as option (option.value)}
+					<Button
+						type="button"
+						size="sm"
+						variant={stateFilter === option.value ? 'secondary' : 'outline'}
+						aria-pressed={stateFilter === option.value}
+						onclick={() => (stateFilter = option.value)}
+					>
+						{option.label}
+					</Button>
+				{/each}
+			</ButtonGroup.Root>
+		</WorkspaceToolbar.Group>
+		<WorkspaceToolbar.Group label="Filter ranks by branch">
 			<NativeSelect.Root
-				id="retired-rank-branch-filter"
+				id="rank-branch-filter"
 				size="sm"
-				bind:value={retiredServiceFilter}
-				aria-label="Filter retired ranks by branch"
+				bind:value={branchFilter}
+				aria-label="Filter ranks by branch"
 			>
 				{#each branchFilterOptions as option (option.value)}
 					<NativeSelect.Option value={option.value}>{option.label}</NativeSelect.Option>
 				{/each}
 			</NativeSelect.Root>
 		</WorkspaceToolbar.Group>
-		<WorkspaceToolbar.Group label="Retired rank count" zone="meta">
+		<WorkspaceToolbar.Group label="Rank count" zone="meta">
 			<WorkspaceToolbar.Meta>{table.totalRows} shown</WorkspaceToolbar.Meta>
 		</WorkspaceToolbar.Group>
 	</WorkspaceToolbar.Root>
@@ -607,18 +685,31 @@
 
 {#snippet rankCell(entry: SettingsRankCatalogRow, column: ColumnDef<SettingsRankCatalogRow>)}
 	{#if column.key === 'rank'}
-		<button
-			type="button"
-			class="grid max-w-72 gap-0.5 text-left hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-			aria-expanded={isRankExpanded(entry)}
-			aria-controls={rankDetailId(entry.code)}
-			onclick={() => toggleExpandedRank(entry)}
-		>
-			<span class="font-medium">{entry.code}</span>
-			<span class="truncate text-sm text-muted-foreground">{entry.label}</span>
-		</button>
+		<div class="flex max-w-80 items-start gap-2">
+			<button
+				type="button"
+				class="mt-0.5 rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+				aria-expanded={isRankExpanded(entry)}
+				aria-controls={rankDetailId(entry.code)}
+				aria-label={`${isRankExpanded(entry) ? 'Hide' : 'Show'} details for ${entry.code}`}
+				onclick={() => toggleExpandedRank(entry)}
+			>
+				<ChevronRightIcon
+					aria-hidden
+					class="size-4 transition-transform duration-150 motion-reduce:transition-none {isRankExpanded(entry)
+						? 'rotate-90'
+						: ''}"
+				/>
+			</button>
+			<span class="grid min-w-0 gap-0.5">
+				<span class="font-medium">{entry.code}</span>
+				<span class="truncate text-sm text-muted-foreground">{entry.label}</span>
+			</span>
+		</div>
 	{:else if column.key === 'branch'}
 		<span>{entry.serviceLabel}</span>
+	{:else if column.key === 'state'}
+		<Badge variant={entry.state === 'active' ? 'secondary' : 'outline'}>{entry.state}</Badge>
 	{:else if column.key === 'grade'}
 		<span>{entry.payGradeLabel}</span>
 	{:else if column.key === 'source'}
@@ -626,61 +717,49 @@
 	{:else if column.key === 'references'}
 		<span class="text-muted-foreground">{totalReferences(entry)}</span>
 	{:else if column.key === 'actions'}
-		<div class="flex flex-wrap justify-end gap-2">
-			{@render rankActions(entry)}
+		<div class="flex justify-end">
+			{@render rankRowForms(entry)}
+			{#if rankRowActions(entry).length > 0}
+				<DataTable.RowActions row={entry} actions={rankRowActions(entry)} ariaLabel={`Actions for ${entry.code}`} />
+			{/if}
 		</div>
 	{:else}
 		{String(column.value(entry) ?? '')}
 	{/if}
 {/snippet}
 
-{#snippet rankActions(entry: SettingsRankCatalogRow)}
+{#snippet rankRowForms(entry: SettingsRankCatalogRow)}
 	{#if entry.commands.canRetire}
-		<form method="POST" action="?/retireRank" use:enhance={enhancedForm(`retire-${entry.code}`)}>
+		<form
+			id={rowFormId('retire', entry.code)}
+			method="POST"
+			action="?/retireRank"
+			class="hidden"
+			use:enhance={enhancedForm(`retire-${entry.code}`)}
+		>
 			<input type="hidden" name="code" value={entry.code} />
-			<Button
-				type="submit"
-				variant="outline"
-				size="sm"
-				disabled={savingAction === `retire-${entry.code}`}
-				aria-busy={savingAction === `retire-${entry.code}`}
-				aria-label={`Retire ${entry.code}`}
-			>
-				<ArchiveIcon aria-hidden />
-				Retire
-			</Button>
 		</form>
 	{/if}
 	{#if entry.commands.canReactivate}
-		<form method="POST" action="?/reactivateRank" use:enhance={enhancedForm(`reactivate-${entry.code}`)}>
+		<form
+			id={rowFormId('reactivate', entry.code)}
+			method="POST"
+			action="?/reactivateRank"
+			class="hidden"
+			use:enhance={enhancedForm(`reactivate-${entry.code}`)}
+		>
 			<input type="hidden" name="code" value={entry.code} />
-			<Button
-				type="submit"
-				variant="outline"
-				size="sm"
-				disabled={savingAction === `reactivate-${entry.code}`}
-				aria-busy={savingAction === `reactivate-${entry.code}`}
-				aria-label={`Reactivate ${entry.code}`}
-			>
-				<RotateCcwIcon aria-hidden />
-				Reactivate
-			</Button>
 		</form>
 	{/if}
 	{#if entry.commands.canDelete}
-		<form method="POST" action="?/deleteRank" use:enhance={enhancedForm(`delete-${entry.code}`)}>
+		<form
+			id={rowFormId('delete', entry.code)}
+			method="POST"
+			action="?/deleteRank"
+			class="hidden"
+			use:enhance={enhancedForm(`delete-${entry.code}`)}
+		>
 			<input type="hidden" name="code" value={entry.code} />
-			<Button
-				type="submit"
-				variant="destructive"
-				size="sm"
-				disabled={savingAction === `delete-${entry.code}`}
-				aria-busy={savingAction === `delete-${entry.code}`}
-				aria-label={`Remove ${entry.code}`}
-			>
-				<Trash2Icon aria-hidden />
-				Remove
-			</Button>
 		</form>
 	{/if}
 {/snippet}
@@ -728,6 +807,11 @@
 					<PencilIcon aria-hidden class="size-4" />
 					Edit rank
 				</div>
+				{#if rankError && errorEditCode === entry.code}
+					<Alert.Root variant="destructive" class="mb-3">
+						<Alert.Description>{rankError}</Alert.Description>
+					</Alert.Root>
+				{/if}
 				<form method="POST" action="?/saveRank" class="grid gap-3" use:enhance={enhancedForm(`edit-${entry.code}`)}>
 					<input type="hidden" name="intent" value="edit" />
 					<input type="hidden" name="originalCode" value={entry.code} />
@@ -741,7 +825,7 @@
 							<Input id={`${domId}-edit-label`} name="label" value={entry.label} maxlength={120} required />
 						</div>
 						<div class="grid gap-2">
-							<Label for={`${domId}-edit-service`}>Service</Label>
+							<Label for={`${domId}-edit-service`}>Branch</Label>
 							<NativeSelect.Root id={`${domId}-edit-service`} name="service" value={entry.service}>
 								{#each ranks.options.services as option (option.value)}
 									<NativeSelect.Option value={option.value}>{option.label}</NativeSelect.Option>
@@ -756,9 +840,15 @@
 								{/each}
 							</NativeSelect.Root>
 						</div>
-						<div class="grid gap-2">
+						<div class="grid gap-1.5">
 							<Label for={`${domId}-edit-pay-grade`}>Pay grade</Label>
-							<NativeSelect.Root id={`${domId}-edit-pay-grade`} name="payGrade" value={entry.payGrade}>
+							<p id={`${domId}-edit-pay-grade-help`} class="text-xs text-muted-foreground">{ranks.copy.payGradeHelp}</p>
+							<NativeSelect.Root
+								id={`${domId}-edit-pay-grade`}
+								name="payGrade"
+								value={entry.payGrade}
+								aria-describedby={`${domId}-edit-pay-grade-help`}
+							>
 								{#each ranks.options.payGrades as option (option.value)}
 									<NativeSelect.Option value={option.value}>{option.label}</NativeSelect.Option>
 								{/each}
@@ -775,7 +865,7 @@
 						<div class="grid gap-1.5">
 							<Label for={`${domId}-edit-sort-order`}>Tie-break order</Label>
 							<p id={`${domId}-edit-sort-order-help`} class="text-xs text-muted-foreground">
-								Only used when ranks share the same pay grade; lower numbers sort earlier.
+								{ranks.copy.tieBreakHelp}
 							</p>
 							<Input
 								id={`${domId}-edit-sort-order`}

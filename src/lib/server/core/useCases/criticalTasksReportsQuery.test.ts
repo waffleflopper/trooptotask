@@ -461,7 +461,7 @@ describe('fetchCriticalTasksReportSummary', () => {
 		});
 	});
 
-	it('keeps active catalog, retired catalog, discovered, and unknown Personnel ranks in report scope filters', async () => {
+	it('keeps observed active, retired, discovered, and unknown Personnel ranks in report scope filters', async () => {
 		const ctx = createTestContext();
 		ctx.store.seed('organizations', [
 			{
@@ -493,7 +493,7 @@ describe('fetchCriticalTasksReportSummary', () => {
 
 		const pageModel = await fetchCriticalTasksReportsPageModel(ctx);
 
-		expect(pageModel.reportScope.filterOptions.ranks).toEqual(['PO2', 'SSgt', 'SP4', 'LOCAL-CADET', 'SGT']);
+		expect(pageModel.reportScope.filterOptions.ranks).toEqual(['SGT', 'SP4', 'LOCAL-CADET']);
 	});
 
 	it('builds expiration cliff buckets after scoped access and report filters are applied', async () => {

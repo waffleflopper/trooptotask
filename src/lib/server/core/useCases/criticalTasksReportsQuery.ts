@@ -7,7 +7,7 @@ import type {
 import type { Group } from '$lib/stores/groups.svelte';
 import type { Personnel } from '$lib/types';
 import type { RankCatalogEntry } from '$lib/domain/rankCatalog';
-import { rankCodesForOptions } from '$lib/domain/rankOptions';
+import { observedRankCodesForOptions } from '$lib/domain/rankOptions';
 import {
 	buildCriticalTasksMatrix,
 	matchesCriticalTasksPersonnelSearch
@@ -84,7 +84,7 @@ function buildCriticalTasksReportScope(source: CriticalTasksReportSource): IctRe
 		totalPersonnelCount: source.personnel.length,
 		filterOptions: {
 			mos: uniqueSorted(source.personnel.map((person) => person.mos)),
-			ranks: rankCodesForOptions({
+			ranks: observedRankCodesForOptions({
 				rankCatalog: source.rankCatalog.length > 0 ? source.rankCatalog : undefined,
 				observedRanks: source.personnel.map((person) => person.rank)
 			}),

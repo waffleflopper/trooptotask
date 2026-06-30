@@ -3,7 +3,7 @@ import type { RankCatalogEntry } from '$lib/domain/rankCatalog';
 import type { Group } from '$lib/stores/groups.svelte';
 import type { Personnel } from '$lib/types';
 import type { PersonnelTraining, TrainingType, TrainingView } from './training.types';
-import { createTrainingWorkspaceHydrator, type TrainingHydrationStores } from './trainingWorkspaceHydration.svelte';
+import { createTrainingWorkspaceHydrator } from './trainingWorkspaceHydration.svelte';
 import type { TrainingWorkspaceHydration } from './server/trainingWorkspaceBootstrap';
 
 function deferred<T>() {

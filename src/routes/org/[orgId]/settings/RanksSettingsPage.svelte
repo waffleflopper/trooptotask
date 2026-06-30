@@ -14,7 +14,6 @@
 	import { Label } from '$lib/components/ui/label/index.js';
 	import * as NativeSelect from '$lib/components/ui/native-select/index.js';
 	import { Separator } from '$lib/components/ui/separator/index.js';
-	import { Spinner } from '$lib/components/ui/spinner/index.js';
 	import type { RanksSettingsData } from './settingsRanks.server';
 	import type { SettingsRankCatalogRow } from './settingsSectionTypes';
 
@@ -121,13 +120,10 @@
 							type="submit"
 							size="sm"
 							disabled={!ranks.commands.canAddServicePack || pack.isInstalled || savingAction === `pack-${pack.value}`}
+							aria-busy={savingAction === `pack-${pack.value}`}
 							aria-label={`Add ${pack.label}`}
 						>
-							{#if savingAction === `pack-${pack.value}`}
-								<Spinner />
-							{:else}
-								<PlusIcon aria-hidden />
-							{/if}
+							<PlusIcon aria-hidden />
 							Add {pack.label}
 						</Button>
 					</div>
@@ -214,8 +210,12 @@
 				</div>
 			</div>
 			<div>
-				<Button type="submit" disabled={!ranks.commands.canAddCustomRank || savingAction === 'rank-add'}>
-					{#if savingAction === 'rank-add'}<Spinner />{:else}<PlusIcon aria-hidden />{/if}
+				<Button
+					type="submit"
+					disabled={!ranks.commands.canAddCustomRank || savingAction === 'rank-add'}
+					aria-busy={savingAction === 'rank-add'}
+				>
+					<PlusIcon aria-hidden />
 					Add Rank
 				</Button>
 			</div>
@@ -291,9 +291,10 @@
 							variant="outline"
 							size="sm"
 							disabled={savingAction === `retire-${entry.code}`}
+							aria-busy={savingAction === `retire-${entry.code}`}
 							aria-label={`Retire ${entry.code}`}
 						>
-							{#if savingAction === `retire-${entry.code}`}<Spinner />{:else}<ArchiveIcon aria-hidden />{/if}
+							<ArchiveIcon aria-hidden />
 							Retire
 						</Button>
 					</form>
@@ -306,9 +307,10 @@
 							variant="outline"
 							size="sm"
 							disabled={savingAction === `reactivate-${entry.code}`}
+							aria-busy={savingAction === `reactivate-${entry.code}`}
 							aria-label={`Reactivate ${entry.code}`}
 						>
-							{#if savingAction === `reactivate-${entry.code}`}<Spinner />{:else}<RotateCcwIcon aria-hidden />{/if}
+							<RotateCcwIcon aria-hidden />
 							Reactivate
 						</Button>
 					</form>
@@ -321,9 +323,10 @@
 							variant="destructive"
 							size="sm"
 							disabled={savingAction === `delete-${entry.code}`}
+							aria-busy={savingAction === `delete-${entry.code}`}
 							aria-label={`Remove ${entry.code}`}
 						>
-							{#if savingAction === `delete-${entry.code}`}<Spinner />{:else}<Trash2Icon aria-hidden />{/if}
+							<Trash2Icon aria-hidden />
 							Remove
 						</Button>
 					</form>
@@ -423,9 +426,10 @@
 							type="submit"
 							size="sm"
 							disabled={savingAction === `edit-${entry.code}`}
+							aria-busy={savingAction === `edit-${entry.code}`}
 							aria-label={`Save ${entry.code}`}
 						>
-							{#if savingAction === `edit-${entry.code}`}<Spinner />{:else}<SaveIcon aria-hidden />{/if}
+							<SaveIcon aria-hidden />
 							Save
 						</Button>
 					</div>

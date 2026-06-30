@@ -12,6 +12,11 @@ import {
 	type OrgProvisioningStatusTypeSeed
 } from './orgProvisioning';
 
+const DEFAULT_SEEDED_RANK_SERVICES = new Set(['army', 'civilian', 'custom']);
+const DEFAULT_SEEDED_RANK_COUNT = BUILT_IN_RANK_CATALOG.filter((entry) =>
+	DEFAULT_SEEDED_RANK_SERVICES.has(entry.service)
+).length;
+
 function createOrgProvisioningPort(
 	options: {
 		availability?: { allowed: boolean; message?: string };
@@ -239,7 +244,7 @@ describe('provisionOrganization', () => {
 		});
 		expect(port.rankCatalogSeeds).toHaveLength(1);
 		expect(port.rankCatalogSeeds[0]?.organizationId).toBe('org-1');
-		expect(port.rankCatalogSeeds[0]?.entries).toHaveLength(BUILT_IN_RANK_CATALOG.length);
+		expect(port.rankCatalogSeeds[0]?.entries).toHaveLength(DEFAULT_SEEDED_RANK_COUNT);
 		expect(port.rankCatalogSeeds[0]?.entries).toEqual(
 			expect.arrayContaining([
 				expect.objectContaining({
@@ -252,6 +257,9 @@ describe('provisionOrganization', () => {
 					source: 'built-in'
 				})
 			])
+		);
+		expect(port.rankCatalogSeeds[0]?.entries).not.toEqual(
+			expect.arrayContaining([expect.objectContaining({ service: 'navy' })])
 		);
 	});
 

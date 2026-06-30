@@ -34,6 +34,7 @@ const RANK_SERVICE_PACK_SERVICES = new Set<RankService>([
 	'coast-guard',
 	'space-force'
 ]);
+const DEFAULT_RANK_CATALOG_SERVICES = new Set<RankService>(['army', 'civilian', 'custom']);
 const RANK_CATEGORIES = new Set<RankCategory>(['officer', 'warrant', 'enlisted', 'civilian', 'custom']);
 const RANK_STATES = new Set<RankState>(['active', 'retired']);
 const RANK_PAY_GRADES = new Set<RankPayGrade>([
@@ -63,7 +64,6 @@ const RANK_PAY_GRADES = new Set<RankPayGrade>([
 	'E-9',
 	'ungraded'
 ]);
-const BUILT_IN_RANK_CODES_NORMALIZED = new Set(BUILT_IN_RANK_CATALOG.map((entry) => entry.code.toUpperCase()));
 const PG_INTEGER_MIN = -2_147_483_648;
 const PG_INTEGER_MAX = 2_147_483_647;
 
@@ -222,7 +222,8 @@ export async function ensureOrganizationRankCatalog(ports: RankCatalogPorts): Pr
 	const missingDefaultRows = buildDefaultRankCatalogSeeds(ports.auth.orgId).filter(
 		(row) => !existingCodes.has(row.code)
 	);
-	const missingDiscoveredRows = await buildDiscoveredRankCatalogSeeds(ports, existingCodes);
+	const seededCatalogCodes = new Set([...existingCodes, ...missingDefaultRows.map((row) => row.code)]);
+	const missingDiscoveredRows = await buildDiscoveredRankCatalogSeeds(ports, seededCatalogCodes);
 	const missingRows = [...missingDefaultRows, ...missingDiscoveredRows];
 
 	if (missingRows.length > 0) {
@@ -326,21 +327,49 @@ export async function addOrganizationRankServicePack(
 		RANK_CATALOG_TABLE,
 		ports.auth.orgId
 	);
-	const existingCodes = new Set(existing.map((entry) => entry.code));
-	const missingRows = servicePack
-		.filter((entry) => !existingCodes.has(entry.code))
-		.map((entry) => serializeRankCatalogEntry(ports.auth.orgId, entry, 'built-in'));
+	const existingByCode = new Map(existing.map((entry) => [entry.code, entry]));
+	const rowsToUpsert: OrganizationRankCatalogRow[] = [];
+	const rowsToCanonicalize: Array<{ id: string; entry: RankCatalogEntry }> = [];
+
+	for (const entry of servicePack) {
+		const exactExisting = existingByCode.get(entry.code);
+		if (exactExisting?.source === 'built-in') {
+			continue;
+		}
+		if (!exactExisting) {
+			const aliasExisting = existing.find(
+				(row) => row.id && row.code.toUpperCase() === entry.code.toUpperCase() && row.source !== 'built-in'
+			);
+			if (aliasExisting?.id) {
+				rowsToCanonicalize.push({ id: aliasExisting.id, entry });
+				continue;
+			}
+		}
+		rowsToUpsert.push(serializeRankCatalogEntry(ports.auth.orgId, entry, 'built-in'));
+	}
+
 	const savedRows = await storeForRankCatalog(ports).upsertMany<OrganizationRankCatalogRow>(
 		RANK_CATALOG_TABLE,
 		ports.auth.orgId,
-		missingRows,
+		rowsToUpsert,
 		{ onConflict: 'organization_id,code' }
 	);
-	const entries = sortCatalog(savedRows.map(deserializeRankCatalogRow));
+	const canonicalizedRows = await Promise.all(
+		rowsToCanonicalize.map(({ id, entry }) =>
+			storeForRankCatalog(ports).update<OrganizationRankCatalogRow>(
+				RANK_CATALOG_TABLE,
+				ports.auth.orgId,
+				id,
+				serializeRankCatalogEntry(ports.auth.orgId, entry, 'built-in')
+			)
+		)
+	);
+	const changedCount = rowsToUpsert.length + rowsToCanonicalize.length;
+	const entries = sortCatalog([...savedRows, ...canonicalizedRows].map(deserializeRankCatalogRow));
 	const result = {
 		service: input.service,
-		addedCount: entries.length,
-		skippedExistingCount: servicePack.length - entries.length,
+		addedCount: changedCount,
+		skippedExistingCount: servicePack.length - changedCount,
 		entries
 	};
 
@@ -573,7 +602,9 @@ export async function removeOrganizationRankCatalogEntry(
 }
 
 export function buildDefaultRankCatalogSeeds(organizationId: string): OrganizationRankCatalogRow[] {
-	return BUILT_IN_RANK_CATALOG.map((entry) => serializeRankCatalogEntry(organizationId, entry, 'built-in'));
+	return BUILT_IN_RANK_CATALOG.filter((entry) => DEFAULT_RANK_CATALOG_SERVICES.has(entry.service)).map((entry) =>
+		serializeRankCatalogEntry(organizationId, entry, 'built-in')
+	);
 }
 
 async function buildDiscoveredRankCatalogSeeds(
@@ -586,7 +617,7 @@ async function buildDiscoveredRankCatalogSeeds(
 
 	for (const personnel of personnelRows) {
 		const rank = sanitizeDiscoveredRankCode(personnel.rank);
-		if (!rank || existingCodes.has(rank) || discoveredCodes.has(rank) || isKnownBuiltInRankCode(rank)) {
+		if (!rank || hasCatalogCodeAlias(existingCodes, rank) || hasCatalogCodeAlias(discoveredCodes, rank)) {
 			continue;
 		}
 
@@ -621,8 +652,14 @@ function sanitizeDiscoveredRankCode(rank: string | null | undefined): string | n
 	return sanitizedRank === canonicalRank ? sanitizedRank : null;
 }
 
-function isKnownBuiltInRankCode(code: string): boolean {
-	return Boolean(resolveBuiltInRank(code)) || BUILT_IN_RANK_CODES_NORMALIZED.has(code.toUpperCase());
+function hasCatalogCodeAlias(codes: Set<string>, code: string): boolean {
+	const normalizedCode = code.toUpperCase();
+	for (const candidate of codes) {
+		if (candidate.toUpperCase() === normalizedCode) {
+			return true;
+		}
+	}
+	return false;
 }
 
 function serializeRankCatalogEntry(

@@ -9,7 +9,7 @@ RETURNS boolean
     WHERE "organization_memberships"."organization_id" = "p_organization_id"
       AND "organization_memberships"."user_id" = "auth"."uid"()
       AND (
-        "organization_memberships"."role" IN ('owner', 'admin')
+        "public"."can_manage_org_members"("p_organization_id")
         OR "organization_memberships"."capability_overrides" ->> 'canManageMembers' = 'true'
       )
   );

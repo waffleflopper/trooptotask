@@ -212,6 +212,29 @@ describe('TrainingTypesPage', () => {
 		expect(screen.queryByRole('checkbox', { name: 'DET-RET' })).toBeNull();
 	});
 
+	it('keeps observed Personnel aliases that resolve to active catalog ranks selectable', async () => {
+		rosterStore.load([{ ...personnel[0], rank: 'sgt' }] as Personnel[], 'org-1');
+
+		render(TrainingTypesPage, {
+			props: {
+				data: {
+					training: {
+						data: {
+							trainingTypes: Promise.resolve([trainingType]),
+							rankCatalog: [rankCatalogEntry({ code: 'SGT' })]
+						}
+					},
+					personnel: []
+				}
+			}
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: '+ New Type' }));
+
+		expect(screen.getAllByRole('checkbox', { name: 'SGT' }).length).toBeGreaterThan(0);
+		expect(screen.getAllByRole('checkbox', { name: 'sgt' }).length).toBeGreaterThan(0);
+	});
+
 	it('uses the hydrated Organization rank catalog when route rank catalog data is still streamed', async () => {
 		const catalog = [
 			rankCatalogEntry({ code: 'PO2', label: 'Petty Officer Second Class', service: 'navy' }),

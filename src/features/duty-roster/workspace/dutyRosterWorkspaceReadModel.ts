@@ -8,7 +8,8 @@ import type {
 } from '$features/duty-roster/templates/dutyRosterTemplates';
 import type { DutyRosterTemplatePreview } from '$features/duty-roster/templates/dutyRosterTemplatePreview';
 import { dutyRosterTodayDate, nextDutyRosterMonthRange } from '$features/duty-roster/templates/dutyRosterDatePolicy';
-import { compareRankCodes, type RankCatalogEntry } from '$lib/domain/rankCatalog';
+import type { RankCatalogEntry } from '$lib/domain/rankCatalog';
+import { rankCodesForOptions } from '$lib/domain/rankOptions';
 import { ARMY_RANKS } from '$lib/types';
 import { acceptedHistoryColumns } from './dutyRosterPreviewReview';
 
@@ -239,7 +240,11 @@ export function buildDutyRosterWorkspaceReadModel(
 		...(selectedTemplate?.poolCriteria.rankValues ?? []),
 		...(actionForm?.values?.rankValues ?? [])
 	];
-	const rankOptions = dutyRosterRankOptions(rankCatalog, savedRankValues);
+	const rankOptions = dutyRosterRankOptions(
+		rankCatalog,
+		savedRankValues,
+		setupPersonnel.map((person) => person.rank)
+	);
 	const groupOptions = uniqueGroupOptions(setupPersonnel);
 	const mosOptions = uniqueOptions(setupPersonnel.map((person) => person.mos).filter(Boolean));
 	const dutyRoleOptions = uniqueOptions(setupPersonnel.map((person) => person.dutyRole).filter(Boolean));
@@ -341,33 +346,15 @@ export function optionItems(values: string[]): Array<{ value: string; label: str
 
 export function dutyRosterRankOptions(
 	rankCatalog: readonly RankCatalogEntry[] | undefined,
-	preserveRankValues: string[] = []
+	preserveRankValues: string[] = [],
+	observedRankValues: string[] = []
 ): string[] {
-	const options: string[] = [];
-	const seen = new Set<string>();
-
-	function add(rank: string): void {
-		if (!seen.has(rank)) {
-			options.push(rank);
-			seen.add(rank);
-		}
-	}
-
-	if (!rankCatalog || rankCatalog.length === 0) {
-		for (const rank of DUTY_ROSTER_RANK_OPTIONS) add(rank);
-	} else {
-		for (const entry of rankCatalog
-			.filter((entry) => entry.state === 'active')
-			.toSorted((left, right) => compareRankCodes(left.code, right.code, { catalog: rankCatalog }))) {
-			add(entry.code);
-		}
-	}
-
-	for (const rank of preserveRankValues.map((value) => value.trim()).filter(Boolean)) {
-		add(rank);
-	}
-
-	return options;
+	return rankCodesForOptions({
+		rankCatalog,
+		observedRanks: observedRankValues,
+		preserveRanks: preserveRankValues,
+		fallbackRanks: DUTY_ROSTER_RANK_OPTIONS
+	});
 }
 
 export function groupOptionItems(

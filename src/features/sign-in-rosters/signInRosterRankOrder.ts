@@ -1,5 +1,5 @@
 import { compareRankCodes, type RankCatalogEntry } from '$lib/domain/rankCatalog';
-import { rankCodesForOptions } from '$lib/domain/rankOptions';
+import { observedRankCodesForOptions, rankCodesForOptions } from '$lib/domain/rankOptions';
 
 export interface SignInRosterRankSortRow {
 	rank: string;
@@ -45,5 +45,15 @@ export function signInRosterRankOptions(
 	observedRanks: readonly string[],
 	fallbackRanks: readonly string[] = []
 ): string[] {
-	return rankCodesForOptions({ rankCatalog, observedRanks, fallbackRanks });
+	const options = rankCodesForOptions({ rankCatalog, fallbackRanks });
+	const seen = new Set(options);
+
+	for (const rank of observedRankCodesForOptions({ rankCatalog, observedRanks })) {
+		if (!seen.has(rank)) {
+			options.push(rank);
+			seen.add(rank);
+		}
+	}
+
+	return options;
 }

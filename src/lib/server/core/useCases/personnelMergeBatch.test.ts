@@ -79,6 +79,59 @@ describe('mergePersonnelBatch', () => {
 		});
 	});
 
+	it('updates ETS and DEROS for an existing personnel row that keeps a retired rank', async () => {
+		const ctx = buildContext();
+		seedRankCatalog(ctx, [{ code: 'SP4', label: 'Specialist Four', pay_grade: 'E-4', state: 'retired' }]);
+		ctx.store.seed('personnel', [
+			{
+				id: 'person-1',
+				organization_id: 'test-org',
+				rank: 'SP4',
+				last_name: 'Smith',
+				first_name: 'Jamie',
+				mos: '68W',
+				clinic_role: 'Medic',
+				group_id: null,
+				ets: null,
+				deros: null,
+				archived_at: null
+			}
+		]);
+
+		const result = await mergePersonnelBatch(ctx, {
+			records: [
+				{
+					rank: 'sp4',
+					lastName: 'Smith',
+					firstName: 'Jamie',
+					ets: '2027-05-01',
+					deros: '2026-11-30'
+				}
+			]
+		});
+
+		expect(result.errors).toHaveLength(0);
+		expect(result.ambiguous).toHaveLength(0);
+		expect(result.skipped).toHaveLength(0);
+		expect(result.updated).toEqual([
+			expect.objectContaining({
+				id: 'person-1',
+				rank: 'SP4',
+				ets: '2027-05-01',
+				deros: '2026-11-30'
+			})
+		]);
+
+		const personnel = await ctx.store.findMany('personnel', 'test-org');
+		expect(personnel).toHaveLength(1);
+		expect(personnel[0]).toMatchObject({
+			id: 'person-1',
+			rank: 'SP4',
+			ets: '2027-05-01',
+			deros: '2026-11-30'
+		});
+	});
+
 	it('reports ambiguous and unmatched rows instead of guessing', async () => {
 		const ctx = buildContext();
 		ctx.store.seed('personnel', [

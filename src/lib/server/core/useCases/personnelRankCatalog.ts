@@ -8,7 +8,7 @@ type RankCatalogPorts = Pick<WriteWithSubscriptionPorts, 'auth' | 'store' | 'raw
 export const UNKNOWN_PERSONNEL_RANK_MESSAGE =
 	'Unknown rank "{rank}". Update the Organization rank catalog in Organization Settings -> Ranks, then try again.';
 
-export interface ActivePersonnelRankResolver {
+export interface PersonnelRankResolver {
 	normalize(input: string): string | null;
 	errorMessage(input: string): string;
 }
@@ -25,7 +25,7 @@ export async function normalizeActivePersonnelRank(ports: RankCatalogPorts, inpu
 	return match;
 }
 
-export async function createActivePersonnelRankResolver(ports: RankCatalogPorts): Promise<ActivePersonnelRankResolver> {
+export async function createActivePersonnelRankResolver(ports: RankCatalogPorts): Promise<PersonnelRankResolver> {
 	const catalog = await loadOrganizationRankCatalog(ports);
 	const activeEntries = catalog.filter((entry) => entry.state === 'active');
 
@@ -40,6 +40,19 @@ export async function createActivePersonnelRankResolver(ports: RankCatalogPorts)
 				catalog.filter((entry) => entry.state === 'retired')
 			);
 			return retiredMatch ? retiredPersonnelRankMessage(retiredMatch) : unknownPersonnelRankMessage(rank);
+		}
+	};
+}
+
+export async function createPersonnelCatalogRankResolver(ports: RankCatalogPorts): Promise<PersonnelRankResolver> {
+	const catalog = await loadOrganizationRankCatalog(ports);
+
+	return {
+		normalize(input) {
+			return resolveRankCode(sanitizeString(input, 80), catalog);
+		},
+		errorMessage(input) {
+			return unknownPersonnelRankMessage(sanitizeString(input, 80));
 		}
 	};
 }

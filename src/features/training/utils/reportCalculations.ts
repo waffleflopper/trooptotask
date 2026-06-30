@@ -118,7 +118,7 @@ export function filterPersonnel(personnel: Personnel[], filters: ReportFilters):
 		if (filters.groupId && p.groupId !== filters.groupId) return false;
 		if (filters.mos && p.mos !== filters.mos) return false;
 		if (filters.role && p.clinicRole !== filters.role) return false;
-		if (filters.rank && p.rank !== filters.rank) return false;
+		if (filters.rank && p.rank.trim() !== filters.rank.trim()) return false;
 		return true;
 	});
 }

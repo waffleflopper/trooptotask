@@ -150,7 +150,7 @@
 	// Filtered personnel
 	const filteredPersonnel = $derived.by(() => {
 		return personnel.filter((p) => {
-			if (!selectedRanks.has(p.rank)) return false;
+			if (!selectedRanks.has(p.rank.trim())) return false;
 			if (selectedGroups.size > 0 && !selectedGroups.has(p.groupName)) return false;
 			return true;
 		});

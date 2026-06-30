@@ -4,10 +4,11 @@ import type { Personnel } from '$lib/types';
 export function isTrainingApplicable(type: TrainingType, person: Personnel): boolean {
 	if (type.isOptional) return false;
 
+	const rank = person.rank.trim();
 	const isExcluded =
 		type.excludedRoles.includes(person.clinicRole) ||
 		type.excludedMos.includes(person.mos) ||
-		type.excludedRanks.includes(person.rank);
+		type.excludedRanks.includes(rank);
 
 	if (isExcluded) return false;
 
@@ -18,6 +19,6 @@ export function isTrainingApplicable(type: TrainingType, person: Personnel): boo
 	return (
 		type.appliesToRoles.includes(person.clinicRole) ||
 		type.appliesToMos.includes(person.mos) ||
-		type.appliesToRanks.includes(person.rank)
+		type.appliesToRanks.includes(rank)
 	);
 }

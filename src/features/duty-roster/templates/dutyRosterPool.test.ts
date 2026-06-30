@@ -83,6 +83,20 @@ describe('Duty Roster pool setup rules', () => {
 		expect(resolved.map((person) => person.id)).toEqual(['p1']);
 	});
 
+	it('matches rank criteria against trimmed Personnel rank values', () => {
+		const resolved = resolveDutyRosterPool({
+			personnel: [{ ...personnel[0], id: 'p-sfc', rank: ' SFC ' }, personnel[1]],
+			criteria: {
+				rankValues: ['SFC'],
+				groupIds: [],
+				mosValues: [],
+				dutyRoleValues: []
+			}
+		});
+
+		expect(resolved.map((person) => person.id)).toEqual(['p-sfc']);
+	});
+
 	it('builds baseline rows only from resolved non-exempt pool members', () => {
 		const baselineRows = buildDutyRosterBaselineRows({
 			template,

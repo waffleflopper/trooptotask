@@ -91,6 +91,13 @@ describe('isTrainingApplicable', () => {
 		expect(isTrainingApplicable(type, person)).toBe(true);
 	});
 
+	it('matches applies-to ranks against trimmed Personnel rank values', () => {
+		const type = makeType({ appliesToRanks: ['SFC'] });
+		const person = makePerson({ rank: ' SFC ' });
+
+		expect(isTrainingApplicable(type, person)).toBe(true);
+	});
+
 	it('returns false when person does not match any specified rank', () => {
 		const type = makeType({ appliesToRanks: ['CPT'] });
 		const person = makePerson({ rank: 'SGT' });
@@ -129,6 +136,13 @@ describe('isTrainingApplicable', () => {
 	it('excludes by rank even when applies-to matches', () => {
 		const type = makeType({ excludedRanks: ['SGT'] });
 		const person = makePerson({ rank: 'SGT' });
+
+		expect(isTrainingApplicable(type, person)).toBe(false);
+	});
+
+	it('matches excluded ranks against trimmed Personnel rank values', () => {
+		const type = makeType({ excludedRanks: ['SFC'] });
+		const person = makePerson({ rank: ' SFC ' });
 
 		expect(isTrainingApplicable(type, person)).toBe(false);
 	});

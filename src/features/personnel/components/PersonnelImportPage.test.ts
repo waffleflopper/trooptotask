@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import PersonnelImportPage from './PersonnelImportPage.svelte';
 import type { Group } from '$lib/stores/groups.svelte';
 import type { Personnel } from '$lib/types';
+import type { RankCatalogEntry } from '$lib/domain/rankCatalog';
 
 const { beforeNavigateMock, gotoMock, invalidateAllMock, parseFileMock } = vi.hoisted(() => ({
 	beforeNavigateMock: vi.fn(),
@@ -27,14 +28,37 @@ type RenderPageProps = Partial<{
 	groups: Group[];
 	orgId: string;
 	personnel: Personnel[];
+	rankCatalog: RankCatalogEntry[];
 	readOnly: boolean;
 }>;
+
+const defaultRankCatalog: RankCatalogEntry[] = [
+	{
+		code: 'SGT',
+		label: 'Sergeant',
+		service: 'army',
+		category: 'enlisted',
+		payGrade: 'E-5',
+		state: 'active',
+		sortOrder: 0
+	},
+	{
+		code: 'CPL',
+		label: 'Corporal',
+		service: 'army',
+		category: 'enlisted',
+		payGrade: 'E-4',
+		state: 'active',
+		sortOrder: 1
+	}
+];
 
 function renderPage(props: RenderPageProps = {}) {
 	return render(PersonnelImportPage, {
 		props: {
 			groups: [{ id: 'group-1', name: 'Alpha Team', sortOrder: 0 }],
 			orgId: 'org-1',
+			rankCatalog: defaultRankCatalog,
 			personnel: [
 				{
 					id: 'person-1',
@@ -266,6 +290,35 @@ describe('PersonnelImportPage', () => {
 
 		await fireEvent.click(screen.getByRole('checkbox', { name: 'Select import row 3' }));
 		expect(screen.getAllByText('1 of 3 selected').length).toBeGreaterThan(0);
+	});
+
+	it('validates preview ranks through active Organization rank catalog options', async () => {
+		parseFileMock.mockResolvedValue([
+			['Rank', 'Last Name', 'First Name'],
+			['po3', 'Nolan', 'Avery']
+		]);
+		renderPage({
+			rankCatalog: [
+				{
+					code: 'PO3',
+					label: 'Petty Officer Third Class',
+					service: 'navy',
+					category: 'enlisted',
+					payGrade: 'E-4',
+					state: 'active',
+					sortOrder: 0
+				}
+			]
+		});
+
+		const input = document.querySelector<HTMLInputElement>('#fileUpload');
+		await fireEvent.change(input!, {
+			target: { files: [new File(['records'], 'personnel.csv', { type: 'text/csv' })] }
+		});
+		await fireEvent.click(await screen.findByRole('button', { name: /Preview 1 Rows/i }));
+
+		expect(screen.getByLabelText('Row 2 Rank')).not.toHaveAttribute('data-cell-state', 'error');
+		expect(screen.getAllByText('1 ready').length).toBeGreaterThan(0);
 	});
 
 	it('blocks malformed ETS and DEROS values before submission', async () => {

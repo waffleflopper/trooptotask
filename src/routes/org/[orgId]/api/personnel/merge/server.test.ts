@@ -4,6 +4,55 @@ import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { _postConfig } from './+server';
 
+function seedRankCatalog(ctx: ReturnType<typeof createTestContext>) {
+	ctx.store.seed('organization_rank_catalog', [
+		{
+			organization_id: ctx.auth.orgId,
+			code: 'SGT',
+			label: 'Sergeant',
+			service: 'army',
+			category: 'enlisted',
+			pay_grade: 'E-5',
+			state: 'active',
+			source: 'built-in',
+			sort_order: 0
+		},
+		{
+			organization_id: ctx.auth.orgId,
+			code: 'SSG',
+			label: 'Staff Sergeant',
+			service: 'army',
+			category: 'enlisted',
+			pay_grade: 'E-6',
+			state: 'active',
+			source: 'built-in',
+			sort_order: 1
+		},
+		{
+			organization_id: ctx.auth.orgId,
+			code: 'CPT',
+			label: 'Captain',
+			service: 'army',
+			category: 'officer',
+			pay_grade: 'O-3',
+			state: 'active',
+			source: 'built-in',
+			sort_order: 2
+		},
+		{
+			organization_id: ctx.auth.orgId,
+			code: 'PFC',
+			label: 'Private First Class',
+			service: 'army',
+			category: 'enlisted',
+			pay_grade: 'E-3',
+			state: 'active',
+			source: 'built-in',
+			sort_order: 3
+		}
+	]);
+}
+
 describe('POST /api/personnel/merge', () => {
 	it('declares policy-first authorization for personnel merge', () => {
 		expect(_postConfig).toMatchObject({
@@ -16,6 +65,7 @@ describe('POST /api/personnel/merge', () => {
 
 	it('returns updated, skipped, ambiguous, and failed rows for the merge workflow', async () => {
 		const ctx = createTestContext();
+		seedRankCatalog(ctx);
 		ctx.store.seed('personnel', [
 			{
 				id: 'person-1',

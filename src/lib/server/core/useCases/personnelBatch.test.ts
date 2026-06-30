@@ -3,7 +3,31 @@ import { createWriteWithSubscriptionPortsContext } from '$lib/server/adapters/in
 import { importPersonnelBatch } from './personnelBatch';
 
 function buildContext(overrides?: Parameters<typeof createWriteWithSubscriptionPortsContext>[0]) {
-	return createWriteWithSubscriptionPortsContext(overrides);
+	const ctx = createWriteWithSubscriptionPortsContext(overrides);
+	seedRankCatalog(ctx, [
+		{ code: 'PFC', label: 'Private First Class', pay_grade: 'E-3' },
+		{ code: 'SGT', label: 'Sergeant', pay_grade: 'E-5' },
+		{ code: 'SSG', label: 'Staff Sergeant', pay_grade: 'E-6' }
+	]);
+	return ctx;
+}
+
+function seedRankCatalog(ctx: ReturnType<typeof buildContext>, entries: Array<Record<string, unknown>>) {
+	ctx.store.seed(
+		'organization_rank_catalog',
+		entries.map((entry, index) => ({
+			organization_id: ctx.auth.orgId,
+			code: 'SGT',
+			label: 'Sergeant',
+			service: 'army',
+			category: 'enlisted',
+			pay_grade: 'E-5',
+			state: 'active',
+			source: 'built-in',
+			sort_order: index,
+			...entry
+		}))
+	);
 }
 
 describe('importPersonnelBatch', () => {
@@ -47,7 +71,51 @@ describe('importPersonnelBatch', () => {
 		});
 		expect(result.inserted).toHaveLength(1);
 		expect(result.errors).toHaveLength(1);
-		expect(result.errors[0]).toMatchObject({ index: 0, message: 'Invalid rank "INVALID"' });
+		expect(result.errors[0]).toMatchObject({
+			index: 0,
+			message:
+				'Unknown rank "INVALID". Update the Organization rank catalog in Organization Settings -> Ranks, then try again.'
+		});
+	});
+
+	it('normalizes imported rank input through the active Organization rank catalog', async () => {
+		const ctx = buildContext();
+		seedRankCatalog(ctx, [
+			{
+				code: 'PO3',
+				label: 'Petty Officer Third Class',
+				service: 'navy',
+				pay_grade: 'E-4'
+			}
+		]);
+
+		const result = await importPersonnelBatch(ctx, {
+			records: [{ rank: 'po3', lastName: 'Nolan', firstName: 'Avery' }]
+		});
+
+		expect(result.errors).toHaveLength(0);
+		expect(result.inserted).toMatchObject([{ rank: 'PO3' }]);
+		await expect(ctx.store.findMany('personnel', ctx.auth.orgId)).resolves.toEqual([
+			expect.objectContaining({ rank: 'PO3' })
+		]);
+	});
+
+	it('rejects retired Organization catalog ranks during import', async () => {
+		const ctx = buildContext();
+		seedRankCatalog(ctx, [{ code: 'SP4', label: 'Specialist Four', pay_grade: 'E-4', state: 'retired' }]);
+
+		const result = await importPersonnelBatch(ctx, {
+			records: [{ rank: 'SP4', lastName: 'Legacy', firstName: 'Sam' }]
+		});
+
+		expect(result.inserted).toHaveLength(0);
+		expect(result.errors).toEqual([
+			{
+				index: 0,
+				message:
+					'Rank "SP4" is retired. Reactivate it in the Organization rank catalog before using it for Personnel create, edit, or import.'
+			}
+		]);
 	});
 
 	it('returns errors for missing required fields', async () => {

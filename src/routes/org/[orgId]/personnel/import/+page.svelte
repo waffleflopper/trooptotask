@@ -18,6 +18,7 @@
 		orgId={org.orgId}
 		orgUrlSegment={org.orgUrlSegment ?? org.orgId}
 		groups={personnelWorkspace.data.groups}
+		rankCatalog={personnelWorkspace.data.rankCatalog}
 		personnel={personnelWorkspace.data.personnel}
 		readOnly={org.readOnly}
 	/>

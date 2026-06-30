@@ -55,6 +55,7 @@
 	<PersonnelModal
 		personnel={editingPerson}
 		groups={groupsStore.items}
+		rankCatalog={ctx.data.rankCatalog ?? []}
 		onSubmit={handleSubmit}
 		onRemove={handleArchive}
 		onClose={modals.closerFor('personnel-modal')}

@@ -24,6 +24,7 @@
 				badgeVariant: 'warning' as const
 			},
 			{ label: 'Policies', href: `${baseHref}/policies`, active: activePath.endsWith('/settings/policies') },
+			{ label: 'Ranks', href: `${baseHref}/ranks`, active: activePath.endsWith('/settings/ranks') },
 			{
 				label: 'Archives',
 				href: `${baseHref}/archives`,

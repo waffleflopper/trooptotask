@@ -90,6 +90,60 @@ describe('organization rank catalog', () => {
 		});
 	});
 
+	it('skips unsafe discovered Personnel rank strings without breaking catalog reconciliation', async () => {
+		const ctx = createTestContext();
+		const overlongRank = 'X'.repeat(200);
+		ctx.rawStore.seed('personnel', [
+			{
+				id: 'person-1',
+				organization_id: 'test-org',
+				rank: overlongRank,
+				first_name: 'Jamie',
+				last_name: 'Rivera'
+			},
+			{
+				id: 'person-2',
+				organization_id: 'test-org',
+				rank: '    ',
+				first_name: 'Casey',
+				last_name: 'Lee'
+			}
+		]);
+
+		const catalog = await ensureOrganizationRankCatalog(ctx);
+
+		expect(catalog).toHaveLength(BUILT_IN_RANK_CATALOG.length);
+		expect(catalog).not.toEqual(expect.arrayContaining([expect.objectContaining({ code: overlongRank })]));
+		expect(catalog).not.toEqual(expect.arrayContaining([expect.objectContaining({ code: 'X'.repeat(80) })]));
+	});
+
+	it('does not discover lower-case variants of built-in rank codes', async () => {
+		const ctx = createTestContext();
+		ctx.rawStore.seed('personnel', [
+			{
+				id: 'person-1',
+				organization_id: 'test-org',
+				rank: 'capt',
+				first_name: 'Jamie',
+				last_name: 'Rivera'
+			},
+			{
+				id: 'person-2',
+				organization_id: 'test-org',
+				rank: 'gen',
+				first_name: 'Casey',
+				last_name: 'Lee'
+			}
+		]);
+
+		const catalog = await ensureOrganizationRankCatalog(ctx);
+
+		expect(catalog).toEqual(expect.arrayContaining([expect.objectContaining({ code: 'CAPT' })]));
+		expect(catalog).toEqual(expect.arrayContaining([expect.objectContaining({ code: 'Capt' })]));
+		expect(catalog).not.toEqual(expect.arrayContaining([expect.objectContaining({ code: 'capt' })]));
+		expect(catalog).not.toEqual(expect.arrayContaining([expect.objectContaining({ code: 'gen' })]));
+	});
+
 	it('uses Personnel roster-view semantics for catalog reads', async () => {
 		const ownerCtx = createTestContext();
 		await ensureOrganizationRankCatalog(ownerCtx);
@@ -128,6 +182,60 @@ describe('organization rank catalog', () => {
 			status: 403,
 			message: 'You do not have permission to use personnel data'
 		});
+	});
+
+	it('does not let roster-view-only users trigger rank catalog seed writes', async () => {
+		const rosterViewerCtx = createTestContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				canManageMembers: false,
+				capabilityMap: { ...NO_CAPABILITIES, personnel: 'view' }
+			}
+		});
+		rosterViewerCtx.rawStore.seed('personnel', [
+			{
+				id: 'person-1',
+				organization_id: 'test-org',
+				rank: 'Field Marshal',
+				first_name: 'Jamie',
+				last_name: 'Rivera'
+			}
+		]);
+
+		await expect(ensureOrganizationRankCatalog(rosterViewerCtx)).rejects.toMatchObject({
+			status: 403,
+			message: 'This action requires an organization admin or owner role'
+		});
+		await expect(loadOrganizationRankCatalog(rosterViewerCtx)).resolves.toEqual([]);
+		expect(rosterViewerCtx.auditPort.events).not.toEqual(
+			expect.arrayContaining([expect.objectContaining({ action: 'organization.rank_catalog.reconciled' })])
+		);
+	});
+
+	it('lets Organization admins trigger rank catalog seed writes', async () => {
+		const adminCtx = createTestContext({
+			auth: {
+				role: 'admin',
+				isPrivileged: true,
+				canManageMembers: true
+			}
+		});
+
+		const catalog = await ensureOrganizationRankCatalog(adminCtx);
+
+		expect(catalog).toEqual(expect.arrayContaining([expect.objectContaining({ code: 'SGT' })]));
+		expect(adminCtx.auditPort.events).toEqual([
+			{
+				action: 'organization.rank_catalog.reconciled',
+				resourceType: 'organization_rank_catalog',
+				resourceId: 'test-org',
+				details: {
+					defaultCount: BUILT_IN_RANK_CATALOG.length,
+					discoveredCount: 0
+				}
+			}
+		]);
 	});
 
 	it('gates catalog writes with Organization governance instead of Personnel edit permission', async () => {
@@ -182,6 +290,9 @@ describe('organization rank catalog', () => {
 			{ field: 'service', value: 'army-ish', message: 'Invalid rank service' },
 			{ field: 'category', value: 'staff', message: 'Invalid rank category' },
 			{ field: 'payGrade', value: 'X-1', message: 'Invalid rank pay grade' },
+			{ field: 'payGrade', value: 'E-10', message: 'Invalid rank pay grade' },
+			{ field: 'payGrade', value: 'W-6', message: 'Invalid rank pay grade' },
+			{ field: 'payGrade', value: 'O-11', message: 'Invalid rank pay grade' },
 			{ field: 'state', value: 'inactive', message: 'Invalid rank state' }
 		] as const;
 
@@ -243,6 +354,49 @@ describe('organization rank catalog', () => {
 					payGrade: 'ungraded',
 					state: 'active',
 					source: 'custom'
+				}
+			}
+		]);
+	});
+
+	it('canonicalizes unambiguous built-in rank aliases on save and preserves existing source', async () => {
+		const ctx = createTestContext();
+		await ensureOrganizationRankCatalog(ctx);
+		ctx.auditPort.events.length = 0;
+
+		await saveOrganizationRankCatalogEntry(ctx, {
+			code: 'sgt',
+			label: 'Sergeant Updated',
+			service: 'army',
+			category: 'enlisted',
+			payGrade: 'E-5',
+			state: 'active',
+			sortOrder: 5
+		});
+
+		await expect(loadOrganizationRankCatalog(ctx)).resolves.toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					code: 'SGT',
+					label: 'Sergeant Updated',
+					source: 'built-in'
+				})
+			])
+		);
+		await expect(loadOrganizationRankCatalog(ctx)).resolves.not.toEqual(
+			expect.arrayContaining([expect.objectContaining({ code: 'sgt' })])
+		);
+		expect(ctx.auditPort.events).toEqual([
+			{
+				action: 'organization.rank_catalog.saved',
+				resourceType: 'organization_rank_catalog',
+				resourceId: 'SGT',
+				details: {
+					code: 'SGT',
+					label: 'Sergeant Updated',
+					payGrade: 'E-5',
+					state: 'active',
+					source: 'built-in'
 				}
 			}
 		]);

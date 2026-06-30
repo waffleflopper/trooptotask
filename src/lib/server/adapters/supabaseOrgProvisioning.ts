@@ -89,9 +89,13 @@ export function createSupabaseOrgProvisioningPort(locals: Pick<App.Locals, 'supa
 		},
 
 		async seedDefaultRankCatalog(organizationId, entries) {
-			const { error } = await supabase
-				.from('organization_rank_catalog')
-				.insert(entries.map((entry) => serializeRankCatalogSeed(organizationId, entry)));
+			const { error } = await supabase.from('organization_rank_catalog').upsert(
+				entries.map((entry) => serializeRankCatalogSeed(organizationId, entry)),
+				{
+					onConflict: 'organization_id,code',
+					ignoreDuplicates: true
+				}
+			);
 
 			return error?.message ?? null;
 		}

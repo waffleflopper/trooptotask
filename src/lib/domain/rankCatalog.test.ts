@@ -105,6 +105,31 @@ describe('rank catalog ordering', () => {
 		expect(['B', 'A'].sort((a, b) => compareRankCodes(a, b, { catalog }))).toEqual(['A', 'B']);
 	});
 
+	it('fails fast when a provided catalog has duplicate exact rank codes', () => {
+		const catalog: RankCatalogEntry[] = [
+			{
+				code: 'DUP',
+				label: 'Duplicate One',
+				service: 'custom',
+				category: 'custom',
+				payGrade: 'E-5',
+				state: 'active',
+				sortOrder: 0
+			},
+			{
+				code: 'DUP',
+				label: 'Duplicate Two',
+				service: 'custom',
+				category: 'custom',
+				payGrade: 'E-6',
+				state: 'active',
+				sortOrder: 0
+			}
+		];
+
+		expect(() => compareRankCodes('DUP', 'DUP', { catalog })).toThrow('Duplicate rank catalog code: DUP');
+	});
+
 	it('reuses the rank index for repeated comparisons with the same catalog identity', () => {
 		let indexBuilds = 0;
 		const source: RankCatalogEntry[] = [

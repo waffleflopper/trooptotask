@@ -127,7 +127,7 @@ export async function mergePersonnelBatch(ctx: WritePorts, input: MergeBatchInpu
 
 		const desiredGroupName = sanitizeString(record.groupName);
 		const candidates = people.filter((person) => {
-			if ((person.rank as string) !== normalizedRank) return false;
+			if (rankResolver.normalize(person.rank as string) !== normalizedRank) return false;
 			if (normalize(person.last_name as string) !== lastName.toLowerCase()) return false;
 			if (normalize(person.first_name as string) !== firstName.toLowerCase()) return false;
 			return true;

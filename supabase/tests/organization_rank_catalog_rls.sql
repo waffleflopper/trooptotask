@@ -2,7 +2,7 @@ BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 
-SELECT plan(14);
+SELECT plan(15);
 
 INSERT INTO auth.users (
 	instance_id,
@@ -256,6 +256,18 @@ SELECT lives_ok(
 	'alpha owner can insert alpha rank catalog entries'
 );
 
+SELECT lives_ok(
+	$$
+		UPDATE public.organization_rank_catalog
+		SET
+			label = 'Alpha Sergeant Updated',
+			state = 'retired',
+			sort_order = 8
+		WHERE code = 'ALPHA-SGT'
+	$$,
+	'alpha owner can update editable alpha rank catalog fields'
+);
+
 SELECT throws_ok(
 	$$
 		INSERT INTO public.organization_rank_catalog (
@@ -423,6 +435,10 @@ VALUES (
 	'Alex',
 	'alex-blocked-rank'
 );
+
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', '10000000-0000-4000-8000-000000124701', true);
+SELECT set_config('request.jwt.claim.email', 'rank-alpha-owner-1247@example.test', true);
 
 SELECT lives_ok(
 	$$

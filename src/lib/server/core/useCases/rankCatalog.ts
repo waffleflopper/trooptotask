@@ -66,6 +66,43 @@ export interface OrganizationRankCatalogEntry extends RankCatalogEntry {
 
 export type SaveOrganizationRankCatalogEntryInput = Omit<RankCatalogEntry, 'source'>;
 
+export interface AddOrganizationRankServicePackResult {
+	service: RankService;
+	addedCount: number;
+	skippedExistingCount: number;
+	entries: OrganizationRankCatalogEntry[];
+}
+
+export interface OrganizationRankCatalogActiveReferences {
+	personnel: number;
+	trainingApplicability: number;
+	dutyRosterTemplateFilters: number;
+	legacyDutyTemplateSlots: number;
+	total: number;
+}
+
+export interface OrganizationRankCatalogHistoricalReferences {
+	signInRosterFilters: number;
+	signInRosterSnapshots: number;
+	acceptedDutyRosterSnapshots: number;
+	total: number;
+}
+
+export interface OrganizationRankCatalogReferenceSummary {
+	code: string;
+	activeReferences: OrganizationRankCatalogActiveReferences;
+	historicalReferences: OrganizationRankCatalogHistoricalReferences;
+	canDelete: boolean;
+}
+
+export interface RankCatalogAdministrationPort {
+	deleteRankCatalogEntry(orgId: string, entryId: string): Promise<void>;
+}
+
+interface RankReferenceMatcher {
+	matches(value: unknown, code: string): boolean;
+}
+
 interface OrganizationRankCatalogRow extends Record<string, unknown> {
 	id?: string;
 	organization_id: string;
@@ -83,12 +120,36 @@ interface PersonnelRankRow {
 	rank?: string | null;
 }
 
+interface TrainingTypeRankReferenceRow {
+	applies_to_ranks?: unknown;
+	excluded_ranks?: unknown;
+}
+
+interface DutyRosterTemplateRankReferenceRow {
+	pool_criteria?: unknown;
+}
+
+interface DutyTemplateSlotRankReferenceRow {
+	allowed_ranks?: unknown;
+}
+
+interface SignInRosterRankReferenceRow {
+	filter_config?: unknown;
+	personnel_snapshot?: unknown;
+}
+
+interface AcceptedDutyRosterSnapshotRankReferenceRow {
+	status?: string | null;
+	snapshot_payload?: unknown;
+}
+
 interface RankCatalogPorts {
 	auth: AuthContext;
 	store: DataStore;
 	rawStore?: DataStore;
 	audit: AuditPort;
 	readOnlyGuard?: ReadOnlyGuard;
+	rankCatalogAdministration?: RankCatalogAdministrationPort;
 }
 
 export async function loadOrganizationRankCatalog(ports: RankCatalogPorts): Promise<OrganizationRankCatalogEntry[]> {
@@ -171,6 +232,125 @@ export async function saveOrganizationRankCatalogEntry(
 	return savedEntry;
 }
 
+export async function addOrganizationRankServicePack(
+	ports: RankCatalogPorts,
+	input: { service: RankService }
+): Promise<AddOrganizationRankServicePackResult> {
+	await requireGovernancePolicy(ports, POLICY_ACTION_CATALOG.organization.updateSettings);
+
+	if (!RANK_SERVICES.has(input.service)) {
+		fail(400, 'Invalid rank service');
+	}
+
+	const servicePack = BUILT_IN_RANK_CATALOG.filter((entry) => entry.service === input.service);
+	if (servicePack.length === 0) {
+		fail(400, 'No built-in rank service pack is available for this service');
+	}
+
+	const existing = await storeForRankCatalog(ports).findMany<OrganizationRankCatalogRow>(
+		RANK_CATALOG_TABLE,
+		ports.auth.orgId
+	);
+	const existingCodes = new Set(existing.map((entry) => entry.code));
+	const missingRows = servicePack
+		.filter((entry) => !existingCodes.has(entry.code))
+		.map((entry) => serializeRankCatalogEntry(ports.auth.orgId, entry, 'built-in'));
+	const savedRows = await storeForRankCatalog(ports).upsertMany<OrganizationRankCatalogRow>(
+		RANK_CATALOG_TABLE,
+		ports.auth.orgId,
+		missingRows,
+		{ onConflict: 'organization_id,code' }
+	);
+	const entries = sortCatalog(savedRows.map(deserializeRankCatalogRow));
+	const result = {
+		service: input.service,
+		addedCount: entries.length,
+		skippedExistingCount: servicePack.length - entries.length,
+		entries
+	};
+
+	ports.audit.log({
+		action: 'organization.rank_catalog.service_pack_added',
+		resourceType: 'organization_rank_catalog',
+		resourceId: input.service,
+		details: {
+			service: input.service,
+			addedCount: result.addedCount,
+			skippedExistingCount: result.skippedExistingCount
+		}
+	});
+
+	return result;
+}
+
+export async function loadOrganizationRankCatalogReferenceSummaries(
+	ports: Pick<RankCatalogPorts, 'auth' | 'store' | 'rawStore'>,
+	input: { codes: readonly string[] }
+): Promise<OrganizationRankCatalogReferenceSummary[]> {
+	const codes = [...new Set(input.codes.map((code) => sanitizeString(code, 80)).filter(Boolean))];
+	const summaries = new Map(codes.map((code) => [code, createEmptyReferenceSummary(code)]));
+	const referenceMatcher = createRankReferenceMatcher(codes);
+
+	if (codes.length === 0) {
+		return [];
+	}
+
+	const referenceStore = storeForRankCatalog(ports);
+	const [personnelRows, trainingTypeRows, dutyTemplateRows, legacySlotRows, signInRosterRows, dutyRosterRunRows] =
+		await Promise.all([
+			referenceStore.findMany<PersonnelRankRow>('personnel', ports.auth.orgId),
+			referenceStore.findMany<TrainingTypeRankReferenceRow>('training_types', ports.auth.orgId),
+			referenceStore.findMany<DutyRosterTemplateRankReferenceRow>('duty_roster_templates', ports.auth.orgId),
+			referenceStore.findMany<DutyTemplateSlotRankReferenceRow>('duty_template_slots', ports.auth.orgId),
+			referenceStore.findMany<SignInRosterRankReferenceRow>('sign_in_rosters', ports.auth.orgId),
+			referenceStore.findMany<AcceptedDutyRosterSnapshotRankReferenceRow>('duty_roster_template_runs', ports.auth.orgId)
+		]);
+
+	for (const code of codes) {
+		const summary = summaries.get(code);
+		if (!summary) continue;
+
+		summary.activeReferences.personnel = personnelRows.filter((row) => referenceMatcher.matches(row.rank, code)).length;
+		summary.activeReferences.trainingApplicability = trainingTypeRows.reduce((count, row) => {
+			return (
+				count +
+				countArrayReferences(row.applies_to_ranks, code, referenceMatcher) +
+				countArrayReferences(row.excluded_ranks, code, referenceMatcher)
+			);
+		}, 0);
+		summary.activeReferences.dutyRosterTemplateFilters = dutyTemplateRows.filter((row) =>
+			arrayContainsRankReference(getDutyRosterTemplateRankValues(row.pool_criteria), code, referenceMatcher)
+		).length;
+		summary.activeReferences.legacyDutyTemplateSlots = legacySlotRows.filter((row) =>
+			arrayContainsRankReference(row.allowed_ranks, code, referenceMatcher)
+		).length;
+		summary.activeReferences.total =
+			summary.activeReferences.personnel +
+			summary.activeReferences.trainingApplicability +
+			summary.activeReferences.dutyRosterTemplateFilters +
+			summary.activeReferences.legacyDutyTemplateSlots;
+
+		summary.historicalReferences.signInRosterFilters = signInRosterRows.filter((row) =>
+			arrayContainsRankReference(getSignInRosterFilterRanks(row.filter_config), code, referenceMatcher)
+		).length;
+		summary.historicalReferences.signInRosterSnapshots = signInRosterRows.filter((row) =>
+			signInRosterSnapshotContainsRank(row.personnel_snapshot, code, referenceMatcher)
+		).length;
+		summary.historicalReferences.acceptedDutyRosterSnapshots = dutyRosterRunRows.filter(
+			(row) =>
+				row.status === 'accepted' &&
+				acceptedDutyRosterSnapshotContainsRank(row.snapshot_payload, code, referenceMatcher)
+		).length;
+		summary.historicalReferences.total =
+			summary.historicalReferences.signInRosterFilters +
+			summary.historicalReferences.signInRosterSnapshots +
+			summary.historicalReferences.acceptedDutyRosterSnapshots;
+		summary.canDelete = summary.activeReferences.total === 0;
+	}
+
+	return codes.map((code) => summaries.get(code) ?? createEmptyReferenceSummary(code));
+}
+
 export async function retireOrganizationRankCatalogEntry(
 	ports: RankCatalogPorts,
 	input: { code: string }
@@ -211,6 +391,57 @@ export async function retireOrganizationRankCatalogEntry(
 	});
 
 	return retiredEntry;
+}
+
+export async function removeOrganizationRankCatalogEntry(
+	ports: RankCatalogPorts,
+	input: { code: string }
+): Promise<void> {
+	await requireGovernancePolicy(ports, POLICY_ACTION_CATALOG.organization.updateSettings);
+
+	const code = sanitizeString(input.code, 80);
+	if (!code) {
+		fail(400, 'Rank code is required');
+	}
+
+	const existing = await storeForRankCatalog(ports).findOne<OrganizationRankCatalogRow>(
+		RANK_CATALOG_TABLE,
+		ports.auth.orgId,
+		{ code }
+	);
+	if (!existing) {
+		fail(404, 'Rank catalog entry not found');
+	}
+	if (existing.source === 'built-in') {
+		fail(409, 'Built-in ranks cannot be removed. Retire them instead.');
+	}
+	if (!existing.id) {
+		fail(500, 'Rank catalog entry is missing its storage identifier');
+	}
+
+	const [references] = await loadOrganizationRankCatalogReferenceSummaries(ports, { codes: [code] });
+	if (references?.activeReferences.total) {
+		fail(409, 'Rank is referenced by active Organization data. Retire it instead.');
+	}
+
+	if (ports.rankCatalogAdministration) {
+		await ports.rankCatalogAdministration.deleteRankCatalogEntry(ports.auth.orgId, existing.id);
+	} else {
+		await storeForRankCatalog(ports).delete(RANK_CATALOG_TABLE, ports.auth.orgId, existing.id);
+	}
+
+	ports.audit.log({
+		action: 'organization.rank_catalog.deleted',
+		resourceType: 'organization_rank_catalog',
+		resourceId: code,
+		details: {
+			code,
+			label: existing.label,
+			source: existing.source,
+			activeReferenceTotal: references?.activeReferences.total ?? 0,
+			historicalReferenceTotal: references?.historicalReferences.total ?? 0
+		}
+	});
 }
 
 export function buildDefaultRankCatalogSeeds(organizationId: string): OrganizationRankCatalogRow[] {
@@ -343,10 +574,124 @@ function rankCatalogAuditDetails(entry: OrganizationRankCatalogEntry): Record<st
 	};
 }
 
+function createEmptyReferenceSummary(code: string): OrganizationRankCatalogReferenceSummary {
+	return {
+		code,
+		activeReferences: {
+			personnel: 0,
+			trainingApplicability: 0,
+			dutyRosterTemplateFilters: 0,
+			legacyDutyTemplateSlots: 0,
+			total: 0
+		},
+		historicalReferences: {
+			signInRosterFilters: 0,
+			signInRosterSnapshots: 0,
+			acceptedDutyRosterSnapshots: 0,
+			total: 0
+		},
+		canDelete: true
+	};
+}
+
+function countArrayReferences(value: unknown, code: string, matcher: RankReferenceMatcher): number {
+	if (!Array.isArray(value)) {
+		return 0;
+	}
+
+	return value.filter((entry) => matcher.matches(entry, code)).length;
+}
+
+function arrayContainsRankReference(value: unknown, code: string, matcher: RankReferenceMatcher): boolean {
+	return Array.isArray(value) && value.some((entry) => matcher.matches(entry, code));
+}
+
+function createRankReferenceMatcher(codes: readonly string[]): RankReferenceMatcher {
+	const normalizedCodes = new Map<string, string | null>();
+
+	for (const code of codes) {
+		const normalized = code.toUpperCase();
+		const existing = normalizedCodes.get(normalized);
+		if (!existing) {
+			normalizedCodes.set(normalized, code);
+		} else if (existing !== code) {
+			normalizedCodes.set(normalized, null);
+		}
+	}
+
+	return {
+		matches(value, code) {
+			if (typeof value !== 'string') {
+				return false;
+			}
+
+			const reference = value.trim();
+			if (reference === code) {
+				return true;
+			}
+
+			return normalizedCodes.get(reference.toUpperCase()) === code;
+		}
+	};
+}
+
+function getDutyRosterTemplateRankValues(poolCriteria: unknown): unknown[] {
+	if (!poolCriteria || typeof poolCriteria !== 'object' || Array.isArray(poolCriteria)) {
+		return [];
+	}
+
+	const rankValues = (poolCriteria as { rankValues?: unknown }).rankValues;
+	return Array.isArray(rankValues) ? rankValues : [];
+}
+
+function getSignInRosterFilterRanks(filterConfig: unknown): unknown[] {
+	if (!filterConfig || typeof filterConfig !== 'object' || Array.isArray(filterConfig)) {
+		return [];
+	}
+
+	const ranks = (filterConfig as { ranks?: unknown }).ranks;
+	return Array.isArray(ranks) ? ranks : [];
+}
+
+function signInRosterSnapshotContainsRank(snapshot: unknown, code: string, matcher: RankReferenceMatcher): boolean {
+	return Array.isArray(snapshot) && snapshot.some((entry) => objectHasRankReference(entry, code, matcher));
+}
+
+function acceptedDutyRosterSnapshotContainsRank(
+	snapshotPayload: unknown,
+	code: string,
+	matcher: RankReferenceMatcher
+): boolean {
+	if (!snapshotPayload || typeof snapshotPayload !== 'object' || Array.isArray(snapshotPayload)) {
+		return false;
+	}
+
+	const snapshot = snapshotPayload as Record<string, unknown>;
+	const knownPersonnelCollections = [
+		snapshot.selectionPersonnel,
+		snapshot.resolvedPool,
+		snapshot.assignedPersonnel,
+		snapshot.unassignedPersonnel
+	];
+
+	return knownPersonnelCollections.some(
+		(collection) =>
+			Array.isArray(collection) && collection.some((entry) => objectHasRankReference(entry, code, matcher))
+	);
+}
+
+function objectHasRankReference(value: unknown, code: string, matcher: RankReferenceMatcher): boolean {
+	if (!value || typeof value !== 'object' || Array.isArray(value)) {
+		return false;
+	}
+
+	return matcher.matches((value as { rank?: unknown }).rank, code);
+}
+
 function sortCatalog(entries: OrganizationRankCatalogEntry[]): OrganizationRankCatalogEntry[] {
 	return entries.toSorted((a, b) => compareRankCodes(a.code, b.code, { catalog: entries }));
 }
 
-function storeForRankCatalog(ports: RankCatalogPorts): DataStore {
+function storeForRankCatalog(ports: Pick<RankCatalogPorts, 'rawStore' | 'store'>): DataStore {
 	return ports.rawStore ?? ports.store;
 }

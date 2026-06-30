@@ -2,8 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { BUILT_IN_RANK_CATALOG } from '$lib/domain/rankCatalog';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import {
+	addOrganizationRankServicePack,
 	ensureOrganizationRankCatalog,
 	loadOrganizationRankCatalog,
+	loadOrganizationRankCatalogReferenceSummaries,
+	removeOrganizationRankCatalogEntry,
 	retireOrganizationRankCatalogEntry,
 	saveOrganizationRankCatalogEntry
 } from './rankCatalog';
@@ -238,6 +241,65 @@ describe('organization rank catalog', () => {
 		]);
 	});
 
+	it('adds a built-in service pack without rewriting Personnel rank strings or duplicating existing codes', async () => {
+		const ctx = createTestContext();
+		ctx.rawStore.seed('personnel', [
+			{
+				id: 'person-1',
+				organization_id: 'test-org',
+				rank: 'PO3',
+				first_name: 'Jamie',
+				last_name: 'Rivera'
+			}
+		]);
+		await saveOrganizationRankCatalogEntry(ctx, {
+			code: 'ADM',
+			label: 'Existing Admiral',
+			service: 'navy',
+			category: 'officer',
+			payGrade: 'O-10',
+			state: 'active',
+			sortOrder: 9
+		});
+		ctx.auditPort.events.length = 0;
+
+		const result = await addOrganizationRankServicePack(ctx, { service: 'navy' });
+		const loaded = await loadOrganizationRankCatalog(ctx);
+
+		expect(result.addedCount).toBeGreaterThan(0);
+		expect(result.skippedExistingCount).toBe(1);
+		expect(loaded.filter((entry) => entry.code === 'ADM')).toHaveLength(1);
+		expect(loaded.find((entry) => entry.code === 'ADM')).toMatchObject({
+			label: 'Existing Admiral',
+			source: 'custom'
+		});
+		expect(loaded).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					code: 'PO3',
+					label: 'Petty Officer Third Class',
+					service: 'navy',
+					source: 'built-in'
+				})
+			])
+		);
+		await expect(ctx.rawStore.findOne('personnel', 'test-org', { id: 'person-1' })).resolves.toMatchObject({
+			rank: 'PO3'
+		});
+		expect(ctx.auditPort.events).toEqual([
+			expect.objectContaining({
+				action: 'organization.rank_catalog.service_pack_added',
+				resourceType: 'organization_rank_catalog',
+				resourceId: 'navy',
+				details: expect.objectContaining({
+					service: 'navy',
+					addedCount: result.addedCount,
+					skippedExistingCount: 1
+				})
+			})
+		]);
+	});
+
 	it('gates catalog writes with Organization governance instead of Personnel edit permission', async () => {
 		const personnelEditorCtx = createTestContext({
 			auth: {
@@ -357,6 +419,245 @@ describe('organization rank catalog', () => {
 				}
 			}
 		]);
+	});
+
+	it('summarizes active rank references for delete eligibility and historical references as warnings', async () => {
+		const ctx = createTestContext();
+		await saveOrganizationRankCatalogEntry(ctx, {
+			code: 'DET-SGT',
+			label: 'Detachment Sergeant',
+			service: 'custom',
+			category: 'custom',
+			payGrade: 'ungraded',
+			state: 'active',
+			sortOrder: 500
+		});
+		ctx.rawStore.seed('personnel', [
+			{
+				id: 'person-1',
+				organization_id: 'test-org',
+				rank: 'DET-SGT',
+				first_name: 'Jamie',
+				last_name: 'Rivera'
+			}
+		]);
+		ctx.rawStore.seed('training_types', [
+			{
+				id: 'training-1',
+				organization_id: 'test-org',
+				name: 'Annual Check',
+				applies_to_ranks: ['DET-SGT'],
+				excluded_ranks: []
+			},
+			{
+				id: 'training-2',
+				organization_id: 'test-org',
+				name: 'Screening',
+				applies_to_ranks: [],
+				excluded_ranks: ['DET-SGT']
+			}
+		]);
+		ctx.rawStore.seed('duty_roster_templates', [
+			{
+				id: 'template-1',
+				organization_id: 'test-org',
+				name: 'Staff Duty',
+				pool_criteria: { rankValues: ['DET-SGT'] }
+			}
+		]);
+		ctx.rawStore.seed('duty_template_slots', [
+			{
+				id: 'slot-1',
+				organization_id: 'test-org',
+				template_id: 'legacy-template',
+				allowed_ranks: ['DET-SGT']
+			}
+		]);
+		ctx.rawStore.seed('sign_in_rosters', [
+			{
+				id: 'sign-in-1',
+				organization_id: 'test-org',
+				filter_config: { ranks: ['DET-SGT'] },
+				personnel_snapshot: [
+					{
+						id: 'person-1',
+						rank: 'DET-SGT',
+						name: 'Jamie Rivera'
+					}
+				]
+			}
+		]);
+		ctx.rawStore.seed('duty_roster_template_runs', [
+			{
+				id: 'run-1',
+				organization_id: 'test-org',
+				status: 'accepted',
+				snapshot_payload: {
+					selectionPersonnel: [
+						{
+							id: 'person-1',
+							rank: 'DET-SGT',
+							displayName: 'Jamie Rivera'
+						}
+					]
+				}
+			},
+			{
+				id: 'run-invalidated',
+				organization_id: 'test-org',
+				status: 'invalidated',
+				snapshot_payload: {
+					selectionPersonnel: [
+						{
+							id: 'person-1',
+							rank: 'DET-SGT',
+							displayName: 'Jamie Rivera'
+						}
+					]
+				}
+			}
+		]);
+
+		const [summary] = await loadOrganizationRankCatalogReferenceSummaries(ctx, { codes: ['DET-SGT'] });
+
+		expect(summary).toMatchObject({
+			code: 'DET-SGT',
+			activeReferences: {
+				personnel: 1,
+				trainingApplicability: 2,
+				dutyRosterTemplateFilters: 1,
+				legacyDutyTemplateSlots: 1,
+				total: 5
+			},
+			historicalReferences: {
+				signInRosterFilters: 1,
+				signInRosterSnapshots: 1,
+				acceptedDutyRosterSnapshots: 1,
+				total: 3
+			},
+			canDelete: false
+		});
+	});
+
+	it('counts normalized references only when the catalog code is unambiguous', async () => {
+		const ctx = createTestContext();
+		ctx.rawStore.seed('personnel', [
+			{
+				id: 'person-lower-custom',
+				organization_id: 'test-org',
+				rank: 'det-sgt'
+			},
+			{
+				id: 'person-exact-army',
+				organization_id: 'test-org',
+				rank: 'GEN'
+			},
+			{
+				id: 'person-ambiguous',
+				organization_id: 'test-org',
+				rank: 'gen'
+			}
+		]);
+
+		const summaries = await loadOrganizationRankCatalogReferenceSummaries(ctx, {
+			codes: ['DET-SGT', 'GEN', 'Gen']
+		});
+		const byCode = new Map(summaries.map((summary) => [summary.code, summary]));
+
+		expect(byCode.get('DET-SGT')?.activeReferences.personnel).toBe(1);
+		expect(byCode.get('GEN')?.activeReferences.personnel).toBe(1);
+		expect(byCode.get('Gen')?.activeReferences.personnel).toBe(0);
+	});
+
+	it('blocks hard deletion when active rank references exist but allows retiring the referenced rank', async () => {
+		const ctx = createTestContext();
+		await saveOrganizationRankCatalogEntry(ctx, {
+			code: 'DET-SGT',
+			label: 'Detachment Sergeant',
+			service: 'custom',
+			category: 'custom',
+			payGrade: 'ungraded',
+			state: 'active',
+			sortOrder: 500
+		});
+		ctx.rawStore.seed('personnel', [
+			{
+				id: 'person-1',
+				organization_id: 'test-org',
+				rank: 'DET-SGT',
+				first_name: 'Jamie',
+				last_name: 'Rivera'
+			}
+		]);
+
+		await expect(removeOrganizationRankCatalogEntry(ctx, { code: 'DET-SGT' })).rejects.toMatchObject({
+			status: 409,
+			message: 'Rank is referenced by active Organization data. Retire it instead.'
+		});
+		await retireOrganizationRankCatalogEntry(ctx, { code: 'DET-SGT' });
+
+		await expect(loadOrganizationRankCatalog(ctx)).resolves.toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					code: 'DET-SGT',
+					state: 'retired'
+				})
+			])
+		);
+	});
+
+	it('removes unused custom ranks through the governed catalog delete path', async () => {
+		const ctx = createTestContext();
+		await saveOrganizationRankCatalogEntry(ctx, {
+			code: 'DET-SGT',
+			label: 'Detachment Sergeant',
+			service: 'custom',
+			category: 'custom',
+			payGrade: 'ungraded',
+			state: 'active',
+			sortOrder: 500
+		});
+		ctx.auditPort.events.length = 0;
+
+		await removeOrganizationRankCatalogEntry(ctx, { code: 'DET-SGT' });
+
+		await expect(loadOrganizationRankCatalog(ctx)).resolves.not.toEqual(
+			expect.arrayContaining([expect.objectContaining({ code: 'DET-SGT' })])
+		);
+		expect(ctx.auditPort.events).toEqual([
+			{
+				action: 'organization.rank_catalog.deleted',
+				resourceType: 'organization_rank_catalog',
+				resourceId: 'DET-SGT',
+				details: {
+					code: 'DET-SGT',
+					label: 'Detachment Sergeant',
+					source: 'custom',
+					activeReferenceTotal: 0,
+					historicalReferenceTotal: 0
+				}
+			}
+		]);
+	});
+
+	it('denies service-pack add and hard-delete writes to Personnel-only editors', async () => {
+		const personnelEditorCtx = createTestContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				canManageMembers: false,
+				capabilityMap: { ...NO_CAPABILITIES, personnel: 'configure' }
+			}
+		});
+
+		await expect(addOrganizationRankServicePack(personnelEditorCtx, { service: 'navy' })).rejects.toMatchObject({
+			status: 403,
+			message: 'This action requires an organization admin or owner role'
+		});
+		await expect(removeOrganizationRankCatalogEntry(personnelEditorCtx, { code: 'DET-SGT' })).rejects.toMatchObject({
+			status: 403,
+			message: 'This action requires an organization admin or owner role'
+		});
 	});
 
 	it('canonicalizes unambiguous built-in rank aliases on save and preserves existing source', async () => {

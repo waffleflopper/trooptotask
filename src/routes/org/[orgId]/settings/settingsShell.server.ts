@@ -29,6 +29,7 @@ export interface SettingsShell {
 		billing: true;
 		members: true;
 		policies: true;
+		ranks: true;
 		archives: true;
 		approvals: true;
 		logs: boolean;
@@ -82,6 +83,7 @@ export async function loadSettingsShell(
 			billing: true,
 			members: true,
 			policies: true,
+			ranks: true,
 			archives: true,
 			approvals: true,
 			logs: isOwner,

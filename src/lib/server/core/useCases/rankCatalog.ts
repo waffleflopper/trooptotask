@@ -152,7 +152,13 @@ interface RankCatalogPorts {
 	rankCatalogAdministration?: RankCatalogAdministrationPort;
 }
 
-export async function loadOrganizationRankCatalog(ports: RankCatalogPorts): Promise<OrganizationRankCatalogEntry[]> {
+type RankCatalogReadPorts = Pick<RankCatalogPorts, 'auth' | 'store' | 'rawStore' | 'readOnlyGuard'> & {
+	audit?: AuditPort;
+};
+
+export async function loadOrganizationRankCatalog(
+	ports: RankCatalogReadPorts
+): Promise<OrganizationRankCatalogEntry[]> {
 	await requireFeaturePolicy(
 		ports,
 		POLICY_ACTION_CATALOG.personnel.viewRoster,

@@ -4,6 +4,33 @@ import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { _deleteConfig, _patchConfig, _postConfig, _putConfig } from './+server';
 
+function seedRankCatalog(ctx: ReturnType<typeof createTestContext>) {
+	ctx.store.seed('organization_rank_catalog', [
+		{
+			organization_id: ctx.auth.orgId,
+			code: 'SGT',
+			label: 'Sergeant',
+			service: 'army',
+			category: 'enlisted',
+			pay_grade: 'E-5',
+			state: 'active',
+			source: 'built-in',
+			sort_order: 0
+		},
+		{
+			organization_id: ctx.auth.orgId,
+			code: 'SSG',
+			label: 'Staff Sergeant',
+			service: 'army',
+			category: 'enlisted',
+			pay_grade: 'E-6',
+			state: 'active',
+			source: 'built-in',
+			sort_order: 1
+		}
+	]);
+}
+
 describe('/api/personnel route authorization', () => {
 	it('declares policy-first route authorization for personnel roster lifecycle writes', () => {
 		expect(_postConfig).toMatchObject({
@@ -47,6 +74,7 @@ describe('/api/personnel route authorization', () => {
 				scopeSet: { kind: 'organization' }
 			}
 		});
+		seedRankCatalog(ctx);
 
 		const result = (await handleUseCaseRequest(_postConfig, ctx, {
 			rank: 'SGT',
@@ -76,6 +104,7 @@ describe('/api/personnel route authorization', () => {
 				scopeSet: { kind: 'organization' }
 			}
 		});
+		seedRankCatalog(ctx);
 		ctx.store.seed('personnel', [
 			{
 				id: '11111111-1111-4111-8111-111111111111',

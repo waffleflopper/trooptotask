@@ -1,5 +1,5 @@
 import type { Personnel } from '$lib/types';
-import { BUILT_IN_RANK_CATALOG, compareRankCodes } from './rankCatalog';
+import { BUILT_IN_RANK_CATALOG, compareRankCodes, type RankCatalogEntry } from './rankCatalog';
 
 export const PERSONNEL_RANK_ORDER = BUILT_IN_RANK_CATALOG.filter(
 	(rank) => (rank.service === 'army' && rank.state === 'active') || rank.code === 'CIV'
@@ -30,6 +30,18 @@ export function comparePersonnelByRankThenName(
 	b: Pick<Personnel, 'rank' | 'lastName' | 'firstName' | 'id'>
 ): number {
 	const rankDiff = getRankPrecedence(a.rank) - getRankPrecedence(b.rank);
+	if (rankDiff !== 0) {
+		return rankDiff;
+	}
+	return compareNames(a, b);
+}
+
+export function comparePersonnelByCatalogRankThenName(
+	a: Pick<Personnel, 'rank' | 'lastName' | 'firstName' | 'id'>,
+	b: Pick<Personnel, 'rank' | 'lastName' | 'firstName' | 'id'>,
+	catalog: readonly RankCatalogEntry[] = BUILT_IN_RANK_CATALOG
+): number {
+	const rankDiff = compareRankCodes(a.rank, b.rank, { catalog });
 	if (rankDiff !== 0) {
 		return rankDiff;
 	}

@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import TrainingTypesPage from './TrainingTypesPage.svelte';
 import { rosterStore } from '$lib/stores/roster.svelte';
 import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
+import type { RankCatalogEntry } from '$lib/domain/rankCatalog';
 import type { Personnel } from '$lib/types';
 import type { TrainingType } from '$features/training/training.types';
 
@@ -95,6 +96,44 @@ describe('TrainingTypesPage', () => {
 		expect(screen.getAllByRole('checkbox', { name: 'SGT' }).length).toBeGreaterThan(0);
 	});
 
+	it('uses active Organization rank catalog entries for applicability and preserves saved retired ranks', async () => {
+		trainingTypesStore.load(
+			[
+				{
+					...trainingType,
+					appliesToRanks: ['DET-RET'],
+					excludedRanks: ['LOCAL-MISSING']
+				}
+			],
+			'org-1'
+		);
+		render(TrainingTypesPage, {
+			props: {
+				data: {
+					training: {
+						data: {
+							trainingTypes: Promise.resolve([trainingType]),
+							rankCatalog: [
+								rankCatalogEntry({ code: 'DET-RET', state: 'retired' }),
+								rankCatalogEntry({ code: 'PO2', label: 'Petty Officer Second Class', service: 'navy' }),
+								rankCatalogEntry({ code: 'SSgt', label: 'Staff Sergeant', service: 'air-force' })
+							]
+						}
+					},
+					personnel: []
+				}
+			}
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: /^CPR 12mo/ }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+
+		expect(screen.getAllByRole('checkbox', { name: 'PO2' }).length).toBeGreaterThan(0);
+		expect(screen.getAllByRole('checkbox', { name: 'SSgt' }).length).toBeGreaterThan(0);
+		expect(screen.getAllByRole('checkbox', { name: 'DET-RET' }).length).toBeGreaterThan(0);
+		expect(screen.getAllByRole('checkbox', { name: 'LOCAL-MISSING' }).length).toBeGreaterThan(0);
+	});
+
 	it('moves type management actions into the floating page toolbar', () => {
 		render(TrainingTypesPage, {
 			props: {
@@ -142,3 +181,15 @@ describe('TrainingTypesPage', () => {
 		expect(screen.getByDisplayValue('CPR')).toBeTruthy();
 	});
 });
+
+function rankCatalogEntry(overrides: Partial<RankCatalogEntry>): RankCatalogEntry {
+	return {
+		code: overrides.code ?? 'SGT',
+		label: overrides.label ?? overrides.code ?? 'Sergeant',
+		service: overrides.service ?? 'army',
+		category: overrides.category ?? 'enlisted',
+		payGrade: overrides.payGrade ?? 'E-5',
+		state: overrides.state ?? 'active',
+		sortOrder: overrides.sortOrder ?? 0
+	};
+}

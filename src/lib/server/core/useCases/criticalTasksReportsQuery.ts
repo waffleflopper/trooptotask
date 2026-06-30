@@ -6,6 +6,8 @@ import type {
 } from '$features/critical-tasks/criticalTasks.types';
 import type { Group } from '$lib/stores/groups.svelte';
 import type { Personnel } from '$lib/types';
+import type { RankCatalogEntry } from '$lib/domain/rankCatalog';
+import { observedRankCodesForOptions } from '$lib/domain/rankOptions';
 import {
 	buildCriticalTasksMatrix,
 	matchesCriticalTasksPersonnelSearch
@@ -56,6 +58,7 @@ interface CriticalTasksReportSource {
 	groups: Group[];
 	tasks: IctTask[];
 	settings: CriticalTasksSettings;
+	rankCatalog: RankCatalogEntry[];
 }
 
 function uniqueSorted(values: Array<string | null | undefined>): string[] {
@@ -81,10 +84,35 @@ function buildCriticalTasksReportScope(source: CriticalTasksReportSource): IctRe
 		totalPersonnelCount: source.personnel.length,
 		filterOptions: {
 			mos: uniqueSorted(source.personnel.map((person) => person.mos)),
-			ranks: uniqueSorted(source.personnel.map((person) => person.rank)),
+			ranks: observedRankCodesForOptions({
+				rankCatalog: source.rankCatalog.length > 0 ? source.rankCatalog : undefined,
+				observedRanks: source.personnel.map((person) => person.rank)
+			}),
 			roles: uniqueSorted(source.personnel.map((person) => person.clinicRole))
 		}
 	};
+}
+
+async function loadCriticalTasksRankCatalog(ctx: QueryPorts): Promise<RankCatalogEntry[]> {
+	const rows = await ctx.store.findMany<{
+		code: string;
+		label: string;
+		service: RankCatalogEntry['service'];
+		category: RankCatalogEntry['category'];
+		pay_grade: RankCatalogEntry['payGrade'];
+		state: RankCatalogEntry['state'];
+		sort_order: number;
+	}>('organization_rank_catalog', ctx.auth.orgId);
+
+	return rows.map((row) => ({
+		code: row.code,
+		label: row.label,
+		service: row.service,
+		category: row.category,
+		payGrade: row.pay_grade,
+		state: row.state,
+		sortOrder: row.sort_order
+	}));
 }
 
 async function buildDashboardFromSource(
@@ -110,7 +138,7 @@ async function buildDashboardFromSource(
 
 async function loadCriticalTasksReportSource(ctx: QueryPorts): Promise<CriticalTasksReportSource> {
 	const orgId = ctx.auth.orgId;
-	const [personnel, groupRows, taskRows, settings] = await Promise.all([
+	const [personnel, groupRows, taskRows, settings, rankCatalog] = await Promise.all([
 		loadRosterPersonnel(ctx, { status: 'active' }),
 		ctx.store.findMany<Record<string, unknown>>('groups', orgId, undefined, {
 			orderBy: [{ column: 'sort_order', ascending: true }]
@@ -122,14 +150,16 @@ async function loadCriticalTasksReportSource(ctx: QueryPorts): Promise<CriticalT
 				{ column: 'task_code', ascending: true }
 			]
 		}),
-		fetchCriticalTasksSettings(ctx)
+		fetchCriticalTasksSettings(ctx),
+		loadCriticalTasksRankCatalog(ctx)
 	]);
 
 	return {
 		personnel,
 		groups: GroupEntity.fromDbArray(groupRows),
 		tasks: IctTaskEntity.fromDbArray(taskRows),
-		settings
+		settings,
+		rankCatalog
 	};
 }
 

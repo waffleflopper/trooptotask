@@ -16,7 +16,7 @@ import { GroupEntity } from '$lib/server/entities/group';
 import type { Personnel } from '$lib/types';
 import type { Group } from '$lib/stores/groups.svelte';
 import type { RankCatalogEntry } from '$lib/domain/rankCatalog';
-import { rankCodesForOptions } from '$lib/domain/rankOptions';
+import { observedRankCodesForOptions } from '$lib/domain/rankOptions';
 import { comparePersonnelByCatalogRankThenName } from '$lib/domain/personnelRank';
 import {
 	buildPivotTableFromMatrix,
@@ -257,7 +257,7 @@ async function buildTrainingReport(ctx: QueryPorts, input: TrainingReportInput =
 			groups,
 			mos: uniqueSorted(personnel.map((person) => person.mos)),
 			roles: uniqueSorted(personnel.map((person) => person.clinicRole)),
-			ranks: rankCodesForOptions({
+			ranks: observedRankCodesForOptions({
 				rankCatalog: rankCatalog.length > 0 ? rankCatalog : undefined,
 				observedRanks: personnel.map((person) => person.rank)
 			})

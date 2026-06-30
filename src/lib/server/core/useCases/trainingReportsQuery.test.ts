@@ -136,10 +136,10 @@ describe('fetchTrainingReportsData', () => {
 		expect(result.dashboard.readinessPercent).toBe(50);
 		expect(result.dashboard.statusCounts.current).toBe(1);
 		expect(result.dashboard.statusCounts.notCompleted).toBe(1);
-		expect(result.filterOptions.ranks).toEqual(['PO2', 'SSgt', 'PFC', 'SGT', 'SPC']);
+		expect(result.filterOptions.ranks).toEqual(['SGT', 'SPC', 'PFC']);
 	});
 
-	it('keeps active catalog, retired catalog, discovered, and unknown Personnel ranks in report filters', async () => {
+	it('keeps observed active, retired, discovered, and unknown Personnel ranks in report filters', async () => {
 		const ctx = buildCtx();
 		const store = ctx.store as ReturnType<typeof createInMemoryDataStore>;
 
@@ -156,7 +156,7 @@ describe('fetchTrainingReportsData', () => {
 
 		const result = await fetchTrainingReportPage(ctx);
 
-		expect(result.filterOptions.ranks).toEqual(['PO2', 'SSgt', 'SP4', 'LOCAL-CADET', 'SGT']);
+		expect(result.filterOptions.ranks).toEqual(['SGT', 'SP4', 'LOCAL-CADET']);
 	});
 
 	it('sorts report rows by catalog rank precedence with unknown ranks last', async () => {

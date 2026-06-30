@@ -150,6 +150,33 @@ describe('rank settings page server', () => {
 		expect(result).toEqual({ success: true, code: 'DET-SGT' });
 	});
 
+	it.each([
+		{ label: 'blank', params: { sortOrder: '' } },
+		{ label: 'missing', params: {} },
+		{ label: 'non-numeric', params: { sortOrder: 'field-grade' } },
+		{ label: 'decimal', params: { sortOrder: '1.5' } }
+	])('returns rankError for $label rank sort order input', async ({ params }) => {
+		const formData = new URLSearchParams({
+			code: 'DET-SGT',
+			label: 'Detachment Sergeant',
+			service: 'custom',
+			category: 'custom',
+			payGrade: 'ungraded',
+			state: 'active'
+		});
+		if (typeof params.sortOrder === 'string') {
+			formData.set('sortOrder', params.sortOrder);
+		}
+
+		const result = await actions.saveRank(actionEvent('saveRank', formData));
+
+		expect(saveOrganizationRankCatalogEntryMock).not.toHaveBeenCalled();
+		expect(result).toMatchObject({
+			status: 400,
+			data: { rankError: 'Tie-break order must be a whole number.' }
+		});
+	});
+
 	it('retires ranks and maps denied writes to rankError action failures', async () => {
 		retireOrganizationRankCatalogEntryMock.mockRejectedValueOnce(
 			Object.assign(new Error('This action requires an organization admin or owner role'), { status: 403 })

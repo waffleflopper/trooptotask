@@ -155,7 +155,7 @@ function buildRankCatalogRow(
 	referenceSummary: OrganizationRankCatalogReferenceSummary | undefined,
 	canManageCatalog: boolean
 ): SettingsRankCatalogRow {
-	const summary = referenceSummary ?? emptyReferenceSummary(entry.code);
+	const summary = referenceSummary ?? unavailableReferenceSummary(entry.code);
 	const isBuiltIn = entry.source === 'built-in';
 	const canDeleteBySource = !isBuiltIn;
 	const canDelete = canManageCatalog && canDeleteBySource && summary.canDelete;
@@ -176,7 +176,7 @@ function buildRankCatalogRow(
 		referenceSummary: summary,
 		warnings: buildReferenceWarnings(summary),
 		commands: {
-			canEdit: canManageCatalog,
+			canEdit: canManageCatalog && !isBuiltIn,
 			canRetire: canManageCatalog && entry.state === 'active',
 			canDelete,
 			deleteDisabledReason: deleteDisabledReason(entry, summary)
@@ -211,6 +211,9 @@ function deleteDisabledReason(
 		return 'Built-in ranks can be retired but not removed.';
 	}
 	if (!summary.canDelete) {
+		if (summary.activeReferences.total === 0 && summary.historicalReferences.total === 0) {
+			return 'Reference check unavailable; retire it instead.';
+		}
 		return 'Referenced by active Organization data; retire it instead.';
 	}
 	return null;
@@ -239,7 +242,7 @@ function optionLabel<Value extends string>(options: Array<SettingsRankOption<Val
 	return options.find((option) => option.value === value)?.label ?? value;
 }
 
-function emptyReferenceSummary(code: string): OrganizationRankCatalogReferenceSummary {
+function unavailableReferenceSummary(code: string): OrganizationRankCatalogReferenceSummary {
 	return {
 		code,
 		activeReferences: {
@@ -255,6 +258,6 @@ function emptyReferenceSummary(code: string): OrganizationRankCatalogReferenceSu
 			acceptedDutyRosterSnapshots: 0,
 			total: 0
 		},
-		canDelete: true
+		canDelete: false
 	};
 }

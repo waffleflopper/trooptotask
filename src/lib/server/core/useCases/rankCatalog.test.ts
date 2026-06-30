@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { BUILT_IN_RANK_CATALOG } from '$lib/domain/rankCatalog';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import {
@@ -270,8 +270,8 @@ describe('organization rank catalog', () => {
 		expect(result.skippedExistingCount).toBe(1);
 		expect(loaded.filter((entry) => entry.code === 'ADM')).toHaveLength(1);
 		expect(loaded.find((entry) => entry.code === 'ADM')).toMatchObject({
-			label: 'Existing Admiral',
-			source: 'custom'
+			label: 'Admiral',
+			source: 'built-in'
 		});
 		expect(loaded).toEqual(
 			expect.arrayContaining([
@@ -539,6 +539,24 @@ describe('organization rank catalog', () => {
 		});
 	});
 
+	it('requires Personnel roster-view access before loading rank reference summaries', async () => {
+		const blockedCtx = createTestContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				canManageMembers: false,
+				capabilityMap: NO_CAPABILITIES
+			}
+		});
+		const findMany = vi.spyOn(blockedCtx.rawStore, 'findMany');
+
+		await expect(loadOrganizationRankCatalogReferenceSummaries(blockedCtx, { codes: ['SGT'] })).rejects.toMatchObject({
+			status: 403,
+			message: 'You do not have permission to use personnel data'
+		});
+		expect(findMany).not.toHaveBeenCalled();
+	});
+
 	it('counts normalized references only when the catalog code is unambiguous', async () => {
 		const ctx = createTestContext();
 		ctx.rawStore.seed('personnel', [
@@ -664,6 +682,7 @@ describe('organization rank catalog', () => {
 		const ctx = createTestContext();
 		await ensureOrganizationRankCatalog(ctx);
 		ctx.auditPort.events.length = 0;
+		const canonicalSergeant = BUILT_IN_RANK_CATALOG.find((entry) => entry.code === 'SGT');
 
 		await saveOrganizationRankCatalogEntry(ctx, {
 			code: 'sgt',
@@ -679,8 +698,13 @@ describe('organization rank catalog', () => {
 			expect.arrayContaining([
 				expect.objectContaining({
 					code: 'SGT',
-					label: 'Sergeant Updated',
-					source: 'built-in'
+					label: canonicalSergeant?.label,
+					service: canonicalSergeant?.service,
+					category: canonicalSergeant?.category,
+					payGrade: canonicalSergeant?.payGrade,
+					state: 'active',
+					source: 'built-in',
+					sortOrder: canonicalSergeant?.sortOrder
 				})
 			])
 		);
@@ -694,13 +718,43 @@ describe('organization rank catalog', () => {
 				resourceId: 'SGT',
 				details: {
 					code: 'SGT',
-					label: 'Sergeant Updated',
-					payGrade: 'E-5',
+					label: canonicalSergeant?.label,
+					payGrade: canonicalSergeant?.payGrade,
 					state: 'active',
 					source: 'built-in'
 				}
 			}
 		]);
+	});
+
+	it('saves built-in rank codes with canonical built-in metadata instead of caller metadata', async () => {
+		const ctx = createTestContext();
+		const canonicalSergeant = BUILT_IN_RANK_CATALOG.find((entry) => entry.code === 'SGT');
+
+		await saveOrganizationRankCatalogEntry(ctx, {
+			code: 'sgt',
+			label: 'Custom Sergeant',
+			service: 'custom',
+			category: 'custom',
+			payGrade: 'ungraded',
+			state: 'retired',
+			sortOrder: 999
+		});
+
+		await expect(loadOrganizationRankCatalog(ctx)).resolves.toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					code: 'SGT',
+					label: canonicalSergeant?.label,
+					service: canonicalSergeant?.service,
+					category: canonicalSergeant?.category,
+					payGrade: canonicalSergeant?.payGrade,
+					state: canonicalSergeant?.state,
+					source: 'built-in',
+					sortOrder: canonicalSergeant?.sortOrder
+				})
+			])
+		);
 	});
 
 	it('lets Organization governors update and retire catalog entries through the use case', async () => {

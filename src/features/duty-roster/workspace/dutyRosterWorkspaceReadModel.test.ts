@@ -240,6 +240,39 @@ describe('dutyRosterWorkspaceReadModel', () => {
 		expect(model.settingsWorkspace?.rankOptions).toEqual(model.rankOptions);
 	});
 
+	it('keeps observed Personnel aliases that resolve to active catalog ranks in Duty Roster filters', () => {
+		const model = buildDutyRosterWorkspaceReadModel(
+			{
+				orgId: 'org-1',
+				orgName: 'Able Company',
+				templates: [],
+				selectedTemplate: template,
+				view: 'settings',
+				settings: {
+					personnel: [
+						{
+							id: 'person-1',
+							rank: 'sgt',
+							firstName: 'Ann',
+							lastName: 'Able',
+							mos: '11B',
+							dutyRole: 'Rifleman',
+							groupId: 'alpha',
+							groupName: 'Alpha'
+						}
+					],
+					resolvedPool: [],
+					baselineRows: [],
+					rankCatalog: [rankCatalogEntry({ code: 'SGT' })]
+				}
+			},
+			null
+		);
+
+		expect(model.rankOptions).toEqual(['SGT', 'sgt']);
+		expect(model.settingsWorkspace?.rankOptions).toEqual(model.rankOptions);
+	});
+
 	it('preserves saved and submitted custom rank filters when no Organization rank catalog is available', () => {
 		const model = buildDutyRosterWorkspaceReadModel(
 			{

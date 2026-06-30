@@ -107,13 +107,10 @@
 				? [...selectedType.appliesToRanks, ...selectedType.excludedRanks]
 				: []
 	);
-	const observedRankOptions = $derived(
-		rankCatalog && rankCatalog.length > 0 ? [] : personnel.map((p: { rank: string }) => p.rank)
-	);
 	const availableRanks = $derived(
 		rankCodesForOptions({
 			rankCatalog,
-			observedRanks: observedRankOptions,
+			observedRanks: personnel.map((p: { rank: string }) => p.rank),
 			preserveRanks: preservedApplicabilityRanks
 		})
 	);

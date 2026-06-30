@@ -39,12 +39,29 @@ export function rankCodesForOptions(input: {
 	for (const rank of observedRanks
 		.map((value) => value.trim())
 		.filter(Boolean)
+		.filter((rank) => !configuredCatalog || observedRankMatchesActiveCatalogRank(rank, configuredCatalog))
 		.toSorted((left, right) => compareRankCodes(left, right, { catalog: configuredCatalog }))) {
 		add(rank);
 	}
 	for (const rank of preserveRanks) add(rank);
 
 	return options;
+}
+
+function observedRankMatchesActiveCatalogRank(rank: string, catalog: readonly RankCatalogEntry[]): boolean {
+	const exactMatch = catalog.find((entry) => entry.code === rank);
+	if (exactMatch) {
+		return exactMatch.state === 'active';
+	}
+
+	const normalizedRank = rank.toUpperCase();
+	const activeCaseMatches = new Set(
+		catalog
+			.filter((entry) => entry.state === 'active' && entry.code.toUpperCase() === normalizedRank)
+			.map((entry) => entry.code)
+	);
+
+	return activeCaseMatches.size === 1;
 }
 
 export function observedRankCodesForOptions(input: {

@@ -2,7 +2,7 @@ BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 
-SELECT plan(21);
+SELECT plan(22);
 
 INSERT INTO auth.users (
 	instance_id,
@@ -359,6 +359,12 @@ RESET ROLE;
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', '10000000-0000-4000-8000-000000124701', true);
 SELECT set_config('request.jwt.claim.email', 'rank-alpha-owner-1247@example.test', true);
+
+SELECT is(
+	public.can_export_organization_data('20000000-0000-4000-8000-000000124701'),
+	true,
+	'alpha owner can export organization data through persisted member-management authority'
+);
 
 SELECT lives_ok(
 	$$

@@ -26,6 +26,14 @@ const RANK_SERVICES = new Set<RankService>([
 	'civilian',
 	'custom'
 ]);
+const RANK_SERVICE_PACK_SERVICES = new Set<RankService>([
+	'army',
+	'navy',
+	'air-force',
+	'marine-corps',
+	'coast-guard',
+	'space-force'
+]);
 const RANK_CATEGORIES = new Set<RankCategory>(['officer', 'warrant', 'enlisted', 'civilian', 'custom']);
 const RANK_STATES = new Set<RankState>(['active', 'retired']);
 const RANK_PAY_GRADES = new Set<RankPayGrade>([
@@ -56,6 +64,8 @@ const RANK_PAY_GRADES = new Set<RankPayGrade>([
 	'ungraded'
 ]);
 const BUILT_IN_RANK_CODES_NORMALIZED = new Set(BUILT_IN_RANK_CATALOG.map((entry) => entry.code.toUpperCase()));
+const PG_INTEGER_MIN = -2_147_483_648;
+const PG_INTEGER_MAX = 2_147_483_647;
 
 export type OrganizationRankCatalogSource = 'built-in' | 'discovered' | 'custom';
 
@@ -64,7 +74,10 @@ export interface OrganizationRankCatalogEntry extends RankCatalogEntry {
 	source: OrganizationRankCatalogSource;
 }
 
-export type SaveOrganizationRankCatalogEntryInput = Omit<RankCatalogEntry, 'source'>;
+export type SaveOrganizationRankCatalogEntryInput = Omit<RankCatalogEntry, 'source'> & {
+	intent?: 'create' | 'update' | 'upsert';
+	originalCode?: string;
+};
 
 export interface AddOrganizationRankServicePackResult {
 	service: RankService;
@@ -210,11 +223,29 @@ export async function saveOrganizationRankCatalogEntry(
 	await requireGovernancePolicy(ports, POLICY_ACTION_CATALOG.organization.updateSettings);
 
 	const entry = sanitizeRankCatalogEntry(input);
+	const intent = input.intent ?? 'upsert';
+	const originalCode = sanitizeString(input.originalCode ?? '', 80);
+	if (intent === 'update') {
+		if (!originalCode) {
+			fail(400, 'Original rank code is required');
+		}
+		if (originalCode !== entry.code) {
+			fail(400, 'Rank code cannot be changed from this edit form.');
+		}
+	}
+
 	const existing = await storeForRankCatalog(ports).findOne<OrganizationRankCatalogRow>(
 		RANK_CATALOG_TABLE,
 		ports.auth.orgId,
 		{ code: entry.code }
 	);
+	if (intent === 'create' && existing) {
+		fail(409, 'Rank catalog entry already exists. Edit it instead.');
+	}
+	if (intent === 'update' && !existing) {
+		fail(404, 'Rank catalog entry not found');
+	}
+
 	const builtInEntry = resolveBuiltInRank(entry.code);
 	const entryToSave = builtInEntry
 		? {
@@ -253,6 +284,9 @@ export async function addOrganizationRankServicePack(
 
 	if (!RANK_SERVICES.has(input.service)) {
 		fail(400, 'Invalid rank service');
+	}
+	if (!RANK_SERVICE_PACK_SERVICES.has(input.service)) {
+		fail(400, 'Invalid rank service pack');
 	}
 
 	const servicePack = BUILT_IN_RANK_CATALOG.filter((entry) => entry.service === input.service);
@@ -415,6 +449,48 @@ export async function retireOrganizationRankCatalogEntry(
 	return retiredEntry;
 }
 
+export async function reactivateOrganizationRankCatalogEntry(
+	ports: RankCatalogPorts,
+	input: { code: string }
+): Promise<OrganizationRankCatalogEntry> {
+	await requireGovernancePolicy(ports, POLICY_ACTION_CATALOG.organization.updateSettings);
+
+	const code = sanitizeString(input.code, 80);
+	if (!code) {
+		fail(400, 'Rank code is required');
+	}
+
+	const existing = await storeForRankCatalog(ports).findOne<OrganizationRankCatalogRow>(
+		RANK_CATALOG_TABLE,
+		ports.auth.orgId,
+		{ code }
+	);
+	if (!existing) {
+		fail(404, 'Rank catalog entry not found');
+	}
+
+	const [saved] = await storeForRankCatalog(ports).upsertMany<OrganizationRankCatalogRow>(
+		RANK_CATALOG_TABLE,
+		ports.auth.orgId,
+		[{ ...existing, state: 'active' }],
+		{ onConflict: 'organization_id,code' }
+	);
+
+	if (!saved) {
+		fail(500, 'Failed to reactivate rank catalog entry');
+	}
+
+	const reactivatedEntry = deserializeRankCatalogRow(saved);
+	ports.audit.log({
+		action: 'organization.rank_catalog.reactivated',
+		resourceType: 'organization_rank_catalog',
+		resourceId: reactivatedEntry.code,
+		details: rankCatalogAuditDetails(reactivatedEntry)
+	});
+
+	return reactivatedEntry;
+}
+
 export async function removeOrganizationRankCatalogEntry(
 	ports: RankCatalogPorts,
 	input: { code: string }
@@ -560,11 +636,16 @@ function sanitizeRankCatalogEntry(input: SaveOrganizationRankCatalogEntryInput):
 		fail(400, 'Invalid rank state');
 	}
 
+	const sortOrder = Number.isFinite(input.sortOrder) ? input.sortOrder : 0;
+	if (!Number.isInteger(sortOrder) || sortOrder < PG_INTEGER_MIN || sortOrder > PG_INTEGER_MAX) {
+		fail(400, 'Tie-break order must fit within PostgreSQL integer range.');
+	}
+
 	return {
 		...input,
 		code: resolveBuiltInRank(code)?.code ?? code,
 		label,
-		sortOrder: Number.isFinite(input.sortOrder) ? input.sortOrder : 0
+		sortOrder
 	};
 }
 

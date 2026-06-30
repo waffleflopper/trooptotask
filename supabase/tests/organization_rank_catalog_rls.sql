@@ -440,6 +440,32 @@ SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', '10000000-0000-4000-8000-000000124701', true);
 SELECT set_config('request.jwt.claim.email', 'rank-alpha-owner-1247@example.test', true);
 
+SELECT throws_ok(
+	$$
+		SELECT public.delete_unused_organization_rank_catalog_entry(
+			'20000000-0000-4000-8000-000000124701',
+			'40000000-0000-4000-8000-000000124703',
+			'ALPHA-RPC'
+		)
+	$$,
+	'42501',
+	'permission denied for function delete_unused_organization_rank_catalog_entry',
+	'authenticated Organization owners cannot execute the service-role-only atomic rank catalog delete'
+);
+
+SELECT is(
+	(
+		SELECT count(*)::integer
+		FROM public.organization_rank_catalog
+		WHERE code = 'ALPHA-RPC'
+	),
+	1,
+	'authenticated atomic rank catalog delete denial preserves the target row'
+);
+
+RESET ROLE;
+SET LOCAL ROLE service_role;
+
 SELECT lives_ok(
 	$$
 		SELECT public.delete_unused_organization_rank_catalog_entry(
@@ -448,7 +474,7 @@ SELECT lives_ok(
 			'ALPHA-RPC'
 		)
 	$$,
-	'atomic rank catalog delete removes unused custom ranks'
+	'service role atomic rank catalog delete removes unused custom ranks'
 );
 
 SELECT is(
@@ -458,7 +484,7 @@ SELECT is(
 		WHERE code = 'ALPHA-RPC'
 	),
 	0,
-	'atomic rank catalog delete removes the target row'
+	'service role atomic rank catalog delete removes the target row'
 );
 
 SELECT throws_ok(

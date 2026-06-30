@@ -262,7 +262,7 @@ discovered_rank_codes AS (
     "personnel"."organization_id",
     btrim("personnel"."rank") AS "code"
   FROM "public"."personnel"
-  WHERE btrim(COALESCE("personnel"."rank", '')) <> ''
+  WHERE length(btrim(COALESCE("personnel"."rank", ''))) BETWEEN 1 AND 80
   GROUP BY "personnel"."organization_id", btrim("personnel"."rank")
 ),
 unknown_rank_codes AS (

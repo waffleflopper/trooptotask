@@ -6,6 +6,7 @@ const {
 	createSupabaseRankCatalogAdministrationPortMock,
 	loadRanksSettingsMock,
 	loadSettingsPageMock,
+	reactivateOrganizationRankCatalogEntryMock,
 	removeOrganizationRankCatalogEntryMock,
 	retireOrganizationRankCatalogEntryMock,
 	saveOrganizationRankCatalogEntryMock
@@ -15,6 +16,7 @@ const {
 	createSupabaseRankCatalogAdministrationPortMock: vi.fn(),
 	loadRanksSettingsMock: vi.fn(),
 	loadSettingsPageMock: vi.fn(),
+	reactivateOrganizationRankCatalogEntryMock: vi.fn(),
 	removeOrganizationRankCatalogEntryMock: vi.fn(),
 	retireOrganizationRankCatalogEntryMock: vi.fn(),
 	saveOrganizationRankCatalogEntryMock: vi.fn()
@@ -43,6 +45,7 @@ vi.mock('$lib/server/core/useCases/rankCatalog', async () => {
 	return {
 		...actual,
 		addOrganizationRankServicePack: addOrganizationRankServicePackMock,
+		reactivateOrganizationRankCatalogEntry: reactivateOrganizationRankCatalogEntryMock,
 		removeOrganizationRankCatalogEntry: removeOrganizationRankCatalogEntryMock,
 		retireOrganizationRankCatalogEntry: retireOrganizationRankCatalogEntryMock,
 		saveOrganizationRankCatalogEntry: saveOrganizationRankCatalogEntryMock
@@ -99,6 +102,7 @@ describe('rank settings page server', () => {
 		loadSettingsPageMock.mockImplementation(async (event, loader) => loader(routeContext, event));
 		addOrganizationRankServicePackMock.mockResolvedValue({ addedCount: 1, skippedExistingCount: 0 });
 		saveOrganizationRankCatalogEntryMock.mockResolvedValue({ code: 'DET-SGT' });
+		reactivateOrganizationRankCatalogEntryMock.mockResolvedValue({ code: 'DET-SGT', state: 'active' });
 		retireOrganizationRankCatalogEntryMock.mockResolvedValue({ code: 'DET-SGT', state: 'retired' });
 		removeOrganizationRankCatalogEntryMock.mockResolvedValue(undefined);
 	});
@@ -133,7 +137,8 @@ describe('rank settings page server', () => {
 					category: 'custom',
 					payGrade: 'ungraded',
 					state: 'active',
-					sortOrder: '500'
+					sortOrder: '500',
+					intent: 'add'
 				})
 			)
 		);
@@ -145,8 +150,44 @@ describe('rank settings page server', () => {
 			category: 'custom',
 			payGrade: 'ungraded',
 			state: 'active',
-			sortOrder: 500
+			sortOrder: 500,
+			intent: 'create',
+			originalCode: ''
 		});
+		expect(result).toEqual({ success: true, code: 'DET-SGT' });
+	});
+
+	it('rejects edited rank submissions when the readonly code is tampered', async () => {
+		const result = await actions.saveRank(
+			actionEvent(
+				'saveRank',
+				new URLSearchParams({
+					code: 'OTHER-SGT',
+					originalCode: 'DET-SGT',
+					intent: 'edit',
+					label: 'Detachment Sergeant',
+					service: 'custom',
+					category: 'custom',
+					payGrade: 'ungraded',
+					state: 'active',
+					sortOrder: '500'
+				})
+			)
+		);
+
+		expect(saveOrganizationRankCatalogEntryMock).not.toHaveBeenCalled();
+		expect(result).toMatchObject({
+			status: 400,
+			data: { rankError: 'Rank code cannot be changed from this edit form.' }
+		});
+	});
+
+	it('reactivates retired ranks through the Organization Settings action', async () => {
+		const result = await actions.reactivateRank(
+			actionEvent('reactivateRank', new URLSearchParams({ code: 'DET-SGT' }))
+		);
+
+		expect(reactivateOrganizationRankCatalogEntryMock).toHaveBeenCalledWith(routeContext, { code: 'DET-SGT' });
 		expect(result).toEqual({ success: true, code: 'DET-SGT' });
 	});
 
@@ -162,7 +203,8 @@ describe('rank settings page server', () => {
 			service: 'custom',
 			category: 'custom',
 			payGrade: 'ungraded',
-			state: 'active'
+			state: 'active',
+			intent: 'add'
 		});
 		if (typeof params.sortOrder === 'string') {
 			formData.set('sortOrder', params.sortOrder);
@@ -174,6 +216,30 @@ describe('rank settings page server', () => {
 		expect(result).toMatchObject({
 			status: 400,
 			data: { rankError: 'Tie-break order must be a whole number.' }
+		});
+	});
+
+	it('returns rankError when rank sort order exceeds PostgreSQL integer range', async () => {
+		const result = await actions.saveRank(
+			actionEvent(
+				'saveRank',
+				new URLSearchParams({
+					code: 'DET-SGT',
+					label: 'Detachment Sergeant',
+					service: 'custom',
+					category: 'custom',
+					payGrade: 'ungraded',
+					state: 'active',
+					sortOrder: '2147483648',
+					intent: 'add'
+				})
+			)
+		);
+
+		expect(saveOrganizationRankCatalogEntryMock).not.toHaveBeenCalled();
+		expect(result).toMatchObject({
+			status: 400,
+			data: { rankError: 'Tie-break order must fit within PostgreSQL integer range.' }
 		});
 	});
 

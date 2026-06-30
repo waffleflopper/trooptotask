@@ -4,6 +4,7 @@
 	import ArchiveIcon from '@lucide/svelte/icons/archive';
 	import PencilIcon from '@lucide/svelte/icons/pencil';
 	import PlusIcon from '@lucide/svelte/icons/plus';
+	import RotateCcwIcon from '@lucide/svelte/icons/rotate-ccw';
 	import SaveIcon from '@lucide/svelte/icons/save';
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
 	import * as Alert from '$lib/components/ui/alert/index.js';
@@ -144,6 +145,7 @@
 		</div>
 		<Separator />
 		<form method="POST" action="?/saveRank" class="grid gap-4" use:enhance={enhancedForm('rank-add')}>
+			<input type="hidden" name="intent" value="add" />
 			<div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
 				<div class="grid gap-2">
 					<Label for="rank-code">Code</Label>
@@ -296,6 +298,21 @@
 						</Button>
 					</form>
 				{/if}
+				{#if entry.commands.canReactivate}
+					<form method="POST" action="?/reactivateRank" use:enhance={enhancedForm(`reactivate-${entry.code}`)}>
+						<input type="hidden" name="code" value={entry.code} />
+						<Button
+							type="submit"
+							variant="outline"
+							size="sm"
+							disabled={savingAction === `reactivate-${entry.code}`}
+							aria-label={`Reactivate ${entry.code}`}
+						>
+							{#if savingAction === `reactivate-${entry.code}`}<Spinner />{:else}<RotateCcwIcon aria-hidden />{/if}
+							Reactivate
+						</Button>
+					</form>
+				{/if}
 				{#if entry.commands.canDelete}
 					<form method="POST" action="?/deleteRank" use:enhance={enhancedForm(`delete-${entry.code}`)}>
 						<input type="hidden" name="code" value={entry.code} />
@@ -353,6 +370,8 @@
 					class="mt-3 grid gap-3"
 					use:enhance={enhancedForm(`edit-${entry.code}`)}
 				>
+					<input type="hidden" name="intent" value="edit" />
+					<input type="hidden" name="originalCode" value={entry.code} />
 					<div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
 						<div class="grid gap-2">
 							<Label for={`${domId}-edit-code`}>Code</Label>

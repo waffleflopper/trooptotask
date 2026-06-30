@@ -14,6 +14,7 @@ export function rankCodesForOptions(input: {
 	fallbackRanks?: readonly string[];
 }): string[] {
 	const { rankCatalog, observedRanks = [], preserveRanks = [], fallbackRanks = [] } = input;
+	const configuredCatalog = rankCatalog && rankCatalog.length > 0 ? rankCatalog : undefined;
 	const options: string[] = [];
 	const seen = new Set<string>();
 
@@ -25,10 +26,10 @@ export function rankCodesForOptions(input: {
 		}
 	}
 
-	if (rankCatalog) {
-		for (const entry of rankCatalog
+	if (configuredCatalog) {
+		for (const entry of configuredCatalog
 			.filter((entry) => entry.state === 'active')
-			.toSorted((left, right) => compareRankCodes(left.code, right.code, { catalog: rankCatalog }))) {
+			.toSorted((left, right) => compareRankCodes(left.code, right.code, { catalog: configuredCatalog }))) {
 			add(entry.code);
 		}
 	} else {
@@ -38,7 +39,7 @@ export function rankCodesForOptions(input: {
 	for (const rank of observedRanks
 		.map((value) => value.trim())
 		.filter(Boolean)
-		.toSorted((left, right) => compareRankCodes(left, right, { catalog: rankCatalog }))) {
+		.toSorted((left, right) => compareRankCodes(left, right, { catalog: configuredCatalog }))) {
 		add(rank);
 	}
 	for (const rank of preserveRanks) add(rank);

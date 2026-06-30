@@ -216,6 +216,7 @@ describe('rank settings read model', () => {
 					commands: {
 						canEdit: false,
 						canRetire: false,
+						canReactivate: false,
 						canDelete: false,
 						deleteDisabledReason: 'Built-in ranks can be retired but not removed.'
 					}
@@ -225,6 +226,7 @@ describe('rank settings read model', () => {
 					commands: {
 						canEdit: false,
 						canRetire: false,
+						canReactivate: false,
 						canDelete: false,
 						deleteDisabledReason: null
 					}
@@ -235,6 +237,7 @@ describe('rank settings read model', () => {
 					commands: {
 						canEdit: false,
 						canRetire: false,
+						canReactivate: false,
 						canDelete: false,
 						deleteDisabledReason: null
 					}
@@ -315,6 +318,7 @@ describe('rank settings read model', () => {
 					commands: {
 						canEdit: false,
 						canRetire: true,
+						canReactivate: false,
 						canDelete: false,
 						deleteDisabledReason: 'Built-in ranks can be retired but not removed.'
 					}
@@ -329,6 +333,58 @@ describe('rank settings read model', () => {
 				})
 			])
 		);
+	});
+
+	it('lets governors reactivate retired built-in ranks without exposing hard delete', () => {
+		const settings = buildRanksSettingsData({
+			canManageCatalog: true,
+			catalog: [
+				{
+					organizationId: 'test-org',
+					code: 'SP4',
+					label: 'Specialist Four',
+					service: 'army',
+					category: 'enlisted',
+					payGrade: 'E-4',
+					state: 'retired',
+					source: 'built-in',
+					sortOrder: 2
+				}
+			],
+			referenceSummaries: [
+				{
+					code: 'SP4',
+					activeReferences: {
+						personnel: 0,
+						trainingApplicability: 0,
+						dutyRosterTemplateFilters: 0,
+						legacyDutyTemplateSlots: 0,
+						total: 0
+					},
+					historicalReferences: {
+						signInRosterFilters: 0,
+						signInRosterSnapshots: 0,
+						acceptedDutyRosterSnapshots: 0,
+						total: 0
+					},
+					canDelete: true
+				}
+			]
+		});
+
+		expect(settings.sections.ranks.entries.retired).toEqual([
+			expect.objectContaining({
+				code: 'SP4',
+				source: 'built-in',
+				commands: {
+					canEdit: false,
+					canRetire: false,
+					canReactivate: true,
+					canDelete: false,
+					deleteDisabledReason: 'Built-in ranks can be retired but not removed.'
+				}
+			})
+		]);
 	});
 
 	it('fails closed when a custom rank is missing its reference summary', () => {
@@ -361,6 +417,7 @@ describe('rank settings read model', () => {
 				commands: {
 					canEdit: true,
 					canRetire: true,
+					canReactivate: false,
 					canDelete: false,
 					deleteDisabledReason: 'Reference check unavailable; retire it instead.'
 				}

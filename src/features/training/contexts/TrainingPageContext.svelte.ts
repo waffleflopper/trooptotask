@@ -3,6 +3,7 @@ import { resolve } from '$app/paths';
 import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
 import { trainingViewsStore } from '$features/training/stores/trainingViews.svelte';
 import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
+import { trainingRankCatalogStore } from '$features/training/stores/rankCatalog.svelte';
 import { rosterStore } from '$lib/stores/roster.svelte';
 import { subscriptionStore } from '$lib/stores/subscription.svelte';
 import { getTrainingStats } from '$features/training/utils/trainingStatus';
@@ -158,7 +159,8 @@ export class TrainingPageContext {
 
 	get rankCatalog(): RankCatalogEntry[] {
 		const rankCatalog = this.#data.training?.data?.rankCatalog;
-		return Array.isArray(rankCatalog) ? rankCatalog : [];
+		if (Array.isArray(rankCatalog)) return rankCatalog;
+		return trainingRankCatalogStore.orgId === this.orgId ? trainingRankCatalogStore.items : [];
 	}
 
 	get savedViewIds(): Set<string> {

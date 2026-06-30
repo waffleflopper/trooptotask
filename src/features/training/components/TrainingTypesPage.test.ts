@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import TrainingTypesPage from './TrainingTypesPage.svelte';
 import { rosterStore } from '$lib/stores/roster.svelte';
+import { trainingRankCatalogStore } from '$features/training/stores/rankCatalog.svelte';
 import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
 import type { RankCatalogEntry } from '$lib/domain/rankCatalog';
 import type { Personnel } from '$lib/types';
@@ -66,12 +67,14 @@ const trainingType: TrainingType = {
 describe('TrainingTypesPage', () => {
 	beforeEach(() => {
 		rosterStore.load(personnel, 'org-1');
+		trainingRankCatalogStore.load([], 'org-1');
 		trainingTypesStore.load([trainingType], 'org-1');
 	});
 
 	afterEach(() => {
 		cleanup();
 		rosterStore.load([], 'org-test-reset');
+		trainingRankCatalogStore.load([], 'org-test-reset');
 		trainingTypesStore.load([], 'org-test-reset');
 	});
 
@@ -132,6 +135,33 @@ describe('TrainingTypesPage', () => {
 		expect(screen.getAllByRole('checkbox', { name: 'SSgt' }).length).toBeGreaterThan(0);
 		expect(screen.getAllByRole('checkbox', { name: 'DET-RET' }).length).toBeGreaterThan(0);
 		expect(screen.getAllByRole('checkbox', { name: 'LOCAL-MISSING' }).length).toBeGreaterThan(0);
+	});
+
+	it('uses the hydrated Organization rank catalog when route rank catalog data is still streamed', async () => {
+		const catalog = [
+			rankCatalogEntry({ code: 'PO2', label: 'Petty Officer Second Class', service: 'navy' }),
+			rankCatalogEntry({ code: 'SSgt', label: 'Staff Sergeant', service: 'air-force' })
+		];
+		trainingRankCatalogStore.load(catalog, 'org-1');
+
+		render(TrainingTypesPage, {
+			props: {
+				data: {
+					training: {
+						data: {
+							trainingTypes: Promise.resolve([trainingType]),
+							rankCatalog: Promise.resolve(catalog)
+						}
+					},
+					personnel: []
+				}
+			}
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: '+ New Type' }));
+
+		expect(screen.getAllByRole('checkbox', { name: 'PO2' }).length).toBeGreaterThan(0);
+		expect(screen.getAllByRole('checkbox', { name: 'SSgt' }).length).toBeGreaterThan(0);
 	});
 
 	it('moves type management actions into the floating page toolbar', () => {

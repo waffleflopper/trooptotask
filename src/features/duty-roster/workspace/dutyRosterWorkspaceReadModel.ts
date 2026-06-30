@@ -343,26 +343,28 @@ export function dutyRosterRankOptions(
 	rankCatalog: readonly RankCatalogEntry[] | undefined,
 	preserveRankValues: string[] = []
 ): string[] {
-	if (!rankCatalog) {
-		return DUTY_ROSTER_RANK_OPTIONS;
-	}
-
 	const options: string[] = [];
 	const seen = new Set<string>();
-	for (const entry of rankCatalog
-		.filter((entry) => entry.state === 'active')
-		.toSorted((left, right) => compareRankCodes(left.code, right.code, { catalog: rankCatalog }))) {
-		if (!seen.has(entry.code)) {
-			options.push(entry.code);
-			seen.add(entry.code);
-		}
-	}
 
-	for (const rank of preserveRankValues.map((value) => value.trim()).filter(Boolean)) {
+	function add(rank: string): void {
 		if (!seen.has(rank)) {
 			options.push(rank);
 			seen.add(rank);
 		}
+	}
+
+	if (!rankCatalog) {
+		for (const rank of DUTY_ROSTER_RANK_OPTIONS) add(rank);
+	} else {
+		for (const entry of rankCatalog
+			.filter((entry) => entry.state === 'active')
+			.toSorted((left, right) => compareRankCodes(left.code, right.code, { catalog: rankCatalog }))) {
+			add(entry.code);
+		}
+	}
+
+	for (const rank of preserveRankValues.map((value) => value.trim()).filter(Boolean)) {
+		add(rank);
 	}
 
 	return options;

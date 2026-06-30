@@ -240,6 +240,34 @@ describe('dutyRosterWorkspaceReadModel', () => {
 		expect(model.settingsWorkspace?.rankOptions).toEqual(model.rankOptions);
 	});
 
+	it('preserves saved and submitted custom rank filters when no Organization rank catalog is available', () => {
+		const model = buildDutyRosterWorkspaceReadModel(
+			{
+				orgId: 'org-1',
+				orgName: 'Able Company',
+				templates: [],
+				selectedTemplate: {
+					...template,
+					poolCriteria: {
+						...template.poolCriteria,
+						rankValues: ['SGT', 'LOCAL-SAVED']
+					}
+				},
+				view: 'settings'
+			},
+			{
+				values: {
+					rankValues: [' LOCAL-SUBMITTED ']
+				}
+			}
+		);
+
+		expect(model.rankOptions).toContain('SGT');
+		expect(model.rankOptions).toContain('LOCAL-SAVED');
+		expect(model.rankOptions).toContain('LOCAL-SUBMITTED');
+		expect(model.settingsWorkspace?.rankOptions).toEqual(model.rankOptions);
+	});
+
 	it('locks Manual DA6 Baseline only when non-invalidated accepted history exists', () => {
 		const invalidatedOnly = buildDutyRosterWorkspaceReadModel(
 			{

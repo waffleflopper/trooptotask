@@ -178,6 +178,7 @@ function buildRankCatalogRow(
 		commands: {
 			canEdit: canManageCatalog && !isBuiltIn,
 			canRetire: canManageCatalog && entry.state === 'active',
+			canReactivate: canManageCatalog && entry.state === 'retired',
 			canDelete,
 			deleteDisabledReason: deleteDisabledReason(entry, summary)
 		}

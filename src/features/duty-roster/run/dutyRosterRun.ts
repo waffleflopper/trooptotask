@@ -1,7 +1,7 @@
 import { resolveSlotBlockingMode } from '$features/duty-roster/blockingMode';
 import type { DutyEvent } from '$features/duty-roster/duty-roster.types';
 import type { Da6AvailabilityTreatment, Personnel, SpecialDay, StatusType } from '$lib/types';
-import { comparePersonnelByRankThenName } from '$lib/domain/personnelRank';
+import { comparePersonnelByCatalogRankThenName } from '$lib/domain/personnelRank';
 import { computeDa6Roster } from './da6RosterEngine';
 import type { AvailabilityClassification, Da6RosterEngineInput, Da6RosterEngineRow } from './da6RosterEngine';
 import { da6ReasonText } from './da6ReasonText';
@@ -725,7 +725,7 @@ export function buildDutyRosterRunSnapshot(input: DutyRosterRunInput): DutyRoste
 	const personnel = input.personnel
 		.filter((person) => !exemptIds.has(person.id))
 		.map(clonePersonnel)
-		.sort(comparePersonnelByRankThenName);
+		.sort((left, right) => comparePersonnelByCatalogRankThenName(left, right, input.rankCatalog));
 	const specialDaysByDate = buildSpecialDaysByDate(input.specialDays);
 	const dutyDates = buildDutyDates(config, input.specialDays, specialDaysByDate);
 	const indexes = buildRunIndexes(input, config, dutyDates, specialDaysByDate);
@@ -746,6 +746,7 @@ export function buildDutyRosterRunSnapshot(input: DutyRosterRunInput): DutyRoste
 	);
 	const engineOutput = computeDa6Roster({
 		pool: personnel,
+		rankCatalog: input.rankCatalog,
 		dutyDates,
 		sequenceByDate,
 		classificationByPersonDate,

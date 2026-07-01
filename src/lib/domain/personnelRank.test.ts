@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { comparePersonnelByRankThenName } from './personnelRank';
+import { PERSONNEL_RANK_ORDER, comparePersonnelByRankThenName } from './personnelRank';
 import type { Personnel } from '$lib/types';
 
 function person(overrides: Partial<Personnel>): Personnel {
@@ -17,6 +17,39 @@ function person(overrides: Partial<Personnel>): Personnel {
 }
 
 describe('personnel rank ordering', () => {
+	it('preserves the legacy Army rank order export for existing consumers', () => {
+		expect(PERSONNEL_RANK_ORDER).toEqual([
+			'GEN',
+			'LTG',
+			'MG',
+			'BG',
+			'COL',
+			'LTC',
+			'MAJ',
+			'CPT',
+			'1LT',
+			'2LT',
+			'CW5',
+			'CW4',
+			'CW3',
+			'CW2',
+			'WO1',
+			'CSM',
+			'SGM',
+			'1SG',
+			'MSG',
+			'SFC',
+			'SSG',
+			'SGT',
+			'CPL',
+			'SPC',
+			'PFC',
+			'PV2',
+			'PV1',
+			'CIV'
+		]);
+	});
+
 	it('orders DA6 roster rows by highest pay grade then name', () => {
 		const ordered = [
 			person({ id: 'spc-z', rank: 'SPC', lastName: 'Zulu' }),
@@ -36,5 +69,14 @@ describe('personnel rank ordering', () => {
 		].sort(comparePersonnelByRankThenName);
 
 		expect(ordered.map((item) => item.id)).toEqual(['sgt', 'x-a', 'x-z']);
+	});
+
+	it('uses name fallback for distinct custom ranks outside the legacy Army order', () => {
+		const ordered = [
+			person({ id: 'custom-z', rank: 'AAA-CUSTOM', lastName: 'Zulu' }),
+			person({ id: 'custom-a', rank: 'ZZZ-CUSTOM', lastName: 'Able' })
+		].sort(comparePersonnelByRankThenName);
+
+		expect(ordered.map((item) => item.id)).toEqual(['custom-a', 'custom-z']);
 	});
 });

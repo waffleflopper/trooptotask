@@ -4,7 +4,8 @@ export type TrainingLoadPhase =
 	| 'training-types'
 	| 'training-views'
 	| 'pinned-groups'
-	| 'personnel-trainings';
+	| 'personnel-trainings'
+	| 'rank-catalog';
 
 function getNowMs(): number {
 	return typeof performance !== 'undefined' ? performance.now() : Date.now();

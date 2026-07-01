@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/sv
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import PersonnelModal from './PersonnelModal.svelte';
 import { toastStore } from '$lib/stores/toast.svelte';
+import type { RankCatalogEntry } from '$lib/domain/rankCatalog';
 
 afterEach(async () => {
 	cleanup();
@@ -12,6 +13,38 @@ afterEach(async () => {
 });
 
 describe('PersonnelModal', () => {
+	const armyRankCatalog: RankCatalogEntry[] = [
+		{
+			code: 'ADM',
+			label: 'Admiral',
+			service: 'navy',
+			category: 'officer',
+			payGrade: 'O-10',
+			state: 'active',
+			sortOrder: 0
+		},
+		{
+			code: 'SPC',
+			label: 'Specialist',
+			service: 'army',
+			category: 'enlisted',
+			payGrade: 'E-4',
+			state: 'active',
+			sortOrder: 1
+		}
+	];
+	const navyRankCatalog: RankCatalogEntry[] = [
+		{
+			code: 'PO3',
+			label: 'Petty Officer Third Class',
+			service: 'navy',
+			category: 'enlisted',
+			payGrade: 'E-4',
+			state: 'active',
+			sortOrder: 0
+		}
+	];
+
 	it('labels the personnel position field as Duty Role', () => {
 		render(PersonnelModal, {
 			props: {
@@ -24,6 +57,72 @@ describe('PersonnelModal', () => {
 		expect(screen.getByLabelText('Duty Role')).toBeTruthy();
 	});
 
+	it('defaults new Personnel to SPC when the common rank is available', async () => {
+		const onClose = vi.fn();
+		const onSubmit = vi.fn().mockResolvedValue(undefined);
+
+		render(PersonnelModal, {
+			props: {
+				groups: [],
+				rankCatalog: armyRankCatalog,
+				onSubmit,
+				onClose
+			}
+		});
+
+		await fireEvent.input(screen.getByLabelText(/Last Name/i), { target: { value: 'Nolan' } });
+		await fireEvent.input(screen.getByLabelText(/First Name/i), { target: { value: 'Avery' } });
+		await fireEvent.click(screen.getByTestId('personnel-save'));
+
+		await waitFor(() => {
+			expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ rank: 'SPC' }));
+		});
+	});
+
+	it('defaults new Personnel to the catalog-cased SPC option when catalog casing differs', async () => {
+		const onClose = vi.fn();
+		const onSubmit = vi.fn().mockResolvedValue(undefined);
+
+		render(PersonnelModal, {
+			props: {
+				groups: [],
+				rankCatalog: [{ ...armyRankCatalog[1], code: 'spc', label: 'Specialist' }],
+				onSubmit,
+				onClose
+			}
+		});
+
+		await fireEvent.input(screen.getByLabelText(/Last Name/i), { target: { value: 'Nolan' } });
+		await fireEvent.input(screen.getByLabelText(/First Name/i), { target: { value: 'Avery' } });
+		await fireEvent.click(screen.getByTestId('personnel-save'));
+
+		await waitFor(() => {
+			expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ rank: 'spc' }));
+		});
+	});
+
+	it('requires explicit rank selection when no common default is available', async () => {
+		const onClose = vi.fn();
+		const onSubmit = vi.fn().mockResolvedValue(undefined);
+
+		render(PersonnelModal, {
+			props: {
+				groups: [],
+				rankCatalog: navyRankCatalog,
+				onSubmit,
+				onClose
+			}
+		});
+
+		await fireEvent.input(screen.getByLabelText(/Last Name/i), { target: { value: 'Nolan' } });
+		await fireEvent.input(screen.getByLabelText(/First Name/i), { target: { value: 'Avery' } });
+		await fireEvent.click(screen.getByTestId('personnel-save'));
+
+		expect(screen.getByText('Select a rank.')).toBeTruthy();
+		expect(onSubmit).not.toHaveBeenCalled();
+		expect(onClose).not.toHaveBeenCalled();
+	});
+
 	it('keeps the modal open when async submit fails', async () => {
 		const onClose = vi.fn();
 		const onSubmit = vi.fn().mockRejectedValue(new Error('insert blocked by policy'));
@@ -32,6 +131,7 @@ describe('PersonnelModal', () => {
 		render(PersonnelModal, {
 			props: {
 				groups: [],
+				rankCatalog: armyRankCatalog,
 				onSubmit,
 				onClose
 			}
@@ -92,6 +192,7 @@ describe('PersonnelModal', () => {
 		render(PersonnelModal, {
 			props: {
 				groups: [],
+				rankCatalog: armyRankCatalog,
 				onSubmit,
 				onClose
 			}

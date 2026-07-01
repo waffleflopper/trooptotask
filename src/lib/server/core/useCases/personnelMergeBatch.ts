@@ -4,6 +4,7 @@ import { PersonnelEntity } from '$lib/server/entities/personnel';
 import { sanitizeString } from '$lib/server/validation';
 import type { WritePorts } from '$lib/server/core/ports';
 import { requireFeaturePolicy } from './featurePolicy';
+import { createPersonnelCatalogRankResolver } from './personnelRankCatalog';
 
 const entity = PersonnelEntity;
 const MAX_BATCH_SIZE = 500;
@@ -81,11 +82,12 @@ export async function mergePersonnelBatch(ctx: WritePorts, input: MergeBatchInpu
 		fail(400, `Maximum ${MAX_BATCH_SIZE} records per batch`);
 	}
 
-	const [people, groups] = await Promise.all([
+	const [people, groups, rankResolver] = await Promise.all([
 		ctx.store.findMany<Record<string, unknown>>('personnel', ctx.auth.orgId, undefined, {
 			isNull: { archived_at: true }
 		}),
-		ctx.store.findMany<{ id: string; name: string }>('groups', ctx.auth.orgId)
+		ctx.store.findMany<{ id: string; name: string }>('groups', ctx.auth.orgId),
+		createPersonnelCatalogRankResolver(ctx)
 	]);
 
 	const groupNameById = new Map(groups.map((group) => [group.id, group.name]));
@@ -105,6 +107,7 @@ export async function mergePersonnelBatch(ctx: WritePorts, input: MergeBatchInpu
 			errors.push({ index, message: 'Rank, Last Name, and First Name are required' });
 			continue;
 		}
+		const normalizedRank = rankResolver.normalize(rank);
 
 		const desiredEts = sanitizeString(record.ets);
 		const desiredDeros = sanitizeString(record.deros);
@@ -120,14 +123,22 @@ export async function mergePersonnelBatch(ctx: WritePorts, input: MergeBatchInpu
 
 		const desiredGroupName = sanitizeString(record.groupName);
 		const candidates = people.filter((person) => {
-			if (normalize(person.rank as string) !== rank.toLowerCase()) return false;
+			const personRank = sanitizeString(person.rank as string, 80);
+			if (normalizedRank) {
+				if (rankResolver.normalize(personRank) !== normalizedRank) return false;
+			} else if (normalize(personRank) !== normalize(rank)) {
+				return false;
+			}
 			if (normalize(person.last_name as string) !== lastName.toLowerCase()) return false;
 			if (normalize(person.first_name as string) !== firstName.toLowerCase()) return false;
 			return true;
 		});
 
 		if (candidates.length === 0) {
-			errors.push({ index, message: 'No active personnel row matched this record' });
+			errors.push({
+				index,
+				message: normalizedRank ? 'No active personnel row matched this record' : rankResolver.errorMessage(rank)
+			});
 			continue;
 		}
 

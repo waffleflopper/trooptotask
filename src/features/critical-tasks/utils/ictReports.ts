@@ -915,7 +915,7 @@ export function filterIctReportPersonnel(personnel: Personnel[], filters: IctRep
 		if (filters.groupId && person.groupId !== filters.groupId) return false;
 		if (mosFilters.length > 0 && !mosFilters.includes(person.mos)) return false;
 		if (filters.role && person.clinicRole !== filters.role) return false;
-		if (filters.rank && person.rank !== filters.rank) return false;
+		if (filters.rank && person.rank.trim() !== filters.rank.trim()) return false;
 		return true;
 	});
 }

@@ -1,9 +1,10 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { BUILT_IN_RANK_CATALOG, type RankCatalogEntry } from '$lib/domain/rankCatalog';
 	import type { Personnel } from '$lib/types';
 	import type { SignInRoster } from '../sign-in-rosters.types';
-	import { ARMY_RANKS, ALL_RANKS } from '$lib/types';
-	import { PERSONNEL_RANK_ORDER } from '$lib/domain/personnelRank';
+	import { ALL_RANKS } from '$lib/types';
+	import { signInRosterRankOptions, sortSignInRosterRows } from '../signInRosterRankOrder';
 	import type { RowInput } from 'jspdf-autotable';
 	import * as AppDialog from '$lib/components/ui/app-dialog';
 	import { Badge } from '$lib/components/ui/badge';
@@ -25,14 +26,14 @@
 		orgId: string;
 		personnel: Personnel[];
 		groups: { id: string; name: string }[];
+		rankCatalog?: RankCatalogEntry[];
 		canEdit: boolean;
 		onClose: () => void;
 	}
 
-	let { orgId, personnel, groups, canEdit, onClose }: Props = $props();
+	type RankQuickFilterCategory = Extract<RankCatalogEntry['category'], 'officer' | 'warrant' | 'enlisted' | 'civilian'>;
 
-	// Pre-compute rank index map
-	const RANK_INDEX = new Map<string, number>(PERSONNEL_RANK_ORDER.map((rank, index) => [rank, index]));
+	let { orgId, personnel, groups, rankCatalog = undefined, canEdit, onClose }: Props = $props();
 
 	// View toggle
 	let view = $state<'list' | 'create'>('list');
@@ -59,9 +60,30 @@
 	let rosterDate = $state(formatDateValue(new Date()));
 	let separateByGroup = $state(false);
 	let sortBy = $state<'alphabetical' | 'rank'>('alphabetical');
-	let selectedRanks = new SvelteSet<string>(ALL_RANKS);
+	const rankFilterOptions = $derived(
+		signInRosterRankOptions(
+			rankCatalog,
+			personnel.map((person) => person.rank),
+			ALL_RANKS
+		)
+	);
+	type RankFilterSelectionMode = 'all' | 'custom';
+	const customSelectedRanks = new SvelteSet<string>();
+	let rankFilterSelectionMode = $state<RankFilterSelectionMode>('all');
+	const selectedRankValues = $derived.by<ReadonlySet<string>>(() =>
+		rankFilterSelectionMode === 'all' ? new Set(rankFilterOptions) : customSelectedRanks
+	);
 	let selectedGroups = new SvelteSet<string>();
 	let saving = $state(false);
+
+	function beginCustomRankSelection() {
+		if (rankFilterSelectionMode === 'custom') return;
+		customSelectedRanks.clear();
+		for (const rank of rankFilterOptions) {
+			customSelectedRanks.add(rank);
+		}
+		rankFilterSelectionMode = 'custom';
+	}
 
 	// Fetch rosters
 	async function fetchRosters(reset = false) {
@@ -98,6 +120,7 @@
 	}
 
 	onMount(() => {
+		resetCreateFilters();
 		void fetchRosters(true);
 	});
 
@@ -109,26 +132,70 @@
 	}
 
 	// Category toggles
-	const enlistedAndNco = [...ARMY_RANKS.enlisted, ...ARMY_RANKS.nco];
-	const allOfficersSelected = $derived(ARMY_RANKS.officer.every((r) => selectedRanks.has(r)));
-	const allWarrantSelected = $derived(ARMY_RANKS.warrant.every((r) => selectedRanks.has(r)));
-	const allEnlistedSelected = $derived(enlistedAndNco.every((r) => selectedRanks.has(r)));
-	const allCiviliansSelected = $derived(ARMY_RANKS.civilian.every((r) => selectedRanks.has(r)));
+	const rankCategoryGroups = $derived.by(() => {
+		const catalogForQuickFilters = rankCatalog && rankCatalog.length > 0 ? rankCatalog : BUILT_IN_RANK_CATALOG;
+		const catalogCategoriesByCode: Partial<Record<string, RankQuickFilterCategory>> = {};
+		const catalogCategoriesByNormalizedCode: Partial<Record<string, RankQuickFilterCategory | null>> = {};
+		for (const entry of catalogForQuickFilters) {
+			if (isQuickFilterCategory(entry.category)) {
+				catalogCategoriesByCode[entry.code] = entry.category;
+
+				const normalizedCode = entry.code.toUpperCase();
+				const existingCategory = catalogCategoriesByNormalizedCode[normalizedCode];
+				if (existingCategory === undefined) {
+					catalogCategoriesByNormalizedCode[normalizedCode] = entry.category;
+				} else if (existingCategory !== entry.category) {
+					catalogCategoriesByNormalizedCode[normalizedCode] = null;
+				}
+			}
+		}
+		const groups: Record<RankQuickFilterCategory, string[]> = {
+			officer: [],
+			warrant: [],
+			enlisted: [],
+			civilian: []
+		};
+
+		for (const rank of rankFilterOptions) {
+			const category = catalogCategoriesByCode[rank] ?? catalogCategoriesByNormalizedCode[rank.toUpperCase()];
+			if (category) {
+				groups[category].push(rank);
+			}
+		}
+
+		return groups;
+	});
+	const allOfficersSelected = $derived(areAllRanksSelected(rankCategoryGroups.officer));
+	const allWarrantSelected = $derived(areAllRanksSelected(rankCategoryGroups.warrant));
+	const allEnlistedSelected = $derived(areAllRanksSelected(rankCategoryGroups.enlisted));
+	const allCiviliansSelected = $derived(areAllRanksSelected(rankCategoryGroups.civilian));
+
+	function isQuickFilterCategory(category: RankCatalogEntry['category']): category is RankQuickFilterCategory {
+		return category === 'officer' || category === 'warrant' || category === 'enlisted' || category === 'civilian';
+	}
+
+	function areAllRanksSelected(ranks: readonly string[]): boolean {
+		return ranks.length > 0 && ranks.every((rank) => selectedRankValues.has(rank));
+	}
 
 	function toggleCategory(ranks: readonly string[]) {
-		const allSelected = ranks.every((r) => selectedRanks.has(r));
+		if (ranks.length === 0) return;
+
+		beginCustomRankSelection();
+		const allSelected = ranks.every((r) => customSelectedRanks.has(r));
 		if (allSelected) {
-			ranks.forEach((r) => selectedRanks.delete(r));
+			ranks.forEach((r) => customSelectedRanks.delete(r));
 		} else {
-			ranks.forEach((r) => selectedRanks.add(r));
+			ranks.forEach((r) => customSelectedRanks.add(r));
 		}
 	}
 
 	function toggleRank(rank: string) {
-		if (selectedRanks.has(rank)) {
-			selectedRanks.delete(rank);
+		beginCustomRankSelection();
+		if (customSelectedRanks.has(rank)) {
+			customSelectedRanks.delete(rank);
 		} else {
-			selectedRanks.add(rank);
+			customSelectedRanks.add(rank);
 		}
 	}
 
@@ -143,7 +210,7 @@
 	// Filtered personnel
 	const filteredPersonnel = $derived.by(() => {
 		return personnel.filter((p) => {
-			if (!selectedRanks.has(p.rank)) return false;
+			if (!selectedRankValues.has(p.rank.trim())) return false;
 			if (selectedGroups.size > 0 && !selectedGroups.has(p.groupName)) return false;
 			return true;
 		});
@@ -151,7 +218,7 @@
 
 	// Sort personnel for snapshot
 	function buildSnapshot(people: Personnel[]) {
-		const sorted = people.map((p) => ({
+		const snapshot = people.map((p) => ({
 			id: p.id,
 			rank: p.rank,
 			lastName: p.lastName,
@@ -159,24 +226,7 @@
 			group: p.groupName
 		}));
 
-		if (sortBy === 'rank') {
-			sorted.sort((a, b) => {
-				const rankA = RANK_INDEX.get(a.rank) ?? PERSONNEL_RANK_ORDER.length;
-				const rankB = RANK_INDEX.get(b.rank) ?? PERSONNEL_RANK_ORDER.length;
-				if (rankA !== rankB) return rankA - rankB;
-				const lastDiff = a.lastName.localeCompare(b.lastName);
-				if (lastDiff !== 0) return lastDiff;
-				return a.firstName.localeCompare(b.firstName);
-			});
-		} else {
-			sorted.sort((a, b) => {
-				const lastDiff = a.lastName.localeCompare(b.lastName);
-				if (lastDiff !== 0) return lastDiff;
-				return a.firstName.localeCompare(b.firstName);
-			});
-		}
-
-		return sorted;
+		return sortSignInRosterRows(snapshot, sortBy, rankCatalog);
 	}
 
 	// PDF generation using jsPDF
@@ -300,7 +350,7 @@
 					...config,
 					filterConfig: {
 						groups: [...selectedGroups],
-						ranks: [...selectedRanks]
+						ranks: [...selectedRankValues]
 					}
 				})
 			});
@@ -477,10 +527,15 @@
 	}
 
 	const canGenerate = $derived(title.trim().length > 0 && filteredPersonnel.length > 0);
-	const selectedRankCount = $derived(selectedRanks.size);
+	const selectedRankCount = $derived(selectedRankValues.size);
 	const selectedGroupCount = $derived(selectedGroups.size);
 	const hasActiveListFilters = $derived(!!searchTitle || !!dateFrom || !!dateTo);
-	const hasActiveCreateFilters = $derived(selectedRanks.size !== ALL_RANKS.length || selectedGroups.size > 0);
+	const allRankFiltersSelected = $derived.by(
+		() =>
+			selectedRankValues.size === rankFilterOptions.length &&
+			rankFilterOptions.every((rank) => selectedRankValues.has(rank))
+	);
+	const hasActiveCreateFilters = $derived(!allRankFiltersSelected || selectedGroups.size > 0);
 
 	function resetListFilters() {
 		searchTitle = '';
@@ -490,10 +545,8 @@
 	}
 
 	function resetCreateFilters() {
-		selectedRanks.clear();
-		for (const rank of ALL_RANKS) {
-			selectedRanks.add(rank);
-		}
+		rankFilterSelectionMode = 'all';
+		customSelectedRanks.clear();
 		selectedGroups.clear();
 	}
 </script>
@@ -794,7 +847,7 @@
 							size="sm"
 							type="button"
 							aria-pressed={allOfficersSelected}
-							onclick={() => toggleCategory(ARMY_RANKS.officer)}
+							onclick={() => toggleCategory(rankCategoryGroups.officer)}
 						>
 							All Officers
 						</Button>
@@ -803,7 +856,7 @@
 							size="sm"
 							type="button"
 							aria-pressed={allWarrantSelected}
-							onclick={() => toggleCategory(ARMY_RANKS.warrant)}
+							onclick={() => toggleCategory(rankCategoryGroups.warrant)}
 						>
 							All Warrant
 						</Button>
@@ -812,7 +865,7 @@
 							size="sm"
 							type="button"
 							aria-pressed={allEnlistedSelected}
-							onclick={() => toggleCategory(enlistedAndNco)}
+							onclick={() => toggleCategory(rankCategoryGroups.enlisted)}
 						>
 							All Enlisted
 						</Button>
@@ -821,18 +874,18 @@
 							size="sm"
 							type="button"
 							aria-pressed={allCiviliansSelected}
-							onclick={() => toggleCategory(ARMY_RANKS.civilian)}
+							onclick={() => toggleCategory(rankCategoryGroups.civilian)}
 						>
 							Civilians
 						</Button>
 					</div>
 					<div class="flex flex-wrap gap-2">
-						{#each ALL_RANKS as rank (rank)}
+						{#each rankFilterOptions as rank (rank)}
 							<Button
-								variant={selectedRanks.has(rank) ? 'secondary' : 'outline'}
+								variant={selectedRankValues.has(rank) ? 'secondary' : 'outline'}
 								size="sm"
 								type="button"
-								aria-pressed={selectedRanks.has(rank)}
+								aria-pressed={selectedRankValues.has(rank)}
 								onclick={() => toggleRank(rank)}
 							>
 								{rank}

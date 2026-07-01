@@ -3,6 +3,7 @@ import { resolve } from '$app/paths';
 import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
 import { trainingViewsStore } from '$features/training/stores/trainingViews.svelte';
 import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
+import { trainingRankCatalogStore } from '$features/training/stores/rankCatalog.svelte';
 import { rosterStore } from '$lib/stores/roster.svelte';
 import { subscriptionStore } from '$lib/stores/subscription.svelte';
 import { getTrainingStats } from '$features/training/utils/trainingStatus';
@@ -10,6 +11,7 @@ import { groupsStore } from '$lib/stores/groups.svelte';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { createRosterReadModel, type PersonnelGroup, type RosterReadModelView } from '$lib/domain/rosterReadModel';
 import type { ClientAffordance } from '$lib/stores/orgContext.svelte';
+import type { RankCatalogEntry } from '$lib/domain/rankCatalog';
 import type {
 	TrainingMatrixViewMode,
 	UserOrgPreferences,
@@ -67,6 +69,11 @@ export interface TrainingPageData {
 	orgId: string;
 	orgName: string;
 	userPreferences?: UserOrgPreferences;
+	training?: {
+		data?: {
+			rankCatalog?: RankCatalogEntry[];
+		};
+	};
 }
 
 // ---------------------------------------------------------------------------
@@ -148,6 +155,12 @@ export class TrainingPageContext {
 	get groups(): Group[] {
 		this.reconcileHydratedSelections();
 		return groupsStore.orgId === this.orgId ? groupsStore.items : [];
+	}
+
+	get rankCatalog(): RankCatalogEntry[] {
+		const rankCatalog = this.#data.training?.data?.rankCatalog;
+		if (Array.isArray(rankCatalog)) return rankCatalog;
+		return trainingRankCatalogStore.orgId === this.orgId ? trainingRankCatalogStore.items : [];
 	}
 
 	get savedViewIds(): Set<string> {

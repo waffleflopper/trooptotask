@@ -65,6 +65,17 @@ function createInsertBuilder(errorMessage: string | null = null) {
 	};
 }
 
+function createUpsertBuilder(errorMessage: string | null = null) {
+	const upsert = vi.fn().mockResolvedValue({
+		error: errorMessage ? { message: errorMessage } : null
+	});
+
+	return {
+		builder: { upsert },
+		upsert
+	};
+}
+
 function createPolicyProvisioningSupabase(input: {
 	ownedOrganizationIds: string[];
 	organizations: Record<string, OrganizationBillingRow>;
@@ -394,5 +405,47 @@ describe('createSupabaseOrgProvisioningPort', () => {
 			name: 'Holiday 1',
 			type: 'federal-holiday'
 		});
+	});
+
+	it('upserts rank catalog seeds for the organization rank catalog table while ignoring replay duplicates', async () => {
+		const { builder, upsert } = createUpsertBuilder('rank catalog failed');
+		const supabase = {
+			from: vi.fn(() => builder)
+		};
+		const port = createSupabaseOrgProvisioningPort({
+			supabase
+		} as never);
+
+		const result = await port.seedDefaultRankCatalog('org-1', [
+			{
+				code: 'SGT',
+				label: 'Sergeant',
+				service: 'army',
+				category: 'enlisted',
+				payGrade: 'E-5',
+				state: 'active',
+				source: 'built-in',
+				sortOrder: 0
+			}
+		]);
+
+		expect(result).toBe('rank catalog failed');
+		expect(supabase.from).toHaveBeenCalledWith('organization_rank_catalog');
+		expect(upsert).toHaveBeenCalledWith(
+			[
+				{
+					organization_id: 'org-1',
+					code: 'SGT',
+					label: 'Sergeant',
+					service: 'army',
+					category: 'enlisted',
+					pay_grade: 'E-5',
+					state: 'active',
+					source: 'built-in',
+					sort_order: 0
+				}
+			],
+			{ onConflict: 'organization_id,code', ignoreDuplicates: true }
+		);
 	});
 });

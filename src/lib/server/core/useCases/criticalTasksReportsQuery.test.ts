@@ -450,7 +450,7 @@ describe('fetchCriticalTasksReportSummary', () => {
 			totalPersonnelCount: 2,
 			filterOptions: {
 				mos: ['11B', '68W'],
-				ranks: ['CPL', 'SGT'],
+				ranks: ['SGT', 'CPL'],
 				roles: ['Medic', 'Rifleman']
 			}
 		});
@@ -459,6 +459,41 @@ describe('fetchCriticalTasksReportSummary', () => {
 			readyCount: 0,
 			applicableCount: 2
 		});
+	});
+
+	it('keeps observed active, retired, discovered, and unknown Personnel ranks in report scope filters', async () => {
+		const ctx = createTestContext();
+		ctx.store.seed('organizations', [
+			{
+				id: ctx.auth.orgId,
+				critical_tasks_default_expiration_months: 12,
+				critical_tasks_expiring_soon_warning_days: 60
+			}
+		]);
+		ctx.store.seed('personnel', [
+			personnelRow(ctx.auth.orgId, { id: 'p-retired', rank: 'SP4' }),
+			personnelRow(ctx.auth.orgId, { id: 'p-discovered', rank: 'SGT' }),
+			personnelRow(ctx.auth.orgId, { id: 'p-unknown', rank: 'LOCAL-CADET' })
+		]);
+		ctx.store.seed('organization_rank_catalog', [
+			rankCatalogRow(ctx.auth.orgId, {
+				code: 'PO2',
+				label: 'Petty Officer Second Class',
+				service: 'navy',
+				pay_grade: 'E-5'
+			}),
+			rankCatalogRow(ctx.auth.orgId, {
+				code: 'SSgt',
+				label: 'Staff Sergeant',
+				service: 'air-force',
+				pay_grade: 'E-5'
+			}),
+			rankCatalogRow(ctx.auth.orgId, { code: 'SP4', label: 'Specialist Four', state: 'retired', pay_grade: 'E-4' })
+		]);
+
+		const pageModel = await fetchCriticalTasksReportsPageModel(ctx);
+
+		expect(pageModel.reportScope.filterOptions.ranks).toEqual(['SGT', 'SP4', 'LOCAL-CADET']);
 	});
 
 	it('builds expiration cliff buckets after scoped access and report filters are applied', async () => {
@@ -587,6 +622,38 @@ describe('fetchCriticalTasksReportSummary', () => {
 		});
 	});
 });
+
+function personnelRow(orgId: string, overrides: Record<string, unknown>): Record<string, unknown> {
+	return {
+		id: overrides.id ?? 'person-1',
+		organization_id: orgId,
+		rank: overrides.rank ?? 'SGT',
+		last_name: overrides.last_name ?? 'Soldier',
+		first_name: overrides.first_name ?? 'Test',
+		mos: overrides.mos ?? '68W',
+		clinic_role: overrides.clinic_role ?? 'Medic',
+		group_id: null,
+		archived_at: null,
+		groups: null,
+		...overrides
+	};
+}
+
+function rankCatalogRow(orgId: string, overrides: Record<string, unknown>): Record<string, unknown> {
+	return {
+		id: overrides.id ?? `rank-${overrides.code ?? 'SGT'}`,
+		organization_id: orgId,
+		code: overrides.code ?? 'SGT',
+		label: overrides.label ?? overrides.code ?? 'Sergeant',
+		service: overrides.service ?? 'army',
+		category: overrides.category ?? 'enlisted',
+		pay_grade: overrides.pay_grade ?? 'E-5',
+		state: overrides.state ?? 'active',
+		source: overrides.source ?? 'custom',
+		sort_order: overrides.sort_order ?? 0,
+		...overrides
+	};
+}
 
 describe('buildCriticalTasksReportWorkbook', () => {
 	it('orders action rows before summary metadata while preserving handoff context', async () => {

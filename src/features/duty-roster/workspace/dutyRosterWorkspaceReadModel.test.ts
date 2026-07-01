@@ -4,6 +4,7 @@ import type {
 	DutyRosterTemplate,
 	DutyRosterTemplateAcceptedRun
 } from '$features/duty-roster/templates/dutyRosterTemplates';
+import type { RankCatalogEntry } from '$lib/domain/rankCatalog';
 
 const template: DutyRosterTemplate = {
 	id: 'template-1',
@@ -196,6 +197,161 @@ describe('dutyRosterWorkspaceReadModel', () => {
 		expect(model.dutyRoleOptions).toEqual(['Rifleman']);
 	});
 
+	it('uses active Organization ranks as Duty Roster rank filters and preserves saved missing ranks', () => {
+		const model = buildDutyRosterWorkspaceReadModel(
+			{
+				orgId: 'org-1',
+				orgName: 'Able Company',
+				templates: [],
+				selectedTemplate: {
+					...template,
+					poolCriteria: {
+						...template.poolCriteria,
+						rankValues: ['DET-RET', 'LOCAL-MISSING']
+					}
+				},
+				view: 'settings',
+				settings: {
+					personnel: [
+						{
+							id: 'person-1',
+							rank: 'SGT',
+							firstName: 'Ann',
+							lastName: 'Able',
+							mos: '11B',
+							dutyRole: 'Rifleman',
+							groupId: 'alpha',
+							groupName: 'Alpha'
+						}
+					],
+					resolvedPool: [],
+					baselineRows: [],
+					rankCatalog: [
+						rankCatalogEntry({ code: 'DET-RET', state: 'retired', payGrade: 'E-5' }),
+						rankCatalogEntry({ code: 'PO2', label: 'Petty Officer Second Class', service: 'navy', payGrade: 'E-5' }),
+						rankCatalogEntry({ code: 'SSgt', label: 'Staff Sergeant', service: 'air-force', payGrade: 'E-5' })
+					]
+				}
+			},
+			null
+		);
+
+		expect(model.rankOptions).toEqual(['PO2', 'SSgt', 'DET-RET', 'LOCAL-MISSING']);
+		expect(model.settingsWorkspace?.rankOptions).toEqual(model.rankOptions);
+	});
+
+	it('keeps observed Personnel aliases that resolve to active catalog ranks in Duty Roster filters', () => {
+		const model = buildDutyRosterWorkspaceReadModel(
+			{
+				orgId: 'org-1',
+				orgName: 'Able Company',
+				templates: [],
+				selectedTemplate: template,
+				view: 'settings',
+				settings: {
+					personnel: [
+						{
+							id: 'person-1',
+							rank: 'sgt',
+							firstName: 'Ann',
+							lastName: 'Able',
+							mos: '11B',
+							dutyRole: 'Rifleman',
+							groupId: 'alpha',
+							groupName: 'Alpha'
+						}
+					],
+					resolvedPool: [],
+					baselineRows: [],
+					rankCatalog: [rankCatalogEntry({ code: 'SGT' })]
+				}
+			},
+			null
+		);
+
+		expect(model.rankOptions).toEqual(['SGT', 'sgt']);
+		expect(model.settingsWorkspace?.rankOptions).toEqual(model.rankOptions);
+	});
+
+	it('preserves saved and submitted custom rank filters when no Organization rank catalog is available', () => {
+		const model = buildDutyRosterWorkspaceReadModel(
+			{
+				orgId: 'org-1',
+				orgName: 'Able Company',
+				templates: [],
+				selectedTemplate: {
+					...template,
+					poolCriteria: {
+						...template.poolCriteria,
+						rankValues: ['SGT', 'LOCAL-SAVED']
+					}
+				},
+				view: 'settings'
+			},
+			{
+				values: {
+					rankValues: [' LOCAL-SUBMITTED ']
+				}
+			}
+		);
+
+		expect(model.rankOptions).toContain('SGT');
+		expect(model.rankOptions).toContain('LOCAL-SAVED');
+		expect(model.rankOptions).toContain('LOCAL-SUBMITTED');
+		expect(model.settingsWorkspace?.rankOptions).toEqual(model.rankOptions);
+	});
+
+	it('falls back to default Duty Roster ranks when the Organization rank catalog is empty', () => {
+		const model = buildDutyRosterWorkspaceReadModel(
+			{
+				orgId: 'org-1',
+				orgName: 'Able Company',
+				templates: [template],
+				selectedTemplate: template,
+				view: 'settings',
+				settings: {
+					personnel: [],
+					resolvedPool: [],
+					baselineRows: [],
+					rankCatalog: []
+				}
+			},
+			null
+		);
+
+		expect(model.rankOptions).toEqual([
+			'GEN',
+			'LTG',
+			'MG',
+			'BG',
+			'COL',
+			'LTC',
+			'MAJ',
+			'CPT',
+			'1LT',
+			'2LT',
+			'CW5',
+			'CW4',
+			'CW3',
+			'CW2',
+			'WO1',
+			'CSM',
+			'SGM',
+			'1SG',
+			'MSG',
+			'SFC',
+			'SSG',
+			'SGT',
+			'CPL',
+			'SPC',
+			'PFC',
+			'PV2',
+			'PV1',
+			'CIV'
+		]);
+		expect(model.settingsWorkspace?.rankOptions).toEqual(model.rankOptions);
+	});
+
 	it('locks Manual DA6 Baseline only when non-invalidated accepted history exists', () => {
 		const invalidatedOnly = buildDutyRosterWorkspaceReadModel(
 			{
@@ -280,6 +436,18 @@ function withTimezone<T>(timezone: string, callback: () => T): T {
 			process.env.TZ = previousTimezone;
 		}
 	}
+}
+
+function rankCatalogEntry(overrides: Partial<RankCatalogEntry>): RankCatalogEntry {
+	return {
+		code: overrides.code ?? 'SGT',
+		label: overrides.label ?? overrides.code ?? 'Sergeant',
+		service: overrides.service ?? 'custom',
+		category: overrides.category ?? 'enlisted',
+		payGrade: overrides.payGrade ?? 'E-5',
+		state: overrides.state ?? 'active',
+		sortOrder: overrides.sortOrder ?? 0
+	};
 }
 
 function acceptedRun(

@@ -8,6 +8,7 @@ import type {
 	OrgProvisioningAssignmentTypeSeed,
 	OrgProvisioningCreateResult,
 	OrgProvisioningGroupSeed,
+	OrgProvisioningRankCatalogSeed,
 	OrgProvisioningPort,
 	OrgProvisioningSpecialDaySeed,
 	OrgProvisioningStatusTypeSeed
@@ -85,6 +86,18 @@ export function createSupabaseOrgProvisioningPort(locals: Pick<App.Locals, 'supa
 			}
 
 			return firstErrorMessage;
+		},
+
+		async seedDefaultRankCatalog(organizationId, entries) {
+			const { error } = await supabase.from('organization_rank_catalog').upsert(
+				entries.map((entry) => serializeRankCatalogSeed(organizationId, entry)),
+				{
+					onConflict: 'organization_id,code',
+					ignoreDuplicates: true
+				}
+			);
+
+			return error?.message ?? null;
 		}
 	};
 }
@@ -160,5 +173,19 @@ function serializeSpecialDaySeed(organizationId: string, specialDay: OrgProvisio
 		date: specialDay.date,
 		name: specialDay.name,
 		type: specialDay.type
+	};
+}
+
+function serializeRankCatalogSeed(organizationId: string, entry: OrgProvisioningRankCatalogSeed) {
+	return {
+		organization_id: organizationId,
+		code: entry.code,
+		label: entry.label,
+		service: entry.service,
+		category: entry.category,
+		pay_grade: entry.payGrade,
+		state: entry.state,
+		source: entry.source,
+		sort_order: entry.sortOrder
 	};
 }

@@ -773,6 +773,24 @@ describe('organization rank catalog', () => {
 				organization_id: 'test-org',
 				template_id: 'legacy-template',
 				allowed_ranks: ['DET-SGT']
+			},
+			{
+				id: 'slot-archived',
+				organization_id: 'test-org',
+				template_id: 'legacy-template-archived',
+				allowed_ranks: ['DET-SGT']
+			}
+		]);
+		ctx.rawStore.seed('duty_templates', [
+			{
+				id: 'legacy-template',
+				organization_id: 'test-org',
+				status: 'active'
+			},
+			{
+				id: 'legacy-template-archived',
+				organization_id: 'test-org',
+				status: 'archived'
 			}
 		]);
 		ctx.rawStore.seed('sign_in_rosters', [

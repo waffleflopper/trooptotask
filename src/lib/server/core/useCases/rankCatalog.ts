@@ -152,7 +152,13 @@ interface DutyRosterTemplateRankReferenceRow {
 }
 
 interface DutyTemplateSlotRankReferenceRow {
+	template_id?: string | null;
 	allowed_ranks?: unknown;
+}
+
+interface DutyTemplateRankReferenceRow {
+	id: string;
+	status?: string | null;
 }
 
 interface SignInRosterRankReferenceRow {
@@ -466,15 +472,26 @@ export async function loadOrganizationRankCatalogReferenceSummaries(
 	}
 
 	const referenceStore = storeForRankCatalog(ports);
-	const [personnelRows, trainingTypeRows, dutyTemplateRows, legacySlotRows, signInRosterRows, dutyRosterRunRows] =
-		await Promise.all([
-			referenceStore.findMany<PersonnelRankRow>('personnel', ports.auth.orgId),
-			referenceStore.findMany<TrainingTypeRankReferenceRow>('training_types', ports.auth.orgId),
-			referenceStore.findMany<DutyRosterTemplateRankReferenceRow>('duty_roster_templates', ports.auth.orgId),
-			referenceStore.findMany<DutyTemplateSlotRankReferenceRow>('duty_template_slots', ports.auth.orgId),
-			referenceStore.findMany<SignInRosterRankReferenceRow>('sign_in_rosters', ports.auth.orgId),
-			referenceStore.findMany<AcceptedDutyRosterSnapshotRankReferenceRow>('duty_roster_template_runs', ports.auth.orgId)
-		]);
+	const [
+		personnelRows,
+		trainingTypeRows,
+		dutyTemplateRows,
+		legacySlotRows,
+		legacyTemplateRows,
+		signInRosterRows,
+		dutyRosterRunRows
+	] = await Promise.all([
+		referenceStore.findMany<PersonnelRankRow>('personnel', ports.auth.orgId),
+		referenceStore.findMany<TrainingTypeRankReferenceRow>('training_types', ports.auth.orgId),
+		referenceStore.findMany<DutyRosterTemplateRankReferenceRow>('duty_roster_templates', ports.auth.orgId),
+		referenceStore.findMany<DutyTemplateSlotRankReferenceRow>('duty_template_slots', ports.auth.orgId),
+		referenceStore.findMany<DutyTemplateRankReferenceRow>('duty_templates', ports.auth.orgId),
+		referenceStore.findMany<SignInRosterRankReferenceRow>('sign_in_rosters', ports.auth.orgId),
+		referenceStore.findMany<AcceptedDutyRosterSnapshotRankReferenceRow>('duty_roster_template_runs', ports.auth.orgId)
+	]);
+	const activeLegacyTemplateIds = new Set(
+		legacyTemplateRows.filter((row) => row.status === 'active').map((row) => row.id)
+	);
 
 	for (const code of codes) {
 		const summary = summaries.get(code);
@@ -493,8 +510,10 @@ export async function loadOrganizationRankCatalogReferenceSummaries(
 				!isArchivedDutyRosterTemplate(row) &&
 				arrayContainsRankReference(getDutyRosterTemplateRankValues(row.pool_criteria), code, referenceMatcher)
 		).length;
-		summary.activeReferences.legacyDutyTemplateSlots = legacySlotRows.filter((row) =>
-			arrayContainsRankReference(row.allowed_ranks, code, referenceMatcher)
+		summary.activeReferences.legacyDutyTemplateSlots = legacySlotRows.filter(
+			(row) =>
+				Boolean(row.template_id && activeLegacyTemplateIds.has(row.template_id)) &&
+				arrayContainsRankReference(row.allowed_ranks, code, referenceMatcher)
 		).length;
 		summary.activeReferences.total =
 			summary.activeReferences.personnel +

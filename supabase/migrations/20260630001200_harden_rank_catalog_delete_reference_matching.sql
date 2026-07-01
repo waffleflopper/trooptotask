@@ -9,10 +9,12 @@ IMMUTABLE
 AS $$
   SELECT "p_value" IS NOT NULL
     AND (
-      btrim(regexp_replace("p_value", '[[:space:]]+', ' ', 'g')) = "p_code"
+      btrim(regexp_replace("p_value", '[[:space:]]+', ' ', 'g'))
+        = btrim(regexp_replace("p_code", '[[:space:]]+', ' ', 'g'))
       OR (
         "p_allow_normalized"
-        AND upper(btrim(regexp_replace("p_value", '[[:space:]]+', ' ', 'g'))) = upper("p_code")
+        AND upper(btrim(regexp_replace("p_value", '[[:space:]]+', ' ', 'g')))
+          = upper(btrim(regexp_replace("p_code", '[[:space:]]+', ' ', 'g')))
       )
     );
 $$;
@@ -57,6 +59,7 @@ BEGIN
     "public"."training_types",
     "public"."duty_roster_templates",
     "public"."duty_template_slots",
+    "public"."duty_templates",
     "public"."sign_in_rosters",
     "public"."duty_roster_template_runs"
     IN SHARE MODE;
@@ -66,7 +69,8 @@ BEGIN
     FROM "public"."organization_rank_catalog" AS "other_entry"
     WHERE "other_entry"."organization_id" = "p_organization_id"
       AND "other_entry"."id" <> "p_entry_id"
-      AND upper("other_entry"."code") = upper("p_code")
+      AND upper(btrim(regexp_replace("other_entry"."code", '[[:space:]]+', ' ', 'g')))
+        = upper(btrim(regexp_replace("p_code", '[[:space:]]+', ' ', 'g')))
   )
   INTO "allow_normalized_match";
 
@@ -127,7 +131,11 @@ BEGIN
     + (
       SELECT count(*)::integer
       FROM "public"."duty_template_slots"
-      WHERE "organization_id" = "p_organization_id"
+      INNER JOIN "public"."duty_templates"
+        ON "duty_templates"."organization_id" = "duty_template_slots"."organization_id"
+        AND "duty_templates"."id" = "duty_template_slots"."template_id"
+        AND "duty_templates"."status" = 'active'
+      WHERE "duty_template_slots"."organization_id" = "p_organization_id"
         AND EXISTS (
           SELECT 1
           FROM unnest("allowed_ranks") AS "rank_filter"("rank_code")

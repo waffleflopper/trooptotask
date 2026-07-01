@@ -3,6 +3,7 @@ import { BUILT_IN_RANK_CATALOG } from '$lib/domain/rankCatalog';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import {
 	addOrganizationRankServicePack,
+	bulkSetOrganizationRankCatalogState,
 	buildDefaultRankCatalogSeeds,
 	ensureOrganizationRankCatalog,
 	loadOrganizationRankCatalog,
@@ -423,6 +424,114 @@ describe('organization rank catalog', () => {
 		});
 	});
 
+	it('preserves retired state when service packs upgrade discovered rank aliases', async () => {
+		const ctx = createTestContext();
+		ctx.rawStore.seed('organization_rank_catalog', [
+			{
+				id: 'rank-po3',
+				organization_id: 'test-org',
+				code: 'po3',
+				label: 'Local PO3',
+				service: 'custom',
+				category: 'custom',
+				pay_grade: 'ungraded',
+				state: 'retired',
+				source: 'discovered',
+				sort_order: 500
+			}
+		]);
+
+		await addOrganizationRankServicePack(ctx, { service: 'navy' });
+		const loaded = await loadOrganizationRankCatalog(ctx);
+
+		expect(loaded.find((entry) => entry.code === 'po3')).toBeUndefined();
+		expect(loaded.find((entry) => entry.code === 'PO3')).toMatchObject({
+			label: 'Petty Officer Third Class',
+			service: 'navy',
+			payGrade: 'E-4',
+			state: 'retired',
+			source: 'built-in'
+		});
+	});
+
+	it('bulk updates built-in rank state for one service in a single catalog write', async () => {
+		const ctx = createTestContext();
+		ctx.rawStore.seed('organization_rank_catalog', [
+			{
+				id: 'rank-po3',
+				organization_id: 'test-org',
+				code: 'PO3',
+				label: 'Petty Officer Third Class',
+				service: 'navy',
+				category: 'enlisted',
+				pay_grade: 'E-4',
+				state: 'active',
+				source: 'built-in',
+				sort_order: 0
+			},
+			{
+				id: 'rank-po2',
+				organization_id: 'test-org',
+				code: 'PO2',
+				label: 'Petty Officer Second Class',
+				service: 'navy',
+				category: 'enlisted',
+				pay_grade: 'E-5',
+				state: 'active',
+				source: 'built-in',
+				sort_order: 0
+			},
+			{
+				id: 'rank-custom',
+				organization_id: 'test-org',
+				code: 'LOCAL',
+				label: 'Local Rank',
+				service: 'navy',
+				category: 'custom',
+				pay_grade: 'ungraded',
+				state: 'active',
+				source: 'custom',
+				sort_order: 0
+			},
+			{
+				id: 'rank-army',
+				organization_id: 'test-org',
+				code: 'SGT',
+				label: 'Sergeant',
+				service: 'army',
+				category: 'enlisted',
+				pay_grade: 'E-5',
+				state: 'active',
+				source: 'built-in',
+				sort_order: 0
+			}
+		]);
+		const upsertMany = vi.spyOn(ctx.rawStore, 'upsertMany');
+		ctx.auditPort.events.length = 0;
+
+		const result = await bulkSetOrganizationRankCatalogState(ctx, { service: 'navy', targetState: 'retired' });
+		const loaded = await loadOrganizationRankCatalog(ctx);
+
+		expect(result.changedCount).toBe(2);
+		expect(upsertMany).toHaveBeenCalledTimes(1);
+		expect(loaded.find((entry) => entry.code === 'PO3')).toMatchObject({ state: 'retired' });
+		expect(loaded.find((entry) => entry.code === 'PO2')).toMatchObject({ state: 'retired' });
+		expect(loaded.find((entry) => entry.code === 'LOCAL')).toMatchObject({ state: 'active' });
+		expect(loaded.find((entry) => entry.code === 'SGT')).toMatchObject({ state: 'active' });
+		expect(ctx.auditPort.events).toEqual([
+			expect.objectContaining({
+				action: 'organization.rank_catalog.bulk_state_changed',
+				resourceType: 'organization_rank_catalog',
+				resourceId: 'navy',
+				details: expect.objectContaining({
+					service: 'navy',
+					targetState: 'retired',
+					changedCount: 2
+				})
+			})
+		]);
+	});
+
 	it('gates catalog writes with Organization governance instead of Personnel edit permission', async () => {
 		const personnelEditorCtx = createTestContext({
 			auth: {
@@ -604,7 +713,7 @@ describe('organization rank catalog', () => {
 		]);
 	});
 
-	it('summarizes active rank references for delete eligibility and historical references as warnings', async () => {
+	it('summarizes active and historical rank references for delete eligibility', async () => {
 		const ctx = createTestContext();
 		await saveOrganizationRankCatalogEntry(ctx, {
 			code: 'DET-SGT',
@@ -645,6 +754,16 @@ describe('organization rank catalog', () => {
 				id: 'template-1',
 				organization_id: 'test-org',
 				name: 'Staff Duty',
+				status: 'active',
+				archived_at: null,
+				pool_criteria: { rankValues: ['DET-SGT'] }
+			},
+			{
+				id: 'template-archived',
+				organization_id: 'test-org',
+				name: 'Archived Staff Duty',
+				status: 'archived',
+				archived_at: '2026-06-01T00:00:00Z',
 				pool_criteria: { rankValues: ['DET-SGT'] }
 			}
 		]);
@@ -718,6 +837,65 @@ describe('organization rank catalog', () => {
 				acceptedDutyRosterSnapshots: 1,
 				total: 3
 			},
+			canDelete: false
+		});
+	});
+
+	it('blocks hard deletion when only historical rank references remain', async () => {
+		const ctx = createTestContext();
+		await saveOrganizationRankCatalogEntry(ctx, {
+			code: 'DET-SGT',
+			label: 'Detachment Sergeant',
+			service: 'custom',
+			category: 'custom',
+			payGrade: 'ungraded',
+			state: 'retired',
+			sortOrder: 500
+		});
+		ctx.rawStore.seed('sign_in_rosters', [
+			{
+				id: 'sign-in-1',
+				organization_id: 'test-org',
+				filter_config: { ranks: ['DET-SGT'] },
+				personnel_snapshot: []
+			}
+		]);
+
+		const [summary] = await loadOrganizationRankCatalogReferenceSummaries(ctx, { codes: ['DET-SGT'] });
+		await expect(removeOrganizationRankCatalogEntry(ctx, { code: 'DET-SGT' })).rejects.toMatchObject({
+			status: 409,
+			message: 'Rank is referenced by Organization data. Retire it instead.'
+		});
+
+		expect(summary).toMatchObject({
+			historicalReferences: { signInRosterFilters: 1, total: 1 },
+			canDelete: false
+		});
+	});
+
+	it('collapses whitespace when matching rank references', async () => {
+		const ctx = createTestContext();
+		await saveOrganizationRankCatalogEntry(ctx, {
+			code: 'Field Marshal',
+			label: 'Field Marshal',
+			service: 'custom',
+			category: 'custom',
+			payGrade: 'ungraded',
+			state: 'active',
+			sortOrder: 500
+		});
+		ctx.rawStore.seed('personnel', [
+			{
+				id: 'person-1',
+				organization_id: 'test-org',
+				rank: 'Field   Marshal'
+			}
+		]);
+
+		const [summary] = await loadOrganizationRankCatalogReferenceSummaries(ctx, { codes: ['Field Marshal'] });
+
+		expect(summary).toMatchObject({
+			activeReferences: { personnel: 1, total: 1 },
 			canDelete: false
 		});
 	});

@@ -86,6 +86,13 @@ export interface AddOrganizationRankServicePackResult {
 	entries: OrganizationRankCatalogEntry[];
 }
 
+export interface BulkSetOrganizationRankCatalogStateResult {
+	service: RankService;
+	targetState: RankState;
+	changedCount: number;
+	entries: OrganizationRankCatalogEntry[];
+}
+
 export interface OrganizationRankCatalogActiveReferences {
 	personnel: number;
 	trainingApplicability: number;
@@ -139,6 +146,8 @@ interface TrainingTypeRankReferenceRow {
 }
 
 interface DutyRosterTemplateRankReferenceRow {
+	status?: string | null;
+	archived_at?: string | null;
 	pool_criteria?: unknown;
 }
 
@@ -336,14 +345,18 @@ export async function addOrganizationRankServicePack(
 		if (exactExisting?.source === 'built-in') {
 			continue;
 		}
-		if (!exactExisting) {
-			const aliasExisting = existing.find(
-				(row) => row.id && row.code.toUpperCase() === entry.code.toUpperCase() && row.source !== 'built-in'
+		if (exactExisting) {
+			rowsToUpsert.push(
+				serializeRankCatalogEntry(ports.auth.orgId, { ...entry, state: exactExisting.state }, 'built-in')
 			);
-			if (aliasExisting?.id) {
-				rowsToCanonicalize.push({ id: aliasExisting.id, entry });
-				continue;
-			}
+			continue;
+		}
+		const aliasExisting = existing.find(
+			(row) => row.id && row.code.toUpperCase() === entry.code.toUpperCase() && row.source !== 'built-in'
+		);
+		if (aliasExisting?.id) {
+			rowsToCanonicalize.push({ id: aliasExisting.id, entry: { ...entry, state: aliasExisting.state } });
+			continue;
 		}
 		rowsToUpsert.push(serializeRankCatalogEntry(ports.auth.orgId, entry, 'built-in'));
 	}
@@ -381,6 +394,56 @@ export async function addOrganizationRankServicePack(
 			service: input.service,
 			addedCount: result.addedCount,
 			skippedExistingCount: result.skippedExistingCount
+		}
+	});
+
+	return result;
+}
+
+export async function bulkSetOrganizationRankCatalogState(
+	ports: RankCatalogPorts,
+	input: { service: RankService; targetState: RankState }
+): Promise<BulkSetOrganizationRankCatalogStateResult> {
+	await requireGovernancePolicy(ports, POLICY_ACTION_CATALOG.organization.updateSettings);
+
+	if (!RANK_SERVICE_PACK_SERVICES.has(input.service)) {
+		fail(400, 'Invalid rank service pack');
+	}
+	if (!RANK_STATES.has(input.targetState)) {
+		fail(400, 'Invalid rank state');
+	}
+
+	const existing = await storeForRankCatalog(ports).findMany<OrganizationRankCatalogRow>(
+		RANK_CATALOG_TABLE,
+		ports.auth.orgId
+	);
+	const rowsToUpdate = existing
+		.filter(
+			(entry) => entry.service === input.service && entry.source === 'built-in' && entry.state !== input.targetState
+		)
+		.map((entry) => ({ ...entry, state: input.targetState }));
+	const savedRows = await storeForRankCatalog(ports).upsertMany<OrganizationRankCatalogRow>(
+		RANK_CATALOG_TABLE,
+		ports.auth.orgId,
+		rowsToUpdate,
+		{ onConflict: 'organization_id,code' }
+	);
+	const entries = sortCatalog(savedRows.map(deserializeRankCatalogRow));
+	const result = {
+		service: input.service,
+		targetState: input.targetState,
+		changedCount: savedRows.length,
+		entries
+	};
+
+	ports.audit.log({
+		action: 'organization.rank_catalog.bulk_state_changed',
+		resourceType: 'organization_rank_catalog',
+		resourceId: input.service,
+		details: {
+			service: input.service,
+			targetState: input.targetState,
+			changedCount: result.changedCount
 		}
 	});
 
@@ -425,8 +488,10 @@ export async function loadOrganizationRankCatalogReferenceSummaries(
 				countArrayReferences(row.excluded_ranks, code, referenceMatcher)
 			);
 		}, 0);
-		summary.activeReferences.dutyRosterTemplateFilters = dutyTemplateRows.filter((row) =>
-			arrayContainsRankReference(getDutyRosterTemplateRankValues(row.pool_criteria), code, referenceMatcher)
+		summary.activeReferences.dutyRosterTemplateFilters = dutyTemplateRows.filter(
+			(row) =>
+				!isArchivedDutyRosterTemplate(row) &&
+				arrayContainsRankReference(getDutyRosterTemplateRankValues(row.pool_criteria), code, referenceMatcher)
 		).length;
 		summary.activeReferences.legacyDutyTemplateSlots = legacySlotRows.filter((row) =>
 			arrayContainsRankReference(row.allowed_ranks, code, referenceMatcher)
@@ -452,7 +517,7 @@ export async function loadOrganizationRankCatalogReferenceSummaries(
 			summary.historicalReferences.signInRosterFilters +
 			summary.historicalReferences.signInRosterSnapshots +
 			summary.historicalReferences.acceptedDutyRosterSnapshots;
-		summary.canDelete = summary.activeReferences.total === 0;
+		summary.canDelete = summary.activeReferences.total === 0 && summary.historicalReferences.total === 0;
 	}
 
 	return codes.map((code) => summaries.get(code) ?? createEmptyReferenceSummary(code));
@@ -579,6 +644,9 @@ export async function removeOrganizationRankCatalogEntry(
 	).find((summary) => summary.code === code);
 	if (references?.activeReferences.total) {
 		fail(409, 'Rank is referenced by active Organization data. Retire it instead.');
+	}
+	if (references?.historicalReferences.total) {
+		fail(409, 'Rank is referenced by Organization data. Retire it instead.');
 	}
 
 	if (ports.rankCatalogAdministration) {
@@ -795,7 +863,7 @@ function createRankReferenceMatcher(codes: readonly string[]): RankReferenceMatc
 				return false;
 			}
 
-			const reference = value.trim();
+			const reference = normalizeRankReference(value);
 			if (reference === code) {
 				return true;
 			}
@@ -803,6 +871,14 @@ function createRankReferenceMatcher(codes: readonly string[]): RankReferenceMatc
 			return normalizedCodes.get(reference.toUpperCase()) === code;
 		}
 	};
+}
+
+function normalizeRankReference(value: string): string {
+	return value.trim().replace(/\s+/g, ' ');
+}
+
+function isArchivedDutyRosterTemplate(row: DutyRosterTemplateRankReferenceRow): boolean {
+	return row.status === 'archived' || Boolean(row.archived_at);
 }
 
 function getDutyRosterTemplateRankValues(poolCriteria: unknown): unknown[] {

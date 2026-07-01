@@ -194,7 +194,7 @@ describe('rank settings page', () => {
 		expect(screen.getByRole('menuitem', { name: 'Remove' })).toBeTruthy();
 	});
 
-	it('renders built-in ranks with spaced codes using safe ids and no metadata edit form', () => {
+	it('renders built-in ranks with spaced codes using safe ids and no metadata edit form', async () => {
 		render(Page, {
 			props: {
 				data: {
@@ -279,6 +279,7 @@ describe('rank settings page', () => {
 		expect(document.querySelector('form[action$="retireRank"] input[value="Lt Gen"]')).toBeTruthy();
 		expect(document.querySelector('form[action$="deleteRank"] input[value="Lt Gen"]')).toBeNull();
 		expect(screen.getByRole('button', { name: 'Actions for Lt Gen' })).toBeTruthy();
+		await fireEvent.click(screen.getByRole('button', { name: 'Show details for Lt Gen' }));
 		expect(screen.queryByText('Edit rank')).toBeNull();
 	});
 

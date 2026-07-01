@@ -93,6 +93,7 @@ export const ORGANIZATION_DATA_EXPORT_SECTIONS = [
 		'settings',
 		'Settings'
 	),
+	section('organizationRankCatalog', 'Organization Rank Catalog', 'organization_rank_catalog', 'settings', 'Settings'),
 	section('dashboardConfigs', 'Dashboard Configs', 'dashboard_configs', 'settings', 'Settings'),
 	section('deletionRequests', 'Deletion Requests', 'deletion_requests', 'settings', 'Settings'),
 	section('gettingStartedProgress', 'Getting Started Progress', 'getting_started_progress', 'settings', 'Settings'),

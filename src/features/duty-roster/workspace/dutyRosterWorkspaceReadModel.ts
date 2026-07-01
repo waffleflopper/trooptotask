@@ -8,6 +8,8 @@ import type {
 } from '$features/duty-roster/templates/dutyRosterTemplates';
 import type { DutyRosterTemplatePreview } from '$features/duty-roster/templates/dutyRosterTemplatePreview';
 import { dutyRosterTodayDate, nextDutyRosterMonthRange } from '$features/duty-roster/templates/dutyRosterDatePolicy';
+import type { RankCatalogEntry } from '$lib/domain/rankCatalog';
+import { rankCodesForOptions } from '$lib/domain/rankOptions';
 import { ARMY_RANKS } from '$lib/types';
 import { acceptedHistoryColumns } from './dutyRosterPreviewReview';
 
@@ -233,7 +235,16 @@ export function buildDutyRosterWorkspaceReadModel(
 	const settingsAction = selectedTemplate
 		? `${basePath}/${selectedTemplate.slug}/settings?/updateSettings`
 		: createAction;
-	const rankOptions = DUTY_ROSTER_RANK_OPTIONS;
+	const rankCatalog = data.settings?.rankCatalog ?? data.setupOptions?.rankCatalog;
+	const savedRankValues = [
+		...(selectedTemplate?.poolCriteria.rankValues ?? []),
+		...(actionForm?.values?.rankValues ?? [])
+	];
+	const rankOptions = dutyRosterRankOptions(
+		rankCatalog,
+		savedRankValues,
+		setupPersonnel.map((person) => person.rank)
+	);
 	const groupOptions = uniqueGroupOptions(setupPersonnel);
 	const mosOptions = uniqueOptions(setupPersonnel.map((person) => person.mos).filter(Boolean));
 	const dutyRoleOptions = uniqueOptions(setupPersonnel.map((person) => person.dutyRole).filter(Boolean));
@@ -331,6 +342,19 @@ export function uniqueGroupOptions(
 
 export function optionItems(values: string[]): Array<{ value: string; label: string }> {
 	return values.map((value) => ({ value, label: value }));
+}
+
+export function dutyRosterRankOptions(
+	rankCatalog: readonly RankCatalogEntry[] | undefined,
+	preserveRankValues: string[] = [],
+	observedRankValues: string[] = []
+): string[] {
+	return rankCodesForOptions({
+		rankCatalog,
+		observedRanks: observedRankValues,
+		preserveRanks: preserveRankValues,
+		fallbackRanks: DUTY_ROSTER_RANK_OPTIONS
+	});
 }
 
 export function groupOptionItems(

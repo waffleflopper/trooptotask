@@ -1,0 +1,82 @@
+import { BUILT_IN_RANK_CATALOG, compareRankCodes, type RankCatalogEntry } from './rankCatalog';
+
+function catalogWithBuiltInFallback(rankCatalog?: readonly RankCatalogEntry[]): readonly RankCatalogEntry[] {
+	if (!rankCatalog) return BUILT_IN_RANK_CATALOG;
+
+	const configuredCodes = new Set(rankCatalog.map((entry) => entry.code));
+	return [...rankCatalog, ...BUILT_IN_RANK_CATALOG.filter((entry) => !configuredCodes.has(entry.code))];
+}
+
+export function rankCodesForOptions(input: {
+	rankCatalog?: readonly RankCatalogEntry[];
+	observedRanks?: readonly string[];
+	preserveRanks?: readonly string[];
+	fallbackRanks?: readonly string[];
+}): string[] {
+	const { rankCatalog, observedRanks = [], preserveRanks = [], fallbackRanks = [] } = input;
+	const configuredCatalog = rankCatalog && rankCatalog.length > 0 ? rankCatalog : undefined;
+	const options: string[] = [];
+	const seen = new Set<string>();
+
+	function add(rank: string): void {
+		const value = rank.trim();
+		if (value && !seen.has(value)) {
+			options.push(value);
+			seen.add(value);
+		}
+	}
+
+	if (configuredCatalog) {
+		for (const entry of configuredCatalog
+			.filter((entry) => entry.state === 'active')
+			.toSorted((left, right) => compareRankCodes(left.code, right.code, { catalog: configuredCatalog }))) {
+			add(entry.code);
+		}
+	} else {
+		for (const rank of fallbackRanks) add(rank);
+	}
+
+	for (const rank of observedRanks
+		.map((value) => value.trim())
+		.filter(Boolean)
+		.filter((rank) => !configuredCatalog || observedRankMatchesActiveCatalogRank(rank, configuredCatalog))
+		.toSorted((left, right) => compareRankCodes(left, right, { catalog: configuredCatalog }))) {
+		add(rank);
+	}
+	for (const rank of preserveRanks) add(rank);
+
+	return options;
+}
+
+function observedRankMatchesActiveCatalogRank(rank: string, catalog: readonly RankCatalogEntry[]): boolean {
+	const exactMatch = catalog.find((entry) => entry.code === rank);
+	if (exactMatch) {
+		return exactMatch.state === 'active';
+	}
+
+	const normalizedRank = rank.toUpperCase();
+	const activeCaseMatches = new Set(
+		catalog
+			.filter((entry) => entry.state === 'active' && entry.code.toUpperCase() === normalizedRank)
+			.map((entry) => entry.code)
+	);
+
+	return activeCaseMatches.size === 1;
+}
+
+export function observedRankCodesForOptions(input: {
+	rankCatalog?: readonly RankCatalogEntry[];
+	observedRanks: readonly string[];
+}): string[] {
+	const catalog = catalogWithBuiltInFallback(input.rankCatalog);
+	const seen = new Set<string>();
+
+	return input.observedRanks
+		.map((rank) => rank.trim())
+		.filter((rank) => {
+			if (!rank || seen.has(rank)) return false;
+			seen.add(rank);
+			return true;
+		})
+		.toSorted((left, right) => compareRankCodes(left, right, { catalog }));
+}

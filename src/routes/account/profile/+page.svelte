@@ -80,7 +80,9 @@
 						{/each}
 					</select>
 				</Field.Control>
-				<Field.Description>Use the same controlled rank list as registration.</Field.Description>
+				<Field.Description>
+					This account-level rank uses the registration rank list and is not connected to any Organization rank catalog.
+				</Field.Description>
 			</Field.Root>
 
 			<div class="flex justify-end">

@@ -2,25 +2,24 @@
  * Bulk personnel import — creates up to MAX_BATCH_SIZE personnel records from a CSV upload.
  *
  * Checks the org's subscription seat limit before inserting; excess rows are trimmed to
- * fit available seats (partial acceptance). Normalizes rank strings against ALL_RANKS and
- * sanitizes all string fields.
+ * fit available seats (partial acceptance). Normalizes rank strings against the Organization
+ * rank catalog and sanitizes all string fields.
  *
  * For single-record personnel mutations, see `personnel.ts`.
  */
 import { fail } from '$lib/server/core/errors';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { PersonnelEntity } from '$lib/server/entities/personnel';
-import { ALL_RANKS } from '$lib/types';
 import { sanitizeString } from '$lib/server/validation';
 import type { WriteWithSubscriptionPorts } from '$lib/server/core/ports';
 import { requireFeaturePolicy } from './featurePolicy';
 import { buildAvailablePersonnelSlug, buildPersonnelSlugBase } from './personnelSlug';
+import { createActivePersonnelRankResolver } from './personnelRankCatalog';
 
 const entity = PersonnelEntity;
 const AUDIT_RESOURCE = 'personnel';
 const MAX_BATCH_SIZE = 500;
 
-const ALL_RANKS_LOWER = ALL_RANKS.map((r) => r.toLowerCase());
 const ISO_DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 
 interface BatchRecord {
@@ -106,6 +105,7 @@ export async function importPersonnelBatch(ctx: WriteWithSubscriptionPorts, inpu
 	const existingSlugRows = await ctx.store.findMany<{ slug: string | null }>('personnel', ctx.auth.orgId, undefined, {
 		select: 'slug'
 	});
+	const rankResolver = await createActivePersonnelRankResolver(ctx);
 	const reservedSlugs = new Set(
 		existingSlugRows
 			.map((row) => row.slug)
@@ -123,9 +123,9 @@ export async function importPersonnelBatch(ctx: WriteWithSubscriptionPorts, inpu
 			continue;
 		}
 
-		const rankIdx = ALL_RANKS_LOWER.indexOf(rank.toLowerCase());
-		if (rankIdx === -1) {
-			errors.push({ index: i, message: `Invalid rank "${rank}"` });
+		const normalizedRank = rankResolver.normalize(rank);
+		if (!normalizedRank) {
+			errors.push({ index: i, message: rankResolver.errorMessage(rank) });
 			continue;
 		}
 
@@ -157,7 +157,7 @@ export async function importPersonnelBatch(ctx: WriteWithSubscriptionPorts, inpu
 			row: {
 				organization_id: ctx.auth.orgId,
 				slug: buildAvailablePersonnelSlug(buildPersonnelSlugBase({ lastName, firstName }), reservedSlugs),
-				rank: ALL_RANKS[rankIdx],
+				rank: normalizedRank,
 				last_name: lastName,
 				first_name: firstName,
 				mos: sanitizeString(rec.mos) || '',

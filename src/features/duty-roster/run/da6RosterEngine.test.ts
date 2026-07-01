@@ -282,6 +282,28 @@ describe('computeDa6Roster', () => {
 		expect(output.rosterRows.map((row) => row.assigneeId)).toEqual(['staff', 'bravo', 'alpha']);
 	});
 
+	it('orders default DA6 priority by shared pay-grade rank precedence, name, and deterministic unknown fallback', () => {
+		const output = computeDa6Roster(
+			engineInput({
+				pool: [
+					soldier({ id: 'unknown', rank: 'LOCAL-CADET', lastName: 'Able' }),
+					soldier({ id: 'navy-e5', rank: 'PO2', lastName: 'Baker' }),
+					soldier({ id: 'army-e5', rank: 'SGT', lastName: 'Able' }),
+					soldier({ id: 'air-force-e5', rank: 'SSgt', lastName: 'Charlie' })
+				],
+				dutyDates: ['2026-05-02', '2026-05-03', '2026-05-04', '2026-05-05'],
+				priorLastDutyDates: new Map([
+					['unknown', null],
+					['navy-e5', null],
+					['army-e5', null],
+					['air-force-e5', null]
+				])
+			})
+		);
+
+		expect(output.rosterRows.map((row) => row.assigneeId)).toEqual(['navy-e5', 'army-e5', 'air-force-e5', 'unknown']);
+	});
+
 	it('keeps baseline-priority rosters fair by raising passed-over Soldiers and resetting selected Soldiers', () => {
 		const output = computeDa6Roster(
 			engineInput({

@@ -1,14 +1,21 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { getDefaultFederalHolidays } from '$features/calendar/utils/federalHolidays';
+import { BUILT_IN_RANK_CATALOG } from '$lib/domain/rankCatalog';
 import {
 	loadOrganizationProvisioning,
 	provisionOrganization,
 	type OrgProvisioningAssignmentTypeSeed,
 	type OrgProvisioningGroupSeed,
+	type OrgProvisioningRankCatalogSeed,
 	type OrgProvisioningPort,
 	type OrgProvisioningSpecialDaySeed,
 	type OrgProvisioningStatusTypeSeed
 } from './orgProvisioning';
+
+const DEFAULT_SEEDED_RANK_SERVICES = new Set(['army', 'civilian', 'custom']);
+const DEFAULT_SEEDED_RANK_COUNT = BUILT_IN_RANK_CATALOG.filter((entry) =>
+	DEFAULT_SEEDED_RANK_SERVICES.has(entry.service)
+).length;
 
 function createOrgProvisioningPort(
 	options: {
@@ -20,6 +27,7 @@ function createOrgProvisioningPort(
 		statusTypesError?: string | null;
 		assignmentTypesError?: string | null;
 		federalHolidaysError?: string | null;
+		rankCatalogError?: string | null;
 	} = {}
 ): OrgProvisioningPort & {
 	availabilityRequests: string[];
@@ -29,6 +37,7 @@ function createOrgProvisioningPort(
 	statusTypeSeeds: Array<{ organizationId: string; statusTypes: OrgProvisioningStatusTypeSeed[] }>;
 	assignmentTypeSeeds: Array<{ organizationId: string; assignmentTypes: OrgProvisioningAssignmentTypeSeed[] }>;
 	federalHolidaySeeds: Array<{ organizationId: string; specialDays: OrgProvisioningSpecialDaySeed[] }>;
+	rankCatalogSeeds: Array<{ organizationId: string; entries: OrgProvisioningRankCatalogSeed[] }>;
 } {
 	const availabilityRequests: string[] = [];
 	const createRequests: string[] = [];
@@ -38,6 +47,7 @@ function createOrgProvisioningPort(
 	const assignmentTypeSeeds: Array<{ organizationId: string; assignmentTypes: OrgProvisioningAssignmentTypeSeed[] }> =
 		[];
 	const federalHolidaySeeds: Array<{ organizationId: string; specialDays: OrgProvisioningSpecialDaySeed[] }> = [];
+	const rankCatalogSeeds: Array<{ organizationId: string; entries: OrgProvisioningRankCatalogSeed[] }> = [];
 
 	return {
 		availabilityRequests,
@@ -47,6 +57,7 @@ function createOrgProvisioningPort(
 		statusTypeSeeds,
 		assignmentTypeSeeds,
 		federalHolidaySeeds,
+		rankCatalogSeeds,
 		async canCreateOrganization(userId) {
 			availabilityRequests.push(userId);
 			if (options.availabilityError) {
@@ -77,6 +88,10 @@ function createOrgProvisioningPort(
 		async seedFederalHolidays(organizationId, specialDays) {
 			federalHolidaySeeds.push({ organizationId, specialDays });
 			return options.federalHolidaysError ?? null;
+		},
+		async seedDefaultRankCatalog(organizationId, entries) {
+			rankCatalogSeeds.push({ organizationId, entries });
+			return options.rankCatalogError ?? null;
 		}
 	};
 }
@@ -227,6 +242,25 @@ describe('provisionOrganization', () => {
 			name: expectedHolidays[0]?.name,
 			type: expectedHolidays[0]?.type
 		});
+		expect(port.rankCatalogSeeds).toHaveLength(1);
+		expect(port.rankCatalogSeeds[0]?.organizationId).toBe('org-1');
+		expect(port.rankCatalogSeeds[0]?.entries).toHaveLength(DEFAULT_SEEDED_RANK_COUNT);
+		expect(port.rankCatalogSeeds[0]?.entries).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					code: 'SGT',
+					label: 'Sergeant',
+					service: 'army',
+					category: 'enlisted',
+					payGrade: 'E-5',
+					state: 'active',
+					source: 'built-in'
+				})
+			])
+		);
+		expect(port.rankCatalogSeeds[0]?.entries).not.toEqual(
+			expect.arrayContaining([expect.objectContaining({ service: 'navy' })])
+		);
 	});
 
 	it('collapses repeated internal whitespace before creating the organization', async () => {
@@ -343,5 +377,26 @@ describe('provisionOrganization', () => {
 		expect(consoleErrorSpy).toHaveBeenCalledWith('Status types seed error:', 'statuses failed');
 		expect(consoleErrorSpy).toHaveBeenCalledWith('Assignment types seed error:', 'assignments failed');
 		expect(consoleErrorSpy).toHaveBeenCalledWith('Holidays seed error:', 'holidays failed');
+	});
+
+	it('fails the request when the default rank catalog cannot be seeded', async () => {
+		const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+		const port = createOrgProvisioningPort({
+			rankCatalogError: 'rank catalog failed'
+		});
+
+		await expect(
+			provisionOrganization(port, {
+				name: 'Alpha Company',
+				userId: 'user-1',
+				email: 'owner@example.com'
+			})
+		).rejects.toMatchObject({
+			status: 500,
+			message: 'rank catalog failed'
+		});
+
+		expect(port.rankCatalogSeeds).toHaveLength(1);
+		expect(consoleErrorSpy).toHaveBeenCalledWith('Rank catalog seed error:', 'rank catalog failed');
 	});
 });

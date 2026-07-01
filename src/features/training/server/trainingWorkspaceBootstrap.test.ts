@@ -79,6 +79,7 @@ describe('streamTrainingWorkspaceBootstrap', () => {
 				case 'training_views':
 				case 'user_pinned_groups':
 				case 'personnel_trainings':
+				case 'organization_rank_catalog':
 					return deferredRows;
 				default:
 					throw new Error(`Unexpected table ${table}`);
@@ -117,6 +118,7 @@ describe('streamTrainingWorkspaceBootstrap', () => {
 		expect(workspace?.data.trainingViews).toBeInstanceOf(Promise);
 		expect(workspace?.data.pinnedGroups).toBeInstanceOf(Promise);
 		expect(workspace?.data.personnelTrainings).toBeInstanceOf(Promise);
+		expect(workspace?.data.rankCatalog).toBeInstanceOf(Promise);
 		expect(workspace?.hydration).toMatchObject({
 			orgId: '11111111-1111-1111-1111-111111111111',
 			trainingTypes: expect.objectContaining({
@@ -128,6 +130,12 @@ describe('streamTrainingWorkspaceBootstrap', () => {
 			personnelTrainings: expect.objectContaining({
 				mode: 'replace',
 				items: (workspace?.data as TrainingWorkspaceData | undefined)?.personnelTrainings,
+				deferred: true,
+				snapshotKey: expect.any(String)
+			}),
+			rankCatalog: expect.objectContaining({
+				mode: 'replace',
+				items: (workspace?.data as TrainingWorkspaceData | undefined)?.rankCatalog,
 				deferred: true,
 				snapshotKey: expect.any(String)
 			})
@@ -181,10 +189,53 @@ describe('streamTrainingWorkspaceBootstrap', () => {
 		const workspace = await routeData.training.data;
 
 		await expect(workspace.data.personnel).resolves.toEqual(personnel);
+		await expect(workspace.data.rankCatalog).resolves.toEqual([]);
 		expect(listRosterCandidatesMock).toHaveBeenCalledWith('11111111-1111-1111-1111-111111111111', {
 			kind: 'groups',
 			groupIds: ['group-alpha']
 		});
 		expect(findManyMock).not.toHaveBeenCalledWith('personnel', expect.anything(), expect.anything(), expect.anything());
 	});
+
+	it('streams Organization rank catalog entries for Training applicability controls', async () => {
+		findManyMock.mockImplementation((table: string) => {
+			if (table === 'organization_rank_catalog') {
+				return Promise.resolve([
+					rankCatalogRow({ code: 'DET-RET', state: 'retired', pay_grade: 'E-5' }),
+					rankCatalogRow({ code: 'PO2', label: 'Petty Officer Second Class', service: 'navy', pay_grade: 'E-5' }),
+					rankCatalogRow({ code: 'SSgt', label: 'Staff Sergeant', service: 'air-force', pay_grade: 'E-5' })
+				]);
+			}
+			return Promise.resolve([]);
+		});
+
+		const routeData = await streamTrainingWorkspaceBootstrap({
+			locals: {} as App.Locals,
+			cookies: {} as Cookies,
+			orgId: '1-11-bde'
+		});
+		const workspace = await routeData.training.data;
+
+		await expect(workspace.data.rankCatalog).resolves.toEqual([
+			expect.objectContaining({ code: 'DET-RET', state: 'retired' }),
+			expect.objectContaining({ code: 'PO2', state: 'active' }),
+			expect.objectContaining({ code: 'SSgt', state: 'active' })
+		]);
+	});
 });
+
+function rankCatalogRow(overrides: Record<string, unknown>): Record<string, unknown> {
+	return {
+		id: overrides.id ?? `rank-${overrides.code ?? 'SGT'}`,
+		organization_id: '11111111-1111-1111-1111-111111111111',
+		code: overrides.code ?? 'SGT',
+		label: overrides.label ?? overrides.code ?? 'Sergeant',
+		service: overrides.service ?? 'army',
+		category: overrides.category ?? 'enlisted',
+		pay_grade: overrides.pay_grade ?? 'E-5',
+		state: overrides.state ?? 'active',
+		source: overrides.source ?? 'custom',
+		sort_order: overrides.sort_order ?? 0,
+		...overrides
+	};
+}

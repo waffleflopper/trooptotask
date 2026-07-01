@@ -63,6 +63,11 @@ describe('fetchTrainingReportsData', () => {
 				groups: { name: 'Bravo' }
 			}
 		]);
+		store.seed('organization_rank_catalog', [
+			rankCatalogRow({ code: 'PO2', label: 'Petty Officer Second Class', service: 'navy', pay_grade: 'E-5' }),
+			rankCatalogRow({ code: 'SSgt', label: 'Staff Sergeant', service: 'air-force', pay_grade: 'E-5' }),
+			rankCatalogRow({ code: 'SP4', label: 'Specialist Four', state: 'retired', pay_grade: 'E-4' })
+		]);
 		store.seed('training_types', [
 			{
 				id: 'type-cpr',
@@ -131,6 +136,78 @@ describe('fetchTrainingReportsData', () => {
 		expect(result.dashboard.readinessPercent).toBe(50);
 		expect(result.dashboard.statusCounts.current).toBe(1);
 		expect(result.dashboard.statusCounts.notCompleted).toBe(1);
+		expect(result.filterOptions.ranks).toEqual(['SGT', 'SPC', 'PFC']);
+	});
+
+	it('keeps observed active, retired, discovered, and unknown Personnel ranks in report filters', async () => {
+		const ctx = buildCtx();
+		const store = ctx.store as ReturnType<typeof createInMemoryDataStore>;
+
+		store.seed('personnel', [
+			personnelRow({ id: 'p-retired', rank: 'SP4' }),
+			personnelRow({ id: 'p-discovered', rank: 'SGT' }),
+			personnelRow({ id: 'p-unknown', rank: 'LOCAL-CADET' })
+		]);
+		store.seed('organization_rank_catalog', [
+			rankCatalogRow({ code: 'PO2', label: 'Petty Officer Second Class', service: 'navy', pay_grade: 'E-5' }),
+			rankCatalogRow({ code: 'SSgt', label: 'Staff Sergeant', service: 'air-force', pay_grade: 'E-5' }),
+			rankCatalogRow({ code: 'SP4', label: 'Specialist Four', state: 'retired', pay_grade: 'E-4' })
+		]);
+
+		const result = await fetchTrainingReportPage(ctx);
+
+		expect(result.filterOptions.ranks).toEqual(['SGT', 'SP4', 'LOCAL-CADET']);
+	});
+
+	it('sorts report rows by catalog rank precedence with unknown ranks last', async () => {
+		const ctx = buildCtx();
+		const store = ctx.store as ReturnType<typeof createInMemoryDataStore>;
+
+		store.seed('personnel', [
+			personnelRow({ id: 'p-unknown', rank: 'LOCAL-CADET', last_name: 'Able' }),
+			personnelRow({ id: 'p-navy', rank: 'PO2', last_name: 'Baker' }),
+			personnelRow({ id: 'p-army', rank: 'SGT', last_name: 'Able' }),
+			personnelRow({ id: 'p-air-force', rank: 'SSgt', last_name: 'Charlie' })
+		]);
+		store.seed('organization_rank_catalog', [
+			rankCatalogRow({ code: 'PO2', label: 'Petty Officer Second Class', service: 'navy', pay_grade: 'E-5' }),
+			rankCatalogRow({ code: 'SGT', label: 'Sergeant', service: 'army', pay_grade: 'E-5' }),
+			rankCatalogRow({ code: 'SSgt', label: 'Staff Sergeant', service: 'air-force', pay_grade: 'E-5' })
+		]);
+		store.seed('training_types', [
+			{
+				id: 'type-cpr',
+				organization_id: ORG,
+				name: 'CPR',
+				description: null,
+				expiration_months: null,
+				warning_days_yellow: 60,
+				warning_days_orange: 30,
+				applies_to_roles: [],
+				applies_to_mos: [],
+				applies_to_ranks: [],
+				excluded_roles: [],
+				excluded_mos: [],
+				excluded_ranks: [],
+				color: '#22c55e',
+				sort_order: 0,
+				expiration_date_only: false,
+				can_be_exempted: false,
+				exempt_personnel_ids: [],
+				is_optional: false
+			}
+		]);
+
+		const input = {
+			sort: { column: 'rank' as const, direction: 'asc' as const },
+			pagination: { page: 1, pageSize: 10 }
+		};
+
+		const page = await fetchTrainingReportPage(ctx, input);
+		const detail = await fetchTrainingReportDetailPage(ctx, input);
+
+		expect(page.detail.rows.map((row) => row.person.id)).toEqual(['p-navy', 'p-army', 'p-air-force', 'p-unknown']);
+		expect(detail.rows.map((row) => row.person.id)).toEqual(['p-navy', 'p-army', 'p-air-force', 'p-unknown']);
 	});
 
 	it('clamps oversized page requests to the last available report page', async () => {
@@ -495,3 +572,35 @@ describe('fetchTrainingReportsData', () => {
 		expect(result.trainings[0].notes).toBe('test note');
 	});
 });
+
+function personnelRow(overrides: Record<string, unknown>): Record<string, unknown> {
+	return {
+		id: overrides.id ?? 'person-1',
+		organization_id: ORG,
+		rank: overrides.rank ?? 'SGT',
+		last_name: overrides.last_name ?? 'Soldier',
+		first_name: overrides.first_name ?? 'Test',
+		mos: overrides.mos ?? '68W',
+		clinic_role: overrides.clinic_role ?? 'Medic',
+		group_id: null,
+		archived_at: null,
+		groups: null,
+		...overrides
+	};
+}
+
+function rankCatalogRow(overrides: Record<string, unknown>): Record<string, unknown> {
+	return {
+		id: overrides.id ?? `rank-${overrides.code ?? 'SGT'}`,
+		organization_id: ORG,
+		code: overrides.code ?? 'SGT',
+		label: overrides.label ?? overrides.code ?? 'Sergeant',
+		service: overrides.service ?? 'army',
+		category: overrides.category ?? 'enlisted',
+		pay_grade: overrides.pay_grade ?? 'E-5',
+		state: overrides.state ?? 'active',
+		source: overrides.source ?? 'custom',
+		sort_order: overrides.sort_order ?? 0,
+		...overrides
+	};
+}

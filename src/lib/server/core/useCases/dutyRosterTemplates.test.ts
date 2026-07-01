@@ -15,6 +15,7 @@ import {
 	listAcceptedDutyRosterTemplateRuns,
 	listDutyRosterTemplates,
 	loadDutyRosterTemplateCountReadModel,
+	loadDutyRosterTemplateSetupOptions,
 	loadDutyRosterTemplateSettings,
 	recordDutyRosterTemplateRunCorrection,
 	updateDutyRosterTemplateSettings
@@ -33,6 +34,7 @@ const specialDayRows: Record<string, unknown>[] = [];
 const statusTypeRows: Record<string, unknown>[] = [];
 const dutyEventRows: Record<string, unknown>[] = [];
 const dutyEventSlotRows: Record<string, unknown>[] = [];
+const rankCatalogRows: Record<string, unknown>[] = [];
 const auditEvents: Array<{
 	action: string;
 	resourceType: string;
@@ -311,6 +313,7 @@ describe('Duty Roster Template use cases', () => {
 		statusTypeRows.length = 0;
 		dutyEventRows.length = 0;
 		dutyEventSlotRows.length = 0;
+		rankCatalogRows.length = 0;
 		auditEvents.length = 0;
 		vi.mocked(readOnlyGuard.check).mockResolvedValue(false);
 	});
@@ -676,6 +679,36 @@ describe('Duty Roster Template use cases', () => {
 
 		expect(settings.resolvedPool.map((person) => person.id)).toEqual(['p1', 'p2']);
 		expect(settings.baselineRows.map((row) => [row.personnel.id, row.startingCount])).toEqual([['p2', 4]]);
+	});
+
+	it('loads Organization rank catalog entries for Duty Roster setup and settings rank filters', async () => {
+		const ctx = createCtx();
+		rankCatalogRows.push(
+			rankCatalogRow({ code: 'DET-RET', state: 'retired', pay_grade: 'E-5' }),
+			rankCatalogRow({
+				id: 'rank-po2',
+				code: 'PO2',
+				label: 'Petty Officer Second Class',
+				service: 'navy',
+				pay_grade: 'E-5'
+			}),
+			rankCatalogRow({
+				id: 'rank-ssgt',
+				code: 'SSgt',
+				label: 'Staff Sergeant',
+				service: 'air-force',
+				pay_grade: 'E-5'
+			})
+		);
+		const template = await createDutyRosterTemplate(ctx, { name: 'CQ NCO', shortCode: 'CQ' });
+
+		const [setupOptions, settings] = await Promise.all([
+			loadDutyRosterTemplateSetupOptions(ctx),
+			loadDutyRosterTemplateSettings(ctx, template)
+		]);
+
+		expect(setupOptions.rankCatalog?.map((entry) => entry.code)).toEqual(['DET-RET', 'PO2', 'SSgt']);
+		expect(settings.rankCatalog?.map((entry) => entry.code)).toEqual(['DET-RET', 'PO2', 'SSgt']);
 	});
 
 	it('updates template identity settings and keeps the companion Calendar assignment type aligned', async () => {
@@ -3628,6 +3661,8 @@ function tableRows(table: string): Record<string, unknown>[] {
 			return dutyEventSlotRows;
 		case 'personnel':
 			return personnelRows;
+		case 'organization_rank_catalog':
+			return rankCatalogRows;
 		case 'special_days':
 			return specialDayRows;
 		case 'status_types':
@@ -3635,6 +3670,22 @@ function tableRows(table: string): Record<string, unknown>[] {
 		default:
 			return rows;
 	}
+}
+
+function rankCatalogRow(overrides: Record<string, unknown>): Record<string, unknown> {
+	return {
+		id: overrides.id ?? 'rank-sgt',
+		organization_id: 'org-1',
+		code: overrides.code ?? 'SGT',
+		label: overrides.label ?? overrides.code ?? 'Sergeant',
+		service: overrides.service ?? 'army',
+		category: overrides.category ?? 'enlisted',
+		pay_grade: overrides.pay_grade ?? 'E-5',
+		state: overrides.state ?? 'active',
+		source: overrides.source ?? 'custom',
+		sort_order: overrides.sort_order ?? 0,
+		...overrides
+	};
 }
 
 function personnelRow(overrides: Record<string, unknown>): Record<string, unknown> {

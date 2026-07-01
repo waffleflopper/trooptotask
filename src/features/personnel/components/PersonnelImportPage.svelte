@@ -2,8 +2,8 @@
 	import { beforeNavigate, goto, invalidateAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import type { Group } from '$lib/stores/groups.svelte';
-	import { ALL_RANKS } from '$lib/types';
 	import type { Personnel } from '$lib/types';
+	import type { RankCatalogEntry } from '$lib/domain/rankCatalog';
 	import * as BulkImportWorkspace from '$lib/components/ui/bulk-import-workspace';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
@@ -28,11 +28,12 @@
 		orgId: string;
 		orgUrlSegment?: string;
 		groups: Group[];
+		rankCatalog?: RankCatalogEntry[];
 		personnel?: Personnel[];
 		readOnly?: boolean;
 	}
 
-	let { orgId, orgUrlSegment = orgId, groups, personnel = [], readOnly = false }: Props = $props();
+	let { orgId, orgUrlSegment = orgId, groups, rankCatalog = [], personnel = [], readOnly = false }: Props = $props();
 
 	type ImportState = 'input' | 'preview' | 'importing' | 'results';
 	type ImportMode = 'create' | 'merge';
@@ -98,6 +99,13 @@
 	const dataRowCount = $derived(dataRows.length);
 	const sourceRowNumbers = $derived(dataRows.map((_, index) => index + (hasHeaders ? 2 : 1)));
 	const activePersonnelCount = $derived(personnel.filter((person) => !person.archivedAt).length);
+	const activePersonnelRanks = $derived(
+		personnel
+			.filter((person) => !person.archivedAt)
+			.map((person) => person.rank.trim())
+			.filter(Boolean)
+	);
+	const activeRankCatalog = $derived(rankCatalog.filter((entry) => entry.state === 'active'));
 	const autoMappings = $derived(rawRows.length > 0 ? autoMapColumns(rawRows[0], PERSONNEL_COLUMNS, hasHeaders) : []);
 	const mappings = $derived(
 		autoMappings
@@ -117,8 +125,12 @@
 		const rank = (row.rank ?? '').trim();
 		if (!rank) {
 			cellErrors.rank = 'Rank is required';
-		} else if (!ALL_RANKS.some((value) => value.toLowerCase() === rank.toLowerCase())) {
-			cellErrors.rank = `"${rank}" is not a valid rank. Valid ranks: ${ALL_RANKS.join(', ')}`;
+		} else if (!isValidPreviewRank(rank)) {
+			const catalogLabel =
+				importMode === 'merge'
+					? 'Organization rank catalog or active Personnel rows'
+					: 'active Organization rank catalog';
+			cellErrors.rank = `"${rank}" is not in the ${catalogLabel}. Update Organization Settings -> Ranks, then try again.`;
 		}
 
 		if (!(row.lastName ?? '').trim()) cellErrors.lastName = 'Last name is required';
@@ -140,6 +152,28 @@
 			cellErrors,
 			cellWarnings
 		};
+	}
+
+	function isValidPreviewRank(input: string): boolean {
+		if (importMode === 'merge') {
+			return !!resolveRankCode(input, rankCatalog) || hasObservedActivePersonnelRank(input);
+		}
+
+		return !!resolveRankCode(input, activeRankCatalog);
+	}
+
+	function hasObservedActivePersonnelRank(input: string): boolean {
+		const normalizedInput = input.toUpperCase();
+		return activePersonnelRanks.some((rank) => rank.toUpperCase() === normalizedInput);
+	}
+
+	function resolveRankCode(input: string, catalog: RankCatalogEntry[]): string | null {
+		const exactMatch = catalog.find((entry) => entry.code === input);
+		if (exactMatch) return exactMatch.code;
+
+		const normalizedInput = input.toUpperCase();
+		const normalizedMatches = catalog.filter((entry) => entry.code.toUpperCase() === normalizedInput);
+		return normalizedMatches.length === 1 ? normalizedMatches[0].code : null;
 	}
 
 	function mapRow(row: string[]): Record<string, string> {

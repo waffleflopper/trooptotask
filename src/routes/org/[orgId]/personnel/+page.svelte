@@ -19,6 +19,7 @@
 			orgId: data.shell.org.id,
 			orgName: data.shell.org.name,
 			pinnedGroups: workspaceData.pinnedGroups,
+			rankCatalog: workspaceData.rankCatalog,
 			personnel: workspaceData.personnel,
 			lossWarningWindowDays: workspaceData.lossWarningWindowDays,
 			awardTrackingAcknowledgedPersonnelIds: workspaceData.awardTrackingAcknowledgedPersonnelIds

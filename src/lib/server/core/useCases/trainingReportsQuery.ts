@@ -15,6 +15,9 @@ import { TrainingTypeEntity } from '$lib/server/entities/trainingType';
 import { GroupEntity } from '$lib/server/entities/group';
 import type { Personnel } from '$lib/types';
 import type { Group } from '$lib/stores/groups.svelte';
+import type { RankCatalogEntry } from '$lib/domain/rankCatalog';
+import { observedRankCodesForOptions } from '$lib/domain/rankOptions';
+import { comparePersonnelByCatalogRankThenName } from '$lib/domain/personnelRank';
 import {
 	buildPivotTableFromMatrix,
 	buildTrainingReportWorkbook,
@@ -121,6 +124,28 @@ function uniqueSorted(values: Array<string | null | undefined>): string[] {
 	return [...new Set(values.filter((value): value is string => !!value))].sort((a, b) => a.localeCompare(b));
 }
 
+async function loadReportRankCatalog(ctx: QueryPorts): Promise<RankCatalogEntry[]> {
+	const rows = await ctx.store.findMany<{
+		code: string;
+		label: string;
+		service: RankCatalogEntry['service'];
+		category: RankCatalogEntry['category'];
+		pay_grade: RankCatalogEntry['payGrade'];
+		state: RankCatalogEntry['state'];
+		sort_order: number;
+	}>('organization_rank_catalog', ctx.auth.orgId);
+
+	return rows.map((row) => ({
+		code: row.code,
+		label: row.label,
+		service: row.service,
+		category: row.category,
+		payGrade: row.pay_grade,
+		state: row.state,
+		sortOrder: row.sort_order
+	}));
+}
+
 function toReportTrainingType(type: TrainingType): TrainingReportTrainingType {
 	return {
 		id: type.id,
@@ -143,6 +168,7 @@ interface BuiltTrainingReportRows {
 	pivotRows: PivotRow[];
 	trainingTypes: TrainingType[];
 	reportMatrix: ReturnType<typeof buildTrainingReportMatrix>;
+	rankCatalog: RankCatalogEntry[];
 	sort: TrainingReportSort;
 }
 
@@ -155,12 +181,13 @@ async function buildTrainingReportRows(
 	const filters = input.filters ?? {};
 	const sort = normalizeSort(input.sort);
 
-	const [personnel, typeRows, trainingRows] = await Promise.all([
+	const [personnel, typeRows, trainingRows, rankCatalog] = await Promise.all([
 		loadRosterPersonnel(ctx, { status: 'active' }),
 		ctx.store.findMany<Record<string, unknown>>('training_types', orgId, undefined, {
 			orderBy: [{ column: 'sort_order', ascending: true }]
 		}),
-		ctx.store.findMany<Record<string, unknown>>('personnel_trainings', orgId)
+		ctx.store.findMany<Record<string, unknown>>('personnel_trainings', orgId),
+		loadReportRankCatalog(ctx)
 	]);
 
 	const trainingTypes = TrainingTypeEntity.fromDbArray(typeRows);
@@ -187,7 +214,7 @@ async function buildTrainingReportRows(
 		if (sort.column === 'name') {
 			cmp = a.person.lastName.localeCompare(b.person.lastName) || a.person.firstName.localeCompare(b.person.firstName);
 		} else if (sort.column === 'rank') {
-			cmp = a.person.rank.localeCompare(b.person.rank);
+			cmp = comparePersonnelByCatalogRankThenName(a.person, b.person, rankCatalog.length > 0 ? rankCatalog : undefined);
 		} else if (sort.column === 'group') {
 			cmp = a.person.groupName.localeCompare(b.person.groupName);
 		} else {
@@ -205,13 +232,17 @@ async function buildTrainingReportRows(
 		pivotRows,
 		trainingTypes: selectedTypes,
 		reportMatrix,
+		rankCatalog,
 		sort
 	};
 }
 
 async function buildTrainingReport(ctx: QueryPorts, input: TrainingReportInput = {}): Promise<BuiltTrainingReport> {
 	const orgId = ctx.auth.orgId;
-	const { personnel, pivotRows, trainingTypes, reportMatrix, sort } = await buildTrainingReportRows(ctx, input);
+	const { personnel, pivotRows, trainingTypes, reportMatrix, rankCatalog, sort } = await buildTrainingReportRows(
+		ctx,
+		input
+	);
 	const groupRows = await ctx.store.findMany<Record<string, unknown>>('groups', orgId, undefined, {
 		orderBy: [{ column: 'sort_order', ascending: true }]
 	});
@@ -226,7 +257,10 @@ async function buildTrainingReport(ctx: QueryPorts, input: TrainingReportInput =
 			groups,
 			mos: uniqueSorted(personnel.map((person) => person.mos)),
 			roles: uniqueSorted(personnel.map((person) => person.clinicRole)),
-			ranks: uniqueSorted(personnel.map((person) => person.rank))
+			ranks: observedRankCodesForOptions({
+				rankCatalog: rankCatalog.length > 0 ? rankCatalog : undefined,
+				observedRanks: personnel.map((person) => person.rank)
+			})
 		},
 		sort
 	};

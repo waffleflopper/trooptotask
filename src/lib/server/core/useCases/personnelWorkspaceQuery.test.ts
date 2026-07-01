@@ -37,6 +37,32 @@ function seedPersonnel(store: ReturnType<typeof createInMemoryDataStore>) {
 		{ id: 'st1', organization_id: ORG, name: 'Leave', color: '#000000', text_color: '#ffffff', sort_order: 0 },
 		{ id: 'st2', organization_id: ORG, name: 'TDY', color: '#111111', text_color: '#eeeeee', sort_order: 1 }
 	]);
+	store.seed('organization_rank_catalog', [
+		{
+			id: 'rank-sgt',
+			organization_id: ORG,
+			code: 'SGT',
+			label: 'Sergeant',
+			service: 'army',
+			category: 'enlisted',
+			pay_grade: 'E-5',
+			state: 'active',
+			source: 'built-in',
+			sort_order: 0
+		},
+		{
+			id: 'rank-po3',
+			organization_id: ORG,
+			code: 'PO3',
+			label: 'Petty Officer Third Class',
+			service: 'navy',
+			category: 'enlisted',
+			pay_grade: 'E-4',
+			state: 'active',
+			source: 'built-in',
+			sort_order: 1
+		}
+	]);
 	store.seed('user_pinned_groups', [
 		{ id: 'pg1', organization_id: ORG, user_id: 'test-user', group_name: 'Alpha', sort_order: 0 }
 	]);
@@ -80,6 +106,10 @@ describe('fetchPersonnelBootstrap', () => {
 		expect(result).not.toHaveProperty('allPersonnel');
 		expect(result.groups.map((g) => g.name)).toEqual(['Alpha', 'Bravo']);
 		expect(result.statusTypes.map((s) => s.name)).toEqual(['Leave', 'TDY']);
+		expect(result.rankCatalog).toEqual([
+			expect.objectContaining({ code: 'SGT', label: 'Sergeant', state: 'active' }),
+			expect.objectContaining({ code: 'PO3', label: 'Petty Officer Third Class', state: 'active' })
+		]);
 		expect(result.pinnedGroups).toEqual(['Alpha']);
 		expect(result).not.toHaveProperty('ratingSchemeEntries');
 		expect(result.awardTrackingAcknowledgedPersonnelIds).toEqual([]);

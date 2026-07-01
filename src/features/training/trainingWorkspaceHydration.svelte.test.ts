@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
+import type { RankCatalogEntry } from '$lib/domain/rankCatalog';
 import type { Group } from '$lib/stores/groups.svelte';
 import type { Personnel } from '$lib/types';
 import type { PersonnelTraining, TrainingType, TrainingView } from './training.types';
-import { createTrainingWorkspaceHydrator, type TrainingHydrationStores } from './trainingWorkspaceHydration.svelte';
+import { createTrainingWorkspaceHydrator } from './trainingWorkspaceHydration.svelte';
 import type { TrainingWorkspaceHydration } from './server/trainingWorkspaceBootstrap';
 
 function deferred<T>() {
@@ -49,8 +50,9 @@ function createStores() {
 		trainingTypesStore: createLoadable<TrainingType>(),
 		trainingViewsStore: createLoadable<TrainingView>(),
 		personnelTrainingsStore: createLoadable<PersonnelTraining>(),
-		pinnedGroupsStore: createLoadable<string>()
-	} satisfies TrainingHydrationStores;
+		pinnedGroupsStore: createLoadable<string>(),
+		rankCatalogStore: createLoadable<RankCatalogEntry>()
+	};
 }
 
 describe('Training workspace hydration adapter', () => {
@@ -125,4 +127,48 @@ describe('Training workspace hydration adapter', () => {
 		expect(stores.groupsStore.orgId).toBe('org-new');
 		expect(stores.groupsStore.items).toEqual([freshGroup]);
 	});
+
+	it('hydrates a deferred Organization rank catalog for Training consumers', async () => {
+		const stores = createStores();
+		const rankCatalog = deferred<RankCatalogEntry[]>();
+		const catalogEntry = rankCatalogEntry({ code: 'PO2', label: 'Petty Officer Second Class', service: 'navy' });
+		const hydration: TrainingWorkspaceHydration = {
+			orgId: 'org-1',
+			personnel: { mode: 'replace', snapshotKey: 'personnel:rank-catalog', items: [] },
+			groups: { mode: 'replace', snapshotKey: 'groups:rank-catalog', items: [] },
+			trainingTypes: { mode: 'replace', snapshotKey: 'types:rank-catalog', items: [] },
+			trainingViews: { mode: 'replace', snapshotKey: 'views:rank-catalog', items: [] },
+			personnelTrainings: { mode: 'replace', snapshotKey: 'trainings:rank-catalog', items: [] },
+			pinnedGroups: { mode: 'replace', snapshotKey: 'pinned:rank-catalog', items: [] },
+			rankCatalog: {
+				mode: 'replace',
+				deferred: true,
+				snapshotKey: 'rank-catalog:1',
+				items: rankCatalog.promise
+			}
+		};
+
+		const pending = createTrainingWorkspaceHydrator().hydrate(hydration, stores);
+
+		expect(stores.rankCatalogStore.loading).toBe(true);
+
+		rankCatalog.resolve([catalogEntry]);
+		await pending;
+
+		expect(stores.rankCatalogStore.items).toEqual([catalogEntry]);
+		expect(stores.rankCatalogStore.orgId).toBe('org-1');
+		expect(stores.rankCatalogStore.loading).toBe(false);
+	});
 });
+
+function rankCatalogEntry(overrides: Partial<RankCatalogEntry>): RankCatalogEntry {
+	return {
+		code: overrides.code ?? 'SGT',
+		label: overrides.label ?? overrides.code ?? 'Sergeant',
+		service: overrides.service ?? 'army',
+		category: overrides.category ?? 'enlisted',
+		payGrade: overrides.payGrade ?? 'E-5',
+		state: overrides.state ?? 'active',
+		sortOrder: overrides.sortOrder ?? 0
+	};
+}

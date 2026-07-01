@@ -1,0 +1,655 @@
+BEGIN;
+
+CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
+
+SELECT plan(22);
+
+INSERT INTO auth.users (
+	instance_id,
+	id,
+	aud,
+	role,
+	email,
+	encrypted_password,
+	email_confirmed_at,
+	raw_app_meta_data,
+	raw_user_meta_data,
+	created_at,
+	updated_at
+)
+VALUES
+	(
+		'00000000-0000-0000-0000-000000000000',
+		'10000000-0000-4000-8000-000000124701',
+		'authenticated',
+		'authenticated',
+		'rank-alpha-owner-1247@example.test',
+		'',
+		now(),
+		'{"provider": "email", "providers": ["email"]}'::jsonb,
+		'{}'::jsonb,
+		now(),
+		now()
+	),
+	(
+		'00000000-0000-0000-0000-000000000000',
+		'10000000-0000-4000-8000-000000124702',
+		'authenticated',
+		'authenticated',
+		'rank-alpha-editor-1247@example.test',
+		'',
+		now(),
+		'{"provider": "email", "providers": ["email"]}'::jsonb,
+		'{}'::jsonb,
+		now(),
+		now()
+	),
+	(
+		'00000000-0000-0000-0000-000000000000',
+		'10000000-0000-4000-8000-000000124703',
+		'authenticated',
+		'authenticated',
+		'rank-bravo-owner-1247@example.test',
+		'',
+		now(),
+		'{"provider": "email", "providers": ["email"]}'::jsonb,
+		'{}'::jsonb,
+		now(),
+		now()
+	),
+	(
+		'00000000-0000-0000-0000-000000000000',
+		'10000000-0000-4000-8000-000000124704',
+		'authenticated',
+		'authenticated',
+		'rank-alpha-calendar-1247@example.test',
+		'',
+		now(),
+		'{"provider": "email", "providers": ["email"]}'::jsonb,
+		'{}'::jsonb,
+		now(),
+		now()
+	),
+	(
+		'00000000-0000-0000-0000-000000000000',
+		'10000000-0000-4000-8000-000000124705',
+		'authenticated',
+		'authenticated',
+		'rank-alpha-critical-tasks-1247@example.test',
+		'',
+		now(),
+		'{"provider": "email", "providers": ["email"]}'::jsonb,
+		'{}'::jsonb,
+		now(),
+		now()
+	),
+	(
+		'00000000-0000-0000-0000-000000000000',
+		'10000000-0000-4000-8000-000000124706',
+		'authenticated',
+		'authenticated',
+		'rank-alpha-export-manager-1247@example.test',
+		'',
+		now(),
+		'{"provider": "email", "providers": ["email"]}'::jsonb,
+		'{}'::jsonb,
+		now(),
+		now()
+	);
+
+INSERT INTO public.organizations (id, name, created_by, url_slug)
+VALUES
+	(
+		'20000000-0000-4000-8000-000000124701',
+		'Rank Catalog Alpha Unit',
+		'10000000-0000-4000-8000-000000124701',
+		'rank-catalog-alpha-1247'
+	),
+	(
+		'20000000-0000-4000-8000-000000124702',
+		'Rank Catalog Bravo Unit',
+		'10000000-0000-4000-8000-000000124703',
+		'rank-catalog-bravo-1247'
+	);
+
+INSERT INTO public.organization_memberships (
+	id,
+	organization_id,
+	user_id,
+	role,
+	member_preset,
+	capability_overrides,
+	access_scope_kind,
+	access_scope_group_ids,
+	email
+)
+VALUES
+	(
+		'30000000-0000-4000-8000-000000124701',
+		'20000000-0000-4000-8000-000000124701',
+		'10000000-0000-4000-8000-000000124701',
+		'owner',
+		'editor',
+		'{}'::jsonb,
+		'organization',
+		ARRAY[]::uuid[],
+		'rank-alpha-owner-1247@example.test'
+	),
+	(
+		'30000000-0000-4000-8000-000000124702',
+		'20000000-0000-4000-8000-000000124701',
+		'10000000-0000-4000-8000-000000124702',
+		'member',
+		'editor',
+		'{}'::jsonb,
+		'organization',
+		ARRAY[]::uuid[],
+		'rank-alpha-editor-1247@example.test'
+	),
+	(
+		'30000000-0000-4000-8000-000000124703',
+		'20000000-0000-4000-8000-000000124702',
+		'10000000-0000-4000-8000-000000124703',
+		'owner',
+		'editor',
+		'{}'::jsonb,
+		'organization',
+		ARRAY[]::uuid[],
+		'rank-bravo-owner-1247@example.test'
+	),
+	(
+		'30000000-0000-4000-8000-000000124704',
+		'20000000-0000-4000-8000-000000124701',
+		'10000000-0000-4000-8000-000000124704',
+		'member',
+		'viewer',
+		'{"calendar":"view","personnel":"none","training":"none","criticalTasks":"none","onboarding":"none","ratingScheme":"none"}'::jsonb,
+		'organization',
+		ARRAY[]::uuid[],
+		'rank-alpha-calendar-1247@example.test'
+	),
+	(
+		'30000000-0000-4000-8000-000000124705',
+		'20000000-0000-4000-8000-000000124701',
+		'10000000-0000-4000-8000-000000124705',
+		'member',
+		'viewer',
+		'{"calendar":"none","personnel":"none","training":"none","criticalTasks":"view","onboarding":"none","ratingScheme":"none"}'::jsonb,
+		'organization',
+		ARRAY[]::uuid[],
+		'rank-alpha-critical-tasks-1247@example.test'
+	),
+	(
+		'30000000-0000-4000-8000-000000124706',
+		'20000000-0000-4000-8000-000000124701',
+		'10000000-0000-4000-8000-000000124706',
+		'member',
+		'viewer',
+		'{"calendar":"none","personnel":"none","training":"none","criticalTasks":"none","onboarding":"none","ratingScheme":"none","canManageMembers":true}'::jsonb,
+		'organization',
+		ARRAY[]::uuid[],
+		'rank-alpha-export-manager-1247@example.test'
+	);
+
+INSERT INTO public.organization_rank_catalog (
+	id,
+	organization_id,
+	code,
+	label,
+	service,
+	category,
+	pay_grade,
+	state,
+	source,
+	sort_order
+)
+VALUES
+	(
+		'40000000-0000-4000-8000-000000124701',
+		'20000000-0000-4000-8000-000000124701',
+		'ALPHA-SGT',
+		'Alpha Sergeant',
+		'custom',
+		'custom',
+		'ungraded',
+		'active',
+		'custom',
+		1
+	),
+	(
+		'40000000-0000-4000-8000-000000124702',
+		'20000000-0000-4000-8000-000000124702',
+		'BRAVO-SGT',
+		'Bravo Sergeant',
+		'custom',
+		'custom',
+		'ungraded',
+		'active',
+		'custom',
+		1
+	);
+
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', '10000000-0000-4000-8000-000000124702', true);
+SELECT set_config('request.jwt.claim.email', 'rank-alpha-editor-1247@example.test', true);
+
+SELECT is(
+	(
+		SELECT count(*)::integer
+		FROM public.organization_rank_catalog
+		WHERE code = 'ALPHA-SGT'
+	),
+	1,
+	'alpha personnel editor can read alpha rank catalog entries'
+);
+
+SELECT is(
+	(
+		SELECT count(*)::integer
+		FROM public.organization_rank_catalog
+		WHERE code = 'BRAVO-SGT'
+	),
+	0,
+	'alpha personnel editor cannot read bravo rank catalog entries'
+);
+
+RESET ROLE;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', '10000000-0000-4000-8000-000000124704', true);
+SELECT set_config('request.jwt.claim.email', 'rank-alpha-calendar-1247@example.test', true);
+
+SELECT is(
+	(
+		SELECT count(*)::integer
+		FROM public.organization_rank_catalog
+		WHERE code = 'ALPHA-SGT'
+	),
+	1,
+	'alpha calendar viewer can read alpha rank catalog entries for duty roster rank-aware workspaces'
+);
+
+RESET ROLE;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', '10000000-0000-4000-8000-000000124705', true);
+SELECT set_config('request.jwt.claim.email', 'rank-alpha-critical-tasks-1247@example.test', true);
+
+SELECT is(
+	(
+		SELECT count(*)::integer
+		FROM public.organization_rank_catalog
+		WHERE code = 'ALPHA-SGT'
+	),
+	1,
+	'alpha critical tasks viewer can read alpha rank catalog entries for readiness reports'
+);
+
+RESET ROLE;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', '10000000-0000-4000-8000-000000124706', true);
+SELECT set_config('request.jwt.claim.email', 'rank-alpha-export-manager-1247@example.test', true);
+
+SELECT is(
+	(
+		SELECT count(*)::integer
+		FROM public.organization_rank_catalog
+		WHERE code = 'ALPHA-SGT'
+	),
+	1,
+	'alpha delegated export manager can read alpha rank catalog entries for organization export'
+);
+
+SELECT is(
+	(
+		SELECT count(*)::integer
+		FROM public.organization_rank_catalog
+		WHERE code = 'BRAVO-SGT'
+	),
+	0,
+	'alpha delegated export manager cannot read bravo rank catalog entries'
+);
+
+RESET ROLE;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', '10000000-0000-4000-8000-000000124702', true);
+SELECT set_config('request.jwt.claim.email', 'rank-alpha-editor-1247@example.test', true);
+
+WITH updated AS (
+	UPDATE public.organization_rank_catalog
+	SET label = 'Blocked Alpha Sergeant'
+	WHERE code = 'ALPHA-SGT'
+	RETURNING id
+)
+SELECT is(
+	(SELECT count(*)::integer FROM updated),
+	0,
+	'personnel editor cannot update alpha rank catalog entries without Organization governance'
+);
+
+SELECT throws_ok(
+	$$
+		INSERT INTO public.organization_rank_catalog (
+			organization_id,
+			code,
+			label,
+			service,
+			category,
+			pay_grade,
+			state,
+			source,
+			sort_order
+		)
+		VALUES (
+			'20000000-0000-4000-8000-000000124701',
+			'ALPHA-CUSTOM',
+			'Alpha Custom',
+			'custom',
+			'custom',
+			'ungraded',
+			'active',
+			'custom',
+			2
+		)
+	$$,
+	'42501',
+	'new row violates row-level security policy for table "organization_rank_catalog"',
+	'personnel editor cannot insert alpha rank catalog entries without Organization governance'
+);
+
+RESET ROLE;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', '10000000-0000-4000-8000-000000124701', true);
+SELECT set_config('request.jwt.claim.email', 'rank-alpha-owner-1247@example.test', true);
+
+SELECT is(
+	public.can_export_organization_data('20000000-0000-4000-8000-000000124701'),
+	true,
+	'alpha owner can export organization data through persisted member-management authority'
+);
+
+SELECT lives_ok(
+	$$
+		INSERT INTO public.organization_rank_catalog (
+			organization_id,
+			code,
+			label,
+			service,
+			category,
+			pay_grade,
+			state,
+			source,
+			sort_order
+		)
+		VALUES (
+			'20000000-0000-4000-8000-000000124701',
+			'ALPHA-OWNER',
+			'Alpha Owner Custom',
+			'custom',
+			'custom',
+			'ungraded',
+			'active',
+			'custom',
+			3
+		)
+	$$,
+	'alpha owner can insert alpha rank catalog entries'
+);
+
+SELECT lives_ok(
+	$$
+		UPDATE public.organization_rank_catalog
+		SET
+			label = 'Alpha Sergeant Updated',
+			state = 'retired',
+			sort_order = 8
+		WHERE code = 'ALPHA-SGT'
+	$$,
+	'alpha owner can update editable alpha rank catalog fields'
+);
+
+SELECT throws_ok(
+	$$
+		INSERT INTO public.organization_rank_catalog (
+			organization_id,
+			code,
+			label,
+			service,
+			category,
+			pay_grade,
+			state,
+			source,
+			sort_order
+		)
+		VALUES (
+			'20000000-0000-4000-8000-000000124702',
+			'BRAVO-BLOCKED',
+			'Blocked Bravo Custom',
+			'custom',
+			'custom',
+			'ungraded',
+			'active',
+			'custom',
+			2
+		)
+	$$,
+	'42501',
+	'new row violates row-level security policy for table "organization_rank_catalog"',
+	'alpha owner cannot insert bravo rank catalog entries'
+);
+
+SELECT throws_ok(
+	$$
+		DELETE FROM public.organization_rank_catalog
+		WHERE code = 'ALPHA-SGT'
+	$$,
+	'42501',
+	'permission denied for table organization_rank_catalog',
+	'alpha owner cannot directly delete rank catalog entries'
+);
+
+SELECT throws_ok(
+	$$
+		UPDATE public.organization_rank_catalog
+		SET organization_id = '20000000-0000-4000-8000-000000124702'
+		WHERE code = 'ALPHA-SGT'
+	$$,
+	'23514',
+	'organization_rank_catalog.organization_id cannot be changed',
+	'alpha owner cannot move rank catalog entries between organizations'
+);
+
+SELECT throws_ok(
+	$$
+		INSERT INTO public.organization_rank_catalog (
+			organization_id,
+			code,
+			label,
+			service,
+			category,
+			pay_grade,
+			state,
+			source,
+			sort_order
+		)
+		VALUES (
+			'20000000-0000-4000-8000-000000124701',
+			' ALPHA-SPACED ',
+			'Alpha Spaced',
+			'custom',
+			'custom',
+			'ungraded',
+			'active',
+			'custom',
+			4
+		)
+	$$,
+	'23514',
+	'new row for relation "organization_rank_catalog" violates check constraint "organization_rank_catalog_code_check"',
+	'alpha owner cannot insert non-canonical trimmed rank catalog codes'
+);
+
+SELECT throws_ok(
+	$$
+		INSERT INTO public.organization_rank_catalog (
+			organization_id,
+			code,
+			label,
+			service,
+			category,
+			pay_grade,
+			state,
+			source,
+			sort_order
+		)
+		VALUES (
+			'20000000-0000-4000-8000-000000124701',
+			'ALPHA-E10',
+			'Alpha E10',
+			'custom',
+			'custom',
+			'E-10',
+			'active',
+			'custom',
+			5
+		)
+	$$,
+	'23514',
+	'new row for relation "organization_rank_catalog" violates check constraint "organization_rank_catalog_pay_grade_check"',
+	'alpha owner cannot insert unsupported rank pay grades'
+);
+
+RESET ROLE;
+
+INSERT INTO public.organization_rank_catalog (
+	id,
+	organization_id,
+	code,
+	label,
+	service,
+	category,
+	pay_grade,
+	state,
+	source,
+	sort_order
+)
+VALUES
+	(
+		'40000000-0000-4000-8000-000000124703',
+		'20000000-0000-4000-8000-000000124701',
+		'ALPHA-RPC',
+		'Alpha RPC',
+		'custom',
+		'custom',
+		'ungraded',
+		'active',
+		'custom',
+		6
+	),
+	(
+		'40000000-0000-4000-8000-000000124704',
+		'20000000-0000-4000-8000-000000124701',
+		'ALPHA-BLOCKED',
+		'Alpha Blocked',
+		'custom',
+		'custom',
+		'ungraded',
+		'active',
+		'custom',
+		7
+	);
+
+INSERT INTO public.personnel (
+	id,
+	organization_id,
+	rank,
+	last_name,
+	first_name,
+	slug
+)
+VALUES (
+	'50000000-0000-4000-8000-000000124701',
+	'20000000-0000-4000-8000-000000124701',
+	'alpha-blocked',
+	'Blocked',
+	'Alex',
+	'alex-blocked-rank'
+);
+
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', '10000000-0000-4000-8000-000000124701', true);
+SELECT set_config('request.jwt.claim.email', 'rank-alpha-owner-1247@example.test', true);
+
+SELECT throws_ok(
+	$$
+		SELECT public.delete_unused_organization_rank_catalog_entry(
+			'20000000-0000-4000-8000-000000124701',
+			'40000000-0000-4000-8000-000000124703',
+			'ALPHA-RPC'
+		)
+	$$,
+	'42501',
+	'permission denied for function delete_unused_organization_rank_catalog_entry',
+	'authenticated Organization owners cannot execute the service-role-only atomic rank catalog delete'
+);
+
+SELECT is(
+	(
+		SELECT count(*)::integer
+		FROM public.organization_rank_catalog
+		WHERE code = 'ALPHA-RPC'
+	),
+	1,
+	'authenticated atomic rank catalog delete denial preserves the target row'
+);
+
+RESET ROLE;
+SET LOCAL ROLE service_role;
+
+SELECT lives_ok(
+	$$
+		SELECT public.delete_unused_organization_rank_catalog_entry(
+			'20000000-0000-4000-8000-000000124701',
+			'40000000-0000-4000-8000-000000124703',
+			'ALPHA-RPC'
+		)
+	$$,
+	'service role atomic rank catalog delete removes unused custom ranks'
+);
+
+SELECT is(
+	(
+		SELECT count(*)::integer
+		FROM public.organization_rank_catalog
+		WHERE code = 'ALPHA-RPC'
+	),
+	0,
+	'service role atomic rank catalog delete removes the target row'
+);
+
+SELECT throws_ok(
+	$$
+		SELECT public.delete_unused_organization_rank_catalog_entry(
+			'20000000-0000-4000-8000-000000124701',
+			'40000000-0000-4000-8000-000000124704',
+			'ALPHA-BLOCKED'
+		)
+	$$,
+	'23503',
+	'Rank is referenced by Organization data. Retire it instead.',
+	'atomic rank catalog delete blocks active normalized Personnel references'
+);
+
+SELECT is(
+	(
+		SELECT count(*)::integer
+		FROM public.organization_rank_catalog
+		WHERE code = 'ALPHA-BLOCKED'
+	),
+	1,
+	'blocked atomic rank catalog delete preserves the target row'
+);
+
+SELECT set_config('request.jwt.claim.sub', '', true);
+SELECT set_config('request.jwt.claim.email', '', true);
+
+SELECT * FROM finish();
+ROLLBACK;

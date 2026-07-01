@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Personnel } from '$lib/types';
+	import type { RankCatalogEntry } from '$lib/domain/rankCatalog';
 	import type { Group } from '$lib/stores/groups.svelte';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
@@ -15,14 +16,39 @@
 	interface Props {
 		personnel?: Personnel | null;
 		groups: Group[];
+		rankCatalog?: RankCatalogEntry[];
 		onSubmit: (data: Omit<Personnel, 'id'>) => void | Promise<void>;
 		onRemove?: (id: string) => void | Promise<void>;
 		onClose: () => void;
 	}
 
-	let { personnel = null, groups, onSubmit, onRemove, onClose }: Props = $props();
+	let { personnel = null, groups, rankCatalog = [], onSubmit, onRemove, onClose }: Props = $props();
 
-	let rank = $state(untrack(() => personnel?.rank ?? 'SPC'));
+	const COMMON_NEW_PERSONNEL_RANK = 'SPC';
+
+	function normalizeRankCode(value: string): string {
+		return value.trim().toUpperCase();
+	}
+
+	const activeRankOptions = $derived(
+		rankCatalog.filter((entry) => entry.state === 'active').map((entry) => ({ value: entry.code, label: entry.code }))
+	);
+	const rankOptions = $derived.by(() => {
+		if (
+			!personnel?.rank ||
+			activeRankOptions.some((option) => normalizeRankCode(option.value) === normalizeRankCode(personnel.rank))
+		) {
+			return activeRankOptions;
+		}
+
+		return [{ value: personnel.rank, label: personnel.rank }, ...activeRankOptions];
+	});
+
+	function defaultNewPersonnelRank(options: Array<{ value: string; label: string }>): string {
+		return options.find((option) => normalizeRankCode(option.value) === COMMON_NEW_PERSONNEL_RANK)?.value ?? '';
+	}
+
+	let rank = $state(untrack(() => personnel?.rank ?? defaultNewPersonnelRank(activeRankOptions)));
 	let firstName = $state(untrack(() => personnel?.firstName ?? ''));
 	let lastName = $state(untrack(() => personnel?.lastName ?? ''));
 	let mos = $state(untrack(() => personnel?.mos ?? ''));
@@ -33,45 +59,16 @@
 	let submitAttempted = $state(false);
 
 	const isEditing = $derived(!!personnel);
+	const rankMissing = $derived(rank.trim() === '');
 	const firstNameMissing = $derived(firstName.trim() === '');
 	const lastNameMissing = $derived(lastName.trim() === '');
-	const isValid = $derived(!firstNameMissing && !lastNameMissing);
+	const isValid = $derived(!rankMissing && !firstNameMissing && !lastNameMissing);
+	const rankError = $derived(submitAttempted && rankMissing ? 'Select a rank.' : undefined);
 	const firstNameError = $derived(submitAttempted && firstNameMissing ? 'Enter a first name.' : undefined);
 	const lastNameError = $derived(submitAttempted && lastNameMissing ? 'Enter a last name.' : undefined);
 
 	const selectedGroupName = $derived(groups.find((g) => g.id === groupId)?.name ?? '');
 	let isSaving = $state(false);
-
-	const rankOptions = [
-		'GEN',
-		'LTG',
-		'MG',
-		'BG',
-		'COL',
-		'LTC',
-		'MAJ',
-		'CPT',
-		'1LT',
-		'2LT',
-		'CW5',
-		'CW4',
-		'CW3',
-		'CW2',
-		'WO1',
-		'CSM',
-		'SGM',
-		'1SG',
-		'MSG',
-		'SFC',
-		'SSG',
-		'SGT',
-		'CPL',
-		'SPC',
-		'PFC',
-		'PV2',
-		'PV1',
-		'CIV'
-	].map((r) => ({ value: r, label: r }));
 
 	const groupOptions = $derived([
 		{ value: '', label: 'No Group Assigned' },
@@ -136,13 +133,20 @@
 				<div class="grid gap-2">
 					<Label for="rank">Rank</Label>
 					<Combobox.Root items={rankOptions} bind:value={rank} label="Rank" autoHighlight>
-						<Combobox.Trigger id="rank" placeholder="Select rank..." aria-label="Rank" />
+						<Combobox.Trigger
+							id="rank"
+							placeholder="Select rank..."
+							aria-label="Rank"
+							aria-invalid={!!rankError}
+							aria-describedby={rankError ? 'rank-error' : undefined}
+						/>
 						<Combobox.Content>
 							<Combobox.Search placeholder="Select rank..." />
 							<Combobox.Empty>No ranks found.</Combobox.Empty>
 							<Combobox.List />
 						</Combobox.Content>
 					</Combobox.Root>
+					{#if rankError}<p id="rank-error">{rankError}</p>{/if}
 				</div>
 
 				<div class="grid gap-4 sm:grid-cols-2">

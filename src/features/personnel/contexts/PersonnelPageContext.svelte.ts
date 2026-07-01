@@ -1,5 +1,6 @@
 import { SvelteDate, SvelteMap, SvelteSet } from 'svelte/reactivity';
 import type { Personnel } from '$lib/types';
+import type { RankCatalogEntry } from '$lib/domain/rankCatalog';
 import { createRosterReadModel, type PersonnelGroup, type RosterReadModelView } from '$lib/domain/rosterReadModel';
 import type { ClientAffordance, OrgContext } from '$lib/stores/orgContext.svelte';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
@@ -13,6 +14,7 @@ export interface PersonnelPageData {
 	orgId: string;
 	orgName: string;
 	pinnedGroups: string[];
+	rankCatalog?: RankCatalogEntry[];
 	personnel?: Personnel[];
 	/** Org-configured loss warning window in days (default: 180). */
 	lossWarningWindowDays?: number;

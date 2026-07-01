@@ -1,5 +1,7 @@
 import type { CapabilityLevel, DurableFeatureLane, MembershipRole, ScopeSet } from '$lib/access/memberAccessShape';
+import type { RankCategory, RankPayGrade, RankService, RankState } from '$lib/domain/rankCatalog';
 import type { AuditLogQueryResult } from '$lib/server/core/useCases/auditLogQuery';
+import type { OrganizationRankCatalogReferenceSummary } from '$lib/server/core/useCases/rankCatalog';
 import type { EffectiveTier, Tier } from '$lib/types/subscription';
 import type { DeletionRequestRow } from './settingsRows.server';
 import type { EditablePreset } from './settingsMemberAccessConstants';
@@ -147,6 +149,69 @@ export type SettingsMembersSectionData = {
 	capabilityOptions: Array<{ value: CapabilityLevel; label: string }>;
 	canInvite: boolean;
 	canManageMemberAccess: boolean;
+};
+
+export type SettingsRankOption<Value extends string> = {
+	value: Value;
+	label: string;
+};
+
+export type SettingsRankServicePackOption = SettingsRankOption<RankService> & {
+	builtInCount: number;
+	existingCount: number;
+	activeCount: number;
+	retiredCount: number;
+	missingCount: number;
+	isInstalled: boolean;
+	canBulkRetire: boolean;
+	canBulkReactivate: boolean;
+};
+
+export type SettingsRankCatalogRow = {
+	code: string;
+	label: string;
+	service: RankService;
+	serviceLabel: string;
+	category: RankCategory;
+	categoryLabel: string;
+	payGrade: RankPayGrade;
+	payGradeLabel: string;
+	state: RankState;
+	source: 'built-in' | 'discovered' | 'custom';
+	sourceLabel: string;
+	sortOrder: number;
+	referenceSummary: OrganizationRankCatalogReferenceSummary;
+	warnings: string[];
+	commands: {
+		canEdit: boolean;
+		canRetire: boolean;
+		canReactivate: boolean;
+		canDelete: boolean;
+		deleteDisabledReason: string | null;
+	};
+};
+
+export type SettingsRanksSectionData = {
+	entries: {
+		active: SettingsRankCatalogRow[];
+		retired: SettingsRankCatalogRow[];
+	};
+	servicePacks: SettingsRankServicePackOption[];
+	options: {
+		services: Array<SettingsRankOption<RankService>>;
+		categories: Array<SettingsRankOption<RankCategory>>;
+		payGrades: Array<SettingsRankOption<RankPayGrade>>;
+		states: Array<SettingsRankOption<RankState>>;
+	};
+	copy: {
+		payGradeHelp: string;
+		tieBreakHelp: string;
+	};
+	commands: {
+		canManageCatalog: boolean;
+		canAddServicePack: boolean;
+		canAddCustomRank: boolean;
+	};
 };
 
 export type SettingsDangerSectionData = {

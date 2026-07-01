@@ -16,6 +16,7 @@ import { evaluateFeaturePolicy, policyResourceForGroup, requireFeaturePolicy } f
 import { buildUniquePersonnelSlug, isPersonnelSlugUniqueConstraintError } from './personnelSlug';
 import { createDeletionRequest } from './deletionRequests';
 import { archivePersonnelOwnedArtifacts, restorePersonnelOwnedArtifacts } from './personnelArchivedArtifacts';
+import { normalizeActivePersonnelRank } from './personnelRankCatalog';
 
 const entity = PersonnelEntity;
 const AUDIT_RESOURCE = 'personnel';
@@ -85,6 +86,10 @@ function personnelName(person: Pick<PersonnelLifecycleRecord, 'rank' | 'last_nam
 	return `${person.rank} ${person.last_name}, ${person.first_name}`;
 }
 
+function rankCodesMatchCanonical(left: string, right: string | undefined): boolean {
+	return right !== undefined && left.trim().toUpperCase() === right.trim().toUpperCase();
+}
+
 export function createPersonnelUseCases(): PersonnelUseCases {
 	return {
 		async create(ctx, data) {
@@ -101,6 +106,7 @@ export function createPersonnelUseCases(): PersonnelUseCases {
 			}
 
 			const validated = entity.createSchema.parse(data);
+			validated.rank = await normalizeActivePersonnelRank(ctx, (validated as { rank: string }).rank);
 			const dbData = entity.toDbInsert(validated, ctx.auth.orgId);
 			if (validated.groupId !== undefined) dbData.group_id = validated.groupId || null;
 			let row: Record<string, unknown> | null = null;
@@ -137,6 +143,7 @@ export function createPersonnelUseCases(): PersonnelUseCases {
 			const validated = entity.updateSchema.parse(data);
 			const { id, groupId: nextGroupId } = validated as { id: string; groupId?: string | null };
 			const currentRecord = await ctx.store.findOne<{
+				rank: string;
 				group_id: string | null;
 				last_name: string;
 				first_name: string;
@@ -158,6 +165,23 @@ export function createPersonnelUseCases(): PersonnelUseCases {
 					AUDIT_RESOURCE,
 					id
 				);
+			}
+
+			const nextRank = (validated as { rank?: string }).rank;
+			if (nextRank !== undefined) {
+				if (currentRecord?.rank !== undefined && nextRank.trim() === currentRecord.rank) {
+					validated.rank = currentRecord.rank;
+				} else {
+					try {
+						validated.rank = await normalizeActivePersonnelRank(ctx, nextRank);
+					} catch (error) {
+						if (errorStatus(error) === 400 && rankCodesMatchCanonical(nextRank, currentRecord?.rank)) {
+							validated.rank = currentRecord?.rank;
+						} else {
+							throw error;
+						}
+					}
+				}
 			}
 
 			const dbData = entity.toDbUpdate(validated);

@@ -1,35 +1,11 @@
 import type { Personnel } from '$lib/types';
+import { BUILT_IN_RANK_CATALOG, compareRankCodes, type RankCatalogEntry } from './rankCatalog';
 
-export const PERSONNEL_RANK_ORDER = [
-	'GEN',
-	'LTG',
-	'MG',
-	'BG',
-	'COL',
-	'LTC',
-	'MAJ',
-	'CPT',
-	'1LT',
-	'2LT',
-	'CW5',
-	'CW4',
-	'CW3',
-	'CW2',
-	'WO1',
-	'CSM',
-	'SGM',
-	'1SG',
-	'MSG',
-	'SFC',
-	'SSG',
-	'SGT',
-	'CPL',
-	'SPC',
-	'PFC',
-	'PV2',
-	'PV1',
-	'CIV'
-] as const;
+export const PERSONNEL_RANK_ORDER = BUILT_IN_RANK_CATALOG.filter(
+	(rank) => (rank.service === 'army' && rank.state === 'active') || rank.code === 'CIV'
+)
+	.sort((a, b) => compareRankCodes(a.code, b.code))
+	.map((rank) => rank.code);
 
 const RANK_PRECEDENCE: Map<string, number> = new Map(PERSONNEL_RANK_ORDER.map((rank, index) => [rank, index]));
 
@@ -54,6 +30,18 @@ export function comparePersonnelByRankThenName(
 	b: Pick<Personnel, 'rank' | 'lastName' | 'firstName' | 'id'>
 ): number {
 	const rankDiff = getRankPrecedence(a.rank) - getRankPrecedence(b.rank);
+	if (rankDiff !== 0) {
+		return rankDiff;
+	}
+	return compareNames(a, b);
+}
+
+export function comparePersonnelByCatalogRankThenName(
+	a: Pick<Personnel, 'rank' | 'lastName' | 'firstName' | 'id'>,
+	b: Pick<Personnel, 'rank' | 'lastName' | 'firstName' | 'id'>,
+	catalog: readonly RankCatalogEntry[] = BUILT_IN_RANK_CATALOG
+): number {
+	const rankDiff = compareRankCodes(a.rank, b.rank, { catalog });
 	if (rankDiff !== 0) {
 		return rankDiff;
 	}

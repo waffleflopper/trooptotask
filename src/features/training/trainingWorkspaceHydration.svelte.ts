@@ -1,7 +1,9 @@
 import { personnelTrainingsStore } from './stores/personnelTrainings.svelte';
+import { trainingRankCatalogStore } from './stores/rankCatalog.svelte';
 import { trainingTypesStore } from './stores/trainingTypes.svelte';
 import { trainingViewsStore } from './stores/trainingViews.svelte';
 import type { PersonnelTraining, TrainingType, TrainingView } from './training.types';
+import type { RankCatalogEntry } from '$lib/domain/rankCatalog';
 import { groupsStore, type Group } from '$lib/stores/groups.svelte';
 import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
 import { rosterStore } from '$lib/stores/roster.svelte';
@@ -26,6 +28,7 @@ export interface TrainingHydrationStores {
 	trainingViewsStore: TrainingHydrationLoadable<TrainingView>;
 	personnelTrainingsStore: TrainingHydrationLoadable<PersonnelTraining>;
 	pinnedGroupsStore: TrainingHydrationLoadable<string>;
+	rankCatalogStore: TrainingHydrationLoadable<RankCatalogEntry>;
 }
 
 export interface TrainingWorkspaceHydrator {
@@ -39,7 +42,8 @@ const defaultTrainingHydrationStores: TrainingHydrationStores = {
 	trainingTypesStore,
 	trainingViewsStore,
 	personnelTrainingsStore,
-	pinnedGroupsStore
+	pinnedGroupsStore,
+	rankCatalogStore: trainingRankCatalogStore
 };
 
 function createTargetDescriptor<T>(
@@ -85,7 +89,10 @@ export function createTrainingWorkspaceHydrator(): TrainingWorkspaceHydrator {
 					orgId,
 					'personnelTrainings'
 				),
-				createTargetDescriptor(hydration.pinnedGroups, stores.pinnedGroupsStore, orgId, 'pinnedGroups')
+				createTargetDescriptor(hydration.pinnedGroups, stores.pinnedGroupsStore, orgId, 'pinnedGroups'),
+				hydration.rankCatalog
+					? createTargetDescriptor(hydration.rankCatalog, stores.rankCatalogStore, orgId, 'rankCatalog')
+					: undefined
 			].filter((descriptor): descriptor is FeatureLaneWorkspaceHydrationTargetDescriptor => descriptor !== undefined);
 
 			await hydrationTargets.applyDescriptors(orgId, descriptors);

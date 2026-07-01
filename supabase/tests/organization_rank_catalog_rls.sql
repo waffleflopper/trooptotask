@@ -634,7 +634,7 @@ SELECT throws_ok(
 		)
 	$$,
 	'23503',
-	'Rank is referenced by active Organization data. Retire it instead.',
+	'Rank is referenced by Organization data. Retire it instead.',
 	'atomic rank catalog delete blocks active normalized Personnel references'
 );
 

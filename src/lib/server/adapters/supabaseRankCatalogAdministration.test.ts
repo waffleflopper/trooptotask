@@ -21,14 +21,14 @@ describe('createSupabaseRankCatalogAdministrationPort', () => {
 	it('throws RPC errors', async () => {
 		const rpc = vi.fn().mockResolvedValue({
 			data: null,
-			error: { message: 'Rank is referenced by active Organization data. Retire it instead.' }
+			error: { message: 'Rank is referenced by Organization data. Retire it instead.' }
 		});
 		const port = createSupabaseRankCatalogAdministrationPort({ supabase: {} } as never, {
 			getAdminClient: () => ({ rpc }) as unknown as SupabaseClient
 		});
 
 		await expect(port.deleteRankCatalogEntry('org-1', 'entry-1', 'DET-SGT')).rejects.toThrow(
-			'Rank is referenced by active Organization data. Retire it instead.'
+			'Rank is referenced by Organization data. Retire it instead.'
 		);
 	});
 });

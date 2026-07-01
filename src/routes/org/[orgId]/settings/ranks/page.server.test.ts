@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
 	addOrganizationRankServicePackMock,
+	bulkSetOrganizationRankCatalogStateMock,
 	buildRouteContextMock,
 	createSupabaseRankCatalogAdministrationPortMock,
 	loadRanksSettingsMock,
@@ -12,6 +13,7 @@ const {
 	saveOrganizationRankCatalogEntryMock
 } = vi.hoisted(() => ({
 	addOrganizationRankServicePackMock: vi.fn(),
+	bulkSetOrganizationRankCatalogStateMock: vi.fn(),
 	buildRouteContextMock: vi.fn(),
 	createSupabaseRankCatalogAdministrationPortMock: vi.fn(),
 	loadRanksSettingsMock: vi.fn(),
@@ -45,6 +47,7 @@ vi.mock('$lib/server/core/useCases/rankCatalog', async () => {
 	return {
 		...actual,
 		addOrganizationRankServicePack: addOrganizationRankServicePackMock,
+		bulkSetOrganizationRankCatalogState: bulkSetOrganizationRankCatalogStateMock,
 		reactivateOrganizationRankCatalogEntry: reactivateOrganizationRankCatalogEntryMock,
 		removeOrganizationRankCatalogEntry: removeOrganizationRankCatalogEntryMock,
 		retireOrganizationRankCatalogEntry: retireOrganizationRankCatalogEntryMock,
@@ -101,6 +104,7 @@ describe('rank settings page server', () => {
 		loadRanksSettingsMock.mockResolvedValue({ sections: { ranks: { commands: { canManageCatalog: true } } } });
 		loadSettingsPageMock.mockImplementation(async (event, loader) => loader(routeContext, event));
 		addOrganizationRankServicePackMock.mockResolvedValue({ addedCount: 1, skippedExistingCount: 0 });
+		bulkSetOrganizationRankCatalogStateMock.mockResolvedValue({ changedCount: 1 });
 		saveOrganizationRankCatalogEntryMock.mockResolvedValue({ code: 'DET-SGT' });
 		reactivateOrganizationRankCatalogEntryMock.mockResolvedValue({ code: 'DET-SGT', state: 'active' });
 		retireOrganizationRankCatalogEntryMock.mockResolvedValue({ code: 'DET-SGT', state: 'retired' });
@@ -127,84 +131,33 @@ describe('rank settings page server', () => {
 	});
 
 	it('retires active built-in ranks for a service branch in bulk', async () => {
-		loadRanksSettingsMock.mockResolvedValueOnce({
-			sections: {
-				ranks: {
-					entries: {
-						active: [
-							{
-								code: 'USMC-Cpl',
-								service: 'marine-corps',
-								source: 'built-in',
-								commands: { canRetire: true, canReactivate: false }
-							},
-							{
-								code: 'USMC-Sgt',
-								service: 'marine-corps',
-								source: 'built-in',
-								commands: { canRetire: true, canReactivate: false }
-							},
-							{
-								code: 'NAVY-PO2',
-								service: 'navy',
-								source: 'built-in',
-								commands: { canRetire: true, canReactivate: false }
-							},
-							{
-								code: 'MARINE-LIAISON',
-								service: 'marine-corps',
-								source: 'custom',
-								commands: { canRetire: true, canReactivate: false }
-							}
-						],
-						retired: []
-					}
-				}
-			}
-		});
+		bulkSetOrganizationRankCatalogStateMock.mockResolvedValueOnce({ changedCount: 2 });
 
 		const result = await actions.bulkRankState(
 			actionEvent('bulkRankState', new URLSearchParams({ service: 'marine-corps', targetState: 'retired' }))
 		);
 
-		expect(retireOrganizationRankCatalogEntryMock).toHaveBeenCalledTimes(2);
-		expect(retireOrganizationRankCatalogEntryMock).toHaveBeenNthCalledWith(1, routeContext, { code: 'USMC-Cpl' });
-		expect(retireOrganizationRankCatalogEntryMock).toHaveBeenNthCalledWith(2, routeContext, { code: 'USMC-Sgt' });
+		expect(bulkSetOrganizationRankCatalogStateMock).toHaveBeenCalledWith(routeContext, {
+			service: 'marine-corps',
+			targetState: 'retired'
+		});
+		expect(retireOrganizationRankCatalogEntryMock).not.toHaveBeenCalled();
 		expect(reactivateOrganizationRankCatalogEntryMock).not.toHaveBeenCalled();
 		expect(result).toEqual({ success: true, service: 'marine-corps', state: 'retired', changedCount: 2 });
 	});
 
 	it('reactivates retired built-in ranks for a service branch in bulk', async () => {
-		loadRanksSettingsMock.mockResolvedValueOnce({
-			sections: {
-				ranks: {
-					entries: {
-						active: [],
-						retired: [
-							{
-								code: 'SP4',
-								service: 'army',
-								source: 'built-in',
-								commands: { canRetire: false, canReactivate: true }
-							},
-							{
-								code: 'DET-SP4',
-								service: 'army',
-								source: 'custom',
-								commands: { canRetire: false, canReactivate: true }
-							}
-						]
-					}
-				}
-			}
-		});
+		bulkSetOrganizationRankCatalogStateMock.mockResolvedValueOnce({ changedCount: 1 });
 
 		const result = await actions.bulkRankState(
 			actionEvent('bulkRankState', new URLSearchParams({ service: 'army', targetState: 'active' }))
 		);
 
-		expect(reactivateOrganizationRankCatalogEntryMock).toHaveBeenCalledTimes(1);
-		expect(reactivateOrganizationRankCatalogEntryMock).toHaveBeenCalledWith(routeContext, { code: 'SP4' });
+		expect(bulkSetOrganizationRankCatalogStateMock).toHaveBeenCalledWith(routeContext, {
+			service: 'army',
+			targetState: 'active'
+		});
+		expect(reactivateOrganizationRankCatalogEntryMock).not.toHaveBeenCalled();
 		expect(retireOrganizationRankCatalogEntryMock).not.toHaveBeenCalled();
 		expect(result).toEqual({ success: true, service: 'army', state: 'active', changedCount: 1 });
 	});

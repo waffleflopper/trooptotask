@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { BUILT_IN_RANK_CATALOG } from '$lib/domain/rankCatalog';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { saveOrganizationRankCatalogEntry } from '$lib/server/core/useCases/rankCatalog';
 import { buildRanksSettingsData, loadRanksSettings } from './settingsRanks.server';
@@ -147,6 +148,48 @@ describe('rank settings read model', () => {
 		);
 	});
 
+	it('keeps service packs installable when matching rows are discovered instead of built-in', () => {
+		const navyDiscoveredRows = BUILT_IN_RANK_CATALOG.filter((entry) => entry.service === 'navy').map((entry) => ({
+			organizationId: 'test-org',
+			code: entry.code,
+			label: entry.label,
+			service: 'custom' as const,
+			category: 'custom' as const,
+			payGrade: 'ungraded' as const,
+			state: 'active' as const,
+			source: 'discovered' as const,
+			sortOrder: 500
+		}));
+
+		const settings = buildRanksSettingsData({
+			canManageCatalog: true,
+			catalog: navyDiscoveredRows,
+			referenceSummaries: navyDiscoveredRows.map((entry) => ({
+				code: entry.code,
+				activeReferences: {
+					personnel: 0,
+					trainingApplicability: 0,
+					dutyRosterTemplateFilters: 0,
+					legacyDutyTemplateSlots: 0,
+					total: 0
+				},
+				historicalReferences: {
+					signInRosterFilters: 0,
+					signInRosterSnapshots: 0,
+					acceptedDutyRosterSnapshots: 0,
+					total: 0
+				},
+				canDelete: true
+			}))
+		});
+
+		expect(settings.sections.ranks.servicePacks.find((pack) => pack.value === 'navy')).toMatchObject({
+			existingCount: 0,
+			missingCount: navyDiscoveredRows.length,
+			isInstalled: false
+		});
+	});
+
 	it('only offers hard delete for unused custom or discovered ranks and suppresses writes for non-governors', () => {
 		const settings = buildRanksSettingsData({
 			canManageCatalog: false,
@@ -273,6 +316,56 @@ describe('rank settings read model', () => {
 						canDelete: false,
 						deleteDisabledReason: null
 					}
+				})
+			])
+		);
+	});
+
+	it('disables hard delete when only historical references remain', () => {
+		const settings = buildRanksSettingsData({
+			canManageCatalog: true,
+			catalog: [
+				{
+					organizationId: 'test-org',
+					code: 'DET-SGT',
+					label: 'Detachment Sergeant',
+					service: 'custom',
+					category: 'custom',
+					payGrade: 'ungraded',
+					state: 'retired',
+					source: 'custom',
+					sortOrder: 500
+				}
+			],
+			referenceSummaries: [
+				{
+					code: 'DET-SGT',
+					activeReferences: {
+						personnel: 0,
+						trainingApplicability: 0,
+						dutyRosterTemplateFilters: 0,
+						legacyDutyTemplateSlots: 0,
+						total: 0
+					},
+					historicalReferences: {
+						signInRosterFilters: 1,
+						signInRosterSnapshots: 0,
+						acceptedDutyRosterSnapshots: 0,
+						total: 1
+					},
+					canDelete: false
+				}
+			]
+		});
+
+		expect(settings.sections.ranks.entries.retired).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					code: 'DET-SGT',
+					commands: expect.objectContaining({
+						canDelete: false,
+						deleteDisabledReason: 'Referenced by historical snapshots or saved filters; retire it instead.'
+					})
 				})
 			])
 		);

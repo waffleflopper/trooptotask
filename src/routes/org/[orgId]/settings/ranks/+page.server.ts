@@ -6,6 +6,7 @@ import { createSupabaseRankCatalogAdministrationPort } from '$lib/server/adapter
 import { fail } from '$lib/server/core/errors';
 import {
 	addOrganizationRankServicePack,
+	bulkSetOrganizationRankCatalogState,
 	reactivateOrganizationRankCatalogEntry,
 	removeOrganizationRankCatalogEntry,
 	retireOrganizationRankCatalogEntry,
@@ -58,29 +59,13 @@ export const actions: Actions = {
 				fail(400, 'Bulk rank state must be active or retired.');
 			}
 
-			const ranksSettings = await loadRanksSettings(ctx);
-			const targetRows = (
-				targetState === 'retired'
-					? ranksSettings.sections.ranks.entries.active
-					: ranksSettings.sections.ranks.entries.retired
-			).filter((entry) => {
-				if (entry.service !== service || entry.source !== 'built-in') return false;
-				return targetState === 'retired' ? entry.commands.canRetire : entry.commands.canReactivate;
-			});
-
-			for (const entry of targetRows) {
-				if (targetState === 'retired') {
-					await retireOrganizationRankCatalogEntry(ctx, { code: entry.code });
-				} else {
-					await reactivateOrganizationRankCatalogEntry(ctx, { code: entry.code });
-				}
-			}
+			const result = await bulkSetOrganizationRankCatalogState(ctx, { service, targetState });
 
 			return {
 				success: true,
 				service,
 				state: targetState,
-				changedCount: targetRows.length
+				changedCount: result.changedCount
 			};
 		} catch (error) {
 			return toActionFailure('rankError', error);

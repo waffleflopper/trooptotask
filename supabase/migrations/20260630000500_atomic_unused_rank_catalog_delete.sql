@@ -9,10 +9,10 @@ IMMUTABLE
 AS $$
   SELECT "p_value" IS NOT NULL
     AND (
-      btrim("p_value") = "p_code"
+      btrim(regexp_replace("p_value", '[[:space:]]+', ' ', 'g')) = "p_code"
       OR (
         "p_allow_normalized"
-        AND upper(btrim("p_value")) = upper("p_code")
+        AND upper(btrim(regexp_replace("p_value", '[[:space:]]+', ' ', 'g'))) = upper("p_code")
       )
     );
 $$;
@@ -56,7 +56,9 @@ BEGIN
     "public"."personnel",
     "public"."training_types",
     "public"."duty_roster_templates",
-    "public"."duty_template_slots"
+    "public"."duty_template_slots",
+    "public"."sign_in_rosters",
+    "public"."duty_roster_template_runs"
     IN SHARE MODE;
 
   SELECT NOT EXISTS (
@@ -104,6 +106,8 @@ BEGIN
       SELECT count(*)::integer
       FROM "public"."duty_roster_templates"
       WHERE "organization_id" = "p_organization_id"
+        AND "status" <> 'archived'
+        AND "archived_at" IS NULL
         AND EXISTS (
           SELECT 1
           FROM jsonb_array_elements_text(
@@ -134,10 +138,94 @@ BEGIN
           )
         )
     )
+    + (
+      SELECT count(*)::integer
+      FROM "public"."sign_in_rosters"
+      WHERE "organization_id" = "p_organization_id"
+        AND (
+          EXISTS (
+            SELECT 1
+            FROM jsonb_array_elements_text(
+              CASE
+                WHEN jsonb_typeof("filter_config" -> 'ranks') = 'array'
+                  THEN "filter_config" -> 'ranks'
+                ELSE '[]'::jsonb
+              END
+            ) AS "rank_filter"("rank_code")
+            WHERE "public"."organization_rank_catalog_reference_matches"(
+              "rank_filter"."rank_code",
+              "p_code",
+              "allow_normalized_match"
+            )
+          )
+          OR EXISTS (
+            SELECT 1
+            FROM jsonb_array_elements(
+              CASE
+                WHEN jsonb_typeof("personnel_snapshot") = 'array'
+                  THEN "personnel_snapshot"
+                ELSE '[]'::jsonb
+              END
+            ) AS "snapshot_person"("person")
+            WHERE "public"."organization_rank_catalog_reference_matches"(
+              "snapshot_person"."person" ->> 'rank',
+              "p_code",
+              "allow_normalized_match"
+            )
+          )
+        )
+    )
+    + (
+      SELECT count(*)::integer
+      FROM "public"."duty_roster_template_runs"
+      WHERE "organization_id" = "p_organization_id"
+        AND "status" = 'accepted'
+        AND EXISTS (
+          SELECT 1
+          FROM (
+            SELECT jsonb_array_elements(
+              CASE
+                WHEN jsonb_typeof("snapshot_payload" -> 'selectionPersonnel') = 'array'
+                  THEN "snapshot_payload" -> 'selectionPersonnel'
+                ELSE '[]'::jsonb
+              END
+            ) AS "person"
+            UNION ALL
+            SELECT jsonb_array_elements(
+              CASE
+                WHEN jsonb_typeof("snapshot_payload" -> 'resolvedPool') = 'array'
+                  THEN "snapshot_payload" -> 'resolvedPool'
+                ELSE '[]'::jsonb
+              END
+            ) AS "person"
+            UNION ALL
+            SELECT jsonb_array_elements(
+              CASE
+                WHEN jsonb_typeof("snapshot_payload" -> 'assignedPersonnel') = 'array'
+                  THEN "snapshot_payload" -> 'assignedPersonnel'
+                ELSE '[]'::jsonb
+              END
+            ) AS "person"
+            UNION ALL
+            SELECT jsonb_array_elements(
+              CASE
+                WHEN jsonb_typeof("snapshot_payload" -> 'unassignedPersonnel') = 'array'
+                  THEN "snapshot_payload" -> 'unassignedPersonnel'
+                ELSE '[]'::jsonb
+              END
+            ) AS "person"
+          ) AS "snapshot_personnel"
+          WHERE "public"."organization_rank_catalog_reference_matches"(
+            "snapshot_personnel"."person" ->> 'rank',
+            "p_code",
+            "allow_normalized_match"
+          )
+        )
+    )
   INTO "active_reference_count";
 
   IF "active_reference_count" > 0 THEN
-    RAISE EXCEPTION 'Rank is referenced by active Organization data. Retire it instead.'
+    RAISE EXCEPTION 'Rank is referenced by Organization data. Retire it instead.'
       USING ERRCODE = '23503';
   END IF;
 

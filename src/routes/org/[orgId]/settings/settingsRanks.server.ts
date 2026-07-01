@@ -193,15 +193,13 @@ function buildServicePackOptions(
 	catalog: OrganizationRankCatalogEntry[],
 	canManageCatalog: boolean
 ): SettingsRankServicePackOption[] {
-	const existingCodes = new Set(catalog.map((entry) => entry.code));
-
 	return SERVICE_PACK_SERVICES.map((service) => {
 		const builtInEntries = BUILT_IN_RANK_CATALOG.filter((entry) => entry.service === service);
-		const existingCount = builtInEntries.filter((entry) => existingCodes.has(entry.code)).length;
 		const builtInCodes = new Set(builtInEntries.map((entry) => entry.code));
 		const existingBuiltInRows = catalog.filter(
 			(entry) => builtInCodes.has(entry.code) && entry.service === service && entry.source === 'built-in'
 		);
+		const existingCount = existingBuiltInRows.length;
 		const activeCount = existingBuiltInRows.filter((entry) => entry.state === 'active').length;
 		const retiredCount = existingBuiltInRows.filter((entry) => entry.state === 'retired').length;
 		const missingCount = builtInEntries.length - existingCount;

@@ -52,6 +52,18 @@ describe('AppDialog', () => {
 		expect((screen.getByRole('button', { name: 'Cancel' }) as HTMLButtonElement).disabled).toBe(true);
 	});
 
+	it('uses underscore-separated grid tracks so the body row can actually scroll', () => {
+		render(AppDialogTest, { longBody: true });
+
+		const contentClass = screen.getByRole('dialog', { name: 'Shared dialog title' }).getAttribute('class') ?? '';
+		const gridRows = contentClass.split(/\s+/).find((token) => token.startsWith('grid-rows-['));
+
+		// Tailwind keeps commas literal inside arbitrary values, and a comma-separated
+		// track list is invalid CSS the browser drops entirely — leaving the footer
+		// clipped behind overflow-hidden instead of the body scrolling.
+		expect(gridRows).toBe('grid-rows-[auto_minmax(0,1fr)_auto]');
+	});
+
 	it('keeps long content in the scrollable body with a footer', () => {
 		render(AppDialogTest, { longBody: true });
 

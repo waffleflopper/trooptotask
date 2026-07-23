@@ -155,9 +155,9 @@ describe('rank settings page', () => {
 		expect(screen.getByText('Denied write')).toBeTruthy();
 
 		// Custom rank form is collapsed until requested, and carries the co-located help text.
-		expect(document.querySelector('input[name="intent"][value="add"]')).toBeNull();
+		expect(screen.queryByRole('heading', { name: 'Add Custom Rank' })).toBeNull();
 		await fireEvent.click(screen.getByRole('button', { name: 'Add custom rank' }));
-		expect(document.querySelector('input[name="intent"][value="add"]')).toBeTruthy();
+		expect(screen.getByRole('heading', { name: 'Add Custom Rank' })).toBeTruthy();
 		expect(screen.getByPlaceholderText('DET-SGT')).toBeTruthy();
 		expect(screen.getByPlaceholderText('Detachment Sergeant')).toBeTruthy();
 		expect(screen.getByText(/Pay grade groups ranks/)).toBeTruthy();
@@ -179,14 +179,14 @@ describe('rank settings page', () => {
 		expect(
 			screen.getByText('Referenced by 2 active records or filters. Retire this rank to preserve existing records.')
 		).toBeTruthy();
-		expect(document.querySelector('input[name="intent"][value="edit"]')).toBeTruthy();
-		expect(document.querySelector('input[name="originalCode"][value="DET-SGT"]')).toBeTruthy();
+		expect(screen.getByText('Edit rank')).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Save DET-SGT' })).toBeTruthy();
 
 		// Referenced custom rank can be retired but not removed; unreferenced retired rank can be reactivated or removed.
-		expect(document.querySelector('form[action$="retireRank"] input[value="DET-SGT"]')).toBeTruthy();
-		expect(document.querySelector('form[action$="deleteRank"] input[value="DET-SGT"]')).toBeNull();
-		expect(document.querySelector('form[action$="reactivateRank"] input[value="OLD-SGT"]')).toBeTruthy();
-		expect(document.querySelector('form[action$="deleteRank"] input[value="OLD-SGT"]')).toBeTruthy();
+		await fireEvent.click(screen.getByRole('button', { name: 'Actions for DET-SGT' }));
+		expect(screen.getByRole('menuitem', { name: 'Edit' })).toBeTruthy();
+		expect(screen.getByRole('menuitem', { name: 'Retire' })).toBeTruthy();
+		expect(screen.queryByRole('menuitem', { name: 'Remove' })).toBeNull();
 
 		// Those actions are reachable from the retired rank's overflow menu.
 		await fireEvent.click(screen.getByRole('button', { name: 'Actions for OLD-SGT' }));
@@ -275,10 +275,11 @@ describe('rank settings page', () => {
 		});
 
 		expect(screen.getByRole('button', { name: 'Show details for Lt Gen' })).toBeTruthy();
-		// Built-in active rank can be retired (form present) but not edited or removed.
-		expect(document.querySelector('form[action$="retireRank"] input[value="Lt Gen"]')).toBeTruthy();
-		expect(document.querySelector('form[action$="deleteRank"] input[value="Lt Gen"]')).toBeNull();
-		expect(screen.getByRole('button', { name: 'Actions for Lt Gen' })).toBeTruthy();
+		// Built-in active rank can be retired but not edited or removed.
+		await fireEvent.click(screen.getByRole('button', { name: 'Actions for Lt Gen' }));
+		expect(screen.getByRole('menuitem', { name: 'Retire' })).toBeTruthy();
+		expect(screen.queryByRole('menuitem', { name: 'Edit' })).toBeNull();
+		expect(screen.queryByRole('menuitem', { name: 'Remove' })).toBeNull();
 		await fireEvent.click(screen.getByRole('button', { name: 'Show details for Lt Gen' }));
 		expect(screen.queryByText('Edit rank')).toBeNull();
 	});
@@ -365,9 +366,9 @@ describe('rank settings page', () => {
 
 		// Retired entries are shown via the state filter.
 		await fireEvent.click(screen.getByRole('button', { name: 'Retired' }));
-		expect(document.querySelector('form[action$="reactivateRank"] input[value="SP4"]')).toBeTruthy();
-		expect(document.querySelector('form[action$="deleteRank"] input[value="SP4"]')).toBeNull();
-		expect(screen.getByRole('button', { name: 'Actions for SP4' })).toBeTruthy();
+		await fireEvent.click(screen.getByRole('button', { name: 'Actions for SP4' }));
+		expect(screen.getByRole('menuitem', { name: 'Reactivate' })).toBeTruthy();
+		expect(screen.queryByRole('menuitem', { name: 'Remove' })).toBeNull();
 		await fireEvent.click(screen.getByRole('button', { name: 'Show details for SP4' }));
 		expect(screen.getByText('Built-in ranks can be retired but not removed.')).toBeTruthy();
 	});

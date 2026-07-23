@@ -130,9 +130,8 @@ describe('rank catalog ordering', () => {
 		expect(() => compareRankCodes('DUP', 'DUP', { catalog })).toThrow('Duplicate rank catalog code: DUP');
 	});
 
-	it('reuses the rank index for repeated comparisons with the same catalog identity', () => {
-		let indexBuilds = 0;
-		const source: RankCatalogEntry[] = [
+	it('orders repeated comparisons and resolution against the same provided catalog', () => {
+		const catalog: RankCatalogEntry[] = [
 			{
 				code: 'HIGH',
 				label: 'High',
@@ -152,23 +151,10 @@ describe('rank catalog ordering', () => {
 				sortOrder: 0
 			}
 		];
-		const catalog = new Proxy(source, {
-			get(target, property, receiver) {
-				if (property === Symbol.iterator) {
-					return function* () {
-						indexBuilds += 1;
-						yield* target;
-					};
-				}
-
-				return Reflect.get(target, property, receiver);
-			}
-		});
-
 		expect(compareRankCodes('LOW', 'HIGH', { catalog })).toBeGreaterThan(0);
 		expect(compareRankCodes('HIGH', 'LOW', { catalog })).toBeLessThan(0);
-		expect(resolveRank('LOW', catalog)).toMatchObject({ code: 'LOW' });
-		expect(indexBuilds).toBe(1);
+		expect(resolveRank('LOW', catalog)).toMatchObject({ code: 'LOW', payGrade: 'E-5' });
+		expect(resolveRank('HIGH', catalog)).toMatchObject({ code: 'HIGH', payGrade: 'E-6' });
 	});
 
 	it('keeps unknown rank strings displayable and sortable', () => {

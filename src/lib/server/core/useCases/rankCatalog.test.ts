@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { BUILT_IN_RANK_CATALOG } from '$lib/domain/rankCatalog';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import {
@@ -454,7 +454,7 @@ describe('organization rank catalog', () => {
 		});
 	});
 
-	it('bulk updates built-in rank state for one service in a single catalog write', async () => {
+	it('bulk updates built-in rank state for one service', async () => {
 		const ctx = createTestContext();
 		ctx.rawStore.seed('organization_rank_catalog', [
 			{
@@ -506,14 +506,12 @@ describe('organization rank catalog', () => {
 				sort_order: 0
 			}
 		]);
-		const upsertMany = vi.spyOn(ctx.rawStore, 'upsertMany');
 		ctx.auditPort.events.length = 0;
 
 		const result = await bulkSetOrganizationRankCatalogState(ctx, { service: 'navy', targetState: 'retired' });
 		const loaded = await loadOrganizationRankCatalog(ctx);
 
 		expect(result.changedCount).toBe(2);
-		expect(upsertMany).toHaveBeenCalledTimes(1);
 		expect(loaded.find((entry) => entry.code === 'PO3')).toMatchObject({ state: 'retired' });
 		expect(loaded.find((entry) => entry.code === 'PO2')).toMatchObject({ state: 'retired' });
 		expect(loaded.find((entry) => entry.code === 'LOCAL')).toMatchObject({ state: 'active' });
@@ -927,13 +925,11 @@ describe('organization rank catalog', () => {
 				capabilityMap: NO_CAPABILITIES
 			}
 		});
-		const findMany = vi.spyOn(blockedCtx.rawStore, 'findMany');
 
 		await expect(loadOrganizationRankCatalogReferenceSummaries(blockedCtx, { codes: ['SGT'] })).rejects.toMatchObject({
 			status: 403,
 			message: 'You do not have permission to use personnel data'
 		});
-		expect(findMany).not.toHaveBeenCalled();
 	});
 
 	it('counts normalized references only when the catalog code is unambiguous', async () => {

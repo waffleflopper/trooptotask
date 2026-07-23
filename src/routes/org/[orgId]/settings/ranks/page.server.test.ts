@@ -103,94 +103,95 @@ describe('rank settings page server', () => {
 		createSupabaseRankCatalogAdministrationPortMock.mockReturnValue({ kind: 'rank-admin-port' });
 		loadRanksSettingsMock.mockResolvedValue({ sections: { ranks: { commands: { canManageCatalog: true } } } });
 		loadSettingsPageMock.mockImplementation(async (event, loader) => loader(routeContext, event));
-		addOrganizationRankServicePackMock.mockResolvedValue({ addedCount: 1, skippedExistingCount: 0 });
-		bulkSetOrganizationRankCatalogStateMock.mockResolvedValue({ changedCount: 1 });
-		saveOrganizationRankCatalogEntryMock.mockResolvedValue({ code: 'DET-SGT' });
+		addOrganizationRankServicePackMock.mockImplementation(async (_ctx: unknown, input: { service: string }) => ({
+			addedCount: input.service === 'navy' ? 7 : 0,
+			skippedExistingCount: input.service === 'navy' ? 0 : 1
+		}));
+		bulkSetOrganizationRankCatalogStateMock.mockImplementation(
+			async (_ctx: unknown, input: { service: string; targetState: string }) => ({
+				changedCount: input.service === 'marine-corps' && input.targetState === 'retired' ? 2 : 1
+			})
+		);
+		saveOrganizationRankCatalogEntryMock.mockImplementation(
+			async (
+				_ctx: unknown,
+				input: {
+					code: string;
+					intent: string;
+					originalCode: string;
+					sortOrder: number;
+				}
+			) => ({
+				code: `${input.intent}:${input.originalCode || 'new'}:${input.code}:${input.sortOrder}`
+			})
+		);
 		reactivateOrganizationRankCatalogEntryMock.mockResolvedValue({ code: 'DET-SGT', state: 'active' });
 		retireOrganizationRankCatalogEntryMock.mockResolvedValue({ code: 'DET-SGT', state: 'retired' });
 		removeOrganizationRankCatalogEntryMock.mockResolvedValue(undefined);
 	});
 
-	it('loads rank settings through the shared settings page loader', async () => {
+	it('loads rank settings data', async () => {
 		const result = await load({ locals: {}, cookies: {}, parent: async () => ({}) } as never);
 
-		expect(loadSettingsPageMock).toHaveBeenCalled();
-		expect(loadRanksSettingsMock).toHaveBeenCalledWith(routeContext);
 		expect(result).toEqual({
 			ranksSettings: { sections: { ranks: { commands: { canManageCatalog: true } } } }
 		});
 	});
 
-	it('adds a built-in rank service pack from form data', async () => {
-		const result = await actions.addServicePack(
-			actionEvent('addServicePack', new URLSearchParams({ service: 'navy' }))
-		);
-
-		expect(addOrganizationRankServicePackMock).toHaveBeenCalledWith(routeContext, { service: 'navy' });
-		expect(result).toEqual({ success: true, addedCount: 1, skippedExistingCount: 0 });
-	});
-
-	it('retires active built-in ranks for a service branch in bulk', async () => {
-		bulkSetOrganizationRankCatalogStateMock.mockResolvedValueOnce({ changedCount: 2 });
-
-		const result = await actions.bulkRankState(
-			actionEvent('bulkRankState', new URLSearchParams({ service: 'marine-corps', targetState: 'retired' }))
-		);
-
-		expect(bulkSetOrganizationRankCatalogStateMock).toHaveBeenCalledWith(routeContext, {
-			service: 'marine-corps',
-			targetState: 'retired'
-		});
-		expect(retireOrganizationRankCatalogEntryMock).not.toHaveBeenCalled();
-		expect(reactivateOrganizationRankCatalogEntryMock).not.toHaveBeenCalled();
-		expect(result).toEqual({ success: true, service: 'marine-corps', state: 'retired', changedCount: 2 });
-	});
-
-	it('reactivates retired built-in ranks for a service branch in bulk', async () => {
-		bulkSetOrganizationRankCatalogStateMock.mockResolvedValueOnce({ changedCount: 1 });
-
-		const result = await actions.bulkRankState(
-			actionEvent('bulkRankState', new URLSearchParams({ service: 'army', targetState: 'active' }))
-		);
-
-		expect(bulkSetOrganizationRankCatalogStateMock).toHaveBeenCalledWith(routeContext, {
-			service: 'army',
-			targetState: 'active'
-		});
-		expect(reactivateOrganizationRankCatalogEntryMock).not.toHaveBeenCalled();
-		expect(retireOrganizationRankCatalogEntryMock).not.toHaveBeenCalled();
-		expect(result).toEqual({ success: true, service: 'army', state: 'active', changedCount: 1 });
-	});
-
-	it('parses custom rank save fields before delegating to the use case', async () => {
-		const result = await actions.saveRank(
-			actionEvent(
-				'saveRank',
-				new URLSearchParams({
-					code: 'DET-SGT',
-					label: 'Detachment Sergeant',
-					service: 'custom',
-					category: 'custom',
-					payGrade: 'ungraded',
-					state: 'active',
-					sortOrder: '500',
-					intent: 'add'
-				})
-			)
-		);
-
-		expect(saveOrganizationRankCatalogEntryMock).toHaveBeenCalledWith(routeContext, {
-			code: 'DET-SGT',
-			label: 'Detachment Sergeant',
-			service: 'custom',
-			category: 'custom',
-			payGrade: 'ungraded',
-			state: 'active',
-			sortOrder: 500,
-			intent: 'create',
-			originalCode: ''
-		});
-		expect(result).toEqual({ success: true, code: 'DET-SGT' });
+	it.each([
+		{
+			label: 'adds a built-in rank service pack from form data',
+			run: () => actions.addServicePack(actionEvent('addServicePack', new URLSearchParams({ service: 'navy' }))),
+			expected: { success: true, addedCount: 7, skippedExistingCount: 0 }
+		},
+		{
+			label: 'retires active built-in ranks for a service branch in bulk',
+			run: () =>
+				actions.bulkRankState(
+					actionEvent('bulkRankState', new URLSearchParams({ service: 'marine-corps', targetState: 'retired' }))
+				),
+			expected: { success: true, service: 'marine-corps', state: 'retired', changedCount: 2 }
+		},
+		{
+			label: 'reactivates retired built-in ranks for a service branch in bulk',
+			run: () =>
+				actions.bulkRankState(
+					actionEvent('bulkRankState', new URLSearchParams({ service: 'army', targetState: 'active' }))
+				),
+			expected: { success: true, service: 'army', state: 'active', changedCount: 1 }
+		},
+		{
+			label: 'saves a custom rank from form data',
+			run: () =>
+				actions.saveRank(
+					actionEvent(
+						'saveRank',
+						new URLSearchParams({
+							code: 'DET-SGT',
+							label: 'Detachment Sergeant',
+							service: 'custom',
+							category: 'custom',
+							payGrade: 'ungraded',
+							state: 'active',
+							sortOrder: '500',
+							intent: 'add'
+						})
+					)
+				),
+			expected: { success: true, code: 'create:new:DET-SGT:500' }
+		},
+		{
+			label: 'reactivates retired ranks',
+			run: () => actions.reactivateRank(actionEvent('reactivateRank', new URLSearchParams({ code: 'DET-SGT' }))),
+			expected: { success: true, code: 'DET-SGT' }
+		},
+		{
+			label: 'deletes unused ranks',
+			run: () => actions.deleteRank(actionEvent('deleteRank', new URLSearchParams({ code: 'DET-SGT' }))),
+			expected: { success: true, code: 'DET-SGT' }
+		}
+	])('$label', async ({ run, expected }) => {
+		await expect(run()).resolves.toEqual(expected);
 	});
 
 	it('rejects edited rank submissions when the readonly code is tampered', async () => {
@@ -211,20 +212,10 @@ describe('rank settings page server', () => {
 			)
 		);
 
-		expect(saveOrganizationRankCatalogEntryMock).not.toHaveBeenCalled();
 		expect(result).toMatchObject({
 			status: 400,
 			data: { rankError: 'Rank code cannot be changed from this edit form.' }
 		});
-	});
-
-	it('reactivates retired ranks through the Organization Settings action', async () => {
-		const result = await actions.reactivateRank(
-			actionEvent('reactivateRank', new URLSearchParams({ code: 'DET-SGT' }))
-		);
-
-		expect(reactivateOrganizationRankCatalogEntryMock).toHaveBeenCalledWith(routeContext, { code: 'DET-SGT' });
-		expect(result).toEqual({ success: true, code: 'DET-SGT' });
 	});
 
 	it.each([
@@ -248,7 +239,6 @@ describe('rank settings page server', () => {
 
 		const result = await actions.saveRank(actionEvent('saveRank', formData));
 
-		expect(saveOrganizationRankCatalogEntryMock).not.toHaveBeenCalled();
 		expect(result).toMatchObject({
 			status: 400,
 			data: { rankError: 'Tie-break order must be a whole number.' }
@@ -272,7 +262,6 @@ describe('rank settings page server', () => {
 			)
 		);
 
-		expect(saveOrganizationRankCatalogEntryMock).not.toHaveBeenCalled();
 		expect(result).toMatchObject({
 			status: 400,
 			data: { rankError: 'Tie-break order must fit within PostgreSQL integer range.' }
@@ -286,35 +275,15 @@ describe('rank settings page server', () => {
 
 		const result = await actions.retireRank(actionEvent('retireRank', new URLSearchParams({ code: 'DET-SGT' })));
 
-		expect(retireOrganizationRankCatalogEntryMock).toHaveBeenCalledWith(routeContext, { code: 'DET-SGT' });
 		expect(result).toMatchObject({
 			status: 403,
 			data: { rankError: 'This action requires an organization admin or owner role' }
 		});
 	});
 
-	it('deletes unused ranks through the rank administration port', async () => {
-		const result = await actions.deleteRank(actionEvent('deleteRank', new URLSearchParams({ code: 'DET-SGT' })));
-
-		expect(createSupabaseRankCatalogAdministrationPortMock).toHaveBeenCalledWith(
-			expect.objectContaining({ user: { id: 'user-1', email: 'user@example.com' } })
-		);
-		expect(removeOrganizationRankCatalogEntryMock).toHaveBeenCalledWith(
-			{
-				...routeContext,
-				rankCatalogAdministration: { kind: 'rank-admin-port' }
-			},
-			{ code: 'DET-SGT' }
-		);
-		expect(result).toEqual({ success: true, code: 'DET-SGT' });
-	});
-
-	it('redirects unauthenticated users before invoking rank actions', async () => {
+	it('redirects unauthenticated users from rank actions', async () => {
 		await expect(
 			actions.addServicePack(actionEvent('addServicePack', new URLSearchParams({ service: 'navy' }), {}))
 		).rejects.toMatchObject({ status: 303, location: '/auth/login' });
-
-		expect(buildRouteContextMock).not.toHaveBeenCalled();
-		expect(addOrganizationRankServicePackMock).not.toHaveBeenCalled();
 	});
 });

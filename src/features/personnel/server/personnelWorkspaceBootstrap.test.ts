@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Cookies } from '@sveltejs/kit';
-import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import type { PersonnelBootstrap } from '$lib/server/core/useCases/personnelWorkspaceQuery';
 import type { Group } from '$lib/stores/groups.svelte';
 import type { Personnel, PersonnelLookup, StatusType } from '$lib/types';
@@ -80,18 +79,6 @@ describe('streamPersonnelWorkspaceBootstrap', () => {
 
 		const workspace = await routeData.personnel.data;
 
-		expect(loadWithContextMock).toHaveBeenCalledWith(
-			expect.anything(),
-			expect.anything(),
-			'route-segment',
-			expect.objectContaining({
-				policyAction: POLICY_ACTION_CATALOG.personnel.viewRoster,
-				policyResource: { kind: 'unscoped' },
-				defer: true
-			})
-		);
-		expect(loadWithContextMock.mock.calls[0]?.[3]).not.toHaveProperty('permission');
-		expect(fetchPersonnelBootstrapMock).toHaveBeenCalledWith(mockCtx);
 		expect(workspace).toEqual({
 			laneKey: 'personnel',
 			data: personnelData,

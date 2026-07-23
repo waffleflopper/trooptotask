@@ -172,7 +172,7 @@ describe('/api/sign-in-rosters route config', () => {
 		]);
 	});
 
-	it('does not read the Organization rank catalog for alphabetical snapshots', async () => {
+	it('orders alphabetical snapshots and persists the roster filters', async () => {
 		const ctx = createTestContext({
 			auth: {
 				role: 'member',
@@ -195,7 +195,6 @@ describe('/api/sign-in-rosters route config', () => {
 				signInPersonnel({ id: 'p-adams', rank: 'PO2', last_name: 'Adams', first_name: 'Avery' })
 			])
 		};
-		const findManySpy = vi.spyOn(ctx.rawStore, 'findMany');
 
 		await handleUseCaseRequest(_postConfig, ctx, {
 			title: 'Alphabetical Sign-In',
@@ -203,10 +202,25 @@ describe('/api/sign-in-rosters route config', () => {
 			blankDate: false,
 			separateByGroup: false,
 			sortBy: 'alphabetical',
-			personnelIds: ['p-smith', 'p-adams']
+			personnelIds: ['p-smith', 'p-adams'],
+			filterConfig: { groups: ['Alpha'], ranks: ['SGT', 'PO2'] }
 		});
 
-		expect(findManySpy).not.toHaveBeenCalledWith('organization_rank_catalog', expect.any(String));
+		const stored = await ctx.store.findMany<{
+			personnel_ids?: string[];
+			personnel_snapshot?: Array<{ id: string; rank: string; lastName: string; firstName: string }>;
+			filter_config?: { groups: string[]; ranks: string[] } | null;
+			sort_by?: string;
+		}>('sign_in_rosters', ctx.auth.orgId);
+		expect(stored[0]).toMatchObject({
+			personnel_ids: ['p-smith', 'p-adams'],
+			filter_config: { groups: ['Alpha'], ranks: ['SGT', 'PO2'] },
+			sort_by: 'alphabetical',
+			personnel_snapshot: [
+				{ id: 'p-adams', rank: 'PO2', lastName: 'Adams', firstName: 'Avery' },
+				{ id: 'p-smith', rank: 'SGT', lastName: 'Smith', firstName: 'Jane' }
+			]
+		});
 	});
 
 	it('marks rosters with unassigned personnel as organization-only', async () => {

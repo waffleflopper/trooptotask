@@ -28,6 +28,7 @@ Each entry separates:
 				- Platform Administration user-directory list/detail shaping now routes auth users, memberships, suspensions, and active personnel counts through the `PlatformUserDirectory` use case and Supabase adapter instead of route-level row shaping
 				- Platform Administration user identity email commands now route through the `PlatformUserIdentityCommands` use case and Supabase adapter instead of route-local Supabase Auth calls
 				- Platform Administration organization-detail base reads and billing snapshot reads now route through the `PlatformOrganizationDetail` use case and Supabase adapter instead of route-level table calls
+				- the organization members settings screen reads **Account Setup Link** state for its own pending **Organization Invitations** through a narrow optional service-role port on `UseCaseContext`, wired in `httpAdapter.ts` alongside `signInRosterPersonnelLookup`, rather than through route-level provider access (ADR 0012)
 				- multiple non-adapter routes still depend directly on `locals.supabase`, especially admin operations and some remaining layout helpers
 - Intended direction:
   - outside auth and adapter edges, business logic should be provider-agnostic
@@ -118,3 +119,19 @@ Each entry separates:
   - use the baseline check to prevent new undocumented exceptions, but do not pretend it proves architectural correctness
 - Recommended next slice:
   - deepen the checks once the first authz and provider-boundary remediation slices settle the target shape
+
+## D-10 No Rescind Lever For Auto-Approved Platform Access
+
+- Current-state truth:
+  - an **Access Request** auto-approved from an **Organization Invitation** (ADR 0012) cannot have its platform access withdrawn between approval and setup completion
+  - `reject` operates on pending requests only, and `'manual'` **Account Setup Link** revocation is unimplemented
+  - the only mitigation is visibility: auto-approved rows are marked as such, with origin context, in the platform-admin reviewed-requests table
+- Intended direction:
+  - platform access granted on an organization owner's authority should be revocable by a platform admin before it is used
+- Why this matters:
+  - auto-approval moves the grant decision outside the platform admin's control while leaving the withdrawal decision inside it, so the two are no longer symmetric
+- Guardrail until fixed:
+  - do not add invite-origin bypasses to `reject` or ad-hoc revocation paths; the remedy is downstream User and Organization administration tooling, not a special case here
+  - treat the reviewed-requests marking as load-bearing, not cosmetic — it is the only detection surface
+- Recommended next slice:
+  - none while billing is disabled. Enabling billing stops the bridge firing and closes this entry by construction; if that stalls, extend `reject` and implement `'manual'` revocation together

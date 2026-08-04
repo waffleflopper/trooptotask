@@ -42,6 +42,7 @@ Date: 2026-06-06
 - Supabase RPC names, table names, query syntax, service-role reads, and provider command details belong in adapters or narrowly owned platform modules, not route handlers or UI components.
 - Platform Administration may use service-role access when the workflow is explicitly app-wide support or operation work.
 - Organization-scoped settings, member management, billing settings, and owner-danger workflows remain **Organization Governance Actions** unless the work is explicitly platform-wide support.
+- Exception, 2026-08-03: an Organization-scoped surface may read a **narrow projection** of platform-owned state through a purpose-built optional service-role port on `UseCaseContext`, wired in `httpAdapter.ts`, returning the minimum shape that surface needs and no raw platform rows. The first case is the organization members screen reading **Account Setup Link** state for its own pending **Organization Invitations** ([ADR 0012](0012-organization-invited-platform-access-auto-approval.md)). Platform Administration vocabulary must be collapsed to Organization-facing language before it crosses the network boundary. This is not a general licence: RLS grants on platform tables and denormalised mirrors of platform state onto Organization tables both remain rejected.
 
 ## Consequences
 

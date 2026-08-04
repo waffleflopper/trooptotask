@@ -5,6 +5,7 @@ import {
 	type MembershipRole,
 	type StoredMemberPreset
 } from '$lib/access/memberAccessShape';
+import { ACCOUNT_SETUP_RECOVERY_LINK_LABEL, type AccessRequestSetupState } from '$lib/server/accessRequestSetupState';
 import type { UseCaseContext } from '$lib/server/core/ports';
 import { GroupEntity } from '$lib/server/entities/group';
 import {
@@ -12,7 +13,13 @@ import {
 	buildSettingsMemberAccessRow,
 	type SettingsAccessSourceRow
 } from '../settingsMemberAccessReadModel.server';
-import type { SettingsInvitationHistoryRow, SettingsInvitationRow, SettingsMemberRow } from '../settingsSectionTypes';
+import type {
+	SettingsInvitationFunnelStatus,
+	SettingsInvitationHistoryRow,
+	SettingsInvitationRow,
+	SettingsMemberRow,
+	SettingsPendingInvitationRow
+} from '../settingsSectionTypes';
 import {
 	ACCESS_LANE_LABELS,
 	SETTINGS_ACCESS_LANES,
@@ -40,7 +47,7 @@ export interface MembersSettingsData {
 
 export interface MembersSettingsSection {
 	rows: SettingsMemberRow[];
-	invitations: SettingsInvitationRow[];
+	invitations: SettingsPendingInvitationRow[];
 	invitationHistory: SettingsInvitationHistoryRow[];
 	groups: Array<{ id: string; name: string }>;
 	roleCounts: Record<'owner' | 'admin' | 'member', number>;
@@ -59,9 +66,12 @@ export interface BuildMembersSettingsDataInput {
 	members: SettingsAccessSourceRow[];
 	invitations: SettingsAccessSourceRow[];
 	invitationDeliveries?: SettingsInvitationDeliverySourceRow[];
+	/** Platform Account Setup state per invitation id. Absent entries mean no Access Request exists. */
+	invitationSetupStates?: Map<string, AccessRequestSetupState>;
 	pendingApprovalSummary?: PendingApprovalSummary;
 	approvalRequests?: DeletionRequestRow[];
 	groups: Record<string, unknown>[];
+	now?: Date;
 }
 
 export interface PendingApprovalSummary {
@@ -79,8 +89,10 @@ export interface SettingsInvitationDeliverySourceRow {
 	sent_at: string | null;
 }
 
+type MembersSettingsLoadContext = Pick<UseCaseContext, 'auth' | 'store' | 'organizationInvitationSetupStateLookup'>;
+
 export async function loadMembersSettings(
-	ctx: Pick<UseCaseContext, 'auth' | 'store'>,
+	ctx: MembersSettingsLoadContext,
 	input: LoadMembersSettingsInput
 ): Promise<MembersSettingsData> {
 	const [membershipRows, invitationRows, invitationDeliveryRows, groupRows, approvalRequests] = await Promise.all([
@@ -117,9 +129,34 @@ export async function loadMembersSettings(
 		members: membershipRows,
 		invitations: invitationRows,
 		invitationDeliveries: invitationDeliveryRows,
+		invitationSetupStates: await loadInvitationSetupStates(ctx, invitationRows),
 		approvalRequests,
 		groups: groupRows
 	});
+}
+
+/**
+ * The status line is context, not the reason the members screen exists, so a missing or failing
+ * lookup degrades it to invitation-email state rather than taking the whole screen down
+ * (ADR 0012).
+ */
+async function loadInvitationSetupStates(
+	ctx: Pick<MembersSettingsLoadContext, 'auth' | 'organizationInvitationSetupStateLookup'>,
+	invitations: SettingsAccessSourceRow[]
+): Promise<Map<string, AccessRequestSetupState> | undefined> {
+	const lookup = ctx.organizationInvitationSetupStateLookup;
+	if (!lookup) return undefined;
+
+	const pendingInvitationIds = invitations
+		.filter((invitation) => invitation.status === 'pending')
+		.map((invitation) => invitation.id)
+		.filter((id): id is string => typeof id === 'string' && id.length > 0);
+
+	try {
+		return await lookup.findSetupStateByInvitationId(ctx.auth.orgId, pendingInvitationIds);
+	} catch {
+		return undefined;
+	}
 }
 
 export function buildMembersSettingsData(input: BuildMembersSettingsDataInput): MembersSettingsData {
@@ -146,12 +183,14 @@ export function buildMembersSettingsSection(input: BuildMembersSettingsDataInput
 	const members = input.members.map((row) =>
 		shapeMemberRow(buildSettingsMemberAccessRow(row), groups, availablePresetOptions)
 	);
-	const now = new Date();
+	const now = input.now ?? new Date();
 	const latestDeliveryByInvitationId = buildLatestDeliveryByInvitationId(input.invitationDeliveries ?? []);
 	const shapedInvitations = input.invitations.map((row) =>
 		shapeInvitationRow(buildSettingsInvitationAccessRow(row), groups, latestDeliveryByInvitationId, now)
 	);
-	const invitations = shapedInvitations.filter((invitation) => isActionableInvitation(invitation, now));
+	const invitations = shapedInvitations
+		.filter((invitation) => isActionableInvitation(invitation, now))
+		.map((invitation) => withInvitationFunnelStatus(invitation, input.invitationSetupStates));
 	const invitationHistory = shapedInvitations
 		.filter((invitation) => !isActionableInvitation(invitation, now))
 		.map((invitation) => shapeInvitationHistoryRow(invitation, now));
@@ -231,12 +270,14 @@ function shapeInvitationRow(
 	now: Date
 ): SettingsInvitationRow {
 	const delivery = deliveryByInvitationId.get(invitation.id) ?? null;
+	const deliveryStatus = delivery?.status ?? 'not_sent';
+
 	return {
 		...invitation,
 		accessBadge: invitation.membershipRole === 'admin' ? 'admin' : invitation.access.memberPreset,
 		scopeDisplayLabel: formatScopeSet(invitation.access.scopeSet, groups),
-		deliveryStatus: delivery?.status ?? 'not_sent',
-		deliveryStatusLabel: invitationDeliveryStatusLabel(delivery?.status ?? 'not_sent'),
+		deliveryStatus,
+		deliveryStatusLabel: invitationDeliveryStatusLabel(deliveryStatus),
 		deliveryAttemptCount: delivery?.attempt_count ?? 0,
 		deliveryLastError: delivery?.last_error ?? null,
 		deliveryUpdatedAt: delivery?.updated_at ?? null,
@@ -244,6 +285,54 @@ function shapeInvitationRow(
 		canResend: isPendingUnexpiredInvitation(invitation, now)
 	};
 }
+
+/**
+ * Collapses the whole invite funnel to one organization-facing status line.
+ *
+ * Evaluated in funnel order — the first blocking stage wins — so platform Account Setup
+ * vocabulary stops here and never crosses the network boundary (ADR 0012). A missing setup
+ * state means no Access Request exists, because the invitee already had a User Account.
+ */
+function withInvitationFunnelStatus(
+	invitation: SettingsInvitationRow,
+	setupStateByInvitationId: Map<string, AccessRequestSetupState> | undefined
+): SettingsPendingInvitationRow {
+	const setupState = setupStateByInvitationId?.get(invitation.id);
+	const funnelStatus: SettingsInvitationFunnelStatus =
+		invitation.deliveryStatus === 'failed'
+			? 'invitation_email_failed'
+			: setupState === 'delivery_failed'
+				? 'setup_email_failed'
+				: setupState && setupState !== 'completed'
+					? 'waiting_on_them'
+					: 'waiting_on_them_to_accept';
+
+	return {
+		...invitation,
+		funnelStatus,
+		funnelStatusLabel: INVITATION_FUNNEL_COPY[funnelStatus].label,
+		funnelStatusDetail: INVITATION_FUNNEL_COPY[funnelStatus].detail
+	};
+}
+
+const INVITATION_FUNNEL_COPY: Record<SettingsInvitationFunnelStatus, { label: string; detail: string }> = {
+	invitation_email_failed: {
+		label: 'Invitation email failed',
+		detail: 'We could not deliver the invitation email. Check the address and resend.'
+	},
+	setup_email_failed: {
+		label: "Setup email didn't reach them",
+		detail: `The invitation arrived but the email that lets them create their account did not. Resending the invitation will not fix that — ask them to use the "${ACCOUNT_SETUP_RECOVERY_LINK_LABEL}" link in the invitation email.`
+	},
+	waiting_on_them: {
+		label: 'Waiting on them',
+		detail: 'Both emails went out. They have not finished creating their account yet.'
+	},
+	waiting_on_them_to_accept: {
+		label: 'Waiting on them to accept',
+		detail: 'Nothing is blocking them. They can accept this invitation whenever they are ready.'
+	}
+};
 
 function buildLatestDeliveryByInvitationId(
 	deliveries: SettingsInvitationDeliverySourceRow[]

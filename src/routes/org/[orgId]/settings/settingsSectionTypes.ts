@@ -26,6 +26,17 @@ export type SettingsMemberRow = SettingsMemberAccessRow & {
 	overriddenCapabilityLabels: string[];
 };
 
+/**
+ * Where an invitee is stuck, across the whole invite funnel — invitation email, then account
+ * setup email, then the invitee themselves. Platform setup-state vocabulary is collapsed into
+ * these four on the server and never sent to the browser (ADR 0012).
+ */
+export type SettingsInvitationFunnelStatus =
+	| 'invitation_email_failed'
+	| 'setup_email_failed'
+	| 'waiting_on_them'
+	| 'waiting_on_them_to_accept';
+
 export type SettingsInvitationRow = SettingsInvitationAccessRow & {
 	accessBadge: 'admin' | 'viewer' | 'operator' | 'editor' | 'custom';
 	scopeDisplayLabel: string;
@@ -36,6 +47,13 @@ export type SettingsInvitationRow = SettingsInvitationAccessRow & {
 	deliveryUpdatedAt: string | null;
 	deliverySentAt: string | null;
 	canResend: boolean;
+};
+
+/** Only an invitation still awaiting acceptance has somewhere to be stuck. */
+export type SettingsPendingInvitationRow = SettingsInvitationRow & {
+	funnelStatus: SettingsInvitationFunnelStatus;
+	funnelStatusLabel: string;
+	funnelStatusDetail: string;
 };
 
 export type SettingsInvitationHistoryRow = SettingsInvitationRow & {
@@ -139,7 +157,7 @@ export type SettingsOrganizationSectionData = {
 
 export type SettingsMembersSectionData = {
 	rows: SettingsMemberRow[];
-	invitations: SettingsInvitationRow[];
+	invitations: SettingsPendingInvitationRow[];
 	invitationHistory: SettingsInvitationHistoryRow[];
 	groups: Array<{ id: string; name: string }>;
 	roleCounts: Record<'owner' | 'admin' | 'member', number>;

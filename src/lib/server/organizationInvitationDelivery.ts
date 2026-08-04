@@ -103,7 +103,7 @@ function assertSafeInvitationUrl(inviteUrl: string): void {
 
 function redactInviteUrls(message: string): string {
 	return message.replace(
-		/https?:\/\/[^\s"'<>]+\/auth\/(?:login\?next=[^\s"'<>]+|request-access[^\s"'<>]*|sign-up\?next=[^\s"'<>]+)/gi,
+		/https?:\/\/[^\s"'<>]+\/auth\/(?:login\?next=[^\s"'<>]+|request-access[^\s"'<>]*|renew-invite[^\s"'<>]*|sign-up\?next=[^\s"'<>]+)/gi,
 		'[redacted invitation url]'
 	);
 }
@@ -131,15 +131,26 @@ function mapOutboxRow(row: OrganizationInvitationEmailOutboxRow): OrganizationIn
 	};
 }
 
+// The billing-disabled account-setup branch links to setup-link recovery, never to the setup link
+// itself: the raw setup token is stored hashed, and outbox retry re-renders this URL from scratch.
+function makeSetupLinkRecoveryPath(email: string | undefined): string {
+	const recipient = normalizeEmail(email ?? '');
+	if (!recipient) {
+		throw new Error('Organization invitation setup recovery URL requires the invitee email');
+	}
+
+	return `/auth/renew-invite?email=${encodeURIComponent(recipient)}`;
+}
+
 export function makeOrganizationInvitationUrl(
 	origin: string,
-	options: { requiresAccountSetup?: boolean; selfServiceSignupEnabled?: boolean } = {}
+	options: { requiresAccountSetup?: boolean; selfServiceSignupEnabled?: boolean; email?: string } = {}
 ): string {
 	const path = !options.requiresAccountSetup
 		? '/auth/login?next=%2Fdashboard'
 		: options.selfServiceSignupEnabled
 			? '/auth/sign-up?next=%2Fdashboard'
-			: '/auth/request-access';
+			: makeSetupLinkRecoveryPath(options.email);
 
 	return makePublicAppUrl(path, {
 		inboundOrigin: origin
@@ -170,12 +181,11 @@ function buildOrganizationInvitationEmail(input: SendOrganizationInvitationEmail
 				? [
 						`${inviter} to join ${input.organizationName} on TroopToTask.`,
 						'',
-						'Because you do not have a TroopToTask account yet, we submitted a platform access request for this email on your behalf.',
-						'You do not need to submit another access request.',
+						'Because you do not have a TroopToTask account yet, a separate email carries your account setup link.',
+						'Use that link to create your account. Sign in to accept this organization invitation from your dashboard.',
 						'',
-						`You can review the request here: ${input.inviteUrl}`,
-						'',
-						'After platform approval, use the separate Account Setup Link email to create your account. Then sign in to accept this organization invitation from your dashboard.'
+						`Didn't get your setup link? ${input.inviteUrl}`,
+						'Use that only if the setup email never arrived: requesting a fresh link cancels the one already sent to you.'
 					].join('\n')
 				: [
 						`${inviter} to join ${input.organizationName} on TroopToTask.`,
@@ -195,10 +205,10 @@ function buildOrganizationInvitationEmail(input: SendOrganizationInvitationEmail
 			: input.requiresAccountSetup
 				? `
 		<p>${escapeHtmlAttribute(inviter)} to join ${escapeHtmlAttribute(input.organizationName)} on TroopToTask.</p>
-		<p><a href="${inviteUrlAttribute}">Review your platform access setup</a></p>
-		<p>Because you do not have a TroopToTask account yet, we submitted a platform access request for this email on your behalf.</p>
-		<p>You do not need to submit another access request.</p>
-		<p>After platform approval, use the separate Account Setup Link email to create your account. Then sign in to accept this organization invitation from your dashboard.</p>
+		<p>Because you do not have a TroopToTask account yet, a separate email carries your account setup link.</p>
+		<p>Use that link to create your account. Sign in to accept this organization invitation from your dashboard.</p>
+		<p><a href="${inviteUrlAttribute}">Didn't get your setup link?</a></p>
+		<p>Use that only if the setup email never arrived: requesting a fresh link cancels the one already sent to you.</p>
 	`
 				: `
 		<p>${escapeHtmlAttribute(inviter)} to join ${escapeHtmlAttribute(input.organizationName)} on TroopToTask.</p>
@@ -374,7 +384,8 @@ export async function retryOrganizationInvitationOutboxDelivery(
 			invitedByEmail: input.invitedByEmail,
 			inviteUrl: makeOrganizationInvitationUrl(input.origin, {
 				requiresAccountSetup: retryRequiresAccountSetup,
-				selfServiceSignupEnabled: retrySelfServiceSignupEnabled
+				selfServiceSignupEnabled: retrySelfServiceSignupEnabled,
+				email: input.invitation.email
 			}),
 			requiresAccountSetup: retryRequiresAccountSetup,
 			...(retryRequiresAccountSetup ? { selfServiceSignupEnabled: retrySelfServiceSignupEnabled } : {})
@@ -484,7 +495,8 @@ export function createSupabaseOrganizationInvitationDeliveryPort(
 				invitedByEmail: input.invitedByEmail,
 				inviteUrl: makeOrganizationInvitationUrl(input.origin, {
 					requiresAccountSetup: input.requiresAccountSetup,
-					selfServiceSignupEnabled: input.selfServiceSignupEnabled
+					selfServiceSignupEnabled: input.selfServiceSignupEnabled,
+					email: input.email
 				}),
 				requiresAccountSetup: input.requiresAccountSetup,
 				selfServiceSignupEnabled: input.selfServiceSignupEnabled

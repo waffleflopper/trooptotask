@@ -1,10 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import {
+	accountSetupLinkFixture,
+	authEmailOutboxRecordFixture,
 	createFakeOrganizationInvitationDeliveryPort as createInvitationDeliveryPort,
 	createFakeOrganizationInvitationRateLimiter as createInvitationRateLimiter,
 	memberAccessFixture as memberAccess
 } from '$lib/test-support/authWorkflowFixtures';
+import type { AccountSetupLinkRecord, CreateAccountSetupLinkResult } from '$lib/server/accountSetupLinks';
+import type { SendAccountSetupOutboxDeliveryResult } from '$lib/server/authEmailOutbox';
 import {
 	inviteOrganizationMember as inviteOrganizationMemberUseCase,
 	leaveOrganization,
@@ -32,7 +36,71 @@ vi.mock('$lib/config/billing', () => ({
 
 beforeEach(() => {
 	billingEnabledMock.mockReturnValue(false);
+	vi.stubEnv('APP_PUBLIC_ORIGIN', 'https://trooptotask.test');
 });
+
+const INVITE_ORIGIN = 'https://trooptotask.test';
+
+function createAccountSetupIssuancePorts(
+	options: {
+		createResult?: CreateAccountSetupLinkResult;
+		createError?: unknown;
+		revokedLinks?: AccountSetupLinkRecord[];
+		deliveryStatus?: 'sent' | 'failed';
+	} = {}
+): {
+	setupLinks: { createForAccessRequest(accessRequestId: string): Promise<CreateAccountSetupLinkResult> };
+	setupDelivery: { send(input: SetupDeliveryInput): Promise<SendAccountSetupOutboxDeliveryResult> };
+	setupLinkRequests: string[];
+	setupDeliveries: SetupDeliveryInput[];
+} {
+	const setupLinkRequests: string[] = [];
+	const setupDeliveries: SetupDeliveryInput[] = [];
+
+	return {
+		setupLinkRequests,
+		setupDeliveries,
+		setupLinks: {
+			async createForAccessRequest(accessRequestId) {
+				setupLinkRequests.push(accessRequestId);
+				if (options.createError) throw options.createError;
+				return (
+					options.createResult ?? {
+						status: 'created',
+						accessRequestId,
+						rawToken: 'raw-setup-token',
+						setupPath: '/auth/setup-account?token=raw-setup-token',
+						expiresAt: new Date('2026-06-05T12:00:00.000Z'),
+						link: accountSetupLinkFixture({ accessRequestId }),
+						revokedLinks: options.revokedLinks ?? []
+					}
+				);
+			}
+		},
+		setupDelivery: {
+			async send(input) {
+				setupDeliveries.push(input);
+				const outbox = authEmailOutboxRecordFixture({
+					accessRequestId: input.accessRequestId,
+					setupLinkId: input.setupLinkId,
+					recipient: input.email,
+					createdAt: new Date('2026-05-22T12:00:00.000Z')
+				});
+				return options.deliveryStatus === 'failed'
+					? { status: 'failed', outbox, error: 'setup email provider unavailable' }
+					: { status: 'sent', outbox: { ...outbox, status: 'sent' } };
+			}
+		}
+	};
+}
+
+interface SetupDeliveryInput {
+	accessRequestId: string;
+	setupLinkId: string;
+	email: string;
+	setupUrl: string;
+	expiresAt: Date;
+}
 
 function createOrganizationSettingsMemberManagementPort(
 	options: {
@@ -132,7 +200,7 @@ function createOrganizationSettingsMemberManagementPort(
 						createdAt: '2026-05-22T12:00:00.000Z'
 					};
 		},
-		async createOrLinkPendingAccessRequestForInvitation(input) {
+		async createOrLinkApprovedAccessRequestForInvitation(input) {
 			accessRequestBridges.push(input);
 			return options.accessRequestBridgeResult ?? { status: 'created', accessRequestId: 'access-request-1' };
 		},
@@ -281,9 +349,10 @@ const inviteOrganizationMember = (
 	inviteOrganizationMemberUseCase(
 		{
 			planPolicy: createUnlimitedPlanPolicy(),
+			...createAccountSetupIssuancePorts(),
 			...ports
 		} as unknown as Parameters<typeof inviteOrganizationMemberUseCase>[0],
-		input
+		{ origin: INVITE_ORIGIN, ...input }
 	);
 
 describe('inviteOrganizationMember', () => {
@@ -1242,6 +1311,311 @@ describe('inviteOrganizationMember', () => {
 		expect(ctx.notificationPort.notifications).toEqual([]);
 	});
 
+	it('issues and delivers an Account Setup Link for the bridged Access Request with no platform-admin action', async () => {
+		const ctx = createTestContext();
+		const port = createOrganizationSettingsMemberManagementPort({
+			existingUserAccount: null,
+			accessRequestBridgeResult: { status: 'created', accessRequestId: 'access-request-1' }
+		});
+		const issuance = createAccountSetupIssuancePorts();
+		const delivery = createInvitationDeliveryPort('sent');
+
+		const result = await inviteOrganizationMember(
+			{
+				auth: ctx.auth,
+				audit: ctx.audit,
+				notifications: ctx.notifications,
+				settings: port,
+				invitationDelivery: delivery,
+				...issuance
+			},
+			{
+				email: 'new.user@example.com',
+				membershipRole: 'member',
+				memberAccess: memberAccess({ memberPreset: 'viewer' }),
+				actorEmail: 'actor@example.com'
+			}
+		);
+
+		expect(result.inviteSuccess).toBe(true);
+		expect(issuance.setupLinkRequests).toEqual(['access-request-1']);
+		expect(issuance.setupDeliveries).toEqual([
+			expect.objectContaining({
+				accessRequestId: 'access-request-1',
+				setupLinkId: 'setup-link-1',
+				email: 'new.user@example.com',
+				setupUrl: 'https://trooptotask.test/auth/setup-account?token=raw-setup-token'
+			})
+		]);
+		expect(ctx.auditPort.events).toContainEqual(
+			expect.objectContaining({
+				action: 'access_request.account_setup_link_sent',
+				resourceType: 'access_request',
+				resourceId: 'access-request-1',
+				details: expect.objectContaining({
+					email: 'new.user@example.com',
+					invitationId: 'invite-created',
+					setupLinkId: 'setup-link-1'
+				}),
+				severity: 'info'
+			})
+		);
+		// The invitee gets two emails, and the invitation stands on its own.
+		expect(delivery.deliveries).toHaveLength(1);
+		expect(port.blockedInvitations).toEqual([]);
+	});
+
+	it('issues a fresh setup link on every invite and audits the link it replaces', async () => {
+		const ctx = createTestContext();
+		const port = createOrganizationSettingsMemberManagementPort({
+			existingUserAccount: null,
+			accessRequestBridgeResult: { status: 'linked', accessRequestId: 'access-request-1' }
+		});
+		const issuance = createAccountSetupIssuancePorts({
+			revokedLinks: [accountSetupLinkFixture({ id: 'setup-link-0', accessRequestId: 'access-request-1' })]
+		});
+
+		await inviteOrganizationMember(
+			{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port, ...issuance },
+			{
+				email: 'new.user@example.com',
+				membershipRole: 'member',
+				memberAccess: memberAccess({ memberPreset: 'viewer' }),
+				actorEmail: 'actor@example.com'
+			}
+		);
+
+		expect(issuance.setupLinkRequests).toEqual(['access-request-1']);
+		expect(ctx.auditPort.events).toContainEqual(
+			expect.objectContaining({
+				action: 'account_setup.link_revoked',
+				resourceType: 'account_setup_link',
+				resourceId: 'setup-link-0',
+				details: expect.objectContaining({
+					accessRequestId: 'access-request-1',
+					replacementSetupLinkId: 'setup-link-1',
+					stateTransition: 'pending.replaced'
+				})
+			})
+		);
+	});
+
+	it('keeps the invitation successful when setup link delivery fails', async () => {
+		const ctx = createTestContext();
+		const port = createOrganizationSettingsMemberManagementPort({ existingUserAccount: null });
+		const issuance = createAccountSetupIssuancePorts({ deliveryStatus: 'failed' });
+		const delivery = createInvitationDeliveryPort('sent');
+
+		const result = await inviteOrganizationMember(
+			{
+				auth: ctx.auth,
+				audit: ctx.audit,
+				notifications: ctx.notifications,
+				settings: port,
+				invitationDelivery: delivery,
+				...issuance
+			},
+			{
+				email: 'new.user@example.com',
+				membershipRole: 'member',
+				memberAccess: memberAccess({ memberPreset: 'viewer' }),
+				actorEmail: 'actor@example.com'
+			}
+		);
+
+		expect(result).toMatchObject({
+			inviteSuccess: true,
+			inviteEmail: 'new.user@example.com',
+			inviteMessage: 'Invitation created and email delivery was queued.'
+		});
+		expect(port.blockedInvitations).toEqual([]);
+		expect(ctx.notificationPort.notifications).toHaveLength(1);
+		expect(ctx.auditPort.events).toContainEqual(
+			expect.objectContaining({
+				action: 'access_request.account_setup_link_delivery_failed',
+				resourceId: 'access-request-1',
+				severity: 'warning'
+			})
+		);
+	});
+
+	it('keeps the invitation successful when setup link delivery throws after the link exists', async () => {
+		const ctx = createTestContext();
+		const port = createOrganizationSettingsMemberManagementPort({ existingUserAccount: null });
+		const issuance = createAccountSetupIssuancePorts();
+		issuance.setupDelivery.send = async () => {
+			throw new Error('auth email outbox unavailable');
+		};
+
+		const result = await inviteOrganizationMember(
+			{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port, ...issuance },
+			{
+				email: 'new.user@example.com',
+				membershipRole: 'member',
+				memberAccess: memberAccess({ memberPreset: 'viewer' }),
+				actorEmail: 'actor@example.com'
+			}
+		);
+
+		// A live 14-day link exists; destroying the invitation would destroy the recovery path.
+		expect(result.inviteSuccess).toBe(true);
+		expect(port.blockedInvitations).toEqual([]);
+		expect(ctx.auditPort.events).toContainEqual(
+			expect.objectContaining({
+				action: 'access_request.account_setup_link_delivery_failed',
+				resourceId: 'access-request-1',
+				details: expect.objectContaining({ error: 'auth email outbox unavailable' }),
+				severity: 'warning'
+			})
+		);
+	});
+
+	it('keeps the invitation successful when a sibling writer already created the setup link', async () => {
+		const ctx = createTestContext();
+		const port = createOrganizationSettingsMemberManagementPort({ existingUserAccount: null });
+		const issuance = createAccountSetupIssuancePorts({ createResult: { status: 'concurrent-create' } });
+
+		const result = await inviteOrganizationMember(
+			{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port, ...issuance },
+			{
+				email: 'new.user@example.com',
+				membershipRole: 'member',
+				memberAccess: memberAccess({ memberPreset: 'viewer' }),
+				actorEmail: 'actor@example.com'
+			}
+		);
+
+		expect(result.inviteSuccess).toBe(true);
+		expect(issuance.setupDeliveries).toEqual([]);
+		expect(port.blockedInvitations).toEqual([]);
+		expect(ctx.auditPort.events).toContainEqual({
+			action: 'member.invite_account_setup_link_not_created',
+			resourceType: 'organization',
+			details: {
+				email: 'new.user@example.com',
+				invitationId: 'invite-created',
+				accessRequestId: 'access-request-1',
+				reason: 'concurrent-create'
+			},
+			severity: 'info'
+		});
+	});
+
+	it('blocks the created invitation and fails when the setup link cannot be created', async () => {
+		const ctx = createTestContext();
+		const port = createOrganizationSettingsMemberManagementPort({ existingUserAccount: null });
+		const issuance = createAccountSetupIssuancePorts({ createResult: { status: 'access-request-not-approved' } });
+
+		await expect(
+			inviteOrganizationMember(
+				{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port, ...issuance },
+				{
+					email: 'new.user@example.com',
+					membershipRole: 'member',
+					memberAccess: memberAccess({ memberPreset: 'viewer' }),
+					actorEmail: 'actor@example.com'
+				}
+			)
+		).rejects.toMatchObject({
+			status: 500,
+			message: 'Invitation could not be created because the account setup link could not be issued'
+		});
+
+		expect(port.blockedInvitations).toEqual([
+			{
+				organizationId: 'test-org',
+				invitationId: 'invite-created',
+				blockedBy: 'test-user',
+				reason: 'access-request-not-approved'
+			}
+		]);
+		expect(ctx.auditPort.events).toContainEqual({
+			action: 'member.invite_account_setup_link_not_created',
+			resourceType: 'organization',
+			details: {
+				email: 'new.user@example.com',
+				invitationId: 'invite-created',
+				accessRequestId: 'access-request-1',
+				reason: 'access-request-not-approved',
+				blocked: true
+			},
+			severity: 'warning'
+		});
+		expect(ctx.notificationPort.notifications).toEqual([]);
+	});
+
+	it('blocks the created invitation and fails when the setup link provider throws', async () => {
+		const ctx = createTestContext();
+		const port = createOrganizationSettingsMemberManagementPort({ existingUserAccount: null });
+		const issuance = createAccountSetupIssuancePorts({
+			createError: new Error('setup link store unavailable')
+		});
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+		await expect(
+			inviteOrganizationMember(
+				{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port, ...issuance },
+				{
+					email: 'new.user@example.com',
+					membershipRole: 'member',
+					memberAccess: memberAccess({ memberPreset: 'viewer' }),
+					actorEmail: 'actor@example.com'
+				}
+			)
+		).rejects.toMatchObject({ status: 500 });
+
+		expect(port.blockedInvitations).toHaveLength(1);
+		expect(ctx.auditPort.events).toContainEqual(
+			expect.objectContaining({
+				action: 'member.invite_account_setup_link_not_created',
+				details: expect.objectContaining({ reason: 'provider-error', blocked: true })
+			})
+		);
+		consoleError.mockRestore();
+	});
+
+	it('does not issue a setup link when the invitee already has a User Account', async () => {
+		const ctx = createTestContext();
+		const port = createOrganizationSettingsMemberManagementPort({
+			existingUserAccount: { id: 'existing-user-1', email: 'member@example.com' }
+		});
+		const issuance = createAccountSetupIssuancePorts();
+
+		await inviteOrganizationMember(
+			{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port, ...issuance },
+			{
+				email: 'member@example.com',
+				membershipRole: 'member',
+				memberAccess: memberAccess({ memberPreset: 'viewer' }),
+				actorEmail: 'actor@example.com'
+			}
+		);
+
+		expect(issuance.setupLinkRequests).toEqual([]);
+		expect(issuance.setupDeliveries).toEqual([]);
+	});
+
+	it('does not issue a setup link when billing is enabled', async () => {
+		billingEnabledMock.mockReturnValue(true);
+		const ctx = createTestContext();
+		const port = createOrganizationSettingsMemberManagementPort({ existingUserAccount: null });
+		const issuance = createAccountSetupIssuancePorts();
+
+		await inviteOrganizationMember(
+			{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port, ...issuance },
+			{
+				email: 'new.user@example.com',
+				membershipRole: 'member',
+				memberAccess: memberAccess({ memberPreset: 'viewer' }),
+				actorEmail: 'actor@example.com'
+			}
+		);
+
+		expect(port.accessRequestBridges).toEqual([]);
+		expect(issuance.setupLinkRequests).toEqual([]);
+		expect(issuance.setupDeliveries).toEqual([]);
+	});
+
 	it('allows owners to create member-management invitations with an immutable access snapshot', async () => {
 		const ctx = createTestContext({
 			auth: {
@@ -2046,6 +2420,34 @@ describe('revokeOrganizationInvitation', () => {
 				}
 			}
 		]);
+	});
+
+	it('leaves the Access Request and its setup link intact so revoke-then-re-invite works', async () => {
+		const ctx = createTestContext({ auth: { orgId: 'org-1' } });
+		const port = createOrganizationSettingsMemberManagementPort({ existingUserAccount: null });
+		const issuance = createAccountSetupIssuancePorts();
+
+		await revokeOrganizationInvitation(
+			{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
+			{ inviteId: '11111111-1111-4111-8111-111111111111' }
+		);
+
+		expect(port.accessRequestBridges).toEqual([]);
+		expect(issuance.setupLinkRequests).toEqual([]);
+
+		await inviteOrganizationMember(
+			{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port, ...issuance },
+			{
+				email: 'invitee@example.com',
+				membershipRole: 'member',
+				memberAccess: memberAccess({ memberPreset: 'viewer' }),
+				actorEmail: 'actor@example.com'
+			}
+		);
+
+		expect(port.accessRequestBridges).toHaveLength(1);
+		expect(issuance.setupLinkRequests).toEqual(['access-request-1']);
+		expect(port.blockedInvitations).toEqual([]);
 	});
 
 	it('fails when invitation revocation returns a provider error', async () => {

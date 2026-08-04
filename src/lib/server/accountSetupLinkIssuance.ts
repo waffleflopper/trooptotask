@@ -6,7 +6,7 @@ import { makePublicAppUrl } from '$lib/server/publicAppOrigin';
  * Names the audit event the issuance emits. It has no other effect: every caller
  * decides for itself whether a non-created result is fatal to its own workflow.
  */
-export type AccountSetupLinkIssuanceOrigin = 'platform_approval' | 'platform_resend';
+export type AccountSetupLinkIssuanceOrigin = 'platform_approval' | 'platform_resend' | 'organization_invitation';
 
 export type AccountSetupLinkNotCreatedReason = Exclude<CreateAccountSetupLinkResult['status'], 'created'>;
 
@@ -64,6 +64,12 @@ const DELIVERY_AUDIT_ACTIONS: Record<AccountSetupLinkIssuanceOrigin, { sent: str
 	},
 	platform_resend: {
 		sent: 'access_request.account_setup_link_resent',
+		failed: 'access_request.account_setup_link_delivery_failed'
+	},
+	// The invitation lane deliberately reuses the existing names: they describe what
+	// happened to the credential, and the auto-stamped org_id is what filters the lane.
+	organization_invitation: {
+		sent: 'access_request.account_setup_link_sent',
 		failed: 'access_request.account_setup_link_delivery_failed'
 	}
 };
@@ -128,33 +134,53 @@ export function createAccountSetupLinkIssuance(deps: AccountSetupLinkIssuanceDep
 				revokedLinks: setupResult.revokedLinks ?? []
 			});
 
-			const delivery = await deps.setupDelivery.send({
-				accessRequestId: command.accessRequestId,
-				setupLinkId: setupResult.link.id,
-				email: command.email,
-				setupUrl: makePublicAppUrl(setupResult.setupPath, { inboundOrigin: command.publicOrigin }),
-				expiresAt: setupResult.expiresAt
-			});
-
 			const auditActions = DELIVERY_AUDIT_ACTIONS[command.origin];
 
-			deps.audit({
-				action: delivery.status === 'sent' ? auditActions.sent : auditActions.failed,
-				resourceType: 'access_request',
-				resourceId: command.accessRequestId,
-				details: {
-					// Caller context first: the credential facts below are the module's own and
-					// must not be overwritable by a payload it does not interpret.
-					...command.context,
-					email: command.email,
+			// Past this point a live 14-day credential exists. A throw here is a delivery
+			// failure, not a missing link: reporting it as `not_created` would tell callers
+			// there is no artifact to recover from, when recovery is exactly what is left.
+			try {
+				const delivery = await deps.setupDelivery.send({
+					accessRequestId: command.accessRequestId,
 					setupLinkId: setupResult.link.id,
-					outboxId: delivery.outbox.id,
-					...(delivery.status === 'sent' ? { expiresAt: setupResult.expiresAt.toISOString() } : {})
-				},
-				severity: delivery.status === 'sent' ? 'info' : 'warning'
-			});
+					email: command.email,
+					setupUrl: makePublicAppUrl(setupResult.setupPath, { inboundOrigin: command.publicOrigin }),
+					expiresAt: setupResult.expiresAt
+				});
 
-			return delivery.status === 'sent' ? { status: 'sent' } : { status: 'delivery_failed' };
+				deps.audit({
+					action: delivery.status === 'sent' ? auditActions.sent : auditActions.failed,
+					resourceType: 'access_request',
+					resourceId: command.accessRequestId,
+					details: {
+						// Caller context first: the credential facts below are the module's own and
+						// must not be overwritable by a payload it does not interpret.
+						...command.context,
+						email: command.email,
+						setupLinkId: setupResult.link.id,
+						outboxId: delivery.outbox.id,
+						...(delivery.status === 'sent' ? { expiresAt: setupResult.expiresAt.toISOString() } : {})
+					},
+					severity: delivery.status === 'sent' ? 'info' : 'warning'
+				});
+
+				return delivery.status === 'sent' ? { status: 'sent' } : { status: 'delivery_failed' };
+			} catch (error) {
+				deps.audit({
+					action: auditActions.failed,
+					resourceType: 'access_request',
+					resourceId: command.accessRequestId,
+					details: {
+						...command.context,
+						email: command.email,
+						setupLinkId: setupResult.link.id,
+						error: redactProviderError(error)
+					},
+					severity: 'warning'
+				});
+
+				return { status: 'delivery_failed' };
+			}
 		}
 	};
 }

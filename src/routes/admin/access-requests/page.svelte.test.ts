@@ -49,6 +49,33 @@ function makeReviewedRequest(overrides: Partial<ReviewedRequest>): ReviewedReque
 		setup_delivery_updated_at: '2026-05-18T13:01:00.000Z',
 		setup_delivery_sent_at: '2026-05-18T13:01:00.000Z',
 		invitation_origins: [],
+		auto_approved: false,
+		auto_approval_detail: null,
+		...overrides
+	};
+}
+
+function normalizedText(element: Element | null): string {
+	return (element?.textContent ?? '').replace(/\s+/g, ' ');
+}
+
+function makeInvitationOrigin(
+	overrides: Partial<ReviewedRequest['invitation_origins'][number]> = {}
+): ReviewedRequest['invitation_origins'][number] {
+	return {
+		link_id: 'link-1',
+		invitation_id: 'invite-1',
+		organization_id: 'org-1',
+		organization_name: 'Alpha Company',
+		inviter_user_id: '11111111-1111-4111-8111-111111111111',
+		inviter_email: 'leader@example.mil',
+		inviter_label: 'leader@example.mil',
+		invited_at: '2026-05-18T13:00:00.000Z',
+		membership_role: 'member',
+		membership_role_label: 'Member',
+		member_preset: 'viewer',
+		member_preset_label: 'Viewer',
+		intended_access_label: 'Member preset: Viewer',
 		...overrides
 	};
 }
@@ -273,23 +300,7 @@ describe('admin access request setup support UI', () => {
 		await renderReviewed([
 			makeReviewedRequest({
 				id: 'invite-origin',
-				invitation_origins: [
-					{
-						link_id: 'link-1',
-						invitation_id: 'invite-1',
-						organization_id: 'org-1',
-						organization_name: 'Alpha Company',
-						inviter_user_id: '11111111-1111-4111-8111-111111111111',
-						inviter_email: 'leader@example.mil',
-						inviter_label: 'leader@example.mil',
-						invited_at: '2026-05-18T13:00:00.000Z',
-						membership_role: 'member',
-						membership_role_label: 'Member',
-						member_preset: 'viewer',
-						member_preset_label: 'Viewer',
-						intended_access_label: 'Member preset: Viewer'
-					}
-				]
+				invitation_origins: [makeInvitationOrigin()]
 			})
 		]);
 
@@ -310,21 +321,14 @@ describe('admin access request setup support UI', () => {
 			makePendingRequest({
 				id: 'pending-invite-origin',
 				invitation_origins: [
-					{
-						link_id: 'link-1',
-						invitation_id: 'invite-1',
-						organization_id: 'org-1',
-						organization_name: 'Alpha Company',
-						inviter_user_id: '11111111-1111-4111-8111-111111111111',
+					makeInvitationOrigin({
 						inviter_email: null,
-						inviter_label: 'leader@example.mil',
-						invited_at: '2026-05-18T13:00:00.000Z',
 						membership_role: 'admin',
 						membership_role_label: 'Admin',
 						member_preset: null,
 						member_preset_label: null,
 						intended_access_label: 'Membership Role: Admin'
-					}
+					})
 				]
 			})
 		]);
@@ -338,6 +342,67 @@ describe('admin access request setup support UI', () => {
 		expect(scope.getAllByText('Membership Role: Admin').length).toBeGreaterThan(0);
 		expect(scope.getByRole('button', { name: 'Approve' })).toBeTruthy();
 		expect(scope.getByRole('button', { name: 'Reject' })).toBeTruthy();
+	});
+
+	it('marks an auto-approved request so it does not read as a vetted decision', async () => {
+		await renderReviewed([
+			makeReviewedRequest({
+				id: 'auto-approved',
+				auto_approved: true,
+				auto_approval_detail:
+					'Auto-approved via invite from Bravo Company. Invited by Avery Jones; no platform admin reviewed this request.',
+				invitation_origins: [makeInvitationOrigin({ organization_name: 'Bravo Company', inviter_label: 'Avery Jones' })]
+			})
+		]);
+
+		const card = screen.getByText('Test Soldier').closest('[data-slot="card"]');
+		expect(card).toBeTruthy();
+		const scope = within(card as HTMLElement);
+
+		expect(scope.getByText('Auto-approved')).toBeTruthy();
+		expect(
+			scope.getByText(
+				'Auto-approved via invite from Bravo Company. Invited by Avery Jones; no platform admin reviewed this request.'
+			)
+		).toBeTruthy();
+		// The timestamp is the inviter's, so calling it a review would restate the very
+		// claim the marking exists to deny.
+		expect(normalizedText(card)).toMatch(/Auto-approved May 18, 2026/);
+		expect(card?.textContent).not.toContain('Reviewed');
+	});
+
+	it('leaves a platform-admin-approved request without the auto-approved marking', async () => {
+		await renderReviewed([
+			makeReviewedRequest({
+				id: 'hand-approved',
+				invitation_origins: [makeInvitationOrigin({ organization_name: 'Bravo Company' })]
+			})
+		]);
+
+		expect(screen.queryByText('Auto-approved')).toBeNull();
+		expect(screen.queryByText(/no platform admin reviewed this request/)).toBeNull();
+		expect(screen.getByText('Bravo Company')).toBeTruthy();
+		expect(screen.getByText('Approved')).toBeTruthy();
+		expect(normalizedText(screen.getByText('Test Soldier').closest('[data-slot="card"]'))).toMatch(
+			/Reviewed May 18, 2026/
+		);
+	});
+
+	it('adds no platform-admin action to an auto-approved request beyond the existing setup resend', async () => {
+		await renderReviewed([
+			makeReviewedRequest({
+				id: 'auto-approved-actions',
+				auto_approved: true,
+				auto_approval_detail:
+					'Auto-approved via invite from Bravo Company. Invited by Avery Jones; no platform admin reviewed this request.',
+				invitation_origins: [makeInvitationOrigin({ organization_name: 'Bravo Company' })]
+			})
+		]);
+
+		const card = screen.getByText('Test Soldier').closest('[data-slot="card"]');
+		const scope = within(card as HTMLElement);
+
+		expect(scope.getAllByRole('button').map((button) => button.textContent?.trim())).toEqual(['Send Fresh Setup']);
 	});
 
 	it('does not show invitation-origin context for ordinary access requests', async () => {

@@ -309,6 +309,32 @@ function getSetupStateCopy(
 }
 
 /**
+ * The invitation origin that actually did the approving.
+ *
+ * One person can invite the same address from two Organizations, and both origins then match
+ * `reviewed_by`. Only the invite that found the request `pending` approved it: the approving
+ * update is `WHERE status = 'pending'`, so later invites reuse an already-approved row and leave
+ * the reviewer and review timestamp alone. The approving origin is therefore the most recent one
+ * that pre-dates the review, not simply the most recent one.
+ *
+ * `invited_at` and `reviewed_at` come from different clocks, so a single matching origin is
+ * credited without consulting either, and an undecidable comparison falls back to the oldest
+ * match rather than defaulting to the newest Organization.
+ */
+function findApprovingInvitationOrigin(request: PlatformAccessRequestAdminRow): AccessRequestInvitationOrigin | null {
+	const byInviter = request.invitation_origins.filter((origin) => origin.inviter_user_id === request.reviewed_by);
+	if (byInviter.length <= 1) return byInviter[0] ?? null;
+
+	const newestFirst = [...byInviter].sort(
+		(a, b) => new Date(b.invited_at).getTime() - new Date(a.invited_at).getTime()
+	);
+	const reviewedAt = request.reviewed_at ? new Date(request.reviewed_at).getTime() : Number.NaN;
+	const beforeReview = newestFirst.filter((origin) => new Date(origin.invited_at).getTime() <= reviewedAt);
+
+	return beforeReview[0] ?? newestFirst[newestFirst.length - 1];
+}
+
+/**
  * An invite-origin request is auto-approved when the reviewer on record is the inviter itself
  * (ADR 0012). A platform admin who approved such a request by hand stays the reviewer, so the
  * comparison — not the mere presence of an invitation origin — is what separates the two.
@@ -321,7 +347,7 @@ function resolveAutoApproval(request: PlatformAccessRequestAdminRow): {
 		return { auto_approved: false, auto_approval_detail: null };
 	}
 
-	const approvingOrigin = request.invitation_origins.find((origin) => origin.inviter_user_id === request.reviewed_by);
+	const approvingOrigin = findApprovingInvitationOrigin(request);
 	if (!approvingOrigin) return { auto_approved: false, auto_approval_detail: null };
 
 	return {

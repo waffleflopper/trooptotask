@@ -15,6 +15,7 @@ Date: 2026-05-18
 - `/auth/renew-invite` already provides a self-service escape hatch for approved incomplete requests, but the default approval link still creates avoidable expiry pressure.
 - The legacy `/auth/register` invite-code path no longer has known unused codes in the wild.
 - Follow-up update, 2026-06-01: `/auth/register`, `registration_invites`, and `access_requests.invite_id` were fully removed.
+- Follow-up update, 2026-08-03: **Access Request** approval is no longer always a platform-admin act. Requests bridged from an **Organization Invitation** while billing is disabled are auto-approved by the inviting organization owner or admin, and their **Account Setup Link** is issued at invite time. See [ADR 0012](0012-organization-invited-platform-access-auto-approval.md).
 - **Access Requests** exist for beta-period platform access control and cost control by the developer, not as a permanent replacement for organization governance.
 
 ### Decision pressure
@@ -73,6 +74,7 @@ Date: 2026-05-18
 - Do not create **Organization Members** from beta **Access Request** completion.
 - Keep auth-provider-specific implementation at auth edges or adapters as allowed by ADR 0004.
 - Legacy code that handles existing Supabase invite or recovery states may remain temporarily as migration compatibility, but new beta setup behavior should follow this ADR.
+- Exception, 2026-08-03: **Account Setup Links** may be issued by a second, non-platform-admin path — the organization-invitation auto-approval flow in [ADR 0012](0012-organization-invited-platform-access-auto-approval.md) — while `PUBLIC_BILLING_ENABLED=false`. Every rule in this ADR about token hashing, single active link, 14-day expiry, and identity creation after password entry applies unchanged to that path. New issuers must compose the shared `accountSetupLinkIssuance` module rather than re-implementing create-then-deliver.
 
 ## Consequences
 

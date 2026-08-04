@@ -23,7 +23,7 @@ The signed-in person's identity and authentication settings, such as email addre
 _Avoid_: Organization, workspace, tenant
 
 **Access Request**:
-A beta-period request for reviewed entry into TroopToTask before a **User Account** is activated. Approval authorizes an account setup attempt, but it is not itself an **Organization Membership** or an **Organization Invitation**. The flow exists to control beta access and should replace legacy invite-code registration rather than becoming a permanent parallel registration system.
+A beta-period request for reviewed entry into TroopToTask before a **User Account** is activated. Approval authorizes an account setup attempt, but it is not itself an **Organization Membership** or an **Organization Invitation**. The flow exists to control beta access and should replace legacy invite-code registration rather than becoming a permanent parallel registration system. Approval is normally a platform-admin act, but a request bridged from an **Organization Invitation** while billing is disabled is auto-approved on the inviting organization owner's authority (ADR 0012).
 _Avoid_: Invite, registration invite, organization member, permanent signup queue
 
 **Account Setup Link**:
@@ -31,7 +31,7 @@ An app-owned, time-limited link sent after an **Access Request** is approved so 
 _Avoid_: Supabase invite, temporary password, magic login
 
 **Platform Access Request Administration**:
-The platform-admin workflow for reviewing **Access Requests**, issuing or resending **Account Setup Links**, explaining setup state, rejecting requests, and blocking linked **Organization Invitations** when platform access is denied. It does not create **User Accounts** directly and does not create **Organization Members**.
+The platform-admin workflow for reviewing **Access Requests**, issuing or resending **Account Setup Links**, explaining setup state, rejecting requests, and blocking linked **Organization Invitations** when platform access is denied. It does not create **User Accounts** directly and does not create **Organization Members**. It is no longer the sole issuer of **Account Setup Links**: the organization-invitation auto-approval path issues them too, through the same shared module (ADR 0012).
 _Avoid_: Invite-code admin, organization member approval, Supabase invite management
 
 **Platform Administration**:

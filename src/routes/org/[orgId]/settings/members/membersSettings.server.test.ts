@@ -1,8 +1,10 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { AccessRequestSetupState } from '$lib/server/accessRequestSetupState';
+import type { AuthContext, UseCaseContext } from '$lib/server/core/ports';
 import type { SettingsAccessSourceRow } from '../settingsMemberAccessReadModel.server';
 import {
 	buildMembersSettingsSection,
+	loadMembersSettings,
 	type BuildMembersSettingsDataInput,
 	type SettingsInvitationDeliverySourceRow
 } from './membersSettings.server';
@@ -228,6 +230,70 @@ describe('members settings invitation funnel status', () => {
 		const section = buildSection({ invitationSetupStates: new Map([['invite-1', 'delivery_failed']]) });
 
 		expect(JSON.stringify(section)).not.toContain('/auth/renew-invite');
+	});
+});
+
+function makeLoadContext(
+	lookup: UseCaseContext['organizationInvitationSetupStateLookup']
+): Parameters<typeof loadMembersSettings>[0] {
+	const rowsByTable: Record<string, unknown[]> = {
+		organization_memberships: [memberRow()],
+		organization_invitations: [invitationRow()],
+		organization_invitation_email_outbox: [deliveryRow()],
+		groups: [],
+		deletion_requests: []
+	};
+
+	return {
+		auth: { orgId: 'org-1', role: 'owner', canManageMembers: true } as AuthContext,
+		store: {
+			findMany: vi.fn(async (table: string) => rowsByTable[table] ?? [])
+		} as unknown as UseCaseContext['store'],
+		organizationInvitationSetupStateLookup: lookup
+	};
+}
+
+describe('members settings setup-state lookup degradation', () => {
+	it('still renders the members screen when the setup-state lookup fails', async () => {
+		vi.spyOn(console, 'error').mockImplementation(() => {});
+		const context = makeLoadContext({
+			findSetupStateByInvitationId: vi.fn().mockRejectedValue(new Error('service role unavailable'))
+		});
+
+		const data = await loadMembersSettings(context, { isAdmin: true });
+
+		expect(data.sections.members.invitations).toHaveLength(1);
+		expect(LOCKED_FUNNEL_LABELS).toContain(data.sections.members.invitations[0].funnelStatusLabel);
+	});
+
+	it('keeps reporting the invitation-email stage when the setup-state lookup fails', async () => {
+		vi.spyOn(console, 'error').mockImplementation(() => {});
+		const context = makeLoadContext({
+			findSetupStateByInvitationId: vi.fn().mockRejectedValue(new Error('service role unavailable'))
+		});
+		vi.mocked(context.store.findMany).mockImplementation(async (table: string) =>
+			table === 'organization_memberships'
+				? [memberRow()]
+				: table === 'organization_invitations'
+					? [invitationRow()]
+					: table === 'organization_invitation_email_outbox'
+						? [deliveryRow({ status: 'failed' })]
+						: []
+		);
+
+		const data = await loadMembersSettings(context, { isAdmin: true });
+
+		expect(data.sections.members.invitations[0].funnelStatusLabel).toBe('Invitation email failed');
+	});
+
+	it('reads platform setup state when the lookup is available', async () => {
+		const context = makeLoadContext({
+			findSetupStateByInvitationId: vi.fn().mockResolvedValue(new Map([['invite-1', 'delivery_failed']]))
+		});
+
+		const data = await loadMembersSettings(context, { isAdmin: true });
+
+		expect(data.sections.members.invitations[0].funnelStatusLabel).toBe("Setup email didn't reach them");
 	});
 });
 

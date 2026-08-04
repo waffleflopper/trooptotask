@@ -1,11 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { AdminContext } from './adminAdapter';
-import {
-	createAccountSetupLinkService,
-	createSupabaseAccountSetupLinkStore,
-	sendAccountSetupLinkEmail
-} from '$lib/server/accountSetupLinks';
-import { createSupabaseAuthEmailOutboxStore, sendAccountSetupOutboxDelivery } from '$lib/server/authEmailOutbox';
+import { createSupabaseAccountSetupLinkIssuancePorts } from './supabaseAccountSetupLinkIssuance';
 import {
 	ACCESS_REQUEST_INVITATION_ORIGIN_SELECT,
 	listSupabaseInviterProfiles,
@@ -169,15 +164,7 @@ export function createSupabasePlatformAccessRequestAdministration(
 ): PlatformAccessRequestAdministration {
 	return createPlatformAccessRequestAdministration({
 		store: createSupabasePlatformAccessRequestAdministrationStore(ctx.adminClient),
-		setupLinks: createAccountSetupLinkService(createSupabaseAccountSetupLinkStore(ctx.adminClient)),
-		setupDelivery: {
-			send: (input) =>
-				sendAccountSetupOutboxDelivery(
-					createSupabaseAuthEmailOutboxStore(ctx.adminClient),
-					sendAccountSetupLinkEmail,
-					input
-				)
-		},
+		...createSupabaseAccountSetupLinkIssuancePorts(ctx.adminClient),
 		sensitiveActionAuthorizer: createSupabaseSensitiveActionAuthorizer({
 			supabase: ctx.sessionClient,
 			session: ctx.session

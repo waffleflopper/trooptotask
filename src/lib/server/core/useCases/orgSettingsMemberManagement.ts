@@ -9,6 +9,13 @@ import { type CapabilityOverrideMap, type StoredMemberPreset } from '$lib/access
 import { fail } from '$lib/server/core/errors';
 import type { AuthContext, AuditPort, DataStore, NotificationPort, ReadOnlyGuard } from '$lib/server/core/ports';
 import {
+	createAccountSetupLinkIssuance,
+	redactProviderError,
+	type AccountSetupLinkIssuanceCreator,
+	type AccountSetupLinkIssuanceDelivery,
+	type AccountSetupLinkNotCreatedReason
+} from '$lib/server/accountSetupLinkIssuance';
+import {
 	ORGANIZATION_MEMBER_INVITE_HIGH_PRIVILEGE_ACTION,
 	ORGANIZATION_MEMBER_REMOVE_HIGH_PRIVILEGE_ACTION,
 	ORGANIZATION_MEMBER_UPDATE_HIGH_PRIVILEGE_ACTION,
@@ -109,7 +116,7 @@ export interface OrganizationSettingsMemberManagementPort {
 	findPendingInvitationById(orgId: string, inviteId: string): Promise<OrganizationInvitationResendLookupResult | null>;
 	findUserAccountByEmail(email: string): Promise<{ id: string; email: string; emailConfirmed?: boolean } | null>;
 	createInvitation(input: OrganizationInvitationCreateInput): Promise<OrganizationInvitationCreateResult>;
-	createOrLinkPendingAccessRequestForInvitation(
+	createOrLinkApprovedAccessRequestForInvitation(
 		input: OrganizationInvitationAccessRequestBridgeInput
 	): Promise<OrganizationInvitationAccessRequestBridgeResult>;
 	blockInvitationAfterAccessRequestBridgeFailure(input: {
@@ -161,7 +168,18 @@ interface OrganizationSettingsMemberManagementPorts {
 	sensitiveActionAuthorizer?: SensitiveActionAuthorizer;
 }
 
+/**
+ * The invite path composes `accountSetupLinkIssuance` from these two, exactly as the
+ * platform-admin path does. They are required rather than optional because an invite
+ * that silently issues no credential is the dead end this bridge exists to remove.
+ */
+interface OrganizationInvitationAccountSetupPorts {
+	setupLinks: AccountSetupLinkIssuanceCreator;
+	setupDelivery: AccountSetupLinkIssuanceDelivery;
+}
+
 type InviteOrganizationMemberPorts = OrganizationSettingsMemberManagementPorts &
+	OrganizationInvitationAccountSetupPorts &
 	(
 		| {
 				store: DataStore;
@@ -285,7 +303,7 @@ export async function inviteOrganizationMember(
 	});
 
 	const shouldBridgeAccessRequest = !existingUserAccount && !isBillingEnabled;
-	const accessRequestBridgeStatus = shouldBridgeAccessRequest
+	const accessRequestBridge = shouldBridgeAccessRequest
 		? await bridgeInvitationToAccessRequest(ports, {
 				organizationId: ports.auth.orgId,
 				invitationId: createResult.invitationId,
@@ -298,10 +316,21 @@ export async function inviteOrganizationMember(
 				accessScopeKind: accessCommand.accessScopeKind,
 				accessScopeGroupIds: accessCommand.accessScopeGroupIds
 			})
-		: 'skipped';
+		: null;
 
-	if (accessRequestBridgeStatus === 'failed') {
+	if (accessRequestBridge?.status === 'failed') {
 		fail(500, 'Invitation could not be created because platform access setup could not be linked');
+	}
+
+	if (accessRequestBridge) {
+		await issueInvitationAccountSetupLink(ports, {
+			accessRequestId: accessRequestBridge.accessRequestId,
+			organizationId: ports.auth.orgId,
+			invitationId: createResult.invitationId,
+			email,
+			invitedBy: actorUserId,
+			publicOrigin: input.origin ?? ''
+		});
 	}
 
 	ports.audit.log({
@@ -449,39 +478,19 @@ function getPlanPolicyReads(ports: InviteOrganizationMemberPorts): OrganizationM
 async function bridgeInvitationToAccessRequest(
 	ports: OrganizationSettingsMemberManagementPorts,
 	input: OrganizationInvitationAccessRequestBridgeInput
-): Promise<'created' | 'linked' | 'already-linked' | 'failed'> {
-	const result = await ports.settings.createOrLinkPendingAccessRequestForInvitation(input);
+): Promise<{ status: 'created' | 'linked' | 'already-linked'; accessRequestId: string } | { status: 'failed' }> {
+	const result = await ports.settings.createOrLinkApprovedAccessRequestForInvitation(input);
 	if (result.status === 'failed') {
-		const blockResult = await ports.settings.blockInvitationAfterAccessRequestBridgeFailure({
+		await blockInvitationAfterPlatformAccessFailure(ports, {
 			organizationId: input.organizationId,
 			invitationId: input.invitationId,
 			blockedBy: input.invitedBy,
-			reason: result.message
+			email: input.email,
+			reason: result.message,
+			failureAction: 'member.invite_access_request_link_failed',
+			blockFailureAction: 'member.invite_access_request_link_block_failed'
 		});
-		ports.audit.log({
-			action: 'member.invite_access_request_link_failed',
-			resourceType: 'organization',
-			details: {
-				email: input.email,
-				invitationId: input.invitationId,
-				reason: result.message,
-				blocked: blockResult.status === 'blocked'
-			},
-			severity: blockResult.status === 'blocked' ? 'warning' : 'critical'
-		});
-		if (blockResult.status === 'failed') {
-			ports.audit.log({
-				action: 'member.invite_access_request_link_block_failed',
-				resourceType: 'organization',
-				details: {
-					email: input.email,
-					invitationId: input.invitationId,
-					reason: blockResult.message
-				},
-				severity: 'critical'
-			});
-		}
-		return 'failed';
+		return { status: 'failed' };
 	}
 
 	ports.audit.log({
@@ -500,7 +509,129 @@ async function bridgeInvitationToAccessRequest(
 		severity: 'info'
 	});
 
-	return result.status;
+	return { status: result.status, accessRequestId: result.accessRequestId };
+}
+
+/**
+ * Blocks the just-created invitation, records why, and reports whether the block itself
+ * held. Shared by the two ways platform access setup can leave an invitation stranded:
+ * the Access Request bridge failing, and the setup link failing to be created.
+ */
+async function blockInvitationAfterPlatformAccessFailure(
+	ports: OrganizationSettingsMemberManagementPorts,
+	input: {
+		organizationId: string;
+		invitationId: string;
+		blockedBy: string;
+		email: string;
+		reason: string;
+		failureAction: string;
+		blockFailureAction: string;
+		failureDetails?: Record<string, unknown>;
+	}
+): Promise<void> {
+	const blockResult = await ports.settings.blockInvitationAfterAccessRequestBridgeFailure({
+		organizationId: input.organizationId,
+		invitationId: input.invitationId,
+		blockedBy: input.blockedBy,
+		reason: input.reason
+	});
+
+	ports.audit.log({
+		action: input.failureAction,
+		resourceType: 'organization',
+		details: {
+			email: input.email,
+			invitationId: input.invitationId,
+			...(input.failureDetails ?? { reason: input.reason }),
+			blocked: blockResult.status === 'blocked'
+		},
+		severity: blockResult.status === 'blocked' ? 'warning' : 'critical'
+	});
+
+	if (blockResult.status === 'failed') {
+		ports.audit.log({
+			action: input.blockFailureAction,
+			resourceType: 'organization',
+			details: {
+				email: input.email,
+				invitationId: input.invitationId,
+				reason: blockResult.message
+			},
+			severity: 'critical'
+		});
+	}
+}
+
+/**
+ * Issues the invitee's Account Setup Link through the shared issuance module. The Access
+ * Request is already approved by this point, so anything short of a live link is a failed
+ * invitation — except `concurrent-create`, which means a sibling writer just minted one.
+ * Delivery failure is non-fatal: it leaves a valid link and working recovery routes.
+ */
+async function issueInvitationAccountSetupLink(
+	ports: InviteOrganizationMemberPorts,
+	input: {
+		accessRequestId: string;
+		organizationId: string;
+		invitationId: string;
+		email: string;
+		invitedBy: string;
+		publicOrigin: string;
+	}
+): Promise<void> {
+	const issuance = createAccountSetupLinkIssuance({
+		setupLinks: ports.setupLinks,
+		setupDelivery: ports.setupDelivery,
+		audit: (event) => ports.audit.log(event)
+	});
+
+	let notCreatedReason: AccountSetupLinkNotCreatedReason | 'provider-error' | null = null;
+	try {
+		const issued = await issuance.issue({
+			accessRequestId: input.accessRequestId,
+			email: input.email,
+			publicOrigin: input.publicOrigin,
+			origin: 'organization_invitation',
+			context: { invitationId: input.invitationId }
+		});
+		if (issued.status !== 'not_created') return;
+		notCreatedReason = issued.reason;
+	} catch (error) {
+		console.error('[org-settings-member-management]', {
+			operation: 'issueInvitationAccountSetupLink',
+			error: redactProviderError(error)
+		});
+		notCreatedReason = 'provider-error';
+	}
+
+	if (notCreatedReason === 'concurrent-create') {
+		ports.audit.log({
+			action: 'member.invite_account_setup_link_not_created',
+			resourceType: 'organization',
+			details: {
+				email: input.email,
+				invitationId: input.invitationId,
+				accessRequestId: input.accessRequestId,
+				reason: notCreatedReason
+			},
+			severity: 'info'
+		});
+		return;
+	}
+
+	await blockInvitationAfterPlatformAccessFailure(ports, {
+		organizationId: input.organizationId,
+		invitationId: input.invitationId,
+		blockedBy: input.invitedBy,
+		email: input.email,
+		reason: notCreatedReason,
+		failureAction: 'member.invite_account_setup_link_not_created',
+		blockFailureAction: 'member.invite_account_setup_link_block_failed',
+		failureDetails: { accessRequestId: input.accessRequestId, reason: notCreatedReason }
+	});
+
+	fail(500, 'Invitation could not be created because the account setup link could not be issued');
 }
 
 export async function resendOrganizationInvitation(

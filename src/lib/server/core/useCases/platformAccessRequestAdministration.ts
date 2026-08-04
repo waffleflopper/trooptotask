@@ -53,6 +53,7 @@ export interface PlatformAccessRequestAdminRow {
 	status: 'pending' | 'approved' | 'rejected';
 	created_at: string;
 	reviewed_at: string | null;
+	reviewed_by: string | null;
 	setup_completed_at: string | null;
 	account_setup_links: AccessRequestSetupLink | AccessRequestSetupLink[] | null;
 	auth_email_outbox: AccessRequestAuthEmailOutbox | AccessRequestAuthEmailOutbox[] | null;
@@ -91,6 +92,8 @@ export interface PlatformAccessRequestAdminItem {
 	setup_delivery_updated_at: string | null;
 	setup_delivery_sent_at: string | null;
 	invitation_origins: AccessRequestInvitationOrigin[];
+	auto_approved: boolean;
+	auto_approval_detail: string | null;
 }
 
 export interface PlatformAccessRequestAdminList {
@@ -217,6 +220,8 @@ function resolveSetupState(
 	| 'reviewed_at'
 	| 'setup_completed_at'
 	| 'invitation_origins'
+	| 'auto_approved'
+	| 'auto_approval_detail'
 > {
 	const links = normalizeAccessRequestSetupLinks(request.account_setup_links);
 	const deliveries = normalizeAccessRequestSetupDeliveries(request.auth_email_outbox);
@@ -303,6 +308,28 @@ function getSetupStateCopy(
 	}
 }
 
+/**
+ * An invite-origin request is auto-approved when the reviewer on record is the inviter itself
+ * (ADR 0012). A platform admin who approved such a request by hand stays the reviewer, so the
+ * comparison — not the mere presence of an invitation origin — is what separates the two.
+ */
+function resolveAutoApproval(request: PlatformAccessRequestAdminRow): {
+	auto_approved: boolean;
+	auto_approval_detail: string | null;
+} {
+	if (request.status !== 'approved' || !request.reviewed_by) {
+		return { auto_approved: false, auto_approval_detail: null };
+	}
+
+	const approvingOrigin = request.invitation_origins.find((origin) => origin.inviter_user_id === request.reviewed_by);
+	if (!approvingOrigin) return { auto_approved: false, auto_approval_detail: null };
+
+	return {
+		auto_approved: true,
+		auto_approval_detail: `Auto-approved via invite from ${approvingOrigin.organization_name}. Invited by ${approvingOrigin.inviter_label}; no platform admin reviewed this request.`
+	};
+}
+
 function shapeListItem(request: PlatformAccessRequestAdminRow, now: Date): PlatformAccessRequestAdminItem {
 	return {
 		id: request.id,
@@ -317,6 +344,7 @@ function shapeListItem(request: PlatformAccessRequestAdminRow, now: Date): Platf
 		reviewed_at: request.reviewed_at,
 		setup_completed_at: request.setup_completed_at,
 		invitation_origins: request.invitation_origins,
+		...resolveAutoApproval(request),
 		...resolveSetupState(request, now)
 	};
 }

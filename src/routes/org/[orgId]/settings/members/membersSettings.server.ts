@@ -295,6 +295,19 @@ function shapeInvitationRow(
 }
 
 /**
+ * Setup states where the invitee holds a usable Account Setup Link, or one is on its way to
+ * them. Every other incomplete state leaves them with no credential they can act on, and the
+ * admin's remedy for all of those is identical — the recovery link in the invitation email —
+ * which is why they collapse together rather than being mirrored one by one (ADR 0012).
+ */
+const CREDENTIAL_IN_HAND_SETUP_STATES: ReadonlySet<AccessRequestSetupState> = new Set([
+	'pending',
+	'delivery_pending',
+	'claimed',
+	'replaced'
+]);
+
+/**
  * Collapses the whole invite funnel to one organization-facing status line.
  *
  * Evaluated in funnel order — the first blocking stage wins — so platform Account Setup
@@ -309,11 +322,11 @@ function withInvitationFunnelStatus(
 	const funnelStatus: SettingsInvitationFunnelStatus =
 		invitation.deliveryStatus === 'failed'
 			? 'invitation_email_failed'
-			: setupState === 'delivery_failed'
-				? 'setup_email_failed'
-				: setupState && setupState !== 'completed'
+			: !setupState || setupState === 'completed'
+				? 'waiting_on_them_to_accept'
+				: CREDENTIAL_IN_HAND_SETUP_STATES.has(setupState)
 					? 'waiting_on_them'
-					: 'waiting_on_them_to_accept';
+					: 'setup_email_failed';
 
 	return {
 		...invitation,
@@ -328,13 +341,16 @@ const INVITATION_FUNNEL_COPY: Record<SettingsInvitationFunnelStatus, { label: st
 		label: 'Invitation email failed',
 		detail: 'We could not deliver the invitation email. Check the address and resend.'
 	},
+	// The label names the most common cause rather than every one: it also covers a setup link
+	// that was never issued, lapsed, or errored partway. The remedy is the same in all of them,
+	// and naming it keeps the hint that the email is where to look (ADR 0012).
 	setup_email_failed: {
 		label: "Setup email didn't reach them",
-		detail: `The invitation arrived but the email that lets them create their account did not. Resending the invitation will not fix that — ask them to use the "${ACCOUNT_SETUP_RECOVERY_LINK_LABEL}" link in the invitation email.`
+		detail: `They have no account setup link they can use. Resending the invitation will not fix that — ask them to use the "${ACCOUNT_SETUP_RECOVERY_LINK_LABEL}" link in the invitation email.`
 	},
 	waiting_on_them: {
 		label: 'Waiting on them',
-		detail: 'Both emails went out. They have not finished creating their account yet.'
+		detail: 'They have been sent a link to set up their account and have not finished using it yet.'
 	},
 	waiting_on_them_to_accept: {
 		label: 'Waiting on them to accept',

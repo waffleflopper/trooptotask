@@ -23,6 +23,12 @@ const ALL_SETUP_STATES: AccessRequestSetupState[] = [
 	'completed'
 ];
 
+/** Setup states that leave the invitee a usable Account Setup Link, or one on its way. */
+const CREDENTIAL_IN_HAND_STATES: AccessRequestSetupState[] = ['pending', 'delivery_pending', 'claimed', 'replaced'];
+
+/** The rest of the incomplete states: no credential the invitee can act on, one shared remedy. */
+const NO_USABLE_CREDENTIAL_STATES: AccessRequestSetupState[] = ['delivery_failed', 'failed', 'not_sent', 'expired'];
+
 const LOCKED_FUNNEL_LABELS = [
 	'Invitation email failed',
 	"Setup email didn't reach them",
@@ -146,15 +152,43 @@ describe('members settings invitation funnel status', () => {
 		expect(invitation.funnelStatusLabel).toBe('Invitation email failed');
 	});
 
-	it.each<AccessRequestSetupState>(
-		ALL_SETUP_STATES.filter((setupState) => setupState !== 'completed' && setupState !== 'delivery_failed')
-	)('collapses the intermediate %s setup state to waiting on them', (setupState) => {
+	it.each<AccessRequestSetupState>(CREDENTIAL_IN_HAND_STATES)(
+		'waits on the invitee while the %s setup state leaves them a link they can use',
+		(setupState) => {
+			const invitation = onlyInvitation({
+				invitationSetupStates: new Map([['invite-1', setupState]])
+			});
+
+			expect(invitation.funnelStatus).toBe('waiting_on_them');
+			expect(invitation.funnelStatusLabel).toBe('Waiting on them');
+		}
+	);
+
+	it.each<AccessRequestSetupState>(NO_USABLE_CREDENTIAL_STATES)(
+		'points the admin at the recovery link when the %s setup state leaves no usable link',
+		(setupState) => {
+			const invitation = onlyInvitation({
+				invitationSetupStates: new Map([['invite-1', setupState]])
+			});
+
+			expect(invitation.funnelStatus).toBe('setup_email_failed');
+			expect(invitation.funnelStatusLabel).toBe("Setup email didn't reach them");
+			expect(invitation.funnelStatusDetail).toContain("Didn't get your setup link?");
+		}
+	);
+
+	it('never tells an admin both emails went out when no setup email did', () => {
 		const invitation = onlyInvitation({
-			invitationSetupStates: new Map([['invite-1', setupState]])
+			invitationSetupStates: new Map([['invite-1', 'not_sent']])
 		});
 
-		expect(invitation.funnelStatus).toBe('waiting_on_them');
-		expect(invitation.funnelStatusLabel).toBe('Waiting on them');
+		expect(invitation.funnelStatusLabel).not.toBe('Waiting on them');
+	});
+
+	it('accounts for every setup state, so a new one cannot fall through unclassified', () => {
+		expect(new Set([...CREDENTIAL_IN_HAND_STATES, ...NO_USABLE_CREDENTIAL_STATES, 'completed'])).toEqual(
+			new Set(ALL_SETUP_STATES)
+		);
 	});
 
 	it('waits on acceptance once setup is complete', () => {

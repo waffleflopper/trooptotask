@@ -371,6 +371,48 @@ describe('Platform Access Request Administration', () => {
 		});
 	});
 
+	it('credits the Organization whose invite did the approving when one person invited from two', async () => {
+		const row = makeAccessRequestRow({
+			id: 'same-inviter-two-orgs',
+			reviewed_by: 'leader-1',
+			reviewed_at: '2026-05-18T13:00:00.000Z',
+			invitation_origins: [
+				makeInvitationOrigin({
+					link_id: 'link-2',
+					organization_name: 'Charlie Company',
+					invited_at: '2026-05-19T09:00:00.000Z'
+				}),
+				makeInvitationOrigin({ organization_name: 'Bravo Company', invited_at: '2026-05-18T13:00:00.000Z' })
+			]
+		});
+		const { admin } = makeDeps({ store: makeStore({ listAccessRequests: vi.fn().mockResolvedValue([row]) }) });
+
+		const result = await admin.list({ now });
+
+		expect(result.reviewed[0].auto_approval_detail).toContain('Auto-approved via invite from Bravo Company');
+	});
+
+	it('credits the later invite when the earlier one left the request pending', async () => {
+		const row = makeAccessRequestRow({
+			id: 'approved-on-second-invite',
+			reviewed_by: 'leader-1',
+			reviewed_at: '2026-05-19T09:00:01.000Z',
+			invitation_origins: [
+				makeInvitationOrigin({
+					link_id: 'link-2',
+					organization_name: 'Charlie Company',
+					invited_at: '2026-05-19T09:00:00.000Z'
+				}),
+				makeInvitationOrigin({ organization_name: 'Bravo Company', invited_at: '2026-05-18T13:00:00.000Z' })
+			]
+		});
+		const { admin } = makeDeps({ store: makeStore({ listAccessRequests: vi.fn().mockResolvedValue([row]) }) });
+
+		const result = await admin.list({ now });
+
+		expect(result.reviewed[0].auto_approval_detail).toContain('Auto-approved via invite from Charlie Company');
+	});
+
 	it('leaves an invite-origin request a platform admin approved by hand unmarked', async () => {
 		const row = makeAccessRequestRow({
 			id: 'hand-approved',

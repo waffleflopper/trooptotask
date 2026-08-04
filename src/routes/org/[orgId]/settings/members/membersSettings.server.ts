@@ -154,7 +154,15 @@ async function loadInvitationSetupStates(
 
 	try {
 		return await lookup.findSetupStateByInvitationId(ctx.auth.orgId, pendingInvitationIds);
-	} catch {
+	} catch (error) {
+		// Degrading silently would leave every row reading "Waiting on them to accept" with nothing
+		// anywhere to say the platform read is down, so the failure is logged even though it is
+		// deliberately invisible to the admin.
+		console.error('[members-settings]', {
+			operation: 'loadInvitationSetupStates',
+			organizationId: ctx.auth.orgId,
+			error: error instanceof Error ? error.message : 'Invitation setup state lookup failed'
+		});
 		return undefined;
 	}
 }

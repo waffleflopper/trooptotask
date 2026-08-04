@@ -23,6 +23,7 @@
 	} from '../settingsMemberAccessWorkspace.svelte';
 	import type { MembersSettingsSection } from './membersSettings.server';
 	import type { SettingsMemberAccessRow } from '../settingsMemberAccessModel';
+	import type { SettingsInvitationFunnelStatus } from '../settingsSectionTypes';
 	import { pluralize } from '../settingsWorkspaceFormatters';
 
 	let { data, form }: PageProps = $props();
@@ -73,6 +74,10 @@
 
 	function getCapabilityLabel(value: string): string {
 		return capabilityOptions.find((option) => option.value === value)?.label ?? value;
+	}
+
+	function getFunnelStatusVariant(status: SettingsInvitationFunnelStatus): 'danger' | 'secondary' {
+		return status === 'invitation_email_failed' || status === 'setup_email_failed' ? 'danger' : 'secondary';
 	}
 </script>
 
@@ -305,23 +310,22 @@
 			<div class="divide-y rounded-md border">
 				{#each membersSection.invitations as invite (invite.id)}
 					{@const invitePermissionPreset = memberAccess.getInvitePreset(invite)}
-					<div class="flex flex-col gap-3 p-3 md:flex-row md:items-center md:justify-between">
-						<div class="min-w-0">
+					<div class="flex flex-col gap-3 p-3 md:flex-row md:items-start md:justify-between">
+						<div class="min-w-0 grid gap-1.5">
 							<p class="truncate font-medium">{invite.email}</p>
 							<p class="text-sm text-muted-foreground">
 								{memberAccess.getAccessLabel(invitePermissionPreset)} · Sent {formatRelativeDate(invite.createdAt)}
 							</p>
+							<div class="grid gap-1">
+								<Badge variant={getFunnelStatusVariant(invite.funnelStatus)}>{invite.funnelStatusLabel}</Badge>
+								<p class="text-sm text-muted-foreground">{invite.funnelStatusDetail}</p>
+							</div>
 						</div>
 						<div class="flex flex-wrap gap-2">
 							<form method="POST" action="?/resendInvite" use:enhance={stepUpEnhance}>
 								<input type="hidden" name="inviteId" value={invite.id} />
-								<Button
-									type="submit"
-									variant="outline"
-									size="sm"
-									disabled={!invite.canResend}
-									title={invite.canResend ? undefined : 'This invitation was sent recently'}
-								>
+								<!-- Resend stays enabled in every funnel state; it is insufficient in some, never futile. -->
+								<Button type="submit" variant="outline" size="sm">
 									<RefreshCw />
 									Resend
 								</Button>

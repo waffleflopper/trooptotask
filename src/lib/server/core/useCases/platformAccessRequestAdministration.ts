@@ -1,6 +1,15 @@
 import { getAccessRequestHeardAboutLabel } from '$lib/accessRequests';
 import type { AccountSetupLinkFailureReason, AccountSetupLinkRevocationReason } from '$lib/server/accountSetupLinks';
 import type { AuthEmailOutboxStatus } from '$lib/server/authEmailOutbox';
+import {
+	classifyAccessRequestSetupState,
+	findLatestAccessRequestSetupDelivery,
+	normalizeAccessRequestSetupDeliveries,
+	normalizeAccessRequestSetupLinks,
+	type AccessRequestAuthEmailOutbox,
+	type AccessRequestSetupLink,
+	type AccessRequestSetupState
+} from '$lib/server/accessRequestSetupState';
 import type {
 	BlockedOrganizationInvitation,
 	RejectAccessRequestAndBlockInvitationsResult
@@ -32,28 +41,7 @@ import {
 	type PlatformAccessRequestSetupAction
 } from '$lib/server/platformAccessRequestRateLimit';
 
-export interface AccessRequestSetupLink {
-	id: string;
-	created_at: string;
-	expires_at: string;
-	claimed_at: string | null;
-	failed_at: string | null;
-	failure_reason: AccountSetupLinkFailureReason | null;
-	used_at: string | null;
-	revoked_at: string | null;
-	revocation_reason: AccountSetupLinkRevocationReason | null;
-}
-
-export interface AccessRequestAuthEmailOutbox {
-	id: string;
-	setup_link_id: string;
-	status: AuthEmailOutboxStatus;
-	attempt_count: number;
-	last_error: string | null;
-	created_at: string;
-	updated_at: string;
-	sent_at: string | null;
-}
+export type { AccessRequestAuthEmailOutbox, AccessRequestSetupLink, AccessRequestSetupState };
 
 export interface PlatformAccessRequestAdminRow {
 	id: string;
@@ -70,17 +58,6 @@ export interface PlatformAccessRequestAdminRow {
 	auth_email_outbox: AccessRequestAuthEmailOutbox | AccessRequestAuthEmailOutbox[] | null;
 	invitation_origins: AccessRequestInvitationOrigin[];
 }
-
-export type AccessRequestSetupState =
-	| 'not_sent'
-	| 'delivery_failed'
-	| 'delivery_pending'
-	| 'claimed'
-	| 'pending'
-	| 'expired'
-	| 'replaced'
-	| 'failed'
-	| 'completed';
 
 export interface PlatformAccessRequestAdminItem {
 	id: string;
@@ -201,18 +178,6 @@ export interface PlatformAccessRequestAdministrationDependencies {
 	now?: () => Date;
 }
 
-function normalizeSetupLinks(links: PlatformAccessRequestAdminRow['account_setup_links']): AccessRequestSetupLink[] {
-	if (!links) return [];
-	const normalized = Array.isArray(links) ? links : [links];
-	return normalized.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-}
-
-function normalizeOutboxRows(rows: PlatformAccessRequestAdminRow['auth_email_outbox']): AccessRequestAuthEmailOutbox[] {
-	if (!rows) return [];
-	const normalized = Array.isArray(rows) ? rows : [rows];
-	return normalized.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-}
-
 function getRevokedSetupState(link: AccessRequestSetupLink): { label: string; detail: string } {
 	switch (link.revocation_reason) {
 		case 'manual':
@@ -253,24 +218,34 @@ function resolveSetupState(
 	| 'setup_completed_at'
 	| 'invitation_origins'
 > {
-	const links = normalizeSetupLinks(request.account_setup_links);
-	const deliveries = normalizeOutboxRows(request.auth_email_outbox);
+	const links = normalizeAccessRequestSetupLinks(request.account_setup_links);
+	const deliveries = normalizeAccessRequestSetupDeliveries(request.auth_email_outbox);
 	const latestLink = links[0] ?? null;
-	const latestDelivery = latestLink
-		? (deliveries.find((delivery) => delivery.setup_link_id === latestLink.id) ?? null)
-		: (deliveries[0] ?? null);
-	const hasReplacedSetupLink = links.some((link) => link.revoked_at && !link.used_at);
-	const linkFields = {
+	const latestDelivery = findLatestAccessRequestSetupDelivery(links, deliveries);
+	const setupState = classifyAccessRequestSetupState({
+		setupCompletedAt: request.setup_completed_at,
+		latestLink,
+		latestDelivery,
+		now
+	});
+	const copy = getSetupStateCopy(setupState, latestLink);
+
+	return {
+		setup_state: setupState,
+		setup_state_label: copy.label,
+		setup_state_detail: copy.detail,
+		setup_completed_at_display:
+			setupState === 'completed' ? (request.setup_completed_at ?? latestLink?.used_at ?? null) : null,
+		has_replaced_setup_link: links.some((link) => link.revoked_at && !link.used_at),
 		setup_link_id: latestLink?.id ?? null,
 		setup_link_created_at: latestLink?.created_at ?? null,
 		setup_link_expires_at: latestLink?.expires_at ?? null,
 		setup_link_claimed_at: latestLink?.claimed_at ?? null,
 		setup_link_failed_at: latestLink?.failed_at ?? null,
 		setup_link_failure_reason: latestLink?.failure_reason ?? null,
-		setup_link_replaced_at: latestLink?.revoked_at ?? null,
-		setup_link_revocation_reason: latestLink?.revocation_reason ?? null
-	};
-	const deliveryFields = {
+		// A completed setup's link was used, not replaced, even if it also carries a revocation stamp.
+		setup_link_replaced_at: setupState === 'completed' ? null : (latestLink?.revoked_at ?? null),
+		setup_link_revocation_reason: latestLink?.revocation_reason ?? null,
 		setup_delivery_id: latestDelivery?.id ?? null,
 		setup_delivery_status: latestDelivery?.status ?? null,
 		setup_delivery_attempt_count: latestDelivery?.attempt_count ?? 0,
@@ -279,119 +254,53 @@ function resolveSetupState(
 		setup_delivery_updated_at: latestDelivery?.updated_at ?? null,
 		setup_delivery_sent_at: latestDelivery?.sent_at ?? null
 	};
+}
 
-	if (request.setup_completed_at || latestLink?.used_at) {
-		const completedAt = request.setup_completed_at ?? latestLink?.used_at ?? null;
-		return {
-			setup_state: 'completed',
-			setup_state_label: 'Completed',
-			setup_state_detail: 'Account setup is complete. The user should sign in or reset their password if needed.',
-			setup_completed_at_display: completedAt,
-			has_replaced_setup_link: hasReplacedSetupLink,
-			...linkFields,
-			setup_link_replaced_at: null,
-			...deliveryFields
-		};
+function getSetupStateCopy(
+	setupState: AccessRequestSetupState,
+	latestLink: AccessRequestSetupLink | null
+): { label: string; detail: string } {
+	switch (setupState) {
+		case 'completed':
+			return {
+				label: 'Completed',
+				detail: 'Account setup is complete. The user should sign in or reset their password if needed.'
+			};
+		case 'not_sent':
+			return { label: 'Not sent', detail: 'No account setup link has been sent yet.' };
+		case 'failed':
+			return {
+				label: 'Failed',
+				detail: 'Setup failed after the link was claimed. The old link is no longer usable; send a fresh setup link.'
+			};
+		case 'claimed':
+			return {
+				label: 'In progress',
+				detail:
+					'The setup link has been claimed and cannot be used again. If setup does not complete, send a fresh setup link.'
+			};
+		case 'replaced':
+			return latestLink
+				? getRevokedSetupState(latestLink)
+				: { label: 'Replaced', detail: 'The latest known setup link was replaced by a newer setup email.' };
+		case 'expired':
+			return {
+				label: 'Expired',
+				detail: 'The current setup link has expired. Resend setup to deliver a fresh link.'
+			};
+		case 'delivery_failed':
+			return {
+				label: 'Delivery failed',
+				detail: 'Setup email delivery failed. Send a fresh setup link to recover delivery.'
+			};
+		case 'delivery_pending':
+			return { label: 'Delivery pending', detail: 'Setup email delivery is queued or in progress.' };
+		case 'pending':
+			return {
+				label: 'Pending',
+				detail: 'A setup link is active and waiting for the recipient to finish account setup.'
+			};
 	}
-
-	if (!latestLink) {
-		return {
-			setup_state: 'not_sent',
-			setup_state_label: 'Not sent',
-			setup_state_detail: 'No account setup link has been sent yet.',
-			setup_completed_at_display: null,
-			has_replaced_setup_link: false,
-			...linkFields,
-			...deliveryFields
-		};
-	}
-
-	if (latestLink.failed_at) {
-		return {
-			setup_state: 'failed',
-			setup_state_label: 'Failed',
-			setup_state_detail:
-				'Setup failed after the link was claimed. The old link is no longer usable; send a fresh setup link.',
-			setup_completed_at_display: null,
-			has_replaced_setup_link: hasReplacedSetupLink,
-			...linkFields,
-			...deliveryFields
-		};
-	}
-
-	if (latestLink.claimed_at) {
-		return {
-			setup_state: 'claimed',
-			setup_state_label: 'In progress',
-			setup_state_detail:
-				'The setup link has been claimed and cannot be used again. If setup does not complete, send a fresh setup link.',
-			setup_completed_at_display: null,
-			has_replaced_setup_link: hasReplacedSetupLink,
-			...linkFields,
-			...deliveryFields
-		};
-	}
-
-	if (latestLink.revoked_at) {
-		const revokedState = getRevokedSetupState(latestLink);
-		return {
-			setup_state: 'replaced',
-			setup_state_label: revokedState.label,
-			setup_state_detail: revokedState.detail,
-			setup_completed_at_display: null,
-			has_replaced_setup_link: true,
-			...linkFields,
-			...deliveryFields
-		};
-	}
-
-	if (new Date(latestLink.expires_at) <= now) {
-		return {
-			setup_state: 'expired',
-			setup_state_label: 'Expired',
-			setup_state_detail: 'The current setup link has expired. Resend setup to deliver a fresh link.',
-			setup_completed_at_display: null,
-			has_replaced_setup_link: hasReplacedSetupLink,
-			...linkFields,
-			setup_link_replaced_at: null,
-			...deliveryFields
-		};
-	}
-
-	if (latestDelivery?.status === 'failed') {
-		return {
-			setup_state: 'delivery_failed',
-			setup_state_label: 'Delivery failed',
-			setup_state_detail: 'Setup email delivery failed. Send a fresh setup link to recover delivery.',
-			setup_completed_at_display: null,
-			has_replaced_setup_link: hasReplacedSetupLink,
-			...linkFields,
-			...deliveryFields
-		};
-	}
-
-	if (latestDelivery?.status === 'pending') {
-		return {
-			setup_state: 'delivery_pending',
-			setup_state_label: 'Delivery pending',
-			setup_state_detail: 'Setup email delivery is queued or in progress.',
-			setup_completed_at_display: null,
-			has_replaced_setup_link: hasReplacedSetupLink,
-			...linkFields,
-			...deliveryFields
-		};
-	}
-
-	return {
-		setup_state: 'pending',
-		setup_state_label: 'Pending',
-		setup_state_detail: 'A setup link is active and waiting for the recipient to finish account setup.',
-		setup_completed_at_display: null,
-		has_replaced_setup_link: hasReplacedSetupLink,
-		...linkFields,
-		setup_link_replaced_at: null,
-		...deliveryFields
-	};
 }
 
 function shapeListItem(request: PlatformAccessRequestAdminRow, now: Date): PlatformAccessRequestAdminItem {

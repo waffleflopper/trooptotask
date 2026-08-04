@@ -1,5 +1,6 @@
 import { env } from '$env/dynamic/private';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { ACCOUNT_SETUP_RECOVERY_LINK_LABEL } from './accessRequestSetupState';
 import { makePublicAppUrl } from './publicAppOrigin';
 
 const RESEND_EMAILS_URL = 'https://api.resend.com/emails';
@@ -184,7 +185,7 @@ function buildOrganizationInvitationEmail(input: SendOrganizationInvitationEmail
 						'Because you do not have a TroopToTask account yet, a separate email carries your account setup link.',
 						'Use that link to create your account. Sign in to accept this organization invitation from your dashboard.',
 						'',
-						`Didn't get your setup link? ${input.inviteUrl}`,
+						`${ACCOUNT_SETUP_RECOVERY_LINK_LABEL} ${input.inviteUrl}`,
 						'Use that only if the setup email never arrived: requesting a fresh link cancels the one already sent to you.'
 					].join('\n')
 				: [
@@ -207,7 +208,7 @@ function buildOrganizationInvitationEmail(input: SendOrganizationInvitationEmail
 		<p>${escapeHtmlAttribute(inviter)} to join ${escapeHtmlAttribute(input.organizationName)} on TroopToTask.</p>
 		<p>Because you do not have a TroopToTask account yet, a separate email carries your account setup link.</p>
 		<p>Use that link to create your account. Sign in to accept this organization invitation from your dashboard.</p>
-		<p><a href="${inviteUrlAttribute}">Didn't get your setup link?</a></p>
+		<p><a href="${inviteUrlAttribute}">${ACCOUNT_SETUP_RECOVERY_LINK_LABEL}</a></p>
 		<p>Use that only if the setup email never arrived: requesting a fresh link cancels the one already sent to you.</p>
 	`
 				: `

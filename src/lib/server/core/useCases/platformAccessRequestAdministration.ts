@@ -1,17 +1,20 @@
 import { getAccessRequestHeardAboutLabel } from '$lib/accessRequests';
-import type {
-	AccountSetupLinkFailureReason,
-	AccountSetupLinkRecord,
-	AccountSetupLinkRevocationReason,
-	CreateAccountSetupLinkResult
-} from '$lib/server/accountSetupLinks';
-import type { AuthEmailOutboxStatus, SendAccountSetupOutboxDeliveryResult } from '$lib/server/authEmailOutbox';
+import type { AccountSetupLinkFailureReason, AccountSetupLinkRevocationReason } from '$lib/server/accountSetupLinks';
+import type { AuthEmailOutboxStatus } from '$lib/server/authEmailOutbox';
 import type {
 	BlockedOrganizationInvitation,
 	RejectAccessRequestAndBlockInvitationsResult
 } from '$lib/server/accessRequestInvitationBlocking';
 import type { AccessRequestInvitationOrigin } from '$lib/server/accessRequestInvitationOrigin';
-import { makePublicAppUrl } from '$lib/server/publicAppOrigin';
+import {
+	createAccountSetupLinkIssuance,
+	redactProviderError,
+	type AccountSetupLinkIssuanceCreator,
+	type AccountSetupLinkIssuanceDelivery,
+	type AccountSetupLinkIssuanceOrigin,
+	type AccountSetupLinkIssuanceResult,
+	type AccountSetupLinkNotCreatedReason
+} from '$lib/server/accountSetupLinkIssuance';
 import {
 	PLATFORM_ACCESS_REQUEST_APPROVE_ACTION,
 	PLATFORM_ACCESS_REQUEST_REJECT_ACTION,
@@ -179,28 +182,14 @@ export interface PlatformAccessRequestAdministrationAuditEvent {
 	severity?: 'info' | 'warning' | 'critical';
 }
 
-interface AccountSetupLinkCreator {
-	createForAccessRequest(accessRequestId: string): Promise<CreateAccountSetupLinkResult>;
-}
-
-interface PlatformAccessRequestSetupDelivery {
-	send(input: {
-		accessRequestId: string;
-		setupLinkId: string;
-		email: string;
-		setupUrl: string;
-		expiresAt: Date;
-	}): Promise<SendAccountSetupOutboxDeliveryResult>;
-}
-
 interface PlatformAccessRequestGovernorNotifier {
 	notifyInvitationBlocked(input: { organizationId: string; adminUserId: string; email: string }): Promise<void>;
 }
 
 export interface PlatformAccessRequestAdministrationDependencies {
 	store: PlatformAccessRequestAdministrationStore;
-	setupLinks: AccountSetupLinkCreator;
-	setupDelivery: PlatformAccessRequestSetupDelivery;
+	setupLinks: AccountSetupLinkIssuanceCreator;
+	setupDelivery: AccountSetupLinkIssuanceDelivery;
 	sensitiveActionAuthorizer: SensitiveActionAuthorizer;
 	checkSetupRateLimit: (input: {
 		action: PlatformAccessRequestSetupAction;
@@ -423,8 +412,8 @@ function shapeListItem(request: PlatformAccessRequestAdminRow, now: Date): Platf
 	};
 }
 
-function mapSetupLinkResultToStatus(result: CreateAccountSetupLinkResult): PlatformAccessRequestAdminSendResult | null {
-	switch (result.status) {
+function mapSetupLinkFailureToStatus(reason: AccountSetupLinkNotCreatedReason): PlatformAccessRequestAdminSendResult {
+	switch (reason) {
 		case 'access-request-missing':
 			return { status: 'not_found' };
 		case 'access-request-not-approved':
@@ -433,31 +422,15 @@ function mapSetupLinkResultToStatus(result: CreateAccountSetupLinkResult): Platf
 			return { status: 'setup_completed' };
 		case 'concurrent-create':
 			return { status: 'concurrent_create' };
-		case 'created':
-			return null;
 	}
 }
 
-function isCreatedSetupLinkResult(
-	result: CreateAccountSetupLinkResult
-): result is Extract<CreateAccountSetupLinkResult, { status: 'created' }> {
-	return result.status === 'created';
-}
-
-function redactProviderError(error: unknown): string {
-	const message =
-		error instanceof Error && error.message
-			? error.message
-			: typeof error === 'string' && error
-				? error
-				: typeof error === 'object' && error && 'message' in error && typeof error.message === 'string'
-					? error.message
-					: 'Provider operation failed';
-
-	return message
-		.replace(/https?:\/\/[^\s"'<>]+\/auth\/setup-account\?token=[^\s"'<>]+/gi, '[redacted setup url]')
-		.replace(/\btoken=[^&\s"'<>]+/gi, 'token=[redacted]')
-		.replace(/\b[A-Fa-f0-9]{64}\b/g, '[redacted hash]');
+function mapSetupLinkDeliveryToStatus(
+	issued: Extract<AccountSetupLinkIssuanceResult, { status: 'sent' | 'delivery_failed' }>
+): PlatformAccessRequestAdminSendResult {
+	return issued.status === 'sent'
+		? { status: 'sent', setupDeliveryStatus: 'sent' }
+		: { status: 'delivery_failed', setupDeliveryStatus: 'failed' };
 }
 
 function logProviderFailure(operation: string, error: unknown): void {
@@ -465,24 +438,6 @@ function logProviderFailure(operation: string, error: unknown): void {
 		operation,
 		error: redactProviderError(error)
 	});
-}
-
-function auditRevokedSetupLinks(
-	audit: PlatformAccessRequestAdministrationDependencies['audit'],
-	input: { accessRequestId: string; replacementSetupLinkId: string; revokedLinks: AccountSetupLinkRecord[] }
-): void {
-	for (const revokedLink of input.revokedLinks) {
-		audit({
-			action: 'account_setup.link_revoked',
-			resourceType: 'account_setup_link',
-			resourceId: revokedLink.id,
-			details: {
-				accessRequestId: input.accessRequestId,
-				replacementSetupLinkId: input.replacementSetupLinkId,
-				stateTransition: 'pending.replaced'
-			}
-		});
-	}
 }
 
 async function notifyGovernorsOfBlockedInvitations(input: {
@@ -600,66 +555,33 @@ async function checkSetupSendRateLimit(
 	return { ok: true, rateLimit: details };
 }
 
-async function createAndDeliverSetupLink(
+async function issueSetupLink(
 	deps: PlatformAccessRequestAdministrationDependencies,
 	input: {
-		action: PlatformAccessRequestSetupAction;
+		origin: AccountSetupLinkIssuanceOrigin;
 		accessRequestId: string;
 		email: string;
 		publicOrigin: string;
 		sensitiveAction: Record<string, unknown>;
 		rateLimit: Record<string, unknown>;
 	}
-): Promise<PlatformAccessRequestAdminSendResult> {
-	const setupResult = await deps.setupLinks.createForAccessRequest(input.accessRequestId);
-	if (input.action === 'approval' && setupResult.status !== 'created' && setupResult.status !== 'concurrent-create') {
-		return { status: 'failed' };
-	}
-	const failure = mapSetupLinkResultToStatus(setupResult);
-	if (failure) return failure;
-	if (!isCreatedSetupLinkResult(setupResult)) return { status: 'failed' };
-
-	auditRevokedSetupLinks(deps.audit, {
-		accessRequestId: input.accessRequestId,
-		replacementSetupLinkId: setupResult.link.id,
-		revokedLinks: setupResult.revokedLinks ?? []
+): Promise<AccountSetupLinkIssuanceResult> {
+	const issuance = createAccountSetupLinkIssuance({
+		setupLinks: deps.setupLinks,
+		setupDelivery: deps.setupDelivery,
+		audit: deps.audit
 	});
 
-	const delivery = await deps.setupDelivery.send({
+	return issuance.issue({
 		accessRequestId: input.accessRequestId,
-		setupLinkId: setupResult.link.id,
 		email: input.email,
-		setupUrl: makePublicAppUrl(setupResult.setupPath, { inboundOrigin: input.publicOrigin }),
-		expiresAt: setupResult.expiresAt
-	});
-
-	const auditAction =
-		input.action === 'approval'
-			? delivery.status === 'sent'
-				? 'access_request.account_setup_link_sent'
-				: 'access_request.account_setup_link_delivery_failed'
-			: delivery.status === 'sent'
-				? 'access_request.account_setup_link_resent'
-				: 'access_request.account_setup_link_delivery_failed';
-
-	deps.audit({
-		action: auditAction,
-		resourceType: 'access_request',
-		resourceId: input.accessRequestId,
-		details: {
-			email: input.email,
-			setupLinkId: setupResult.link.id,
-			outboxId: delivery.outbox.id,
-			...(delivery.status === 'sent' ? { expiresAt: setupResult.expiresAt.toISOString() } : {}),
+		publicOrigin: input.publicOrigin,
+		origin: input.origin,
+		context: {
 			sensitiveAction: input.sensitiveAction,
 			rateLimit: input.rateLimit
-		},
-		severity: delivery.status === 'sent' ? 'info' : 'warning'
+		}
 	});
-
-	return delivery.status === 'sent'
-		? { status: 'sent', setupDeliveryStatus: 'sent' }
-		: { status: 'delivery_failed', setupDeliveryStatus: 'failed' };
 }
 
 async function authorizeReject(
@@ -752,14 +674,22 @@ export function createPlatformAccessRequestAdministration(
 					details: { email: accessRequest.email }
 				});
 
-				return createAndDeliverSetupLink(deps, {
-					action: 'approval',
+				const issued = await issueSetupLink(deps, {
+					origin: 'platform_approval',
 					accessRequestId: input.accessRequestId,
 					email: accessRequest.email,
 					publicOrigin: input.publicOrigin,
 					sensitiveAction: authorization.sensitiveAction,
 					rateLimit: rateLimit.rateLimit
 				});
+
+				// The request is already marked approved, so anything short of a live link is a
+				// failed approval — except a sibling writer having just minted one.
+				if (issued.status === 'not_created') {
+					return issued.reason === 'concurrent-create' ? { status: 'concurrent_create' } : { status: 'failed' };
+				}
+
+				return mapSetupLinkDeliveryToStatus(issued);
 			} catch (error) {
 				logProviderFailure('approve', error);
 				return { status: 'failed' };
@@ -789,14 +719,19 @@ export function createPlatformAccessRequestAdministration(
 				});
 				if (!rateLimit.ok) return rateLimit.result;
 
-				return createAndDeliverSetupLink(deps, {
-					action: 'resend',
+				const issued = await issueSetupLink(deps, {
+					origin: 'platform_resend',
 					accessRequestId: input.accessRequestId,
 					email: accessRequest.email,
 					publicOrigin: input.publicOrigin,
 					sensitiveAction: authorization.sensitiveAction,
 					rateLimit: rateLimit.rateLimit
 				});
+
+				// A resend reports why no link was created; the request state is unchanged.
+				if (issued.status === 'not_created') return mapSetupLinkFailureToStatus(issued.reason);
+
+				return mapSetupLinkDeliveryToStatus(issued);
 			} catch (error) {
 				logProviderFailure('resendSetup', error);
 				return { status: 'failed' };

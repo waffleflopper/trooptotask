@@ -39,6 +39,7 @@ import { createStripeBillingAdapter } from './stripeBilling';
 import { createSupabaseStorageAdapter } from './supabaseStorage';
 import { createSupabaseCriticalTasksReadModelAdapter } from './criticalTasksReadModel';
 import { createSupabaseRatingSchemePersonnelLookupPort } from './supabaseRatingSchemePersonnelLookup';
+import { createSupabaseOrganizationInvitationSetupStateLookupPort } from './supabaseOrganizationInvitationSetupStateLookup';
 import { createSupabaseSignInRosterPersonnelLookupPort } from './supabaseSignInRosterPersonnelLookup';
 import { createSupabaseSensitiveActionAuthorizer } from '$lib/server/sensitiveActionAuthorizer';
 import { resolveOrganizationRouteIdentity } from '$lib/server/core/useCases/organizationUrlSlug';
@@ -112,6 +113,8 @@ async function buildContextInternal(event: RequestEvent): Promise<BuildContextRe
 	const criticalTasksReadModel = createSupabaseCriticalTasksReadModelAdapter(supabase);
 	const ratingSchemePersonnelLookup = createSupabaseRatingSchemePersonnelLookupPort(supabase);
 	const signInRosterPersonnelLookup = createSupabaseSignInRosterPersonnelLookupPort(getAdminClient);
+	const organizationInvitationSetupStateLookup =
+		createSupabaseOrganizationInvitationSetupStateLookupPort(getAdminClient);
 	const sensitiveActionAuthorizer = createSupabaseSensitiveActionAuthorizer({
 		supabase,
 		session: event.locals.session
@@ -132,6 +135,7 @@ async function buildContextInternal(event: RequestEvent): Promise<BuildContextRe
 			criticalTasksReadModel,
 			ratingSchemePersonnelLookup,
 			signInRosterPersonnelLookup,
+			organizationInvitationSetupStateLookup,
 			rawStore: store
 		},
 		supabase
@@ -180,6 +184,8 @@ export async function buildLayoutContext(locals: App.Locals, cookies: Cookies, o
 	const criticalTasksReadModel = createSupabaseCriticalTasksReadModelAdapter(supabase);
 	const ratingSchemePersonnelLookup = createSupabaseRatingSchemePersonnelLookupPort(supabase);
 	const signInRosterPersonnelLookup = createSupabaseSignInRosterPersonnelLookupPort(getAdminClient);
+	const organizationInvitationSetupStateLookup =
+		createSupabaseOrganizationInvitationSetupStateLookupPort(getAdminClient);
 	const sensitiveActionAuthorizer = createSupabaseSensitiveActionAuthorizer({
 		supabase,
 		session: locals.session
@@ -199,6 +205,7 @@ export async function buildLayoutContext(locals: App.Locals, cookies: Cookies, o
 		criticalTasksReadModel,
 		ratingSchemePersonnelLookup,
 		signInRosterPersonnelLookup,
+		organizationInvitationSetupStateLookup,
 		rawStore: store
 	};
 }
@@ -239,6 +246,8 @@ export async function buildLayoutContextFromMembership(
 	const criticalTasksReadModel = createSupabaseCriticalTasksReadModelAdapter(supabase);
 	const ratingSchemePersonnelLookup = createSupabaseRatingSchemePersonnelLookupPort(supabase);
 	const signInRosterPersonnelLookup = createSupabaseSignInRosterPersonnelLookupPort(getAdminClient);
+	const organizationInvitationSetupStateLookup =
+		createSupabaseOrganizationInvitationSetupStateLookupPort(getAdminClient);
 	const sensitiveActionAuthorizer = createSupabaseSensitiveActionAuthorizer({
 		supabase,
 		session: locals.session
@@ -258,6 +267,7 @@ export async function buildLayoutContextFromMembership(
 		criticalTasksReadModel,
 		ratingSchemePersonnelLookup,
 		signInRosterPersonnelLookup,
+		organizationInvitationSetupStateLookup,
 		rawStore: store
 	};
 }

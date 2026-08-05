@@ -1,5 +1,6 @@
 import type { BillingCancellationFeedback, EffectiveTier, ReadOnlyReason } from '$lib/types/subscription';
 import type { CapabilityMap, ScopeSet } from '$lib/access/memberAccessShape';
+import type { AccessRequestSetupState } from '$lib/server/accessRequestSetupState';
 import type { CheckoutSessionConfiguration } from '$lib/server/billing/checkoutConfiguration';
 import type { SensitiveActionAuthorizer } from '$lib/server/sensitiveActionAuthorizer';
 import type { Personnel } from '$lib/types';
@@ -76,6 +77,15 @@ export interface SignInRosterPersonnelLookupRecord {
 export interface SignInRosterPersonnelLookupPort {
 	findPersonnelForRosterSnapshot(orgId: string, personnelIds: string[]): Promise<SignInRosterPersonnelLookupRecord[]>;
 	listPersonnelForRosterCandidates(orgId: string, scopeSet: ScopeSet): Promise<Personnel[]>;
+}
+
+/**
+ * Narrow service-role read of platform-owned Account Setup state, scoped to one Organization's
+ * own Organization Invitations (ADR 0012). It returns the setup state and nothing else — no
+ * applicant reason, name, or any other Access Request field ever crosses this boundary.
+ */
+export interface OrganizationInvitationSetupStateLookupPort {
+	findSetupStateByInvitationId(orgId: string, invitationIds: string[]): Promise<Map<string, AccessRequestSetupState>>;
 }
 
 /** Scope rule for ScopedDataStore — how a table relates to personnel groups */
@@ -279,6 +289,7 @@ export interface UseCaseContext {
 	criticalTasksReadModel: CriticalTasksReadModelPort;
 	ratingSchemePersonnelLookup?: RatingSchemePersonnelLookupPort;
 	signInRosterPersonnelLookup?: SignInRosterPersonnelLookupPort;
+	organizationInvitationSetupStateLookup?: OrganizationInvitationSetupStateLookupPort;
 	/** Unscoped DataStore — use only when business logic requires org-wide data (e.g. allPersonnel for dropdowns) */
 	rawStore: DataStore;
 }

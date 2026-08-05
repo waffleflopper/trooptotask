@@ -53,6 +53,7 @@ This document separates what v1 authorization and provider ownership look like t
   - admin/platform operations
   - some critical-tasks and settings layout helpers
 - Service-role usage also exists in app-level utilities such as notifications, audit logging, cleanup, and webhooks.
+- One organization-scoped surface now reads platform-owned state through a sanctioned service-role port: the members settings screen reads **Account Setup Link** state for its own pending **Organization Invitations** via `OrganizationInvitationSetupStateLookupPort`, wired in `httpAdapter.ts` (ADR 0012). It returns invitation id to setup state and nothing else.
 
 ## Intended Direction
 
@@ -177,6 +178,7 @@ The approved v1 replacement direction keeps `Organization` and `Group` as canoni
 ## Guardrails For Contributors
 
 - Do not add new direct `locals.supabase` business logic outside auth edges, ports/adapters, or an explicitly approved remediation slice.
+- An organization-scoped surface may read platform-owned state only through a narrow, purpose-built service-role port that returns the minimum shape that surface needs — never through an RLS grant on a platform table, and never through a denormalised mirror. Wire such a port in `httpAdapter.ts` from `getAdminClient`, not in the route; building it in a route makes it route-level admin-provider usage and requires a `routeAdminProviderAllowlist` entry. Each port is a documented per-port exception (ADR 0012), not a general licence.
 - Keep member authorization on stored presets, per-lane capabilities, shared scope sets, and policy overlays.
 - Do not create new feature-permission piggybacking.
 - Do not invent partial-admin member shapes.

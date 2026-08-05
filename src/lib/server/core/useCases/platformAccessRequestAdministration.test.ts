@@ -7,6 +7,7 @@ import {
 	type PlatformAccessRequestAdministrationStore,
 	type PlatformAccessRequestAdminRow
 } from './platformAccessRequestAdministration';
+import type { AccessRequestInvitationOrigin } from '$lib/server/accessRequestInvitationOrigin';
 import type { AccountSetupLinkRecord, CreateAccountSetupLinkResult } from '$lib/server/accountSetupLinks';
 import type { SensitiveActionDecision } from '$lib/server/sensitiveActionAuthorizer';
 
@@ -52,10 +53,30 @@ function makeAccessRequestRow(overrides: Partial<PlatformAccessRequestAdminRow> 
 		status: 'approved',
 		created_at: '2026-05-18T12:00:00.000Z',
 		reviewed_at: '2026-05-18T13:00:00.000Z',
+		reviewed_by: 'platform-admin-1',
 		setup_completed_at: null,
 		account_setup_links: null,
 		auth_email_outbox: null,
 		invitation_origins: [],
+		...overrides
+	};
+}
+
+function makeInvitationOrigin(overrides: Partial<AccessRequestInvitationOrigin> = {}): AccessRequestInvitationOrigin {
+	return {
+		link_id: 'link-1',
+		invitation_id: 'invite-1',
+		organization_id: 'org-1',
+		organization_name: 'Alpha Company',
+		inviter_user_id: 'leader-1',
+		inviter_email: 'leader@example.mil',
+		inviter_label: 'Avery Jones',
+		invited_at: '2026-05-18T13:00:00.000Z',
+		membership_role: 'member',
+		membership_role_label: 'Member',
+		member_preset: 'viewer',
+		member_preset_label: 'Viewer',
+		intended_access_label: 'Member preset: Viewer',
 		...overrides
 	};
 }
@@ -298,29 +319,127 @@ describe('Platform Access Request Administration', () => {
 		const row = makeAccessRequestRow({
 			id: 'invite-origin',
 			status: 'pending',
-			invitation_origins: [
-				{
-					link_id: 'link-1',
-					invitation_id: 'invite-1',
-					organization_id: 'org-1',
-					organization_name: 'Alpha Company',
-					inviter_user_id: 'leader-1',
-					inviter_email: 'leader@example.mil',
-					inviter_label: 'Avery Jones',
-					invited_at: '2026-05-18T13:00:00.000Z',
-					membership_role: 'member',
-					membership_role_label: 'Member',
-					member_preset: 'viewer',
-					member_preset_label: 'Viewer',
-					intended_access_label: 'Member preset: Viewer'
-				}
-			]
+			reviewed_by: null,
+			invitation_origins: [makeInvitationOrigin()]
 		});
 		const { admin } = makeDeps({ store: makeStore({ listAccessRequests: vi.fn().mockResolvedValue([row]) }) });
 
 		const result = await admin.list({ now });
 
 		expect(result.pending[0].invitation_origins).toEqual(row.invitation_origins);
+	});
+
+	it('marks an Access Request the inviting Organization admin approved as auto-approved, naming the Organization and inviter', async () => {
+		const row = makeAccessRequestRow({
+			id: 'auto-approved',
+			reviewed_by: 'leader-1',
+			invitation_origins: [makeInvitationOrigin({ organization_name: 'Bravo Company', inviter_label: 'Avery Jones' })]
+		});
+		const { admin } = makeDeps({ store: makeStore({ listAccessRequests: vi.fn().mockResolvedValue([row]) }) });
+
+		const result = await admin.list({ now });
+
+		expect(result.reviewed[0]).toMatchObject({
+			auto_approved: true,
+			auto_approval_detail:
+				'Auto-approved via invite from Bravo Company. Invited by Avery Jones; no platform admin reviewed this request.'
+		});
+	});
+
+	it('credits the inviter who actually approved when several Organizations invited the same person', async () => {
+		const row = makeAccessRequestRow({
+			id: 'multi-origin',
+			reviewed_by: 'leader-2',
+			invitation_origins: [
+				makeInvitationOrigin({
+					link_id: 'link-2',
+					organization_name: 'Charlie Company',
+					inviter_user_id: 'leader-2',
+					inviter_label: 'Blake Rivera'
+				}),
+				makeInvitationOrigin({ organization_name: 'Bravo Company', inviter_label: 'Avery Jones' })
+			]
+		});
+		const { admin } = makeDeps({ store: makeStore({ listAccessRequests: vi.fn().mockResolvedValue([row]) }) });
+
+		const result = await admin.list({ now });
+
+		expect(result.reviewed[0]).toMatchObject({
+			auto_approved: true,
+			auto_approval_detail:
+				'Auto-approved via invite from Charlie Company. Invited by Blake Rivera; no platform admin reviewed this request.'
+		});
+	});
+
+	it('credits the Organization whose invite did the approving when one person invited from two', async () => {
+		const row = makeAccessRequestRow({
+			id: 'same-inviter-two-orgs',
+			reviewed_by: 'leader-1',
+			reviewed_at: '2026-05-18T13:00:00.000Z',
+			invitation_origins: [
+				makeInvitationOrigin({
+					link_id: 'link-2',
+					organization_name: 'Charlie Company',
+					invited_at: '2026-05-19T09:00:00.000Z'
+				}),
+				makeInvitationOrigin({ organization_name: 'Bravo Company', invited_at: '2026-05-18T13:00:00.000Z' })
+			]
+		});
+		const { admin } = makeDeps({ store: makeStore({ listAccessRequests: vi.fn().mockResolvedValue([row]) }) });
+
+		const result = await admin.list({ now });
+
+		expect(result.reviewed[0].auto_approval_detail).toContain('Auto-approved via invite from Bravo Company');
+	});
+
+	it('credits the later invite when the earlier one left the request pending', async () => {
+		const row = makeAccessRequestRow({
+			id: 'approved-on-second-invite',
+			reviewed_by: 'leader-1',
+			reviewed_at: '2026-05-19T09:00:01.000Z',
+			invitation_origins: [
+				makeInvitationOrigin({
+					link_id: 'link-2',
+					organization_name: 'Charlie Company',
+					invited_at: '2026-05-19T09:00:00.000Z'
+				}),
+				makeInvitationOrigin({ organization_name: 'Bravo Company', invited_at: '2026-05-18T13:00:00.000Z' })
+			]
+		});
+		const { admin } = makeDeps({ store: makeStore({ listAccessRequests: vi.fn().mockResolvedValue([row]) }) });
+
+		const result = await admin.list({ now });
+
+		expect(result.reviewed[0].auto_approval_detail).toContain('Auto-approved via invite from Charlie Company');
+	});
+
+	it('leaves an invite-origin request a platform admin approved by hand unmarked', async () => {
+		const row = makeAccessRequestRow({
+			id: 'hand-approved',
+			reviewed_by: 'platform-admin-1',
+			invitation_origins: [makeInvitationOrigin()]
+		});
+		const { admin } = makeDeps({ store: makeStore({ listAccessRequests: vi.fn().mockResolvedValue([row]) }) });
+
+		const result = await admin.list({ now });
+
+		expect(result.reviewed[0]).toMatchObject({
+			auto_approved: false,
+			auto_approval_detail: null
+		});
+	});
+
+	it('leaves an ordinary reviewed request unmarked', async () => {
+		const rows = [
+			makeAccessRequestRow({ id: 'ordinary-approved' }),
+			makeAccessRequestRow({ id: 'rejected', status: 'rejected' })
+		];
+		const { admin } = makeDeps({ store: makeStore({ listAccessRequests: vi.fn().mockResolvedValue(rows) }) });
+
+		const result = await admin.list({ now });
+
+		expect(result.reviewed.map((request) => request.auto_approved)).toEqual([false, false]);
+		expect(result.reviewed.map((request) => request.auto_approval_detail)).toEqual([null, null]);
 	});
 
 	it('approves a pending Access Request and delivers an app-owned Account Setup Link without leaking the raw token', async () => {

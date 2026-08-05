@@ -101,6 +101,12 @@ export function classifyAccessRequestSetupState(input: {
 	if (new Date(latestLink.expires_at) <= input.now) return 'expired';
 	if (latestDelivery?.status === 'failed') return 'delivery_failed';
 	if (latestDelivery?.status === 'pending') return 'delivery_pending';
+
+	// A link with no delivery row at all lands here too. That is normally a row a moment behind its
+	// link, but it also covers an outbox insert that never landed — a live link nobody was emailed.
+	// Splitting the two would change what platform admins see for a case that only arises while the
+	// outbox store itself is failing, and the invitee still holds the invitation email's recovery
+	// link on that path, so it stays folded in.
 	return 'pending';
 }
 

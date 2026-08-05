@@ -125,6 +125,7 @@ Each entry separates:
 - Current-state truth:
   - an **Access Request** auto-approved from an **Organization Invitation** (ADR 0012) cannot have its platform access withdrawn between approval and setup completion
   - `reject` operates on pending requests only, and `'manual'` **Account Setup Link** revocation is unimplemented
+  - a fatal setup-link creation failure blocks the invitation but leaves the request approved, so its owner could still obtain a credential through `/auth/renew-invite` even though the invitation never completed; no email is sent on that path, so nothing points them at it
   - the only mitigation is visibility: auto-approved rows are marked as such, with origin context, in the platform-admin reviewed-requests table
 - Intended direction:
   - platform access granted on an organization owner's authority should be revocable by a platform admin before it is used

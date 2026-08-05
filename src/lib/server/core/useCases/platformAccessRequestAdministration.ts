@@ -1,17 +1,29 @@
 import { getAccessRequestHeardAboutLabel } from '$lib/accessRequests';
-import type {
-	AccountSetupLinkFailureReason,
-	AccountSetupLinkRecord,
-	AccountSetupLinkRevocationReason,
-	CreateAccountSetupLinkResult
-} from '$lib/server/accountSetupLinks';
-import type { AuthEmailOutboxStatus, SendAccountSetupOutboxDeliveryResult } from '$lib/server/authEmailOutbox';
+import type { AccountSetupLinkFailureReason, AccountSetupLinkRevocationReason } from '$lib/server/accountSetupLinks';
+import type { AuthEmailOutboxStatus } from '$lib/server/authEmailOutbox';
+import {
+	classifyAccessRequestSetupState,
+	findLatestAccessRequestSetupDelivery,
+	normalizeAccessRequestSetupDeliveries,
+	normalizeAccessRequestSetupLinks,
+	type AccessRequestAuthEmailOutbox,
+	type AccessRequestSetupLink,
+	type AccessRequestSetupState
+} from '$lib/server/accessRequestSetupState';
 import type {
 	BlockedOrganizationInvitation,
 	RejectAccessRequestAndBlockInvitationsResult
 } from '$lib/server/accessRequestInvitationBlocking';
 import type { AccessRequestInvitationOrigin } from '$lib/server/accessRequestInvitationOrigin';
-import { makePublicAppUrl } from '$lib/server/publicAppOrigin';
+import {
+	createAccountSetupLinkIssuance,
+	redactProviderError,
+	type AccountSetupLinkIssuanceCreator,
+	type AccountSetupLinkIssuanceDelivery,
+	type AccountSetupLinkIssuanceOrigin,
+	type AccountSetupLinkIssuanceResult,
+	type AccountSetupLinkNotCreatedReason
+} from '$lib/server/accountSetupLinkIssuance';
 import {
 	PLATFORM_ACCESS_REQUEST_APPROVE_ACTION,
 	PLATFORM_ACCESS_REQUEST_REJECT_ACTION,
@@ -29,28 +41,7 @@ import {
 	type PlatformAccessRequestSetupAction
 } from '$lib/server/platformAccessRequestRateLimit';
 
-export interface AccessRequestSetupLink {
-	id: string;
-	created_at: string;
-	expires_at: string;
-	claimed_at: string | null;
-	failed_at: string | null;
-	failure_reason: AccountSetupLinkFailureReason | null;
-	used_at: string | null;
-	revoked_at: string | null;
-	revocation_reason: AccountSetupLinkRevocationReason | null;
-}
-
-export interface AccessRequestAuthEmailOutbox {
-	id: string;
-	setup_link_id: string;
-	status: AuthEmailOutboxStatus;
-	attempt_count: number;
-	last_error: string | null;
-	created_at: string;
-	updated_at: string;
-	sent_at: string | null;
-}
+export type { AccessRequestAuthEmailOutbox, AccessRequestSetupLink, AccessRequestSetupState };
 
 export interface PlatformAccessRequestAdminRow {
 	id: string;
@@ -62,22 +53,12 @@ export interface PlatformAccessRequestAdminRow {
 	status: 'pending' | 'approved' | 'rejected';
 	created_at: string;
 	reviewed_at: string | null;
+	reviewed_by: string | null;
 	setup_completed_at: string | null;
 	account_setup_links: AccessRequestSetupLink | AccessRequestSetupLink[] | null;
 	auth_email_outbox: AccessRequestAuthEmailOutbox | AccessRequestAuthEmailOutbox[] | null;
 	invitation_origins: AccessRequestInvitationOrigin[];
 }
-
-export type AccessRequestSetupState =
-	| 'not_sent'
-	| 'delivery_failed'
-	| 'delivery_pending'
-	| 'claimed'
-	| 'pending'
-	| 'expired'
-	| 'replaced'
-	| 'failed'
-	| 'completed';
 
 export interface PlatformAccessRequestAdminItem {
 	id: string;
@@ -111,6 +92,8 @@ export interface PlatformAccessRequestAdminItem {
 	setup_delivery_updated_at: string | null;
 	setup_delivery_sent_at: string | null;
 	invitation_origins: AccessRequestInvitationOrigin[];
+	auto_approved: boolean;
+	auto_approval_detail: string | null;
 }
 
 export interface PlatformAccessRequestAdminList {
@@ -179,28 +162,14 @@ export interface PlatformAccessRequestAdministrationAuditEvent {
 	severity?: 'info' | 'warning' | 'critical';
 }
 
-interface AccountSetupLinkCreator {
-	createForAccessRequest(accessRequestId: string): Promise<CreateAccountSetupLinkResult>;
-}
-
-interface PlatformAccessRequestSetupDelivery {
-	send(input: {
-		accessRequestId: string;
-		setupLinkId: string;
-		email: string;
-		setupUrl: string;
-		expiresAt: Date;
-	}): Promise<SendAccountSetupOutboxDeliveryResult>;
-}
-
 interface PlatformAccessRequestGovernorNotifier {
 	notifyInvitationBlocked(input: { organizationId: string; adminUserId: string; email: string }): Promise<void>;
 }
 
 export interface PlatformAccessRequestAdministrationDependencies {
 	store: PlatformAccessRequestAdministrationStore;
-	setupLinks: AccountSetupLinkCreator;
-	setupDelivery: PlatformAccessRequestSetupDelivery;
+	setupLinks: AccountSetupLinkIssuanceCreator;
+	setupDelivery: AccountSetupLinkIssuanceDelivery;
 	sensitiveActionAuthorizer: SensitiveActionAuthorizer;
 	checkSetupRateLimit: (input: {
 		action: PlatformAccessRequestSetupAction;
@@ -210,18 +179,6 @@ export interface PlatformAccessRequestAdministrationDependencies {
 	audit: (event: PlatformAccessRequestAdministrationAuditEvent) => void;
 	notifyGovernors: PlatformAccessRequestGovernorNotifier;
 	now?: () => Date;
-}
-
-function normalizeSetupLinks(links: PlatformAccessRequestAdminRow['account_setup_links']): AccessRequestSetupLink[] {
-	if (!links) return [];
-	const normalized = Array.isArray(links) ? links : [links];
-	return normalized.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-}
-
-function normalizeOutboxRows(rows: PlatformAccessRequestAdminRow['auth_email_outbox']): AccessRequestAuthEmailOutbox[] {
-	if (!rows) return [];
-	const normalized = Array.isArray(rows) ? rows : [rows];
-	return normalized.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 }
 
 function getRevokedSetupState(link: AccessRequestSetupLink): { label: string; detail: string } {
@@ -263,25 +220,37 @@ function resolveSetupState(
 	| 'reviewed_at'
 	| 'setup_completed_at'
 	| 'invitation_origins'
+	| 'auto_approved'
+	| 'auto_approval_detail'
 > {
-	const links = normalizeSetupLinks(request.account_setup_links);
-	const deliveries = normalizeOutboxRows(request.auth_email_outbox);
+	const links = normalizeAccessRequestSetupLinks(request.account_setup_links);
+	const deliveries = normalizeAccessRequestSetupDeliveries(request.auth_email_outbox);
 	const latestLink = links[0] ?? null;
-	const latestDelivery = latestLink
-		? (deliveries.find((delivery) => delivery.setup_link_id === latestLink.id) ?? null)
-		: (deliveries[0] ?? null);
-	const hasReplacedSetupLink = links.some((link) => link.revoked_at && !link.used_at);
-	const linkFields = {
+	const latestDelivery = findLatestAccessRequestSetupDelivery(links, deliveries);
+	const setupState = classifyAccessRequestSetupState({
+		setupCompletedAt: request.setup_completed_at,
+		latestLink,
+		latestDelivery,
+		now
+	});
+	const copy = getSetupStateCopy(setupState, latestLink);
+
+	return {
+		setup_state: setupState,
+		setup_state_label: copy.label,
+		setup_state_detail: copy.detail,
+		setup_completed_at_display:
+			setupState === 'completed' ? (request.setup_completed_at ?? latestLink?.used_at ?? null) : null,
+		has_replaced_setup_link: links.some((link) => link.revoked_at && !link.used_at),
 		setup_link_id: latestLink?.id ?? null,
 		setup_link_created_at: latestLink?.created_at ?? null,
 		setup_link_expires_at: latestLink?.expires_at ?? null,
 		setup_link_claimed_at: latestLink?.claimed_at ?? null,
 		setup_link_failed_at: latestLink?.failed_at ?? null,
 		setup_link_failure_reason: latestLink?.failure_reason ?? null,
-		setup_link_replaced_at: latestLink?.revoked_at ?? null,
-		setup_link_revocation_reason: latestLink?.revocation_reason ?? null
-	};
-	const deliveryFields = {
+		// A completed setup's link was used, not replaced, even if it also carries a revocation stamp.
+		setup_link_replaced_at: setupState === 'completed' ? null : (latestLink?.revoked_at ?? null),
+		setup_link_revocation_reason: latestLink?.revocation_reason ?? null,
 		setup_delivery_id: latestDelivery?.id ?? null,
 		setup_delivery_status: latestDelivery?.status ?? null,
 		setup_delivery_attempt_count: latestDelivery?.attempt_count ?? 0,
@@ -290,118 +259,100 @@ function resolveSetupState(
 		setup_delivery_updated_at: latestDelivery?.updated_at ?? null,
 		setup_delivery_sent_at: latestDelivery?.sent_at ?? null
 	};
+}
 
-	if (request.setup_completed_at || latestLink?.used_at) {
-		const completedAt = request.setup_completed_at ?? latestLink?.used_at ?? null;
-		return {
-			setup_state: 'completed',
-			setup_state_label: 'Completed',
-			setup_state_detail: 'Account setup is complete. The user should sign in or reset their password if needed.',
-			setup_completed_at_display: completedAt,
-			has_replaced_setup_link: hasReplacedSetupLink,
-			...linkFields,
-			setup_link_replaced_at: null,
-			...deliveryFields
-		};
+function getSetupStateCopy(
+	setupState: AccessRequestSetupState,
+	latestLink: AccessRequestSetupLink | null
+): { label: string; detail: string } {
+	switch (setupState) {
+		case 'completed':
+			return {
+				label: 'Completed',
+				detail: 'Account setup is complete. The user should sign in or reset their password if needed.'
+			};
+		case 'not_sent':
+			return { label: 'Not sent', detail: 'No account setup link has been sent yet.' };
+		case 'failed':
+			return {
+				label: 'Failed',
+				detail: 'Setup failed after the link was claimed. The old link is no longer usable; send a fresh setup link.'
+			};
+		case 'claimed':
+			return {
+				label: 'In progress',
+				detail:
+					'The setup link has been claimed and cannot be used again. If setup does not complete, send a fresh setup link.'
+			};
+		case 'replaced':
+			return latestLink
+				? getRevokedSetupState(latestLink)
+				: { label: 'Replaced', detail: 'The latest known setup link was replaced by a newer setup email.' };
+		case 'expired':
+			return {
+				label: 'Expired',
+				detail: 'The current setup link has expired. Resend setup to deliver a fresh link.'
+			};
+		case 'delivery_failed':
+			return {
+				label: 'Delivery failed',
+				detail: 'Setup email delivery failed. Send a fresh setup link to recover delivery.'
+			};
+		case 'delivery_pending':
+			return { label: 'Delivery pending', detail: 'Setup email delivery is queued or in progress.' };
+		case 'pending':
+			return {
+				label: 'Pending',
+				detail: 'A setup link is active and waiting for the recipient to finish account setup.'
+			};
+	}
+}
+
+/**
+ * The invitation origin that actually did the approving.
+ *
+ * One person can invite the same address from two Organizations, and both origins then match
+ * `reviewed_by`. Only the invite that found the request `pending` approved it: the approving
+ * update is `WHERE status = 'pending'`, so later invites reuse an already-approved row and leave
+ * the reviewer and review timestamp alone. The approving origin is therefore the most recent one
+ * that pre-dates the review, not simply the most recent one.
+ *
+ * `invited_at` and `reviewed_at` come from different clocks, so a single matching origin is
+ * credited without consulting either, and an undecidable comparison falls back to the oldest
+ * match rather than defaulting to the newest Organization.
+ */
+function findApprovingInvitationOrigin(request: PlatformAccessRequestAdminRow): AccessRequestInvitationOrigin | null {
+	const byInviter = request.invitation_origins.filter((origin) => origin.inviter_user_id === request.reviewed_by);
+	if (byInviter.length <= 1) return byInviter[0] ?? null;
+
+	const newestFirst = [...byInviter].sort(
+		(a, b) => new Date(b.invited_at).getTime() - new Date(a.invited_at).getTime()
+	);
+	const reviewedAt = request.reviewed_at ? new Date(request.reviewed_at).getTime() : Number.NaN;
+	const beforeReview = newestFirst.filter((origin) => new Date(origin.invited_at).getTime() <= reviewedAt);
+
+	return beforeReview[0] ?? newestFirst[newestFirst.length - 1];
+}
+
+/**
+ * An invite-origin request is auto-approved when the reviewer on record is the inviter itself
+ * (ADR 0012). A platform admin who approved such a request by hand stays the reviewer, so the
+ * comparison — not the mere presence of an invitation origin — is what separates the two.
+ */
+function resolveAutoApproval(request: PlatformAccessRequestAdminRow): {
+	auto_approved: boolean;
+	auto_approval_detail: string | null;
+} {
+	if (request.status !== 'approved' || !request.reviewed_by) {
+		return { auto_approved: false, auto_approval_detail: null };
 	}
 
-	if (!latestLink) {
-		return {
-			setup_state: 'not_sent',
-			setup_state_label: 'Not sent',
-			setup_state_detail: 'No account setup link has been sent yet.',
-			setup_completed_at_display: null,
-			has_replaced_setup_link: false,
-			...linkFields,
-			...deliveryFields
-		};
-	}
-
-	if (latestLink.failed_at) {
-		return {
-			setup_state: 'failed',
-			setup_state_label: 'Failed',
-			setup_state_detail:
-				'Setup failed after the link was claimed. The old link is no longer usable; send a fresh setup link.',
-			setup_completed_at_display: null,
-			has_replaced_setup_link: hasReplacedSetupLink,
-			...linkFields,
-			...deliveryFields
-		};
-	}
-
-	if (latestLink.claimed_at) {
-		return {
-			setup_state: 'claimed',
-			setup_state_label: 'In progress',
-			setup_state_detail:
-				'The setup link has been claimed and cannot be used again. If setup does not complete, send a fresh setup link.',
-			setup_completed_at_display: null,
-			has_replaced_setup_link: hasReplacedSetupLink,
-			...linkFields,
-			...deliveryFields
-		};
-	}
-
-	if (latestLink.revoked_at) {
-		const revokedState = getRevokedSetupState(latestLink);
-		return {
-			setup_state: 'replaced',
-			setup_state_label: revokedState.label,
-			setup_state_detail: revokedState.detail,
-			setup_completed_at_display: null,
-			has_replaced_setup_link: true,
-			...linkFields,
-			...deliveryFields
-		};
-	}
-
-	if (new Date(latestLink.expires_at) <= now) {
-		return {
-			setup_state: 'expired',
-			setup_state_label: 'Expired',
-			setup_state_detail: 'The current setup link has expired. Resend setup to deliver a fresh link.',
-			setup_completed_at_display: null,
-			has_replaced_setup_link: hasReplacedSetupLink,
-			...linkFields,
-			setup_link_replaced_at: null,
-			...deliveryFields
-		};
-	}
-
-	if (latestDelivery?.status === 'failed') {
-		return {
-			setup_state: 'delivery_failed',
-			setup_state_label: 'Delivery failed',
-			setup_state_detail: 'Setup email delivery failed. Send a fresh setup link to recover delivery.',
-			setup_completed_at_display: null,
-			has_replaced_setup_link: hasReplacedSetupLink,
-			...linkFields,
-			...deliveryFields
-		};
-	}
-
-	if (latestDelivery?.status === 'pending') {
-		return {
-			setup_state: 'delivery_pending',
-			setup_state_label: 'Delivery pending',
-			setup_state_detail: 'Setup email delivery is queued or in progress.',
-			setup_completed_at_display: null,
-			has_replaced_setup_link: hasReplacedSetupLink,
-			...linkFields,
-			...deliveryFields
-		};
-	}
+	const approvingOrigin = findApprovingInvitationOrigin(request);
+	if (!approvingOrigin) return { auto_approved: false, auto_approval_detail: null };
 
 	return {
-		setup_state: 'pending',
-		setup_state_label: 'Pending',
-		setup_state_detail: 'A setup link is active and waiting for the recipient to finish account setup.',
-		setup_completed_at_display: null,
-		has_replaced_setup_link: hasReplacedSetupLink,
-		...linkFields,
-		setup_link_replaced_at: null,
-		...deliveryFields
+		auto_approved: true,
+		auto_approval_detail: `Auto-approved via invite from ${approvingOrigin.organization_name}. Invited by ${approvingOrigin.inviter_label}; no platform admin reviewed this request.`
 	};
 }
 
@@ -419,12 +370,13 @@ function shapeListItem(request: PlatformAccessRequestAdminRow, now: Date): Platf
 		reviewed_at: request.reviewed_at,
 		setup_completed_at: request.setup_completed_at,
 		invitation_origins: request.invitation_origins,
+		...resolveAutoApproval(request),
 		...resolveSetupState(request, now)
 	};
 }
 
-function mapSetupLinkResultToStatus(result: CreateAccountSetupLinkResult): PlatformAccessRequestAdminSendResult | null {
-	switch (result.status) {
+function mapSetupLinkFailureToStatus(reason: AccountSetupLinkNotCreatedReason): PlatformAccessRequestAdminSendResult {
+	switch (reason) {
 		case 'access-request-missing':
 			return { status: 'not_found' };
 		case 'access-request-not-approved':
@@ -433,31 +385,15 @@ function mapSetupLinkResultToStatus(result: CreateAccountSetupLinkResult): Platf
 			return { status: 'setup_completed' };
 		case 'concurrent-create':
 			return { status: 'concurrent_create' };
-		case 'created':
-			return null;
 	}
 }
 
-function isCreatedSetupLinkResult(
-	result: CreateAccountSetupLinkResult
-): result is Extract<CreateAccountSetupLinkResult, { status: 'created' }> {
-	return result.status === 'created';
-}
-
-function redactProviderError(error: unknown): string {
-	const message =
-		error instanceof Error && error.message
-			? error.message
-			: typeof error === 'string' && error
-				? error
-				: typeof error === 'object' && error && 'message' in error && typeof error.message === 'string'
-					? error.message
-					: 'Provider operation failed';
-
-	return message
-		.replace(/https?:\/\/[^\s"'<>]+\/auth\/setup-account\?token=[^\s"'<>]+/gi, '[redacted setup url]')
-		.replace(/\btoken=[^&\s"'<>]+/gi, 'token=[redacted]')
-		.replace(/\b[A-Fa-f0-9]{64}\b/g, '[redacted hash]');
+function mapSetupLinkDeliveryToStatus(
+	issued: Extract<AccountSetupLinkIssuanceResult, { status: 'sent' | 'delivery_failed' }>
+): PlatformAccessRequestAdminSendResult {
+	return issued.status === 'sent'
+		? { status: 'sent', setupDeliveryStatus: 'sent' }
+		: { status: 'delivery_failed', setupDeliveryStatus: 'failed' };
 }
 
 function logProviderFailure(operation: string, error: unknown): void {
@@ -465,24 +401,6 @@ function logProviderFailure(operation: string, error: unknown): void {
 		operation,
 		error: redactProviderError(error)
 	});
-}
-
-function auditRevokedSetupLinks(
-	audit: PlatformAccessRequestAdministrationDependencies['audit'],
-	input: { accessRequestId: string; replacementSetupLinkId: string; revokedLinks: AccountSetupLinkRecord[] }
-): void {
-	for (const revokedLink of input.revokedLinks) {
-		audit({
-			action: 'account_setup.link_revoked',
-			resourceType: 'account_setup_link',
-			resourceId: revokedLink.id,
-			details: {
-				accessRequestId: input.accessRequestId,
-				replacementSetupLinkId: input.replacementSetupLinkId,
-				stateTransition: 'pending.replaced'
-			}
-		});
-	}
 }
 
 async function notifyGovernorsOfBlockedInvitations(input: {
@@ -600,66 +518,33 @@ async function checkSetupSendRateLimit(
 	return { ok: true, rateLimit: details };
 }
 
-async function createAndDeliverSetupLink(
+async function issueSetupLink(
 	deps: PlatformAccessRequestAdministrationDependencies,
 	input: {
-		action: PlatformAccessRequestSetupAction;
+		origin: AccountSetupLinkIssuanceOrigin;
 		accessRequestId: string;
 		email: string;
 		publicOrigin: string;
 		sensitiveAction: Record<string, unknown>;
 		rateLimit: Record<string, unknown>;
 	}
-): Promise<PlatformAccessRequestAdminSendResult> {
-	const setupResult = await deps.setupLinks.createForAccessRequest(input.accessRequestId);
-	if (input.action === 'approval' && setupResult.status !== 'created' && setupResult.status !== 'concurrent-create') {
-		return { status: 'failed' };
-	}
-	const failure = mapSetupLinkResultToStatus(setupResult);
-	if (failure) return failure;
-	if (!isCreatedSetupLinkResult(setupResult)) return { status: 'failed' };
-
-	auditRevokedSetupLinks(deps.audit, {
-		accessRequestId: input.accessRequestId,
-		replacementSetupLinkId: setupResult.link.id,
-		revokedLinks: setupResult.revokedLinks ?? []
+): Promise<AccountSetupLinkIssuanceResult> {
+	const issuance = createAccountSetupLinkIssuance({
+		setupLinks: deps.setupLinks,
+		setupDelivery: deps.setupDelivery,
+		audit: deps.audit
 	});
 
-	const delivery = await deps.setupDelivery.send({
+	return issuance.issue({
 		accessRequestId: input.accessRequestId,
-		setupLinkId: setupResult.link.id,
 		email: input.email,
-		setupUrl: makePublicAppUrl(setupResult.setupPath, { inboundOrigin: input.publicOrigin }),
-		expiresAt: setupResult.expiresAt
-	});
-
-	const auditAction =
-		input.action === 'approval'
-			? delivery.status === 'sent'
-				? 'access_request.account_setup_link_sent'
-				: 'access_request.account_setup_link_delivery_failed'
-			: delivery.status === 'sent'
-				? 'access_request.account_setup_link_resent'
-				: 'access_request.account_setup_link_delivery_failed';
-
-	deps.audit({
-		action: auditAction,
-		resourceType: 'access_request',
-		resourceId: input.accessRequestId,
-		details: {
-			email: input.email,
-			setupLinkId: setupResult.link.id,
-			outboxId: delivery.outbox.id,
-			...(delivery.status === 'sent' ? { expiresAt: setupResult.expiresAt.toISOString() } : {}),
+		publicOrigin: input.publicOrigin,
+		origin: input.origin,
+		context: {
 			sensitiveAction: input.sensitiveAction,
 			rateLimit: input.rateLimit
-		},
-		severity: delivery.status === 'sent' ? 'info' : 'warning'
+		}
 	});
-
-	return delivery.status === 'sent'
-		? { status: 'sent', setupDeliveryStatus: 'sent' }
-		: { status: 'delivery_failed', setupDeliveryStatus: 'failed' };
 }
 
 async function authorizeReject(
@@ -752,14 +637,22 @@ export function createPlatformAccessRequestAdministration(
 					details: { email: accessRequest.email }
 				});
 
-				return createAndDeliverSetupLink(deps, {
-					action: 'approval',
+				const issued = await issueSetupLink(deps, {
+					origin: 'platform_approval',
 					accessRequestId: input.accessRequestId,
 					email: accessRequest.email,
 					publicOrigin: input.publicOrigin,
 					sensitiveAction: authorization.sensitiveAction,
 					rateLimit: rateLimit.rateLimit
 				});
+
+				// The request is already marked approved, so anything short of a live link is a
+				// failed approval — except a sibling writer having just minted one.
+				if (issued.status === 'not_created') {
+					return issued.reason === 'concurrent-create' ? { status: 'concurrent_create' } : { status: 'failed' };
+				}
+
+				return mapSetupLinkDeliveryToStatus(issued);
 			} catch (error) {
 				logProviderFailure('approve', error);
 				return { status: 'failed' };
@@ -789,14 +682,19 @@ export function createPlatformAccessRequestAdministration(
 				});
 				if (!rateLimit.ok) return rateLimit.result;
 
-				return createAndDeliverSetupLink(deps, {
-					action: 'resend',
+				const issued = await issueSetupLink(deps, {
+					origin: 'platform_resend',
 					accessRequestId: input.accessRequestId,
 					email: accessRequest.email,
 					publicOrigin: input.publicOrigin,
 					sensitiveAction: authorization.sensitiveAction,
 					rateLimit: rateLimit.rateLimit
 				});
+
+				// A resend reports why no link was created; the request state is unchanged.
+				if (issued.status === 'not_created') return mapSetupLinkFailureToStatus(issued.reason);
+
+				return mapSetupLinkDeliveryToStatus(issued);
 			} catch (error) {
 				logProviderFailure('resendSetup', error);
 				return { status: 'failed' };

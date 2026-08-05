@@ -193,16 +193,20 @@ export function createSupabaseOrgSettingsMemberManagementPort(
 			return findUserAccountByEmail(getAdminClientFn(), email);
 		},
 
-		async createOrLinkPendingAccessRequestForInvitation(input) {
+		async createOrLinkApprovedAccessRequestForInvitation(input) {
 			const adminSupabase = getAdminClientFn();
 			let accessRequest = await findReusableAccessRequestForInvitation(adminSupabase, input.email);
 			let status: 'created' | 'linked' = 'linked';
 
 			if (!accessRequest) {
+				// Insert pending, never approved: access_requests_pending_email_idx only covers
+				// pending rows, and it is the only serialization point two simultaneous invites have.
 				const created = await insertPendingAccessRequest(adminSupabase, input.email);
 				if (created.status === 'failed') {
 					if (isUniqueConstraintError(created.error, 'access_requests_pending_email_idx')) {
-						accessRequest = await findPendingAccessRequest(adminSupabase, input.email);
+						// Re-read through the reusable lookup, not the pending one: the writer that
+						// won the index may already have flipped its row to approved.
+						accessRequest = await findReusableAccessRequestForInvitation(adminSupabase, input.email);
 					}
 					if (!accessRequest) {
 						return { status: 'failed', message: created.message };
@@ -218,12 +222,23 @@ export function createSupabaseOrgSettingsMemberManagementPort(
 				...input
 			});
 
-			if (link.status === 'already-linked') {
-				return { status: 'already-linked', accessRequestId: accessRequest.id };
-			}
-
 			if (link.status === 'failed') {
 				return { status: 'failed', message: link.message };
+			}
+
+			// The inviting Organization owner or admin is the reviewer: their invitation is the
+			// vouching. A row another writer already flipped stays theirs; this is a no-op then.
+			const approval = await approveInvitedAccessRequest(adminSupabase, {
+				accessRequestId: accessRequest.id,
+				reviewerId: input.invitedBy
+			});
+
+			if (approval.status === 'failed') {
+				return { status: 'failed', message: approval.message };
+			}
+
+			if (link.status === 'already-linked') {
+				return { status: 'already-linked', accessRequestId: accessRequest.id };
 			}
 
 			return { status, accessRequestId: accessRequest.id };
@@ -544,9 +559,30 @@ async function insertPendingAccessRequest(
 	return { status: 'created', accessRequest: data };
 }
 
+async function approveInvitedAccessRequest(
+	client: SupabaseClient,
+	input: { accessRequestId: string; reviewerId: string }
+): Promise<{ status: 'approved' } | { status: 'failed'; message: string }> {
+	const { error } = await client
+		.from('access_requests')
+		.update({
+			status: 'approved',
+			reviewed_by: input.reviewerId,
+			reviewed_at: new Date().toISOString()
+		})
+		.eq('id', input.accessRequestId)
+		.eq('status', 'pending');
+
+	if (error) {
+		return { status: 'failed', message: error.message ?? 'Access Request could not be approved' };
+	}
+
+	return { status: 'approved' };
+}
+
 async function insertAccessRequestInvitationLink(
 	client: SupabaseClient,
-	input: Parameters<OrganizationSettingsMemberManagementPort['createOrLinkPendingAccessRequestForInvitation']>[0] & {
+	input: Parameters<OrganizationSettingsMemberManagementPort['createOrLinkApprovedAccessRequestForInvitation']>[0] & {
 		accessRequestId: string;
 	}
 ): Promise<{ status: 'linked' } | { status: 'already-linked' } | { status: 'failed'; message: string }> {

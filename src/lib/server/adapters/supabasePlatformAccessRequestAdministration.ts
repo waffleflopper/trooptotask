@@ -1,11 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { AdminContext } from './adminAdapter';
-import {
-	createAccountSetupLinkService,
-	createSupabaseAccountSetupLinkStore,
-	sendAccountSetupLinkEmail
-} from '$lib/server/accountSetupLinks';
-import { createSupabaseAuthEmailOutboxStore, sendAccountSetupOutboxDelivery } from '$lib/server/authEmailOutbox';
+import { createSupabaseAccountSetupLinkIssuancePorts } from './supabaseAccountSetupLinkIssuance';
 import {
 	ACCESS_REQUEST_INVITATION_ORIGIN_SELECT,
 	listSupabaseInviterProfiles,
@@ -37,6 +32,7 @@ interface SupabaseAccessRequestAdminRow {
 	status: 'pending' | 'approved' | 'rejected';
 	created_at: string;
 	reviewed_at: string | null;
+	reviewed_by: string | null;
 	setup_completed_at: string | null;
 	account_setup_links: AccessRequestSetupLink | AccessRequestSetupLink[] | null;
 	auth_email_outbox: AccessRequestAuthEmailOutbox | AccessRequestAuthEmailOutbox[] | null;
@@ -81,7 +77,7 @@ export function createSupabasePlatformAccessRequestAdministrationStore(
 					supabase
 						.from('access_requests')
 						.select(
-							`id, name, email, reason, heard_about, heard_about_details, status, created_at, reviewed_at, setup_completed_at, account_setup_links(id, created_at, expires_at, claimed_at, failed_at, failure_reason, used_at, revoked_at, revocation_reason), auth_email_outbox(id, setup_link_id, status, attempt_count, last_error, created_at, updated_at, sent_at), ${ACCESS_REQUEST_INVITATION_ORIGIN_SELECT}`
+							`id, name, email, reason, heard_about, heard_about_details, status, created_at, reviewed_at, reviewed_by, setup_completed_at, account_setup_links(id, created_at, expires_at, claimed_at, failed_at, failure_reason, used_at, revoked_at, revocation_reason), auth_email_outbox(id, setup_link_id, status, attempt_count, last_error, created_at, updated_at, sent_at), ${ACCESS_REQUEST_INVITATION_ORIGIN_SELECT}`
 						)
 						.order('created_at', { ascending: false })
 						.range(from, to) as unknown as Promise<{
@@ -107,6 +103,7 @@ export function createSupabasePlatformAccessRequestAdministrationStore(
 				status: request.status,
 				created_at: request.created_at,
 				reviewed_at: request.reviewed_at,
+				reviewed_by: request.reviewed_by,
 				setup_completed_at: request.setup_completed_at,
 				account_setup_links: request.account_setup_links,
 				auth_email_outbox: request.auth_email_outbox,
@@ -169,15 +166,7 @@ export function createSupabasePlatformAccessRequestAdministration(
 ): PlatformAccessRequestAdministration {
 	return createPlatformAccessRequestAdministration({
 		store: createSupabasePlatformAccessRequestAdministrationStore(ctx.adminClient),
-		setupLinks: createAccountSetupLinkService(createSupabaseAccountSetupLinkStore(ctx.adminClient)),
-		setupDelivery: {
-			send: (input) =>
-				sendAccountSetupOutboxDelivery(
-					createSupabaseAuthEmailOutboxStore(ctx.adminClient),
-					sendAccountSetupLinkEmail,
-					input
-				)
-		},
+		...createSupabaseAccountSetupLinkIssuancePorts(ctx.adminClient),
 		sensitiveActionAuthorizer: createSupabaseSensitiveActionAuthorizer({
 			supabase: ctx.sessionClient,
 			session: ctx.session

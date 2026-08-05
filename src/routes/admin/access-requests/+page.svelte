@@ -202,6 +202,9 @@
 								<div class="flex min-w-0 flex-wrap items-center gap-2">
 									<h2 class="truncate text-lg font-semibold tracking-tight">{req.name}</h2>
 									<Badge variant={adminBadgeVariant(req.status)}>{formatAdminLabel(req.status)}</Badge>
+									{#if req.auto_approved}
+										<Badge variant="warning">Auto-approved</Badge>
+									{/if}
 									{#if req.status === 'approved'}
 										<Badge variant={setupStateVariant(req.setup_state)}>Setup {req.setup_state_label}</Badge>
 									{/if}
@@ -213,11 +216,15 @@
 										Source: {req.heard_about_label}{req.heard_about_details ? ` - ${req.heard_about_details}` : ''}
 									</p>
 								{/if}
+								{#if req.auto_approval_detail}
+									<p class="text-sm leading-6 font-medium">{req.auto_approval_detail}</p>
+								{/if}
 								{@render invitationOriginContext(req)}
 								<p class="text-xs text-muted-foreground">
 									Submitted {formatDisplayDateTime(req.created_at)}
 									{#if req.reviewed_at}
-										/ Reviewed {formatDisplayDateTime(req.reviewed_at)}{/if}
+										/ {req.auto_approved ? 'Auto-approved' : 'Reviewed'}
+										{formatDisplayDateTime(req.reviewed_at)}{/if}
 								</p>
 								{#if req.status === 'approved'}
 									<div class="grid gap-1 text-xs text-muted-foreground">

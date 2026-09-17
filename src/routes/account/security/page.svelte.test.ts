@@ -97,3 +97,73 @@ describe('pending enrollment cancellation', () => {
 		}
 	);
 });
+
+describe('enrollment confirmation', () => {
+	it.each(['invalid code', 'provider unavailable', 'network failure', 'invalid success response'])(
+		'retains the same enrollment after %s and confirms only on explicit success',
+		async (failure) => {
+			let finishVerify!: (response: Response) => void;
+			const fetchMock = vi
+				.fn()
+				.mockResolvedValueOnce(Response.json({ factorId: 'pending-factor', qrCode: 'data:image/svg+xml,synthetic' }));
+			if (failure === 'network failure') fetchMock.mockRejectedValueOnce(new Error('Connection lost'));
+			else if (failure === 'invalid success response') fetchMock.mockResolvedValueOnce(Response.json({}));
+			else
+				fetchMock.mockResolvedValueOnce(
+					Response.json({ error: failure }, { status: failure === 'invalid code' ? 401 : 503 })
+				);
+			fetchMock.mockImplementationOnce(
+				() =>
+					new Promise<Response>((resolve) => {
+						finishVerify = resolve;
+					})
+			);
+			vi.stubGlobal('fetch', fetchMock);
+			render(Page, {
+				props: {
+					data: { hasMFA: false, currentEmail: 'synthetic@example.test', pendingEmail: null } as PageData,
+					form: null
+				}
+			});
+			await fireEvent.click(screen.getByRole('button', { name: 'Enable MFA' }));
+			const code = await screen.findByLabelText('Verification code');
+			await fireEvent.input(code, { target: { value: '123456' } });
+			await fireEvent.click(screen.getByRole('button', { name: 'Verify and Enable' }));
+			await screen.findByText('Security issue');
+			expect(screen.getByText('Disabled')).toBeTruthy();
+			expect(code).toHaveValue('123456');
+			expect(screen.getByRole('img', { name: 'MFA QR Code' })).toHaveAttribute('src', 'data:image/svg+xml,synthetic');
+			await fireEvent.click(screen.getByRole('button', { name: 'Verify and Enable' }));
+			expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled();
+			expect(screen.getByRole('button', { name: /Verify and Enable/ })).toBeDisabled();
+			expect(code).toBeDisabled();
+			await fireEvent.submit(code.closest('form')!);
+			expect(fetchMock).toHaveBeenCalledTimes(3);
+			expect(JSON.parse(fetchMock.mock.calls[2][1].body)).toEqual({ factorId: 'pending-factor', code: '123456' });
+			finishVerify(Response.json({ ok: true }));
+			await screen.findByText('Enabled');
+			expect(screen.queryByLabelText('Verification code')).toBeNull();
+			expect(screen.queryByRole('img', { name: 'MFA QR Code' })).toBeNull();
+			expect(screen.getByRole('button', { name: 'Disable MFA' })).toBeEnabled();
+		}
+	);
+
+	it('offers enrollment retry after creation fails', async () => {
+		const fetchMock = vi
+			.fn()
+			.mockResolvedValueOnce(Response.json({ error: 'Enrollment unavailable' }, { status: 503 }))
+			.mockResolvedValueOnce(Response.json({ factorId: 'pending-factor', qrCode: 'data:image/svg+xml,synthetic' }));
+		vi.stubGlobal('fetch', fetchMock);
+		render(Page, {
+			props: {
+				data: { hasMFA: false, currentEmail: 'synthetic@example.test', pendingEmail: null } as PageData,
+				form: null
+			}
+		});
+		await fireEvent.click(screen.getByRole('button', { name: 'Enable MFA' }));
+		await screen.findByText('Enrollment unavailable');
+		expect(screen.queryByLabelText('Verification code')).toBeNull();
+		await fireEvent.click(screen.getByRole('button', { name: 'Enable MFA' }));
+		expect(await screen.findByLabelText('Verification code')).toBeEnabled();
+	});
+});

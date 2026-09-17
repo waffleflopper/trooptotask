@@ -128,9 +128,10 @@ describe('server auth hook', () => {
 		);
 		const mfa = {
 			getAuthenticatorAssuranceLevel,
-			enroll: vi
-				.fn()
-				.mockResolvedValue({ data: { id: 'pending-factor', totp: { qr_code: 'synthetic-qr' } }, error: null }),
+			enroll: vi.fn().mockResolvedValue({
+				data: { id: 'pending-factor', type: 'totp', totp: { qr_code: 'synthetic-qr' } },
+				error: null
+			}),
 			listFactors: vi.fn().mockResolvedValue({
 				data: {
 					all: [
@@ -141,7 +142,10 @@ describe('server auth hook', () => {
 				},
 				error: null
 			}),
-			challengeAndVerify: vi.fn().mockResolvedValue({ error: null }),
+			challengeAndVerify: vi.fn().mockResolvedValue({
+				data: { access_token: 'synthetic-access', refresh_token: 'synthetic-refresh' },
+				error: null
+			}),
 			unenroll: vi.fn().mockResolvedValue({ error: null })
 		};
 		const rpc = vi.fn().mockResolvedValue(rpcResult);

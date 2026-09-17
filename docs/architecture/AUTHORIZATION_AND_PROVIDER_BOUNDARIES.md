@@ -9,6 +9,7 @@ This document separates what v1 authorization and provider ownership look like t
 - Supabase Auth is the current authentication provider.
 - The request hook denies dispatch when authenticated MFA assurance or required user suspension status cannot be verified. Logout remains reachable during an assurance lookup failure; pending MFA/recovery/invite sessions retain their completion routes.
 - All MFA endpoints require verified session identity. Enrollment, enrollment verification/cancellation and disable also require completed authentication and a verified unsuspended account. Authenticated MFA status and challenge verification remain available during suspension for login/recovery completion; invite sessions retain their separate completion restrictions.
+- Enrollment cancellation checks the authenticated account's provider-listed factors and only removes a pending TOTP factor. Verified factors use the separate fresh-challenge disable flow; failed lookups deny cancellation and failed cancellation retains the enrollment UI for retry.
 - Auth-specific route and server code is expected to remain provider-aware for now.
 - Beta **Access Request** approval should use app-owned **Account Setup Links** rather than Supabase invite emails as the product-level setup window; see ADR 0009.
 - Current auth-provider-specific areas include:

@@ -131,9 +131,16 @@ describe('server auth hook', () => {
 			enroll: vi
 				.fn()
 				.mockResolvedValue({ data: { id: 'pending-factor', totp: { qr_code: 'synthetic-qr' } }, error: null }),
-			listFactors: vi
-				.fn()
-				.mockResolvedValue({ data: { totp: [{ id: 'verified-factor', status: 'verified' }] }, error: null }),
+			listFactors: vi.fn().mockResolvedValue({
+				data: {
+					all: [
+						{ id: 'pending-factor', factor_type: 'totp', status: 'unverified' },
+						{ id: 'verified-factor', factor_type: 'totp', status: 'verified' }
+					],
+					totp: [{ id: 'verified-factor', status: 'verified' }]
+				},
+				error: null
+			}),
 			challengeAndVerify: vi.fn().mockResolvedValue({ error: null }),
 			unenroll: vi.fn().mockResolvedValue({ error: null })
 		};

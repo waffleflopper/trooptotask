@@ -109,8 +109,11 @@
 	}
 
 	async function cancelEnroll() {
-		if (factorId) {
-			try {
+		if (loading) return;
+		mfaError = '';
+		loading = true;
+		try {
+			if (factorId) {
 				const response = await fetch('/api/auth/mfa/enroll/cancel', {
 					method: 'POST',
 					headers: { 'Content-Type': 'application/json' },
@@ -120,15 +123,21 @@
 					await goto(response.url);
 					return;
 				}
-			} catch {
-				// Best effort cleanup; local state should still reset.
+				if (!response.ok) {
+					const payload = (await response.json()) as { error?: string };
+					mfaError = payload.error ?? 'Failed to cancel MFA enrollment';
+					return;
+				}
 			}
+			enrolling = false;
+			qrCode = '';
+			factorId = '';
+			verifyCode = '';
+		} catch (e: unknown) {
+			mfaError = e instanceof Error ? e.message : 'Failed to cancel MFA enrollment';
+		} finally {
+			loading = false;
 		}
-		enrolling = false;
-		qrCode = '';
-		factorId = '';
-		verifyCode = '';
-		mfaError = '';
 	}
 
 	async function disableMFA() {
@@ -451,7 +460,7 @@
 							</Field.Control>
 						</Field.Root>
 						<div class="flex flex-wrap justify-end gap-2">
-							<Button type="button" variant="outline" onclick={cancelEnroll}>Cancel</Button>
+							<Button type="button" variant="outline" onclick={cancelEnroll} disabled={loading}>Cancel</Button>
 							<Button type="submit" disabled={loading || verifyCode.length !== 6}>
 								{#if loading}<Spinner />{/if}
 								Verify and Enable

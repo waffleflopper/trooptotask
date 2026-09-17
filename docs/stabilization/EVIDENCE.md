@@ -1,6 +1,6 @@
 # Audit evidence
 
-Source provenance and interpretations are in [BASELINE.md](BASELINE.md); work is in [TODO.md](TODO.md). The baseline sections below describe the unmodified audited implementation. Task-specific evidence follows under [01-01](#task-01-01-program-decisions-in-current-instructions) and [01-02](#task-01-02-verification-contract).
+Source provenance and interpretations are in [BASELINE.md](BASELINE.md); work is in [TODO.md](TODO.md). The baseline sections below describe the unmodified audited implementation. Task-specific evidence follows under [01-01](#task-01-01-program-decisions-in-current-instructions), [01-02](#task-01-02-verification-contract), and [02-01](#task-02-01-deterministic-invitation-expiry).
 
 ## Environment and commands
 
@@ -149,3 +149,40 @@ PUBLIC_SUPABASE_URL=http://127.0.0.1:9 PUBLIC_SUPABASE_ANON_KEY=synthetic-build-
 For excluded Markdown, ran `npm exec prettier -- --ignore-path /dev/null --write README.md docs/agents/operating-rules.md docs/architecture/DEFINITION_OF_DONE.md docs/local-auth-testing.md docs/stabilization/TODO.md docs/stabilization/EVIDENCE.md` and the same explicit list with `--check`. A local Python review checked relative Markdown targets and heading anchors across those six files; manual review confirmed each command exists in `package.json` and the evidence requirements agree. Logs and the link-check script are in `/tmp/t3-stabilization-01-02/` (ephemeral, not committed).
 
 No required tooling was missing. Computer-use tools are exposed in this session, but no journey changed and no browser flow was run; no browser/performance pass is claimed. Svelte autofixer is not exposed and is not applicable because no Svelte code changed. Database migration/RLS checks are not applicable because no DB changes occurred. No E2E suite, existing-local/remote DB operation, deployment, merge or publication ran. Phase 01's documentation tasks are complete; phase 02 remains inactive. Next task after phase activation: **02-01**. Existing test failures and later runtime/flow/performance work remain tracked within the program.
+
+## Task 02-01: Deterministic invitation expiry
+
+September 16, 2026 Anchorage / September 17 UTC; diff from `87d9866cc84422f597bc2481157163c7e95f1cac`. Node `v24.18.0`, npm `11.17.0` (repository declares `11.12.1`), existing installed dependencies; no installation or lockfile change in this task. Root instructions apply; no nested AGENTS found. Read retained R1–R8, the baseline test-disposition inventory, F04 and prior task evidence, the verification contract, and the relevant invitation/status contract in ADR 0012. Program decisions supersede the ADR's legacy F01 preservation wording.
+
+**Phase activation and refinement:** Phase 01's documentation acceptance passed in its recorded evidence; its retained-test failure was explicitly assigned to 02-01. Robert authorized activation after that acceptance. Phase 02 now has bounded safety-net, SQL/RLS, assertion-cutover and complete E2E-removal tasks. The dependency order requires useful protection before deleting low-value assertions. High-risk request/scope, acquisition, Organization creation, Calendar CRUD and retained workflow obligations have named owners; F01/F02/F06 remain repair gaps rather than desired test outcomes. All E2E code/config/mail/seed/runtime consumers, npm lockfile regeneration, clean install and verification without E2E values are owned by 02-05. Phase 03 remains inactive.
+
+**Changed:** Scoped fake time to the three members-settings loader degradation tests with `beforeEach` using the existing `NOW = 2026-08-04T12:00:00Z`; `afterEach` restores real timers and owned console spies. The real loader and shaping implementation run against fake store/setup-state ports. The two injected lookup failures must still leave an actionable invitation and preserve the failed invitation-email reason; successful lookup must still report the setup-email failure. This protects R3/R5 optional status degradation without changing production expiry semantics.
+
+**Deleted:** Implicit host-clock dependency and leaked console-spy state in this suite. No assertions, fixture dates, implementation/configuration files or E2E artifacts deleted in 02-01; no runtime or schema changes.
+
+**Detection evidence:** `npm run test -- 'src/routes/org/[orgId]/settings/members/membersSettings.server.test.ts'` initially exited 1: 25 passed, three failed. The August-expiring fixture disappeared at September host time, producing one missing-invitation assertion and two undefined-status failures. The same command after the scoped clock fix exited 0: all 28 passed (0.163 s Vitest). No fixture extension, changed expected value, skipped assertion, function-under-test mock or temporary production fault was used.
+
+**Acceptance: passed.** All existing file assertions now execute at their declared fixture time and the full retained suite passes. Clock/spies are restored after each loader case; production behavior, tenant scope and test inventory are unchanged. The before/after evidence detects the clock regression without creating a new test solely to assert test setup.
+
+| Verification                                                               | Result                                                                                                                      |
+| -------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| Focused command above, before / after                                      | Exit 1: three failures / exit 0: all 28 pass.                                                                               |
+| `npm run format`; `npm run format:check`                                   | Both exit 0 (16.92 s / 20.36 s); no unrelated tracked changes.                                                              |
+| `npm run lint`                                                             | Exit 0 (13.33 s).                                                                                                           |
+| `npm run governance:check`                                                 | Exit 0 (0.14 s); 14 required files, unchanged 18 route-provider/21 admin-provider exceptions, zero permission couplings.    |
+| `npm run check`                                                            | Exit 0 (19.10 s); zero Svelte errors/warnings.                                                                              |
+| `npm run test`                                                             | Exit 0 (41.59 s wall / 40.76 s Vitest); 570 files and 4,445 tests pass, no unhandled error.                                 |
+| `npm run build` with synthetic overrides below                             | Exit 0 (16.27 s), including Vercel adapter; existing large-chunk and optional `@opentelemetry/api` tracing warnings remain. |
+| Explicit Markdown format/check, relative links/anchors, `git diff --check` | Passed for TODO/EVIDENCE; ignore rules and scan coverage unchanged.                                                         |
+
+Exact offline build command:
+
+```bash
+PUBLIC_SUPABASE_URL=http://127.0.0.1:9 PUBLIC_SUPABASE_ANON_KEY=synthetic-build-key SUPABASE_SERVICE_ROLE_KEY=synthetic-build-service-key PUBLIC_BILLING_ENABLED=false ACCOUNT_SETUP_SESSION_SECRET=synthetic-build-only-session-secret APP_PUBLIC_ORIGIN=http://localhost:4279 npm run build
+```
+
+Excluded Markdown uses `npm exec prettier -- --ignore-path /dev/null --write docs/stabilization/TODO.md docs/stabilization/EVIDENCE.md` and the same paths with `--check`. Relative local links and heading anchors were checked with a local script; governance was rerun after final evidence updates. Check logs/results are in `/tmp/t3-stabilization-02-01/` (ephemeral, not committed).
+
+No required command tooling was unavailable; the npm version mismatch is recorded above. No Svelte component changed, so autofixer/computer-use flows are not applicable to this test-clock task. No DB changes or DB checks, E2E run, remote action, existing-data operation, deployment, publication or merge occurred. No clean install or lockfile regeneration was needed for this unchanged dependency tree; those remain required for 02-05. A key-name-only audit found no process E2E flags or test-local E2E keys, but the existing ignored `.env.local` still declares `E2E_DATABASE_URL`; its cleanup and a clean no-E2E-environment verification are owned by 02-05, not claimed here. Its value was not printed and no database was accessed.
+
+**Remaining:** The clean full-suite run does not prove the intermittent rank-dialog teardown defect fixed; 02-01a remains the next ready task. All later safety-net/pruning/E2E work remains unchecked in active phase 02. No later phase was activated.

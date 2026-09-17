@@ -13,7 +13,7 @@ For most architecture or improvement scans, start with:
 - [Drift Ledger](../architecture/DRIFT_LEDGER.md)
 - [Governance Checks](../architecture/GOVERNANCE_CHECKS.md)
 - [ADR Index](../architecture/ADR_INDEX.md)
-- [Ubiquitous Language](../../UBIQUITOUS_LANGUAGE.md)
+- [Domain language](../../CONTEXT.md#language)
 
 For auth, authorization, provider-boundary, or membership work, also read:
 
@@ -34,12 +34,13 @@ For done criteria or workflow governance, also read:
 
 ## Current Guardrails
 
+- For stabilization tasks, the [program decisions](../architecture/ARCHITECTURE.md#stabilization-decisions) govern the cutover. Existing drift is a removal backlog, not permission to add exceptions or retain an unfinished migration.
 - Treat `Organization` and `Group` as canonical v1 domain terms.
 - Do not back-port v2 `Account`, `Unit`, or `Element` terminology into v1 current-state docs or code unless the task is explicitly about migration mapping.
 - Treat the current authorization system as tolerated current-state, not as the desired end-state.
-- Do not add new business logic that depends directly on `locals.supabase` or other provider-specific clients outside auth, ports/adapters, or an explicitly approved remediation slice.
+- Keep business logic behind app-owned ports/adapters and auth-provider-specific calls at auth edges. Remediation removes direct `locals.supabase` dependencies without creating new provider exceptions.
 - Do not deepen feature-permission piggybacking. If a feature currently borrows another feature's permission lane, treat that as drift to reduce, not a pattern to copy.
-- Treat `docs/architecture/GOVERNANCE_BASELINE.json` as the explicit allowlist for currently tolerated route-level provider leaks and cross-feature permission couplings.
+- Treat `docs/architecture/GOVERNANCE_BASELINE.json` as the record of existing route-level provider leaks and cross-feature permission couplings to eliminate. Do not add exceptions or reduce scan coverage.
 - If a remediation slice removes tolerated drift, update the baseline and related drift docs in the same change.
-- When legacy clinic-specific names appear, preserve compatibility but prefer the Army/military-oriented canonical term in docs, UX copy, and new code shapes.
+- Preserve the retained Personnel Duty Role data (`clinicRole` / `clinic_role`) and use the canonical term in docs, UX copy and new code shapes. A schema field retained for its data contract is not permission for legacy-path wrappers or a partial consumer migration.
 - If an incidental task encounters authorization semantics, membership modeling, scope evaluation, provider-boundary leaks, or other cross-feature architecture seams, stop after documenting the issue unless the task explicitly authorizes remediation in that area.

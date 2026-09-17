@@ -12,6 +12,10 @@ The repo uses npm. Before considering implementation work complete, run:
 
 Never reset, migrate, delete tables from, delete entries in, or otherwise touch the remote production database. Do not reset or delete tables from the local development database without Robert's explicit permission.
 
+## Stabilization
+
+For stabilization work, read the active task in [TODO](docs/stabilization/TODO.md), its relevant [baseline contracts](docs/stabilization/BASELINE.md#retained-contracts) and [evidence](docs/stabilization/EVIDENCE.md), and follow the [program decisions](docs/architecture/ARCHITECTURE.md#stabilization-decisions). Complete one ready task and its full consumer cutover; respect phase dependencies. Billing, Duty Roster, E2E and unfinished migration paths must be removed by their owning tasks. Preserve Organization/Group scope, reviewed acquisition and retained contracts R1–R7.
+
 For task-specific guidance, open only the files relevant to the work:
 
 - [Agent operating rules](docs/agents/operating-rules.md)

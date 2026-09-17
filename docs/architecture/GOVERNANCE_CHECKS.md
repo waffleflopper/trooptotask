@@ -2,7 +2,7 @@
 
 This repo now has a lightweight governance check at `npm run governance:check`.
 
-It is intentionally narrow. It does not prove the architecture is clean. It does help catch new undocumented drift in the highest-risk seams we already know about.
+It is intentionally narrow. It does not prove the architecture is clean. It helps catch new drift in the highest-risk seams we already know about. The [stabilization decisions](ARCHITECTURE.md#stabilization-decisions) require removal of existing exceptions through their owning tasks; passing this check alone does not establish a finished cutover.
 
 ## What It Checks Today
 
@@ -18,12 +18,13 @@ It is intentionally narrow. It does not prove the architecture is clean. It does
 
 ## Baseline Classifications
 
-Baseline entries use narrow classification labels so new exceptions can be reviewed against the route boundary
-they actually represent:
+Existing baseline entries use narrow classification labels to identify the route boundary they represent.
+These labels are inventory, not permission to add exceptions:
 
 - `auth-edge` means a route still performs provider-specific auth/session/invite work at the boundary.
 - `billing-recovery-edge` means a billing reconciliation or checkout recovery route still wires privileged
-  billing stores, subscription adapters, or audit writes directly from the route.
+  billing stores, subscription adapters, or audit writes directly from the route. Remove these entries with
+  their billing consumers; do not replace them with disabled or unlimited-plan infrastructure.
 - `cron-edge` means a scheduled maintenance route still builds service-role cleanup stores, storage adapters,
   or privileged RPC calls directly from the route.
 - `platform-admin-edge` means a Platform Admin route still uses the admin context client or service-role
@@ -44,18 +45,19 @@ The allowlist lives in `docs/architecture/GOVERNANCE_BASELINE.json`.
 Treat that file as a temporary truth table for tolerated exceptions:
 
 - if you remove a documented exception, remove or update the baseline entry in the same slice
-- if you add a new exception on purpose, document why, update the drift ledger, and update the baseline in the same slice
-- do not use the baseline to silently normalize accidental drift
+- do not add exceptions, allowlists or permission couplings to accommodate new drift
+- record newly discovered debt as bounded work in [TODO](../stabilization/TODO.md), not as a passing-gate exemption
+- preserve guards, assertions, scan paths and budgets; do not weaken checks, skip tests or hide consumers to obtain green results
 
 For feature permission couplings, `featurePermissionCouplings` is an exception list, not the list of feature
-families to scan. The checker scans configured feature families even when this array is empty; add entries only
-for intentional, drift-ledger-backed cross-feature permission-lane couplings.
+families to scan. The checker scans configured feature families even when this array is empty. Remove resolved
+entries and retain the scan; new drift-ledger entries do not authorize new permission couplings.
 
 ## Current-State Truth Versus Guardrail
 
 - Current-state truth:
   - v1 still has route-level provider leaks, privileged route/provider seams, and feature-lane piggybacking
 - Intended guardrail:
-  - no new undocumented leaks, privileged route/provider seams, or piggybacking should land
-- Deferred cleanup:
-  - deeper enforcement should come after the first authz and provider-boundary remediation slices settle the target shape
+  - no new leaks, privileged route/provider exceptions, or piggybacking should land
+- Queued remediation:
+  - finish provider and module cutovers through the stabilization queue, deleting replaced implementations and consumers in each owning task; documentation or a baseline entry cannot substitute for removal evidence

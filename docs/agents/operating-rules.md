@@ -8,8 +8,8 @@ Use this file for rules that affect most implementation tasks.
 
 ## Completion Checks
 
-- Run `npm run format`, `npm run lint`, `npm run governance:check`, `npm run check`, and `npm run test` before considering implementation work complete.
-- `npm run test` runs Vitest and is the required test command.
+- Follow the [verification contract](../architecture/DEFINITION_OF_DONE.md#verification-contract) for the required command sequence, meaningful lower-level tests, computer-use flow evidence, isolated database checks and reproducible performance evidence. Run focused checks during work and the full sequence after final implementation changes.
+- Record each required check as passed, failed or unavailable, with its command and evidence. A missing flow recording, failed test or unavailable tool is not a pass; keep its owning task open when that evidence is required for acceptance.
 
 ## Data Safety
 

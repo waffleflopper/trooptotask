@@ -1,6 +1,6 @@
 # Audit evidence
 
-Source provenance and interpretations are in [BASELINE.md](BASELINE.md); work is in [TODO.md](TODO.md). The baseline sections below describe the unmodified audited implementation. Task-specific evidence follows under [01-01](#task-01-01-program-decisions-in-current-instructions).
+Source provenance and interpretations are in [BASELINE.md](BASELINE.md); work is in [TODO.md](TODO.md). The baseline sections below describe the unmodified audited implementation. Task-specific evidence follows under [01-01](#task-01-01-program-decisions-in-current-instructions) and [01-02](#task-01-02-verification-contract).
 
 ## Environment and commands
 
@@ -121,3 +121,31 @@ Verification used existing packages, Node `v24.18.0`, npm `11.12.1`, and the sam
 The three invitation failures reproduce F04 and stay owned by 02-01. The additional full-suite `ReferenceError: document is not defined` comes from bits-ui `resetBodyStyle` via a deferred cleanup timer, attributed to `settings/ranks/page.svelte.test.ts`; no root cause or deterministic reproduction is claimed. Added bounded task **02-01a** to diagnose and repair it with lifecycle regression evidence and no error suppression. Inspected the existing dependency patch script read-only; did not run install/lifecycle scripts or patch packages.
 
 01-01's documentation/link/governance acceptance passes; full-suite failure remains explicit and is not waived. No new behavioral tests were needed for this instruction-only change. DB migration/RLS checks are not applicable because no database changes occurred. No E2E suite, browser flow, remote action, database operation, deployment, publication or merge ran. Raw local check logs are in `/tmp/t3-stabilization-01-01/` and are not committed. Next task: **01-02**; phase 01 remains active.
+
+## Task 01-02: Verification contract
+
+Completed September 16, 2026 Anchorage / September 17 UTC. Documentation-only diff from `b93412ea82bb4bf87814c3192a7f1d5de6a3c978`; Node `v24.18.0`, npm `11.12.1`, existing installed packages. Read root instructions, found no applicable nested AGENTS, and applied writing-for-agents. No runtime, schema, tests, package scripts, harness or guard configuration changed.
+
+**Acceptance:** Definition of Done now owns one required command sequence, lower-level behavioral evidence, computer-use flow records, disposable database fresh/upgrade/RLS checks and reproducible production-mode performance comparisons. Operating rules, TODO and the local auth guide consume that contract. Cut over the README auth/verification consumer in the same task and added it to the owned paths. Required missing/failed evidence cannot be labeled passed; bypasses, allowlists, skipped assertions, inflated budgets and hidden scan paths remain prohibited. Reviewed the six changed documents against R5–R8 and retained scope/acquisition protections. This task's documentation acceptance passes; the full retained-test gate does not.
+
+**Deleted guidance:** E2E run/completion instructions in the auth guide and README, existing-stack auth/SQL testing instructions, the hook opt-out completion advice, duplicate/partial completion lists, stale hosted email-capacity claims and permission to add/reclassify governance exceptions. Corrected the touched missing-glossary pointer. Harness/config/runtime deletion stays owned by 02-05; no file deletions or behavior changes were needed here.
+
+| Verification                                                                               | Result                                                                                                                                                                                                                       |
+| ------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run test -- src/routes/auth src/routes/api/auth src/lib/server/accountSetup`          | Pass: 23 files, 175 tests; 0.55 s. Verified the documented focused command, not browser/email delivery.                                                                                                                      |
+| `npm run format`; `npm run format:check`; `npm run lint`                                   | All exit 0; no unrelated tracked changes.                                                                                                                                                                                    |
+| `npm run governance:check`                                                                 | Exit 0: 14 required files, unchanged 18 route-provider/21 admin-provider entries, zero permission couplings.                                                                                                                 |
+| `npm run check`                                                                            | Exit 0: zero Svelte errors/warnings.                                                                                                                                                                                         |
+| `npm run test`                                                                             | Exit 1: 569 files pass, one fails; 4,442 tests pass, three fail (4,445 total); 38.11 s. Same F04 invitation-loader failures at lines 299/320/330, owned by 02-01. No unhandled error reported this run; 02-01a remains open. |
+| `npm run build` with synthetic overrides below                                             | Exit 0, including Vercel adapter. Large-chunk and optional `@opentelemetry/api` tracing warnings remain (F11); Vite also reports plugin timing diagnostics. No budgets/dependencies changed.                                 |
+| Explicit Markdown formatting, relative target/heading-anchor review and `git diff --check` | Pass; repository `docs/` ignore rules unchanged.                                                                                                                                                                             |
+
+Exact offline build command:
+
+```bash
+PUBLIC_SUPABASE_URL=http://127.0.0.1:9 PUBLIC_SUPABASE_ANON_KEY=synthetic-build-key SUPABASE_SERVICE_ROLE_KEY=synthetic-build-service-key PUBLIC_BILLING_ENABLED=false ACCOUNT_SETUP_SESSION_SECRET=synthetic-build-only-session-secret APP_PUBLIC_ORIGIN=http://localhost:4279 npm run build
+```
+
+For excluded Markdown, ran `npm exec prettier -- --ignore-path /dev/null --write README.md docs/agents/operating-rules.md docs/architecture/DEFINITION_OF_DONE.md docs/local-auth-testing.md docs/stabilization/TODO.md docs/stabilization/EVIDENCE.md` and the same explicit list with `--check`. A local Python review checked relative Markdown targets and heading anchors across those six files; manual review confirmed each command exists in `package.json` and the evidence requirements agree. Logs and the link-check script are in `/tmp/t3-stabilization-01-02/` (ephemeral, not committed).
+
+No required tooling was missing. Computer-use tools are exposed in this session, but no journey changed and no browser flow was run; no browser/performance pass is claimed. Svelte autofixer is not exposed and is not applicable because no Svelte code changed. Database migration/RLS checks are not applicable because no DB changes occurred. No E2E suite, existing-local/remote DB operation, deployment, merge or publication ran. Phase 01's documentation tasks are complete; phase 02 remains inactive. Next task after phase activation: **02-01**. Existing test failures and later runtime/flow/performance work remain tracked within the program.

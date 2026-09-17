@@ -8,9 +8,44 @@ import Page from './+page.svelte';
 vi.mock('$app/navigation', () => ({ goto: vi.fn().mockResolvedValue(undefined) }));
 afterEach(() => {
 	cleanup();
+	window.history.replaceState({}, '', '/auth/mfa-verify');
 	vi.unstubAllGlobals();
 	vi.clearAllMocks();
 });
+
+it('retains a safe continuation after a failed verification and uses it after retry', async () => {
+	window.history.replaceState(
+		{},
+		'',
+		'/auth/mfa-verify?next=%2Forg%2Falpha%2Fcalendar%3Fview%3Dmonth%26label%3DA%2526B%23today'
+	);
+	vi.stubGlobal(
+		'fetch',
+		vi
+			.fn()
+			.mockResolvedValueOnce(Response.json({ error: 'Invalid code' }, { status: 401 }))
+			.mockResolvedValueOnce(Response.json({ ok: true }))
+	);
+	render(Page);
+	await fireEvent.input(screen.getByLabelText('Verification Code'), { target: { value: '123456' } });
+	await fireEvent.click(screen.getByRole('button', { name: 'Verify' }));
+	expect(await screen.findByRole('alert')).toBeTruthy();
+	expect(goto).not.toHaveBeenCalled();
+	await fireEvent.click(screen.getByRole('button', { name: 'Verify' }));
+	await waitFor(() => expect(goto).toHaveBeenCalledWith('/org/alpha/calendar?view=month&label=A%26B#today'));
+});
+
+it.each(['https://external.invalid/phish', '/a/..//external.invalid'])(
+	'rejects a directly forged MFA continuation %s after successful verification',
+	async (next) => {
+		window.history.replaceState({}, '', `/auth/mfa-verify?next=${encodeURIComponent(next)}`);
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json({ ok: true })));
+		render(Page);
+		await fireEvent.input(screen.getByLabelText('Verification Code'), { target: { value: '123456' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Verify' }));
+		await waitFor(() => expect(goto).toHaveBeenCalledWith('/dashboard'));
+	}
+);
 
 it('returns to login when the session expires before MFA verification', async () => {
 	const response = new Response('<html>Sign in</html>');

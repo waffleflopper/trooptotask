@@ -84,7 +84,7 @@ A military unit management platform for personnel tracking, calendar/availabilit
 - **Styling**: Pure CSS with custom properties (no Tailwind)
 - **Payments**: Stripe (subscription billing)
 - **Deployment**: Vercel
-- **Testing**: Vitest (unit) + Playwright (E2E)
+- **Testing**: Vitest and isolated SQL contracts, with computer-use flow evidence; legacy E2E harness removal is queued in stabilization task 02-05.
 
 ## Getting Started
 
@@ -136,11 +136,10 @@ following the generic setup instructions below.
 
 ### Local Auth Testing
 
-- Local Supabase auth emails are captured at [http://127.0.0.1:54324](http://127.0.0.1:54324) via Mailpit.
-- Use `supabase status -o env` to copy the current local keys into `.env.local` if needed.
-- Run `npm run test:e2e:auth` for invite/password-reset coverage and `npm run test:e2e:access-requests` for access-request approval coverage.
-- The Playwright auth suites boot their own isolated app server on `127.0.0.1:4173`, so you can keep your normal dev server running on `localhost:5173` while the tests execute.
-- See [docs/local-auth-testing.md](docs/local-auth-testing.md) for the full workflow.
+Follow [Local Auth Testing](docs/local-auth-testing.md) for focused Vitest checks,
+disposable synthetic Supabase/Mailpit setup and recorded computer-use flows. Use
+the guide's isolated environment for verification; do not reuse an existing stack
+or run a repository E2E suite.
 
 ### Scripts
 
@@ -152,15 +151,16 @@ npm run gate         # Run format check, lint, governance, check, and tests
 npm run lint         # ESLint
 npm run format       # Prettier formatting
 npm run test         # Unit tests (Vitest)
-npm run test:e2e     # E2E tests (Playwright)
 ```
 
 ### Verification Gate
 
-Run `npm run gate` before shipping changes; it runs the five required local checks in order:
-format check, lint, governance, Svelte/TypeScript check, and unit tests. Dependency setup also
-configures `.githooks/pre-push` so pushes run the same gate automatically. To opt out of the
-local hook wiring, run `git config --unset core.hooksPath`.
+Follow the [verification contract](docs/architecture/DEFINITION_OF_DONE.md#verification-contract)
+for the required command sequence and acceptance evidence. `npm run gate` runs
+format checking, lint, governance, Svelte/TypeScript checks and Vitest; formatting
+writes and the production build are separate required steps. Dependency setup
+also configures `.githooks/pre-push` to run that gate. Failed or unavailable checks
+are not a pass.
 
 ## Project Structure
 

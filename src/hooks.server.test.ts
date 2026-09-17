@@ -146,7 +146,7 @@ describe('server auth hook', () => {
 				data: { access_token: 'synthetic-access', refresh_token: 'synthetic-refresh' },
 				error: null
 			}),
-			unenroll: vi.fn().mockResolvedValue({ error: null })
+			unenroll: vi.fn(async ({ factorId }: { factorId: string }) => ({ data: { id: factorId }, error: null }))
 		};
 		const rpc = vi.fn().mockResolvedValue(rpcResult);
 		const createServerClient = vi.fn((_url: string, _key: string, options: TestServerClientOptions) => {

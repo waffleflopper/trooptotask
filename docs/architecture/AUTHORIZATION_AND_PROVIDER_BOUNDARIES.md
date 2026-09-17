@@ -185,7 +185,7 @@ The approved v1 replacement direction keeps `Organization` and `Group` as canoni
 - Do not introduce per-feature scope matrices.
 - Do not treat UI presets as if they solve the deeper authorization model problem.
 - Do not let retired or historical lanes dictate the durable member preset design.
-- If a task is unrelated to authz or provider boundaries and it runs into one of these seams, document the seam and stop.
+- Record unrelated authz/provider discoveries and continue the authorized task. Pause only a dependent change whose authorization, tenancy or privilege semantics remain unresolved; use the [decision boundaries](AI_AGENT_OPERATING_MODEL.md#decision-boundaries). Necessary adjacent edits that preserve these contracts do not require another approval.
 - If a task is an explicitly approved remediation slice in one of these areas, it may cross adjacent seams as needed, but it must:
   - reduce drift rather than spread it
   - document the adjacent seams it touched

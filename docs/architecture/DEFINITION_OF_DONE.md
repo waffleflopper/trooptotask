@@ -19,7 +19,7 @@ This is the command and evidence contract for stabilization. Apply the [program 
 
 ### Required commands
 
-Run focused checks while working. After final implementation changes, run these actual package scripts from the repository root and record each result even if an earlier check fails:
+Use focused checks to investigate a specific behavior while editing. Run the complete sequence below for the final candidate and record each result even if an earlier check fails. After it passes, repeat or broaden checks only for subsequent changes, failures or unresolved concerns; recording results alone needs documentation validation, not another unchanged runtime run:
 
 ```bash
 npm run format

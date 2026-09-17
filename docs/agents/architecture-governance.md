@@ -1,46 +1,22 @@
 # Architecture And Governance
 
-Use this file before work that touches architecture, auth/authz, provider boundaries, terminology, cross-feature seams, or governance checks.
+Use this map for architecture, authorization, provider-boundary, terminology or governance work. Read the sections needed for the affected boundary.
 
-## Current-State Reading
+| Task                                                            | References                                                                                                                                                                              |
+| --------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Module ownership or moving code                                 | [Architecture](../architecture/ARCHITECTURE.md), [Module conventions](../architecture/MODULE_CONVENTIONS.md)                                                                            |
+| Authentication, authorization, membership or provider ownership | [Authorization & provider boundaries](../architecture/AUTHORIZATION_AND_PROVIDER_BOUNDARIES.md); relevant decisions from the [ADR index](../architecture/ADR_INDEX.md)                  |
+| Known drift or a proposed replacement                           | The matching entry in [Drift ledger](../architecture/DRIFT_LEDGER.md) and [Change intent](../architecture/V1_CHANGE_INTENT.md)                                                          |
+| Governance rule or baseline change                              | [Governance checks](../architecture/GOVERNANCE_CHECKS.md) and the affected rule in `scripts/check-governance.mjs`                                                                       |
+| New or revised architecture decision                            | [ADR guidance](../architecture/ADR_GUIDANCE.md), [index](../architecture/ADR_INDEX.md), [backlog](../architecture/ADR_BACKLOG.md) and [template](../architecture/adrs/0000-template.md) |
+| Domain naming                                                   | [Language](../../CONTEXT.md#language)                                                                                                                                                   |
+| Scope crosses an architectural boundary                         | [AI agent operating model](../architecture/AI_AGENT_OPERATING_MODEL.md)                                                                                                                 |
+| Completion criteria                                             | [Definition of Done](../architecture/DEFINITION_OF_DONE.md)                                                                                                                             |
 
-Read only the docs that match the task. Do not front-load every historical architecture note into ordinary feature or improvement work.
+## Guardrails
 
-For most architecture or improvement scans, start with:
-
-- [V1 Architecture Contract](../architecture/ARCHITECTURE.md)
-- [Feature & Module Conventions](../architecture/MODULE_CONVENTIONS.md)
-- [Drift Ledger](../architecture/DRIFT_LEDGER.md)
-- [Governance Checks](../architecture/GOVERNANCE_CHECKS.md)
-- [ADR Index](../architecture/ADR_INDEX.md)
-- [Domain language](../../CONTEXT.md#language)
-
-For auth, authorization, provider-boundary, or membership work, also read:
-
-- [Authorization & Provider Boundaries](../architecture/AUTHORIZATION_AND_PROVIDER_BOUNDARIES.md)
-- [V1 Change Intent](../architecture/V1_CHANGE_INTENT.md)
-- relevant ADRs from [ADR Index](../architecture/ADR_INDEX.md)
-
-For ADR work, also read:
-
-- [ADR Guidance](../architecture/ADR_GUIDANCE.md)
-- [ADR Backlog](../architecture/ADR_BACKLOG.md)
-- [ADR Template](../architecture/adrs/0000-template.md)
-
-For done criteria or workflow governance, also read:
-
-- [Definition of Done](../architecture/DEFINITION_OF_DONE.md)
-- [AI Agent Operating Model](../architecture/AI_AGENT_OPERATING_MODEL.md)
-
-## Current Guardrails
-
-- For stabilization tasks, the [program decisions](../architecture/ARCHITECTURE.md#stabilization-decisions) govern the cutover. Existing drift is a removal backlog, not permission to add exceptions or retain an unfinished migration.
-- Treat `Organization` and `Group` as canonical v1 domain terms.
-- Do not back-port v2 `Account`, `Unit`, or `Element` terminology into v1 current-state docs or code unless the task is explicitly about migration mapping.
-- Treat the current authorization system as tolerated current-state, not as the desired end-state.
-- Keep business logic behind app-owned ports/adapters and auth-provider-specific calls at auth edges. Remediation removes direct `locals.supabase` dependencies without creating new provider exceptions.
-- Do not deepen feature-permission piggybacking. If a feature currently borrows another feature's permission lane, treat that as drift to reduce, not a pattern to copy.
-- Treat `docs/architecture/GOVERNANCE_BASELINE.json` as the record of existing route-level provider leaks and cross-feature permission couplings to eliminate. Do not add exceptions or reduce scan coverage.
-- If a remediation slice removes tolerated drift, update the baseline and related drift docs in the same change.
-- Preserve the retained Personnel Duty Role data (`clinicRole` / `clinic_role`) and use the canonical term in docs, UX copy and new code shapes. A schema field retained for its data contract is not permission for legacy-path wrappers or a partial consumer migration.
-- If an incidental task encounters authorization semantics, membership modeling, scope evaluation, provider-boundary leaks, or other cross-feature architecture seams, stop after documenting the issue unless the task explicitly authorizes remediation in that area.
+- For stabilization, the [program decisions](../architecture/ARCHITECTURE.md#stabilization-decisions) govern complete cutovers. Existing drift is removal work, not permission for permanent compatibility paths.
+- Keep Organization/Group vocabulary, independent feature lanes and member access scope. Preserve Personnel Duty Role data (`clinicRole` / `clinic_role`); use the canonical term in new code and copy.
+- Keep business logic behind app-owned ports/adapters and auth-provider-specific calls at auth edges. Retire direct provider leaks through their owning tasks.
+- `GOVERNANCE_BASELINE.json` records existing exceptions. Remove resolved entries with their consumers; preserve scan coverage and do not add exceptions or permission couplings to accommodate new drift.
+- Necessary adjacent changes are part of the authorized cutover. For unrelated discoveries, record the issue and continue the requested work. If completion requires an unresolved change to authorization semantics, tenancy, provider privileges or a product contract, isolate that decision under the [operating model](../architecture/AI_AGENT_OPERATING_MODEL.md#decision-boundaries).

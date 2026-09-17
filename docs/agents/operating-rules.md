@@ -1,26 +1,30 @@
 # Agent Operating Rules
 
-Use this file for rules that affect most implementation tasks.
+## Scope and decisions
+
+Complete the authorized outcome, including required consumers, cleanup and verification. Routine local edits, read-only investigation and the prescribed local checks do not need another approval. Inspect lifecycle scripts and environment targets before commands that could reach services or data; database work follows the [isolated database contract](../architecture/DEFINITION_OF_DONE.md#isolated-database-checks) and root [data protections](../../AGENTS.md).
+
+Use the user's current request and prior authorization to resolve routine choices. Ask a focused question when missing information would materially change the result or an action needs authorization not already supplied. Continue independent work while that question is pending. A status question or correction steers the active task; it does not cancel the remaining work unless the user says so.
+
+If a repo or skill instruction requires a pause, link the exact file, quote the relevant rule and explain the concrete unresolved decision. Distinguish an explicit requirement from an inferred preference. Prepare the reviewable result before requesting approval for an external action. Publication, communications, merge and deployment require authorization covering that action; a local implementation request alone does not supply it.
+
+Use available skills when requested or relevant to the workflow. A historical skill name in a reference is not a dependency on an unavailable tool. Follow the current session's delegation policy; when delegation is authorized, use bounded independent tasks where parallel work adds value, and verify the integrated result.
 
 ## Communication
 
-- Robert has technical experience but is not overly technical. When using highly technical language, add a brief parenthetical explanation.
+Robert has technical experience but is not overly technical. Lead with the outcome, use plain language and explain unfamiliar technical terms briefly. Keep progress updates focused on findings, decisions and blockers. Report what changed, verification results and remaining limitations without a work-log transcript.
 
-## Completion Checks
+## Completion checks
 
-- Follow the [verification contract](../architecture/DEFINITION_OF_DONE.md#verification-contract) for the required command sequence, meaningful lower-level tests, computer-use flow evidence, isolated database checks and reproducible performance evidence. Run focused checks during work and the full sequence after final implementation changes.
-- Record each required check as passed, failed or unavailable, with its command and evidence. A missing flow recording, failed test or unavailable tool is not a pass; keep its owning task open when that evidence is required for acceptance.
+The [verification contract](../architecture/DEFINITION_OF_DONE.md#verification-contract) owns required commands and evidence. Use focused checks during edits, then complete the required sequence. Once checks pass, repeat or broaden them only for subsequent changes, failures or unresolved concerns. Documentation edits need meaningful link/contract review, not new tests that match prose.
 
-## Data Safety
+Record each required check as passed, failed or unavailable. Missing flow evidence, failed tests and unavailable tools remain explicit; keep the owning task open when that evidence is required for acceptance. Notify Robert when a completed schema change needs a separately operated remote migration before merge; never run it as part of local verification.
 
-- Do not reset, run migrations on, delete tables from, delete entries in, or otherwise touch the remote production database.
-- Notify Robert when remote migrations need to be run before merging.
-- Do not reset or delete tables from the local development database. If local reset or deletion appears necessary, ask Robert for permission first.
+## Stabilization tasks
 
-## Stabilization Tasks
+When asked to execute the queue, select the first unchecked ready task in the active phase of [TODO](../stabilization/TODO.md), using its relevant baseline/evidence and [program decisions](../architecture/ARCHITECTURE.md#stabilization-decisions). A separate user request does not advance the queue.
 
-- Apply the [program decisions](../architecture/ARCHITECTURE.md#stabilization-decisions) and select the first unchecked ready task in the active phase of [TODO](../stabilization/TODO.md). Read only its relevant baseline contracts and evidence. Existing task authorization covers the necessary consumer cutover; do not invent another approval step.
-- If a task is too broad, record bounded children with prerequisites and measurable acceptance criteria, then complete only the first ready child. Do not activate a later phase automatically.
-- Finish the declared cutover: implementation, affected consumers, meaningful tests, and deletion of replaced code, configuration and active guidance. Close only when acceptance evidence exists; update TODO and concise [EVIDENCE](../stabilization/EVIDENCE.md) together. Record newly discovered in-scope work in the queue before program closure.
-- Preserve verification guards, scan paths and budgets. Do not add allowlists, skip tests or weaken assertions to pass checks. Record failures and unavailable checks explicitly.
-- Do not create or run a repository E2E suite. Its removal is queued in phase 02. Production/remote actions, live data, deployment, publication and merge remain outside stabilization execution.
+- If a task is too broad, record bounded children with prerequisites and measurable acceptance, then complete only the first ready child. Stop after that task; do not activate a later phase automatically.
+- Finish implementation, affected consumers, meaningful tests and deletion of replaced code, configuration and active guidance. Update TODO and concise [evidence](../stabilization/EVIDENCE.md); mark complete only when acceptance is met. Record newly discovered in-scope work before program closure.
+- Preserve verification guards, scan paths and budgets. No allowlists, skipped tests, weakened assertions or hidden failures to obtain a pass.
+- Do not create or run a repository E2E suite; removal is queued in phase 02. Production/remote actions, live data, deployment, publication and merge remain outside stabilization execution.

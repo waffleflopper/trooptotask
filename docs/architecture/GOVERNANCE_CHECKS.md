@@ -35,7 +35,7 @@ These labels are inventory, not permission to add exceptions:
 - it does not prove a route is architecturally good just because it is allowlisted
 - it does not prove a privileged route/provider seam is clean just because it is recorded
 - it does not prove the authz model is correct
-- it does not replace code review, ADRs, or `grill-me`
+- it does not replace code review, ADRs or resolution of open product/design decisions
 - it does not yet cover every shallow module or every terminology problem
 
 ## Baseline File

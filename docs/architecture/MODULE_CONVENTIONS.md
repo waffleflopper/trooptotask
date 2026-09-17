@@ -51,7 +51,7 @@ Keep feature-specific logic inside the feature module unless it is truly shared 
 - Keep public marketing primitives in `$lib/components/public/*`.
 - Follow `docs/component-catalog.md` for shared UI usage and styling expectations.
 - The current UI foundation is shadcn-svelte, Tailwind v4, and TroopToTask compound components. Shared components own appearance; route-level changes are behavioral only.
-- Visual changes happen in tokens, generated/shared component source, or documented shared component variants. Component fit problems should be reported as design-system gaps instead of patched locally.
+- Visual changes happen in tokens, generated/shared component source, or documented shared component variants. Resolve component fit gaps within authorized UI work through shared APIs and affected consumers, following the [UI contract](../agents/ui-system.md).
 - When production routes are explicitly migrated or revised, replace obsolete route CSS with Tailwind utility composition that matches the shared baseline instead of preserving route-specific legacy visuals.
 
 ### Contexts and stores
@@ -113,7 +113,7 @@ Use explicit architecture-review work when a slice is intended to:
 - reduce file-jumping to understand one concept
 - replace shallow helper sprawl with a deeper module boundary
 
-Use the `improve-codebase-architecture` workflow for that kind of change instead of treating it as incidental cleanup.
+Keep deepening work within the requested boundary and finish its consumer cutover. Use an available module-design skill when useful; ordinary fixes do not require a separate architecture workflow.
 
 ## Current Hotspots
 

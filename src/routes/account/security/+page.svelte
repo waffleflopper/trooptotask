@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import { enhance } from '$app/forms';
 	import type { ActionData, PageData } from './$types';
 	import { Button } from '$lib/components/ui/button';
@@ -48,6 +49,10 @@
 		loading = true;
 		try {
 			const response = await fetch('/api/auth/mfa/enroll', { method: 'POST' });
+			if (response.redirected) {
+				await goto(response.url);
+				return;
+			}
 			const payload = (await response.json()) as { factorId?: string; qrCode?: string; error?: string };
 
 			if (!response.ok || !payload.factorId || !payload.qrCode) {
@@ -80,6 +85,10 @@
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ factorId, code: verifyCode })
 			});
+			if (response.redirected) {
+				await goto(response.url);
+				return;
+			}
 
 			if (!response.ok) {
 				const payload = (await response.json()) as { error?: string };
@@ -102,11 +111,15 @@
 	async function cancelEnroll() {
 		if (factorId) {
 			try {
-				await fetch('/api/auth/mfa/enroll/cancel', {
+				const response = await fetch('/api/auth/mfa/enroll/cancel', {
 					method: 'POST',
 					headers: { 'Content-Type': 'application/json' },
 					body: JSON.stringify({ factorId })
 				});
+				if (response.redirected) {
+					await goto(response.url);
+					return;
+				}
 			} catch {
 				// Best effort cleanup; local state should still reset.
 			}
@@ -133,6 +146,10 @@
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ code: disableCode })
 			});
+			if (response.redirected) {
+				await goto(response.url);
+				return;
+			}
 
 			if (!response.ok) {
 				const payload = (await response.json()) as { error?: string };

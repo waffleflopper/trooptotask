@@ -38,6 +38,10 @@
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ code })
 			});
+			if (response.redirected) {
+				await goto(response.url);
+				return;
+			}
 
 			if (!response.ok) {
 				const payload = (await response.json()) as { error?: string };

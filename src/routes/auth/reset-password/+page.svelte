@@ -59,6 +59,10 @@
 
 	async function loadMfaStatus() {
 		const response = await fetch('/api/auth/mfa/status');
+		if (response.redirected) {
+			await goto(response.url);
+			return false;
+		}
 		if (!response.ok) {
 			try {
 				const payload = (await response.json()) as { error?: string };
@@ -183,6 +187,10 @@
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ code: mfaCode })
 			});
+			if (response.redirected) {
+				await goto(response.url);
+				return;
+			}
 
 			const result = await readJsonResult(response);
 			if (!result.ok) {

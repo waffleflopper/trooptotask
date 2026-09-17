@@ -242,8 +242,9 @@ export const handle: Handle = async ({ event, resolve }) => {
 		event.locals.mfaPending = isMfaStepUpRequired(assuranceData);
 	}
 
-	// Protect routes — redirect unauthenticated users to login
-	if (!event.locals.session && !isPublicRoute(event.url.pathname)) {
+	// MFA completion routes allow incomplete authentication, but still require identity.
+	const isMfaEndpoint = event.url.pathname === '/api/auth/mfa' || event.url.pathname.startsWith('/api/auth/mfa/');
+	if (!event.locals.session && (isMfaEndpoint || !isPublicRoute(event.url.pathname))) {
 		redirect(303, '/auth/login');
 	}
 
@@ -258,8 +259,11 @@ export const handle: Handle = async ({ event, resolve }) => {
 		redirect(303, getAuthenticatedRedirectPath(event.locals.authFlow, event.locals.mfaPending));
 	}
 
-	// Check user suspension (skip for auth routes, api routes, and the suspended page itself)
-	const skipSuspensionCheck = ['/auth', '/api/auth', '/suspended'].some((p) => event.url.pathname.startsWith(p));
+	// Keep auth completion reachable; factor management requires an active account.
+	const isMfaCompletion = ['/api/auth/mfa/status', '/api/auth/mfa/verify'].includes(event.url.pathname);
+	const skipSuspensionCheck =
+		(!isMfaEndpoint || isMfaCompletion) &&
+		['/auth', '/api/auth', '/suspended'].some((p) => event.url.pathname.startsWith(p));
 	if (event.locals.user && !skipSuspensionCheck) {
 		const { data: isSuspended, error: suspensionError } = await event.locals.supabase.rpc('is_user_suspended', {
 			check_user_id: event.locals.user.id

@@ -1,5 +1,27 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Cookies, Handle } from '@sveltejs/kit';
+import type { Cookies, Handle, RequestHandler } from '@sveltejs/kit';
+import { POST as enrollMfa } from './routes/api/auth/mfa/enroll/+server';
+import { POST as verifyMfaEnrollment } from './routes/api/auth/mfa/enroll/verify/+server';
+import { POST as cancelMfaEnrollment } from './routes/api/auth/mfa/enroll/cancel/+server';
+import { POST as disableMfa } from './routes/api/auth/mfa/disable/+server';
+import { POST as verifyMfa } from './routes/api/auth/mfa/verify/+server';
+import { GET as mfaStatus } from './routes/api/auth/mfa/status/+server';
+
+const factorManagementRoutes = [
+	{ path: '/api/auth/mfa/enroll', handler: enrollMfa, body: {} },
+	{
+		path: '/api/auth/mfa/enroll/verify',
+		handler: verifyMfaEnrollment,
+		body: { factorId: 'pending-factor', code: '123456' }
+	},
+	{ path: '/api/auth/mfa/enroll/cancel', handler: cancelMfaEnrollment, body: { factorId: 'pending-factor' } },
+	{ path: '/api/auth/mfa/disable', handler: disableMfa, body: { code: '123456' } }
+];
+const completionRoutes = [
+	{ path: '/api/auth/mfa/verify', handler: verifyMfa, body: { code: '123456' } },
+	{ path: '/api/auth/mfa/status', handler: mfaStatus, body: undefined }
+];
+const mfaRoutes = [...factorManagementRoutes, ...completionRoutes];
 
 interface TestUserStorage {
 	getItem(key: string): string | null;
@@ -104,6 +126,17 @@ describe('server auth hook', () => {
 				};
 			}
 		);
+		const mfa = {
+			getAuthenticatorAssuranceLevel,
+			enroll: vi
+				.fn()
+				.mockResolvedValue({ data: { id: 'pending-factor', totp: { qr_code: 'synthetic-qr' } }, error: null }),
+			listFactors: vi
+				.fn()
+				.mockResolvedValue({ data: { totp: [{ id: 'verified-factor', status: 'verified' }] }, error: null }),
+			challengeAndVerify: vi.fn().mockResolvedValue({ error: null }),
+			unenroll: vi.fn().mockResolvedValue({ error: null })
+		};
 		const rpc = vi.fn().mockResolvedValue(rpcResult);
 		const createServerClient = vi.fn((_url: string, _key: string, options: TestServerClientOptions) => {
 			serverClientOptions = options;
@@ -113,9 +146,7 @@ describe('server auth hook', () => {
 					getSession,
 					getClaims,
 					getUser,
-					mfa: {
-						getAuthenticatorAssuranceLevel
-					}
+					mfa
 				},
 				rpc
 			};
@@ -157,6 +188,7 @@ describe('server auth hook', () => {
 
 		return {
 			handle,
+			mfa,
 			event,
 			createEvent,
 			resolve,
@@ -174,6 +206,181 @@ describe('server auth hook', () => {
 			}
 		};
 	}
+
+	describe('MFA endpoint request admission', () => {
+		function dispatch(route: (typeof mfaRoutes)[number]) {
+			return vi.fn(async (event: Parameters<Handle>[0]['event']) => {
+				event.request = new Request(
+					event.url,
+					route.body === undefined
+						? {}
+						: {
+								method: 'POST',
+								headers: { 'Content-Type': 'application/json' },
+								body: JSON.stringify(route.body)
+							}
+				);
+				return (route.handler as RequestHandler)(event);
+			});
+		}
+
+		function expectNoFactorChanges(harness: Awaited<ReturnType<typeof createAuthenticatedHookHarness>>) {
+			expect(harness.mfa.enroll).not.toHaveBeenCalled();
+			expect(harness.mfa.challengeAndVerify).not.toHaveBeenCalled();
+			expect(harness.mfa.unenroll).not.toHaveBeenCalled();
+		}
+
+		it.each(mfaRoutes)('requires verified identity before dispatching $path', async (route) => {
+			const harness = await createAuthenticatedHookHarness({ data: false, error: null });
+			const resolve = dispatch(route);
+			await expect(harness.handle({ event: harness.createEvent(route.path, {}), resolve })).rejects.toMatchObject({
+				status: 303,
+				location: '/auth/login'
+			});
+			expect(resolve).not.toHaveBeenCalled();
+			expectNoFactorChanges(harness);
+		});
+
+		it.each(mfaRoutes)('rejects stale provider identity before dispatching $path', async (route) => {
+			const harness = await createAuthenticatedHookHarness({ data: false, error: null });
+			harness.getUser.mockResolvedValue({ data: { user: null }, error: null });
+			const resolve = dispatch(route);
+			await expect(harness.handle({ event: harness.createEvent(route.path), resolve })).rejects.toMatchObject({
+				status: 303,
+				location: '/auth/login'
+			});
+			expect(resolve).not.toHaveBeenCalled();
+			expectNoFactorChanges(harness);
+		});
+
+		it.each(mfaRoutes)('dispatches an admitted account to the actual $path handler', async (route) => {
+			const harness = await createAuthenticatedHookHarness({ data: false, error: null });
+			harness.getAuthenticatorAssuranceLevel.mockResolvedValue({
+				data: { currentLevel: 'aal2', nextLevel: 'aal2' },
+				error: null
+			});
+			const response = await harness.handle({ event: harness.createEvent(route.path), resolve: dispatch(route) });
+			expect(response.status).toBe(200);
+			expect(await response.json()).toEqual(
+				route.path.endsWith('/status')
+					? { currentLevel: 'aal2', nextLevel: 'aal2' }
+					: route.path.endsWith('/enroll')
+						? { factorId: 'pending-factor', qrCode: 'synthetic-qr' }
+						: { ok: true }
+			);
+		});
+
+		it('allows an active AAL1 account to begin its first MFA enrollment', async () => {
+			const harness = await createAuthenticatedHookHarness({ data: false, error: null });
+			const route = factorManagementRoutes[0];
+			const response = await harness.handle({ event: harness.createEvent(route.path), resolve: dispatch(route) });
+			expect(response.status).toBe(200);
+			expect(await response.json()).toEqual({ factorId: 'pending-factor', qrCode: 'synthetic-qr' });
+			expect(harness.mfa.enroll).toHaveBeenCalledWith({ factorType: 'totp' });
+		});
+
+		it.each(factorManagementRoutes)('blocks suspended factor management at $path', async (route) => {
+			const harness = await createAuthenticatedHookHarness({ data: true, error: null });
+			const resolve = dispatch(route);
+			const response = await harness.handle({ event: harness.createEvent(route.path), resolve });
+			expect(response.status).toBe(302);
+			expect(response.headers.get('location')).toBe('/suspended');
+			expect(resolve).not.toHaveBeenCalled();
+			expectNoFactorChanges(harness);
+		});
+
+		describe.each([
+			{ label: 'missing suspension status', result: { data: null, error: null }, throws: false },
+			{
+				label: 'suspension error with data',
+				result: { data: false, error: { message: 'unavailable' } },
+				throws: false
+			},
+			{ label: 'thrown suspension lookup', result: { data: false, error: null }, throws: true }
+		])('$label', ({ result, throws }) => {
+			it.each(factorManagementRoutes)('denies $path without factor changes', async (route) => {
+				vi.spyOn(console, 'error').mockImplementation(() => undefined);
+				const harness = await createAuthenticatedHookHarness(result);
+				if (throws) harness.rpc.mockRejectedValue(new Error('provider unavailable'));
+				const resolve = dispatch(route);
+				const attempt = harness.handle({ event: harness.createEvent(route.path), resolve });
+				if (throws) await expect(attempt).rejects.toThrow('provider unavailable');
+				else await expect(attempt).rejects.toMatchObject({ status: 500 });
+				expect(resolve).not.toHaveBeenCalled();
+				expectNoFactorChanges(harness);
+			});
+		});
+
+		describe.each([
+			{ flow: null, location: '/auth/mfa-verify' },
+			{ flow: 'recovery', location: '/auth/reset-password' },
+			{ flow: 'invite', location: '/auth/accept-invite' }
+		])('incomplete $flow session', ({ flow, location }) => {
+			it.each(factorManagementRoutes)('cannot change factors through $path', async (route) => {
+				const harness = await createAuthenticatedHookHarness({ data: false, error: null });
+				harness.getAuthenticatorAssuranceLevel.mockResolvedValue({
+					data: { currentLevel: 'aal1', nextLevel: 'aal2' },
+					error: null
+				});
+				const event = harness.createEvent(route.path, {
+					'sb-example-auth-token': 'session',
+					...(flow ? { ttt_pending_auth_flow: flow } : {})
+				});
+				const resolve = dispatch(route);
+				await expect(harness.handle({ event, resolve })).rejects.toMatchObject({ status: 303, location });
+				expect(resolve).not.toHaveBeenCalled();
+				expectNoFactorChanges(harness);
+			});
+		});
+
+		describe.each([null, 'recovery'])('completion with flow %s', (flow) => {
+			it.each(completionRoutes)('lets a suspended pending-MFA account complete via $path', async (route) => {
+				const harness = await createAuthenticatedHookHarness({ data: true, error: null });
+				harness.getAuthenticatorAssuranceLevel.mockResolvedValue({
+					data: { currentLevel: 'aal1', nextLevel: 'aal2' },
+					error: null
+				});
+				const event = harness.createEvent(route.path, {
+					'sb-example-auth-token': 'session',
+					...(flow ? { ttt_pending_auth_flow: flow } : {})
+				});
+				const response = await harness.handle({ event, resolve: dispatch(route) });
+				expect(response.status).toBe(200);
+				expect(await response.json()).toEqual(
+					route.path.endsWith('/status') ? { currentLevel: 'aal1', nextLevel: 'aal2' } : { ok: true }
+				);
+				expect(harness.mfa.enroll).not.toHaveBeenCalled();
+				expect(harness.mfa.unenroll).not.toHaveBeenCalled();
+			});
+		});
+
+		it.each(completionRoutes)('keeps invite sessions on their own completion path at $path', async (route) => {
+			const harness = await createAuthenticatedHookHarness({ data: false, error: null });
+			const event = harness.createEvent(route.path, {
+				'sb-example-auth-token': 'session',
+				ttt_pending_auth_flow: 'invite'
+			});
+			const resolve = dispatch(route);
+			await expect(harness.handle({ event, resolve })).rejects.toMatchObject({
+				status: 303,
+				location: '/auth/accept-invite'
+			});
+			expect(resolve).not.toHaveBeenCalled();
+			expectNoFactorChanges(harness);
+		});
+
+		it.each(mfaRoutes)('denies unavailable assurance before dispatching $path', async (route) => {
+			vi.spyOn(console, 'error').mockImplementation(() => undefined);
+			const harness = await createAuthenticatedHookHarness({ data: false, error: null });
+			harness.getAuthenticatorAssuranceLevel.mockResolvedValue({ data: null, error: { message: 'unavailable' } });
+			const resolve = dispatch(route);
+			await expect(harness.handle({ event: harness.createEvent(route.path), resolve })).rejects.toMatchObject({
+				status: 503
+			});
+			expect(resolve).not.toHaveBeenCalled();
+			expectNoFactorChanges(harness);
+		});
+	});
 
 	it('admits anonymous public requests without exposing a session', async () => {
 		const harness = await createAuthenticatedHookHarness({ data: false, error: null });

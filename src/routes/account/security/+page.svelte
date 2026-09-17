@@ -144,6 +144,7 @@
 	}
 
 	async function disableMFA() {
+		if (disabling) return;
 		if (!disableCode || disableCode.length !== 6) {
 			mfaError = 'Please enter the 6-digit code from your authenticator app.';
 			return;
@@ -163,9 +164,9 @@
 				return;
 			}
 
-			if (!response.ok) {
-				const payload = (await response.json()) as { error?: string };
-				mfaError = payload.error ?? 'Failed to disable MFA';
+			const payload = (await response.json()) as { ok?: boolean; error?: string } | null;
+			if (!response.ok || payload?.ok !== true) {
+				mfaError = payload?.error ?? 'Failed to disable MFA';
 				return;
 			}
 
@@ -493,6 +494,7 @@
 						<Field.Control>
 							<Input
 								id="disable-code"
+								disabled={disabling}
 								type="text"
 								value={disableCode}
 								oninput={handleDisableCodeInput}

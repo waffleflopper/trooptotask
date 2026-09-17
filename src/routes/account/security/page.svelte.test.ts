@@ -167,3 +167,51 @@ describe('enrollment confirmation', () => {
 		expect(await screen.findByLabelText('Verification code')).toBeEnabled();
 	});
 });
+
+describe('fresh-challenge MFA disable', () => {
+	it.each(['invalid code', 'provider unavailable', 'network failure', 'invalid success response'])(
+		'keeps MFA enabled and code available after %s, then permits a serialized retry',
+		async (failure) => {
+			let finishDisable!: (response: Response) => void;
+			const fetchMock = vi.fn();
+			if (failure === 'network failure') fetchMock.mockRejectedValueOnce(new Error('Connection lost'));
+			else if (failure === 'invalid success response') fetchMock.mockResolvedValueOnce(Response.json({}));
+			else
+				fetchMock.mockResolvedValueOnce(
+					Response.json({ error: failure }, { status: failure === 'invalid code' ? 401 : 503 })
+				);
+			fetchMock.mockImplementationOnce(
+				() =>
+					new Promise<Response>((resolve) => {
+						finishDisable = resolve;
+					})
+			);
+			vi.stubGlobal('fetch', fetchMock);
+			render(Page, {
+				props: {
+					data: { hasMFA: true, currentEmail: 'synthetic@example.test', pendingEmail: null } as PageData,
+					form: null
+				}
+			});
+			await fireEvent.click(screen.getByRole('button', { name: 'Disable MFA' }));
+			const code = screen.getByLabelText('Authenticator code');
+			await fireEvent.input(code, { target: { value: '123456' } });
+			await fireEvent.click(screen.getByRole('button', { name: 'Confirm and Disable' }));
+			await screen.findByText('Security issue');
+			expect(screen.getByText('Enabled')).toBeTruthy();
+			expect(code).toHaveValue('123456');
+			await fireEvent.input(code, { target: { value: '654321' } });
+			await fireEvent.submit(code.closest('form')!);
+			expect(screen.getByRole('button', { name: 'Keep MFA Enabled' })).toBeDisabled();
+			expect(screen.getByRole('button', { name: /Confirm and Disable/ })).toBeDisabled();
+			expect(code).toBeDisabled();
+			await fireEvent.submit(code.closest('form')!);
+			expect(fetchMock).toHaveBeenCalledTimes(2);
+			expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ code: '654321' });
+			finishDisable(Response.json({ ok: true }));
+			await screen.findByText('Disabled');
+			expect(screen.queryByLabelText('Authenticator code')).toBeNull();
+			expect(screen.getByRole('button', { name: 'Enable MFA' })).toBeEnabled();
+		}
+	);
+});

@@ -2,58 +2,53 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
 export const POST: RequestHandler = async ({ request, locals }) => {
-	const { code } = (await request.json()) as {
-		code?: string;
-	};
-
-	if (!code || !/^\d{6}$/.test(code)) {
-		return json(
-			{
-				error: 'Enter the 6-digit code from your authenticator app.'
-			},
-			{ status: 400 }
-		);
+	const body: unknown = await request.json().catch(() => null);
+	const code = body && typeof body === 'object' && 'code' in body ? body.code : undefined;
+	if (typeof code !== 'string' || !/^\d{6}$/.test(code)) {
+		return json({ error: 'Enter the 6-digit code from your authenticator app.' }, { status: 400 });
 	}
 
-	const { data: factors } = await locals.supabase.auth.mfa.listFactors();
-	const totpFactors = factors?.totp ?? [];
-	const verifiedFactor = totpFactors.find((factor: Record<string, unknown>) => factor.status === 'verified');
-
-	if (!verifiedFactor) {
-		return json(
-			{
-				error: 'No verified MFA factor found.'
-			},
-			{ status: 400 }
+	try {
+		const { data: factors, error: lookupError } = await locals.supabase.auth.mfa.listFactors();
+		if (lookupError || !factors) {
+			return json({ error: 'Unable to verify MFA factors. Try again.' }, { status: 503 });
+		}
+		const verifiedFactor = factors.all.find(
+			(factor) =>
+				factor.factor_type === 'totp' &&
+				factor.status === 'verified' &&
+				typeof factor.id === 'string' &&
+				factor.id.trim()
 		);
+		if (!verifiedFactor) {
+			return json({ error: 'No verified MFA factor found.' }, { status: 400 });
+		}
+
+		const { data: challenge, error: challengeError } = await locals.supabase.auth.mfa.challengeAndVerify({
+			factorId: verifiedFactor.id,
+			code
+		});
+		if (challengeError) {
+			return json({ error: challengeError.message }, { status: 401 });
+		}
+		if (
+			typeof challenge?.access_token !== 'string' ||
+			!challenge.access_token.trim() ||
+			typeof challenge?.refresh_token !== 'string' ||
+			!challenge.refresh_token.trim()
+		) {
+			return json({ error: 'Unable to verify the MFA code. Try again.' }, { status: 503 });
+		}
+
+		const { data: removed, error } = await locals.supabase.auth.mfa.unenroll({ factorId: verifiedFactor.id });
+		if (error) {
+			return json({ error: error.message }, { status: 401 });
+		}
+		if (removed?.id !== verifiedFactor.id) {
+			return json({ error: 'Unable to confirm MFA removal. Reload to check its status.' }, { status: 503 });
+		}
+		return json({ ok: true });
+	} catch {
+		return json({ error: 'Unable to disable MFA. Reload to check its status before retrying.' }, { status: 503 });
 	}
-
-	const { error: challengeError } = await locals.supabase.auth.mfa.challengeAndVerify({
-		factorId: verifiedFactor.id as string,
-		code
-	});
-
-	if (challengeError) {
-		return json(
-			{
-				error: challengeError.message
-			},
-			{ status: 401 }
-		);
-	}
-
-	const { error } = await locals.supabase.auth.mfa.unenroll({
-		factorId: verifiedFactor.id as string
-	});
-
-	if (error) {
-		return json(
-			{
-				error: error.message
-			},
-			{ status: 401 }
-		);
-	}
-
-	return json({ ok: true });
 };

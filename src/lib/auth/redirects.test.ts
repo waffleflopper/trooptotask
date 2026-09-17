@@ -26,4 +26,27 @@ describe('sanitizeAuthNextPath', () => {
 		expect(sanitizeAuthNextPath('/..//admin')).toBeNull();
 		expect(sanitizeAuthNextPath('/%2e%2e//admin')).toBeNull();
 	});
+
+	it.each([
+		['/org/alpha/../bravo/calendar?view=month#today', '/org/bravo/calendar?view=month#today'],
+		[
+			'/account/security?label=A%26B&next=https%3A%2F%2Fexternal.invalid#devices',
+			'/account/security?label=A%26B&next=https%3A%2F%2Fexternal.invalid#devices'
+		],
+		['/org/alpha/personnel?name=Jos%C3%A9', '/org/alpha/personnel?name=Jos%C3%A9'],
+		['/%2Fexternal.invalid/path', '/%2Fexternal.invalid/path']
+	])('preserves the local destination %s without decoding query or path separators', (input, expected) => {
+		expect(sanitizeAuthNextPath(input)).toBe(expected);
+	});
+
+	it.each([
+		'dashboard',
+		'?next=/dashboard',
+		'#dashboard',
+		'javascript:alert(1)',
+		'///external.invalid',
+		'/a/..//external.invalid',
+		'/%2e%2e//external.invalid',
+		'/account\\security'
+	])('rejects a non-app destination %s', (input) => expect(sanitizeAuthNextPath(input)).toBeNull());
 });

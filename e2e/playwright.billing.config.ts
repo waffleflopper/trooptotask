@@ -1,9 +1,9 @@
 import { defineConfig } from '@playwright/test';
 
-function resolveBaseURL(rawBaseURL = process.env.E2E_BASE_URL || 'http://127.0.0.1:4173') {
+function resolveBaseURL(rawBaseURL = process.env.E2E_BASE_URL || 'http://127.0.0.1:4273') {
 	const parsedBaseURL = new URL(rawBaseURL);
 	if (!parsedBaseURL.port) {
-		parsedBaseURL.port = '4173';
+		parsedBaseURL.port = '4273';
 	}
 	return parsedBaseURL.toString().replace(/\/$/, '');
 }
@@ -45,7 +45,7 @@ export default defineConfig({
 			APP_PUBLIC_ORIGIN: baseURL,
 			E2E_BILLING_WEBHOOK: 'true',
 			E2E_TESTING: 'true',
-			MAILPIT_URL: process.env.MAILPIT_URL || 'http://127.0.0.1:54324',
+			MAILPIT_URL: process.env.MAILPIT_URL || 'http://127.0.0.1:56324',
 			STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
 			STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET
 		}

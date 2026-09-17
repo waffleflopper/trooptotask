@@ -88,6 +88,10 @@ A military unit management platform for personnel tracking, calendar/availabilit
 
 ## Getting Started
 
+This maintenance checkout uses its own 563xx Supabase stack and browser-test port 4273.
+See [Local maintenance environment](docs/local-maintenance-environment.md) before
+following the generic setup instructions below.
+
 ### Prerequisites
 
 - Node.js 24.x (use `.nvmrc` with `nvm use` if you use nvm)

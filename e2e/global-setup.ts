@@ -8,7 +8,7 @@ import {
 	TEST_TRAINING_TYPES
 } from './fixtures/test-data';
 import { createClient } from '@supabase/supabase-js';
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 import fs from 'fs';
 import { appHost } from './fixtures/app';
 
@@ -38,8 +38,13 @@ async function globalSetup() {
 		.map((u) => `'${u.email}'`)
 		.join(',');
 	try {
-		execSync(
-			`psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -c "DELETE FROM auth.users WHERE email IN (${testEmails})"`,
+		execFileSync(
+			'psql',
+			[
+				process.env.E2E_DATABASE_URL || 'postgresql://postgres:postgres@127.0.0.1:56322/postgres',
+				'-c',
+				`DELETE FROM auth.users WHERE email IN (${testEmails})`
+			],
 			{ stdio: 'pipe' }
 		);
 	} catch {
@@ -131,7 +136,7 @@ async function globalSetup() {
 	// 8. Create authenticated storageState files for each role
 	// Sign in programmatically via Supabase client to avoid GoTrue rate limits,
 	// then write Playwright-compatible storageState JSON with the auth cookies.
-	const supabaseUrl = process.env.PUBLIC_SUPABASE_URL || 'http://127.0.0.1:54321';
+	const supabaseUrl = process.env.PUBLIC_SUPABASE_URL || 'http://127.0.0.1:56321';
 	const anonKey = process.env.PUBLIC_SUPABASE_ANON_KEY || '';
 
 	// Ensure auth directory exists

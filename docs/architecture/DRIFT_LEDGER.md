@@ -9,33 +9,35 @@ Each entry separates:
 - why the gap matters
 - how contributors should behave until remediation lands
 
+Apply the [stabilization decisions](ARCHITECTURE.md#stabilization-decisions) and [execution queue](../stabilization/TODO.md). These entries describe existing debt; recording a finding does not authorize a new exception or complete a migration. Newly discovered in-scope work needs a bounded queue task, and each cutover removes its obsolete consumers before closure.
+
 ## D-02 Provider-Boundary Leaks
 
 - Current-state truth:
-	- many server paths already use ports, adapters, entities, and use cases
-	- billing organization-state reads and writes plus the shared export-record lifecycle now run through app-owned store-backed helpers in `#619`
-	- billing cancellation now acknowledges successful Stripe cancellation even if the immediate local organization reset fails, relying on the existing Stripe deleted-subscription webhook as the documented reconciliation path in `#637`
-		- Critical Tasks workspace settings now load through an app-owned use case instead of the route layout
-		- the legacy platform invite-code runtime route has been removed
-		- Platform Administration aggregate Organization metrics now route through the `PlatformMetrics` use case and Supabase adapter instead of the route-level helper
-		- Platform Administration membership and owner aggregate metrics now use service-role aggregate RPCs instead of adapter-side membership-row pagination
-		- Platform Administration announcements CRUD now routes through the `PlatformAnnouncements` use case and Supabase adapter instead of direct route-level table calls
-		- Platform Administration beta feedback list/update now routes through the `PlatformFeedback` use case and Supabase adapter instead of direct route-level table calls
-			- Platform Administration gifting list/grant/revoke/extend and organization-detail gift state now route through the `PlatformGifting` use case and Supabase adapter instead of route-level gift table calls
-			- Platform Administration audit-log list/action/recent reads now route through the `PlatformAudit` use case and Supabase adapter instead of direct route-level audit table calls
-				- Platform Administration organization-detail member reads, make-admin, and ownership transfer now route through the `PlatformMembershipAdministration` use case and Supabase adapter instead of route-level membership table calls
-				- Platform Administration billing-event diagnostics and retry commands now route through the `PlatformBillingEvents` use case and Supabase adapter instead of route-level billing table calls or webhook processor calls
-				- Platform Administration user-directory list/detail shaping now routes auth users, memberships, suspensions, and active personnel counts through the `PlatformUserDirectory` use case and Supabase adapter instead of route-level row shaping
-				- Platform Administration user identity email commands now route through the `PlatformUserIdentityCommands` use case and Supabase adapter instead of route-local Supabase Auth calls
-				- Platform Administration organization-detail base reads and billing snapshot reads now route through the `PlatformOrganizationDetail` use case and Supabase adapter instead of route-level table calls
-				- the organization members settings screen reads **Account Setup Link** state for its own pending **Organization Invitations** through a narrow optional service-role port on `UseCaseContext`, wired in `httpAdapter.ts` alongside `signInRosterPersonnelLookup`, rather than through route-level provider access (ADR 0012)
-				- multiple non-adapter routes still depend directly on `locals.supabase`, especially admin operations and some remaining layout helpers
+  - many server paths already use ports, adapters, entities, and use cases
+  - billing organization-state reads and writes plus the shared export-record lifecycle now run through app-owned store-backed helpers in `#619`
+  - billing cancellation now acknowledges successful Stripe cancellation even if the immediate local organization reset fails, relying on the existing Stripe deleted-subscription webhook as the documented reconciliation path in `#637`
+    - Critical Tasks workspace settings now load through an app-owned use case instead of the route layout
+    - the legacy platform invite-code runtime route has been removed
+    - Platform Administration aggregate Organization metrics now route through the `PlatformMetrics` use case and Supabase adapter instead of the route-level helper
+    - Platform Administration membership and owner aggregate metrics now use service-role aggregate RPCs instead of adapter-side membership-row pagination
+    - Platform Administration announcements CRUD now routes through the `PlatformAnnouncements` use case and Supabase adapter instead of direct route-level table calls
+    - Platform Administration beta feedback list/update now routes through the `PlatformFeedback` use case and Supabase adapter instead of direct route-level table calls
+      - Platform Administration gifting list/grant/revoke/extend and organization-detail gift state now route through the `PlatformGifting` use case and Supabase adapter instead of route-level gift table calls
+      - Platform Administration audit-log list/action/recent reads now route through the `PlatformAudit` use case and Supabase adapter instead of direct route-level audit table calls
+        - Platform Administration organization-detail member reads, make-admin, and ownership transfer now route through the `PlatformMembershipAdministration` use case and Supabase adapter instead of route-level membership table calls
+        - Platform Administration billing-event diagnostics and retry commands now route through the `PlatformBillingEvents` use case and Supabase adapter instead of route-level billing table calls or webhook processor calls
+        - Platform Administration user-directory list/detail shaping now routes auth users, memberships, suspensions, and active personnel counts through the `PlatformUserDirectory` use case and Supabase adapter instead of route-level row shaping
+        - Platform Administration user identity email commands now route through the `PlatformUserIdentityCommands` use case and Supabase adapter instead of route-local Supabase Auth calls
+        - Platform Administration organization-detail base reads and billing snapshot reads now route through the `PlatformOrganizationDetail` use case and Supabase adapter instead of route-level table calls
+        - the organization members settings screen reads **Account Setup Link** state for its own pending **Organization Invitations** through a narrow optional service-role port on `UseCaseContext`, wired in `httpAdapter.ts` alongside `signInRosterPersonnelLookup`, rather than through route-level provider access (ADR 0012)
+        - multiple non-adapter routes still depend directly on `locals.supabase`, especially admin operations and some remaining layout helpers
 - Intended direction:
   - outside auth and adapter edges, business logic should be provider-agnostic
 - Why this matters:
   - database-provider changes should not require feature and route rewrites
 - Guardrail until fixed:
-  - do not add new direct provider business logic outside approved remediation
+  - use app-owned use cases and adapters for business logic; remediation must remove existing leaks without adding baseline exceptions
 - Recommended next slice:
   - isolate the remaining admin/platform `locals.supabase` clusters behind app-owned use cases and adapters
 
@@ -60,7 +62,7 @@ Each entry separates:
   - old names distort domain understanding and make new design decisions noisier
   - the bare label `Role` is easy to confuse with membership roles and admin roles
 - Guardrail until fixed:
-  - preserve compatibility field names until an explicit migration slice authorizes more
+  - preserve the retained Personnel Duty Role field and its data contract; any declared migration must finish all affected consumers without old-path wrappers
   - do not introduce new user-facing `clinic role` copy or bare `Role` labels when the field really means `Duty Role`
 - Recommended next slice:
   - runtime abstraction and migration plan once a repo-wide rename is explicitly approved
@@ -84,7 +86,7 @@ Each entry separates:
 - Guardrail until fixed:
   - use explicit architecture-review slices for deepening instead of incidental churn
 - Recommended next slice:
-  - continue prioritized deep-module reviews using `improve-codebase-architecture`, especially for remaining calendar, duty-roster, personnel, and training orchestration seams; the current calendar and duty-roster helpers reduce D-07 but do not resolve it
+  - remove Duty Roster and Calendar duty hydration in phase 05, then deepen retained Calendar, Personnel and Training modules through their queued tasks; existing duty helpers are removal targets, not a future product foundation
 
 ## D-08 Route-Level Membership And Settings Logic (Resolved For Org Settings Governance)
 
@@ -107,7 +109,7 @@ Each entry separates:
 ## D-09 Missing Repo Governance Automation
 
 - Current-state truth:
-  - CI enforces format, lint, governance baseline checks, check, and test
+  - CI defines format, lint, governance baseline checks, check, and test, but its manual-only trigger does not enforce automatic PR checks (F03; task 11-04)
   - a lightweight governance baseline check now exists for route-level provider leaks and known permission-lane couplings
   - issue templates and ADR guidance now exist for retrofit slicing and drift capture
   - there is still no comprehensive architecture-fitness suite
@@ -116,7 +118,7 @@ Each entry separates:
 - Why this matters:
   - architecture becomes guidance by prose alone unless it is reinforced operationally
 - Guardrail until fixed:
-  - use the baseline check to prevent new undocumented exceptions, but do not pretend it proves architectural correctness
+  - use the baseline check to prevent new exceptions; remove resolved entries without shrinking scan coverage, and do not treat a passing check as proof of architectural correctness
 - Recommended next slice:
   - deepen the checks once the first authz and provider-boundary remediation slices settle the target shape
 
@@ -128,11 +130,11 @@ Each entry separates:
   - a fatal setup-link creation failure blocks the invitation but leaves the request approved, so its owner could still obtain a credential through `/auth/renew-invite` even though the invitation never completed; no email is sent on that path, so nothing points them at it
   - the only mitigation is visibility: auto-approved rows are marked as such, with origin context, in the platform-admin reviewed-requests table
 - Intended direction:
-  - platform access granted on an organization owner's authority should be revocable by a platform admin before it is used
+  - deliberately correct F01: invitation-origin platform approval and unused setup credentials need coherent issuance, renewal and rescind transitions, with provenance distinguishing independent approvals and sibling Organization grants
 - Why this matters:
   - auto-approval moves the grant decision outside the platform admin's control while leaving the withdrawal decision inside it, so the two are no longer symmetric
 - Guardrail until fixed:
-  - do not add invite-origin bypasses to `reject` or ad-hoc revocation paths; the remedy is downstream User and Organization administration tooling, not a special case here
-  - treat the reviewed-requests marking as load-bearing, not cosmetic — it is the only detection surface
+  - preserve reviewed acquisition and separate invitation acceptance; reviewed-request marking remains a detection surface, not remediation
+  - implement the repair at the owned workflow and SQL transition boundaries with concurrency-safe provenance rules; preserve unrelated approvals, another Organization's grant and existing accounts
 - Recommended next slice:
-  - none while billing is disabled. Enabling billing stops the bridge firing and closes this entry by construction; if that stalls, extend `reject` and implement `'manual'` revocation together
+  - task **11-01** in [TODO](../stabilization/TODO.md), after its prerequisites: test fatal setup issuance failure, renewal, rejection/rescind, concurrent invitations and independent approvals with deterministic clocks and failure cases. A blocked invitation must not unintentionally retain revocable platform entry. Billing removal makes the retained bridge unconditional and does not close F01; this entry remains unresolved until the repair and acceptance evidence exist.

@@ -24,6 +24,7 @@
 
 	async function handleVerify(e: Event) {
 		e.preventDefault();
+		if (loading) return;
 
 		if (!code || code.length !== 6) {
 			error = 'Please enter a 6-digit code';
@@ -43,13 +44,13 @@
 				return;
 			}
 
-			if (!response.ok) {
-				const payload = (await response.json()) as { error?: string };
-				error = payload.error ?? 'Verification failed';
+			const payload = (await response.json()) as { ok?: boolean; error?: string } | null;
+			if (!response.ok || payload?.ok !== true) {
+				error = payload?.error ?? 'Verification failed';
 				return;
 			}
 
-			goto(resolve((getNextPath() ?? '/dashboard') as '/'));
+			await goto(resolve((getNextPath() ?? '/dashboard') as '/'));
 		} catch (e: unknown) {
 			error = e instanceof Error ? e.message : 'Verification failed';
 		} finally {
@@ -86,6 +87,7 @@
 			<AuthField
 				label="Verification Code"
 				id="mfa-code"
+				disabled={loading}
 				hint="Enter the current code from your authenticator app."
 				value={code}
 				oninput={handleCodeInput}

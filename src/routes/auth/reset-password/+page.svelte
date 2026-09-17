@@ -173,6 +173,7 @@
 
 	async function handleMfaVerify(e: Event) {
 		e.preventDefault();
+		if (loading) return;
 		error = '';
 
 		if (mfaCode.length !== 6) {
@@ -201,6 +202,8 @@
 			requiresMfa = false;
 			mfaVerified = true;
 			mfaCode = '';
+		} catch (e: unknown) {
+			error = e instanceof Error ? e.message : 'Verification failed.';
 		} finally {
 			loading = false;
 		}
@@ -267,6 +270,7 @@
 				<AuthField
 					label="Authenticator Code"
 					id="mfa-code"
+					disabled={loading}
 					hint="Enter the current 6-digit code from your authenticator app before you reset the password."
 					value={mfaCode}
 					oninput={handleMfaCodeInput}

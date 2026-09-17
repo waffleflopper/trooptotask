@@ -34,9 +34,9 @@ Rules:
 - Production routes may configure behavior, labels, data, validation, permissions, filters, columns, and actions.
 - Production routes must not visually retune shared components with route-local spacing, radius, borders, shadows, typography, color, animation, density, or internal selectors unless Robert explicitly approves the specific visual exception.
 - Route-level variation is behavioral only. Behavioral changes must not affect other consumers of the shared component.
-- Stop and ask permission before creating a route-specific wrapper around a shared component to change behavior.
+- Within authorized UI work, compose feature behavior from shared primitives or extend the shared API as needed. Preserve the visual baseline and other consumers; do not create a duplicate primitive API or compatibility wrapper. An unapproved visual exception still needs Robert's decision, but ordinary behavioral composition does not need another approval.
 - If a durable visual need appears, add it centrally and document it here before any route consumes it.
-- If a shared component does not fit a route, report the design-system gap and propose a shared component/API extension instead of patching the route locally.
+- If a shared component does not fit an authorized route change, implement the smallest shared component/API extension, document it here and update affected consumers. Keep appearance owned centrally.
 - Production work must not import legacy TroopToTask component wrappers such as the old toolbar family, `EmptyState`, `FileUpload`, `SearchSelect`, or legacy spinner wrappers when shadcn replacements exist.
 - The current dark-mode source remains `documentElement[data-theme]`; Tailwind v4 dark variants also support `.dark` during the transition for shadcn compatibility.
 
@@ -264,7 +264,12 @@ Migration guidance:
 		</WorkspaceToolbar.Group>
 		<WorkspaceToolbar.Group label="Training report exports" zone="actions">
 			<ReportWorkspace.ExportActions>
-				<ReportWorkspace.ExportAction label="Export workbook" href={exportHref} state={exportState} disabledReason={exportDisabledReason} />
+				<ReportWorkspace.ExportAction
+					label="Export workbook"
+					href={exportHref}
+					state={exportState}
+					disabledReason={exportDisabledReason}
+				/>
 			</ReportWorkspace.ExportActions>
 		</WorkspaceToolbar.Group>
 	</ReportWorkspace.Toolbar>
@@ -280,13 +285,13 @@ Migration guidance:
 		<ReportWorkspace.Chart title="Readiness trend" ariaLabel="Readiness trend chart">
 			<!-- feature-owned chart content -->
 		</ReportWorkspace.Chart>
-		<ReportWorkspace.Table title="Detail rows" data={rows} columns={columns} ariaLabel="Training detail rows">
+		<ReportWorkspace.Table title="Detail rows" data={rows} {columns} ariaLabel="Training detail rows">
 			{#snippet summary()}
 				<ReportWorkspace.SummaryStrip
 					topRisk="Alpha · 68% ready"
 					population="126 personnel"
 					parameters="Past 30 days"
-					findings={["3 groups below 80% readiness.", "HQ has the lowest current availability."]}
+					findings={['3 groups below 80% readiness.', 'HQ has the lowest current availability.']}
 					riskTone="warning"
 				/>
 			{/snippet}
@@ -440,7 +445,7 @@ Rules:
 	import * as OperationalMatrix from '$lib/components/ui/operational-matrix';
 </script>
 
-<OperationalMatrix.Root rows={rows} columns={columns} rowGroups={rowGroups} selectedCell={selectedCell} onCellSelect={handleCellSelect}>
+<OperationalMatrix.Root {rows} {columns} {rowGroups} {selectedCell} onCellSelect={handleCellSelect}>
 	<OperationalMatrix.Viewport ariaLabel="Training matrix viewport">
 		<OperationalMatrix.Table ariaLabel="Training matrix">
 			<OperationalMatrix.Header>
@@ -556,7 +561,11 @@ Rules:
 	<BulkImportWorkspace.Header title="Personnel import" step="Step 1" />
 
 	<BulkImportWorkspace.SourcePicker label="Import source">
-		<BulkImportWorkspace.SourceOption label="Upload" selected={source === 'upload'} onSelect={() => (source = 'upload')} />
+		<BulkImportWorkspace.SourceOption
+			label="Upload"
+			selected={source === 'upload'}
+			onSelect={() => (source = 'upload')}
+		/>
 		<BulkImportWorkspace.SourceOption label="Paste" selected={source === 'paste'} onSelect={() => (source = 'paste')} />
 	</BulkImportWorkspace.SourcePicker>
 
@@ -569,7 +578,7 @@ Rules:
 	<BulkImportWorkspace.PreviewTable
 		rows={previewRows}
 		columns={previewColumns}
-		selection={selection}
+		{selection}
 		rowKey={(row) => row.id}
 		disabledRow={(row) => row.hasErrors}
 		disabledReason={(row) => (row.hasErrors ? row.errorSummary : undefined)}
@@ -636,15 +645,15 @@ Use these for any top-level marketing, legal, or trust page so the public site k
 
 ```svelte
 <PublicShell user={data.user} active="security" bodyClass="security-page" roadmapHref="/#roadmap">
-    <PublicPageHeader label="Security">
-        {#snippet title()}Built for controlled <em>personnel data.</em>{/snippet}
-        <p>Role-scoped access, encryption, and audit history for unit workflows.</p>
-    </PublicPageHeader>
+	<PublicPageHeader label="Security">
+		{#snippet title()}Built for controlled <em>personnel data.</em>{/snippet}
+		<p>Role-scoped access, encryption, and audit history for unit workflows.</p>
+	</PublicPageHeader>
 
-    <PublicContentSection label="01 // Controls" alternate>
-        {#snippet title()}Operationally practical controls.{/snippet}
-        <p>Section body...</p>
-    </PublicContentSection>
+	<PublicContentSection label="01 // Controls" alternate>
+		{#snippet title()}Operationally practical controls.{/snippet}
+		<p>Section body...</p>
+	</PublicContentSection>
 </PublicShell>
 ```
 
@@ -808,8 +817,8 @@ Loading spinner for async buttons.
 
 ```svelte
 <Button disabled={saving}>
-    {#if saving}<Spinner />{/if}
-    {saving ? 'Saving...' : 'Save'}
+	{#if saving}<Spinner />{/if}
+	{saving ? 'Saving...' : 'Save'}
 </Button>
 ```
 
@@ -826,21 +835,21 @@ step metadata, keyboard focus movement, disabled/error/completed states, or prev
 
 ```svelte
 <script lang="ts">
-    import * as Stepper from '$lib/components/ui/stepper';
+	import * as Stepper from '$lib/components/ui/stepper';
 
-    const steps = [
-        { value: 'draft', label: 'Draft', completed: true },
-        { value: 'review', label: 'Review', description: 'Current approval stage' },
-        { value: 'done', label: 'Done' }
-    ];
+	const steps = [
+		{ value: 'draft', label: 'Draft', completed: true },
+		{ value: 'review', label: 'Review', description: 'Current approval stage' },
+		{ value: 'done', label: 'Done' }
+	];
 </script>
 
 <Stepper.Root {steps} value="review">
-    <Stepper.List>
-        {#each steps as step (step.value)}
-            <Stepper.Item value={step.value} label={step.label} description={step.description} />
-        {/each}
-    </Stepper.List>
+	<Stepper.List>
+		{#each steps as step (step.value)}
+			<Stepper.Item value={step.value} label={step.label} description={step.description} />
+		{/each}
+	</Stepper.List>
 </Stepper.Root>
 ```
 
@@ -855,62 +864,62 @@ New form work should use the shadcn-svelte-backed shared control system. The dur
 
 ```svelte
 <script lang="ts">
-    import * as Field from '$lib/components/ui/field';
-    import { Input } from '$lib/components/ui/input';
-    import { Textarea } from '$lib/components/ui/textarea';
-    import * as Select from '$lib/components/ui/select';
-    import { Checkbox } from '$lib/components/ui/checkbox';
-    import * as RadioGroup from '$lib/components/ui/radio-group';
-    import { Switch } from '$lib/components/ui/switch';
+	import * as Field from '$lib/components/ui/field';
+	import { Input } from '$lib/components/ui/input';
+	import { Textarea } from '$lib/components/ui/textarea';
+	import * as Select from '$lib/components/ui/select';
+	import { Checkbox } from '$lib/components/ui/checkbox';
+	import * as RadioGroup from '$lib/components/ui/radio-group';
+	import { Switch } from '$lib/components/ui/switch';
 
-    let title = $state('');
-    let status = $state('ready');
+	let title = $state('');
+	let status = $state('ready');
 </script>
 
 <Field.Root>
-    <Field.Label for="task-title">Task title <span aria-hidden="true">*</span></Field.Label>
-    <Field.Control>
-        <Input id="task-title" name="title" bind:value={title} required aria-describedby="task-title-help" />
-    </Field.Control>
-    <Field.Description id="task-title-help">Use the official task name.</Field.Description>
+	<Field.Label for="task-title">Task title <span aria-hidden="true">*</span></Field.Label>
+	<Field.Control>
+		<Input id="task-title" name="title" bind:value={title} required aria-describedby="task-title-help" />
+	</Field.Control>
+	<Field.Description id="task-title-help">Use the official task name.</Field.Description>
 </Field.Root>
 
 <Field.Root data-invalid>
-    <Field.Label for="task-notes">Notes</Field.Label>
-    <Field.Control>
-        <Textarea id="task-notes" aria-invalid="true" aria-describedby="task-notes-error" />
-    </Field.Control>
-    <Field.Error id="task-notes-error">Notes are required.</Field.Error>
+	<Field.Label for="task-notes">Notes</Field.Label>
+	<Field.Control>
+		<Textarea id="task-notes" aria-invalid="true" aria-describedby="task-notes-error" />
+	</Field.Control>
+	<Field.Error id="task-notes-error">Notes are required.</Field.Error>
 </Field.Root>
 
 <Field.Root>
-    <Field.Label id="status-label">Status</Field.Label>
-    <Field.Control>
-        <Select.Root type="single" bind:value={status}>
-            <Select.Trigger aria-labelledby="status-label">Ready</Select.Trigger>
-            <Select.Content>
-                <Select.Item value="ready" label="Ready" />
-                <Select.Item value="watch" label="Watch" />
-            </Select.Content>
-        </Select.Root>
-    </Field.Control>
+	<Field.Label id="status-label">Status</Field.Label>
+	<Field.Control>
+		<Select.Root type="single" bind:value={status}>
+			<Select.Trigger aria-labelledby="status-label">Ready</Select.Trigger>
+			<Select.Content>
+				<Select.Item value="ready" label="Ready" />
+				<Select.Item value="watch" label="Watch" />
+			</Select.Content>
+		</Select.Root>
+	</Field.Control>
 </Field.Root>
 
 <Field.Root orientation="horizontal">
-    <Checkbox id="include-archive" />
-    <Field.Label for="include-archive">Include archived records</Field.Label>
+	<Checkbox id="include-archive" />
+	<Field.Label for="include-archive">Include archived records</Field.Label>
 </Field.Root>
 
 <Field.Root orientation="horizontal">
-    <Switch id="approval-required" />
-    <Field.Label for="approval-required">Approval required</Field.Label>
+	<Switch id="approval-required" />
+	<Field.Label for="approval-required">Approval required</Field.Label>
 </Field.Root>
 
 <RadioGroup.Root bind:value={status}>
-    <Field.Root orientation="horizontal">
-        <RadioGroup.Item id="standard" value="standard" />
-        <Field.Label for="standard">Standard</Field.Label>
-    </Field.Root>
+	<Field.Root orientation="horizontal">
+		<RadioGroup.Item id="standard" value="standard" />
+		<Field.Label for="standard">Standard</Field.Label>
+	</Field.Root>
 </RadioGroup.Root>
 ```
 
@@ -938,29 +947,29 @@ Compound shadcn-style combobox primitives for searchable single-select and multi
 
 ```svelte
 <script lang="ts">
-    import * as Combobox from '$lib/components/ui/combobox';
+	import * as Combobox from '$lib/components/ui/combobox';
 
-    const people = [
-        { value: 'avery', label: 'Avery Brooks', description: 'HQ', group: 'HQ' },
-        { value: 'maya', label: 'Maya Chen', description: 'A Co', group: 'Line companies' },
-        { value: 'jon', label: 'Jon Bell', description: 'B Co', group: 'Line companies', disabled: true }
-    ];
-    let selectedPerson = $state('');
+	const people = [
+		{ value: 'avery', label: 'Avery Brooks', description: 'HQ', group: 'HQ' },
+		{ value: 'maya', label: 'Maya Chen', description: 'A Co', group: 'Line companies' },
+		{ value: 'jon', label: 'Jon Bell', description: 'B Co', group: 'Line companies', disabled: true }
+	];
+	let selectedPerson = $state('');
 </script>
 
 <Combobox.Root items={people} name="personId" autoHighlight bind:value={selectedPerson} label="Person">
-    <Combobox.Trigger clearable aria-label="Person">
-        {people.find((person) => person.value === selectedPerson)?.label ?? 'Search personnel'}
-    </Combobox.Trigger>
-    <Combobox.Content>
-        <Combobox.Search placeholder="Search personnel..." />
-        <Combobox.Empty>No people found.</Combobox.Empty>
-        <Combobox.List>
-            {#snippet children(value, option)}
-                <Combobox.Item {value} label={option.label} description={option.description} />
-            {/snippet}
-        </Combobox.List>
-    </Combobox.Content>
+	<Combobox.Trigger clearable aria-label="Person">
+		{people.find((person) => person.value === selectedPerson)?.label ?? 'Search personnel'}
+	</Combobox.Trigger>
+	<Combobox.Content>
+		<Combobox.Search placeholder="Search personnel..." />
+		<Combobox.Empty>No people found.</Combobox.Empty>
+		<Combobox.List>
+			{#snippet children(value, option)}
+				<Combobox.Item {value} label={option.label} description={option.description} />
+			{/snippet}
+		</Combobox.List>
+	</Combobox.Content>
 </Combobox.Root>
 ```
 
@@ -982,36 +991,36 @@ Compound namespace for chip-based multi-selects. It composes the same shared com
 
 ```svelte
 <script lang="ts">
-    import * as MultiSelect from '$lib/components/ui/multi-select';
+	import * as MultiSelect from '$lib/components/ui/multi-select';
 
-    const groups = [
-        { value: 'hq', label: 'HQ', group: 'Staff' },
-        { value: 'a-co', label: 'A Co', group: 'Line companies' },
-        { value: 'b-co', label: 'B Co', group: 'Line companies' }
-    ];
-    let selectedGroups = $state<string[]>(['hq']);
+	const groups = [
+		{ value: 'hq', label: 'HQ', group: 'Staff' },
+		{ value: 'a-co', label: 'A Co', group: 'Line companies' },
+		{ value: 'b-co', label: 'B Co', group: 'Line companies' }
+	];
+	let selectedGroups = $state<string[]>(['hq']);
 </script>
 
 <MultiSelect.Root items={groups} multiple name="groupIds" bind:value={selectedGroups} label="Groups">
-    <MultiSelect.Trigger>
-        <MultiSelect.Value>
-            {#snippet children(values)}
-                {#each values as groupValue (groupValue)}
-                    {@const group = groups.find((option) => option.value === groupValue)}
-                    <MultiSelect.Chip value={groupValue}>{group?.label ?? groupValue}</MultiSelect.Chip>
-                {/each}
-                <MultiSelect.Input placeholder="Groups" aria-label="Groups" />
-            {/snippet}
-        </MultiSelect.Value>
-    </MultiSelect.Trigger>
-    <MultiSelect.Content>
-        <MultiSelect.Empty>No groups found.</MultiSelect.Empty>
-        <MultiSelect.List>
-            {#snippet children(value, option)}
-                <MultiSelect.Item {value} label={option.label} />
-            {/snippet}
-        </MultiSelect.List>
-    </MultiSelect.Content>
+	<MultiSelect.Trigger>
+		<MultiSelect.Value>
+			{#snippet children(values)}
+				{#each values as groupValue (groupValue)}
+					{@const group = groups.find((option) => option.value === groupValue)}
+					<MultiSelect.Chip value={groupValue}>{group?.label ?? groupValue}</MultiSelect.Chip>
+				{/each}
+				<MultiSelect.Input placeholder="Groups" aria-label="Groups" />
+			{/snippet}
+		</MultiSelect.Value>
+	</MultiSelect.Trigger>
+	<MultiSelect.Content>
+		<MultiSelect.Empty>No groups found.</MultiSelect.Empty>
+		<MultiSelect.List>
+			{#snippet children(value, option)}
+				<MultiSelect.Item {value} label={option.label} />
+			{/snippet}
+		</MultiSelect.List>
+	</MultiSelect.Content>
 </MultiSelect.Root>
 ```
 
@@ -1019,17 +1028,17 @@ Toolbar compact pattern:
 
 ```svelte
 <WorkspaceToolbar.Group label="Groups" activeCount={selectedGroups.length}>
-    <MultiSelect.Root items={groups} multiple bind:value={selectedGroups} label="Groups">
-        <MultiSelect.Trigger>
-            <MultiSelect.Value>
-                {#snippet children(values)}
-                    <span>{values.length} selected</span>
-                    <MultiSelect.Input aria-label="Groups" />
-                {/snippet}
-            </MultiSelect.Value>
-        </MultiSelect.Trigger>
-        <MultiSelect.Content>...</MultiSelect.Content>
-    </MultiSelect.Root>
+	<MultiSelect.Root items={groups} multiple bind:value={selectedGroups} label="Groups">
+		<MultiSelect.Trigger>
+			<MultiSelect.Value>
+				{#snippet children(values)}
+					<span>{values.length} selected</span>
+					<MultiSelect.Input aria-label="Groups" />
+				{/snippet}
+			</MultiSelect.Value>
+		</MultiSelect.Trigger>
+		<MultiSelect.Content>...</MultiSelect.Content>
+	</MultiSelect.Root>
 </WorkspaceToolbar.Group>
 ```
 
@@ -1046,19 +1055,15 @@ Token-aligned calendar/matrix day cell primitive. Use this for dense date status
 
 ```svelte
 <script lang="ts">
-    import * as DateCell from '$lib/components/ui/date-cell';
+	import * as DateCell from '$lib/components/ui/date-cell';
 </script>
 
 <DateCell.Root
-    today
-    holiday
-    holidayName="Training Holiday"
-    statuses={[
-        { id: 'leave', name: 'Leave', color: '#345b22', textColor: '#f7f8f4', note: 'Approved pass' }
-    ]}
-    markers={[
-        { id: 'staff-duty', name: 'Staff Duty', shortName: 'SD', color: '#263f75', textColor: '#ffffff' }
-    ]}
+	today
+	holiday
+	holidayName="Training Holiday"
+	statuses={[{ id: 'leave', name: 'Leave', color: '#345b22', textColor: '#f7f8f4', note: 'Approved pass' }]}
+	markers={[{ id: 'staff-duty', name: 'Staff Duty', shortName: 'SD', color: '#263f75', textColor: '#ffffff' }]}
 />
 ```
 
@@ -1111,17 +1116,17 @@ Use the compound `ui/inline-notes` primitives for note threads.
 
 ```svelte
 <script lang="ts">
-    import * as InlineNotes from '$lib/components/ui/inline-notes';
+	import * as InlineNotes from '$lib/components/ui/inline-notes';
 </script>
 
 <InlineNotes.Root
-    {notes}
-    resolveAuthor={(userId) => personnelMap[userId]?.name ?? 'Unknown'}
-    onAddNote={(text) => addNote(recordId, text)}
+	{notes}
+	resolveAuthor={(userId) => personnelMap[userId]?.name ?? 'Unknown'}
+	onAddNote={(text) => addNote(recordId, text)}
 />
 
 <!-- Read-only -->
-<InlineNotes.Root {notes} resolveAuthor={resolveAuthor} disabled />
+<InlineNotes.Root {notes} {resolveAuthor} disabled />
 ```
 
 Props: `notes: { text: string; timestamp: string; userId: string }[]`, `resolveAuthor: (userId: string) => string`, `onAddNote?: (text: string) => void`, `disabled?: boolean` (default `false`), `open?: boolean` (bindable)
@@ -1140,33 +1145,33 @@ Use `ui/type-manager` for small modal CRUD lists such as status types and assign
 
 ```svelte
 <script lang="ts">
-    import * as TypeManager from '$lib/components/ui/type-manager';
+	import * as TypeManager from '$lib/components/ui/type-manager';
 </script>
 
 <TypeManager.Root
-    title="Status Types"
-    noun="Type"
-    items={statusTypes}
-    onAdd={addStatusType}
-    onUpdate={updateStatusType}
-    onRemove={removeStatusType}
-    onClose={closeManager}
-    getAddData={getAddData}
-    resetAddForm={resetAddForm}
-    onEditStart={startEdit}
-    getEditData={getEditData}
+	title="Status Types"
+	noun="Type"
+	items={statusTypes}
+	onAdd={addStatusType}
+	onUpdate={updateStatusType}
+	onRemove={removeStatusType}
+	onClose={closeManager}
+	{getAddData}
+	{resetAddForm}
+	onEditStart={startEdit}
+	{getEditData}
 >
-    {#snippet addForm()}
-        <!-- route-owned shared controls -->
-    {/snippet}
+	{#snippet addForm()}
+		<!-- route-owned shared controls -->
+	{/snippet}
 
-    {#snippet editForm()}
-        <!-- route-owned shared controls -->
-    {/snippet}
+	{#snippet editForm()}
+		<!-- route-owned shared controls -->
+	{/snippet}
 
-    {#snippet itemDisplay(item)}
-        <span>{item.name}</span>
-    {/snippet}
+	{#snippet itemDisplay(item)}
+		<span>{item.name}</span>
+	{/snippet}
 </TypeManager.Root>
 ```
 
@@ -1222,7 +1227,10 @@ The component owns the repeated visual structure: page workspace spacing, list/d
 					<!-- route-owned radio/checkbox controls inside shared choice chrome -->
 				</TypeWorkspace.Choice>
 
-				<TypeWorkspace.Disclosure title="Targeting" description="Reveal detailed applicability controls only when needed.">
+				<TypeWorkspace.Disclosure
+					title="Targeting"
+					description="Reveal detailed applicability controls only when needed."
+				>
 					<TypeWorkspace.ChoiceGroup>
 						<!-- route-owned chip/button controls -->
 					</TypeWorkspace.ChoiceGroup>
@@ -1268,7 +1276,7 @@ Rules:
 Use for loading states in pages that use `defer: true` streaming loads.
 
 ```svelte
-import { Skeleton } from '$lib/components/ui/skeleton';
+import {Skeleton} from '$lib/components/ui/skeleton';
 
 <!-- Block: card, image, hero area -->
 <Skeleton class="h-[120px] w-full rounded-lg" />
@@ -1278,9 +1286,9 @@ import { Skeleton } from '$lib/components/ui/skeleton';
 
 <!-- Grid: table/matrix skeleton -->
 <div class="grid grid-cols-4 gap-2" aria-hidden="true">
-    {#each Array(20) as _, index (index)}
-        <Skeleton class="h-[38px] w-[120px]" />
-    {/each}
+	{#each Array(20) as _, index (index)}
+		<Skeleton class="h-[38px] w-[120px]" />
+	{/each}
 </div>
 ```
 
@@ -1296,15 +1304,15 @@ The DataTable API is deliberately modular. Simple tables can render only `DataTa
 
 ```svelte
 <script lang="ts">
-    import * as DataTable from '$lib/components/ui/data-table';
-    import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
-    import type { ColumnDef } from '$lib/components/ui/data-table';
+	import * as DataTable from '$lib/components/ui/data-table';
+	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
+	import type { ColumnDef } from '$lib/components/ui/data-table';
 
-    const columns: ColumnDef<Person>[] = [
-        { key: 'name', header: 'Name', value: (row) => row.name },
-        { key: 'group', header: 'Group', value: (row) => row.group },
-        { key: 'readiness', header: 'Readiness', value: (row) => row.readiness, align: 'right' }
-    ];
+	const columns: ColumnDef<Person>[] = [
+		{ key: 'name', header: 'Name', value: (row) => row.name },
+		{ key: 'group', header: 'Group', value: (row) => row.group },
+		{ key: 'readiness', header: 'Readiness', value: (row) => row.readiness, align: 'right' }
+	];
 </script>
 
 <!-- Simple table: no toolbar/search/pagination cost -->
@@ -1312,31 +1320,31 @@ The DataTable API is deliberately modular. Simple tables can render only `DataTa
 
 <!-- Full-featured table -->
 <DataTable.DataTable
-    data={personnel}
-    {columns}
-    ariaLabel="Personnel roster"
-    showSearch
-    pageSize={25}
-    onRowClick={(row) => openPerson(row)}
-    rowActionLabel={(row) => `Open ${row.name}`}
-    compact
-    stickyHeader
+	data={personnel}
+	{columns}
+	ariaLabel="Personnel roster"
+	showSearch
+	pageSize={25}
+	onRowClick={(row) => openPerson(row)}
+	rowActionLabel={(row) => `Open ${row.name}`}
+	compact
+	stickyHeader
 >
-    {#snippet toolbar(table)}
-        <WorkspaceToolbar.Root ariaLabel="Personnel table controls">
-            <WorkspaceToolbar.Group label="Search" class="min-w-0 shrink">
-                <DataTable.Search {table} ariaLabel="Search personnel" />
-            </WorkspaceToolbar.Group>
-        </WorkspaceToolbar.Root>
-    {/snippet}
+	{#snippet toolbar(table)}
+		<WorkspaceToolbar.Root ariaLabel="Personnel table controls">
+			<WorkspaceToolbar.Group label="Search" class="min-w-0 shrink">
+				<DataTable.Search {table} ariaLabel="Search personnel" />
+			</WorkspaceToolbar.Group>
+		</WorkspaceToolbar.Root>
+	{/snippet}
 
-    {#snippet cell(row, col)}
-        {#if col.key === 'status'}
-            <Badge variant="secondary">{row.status}</Badge>
-        {:else}
-            {String(col.value(row) ?? '')}
-        {/if}
-    {/snippet}
+	{#snippet cell(row, col)}
+		{#if col.key === 'status'}
+			<Badge variant="secondary">{row.status}</Badge>
+		{:else}
+			{String(col.value(row) ?? '')}
+		{/if}
+	{/snippet}
 </DataTable.DataTable>
 ```
 
@@ -1373,15 +1381,15 @@ import { useDataTable, useDataTableSelection } from '$lib/components/ui/data-tab
 import type { ColumnDef } from '$lib/components/ui/data-table';
 
 const columns: ColumnDef<MyRow>[] = [
-    { key: 'name', header: 'Name', value: (r) => r.name, compare: (a, b) => a.name.localeCompare(b.name) },
-    { key: 'count', header: 'Count', value: (r) => r.count }
+	{ key: 'name', header: 'Name', value: (r) => r.name, compare: (a, b) => a.name.localeCompare(b.name) },
+	{ key: 'count', header: 'Count', value: (r) => r.count }
 ];
 
 const table = useDataTable({
-    data: () => myReactiveData,
-    columns,
-    initialSortKey: 'name',
-    groupBy: { key: (r) => r.category, label: (k) => k }
+	data: () => myReactiveData,
+	columns,
+	initialSortKey: 'name',
+	groupBy: { key: (r) => r.category, label: (k) => k }
 });
 
 // table.rows, table.toggleSort('name'), table.setSearch('query')
@@ -1529,12 +1537,13 @@ These support native controls and legacy public-page CSS while the shared compon
 
 Semantic tokens for the header, nav, and app shell. These are app-shell owned, not general-purpose color aliases.
 
-| Token                       | Purpose                          |
-| --------------------------- | -------------------------------- |
-| `--color-chrome`            | App shell background             |
-| `--color-chrome-text`       | App shell text                   |
-| `--color-chrome-text-muted` | App shell secondary text         |
-| `--color-chrome-border`     | App shell borders                |
+| Token                       | Purpose                  |
+| --------------------------- | ------------------------ |
+| `--color-chrome`            | App shell background     |
+| `--color-chrome-text`       | App shell text           |
+| `--color-chrome-text-muted` | App shell secondary text |
+| `--color-chrome-border`     | App shell borders        |
+
 ### Component-Owned Constants
 
 Calendar and long-range matrix sizing is component-owned. Use component-local custom properties such as `--calendar-cell-width`, `--calendar-personnel-column-width`, and `--long-range-*` only inside the calendar/matrix boundary.

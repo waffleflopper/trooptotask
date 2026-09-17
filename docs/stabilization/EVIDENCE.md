@@ -319,3 +319,31 @@ PUBLIC_SUPABASE_URL=http://127.0.0.1:9 PUBLIC_SUPABASE_ANON_KEY=synthetic-build-
 ```
 
 No changed production journey or Svelte component: computer-use and autofixer are not applicable to this test-only child. No database changes: isolated migration/RLS checks are not applicable and no SQL result is claimed. No E2E suite, install, existing local/remote database operation, publication, merge or deployment ran. Phase 02 remains active; the parent tasks remain open and phase 03 inactive.
+
+## Astra instruction maintenance
+
+September 16, 2026; separate user-authorized documentation pass before resuming stabilization, based on clean `2a78ed7e610549847b014c73418ae07a9faf79a1`. Used OpenAI Docs and writing-for-agents skills and read both requested official OpenAI pages. The [instruction audit](../agents/agents-refactor-audit.md#september-16-2026-astra-instruction-audit) records findings, revised decision boundaries and scenario review. No application code, tests, schema, dependency, model setting or phase/task status changed; 02-02-01b-02 remains next and unstarted.
+
+The revised root routes by task and points to the existing full verification contract. Linked guidance removes redundant reading/skill itineraries and blanket pauses, resolves missing glossary pointers, and permits already-authorized adjacent edits/shared UI composition while retaining security, data, visual ownership and publication boundaries. No check, assertion, governance baseline or phase gate is relaxed. Historical ADR text remains; its index points old glossary references to the maintained language section. External installed skill prompts were not edited.
+
+**Verification: passed.** Node `v24.18.0`, npm `11.17.0` (declared `11.12.1`), installed Vitest `4.1.8`; no dependency installation.
+
+| Command / review                                               | Result                                                                                                                                                                  |
+| -------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run format`; `npm run format:check`                       | Exit 0 / 0 (11.57 s / 11.59 s).                                                                                                                                         |
+| `npm run lint`                                                 | Exit 0 (13.73 s).                                                                                                                                                       |
+| `npm run governance:check`                                     | Exit 0 (0.15 s); unchanged 18 route-provider/21 admin-provider entries, zero permission couplings.                                                                      |
+| `npm run check`                                                | Exit 0 (20.39 s); zero errors/warnings.                                                                                                                                 |
+| `npm run test`                                                 | Exit 0 (40.80 s wall); 570 files / 4,488 tests, no skipped tests or unhandled errors.                                                                                   |
+| `npm run build`                                                | Exit 0 (15.60 s); Vercel adapter completes. Existing chunk-size, plugin-timing and optional `@opentelemetry/api` tracing warnings remain.                               |
+| Explicit Prettier write/check on all 18 changed Markdown files | Passed. Formatting also normalizes existing component-catalog examples and the ADR index table; no application source changed.                                          |
+| Relative links/anchors and `git diff --check`                  | Passed; 92 local links/anchors. Governance passed again after evidence update.                                                                                          |
+| Contract comparison against HEAD                               | Required command block and root database prohibition preserved verbatim; TODO, BASELINE, program decisions, TESTING, governance baseline and package scripts unchanged. |
+
+Exact offline build command:
+
+```bash
+PUBLIC_SUPABASE_URL=http://127.0.0.1:9 PUBLIC_SUPABASE_ANON_KEY=synthetic-build-key SUPABASE_SERVICE_ROLE_KEY=synthetic-build-service-key PUBLIC_BILLING_ENABLED=false ACCOUNT_SETUP_SESSION_SECRET=synthetic-build-only-session-secret APP_PUBLIC_ORIGIN=http://localhost:4279 npm run build
+```
+
+Markdown commands: `npm exec prettier -- --ignore-path /dev/null --write <changed-markdown-files>` and the corresponding `--check`; explicit path list, command logs, timings and link checker are under `/tmp/t3-astra-instructions/` (ephemeral). This is documentation-only: no new runtime tests, browser journey or isolated database operation is applicable. No E2E, publication, merge or deployment ran. Static instruction/scenario review does not establish a measured improvement in Astra behavior. No remaining blocker for this documentation pass; stabilization phase/task status is unchanged.

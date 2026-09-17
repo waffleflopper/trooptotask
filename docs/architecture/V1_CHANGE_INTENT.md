@@ -7,7 +7,7 @@ This is the repo's place to capture:
 - current-state truth
 - why that truth is unsatisfying
 - intended v1 direction
-- open questions that still need a `grill-me` session
+- open questions that need a product or architecture decision
 
 ## How To Use This File
 
@@ -15,36 +15,11 @@ This is the repo's place to capture:
 - Instead, keep current-state docs honest and record the desired direction here.
 - When a future slice is explicitly about remediation, use the entries here to shape the next planning or grilling session.
 
-## Reusable `grill-me` Prompt
+## Reviewing an open decision
 
-```md
-Use:
-- grill-me
-- improve-codebase-architecture
-- ubiquitous-language
+Use the entry that matches the requested boundary and the relevant references from the [architecture reading map](../agents/architecture-governance.md). Identify the current behavior, intended outcome, constraints and consequential unresolved choice. Resolve routine details from existing contracts; ask a focused question only when the answer changes the authorized result. Follow the [decision boundaries](AI_AGENT_OPERATING_MODEL.md#decision-boundaries).
 
-Read:
-- AGENTS.md
-- docs/architecture/ARCHITECTURE.md
-- docs/architecture/AUTHORIZATION_AND_PROVIDER_BOUNDARIES.md
-- docs/architecture/MODULE_CONVENTIONS.md
-- docs/architecture/DRIFT_LEDGER.md
-- docs/architecture/V1_CHANGE_INTENT.md
-- UBIQUITOUS_LANGUAGE.md
-
-Goal:
-Review the selected v1 drift entries and design an explicit remediation slice.
-
-Requirements:
-1. Summarize current-state truth first.
-2. Separate current-state truth from intended direction.
-3. Ask one `grill-me` question at a time.
-4. Do not infer product or architecture intent from implementation alone when the code is contradictory.
-5. If the slice affects authz, provider boundaries, or canonical language, update the relevant docs and ledgers.
-
-Focus entries:
-- [list ledger IDs here]
-```
+An available design/domain skill can help stress-test a tradeoff when that is the task. There is no mandatory skill stack, blanket documentation itinerary or automatic issue publication for these entries.
 
 ## Entry Template
 
@@ -88,7 +63,7 @@ Focus entries:
   - exact per-feature mapping of `operate` versus `configure`
   - exact policy overlays for read-only mode, owner-only operations, and suspicious denied access
 - Suggested next skill or planning mode:
-  - `grill-me` for unresolved policy shape, then `tdd` for staged implementation slices
+  - resolve consequential policy choices, then implement bounded slices with meaningful behavioral tests
 
 ## C-02 Provider Boundary Hardening
 
@@ -131,7 +106,7 @@ Focus entries:
   - where a future runtime compatibility alias or abstraction should live during migration
   - when API and schema naming should be eligible for a real rename plan
 - Suggested next skill or planning mode:
-  - `grill-me` if a repo-wide rename plan becomes in scope
+  - resolve naming and data-contract decisions if a repo-wide rename becomes authorized
 
 ## C-05 Deep Module Reviews
 
@@ -146,4 +121,4 @@ Focus entries:
 - Open questions:
   - which cluster should be deepened first for the best leverage
 - Suggested next skill or planning mode:
-  - `improve-codebase-architecture`
+  - module design within an authorized boundary

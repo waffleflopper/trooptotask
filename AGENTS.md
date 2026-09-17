@@ -18,6 +18,7 @@ For stabilization work, read the active task in [TODO](docs/stabilization/TODO.m
 
 For task-specific guidance, open only the files relevant to the work:
 
+- Adding, rewriting, pruning, or reviewing tests: read [Testing strategy](docs/architecture/TESTING.md).
 - [Agent operating rules](docs/agents/operating-rules.md)
 - [Svelte and SvelteKit guidance](docs/agents/svelte.md)
 - [UI system](docs/agents/ui-system.md)

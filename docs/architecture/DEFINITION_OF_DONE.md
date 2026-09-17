@@ -39,7 +39,7 @@ Use synthetic values and unreachable provider endpoints for offline builds when 
 
 ### Lower-level behavior checks
 
-Test changed behavior at the closest callable unit, route, component or SQL boundary. Use independent expected outcomes, deterministic clocks and injectable fakes; cover meaningful success, denied access, replay/concurrency and failure cases where the contract requires them. Preserve Organization/Group scope, authorization and retained data outcomes. Source/prose detectors and assertions that merely mirror implementation are not substitutes for behavioral coverage. Documentation-only changes need formatting, link and contract review, not artificial runtime tests.
+Follow [Testing strategy](TESTING.md) when adding, rewriting, pruning or reviewing tests: it defines the behavioral bar, prohibited test patterns and the justification required to keep or replace suspect tests. Cover meaningful success, denied access, replay/concurrency and failure cases where the retained contract requires them. Documentation-only changes need formatting, link and contract review, not artificial runtime tests.
 
 ### Computer-use flow evidence
 

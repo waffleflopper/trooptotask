@@ -250,3 +250,149 @@ describe('/api/personnel route authorization', () => {
 		await expect(response?.json()).resolves.toEqual({ message: 'Personnel limit reached' });
 	});
 });
+
+describe('Personnel route denied-write safety', () => {
+	const alpha = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+	const bravo = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+	const charlie = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+	const personId = '11111111-1111-4111-8111-111111111111';
+	const otherOrg = 'other-organization';
+
+	function fixture(
+		overrides: Parameters<typeof createTestContext>[0] = {},
+		rowOverrides: Record<string, unknown> = {}
+	) {
+		const ctx = createTestContext({
+			...overrides,
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				canManageMembers: false,
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'configure',
+					training: 'none',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				},
+				scopeSet: { kind: 'groups', groupIds: [alpha, bravo] },
+				...overrides.auth
+			}
+		});
+		const row = {
+			id: personId,
+			organization_id: ctx.auth.orgId,
+			rank: 'SGT',
+			last_name: 'Example',
+			first_name: 'Synthetic',
+			group_id: bravo,
+			clinic_role: 'Original duty role',
+			archived_at: null,
+			...rowOverrides
+		};
+		ctx.store.seed('personnel', [structuredClone(row)]);
+		return { ctx, row };
+	}
+
+	async function expectUnchanged(ctx: ReturnType<typeof createTestContext>, rows: Record<string, unknown>[]) {
+		for (const orgId of [ctx.auth.orgId, otherOrg]) {
+			expect(await ctx.rawStore.findMany('personnel', orgId)).toEqual(
+				rows.filter((row) => row.organization_id === orgId)
+			);
+			expect(await ctx.rawStore.findMany('deletion_requests', orgId)).toEqual([]);
+		}
+		expect(ctx.notificationPort.notifications).toEqual([]);
+		expect(ctx.auditPort.events.every((event) => event.action === 'policy.denied')).toBe(true);
+	}
+
+	it('updates a record in the second assigned Group and preserves its Organization', async () => {
+		const { ctx, row } = fixture();
+		await handleUseCaseRequest(_putConfig, ctx, { id: personId, clinicRole: 'Updated duty role' });
+		expect(await ctx.rawStore.findMany('personnel', ctx.auth.orgId)).toEqual([
+			{ ...row, clinic_role: 'Updated duty role' }
+		]);
+	});
+
+	it.each([
+		{
+			name: 'POST',
+			run: (ctx: ReturnType<typeof createTestContext>) =>
+				handleUseCaseRequest(_postConfig, ctx, { rank: 'SGT', lastName: 'New', firstName: 'Person', groupId: bravo })
+		},
+		{
+			name: 'PUT',
+			run: (ctx: ReturnType<typeof createTestContext>) =>
+				handleUseCaseRequest(_putConfig, ctx, { id: personId, clinicRole: 'Changed' })
+		},
+		{
+			name: 'DELETE',
+			run: (ctx: ReturnType<typeof createTestContext>) => handleUseCaseRequest(_deleteConfig, ctx, { id: personId })
+		},
+		{
+			name: 'PATCH',
+			run: (ctx: ReturnType<typeof createTestContext>) =>
+				handleUseCaseRequest(_patchConfig, ctx, { id: personId, action: 'restore' })
+		}
+	])('rejects $name for a viewer without changing records or creating approval requests', async ({ run }) => {
+		const { ctx, row } = fixture({
+			auth: {
+				capabilityMap: {
+					calendar: 'configure',
+					personnel: 'view',
+					training: 'configure',
+					criticalTasks: 'configure',
+					onboarding: 'configure',
+					ratingScheme: 'configure'
+				}
+			}
+		});
+		await expect(run(ctx)).rejects.toMatchObject({ status: 403 });
+		await expectUnchanged(ctx, [row]);
+		expect(ctx.auditPort.events).toEqual([
+			expect.objectContaining({
+				action: 'policy.denied',
+				details: expect.objectContaining({ reasonCode: 'denied:missing-capability' })
+			})
+		]);
+	});
+
+	it.each([
+		{ name: 'another Group', groupId: charlie },
+		{ name: 'ungrouped personnel', groupId: null }
+	])('rejects updates to $name without changing stored data', async ({ groupId }) => {
+		const { ctx, row: outside } = fixture({}, { group_id: groupId });
+		await expect(handleUseCaseRequest(_putConfig, ctx, { id: personId, clinicRole: 'Changed' })).rejects.toMatchObject({
+			status: 403
+		});
+		await expectUnchanged(ctx, [outside]);
+	});
+
+	it.each([
+		{ name: 'an unassigned Group', groupId: charlie },
+		{ name: 'organization-wide ungrouped scope', groupId: null }
+	])('rejects moving an accessible record to $name before mutation', async ({ groupId }) => {
+		const { ctx, row } = fixture();
+		await expect(
+			handleUseCaseRequest(_putConfig, ctx, { id: personId, groupId, clinicRole: 'Changed' })
+		).rejects.toMatchObject({ status: 403 });
+		await expectUnchanged(ctx, [row]);
+		expect(ctx.auditPort.events).toEqual([
+			expect.objectContaining({
+				action: 'policy.denied',
+				details: expect.objectContaining({ reasonCode: 'denied:out-of-scope' })
+			})
+		]);
+	});
+
+	it('rejects restoring another Organization record even for an Organization owner', async () => {
+		const { ctx, row: foreign } = fixture(
+			{ auth: { role: 'owner', isPrivileged: true, scopeSet: { kind: 'organization' } } },
+			{ organization_id: otherOrg, archived_at: '2026-01-01T00:00:00Z' }
+		);
+		await expect(handleUseCaseRequest(_patchConfig, ctx, { id: personId, action: 'restore' })).rejects.toMatchObject({
+			status: 404
+		});
+		await expectUnchanged(ctx, [foreign]);
+	});
+});

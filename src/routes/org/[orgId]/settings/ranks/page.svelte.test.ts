@@ -1,14 +1,31 @@
 // @vitest-environment happy-dom
 import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { RanksSettingsData } from '../settingsRanks.server';
 import Page from './+page.svelte';
 
 vi.mock('$app/forms', () => ({
 	enhance: () => {}
 }));
 
-afterEach(() => {
+beforeEach(() => {
+	vi.useFakeTimers();
+});
+
+async function cleanupRankPage() {
 	cleanup();
+	// Dialog/menu unmount schedules body-style restoration. Execute that work
+	// while happy-dom still exists instead of leaving it to the worker teardown.
+	await vi.runAllTimersAsync();
+	expect(vi.getTimerCount()).toBe(0);
+}
+
+afterEach(async () => {
+	try {
+		await cleanupRankPage();
+	} finally {
+		vi.useRealTimers();
+	}
 });
 
 describe('rank settings page', () => {
@@ -372,4 +389,62 @@ describe('rank settings page', () => {
 		await fireEvent.click(screen.getByRole('button', { name: 'Show details for SP4' }));
 		expect(screen.getByText('Built-in ranks can be retired but not removed.')).toBeTruthy();
 	});
+});
+
+describe('rank confirmation lifecycle', () => {
+	const ranksSettings: RanksSettingsData = {
+		sections: {
+			ranks: {
+				commands: { canManageCatalog: true, canAddServicePack: true, canAddCustomRank: true },
+				copy: { payGradeHelp: 'Pay grade help', tieBreakHelp: 'Tie-break help' },
+				servicePacks: [
+					{
+						value: 'navy',
+						label: 'Navy',
+						builtInCount: 25,
+						existingCount: 2,
+						activeCount: 2,
+						retiredCount: 0,
+						missingCount: 23,
+						isInstalled: false,
+						canBulkRetire: true,
+						canBulkReactivate: false
+					}
+				],
+				options: { services: [], categories: [], payGrades: [], states: [] },
+				entries: { active: [], retired: [] }
+			}
+		}
+	};
+
+	it.each(['cancel', 'unmount'] as const)(
+		'finishes %s cleanup before the test document is released',
+		async (action) => {
+			const originalStyle = document.body.getAttribute('style');
+			render(Page, { data: { ranksSettings } as never, form: null, params: { orgId: 'org-1' } });
+			await fireEvent.click(screen.getByRole('button', { name: 'More actions for Navy' }));
+			await fireEvent.click(screen.getByRole('menuitem', { name: 'Retire active ranks (2)' }));
+			await vi.runAllTimersAsync();
+			expect(screen.getByRole('alertdialog', { name: 'Retire Navy ranks' })).toBeTruthy();
+			expect(document.body.style.overflow).toBe('hidden');
+			expect(document.body.style.pointerEvents).toBe('none');
+			if (action === 'cancel') {
+				await fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+				expect(screen.queryByRole('alertdialog')).toBeNull();
+			}
+
+			await cleanupRankPage();
+			expect(document.body.getAttribute('style') ?? '').toBe(originalStyle ?? '');
+			// Model Vitest releasing happy-dom immediately after this suite's cleanup.
+			const documentDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'document')!;
+			try {
+				Reflect.deleteProperty(globalThis, 'document');
+				await vi.runAllTimersAsync();
+			} finally {
+				Object.defineProperty(globalThis, 'document', documentDescriptor);
+			}
+			expect(document.body.getAttribute('style') ?? '').toBe(originalStyle ?? '');
+			expect(vi.getTimerCount()).toBe(0);
+		}
+	);
 });

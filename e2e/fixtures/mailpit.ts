@@ -1,4 +1,4 @@
-const MAILPIT_URL = process.env.MAILPIT_URL || 'http://127.0.0.1:54324';
+const MAILPIT_URL = process.env.MAILPIT_URL || 'http://127.0.0.1:56324';
 
 interface MailpitAddress {
 	Address: string;

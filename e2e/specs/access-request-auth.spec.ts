@@ -13,7 +13,7 @@ async function createAuthenticatedContext(
 	email: string,
 	password: string
 ): Promise<import('@playwright/test').BrowserContext> {
-	const supabaseUrl = process.env.PUBLIC_SUPABASE_URL || 'http://127.0.0.1:54321';
+	const supabaseUrl = process.env.PUBLIC_SUPABASE_URL || 'http://127.0.0.1:56321';
 	const anonKey = process.env.PUBLIC_SUPABASE_ANON_KEY || '';
 	const client = createClient(supabaseUrl, anonKey, {
 		auth: { persistSession: false, autoRefreshToken: false }
@@ -55,7 +55,7 @@ async function createAuthenticatedContext(
 }
 
 async function expectPasswordLogin(email: string, password: string, timeoutMs: number = 20000): Promise<void> {
-	const supabaseUrl = process.env.PUBLIC_SUPABASE_URL || 'http://127.0.0.1:54321';
+	const supabaseUrl = process.env.PUBLIC_SUPABASE_URL || 'http://127.0.0.1:56321';
 	const anonKey = process.env.PUBLIC_SUPABASE_ANON_KEY || '';
 	const deadline = Date.now() + timeoutMs;
 	let lastError: string | null = null;

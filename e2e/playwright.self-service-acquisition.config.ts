@@ -1,7 +1,7 @@
 import { defineConfig } from '@playwright/test';
 
-const baseURL = process.env.E2E_BASE_URL || 'http://127.0.0.1:4173';
-const port = Number(new URL(baseURL).port || '4173');
+const baseURL = process.env.E2E_BASE_URL || 'http://127.0.0.1:4273';
+const port = Number(new URL(baseURL).port || '4273');
 
 export default defineConfig({
 	testDir: './specs',
@@ -30,7 +30,7 @@ export default defineConfig({
 		env: {
 			APP_PUBLIC_ORIGIN: baseURL,
 			E2E_TESTING: 'true',
-			MAILPIT_URL: process.env.MAILPIT_URL || 'http://127.0.0.1:54324',
+			MAILPIT_URL: process.env.MAILPIT_URL || 'http://127.0.0.1:56324',
 			PUBLIC_BILLING_ENABLED: 'true'
 		}
 	}

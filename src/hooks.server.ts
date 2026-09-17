@@ -220,15 +220,26 @@ export const handle: Handle = async ({ event, resolve }) => {
 		event.locals.authFlow = null;
 	}
 
-	if (event.locals.session) {
-		const { data: assuranceData, error: assuranceError } =
-			await event.locals.supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+	// Logout must remain available even when assurance cannot be verified.
+	if (event.locals.session && event.url.pathname !== '/auth/logout') {
+		const { data: assuranceData, error: assuranceError } = await event.locals.supabase.auth.mfa
+			.getAuthenticatorAssuranceLevel()
+			.catch(() => {
+				error(503, 'Unable to verify authentication status');
+			});
 
 		if (assuranceError) {
 			console.error('Failed to read authenticator assurance level:', assuranceError.message);
-		} else {
-			event.locals.mfaPending = isMfaStepUpRequired(assuranceData);
 		}
+		if (
+			assuranceError ||
+			!assuranceData ||
+			!['aal1', 'aal2'].includes(assuranceData.currentLevel ?? '') ||
+			!['aal1', 'aal2'].includes(assuranceData.nextLevel ?? '')
+		) {
+			error(503, 'Unable to verify authentication status');
+		}
+		event.locals.mfaPending = isMfaStepUpRequired(assuranceData);
 	}
 
 	// Protect routes — redirect unauthenticated users to login
@@ -255,6 +266,8 @@ export const handle: Handle = async ({ event, resolve }) => {
 		});
 		if (suspensionError) {
 			console.error('Failed to check user suspension status:', suspensionError.message);
+		}
+		if (suspensionError || typeof isSuspended !== 'boolean') {
 			error(500, 'Unable to verify account status');
 		}
 		if (isSuspended) {

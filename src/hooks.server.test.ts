@@ -92,13 +92,18 @@ describe('server auth hook', () => {
 		const readStoredUserDuringMfa = vi.fn(() =>
 			serverClientOptions?.auth?.userStorage?.getItem('sb-example-auth-token-user')
 		);
-		const getAuthenticatorAssuranceLevel = vi.fn(async () => {
-			readStoredUserDuringMfa();
-			return {
-				data: { currentLevel: 'aal1', nextLevel: 'aal1' },
-				error: null
-			};
-		});
+		const getAuthenticatorAssuranceLevel = vi.fn(
+			async (): Promise<{
+				data: { currentLevel: string | null; nextLevel: string | null } | null;
+				error: { message: string } | null;
+			}> => {
+				readStoredUserDuringMfa();
+				return {
+					data: { currentLevel: 'aal1', nextLevel: 'aal1' },
+					error: null
+				};
+			}
+		);
 		const rpc = vi.fn().mockResolvedValue(rpcResult);
 		const createServerClient = vi.fn((_url: string, _key: string, options: TestServerClientOptions) => {
 			serverClientOptions = options;
@@ -160,6 +165,7 @@ describe('server auth hook', () => {
 			getClaims,
 			getUser,
 			signOut,
+			getAuthenticatorAssuranceLevel,
 			deleteCookie: event.cookies.delete,
 			readStoredUserDuringMfa,
 			getClientOptions: () => {
@@ -340,6 +346,188 @@ describe('server auth hook', () => {
 			sameSite: 'lax',
 			maxAge: 3600
 		});
+	});
+
+	it.each([
+		{ label: 'returned error', result: { data: null, error: { message: 'provider unavailable' } } },
+		{
+			label: 'error alongside data',
+			result: { data: { currentLevel: 'aal1', nextLevel: 'aal1' }, error: { message: 'provider unavailable' } }
+		},
+		{ label: 'missing data', result: { data: null, error: null } },
+		{ label: 'missing session levels', result: { data: { currentLevel: null, nextLevel: null }, error: null } },
+		{ label: 'unknown level', result: { data: { currentLevel: 'unknown', nextLevel: 'aal2' }, error: null } }
+	])('denies protected writes when MFA assurance is unverifiable: $label', async ({ result }) => {
+		vi.spyOn(console, 'error').mockImplementation(() => undefined);
+		const harness = await createAuthenticatedHookHarness({ data: false, error: null });
+		harness.getAuthenticatorAssuranceLevel.mockResolvedValue(result);
+		const event = harness.createEvent('/org/organization-a/api/personnel');
+
+		await expect(harness.handle({ event, resolve: harness.resolve })).rejects.toMatchObject({
+			status: 503,
+			body: { message: 'Unable to verify authentication status' }
+		});
+		expect(harness.resolve).not.toHaveBeenCalled();
+	});
+
+	it('denies protected writes when the MFA provider throws', async () => {
+		vi.spyOn(console, 'error').mockImplementation(() => undefined);
+		const harness = await createAuthenticatedHookHarness({ data: false, error: null });
+		harness.getAuthenticatorAssuranceLevel.mockRejectedValue(new Error('provider unavailable'));
+		await expect(harness.handle(harness)).rejects.toMatchObject({ status: 503 });
+		expect(harness.resolve).not.toHaveBeenCalled();
+	});
+
+	it('admits a later request after assurance verification recovers without discarding its session', async () => {
+		vi.spyOn(console, 'error').mockImplementation(() => undefined);
+		const harness = await createAuthenticatedHookHarness({ data: false, error: null });
+		harness.getAuthenticatorAssuranceLevel.mockResolvedValueOnce({ data: null, error: { message: 'unavailable' } });
+		await expect(harness.handle(harness)).rejects.toMatchObject({ status: 503 });
+		expect(harness.resolve).not.toHaveBeenCalled();
+		expect(harness.event.cookies.get('sb-example-auth-token')).toBe('session');
+		expect(harness.signOut).not.toHaveBeenCalled();
+		expect((await harness.handle({ event: harness.createEvent(), resolve: harness.resolve })).status).toBe(200);
+		expect(harness.resolve).toHaveBeenCalled();
+	});
+
+	it.each(['/org/organization-a/api/personnel', '/account', '/api/auth/mfa/enroll', '/api/auth/mfa/disable'])(
+		'redirects pending MFA before dispatching %s',
+		async (path) => {
+			const harness = await createAuthenticatedHookHarness({ data: false, error: null });
+			harness.getAuthenticatorAssuranceLevel.mockResolvedValue({
+				data: { currentLevel: 'aal1', nextLevel: 'aal2' },
+				error: null
+			});
+			await expect(
+				harness.handle({ event: harness.createEvent(path), resolve: harness.resolve })
+			).rejects.toMatchObject({ status: 303, location: '/auth/mfa-verify' });
+			expect(harness.resolve).not.toHaveBeenCalled();
+		}
+	);
+
+	it.each(['/auth/mfa-verify', '/api/auth/mfa/status', '/api/auth/mfa/verify', '/auth/logout'])(
+		'allows pending MFA continuation at %s',
+		async (path) => {
+			const harness = await createAuthenticatedHookHarness({ data: false, error: null });
+			harness.getAuthenticatorAssuranceLevel.mockResolvedValue({
+				data: { currentLevel: 'aal1', nextLevel: 'aal2' },
+				error: null
+			});
+			expect((await harness.handle({ event: harness.createEvent(path), resolve: harness.resolve })).status).toBe(200);
+			expect(harness.resolve).toHaveBeenCalled();
+		}
+	);
+
+	it.each(['aal1', 'aal2'])('admits completed %s assurance to a protected handler', async (level) => {
+		const harness = await createAuthenticatedHookHarness({ data: false, error: null });
+		harness.getAuthenticatorAssuranceLevel.mockResolvedValue({
+			data: { currentLevel: level, nextLevel: level },
+			error: null
+		});
+		expect((await harness.handle(harness)).status).toBe(200);
+		expect(harness.event.locals.mfaPending).toBe(false);
+		expect(harness.resolve).toHaveBeenCalled();
+	});
+
+	it.each([
+		{ flow: 'recovery', destination: '/auth/reset-password', path: '/org/organization-a/api/personnel' },
+		{ flow: 'invite', destination: '/auth/accept-invite', path: '/org/organization-a/api/personnel' },
+		{ flow: 'recovery', destination: '/auth/reset-password', path: '/api/auth/finalize-invite' },
+		{ flow: 'invite', destination: '/auth/accept-invite', path: '/api/auth/mfa/enroll' },
+		{ flow: 'invite', destination: '/auth/accept-invite', path: '/auth/reset-password' }
+	])('restricts $flow sessions before dispatching $path', async ({ flow, destination, path }) => {
+		const harness = await createAuthenticatedHookHarness({ data: false, error: null });
+		const event = harness.createEvent(path, { 'sb-example-auth-token': 'session', ttt_pending_auth_flow: flow });
+		await expect(harness.handle({ event, resolve: harness.resolve })).rejects.toMatchObject({
+			status: 303,
+			location: destination
+		});
+		expect(harness.resolve).not.toHaveBeenCalled();
+	});
+
+	it.each([
+		{ flow: 'recovery', path: '/auth/reset-password' },
+		{ flow: 'recovery', path: '/api/auth/mfa/verify' },
+		{ flow: 'recovery', path: '/api/auth/update-password' },
+		{ flow: 'recovery', path: '/auth/logout' },
+		{ flow: 'invite', path: '/auth/accept-invite' },
+		{ flow: 'invite', path: '/api/auth/update-password' },
+		{ flow: 'invite', path: '/api/auth/finalize-invite' },
+		{ flow: 'invite', path: '/auth/logout' }
+	])('allows $flow completion at $path while MFA is pending', async ({ flow, path }) => {
+		const harness = await createAuthenticatedHookHarness({ data: false, error: null });
+		harness.getAuthenticatorAssuranceLevel.mockResolvedValue({
+			data: { currentLevel: 'aal1', nextLevel: 'aal2' },
+			error: null
+		});
+		const event = harness.createEvent(path, { 'sb-example-auth-token': 'session', ttt_pending_auth_flow: flow });
+		expect((await harness.handle({ event, resolve: harness.resolve })).status).toBe(200);
+		expect(harness.resolve).toHaveBeenCalled();
+	});
+
+	it.each(['recovery', 'invite'])('does not let a %s cookie bypass an assurance lookup failure', async (flow) => {
+		vi.spyOn(console, 'error').mockImplementation(() => undefined);
+		const harness = await createAuthenticatedHookHarness({ data: false, error: null });
+		harness.getAuthenticatorAssuranceLevel.mockResolvedValue({ data: null, error: { message: 'unavailable' } });
+		const event = harness.createEvent('/api/auth/update-password', {
+			'sb-example-auth-token': 'session',
+			ttt_pending_auth_flow: flow
+		});
+		await expect(harness.handle({ event, resolve: harness.resolve })).rejects.toMatchObject({ status: 503 });
+		expect(harness.resolve).not.toHaveBeenCalled();
+	});
+
+	it.each([null, 'recovery', 'invite'])('allows real logout during an assurance outage with flow %s', async (flow) => {
+		const harness = await createAuthenticatedHookHarness({ data: true, error: null });
+		harness.getAuthenticatorAssuranceLevel.mockRejectedValue(new Error('provider unavailable'));
+		const event = harness.createEvent('/auth/logout', {
+			'sb-example-auth-token': 'session',
+			...(flow ? { ttt_pending_auth_flow: flow } : {})
+		});
+		const { actions } = await import('./routes/auth/logout/+page.server');
+		const resolve = vi.fn(async (event: Parameters<Handle>[0]['event']) => {
+			await actions.default({ ...event, params: {}, route: { id: '/auth/logout' } });
+			return new Response('unreachable');
+		});
+		await expect(harness.handle({ event, resolve })).rejects.toMatchObject({ status: 303, location: '/' });
+		expect(harness.signOut).toHaveBeenCalled();
+		expect(event.cookies.get('ttt_pending_auth_flow')).toBeUndefined();
+	});
+
+	it.each(['/org/organization-a/api/personnel', '/api/announcements/dismiss'])(
+		'blocks a suspended user before the protected mutation at %s',
+		async (path) => {
+			const harness = await createAuthenticatedHookHarness({ data: true, error: null });
+			const response = await harness.handle({ event: harness.createEvent(path), resolve: harness.resolve });
+			expect(response.status).toBe(302);
+			expect(response.headers.get('location')).toBe('/suspended');
+			expect(harness.resolve).not.toHaveBeenCalled();
+		}
+	);
+
+	it.each(['/suspended', '/auth/logout', '/auth/mfa-verify'])(
+		'keeps the suspended user exit or completion path %s reachable',
+		async (path) => {
+			const harness = await createAuthenticatedHookHarness({ data: true, error: null });
+			expect((await harness.handle({ event: harness.createEvent(path), resolve: harness.resolve })).status).toBe(200);
+			expect(harness.resolve).toHaveBeenCalled();
+		}
+	);
+
+	it('denies a protected write when suspension status is missing', async () => {
+		const harness = await createAuthenticatedHookHarness({ data: null, error: null });
+		await expect(harness.handle(harness)).rejects.toMatchObject({
+			status: 500,
+			body: { message: 'Unable to verify account status' }
+		});
+		expect(harness.resolve).not.toHaveBeenCalled();
+	});
+
+	it('denies a protected write when the suspension provider throws', async () => {
+		const harness = await createAuthenticatedHookHarness({ data: false, error: null });
+		harness.rpc.mockRejectedValue(new Error('provider unavailable'));
+		await expect(harness.handle(harness)).rejects.toThrow('provider unavailable');
+		expect(harness.resolve).not.toHaveBeenCalled();
 	});
 
 	it('clears stale Supabase auth cookies when refresh token lookup fails', async () => {

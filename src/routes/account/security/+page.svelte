@@ -43,6 +43,7 @@
 	);
 
 	async function startEnroll() {
+		if (loading) return;
 		mfaError = '';
 		mfaSuccess = '';
 		enrolling = true;
@@ -72,7 +73,8 @@
 	}
 
 	async function verifyEnrollment() {
-		if (!verifyCode || verifyCode.length !== 6) {
+		if (loading) return;
+		if (!/^\d{6}$/.test(verifyCode)) {
 			mfaError = 'Please enter a 6-digit code';
 			return;
 		}
@@ -90,15 +92,16 @@
 				return;
 			}
 
-			if (!response.ok) {
-				const payload = (await response.json()) as { error?: string };
-				mfaError = payload.error ?? 'Verification failed';
+			const payload = (await response.json()) as { ok?: boolean; error?: string } | null;
+			if (!response.ok || payload?.ok !== true) {
+				mfaError = payload?.error ?? 'Verification failed';
 				return;
 			}
 
 			mfaSuccess = 'MFA has been enabled successfully.';
 			mfaOverride = true;
 			enrolling = false;
+			factorId = '';
 			qrCode = '';
 			verifyCode = '';
 		} catch (e: unknown) {
@@ -449,6 +452,7 @@
 							<Field.Control>
 								<Input
 									id="verify-code"
+									disabled={loading}
 									type="text"
 									value={verifyCode}
 									oninput={handleCodeInput}

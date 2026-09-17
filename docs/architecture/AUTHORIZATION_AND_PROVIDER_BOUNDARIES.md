@@ -24,6 +24,7 @@ This document separates what v1 authorization and provider ownership look like t
 ### Current authorization model
 
 - Organization membership is the current authorization anchor.
+- After authentication and user-suspension admission, the request hook checks fresh Organization status through `supabaseOrganizationAdmission.ts` with the caller's RLS-scoped client. Every write under an Organization route and every Organization API request (including GET/HEAD exports and private reads) is denied when suspended, missing or unverifiable. Page GET/HEAD navigation retains the suspended shell. This gate grants no membership or capability and cannot be bypassed by billing read-only exceptions; existing route/use-case policies still apply. Platform administration and account/auth recovery keep their own admission boundaries.
 - The persisted membership role is one of:
   - `owner`
   - `admin`

@@ -14,6 +14,7 @@ import {
 	sanitizePendingAuthFlow,
 	shouldRedirectIncompleteAuthSession
 } from '$lib/server/mfaGate';
+import { requireActiveOrganization } from '$lib/server/adapters/supabaseOrganizationAdmission';
 import '$lib/server/env'; // validate env vars on startup
 
 const impeccableLiveDevSources = import.meta.env.DEV ? ' http://localhost:8400 http://127.0.0.1:8400' : '';
@@ -280,6 +281,15 @@ export const handle: Handle = async ({ event, resolve }) => {
 				headers: { Location: '/suspended' }
 			});
 		}
+	}
+
+	// Layouts do not protect endpoints/actions. Keep page GETs available for the
+	// suspended shell, but admit every Organization write/API request on fresh status.
+	const orgSegment = event.params?.orgId;
+	const isOrganizationApi = event.route?.id?.startsWith('/org/[orgId]/api/');
+	const isWriteRequest = !['GET', 'HEAD', 'OPTIONS'].includes(event.request.method);
+	if (orgSegment && (isWriteRequest || isOrganizationApi)) {
+		await requireActiveOrganization(event.locals.supabase, orgSegment);
 	}
 
 	const response = await resolve(event, {

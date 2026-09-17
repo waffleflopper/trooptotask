@@ -5,14 +5,15 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
+	import * as Alert from '$lib/components/ui/alert';
 	import PencilIcon from '@lucide/svelte/icons/pencil';
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
 
 	interface Props {
 		groups: Group[];
-		onAdd: (name: string) => void;
-		onRemove: (id: string) => void;
-		onRename: (id: string, newName: string) => void;
+		onAdd: (name: string) => void | Promise<void>;
+		onRemove: (id: string) => void | Promise<void>;
+		onRename: (id: string, newName: string) => void | Promise<void>;
 		onClose: () => void;
 	}
 
@@ -21,25 +22,40 @@
 	let newGroupName = $state('');
 	let editingId = $state<string | null>(null);
 	let editName = $state('');
-	const groupDialogDirty = $derived(newGroupName.trim() !== '' || Boolean(editingId && editName.trim()));
+	let pending = $state(false);
+	let errorMessage = $state('');
+	const groupDialogDirty = $derived(pending || newGroupName.trim() !== '' || Boolean(editingId && editName.trim()));
 
-	async function handleAdd() {
-		if (newGroupName.trim()) {
-			await onAdd(newGroupName.trim());
-			newGroupName = '';
+	async function runChange(change: () => void | Promise<void>): Promise<boolean> {
+		if (pending) return false;
+		pending = true;
+		errorMessage = '';
+		try {
+			await change();
+			return true;
+		} catch (cause) {
+			errorMessage = cause instanceof Error ? cause.message : 'Unable to save Group changes. Try again.';
+			return false;
+		} finally {
+			pending = false;
 		}
 	}
 
+	async function handleAdd() {
+		const name = newGroupName.trim();
+		if (name && (await runChange(() => onAdd(name)))) newGroupName = '';
+	}
+
 	function startEdit(group: Group) {
+		errorMessage = '';
 		editingId = group.id;
 		editName = group.name;
 	}
 
 	async function saveEdit() {
-		if (editingId && editName.trim()) {
-			await onRename(editingId, editName.trim());
-		}
-		cancelEdit();
+		const id = editingId;
+		const name = editName.trim();
+		if (id && name && (await runChange(() => onRename(id, name)))) cancelEdit();
 	}
 
 	function cancelEdit() {
@@ -50,14 +66,13 @@
 	let confirmRemove = $state<Group | null>(null);
 
 	function handleRemove(group: Group) {
+		errorMessage = '';
 		confirmRemove = group;
 	}
 
 	async function doRemove() {
-		if (confirmRemove) {
-			await onRemove(confirmRemove.id);
-			confirmRemove = null;
-		}
+		const group = confirmRemove;
+		if (group && (await runChange(() => onRemove(group.id)))) confirmRemove = null;
 	}
 
 	function handleKeydown(e: KeyboardEvent) {
@@ -74,6 +89,9 @@
 		</AppDialog.Header>
 
 		<AppDialog.Body class="grid gap-4">
+			{#if errorMessage && !confirmRemove}
+				<Alert.Root variant="destructive"><Alert.Description>{errorMessage}</Alert.Description></Alert.Root>
+			{/if}
 			<div class="grid gap-2">
 				<Label for="new-group-name">Organization groups</Label>
 				<div class="flex gap-2">
@@ -81,10 +99,11 @@
 						id="new-group-name"
 						type="text"
 						bind:value={newGroupName}
+						readonly={pending}
 						placeholder="New group name"
 						onkeydown={handleKeydown}
 					/>
-					<Button type="button" size="sm" onclick={handleAdd} disabled={!newGroupName.trim()}>Add</Button>
+					<Button type="button" size="sm" onclick={handleAdd} disabled={pending || !newGroupName.trim()}>Add</Button>
 				</div>
 			</div>
 
@@ -92,10 +111,17 @@
 				{#each groups as group (group.id)}
 					<div class="grid gap-2 sm:grid-cols-[1fr_auto] sm:items-center">
 						{#if editingId === group.id}
-							<Input type="text" bind:value={editName} onkeydown={(e) => e.key === 'Enter' && saveEdit()} />
+							<Input
+								type="text"
+								aria-label="Group name"
+								readonly={pending}
+								bind:value={editName}
+								onkeydown={(e) => e.key === 'Enter' && saveEdit()}
+							/>
 							<div class="flex gap-2 sm:justify-end">
-								<Button type="button" size="sm" onclick={saveEdit}>Save</Button>
-								<Button type="button" variant="outline" size="sm" onclick={cancelEdit}>Cancel</Button>
+								<Button type="button" size="sm" onclick={saveEdit} disabled={pending}>Save</Button>
+								<Button type="button" variant="outline" size="sm" onclick={cancelEdit} disabled={pending}>Cancel</Button
+								>
 							</div>
 						{:else}
 							<span class="min-w-0 truncate">{group.name}</span>
@@ -106,6 +132,7 @@
 									size="icon"
 									title={`Edit ${group.name}`}
 									aria-label={`Edit ${group.name}`}
+									disabled={pending}
 									onclick={() => startEdit(group)}
 								>
 									<PencilIcon aria-hidden="true" />
@@ -116,6 +143,7 @@
 									size="icon"
 									title={`Remove ${group.name}`}
 									aria-label={`Remove ${group.name}`}
+									disabled={pending}
 									onclick={() => handleRemove(group)}
 								>
 									<Trash2Icon aria-hidden="true" />
@@ -128,7 +156,7 @@
 		</AppDialog.Body>
 
 		<AppDialog.Footer>
-			<Button type="button" onclick={onClose}>Done</Button>
+			<Button type="button" onclick={onClose} disabled={pending}>Done</Button>
 		</AppDialog.Footer>
 	</AppDialog.Content>
 </AppDialog.Root>
@@ -140,6 +168,13 @@
 		confirmLabel="Remove"
 		variant="danger"
 		onConfirm={doRemove}
-		onCancel={() => (confirmRemove = null)}
-	/>
+		onCancel={() => {
+			confirmRemove = null;
+			errorMessage = '';
+		}}
+	>
+		{#if errorMessage}
+			<Alert.Root variant="destructive"><Alert.Description>{errorMessage}</Alert.Description></Alert.Root>
+		{/if}
+	</ConfirmDialog>
 {/if}

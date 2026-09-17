@@ -97,6 +97,7 @@ Apply the [stabilization decisions](ARCHITECTURE.md#stabilization-decisions) and
   - org settings ownership transfer and delete flows moved behind an app-owned use case and Supabase adapter in `#626`
   - organization settings rename moved behind an app-owned use case and Supabase adapter in this architecture deepening slice
   - organization governance pages now live under `/org/[orgId]/settings/*`
+  - stabilization 02-02-01b-03-02 closes the Organization suspension dispatch gap: a shared hook gate and user-scoped adapter deny writes/API requests before their consumers run, while page navigation retains the suspended shell; no new route provider exception is required
 - Intended direction:
   - app-owned use cases and cleaner boundaries for membership, invitation, and organization-administration flows
 - Why this matters:

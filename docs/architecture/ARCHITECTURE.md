@@ -27,6 +27,8 @@ Complete one ready task at a time and respect phase dependencies. Newly discover
 
 ## Current-State Truth
 
+Organization suspension is enforced before dispatch of Organization writes and API requests by the authenticated request hook and a user-scoped provider adapter. Page GET/HEAD requests retain the suspended shell; layouts alone are not an action/endpoint authorization boundary. Membership, Group scope and feature policy checks remain mandatory downstream.
+
 ### Application shape
 
 - TroopToTask v1 is a single SvelteKit app with one deployable product surface.

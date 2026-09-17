@@ -1,11 +1,16 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Handle } from '@sveltejs/kit';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Cookies, Handle } from '@sveltejs/kit';
 
 interface TestUserStorage {
 	getItem(key: string): string | null;
 }
 
+const NOW = new Date('2026-09-16T12:00:00Z');
+
 interface TestServerClientOptions {
+	cookies: {
+		setAll(cookies: { name: string; value: string; options: Parameters<Cookies['set']>[2] }[]): void;
+	};
 	auth?: {
 		userStorage?: TestUserStorage;
 	};
@@ -15,6 +20,13 @@ describe('server auth hook', () => {
 	beforeEach(() => {
 		vi.resetModules();
 		vi.restoreAllMocks();
+		vi.useFakeTimers({ toFake: ['Date'] });
+		vi.setSystemTime(NOW);
+	});
+
+	afterEach(() => {
+		vi.useRealTimers();
+		vi.restoreAllMocks();
 	});
 
 	async function createAuthenticatedHookHarness(
@@ -22,7 +34,7 @@ describe('server auth hook', () => {
 			data: boolean | null;
 			error: { message: string } | null;
 		},
-		options: { authenticatedUserId?: string } = {}
+		options: { authenticatedUserId?: string; lastSignInAt?: string } = {}
 	) {
 		const now = new Date();
 		const user = {
@@ -32,7 +44,7 @@ describe('server auth hook', () => {
 			app_metadata: {},
 			user_metadata: {},
 			created_at: now.toISOString(),
-			last_sign_in_at: now.toISOString(),
+			last_sign_in_at: options.lastSignInAt ?? now.toISOString(),
 			role: 'authenticated'
 		};
 		const authenticatedUser = { ...user, id: options.authenticatedUserId ?? user.id };
@@ -75,6 +87,7 @@ describe('server auth hook', () => {
 			data: { user: authenticatedUser },
 			error: null
 		});
+		const signOut = vi.fn().mockResolvedValue({ error: null });
 		let serverClientOptions: TestServerClientOptions | null = null;
 		const readStoredUserDuringMfa = vi.fn(() =>
 			serverClientOptions?.auth?.userStorage?.getItem('sb-example-auth-token-user')
@@ -91,6 +104,7 @@ describe('server auth hook', () => {
 			serverClientOptions = options;
 			return {
 				auth: {
+					signOut,
 					getSession,
 					getClaims,
 					getUser,
@@ -111,22 +125,222 @@ describe('server auth hook', () => {
 		vi.doMock('$lib/server/env', () => ({}));
 
 		const { handle } = await import('./hooks.server');
-		const deleteCookie = vi.fn();
-		const event = {
-			url: new URL('http://localhost/dashboard'),
-			request: new Request('http://localhost/dashboard'),
-			locals: {},
-			getClientAddress: () => '127.0.0.1',
-			cookies: {
-				getAll: () => [{ name: 'sb-example-auth-token', value: 'session' }],
-				get: vi.fn(),
-				set: vi.fn(),
-				delete: deleteCookie
-			}
-		} as never;
+		function createEvent(
+			path = '/dashboard',
+			cookieValues: Record<string, string> = { 'sb-example-auth-token': 'session' }
+		) {
+			const cookieJar = new Map(Object.entries(cookieValues));
+			const event = {
+				url: new URL(`http://localhost${path}`),
+				request: new Request(`http://localhost${path}`, { method: 'POST' }),
+				locals: {},
+				getClientAddress: () => '127.0.0.1',
+				cookies: {
+					getAll: () => [...cookieJar].map(([name, value]) => ({ name, value })),
+					get: (name: string) => cookieJar.get(name),
+					set: vi.fn((name: string, value: string, _options: Parameters<Cookies['set']>[2]) => {
+						cookieJar.set(name, value);
+					}),
+					delete: vi.fn((name: string, _options: { path: string }) => {
+						cookieJar.delete(name);
+					})
+				}
+			} as unknown as Parameters<Handle>[0]['event'];
+			return event;
+		}
+		const event = createEvent();
 
-		return { handle: handle as Handle, event, resolve, rpc, getUser, deleteCookie, readStoredUserDuringMfa };
+		return {
+			handle,
+			event,
+			createEvent,
+			resolve,
+			rpc,
+			getSession,
+			getClaims,
+			getUser,
+			signOut,
+			deleteCookie: event.cookies.delete,
+			readStoredUserDuringMfa,
+			getClientOptions: () => {
+				if (!serverClientOptions) throw new Error('Hook has not initialized the provider');
+				return serverClientOptions;
+			}
+		};
 	}
+
+	it('admits anonymous public requests without exposing a session', async () => {
+		const harness = await createAuthenticatedHookHarness({ data: false, error: null });
+		const event = harness.createEvent('/about', {});
+
+		expect((await harness.handle({ event, resolve: harness.resolve })).status).toBe(200);
+		expect(event.locals.user).toBeNull();
+		expect(event.locals.session).toBeNull();
+		expect(harness.getSession).not.toHaveBeenCalled();
+		expect(harness.resolve).toHaveBeenCalled();
+	});
+
+	it('rejects anonymous protected writes without accepting another project cookie', async () => {
+		const harness = await createAuthenticatedHookHarness({ data: false, error: null });
+		const event = harness.createEvent('/org/organization-a/api/personnel', {
+			'sb-other-auth-token': 'foreign-project-session'
+		});
+
+		await expect(harness.handle({ event, resolve: harness.resolve })).rejects.toMatchObject({
+			status: 303,
+			location: '/auth/login'
+		});
+		expect(harness.resolve).not.toHaveBeenCalled();
+		expect(harness.getSession).not.toHaveBeenCalled();
+		expect(event.locals.session).toBeNull();
+	});
+
+	it.each([
+		{ stage: 'getSession', data: { session: null } },
+		{ stage: 'getClaims', data: null },
+		{ stage: 'getUser', data: { user: null } }
+	] as const)('rejects a protected write when $stage returns no identity', async ({ stage, data }) => {
+		const harness = await createAuthenticatedHookHarness({ data: false, error: null });
+		harness[stage].mockResolvedValue({ data, error: null });
+
+		await expect(harness.handle(harness)).rejects.toMatchObject({ status: 303, location: '/auth/login' });
+		expect(harness.resolve).not.toHaveBeenCalled();
+		expect(harness.event.locals.user).toBeNull();
+		expect(harness.event.locals.session).toBeNull();
+	});
+
+	it.each(['getSession', 'getClaims', 'getUser'] as const)(
+		'rejects a protected write when %s reports a verification error',
+		async (stage) => {
+			const harness = await createAuthenticatedHookHarness({ data: false, error: null });
+			const validResult = await harness[stage]();
+			harness[stage].mockResolvedValue({ ...validResult, error: { message: 'Verification failed' } });
+
+			await expect(harness.handle(harness)).rejects.toMatchObject({ status: 303, location: '/auth/login' });
+			expect(harness.resolve).not.toHaveBeenCalled();
+			expect(harness.event.locals.user).toBeNull();
+			expect(harness.event.locals.session).toBeNull();
+		}
+	);
+
+	it.each(['getSession', 'getClaims', 'getUser'] as const)(
+		'does not invoke the protected handler when %s is unavailable',
+		async (stage) => {
+			const harness = await createAuthenticatedHookHarness({ data: false, error: null });
+			const unavailable = new Error('Synthetic auth provider unavailable');
+			harness[stage].mockRejectedValue(unavailable);
+
+			await expect(harness.handle(harness)).rejects.toBe(unavailable);
+			expect(harness.resolve).not.toHaveBeenCalled();
+		}
+	);
+
+	it.each([
+		{ stage: 'getSession', code: 'refresh_token_already_used', thrown: true },
+		{ stage: 'getClaims', code: 'session_expired', thrown: false },
+		{ stage: 'getUser', code: 'session_not_found', thrown: true },
+		{ stage: 'getUser', code: 'refresh_token_not_found', thrown: false }
+	] as const)(
+		'clears stale credentials and denies replay after $stage reports $code',
+		async ({ stage, code, thrown }) => {
+			const harness = await createAuthenticatedHookHarness({ data: false, error: null });
+			const event = harness.createEvent('/dashboard', {
+				'sb-example-auth-token.0': 'stale-first-chunk',
+				'sb-example-auth-token.1': 'stale-second-chunk',
+				'sb-other-auth-token': 'other-project-cookie',
+				theme: 'dark',
+				ttt_pending_auth_flow: 'invite'
+			});
+			const stale = Object.assign(new Error('Synthetic stale credential'), { code });
+			if (thrown) harness[stage].mockRejectedValue(stale);
+			else harness[stage].mockResolvedValue({ data: null, error: stale });
+
+			await expect(harness.handle({ event, resolve: harness.resolve })).rejects.toMatchObject({
+				status: 303,
+				location: '/auth/login'
+			});
+			expect(harness.resolve).not.toHaveBeenCalled();
+			expect(event.locals.session).toBeNull();
+			expect(event.locals.authFlow).toBeNull();
+			expect(event.cookies.getAll()).toEqual([
+				{ name: 'sb-other-auth-token', value: 'other-project-cookie' },
+				{ name: 'theme', value: 'dark' }
+			]);
+		}
+	);
+
+	it('admits a verified session before its absolute lifetime expires', async () => {
+		const harness = await createAuthenticatedHookHarness(
+			{ data: false, error: null },
+			{ lastSignInAt: '2026-09-15T12:00:01Z' }
+		);
+
+		expect((await harness.handle(harness)).status).toBe(200);
+		expect(harness.event.locals.user?.id).toBe('user-1');
+		expect(harness.signOut).not.toHaveBeenCalled();
+		expect(harness.resolve).toHaveBeenCalled();
+	});
+
+	it('revokes a session past its absolute lifetime before a protected write', async () => {
+		const harness = await createAuthenticatedHookHarness(
+			{ data: false, error: null },
+			{ lastSignInAt: '2026-09-15T11:59:59Z' }
+		);
+		const event = harness.createEvent('/dashboard', {
+			'sb-example-auth-token': 'expired-session',
+			ttt_pending_auth_flow: 'recovery'
+		});
+
+		await expect(harness.handle({ event, resolve: harness.resolve })).rejects.toMatchObject({
+			status: 303,
+			location: '/auth/login'
+		});
+		expect(harness.signOut).toHaveBeenCalledOnce();
+		expect(event.locals.user).toBeNull();
+		expect(event.locals.session).toBeNull();
+		expect(event.locals.authFlow).toBeNull();
+		expect(event.cookies.get('ttt_pending_auth_flow')).toBeUndefined();
+		expect(harness.resolve).not.toHaveBeenCalled();
+	});
+
+	it('does not reuse a verified identity or provider user storage in a later anonymous request', async () => {
+		const harness = await createAuthenticatedHookHarness({ data: false, error: null });
+		await harness.handle(harness);
+		const authenticatedStorage = harness.getClientOptions().auth?.userStorage;
+		const anonymous = harness.createEvent('/dashboard', {});
+		harness.resolve.mockClear();
+
+		await expect(harness.handle({ event: anonymous, resolve: harness.resolve })).rejects.toMatchObject({
+			status: 303,
+			location: '/auth/login'
+		});
+		expect(anonymous.locals.user).toBeNull();
+		expect(anonymous.locals.session).toBeNull();
+		expect(harness.getClientOptions().auth?.userStorage?.getItem('sb-example-auth-token-user')).toBeNull();
+		expect(authenticatedStorage?.getItem('sb-example-auth-token-user')).toContain('"id":"user-1"');
+		expect(harness.resolve).not.toHaveBeenCalled();
+	});
+
+	it('writes provider cookies through the hook with HttpOnly and root scope while retaining secure options', async () => {
+		const harness = await createAuthenticatedHookHarness({ data: false, error: null });
+		await harness.handle(harness);
+
+		harness.getClientOptions().cookies.setAll([
+			{
+				name: 'sb-example-auth-token',
+				value: 'renewed-synthetic-session',
+				options: { path: '/auth', httpOnly: false, secure: true, sameSite: 'lax', maxAge: 3600 }
+			}
+		]);
+
+		expect(harness.event.cookies.set).toHaveBeenCalledWith('sb-example-auth-token', 'renewed-synthetic-session', {
+			path: '/',
+			httpOnly: true,
+			secure: true,
+			sameSite: 'lax',
+			maxAge: 3600
+		});
+	});
 
 	it('clears stale Supabase auth cookies when refresh token lookup fails', async () => {
 		const refreshError = Object.assign(new Error('Invalid Refresh Token: Refresh Token Not Found'), {

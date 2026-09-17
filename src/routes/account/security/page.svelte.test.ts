@@ -1,4 +1,5 @@
 // @vitest-environment happy-dom
+import '@testing-library/jest-dom/vitest';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { goto } from '$app/navigation';
@@ -49,6 +50,50 @@ describe('MFA admission redirects from an open security page', () => {
 			}
 			await waitFor(() => expect(goto).toHaveBeenCalledWith('http://localhost/suspended'));
 			expect(screen.queryByText(/MFA has been/)).toBeNull();
+		}
+	);
+});
+
+describe('pending enrollment cancellation', () => {
+	it.each(['provider rejection', 'network failure'])(
+		'retains enrollment through %s and clears it only after retry succeeds',
+		async (failure) => {
+			let finishCancel!: (response: Response) => void;
+			const fetchMock = vi
+				.fn()
+				.mockResolvedValueOnce(Response.json({ factorId: 'pending-factor', qrCode: 'data:image/svg+xml,synthetic' }));
+			if (failure === 'network failure') fetchMock.mockRejectedValueOnce(new Error('Connection lost'));
+			else fetchMock.mockResolvedValueOnce(Response.json({ error: 'Cancellation unavailable' }, { status: 503 }));
+			fetchMock.mockImplementationOnce(
+				() =>
+					new Promise<Response>((resolve) => {
+						finishCancel = resolve;
+					})
+			);
+			vi.stubGlobal('fetch', fetchMock);
+			render(Page, {
+				props: {
+					data: { hasMFA: false, currentEmail: 'synthetic@example.test', pendingEmail: null } as PageData,
+					form: null
+				}
+			});
+			await fireEvent.click(screen.getByRole('button', { name: 'Enable MFA' }));
+			const code = await screen.findByLabelText('Verification code');
+			await fireEvent.input(code, { target: { value: '123456' } });
+			await fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+			expect(
+				await screen.findByText(failure === 'network failure' ? 'Connection lost' : 'Cancellation unavailable')
+			).toBeTruthy();
+			expect(screen.getByLabelText('Verification code')).toHaveValue('123456');
+			expect(screen.getByRole('img', { name: 'MFA QR Code' })).toHaveAttribute('src', 'data:image/svg+xml,synthetic');
+			await fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+			expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled();
+			expect(screen.getByRole('button', { name: /Verify and Enable/ })).toBeDisabled();
+			expect(JSON.parse(fetchMock.mock.calls[2][1].body)).toEqual({ factorId: 'pending-factor' });
+			finishCancel(Response.json({ ok: true }));
+			await waitFor(() => expect(screen.queryByLabelText('Verification code')).toBeNull());
+			expect(screen.queryByRole('img', { name: 'MFA QR Code' })).toBeNull();
+			expect(screen.getByRole('button', { name: 'Enable MFA' })).toBeEnabled();
 		}
 	);
 });

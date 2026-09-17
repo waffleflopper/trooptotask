@@ -19,6 +19,8 @@
 	let success = $state(false);
 	let sessionReady = $state(false);
 	let tokenError = $state(false);
+	let statusError = $state(false);
+	let checkingStatus = $state(false);
 	let requiresMfa = $state(false);
 	let mfaCode = $state('');
 	let mfaVerified = $state(false);
@@ -58,30 +60,35 @@
 	}
 
 	async function loadMfaStatus() {
-		const response = await fetch('/api/auth/mfa/status');
-		if (response.redirected) {
-			await goto(response.url);
-			return false;
-		}
-		if (!response.ok) {
-			try {
-				const payload = (await response.json()) as { error?: string };
-				error = payload.error ?? 'We could not verify your account security settings. Please request a new reset link.';
-			} catch {
-				error = 'We could not verify your account security settings. Please request a new reset link.';
+		if (checkingStatus) return;
+		checkingStatus = true;
+		try {
+			const response = await fetch('/api/auth/mfa/status');
+			if (response.redirected) {
+				await goto(response.url);
+				return;
 			}
-			return false;
+			const payload = await response.json();
+			if (
+				!response.ok ||
+				!payload ||
+				payload.error ||
+				!['aal1', 'aal2'].includes(payload.currentLevel) ||
+				!['aal1', 'aal2'].includes(payload.nextLevel)
+			) {
+				statusError = true;
+				return;
+			}
+
+			requiresMfa = payload.currentLevel === 'aal1' && payload.nextLevel === 'aal2';
+			mfaVerified = !requiresMfa;
+			statusError = false;
+			sessionReady = true;
+		} catch {
+			statusError = true;
+		} finally {
+			checkingStatus = false;
 		}
-
-		const payload = (await response.json()) as {
-			currentLevel?: string | null;
-			nextLevel?: string | null;
-		};
-
-		requiresMfa = payload.currentLevel === 'aal1' && payload.nextLevel === 'aal2';
-		mfaVerified = !requiresMfa;
-		sessionReady = true;
-		return true;
 	}
 
 	function handleMfaCodeInput(e: Event) {
@@ -93,6 +100,7 @@
 		void (async () => {
 			if (hasSession) {
 				await loadMfaStatus();
+				return;
 			}
 
 			if (!sessionReady) {
@@ -115,11 +123,9 @@
 
 						const result = await readJsonResult(response);
 						if (result.ok) {
-							const mfaLoaded = await loadMfaStatus();
 							replaceState(resolve('/auth/reset-password'), $page.state);
-							if (!mfaLoaded) {
-								return;
-							}
+							await loadMfaStatus();
+							return;
 						} else {
 							error = result.error ?? 'We could not verify your reset session. Please request a new reset link.';
 						}
@@ -223,20 +229,24 @@
 		? 'Password updated'
 		: tokenError
 			? 'Reset link unavailable'
-			: sessionReady && requiresMfa
-				? 'Verify your authenticator'
-				: sessionReady
-					? 'Choose a new password'
-					: 'Verifying reset link'}
+			: statusError
+				? 'Security check unavailable'
+				: sessionReady && requiresMfa
+					? 'Verify your authenticator'
+					: sessionReady
+						? 'Choose a new password'
+						: 'Verifying reset link'}
 	panelDescription={success
 		? "You'll be redirected to sign in shortly."
 		: tokenError
 			? 'This reset link can no longer be used.'
-			: sessionReady && requiresMfa
-				? 'Enter the current 6-digit code from your authenticator app before setting a new password.'
-				: sessionReady
-					? 'Enter the new password you want to use for future sign-ins.'
-					: "We're confirming the recovery session before allowing a password change."}
+			: statusError
+				? 'Retry the security check to continue your password reset.'
+				: sessionReady && requiresMfa
+					? 'Enter the current 6-digit code from your authenticator app before setting a new password.'
+					: sessionReady
+						? 'Enter the new password you want to use for future sign-ins.'
+						: "We're confirming the recovery session before allowing a password change."}
 	supportLabel="Reset session"
 	supportTitle="Use the link, then set the password."
 	supportDescription="You can only change the password here after the reset link has been verified."
@@ -256,6 +266,11 @@
 			<AuthNotice tone="error" title="Reset link unavailable" centered>
 				<p>This reset link is invalid or has expired.</p>
 			</AuthNotice>
+		{:else if statusError}
+			<AuthNotice tone="error" message="We could not verify your account security settings. Please try again." />
+			<Button type="button" onclick={loadMfaStatus} disabled={checkingStatus} class="w-full">
+				{#if checkingStatus}<Spinner />Checking security...{:else}Retry security check{/if}
+			</Button>
 		{:else if !sessionReady}
 			<div class="flex flex-col items-center gap-3 py-8 text-center text-muted-foreground">
 				<Spinner class="text-primary" />

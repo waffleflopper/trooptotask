@@ -7,6 +7,7 @@ This document separates what v1 authorization and provider ownership look like t
 ### Authentication boundary
 
 - Supabase Auth is the current authentication provider.
+- The request hook denies dispatch when authenticated MFA assurance or required user suspension status cannot be verified. Logout remains reachable during an assurance lookup failure; pending MFA/recovery/invite sessions retain their completion routes.
 - Auth-specific route and server code is expected to remain provider-aware for now.
 - Beta **Access Request** approval should use app-owned **Account Setup Links** rather than Supabase invite emails as the product-level setup window; see ADR 0009.
 - Current auth-provider-specific areas include:

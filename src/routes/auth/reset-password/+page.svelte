@@ -54,9 +54,9 @@
 		try {
 			const payload = (await response.json()) as { ok?: boolean; error?: string; code?: string };
 			return {
-				ok: response.ok && payload.ok === true,
-				error: payload.error,
-				code: payload.code
+				ok: response.ok && payload?.ok === true && payload.error === undefined,
+				error: typeof payload?.error === 'string' ? payload.error : undefined,
+				code: typeof payload?.code === 'string' ? payload.code : undefined
 			};
 		} catch {
 			return { ok: false };
@@ -128,6 +128,7 @@
 
 	async function handleSubmit(e: Event) {
 		e.preventDefault();
+		const form = e.currentTarget as HTMLFormElement;
 		if (loading || requiresMfa) return;
 		error = '';
 
@@ -162,14 +163,18 @@
 				return;
 			}
 			if (!updateResult.ok) {
-				error = updateResult.error ?? 'Failed to update password.';
+				error = updateResult.error || 'Unable to confirm the password update. Your password may have changed.';
 				return;
 			}
 
 			success = true;
 			setTimeout(() => goto(resolve('/auth/login')), 3000);
+		} catch {
+			error = 'Unable to confirm the password update. Your password may have changed.';
 		} finally {
 			loading = false;
+			await tick();
+			if (error && !requiresMfa && form.isConnected) form.querySelector<HTMLInputElement>('input')?.focus();
 		}
 	}
 </script>

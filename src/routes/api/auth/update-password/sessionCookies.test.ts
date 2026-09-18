@@ -152,3 +152,59 @@ it('isolates real SDK proof, revokes only its temporary session, and changes the
 	expect(stored.user).toBeUndefined();
 	expect(jar.get('theme')).toBe('dark');
 });
+
+it.each(['missing actor', 'wrong actor', 'provider unavailable', 'accepted'])(
+	'validates the real SDK mutation result for %s before completion',
+	async (outcome) => {
+		const user = { id: '00000000-0000-4000-8000-000000000001', email: 'actor@example.test', aud: 'authenticated' };
+		const encode = (value: unknown) => Buffer.from(JSON.stringify(value)).toString('base64url');
+		const token = `${encode({ alg: 'HS256', typ: 'JWT' })}.${encode({ sub: user.id, exp: 4102444800, aud: 'authenticated', aal: 'aal1' })}.${encode('synthetic')}`;
+		const revocations: string[] = [];
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+				const url = new URL(String(input));
+				if (url.pathname === '/auth/v1/user') {
+					if (init?.method === 'PUT') {
+						expect(new Headers(init.headers).get('Authorization')).toBe(`Bearer ${token}`);
+						if (outcome === 'provider unavailable') return Response.json({ message: 'private' }, { status: 503 });
+						return Response.json(
+							outcome === 'missing actor' ? {} : outcome === 'wrong actor' ? { ...user, id: 'other' } : user
+						);
+					}
+					return Response.json(user);
+				}
+				if (url.pathname === '/auth/v1/logout') {
+					revocations.push(url.searchParams.get('scope')!);
+					return new Response(null, { status: 204 });
+				}
+				throw Error(`Unexpected ${url.pathname}`);
+			})
+		);
+		const cookies = { delete: vi.fn() };
+		const supabase = createServerClient('https://proof.invalid', 'synthetic-anon', {
+			cookies: {
+				getAll: () => [
+					{
+						name: 'sb-proof-auth-token',
+						value: `base64-${encode({ access_token: token, refresh_token: 'synthetic-refresh', expires_at: 4102444800, token_type: 'bearer' })}`
+					}
+				],
+				setAll: () => {}
+			}
+		});
+		const response = await POST({
+			request: new Request('https://app.invalid/api/auth/update-password', {
+				method: 'POST',
+				body: JSON.stringify({ password: 'NewPassword12' })
+			}),
+			locals: { user, session: { user, access_token: token, expires_at: 4102444800 }, authFlow: 'recovery', supabase },
+			cookies,
+			getClientAddress: () => '192.0.2.1'
+		} as unknown as Parameters<typeof POST>[0]);
+		expect(response.status).toBe(outcome === 'accepted' ? 200 : 503);
+		expect(await response.text()).not.toContain('private');
+		expect(revocations).toEqual(outcome === 'accepted' ? ['others'] : []);
+		expect(cookies.delete).toHaveBeenCalledTimes(outcome === 'accepted' ? 1 : 0);
+	}
+);

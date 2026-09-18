@@ -94,7 +94,7 @@ describe('POST /api/auth/update-password', () => {
 			},
 			error: null
 		});
-		const updateUser = vi.fn().mockResolvedValue({ error: null });
+		const updateUser = vi.fn().mockResolvedValue({ data: { user: { id: 'user-123' } }, error: null });
 		const signOut = vi.fn().mockResolvedValue({ error: null });
 		const cookies = { delete: vi.fn() };
 
@@ -148,7 +148,7 @@ describe('POST /api/auth/update-password', () => {
 			},
 			error: null
 		});
-		const updateUser = vi.fn().mockResolvedValue({ error: null });
+		const updateUser = vi.fn().mockResolvedValue({ data: { user: { id: 'user-123' } }, error: null });
 		const signOut = vi.fn().mockResolvedValue({ error: { message: 'revocation failed' } });
 
 		const response = await POST(
@@ -343,7 +343,7 @@ describe('POST /api/auth/update-password', () => {
 		expect(cookies.delete).not.toHaveBeenCalled();
 	});
 
-	it('returns an auth error when Supabase rejects the password update', async () => {
+	it('reports an unconfirmed mutation when the provider fails without a policy rejection', async () => {
 		const updateUser = vi.fn().mockResolvedValue({
 			error: { message: 'Password update failed.' }
 		});
@@ -370,9 +370,10 @@ describe('POST /api/auth/update-password', () => {
 			})
 		);
 
-		expect(response.status).toBe(401);
+		expect(response.status).toBe(503);
 		expect(await response.json()).toEqual({
-			error: 'Password update failed'
+			code: 'password_update_unconfirmed',
+			error: 'Unable to confirm the password update. Your password may have changed.'
 		});
 		expect(checkPasswordUpdateRateLimitMock).toHaveBeenCalledWith({
 			userId: 'user-123',
@@ -417,7 +418,7 @@ describe('POST /api/auth/update-password', () => {
 	});
 
 	it('updates the password for an active recovery session and clears the recovery flow marker', async () => {
-		const updateUser = vi.fn().mockResolvedValue({ error: null });
+		const updateUser = vi.fn().mockResolvedValue({ data: { user: { id: 'user-123' } }, error: null });
 		const signOut = vi.fn().mockResolvedValue({ error: null });
 		const cookies = { delete: vi.fn() };
 
@@ -538,7 +539,7 @@ describe('POST /api/auth/update-password', () => {
 	});
 
 	it('does not clear the pending flow marker for invite sessions before invite finalization finishes', async () => {
-		const updateUser = vi.fn().mockResolvedValue({ error: null });
+		const updateUser = vi.fn().mockResolvedValue({ data: { user: { id: 'user-123' } }, error: null });
 		const signOut = vi.fn().mockResolvedValue({ error: null });
 		const cookies = { delete: vi.fn() };
 

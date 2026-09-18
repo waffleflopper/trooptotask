@@ -45,7 +45,7 @@ Follow [Testing strategy](TESTING.md) when adding, rewriting, pruning or reviewi
 
 For changed user journeys, exercise the affected retained flows using computer-use tools against a production-mode local app with isolated synthetic data. Record candidate, app origin, tool/browser version, fixture roles and Organization/Group scopes, steps, expected and observed outcomes, and redacted screenshots or recordings. Include relevant denied/error states, keyboard/focus behavior and persistence after reload. Follow the [local auth guide](../local-auth-testing.md) for acquisition and recovery flows.
 
-Do not create or run a repository E2E/browser suite or enable an application test bypass. Existing harness removal belongs to 02-05. If tools or a safe fixture are unavailable, mark the flow **not run**, state what is missing and keep the required evidence with its owning task; lower-level tests do not turn an unobserved flow into a pass. Documentation-only changes do not require invented UI journeys. Release evidence must cover the retained journeys even if individual earlier tasks could not exercise them.
+Do not create or run a repository E2E/browser suite or enable an application test bypass. Task 02-05 removed the former harness and runtime bypasses. If tools or a safe fixture are unavailable, mark the flow **not run**, state what is missing and keep the required evidence with its owning task; lower-level tests do not turn an unobserved flow into a pass. Documentation-only changes do not require invented UI journeys. Release evidence must cover the retained journeys even if individual earlier tasks could not exercise them.
 
 ### Isolated database checks
 

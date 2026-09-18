@@ -27,4 +27,4 @@ When asked to execute the queue, select the first unchecked ready task in the ac
 - If a task is too broad, record bounded children with prerequisites and measurable acceptance, then complete only the first ready child. Stop after that task; do not activate a later phase automatically.
 - Finish implementation, affected consumers, meaningful tests and deletion of replaced code, configuration and active guidance. Update TODO and concise [evidence](../stabilization/EVIDENCE.md); mark complete only when acceptance is met. Record newly discovered in-scope work before program closure.
 - Preserve verification guards, scan paths and budgets. No allowlists, skipped tests, weakened assertions or hidden failures to obtain a pass.
-- Do not create or run a repository E2E suite; removal is queued in phase 02. Production/remote actions, live data, deployment, publication and merge remain outside stabilization execution.
+- Do not create or run a repository E2E suite; phase 02 removed the harness and runtime bypasses. Production/remote actions, live data, deployment, publication and merge remain outside stabilization execution.

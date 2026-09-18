@@ -474,7 +474,6 @@ describe('server auth hook', () => {
 	describe('request throttle admission', () => {
 		const auditLog = vi.fn();
 		beforeEach(() => {
-			vi.stubEnv('E2E_TESTING', undefined);
 			vi.doMock('$lib/server/auditLog', () => ({ auditLog }));
 			auditLog.mockClear();
 		});

@@ -84,7 +84,7 @@ A military unit management platform for personnel tracking, calendar/availabilit
 - **Styling**: Pure CSS with custom properties (no Tailwind)
 - **Payments**: Stripe (subscription billing)
 - **Deployment**: Vercel
-- **Testing**: Vitest and isolated SQL contracts, with computer-use flow evidence; legacy E2E harness removal is queued in stabilization task 02-05.
+- **Testing**: Vitest and isolated SQL contracts, with computer-use flow evidence; repository browser suites and runtime test bypasses have been removed.
 
 ## Getting Started
 

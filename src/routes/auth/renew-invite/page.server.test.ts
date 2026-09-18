@@ -22,7 +22,7 @@ vi.mock('$lib/server/auditLog', () => ({
 	auditLog: auditLogMock
 }));
 
-import { actions } from './+page.server';
+import { actions, load } from './+page.server';
 
 function makeActionEvent(input: { email?: string; ip?: string; origin?: string } = {}) {
 	const formData = new FormData();
@@ -43,6 +43,12 @@ describe('/auth/renew-invite actions', () => {
 		vi.clearAllMocks();
 		checkRenewalRateLimitMock.mockReturnValue({ limited: false });
 		requestFreshSetupLinkMock.mockResolvedValue({ status: 'no-public-action' });
+	});
+
+	it.each(['', 'not-an-email'])('rejects invalid renewal input before issuance: %s', async (email) => {
+		expect(await actions.default(makeActionEvent({ email }))).toMatchObject({ status: 400 });
+		expect(checkRenewalRateLimitMock).not.toHaveBeenCalled();
+		expect(requestFreshSetupLinkMock).not.toHaveBeenCalled();
 	});
 
 	it('returns the same success response for quiet no-op and delivered renewal outcomes', async () => {
@@ -169,5 +175,18 @@ describe('/auth/renew-invite actions', () => {
 				email: 'approved@example.mil'
 			}
 		});
+	});
+});
+
+describe('/auth/renew-invite entry', () => {
+	it.each([
+		{ authFlow: null, mfaPending: false, location: '/dashboard' },
+		{ authFlow: null, mfaPending: true, location: '/auth/mfa-verify' },
+		{ authFlow: 'invite', mfaPending: true, location: '/auth/accept-invite' },
+		{ authFlow: 'recovery', mfaPending: true, location: '/auth/reset-password' }
+	] as const)('continues authenticated requests at $location', async ({ location, ...flow }) => {
+		await expect(
+			load({ locals: { session: { user: { id: 'user-1' } }, ...flow } } as Parameters<typeof load>[0])
+		).rejects.toMatchObject({ status: 303, location });
 	});
 });

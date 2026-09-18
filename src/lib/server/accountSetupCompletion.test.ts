@@ -194,6 +194,90 @@ describe('Account Setup completion', () => {
 		expect(store.completions).toEqual([{ accessRequestId: 'request-1', userId: 'user-123' }]);
 	});
 
+	it('allows only one in-flight setup session to mutate credentials and rejects replay after completion', async () => {
+		const store = makeStore({ ...approvedRequest });
+		await addSetupToken(store);
+		const started = Promise.withResolvers<void>();
+		const release = Promise.withResolvers<{ userId: string }>();
+		const auth = makeAuth({
+			createOrActivateConfirmedUser: vi.fn(() => {
+				started.resolve();
+				return release.promise;
+			})
+		});
+		const service = createAccountSetupCompletionService(store, auth);
+		const input = { setupLinkId: 'link-1', accessRequestId: 'request-1', password: 'WinnerPassword123!' };
+		const winner = service.completeSetupSession(input);
+		await started.promise;
+		try {
+			expect(await service.completeSetupSession({ ...input, password: 'LosingPassword123!' })).toEqual({
+				status: 'claimed'
+			});
+			expect(store.completions).toEqual([]);
+			expect(auth.signInWithPassword).not.toHaveBeenCalled();
+		} finally {
+			release.resolve({ userId: 'user-123' });
+		}
+		expect(await winner).toEqual({ status: 'completed', accessRequestId: 'request-1', userId: 'user-123' });
+		expect(await service.completeSetupSession(input)).toEqual({ status: 'used' });
+		expect(auth.createOrActivateConfirmedUser).toHaveBeenCalledExactlyOnceWith({
+			email: 'person@example.com',
+			password: 'WinnerPassword123!'
+		});
+		expect(auth.signInWithPassword).toHaveBeenCalledExactlyOnceWith({
+			email: 'person@example.com',
+			password: 'WinnerPassword123!'
+		});
+		expect(store.completions).toEqual([{ accessRequestId: 'request-1', userId: 'user-123' }]);
+	});
+
+	it('invalidates an exchanged setup session when a fresh link replaces its credential', async () => {
+		const store = makeStore({ ...approvedRequest });
+		await addSetupToken(store, 'older-token');
+		await addSetupToken(store, 'newer-token');
+		const auth = makeAuth();
+		const service = createAccountSetupCompletionService(store, auth);
+		expect(
+			await service.completeSetupSession({
+				setupLinkId: 'link-1',
+				accessRequestId: 'request-1',
+				password: 'OlderPassword123!'
+			})
+		).toEqual({ status: 'replaced' });
+		expect(auth.createOrActivateConfirmedUser).not.toHaveBeenCalled();
+		expect(
+			await service.completeSetupSession({
+				setupLinkId: 'link-2',
+				accessRequestId: 'request-1',
+				password: 'NewerPassword123!'
+			})
+		).toMatchObject({ status: 'completed', userId: 'user-123' });
+		expect(store.links[0].usedAt).toBeNull();
+		expect(store.links[1].usedAt).toEqual(new Date('2026-05-18T12:00:00.000Z'));
+		expect(auth.createOrActivateConfirmedUser).toHaveBeenCalledExactlyOnceWith({
+			email: 'person@example.com',
+			password: 'NewerPassword123!'
+		});
+	});
+
+	it('rejects the raw setup credential at the exact fourteen-day expiry without account effects', async () => {
+		const store = makeStore({ ...approvedRequest });
+		await addSetupToken(store);
+		vi.setSystemTime(new Date('2026-06-01T12:00:00.000Z'));
+		const auth = makeAuth();
+		expect(
+			await createAccountSetupCompletionService(store, auth).complete({
+				rawToken: 'setup-token',
+				password: 'ValidPassword123!'
+			})
+		).toEqual({ status: 'expired' });
+		expect(auth.createOrActivateConfirmedUser).not.toHaveBeenCalled();
+		expect(auth.signInWithPassword).not.toHaveBeenCalled();
+		expect(store.profiles).toEqual([]);
+		expect(store.completions).toEqual([]);
+		expect(store.links[0].claimedAt).toBeNull();
+	});
+
 	it('falls back to a legacy full-name split for older Access Requests without structured names', async () => {
 		const store = makeStore({
 			...approvedRequest,

@@ -201,6 +201,34 @@ describe('POST /auth/confirm', () => {
 		);
 	});
 
+	it('does not reestablish the invite flow when the provider rejects a replayed confirmation', async () => {
+		const verifyOtp = vi
+			.fn()
+			.mockResolvedValueOnce({ error: null })
+			.mockResolvedValueOnce({ error: { code: 'otp_expired' } });
+		const cookies = { set: vi.fn() };
+		const from = vi.fn(() => {
+			throw new Error('Confirmation must not create membership');
+		});
+		const event = () =>
+			({
+				request: new Request('http://localhost/auth/confirm', {
+					method: 'POST',
+					body: new URLSearchParams({ tokenHash: 'invite-token', type: 'invite', next: '/auth/accept-invite' })
+				}),
+				locals: { supabase: { auth: { verifyOtp }, from } },
+				cookies
+			}) as unknown as Parameters<(typeof actions)['default']>[0];
+		await expect(actions.default(event())).rejects.toMatchObject({ status: 303, location: '/auth/accept-invite' });
+		cookies.set.mockClear();
+		await expect(actions.default(event())).rejects.toMatchObject({
+			status: 303,
+			location: '/auth/login?error=auth_link_invalid'
+		});
+		expect(cookies.set).not.toHaveBeenCalled();
+		expect(from).not.toHaveBeenCalled();
+	});
+
 	it('verifies a valid recovery token and redirects to the reset-password flow', async () => {
 		const verifyOtp = vi.fn().mockResolvedValue({ error: null });
 		const cookies = { set: vi.fn() };

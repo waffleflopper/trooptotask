@@ -27,11 +27,6 @@
 			"reason": "Invite finalization is still anchored to auth/session establishment and Supabase-backed invite acceptance."
 		},
 		{
-			"path": "src/routes/api/auth/confirm-sensitive-action/+server.ts",
-			"classification": "auth-edge",
-			"reason": "Password confirmation for sensitive-action step-up remains provider-specific auth work."
-		},
-		{
 			"path": "src/routes/api/auth/mfa/disable/+server.ts",
 			"classification": "auth-edge",
 			"reason": "MFA disable flow is an auth-provider boundary."

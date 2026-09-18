@@ -712,6 +712,69 @@ describe('server auth hook', () => {
 		expect(event.cookies.get('ttt_pending_auth_flow')).toBeUndefined();
 	});
 
+	it.each([null, 'recovery', 'invite'])(
+		'keeps logout failure and retry reachable during an assurance outage with flow %s',
+		async (flow) => {
+			const harness = await createAuthenticatedHookHarness({ data: true, error: null });
+			harness.getAuthenticatorAssuranceLevel.mockRejectedValue(new Error('provider unavailable'));
+			harness.signOut.mockResolvedValueOnce({ error: { message: 'revocation unavailable' } });
+			const event = harness.createEvent('/auth/logout', {
+				'sb-example-auth-token': 'session',
+				...(flow ? { ttt_pending_auth_flow: flow } : {})
+			});
+			const { actions } = await import('./routes/auth/logout/+page.server');
+			const resolve = async (event: Parameters<Handle>[0]['event']) => {
+				const result = await actions.default({ ...event, params: {}, route: { id: '/auth/logout' } });
+				return Response.json(result);
+			};
+			const failure = await harness.handle({ event, resolve });
+			expect(await failure.json()).toMatchObject({ status: 503 });
+			expect(event.cookies.get('ttt_pending_auth_flow')).toBe(flow ?? undefined);
+			await expect(harness.handle({ event, resolve })).rejects.toMatchObject({ status: 303, location: '/' });
+			expect(event.cookies.get('ttt_pending_auth_flow')).toBeUndefined();
+		}
+	);
+
+	it('preserves pending recovery on logout failure even when identity cannot be verified', async () => {
+		const harness = await createAuthenticatedHookHarness({ data: false, error: null });
+		harness.getUser.mockResolvedValue({ data: { user: null }, error: { message: 'identity unavailable' } });
+		harness.signOut.mockResolvedValueOnce({ error: { message: 'revocation unavailable' } });
+		const event = harness.createEvent('/auth/logout', {
+			'sb-example-auth-token': 'session',
+			ttt_pending_auth_flow: 'recovery'
+		});
+		const { actions } = await import('./routes/auth/logout/+page.server');
+		const resolve = async (event: Parameters<Handle>[0]['event']) => {
+			const result = await actions.default({ ...event, params: {}, route: { id: '/auth/logout' } });
+			return Response.json(result);
+		};
+		const failure = await harness.handle({ event, resolve });
+		expect(await failure.json()).toMatchObject({ status: 503 });
+		expect(event.locals.user).toBeNull();
+		expect(event.cookies.get('ttt_pending_auth_flow')).toBe('recovery');
+		await expect(harness.handle({ event, resolve })).rejects.toMatchObject({ status: 303, location: '/' });
+		expect(event.cookies.get('ttt_pending_auth_flow')).toBeUndefined();
+	});
+
+	it('does not erase a pending flow before a denied session exchange when identity lookup is unavailable', async () => {
+		const harness = await createAuthenticatedHookHarness({ data: false, error: null });
+		harness.getUser.mockResolvedValue({ data: { user: null }, error: { message: 'identity unavailable' } });
+		const event = harness.createEvent('/api/auth/establish-session', {
+			'sb-example-auth-token': 'session',
+			ttt_pending_auth_flow: 'recovery'
+		});
+		event.request = new Request(event.url, { method: 'POST', body: '{}' });
+		const { POST } = await import('./routes/api/auth/establish-session/+server');
+		const response = await harness.handle({
+			event,
+			resolve: (event) => Promise.resolve(POST({ ...event, params: {}, route: { id: '/api/auth/establish-session' } }))
+		});
+		expect(response.status).toBe(400);
+		expect(event.locals.user).toBeNull();
+		expect(event.locals.authFlow).toBeNull();
+		expect(event.cookies.get('ttt_pending_auth_flow')).toBe('recovery');
+	});
+
 	it.each(['/org/organization-a/api/personnel', '/api/announcements/dismiss'])(
 		'blocks a suspended user before the protected mutation at %s',
 		async (path) => {

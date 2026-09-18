@@ -22,11 +22,6 @@
 			"reason": "Supabase Auth MFA management remains a provider-specific auth edge in v1."
 		},
 		{
-			"path": "src/routes/api/auth/establish-session/+server.ts",
-			"classification": "auth-edge",
-			"reason": "Session establishment is an auth-provider boundary."
-		},
-		{
 			"path": "src/routes/api/auth/finalize-invite/+server.ts",
 			"classification": "auth-edge",
 			"reason": "Invite finalization is still anchored to auth/session establishment and Supabase-backed invite acceptance."

@@ -217,7 +217,13 @@ export const handle: Handle = async ({ event, resolve }) => {
 	}
 
 	if (!event.locals.session && event.locals.authFlow) {
-		event.cookies.delete(getPendingAuthFlowCookieName(), { path: '/' });
+		// Auth transitions own pending-cookie changes even when identity lookup is unavailable.
+		if (
+			event.request.method !== 'POST' ||
+			!['/auth/logout', '/api/auth/establish-session'].includes(event.url.pathname)
+		) {
+			event.cookies.delete(getPendingAuthFlowCookieName(), { path: '/' });
+		}
 		event.locals.authFlow = null;
 	}
 

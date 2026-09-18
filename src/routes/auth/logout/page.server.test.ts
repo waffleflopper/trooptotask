@@ -11,6 +11,7 @@ function makeLogoutEvent() {
 
 	return {
 		event: {
+			request: new Request('http://app.invalid/auth/logout'),
 			locals: {
 				supabase: {
 					auth: {
@@ -40,6 +41,37 @@ describe('GET /auth/logout', () => {
 });
 
 describe('POST /auth/logout', () => {
+	it.each(['provider error', 'exception', 'missing result', 'missing acknowledgement'])(
+		'keeps pending authentication intact after %s and allows retry',
+		async (failure) => {
+			const { event, signOut, cookies } = makeLogoutEvent();
+			if (failure === 'exception') signOut.mockRejectedValueOnce(new Error('private provider detail'));
+			else
+				signOut.mockResolvedValueOnce(
+					failure === 'provider error'
+						? { error: { message: 'private provider detail' } }
+						: failure === 'missing result'
+							? null
+							: {}
+				);
+			const result = await actions.default(event as unknown as LogoutActionEvent);
+			expect(result).toMatchObject({ status: 503, data: { error: expect.any(String) } });
+			expect(JSON.stringify(result)).not.toContain('private provider detail');
+			expect(cookies.delete).not.toHaveBeenCalled();
+			await expect(actions.default(event as unknown as LogoutActionEvent)).rejects.toMatchObject({
+				status: 303,
+				location: '/'
+			});
+			expect(cookies.delete).toHaveBeenCalledWith('ttt_pending_auth_flow', { path: '/' });
+		}
+	);
+
+	it('allows the failed POST to render its retry page without a redirect hiding the error', async () => {
+		const { event } = makeLogoutEvent();
+		event.request = new Request('http://app.invalid/auth/logout', { method: 'POST' });
+		await expect(load(event as unknown as LogoutLoadEvent)).resolves.toEqual({});
+	});
+
 	it('signs out, clears pending auth flow state, and redirects home', async () => {
 		const { event, signOut, cookies } = makeLogoutEvent();
 

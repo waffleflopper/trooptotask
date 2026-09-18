@@ -160,7 +160,7 @@ The approved v1 replacement direction keeps `Organization` and `Group` as canoni
 - Rating Scheme owns its own durable lane and now uses the Evals route as its primary UI; nav treatment can change independently without redefining lane ownership.
 - Rating Scheme owns evaluation-tracking records and workflows for rated individuals.
 - `Personnel` owns roster administration.
-- `Personnel` owns per-Soldier counseling records, follow-ups, leader notes, Soldier Data Sheet fields, and document uploads. Both reads and writes of these artifacts require `operate` capability (#910).
+- `Personnel` owns per-Soldier counseling records, follow-ups, leader notes, Soldier Data Sheet fields, and document uploads. The current application policies require `configure` for sensitive artifact reads (`personnel.readSensitiveRecords`) and `operate` for artifact writes (`personnel.manageRecords`), combined with the Personnel record’s Organization/Group scope.
 - Rating Scheme may use app-owned roster reference queries to resolve rated people and internal raters without borrowing the Personnel lane.
 - Rating Scheme and Personnel must remain independently grantable.
 - Each feature should own its own permission lane.

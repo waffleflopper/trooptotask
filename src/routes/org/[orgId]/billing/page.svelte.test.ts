@@ -1234,3 +1234,132 @@ describe('billing page toolbar', () => {
 		expect(screen.getAllByText('Admin Gift').length).toBeGreaterThan(0);
 	});
 });
+
+describe('password confirmation completion', () => {
+	async function openConfirmation(
+		fetchMock: ReturnType<typeof vi.fn>,
+		action: 'subscribe' | 'portal' | 'cancel' = 'portal'
+	) {
+		vi.stubGlobal('fetch', fetchMock);
+		window.location.href = 'http://localhost/org/org-1/billing?from=settings';
+		render(Page, {
+			props: {
+				data: (action === 'subscribe'
+					? {
+							...baseData,
+							canManageSubscription: false,
+							billingSnapshot: null,
+							effectiveTier: { ...baseData.effectiveTier, tier: 'free', source: 'default' }
+						}
+					: baseData) as never
+			}
+		});
+		if (action === 'subscribe') {
+			await fireEvent.click(screen.getByRole('button', { name: 'Upgrade to Unit' }));
+			await fireEvent.click(screen.getByRole('button', { name: 'Continue to Checkout' }));
+		} else if (action === 'cancel') {
+			await fireEvent.click(screen.getByRole('button', { name: 'Cancel Now' }));
+			await fireEvent.input(screen.getByLabelText('Type CANCEL NOW to confirm'), { target: { value: 'CANCEL NOW' } });
+			await fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Cancel Now' }));
+		} else await fireEvent.click(within(getSubscriptionCard()).getByRole('button', { name: 'Manage Subscription' }));
+		await fireEvent.input(screen.getByLabelText('Password'), { target: { value: 'preserved-password' } });
+	}
+	const denied = () =>
+		new Response(JSON.stringify({ requiresStepUp: true, stepUpPath: '/auth/login' }), { status: 403 });
+	it.each([
+		{},
+		{ success: false },
+		{ success: 'true' },
+		{ success: true, error: 'failed' },
+		null,
+		{ requiresStepUp: 'true' },
+		{ requiresStepUp: true, stepUpPath: 'https://evil.invalid' }
+	])('keeps the pending action and password on malformed confirmation %j, then retries', async (body) => {
+		const fetchMock = vi
+			.fn()
+			.mockResolvedValueOnce(denied())
+			.mockResolvedValueOnce(new Response(JSON.stringify(body)))
+			.mockResolvedValueOnce(new Response(JSON.stringify({ success: true })))
+			.mockResolvedValueOnce(new Response(JSON.stringify({ error: 'provider unavailable' }), { status: 503 }));
+		await openConfirmation(fetchMock);
+		await fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+		expect(fetchMock).toHaveBeenCalledTimes(2);
+		expect(screen.getByRole('dialog')).toBeTruthy();
+		expect(screen.getByRole('alert')).toBeTruthy();
+		expect((screen.getByLabelText('Password') as HTMLInputElement).value).toBe('preserved-password');
+		expect(window.location.pathname).toBe('/org/org-1/billing');
+		await fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+		expect(fetchMock).toHaveBeenCalledTimes(4);
+		expect(String(fetchMock.mock.calls[3][0])).toContain('/portal');
+	});
+	it.each(['network', 'non-json', 'http-failure'])('retains a retry after %s failure', async (failure) => {
+		const fetchMock = vi.fn().mockResolvedValueOnce(denied());
+		if (failure === 'network') fetchMock.mockRejectedValueOnce(new Error('offline'));
+		else
+			fetchMock.mockResolvedValueOnce(
+				failure === 'non-json'
+					? new Response('bad gateway')
+					: new Response(JSON.stringify({ success: true }), { status: 503 })
+			);
+		fetchMock
+			.mockResolvedValueOnce(new Response(JSON.stringify({ success: true })))
+			.mockResolvedValueOnce(new Response(JSON.stringify({ error: 'provider unavailable' }), { status: 503 }));
+		await openConfirmation(fetchMock);
+		await fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+		expect(fetchMock).toHaveBeenCalledTimes(2);
+		expect(screen.getByRole('alert')).toBeTruthy();
+		expect((screen.getByLabelText('Password') as HTMLInputElement).value).toBe('preserved-password');
+		await fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+		expect(fetchMock).toHaveBeenCalledTimes(4);
+	});
+	it.each(['subscribe', 'portal', 'cancel'] as const)(
+		'retries the original %s action exactly once after explicit confirmation',
+		async (action) => {
+			const fetchMock = vi
+				.fn()
+				.mockResolvedValueOnce(denied())
+				.mockResolvedValueOnce(new Response(JSON.stringify({ success: true })))
+				.mockResolvedValueOnce(new Response(JSON.stringify({ error: 'provider unavailable' }), { status: 503 }));
+			await openConfirmation(fetchMock, action);
+			const original = fetchMock.mock.calls[0];
+			await fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+			expect(fetchMock).toHaveBeenCalledTimes(3);
+			expect(fetchMock.mock.calls[2]).toEqual(original);
+		}
+	);
+	it('serializes pending submissions and prevents cancellation until confirmation finishes', async () => {
+		let finish!: (response: Response) => void;
+		const fetchMock = vi
+			.fn()
+			.mockResolvedValueOnce(denied())
+			.mockImplementationOnce(
+				() =>
+					new Promise<Response>((resolve) => {
+						finish = resolve;
+					})
+			);
+		await openConfirmation(fetchMock);
+		const form = screen.getByLabelText('Password').closest('form')!;
+		await fireEvent.submit(form);
+		await fireEvent.submit(form);
+		expect(fetchMock).toHaveBeenCalledTimes(2);
+		expect((screen.getByLabelText('Password') as HTMLInputElement).disabled).toBe(true);
+		expect(
+			(within(screen.getByRole('dialog')).getByRole('button', { name: 'Cancel' }) as HTMLButtonElement).disabled
+		).toBe(true);
+		finish(new Response(JSON.stringify({ error: 'retry' }), { status: 503 }));
+		await waitFor(() => expect((screen.getByLabelText('Password') as HTMLInputElement).disabled).toBe(false));
+		expect(screen.getByRole('alert')).toBeTruthy();
+	});
+	it('continues to MFA with the original return URL and never retries a protected action before verification', async () => {
+		const fetchMock = vi
+			.fn()
+			.mockResolvedValueOnce(denied())
+			.mockResolvedValueOnce(new Response(JSON.stringify({ requiresStepUp: true, stepUpPath: '/auth/mfa-verify' })));
+		await openConfirmation(fetchMock);
+		await fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+		expect(fetchMock).toHaveBeenCalledTimes(2);
+		expect(window.location.pathname).toBe('/auth/mfa-verify');
+		expect(new URLSearchParams(window.location.search).get('next')).toBe('/org/org-1/billing?from=settings');
+	});
+});

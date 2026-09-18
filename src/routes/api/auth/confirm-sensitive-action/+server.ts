@@ -1,3 +1,4 @@
+import { checkSessionAssurance } from '$lib/server/sessionAssurance';
 import { json } from '@sveltejs/kit';
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY } from '$env/static/public';
@@ -64,19 +65,11 @@ export const POST: RequestHandler = async ({ request, locals, cookies }) => {
 		)
 			return unavailable();
 
-		const assurance = await supabase.auth.mfa.getAuthenticatorAssuranceLevel(confirmedSession.access_token);
-		const levels = assurance?.data;
-		if (
-			assurance?.error !== null ||
-			!levels ||
-			!['aal1', 'aal2'].includes(levels.currentLevel ?? '') ||
-			!['aal1', 'aal2'].includes(levels.nextLevel ?? '') ||
-			confirmedSession.expires_at <= Date.now() / 1000
-		)
-			return unavailable();
+		const assurance = await checkSessionAssurance(supabase, confirmedSession);
+		if (assurance === 'unavailable' || assurance === 'expired') return unavailable();
 
 		for (const { name, value, options } of staged) cookies.set(name, value, getAuthCookieOptions(options));
-		if (levels.currentLevel === 'aal1' && levels.nextLevel === 'aal2') {
+		if (assurance === 'mfa_required') {
 			return reply({ requiresStepUp: true, stepUpPath: '/auth/mfa-verify' });
 		}
 		return reply({ success: true });

@@ -24,6 +24,7 @@ SELECT throws_ok($$SELECT public.password_change_attempt('10000000-0000-4000-800
 SELECT is(public.password_change_attempt('10000000-0000-4000-8000-000000000401','20000000-0000-4000-8000-000000000401','begin','recovery',now()+interval '10 minutes')->>'acquired','true','first admission acquired');
 SELECT is(public.password_change_attempt('10000000-0000-4000-8000-000000000401','20000000-0000-4000-8000-000000000401','begin','recovery',now()+interval '10 minutes')->>'acquired','false','duplicate cannot mutate');
 SELECT is(public.password_change_attempt('10000000-0000-4000-8000-000000000401','20000000-0000-4000-8000-000000000403','read','recovery')->>'state','expired','another same-actor session cannot resume');
+SELECT is(public.password_change_attempt('10000000-0000-4000-8000-000000000401','20000000-0000-4000-8000-000000000403','restart','recovery')->>'state','expired','fresh recovery cannot retire an unfinished attempt');
 SELECT is(public.password_change_attempt('10000000-0000-4000-8000-000000000401','20000000-0000-4000-8000-000000000401','read','invite')->>'state','expired','flow binding enforced');
 SELECT is(public.password_change_attempt('10000000-0000-4000-8000-000000000402','20000000-0000-4000-8000-000000000402','read')->'state','null'::jsonb,'other actor has no attempt');
 RESET ROLE;
@@ -32,6 +33,7 @@ SAVEPOINT provider_transaction;
 UPDATE auth.users SET encrypted_password='new-hash' WHERE id='10000000-0000-4000-8000-000000000401';
 UPDATE auth.users SET raw_user_meta_data=raw_user_meta_data || jsonb_build_object('ttt_password_attempt',(SELECT id FROM public.password_change_attempts WHERE actor=auth.users.id)) WHERE id='10000000-0000-4000-8000-000000000401';
 SELECT is((SELECT state FROM public.password_change_attempts WHERE actor='10000000-0000-4000-8000-000000000401'),'pending','password plus marker confirms');
+SELECT is(public.password_change_attempt('10000000-0000-4000-8000-000000000401','20000000-0000-4000-8000-000000000403','restart','recovery')->>'state','expired','fresh recovery cannot retire pending revocation');
 SELECT is((SELECT raw_user_meta_data FROM auth.users WHERE id='10000000-0000-4000-8000-000000000401'),'{"retained":"profile"}'::jsonb,'marker consumed and profile retained');
 ROLLBACK TO provider_transaction;
 SELECT is((SELECT state FROM public.password_change_attempts WHERE actor='10000000-0000-4000-8000-000000000401'),'started','provider rollback also rolls back confirmation');
@@ -46,6 +48,21 @@ UPDATE auth.users SET encrypted_password='confirmed-hash', raw_user_meta_data=ra
 SELECT is(public.password_change_attempt('10000000-0000-4000-8000-000000000401','20000000-0000-4000-8000-000000000401','reconcile','recovery',NULL,(SELECT id FROM public.password_change_attempts WHERE actor='10000000-0000-4000-8000-000000000401'))->>'state','pending','lost response reconciles commit without another mutation');
 SELECT is(public.password_change_attempt('10000000-0000-4000-8000-000000000401','20000000-0000-4000-8000-000000000401','complete','recovery',NULL,(SELECT id FROM public.password_change_attempts WHERE actor='10000000-0000-4000-8000-000000000401'))->>'state','complete','revocation acknowledgment persists');
 SELECT throws_ok($$UPDATE auth.users SET encrypted_password='replay-hash', raw_user_meta_data=raw_user_meta_data || jsonb_build_object('ttt_password_attempt',(SELECT id FROM public.password_change_attempts WHERE actor=auth.users.id)) WHERE id='10000000-0000-4000-8000-000000000401'$$,'42501','Password attempt fenced','completed marker replay rejected');
+-- A completed change must not lock out a subsequent sign-in/recovery session.
+-- Preserve the original fixture so the expiry contracts below remain independent.
+SAVEPOINT fresh_recovery;
+CREATE TEMP TABLE completed_attempt AS SELECT * FROM public.password_change_attempts WHERE actor='10000000-0000-4000-8000-000000000401';
+DELETE FROM auth.sessions WHERE id='20000000-0000-4000-8000-000000000401';
+SET LOCAL ROLE service_role;
+SELECT is(public.password_change_attempt('10000000-0000-4000-8000-000000000401','20000000-0000-4000-8000-000000000403','restart','recovery')->'state','null'::jsonb,'fresh recovery can retire completed attempt before old token expiry');
+SELECT is(public.password_change_attempt('10000000-0000-4000-8000-000000000401','20000000-0000-4000-8000-000000000403','begin','recovery',now()+interval '10 minutes')->>'acquired','true','fresh recovery can acquire a new password update immediately');
+RESET ROLE;
+SELECT isnt((SELECT id FROM public.password_change_attempts WHERE actor='10000000-0000-4000-8000-000000000401'),(SELECT id FROM completed_attempt),'replacement has a new attempt identity');
+SELECT throws_ok($$UPDATE auth.users SET encrypted_password='late-completed-hash', raw_user_meta_data=raw_user_meta_data || jsonb_build_object('ttt_password_attempt',(SELECT id FROM completed_attempt)) WHERE id='10000000-0000-4000-8000-000000000401'$$,'42501','Password attempt fenced','retired completed marker cannot mutate the new attempt');
+SELECT is((SELECT encrypted_password FROM auth.users WHERE id='10000000-0000-4000-8000-000000000401'),'confirmed-hash','retired marker preserves confirmed password');
+SELECT lives_ok($$UPDATE auth.users SET encrypted_password='fresh-recovery-hash', raw_user_meta_data=raw_user_meta_data || jsonb_build_object('ttt_password_attempt',(SELECT id FROM public.password_change_attempts WHERE actor=auth.users.id)) WHERE id='10000000-0000-4000-8000-000000000401'$$,'fresh recovery password transaction succeeds');
+SELECT is((SELECT state FROM public.password_change_attempts WHERE actor='10000000-0000-4000-8000-000000000401'),'pending','only the new recovery mutation awaits revocation');
+ROLLBACK TO fresh_recovery;
 UPDATE public.password_change_attempts SET expires_at=now()-interval '1 second';
 SELECT is(public.password_change_attempt('10000000-0000-4000-8000-000000000401','20000000-0000-4000-8000-000000000401','read','recovery')->>'state','expired','expiry survives reload');
 SELECT is(public.password_change_attempt('10000000-0000-4000-8000-000000000401','20000000-0000-4000-8000-000000000403','restart','recovery')->'state','null'::jsonb,'fresh session can retire expired attempt');

@@ -1,6 +1,6 @@
 import { verifyPasswordProof } from '$lib/server/passwordProof';
 import { checkDurableRateLimit } from '$lib/server/durableRateLimit';
-import { isMfaStepUpRequired } from '$lib/server/mfaGate';
+import { checkSessionAssurance } from '$lib/server/sessionAssurance';
 import { passwordCompletionState } from '$lib/server/passwordCompletion';
 import type { PageServerLoad } from './$types';
 import type { Actions } from './$types';
@@ -82,24 +82,16 @@ export const actions: Actions = {
 		if (proof !== 'accepted')
 			return emailFailure(503, { emailError: 'Unable to verify your current password. Please try again.', email });
 		if (session.expires_at <= Date.now() / 1000) return inactive();
-		try {
-			const assurance = await locals.supabase.auth.mfa.getAuthenticatorAssuranceLevel(session.access_token);
-			if (
-				assurance?.error !== null ||
-				!['aal1', 'aal2'].includes(assurance.data?.currentLevel ?? '') ||
-				!['aal1', 'aal2'].includes(assurance.data?.nextLevel ?? '')
-			)
-				return emailFailure(503, { emailError: 'Unable to verify authentication status. Please try again.', email });
-			if (session.expires_at <= Date.now() / 1000) return inactive();
-			if (isMfaStepUpRequired(assurance.data))
-				return emailFailure(403, {
-					code: 'mfa_required',
-					emailError: 'Verify your authenticator code before changing your email.',
-					email
-				});
-		} catch {
+		const assurance = await checkSessionAssurance(locals.supabase, session);
+		if (assurance === 'unavailable')
 			return emailFailure(503, { emailError: 'Unable to verify authentication status. Please try again.', email });
-		}
+		if (assurance === 'expired') return inactive();
+		if (assurance === 'mfa_required')
+			return emailFailure(403, {
+				code: 'mfa_required',
+				emailError: 'Verify your authenticator code before changing your email.',
+				email
+			});
 		// A lost response does not prove rollback. Reload recovers the provider's pending address.
 		const unavailable = () =>
 			emailFailure(503, {

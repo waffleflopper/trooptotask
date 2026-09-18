@@ -144,6 +144,32 @@ it('only allows an explicit fresh start after completion outside a pending auth 
 	expect(h.auth.updateUser).toHaveBeenCalledOnce();
 });
 
+it('starts another recovery immediately after a completed change in a previous session', async () => {
+	const h = fixture();
+	expect((await POST(h.event())).status).toBe(200);
+	h.locals.session.access_token = passwordSessionToken('actor', 'fresh', '00000000-0000-4000-8000-000000000002');
+	expect(await h.state()).toBe('expired');
+	expect((await POST(h.event({ action: 'restart' }))).status).toBe(200);
+	expect(await h.state()).toBeNull();
+	expect((await POST(h.event({ password: 'FreshRecovery12' }))).status).toBe(200);
+	expect(h.auth.updateUser).toHaveBeenLastCalledWith({
+		password: 'FreshRecovery12',
+		data: { ttt_password_attempt: expect.any(String) }
+	});
+	expect(await h.state()).toBe('complete');
+});
+
+it.each(['started', 'pending'] as const)('does not restart another session’s unfinished %s attempt', async (state) => {
+	const h = fixture();
+	h.auth.admin.signOut.mockResolvedValueOnce({ error: { message: 'outage' } });
+	await POST(h.event());
+	attemptStore.row!.state = state;
+	h.locals.session.access_token = passwordSessionToken('actor', 'fresh', '00000000-0000-4000-8000-000000000002');
+	expect((await POST(h.event({ action: 'restart' }))).status).toBe(409);
+	expect(h.auth.updateUser).toHaveBeenCalledOnce();
+	expect(attemptStore.row!.state).toBe(state);
+});
+
 it('does not revoke if the attempt expires while fresh assurance is checked', async () => {
 	const h = fixture();
 	h.auth.admin.signOut.mockResolvedValueOnce({ error: { message: 'outage' } });

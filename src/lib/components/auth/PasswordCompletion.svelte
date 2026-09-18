@@ -90,7 +90,7 @@
 					: currentState === 'failed'
 						? 'This attempt did not commit. Start a new password update to try again.'
 						: currentState === 'expired'
-							? 'This attempt expired or belongs to another session. Start again after its expiry using a fresh sign-in or recovery link.'
+							? 'This attempt expired or belongs to another session. Try starting a new password update. An unfinished update in another session must expire first.'
 							: 'Your password changed. Finish signing out other sessions to complete this update.'}
 	/>
 	{#if error}<AuthNotice tone="error" message={error} />{/if}

@@ -1,3 +1,4 @@
+import { checkSessionAssurance } from '$lib/server/sessionAssurance';
 import { json } from '@sveltejs/kit';
 import { verifyPasswordProof } from '$lib/server/passwordProof';
 import type { RequestHandler } from './$types';
@@ -9,7 +10,7 @@ import {
 	passwordUpdateRateLimitAuditDetails
 } from '$lib/server/passwordUpdateRateLimit';
 import { mapProviderPasswordError, validatePassword } from '$lib/server/validation';
-import { isMfaStepUpRequired, getPendingAuthFlowCookieName } from '$lib/server/mfaGate';
+import { getPendingAuthFlowCookieName } from '$lib/server/mfaGate';
 
 export const POST: RequestHandler = async ({ request, locals, cookies, getClientAddress }) => {
 	const { user, session } = locals;
@@ -199,29 +200,16 @@ async function finishPasswordCompletion(
 }
 
 async function authorizeCompletion(locals: App.Locals): Promise<Response | null> {
-	const session = locals.session!;
-	// Proof has its own AAL1 token. Authorize the mutation using the original admitted token,
-	// reading fresh provider facts after proof/limiter work rather than trusting hook state.
-	try {
-		const assurance = await locals.supabase.auth.mfa.getAuthenticatorAssuranceLevel(session.access_token);
-		if (
-			assurance?.error !== null ||
-			!['aal1', 'aal2'].includes(assurance.data?.currentLevel ?? '') ||
-			!['aal1', 'aal2'].includes(assurance.data?.nextLevel ?? '')
-		) {
-			return json({ error: 'Unable to verify authentication status. Please try again.' }, { status: 503 });
-		}
-		if (session.expires_at! <= Date.now() / 1000)
-			return json({ error: 'Your session expired. Sign in again.' }, { status: 401 });
-		if (isMfaStepUpRequired(assurance.data)) {
-			return json(
-				{ code: 'mfa_required', error: 'Verify your authenticator code before changing your password.' },
-				{ status: 403 }
-			);
-		}
-	} catch {
+	// Password proof uses its own AAL1 token; check the original admitted session.
+	const assurance = await checkSessionAssurance(locals.supabase, locals.session!);
+	if (assurance === 'unavailable')
 		return json({ error: 'Unable to verify authentication status. Please try again.' }, { status: 503 });
-	}
+	if (assurance === 'expired') return json({ error: 'Your session expired. Sign in again.' }, { status: 401 });
+	if (assurance === 'mfa_required')
+		return json(
+			{ code: 'mfa_required', error: 'Verify your authenticator code before changing your password.' },
+			{ status: 403 }
+		);
 
 	return null;
 }

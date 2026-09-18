@@ -1,7 +1,7 @@
 import { passwordCompletionState } from '$lib/server/passwordCompletion';
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { autoAcceptOrgInvites } from '$lib/server/auto-accept-org-invites';
+import { autoAcceptOrgInvites, InvitationAcceptanceError } from '$lib/server/auto-accept-org-invites';
 import { getPendingAuthFlowCookieName, isMfaStepUpRequired } from '$lib/server/mfaGate';
 import { parseUserProfileForm, upsertCurrentUserProfile } from '$lib/server/userProfile';
 
@@ -40,7 +40,12 @@ export const POST: RequestHandler = async ({ locals, cookies }) => {
 	}
 	if (locals.authFlow !== 'invite') {
 		return json(
-			{ error: 'No invitation is awaiting activation in this session.', accepted: 0, activated: false },
+			{
+				code: 'invite_not_pending',
+				error: 'No invitation is awaiting activation in this session.',
+				accepted: 0,
+				activated: false
+			},
 			{ status: 403 }
 		);
 	}
@@ -85,23 +90,31 @@ export const POST: RequestHandler = async ({ locals, cookies }) => {
 			{ status: 409 }
 		);
 
+	if (session.expires_at <= Date.now() / 1000) return inactiveSession();
 	try {
 		const profile = parseMetadataProfile((user as { user_metadata?: Record<string, unknown> }).user_metadata);
 		if (!('error' in profile)) {
 			await upsertCurrentUserProfile(locals, profile);
 		}
 
+		if (session.expires_at <= Date.now() / 1000) return inactiveSession();
 		const accepted = await autoAcceptOrgInvites(locals.supabase, user.email);
+		if (session.expires_at <= Date.now() / 1000) return inactiveSession();
 		cookies.delete(getPendingAuthFlowCookieName(), { path: '/' });
 
-		return json({ ok: true, accepted: accepted.accepted, activated: true });
+		return json({ ok: true, ...accepted, activated: true });
 	} catch (error) {
-		console.error('Failed to finalize invite activation:', error);
+		const setupRequired = error instanceof InvitationAcceptanceError && error.reason === 'setup_required';
 		return json(
 			{
-				error: 'Unable to finish account activation. Please try again.'
+				error: setupRequired
+					? 'Complete your Account Setup Link before accepting this Organization invitation.'
+					: 'Unable to confirm account activation. Some invitations may already be accepted. Please try again.',
+				code: setupRequired ? 'setup_required' : 'activation_unavailable',
+				accepted: error instanceof InvitationAcceptanceError ? error.accepted : 0,
+				activated: false
 			},
-			{ status: 500 }
+			{ status: setupRequired ? 409 : 503 }
 		);
 	}
 };

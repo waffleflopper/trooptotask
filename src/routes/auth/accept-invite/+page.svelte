@@ -11,7 +11,7 @@
 	import AuthShell from '$lib/components/auth/AuthShell.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Spinner } from '$lib/components/ui/spinner';
-	import { onMount, tick } from 'svelte';
+	import { onMount, onDestroy, tick } from 'svelte';
 	import PasswordMfaChallenge from '$lib/components/auth/PasswordMfaChallenge.svelte';
 	import { establishSession, readSessionTokens, type SessionTokens } from '$lib/auth/establishSession';
 
@@ -24,6 +24,11 @@
 	let loading = $state(false);
 	let error = $state('');
 	let success = $state(false);
+	let noPendingInvite = $state(false);
+	let setupRequired = $state(false);
+	let unavailableInvitations = $state(0);
+	let navigationTimer: ReturnType<typeof setTimeout> | undefined;
+	onDestroy(() => clearTimeout(navigationTimer));
 	let sessionReady = $state(false);
 	let tokenError = $state(false);
 	let sessionError = $state(false);
@@ -52,21 +57,31 @@
 		return null;
 	}
 
-	async function readJsonResult(
-		response: Response
-	): Promise<{ ok: boolean; error?: string; code?: string; passwordUpdated?: boolean }> {
+	async function readJsonResult(response: Response): Promise<{
+		ok: boolean;
+		error?: string;
+		code?: string;
+		passwordUpdated?: boolean;
+		activated?: boolean;
+		unavailable?: number;
+	}> {
 		try {
 			const payload = (await response.json()) as {
 				ok?: boolean;
 				error?: string;
 				code?: string;
 				passwordUpdated?: boolean;
+				activated?: boolean;
+				unavailable?: number;
 			};
 			return {
 				ok: response.ok && payload?.ok === true && payload.error === undefined,
 				error: typeof payload?.error === 'string' ? payload.error : undefined,
 				code: typeof payload?.code === 'string' ? payload.code : undefined,
-				passwordUpdated: payload?.passwordUpdated === true
+				passwordUpdated: payload?.passwordUpdated === true,
+				activated: payload?.activated === true,
+				unavailable:
+					Number.isSafeInteger(payload?.unavailable) && payload.unavailable! >= 0 ? payload.unavailable : undefined
 			};
 		} catch {
 			return { ok: false };
@@ -99,6 +114,7 @@
 			if (tokens) void verifySession();
 			else tokenError = true;
 		} else if (hasSession) {
+			noPendingInvite = $page.data.invitePending === false;
 			completion = $page.data.passwordCompletion ?? null;
 			if (completion === 'complete') {
 				completion = null;
@@ -188,16 +204,25 @@
 			return;
 		}
 		const result = await readJsonResult(response);
+		if (response.status === 403 && result.code === 'invite_not_pending') {
+			noPendingInvite = true;
+			return;
+		}
+		setupRequired = result.code === 'setup_required';
 		if (response.status === 403 && result.code === 'mfa_required') {
 			requiresMfa = true;
 			return;
 		}
-		if (!result.ok) {
+		if (!result.ok || !result.activated || result.unavailable === undefined) {
 			error = result.error || 'Your password is set. We could not finish account activation. Please try again.';
 			return;
 		}
+		unavailableInvitations = result.unavailable;
 		success = true;
-		setTimeout(() => goto(resolve('/dashboard')), 2000);
+		if (!unavailableInvitations)
+			navigationTimer = setTimeout(() => {
+				void goto(resolve('/dashboard')).catch(() => {});
+			}, 2000);
 	}
 
 	async function retryFinalization() {
@@ -225,24 +250,30 @@
 	title="Activate the account behind your invite."
 	description="Open this page from your invite email, set a password, and your account will be ready to use."
 	panelEyebrow="Invite acceptance"
-	panelTitle={success
-		? 'Account activated'
-		: tokenError
-			? 'Invite unavailable'
-			: passwordSet
-				? 'Finish account activation'
-				: sessionReady
-					? 'Set your password'
-					: 'Verifying invite link'}
-	panelDescription={success
-		? 'Redirecting you to your dashboard.'
-		: tokenError
-			? 'This invite link can no longer be used.'
-			: passwordSet
-				? 'Your password is set. Finish activating your account.'
-				: sessionReady
-					? 'Choose a password that satisfies the current invite policy.'
-					: "We're validating the invite token before exposing the activation form."}
+	panelTitle={noPendingInvite
+		? 'No activation pending'
+		: success
+			? 'Account activated'
+			: tokenError
+				? 'Invite unavailable'
+				: passwordSet
+					? 'Finish account activation'
+					: sessionReady
+						? 'Set your password'
+						: 'Verifying invite link'}
+	panelDescription={noPendingInvite
+		? 'You are signed in. Continue to your dashboard to view your Organization access.'
+		: success
+			? unavailableInvitations
+				? 'Your account is ready. Review the invitation outcome below.'
+				: 'Redirecting you to your dashboard.'
+			: tokenError
+				? 'This invite link can no longer be used.'
+				: passwordSet
+					? 'Your password is set. Finish activating your account.'
+					: sessionReady
+						? 'Choose a password that satisfies the current invite policy.'
+						: "We're validating the invite token before exposing the activation form."}
 	supportLabel="Joining an organization"
 	supportTitle="Finish the invite."
 	supportDescription="This page is for invited users who are setting their password for the first time."
@@ -253,11 +284,19 @@
 	]}
 >
 	<div class="flex flex-col gap-5">
-		{#if success}
+		{#if noPendingInvite}
+			<Button href={resolve('/dashboard')}>Continue to dashboard</Button>
+		{:else if success}
 			<AuthNotice tone="success" title="Account activated" centered>
 				<p>Your password has been set successfully.</p>
-				<p>Redirecting you to the dashboard now.</p>
+				{#if unavailableInvitations}
+					<p>
+						Some Organization invitations are expired or unavailable. They did not grant membership. Ask the inviting
+						Organization for help.
+					</p>
+				{:else}<p>Redirecting you to the dashboard now.</p>{/if}
 			</AuthNotice>
+			<Button href={resolve('/dashboard')}>Continue to dashboard</Button>
 		{:else if sessionError}
 			<AuthNotice tone="error" message="We could not verify this session. Please try again." />
 			<Button type="button" onclick={verifySession} disabled={establishingSession} class="w-full">
@@ -301,6 +340,7 @@
 				}}
 			/>
 		{:else if passwordSet}
+			{#if setupRequired}<Button href={resolve('/auth/renew-invite')}>Request an Account Setup Link</Button>{/if}
 			{#if error}<AuthNotice tone="error" message={error} />{/if}
 			<Button id="finish-activation" type="button" onclick={retryFinalization} disabled={loading}>
 				{#if loading}<Spinner />Finishing activation...{:else}Finish activation{/if}

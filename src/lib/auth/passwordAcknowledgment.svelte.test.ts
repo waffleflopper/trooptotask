@@ -9,7 +9,7 @@ import Recovery from '../../routes/auth/reset-password/+page.svelte';
 import Invite from '../../routes/auth/accept-invite/+page.svelte';
 import type { PageData } from '../../routes/account/security/$types';
 vi.mock('$app/forms', () => ({ enhance: () => {} }));
-vi.mock('$app/navigation', () => ({ goto: vi.fn(), replaceState: vi.fn() }));
+vi.mock('$app/navigation', () => ({ goto: vi.fn().mockResolvedValue(undefined), replaceState: vi.fn() }));
 vi.mock('$app/stores', () => ({ page: writable({ data: { hasSession: true }, state: {} }) }));
 afterEach(() => {
 	cleanup();
@@ -54,7 +54,7 @@ describe.each(['security', 'recovery', 'invite'] as const)('%s mutation acknowle
 				if (url === '/api/auth/mfa/status') return Response.json({ currentLevel: 'aal1', nextLevel: 'aal1' });
 				if (url === '/api/auth/finalize-invite') {
 					finalizations++;
-					return Response.json({ ok: true });
+					return Response.json({ ok: true, activated: true, accepted: 0, unavailable: 0 });
 				}
 				if (url !== '/api/auth/update-password') throw Error(`Unexpected ${url}`);
 				updates++;

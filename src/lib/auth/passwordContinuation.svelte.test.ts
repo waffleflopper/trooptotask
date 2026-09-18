@@ -8,7 +8,7 @@ import Recovery from '../../routes/auth/reset-password/+page.svelte';
 import Invite from '../../routes/auth/accept-invite/+page.svelte';
 import type { PageData } from '../../routes/account/security/$types';
 vi.mock('$app/forms', () => ({ enhance: () => {} }));
-vi.mock('$app/navigation', () => ({ goto: vi.fn(), replaceState: vi.fn() }));
+vi.mock('$app/navigation', () => ({ goto: vi.fn().mockResolvedValue(undefined), replaceState: vi.fn() }));
 vi.mock('$app/stores', () => ({ page: writable({ data: { hasSession: true }, state: {} }) }));
 afterEach(() => {
 	cleanup();
@@ -41,7 +41,7 @@ it.each(['security', 'recovery', 'invite'] as const)(
 				}
 				if (url === '/api/auth/finalize-invite') {
 					finalized = true;
-					return Response.json({ ok: true });
+					return Response.json({ ok: true, activated: true, accepted: 0, unavailable: 0 });
 				}
 				throw new Error(`Unexpected request ${url}`);
 			})

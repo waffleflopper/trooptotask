@@ -3,7 +3,10 @@ vi.mock('$lib/server/supabase', () => ({ getAdminClient: () => ({ rpc: attemptSt
 import { attemptStore } from '../../../../tests/fixtures/passwordAttempt';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const effects = vi.hoisted(() => ({ profile: vi.fn(), accept: vi.fn() }));
-vi.mock('$lib/server/auto-accept-org-invites', () => ({ autoAcceptOrgInvites: effects.accept }));
+vi.mock('$lib/server/auto-accept-org-invites', async (importOriginal) => ({
+	...(await importOriginal<typeof import('$lib/server/auto-accept-org-invites')>()),
+	autoAcceptOrgInvites: effects.accept
+}));
 vi.mock('$lib/server/userProfile', async (original) => ({
 	...(await original<typeof import('$lib/server/userProfile')>()),
 	upsertCurrentUserProfile: effects.profile

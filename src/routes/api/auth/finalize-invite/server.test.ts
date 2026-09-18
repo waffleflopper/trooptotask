@@ -4,8 +4,9 @@ import { passwordSessionToken } from '../../../../tests/fixtures/passwordSession
 import { passwordAttempt } from '$lib/server/passwordCompletion';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('$lib/server/auto-accept-org-invites', () => ({
-	autoAcceptOrgInvites: vi.fn().mockResolvedValue({ accepted: 2 })
+vi.mock('$lib/server/auto-accept-org-invites', async (importOriginal) => ({
+	...(await importOriginal<typeof import('$lib/server/auto-accept-org-invites')>()),
+	autoAcceptOrgInvites: vi.fn().mockResolvedValue({ accepted: 2, unavailable: 0 })
 }));
 
 vi.mock('$lib/server/userProfile', async (importOriginal) => {
@@ -66,7 +67,7 @@ describe('POST /api/auth/finalize-invite', () => {
 		} as unknown as Parameters<typeof POST>[0]);
 
 		expect(response.status).toBe(200);
-		expect(await response.json()).toEqual({ ok: true, accepted: 2, activated: true });
+		expect(await response.json()).toEqual({ ok: true, accepted: 2, unavailable: 0, activated: true });
 		expect(upsertCurrentUserProfile).toHaveBeenCalledWith(expect.any(Object), {
 			firstName: 'Jane',
 			lastName: 'Smith',

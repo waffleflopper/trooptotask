@@ -1,12 +1,16 @@
 // @vitest-environment happy-dom
 import '@testing-library/jest-dom/vitest';
-import { afterEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { writable } from 'svelte/store';
 import { goto } from '$app/navigation';
 import Page from './+page.svelte';
-vi.mock('$app/navigation', () => ({ goto: vi.fn(), replaceState: vi.fn() }));
+vi.mock('$app/navigation', () => ({ goto: vi.fn().mockResolvedValue(undefined), replaceState: vi.fn() }));
 vi.mock('$app/stores', () => ({ page: writable({ data: { hasSession: true }, state: {} }) }));
+beforeEach(async () => {
+	const { page } = await import('$app/stores');
+	(page as unknown as ReturnType<typeof writable>).set({ data: { hasSession: true, invitePending: true }, state: {} });
+});
 afterEach(() => {
 	cleanup();
 	vi.unstubAllGlobals();
@@ -33,7 +37,7 @@ it('retains completed password state through denied finalization, MFA error and 
 			finalizations++;
 			return finalizations === 1
 				? Response.json({ code: 'mfa_required', error: 'Verify MFA' }, { status: 403 })
-				: Response.json({ ok: true, activated: true, accepted: 1 });
+				: Response.json({ ok: true, activated: true, accepted: 1, unavailable: 0 });
 		}
 		if (url === '/api/auth/mfa/verify') {
 			verifications++;
@@ -122,4 +126,82 @@ it('follows finalization expiry redirects without accepting the redirected HTML 
 	await setPassword();
 	await waitFor(() => expect(goto).toHaveBeenCalledWith('https://app.invalid/auth/login'));
 	expect(screen.queryByRole('heading', { name: 'Account activated' })).toBeNull();
+});
+it.each([
+	{ ok: true },
+	{ ok: true, activated: false, unavailable: 0 },
+	{ ok: true, activated: true, unavailable: -1 },
+	{ ok: true, activated: true }
+])('requires explicit, valid activation acknowledgment: %j', async (payload) => {
+	vi.stubGlobal(
+		'fetch',
+		vi
+			.fn()
+			.mockResolvedValueOnce(Response.json({ ok: true }))
+			.mockResolvedValueOnce(Response.json(payload))
+	);
+	await setPassword();
+	expect(await screen.findByRole('alert')).toBeVisible();
+	expect(screen.queryByRole('heading', { name: 'Account activated' })).toBeNull();
+	expect(await screen.findByRole('button', { name: 'Finish activation' })).toBeEnabled();
+});
+it('shows unavailable invitations separately from account activation with an explicit continuation', async () => {
+	vi.stubGlobal(
+		'fetch',
+		vi
+			.fn()
+			.mockResolvedValueOnce(Response.json({ ok: true }))
+			.mockResolvedValueOnce(Response.json({ ok: true, activated: true, accepted: 1, unavailable: 1 }))
+	);
+	await setPassword();
+	expect(await screen.findByText(/They did not grant membership/)).toBeVisible();
+	expect(screen.getByRole('link', { name: 'Continue to dashboard' })).toHaveAttribute('href', '/dashboard');
+	expect(goto).not.toHaveBeenCalled();
+});
+it('revisits a cleared invite without offering another password write or activation request', async () => {
+	const { page } = await import('$app/stores');
+	(page as unknown as ReturnType<typeof writable>).set({
+		data: { hasSession: true, invitePending: false, passwordCompletion: null },
+		state: {}
+	});
+	const fetchMock = vi.fn();
+	vi.stubGlobal('fetch', fetchMock);
+	render(Page);
+	expect(await screen.findByRole('link', { name: 'Continue to dashboard' })).toHaveAttribute('href', '/dashboard');
+	expect(screen.queryByRole('button', { name: 'Finish activation' })).toBeNull();
+	expect(screen.queryByLabelText(/^Password/)).toBeNull();
+	expect(fetchMock).not.toHaveBeenCalled();
+});
+it('offers reviewed Account Setup Link recovery without repeating the completed password', async () => {
+	const { page } = await import('$app/stores');
+	(page as unknown as ReturnType<typeof writable>).set({
+		data: { hasSession: true, invitePending: true, passwordCompletion: 'complete' },
+		state: {}
+	});
+	const fetchMock = vi
+		.fn()
+		.mockResolvedValue(Response.json({ code: 'setup_required', error: 'Complete account setup.' }, { status: 409 }));
+	vi.stubGlobal('fetch', fetchMock);
+	render(Page);
+	await fireEvent.click(await screen.findByRole('button', { name: 'Finish activation' }));
+	expect(await screen.findByRole('link', { name: 'Request an Account Setup Link' })).toHaveAttribute(
+		'href',
+		'/auth/renew-invite'
+	);
+	expect(screen.queryByLabelText(/^Password/)).toBeNull();
+	expect(fetchMock).toHaveBeenCalledTimes(1);
+});
+it('reconciles a lost activation response when retry confirms the pending marker is already cleared', async () => {
+	const fetchMock = vi
+		.fn()
+		.mockResolvedValueOnce(Response.json({ ok: true }))
+		.mockRejectedValueOnce(new Error('Response lost after cookies arrived'))
+		.mockResolvedValueOnce(Response.json({ code: 'invite_not_pending', activated: false }, { status: 403 }));
+	vi.stubGlobal('fetch', fetchMock);
+	await setPassword();
+	await fireEvent.click(await screen.findByRole('button', { name: 'Finish activation' }));
+	expect(await screen.findByRole('link', { name: 'Continue to dashboard' })).toHaveAttribute('href', '/dashboard');
+	expect(screen.queryByRole('button', { name: 'Finish activation' })).toBeNull();
+	expect(screen.queryByRole('heading', { name: 'Account activated' })).toBeNull();
+	expect(fetchMock.mock.calls.filter(([url]) => url === '/api/auth/update-password')).toHaveLength(1);
 });

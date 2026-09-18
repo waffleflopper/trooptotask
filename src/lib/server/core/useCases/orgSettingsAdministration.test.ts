@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { createSupabaseSensitiveActionAuthorizer } from '$lib/server/sensitiveActionAuthorizer';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import {
 	clearOrganizationUrlSlug,
@@ -86,6 +87,63 @@ function createOrganizationSettingsAdministrationPort(
 		}
 	};
 }
+
+describe('Organization sensitive-action suspension admission', () => {
+	it.each(['delete', 'transfer'] as const)('blocks %s effects until suspension is verifiably clear', async (action) => {
+		const ctx = createTestContext({ auth: { userId: 'owner-1', orgId: 'org-1', role: 'owner' } });
+		const administration = createOrganizationSettingsAdministrationPort({ organizationName: 'Test Org' });
+		const rpc = vi.fn().mockResolvedValue({ data: null, error: null });
+		const ports = {
+			auth: ctx.auth,
+			audit: ctx.audit,
+			notifications: ctx.notifications,
+			administration,
+			sensitiveActionAuthorizer: createSupabaseSensitiveActionAuthorizer({
+				supabase: {
+					auth: {
+						mfa: {
+							getAuthenticatorAssuranceLevel: vi
+								.fn()
+								.mockResolvedValue({ data: { currentLevel: 'aal2', nextLevel: 'aal2' }, error: null })
+						}
+					},
+					rpc
+				} as never,
+				session: { user: { id: 'owner-1', last_sign_in_at: '2026-05-22T10:00:00Z' } } as never,
+				now: () => new Date('2026-05-22T12:00:00Z')
+			})
+		};
+		const execute = () =>
+			action === 'delete'
+				? deleteOrganization(ports, { confirmName: 'Test Org' })
+				: transferOrganizationOwnership(ports, {
+						newOwnerId: '11111111-1111-4111-8111-111111111111',
+						confirmTransferEmail: 'new-owner@example.com'
+					});
+
+		await expect(execute()).rejects.toMatchObject({
+			status: 403,
+			reason: 'denied.suspensionStatusUnavailable',
+			requiresStepUp: false,
+			stepUpPath: null
+		});
+		expect(administration.deletedOrganizations).toEqual([]);
+		expect(administration.transferRequests).toEqual([]);
+		expect(ctx.notificationPort.notifications).toEqual([]);
+		expect(ctx.auditPort.events).toContainEqual(
+			expect.objectContaining({
+				details: expect.objectContaining({
+					sensitiveAction: expect.objectContaining({ reason: 'denied.suspensionStatusUnavailable' })
+				}),
+				severity: 'warning'
+			})
+		);
+
+		rpc.mockResolvedValue({ data: false, error: null });
+		await expect(execute()).resolves.toEqual(action === 'delete' ? { success: true } : { transferSuccess: true });
+		expect(action === 'delete' ? administration.deletedOrganizations : administration.transferRequests).toHaveLength(1);
+	});
+});
 
 describe('renameOrganization', () => {
 	it('denies high-access members who are not admin or owner before renaming organizations', async () => {

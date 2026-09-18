@@ -9,7 +9,10 @@ import {
 } from './platformAccessRequestAdministration';
 import type { AccessRequestInvitationOrigin } from '$lib/server/accessRequestInvitationOrigin';
 import type { AccountSetupLinkRecord, CreateAccountSetupLinkResult } from '$lib/server/accountSetupLinks';
-import type { SensitiveActionDecision } from '$lib/server/sensitiveActionAuthorizer';
+import {
+	createSupabaseSensitiveActionAuthorizer,
+	type SensitiveActionDecision
+} from '$lib/server/sensitiveActionAuthorizer';
 
 const now = new Date('2026-05-22T12:00:00.000Z');
 
@@ -186,6 +189,58 @@ function makeDeps(overrides: Partial<PlatformAccessRequestAdministrationDependen
 }
 
 describe('Platform Access Request Administration', () => {
+	it.each(['approve', 'resendSetup', 'reject'] as const)(
+		'requires a valid suspension result before %s and permits a safe retry',
+		async (action) => {
+			const rpc = vi.fn().mockRejectedValue(new Error('private provider failure'));
+			const { admin, deps } = makeDeps({
+				sensitiveActionAuthorizer: createSupabaseSensitiveActionAuthorizer({
+					supabase: {
+						auth: {
+							mfa: {
+								getAuthenticatorAssuranceLevel: vi
+									.fn()
+									.mockResolvedValue({ data: { currentLevel: 'aal1', nextLevel: 'aal1' }, error: null })
+							}
+						},
+						rpc
+					} as never,
+					session: { user: { id: 'admin-1', last_sign_in_at: '2026-05-22T11:59:00Z' } } as never,
+					now: () => now
+				})
+			});
+			const execute = () =>
+				admin[action]({ accessRequestId: 'request-1', actorUserId: 'admin-1', publicOrigin: 'http://localhost' });
+			await expect(execute()).resolves.toMatchObject({
+				status: 'authorization_denied',
+				failure: { reason: 'denied.suspensionStatusUnavailable', requiresStepUp: false, stepUpPath: null }
+			});
+			expect(deps.store.markPendingRequestApproved).not.toHaveBeenCalled();
+			expect(deps.store.rejectPendingAccessRequestAndBlockLinkedInvitations).not.toHaveBeenCalled();
+			expect(deps.checkSetupRateLimit).not.toHaveBeenCalled();
+			expect(deps.setupLinks.createForAccessRequest).not.toHaveBeenCalled();
+			expect(deps.setupDelivery.send).not.toHaveBeenCalled();
+			expect(deps.notifyGovernors.notifyInvitationBlocked).not.toHaveBeenCalled();
+			expect(deps.audit).toHaveBeenCalledWith(
+				expect.objectContaining({
+					details: expect.objectContaining({
+						sensitiveAction: expect.objectContaining({ reason: 'denied.suspensionStatusUnavailable' })
+					}),
+					severity: 'warning'
+				})
+			);
+
+			rpc.mockResolvedValue({ data: false, error: null });
+			await expect(execute()).resolves.toMatchObject({ status: action === 'reject' ? 'rejected' : 'sent' });
+			if (action === 'reject') {
+				expect(deps.store.rejectPendingAccessRequestAndBlockLinkedInvitations).toHaveBeenCalledOnce();
+			} else {
+				expect(deps.setupLinks.createForAccessRequest).toHaveBeenCalledOnce();
+				expect(deps.setupDelivery.send).toHaveBeenCalledOnce();
+			}
+		}
+	);
+
 	beforeEach(() => {
 		vi.unstubAllEnvs();
 	});

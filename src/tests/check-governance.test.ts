@@ -7,7 +7,6 @@ const governance = (await import(/* @vite-ignore */ governanceModuleUrl)) as {
 		baselineEntries: Array<{ feature: string; path: string; pattern: string }>
 	): string[];
 	collectPermissionPatterns(content: string): string[];
-	collectDestructuredLocalSupabaseBindings(content: string): Set<string>;
 	hasRouteAdminProviderUsage(content: string): boolean;
 	hasRouteSupabaseUsage(content: string): boolean;
 };
@@ -64,6 +63,16 @@ describe('governance route Supabase usage detection', () => {
 				};
 			`)
 		).toBe(true);
+	});
+
+	it('accepts route orchestration without provider access', () => {
+		expect(
+			governance.hasRouteSupabaseUsage(`
+				export const POST = async ({ request }) => {
+					return handleUseCaseRequest(useCase, await request.json());
+				};
+			`)
+		).toBe(false);
 	});
 });
 

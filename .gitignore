@@ -35,11 +35,6 @@ supabase/schema_remote_live.sql
 
 .worktrees/
 
-# Playwright
-test-results/
-playwright-report/
-e2e/.auth/
-
 # Claude Code
 .claude/
 

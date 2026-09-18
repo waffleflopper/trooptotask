@@ -6,13 +6,13 @@ independent runnable clone/database, preserved reference source/data, and repeat
 startup and synthetic-fixture instructions.
 
 Use Supabase project `trooptotask-v1-maintenance` on ports 56320–56329, with edge
-inspector 8283. The normal app uses localhost:5173; E2E uses 127.0.0.1:4273. The
-frozen reference retains project `trooptotask` on 543xx and app 127.0.0.1:4173.
+inspector 8283. The normal app uses localhost:5173. The frozen reference retains project `trooptotask` on 543xx and app 127.0.0.1:4173.
 
 `supabase/config.toml` disables the legacy dump seed for new maintenance databases.
-Use deliberately synthetic fixtures. Browser-test defaults and the direct psql
-cleanup target this stack, with `E2E_DATABASE_URL` allowing an explicit test database.
-Existing fixture cleanup is not run as part of initial setup.
+Use deliberately synthetic fixtures. The browser harness, its account/seed creation
+and direct psql cleanup code have been removed. Verification uses the disposable
+environment in [Local Auth Testing](local-auth-testing.md); this maintenance stack
+and its existing data are not verification targets.
 
 On Robert's workstation, use `trooptotask-local maintenance check`, `db-start`,
 `status`, or `app`. Full instructions and private credential locations are in
@@ -33,13 +33,9 @@ guards, baseline bundle and independent Docker database volumes were checked.
 The unit-test environment uses an ignored `.env.test.local` with
 `PUBLIC_BILLING_ENABLED=true` to exercise existing v1 billing components; both
 manual preview launchers keep billing disabled and have no Stripe credentials.
-Browser-only origin, test-email and setup-secret values live in the launcher
-environment, avoiding contamination of unit tests.
+Preview origins and setup secrets belong to the isolated preview environment.
+App-owned email uses its real transport; no runtime test-email bypass remains.
 
-Three existing invitation tests in
-`src/routes/org/[orgId]/settings/members/membersSettings.server.test.ts` fail on the
-current date. The fixture expires August 15, 2026; its loader tests omit the fixed
-August 4 clock used elsewhere in that file. The same unchanged 28 tests pass under
-a temporary August 4 clock. The diagnosis did not alter product/test source or the
-normal suite clock. Stabilizing those tests is deferred; the ordinary full suite
-and existing pre-push gate remain failing until that separate test fix is made.
+The date-sensitive invitation tests described in the initial setup audit were
+fixed by [stabilization task 02-01](stabilization/EVIDENCE.md#task-02-01-deterministic-invitation-expiry).
+The retained suite no longer requires a shifted system clock.

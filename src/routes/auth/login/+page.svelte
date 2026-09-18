@@ -11,6 +11,7 @@
 	let { form, data } = $props();
 	let loading = $state(false);
 	let showPassword = $state(false);
+	let transportError = $state('');
 </script>
 
 <svelte:head>
@@ -46,18 +47,32 @@
 			/>
 		{/if}
 
-		{#if form?.error}
-			<AuthNotice tone="error" message={form.error} />
+		{#if transportError || form?.error}
+			<AuthNotice tone="error" message={transportError || form?.error || ''} />
 		{/if}
 
 		<form
 			method="POST"
 			action="?/login"
-			use:enhance={() => {
+			use:enhance={({ cancel }) => {
+				if (loading) {
+					cancel();
+					return;
+				}
+				transportError = '';
 				loading = true;
-				return async ({ update }) => {
-					loading = false;
-					await update();
+				return async ({ result, update }) => {
+					try {
+						if (result.type === 'error') {
+							transportError = 'Unable to complete sign in. Please try again.';
+							return;
+						}
+						await update({ reset: false });
+					} catch {
+						transportError = 'Unable to complete sign in. Please try again.';
+					} finally {
+						loading = false;
+					}
 				};
 			}}
 			class="flex flex-col gap-5"
@@ -69,6 +84,7 @@
 				id="email"
 				name="email"
 				type="email"
+				disabled={loading}
 				value={form?.email ?? ''}
 				required
 				autocomplete="email"
@@ -81,6 +97,7 @@
 				id="password"
 				name="password"
 				type={showPassword ? 'text' : 'password'}
+				disabled={loading}
 				required
 				autocomplete="current-password"
 				placeholder="Enter your password"

@@ -82,7 +82,13 @@ describe('GET /auth/login', () => {
 	});
 
 	it('redirects to the safe return path after a successful reauth login', async () => {
-		const signInWithPassword = vi.fn().mockResolvedValue({ error: null });
+		const signInWithPassword = vi.fn().mockResolvedValue({
+			data: {
+				user: { id: 'user-1' },
+				session: { user: { id: 'user-1' }, access_token: 'synthetic-access', refresh_token: 'synthetic-refresh' }
+			},
+			error: null
+		});
 		const getAuthenticatorAssuranceLevel = vi.fn().mockResolvedValue({
 			data: { currentLevel: 'aal1', nextLevel: 'aal1' }
 		});
@@ -118,7 +124,13 @@ describe('GET /auth/login', () => {
 	});
 
 	it('redirects to dashboard instead of unsafe form next values after login', async () => {
-		const signInWithPassword = vi.fn().mockResolvedValue({ error: null });
+		const signInWithPassword = vi.fn().mockResolvedValue({
+			data: {
+				user: { id: 'user-1' },
+				session: { user: { id: 'user-1' }, access_token: 'synthetic-access', refresh_token: 'synthetic-refresh' }
+			},
+			error: null
+		});
 		const getAuthenticatorAssuranceLevel = vi.fn().mockResolvedValue({
 			data: { currentLevel: 'aal1', nextLevel: 'aal1' }
 		});
@@ -149,7 +161,13 @@ describe('GET /auth/login', () => {
 	});
 
 	it('redirects to dashboard instead of form next values that normalize to protocol-relative paths', async () => {
-		const signInWithPassword = vi.fn().mockResolvedValue({ error: null });
+		const signInWithPassword = vi.fn().mockResolvedValue({
+			data: {
+				user: { id: 'user-1' },
+				session: { user: { id: 'user-1' }, access_token: 'synthetic-access', refresh_token: 'synthetic-refresh' }
+			},
+			error: null
+		});
 		const getAuthenticatorAssuranceLevel = vi.fn().mockResolvedValue({
 			data: { currentLevel: 'aal1', nextLevel: 'aal1' }
 		});

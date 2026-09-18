@@ -12,7 +12,13 @@ function loginRequest(next: FormDataEntryValue, mfa = false) {
 	form.set('password', 'synthetic-password');
 	form.set('next', next);
 	const auth = {
-		signInWithPassword: vi.fn().mockResolvedValue({ error: null }),
+		signInWithPassword: vi.fn().mockResolvedValue({
+			data: {
+				user: { id: 'user-1' },
+				session: { user: { id: 'user-1' }, access_token: 'synthetic-access', refresh_token: 'synthetic-refresh' }
+			},
+			error: null
+		}),
 		mfa: {
 			getAuthenticatorAssuranceLevel: vi.fn().mockResolvedValue({
 				data: { currentLevel: 'aal1', nextLevel: mfa ? 'aal2' : 'aal1' },

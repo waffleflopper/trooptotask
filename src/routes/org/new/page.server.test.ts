@@ -1,274 +1,164 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { OrgProvisioningPort } from '$lib/server/core/useCases/orgProvisioning';
 
-const { createSupabaseOrgProvisioningPortMock, loadOrganizationProvisioningMock, provisionOrganizationMock } =
-	vi.hoisted(() => ({
-		createSupabaseOrgProvisioningPortMock: vi.fn(),
-		loadOrganizationProvisioningMock: vi.fn(),
-		provisionOrganizationMock: vi.fn()
-	}));
-
+const { createPort } = vi.hoisted(() => ({ createPort: vi.fn() }));
 vi.mock('$lib/server/adapters/supabaseOrgProvisioning', () => ({
-	createSupabaseOrgProvisioningPort: createSupabaseOrgProvisioningPortMock
+	createSupabaseOrgProvisioningPort: createPort
 }));
-
-vi.mock('$lib/server/core/useCases/orgProvisioning', async () => {
-	const actual = await vi.importActual<typeof import('$lib/server/core/useCases/orgProvisioning')>(
-		'$lib/server/core/useCases/orgProvisioning'
-	);
-
-	return {
-		...actual,
-		loadOrganizationProvisioning: loadOrganizationProvisioningMock,
-		provisionOrganization: provisionOrganizationMock
-	};
-});
 
 import { actions, load } from './+page.server';
 
-function confirmedUser(overrides: Record<string, unknown> = {}) {
+const owner = { id: 'user-1', email: 'stale@example.test' };
+const confirmed = {
+	id: 'user-1',
+	email: 'OWNER@EXAMPLE.TEST',
+	email_confirmed_at: '2026-06-16T12:00:00Z'
+};
+
+function event(providerUser: Record<string, unknown> | null = confirmed, fields = { name: '  Alpha   Company  ' }) {
 	return {
-		id: 'user-1',
-		email: 'owner@example.com',
-		confirmed_at: '2026-06-16T12:00:00.000Z',
-		email_confirmed_at: '2026-06-16T12:00:00.000Z',
-		...overrides
+		locals: {
+			user: owner,
+			supabase: { auth: { getUser: vi.fn().mockResolvedValue({ data: { user: providerUser }, error: null }) } }
+		},
+		request: new Request('http://localhost/org/new', {
+			method: 'POST',
+			body: new URLSearchParams(fields)
+		})
 	};
 }
 
-function providerUser(overrides: Record<string, unknown> = {}) {
-	return confirmedUser(overrides);
+function provisioningPort() {
+	return {
+		canCreateOrganization: vi.fn().mockResolvedValue({ allowed: true }),
+		createOrganizationWithOwner: vi.fn().mockResolvedValue({ orgId: 'org-1', errorMessage: null }),
+		updateOwnerMembershipEmail: vi.fn().mockResolvedValue(null),
+		seedDefaultGroups: vi.fn().mockResolvedValue(null),
+		seedDefaultStatusTypes: vi.fn().mockResolvedValue(null),
+		seedDefaultAssignmentTypes: vi.fn().mockResolvedValue(null),
+		seedFederalHolidays: vi.fn().mockResolvedValue(null),
+		seedDefaultRankCatalog: vi.fn().mockResolvedValue(null)
+	} satisfies OrgProvisioningPort;
 }
 
-function localsWithProviderUser(
-	options: {
-		user?: Record<string, unknown>;
-		providerUser?: Record<string, unknown> | null;
-		providerError?: unknown;
-	} = {}
-) {
-	const getUser = vi.fn().mockResolvedValue({
-		data: { user: options.providerUser === null ? null : providerUser(options.providerUser) },
-		error: options.providerError ?? null
-	});
-	const locals = {
-		user: options.user ?? confirmedUser(),
-		supabase: { auth: { getUser } }
-	};
-
-	return { locals, getUser };
-}
-
-describe('org/new page server', () => {
+describe('org/new admission through real provisioning', () => {
+	let port: ReturnType<typeof provisioningPort>;
 	beforeEach(() => {
 		vi.clearAllMocks();
-		createSupabaseOrgProvisioningPortMock.mockReturnValue({ kind: 'org-provisioning-port' });
-		loadOrganizationProvisioningMock.mockResolvedValue({
-			canCreate: true,
-			canCreateMessage: undefined
-		});
-		provisionOrganizationMock.mockResolvedValue({ orgId: 'org-1' });
+		vi.spyOn(console, 'error').mockImplementation(() => {});
+		port = provisioningPort();
+		createPort.mockReturnValue(port);
 	});
+	afterEach(() => vi.restoreAllMocks());
 
-	it('redirects unauthenticated users to login before checking create-org access', async () => {
-		await expect(
-			load({
-				locals: {}
-			} as never)
-		).rejects.toMatchObject({
+	it.each([
+		['load', load],
+		['action', actions.default]
+	] as const)('%s redirects anonymous users before provider access', async (_, handler) => {
+		await expect(handler({ ...event(), locals: {} } as never)).rejects.toMatchObject({
 			status: 303,
 			location: '/auth/login'
 		});
-
-		expect(loadOrganizationProvisioningMock).not.toHaveBeenCalled();
+		expect(createPort).not.toHaveBeenCalled();
 	});
 
-	it('blocks provider-unconfirmed authenticated users before checking create-org access', async () => {
-		const { locals, getUser } = localsWithProviderUser({
-			providerUser: {
-				email: 'pending@example.com',
-				confirmed_at: null,
-				email_confirmed_at: null
-			}
-		});
-
-		const result = await load({
-			locals
-		} as never);
-
-		expect(result).toEqual({
-			emailConfirmed: false,
-			userEmail: 'pending@example.com',
-			canCreate: false,
-			canCreateMessage: 'Confirm your email before creating an Organization.'
-		});
-		expect(getUser).toHaveBeenCalledOnce();
-		expect(createSupabaseOrgProvisioningPortMock).not.toHaveBeenCalled();
-		expect(loadOrganizationProvisioningMock).not.toHaveBeenCalled();
+	it.each([
+		['unconfirmed email', { ...confirmed, email_confirmed_at: null }, 403],
+		['missing identity', null, 503],
+		['different identity', { ...confirmed, id: 'other-user' }, 503]
+	] as const)('denies load and direct POST with %s despite a cached user', async (_, providerUser, status) => {
+		expect(await load(event(providerUser) as never)).toMatchObject({ emailConfirmed: false, canCreate: false });
+		expect(await actions.default(event(providerUser) as never)).toMatchObject({ status });
+		expect(createPort).not.toHaveBeenCalled();
 	});
 
-	it('fails closed when load cannot verify provider confirmation state', async () => {
-		const { locals, getUser } = localsWithProviderUser({
-			providerUser: null,
-			providerError: new Error('auth unavailable')
-		});
-
-		const result = await load({
-			locals
-		} as never);
-
-		expect(result).toEqual({
-			emailConfirmed: false,
-			userEmail: 'owner@example.com',
-			canCreate: false,
-			canCreateMessage: 'Unable to verify email confirmation right now. Try again in a moment.'
-		});
-		expect(getUser).toHaveBeenCalledOnce();
-		expect(createSupabaseOrgProvisioningPortMock).not.toHaveBeenCalled();
-		expect(loadOrganizationProvisioningMock).not.toHaveBeenCalled();
+	it.each(['error', 'throw'] as const)('fails closed on provider %s for load and direct POST', async (failure) => {
+		const input = event();
+		const getUser = input.locals.supabase.auth.getUser;
+		if (failure === 'throw') getUser.mockRejectedValue(new Error('offline'));
+		else getUser.mockResolvedValue({ data: { user: confirmed }, error: { message: 'offline' } });
+		expect(await load(input as never)).toMatchObject({ emailConfirmed: false, canCreate: false });
+		expect(await actions.default(input as never)).toMatchObject({ status: 503 });
+		expect(createPort).not.toHaveBeenCalled();
 	});
 
-	it('loads create-org availability through the provisioning boundary', async () => {
-		loadOrganizationProvisioningMock.mockResolvedValue({
-			canCreate: false,
-			canCreateMessage: 'You can own up to 1 organization(s) on your current plan.'
-		});
-		const { locals, getUser } = localsWithProviderUser();
-
-		const result = await load({
-			locals
-		} as never);
-
-		expect(result).toEqual({
+	it('loads confirmed creation availability and rechecks denial on POST', async () => {
+		port.canCreateOrganization.mockResolvedValue({ allowed: false, message: 'Creation unavailable' });
+		expect(await load(event() as never)).toMatchObject({
 			emailConfirmed: true,
-			userEmail: 'owner@example.com',
 			canCreate: false,
-			canCreateMessage: 'You can own up to 1 organization(s) on your current plan.'
+			canCreateMessage: 'Creation unavailable'
 		});
-		expect(getUser).toHaveBeenCalledOnce();
-		expect(createSupabaseOrgProvisioningPortMock).toHaveBeenCalledWith(locals);
-		expect(loadOrganizationProvisioningMock).toHaveBeenCalledWith(
-			{ kind: 'org-provisioning-port' },
-			{ userId: 'user-1' }
-		);
-	});
-
-	it('redirects unauthenticated users to login before provisioning starts', async () => {
-		await expect(
-			actions.default({
-				request: new Request('http://localhost/org/new', {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-					body: new URLSearchParams({ name: 'Alpha Company' })
-				}),
-				locals: {}
-			} as never)
-		).rejects.toMatchObject({
-			status: 303,
-			location: '/auth/login'
-		});
-
-		expect(provisionOrganizationMock).not.toHaveBeenCalled();
-	});
-
-	it('does not provision organizations for provider-unconfirmed users', async () => {
-		const { locals, getUser } = localsWithProviderUser({
-			providerUser: {
-				email: 'pending@example.com',
-				confirmed_at: null,
-				email_confirmed_at: null
-			}
-		});
-
-		const result = await actions.default({
-			request: new Request('http://localhost/org/new', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-				body: new URLSearchParams({ name: 'Alpha Company' })
-			}),
-			locals
-		} as never);
-
-		expect(result).toMatchObject({
+		expect(await actions.default(event() as never)).toMatchObject({
 			status: 403,
-			data: { error: 'Confirm your email before creating an Organization.' }
+			data: { error: 'Creation unavailable' }
 		});
-		expect(getUser).toHaveBeenCalledOnce();
-		expect(createSupabaseOrgProvisioningPortMock).not.toHaveBeenCalled();
-		expect(provisionOrganizationMock).not.toHaveBeenCalled();
+		expect(port.createOrganizationWithOwner).not.toHaveBeenCalled();
+		expect(port.seedDefaultGroups).not.toHaveBeenCalled();
 	});
 
-	it('does not provision organizations when provider confirmation cannot be verified safely', async () => {
-		const { locals, getUser } = localsWithProviderUser({
-			providerUser: { id: 'other-user' }
+	it('binds creation to the verified actor and email, ignoring submitted identity, slug and Organization', async () => {
+		expect(await load(event() as never)).toMatchObject({
+			emailConfirmed: true,
+			canCreate: true,
+			userEmail: 'OWNER@EXAMPLE.TEST'
 		});
-
-		const result = await actions.default({
-			request: new Request('http://localhost/org/new', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-				body: new URLSearchParams({ name: 'Alpha Company' })
-			}),
-			locals
-		} as never);
-
-		expect(result).toMatchObject({
-			status: 503,
-			data: { error: 'Unable to verify email confirmation right now. Try again in a moment.' }
+		const input = event(confirmed, {
+			name: '  Alpha   Company  ',
+			userId: 'attacker',
+			email: 'attacker@example.test',
+			orgId: 'foreign-org',
+			url_slug: 'foreign-org'
+		} as { name: string });
+		await expect(actions.default(input as never)).rejects.toMatchObject({ status: 303, location: '/org/org-1' });
+		expect(port.createOrganizationWithOwner).toHaveBeenCalledWith('Alpha Company');
+		expect(port.updateOwnerMembershipEmail).toHaveBeenCalledWith({
+			organizationId: 'org-1',
+			userId: 'user-1',
+			email: 'owner@example.test'
 		});
-		expect(getUser).toHaveBeenCalledOnce();
-		expect(createSupabaseOrgProvisioningPortMock).not.toHaveBeenCalled();
-		expect(provisionOrganizationMock).not.toHaveBeenCalled();
+		expect(port.seedDefaultGroups).toHaveBeenCalledWith('org-1', expect.any(Array));
 	});
 
-	it('redirects confirmed owners to the newly created organization dashboard after provisioning succeeds', async () => {
-		const { locals, getUser } = localsWithProviderUser({
-			user: confirmedUser({ email: 'stale-owner@example.com' }),
-			providerUser: { email: 'OWNER@EXAMPLE.COM' }
-		});
-
-		await expect(
-			actions.default({
-				request: new Request('http://localhost/org/new', {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-					body: new URLSearchParams({ name: '  Alpha Company  ' })
-				}),
-				locals
-			} as never)
-		).rejects.toMatchObject({
-			status: 303,
-			location: '/org/org-1'
-		});
-
-		expect(getUser).toHaveBeenCalledOnce();
-		expect(provisionOrganizationMock).toHaveBeenCalledWith(
-			{ kind: 'org-provisioning-port' },
-			{
-				name: '  Alpha Company  ',
-				userId: 'user-1',
-				email: 'OWNER@EXAMPLE.COM'
-			}
-		);
-	});
-
-	it('maps provisioning use-case failures back into the action error payload', async () => {
-		provisionOrganizationMock.mockRejectedValue(
-			Object.assign(new Error('Organization name is required'), { status: 400 })
-		);
-		const { locals } = localsWithProviderUser();
-
-		const result = await actions.default({
-			request: new Request('http://localhost/org/new', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-				body: new URLSearchParams({ name: '' })
-			}),
-			locals
-		} as never);
-
-		expect(result).toMatchObject({
+	it.each(['', ' \t\n '])('rejects blank name %j without any creation effects', async (name) => {
+		expect(await actions.default(event(confirmed, { name }) as never)).toMatchObject({
 			status: 400,
 			data: { error: 'Organization name is required' }
 		});
+		expect(port.canCreateOrganization).not.toHaveBeenCalled();
+		expect(port.createOrganizationWithOwner).not.toHaveBeenCalled();
+	});
+
+	it('returns creation failure without redirecting or writing owner/defaults', async () => {
+		port.createOrganizationWithOwner.mockResolvedValue({ orgId: null, errorMessage: 'Owner insert denied' });
+		expect(await actions.default(event() as never)).toMatchObject({
+			status: 500,
+			data: { error: 'Owner insert denied' }
+		});
+		for (const effect of [
+			port.updateOwnerMembershipEmail,
+			port.seedDefaultGroups,
+			port.seedDefaultStatusTypes,
+			port.seedDefaultAssignmentTypes,
+			port.seedFederalHolidays,
+			port.seedDefaultRankCatalog
+		]) {
+			expect(effect).not.toHaveBeenCalled();
+		}
+	});
+
+	it('returns required rank seed failure instead of a success redirect', async () => {
+		port.seedDefaultRankCatalog.mockResolvedValue('Rank catalog unavailable');
+		expect(await actions.default(event() as never)).toMatchObject({
+			status: 500,
+			data: { error: 'Rank catalog unavailable' }
+		});
+	});
+
+	it('does not disguise unexpected provider exceptions as successful creation', async () => {
+		const failure = new Error('connection lost');
+		port.createOrganizationWithOwner.mockRejectedValue(failure);
+		await expect(actions.default(event() as never)).rejects.toBe(failure);
+		expect(port.updateOwnerMembershipEmail).not.toHaveBeenCalled();
 	});
 });

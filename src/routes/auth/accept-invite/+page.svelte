@@ -15,6 +15,7 @@
 	const hasSession = $derived($page.data.hasSession);
 
 	let requiresMfa = $state(false);
+	let passwordSet = $state(false);
 	let password = $state('');
 	let confirmPassword = $state('');
 	let loading = $state(false);
@@ -95,7 +96,7 @@
 
 	async function handleSubmit(event: Event) {
 		event.preventDefault();
-		if (loading || requiresMfa) return;
+		if (loading || requiresMfa || passwordSet) return;
 		error = '';
 
 		const passwordError = getPasswordError(password);
@@ -130,22 +131,51 @@
 				return;
 			}
 
-			const finalizeResponse = await fetch('/api/auth/finalize-invite', { method: 'POST' });
-			const finalizeResult = await readJsonResult(finalizeResponse);
-			if (!finalizeResult.ok) {
-				let message =
-					'Your password was set, but we could not finish account activation. Please try the invite link again or contact support.';
-				if (finalizeResult.error) {
-					message = finalizeResult.error;
-				}
-				error = message;
-				return;
-			}
-
-			success = true;
-			setTimeout(() => goto(resolve('/dashboard')), 2000);
+			passwordSet = true;
+			password = '';
+			confirmPassword = '';
+			await finalizeInvite();
+		} catch {
+			error = passwordSet
+				? 'Your password is set. We could not finish account activation. Please try again.'
+				: 'Unable to set your password. Please try again.';
 		} finally {
 			loading = false;
+			await tick();
+			if (passwordSet && !requiresMfa && !success) document.getElementById('finish-activation')?.focus();
+		}
+	}
+	async function finalizeInvite() {
+		const response = await fetch('/api/auth/finalize-invite', { method: 'POST' });
+		if (response.redirected) {
+			await goto(response.url);
+			return;
+		}
+		const result = await readJsonResult(response);
+		if (response.status === 403 && result.code === 'mfa_required') {
+			requiresMfa = true;
+			return;
+		}
+		if (!result.ok) {
+			error = result.error || 'Your password is set. We could not finish account activation. Please try again.';
+			return;
+		}
+		success = true;
+		setTimeout(() => goto(resolve('/dashboard')), 2000);
+	}
+
+	async function retryFinalization() {
+		if (loading || requiresMfa || !passwordSet || success) return;
+		loading = true;
+		error = '';
+		try {
+			await finalizeInvite();
+		} catch {
+			error = 'Your password is set. We could not finish account activation. Please try again.';
+		} finally {
+			loading = false;
+			await tick();
+			if (passwordSet && !requiresMfa && !success) document.getElementById('finish-activation')?.focus();
 		}
 	}
 </script>
@@ -163,16 +193,20 @@
 		? 'Account activated'
 		: tokenError
 			? 'Invite unavailable'
-			: sessionReady
-				? 'Set your password'
-				: 'Verifying invite link'}
+			: passwordSet
+				? 'Finish account activation'
+				: sessionReady
+					? 'Set your password'
+					: 'Verifying invite link'}
 	panelDescription={success
 		? 'Redirecting you to your dashboard.'
 		: tokenError
 			? 'This invite link can no longer be used.'
-			: sessionReady
-				? 'Choose a password that satisfies the current invite policy.'
-				: "We're validating the invite token before exposing the activation form."}
+			: passwordSet
+				? 'Your password is set. Finish activating your account.'
+				: sessionReady
+					? 'Choose a password that satisfies the current invite policy.'
+					: "We're validating the invite token before exposing the activation form."}
 	supportLabel="Joining an organization"
 	supportTitle="Finish the invite."
 	supportDescription="This page is for invited users who are setting their password for the first time."
@@ -205,13 +239,21 @@
 			</div>
 		{:else if requiresMfa}
 			<PasswordMfaChallenge
+				hint={passwordSet
+					? 'Enter the current 6-digit code from your authenticator app before finishing account activation.'
+					: undefined}
 				onverified={async () => {
 					requiresMfa = false;
 					error = '';
 					await tick();
-					document.getElementById('password')?.focus();
+					document.getElementById(passwordSet ? 'finish-activation' : 'password')?.focus();
 				}}
 			/>
+		{:else if passwordSet}
+			{#if error}<AuthNotice tone="error" message={error} />{/if}
+			<Button id="finish-activation" type="button" onclick={retryFinalization} disabled={loading}>
+				{#if loading}<Spinner />Finishing activation...{:else}Finish activation{/if}
+			</Button>
 		{:else}
 			{#if error}
 				<AuthNotice tone="error" message={error} />

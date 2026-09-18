@@ -257,6 +257,59 @@ describe('server auth hook', () => {
 		};
 	}
 
+	describe('invite finalization admission through the request hook', () => {
+		const accept = vi.fn();
+		const profile = vi.fn();
+		beforeEach(() => {
+			accept.mockReset().mockResolvedValue({ accepted: 1 });
+			profile.mockReset().mockResolvedValue(undefined);
+			vi.doMock('$lib/server/auto-accept-org-invites', () => ({ autoAcceptOrgInvites: accept }));
+			vi.doMock('$lib/server/userProfile', () => ({
+				parseUserProfileForm: () => ({ firstName: 'Jane', lastName: 'Smith', rank: 'SGT' }),
+				upsertCurrentUserProfile: profile
+			}));
+		});
+		afterEach(() => {
+			vi.doUnmock('$lib/server/auto-accept-org-invites');
+			vi.doUnmock('$lib/server/userProfile');
+		});
+		it.each(['pending at hook', 'newly pending', 'unavailable after hook'])(
+			'denies finalization for %s without writes or clearing the invite marker, then retries',
+			async (mode) => {
+				// Auth completion retains its existing availability for suspended accounts.
+				const h = await createAuthenticatedHookHarness({ data: true, error: null });
+				const { POST } = await import('./routes/api/auth/finalize-invite/+server');
+				const complete = { data: { currentLevel: 'aal2', nextLevel: 'aal2' }, error: null };
+				const pending = { data: { currentLevel: 'aal1', nextLevel: 'aal2' }, error: null };
+				h.getAuthenticatorAssuranceLevel
+					.mockResolvedValue(complete)
+					.mockResolvedValueOnce(mode === 'pending at hook' ? pending : complete)
+					.mockResolvedValueOnce(
+						mode === 'unavailable after hook' ? { data: null, error: { message: 'private' } } : pending
+					);
+				const event = h.createEvent('/api/auth/finalize-invite', {
+					'sb-example-auth-token': 'session',
+					ttt_pending_auth_flow: 'invite'
+				});
+				const dispatch = (event: Parameters<Handle>[0]['event']) => POST(event as Parameters<typeof POST>[0]);
+				const response = await h.handle({ event, resolve: dispatch });
+				expect(response.status).toBe(mode === 'unavailable after hook' ? 503 : 403);
+				expect(profile).not.toHaveBeenCalled();
+				expect(accept).not.toHaveBeenCalled();
+				expect(event.cookies.get('ttt_pending_auth_flow')).toBe('invite');
+				expect(event.cookies.set).not.toHaveBeenCalled();
+				const retry = await h.handle({ event, resolve: dispatch });
+				expect(retry.status).toBe(200);
+				expect(accept).toHaveBeenCalledExactlyOnceWith(expect.any(Object), 'user@example.com');
+				expect(profile).toHaveBeenCalledTimes(1);
+				expect(event.cookies.get('ttt_pending_auth_flow')).toBeUndefined();
+				const replay = await h.handle({ event, resolve: dispatch });
+				expect(replay.status).toBe(403);
+				expect(accept).toHaveBeenCalledTimes(1);
+			}
+		);
+	});
+
 	describe('password update identity admission', () => {
 		const limit = vi.fn();
 		beforeEach(() => {

@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { autoAcceptOrgInvites } from '$lib/server/auto-accept-org-invites';
-import { getPendingAuthFlowCookieName } from '$lib/server/mfaGate';
+import { getPendingAuthFlowCookieName, isMfaStepUpRequired } from '$lib/server/mfaGate';
 import { parseUserProfileForm, upsertCurrentUserProfile } from '$lib/server/userProfile';
 
 function parseMetadataProfile(metadata: Record<string, unknown> | null | undefined) {
@@ -13,15 +13,67 @@ function parseMetadataProfile(metadata: Record<string, unknown> | null | undefin
 }
 
 export const POST: RequestHandler = async ({ locals, cookies }) => {
-	const user = locals.user;
-	if (!user?.email) {
-		return json(
+	const { user, session } = locals;
+	const inactiveSession = () =>
+		json(
 			{
 				error: 'Your invite session is no longer active. Please reopen the invite link and try again.',
 				accepted: 0,
 				activated: false
 			},
 			{ status: 401 }
+		);
+	if (
+		typeof user?.id !== 'string' ||
+		!user.id ||
+		typeof user.email !== 'string' ||
+		!user.email.trim() ||
+		session?.user?.id !== user.id ||
+		typeof session.access_token !== 'string' ||
+		!/^\S+$/.test(session.access_token) ||
+		typeof session.expires_at !== 'number' ||
+		!Number.isFinite(session.expires_at) ||
+		session.expires_at <= Date.now() / 1000
+	) {
+		return inactiveSession();
+	}
+	if (locals.authFlow !== 'invite') {
+		return json(
+			{ error: 'No invitation is awaiting activation in this session.', accepted: 0, activated: false },
+			{ status: 403 }
+		);
+	}
+
+	// Completion grants membership and clears the pending flow. Recheck the admitted
+	// token immediately before these effects, including when hook admission was stale.
+	try {
+		const assurance = await locals.supabase.auth.mfa.getAuthenticatorAssuranceLevel(session.access_token);
+		if (
+			assurance?.error !== null ||
+			!['aal1', 'aal2'].includes(assurance.data?.currentLevel ?? '') ||
+			!['aal1', 'aal2'].includes(assurance.data?.nextLevel ?? '')
+		) {
+			return json(
+				{ error: 'Unable to verify authentication status. Please try again.', accepted: 0, activated: false },
+				{ status: 503 }
+			);
+		}
+		if (session.expires_at <= Date.now() / 1000) return inactiveSession();
+		if (isMfaStepUpRequired(assurance.data)) {
+			return json(
+				{
+					code: 'mfa_required',
+					error: 'Verify your authenticator code before finishing account activation.',
+					accepted: 0,
+					activated: false
+				},
+				{ status: 403 }
+			);
+		}
+	} catch {
+		return json(
+			{ error: 'Unable to verify authentication status. Please try again.', accepted: 0, activated: false },
+			{ status: 503 }
 		);
 	}
 
@@ -39,8 +91,7 @@ export const POST: RequestHandler = async ({ locals, cookies }) => {
 		console.error('Failed to finalize invite activation:', error);
 		return json(
 			{
-				error:
-					'Your password was set, but we could not finish connecting your account. Please try the invite link again or contact support.'
+				error: 'Unable to finish account activation. Please try again.'
 			},
 			{ status: 500 }
 		);

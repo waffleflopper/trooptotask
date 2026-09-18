@@ -44,6 +44,14 @@ function makeEvent(input: {
 		},
 		signOut: vi.fn().mockResolvedValue({ error: null })
 	};
+	if (auth)
+		Object.assign(auth, {
+			mfa: {
+				getAuthenticatorAssuranceLevel: vi
+					.fn()
+					.mockResolvedValue({ data: { currentLevel: 'aal1', nextLevel: 'aal1' }, error: null })
+			}
+		});
 	return {
 		request: new Request('http://localhost/api/auth/update-password', {
 			method: 'POST',

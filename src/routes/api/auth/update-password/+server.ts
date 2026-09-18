@@ -9,7 +9,7 @@ import {
 	passwordUpdateRateLimitAuditDetails
 } from '$lib/server/passwordUpdateRateLimit';
 import { mapProviderPasswordError, validatePassword } from '$lib/server/validation';
-import { getPendingAuthFlowCookieName } from '$lib/server/mfaGate';
+import { isMfaStepUpRequired, getPendingAuthFlowCookieName } from '$lib/server/mfaGate';
 
 export const POST: RequestHandler = async ({ request, locals, cookies, getClientAddress }) => {
 	const { user, session } = locals;
@@ -93,6 +93,28 @@ export const POST: RequestHandler = async ({ request, locals, cookies, getClient
 			return limitedResponse;
 		}
 		if (session.expires_at <= Date.now() / 1000) return inactiveSession();
+	}
+
+	// Proof has its own AAL1 token. Authorize the mutation using the original admitted token,
+	// reading fresh provider facts after proof/limiter work rather than trusting hook state.
+	try {
+		const assurance = await locals.supabase.auth.mfa.getAuthenticatorAssuranceLevel(session.access_token);
+		if (
+			assurance?.error !== null ||
+			!['aal1', 'aal2'].includes(assurance.data?.currentLevel ?? '') ||
+			!['aal1', 'aal2'].includes(assurance.data?.nextLevel ?? '')
+		) {
+			return json({ error: 'Unable to verify authentication status. Please try again.' }, { status: 503 });
+		}
+		if (session.expires_at <= Date.now() / 1000) return inactiveSession();
+		if (isMfaStepUpRequired(assurance.data)) {
+			return json(
+				{ code: 'mfa_required', error: 'Verify your authenticator code before changing your password.' },
+				{ status: 403 }
+			);
+		}
+	} catch {
+		return json({ error: 'Unable to verify authentication status. Please try again.' }, { status: 503 });
 	}
 
 	const { error } = await locals.supabase.auth.updateUser({ password });

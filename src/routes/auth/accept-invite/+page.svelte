@@ -8,11 +8,13 @@
 	import AuthShell from '$lib/components/auth/AuthShell.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Spinner } from '$lib/components/ui/spinner';
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
+	import PasswordMfaChallenge from '$lib/components/auth/PasswordMfaChallenge.svelte';
 	import { establishSession, readSessionTokens, type SessionTokens } from '$lib/auth/establishSession';
 
 	const hasSession = $derived($page.data.hasSession);
 
+	let requiresMfa = $state(false);
 	let password = $state('');
 	let confirmPassword = $state('');
 	let loading = $state(false);
@@ -46,12 +48,13 @@
 		return null;
 	}
 
-	async function readJsonResult(response: Response): Promise<{ ok: boolean; error?: string }> {
+	async function readJsonResult(response: Response): Promise<{ ok: boolean; error?: string; code?: string }> {
 		try {
-			const payload = (await response.json()) as { ok?: boolean; error?: string };
+			const payload = (await response.json()) as { ok?: boolean; error?: string; code?: string };
 			return {
 				ok: response.ok && payload.ok === true,
-				error: payload.error
+				error: payload.error,
+				code: payload.code
 			};
 		} catch {
 			return { ok: false };
@@ -92,6 +95,7 @@
 
 	async function handleSubmit(event: Event) {
 		event.preventDefault();
+		if (loading || requiresMfa) return;
 		error = '';
 
 		const passwordError = getPasswordError(password);
@@ -112,7 +116,15 @@
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ password })
 			});
+			if (updateResponse.redirected) {
+				await goto(updateResponse.url);
+				return;
+			}
 			const updateResult = await readJsonResult(updateResponse);
+			if (updateResponse.status === 403 && updateResult.code === 'mfa_required') {
+				requiresMfa = true;
+				return;
+			}
 			if (!updateResult.ok) {
 				error = updateResult.error || 'Failed to set password. Please try again.';
 				return;
@@ -191,6 +203,15 @@
 				<Spinner class="text-primary" />
 				<p class="m-0 text-sm leading-relaxed">Verifying invite link...</p>
 			</div>
+		{:else if requiresMfa}
+			<PasswordMfaChallenge
+				onverified={async () => {
+					requiresMfa = false;
+					error = '';
+					await tick();
+					document.getElementById('password')?.focus();
+				}}
+			/>
 		{:else}
 			{#if error}
 				<AuthNotice tone="error" message={error} />

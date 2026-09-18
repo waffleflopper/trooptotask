@@ -8,7 +8,8 @@
 	import AuthShell from '$lib/components/auth/AuthShell.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Spinner } from '$lib/components/ui/spinner';
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
+	import PasswordMfaChallenge from '$lib/components/auth/PasswordMfaChallenge.svelte';
 	import { establishSession, readSessionTokens, type SessionTokens } from '$lib/auth/establishSession';
 
 	const hasSession = $derived($page.data.hasSession);
@@ -26,8 +27,6 @@
 	let statusError = $state(false);
 	let checkingStatus = $state(false);
 	let requiresMfa = $state(false);
-	let mfaCode = $state('');
-	let mfaVerified = $state(false);
 	let showPassword = $state(false);
 	let showConfirmPassword = $state(false);
 
@@ -51,12 +50,13 @@
 		return null;
 	}
 
-	async function readJsonResult(response: Response): Promise<{ ok: boolean; error?: string }> {
+	async function readJsonResult(response: Response): Promise<{ ok: boolean; error?: string; code?: string }> {
 		try {
-			const payload = (await response.json()) as { ok?: boolean; error?: string };
+			const payload = (await response.json()) as { ok?: boolean; error?: string; code?: string };
 			return {
 				ok: response.ok && payload.ok === true,
-				error: payload.error
+				error: payload.error,
+				code: payload.code
 			};
 		} catch {
 			return { ok: false };
@@ -85,7 +85,6 @@
 			}
 
 			requiresMfa = payload.currentLevel === 'aal1' && payload.nextLevel === 'aal2';
-			mfaVerified = !requiresMfa;
 			statusError = false;
 			sessionReady = true;
 		} catch {
@@ -93,11 +92,6 @@
 		} finally {
 			checkingStatus = false;
 		}
-	}
-
-	function handleMfaCodeInput(e: Event) {
-		const input = e.target as HTMLInputElement;
-		mfaCode = input.value.replace(/\D/g, '').slice(0, 6);
 	}
 
 	async function verifySession() {
@@ -134,6 +128,7 @@
 
 	async function handleSubmit(e: Event) {
 		e.preventDefault();
+		if (loading || requiresMfa) return;
 		error = '';
 
 		const passwordError = getPasswordError(password);
@@ -157,7 +152,15 @@
 				})
 			});
 
+			if (updateResponse.redirected) {
+				await goto(updateResponse.url);
+				return;
+			}
 			const updateResult = await readJsonResult(updateResponse);
+			if (updateResponse.status === 403 && updateResult.code === 'mfa_required') {
+				requiresMfa = true;
+				return;
+			}
 			if (!updateResult.ok) {
 				error = updateResult.error ?? 'Failed to update password.';
 				return;
@@ -165,44 +168,6 @@
 
 			success = true;
 			setTimeout(() => goto(resolve('/auth/login')), 3000);
-		} finally {
-			loading = false;
-		}
-	}
-
-	async function handleMfaVerify(e: Event) {
-		e.preventDefault();
-		if (loading) return;
-		error = '';
-
-		if (mfaCode.length !== 6) {
-			error = 'Please enter the 6-digit code from your authenticator app.';
-			return;
-		}
-
-		loading = true;
-		try {
-			const response = await fetch('/api/auth/mfa/verify', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ code: mfaCode })
-			});
-			if (response.redirected) {
-				await goto(response.url);
-				return;
-			}
-
-			const result = await readJsonResult(response);
-			if (!result.ok) {
-				error = result.error ?? 'Verification failed.';
-				return;
-			}
-
-			requiresMfa = false;
-			mfaVerified = true;
-			mfaCode = '';
-		} catch (e: unknown) {
-			error = e instanceof Error ? e.message : 'Verification failed.';
 		} finally {
 			loading = false;
 		}
@@ -274,37 +239,15 @@
 				<Spinner class="text-primary" />
 				<p class="m-0 text-sm leading-relaxed">Verifying reset link...</p>
 			</div>
-		{:else if requiresMfa && !mfaVerified}
-			{#if error}
-				<AuthNotice tone="error" message={error} />
-			{/if}
-
-			<form onsubmit={handleMfaVerify} class="flex flex-col gap-5">
-				<AuthField
-					label="Authenticator Code"
-					id="mfa-code"
-					disabled={loading}
-					hint="Enter the current 6-digit code from your authenticator app before you reset the password."
-					value={mfaCode}
-					oninput={handleMfaCodeInput}
-					placeholder="000000"
-					maxlength={6}
-					autocomplete="one-time-code"
-					inputmode="numeric"
-					inputClass="px-[calc(0.625rem+0.35em)] text-center font-mono text-2xl tracking-[0.35em]"
-				/>
-
-				<div class="flex flex-col gap-3">
-					<Button type="submit" disabled={loading || mfaCode.length !== 6} class="w-full">
-						{#if loading}
-							<Spinner />
-							Verifying...
-						{:else}
-							Verify Code
-						{/if}
-					</Button>
-				</div>
-			</form>
+		{:else if requiresMfa}
+			<PasswordMfaChallenge
+				onverified={async () => {
+					requiresMfa = false;
+					error = '';
+					await tick();
+					document.getElementById('password')?.focus();
+				}}
+			/>
 		{:else}
 			{#if error}
 				<AuthNotice tone="error" message={error} />

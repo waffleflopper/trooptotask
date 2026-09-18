@@ -23,6 +23,11 @@ const validBody = {
 function fixture(flow: (typeof flows)[number] = null) {
 	const user = { id: 'actor-1', email: 'actor@example.test' };
 	const auth = {
+		mfa: {
+			getAuthenticatorAssuranceLevel: vi
+				.fn()
+				.mockResolvedValue({ data: { currentLevel: 'aal2', nextLevel: 'aal2' }, error: null })
+		},
 		signInWithPassword: vi.fn().mockResolvedValue({
 			data: {
 				user,

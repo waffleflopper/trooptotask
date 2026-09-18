@@ -9,6 +9,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { onMount } from 'svelte';
+	import { establishSession, readSessionTokens, type SessionTokens } from '$lib/auth/establishSession';
 
 	const hasSession = $derived($page.data.hasSession);
 
@@ -19,6 +20,9 @@
 	let success = $state(false);
 	let sessionReady = $state(false);
 	let tokenError = $state(false);
+	let sessionError = $state(false);
+	let establishingSession = $state(false);
+	let tokens: SessionTokens | null = null;
 	let showPassword = $state(false);
 	let showConfirmPassword = $state(false);
 
@@ -54,40 +58,36 @@
 		}
 	}
 
-	onMount(async () => {
-		if (hasSession) {
-			sessionReady = true;
-			return;
-		}
-
-		const hash = window.location.hash.substring(1);
-		if (hash) {
-			const params = new URLSearchParams(hash);
-			const accessToken = params.get('access_token');
-			const refreshToken = params.get('refresh_token');
-
-			if (accessToken && refreshToken) {
-				const response = await fetch('/api/auth/establish-session', {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({
-						accessToken,
-						refreshToken,
-						flow: 'invite'
-					})
-				});
-
-				const result = await readJsonResult(response);
-				if (result.ok) {
-					sessionReady = true;
-					replaceState(resolve('/auth/accept-invite'), $page.state);
-					return;
-				}
-				error = result.error ?? 'We could not verify your invite session. Please try the invite link again.';
+	async function verifySession() {
+		if (!tokens || establishingSession) return;
+		establishingSession = true;
+		try {
+			const result = await establishSession(tokens, 'invite');
+			if (result === 'ready') {
+				sessionError = false;
+				tokens = null;
+				replaceState(resolve('/auth/accept-invite'), $page.state);
+				sessionReady = true;
+			} else {
+				tokenError = result === 'invalid';
+				sessionError = result === 'unavailable';
 			}
+		} finally {
+			establishingSession = false;
 		}
+	}
 
-		tokenError = true;
+	onMount(() => {
+		// An incoming link takes precedence over an existing account's session.
+		if (window.location.hash) {
+			tokens = readSessionTokens(window.location.hash);
+			if (tokens) void verifySession();
+			else tokenError = true;
+		} else if (hasSession) {
+			sessionReady = true;
+		} else {
+			tokenError = true;
+		}
 	});
 
 	async function handleSubmit(event: Event) {
@@ -176,6 +176,11 @@
 				<p>Your password has been set successfully.</p>
 				<p>Redirecting you to the dashboard now.</p>
 			</AuthNotice>
+		{:else if sessionError}
+			<AuthNotice tone="error" message="We could not verify this session. Please try again." />
+			<Button type="button" onclick={verifySession} disabled={establishingSession} class="w-full">
+				{#if establishingSession}<Spinner />Verifying session...{:else}Retry verification{/if}
+			</Button>
 		{:else if tokenError}
 			<AuthNotice tone="error" title="Invite unavailable" centered>
 				<p>This invite link is invalid or has expired.</p>

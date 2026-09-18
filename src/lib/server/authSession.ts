@@ -1,3 +1,4 @@
+import type { Cookies } from '@sveltejs/kit';
 import type { JwtPayload, User } from '@supabase/auth-js';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
@@ -33,6 +34,19 @@ export function getSupabaseAuthStorageKey(supabaseUrl: string): string {
 
 export function hasSupabaseAuthCookie(cookieNames: string[], storageKey: string): boolean {
 	return cookieNames.some((name) => name === storageKey || name.startsWith(`${storageKey}.`));
+}
+
+// Removal is local only; callers must separately establish provider revocation.
+export function clearSupabaseAuthCookies(cookies: Cookies, storageKey: string): void {
+	for (const { name } of cookies.getAll()) {
+		if (
+			hasSupabaseAuthCookie([name], storageKey) ||
+			hasSupabaseAuthCookie([name], `${storageKey}-code-verifier`) ||
+			hasSupabaseAuthCookie([name], `${storageKey}-user`)
+		) {
+			cookies.delete(name, { path: '/' });
+		}
+	}
 }
 
 export function buildTrustedUserFromClaims(claims: JwtPayload, sessionUser?: User | null): User {

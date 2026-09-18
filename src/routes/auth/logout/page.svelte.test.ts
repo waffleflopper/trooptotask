@@ -16,3 +16,10 @@ it('announces failed sign-out and offers a native POST retry', () => {
 	expect(form.method.toLowerCase()).toBe('post');
 	expect(new URL(form.action).pathname).toBe('/auth/logout');
 });
+
+it('explains local absence without offering an impossible anonymous global retry', () => {
+	render(Page, { form: { localOnly: true } });
+	expect(screen.getByRole('status')).toHaveTextContent(/other devices has not been confirmed/);
+	expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/auth/login');
+	expect(screen.queryByRole('button', { name: 'Try again' })).not.toBeInTheDocument();
+});

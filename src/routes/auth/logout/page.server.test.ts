@@ -7,7 +7,16 @@ type LogoutActionEvent = Parameters<(typeof actions)['default']>[0];
 
 function makeLogoutEvent() {
 	const signOut = vi.fn().mockResolvedValue({ error: null });
-	const cookies = { delete: vi.fn() };
+	const getSession = vi
+		.fn()
+		.mockResolvedValue({ data: { session: { access_token: 'synthetic-access' } }, error: null });
+	const cookies = {
+		delete: vi.fn(),
+		getAll: () => [
+			{ name: 'sb-example-auth-token.0', value: 'session' },
+			{ name: 'theme', value: 'dark' }
+		]
+	};
 
 	return {
 		event: {
@@ -15,13 +24,15 @@ function makeLogoutEvent() {
 			locals: {
 				supabase: {
 					auth: {
-						signOut
+						getSession,
+						admin: { signOut }
 					}
 				}
 			},
 			cookies
 		},
 		signOut,
+		getSession,
 		cookies
 	};
 }
@@ -80,7 +91,29 @@ describe('POST /auth/logout', () => {
 			location: '/'
 		});
 
-		expect(signOut).toHaveBeenCalledOnce();
+		expect(signOut).toHaveBeenCalledExactlyOnceWith('synthetic-access', 'global');
 		expect(cookies.delete).toHaveBeenCalledWith(getPendingAuthFlowCookieName(), { path: '/' });
 	});
+});
+
+it.each([
+	null,
+	{},
+	{ data: {}, error: null },
+	{ data: { session: { access_token: '' } }, error: null },
+	{ data: { session: null }, error: { message: 'private detail' } }
+])('does not revoke or clear cookies on unconfirmed session result %j', async (result) => {
+	const { event, getSession, signOut, cookies } = makeLogoutEvent();
+	getSession.mockResolvedValue(result);
+	expect(await actions.default(event as unknown as LogoutActionEvent)).toMatchObject({ status: 503 });
+	expect(signOut).not.toHaveBeenCalled();
+	expect(cookies.delete).not.toHaveBeenCalled();
+});
+it('reports only local absence when there is no session to revoke', async () => {
+	const { event, getSession, signOut, cookies } = makeLogoutEvent();
+	getSession.mockResolvedValue({ data: { session: null }, error: null });
+	expect(await actions.default(event as unknown as LogoutActionEvent)).toEqual({ localOnly: true });
+	expect(signOut).not.toHaveBeenCalled();
+	expect(cookies.delete).toHaveBeenCalledWith('ttt_pending_auth_flow', { path: '/' });
+	expect(cookies.delete).not.toHaveBeenCalledWith('theme', expect.anything());
 });

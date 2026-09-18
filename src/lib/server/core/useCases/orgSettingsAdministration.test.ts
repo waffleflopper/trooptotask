@@ -99,6 +99,7 @@ describe('Organization sensitive-action suspension admission', () => {
 			notifications: ctx.notifications,
 			administration,
 			sensitiveActionAuthorizer: createSupabaseSensitiveActionAuthorizer({
+				authenticatedUserId: 'owner-1',
 				supabase: {
 					auth: {
 						mfa: {
@@ -109,7 +110,11 @@ describe('Organization sensitive-action suspension admission', () => {
 					},
 					rpc
 				} as never,
-				session: { user: { id: 'owner-1', last_sign_in_at: '2026-05-22T10:00:00Z' } } as never,
+				session: {
+					access_token: 'verified-request-token',
+					expires_at: 1779454800,
+					user: { id: 'owner-1', last_sign_in_at: '2026-05-22T10:00:00Z' }
+				} as never,
 				now: () => new Date('2026-05-22T12:00:00Z')
 			})
 		};
@@ -143,6 +148,55 @@ describe('Organization sensitive-action suspension admission', () => {
 		await expect(execute()).resolves.toEqual(action === 'delete' ? { success: true } : { transferSuccess: true });
 		expect(action === 'delete' ? administration.deletedOrganizations : administration.transferRequests).toHaveLength(1);
 	});
+});
+
+describe('Organization session denial effects', () => {
+	it.each([
+		['different actor', 'other-user', 1779454800, 'aal2', 'aal2', 'denied.unauthenticated'],
+		['expired session', 'owner-1', 1779451200, 'aal2', 'aal2', 'denied.unauthenticated'],
+		['MFA pending', 'owner-1', 1779454800, 'aal1', 'aal2', 'denied.staleSession'],
+		['unavailable assurance', 'owner-1', 1779454800, null, null, 'denied.assuranceUnavailable']
+	])(
+		'preserves Organization on %s and permits a valid retry',
+		async (_label, userId, expiresAt, currentLevel, nextLevel, reason) => {
+			const ctx = createTestContext({ auth: { userId: 'owner-1', orgId: 'org-1', role: 'owner' } });
+			const administration = createOrganizationSettingsAdministrationPort({ organizationName: 'Test Org' });
+			const session = { access_token: 'verified-token', expires_at: expiresAt, user: { id: userId } };
+			const assurance = vi.fn().mockResolvedValue({
+				data: {
+					currentLevel,
+					nextLevel,
+					currentAuthenticationMethods: [{ method: 'password', timestamp: 1779451140 }]
+				},
+				error: null
+			});
+			const ports = {
+				auth: ctx.auth,
+				audit: ctx.audit,
+				notifications: ctx.notifications,
+				administration,
+				sensitiveActionAuthorizer: createSupabaseSensitiveActionAuthorizer({
+					authenticatedUserId: 'owner-1',
+					session: session as never,
+					supabase: {
+						auth: { mfa: { getAuthenticatorAssuranceLevel: assurance } },
+						rpc: vi.fn().mockResolvedValue({ data: false, error: null })
+					} as never,
+					now: () => new Date('2026-05-22T12:00:00Z')
+				})
+			};
+			const execute = () => deleteOrganization(ports, { confirmName: 'Test Org' });
+			await expect(execute()).rejects.toMatchObject({ status: 403, reason });
+			expect(administration.deletedOrganizations).toEqual([]);
+			expect(ctx.notificationPort.notifications).toEqual([]);
+			expect(ctx.auditPort.events.some((event) => event.action === 'org.deleted')).toBe(false);
+			session.user.id = 'owner-1';
+			session.expires_at = 1779454800;
+			assurance.mockResolvedValue({ data: { currentLevel: 'aal2', nextLevel: 'aal2' }, error: null });
+			await expect(execute()).resolves.toEqual({ success: true });
+			expect(administration.deletedOrganizations).toEqual(['org-1']);
+		}
+	);
 });
 
 describe('renameOrganization', () => {

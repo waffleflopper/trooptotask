@@ -1,4 +1,5 @@
-import { describe, it, expect } from 'vitest';
+import { createSupabasePlatformAccessRequestAdministration } from './supabasePlatformAccessRequestAdministration';
+import { describe, it, expect, vi } from 'vitest';
 import type { RequestEvent } from '@sveltejs/kit';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
@@ -159,5 +160,44 @@ describe('adminHandleCore', () => {
 
 		const result = await adminHandleCore(ctx, config, undefined);
 		expect(result).toEqual({ success: true });
+	});
+});
+
+describe('platform sensitive-action wiring', () => {
+	it('uses session-scoped assurance and prevents mismatched actors from reaching privileged mutations', async () => {
+		const privilegedRpc = vi.fn().mockResolvedValue({ data: [{ reject_status: 'rejected' }], error: null });
+		const assurance = vi.fn().mockResolvedValue({ data: { currentLevel: 'aal2', nextLevel: 'aal2' }, error: null });
+		const session = {
+			access_token: 'verified-platform-token',
+			expires_at: Math.floor(Date.now() / 1000) + 3600,
+			user: { id: 'admin-1' }
+		};
+		const admin = createSupabasePlatformAccessRequestAdministration({
+			adminUser: { id: 'admin-1', role: 'super_admin' },
+			adminClient: { rpc: privilegedRpc } as never,
+			sessionClient: {
+				auth: { mfa: { getAuthenticatorAssuranceLevel: assurance } },
+				rpc: vi.fn().mockResolvedValue({ data: false, error: null })
+			} as never,
+			session: session as never,
+			audit: vi.fn()
+		});
+		await expect(admin.reject({ accessRequestId: 'request-1', actorUserId: 'another-admin' })).resolves.toMatchObject({
+			status: 'authorization_denied',
+			failure: { reason: 'denied.unauthenticated' }
+		});
+		expect(privilegedRpc).not.toHaveBeenCalled();
+		expect(assurance).not.toHaveBeenCalled();
+		assurance.mockRejectedValueOnce(new Error('provider unavailable'));
+		await expect(admin.reject({ accessRequestId: 'request-1', actorUserId: 'admin-1' })).resolves.toMatchObject({
+			status: 'authorization_denied',
+			failure: { reason: 'denied.assuranceUnavailable', requiresStepUp: false }
+		});
+		expect(privilegedRpc).not.toHaveBeenCalled();
+		await expect(admin.reject({ accessRequestId: 'request-1', actorUserId: 'admin-1' })).resolves.toEqual({
+			status: 'rejected'
+		});
+		expect(privilegedRpc).toHaveBeenCalledOnce();
+		expect(assurance).toHaveBeenLastCalledWith('verified-platform-token');
 	});
 });

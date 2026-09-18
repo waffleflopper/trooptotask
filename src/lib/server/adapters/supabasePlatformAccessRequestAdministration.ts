@@ -169,6 +169,7 @@ export function createSupabasePlatformAccessRequestAdministration(
 		...createSupabaseAccountSetupLinkIssuancePorts(ctx.adminClient),
 		sensitiveActionAuthorizer: createSupabaseSensitiveActionAuthorizer({
 			supabase: ctx.sessionClient,
+			authenticatedUserId: ctx.adminUser.id,
 			session: ctx.session
 		}),
 		checkSetupRateLimit: checkPlatformAccessRequestSetupRateLimit,

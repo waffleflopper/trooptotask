@@ -16,6 +16,7 @@ describe('billing use cases', () => {
 		const ports = {
 			...ctx,
 			sensitiveActionAuthorizer: createSupabaseSensitiveActionAuthorizer({
+				authenticatedUserId: ctx.auth.userId,
 				supabase: {
 					auth: {
 						mfa: {
@@ -26,7 +27,11 @@ describe('billing use cases', () => {
 					},
 					rpc
 				} as never,
-				session: { user: { id: ctx.auth.userId, last_sign_in_at: '2026-05-22T10:00:00Z' } } as never,
+				session: {
+					access_token: 'verified-request-token',
+					expires_at: 1779454800,
+					user: { id: ctx.auth.userId, last_sign_in_at: '2026-05-22T10:00:00Z' }
+				} as never,
 				now: () => new Date('2026-05-22T12:00:00Z')
 			})
 		};

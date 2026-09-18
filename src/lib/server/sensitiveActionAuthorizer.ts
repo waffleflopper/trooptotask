@@ -33,7 +33,8 @@ export type SensitiveActionDecisionReason =
 	| 'denied.unauthenticated'
 	| 'denied.suspendedUser'
 	| 'denied.staleSession'
-	| 'denied.suspensionStatusUnavailable';
+	| 'denied.suspensionStatusUnavailable'
+	| 'denied.assuranceUnavailable';
 
 export interface SensitiveActionTarget {
 	type: string;
@@ -96,7 +97,7 @@ export function checkSensitiveAction(input: SensitiveActionCheckInput): Sensitiv
 	const now = input.now ?? new Date();
 	const recentSessionWindowMs = input.recentSessionWindowMs ?? DEFAULT_SENSITIVE_ACTION_RECENT_SESSION_WINDOW_MS;
 	const sessionStartedAt = coerceTimestamp(input.actor.sessionStartedAt);
-	const sessionAgeMs = sessionStartedAt === null ? null : Math.max(0, now.getTime() - sessionStartedAt);
+	const sessionAgeMs = sessionStartedAt === null ? null : now.getTime() - sessionStartedAt;
 	const currentAssuranceLevel = input.actor.currentAssuranceLevel ?? null;
 	const nextAssuranceLevel = input.actor.nextAssuranceLevel ?? null;
 	const baseDecision = {
@@ -127,11 +128,20 @@ export function checkSensitiveAction(input: SensitiveActionCheckInput): Sensitiv
 		return { ...baseDecision, allowed: false, reason: 'denied.suspendedUser', requiresStepUp: false };
 	}
 
+	if (!['aal1', 'aal2'].includes(currentAssuranceLevel ?? '') || !['aal1', 'aal2'].includes(nextAssuranceLevel ?? '')) {
+		return { ...baseDecision, allowed: false, reason: 'denied.assuranceUnavailable', requiresStepUp: false };
+	}
+
 	if (currentAssuranceLevel === 'aal2') {
 		return { ...baseDecision, allowed: true, reason: 'allowed.mfaAssurance', requiresStepUp: false };
 	}
 
-	if (sessionAgeMs !== null && sessionAgeMs <= recentSessionWindowMs) {
+	if (
+		nextAssuranceLevel !== 'aal2' &&
+		sessionAgeMs !== null &&
+		sessionAgeMs >= 0 &&
+		sessionAgeMs <= recentSessionWindowMs
+	) {
 		return { ...baseDecision, allowed: true, reason: 'allowed.recentSession', requiresStepUp: false };
 	}
 
@@ -156,6 +166,7 @@ export function sensitiveActionDenialMessage(decision: SensitiveActionDecision):
 	switch (decision.reason) {
 		case 'denied.suspendedUser':
 			return 'This account is suspended and cannot perform sensitive actions.';
+		case 'denied.assuranceUnavailable':
 		case 'denied.suspensionStatusUnavailable':
 			return 'We could not confirm this account is allowed to perform sensitive actions. Please try again.';
 		case 'denied.unauthenticated':
@@ -191,7 +202,7 @@ export function throwSensitiveActionFailure(decision: SensitiveActionDecision): 
 }
 
 export function createSensitiveActionAuthorizer(input: {
-	loadActorFacts: (actorUserId: string) => Promise<Omit<SensitiveActionActorFacts, 'userId'>>;
+	loadActorFacts: (actorUserId: string) => Promise<SensitiveActionActorFacts>;
 	now?: () => Date;
 	recentSessionWindowMs?: number;
 }): SensitiveActionAuthorizer {
@@ -201,7 +212,7 @@ export function createSensitiveActionAuthorizer(input: {
 			return checkSensitiveAction({
 				action: request.action,
 				target: request.target,
-				actor: { userId: request.actorUserId, ...facts },
+				actor: { ...facts, userId: facts.userId === request.actorUserId ? facts.userId : null },
 				now: input.now?.(),
 				recentSessionWindowMs: input.recentSessionWindowMs
 			});
@@ -212,6 +223,8 @@ export function createSensitiveActionAuthorizer(input: {
 export function createSupabaseSensitiveActionAuthorizer(input: {
 	supabase: SupabaseClient;
 	session: Session | null;
+	/** Identity verified by the request hook; never taken from action input. */
+	authenticatedUserId: string | null;
 	now?: () => Date;
 	recentSessionWindowMs?: number;
 }): SensitiveActionAuthorizer {
@@ -219,7 +232,58 @@ export function createSupabaseSensitiveActionAuthorizer(input: {
 		now: input.now,
 		recentSessionWindowMs: input.recentSessionWindowMs,
 		loadActorFacts: async (actorUserId) => {
-			const assuranceResult = await input.supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+			const session = input.session;
+			const token = session?.access_token;
+			const now = () => (input.now?.() ?? new Date()).getTime();
+			const sessionIsValid = () =>
+				Boolean(
+					actorUserId &&
+					actorUserId === input.authenticatedUserId &&
+					session?.user?.id === actorUserId &&
+					typeof token === 'string' &&
+					token.trim() &&
+					typeof session.expires_at === 'number' &&
+					Number.isSafeInteger(session.expires_at) &&
+					session.expires_at * 1000 > now()
+				);
+			if (typeof token !== 'string' || !sessionIsValid()) return { userId: null };
+
+			let currentAssuranceLevel: string | null = null;
+			let nextAssuranceLevel: string | null = null;
+			let sessionStartedAt: Date | null = null;
+			try {
+				// Bind provider assurance and AMR to the hook-verified request token.
+				const result = await input.supabase.auth.mfa.getAuthenticatorAssuranceLevel(token);
+				const data = result?.data;
+				if (
+					result?.error === null &&
+					data &&
+					['aal1', 'aal2'].includes(data.currentLevel ?? '') &&
+					['aal1', 'aal2'].includes(data.nextLevel ?? '')
+				) {
+					currentAssuranceLevel = data.currentLevel;
+					nextAssuranceLevel = data.nextLevel;
+					const methods = data.currentAuthenticationMethods;
+					if (
+						Array.isArray(methods) &&
+						methods.length > 0 &&
+						methods.every(
+							(method): method is { method: string; timestamp: number } =>
+								typeof method === 'object' &&
+								method !== null &&
+								typeof method.method === 'string' &&
+								method.method.trim().length > 0 &&
+								Number.isSafeInteger(method.timestamp) &&
+								method.timestamp > 0 &&
+								method.timestamp * 1000 <= now()
+						)
+					) {
+						sessionStartedAt = new Date(Math.max(...methods.map((method) => method.timestamp)) * 1000);
+					}
+				}
+			} catch {
+				// Unavailable assurance cannot fall back to recent-session permission.
+			}
 			let isSuspended: boolean | null = null;
 			try {
 				const suspensionResult = await input.supabase.rpc('is_user_suspended', {
@@ -233,9 +297,10 @@ export function createSupabaseSensitiveActionAuthorizer(input: {
 			}
 
 			return {
-				sessionStartedAt: input.session?.user?.last_sign_in_at ?? null,
-				currentAssuranceLevel: assuranceResult.error ? null : (assuranceResult.data?.currentLevel ?? null),
-				nextAssuranceLevel: assuranceResult.error ? null : (assuranceResult.data?.nextLevel ?? null),
+				userId: sessionIsValid() ? actorUserId : null,
+				sessionStartedAt,
+				currentAssuranceLevel,
+				nextAssuranceLevel,
 				isSuspended,
 				suspensionStatusAvailable: isSuspended !== null
 			};

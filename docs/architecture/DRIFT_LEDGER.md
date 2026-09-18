@@ -15,6 +15,7 @@ Apply the [stabilization decisions](ARCHITECTURE.md#stabilization-decisions) and
 
 - Current-state truth:
   - many server paths already use ports, adapters, entities, and use cases
+  - invite acceptance page loading now uses hook-verified identity and pending-flow state; its redundant provider-session lookup and governance exception are removed
   - billing organization-state reads and writes plus the shared export-record lifecycle now run through app-owned store-backed helpers in `#619`
   - billing cancellation now acknowledges successful Stripe cancellation even if the immediate local organization reset fails, relying on the existing Stripe deleted-subscription webhook as the documented reconciliation path in `#637`
     - Critical Tasks workspace settings now load through an app-owned use case instead of the route layout

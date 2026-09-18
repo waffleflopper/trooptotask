@@ -34,8 +34,15 @@ export async function loadUserProfile(supabase: SupabaseClient, userId: string):
 		.eq('user_id', userId)
 		.maybeSingle();
 
-	if (error) throw new Error(error.message);
-	if (!data) return null;
+	if (error !== null || data === undefined) throw new Error('Unable to load profile');
+	if (data === null) return null;
+	if (
+		data.user_id !== userId ||
+		(data.first_name !== null && typeof data.first_name !== 'string') ||
+		(data.last_name !== null && typeof data.last_name !== 'string') ||
+		(data.rank !== null && typeof data.rank !== 'string')
+	)
+		throw new Error('Invalid profile response');
 
 	return {
 		userId: String(data.user_id),
@@ -51,17 +58,28 @@ export async function loadCurrentUserProfile(locals: App.Locals): Promise<UserPr
 }
 
 export async function upsertUserProfile(supabase: SupabaseClient, profile: UserProfile): Promise<void> {
-	const { error } = await supabase.from('user_profiles').upsert(
-		{
-			user_id: profile.userId,
-			first_name: profile.firstName,
-			last_name: profile.lastName,
-			rank: profile.rank
-		},
-		{ onConflict: 'user_id' }
-	);
+	const result = await supabase
+		.from('user_profiles')
+		.upsert(
+			{
+				user_id: profile.userId,
+				first_name: profile.firstName,
+				last_name: profile.lastName,
+				rank: profile.rank
+			},
+			{ onConflict: 'user_id' }
+		)
+		.select('user_id, first_name, last_name, rank')
+		.single();
 
-	if (error) throw new Error(error.message);
+	if (
+		result?.error !== null ||
+		result.data?.user_id !== profile.userId ||
+		result.data?.first_name !== profile.firstName ||
+		result.data?.last_name !== profile.lastName ||
+		result.data?.rank !== profile.rank
+	)
+		throw new Error('Unable to confirm profile save');
 }
 
 export async function upsertCurrentUserProfile(

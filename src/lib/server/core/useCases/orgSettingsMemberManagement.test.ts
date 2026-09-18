@@ -2631,17 +2631,27 @@ describe('removeOrganizationMember', () => {
 			notifications: ctx.notifications,
 			settings,
 			sensitiveActionAuthorizer: createSupabaseSensitiveActionAuthorizer({
+				authenticatedUserId: 'owner-1',
 				supabase: {
 					auth: {
 						mfa: {
-							getAuthenticatorAssuranceLevel: vi
-								.fn()
-								.mockResolvedValue({ data: { currentLevel: 'aal1', nextLevel: 'aal1' }, error: null })
+							getAuthenticatorAssuranceLevel: vi.fn().mockResolvedValue({
+								data: {
+									currentLevel: 'aal1',
+									nextLevel: 'aal1',
+									currentAuthenticationMethods: [{ method: 'password', timestamp: 1779451140 }]
+								},
+								error: null
+							})
 						}
 					},
 					rpc
 				} as never,
-				session: { user: { id: 'owner-1', last_sign_in_at: '2026-05-22T11:59:00Z' } } as never,
+				session: {
+					access_token: 'verified-request-token',
+					expires_at: 1779454800,
+					user: { id: 'owner-1', last_sign_in_at: '2026-05-22T11:59:00Z' }
+				} as never,
 				now: () => new Date('2026-05-22T12:00:00Z')
 			})
 		};

@@ -41,10 +41,7 @@
 		{/if}
 
 		{#if data.reauth}
-			<AuthNotice
-				tone="info"
-				message="Confirm your identity to continue. Re-enter your password, then we'll return you to billing."
-			/>
+			<AuthNotice tone="info" message="Re-enter your password to confirm your identity and continue." />
 		{/if}
 
 		{#if transportError || form?.error}

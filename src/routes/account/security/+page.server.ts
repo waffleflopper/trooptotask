@@ -1,3 +1,4 @@
+import { passwordCompletionState } from '$lib/server/passwordCompletion';
 import type { PageServerLoad } from './$types';
 import type { Actions } from './$types';
 import { fail, redirect } from '@sveltejs/kit';
@@ -9,7 +10,7 @@ function getPendingEmail(user: App.Locals['user']): string | null {
 	return typeof value === 'string' && value ? value : null;
 }
 
-export const load: PageServerLoad = async ({ locals }) => {
+export const load: PageServerLoad = async ({ locals, cookies }) => {
 	if (!locals.user) throw redirect(303, '/auth/login');
 
 	const { data: factors } = await locals.supabase.auth.mfa.listFactors();
@@ -17,6 +18,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 	const hasMFA = totpFactors.some((f: Record<string, unknown>) => f.status === 'verified');
 
 	return {
+		passwordCompletion: passwordCompletionState(cookies, locals),
 		hasMFA,
 		currentEmail: locals.user.email ?? '',
 		pendingEmail: getPendingEmail(locals.user)

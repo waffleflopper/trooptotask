@@ -1,3 +1,5 @@
+import { passwordSessionToken } from '../../../../tests/fixtures/passwordSession';
+vi.mock('$env/dynamic/private', () => ({ env: { ACCOUNT_SETUP_SESSION_SECRET: 'synthetic-receipt-secret' } }));
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { rpc, auditLog } = vi.hoisted(() => ({ rpc: vi.fn(), auditLog: vi.fn() }));
@@ -24,7 +26,7 @@ function fixture(authFlow?: 'recovery' | 'invite') {
 			error: null
 		}),
 		updateUser: vi.fn().mockResolvedValue({ data: { user }, error: null }),
-		signOut: vi.fn().mockResolvedValue({ error: null })
+		admin: { signOut: vi.fn().mockResolvedValue({ error: null }) }
 	};
 	proofProvider.auth = {
 		signInWithPassword: auth.signInWithPassword,
@@ -34,9 +36,10 @@ function fixture(authFlow?: 'recovery' | 'invite') {
 				.fn()
 				.mockResolvedValue({ data: { currentLevel: 'aal1', nextLevel: 'aal1' }, error: null })
 		},
-		signOut: vi.fn().mockResolvedValue({ error: null })
+		signOut: vi.fn().mockResolvedValue({ error: null }),
+		admin: { signOut: vi.fn().mockResolvedValue({ error: null }) }
 	};
-	const cookies = { delete: vi.fn() };
+	const cookies = { get: vi.fn(), set: vi.fn(), delete: vi.fn() };
 	const event = () =>
 		({
 			request: new Request('http://localhost/api/auth/update-password', {
@@ -50,7 +53,11 @@ function fixture(authFlow?: 'recovery' | 'invite') {
 			}),
 			locals: {
 				user,
-				session: { user, access_token: 'synthetic-token', expires_at: 1789646460 },
+				session: {
+					user,
+					access_token: passwordSessionToken('synthetic-user', 'synthetic-token'),
+					expires_at: 1789646460
+				},
 				authFlow,
 				supabase: { auth }
 			},
@@ -77,7 +84,7 @@ describe('password updates through the durable provider boundary', () => {
 			await expect(POST(event())).rejects.toThrow();
 			expect(auth.signInWithPassword).not.toHaveBeenCalled();
 			expect(auth.updateUser).not.toHaveBeenCalled();
-			expect(auth.signOut).not.toHaveBeenCalled();
+			expect(auth.admin.signOut).not.toHaveBeenCalled();
 			expect(cookies.delete).not.toHaveBeenCalled();
 
 			rpc.mockResolvedValue({ data: [{ limited: false, retry_after_ms: 900_000 }], error: null });
@@ -99,7 +106,7 @@ describe('password updates through the durable provider boundary', () => {
 			await expect(POST(event())).rejects.toBe(failure);
 			expect(auth.signInWithPassword).not.toHaveBeenCalled();
 			expect(auth.updateUser).not.toHaveBeenCalled();
-			expect(auth.signOut).not.toHaveBeenCalled();
+			expect(auth.admin.signOut).not.toHaveBeenCalled();
 			expect(cookies.delete).not.toHaveBeenCalled();
 		}
 	);
@@ -122,7 +129,7 @@ describe('password updates through the durable provider boundary', () => {
 			expect(await response.json()).toMatchObject({ retryAfterSeconds: seconds });
 			expect(auth.signInWithPassword).not.toHaveBeenCalled();
 			expect(auth.updateUser).not.toHaveBeenCalled();
-			expect(auth.signOut).not.toHaveBeenCalled();
+			expect(auth.admin.signOut).not.toHaveBeenCalled();
 			expect(cookies.delete).not.toHaveBeenCalled();
 		}
 	);

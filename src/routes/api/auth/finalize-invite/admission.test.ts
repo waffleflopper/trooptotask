@@ -23,7 +23,7 @@ function fixture() {
 		mfaPending: false,
 		supabase: { auth: { mfa: { getAuthenticatorAssuranceLevel: readAssurance } } }
 	};
-	const cookies = { set: vi.fn(), delete: vi.fn() };
+	const cookies = { get: vi.fn(), set: vi.fn(), delete: vi.fn() };
 	const event = () =>
 		({
 			locals,

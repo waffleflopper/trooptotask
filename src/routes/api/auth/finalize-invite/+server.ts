@@ -1,3 +1,4 @@
+import { passwordCompletionState } from '$lib/server/passwordCompletion';
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { autoAcceptOrgInvites } from '$lib/server/auto-accept-org-invites';
@@ -76,6 +77,13 @@ export const POST: RequestHandler = async ({ locals, cookies }) => {
 			{ status: 503 }
 		);
 	}
+
+	const completion = passwordCompletionState(cookies, locals);
+	if (completion && completion !== 'complete')
+		return json(
+			{ error: 'Finish the password update before activating your account.', accepted: 0, activated: false },
+			{ status: 409 }
+		);
 
 	try {
 		const profile = parseMetadataProfile((user as { user_metadata?: Record<string, unknown> }).user_metadata);

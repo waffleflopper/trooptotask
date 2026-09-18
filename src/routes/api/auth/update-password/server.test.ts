@@ -1,3 +1,5 @@
+import { passwordSessionToken } from '../../../../tests/fixtures/passwordSession';
+vi.mock('$env/dynamic/private', () => ({ env: { ACCOUNT_SETUP_SESSION_SECRET: 'synthetic-receipt-secret' } }));
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { auditLogMock, checkPasswordUpdateRateLimitMock } = vi.hoisted(() => ({
@@ -42,7 +44,8 @@ function makeEvent(input: {
 				.fn()
 				.mockResolvedValue({ data: { currentLevel: 'aal1', nextLevel: 'aal1' }, error: null })
 		},
-		signOut: vi.fn().mockResolvedValue({ error: null })
+		signOut: vi.fn().mockResolvedValue({ error: null }),
+		admin: { signOut: vi.fn().mockResolvedValue({ error: null }) }
 	};
 	if (auth)
 		Object.assign(auth, {
@@ -59,7 +62,7 @@ function makeEvent(input: {
 			body: JSON.stringify(input.body)
 		}),
 		locals: input.locals,
-		cookies: input.cookies ?? { delete: vi.fn() },
+		cookies: { get: vi.fn(), set: vi.fn(), ...input.cookies },
 		getClientAddress: vi.fn(() => input.ip ?? '203.0.113.10')
 	} as unknown as Parameters<typeof POST>[0];
 }
@@ -96,7 +99,7 @@ describe('POST /api/auth/update-password', () => {
 		});
 		const updateUser = vi.fn().mockResolvedValue({ data: { user: { id: 'user-123' } }, error: null });
 		const signOut = vi.fn().mockResolvedValue({ error: null });
-		const cookies = { delete: vi.fn() };
+		const cookies = { get: vi.fn(), set: vi.fn(), delete: vi.fn() };
 
 		const response = await POST(
 			makeEvent({
@@ -106,13 +109,17 @@ describe('POST /api/auth/update-password', () => {
 					confirmPassword: 'SecurePass12'
 				},
 				locals: {
-					session: { user: { id: 'user-123' }, access_token: 'synthetic-token', expires_at: 1789646460 },
+					session: {
+						user: { id: 'user-123' },
+						access_token: passwordSessionToken('user-123', 'synthetic-token'),
+						expires_at: 1789646460
+					},
 					user: { id: 'user-123', email: 'user@example.test' },
 					supabase: {
 						auth: {
 							signInWithPassword,
 							updateUser,
-							signOut
+							admin: { signOut }
 						}
 					}
 				},
@@ -131,11 +138,11 @@ describe('POST /api/auth/update-password', () => {
 			password: 'OldSecurePass12'
 		});
 		expect(updateUser).toHaveBeenCalledWith({ password: 'SecurePass12' });
-		expect(signOut).toHaveBeenCalledWith({ scope: 'others' });
+		expect(signOut).toHaveBeenCalledWith(passwordSessionToken('user-123', 'synthetic-token'), 'others');
 		expect(cookies.delete).not.toHaveBeenCalled();
 	});
 
-	it('keeps a successful password response when revoking other sessions fails', async () => {
+	it('reports confirmed password with incomplete revocation instead of success', async () => {
 		const signInWithPassword = vi.fn().mockResolvedValue({
 			data: {
 				user: { id: 'user-123' },
@@ -159,22 +166,30 @@ describe('POST /api/auth/update-password', () => {
 					confirmPassword: 'SecurePass12'
 				},
 				locals: {
-					session: { user: { id: 'user-123' }, access_token: 'synthetic-token', expires_at: 1789646460 },
+					session: {
+						user: { id: 'user-123' },
+						access_token: passwordSessionToken('user-123', 'synthetic-token'),
+						expires_at: 1789646460
+					},
 					user: { id: 'user-123', email: 'user@example.test' },
 					supabase: {
 						auth: {
 							signInWithPassword,
 							updateUser,
-							signOut
+							admin: { signOut }
 						}
 					}
 				}
 			})
 		);
 
-		expect(response.status).toBe(200);
-		expect(await response.json()).toEqual({ ok: true });
-		expect(signOut).toHaveBeenCalledWith({ scope: 'others' });
+		expect(response.status).toBe(202);
+		expect(await response.json()).toMatchObject({
+			ok: false,
+			passwordUpdated: true,
+			code: 'session_revocation_pending'
+		});
+		expect(signOut).toHaveBeenCalledWith(passwordSessionToken('user-123', 'synthetic-token'), 'others');
 		expect(auditLogMock).toHaveBeenCalledWith(
 			{
 				action: 'auth.session_revoke_failed',
@@ -208,7 +223,11 @@ describe('POST /api/auth/update-password', () => {
 					confirmPassword: 'SecurePass12'
 				},
 				locals: {
-					session: { user: { id: 'user-123' }, access_token: 'synthetic-token', expires_at: 1789646460 },
+					session: {
+						user: { id: 'user-123' },
+						access_token: passwordSessionToken('user-123', 'synthetic-token'),
+						expires_at: 1789646460
+					},
 					user: { id: 'user-123', email: 'user@example.test' },
 					supabase: {
 						auth: {
@@ -252,7 +271,7 @@ describe('POST /api/auth/update-password', () => {
 	it('rejects in-app password updates when the old password is missing', async () => {
 		const signInWithPassword = vi.fn();
 		const updateUser = vi.fn();
-		const cookies = { delete: vi.fn() };
+		const cookies = { get: vi.fn(), set: vi.fn(), delete: vi.fn() };
 
 		const response = await POST({
 			request: new Request('http://localhost/api/auth/update-password', {
@@ -261,7 +280,11 @@ describe('POST /api/auth/update-password', () => {
 				body: JSON.stringify({ password: 'SecurePass12', confirmPassword: 'SecurePass12' })
 			}),
 			locals: {
-				session: { user: { id: 'user-123' }, access_token: 'synthetic-token', expires_at: 1789646460 },
+				session: {
+					user: { id: 'user-123' },
+					access_token: passwordSessionToken('user-123', 'synthetic-token'),
+					expires_at: 1789646460
+				},
 				user: { id: 'user-123', email: 'user@example.test' },
 				supabase: {
 					auth: {
@@ -284,7 +307,7 @@ describe('POST /api/auth/update-password', () => {
 			.fn()
 			.mockResolvedValue({ error: { status: 400, message: 'Invalid login credentials' } });
 		const updateUser = vi.fn();
-		const cookies = { delete: vi.fn() };
+		const cookies = { get: vi.fn(), set: vi.fn(), delete: vi.fn() };
 
 		const response = await POST(
 			makeEvent({
@@ -294,7 +317,11 @@ describe('POST /api/auth/update-password', () => {
 					confirmPassword: 'SecurePass12'
 				},
 				locals: {
-					session: { user: { id: 'user-123' }, access_token: 'synthetic-token', expires_at: 1789646460 },
+					session: {
+						user: { id: 'user-123' },
+						access_token: passwordSessionToken('user-123', 'synthetic-token'),
+						expires_at: 1789646460
+					},
 					user: { id: 'user-123', email: 'user@example.test' },
 					supabase: {
 						auth: {
@@ -314,7 +341,7 @@ describe('POST /api/auth/update-password', () => {
 
 	it('rejects passwords that do not meet policy', async () => {
 		const updateUser = vi.fn();
-		const cookies = { delete: vi.fn() };
+		const cookies = { get: vi.fn(), set: vi.fn(), delete: vi.fn() };
 
 		const response = await POST({
 			request: new Request('http://localhost/api/auth/update-password', {
@@ -323,7 +350,11 @@ describe('POST /api/auth/update-password', () => {
 				body: JSON.stringify({ password: 'short' })
 			}),
 			locals: {
-				session: { user: { id: 'user-123' }, access_token: 'synthetic-token', expires_at: 1789646460 },
+				session: {
+					user: { id: 'user-123' },
+					access_token: passwordSessionToken('user-123', 'synthetic-token'),
+					expires_at: 1789646460
+				},
 				user: { id: 'user-123', email: 'user@example.test' },
 				authFlow: 'recovery',
 				supabase: {
@@ -347,7 +378,7 @@ describe('POST /api/auth/update-password', () => {
 		const updateUser = vi.fn().mockResolvedValue({
 			error: { message: 'Password update failed.' }
 		});
-		const cookies = { delete: vi.fn() };
+		const cookies = { get: vi.fn(), set: vi.fn(), delete: vi.fn() };
 
 		const response = await POST(
 			makeEvent({
@@ -355,7 +386,7 @@ describe('POST /api/auth/update-password', () => {
 				locals: {
 					session: {
 						user: { id: 'user-123', email: 'user@example.test' },
-						access_token: 'synthetic-token',
+						access_token: passwordSessionToken('user-123', 'synthetic-token'),
 						expires_at: 1789646460
 					},
 					user: { id: 'user-123', email: 'user@example.test' },
@@ -386,7 +417,7 @@ describe('POST /api/auth/update-password', () => {
 		const updateUser = vi.fn().mockResolvedValue({
 			error: { message: 'Password should be at least 12 characters' }
 		});
-		const cookies = { delete: vi.fn() };
+		const cookies = { get: vi.fn(), set: vi.fn(), delete: vi.fn() };
 
 		const response = await POST(
 			makeEvent({
@@ -394,7 +425,7 @@ describe('POST /api/auth/update-password', () => {
 				locals: {
 					session: {
 						user: { id: 'user-123', email: 'user@example.test' },
-						access_token: 'synthetic-token',
+						access_token: passwordSessionToken('user-123', 'synthetic-token'),
 						expires_at: 1789646460
 					},
 					user: { id: 'user-123', email: 'user@example.test' },
@@ -420,7 +451,7 @@ describe('POST /api/auth/update-password', () => {
 	it('updates the password for an active recovery session and clears the recovery flow marker', async () => {
 		const updateUser = vi.fn().mockResolvedValue({ data: { user: { id: 'user-123' } }, error: null });
 		const signOut = vi.fn().mockResolvedValue({ error: null });
-		const cookies = { delete: vi.fn() };
+		const cookies = { get: vi.fn(), set: vi.fn(), delete: vi.fn() };
 
 		const response = await POST(
 			makeEvent({
@@ -428,7 +459,7 @@ describe('POST /api/auth/update-password', () => {
 				locals: {
 					session: {
 						user: { id: 'user-123', email: 'user@example.test' },
-						access_token: 'synthetic-token',
+						access_token: passwordSessionToken('user-123', 'synthetic-token'),
 						expires_at: 1789646460
 					},
 					user: { id: 'user-123', email: 'user@example.test' },
@@ -436,7 +467,7 @@ describe('POST /api/auth/update-password', () => {
 					supabase: {
 						auth: {
 							updateUser,
-							signOut
+							admin: { signOut }
 						}
 					}
 				},
@@ -451,7 +482,7 @@ describe('POST /api/auth/update-password', () => {
 			ip: '203.0.113.10'
 		});
 		expect(updateUser).toHaveBeenCalledWith({ password: 'SecurePass12' });
-		expect(signOut).toHaveBeenCalledWith({ scope: 'others' });
+		expect(signOut).toHaveBeenCalledWith(passwordSessionToken('user-123', 'synthetic-token'), 'others');
 		expect(cookies.delete).toHaveBeenCalledWith('ttt_pending_auth_flow', { path: '/' });
 	});
 
@@ -473,7 +504,7 @@ describe('POST /api/auth/update-password', () => {
 				locals: {
 					session: {
 						user: { id: 'user-123', email: 'user@example.test' },
-						access_token: 'synthetic-token',
+						access_token: passwordSessionToken('user-123', 'synthetic-token'),
 						expires_at: 1789646460
 					},
 					user: { id: 'user-123', email: 'user@example.test' },
@@ -512,7 +543,7 @@ describe('POST /api/auth/update-password', () => {
 
 	it('returns an auth error when the recovery or invite session is missing', async () => {
 		const updateUser = vi.fn();
-		const cookies = { delete: vi.fn() };
+		const cookies = { get: vi.fn(), set: vi.fn(), delete: vi.fn() };
 
 		const response = await POST({
 			request: new Request('http://localhost/api/auth/update-password', {
@@ -541,7 +572,7 @@ describe('POST /api/auth/update-password', () => {
 	it('does not clear the pending flow marker for invite sessions before invite finalization finishes', async () => {
 		const updateUser = vi.fn().mockResolvedValue({ data: { user: { id: 'user-123' } }, error: null });
 		const signOut = vi.fn().mockResolvedValue({ error: null });
-		const cookies = { delete: vi.fn() };
+		const cookies = { get: vi.fn(), set: vi.fn(), delete: vi.fn() };
 
 		const response = await POST(
 			makeEvent({
@@ -549,7 +580,7 @@ describe('POST /api/auth/update-password', () => {
 				locals: {
 					session: {
 						user: { id: 'user-123', email: 'user@example.test' },
-						access_token: 'synthetic-token',
+						access_token: passwordSessionToken('user-123', 'synthetic-token'),
 						expires_at: 1789646460
 					},
 					user: { id: 'user-123', email: 'user@example.test' },
@@ -557,7 +588,7 @@ describe('POST /api/auth/update-password', () => {
 					supabase: {
 						auth: {
 							updateUser,
-							signOut
+							admin: { signOut }
 						}
 					}
 				},
@@ -572,7 +603,7 @@ describe('POST /api/auth/update-password', () => {
 			ip: '203.0.113.10'
 		});
 		expect(updateUser).toHaveBeenCalledWith({ password: 'SecurePass12' });
-		expect(signOut).toHaveBeenCalledWith({ scope: 'others' });
+		expect(signOut).toHaveBeenCalledWith(passwordSessionToken('user-123', 'synthetic-token'), 'others');
 		expect(cookies.delete).not.toHaveBeenCalled();
 	});
 });

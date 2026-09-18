@@ -9,6 +9,7 @@ it.each(['recovery', 'invite'])(
 	async (flow) => {
 		const jar = new Map<string, string>([
 			['ttt_pending_auth_flow', flow],
+			['ttt_password_completion', 'synthetic-receipt'],
 			['theme', 'dark']
 		]);
 		const user = { id: '00000000-0000-4000-8000-000000000001', aud: 'authenticated', email: 'synthetic@example.test' };

@@ -1,3 +1,5 @@
+import { passwordSessionToken } from '../../../../tests/fixtures/passwordSession';
+vi.mock('$env/dynamic/private', () => ({ env: { ACCOUNT_SETUP_SESSION_SECRET: 'synthetic-receipt-secret' } }));
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const proof = vi.hoisted(() => ({ signIn: vi.fn() }));
 vi.mock('@supabase/supabase-js', () => ({
@@ -8,7 +10,8 @@ vi.mock('@supabase/supabase-js', () => ({
 			mfa: {
 				getAuthenticatorAssuranceLevel: async () => ({ data: { currentLevel: 'aal1', nextLevel: 'aal2' }, error: null })
 			},
-			signOut: async () => ({ error: null })
+			signOut: async () => ({ error: null }),
+			admin: { signOut: async () => ({ error: null }) }
 		}
 	})
 }));
@@ -23,13 +26,17 @@ const now = new Date('2026-09-17T12:00:00Z');
 const user = { id: 'actor', email: 'actor@example.test' };
 const assurance = (currentLevel = 'aal2', nextLevel = 'aal2') => ({ data: { currentLevel, nextLevel }, error: null });
 function fixture(flow: null | 'recovery' | 'invite') {
-	const session = { user, access_token: 'admitted-token', expires_at: now.getTime() / 1000 + 60 };
+	const session = {
+		user,
+		access_token: passwordSessionToken('actor', 'admitted-token'),
+		expires_at: now.getTime() / 1000 + 60
+	};
 	const auth = {
 		mfa: { getAuthenticatorAssuranceLevel: vi.fn().mockResolvedValue(assurance()) },
 		updateUser: vi.fn().mockResolvedValue({ data: { user: user }, error: null }),
-		signOut: vi.fn().mockResolvedValue({ error: null })
+		admin: { signOut: vi.fn().mockResolvedValue({ error: null }) }
 	};
-	const cookies = { set: vi.fn(), delete: vi.fn() };
+	const cookies = { get: vi.fn(), set: vi.fn(), delete: vi.fn() };
 	const event = () =>
 		({
 			request: new Request('https://app.invalid/api/auth/update-password', {
@@ -46,7 +53,7 @@ function fixture(flow: null | 'recovery' | 'invite') {
 		}) as unknown as Parameters<typeof POST>[0];
 	const denied = () => {
 		expect(auth.updateUser).not.toHaveBeenCalled();
-		expect(auth.signOut).not.toHaveBeenCalled();
+		expect(auth.admin.signOut).not.toHaveBeenCalled();
 		expect(cookies.set).not.toHaveBeenCalled();
 		expect(cookies.delete).not.toHaveBeenCalled();
 	};
@@ -100,10 +107,16 @@ describe.each([null, 'recovery', 'invite'] as const)('mutation MFA for %s', (flo
 		expect(response.status).toBe(403);
 		expect(await response.json()).toMatchObject({ code: 'mfa_required' });
 		h.denied();
-		h.session.access_token = 'upgraded-token';
+		h.session.access_token = passwordSessionToken('actor', 'upgraded-token');
 		expect((await POST(h.event())).status).toBe(200);
-		expect(h.auth.mfa.getAuthenticatorAssuranceLevel).toHaveBeenNthCalledWith(1, 'admitted-token');
-		expect(h.auth.mfa.getAuthenticatorAssuranceLevel).toHaveBeenNthCalledWith(2, 'upgraded-token');
+		expect(h.auth.mfa.getAuthenticatorAssuranceLevel).toHaveBeenNthCalledWith(
+			1,
+			passwordSessionToken('actor', 'admitted-token')
+		);
+		expect(h.auth.mfa.getAuthenticatorAssuranceLevel).toHaveBeenNthCalledWith(
+			2,
+			passwordSessionToken('actor', 'upgraded-token')
+		);
 		expect(h.auth.updateUser).toHaveBeenCalledExactlyOnceWith({ password: 'NewPassword12' });
 	});
 	it('denies expiry while assurance is read', async () => {
@@ -123,7 +136,7 @@ describe.each([null, 'recovery', 'invite'] as const)('mutation MFA for %s', (flo
 		const h = fixture(flow);
 		h.auth.mfa.getAuthenticatorAssuranceLevel.mockResolvedValueOnce(assurance(current, next));
 		expect((await POST(h.event())).status).toBe(200);
-		expect(h.cookies.set).not.toHaveBeenCalled();
+		expect(h.cookies.set.mock.calls.every(([name]) => name === 'ttt_password_completion')).toBe(true);
 		if (flow === 'invite') expect(h.cookies.delete).not.toHaveBeenCalled();
 	});
 });

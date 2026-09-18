@@ -49,7 +49,8 @@ describe.each(['security', 'recovery', 'invite'] as const)('%s mutation acknowle
 		let finish!: (r: Response) => void;
 		vi.stubGlobal(
 			'fetch',
-			vi.fn(async (url) => {
+			vi.fn(async (url, init) => {
+				if (init?.body && JSON.parse(init.body).action === 'restart') return Response.json({ ok: true });
 				if (url === '/api/auth/mfa/status') return Response.json({ currentLevel: 'aal1', nextLevel: 'aal1' });
 				if (url === '/api/auth/finalize-invite') {
 					finalizations++;
@@ -85,8 +86,12 @@ describe.each(['security', 'recovery', 'invite'] as const)('%s mutation acknowle
 		expect(h.element.querySelector('button[type=submit]')).toBeDisabled();
 		vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
 		finish(Response.json({ ok: true }));
-		if (flow === 'security') await waitFor(() => expect(h.password).toHaveValue(''));
-		else await screen.findByRole('heading', { name: flow === 'recovery' ? 'Password updated' : 'Account activated' });
+		if (flow === 'security') {
+			const restart = await screen.findByRole('button', { name: 'Change password again' });
+			await fireEvent.click(restart);
+			expect(await screen.findByLabelText(/^New [Pp]assword/)).toHaveValue('');
+			expect(document.getElementById('current-password')).toHaveValue('');
+		} else await screen.findByRole('heading', { name: flow === 'recovery' ? 'Password updated' : 'Account activated' });
 		expect(finalizations).toBe(flow === 'invite' ? 1 : 0);
 		await vi.advanceTimersByTimeAsync(3000);
 		if (flow !== 'security') expect(goto).toHaveBeenCalledWith(flow === 'recovery' ? '/auth/login' : '/dashboard');

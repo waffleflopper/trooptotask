@@ -1,4 +1,7 @@
 <script lang="ts">
+	import PasswordCompletion from '$lib/components/auth/PasswordCompletion.svelte';
+	import { hasPendingPasswordCompletion, type PasswordCompletionState } from '$lib/auth/passwordCompletion';
+	let completion = $state<PasswordCompletionState>(null);
 	import { goto, replaceState } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/stores';
@@ -49,13 +52,21 @@
 		return null;
 	}
 
-	async function readJsonResult(response: Response): Promise<{ ok: boolean; error?: string; code?: string }> {
+	async function readJsonResult(
+		response: Response
+	): Promise<{ ok: boolean; error?: string; code?: string; passwordUpdated?: boolean }> {
 		try {
-			const payload = (await response.json()) as { ok?: boolean; error?: string; code?: string };
+			const payload = (await response.json()) as {
+				ok?: boolean;
+				error?: string;
+				code?: string;
+				passwordUpdated?: boolean;
+			};
 			return {
 				ok: response.ok && payload?.ok === true && payload.error === undefined,
 				error: typeof payload?.error === 'string' ? payload.error : undefined,
-				code: typeof payload?.code === 'string' ? payload.code : undefined
+				code: typeof payload?.code === 'string' ? payload.code : undefined,
+				passwordUpdated: payload?.passwordUpdated === true
 			};
 		} catch {
 			return { ok: false };
@@ -88,6 +99,11 @@
 			if (tokens) void verifySession();
 			else tokenError = true;
 		} else if (hasSession) {
+			completion = $page.data.passwordCompletion ?? null;
+			if (completion === 'complete') {
+				completion = null;
+				passwordSet = true;
+			}
 			sessionReady = true;
 		} else {
 			tokenError = true;
@@ -97,7 +113,7 @@
 	async function handleSubmit(event: Event) {
 		event.preventDefault();
 		const form = event.currentTarget as HTMLFormElement;
-		if (loading || requiresMfa || passwordSet) return;
+		if (loading || requiresMfa || passwordSet || completion) return;
 		error = '';
 
 		const passwordError = getPasswordError(password);
@@ -123,6 +139,12 @@
 				return;
 			}
 			const updateResult = await readJsonResult(updateResponse);
+			if (hasPendingPasswordCompletion(updateResponse, updateResult)) {
+				completion = 'pending';
+				password = '';
+				confirmPassword = '';
+				return;
+			}
 			if (updateResponse.status === 403 && updateResult.code === 'mfa_required') {
 				requiresMfa = true;
 				return;
@@ -240,6 +262,16 @@
 				<Spinner class="text-primary" />
 				<p class="m-0 text-sm leading-relaxed">Verifying invite link...</p>
 			</div>
+		{:else if completion}
+			<PasswordCompletion
+				state={completion}
+				oncomplete={async () => {
+					completion = null;
+					passwordSet = true;
+					await tick();
+					document.getElementById('finish-activation')?.focus();
+				}}
+			/>
 		{:else if requiresMfa}
 			<PasswordMfaChallenge
 				hint={passwordSet

@@ -5,7 +5,12 @@ import { PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY } from '$env/static/publi
 import { checkRateLimit } from '$lib/server/rateLimit';
 import { auditLog } from '$lib/server/auditLog';
 import { getAuthCookieOptions } from '$lib/server/authCookies';
-import { buildTrustedUserFromClaims, getSupabaseAuthStorageKey, hasSupabaseAuthCookie } from '$lib/server/authSession';
+import {
+	buildTrustedUserFromClaims,
+	getSupabaseAuthStorageKey,
+	hasSupabaseAuthCookie,
+	readSessionLifetime
+} from '$lib/server/authSession';
 import { isPublicRoute } from '$lib/server/publicRoutes';
 import {
 	getAuthenticatedRedirectPath,
@@ -190,6 +195,21 @@ export const handle: Handle = async ({ event, resolve }) => {
 			cachedSession = { session: null, user: null };
 			return cachedSession;
 		}
+		// Logout owns revocation/retry and must remain reachable during lookup outages.
+		if (event.url.pathname !== '/auth/logout') {
+			const lifetime = await readSessionLifetime(event.locals.supabase, session.access_token);
+			if (lifetime === 'unavailable') error(503, 'Unable to verify session lifetime');
+			if (lifetime === 'expired') {
+				// Invalidate the request cache before any public-route consumer can reuse it.
+				cachedSession = { session: null, user: null };
+				const revoked = await event.locals.supabase.auth.signOut().catch(() => null);
+				if (revoked?.error !== null) error(503, 'Unable to confirm sign-out. Please try again.');
+				clearSupabaseAuthCookies(event);
+				event.cookies.delete(getPendingAuthFlowCookieName(), { path: '/' });
+				return cachedSession;
+			}
+		}
+
 		await requestUserStorage.setItem(`${SUPABASE_AUTH_STORAGE_KEY}-user`, JSON.stringify({ user: authenticatedUser }));
 
 		const user = buildTrustedUserFromClaims(claimsData.claims, authenticatedUser);
@@ -202,19 +222,6 @@ export const handle: Handle = async ({ event, resolve }) => {
 	event.locals.user = user;
 	event.locals.mfaPending = false;
 	event.locals.authFlow = sanitizePendingAuthFlow(event.cookies.get(getPendingAuthFlowCookieName()));
-
-	if (session && user?.last_sign_in_at) {
-		// Enforce 24-hour absolute session timeout
-		const sessionCreated = new Date(user.last_sign_in_at).getTime();
-		const maxSessionAge = 24 * 60 * 60 * 1000; // 24 hours
-		if (Date.now() - sessionCreated > maxSessionAge) {
-			await event.locals.supabase.auth.signOut();
-			event.cookies.delete(getPendingAuthFlowCookieName(), { path: '/' });
-			event.locals.session = null;
-			event.locals.user = null;
-			event.locals.authFlow = null;
-		}
-	}
 
 	if (!event.locals.session && event.locals.authFlow) {
 		// Auth transitions own pending-cookie changes even when identity lookup is unavailable.

@@ -507,6 +507,56 @@ describe('Platform Access Request Administration', () => {
 		expect(result.reviewed.map((request) => request.auto_approval_detail)).toEqual([null, null]);
 	});
 
+	it('does not issue a credential when approval loses a review race or is replayed', async () => {
+		const { admin, deps } = makeDeps();
+		vi.mocked(deps.store.markPendingRequestApproved).mockResolvedValueOnce('not_found');
+		const input = { accessRequestId: 'request-1', actorUserId: 'admin-1', publicOrigin: 'http://localhost:4173' };
+		expect(await admin.approve(input)).toEqual({ status: 'already_reviewed' });
+		vi.mocked(deps.store.getPendingAccessRequestForApproval).mockResolvedValueOnce(null);
+		expect(await admin.approve(input)).toEqual({ status: 'already_reviewed' });
+		expect(deps.setupLinks.createForAccessRequest).not.toHaveBeenCalled();
+		expect(deps.setupDelivery.send).not.toHaveBeenCalled();
+		expect(deps.audit).not.toHaveBeenCalled();
+	});
+
+	it.each(['lookup', 'approval', 'issuance'] as const)(
+		'reports %s failure without delivering an unissued credential',
+		async (stage) => {
+			const { admin, deps } = makeDeps();
+			const error = new Error('synthetic provider unavailable');
+			if (stage === 'lookup') vi.mocked(deps.store.getPendingAccessRequestForApproval).mockRejectedValueOnce(error);
+			if (stage === 'approval') vi.mocked(deps.store.markPendingRequestApproved).mockRejectedValueOnce(error);
+			if (stage === 'issuance') vi.mocked(deps.setupLinks.createForAccessRequest).mockRejectedValueOnce(error);
+			const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+			try {
+				expect(
+					await admin.approve({
+						accessRequestId: 'request-1',
+						actorUserId: 'admin-1',
+						publicOrigin: 'http://localhost:4173'
+					})
+				).toEqual({ status: 'failed' });
+				expect(deps.setupDelivery.send).not.toHaveBeenCalled();
+				if (stage !== 'issuance') expect(deps.setupLinks.createForAccessRequest).not.toHaveBeenCalled();
+			} finally {
+				log.mockRestore();
+			}
+		}
+	);
+
+	it('keeps approval recoverable after a thrown delivery failure and retries through resend', async () => {
+		const { admin, deps } = makeDeps();
+		deps.setupDelivery.send = vi
+			.fn()
+			.mockRejectedValueOnce(new Error('delivery failed https://example.test/auth/setup-account?token=secret-token'))
+			.mockResolvedValueOnce({ status: 'sent', outbox: { id: 'retry-outbox' } });
+		const input = { accessRequestId: 'request-1', actorUserId: 'admin-1', publicOrigin: 'http://localhost:4173' };
+		expect(await admin.approve(input)).toEqual({ status: 'delivery_failed', setupDeliveryStatus: 'failed' });
+		expect(await admin.resendSetup(input)).toEqual({ status: 'sent', setupDeliveryStatus: 'sent' });
+		expect(deps.store.markPendingRequestApproved).toHaveBeenCalledOnce();
+		expect(JSON.stringify(vi.mocked(deps.audit).mock.calls)).not.toContain('secret-token');
+	});
+
 	it('approves a pending Access Request and delivers an app-owned Account Setup Link without leaking the raw token', async () => {
 		const revokedLink = makeSetupRecord({ id: 'link-previous' });
 		const { admin, deps } = makeDeps({

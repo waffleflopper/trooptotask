@@ -276,6 +276,35 @@ describe('access request setup delivery', () => {
 		expect(JSON.stringify(store.outboxRecords)).not.toContain('token=');
 	});
 
+	it('renews only the normalized email identity while preserving another approved request', async () => {
+		const store = createAccessRequestSetupDeliveryStore([
+			accessRequestFixture(),
+			accessRequestFixture({ id: 'other-request', email: 'other@example.test' })
+		]);
+		store.setupLinks.push(accountSetupLinkFixture({ id: 'other-link', accessRequestId: 'other-request' }));
+		const otherLink = structuredClone(store.setupLinks[0]);
+		const { service, sendSetupEmail } = makeService(store);
+		expect(
+			await service.requestFreshSetupLink({ email: '  TEST@Example.com  ', origin: 'http://localhost:4173' })
+		).toMatchObject({ status: 'fresh-setup-sent', accessRequestId: 'request-1' });
+		expect(sendSetupEmail).toHaveBeenCalledWith(expect.objectContaining({ email: 'test@example.com' }));
+		expect(store.setupLinks.find((link) => link.id === 'other-link')).toEqual(otherLink);
+		expect(store.outboxRecords.map((record) => record.accessRequestId)).toEqual(['request-1']);
+		expect(store.insertedRequests).toEqual([]);
+	});
+
+	it('does not deliver or insert another request when renewal persistence fails', async () => {
+		const store = createAccessRequestSetupDeliveryStore([accessRequestFixture()]);
+		store.insertSetupLink = vi.fn().mockRejectedValue(new Error('synthetic write failure'));
+		const { service, sendSetupEmail } = makeService(store);
+		await expect(
+			service.requestFreshSetupLink({ email: 'test@example.com', origin: 'http://localhost:4173' })
+		).rejects.toThrow('synthetic write failure');
+		expect(sendSetupEmail).not.toHaveBeenCalled();
+		expect(store.outboxRecords).toEqual([]);
+		expect(store.insertedRequests).toEqual([]);
+	});
+
 	it('treats concurrent completion during renewal as a quiet no-op', async () => {
 		const store = createAccessRequestSetupDeliveryStore([accessRequestFixture()]);
 		store.getAccessRequest = vi.fn().mockResolvedValue({

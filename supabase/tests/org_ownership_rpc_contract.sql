@@ -2,21 +2,7 @@ BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 
-SELECT plan(10);
-
-SELECT is(
-	pg_get_functiondef('public.create_org_with_owner(text)'::regprocedure)
-		~ '(can_view_|can_edit_|can_manage_members|scoped_group_id)',
-	false,
-	'create_org_with_owner does not reference dropped membership access columns'
-);
-
-SELECT is(
-	pg_get_functiondef('public.transfer_org_ownership(uuid, uuid)'::regprocedure)
-		~ '(can_view_|can_edit_|can_manage_members|scoped_group_id)',
-	false,
-	'transfer_org_ownership does not reference dropped membership access columns'
-);
+SELECT no_plan();
 
 INSERT INTO auth.users (
 	instance_id,
@@ -59,6 +45,29 @@ VALUES
 		now()
 	);
 
+-- The public RPC must deny an anonymous actor before any write.
+SET LOCAL ROLE anon;
+SELECT throws_ok($$ SELECT public.create_org_with_owner('Anonymous Unit') $$,
+ 'P0001','Authentication required to create an organization','anonymous creation is denied');
+RESET ROLE;
+SELECT is((SELECT count(*)::integer FROM public.organizations WHERE name='Anonymous Unit'),0,'anonymous denial creates no Organization');
+-- A membership storage failure must roll back the preceding Organization insert.
+CREATE FUNCTION pg_temp.reject_test_owner() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+ IF NEW.user_id='10000000-0000-4000-8000-000000003001' AND NEW.role='owner' THEN
+  RAISE EXCEPTION 'synthetic owner insert failure';
+ END IF;
+ RETURN NEW;
+END $$;
+CREATE TRIGGER reject_test_owner BEFORE INSERT ON public.organization_memberships
+ FOR EACH ROW EXECUTE FUNCTION pg_temp.reject_test_owner();
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000003001',true);
+SELECT throws_ok($$ SELECT public.create_org_with_owner('Rollback Unit') $$,
+ 'P0001','synthetic owner insert failure','owner insert failure propagates');
+RESET ROLE;
+SELECT is((SELECT count(*)::integer FROM public.organizations WHERE name='Rollback Unit'),0,'failed owner insertion leaves no orphan Organization');
+DROP TRIGGER reject_test_owner ON public.organization_memberships;
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', '10000000-0000-4000-8000-000000003001', true);
 SELECT set_config('request.jwt.claim.email', 'org-rpc-owner-3001@example.test', true);

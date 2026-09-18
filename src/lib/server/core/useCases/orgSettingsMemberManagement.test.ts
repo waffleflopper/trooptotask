@@ -3647,3 +3647,67 @@ describe('updateOrganizationMemberAccess', () => {
 		]);
 	});
 });
+
+describe('invitation credential and governance boundaries', () => {
+	it.each(['sent', 'failed'] as const)(
+		'resend with %s delivery never issues setup credentials or changes the invitation grant',
+		async (deliveryStatus) => {
+			const ctx = createTestContext();
+			const settings = createOrganizationSettingsMemberManagementPort({
+				existingUserAccount: null,
+				pendingInvitationRequiresAccountSetup: true
+			});
+			const issuance = createAccountSetupIssuancePorts();
+			const delivery = createInvitationDeliveryPort(deliveryStatus);
+			const ports = {
+				auth: ctx.auth,
+				audit: ctx.audit,
+				notifications: ctx.notifications,
+				settings,
+				...issuance,
+				invitationDelivery: delivery
+			};
+			expect(
+				await resendOrganizationInvitation(ports, {
+					inviteId: '11111111-1111-4111-8111-111111111111',
+					actorEmail: 'owner@example.com',
+					origin: INVITE_ORIGIN
+				})
+			).toMatchObject({ inviteSuccess: true, inviteDeliveryStatus: deliveryStatus });
+			expect(issuance.setupLinkRequests).toEqual([]);
+			expect(issuance.setupDeliveries).toEqual([]);
+			expect(settings.accessRequestBridges).toEqual([]);
+			expect(settings.createdInvitations).toEqual([]);
+			expect(settings.updatedMemberships).toEqual([]);
+			expect(delivery.deliveries).toEqual([
+				expect.objectContaining({ requiresAccountSetup: true, selfServiceSignupEnabled: false })
+			]);
+		}
+	);
+
+	it.each(['resend', 'revoke'] as const)(
+		'denies ordinary members attempting to %s invitations before lookup or delivery',
+		async (action) => {
+			const ctx = createTestContext({ auth: { userId: 'member', orgId: 'org-a', role: 'member' } });
+			const settings = createOrganizationSettingsMemberManagementPort();
+			const delivery = createInvitationDeliveryPort('sent');
+			const ports = {
+				auth: ctx.auth,
+				audit: ctx.audit,
+				notifications: ctx.notifications,
+				settings,
+				invitationDelivery: delivery
+			};
+			await expect(
+				(action === 'resend' ? resendOrganizationInvitation : revokeOrganizationInvitation)(ports, {
+					inviteId: '11111111-1111-4111-8111-111111111111',
+					actorEmail: 'member@example.com',
+					origin: INVITE_ORIGIN
+				})
+			).rejects.toMatchObject({ status: 403 });
+			expect(settings.pendingInvitationByIdLookups).toEqual([]);
+			expect(settings.revokedInvitations).toEqual([]);
+			expect(delivery.deliveries).toEqual([]);
+		}
+	);
+});

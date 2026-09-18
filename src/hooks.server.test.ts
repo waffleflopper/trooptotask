@@ -122,7 +122,7 @@ describe('server auth hook', () => {
 			},
 			error: null
 		});
-		const updateUser = vi.fn().mockResolvedValue({ error: null });
+		const updateUser = vi.fn().mockResolvedValue({ data: { user }, error: null });
 		let serverClientOptions: TestServerClientOptions | null = null;
 		const readStoredUserDuringMfa = vi.fn(() =>
 			serverClientOptions?.auth?.userStorage?.getItem('sb-example-auth-token-user')

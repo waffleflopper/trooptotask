@@ -26,7 +26,7 @@ function fixture(flow: null | 'recovery' | 'invite') {
 	const session = { user, access_token: 'admitted-token', expires_at: now.getTime() / 1000 + 60 };
 	const auth = {
 		mfa: { getAuthenticatorAssuranceLevel: vi.fn().mockResolvedValue(assurance()) },
-		updateUser: vi.fn().mockResolvedValue({ error: null }),
+		updateUser: vi.fn().mockResolvedValue({ data: { user: user }, error: null }),
 		signOut: vi.fn().mockResolvedValue({ error: null })
 	};
 	const cookies = { set: vi.fn(), delete: vi.fn() };

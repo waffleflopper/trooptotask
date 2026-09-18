@@ -41,7 +41,7 @@ function fixture() {
 				.mockResolvedValue({ data: { currentLevel: 'aal2', nextLevel: 'aal2' }, error: null })
 		},
 		signInWithPassword: provider.signIn,
-		updateUser: vi.fn().mockResolvedValue({ error: null }),
+		updateUser: vi.fn().mockResolvedValue({ data: { user: user }, error: null }),
 		signOut: vi.fn().mockResolvedValue({ error: null })
 	};
 	const cookies = { set: vi.fn(), delete: vi.fn() };

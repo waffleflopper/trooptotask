@@ -53,9 +53,9 @@
 		try {
 			const payload = (await response.json()) as { ok?: boolean; error?: string; code?: string };
 			return {
-				ok: response.ok && payload.ok === true,
-				error: payload.error,
-				code: payload.code
+				ok: response.ok && payload?.ok === true && payload.error === undefined,
+				error: typeof payload?.error === 'string' ? payload.error : undefined,
+				code: typeof payload?.code === 'string' ? payload.code : undefined
 			};
 		} catch {
 			return { ok: false };
@@ -96,6 +96,7 @@
 
 	async function handleSubmit(event: Event) {
 		event.preventDefault();
+		const form = event.currentTarget as HTMLFormElement;
 		if (loading || requiresMfa || passwordSet) return;
 		error = '';
 
@@ -127,7 +128,7 @@
 				return;
 			}
 			if (!updateResult.ok) {
-				error = updateResult.error || 'Failed to set password. Please try again.';
+				error = updateResult.error || 'Unable to confirm the password update. Your password may have changed.';
 				return;
 			}
 
@@ -138,11 +139,13 @@
 		} catch {
 			error = passwordSet
 				? 'Your password is set. We could not finish account activation. Please try again.'
-				: 'Unable to set your password. Please try again.';
+				: 'Unable to confirm the password update. Your password may have changed.';
 		} finally {
 			loading = false;
 			await tick();
 			if (passwordSet && !requiresMfa && !success) document.getElementById('finish-activation')?.focus();
+			if (error && !passwordSet && !requiresMfa && form.isConnected)
+				form.querySelector<HTMLInputElement>('input')?.focus();
 		}
 	}
 	async function finalizeInvite() {

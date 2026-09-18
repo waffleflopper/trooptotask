@@ -35,7 +35,7 @@ function fixture(flow: (typeof flows)[number] = null) {
 			},
 			error: null
 		}),
-		updateUser: vi.fn().mockResolvedValue({ error: null }),
+		updateUser: vi.fn().mockResolvedValue({ data: { user: { id: 'actor-1' } }, error: null }),
 		signOut: vi.fn().mockResolvedValue({ error: null })
 	};
 	proofProvider.auth = {

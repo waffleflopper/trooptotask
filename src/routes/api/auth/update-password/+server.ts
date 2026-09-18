@@ -117,19 +117,26 @@ export const POST: RequestHandler = async ({ request, locals, cookies, getClient
 		return json({ error: 'Unable to verify authentication status. Please try again.' }, { status: 503 });
 	}
 
-	const { error } = await locals.supabase.auth.updateUser({ password });
-
-	if (error) {
-		const providerPasswordError = mapProviderPasswordError(error);
-		if (providerPasswordError) {
-			return json({ error: providerPasswordError }, { status: 400 });
-		}
-		return json(
+	const unconfirmedMutation = () =>
+		json(
 			{
-				error: 'Password update failed'
+				code: 'password_update_unconfirmed',
+				error: 'Unable to confirm the password update. Your password may have changed.'
 			},
-			{ status: 401 }
+			{ status: 503 }
 		);
+	try {
+		const mutation = await locals.supabase.auth.updateUser({ password });
+		if (mutation?.error) {
+			const providerPasswordError = mapProviderPasswordError(mutation.error);
+			if (providerPasswordError) return json({ error: providerPasswordError }, { status: 400 });
+			return unconfirmedMutation();
+		}
+		if (mutation?.error !== null || mutation.data?.user?.id !== userId) return unconfirmedMutation();
+	} catch {
+		// A lost response cannot prove rollback. Never expose provider exceptions or
+		// run completion effects without acknowledgment for the admitted actor.
+		return unconfirmedMutation();
 	}
 
 	// Rotating the password logs out other devices so a compromised session cannot persist.

@@ -184,7 +184,7 @@
 		}
 	}
 
-	async function changePassword() {
+	async function changePassword(form: HTMLFormElement) {
 		if (passwordLoading || passwordMfaRequired) return;
 		passwordError = '';
 		passwordSuccess = '';
@@ -205,14 +205,17 @@
 				await goto(response.url);
 				return;
 			}
-			const payload = (await response.json()) as { error?: string; code?: string };
+			const payload = (await response.json()) as { ok?: boolean; error?: unknown; code?: string } | null;
 			if (response.status === 403 && payload?.code === 'mfa_required') {
 				passwordMfaRequired = true;
 				return;
 			}
 
-			if (!response.ok) {
-				passwordError = payload.error ?? 'Password update failed';
+			if (!response.ok || payload?.ok !== true || payload.error !== undefined) {
+				passwordError =
+					typeof payload?.error === 'string'
+						? payload.error
+						: 'Unable to confirm the password update. Your password may have changed.';
 				return;
 			}
 
@@ -220,10 +223,13 @@
 			currentPassword = '';
 			newPassword = '';
 			confirmPassword = '';
-		} catch (error: unknown) {
-			passwordError = error instanceof Error ? error.message : 'Password update failed';
+		} catch {
+			passwordError = 'Unable to confirm the password update. Your password may have changed.';
 		} finally {
 			passwordLoading = false;
+			await tick();
+			if (passwordError && !passwordMfaRequired && form.isConnected)
+				form.querySelector<HTMLInputElement>('input')?.focus();
 		}
 	}
 
@@ -354,12 +360,12 @@
 					class="grid gap-4"
 					onsubmit={(event) => {
 						event.preventDefault();
-						void changePassword();
+						void changePassword(event.currentTarget);
 					}}
 				>
 					{#if passwordError}
 						<Alert.Root variant="destructive">
-							<Alert.Title>Password not changed</Alert.Title>
+							<Alert.Title>Password update not confirmed</Alert.Title>
 							<Alert.Description>{passwordError}</Alert.Description>
 						</Alert.Root>
 					{/if}

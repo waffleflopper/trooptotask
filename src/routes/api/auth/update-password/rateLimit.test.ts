@@ -23,7 +23,7 @@ function fixture(authFlow?: 'recovery' | 'invite') {
 			},
 			error: null
 		}),
-		updateUser: vi.fn().mockResolvedValue({ error: null }),
+		updateUser: vi.fn().mockResolvedValue({ data: { user }, error: null }),
 		signOut: vi.fn().mockResolvedValue({ error: null })
 	};
 	proofProvider.auth = {

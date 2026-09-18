@@ -5,7 +5,10 @@
 	import AuthNotice from './AuthNotice.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Spinner } from '$lib/components/ui/spinner';
-	let { onverified }: { onverified: () => void | Promise<void> } = $props();
+	let {
+		onverified,
+		hint = 'Enter the current 6-digit code from your authenticator app before changing your password.'
+	}: { onverified: () => void | Promise<void>; hint?: string } = $props();
 	let code = $state('');
 	let error = $state('');
 	let loading = $state(false);
@@ -50,7 +53,7 @@
 		label="Authenticator Code"
 		id="password-mfa-code"
 		disabled={loading}
-		hint="Enter the current 6-digit code from your authenticator app before changing your password."
+		{hint}
 		value={code}
 		oninput={(event) => {
 			code = (event.target as HTMLInputElement).value.replace(/\D/g, '').slice(0, 6);

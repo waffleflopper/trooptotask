@@ -53,7 +53,7 @@ Implementation note: the current `shadcn-svelte@1.2.7` CLI generated the support
 
 ## Password MFA continuation
 
-`auth/PasswordMfaChallenge.svelte` composes the shared auth field/notice and button primitives for Account Security, recovery and invite password flows. It owns serialized code submission, explicit-success admission, retry errors and code focus; `onverified` returns to the parent's retained password draft. It never submits or stores passwords. Recovery's prior route-local challenge has been replaced by this shared behavior.
+`auth/PasswordMfaChallenge.svelte` composes the shared auth field/notice and button primitives for Account Security, recovery and invite password flows. It owns serialized code submission, explicit-success admission, retry errors and code focus; `onverified` returns to the parent's retained password draft or pending activation step. Optional `hint` explains which action is awaiting MFA; the invite consumer uses it after password completion. It never submits or stores passwords. Recovery's prior route-local challenge has been replaced by this shared behavior.
 
 ## `ui/page-shell`
 

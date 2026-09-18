@@ -35,7 +35,18 @@ describe('POST /api/auth/finalize-invite', () => {
 						rank: 'SGT'
 					}
 				},
-				supabase: {}
+				session: { user: { id: 'user-123' }, access_token: 'admitted-token', expires_at: 4102444800 },
+				authFlow: 'invite',
+				supabase: {
+					auth: {
+						mfa: {
+							getAuthenticatorAssuranceLevel: async () => ({
+								data: { currentLevel: 'aal1', nextLevel: 'aal1' },
+								error: null
+							})
+						}
+					}
+				}
 			},
 			cookies
 		} as unknown as Parameters<typeof POST>[0]);

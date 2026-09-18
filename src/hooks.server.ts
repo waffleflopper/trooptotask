@@ -7,6 +7,7 @@ import { auditLog } from '$lib/server/auditLog';
 import { getAuthCookieOptions } from '$lib/server/authCookies';
 import {
 	buildTrustedUserFromClaims,
+	clearSupabaseAuthCookies,
 	getSupabaseAuthStorageKey,
 	hasSupabaseAuthCookie,
 	readSessionLifetime
@@ -53,14 +54,6 @@ function getAuthErrorCode(error: unknown): string | null {
 function isStaleSupabaseAuthError(error: unknown): boolean {
 	const code = getAuthErrorCode(error);
 	return Boolean(code && STALE_SUPABASE_AUTH_ERROR_CODES.has(code));
-}
-
-function clearSupabaseAuthCookies(event: Parameters<Handle>[0]['event']): void {
-	for (const { name } of event.cookies.getAll()) {
-		if (hasSupabaseAuthCookie([name], SUPABASE_AUTH_STORAGE_KEY)) {
-			event.cookies.delete(name, { path: '/' });
-		}
-	}
 }
 
 type SafeSessionResult = { session: Session | null; user: User | null };
@@ -148,7 +141,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 			error: sessionError
 		} = await event.locals.supabase.auth.getSession().catch((error) => {
 			if (isStaleSupabaseAuthError(error)) {
-				clearSupabaseAuthCookies(event);
+				clearSupabaseAuthCookies(event.cookies, SUPABASE_AUTH_STORAGE_KEY);
 				return { data: { session: null }, error };
 			}
 			throw error;
@@ -156,7 +149,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 
 		if (sessionError || !session?.access_token) {
 			if (isStaleSupabaseAuthError(sessionError)) {
-				clearSupabaseAuthCookies(event);
+				clearSupabaseAuthCookies(event.cookies, SUPABASE_AUTH_STORAGE_KEY);
 			}
 			cachedSession = { session: null, user: null };
 			return cachedSession;
@@ -166,14 +159,14 @@ export const handle: Handle = async ({ event, resolve }) => {
 			.getClaims(session.access_token)
 			.catch((error) => {
 				if (isStaleSupabaseAuthError(error)) {
-					clearSupabaseAuthCookies(event);
+					clearSupabaseAuthCookies(event.cookies, SUPABASE_AUTH_STORAGE_KEY);
 					return { data: null, error };
 				}
 				throw error;
 			});
 		if (claimsError || !claimsData?.claims) {
 			if (isStaleSupabaseAuthError(claimsError)) {
-				clearSupabaseAuthCookies(event);
+				clearSupabaseAuthCookies(event.cookies, SUPABASE_AUTH_STORAGE_KEY);
 			}
 			cachedSession = { session: null, user: null };
 			return cachedSession;
@@ -181,7 +174,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 
 		const { data: userData, error: userError } = await event.locals.supabase.auth.getUser().catch((error) => {
 			if (isStaleSupabaseAuthError(error)) {
-				clearSupabaseAuthCookies(event);
+				clearSupabaseAuthCookies(event.cookies, SUPABASE_AUTH_STORAGE_KEY);
 				return { data: null, error };
 			}
 			throw error;
@@ -190,7 +183,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 		const userMatchesClaims = authenticatedUser?.id === claimsData.claims.sub;
 		if (userError || !userMatchesClaims) {
 			if (isStaleSupabaseAuthError(userError) || (!userError && !userMatchesClaims)) {
-				clearSupabaseAuthCookies(event);
+				clearSupabaseAuthCookies(event.cookies, SUPABASE_AUTH_STORAGE_KEY);
 			}
 			cachedSession = { session: null, user: null };
 			return cachedSession;
@@ -202,9 +195,11 @@ export const handle: Handle = async ({ event, resolve }) => {
 			if (lifetime === 'expired') {
 				// Invalidate the request cache before any public-route consumer can reuse it.
 				cachedSession = { session: null, user: null };
-				const revoked = await event.locals.supabase.auth.signOut().catch(() => null);
+				const revoked = await event.locals.supabase.auth.admin
+					.signOut(session.access_token, 'global')
+					.catch(() => null);
 				if (revoked?.error !== null) error(503, 'Unable to confirm sign-out. Please try again.');
-				clearSupabaseAuthCookies(event);
+				clearSupabaseAuthCookies(event.cookies, SUPABASE_AUTH_STORAGE_KEY);
 				event.cookies.delete(getPendingAuthFlowCookieName(), { path: '/' });
 				return cachedSession;
 			}

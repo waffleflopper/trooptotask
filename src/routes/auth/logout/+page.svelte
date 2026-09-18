@@ -12,11 +12,18 @@
 	<title>Sign Out - Troop to Task</title>
 </svelte:head>
 
-<AuthShell title="Try signing out again.">
+<AuthShell title={form?.localOnly ? 'Signed out on this browser.' : 'Try signing out again.'}>
 	{#if form?.error}
 		<AuthNotice tone="error" message={form.error} />
 	{/if}
-	<form method="POST" action={resolve('/auth/logout')}>
-		<Button type="submit" class="w-full">Try again</Button>
-	</form>
+	{#if form?.localOnly}
+		<AuthNotice
+			message="There is no active session on this browser. Sign-out on other devices has not been confirmed. Sign in again to retry signing out everywhere."
+		/>
+		<Button href={resolve('/auth/login')} class="w-full">Sign in</Button>
+	{:else}
+		<form method="POST" action={resolve('/auth/logout')}>
+			<Button type="submit" class="w-full">Try again</Button>
+		</form>
+	{/if}
 </AuthShell>

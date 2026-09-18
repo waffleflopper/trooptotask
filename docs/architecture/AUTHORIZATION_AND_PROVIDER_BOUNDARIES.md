@@ -33,6 +33,7 @@ This document separates what v1 authorization and provider ownership look like t
 ### Current authorization model
 
 - Organization membership is the current authorization anchor.
+- Persisted Calendar assignments enforce the Calendar capability and Organization/Group scope in both application policy and RLS. Person targets resolve to their same-Organization Personnel Group; Group targets must resolve to an existing same-Organization Group covered by the caller’s scope. Migration `20260918000100_enforce_calendar_assignment_group_scope.sql` closes the former SQL Group-target exemption without changing saved rows or the policy-helper interfaces. Remote application belongs to a separately authorized operator; stabilization verification is disposable and local.
 - After authentication and user-suspension admission, the request hook checks fresh Organization status through `supabaseOrganizationAdmission.ts` with the caller's RLS-scoped client. Every write under an Organization route and every Organization API request (including GET/HEAD exports and private reads) is denied when suspended, missing or unverifiable. Page GET/HEAD navigation retains the suspended shell. This gate grants no membership or capability and cannot be bypassed by billing read-only exceptions; existing route/use-case policies still apply. Platform administration and account/auth recovery keep their own admission boundaries.
 - The persisted membership role is one of:
   - `owner`

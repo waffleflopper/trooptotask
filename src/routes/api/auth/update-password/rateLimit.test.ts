@@ -25,7 +25,12 @@ function fixture(authFlow?: 'recovery' | 'invite') {
 					confirmPassword: 'NewSecurePass12'
 				})
 			}),
-			locals: { user, session: { user }, authFlow, supabase: { auth } },
+			locals: {
+				user,
+				session: { user, access_token: 'synthetic-token', expires_at: 1789646460 },
+				authFlow,
+				supabase: { auth }
+			},
 			cookies,
 			getClientAddress: () => '192.0.2.1'
 		}) as unknown as Parameters<typeof POST>[0];

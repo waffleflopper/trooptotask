@@ -110,6 +110,8 @@ describe('server auth hook', () => {
 			error: null
 		});
 		const signOut = vi.fn().mockResolvedValue({ error: null });
+		const signInWithPassword = vi.fn().mockResolvedValue({ error: null });
+		const updateUser = vi.fn().mockResolvedValue({ error: null });
 		let serverClientOptions: TestServerClientOptions | null = null;
 		const readStoredUserDuringMfa = vi.fn(() =>
 			serverClientOptions?.auth?.userStorage?.getItem('sb-example-auth-token-user')
@@ -157,6 +159,8 @@ describe('server auth hook', () => {
 			return {
 				auth: {
 					signOut,
+					signInWithPassword,
+					updateUser,
 					getSession,
 					getClaims,
 					getUser,
@@ -216,6 +220,8 @@ describe('server auth hook', () => {
 			getClaims,
 			getUser,
 			signOut,
+			signInWithPassword,
+			updateUser,
 			getAuthenticatorAssuranceLevel,
 			deleteCookie: event.cookies.delete,
 			readStoredUserDuringMfa,
@@ -225,6 +231,63 @@ describe('server auth hook', () => {
 			}
 		};
 	}
+
+	describe('password update identity admission', () => {
+		const limit = vi.fn();
+		beforeEach(() => {
+			limit.mockReset().mockResolvedValue({ limited: false });
+			vi.doMock('$lib/server/passwordUpdateRateLimit', () => ({
+				checkPasswordUpdateRateLimit: limit,
+				PASSWORD_UPDATE_RATE_LIMIT_MESSAGE: 'Too many attempts',
+				passwordUpdateRateLimitAuditDetails: () => ({})
+			}));
+		});
+		afterEach(() => vi.doUnmock('$lib/server/passwordUpdateRateLimit'));
+
+		it.each([null, 'recovery', 'invite'])('supplies bound session identity to the real %s handler', async (flow) => {
+			const h = await createAuthenticatedHookHarness({ data: false, error: null });
+			const { POST } = await import('./routes/api/auth/update-password/+server');
+			const event = h.createEvent('/api/auth/update-password', {
+				'sb-example-auth-token': 'session',
+				...(flow ? { ttt_pending_auth_flow: flow } : {})
+			});
+			event.request = new Request(event.url, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(
+					flow
+						? { password: 'NewSecurePass12' }
+						: {
+								currentPassword: 'OldSecurePass12',
+								password: 'NewSecurePass12',
+								confirmPassword: 'NewSecurePass12'
+							}
+				)
+			});
+			const response = await h.handle({ event, resolve: (event) => POST(event as Parameters<typeof POST>[0]) });
+			expect(response.status).toBe(200);
+			expect(await response.json()).toEqual({ ok: true });
+			expect(limit).toHaveBeenCalledWith({ userId: 'user-1', ip: '127.0.0.1' });
+			expect(h.updateUser).toHaveBeenCalledExactlyOnceWith({ password: 'NewSecurePass12' });
+			if (flow) expect(h.signInWithPassword).not.toHaveBeenCalled();
+			else
+				expect(h.signInWithPassword).toHaveBeenCalledWith({ email: 'user@example.com', password: 'OldSecurePass12' });
+			expect(event.cookies.get('ttt_pending_auth_flow')).toBe(flow === 'invite' ? 'invite' : undefined);
+		});
+
+		it('denies anonymous requests at the public password-update handler without provider effects', async () => {
+			const h = await createAuthenticatedHookHarness({ data: false, error: null });
+			const { POST } = await import('./routes/api/auth/update-password/+server');
+			const event = h.createEvent('/api/auth/update-password', {});
+			event.request = new Request(event.url, { method: 'POST', body: JSON.stringify({ password: 'NewSecurePass12' }) });
+			const response = await h.handle({ event, resolve: (event) => POST(event as Parameters<typeof POST>[0]) });
+			expect(response.status).toBe(401);
+			expect(limit).not.toHaveBeenCalled();
+			expect(h.signInWithPassword).not.toHaveBeenCalled();
+			expect(h.updateUser).not.toHaveBeenCalled();
+			expect(h.signOut).not.toHaveBeenCalled();
+		});
+	});
 
 	describe('request throttle admission', () => {
 		const auditLog = vi.fn();

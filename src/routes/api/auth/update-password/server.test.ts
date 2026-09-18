@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { auditLogMock, checkPasswordUpdateRateLimitMock } = vi.hoisted(() => ({
 	auditLogMock: vi.fn(),
@@ -45,6 +45,8 @@ function makeEvent(input: {
 describe('POST /api/auth/update-password', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		vi.useFakeTimers({ toFake: ['Date'] });
+		vi.setSystemTime(new Date('2026-09-17T12:00:00Z'));
 		checkPasswordUpdateRateLimitMock.mockResolvedValue({
 			limited: false,
 			namespace: 'password-update',
@@ -54,6 +56,8 @@ describe('POST /api/auth/update-password', () => {
 			maxRequests: 5
 		});
 	});
+
+	afterEach(() => vi.useRealTimers());
 
 	it('updates the current user password after verifying the old password', async () => {
 		const signInWithPassword = vi.fn().mockResolvedValue({ error: null });
@@ -69,7 +73,7 @@ describe('POST /api/auth/update-password', () => {
 					confirmPassword: 'SecurePass12'
 				},
 				locals: {
-					session: { user: { id: 'user-123' } },
+					session: { user: { id: 'user-123' }, access_token: 'synthetic-token', expires_at: 1789646460 },
 					user: { id: 'user-123', email: 'user@example.test' },
 					supabase: {
 						auth: {
@@ -111,7 +115,7 @@ describe('POST /api/auth/update-password', () => {
 					confirmPassword: 'SecurePass12'
 				},
 				locals: {
-					session: { user: { id: 'user-123' } },
+					session: { user: { id: 'user-123' }, access_token: 'synthetic-token', expires_at: 1789646460 },
 					user: { id: 'user-123', email: 'user@example.test' },
 					supabase: {
 						auth: {
@@ -160,7 +164,7 @@ describe('POST /api/auth/update-password', () => {
 					confirmPassword: 'SecurePass12'
 				},
 				locals: {
-					session: { user: { id: 'user-123' } },
+					session: { user: { id: 'user-123' }, access_token: 'synthetic-token', expires_at: 1789646460 },
 					user: { id: 'user-123', email: 'user@example.test' },
 					supabase: {
 						auth: {
@@ -213,7 +217,7 @@ describe('POST /api/auth/update-password', () => {
 				body: JSON.stringify({ password: 'SecurePass12', confirmPassword: 'SecurePass12' })
 			}),
 			locals: {
-				session: { user: { id: 'user-123' } },
+				session: { user: { id: 'user-123' }, access_token: 'synthetic-token', expires_at: 1789646460 },
 				user: { id: 'user-123', email: 'user@example.test' },
 				supabase: {
 					auth: {
@@ -244,7 +248,7 @@ describe('POST /api/auth/update-password', () => {
 					confirmPassword: 'SecurePass12'
 				},
 				locals: {
-					session: { user: { id: 'user-123' } },
+					session: { user: { id: 'user-123' }, access_token: 'synthetic-token', expires_at: 1789646460 },
 					user: { id: 'user-123', email: 'user@example.test' },
 					supabase: {
 						auth: {
@@ -273,7 +277,8 @@ describe('POST /api/auth/update-password', () => {
 				body: JSON.stringify({ password: 'short' })
 			}),
 			locals: {
-				session: { user: { id: 'user-123' } },
+				session: { user: { id: 'user-123' }, access_token: 'synthetic-token', expires_at: 1789646460 },
+				user: { id: 'user-123', email: 'user@example.test' },
 				authFlow: 'recovery',
 				supabase: {
 					auth: {
@@ -302,7 +307,12 @@ describe('POST /api/auth/update-password', () => {
 			makeEvent({
 				body: { password: 'SecurePass12' },
 				locals: {
-					session: { user: { id: 'user-123', email: 'user@example.test' } },
+					session: {
+						user: { id: 'user-123', email: 'user@example.test' },
+						access_token: 'synthetic-token',
+						expires_at: 1789646460
+					},
+					user: { id: 'user-123', email: 'user@example.test' },
 					authFlow: 'recovery',
 					supabase: {
 						auth: {
@@ -335,7 +345,12 @@ describe('POST /api/auth/update-password', () => {
 			makeEvent({
 				body: { password: 'SecurePass12' },
 				locals: {
-					session: { user: { id: 'user-123', email: 'user@example.test' } },
+					session: {
+						user: { id: 'user-123', email: 'user@example.test' },
+						access_token: 'synthetic-token',
+						expires_at: 1789646460
+					},
+					user: { id: 'user-123', email: 'user@example.test' },
 					authFlow: 'recovery',
 					supabase: {
 						auth: {
@@ -364,7 +379,12 @@ describe('POST /api/auth/update-password', () => {
 			makeEvent({
 				body: { password: 'SecurePass12' },
 				locals: {
-					session: { user: { id: 'user-123', email: 'user@example.test' } },
+					session: {
+						user: { id: 'user-123', email: 'user@example.test' },
+						access_token: 'synthetic-token',
+						expires_at: 1789646460
+					},
+					user: { id: 'user-123', email: 'user@example.test' },
 					authFlow: 'recovery',
 					supabase: {
 						auth: {
@@ -404,7 +424,12 @@ describe('POST /api/auth/update-password', () => {
 			makeEvent({
 				body: { password: 'SecurePass12' },
 				locals: {
-					session: { user: { id: 'user-123', email: 'user@example.test' } },
+					session: {
+						user: { id: 'user-123', email: 'user@example.test' },
+						access_token: 'synthetic-token',
+						expires_at: 1789646460
+					},
+					user: { id: 'user-123', email: 'user@example.test' },
 					authFlow: 'recovery',
 					supabase: {
 						auth: {
@@ -475,7 +500,12 @@ describe('POST /api/auth/update-password', () => {
 			makeEvent({
 				body: { password: 'SecurePass12' },
 				locals: {
-					session: { user: { id: 'user-123', email: 'user@example.test' } },
+					session: {
+						user: { id: 'user-123', email: 'user@example.test' },
+						access_token: 'synthetic-token',
+						expires_at: 1789646460
+					},
+					user: { id: 'user-123', email: 'user@example.test' },
 					authFlow: 'invite',
 					supabase: {
 						auth: {

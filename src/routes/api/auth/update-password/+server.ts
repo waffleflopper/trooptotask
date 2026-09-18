@@ -10,45 +10,53 @@ import { mapProviderPasswordError, validatePassword } from '$lib/server/validati
 import { getPendingAuthFlowCookieName } from '$lib/server/mfaGate';
 
 export const POST: RequestHandler = async ({ request, locals, cookies, getClientAddress }) => {
-	const { currentPassword, password, confirmPassword } = (await request.json()) as {
-		currentPassword?: string;
-		password?: string;
-		confirmPassword?: string;
-	};
-	const userId = locals.user?.id ?? locals.session?.user.id ?? null;
-	const userEmail = locals.user?.email ?? locals.session?.user.email ?? null;
-
-	const passwordError = validatePassword(password ?? '');
-	if (passwordError) {
-		return json(
-			{
-				error: passwordError
-			},
-			{ status: 400 }
-		);
-	}
-
-	if (!locals.session) {
-		return json(
-			{
-				error: 'Your account recovery session is no longer active. Please reopen the link and try again.'
-			},
+	const { user, session } = locals;
+	const inactiveSession = () =>
+		json(
+			{ error: 'Your account recovery session is no longer active. Please reopen the link and try again.' },
 			{ status: 401 }
 		);
+	// Identity comes from the verified request hook, never a session-user fallback or request payload.
+	if (
+		typeof user?.id !== 'string' ||
+		!user.id ||
+		session?.user?.id !== user.id ||
+		typeof session.access_token !== 'string' ||
+		!/^\S+$/.test(session.access_token) ||
+		typeof session.expires_at !== 'number' ||
+		!Number.isFinite(session.expires_at) ||
+		session.expires_at <= Date.now() / 1000
+	) {
+		return inactiveSession();
 	}
+	const userId = user.id;
+	const userEmail = typeof user.email === 'string' ? user.email : null;
+	const body: unknown = await request.json().catch(() => null);
+	if (!body || typeof body !== 'object' || Array.isArray(body)) {
+		return json({ error: 'Invalid password update request' }, { status: 400 });
+	}
+	const { currentPassword, password, confirmPassword } = body as Record<string, unknown>;
+	if (typeof password !== 'string') {
+		return json({ error: 'New password is required' }, { status: 400 });
+	}
+	const passwordError = validatePassword(password);
+	if (passwordError) {
+		return json({ error: passwordError }, { status: 400 });
+	}
+	if (session.expires_at <= Date.now() / 1000) return inactiveSession();
 
 	const isRecoveryOrInviteFlow = locals.authFlow === 'recovery' || locals.authFlow === 'invite';
 
 	if (!isRecoveryOrInviteFlow) {
-		if (!currentPassword) {
+		if (typeof currentPassword !== 'string' || !currentPassword) {
 			return json({ error: 'Current password is required' }, { status: 400 });
 		}
 
-		if (password !== confirmPassword) {
+		if (typeof confirmPassword !== 'string' || password !== confirmPassword) {
 			return json({ error: 'New passwords do not match' }, { status: 400 });
 		}
 
-		const email = locals.user?.email;
+		const email = userEmail;
 		if (!email) {
 			return json({ error: 'Current user email is unavailable' }, { status: 401 });
 		}
@@ -62,6 +70,7 @@ export const POST: RequestHandler = async ({ request, locals, cookies, getClient
 		if (limitedResponse) {
 			return limitedResponse;
 		}
+		if (session.expires_at <= Date.now() / 1000) return inactiveSession();
 
 		const { error: signInError } = await locals.supabase.auth.signInWithPassword({
 			email,
@@ -81,6 +90,7 @@ export const POST: RequestHandler = async ({ request, locals, cookies, getClient
 		if (limitedResponse) {
 			return limitedResponse;
 		}
+		if (session.expires_at <= Date.now() / 1000) return inactiveSession();
 	}
 
 	const { error } = await locals.supabase.auth.updateUser({ password });

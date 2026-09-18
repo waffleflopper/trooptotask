@@ -15,6 +15,7 @@
 		oncomplete: () => void | Promise<void>;
 		onrestart?: () => void | Promise<void>;
 	} = $props();
+	let currentState = $derived(completionState);
 	let loading = $state(false);
 	let error = $state('');
 	let requiresMfa = $state(false);
@@ -31,7 +32,9 @@
 			const response = await fetch('/api/auth/update-password', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ action: completionState === 'complete' ? 'restart' : 'complete' })
+				body: JSON.stringify({
+					action: ['complete', 'failed', 'expired'].includes(currentState) ? 'restart' : 'complete'
+				})
 			});
 			if (response.redirected) {
 				await goto(response.url);
@@ -42,6 +45,11 @@
 				requiresMfa = true;
 				return;
 			}
+			if (
+				result?.code === 'password_reconciliation_required' &&
+				['started', 'pending', 'failed', 'expired', 'unavailable'].includes(result.state)
+			)
+				currentState = result.state;
 			if (!response.ok || result?.ok !== true || result.error !== undefined) {
 				error =
 					typeof result?.error === 'string'
@@ -49,7 +57,7 @@
 						: 'Unable to finish signing out other sessions. Please try again.';
 				return;
 			}
-			if (completionState === 'complete') await onrestart?.();
+			if (['complete', 'failed', 'expired'].includes(currentState)) await onrestart?.();
 			else await oncomplete();
 		} catch {
 			error = 'Unable to finish signing out other sessions. Please try again.';
@@ -61,13 +69,7 @@
 	}
 </script>
 
-{#if completionState === 'expired' || completionState === 'unavailable'}
-	<AuthNotice
-		tone="error"
-		message="This password completion can no longer be verified. Sign out and sign in again to continue safely."
-	/>
-	<form bind:this={form} action="/auth/logout" method="POST"><Button type="submit">Sign out</Button></form>
-{:else if requiresMfa}
+{#if requiresMfa}
 	<PasswordMfaChallenge
 		hint="Verify your authenticator before finishing this password update."
 		onverified={async () => {
@@ -78,16 +80,28 @@
 	/>
 {:else}
 	<AuthNotice
-		tone={completionState === 'complete' ? 'success' : 'info'}
-		message={completionState === 'complete'
+		tone={currentState === 'complete' ? 'success' : 'info'}
+		message={currentState === 'complete'
 			? 'Your password is updated and other sessions have been signed out.'
-			: 'Your password changed. Finish signing out other sessions to complete this update.'}
+			: currentState === 'unavailable'
+				? 'Saved password status is temporarily unavailable. Check again before continuing.'
+				: currentState === 'started'
+					? 'The password update outcome is unknown. Check its saved status before continuing.'
+					: currentState === 'failed'
+						? 'This attempt did not commit. Start a new password update to try again.'
+						: currentState === 'expired'
+							? 'This attempt expired or belongs to another session. Start again after its expiry using a fresh sign-in or recovery link.'
+							: 'Your password changed. Finish signing out other sessions to complete this update.'}
 	/>
 	{#if error}<AuthNotice tone="error" message={error} />{/if}
 	<form bind:this={form} onsubmit={submit}>
 		<Button type="submit" disabled={loading}>
-			{#if loading}<Spinner />Working...{:else if completionState === 'complete'}Change password again{:else}Finish
+			{#if loading}<Spinner />Working...{:else if currentState === 'complete'}Change password again{:else if currentState === 'failed' || currentState === 'expired'}Start
+				new password update{:else if currentState === 'started' || currentState === 'unavailable'}Check password update{:else}Finish
 				password update{/if}
 		</Button>
 	</form>
+	{#if currentState === 'expired'}
+		<form action="/auth/logout" method="POST"><Button type="submit">Sign out</Button></form>
+	{/if}
 {/if}

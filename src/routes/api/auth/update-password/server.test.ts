@@ -1,5 +1,6 @@
+vi.mock('$lib/server/supabase', () => ({ getAdminClient: () => ({ rpc: attemptStore.rpc }) }));
+import { attemptStore } from '../../../../tests/fixtures/passwordAttempt';
 import { passwordSessionToken } from '../../../../tests/fixtures/passwordSession';
-vi.mock('$env/dynamic/private', () => ({ env: { ACCOUNT_SETUP_SESSION_SECRET: 'synthetic-receipt-secret' } }));
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { auditLogMock, checkPasswordUpdateRateLimitMock } = vi.hoisted(() => ({
@@ -137,7 +138,10 @@ describe('POST /api/auth/update-password', () => {
 			email: 'user@example.test',
 			password: 'OldSecurePass12'
 		});
-		expect(updateUser).toHaveBeenCalledWith({ password: 'SecurePass12' });
+		expect(updateUser).toHaveBeenCalledWith({
+			password: 'SecurePass12',
+			data: { ttt_password_attempt: '00000000-0000-4000-8000-000000000099' }
+		});
 		expect(signOut).toHaveBeenCalledWith(passwordSessionToken('user-123', 'synthetic-token'), 'others');
 		expect(cookies.delete).not.toHaveBeenCalled();
 	});
@@ -374,7 +378,8 @@ describe('POST /api/auth/update-password', () => {
 		expect(cookies.delete).not.toHaveBeenCalled();
 	});
 
-	it('reports an unconfirmed mutation when the provider fails without a policy rejection', async () => {
+	it('fences an uncommitted mutation after a provider failure', async () => {
+		attemptStore.committed = false;
 		const updateUser = vi.fn().mockResolvedValue({
 			error: { message: 'Password update failed.' }
 		});
@@ -401,10 +406,10 @@ describe('POST /api/auth/update-password', () => {
 			})
 		);
 
-		expect(response.status).toBe(503);
-		expect(await response.json()).toEqual({
-			code: 'password_update_unconfirmed',
-			error: 'Unable to confirm the password update. Your password may have changed.'
+		expect(response.status).toBe(409);
+		expect(await response.json()).toMatchObject({
+			state: 'failed',
+			code: 'password_reconciliation_required'
 		});
 		expect(checkPasswordUpdateRateLimitMock).toHaveBeenCalledWith({
 			userId: 'user-123',
@@ -414,6 +419,7 @@ describe('POST /api/auth/update-password', () => {
 	});
 
 	it('returns stable policy copy when Supabase rejects the new password as weak', async () => {
+		attemptStore.committed = false;
 		const updateUser = vi.fn().mockResolvedValue({
 			error: { message: 'Password should be at least 12 characters' }
 		});
@@ -440,8 +446,8 @@ describe('POST /api/auth/update-password', () => {
 			})
 		);
 
-		expect(response.status).toBe(400);
-		expect(await response.json()).toEqual({
+		expect(response.status).toBe(409);
+		expect(await response.json()).toMatchObject({
 			error:
 				'That password was rejected by account security rules. Use at least 12 characters with uppercase, lowercase, and a number.'
 		});
@@ -481,7 +487,10 @@ describe('POST /api/auth/update-password', () => {
 			userId: 'user-123',
 			ip: '203.0.113.10'
 		});
-		expect(updateUser).toHaveBeenCalledWith({ password: 'SecurePass12' });
+		expect(updateUser).toHaveBeenCalledWith({
+			password: 'SecurePass12',
+			data: { ttt_password_attempt: '00000000-0000-4000-8000-000000000099' }
+		});
 		expect(signOut).toHaveBeenCalledWith(passwordSessionToken('user-123', 'synthetic-token'), 'others');
 		expect(cookies.delete).toHaveBeenCalledWith('ttt_pending_auth_flow', { path: '/' });
 	});
@@ -602,7 +611,10 @@ describe('POST /api/auth/update-password', () => {
 			userId: 'user-123',
 			ip: '203.0.113.10'
 		});
-		expect(updateUser).toHaveBeenCalledWith({ password: 'SecurePass12' });
+		expect(updateUser).toHaveBeenCalledWith({
+			password: 'SecurePass12',
+			data: { ttt_password_attempt: '00000000-0000-4000-8000-000000000099' }
+		});
 		expect(signOut).toHaveBeenCalledWith(passwordSessionToken('user-123', 'synthetic-token'), 'others');
 		expect(cookies.delete).not.toHaveBeenCalled();
 	});

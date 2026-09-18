@@ -139,6 +139,11 @@
 				return;
 			}
 			const updateResult = await readJsonResult(updateResponse);
+			if (updateResult?.code === 'password_reconciliation_required') {
+				completion = 'started';
+				password = confirmPassword = '';
+				return;
+			}
 			if (hasPendingPasswordCompletion(updateResponse, updateResult)) {
 				completion = 'pending';
 				password = '';
@@ -150,6 +155,10 @@
 				return;
 			}
 			if (!updateResult.ok) {
+				if (updateResponse.status >= 500 || updateResponse.ok) {
+					completion = 'started';
+					password = confirmPassword = '';
+				}
 				error = updateResult.error || 'Unable to confirm the password update. Your password may have changed.';
 				return;
 			}
@@ -159,6 +168,8 @@
 			confirmPassword = '';
 			await finalizeInvite();
 		} catch {
+			if (!passwordSet) completion = 'started';
+			password = confirmPassword = '';
 			error = passwordSet
 				? 'Your password is set. We could not finish account activation. Please try again.'
 				: 'Unable to confirm the password update. Your password may have changed.';
@@ -265,6 +276,11 @@
 		{:else if completion}
 			<PasswordCompletion
 				state={completion}
+				onrestart={async () => {
+					completion = null;
+					await tick();
+					document.getElementById('password')?.focus();
+				}}
 				oncomplete={async () => {
 					completion = null;
 					passwordSet = true;

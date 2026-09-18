@@ -78,8 +78,8 @@ export const POST: RequestHandler = async ({ locals, cookies }) => {
 		);
 	}
 
-	const completion = passwordCompletionState(cookies, locals);
-	if (completion && completion !== 'complete')
+	const completion = await passwordCompletionState(locals);
+	if (completion !== 'complete')
 		return json(
 			{ error: 'Finish the password update before activating your account.', accepted: 0, activated: false },
 			{ status: 409 }

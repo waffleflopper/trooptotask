@@ -1,16 +1,17 @@
+vi.mock('$lib/server/supabase', () => ({ getAdminClient: () => ({ rpc: attemptStore.rpc }) }));
 import { expect, it, vi } from 'vitest';
 import { passwordSessionToken } from '../../tests/fixtures/passwordSession';
-import { preparePasswordCompletion, writePasswordCompletion } from './passwordCompletion';
+import { passwordAttempt } from './passwordCompletion';
+import { attemptStore } from '../../tests/fixtures/passwordAttempt';
 import { load as security } from '../../routes/account/security/+page.server';
 import { load as recovery } from '../../routes/auth/reset-password/+page.server';
 import { load as invite } from '../../routes/auth/accept-invite/+page.server';
-vi.mock('$env/dynamic/private', () => ({ env: { ACCOUNT_SETUP_SESSION_SECRET: 'synthetic-receipt-secret' } }));
 it.each([
 	{ flow: null, load: security },
 	{ flow: 'recovery', load: recovery },
 	{ flow: 'invite', load: invite }
 ] as const)(
-	'reloads $flow completion without mutating provider or cookies or serializing receipt secrets',
+	'reloads $flow completion without mutating provider or cookies or serializing attempt identifiers',
 	async ({ flow, load }) => {
 		const jar = new Map<string, string>();
 		const cookies = {
@@ -37,15 +38,16 @@ it.each([
 			authFlow: flow,
 			supabase: { auth: provider }
 		} as unknown as App.Locals;
-		for (const state of ['pending', 'complete'] as const) {
-			writePasswordCompletion(cookies, { ...preparePasswordCompletion(locals), state });
+		for (const state of ['started', 'pending', 'complete', 'failed'] as const) {
+			await passwordAttempt(locals, 'begin');
+			attemptStore.row!.state = state;
 			cookies.set.mockClear();
 			const data = await load({ locals, cookies } as unknown as Parameters<typeof security>[0] &
 				Parameters<typeof recovery>[0] &
 				Parameters<typeof invite>[0]);
 			expect(data).toMatchObject({ passwordCompletion: state });
 			expect(JSON.stringify(data)).not.toContain(session.access_token);
-			expect(JSON.stringify(data)).not.toContain([...jar.values()][0]);
+			expect(JSON.stringify(data)).not.toContain(attemptStore.row!.id);
 			expect(cookies.set).not.toHaveBeenCalled();
 			expect(cookies.delete).not.toHaveBeenCalled();
 			expect(provider.updateUser).not.toHaveBeenCalled();

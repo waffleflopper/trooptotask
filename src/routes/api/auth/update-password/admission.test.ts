@@ -1,5 +1,6 @@
+vi.mock('$lib/server/supabase', () => ({ getAdminClient: () => ({ rpc: attemptStore.rpc }) }));
+import { attemptStore } from '../../../../tests/fixtures/passwordAttempt';
 import { passwordSessionToken } from '../../../../tests/fixtures/passwordSession';
-vi.mock('$env/dynamic/private', () => ({ env: { ACCOUNT_SETUP_SESSION_SECRET: 'synthetic-receipt-secret' } }));
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { limit } = vi.hoisted(() => ({ limit: vi.fn() }));
@@ -177,12 +178,17 @@ describe.each(flows)('password update request admission: %s', (flow) => {
 		h.expectNoEffects();
 		h.locals.session.expires_at = NOW.getTime() / 1000 + 120;
 		expect((await POST(h.event())).status).toBe(200);
-		expect(h.auth.updateUser).toHaveBeenCalledExactlyOnceWith({ password: validBody.password });
+		expect(h.auth.updateUser).toHaveBeenCalledExactlyOnceWith({
+			password: validBody.password,
+			data: { ttt_password_attempt: '00000000-0000-4000-8000-000000000099' }
+		});
 	});
 
 	it('preserves password bytes and binds limit/proof to the verified actor', async () => {
 		const h = fixture(flow);
-		const body = flow ? { password: validBody.password } : validBody;
+		const body = flow
+			? { password: validBody.password, data: { ttt_password_attempt: '00000000-0000-4000-8000-000000000099' } }
+			: validBody;
 		const response = await POST(
 			h.event({ ...body, userId: 'other-actor', email: 'other@example.test', authFlow: 'invite' })
 		);
@@ -195,7 +201,10 @@ describe.each(flows)('password update request admission: %s', (flow) => {
 				email: 'actor@example.test',
 				password: validBody.currentPassword
 			});
-		expect(h.auth.updateUser).toHaveBeenCalledExactlyOnceWith({ password: validBody.password });
+		expect(h.auth.updateUser).toHaveBeenCalledExactlyOnceWith({
+			password: validBody.password,
+			data: { ttt_password_attempt: '00000000-0000-4000-8000-000000000099' }
+		});
 		if (flow === 'recovery') expect(h.cookies.delete).toHaveBeenCalledWith('ttt_pending_auth_flow', { path: '/' });
 		else expect(h.cookies.delete).not.toHaveBeenCalled();
 	});

@@ -2,12 +2,7 @@ import { json } from '@sveltejs/kit';
 import { createClient } from '@supabase/supabase-js';
 import { PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY } from '$env/static/public';
 import type { RequestHandler } from './$types';
-import {
-	PASSWORD_COMPLETION_COOKIE,
-	preparePasswordCompletion,
-	readPasswordCompletion,
-	writePasswordCompletion
-} from '$lib/server/passwordCompletion';
+import { passwordAttempt, type PasswordAttempt } from '$lib/server/passwordCompletion';
 import { auditLog } from '$lib/server/auditLog';
 import {
 	checkPasswordUpdateRateLimit,
@@ -44,33 +39,28 @@ export const POST: RequestHandler = async ({ request, locals, cookies, getClient
 		return json({ error: 'Invalid password update request' }, { status: 400 });
 	}
 	const { currentPassword, password, confirmPassword, action } = body as Record<string, unknown>;
-	const receipt = readPasswordCompletion(cookies, locals);
-	if (receipt === 'expired' || receipt === 'unavailable') {
-		return json(
-			{ code: 'password_completion_expired', error: 'Sign out and sign in again to continue safely.' },
-			{ status: 409 }
-		);
-	}
-	if (receipt || action !== undefined) {
-		if (!receipt) return json({ error: 'No confirmed password update is awaiting completion.' }, { status: 409 });
+	const attempt = await passwordAttempt(locals);
+	if ((attempt === 'expired' && action !== 'restart') || attempt === 'unavailable') return attemptResponse(attempt);
+	if (attempt || action !== undefined) {
 		const limited = await checkAndAuditPasswordUpdateLimit({ request, getClientAddress, userId, userEmail });
 		if (limited) return limited;
 		const denied = await authorizeCompletion(locals);
 		if (denied) return denied;
-		if (receipt.expiresAt <= Date.now() / 1000)
-			return json({ error: 'Password completion expired. Sign out and sign in again.' }, { status: 409 });
 		if (action === 'restart') {
-			if (receipt.state !== 'complete' || locals.authFlow)
-				return json({ error: 'Finish the current password update first.' }, { status: 409 });
-			cookies.delete(PASSWORD_COMPLETION_COOKIE, { path: '/' });
-			return json({ ok: true });
+			const restarted = await passwordAttempt(locals, 'restart');
+			return restarted === null ? json({ ok: true }) : attemptResponse(restarted);
 		}
 		if (action !== undefined && action !== 'complete')
 			return json({ error: 'Invalid completion action.' }, { status: 400 });
-		if (receipt.flow !== (locals.authFlow ?? null) && !(receipt.state === 'complete' && !locals.authFlow)) {
-			return json({ error: 'The password completion flow no longer matches this session.' }, { status: 409 });
-		}
-		return finishPasswordCompletion(locals, cookies, receipt);
+		if (!attempt || typeof attempt === 'string') return attemptResponse(attempt);
+		if (attempt.expiresAt <= Date.now() / 1000) return attemptResponse('expired');
+		const reconciled =
+			attempt.state === 'started' && action === 'complete'
+				? await passwordAttempt(locals, 'reconcile', attempt.id)
+				: attempt;
+		if (!reconciled || typeof reconciled === 'string' || !['pending', 'complete'].includes(reconciled.state))
+			return attemptResponse(reconciled);
+		return finishPasswordCompletion(locals, cookies, reconciled);
 	}
 	if (typeof password !== 'string') {
 		return json({ error: 'New password is required' }, { status: 400 });
@@ -131,48 +121,49 @@ export const POST: RequestHandler = async ({ request, locals, cookies, getClient
 
 	const denied = await authorizeCompletion(locals);
 	if (denied) return denied;
-	let pending: ReturnType<typeof preparePasswordCompletion>;
+	const admitted = await passwordAttempt(locals, 'begin');
+	if (!admitted || typeof admitted === 'string' || !admitted.acquired) return attemptResponse(admitted);
+	// The transaction marker is consumed by the database trigger. Confirmation
+	// comes from that transaction, never from delivery of the provider response.
+	let providerError: string | null = null;
 	try {
-		pending = preparePasswordCompletion(locals);
+		const mutation = await locals.supabase.auth.updateUser({ password, data: { ttt_password_attempt: admitted.id } });
+		if (mutation?.error) providerError = mapProviderPasswordError(mutation.error);
 	} catch {
-		return json({ error: 'Unable to prepare password completion. Please try again.' }, { status: 503 });
+		/* A transport failure is not evidence of rollback. */
 	}
-
-	const unconfirmedMutation = () =>
-		json(
-			{
-				code: 'password_update_unconfirmed',
-				error: 'Unable to confirm the password update. Your password may have changed.'
-			},
-			{ status: 503 }
-		);
-	try {
-		const mutation = await locals.supabase.auth.updateUser({ password });
-		if (mutation?.error) {
-			const providerPasswordError = mapProviderPasswordError(mutation.error);
-			if (providerPasswordError) return json({ error: providerPasswordError }, { status: 400 });
-			return unconfirmedMutation();
-		}
-		if (mutation?.error !== null || mutation.data?.user?.id !== userId) return unconfirmedMutation();
-	} catch {
-		// A lost response cannot prove rollback. Never expose provider exceptions or
-		// run completion effects without acknowledgment for the admitted actor.
-		return unconfirmedMutation();
-	}
-
-	writePasswordCompletion(cookies, pending);
-	return finishPasswordCompletion(locals, cookies, pending);
+	const reconciled = await passwordAttempt(locals, 'reconcile', admitted.id);
+	if (!reconciled || typeof reconciled === 'string' || !['pending', 'complete'].includes(reconciled.state))
+		return attemptResponse(reconciled, providerError);
+	return finishPasswordCompletion(locals, cookies, reconciled);
 };
+
+function attemptResponse(attempt: Awaited<ReturnType<typeof passwordAttempt>>, error?: string | null): Response {
+	const state = typeof attempt === 'object' ? attempt?.state : attempt;
+	return json(
+		{
+			ok: false,
+			code: 'password_reconciliation_required',
+			state: state ?? 'failed',
+			error:
+				error ??
+				(state === 'failed'
+					? 'This attempt did not commit. Start a new password update to try again.'
+					: 'Check the saved password update before continuing.')
+		},
+		{ status: state === 'unavailable' ? 503 : 409 }
+	);
+}
 
 async function finishPasswordCompletion(
 	locals: App.Locals,
 	cookies: Parameters<RequestHandler>[0]['cookies'],
-	receipt: ReturnType<typeof preparePasswordCompletion>
+	attempt: PasswordAttempt
 ): Promise<Response> {
-	if (receipt.state !== 'complete') {
+	if (attempt.state !== 'complete') {
 		let revoked = false;
 		try {
-			if (receipt.expiresAt > Date.now() / 1000)
+			if (attempt.expiresAt > Date.now() / 1000)
 				// The session helper suppresses 401/403/404. Use the explicit-token SDK call
 				// so denial cannot be mistaken for revocation; no service-role credential is used.
 				revoked = (await locals.supabase.auth.admin.signOut(locals.session!.access_token, 'others'))?.error === null;
@@ -200,9 +191,11 @@ async function finishPasswordCompletion(
 				{ status: 202 }
 			);
 		}
-		writePasswordCompletion(cookies, { ...receipt, state: 'complete' });
+		const completed = await passwordAttempt(locals, 'complete', attempt.id);
+		if (!completed || typeof completed === 'string' || completed.state !== 'complete')
+			return attemptResponse(completed);
 	}
-	if (receipt.flow === 'recovery') cookies.delete(getPendingAuthFlowCookieName(), { path: '/' });
+	if (attempt.flow === 'recovery') cookies.delete(getPendingAuthFlowCookieName(), { path: '/' });
 	return json({ ok: true });
 }
 

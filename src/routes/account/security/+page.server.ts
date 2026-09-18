@@ -10,7 +10,7 @@ function getPendingEmail(user: App.Locals['user']): string | null {
 	return typeof value === 'string' && value ? value : null;
 }
 
-export const load: PageServerLoad = async ({ locals, cookies }) => {
+export const load: PageServerLoad = async ({ locals }) => {
 	if (!locals.user) throw redirect(303, '/auth/login');
 
 	const { data: factors } = await locals.supabase.auth.mfa.listFactors();
@@ -18,7 +18,7 @@ export const load: PageServerLoad = async ({ locals, cookies }) => {
 	const hasMFA = totpFactors.some((f: Record<string, unknown>) => f.status === 'verified');
 
 	return {
-		passwordCompletion: passwordCompletionState(cookies, locals),
+		passwordCompletion: await passwordCompletionState(locals),
 		hasMFA,
 		currentEmail: locals.user.email ?? '',
 		pendingEmail: getPendingEmail(locals.user)

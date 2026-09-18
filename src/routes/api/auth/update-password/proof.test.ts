@@ -1,5 +1,6 @@
+vi.mock('$lib/server/supabase', () => ({ getAdminClient: () => ({ rpc: attemptStore.rpc }) }));
+import { attemptStore } from '../../../../tests/fixtures/passwordAttempt';
 import { passwordSessionToken } from '../../../../tests/fixtures/passwordSession';
-vi.mock('$env/dynamic/private', () => ({ env: { ACCOUNT_SETUP_SESSION_SECRET: 'synthetic-receipt-secret' } }));
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const provider = vi.hoisted(() => ({ signIn: vi.fn(), assurance: vi.fn(), identity: vi.fn(), revoke: vi.fn() }));
@@ -150,7 +151,10 @@ describe('password proof before mutation', () => {
 			expect(await response.text()).not.toContain('private');
 			h.denied();
 			expect((await POST(h.event())).status).toBe(200);
-			expect(h.auth.updateUser).toHaveBeenCalledExactlyOnceWith({ password: ' NewPassword12 ' });
+			expect(h.auth.updateUser).toHaveBeenCalledExactlyOnceWith({
+				password: ' NewPassword12 ',
+				data: { ttt_password_attempt: '00000000-0000-4000-8000-000000000099' }
+			});
 		}
 	);
 	it.each([
@@ -210,8 +214,11 @@ describe('password proof before mutation', () => {
 		expect(provider.identity).toHaveBeenCalledWith('proof-access');
 		expect(provider.assurance).toHaveBeenCalledWith('proof-access');
 		expect(provider.revoke).toHaveBeenCalledWith('proof-access', 'local');
-		expect(h.auth.updateUser).toHaveBeenCalledExactlyOnceWith({ password: ' NewPassword12 ' });
+		expect(h.auth.updateUser).toHaveBeenCalledExactlyOnceWith({
+			password: ' NewPassword12 ',
+			data: { ttt_password_attempt: '00000000-0000-4000-8000-000000000099' }
+		});
 		expect(h.session.access_token).toBe(passwordSessionToken('actor', 'admitted-access'));
-		expect(h.cookies.set.mock.calls.every(([name]) => name === 'ttt_password_completion')).toBe(true);
+		expect(h.cookies.set).not.toHaveBeenCalled();
 	});
 });

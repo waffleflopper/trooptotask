@@ -178,6 +178,11 @@
 				return;
 			}
 			const updateResult = await readJsonResult(updateResponse);
+			if (updateResult?.code === 'password_reconciliation_required') {
+				completion = 'started';
+				password = confirmPassword = '';
+				return;
+			}
 			if (hasPendingPasswordCompletion(updateResponse, updateResult)) {
 				completion = 'pending';
 				password = '';
@@ -189,12 +194,18 @@
 				return;
 			}
 			if (!updateResult.ok) {
+				if (updateResponse.status >= 500 || updateResponse.ok) {
+					completion = 'started';
+					password = confirmPassword = '';
+				}
 				error = updateResult.error || 'Unable to confirm the password update. Your password may have changed.';
 				return;
 			}
 
 			finishPassword();
 		} catch {
+			completion = 'started';
+			password = confirmPassword = '';
 			error = 'Unable to confirm the password update. Your password may have changed.';
 		} finally {
 			loading = false;
@@ -275,7 +286,15 @@
 				<p class="m-0 text-sm leading-relaxed">Verifying reset link...</p>
 			</div>
 		{:else if completion}
-			<PasswordCompletion state={completion} oncomplete={finishPassword} />
+			<PasswordCompletion
+				state={completion}
+				onrestart={async () => {
+					completion = null;
+					await tick();
+					document.getElementById('password')?.focus();
+				}}
+				oncomplete={finishPassword}
+			/>
 		{:else if requiresMfa}
 			<PasswordMfaChallenge
 				onverified={async () => {

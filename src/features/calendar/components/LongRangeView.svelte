@@ -1,4 +1,5 @@
 <script lang="ts">
+	import type { Group } from '$lib/stores/groups.svelte';
 	import type {
 		Personnel,
 		AvailabilityEntry,
@@ -38,6 +39,7 @@
 		specialDays: SpecialDay[];
 		assignmentTypes: AssignmentType[];
 		assignments: DailyAssignment[];
+		groups?: readonly Group[];
 		dutyEvents?: DutyEvent[];
 		dutyStartDayOnly?: boolean;
 		onDateColumnClick?: (date: Date) => void;
@@ -52,6 +54,7 @@
 		specialDays,
 		assignmentTypes,
 		assignments,
+		groups = [],
 		dutyEvents = [],
 		dutyStartDayOnly = true,
 		onDateColumnClick,
@@ -91,6 +94,7 @@
 			specialDays,
 			assignmentTypes,
 			assignments,
+			groups,
 			dutyEvents,
 			dutyStartDayOnly
 		})

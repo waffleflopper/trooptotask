@@ -110,7 +110,18 @@ describe('server auth hook', () => {
 			error: null
 		});
 		const signOut = vi.fn().mockResolvedValue({ error: null });
-		const signInWithPassword = vi.fn().mockResolvedValue({ error: null });
+		const signInWithPassword = vi.fn().mockResolvedValue({
+			data: {
+				user,
+				session: {
+					user,
+					access_token: 'proof-token',
+					refresh_token: 'proof-refresh',
+					expires_at: now.getTime() / 1000 + 3600
+				}
+			},
+			error: null
+		});
 		const updateUser = vi.fn().mockResolvedValue({ error: null });
 		let serverClientOptions: TestServerClientOptions | null = null;
 		const readStoredUserDuringMfa = vi.fn(() =>
@@ -174,6 +185,20 @@ describe('server auth hook', () => {
 		});
 		const resolve = vi.fn().mockResolvedValue(new Response('ok'));
 
+		vi.doMock('@supabase/supabase-js', () => ({
+			createClient: () => ({
+				auth: {
+					signInWithPassword,
+					getUser,
+					mfa: {
+						getAuthenticatorAssuranceLevel: vi
+							.fn()
+							.mockResolvedValue({ data: { currentLevel: 'aal1', nextLevel: 'aal1' }, error: null })
+					},
+					signOut: vi.fn().mockResolvedValue({ error: null })
+				}
+			})
+		}));
 		vi.doMock('@supabase/ssr', () => ({ createServerClient }));
 		vi.doMock('$env/static/public', () => ({
 			PUBLIC_SUPABASE_URL: 'https://example.supabase.co',

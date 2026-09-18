@@ -4,13 +4,31 @@ const { rpc, auditLog } = vi.hoisted(() => ({ rpc: vi.fn(), auditLog: vi.fn() })
 vi.mock('$lib/server/supabase', () => ({ getAdminClient: () => ({ rpc }) }));
 vi.mock('$lib/server/auditLog', () => ({ auditLog }));
 
+const proofProvider = vi.hoisted(() => ({ auth: {} as Record<string, unknown> }));
+vi.mock('@supabase/supabase-js', () => ({ createClient: () => ({ auth: proofProvider.auth }) }));
 import { POST } from './+server';
 
 function fixture(authFlow?: 'recovery' | 'invite') {
 	const user = { id: 'synthetic-user', email: 'synthetic@example.test' };
 	const auth = {
-		signInWithPassword: vi.fn().mockResolvedValue({ error: null }),
+		signInWithPassword: vi.fn().mockResolvedValue({
+			data: {
+				user,
+				session: { user, access_token: 'proof-access', refresh_token: 'proof-refresh', expires_at: 1789650000 }
+			},
+			error: null
+		}),
 		updateUser: vi.fn().mockResolvedValue({ error: null }),
+		signOut: vi.fn().mockResolvedValue({ error: null })
+	};
+	proofProvider.auth = {
+		signInWithPassword: auth.signInWithPassword,
+		getUser: vi.fn().mockResolvedValue({ data: { user }, error: null }),
+		mfa: {
+			getAuthenticatorAssuranceLevel: vi
+				.fn()
+				.mockResolvedValue({ data: { currentLevel: 'aal1', nextLevel: 'aal1' }, error: null })
+		},
 		signOut: vi.fn().mockResolvedValue({ error: null })
 	};
 	const cookies = { delete: vi.fn() };

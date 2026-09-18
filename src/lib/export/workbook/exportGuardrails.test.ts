@@ -3,7 +3,6 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
 const SRC_ROOT = join(process.cwd(), 'src');
-const KNOWN_FAKE_EXCEL_DRIFT = new Set(['lib/export/workbook/exportGuardrails.test.ts']);
 
 function sourceFiles(dir: string): string[] {
 	return readdirSync(dir).flatMap((entry) => {
@@ -24,19 +23,6 @@ describe('native workbook export guardrails', () => {
 			}))
 			.filter(({ source }) => source.includes('application/vnd.ms-excel') || /\.xls(?!x)\b/.test(source))
 			.map(({ file }) => file);
-
-		expect(offenders).toEqual([]);
-	});
-
-	it('documents every remaining fake-Excel export path as follow-on migration debt', () => {
-		const offenders = sourceFiles(SRC_ROOT)
-			.map((file) => ({
-				file: relative(SRC_ROOT, file),
-				source: readFileSync(file, 'utf8')
-			}))
-			.filter(({ source }) => source.includes('application/vnd.ms-excel') || /\.xls(?!x)\b/.test(source))
-			.map(({ file }) => file)
-			.filter((file) => !KNOWN_FAKE_EXCEL_DRIFT.has(file));
 
 		expect(offenders).toEqual([]);
 	});

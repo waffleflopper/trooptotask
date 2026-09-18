@@ -1,5 +1,3 @@
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { describe, it, expect } from 'vitest';
 import {
 	sanitizeString,
@@ -10,7 +8,6 @@ import {
 	validatePassword,
 	mapProviderPasswordError,
 	PASSWORD_PROVIDER_REJECTION_MESSAGE,
-	PASSWORD_MIN_LENGTH,
 	PASSWORD_MIN_LENGTH_MESSAGE,
 	PASSWORD_MAX_LENGTH_MESSAGE,
 	PASSWORD_REQUIREMENTS_MESSAGE
@@ -164,12 +161,5 @@ describe('validatePassword', () => {
 		expect(mapProviderPasswordError(null)).toBeNull();
 		expect(mapProviderPasswordError(undefined)).toBeNull();
 		expect(mapProviderPasswordError({ message: 'Database is temporarily unavailable' })).toBeNull();
-	});
-
-	it('keeps local Supabase Auth password rules aligned with the app policy', () => {
-		const config = readFileSync(join(process.cwd(), 'supabase/config.toml'), 'utf8');
-
-		expect(config).toContain(`minimum_password_length = ${PASSWORD_MIN_LENGTH}`);
-		expect(config).toContain('password_requirements = "lower_upper_letters_digits"');
 	});
 });

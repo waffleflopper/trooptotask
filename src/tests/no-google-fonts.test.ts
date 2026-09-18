@@ -25,18 +25,39 @@ function findSvelteFiles(dir: string): string[] {
 	return results;
 }
 
+function externalFontReferences(files: Array<{ path: string; content: string }>): string[] {
+	return files
+		.filter(({ content }) => content.includes('fonts.googleapis.com') || content.includes('fonts.gstatic.com'))
+		.map(({ path }) => path);
+}
+
 describe('font self-hosting', () => {
 	const svelteFiles = findSvelteFiles(ROUTES_DIR);
 
 	it('no route file should reference external Google Fonts hosts', () => {
-		const violations: string[] = [];
-		for (const file of svelteFiles) {
-			const content = readFileSync(file, 'utf-8');
-			if (content.includes('fonts.googleapis.com') || content.includes('fonts.gstatic.com')) {
-				violations.push(file.replace(ROUTES_DIR, 'src/routes'));
-			}
-		}
+		const violations = externalFontReferences(
+			svelteFiles.map((file) => ({
+				path: file.replace(ROUTES_DIR, 'src/routes'),
+				content: readFileSync(file, 'utf-8')
+			}))
+		);
 		expect(svelteFiles.length).toBeGreaterThan(0);
 		expect(violations, `Google Fonts references found in:\n${violations.join('\n')}`).toEqual([]);
+	});
+
+	it.each([
+		'<link href="https://fonts.googleapis.com/css2?family=Roboto" rel="stylesheet" />',
+		'<link href="https://fonts.gstatic.com" rel="preconnect" />'
+	])('rejects an external Google Fonts reference: %s', (content) => {
+		expect(externalFontReferences([{ path: 'route.svelte', content }])).toEqual(['route.svelte']);
+	});
+
+	it('accepts self-hosted font imports and unrelated route content', () => {
+		expect(
+			externalFontReferences([
+				{ path: 'layout.svelte', content: "<script>import '@fontsource/ibm-plex-mono/400.css';</script>" },
+				{ path: 'page.svelte', content: '<p>Personnel</p>' }
+			])
+		).toEqual([]);
 	});
 });

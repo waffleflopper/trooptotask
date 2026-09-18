@@ -239,6 +239,93 @@ describe('createSensitiveActionAuthorizer', () => {
 });
 
 describe('createSupabaseSensitiveActionAuthorizer', () => {
+	describe.each(['recent session', 'MFA assurance'])('suspension admission with %s', (grant) => {
+		function makeAuthorizer(rpc: ReturnType<typeof vi.fn>) {
+			return createSupabaseSensitiveActionAuthorizer({
+				supabase: {
+					auth: {
+						mfa: {
+							getAuthenticatorAssuranceLevel: vi.fn().mockResolvedValue({
+								data: {
+									currentLevel: grant === 'MFA assurance' ? 'aal2' : 'aal1',
+									nextLevel: grant === 'MFA assurance' ? 'aal2' : 'aal1'
+								},
+								error: null
+							})
+						}
+					},
+					rpc
+				} as never,
+				session: {
+					user: {
+						id: 'admin-1',
+						last_sign_in_at: grant === 'MFA assurance' ? '2026-05-22T10:00:00Z' : '2026-05-22T11:59:00Z'
+					}
+				} as never,
+				now: () => now
+			});
+		}
+
+		const request = { action: 'platform.accessRequest.approve' as const, actorUserId: 'admin-1' };
+
+		it.each([
+			['missing response', undefined],
+			['null response', null],
+			['empty response', {}],
+			['missing status', { data: false }],
+			['missing data', { error: null }],
+			['null data', { data: null, error: null }],
+			['numeric data', { data: 0, error: null }],
+			['empty text', { data: '', error: null }],
+			['boolean text', { data: 'false', error: null }],
+			['row object', { data: { is_suspended: false }, error: null }],
+			['row array', { data: [false], error: null }],
+			['error with allowed data', { data: false, error: { message: 'private provider failure' } }],
+			['error with suspended data', { data: true, error: { message: 'private provider failure' } }]
+		])('denies unavailable suspension for %s', async (_label, response) => {
+			const authorizer = makeAuthorizer(vi.fn().mockResolvedValue(response));
+			const decision = await authorizer.authorize(request);
+			expect(decision).toMatchObject({
+				allowed: false,
+				reason: 'denied.suspensionStatusUnavailable',
+				requiresStepUp: false
+			});
+			expect(sensitiveActionStepUpPath(decision)).toBeNull();
+			expect(JSON.stringify(decision)).not.toContain('private provider failure');
+		});
+
+		it('returns unavailable denial when the suspension provider throws', async () => {
+			const authorizer = makeAuthorizer(vi.fn().mockRejectedValue(new Error('private provider failure')));
+			await expect(authorizer.authorize(request)).resolves.toMatchObject({
+				allowed: false,
+				reason: 'denied.suspensionStatusUnavailable',
+				requiresStepUp: false
+			});
+		});
+
+		it('rechecks suspension on retry and never reuses a previous allow', async () => {
+			const rpc = vi
+				.fn()
+				.mockResolvedValueOnce({ data: null, error: null })
+				.mockResolvedValueOnce({ data: false, error: null })
+				.mockResolvedValueOnce({ data: true, error: null })
+				.mockResolvedValueOnce({ data: false, error: null });
+			const authorizer = makeAuthorizer(rpc);
+			await expect(authorizer.authorize(request)).resolves.toMatchObject({
+				allowed: false,
+				reason: 'denied.suspensionStatusUnavailable'
+			});
+			await expect(authorizer.authorize(request)).resolves.toMatchObject({ allowed: true });
+			await expect(authorizer.authorize(request)).resolves.toMatchObject({
+				allowed: false,
+				reason: 'denied.suspendedUser',
+				requiresStepUp: false
+			});
+			await expect(authorizer.authorize(request)).resolves.toMatchObject({ allowed: true });
+			expect(rpc).toHaveBeenCalledWith('is_user_suspended', { check_user_id: 'admin-1' });
+		});
+	});
+
 	it('reads Supabase MFA assurance and suspension state for the actor', async () => {
 		const supabase = {
 			auth: {

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { createSupabaseSensitiveActionAuthorizer } from '$lib/server/sensitiveActionAuthorizer';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import {
 	accountSetupLinkFixture,
@@ -2616,6 +2617,56 @@ describe('removeOrganizationMember', () => {
 		});
 
 		expect(port.removedMemberships).toEqual([]);
+	});
+
+	it('preserves high-privilege membership until suspension is verifiably clear on retry', async () => {
+		const ctx = createTestContext({ auth: { userId: 'owner-1', orgId: 'org-1', role: 'owner' } });
+		const settings = createOrganizationSettingsMemberManagementPort({
+			membership: { userId: 'admin-1', role: 'admin', email: 'admin@example.com', canManageMembers: true }
+		});
+		const rpc = vi.fn().mockResolvedValue({ data: null, error: null });
+		const ports = {
+			auth: ctx.auth,
+			audit: ctx.audit,
+			notifications: ctx.notifications,
+			settings,
+			sensitiveActionAuthorizer: createSupabaseSensitiveActionAuthorizer({
+				supabase: {
+					auth: {
+						mfa: {
+							getAuthenticatorAssuranceLevel: vi
+								.fn()
+								.mockResolvedValue({ data: { currentLevel: 'aal1', nextLevel: 'aal1' }, error: null })
+						}
+					},
+					rpc
+				} as never,
+				session: { user: { id: 'owner-1', last_sign_in_at: '2026-05-22T11:59:00Z' } } as never,
+				now: () => new Date('2026-05-22T12:00:00Z')
+			})
+		};
+		const execute = () =>
+			removeOrganizationMember(ports, {
+				membershipId: '11111111-1111-4111-8111-111111111111',
+				actorEmail: 'owner@example.com'
+			});
+		await expect(execute()).rejects.toMatchObject({
+			status: 403,
+			reason: 'denied.suspensionStatusUnavailable',
+			requiresStepUp: false,
+			stepUpPath: null
+		});
+		expect(settings.removedMemberships).toEqual([]);
+		expect(ctx.notificationPort.notifications).toEqual([]);
+		expect(ctx.auditPort.events).toContainEqual(
+			expect.objectContaining({ action: 'member.high_privilege_remove_authorization_denied' })
+		);
+
+		rpc.mockResolvedValue({ data: false, error: null });
+		await expect(execute()).resolves.toEqual({ success: true });
+		expect(settings.removedMemberships).toEqual([
+			{ orgId: 'org-1', membershipId: '11111111-1111-4111-8111-111111111111' }
+		]);
 	});
 
 	it('requires recent assurance before removing high-privilege members', async () => {

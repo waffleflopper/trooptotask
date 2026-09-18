@@ -220,16 +220,24 @@ export function createSupabaseSensitiveActionAuthorizer(input: {
 		recentSessionWindowMs: input.recentSessionWindowMs,
 		loadActorFacts: async (actorUserId) => {
 			const assuranceResult = await input.supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-			const suspensionResult = await input.supabase.rpc('is_user_suspended', {
-				check_user_id: actorUserId
-			});
+			let isSuspended: boolean | null = null;
+			try {
+				const suspensionResult = await input.supabase.rpc('is_user_suspended', {
+					check_user_id: actorUserId
+				});
+				if (suspensionResult?.error === null && typeof suspensionResult.data === 'boolean') {
+					isSuspended = suspensionResult.data;
+				}
+			} catch {
+				// An unavailable lookup must never become an unsuspended actor.
+			}
 
 			return {
 				sessionStartedAt: input.session?.user?.last_sign_in_at ?? null,
 				currentAssuranceLevel: assuranceResult.error ? null : (assuranceResult.data?.currentLevel ?? null),
 				nextAssuranceLevel: assuranceResult.error ? null : (assuranceResult.data?.nextLevel ?? null),
-				isSuspended: suspensionResult.error ? null : Boolean(suspensionResult.data),
-				suspensionStatusAvailable: !suspensionResult.error
+				isSuspended,
+				suspensionStatusAvailable: isSuspended !== null
 			};
 		}
 	});

@@ -13,9 +13,10 @@ export const attemptStore = {
 		if (
 			args.p_action === 'restart' &&
 			row &&
-			(row.state === 'failed' ||
-				(row.state === 'complete' && !args.p_flow) ||
-				(row.session !== args.p_session && row.expiresAt <= Date.now() / 1000))
+			row.actor === args.p_actor &&
+			((row.session === args.p_session && row.state === 'failed') ||
+				(row.session === args.p_session && row.state === 'complete' && !args.p_flow) ||
+				(row.session !== args.p_session && (row.state === 'complete' || row.expiresAt <= Date.now() / 1000)))
 		) {
 			attemptStore.row = null;
 			row = null;

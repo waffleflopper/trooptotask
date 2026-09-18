@@ -1,8 +1,9 @@
+import { checkSessionAssurance } from '$lib/server/sessionAssurance';
 import { passwordCompletionState } from '$lib/server/passwordCompletion';
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { autoAcceptOrgInvites, InvitationAcceptanceError } from '$lib/server/auto-accept-org-invites';
-import { getPendingAuthFlowCookieName, isMfaStepUpRequired } from '$lib/server/mfaGate';
+import { getPendingAuthFlowCookieName } from '$lib/server/mfaGate';
 import { parseUserProfileForm, upsertCurrentUserProfile } from '$lib/server/userProfile';
 
 function parseMetadataProfile(metadata: Record<string, unknown> | null | undefined) {
@@ -52,36 +53,23 @@ export const POST: RequestHandler = async ({ locals, cookies }) => {
 
 	// Completion grants membership and clears the pending flow. Recheck the admitted
 	// token immediately before these effects, including when hook admission was stale.
-	try {
-		const assurance = await locals.supabase.auth.mfa.getAuthenticatorAssuranceLevel(session.access_token);
-		if (
-			assurance?.error !== null ||
-			!['aal1', 'aal2'].includes(assurance.data?.currentLevel ?? '') ||
-			!['aal1', 'aal2'].includes(assurance.data?.nextLevel ?? '')
-		) {
-			return json(
-				{ error: 'Unable to verify authentication status. Please try again.', accepted: 0, activated: false },
-				{ status: 503 }
-			);
-		}
-		if (session.expires_at <= Date.now() / 1000) return inactiveSession();
-		if (isMfaStepUpRequired(assurance.data)) {
-			return json(
-				{
-					code: 'mfa_required',
-					error: 'Verify your authenticator code before finishing account activation.',
-					accepted: 0,
-					activated: false
-				},
-				{ status: 403 }
-			);
-		}
-	} catch {
+	const assurance = await checkSessionAssurance(locals.supabase, session);
+	if (assurance === 'unavailable')
 		return json(
 			{ error: 'Unable to verify authentication status. Please try again.', accepted: 0, activated: false },
 			{ status: 503 }
 		);
-	}
+	if (assurance === 'expired') return inactiveSession();
+	if (assurance === 'mfa_required')
+		return json(
+			{
+				code: 'mfa_required',
+				error: 'Verify your authenticator code before finishing account activation.',
+				accepted: 0,
+				activated: false
+			},
+			{ status: 403 }
+		);
 
 	const completion = await passwordCompletionState(locals);
 	if (completion !== 'complete')

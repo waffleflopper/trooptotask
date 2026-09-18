@@ -1,4 +1,5 @@
-vi.mock('$env/dynamic/private', () => ({ env: { ACCOUNT_SETUP_SESSION_SECRET: 'synthetic-receipt-secret' } }));
+vi.mock('$lib/server/supabase', () => ({ getAdminClient: () => ({ rpc: attemptStore.rpc }) }));
+import { attemptStore } from '../../../../tests/fixtures/passwordAttempt';
 import { afterEach, expect, it, vi } from 'vitest';
 import { createServerClient } from '@supabase/ssr';
 import { POST } from './+server';
@@ -175,6 +176,7 @@ it('isolates real SDK proof, revokes only its temporary session, and changes the
 it.each(['missing actor', 'wrong actor', 'provider unavailable', 'accepted', 'revoke401', 'revoke403', 'revoke404'])(
 	'validates the real SDK mutation result for %s before completion',
 	async (outcome) => {
+		attemptStore.committed = outcome === 'accepted' || outcome.startsWith('revoke');
 		const user = { id: '00000000-0000-4000-8000-000000000001', email: 'actor@example.test', aud: 'authenticated' };
 		const encode = (value: unknown) => Buffer.from(JSON.stringify(value)).toString('base64url');
 		const token = `${encode({ alg: 'HS256', typ: 'JWT' })}.${encode({ sub: user.id, session_id: '00000000-0000-4000-8000-000000000001', exp: 4102444800, aud: 'authenticated', aal: 'aal1' })}.${encode('synthetic')}`;
@@ -224,7 +226,7 @@ it.each(['missing actor', 'wrong actor', 'provider unavailable', 'accepted', 're
 			cookies,
 			getClientAddress: () => '192.0.2.1'
 		} as unknown as Parameters<typeof POST>[0]);
-		expect(response.status).toBe(outcome === 'accepted' ? 200 : outcome.startsWith('revoke') ? 202 : 503);
+		expect(response.status).toBe(outcome === 'accepted' ? 200 : outcome.startsWith('revoke') ? 202 : 409);
 		expect(await response.text()).not.toContain('private');
 		expect(revocations).toEqual(outcome === 'accepted' || outcome.startsWith('revoke') ? ['others'] : []);
 		expect(cookies.delete).toHaveBeenCalledTimes(outcome === 'accepted' ? 1 : 0);

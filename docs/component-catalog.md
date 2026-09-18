@@ -57,7 +57,7 @@ Implementation note: the current `shadcn-svelte@1.2.7` CLI generated the support
 
 ## Password completion continuation
 
-`auth/PasswordCompletion.svelte` is the shared received-completion consumer for Account Security, recovery and invite. Their loaders restore the signed receipt's public state without serializing tokens or receipt contents. Pending completion offers a serialized revocation-only retry, preserves actionable errors, focuses the next button and uses `PasswordMfaChallenge` for fresh MFA. Confirmed completion advances recovery or invite activation; Account Security offers an explicit restart before another password edit. Expired or unverifiable receipts lead to the existing sign-out action. Password drafts are discarded only after confirmed mutation. Responses lost before receipt delivery and concurrent initial mutations remain the server-persistence task's responsibility.
+`auth/PasswordCompletion.svelte` composes the shared auth primitives for Account Security, recovery and invite reconciliation. Loaders expose only the server-persisted attempt state. Unknown outcomes offer a serialized status check; confirmed changes retry revocation alone; fenced failures permit explicit restart. Transport errors and reload never automatically resubmit a password. Fresh MFA uses `PasswordMfaChallenge`, with focus restored to the next action. Confirmed completion advances recovery or invite activation; Account Security offers explicit restart. Unavailable persistence offers status retry. Expired attempts require a fresh session after their original expiry before restart. Password drafts are discarded on confirmation or an unknown mutation outcome.
 
 ## `ui/page-shell`
 

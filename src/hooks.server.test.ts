@@ -1,3 +1,5 @@
+import { attemptStore } from './tests/fixtures/passwordAttempt';
+vi.mock('$lib/server/supabase', () => ({ getAdminClient: () => ({ rpc: attemptStore.rpc }) }));
 vi.mock('$env/dynamic/private', () => ({ env: { ACCOUNT_SETUP_SESSION_SECRET: 'synthetic-receipt-secret' } }));
 import { passwordSessionToken } from './tests/fixtures/passwordSession';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -265,6 +267,15 @@ describe('server auth hook', () => {
 		const accept = vi.fn();
 		const profile = vi.fn();
 		beforeEach(() => {
+			attemptStore.row = {
+				actor: 'user-1',
+				session: '00000000-0000-4000-8000-000000000001',
+				id: '00000000-0000-4000-8000-000000000099',
+				flow: 'invite',
+				state: 'complete',
+				expiresAt: NOW.getTime() / 1000 + 3600,
+				acquired: false
+			};
 			accept.mockReset().mockResolvedValue({ accepted: 1 });
 			profile.mockReset().mockResolvedValue(undefined);
 			vi.doMock('$lib/server/auto-accept-org-invites', () => ({ autoAcceptOrgInvites: accept }));
@@ -350,7 +361,10 @@ describe('server auth hook', () => {
 			expect(response.status).toBe(200);
 			expect(await response.json()).toEqual({ ok: true });
 			expect(limit).toHaveBeenCalledWith({ userId: 'user-1', ip: '127.0.0.1' });
-			expect(h.updateUser).toHaveBeenCalledExactlyOnceWith({ password: 'NewSecurePass12' });
+			expect(h.updateUser).toHaveBeenCalledExactlyOnceWith({
+				password: 'NewSecurePass12',
+				data: { ttt_password_attempt: '00000000-0000-4000-8000-000000000099' }
+			});
 			if (flow) expect(h.signInWithPassword).not.toHaveBeenCalled();
 			else
 				expect(h.signInWithPassword).toHaveBeenCalledWith({ email: 'user@example.com', password: 'OldSecurePass12' });
@@ -394,7 +408,10 @@ describe('server auth hook', () => {
 					resolve: (event) => POST(event as Parameters<typeof POST>[0])
 				});
 				expect(retry.status).toBe(200);
-				expect(h.updateUser).toHaveBeenCalledExactlyOnceWith({ password: 'NewSecurePass12' });
+				expect(h.updateUser).toHaveBeenCalledExactlyOnceWith({
+					password: 'NewSecurePass12',
+					data: { ttt_password_attempt: '00000000-0000-4000-8000-000000000099' }
+				});
 			}
 		);
 
@@ -428,7 +445,10 @@ describe('server auth hook', () => {
 					resolve: (event) => POST(event as Parameters<typeof POST>[0])
 				});
 				expect(completed.status).toBe(200);
-				expect(h.updateUser).toHaveBeenCalledExactlyOnceWith({ password: 'NewSecurePass12' });
+				expect(h.updateUser).toHaveBeenCalledExactlyOnceWith({
+					password: 'NewSecurePass12',
+					data: { ttt_password_attempt: '00000000-0000-4000-8000-000000000099' }
+				});
 				expect(h.signOut.mock.calls).toEqual([
 					[passwordSessionToken('user-1'), 'others'],
 					[passwordSessionToken('user-1'), 'others']

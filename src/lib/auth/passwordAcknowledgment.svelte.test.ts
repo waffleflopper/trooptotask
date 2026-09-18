@@ -43,7 +43,7 @@ describe.each(['security', 'recovery', 'invite'] as const)('%s mutation acknowle
 		'missing acknowledgment',
 		'contradictory success',
 		'null response'
-	])('retains drafts and focused serialized retry after %s, without premature completion', async (failure) => {
+	])('requires focused serialized reconciliation after %s, without premature completion', async (failure) => {
 		let updates = 0,
 			finalizations = 0;
 		let finish!: (r: Response) => void;
@@ -66,6 +66,7 @@ describe.each(['security', 'recovery', 'invite'] as const)('%s mutation acknowle
 					if (failure === 'contradictory success') return Response.json({ ok: true, error: 'Mutation unavailable' });
 					return Response.json({ error: 'Mutation unavailable' }, { status: 503 });
 				}
+				expect(JSON.parse(init.body)).toEqual({ action: 'complete' });
 				return new Promise<Response>((resolve) => {
 					finish = resolve;
 				});
@@ -73,17 +74,16 @@ describe.each(['security', 'recovery', 'invite'] as const)('%s mutation acknowle
 		);
 		const h = await form();
 		await fireEvent.submit(h.element);
-		await waitFor(() => expect(h.first).toHaveFocus());
-		expect(h.password).toHaveValue('NewPassword12');
-		expect(h.confirm).toHaveValue('NewPassword12');
-		if (flow === 'security') expect(h.first).toHaveValue('OldPassword12');
+		const check = await screen.findByRole('button', { name: 'Check password update' });
+		await waitFor(() => expect(check).toHaveFocus());
+		expect(screen.queryByLabelText(/^Confirm/)).toBeNull();
 		expect(document.body.textContent).not.toContain('private transport detail');
 		expect(finalizations).toBe(0);
 		expect(goto).not.toHaveBeenCalled();
-		await fireEvent.submit(h.element);
-		await fireEvent.submit(h.element);
+		await fireEvent.submit(check.closest('form')!);
+		await fireEvent.submit(check.closest('form')!);
 		expect(updates).toBe(2);
-		expect(h.element.querySelector('button[type=submit]')).toBeDisabled();
+		expect(check).toBeDisabled();
 		vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
 		finish(Response.json({ ok: true }));
 		if (flow === 'security') {
@@ -91,7 +91,11 @@ describe.each(['security', 'recovery', 'invite'] as const)('%s mutation acknowle
 			await fireEvent.click(restart);
 			expect(await screen.findByLabelText(/^New [Pp]assword/)).toHaveValue('');
 			expect(document.getElementById('current-password')).toHaveValue('');
-		} else await screen.findByRole('heading', { name: flow === 'recovery' ? 'Password updated' : 'Account activated' });
+		} else if (flow === 'invite') {
+			const activate = await screen.findByRole('button', { name: 'Finish activation' });
+			await fireEvent.click(activate);
+			await screen.findByRole('heading', { name: 'Account activated' });
+		} else await screen.findByRole('heading', { name: 'Password updated' });
 		expect(finalizations).toBe(flow === 'invite' ? 1 : 0);
 		await vi.advanceTimersByTimeAsync(3000);
 		if (flow !== 'security') expect(goto).toHaveBeenCalledWith(flow === 'recovery' ? '/auth/login' : '/dashboard');

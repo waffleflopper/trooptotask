@@ -1,5 +1,6 @@
+vi.mock('$lib/server/supabase', () => ({ getAdminClient: () => ({ rpc: attemptStore.rpc }) }));
+import { attemptStore } from '../../../../tests/fixtures/passwordAttempt';
 import { passwordSessionToken } from '../../../../tests/fixtures/passwordSession';
-vi.mock('$env/dynamic/private', () => ({ env: { ACCOUNT_SETUP_SESSION_SECRET: 'synthetic-receipt-secret' } }));
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const proof = vi.hoisted(() => ({ signIn: vi.fn() }));
 vi.mock('@supabase/supabase-js', () => ({
@@ -117,7 +118,10 @@ describe.each([null, 'recovery', 'invite'] as const)('mutation MFA for %s', (flo
 			2,
 			passwordSessionToken('actor', 'upgraded-token')
 		);
-		expect(h.auth.updateUser).toHaveBeenCalledExactlyOnceWith({ password: 'NewPassword12' });
+		expect(h.auth.updateUser).toHaveBeenCalledExactlyOnceWith({
+			password: 'NewPassword12',
+			data: { ttt_password_attempt: '00000000-0000-4000-8000-000000000099' }
+		});
 	});
 	it('denies expiry while assurance is read', async () => {
 		const h = fixture(flow);
@@ -136,7 +140,7 @@ describe.each([null, 'recovery', 'invite'] as const)('mutation MFA for %s', (flo
 		const h = fixture(flow);
 		h.auth.mfa.getAuthenticatorAssuranceLevel.mockResolvedValueOnce(assurance(current, next));
 		expect((await POST(h.event())).status).toBe(200);
-		expect(h.cookies.set.mock.calls.every(([name]) => name === 'ttt_password_completion')).toBe(true);
+		expect(h.cookies.set).not.toHaveBeenCalled();
 		if (flow === 'invite') expect(h.cookies.delete).not.toHaveBeenCalled();
 	});
 });

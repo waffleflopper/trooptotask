@@ -18,7 +18,7 @@ afterEach(() => {
 	vi.useRealTimers();
 });
 describe.each(['security', 'recovery', 'invite'] as const)('%s confirmed completion', (flow) => {
-	function mount(state: 'pending' | 'complete' | 'expired' | null = null) {
+	function mount(state: 'started' | 'pending' | 'complete' | 'failed' | 'expired' | null = null) {
 		const data = { hasSession: true, passwordCompletion: state };
 		(page as unknown as { set: (x: unknown) => void }).set({ data, state: {} });
 		if (flow === 'security')
@@ -123,12 +123,49 @@ describe.each(['security', 'recovery', 'invite'] as const)('%s confirmed complet
 		expect(button).toBeEnabled();
 		expect(screen.queryByLabelText(/^Confirm/)).toBeNull();
 	});
-	it('does not reopen password entry for an expired receipt', async () => {
+	it('does not reopen password entry for an expired attempt', async () => {
 		const fetchMock = vi.fn();
 		vi.stubGlobal('fetch', fetchMock);
 		mount('expired');
 		expect(await screen.findByRole('button', { name: 'Sign out' })).toBeEnabled();
 		expect(screen.queryByLabelText(/^Confirm/)).toBeNull();
 		expect(fetchMock).not.toHaveBeenCalled();
+	});
+	it('reconciles a lost initial response after reload and requires an explicit restart after fencing', async () => {
+		const requests: Record<string, unknown>[] = [];
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async (url, init) => {
+				if (url === '/api/auth/mfa/status') return Response.json({ currentLevel: 'aal2', nextLevel: 'aal2' });
+				const body = JSON.parse(init.body);
+				requests.push(body);
+				if (body.password) throw Error('lost transport');
+				if (body.action === 'complete')
+					return Response.json(
+						{ ok: false, code: 'password_reconciliation_required', state: 'failed', error: 'Attempt fenced' },
+						{ status: 409 }
+					);
+				return Response.json({ ok: true });
+			})
+		);
+		const mounted = mount();
+		const password = await screen.findByLabelText(flow === 'invite' ? /^Password/ : /^New [Pp]assword/);
+		await fireEvent.input(password, { target: { value: 'NewPassword12' } });
+		await fireEvent.input(screen.getByLabelText(/^Confirm/), { target: { value: 'NewPassword12' } });
+		if (flow === 'security')
+			await fireEvent.input(document.getElementById('current-password')!, { target: { value: 'OldPassword12' } });
+		await fireEvent.submit(password.closest('form')!);
+		expect(await screen.findByRole('button', { name: 'Check password update' })).toHaveFocus();
+		expect(screen.queryByLabelText(/^Confirm/)).toBeNull();
+		mounted.unmount();
+		mount('started');
+		const check = await screen.findByRole('button', { name: 'Check password update' });
+		await fireEvent.submit(check.closest('form')!);
+		const restart = await screen.findByRole('button', { name: 'Start new password update' });
+		await waitFor(() => expect(restart).toHaveFocus());
+		expect(screen.queryByLabelText(/^Confirm/)).toBeNull();
+		await fireEvent.submit(restart.closest('form')!);
+		expect(await screen.findByLabelText(flow === 'invite' ? /^Password/ : /^New [Pp]assword/)).toHaveValue('');
+		expect(requests.slice(1)).toEqual([{ action: 'complete' }, { action: 'restart' }]);
 	});
 });

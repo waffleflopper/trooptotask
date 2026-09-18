@@ -1,10 +1,7 @@
+vi.mock('$lib/server/supabase', () => ({ getAdminClient: () => ({ rpc: attemptStore.rpc }) }));
+import { attemptStore } from '../../../../tests/fixtures/passwordAttempt';
 import { passwordSessionToken } from '../../../../tests/fixtures/passwordSession';
-import {
-	PASSWORD_COMPLETION_COOKIE,
-	preparePasswordCompletion,
-	writePasswordCompletion
-} from '$lib/server/passwordCompletion';
-vi.mock('$env/dynamic/private', () => ({ env: { ACCOUNT_SETUP_SESSION_SECRET: 'synthetic-receipt-secret' } }));
+import { passwordAttempt } from '$lib/server/passwordCompletion';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('$lib/server/auto-accept-org-invites', () => ({
@@ -30,6 +27,15 @@ describe('POST /api/auth/finalize-invite', () => {
 	});
 
 	it('finalizes the invite and clears the pending invite flow marker', async () => {
+		attemptStore.row = {
+			actor: 'user-123',
+			session: '00000000-0000-4000-8000-000000000001',
+			id: '00000000-0000-4000-8000-000000000099',
+			flow: 'invite',
+			state: 'complete',
+			expiresAt: 4102444800,
+			acquired: false
+		};
 		const cookies = { get: vi.fn(), delete: vi.fn() };
 
 		const response = await POST({
@@ -43,7 +49,7 @@ describe('POST /api/auth/finalize-invite', () => {
 						rank: 'SGT'
 					}
 				},
-				session: { user: { id: 'user-123' }, access_token: 'admitted-token', expires_at: 4102444800 },
+				session: { user: { id: 'user-123' }, access_token: passwordSessionToken('user-123'), expires_at: 4102444800 },
 				authFlow: 'invite',
 				supabase: {
 					auth: {
@@ -70,8 +76,8 @@ describe('POST /api/auth/finalize-invite', () => {
 		expect(cookies.delete).toHaveBeenCalledWith('ttt_pending_auth_flow', { path: '/' });
 	});
 
-	it.each(['pending', 'expired', 'unavailable', 'complete'] as const)(
-		'allows activation only after received revocation completion: %s',
+	it.each([null, 'started', 'failed', 'pending', 'expired', 'unavailable', 'complete'] as const)(
+		'allows activation only after persisted revocation completion: %s',
 		async (state) => {
 			const jar = new Map<string, string>();
 			const cookies = {
@@ -104,11 +110,12 @@ describe('POST /api/auth/finalize-invite', () => {
 					}
 				}
 			} as unknown as App.Locals;
-			const receipt = preparePasswordCompletion(locals);
-			if (state === 'complete') receipt.state = 'complete';
-			if (state === 'expired') receipt.expiresAt = Date.now() / 1000 - 1;
-			writePasswordCompletion(cookies, receipt);
-			if (state === 'unavailable') jar.set(PASSWORD_COMPLETION_COOKIE, 'altered');
+			await passwordAttempt(locals, 'begin');
+			if (state === null) attemptStore.row = null;
+			else if (state === 'started' || state === 'failed' || state === 'complete') attemptStore.row!.state = state;
+			else attemptStore.row!.state = 'pending';
+			if (state === 'expired') attemptStore.row!.expiresAt = Date.now() / 1000 - 1;
+			if (state === 'unavailable') attemptStore.unavailable = true;
 			const response = await POST({ locals, cookies } as unknown as Parameters<typeof POST>[0]);
 			if (state === 'complete') {
 				expect(response.status).toBe(200);

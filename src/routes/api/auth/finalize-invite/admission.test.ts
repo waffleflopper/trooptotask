@@ -1,3 +1,6 @@
+import { passwordSessionToken } from '../../../../tests/fixtures/passwordSession';
+vi.mock('$lib/server/supabase', () => ({ getAdminClient: () => ({ rpc: attemptStore.rpc }) }));
+import { attemptStore } from '../../../../tests/fixtures/passwordAttempt';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const effects = vi.hoisted(() => ({ profile: vi.fn(), accept: vi.fn() }));
 vi.mock('$lib/server/auto-accept-org-invites', () => ({ autoAcceptOrgInvites: effects.accept }));
@@ -14,7 +17,16 @@ function fixture() {
 		email: 'verified@example.test',
 		user_metadata: { firstName: 'Jane', lastName: 'Smith', rank: 'SGT' }
 	};
-	const session = { user, access_token: 'admitted-token', expires_at: now.getTime() / 1000 + 60 };
+	attemptStore.row = {
+		actor: user.id,
+		session: '00000000-0000-4000-8000-000000000001',
+		id: '00000000-0000-4000-8000-000000000099',
+		flow: 'invite',
+		state: 'complete',
+		expiresAt: now.getTime() / 1000 + 60,
+		acquired: false
+	};
+	const session = { user, access_token: passwordSessionToken('verified-actor'), expires_at: now.getTime() / 1000 + 60 };
 	const readAssurance = vi.fn().mockResolvedValue(assurance());
 	const locals = {
 		user,
@@ -115,10 +127,10 @@ describe('invite finalization request admission', () => {
 		expect(response.status).toBe(403);
 		expect(await response.json()).toMatchObject({ code: 'mfa_required', activated: false });
 		h.denied();
-		h.locals.session.access_token = 'upgraded-token';
+		h.locals.session.access_token = passwordSessionToken('verified-actor', 'upgraded');
 		expect((await POST(h.event())).status).toBe(200);
-		expect(h.readAssurance).toHaveBeenNthCalledWith(1, 'admitted-token');
-		expect(h.readAssurance).toHaveBeenNthCalledWith(2, 'upgraded-token');
+		expect(h.readAssurance).toHaveBeenNthCalledWith(1, passwordSessionToken('verified-actor'));
+		expect(h.readAssurance).toHaveBeenNthCalledWith(2, passwordSessionToken('verified-actor', 'upgraded'));
 		expect(effects.accept).toHaveBeenCalledExactlyOnceWith(h.locals.supabase, 'verified@example.test');
 	});
 	it('denies expiry during assurance before profile/membership/cookie effects', async () => {

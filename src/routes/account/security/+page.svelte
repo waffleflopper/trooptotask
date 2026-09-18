@@ -210,6 +210,11 @@
 				return;
 			}
 			const payload = (await response.json()) as { ok?: boolean; error?: unknown; code?: string } | null;
+			if (payload?.code === 'password_reconciliation_required') {
+				completion = 'started';
+				currentPassword = newPassword = confirmPassword = '';
+				return;
+			}
 			if (hasPendingPasswordCompletion(response, payload)) {
 				completion = 'pending';
 				currentPassword = '';
@@ -223,6 +228,10 @@
 			}
 
 			if (!response.ok || payload?.ok !== true || payload.error !== undefined) {
+				if (response.status >= 500 || response.ok) {
+					completion = 'started';
+					currentPassword = newPassword = confirmPassword = '';
+				}
 				passwordError =
 					typeof payload?.error === 'string'
 						? payload.error
@@ -235,6 +244,8 @@
 			newPassword = '';
 			confirmPassword = '';
 		} catch {
+			completion = 'started';
+			currentPassword = newPassword = confirmPassword = '';
 			passwordError = 'Unable to confirm the password update. Your password may have changed.';
 		} finally {
 			passwordLoading = false;

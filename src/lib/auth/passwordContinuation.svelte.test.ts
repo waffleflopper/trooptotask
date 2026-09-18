@@ -36,7 +36,7 @@ it.each(['security', 'recovery', 'invite'] as const)(
 					const body = JSON.parse(init.body);
 					updates.push(body);
 					if (!verified) return Response.json({ code: 'mfa_required', error: 'Verify MFA' }, { status: 403 });
-					// Stop before completion/navigation, which is owned by the next queue child.
+					// An unknown mutation result must enter durable reconciliation.
 					return Response.json({ error: 'Synthetic mutation unavailable' }, { status: 503 });
 				}
 				if (url === '/api/auth/finalize-invite') {
@@ -81,7 +81,7 @@ it.each(['security', 'recovery', 'invite'] as const)(
 			expect(flow === 'security' ? document.getElementById('current-password') : retained).toHaveFocus()
 		);
 		await fireEvent.submit(retained.closest('form')!);
-		expect(await screen.findByText('Synthetic mutation unavailable')).toBeVisible();
+		expect(await screen.findByRole('button', { name: 'Check password update' })).toHaveFocus();
 		expect(updates).toEqual(
 			flow === 'security'
 				? [

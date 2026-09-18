@@ -1,9 +1,14 @@
+import { attemptStore } from '../../../../tests/fixtures/passwordAttempt';
 import { passwordSessionToken } from '../../../../tests/fixtures/passwordSession';
-vi.mock('$env/dynamic/private', () => ({ env: { ACCOUNT_SETUP_SESSION_SECRET: 'synthetic-receipt-secret' } }));
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { rpc, auditLog } = vi.hoisted(() => ({ rpc: vi.fn(), auditLog: vi.fn() }));
-vi.mock('$lib/server/supabase', () => ({ getAdminClient: () => ({ rpc }) }));
+vi.mock('$lib/server/supabase', () => ({
+	getAdminClient: () => ({
+		rpc: (name: string, args: Record<string, string | null>) =>
+			name === 'password_change_attempt' ? attemptStore.rpc(name, args) : rpc(name, args)
+	})
+}));
 vi.mock('$lib/server/auditLog', () => ({ auditLog }));
 
 const proofProvider = vi.hoisted(() => ({ auth: {} as Record<string, unknown> }));
@@ -91,7 +96,10 @@ describe('password updates through the durable provider boundary', () => {
 			const response = await POST(event());
 			expect(response.status).toBe(200);
 			expect(await response.json()).toEqual({ ok: true });
-			expect(auth.updateUser).toHaveBeenCalledExactlyOnceWith({ password: 'NewSecurePass12' });
+			expect(auth.updateUser).toHaveBeenCalledExactlyOnceWith({
+				password: 'NewSecurePass12',
+				data: { ttt_password_attempt: '00000000-0000-4000-8000-000000000099' }
+			});
 		}
 	);
 

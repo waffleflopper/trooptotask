@@ -2,6 +2,12 @@ import { json } from '@sveltejs/kit';
 import { createClient } from '@supabase/supabase-js';
 import { PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY } from '$env/static/public';
 import type { RequestHandler } from './$types';
+import {
+	PASSWORD_COMPLETION_COOKIE,
+	preparePasswordCompletion,
+	readPasswordCompletion,
+	writePasswordCompletion
+} from '$lib/server/passwordCompletion';
 import { auditLog } from '$lib/server/auditLog';
 import {
 	checkPasswordUpdateRateLimit,
@@ -37,7 +43,35 @@ export const POST: RequestHandler = async ({ request, locals, cookies, getClient
 	if (!body || typeof body !== 'object' || Array.isArray(body)) {
 		return json({ error: 'Invalid password update request' }, { status: 400 });
 	}
-	const { currentPassword, password, confirmPassword } = body as Record<string, unknown>;
+	const { currentPassword, password, confirmPassword, action } = body as Record<string, unknown>;
+	const receipt = readPasswordCompletion(cookies, locals);
+	if (receipt === 'expired' || receipt === 'unavailable') {
+		return json(
+			{ code: 'password_completion_expired', error: 'Sign out and sign in again to continue safely.' },
+			{ status: 409 }
+		);
+	}
+	if (receipt || action !== undefined) {
+		if (!receipt) return json({ error: 'No confirmed password update is awaiting completion.' }, { status: 409 });
+		const limited = await checkAndAuditPasswordUpdateLimit({ request, getClientAddress, userId, userEmail });
+		if (limited) return limited;
+		const denied = await authorizeCompletion(locals);
+		if (denied) return denied;
+		if (receipt.expiresAt <= Date.now() / 1000)
+			return json({ error: 'Password completion expired. Sign out and sign in again.' }, { status: 409 });
+		if (action === 'restart') {
+			if (receipt.state !== 'complete' || locals.authFlow)
+				return json({ error: 'Finish the current password update first.' }, { status: 409 });
+			cookies.delete(PASSWORD_COMPLETION_COOKIE, { path: '/' });
+			return json({ ok: true });
+		}
+		if (action !== undefined && action !== 'complete')
+			return json({ error: 'Invalid completion action.' }, { status: 400 });
+		if (receipt.flow !== (locals.authFlow ?? null) && !(receipt.state === 'complete' && !locals.authFlow)) {
+			return json({ error: 'The password completion flow no longer matches this session.' }, { status: 409 });
+		}
+		return finishPasswordCompletion(locals, cookies, receipt);
+	}
 	if (typeof password !== 'string') {
 		return json({ error: 'New password is required' }, { status: 400 });
 	}
@@ -95,26 +129,13 @@ export const POST: RequestHandler = async ({ request, locals, cookies, getClient
 		if (session.expires_at <= Date.now() / 1000) return inactiveSession();
 	}
 
-	// Proof has its own AAL1 token. Authorize the mutation using the original admitted token,
-	// reading fresh provider facts after proof/limiter work rather than trusting hook state.
+	const denied = await authorizeCompletion(locals);
+	if (denied) return denied;
+	let pending: ReturnType<typeof preparePasswordCompletion>;
 	try {
-		const assurance = await locals.supabase.auth.mfa.getAuthenticatorAssuranceLevel(session.access_token);
-		if (
-			assurance?.error !== null ||
-			!['aal1', 'aal2'].includes(assurance.data?.currentLevel ?? '') ||
-			!['aal1', 'aal2'].includes(assurance.data?.nextLevel ?? '')
-		) {
-			return json({ error: 'Unable to verify authentication status. Please try again.' }, { status: 503 });
-		}
-		if (session.expires_at <= Date.now() / 1000) return inactiveSession();
-		if (isMfaStepUpRequired(assurance.data)) {
-			return json(
-				{ code: 'mfa_required', error: 'Verify your authenticator code before changing your password.' },
-				{ status: 403 }
-			);
-		}
+		pending = preparePasswordCompletion(locals);
 	} catch {
-		return json({ error: 'Unable to verify authentication status. Please try again.' }, { status: 503 });
+		return json({ error: 'Unable to prepare password completion. Please try again.' }, { status: 503 });
 	}
 
 	const unconfirmedMutation = () =>
@@ -139,27 +160,79 @@ export const POST: RequestHandler = async ({ request, locals, cookies, getClient
 		return unconfirmedMutation();
 	}
 
-	// Rotating the password logs out other devices so a compromised session cannot persist.
-	const { error: revokeError } = await locals.supabase.auth.signOut({ scope: 'others' });
-	if (revokeError) {
-		auditLog(
-			{
-				action: 'auth.session_revoke_failed',
-				resourceType: 'user',
-				resourceId: userId ?? undefined,
-				severity: 'warning',
-				details: {}
-			},
-			{ userId }
-		);
-	}
-
-	if (locals.authFlow === 'recovery') {
-		cookies.delete(getPendingAuthFlowCookieName(), { path: '/' });
-	}
-
-	return json({ ok: true });
+	writePasswordCompletion(cookies, pending);
+	return finishPasswordCompletion(locals, cookies, pending);
 };
+
+async function finishPasswordCompletion(
+	locals: App.Locals,
+	cookies: Parameters<RequestHandler>[0]['cookies'],
+	receipt: ReturnType<typeof preparePasswordCompletion>
+): Promise<Response> {
+	if (receipt.state !== 'complete') {
+		let revoked = false;
+		try {
+			if (receipt.expiresAt > Date.now() / 1000)
+				// The session helper suppresses 401/403/404. Use the explicit-token SDK call
+				// so denial cannot be mistaken for revocation; no service-role credential is used.
+				revoked = (await locals.supabase.auth.admin.signOut(locals.session!.access_token, 'others'))?.error === null;
+		} catch {
+			/* Provider exceptions may contain credentials. */
+		}
+		if (!revoked) {
+			auditLog(
+				{
+					action: 'auth.session_revoke_failed',
+					resourceType: 'user',
+					resourceId: locals.user!.id,
+					severity: 'warning',
+					details: {}
+				},
+				{ userId: locals.user!.id }
+			);
+			return json(
+				{
+					ok: false,
+					passwordUpdated: true,
+					code: 'session_revocation_pending',
+					error: 'Your password changed. Finish signing out other sessions to complete this update.'
+				},
+				{ status: 202 }
+			);
+		}
+		writePasswordCompletion(cookies, { ...receipt, state: 'complete' });
+	}
+	if (receipt.flow === 'recovery') cookies.delete(getPendingAuthFlowCookieName(), { path: '/' });
+	return json({ ok: true });
+}
+
+async function authorizeCompletion(locals: App.Locals): Promise<Response | null> {
+	const session = locals.session!;
+	// Proof has its own AAL1 token. Authorize the mutation using the original admitted token,
+	// reading fresh provider facts after proof/limiter work rather than trusting hook state.
+	try {
+		const assurance = await locals.supabase.auth.mfa.getAuthenticatorAssuranceLevel(session.access_token);
+		if (
+			assurance?.error !== null ||
+			!['aal1', 'aal2'].includes(assurance.data?.currentLevel ?? '') ||
+			!['aal1', 'aal2'].includes(assurance.data?.nextLevel ?? '')
+		) {
+			return json({ error: 'Unable to verify authentication status. Please try again.' }, { status: 503 });
+		}
+		if (session.expires_at! <= Date.now() / 1000)
+			return json({ error: 'Your session expired. Sign in again.' }, { status: 401 });
+		if (isMfaStepUpRequired(assurance.data)) {
+			return json(
+				{ code: 'mfa_required', error: 'Verify your authenticator code before changing your password.' },
+				{ status: 403 }
+			);
+		}
+	} catch {
+		return json({ error: 'Unable to verify authentication status. Please try again.' }, { status: 503 });
+	}
+
+	return null;
+}
 
 async function checkAndAuditPasswordUpdateLimit(input: {
 	request: Request;
@@ -222,9 +295,12 @@ async function verifyPasswordProof(
 	});
 	let outcome: 'accepted' | 'incorrect' | 'unavailable' = 'unavailable';
 	let expiresAt = 0;
+	let issuedToken: string | undefined;
 	try {
 		const result = await proof.auth.signInWithPassword({ email, password });
 		const issued = result?.data?.session;
+		if (typeof issued?.access_token === 'string' && /^\S+$/.test(issued.access_token))
+			issuedToken = issued.access_token;
 		if (result?.error && [400, 401, 403].includes(result.error.status ?? 0)) {
 			outcome = 'incorrect';
 		} else if (
@@ -257,7 +333,12 @@ async function verifyPasswordProof(
 	// Revoke only this temporary proof session, including on malformed/error results.
 	// Never let a failed proof clear the request session or other browser sessions.
 	try {
-		const revoked = await proof.auth.signOut({ scope: 'local' });
+		// An issued proof token requires actual provider acknowledgment too; the
+		// session helper would suppress permission/expiry failures. Failed sign-in
+		// without a usable issued token only needs best-effort local cleanup.
+		const revoked = issuedToken
+			? await proof.auth.admin.signOut(issuedToken, 'local')
+			: await proof.auth.signOut({ scope: 'local' });
 		if (revoked?.error !== null) return 'unavailable';
 	} catch {
 		return 'unavailable';

@@ -1,3 +1,5 @@
+import { passwordSessionToken } from '../../../../tests/fixtures/passwordSession';
+vi.mock('$env/dynamic/private', () => ({ env: { ACCOUNT_SETUP_SESSION_SECRET: 'synthetic-receipt-secret' } }));
 import { afterEach, expect, it, vi } from 'vitest';
 vi.mock('$lib/server/passwordUpdateRateLimit', () => ({
 	checkPasswordUpdateRateLimit: async () => ({ limited: false }),
@@ -13,9 +15,9 @@ function fixture() {
 			getAuthenticatorAssuranceLevel: async () => ({ data: { currentLevel: 'aal2', nextLevel: 'aal2' }, error: null })
 		},
 		updateUser: vi.fn().mockResolvedValue({ data: { user }, error: null }),
-		signOut: vi.fn().mockResolvedValue({ error: null })
+		admin: { signOut: vi.fn().mockResolvedValue({ error: null }) }
 	};
-	const cookies = { delete: vi.fn() };
+	const cookies = { get: vi.fn(), set: vi.fn(), delete: vi.fn() };
 	const event = () =>
 		({
 			request: new Request('https://app.invalid/api/auth/update-password', {
@@ -24,7 +26,11 @@ function fixture() {
 			}),
 			locals: {
 				user,
-				session: { user, access_token: 'admitted-token', expires_at: Date.now() / 1000 + 60 },
+				session: {
+					user,
+					access_token: passwordSessionToken('actor', 'admitted-token'),
+					expires_at: Date.now() / 1000 + 60
+				},
 				authFlow: 'recovery',
 				supabase: { auth }
 			},
@@ -51,7 +57,7 @@ it.each([
 	const response = await POST(h.event());
 	expect(response.status).toBe(503);
 	expect(await response.json()).toMatchObject({ code: 'password_update_unconfirmed' });
-	expect(h.auth.signOut).not.toHaveBeenCalled();
+	expect(h.auth.admin.signOut).not.toHaveBeenCalled();
 	expect(h.cookies.delete).not.toHaveBeenCalled();
 });
 it('contains a thrown mutation failure without logging credentials or performing completion effects', async () => {
@@ -62,7 +68,7 @@ it('contains a thrown mutation failure without logging credentials or performing
 	expect(response.status).toBe(503);
 	expect(await response.text()).not.toContain('private');
 	expect(log).not.toHaveBeenCalled();
-	expect(h.auth.signOut).not.toHaveBeenCalled();
+	expect(h.auth.admin.signOut).not.toHaveBeenCalled();
 	expect(h.cookies.delete).not.toHaveBeenCalled();
 });
 it('keeps a rejected mutation retryable and completes only an acknowledged retry for the admitted actor', async () => {
@@ -74,11 +80,14 @@ it('keeps a rejected mutation retryable and completes only an acknowledged retry
 	const rejected = await POST(h.event());
 	expect(rejected.status).toBe(400);
 	expect(await rejected.text()).not.toContain('private');
-	expect(h.auth.signOut).not.toHaveBeenCalled();
+	expect(h.auth.admin.signOut).not.toHaveBeenCalled();
 	expect(h.cookies.delete).not.toHaveBeenCalled();
 	const accepted = await POST(h.event());
 	expect(accepted.status).toBe(200);
 	expect(await accepted.json()).toEqual({ ok: true });
-	expect(h.auth.signOut).toHaveBeenCalledExactlyOnceWith({ scope: 'others' });
+	expect(h.auth.admin.signOut).toHaveBeenCalledExactlyOnceWith(
+		passwordSessionToken('actor', 'admitted-token'),
+		'others'
+	);
 	expect(h.cookies.delete).toHaveBeenCalledOnce();
 });

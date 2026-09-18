@@ -1,3 +1,5 @@
+vi.mock('$env/dynamic/private', () => ({ env: { ACCOUNT_SETUP_SESSION_SECRET: 'synthetic-receipt-secret' } }));
+import { passwordSessionToken } from './tests/fixtures/passwordSession';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Cookies, Handle, RequestHandler } from '@sveltejs/kit';
 import { POST as enrollMfa } from './routes/api/auth/mfa/enroll/+server';
@@ -71,7 +73,7 @@ describe('server auth hook', () => {
 		};
 		const authenticatedUser = { ...user, id: options.authenticatedUserId ?? user.id };
 		const session = {
-			access_token: 'token',
+			access_token: passwordSessionToken('user-1'),
 			refresh_token: 'refresh-token',
 			expires_in: 3600,
 			expires_at: Math.floor(now.getTime() / 1000) + 3600,
@@ -170,6 +172,7 @@ describe('server auth hook', () => {
 			return {
 				auth: {
 					signOut,
+					admin: { signOut },
 					signInWithPassword,
 					updateUser,
 					getSession,
@@ -195,7 +198,8 @@ describe('server auth hook', () => {
 							.fn()
 							.mockResolvedValue({ data: { currentLevel: 'aal1', nextLevel: 'aal1' }, error: null })
 					},
-					signOut: vi.fn().mockResolvedValue({ error: null })
+					signOut: vi.fn().mockResolvedValue({ error: null }),
+					admin: { signOut: vi.fn().mockResolvedValue({ error: null }) }
 				}
 			})
 		}));
@@ -391,6 +395,45 @@ describe('server auth hook', () => {
 				});
 				expect(retry.status).toBe(200);
 				expect(h.updateUser).toHaveBeenCalledExactlyOnceWith({ password: 'NewSecurePass12' });
+			}
+		);
+
+		it.each(['recovery', 'invite'])(
+			'resumes %s revocation through admission after a received partial response and reload',
+			async (flow) => {
+				const h = await createAuthenticatedHookHarness({ data: false, error: null });
+				const { POST } = await import('./routes/api/auth/update-password/+server');
+				h.signOut.mockResolvedValueOnce({ error: { message: 'Unavailable' } });
+				const initial = h.createEvent('/api/auth/update-password', {
+					'sb-example-auth-token': 'session',
+					ttt_pending_auth_flow: flow
+				});
+				initial.request = new Request(initial.url, {
+					method: 'POST',
+					body: JSON.stringify({ password: 'NewSecurePass12' })
+				});
+				const partial = await h.handle({
+					event: initial,
+					resolve: (event) => POST(event as Parameters<typeof POST>[0])
+				});
+				expect(partial.status).toBe(202);
+				expect(initial.cookies.get('ttt_pending_auth_flow')).toBe(flow);
+				const reloaded = h.createEvent(
+					'/api/auth/update-password',
+					Object.fromEntries(initial.cookies.getAll().map(({ name, value }) => [name, value]))
+				);
+				reloaded.request = new Request(reloaded.url, { method: 'POST', body: JSON.stringify({ action: 'complete' }) });
+				const completed = await h.handle({
+					event: reloaded,
+					resolve: (event) => POST(event as Parameters<typeof POST>[0])
+				});
+				expect(completed.status).toBe(200);
+				expect(h.updateUser).toHaveBeenCalledExactlyOnceWith({ password: 'NewSecurePass12' });
+				expect(h.signOut.mock.calls).toEqual([
+					[passwordSessionToken('user-1'), 'others'],
+					[passwordSessionToken('user-1'), 'others']
+				]);
+				expect(reloaded.cookies.get('ttt_pending_auth_flow')).toBe(flow === 'invite' ? flow : undefined);
 			}
 		);
 
@@ -784,7 +827,7 @@ describe('server auth hook', () => {
 			});
 			await expect(h.handle(h)).rejects.toMatchObject({ status: 303 });
 			expect(h.resolve).not.toHaveBeenCalled();
-			expect(h.sessionLookup).toHaveBeenCalledWith('Authorization', 'Bearer token');
+			expect(h.sessionLookup).toHaveBeenCalledWith('Authorization', `Bearer ${passwordSessionToken('user-1')}`);
 		});
 
 		it.each([undefined, '', 'invalid', '2026-09-17T12:00:00Z'])(
@@ -1253,7 +1296,7 @@ describe('server auth hook', () => {
 		expect(getUser).toHaveBeenCalledWith();
 		expect(locals.user?.id).toBe('user-1');
 		expect(locals.session?.user.id).toBe('user-1');
-		expect(locals.session?.access_token).toBe('token');
+		expect(locals.session?.access_token).toBe(passwordSessionToken('user-1'));
 		expect(locals.session).not.toHaveProperty('provider_token');
 		expect(locals.session).not.toHaveProperty('provider_refresh_token');
 		expect(readStoredUserDuringMfa).toHaveReturnedWith(expect.stringContaining('"id":"user-1"'));

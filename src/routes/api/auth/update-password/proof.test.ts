@@ -1,3 +1,5 @@
+import { passwordSessionToken } from '../../../../tests/fixtures/passwordSession';
+vi.mock('$env/dynamic/private', () => ({ env: { ACCOUNT_SETUP_SESSION_SECRET: 'synthetic-receipt-secret' } }));
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const provider = vi.hoisted(() => ({ signIn: vi.fn(), assurance: vi.fn(), identity: vi.fn(), revoke: vi.fn() }));
@@ -7,7 +9,8 @@ vi.mock('@supabase/supabase-js', () => ({
 			signInWithPassword: provider.signIn,
 			getUser: provider.identity,
 			mfa: { getAuthenticatorAssuranceLevel: provider.assurance },
-			signOut: provider.revoke
+			signOut: provider.revoke,
+			admin: { signOut: provider.revoke }
 		}
 	})
 }));
@@ -42,10 +45,14 @@ function fixture() {
 		},
 		signInWithPassword: provider.signIn,
 		updateUser: vi.fn().mockResolvedValue({ data: { user: user }, error: null }),
-		signOut: vi.fn().mockResolvedValue({ error: null })
+		admin: { signOut: vi.fn().mockResolvedValue({ error: null }) }
 	};
-	const cookies = { set: vi.fn(), delete: vi.fn() };
-	const session = { user, access_token: 'admitted-access', expires_at: now.getTime() / 1000 + 120 };
+	const cookies = { get: vi.fn(), set: vi.fn(), delete: vi.fn() };
+	const session = {
+		user,
+		access_token: passwordSessionToken('actor', 'admitted-access'),
+		expires_at: now.getTime() / 1000 + 120
+	};
 	const event = () =>
 		({
 			request: new Request('https://app.invalid/api/auth/update-password', {
@@ -63,7 +70,7 @@ function fixture() {
 		}) as unknown as Parameters<typeof POST>[0];
 	const denied = () => {
 		expect(auth.updateUser).not.toHaveBeenCalled();
-		expect(auth.signOut).not.toHaveBeenCalled();
+		expect(auth.admin.signOut).not.toHaveBeenCalled();
 		expect(cookies.set).not.toHaveBeenCalled();
 		expect(cookies.delete).not.toHaveBeenCalled();
 	};
@@ -131,7 +138,7 @@ describe('password proof before mutation', () => {
 		const h = fixture();
 		expect((await POST(h.event())).status).toBe(503);
 		h.denied();
-		expect(provider.revoke).toHaveBeenCalledWith({ scope: 'local' });
+		expect(provider.revoke).toHaveBeenCalledWith('proof-access', 'local');
 	});
 	it.each(['signIn', 'identity', 'assurance', 'revoke'] as const)(
 		'contains thrown %s failures and permits independent retry',
@@ -202,9 +209,9 @@ describe('password proof before mutation', () => {
 		expect(provider.signIn).toHaveBeenCalledWith({ email: user.email, password: ' OldPassword12 ' });
 		expect(provider.identity).toHaveBeenCalledWith('proof-access');
 		expect(provider.assurance).toHaveBeenCalledWith('proof-access');
-		expect(provider.revoke).toHaveBeenCalledWith({ scope: 'local' });
+		expect(provider.revoke).toHaveBeenCalledWith('proof-access', 'local');
 		expect(h.auth.updateUser).toHaveBeenCalledExactlyOnceWith({ password: ' NewPassword12 ' });
-		expect(h.session.access_token).toBe('admitted-access');
-		expect(h.cookies.set).not.toHaveBeenCalled();
+		expect(h.session.access_token).toBe(passwordSessionToken('actor', 'admitted-access'));
+		expect(h.cookies.set.mock.calls.every(([name]) => name === 'ttt_password_completion')).toBe(true);
 	});
 });

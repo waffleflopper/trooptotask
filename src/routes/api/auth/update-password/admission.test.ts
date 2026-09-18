@@ -1,3 +1,5 @@
+import { passwordSessionToken } from '../../../../tests/fixtures/passwordSession';
+vi.mock('$env/dynamic/private', () => ({ env: { ACCOUNT_SETUP_SESSION_SECRET: 'synthetic-receipt-secret' } }));
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { limit } = vi.hoisted(() => ({ limit: vi.fn() }));
@@ -36,7 +38,7 @@ function fixture(flow: (typeof flows)[number] = null) {
 			error: null
 		}),
 		updateUser: vi.fn().mockResolvedValue({ data: { user: { id: 'actor-1' } }, error: null }),
-		signOut: vi.fn().mockResolvedValue({ error: null })
+		admin: { signOut: vi.fn().mockResolvedValue({ error: null }) }
 	};
 	proofProvider.auth = {
 		signInWithPassword: auth.signInWithPassword,
@@ -46,12 +48,17 @@ function fixture(flow: (typeof flows)[number] = null) {
 				.fn()
 				.mockResolvedValue({ data: { currentLevel: 'aal1', nextLevel: 'aal1' }, error: null })
 		},
-		signOut: vi.fn().mockResolvedValue({ error: null })
+		signOut: vi.fn().mockResolvedValue({ error: null }),
+		admin: { signOut: vi.fn().mockResolvedValue({ error: null }) }
 	};
-	const cookies = { delete: vi.fn(), set: vi.fn() };
+	const cookies = { get: vi.fn(), delete: vi.fn(), set: vi.fn() };
 	const locals = {
 		user,
-		session: { user, access_token: 'synthetic-token', expires_at: NOW.getTime() / 1000 + 60 },
+		session: {
+			user,
+			access_token: passwordSessionToken('actor-1', 'synthetic-token'),
+			expires_at: NOW.getTime() / 1000 + 60
+		},
 		authFlow: flow,
 		supabase: { auth }
 	};
@@ -70,7 +77,7 @@ function fixture(flow: (typeof flows)[number] = null) {
 	function expectNoEffects() {
 		expect(auth.signInWithPassword).not.toHaveBeenCalled();
 		expect(auth.updateUser).not.toHaveBeenCalled();
-		expect(auth.signOut).not.toHaveBeenCalled();
+		expect(auth.admin.signOut).not.toHaveBeenCalled();
 		expect(cookies.set).not.toHaveBeenCalled();
 		expect(cookies.delete).not.toHaveBeenCalled();
 	}

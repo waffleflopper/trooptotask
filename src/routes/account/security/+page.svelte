@@ -1,5 +1,8 @@
 <script lang="ts">
-	import { tick } from 'svelte';
+	import PasswordCompletion from '$lib/components/auth/PasswordCompletion.svelte';
+	import { hasPendingPasswordCompletion, type PasswordCompletionState } from '$lib/auth/passwordCompletion';
+	let completion = $state<PasswordCompletionState>(null);
+	import { onMount, tick } from 'svelte';
 	import PasswordMfaChallenge from '$lib/components/auth/PasswordMfaChallenge.svelte';
 	let passwordMfaRequired = $state(false);
 	import { goto } from '$app/navigation';
@@ -26,7 +29,6 @@
 	let confirmingDisable = $state(false);
 	let disableCode = $state('');
 	let passwordError = $state('');
-	let passwordSuccess = $state('');
 	let passwordLoading = $state(false);
 	let currentPassword = $state('');
 	let newPassword = $state('');
@@ -34,6 +36,9 @@
 	let emailLoading = $state(false);
 	let emailCurrentPassword = $state('');
 
+	onMount(() => {
+		completion = data.passwordCompletion ?? null;
+	});
 	const mfaEnabled = $derived(mfaOverride ?? data.hasMFA);
 	const pendingEmail = $derived(form?.pendingEmail ?? data.pendingEmail);
 	const hasMinLength = $derived(newPassword.length >= 12);
@@ -185,9 +190,8 @@
 	}
 
 	async function changePassword(form: HTMLFormElement) {
-		if (passwordLoading || passwordMfaRequired) return;
+		if (passwordLoading || passwordMfaRequired || completion) return;
 		passwordError = '';
-		passwordSuccess = '';
 
 		if (!passwordReady) {
 			passwordError = 'Complete the current password and new password requirements.';
@@ -206,6 +210,13 @@
 				return;
 			}
 			const payload = (await response.json()) as { ok?: boolean; error?: unknown; code?: string } | null;
+			if (hasPendingPasswordCompletion(response, payload)) {
+				completion = 'pending';
+				currentPassword = '';
+				newPassword = '';
+				confirmPassword = '';
+				return;
+			}
 			if (response.status === 403 && payload?.code === 'mfa_required') {
 				passwordMfaRequired = true;
 				return;
@@ -219,7 +230,7 @@
 				return;
 			}
 
-			passwordSuccess = 'Password updated. Your current session remains active.';
+			completion = 'complete';
 			currentPassword = '';
 			newPassword = '';
 			confirmPassword = '';
@@ -347,7 +358,19 @@
 			<Card.Description>Verify your current password before setting a new one.</Card.Description>
 		</Card.Header>
 		<Card.Content>
-			{#if passwordMfaRequired}
+			{#if completion}
+				<PasswordCompletion
+					state={completion}
+					oncomplete={() => {
+						completion = 'complete';
+					}}
+					onrestart={async () => {
+						completion = null;
+						await tick();
+						document.getElementById('current-password')?.focus();
+					}}
+				/>
+			{:else if passwordMfaRequired}
 				<PasswordMfaChallenge
 					onverified={async () => {
 						passwordMfaRequired = false;
@@ -367,12 +390,6 @@
 						<Alert.Root variant="destructive">
 							<Alert.Title>Password update not confirmed</Alert.Title>
 							<Alert.Description>{passwordError}</Alert.Description>
-						</Alert.Root>
-					{/if}
-					{#if passwordSuccess}
-						<Alert.Root variant="success">
-							<Alert.Title>Password updated</Alert.Title>
-							<Alert.Description>{passwordSuccess}</Alert.Description>
 						</Alert.Root>
 					{/if}
 

@@ -82,5 +82,6 @@ describe('POST /auth/logout', () => {
 
 		expect(signOut).toHaveBeenCalledOnce();
 		expect(cookies.delete).toHaveBeenCalledWith(getPendingAuthFlowCookieName(), { path: '/' });
+		expect(cookies.delete).toHaveBeenCalledWith('ttt_password_completion', { path: '/' });
 	});
 });

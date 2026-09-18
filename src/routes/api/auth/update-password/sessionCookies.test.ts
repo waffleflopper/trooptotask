@@ -1,3 +1,4 @@
+vi.mock('$env/dynamic/private', () => ({ env: { ACCOUNT_SETUP_SESSION_SECRET: 'synthetic-receipt-secret' } }));
 import { afterEach, expect, it, vi } from 'vitest';
 import { createServerClient } from '@supabase/ssr';
 import { POST } from './+server';
@@ -23,7 +24,7 @@ it('isolates real SDK proof, revokes only its temporary session, and changes the
 	};
 	const encode = (value: unknown) => Buffer.from(JSON.stringify(value)).toString('base64url');
 	const token = (aal: string) =>
-		`${encode({ alg: 'HS256', typ: 'JWT' })}.${encode({ sub: user.id, exp: 4102444800, aud: 'authenticated', aal })}.${encode('synthetic-signature')}`;
+		`${encode({ alg: 'HS256', typ: 'JWT' })}.${encode({ sub: user.id, session_id: '00000000-0000-4000-8000-000000000001', exp: 4102444800, aud: 'authenticated', aal })}.${encode('synthetic-signature')}`;
 	const admitted = token('aal2'),
 		issued = token('aal1');
 	const jar = new Map([
@@ -34,6 +35,7 @@ it('isolates real SDK proof, revokes only its temporary session, and changes the
 		['theme', 'dark']
 	]);
 	const cookies = {
+		get: (name: string) => jar.get(name),
 		getAll: () => [...jar].map(([name, value]) => ({ name, value })),
 		set: vi.fn((name: string, value: string) => {
 			jar.set(name, value);
@@ -46,6 +48,10 @@ it('isolates real SDK proof, revokes only its temporary session, and changes the
 		| 'wrong-token-actor'
 		| 'assurance-error'
 		| 'revoke-error'
+		| 'proof401'
+		| 'proof403'
+		| 'proof404'
+		| 'completion-error'
 		| 'accepted' = 'wrong-password';
 	let identityReads = 0;
 	const mutations: string[] = [],
@@ -85,8 +91,11 @@ it('isolates real SDK proof, revokes only its temporary session, and changes the
 			if (url.pathname === '/auth/v1/logout') {
 				const scope = url.searchParams.get('scope');
 				revocations.push({ scope, bearer });
+				if (outcome.startsWith('proof'))
+					return Response.json({ message: 'private cleanup failure' }, { status: Number(outcome.slice(5)) });
 				expect(bearer).toBe(`Bearer ${scope === 'local' ? issued : admitted}`);
-				if (outcome === 'revoke-error') return Response.json({ message: 'private' }, { status: 500 });
+				if (outcome === 'revoke-error' || (outcome === 'completion-error' && scope === 'others'))
+					return Response.json({ message: 'private' }, { status: 500 });
 				return new Response(null, { status: 204 });
 			}
 			throw new Error(`Unexpected provider request ${url.pathname}`);
@@ -125,7 +134,10 @@ it('isolates real SDK proof, revokes only its temporary session, and changes the
 		['wrong-actor', 503],
 		['wrong-token-actor', 503],
 		['assurance-error', 503],
-		['revoke-error', 503]
+		['revoke-error', 503],
+		['proof401', 503],
+		['proof403', 503],
+		['proof404', 503]
 	] as const) {
 		outcome = failure;
 		identityReads = 0;
@@ -136,13 +148,20 @@ it('isolates real SDK proof, revokes only its temporary session, and changes the
 		expect(jar).toEqual(before);
 		expect(cookies.set).not.toHaveBeenCalled();
 	}
-	outcome = 'accepted';
+	outcome = 'completion-error';
 	identityReads = 0;
 	revocations.length = 0;
+	expect(await (await POST(event())).json()).toMatchObject({
+		ok: false,
+		passwordUpdated: true,
+		code: 'session_revocation_pending'
+	});
+	outcome = 'accepted';
 	expect(await (await POST(event())).json()).toEqual({ ok: true });
 	expect(mutations).toEqual([' NewPassword12 ']);
 	expect(revocations).toEqual([
 		{ scope: 'local', bearer: `Bearer ${issued}` },
+		{ scope: 'others', bearer: `Bearer ${admitted}` },
 		{ scope: 'others', bearer: `Bearer ${admitted}` }
 	]);
 	const stored = JSON.parse(
@@ -153,12 +172,12 @@ it('isolates real SDK proof, revokes only its temporary session, and changes the
 	expect(jar.get('theme')).toBe('dark');
 });
 
-it.each(['missing actor', 'wrong actor', 'provider unavailable', 'accepted'])(
+it.each(['missing actor', 'wrong actor', 'provider unavailable', 'accepted', 'revoke401', 'revoke403', 'revoke404'])(
 	'validates the real SDK mutation result for %s before completion',
 	async (outcome) => {
 		const user = { id: '00000000-0000-4000-8000-000000000001', email: 'actor@example.test', aud: 'authenticated' };
 		const encode = (value: unknown) => Buffer.from(JSON.stringify(value)).toString('base64url');
-		const token = `${encode({ alg: 'HS256', typ: 'JWT' })}.${encode({ sub: user.id, exp: 4102444800, aud: 'authenticated', aal: 'aal1' })}.${encode('synthetic')}`;
+		const token = `${encode({ alg: 'HS256', typ: 'JWT' })}.${encode({ sub: user.id, session_id: '00000000-0000-4000-8000-000000000001', exp: 4102444800, aud: 'authenticated', aal: 'aal1' })}.${encode('synthetic')}`;
 		const revocations: string[] = [];
 		vi.stubGlobal(
 			'fetch',
@@ -176,12 +195,15 @@ it.each(['missing actor', 'wrong actor', 'provider unavailable', 'accepted'])(
 				}
 				if (url.pathname === '/auth/v1/logout') {
 					revocations.push(url.searchParams.get('scope')!);
+					expect(new Headers(init?.headers).get('Authorization')).toBe(`Bearer ${token}`);
+					if (outcome.startsWith('revoke'))
+						return Response.json({ message: 'private revocation failure' }, { status: Number(outcome.slice(6)) });
 					return new Response(null, { status: 204 });
 				}
 				throw Error(`Unexpected ${url.pathname}`);
 			})
 		);
-		const cookies = { delete: vi.fn() };
+		const cookies = { get: vi.fn(), set: vi.fn(), delete: vi.fn() };
 		const supabase = createServerClient('https://proof.invalid', 'synthetic-anon', {
 			cookies: {
 				getAll: () => [
@@ -202,9 +224,9 @@ it.each(['missing actor', 'wrong actor', 'provider unavailable', 'accepted'])(
 			cookies,
 			getClientAddress: () => '192.0.2.1'
 		} as unknown as Parameters<typeof POST>[0]);
-		expect(response.status).toBe(outcome === 'accepted' ? 200 : 503);
+		expect(response.status).toBe(outcome === 'accepted' ? 200 : outcome.startsWith('revoke') ? 202 : 503);
 		expect(await response.text()).not.toContain('private');
-		expect(revocations).toEqual(outcome === 'accepted' ? ['others'] : []);
+		expect(revocations).toEqual(outcome === 'accepted' || outcome.startsWith('revoke') ? ['others'] : []);
 		expect(cookies.delete).toHaveBeenCalledTimes(outcome === 'accepted' ? 1 : 0);
 	}
 );

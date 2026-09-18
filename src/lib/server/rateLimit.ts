@@ -17,7 +17,7 @@ setInterval(
 	() => {
 		const now = Date.now();
 		for (const [key, entry] of store) {
-			if (now > entry.resetAt) {
+			if (now >= entry.resetAt) {
 				store.delete(key);
 			}
 		}
@@ -70,7 +70,7 @@ export function checkRateLimit(
 		const now = Date.now();
 		const entry = store.get(key);
 
-		if (!entry || now > entry.resetAt) {
+		if (!entry || now >= entry.resetAt) {
 			store.set(key, { count: 1, resetAt: now + rule.windowMs });
 			return { limited: false };
 		}

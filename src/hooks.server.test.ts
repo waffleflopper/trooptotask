@@ -211,6 +211,7 @@ describe('server auth hook', () => {
 			resolve,
 			rpc,
 			sessionLookup,
+			createServerClient,
 			getSession,
 			getClaims,
 			getUser,
@@ -224,6 +225,63 @@ describe('server auth hook', () => {
 			}
 		};
 	}
+
+	describe('request throttle admission', () => {
+		const auditLog = vi.fn();
+		beforeEach(() => {
+			vi.stubEnv('E2E_TESTING', undefined);
+			vi.doMock('$lib/server/auditLog', () => ({ auditLog }));
+			auditLog.mockClear();
+		});
+		afterEach(() => {
+			vi.doUnmock('$lib/server/auditLog');
+			vi.unstubAllEnvs();
+		});
+
+		it.each([
+			{ path: '/auth/login', limit: 10, windowMs: 900_000, anonymous: true },
+			{ path: '/api/auth/confirm-sensitive-action', limit: 60, windowMs: 60_000, anonymous: false }
+		])(
+			'enforces $path before provider/dispatch effects and permits reset retries',
+			async ({ path, limit, windowMs, anonymous }) => {
+				const harness = await createAuthenticatedHookHarness({ data: false, error: null });
+				if (anonymous) harness.getSession.mockResolvedValue({ data: { session: null }, error: null });
+				const request = (ip = '198.51.100.1') => {
+					const event = harness.createEvent(path, anonymous ? {} : undefined);
+					event.getClientAddress = () => ip;
+					return event;
+				};
+				for (let attempt = 0; attempt < limit; attempt++) {
+					expect((await harness.handle({ event: request(), resolve: harness.resolve })).status).toBe(200);
+				}
+				vi.clearAllMocks();
+				vi.setSystemTime(NOW.getTime() + 1_234);
+				const denied = request();
+				const response = await harness.handle({ event: denied, resolve: harness.resolve });
+				expect(response.status).toBe(429);
+				expect(response.headers.get('Content-Type')).toBe('application/json');
+				expect(response.headers.get('Retry-After')).toBe(anonymous ? '899' : '59');
+				expect(await response.json()).toEqual({ error: 'Too many requests' });
+				expect(harness.createServerClient).not.toHaveBeenCalled();
+				expect(harness.getSession).not.toHaveBeenCalled();
+				expect(harness.rpc).not.toHaveBeenCalled();
+				expect(harness.resolve).not.toHaveBeenCalled();
+				expect(denied.cookies.set).not.toHaveBeenCalled();
+				expect(denied.cookies.delete).not.toHaveBeenCalled();
+				expect(auditLog).toHaveBeenCalledWith(
+					expect.objectContaining({
+						action: 'security.rate_limit_exceeded',
+						severity: 'warning',
+						details: { pathname: path, method: 'POST' }
+					}),
+					{ userId: null, ip: '198.51.100.1' }
+				);
+				expect((await harness.handle({ event: request('198.51.100.2'), resolve: harness.resolve })).status).toBe(200);
+				vi.setSystemTime(NOW.getTime() + windowMs);
+				expect((await harness.handle({ event: request(), resolve: harness.resolve })).status).toBe(200);
+			}
+		);
+	});
 
 	describe('MFA endpoint request admission', () => {
 		function dispatch(route: (typeof mfaRoutes)[number]) {

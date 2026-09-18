@@ -897,7 +897,8 @@ export class DashboardScreenModel {
 			const person = this.findRosterPerson(assignment.assigneeId);
 			if (person) assigneeName = `${person.rank} ${person.lastName}`;
 		} else {
-			assigneeName = assignment.assigneeId;
+			assigneeName =
+				this.sources.groups.items.find((group) => group.id === assignment.assigneeId)?.name ?? 'Unknown Group';
 		}
 		const color = type?.color ?? '#9e9e9e';
 		return {

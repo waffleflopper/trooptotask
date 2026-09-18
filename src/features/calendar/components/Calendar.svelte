@@ -1,4 +1,5 @@
 <script lang="ts">
+	import type { Group } from '$lib/stores/groups.svelte';
 	import type {
 		Personnel,
 		AvailabilityEntry,
@@ -41,6 +42,7 @@
 		pinnedGroups: string[];
 		assignmentTypes: AssignmentType[];
 		assignments: DailyAssignment[];
+		groups?: readonly Group[];
 		dutyEvents?: DutyEvent[];
 		dutyStartDayOnly?: boolean;
 		activeOnboardingPersonnelIds?: string[];
@@ -76,6 +78,7 @@
 		pinnedGroups,
 		assignmentTypes,
 		assignments,
+		groups = [],
 		dutyEvents = [],
 		dutyStartDayOnly = true,
 		activeOnboardingPersonnelIds = [],
@@ -202,6 +205,7 @@
 			specialDays,
 			assignmentTypes,
 			assignments,
+			groups,
 			dutyEvents,
 			dutyStartDayOnly,
 			activeOnboardingPersonnelIds,

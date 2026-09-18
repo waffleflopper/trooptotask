@@ -190,12 +190,13 @@ describe('calendarRenderState', () => {
 
 	it('keeps a saved Group assignment in the date header without turning it into a person assignment', () => {
 		const state = build({
+			groups: [{ id: 'group-1', name: 'Alpha Renamed', sortOrder: 0 }],
 			assignmentTypes: [{ ...assignmentTypes[0], id: 'group-detail', name: 'Group Detail', assignTo: 'group' }],
 			assignments: [assignment({ id: 'manual-group', assignmentTypeId: 'group-detail', assigneeId: 'group-1' })]
 		});
 		expect(state.headerCell('2026-03-01')?.headerAssignment).toEqual({
 			assignmentTypeName: 'Group Detail',
-			assigneeLabel: 'group-1'
+			assigneeLabel: 'Alpha Renamed'
 		});
 		expect(state.personDateCell('person-1', '2026-03-01')?.markers).toEqual([]);
 	});

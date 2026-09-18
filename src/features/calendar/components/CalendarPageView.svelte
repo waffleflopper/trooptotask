@@ -177,6 +177,7 @@
 						specialDays={specialDaysStore.items}
 						assignmentTypes={dailyAssignmentsStore.types}
 						assignments={dailyAssignmentsStore.assignments}
+						groups={groupsStore.items}
 						dutyEvents={ctx.advancedDutyEvents}
 						dutyStartDayOnly={ctx.dutyStartDayOnly}
 						onDateColumnClick={(date) => ctx.navigateToMonth(date)}
@@ -195,6 +196,7 @@
 						pinnedGroups={pinnedGroupsStore.list}
 						assignmentTypes={dailyAssignmentsStore.types}
 						assignments={dailyAssignmentsStore.assignments}
+						groups={groupsStore.items}
 						dutyEvents={ctx.advancedDutyEvents}
 						dutyStartDayOnly={ctx.dutyStartDayOnly}
 						activeOnboardingPersonnelIds={ctx.activeOnboardingPersonnelIds}
@@ -248,7 +250,7 @@
 			assignmentTypes={dailyAssignmentsStore.types}
 			assignments={dailyAssignmentsStore.assignments}
 			personnelByGroup={ctx.personnelByGroup}
-			groups={groupsStore.names}
+			groups={groupsStore.items}
 			onSetAssignment={(date, typeId, assigneeId) => dailyAssignmentsStore.setAssignment(date, typeId, assigneeId)}
 			onRemoveAssignment={(date, typeId) => dailyAssignmentsStore.removeAssignment(date, typeId)}
 			onClose={() => ctx.closeAssignmentModal()}

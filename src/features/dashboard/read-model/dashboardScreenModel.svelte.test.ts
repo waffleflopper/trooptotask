@@ -649,3 +649,16 @@ describe('createDashboardScreenModel', () => {
 		vi.useRealTimers();
 	});
 });
+
+it('resolves saved Group duty by ID after the Group is renamed', () => {
+	const model = createDashboardScreenModel(makeData(), {
+		today: '2026-09-19',
+		storage: createMemoryStorage(),
+		sources: makeSources({
+			groups: [{ id: 'group-alpha', name: 'Alpha Renamed', sortOrder: 0 }],
+			assignmentTypes: [{ id: 'group-duty', name: 'Group Duty', assignTo: 'group' }],
+			dailyAssignments: [{ id: 'saved', date: '2026-09-19', assignmentTypeId: 'group-duty', assigneeId: 'group-alpha' }]
+		})
+	});
+	expect(model.dutyAssignments).toEqual([expect.objectContaining({ id: 'saved', assigneeName: 'Alpha Renamed' })]);
+});

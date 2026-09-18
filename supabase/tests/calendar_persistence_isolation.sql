@@ -102,5 +102,11 @@ CREATE TEMP TABLE before_run_delete AS SELECT id,organization_id,date,assignment
 DELETE FROM public.duty_roster_template_runs WHERE id='a3000000-0000-4000-8000-000000000502';
 SELECT results_eq($$ SELECT id,organization_id,date,assignment_type_id,assignee_id FROM public.daily_assignments ORDER BY id $$,'SELECT * FROM before_run_delete ORDER BY id','removing a run retains exact saved assignment facts including the manual edit');
 SELECT is((SELECT clinic_role FROM public.personnel WHERE id='a3000000-0000-4000-8000-000000000301'),'Medic','Personnel Duty Role remains');
+UPDATE public.groups SET name='Alpha Renamed' WHERE id='a3000000-0000-4000-8000-000000000201';
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub','a3000000-0000-4000-8000-000000000001',true);
+SELECT is((SELECT assignee_id FROM public.daily_assignments WHERE id='a3000000-0000-4000-8000-000000000602'),'a3000000-0000-4000-8000-000000000201','renaming a Group preserves its saved assignment reference and visibility');
+SELECT throws_ok($$ INSERT INTO public.daily_assignments(organization_id,assignment_type_id,date,assignee_id) VALUES ('a3000000-0000-4000-8000-000000000101','a3000000-0000-4000-8000-000000000402','2030-03-06','Alpha Renamed') $$,'42501','new row violates row-level security policy for table "daily_assignments"','name-valued writes are rejected even for owners');
+RESET ROLE;
 SELECT * FROM finish();
 ROLLBACK;

@@ -1,3 +1,4 @@
+import type { Group } from '$lib/stores/groups.svelte';
 import type { DutyEvent } from '$features/duty-roster/duty-roster.types';
 import { buildDutyEventBadgesByPerson, type DutyEventBadge } from '$features/calendar/utils/dutyEventBadges';
 import type { UpcomingLossRecord } from '$lib/domain/readinessSignals';
@@ -14,6 +15,7 @@ export interface CalendarRenderStateInput {
 	specialDays: readonly SpecialDay[];
 	assignmentTypes: readonly AssignmentType[];
 	assignments: readonly DailyAssignment[];
+	groups?: readonly Group[];
 	dutyEvents?: readonly DutyEvent[];
 	dutyStartDayOnly?: boolean;
 	activeOnboardingPersonnelIds?: readonly string[];
@@ -170,6 +172,7 @@ export function buildCalendarRenderState(input: CalendarRenderStateInput): Calen
 				input.assignmentTypes,
 				input.assignments,
 				personnelById,
+				input.groups ?? [],
 				diagnostics
 			),
 			title: specialDay?.name ?? 'Click to set daily assignments'
@@ -396,6 +399,7 @@ function getHeaderAssignment(
 	assignmentTypes: readonly AssignmentType[],
 	assignments: readonly DailyAssignment[],
 	personnelById: ReadonlyMap<string, Personnel>,
+	groups: readonly Group[],
 	diagnostics: CalendarRenderDiagnostic[]
 ): CalendarHeaderAssignmentState | undefined {
 	const headerType = assignmentTypes.find((assignmentType) => assignmentType.showInDateHeader);
@@ -408,7 +412,7 @@ function getHeaderAssignment(
 	if (headerType.assignTo !== 'personnel') {
 		return {
 			assignmentTypeName: headerType.name,
-			assigneeLabel: assignment.assigneeId
+			assigneeLabel: groups.find((group) => group.id === assignment.assigneeId)?.name ?? 'Unknown Group'
 		};
 	}
 

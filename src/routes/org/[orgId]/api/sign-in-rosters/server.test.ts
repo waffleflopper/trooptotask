@@ -34,6 +34,61 @@ function seedPersonnel(ctx: ReturnType<typeof createTestContext>) {
 }
 
 describe('/api/sign-in-rosters route config', () => {
+	it('creates and reloads an independent sign-in roster with Calendar denied and no duty records', async () => {
+		const ctx = createTestContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				scopeSet: { kind: 'groups', groupIds: [GROUP_ALPHA] },
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'none',
+					training: 'operate',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				}
+			}
+		});
+		seedPersonnel(ctx);
+		ctx.signInRosterPersonnelLookup = {
+			findPersonnelForRosterSnapshot: async () => [
+				{
+					id: 'p-alpha',
+					rank: 'SGT',
+					last_name: 'Smith',
+					first_name: 'Jane',
+					group_id: GROUP_ALPHA,
+					group_name: 'Alpha'
+				}
+			],
+			listPersonnelForRosterCandidates: async () => []
+		};
+		const created = (await handleUseCaseRequest(_postConfig, ctx, {
+			title: 'Independent training attendance',
+			rosterDate: '2026-03-15',
+			personnelIds: ['p-alpha']
+		})) as Record<string, unknown>;
+		const result = await handleUseCaseRequest(_getConfig, ctx, { limit: 20, offset: 0 });
+		expect(result).toEqual({
+			total: 1,
+			rosters: [
+				expect.objectContaining({
+					id: created.id,
+					title: 'Independent training attendance',
+					rosterDate: '2026-03-15',
+					personnelSnapshot: [
+						{ id: 'p-alpha', rank: 'SGT', lastName: 'Smith', firstName: 'Jane', group: 'Alpha', groupId: GROUP_ALPHA }
+					]
+				})
+			]
+		});
+		expect(await ctx.rawStore.findMany('daily_assignments', ctx.auth.orgId)).toEqual([]);
+		expect(ctx.auditPort.events).toEqual([
+			expect.objectContaining({ action: 'sign_in_roster.created', resourceId: created.id })
+		]);
+	});
+
 	it('uses policy-first route configs for sign-in roster reads and creation', () => {
 		expect('permission' in _getConfig).toBe(false);
 		expect('permission' in _postConfig).toBe(false);

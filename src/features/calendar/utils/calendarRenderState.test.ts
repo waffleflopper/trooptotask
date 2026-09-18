@@ -146,6 +146,60 @@ function build(overrides: Partial<Parameters<typeof buildCalendarRenderState>[0]
 }
 
 describe('calendarRenderState', () => {
+	it('removing computed duty overlays keeps saved manual, linked and edited assignment markers', () => {
+		const saved = [
+			assignment({ id: 'manual' }),
+			assignment({
+				id: 'linked',
+				date: '2026-03-02',
+				dutyRosterTemplateRunId: 'old-run',
+				dutyRosterTemplateRunRowDate: '2026-03-02'
+			}),
+			assignment({
+				id: 'edited-generated',
+				date: '2026-03-03',
+				assigneeId: 'person-2',
+				dutyRosterTemplateRunId: 'old-run',
+				dutyRosterTemplateRunRowDate: '2026-03-03'
+			})
+		];
+		const input = {
+			dates: [new Date(2026, 2, 1), new Date(2026, 2, 2), new Date(2026, 2, 3)],
+			personnelByGroup: [{ group: 'Alpha', personnel: [...personnel, { ...personnel[0], id: 'person-2' }] }],
+			assignments: saved
+		};
+		const withOverlay = build({ ...input, dutyEvents: [makeDutyEvent('2026-03-03', 'person-1')] });
+		const withoutOverlay = build(input);
+
+		expect(withOverlay.personDateCell('person-1', '2026-03-03')?.markers).toEqual([
+			expect.objectContaining({ kind: 'duty' })
+		]);
+		expect(withoutOverlay.personDateCell('person-1', '2026-03-03')?.markers).toEqual([]);
+		for (const state of [withOverlay, withoutOverlay]) {
+			expect(state.personDateCell('person-1', '2026-03-01')?.markers).toEqual([
+				expect.objectContaining({ id: 'manual', kind: 'assignment', name: 'Manager on Duty' })
+			]);
+			expect(state.personDateCell('person-1', '2026-03-02')?.markers).toEqual([
+				expect.objectContaining({ id: 'linked', kind: 'assignment', name: 'Manager on Duty' })
+			]);
+			expect(state.personDateCell('person-2', '2026-03-03')?.markers).toEqual([
+				expect.objectContaining({ id: 'edited-generated', kind: 'assignment', name: 'Manager on Duty' })
+			]);
+		}
+	});
+
+	it('keeps a saved Group assignment in the date header without turning it into a person assignment', () => {
+		const state = build({
+			assignmentTypes: [{ ...assignmentTypes[0], id: 'group-detail', name: 'Group Detail', assignTo: 'group' }],
+			assignments: [assignment({ id: 'manual-group', assignmentTypeId: 'group-detail', assigneeId: 'group-1' })]
+		});
+		expect(state.headerCell('2026-03-01')?.headerAssignment).toEqual({
+			assignmentTypeName: 'Group Detail',
+			assigneeLabel: 'group-1'
+		});
+		expect(state.personDateCell('person-1', '2026-03-01')?.markers).toEqual([]);
+	});
+
 	it('builds date header facts with special days and readable header assignment labels', () => {
 		const state = build({
 			specialDays: [specialDay({})],

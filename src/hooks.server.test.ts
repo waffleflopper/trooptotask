@@ -56,7 +56,7 @@ describe('server auth hook', () => {
 			data: boolean | null;
 			error: { message: string } | null;
 		},
-		options: { authenticatedUserId?: string; lastSignInAt?: string } = {}
+		options: { authenticatedUserId?: string; lastSignInAt?: string; sessionStartedAt?: string } = {}
 	) {
 		const now = new Date();
 		const user = {
@@ -149,6 +149,9 @@ describe('server auth hook', () => {
 			unenroll: vi.fn(async ({ factorId }: { factorId: string }) => ({ data: { id: factorId }, error: null }))
 		};
 		const rpc = vi.fn().mockResolvedValue(rpcResult);
+		const sessionLookup = vi
+			.fn()
+			.mockResolvedValue({ data: options.sessionStartedAt ?? now.toISOString(), error: null });
 		const createServerClient = vi.fn((_url: string, _key: string, options: TestServerClientOptions) => {
 			serverClientOptions = options;
 			return {
@@ -159,7 +162,10 @@ describe('server auth hook', () => {
 					getUser,
 					mfa
 				},
-				rpc
+				rpc: (name: string, ...args: unknown[]) =>
+					name === 'get_current_session_started_at'
+						? { setHeader: (header: string, value: string) => sessionLookup(header, value) }
+						: rpc(name, ...args)
 			};
 		});
 		const resolve = vi.fn().mockResolvedValue(new Response('ok'));
@@ -204,6 +210,7 @@ describe('server auth hook', () => {
 			createEvent,
 			resolve,
 			rpc,
+			sessionLookup,
 			getSession,
 			getClaims,
 			getUser,
@@ -496,7 +503,7 @@ describe('server auth hook', () => {
 	it('admits a verified session before its absolute lifetime expires', async () => {
 		const harness = await createAuthenticatedHookHarness(
 			{ data: false, error: null },
-			{ lastSignInAt: '2026-09-15T12:00:01Z' }
+			{ sessionStartedAt: '2026-09-15T12:00:01Z' }
 		);
 
 		expect((await harness.handle(harness)).status).toBe(200);
@@ -508,7 +515,7 @@ describe('server auth hook', () => {
 	it('revokes a session past its absolute lifetime before a protected write', async () => {
 		const harness = await createAuthenticatedHookHarness(
 			{ data: false, error: null },
-			{ lastSignInAt: '2026-09-15T11:59:59Z' }
+			{ sessionStartedAt: '2026-09-15T11:59:59Z' }
 		);
 		const event = harness.createEvent('/dashboard', {
 			'sb-example-auth-token': 'expired-session',
@@ -525,6 +532,119 @@ describe('server auth hook', () => {
 		expect(event.locals.authFlow).toBeNull();
 		expect(event.cookies.get('ttt_pending_auth_flow')).toBeUndefined();
 		expect(harness.resolve).not.toHaveBeenCalled();
+	});
+
+	describe('session-specific absolute timeout', () => {
+		it('keeps separate starts for two sessions of the same account despite a newer account sign-in', async () => {
+			const h = await createAuthenticatedHookHarness({ data: false, error: null });
+			h.sessionLookup.mockResolvedValueOnce({ data: '2026-09-15T12:00:00Z', error: null });
+			await expect(h.handle(h)).rejects.toMatchObject({ status: 303, location: '/auth/login' });
+			expect(h.resolve).not.toHaveBeenCalled();
+			expect(await h.event.locals.safeGetSession()).toEqual({ session: null, user: null });
+			// A separately verified current session has its own provider start fact.
+			const current = h.createEvent();
+			expect((await h.handle({ event: current, resolve: h.resolve })).status).toBe(200);
+			expect(current.locals.user?.id).toBe('user-1');
+		});
+
+		it.each(['refresh', 'MFA'])('does not renew session age on %s', async (kind) => {
+			const h = await createAuthenticatedHookHarness(
+				{ data: false, error: null },
+				{ sessionStartedAt: '2026-09-15T11:59:59Z' }
+			);
+			const claims = (await h.getClaims()).data.claims;
+			h.getClaims.mockResolvedValue({
+				data: { claims: { ...claims, iat: NOW.getTime() / 1000, aal: kind === 'MFA' ? 'aal2' : 'aal1' } },
+				error: null
+			});
+			await expect(h.handle(h)).rejects.toMatchObject({ status: 303 });
+			expect(h.resolve).not.toHaveBeenCalled();
+			expect(h.sessionLookup).toHaveBeenCalledWith('Authorization', 'Bearer token');
+		});
+
+		it.each([undefined, '', 'invalid', '2026-09-17T12:00:00Z'])(
+			'ignores account-wide start metadata %s for a valid session',
+			async (lastSignInAt) => {
+				const h = await createAuthenticatedHookHarness({ data: false, error: null });
+				const user = (await h.getUser()).data.user;
+				h.getUser.mockResolvedValue({ data: { user: { ...user, last_sign_in_at: lastSignInAt } }, error: null });
+				expect((await h.handle(h)).status).toBe(200);
+				expect(h.signOut).not.toHaveBeenCalled();
+			}
+		);
+
+		it.each([
+			undefined,
+			{},
+			{ data: true, error: null },
+			{ data: '', error: null },
+			{ data: 'yesterday', error: null },
+			{ data: '2026-09-16', error: null },
+			{ data: '2026-09-16T12:00:00.001Z', error: null },
+			{ data: NOW.toISOString(), error: { message: 'unavailable' } }
+		])('denies unavailable or malformed session start facts and permits retry: %j', async (result) => {
+			const h = await createAuthenticatedHookHarness({ data: false, error: null });
+			h.sessionLookup.mockResolvedValueOnce(result);
+			await expect(h.handle(h)).rejects.toMatchObject({ status: 503 });
+			expect(h.resolve).not.toHaveBeenCalled();
+			expect(h.signOut).not.toHaveBeenCalled();
+			expect((await h.handle({ event: h.createEvent(), resolve: h.resolve })).status).toBe(200);
+		});
+
+		it('denies a thrown provider read without clearing pending recovery and keeps logout reachable', async () => {
+			const h = await createAuthenticatedHookHarness({ data: false, error: null });
+			h.sessionLookup.mockRejectedValue(new Error('unavailable'));
+			const event = h.createEvent('/api/auth/update-password', {
+				'sb-example-auth-token': 'session',
+				ttt_pending_auth_flow: 'recovery'
+			});
+			await expect(h.handle({ event, resolve: h.resolve })).rejects.toMatchObject({ status: 503 });
+			expect(h.resolve).not.toHaveBeenCalled();
+			expect(event.cookies.get('ttt_pending_auth_flow')).toBe('recovery');
+			const { actions } = await import('./routes/auth/logout/+page.server');
+			await expect(
+				h.handle({
+					event: h.createEvent('/auth/logout'),
+					resolve: async (event) => {
+						await actions.default({ ...event, params: {}, route: { id: '/auth/logout' } });
+						return new Response('unreachable');
+					}
+				})
+			).rejects.toMatchObject({ status: 303, location: '/' });
+		});
+
+		it('denies a missing provider session, clears only this project cookies and invalidates cached identity', async () => {
+			const h = await createAuthenticatedHookHarness({ data: false, error: null });
+			h.sessionLookup.mockResolvedValue({ data: null, error: null });
+			const event = h.createEvent('/auth/login', {
+				'sb-example-auth-token.0': 'session',
+				'sb-other-auth-token': 'unrelated',
+				ttt_pending_auth_flow: 'invite',
+				theme: 'dark'
+			});
+			expect((await h.handle({ event, resolve: h.resolve })).status).toBe(200);
+			expect(await event.locals.safeGetSession()).toEqual({ session: null, user: null });
+			expect(event.cookies.getAll()).toEqual([
+				{ name: 'sb-other-auth-token', value: 'unrelated' },
+				{ name: 'theme', value: 'dark' }
+			]);
+		});
+
+		it.each(['error', 'throw'])(
+			'denies expired requests when revocation fails with %s and preserves retry cookies',
+			async (failure) => {
+				const h = await createAuthenticatedHookHarness(
+					{ data: false, error: null },
+					{ sessionStartedAt: '2026-09-15T12:00:00Z' }
+				);
+				if (failure === 'error') h.signOut.mockResolvedValueOnce({ error: { message: 'unavailable' } });
+				else h.signOut.mockRejectedValueOnce(new Error('unavailable'));
+				await expect(h.handle(h)).rejects.toMatchObject({ status: 503 });
+				expect(h.resolve).not.toHaveBeenCalled();
+				expect(h.event.cookies.get('sb-example-auth-token')).toBe('session');
+				await expect(h.handle({ event: h.createEvent(), resolve: h.resolve })).rejects.toMatchObject({ status: 303 });
+			}
+		);
 	});
 
 	it('does not reuse a verified identity or provider user storage in a later anonymous request', async () => {

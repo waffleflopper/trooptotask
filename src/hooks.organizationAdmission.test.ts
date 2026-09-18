@@ -104,7 +104,11 @@ function fixture() {
 	};
 	const client = {
 		from: provider.from.bind(provider),
-		rpc: vi.fn().mockResolvedValue({ data: false, error: null }),
+		rpc: vi.fn((name: string) =>
+			name === 'get_current_session_started_at'
+				? { setHeader: () => Promise.resolve({ data: now, error: null }) }
+				: Promise.resolve({ data: false, error: null })
+		),
 		auth: {
 			getSession: vi.fn().mockResolvedValue({
 				data: { session: { user, access_token: 'synthetic', refresh_token: 'synthetic-refresh' } },

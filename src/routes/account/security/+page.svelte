@@ -2,11 +2,12 @@
 	import PasswordCompletion from '$lib/components/auth/PasswordCompletion.svelte';
 	import { hasPendingPasswordCompletion, type PasswordCompletionState } from '$lib/auth/passwordCompletion';
 	let completion = $state<PasswordCompletionState>(null);
-	import { onMount, tick } from 'svelte';
+	import { onMount, tick, untrack } from 'svelte';
 	import PasswordMfaChallenge from '$lib/components/auth/PasswordMfaChallenge.svelte';
 	let passwordMfaRequired = $state(false);
 	import { goto } from '$app/navigation';
 	import { enhance } from '$app/forms';
+	import type { SubmitFunction } from '@sveltejs/kit';
 	import type { ActionData, PageData } from './$types';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
@@ -35,12 +36,59 @@
 	let confirmPassword = $state('');
 	let emailLoading = $state(false);
 	let emailCurrentPassword = $state('');
+	let emailDraft = $state(untrack(() => form?.email ?? ''));
+	let emailResult = $state<ActionData>(untrack(() => form));
+	let emailMfaRequired = $state(false);
+	let confirmedPendingEmail = $state<string | null>(untrack(() => form?.pendingEmail ?? null));
+	const submitEmail: SubmitFunction = ({ cancel, formElement }) => {
+		if (emailLoading || emailMfaRequired) {
+			cancel();
+			return;
+		}
+		emailLoading = true;
+		emailResult = null;
+		return async ({ result, update }) => {
+			try {
+				if (result.type === 'redirect') {
+					await update();
+					return;
+				}
+				if (result.type === 'failure') {
+					emailResult = result.data as ActionData;
+					emailMfaRequired = emailResult?.code === 'mfa_required';
+				} else if (
+					result.type === 'success' &&
+					typeof result.data?.emailSuccess === 'string' &&
+					typeof result.data?.pendingEmail === 'string' &&
+					result.data.pendingEmail === emailDraft.trim().toLowerCase()
+				) {
+					emailResult = result.data as ActionData;
+					confirmedPendingEmail = result.data.pendingEmail;
+					emailCurrentPassword = '';
+					await update({ reset: false });
+				} else {
+					emailResult = {
+						emailError: 'Unable to confirm the email request. Check your inboxes or reload before retrying.'
+					};
+				}
+			} catch {
+				emailResult = {
+					emailError: 'Unable to refresh the email status. Check your inboxes or reload before retrying.'
+				};
+			} finally {
+				emailLoading = false;
+				await tick();
+				if (emailResult?.emailError && !emailMfaRequired && formElement.isConnected)
+					formElement.querySelector<HTMLInputElement>('#email-current-password')?.focus();
+			}
+		};
+	};
 
 	onMount(() => {
 		completion = data.passwordCompletion ?? null;
 	});
 	const mfaEnabled = $derived(mfaOverride ?? data.hasMFA);
-	const pendingEmail = $derived(form?.pendingEmail ?? data.pendingEmail);
+	const pendingEmail = $derived(confirmedPendingEmail ?? data.pendingEmail);
 	const hasMinLength = $derived(newPassword.length >= 12);
 	const hasUppercase = $derived(/[A-Z]/.test(newPassword));
 	const hasLowercase = $derived(/[a-z]/.test(newPassword));
@@ -290,31 +338,17 @@
 			<Card.Description>Your current email remains active until a new address is confirmed.</Card.Description>
 		</Card.Header>
 		<Card.Content>
-			<form
-				method="POST"
-				action="?/updateEmail"
-				use:enhance={() => {
-					emailLoading = true;
-					return async ({ result, update }) => {
-						emailLoading = false;
-						await update();
-						if (result.type === 'success') {
-							emailCurrentPassword = '';
-						}
-					};
-				}}
-				class="grid gap-4"
-			>
-				{#if form?.emailError}
+			<form method="POST" action="?/updateEmail" use:enhance={submitEmail} class="grid gap-4">
+				{#if emailResult?.emailError}
 					<Alert.Root variant="destructive">
-						<Alert.Title>Email not changed</Alert.Title>
-						<Alert.Description>{form.emailError}</Alert.Description>
+						<Alert.Title>Email request not confirmed</Alert.Title>
+						<Alert.Description>{emailResult.emailError}</Alert.Description>
 					</Alert.Root>
 				{/if}
-				{#if form?.emailSuccess}
+				{#if emailResult?.emailSuccess}
 					<Alert.Root variant="success">
 						<Alert.Title>Confirmation sent</Alert.Title>
-						<Alert.Description>{form.emailSuccess}</Alert.Description>
+						<Alert.Description>{emailResult.emailSuccess}</Alert.Description>
 					</Alert.Root>
 				{/if}
 
@@ -334,9 +368,20 @@
 				<Field.Root>
 					<Field.Label for="email">New email address</Field.Label>
 					<Field.Control>
-						<Input id="email" name="email" type="email" autocomplete="email" required value={form?.email ?? ''} />
+						<Input
+							id="email"
+							name="email"
+							type="email"
+							autocomplete="email"
+							required
+							bind:value={emailDraft}
+							disabled={emailLoading || emailMfaRequired}
+						/>
 					</Field.Control>
-					<Field.Description>Check the new inbox to confirm this change before using it to sign in.</Field.Description>
+					<Field.Description
+						>Follow the confirmation instructions in both your current and new inboxes before using the new address to
+						sign in.</Field.Description
+					>
 				</Field.Root>
 
 				<Field.Root>
@@ -349,17 +394,30 @@
 							autocomplete="current-password"
 							required
 							bind:value={emailCurrentPassword}
+							disabled={emailLoading || emailMfaRequired}
 						/>
 					</Field.Control>
 				</Field.Root>
 
 				<div class="flex justify-end">
-					<Button type="submit" disabled={emailLoading}>
+					<Button type="submit" disabled={emailLoading || emailMfaRequired}>
 						{#if emailLoading}<Spinner />{/if}
 						Send Confirmation
 					</Button>
 				</div>
 			</form>
+			{#if emailMfaRequired}
+				<PasswordMfaChallenge
+					id="email-mfa-code"
+					hint="Enter the current 6-digit code from your authenticator app before changing your email."
+					onverified={async () => {
+						emailMfaRequired = false;
+						emailResult = null;
+						await tick();
+						document.getElementById('email-current-password')?.focus();
+					}}
+				/>
+			{/if}
 		</Card.Content>
 	</Card.Root>
 

@@ -55,7 +55,9 @@ export function buildTrustedUserFromClaims(claims: JwtPayload, sessionUser?: Use
 		app_metadata: (claims.app_metadata ?? sessionUser?.app_metadata ?? {}) as User['app_metadata'],
 		user_metadata: (claims.user_metadata ?? sessionUser?.user_metadata ?? {}) as User['user_metadata'],
 		aud: Array.isArray(claims.aud) ? (claims.aud[0] ?? 'authenticated') : claims.aud,
-		email: claims.email ?? sessionUser?.email,
+		// The hook verifies this provider user against claims.sub. Email can change
+		// before the admitted token expires; never restore its stale email claim.
+		email: sessionUser?.id === claims.sub ? sessionUser.email : claims.email,
 		phone: claims.phone ?? sessionUser?.phone,
 		created_at: sessionUser?.created_at ?? new Date(claims.iat * 1000).toISOString(),
 		confirmation_sent_at: sessionUser?.confirmation_sent_at,

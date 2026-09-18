@@ -1323,6 +1323,19 @@ describe('server auth hook', () => {
 		expect(resolve).toHaveBeenCalled();
 	});
 
+	it('uses the provider-confirmed email for downstream requests while the admitted JWT still contains the old email', async () => {
+		const h = await createAuthenticatedHookHarness({ data: false, error: null });
+		const current = (await h.getUser()).data.user;
+		h.getUser.mockResolvedValue({ data: { user: { ...current, email: 'confirmed@example.test' } }, error: null });
+		h.resolve.mockImplementation(async (event) =>
+			Response.json({ email: event.locals.user?.email, sessionEmail: event.locals.session?.user.email })
+		);
+		const response = await h.handle({ event: h.event, resolve: h.resolve });
+		expect(await response.json()).toEqual({ email: 'confirmed@example.test', sessionEmail: 'confirmed@example.test' });
+		expect(h.event.locals.session?.access_token).toBe(passwordSessionToken('user-1'));
+		expect(h.deleteCookie).not.toHaveBeenCalled();
+	});
+
 	it('clears Supabase auth cookies when the authenticated user does not match verified claims', async () => {
 		const { handle, event, resolve, rpc, deleteCookie } = await createAuthenticatedHookHarness(
 			{

@@ -7,8 +7,9 @@
 	import { Spinner } from '$lib/components/ui/spinner';
 	let {
 		onverified,
+		id = 'password-mfa-code',
 		hint = 'Enter the current 6-digit code from your authenticator app before changing your password.'
-	}: { onverified: () => void | Promise<void>; hint?: string } = $props();
+	}: { onverified: () => void | Promise<void>; hint?: string; id?: string } = $props();
 	let code = $state('');
 	let error = $state('');
 	let loading = $state(false);
@@ -51,7 +52,7 @@
 <form bind:this={form} onsubmit={verify} class="flex flex-col gap-5">
 	<AuthField
 		label="Authenticator Code"
-		id="password-mfa-code"
+		{id}
 		disabled={loading}
 		{hint}
 		value={code}

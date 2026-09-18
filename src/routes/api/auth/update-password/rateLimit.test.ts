@@ -11,6 +11,11 @@ import { POST } from './+server';
 function fixture(authFlow?: 'recovery' | 'invite') {
 	const user = { id: 'synthetic-user', email: 'synthetic@example.test' };
 	const auth = {
+		mfa: {
+			getAuthenticatorAssuranceLevel: vi
+				.fn()
+				.mockResolvedValue({ data: { currentLevel: 'aal2', nextLevel: 'aal2' }, error: null })
+		},
 		signInWithPassword: vi.fn().mockResolvedValue({
 			data: {
 				user,

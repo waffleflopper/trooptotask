@@ -20,6 +20,8 @@ const pendingFlowRoutes: Record<Exclude<PendingAuthFlow, null>, string[]> = {
 		'/auth/logout'
 	],
 	invite: [
+		'/api/auth/mfa/status',
+		'/api/auth/mfa/verify',
 		'/auth/accept-invite',
 		'/api/auth/establish-session',
 		'/api/auth/update-password',

@@ -35,6 +35,11 @@ const valid = () => ({
 });
 function fixture() {
 	const auth = {
+		mfa: {
+			getAuthenticatorAssuranceLevel: vi
+				.fn()
+				.mockResolvedValue({ data: { currentLevel: 'aal2', nextLevel: 'aal2' }, error: null })
+		},
 		signInWithPassword: provider.signIn,
 		updateUser: vi.fn().mockResolvedValue({ error: null }),
 		signOut: vi.fn().mockResolvedValue({ error: null })

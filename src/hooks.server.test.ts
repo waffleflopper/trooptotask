@@ -300,6 +300,47 @@ describe('server auth hook', () => {
 			expect(event.cookies.get('ttt_pending_auth_flow')).toBe(flow === 'invite' ? 'invite' : undefined);
 		});
 
+		it.each([null, 'recovery', 'invite'])(
+			'denies newly pending mutation MFA through the real %s hook and retries',
+			async (flow) => {
+				const h = await createAuthenticatedHookHarness({ data: true, error: null });
+				const { POST } = await import('./routes/api/auth/update-password/+server');
+				let reads = 0;
+				h.getAuthenticatorAssuranceLevel.mockImplementation(async () => ({
+					data: { currentLevel: ++reads === 2 ? 'aal1' : 'aal2', nextLevel: 'aal2' },
+					error: null
+				}));
+				const request = () => {
+					const event = h.createEvent('/api/auth/update-password', {
+						'sb-example-auth-token': 'session',
+						...(flow ? { ttt_pending_auth_flow: flow } : {})
+					});
+					event.request = new Request(event.url, {
+						method: 'POST',
+						body: JSON.stringify({
+							currentPassword: 'OldSecurePass12',
+							password: 'NewSecurePass12',
+							confirmPassword: 'NewSecurePass12'
+						})
+					});
+					return event;
+				};
+				const event = request();
+				const response = await h.handle({ event, resolve: (event) => POST(event as Parameters<typeof POST>[0]) });
+				expect(response.status).toBe(403);
+				expect(await response.json()).toMatchObject({ code: 'mfa_required' });
+				expect(h.updateUser).not.toHaveBeenCalled();
+				expect(h.signOut).not.toHaveBeenCalled();
+				expect(event.cookies.get('ttt_pending_auth_flow')).toBe(flow ?? undefined);
+				const retry = await h.handle({
+					event: request(),
+					resolve: (event) => POST(event as Parameters<typeof POST>[0])
+				});
+				expect(retry.status).toBe(200);
+				expect(h.updateUser).toHaveBeenCalledExactlyOnceWith({ password: 'NewSecurePass12' });
+			}
+		);
+
 		it('denies anonymous requests at the public password-update handler without provider effects', async () => {
 			const h = await createAuthenticatedHookHarness({ data: false, error: null });
 			const { POST } = await import('./routes/api/auth/update-password/+server');
@@ -497,7 +538,7 @@ describe('server auth hook', () => {
 			});
 		});
 
-		describe.each([null, 'recovery'])('completion with flow %s', (flow) => {
+		describe.each([null, 'recovery', 'invite'])('completion with flow %s', (flow) => {
 			it.each(completionRoutes)('lets a suspended pending-MFA account complete via $path', async (route) => {
 				const harness = await createAuthenticatedHookHarness({ data: true, error: null });
 				harness.getAuthenticatorAssuranceLevel.mockResolvedValue({
@@ -516,21 +557,6 @@ describe('server auth hook', () => {
 				expect(harness.mfa.enroll).not.toHaveBeenCalled();
 				expect(harness.mfa.unenroll).not.toHaveBeenCalled();
 			});
-		});
-
-		it.each(completionRoutes)('keeps invite sessions on their own completion path at $path', async (route) => {
-			const harness = await createAuthenticatedHookHarness({ data: false, error: null });
-			const event = harness.createEvent(route.path, {
-				'sb-example-auth-token': 'session',
-				ttt_pending_auth_flow: 'invite'
-			});
-			const resolve = dispatch(route);
-			await expect(harness.handle({ event, resolve })).rejects.toMatchObject({
-				status: 303,
-				location: '/auth/accept-invite'
-			});
-			expect(resolve).not.toHaveBeenCalled();
-			expectNoFactorChanges(harness);
 		});
 
 		it.each(mfaRoutes)('denies unavailable assurance before dispatching $path', async (route) => {

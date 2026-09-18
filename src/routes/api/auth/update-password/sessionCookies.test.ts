@@ -74,7 +74,8 @@ it('isolates real SDK proof, revokes only its temporary session, and changes the
 					mutations.push(JSON.parse(String(init?.body)).password);
 					return Response.json(user);
 				}
-				expect(bearer).toBe(`Bearer ${issued}`);
+				expect([`Bearer ${issued}`, `Bearer ${admitted}`]).toContain(bearer);
+				if (bearer === `Bearer ${admitted}`) return Response.json(user);
 				identityReads++;
 				if (outcome === 'wrong-token-actor') return Response.json({ ...user, id: 'other' });
 				if (outcome === 'assurance-error' && identityReads === 2)

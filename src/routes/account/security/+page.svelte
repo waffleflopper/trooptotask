@@ -1,4 +1,7 @@
 <script lang="ts">
+	import { tick } from 'svelte';
+	import PasswordMfaChallenge from '$lib/components/auth/PasswordMfaChallenge.svelte';
+	let passwordMfaRequired = $state(false);
 	import { goto } from '$app/navigation';
 	import { enhance } from '$app/forms';
 	import type { ActionData, PageData } from './$types';
@@ -182,6 +185,7 @@
 	}
 
 	async function changePassword() {
+		if (passwordLoading || passwordMfaRequired) return;
 		passwordError = '';
 		passwordSuccess = '';
 
@@ -197,7 +201,15 @@
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ currentPassword, password: newPassword, confirmPassword })
 			});
-			const payload = (await response.json()) as { error?: string };
+			if (response.redirected) {
+				await goto(response.url);
+				return;
+			}
+			const payload = (await response.json()) as { error?: string; code?: string };
+			if (response.status === 403 && payload?.code === 'mfa_required') {
+				passwordMfaRequired = true;
+				return;
+			}
 
 			if (!response.ok) {
 				passwordError = payload.error ?? 'Password update failed';
@@ -329,64 +341,79 @@
 			<Card.Description>Verify your current password before setting a new one.</Card.Description>
 		</Card.Header>
 		<Card.Content>
-			<form
-				class="grid gap-4"
-				onsubmit={(event) => {
-					event.preventDefault();
-					void changePassword();
-				}}
-			>
-				{#if passwordError}
-					<Alert.Root variant="destructive">
-						<Alert.Title>Password not changed</Alert.Title>
-						<Alert.Description>{passwordError}</Alert.Description>
-					</Alert.Root>
-				{/if}
-				{#if passwordSuccess}
-					<Alert.Root variant="success">
-						<Alert.Title>Password updated</Alert.Title>
-						<Alert.Description>{passwordSuccess}</Alert.Description>
-					</Alert.Root>
-				{/if}
+			{#if passwordMfaRequired}
+				<PasswordMfaChallenge
+					onverified={async () => {
+						passwordMfaRequired = false;
+						await tick();
+						document.getElementById('current-password')?.focus();
+					}}
+				/>
+			{:else}
+				<form
+					class="grid gap-4"
+					onsubmit={(event) => {
+						event.preventDefault();
+						void changePassword();
+					}}
+				>
+					{#if passwordError}
+						<Alert.Root variant="destructive">
+							<Alert.Title>Password not changed</Alert.Title>
+							<Alert.Description>{passwordError}</Alert.Description>
+						</Alert.Root>
+					{/if}
+					{#if passwordSuccess}
+						<Alert.Root variant="success">
+							<Alert.Title>Password updated</Alert.Title>
+							<Alert.Description>{passwordSuccess}</Alert.Description>
+						</Alert.Root>
+					{/if}
 
-				<Field.Root>
-					<Field.Label for="current-password">Current password</Field.Label>
-					<Field.Control>
-						<Input id="current-password" type="password" autocomplete="current-password" bind:value={currentPassword} />
-					</Field.Control>
-				</Field.Root>
-
-				<div class="grid gap-4 sm:grid-cols-2">
 					<Field.Root>
-						<Field.Label for="new-password">New password</Field.Label>
+						<Field.Label for="current-password">Current password</Field.Label>
 						<Field.Control>
-							<Input id="new-password" type="password" autocomplete="new-password" bind:value={newPassword} />
+							<Input
+								id="current-password"
+								type="password"
+								autocomplete="current-password"
+								bind:value={currentPassword}
+							/>
 						</Field.Control>
 					</Field.Root>
 
-					<Field.Root>
-						<Field.Label for="confirm-password">Confirm new password</Field.Label>
-						<Field.Control>
-							<Input id="confirm-password" type="password" autocomplete="new-password" bind:value={confirmPassword} />
-						</Field.Control>
-					</Field.Root>
-				</div>
+					<div class="grid gap-4 sm:grid-cols-2">
+						<Field.Root>
+							<Field.Label for="new-password">New password</Field.Label>
+							<Field.Control>
+								<Input id="new-password" type="password" autocomplete="new-password" bind:value={newPassword} />
+							</Field.Control>
+						</Field.Root>
 
-				<ul class="grid gap-1 text-sm text-muted-foreground">
-					<li class={hasMinLength ? 'text-foreground' : undefined}>At least 12 characters</li>
-					<li class={hasUppercase ? 'text-foreground' : undefined}>Includes uppercase</li>
-					<li class={hasLowercase ? 'text-foreground' : undefined}>Includes lowercase</li>
-					<li class={hasDigit ? 'text-foreground' : undefined}>Includes a number</li>
-					<li class={passwordsMatch ? 'text-foreground' : undefined}>Passwords match</li>
-				</ul>
+						<Field.Root>
+							<Field.Label for="confirm-password">Confirm new password</Field.Label>
+							<Field.Control>
+								<Input id="confirm-password" type="password" autocomplete="new-password" bind:value={confirmPassword} />
+							</Field.Control>
+						</Field.Root>
+					</div>
 
-				<div class="flex justify-end">
-					<Button type="submit" disabled={passwordLoading || !passwordReady}>
-						{#if passwordLoading}<Spinner />{/if}
-						Update Password
-					</Button>
-				</div>
-			</form>
+					<ul class="grid gap-1 text-sm text-muted-foreground">
+						<li class={hasMinLength ? 'text-foreground' : undefined}>At least 12 characters</li>
+						<li class={hasUppercase ? 'text-foreground' : undefined}>Includes uppercase</li>
+						<li class={hasLowercase ? 'text-foreground' : undefined}>Includes lowercase</li>
+						<li class={hasDigit ? 'text-foreground' : undefined}>Includes a number</li>
+						<li class={passwordsMatch ? 'text-foreground' : undefined}>Passwords match</li>
+					</ul>
+
+					<div class="flex justify-end">
+						<Button type="submit" disabled={passwordLoading || !passwordReady}>
+							{#if passwordLoading}<Spinner />{/if}
+							Update Password
+						</Button>
+					</div>
+				</form>
+			{/if}
 		</Card.Content>
 	</Card.Root>
 

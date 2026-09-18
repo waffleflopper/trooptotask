@@ -22,6 +22,8 @@ vi.mock('$lib/server/passwordUpdateRateLimit', () => ({
 	}))
 }));
 
+const proofProvider = vi.hoisted(() => ({ auth: {} as Record<string, unknown> }));
+vi.mock('@supabase/supabase-js', () => ({ createClient: () => ({ auth: proofProvider.auth }) }));
 import { POST } from './+server';
 
 function makeEvent(input: {
@@ -30,6 +32,18 @@ function makeEvent(input: {
 	cookies?: { delete: ReturnType<typeof vi.fn> };
 	ip?: string;
 }) {
+	const user = { id: 'user-123', email: 'user@example.test' };
+	const auth = (input.locals.supabase as { auth: { signInWithPassword?: ReturnType<typeof vi.fn> } } | undefined)?.auth;
+	proofProvider.auth = {
+		signInWithPassword: auth?.signInWithPassword,
+		getUser: vi.fn().mockResolvedValue({ data: { user }, error: null }),
+		mfa: {
+			getAuthenticatorAssuranceLevel: vi
+				.fn()
+				.mockResolvedValue({ data: { currentLevel: 'aal1', nextLevel: 'aal1' }, error: null })
+		},
+		signOut: vi.fn().mockResolvedValue({ error: null })
+	};
 	return {
 		request: new Request('http://localhost/api/auth/update-password', {
 			method: 'POST',
@@ -60,7 +74,18 @@ describe('POST /api/auth/update-password', () => {
 	afterEach(() => vi.useRealTimers());
 
 	it('updates the current user password after verifying the old password', async () => {
-		const signInWithPassword = vi.fn().mockResolvedValue({ error: null });
+		const signInWithPassword = vi.fn().mockResolvedValue({
+			data: {
+				user: { id: 'user-123' },
+				session: {
+					user: { id: 'user-123' },
+					access_token: 'proof-access',
+					refresh_token: 'proof-refresh',
+					expires_at: 1789650000
+				}
+			},
+			error: null
+		});
 		const updateUser = vi.fn().mockResolvedValue({ error: null });
 		const signOut = vi.fn().mockResolvedValue({ error: null });
 		const cookies = { delete: vi.fn() };
@@ -103,7 +128,18 @@ describe('POST /api/auth/update-password', () => {
 	});
 
 	it('keeps a successful password response when revoking other sessions fails', async () => {
-		const signInWithPassword = vi.fn().mockResolvedValue({ error: null });
+		const signInWithPassword = vi.fn().mockResolvedValue({
+			data: {
+				user: { id: 'user-123' },
+				session: {
+					user: { id: 'user-123' },
+					access_token: 'proof-access',
+					refresh_token: 'proof-refresh',
+					expires_at: 1789650000
+				}
+			},
+			error: null
+		});
 		const updateUser = vi.fn().mockResolvedValue({ error: null });
 		const signOut = vi.fn().mockResolvedValue({ error: { message: 'revocation failed' } });
 
@@ -236,7 +272,9 @@ describe('POST /api/auth/update-password', () => {
 	});
 
 	it('rejects in-app password updates when the old password is incorrect', async () => {
-		const signInWithPassword = vi.fn().mockResolvedValue({ error: { message: 'Invalid login credentials' } });
+		const signInWithPassword = vi
+			.fn()
+			.mockResolvedValue({ error: { status: 400, message: 'Invalid login credentials' } });
 		const updateUser = vi.fn();
 		const cookies = { delete: vi.fn() };
 

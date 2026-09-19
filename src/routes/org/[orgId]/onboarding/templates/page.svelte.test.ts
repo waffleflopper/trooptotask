@@ -4,22 +4,16 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import Page from './+page.svelte';
 import type { OnboardingTemplate, OnboardingTemplateStep } from '$features/onboarding/onboarding.types';
 
-let orgReadOnly = false;
 let canConfigure = true;
 
 vi.mock('$lib/stores/orgContext.svelte', () => ({
 	getOrgContext: () => ({
 		orgId: 'org-1',
-		readOnly: orgReadOnly,
 		affordanceForFeatureAction: () => ({
-			visible: canConfigure || orgReadOnly,
-			disabled: orgReadOnly,
-			allowed: canConfigure && !orgReadOnly,
-			reason: orgReadOnly
-				? 'denied:read-only-overlay'
-				: canConfigure
-					? 'allowed:capability'
-					: 'denied:missing-capability',
+			visible: canConfigure,
+			disabled: !canConfigure,
+			allowed: canConfigure,
+			reason: canConfigure ? 'allowed:capability' : 'denied:missing-capability',
 			explanation: '',
 			decision: {}
 		})
@@ -28,7 +22,6 @@ vi.mock('$lib/stores/orgContext.svelte', () => ({
 
 afterEach(() => {
 	cleanup();
-	orgReadOnly = false;
 	canConfigure = true;
 	vi.unstubAllGlobals();
 });
@@ -84,15 +77,6 @@ describe('onboarding templates page', () => {
 		await fireEvent.click(addTemplate);
 
 		expect(within(toolbar).getByRole('button', { name: 'Add Template' }).hasAttribute('disabled')).toBe(true);
-	});
-
-	it('hides template creation when the organization is read-only', () => {
-		orgReadOnly = true;
-
-		renderTemplatesPage();
-
-		const toolbar = screen.getByRole('toolbar', { name: 'Onboarding template controls' });
-		expect(within(toolbar).queryByRole('button', { name: 'Add Template' })).toBeNull();
 	});
 
 	it('hides template creation without Onboarding configure affordance', () => {

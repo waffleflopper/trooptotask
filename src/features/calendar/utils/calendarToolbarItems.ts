@@ -6,7 +6,6 @@ export interface CalendarToolbarInput {
 	canManageAvailability: boolean;
 	canManageAssignments: boolean;
 	canManageConfig: boolean;
-	readOnly: boolean;
 	showStatusText: boolean;
 	showPersonnelRoles: boolean;
 	showOnboardingToggle: boolean;
@@ -35,7 +34,6 @@ function overflowToggle(id: string, label: string, active: boolean, onclick: () 
 
 export function buildCalendarToolbarItems(input: CalendarToolbarInput): WorkspaceToolbarAction[] {
 	const items: WorkspaceToolbarAction[] = [];
-	const readOnlyReason = input.readOnly ? 'Read-only mode' : undefined;
 	const orgRouteSegment = input.orgUrlSegment ?? input.orgId;
 
 	if (input.canManageAvailability) {
@@ -44,26 +42,18 @@ export function buildCalendarToolbarItems(input: CalendarToolbarInput): Workspac
 			label: 'Bulk Status',
 			icon: 'clipboard-list',
 			displayMode: 'full',
-			disabled: input.readOnly,
-			disabledReason: readOnlyReason,
 			menuItems: [
 				{
 					label: 'Add Bulk',
-					href: `/org/${orgRouteSegment}/calendar/bulk?tab=add`,
-					disabled: input.readOnly,
-					disabledReason: readOnlyReason
+					href: `/org/${orgRouteSegment}/calendar/bulk?tab=add`
 				},
 				{
 					label: 'Remove Bulk',
-					href: `/org/${orgRouteSegment}/calendar/bulk?tab=remove`,
-					disabled: input.readOnly,
-					disabledReason: readOnlyReason
+					href: `/org/${orgRouteSegment}/calendar/bulk?tab=remove`
 				},
 				{
 					label: 'Import CSV',
-					href: `/org/${orgRouteSegment}/calendar/bulk?tab=import`,
-					disabled: input.readOnly,
-					disabledReason: readOnlyReason
+					href: `/org/${orgRouteSegment}/calendar/bulk?tab=import`
 				}
 			]
 		});
@@ -74,16 +64,12 @@ export function buildCalendarToolbarItems(input: CalendarToolbarInput): Workspac
 		if (input.canManageConfig) {
 			planningItems.push({
 				label: 'Duty Rosters (alpha)',
-				href: `/org/${orgRouteSegment}/duty-rosters`,
-				disabled: input.readOnly,
-				disabledReason: readOnlyReason
+				href: `/org/${orgRouteSegment}/duty-rosters`
 			});
 		}
 		planningItems.push({
 			label: 'Assignment Planner',
-			href: `/org/${orgRouteSegment}/calendar/assignments`,
-			disabled: input.readOnly,
-			disabledReason: readOnlyReason
+			href: `/org/${orgRouteSegment}/calendar/assignments`
 		});
 
 		items.push({
@@ -91,8 +77,6 @@ export function buildCalendarToolbarItems(input: CalendarToolbarInput): Workspac
 			label: 'Planning',
 			icon: 'calendar-days',
 			displayMode: 'full',
-			disabled: input.readOnly,
-			disabledReason: readOnlyReason,
 			menuItems: planningItems
 		});
 	}

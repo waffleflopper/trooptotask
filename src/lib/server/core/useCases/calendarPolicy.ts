@@ -4,14 +4,14 @@ import {
 	type PolicyDecision,
 	type PolicyResource
 } from '$lib/access/policyEvaluator';
-import type { AuditPort, AuthContext, DataStore, ReadOnlyGuard } from '$lib/server/core/ports';
+import type { AuditPort, AuthContext, DataStore } from '$lib/server/core/ports';
 import { evaluateAuthoritativePolicyDecision } from './policyAdapter';
 import { denyPolicyDecision, policyDenialAuditDetails } from './policyDenial';
 
 interface CalendarPolicyPorts {
 	auth: AuthContext;
 	audit?: AuditPort;
-	readOnlyGuard?: ReadOnlyGuard;
+
 	store?: DataStore;
 	rawStore?: DataStore;
 }
@@ -51,21 +51,17 @@ export async function requireCalendarPersonnelPolicy(
 		inFilters: { id: uniquePersonnelIds },
 		select: 'id, group_id'
 	});
-	const groupIds = [
-		...new Set(
-			personnelRows
-				.map((row) => row.group_id)
-				.filter((groupId): groupId is string => typeof groupId === 'string' && groupId.length > 0)
-		)
-	];
+	const personnelById = new Map(personnelRows.map((row) => [row.id, row]));
+	const groupIds = new Set(
+		uniquePersonnelIds.map((id) => {
+			const groupId = personnelById.get(id)?.group_id;
+			return typeof groupId === 'string' && groupId.length > 0 ? groupId : null;
+		})
+	);
 
-	if (groupIds.length === 0) {
-		await requireCalendarPolicy(ports, action);
-		return;
-	}
-
+	// Missing rows can be hidden by RLS; they cannot grant unscoped access.
 	for (const groupId of groupIds) {
-		await requireCalendarPolicy(ports, action, { kind: 'group', groupId });
+		await requireCalendarPolicy(ports, action, groupId ? { kind: 'group', groupId } : { kind: 'organization' });
 	}
 }
 
@@ -78,10 +74,6 @@ async function evaluateCalendarPolicy(
 }
 
 function calendarPolicyDenialMessage(decision: PolicyDecision): string {
-	if (decision.reasonCode === 'denied:read-only-overlay') {
-		return 'Organization is in read-only mode';
-	}
-
 	if (decision.reasonCode === 'denied:out-of-scope') {
 		return 'You do not have access to that Calendar scope';
 	}

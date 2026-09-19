@@ -62,8 +62,6 @@
 					label: 'Import',
 					onclick: () => modals.open('bulk-import'),
 					icon: 'upload',
-					disabled: ctx.readOnly,
-					disabledReason: ctx.readOnly ? 'Upgrade to edit' : undefined,
 					priority: 'normal'
 				},
 				{
@@ -71,8 +69,6 @@
 					label: 'Manage Views',
 					href: `/org/${orgUrlSegment}/training/views`,
 					icon: 'settings',
-					disabled: ctx.readOnly,
-					disabledReason: ctx.readOnly ? 'Upgrade to edit' : undefined,
 					priority: 'normal'
 				}
 			);
@@ -156,11 +152,6 @@
 						overflowAriaLabel="More training actions"
 					/>
 				</WorkspaceToolbar.Group>
-				{#if ctx.readOnly}
-					<WorkspaceToolbar.Group label="Training edit status" zone="meta">
-						<WorkspaceToolbar.Meta tone="warning">Upgrade to edit</WorkspaceToolbar.Meta>
-					</WorkspaceToolbar.Group>
-				{/if}
 			</WorkspaceToolbar.Root>
 
 			{#if loading}

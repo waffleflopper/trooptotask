@@ -107,15 +107,6 @@ describe('toggleCheckbox', () => {
 			'Only checkbox steps can be toggled'
 		);
 	});
-
-	it('blocks toggle when organization is read-only', async () => {
-		const ctx = buildContext({ readOnly: true });
-		seedStep(ctx);
-
-		await expect(toggleCheckbox(ctx, { stepId: 'step-1', completed: true })).rejects.toThrow(
-			'Organization is in read-only mode'
-		);
-	});
 });
 
 function seedPaperworkStep(ctx: ReturnType<typeof buildContext>, overrides?: Partial<OnboardingStepFixture>) {
@@ -198,15 +189,6 @@ describe('advanceStage', () => {
 		);
 	});
 
-	it('blocks advance when organization is read-only', async () => {
-		const ctx = buildContext({ readOnly: true });
-		seedPaperworkStep(ctx);
-
-		await expect(advanceStage(ctx, { stepId: 'pw-step-1', stageName: 'submitted' })).rejects.toThrow(
-			'Organization is in read-only mode'
-		);
-	});
-
 	it('emits audit log on stage advance', async () => {
 		const ctx = buildContext();
 		seedPaperworkStep(ctx);
@@ -279,6 +261,9 @@ describe('refreshTrainingSteps', () => {
 		expect(result).toHaveLength(1);
 		expect(result[0].completed).toBe(true);
 		expect(result[0].id).toBe('tr-step-1');
+		expect(await ctx.store.findOne('onboarding_step_progress', 'test-org', { id: 'tr-step-1' })).toMatchObject({
+			completed: true
+		});
 	});
 
 	it('sets completed=false for training steps without matching training records', async () => {
@@ -290,6 +275,9 @@ describe('refreshTrainingSteps', () => {
 
 		expect(result).toHaveLength(1);
 		expect(result[0].completed).toBe(false);
+		expect(await ctx.store.findOne('onboarding_step_progress', 'test-org', { id: 'tr-step-1' })).toMatchObject({
+			completed: false
+		});
 	});
 
 	it('only queries training records for the specific soldier and training type IDs', async () => {
@@ -385,29 +373,6 @@ describe('refreshTrainingSteps', () => {
 			})
 		);
 	});
-
-	it('returns computed statuses without persisting updates when organization is read-only', async () => {
-		const ctx = buildContext({ readOnly: true });
-		seedOnboarding(ctx);
-		seedTrainingStep(ctx, { completed: false });
-		ctx.store.seed('personnel_trainings', [
-			{
-				id: 'pt-1',
-				personnel_id: 'p-1',
-				training_type_id: 'tt-cpr',
-				organization_id: 'test-org'
-			}
-		]);
-
-		const result = await refreshTrainingSteps(ctx, { onboardingId: 'ob-1' });
-		expect(result).toHaveLength(1);
-		expect(result[0].completed).toBe(true);
-
-		const stored = await ctx.store.findOne<{ completed: boolean }>('onboarding_step_progress', 'test-org', {
-			id: 'tr-step-1'
-		});
-		expect(stored?.completed).toBe(false);
-	});
 });
 
 describe('addNote', () => {
@@ -450,15 +415,6 @@ describe('addNote', () => {
 		await expect(addNote(ctx, { stepId: 'nonexistent', text: 'hello' })).rejects.toThrow('Step not found');
 	});
 
-	it('blocks when organization is read-only', async () => {
-		const ctx = buildContext({ auth: { userId: 'user-1' }, readOnly: true });
-		seedStep(ctx);
-
-		await expect(addNote(ctx, { stepId: 'step-1', text: 'hello' })).rejects.toThrow(
-			'Organization is in read-only mode'
-		);
-	});
-
 	it('emits audit log on note addition', async () => {
 		const ctx = buildContext({ auth: { userId: 'user-abc' } });
 		seedStep(ctx);
@@ -498,13 +454,6 @@ describe('removeInactiveStep', () => {
 		const ctx = buildContext();
 
 		await expect(removeInactiveStep(ctx, 'nonexistent')).rejects.toThrow('Step not found');
-	});
-
-	it('blocks removal when organization is read-only', async () => {
-		const ctx = buildContext({ readOnly: true });
-		seedStep(ctx, { active: false });
-
-		await expect(removeInactiveStep(ctx, 'step-1')).rejects.toThrow('Organization is in read-only mode');
 	});
 
 	it('emits audit log on removal', async () => {

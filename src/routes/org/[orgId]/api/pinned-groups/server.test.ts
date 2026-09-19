@@ -26,8 +26,7 @@ describe('/api/pinned-groups route config', () => {
 					ratingScheme: 'view'
 				},
 				scopeSet: { kind: 'organization' }
-			},
-			readOnly: true
+			}
 		});
 
 		await handleUseCaseRequest(_postConfig, ctx, { groupName: 'Alpha', sortOrder: 0 });
@@ -51,8 +50,7 @@ describe('/api/pinned-groups route config', () => {
 					ratingScheme: 'view'
 				},
 				scopeSet: { kind: 'organization' }
-			},
-			readOnly: true
+			}
 		});
 		ctx.store.seed('user_pinned_groups', [
 			{

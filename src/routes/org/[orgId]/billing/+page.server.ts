@@ -1,7 +1,7 @@
 import type { PageServerLoad } from './$types';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import { TIER_CONFIG, type EffectiveTier, type Tier } from '$lib/types/subscription';
+import { TIER_CONFIG, type Tier } from '$lib/types/subscription';
 import { canManageBillingSubscription, readBillingOrganization } from '$lib/server/core/useCases/billingOrganization';
 import type { UseCaseContext } from '$lib/server/core/ports';
 import {
@@ -11,7 +11,11 @@ import {
 } from '$lib/server/core/useCases/billingCheckoutAttempts';
 import { readCurrentBillingSnapshot, summarizeBillingCancellation } from '$lib/server/core/useCases/billingState';
 import { readOrganizationPlanUsage } from '$lib/server/core/useCases/organizationPlanUsage';
-import { buildEffectivePlanPolicyForTier, readEffectivePlanPolicy } from '$lib/server/core/useCases/planPolicy';
+import {
+	buildEffectivePlanPolicyForTier,
+	readEffectivePlanPolicy,
+	toEffectiveTierFromPlanPolicy
+} from '$lib/server/core/useCases/planPolicy';
 import { buildPlanDowngradePreview } from '$lib/server/core/useCases/planDowngradePreview';
 import { buildPlanUsageSummary } from '$lib/server/core/useCases/planUsageSummary';
 import { requireReadyAppShell } from '$lib/server/core/appShellRouteData';
@@ -49,10 +53,7 @@ async function readPendingCheckoutSession(ctx: Pick<UseCaseContext, 'auth' | 'ra
 	return mapPendingCheckoutSession(await findActiveCheckoutAttempt(ctx.rawStore, ctx.auth.orgId, now));
 }
 
-export async function _loadBillingPageData(
-	ctx: Pick<UseCaseContext, 'auth' | 'audit' | 'rawStore'>,
-	effectiveTier: EffectiveTier
-) {
+export async function _loadBillingPageData(ctx: Pick<UseCaseContext, 'auth' | 'audit' | 'rawStore'>) {
 	const org = await readBillingOrganization({ auth: ctx.auth, store: ctx.rawStore });
 	const [billingSnapshot, effectivePlanPolicy, planUsage, pendingCheckoutSession] = await Promise.all([
 		readCurrentBillingSnapshot({ auth: ctx.auth, store: ctx.rawStore }),
@@ -83,7 +84,7 @@ export async function _loadBillingPageData(
 	});
 
 	return {
-		effectiveTier,
+		effectiveTier: toEffectiveTierFromPlanPolicy(effectivePlanPolicy, planUsage),
 		orgName: org.name,
 		stripeCustomerId: org.stripeCustomerId,
 		subscriptionStripeId: org.stripeSubscriptionId,
@@ -97,12 +98,11 @@ export async function _loadBillingPageData(
 	};
 }
 
-export const load: PageServerLoad = async ({ params, locals, cookies, parent }) => {
-	const { orgId } = params;
+export const load: PageServerLoad = async ({ locals, cookies, parent }) => {
 	const shell = requireReadyAppShell(await parent());
 
-	return loadWithContext(locals, cookies, orgId, {
+	return loadWithContext(locals, cookies, shell.org.id, {
 		policyAction: POLICY_ACTION_CATALOG.organization.accessBilling,
-		fn: async (ctx) => _loadBillingPageData(ctx, shell.state.effectiveTier)
+		fn: async (ctx) => _loadBillingPageData(ctx)
 	});
 };

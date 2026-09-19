@@ -1,13 +1,8 @@
 <script lang="ts">
-	import { TIER_CONFIG, type EffectiveTier } from '$lib/types/subscription';
 	import OrganizationSettingsSection from './OrganizationSettingsSection.svelte';
 	import type { GeneralSettingsData } from './settingsGeneral.server';
-	import type { PlanUsageSummaryForSettings } from './settingsTypes';
-	import { formatCap, formatExportLimit, formatPrice } from './settingsWorkspaceFormatters';
 
 	type SettingsPageData = {
-		effectiveTier?: EffectiveTier | null;
-		planUsageSummary: PlanUsageSummaryForSettings;
 		generalSettings: GeneralSettingsData;
 	};
 
@@ -19,61 +14,12 @@
 		slugError?: string;
 	} | null;
 
-	let {
-		data,
-		form,
-		showBilling = false
-	} = $props<{
-		data: unknown;
-		form: SettingsActionData;
-		showBilling?: boolean;
-	}>();
+	let { data, form } = $props<{ data: unknown; form: SettingsActionData }>();
 
 	let nameLoading = $state(false);
 	let slugLoading = $state(false);
 	const settingsData = $derived(data as SettingsPageData);
 	const organizationSection = $derived(settingsData.generalSettings.sections.organization);
-	const tier = $derived(
-		settingsData.effectiveTier ??
-			({
-				tier: 'free',
-				source: 'default',
-				personnelCount: 0,
-				personnelCap: TIER_CONFIG.free.personnelCap,
-				isReadOnly: false,
-				readOnlyReason: null,
-				giftExpiresAt: null,
-				giftTier: null
-			} satisfies EffectiveTier)
-	);
-	const tierConfig = $derived(TIER_CONFIG[tier.tier as keyof typeof TIER_CONFIG]);
-	const planName = $derived(tierConfig.name);
-	const planBadge = $derived(`${planName} tier`);
-	const planPrice = $derived(formatPrice(tierConfig.priceMonthly));
-	const planCopy = $derived(
-		`Includes ${formatCap(tierConfig.personnelCap).toLowerCase()} members, audit log, ${formatExportLimit(tierConfig.bulkExportsPerMonth)}.`
-	);
-	const personnelCount = $derived(`${tier.personnelCount} / ${formatCap(tierConfig.personnelCap).toUpperCase()}`);
-	const billingStatus = $derived(getBillingStatus(tier));
-
-	function getBillingStatus(tier: EffectiveTier): string {
-		if (tier.isReadOnly) return 'Read-only';
-		if (tier.source === 'gift') return 'Gifted access';
-		return 'Active';
-	}
 </script>
 
-<OrganizationSettingsSection
-	organization={organizationSection}
-	{form}
-	bind:nameLoading
-	bind:slugLoading
-	{planBadge}
-	{planPrice}
-	{planCopy}
-	{billingStatus}
-	{personnelCount}
-	planUsageSummary={settingsData.planUsageSummary}
-	showProfile={!showBilling}
-	{showBilling}
-/>
+<OrganizationSettingsSection organization={organizationSection} {form} bind:nameLoading bind:slugLoading />

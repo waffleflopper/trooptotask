@@ -26,8 +26,7 @@ describe('policy evaluator', () => {
 			action: POLICY_ACTION_CATALOG.calendar.viewAvailability,
 			capabilityMap: { ...baseCapabilityMap, calendar: 'view' },
 			scopeSet: { kind: 'groups', groupIds: ['group-alpha'] },
-			resource: { kind: 'group', groupId: 'group-alpha' },
-			overlays: []
+			resource: { kind: 'group', groupId: 'group-alpha' }
 		});
 
 		expect(decision).toMatchObject({
@@ -52,8 +51,7 @@ describe('policy evaluator', () => {
 			action: POLICY_ACTION_CATALOG.calendar.manageAvailability,
 			capabilityMap: { ...baseCapabilityMap, calendar: 'view' },
 			scopeSet: { kind: 'organization' },
-			resource: { kind: 'organization' },
-			overlays: []
+			resource: { kind: 'organization' }
 		});
 
 		expect(decision).toMatchObject({
@@ -71,8 +69,7 @@ describe('policy evaluator', () => {
 			action: POLICY_ACTION_CATALOG.personnel.manageRecords,
 			capabilityMap: { ...baseCapabilityMap, personnel: 'operate' },
 			scopeSet: { kind: 'groups', groupIds: ['group-alpha'] },
-			resource: { kind: 'group', groupId: 'group-bravo' },
-			overlays: []
+			resource: { kind: 'group', groupId: 'group-bravo' }
 		});
 
 		expect(decision).toMatchObject({
@@ -90,8 +87,7 @@ describe('policy evaluator', () => {
 			action: POLICY_ACTION_CATALOG.personnel.manageRecords,
 			capabilityMap: { ...baseCapabilityMap, personnel: 'operate' },
 			scopeSet: { kind: 'groups', groupIds: ['group-alpha'] },
-			resource: { kind: 'organization' },
-			overlays: []
+			resource: { kind: 'organization' }
 		});
 
 		expect(decision).toMatchObject({
@@ -230,25 +226,6 @@ describe('policy evaluator', () => {
 		});
 	});
 
-	it('lets read-only overlays block writes after capability and scope pass', () => {
-		const decision = evaluatePolicyDecision({
-			decisionKind: 'server-authoritative',
-			actor: { membershipRole: 'member' },
-			action: POLICY_ACTION_CATALOG.calendar.manageAvailability,
-			capabilityMap: { ...baseCapabilityMap, calendar: 'operate' },
-			scopeSet: { kind: 'organization' },
-			resource: { kind: 'organization' },
-			overlays: [{ id: 'billing-read-only', kind: 'read-only-mode', label: 'Billing read-only mode' }]
-		});
-
-		expect(decision).toMatchObject({
-			allowed: false,
-			reasonCode: 'denied:read-only-overlay',
-			blockingOverlay: { id: 'billing-read-only', kind: 'read-only-mode' },
-			audit: { capture: true, category: 'denied' }
-		});
-	});
-
 	it('allows admin governance actions without feature capability checks', () => {
 		const decision = evaluatePolicyDecision({
 			decisionKind: 'server-authoritative',
@@ -256,8 +233,7 @@ describe('policy evaluator', () => {
 			action: POLICY_ACTION_CATALOG.organization.updateMemberAccess,
 			capabilityMap: baseCapabilityMap,
 			scopeSet: { kind: 'groups', groupIds: ['group-alpha'] },
-			resource: { kind: 'organization' },
-			overlays: []
+			resource: { kind: 'organization' }
 		});
 
 		expect(decision).toMatchObject({
@@ -276,8 +252,7 @@ describe('policy evaluator', () => {
 			action: POLICY_ACTION_CATALOG.organization.updateMemberAccess,
 			capabilityMap: { ...baseCapabilityMap, personnel: 'configure' },
 			scopeSet: { kind: 'organization' },
-			resource: { kind: 'organization' },
-			overlays: []
+			resource: { kind: 'organization' }
 		});
 
 		expect(decision).toMatchObject({
@@ -296,8 +271,7 @@ describe('policy evaluator', () => {
 			action: POLICY_ACTION_CATALOG.organization.accessAuditLogs,
 			capabilityMap: { ...baseCapabilityMap, personnel: 'configure' },
 			scopeSet: { kind: 'organization' },
-			resource: { kind: 'organization' },
-			overlays: []
+			resource: { kind: 'organization' }
 		});
 
 		expect(decision).toMatchObject({
@@ -314,8 +288,7 @@ describe('policy evaluator', () => {
 			action: POLICY_ACTION_CATALOG.organization.accessAuditLogs,
 			capabilityMap: baseCapabilityMap,
 			scopeSet: { kind: 'organization' },
-			resource: { kind: 'organization' },
-			overlays: []
+			resource: { kind: 'organization' }
 		});
 
 		expect(ownerDecision).toMatchObject({
@@ -327,25 +300,6 @@ describe('policy evaluator', () => {
 		expect(ownerDecision.matchedCapability).toBeUndefined();
 	});
 
-	it('lets read-only overlays block governance writes after role checks pass', () => {
-		const decision = evaluatePolicyDecision({
-			decisionKind: 'server-authoritative',
-			actor: { membershipRole: 'admin' },
-			action: POLICY_ACTION_CATALOG.organization.inviteMember,
-			capabilityMap: baseCapabilityMap,
-			scopeSet: { kind: 'organization' },
-			resource: { kind: 'organization' },
-			overlays: [{ id: 'billing-read-only', kind: 'read-only-mode', label: 'Billing read-only mode' }]
-		});
-
-		expect(decision).toMatchObject({
-			allowed: false,
-			reasonCode: 'denied:read-only-overlay',
-			blockingOverlay: { id: 'billing-read-only', kind: 'read-only-mode' },
-			audit: { capture: true, category: 'denied' }
-		});
-	});
-
 	it('preserves advisory decisions as non-authoritative contract results', () => {
 		const decision = evaluatePolicyDecision({
 			decisionKind: 'client-advisory',
@@ -353,8 +307,7 @@ describe('policy evaluator', () => {
 			action: POLICY_ACTION_CATALOG.training.viewMatrix,
 			capabilityMap: { ...baseCapabilityMap, training: 'view' },
 			scopeSet: { kind: 'organization' },
-			resource: { kind: 'organization' },
-			overlays: []
+			resource: { kind: 'organization' }
 		});
 
 		expect(decision).toMatchObject({
@@ -391,8 +344,7 @@ describe('policy evaluator', () => {
 			action: POLICY_ACTION_CATALOG.criticalTasks.recordCompletion,
 			capabilityMap: { ...baseCapabilityMap, training: 'none', criticalTasks: 'operate' },
 			scopeSet: { kind: 'groups', groupIds: ['group-alpha', 'group-bravo'] },
-			resource: { kind: 'group', groupId: 'group-bravo' },
-			overlays: []
+			resource: { kind: 'group', groupId: 'group-bravo' }
 		});
 		expect(operateDecision).toMatchObject({
 			allowed: true,
@@ -407,8 +359,7 @@ describe('policy evaluator', () => {
 			action: POLICY_ACTION_CATALOG.criticalTasks.configureLibrary,
 			capabilityMap: { ...baseCapabilityMap, training: 'configure', criticalTasks: 'operate' },
 			scopeSet: { kind: 'organization' },
-			resource: { kind: 'organization' },
-			overlays: []
+			resource: { kind: 'organization' }
 		});
 		expect(configureDecision).toMatchObject({
 			allowed: false,
@@ -424,7 +375,6 @@ describe('policy evaluator', () => {
 			allowedIdentityOwner: 'allowed:identity-owner',
 			deniedMissingCapability: 'denied:missing-capability',
 			deniedOutOfScope: 'denied:out-of-scope',
-			deniedReadOnlyOverlay: 'denied:read-only-overlay',
 			deniedOwnerOnly: 'denied:owner-only',
 			deniedGovernanceRole: 'denied:governance-role',
 			deniedUnauthenticated: 'denied:unauthenticated',
@@ -439,8 +389,7 @@ describe('policy evaluator', () => {
 			action: POLICY_ACTION_CATALOG.identity.updateOwnNotifications,
 			capabilityMap: baseCapabilityMap,
 			scopeSet: { kind: 'groups', groupIds: ['group-alpha'] },
-			resource: { kind: 'user', userId: 'user-a' },
-			overlays: []
+			resource: { kind: 'user', userId: 'user-a' }
 		});
 
 		expect(decision).toMatchObject({
@@ -460,8 +409,7 @@ describe('policy evaluator', () => {
 			action: POLICY_ACTION_CATALOG.identity.deleteOwnNotifications,
 			capabilityMap: { ...baseCapabilityMap, personnel: 'configure' },
 			scopeSet: { kind: 'organization' },
-			resource: { kind: 'user', userId: 'user-b' },
-			overlays: []
+			resource: { kind: 'user', userId: 'user-b' }
 		});
 
 		expect(decision).toMatchObject({
@@ -470,24 +418,6 @@ describe('policy evaluator', () => {
 			audit: { capture: true, category: 'denied' }
 		});
 		expect(decision.matchedCapability).toBeUndefined();
-	});
-
-	it('lets read-only overlays block identity-owned writes', () => {
-		const decision = evaluatePolicyDecision({
-			decisionKind: 'server-authoritative',
-			actor: { membershipRole: 'member', userId: 'user-a' },
-			action: POLICY_ACTION_CATALOG.identity.createOwnDeletionRequest,
-			capabilityMap: baseCapabilityMap,
-			scopeSet: { kind: 'organization' },
-			resource: { kind: 'user', userId: 'user-a' },
-			overlays: [{ id: 'read-only-mode', kind: 'read-only-mode', label: 'Read-only mode' }]
-		});
-
-		expect(decision).toMatchObject({
-			allowed: false,
-			reasonCode: 'denied:read-only-overlay',
-			blockingOverlay: { kind: 'read-only-mode' }
-		});
 	});
 
 	it('represents Calendar view, operate, and configure workflows in the action catalog', () => {
@@ -595,8 +525,7 @@ describe('policy evaluator', () => {
 			action: POLICY_ACTION_CATALOG.calendar.manageDutyRosters,
 			capabilityMap: { ...baseCapabilityMap, calendar: 'operate' },
 			scopeSet: { kind: 'groups', groupIds: ['group-alpha'] },
-			resource: { kind: 'group', groupId: 'group-alpha' },
-			overlays: []
+			resource: { kind: 'group', groupId: 'group-alpha' }
 		});
 
 		expect(manageDecision).toMatchObject({
@@ -612,8 +541,7 @@ describe('policy evaluator', () => {
 			action: POLICY_ACTION_CATALOG.calendar.configureDutyTemplates,
 			capabilityMap: { ...baseCapabilityMap, calendar: 'operate' },
 			scopeSet: { kind: 'organization' },
-			resource: { kind: 'organization' },
-			overlays: []
+			resource: { kind: 'organization' }
 		});
 
 		expect(configureDecision).toMatchObject({
@@ -630,8 +558,7 @@ describe('policy evaluator', () => {
 			action: POLICY_ACTION_CATALOG.organization.manageBilling,
 			capabilityMap: baseCapabilityMap,
 			scopeSet: { kind: 'organization' },
-			resource: { kind: 'organization' },
-			overlays: []
+			resource: { kind: 'organization' }
 		});
 
 		expect(manageBillingDecision).toMatchObject({
@@ -646,8 +573,7 @@ describe('policy evaluator', () => {
 			action: POLICY_ACTION_CATALOG.organization.exportData,
 			capabilityMap: { ...baseCapabilityMap, personnel: 'configure' },
 			scopeSet: { kind: 'organization' },
-			resource: { kind: 'organization' },
-			overlays: []
+			resource: { kind: 'organization' }
 		});
 
 		expect(exportDataDeniedDecision).toMatchObject({
@@ -663,8 +589,7 @@ describe('policy evaluator', () => {
 			action: POLICY_ACTION_CATALOG.organization.exportData,
 			capabilityMap: { ...baseCapabilityMap, personnel: 'view' },
 			scopeSet: { kind: 'organization' },
-			resource: { kind: 'organization' },
-			overlays: []
+			resource: { kind: 'organization' }
 		});
 
 		expect(exportDataAllowedDecision).toMatchObject({
@@ -675,15 +600,14 @@ describe('policy evaluator', () => {
 		expect(exportDataAllowedDecision.matchedCapability).toBeUndefined();
 	});
 
-	it('evaluates new identity-owned actions with ownership and read-only denial reasons', () => {
+	it('evaluates identity-owned actions with ownership checks', () => {
 		const dashboardDecision = evaluatePolicyDecision({
 			decisionKind: 'server-authoritative',
 			actor: { membershipRole: 'member', userId: 'user-a' },
 			action: POLICY_ACTION_CATALOG.identity.viewDashboard,
 			capabilityMap: baseCapabilityMap,
 			scopeSet: { kind: 'organization' },
-			resource: { kind: 'user', userId: 'user-b' },
-			overlays: []
+			resource: { kind: 'user', userId: 'user-b' }
 		});
 
 		expect(dashboardDecision).toMatchObject({
@@ -698,14 +622,12 @@ describe('policy evaluator', () => {
 			action: POLICY_ACTION_CATALOG.identity.updateOwnPreferences,
 			capabilityMap: baseCapabilityMap,
 			scopeSet: { kind: 'organization' },
-			resource: { kind: 'user', userId: 'user-a' },
-			overlays: [{ id: 'read-only-mode', kind: 'read-only-mode', label: 'Read-only mode' }]
+			resource: { kind: 'user', userId: 'user-a' }
 		});
 
 		expect(preferencesDecision).toMatchObject({
-			allowed: false,
-			reasonCode: 'denied:read-only-overlay',
-			blockingOverlay: { kind: 'read-only-mode' }
+			allowed: true,
+			reasonCode: 'allowed:identity-owner'
 		});
 	});
 });

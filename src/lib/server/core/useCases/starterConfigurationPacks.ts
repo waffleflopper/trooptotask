@@ -310,7 +310,7 @@ function buildReadiness(rows: StarterPackReadinessRows): StarterConfigurationPac
 	];
 }
 
-async function evaluateRequiredConfigureActions(ctx: Pick<UseCaseContext, 'auth' | 'readOnlyGuard'>) {
+async function evaluateRequiredConfigureActions(ctx: Pick<UseCaseContext, 'auth'>) {
 	return Promise.all(
 		REQUIRED_CONFIGURE_ACTIONS.map(async (action) => ({
 			action,
@@ -321,7 +321,7 @@ async function evaluateRequiredConfigureActions(ctx: Pick<UseCaseContext, 'auth'
 
 async function requireStarterPackPreflight(ctx: WritePorts): Promise<void> {
 	for (const action of REQUIRED_CONFIGURE_ACTIONS) {
-		await requirePolicyDecision({ auth: ctx.auth, audit: ctx.audit, readOnlyGuard: ctx.readOnlyGuard }, action, {
+		await requirePolicyDecision({ auth: ctx.auth, audit: ctx.audit }, action, {
 			kind: 'organization'
 		});
 	}

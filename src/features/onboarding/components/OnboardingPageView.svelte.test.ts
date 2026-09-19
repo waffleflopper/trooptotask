@@ -12,7 +12,6 @@ function makeCtx(overrides: Partial<OnboardingPageContext> = {}): OnboardingPage
 		canManageWorkflows: true,
 		canManageConfig: true,
 		canManageOnboarding: vi.fn(() => true),
-		readOnly: false,
 		hasTemplateSteps: true,
 		historyUrl: '/org/org-1/onboarding/history',
 		templatesUrl: '/org/org-1/onboarding/templates',

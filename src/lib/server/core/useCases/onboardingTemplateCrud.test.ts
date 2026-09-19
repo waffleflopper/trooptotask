@@ -344,12 +344,6 @@ describe('Onboarding Template deletion hooks', () => {
 
 		await expect(createOnboardingTemplate(ctx, { name: 'Blocked' })).rejects.toMatchObject({ status: 403 });
 	});
-
-	it('blocks mutations in read-only mode', async () => {
-		const ctx = createWritePortsContext({ readOnly: true });
-
-		await expect(createOnboardingTemplate(ctx, { name: 'Blocked' })).rejects.toMatchObject({ status: 403 });
-	});
 });
 
 describe('Onboarding Template duplication', () => {

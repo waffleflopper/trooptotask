@@ -19,7 +19,6 @@ export interface PolicyDenialAuditDetailsOptions {
 				key: string;
 				value: 'kind' | 'object';
 		  };
-	blockingOverlay?: boolean;
 }
 
 export interface LogPolicyDenialInput {
@@ -76,10 +75,6 @@ export function policyDenialAuditDetails(
 	if (options.matchedScope && decision.matchedScope) {
 		details[options.matchedScope.key] =
 			options.matchedScope.value === 'kind' ? decision.matchedScope.kind : decision.matchedScope;
-	}
-
-	if ((options.blockingOverlay ?? true) && decision.blockingOverlay) {
-		details.blockingOverlay = decision.blockingOverlay.kind;
 	}
 
 	return details;

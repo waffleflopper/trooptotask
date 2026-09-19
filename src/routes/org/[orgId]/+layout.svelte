@@ -2,12 +2,10 @@
 	import { invalidate } from '$app/navigation';
 	import { page } from '$app/stores';
 	import { onMount } from 'svelte';
-	import { subscriptionStore } from '$lib/stores/subscription.svelte';
 	import { themeStore } from '$lib/stores/theme.svelte';
 	import { createOrgContext, setOrgContext } from '$lib/stores/orgContext.svelte';
 	import AnnouncementBanner from '$lib/components/AnnouncementBanner.svelte';
 	import BannerStack from '$lib/components/BannerStack.svelte';
-	import SubscriptionBanner from '$lib/components/SubscriptionBanner.svelte';
 	import TopHeader from '$lib/components/TopHeader.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { whatsNewStore } from '$lib/stores/whatsNew.svelte';
@@ -28,8 +26,7 @@
 			userId: readyShell?.user.id ?? null,
 			userRole: readyShell?.member.role ?? 'member',
 			capabilityMap: readyShell?.member.capabilityMap,
-			scopeSet: readyShell?.member.scopeSet,
-			isReadOnly: readyShell?.state.isReadOnly ?? suspendedShell?.state.isReadOnly ?? false
+			scopeSet: readyShell?.member.scopeSet
 		}))
 	);
 
@@ -41,13 +38,6 @@
 			localStorage.setItem(`changelog-last-seen-${readyShell.user.id}`, changelog[0].id);
 		}
 	}
-
-	// Load subscription tier into store (reacts to org navigation changes)
-	$effect(() => {
-		if (readyShell) {
-			subscriptionStore.load(readyShell.state.effectiveTier);
-		}
-	});
 
 	const FOCUS_REFRESH_AWAY_MS = 60_000;
 	const FOCUS_REFRESH_COOLDOWN_MS = 90_000;
@@ -110,7 +100,6 @@
 	</div>
 {:else if readyShell}
 	<BannerStack>
-		<SubscriptionBanner orgId={readyShell.org.id} orgUrlSegment={readyShell.org.urlSegment} />
 		{#if readyShell.announcements.length}
 			<AnnouncementBanner announcements={readyShell.announcements} />
 		{/if}

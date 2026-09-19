@@ -100,7 +100,6 @@ function makeSettingsData(): SettingsStateTestData {
 				name: 'Test Org',
 				urlSlug: '1-11-bde',
 				urlSegment: '1-11-bde',
-				tier: null,
 				canUpdateProfile: true,
 				canUpdateUrlSlug: true
 			},

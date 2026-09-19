@@ -98,8 +98,7 @@ describe('dashboard page server load', () => {
 		buildRouteContextMock.mockResolvedValue({
 			auth: { kind: 'auth' },
 			audit: { kind: 'audit' },
-			notifications: { kind: 'notifications' },
-			readOnlyGuard: { kind: 'read-only' }
+			notifications: { kind: 'notifications' }
 		});
 		createSupabaseOrgSettingsMemberManagementPortMock.mockReturnValue({ kind: 'settings-port' });
 		leaveOrganizationMock.mockResolvedValue({ success: true });
@@ -359,7 +358,7 @@ describe('dashboard page server load', () => {
 				auth: { kind: 'auth' },
 				audit: { kind: 'audit' },
 				notifications: { kind: 'notifications' },
-				readOnlyGuard: { kind: 'read-only' },
+
 				settings: { kind: 'settings-port' }
 			},
 			{

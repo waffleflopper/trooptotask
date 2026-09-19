@@ -49,7 +49,7 @@ const authContext = {
 	auth: { kind: 'auth', orgId: 'org-1' },
 	audit: { kind: 'audit' },
 	notifications: { kind: 'notifications' },
-	readOnlyGuard: { kind: 'read-only-guard' },
+
 	sensitiveActionAuthorizer: { kind: 'sensitive-action-authorizer' }
 };
 

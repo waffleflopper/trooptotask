@@ -23,8 +23,7 @@ export const load: PageServerLoad = async (event) => {
 		...buildCommonSettingsPageData(parentData),
 		orgUrlSegment: organization.urlSegment,
 		orgUrlSlug: organization.urlSlug,
-		orgName: organization.name,
-		effectiveTier: organization.effectiveTier
+		orgName: organization.name
 	};
 
 	return loadWithContext<LogsPageData>(event.locals, event.cookies, common.orgId, {

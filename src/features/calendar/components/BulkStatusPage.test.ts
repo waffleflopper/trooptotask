@@ -12,7 +12,6 @@ const { gotoMock, loadCalendarRangeMock, mergeCalendarRangeIntoStoresMock, orgCo
 			orgId: 'org-1',
 			orgUrlSegment: 'org-1',
 			isPrivileged: true,
-			readOnly: false,
 			affordanceForFeatureAction: vi.fn(() => ({ allowed: true, visible: true, disabled: false }))
 		},
 		pageMock: {
@@ -94,16 +93,14 @@ describe('BulkStatusPage', () => {
 		orgContextMock.orgId = 'org-1';
 		orgContextMock.orgUrlSegment = 'org-1';
 		orgContextMock.isPrivileged = true;
-		orgContextMock.readOnly = false;
 		orgContextMock.affordanceForFeatureAction.mockReturnValue({ allowed: true, visible: true, disabled: false });
 	});
 
-	it('preserves the permission gate for read-only users', () => {
-		orgContextMock.readOnly = true;
+	it('preserves the permission gate when availability operation is denied', () => {
 		orgContextMock.affordanceForFeatureAction.mockReturnValue({
 			allowed: false,
-			visible: true,
-			disabled: true
+			visible: false,
+			disabled: false
 		});
 
 		renderPage();

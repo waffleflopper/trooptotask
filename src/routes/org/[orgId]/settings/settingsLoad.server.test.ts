@@ -12,17 +12,6 @@ vi.mock('$lib/server/adapters/httpAdapter', () => ({
 import { buildCommonSettingsPageData, buildSettingsPageOrganization, loadSettingsPage } from './settingsLoad.server';
 import type { AppShellRouteData } from '$lib/server/core/orgShell';
 
-const effectiveTier = {
-	tier: 'free',
-	source: 'default',
-	personnelCount: 0,
-	personnelCap: 20,
-	isReadOnly: false,
-	readOnlyReason: null,
-	giftExpiresAt: null,
-	giftTier: null
-} as const;
-
 function readyParent(overrides: Partial<AppShellRouteData['shell']> = {}): AppShellRouteData {
 	return {
 		shell: {
@@ -44,7 +33,7 @@ function readyParent(overrides: Partial<AppShellRouteData['shell']> = {}): AppSh
 				isOwner: false,
 				isAdmin: true
 			},
-			state: { effectiveTier, isReadOnly: false, orgSuspended: false },
+			state: { orgSuspended: false },
 			preferences: {} as never,
 			announcements: [],
 			...overrides
@@ -65,15 +54,13 @@ describe('settings load helpers', () => {
 			orgUrlSegment: 'test-org',
 			orgUrlSlug: 'test-org',
 			orgName: 'Test Org',
-			effectiveTier,
 			isAdmin: true
 		});
 		expect(buildSettingsPageOrganization(parentData)).toEqual({
 			id: 'org-1',
 			name: 'Test Org',
 			urlSlug: 'test-org',
-			urlSegment: 'test-org',
-			effectiveTier
+			urlSegment: 'test-org'
 		});
 	});
 
@@ -135,7 +122,7 @@ describe('settings load helpers', () => {
 					shell: {
 						kind: 'suspended',
 						org: { id: 'org-1', name: 'Test Org', urlSegment: 'test-org' },
-						state: { isReadOnly: true, orgSuspended: true }
+						state: { orgSuspended: true }
 					}
 				})
 			} as never,

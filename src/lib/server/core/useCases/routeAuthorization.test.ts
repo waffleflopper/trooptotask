@@ -60,102 +60,6 @@ describe('route authorization', () => {
 		]);
 	});
 
-	it('blocks ordinary policy mutations in read-only mode', async () => {
-		const ctx = createTestContext({
-			readOnly: true,
-			auth: {
-				role: 'member',
-				isPrivileged: false,
-				capabilityMap: { ...NO_CAPABILITIES, criticalTasks: 'operate' },
-				scopeSet: { kind: 'organization' }
-			}
-		});
-
-		await expect(
-			enforceRouteAuthorization(ctx, {
-				mutation: true,
-				policyAction: POLICY_ACTION_CATALOG.criticalTasks.recordCompletion,
-				policyResource: { kind: 'organization' }
-			})
-		).rejects.toMatchObject({
-			status: 403,
-			message: 'Organization is in read-only mode'
-		});
-	});
-
-	it('uses billing-state read-only reasons when blocking policy mutation attempts', async () => {
-		const ctx = createTestContext({
-			readOnly: true,
-			auth: {
-				role: 'member',
-				isPrivileged: false,
-				capabilityMap: { ...NO_CAPABILITIES, criticalTasks: 'operate' },
-				scopeSet: { kind: 'organization' }
-			}
-		});
-		ctx.readOnlyGuard.checkState = async () => ({
-			isReadOnly: true,
-			reason: 'payment_failure',
-			message:
-				'Organization is in billing grace mode because a payment failed. Update the payment method to restore full access.'
-		});
-
-		await expect(
-			enforceRouteAuthorization(ctx, {
-				mutation: true,
-				policyAction: POLICY_ACTION_CATALOG.criticalTasks.recordCompletion,
-				policyResource: { kind: 'organization' }
-			})
-		).rejects.toMatchObject({
-			status: 403,
-			message:
-				'Organization is in billing grace mode because a payment failed. Update the payment method to restore full access.'
-		});
-	});
-
-	it('allows named Read-Only Mode exceptions for matching policy routes', async () => {
-		const ctx = createTestContext({
-			readOnly: true,
-			auth: {
-				userId: 'user-alpha',
-				role: 'member',
-				isPrivileged: false,
-				capabilityMap: NO_CAPABILITIES,
-				scopeSet: { kind: 'organization' }
-			}
-		});
-
-		await enforceRouteAuthorization(ctx, {
-			mutation: true,
-			policyAction: POLICY_ACTION_CATALOG.identity.updateOwnPreferences,
-			readOnlyModeException: 'identity-owned-preference'
-		});
-	});
-
-	it('does not let a Read-Only Mode exception bypass unrelated writes', async () => {
-		const ctx = createTestContext({
-			readOnly: true,
-			auth: {
-				role: 'member',
-				isPrivileged: false,
-				capabilityMap: { ...NO_CAPABILITIES, criticalTasks: 'operate' },
-				scopeSet: { kind: 'organization' }
-			}
-		});
-
-		await expect(
-			enforceRouteAuthorization(ctx, {
-				mutation: true,
-				policyAction: POLICY_ACTION_CATALOG.criticalTasks.recordCompletion,
-				policyResource: { kind: 'organization' },
-				readOnlyModeException: 'identity-owned-preference'
-			})
-		).rejects.toMatchObject({
-			status: 403,
-			message: 'Organization is in read-only mode'
-		});
-	});
-
 	it('enforces policy actions for loads without route-specific logic', async () => {
 		const ctx = createTestContext({
 			auth: {
@@ -169,26 +73,6 @@ describe('route authorization', () => {
 		await enforceLoadAuthorization(ctx, {
 			policyAction: POLICY_ACTION_CATALOG.training.viewRecords,
 			policyResource: { kind: 'organization' }
-		});
-	});
-
-	it('does not apply the read-only write gate to page loads', async () => {
-		const ctx = createTestContext({
-			readOnly: true
-		});
-
-		await enforceLoadAuthorization(ctx, {
-			policyAction: POLICY_ACTION_CATALOG.organization.accessBilling
-		});
-	});
-
-	it('does not apply the read-only write gate to layout loads', async () => {
-		const ctx = createTestContext({
-			readOnly: true
-		});
-
-		await enforceLayoutPolicy(ctx, {
-			policyAction: POLICY_ACTION_CATALOG.organization.accessGovernance
 		});
 	});
 

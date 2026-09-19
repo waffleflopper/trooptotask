@@ -29,8 +29,7 @@ export const load: LayoutServerLoad = async ({ locals, cookies, params, parent, 
 				id: orgId,
 				name: orgName,
 				urlSlug: orgUrlSegment && orgUrlSegment !== orgId ? orgUrlSegment : null,
-				urlSegment: orgUrlSegment ?? params.orgId,
-				effectiveTier: shell.state.effectiveTier
+				urlSegment: orgUrlSegment ?? params.orgId
 			})
 		})
 	});

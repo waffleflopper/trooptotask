@@ -83,7 +83,7 @@ describe('PersonnelPageContext', () => {
 			expect(ctx.canAddPersonnel).toBe(true);
 		});
 
-		it('lets scoped personnel operators view the roster workspace', () => {
+		it('lets scoped personnel operators view the roster and request archive only within their groups', () => {
 			const org = createTestOrgContext({
 				userRole: 'member',
 				capabilityMap: {
@@ -99,6 +99,9 @@ describe('PersonnelPageContext', () => {
 			const ctx = new PersonnelPageContext(makeData(), makeModals(), org);
 
 			expect(ctx.canViewRoster).toBe(true);
+			expect(ctx.canArchivePersonnelRecord(makePerson({ groupId: 'g1' }))).toBe(true);
+			expect(ctx.canArchivePersonnelRecord(makePerson({ groupId: 'g2' }))).toBe(false);
+			expect(ctx.canArchivePersonnelRecord(makePerson({ groupId: null }))).toBe(false);
 		});
 
 		it('keeps add/import/group affordances separate from existing-record edits', () => {
@@ -176,10 +179,9 @@ describe('PersonnelPageContext', () => {
 			expect(ctx.canManageConfig).toBe(false);
 		});
 
-		it('allows archive affordances during read-only mode while other writes stay denied', () => {
+		it('allows personnel configuration and archive actions with organization scope', () => {
 			const org = createTestOrgContext({
 				userRole: 'member',
-				isReadOnly: true,
 				capabilityMap: {
 					calendar: 'view',
 					personnel: 'configure',
@@ -192,9 +194,8 @@ describe('PersonnelPageContext', () => {
 			});
 			const ctx = new PersonnelPageContext(makeData(), makeModals(), org);
 
-			expect(ctx.readOnly).toBe(true);
-			expect(ctx.canAddPersonnel).toBe(false);
-			expect(ctx.canImportPersonnel).toBe(false);
+			expect(ctx.canAddPersonnel).toBe(true);
+			expect(ctx.canImportPersonnel).toBe(true);
 			expect(ctx.canArchivePersonnelRecord(makePerson())).toBe(true);
 		});
 

@@ -29,7 +29,6 @@ type RenderPageProps = Partial<{
 	orgId: string;
 	personnel: Personnel[];
 	rankCatalog: RankCatalogEntry[];
-	readOnly: boolean;
 }>;
 
 const defaultRankCatalog: RankCatalogEntry[] = [
@@ -97,15 +96,6 @@ describe('PersonnelImportPage', () => {
 		expect(screen.queryByRole('dialog')).toBeNull();
 		expect(screen.queryByRole('tab', { name: /Backfill ETS/i })).toBeNull();
 		expect(screen.getByText('Accepted headers')).toBeTruthy();
-	});
-
-	it('renders a read-only disabled state without upload controls', () => {
-		renderPage({ readOnly: true });
-
-		expect(screen.getByText('Import disabled')).toBeInTheDocument();
-		expect(screen.getByText('Import is disabled while this organization is read-only.')).toBeInTheDocument();
-		expect(document.querySelector<HTMLInputElement>('#fileUpload')).toBeNull();
-		expect(screen.queryByRole('button', { name: /Preview/i })).toBeNull();
 	});
 
 	it('uses uploaded files as the only import input source', async () => {

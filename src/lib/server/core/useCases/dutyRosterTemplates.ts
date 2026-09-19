@@ -35,18 +35,16 @@ async function requireTemplateView(ctx: DutyRosterTemplateQueryPorts): Promise<v
 
 async function requireTemplateConfiguration(ctx: WritePorts): Promise<void> {
 	await requirePolicyDecision(
-		{ auth: ctx.auth, audit: ctx.audit, readOnlyGuard: ctx.readOnlyGuard },
+		{ auth: ctx.auth, audit: ctx.audit },
 		POLICY_ACTION_CATALOG.calendar.configureDutyTemplates,
 		{ kind: 'unscoped' }
 	);
 }
 
 async function requireDutyRosterManagement(ctx: WritePorts): Promise<void> {
-	await requirePolicyDecision(
-		{ auth: ctx.auth, audit: ctx.audit, readOnlyGuard: ctx.readOnlyGuard },
-		POLICY_ACTION_CATALOG.calendar.manageDutyRosters,
-		{ kind: 'unscoped' }
-	);
+	await requirePolicyDecision({ auth: ctx.auth, audit: ctx.audit }, POLICY_ACTION_CATALOG.calendar.manageDutyRosters, {
+		kind: 'unscoped'
+	});
 }
 
 export async function listDutyRosterTemplates(ctx: DutyRosterTemplateQueryPorts): Promise<DutyRosterTemplate[]> {

@@ -63,18 +63,6 @@ describe('createCrudUseCases', () => {
 			await expect(create(ctx, { notes: 'no personnel' })).rejects.toThrow();
 		});
 
-		it('throws when organization is read-only', async () => {
-			const ctx = buildContext({ readOnly: true });
-			const { create } = createCrudUseCases(crudConfig);
-
-			await expect(create(ctx, { personnelId: 'p-1' })).rejects.toMatchObject({
-				status: 403,
-				message: 'Organization is in read-only mode'
-			});
-			const stored = await ctx.store.findMany('test_records', 'test-org');
-			expect(stored).toHaveLength(0);
-		});
-
 		it('allows policy-authorized writes without the legacy edit flag', async () => {
 			const ctx = buildContext({
 				auth: {
@@ -212,15 +200,6 @@ describe('createCrudUseCases', () => {
 			});
 		});
 
-		it('throws when organization is read-only', async () => {
-			const ctx = buildContext({ readOnly: true });
-			const { update } = createCrudUseCases(crudConfig);
-
-			await expect(update(ctx, { id: 'some-id', notes: 'nope' })).rejects.toMatchObject({
-				status: 403
-			});
-		});
-
 		it('enforces group scope by record lookup', async () => {
 			const ctx = buildContext({
 				auth: {
@@ -266,13 +245,6 @@ describe('createCrudUseCases', () => {
 				resourceType: 'test_record',
 				resourceId: 'tr-1'
 			});
-		});
-
-		it('throws when organization is read-only', async () => {
-			const ctx = buildContext({ readOnly: true });
-			const { remove } = createCrudUseCases(crudConfig);
-
-			await expect(remove(ctx, 'tr-1')).rejects.toMatchObject({ status: 403 });
 		});
 
 		it('enforces group scope by record lookup', async () => {

@@ -129,16 +129,4 @@ describe('notification identity workflows', () => {
 		const remaining = await ctx.store.findMany<Record<string, unknown>>('notifications', 'test-org');
 		expect(remaining.map((notification) => notification.id)).toEqual(['note-other']);
 	});
-
-	it('lets read-only overlays block notification updates', async () => {
-		const ctx = buildContext({ auth: memberAuth, readOnly: true });
-		seedNotifications(ctx);
-
-		await expect(markAllOwnNotificationsRead(ctx)).rejects.toMatchObject({ status: 403 });
-
-		const owned = await ctx.store.findOne<Record<string, unknown>>('notifications', 'test-org', {
-			id: 'note-owned-unread'
-		});
-		expect(owned).toMatchObject({ read: false });
-	});
 });

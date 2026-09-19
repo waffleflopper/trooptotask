@@ -222,18 +222,6 @@ describe('entityHandlers()', () => {
 		});
 	});
 
-	describe('read-only guard', () => {
-		it('rejects mutations when org is read-only', async () => {
-			const entity = createTestEntity();
-			const handlers = entityHandlers(entity);
-			const ctx = createTestContext({ readOnly: true });
-
-			await expect(handleUseCaseRequest(handlers._configs.POST!, ctx, { name: 'Blocked' })).rejects.toMatchObject({
-				status: 403
-			});
-		});
-	});
-
 	describe('audit config', () => {
 		it('uses complex audit resourceType when audit is an object', async () => {
 			const entity = defineEntity({

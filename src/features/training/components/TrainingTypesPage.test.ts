@@ -18,7 +18,6 @@ vi.mock('$lib/stores/orgContext.svelte', () => ({
 		isOwner: true,
 		isAdmin: false,
 		isPrivileged: true,
-		readOnly: false,
 		affordanceForFeatureAction: () => ({
 			allowed: true,
 			visible: true,

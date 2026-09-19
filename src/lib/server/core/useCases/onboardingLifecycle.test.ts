@@ -276,15 +276,6 @@ describe('startOnboarding', () => {
 		);
 	});
 
-	it('blocks start when organization is read-only', async () => {
-		const ctx = buildContext({ readOnly: true });
-		seedTemplateWithSteps(ctx);
-
-		await expect(startOnboarding(ctx, { personnelId: 'p-1', templateId: 'tmpl-1' })).rejects.toThrow(
-			'Organization is in read-only mode'
-		);
-	});
-
 	it('emits audit log on start', async () => {
 		const ctx = buildContext();
 		seedTemplateWithSteps(ctx);
@@ -401,13 +392,6 @@ describe('cancelOnboarding', () => {
 		const ctx = buildContext();
 
 		await expect(cancelOnboarding(ctx, 'nonexistent')).rejects.toThrow('Onboarding not found');
-	});
-
-	it('blocks when organization is read-only', async () => {
-		const ctx = buildContext({ readOnly: true });
-		seedOnboarding(ctx);
-
-		await expect(cancelOnboarding(ctx, 'ob-1')).rejects.toThrow('Organization is in read-only mode');
 	});
 
 	it('rejects cancelling a completed onboarding', async () => {

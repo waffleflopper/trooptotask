@@ -98,13 +98,6 @@ describe('resetFederalHolidays use case', () => {
 		expect(ctx.audit.events[0].action).toBe('special_day.federal_holidays_reset');
 	});
 
-	it('rejects when read-only', async () => {
-		const ctx = buildContext({ readOnly: true });
-		const resetUseCase = createResetFederalHolidaysUseCase();
-
-		await expect(resetUseCase(ctx)).rejects.toMatchObject({ status: 403 });
-	});
-
 	it('requires Calendar configure capability', async () => {
 		const ctx = buildContext({
 			auth: {

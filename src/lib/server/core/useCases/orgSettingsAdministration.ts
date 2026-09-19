@@ -1,5 +1,5 @@
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import type { AuthContext, AuditPort, NotificationPort, ReadOnlyGuard } from '$lib/server/core/ports';
+import type { AuthContext, AuditPort, NotificationPort } from '$lib/server/core/ports';
 import { fail } from '$lib/server/core/errors';
 import { sanitizeString, validateUUID } from '$lib/server/validation';
 import {
@@ -31,7 +31,7 @@ interface OrganizationSettingsAdministrationPorts {
 	auth: AuthContext;
 	audit: AuditPort;
 	notifications: NotificationPort;
-	readOnlyGuard?: ReadOnlyGuard;
+
 	administration: OrganizationSettingsAdministrationPort;
 }
 

@@ -2,7 +2,6 @@ import type { CapabilityLevel, DurableFeatureLane, MembershipRole, ScopeSet } fr
 import type { RankCategory, RankPayGrade, RankService, RankState } from '$lib/domain/rankCatalog';
 import type { AuditLogQueryResult } from '$lib/server/core/useCases/auditLogQuery';
 import type { OrganizationRankCatalogReferenceSummary } from '$lib/server/core/useCases/rankCatalog';
-import type { EffectiveTier } from '$lib/types/subscription';
 import type { DeletionRequestRow } from './settingsRows.server';
 import type { EditablePreset } from './settingsMemberAccessConstants';
 import type { SettingsInvitationAccessRow, SettingsMemberAccessRow } from './settingsMemberAccessModel';
@@ -132,7 +131,6 @@ export type SettingsOrganizationSectionData = {
 	name: string | null;
 	urlSlug: string | null;
 	urlSegment: string;
-	tier: EffectiveTier | null;
 	canUpdateProfile: boolean;
 	canUpdateUrlSlug: boolean;
 };

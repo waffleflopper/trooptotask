@@ -1,5 +1,5 @@
 import type { LayoutServerLoad } from './$types';
-import { evaluatePolicyDecision, POLICY_ACTION_CATALOG, type PolicyOverlay } from '$lib/access/policyEvaluator';
+import { evaluatePolicyDecision, POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { streamReadyFeatureLaneWorkspace } from '$lib/server/core/featureLaneWorkspaceLoad';
 import type { ReadyAppShell } from '$lib/server/core/orgShell';
 import {
@@ -18,12 +18,6 @@ function shouldIncludeArchivedIctTasks(pathname: string): boolean {
 	return /\/critical-tasks\/library\/?$/.test(pathname);
 }
 
-function readOnlyPolicyOverlays(shell: ReadyAppShell): PolicyOverlay[] {
-	return shell.state.isReadOnly
-		? [{ id: 'read-only-mode', kind: 'read-only-mode', label: 'Organization is in read-only mode' }]
-		: [];
-}
-
 function canConfigureCriticalTasksLibrary(shell: ReadyAppShell): boolean {
 	return evaluatePolicyDecision({
 		decisionKind: 'server-authoritative',
@@ -34,8 +28,7 @@ function canConfigureCriticalTasksLibrary(shell: ReadyAppShell): boolean {
 		action: POLICY_ACTION_CATALOG.criticalTasks.configureLibrary,
 		capabilityMap: shell.member.capabilityMap,
 		scopeSet: shell.member.scopeSet,
-		resource: { kind: 'organization' },
-		overlays: readOnlyPolicyOverlays(shell)
+		resource: { kind: 'organization' }
 	}).allowed;
 }
 

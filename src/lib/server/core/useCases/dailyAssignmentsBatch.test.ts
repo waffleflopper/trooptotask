@@ -52,15 +52,6 @@ describe('batchDailyAssignments', () => {
 		expect(ctx.audit.events).toEqual([]);
 	});
 
-	it('blocks when read-only', async () => {
-		const ctx = buildContext({ readOnly: true });
-		await expect(
-			batchDailyAssignments(ctx, {
-				records: [{ date: '2026-03-22', assignmentTypeId: 'type-a', assigneeId: 'person-1' }]
-			})
-		).rejects.toMatchObject({ status: 403 });
-	});
-
 	it('enforces policy scope on assignee IDs', async () => {
 		const ctx = buildContext({
 			auth: {

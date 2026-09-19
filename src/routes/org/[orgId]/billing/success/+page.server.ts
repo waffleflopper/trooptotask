@@ -22,7 +22,7 @@ export interface CheckoutSuccessStatus {
 const PAYMENT_INCOMPLETE_STATUSES = new Set(['incomplete', 'incomplete_expired', 'past_due', 'unpaid']);
 const PENDING_CHECKOUT_ATTEMPT_STATUSES = new Set(['in_progress', 'completed']);
 
-type CheckoutSuccessContext = Pick<UseCaseContext, 'auth' | 'audit' | 'readOnlyGuard' | 'rawStore'>;
+type CheckoutSuccessContext = Pick<UseCaseContext, 'auth' | 'audit' | 'rawStore'>;
 
 export type RecoverCheckoutSuccess = (
 	ctx: CheckoutSuccessContext,
@@ -117,9 +117,7 @@ export async function _loadCheckoutSuccessPageData(
 
 	if (!isPaidPlanActive(snapshot) && checkoutAttempt && PENDING_CHECKOUT_ATTEMPT_STATUSES.has(checkoutAttempt.status)) {
 		try {
-			await requireGovernancePolicy(ctx, POLICY_ACTION_CATALOG.organization.manageBilling, {
-				enforceReadOnlyOverlay: false
-			});
+			await requireGovernancePolicy(ctx, POLICY_ACTION_CATALOG.organization.manageBilling);
 			const recovered = await (input.recoverCheckoutSuccess ?? _recoverCheckoutSuccess)(ctx, {
 				checkoutAttempt
 			});

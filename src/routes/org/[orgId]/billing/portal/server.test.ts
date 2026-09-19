@@ -206,22 +206,6 @@ describe('POST /billing/portal', () => {
 		expect(ctx.billingPort.calls).toEqual([]);
 	});
 
-	it('opens billing portal sessions as a billing recovery path while the organization is read-only', async () => {
-		const ctx = createTestContext({ readOnly: true });
-		seedBillingOrganization(ctx);
-		seedBillingSnapshot(ctx);
-		buildRouteContextMock.mockResolvedValue(ctx);
-
-		const response = await POST(portalEvent(ctx));
-
-		expect(response.status).toBe(200);
-		expect(await response.json()).toEqual({ url: 'https://portal.test/session' });
-		expect(ctx.billingPort.calls).toContainEqual({
-			method: 'createPortalSession',
-			args: ['cus_123', `http://localhost/org/${ctx.auth.orgId}/billing`]
-		});
-	});
-
 	it('rejects stale-session portal access before creating a provider session', async () => {
 		const ctx = createTestContext({
 			sensitiveActionDecision: {

@@ -66,10 +66,4 @@ describe('Group CRUD use case', () => {
 			resourceId: 'g-1'
 		});
 	});
-
-	it('rejects create when read-only', async () => {
-		const ctx = createWritePortsContext({ readOnly: true });
-
-		await expect(useCases.create(ctx, { name: 'Nope' })).rejects.toMatchObject({ status: 403 });
-	});
 });

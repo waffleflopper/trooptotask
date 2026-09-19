@@ -38,7 +38,6 @@ describe('organization layout suspended contact', () => {
 							urlSegment: 'demo-org'
 						},
 						state: {
-							isReadOnly: true,
 							orgSuspended: true
 						}
 					}
@@ -47,5 +46,7 @@ describe('organization layout suspended contact', () => {
 		});
 
 		expect(screen.getByText('support@trooptotask.org')).toBeTruthy();
+		expect(screen.queryByText('Org child')).toBeNull();
+		expect(screen.getByRole('link', { name: 'Back to Dashboard' }).getAttribute('href')).toBe('/dashboard?show=all');
 	});
 });

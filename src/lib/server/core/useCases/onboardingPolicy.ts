@@ -5,9 +5,7 @@ import { policyResourceForPersonnel, requireFeaturePolicy } from './featurePolic
 const ONBOARDING_POLICY_ACTIONS = POLICY_ACTION_CATALOG.onboarding;
 const UNSCOPED_ONBOARDING_RESOURCE: PolicyResource = { kind: 'unscoped' };
 
-type OnboardingPolicyPorts = Pick<WritePorts, 'auth' | 'store' | 'rawStore' | 'audit'> & {
-	readOnlyGuard?: WritePorts['readOnlyGuard'];
-};
+type OnboardingPolicyPorts = Pick<WritePorts, 'auth' | 'store' | 'rawStore' | 'audit'>;
 
 interface PersonnelBackedRow {
 	personnel_id: string;

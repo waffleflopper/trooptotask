@@ -31,6 +31,8 @@ Password completion uses a server-persisted attempt at the existing auth-provide
 
 Organization suspension is enforced before dispatch of Organization writes and API requests by the authenticated request hook and a user-scoped provider adapter. Page GET/HEAD requests retain the suspended shell; layouts alone are not an action/endpoint authorization boundary. Membership, Group scope and feature policy checks remain mandatory downstream.
 
+D03 removes commercial plans, read-only guards and overlays from server mutation policy, app-shell data and client affordances. Membership, capability, Group scope, identity ownership and sensitive-action step-up remain mandatory. The shell keeps explicit suspension and optional chrome failure states. Billing pages own their remaining commercial reads until D05; admin/provider removal remains D04/D05.
+
 ### Application shape
 
 - TroopToTask v1 is a single SvelteKit app with one deployable product surface.
@@ -136,7 +138,7 @@ Organization suspension is enforced before dispatch of Organization writes and A
 ## Known Drift And Exceptions
 
 - Route-level `locals.supabase` islands still exist in multiple business-critical surfaces.
-- Member authorization uses stored presets, per-lane capabilities, shared scope sets, and policy overlays; keep new work on those app-owned concepts.
+- Member authorization uses stored presets, per-lane capabilities, shared scope sets, suspension admission and sensitive-action checks; keep new work on those app-owned concepts.
 - Critical Tasks now owns its dedicated lane; remaining Critical Tasks drift is module/provider-specific, not lane ownership.
 - Rating Scheme now owns its dedicated lane and a first-class Evals route; remaining drift is module/provider-specific, not lane ownership.
 - `clinicRole` and other clinic-era names still appear in schema and code.

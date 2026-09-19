@@ -40,8 +40,7 @@ function canHardDeleteTrainingRecord(ctx: WritePorts, resource: PolicyResource):
 		action: POLICY_ACTION_CATALOG.training.configureRequirements,
 		capabilityMap: ctx.auth.capabilityMap,
 		scopeSet: ctx.auth.scopeSet,
-		resource,
-		overlays: []
+		resource
 	}).allowed;
 }
 
@@ -190,9 +189,6 @@ export async function deleteTrainingRecord(ctx: WritePorts, id: string): Promise
 	if (!canHardDeleteTrainingRecord(ctx, resource)) {
 		return { requiresApproval: true };
 	}
-
-	const isReadOnly = await ctx.readOnlyGuard.check();
-	if (isReadOnly) fail(403, 'Organization is in read-only mode');
 
 	await ctx.store.delete(entity.table, ctx.auth.orgId, id);
 

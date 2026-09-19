@@ -1,5 +1,7 @@
 # Authorization And Provider Boundaries
 
+Stabilization D03 removes commercial read-only guards, recovery exceptions and policy overlays across server and client consumers. Decisions use identity, membership, capabilities and scope; suspension remains explicit request/shell admission and sensitive writes retain step-up. Retained shell, feature contexts and general settings carry no tier or commercial read-only fields. The remaining billing pages own their commercial reads until D05.
+
 This document separates what v1 authorization and provider ownership look like today from the system we actually want to move toward.
 
 ## Current-State Truth
@@ -36,7 +38,7 @@ This document separates what v1 authorization and provider ownership look like t
 
 - Organization membership is the current authorization anchor.
 - Persisted Calendar assignments enforce the Calendar capability and Organization/Group scope in both application policy and RLS. Person targets resolve to their same-Organization Personnel Group; Group targets must resolve to an existing same-Organization Group covered by the caller’s scope. Migration `20260918000100_enforce_calendar_assignment_group_scope.sql` closes the former SQL Group-target exemption without changing saved rows or the policy-helper interfaces. Remote application belongs to a separately authorized operator; stabilization verification is disposable and local.
-- After authentication and user-suspension admission, the request hook checks fresh Organization status through `supabaseOrganizationAdmission.ts` with the caller's RLS-scoped client. Every write under an Organization route and every Organization API request (including GET/HEAD exports and private reads) is denied when suspended, missing or unverifiable. Page GET/HEAD navigation retains the suspended shell. This gate grants no membership or capability and cannot be bypassed by billing read-only exceptions; existing route/use-case policies still apply. Platform administration and account/auth recovery keep their own admission boundaries.
+- After authentication and user-suspension admission, the request hook checks fresh Organization status through `supabaseOrganizationAdmission.ts` with the caller's RLS-scoped client. Every write under an Organization route and every Organization API request (including GET/HEAD exports and private reads) is denied when suspended, missing or unverifiable. Page GET/HEAD navigation retains the suspended shell. This gate grants no membership or capability and is independent of commercial state; existing route/use-case policies still apply. Platform administration and account/auth recovery keep their own admission boundaries.
 - The persisted membership role is one of:
   - `owner`
   - `admin`
@@ -45,7 +47,7 @@ This document separates what v1 authorization and provider ownership look like t
   - the membership role
   - the stored member preset and per-lane capability overrides
   - the stored shared scope set
-  - policy overlays such as read-only mode
+  - request admission for suspension and sensitive-action step-up
 - Platform admin uses a separate role system (`super_admin`, `support`, `billing`) and is not part of organization-membership authorization.
 - Authorization is enforced in more than one layer:
   - app-layer permission context and auth context
@@ -94,7 +96,7 @@ The approved v1 replacement direction keeps `Organization` and `Group` as canoni
   - assigned member preset
   - explicit per-feature capability overrides
   - shared scope set
-  - policy overlays that can still change the final decision
+  - explicit suspension admission and sensitive-action step-up
 - The starter member presets are `Viewer`, `Operator`, and `Editor`.
 - Presets remain platform-defined in this phase; organizations do not get saved custom presets yet.
 - Manual tuning should preserve preset lineage for auditability rather than severing the preset relationship.
@@ -127,17 +129,16 @@ The approved v1 replacement direction keeps `Organization` and `Group` as canoni
   - stable policy action
   - capability map
   - shared scope set
-  - policy overlays
 - Policy evaluation should be action-first. Routes, pages, and buttons should request decisions for stable policy actions instead of defining authorization meaning from UI placement or route shape.
 - Every policy action should be owned by a durable feature lane, organization-governance semantics, or an explicitly identity-owned self-service workflow.
 - Identity-owned actions cover workflows where an authenticated member acts only on their own resources, such as personal notifications or their own deletion request submission/cancellation. They must validate resource ownership before mutation and must not borrow feature edit capability.
 - The first action catalog should use workflow-level actions: meaningful user workflows rather than one action per button or one catch-all action per feature.
 - Split actions when they need different capability levels, audit treatment, or UX explanations.
 - The replacement should proceed through vertical authorization slices, filed as implementation issues, that carry one meaningful workflow through storage, adapter, evaluator, route enforcement, UI affordance, audit behavior, and tests together.
-- The core policy evaluator should be pure TypeScript and provider-agnostic. It should receive already-loaded facts such as actor role, capability map, scope set, resource context, and policy overlays.
+- The core policy evaluator should be pure TypeScript and provider-agnostic. It should receive already-loaded facts such as actor role, capability map, scope set, resource context.
 - Supabase-specific reads belong in an adapter that translates provider data into policy inputs before evaluation.
-- Policy evaluation should return a structured decision result, not a bare boolean. The result should include the final allow or deny value plus explanation fields such as reason code, matched capability, matched scope, and blocking overlay.
-- Every policy decision should include a stable machine-readable reason code such as `allowed.capability`, `denied.missingCapability`, `denied.outOfScope`, `denied.readOnlyMode`, or `denied.ownerOnly`.
+- Policy evaluation should return a structured decision result, not a bare boolean. The result should include the final allow or deny value plus explanation fields such as reason code, matched capability, matched scope.
+- Every policy decision should include a stable machine-readable reason code such as `allowed.capability`, `denied.missingCapability`, `denied.outOfScope`, `denied.ownerOnly`.
 - Human-facing copy should be mapped from reason codes outside the evaluator; free-form explanation strings must not become canonical policy reasons.
 - Structured decisions should be usable for both user-facing explanations and audit capture when members attempt denied or suspicious access.
 - Audit capture should be selective rather than logging every policy decision. The policy result should carry enough structured fields for an audit event, while an audit adapter or allowlist decides whether to persist it.
@@ -145,7 +146,7 @@ The approved v1 replacement direction keeps `Organization` and `Group` as canoni
 - Ordinary allowed reads should not be audited by default.
 - Policy enforcement must be server-authoritative. Client-side or preloaded decisions may improve UX by hiding buttons, disabling controls, or showing explanations, but writes and sensitive reads must still be checked server-side.
 - Hidden UI controls and client-side decisions are advisory only and must not be treated as security enforcement.
-- Cross-cutting rules such as read-only mode, delete-approval workflows, and owner-only danger operations should remain explicit policy overlays rather than being stuffed into the feature capability ladder.
+- Delete-approval workflows and owner-only danger operations remain explicit checks outside the feature capability ladder. Commercial read-only overlays were removed under D03; do not reintroduce them.
 
 ### Feature-permission direction
 
@@ -157,7 +158,7 @@ The approved v1 replacement direction keeps `Organization` and `Group` as canoni
   - onboarding
   - rating-scheme
 - The lane map covers product feature surfaces only.
-- Governance concerns such as member management, organization settings, billing, destructive org-danger actions, and platform-admin concerns remain outside the feature-lane map and stay governed by fixed roles plus policy overlays.
+- Governance concerns such as member management, organization settings, billing, destructive org-danger actions, and platform-admin concerns remain outside the feature-lane map and stay governed by fixed roles and sensitive-action checks.
 - Temporary route or screen placement does not define durable lane ownership.
 - Current primary-nav visibility also does not define feature existence or lane ownership during this transition.
 - Rating Scheme owns its own durable lane and now uses the Evals route as its primary UI; nav treatment can change independently without redefining lane ownership.
@@ -184,10 +185,9 @@ The approved v1 replacement direction keeps `Organization` and `Group` as canoni
   - assigned preset
   - lane-by-lane capability map
   - shared scope set
-  - policy overlays
 - Human-facing presets should map cleanly to the underlying app-owned model.
 - Auditable authorization behavior should come from app-owned concepts, not scattered boolean coincidence.
-- Every member should remain explainable from fixed governance role, assigned preset, lane-by-lane capability map, shared scope set, and policy overlays.
+- Every member should remain explainable from fixed governance role, assigned preset, lane-by-lane capability map, shared scope set.
 
 ### Provider-boundary direction
 
@@ -199,7 +199,7 @@ The approved v1 replacement direction keeps `Organization` and `Group` as canoni
 
 - Do not add new direct `locals.supabase` business logic outside auth edges, ports/adapters, or an explicitly approved remediation slice.
 - An organization-scoped surface may read platform-owned state only through a narrow, purpose-built service-role port that returns the minimum shape that surface needs — never through an RLS grant on a platform table, and never through a denormalised mirror. Wire such a port in `httpAdapter.ts` from `getAdminClient`, not in the route; building it in a route makes it route-level admin-provider usage and requires a `routeAdminProviderAllowlist` entry. Each port is a documented per-port exception (ADR 0012), not a general licence.
-- Keep member authorization on stored presets, per-lane capabilities, shared scope sets, and policy overlays.
+- Keep member authorization on stored presets, per-lane capabilities, shared scope sets.
 - Do not create new feature-permission piggybacking.
 - Do not invent partial-admin member shapes.
 - Do not introduce per-feature scope matrices.

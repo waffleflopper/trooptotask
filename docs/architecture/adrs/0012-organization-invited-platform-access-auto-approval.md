@@ -5,8 +5,9 @@ Date: 2026-08-03
 
 Stabilization 03-01b supersedes this decision's billing-dependent lifetime. The
 reviewed invitation bridge and separate setup credential now apply to every new
-invitee, regardless of commercial settings. Resend/retry use reviewed recovery or
-sign-in and never issue setup credentials. The original context below records
+invitee, regardless of commercial settings. Resend/retry use reviewed recovery for linked incomplete accounts, sign-in for
+usable accounts, or Request Access for legacy unlinked recipients without a usable
+account, and never issue setup credentials. The original context below records
 why this boundary was introduced; it is not the current acquisition switch.
 The approval-rescind exposure remains a required repair under stabilization
 11-01/F01, not a permanent accepted exception.

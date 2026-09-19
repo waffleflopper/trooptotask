@@ -19,8 +19,10 @@ Public CTAs say `Request Access` and link directly to `/auth/request-access`.
 New invitees receive an owner-authorized approved Access Request, an Account
 Setup Link email and a separate Organization Invitation email, independent of
 billing settings. Existing accounts keep invitation acceptance. Invitation resend
-and outbox retry never mint a setup credential: incomplete accounts receive the
-setup-recovery destination; completed accounts receive sign-in. Setup alone does
+and outbox retry never mint a setup credential: linked incomplete accounts receive the
+setup-recovery destination; completed accounts receive sign-in. Legacy unlinked
+recipients without a usable account receive Request Access and must obtain approval
+before account setup. Setup alone does
 not grant Organization Membership. The signup-only provider confirmation template
 and its local configuration have been removed. Local provider signup is disabled;
 reviewed setup uses the server admin API and email sign-in remains enabled.

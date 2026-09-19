@@ -147,6 +147,7 @@ export interface OrganizationInvitationDeliveryPort {
 		invitedByEmail: string | null;
 		origin: string;
 		requiresAccountSetup: boolean;
+		requiresAccessRequest?: boolean;
 	}): Promise<{ status: 'sent'; outbox: { id: string } } | { status: 'failed'; outbox: { id: string }; error: string }>;
 }
 
@@ -662,14 +663,15 @@ export async function resendOrganizationInvitation(
 	});
 	const existingUserAccount = await ports.settings.findUserAccountByEmail(invitation.email);
 	const hasUsableUserAccount = !!existingUserAccount && existingUserAccount.emailConfirmed !== false;
-	const requiresAccountSetup = invitation.requiresAccountSetup || !hasUsableUserAccount;
+	const requiresAccessRequest = !invitation.requiresAccountSetup && !hasUsableUserAccount;
 
 	const deliveryStatus = await deliverInvitationEmail(ports, {
 		invitationId: invitation.id,
 		email: invitation.email,
 		actorEmail: input.actorEmail ?? null,
 		origin: input.origin,
-		requiresAccountSetup,
+		requiresAccountSetup: invitation.requiresAccountSetup,
+		requiresAccessRequest,
 		mode: 'resend',
 		rateLimit
 	});
@@ -695,6 +697,7 @@ async function deliverInvitationEmail(
 		actorEmail: string | null;
 		origin: string;
 		requiresAccountSetup: boolean;
+		requiresAccessRequest?: boolean;
 		mode: 'initial' | 'resend';
 		rateLimit?: Record<string, unknown> | null;
 	}
@@ -713,7 +716,8 @@ async function deliverInvitationEmail(
 			organizationName,
 			invitedByEmail: input.actorEmail,
 			origin: input.origin,
-			requiresAccountSetup: input.requiresAccountSetup
+			requiresAccountSetup: input.requiresAccountSetup,
+			requiresAccessRequest: input.requiresAccessRequest
 		});
 	} catch (error) {
 		ports.audit.log({

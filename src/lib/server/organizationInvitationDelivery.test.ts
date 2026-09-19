@@ -1,3 +1,4 @@
+import { createAccessRequestSetupDeliveryService } from './accessRequestSetupDelivery';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
 	ORGANIZATION_INVITATION_EMAIL_MAX_ATTEMPTS,
@@ -8,6 +9,7 @@ import {
 } from './organizationInvitationDelivery';
 import {
 	AUTH_WORKFLOW_NOW,
+	createAccessRequestSetupDeliveryStore,
 	createOrganizationInvitationEmailOutboxStore,
 	organizationInvitationFixture
 } from '$lib/test-support/authWorkflowFixtures';
@@ -57,7 +59,8 @@ describe('organization invitation delivery', () => {
 			organizationName: 'Alpha Company',
 			invitedByEmail: 'admin@example.mil',
 			inviteUrl: 'https://trooptotask.test/auth/login?next=%2Fdashboard',
-			requiresAccountSetup: false
+			requiresAccountSetup: false,
+			requiresAccessRequest: undefined
 		});
 		expect(store.records).toEqual([
 			expect.objectContaining({
@@ -228,46 +231,67 @@ describe('organization invitation delivery', () => {
 			organizationName: 'Alpha Company',
 			invitedByEmail: 'admin@example.mil',
 			inviteUrl: 'https://trooptotask.test/auth/login?next=%2Fdashboard',
-			requiresAccountSetup: false
+			requiresAccountSetup: false,
+			requiresAccessRequest: false
 		});
 	});
 
-	it('routes legacy unlinked invitation retries to reviewed setup recovery', async () => {
-		vi.stubEnv('APP_PUBLIC_ORIGIN_ALLOWLIST', 'https://trooptotask.test');
+	it('lets a legacy recipient submit a pending Access Request from the retry email without minting credentials', async () => {
+		vi.stubEnv('APP_PUBLIC_ORIGIN', 'https://trooptotask.test');
+		vi.stubEnv('RESEND_API_KEY', 'synthetic-capture-only');
+		vi.stubEnv('RESEND_FROM_EMAIL', 'noreply@example.test');
 		const store = createOrganizationInvitationEmailOutboxStore();
-		const sendEmail = vi.fn().mockResolvedValue(undefined);
 		await store.insertInvitationEmailDelivery({
 			organizationId: 'org-1',
 			invitationId: 'invite-1',
 			recipient: 'invitee@example.mil',
 			createdAt: AUTH_WORKFLOW_NOW
 		});
-
-		const result = await retryOrganizationInvitationOutboxDelivery(store, sendEmail, {
-			outboxId: 'outbox-1',
-			origin: 'https://trooptotask.test',
-			invitation: organizationInvitationFixture({
-				id: 'invite-1',
-				organizationId: 'org-1',
-				email: 'invitee@example.mil',
-				status: 'pending',
-				requiresAccountSetup: false,
-				recipientHasUserAccount: false,
-				expiresAt: new Date('2026-06-01T12:00:00.000Z')
-			}),
-			organizationName: 'Alpha Company',
-			invitedByEmail: 'admin@example.mil',
-			now: AUTH_WORKFLOW_NOW
-		});
-
+		const messages: { text: string; html: string }[] = [];
+		const result = await retryOrganizationInvitationOutboxDelivery(
+			store,
+			async (input) => {
+				await sendOrganizationInvitationEmail(input, async (_url, init) => {
+					messages.push(JSON.parse(init.body as string));
+					return { ok: true, status: 202, text: async () => '' };
+				});
+			},
+			{
+				outboxId: 'outbox-1',
+				origin: 'https://trooptotask.test',
+				invitation: organizationInvitationFixture({ requiresAccountSetup: false, recipientHasUserAccount: false }),
+				organizationName: 'Alpha Company',
+				invitedByEmail: null,
+				now: AUTH_WORKFLOW_NOW
+			}
+		);
 		expect(result.status).toBe('sent');
-		expect(sendEmail).toHaveBeenCalledWith({
-			email: 'invitee@example.mil',
-			organizationName: 'Alpha Company',
-			invitedByEmail: 'admin@example.mil',
-			inviteUrl: 'https://trooptotask.test/auth/renew-invite?email=invitee%40example.mil',
-			requiresAccountSetup: true
+		const requestStore = createAccessRequestSetupDeliveryStore();
+		const sendSetupEmail = vi.fn();
+		const service = createAccessRequestSetupDeliveryService(requestStore, sendSetupEmail, {
+			now: () => AUTH_WORKFLOW_NOW
 		});
+		const destination = new URL(messages[0].html.match(/href="([^"]+)"/)![1]);
+		expect(destination.pathname).toBe('/auth/request-access');
+		for (const body of [messages[0].text, messages[0].html]) {
+			expect(body).toContain(destination.href);
+			expect(body).toMatch(/request access/i);
+			expect(body).toMatch(/approv/i);
+			expect(body).not.toMatch(/a separate email carries your account setup link/i);
+		}
+		const submitted = await service.submitAccessRequest({
+			email: 'invitee@example.mil',
+			firstName: 'Synthetic',
+			lastName: 'Invitee',
+			reason: null,
+			heardAbout: 'search_engine',
+			heardAboutDetails: null,
+			origin: destination.origin
+		});
+		expect(submitted.status).toBe('pending-created');
+		expect(requestStore.insertedRequests).toEqual([expect.objectContaining({ email: 'invitee@example.mil' })]);
+		expect(requestStore.setupLinks).toEqual([]);
+		expect(sendSetupEmail).not.toHaveBeenCalled();
 	});
 
 	it('retries legacy invitations for recipients who now have accounts to sign-in', async () => {
@@ -304,7 +328,8 @@ describe('organization invitation delivery', () => {
 			organizationName: 'Alpha Company',
 			invitedByEmail: 'admin@example.mil',
 			inviteUrl: 'https://trooptotask.test/auth/login?next=%2Fdashboard',
-			requiresAccountSetup: false
+			requiresAccountSetup: false,
+			requiresAccessRequest: false
 		});
 	});
 
@@ -342,7 +367,8 @@ describe('organization invitation delivery', () => {
 			organizationName: 'Alpha Company',
 			invitedByEmail: 'admin@example.mil',
 			inviteUrl: 'https://trooptotask.test/auth/renew-invite?email=invitee%40example.mil',
-			requiresAccountSetup: true
+			requiresAccountSetup: true,
+			requiresAccessRequest: false
 		});
 	});
 

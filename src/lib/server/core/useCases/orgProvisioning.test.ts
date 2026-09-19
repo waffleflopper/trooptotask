@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
-	loadOrganizationProvisioning,
 	provisionOrganization,
 	type OrgProvisioningAssignmentTypeSeed,
 	type OrgProvisioningGroupSeed,
@@ -12,13 +11,10 @@ import {
 
 function createOrgProvisioningPort(
 	options: {
-		availability?: { allowed: boolean; message?: string };
-		availabilityError?: Error;
 		createResult?: { orgId: string | null; errorMessage: string | null };
 		rankCatalogError?: string | null;
 	} = {}
 ): OrgProvisioningPort & {
-	availabilityRequests: string[];
 	createRequests: string[];
 	ownerEmailUpdates: Array<{ organizationId: string; userId: string; email: string | undefined }>;
 	groupSeeds: Array<{ organizationId: string; groups: OrgProvisioningGroupSeed[] }>;
@@ -27,7 +23,6 @@ function createOrgProvisioningPort(
 	federalHolidaySeeds: Array<{ organizationId: string; specialDays: OrgProvisioningSpecialDaySeed[] }>;
 	rankCatalogSeeds: Array<{ organizationId: string; entries: OrgProvisioningRankCatalogSeed[] }>;
 } {
-	const availabilityRequests: string[] = [];
 	const createRequests: string[] = [];
 	const ownerEmailUpdates: Array<{ organizationId: string; userId: string; email: string | undefined }> = [];
 	const groupSeeds: Array<{ organizationId: string; groups: OrgProvisioningGroupSeed[] }> = [];
@@ -38,7 +33,6 @@ function createOrgProvisioningPort(
 	const rankCatalogSeeds: Array<{ organizationId: string; entries: OrgProvisioningRankCatalogSeed[] }> = [];
 
 	return {
-		availabilityRequests,
 		createRequests,
 		ownerEmailUpdates,
 		groupSeeds,
@@ -46,13 +40,6 @@ function createOrgProvisioningPort(
 		assignmentTypeSeeds,
 		federalHolidaySeeds,
 		rankCatalogSeeds,
-		async canCreateOrganization(userId) {
-			availabilityRequests.push(userId);
-			if (options.availabilityError) {
-				throw options.availabilityError;
-			}
-			return options.availability ?? { allowed: true };
-		},
 		async createOrganizationWithOwner(name) {
 			createRequests.push(name);
 			return options.createResult ?? { orgId: 'org-1', errorMessage: null };
@@ -84,33 +71,6 @@ function createOrgProvisioningPort(
 	};
 }
 
-describe('loadOrganizationProvisioning', () => {
-	it('returns the create-organization eligibility from the provisioning boundary', async () => {
-		const port = createOrgProvisioningPort({
-			availability: {
-				allowed: false,
-				message: 'You can own up to 1 organization on your current plan.'
-			}
-		});
-
-		const result = await loadOrganizationProvisioning(port, { userId: 'user-1' });
-
-		expect(result).toEqual({
-			canCreate: false,
-			canCreateMessage: 'You can own up to 1 organization on your current plan.'
-		});
-		expect(port.availabilityRequests).toEqual(['user-1']);
-	});
-
-	it('preserves provider failures from the create-org gate so the route keeps current 500 handling', async () => {
-		const availabilityError = new Error('subscription lookup failed');
-		const port = createOrgProvisioningPort({ availabilityError });
-
-		await expect(loadOrganizationProvisioning(port, { userId: 'user-1' })).rejects.toBe(availabilityError);
-		expect(port.availabilityRequests).toEqual(['user-1']);
-	});
-});
-
 describe('provisionOrganization', () => {
 	afterEach(() => {
 		vi.restoreAllMocks();
@@ -128,7 +88,6 @@ describe('provisionOrganization', () => {
 		});
 
 		expect(result).toEqual({ orgId: 'org-1' });
-		expect(port.availabilityRequests).toEqual(['user-1']);
 		expect(port.createRequests).toEqual(['Alpha Company']);
 		expect(port.ownerEmailUpdates).toEqual([
 			{
@@ -322,46 +281,7 @@ describe('provisionOrganization', () => {
 			message: 'Organization name is required'
 		});
 
-		expect(port.availabilityRequests).toEqual([]);
 		expect(port.createRequests).toEqual([]);
-	});
-
-	it('preserves the current create-limit failure before provisioning starts', async () => {
-		const port = createOrgProvisioningPort({
-			availability: {
-				allowed: false,
-				message: 'You can own up to 1 organization(s) on your current plan.'
-			}
-		});
-
-		await expect(
-			provisionOrganization(port, {
-				name: 'Alpha Company',
-				userId: 'user-1',
-				email: 'owner@example.com'
-			})
-		).rejects.toMatchObject({
-			status: 403,
-			message: 'You can own up to 1 organization(s) on your current plan.'
-		});
-
-		expect(port.createRequests).toEqual([]);
-	});
-
-	it('stops before bootstrap work when the create-org gate throws a provider failure', async () => {
-		const availabilityError = new Error('subscription lookup failed');
-		const port = createOrgProvisioningPort({ availabilityError });
-
-		await expect(
-			provisionOrganization(port, {
-				name: 'Alpha Company',
-				userId: 'user-1',
-				email: 'owner@example.com'
-			})
-		).rejects.toBe(availabilityError);
-
-		expect(port.createRequests).toEqual([]);
-		expect(port.ownerEmailUpdates).toEqual([]);
 	});
 
 	it('fails the request when organization creation itself fails', async () => {

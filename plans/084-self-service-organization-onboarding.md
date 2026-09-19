@@ -30,6 +30,12 @@ reconciliation. The first-run checklist from plan 081 is now connected to the
 billing-enabled signup path from plan 083, and `/org/new` serves the
 post-confirmation first Organization handoff.
 
+Stabilization [03-02a](../docs/stabilization/TODO.md#03-02-local-leaves--d02-1293)
+removes the ownership-cap availability loader and commercial page state.
+The route retains verified-email admission and calls `provisionOrganization`
+through the same adapter for atomic owner creation and default records.
+The excerpts below describe the completed historical plan, not current instructions.
+
 ## Why this matters
 
 Self-service account creation is not enough for paid acquisition. A new
@@ -39,7 +45,7 @@ from Access Requests. The current `/org/new` route already provisions an
 Organization for authenticated users, but it was not designed as the public
 post-signup first-run path.
 
-## Current state
+## Historical state at planning
 
 - `src/routes/org/new/+page.server.ts` redirects unauthenticated users to
   `/auth/login`.
@@ -73,19 +79,19 @@ result = await provisionOrganization(createSupabaseOrgProvisioningPort(locals), 
 
 ```ts
 // src/routes/org/[orgId]/api/getting-started/+server.ts
-policyAction: POLICY_ACTION_CATALOG.identity.viewDashboard
-readOnlyModeException: 'identity-owned-preference'
+policyAction: POLICY_ACTION_CATALOG.identity.viewDashboard;
+readOnlyModeException: 'identity-owned-preference';
 ```
 
 ## Commands you will need
 
-| Purpose | Command | Expected on success |
-| --- | --- | --- |
-| Svelte docs | Svelte MCP `list-sections`, then `get-documentation` for relevant Svelte/SvelteKit sections | docs read before editing `.svelte` files |
-| Svelte autofix | `svelte-autofixer` on edited Svelte files | no issues or suggestions remain |
-| Org provisioning tests | `npx vitest run src/routes/org/new/page.server.test.ts src/lib/server/core/useCases/orgProvisioning.test.ts` | all pass |
-| Dashboard first-run tests | Plan 081 focused dashboard tests if Plan 081 has landed | all pass |
-| Full repo gate | `npm run format && npm run lint && npm run governance:check && npm run check && npm run test` | all exit 0 |
+| Purpose                   | Command                                                                                                      | Expected on success                      |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------ | ---------------------------------------- |
+| Svelte docs               | Svelte MCP `list-sections`, then `get-documentation` for relevant Svelte/SvelteKit sections                  | docs read before editing `.svelte` files |
+| Svelte autofix            | `svelte-autofixer` on edited Svelte files                                                                    | no issues or suggestions remain          |
+| Org provisioning tests    | `npx vitest run src/routes/org/new/page.server.test.ts src/lib/server/core/useCases/orgProvisioning.test.ts` | all pass                                 |
+| Dashboard first-run tests | Plan 081 focused dashboard tests if Plan 081 has landed                                                      | all pass                                 |
+| Full repo gate            | `npm run format && npm run lint && npm run governance:check && npm run check && npm run test`                | all exit 0                               |
 
 ## Scope
 

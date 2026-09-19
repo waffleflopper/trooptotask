@@ -30,7 +30,6 @@ function event(providerUser: Record<string, unknown> | null = confirmed, fields 
 
 function provisioningPort() {
 	return {
-		canCreateOrganization: vi.fn().mockResolvedValue({ allowed: true }),
 		createOrganizationWithOwner: vi.fn().mockResolvedValue({ orgId: 'org-1', errorMessage: null }),
 		updateOwnerMembershipEmail: vi.fn().mockResolvedValue(null),
 		seedDefaultGroups: vi.fn().mockResolvedValue(null),
@@ -67,7 +66,7 @@ describe('org/new admission through real provisioning', () => {
 		['missing identity', null, 503],
 		['different identity', { ...confirmed, id: 'other-user' }, 503]
 	] as const)('denies load and direct POST with %s despite a cached user', async (_, providerUser, status) => {
-		expect(await load(event(providerUser) as never)).toMatchObject({ emailConfirmed: false, canCreate: false });
+		expect(await load(event(providerUser) as never)).toMatchObject({ emailConfirmed: false });
 		expect(await actions.default(event(providerUser) as never)).toMatchObject({ status });
 		expect(createPort).not.toHaveBeenCalled();
 	});
@@ -77,30 +76,14 @@ describe('org/new admission through real provisioning', () => {
 		const getUser = input.locals.supabase.auth.getUser;
 		if (failure === 'throw') getUser.mockRejectedValue(new Error('offline'));
 		else getUser.mockResolvedValue({ data: { user: confirmed }, error: { message: 'offline' } });
-		expect(await load(input as never)).toMatchObject({ emailConfirmed: false, canCreate: false });
+		expect(await load(input as never)).toMatchObject({ emailConfirmed: false });
 		expect(await actions.default(input as never)).toMatchObject({ status: 503 });
 		expect(createPort).not.toHaveBeenCalled();
-	});
-
-	it('loads confirmed creation availability and rechecks denial on POST', async () => {
-		port.canCreateOrganization.mockResolvedValue({ allowed: false, message: 'Creation unavailable' });
-		expect(await load(event() as never)).toMatchObject({
-			emailConfirmed: true,
-			canCreate: false,
-			canCreateMessage: 'Creation unavailable'
-		});
-		expect(await actions.default(event() as never)).toMatchObject({
-			status: 403,
-			data: { error: 'Creation unavailable' }
-		});
-		expect(port.createOrganizationWithOwner).not.toHaveBeenCalled();
-		expect(port.seedDefaultGroups).not.toHaveBeenCalled();
 	});
 
 	it('binds creation to the verified actor and email, ignoring submitted identity, slug and Organization', async () => {
 		expect(await load(event() as never)).toMatchObject({
 			emailConfirmed: true,
-			canCreate: true,
 			userEmail: 'OWNER@EXAMPLE.TEST'
 		});
 		const input = event(confirmed, {
@@ -125,7 +108,6 @@ describe('org/new admission through real provisioning', () => {
 			status: 400,
 			data: { error: 'Organization name is required' }
 		});
-		expect(port.canCreateOrganization).not.toHaveBeenCalled();
 		expect(port.createOrganizationWithOwner).not.toHaveBeenCalled();
 	});
 

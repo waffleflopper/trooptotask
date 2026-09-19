@@ -116,11 +116,6 @@ export interface PersonnelUsageForPlanPolicy {
 	activePersonnelCount: number;
 }
 
-export interface OrganizationOwnershipPlanCheckInput {
-	ownedOrganizationCount: number;
-	policies: EffectivePlanPolicy[];
-}
-
 export interface PlanLimitAvailability {
 	allowed: boolean;
 	message?: string;
@@ -405,27 +400,6 @@ export function toEffectiveTierFromPlanPolicy(
 		giftExpiresAt: policy.source === 'admin_gift' ? policy.giftExpiresAt : null,
 		giftTier: policy.source === 'admin_gift' ? policy.giftTier : null
 	};
-}
-
-export function checkCanCreateOrganizationForPlanPolicies(
-	input: OrganizationOwnershipPlanCheckInput
-): PlanLimitAvailability {
-	let highestOwnedOrganizationLimit = TIER_CONFIG.free.maxOrgsOwned;
-
-	for (const policy of input.policies) {
-		const policyLimit = policy.limits.ownedOrganizations.limit;
-		if (policyLimit === null) return { allowed: true };
-		highestOwnedOrganizationLimit = Math.max(highestOwnedOrganizationLimit, policyLimit);
-	}
-
-	if (input.ownedOrganizationCount >= highestOwnedOrganizationLimit) {
-		return {
-			allowed: false,
-			message: `You can own up to ${highestOwnedOrganizationLimit} organization(s) on your current plan.`
-		};
-	}
-
-	return { allowed: true };
 }
 
 function readOnlyReasonsFor(snapshot: BillingSnapshot): PlanPolicyDenialReason[] {

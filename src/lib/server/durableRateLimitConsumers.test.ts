@@ -5,7 +5,6 @@ import { checkForgotPasswordRateLimit } from './forgotPasswordRateLimit';
 import { checkOrganizationInvitationRateLimit } from './organizationInvitationRateLimit';
 import { checkPasswordUpdateRateLimit } from './passwordUpdateRateLimit';
 import { checkPlatformAccessRequestSetupRateLimit } from './platformAccessRequestRateLimit';
-import { checkSignupRateLimit } from './signupRateLimit';
 import { createSupabaseDurableRateLimitStore, type DurableRateLimitStore } from './durableRateLimit';
 
 const now = new Date('2026-09-17T12:00:00Z');
@@ -63,14 +62,6 @@ const policies: Policy[] = [
 		budgets: [
 			[900, 5],
 			[900, 5]
-		]
-	},
-	{
-		name: 'signup (until owning removal task)',
-		check: (store) => checkSignupRateLimit({ ...identity, store }),
-		budgets: [
-			[3600, 5],
-			[3600, 5]
 		]
 	},
 	...(['create', 'resend'] as const).map(

@@ -22,19 +22,9 @@
 			"reason": "Supabase Auth MFA management remains a provider-specific auth edge in v1."
 		},
 		{
-			"path": "src/routes/api/auth/establish-session/+server.ts",
-			"classification": "auth-edge",
-			"reason": "Session establishment is an auth-provider boundary."
-		},
-		{
 			"path": "src/routes/api/auth/finalize-invite/+server.ts",
 			"classification": "auth-edge",
 			"reason": "Invite finalization is still anchored to auth/session establishment and Supabase-backed invite acceptance."
-		},
-		{
-			"path": "src/routes/api/auth/confirm-sensitive-action/+server.ts",
-			"classification": "auth-edge",
-			"reason": "Password confirmation for sensitive-action step-up remains provider-specific auth work."
 		},
 		{
 			"path": "src/routes/api/auth/mfa/disable/+server.ts",
@@ -70,11 +60,6 @@
 			"path": "src/routes/api/auth/update-password/+server.ts",
 			"classification": "auth-edge",
 			"reason": "Password updates remain inside the auth-provider edge."
-		},
-		{
-			"path": "src/routes/auth/accept-invite/+page.server.ts",
-			"classification": "auth-edge",
-			"reason": "Invite acceptance still depends on auth/session exchange."
 		},
 		{
 			"path": "src/routes/auth/confirm/+page.server.ts",

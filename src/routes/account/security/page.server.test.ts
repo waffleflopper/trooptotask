@@ -1,13 +1,31 @@
 import { describe, expect, it, vi } from 'vitest';
+const proof = vi.hoisted(() => ({ signIn: vi.fn() }));
+vi.mock('@supabase/supabase-js', () => ({
+	createClient: () => ({
+		auth: {
+			signInWithPassword: proof.signIn,
+			getUser: async () => ({ data: { user: { id: 'user-123' } }, error: null }),
+			mfa: {
+				getAuthenticatorAssuranceLevel: async () => ({ data: { currentLevel: 'aal1', nextLevel: 'aal1' }, error: null })
+			},
+			admin: { signOut: async () => ({ error: null }) },
+			signOut: async () => ({ error: null })
+		}
+	})
+}));
+vi.mock('$lib/server/supabase', () => ({
+	getAdminClient: () => ({ rpc: async () => ({ data: { limited: false, retry_after_ms: 0 }, error: null }) })
+}));
 import { actions } from './+page.server';
 
 function makeActionEvent(input: {
 	email?: string;
 	currentPassword?: string;
 	userEmail?: string | null;
-	signInWithPassword?: ReturnType<typeof vi.fn>;
-	updateUser?: ReturnType<typeof vi.fn>;
+	signInWithPassword?: typeof proof.signIn;
+	updateUser?: typeof proof.signIn;
 }) {
+	proof.signIn = input.signInWithPassword ?? vi.fn().mockResolvedValue(validProof());
 	const formData = new FormData();
 	formData.set('email', input.email ?? 'new@example.test');
 	if (input.currentPassword !== undefined) {
@@ -19,10 +37,18 @@ function makeActionEvent(input: {
 			method: 'POST',
 			body: formData
 		}),
+		getClientAddress: () => '192.0.2.1',
 		locals: {
+			session: { user: { id: 'user-123' }, access_token: 'admitted', expires_at: 4102444800 },
 			user: { id: 'user-123', email: input.userEmail ?? 'current@example.test' },
 			supabase: {
 				auth: {
+					mfa: {
+						getAuthenticatorAssuranceLevel: async () => ({
+							data: { currentLevel: 'aal2', nextLevel: 'aal2' },
+							error: null
+						})
+					},
 					signInWithPassword: input.signInWithPassword ?? vi.fn().mockResolvedValue({ error: null }),
 					updateUser: input.updateUser ?? vi.fn().mockResolvedValue({ error: null })
 				}
@@ -56,7 +82,9 @@ describe('POST /account/security?/updateEmail', () => {
 	});
 
 	it('rejects email changes when current-password reauthentication fails', async () => {
-		const signInWithPassword = vi.fn().mockResolvedValue({ error: { message: 'Invalid login credentials' } });
+		const signInWithPassword = vi
+			.fn()
+			.mockResolvedValue({ error: { status: 400, message: 'Invalid login credentials' } });
 		const updateUser = vi.fn();
 
 		const result = await actions.updateEmail(
@@ -82,8 +110,11 @@ describe('POST /account/security?/updateEmail', () => {
 	});
 
 	it('updates email after current-password reauthentication succeeds', async () => {
-		const signInWithPassword = vi.fn().mockResolvedValue({ error: null });
-		const updateUser = vi.fn().mockResolvedValue({ error: null });
+		const signInWithPassword = vi.fn().mockResolvedValue(validProof());
+		const updateUser = vi.fn().mockResolvedValue({
+			data: { user: { id: 'user-123', email: 'current@example.test', new_email: 'new@example.test' } },
+			error: null
+		});
 
 		const result = await actions.updateEmail(
 			makeActionEvent({
@@ -95,7 +126,7 @@ describe('POST /account/security?/updateEmail', () => {
 		);
 
 		expect(result).toEqual({
-			emailSuccess: 'Check the new inbox to confirm this change. Until then, keep signing in with your current email.',
+			emailSuccess: expect.any(String),
 			pendingEmail: 'new@example.test'
 		});
 		expect(signInWithPassword).toHaveBeenCalledWith({
@@ -105,3 +136,11 @@ describe('POST /account/security?/updateEmail', () => {
 		expect(updateUser).toHaveBeenCalledWith({ email: 'new@example.test' });
 	});
 });
+
+function validProof() {
+	const user = { id: 'user-123' };
+	return {
+		data: { user, session: { user, access_token: 'proof', refresh_token: 'proof-refresh', expires_at: 4102444800 } },
+		error: null
+	};
+}

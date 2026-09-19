@@ -1,9 +1,12 @@
 // @vitest-environment happy-dom
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/svelte';
 import SubscriptionBanner from './SubscriptionBanner.svelte';
 import { subscriptionStore } from '$lib/stores/subscription.svelte';
 import type { EffectiveTier } from '$lib/types/subscription';
+
+// These cases exercise enabled billing, independently of local or CI configuration.
+vi.mock('$lib/config/billing', () => ({ isBillingEnabled: true }));
 
 const baseTier: EffectiveTier = {
 	tier: 'team',

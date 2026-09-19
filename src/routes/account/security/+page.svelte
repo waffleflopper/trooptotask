@@ -1,5 +1,13 @@
 <script lang="ts">
+	import PasswordCompletion from '$lib/components/auth/PasswordCompletion.svelte';
+	import { hasPendingPasswordCompletion, type PasswordCompletionState } from '$lib/auth/passwordCompletion';
+	let completion = $state<PasswordCompletionState>(null);
+	import { onMount, tick, untrack } from 'svelte';
+	import PasswordMfaChallenge from '$lib/components/auth/PasswordMfaChallenge.svelte';
+	let passwordMfaRequired = $state(false);
+	import { goto } from '$app/navigation';
 	import { enhance } from '$app/forms';
+	import type { SubmitFunction } from '@sveltejs/kit';
 	import type { ActionData, PageData } from './$types';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
@@ -22,16 +30,65 @@
 	let confirmingDisable = $state(false);
 	let disableCode = $state('');
 	let passwordError = $state('');
-	let passwordSuccess = $state('');
 	let passwordLoading = $state(false);
 	let currentPassword = $state('');
 	let newPassword = $state('');
 	let confirmPassword = $state('');
 	let emailLoading = $state(false);
 	let emailCurrentPassword = $state('');
+	let emailDraft = $state(untrack(() => form?.email ?? ''));
+	let emailResult = $state<ActionData>(untrack(() => form));
+	let emailMfaRequired = $state(false);
+	let confirmedPendingEmail = $state<string | null>(untrack(() => form?.pendingEmail ?? null));
+	const submitEmail: SubmitFunction = ({ cancel, formElement }) => {
+		if (emailLoading || emailMfaRequired) {
+			cancel();
+			return;
+		}
+		emailLoading = true;
+		emailResult = null;
+		return async ({ result, update }) => {
+			try {
+				if (result.type === 'redirect') {
+					await update();
+					return;
+				}
+				if (result.type === 'failure') {
+					emailResult = result.data as ActionData;
+					emailMfaRequired = emailResult?.code === 'mfa_required';
+				} else if (
+					result.type === 'success' &&
+					typeof result.data?.emailSuccess === 'string' &&
+					typeof result.data?.pendingEmail === 'string' &&
+					result.data.pendingEmail === emailDraft.trim().toLowerCase()
+				) {
+					emailResult = result.data as ActionData;
+					confirmedPendingEmail = result.data.pendingEmail;
+					emailCurrentPassword = '';
+					await update({ reset: false });
+				} else {
+					emailResult = {
+						emailError: 'Unable to confirm the email request. Check your inboxes or reload before retrying.'
+					};
+				}
+			} catch {
+				emailResult = {
+					emailError: 'Unable to refresh the email status. Check your inboxes or reload before retrying.'
+				};
+			} finally {
+				emailLoading = false;
+				await tick();
+				if (emailResult?.emailError && !emailMfaRequired && formElement.isConnected)
+					formElement.querySelector<HTMLInputElement>('#email-current-password')?.focus();
+			}
+		};
+	};
 
+	onMount(() => {
+		completion = data.passwordCompletion ?? null;
+	});
 	const mfaEnabled = $derived(mfaOverride ?? data.hasMFA);
-	const pendingEmail = $derived(form?.pendingEmail ?? data.pendingEmail);
+	const pendingEmail = $derived(confirmedPendingEmail ?? data.pendingEmail);
 	const hasMinLength = $derived(newPassword.length >= 12);
 	const hasUppercase = $derived(/[A-Z]/.test(newPassword));
 	const hasLowercase = $derived(/[a-z]/.test(newPassword));
@@ -42,12 +99,17 @@
 	);
 
 	async function startEnroll() {
+		if (loading) return;
 		mfaError = '';
 		mfaSuccess = '';
 		enrolling = true;
 		loading = true;
 		try {
 			const response = await fetch('/api/auth/mfa/enroll', { method: 'POST' });
+			if (response.redirected) {
+				await goto(response.url);
+				return;
+			}
 			const payload = (await response.json()) as { factorId?: string; qrCode?: string; error?: string };
 
 			if (!response.ok || !payload.factorId || !payload.qrCode) {
@@ -67,7 +129,8 @@
 	}
 
 	async function verifyEnrollment() {
-		if (!verifyCode || verifyCode.length !== 6) {
+		if (loading) return;
+		if (!/^\d{6}$/.test(verifyCode)) {
 			mfaError = 'Please enter a 6-digit code';
 			return;
 		}
@@ -80,16 +143,21 @@
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ factorId, code: verifyCode })
 			});
+			if (response.redirected) {
+				await goto(response.url);
+				return;
+			}
 
-			if (!response.ok) {
-				const payload = (await response.json()) as { error?: string };
-				mfaError = payload.error ?? 'Verification failed';
+			const payload = (await response.json()) as { ok?: boolean; error?: string } | null;
+			if (!response.ok || payload?.ok !== true) {
+				mfaError = payload?.error ?? 'Verification failed';
 				return;
 			}
 
 			mfaSuccess = 'MFA has been enabled successfully.';
 			mfaOverride = true;
 			enrolling = false;
+			factorId = '';
 			qrCode = '';
 			verifyCode = '';
 		} catch (e: unknown) {
@@ -100,25 +168,39 @@
 	}
 
 	async function cancelEnroll() {
-		if (factorId) {
-			try {
-				await fetch('/api/auth/mfa/enroll/cancel', {
+		if (loading) return;
+		mfaError = '';
+		loading = true;
+		try {
+			if (factorId) {
+				const response = await fetch('/api/auth/mfa/enroll/cancel', {
 					method: 'POST',
 					headers: { 'Content-Type': 'application/json' },
 					body: JSON.stringify({ factorId })
 				});
-			} catch {
-				// Best effort cleanup; local state should still reset.
+				if (response.redirected) {
+					await goto(response.url);
+					return;
+				}
+				if (!response.ok) {
+					const payload = (await response.json()) as { error?: string };
+					mfaError = payload.error ?? 'Failed to cancel MFA enrollment';
+					return;
+				}
 			}
+			enrolling = false;
+			qrCode = '';
+			factorId = '';
+			verifyCode = '';
+		} catch (e: unknown) {
+			mfaError = e instanceof Error ? e.message : 'Failed to cancel MFA enrollment';
+		} finally {
+			loading = false;
 		}
-		enrolling = false;
-		qrCode = '';
-		factorId = '';
-		verifyCode = '';
-		mfaError = '';
 	}
 
 	async function disableMFA() {
+		if (disabling) return;
 		if (!disableCode || disableCode.length !== 6) {
 			mfaError = 'Please enter the 6-digit code from your authenticator app.';
 			return;
@@ -133,10 +215,14 @@
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ code: disableCode })
 			});
+			if (response.redirected) {
+				await goto(response.url);
+				return;
+			}
 
-			if (!response.ok) {
-				const payload = (await response.json()) as { error?: string };
-				mfaError = payload.error ?? 'Failed to disable MFA';
+			const payload = (await response.json()) as { ok?: boolean; error?: string } | null;
+			if (!response.ok || payload?.ok !== true) {
+				mfaError = payload?.error ?? 'Failed to disable MFA';
 				return;
 			}
 
@@ -151,9 +237,9 @@
 		}
 	}
 
-	async function changePassword() {
+	async function changePassword(form: HTMLFormElement) {
+		if (passwordLoading || passwordMfaRequired || completion) return;
 		passwordError = '';
-		passwordSuccess = '';
 
 		if (!passwordReady) {
 			passwordError = 'Complete the current password and new password requirements.';
@@ -167,21 +253,53 @@
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ currentPassword, password: newPassword, confirmPassword })
 			});
-			const payload = (await response.json()) as { error?: string };
-
-			if (!response.ok) {
-				passwordError = payload.error ?? 'Password update failed';
+			if (response.redirected) {
+				await goto(response.url);
+				return;
+			}
+			const payload = (await response.json()) as { ok?: boolean; error?: unknown; code?: string } | null;
+			if (payload?.code === 'password_reconciliation_required') {
+				completion = 'started';
+				currentPassword = newPassword = confirmPassword = '';
+				return;
+			}
+			if (hasPendingPasswordCompletion(response, payload)) {
+				completion = 'pending';
+				currentPassword = '';
+				newPassword = '';
+				confirmPassword = '';
+				return;
+			}
+			if (response.status === 403 && payload?.code === 'mfa_required') {
+				passwordMfaRequired = true;
 				return;
 			}
 
-			passwordSuccess = 'Password updated. Your current session remains active.';
+			if (!response.ok || payload?.ok !== true || payload.error !== undefined) {
+				if (response.status >= 500 || response.ok) {
+					completion = 'started';
+					currentPassword = newPassword = confirmPassword = '';
+				}
+				passwordError =
+					typeof payload?.error === 'string'
+						? payload.error
+						: 'Unable to confirm the password update. Your password may have changed.';
+				return;
+			}
+
+			completion = 'complete';
 			currentPassword = '';
 			newPassword = '';
 			confirmPassword = '';
-		} catch (error: unknown) {
-			passwordError = error instanceof Error ? error.message : 'Password update failed';
+		} catch {
+			completion = 'started';
+			currentPassword = newPassword = confirmPassword = '';
+			passwordError = 'Unable to confirm the password update. Your password may have changed.';
 		} finally {
 			passwordLoading = false;
+			await tick();
+			if (passwordError && !passwordMfaRequired && form.isConnected)
+				form.querySelector<HTMLInputElement>('input')?.focus();
 		}
 	}
 
@@ -220,31 +338,17 @@
 			<Card.Description>Your current email remains active until a new address is confirmed.</Card.Description>
 		</Card.Header>
 		<Card.Content>
-			<form
-				method="POST"
-				action="?/updateEmail"
-				use:enhance={() => {
-					emailLoading = true;
-					return async ({ result, update }) => {
-						emailLoading = false;
-						await update();
-						if (result.type === 'success') {
-							emailCurrentPassword = '';
-						}
-					};
-				}}
-				class="grid gap-4"
-			>
-				{#if form?.emailError}
+			<form method="POST" action="?/updateEmail" use:enhance={submitEmail} class="grid gap-4">
+				{#if emailResult?.emailError}
 					<Alert.Root variant="destructive">
-						<Alert.Title>Email not changed</Alert.Title>
-						<Alert.Description>{form.emailError}</Alert.Description>
+						<Alert.Title>Email request not confirmed</Alert.Title>
+						<Alert.Description>{emailResult.emailError}</Alert.Description>
 					</Alert.Root>
 				{/if}
-				{#if form?.emailSuccess}
+				{#if emailResult?.emailSuccess}
 					<Alert.Root variant="success">
 						<Alert.Title>Confirmation sent</Alert.Title>
-						<Alert.Description>{form.emailSuccess}</Alert.Description>
+						<Alert.Description>{emailResult.emailSuccess}</Alert.Description>
 					</Alert.Root>
 				{/if}
 
@@ -264,9 +368,20 @@
 				<Field.Root>
 					<Field.Label for="email">New email address</Field.Label>
 					<Field.Control>
-						<Input id="email" name="email" type="email" autocomplete="email" required value={form?.email ?? ''} />
+						<Input
+							id="email"
+							name="email"
+							type="email"
+							autocomplete="email"
+							required
+							bind:value={emailDraft}
+							disabled={emailLoading || emailMfaRequired}
+						/>
 					</Field.Control>
-					<Field.Description>Check the new inbox to confirm this change before using it to sign in.</Field.Description>
+					<Field.Description
+						>Follow the confirmation instructions in both your current and new inboxes before using the new address to
+						sign in.</Field.Description
+					>
 				</Field.Root>
 
 				<Field.Root>
@@ -279,17 +394,30 @@
 							autocomplete="current-password"
 							required
 							bind:value={emailCurrentPassword}
+							disabled={emailLoading || emailMfaRequired}
 						/>
 					</Field.Control>
 				</Field.Root>
 
 				<div class="flex justify-end">
-					<Button type="submit" disabled={emailLoading}>
+					<Button type="submit" disabled={emailLoading || emailMfaRequired}>
 						{#if emailLoading}<Spinner />{/if}
 						Send Confirmation
 					</Button>
 				</div>
 			</form>
+			{#if emailMfaRequired}
+				<PasswordMfaChallenge
+					id="email-mfa-code"
+					hint="Enter the current 6-digit code from your authenticator app before changing your email."
+					onverified={async () => {
+						emailMfaRequired = false;
+						emailResult = null;
+						await tick();
+						document.getElementById('email-current-password')?.focus();
+					}}
+				/>
+			{/if}
 		</Card.Content>
 	</Card.Root>
 
@@ -299,64 +427,85 @@
 			<Card.Description>Verify your current password before setting a new one.</Card.Description>
 		</Card.Header>
 		<Card.Content>
-			<form
-				class="grid gap-4"
-				onsubmit={(event) => {
-					event.preventDefault();
-					void changePassword();
-				}}
-			>
-				{#if passwordError}
-					<Alert.Root variant="destructive">
-						<Alert.Title>Password not changed</Alert.Title>
-						<Alert.Description>{passwordError}</Alert.Description>
-					</Alert.Root>
-				{/if}
-				{#if passwordSuccess}
-					<Alert.Root variant="success">
-						<Alert.Title>Password updated</Alert.Title>
-						<Alert.Description>{passwordSuccess}</Alert.Description>
-					</Alert.Root>
-				{/if}
+			{#if completion}
+				<PasswordCompletion
+					state={completion}
+					oncomplete={() => {
+						completion = 'complete';
+					}}
+					onrestart={async () => {
+						completion = null;
+						await tick();
+						document.getElementById('current-password')?.focus();
+					}}
+				/>
+			{:else if passwordMfaRequired}
+				<PasswordMfaChallenge
+					onverified={async () => {
+						passwordMfaRequired = false;
+						await tick();
+						document.getElementById('current-password')?.focus();
+					}}
+				/>
+			{:else}
+				<form
+					class="grid gap-4"
+					onsubmit={(event) => {
+						event.preventDefault();
+						void changePassword(event.currentTarget);
+					}}
+				>
+					{#if passwordError}
+						<Alert.Root variant="destructive">
+							<Alert.Title>Password update not confirmed</Alert.Title>
+							<Alert.Description>{passwordError}</Alert.Description>
+						</Alert.Root>
+					{/if}
 
-				<Field.Root>
-					<Field.Label for="current-password">Current password</Field.Label>
-					<Field.Control>
-						<Input id="current-password" type="password" autocomplete="current-password" bind:value={currentPassword} />
-					</Field.Control>
-				</Field.Root>
-
-				<div class="grid gap-4 sm:grid-cols-2">
 					<Field.Root>
-						<Field.Label for="new-password">New password</Field.Label>
+						<Field.Label for="current-password">Current password</Field.Label>
 						<Field.Control>
-							<Input id="new-password" type="password" autocomplete="new-password" bind:value={newPassword} />
+							<Input
+								id="current-password"
+								type="password"
+								autocomplete="current-password"
+								bind:value={currentPassword}
+							/>
 						</Field.Control>
 					</Field.Root>
 
-					<Field.Root>
-						<Field.Label for="confirm-password">Confirm new password</Field.Label>
-						<Field.Control>
-							<Input id="confirm-password" type="password" autocomplete="new-password" bind:value={confirmPassword} />
-						</Field.Control>
-					</Field.Root>
-				</div>
+					<div class="grid gap-4 sm:grid-cols-2">
+						<Field.Root>
+							<Field.Label for="new-password">New password</Field.Label>
+							<Field.Control>
+								<Input id="new-password" type="password" autocomplete="new-password" bind:value={newPassword} />
+							</Field.Control>
+						</Field.Root>
 
-				<ul class="grid gap-1 text-sm text-muted-foreground">
-					<li class={hasMinLength ? 'text-foreground' : undefined}>At least 12 characters</li>
-					<li class={hasUppercase ? 'text-foreground' : undefined}>Includes uppercase</li>
-					<li class={hasLowercase ? 'text-foreground' : undefined}>Includes lowercase</li>
-					<li class={hasDigit ? 'text-foreground' : undefined}>Includes a number</li>
-					<li class={passwordsMatch ? 'text-foreground' : undefined}>Passwords match</li>
-				</ul>
+						<Field.Root>
+							<Field.Label for="confirm-password">Confirm new password</Field.Label>
+							<Field.Control>
+								<Input id="confirm-password" type="password" autocomplete="new-password" bind:value={confirmPassword} />
+							</Field.Control>
+						</Field.Root>
+					</div>
 
-				<div class="flex justify-end">
-					<Button type="submit" disabled={passwordLoading || !passwordReady}>
-						{#if passwordLoading}<Spinner />{/if}
-						Update Password
-					</Button>
-				</div>
-			</form>
+					<ul class="grid gap-1 text-sm text-muted-foreground">
+						<li class={hasMinLength ? 'text-foreground' : undefined}>At least 12 characters</li>
+						<li class={hasUppercase ? 'text-foreground' : undefined}>Includes uppercase</li>
+						<li class={hasLowercase ? 'text-foreground' : undefined}>Includes lowercase</li>
+						<li class={hasDigit ? 'text-foreground' : undefined}>Includes a number</li>
+						<li class={passwordsMatch ? 'text-foreground' : undefined}>Passwords match</li>
+					</ul>
+
+					<div class="flex justify-end">
+						<Button type="submit" disabled={passwordLoading || !passwordReady}>
+							{#if passwordLoading}<Spinner />{/if}
+							Update Password
+						</Button>
+					</div>
+				</form>
+			{/if}
 		</Card.Content>
 	</Card.Root>
 
@@ -423,6 +572,7 @@
 							<Field.Control>
 								<Input
 									id="verify-code"
+									disabled={loading}
 									type="text"
 									value={verifyCode}
 									oninput={handleCodeInput}
@@ -434,7 +584,7 @@
 							</Field.Control>
 						</Field.Root>
 						<div class="flex flex-wrap justify-end gap-2">
-							<Button type="button" variant="outline" onclick={cancelEnroll}>Cancel</Button>
+							<Button type="button" variant="outline" onclick={cancelEnroll} disabled={loading}>Cancel</Button>
 							<Button type="submit" disabled={loading || verifyCode.length !== 6}>
 								{#if loading}<Spinner />{/if}
 								Verify and Enable
@@ -463,6 +613,7 @@
 						<Field.Control>
 							<Input
 								id="disable-code"
+								disabled={disabling}
 								type="text"
 								value={disableCode}
 								oninput={handleDisableCodeInput}

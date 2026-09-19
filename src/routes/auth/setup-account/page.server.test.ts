@@ -1,5 +1,3 @@
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
@@ -313,6 +311,19 @@ describe('/auth/setup-account load', () => {
 		});
 	});
 
+	it('rejects a setup session paired with a different Access Request link', async () => {
+		const cookies = makeCookies({ [ACCOUNT_SETUP_SESSION_COOKIE]: makeSetupSessionCookie() });
+		getAccessRequest.mockResolvedValueOnce({
+			id: 'request-1',
+			email: 'soldier@example.mil',
+			status: 'approved',
+			setupCompletedAt: null
+		});
+		getSetupLink.mockResolvedValueOnce(makeSetupLink({ accessRequestId: 'request-other' }));
+		expect(await load(makeLoadEvent({ cookies }))).toMatchObject({ state: 'missing' });
+		expect(cookies.values.has(ACCOUNT_SETUP_SESSION_COOKIE)).toBe(false);
+	});
+
 	it('redirects authenticated users before token validation', async () => {
 		await expect(
 			load(makeLoadEvent({ token: 'valid-token', session: { user: { id: 'user-1' } } }))
@@ -400,6 +411,34 @@ describe('/auth/setup-account actions', () => {
 			}
 		});
 		expect(completeSetupSession).not.toHaveBeenCalled();
+	});
+
+	it('cannot replace the signed setup identity with submitted email, request, link or raw token fields', async () => {
+		const request = makeRequest({});
+		const form = await request.formData();
+		form.set('email', 'other@example.test');
+		form.set('accessRequestId', 'other-request');
+		form.set('setupLinkId', 'other-link');
+		form.set('token', 'other-raw-token');
+		completeSetupSession.mockResolvedValueOnce({ status: 'completed', accessRequestId: 'request-1', userId: 'user-1' });
+		await expect(actions.default(makeActionEvent({ request }))).rejects.toMatchObject({
+			status: 303,
+			location: '/dashboard'
+		});
+		expect(completeSetupSession).toHaveBeenCalledWith({
+			setupLinkId: 'link-1',
+			accessRequestId: 'request-1',
+			password: 'ValidPassword123!'
+		});
+		expect(complete).not.toHaveBeenCalled();
+	});
+
+	it('does not accept a posted raw token in place of the HTTP-only setup session', async () => {
+		const request = makeRequest({});
+		(await request.formData()).set('token', 'valid-token');
+		expect(await actions.default(makeActionEvent({ request, cookies: makeCookies() }))).toMatchObject({ status: 400 });
+		expect(completeSetupSession).not.toHaveBeenCalled();
+		expect(complete).not.toHaveBeenCalled();
 	});
 
 	it('validates password confirmation before creating a User Account', async () => {
@@ -677,14 +716,5 @@ describe('/auth/setup-account actions', () => {
 		});
 		expectClaimedAudit();
 		expectFailedAudit('sign-in-failed');
-	});
-});
-
-describe('/auth/setup-account page markup', () => {
-	it('does not render a hidden raw-token form field', () => {
-		const source = readFileSync(join(process.cwd(), 'src/routes/auth/setup-account/+page.svelte'), 'utf8');
-
-		expect(source).not.toContain('name="token"');
-		expect(source).not.toContain('data.token');
 	});
 });

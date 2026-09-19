@@ -1,4 +1,7 @@
 <script lang="ts">
+	import PasswordCompletion from '$lib/components/auth/PasswordCompletion.svelte';
+	import { hasPendingPasswordCompletion, type PasswordCompletionState } from '$lib/auth/passwordCompletion';
+	let completion = $state<PasswordCompletionState>(null);
 	import { goto, replaceState } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/stores';
@@ -8,17 +11,29 @@
 	import AuthShell from '$lib/components/auth/AuthShell.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Spinner } from '$lib/components/ui/spinner';
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy, tick } from 'svelte';
+	import PasswordMfaChallenge from '$lib/components/auth/PasswordMfaChallenge.svelte';
+	import { establishSession, readSessionTokens, type SessionTokens } from '$lib/auth/establishSession';
 
 	const hasSession = $derived($page.data.hasSession);
 
+	let requiresMfa = $state(false);
+	let passwordSet = $state(false);
 	let password = $state('');
 	let confirmPassword = $state('');
 	let loading = $state(false);
 	let error = $state('');
 	let success = $state(false);
+	let noPendingInvite = $state(false);
+	let setupRequired = $state(false);
+	let unavailableInvitations = $state(0);
+	let navigationTimer: ReturnType<typeof setTimeout> | undefined;
+	onDestroy(() => clearTimeout(navigationTimer));
 	let sessionReady = $state(false);
 	let tokenError = $state(false);
+	let sessionError = $state(false);
+	let establishingSession = $state(false);
+	let tokens: SessionTokens | null = null;
 	let showPassword = $state(false);
 	let showConfirmPassword = $state(false);
 
@@ -42,56 +57,79 @@
 		return null;
 	}
 
-	async function readJsonResult(response: Response): Promise<{ ok: boolean; error?: string }> {
+	async function readJsonResult(response: Response): Promise<{
+		ok: boolean;
+		error?: string;
+		code?: string;
+		passwordUpdated?: boolean;
+		activated?: boolean;
+		unavailable?: number;
+	}> {
 		try {
-			const payload = (await response.json()) as { ok?: boolean; error?: string };
+			const payload = (await response.json()) as {
+				ok?: boolean;
+				error?: string;
+				code?: string;
+				passwordUpdated?: boolean;
+				activated?: boolean;
+				unavailable?: number;
+			};
 			return {
-				ok: response.ok && payload.ok === true,
-				error: payload.error
+				ok: response.ok && payload?.ok === true && payload.error === undefined,
+				error: typeof payload?.error === 'string' ? payload.error : undefined,
+				code: typeof payload?.code === 'string' ? payload.code : undefined,
+				passwordUpdated: payload?.passwordUpdated === true,
+				activated: payload?.activated === true,
+				unavailable:
+					Number.isSafeInteger(payload?.unavailable) && payload.unavailable! >= 0 ? payload.unavailable : undefined
 			};
 		} catch {
 			return { ok: false };
 		}
 	}
 
-	onMount(async () => {
-		if (hasSession) {
-			sessionReady = true;
-			return;
-		}
-
-		const hash = window.location.hash.substring(1);
-		if (hash) {
-			const params = new URLSearchParams(hash);
-			const accessToken = params.get('access_token');
-			const refreshToken = params.get('refresh_token');
-
-			if (accessToken && refreshToken) {
-				const response = await fetch('/api/auth/establish-session', {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({
-						accessToken,
-						refreshToken,
-						flow: 'invite'
-					})
-				});
-
-				const result = await readJsonResult(response);
-				if (result.ok) {
-					sessionReady = true;
-					replaceState(resolve('/auth/accept-invite'), $page.state);
-					return;
-				}
-				error = result.error ?? 'We could not verify your invite session. Please try the invite link again.';
+	async function verifySession() {
+		if (!tokens || establishingSession) return;
+		establishingSession = true;
+		try {
+			const result = await establishSession(tokens, 'invite');
+			if (result === 'ready') {
+				sessionError = false;
+				tokens = null;
+				replaceState(resolve('/auth/accept-invite'), $page.state);
+				sessionReady = true;
+			} else {
+				tokenError = result === 'invalid';
+				sessionError = result === 'unavailable';
 			}
+		} finally {
+			establishingSession = false;
 		}
+	}
 
-		tokenError = true;
+	onMount(() => {
+		// An incoming link takes precedence over an existing account's session.
+		if (window.location.hash) {
+			tokens = readSessionTokens(window.location.hash);
+			if (tokens) void verifySession();
+			else tokenError = true;
+		} else if (hasSession) {
+			noPendingInvite = $page.data.invitePending === false;
+			completion = $page.data.passwordCompletion ?? null;
+			if (completion === 'complete') {
+				completion = null;
+				passwordSet = true;
+			}
+			sessionReady = true;
+		} else {
+			tokenError = true;
+		}
 	});
 
 	async function handleSubmit(event: Event) {
 		event.preventDefault();
+		const form = event.currentTarget as HTMLFormElement;
+		if (loading || requiresMfa || passwordSet || completion) return;
 		error = '';
 
 		const passwordError = getPasswordError(password);
@@ -112,28 +150,93 @@
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ password })
 			});
+			if (updateResponse.redirected) {
+				await goto(updateResponse.url);
+				return;
+			}
 			const updateResult = await readJsonResult(updateResponse);
+			if (updateResult?.code === 'password_reconciliation_required') {
+				completion = 'started';
+				password = confirmPassword = '';
+				return;
+			}
+			if (hasPendingPasswordCompletion(updateResponse, updateResult)) {
+				completion = 'pending';
+				password = '';
+				confirmPassword = '';
+				return;
+			}
+			if (updateResponse.status === 403 && updateResult.code === 'mfa_required') {
+				requiresMfa = true;
+				return;
+			}
 			if (!updateResult.ok) {
-				error = updateResult.error || 'Failed to set password. Please try again.';
-				return;
-			}
-
-			const finalizeResponse = await fetch('/api/auth/finalize-invite', { method: 'POST' });
-			const finalizeResult = await readJsonResult(finalizeResponse);
-			if (!finalizeResult.ok) {
-				let message =
-					'Your password was set, but we could not finish account activation. Please try the invite link again or contact support.';
-				if (finalizeResult.error) {
-					message = finalizeResult.error;
+				if (updateResponse.status >= 500 || updateResponse.ok) {
+					completion = 'started';
+					password = confirmPassword = '';
 				}
-				error = message;
+				error = updateResult.error || 'Unable to confirm the password update. Your password may have changed.';
 				return;
 			}
 
-			success = true;
-			setTimeout(() => goto(resolve('/dashboard')), 2000);
+			passwordSet = true;
+			password = '';
+			confirmPassword = '';
+			await finalizeInvite();
+		} catch {
+			if (!passwordSet) completion = 'started';
+			password = confirmPassword = '';
+			error = passwordSet
+				? 'Your password is set. We could not finish account activation. Please try again.'
+				: 'Unable to confirm the password update. Your password may have changed.';
 		} finally {
 			loading = false;
+			await tick();
+			if (passwordSet && !requiresMfa && !success) document.getElementById('finish-activation')?.focus();
+			if (error && !passwordSet && !requiresMfa && form.isConnected)
+				form.querySelector<HTMLInputElement>('input')?.focus();
+		}
+	}
+	async function finalizeInvite() {
+		const response = await fetch('/api/auth/finalize-invite', { method: 'POST' });
+		if (response.redirected) {
+			await goto(response.url);
+			return;
+		}
+		const result = await readJsonResult(response);
+		if (response.status === 403 && result.code === 'invite_not_pending') {
+			noPendingInvite = true;
+			return;
+		}
+		setupRequired = result.code === 'setup_required';
+		if (response.status === 403 && result.code === 'mfa_required') {
+			requiresMfa = true;
+			return;
+		}
+		if (!result.ok || !result.activated || result.unavailable === undefined) {
+			error = result.error || 'Your password is set. We could not finish account activation. Please try again.';
+			return;
+		}
+		unavailableInvitations = result.unavailable;
+		success = true;
+		if (!unavailableInvitations)
+			navigationTimer = setTimeout(() => {
+				void goto(resolve('/dashboard')).catch(() => {});
+			}, 2000);
+	}
+
+	async function retryFinalization() {
+		if (loading || requiresMfa || !passwordSet || success) return;
+		loading = true;
+		error = '';
+		try {
+			await finalizeInvite();
+		} catch {
+			error = 'Your password is set. We could not finish account activation. Please try again.';
+		} finally {
+			loading = false;
+			await tick();
+			if (passwordSet && !requiresMfa && !success) document.getElementById('finish-activation')?.focus();
 		}
 	}
 </script>
@@ -147,20 +250,30 @@
 	title="Activate the account behind your invite."
 	description="Open this page from your invite email, set a password, and your account will be ready to use."
 	panelEyebrow="Invite acceptance"
-	panelTitle={success
-		? 'Account activated'
-		: tokenError
-			? 'Invite unavailable'
-			: sessionReady
-				? 'Set your password'
-				: 'Verifying invite link'}
-	panelDescription={success
-		? 'Redirecting you to your dashboard.'
-		: tokenError
-			? 'This invite link can no longer be used.'
-			: sessionReady
-				? 'Choose a password that satisfies the current invite policy.'
-				: "We're validating the invite token before exposing the activation form."}
+	panelTitle={noPendingInvite
+		? 'No activation pending'
+		: success
+			? 'Account activated'
+			: tokenError
+				? 'Invite unavailable'
+				: passwordSet
+					? 'Finish account activation'
+					: sessionReady
+						? 'Set your password'
+						: 'Verifying invite link'}
+	panelDescription={noPendingInvite
+		? 'You are signed in. Continue to your dashboard to view your Organization access.'
+		: success
+			? unavailableInvitations
+				? 'Your account is ready. Review the invitation outcome below.'
+				: 'Redirecting you to your dashboard.'
+			: tokenError
+				? 'This invite link can no longer be used.'
+				: passwordSet
+					? 'Your password is set. Finish activating your account.'
+					: sessionReady
+						? 'Choose a password that satisfies the current invite policy.'
+						: "We're validating the invite token before exposing the activation form."}
 	supportLabel="Joining an organization"
 	supportTitle="Finish the invite."
 	supportDescription="This page is for invited users who are setting their password for the first time."
@@ -171,11 +284,24 @@
 	]}
 >
 	<div class="flex flex-col gap-5">
-		{#if success}
+		{#if noPendingInvite}
+			<Button href={resolve('/dashboard')}>Continue to dashboard</Button>
+		{:else if success}
 			<AuthNotice tone="success" title="Account activated" centered>
 				<p>Your password has been set successfully.</p>
-				<p>Redirecting you to the dashboard now.</p>
+				{#if unavailableInvitations}
+					<p>
+						Some Organization invitations are expired or unavailable. They did not grant membership. Ask the inviting
+						Organization for help.
+					</p>
+				{:else}<p>Redirecting you to the dashboard now.</p>{/if}
 			</AuthNotice>
+			<Button href={resolve('/dashboard')}>Continue to dashboard</Button>
+		{:else if sessionError}
+			<AuthNotice tone="error" message="We could not verify this session. Please try again." />
+			<Button type="button" onclick={verifySession} disabled={establishingSession} class="w-full">
+				{#if establishingSession}<Spinner />Verifying session...{:else}Retry verification{/if}
+			</Button>
 		{:else if tokenError}
 			<AuthNotice tone="error" title="Invite unavailable" centered>
 				<p>This invite link is invalid or has expired.</p>
@@ -186,6 +312,39 @@
 				<Spinner class="text-primary" />
 				<p class="m-0 text-sm leading-relaxed">Verifying invite link...</p>
 			</div>
+		{:else if completion}
+			<PasswordCompletion
+				state={completion}
+				onrestart={async () => {
+					completion = null;
+					await tick();
+					document.getElementById('password')?.focus();
+				}}
+				oncomplete={async () => {
+					completion = null;
+					passwordSet = true;
+					await tick();
+					document.getElementById('finish-activation')?.focus();
+				}}
+			/>
+		{:else if requiresMfa}
+			<PasswordMfaChallenge
+				hint={passwordSet
+					? 'Enter the current 6-digit code from your authenticator app before finishing account activation.'
+					: undefined}
+				onverified={async () => {
+					requiresMfa = false;
+					error = '';
+					await tick();
+					document.getElementById(passwordSet ? 'finish-activation' : 'password')?.focus();
+				}}
+			/>
+		{:else if passwordSet}
+			{#if setupRequired}<Button href={resolve('/auth/renew-invite')}>Request an Account Setup Link</Button>{/if}
+			{#if error}<AuthNotice tone="error" message={error} />{/if}
+			<Button id="finish-activation" type="button" onclick={retryFinalization} disabled={loading}>
+				{#if loading}<Spinner />Finishing activation...{:else}Finish activation{/if}
+			</Button>
 		{:else}
 			{#if error}
 				<AuthNotice tone="error" message={error} />

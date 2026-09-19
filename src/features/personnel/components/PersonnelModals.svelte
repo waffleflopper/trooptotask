@@ -65,16 +65,18 @@
 {#if modals.isOpen('group-manager')}
 	<GroupManager
 		groups={groupsStore.items}
-		onAdd={(name) => groupsStore.add(name)}
+		onAdd={async (name) => {
+			if (!(await groupsStore.add(name))) throw new Error('A Group with that name already exists.');
+		}}
 		onRemove={async (id) => {
-			await groupsStore.remove(id);
+			if (!(await groupsStore.remove(id))) throw new Error('Unable to remove Group. Try again.');
 			personnelStore.updateLocalWhere(
 				(p) => p.groupId === id,
 				(p) => ({ ...p, groupId: null, groupName: '' })
 			);
 		}}
 		onRename={async (id, name) => {
-			await groupsStore.rename(id, name);
+			if (!(await groupsStore.rename(id, name))) throw new Error('Unable to rename Group. Try again.');
 			personnelStore.updateLocalWhere(
 				(p) => p.groupId === id,
 				(p) => ({ ...p, groupName: name })

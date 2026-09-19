@@ -51,6 +51,51 @@ describe('dashboard page server', () => {
 		declineDashboardInvitationMock.mockResolvedValue({ success: true, declined: true });
 	});
 
+	it.each(['acceptInvitation', 'declineInvitation'] as const)(
+		'%s denies anonymous submissions before effects',
+		async (action) => {
+			await expect(
+				actions[action]({
+					locals: {},
+					request: new Request('http://localhost/dashboard', {
+						method: 'POST',
+						body: new URLSearchParams({ invitationId: 'invite-a' })
+					})
+				} as never)
+			).rejects.toMatchObject({ status: 303, location: '/auth/login' });
+			expect(createSupabaseDashboardOrgAccessPortMock).not.toHaveBeenCalled();
+			expect(acceptDashboardInvitationMock).not.toHaveBeenCalled();
+			expect(declineDashboardInvitationMock).not.toHaveBeenCalled();
+		}
+	);
+
+	it.each(['acceptInvitation', 'declineInvitation'] as const)(
+		'%s uses the authenticated actor despite submitted identity and Organization fields',
+		async (action) => {
+			const result = await actions[action]({
+				locals: { user: { id: 'verified-user', email: 'verified@example.com' } },
+				request: new Request('http://localhost/dashboard', {
+					method: 'POST',
+					body: new URLSearchParams({
+						invitationId: 'invite-a',
+						userId: 'victim',
+						email: 'victim@example.com',
+						organizationId: 'org-victim'
+					})
+				}),
+				getClientAddress: () => '203.0.113.10'
+			} as never);
+			expect(result).toMatchObject({ success: true });
+			expect(
+				action === 'acceptInvitation' ? acceptDashboardInvitationMock : declineDashboardInvitationMock
+			).toHaveBeenCalledWith(expect.anything(), {
+				invitationId: 'invite-a',
+				userId: 'verified-user',
+				email: 'verified@example.com'
+			});
+		}
+	);
+
 	it('redirects unauthenticated users to login before loading dashboard access', async () => {
 		await expect(
 			load({

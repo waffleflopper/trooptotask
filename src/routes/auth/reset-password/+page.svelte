@@ -1,4 +1,7 @@
 <script lang="ts">
+	import PasswordCompletion from '$lib/components/auth/PasswordCompletion.svelte';
+	import { hasPendingPasswordCompletion, type PasswordCompletionState } from '$lib/auth/passwordCompletion';
+	let completion = $state<PasswordCompletionState>(null);
 	import { goto, replaceState } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/stores';
@@ -8,7 +11,9 @@
 	import AuthShell from '$lib/components/auth/AuthShell.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Spinner } from '$lib/components/ui/spinner';
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
+	import PasswordMfaChallenge from '$lib/components/auth/PasswordMfaChallenge.svelte';
+	import { establishSession, readSessionTokens, type SessionTokens } from '$lib/auth/establishSession';
 
 	const hasSession = $derived($page.data.hasSession);
 
@@ -19,9 +24,12 @@
 	let success = $state(false);
 	let sessionReady = $state(false);
 	let tokenError = $state(false);
+	let sessionError = $state(false);
+	let establishingSession = $state(false);
+	let tokens: SessionTokens | null = null;
+	let statusError = $state(false);
+	let checkingStatus = $state(false);
 	let requiresMfa = $state(false);
-	let mfaCode = $state('');
-	let mfaVerified = $state(false);
 	let showPassword = $state(false);
 	let showConfirmPassword = $state(false);
 
@@ -45,12 +53,21 @@
 		return null;
 	}
 
-	async function readJsonResult(response: Response): Promise<{ ok: boolean; error?: string }> {
+	async function readJsonResult(
+		response: Response
+	): Promise<{ ok: boolean; error?: string; code?: string; passwordUpdated?: boolean }> {
 		try {
-			const payload = (await response.json()) as { ok?: boolean; error?: string };
+			const payload = (await response.json()) as {
+				ok?: boolean;
+				error?: string;
+				code?: string;
+				passwordUpdated?: boolean;
+			};
 			return {
-				ok: response.ok && payload.ok === true,
-				error: payload.error
+				ok: response.ok && payload?.ok === true && payload.error === undefined,
+				error: typeof payload?.error === 'string' ? payload.error : undefined,
+				code: typeof payload?.code === 'string' ? payload.code : undefined,
+				passwordUpdated: payload?.passwordUpdated === true
 			};
 		} catch {
 			return { ok: false };
@@ -58,79 +75,81 @@
 	}
 
 	async function loadMfaStatus() {
-		const response = await fetch('/api/auth/mfa/status');
-		if (!response.ok) {
-			try {
-				const payload = (await response.json()) as { error?: string };
-				error = payload.error ?? 'We could not verify your account security settings. Please request a new reset link.';
-			} catch {
-				error = 'We could not verify your account security settings. Please request a new reset link.';
+		if (checkingStatus) return;
+		checkingStatus = true;
+		try {
+			const response = await fetch('/api/auth/mfa/status');
+			if (response.redirected) {
+				await goto(response.url);
+				return;
 			}
-			return false;
+			const payload = await response.json();
+			if (
+				!response.ok ||
+				!payload ||
+				payload.error ||
+				!['aal1', 'aal2'].includes(payload.currentLevel) ||
+				!['aal1', 'aal2'].includes(payload.nextLevel)
+			) {
+				statusError = true;
+				return;
+			}
+
+			requiresMfa = payload.currentLevel === 'aal1' && payload.nextLevel === 'aal2';
+			statusError = false;
+			sessionReady = true;
+		} catch {
+			statusError = true;
+		} finally {
+			checkingStatus = false;
 		}
-
-		const payload = (await response.json()) as {
-			currentLevel?: string | null;
-			nextLevel?: string | null;
-		};
-
-		requiresMfa = payload.currentLevel === 'aal1' && payload.nextLevel === 'aal2';
-		mfaVerified = !requiresMfa;
-		sessionReady = true;
-		return true;
 	}
 
-	function handleMfaCodeInput(e: Event) {
-		const input = e.target as HTMLInputElement;
-		mfaCode = input.value.replace(/\D/g, '').slice(0, 6);
+	async function verifySession() {
+		if (!tokens || establishingSession) return;
+		establishingSession = true;
+		try {
+			const result = await establishSession(tokens, 'recovery');
+			if (result === 'ready') {
+				sessionError = false;
+				tokens = null;
+				replaceState(resolve('/auth/reset-password'), $page.state);
+				await loadMfaStatus();
+			} else {
+				tokenError = result === 'invalid';
+				sessionError = result === 'unavailable';
+			}
+		} finally {
+			establishingSession = false;
+		}
 	}
 
 	onMount(() => {
-		void (async () => {
-			if (hasSession) {
-				await loadMfaStatus();
+		// An incoming link takes precedence over an existing account's session.
+		if (window.location.hash) {
+			tokens = readSessionTokens(window.location.hash);
+			if (tokens) void verifySession();
+			else tokenError = true;
+		} else if (hasSession) {
+			completion = $page.data.passwordCompletion ?? null;
+			if (completion === 'complete') {
+				finishPassword();
+				return;
 			}
-
-			if (!sessionReady) {
-				const hash = window.location.hash.substring(1);
-				if (hash) {
-					const params = new URLSearchParams(hash);
-					const accessToken = params.get('access_token');
-					const refreshToken = params.get('refresh_token');
-
-					if (accessToken && refreshToken) {
-						const response = await fetch('/api/auth/establish-session', {
-							method: 'POST',
-							headers: { 'Content-Type': 'application/json' },
-							body: JSON.stringify({
-								accessToken,
-								refreshToken,
-								flow: 'recovery'
-							})
-						});
-
-						const result = await readJsonResult(response);
-						if (result.ok) {
-							const mfaLoaded = await loadMfaStatus();
-							replaceState(resolve('/auth/reset-password'), $page.state);
-							if (!mfaLoaded) {
-								return;
-							}
-						} else {
-							error = result.error ?? 'We could not verify your reset session. Please request a new reset link.';
-						}
-					}
-				}
+			if (completion) {
+				sessionReady = true;
+				return;
 			}
-
-			if (!sessionReady) {
-				tokenError = true;
-			}
-		})();
+			void loadMfaStatus();
+		} else {
+			tokenError = true;
+		}
 	});
 
 	async function handleSubmit(e: Event) {
 		e.preventDefault();
+		const form = e.currentTarget as HTMLFormElement;
+		if (loading || requiresMfa || completion) return;
 		error = '';
 
 		const passwordError = getPasswordError(password);
@@ -154,48 +173,50 @@
 				})
 			});
 
+			if (updateResponse.redirected) {
+				await goto(updateResponse.url);
+				return;
+			}
 			const updateResult = await readJsonResult(updateResponse);
+			if (updateResult?.code === 'password_reconciliation_required') {
+				completion = 'started';
+				password = confirmPassword = '';
+				return;
+			}
+			if (hasPendingPasswordCompletion(updateResponse, updateResult)) {
+				completion = 'pending';
+				password = '';
+				confirmPassword = '';
+				return;
+			}
+			if (updateResponse.status === 403 && updateResult.code === 'mfa_required') {
+				requiresMfa = true;
+				return;
+			}
 			if (!updateResult.ok) {
-				error = updateResult.error ?? 'Failed to update password.';
+				if (updateResponse.status >= 500 || updateResponse.ok) {
+					completion = 'started';
+					password = confirmPassword = '';
+				}
+				error = updateResult.error || 'Unable to confirm the password update. Your password may have changed.';
 				return;
 			}
 
-			success = true;
-			setTimeout(() => goto(resolve('/auth/login')), 3000);
+			finishPassword();
+		} catch {
+			completion = 'started';
+			password = confirmPassword = '';
+			error = 'Unable to confirm the password update. Your password may have changed.';
 		} finally {
 			loading = false;
+			await tick();
+			if (error && !requiresMfa && form.isConnected) form.querySelector<HTMLInputElement>('input')?.focus();
 		}
 	}
-
-	async function handleMfaVerify(e: Event) {
-		e.preventDefault();
-		error = '';
-
-		if (mfaCode.length !== 6) {
-			error = 'Please enter the 6-digit code from your authenticator app.';
-			return;
-		}
-
-		loading = true;
-		try {
-			const response = await fetch('/api/auth/mfa/verify', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ code: mfaCode })
-			});
-
-			const result = await readJsonResult(response);
-			if (!result.ok) {
-				error = result.error ?? 'Verification failed.';
-				return;
-			}
-
-			requiresMfa = false;
-			mfaVerified = true;
-			mfaCode = '';
-		} finally {
-			loading = false;
-		}
+	function finishPassword() {
+		completion = null;
+		success = true;
+		setTimeout(() => goto(resolve('/auth/login')), 3000);
 	}
 </script>
 
@@ -212,20 +233,24 @@
 		? 'Password updated'
 		: tokenError
 			? 'Reset link unavailable'
-			: sessionReady && requiresMfa
-				? 'Verify your authenticator'
-				: sessionReady
-					? 'Choose a new password'
-					: 'Verifying reset link'}
+			: statusError
+				? 'Security check unavailable'
+				: sessionReady && requiresMfa
+					? 'Verify your authenticator'
+					: sessionReady
+						? 'Choose a new password'
+						: 'Verifying reset link'}
 	panelDescription={success
 		? "You'll be redirected to sign in shortly."
 		: tokenError
 			? 'This reset link can no longer be used.'
-			: sessionReady && requiresMfa
-				? 'Enter the current 6-digit code from your authenticator app before setting a new password.'
-				: sessionReady
-					? 'Enter the new password you want to use for future sign-ins.'
-					: "We're confirming the recovery session before allowing a password change."}
+			: statusError
+				? 'Retry the security check to continue your password reset.'
+				: sessionReady && requiresMfa
+					? 'Enter the current 6-digit code from your authenticator app before setting a new password.'
+					: sessionReady
+						? 'Enter the new password you want to use for future sign-ins.'
+						: "We're confirming the recovery session before allowing a password change."}
 	supportLabel="Reset session"
 	supportTitle="Use the link, then set the password."
 	supportDescription="You can only change the password here after the reset link has been verified."
@@ -241,45 +266,44 @@
 				<p>Your password has been reset successfully.</p>
 				<p>Redirecting you to sign in now.</p>
 			</AuthNotice>
+		{:else if sessionError}
+			<AuthNotice tone="error" message="We could not verify this session. Please try again." />
+			<Button type="button" onclick={verifySession} disabled={establishingSession} class="w-full">
+				{#if establishingSession}<Spinner />Verifying session...{:else}Retry verification{/if}
+			</Button>
 		{:else if tokenError}
 			<AuthNotice tone="error" title="Reset link unavailable" centered>
 				<p>This reset link is invalid or has expired.</p>
 			</AuthNotice>
+		{:else if statusError}
+			<AuthNotice tone="error" message="We could not verify your account security settings. Please try again." />
+			<Button type="button" onclick={loadMfaStatus} disabled={checkingStatus} class="w-full">
+				{#if checkingStatus}<Spinner />Checking security...{:else}Retry security check{/if}
+			</Button>
 		{:else if !sessionReady}
 			<div class="flex flex-col items-center gap-3 py-8 text-center text-muted-foreground">
 				<Spinner class="text-primary" />
 				<p class="m-0 text-sm leading-relaxed">Verifying reset link...</p>
 			</div>
-		{:else if requiresMfa && !mfaVerified}
-			{#if error}
-				<AuthNotice tone="error" message={error} />
-			{/if}
-
-			<form onsubmit={handleMfaVerify} class="flex flex-col gap-5">
-				<AuthField
-					label="Authenticator Code"
-					id="mfa-code"
-					hint="Enter the current 6-digit code from your authenticator app before you reset the password."
-					value={mfaCode}
-					oninput={handleMfaCodeInput}
-					placeholder="000000"
-					maxlength={6}
-					autocomplete="one-time-code"
-					inputmode="numeric"
-					inputClass="px-[calc(0.625rem+0.35em)] text-center font-mono text-2xl tracking-[0.35em]"
-				/>
-
-				<div class="flex flex-col gap-3">
-					<Button type="submit" disabled={loading || mfaCode.length !== 6} class="w-full">
-						{#if loading}
-							<Spinner />
-							Verifying...
-						{:else}
-							Verify Code
-						{/if}
-					</Button>
-				</div>
-			</form>
+		{:else if completion}
+			<PasswordCompletion
+				state={completion}
+				onrestart={async () => {
+					completion = null;
+					await tick();
+					document.getElementById('password')?.focus();
+				}}
+				oncomplete={finishPassword}
+			/>
+		{:else if requiresMfa}
+			<PasswordMfaChallenge
+				onverified={async () => {
+					requiresMfa = false;
+					error = '';
+					await tick();
+					document.getElementById('password')?.focus();
+				}}
+			/>
 		{:else}
 			{#if error}
 				<AuthNotice tone="error" message={error} />

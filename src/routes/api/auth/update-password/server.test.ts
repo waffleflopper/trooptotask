@@ -1,4 +1,7 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+vi.mock('$lib/server/supabase', () => ({ getAdminClient: () => ({ rpc: attemptStore.rpc }) }));
+import { attemptStore } from '../../../../tests/fixtures/passwordAttempt';
+import { passwordSessionToken } from '../../../../tests/fixtures/passwordSession';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { auditLogMock, checkPasswordUpdateRateLimitMock } = vi.hoisted(() => ({
 	auditLogMock: vi.fn(),
@@ -22,6 +25,8 @@ vi.mock('$lib/server/passwordUpdateRateLimit', () => ({
 	}))
 }));
 
+const proofProvider = vi.hoisted(() => ({ auth: {} as Record<string, unknown> }));
+vi.mock('@supabase/supabase-js', () => ({ createClient: () => ({ auth: proofProvider.auth }) }));
 import { POST } from './+server';
 
 function makeEvent(input: {
@@ -30,6 +35,27 @@ function makeEvent(input: {
 	cookies?: { delete: ReturnType<typeof vi.fn> };
 	ip?: string;
 }) {
+	const user = { id: 'user-123', email: 'user@example.test' };
+	const auth = (input.locals.supabase as { auth: { signInWithPassword?: ReturnType<typeof vi.fn> } } | undefined)?.auth;
+	proofProvider.auth = {
+		signInWithPassword: auth?.signInWithPassword,
+		getUser: vi.fn().mockResolvedValue({ data: { user }, error: null }),
+		mfa: {
+			getAuthenticatorAssuranceLevel: vi
+				.fn()
+				.mockResolvedValue({ data: { currentLevel: 'aal1', nextLevel: 'aal1' }, error: null })
+		},
+		signOut: vi.fn().mockResolvedValue({ error: null }),
+		admin: { signOut: vi.fn().mockResolvedValue({ error: null }) }
+	};
+	if (auth)
+		Object.assign(auth, {
+			mfa: {
+				getAuthenticatorAssuranceLevel: vi
+					.fn()
+					.mockResolvedValue({ data: { currentLevel: 'aal1', nextLevel: 'aal1' }, error: null })
+			}
+		});
 	return {
 		request: new Request('http://localhost/api/auth/update-password', {
 			method: 'POST',
@@ -37,7 +63,7 @@ function makeEvent(input: {
 			body: JSON.stringify(input.body)
 		}),
 		locals: input.locals,
-		cookies: input.cookies ?? { delete: vi.fn() },
+		cookies: { get: vi.fn(), set: vi.fn(), ...input.cookies },
 		getClientAddress: vi.fn(() => input.ip ?? '203.0.113.10')
 	} as unknown as Parameters<typeof POST>[0];
 }
@@ -45,6 +71,8 @@ function makeEvent(input: {
 describe('POST /api/auth/update-password', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		vi.useFakeTimers({ toFake: ['Date'] });
+		vi.setSystemTime(new Date('2026-09-17T12:00:00Z'));
 		checkPasswordUpdateRateLimitMock.mockResolvedValue({
 			limited: false,
 			namespace: 'password-update',
@@ -55,11 +83,24 @@ describe('POST /api/auth/update-password', () => {
 		});
 	});
 
+	afterEach(() => vi.useRealTimers());
+
 	it('updates the current user password after verifying the old password', async () => {
-		const signInWithPassword = vi.fn().mockResolvedValue({ error: null });
-		const updateUser = vi.fn().mockResolvedValue({ error: null });
+		const signInWithPassword = vi.fn().mockResolvedValue({
+			data: {
+				user: { id: 'user-123' },
+				session: {
+					user: { id: 'user-123' },
+					access_token: 'proof-access',
+					refresh_token: 'proof-refresh',
+					expires_at: 1789650000
+				}
+			},
+			error: null
+		});
+		const updateUser = vi.fn().mockResolvedValue({ data: { user: { id: 'user-123' } }, error: null });
 		const signOut = vi.fn().mockResolvedValue({ error: null });
-		const cookies = { delete: vi.fn() };
+		const cookies = { get: vi.fn(), set: vi.fn(), delete: vi.fn() };
 
 		const response = await POST(
 			makeEvent({
@@ -69,13 +110,17 @@ describe('POST /api/auth/update-password', () => {
 					confirmPassword: 'SecurePass12'
 				},
 				locals: {
-					session: { user: { id: 'user-123' } },
+					session: {
+						user: { id: 'user-123' },
+						access_token: passwordSessionToken('user-123', 'synthetic-token'),
+						expires_at: 1789646460
+					},
 					user: { id: 'user-123', email: 'user@example.test' },
 					supabase: {
 						auth: {
 							signInWithPassword,
 							updateUser,
-							signOut
+							admin: { signOut }
 						}
 					}
 				},
@@ -93,14 +138,28 @@ describe('POST /api/auth/update-password', () => {
 			email: 'user@example.test',
 			password: 'OldSecurePass12'
 		});
-		expect(updateUser).toHaveBeenCalledWith({ password: 'SecurePass12' });
-		expect(signOut).toHaveBeenCalledWith({ scope: 'others' });
+		expect(updateUser).toHaveBeenCalledWith({
+			password: 'SecurePass12',
+			data: { ttt_password_attempt: '00000000-0000-4000-8000-000000000099' }
+		});
+		expect(signOut).toHaveBeenCalledWith(passwordSessionToken('user-123', 'synthetic-token'), 'others');
 		expect(cookies.delete).not.toHaveBeenCalled();
 	});
 
-	it('keeps a successful password response when revoking other sessions fails', async () => {
-		const signInWithPassword = vi.fn().mockResolvedValue({ error: null });
-		const updateUser = vi.fn().mockResolvedValue({ error: null });
+	it('reports confirmed password with incomplete revocation instead of success', async () => {
+		const signInWithPassword = vi.fn().mockResolvedValue({
+			data: {
+				user: { id: 'user-123' },
+				session: {
+					user: { id: 'user-123' },
+					access_token: 'proof-access',
+					refresh_token: 'proof-refresh',
+					expires_at: 1789650000
+				}
+			},
+			error: null
+		});
+		const updateUser = vi.fn().mockResolvedValue({ data: { user: { id: 'user-123' } }, error: null });
 		const signOut = vi.fn().mockResolvedValue({ error: { message: 'revocation failed' } });
 
 		const response = await POST(
@@ -111,22 +170,30 @@ describe('POST /api/auth/update-password', () => {
 					confirmPassword: 'SecurePass12'
 				},
 				locals: {
-					session: { user: { id: 'user-123' } },
+					session: {
+						user: { id: 'user-123' },
+						access_token: passwordSessionToken('user-123', 'synthetic-token'),
+						expires_at: 1789646460
+					},
 					user: { id: 'user-123', email: 'user@example.test' },
 					supabase: {
 						auth: {
 							signInWithPassword,
 							updateUser,
-							signOut
+							admin: { signOut }
 						}
 					}
 				}
 			})
 		);
 
-		expect(response.status).toBe(200);
-		expect(await response.json()).toEqual({ ok: true });
-		expect(signOut).toHaveBeenCalledWith({ scope: 'others' });
+		expect(response.status).toBe(202);
+		expect(await response.json()).toMatchObject({
+			ok: false,
+			passwordUpdated: true,
+			code: 'session_revocation_pending'
+		});
+		expect(signOut).toHaveBeenCalledWith(passwordSessionToken('user-123', 'synthetic-token'), 'others');
 		expect(auditLogMock).toHaveBeenCalledWith(
 			{
 				action: 'auth.session_revoke_failed',
@@ -160,7 +227,11 @@ describe('POST /api/auth/update-password', () => {
 					confirmPassword: 'SecurePass12'
 				},
 				locals: {
-					session: { user: { id: 'user-123' } },
+					session: {
+						user: { id: 'user-123' },
+						access_token: passwordSessionToken('user-123', 'synthetic-token'),
+						expires_at: 1789646460
+					},
 					user: { id: 'user-123', email: 'user@example.test' },
 					supabase: {
 						auth: {
@@ -204,7 +275,7 @@ describe('POST /api/auth/update-password', () => {
 	it('rejects in-app password updates when the old password is missing', async () => {
 		const signInWithPassword = vi.fn();
 		const updateUser = vi.fn();
-		const cookies = { delete: vi.fn() };
+		const cookies = { get: vi.fn(), set: vi.fn(), delete: vi.fn() };
 
 		const response = await POST({
 			request: new Request('http://localhost/api/auth/update-password', {
@@ -213,7 +284,11 @@ describe('POST /api/auth/update-password', () => {
 				body: JSON.stringify({ password: 'SecurePass12', confirmPassword: 'SecurePass12' })
 			}),
 			locals: {
-				session: { user: { id: 'user-123' } },
+				session: {
+					user: { id: 'user-123' },
+					access_token: passwordSessionToken('user-123', 'synthetic-token'),
+					expires_at: 1789646460
+				},
 				user: { id: 'user-123', email: 'user@example.test' },
 				supabase: {
 					auth: {
@@ -232,9 +307,11 @@ describe('POST /api/auth/update-password', () => {
 	});
 
 	it('rejects in-app password updates when the old password is incorrect', async () => {
-		const signInWithPassword = vi.fn().mockResolvedValue({ error: { message: 'Invalid login credentials' } });
+		const signInWithPassword = vi
+			.fn()
+			.mockResolvedValue({ error: { status: 400, message: 'Invalid login credentials' } });
 		const updateUser = vi.fn();
-		const cookies = { delete: vi.fn() };
+		const cookies = { get: vi.fn(), set: vi.fn(), delete: vi.fn() };
 
 		const response = await POST(
 			makeEvent({
@@ -244,7 +321,11 @@ describe('POST /api/auth/update-password', () => {
 					confirmPassword: 'SecurePass12'
 				},
 				locals: {
-					session: { user: { id: 'user-123' } },
+					session: {
+						user: { id: 'user-123' },
+						access_token: passwordSessionToken('user-123', 'synthetic-token'),
+						expires_at: 1789646460
+					},
 					user: { id: 'user-123', email: 'user@example.test' },
 					supabase: {
 						auth: {
@@ -264,7 +345,7 @@ describe('POST /api/auth/update-password', () => {
 
 	it('rejects passwords that do not meet policy', async () => {
 		const updateUser = vi.fn();
-		const cookies = { delete: vi.fn() };
+		const cookies = { get: vi.fn(), set: vi.fn(), delete: vi.fn() };
 
 		const response = await POST({
 			request: new Request('http://localhost/api/auth/update-password', {
@@ -273,7 +354,12 @@ describe('POST /api/auth/update-password', () => {
 				body: JSON.stringify({ password: 'short' })
 			}),
 			locals: {
-				session: { user: { id: 'user-123' } },
+				session: {
+					user: { id: 'user-123' },
+					access_token: passwordSessionToken('user-123', 'synthetic-token'),
+					expires_at: 1789646460
+				},
+				user: { id: 'user-123', email: 'user@example.test' },
 				authFlow: 'recovery',
 				supabase: {
 					auth: {
@@ -292,17 +378,23 @@ describe('POST /api/auth/update-password', () => {
 		expect(cookies.delete).not.toHaveBeenCalled();
 	});
 
-	it('returns an auth error when Supabase rejects the password update', async () => {
+	it('fences an uncommitted mutation after a provider failure', async () => {
+		attemptStore.committed = false;
 		const updateUser = vi.fn().mockResolvedValue({
 			error: { message: 'Password update failed.' }
 		});
-		const cookies = { delete: vi.fn() };
+		const cookies = { get: vi.fn(), set: vi.fn(), delete: vi.fn() };
 
 		const response = await POST(
 			makeEvent({
 				body: { password: 'SecurePass12' },
 				locals: {
-					session: { user: { id: 'user-123', email: 'user@example.test' } },
+					session: {
+						user: { id: 'user-123', email: 'user@example.test' },
+						access_token: passwordSessionToken('user-123', 'synthetic-token'),
+						expires_at: 1789646460
+					},
+					user: { id: 'user-123', email: 'user@example.test' },
 					authFlow: 'recovery',
 					supabase: {
 						auth: {
@@ -314,9 +406,10 @@ describe('POST /api/auth/update-password', () => {
 			})
 		);
 
-		expect(response.status).toBe(401);
-		expect(await response.json()).toEqual({
-			error: 'Password update failed'
+		expect(response.status).toBe(409);
+		expect(await response.json()).toMatchObject({
+			state: 'failed',
+			code: 'password_reconciliation_required'
 		});
 		expect(checkPasswordUpdateRateLimitMock).toHaveBeenCalledWith({
 			userId: 'user-123',
@@ -326,16 +419,22 @@ describe('POST /api/auth/update-password', () => {
 	});
 
 	it('returns stable policy copy when Supabase rejects the new password as weak', async () => {
+		attemptStore.committed = false;
 		const updateUser = vi.fn().mockResolvedValue({
 			error: { message: 'Password should be at least 12 characters' }
 		});
-		const cookies = { delete: vi.fn() };
+		const cookies = { get: vi.fn(), set: vi.fn(), delete: vi.fn() };
 
 		const response = await POST(
 			makeEvent({
 				body: { password: 'SecurePass12' },
 				locals: {
-					session: { user: { id: 'user-123', email: 'user@example.test' } },
+					session: {
+						user: { id: 'user-123', email: 'user@example.test' },
+						access_token: passwordSessionToken('user-123', 'synthetic-token'),
+						expires_at: 1789646460
+					},
+					user: { id: 'user-123', email: 'user@example.test' },
 					authFlow: 'recovery',
 					supabase: {
 						auth: {
@@ -347,8 +446,8 @@ describe('POST /api/auth/update-password', () => {
 			})
 		);
 
-		expect(response.status).toBe(400);
-		expect(await response.json()).toEqual({
+		expect(response.status).toBe(409);
+		expect(await response.json()).toMatchObject({
 			error:
 				'That password was rejected by account security rules. Use at least 12 characters with uppercase, lowercase, and a number.'
 		});
@@ -356,20 +455,25 @@ describe('POST /api/auth/update-password', () => {
 	});
 
 	it('updates the password for an active recovery session and clears the recovery flow marker', async () => {
-		const updateUser = vi.fn().mockResolvedValue({ error: null });
+		const updateUser = vi.fn().mockResolvedValue({ data: { user: { id: 'user-123' } }, error: null });
 		const signOut = vi.fn().mockResolvedValue({ error: null });
-		const cookies = { delete: vi.fn() };
+		const cookies = { get: vi.fn(), set: vi.fn(), delete: vi.fn() };
 
 		const response = await POST(
 			makeEvent({
 				body: { password: 'SecurePass12' },
 				locals: {
-					session: { user: { id: 'user-123', email: 'user@example.test' } },
+					session: {
+						user: { id: 'user-123', email: 'user@example.test' },
+						access_token: passwordSessionToken('user-123', 'synthetic-token'),
+						expires_at: 1789646460
+					},
+					user: { id: 'user-123', email: 'user@example.test' },
 					authFlow: 'recovery',
 					supabase: {
 						auth: {
 							updateUser,
-							signOut
+							admin: { signOut }
 						}
 					}
 				},
@@ -383,8 +487,11 @@ describe('POST /api/auth/update-password', () => {
 			userId: 'user-123',
 			ip: '203.0.113.10'
 		});
-		expect(updateUser).toHaveBeenCalledWith({ password: 'SecurePass12' });
-		expect(signOut).toHaveBeenCalledWith({ scope: 'others' });
+		expect(updateUser).toHaveBeenCalledWith({
+			password: 'SecurePass12',
+			data: { ttt_password_attempt: '00000000-0000-4000-8000-000000000099' }
+		});
+		expect(signOut).toHaveBeenCalledWith(passwordSessionToken('user-123', 'synthetic-token'), 'others');
 		expect(cookies.delete).toHaveBeenCalledWith('ttt_pending_auth_flow', { path: '/' });
 	});
 
@@ -404,7 +511,12 @@ describe('POST /api/auth/update-password', () => {
 			makeEvent({
 				body: { password: 'SecurePass12' },
 				locals: {
-					session: { user: { id: 'user-123', email: 'user@example.test' } },
+					session: {
+						user: { id: 'user-123', email: 'user@example.test' },
+						access_token: passwordSessionToken('user-123', 'synthetic-token'),
+						expires_at: 1789646460
+					},
+					user: { id: 'user-123', email: 'user@example.test' },
 					authFlow: 'recovery',
 					supabase: {
 						auth: {
@@ -440,7 +552,7 @@ describe('POST /api/auth/update-password', () => {
 
 	it('returns an auth error when the recovery or invite session is missing', async () => {
 		const updateUser = vi.fn();
-		const cookies = { delete: vi.fn() };
+		const cookies = { get: vi.fn(), set: vi.fn(), delete: vi.fn() };
 
 		const response = await POST({
 			request: new Request('http://localhost/api/auth/update-password', {
@@ -467,20 +579,25 @@ describe('POST /api/auth/update-password', () => {
 	});
 
 	it('does not clear the pending flow marker for invite sessions before invite finalization finishes', async () => {
-		const updateUser = vi.fn().mockResolvedValue({ error: null });
+		const updateUser = vi.fn().mockResolvedValue({ data: { user: { id: 'user-123' } }, error: null });
 		const signOut = vi.fn().mockResolvedValue({ error: null });
-		const cookies = { delete: vi.fn() };
+		const cookies = { get: vi.fn(), set: vi.fn(), delete: vi.fn() };
 
 		const response = await POST(
 			makeEvent({
 				body: { password: 'SecurePass12' },
 				locals: {
-					session: { user: { id: 'user-123', email: 'user@example.test' } },
+					session: {
+						user: { id: 'user-123', email: 'user@example.test' },
+						access_token: passwordSessionToken('user-123', 'synthetic-token'),
+						expires_at: 1789646460
+					},
+					user: { id: 'user-123', email: 'user@example.test' },
 					authFlow: 'invite',
 					supabase: {
 						auth: {
 							updateUser,
-							signOut
+							admin: { signOut }
 						}
 					}
 				},
@@ -494,8 +611,11 @@ describe('POST /api/auth/update-password', () => {
 			userId: 'user-123',
 			ip: '203.0.113.10'
 		});
-		expect(updateUser).toHaveBeenCalledWith({ password: 'SecurePass12' });
-		expect(signOut).toHaveBeenCalledWith({ scope: 'others' });
+		expect(updateUser).toHaveBeenCalledWith({
+			password: 'SecurePass12',
+			data: { ttt_password_attempt: '00000000-0000-4000-8000-000000000099' }
+		});
+		expect(signOut).toHaveBeenCalledWith(passwordSessionToken('user-123', 'synthetic-token'), 'others');
 		expect(cookies.delete).not.toHaveBeenCalled();
 	});
 });

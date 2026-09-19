@@ -1,3 +1,4 @@
+import { passwordCompletionState } from '$lib/server/passwordCompletion';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
@@ -5,5 +6,5 @@ export const load: PageServerLoad = async ({ locals }) => {
 		data: { session }
 	} = await locals.supabase.auth.getSession();
 
-	return { hasSession: !!session?.access_token };
+	return { hasSession: !!session?.access_token, passwordCompletion: await passwordCompletionState(locals) };
 };

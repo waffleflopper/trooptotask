@@ -5,7 +5,13 @@ import { PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY } from '$env/static/publi
 import { checkRateLimit } from '$lib/server/rateLimit';
 import { auditLog } from '$lib/server/auditLog';
 import { getAuthCookieOptions } from '$lib/server/authCookies';
-import { buildTrustedUserFromClaims, getSupabaseAuthStorageKey, hasSupabaseAuthCookie } from '$lib/server/authSession';
+import {
+	buildTrustedUserFromClaims,
+	clearSupabaseAuthCookies,
+	getSupabaseAuthStorageKey,
+	hasSupabaseAuthCookie,
+	readSessionLifetime
+} from '$lib/server/authSession';
 import { isPublicRoute } from '$lib/server/publicRoutes';
 import {
 	getAuthenticatedRedirectPath,
@@ -14,6 +20,7 @@ import {
 	sanitizePendingAuthFlow,
 	shouldRedirectIncompleteAuthSession
 } from '$lib/server/mfaGate';
+import { requireActiveOrganization } from '$lib/server/adapters/supabaseOrganizationAdmission';
 import '$lib/server/env'; // validate env vars on startup
 
 const impeccableLiveDevSources = import.meta.env.DEV ? ' http://localhost:8400 http://127.0.0.1:8400' : '';
@@ -49,14 +56,6 @@ function isStaleSupabaseAuthError(error: unknown): boolean {
 	return Boolean(code && STALE_SUPABASE_AUTH_ERROR_CODES.has(code));
 }
 
-function clearSupabaseAuthCookies(event: Parameters<Handle>[0]['event']): void {
-	for (const { name } of event.cookies.getAll()) {
-		if (hasSupabaseAuthCookie([name], SUPABASE_AUTH_STORAGE_KEY)) {
-			event.cookies.delete(name, { path: '/' });
-		}
-	}
-}
-
 type SafeSessionResult = { session: Session | null; user: User | null };
 
 function buildTrustedSession(session: Session, user: User): Session {
@@ -71,30 +70,25 @@ function buildTrustedSession(session: Session, user: User): Session {
 }
 
 export const handle: Handle = async ({ event, resolve }) => {
-	// Rate limiting — skip for e2e tests (dev mode only, tree-shaken in production)
 	const clientIp = event.getClientAddress();
-	if (import.meta.env.DEV && process.env.E2E_TESTING === 'true') {
-		// rate limiting skipped for e2e tests
-	} else {
-		const rateCheck = checkRateLimit(clientIp, event.url.pathname, event.request.method);
-		if (rateCheck.limited) {
-			auditLog(
-				{
-					action: 'security.rate_limit_exceeded',
-					resourceType: 'request',
-					severity: 'warning',
-					details: { pathname: event.url.pathname, method: event.request.method }
-				},
-				{ userId: null, ip: clientIp }
-			);
-			return new Response(JSON.stringify({ error: 'Too many requests' }), {
-				status: 429,
-				headers: {
-					'Content-Type': 'application/json',
-					'Retry-After': String(Math.ceil(rateCheck.retryAfterMs / 1000))
-				}
-			});
-		}
+	const rateCheck = checkRateLimit(clientIp, event.url.pathname, event.request.method);
+	if (rateCheck.limited) {
+		auditLog(
+			{
+				action: 'security.rate_limit_exceeded',
+				resourceType: 'request',
+				severity: 'warning',
+				details: { pathname: event.url.pathname, method: event.request.method }
+			},
+			{ userId: null, ip: clientIp }
+		);
+		return new Response(JSON.stringify({ error: 'Too many requests' }), {
+			status: 429,
+			headers: {
+				'Content-Type': 'application/json',
+				'Retry-After': String(Math.ceil(rateCheck.retryAfterMs / 1000))
+			}
+		});
 	}
 
 	const requestUserStorageItems = new Map<string, string>();
@@ -142,7 +136,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 			error: sessionError
 		} = await event.locals.supabase.auth.getSession().catch((error) => {
 			if (isStaleSupabaseAuthError(error)) {
-				clearSupabaseAuthCookies(event);
+				clearSupabaseAuthCookies(event.cookies, SUPABASE_AUTH_STORAGE_KEY);
 				return { data: { session: null }, error };
 			}
 			throw error;
@@ -150,7 +144,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 
 		if (sessionError || !session?.access_token) {
 			if (isStaleSupabaseAuthError(sessionError)) {
-				clearSupabaseAuthCookies(event);
+				clearSupabaseAuthCookies(event.cookies, SUPABASE_AUTH_STORAGE_KEY);
 			}
 			cachedSession = { session: null, user: null };
 			return cachedSession;
@@ -160,14 +154,14 @@ export const handle: Handle = async ({ event, resolve }) => {
 			.getClaims(session.access_token)
 			.catch((error) => {
 				if (isStaleSupabaseAuthError(error)) {
-					clearSupabaseAuthCookies(event);
+					clearSupabaseAuthCookies(event.cookies, SUPABASE_AUTH_STORAGE_KEY);
 					return { data: null, error };
 				}
 				throw error;
 			});
 		if (claimsError || !claimsData?.claims) {
 			if (isStaleSupabaseAuthError(claimsError)) {
-				clearSupabaseAuthCookies(event);
+				clearSupabaseAuthCookies(event.cookies, SUPABASE_AUTH_STORAGE_KEY);
 			}
 			cachedSession = { session: null, user: null };
 			return cachedSession;
@@ -175,7 +169,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 
 		const { data: userData, error: userError } = await event.locals.supabase.auth.getUser().catch((error) => {
 			if (isStaleSupabaseAuthError(error)) {
-				clearSupabaseAuthCookies(event);
+				clearSupabaseAuthCookies(event.cookies, SUPABASE_AUTH_STORAGE_KEY);
 				return { data: null, error };
 			}
 			throw error;
@@ -184,11 +178,28 @@ export const handle: Handle = async ({ event, resolve }) => {
 		const userMatchesClaims = authenticatedUser?.id === claimsData.claims.sub;
 		if (userError || !userMatchesClaims) {
 			if (isStaleSupabaseAuthError(userError) || (!userError && !userMatchesClaims)) {
-				clearSupabaseAuthCookies(event);
+				clearSupabaseAuthCookies(event.cookies, SUPABASE_AUTH_STORAGE_KEY);
 			}
 			cachedSession = { session: null, user: null };
 			return cachedSession;
 		}
+		// Logout owns revocation/retry and must remain reachable during lookup outages.
+		if (event.url.pathname !== '/auth/logout') {
+			const lifetime = await readSessionLifetime(event.locals.supabase, session.access_token);
+			if (lifetime === 'unavailable') error(503, 'Unable to verify session lifetime');
+			if (lifetime === 'expired') {
+				// Invalidate the request cache before any public-route consumer can reuse it.
+				cachedSession = { session: null, user: null };
+				const revoked = await event.locals.supabase.auth.admin
+					.signOut(session.access_token, 'global')
+					.catch(() => null);
+				if (revoked?.error !== null) error(503, 'Unable to confirm sign-out. Please try again.');
+				clearSupabaseAuthCookies(event.cookies, SUPABASE_AUTH_STORAGE_KEY);
+				event.cookies.delete(getPendingAuthFlowCookieName(), { path: '/' });
+				return cachedSession;
+			}
+		}
+
 		await requestUserStorage.setItem(`${SUPABASE_AUTH_STORAGE_KEY}-user`, JSON.stringify({ user: authenticatedUser }));
 
 		const user = buildTrustedUserFromClaims(claimsData.claims, authenticatedUser);
@@ -202,37 +213,42 @@ export const handle: Handle = async ({ event, resolve }) => {
 	event.locals.mfaPending = false;
 	event.locals.authFlow = sanitizePendingAuthFlow(event.cookies.get(getPendingAuthFlowCookieName()));
 
-	if (session && user?.last_sign_in_at) {
-		// Enforce 24-hour absolute session timeout
-		const sessionCreated = new Date(user.last_sign_in_at).getTime();
-		const maxSessionAge = 24 * 60 * 60 * 1000; // 24 hours
-		if (Date.now() - sessionCreated > maxSessionAge) {
-			await event.locals.supabase.auth.signOut();
-			event.cookies.delete(getPendingAuthFlowCookieName(), { path: '/' });
-			event.locals.session = null;
-			event.locals.user = null;
-			event.locals.authFlow = null;
-		}
-	}
-
 	if (!event.locals.session && event.locals.authFlow) {
-		event.cookies.delete(getPendingAuthFlowCookieName(), { path: '/' });
+		// Auth transitions own pending-cookie changes even when identity lookup is unavailable.
+		if (
+			event.request.method !== 'POST' ||
+			!['/auth/logout', '/api/auth/establish-session'].includes(event.url.pathname)
+		) {
+			event.cookies.delete(getPendingAuthFlowCookieName(), { path: '/' });
+		}
 		event.locals.authFlow = null;
 	}
 
-	if (event.locals.session) {
-		const { data: assuranceData, error: assuranceError } =
-			await event.locals.supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+	// Logout must remain available even when assurance cannot be verified.
+	if (event.locals.session && event.url.pathname !== '/auth/logout') {
+		const { data: assuranceData, error: assuranceError } = await event.locals.supabase.auth.mfa
+			.getAuthenticatorAssuranceLevel()
+			.catch(() => {
+				error(503, 'Unable to verify authentication status');
+			});
 
 		if (assuranceError) {
 			console.error('Failed to read authenticator assurance level:', assuranceError.message);
-		} else {
-			event.locals.mfaPending = isMfaStepUpRequired(assuranceData);
 		}
+		if (
+			assuranceError ||
+			!assuranceData ||
+			!['aal1', 'aal2'].includes(assuranceData.currentLevel ?? '') ||
+			!['aal1', 'aal2'].includes(assuranceData.nextLevel ?? '')
+		) {
+			error(503, 'Unable to verify authentication status');
+		}
+		event.locals.mfaPending = isMfaStepUpRequired(assuranceData);
 	}
 
-	// Protect routes — redirect unauthenticated users to login
-	if (!event.locals.session && !isPublicRoute(event.url.pathname)) {
+	// MFA completion routes allow incomplete authentication, but still require identity.
+	const isMfaEndpoint = event.url.pathname === '/api/auth/mfa' || event.url.pathname.startsWith('/api/auth/mfa/');
+	if (!event.locals.session && (isMfaEndpoint || !isPublicRoute(event.url.pathname))) {
 		redirect(303, '/auth/login');
 	}
 
@@ -247,14 +263,19 @@ export const handle: Handle = async ({ event, resolve }) => {
 		redirect(303, getAuthenticatedRedirectPath(event.locals.authFlow, event.locals.mfaPending));
 	}
 
-	// Check user suspension (skip for auth routes, api routes, and the suspended page itself)
-	const skipSuspensionCheck = ['/auth', '/api/auth', '/suspended'].some((p) => event.url.pathname.startsWith(p));
+	// Keep auth completion reachable; factor management requires an active account.
+	const isMfaCompletion = ['/api/auth/mfa/status', '/api/auth/mfa/verify'].includes(event.url.pathname);
+	const skipSuspensionCheck =
+		(!isMfaEndpoint || isMfaCompletion) &&
+		['/auth', '/api/auth', '/suspended'].some((p) => event.url.pathname.startsWith(p));
 	if (event.locals.user && !skipSuspensionCheck) {
 		const { data: isSuspended, error: suspensionError } = await event.locals.supabase.rpc('is_user_suspended', {
 			check_user_id: event.locals.user.id
 		});
 		if (suspensionError) {
 			console.error('Failed to check user suspension status:', suspensionError.message);
+		}
+		if (suspensionError || typeof isSuspended !== 'boolean') {
 			error(500, 'Unable to verify account status');
 		}
 		if (isSuspended) {
@@ -263,6 +284,15 @@ export const handle: Handle = async ({ event, resolve }) => {
 				headers: { Location: '/suspended' }
 			});
 		}
+	}
+
+	// Layouts do not protect endpoints/actions. Keep page GETs available for the
+	// suspended shell, but admit every Organization write/API request on fresh status.
+	const orgSegment = event.params?.orgId;
+	const isOrganizationApi = event.route?.id?.startsWith('/org/[orgId]/api/');
+	const isWriteRequest = !['GET', 'HEAD', 'OPTIONS'].includes(event.request.method);
+	if (orgSegment && (isWriteRequest || isOrganizationApi)) {
+		await requireActiveOrganization(event.locals.supabase, orgSegment);
 	}
 
 	const response = await resolve(event, {

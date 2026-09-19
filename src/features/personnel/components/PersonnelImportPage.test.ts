@@ -130,12 +130,14 @@ describe('PersonnelImportPage', () => {
 		expect(parseFileMock).toHaveBeenCalledOnce();
 	});
 
-	it('sends ETS and PCS / DEROS through the regular import batch payload', async () => {
+	it('submits only checked valid rows with ETS and PCS / DEROS through the import batch', async () => {
 		const fetchMock = vi.fn(async () => new Response(JSON.stringify({ inserted: [{}], errors: [] }), { status: 200 }));
 		vi.stubGlobal('fetch', fetchMock);
 		parseFileMock.mockResolvedValue([
 			['Rank', 'Last Name', 'First Name', 'MOS', 'Duty Role', 'Group', 'ETS', 'PCS / DEROS'],
-			['SGT', 'Smith', 'John', '68W', 'Medic', 'Alpha Team', '2027-05-01', '2026-11-30']
+			['SGT', 'Smith', 'John', '68W', 'Medic', 'Alpha Team', '2027-05-01', '2026-11-30'],
+			['BAD', 'Invalid', 'Pat', '', '', '', '', ''],
+			['CPL', 'Unchecked', 'Alex', '', '', '', '', '']
 		]);
 		renderPage();
 
@@ -144,9 +146,11 @@ describe('PersonnelImportPage', () => {
 		await fireEvent.change(input!, {
 			target: { files: [new File(['records'], 'personnel.csv', { type: 'text/csv' })] }
 		});
-		await fireEvent.click(await screen.findByRole('button', { name: /Preview 1 Rows/i }));
+		await fireEvent.click(await screen.findByRole('button', { name: /Preview 3 Rows/i }));
 		await waitFor(() => expect(screen.getByDisplayValue('2027-05-01')).toBeTruthy());
 
+		expect(screen.getByRole('checkbox', { name: /Select import row 2: Resolve row errors/i })).toBeDisabled();
+		await fireEvent.click(screen.getByRole('checkbox', { name: 'Select import row 3' }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Import checked rows' }));
 
 		await waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());

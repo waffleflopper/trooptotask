@@ -1,3 +1,4 @@
+import { createClient } from '@supabase/supabase-js';
 import { describe, expect, it, vi } from 'vitest';
 import { createSupabaseOrgSettingsMemberManagementPort } from './supabaseOrgSettingsMemberManagement';
 
@@ -1452,5 +1453,161 @@ describe('createSupabaseOrgSettingsMemberManagementPort', () => {
 		);
 
 		await expect(port.removeMembership('org-1', 'membership-1')).resolves.toBe('delete blocked');
+	});
+});
+
+describe('invitation approval provenance', () => {
+	it.each(['pending', 'approved'] as const)(
+		'bridges a %s request without overwriting independent approvals or other identities',
+		async (status) => {
+			const rows = [
+				{
+					id: 'target',
+					email: 'invitee@example.com',
+					status,
+					reviewed_by: status === 'approved' ? 'platform-reviewer' : null,
+					reviewed_at: status === 'approved' ? '2026-09-18T10:00:00.000Z' : null
+				},
+				{
+					id: 'other-approved',
+					email: 'other@example.com',
+					status: 'approved',
+					reviewed_by: 'independent-reviewer',
+					reviewed_at: '2026-09-18T09:00:00.000Z'
+				},
+				{ id: 'other-pending', email: 'waiting@example.com', status: 'pending', reviewed_by: null, reviewed_at: null }
+			];
+			const before = structuredClone(rows);
+			const links: unknown[] = [];
+			const client = createClient('http://localhost:9', 'synthetic-service-key', {
+				auth: { persistSession: false, autoRefreshToken: false },
+				global: {
+					fetch: async (input, init) => {
+						const url = new URL(String(input));
+						if (url.pathname === '/rest/v1/access_request_organization_invitation_links' && init?.method === 'POST') {
+							links.push(JSON.parse(String(init.body)));
+							return new Response(null, { status: 201 });
+						}
+						expect(url.pathname).toBe('/rest/v1/access_requests');
+						const selected = rows.filter((row) =>
+							(['id', 'email', 'status'] as const).every((field) => {
+								const filter = url.searchParams.get(field);
+								return !filter || filter === `eq.${row[field]}`;
+							})
+						);
+						if (init?.method === 'GET') return Response.json(selected.map((row) => ({ id: row.id })));
+						expect(init?.method).toBe('PATCH');
+						for (const row of selected) Object.assign(row, JSON.parse(String(init?.body)));
+						return new Response(null, { status: 204 });
+					}
+				}
+			});
+			const port = createSupabaseOrgSettingsMemberManagementPort(
+				{ supabase: client },
+				{ getAdminClient: () => client }
+			);
+			expect(
+				await port.createOrLinkApprovedAccessRequestForInvitation({
+					organizationId: 'org-a',
+					invitationId: 'invite-a',
+					email: ' INVITEE@EXAMPLE.COM ',
+					invitedBy: 'owner-a',
+					invitedAt: '2026-09-18T12:00:00.000Z',
+					role: 'member',
+					memberPreset: 'viewer',
+					capabilityOverrides: {},
+					accessScopeKind: 'groups',
+					accessScopeGroupIds: ['group-a']
+				})
+			).toEqual({ status: 'linked', accessRequestId: 'target' });
+			expect(rows.slice(1)).toEqual(before.slice(1));
+			if (status === 'approved') expect(rows[0]).toEqual(before[0]);
+			else
+				expect(rows[0]).toMatchObject({ status: 'approved', reviewed_by: 'owner-a', reviewed_at: expect.any(String) });
+			expect(links).toEqual([
+				expect.objectContaining({
+					access_request_id: 'target',
+					organization_id: 'org-a',
+					organization_invitation_id: 'invite-a'
+				})
+			]);
+		}
+	);
+});
+
+describe('invitation Organization isolation', () => {
+	it('cannot resend a foreign Organization invitation or read its privileged setup details', async () => {
+		const row = {
+			id: 'foreign-invite',
+			organization_id: 'org-b',
+			status: 'pending',
+			email: 'other@example.com',
+			expires_at: '2099-01-01T00:00:00.000Z'
+		};
+		const client = createClient('http://localhost:9', 'synthetic-anon-key', {
+			auth: { persistSession: false, autoRefreshToken: false },
+			global: {
+				fetch: async (input, init) => {
+					const url = new URL(String(input));
+					expect(init?.method).toBe('GET');
+					expect(url.pathname).toBe('/rest/v1/organization_invitations');
+					const matches = (['id', 'organization_id', 'status'] as const).every((field) => {
+						const filter = url.searchParams.get(field);
+						return !filter || filter === `eq.${row[field]}`;
+					});
+					return matches
+						? Response.json(row)
+						: Response.json({ code: 'PGRST116', message: 'No matching row' }, { status: 406 });
+				}
+			}
+		});
+		const getAdminClient = vi.fn(() => {
+			throw new Error('Foreign setup must not be read');
+		});
+		const port = createSupabaseOrgSettingsMemberManagementPort({ supabase: client }, { getAdminClient });
+		expect(await port.findPendingInvitationById('org-a', 'foreign-invite')).toBeNull();
+		expect(getAdminClient).not.toHaveBeenCalled();
+	});
+
+	it('blocks only the failed pending invitation while preserving sibling and terminal grants', async () => {
+		const rows = [
+			{ id: 'failed', organization_id: 'org-a', status: 'pending' },
+			{ id: 'sibling', organization_id: 'org-b', status: 'pending' },
+			{ id: 'accepted', organization_id: 'org-a', status: 'accepted' }
+		];
+		const before = structuredClone(rows);
+		const client = createClient('http://localhost:9', 'synthetic-service-key', {
+			auth: { persistSession: false, autoRefreshToken: false },
+			global: {
+				fetch: async (input, init) => {
+					const url = new URL(String(input));
+					expect(init?.method).toBe('PATCH');
+					expect(url.pathname).toBe('/rest/v1/organization_invitations');
+					const selected = rows.filter((row) =>
+						(['id', 'organization_id', 'status'] as const).every((field) => {
+							const filter = url.searchParams.get(field);
+							return !filter || filter === `eq.${row[field]}`;
+						})
+					);
+					for (const row of selected) Object.assign(row, JSON.parse(String(init?.body)));
+					return selected.length === 1
+						? Response.json({ id: selected[0].id })
+						: Response.json({ code: 'PGRST116', message: 'No matching row' }, { status: 406 });
+				}
+			}
+		});
+		const port = createSupabaseOrgSettingsMemberManagementPort({ supabase: client }, { getAdminClient: () => client });
+		const block = (invitationId: string) =>
+			port.blockInvitationAfterAccessRequestBridgeFailure({
+				organizationId: 'org-a',
+				invitationId,
+				blockedBy: 'owner-a',
+				reason: 'issuance failed'
+			});
+		expect(await block('failed')).toEqual({ status: 'blocked' });
+		expect(await block('sibling')).toMatchObject({ status: 'failed' });
+		expect(await block('accepted')).toMatchObject({ status: 'failed' });
+		expect(rows[0]).toMatchObject({ id: 'failed', status: 'blocked', blocked_by: 'owner-a' });
+		expect(rows.slice(1)).toEqual(before.slice(1));
 	});
 });

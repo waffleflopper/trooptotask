@@ -10,7 +10,26 @@ This is a v1 document. It should describe the current SvelteKit repo honestly in
 - Uses **`Organization`** and **`Group`** as canonical v1 product and data-model nouns.
 - Treats v2 terms such as `Account`, `Unit`, and `Element` as migration vocabulary only, not present-tense v1 truth.
 
+## Stabilization Decisions
+
+The [stabilization baseline](../stabilization/BASELINE.md#retained-contracts) defines retained contracts R1–R8; [TODO](../stabilization/TODO.md) orders their bounded implementation tasks and [EVIDENCE](../stabilization/EVIDENCE.md) records acceptance. These decisions supersede older guidance that permits indefinite drift, billing-disabled infrastructure, Duty Roster hydration or unfinished migrations. Current-state descriptions below identify remaining work, not completed removals.
+
+- Remove billing end to end: commercial models, providers, tiers, quotas, flags, configuration and active-schema objects. An unlimited-plan fallback, no-op billing module or future-billing scaffold does not satisfy removal.
+- Remove Duty Roster runtime and active-schema objects, including generation, exports and Calendar duty hydration. Preserve R6 ordinary Calendar facts: availability, special days, types and persisted daily assignments with their identities, dates, assignees, scopes, edits, audit and export behavior. Preserve Personnel Duty Role and independent sign-in rosters. Data uncertainty blocks only the affected deletion; preserve stored facts and referenced types while resolving it.
+- Remove the repository E2E harness, dependencies, configuration, reports, fixtures and application bypasses. Retain meaningful lower-level behavior tests and record computer-use flow evidence; do not create or run a replacement browser suite.
+- Finish every declared architecture/UI cutover across implementation and consumers, with meaningful tests and deletion of replaced code, configuration and active docs. Legacy-path wrappers, compatibility facades, duplicate component systems and partial component migrations are not completion. Preserve applied SQL migration provenance while removing obsolete active objects through the owning schema task.
+- Preserve R1 Organization tenancy, Group scope, roles, presets, capabilities, server authorization, RLS and independent feature permission lanes. Preserve R2–R4 reviewed acquisition, time-limited Account Setup Links, separate Organization Invitations and membership acceptance, and email-confirmed Organization/owner creation with retained defaults. Removing commercial gates must not open self-service signup or treat account setup as membership.
+- Preserve R5 authentication, MFA, suspension, step-up, secure cookies, redirects, abuse limits, service-role/private-file restrictions and shell degradation behavior. Preserve R7 retained records, archive/restore, import/export, readiness, retention, audit and file/batch safety bounds.
+- Correct the invitation-origin approval/rescind defect F01 deliberately under task **11-01**; billing removal does not resolve it. Preserve independent approvals, sibling Organization grants and existing accounts while testing issuance failure, renewal and concurrency.
+- Keep database safeguards: never touch remote production data or schema; never reset or delete existing local tables without Robert's explicit permission. Schema verification uses only an isolated disposable local stack with synthetic data under the queue's DB contract. No production/remote actions, live data, deployment, merge or publication are authorized by this program.
+
+Complete one ready task at a time and respect phase dependencies. Newly discovered in-scope work must receive a bounded queue entry before program closure. Reduce existing governance exceptions as their consumers are removed; do not add allowlists, weaken guards, skip tests, inflate budgets or hide scan paths.
+
 ## Current-State Truth
+
+Password completion uses a server-persisted attempt at the existing auth-provider edge. Admission serializes each actor; a database trigger confirms the password and attempt atomically, and reconciliation fences uncertain writes before another attempt is allowed. Service-only RPCs expose no browser table privileges. The [authentication boundary](AUTHORIZATION_AND_PROVIDER_BOUNDARIES.md#authentication-boundary) owns the provider transaction and migration requirements.
+
+Organization suspension is enforced before dispatch of Organization writes and API requests by the authenticated request hook and a user-scoped provider adapter. Page GET/HEAD requests retain the suspended shell; layouts alone are not an action/endpoint authorization boundary. Membership, Group scope and feature policy checks remain mandatory downstream.
 
 ### Application shape
 
@@ -82,7 +101,7 @@ This is a v1 document. It should describe the current SvelteKit repo honestly in
 ### Provider boundaries
 
 - Outside auth-provider edges and adapter code, business logic should not need to know about Supabase-specific query APIs.
-- New direct `locals.supabase` usage in business logic or route orchestration should be considered drift unless the slice is explicitly about auth or an approved provider-boundary remediation.
+- New business logic and route orchestration must use app-owned use cases and adapters. Auth-provider-specific edges remain distinct; remediation must reduce existing provider leaks rather than add exceptions.
 - The long-term v1 goal is that a database-provider swap would primarily change adapter code and connection wiring, not business logic or feature modules.
 
 ### Authorization direction
@@ -105,14 +124,14 @@ This is a v1 document. It should describe the current SvelteKit repo honestly in
 
 ### Language and naming
 
-- Preserve backwards compatibility with legacy names when required by schema or data shape.
+- Preserve retained schema fields and data contracts; finish any declared rename across its consumers instead of retaining legacy-path wrappers.
 - Prefer the Army/military-oriented canonical term in docs, product copy, and new abstractions.
 - Example: the current `clinicRole` field remains real current-state, but the preferred canonical term is **Duty Role**.
 
 ### Deprecated or unstable areas
 
 - Do not treat hidden or transitional surfaces as stable precedent just because code still exists for them.
-- When you touch contradictory or transitional areas, document the contradiction instead of smoothing it over.
+- Record contradictory or transitional behavior and its bounded remediation task. Finish the active task's declared cutover; a drift entry cannot substitute for its acceptance evidence.
 
 ## Known Drift And Exceptions
 

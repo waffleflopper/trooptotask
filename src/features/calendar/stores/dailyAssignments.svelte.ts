@@ -46,7 +46,7 @@ interface AssignmentExtensions extends Record<string, unknown> {
 	getAssignmentsForDate: (date: string) => DailyAssignment[];
 	getAssignmentForDate: (date: string, assignmentTypeId: string) => DailyAssignment | undefined;
 	getAssignmentsForPersonnel: (personnelId: string) => DailyAssignment[];
-	getAssignmentsForGroup: (groupName: string) => DailyAssignment[];
+	getAssignmentsForGroup: (groupId: string) => DailyAssignment[];
 	getPersonnelAssignmentsForDate: (personnelId: string, date: string) => DailyAssignment[];
 }
 
@@ -321,8 +321,8 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 			return getAssignmentSnapshot().filter((a) => a.assigneeId === personnelId);
 		},
 
-		getAssignmentsForGroup(groupName: string): DailyAssignment[] {
-			return getAssignmentSnapshot().filter((a) => a.assigneeId === groupName);
+		getAssignmentsForGroup(groupId: string): DailyAssignment[] {
+			return getAssignmentSnapshot().filter((a) => a.assigneeId === groupId);
 		},
 
 		getPersonnelAssignmentsForDate(personnelId: string, date: string): DailyAssignment[] {

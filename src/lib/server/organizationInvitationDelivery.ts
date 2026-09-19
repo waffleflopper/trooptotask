@@ -220,39 +220,10 @@ function buildOrganizationInvitationEmail(input: SendOrganizationInvitationEmail
 	return { subject, text, html };
 }
 
-async function sendOrganizationInvitationEmailToMailpit(input: SendOrganizationInvitationEmailInput): Promise<void> {
-	const email = buildOrganizationInvitationEmail(input);
-	const mailpitUrl = env.MAILPIT_URL ?? process.env.MAILPIT_URL ?? 'http://127.0.0.1:54324';
-	const from = env.RESEND_FROM_EMAIL ?? process.env.RESEND_FROM_EMAIL ?? 'noreply@example.test';
-	const response = await fetch(`${mailpitUrl}/api/v1/send`, {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({
-			From: { Email: from },
-			To: [{ Email: input.email }],
-			Subject: email.subject,
-			Text: email.text,
-			HTML: email.html
-		})
-	});
-
-	if (!response.ok) {
-		const body = await response.text().catch(() => '');
-		throw new Error(
-			`Local Organization Invitation email delivery failed with status ${response.status}${body ? `: ${body}` : ''}`
-		);
-	}
-}
-
 export async function sendOrganizationInvitationEmail(
 	input: SendOrganizationInvitationEmailInput,
 	fetchImpl: ResendFetch = fetch
 ): Promise<void> {
-	if ((env.E2E_TESTING ?? process.env.E2E_TESTING) === 'true') {
-		await sendOrganizationInvitationEmailToMailpit(input);
-		return;
-	}
-
 	const apiKey = env.RESEND_API_KEY ?? process.env.RESEND_API_KEY;
 	const from = env.RESEND_FROM_EMAIL ?? process.env.RESEND_FROM_EMAIL;
 	if (!apiKey || !from) {

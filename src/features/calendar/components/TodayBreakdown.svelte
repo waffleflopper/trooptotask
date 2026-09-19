@@ -1,4 +1,5 @@
 <script lang="ts">
+	import type { Group } from '$lib/stores/groups.svelte';
 	import type { Personnel, AvailabilityEntry, StatusType, AssignmentType, DailyAssignment } from '$lib/types';
 	import { formatDate } from '$lib/utils/dates';
 	import * as AppDialog from '$lib/components/ui/app-dialog';
@@ -17,10 +18,19 @@
 		statusTypes: StatusType[];
 		assignmentTypes: AssignmentType[];
 		assignments: DailyAssignment[];
+		groups?: readonly Group[];
 		onClose: () => void;
 	}
 
-	let { personnelByGroup, availabilityEntries, statusTypes, assignmentTypes, assignments, onClose }: Props = $props();
+	let {
+		personnelByGroup,
+		availabilityEntries,
+		statusTypes,
+		assignmentTypes,
+		assignments,
+		groups = [],
+		onClose
+	}: Props = $props();
 
 	let selectedDate = $state(new Date());
 	const selectedDateStr = $derived(formatDate(selectedDate));
@@ -73,8 +83,7 @@
 						assigneeDetails = person.clinicRole || '';
 					}
 				} else {
-					// Group assignment - assigneeId is the group name
-					assigneeName = assignment.assigneeId || 'Unknown';
+					assigneeName = groups.find((group) => group.id === assignment.assigneeId)?.name ?? 'Unknown Group';
 				}
 			}
 

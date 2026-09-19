@@ -183,3 +183,44 @@ describe('AssignmentPlannerPage', () => {
 		expect(screen.queryByText('Access restricted.')).toBeNull();
 	});
 });
+
+it('saves monthly Group choices and quick fills by ID while displaying current names', async () => {
+	mockOrg = makeOrg();
+	const groupType = { ...modType, id: 'group-duty', name: 'Group Duty', shortName: 'GD', assignTo: 'group' as const };
+	dailyAssignmentsStore.load([groupType], [], 'org-1');
+	groupsStore.load([{ id: 'group-alpha', name: 'Alpha Renamed', sortOrder: 0 }], 'org-1');
+	const saved: Record<string, unknown>[] = [];
+	vi.stubGlobal(
+		'fetch',
+		vi.fn(async (_url, init) => {
+			const payload = JSON.parse(init.body);
+			saved.push(payload);
+			return Response.json(
+				payload.records
+					? { inserted: payload.records.map((row: object, index: number) => ({ id: `batch-${index}`, ...row })) }
+					: { id: 'saved', ...payload }
+			);
+		})
+	);
+	try {
+		renderPage();
+		await fireEvent.click(screen.getAllByRole('button', { name: /^Select Group Duty group for/ })[0]);
+		await fireEvent.click(screen.getByRole('option', { name: 'Alpha Renamed' }));
+		expect(saved[0]).toMatchObject({ assignmentTypeId: 'group-duty', assigneeId: 'group-alpha' });
+		await fireEvent.click(screen.getByRole('button', { name: 'Select assignment type' }));
+		await fireEvent.click(screen.getByRole('option', { name: 'GD - Group Duty' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Select quick-fill group' }));
+		await fireEvent.click(screen.getByRole('option', { name: 'Alpha Renamed' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+		const batch = saved.find((payload) => Array.isArray(payload.records));
+		expect(batch?.records).toEqual(
+			expect.arrayContaining([expect.objectContaining({ assigneeId: 'group-alpha', assignmentTypeId: 'group-duty' })])
+		);
+		expect((batch?.records as Array<{ assigneeId: string }>).every((row) => row.assigneeId === 'group-alpha')).toBe(
+			true
+		);
+	} finally {
+		cleanup();
+		vi.unstubAllGlobals();
+	}
+});

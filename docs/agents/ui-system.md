@@ -17,8 +17,8 @@ Use this file for UI component work, shared styling, route UI changes, app-shell
 - Visual changes belong in tokens, generated/shared component source, or documented shared component variants.
 - Route-level visual overrides are forbidden unless Robert explicitly approves that specific visual change.
 - Route-level variation is behavioral only: data, labels, validation, permissions, filters, columns, actions, state, and event handlers.
-- If a shared component does not fit a route, report the design-system gap and propose the shared component/API extension instead of patching the route locally.
-- Stop and ask permission before creating a route-specific wrapper around a shared component to change behavior.
+- For a component fit gap within authorized UI work, implement the smallest shared API extension and update its consumers and catalog. Preserve existing consumer behavior.
+- Feature-owned behavioral composition can use existing primitives within the requested scope. Keep visual ownership shared and avoid duplicate primitive APIs or compatibility wrappers; apply the catalog's [composition boundary](../component-catalog.md#ui-foundation).
 
 ## Route Work
 

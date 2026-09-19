@@ -2,7 +2,6 @@ import { createHmac } from 'node:crypto';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
 	ACCOUNT_SETUP_SESSION_COOKIE,
-	ACCOUNT_SETUP_SESSION_MAX_AGE_SECONDS,
 	createAccountSetupSession,
 	readAccountSetupSessionCookie,
 	setAccountSetupSessionCookie
@@ -42,7 +41,7 @@ describe('Account Setup sessions', () => {
 		expect(readAccountSetupSessionCookie(jar.cookies, new Date('2026-05-18T12:01:00.000Z'))).toEqual({
 			setupLinkId: 'link-1',
 			accessRequestId: 'request-1',
-			expiresAt: now.getTime() + ACCOUNT_SETUP_SESSION_MAX_AGE_SECONDS * 1000
+			expiresAt: new Date('2026-05-18T12:10:00.000Z').getTime()
 		});
 	});
 
@@ -67,7 +66,7 @@ describe('Account Setup sessions', () => {
 		expect(readAccountSetupSessionCookie(jar.cookies, new Date('2026-05-18T12:01:00.000Z'))).toBeNull();
 	});
 
-	it('rejects expired setup sessions', () => {
+	it('rejects setup sessions at the exact ten-minute expiry', () => {
 		const jar = makeCookieJar();
 		setAccountSetupSessionCookie(
 			jar.cookies,
@@ -78,7 +77,7 @@ describe('Account Setup sessions', () => {
 			})
 		);
 
-		expect(readAccountSetupSessionCookie(jar.cookies, new Date('2026-05-18T12:10:00.001Z'))).toBeNull();
+		expect(readAccountSetupSessionCookie(jar.cookies, new Date('2026-05-18T12:10:00.000Z'))).toBeNull();
 	});
 
 	it('rejects malformed session values', () => {

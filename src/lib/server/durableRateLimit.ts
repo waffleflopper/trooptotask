@@ -2,11 +2,6 @@ import { createHash } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getAdminClient } from '$lib/server/supabase';
 
-interface DurableRateLimitRpcRow {
-	limited: boolean;
-	retry_after_ms: number;
-}
-
 export interface DurableRateLimitStore {
 	checkBucket(input: {
 		key: string;
@@ -39,23 +34,31 @@ export function createSupabaseDurableRateLimitStore(
 ): DurableRateLimitStore {
 	return {
 		async checkBucket(input) {
-			const { data, error } = (await supabase.rpc('check_durable_rate_limit', {
+			const { data, error } = await supabase.rpc('check_durable_rate_limit', {
 				p_bucket_key: input.key,
 				p_window_seconds: Math.ceil(input.windowMs / 1000),
 				p_max_requests: input.maxRequests,
 				p_checked_at: input.now.toISOString()
-			})) as unknown as {
-				data: DurableRateLimitRpcRow[] | DurableRateLimitRpcRow | null;
-				error: unknown;
-			};
+			});
 
 			if (error) {
 				throw error;
 			}
 
-			const row = Array.isArray(data) ? data[0] : data;
-			if (!row) {
-				throw new Error('Durable rate limit check returned no result');
+			// The RPC returns one decision. Missing or ambiguous data cannot authorize a request.
+			const row: unknown = Array.isArray(data) ? (data.length === 1 ? data[0] : null) : data;
+			if (
+				error !== null ||
+				!row ||
+				typeof row !== 'object' ||
+				!('limited' in row) ||
+				typeof row.limited !== 'boolean' ||
+				!('retry_after_ms' in row) ||
+				typeof row.retry_after_ms !== 'number' ||
+				!Number.isSafeInteger(row.retry_after_ms) ||
+				row.retry_after_ms < 0
+			) {
+				throw new Error('Durable rate limit check returned an invalid result');
 			}
 
 			if (row.limited) {

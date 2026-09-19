@@ -25,6 +25,52 @@ function makeSharedStore(): DurableRateLimitStore {
 }
 
 describe('password update rate limits', () => {
+	it.each(['user', 'ip'] as const)(
+		'keeps the %s budget independent when the other identity changes',
+		async (dimension) => {
+			const store = makeSharedStore();
+			const now = new Date('2026-09-17T12:00:00Z');
+			for (let attempt = 0; attempt < 5; attempt++) {
+				await expect(
+					checkPasswordUpdateRateLimit({
+						userId: dimension === 'user' ? 'user-a' : `user-${attempt}`,
+						ip: dimension === 'ip' ? '192.0.2.1' : `192.0.2.${attempt + 1}`,
+						now,
+						store
+					})
+				).resolves.toMatchObject({ limited: false });
+			}
+			await expect(
+				checkPasswordUpdateRateLimit({
+					userId: dimension === 'user' ? 'user-a' : 'different-user',
+					ip: dimension === 'ip' ? '192.0.2.1' : '192.0.2.100',
+					now,
+					store
+				})
+			).resolves.toMatchObject({ limited: true, limitedDimensions: [dimension], retryAfterMs: 900_000 });
+			await expect(
+				checkPasswordUpdateRateLimit({ userId: 'unrelated-user', ip: '192.0.2.200', now, store })
+			).resolves.toMatchObject({ limited: false });
+		}
+	);
+
+	it('retains denial at the exact reset instant and resumes after expiry without a local cached denial', async () => {
+		const store = makeSharedStore();
+		const input = { userId: 'user-a', store, now: new Date('2026-09-17T12:00:00Z') };
+		for (let attempt = 0; attempt < 5; attempt++) {
+			await expect(checkPasswordUpdateRateLimit(input)).resolves.toMatchObject({ limited: false });
+		}
+		await expect(
+			checkPasswordUpdateRateLimit({ ...input, now: new Date('2026-09-17T12:14:59.999Z') })
+		).resolves.toMatchObject({ limited: true, retryAfterMs: 1 });
+		await expect(
+			checkPasswordUpdateRateLimit({ ...input, now: new Date('2026-09-17T12:15:00.000Z') })
+		).resolves.toMatchObject({ limited: true, retryAfterMs: 0 });
+		await expect(
+			checkPasswordUpdateRateLimit({ ...input, now: new Date('2026-09-17T12:15:00.001Z') })
+		).resolves.toMatchObject({ limited: false });
+	});
+
 	it('limits in-app password updates by user and client address without exposing raw identifiers', async () => {
 		const store = makeSharedStore();
 		const now = new Date('2026-05-22T12:00:00Z');

@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
+import { createSupabaseSensitiveActionAuthorizer } from '$lib/server/sensitiveActionAuthorizer';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { TAX_DISABLED_CHECKOUT_SESSION_CONFIGURATION } from '$lib/server/billing/checkoutConfiguration';
 import { checkout, portal, cancel, cancelPendingCheckout } from './billing';
@@ -9,6 +10,48 @@ function buildContext() {
 }
 
 describe('billing use cases', () => {
+	it('blocks billing effects on malformed suspension and allows retry after provider recovery', async () => {
+		const ctx = buildContext();
+		const rpc = vi.fn().mockResolvedValue({ data: false });
+		const ports = {
+			...ctx,
+			sensitiveActionAuthorizer: createSupabaseSensitiveActionAuthorizer({
+				authenticatedUserId: ctx.auth.userId,
+				supabase: {
+					auth: {
+						mfa: {
+							getAuthenticatorAssuranceLevel: vi
+								.fn()
+								.mockResolvedValue({ data: { currentLevel: 'aal2', nextLevel: 'aal2' }, error: null })
+						}
+					},
+					rpc
+				} as never,
+				session: {
+					access_token: 'verified-request-token',
+					expires_at: 1779454800,
+					user: { id: ctx.auth.userId, last_sign_in_at: '2026-05-22T10:00:00Z' }
+				} as never,
+				now: () => new Date('2026-05-22T12:00:00Z')
+			})
+		};
+		const execute = () => portal(ports, { customerId: 'cus_test', returnUrl: 'http://localhost/billing' });
+		await expect(execute()).rejects.toMatchObject({
+			status: 403,
+			reason: 'denied.suspensionStatusUnavailable',
+			requiresStepUp: false,
+			stepUpPath: null
+		});
+		expect(ctx.billingPort.calls).toEqual([]);
+		expect(ctx.auditPort.events).toContainEqual(
+			expect.objectContaining({ action: 'billing.portal_authorization_denied' })
+		);
+
+		rpc.mockResolvedValue({ data: false, error: null });
+		await expect(execute()).resolves.toHaveProperty('url');
+		expect(ctx.billingPort.calls).toHaveLength(1);
+	});
+
 	describe('checkout', () => {
 		it('calls billing port with correct params and returns checkout URL + customerId', async () => {
 			const ctx = buildContext();

@@ -199,3 +199,35 @@ describe('DailyAssignmentModal — searchable assignments', () => {
 		expect(screen.queryByRole('button', { name: 'Set Archived Duty assignee' })).toBeNull();
 	});
 });
+
+it('shows Group names while submitting stable Group IDs, including after a rename', async () => {
+	const onSetAssignment = vi.fn();
+	const props = {
+		date: new Date(2026, 8, 19),
+		assignmentTypes: [
+			{
+				id: 'group-duty',
+				name: 'Group Duty',
+				shortName: 'GD',
+				assignTo: 'group',
+				color: '#123456',
+				exemptPersonnelIds: [],
+				showInDateHeader: true
+			}
+		] as AssignmentType[],
+		assignments: [{ id: 'saved', date: '2026-09-19', assignmentTypeId: 'group-duty', assigneeId: 'group-alpha' }],
+		personnelByGroup: [],
+		groups: [
+			{ id: 'group-alpha', name: 'Alpha Renamed', sortOrder: 0 },
+			{ id: 'group-bravo', name: 'Bravo', sortOrder: 1 }
+		],
+		onSetAssignment,
+		onRemoveAssignment: vi.fn(),
+		onClose: vi.fn()
+	};
+	render(DailyAssignmentModal, { props });
+	expect(screen.getByRole('button', { name: 'Set Group Duty group' }).textContent).toContain('Alpha Renamed');
+	await fireEvent.click(screen.getByRole('button', { name: 'Set Group Duty group' }));
+	await fireEvent.click(screen.getByRole('option', { name: 'Bravo' }));
+	expect(onSetAssignment).toHaveBeenCalledWith('2026-09-19', 'group-duty', 'group-bravo');
+});

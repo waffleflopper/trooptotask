@@ -1,6 +1,6 @@
 import { fail, redirect, isRedirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
-import { sanitizeString } from '$lib/server/validation';
+import { validateEmail } from '$lib/server/validation';
 import { auditLog } from '$lib/server/auditLog';
 import { getAuthenticatedRedirectPath } from '$lib/server/mfaGate';
 import { sanitizeAuthNextPath } from '$lib/auth/redirects';
@@ -27,19 +27,37 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 
 export const actions: Actions = {
 	login: async ({ request, locals }) => {
+		let formData: FormData;
 		try {
-			const formData = await request.formData();
-			const email = sanitizeString(formData.get('email') as string, 254).toLowerCase();
-			const password = formData.get('password') as string;
-			const nextPath = sanitizeAuthNextPath(formData.get('next'));
-
-			if (!email || !password) {
-				return fail(400, { error: 'Email and password are required', email, nextPath });
-			}
-
-			const { error } = await locals.supabase.auth.signInWithPassword({ email, password });
+			formData = await request.formData();
+		} catch {
+			return fail(400, { error: 'Enter a valid email address and password.', email: '', nextPath: null });
+		}
+		const emailValue = formData.get('email');
+		const password = formData.get('password');
+		const email = typeof emailValue === 'string' ? emailValue.trim().toLowerCase() : '';
+		const nextPath = sanitizeAuthNextPath(formData.get('next'));
+		if (
+			formData.getAll('email').length !== 1 ||
+			formData.getAll('password').length !== 1 ||
+			!validateEmail(email) ||
+			typeof password !== 'string' ||
+			!password
+		) {
+			return fail(400, { error: 'Enter a valid email address and password.', email: email.slice(0, 254), nextPath });
+		}
+		const unavailable = () => {
+			auditLog(
+				{ action: 'auth.login_failure', resourceType: 'user', severity: 'warning', details: { email } },
+				{ userId: null }
+			);
+			return fail(503, { error: 'Unable to complete sign in. Please try again.', email, nextPath });
+		};
+		try {
+			const { data, error } = await locals.supabase.auth.signInWithPassword({ email, password });
 
 			if (error) {
+				if (error.status && error.status >= 500) return unavailable();
 				auditLog(
 					{ action: 'auth.login_failure', resourceType: 'user', severity: 'warning', details: { email } },
 					{ userId: null }
@@ -47,10 +65,28 @@ export const actions: Actions = {
 				return fail(400, { error: 'Email or password is incorrect', email, nextPath });
 			}
 
-			auditLog({ action: 'auth.login_success', resourceType: 'user', details: { email } }, { userId: null });
+			if (
+				typeof data?.user?.id !== 'string' ||
+				!data.user.id ||
+				data.session?.user?.id !== data.user.id ||
+				typeof data.session?.access_token !== 'string' ||
+				!data.session.access_token ||
+				typeof data.session?.refresh_token !== 'string' ||
+				!data.session.refresh_token
+			)
+				return unavailable();
 
 			// Check if user has MFA enabled and needs to complete verification
-			const { data: aalData } = await locals.supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+			const { data: aalData, error: assuranceError } = await locals.supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+			if (
+				assuranceError ||
+				!aalData ||
+				!['aal1', 'aal2'].includes(aalData.currentLevel ?? '') ||
+				!['aal1', 'aal2'].includes(aalData.nextLevel ?? '')
+			)
+				return unavailable();
+
+			auditLog({ action: 'auth.login_success', resourceType: 'user', details: { email } }, { userId: null });
 			if (aalData?.nextLevel === 'aal2' && aalData?.currentLevel === 'aal1') {
 				const suffix = nextPath ? `?next=${encodeURIComponent(nextPath)}` : '';
 				redirect(303, `/auth/mfa-verify${suffix}`);
@@ -61,8 +97,9 @@ export const actions: Actions = {
 			if (isRedirect(err)) {
 				throw err;
 			}
-			console.error('Login error:', err);
-			return fail(500, { error: 'An unexpected error occurred. Please try again.', email: '' });
+			// Provider exceptions can contain submitted credentials. Never log them.
+			console.error('Login provider unavailable');
+			return unavailable();
 		}
 	}
 };

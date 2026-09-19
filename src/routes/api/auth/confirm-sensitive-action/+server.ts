@@ -1,90 +1,80 @@
+import { checkSessionAssurance } from '$lib/server/sessionAssurance';
 import { json } from '@sveltejs/kit';
-import type { RequestEvent } from '@sveltejs/kit';
+import { createServerClient, type CookieOptions } from '@supabase/ssr';
+import { PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY } from '$env/static/public';
 import type { RequestHandler } from './$types';
-import { rethrowOrWrap } from '$lib/server/adapters/httpAdapter';
+import { getAuthCookieOptions } from '$lib/server/authCookies';
 
-type ConfirmSensitiveActionAuthPort = {
-	signInWithPassword(input: { email: string; password: string }): Promise<{ error: unknown }>;
-	mfa: {
-		getAuthenticatorAssuranceLevel(): Promise<{
-			data: { currentLevel?: string; nextLevel?: string } | null;
-			error: unknown;
-		}>;
-	};
-};
-
-type ConfirmSensitiveActionInput = {
-	email: string | null;
-	password: string;
-	auth: ConfirmSensitiveActionAuthPort;
-};
-
-type ConfirmSensitiveActionBody =
-	| { success: true }
-	| { requiresStepUp: true; stepUpPath: string }
-	| { error: string; requiresStepUp?: true; stepUpPath?: string };
-
-type ConfirmSensitiveActionResult = {
-	body: ConfirmSensitiveActionBody;
-	status?: number;
-};
-
-async function parseConfirmSensitiveActionInput(event: RequestEvent): Promise<ConfirmSensitiveActionInput> {
-	const body = (await event.request.json().catch(() => null)) as { password?: unknown } | null;
-	return {
-		email: event.locals.user?.email ?? null,
-		password: typeof body?.password === 'string' ? body.password : '',
-		auth: event.locals.supabase.auth as ConfirmSensitiveActionAuthPort
-	};
+function reply(body: { success: true } | { error?: string; requiresStepUp?: true; stepUpPath?: string }, status = 200) {
+	return json(body, { status, headers: { 'Cache-Control': 'no-store' } });
 }
 
-async function confirmSensitiveAction(input: ConfirmSensitiveActionInput): Promise<ConfirmSensitiveActionResult> {
-	if (!input.email) {
-		return {
-			body: {
-				error: 'Please sign in again before continuing.',
-				requiresStepUp: true,
-				stepUpPath: '/auth/login'
-			},
-			status: 401
-		};
+export const POST: RequestHandler = async ({ request, locals, cookies }) => {
+	// This confirms identity only. Every protected action still authorizes its own Organization and scope.
+	const { user, session } = locals;
+	if (
+		!user?.id ||
+		!user.email ||
+		session?.user?.id !== user.id ||
+		!session.access_token ||
+		typeof session.expires_at !== 'number' ||
+		!Number.isFinite(session.expires_at) ||
+		session.expires_at <= Date.now() / 1000
+	) {
+		return reply(
+			{ error: 'Please sign in again before continuing.', requiresStepUp: true, stepUpPath: '/auth/login' },
+			401
+		);
 	}
+	const body: unknown = await request.json().catch(() => null);
+	const password =
+		body && typeof body === 'object' && !Array.isArray(body) ? (body as Record<string, unknown>).password : null;
+	if (typeof password !== 'string' || !password) return reply({ error: 'Password is required.' }, 400);
 
-	if (!input.password) {
-		return { body: { error: 'Password is required.' }, status: 400 };
-	}
-
-	const { error } = await input.auth.signInWithPassword({ email: input.email, password: input.password });
-	if (error) {
-		return { body: { error: 'Password confirmation failed. Try again.' }, status: 401 };
-	}
-
-	const { data: aalData, error: aalError } = await input.auth.mfa.getAuthenticatorAssuranceLevel();
-	if (aalError) {
-		return {
-			body: { error: 'Could not confirm MFA status. Please sign in again before continuing.' },
-			status: 401
-		};
-	}
-	if (!aalError && aalData?.nextLevel === 'aal2' && aalData?.currentLevel === 'aal1') {
-		return { body: { requiresStepUp: true, stepUpPath: '/auth/mfa-verify' } };
-	}
-
-	return { body: { success: true } };
-}
-
-export const POST: RequestHandler = async (event) => {
+	const unavailable = () => reply({ error: 'Unable to confirm your identity. Please try again.' }, 503);
 	try {
-		// This no-org credential check intentionally runs outside route authorization and remains available in read-only org mode.
-		const input = await parseConfirmSensitiveActionInput(event);
-		const result = await confirmSensitiveAction(input);
-		return json(result.body, { status: result.status });
-	} catch (err) {
-		rethrowOrWrap(err);
-	}
-};
+		// Signing in writes session cookies before returning. Stage them so failed proof or assurance
+		// cannot replace the browser's current session, including with a different account.
+		const staged: { name: string; value: string; options: CookieOptions }[] = [];
+		const supabase = createServerClient(PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY, {
+			cookies: {
+				encode: 'tokens-only',
+				getAll: () => cookies.getAll(),
+				setAll: (values) => {
+					staged.push(...values);
+				}
+			}
+		});
+		const result = await supabase.auth.signInWithPassword({ email: user.email, password });
+		if (result?.error && [400, 401, 403].includes(result.error.status ?? 0)) {
+			return reply({ error: 'Password confirmation failed. Try again.' }, 401);
+		}
+		const data = result?.data;
+		const confirmedSession = data?.session;
+		if (
+			result?.error !== null ||
+			data?.user?.id !== user.id ||
+			confirmedSession?.user?.id !== user.id ||
+			typeof confirmedSession?.access_token !== 'string' ||
+			!/^\S+$/.test(confirmedSession.access_token) ||
+			typeof confirmedSession.refresh_token !== 'string' ||
+			!/^\S+$/.test(confirmedSession.refresh_token) ||
+			typeof confirmedSession.expires_at !== 'number' ||
+			!Number.isFinite(confirmedSession.expires_at) ||
+			confirmedSession.expires_at <= Date.now() / 1000
+		)
+			return unavailable();
 
-export const _testInternals = {
-	parseConfirmSensitiveActionInput,
-	confirmSensitiveAction
+		const assurance = await checkSessionAssurance(supabase, confirmedSession);
+		if (assurance === 'unavailable' || assurance === 'expired') return unavailable();
+
+		for (const { name, value, options } of staged) cookies.set(name, value, getAuthCookieOptions(options));
+		if (assurance === 'mfa_required') {
+			return reply({ requiresStepUp: true, stepUpPath: '/auth/mfa-verify' });
+		}
+		return reply({ success: true });
+	} catch {
+		// Provider exceptions may contain credentials; keep them out of responses and logs.
+		return unavailable();
+	}
 };

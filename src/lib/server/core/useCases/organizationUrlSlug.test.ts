@@ -17,6 +17,18 @@ describe('organization URL slug helpers', () => {
 		expect(() => validateOrganizationUrlSlug('11111111-1111-4111-8111-111111111111')).toThrow('cannot be a UUID');
 	});
 
+	it.each(['', '../admin', 'alpha--bravo', '-alpha', 'alpha-', 'a'.repeat(49)])(
+		'rejects an empty, unsafe or overlong route slug %j',
+		(slug) => {
+			expect(() => validateOrganizationUrlSlug(slug)).toThrow(expect.objectContaining({ status: 400 }));
+		}
+	);
+
+	it('accepts the shortest and longest permitted route slugs', () => {
+		expect(validateOrganizationUrlSlug('abc')).toBe('abc');
+		expect(validateOrganizationUrlSlug('a'.repeat(48))).toBe('a'.repeat(48));
+	});
+
 	it('prefers the slug for generated organization links', () => {
 		expect(getPreferredOrganizationUrlSegment({ id: 'org-1', urlSlug: '1-11-bde' })).toBe('1-11-bde');
 		expect(getPreferredOrganizationUrlSegment({ id: 'org-1', urlSlug: null })).toBe('org-1');

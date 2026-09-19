@@ -43,6 +43,7 @@ export interface SendOrganizationInvitationEmailInput {
 	invitedByEmail: string | null;
 	inviteUrl: string;
 	requiresAccountSetup: boolean;
+	requiresAccessRequest?: boolean;
 }
 
 export type OrganizationInvitationEmailSender = (input: SendOrganizationInvitationEmailInput) => Promise<void>;
@@ -144,11 +145,13 @@ function makeSetupLinkRecoveryPath(email: string | undefined): string {
 
 export function makeOrganizationInvitationUrl(
 	origin: string,
-	options: { requiresAccountSetup?: boolean; email?: string } = {}
+	options: { requiresAccountSetup?: boolean; requiresAccessRequest?: boolean; email?: string } = {}
 ): string {
-	const path = !options.requiresAccountSetup
-		? '/auth/login?next=%2Fdashboard'
-		: makeSetupLinkRecoveryPath(options.email);
+	const path = options.requiresAccountSetup
+		? makeSetupLinkRecoveryPath(options.email)
+		: options.requiresAccessRequest
+			? '/auth/request-access'
+			: '/auth/login?next=%2Fdashboard';
 
 	return makePublicAppUrl(path, {
 		inboundOrigin: origin
@@ -174,13 +177,21 @@ function buildOrganizationInvitationEmail(input: SendOrganizationInvitationEmail
 				`${ACCOUNT_SETUP_RECOVERY_LINK_LABEL} ${input.inviteUrl}`,
 				'Use that only if the setup email never arrived: requesting a fresh link cancels the one already sent to you.'
 			].join('\n')
-		: [
-				`${inviter} to join ${input.organizationName} on TroopToTask.`,
-				'',
-				`Sign in to view and accept the organization invitation: ${input.inviteUrl}`,
-				'',
-				'This email does not grant membership by itself. Membership is created only after you sign in and accept the invitation.'
-			].join('\n');
+		: input.requiresAccessRequest
+			? [
+					`${inviter} to join ${input.organizationName} on TroopToTask.`,
+					'',
+					`Request access to TroopToTask: ${input.inviteUrl}`,
+					'After your request is approved, you will receive an account setup link. Set up your account, then sign in to accept this organization invitation from your dashboard.',
+					'This invitation does not approve platform access or grant organization membership by itself.'
+				].join('\n')
+			: [
+					`${inviter} to join ${input.organizationName} on TroopToTask.`,
+					'',
+					`Sign in to view and accept the organization invitation: ${input.inviteUrl}`,
+					'',
+					'This email does not grant membership by itself. Membership is created only after you sign in and accept the invitation.'
+				].join('\n');
 	const html = input.requiresAccountSetup
 		? `
 		<p>${escapeHtmlAttribute(inviter)} to join ${escapeHtmlAttribute(input.organizationName)} on TroopToTask.</p>
@@ -189,7 +200,14 @@ function buildOrganizationInvitationEmail(input: SendOrganizationInvitationEmail
 		<p><a href="${inviteUrlAttribute}">${ACCOUNT_SETUP_RECOVERY_LINK_LABEL}</a></p>
 		<p>Use that only if the setup email never arrived: requesting a fresh link cancels the one already sent to you.</p>
 	`
-		: `
+		: input.requiresAccessRequest
+			? `
+		<p>${escapeHtmlAttribute(inviter)} to join ${escapeHtmlAttribute(input.organizationName)} on TroopToTask.</p>
+		<p><a href="${inviteUrlAttribute}">Request access to TroopToTask</a></p>
+		<p>After your request is approved, you will receive an account setup link. Set up your account, then sign in to accept this organization invitation from your dashboard.</p>
+		<p>This invitation does not approve platform access or grant organization membership by itself.</p>
+	`
+			: `
 		<p>${escapeHtmlAttribute(inviter)} to join ${escapeHtmlAttribute(input.organizationName)} on TroopToTask.</p>
 		<p><a href="${inviteUrlAttribute}">Sign in to view and accept the invitation</a></p>
 		<p>This email does not grant membership by itself. Membership is created only after you sign in and accept the invitation.</p>
@@ -243,6 +261,7 @@ export async function sendOrganizationInvitationOutboxDelivery(
 		invitedByEmail: string | null;
 		inviteUrl: string;
 		requiresAccountSetup: boolean;
+		requiresAccessRequest?: boolean;
 		now?: Date;
 	}
 ): Promise<SendOrganizationInvitationOutboxDeliveryResult> {
@@ -260,7 +279,8 @@ export async function sendOrganizationInvitationOutboxDelivery(
 			organizationName: input.organizationName,
 			invitedByEmail: input.invitedByEmail,
 			inviteUrl: input.inviteUrl,
-			requiresAccountSetup: input.requiresAccountSetup
+			requiresAccountSetup: input.requiresAccountSetup,
+			requiresAccessRequest: input.requiresAccessRequest
 		});
 		return {
 			status: 'sent',
@@ -319,7 +339,7 @@ export async function retryOrganizationInvitationOutboxDelivery(
 		return { status: 'expired' };
 	}
 
-	const retryRequiresAccountSetup = input.invitation.requiresAccountSetup || !input.invitation.recipientHasUserAccount;
+	const requiresAccessRequest = !input.invitation.requiresAccountSetup && !input.invitation.recipientHasUserAccount;
 
 	try {
 		await sendEmail({
@@ -327,10 +347,12 @@ export async function retryOrganizationInvitationOutboxDelivery(
 			organizationName: input.organizationName,
 			invitedByEmail: input.invitedByEmail,
 			inviteUrl: makeOrganizationInvitationUrl(input.origin, {
-				requiresAccountSetup: retryRequiresAccountSetup,
+				requiresAccountSetup: input.invitation.requiresAccountSetup,
+				requiresAccessRequest,
 				email: input.invitation.email
 			}),
-			requiresAccountSetup: retryRequiresAccountSetup
+			requiresAccountSetup: input.invitation.requiresAccountSetup,
+			requiresAccessRequest
 		});
 		return {
 			status: 'sent',
@@ -427,6 +449,7 @@ export function createSupabaseOrganizationInvitationDeliveryPort(
 			invitedByEmail: string | null;
 			origin: string;
 			requiresAccountSetup: boolean;
+			requiresAccessRequest?: boolean;
 		}) {
 			return sendOrganizationInvitationOutboxDelivery(store, sendEmail, {
 				organizationId: input.organizationId,
@@ -436,9 +459,11 @@ export function createSupabaseOrganizationInvitationDeliveryPort(
 				invitedByEmail: input.invitedByEmail,
 				inviteUrl: makeOrganizationInvitationUrl(input.origin, {
 					requiresAccountSetup: input.requiresAccountSetup,
+					requiresAccessRequest: input.requiresAccessRequest,
 					email: input.email
 				}),
-				requiresAccountSetup: input.requiresAccountSetup
+				requiresAccountSetup: input.requiresAccountSetup,
+				requiresAccessRequest: input.requiresAccessRequest
 			});
 		}
 	};

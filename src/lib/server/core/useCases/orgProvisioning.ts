@@ -5,11 +5,6 @@ import type { Da6AvailabilityTreatment } from '$lib/types';
 import { buildDefaultRankCatalogSeeds } from './rankCatalog';
 import type { OrganizationRankCatalogSource, OrganizationRankCatalogEntry } from './rankCatalog';
 
-export interface OrgProvisioningAvailability {
-	allowed: boolean;
-	message?: string;
-}
-
 export interface OrgProvisioningCreateResult {
 	orgId: string | null;
 	errorMessage: string | null;
@@ -51,12 +46,6 @@ export interface OrgProvisioningRankCatalogSeed extends Omit<
 }
 
 export interface OrgProvisioningPort {
-	/**
-	 * Returns whether the user can create an organization.
-	 * Provider failures still throw here so callers preserve the current 500 semantics from the
-	 * existing subscription gate while the rest of bootstrap remains best-effort.
-	 */
-	canCreateOrganization(userId: string): Promise<OrgProvisioningAvailability>;
 	createOrganizationWithOwner(name: string): Promise<OrgProvisioningCreateResult>;
 	updateOwnerMembershipEmail(input: {
 		organizationId: string;
@@ -148,18 +137,6 @@ const DEFAULT_ASSIGNMENT_TYPES: OrgProvisioningAssignmentTypeSeed[] = [
 	}
 ];
 
-export async function loadOrganizationProvisioning(
-	port: OrgProvisioningPort,
-	input: { userId: string }
-): Promise<{ canCreate: boolean; canCreateMessage: string | undefined }> {
-	const availability = await port.canCreateOrganization(input.userId);
-
-	return {
-		canCreate: availability.allowed,
-		canCreateMessage: availability.message
-	};
-}
-
 export async function provisionOrganization(
 	port: OrgProvisioningPort,
 	input: {
@@ -171,11 +148,6 @@ export async function provisionOrganization(
 	const name = sanitizeString(input.name, 100);
 	if (!name) {
 		fail(400, 'Organization name is required');
-	}
-
-	const availability = await port.canCreateOrganization(input.userId);
-	if (!availability.allowed) {
-		fail(403, availability.message ?? 'Organization creation is not allowed');
 	}
 
 	const created = await port.createOrganizationWithOwner(name);

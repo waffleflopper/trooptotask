@@ -15,7 +15,6 @@ vi.mock('$lib/config/billing', () => ({
 import {
 	buildEffectivePlanPolicy,
 	checkCanAddPersonnelForPlanPolicy,
-	checkCanCreateOrganizationForPlanPolicies,
 	getAvailablePersonnelSlotsForPlanPolicy,
 	readEffectivePlanPolicy,
 	toEffectiveTierFromPlanPolicy
@@ -327,43 +326,6 @@ describe('plan policy', () => {
 			source: 'gift',
 			giftTier: 'team',
 			giftExpiresAt: '2999-01-01T00:00:00.000Z'
-		});
-	});
-
-	it('allows organization creation when the owner has paid or gift policy headroom', () => {
-		const unitPolicy = buildEffectivePlanPolicy(snapshot({ commercialPlan: 'unit' }));
-		const giftPolicy = buildEffectivePlanPolicy(
-			snapshot({
-				source: 'gift',
-				commercialPlan: 'unit',
-				giftTier: 'unit',
-				giftExpiresAt: '2999-01-01T00:00:00.000Z'
-			})
-		);
-
-		expect(checkCanCreateOrganizationForPlanPolicies({ ownedOrganizationCount: 0, policies: [unitPolicy] })).toEqual({
-			allowed: true
-		});
-		expect(checkCanCreateOrganizationForPlanPolicies({ ownedOrganizationCount: 0, policies: [giftPolicy] })).toEqual({
-			allowed: true
-		});
-	});
-
-	it('denies organization creation when the highest effective policy ownership cap is filled', () => {
-		const freePolicy = buildEffectivePlanPolicy(snapshot({ commercialPlan: 'free' }));
-		const teamPolicy = buildEffectivePlanPolicy(snapshot({ commercialPlan: 'team' }));
-
-		expect(
-			checkCanCreateOrganizationForPlanPolicies({ ownedOrganizationCount: 1, policies: [freePolicy, teamPolicy] })
-		).toEqual({
-			allowed: false,
-			message: 'You can own up to 1 organization(s) on your current plan.'
-		});
-	});
-
-	it('allows first organization creation when the owner has no existing policies', () => {
-		expect(checkCanCreateOrganizationForPlanPolicies({ ownedOrganizationCount: 0, policies: [] })).toEqual({
-			allowed: true
 		});
 	});
 

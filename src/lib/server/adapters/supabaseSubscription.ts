@@ -1,13 +1,13 @@
 /**
  * SubscriptionPort implementation backed by Supabase.
- * Handles remaining tier compatibility lookups and monthly export quotas.
+ * Handles remaining tier compatibility lookups.
  *
  * Tier compatibility reads use the plan-policy path and fetch fresh usage.
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { isBillingEnabled } from '$lib/config/billing';
 import type { SubscriptionPort } from '$lib/server/core/ports';
-import { invalidateTierCache, getMonthlyExportCount } from '$lib/server/subscription';
+import { invalidateTierCache } from '$lib/server/subscription';
 import {
 	readEffectivePlanPolicy,
 	toEffectiveTierFromPlanPolicy,
@@ -42,9 +42,6 @@ export function createSupabaseSubscriptionAdapter(supabase: SupabaseClient, orgI
 		async getEffectiveTier() {
 			const { policy, usage } = await readPolicyAndUsage();
 			return toEffectiveTierFromPlanPolicy(policy, usage);
-		},
-		async getMonthlyExportCount() {
-			return getMonthlyExportCount(supabase, orgId);
 		}
 	};
 }

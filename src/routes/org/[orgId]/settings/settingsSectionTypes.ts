@@ -2,7 +2,7 @@ import type { CapabilityLevel, DurableFeatureLane, MembershipRole, ScopeSet } fr
 import type { RankCategory, RankPayGrade, RankService, RankState } from '$lib/domain/rankCatalog';
 import type { AuditLogQueryResult } from '$lib/server/core/useCases/auditLogQuery';
 import type { OrganizationRankCatalogReferenceSummary } from '$lib/server/core/useCases/rankCatalog';
-import type { EffectiveTier, Tier } from '$lib/types/subscription';
+import type { EffectiveTier } from '$lib/types/subscription';
 import type { DeletionRequestRow } from './settingsRows.server';
 import type { EditablePreset } from './settingsMemberAccessConstants';
 import type { SettingsInvitationAccessRow, SettingsMemberAccessRow } from './settingsMemberAccessModel';
@@ -89,16 +89,6 @@ export type SettingsArchivesSectionData = {
 	};
 };
 
-export type SettingsExportInfo = {
-	exportsUsed: number;
-	exportsLimit: number;
-	isLimited: boolean;
-	limitReached: boolean;
-	planBadge: string;
-	upgradeTarget: Tier | null;
-	limitReachedRemediation: string;
-};
-
 export type SettingsActivityData = {
 	pendingApprovalsCount: number;
 	approvalRequests: DeletionRequestRow[];
@@ -107,14 +97,6 @@ export type SettingsActivityData = {
 
 export type SettingsApprovalsSectionData = {
 	activity: SettingsActivityData;
-};
-
-export type SettingsExportsSectionData = {
-	exportInfo: SettingsExportInfo;
-	commands: {
-		canExportJson: boolean;
-		canExportExcel: boolean;
-	};
 };
 
 export type SettingsOwnershipTransferCandidate = Pick<SettingsMemberRow, 'id' | 'userId' | 'email' | 'membershipRole'>;

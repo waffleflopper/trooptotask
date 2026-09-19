@@ -548,9 +548,6 @@ export function createTestSubscriptionPort(): SubscriptionPort {
 				giftExpiresAt: null,
 				giftTier: null
 			};
-		},
-		async getMonthlyExportCount() {
-			return 0;
 		}
 	};
 }

@@ -1,8 +1,5 @@
 import type { UseCaseContext } from '$lib/server/core/ports';
 import { completeDataExport, failDataExport, startDataExport } from './dataExportLifecycle';
-import { readOrganizationPlanUsage } from './organizationPlanUsage';
-import { readEffectivePlanPolicy } from './planPolicy';
-import { checkAfterPlanLimitMutation, checkWithinPlanLimit, type PlanGateDenial } from './planPolicyGates';
 
 export type OrganizationDataExportArtifact =
 	| {
@@ -20,7 +17,7 @@ export type OrganizationDataExportArtifact =
 
 export type OrganizationDataExportExecutionResult<
 	TArtifact extends OrganizationDataExportArtifact = OrganizationDataExportArtifact
-> = { status: 'ready'; artifact: TArtifact } | { status: 'rate_limited'; error: string; denial: PlanGateDenial };
+> = { status: 'ready'; artifact: TArtifact };
 
 interface ExecuteOrganizationDataExportOptions<TArtifact extends OrganizationDataExportArtifact> {
 	requestedByEmail: string | undefined;
@@ -36,34 +33,7 @@ export async function executeOrganizationDataExport<TArtifact extends Organizati
 	const userId = ctx.auth.userId;
 
 	const lifecyclePorts = { auth: ctx.auth, store: ctx.rawStore };
-	const [policy, usage] = await Promise.all([
-		readEffectivePlanPolicy(lifecyclePorts),
-		readOrganizationPlanUsage(lifecyclePorts)
-	]);
-	const exportLimit = checkWithinPlanLimit(policy, 'monthly_exports', usage.monthlyExportCount);
-	if (!exportLimit.allowed) {
-		return {
-			status: 'rate_limited',
-			error: exportLimit.denial.message,
-			denial: exportLimit.denial
-		};
-	}
-
 	const exportRecord = await startDataExport(lifecyclePorts, { requestedBy: userId });
-	const usageAfterCreate = await readOrganizationPlanUsage(lifecyclePorts);
-	const postCreateExportLimit = checkAfterPlanLimitMutation(
-		policy,
-		'monthly_exports',
-		usageAfterCreate.monthlyExportCount
-	);
-	if (!postCreateExportLimit.allowed) {
-		await failDataExport(lifecyclePorts, { exportId: exportRecord.exportId });
-		return {
-			status: 'rate_limited',
-			error: postCreateExportLimit.denial.message,
-			denial: postCreateExportLimit.denial
-		};
-	}
 
 	try {
 		const artifact = await options.buildArtifact();

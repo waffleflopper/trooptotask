@@ -6,11 +6,10 @@
 
 	let { data }: PageProps = $props();
 
-	const exportState = createSettingsDataExportState(() => data.exportsSettings.sections.exports);
-	const dataExportSection = $derived(exportState.section);
+	const exportState = createSettingsDataExportState();
 
 	async function handleOrganizationExport(format: 'json' | 'excel') {
-		if (exportState.isExporting || exportState.exportLimitReached) return;
+		if (exportState.isExporting) return;
 		exportState.beginExport(format);
 		const endpoint = format === 'json' ? 'export' : 'export-excel';
 		const fallbackName = `org-export-${data.orgId}.${format === 'json' ? 'json' : 'xlsx'}`;
@@ -44,7 +43,6 @@
 
 <div class="grid gap-4">
 	<DataExportSettingsSection
-		section={dataExportSection}
 		exportError={exportState.exportError}
 		exportSuccess={exportState.exportSuccess}
 		exportingOrgJson={exportState.exportingOrgJson}

@@ -182,8 +182,6 @@ export interface SubscriptionPort {
 	invalidateTierCache(): void;
 	/** Get the effective tier for this org (considers gifts, subscriptions, billing-disabled) */
 	getEffectiveTier(): Promise<EffectiveTier>;
-	/** Count bulk data exports this month for this org */
-	getMonthlyExportCount(): Promise<number>;
 }
 
 /** Abstracts payment provider operations (Stripe, etc.) */

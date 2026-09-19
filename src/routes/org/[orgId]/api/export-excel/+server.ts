@@ -47,12 +47,6 @@ export const _postConfig: RouteConfig<ExcelExportInput, ExcelExportOutput> = {
 		});
 	},
 	formatOutput: (result) => {
-		if (result.status === 'rate_limited') {
-			return new Response(JSON.stringify({ error: result.error, denial: result.denial }), {
-				status: 429,
-				headers: { 'Content-Type': 'application/json' }
-			});
-		}
 		return workbookBufferResponse(result.artifact.buffer, result.artifact.filename);
 	}
 };

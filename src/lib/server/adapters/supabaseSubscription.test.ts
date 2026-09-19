@@ -118,42 +118,6 @@ function organization(overrides: Partial<TestRow> = {}): TestRow {
 	};
 }
 
-function billingSnapshot(overrides: Partial<TestRow> = {}): TestRow {
-	return {
-		organization_id: 'org-1',
-		source: 'stripe',
-		commercial_plan: 'team',
-		stripe_customer_id: 'cus_123',
-		stripe_subscription_id: 'sub_123',
-		stripe_product_id: 'prod_team',
-		stripe_price_id: 'price_team',
-		subscription_status: 'active',
-		collection_status: 'current',
-		current_period_start: null,
-		current_period_end: null,
-		cancel_at_period_end: false,
-		canceled_at: null,
-		trial_end: null,
-		sync_status: 'synced',
-		last_stripe_event_id: null,
-		last_stripe_event_type: null,
-		last_stripe_event_created_at: null,
-		last_processed_at: null,
-		last_reconciled_at: null,
-		reconciliation_result: null,
-		drift_detected: false,
-		...overrides
-	};
-}
-
-function personnel(count: number, orgId = 'org-1'): TestRow[] {
-	return Array.from({ length: count }, (_, index) => ({
-		id: `person-${index + 1}`,
-		organization_id: orgId,
-		archived_at: null
-	}));
-}
-
 function baseTables(overrides: Partial<TestTables> = {}): TestTables {
 	return {
 		organizations: [organization()],
@@ -171,40 +135,6 @@ describe('createSupabaseSubscriptionAdapter', () => {
 		billingEnabledMock.mockReturnValue(true);
 	});
 
-	it('denies personnel creation at the plan-policy cap', async () => {
-		const { supabase } = createSupabaseMock(baseTables({ personnel: personnel(20) }));
-		const adapter = createSupabaseSubscriptionAdapter(supabase as never, 'org-1');
-
-		await expect(adapter.canAddPersonnel()).resolves.toEqual({
-			allowed: false,
-			message: 'Personnel limit reached. Upgrade or archive personnel to add more.'
-		});
-	});
-
-	it('allows personnel creation when a paid policy has headroom', async () => {
-		const { supabase } = createSupabaseMock(
-			baseTables({
-				organizations: [organization({ tier: 'team' })],
-				personnel: personnel(20)
-			})
-		);
-		const adapter = createSupabaseSubscriptionAdapter(supabase as never, 'org-1');
-
-		await expect(adapter.canAddPersonnel()).resolves.toEqual({ allowed: true });
-	});
-
-	it('returns available personnel slots from plan policy and usage reads', async () => {
-		const { supabase } = createSupabaseMock(
-			baseTables({
-				organizations: [organization({ tier: 'team' })],
-				personnel: personnel(78)
-			})
-		);
-		const adapter = createSupabaseSubscriptionAdapter(supabase as never, 'org-1');
-
-		await expect(adapter.getAvailablePersonnelSlots()).resolves.toBe(2);
-	});
-
 	it('returns billing-disabled unlimited compatibility tier', async () => {
 		billingEnabledMock.mockReturnValue(false);
 		const { supabase } = createSupabaseMock(baseTables());
@@ -219,37 +149,5 @@ describe('createSupabaseSubscriptionAdapter', () => {
 		});
 		expect(supabase.from).toHaveBeenCalledTimes(1);
 		expect(supabase.from).toHaveBeenCalledWith('organization_plan_feature_overrides');
-	});
-
-	it('allows personnel creation and returns null slots when billing is disabled', async () => {
-		billingEnabledMock.mockReturnValue(false);
-		const { supabase } = createSupabaseMock(baseTables({ personnel: personnel(25) }));
-		const adapter = createSupabaseSubscriptionAdapter(supabase as never, 'org-1');
-
-		await expect(adapter.canAddPersonnel()).resolves.toEqual({ allowed: true });
-		await expect(adapter.getAvailablePersonnelSlots()).resolves.toBeNull();
-		expect(supabase.from).toHaveBeenCalledTimes(2);
-		expect(supabase.from).toHaveBeenNthCalledWith(1, 'organization_plan_feature_overrides');
-		expect(supabase.from).toHaveBeenNthCalledWith(2, 'organization_plan_feature_overrides');
-	});
-
-	it('denies personnel creation for billing-state read-only organizations', async () => {
-		const { supabase } = createSupabaseMock(
-			baseTables({
-				organization_billing_snapshots: [
-					billingSnapshot({
-						subscription_status: 'canceled',
-						collection_status: 'canceled'
-					})
-				],
-				personnel: personnel(12)
-			})
-		);
-		const adapter = createSupabaseSubscriptionAdapter(supabase as never, 'org-1');
-
-		await expect(adapter.canAddPersonnel()).resolves.toEqual({
-			allowed: false,
-			message: 'Organization billing is not currently active. Restore the subscription to regain paid write access.'
-		});
 	});
 });

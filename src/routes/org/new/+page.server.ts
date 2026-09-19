@@ -1,7 +1,7 @@
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { createSupabaseOrgProvisioningPort } from '$lib/server/adapters/supabaseOrgProvisioning';
-import { loadOrganizationProvisioning, provisionOrganization } from '$lib/server/core/useCases/orgProvisioning';
+import { provisionOrganization } from '$lib/server/core/useCases/orgProvisioning';
 import {
 	verifyCurrentUserEmailConfirmation,
 	type CurrentUserEmailConfirmation
@@ -18,14 +18,10 @@ export const load: PageServerLoad = async ({ locals }) => {
 		return emailConfirmationLoadData(emailConfirmation);
 	}
 
-	const provisioning = await loadOrganizationProvisioning(createSupabaseOrgProvisioningPort(locals), {
-		userId: locals.user.id
-	});
-
 	return {
-		...provisioning,
 		emailConfirmed: true,
-		userEmail: emailConfirmation.email
+		userEmail: emailConfirmation.email,
+		emailConfirmationMessage: undefined
 	};
 };
 
@@ -62,8 +58,7 @@ function emailConfirmationLoadData(emailConfirmation: CurrentUserEmailConfirmati
 	return {
 		emailConfirmed: false,
 		userEmail: emailConfirmation.email,
-		canCreate: false,
-		canCreateMessage:
+		emailConfirmationMessage:
 			emailConfirmation.status === 'unavailable'
 				? EMAIL_CONFIRMATION_UNAVAILABLE_MESSAGE
 				: EMAIL_CONFIRMATION_REQUIRED_MESSAGE

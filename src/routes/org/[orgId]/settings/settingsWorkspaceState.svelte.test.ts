@@ -3,7 +3,6 @@ import { createSettingsMemberAccessWorkspace } from './settingsMemberAccessWorks
 import type {
 	DangerSettingsData,
 	SettingsArchivesSectionData,
-	SettingsExportsSectionData,
 	SettingsMembersSectionData,
 	SettingsPoliciesSectionData
 } from './settingsSectionTypes';
@@ -28,7 +27,6 @@ type SettingsStateTestData = DangerSettingsData & {
 		members: SettingsMembersSectionData;
 		policies: SettingsPoliciesSectionData;
 		archivedPersonnel: SettingsArchivesSectionData;
-		dataExport: SettingsExportsSectionData;
 	};
 };
 
@@ -131,21 +129,6 @@ function makeSettingsData(): SettingsStateTestData {
 					canPermanentlyDelete: true
 				}
 			},
-			dataExport: {
-				exportInfo: {
-					exportsUsed: 0,
-					exportsLimit: Infinity,
-					isLimited: false,
-					limitReached: false,
-					planBadge: 'Unlimited exports',
-					upgradeTarget: null,
-					limitReachedRemediation: 'Export limit reached. Contact support for export access.'
-				},
-				commands: {
-					canExportJson: true,
-					canExportExcel: true
-				}
-			},
 			dangerZone: {
 				transferOwnershipCandidates: [
 					{
@@ -225,8 +208,8 @@ describe('settings workspace state', () => {
 		expect(state.permanentDeleteConfirmText).toBe('');
 	});
 
-	it('owns data export command transition state from Exports section data', () => {
-		const state = createSettingsDataExportState(makeSettingsData().sections.dataExport);
+	it('tracks export progress, success and failure', () => {
+		const state = createSettingsDataExportState();
 
 		state.beginExport('json');
 

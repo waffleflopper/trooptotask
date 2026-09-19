@@ -42,12 +42,6 @@ export const _postConfig: RouteConfig<ExportInput, ExportOutput> = {
 		});
 	},
 	formatOutput: (result) => {
-		if (result.status === 'rate_limited') {
-			return new Response(JSON.stringify({ error: result.error, denial: result.denial }), {
-				status: 429,
-				headers: { 'Content-Type': 'application/json' }
-			});
-		}
 		return new Response(result.artifact.body, {
 			headers: {
 				'Content-Type': 'application/json',

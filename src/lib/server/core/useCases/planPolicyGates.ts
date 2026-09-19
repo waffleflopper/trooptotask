@@ -9,7 +9,7 @@ import {
 } from './planPolicy';
 
 export interface PlanGateDenial {
-	code: 'denied.unknown_plan_feature' | 'denied.plan_feature_unavailable' | 'denied.export_quota';
+	code: 'denied.unknown_plan_feature' | 'denied.plan_feature_unavailable';
 	dimension: PlanLimitDimension;
 	featureKey?: string;
 	featureLabel?: string;
@@ -71,68 +71,6 @@ export function requirePlanFeature(policy: EffectivePlanPolicy, key: BinaryPlanF
 	const result = checkPlanFeature(policy, key);
 	if (!result.allowed) throw planGateError(403, result.denial);
 	return result.value as PlanFeatureEntitlement;
-}
-
-export function checkWithinPlanLimit(
-	policy: EffectivePlanPolicy,
-	dimension: 'monthly_exports',
-	currentUsage: number
-): PlanGateResult {
-	// This helper is intentionally single-dimension for this slice; future limit dimensions
-	// should add explicit policy lookups instead of reusing the export quota path.
-	const quota = policy.exportQuota;
-	if (quota.limit === null || currentUsage < quota.limit) {
-		return { allowed: true };
-	}
-
-	return planLimitDenied(quota, dimension);
-}
-
-export function checkAfterPlanLimitMutation(
-	policy: EffectivePlanPolicy,
-	dimension: 'monthly_exports',
-	currentUsage: number
-): PlanGateResult {
-	const quota = policy.exportQuota;
-	if (quota.limit === null || currentUsage <= quota.limit) {
-		return { allowed: true };
-	}
-
-	return planLimitDenied(quota, dimension);
-}
-
-function planLimitDenied(
-	quota: EffectivePlanPolicy['exportQuota'],
-	dimension: 'monthly_exports'
-): Exclude<PlanGateResult, { allowed: true }> {
-	const upgradeCopy = exportUpgradeCopy(quota.upgradeTarget);
-
-	return {
-		allowed: false,
-		denial: {
-			code: 'denied.export_quota',
-			dimension,
-			message: `Export limit reached (${quota.limit}/month). ${upgradeCopy}.`,
-			remediation: `${upgradeCopy} or wait until next month.`,
-			upgradeTarget: quota.upgradeTarget
-		}
-	};
-}
-
-function exportUpgradeCopy(upgradeTarget: Tier | null): string {
-	if (upgradeTarget === 'unit') return 'Upgrade to Unit for unlimited exports';
-	if (upgradeTarget === 'team') return 'Upgrade to Team for more monthly exports';
-	return 'Contact support for export access';
-}
-
-export function requireWithinPlanLimit(
-	policy: EffectivePlanPolicy,
-	dimension: 'monthly_exports',
-	currentUsage: number
-): void {
-	const result = checkWithinPlanLimit(policy, dimension, currentUsage);
-	if (result.allowed) return;
-	throw planGateError(429, result.denial);
 }
 
 export function planGateError(status: number, denial: PlanGateDenial): Error {

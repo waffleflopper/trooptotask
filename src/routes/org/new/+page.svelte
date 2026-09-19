@@ -6,8 +6,7 @@
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 	let loading = $state(false);
-	const canSubmit = $derived(data.emailConfirmed && data.canCreate && !loading);
-	const statusMessage = $derived(!data.emailConfirmed ? 'Email confirmation required' : data.canCreateMessage);
+	const canSubmit = $derived(data.emailConfirmed && !loading);
 </script>
 
 <svelte:head>
@@ -42,16 +41,11 @@
 				<div class="error-message">{form.error}</div>
 			{/if}
 
-			{#if statusMessage}
+			{#if !data.emailConfirmed}
 				<div class="status-message" data-testid="org-new-status">
-					<p class="seed-label">{statusMessage}</p>
+					<p class="seed-label">Email confirmation required</p>
 					<p>
-						{#if data.emailConfirmed}
-							Organization creation is paused for this account. Return to the dashboard or contact support if this looks
-							wrong.
-						{:else}
-							Signup only creates the User Account. Email confirmation must finish before Organization setup starts.
-						{/if}
+						{data.emailConfirmationMessage}
 					</p>
 				</div>
 			{/if}
@@ -64,7 +58,7 @@
 					type="text"
 					placeholder="e.g., 1st Battalion"
 					required
-					disabled={!data.emailConfirmed || !data.canCreate}
+					disabled={!data.emailConfirmed}
 				/>
 			</div>
 

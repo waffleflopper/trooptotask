@@ -4,7 +4,7 @@
  * is applied by `ScopedDataStore` based on the `group_id` column via `scopeRules.ts`.
  * `customTransform` joins `groups(name)` into a flat `groupName` field.
  * Writes are handled by `personnel.ts` and `personnelBatch.ts` use cases (not generic CRUD)
- * because create must check subscription seat limits.
+ * for rank validation, scoped authorization and artifact lifecycle handling.
  */
 import { z } from 'zod';
 import { defineEntity, field } from '$lib/server/entitySchema';

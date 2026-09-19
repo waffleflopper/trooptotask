@@ -1,422 +1,65 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { auditLogMock, billingEnabledMock, checkSignupRateLimitMock } = vi.hoisted(() => ({
-	auditLogMock: vi.fn(),
-	billingEnabledMock: vi.fn(() => true),
-	checkSignupRateLimitMock: vi.fn()
-}));
-
+const { billingEnabled } = vi.hoisted(() => ({ billingEnabled: vi.fn() }));
+// The flag still exists for later commercial cutovers; neither value may reopen signup.
 vi.mock('$lib/config/billing', () => ({
 	get isBillingEnabled() {
-		return billingEnabledMock();
+		return billingEnabled();
 	}
 }));
 
-vi.mock('$lib/server/auditLog', () => ({
-	auditLog: auditLogMock
-}));
-
-vi.mock('$lib/server/signupRateLimit', () => ({
-	SIGNUP_RATE_LIMIT_MESSAGE: 'Too many account creation attempts. Please wait before trying again.',
-	checkSignupRateLimit: checkSignupRateLimitMock
-}));
-
 import { actions, load } from './+page.server';
+import type { PendingAuthFlow } from '$lib/server/mfaGate';
 
-type SignupActionEvent = Parameters<(typeof actions)['default']>[0];
+type ActionEvent = Parameters<(typeof actions)['default']>[0];
 
-function makeActionEvent(input: {
-	email?: string;
-	password?: string;
-	confirmPassword?: string;
-	origin?: string;
-	next?: string;
-	ip?: string;
-	signUp?: ReturnType<typeof vi.fn>;
-	session?: unknown;
-}) {
-	const origin = input.origin ?? 'http://localhost:4173';
-	const signUp = input.signUp ?? vi.fn().mockResolvedValue({ data: { user: { id: 'user-1' } }, error: null });
-	const body = new URLSearchParams({
-		email: input.email ?? 'Soldier@Example.mil',
-		password: input.password ?? 'ValidPassword123',
-		confirmPassword: input.confirmPassword ?? input.password ?? 'ValidPassword123'
+function event(session: unknown = null, authFlow: PendingAuthFlow = null, mfaPending = false) {
+	const signUp = vi.fn();
+	const request = new Request('https://trooptotask.test/auth/sign-up?next=https://other.test', {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+		body: new URLSearchParams({ email: 'synthetic@example.test', password: 'SyntheticPassword123' })
 	});
-	const url = new URL(`${origin}/auth/sign-up`);
-	if (input.next) url.searchParams.set('next', input.next);
-
 	return {
-		request: new Request(url, {
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/x-www-form-urlencoded',
-				'user-agent': 'vitest-agent'
-			},
-			body
-		}),
-		locals: {
-			session: input.session ?? null,
-			authFlow: null,
-			mfaPending: false,
-			supabase: {
-				auth: {
-					signUp
-				}
-			}
-		},
-		getClientAddress: vi.fn(() => input.ip ?? '203.0.113.10'),
-		url
-	} as unknown as SignupActionEvent;
+		request,
+		locals: { session, authFlow, mfaPending, supabase: { auth: { signUp } } },
+		url: new URL(request.url),
+		getClientAddress: vi.fn(() => '192.0.2.1')
+	};
 }
 
-describe('GET /auth/sign-up', () => {
+async function expectRedirect(input: ReturnType<typeof event>, location: string) {
+	await expect(load(input as unknown as Parameters<typeof load>[0])).rejects.toMatchObject({ status: 303, location });
+	await expect(actions.default(input as unknown as ActionEvent)).rejects.toMatchObject({ status: 303, location });
+	expect(input.request.bodyUsed).toBe(false);
+	expect(input.locals.supabase.auth.signUp).not.toHaveBeenCalled();
+}
+
+describe.each([false, true])('reviewed acquisition with billing=%s', (enabled) => {
 	beforeEach(() => {
 		vi.clearAllMocks();
-		billingEnabledMock.mockReturnValue(true);
+		billingEnabled.mockReturnValue(enabled);
 	});
 
-	it('redirects to reviewed access when billing is disabled', async () => {
-		billingEnabledMock.mockReturnValue(false);
-
-		await expect(
-			load({
-				locals: {
-					session: null,
-					authFlow: null,
-					mfaPending: false
-				}
-			} as unknown as Parameters<typeof load>[0])
-		).rejects.toMatchObject({
-			status: 303,
-			location: '/auth/request-access'
-		});
+	it('redirects anonymous GET and POST without accepting credentials or honoring an external next URL', async () => {
+		await expectRedirect(event(), '/auth/request-access');
 	});
 
-	it('redirects authenticated users to their authenticated landing page', async () => {
-		await expect(
-			load({
-				locals: {
-					session: { user: { id: 'user-1' } },
-					authFlow: null,
-					mfaPending: false
-				}
-			} as unknown as Parameters<typeof load>[0])
-		).rejects.toMatchObject({
-			status: 303,
-			location: '/dashboard'
-		});
+	it('ignores malformed credential payloads because this route only redirects', async () => {
+		const input = event();
+		input.request = new Request(input.url, { method: 'POST', body: 'not form data' });
+		await expectRedirect(input, '/auth/request-access');
 	});
 
 	it.each([
+		{ authFlow: null, mfaPending: false, location: '/dashboard' },
 		{ authFlow: null, mfaPending: true, location: '/auth/mfa-verify' },
 		{ authFlow: 'invite', mfaPending: true, location: '/auth/accept-invite' },
-		{ authFlow: 'recovery', mfaPending: true, location: '/auth/reset-password' },
-		{ authFlow: null, mfaPending: false, location: '/dashboard' }
-	] as const)('preserves $location on GET and POST before reviewed-access redirect', async ({ location, ...flow }) => {
-		billingEnabledMock.mockReturnValue(false);
-		const signUp = vi.fn();
-		const event = makeActionEvent({ session: { user: { id: 'user-1' } }, signUp });
-		Object.assign(event.locals, flow);
-		await expect(load(event as unknown as Parameters<typeof load>[0])).rejects.toMatchObject({ status: 303, location });
-		await expect(actions.default(event)).rejects.toMatchObject({ status: 303, location });
-		expect(event.request.bodyUsed).toBe(false);
-		expect(checkSignupRateLimitMock).not.toHaveBeenCalled();
-		expect(signUp).not.toHaveBeenCalled();
-	});
-
-	it('renders when billing is enabled and no session exists', async () => {
-		await expect(
-			load({
-				locals: {
-					session: null,
-					authFlow: null,
-					mfaPending: false
-				}
-			} as unknown as Parameters<typeof load>[0])
-		).resolves.toEqual({});
-	});
-});
-
-describe('POST /auth/sign-up', () => {
-	beforeEach(() => {
-		vi.clearAllMocks();
-		billingEnabledMock.mockReturnValue(true);
-		checkSignupRateLimitMock.mockResolvedValue({
-			limited: false,
-			namespace: 'signup',
-			dimensions: ['email', 'ip'],
-			limitedDimensions: [],
-			windowMs: 60 * 60 * 1000,
-			maxRequests: 5
-		});
-	});
-
-	it('redirects to reviewed access when billing is disabled before rate limiting or provider calls', async () => {
-		billingEnabledMock.mockReturnValue(false);
-		const signUp = vi.fn();
-
-		await expect(actions.default(makeActionEvent({ signUp }))).rejects.toMatchObject({
-			status: 303,
-			location: '/auth/request-access'
-		});
-
-		expect(checkSignupRateLimitMock).not.toHaveBeenCalled();
-		expect(signUp).not.toHaveBeenCalled();
-	});
-
-	it('requests a signup confirmation email through the app-owned confirm route', async () => {
-		const signUp = vi.fn().mockResolvedValue({ data: { user: { id: 'user-1' } }, error: null });
-
-		const result = await actions.default(makeActionEvent({ signUp }));
-
-		expect(result).toEqual({
-			success: true,
-			email: 'soldier@example.mil',
-			message: 'If this email can create a TroopToTask account, we sent a confirmation link.'
-		});
-		expect(checkSignupRateLimitMock).toHaveBeenCalledWith({
-			email: 'soldier@example.mil',
-			ip: '203.0.113.10'
-		});
-		expect(signUp).toHaveBeenCalledWith({
-			email: 'soldier@example.mil',
-			password: 'ValidPassword123',
-			options: {
-				emailRedirectTo: 'http://localhost:4173/auth/confirm?type=email&next=%2Forg%2Fnew'
-			}
-		});
-	});
-
-	it('allows the invitation signup branch to confirm back to the dashboard', async () => {
-		const signUp = vi.fn().mockResolvedValue({ data: { user: { id: 'user-1' } }, error: null });
-
-		await actions.default(makeActionEvent({ signUp, next: '/dashboard' }));
-
-		expect(signUp).toHaveBeenCalledWith(
-			expect.objectContaining({
-				options: {
-					emailRedirectTo: 'http://localhost:4173/auth/confirm?type=email&next=%2Fdashboard'
-				}
-			})
-		);
-	});
-
-	it('ignores unsafe signup confirmation destinations', async () => {
-		const signUp = vi.fn().mockResolvedValue({ data: { user: { id: 'user-1' } }, error: null });
-
-		await actions.default(makeActionEvent({ signUp, next: 'https://evil.example/offsite' }));
-
-		expect(signUp).toHaveBeenCalledWith(
-			expect.objectContaining({
-				options: {
-					emailRedirectTo: 'http://localhost:4173/auth/confirm?type=email&next=%2Forg%2Fnew'
-				}
-			})
-		);
-	});
-
-	it('rejects invalid email before rate limiting or provider calls', async () => {
-		const signUp = vi.fn();
-
-		const result = await actions.default(makeActionEvent({ email: 'not-an-email', signUp }));
-
-		expect(result).toEqual({ status: 400, data: { error: 'Enter a valid email address', email: 'not-an-email' } });
-		expect(checkSignupRateLimitMock).not.toHaveBeenCalled();
-		expect(signUp).not.toHaveBeenCalled();
-	});
-
-	it('rejects weak passwords before rate limiting or provider calls', async () => {
-		const signUp = vi.fn();
-
-		const result = await actions.default(
-			makeActionEvent({
-				password: 'short',
-				confirmPassword: 'short',
-				signUp
-			})
-		);
-
-		expect(result).toEqual({
-			status: 400,
-			data: { error: 'Password must be at least 12 characters', email: 'soldier@example.mil' }
-		});
-		expect(checkSignupRateLimitMock).not.toHaveBeenCalled();
-		expect(signUp).not.toHaveBeenCalled();
-	});
-
-	it('rejects mismatched passwords before rate limiting or provider calls', async () => {
-		const signUp = vi.fn();
-
-		const result = await actions.default(
-			makeActionEvent({
-				password: 'ValidPassword123',
-				confirmPassword: 'DifferentPassword123',
-				signUp
-			})
-		);
-
-		expect(result).toEqual({
-			status: 400,
-			data: { error: 'Passwords must match', email: 'soldier@example.mil' }
-		});
-		expect(checkSignupRateLimitMock).not.toHaveBeenCalled();
-		expect(signUp).not.toHaveBeenCalled();
-	});
-
-	it('rate-limits signup attempts before provider calls with audit-safe details', async () => {
-		const signUp = vi.fn();
-		checkSignupRateLimitMock.mockResolvedValueOnce({
-			limited: true,
-			namespace: 'signup',
-			dimensions: ['email', 'ip'],
-			limitedDimensions: ['email'],
-			windowMs: 60 * 60 * 1000,
-			maxRequests: 5,
-			retryAfterMs: 120_000
-		});
-
-		const result = await actions.default(makeActionEvent({ signUp }));
-
-		expect(result).toEqual({
-			status: 429,
-			data: {
-				error: 'Too many account creation attempts. Please wait before trying again.',
-				email: 'soldier@example.mil'
-			}
-		});
-		expect(signUp).not.toHaveBeenCalled();
-		expect(auditLogMock).toHaveBeenCalledWith(
-			{
-				action: 'auth.signup_rate_limited',
-				resourceType: 'user',
-				severity: 'warning',
-				details: {
-					namespace: 'signup',
-					dimensions: ['email', 'ip'],
-					limitedDimensions: ['email'],
-					windowMs: 60 * 60 * 1000,
-					maxRequests: 5,
-					retryAfterMs: 120_000
-				}
-			},
-			{
-				userId: null,
-				ip: '203.0.113.10',
-				userAgent: 'vitest-agent'
-			}
-		);
-		expect(JSON.stringify(auditLogMock.mock.calls[0][0].details)).not.toContain('soldier@example.mil');
-		expect(JSON.stringify(auditLogMock.mock.calls[0][0].details)).not.toContain('203.0.113.10');
-	});
-
-	it('returns generic failure copy when the signup rate-limit backend rejects', async () => {
-		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
-		const signUp = vi.fn();
-		checkSignupRateLimitMock.mockRejectedValueOnce(new Error('rate limit backend failed with internal details'));
-
-		try {
-			const result = await actions.default(makeActionEvent({ signUp }));
-
-			expect(result).toEqual({
-				status: 503,
-				data: {
-					error: 'We could not start account creation. Please try again later.',
-					email: 'soldier@example.mil'
-				}
-			});
-			expect(signUp).not.toHaveBeenCalled();
-			expect(JSON.stringify(result)).not.toContain('rate limit backend failed');
-			expect(consoleError).toHaveBeenCalledWith('Signup rate-limit check failed:', expect.any(Error));
-			expect(auditLogMock).toHaveBeenCalledWith(
-				{
-					action: 'auth.signup_rate_limit_check_failed',
-					resourceType: 'user',
-					severity: 'critical',
-					details: { stage: 'rate_limit_check' }
-				},
-				{
-					userId: null,
-					ip: '203.0.113.10',
-					userAgent: 'vitest-agent'
-				}
-			);
-			expect(JSON.stringify(auditLogMock.mock.calls[0][0])).not.toContain('rate limit backend failed');
-			expect(JSON.stringify(auditLogMock.mock.calls[0][0])).not.toContain('soldier@example.mil');
-		} finally {
-			consoleError.mockRestore();
+		{ authFlow: 'recovery', mfaPending: true, location: '/auth/reset-password' }
+	] as const)(
+		'preserves authenticated $location continuation on GET and POST',
+		async ({ authFlow, mfaPending, location }) => {
+			await expectRedirect(event({ user: { id: 'synthetic-user' } }, authFlow, mfaPending), location);
 		}
-	});
-
-	it('returns duplicate-safe success copy when the provider reports an existing account', async () => {
-		const signUp = vi.fn().mockResolvedValue({
-			data: null,
-			error: { code: 'user_already_exists', message: 'User already registered' }
-		});
-
-		const result = await actions.default(makeActionEvent({ signUp }));
-
-		expect(result).toEqual({
-			success: true,
-			email: 'soldier@example.mil',
-			message: 'If this email can create a TroopToTask account, we sent a confirmation link.'
-		});
-		expect(JSON.stringify(result)).not.toContain('already registered');
-	});
-
-	it('returns generic provider failure copy without leaking provider internals', async () => {
-		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
-		const signUp = vi.fn().mockResolvedValue({
-			data: null,
-			error: { message: 'SMTP provider failed with internal details' }
-		});
-
-		const result = await actions.default(makeActionEvent({ signUp }));
-
-		expect(result).toEqual({
-			status: 400,
-			data: {
-				error: 'We could not start account creation. Please try again later.',
-				email: 'soldier@example.mil'
-			}
-		});
-		expect(JSON.stringify(result)).not.toContain('SMTP provider failed');
-
-		consoleError.mockRestore();
-	});
-
-	it('returns generic provider failure copy when the provider signup request rejects', async () => {
-		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
-		const signUp = vi.fn().mockRejectedValueOnce(new Error('SMTP provider failed with internal details'));
-
-		try {
-			const result = await actions.default(makeActionEvent({ signUp }));
-
-			expect(result).toEqual({
-				status: 503,
-				data: {
-					error: 'We could not start account creation. Please try again later.',
-					email: 'soldier@example.mil'
-				}
-			});
-			expect(JSON.stringify(result)).not.toContain('SMTP provider failed');
-			expect(consoleError).toHaveBeenCalledWith('Signup provider request failed:', expect.any(Error));
-			expect(auditLogMock).toHaveBeenCalledWith(
-				{
-					action: 'auth.signup_provider_request_failed',
-					resourceType: 'user',
-					severity: 'critical',
-					details: { stage: 'provider_request' }
-				},
-				{
-					userId: null,
-					ip: '203.0.113.10',
-					userAgent: 'vitest-agent'
-				}
-			);
-			expect(JSON.stringify(auditLogMock.mock.calls[0][0])).not.toContain('SMTP provider failed');
-			expect(JSON.stringify(auditLogMock.mock.calls[0][0])).not.toContain('soldier@example.mil');
-		} finally {
-			consoleError.mockRestore();
-		}
-	});
+	);
 });

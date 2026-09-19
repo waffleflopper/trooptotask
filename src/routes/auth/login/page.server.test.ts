@@ -29,7 +29,7 @@ describe('GET /auth/login', () => {
 			reauth: false,
 			nextPath: null,
 			authLinkError:
-				'This email link is invalid or has expired. Request a fresh signup, invite, or password reset email and try again.'
+				'This email link is invalid or has expired. Request a fresh account setup link or password reset email and try again.'
 		});
 	});
 

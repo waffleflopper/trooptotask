@@ -97,12 +97,12 @@
 		{:else}
 			<AuthNotice tone="error" title="Link unavailable" centered>
 				<p>This email link is invalid or has expired.</p>
-				<p>Request a fresh signup, invite, or password reset email, then try again.</p>
+				<p>Request access, renew your invite, or request a fresh password reset email.</p>
 			</AuthNotice>
 
 			<div class="flex flex-col gap-3">
 				<Button href="/auth/login" class="w-full">Back to Sign In</Button>
-				<Button href="/auth/sign-up" variant="outline" class="w-full">Create Account</Button>
+				<Button href="/auth/request-access" variant="outline" class="w-full">Request Access</Button>
 				<Button href="/auth/forgot-password" variant="outline" class="w-full">Reset Password</Button>
 				<Button href="/auth/renew-invite" variant="outline" class="w-full">Renew Invite</Button>
 			</div>

@@ -1,9 +1,8 @@
 /**
  * Personnel write use cases — create, update, archive, restore, and permanent delete.
  *
- * Personnel operations require `WriteWithSubscriptionPorts` because create checks seat
- * limits against the org's subscription tier. Archive triggers a deletion request
- * workflow if the personnel record has related data (returns `{ requiresApproval: true }`).
+ * Personnel operations use scoped writes, rank validation and artifact lifecycle handling.
+ * Archive requests approval when the actor cannot archive directly.
  *
  * For bulk import, see `personnelBatch.ts`. For queries, see `personnelQuery.ts`
  * and `personnelWorkspaceQuery.ts`.
@@ -11,7 +10,7 @@
 import { fail } from '$lib/server/core/errors';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { PersonnelEntity } from '$lib/server/entities/personnel';
-import type { WriteWithNotificationsPorts, WriteWithSubscriptionPorts } from '$lib/server/core/ports';
+import type { WriteWithNotificationsPorts, WritePorts } from '$lib/server/core/ports';
 import { evaluateFeaturePolicy, policyResourceForGroup, requireFeaturePolicy } from './featurePolicy';
 import { buildUniquePersonnelSlug, isPersonnelSlugUniqueConstraintError } from './personnelSlug';
 import { createDeletionRequest } from './deletionRequests';
@@ -21,8 +20,6 @@ import { normalizeActivePersonnelRank } from './personnelRankCatalog';
 const entity = PersonnelEntity;
 const AUDIT_RESOURCE = 'personnel';
 const SLUG_RETRY_LIMIT = 3;
-
-type ArchiveBatchPorts = WriteWithSubscriptionPorts & WriteWithNotificationsPorts;
 
 export interface ArchivePersonnelBatchInput {
 	ids: string[];
@@ -53,11 +50,14 @@ interface PersonnelLifecycleRecord {
 }
 
 export interface PersonnelUseCases {
-	create(ctx: WriteWithSubscriptionPorts, data: Record<string, unknown>): Promise<unknown>;
-	update(ctx: WriteWithSubscriptionPorts, data: Record<string, unknown>): Promise<unknown>;
-	archive(ctx: WriteWithSubscriptionPorts, id: string): Promise<{ requiresApproval: boolean } | void>;
-	archiveBatch(ctx: ArchiveBatchPorts, input: ArchivePersonnelBatchInput): Promise<ArchivePersonnelBatchResult>;
-	restore(ctx: WriteWithSubscriptionPorts, id: string): Promise<{ success: true } | { message: string | undefined }>;
+	create(ctx: WritePorts, data: Record<string, unknown>): Promise<unknown>;
+	update(ctx: WritePorts, data: Record<string, unknown>): Promise<unknown>;
+	archive(ctx: WritePorts, id: string): Promise<{ requiresApproval: boolean } | void>;
+	archiveBatch(
+		ctx: WriteWithNotificationsPorts,
+		input: ArchivePersonnelBatchInput
+	): Promise<ArchivePersonnelBatchResult>;
+	restore(ctx: WritePorts, id: string): Promise<{ success: true }>;
 	permanentlyDelete(ctx: WriteWithNotificationsPorts, id: string): Promise<{ success: true }>;
 }
 
@@ -75,10 +75,7 @@ function errorStatus(error: unknown): number | undefined {
 		: undefined;
 }
 
-function lifecycleLookupStore(ctx: {
-	store: WriteWithSubscriptionPorts['store'];
-	rawStore?: WriteWithSubscriptionPorts['store'];
-}) {
+function lifecycleLookupStore(ctx: { store: WritePorts['store']; rawStore?: WritePorts['store'] }) {
 	return ctx.rawStore ?? ctx.store;
 }
 
@@ -99,11 +96,6 @@ export function createPersonnelUseCases(): PersonnelUseCases {
 				policyResourceForGroup(data.groupId),
 				AUDIT_RESOURCE
 			);
-
-			const capCheck = await ctx.subscription.canAddPersonnel();
-			if (!capCheck.allowed) {
-				fail(403, capCheck.message ?? 'Personnel limit reached');
-			}
 
 			const validated = entity.createSchema.parse(data);
 			validated.rank = await normalizeActivePersonnelRank(ctx, (validated as { rank: string }).rank);
@@ -127,8 +119,6 @@ export function createPersonnelUseCases(): PersonnelUseCases {
 			}
 
 			if (!row) fail(500, 'Unable to create personnel record.');
-
-			ctx.subscription.invalidateTierCache();
 
 			ctx.audit.log({
 				action: `${AUDIT_RESOURCE}.created`,
@@ -264,8 +254,6 @@ export function createPersonnelUseCases(): PersonnelUseCases {
 			});
 			await archivePersonnelOwnedArtifacts(ctx, [id], archivedAt);
 
-			ctx.subscription.invalidateTierCache();
-
 			ctx.audit.log({
 				action: `${AUDIT_RESOURCE}.archived`,
 				resourceType: AUDIT_RESOURCE,
@@ -358,7 +346,6 @@ export function createPersonnelUseCases(): PersonnelUseCases {
 
 			if (result.archivedIds.length > 0) {
 				await archivePersonnelOwnedArtifacts(ctx, result.archivedIds, archivedAt);
-				ctx.subscription.invalidateTierCache();
 				ctx.audit.log({
 					action: `${AUDIT_RESOURCE}.bulk_archived`,
 					resourceType: AUDIT_RESOURCE,
@@ -374,11 +361,6 @@ export function createPersonnelUseCases(): PersonnelUseCases {
 
 		async restore(ctx, id) {
 			if (!id) fail(400, 'Missing id');
-
-			const capCheck = await ctx.subscription.canAddPersonnel();
-			if (!capCheck.allowed) {
-				return { message: capCheck.message ?? 'Personnel limit reached' };
-			}
 
 			const person = await lifecycleLookupStore(ctx).findOne<PersonnelLifecycleRecord>(entity.table, ctx.auth.orgId, {
 				id
@@ -399,8 +381,6 @@ export function createPersonnelUseCases(): PersonnelUseCases {
 			const personnelArchivedAt = person.archived_at;
 			await ctx.store.update(entity.table, ctx.auth.orgId, id, { archived_at: null });
 			await restorePersonnelOwnedArtifacts(ctx, [id], personnelArchivedAt);
-
-			ctx.subscription.invalidateTierCache();
 
 			ctx.audit.log({
 				action: `${AUDIT_RESOURCE}.restored`,

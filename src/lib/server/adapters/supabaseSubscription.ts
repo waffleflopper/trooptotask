@@ -1,16 +1,14 @@
 /**
  * SubscriptionPort implementation backed by Supabase.
- * Handles personnel seat limits, tier compatibility lookups, and monthly export quotas.
+ * Handles remaining tier compatibility lookups and monthly export quotas.
  *
- * Personnel and tier compatibility reads use the plan-policy path and fetch fresh usage.
+ * Tier compatibility reads use the plan-policy path and fetch fresh usage.
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { isBillingEnabled } from '$lib/config/billing';
 import type { SubscriptionPort } from '$lib/server/core/ports';
 import { invalidateTierCache, getMonthlyExportCount } from '$lib/server/subscription';
 import {
-	checkCanAddPersonnelForPlanPolicy,
-	getAvailablePersonnelSlotsForPlanPolicy,
 	readEffectivePlanPolicy,
 	toEffectiveTierFromPlanPolicy,
 	type EffectivePlanPolicy
@@ -38,14 +36,6 @@ export function createSupabaseSubscriptionAdapter(supabase: SupabaseClient, orgI
 	}
 
 	return {
-		async canAddPersonnel() {
-			const { policy, usage } = await readPolicyAndUsage();
-			return checkCanAddPersonnelForPlanPolicy(policy, usage);
-		},
-		async getAvailablePersonnelSlots() {
-			const { policy, usage } = await readPolicyAndUsage();
-			return getAvailablePersonnelSlotsForPlanPolicy(policy, usage);
-		},
 		invalidateTierCache() {
 			invalidateTierCache(orgId);
 		},

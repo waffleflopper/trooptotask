@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { createTestContext, createWriteWithSubscriptionPortsContext } from '$lib/server/adapters/inMemory';
+import { createTestContext, createWritePortsContext } from '$lib/server/adapters/inMemory';
 import { createPersonnelUseCases } from './personnel';
 
-function buildContext(overrides?: Parameters<typeof createWriteWithSubscriptionPortsContext>[0]) {
-	const ctx = createWriteWithSubscriptionPortsContext(overrides);
+function buildContext(overrides?: Parameters<typeof createWritePortsContext>[0]) {
+	const ctx = createWritePortsContext(overrides);
 	seedRankCatalog(ctx, [
 		{ code: 'SPC', label: 'Specialist', pay_grade: 'E-4' },
 		{ code: 'PFC', label: 'Private First Class', pay_grade: 'E-3' },
@@ -41,7 +41,7 @@ function seedRankCatalog(ctx: ReturnType<typeof buildContext>, entries: Array<Re
 }
 
 describe('Personnel — create', () => {
-	it('inserts personnel, invalidates tier cache, and audits', async () => {
+	it('inserts personnel and audits without a subscription provider', async () => {
 		const ctx = buildContext();
 		const { create } = createPersonnelUseCases();
 
@@ -55,8 +55,6 @@ describe('Personnel — create', () => {
 
 		const stored = await ctx.store.findMany('personnel', 'test-org');
 		expect(stored).toHaveLength(1);
-
-		expect(ctx.subscription.tierCacheInvalidated).toBe(true);
 
 		expect(ctx.audit.events).toHaveLength(1);
 		expect(ctx.audit.events[0]).toMatchObject({
@@ -152,13 +150,6 @@ describe('Personnel — create', () => {
 		>;
 
 		expect(created.slug).toBe('smith-john-2');
-	});
-
-	it('rejects create when subscription cap exceeded', async () => {
-		const ctx = buildContext({ subscriptionAllowed: false, subscriptionMessage: 'Personnel limit reached (20)' });
-		const { create } = createPersonnelUseCases();
-
-		await expect(create(ctx, { ...validInput })).rejects.toMatchObject({ status: 403 });
 	});
 
 	it('rejects create when scoped user targets wrong group', async () => {
@@ -575,7 +566,7 @@ describe('Personnel — archive', () => {
 		]);
 	}
 
-	it('sets archived_at, invalidates tier cache, and audits', async () => {
+	it('sets archived_at and audits', async () => {
 		const ctx = buildContext();
 		const { archive } = createPersonnelUseCases();
 		seedPersonnel(ctx);
@@ -584,8 +575,6 @@ describe('Personnel — archive', () => {
 
 		const stored = (await ctx.store.findOne('personnel', 'test-org', { id: 'p-1' })) as Record<string, unknown>;
 		expect(stored.archived_at).toBeTruthy();
-
-		expect(ctx.subscription.tierCacheInvalidated).toBe(true);
 
 		expect(ctx.audit.events[0]).toMatchObject({
 			action: 'personnel.archived',
@@ -641,9 +630,6 @@ describe('Personnel — archive', () => {
 		// Should NOT have archived
 		const stored = (await ctx.store.findOne('personnel', 'test-org', { id: 'p-1' })) as Record<string, unknown>;
 		expect(stored.archived_at).toBeNull();
-
-		// Should NOT have invalidated tier cache
-		expect(ctx.subscription.tierCacheInvalidated).toBe(false);
 	});
 
 	it('archives directly for a configure-capable member', async () => {
@@ -670,7 +656,6 @@ describe('Personnel — archive', () => {
 		expect(result).toBeUndefined();
 		const stored = (await ctx.store.findOne('personnel', 'test-org', { id: 'p-1' })) as Record<string, unknown>;
 		expect(stored.archived_at).toBeTruthy();
-		expect(ctx.subscription.tierCacheInvalidated).toBe(true);
 	});
 
 	it('enforces group scope on archive', async () => {
@@ -758,7 +743,7 @@ describe('Personnel — restore', () => {
 		]);
 	}
 
-	it('restores archived personnel, owned artifacts, cache, and audit state', async () => {
+	it('restores archived personnel, owned artifacts and audit state without a subscription provider', async () => {
 		const ctx = buildContext();
 		const { restore } = createPersonnelUseCases();
 		seedArchivedPersonnel(ctx);
@@ -788,7 +773,6 @@ describe('Personnel — restore', () => {
 		await expect(ctx.store.findOne('leader_notes', ctx.auth.orgId, { id: 'note-restored' })).resolves.toMatchObject({
 			archived_at: null
 		});
-		expect(ctx.subscription.tierCacheInvalidated).toBe(true);
 		expect(ctx.audit.events).toContainEqual(
 			expect.objectContaining({
 				action: 'personnel.restored',
@@ -797,36 +781,6 @@ describe('Personnel — restore', () => {
 				details: { name: 'SGT Smith, Jamie' }
 			})
 		);
-	});
-
-	it('returns a cap message without mutating when the subscription has no personnel slots', async () => {
-		const ctx = buildContext({ subscriptionAllowed: false, subscriptionMessage: 'Personnel limit reached (20)' });
-		const { restore } = createPersonnelUseCases();
-		seedArchivedPersonnel(ctx);
-
-		const result = await restore(ctx, 'p-1');
-
-		expect(result).toEqual({ message: 'Personnel limit reached (20)' });
-		await expect(ctx.store.findOne('personnel', ctx.auth.orgId, { id: 'p-1' })).resolves.toMatchObject({
-			archived_at: '2026-04-01T00:00:00Z'
-		});
-		expect(ctx.subscription.tierCacheInvalidated).toBe(false);
-		expect(ctx.audit.events).toHaveLength(0);
-	});
-
-	it('returns a fallback cap message when the subscription check has no message', async () => {
-		const ctx = buildContext({ subscriptionAllowed: false });
-		const { restore } = createPersonnelUseCases();
-		seedArchivedPersonnel(ctx);
-
-		const result = await restore(ctx, 'p-1');
-
-		expect(result).toEqual({ message: 'Personnel limit reached' });
-		await expect(ctx.store.findOne('personnel', ctx.auth.orgId, { id: 'p-1' })).resolves.toMatchObject({
-			archived_at: '2026-04-01T00:00:00Z'
-		});
-		expect(ctx.subscription.tierCacheInvalidated).toBe(false);
-		expect(ctx.audit.events).toHaveLength(0);
 	});
 
 	it('rejects restore when the personnel record is missing', async () => {
@@ -1130,7 +1084,6 @@ describe('Personnel — archive batch', () => {
 		});
 		const stored = (await ctx.store.findMany('personnel', 'test-org')) as Record<string, unknown>[];
 		expect(stored.every((person) => person.archived_at)).toBe(true);
-		expect(ctx.subscription.tierCacheInvalidated).toBe(true);
 		expect(ctx.auditPort.events).toContainEqual(
 			expect.objectContaining({
 				action: 'personnel.bulk_archived',

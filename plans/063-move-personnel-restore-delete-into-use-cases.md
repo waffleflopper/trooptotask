@@ -15,6 +15,8 @@
 
 ## Status
 
+Historical plan: lifecycle extraction is implemented. Stabilization [03-02b](../docs/stabilization/TODO.md#03-02-local-leaves--d02-1293) removes the subscription port, seat checks, tier-cache invalidation and restore quota response described below. Current Personnel writes use `WritePorts`; restore returns success or a retained authorization/validation error. The excerpts below record the old design and are not current implementation instructions.
+
 - **Priority**: P1
 - **Effort**: M
 - **Risk**: MED-HIGH
@@ -22,7 +24,7 @@
 - **Category**: tech-debt
 - **Planned at**: commit `9a1e439b`, 2026-06-14
 
-## Why this matters
+## Historical rationale
 
 `createPersonnelUseCases()` owns create, update, archive, and archive-batch, but
 restore and permanent-delete still keep subscription, policy, artifact, audit,
@@ -30,7 +32,7 @@ and notification behavior inside route configs. That splits one lifecycle across
 two layers. Moving restore and permanent-delete into the personnel use case
 keeps lifecycle invariants in one place and makes route tests thinner.
 
-## Current state
+## Historical state at planning
 
 - `PersonnelUseCases` exports `create`, `update`, `archive`, and
   `archiveBatch`.
@@ -78,16 +80,16 @@ await ctx.notifications.notifyAdmins(ctx.auth.orgId, ctx.auth.userId, {
 
 ## Commands you will need
 
-| Purpose | Command | Expected on success |
-| --- | --- | --- |
-| Core personnel tests | `npx vitest run src/lib/server/core/useCases/personnel.test.ts src/lib/server/core/useCases/personnelArchivedArtifacts.test.ts` | exits 0 |
-| Personnel route tests | `npx vitest run src/routes/org/[orgId]/api/personnel/server.test.ts src/routes/org/[orgId]/api/personnel/permanent/server.test.ts` | exits 0 |
-| Route lifecycle grep | `rg -n -e 'restorePersonnelOwnedArtifacts' -e 'personnel\\.restored' -e 'permanently_deleted' -e 'personnel_permanently_deleted' -e 'ctx\\.audit\\.log' -e 'ctx\\.notifications\\.notifyAdmins' -e "ctx\\.store\\.delete\\('personnel'" -e "ctx\\.store\\.update\\('personnel'" src/routes/org/[orgId]/api/personnel/+server.ts src/routes/org/[orgId]/api/personnel/permanent/+server.ts` | no matches |
-| Format | `npm run format` | exits 0 |
-| Lint | `npm run lint` | exits 0 |
-| Governance | `npm run governance:check` | exits 0 |
-| Typecheck | `npm run check` | exits 0 |
-| Unit tests | `npm run test` | exits 0 |
+| Purpose               | Command                                                                                                                                                                                                                                                                                                                                                                                    | Expected on success |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------- |
+| Core personnel tests  | `npx vitest run src/lib/server/core/useCases/personnel.test.ts src/lib/server/core/useCases/personnelArchivedArtifacts.test.ts`                                                                                                                                                                                                                                                            | exits 0             |
+| Personnel route tests | `npx vitest run src/routes/org/[orgId]/api/personnel/server.test.ts src/routes/org/[orgId]/api/personnel/permanent/server.test.ts`                                                                                                                                                                                                                                                         | exits 0             |
+| Route lifecycle grep  | `rg -n -e 'restorePersonnelOwnedArtifacts' -e 'personnel\\.restored' -e 'permanently_deleted' -e 'personnel_permanently_deleted' -e 'ctx\\.audit\\.log' -e 'ctx\\.notifications\\.notifyAdmins' -e "ctx\\.store\\.delete\\('personnel'" -e "ctx\\.store\\.update\\('personnel'" src/routes/org/[orgId]/api/personnel/+server.ts src/routes/org/[orgId]/api/personnel/permanent/+server.ts` | no matches          |
+| Format                | `npm run format`                                                                                                                                                                                                                                                                                                                                                                           | exits 0             |
+| Lint                  | `npm run lint`                                                                                                                                                                                                                                                                                                                                                                             | exits 0             |
+| Governance            | `npm run governance:check`                                                                                                                                                                                                                                                                                                                                                                 | exits 0             |
+| Typecheck             | `npm run check`                                                                                                                                                                                                                                                                                                                                                                            | exits 0             |
+| Unit tests            | `npm run test`                                                                                                                                                                                                                                                                                                                                                                             | exits 0             |
 
 ## Scope
 

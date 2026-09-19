@@ -116,11 +116,6 @@ export interface PersonnelUsageForPlanPolicy {
 	activePersonnelCount: number;
 }
 
-export interface PlanLimitAvailability {
-	allowed: boolean;
-	message?: string;
-}
-
 const PENDING_INVITATION_EXCLUDED_STATUSES = ['expired', 'declined', 'revoked', 'blocked', 'accepted'];
 
 export const PLAN_FEATURE_REGISTRY = {
@@ -338,15 +333,6 @@ function readOnlyReasonFromPolicy(code: PlanPolicyDenialReason['code'] | null): 
 	}
 }
 
-export function getAvailablePersonnelSlotsForPlanPolicy(
-	policy: EffectivePlanPolicy,
-	usage: PersonnelUsageForPlanPolicy
-): number | null {
-	const personnelLimit = effectiveActivePersonnelLimitForPlanPolicy(policy, usage);
-	if (personnelLimit === null) return null;
-	return Math.max(0, personnelLimit - usage.activePersonnelCount);
-}
-
 export function effectiveActivePersonnelLimitForPlanPolicy(
 	policy: EffectivePlanPolicy,
 	usage: PersonnelUsageForPlanPolicy
@@ -356,29 +342,6 @@ export function effectiveActivePersonnelLimitForPlanPolicy(
 		return Math.max(personnelLimit, usage.activePersonnelCount);
 	}
 	return personnelLimit;
-}
-
-export function checkCanAddPersonnelForPlanPolicy(
-	policy: EffectivePlanPolicy,
-	usage: PersonnelUsageForPlanPolicy
-): PlanLimitAvailability {
-	const readOnlyReason = policy.readOnly.reasons[0];
-	if (readOnlyReason) {
-		return {
-			allowed: false,
-			message: readOnlyReason.message
-		};
-	}
-
-	const personnelLimit = effectiveActivePersonnelLimitForPlanPolicy(policy, usage);
-	if (personnelLimit !== null && usage.activePersonnelCount >= personnelLimit) {
-		return {
-			allowed: false,
-			message: 'Personnel limit reached. Upgrade or archive personnel to add more.'
-		};
-	}
-
-	return { allowed: true };
 }
 
 export function toEffectiveTierFromPlanPolicy(

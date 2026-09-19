@@ -12,13 +12,7 @@ vi.mock('$lib/config/billing', () => ({
 	}
 }));
 
-import {
-	buildEffectivePlanPolicy,
-	checkCanAddPersonnelForPlanPolicy,
-	getAvailablePersonnelSlotsForPlanPolicy,
-	readEffectivePlanPolicy,
-	toEffectiveTierFromPlanPolicy
-} from './planPolicy';
+import { buildEffectivePlanPolicy, readEffectivePlanPolicy, toEffectiveTierFromPlanPolicy } from './planPolicy';
 
 function snapshot(overrides: Partial<BillingSnapshot> = {}): BillingSnapshot {
 	return {
@@ -195,25 +189,6 @@ describe('plan policy', () => {
 		expect(policy.limits.activePersonnel.limit).toBeNull();
 		expect(policy.limits.ownedOrganizations.limit).toBeNull();
 		expect(policy.exportQuota.unlimited).toBe(true);
-	});
-
-	it('denies personnel creation at the active personnel cap with upgrade and archive guidance', () => {
-		const policy = buildEffectivePlanPolicy(snapshot({ commercialPlan: 'free' }));
-		const usage = { activePersonnelCount: 20 };
-
-		const result = checkCanAddPersonnelForPlanPolicy(policy, usage);
-
-		expect(result).toEqual({
-			allowed: false,
-			message: 'Personnel limit reached. Upgrade or archive personnel to add more.'
-		});
-	});
-
-	it('returns available personnel slots for batch import trimming from the same policy limit', () => {
-		const policy = buildEffectivePlanPolicy(snapshot({ commercialPlan: 'team' }));
-		const usage = { activePersonnelCount: 78 };
-
-		expect(getAvailablePersonnelSlotsForPlanPolicy(policy, usage)).toBe(2);
 	});
 
 	it('keeps existing effective-tier callers on a policy-backed compatibility path', () => {

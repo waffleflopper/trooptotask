@@ -88,7 +88,7 @@ A military unit management platform for personnel tracking, calendar/availabilit
 
 ## Getting Started
 
-This maintenance checkout uses its own 563xx Supabase stack and browser-test port 4273.
+This maintenance checkout uses its own 563xx Supabase stack, with API port 56321.
 See [Local maintenance environment](docs/local-maintenance-environment.md) before
 following the generic setup instructions below.
 
@@ -125,6 +125,10 @@ following the generic setup instructions below.
    cp .env.example .env
    supabase status -o env
    ```
+
+   Use the URL and keys from this checkout's `trooptotask-v1-maintenance` stack
+   together. The API URL should be `http://127.0.0.1:56321`; port 54321 belongs to
+   the frozen reference database and must not be used by this maintenance app.
 
 5. Start the development server:
 

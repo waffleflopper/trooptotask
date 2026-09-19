@@ -387,6 +387,9 @@ describe('fetchCalendarData', () => {
 		expect(result.advancedDutyEvents[0].id).toBe('evt-in');
 		expect(result.advancedDutyEvents[0].slotInstances).toHaveLength(1);
 		expect(result.advancedDutyEvents[0].slotInstances[0].assigneeId).toBe('p1');
+		// An event slot is a computed overlay, not a persisted Daily Assignment Slot.
+		expect(result.dailyAssignments).toEqual([]);
+		expect(await ctx.store.findMany('daily_assignments', ORG)).toEqual([]);
 	});
 
 	it('filters pinned groups by userId', async () => {

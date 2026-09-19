@@ -9,7 +9,10 @@ import {
 } from './platformAccessRequestAdministration';
 import type { AccessRequestInvitationOrigin } from '$lib/server/accessRequestInvitationOrigin';
 import type { AccountSetupLinkRecord, CreateAccountSetupLinkResult } from '$lib/server/accountSetupLinks';
-import type { SensitiveActionDecision } from '$lib/server/sensitiveActionAuthorizer';
+import {
+	createSupabaseSensitiveActionAuthorizer,
+	type SensitiveActionDecision
+} from '$lib/server/sensitiveActionAuthorizer';
 
 const now = new Date('2026-05-22T12:00:00.000Z');
 
@@ -186,6 +189,68 @@ function makeDeps(overrides: Partial<PlatformAccessRequestAdministrationDependen
 }
 
 describe('Platform Access Request Administration', () => {
+	it.each(['approve', 'resendSetup', 'reject'] as const)(
+		'requires a valid suspension result before %s and permits a safe retry',
+		async (action) => {
+			const rpc = vi.fn().mockRejectedValue(new Error('private provider failure'));
+			const { admin, deps } = makeDeps({
+				sensitiveActionAuthorizer: createSupabaseSensitiveActionAuthorizer({
+					authenticatedUserId: 'admin-1',
+					supabase: {
+						auth: {
+							mfa: {
+								getAuthenticatorAssuranceLevel: vi.fn().mockResolvedValue({
+									data: {
+										currentLevel: 'aal1',
+										nextLevel: 'aal1',
+										currentAuthenticationMethods: [{ method: 'password', timestamp: 1779451140 }]
+									},
+									error: null
+								})
+							}
+						},
+						rpc
+					} as never,
+					session: {
+						access_token: 'verified-request-token',
+						expires_at: 1779454800,
+						user: { id: 'admin-1', last_sign_in_at: '2026-05-22T11:59:00Z' }
+					} as never,
+					now: () => now
+				})
+			});
+			const execute = () =>
+				admin[action]({ accessRequestId: 'request-1', actorUserId: 'admin-1', publicOrigin: 'http://localhost' });
+			await expect(execute()).resolves.toMatchObject({
+				status: 'authorization_denied',
+				failure: { reason: 'denied.suspensionStatusUnavailable', requiresStepUp: false, stepUpPath: null }
+			});
+			expect(deps.store.markPendingRequestApproved).not.toHaveBeenCalled();
+			expect(deps.store.rejectPendingAccessRequestAndBlockLinkedInvitations).not.toHaveBeenCalled();
+			expect(deps.checkSetupRateLimit).not.toHaveBeenCalled();
+			expect(deps.setupLinks.createForAccessRequest).not.toHaveBeenCalled();
+			expect(deps.setupDelivery.send).not.toHaveBeenCalled();
+			expect(deps.notifyGovernors.notifyInvitationBlocked).not.toHaveBeenCalled();
+			expect(deps.audit).toHaveBeenCalledWith(
+				expect.objectContaining({
+					details: expect.objectContaining({
+						sensitiveAction: expect.objectContaining({ reason: 'denied.suspensionStatusUnavailable' })
+					}),
+					severity: 'warning'
+				})
+			);
+
+			rpc.mockResolvedValue({ data: false, error: null });
+			await expect(execute()).resolves.toMatchObject({ status: action === 'reject' ? 'rejected' : 'sent' });
+			if (action === 'reject') {
+				expect(deps.store.rejectPendingAccessRequestAndBlockLinkedInvitations).toHaveBeenCalledOnce();
+			} else {
+				expect(deps.setupLinks.createForAccessRequest).toHaveBeenCalledOnce();
+				expect(deps.setupDelivery.send).toHaveBeenCalledOnce();
+			}
+		}
+	);
+
 	beforeEach(() => {
 		vi.unstubAllEnvs();
 	});
@@ -440,6 +505,56 @@ describe('Platform Access Request Administration', () => {
 
 		expect(result.reviewed.map((request) => request.auto_approved)).toEqual([false, false]);
 		expect(result.reviewed.map((request) => request.auto_approval_detail)).toEqual([null, null]);
+	});
+
+	it('does not issue a credential when approval loses a review race or is replayed', async () => {
+		const { admin, deps } = makeDeps();
+		vi.mocked(deps.store.markPendingRequestApproved).mockResolvedValueOnce('not_found');
+		const input = { accessRequestId: 'request-1', actorUserId: 'admin-1', publicOrigin: 'http://localhost:4173' };
+		expect(await admin.approve(input)).toEqual({ status: 'already_reviewed' });
+		vi.mocked(deps.store.getPendingAccessRequestForApproval).mockResolvedValueOnce(null);
+		expect(await admin.approve(input)).toEqual({ status: 'already_reviewed' });
+		expect(deps.setupLinks.createForAccessRequest).not.toHaveBeenCalled();
+		expect(deps.setupDelivery.send).not.toHaveBeenCalled();
+		expect(deps.audit).not.toHaveBeenCalled();
+	});
+
+	it.each(['lookup', 'approval', 'issuance'] as const)(
+		'reports %s failure without delivering an unissued credential',
+		async (stage) => {
+			const { admin, deps } = makeDeps();
+			const error = new Error('synthetic provider unavailable');
+			if (stage === 'lookup') vi.mocked(deps.store.getPendingAccessRequestForApproval).mockRejectedValueOnce(error);
+			if (stage === 'approval') vi.mocked(deps.store.markPendingRequestApproved).mockRejectedValueOnce(error);
+			if (stage === 'issuance') vi.mocked(deps.setupLinks.createForAccessRequest).mockRejectedValueOnce(error);
+			const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+			try {
+				expect(
+					await admin.approve({
+						accessRequestId: 'request-1',
+						actorUserId: 'admin-1',
+						publicOrigin: 'http://localhost:4173'
+					})
+				).toEqual({ status: 'failed' });
+				expect(deps.setupDelivery.send).not.toHaveBeenCalled();
+				if (stage !== 'issuance') expect(deps.setupLinks.createForAccessRequest).not.toHaveBeenCalled();
+			} finally {
+				log.mockRestore();
+			}
+		}
+	);
+
+	it('keeps approval recoverable after a thrown delivery failure and retries through resend', async () => {
+		const { admin, deps } = makeDeps();
+		deps.setupDelivery.send = vi
+			.fn()
+			.mockRejectedValueOnce(new Error('delivery failed https://example.test/auth/setup-account?token=secret-token'))
+			.mockResolvedValueOnce({ status: 'sent', outbox: { id: 'retry-outbox' } });
+		const input = { accessRequestId: 'request-1', actorUserId: 'admin-1', publicOrigin: 'http://localhost:4173' };
+		expect(await admin.approve(input)).toEqual({ status: 'delivery_failed', setupDeliveryStatus: 'failed' });
+		expect(await admin.resendSetup(input)).toEqual({ status: 'sent', setupDeliveryStatus: 'sent' });
+		expect(deps.store.markPendingRequestApproved).toHaveBeenCalledOnce();
+		expect(JSON.stringify(vi.mocked(deps.audit).mock.calls)).not.toContain('secret-token');
 	});
 
 	it('approves a pending Access Request and delivers an app-owned Account Setup Link without leaking the raw token', async () => {

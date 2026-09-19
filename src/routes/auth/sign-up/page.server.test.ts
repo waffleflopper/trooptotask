@@ -107,6 +107,23 @@ describe('GET /auth/sign-up', () => {
 		});
 	});
 
+	it.each([
+		{ authFlow: null, mfaPending: true, location: '/auth/mfa-verify' },
+		{ authFlow: 'invite', mfaPending: true, location: '/auth/accept-invite' },
+		{ authFlow: 'recovery', mfaPending: true, location: '/auth/reset-password' },
+		{ authFlow: null, mfaPending: false, location: '/dashboard' }
+	] as const)('preserves $location on GET and POST before reviewed-access redirect', async ({ location, ...flow }) => {
+		billingEnabledMock.mockReturnValue(false);
+		const signUp = vi.fn();
+		const event = makeActionEvent({ session: { user: { id: 'user-1' } }, signUp });
+		Object.assign(event.locals, flow);
+		await expect(load(event as unknown as Parameters<typeof load>[0])).rejects.toMatchObject({ status: 303, location });
+		await expect(actions.default(event)).rejects.toMatchObject({ status: 303, location });
+		expect(event.request.bodyUsed).toBe(false);
+		expect(checkSignupRateLimitMock).not.toHaveBeenCalled();
+		expect(signUp).not.toHaveBeenCalled();
+	});
+
 	it('renders when billing is enabled and no session exists', async () => {
 		await expect(
 			load({

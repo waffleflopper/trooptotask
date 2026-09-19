@@ -1,3 +1,4 @@
+import { createClient } from '@supabase/supabase-js';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { billingEnabledMock } = vi.hoisted(() => ({
@@ -24,57 +25,6 @@ type OrganizationBillingRow = {
 	gift_tier: 'free' | 'team' | 'unit' | null;
 	gift_expires_at: string | null;
 };
-
-function createUpdateBuilder() {
-	const calls: Call[] = [];
-
-	function track(method: string) {
-		return (...args: unknown[]) => {
-			calls.push({ method, args });
-			return builder;
-		};
-	}
-
-	const builder: Record<string, unknown> = {
-		update: track('update'),
-		eq: track('eq'),
-		then: undefined
-	};
-
-	Object.assign(builder, {
-		eq: (...args: unknown[]) => {
-			calls.push({ method: 'eq', args });
-			if (calls.filter((call) => call.method === 'eq').length >= 2) {
-				return Promise.resolve({ error: null });
-			}
-			return builder;
-		}
-	});
-
-	return { builder, calls };
-}
-
-function createInsertBuilder(errorMessage: string | null = null) {
-	const insert = vi.fn().mockResolvedValue({
-		error: errorMessage ? { message: errorMessage } : null
-	});
-
-	return {
-		builder: { insert },
-		insert
-	};
-}
-
-function createUpsertBuilder(errorMessage: string | null = null) {
-	const upsert = vi.fn().mockResolvedValue({
-		error: errorMessage ? { message: errorMessage } : null
-	});
-
-	return {
-		builder: { upsert },
-		upsert
-	};
-}
 
 function createPolicyProvisioningSupabase(input: {
 	ownedOrganizationIds: string[];
@@ -249,190 +199,155 @@ describe('createSupabaseOrgProvisioningPort', () => {
 		await expect(port.canCreateOrganization('user-1')).resolves.toEqual({ allowed: true });
 		expect(supabase.from).not.toHaveBeenCalled();
 	});
+});
 
-	it('calls the create_org_with_owner rpc to create the organization atomically', async () => {
-		const rpc = vi.fn().mockResolvedValue({ data: 'org-1', error: null });
-		const port = createSupabaseOrgProvisioningPort({
-			supabase: {
-				rpc
-			}
-		} as never);
-
-		const result = await port.createOrganizationWithOwner('Alpha Company');
-
-		expect(result).toEqual({ orgId: 'org-1', errorMessage: null });
-		expect(rpc).toHaveBeenCalledWith('create_org_with_owner', { p_name: 'Alpha Company' });
+// Exercise the real SDK wire format without connecting to a provider. SQL/RLS and
+// transaction guarantees belong to the isolated database contract in 02-03-04.
+function httpPort(handle: (request: Request) => Promise<Response>) {
+	const supabase = createClient('http://127.0.0.1:9', 'synthetic-anon-key', {
+		auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+		global: { fetch: (input, init) => handle(new Request(input, init)) }
 	});
+	return createSupabaseOrgProvisioningPort({ supabase } as never);
+}
 
-	it('scopes the owner membership email update by organization and user', async () => {
-		const { builder, calls } = createUpdateBuilder();
-		const supabase = {
-			from: vi.fn(() => builder)
-		};
-		const port = createSupabaseOrgProvisioningPort({
-			supabase
-		} as never);
+function providerFailure(message: string) {
+	return Response.json({ code: '42501', message, details: '', hint: '' }, { status: 403 });
+}
 
-		const result = await port.updateOwnerMembershipEmail({
-			organizationId: 'org-1',
-			userId: 'user-1',
-			email: 'owner@example.com'
+describe('provisioning provider boundary', () => {
+	it.each([
+		['created', 200, 'org-created', { orgId: 'org-created', errorMessage: null }],
+		[
+			'owner denied',
+			403,
+			{ code: '42501', message: 'Owner insert denied' },
+			{ orgId: null, errorMessage: 'Owner insert denied' }
+		],
+		['missing result', 200, null, { orgId: null, errorMessage: null }]
+	] as const)('maps %s through the authenticated owner-creation RPC', async (_, status, body, expected) => {
+		const requests: Array<{ path: string; method: string; body: unknown }> = [];
+		const port = httpPort(async (request) => {
+			requests.push({ path: new URL(request.url).pathname, method: request.method, body: await request.json() });
+			return Response.json(body, { status });
 		});
+		expect(await port.createOrganizationWithOwner('Alpha Company')).toEqual(expected);
+		// The RPC derives ownership from the authenticated session, never a supplied actor.
+		expect(requests).toEqual([
+			{ path: '/rest/v1/rpc/create_org_with_owner', method: 'POST', body: { p_name: 'Alpha Company' } }
+		]);
+	});
 
-		expect(result).toBeNull();
-		expect(supabase.from).toHaveBeenCalledWith('organization_memberships');
-		expect(calls).toContainEqual({
-			method: 'update',
-			args: [{ email: 'owner@example.com' }]
+	it('updates only the requested owner membership, preserving another actor and another Organization', async () => {
+		const memberships = [
+			{ organization_id: 'org-1', user_id: 'user-1', email: 'old@example.test' },
+			{ organization_id: 'org-1', user_id: 'user-2', email: 'member@example.test' },
+			{ organization_id: 'org-2', user_id: 'user-1', email: 'sibling@example.test' }
+		];
+		const port = httpPort(async (request) => {
+			const url = new URL(request.url);
+			expect(url.pathname).toBe('/rest/v1/organization_memberships');
+			expect(request.method).toBe('PATCH');
+			const patch = await request.json();
+			for (const row of memberships) {
+				const matches = [...url.searchParams].every(([key, value]) => row[key as keyof typeof row] === value.slice(3));
+				if (matches) Object.assign(row, patch);
+			}
+			return new Response(null, { status: 204 });
 		});
-		expect(calls).toContainEqual({ method: 'eq', args: ['organization_id', 'org-1'] });
-		expect(calls).toContainEqual({ method: 'eq', args: ['user_id', 'user-1'] });
-	});
-
-	it('serializes group seeds for the groups table and returns insert errors as strings', async () => {
-		const { builder, insert } = createInsertBuilder('groups failed');
-		const supabase = {
-			from: vi.fn(() => builder)
-		};
-		const port = createSupabaseOrgProvisioningPort({
-			supabase
-		} as never);
-
-		const result = await port.seedDefaultGroups('org-1', [
-			{ name: 'Leadership', sortOrder: 0 },
-			{ name: 'Alpha', sortOrder: 1 }
-		]);
-
-		expect(result).toBe('groups failed');
-		expect(supabase.from).toHaveBeenCalledWith('groups');
-		expect(insert).toHaveBeenCalledWith([
-			{ organization_id: 'org-1', name: 'Leadership', sort_order: 0 },
-			{ organization_id: 'org-1', name: 'Alpha', sort_order: 1 }
+		expect(
+			await port.updateOwnerMembershipEmail({ organizationId: 'org-1', userId: 'user-1', email: 'owner@example.test' })
+		).toBeNull();
+		expect(memberships).toEqual([
+			{ organization_id: 'org-1', user_id: 'user-1', email: 'owner@example.test' },
+			{ organization_id: 'org-1', user_id: 'user-2', email: 'member@example.test' },
+			{ organization_id: 'org-2', user_id: 'user-1', email: 'sibling@example.test' }
 		]);
 	});
 
-	it('serializes status type seeds for the status_types table and returns insert errors as strings', async () => {
-		const { builder, insert } = createInsertBuilder('statuses failed');
-		const supabase = {
-			from: vi.fn(() => builder)
-		};
-		const port = createSupabaseOrgProvisioningPort({
-			supabase
-		} as never);
-
-		const result = await port.seedDefaultStatusTypes('org-1', [
-			{
-				name: 'Leave',
-				color: '#48bb78',
-				textColor: '#ffffff',
-				sortOrder: 0
-			}
-		]);
-
-		expect(result).toBe('statuses failed');
-		expect(supabase.from).toHaveBeenCalledWith('status_types');
-		expect(insert).toHaveBeenCalledWith([
-			{
-				organization_id: 'org-1',
-				name: 'Leave',
-				color: '#48bb78',
-				text_color: '#ffffff',
-				da6_availability_treatment: null,
-				da6_treatment_reviewed: false,
-				sort_order: 0
-			}
-		]);
-	});
-
-	it('serializes assignment type seeds for the assignment_types table and returns insert errors as strings', async () => {
-		const { builder, insert } = createInsertBuilder('assignments failed');
-		const supabase = {
-			from: vi.fn(() => builder)
-		};
-		const port = createSupabaseOrgProvisioningPort({
-			supabase
-		} as never);
-
-		const result = await port.seedDefaultAssignmentTypes('org-1', [
-			{
-				name: 'Staff Duty',
-				shortName: 'SD',
-				assignTo: 'personnel',
-				color: '#dc2626',
-				sortOrder: 0
-			}
-		]);
-
-		expect(result).toBe('assignments failed');
-		expect(supabase.from).toHaveBeenCalledWith('assignment_types');
-		expect(insert).toHaveBeenCalledWith([
-			{
-				organization_id: 'org-1',
-				name: 'Staff Duty',
-				short_name: 'SD',
-				assign_to: 'personnel',
-				color: '#dc2626',
-				sort_order: 0
-			}
-		]);
-	});
-
-	it('inserts holiday seeds in batches of 50 rows to preserve the current payload behavior', async () => {
-		const insert = vi.fn().mockResolvedValue({ error: null });
-		const supabase = {
-			from: vi.fn(() => ({ insert }))
-		};
-		const port = createSupabaseOrgProvisioningPort({
-			supabase
-		} as never);
-		const specialDays = Array.from({ length: 120 }, (_, index) => ({
-			date: `2026-01-${String((index % 28) + 1).padStart(2, '0')}`,
-			name: `Holiday ${index + 1}`,
-			type: 'federal-holiday'
-		}));
-
-		const result = await port.seedFederalHolidays('org-1', specialDays);
-
-		expect(result).toBeNull();
-		expect(supabase.from).toHaveBeenCalledWith('special_days');
-		expect(insert).toHaveBeenCalledTimes(3);
-		expect(insert.mock.calls[0]?.[0]).toHaveLength(50);
-		expect(insert.mock.calls[1]?.[0]).toHaveLength(50);
-		expect(insert.mock.calls[2]?.[0]).toHaveLength(20);
-		expect(insert.mock.calls[0]?.[0][0]).toEqual({
-			organization_id: 'org-1',
-			date: '2026-01-01',
-			name: 'Holiday 1',
-			type: 'federal-holiday'
-		});
-	});
-
-	it('upserts rank catalog seeds for the organization rank catalog table while ignoring replay duplicates', async () => {
-		const { builder, upsert } = createUpsertBuilder('rank catalog failed');
-		const supabase = {
-			from: vi.fn(() => builder)
-		};
-		const port = createSupabaseOrgProvisioningPort({
-			supabase
-		} as never);
-
-		const result = await port.seedDefaultRankCatalog('org-1', [
-			{
-				code: 'SGT',
-				label: 'Sergeant',
-				service: 'army',
-				category: 'enlisted',
-				payGrade: 'E-5',
-				state: 'active',
-				source: 'built-in',
-				sortOrder: 0
-			}
-		]);
-
-		expect(result).toBe('rank catalog failed');
-		expect(supabase.from).toHaveBeenCalledWith('organization_rank_catalog');
-		expect(upsert).toHaveBeenCalledWith(
-			[
+	const writes = [
+		{
+			name: 'owner email',
+			table: 'organization_memberships',
+			write: (port: ReturnType<typeof httpPort>) =>
+				port.updateOwnerMembershipEmail({ organizationId: 'org-1', userId: 'user-1', email: 'owner@example.test' }),
+			body: { email: 'owner@example.test' }
+		},
+		{
+			name: 'Groups',
+			table: 'groups',
+			write: (port: ReturnType<typeof httpPort>) =>
+				port.seedDefaultGroups('org-1', [{ name: 'Leadership', sortOrder: 0 }]),
+			body: [{ organization_id: 'org-1', name: 'Leadership', sort_order: 0 }]
+		},
+		{
+			name: 'statuses',
+			table: 'status_types',
+			write: (port: ReturnType<typeof httpPort>) =>
+				port.seedDefaultStatusTypes('org-1', [
+					{
+						name: 'Leave',
+						color: '#48bb78',
+						textColor: '#ffffff',
+						sortOrder: 0,
+						da6AvailabilityTreatment: 'authorized-absence',
+						da6TreatmentReviewed: true
+					}
+				]),
+			body: [
+				{
+					organization_id: 'org-1',
+					name: 'Leave',
+					color: '#48bb78',
+					text_color: '#ffffff',
+					sort_order: 0,
+					da6_availability_treatment: 'authorized-absence',
+					da6_treatment_reviewed: true
+				}
+			]
+		},
+		{
+			name: 'manual assignments',
+			table: 'assignment_types',
+			write: (port: ReturnType<typeof httpPort>) =>
+				port.seedDefaultAssignmentTypes('org-1', [
+					{ name: 'Staff Duty', shortName: 'SD', assignTo: 'personnel', color: '#dc2626', sortOrder: 0 }
+				]),
+			body: [
+				{
+					organization_id: 'org-1',
+					name: 'Staff Duty',
+					short_name: 'SD',
+					assign_to: 'personnel',
+					color: '#dc2626',
+					sort_order: 0
+				}
+			]
+		},
+		{
+			name: 'holidays',
+			table: 'special_days',
+			write: (port: ReturnType<typeof httpPort>) =>
+				port.seedFederalHolidays('org-1', [{ date: '2026-07-03', name: 'Independence Day', type: 'federal-holiday' }]),
+			body: [{ organization_id: 'org-1', date: '2026-07-03', name: 'Independence Day', type: 'federal-holiday' }]
+		},
+		{
+			name: 'ranks',
+			table: 'organization_rank_catalog',
+			write: (port: ReturnType<typeof httpPort>) =>
+				port.seedDefaultRankCatalog('org-1', [
+					{
+						code: 'SGT',
+						label: 'Sergeant',
+						service: 'army',
+						category: 'enlisted',
+						payGrade: 'E-5',
+						state: 'active',
+						source: 'built-in',
+						sortOrder: 0
+					}
+				]),
+			body: [
 				{
 					organization_id: 'org-1',
 					code: 'SGT',
@@ -444,8 +359,48 @@ describe('createSupabaseOrgProvisioningPort', () => {
 					source: 'built-in',
 					sort_order: 0
 				}
-			],
-			{ onConflict: 'organization_id,code', ignoreDuplicates: true }
-		);
+			]
+		}
+	];
+
+	it.each(writes)(
+		'serializes $name at the provider boundary and surfaces write denial',
+		async ({ write, table, body }) => {
+			for (const denied of [false, true]) {
+				const received: unknown[] = [];
+				const port = httpPort(async (request) => {
+					expect(new URL(request.url).pathname).toBe(`/rest/v1/${table}`);
+					expect(request.method).toBe(table === 'organization_memberships' ? 'PATCH' : 'POST');
+					received.push(await request.json());
+					return denied ? providerFailure('Write denied') : new Response(null, { status: 201 });
+				});
+				expect(await write(port)).toBe(denied ? 'Write denied' : null);
+				expect(received).toEqual([body]);
+			}
+		}
+	);
+
+	it('preserves an earlier holiday write error when a later batch succeeds', async () => {
+		const days = Array.from({ length: 51 }, (_, index) => ({
+			date: '2026-01-01',
+			name: `Synthetic holiday ${index}`,
+			type: 'federal-holiday'
+		}));
+		const received: unknown[] = [];
+		const port = httpPort(async (request) => {
+			received.push(...(await request.json()));
+			return received.length <= 50 ? providerFailure('First batch denied') : new Response(null, { status: 201 });
+		});
+		expect(await port.seedFederalHolidays('org-1', days)).toBe('First batch denied');
+		expect(received).toEqual(days.map((day) => ({ organization_id: 'org-1', ...day })));
+	});
+
+	it('sends duplicate-ignore rank writes scoped to Organization and code', async () => {
+		const port = httpPort(async (request) => {
+			expect(new URL(request.url).searchParams.get('on_conflict')).toBe('organization_id,code');
+			expect(request.headers.get('prefer')).toContain('resolution=ignore-duplicates');
+			return new Response(null, { status: 201 });
+		});
+		expect(await writes[5].write(port)).toBeNull();
 	});
 });

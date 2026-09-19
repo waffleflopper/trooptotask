@@ -1,4 +1,5 @@
 <script lang="ts">
+	import type { Group } from '$lib/stores/groups.svelte';
 	import { resolve } from '$app/paths';
 	import type { Personnel, AssignmentType, DailyAssignment } from '$lib/types';
 	import type { DutyEvent } from '$features/duty-roster/duty-roster.types';
@@ -17,7 +18,7 @@
 		assignmentTypes: AssignmentType[];
 		assignments: DailyAssignment[];
 		personnelByGroup: GroupData[];
-		groups: string[];
+		groups: readonly Group[];
 		dutyEvents?: DutyEvent[];
 		dutyRosterHref?: string;
 		onSetAssignment: (date: string, typeId: string, assigneeId: string) => void;
@@ -81,7 +82,7 @@
 			}))
 		)
 	);
-	const groupOptions = $derived(groups.map((group) => ({ value: group, label: group })));
+	const groupOptions = $derived(groups.map((group) => ({ value: group.id, label: group.name })));
 
 	function getCurrentAssignee(typeId: string): string {
 		const assignment = assignmentsForDate.find((a) => a.assignmentTypeId === typeId);

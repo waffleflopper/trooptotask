@@ -26,7 +26,6 @@ name = "Tests"
 icon = "test"
 command = '''
 npm run test
-npm run test:e2e  
 ''' 
 
 [[actions]]

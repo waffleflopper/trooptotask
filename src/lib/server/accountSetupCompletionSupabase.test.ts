@@ -212,11 +212,7 @@ describe('Supabase Account Setup auth adapter', () => {
 				};
 			}
 
-			return {
-				insert: vi.fn().mockResolvedValue({ error: null }),
-				update: vi.fn().mockResolvedValue({ error: null }),
-				upsert: vi.fn().mockResolvedValue({ error: null })
-			};
+			throw new Error(`Unexpected setup persistence effect: ${table}`);
 		});
 		const store = createSupabaseAccountSetupCompletionStore({ from } as never);
 
@@ -225,7 +221,7 @@ describe('Supabase Account Setup auth adapter', () => {
 
 		expect(from).toHaveBeenCalledWith('user_profiles');
 		expect(from).toHaveBeenCalledWith('access_requests');
-		expect(from).not.toHaveBeenCalledWith('organization_memberships');
+		expect(from).not.toHaveBeenCalledWith('organization_members');
 	});
 
 	it('claims setup sessions through the database-owned transition RPC', async () => {

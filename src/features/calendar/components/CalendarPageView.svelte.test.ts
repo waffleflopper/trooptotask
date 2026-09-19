@@ -12,6 +12,7 @@ import {
 import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
 import { specialDaysStore } from '$features/calendar/stores/specialDays.svelte';
 import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
+import { calendarStore } from '../stores/calendar.svelte';
 import { groupsStore } from '$lib/stores/groups.svelte';
 import type { Personnel } from '$lib/types';
 
@@ -43,6 +44,7 @@ vi.mock('$lib/stores/groups.svelte', () => ({
 
 afterEach(() => {
 	cleanup();
+	calendarStore.goToToday();
 });
 
 const mutableAvailabilityStore = availabilityStore as unknown as { loading: boolean };
@@ -126,6 +128,22 @@ describe('CalendarPageView', () => {
 		expect(screen.getAllByTestId('skeleton-grid-cell').length).toBeGreaterThan(0);
 		expect(screen.queryByText('No personnel added yet.')).toBeNull();
 		expect(screen.queryByText('Access Restricted')).toBeNull();
+	});
+
+	it('moves forward across the year boundary and back through the month controls', async () => {
+		mutableAvailabilityStore.loading = false;
+		calendarStore.goToMonth(2026, 11);
+		const ctx = new CalendarPageContext(
+			{ ...mockData, personnel: filterPersonnel, allPersonnel: filterPersonnel },
+			makeMockOrg()
+		);
+		render(CalendarPageView, { props: { ctx, data: { orgId: 'org1', orgName: 'Test Org' } } });
+
+		expect(screen.getByRole('button', { name: /December 2026/ })).toBeTruthy();
+		await fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+		expect(screen.getByRole('button', { name: /January 2027/ })).toBeTruthy();
+		await fireEvent.click(screen.getByRole('button', { name: 'Prev' }));
+		expect(screen.getByRole('button', { name: /December 2026/ })).toBeTruthy();
 	});
 
 	it('wires typed personnel search into the rendered calendar roster', async () => {

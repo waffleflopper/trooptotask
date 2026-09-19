@@ -1,4 +1,5 @@
 <script lang="ts">
+	import type { Group } from '$lib/stores/groups.svelte';
 	import type { Personnel, AssignmentType, DailyAssignment } from '$lib/types';
 	import { formatDate, getMonthDates, getMonthName, isWeekend, addMonths } from '$lib/utils/dates';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
@@ -19,7 +20,7 @@
 		assignmentTypes: AssignmentType[];
 		assignments: DailyAssignment[];
 		personnelByGroup: GroupData[];
-		groups: string[];
+		groups: readonly Group[];
 		onSetAssignment: (date: string, typeId: string, assigneeId: string) => Promise<boolean>;
 		onSetAssignmentBatch: (
 			assignments: { date: string; assignmentTypeId: string; assigneeId: string }[]
@@ -56,7 +57,7 @@
 			}))
 		)
 	);
-	const groupOptions = $derived(groups.map((group) => ({ value: group, label: group })));
+	const groupOptions = $derived(groups.map((group) => ({ value: group.id, label: group.name })));
 
 	// Get the current assignment for a date and type
 	function getAssignment(date: Date, typeId: string): DailyAssignment | undefined {

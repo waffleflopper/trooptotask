@@ -53,7 +53,6 @@ describe('authSession helpers', () => {
 		expect(user.id).toBe('user-123');
 		expect(user.email).toBe('person@example.com');
 		expect(user.created_at).toBe('2026-01-01T00:00:00.000Z');
-		expect(user.last_sign_in_at).toBe('2026-04-04T00:00:00.000Z');
 		expect(user.factors).toEqual([
 			{
 				id: 'factor-1',

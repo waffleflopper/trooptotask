@@ -12,7 +12,7 @@ function createMockSupabase(invitations: Array<{ id: string }> = [], rpcStatuses
 				select: vi.fn().mockReturnValue({
 					eq: vi.fn().mockReturnValue({
 						eq: vi.fn().mockReturnValue({
-							range: vi.fn().mockResolvedValue({ data: invitations, error: null })
+							order: vi.fn().mockReturnValue({ range: vi.fn().mockResolvedValue({ data: invitations, error: null }) })
 						})
 					})
 				})
@@ -42,7 +42,7 @@ describe('autoAcceptOrgInvites', () => {
 
 		const result = await autoAcceptOrgInvites(supabase as any, 'test@example.com');
 
-		expect(result).toEqual({ accepted: 0 });
+		expect(result).toEqual({ accepted: 0, unavailable: 0 });
 		expect(supabase.rpc).not.toHaveBeenCalled();
 	});
 
@@ -51,7 +51,7 @@ describe('autoAcceptOrgInvites', () => {
 
 		const result = await autoAcceptOrgInvites(supabase as any, ' TEST@Example.com ');
 
-		expect(result).toEqual({ accepted: 2 });
+		expect(result).toEqual({ accepted: 2, unavailable: 0 });
 		expect(supabase.from).toHaveBeenCalledWith('organization_invitations');
 		expect(supabase._rpcCalls).toEqual([
 			{ fn: 'accept_organization_invitation', args: { p_invitation_id: 'invite-1' } },
@@ -59,21 +59,20 @@ describe('autoAcceptOrgInvites', () => {
 		]);
 	});
 
-	it('does not count expired, blocked, setup-gated, or already-member invitations as accepted', async () => {
+	it('does not count expired, blocked, or already-member invitations as accepted', async () => {
 		const supabase = createMockSupabase(
-			[{ id: 'accepted' }, { id: 'expired' }, { id: 'blocked' }, { id: 'setup-required' }, { id: 'already-member' }],
+			[{ id: 'accepted' }, { id: 'expired' }, { id: 'blocked' }, { id: 'already-member' }],
 			{
 				accepted: 'accepted',
 				expired: 'expired',
 				blocked: 'blocked',
-				'setup-required': 'setup_required',
 				'already-member': 'already_member'
 			}
 		);
 
 		const result = await autoAcceptOrgInvites(supabase as any, 'test@example.com');
 
-		expect(result).toEqual({ accepted: 1 });
-		expect(supabase.rpc).toHaveBeenCalledTimes(5);
+		expect(result).toEqual({ accepted: 1, unavailable: 2 });
+		expect(supabase.rpc).toHaveBeenCalledTimes(4);
 	});
 });

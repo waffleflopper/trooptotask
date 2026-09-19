@@ -416,3 +416,149 @@ describe('rethrowOrWrap', () => {
 		}
 	});
 });
+
+// Exercise the dispatcher with a real, observable write and no second policy gate
+// in the callback: removing route authorization must expose a failing contract.
+describe('policy dispatch write safety', () => {
+	const noCapabilities = {
+		calendar: 'none',
+		personnel: 'none',
+		training: 'none',
+		criticalTasks: 'none',
+		onboarding: 'none',
+		ratingScheme: 'none'
+	} as const;
+
+	function fixture(auth: Parameters<typeof createTestAuthContext>[0] = {}) {
+		const ctx = createTestContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				canManageMembers: false,
+				capabilityMap: noCapabilities,
+				...auth
+			}
+		});
+		const before = { id: 'record-1', organization_id: ctx.auth.orgId, value: 'original' };
+		ctx.store.seed('dispatch_records', [structuredClone(before)]);
+		let calls = 0;
+		const config: RouteConfig<void, void> = {
+			mutation: true,
+			policyAction: POLICY_ACTION_CATALOG.criticalTasks.recordCompletion,
+			policyResource: { kind: 'group', groupId: 'group-bravo' },
+			fn: async (ports) => {
+				calls += 1;
+				await ports.store.update('dispatch_records', ports.auth.orgId, 'record-1', { value: 'changed' });
+			},
+			audit: { action: 'record.updated', resourceType: 'dispatch_records' }
+		};
+		return { ctx, before, config, calls: () => calls };
+	}
+
+	async function expectDenied(f: ReturnType<typeof fixture>, reasonCode: string) {
+		// Assert state before checking the response so a controlled guard fault proves
+		// detection of the unauthorized effect, not just an error-message mismatch.
+		const outcome = await handleUseCaseRequest(f.config, f.ctx, undefined).then(
+			() => ({ status: 200 }),
+			(error: unknown) => error
+		);
+		expect(await f.ctx.store.findMany('dispatch_records', f.ctx.auth.orgId)).toEqual([f.before]);
+		expect(f.calls()).toBe(0);
+		expect(outcome).toMatchObject({ status: 403 });
+		expect(f.ctx.auditPort.events).toEqual([
+			expect.objectContaining({
+				action: 'policy.denied',
+				details: expect.objectContaining({ reasonCode, policyAction: f.config.policyAction.id })
+			})
+		]);
+	}
+
+	it.each([
+		{ lane: 'criticalTasks', otherLane: 'training', action: POLICY_ACTION_CATALOG.criticalTasks.recordCompletion },
+		{ lane: 'ratingScheme', otherLane: 'personnel', action: POLICY_ACTION_CATALOG.ratingScheme.updateEntries }
+	] as const)('allows $lane writes with no $otherLane capability', async ({ lane, action }) => {
+		const f = fixture({
+			capabilityMap: { ...noCapabilities, [lane]: 'operate' },
+			scopeSet: { kind: 'groups', groupIds: ['group-alpha', 'group-bravo'] }
+		});
+		f.config.policyAction = action;
+		await handleUseCaseRequest(f.config, f.ctx, undefined);
+		expect(f.calls()).toBe(1);
+		expect(await f.ctx.store.findMany('dispatch_records', f.ctx.auth.orgId)).toEqual([
+			{ ...f.before, value: 'changed' }
+		]);
+		expect(f.ctx.auditPort.events).toEqual([
+			{ action: 'record.updated', resourceType: 'dispatch_records', resourceId: undefined }
+		]);
+	});
+
+	it.each([
+		{ lane: 'criticalTasks', otherLane: 'training', action: POLICY_ACTION_CATALOG.criticalTasks.recordCompletion },
+		{ lane: 'ratingScheme', otherLane: 'personnel', action: POLICY_ACTION_CATALOG.ratingScheme.updateEntries }
+	] as const)('rejects $lane writes despite configure capability in $otherLane', async ({ otherLane, action }) => {
+		const f = fixture({ capabilityMap: { ...noCapabilities, [otherLane]: 'configure' } });
+		f.config.policyAction = action;
+		await expectDenied(f, 'denied:missing-capability');
+	});
+
+	it.each([
+		{ name: 'another Group', resource: { kind: 'group', groupId: 'group-charlie' } },
+		{ name: 'ungrouped records', resource: { kind: 'organization' } }
+	] as const)('rejects a multi-Group member writing $name', async ({ resource }) => {
+		const f = fixture({
+			capabilityMap: { ...noCapabilities, criticalTasks: 'operate' },
+			scopeSet: { kind: 'groups', groupIds: ['group-alpha', 'group-bravo'] }
+		});
+		f.config.policyResource = resource;
+		await expectDenied(f, 'denied:out-of-scope');
+	});
+
+	it.each(['owner', 'admin'] as const)(
+		'allows ordinary governance writes by an %s without feature capabilities',
+		async (role) => {
+			const f = fixture({ role, isPrivileged: true });
+			f.config.policyAction = POLICY_ACTION_CATALOG.organization.rename;
+			f.config.policyResource = { kind: 'organization' };
+			await handleUseCaseRequest(f.config, f.ctx, undefined);
+			expect(f.calls()).toBe(1);
+			expect(await f.ctx.store.findMany('dispatch_records', f.ctx.auth.orgId)).toEqual([
+				{ ...f.before, value: 'changed' }
+			]);
+		}
+	);
+
+	it('rejects governance writes by a configure-capable member', async () => {
+		const f = fixture({
+			capabilityMap: {
+				calendar: 'configure',
+				personnel: 'configure',
+				training: 'configure',
+				criticalTasks: 'configure',
+				onboarding: 'configure',
+				ratingScheme: 'configure'
+			}
+		});
+		f.config.policyAction = POLICY_ACTION_CATALOG.organization.rename;
+		await expectDenied(f, 'denied:governance-role');
+	});
+
+	it('rejects an admin attempting an owner-only operation', async () => {
+		const f = fixture({ role: 'admin', isPrivileged: true });
+		f.config.policyAction = POLICY_ACTION_CATALOG.organization.deleteOrganization;
+		await expectDenied(f, 'denied:owner-only');
+	});
+
+	it('rejects identity-owned writes without an authenticated actor', async () => {
+		const f = fixture({ userId: '' });
+		f.config.policyAction = POLICY_ACTION_CATALOG.identity.updateOwnPreferences;
+		f.config.policyResource = { kind: 'user', userId: 'test-user' };
+		await expectDenied(f, 'denied:unauthenticated');
+	});
+
+	it('rejects identity-owned writes to another user', async () => {
+		const f = fixture();
+		f.config.policyAction = POLICY_ACTION_CATALOG.identity.updateOwnPreferences;
+		f.config.policyResource = { kind: 'user', userId: 'other-user' };
+		await expectDenied(f, 'denied:not-resource-owner');
+	});
+});

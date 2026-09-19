@@ -1,0 +1,112 @@
+-- R1/R6: saved Calendar facts, multi-Group authorization and reference semantics.
+BEGIN;
+CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
+SELECT no_plan();
+INSERT INTO auth.users(id,email) VALUES ('a3000000-0000-4000-8000-000000000001','calendar1@example.test');
+INSERT INTO auth.users(id,email) VALUES ('a3000000-0000-4000-8000-000000000002','calendar2@example.test');
+INSERT INTO auth.users(id,email) VALUES ('a3000000-0000-4000-8000-000000000003','calendar3@example.test');
+INSERT INTO public.organizations(id,name,created_by) VALUES ('a3000000-0000-4000-8000-000000000101','Calendar 101','a3000000-0000-4000-8000-000000000001');
+INSERT INTO public.organizations(id,name,created_by) VALUES ('a3000000-0000-4000-8000-000000000102','Calendar 102','a3000000-0000-4000-8000-000000000001');
+INSERT INTO public.groups(id,organization_id,name) VALUES ('a3000000-0000-4000-8000-000000000201','a3000000-0000-4000-8000-000000000101','Alpha');
+INSERT INTO public.groups(id,organization_id,name) VALUES ('a3000000-0000-4000-8000-000000000202','a3000000-0000-4000-8000-000000000101','Bravo');
+INSERT INTO public.groups(id,organization_id,name) VALUES ('a3000000-0000-4000-8000-000000000203','a3000000-0000-4000-8000-000000000101','Charlie');
+INSERT INTO public.groups(id,organization_id,name) VALUES ('a3000000-0000-4000-8000-000000000204','a3000000-0000-4000-8000-000000000102','Foreign');
+INSERT INTO public.organization_memberships(organization_id,user_id,role,member_preset,capability_overrides,access_scope_kind,access_scope_group_ids) VALUES ('a3000000-0000-4000-8000-000000000101','a3000000-0000-4000-8000-000000000001','owner','editor','{}','organization',ARRAY[]::uuid[]),('a3000000-0000-4000-8000-000000000101','a3000000-0000-4000-8000-000000000002','member','operator','{"calendar":"operate"}','groups',ARRAY['a3000000-0000-4000-8000-000000000201','a3000000-0000-4000-8000-000000000202']::uuid[]),('a3000000-0000-4000-8000-000000000102','a3000000-0000-4000-8000-000000000003','owner','editor','{}','organization',ARRAY[]::uuid[]);
+INSERT INTO public.personnel(id,organization_id,group_id,rank,first_name,last_name,clinic_role,mos,slug) VALUES ('a3000000-0000-4000-8000-000000000301','a3000000-0000-4000-8000-000000000101','a3000000-0000-4000-8000-000000000201','SGT','Synthetic','Person301','Medic','68W','calendar-person-301');
+INSERT INTO public.personnel(id,organization_id,group_id,rank,first_name,last_name,clinic_role,mos,slug) VALUES ('a3000000-0000-4000-8000-000000000302','a3000000-0000-4000-8000-000000000101','a3000000-0000-4000-8000-000000000202','SGT','Synthetic','Person302','Medic','68W','calendar-person-302');
+INSERT INTO public.personnel(id,organization_id,group_id,rank,first_name,last_name,clinic_role,mos,slug) VALUES ('a3000000-0000-4000-8000-000000000303','a3000000-0000-4000-8000-000000000101','a3000000-0000-4000-8000-000000000203','SGT','Synthetic','Person303','Medic','68W','calendar-person-303');
+INSERT INTO public.personnel(id,organization_id,group_id,rank,first_name,last_name,clinic_role,mos,slug) VALUES ('a3000000-0000-4000-8000-000000000304','a3000000-0000-4000-8000-000000000102','a3000000-0000-4000-8000-000000000204','SGT','Synthetic','Person304','Medic','68W','calendar-person-304');
+INSERT INTO public.assignment_types(id,organization_id,name,short_name,assign_to) VALUES ('a3000000-0000-4000-8000-000000000401','a3000000-0000-4000-8000-000000000101','Manual Person','T401','personnel');
+INSERT INTO public.assignment_types(id,organization_id,name,short_name,assign_to) VALUES ('a3000000-0000-4000-8000-000000000402','a3000000-0000-4000-8000-000000000101','Manual Group','T402','group');
+INSERT INTO public.assignment_types(id,organization_id,name,short_name,assign_to) VALUES ('a3000000-0000-4000-8000-000000000403','a3000000-0000-4000-8000-000000000101','Generated Duty','T403','personnel');
+INSERT INTO public.assignment_types(id,organization_id,name,short_name,assign_to) VALUES ('a3000000-0000-4000-8000-000000000404','a3000000-0000-4000-8000-000000000102','Foreign','T404','personnel');
+INSERT INTO public.assignment_types(id,organization_id,name,short_name,assign_to) VALUES ('a3000000-0000-4000-8000-000000000405','a3000000-0000-4000-8000-000000000101','Unused Generated Duty','T405','personnel');
+INSERT INTO public.duty_roster_templates(id,organization_id,name,slug,assignment_type_id) VALUES ('a3000000-0000-4000-8000-000000000501','a3000000-0000-4000-8000-000000000101','Synthetic Duty','synthetic-duty','a3000000-0000-4000-8000-000000000403');
+INSERT INTO public.duty_roster_template_runs(id,organization_id,template_id,template_name,start_date,end_date,snapshot_payload) VALUES ('a3000000-0000-4000-8000-000000000502','a3000000-0000-4000-8000-000000000101','a3000000-0000-4000-8000-000000000501','Synthetic Duty','2030-03-01','2030-03-31','{"assignments":[{"date":"2030-03-31","personnelId":"a3000000-0000-4000-8000-000000000301"}]}');
+INSERT INTO public.daily_assignments(id,organization_id,assignment_type_id,date,assignee_id,duty_roster_template_run_id,duty_roster_template_run_row_date) VALUES ('a3000000-0000-4000-8000-000000000601','a3000000-0000-4000-8000-000000000101','a3000000-0000-4000-8000-000000000401','2030-03-01','a3000000-0000-4000-8000-000000000301',NULL,NULL);
+INSERT INTO public.daily_assignments(id,organization_id,assignment_type_id,date,assignee_id,duty_roster_template_run_id,duty_roster_template_run_row_date) VALUES ('a3000000-0000-4000-8000-000000000602','a3000000-0000-4000-8000-000000000101','a3000000-0000-4000-8000-000000000402','2030-03-01','a3000000-0000-4000-8000-000000000202',NULL,NULL);
+INSERT INTO public.daily_assignments(id,organization_id,assignment_type_id,date,assignee_id,duty_roster_template_run_id,duty_roster_template_run_row_date) VALUES ('a3000000-0000-4000-8000-000000000603','a3000000-0000-4000-8000-000000000101','a3000000-0000-4000-8000-000000000403','2030-03-15','a3000000-0000-4000-8000-000000000301','a3000000-0000-4000-8000-000000000502','2030-03-15');
+INSERT INTO public.daily_assignments(id,organization_id,assignment_type_id,date,assignee_id,duty_roster_template_run_id,duty_roster_template_run_row_date) VALUES ('a3000000-0000-4000-8000-000000000604','a3000000-0000-4000-8000-000000000101','a3000000-0000-4000-8000-000000000403','2030-03-31','a3000000-0000-4000-8000-000000000302','a3000000-0000-4000-8000-000000000502','2030-03-31');
+INSERT INTO public.daily_assignments(id,organization_id,assignment_type_id,date,assignee_id,duty_roster_template_run_id,duty_roster_template_run_row_date) VALUES ('a3000000-0000-4000-8000-000000000605','a3000000-0000-4000-8000-000000000101','a3000000-0000-4000-8000-000000000403','2030-03-20','a3000000-0000-4000-8000-000000000301',NULL,NULL);
+INSERT INTO public.daily_assignments(id,organization_id,assignment_type_id,date,assignee_id,duty_roster_template_run_id,duty_roster_template_run_row_date) VALUES ('a3000000-0000-4000-8000-000000000606','a3000000-0000-4000-8000-000000000101','a3000000-0000-4000-8000-000000000401','2030-04-01','a3000000-0000-4000-8000-000000000301',NULL,NULL);
+INSERT INTO public.daily_assignments(id,organization_id,assignment_type_id,date,assignee_id,duty_roster_template_run_id,duty_roster_template_run_row_date) VALUES ('a3000000-0000-4000-8000-000000000607','a3000000-0000-4000-8000-000000000101','a3000000-0000-4000-8000-000000000401','2030-03-02','a3000000-0000-4000-8000-000000000303',NULL,NULL);
+INSERT INTO public.daily_assignments(id,organization_id,assignment_type_id,date,assignee_id,duty_roster_template_run_id,duty_roster_template_run_row_date) VALUES ('a3000000-0000-4000-8000-000000000608','a3000000-0000-4000-8000-000000000101','a3000000-0000-4000-8000-000000000402','2030-03-02','a3000000-0000-4000-8000-000000000203',NULL,NULL);
+INSERT INTO public.daily_assignments(id,organization_id,assignment_type_id,date,assignee_id,duty_roster_template_run_id,duty_roster_template_run_row_date) VALUES ('a3000000-0000-4000-8000-000000000609','a3000000-0000-4000-8000-000000000102','a3000000-0000-4000-8000-000000000404','2030-03-01','a3000000-0000-4000-8000-000000000304',NULL,NULL);
+INSERT INTO public.status_types(id,organization_id,name,color,text_color) VALUES ('a3000000-0000-4000-8000-000000000701','a3000000-0000-4000-8000-000000000101','Available','#ffffff','#000000');
+INSERT INTO public.availability_entries(id,organization_id,personnel_id,status_type_id,start_date,end_date) VALUES ('a3000000-0000-4000-8000-000000000702','a3000000-0000-4000-8000-000000000101','a3000000-0000-4000-8000-000000000301','a3000000-0000-4000-8000-000000000701','2030-03-01','2030-03-02');
+INSERT INTO public.special_days(id,organization_id,date,name,type) VALUES ('a3000000-0000-4000-8000-000000000703','a3000000-0000-4000-8000-000000000101','2030-03-04','Synthetic Holiday','federal-holiday');
+INSERT INTO public.organization_rank_catalog(id,organization_id,code,label,service,category,pay_grade) VALUES ('a3000000-0000-4000-8000-000000000704','a3000000-0000-4000-8000-000000000101','SGT','Sergeant','army','enlisted','E-5');
+INSERT INTO public.sign_in_rosters(id,organization_id,title,roster_date,personnel_snapshot,personnel_ids,scope_group_ids,signed_file_path,created_by) VALUES ('a3000000-0000-4000-8000-000000000705','a3000000-0000-4000-8000-000000000101','Independent Signed Roster','2030-03-01','[{"id":"a3000000-0000-4000-8000-000000000301","rank":"SGT","lastName":"Person301","groupId":"a3000000-0000-4000-8000-000000000201"}]',ARRAY['a3000000-0000-4000-8000-000000000301']::uuid[],ARRAY['a3000000-0000-4000-8000-000000000201']::uuid[],'a3000000-0000-4000-8000-000000000101/a3000000-0000-4000-8000-000000000705/signed.pdf','a3000000-0000-4000-8000-000000000001');
+SELECT results_eq($$ SELECT id,organization_id,date,assignment_type_id,assignee_id FROM public.daily_assignments ORDER BY id $$,$$ VALUES ('a3000000-0000-4000-8000-000000000601'::uuid,'a3000000-0000-4000-8000-000000000101'::uuid,'2030-03-01'::date,'a3000000-0000-4000-8000-000000000401'::uuid,'a3000000-0000-4000-8000-000000000301'::text),
+('a3000000-0000-4000-8000-000000000602'::uuid,'a3000000-0000-4000-8000-000000000101'::uuid,'2030-03-01'::date,'a3000000-0000-4000-8000-000000000402'::uuid,'a3000000-0000-4000-8000-000000000202'::text),
+('a3000000-0000-4000-8000-000000000603'::uuid,'a3000000-0000-4000-8000-000000000101'::uuid,'2030-03-15'::date,'a3000000-0000-4000-8000-000000000403'::uuid,'a3000000-0000-4000-8000-000000000301'::text),
+('a3000000-0000-4000-8000-000000000604'::uuid,'a3000000-0000-4000-8000-000000000101'::uuid,'2030-03-31'::date,'a3000000-0000-4000-8000-000000000403'::uuid,'a3000000-0000-4000-8000-000000000302'::text),
+('a3000000-0000-4000-8000-000000000605'::uuid,'a3000000-0000-4000-8000-000000000101'::uuid,'2030-03-20'::date,'a3000000-0000-4000-8000-000000000403'::uuid,'a3000000-0000-4000-8000-000000000301'::text),
+('a3000000-0000-4000-8000-000000000606'::uuid,'a3000000-0000-4000-8000-000000000101'::uuid,'2030-04-01'::date,'a3000000-0000-4000-8000-000000000401'::uuid,'a3000000-0000-4000-8000-000000000301'::text),
+('a3000000-0000-4000-8000-000000000607'::uuid,'a3000000-0000-4000-8000-000000000101'::uuid,'2030-03-02'::date,'a3000000-0000-4000-8000-000000000401'::uuid,'a3000000-0000-4000-8000-000000000303'::text),
+('a3000000-0000-4000-8000-000000000608'::uuid,'a3000000-0000-4000-8000-000000000101'::uuid,'2030-03-02'::date,'a3000000-0000-4000-8000-000000000402'::uuid,'a3000000-0000-4000-8000-000000000203'::text),
+('a3000000-0000-4000-8000-000000000609'::uuid,'a3000000-0000-4000-8000-000000000102'::uuid,'2030-03-01'::date,'a3000000-0000-4000-8000-000000000404'::uuid,'a3000000-0000-4000-8000-000000000304'::text) $$,'saved facts retain exact identities, dates, types and person/Group assignees');
+CREATE TEMP TABLE assignments_before AS SELECT id,organization_id,date,assignment_type_id,assignee_id FROM public.daily_assignments ORDER BY id;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub','a3000000-0000-4000-8000-000000000002',true);
+SELECT results_eq($$ SELECT id FROM public.daily_assignments WHERE date BETWEEN '2030-03-01' AND '2030-03-31' ORDER BY id $$,$$ VALUES ('a3000000-0000-4000-8000-000000000601'::uuid),('a3000000-0000-4000-8000-000000000602'::uuid),('a3000000-0000-4000-8000-000000000603'::uuid),('a3000000-0000-4000-8000-000000000604'::uuid),('a3000000-0000-4000-8000-000000000605'::uuid) $$,'multi-Group reader sees Alpha and Bravo person/Group slots only');
+WITH changed AS (UPDATE public.daily_assignments SET date='2030-03-04' WHERE id='a3000000-0000-4000-8000-000000000607' RETURNING id) SELECT is(count(*)::integer,0,'out-of-scope slot 607 cannot be updated') FROM changed;
+WITH removed AS (DELETE FROM public.daily_assignments WHERE id='a3000000-0000-4000-8000-000000000607' RETURNING id) SELECT is(count(*)::integer,0,'out-of-scope slot 607 cannot be deleted') FROM removed;
+WITH changed AS (UPDATE public.daily_assignments SET date='2030-03-04' WHERE id='a3000000-0000-4000-8000-000000000608' RETURNING id) SELECT is(count(*)::integer,0,'out-of-scope slot 608 cannot be updated') FROM changed;
+WITH removed AS (DELETE FROM public.daily_assignments WHERE id='a3000000-0000-4000-8000-000000000608' RETURNING id) SELECT is(count(*)::integer,0,'out-of-scope slot 608 cannot be deleted') FROM removed;
+WITH changed AS (UPDATE public.daily_assignments SET date='2030-03-04' WHERE id='a3000000-0000-4000-8000-000000000609' RETURNING id) SELECT is(count(*)::integer,0,'out-of-scope slot 609 cannot be updated') FROM changed;
+WITH removed AS (DELETE FROM public.daily_assignments WHERE id='a3000000-0000-4000-8000-000000000609' RETURNING id) SELECT is(count(*)::integer,0,'out-of-scope slot 609 cannot be deleted') FROM removed;
+SELECT throws_ok($$ INSERT INTO public.daily_assignments(organization_id,assignment_type_id,date,assignee_id) VALUES ('a3000000-0000-4000-8000-000000000101','a3000000-0000-4000-8000-000000000401','2030-03-05','a3000000-0000-4000-8000-000000000303') $$,'42501','new row violates row-level security policy for table "daily_assignments"','cannot insert Charlie person assignment');
+SELECT throws_ok($$ INSERT INTO public.daily_assignments(organization_id,assignment_type_id,date,assignee_id) VALUES ('a3000000-0000-4000-8000-000000000101','a3000000-0000-4000-8000-000000000402','2030-03-05','a3000000-0000-4000-8000-000000000203') $$,'42501','new row violates row-level security policy for table "daily_assignments"','cannot insert Charlie Group assignment');
+SELECT throws_ok($$ INSERT INTO public.daily_assignments(organization_id,assignment_type_id,date,assignee_id) VALUES ('a3000000-0000-4000-8000-000000000102','a3000000-0000-4000-8000-000000000404','2030-03-05','a3000000-0000-4000-8000-000000000304') $$,'42501','new row violates row-level security policy for table "daily_assignments"','cannot insert foreign Organization assignment');
+SELECT throws_ok($$ INSERT INTO public.daily_assignments(organization_id,assignment_type_id,date,assignee_id) VALUES ('a3000000-0000-4000-8000-000000000101','a3000000-0000-4000-8000-000000000404','2030-03-05','a3000000-0000-4000-8000-000000000301') $$,'42501','new row violates row-level security policy for table "daily_assignments"','cannot insert foreign type assignment');
+SELECT throws_ok($$ INSERT INTO public.daily_assignments(organization_id,assignment_type_id,date,assignee_id) VALUES ('a3000000-0000-4000-8000-000000000101','a3000000-0000-4000-8000-000000000401','2030-03-05','a3000000-0000-4000-8000-000000000304') $$,'42501','new row violates row-level security policy for table "daily_assignments"','cannot insert foreign person assignment');
+SELECT throws_ok($$ INSERT INTO public.daily_assignments(organization_id,assignment_type_id,date,assignee_id) VALUES ('a3000000-0000-4000-8000-000000000101','a3000000-0000-4000-8000-000000000402','2030-03-05','a3000000-0000-4000-8000-000000000204') $$,'42501','new row violates row-level security policy for table "daily_assignments"','cannot insert foreign Group assignment');
+SELECT throws_ok($$ INSERT INTO public.daily_assignments(organization_id,assignment_type_id,date,assignee_id) VALUES ('a3000000-0000-4000-8000-000000000101','a3000000-0000-4000-8000-000000000402','2030-03-05','a3000000-0000-4000-8000-000000000999') $$,'42501','new row violates row-level security policy for table "daily_assignments"','cannot insert missing Group assignment');
+SELECT throws_ok($$ UPDATE public.daily_assignments SET assignee_id='a3000000-0000-4000-8000-000000000203' WHERE id='a3000000-0000-4000-8000-000000000602' $$,'42501','new row violates row-level security policy for table "daily_assignments"','cannot move a visible Group slot outside scope');
+RESET ROLE;
+SELECT results_eq($$ SELECT id,organization_id,date,assignment_type_id,assignee_id FROM public.daily_assignments ORDER BY id $$,'SELECT * FROM assignments_before ORDER BY id','denied writes preserve every saved fact');
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub','a3000000-0000-4000-8000-000000000002',true);
+SELECT lives_ok($$ UPDATE public.daily_assignments SET assignee_id='a3000000-0000-4000-8000-000000000302' WHERE id='a3000000-0000-4000-8000-000000000601' $$,'operator can change Alpha slot to Bravo person');
+SELECT lives_ok($$ UPDATE public.daily_assignments SET assignee_id='a3000000-0000-4000-8000-000000000201' WHERE id='a3000000-0000-4000-8000-000000000602' $$,'operator can change Bravo slot to Alpha Group');
+RESET ROLE;
+SELECT is((SELECT assignee_id FROM public.daily_assignments WHERE id='a3000000-0000-4000-8000-000000000601'),'a3000000-0000-4000-8000-000000000302','person edit persists');
+SELECT is((SELECT assignee_id FROM public.daily_assignments WHERE id='a3000000-0000-4000-8000-000000000602'),'a3000000-0000-4000-8000-000000000201','Group edit persists');
+SELECT throws_ok($$ INSERT INTO public.daily_assignments(organization_id,assignment_type_id,date,assignee_id) VALUES ('a3000000-0000-4000-8000-000000000101','a3000000-0000-4000-8000-000000000401','2030-03-01','a3000000-0000-4000-8000-000000000301') $$,'23505',NULL,'one Organization/type/date slot remains unique');
+SELECT throws_ok($$ INSERT INTO public.daily_assignments(organization_id,assignment_type_id,date,assignee_id) VALUES ('a3000000-0000-4000-8000-000000000101','a3000000-0000-4000-8000-000000000999','2030-03-01','a3000000-0000-4000-8000-000000000301') $$,'23503',NULL,'missing assignment type is rejected by FK');
+SELECT is((SELECT count(*)::integer FROM public.daily_assignments WHERE date='2030-03-03'),0,'computed-only overlay invents no persisted fact');
+-- Changing only the lane grant must remove write authority while retaining reads.
+UPDATE public.organization_memberships SET capability_overrides='{"calendar":"view"}' WHERE user_id='a3000000-0000-4000-8000-000000000002';
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub','a3000000-0000-4000-8000-000000000002',true);
+SELECT is((SELECT count(*)::integer FROM public.daily_assignments),6,'Calendar viewer retains scoped saved assignments');
+WITH changed AS (UPDATE public.daily_assignments SET date='2030-03-10' WHERE id='a3000000-0000-4000-8000-000000000602' RETURNING id)
+ SELECT is(count(*)::integer,0,'Calendar viewer cannot mutate a visible Group assignment') FROM changed;
+RESET ROLE;
+UPDATE public.organization_memberships SET capability_overrides='{"calendar":"none"}' WHERE user_id='a3000000-0000-4000-8000-000000000002';
+SET LOCAL ROLE authenticated;
+SELECT is((SELECT count(*)::integer FROM public.daily_assignments),0,'membership without Calendar capability exposes no assignments');
+SELECT set_config('request.jwt.claim.sub','a3000000-0000-4000-8000-000000000001',true);
+SELECT is((SELECT count(*)::integer FROM public.daily_assignments),8,'Organization owner retains all in-Organization assignments');
+SELECT throws_ok($$ INSERT INTO public.daily_assignments(organization_id,assignment_type_id,date,assignee_id) VALUES ('a3000000-0000-4000-8000-000000000101','a3000000-0000-4000-8000-000000000402','2030-03-06','a3000000-0000-4000-8000-000000000204') $$,'42501','new row violates row-level security policy for table "daily_assignments"','even Organization-wide owners cannot assign a foreign Group');
+RESET ROLE;
+SET LOCAL ROLE anon;
+SELECT set_config('request.jwt.claim.sub','',true);
+SELECT set_config('request.jwt.claims','{}',true);
+SELECT is((SELECT count(*)::integer FROM public.daily_assignments),0,'anonymous reads expose no saved assignments');
+RESET ROLE;
+SELECT results_eq($$ SELECT confdeltype::text FROM pg_constraint WHERE conrelid='public.daily_assignments'::regclass AND confrelid='public.assignment_types'::regclass AND contype='f' $$,$$ VALUES ('c'::text) $$,'type FK cascades: future removal must preserve referenced types');
+SELECT results_eq($$ SELECT confdeltype::text FROM pg_constraint WHERE conrelid='public.daily_assignments'::regclass AND confrelid='public.duty_roster_template_runs'::regclass AND contype='f' $$,$$ VALUES ('n'::text) $$,'duty-run FK clears lineage rather than deleting saved facts');
+CREATE TEMP TABLE before_run_delete AS SELECT id,organization_id,date,assignment_type_id,assignee_id FROM public.daily_assignments ORDER BY id;
+DELETE FROM public.duty_roster_template_runs WHERE id='a3000000-0000-4000-8000-000000000502';
+SELECT results_eq($$ SELECT id,organization_id,date,assignment_type_id,assignee_id FROM public.daily_assignments ORDER BY id $$,'SELECT * FROM before_run_delete ORDER BY id','removing a run retains exact saved assignment facts including the manual edit');
+SELECT is((SELECT clinic_role FROM public.personnel WHERE id='a3000000-0000-4000-8000-000000000301'),'Medic','Personnel Duty Role remains');
+UPDATE public.groups SET name='Alpha Renamed' WHERE id='a3000000-0000-4000-8000-000000000201';
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub','a3000000-0000-4000-8000-000000000001',true);
+SELECT is((SELECT assignee_id FROM public.daily_assignments WHERE id='a3000000-0000-4000-8000-000000000602'),'a3000000-0000-4000-8000-000000000201','renaming a Group preserves its saved assignment reference and visibility');
+SELECT throws_ok($$ INSERT INTO public.daily_assignments(organization_id,assignment_type_id,date,assignee_id) VALUES ('a3000000-0000-4000-8000-000000000101','a3000000-0000-4000-8000-000000000402','2030-03-06','Alpha Renamed') $$,'42501','new row violates row-level security policy for table "daily_assignments"','name-valued writes are rejected even for owners');
+RESET ROLE;
+SELECT * FROM finish();
+ROLLBACK;

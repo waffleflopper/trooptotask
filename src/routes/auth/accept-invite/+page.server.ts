@@ -1,9 +1,13 @@
+import { passwordCompletionState } from '$lib/server/passwordCompletion';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
-	const {
-		data: { session }
-	} = await locals.supabase.auth.getSession();
-
-	return { hasSession: !!session?.access_token };
+	// Use hook-verified identity, not an unverified provider cookie session.
+	const hasSession = !!locals.user && locals.session?.user.id === locals.user.id;
+	const invitePending = hasSession && locals.authFlow === 'invite';
+	return {
+		hasSession,
+		invitePending,
+		passwordCompletion: invitePending ? await passwordCompletionState(locals) : null
+	};
 };

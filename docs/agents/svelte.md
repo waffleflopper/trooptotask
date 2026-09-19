@@ -1,16 +1,15 @@
 # Svelte And SvelteKit Guidance
 
-Use this file for work that touches Svelte, SvelteKit, or generated shadcn-svelte components.
+Use this guide when implementing Svelte/SvelteKit behavior or answering framework questions. It does not require framework research for unrelated files or a prose-only edit.
 
-## Svelte MCP Tools
+## Documentation and validation
 
-When asked about Svelte or SvelteKit topics, use the Svelte MCP documentation flow:
+When Svelte MCP tools are available, call `list-sections`, select sections by their `use_cases`, and retrieve the sections relevant to the task with `get-documentation`. When writing Svelte components, run `svelte-autofixer`, resolve applicable findings and rerun after corrections. Explain any finding that does not apply rather than changing correct behavior to satisfy a suggestion.
 
-1. Call `list-sections` first to discover relevant documentation sections.
-2. Read the returned `use_cases` and call `get-documentation` for every relevant section.
-3. When writing Svelte code, run `svelte-autofixer` and keep applying fixes until it reports no issues or suggestions.
-4. Ask whether Robert wants a `playground-link` only when code was not written directly to project files.
+If those tools are unavailable, use official Svelte/SvelteKit documentation for the specific question, inspect the repo's installed versions and run the [required local checks](../architecture/DEFINITION_OF_DONE.md#required-commands). Report the unavailable tool separately from checks that passed; an unavailable documentation tool does not block independent work or count as successful validation.
 
-## shadcn-svelte Docs
+A `playground-link` is optional for standalone examples when useful or requested. Work written directly into the repo needs no playground confirmation.
 
-- When working with shadcn-svelte components, reference `https://www.shadcn-svelte.com/llms.txt` first so you can jump to the specific component documentation before changing generated component source or shared component usage.
+## shadcn-svelte
+
+When changing generated shadcn-svelte source or shared component usage, use the [project UI contract](ui-system.md) and the relevant component documentation from [shadcn-svelte's documentation index](https://www.shadcn-svelte.com/llms.txt).

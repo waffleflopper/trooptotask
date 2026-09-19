@@ -47,13 +47,6 @@
 		| { kind: 'portal' }
 		| { kind: 'cancel'; feedback: BillingCancellationFeedback | null };
 
-	type ConfirmSensitiveActionResult = {
-		success?: boolean;
-		error?: string;
-		requiresStepUp?: boolean;
-		stepUpPath?: string | null;
-	};
-
 	type UsageAlertAction = {
 		id: string;
 		label: string;
@@ -642,15 +635,22 @@
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ password: confirmPassword })
 			});
-			const result = (await res.json()) as ConfirmSensitiveActionResult;
+			const payload: unknown = await res.json();
+			const result =
+				payload && typeof payload === 'object' && !Array.isArray(payload) ? (payload as Record<string, unknown>) : null;
 
-			if (result.requiresStepUp) {
+			if (
+				result?.requiresStepUp === true &&
+				((res.ok && result.stepUpPath === '/auth/mfa-verify') ||
+					(res.status === 401 && result.stepUpPath === '/auth/login'))
+			) {
 				redirectToSensitiveActionStepUp(result);
 				return;
 			}
 
-			if (!res.ok) {
-				confirmPasswordError = result.error || 'Password confirmation failed. Try again.';
+			if (!res.ok || result?.success !== true || result.error != null || result.requiresStepUp != null) {
+				confirmPasswordError =
+					typeof result?.error === 'string' && result.error ? result.error : 'Password confirmation failed. Try again.';
 				return;
 			}
 

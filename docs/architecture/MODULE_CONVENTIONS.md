@@ -18,6 +18,8 @@ The codebase already trends toward:
 
 That trend is real, but not finished. Contributors should strengthen it instead of branching away from it.
 
+For stabilization, apply the [program decisions](ARCHITECTURE.md#stabilization-decisions): each declared module or UI migration includes all affected consumers and deletion of replaced implementations, old-path wrappers, aliases and configuration. A migrated example component or a compatibility facade does not complete a cutover.
+
 ## Frontend Conventions
 
 ### Route shells
@@ -49,7 +51,7 @@ Keep feature-specific logic inside the feature module unless it is truly shared 
 - Keep public marketing primitives in `$lib/components/public/*`.
 - Follow `docs/component-catalog.md` for shared UI usage and styling expectations.
 - The current UI foundation is shadcn-svelte, Tailwind v4, and TroopToTask compound components. Shared components own appearance; route-level changes are behavioral only.
-- Visual changes happen in tokens, generated/shared component source, or documented shared component variants. Component fit problems should be reported as design-system gaps instead of patched locally.
+- Visual changes happen in tokens, generated/shared component source, or documented shared component variants. Resolve component fit gaps within authorized UI work through shared APIs and affected consumers, following the [UI contract](../agents/ui-system.md).
 - When production routes are explicitly migrated or revised, replace obsolete route CSS with Tailwind utility composition that matches the shared baseline instead of preserving route-specific legacy visuals.
 
 ### Contexts and stores
@@ -57,7 +59,7 @@ Keep feature-specific logic inside the feature module unless it is truly shared 
 - Page contexts are valid in v1, but they should not silently become god objects.
 - If a context starts to own too many unrelated concerns, that is a signal to deepen module boundaries rather than keep stuffing logic into it.
 - Prefer pushing stable calculations and business rules into smaller modules with thinner public interfaces.
-- The `Roster Read Model` is shared infrastructure under `$lib/stores` and `$lib/server/core/useCases/rosterReadModel.ts`, because Calendar, Training, Dashboard, Onboarding, Rating Scheme, Duty Roster, settings archives, and shell hydration all read the same organization roster. Personnel-owned write workflows still belong under `$features/personnel`. See `docs/architecture/ROSTER_READ_MODEL.md` for the explicit `full`/`scoped` and `active`/`archived`/`all` usage contract.
+- The `Roster Read Model` is shared infrastructure under `$lib/stores` and `$lib/server/core/useCases/rosterReadModel.ts`, because Calendar, Training, Dashboard, Onboarding, Rating Scheme, settings archives, and shell hydration read the same organization roster. Remove the existing Duty Roster consumer with that feature; preserve retained readers. Personnel-owned write workflows still belong under `$features/personnel`. See `docs/architecture/ROSTER_READ_MODEL.md` for the explicit `full`/`scoped` and `active`/`archived`/`all` usage contract.
 
 ### Client read models
 
@@ -73,14 +75,9 @@ A client read model should:
 
 This pattern is appropriate for dashboard-style surfaces where components should mostly render stable rows, counts, sections, and labels instead of re-deriving business-facing screen state. It is not a reason to move provider access or route permissions into frontend modules.
 
-Calendar and duty-roster have several current examples of this direction:
+`CalendarRangeCoordinator` owns calendar range expansion, request de-duping, range-store merging and retry state. Its advanced duty event merging is scheduled for removal with all Duty Roster consumers in phase 05 of [TODO](../stabilization/TODO.md); preserve the ordinary Calendar behavior and persisted facts in R6.
 
-- `CalendarRangeCoordinator` owns client-side calendar range expansion, request de-duping, range-store merging, retry state, and advanced duty event merging for the calendar page.
-- `DutyRosterRun` owns legacy simple-duty run snapshots, DA6 selection and numbering semantics, snapshot-derived apply/history payloads, and the formatting-neutral export model. The old simple-duty generator UI has been removed; keep any retained run logic behind module boundaries until it is either consumed by the replacement Duty Roster surface or removed in a dedicated cleanup.
-- `dutyRosterBrowserExport` is a temporary browser download adapter for the current Excel-compatible HTML export. It may format and download an existing run export model or saved history record, but it must not rebuild selection, DA6 numbering, apply payloads, or history payloads.
-- The old Advanced Duty Run server module and `/api/duty-events/**` write/revision endpoints have been removed. `dutyEventCrud.ts` is now a read-only calendar hydration shim for old persisted `duty_events` rows.
-
-These are feature-owned client orchestration boundaries. They should not grow into provider access, permission evaluation, or new duty-roster product behavior.
+`DutyRosterRun`, `dutyRosterBrowserExport` and the read-only `dutyEventCrud.ts` hydration shim are obsolete removal targets, not module patterns to extend or feed into a replacement Duty Roster surface. Their owning tasks must delete the implementations and consumers. Historical duty rows do not justify continued runtime hydration; resolve schema/data disposition separately under the DB contract.
 
 ## Server Conventions
 
@@ -116,7 +113,7 @@ Use explicit architecture-review work when a slice is intended to:
 - reduce file-jumping to understand one concept
 - replace shallow helper sprawl with a deeper module boundary
 
-Use the `improve-codebase-architecture` workflow for that kind of change instead of treating it as incidental cleanup.
+Keep deepening work within the requested boundary and finish its consumer cutover. Use an available module-design skill when useful; ordinary fixes do not require a separate architecture workflow.
 
 ## Current Hotspots
 
@@ -124,13 +121,12 @@ The following areas are especially likely to benefit from deepening rather than 
 
 - calendar contexts, range loading, and page orchestration
 - dashboard bootstrapping and context orchestration
-- duty roster generation and template/event flows, even though advanced-duty collection rules now have a feature-owned helper boundary
 - personnel page orchestration and bulk flows
 - training reports and applicability flows
 - organization settings and membership-management flows
 
 ## Conventions For Drift
 
-- If current code and desired architecture disagree, document the disagreement.
+- If current code and desired architecture disagree, record the disagreement and bounded remediation in the stabilization queue.
 - Do not normalize a contradiction into precedent just because it already exists.
-- If a slice is not explicitly authorized to remediate a seam, leave the seam narrower or better documented than before, not broader.
+- Complete every seam required by the authorized cutover. Record unrelated discoveries for their owning tasks; do not use drift documentation to close an unfinished migration.

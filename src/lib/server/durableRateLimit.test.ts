@@ -34,6 +34,101 @@ function makeSharedStore(): DurableRateLimitStore & { keys: string[] } {
 }
 
 describe('durable rate limit', () => {
+	it.each([
+		['missing data', null],
+		['empty rows', []],
+		['missing decision', {}],
+		['numeric decision', { limited: 0, retry_after_ms: 0 }],
+		['string decision', { limited: 'false', retry_after_ms: 0 }],
+		['missing retry', { limited: true }],
+		['negative retry', { limited: true, retry_after_ms: -1 }],
+		['non-finite retry', { limited: true, retry_after_ms: Infinity }],
+		['fractional retry', { limited: true, retry_after_ms: 0.5 }],
+		['string retry', { limited: true, retry_after_ms: '1000' }],
+		['malformed allowed row', { limited: false, retry_after_ms: null }],
+		[
+			'ambiguous rows',
+			[
+				{ limited: false, retry_after_ms: 0 },
+				{ limited: true, retry_after_ms: 1000 }
+			]
+		]
+	])('rejects %s instead of granting permission or returning unusable retry metadata', async (_name, data) => {
+		const store = createSupabaseDurableRateLimitStore({
+			rpc: vi.fn().mockResolvedValue({ data, error: null })
+		} as never);
+		await expect(
+			store.checkBucket({
+				key: 'password-update:user:synthetic',
+				windowMs: 900_000,
+				maxRequests: 5,
+				now: new Date('2026-09-17T12:00:00Z')
+			})
+		).rejects.toThrow();
+	});
+
+	it.each([
+		{ limited: false, retry_after_ms: 900_000 },
+		{ limited: true, retry_after_ms: 1234 },
+		{ limited: true, retry_after_ms: 0 }
+	])('accepts an explicit valid provider decision %j in singleton and object form', async (row) => {
+		for (const data of [row, [row]]) {
+			const store = createSupabaseDurableRateLimitStore({
+				rpc: vi.fn().mockResolvedValue({ data, error: null })
+			} as never);
+			await expect(
+				store.checkBucket({
+					key: 'synthetic',
+					windowMs: 900_000,
+					maxRequests: 5,
+					now: new Date('2026-09-17T12:00:00Z')
+				})
+			).resolves.toEqual(row.limited ? { limited: true, retryAfterMs: row.retry_after_ms } : { limited: false });
+		}
+	});
+
+	it('propagates data-plus-error and thrown provider failures and allows a later successful retry', async () => {
+		const failure = new Error('synthetic provider unavailable');
+		const rpc = vi
+			.fn()
+			.mockResolvedValueOnce({ data: [{ limited: false, retry_after_ms: 0 }], error: failure })
+			.mockRejectedValueOnce(failure)
+			.mockResolvedValueOnce({ data: [{ limited: false, retry_after_ms: 900_000 }], error: null });
+		const store = createSupabaseDurableRateLimitStore({ rpc } as never);
+		const input = { key: 'synthetic', windowMs: 900_000, maxRequests: 5, now: new Date('2026-09-17T12:00:00Z') };
+		await expect(store.checkBucket(input)).rejects.toBe(failure);
+		await expect(store.checkBucket(input)).rejects.toBe(failure);
+		await expect(store.checkBucket(input)).resolves.toEqual({ limited: false });
+	});
+
+	it('rejects a provider envelope without an explicit error status', async () => {
+		const store = createSupabaseDurableRateLimitStore({
+			rpc: vi.fn().mockResolvedValue({ data: [{ limited: false, retry_after_ms: 0 }] })
+		} as never);
+		await expect(
+			store.checkBucket({ key: 'synthetic', windowMs: 900_000, maxRequests: 5, now: new Date('2026-09-17T12:00:00Z') })
+		).rejects.toThrow();
+	});
+
+	it('does not turn a later dimension failure into an allowed or partial limited decision', async () => {
+		const failure = new Error('IP bucket unavailable');
+		for (const first of [{ limited: false }, { limited: true, retryAfterMs: 1000 }]) {
+			const checkBucket = vi.fn().mockResolvedValueOnce(first).mockRejectedValueOnce(failure);
+			await expect(
+				checkDurableRateLimit({
+					namespace: 'password-update',
+					dimensions: [
+						{ name: 'user', value: 'user-a' },
+						{ name: 'ip', value: '192.0.2.1' }
+					],
+					windowMs: 900_000,
+					maxRequests: 5,
+					store: { checkBucket }
+				})
+			).rejects.toBe(failure);
+		}
+	});
+
 	it('normalizes email dimensions before hashing bucket keys', async () => {
 		const now = new Date('2026-05-22T12:00:00.000Z');
 		const store = makeSharedStore();

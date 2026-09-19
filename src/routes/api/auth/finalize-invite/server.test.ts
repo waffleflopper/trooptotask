@@ -1,7 +1,12 @@
+vi.mock('$lib/server/supabase', () => ({ getAdminClient: () => ({ rpc: attemptStore.rpc }) }));
+import { attemptStore } from '../../../../tests/fixtures/passwordAttempt';
+import { passwordSessionToken } from '../../../../tests/fixtures/passwordSession';
+import { passwordAttempt } from '$lib/server/passwordCompletion';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('$lib/server/auto-accept-org-invites', () => ({
-	autoAcceptOrgInvites: vi.fn().mockResolvedValue({ accepted: 2 })
+vi.mock('$lib/server/auto-accept-org-invites', async (importOriginal) => ({
+	...(await importOriginal<typeof import('$lib/server/auto-accept-org-invites')>()),
+	autoAcceptOrgInvites: vi.fn().mockResolvedValue({ accepted: 2, unavailable: 0 })
 }));
 
 vi.mock('$lib/server/userProfile', async (importOriginal) => {
@@ -19,10 +24,20 @@ import { POST } from './+server';
 describe('POST /api/auth/finalize-invite', () => {
 	afterEach(() => {
 		vi.mocked(upsertCurrentUserProfile).mockClear();
+		vi.mocked(autoAcceptOrgInvites).mockClear();
 	});
 
 	it('finalizes the invite and clears the pending invite flow marker', async () => {
-		const cookies = { delete: vi.fn() };
+		attemptStore.row = {
+			actor: 'user-123',
+			session: '00000000-0000-4000-8000-000000000001',
+			id: '00000000-0000-4000-8000-000000000099',
+			flow: 'invite',
+			state: 'complete',
+			expiresAt: 4102444800,
+			acquired: false
+		};
+		const cookies = { get: vi.fn(), delete: vi.fn() };
 
 		const response = await POST({
 			locals: {
@@ -35,13 +50,24 @@ describe('POST /api/auth/finalize-invite', () => {
 						rank: 'SGT'
 					}
 				},
-				supabase: {}
+				session: { user: { id: 'user-123' }, access_token: passwordSessionToken('user-123'), expires_at: 4102444800 },
+				authFlow: 'invite',
+				supabase: {
+					auth: {
+						mfa: {
+							getAuthenticatorAssuranceLevel: async () => ({
+								data: { currentLevel: 'aal1', nextLevel: 'aal1' },
+								error: null
+							})
+						}
+					}
+				}
 			},
 			cookies
 		} as unknown as Parameters<typeof POST>[0]);
 
 		expect(response.status).toBe(200);
-		expect(await response.json()).toEqual({ ok: true, accepted: 2, activated: true });
+		expect(await response.json()).toEqual({ ok: true, accepted: 2, unavailable: 0, activated: true });
 		expect(upsertCurrentUserProfile).toHaveBeenCalledWith(expect.any(Object), {
 			firstName: 'Jane',
 			lastName: 'Smith',
@@ -51,8 +77,62 @@ describe('POST /api/auth/finalize-invite', () => {
 		expect(cookies.delete).toHaveBeenCalledWith('ttt_pending_auth_flow', { path: '/' });
 	});
 
+	it.each([null, 'started', 'failed', 'pending', 'expired', 'unavailable', 'complete'] as const)(
+		'allows activation only after persisted revocation completion: %s',
+		async (state) => {
+			const jar = new Map<string, string>();
+			const cookies = {
+				get: (name: string) => jar.get(name),
+				set: (name: string, value: string) => {
+					jar.set(name, value);
+				},
+				delete: vi.fn()
+			};
+			const locals = {
+				user: {
+					id: 'actor',
+					email: 'person@example.test',
+					user_metadata: { firstName: 'Jane', lastName: 'Smith', rank: 'SGT' }
+				},
+				session: {
+					user: { id: 'actor' },
+					access_token: passwordSessionToken('actor'),
+					expires_at: Date.now() / 1000 + 600
+				},
+				authFlow: 'invite',
+				supabase: {
+					auth: {
+						mfa: {
+							getAuthenticatorAssuranceLevel: async () => ({
+								data: { currentLevel: 'aal2', nextLevel: 'aal2' },
+								error: null
+							})
+						}
+					}
+				}
+			} as unknown as App.Locals;
+			await passwordAttempt(locals, 'begin');
+			if (state === null) attemptStore.row = null;
+			else if (state === 'started' || state === 'failed' || state === 'complete') attemptStore.row!.state = state;
+			else attemptStore.row!.state = 'pending';
+			if (state === 'expired') attemptStore.row!.expiresAt = Date.now() / 1000 - 1;
+			if (state === 'unavailable') attemptStore.unavailable = true;
+			const response = await POST({ locals, cookies } as unknown as Parameters<typeof POST>[0]);
+			if (state === 'complete') {
+				expect(response.status).toBe(200);
+				expect(autoAcceptOrgInvites).toHaveBeenCalledOnce();
+			} else {
+				expect(response.status).toBe(409);
+				expect(await response.json()).toMatchObject({ accepted: 0, activated: false });
+				expect(autoAcceptOrgInvites).not.toHaveBeenCalled();
+				expect(upsertCurrentUserProfile).not.toHaveBeenCalled();
+				expect(cookies.delete).not.toHaveBeenCalled();
+			}
+		}
+	);
+
 	it('rejects requests without an active invite session', async () => {
-		const cookies = { delete: vi.fn() };
+		const cookies = { get: vi.fn(), delete: vi.fn() };
 
 		const response = await POST({
 			locals: {

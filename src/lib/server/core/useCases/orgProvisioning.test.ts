@@ -1,6 +1,4 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { getDefaultFederalHolidays } from '$features/calendar/utils/federalHolidays';
-import { BUILT_IN_RANK_CATALOG } from '$lib/domain/rankCatalog';
 import {
 	loadOrganizationProvisioning,
 	provisionOrganization,
@@ -12,21 +10,11 @@ import {
 	type OrgProvisioningStatusTypeSeed
 } from './orgProvisioning';
 
-const DEFAULT_SEEDED_RANK_SERVICES = new Set(['army', 'civilian', 'custom']);
-const DEFAULT_SEEDED_RANK_COUNT = BUILT_IN_RANK_CATALOG.filter((entry) =>
-	DEFAULT_SEEDED_RANK_SERVICES.has(entry.service)
-).length;
-
 function createOrgProvisioningPort(
 	options: {
 		availability?: { allowed: boolean; message?: string };
 		availabilityError?: Error;
 		createResult?: { orgId: string | null; errorMessage: string | null };
-		updateOwnerMembershipEmailError?: string | null;
-		groupsError?: string | null;
-		statusTypesError?: string | null;
-		assignmentTypesError?: string | null;
-		federalHolidaysError?: string | null;
 		rankCatalogError?: string | null;
 	} = {}
 ): OrgProvisioningPort & {
@@ -71,23 +59,23 @@ function createOrgProvisioningPort(
 		},
 		async updateOwnerMembershipEmail(input) {
 			ownerEmailUpdates.push(input);
-			return options.updateOwnerMembershipEmailError ?? null;
+			return null;
 		},
 		async seedDefaultGroups(organizationId, groups) {
 			groupSeeds.push({ organizationId, groups });
-			return options.groupsError ?? null;
+			return null;
 		},
 		async seedDefaultStatusTypes(organizationId, statusTypes) {
 			statusTypeSeeds.push({ organizationId, statusTypes });
-			return options.statusTypesError ?? null;
+			return null;
 		},
 		async seedDefaultAssignmentTypes(organizationId, assignmentTypes) {
 			assignmentTypeSeeds.push({ organizationId, assignmentTypes });
-			return options.assignmentTypesError ?? null;
+			return null;
 		},
 		async seedFederalHolidays(organizationId, specialDays) {
 			federalHolidaySeeds.push({ organizationId, specialDays });
-			return options.federalHolidaysError ?? null;
+			return null;
 		},
 		async seedDefaultRankCatalog(organizationId, entries) {
 			rankCatalogSeeds.push({ organizationId, entries });
@@ -126,16 +114,18 @@ describe('loadOrganizationProvisioning', () => {
 describe('provisionOrganization', () => {
 	afterEach(() => {
 		vi.restoreAllMocks();
+		vi.useRealTimers();
 	});
 
-	it('preserves the current bootstrap defaults behind the provisioning boundary', async () => {
+	it('creates retained defaults for the new Organization with independent calendar and rank examples', async () => {
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date('2026-06-15T12:00:00Z'));
 		const port = createOrgProvisioningPort();
 		const result = await provisionOrganization(port, {
 			name: '  Alpha   Company  ',
 			userId: 'user-1',
 			email: 'OWNER@EXAMPLE.COM'
 		});
-		const expectedHolidays = getDefaultFederalHolidays();
 
 		expect(result).toEqual({ orgId: 'org-1' });
 		expect(port.availabilityRequests).toEqual(['user-1']);
@@ -236,15 +226,51 @@ describe('provisionOrganization', () => {
 		]);
 		expect(port.federalHolidaySeeds).toHaveLength(1);
 		expect(port.federalHolidaySeeds[0]?.organizationId).toBe('org-1');
-		expect(port.federalHolidaySeeds[0]?.specialDays).toHaveLength(expectedHolidays.length);
-		expect(port.federalHolidaySeeds[0]?.specialDays[0]).toEqual({
-			date: expectedHolidays[0]?.date,
-			name: expectedHolidays[0]?.name,
-			type: expectedHolidays[0]?.type
-		});
+		expect(port.federalHolidaySeeds[0]?.specialDays).toHaveLength(44);
+		expect(port.federalHolidaySeeds[0]?.specialDays).toEqual(
+			expect.arrayContaining([
+				{ date: '2025-01-01', name: "New Year's Day", type: 'federal-holiday' },
+				{ date: '2026-07-03', name: 'Independence Day', type: 'federal-holiday' },
+				{ date: '2027-11-25', name: 'Thanksgiving Day', type: 'federal-holiday' },
+				{ date: '2028-12-25', name: 'Christmas Day', type: 'federal-holiday' }
+			])
+		);
 		expect(port.rankCatalogSeeds).toHaveLength(1);
 		expect(port.rankCatalogSeeds[0]?.organizationId).toBe('org-1');
-		expect(port.rankCatalogSeeds[0]?.entries).toHaveLength(DEFAULT_SEEDED_RANK_COUNT);
+		expect(port.rankCatalogSeeds[0]?.entries.map((entry) => entry.code).sort()).toEqual(
+			[
+				'GEN',
+				'LTG',
+				'MG',
+				'BG',
+				'COL',
+				'LTC',
+				'MAJ',
+				'CPT',
+				'1LT',
+				'2LT',
+				'CW5',
+				'CW4',
+				'CW3',
+				'CW2',
+				'WO1',
+				'CSM',
+				'SGM',
+				'1SG',
+				'MSG',
+				'SFC',
+				'SSG',
+				'SGT',
+				'CPL',
+				'SPC',
+				'SP4',
+				'PFC',
+				'PV2',
+				'PV1',
+				'CIV',
+				'CUSTOM'
+			].sort()
+		);
 		expect(port.rankCatalogSeeds[0]?.entries).toEqual(
 			expect.arrayContaining([
 				expect.objectContaining({
@@ -273,6 +299,13 @@ describe('provisionOrganization', () => {
 		});
 
 		expect(port.createRequests).toEqual(['1st Platoon HQ']);
+	});
+
+	it('accepts a name at the 100-character boundary without data loss', async () => {
+		const port = createOrgProvisioningPort();
+		const name = 'A'.repeat(100);
+		await provisionOrganization(port, { name, userId: 'user-1' });
+		expect(port.createRequests).toEqual([name]);
 	});
 
 	it('rejects blank organization names before any provider work starts', async () => {
@@ -353,30 +386,6 @@ describe('provisionOrganization', () => {
 
 		expect(consoleErrorSpy).toHaveBeenCalledWith('Organization creation error:', 'Failed to create organization');
 		expect(port.groupSeeds).toEqual([]);
-	});
-
-	it('keeps seed failures best-effort while logging the existing bootstrap errors', async () => {
-		const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-		const port = createOrgProvisioningPort({
-			updateOwnerMembershipEmailError: 'email update failed',
-			groupsError: 'groups failed',
-			statusTypesError: 'statuses failed',
-			assignmentTypesError: 'assignments failed',
-			federalHolidaysError: 'holidays failed'
-		});
-
-		const result = await provisionOrganization(port, {
-			name: 'Alpha Company',
-			userId: 'user-1',
-			email: 'owner@example.com'
-		});
-
-		expect(result).toEqual({ orgId: 'org-1' });
-		expect(consoleErrorSpy).toHaveBeenCalledWith('Owner membership email update error:', 'email update failed');
-		expect(consoleErrorSpy).toHaveBeenCalledWith('Groups seed error:', 'groups failed');
-		expect(consoleErrorSpy).toHaveBeenCalledWith('Status types seed error:', 'statuses failed');
-		expect(consoleErrorSpy).toHaveBeenCalledWith('Assignment types seed error:', 'assignments failed');
-		expect(consoleErrorSpy).toHaveBeenCalledWith('Holidays seed error:', 'holidays failed');
 	});
 
 	it('fails the request when the default rank catalog cannot be seeded', async () => {

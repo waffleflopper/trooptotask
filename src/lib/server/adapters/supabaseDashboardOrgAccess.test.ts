@@ -1,4 +1,5 @@
-import { describe, expect, it, vi } from 'vitest';
+import { createClient } from '@supabase/supabase-js';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createSupabaseDashboardOrgAccessPort } from './supabaseDashboardOrgAccess';
 
 type Call = { method: string; args: unknown[] };
@@ -15,61 +16,94 @@ function createRpcBuilder(result: unknown) {
 	return { builder, calls };
 }
 
-function createPendingInvitationListBuilder(result: unknown) {
-	const calls: Call[] = [];
-
-	function track(method: string) {
-		return (...args: unknown[]) => {
-			calls.push({ method, args });
-			return builder;
-		};
-	}
-
-	const builder: Record<string, unknown> = {
-		select: track('select'),
-		eq: track('eq'),
-		gt: track('gt'),
-		order: track('order'),
-		range: (...args: unknown[]) => {
-			calls.push({ method: 'range', args });
-			return result;
-		}
-	};
-
-	return { builder, calls };
-}
+afterEach(() => vi.useRealTimers());
 
 describe('createSupabaseDashboardOrgAccessPort', () => {
-	it('lists only pending, unexpired invitations for the normalized email while preserving organization names', async () => {
-		const { builder, calls } = createPendingInvitationListBuilder({
-			data: [
-				{
-					id: 'invite-1',
-					organization_id: 'org-1',
-					created_at: '2026-05-22T00:00:00.000Z',
-					organizations: { id: 'org-1', name: 'Alpha Company' }
-				}
-			],
-			error: null
-		});
-		const supabase = {
-			from: vi.fn(() => builder)
-		};
-		const port = createSupabaseDashboardOrgAccessPort({ supabase } as never);
-
-		const result = await port.listPendingInvitationsForEmail('user@example.com');
-
-		expect(result).toEqual([
+	it('lists only the normalized invitee pending invitations strictly after expiry', async () => {
+		vi.useFakeTimers();
+		vi.setSystemTime('2026-09-18T12:00:00.000Z');
+		const rows = [
 			{
-				id: 'invite-1',
-				organizationId: 'org-1',
-				organizationName: 'Alpha Company',
-				createdAt: '2026-05-22T00:00:00.000Z'
+				id: 'eligible',
+				normalized_email: 'invitee@example.com',
+				status: 'pending',
+				expires_at: '2026-09-18T12:00:00.001Z'
+			},
+			{
+				id: 'wrong-email',
+				normalized_email: 'other@example.com',
+				status: 'pending',
+				expires_at: '2026-10-01T00:00:00.000Z'
+			},
+			{
+				id: 'expired',
+				normalized_email: 'invitee@example.com',
+				status: 'pending',
+				expires_at: '2026-09-18T12:00:00.000Z'
+			},
+			{
+				id: 'accepted',
+				normalized_email: 'invitee@example.com',
+				status: 'accepted',
+				expires_at: '2026-10-01T00:00:00.000Z'
+			},
+			{
+				id: 'declined',
+				normalized_email: 'invitee@example.com',
+				status: 'declined',
+				expires_at: '2026-10-01T00:00:00.000Z'
 			}
-		]);
-		expect(calls).toContainEqual({ method: 'eq', args: ['normalized_email', 'user@example.com'] });
-		expect(calls).toContainEqual({ method: 'eq', args: ['status', 'pending'] });
-		expect(calls).toContainEqual({ method: 'gt', args: ['expires_at', expect.any(String)] });
+		].map((row) => ({
+			...row,
+			organization_id: 'org-a',
+			created_at: '2026-09-18T11:00:00.000Z',
+			organizations: { id: 'org-a', name: 'Alpha' }
+		}));
+		const supabase = createClient('http://localhost:9', 'synthetic-anon-key', {
+			auth: { persistSession: false, autoRefreshToken: false },
+			global: {
+				fetch: async (input, init) => {
+					const url = new URL(String(input));
+					expect(init?.method).toBe('GET');
+					expect(url.pathname).toBe('/rest/v1/organization_invitations');
+					return Response.json(
+						rows.filter((row) => {
+							for (const field of ['normalized_email', 'status'] as const) {
+								const value = url.searchParams.get(field);
+								if (value && value !== `eq.${row[field]}`) return false;
+							}
+							const expiry = url.searchParams.get('expires_at');
+							if (!expiry) return true;
+							if (expiry.startsWith('gt.')) return row.expires_at > expiry.slice(3);
+							if (expiry.startsWith('gte.')) return row.expires_at >= expiry.slice(4);
+							throw new Error('Unexpected expiry operator');
+						})
+					);
+				}
+			}
+		});
+		const port = createSupabaseDashboardOrgAccessPort({ supabase });
+		const { loadDashboardOrgAccess } = await import('$lib/server/core/useCases/dashboardOrgAccess');
+		const result = await loadDashboardOrgAccess(
+			{ ...port, listOrganizationsForUser: async () => [] },
+			{
+				userId: 'invitee',
+				email: ' INVITEE@EXAMPLE.COM ',
+				forceShow: false
+			}
+		);
+		expect(result).toEqual({
+			organizations: [],
+			redirectTo: null,
+			pendingInvitations: [
+				{
+					id: 'eligible',
+					organizationId: 'org-a',
+					organizationName: 'Alpha',
+					createdAt: '2026-09-18T11:00:00.000Z'
+				}
+			]
+		});
 	});
 
 	it('accepts invitations through the atomic database transition', async () => {

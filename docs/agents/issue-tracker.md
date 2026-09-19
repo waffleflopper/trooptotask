@@ -1,22 +1,9 @@
-# Issue tracker: GitHub
+# Issue Tracker: GitHub
 
-Issues and PRDs for this repo live in GitHub Issues for `waffleflopper/trooptotask`. Use the `gh` CLI for issue operations when a skill needs to publish, read, label, comment on, or close issues.
+Issues and PRDs live in GitHub Issues. Use the repository's configured GitHub remote; `gh` resolves it from the repo root. Confirm the target when multiple remotes make ownership ambiguous rather than using a hardcoded repository name.
 
-## Conventions
+Read an issue with `gh issue view <number> --comments`; use `gh issue list` to find relevant tickets. Reading context does not authorize creating, commenting on, relabeling or closing an issue.
 
-- **Create an issue**: `gh issue create --title "..." --body "..."`
-- **Read an issue**: `gh issue view <number> --comments`
-- **List issues**: `gh issue list --state open --json number,title,body,labels,comments`
-- **Comment on an issue**: `gh issue comment <number> --body "..."`
-- **Apply or remove labels**: `gh issue edit <number> --add-label "..."` / `--remove-label "..."`
-- **Close an issue**: `gh issue close <number> --comment "..."`
+For tracker writes, use authorization from the current request or an explicitly invoked workflow that includes publication. An incidental reference in a skill is not permission to publish. Prepare the exact title/body/labels locally before any approval needed for publication. Use a body file for multiline issue text and the [triage mapping](triage-labels.md) for labels.
 
-Infer the repo from `git remote -v`; `gh` does this automatically when run inside this clone.
-
-## When a skill says "publish to the issue tracker"
-
-Create a GitHub issue in `waffleflopper/trooptotask`.
-
-## When a skill says "fetch the relevant ticket"
-
-Run `gh issue view <number> --comments` from the repo root.
+Stabilization uses the local [TODO](../stabilization/TODO.md) and [evidence](../stabilization/EVIDENCE.md); it does not authorize GitHub publication or communications.

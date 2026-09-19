@@ -14,7 +14,7 @@ vi.mock('$lib/server/supabase', async () => {
 	};
 });
 
-import { buildLayoutContext, buildLayoutContextFromMembership } from './httpAdapter';
+import { buildRouteContext, buildLayoutContext, buildLayoutContextFromMembership } from './httpAdapter';
 
 const ORG_ID = '11111111-1111-1111-1111-111111111111';
 const OTHER_ORG_ID = '22222222-2222-2222-2222-222222222222';
@@ -292,4 +292,52 @@ describe('buildLayoutContext', () => {
 		expect(ctx.auth.scopeSet).toEqual({ kind: 'groups', groupIds: ['group-live'] });
 		expect(ctx.auth.capabilityMap.calendar).toBe('view');
 	});
+});
+
+describe('request-bound sensitive-action authorization', () => {
+	it.each(['route', 'layout', 'membership'] as const)(
+		'binds the %s authorizer to the verified request actor and token',
+		async (kind) => {
+			const membership = { role: 'owner' } satisfies MembershipRow;
+			const { supabase } = createMembershipSupabase(membership);
+			const assurance = vi.fn().mockResolvedValue({ data: { currentLevel: 'aal2', nextLevel: 'aal2' }, error: null });
+			Object.assign(supabase, {
+				auth: { mfa: { getAuthenticatorAssuranceLevel: assurance } },
+				rpc: vi.fn().mockResolvedValue({ data: false, error: null })
+			});
+			getApiContextMock.mockReturnValue({ supabase, userId: USER_ID });
+			const locals = {
+				user: { id: USER_ID },
+				session: {
+					access_token: 'verified-token',
+					expires_at: Math.floor(Date.now() / 1000) + 3600,
+					user: { id: USER_ID }
+				}
+			} as App.Locals;
+			cacheRequestMembership(locals, USER_ID, ORG_ID, membership);
+			const ctx =
+				kind === 'membership'
+					? await buildLayoutContextFromMembership(locals, {} as never, ORG_ID, membership)
+					: kind === 'layout'
+						? await buildLayoutContext(locals, {} as never, ORG_ID)
+						: await buildRouteContext({
+								locals,
+								cookies: {},
+								params: { orgId: ORG_ID },
+								request: new Request('http://localhost'),
+								getClientAddress: () => '127.0.0.1'
+							} as never);
+			await expect(
+				ctx.sensitiveActionAuthorizer.authorize({
+					action: 'organization.deleteOrganization',
+					actorUserId: OTHER_USER_ID
+				})
+			).resolves.toMatchObject({ allowed: false, reason: 'denied.unauthenticated' });
+			expect(assurance).not.toHaveBeenCalled();
+			await expect(
+				ctx.sensitiveActionAuthorizer.authorize({ action: 'organization.deleteOrganization', actorUserId: USER_ID })
+			).resolves.toMatchObject({ allowed: true, reason: 'allowed.mfaAssurance' });
+			expect(assurance).toHaveBeenCalledWith('verified-token');
+		}
+	);
 });

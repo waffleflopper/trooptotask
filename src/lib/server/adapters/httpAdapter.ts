@@ -117,6 +117,7 @@ async function buildContextInternal(event: RequestEvent): Promise<BuildContextRe
 		createSupabaseOrganizationInvitationSetupStateLookupPort(getAdminClient);
 	const sensitiveActionAuthorizer = createSupabaseSensitiveActionAuthorizer({
 		supabase,
+		authenticatedUserId: userId,
 		session: event.locals.session
 	});
 	const scopedStore = createScopedDataStore(store, policyScopeGroupIds(auth), defaultScopeRules);
@@ -188,6 +189,7 @@ export async function buildLayoutContext(locals: App.Locals, cookies: Cookies, o
 		createSupabaseOrganizationInvitationSetupStateLookupPort(getAdminClient);
 	const sensitiveActionAuthorizer = createSupabaseSensitiveActionAuthorizer({
 		supabase,
+		authenticatedUserId: userId,
 		session: locals.session
 	});
 	const scopedStore = createScopedDataStore(store, policyScopeGroupIds(auth), defaultScopeRules);
@@ -250,6 +252,7 @@ export async function buildLayoutContextFromMembership(
 		createSupabaseOrganizationInvitationSetupStateLookupPort(getAdminClient);
 	const sensitiveActionAuthorizer = createSupabaseSensitiveActionAuthorizer({
 		supabase,
+		authenticatedUserId: userId,
 		session: locals.session
 	});
 	const scopedStore = createScopedDataStore(store, policyScopeGroupIds(auth), defaultScopeRules);

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AccessRequestSetupState } from '$lib/server/accessRequestSetupState';
 import type { AuthContext, UseCaseContext } from '$lib/server/core/ports';
 import type { SettingsAccessSourceRow } from '../settingsMemberAccessReadModel.server';
@@ -288,6 +288,16 @@ function makeLoadContext(
 }
 
 describe('members settings setup-state lookup degradation', () => {
+	beforeEach(() => {
+		vi.useFakeTimers();
+		vi.setSystemTime(NOW);
+	});
+
+	afterEach(() => {
+		vi.useRealTimers();
+		vi.restoreAllMocks();
+	});
+
 	it('still renders the members screen when the setup-state lookup fails', async () => {
 		vi.spyOn(console, 'error').mockImplementation(() => {});
 		const context = makeLoadContext({

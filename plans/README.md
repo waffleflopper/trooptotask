@@ -21,107 +21,107 @@ Completed by PR #1230 on 2026-06-17: plans 083-087 now implement the self-servic
 Reconciled by the improve skill on 2026-06-28 at commit `88a2fbd5`: refreshed plan 092 after plan 091 merged runtime billing health/support visibility. Plan 092 remains the only TODO launch-runway plan and is executable on the current post-plan-091 baseline.
 Updated by the improve follow-up on 2026-06-28 at commit `2f3bc4d6` with plan 093 (Robert selected starter configuration packs from the post-launch `$improve next` shortlist).
 
-Execute in the order below unless dependencies say otherwise. Each executor must read the selected plan fully before starting, honor its STOP conditions, run every verification command, and update the status row when done.
+These plans record historical implementation work. The [stabilization queue](../docs/stabilization/TODO.md) now owns execution order and the [verification contract](../docs/architecture/DEFINITION_OF_DONE.md#verification-contract) owns current checks. Historical E2E commands and coverage claims below are obsolete: task 02-05 removed that harness. Historical artifact cleanup remains with stabilization task 13-02.
 
 The operator explicitly excluded automatic CI trigger work from this batch. Do not add `pull_request` or `push` triggers while executing these plans unless Robert asks for that separately.
 
 ## Execution Order And Status
 
-| Plan | Title                                             | Priority | Effort | Depends on | Status |
-| ---- | ------------------------------------------------- | -------- | ------ | ---------- | ------ |
-| 001  | Harden sensitive RPC execute privileges           | P1       | M      | -          | DONE   |
-| 002  | Reject unset cleanup bearer secrets               | P1       | S      | -          | DONE   |
-| 003  | Refresh org ownership RPC definitions             | P1       | M      | -          | DONE   |
-| 004  | Replace stale calendar range records              | P1       | M      | -          | DONE   |
-| 005  | Include existing duty events in template previews | P1       | M      | -          | DONE   |
-| 006  | Add a manual Supabase DB contract gate            | P2       | M      | 001, 003   | DONE   |
-| 007  | Restrict global admin search to support roles     | P1       | S      | -          | DONE   |
-| 008  | Harden archive-retention cron authorization       | P1       | S      | 002        | DONE   |
-| 009  | Make Calendar assignment replacement atomic       | P1       | M      | -          | DONE   |
-| 010  | Preserve scoped-store database pagination         | P2       | M      | -          | DONE   |
-| 011  | Verify sign-in roster PDF signatures              | P2       | S      | -          | DONE   |
-| 012  | Fail closed on suspension-check RPC errors        | P1       | S      | -          | DONE   |
-| 013  | Resolve critical vitest advisory, triage audit    | P1       | S      | -          | DONE   |
-| 014  | Fix Excel serial date UTC shift in imports        | P1       | S      | -          | DONE   |
-| 015  | pgTAP cross-org isolation contracts (5 tables)    | P2       | L      | -          | DONE   |
-| 016  | Stripe webhook E2E coverage                       | P2       | M      | 013 (soft) | DONE   |
-| 017  | Wire local verification gate (hook, gate, env)    | P2       | S      | -          | DONE   |
-| 018  | Filter dashboard active onboardings at query time | P1       | S      | -          | DONE   |
-| 019  | Add Calendar date-window indexes                  | P1       | M      | -          | DONE   |
-| 020  | Batch Training mark-all-complete saves            | P1       | S      | -          | DONE   |
-| 021  | Bulk upsert Training batch import rows            | P2       | M      | 020 (soft) | DONE   |
-| 022  | Bulk delete onboarding retention rows             | P2       | S      | -          | DONE   |
-| 023  | Validate batch import route bodies with zod       | P1       | S      | -          | DONE   |
-| 024  | Sanitize unhandled route error logs               | P2       | S      | -          | DONE   |
-| 025  | Duty-roster workflow E2E Playwright spec          | P2       | M      | -          | DONE   |
-| 026  | Add documented .env.example                       | P3       | S      | -          | DONE   |
-| 027  | Restrict audit-log settings to owner-only access  | P1       | M      | -          | DONE   |
-| 028  | Approve deletion requests after resource effects  | P1       | M      | -          | DONE   |
-| 029  | Remove active onboarding after snapshot failure   | P1       | M      | -          | DONE   |
-| 030  | Patch high-severity build-tool advisories         | P1       | M      | -          | DONE   |
-| 031  | Derive feedback org context server-side           | P2       | S-M    | -          | DONE   |
-| 032  | Disclose performance analytics in privacy page    | P2       | S      | -          | DONE   |
-| 033  | Hide deferred chrome backend error details        | P2       | S      | -          | DONE   |
-| 034  | Thread onboarding start date through API          | P2       | S      | 029        | DONE   |
-| 035  | Use local date for sign-in roster defaults        | P2       | S      | -          | DONE   |
-| 036  | Check cleanup-old-data RPC errors                 | P3       | S      | -          | DONE   |
-| 037  | Close route Supabase governance blind spot        | P3       | S      | -          | DONE   |
-| 038  | Pin Critical Tasks RLS helper search path         | P3       | S      | -          | DONE   |
-| 039  | Revoke client execute from service RPCs           | P1       | S      | -          | DONE   |
-| 040  | Lock down privileged state read RPCs              | P1       | M      | 039        | DONE   |
-| 041  | Surface admin ledger load failures                | P1       | S-M    | -          | DONE   |
-| 042  | Paginate platform admin org ledgers               | P1       | M      | 041        | DONE   |
-| 043  | Filter onboarding workspace bootstrap             | P2       | M      | -          | DONE   |
-| 044  | Add platform audit global timestamp index         | P2       | S-M    | -          | DONE   |
-| 045  | Count plan usage without full row loads           | P1       | S-M    | -          | DONE   |
-| 046  | Add lightweight Critical Tasks dashboard summary  | P1       | M      | -          | DONE   |
-| 047  | Split Training report detail from aggregate work  | P1       | M      | -          | DONE   |
-| 048  | Index long-range Calendar date cells              | P2       | S      | -          | DONE   |
-| 049  | Precompute DA6 matrix lookup maps                 | P2       | S      | -          | DONE   |
-| 050  | Deepen billing-event retry seam                   | P1       | M      | -          | DONE   |
-| 051  | Add platform organization detail seam             | P1       | M      | -          | DONE   |
-| 052  | Move user identity commands behind seam           | P2       | S-M    | -          | DONE   |
-| 053  | Drop legacy clinic owner RPC                      | P1       | S      | -          | DONE   |
-| 054  | Move logout mutation to POST                      | P1       | S      | -          | DONE   |
-| 055  | Replace capped Auth email scans                   | P1       | M      | -          | DONE   |
-| 056  | Add sign-in roster scan compensation              | P2       | M      | -          | DONE   |
-| 057  | Parallelize Dashboard organization access reads   | P2       | S      | -          | DONE   |
-| 058  | Align README runtime setup                        | P3       | S      | -          | DONE   |
-| 059  | Expand governance for admin route seams           | P1       | M      | -          | DONE   |
-| 060  | Move feedback submissions behind platform seam    | P2       | M      | -          | DONE   |
-| 061  | Share retention cleanup support                   | P1       | M      | -          | DONE   |
-| 062  | Move billing checkout recovery behind seam        | P1       | M      | -          | DONE   |
-| 063  | Move Personnel restore/delete into use cases      | P1       | M      | -          | DONE   |
-| 064  | Move Personnel export behind use case             | P2       | M      | -          | DONE   |
-| 065  | Retire dormant Dashboard tab configuration        | P2       | M      | -          | DONE   |
-| 066  | Split Calendar settings and delete stale managers | P2       | M      | -          | DONE   |
-| 067  | Consolidate Account Setup route orchestration     | P2       | M-L    | -          | DONE   |
-| 068  | Consolidate workbook interop and remove unused icons | P3       | S      | -          | DONE   |
-| 069  | Add pgTAP contracts for newer RLS surfaces        | P1       | M      | -          | DONE   |
-| 070  | Scope and validate sign-in roster snapshots       | P1       | M      | 069        | DONE   |
-| 071  | Activate feature permission-coupling governance   | P1       | S-M    | -          | DONE   |
-| 072  | Sanitize provider errors returned from 500 paths  | P2       | S      | -          | DONE   |
-| 073  | Use local date-only helpers in onboarding/imports | P2       | S-M    | -          | DONE   |
-| 074  | Guard billing mirror writes with event ordering   | P1       | M      | 069-073    | DONE   |
-| 075  | Harden account email change and login errors      | P1       | M      | -          | DONE   |
-| 076  | Batch onboarding resync writes                    | P2       | S-M    | -          | DONE   |
-| 077  | Remove legacy PKCE code-exchange paths            | P3       | S      | -          | DONE   |
-| 078  | Billing launch rehearsal go/no-go pack            | P1       | M      | -          | DONE   |
-| 079  | Reconcile paid-plan and beta-lane contract        | P1       | M      | 078        | DONE   |
-| 080  | Decide public acquisition path                    | P1       | M      | 079        | DONE   |
-| 081  | Surface first-run owner checklist                 | P2       | M      | 080        | DONE   |
-| 082  | Package operational security evidence             | P1       | M      | -          | DONE   |
-| 083  | Public account creation and abuse controls        | P1       | L      | 080        | DONE   |
-| 084  | Self-service organization creation and onboarding | P1       | M-L    | 083, 081   | DONE   |
-| 085  | Self-service checkout and billing recovery        | P1       | L      | 083, 084, 078 | DONE |
-| 086  | Support/admin visibility for self-service         | P1       | M-L    | 083, 084, 085, 082 | DONE |
-| 087  | Self-service acquisition E2E coverage             | P1       | L      | 083, 084, 085, 086 | DONE |
-| 088  | Self-service Organization Invitation branch       | P1       | M      | 083        | DONE   |
-| 089  | Paid-launch legal/trust/contact surface           | P1       | M      | -          | DONE   |
-| 090  | Billing launch readiness gate                     | P1       | M      | 083-087    | DONE   |
-| 091  | Billing health and support workflow               | P1       | M-L    | 085, 086   | DONE   |
-| 092  | Acquisition and activation health visibility      | P2       | M-L    | 081, 083-087 | DONE |
-| 093  | Starter configuration packs for first-week workflows | P2    | M-L    | 081, 084, 092 | DONE |
+| Plan | Title                                                | Priority | Effort | Depends on         | Status |
+| ---- | ---------------------------------------------------- | -------- | ------ | ------------------ | ------ |
+| 001  | Harden sensitive RPC execute privileges              | P1       | M      | -                  | DONE   |
+| 002  | Reject unset cleanup bearer secrets                  | P1       | S      | -                  | DONE   |
+| 003  | Refresh org ownership RPC definitions                | P1       | M      | -                  | DONE   |
+| 004  | Replace stale calendar range records                 | P1       | M      | -                  | DONE   |
+| 005  | Include existing duty events in template previews    | P1       | M      | -                  | DONE   |
+| 006  | Add a manual Supabase DB contract gate               | P2       | M      | 001, 003           | DONE   |
+| 007  | Restrict global admin search to support roles        | P1       | S      | -                  | DONE   |
+| 008  | Harden archive-retention cron authorization          | P1       | S      | 002                | DONE   |
+| 009  | Make Calendar assignment replacement atomic          | P1       | M      | -                  | DONE   |
+| 010  | Preserve scoped-store database pagination            | P2       | M      | -                  | DONE   |
+| 011  | Verify sign-in roster PDF signatures                 | P2       | S      | -                  | DONE   |
+| 012  | Fail closed on suspension-check RPC errors           | P1       | S      | -                  | DONE   |
+| 013  | Resolve critical vitest advisory, triage audit       | P1       | S      | -                  | DONE   |
+| 014  | Fix Excel serial date UTC shift in imports           | P1       | S      | -                  | DONE   |
+| 015  | pgTAP cross-org isolation contracts (5 tables)       | P2       | L      | -                  | DONE   |
+| 016  | Stripe webhook E2E coverage                          | P2       | M      | 013 (soft)         | DONE   |
+| 017  | Wire local verification gate (hook, gate, env)       | P2       | S      | -                  | DONE   |
+| 018  | Filter dashboard active onboardings at query time    | P1       | S      | -                  | DONE   |
+| 019  | Add Calendar date-window indexes                     | P1       | M      | -                  | DONE   |
+| 020  | Batch Training mark-all-complete saves               | P1       | S      | -                  | DONE   |
+| 021  | Bulk upsert Training batch import rows               | P2       | M      | 020 (soft)         | DONE   |
+| 022  | Bulk delete onboarding retention rows                | P2       | S      | -                  | DONE   |
+| 023  | Validate batch import route bodies with zod          | P1       | S      | -                  | DONE   |
+| 024  | Sanitize unhandled route error logs                  | P2       | S      | -                  | DONE   |
+| 025  | Duty-roster workflow E2E Playwright spec             | P2       | M      | -                  | DONE   |
+| 026  | Add documented .env.example                          | P3       | S      | -                  | DONE   |
+| 027  | Restrict audit-log settings to owner-only access     | P1       | M      | -                  | DONE   |
+| 028  | Approve deletion requests after resource effects     | P1       | M      | -                  | DONE   |
+| 029  | Remove active onboarding after snapshot failure      | P1       | M      | -                  | DONE   |
+| 030  | Patch high-severity build-tool advisories            | P1       | M      | -                  | DONE   |
+| 031  | Derive feedback org context server-side              | P2       | S-M    | -                  | DONE   |
+| 032  | Disclose performance analytics in privacy page       | P2       | S      | -                  | DONE   |
+| 033  | Hide deferred chrome backend error details           | P2       | S      | -                  | DONE   |
+| 034  | Thread onboarding start date through API             | P2       | S      | 029                | DONE   |
+| 035  | Use local date for sign-in roster defaults           | P2       | S      | -                  | DONE   |
+| 036  | Check cleanup-old-data RPC errors                    | P3       | S      | -                  | DONE   |
+| 037  | Close route Supabase governance blind spot           | P3       | S      | -                  | DONE   |
+| 038  | Pin Critical Tasks RLS helper search path            | P3       | S      | -                  | DONE   |
+| 039  | Revoke client execute from service RPCs              | P1       | S      | -                  | DONE   |
+| 040  | Lock down privileged state read RPCs                 | P1       | M      | 039                | DONE   |
+| 041  | Surface admin ledger load failures                   | P1       | S-M    | -                  | DONE   |
+| 042  | Paginate platform admin org ledgers                  | P1       | M      | 041                | DONE   |
+| 043  | Filter onboarding workspace bootstrap                | P2       | M      | -                  | DONE   |
+| 044  | Add platform audit global timestamp index            | P2       | S-M    | -                  | DONE   |
+| 045  | Count plan usage without full row loads              | P1       | S-M    | -                  | DONE   |
+| 046  | Add lightweight Critical Tasks dashboard summary     | P1       | M      | -                  | DONE   |
+| 047  | Split Training report detail from aggregate work     | P1       | M      | -                  | DONE   |
+| 048  | Index long-range Calendar date cells                 | P2       | S      | -                  | DONE   |
+| 049  | Precompute DA6 matrix lookup maps                    | P2       | S      | -                  | DONE   |
+| 050  | Deepen billing-event retry seam                      | P1       | M      | -                  | DONE   |
+| 051  | Add platform organization detail seam                | P1       | M      | -                  | DONE   |
+| 052  | Move user identity commands behind seam              | P2       | S-M    | -                  | DONE   |
+| 053  | Drop legacy clinic owner RPC                         | P1       | S      | -                  | DONE   |
+| 054  | Move logout mutation to POST                         | P1       | S      | -                  | DONE   |
+| 055  | Replace capped Auth email scans                      | P1       | M      | -                  | DONE   |
+| 056  | Add sign-in roster scan compensation                 | P2       | M      | -                  | DONE   |
+| 057  | Parallelize Dashboard organization access reads      | P2       | S      | -                  | DONE   |
+| 058  | Align README runtime setup                           | P3       | S      | -                  | DONE   |
+| 059  | Expand governance for admin route seams              | P1       | M      | -                  | DONE   |
+| 060  | Move feedback submissions behind platform seam       | P2       | M      | -                  | DONE   |
+| 061  | Share retention cleanup support                      | P1       | M      | -                  | DONE   |
+| 062  | Move billing checkout recovery behind seam           | P1       | M      | -                  | DONE   |
+| 063  | Move Personnel restore/delete into use cases         | P1       | M      | -                  | DONE   |
+| 064  | Move Personnel export behind use case                | P2       | M      | -                  | DONE   |
+| 065  | Retire dormant Dashboard tab configuration           | P2       | M      | -                  | DONE   |
+| 066  | Split Calendar settings and delete stale managers    | P2       | M      | -                  | DONE   |
+| 067  | Consolidate Account Setup route orchestration        | P2       | M-L    | -                  | DONE   |
+| 068  | Consolidate workbook interop and remove unused icons | P3       | S      | -                  | DONE   |
+| 069  | Add pgTAP contracts for newer RLS surfaces           | P1       | M      | -                  | DONE   |
+| 070  | Scope and validate sign-in roster snapshots          | P1       | M      | 069                | DONE   |
+| 071  | Activate feature permission-coupling governance      | P1       | S-M    | -                  | DONE   |
+| 072  | Sanitize provider errors returned from 500 paths     | P2       | S      | -                  | DONE   |
+| 073  | Use local date-only helpers in onboarding/imports    | P2       | S-M    | -                  | DONE   |
+| 074  | Guard billing mirror writes with event ordering      | P1       | M      | 069-073            | DONE   |
+| 075  | Harden account email change and login errors         | P1       | M      | -                  | DONE   |
+| 076  | Batch onboarding resync writes                       | P2       | S-M    | -                  | DONE   |
+| 077  | Remove legacy PKCE code-exchange paths               | P3       | S      | -                  | DONE   |
+| 078  | Billing launch rehearsal go/no-go pack               | P1       | M      | -                  | DONE   |
+| 079  | Reconcile paid-plan and beta-lane contract           | P1       | M      | 078                | DONE   |
+| 080  | Decide public acquisition path                       | P1       | M      | 079                | DONE   |
+| 081  | Surface first-run owner checklist                    | P2       | M      | 080                | DONE   |
+| 082  | Package operational security evidence                | P1       | M      | -                  | DONE   |
+| 083  | Public account creation and abuse controls           | P1       | L      | 080                | DONE   |
+| 084  | Self-service organization creation and onboarding    | P1       | M-L    | 083, 081           | DONE   |
+| 085  | Self-service checkout and billing recovery           | P1       | L      | 083, 084, 078      | DONE   |
+| 086  | Support/admin visibility for self-service            | P1       | M-L    | 083, 084, 085, 082 | DONE   |
+| 087  | Self-service acquisition E2E coverage                | P1       | L      | 083, 084, 085, 086 | DONE   |
+| 088  | Self-service Organization Invitation branch          | P1       | M      | 083                | DONE   |
+| 089  | Paid-launch legal/trust/contact surface              | P1       | M      | -                  | DONE   |
+| 090  | Billing launch readiness gate                        | P1       | M      | 083-087            | DONE   |
+| 091  | Billing health and support workflow                  | P1       | M-L    | 085, 086           | DONE   |
+| 092  | Acquisition and activation health visibility         | P2       | M-L    | 081, 083-087       | DONE   |
+| 093  | Starter configuration packs for first-week workflows | P2       | M-L    | 081, 084, 092      | DONE   |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line rationale).
 

@@ -20,18 +20,15 @@ function createDashboardOrgAccessPort(
 		declineResult?: DashboardInvitationDeclineResult;
 	} = {}
 ): DashboardOrgAccessPort & {
-	deletedInvitationIds: string[];
 	declinedInvitations: Array<{ invitationId: string; userId: string; email: string }>;
 	requestedInvitationEmails: string[];
 	acceptedInvitations: Array<{ invitationId: string; userId: string; email: string }>;
 } {
-	const deletedInvitationIds: string[] = [];
 	const declinedInvitations: Array<{ invitationId: string; userId: string; email: string }> = [];
 	const requestedInvitationEmails: string[] = [];
 	const acceptedInvitations: Array<{ invitationId: string; userId: string; email: string }> = [];
 
 	return {
-		deletedInvitationIds,
 		declinedInvitations,
 		requestedInvitationEmails,
 		acceptedInvitations,
@@ -226,7 +223,7 @@ describe('acceptDashboardInvitation', () => {
 		]);
 	});
 
-	it('preserves the duplicate-membership failure without deleting invitation history', async () => {
+	it('reports duplicate membership from the acceptance transition', async () => {
 		const port = createDashboardOrgAccessPort({
 			acceptResult: { status: 'already_member', organizationId: 'org-1' }
 		});
@@ -240,8 +237,6 @@ describe('acceptDashboardInvitation', () => {
 			status: 400,
 			message: 'You are already a member of this organization'
 		});
-
-		expect(port.deletedInvitationIds).toEqual([]);
 	});
 
 	it('returns an expired-invitation failure from the acceptance transition', async () => {
@@ -260,7 +255,6 @@ describe('acceptDashboardInvitation', () => {
 			message: 'Invitation has expired'
 		});
 
-		expect(port.deletedInvitationIds).toEqual([]);
 		expect(notifications.notifications).toEqual([
 			{
 				target: 'admins',
@@ -290,8 +284,6 @@ describe('acceptDashboardInvitation', () => {
 			status: 400,
 			message: 'Complete account setup before accepting this organization invitation'
 		});
-
-		expect(port.deletedInvitationIds).toEqual([]);
 	});
 
 	it('returns a deterministic already-accepted failure for double accepts', async () => {
@@ -308,8 +300,6 @@ describe('acceptDashboardInvitation', () => {
 			status: 400,
 			message: 'Invitation has already been accepted'
 		});
-
-		expect(port.deletedInvitationIds).toEqual([]);
 	});
 
 	it('returns a clear blocked failure when platform access rejection blocks acceptance', async () => {
@@ -326,8 +316,6 @@ describe('acceptDashboardInvitation', () => {
 			status: 400,
 			message: 'This organization invitation is no longer available because platform access was rejected'
 		});
-
-		expect(port.deletedInvitationIds).toEqual([]);
 	});
 
 	it('accepts through the atomic transition and notifies admins', async () => {
@@ -346,7 +334,6 @@ describe('acceptDashboardInvitation', () => {
 		expect(port.acceptedInvitations).toEqual([
 			{ invitationId: 'invite-1', userId: 'user-1', email: 'user@example.com' }
 		]);
-		expect(port.deletedInvitationIds).toEqual([]);
 		expect(notifications.notifications).toEqual([
 			{
 				target: 'admins',
@@ -445,7 +432,6 @@ describe('declineDashboardInvitation', () => {
 		expect(port.declinedInvitations).toEqual([
 			{ invitationId: 'invite-1', userId: 'user-1', email: 'user@example.com' }
 		]);
-		expect(port.deletedInvitationIds).toEqual([]);
 		expect(notifications.notifications).toEqual([
 			{
 				target: 'admins',
@@ -500,7 +486,7 @@ describe('declineDashboardInvitation', () => {
 		});
 	});
 
-	it('returns a clear expired state instead of deleting invitation history', async () => {
+	it('reports expiry from the decline transition', async () => {
 		const port = createDashboardOrgAccessPort({ declineResult: { status: 'expired', organizationId: 'org-1' } });
 		const notifications = createTestNotificationPort();
 
@@ -517,7 +503,6 @@ describe('declineDashboardInvitation', () => {
 			status: 400,
 			message: 'Invitation has expired'
 		});
-		expect(port.deletedInvitationIds).toEqual([]);
 		expect(notifications.notifications).toEqual([
 			{
 				target: 'admins',
@@ -600,5 +585,38 @@ describe('declineDashboardInvitation', () => {
 			status: 500,
 			message: 'Failed to decline invitation'
 		});
+	});
+});
+
+describe('dashboard invitation denial effects', () => {
+	it.each([
+		['accept', 'already_accepted', 400],
+		['accept', 'already_member', 400],
+		['accept', 'not_found', 404],
+		['accept', 'blocked', 400],
+		['accept', 'setup_required', 400],
+		['accept', 'failed', 500],
+		['decline', 'already_accepted', 400],
+		['decline', 'already_declined', 400],
+		['decline', 'revoked', 400],
+		['decline', 'not_found', 404],
+		['decline', 'blocked', 400],
+		['decline', 'failed', 500]
+	] as const)('%s %s does not announce or audit a successful transition', async (action, status, httpStatus) => {
+		const port = createDashboardOrgAccessPort(
+			action === 'accept'
+				? { acceptResult: { status: status as DashboardInvitationAcceptResult['status'], organizationId: 'org-a' } }
+				: { declineResult: { status: status as DashboardInvitationDeclineResult['status'], organizationId: 'org-a' } }
+		);
+		const notifications = createTestNotificationPort();
+		const audit = createRecordingAuditFactory();
+		await expect(
+			(action === 'accept' ? acceptDashboardInvitation : declineDashboardInvitation)(
+				{ dashboard: port, notifications, audit: audit.auditFor },
+				{ invitationId: 'invite-a', userId: 'invitee', email: ' INVITEE@EXAMPLE.COM ' }
+			)
+		).rejects.toMatchObject({ status: httpStatus });
+		expect(notifications.notifications).toEqual([]);
+		expect(audit.events).toEqual([]);
 	});
 });

@@ -7,7 +7,6 @@ function makeInput(overrides: Partial<Parameters<typeof buildCalendarToolbarItem
 		canManageAvailability: false,
 		canManageAssignments: false,
 		canManageConfig: false,
-		readOnly: false,
 		showStatusText: false,
 		showPersonnelRoles: true,
 		showOnboardingToggle: false,
@@ -48,6 +47,8 @@ describe('buildCalendarToolbarItems', () => {
 		const items = buildCalendarToolbarItems(makeInput({ orgUrlSegment: '1-11-bde', canManageAvailability: true }));
 		const bulk = items.find((i) => i.label === 'Bulk Status');
 		expect(bulk).toBeDefined();
+		expect(bulk?.disabled).not.toBe(true);
+		expect(bulk?.menuItems?.some((item) => item.disabled)).toBe(false);
 		expect(bulk!.icon).toBe('clipboard-list');
 		expect(bulk!.displayMode).toBe('full');
 		expect(bulk!.menuItems).toHaveLength(3);
@@ -65,6 +66,8 @@ describe('buildCalendarToolbarItems', () => {
 		const items = buildCalendarToolbarItems(makeInput({ canManageAssignments: true }));
 		const planning = items.find((i) => i.label === 'Planning');
 		expect(planning).toBeDefined();
+		expect(planning?.disabled).not.toBe(true);
+		expect(planning?.menuItems?.some((item) => item.disabled)).toBe(false);
 		expect(planning!.icon).toBe('calendar-days');
 		expect(planning!.displayMode).toBe('full');
 		const labels = planning!.menuItems!.map((i) => i.label);
@@ -131,21 +134,5 @@ describe('buildCalendarToolbarItems', () => {
 		const overflowItems = items.filter((i) => i.priority === 'low');
 		expect(overflowItems.find((i) => i.label === 'Show Personnel Roles')?.active).toBe(false);
 		expect(overflowItems.find((i) => i.label === 'Show Personnel Roles')?.toggle).toBe(true);
-	});
-
-	it('keeps edit-requiring groups visible but disabled when readOnly', () => {
-		const items = buildCalendarToolbarItems(
-			makeInput({ canManageAvailability: true, canManageAssignments: true, readOnly: true })
-		);
-		const bulk = items.find((i) => i.label === 'Bulk Status');
-		const planning = items.find((i) => i.label === 'Planning');
-		expect(bulk?.disabled).toBe(true);
-		expect(planning?.disabled).toBe(true);
-		expect(bulk?.disabledReason).toBe('Read-only mode');
-		expect(planning?.disabledReason).toBe('Read-only mode');
-		expect(bulk?.menuItems?.every((item) => item.disabled)).toBe(true);
-		expect(planning?.menuItems?.every((item) => item.disabled)).toBe(true);
-		expect(bulk?.menuItems?.every((item) => item.disabledReason === 'Read-only mode')).toBe(true);
-		expect(planning?.menuItems?.every((item) => item.disabledReason === 'Read-only mode')).toBe(true);
 	});
 });

@@ -227,7 +227,7 @@ describe('Organization admission denial and recovery', () => {
 			resolve: async (event) => Response.json(await f.load(event))
 		});
 		expect(response.status).toBe(200);
-		expect(await response.json()).toMatchObject({ shell: { kind: 'suspended', state: { isReadOnly: true } } });
+		expect(await response.json()).toMatchObject({ shell: { kind: 'suspended', state: { orgSuspended: true } } });
 	});
 
 	it('rechecks suspension on every write and resumes after unsuspension without changing membership', async () => {
@@ -383,7 +383,7 @@ describe('Organization shell admission with real provider mapping', () => {
 			shell: {
 				kind: 'suspended',
 				org: { id: ORG, name: 'Alpha', urlSegment: 'alpha' },
-				state: { isReadOnly: true, orgSuspended: true }
+				state: { orgSuspended: true }
 			}
 		});
 		expect(() => requireReadyAppShell(result)).toThrow(expect.objectContaining({ status: 403 }));

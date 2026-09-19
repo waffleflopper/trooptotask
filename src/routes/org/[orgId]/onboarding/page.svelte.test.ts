@@ -48,7 +48,6 @@ vi.mock('$lib/stores/orgContext.svelte', () => ({
 		isPrivileged: true,
 		orgUrlSegment: 'org-1',
 		scopeSet: { kind: 'organization' },
-		readOnly: false,
 		capabilityMap: {
 			calendar: 'configure',
 			personnel: 'configure',

@@ -1,5 +1,4 @@
 import type { Cookies } from '@sveltejs/kit';
-import { createSupabaseSubscriptionAdapter } from '$lib/server/adapters/supabaseSubscription';
 import {
 	createSupabaseAppShellDeferredChromePort,
 	createSupabaseAppShellFirstPaintChromePort,
@@ -12,7 +11,6 @@ import type { AppShellRequest } from '../orgShell';
 export interface RootOrgLayoutLoadDeps {
 	createAppShellRequest?: (context: RootOrgLayoutRequestContext) => AppShellRequest;
 	getLayoutClient?: SupabaseAppShellRequestDeps['getLayoutClient'];
-	createSubscriptionAdapter?: typeof createSupabaseSubscriptionAdapter;
 	createOrgAccessPort?: typeof createSupabaseOrgAccessPort;
 	createFirstPaintChromePort?: typeof createSupabaseAppShellFirstPaintChromePort;
 	createDeferredChromePort?: typeof createSupabaseAppShellDeferredChromePort;
@@ -33,7 +31,6 @@ export function createRootOrgLayoutLoad(deps: RootOrgLayoutLoadDeps = {}) {
 				{ locals, cookies, orgSegment, url },
 				{
 					getLayoutClient: deps.getLayoutClient,
-					createSubscriptionAdapter: deps.createSubscriptionAdapter,
 					createOrgAccessPort: deps.createOrgAccessPort,
 					createFirstPaintChromePort: deps.createFirstPaintChromePort,
 					createDeferredChromePort: deps.createDeferredChromePort

@@ -81,7 +81,6 @@ function makeMockOrg(
 		userRole?: 'owner' | 'admin' | 'member';
 		capabilityMap?: import('$lib/access/memberAccessShape').CapabilityMap;
 		scopeSet?: import('$lib/access/memberAccessShape').ScopeSet;
-		isReadOnly?: boolean;
 	} = {}
 ) {
 	const role = overrides.userRole ?? 'member';
@@ -91,8 +90,7 @@ function makeMockOrg(
 		userId: 'user1',
 		userRole: role,
 		capabilityMap: overrides.capabilityMap ?? (isPrivileged ? FULL_TEST_CAPABILITY_MAP : VIEW_TEST_CAPABILITY_MAP),
-		scopeSet: overrides.scopeSet,
-		isReadOnly: overrides.isReadOnly ?? false
+		scopeSet: overrides.scopeSet
 	});
 }
 
@@ -118,10 +116,6 @@ describe('CalendarPageContext', () => {
 	// ---- Derived permission flags ------------------------------------------
 
 	describe('permission flags', () => {
-		it('readOnly is false when billing is not enabled', () => {
-			expect(ctx.readOnly).toBe(false);
-		});
-
 		it('canManageConfig is false when not owner/admin/fullEditor', () => {
 			expect(ctx.canManageConfig).toBe(false);
 		});

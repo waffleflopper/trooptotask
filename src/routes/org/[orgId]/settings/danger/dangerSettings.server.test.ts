@@ -5,8 +5,7 @@ const organization = {
 	id: 'org-1',
 	name: 'Test Org',
 	urlSlug: 'test-org',
-	urlSegment: 'test-org',
-	effectiveTier: null
+	urlSegment: 'test-org'
 };
 
 describe('danger settings section', () => {

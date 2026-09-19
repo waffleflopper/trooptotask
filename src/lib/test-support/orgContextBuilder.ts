@@ -43,7 +43,6 @@ export function createTestOrgContext(overrides?: Partial<CreateOrgContextInput>)
 		userRole,
 		capabilityMap,
 		scopeSet: { kind: 'organization' },
-		isReadOnly: false,
 		...overrides
 	});
 }

@@ -1,6 +1,5 @@
 import type { MembershipRole } from '$lib/access/memberAccessShape';
 import type { UseCaseContext } from '$lib/server/core/ports';
-import type { EffectiveTier } from '$lib/types/subscription';
 import { normalizeOrganizationName } from '../settingsWorkspaceFormatters';
 import type { DangerSettingsData, SettingsDangerSectionData } from '../settingsSectionTypes';
 
@@ -9,7 +8,6 @@ export interface DangerSettingsOrganizationSource {
 	name: string | null;
 	urlSlug: string | null;
 	urlSegment: string;
-	effectiveTier: EffectiveTier | null;
 }
 
 export type DangerSettingsMemberSourceRow = {
@@ -62,7 +60,6 @@ export function buildDangerSettings(input: {
 				name: input.organization.name,
 				urlSlug: input.organization.urlSlug,
 				urlSegment: input.organization.urlSegment,
-				tier: input.organization.effectiveTier,
 				canUpdateProfile: canManageMembers,
 				canUpdateUrlSlug: canManageMembers
 			},

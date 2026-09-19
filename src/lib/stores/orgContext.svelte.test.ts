@@ -8,8 +8,6 @@ function makeInput(overrides: Record<string, unknown> = {}) {
 		orgName: 'Test Org',
 		userId: 'user-1',
 		userRole: 'member' as const,
-		isReadOnly: false,
-		readOnlyReason: null,
 		...overrides
 	};
 }
@@ -50,16 +48,6 @@ describe('createOrgContext', () => {
 	it('sets isPrivileged=false for member', () => {
 		const ctx = createOrgContext(makeInput({ userRole: 'member' }));
 		expect(ctx.isPrivileged).toBe(false);
-	});
-
-	it('sets readOnly from isReadOnly flag', () => {
-		const ctx = createOrgContext(makeInput({ isReadOnly: true }));
-		expect(ctx.readOnly).toBe(true);
-	});
-
-	it('sets readOnly=false when isReadOnly is false', () => {
-		const ctx = createOrgContext(makeInput({ isReadOnly: false }));
-		expect(ctx.readOnly).toBe(false);
 	});
 
 	it('preserves orgId, orgName, and userId', () => {
@@ -169,7 +157,7 @@ describe('createOrgContext', () => {
 		);
 	});
 
-	it('explains in-scope, out-of-scope, and read-only client affordance states', () => {
+	it('explains in-scope and out-of-scope client affordance states', () => {
 		const ctx = createOrgContext(
 			makeInput({
 				capabilityMap: {
@@ -183,13 +171,6 @@ describe('createOrgContext', () => {
 				scopeSet: { kind: 'groups', groupIds: ['group-alpha'] }
 			})
 		);
-		const readOnlyCtx = createOrgContext(
-			makeInput({
-				capabilityMap: ctx.capabilityMap,
-				scopeSet: { kind: 'groups', groupIds: ['group-alpha'] },
-				isReadOnly: true
-			})
-		);
 
 		expect(
 			ctx.affordanceForFeatureAction(POLICY_ACTION_CATALOG.calendar.manageAvailability, {
@@ -197,6 +178,18 @@ describe('createOrgContext', () => {
 				groupId: 'group-alpha'
 			}).allowed
 		).toBe(true);
+		expect(
+			ctx.affordanceForFeatureAction(POLICY_ACTION_CATALOG.calendar.manageAvailability, {
+				kind: 'group',
+				groupId: 'group-alpha'
+			})
+		).toMatchObject({ allowed: true, visible: true, disabled: false });
+		expect(
+			ctx.affordanceForFeatureAction(POLICY_ACTION_CATALOG.calendar.manageAvailability, {
+				kind: 'group',
+				groupId: 'group-bravo'
+			})
+		).toMatchObject({ allowed: false, visible: false, disabled: true });
 		expect(ctx.isResourceInScope({ kind: 'group', groupId: 'group-alpha' })).toBe(true);
 		expect(ctx.isResourceInScope({ kind: 'group', groupId: 'group-bravo' })).toBe(false);
 		expect(
@@ -205,19 +198,6 @@ describe('createOrgContext', () => {
 				groupId: 'group-bravo'
 			}).reason
 		).toBe('denied:out-of-scope');
-
-		const readOnlyAffordance = readOnlyCtx.affordanceForFeatureAction(
-			POLICY_ACTION_CATALOG.calendar.manageAvailability,
-			{
-				kind: 'group',
-				groupId: 'group-alpha'
-			}
-		);
-		expect(readOnlyAffordance.allowed).toBe(false);
-		expect(readOnlyAffordance.visible).toBe(true);
-		expect(readOnlyAffordance.disabled).toBe(true);
-		expect(readOnlyAffordance.reason).toBe('denied:read-only-overlay');
-		expect(readOnlyAffordance.explanation).toContain('read-only mode');
 	});
 
 	it('checks Scope Set membership independently from feature capability', () => {

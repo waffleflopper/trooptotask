@@ -113,10 +113,6 @@ export class PersonnelPageContext {
 		return this.#org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.personnel.manageGroups).allowed;
 	}
 
-	get readOnly(): boolean {
-		return this.#org.readOnly;
-	}
-
 	get canManageConfig(): boolean {
 		return this.#org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.personnel.archiveRecords).allowed;
 	}
@@ -133,25 +129,7 @@ export class PersonnelPageContext {
 	}
 
 	personnelArchiveAffordance(person: Personnel): ClientAffordance {
-		const resource = person.groupId
-			? { kind: 'group' as const, groupId: person.groupId }
-			: { kind: 'organization' as const };
-		const affordance = this.#org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.personnel.manageRecords, resource);
-		if (
-			!affordance.allowed &&
-			affordance.reason === 'denied:read-only-overlay' &&
-			this.#org.hasCapability('personnel', 'operate') &&
-			this.#org.isResourceInScope(resource)
-		) {
-			return {
-				...affordance,
-				allowed: true,
-				visible: true,
-				disabled: false
-			};
-		}
-
-		return affordance;
+		return this.personnelRecordAffordance(person);
 	}
 
 	canArchivePersonnelRecord(person: Personnel): boolean {

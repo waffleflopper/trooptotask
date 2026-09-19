@@ -6,7 +6,6 @@ import { specialDaysStore } from '$features/calendar/stores/specialDays.svelte';
 import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
 import { groupsStore } from '$lib/stores/groups.svelte';
-import { subscriptionStore } from '$lib/stores/subscription.svelte';
 import { createRosterReadModel } from '$lib/domain/rosterReadModel';
 import { getBrowserLocalStorage } from '$lib/utils/browserStorage';
 import { POLICY_ACTION_CATALOG, type PolicyResource } from '$lib/access/policyEvaluator';
@@ -123,9 +122,6 @@ export class CalendarPageContext {
 	}
 
 	// ---- derived: permission flags -----------------------------------------
-	get readOnly(): boolean {
-		return subscriptionStore.billingEnabled && subscriptionStore.isReadOnly;
-	}
 
 	get isHydrating(): boolean {
 		return (

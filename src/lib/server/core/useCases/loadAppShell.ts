@@ -33,7 +33,6 @@ export async function loadAppShellFirstPaint(request: AppShellFirstPaintRequest)
 					urlSegment: request.orgUrlSegment
 				},
 				state: {
-					isReadOnly: true,
 					orgSuspended: true
 				}
 			}

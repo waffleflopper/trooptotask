@@ -40,8 +40,7 @@ function canHardDeleteTrainingRecord(ctx: WritePorts, resource: PolicyResource):
 		action: POLICY_ACTION_CATALOG.training.configureRequirements,
 		capabilityMap: ctx.auth.capabilityMap,
 		scopeSet: ctx.auth.scopeSet,
-		resource,
-		overlays: []
+		resource
 	}).allowed;
 }
 

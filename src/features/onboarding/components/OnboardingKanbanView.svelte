@@ -88,11 +88,7 @@
 				{/if}
 				<Button href={ctx.historyUrl} variant="outline" size="sm">History</Button>
 				{#if ctx.canManageWorkflows}
-					<Button
-						size="sm"
-						onclick={() => ctx.modals.open(MODAL_IDS.startOnboarding)}
-						disabled={!ctx.hasTemplateSteps || ctx.readOnly}
-					>
+					<Button size="sm" onclick={() => ctx.modals.open(MODAL_IDS.startOnboarding)} disabled={!ctx.hasTemplateSteps}>
 						<UserPlus class="mr-1.5 h-3.5 w-3.5" />
 						Start Onboarding
 					</Button>

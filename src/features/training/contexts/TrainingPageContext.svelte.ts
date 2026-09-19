@@ -5,7 +5,6 @@ import { trainingViewsStore } from '$features/training/stores/trainingViews.svel
 import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
 import { trainingRankCatalogStore } from '$features/training/stores/rankCatalog.svelte';
 import { rosterStore } from '$lib/stores/roster.svelte';
-import { subscriptionStore } from '$lib/stores/subscription.svelte';
 import { getTrainingStats } from '$features/training/utils/trainingStatus';
 import { groupsStore } from '$lib/stores/groups.svelte';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
@@ -102,10 +101,6 @@ export class TrainingPageContext {
 	// ---- permission flags ----
 	get canManageConfig(): boolean {
 		return this.trainingConfigureAffordance.visible;
-	}
-
-	get readOnly(): boolean {
-		return this.#org.readOnly || (subscriptionStore.billingEnabled && subscriptionStore.isReadOnly);
 	}
 
 	get canViewTraining(): boolean {
@@ -235,8 +230,7 @@ export class TrainingPageContext {
 			items.push({
 				label: 'Bulk Import',
 				onclick: () => this.#modals.open('bulk-import'),
-				divider: true,
-				disabled: this.readOnly
+				divider: true
 			});
 			items.push({
 				label: 'Manage Types',

@@ -1,13 +1,11 @@
 import type { MembershipRole } from '$lib/access/memberAccessShape';
 import type { UseCaseContext } from '$lib/server/core/ports';
-import type { EffectiveTier } from '$lib/types/subscription';
 
 export interface SettingsShellOrganizationSource {
 	id: string;
 	name: string | null;
 	urlSlug: string | null;
 	urlSegment: string;
-	effectiveTier: EffectiveTier | null;
 }
 
 export interface SettingsShell {
@@ -16,7 +14,6 @@ export interface SettingsShell {
 		name: string | null;
 		urlSlug: string | null;
 		urlSegment: string;
-		tier: EffectiveTier | null;
 	};
 	currentMember: {
 		role: MembershipRole;
@@ -69,8 +66,7 @@ export async function loadSettingsShell(
 			id: organization.id,
 			name: organization.name,
 			urlSlug: organization.urlSlug,
-			urlSegment: organization.urlSegment,
-			tier: organization.effectiveTier
+			urlSegment: organization.urlSegment
 		},
 		currentMember: {
 			role: ctx.auth.role,

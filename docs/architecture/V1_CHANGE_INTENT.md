@@ -39,7 +39,7 @@ An available design/domain skill can help stress-test a tradeoff when that is th
 ## C-01 Authorization Replacement
 
 - Current-state truth:
-  - v1 authorization is membership-role plus stored member preset, capability map, shared scope set, and policy overlays
+  - v1 authorization is membership-role plus stored member preset, capability map, shared scope set and sensitive-action checks
   - `owner`, `admin`, and `member` are the persisted organization roles
   - settings UI presets are convenience shapes over the stored member-access model
   - scoped access uses the shared member scope set
@@ -50,7 +50,7 @@ An available design/domain skill can help stress-test a tradeoff when that is th
 - Intended v1 direction:
   - keep `owner`, `admin`, and `member` as the fixed organization-governance roles
   - keep `admin` as a fixed high-trust role below `owner`, not a decomposable member preset
-  - model member access as an assigned preset plus a per-lane capability map, shared scope set, and explicit policy overlays
+  - model member access as an assigned preset plus a per-lane capability map, shared scope set and explicit sensitive-action checks
   - use `Viewer`, `Operator`, and `Editor` as the starter member presets
   - use per-lane capability levels of `none`, `view`, `operate`, and `configure`
   - make shared member scope target `organization-wide` or `1..n` groups, without allowing per-feature scope matrices
@@ -61,7 +61,7 @@ An available design/domain skill can help stress-test a tradeoff when that is th
   - current route and feature surface availability
 - Open questions:
   - exact per-feature mapping of `operate` versus `configure`
-  - exact policy overlays for read-only mode, owner-only operations, and suspicious denied access
+  - exact audit treatment for suspicious denied access; owner-only actions and suspension remain explicit, and commercial read-only was removed under D03
 - Suggested next skill or planning mode:
   - resolve consequential policy choices, then implement bounded slices with meaningful behavioral tests
 

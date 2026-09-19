@@ -19,7 +19,6 @@ const { mockOrgContext, parseFileMock } = vi.hoisted(() => ({
 		isOwner: true,
 		isAdmin: false,
 		isPrivileged: true,
-		readOnly: false,
 		capabilityMap: {
 			calendar: 'configure',
 			personnel: 'configure',
@@ -33,16 +32,11 @@ const { mockOrgContext, parseFileMock } = vi.hoisted(() => ({
 			const levels = ['none', 'view', 'operate', 'configure'];
 			const actual = this.capabilityMap[action.owner.lane as keyof typeof this.capabilityMap] ?? 'none';
 			const hasCapability = levels.indexOf(actual) >= levels.indexOf(action.requiredCapability);
-			const readOnlyBlocked = this.readOnly && action.accessMode === 'write';
 			return {
-				allowed: hasCapability && !readOnlyBlocked,
+				allowed: hasCapability,
 				visible: hasCapability,
-				disabled: hasCapability && readOnlyBlocked,
-				reason: readOnlyBlocked
-					? 'denied:read-only-overlay'
-					: hasCapability
-						? 'allowed:capability'
-						: 'denied:missing-capability',
+				disabled: !hasCapability,
+				reason: hasCapability ? 'allowed:capability' : 'denied:missing-capability',
 				explanation: '',
 				decision: {}
 			};
@@ -155,7 +149,6 @@ describe('critical tasks page', () => {
 		mockOrgContext.isPrivileged = true;
 		mockOrgContext.capabilityMap.criticalTasks = 'configure';
 		mockOrgContext.scopeSet = { kind: 'organization' };
-		mockOrgContext.readOnly = false;
 		personnelStore.startLoading();
 		groupsStore.startLoading();
 		ictTasksStore.startLoading();

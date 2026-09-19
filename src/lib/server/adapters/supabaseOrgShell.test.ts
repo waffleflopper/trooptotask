@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createSupabaseOrgAccessPort } from './supabaseOrgShell';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { EffectiveTier } from '$lib/types/subscription';
 import type { MembershipRow } from '$lib/server/permissionContext';
 
 type Call = { method: string; args: unknown[] };
@@ -36,17 +35,6 @@ function createMockSupabase(builder: Record<string, unknown>): SupabaseClient {
 	} as unknown as SupabaseClient;
 }
 
-const effectiveTier: EffectiveTier = {
-	tier: 'free',
-	source: 'default',
-	personnelCount: 0,
-	personnelCap: 20,
-	isReadOnly: false,
-	readOnlyReason: null,
-	giftExpiresAt: null,
-	giftTier: null
-};
-
 describe('createSupabaseOrgAccessPort', () => {
 	it('throws 403 when the user is not a member of the organization', async () => {
 		const { builder, calls } = createMembershipQueryBuilder(null);
@@ -55,8 +43,7 @@ describe('createSupabaseOrgAccessPort', () => {
 			orgId: 'org-1',
 			userId: 'user-1',
 			userSupabase,
-			orgName: 'Test Org',
-			getEffectiveTier: async () => effectiveTier
+			orgName: 'Test Org'
 		});
 
 		await expect(port.getMembership()).rejects.toMatchObject({
@@ -76,8 +63,7 @@ describe('createSupabaseOrgAccessPort', () => {
 			orgId: 'org-1',
 			userId: 'user-1',
 			userSupabase,
-			orgName: 'Test Org',
-			getEffectiveTier: async () => effectiveTier
+			orgName: 'Test Org'
 		});
 
 		try {
@@ -114,7 +100,6 @@ describe('createSupabaseOrgAccessPort', () => {
 			userId: 'user-1',
 			userSupabase,
 			orgName: 'Test Org',
-			getEffectiveTier: async () => effectiveTier,
 			wrapMembershipLoad
 		});
 
@@ -158,8 +143,7 @@ describe('createSupabaseOrgAccessPort', () => {
 				orgId: 'org-1',
 				userId: 'user-1',
 				userSupabase: createMockSupabase(builder),
-				orgName: 'Test Org',
-				getEffectiveTier: async () => effectiveTier
+				orgName: 'Test Org'
 			});
 
 			await expect(port.getMembership()).rejects.toMatchObject({
@@ -183,8 +167,7 @@ describe('createSupabaseOrgAccessPort', () => {
 			orgId: 'org-1',
 			userId: 'user-1',
 			userSupabase,
-			orgName: 'Test Org',
-			getEffectiveTier: async () => effectiveTier
+			orgName: 'Test Org'
 		});
 
 		const result = await port.getMembership();
@@ -207,8 +190,7 @@ describe('createSupabaseOrgAccessPort', () => {
 			orgId: 'org-1',
 			userId: 'user-1',
 			userSupabase: createMockSupabase(builder),
-			orgName: 'Test Org',
-			getEffectiveTier: async () => effectiveTier
+			orgName: 'Test Org'
 		});
 
 		const result = await port.getMembership();

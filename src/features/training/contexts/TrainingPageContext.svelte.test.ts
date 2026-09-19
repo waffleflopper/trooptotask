@@ -59,11 +59,10 @@ function makeModals() {
 	return new ModalRegistry();
 }
 
-function makePolicyOrg(options: { training: CapabilityMap['training']; readOnly?: boolean }) {
+function makePolicyOrg(options: { training: CapabilityMap['training'] }) {
 	return createTestOrgContext({
 		userRole: 'member',
-		capabilityMap: { ...NONE_TEST_CAPABILITY_MAP, training: options.training },
-		isReadOnly: options.readOnly ?? false
+		capabilityMap: { ...NONE_TEST_CAPABILITY_MAP, training: options.training }
 	});
 }
 
@@ -180,12 +179,6 @@ describe('TrainingPageContext', () => {
 			const ctx = new TrainingPageContext(makeData(), modals, org);
 			expect(ctx.canManageConfig).toBe(true);
 		});
-
-		it('keeps configuration affordances visible during read-only mode', () => {
-			const org = makePolicyOrg({ training: 'configure', readOnly: true });
-			const ctx = new TrainingPageContext(makeData(), modals, org);
-			expect(ctx.canManageConfig).toBe(true);
-		});
 	});
 
 	describe('training policy affordances', () => {
@@ -197,16 +190,10 @@ describe('TrainingPageContext', () => {
 			expect(ctx.canRecordTraining).toBe(true);
 		});
 
-		it('denies record affordances for view-only and read-only policy states', () => {
+		it('denies record affordances for view-only capability', () => {
 			const viewOnly = new TrainingPageContext(makeData(), modals, makePolicyOrg({ training: 'view' }));
-			const readOnlyOperator = new TrainingPageContext(
-				makeData(),
-				modals,
-				makePolicyOrg({ training: 'operate', readOnly: true })
-			);
 
 			expect(viewOnly.canRecordTraining).toBe(false);
-			expect(readOnlyOperator.canRecordTraining).toBe(false);
 		});
 
 		it('uses Training view policy for page visibility', () => {

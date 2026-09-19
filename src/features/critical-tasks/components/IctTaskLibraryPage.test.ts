@@ -15,7 +15,6 @@ const orgContextMock = vi.hoisted(() => {
 		isOwner: true,
 		isAdmin: false,
 		isPrivileged: true,
-		readOnly: false,
 		capabilityMap: {
 			calendar: 'configure',
 			personnel: 'configure',
@@ -25,20 +24,15 @@ const orgContextMock = vi.hoisted(() => {
 			ratingScheme: 'configure'
 		},
 		scopeSet: { kind: 'organization' },
-		affordanceForFeatureAction(action: { owner: { lane: string }; requiredCapability: string; accessMode: string }) {
+		affordanceForFeatureAction(action: { owner: { lane: string }; requiredCapability: string }) {
 			const levels = ['none', 'view', 'operate', 'configure'];
 			const actual = this.capabilityMap[action.owner.lane as keyof typeof this.capabilityMap] ?? 'none';
 			const hasCapability = levels.indexOf(actual) >= levels.indexOf(action.requiredCapability);
-			const readOnlyBlocked = this.readOnly && action.accessMode === 'write';
 			return {
-				allowed: hasCapability && !readOnlyBlocked,
+				allowed: hasCapability,
 				visible: hasCapability,
-				disabled: hasCapability && readOnlyBlocked,
-				reason: readOnlyBlocked
-					? 'denied:read-only-overlay'
-					: hasCapability
-						? 'allowed:capability'
-						: 'denied:missing-capability',
+				disabled: !hasCapability,
+				reason: hasCapability ? 'allowed:capability' : 'denied:missing-capability',
 				explanation: '',
 				decision: {}
 			};
@@ -138,16 +132,16 @@ describe('IctTaskLibraryPage', () => {
 		expect(mosFilter.compareDocumentPosition(search) & 4).toBeTruthy();
 	});
 
-	it('hides import and edit actions for read-only users', () => {
+	it('denies library configuration to Critical Tasks viewers', () => {
 		orgContextMock.current = {
 			...orgContextMock.ownerContext(),
-			readOnly: true
+			capabilityMap: { ...orgContextMock.ownerContext().capabilityMap, criticalTasks: 'view' }
 		};
 
 		render(IctTaskLibraryPage, { props: { data: { orgId: 'org-1' } } });
 
-		expect(screen.queryByRole('heading', { name: 'Access Restricted' })).toBeNull();
-		expect(screen.getByRole('list', { name: 'ICT task library' })).toBeTruthy();
+		expect(screen.getByRole('heading', { name: 'Access Restricted' })).toBeTruthy();
+		expect(screen.queryByRole('list', { name: 'ICT task library' })).toBeNull();
 		expect(screen.queryByRole('button', { name: 'Import CSV' })).toBeNull();
 		expect(screen.queryByRole('button', { name: 'New Task' })).toBeNull();
 	});

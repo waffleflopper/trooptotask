@@ -3,7 +3,6 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
-import { subscriptionStore } from '$lib/stores/subscription.svelte';
 import type { Personnel } from '$lib/types';
 import type { PersonnelPageContext } from '$features/personnel/contexts/PersonnelPageContext.svelte';
 import type { UpcomingLossRecord } from '$lib/domain/readinessSignals';
@@ -151,8 +150,7 @@ function makeCtx(
 		upcomingLossMap,
 		handleEdit,
 		handleAdd: vi.fn(),
-		openGroupManager: vi.fn(),
-		readOnly: false
+		openGroupManager: vi.fn()
 	};
 
 	return ctx as unknown as PersonnelPageContext;
@@ -186,7 +184,6 @@ describe('PersonnelPageView', () => {
 	beforeEach(() => {
 		personnelStore.load(personnel, 'org-1');
 		pinnedGroupsStore.load([], 'org-1');
-		subscriptionStore.clear();
 		vi.stubGlobal('fetch', vi.fn());
 		gotoMock.mockReset();
 		invalidateAllMock.mockReset();
@@ -199,7 +196,6 @@ describe('PersonnelPageView', () => {
 		cleanup();
 		personnelStore.load([], 'org-test-reset');
 		pinnedGroupsStore.load([], 'org-test-reset');
-		subscriptionStore.clear();
 		vi.unstubAllGlobals();
 	});
 
@@ -280,10 +276,9 @@ describe('PersonnelPageView', () => {
 		expect(screen.getByRole('button', { name: 'Details' })).toBeTruthy();
 	});
 
-	it('keeps archive access available during read-only mode without enabling create/import controls', async () => {
+	it('keeps archive access available without create or import permission', async () => {
 		const ctx = {
 			...makeCtx(),
-			readOnly: true,
 			canAddPersonnel: false,
 			canImportPersonnel: false,
 			canManageGroups: false,

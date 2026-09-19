@@ -160,17 +160,7 @@ describe('_loadBillingPageData', () => {
 		await expect(
 			loadWithContextCore(ctx, {
 				policyAction: POLICY_ACTION_CATALOG.organization.accessBilling,
-				fn: (loadCtx) =>
-					_loadBillingPageData(loadCtx, {
-						tier: 'team',
-						source: 'subscription',
-						personnelCount: 20,
-						personnelCap: 75,
-						isReadOnly: false,
-						readOnlyReason: null,
-						giftExpiresAt: null,
-						giftTier: null
-					})
+				fn: (loadCtx) => _loadBillingPageData(loadCtx)
 			})
 		).rejects.toMatchObject({
 			status: 403,
@@ -217,23 +207,11 @@ describe('_loadBillingPageData', () => {
 		});
 		canManageBillingSubscriptionMock.mockReturnValue(true);
 
-		const result = await _loadBillingPageData(
-			{
-				auth: ctx.auth,
-				audit: ctx.audit,
-				rawStore: { kind: 'raw-store' } as never
-			},
-			{
-				tier: 'team',
-				source: 'subscription',
-				personnelCount: 20,
-				personnelCap: 75,
-				isReadOnly: false,
-				readOnlyReason: null,
-				giftExpiresAt: null,
-				giftTier: null
-			}
-		);
+		const result = await _loadBillingPageData({
+			auth: ctx.auth,
+			audit: ctx.audit,
+			rawStore: { kind: 'raw-store' } as never
+		});
 
 		expect(readBillingOrganizationMock).toHaveBeenCalledWith({
 			auth: expect.objectContaining({ orgId: 'org-1', role: 'owner' }),
@@ -308,23 +286,11 @@ describe('_loadBillingPageData', () => {
 			updated_at: '2026-05-25T04:03:55.000Z'
 		});
 
-		const result = await _loadBillingPageData(
-			{
-				auth: ctx.auth,
-				audit: ctx.audit,
-				rawStore: { kind: 'raw-store' } as never
-			},
-			{
-				tier: 'free',
-				source: 'default',
-				personnelCount: 69,
-				personnelCap: 20,
-				isReadOnly: true,
-				readOnlyReason: 'personnel_limit',
-				giftExpiresAt: null,
-				giftTier: null
-			}
-		);
+		const result = await _loadBillingPageData({
+			auth: ctx.auth,
+			audit: ctx.audit,
+			rawStore: { kind: 'raw-store' } as never
+		});
 
 		expect(expireStaleCheckoutAttemptsMock).toHaveBeenCalledWith({ kind: 'raw-store' }, 'org-1', expect.any(Date));
 		expect(result.pendingCheckoutSession).toEqual({
@@ -376,23 +342,11 @@ describe('_loadBillingPageData', () => {
 		});
 		canManageBillingSubscriptionMock.mockReturnValue(true);
 
-		const result = await _loadBillingPageData(
-			{
-				auth: ctx.auth,
-				audit: ctx.audit,
-				rawStore: { kind: 'raw-store' } as never
-			},
-			{
-				tier: 'free',
-				source: 'subscription',
-				personnelCount: 21,
-				personnelCap: 20,
-				isReadOnly: true,
-				readOnlyReason: 'personnel_limit',
-				giftExpiresAt: null,
-				giftTier: null
-			}
-		);
+		const result = await _loadBillingPageData({
+			auth: ctx.auth,
+			audit: ctx.audit,
+			rawStore: { kind: 'raw-store' } as never
+		});
 
 		expect(readEffectivePlanPolicyMock).toHaveBeenCalledWith({
 			auth: expect.objectContaining({ orgId: 'org-1', role: 'owner' }),
@@ -401,6 +355,13 @@ describe('_loadBillingPageData', () => {
 		expect(readOrganizationPlanUsageMock).toHaveBeenCalledWith({
 			auth: expect.objectContaining({ orgId: 'org-1', role: 'owner' }),
 			store: { kind: 'raw-store' }
+		});
+		expect(result.effectiveTier).toMatchObject({
+			tier: 'free',
+			personnelCount: 21,
+			personnelCap: 20,
+			isReadOnly: true,
+			readOnlyReason: 'personnel_limit'
 		});
 		expect(result.planUsageSummary).toMatchObject({
 			plan: {
@@ -455,23 +416,11 @@ describe('_loadBillingPageData', () => {
 		});
 		canManageBillingSubscriptionMock.mockReturnValue(true);
 
-		const result = await _loadBillingPageData(
-			{
-				auth: ctx.auth,
-				audit: ctx.audit,
-				rawStore: { kind: 'raw-store' } as never
-			},
-			{
-				tier: 'unit',
-				source: 'subscription',
-				personnelCount: 90,
-				personnelCap: 500,
-				isReadOnly: false,
-				readOnlyReason: null,
-				giftExpiresAt: null,
-				giftTier: null
-			}
-		);
+		const result = await _loadBillingPageData({
+			auth: ctx.auth,
+			audit: ctx.audit,
+			rawStore: { kind: 'raw-store' } as never
+		});
 
 		expect(result.downgradePreviews).toEqual([
 			expect.objectContaining({

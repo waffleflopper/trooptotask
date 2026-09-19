@@ -2,7 +2,7 @@
 
 Baseline: `282fcace16795a13e2306bf71d44465f59d51acc`. Phase 01 and Phase 02 history below is preserved as recorded at completion; their former “phase 03 inactive” statements are historical. Phase 03 was explicitly activated after [acceptance and default-branch merge verification](EVIDENCE.md#phase-03-activation).
 
-**Checkpoint:** Phase **03 — Billing runtime** · Parent [#1276](https://github.com/waffleflopper/trooptotask/issues/1276) · Milestone **1** · Active child [#1293 / D02](https://github.com/waffleflopper/trooptotask/issues/1293) · Branch `stabilization/03-d02-capacity-export` · PR: **none** · State: **AWAITING_PR**. Tasks **03-02a/b/c**, parent **03-02**, and **03-03** pass. Stop before D03; publication, independent review and verified merge remain owner checkpoints. See [D02 handoff](EVIDENCE.md#d02-pr-handoff).
+**Checkpoint:** Phase **03 — Billing runtime** · Parent [#1276](https://github.com/waffleflopper/trooptotask/issues/1276) · Milestone **1** · Active child [#1293 / D02](https://github.com/waffleflopper/trooptotask/issues/1293) · Branch `stabilization/03-d02-capacity-export` · PR: [**#1299**](https://github.com/waffleflopper/trooptotask/pull/1299) · State: **AWAITING_MERGE**. Tasks **03-02a/b/c**, parent **03-02**, and **03-03** pass; independent Standards/Spec review passes with zero findings. D02 is published. Stop before D03 until owner-authorized, verified merge; keep #1293 open until then. See [D02 handoff](EVIDENCE.md#d02-pr-handoff).
 
 ## Execution rules
 

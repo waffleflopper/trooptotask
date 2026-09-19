@@ -1768,27 +1768,20 @@ Saved and inspected screenshots in `/home/waffleflops/.t3/userdata/browser-artif
 
 ### D02 PR handoff
 
+**Status:** Independent review **PASS FOR THIS DELIVERABLE**; publication authorized by Robert. PR **[#1299](https://github.com/waffleflopper/trooptotask/pull/1299)** is open against `main`. State **AWAITING_MERGE**. Keep #1293 open until its verified merge; stop before D03. This is D02 acceptance only, not whole-phase acceptance or production certification.
+
 **Title:** `Remove paid capacity and export quotas from retained workflows`
 
-**Verified base/head:** `main` at `bded16ee2b33c04db2883641dcae03fce85592bc` ← `stabilization/03-d02-capacity-export`, current HEAD `bba006d55040ade653be5dc4d6e5f17d3f4f8bae` **plus uncommitted 03-02c/03-03 changes**. No publishable final head SHA exists yet. Full D02 includes 03-02a/b commits and preserved 03-02c changes, not only this export slice. Both deleted files are the quota settings model/test above. PR body prepared at `/tmp/t3-d02-03-03/pr-body.md`:
+**Verified scope:** Base/default `main` at `bded16ee2b33c04db2883641dcae03fce85592bc`; branch `stabilization/03-d02-capacity-export`. The independently reviewed implementation is `98d9d2f8c99b5c973ae57781bc6c8ef2f41105f0`, including all three D02 commits (`e7751329`, `bba006d5`, `98d9d2f8`), 52 paths and both deleted quota settings model/test files. Review started and ended with no staged, unstaged or untracked changes. The earlier uncommitted-head descriptions above are historical. This handoff update records substantive independent acceptance and publication; it changes no runtime source. Resolve the current PR head from GitHub for merge verification.
 
-> Organization creation, Personnel writes/imports, invitations and JSON/Excel exports now run without paid capacity or monthly quota checks. Remove their obsolete gates, compensation calls, ports, helpers, DTOs, UI and commercial-only tests. Preserve reviewed acquisition, email confirmation, atomic owner/default creation, authorization/Group scope, abuse/file/batch bounds, Calendar Assignments and export generation/lifecycle/audit/notifications. Personnel import retains the invalid-cell textbox fix. No schema changes; remaining shell/admin/provider removals belong to later children.
->
-> Validation: all seven canonical commands, 5,665 tests / 612 files, 18 isolated SQL suites / 347 assertions and affected production-browser flows pass. Detailed candidate, prior capacity evidence, deletions and warnings: Task 03-03 and preceding D02 entries in EVIDENCE. Independent review is needed for the full D02 cutover, security/tenant boundaries, retained Calendar exports and failure lifecycle.
->
-> Closes #1293
->
-> Parent #1276; workflow #1275. This completes D02 only. Keep the child open until merge.
->
-> Vercel push/merge may deploy. External triggers, owner notice/backups and app/schema compatibility must be verified before releasing publication/merge. Repository CI is manual-only; no new or configured automatic remote migration is included. No remote DB/provider work is authorized.
+**Independent acceptance (2026-09-19 UTC):** Separate Standards and Spec reviewers found **0 findings each**. Lead review verified the full proposed diff, workflow #1275, parent/child comments, every D02 TODO mapping, retained contracts and scoped consumer/deletion coverage. No repair or waiver was needed. Remaining policy/read-only/shell/admin/provider commercial dependencies retain their D03–D05 owners.
 
-**Exact owner action:** inspect `git diff origin/main`, arrange independent review and verify the release prerequisites above, then explicitly authorize or perform the following publication sequence after staging only this reviewed D02 scope. These commands were **not run**:
+The reviewed source hash matches the final implementation candidate: `6e1a510b521a5ec462c0a3115e25f93c86751cea193bb9f75a16bde979ceea4e`. A fresh independent run of all seven canonical commands exits **0**, with **5,665 tests / 612 files** and zero Svelte/type errors or warnings. Logs, command exits, timings and exact synthetic/unreachable provider overrides are in `/tmp/t3-d02-independent-review/{verify.py,checks.json,*.log}`; Node **24.18.0**, npm **11.17.0**. Existing lint/build warnings remain as documented above. Explicit formatting checks for all five changed Markdown files, 56 relative links/anchors and `git diff --check` pass. Runtime checks are credited to this identical source; recording the review does not require another unchanged runtime run.
 
-```bash
-git add -u -- docs/stabilization plans/039-revoke-service-rpc-client-execute.md src/lib/server 'src/routes/org/[orgId]'
-git commit -m "Remove paid capacity and export quotas from retained workflows"
-git push -u origin stabilization/03-d02-capacity-export
-gh pr create --repo waffleflopper/trooptotask --base main --head stabilization/03-d02-capacity-export --title "Remove paid capacity and export quotas from retained workflows" --body-file /tmp/t3-d02-03-03/pr-body.md
-```
+Independent inspection of the saved disposable setup/config, migration/SQL and cleanup logs confirms **132 migrations**, **18 suites / 347 assertions**, disabled legacy seeds and project/port isolation for each capacity/export leaf. Copied SQL tests and migrations match current repository bytes. Saved browser screenshots and database readbacks support confirmation admission, provisioning defaults, Personnel/import correction and scope denials, invitation/setup separation and acceptance, export success/failure/retry, retained Calendar identities and denied requests without inserts. These are independently inspected existing browser/DB artifacts; no fresh browser or DB replay and no outbound email success are claimed by this review. No schema change makes upgrade comparison inapplicable; no performance claim is made. Full local review and pinned inventory: `/tmp/t3-d02-independent-review/{REVIEW.md,scope.txt}`.
 
-Obtain independent review and verified merge into default `main`, then repeat #1275's driver. Do not begin D03 on this unmerged branch. No remaining local acceptance blocker; publication/review/merge are the pending checkpoint, and phase 03 remains active.
+**Publication:** Robert explicitly authorized updating this handoff and opening D02. PR body records the independent pass, `Closes #1293` and non-closing references to parent #1276/workflow #1275. No parent closure, next-child implementation or merge is authorized by this publication step. The workflow's PR checkpoint remains in force.
+
+**Next owner action:** Review the published PR and its actual checks/review status; authorize merge separately when ready. Verify merge into freshly fetched default content, reconcile #1293 closure, then repeat #1275's driver to start D03 safely from updated default. Never begin D03 on this unmerged branch or infer merge from a checked TODO.
+
+Vercel push/merge may deploy; external triggers remain unverified. Before any releasing merge, verify owner notice/backups, deployment settings and app/schema compatibility. Repository CI is manual-only; no new or configured automatic remote migration is included. No remote DB/provider work or deployment command is part of this handoff.

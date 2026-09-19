@@ -7,6 +7,11 @@ const config = parse(readFileSync(resolve(import.meta.dirname, '../../supabase/c
 const auth = config.auth as TomlTable;
 
 describe('local Supabase auth policy', () => {
+	it('requires reviewed account creation while retaining email sign-in', () => {
+		expect(auth.enable_signup).toBe(false);
+		expect((auth.email as TomlTable).enable_signup).toBe(true);
+	});
+
 	it('requires twelve characters, mixed case and digits, and secure password changes', () => {
 		expect(auth.minimum_password_length).toBe(12);
 		expect(auth.password_requirements).toBe('lower_upper_letters_digits');

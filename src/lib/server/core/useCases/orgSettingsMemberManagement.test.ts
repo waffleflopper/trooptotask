@@ -1167,54 +1167,8 @@ describe('inviteOrganizationMember', () => {
 		expect(port.accessRequestBridges).toEqual([]);
 	});
 
-	it('skips Access Request bridging for billing-enabled non-user invitations', async () => {
-		billingEnabledMock.mockReturnValue(true);
-		const ctx = createTestContext();
-		const port = createOrganizationSettingsMemberManagementPort({
-			existingUserAccount: null,
-			orgName: 'Alpha Company'
-		});
-		const delivery = createInvitationDeliveryPort('sent');
-
-		const result = await inviteOrganizationMember(
-			{
-				auth: ctx.auth,
-				audit: ctx.audit,
-				notifications: ctx.notifications,
-				settings: port,
-				invitationDelivery: delivery
-			},
-			{
-				email: 'new.user@example.com',
-				membershipRole: 'member',
-				memberAccess: memberAccess({ memberPreset: 'viewer' }),
-				actorEmail: 'actor@example.com',
-				origin: 'https://trooptotask.test'
-			}
-		);
-
-		expect(result).toMatchObject({
-			inviteSuccess: true,
-			inviteEmail: 'new.user@example.com'
-		});
-		expect(port.createdInvitations).toHaveLength(1);
-		expect(port.accessRequestBridges).toEqual([]);
-		expect(port.blockedInvitations).toEqual([]);
-		expect(delivery.deliveries).toEqual([
-			expect.objectContaining({
-				email: 'new.user@example.com',
-				requiresAccountSetup: true,
-				selfServiceSignupEnabled: true
-			})
-		]);
-		expect(ctx.auditPort.events).not.toContainEqual(
-			expect.objectContaining({
-				action: expect.stringMatching(/^member\.invite_access_request_/)
-			})
-		);
-	});
-
-	it('keeps Access Request bridging for billing-disabled non-user invitations', async () => {
+	it.each([false, true])('bridges new invitees with billing=%s', async (billingEnabled) => {
+		billingEnabledMock.mockReturnValue(billingEnabled);
 		const ctx = createTestContext();
 		const port = createOrganizationSettingsMemberManagementPort({
 			existingUserAccount: null,
@@ -1251,8 +1205,7 @@ describe('inviteOrganizationMember', () => {
 		expect(delivery.deliveries).toEqual([
 			expect.objectContaining({
 				email: 'new.user@example.com',
-				requiresAccountSetup: true,
-				selfServiceSignupEnabled: false
+				requiresAccountSetup: true
 			})
 		]);
 		expect(ctx.auditPort.events).toContainEqual({
@@ -1596,7 +1549,7 @@ describe('inviteOrganizationMember', () => {
 		expect(issuance.setupDeliveries).toEqual([]);
 	});
 
-	it('does not issue a setup link when billing is enabled', async () => {
+	it('issues the separate setup credential even when billing is enabled', async () => {
 		billingEnabledMock.mockReturnValue(true);
 		const ctx = createTestContext();
 		const port = createOrganizationSettingsMemberManagementPort({ existingUserAccount: null });
@@ -1612,9 +1565,14 @@ describe('inviteOrganizationMember', () => {
 			}
 		);
 
-		expect(port.accessRequestBridges).toEqual([]);
-		expect(issuance.setupLinkRequests).toEqual([]);
-		expect(issuance.setupDeliveries).toEqual([]);
+		expect(port.accessRequestBridges).toHaveLength(1);
+		expect(issuance.setupLinkRequests).toEqual(['access-request-1']);
+		expect(issuance.setupDeliveries).toEqual([
+			expect.objectContaining({
+				email: 'new.user@example.com',
+				setupUrl: 'https://trooptotask.test/auth/setup-account?token=raw-setup-token'
+			})
+		]);
 	});
 
 	it('allows owners to create member-management invitations with an immutable access snapshot', async () => {
@@ -1716,8 +1674,7 @@ describe('inviteOrganizationMember', () => {
 				organizationName: 'Alpha Company',
 				invitedByEmail: 'actor@example.com',
 				origin: 'https://trooptotask.test',
-				requiresAccountSetup: false,
-				selfServiceSignupEnabled: false
+				requiresAccountSetup: false
 			}
 		]);
 		expect(rateLimiter.checks).toEqual([
@@ -1840,8 +1797,7 @@ describe('inviteOrganizationMember', () => {
 		expect(delivery.deliveries).toEqual([
 			expect.objectContaining({
 				email: 'new.user@example.com',
-				requiresAccountSetup: true,
-				selfServiceSignupEnabled: false
+				requiresAccountSetup: true
 			})
 		]);
 	});
@@ -2026,8 +1982,7 @@ describe('inviteOrganizationMember', () => {
 			expect.objectContaining({
 				invitationId: '11111111-1111-4111-8111-111111111111',
 				email: 'invitee@example.com',
-				requiresAccountSetup: true,
-				selfServiceSignupEnabled: true
+				requiresAccountSetup: true
 			})
 		]);
 		expect(ctx.auditPort.events).toContainEqual({
@@ -2043,7 +1998,7 @@ describe('inviteOrganizationMember', () => {
 		});
 	});
 
-	it('keeps self-service invitation resends stable when billing is later disabled', async () => {
+	it('resends legacy unlinked invitations through reviewed setup when billing is disabled', async () => {
 		billingEnabledMock.mockReturnValue(false);
 		const ctx = createTestContext();
 		const port = createOrganizationSettingsMemberManagementPort({
@@ -2072,8 +2027,7 @@ describe('inviteOrganizationMember', () => {
 			expect.objectContaining({
 				invitationId: '11111111-1111-4111-8111-111111111111',
 				email: 'invitee@example.com',
-				requiresAccountSetup: true,
-				selfServiceSignupEnabled: true
+				requiresAccountSetup: true
 			})
 		]);
 	});
@@ -2106,8 +2060,7 @@ describe('inviteOrganizationMember', () => {
 			expect.objectContaining({
 				invitationId: '11111111-1111-4111-8111-111111111111',
 				email: 'invitee@example.com',
-				requiresAccountSetup: true,
-				selfServiceSignupEnabled: true
+				requiresAccountSetup: true
 			})
 		]);
 	});
@@ -2142,8 +2095,7 @@ describe('inviteOrganizationMember', () => {
 			expect.objectContaining({
 				invitationId: '11111111-1111-4111-8111-111111111111',
 				email: 'invitee@example.com',
-				requiresAccountSetup: true,
-				selfServiceSignupEnabled: false
+				requiresAccountSetup: true
 			})
 		]);
 		expect(ctx.auditPort.events).toContainEqual({
@@ -2189,8 +2141,7 @@ describe('inviteOrganizationMember', () => {
 			expect.objectContaining({
 				invitationId: '11111111-1111-4111-8111-111111111111',
 				email: 'invitee@example.com',
-				requiresAccountSetup: false,
-				selfServiceSignupEnabled: false
+				requiresAccountSetup: false
 			})
 		]);
 		expect(ctx.auditPort.events).toContainEqual({
@@ -3679,9 +3630,7 @@ describe('invitation credential and governance boundaries', () => {
 			expect(settings.accessRequestBridges).toEqual([]);
 			expect(settings.createdInvitations).toEqual([]);
 			expect(settings.updatedMemberships).toEqual([]);
-			expect(delivery.deliveries).toEqual([
-				expect.objectContaining({ requiresAccountSetup: true, selfServiceSignupEnabled: false })
-			]);
+			expect(delivery.deliveries).toEqual([expect.objectContaining({ requiresAccountSetup: true })]);
 		}
 	);
 

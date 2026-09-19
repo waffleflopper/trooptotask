@@ -31,7 +31,6 @@ import {
 	type OrganizationInvitationRateLimitAction,
 	type OrganizationInvitationRateLimiter
 } from '$lib/server/organizationInvitationRateLimit';
-import { isBillingEnabled } from '$lib/config/billing';
 import { validateEmail, validateUUID } from '$lib/server/validation';
 import { requireGovernancePolicy } from './governancePolicy';
 import { normalizeInvitationEmail } from './invitationEmail';
@@ -148,7 +147,6 @@ export interface OrganizationInvitationDeliveryPort {
 		invitedByEmail: string | null;
 		origin: string;
 		requiresAccountSetup: boolean;
-		selfServiceSignupEnabled: boolean;
 	}): Promise<{ status: 'sent'; outbox: { id: string } } | { status: 'failed'; outbox: { id: string }; error: string }>;
 }
 
@@ -302,7 +300,7 @@ export async function inviteOrganizationMember(
 		actorUserId
 	});
 
-	const shouldBridgeAccessRequest = !existingUserAccount && !isBillingEnabled;
+	const shouldBridgeAccessRequest = !existingUserAccount;
 	const accessRequestBridge = shouldBridgeAccessRequest
 		? await bridgeInvitationToAccessRequest(ports, {
 				organizationId: ports.auth.orgId,
@@ -351,7 +349,6 @@ export async function inviteOrganizationMember(
 		actorEmail: input.actorEmail ?? null,
 		origin: input.origin ?? '',
 		requiresAccountSetup: !existingUserAccount,
-		selfServiceSignupEnabled: !existingUserAccount && isBillingEnabled,
 		mode: 'initial',
 		rateLimit
 	});
@@ -666,7 +663,6 @@ export async function resendOrganizationInvitation(
 	const existingUserAccount = await ports.settings.findUserAccountByEmail(invitation.email);
 	const hasUsableUserAccount = !!existingUserAccount && existingUserAccount.emailConfirmed !== false;
 	const requiresAccountSetup = invitation.requiresAccountSetup || !hasUsableUserAccount;
-	const selfServiceSignupEnabled = !invitation.requiresAccountSetup && requiresAccountSetup;
 
 	const deliveryStatus = await deliverInvitationEmail(ports, {
 		invitationId: invitation.id,
@@ -674,7 +670,6 @@ export async function resendOrganizationInvitation(
 		actorEmail: input.actorEmail ?? null,
 		origin: input.origin,
 		requiresAccountSetup,
-		selfServiceSignupEnabled,
 		mode: 'resend',
 		rateLimit
 	});
@@ -700,7 +695,6 @@ async function deliverInvitationEmail(
 		actorEmail: string | null;
 		origin: string;
 		requiresAccountSetup: boolean;
-		selfServiceSignupEnabled: boolean;
 		mode: 'initial' | 'resend';
 		rateLimit?: Record<string, unknown> | null;
 	}
@@ -719,8 +713,7 @@ async function deliverInvitationEmail(
 			organizationName,
 			invitedByEmail: input.actorEmail,
 			origin: input.origin,
-			requiresAccountSetup: input.requiresAccountSetup,
-			selfServiceSignupEnabled: input.selfServiceSignupEnabled
+			requiresAccountSetup: input.requiresAccountSetup
 		});
 	} catch (error) {
 		ports.audit.log({

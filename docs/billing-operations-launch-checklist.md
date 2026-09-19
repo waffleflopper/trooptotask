@@ -107,7 +107,7 @@ Do not start these until test-mode verification is complete and Robert has made 
 | `STRIPE_AUTOMATIC_TAX_ENABLED` and `STRIPE_TAX_DASHBOARD_VERIFIED` match the tax launch decision | Requires Robert confirmation                | Robert                | Tax decision record and Dashboard confirmation.                                                                                                              |
 | Customer Portal live configuration matches the supported contract                                | Requires Robert confirmation                | Robert                | Dashboard confirmation.                                                                                                                                      |
 | Billing retry, invoice, receipt, and customer email settings are reviewed in live mode           | Requires Robert confirmation                | Robert                | Dashboard confirmation.                                                                                                                                      |
-| Support process is staffed for launch                                                            | Requires Robert/business-owner confirmation | Robert                | Who handles billing tickets, where Stripe IDs are searched, where admin self-service signup state is checked, and how urgent payment failures are escalated. |
+| Support process is staffed for launch                                                            | Requires Robert/business-owner confirmation | Robert                | Who handles billing tickets, where Stripe IDs are searched, where reviewed account setup state is checked, and how urgent payment failures are escalated.    |
 
 ## Environment Variables
 
@@ -157,7 +157,7 @@ The public paid-plan contract for launch is:
 - Duty Rosters may keep a Beta badge for paid launch. That badge means the workflow is supported but still evolving; it is not an unsupported or best-effort feature.
 - Public Terms should not describe the paid service itself as beta-only.
 
-Acquisition remains environment-gated. While billing is disabled, keep reviewed request-access mechanics and copy. Plans 083-087 add the self-service signup identity layer, first Organization setup, explicit Free-first checkout entry, support/admin visibility. Historical browser coverage was removed by stabilization task 02-05; use the [verification contract](architecture/DEFINITION_OF_DONE.md#verification-contract). New self-service Organizations start on Free; owners explicitly choose Team or Unit upgrade checkout from Billing when billing is enabled.
+Acquisition uses reviewed Access Requests and invitation-authorized setup regardless of billing. Historical plans 083–087 do not activate public signup. See the [current acquisition path](launch-acquisition-path.md) and [verification contract](architecture/DEFINITION_OF_DONE.md#verification-contract). Remaining checkout/Free-plan operations below are unfinished commercial-removal scope under stabilization 03-05/03-07.
 
 ## Webhook Events
 

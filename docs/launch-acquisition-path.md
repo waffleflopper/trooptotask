@@ -16,12 +16,21 @@ Public CTAs say `Request Access` and link directly to `/auth/request-access`.
 4. The user completes account setup and chooses a password, activating only the User Account.
 5. Organization creation and Organization Membership remain separate workflows.
 
-The invitation cutover remains unfinished under [03-01b](stabilization/TODO.md#03-01-local-leaves--d01-1292).
-The current billing-off new-invitee path creates an approved Access Request and
-separate setup and invitation emails; existing accounts keep invitation acceptance.
-The remaining commercial invitation branches, resend/retry consumers and signup
-confirmation-template configuration must be removed before #1292 is complete.
-No public signup operation is available in the meantime.
+New invitees receive an owner-authorized approved Access Request, an Account
+Setup Link email and a separate Organization Invitation email, independent of
+billing settings. Existing accounts keep invitation acceptance. Invitation resend
+and outbox retry never mint a setup credential: incomplete accounts receive the
+setup-recovery destination; completed accounts receive sign-in. Setup alone does
+not grant Organization Membership. The signup-only provider confirmation template
+and its local configuration have been removed. Local provider signup is disabled;
+reviewed setup uses the server admin API and email sign-in remains enabled.
+Shared confirmation still handles
+previously issued links, provider invitations and password recovery.
+
+Before releasing this cutover, the owner must check hosted auth configuration and
+any pending legacy unlinked invitations. Resend does not retrospectively approve
+access: an invitee with no reviewed request must use Request Access or receive a
+new authorized invitation. No live invitation disposition is claimed here.
 
 The billing/support/activation sections below describe still-existing consumers
 owned by later Phase 03 deliverables; they do not authorize restoring public signup

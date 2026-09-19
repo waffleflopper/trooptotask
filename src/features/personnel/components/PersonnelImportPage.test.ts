@@ -438,6 +438,33 @@ describe('PersonnelImportPage', () => {
 		expect(screen.getByRole('button', { name: 'Import checked rows' })).toBeDisabled();
 	});
 
+	it('allows correcting an invalid rank through an editable textbox before importing', async () => {
+		parseFileMock.mockResolvedValue([
+			['Rank', 'Last Name', 'First Name'],
+			['BAD', 'Smith', 'John']
+		]);
+		const fetchMock = vi.fn().mockResolvedValue({
+			ok: true,
+			json: async () => ({ inserted: [{ id: 'corrected-person' }], errors: [] })
+		});
+		vi.stubGlobal('fetch', fetchMock);
+		renderPage();
+		await fireEvent.change(document.querySelector<HTMLInputElement>('#fileUpload')!, {
+			target: { files: [new File(['records'], 'personnel.csv', { type: 'text/csv' })] }
+		});
+		await fireEvent.click(await screen.findByRole('button', { name: /Preview 1 Rows/i }));
+		expect(screen.getByRole('button', { name: 'Import checked rows' })).toBeDisabled();
+		const rank = screen.getByRole('textbox', { name: 'Row 2 Rank' });
+		await fireEvent.change(rank, { target: { value: 'SGT' } });
+		const submit = screen.getByRole('button', { name: 'Import checked rows' });
+		await waitFor(() => expect(submit).toBeEnabled());
+		await fireEvent.click(submit);
+		await screen.findByRole('button', { name: 'Return to Personnel' });
+		expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
+			records: [{ rank: 'SGT', lastName: 'Smith', firstName: 'John' }]
+		});
+	});
+
 	it('disables import with a visible reason when no valid rows are selected', async () => {
 		parseFileMock.mockResolvedValue([
 			['Rank', 'Last Name', 'First Name'],
@@ -453,6 +480,28 @@ describe('PersonnelImportPage', () => {
 
 		expect(screen.getByText('Select at least one valid row to import.')).toBeInTheDocument();
 		expect(screen.getByRole('button', { name: 'Import checked rows' })).toBeDisabled();
+	});
+
+	it('shows a rejected request reason and allows a fresh upload', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async () => new Response(JSON.stringify({ message: 'Unable to save personnel' }), { status: 500 }))
+		);
+		parseFileMock.mockResolvedValue([
+			['Rank', 'Last Name', 'First Name'],
+			['SGT', 'Smith', 'John']
+		]);
+		renderPage();
+		const input = document.querySelector<HTMLInputElement>('#fileUpload');
+		await fireEvent.change(input!, {
+			target: { files: [new File(['records'], 'personnel.csv', { type: 'text/csv' })] }
+		});
+		await fireEvent.click(await screen.findByRole('button', { name: /Preview 1 Rows/i }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Import checked rows' }));
+		expect(await screen.findByText('Import failed')).toBeInTheDocument();
+		expect(screen.getByText('Unable to save personnel')).toBeInTheDocument();
+		await fireEvent.click(screen.getByRole('button', { name: 'Upload another file' }));
+		expect(document.querySelector<HTMLInputElement>('#fileUpload')).toBeInTheDocument();
 	});
 
 	it('renders partial results with recovery actions and failed-row context', async () => {
@@ -488,47 +537,6 @@ describe('PersonnelImportPage', () => {
 		expect(screen.getByRole('button', { name: 'Review failed rows' })).toBeInTheDocument();
 		expect(screen.getByRole('button', { name: 'Upload another file' })).toBeInTheDocument();
 		expect(screen.getByRole('button', { name: 'Return to Personnel' })).toBeInTheDocument();
-	});
-
-	it('renders cap failures from a 200 response with targeted recovery copy', async () => {
-		vi.stubGlobal(
-			'fetch',
-			vi.fn(
-				async () =>
-					new Response(
-						JSON.stringify({
-							inserted: [],
-							errors: [
-								{
-									index: 0,
-									message: 'Personnel cap reached — upgrade or archive personnel before adding this record'
-								}
-							],
-							capReached: true,
-							capError: 'Personnel cap reached — upgrade or archive personnel before adding this record'
-						}),
-						{ status: 200 }
-					)
-			)
-		);
-		parseFileMock.mockResolvedValue([
-			['Rank', 'Last Name', 'First Name'],
-			['SGT', 'Smith', 'John']
-		]);
-		renderPage();
-
-		const input = document.querySelector<HTMLInputElement>('#fileUpload');
-		await fireEvent.change(input!, {
-			target: { files: [new File(['records'], 'personnel.csv', { type: 'text/csv' })] }
-		});
-		await fireEvent.click(await screen.findByRole('button', { name: /Preview 1 Rows/i }));
-		await fireEvent.click(screen.getByRole('button', { name: 'Import checked rows' }));
-
-		expect(await screen.findByText('Import failed')).toBeInTheDocument();
-		expect(screen.getByText(/Your personnel limit has been reached/i)).toBeInTheDocument();
-		expect(screen.getByText(/Archive personnel or upgrade your plan/i)).toBeInTheDocument();
-		expect(screen.queryByRole('button', { name: 'Review failed rows' })).toBeNull();
-		expect(screen.getByRole('button', { name: 'Upload another file' })).toBeInTheDocument();
 	});
 
 	it('invalidates refreshed personnel data when uploading another file after partial results', async () => {

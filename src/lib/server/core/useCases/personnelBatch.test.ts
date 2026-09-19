@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { createWriteWithSubscriptionPortsContext } from '$lib/server/adapters/inMemory';
+import { createWritePortsContext } from '$lib/server/adapters/inMemory';
 import { importPersonnelBatch } from './personnelBatch';
 
-function buildContext(overrides?: Parameters<typeof createWriteWithSubscriptionPortsContext>[0]) {
-	const ctx = createWriteWithSubscriptionPortsContext(overrides);
+function buildContext(overrides?: Parameters<typeof createWritePortsContext>[0]) {
+	const ctx = createWritePortsContext(overrides);
 	seedRankCatalog(ctx, [
 		{ code: 'PFC', label: 'Private First Class', pay_grade: 'E-3' },
 		{ code: 'SGT', label: 'Sergeant', pay_grade: 'E-5' },
@@ -49,6 +49,24 @@ describe('importPersonnelBatch', () => {
 		await expect(importPersonnelBatch(ctx, { records })).rejects.toMatchObject({
 			status: 400,
 			message: 'Maximum 500 records per batch'
+		});
+	});
+
+	it('imports all 500 valid rows without a subscription provider', async () => {
+		const ctx = buildContext();
+		const records = Array.from({ length: 500 }, (_, i) => ({
+			rank: 'SGT',
+			lastName: `Last${i}`,
+			firstName: `First${i}`
+		}));
+		const result = await importPersonnelBatch(ctx, { records });
+		expect(result.errors).toEqual([]);
+		expect(result.inserted).toHaveLength(500);
+		await expect(ctx.store.findMany('personnel', ctx.auth.orgId)).resolves.toHaveLength(500);
+		expect(ctx.audit.events).toContainEqual({
+			action: 'personnel.bulk_created',
+			resourceType: 'personnel',
+			details: { count: 500 }
 		});
 	});
 
@@ -127,48 +145,6 @@ describe('importPersonnelBatch', () => {
 		expect(result.errors[0].message).toContain('required');
 	});
 
-	it('trims batch when near subscription cap', async () => {
-		const ctx = buildContext({ availableSlots: 1 });
-		const result = await importPersonnelBatch(ctx, {
-			records: [
-				{ rank: 'SGT', lastName: 'Smith', firstName: 'John' },
-				{ rank: 'PFC', lastName: 'Doe', firstName: 'Jane' }
-			]
-		});
-		expect(result.inserted).toHaveLength(1);
-		expect(result.errors).toHaveLength(1);
-		expect(result.errors[0].message).toContain('cap reached');
-		expect(result.errors[0].message).toContain('upgrade or archive personnel');
-		expect(result.capReached).toBe(true);
-		expect(result.capError).toBe('Personnel cap reached — upgrade or archive personnel before adding this record');
-	});
-
-	it('returns per-row errors when cap is fully reached', async () => {
-		const ctx = buildContext({ availableSlots: 0 });
-
-		const result = await importPersonnelBatch(ctx, {
-			records: [
-				{ rank: 'SGT', lastName: 'Smith', firstName: 'John' },
-				{ rank: 'PFC', lastName: 'Doe', firstName: 'Jane' }
-			]
-		});
-
-		expect(result.inserted).toHaveLength(0);
-		expect(result.errors).toEqual([
-			{ index: 0, message: 'Personnel cap reached — upgrade or archive personnel before adding this record' },
-			{ index: 1, message: 'Personnel cap reached — upgrade or archive personnel before adding this record' }
-		]);
-		expect(result).toMatchObject({
-			capReached: true,
-			capError: 'Personnel cap reached — upgrade or archive personnel before adding this record'
-		});
-		expect(ctx.audit.events).toContainEqual({
-			action: 'personnel.bulk_import_blocked',
-			resourceType: 'personnel',
-			details: { reason: 'cap_exhausted', attempted: 2 }
-		});
-	});
-
 	it('enforces scoped group restriction', async () => {
 		const ctx = buildContext({
 			auth: { scopeSet: { kind: 'groups', groupIds: ['group-1'] } }
@@ -184,14 +160,6 @@ describe('importPersonnelBatch', () => {
 		expect(result.inserted).toHaveLength(1);
 		expect(result.errors).toHaveLength(1);
 		expect(result.errors[0].message).toContain('only add personnel to your assigned group');
-	});
-
-	it('invalidates tier cache after insert', async () => {
-		const ctx = buildContext();
-		await importPersonnelBatch(ctx, {
-			records: [{ rank: 'SGT', lastName: 'Smith', firstName: 'John' }]
-		});
-		expect(ctx.subscription.tierCacheInvalidated).toBe(true);
 	});
 
 	it('preserves ETS and DEROS values from bulk import records', async () => {

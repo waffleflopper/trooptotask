@@ -65,12 +65,6 @@ export const _patchConfig: RouteConfig<Record<string, unknown>, Record<string, u
 		if (!id || typeof id !== 'string') fail(400, 'Missing id');
 
 		return useCases.restore(ctx, id);
-	},
-	formatOutput: (result) => {
-		if (result.message && !result.success) {
-			return json(result, { status: 422 });
-		}
-		return json(result);
 	}
 };
 

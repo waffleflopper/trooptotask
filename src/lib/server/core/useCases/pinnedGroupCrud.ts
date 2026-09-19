@@ -4,7 +4,7 @@
  * Pin state is per-user (not per-org), stored in `user_pinned_groups`.
  *
  * Uses `UserWritePorts` (not `WritePorts`) because this writes user-specific, not
- * org-scoped, data and doesn't need audit or read-only checks.
+ * org-scoped, data and doesn't need organization-level audit.
  */
 import type { UserWritePorts } from '$lib/server/core/ports';
 

@@ -74,8 +74,7 @@ const routeContext = {
 	auth: { orgId: 'org-1', role: 'owner' },
 	store: { kind: 'store' },
 	rawStore: { kind: 'raw-store' },
-	audit: { kind: 'audit' },
-	readOnlyGuard: { kind: 'read-only-guard' }
+	audit: { kind: 'audit' }
 };
 
 function actionEvent(

@@ -12,10 +12,8 @@ const operateOnlyCapabilityMap: CapabilityMap = {
 	ratingScheme: 'none'
 };
 
-function buildContext(overrides?: { readOnly?: boolean }) {
-	return createWritePortsContext({
-		readOnly: overrides?.readOnly
-	});
+function buildContext() {
+	return createWritePortsContext();
 }
 
 function seedOnboarding(ctx: ReturnType<typeof buildContext>, overrides?: Record<string, unknown>) {
@@ -512,13 +510,6 @@ describe('resyncOnboarding', () => {
 		await expect(resyncOnboarding(ctx, 'ob-1')).rejects.toThrow('Cannot resync: template has been deleted');
 	});
 
-	it('blocks resync when organization is read-only', async () => {
-		const ctx = buildContext({ readOnly: true });
-		seedOnboarding(ctx);
-
-		await expect(resyncOnboarding(ctx, 'ob-1')).rejects.toThrow('Organization is in read-only mode');
-	});
-
 	it('requires Onboarding configure policy before resyncing', async () => {
 		const ctx = createWritePortsContext({
 			auth: {
@@ -793,15 +784,6 @@ describe('switchTemplate', () => {
 
 		await expect(switchTemplate(ctx, { onboardingId: 'ob-1', newTemplateId: 'tmpl-2' })).rejects.toThrow(
 			'Cannot switch template: current template has been deleted'
-		);
-	});
-
-	it('blocks switch when organization is read-only', async () => {
-		const ctx = buildContext({ readOnly: true });
-		seedOnboarding(ctx);
-
-		await expect(switchTemplate(ctx, { onboardingId: 'ob-1', newTemplateId: 'tmpl-2' })).rejects.toThrow(
-			'Organization is in read-only mode'
 		);
 	});
 

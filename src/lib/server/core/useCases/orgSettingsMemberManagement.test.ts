@@ -249,52 +249,6 @@ const inviteOrganizationMember = (
 	);
 
 describe('inviteOrganizationMember', () => {
-	it('denies admin invitations in read-only mode with policy audit metadata', async () => {
-		const ctx = createTestContext({
-			auth: {
-				userId: 'actor-1',
-				orgId: 'org-1',
-				role: 'admin'
-			},
-			readOnly: true
-		});
-		const port = createOrganizationSettingsMemberManagementPort();
-
-		await expect(
-			inviteOrganizationMember(
-				{
-					auth: ctx.auth,
-					audit: ctx.audit,
-					notifications: ctx.notifications,
-					readOnlyGuard: ctx.readOnlyGuard,
-					settings: port
-				},
-				{
-					email: 'new.user@example.com',
-					membershipRole: 'admin',
-					actorEmail: 'actor@example.com'
-				}
-			)
-		).rejects.toMatchObject({
-			status: 403,
-			message: 'Organization is in read-only mode'
-		});
-
-		expect(port.createdInvitations).toEqual([]);
-		expect(ctx.auditPort.events).toEqual([
-			{
-				action: 'policy.denied',
-				resourceType: 'organization',
-				details: {
-					policyAction: 'organization.inviteMember',
-					reasonCode: 'denied:read-only-overlay',
-					blockingOverlay: 'read-only-mode'
-				},
-				severity: 'warning'
-			}
-		]);
-	});
-
 	it('denies high-access members who are not admin or owner before creating invitations', async () => {
 		const ctx = createTestContext({
 			auth: {
@@ -351,7 +305,6 @@ describe('inviteOrganizationMember', () => {
 					auth: ctx.auth,
 					audit: ctx.audit,
 					notifications: ctx.notifications,
-					readOnlyGuard: ctx.readOnlyGuard,
 					settings: port
 				},
 				{
@@ -396,7 +349,6 @@ describe('inviteOrganizationMember', () => {
 					auth: ctx.auth,
 					audit: ctx.audit,
 					notifications: ctx.notifications,
-					readOnlyGuard: ctx.readOnlyGuard,
 					settings: port
 				},
 				{

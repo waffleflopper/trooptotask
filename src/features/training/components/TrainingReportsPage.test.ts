@@ -19,8 +19,7 @@ vi.mock('$lib/stores/orgContext.svelte', () => ({
 		isOwner: true,
 		isAdmin: false,
 		isPrivileged: true,
-		scopeSet: { kind: 'organization' },
-		readOnly: false
+		scopeSet: { kind: 'organization' }
 	})
 }));
 

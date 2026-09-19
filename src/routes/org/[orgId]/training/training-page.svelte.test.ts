@@ -32,7 +32,6 @@ vi.mock('$lib/stores/orgContext.svelte', () => ({
 		},
 		hasCapability: vi.fn(() => true),
 		scopeSet: { kind: 'organization' },
-		readOnly: false,
 		affordanceForFeatureAction: () => ({
 			allowed: true,
 			visible: true,

@@ -472,18 +472,6 @@ describe('importTrainingRecords', () => {
 		);
 	});
 
-	it('rejects when organization is in read-only mode', async () => {
-		const ctx = buildContext({ readOnly: true });
-		seedPersonnel(ctx);
-		seedTrainingType(ctx);
-
-		await expect(
-			importTrainingRecords(ctx, {
-				records: [{ personnelId: 'p-1', trainingTypeId: 'tt-1', completionDate: '2025-06-01', status: 'completed' }]
-			})
-		).rejects.toMatchObject({ status: 403, message: 'Organization is in read-only mode' });
-	});
-
 	it('rejects empty records array', async () => {
 		const ctx = buildContext();
 

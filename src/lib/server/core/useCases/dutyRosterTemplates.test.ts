@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { AuditPort, AuthContext, DataStore, ReadOnlyGuard } from '$lib/server/core/ports';
+import type { AuditPort, AuthContext, DataStore } from '$lib/server/core/ports';
 import {
 	acceptDutyRosterTemplatePreview,
 	acceptAndApplyDutyRosterTemplatePreview,
@@ -276,12 +276,8 @@ const criticalTasksReadModel = {
 	findCompletionTrend: vi.fn()
 };
 
-const readOnlyGuard: ReadOnlyGuard = {
-	check: vi.fn(async () => false)
-};
-
 function createCtx(auth = createAuth()) {
-	return { auth, store, rawStore: store, audit, readOnlyGuard, criticalTasksReadModel };
+	return { auth, store, rawStore: store, audit, criticalTasksReadModel };
 }
 
 async function withTimezone<T>(timezone: string, callback: () => Promise<T>): Promise<T> {
@@ -315,7 +311,6 @@ describe('Duty Roster Template use cases', () => {
 		dutyEventSlotRows.length = 0;
 		rankCatalogRows.length = 0;
 		auditEvents.length = 0;
-		vi.mocked(readOnlyGuard.check).mockResolvedValue(false);
 	});
 
 	afterEach(() => {
@@ -1765,7 +1760,8 @@ describe('Duty Roster Template use cases', () => {
 	it('re-applies an already applied accepted run when Calendar needs sync', async () => {
 		const ctx = createCtx(createAuth({ scopeSet: { kind: 'groups', groupIds: ['alpha'] } }));
 		personnelRows.push(
-			personnelRow({ id: 'alpha', rank: 'SGT', last_name: 'Able', first_name: 'Ann', group_id: 'alpha' })
+			personnelRow({ id: 'alpha', rank: 'SGT', last_name: 'Able', first_name: 'Ann', group_id: 'alpha' }),
+			personnelRow({ id: 'beta', rank: 'SSG', last_name: 'Baker', first_name: 'Ben', group_id: 'alpha' })
 		);
 		const template = await createDutyRosterTemplate(ctx, { name: 'CQ NCO', shortCode: 'CQ' });
 		const preview = await generateDutyRosterTemplatePreview(ctx, {

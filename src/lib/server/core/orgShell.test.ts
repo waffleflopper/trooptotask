@@ -22,17 +22,7 @@ const baseMembership: MembershipInfo = {
 };
 
 const baseOrgState: OrgState = {
-	orgName: 'Test Unit',
-	effectiveTier: {
-		tier: 'free',
-		source: 'default',
-		personnelCount: 0,
-		personnelCap: 20,
-		isReadOnly: false,
-		readOnlyReason: null,
-		giftExpiresAt: null,
-		giftTier: null
-	}
+	orgName: 'Test Unit'
 };
 
 const baseFirstPaintChrome: AppShellFirstPaintChrome = {

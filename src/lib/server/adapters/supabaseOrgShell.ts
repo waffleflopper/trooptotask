@@ -10,7 +10,6 @@ import { error, redirect } from '@sveltejs/kit';
 import type { Cookies } from '@sveltejs/kit';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { projectEffectiveMemberAccess } from '$lib/access/memberAccessProjection';
-import type { EffectiveTier } from '$lib/types/subscription';
 import { assertNormalizedMembershipRow, type MembershipRow } from '$lib/server/permissionContext';
 import { getDefaultUserOrgPreferences, normalizeUserOrgPreferences } from '$lib/preferences/userPreferences';
 import type {
@@ -32,7 +31,6 @@ import {
 import { getLayoutClient } from './httpAdapter';
 import { getOrLoadRequestMembership } from '$lib/server/membershipContextCache';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination';
-import { createSupabaseSubscriptionAdapter } from './supabaseSubscription';
 import {
 	getPreferredOrganizationUrlSegment,
 	resolveOrganizationRouteIdentity
@@ -41,7 +39,6 @@ import { sanitizeErrorForLog } from '$lib/server/logSanitize';
 
 export interface SupabaseAppShellRequestDeps {
 	getLayoutClient?: typeof getLayoutClient;
-	createSubscriptionAdapter?: typeof createSupabaseSubscriptionAdapter;
 	createOrgAccessPort?: typeof createSupabaseOrgAccessPort;
 	createFirstPaintChromePort?: typeof createSupabaseAppShellFirstPaintChromePort;
 	createDeferredChromePort?: typeof createSupabaseAppShellDeferredChromePort;
@@ -57,7 +54,6 @@ export function createSupabaseAppShellRequest(
 	deps: SupabaseAppShellRequestDeps = {}
 ): AppShellRequest {
 	const getLayoutClientFn = deps.getLayoutClient ?? getLayoutClient;
-	const createSubscriptionAdapterFn = deps.createSubscriptionAdapter ?? createSupabaseSubscriptionAdapter;
 	const createOrgAccessPortFn = deps.createOrgAccessPort ?? createSupabaseOrgAccessPort;
 	const createFirstPaintChromePortFn = deps.createFirstPaintChromePort ?? createSupabaseAppShellFirstPaintChromePort;
 	const createDeferredChromePortFn = deps.createDeferredChromePort ?? createSupabaseAppShellDeferredChromePort;
@@ -101,8 +97,6 @@ export function createSupabaseAppShellRequest(
 		}
 
 		const user = config.locals.user;
-		const subscriptionAdapter = createSubscriptionAdapterFn(supabase, org.id);
-		const effectiveTierPromise = subscriptionAdapter.getEffectiveTier();
 
 		return {
 			kind: 'ready',
@@ -112,7 +106,6 @@ export function createSupabaseAppShellRequest(
 				userId: user.id,
 				userSupabase: config.locals.supabase,
 				orgName: org.name ?? 'Organization',
-				getEffectiveTier: () => effectiveTierPromise,
 				wrapMembershipLoad: (loadMembershipRow) =>
 					getOrLoadRequestMembership(config.locals, user.id, org.id, loadMembershipRow)
 			}),
@@ -156,8 +149,6 @@ export function createSupabaseOrgAccessPort(config: {
 	userSupabase: SupabaseClient;
 	/** Pre-fetched org name (org row is already loaded before membership in the layout). */
 	orgName: string;
-	/** Delegate to the existing subscription adapter — avoids re-instantiating it. */
-	getEffectiveTier: () => Promise<EffectiveTier>;
 	wrapMembershipLoad?: (loadMembershipRow: () => Promise<MembershipRow>) => Promise<MembershipRow>;
 }): OrgAccessPort {
 	return {
@@ -180,10 +171,8 @@ export function createSupabaseOrgAccessPort(config: {
 		},
 
 		async getOrgState(): Promise<OrgState> {
-			const effectiveTier = await config.getEffectiveTier();
 			return {
-				orgName: config.orgName,
-				effectiveTier
+				orgName: config.orgName
 			};
 		}
 	};

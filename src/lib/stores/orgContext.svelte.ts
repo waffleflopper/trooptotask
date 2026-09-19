@@ -25,7 +25,6 @@ import {
 } from '$lib/access/memberAccessShape';
 import {
 	policyEvaluator,
-	POLICY_ACTION_CATALOG,
 	type FeatureLanePolicyAction,
 	type OrganizationGovernancePolicyAction,
 	type PolicyAction,
@@ -47,7 +46,6 @@ export interface OrgContext {
 	readonly isPrivileged: boolean;
 	readonly capabilityMap: CapabilityMap;
 	readonly scopeSet: ScopeSet;
-	readonly readOnly: boolean;
 	readonly affordanceForFeatureAction: (action: FeatureLanePolicyAction, resource?: PolicyResource) => ClientAffordance;
 	readonly affordanceForGovernanceAction: (
 		action: OrganizationGovernancePolicyAction,
@@ -65,7 +63,6 @@ export interface CreateOrgContextInput {
 	userRole: 'owner' | 'admin' | 'member';
 	capabilityMap?: CapabilityMap;
 	scopeSet?: ScopeSet;
-	isReadOnly: boolean;
 }
 
 export interface ClientAffordance {
@@ -85,7 +82,7 @@ function toInputAccessor(input: CreateOrgContextInput | OrgContextInputAccessor)
 
 /**
  * Builds an OrgContext from layout data, deriving computed fields
- * (isOwner, isAdmin, isPrivileged, readOnly).
+ * (isOwner, isAdmin, isPrivileged).
  */
 export function createOrgContext(input: CreateOrgContextInput | OrgContextInputAccessor): OrgContext {
 	const getInput = toInputAccessor(input);
@@ -132,9 +129,6 @@ export function createOrgContext(input: CreateOrgContextInput | OrgContextInputA
 		get scopeSet() {
 			return getAccessShape().scopeSet;
 		},
-		get readOnly() {
-			return getInput().isReadOnly;
-		},
 		affordanceForFeatureAction(action, resource = { kind: 'organization' }) {
 			return evaluateClientAffordance(getInput(), getAccessShape(), action, resource);
 		},
@@ -169,17 +163,13 @@ function evaluateClientAffordance(
 		action,
 		capabilityMap: accessShape.capabilityMap,
 		scopeSet: accessShape.scopeSet,
-		resource,
-		overlays:
-			input.isReadOnly && action.id !== POLICY_ACTION_CATALOG.personnel.archiveRecords.id
-				? [{ id: 'org-read-only', kind: 'read-only-mode', label: 'Organization read-only mode' }]
-				: undefined
+		resource
 	});
-	const disabled = !decision.allowed && decision.reasonCode === 'denied:read-only-overlay';
+	const disabled = !decision.allowed;
 
 	return {
 		allowed: decision.allowed,
-		visible: decision.allowed || disabled,
+		visible: decision.allowed,
 		disabled,
 		reason: decision.reasonCode,
 		explanation: explainPolicyReasonCode(decision.reasonCode),

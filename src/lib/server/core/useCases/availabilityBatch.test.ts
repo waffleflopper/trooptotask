@@ -170,23 +170,6 @@ describe('createAvailabilityBatch', () => {
 			}
 		});
 	});
-
-	it('lets read-only overlays block Calendar operate writes through policy decisions', async () => {
-		const ctx = buildContext({ readOnly: true });
-
-		await expect(createAvailabilityBatch(ctx, { records: validRecords })).rejects.toMatchObject({
-			status: 403,
-			message: 'Organization is in read-only mode'
-		});
-		expect(ctx.audit.events[0]).toMatchObject({
-			action: 'policy.denied',
-			details: {
-				policyAction: 'calendar.manageAvailability',
-				reasonCode: 'denied:read-only-overlay',
-				blockingOverlay: 'read-only-mode'
-			}
-		});
-	});
 });
 
 describe('deleteAvailabilityBatch', () => {

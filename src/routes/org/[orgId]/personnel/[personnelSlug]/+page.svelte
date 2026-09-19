@@ -47,12 +47,7 @@
 	const archiveAffordance = $derived(
 		org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.personnel.manageRecords, archiveResource)
 	);
-	const canArchivePersonnel = $derived(
-		archiveAffordance.allowed ||
-			(archiveAffordance.reason === 'denied:read-only-overlay' &&
-				org.hasCapability('personnel', 'operate') &&
-				org.isResourceInScope(archiveResource))
-	);
+	const canArchivePersonnel = $derived(archiveAffordance.allowed);
 </script>
 
 {#if workspaceGroups.error}

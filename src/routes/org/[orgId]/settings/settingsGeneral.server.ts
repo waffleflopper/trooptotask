@@ -1,6 +1,5 @@
 import type { MembershipRole } from '$lib/access/memberAccessShape';
 import type { UseCaseContext } from '$lib/server/core/ports';
-import type { EffectiveTier } from '$lib/types/subscription';
 import type { SettingsOrganizationSectionData } from './settingsSectionTypes';
 
 export interface GeneralSettingsOrganizationSource {
@@ -8,7 +7,6 @@ export interface GeneralSettingsOrganizationSource {
 	name: string | null;
 	urlSlug: string | null;
 	urlSegment: string;
-	effectiveTier: EffectiveTier | null;
 }
 
 export interface GeneralSettingsData {
@@ -43,7 +41,6 @@ export function buildGeneralSettingsData(
 				name: input.organization.name,
 				urlSlug: input.organization.urlSlug,
 				urlSegment: input.organization.urlSegment,
-				tier: input.organization.effectiveTier,
 				canUpdateProfile: canManageMembers,
 				canUpdateUrlSlug: canManageMembers
 			}

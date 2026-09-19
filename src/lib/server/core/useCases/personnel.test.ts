@@ -243,13 +243,6 @@ describe('Personnel — create', () => {
 		expect(result).toMatchObject({ firstName: 'John', groupId: 'group-b' });
 	});
 
-	it('rejects create when read-only', async () => {
-		const ctx = buildContext({ readOnly: true });
-		const { create } = createPersonnelUseCases();
-
-		await expect(create(ctx, { ...validInput })).rejects.toMatchObject({ status: 403 });
-	});
-
 	it('normalizes create rank input through the active Organization rank catalog', async () => {
 		const ctx = buildContext();
 		const { create } = createPersonnelUseCases();
@@ -496,14 +489,6 @@ describe('Personnel — update', () => {
 
 		await expect(update(ctx, { id: 'p-1', rank: 'SSG' })).rejects.toMatchObject({ status: 403 });
 	});
-
-	it('rejects update when read-only', async () => {
-		const ctx = buildContext({ readOnly: true });
-		const { update } = createPersonnelUseCases();
-		seedPersonnel(ctx);
-
-		await expect(update(ctx, { id: 'p-1', rank: 'SSG' })).rejects.toMatchObject({ status: 403 });
-	});
 });
 
 describe('Personnel — archive', () => {
@@ -668,17 +653,6 @@ describe('Personnel — archive', () => {
 		seedPersonnel(ctx);
 
 		await expect(archive(ctx, 'p-1')).rejects.toMatchObject({ status: 403 });
-	});
-
-	it('allows archive when read-only so organizations can return below personnel limits', async () => {
-		const ctx = buildContext({ readOnly: true });
-		const { archive } = createPersonnelUseCases();
-		seedPersonnel(ctx);
-
-		await archive(ctx, 'p-1');
-
-		const stored = (await ctx.store.findOne('personnel', 'test-org', { id: 'p-1' })) as Record<string, unknown>;
-		expect(stored.archived_at).toBeTruthy();
 	});
 });
 
@@ -1151,20 +1125,5 @@ describe('Personnel — archive batch', () => {
 				expect.objectContaining({ resource_type: 'personnel', resource_id: 'p-2', status: 'pending' })
 			])
 		);
-	});
-
-	it('allows batch archive in read-only mode so organizations can return below personnel limits', async () => {
-		const ctx = createTestContext({ readOnly: true });
-		const { archiveBatch } = createPersonnelUseCases();
-		seedPersonnel(ctx);
-
-		const result = await archiveBatch(ctx, {
-			ids: ['p-1', 'p-2'],
-			userEmail: 'requester@example.com'
-		});
-
-		expect(result.archivedIds).toEqual(['p-1', 'p-2']);
-		const stored = (await ctx.store.findMany('personnel', 'test-org')) as Record<string, unknown>[];
-		expect(stored.every((person) => person.archived_at)).toBe(true);
 	});
 });

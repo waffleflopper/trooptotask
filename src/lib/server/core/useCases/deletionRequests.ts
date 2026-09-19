@@ -50,8 +50,7 @@ export async function createDeletionRequest(
 		POLICY_ACTION_CATALOG.identity.createOwnDeletionRequest,
 		ctx.auth.userId,
 		AUDIT_RESOURCE,
-		undefined,
-		{ enforceReadOnlyOverlay: false }
+		undefined
 	);
 
 	// Check for existing pending request for the same resource
@@ -245,8 +244,7 @@ export async function cancelDeletionRequest(ctx: WritePorts, requestId: string):
 		POLICY_ACTION_CATALOG.identity.cancelOwnDeletionRequest,
 		typeof request.requested_by === 'string' ? request.requested_by : null,
 		AUDIT_RESOURCE,
-		requestId,
-		{ enforceReadOnlyOverlay: false }
+		requestId
 	);
 
 	await ctx.store.update(TABLE, ctx.auth.orgId, requestId, {
@@ -275,9 +273,7 @@ export async function listDeletionRequests(
 	}
 
 	if (ctx.auth.role === 'owner' || ctx.auth.role === 'admin') {
-		await requireGovernancePolicy(ctx, POLICY_ACTION_CATALOG.organization.reviewDeletionRequests, {
-			enforceReadOnlyOverlay: false
-		});
+		await requireGovernancePolicy(ctx, POLICY_ACTION_CATALOG.organization.reviewDeletionRequests);
 	} else {
 		await requireIdentityOwnedPolicy(
 			ctx,

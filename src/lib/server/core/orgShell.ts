@@ -6,7 +6,6 @@
  * define the internal composition boundary. SvelteKit adapter implementations live in
  * src/lib/server/adapters/; in-memory test implementations live in inMemoryOrgShell.ts.
  */
-import type { EffectiveTier } from '$lib/types/subscription';
 import type { CapabilityMap, ScopeSet } from '$lib/access/memberAccessShape';
 import type { UserOrgPreferences } from '$lib/preferences/userPreferences';
 
@@ -51,8 +50,6 @@ export interface ReadyAppShell {
 		isAdmin: boolean;
 	};
 	state: {
-		effectiveTier: EffectiveTier;
-		isReadOnly: boolean;
 		orgSuspended: false;
 	};
 	preferences: UserOrgPreferences;
@@ -67,7 +64,6 @@ export interface SuspendedAppShell {
 		name: string;
 	};
 	state: {
-		isReadOnly: true;
 		orgSuspended: true;
 	};
 }
@@ -143,8 +139,6 @@ export function createReadyAppShell(config: {
 			isAdmin
 		},
 		state: {
-			effectiveTier: orgState.effectiveTier,
-			isReadOnly: orgState.effectiveTier.isReadOnly,
 			orgSuspended: false
 		},
 		preferences: firstPaintChrome.preferences,
@@ -168,7 +162,6 @@ export interface MembershipInfo {
 
 export interface OrgState {
 	orgName: string;
-	effectiveTier: EffectiveTier;
 }
 
 // ---------------------------------------------------------------------------

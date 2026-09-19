@@ -30,10 +30,9 @@
 		groups: Group[];
 		rankCatalog?: RankCatalogEntry[];
 		personnel?: Personnel[];
-		readOnly?: boolean;
 	}
 
-	let { orgId, orgUrlSegment = orgId, groups, rankCatalog = [], personnel = [], readOnly = false }: Props = $props();
+	let { orgId, orgUrlSegment = orgId, groups, rankCatalog = [], personnel = [] }: Props = $props();
 
 	type ImportState = 'input' | 'preview' | 'importing' | 'results';
 	type ImportMode = 'create' | 'merge';
@@ -510,13 +509,7 @@
 			</div>
 		</header>
 
-		{#if readOnly}
-			<BulkImportWorkspace.ValidationSummary
-				title="Import disabled"
-				description="Import is disabled while this organization is read-only."
-				issues={[{ label: 'read-only', tone: 'error' }]}
-			/>
-		{:else if importStep === 'input'}
+		{#if importStep === 'input'}
 			<BulkImportWorkspace.Root ariaLabel="Personnel import workspace">
 				<BulkImportWorkspace.Header
 					step="Step 1"

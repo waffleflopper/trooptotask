@@ -25,17 +25,7 @@ const membership: MembershipInfo = {
 };
 
 const orgState: OrgState = {
-	orgName: 'Test Unit',
-	effectiveTier: {
-		tier: 'free',
-		source: 'default',
-		personnelCount: 0,
-		personnelCap: 20,
-		isReadOnly: false,
-		readOnlyReason: null,
-		giftExpiresAt: null,
-		giftTier: null
-	}
+	orgName: 'Test Unit'
 };
 
 describe('loadAppShellFirstPaint', () => {
@@ -64,7 +54,6 @@ describe('loadAppShellFirstPaint', () => {
 					scopeSet: membership.scopeSet
 				}),
 				state: expect.objectContaining({
-					effectiveTier: orgState.effectiveTier,
 					orgSuspended: false
 				}),
 				announcements: [{ id: 'a1', title: 'Heads up', message: 'Read this', type: 'info' }]
@@ -87,7 +76,7 @@ describe('loadAppShellFirstPaint', () => {
 			shell: {
 				kind: 'suspended',
 				org: { id: 'org-1', name: 'Suspended Unit', urlSegment: 'suspended-unit' },
-				state: { isReadOnly: true, orgSuspended: true }
+				state: { orgSuspended: true }
 			}
 		});
 		expect(result).not.toHaveProperty('orgSuspended');

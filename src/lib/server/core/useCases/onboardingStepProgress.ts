@@ -188,12 +188,11 @@ export async function refreshTrainingSteps(
 	ctx: WritePorts,
 	input: RefreshTrainingInput
 ): Promise<TrainingStepResult[]> {
-	await requireOnboardingManagePolicyForOnboarding({ ...ctx, readOnlyGuard: undefined }, input.onboardingId);
-	const isReadOnly = await ctx.readOnlyGuard.check();
+	await requireOnboardingManagePolicyForOnboarding(ctx, input.onboardingId);
 	const results = await readTrainingStepCompletions(ctx, input);
 
 	for (const result of results) {
-		if (!isReadOnly && result.persistedCompleted !== result.completed) {
+		if (result.persistedCompleted !== result.completed) {
 			await ctx.store.update('onboarding_step_progress', ctx.auth.orgId, result.id, { completed: result.completed });
 		}
 	}

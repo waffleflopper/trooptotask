@@ -135,22 +135,6 @@ describe('RatingSchemePageContext', () => {
 		expect(ctx.canUseRatingSchemeWriteActions).toBe(true);
 	});
 
-	it('keeps Rating Scheme write affordances visible but disabled in read-only mode', () => {
-		const ctx = new RatingSchemePageContext(
-			makeData(),
-			new ModalRegistry(),
-			makeOrg({
-				capabilityMap: { ...NONE_TEST_CAPABILITY_MAP, ratingScheme: 'operate' },
-				isReadOnly: true
-			}),
-			entries
-		);
-
-		expect(ctx.showRatingSchemeWriteActions).toBe(true);
-		expect(ctx.canUseRatingSchemeWriteActions).toBe(false);
-		expect(ctx.ratingSchemeWriteAffordance.disabled).toBe(true);
-	});
-
 	it('does not expose Rating Scheme access through adjacent Personnel capability', () => {
 		const ctx = new RatingSchemePageContext(
 			makeData(),

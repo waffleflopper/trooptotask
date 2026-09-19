@@ -19,7 +19,6 @@ const { mockOrgContext } = vi.hoisted(() => ({
 		isOwner: true,
 		isAdmin: false,
 		isPrivileged: true,
-		readOnly: false,
 		capabilityMap: {
 			calendar: 'configure',
 			personnel: 'configure',
@@ -30,7 +29,7 @@ const { mockOrgContext } = vi.hoisted(() => ({
 		},
 		scopeSet: { kind: 'organization' } as { kind: 'organization' } | { kind: 'groups'; groupIds: string[] },
 		affordanceForFeatureAction(
-			action: { owner: { lane: string }; requiredCapability: string; accessMode: string },
+			action: { owner: { lane: string }; requiredCapability: string },
 			resource: { kind: 'organization' } | { kind: 'group'; groupId: string } | { kind: 'unscoped' } = {
 				kind: 'organization'
 			}
@@ -42,16 +41,11 @@ const { mockOrgContext } = vi.hoisted(() => ({
 				this.scopeSet.kind === 'organization' ||
 				resource.kind !== 'group' ||
 				this.scopeSet.groupIds.includes(resource.groupId);
-			const readOnlyBlocked = this.readOnly && action.accessMode === 'write';
 			return {
-				allowed: hasCapability && inScope && !readOnlyBlocked,
+				allowed: hasCapability && inScope,
 				visible: hasCapability && inScope,
-				disabled: hasCapability && inScope && readOnlyBlocked,
-				reason: readOnlyBlocked
-					? 'denied:read-only-overlay'
-					: hasCapability && inScope
-						? 'allowed:capability'
-						: 'denied:missing-capability',
+				disabled: !(hasCapability && inScope),
+				reason: hasCapability && inScope ? 'allowed:capability' : 'denied:missing-capability',
 				explanation: '',
 				decision: {}
 			};
@@ -180,7 +174,6 @@ describe('IctPersonnelDetailPage', () => {
 	beforeEach(() => {
 		vi.useFakeTimers({ toFake: ['Date'] });
 		vi.setSystemTime(new Date('2026-05-01T12:00:00.000Z'));
-		mockOrgContext.readOnly = false;
 		mockOrgContext.capabilityMap.criticalTasks = 'configure';
 		mockOrgContext.scopeSet = { kind: 'organization' };
 		ictTasksStore.load([], 'org-1');

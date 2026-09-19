@@ -2,7 +2,6 @@ import type { Cookies } from '@sveltejs/kit';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
 import type { UseCaseContext } from '$lib/server/core/ports';
-import type { EffectiveTier } from '$lib/types/subscription';
 import type { AppShellRouteData } from '$lib/server/core/orgShell';
 
 export type SettingsSubrouteParentData = AppShellRouteData;
@@ -18,7 +17,6 @@ export interface SettingsPageOrganization {
 	name: string | null;
 	urlSlug: string | null;
 	urlSegment: string;
-	effectiveTier: EffectiveTier | null;
 }
 
 export interface CommonSettingsPageData {
@@ -26,7 +24,6 @@ export interface CommonSettingsPageData {
 	orgUrlSegment: string;
 	orgUrlSlug: string | null;
 	orgName: string | null;
-	effectiveTier: EffectiveTier | null;
 	isAdmin: boolean;
 }
 
@@ -73,7 +70,6 @@ export function buildCommonSettingsPageData(parentData: SettingsSubrouteParentDa
 		orgUrlSegment,
 		orgUrlSlug: orgUrlSegment !== shell.org.id ? orgUrlSegment : null,
 		orgName: shell.org.name,
-		effectiveTier: shell.state.effectiveTier,
 		isAdmin: shell.member.isAdmin
 	};
 }
@@ -90,7 +86,6 @@ export function buildSettingsPageOrganization(parentData: SettingsSubrouteParent
 		id: shell.org.id,
 		name: shell.org.name,
 		urlSlug: orgUrlSegment !== shell.org.id ? orgUrlSegment : null,
-		urlSegment: orgUrlSegment,
-		effectiveTier: shell.state.effectiveTier
+		urlSegment: orgUrlSegment
 	};
 }

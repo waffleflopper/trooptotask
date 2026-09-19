@@ -39,7 +39,7 @@ export const actions: Actions = {
 					auth: ctx.auth,
 					audit: ctx.audit,
 					notifications: ctx.notifications,
-					readOnlyGuard: ctx.readOnlyGuard,
+
 					settings: createSupabaseOrgSettingsMemberManagementPort(locals),
 					invitationDelivery: createSupabaseOrganizationInvitationDeliveryPort(getAdminClient()),
 					invitationRateLimiter: createSupabaseOrganizationInvitationRateLimiter(getAdminClient()),
@@ -73,7 +73,7 @@ export const actions: Actions = {
 					auth: ctx.auth,
 					audit: ctx.audit,
 					notifications: ctx.notifications,
-					readOnlyGuard: ctx.readOnlyGuard,
+
 					settings: createSupabaseOrgSettingsMemberManagementPort(locals),
 					invitationDelivery: createSupabaseOrganizationInvitationDeliveryPort(getAdminClient()),
 					invitationRateLimiter: createSupabaseOrganizationInvitationRateLimiter(getAdminClient())
@@ -102,7 +102,7 @@ export const actions: Actions = {
 					auth: ctx.auth,
 					audit: ctx.audit,
 					notifications: ctx.notifications,
-					readOnlyGuard: ctx.readOnlyGuard,
+
 					settings: createSupabaseOrgSettingsMemberManagementPort(locals)
 				},
 				{ inviteId: (formData.get('inviteId') as string) ?? '' }
@@ -125,7 +125,7 @@ export const actions: Actions = {
 					auth: ctx.auth,
 					audit: ctx.audit,
 					notifications: ctx.notifications,
-					readOnlyGuard: ctx.readOnlyGuard,
+
 					settings: createSupabaseOrgSettingsMemberManagementPort(locals),
 					sensitiveActionAuthorizer: ctx.sensitiveActionAuthorizer
 				},
@@ -153,7 +153,7 @@ export const actions: Actions = {
 					auth: ctx.auth,
 					audit: ctx.audit,
 					notifications: ctx.notifications,
-					readOnlyGuard: ctx.readOnlyGuard,
+
 					settings: createSupabaseOrgSettingsMemberManagementPort(locals),
 					sensitiveActionAuthorizer: ctx.sensitiveActionAuthorizer
 				},

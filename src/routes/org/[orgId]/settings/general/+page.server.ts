@@ -2,35 +2,22 @@ import { redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { buildRouteContext } from '$lib/server/adapters/httpAdapter';
 import { createSupabaseOrgSettingsAdministrationPort } from '$lib/server/adapters/supabaseOrgSettingsAdministration';
-import type { UseCaseContext } from '$lib/server/core/ports';
-import { readEffectivePlanPolicy } from '$lib/server/core/useCases/planPolicy';
-import { readOrganizationPlanUsage } from '$lib/server/core/useCases/organizationPlanUsage';
 import {
 	clearOrganizationUrlSlug,
 	renameOrganization,
 	updateOrganizationUrlSlug
 } from '$lib/server/core/useCases/orgSettingsAdministration';
-import { buildPlanUsageSummary, type PlanUsageSummary } from '$lib/server/core/useCases/planUsageSummary';
 import { toActionFailure } from '../settingsActionFailure.server';
 import { buildGeneralSettingsData } from '../settingsGeneral.server';
 import { loadSettingsPage } from '../settingsLoad.server';
 
 export const load: PageServerLoad = (event) =>
 	loadSettingsPage(event, async (ctx, { common, organization }) => ({
-		planUsageSummary: await loadPlanUsageSummary(ctx),
 		generalSettings: buildGeneralSettingsData(ctx, {
 			isAdmin: common.isAdmin,
 			organization
 		})
 	}));
-
-async function loadPlanUsageSummary(ctx: Pick<UseCaseContext, 'auth' | 'rawStore'>): Promise<PlanUsageSummary> {
-	const [policy, usage] = await Promise.all([
-		readEffectivePlanPolicy({ auth: ctx.auth, store: ctx.rawStore }),
-		readOrganizationPlanUsage({ auth: ctx.auth, store: ctx.rawStore })
-	]);
-	return buildPlanUsageSummary(policy, usage);
-}
 
 export const actions: Actions = {
 	updateName: async (event) => {
@@ -47,7 +34,7 @@ export const actions: Actions = {
 					auth: ctx.auth,
 					audit: ctx.audit,
 					notifications: ctx.notifications,
-					readOnlyGuard: ctx.readOnlyGuard,
+
 					administration: createSupabaseOrgSettingsAdministrationPort(locals)
 				},
 				{
@@ -74,7 +61,7 @@ export const actions: Actions = {
 					auth: ctx.auth,
 					audit: ctx.audit,
 					notifications: ctx.notifications,
-					readOnlyGuard: ctx.readOnlyGuard,
+
 					administration: createSupabaseOrgSettingsAdministrationPort(locals)
 				},
 				{
@@ -101,7 +88,7 @@ export const actions: Actions = {
 				auth: ctx.auth,
 				audit: ctx.audit,
 				notifications: ctx.notifications,
-				readOnlyGuard: ctx.readOnlyGuard,
+
 				administration: createSupabaseOrgSettingsAdministrationPort(locals)
 			});
 			orgId = ctx.auth.orgId;

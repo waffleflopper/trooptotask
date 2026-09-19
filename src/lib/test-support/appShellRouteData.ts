@@ -1,17 +1,6 @@
 import { getDefaultUserOrgPreferences } from '$lib/preferences/userPreferences';
 import type { AppShellRouteData, ReadyAppShell } from '$lib/server/core/orgShell';
 
-export const testEffectiveTier: ReadyAppShell['state']['effectiveTier'] = {
-	tier: 'free',
-	source: 'default',
-	personnelCount: 0,
-	personnelCap: 20,
-	isReadOnly: false,
-	readOnlyReason: null,
-	giftExpiresAt: null,
-	giftTier: null
-};
-
 export function createReadyAppShellRouteData(
 	overrides: {
 		orgId?: string;
@@ -49,7 +38,7 @@ export function createReadyAppShellRouteData(
 			},
 			user: { id: overrides.userId ?? 'user-1' },
 			member,
-			state: { effectiveTier: testEffectiveTier, isReadOnly: false, orgSuspended: false },
+			state: { orgSuspended: false },
 			preferences: getDefaultUserOrgPreferences(),
 			announcements: []
 		}
@@ -67,7 +56,7 @@ export function createSuspendedAppShellRouteData(
 				urlSegment: overrides.orgUrlSegment ?? overrides.orgId ?? 'org-1',
 				name: overrides.orgName ?? 'Test Org'
 			},
-			state: { isReadOnly: true, orgSuspended: true }
+			state: { orgSuspended: true }
 		}
 	};
 }

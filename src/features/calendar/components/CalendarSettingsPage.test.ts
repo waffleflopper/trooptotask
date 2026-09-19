@@ -10,7 +10,6 @@ const { orgContextMock, statusTypesStoreMock, availabilityStoreMock, assignmentT
 		orgContextMock: {
 			orgId: 'org-1',
 			isPrivileged: true,
-			readOnly: false,
 			affordanceForFeatureAction: vi.fn(() => ({ allowed: true, visible: true, disabled: false }))
 		},
 		statusTypesStoreMock: {
@@ -61,7 +60,6 @@ describe('CalendarSettingsPage', () => {
 	beforeEach(() => {
 		cleanup();
 		orgContextMock.isPrivileged = true;
-		orgContextMock.readOnly = false;
 		orgContextMock.affordanceForFeatureAction.mockReturnValue({ allowed: true, visible: true, disabled: false });
 		statusTypesStoreMock.items = [];
 		statusTypesStoreMock.add.mockReset();

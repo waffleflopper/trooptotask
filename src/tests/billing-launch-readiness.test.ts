@@ -69,14 +69,7 @@ const files = {
 	'docs/billing-operations-launch-checklist.md':
 		'support@trooptotask.org privacy@trooptotask.org security@trooptotask.org',
 	'docs/launch-acquisition-path.md':
-		'Support owner: Robert support@trooptotask.org privacy@trooptotask.org security@trooptotask.org',
-	'src/lib/server/core/useCases/readOnlyMode.ts': 'readOnlyModeStateForPlanPolicy',
-	'src/lib/server/core/useCases/routeAuthorization.ts':
-		"'billing-recovery' organization.manageBilling enforceReadOnlyOverlay: !allowsReadOnlyModeException(config)",
-	'src/routes/org/[orgId]/billing/checkout/+server.ts':
-		"handleUseCaseRequest({ policyAction: POLICY_ACTION_CATALOG.organization.manageBilling, mutation: true, readOnlyModeException: 'billing-recovery', fn: async (c) => checkout(c, {}) })",
-	'src/routes/org/[orgId]/billing/portal/+server.ts':
-		"handleUseCaseRequest({ policyAction: POLICY_ACTION_CATALOG.organization.manageBilling, mutation: true, readOnlyModeException: 'billing-recovery', fn: async (c) => portal(c, {}) })"
+		'Support owner: Robert support@trooptotask.org privacy@trooptotask.org security@trooptotask.org'
 };
 
 function resultFor(input: {
@@ -345,49 +338,6 @@ describe('billing launch readiness classification', () => {
 		expect(result.checks).toContainEqual(
 			expect.objectContaining({ id: 'machine.preflight', status: 'needs_confirmation' })
 		);
-	});
-
-	it('blocks when read-only gate evidence is missing', async () => {
-		const result = await resultFor({ files: { ...files, 'src/lib/server/core/useCases/readOnlyMode.ts': '' } });
-
-		expect(result).toMatchObject({
-			status: 'blocked',
-			checks: expect.arrayContaining([
-				expect.objectContaining({ id: 'machine.billing_read_only_gate', status: 'blocked' })
-			])
-		});
-	});
-
-	it('blocks when checkout or portal route recovery wiring is missing', async () => {
-		await expect(
-			resultFor({
-				files: {
-					...files,
-					'src/routes/org/[orgId]/billing/checkout/+server.ts':
-						'handleUseCaseRequest({ policyAction: POLICY_ACTION_CATALOG.organization.manageBilling, mutation: true, fn: async (c) => checkout(c, {}) })'
-				}
-			})
-		).resolves.toMatchObject({
-			status: 'blocked',
-			checks: expect.arrayContaining([
-				expect.objectContaining({ id: 'machine.billing_read_only_gate', status: 'blocked' })
-			])
-		});
-
-		await expect(
-			resultFor({
-				files: {
-					...files,
-					'src/routes/org/[orgId]/billing/portal/+server.ts':
-						'handleUseCaseRequest({ policyAction: POLICY_ACTION_CATALOG.organization.manageBilling, mutation: true, fn: async (c) => portal(c, {}) })'
-				}
-			})
-		).resolves.toMatchObject({
-			status: 'blocked',
-			checks: expect.arrayContaining([
-				expect.objectContaining({ id: 'machine.billing_read_only_gate', status: 'blocked' })
-			])
-		});
 	});
 
 	it('blocks when already-confirmed support channel evidence is missing', async () => {

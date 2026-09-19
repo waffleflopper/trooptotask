@@ -99,6 +99,7 @@ Apply the [stabilization decisions](ARCHITECTURE.md#stabilization-decisions) and
   - organization settings rename moved behind an app-owned use case and Supabase adapter in this architecture deepening slice
   - organization governance pages now live under `/org/[orgId]/settings/*`
   - stabilization 02-02-01b-03-02 closes the Organization suspension dispatch gap: a shared hook gate and user-scoped adapter deny writes/API requests before their consumers run, while page navigation retains the suspended shell; no new route provider exception is required
+  - stabilization D03 removes tier reads, commercial DTOs and overlays from the retained shell, feature affordances and general settings; explicit suspension, membership, Group scope and step-up remain, while billing pages own their remaining commercial reads until D05
 - Intended direction:
   - app-owned use cases and cleaner boundaries for membership, invitation, and organization-administration flows
 - Why this matters:

@@ -21,7 +21,6 @@ import type {
 	AuthContext,
 	AuditPort,
 	ScopeEnforcementPort,
-	ReadOnlyGuard,
 	SubscriptionPort,
 	NotificationPort,
 	NotificationPayload,
@@ -418,14 +417,6 @@ export function createTestAuditPort(): AuditPort & { events: AuditEvent[] } {
 	};
 }
 
-export function createTestReadOnlyGuard(isReadOnly = false): ReadOnlyGuard {
-	return {
-		async check(): Promise<boolean> {
-			return isReadOnly;
-		}
-	};
-}
-
 interface RecordedNotification {
 	target: 'user' | 'admins';
 	orgId: string;
@@ -467,7 +458,7 @@ function createScopedTestStores(auth: AuthContext): { store: InMemoryDataStore; 
 export function createTestContext(overrides?: {
 	auth?: Parameters<typeof createTestAuthContext>[0];
 	scope?: Partial<ScopeEnforcementPort>;
-	readOnly?: boolean;
+
 	sensitiveActionDecision?: Partial<SensitiveActionDecision>;
 }): UseCaseContext & {
 	store: ReturnType<typeof createInMemoryDataStore>;
@@ -496,7 +487,7 @@ export function createTestContext(overrides?: {
 		scope,
 		audit: auditPort,
 		auditPort,
-		readOnlyGuard: createTestReadOnlyGuard(overrides?.readOnly ?? false),
+
 		subscription,
 		notifications: notificationPort,
 		notificationPort,
@@ -629,7 +620,6 @@ export function createTestBillingPort(): BillingPort & { calls: RecordedBillingC
 
 export function createWritePortsContext(options?: {
 	auth?: Parameters<typeof createTestAuthContext>[0];
-	readOnly?: boolean;
 }): WritePorts & {
 	store: ReturnType<typeof createInMemoryDataStore>;
 	audit: ReturnType<typeof createTestAuditPort>;
@@ -643,14 +633,13 @@ export function createWritePortsContext(options?: {
 		rawStore,
 		auth,
 		audit: createTestAuditPort(),
-		readOnlyGuard: createTestReadOnlyGuard(options?.readOnly ?? false),
+
 		criticalTasksReadModel
 	};
 }
 
 export function createWriteWithNotificationsPortsContext(options?: {
 	auth?: Parameters<typeof createTestAuthContext>[0];
-	readOnly?: boolean;
 }): WriteWithNotificationsPorts & {
 	store: ReturnType<typeof createInMemoryDataStore>;
 	audit: ReturnType<typeof createTestAuditPort>;
@@ -665,7 +654,7 @@ export function createWriteWithNotificationsPortsContext(options?: {
 		rawStore,
 		auth,
 		audit: createTestAuditPort(),
-		readOnlyGuard: createTestReadOnlyGuard(options?.readOnly ?? false),
+
 		notifications: createTestNotificationPort(),
 		criticalTasksReadModel
 	};

@@ -50,8 +50,6 @@
 				label: 'Manage Templates',
 				href: ctx.templatesUrl,
 				icon: 'book-open',
-				disabled: ctx.readOnly,
-				disabledReason: ctx.readOnly ? 'Upgrade to edit' : undefined,
 				priority: 'high'
 			});
 		}
@@ -62,7 +60,7 @@
 				label: 'Start Onboarding',
 				onclick: () => ctx.modals.open(MODAL_IDS.startOnboarding),
 				icon: 'clipboard-check',
-				disabled: !ctx.hasTemplateSteps || ctx.readOnly,
+				disabled: !ctx.hasTemplateSteps,
 				disabledReason: !ctx.hasTemplateSteps ? 'Set up template steps before starting an onboarding' : undefined,
 				priority: 'critical',
 				overflow: 'never',
@@ -101,11 +99,6 @@
 							overflowAriaLabel="More onboarding actions"
 						/>
 					</WorkspaceToolbar.Group>
-					{#if ctx.readOnly}
-						<WorkspaceToolbar.Group label="Onboarding edit status" zone="meta">
-							<WorkspaceToolbar.Meta tone="warning">Upgrade to edit</WorkspaceToolbar.Meta>
-						</WorkspaceToolbar.Group>
-					{/if}
 				{/if}
 			</WorkspaceToolbar.Root>
 

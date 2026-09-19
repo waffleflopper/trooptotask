@@ -40,7 +40,7 @@ export const actions: Actions = {
 					auth: ctx.auth,
 					audit: ctx.audit,
 					notifications: ctx.notifications,
-					readOnlyGuard: ctx.readOnlyGuard,
+
 					administration: createSupabaseOrgSettingsAdministrationPort(locals),
 					sensitiveActionAuthorizer: ctx.sensitiveActionAuthorizer
 				},
@@ -68,7 +68,7 @@ export const actions: Actions = {
 					auth: ctx.auth,
 					audit: ctx.audit,
 					notifications: ctx.notifications,
-					readOnlyGuard: ctx.readOnlyGuard,
+
 					administration: createSupabaseOrgSettingsAdministrationPort(locals),
 					sensitiveActionAuthorizer: ctx.sensitiveActionAuthorizer
 				},

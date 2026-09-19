@@ -70,15 +70,6 @@ describe('importPersonnelBatch', () => {
 		});
 	});
 
-	it('blocks when read-only', async () => {
-		const ctx = buildContext({ readOnly: true });
-		await expect(
-			importPersonnelBatch(ctx, {
-				records: [{ rank: 'SGT', lastName: 'Smith', firstName: 'John' }]
-			})
-		).rejects.toMatchObject({ status: 403 });
-	});
-
 	it('returns per-record errors for invalid ranks', async () => {
 		const ctx = buildContext();
 		const result = await importPersonnelBatch(ctx, {

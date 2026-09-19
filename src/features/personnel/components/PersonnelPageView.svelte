@@ -33,8 +33,6 @@
 		{ value: 'alphabetical', label: 'A-Z' },
 		{ value: 'by-group', label: 'Group' }
 	];
-
-	const readOnly = $derived(ctx.readOnly);
 	const canViewRoster = $derived(ctx.canViewRoster);
 	const upcomingLossMap = $derived(ctx.upcomingLossMap);
 	const canAddPersonnel = $derived(ctx.canAddPersonnel);
@@ -293,7 +291,7 @@
 				{#if hasPersonnelActions}
 					<WorkspaceToolbar.Group label="Personnel actions" zone="actions">
 						{#if canImportPersonnel}
-							<Button variant="outline" disabled={readOnly} href={resolve(`/org/${orgUrlSegment}/personnel/import`)}>
+							<Button variant="outline" href={resolve(`/org/${orgUrlSegment}/personnel/import`)}>
 								<DownloadIcon aria-hidden="true" />
 								Import
 							</Button>
@@ -305,19 +303,12 @@
 							</Button>
 						{/if}
 						{#if canManageGroups}
-							<Button variant="secondary" disabled={readOnly} onclick={() => ctx.openGroupManager()}
-								>Manage Groups</Button
-							>
+							<Button variant="secondary" onclick={() => ctx.openGroupManager()}>Manage Groups</Button>
 						{/if}
 						{#if canAddPersonnel}
-							<Button disabled={readOnly} onclick={() => ctx.handleAdd()}>Add Person</Button>
+							<Button onclick={() => ctx.handleAdd()}>Add Person</Button>
 						{/if}
 					</WorkspaceToolbar.Group>
-					{#if readOnly}
-						<WorkspaceToolbar.Group label="Personnel edit status" zone="meta">
-							<WorkspaceToolbar.Meta tone="warning">Upgrade to edit</WorkspaceToolbar.Meta>
-						</WorkspaceToolbar.Group>
-					{/if}
 				{/if}
 			</WorkspaceToolbar.Root>
 
@@ -332,7 +323,7 @@
 					</Empty.Header>
 					{#if canAddPersonnel}
 						<Empty.Content>
-							<Button disabled={readOnly} onclick={() => ctx.handleAdd()}>Add Person</Button>
+							<Button onclick={() => ctx.handleAdd()}>Add Person</Button>
 						</Empty.Content>
 					{/if}
 				</Empty.Root>

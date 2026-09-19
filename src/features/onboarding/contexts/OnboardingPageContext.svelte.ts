@@ -1,4 +1,3 @@
-import { subscriptionStore } from '$lib/stores/subscription.svelte';
 import { onboardingStore } from '$features/onboarding/stores/onboarding.svelte';
 import { onboardingTemplateStore } from '$features/onboarding/stores/onboardingTemplate.svelte';
 import { personnelStore } from '$features/personnel/stores/personnel.svelte';
@@ -206,10 +205,6 @@ export class OnboardingPageContext {
 
 	// ── Derived ────────────────────────────────────────────────
 
-	get readOnly() {
-		return subscriptionStore.billingEnabled && subscriptionStore.isReadOnly;
-	}
-
 	get hasTemplateSteps() {
 		return onboardingTemplateStore.allSteps.length > 0;
 	}
@@ -235,8 +230,7 @@ export class OnboardingPageContext {
 		if (this.canManageConfig) {
 			items.push({
 				label: 'Manage Templates',
-				href: this.templatesUrl,
-				disabled: this.readOnly
+				href: this.templatesUrl
 			});
 		}
 		return items;

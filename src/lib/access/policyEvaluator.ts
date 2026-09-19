@@ -20,7 +20,6 @@ export type PolicyReasonCode =
 	| 'allowed:identity-owner'
 	| 'denied:missing-capability'
 	| 'denied:out-of-scope'
-	| 'denied:read-only-overlay'
 	| 'denied:owner-only'
 	| 'denied:governance-role'
 	| 'denied:unauthenticated'
@@ -32,7 +31,6 @@ export const POLICY_REASON_CODES = {
 	allowedIdentityOwner: 'allowed:identity-owner',
 	deniedMissingCapability: 'denied:missing-capability',
 	deniedOutOfScope: 'denied:out-of-scope',
-	deniedReadOnlyOverlay: 'denied:read-only-overlay',
 	deniedOwnerOnly: 'denied:owner-only',
 	deniedGovernanceRole: 'denied:governance-role',
 	deniedUnauthenticated: 'denied:unauthenticated',
@@ -75,12 +73,6 @@ export type PolicyAction = FeatureLanePolicyAction | OrganizationGovernancePolic
 
 export type PolicyResource = ScopeSetResource;
 
-export interface PolicyOverlay {
-	id: string;
-	kind: 'read-only-mode';
-	label: string;
-}
-
 export interface PolicyActor {
 	membershipRole: MembershipRole;
 	canManageMembers?: boolean;
@@ -94,7 +86,6 @@ export interface PolicyEvaluationInput {
 	capabilityMap: CapabilityMap;
 	scopeSet: ScopeSet;
 	resource: PolicyResource;
-	overlays?: PolicyOverlay[];
 }
 
 export interface MatchedCapability {
@@ -113,7 +104,6 @@ export interface PolicyDecision {
 	action: PolicyAction;
 	matchedCapability?: MatchedCapability;
 	matchedScope?: MatchedScope;
-	blockingOverlay?: PolicyOverlay;
 	audit: {
 		capture: boolean;
 		category: 'ordinary-read' | 'write' | 'governance' | 'denied';
@@ -125,7 +115,7 @@ export interface PolicyEvaluator {
 }
 
 type PolicyDecisionResult = Pick<PolicyDecision, 'allowed' | 'reasonCode'> &
-	Partial<Pick<PolicyDecision, 'matchedCapability' | 'matchedScope' | 'blockingOverlay'>>;
+	Partial<Pick<PolicyDecision, 'matchedCapability' | 'matchedScope'>>;
 
 const GOVERNANCE_MEMBERSHIP_ROLES = new Set<MembershipRole>(['owner', 'admin']);
 
@@ -615,17 +605,6 @@ export function evaluatePolicyDecision(input: PolicyEvaluationInput): PolicyDeci
 		});
 	}
 
-	const blockingOverlay = findBlockingOverlay(input);
-	if (blockingOverlay) {
-		return buildDecision(input, {
-			allowed: false,
-			reasonCode: POLICY_REASON_CODES.deniedReadOnlyOverlay,
-			matchedCapability,
-			matchedScope,
-			blockingOverlay
-		});
-	}
-
 	return buildDecision(input, {
 		allowed: true,
 		reasonCode: POLICY_REASON_CODES.allowedCapability,
@@ -654,15 +633,6 @@ function evaluateIdentityOwnedPolicy(input: PolicyEvaluationInput): PolicyDecisi
 		return buildDecision(input, {
 			allowed: false,
 			reasonCode: POLICY_REASON_CODES.deniedNotResourceOwner
-		});
-	}
-
-	const blockingOverlay = findBlockingOverlay(input);
-	if (blockingOverlay) {
-		return buildDecision(input, {
-			allowed: false,
-			reasonCode: POLICY_REASON_CODES.deniedReadOnlyOverlay,
-			blockingOverlay
 		});
 	}
 
@@ -700,16 +670,6 @@ function evaluateGovernancePolicy(
 		});
 	}
 
-	const blockingOverlay = findBlockingOverlay(input);
-	if (blockingOverlay) {
-		return buildDecision(input, {
-			allowed: false,
-			reasonCode: POLICY_REASON_CODES.deniedReadOnlyOverlay,
-			matchedScope,
-			blockingOverlay
-		});
-	}
-
 	return buildDecision(input, {
 		allowed: true,
 		reasonCode: POLICY_REASON_CODES.allowedGovernance,
@@ -726,7 +686,6 @@ function buildDecision(input: PolicyEvaluationInput, result: PolicyDecisionResul
 		action: input.action,
 		matchedCapability: result.matchedCapability,
 		matchedScope: result.matchedScope,
-		blockingOverlay: result.blockingOverlay,
 		audit: deriveAudit(input.action, result.allowed)
 	};
 }
@@ -753,12 +712,4 @@ function matchCapability(capabilityMap: CapabilityMap, action: FeatureLanePolicy
 		actual: capabilityMap[action.owner.lane] ?? 'none',
 		required: action.requiredCapability
 	};
-}
-
-function findBlockingOverlay(input: PolicyEvaluationInput): PolicyOverlay | undefined {
-	if (input.action.accessMode !== 'write' && input.action.accessMode !== 'governance') {
-		return undefined;
-	}
-
-	return input.overlays?.find((overlay) => overlay.kind === 'read-only-mode');
 }

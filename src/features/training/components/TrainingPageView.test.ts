@@ -74,7 +74,7 @@ interface TrainingPageViewTestCtx {
 	selectedViewId: string | null;
 	setSelectedViewId: ReturnType<typeof vi.fn>;
 	canManageConfig: boolean;
-	readOnly: boolean;
+
 	canViewTraining: boolean;
 	canRecordTraining: boolean;
 	trainingOverflowItems: unknown[];
@@ -95,7 +95,6 @@ function makeCtx(viewMode: 'alphabetical' | 'by-group', overrides: Partial<Train
 		selectedViewId: null,
 		setSelectedViewId: vi.fn(),
 		canManageConfig: true,
-		readOnly: false,
 		canViewTraining: true,
 		canRecordTraining: true,
 		trainingOverflowItems: [],

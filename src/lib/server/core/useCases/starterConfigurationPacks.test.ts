@@ -661,18 +661,6 @@ describe('starter configuration packs', () => {
 		expect(await ctx.store.findMany('training_types', ctx.auth.orgId)).toHaveLength(0);
 	});
 
-	it('blocks read-only Organizations through the policy guard before writes', async () => {
-		const ctx = createTestContext({ readOnly: true });
-		const insertSpy = vi.spyOn(ctx.store, 'insert');
-
-		await expect(applyStarterConfigurationPack(ctx, 'first-week-operations')).rejects.toMatchObject({
-			status: 403,
-			message: 'Organization is in read-only mode'
-		});
-
-		expect(insertSpy).not.toHaveBeenCalled();
-	});
-
 	it('reports support-safe failed artifact details without provider messages', async () => {
 		const ctx = createTestContext();
 		const originalInsert = ctx.store.insert.bind(ctx.store);

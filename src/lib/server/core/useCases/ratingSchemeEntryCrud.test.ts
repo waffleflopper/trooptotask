@@ -86,13 +86,6 @@ describe('Rating scheme entry — create', () => {
 		expect(stored[0].senior_rater_name).toBeNull();
 	});
 
-	it('rejects create when read-only', async () => {
-		const ctx = buildContext({ readOnly: true });
-		const { create } = createRatingSchemeEntryUseCases();
-
-		await expect(create(ctx, { ...validInput })).rejects.toMatchObject({ status: 403 });
-	});
-
 	it('denies create through an authoritative Rating Scheme policy decision and audits the attempt', async () => {
 		const ctx = buildContext({
 			auth: {
@@ -380,39 +373,5 @@ describe('Rating scheme entry — delete', () => {
 
 		const stored = await ctx.store.findOne('rating_scheme_entries', 'test-org', { id: 'rs-1' });
 		expect(stored).not.toBeNull();
-	});
-
-	it('rejects delete when read-only', async () => {
-		const ctx = buildContext({ readOnly: true });
-		const { remove } = createRatingSchemeEntryUseCases();
-
-		await expect(remove(ctx, 'rs-1')).rejects.toMatchObject({ status: 403 });
-	});
-
-	it('audits read-only delete denial through the Rating Scheme policy overlay', async () => {
-		const ctx = buildContext({ readOnly: true });
-		ctx.store.seed('rating_scheme_entries', [
-			{
-				id: 'rs-1',
-				rated_person_id: 'person-1',
-				eval_type: 'OER',
-				status: 'draft',
-				organization_id: 'test-org'
-			}
-		]);
-		const { remove } = createRatingSchemeEntryUseCases();
-
-		await expect(remove(ctx, 'rs-1')).rejects.toMatchObject({ status: 403 });
-		expect(ctx.auditPort.events).toContainEqual(
-			expect.objectContaining({
-				action: 'policy.denied',
-				resourceType: 'rating_scheme',
-				resourceId: 'rs-1',
-				details: expect.objectContaining({
-					policyAction: 'ratingScheme.requestEntryDeletion',
-					reasonCode: 'denied:read-only-overlay'
-				})
-			})
-		);
 	});
 });

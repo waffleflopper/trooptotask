@@ -191,9 +191,6 @@ export async function deleteTrainingRecord(ctx: WritePorts, id: string): Promise
 		return { requiresApproval: true };
 	}
 
-	const isReadOnly = await ctx.readOnlyGuard.check();
-	if (isReadOnly) fail(403, 'Organization is in read-only mode');
-
 	await ctx.store.delete(entity.table, ctx.auth.orgId, id);
 
 	ctx.audit.log({

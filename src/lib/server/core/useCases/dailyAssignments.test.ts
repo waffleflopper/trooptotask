@@ -95,6 +95,48 @@ describe('replaceDailyAssignments', () => {
 		expect(stored).toHaveLength(0);
 	});
 
+	it.each([['hidden-person'], ['visible-person', 'hidden-person'], ['ungrouped-person']])(
+		'rejects a replacement with unresolved or organization-scoped assignees: %j',
+		async (...assigneeIds: string[]) => {
+			const ctx = buildContext({
+				auth: {
+					role: 'member',
+					isPrivileged: false,
+					scopeSet: { kind: 'groups', groupIds: ['group-a'] },
+					capabilityMap: {
+						calendar: 'operate',
+						personnel: 'view',
+						training: 'view',
+						criticalTasks: 'view',
+						onboarding: 'view',
+						ratingScheme: 'view'
+					}
+				}
+			});
+			// The caller's RLS-scoped provider cannot return hidden-person.
+			ctx.store.seed('personnel', [
+				{ id: 'visible-person', organization_id: 'test-org', group_id: 'group-a' },
+				{ id: 'ungrouped-person', organization_id: 'test-org', group_id: null }
+			]);
+			const existing = {
+				id: 'kept-slot',
+				organization_id: 'test-org',
+				date: '2025-04-01',
+				assignment_type_id: 'old-type',
+				assignee_id: 'visible-person'
+			};
+			ctx.store.seed('daily_assignments', [existing]);
+			await expect(
+				replaceDailyAssignments(ctx, {
+					date: '2025-04-01',
+					records: assigneeIds.map((assigneeId, i) => ({ assignmentTypeId: `type-${i}`, assigneeId }))
+				})
+			).rejects.toMatchObject({ status: 403 });
+			expect(await ctx.store.findMany('daily_assignments', 'test-org')).toEqual([existing]);
+			expect(ctx.audit.events).toContainEqual(expect.objectContaining({ action: 'policy.denied' }));
+		}
+	);
+
 	it('rejects replacing a day when an existing assignment is outside the policy scope', async () => {
 		const ctx = buildContext({
 			auth: {
@@ -751,26 +793,7 @@ describe('clearDailyAssignment', () => {
 	});
 });
 
-describe('read-only and permission guards', () => {
-	it('rejects create when read-only', async () => {
-		const ctx = buildContext({ readOnly: true });
-		await expect(
-			createDailyAssignment(ctx, { date: '2025-04-01', assignmentTypeId: 'at-1', assigneeId: 'p-1' })
-		).rejects.toMatchObject({ status: 403 });
-	});
-
-	it('rejects replace when read-only', async () => {
-		const ctx = buildContext({ readOnly: true });
-		await expect(replaceDailyAssignments(ctx, { date: '2025-04-01', records: [] })).rejects.toMatchObject({
-			status: 403
-		});
-	});
-
-	it('rejects delete when read-only', async () => {
-		const ctx = buildContext({ readOnly: true });
-		await expect(deleteDailyAssignment(ctx, 'da-1')).rejects.toMatchObject({ status: 403 });
-	});
-
+describe('permission guards', () => {
 	it('rejects when user lacks Calendar operate capability', async () => {
 		const ctx = buildContext({
 			auth: {

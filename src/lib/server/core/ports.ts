@@ -1,4 +1,4 @@
-import type { BillingCancellationFeedback, EffectiveTier, ReadOnlyReason } from '$lib/types/subscription';
+import type { BillingCancellationFeedback, EffectiveTier } from '$lib/types/subscription';
 import type { CapabilityMap, ScopeSet } from '$lib/access/memberAccessShape';
 import type { AccessRequestSetupState } from '$lib/server/accessRequestSetupState';
 import type { CheckoutSessionConfiguration } from '$lib/server/billing/checkoutConfiguration';
@@ -165,18 +165,6 @@ export interface AuditPort {
 	}): void;
 }
 
-/** Subscription/billing state checks */
-export interface ReadOnlyGuardState {
-	isReadOnly: boolean;
-	reason: ReadOnlyReason | null;
-	message: string | null;
-}
-
-export interface ReadOnlyGuard {
-	check(): Promise<boolean>;
-	checkState?(): Promise<ReadOnlyGuardState>;
-}
-
 /** Subscription/billing cap checks and cache management */
 export interface SubscriptionPort {
 	invalidateTierCache(): void;
@@ -235,7 +223,7 @@ export interface WritePorts {
 	rawStore?: DataStore;
 	auth: AuthContext;
 	audit: AuditPort;
-	readOnlyGuard: ReadOnlyGuard;
+
 	criticalTasksReadModel: CriticalTasksReadModelPort;
 }
 
@@ -270,7 +258,7 @@ export interface UseCaseContext {
 	auth: AuthContext;
 	scope: ScopeEnforcementPort;
 	audit: AuditPort;
-	readOnlyGuard: ReadOnlyGuard;
+
 	subscription: SubscriptionPort;
 	notifications: NotificationPort;
 	billing: BillingPort;

@@ -270,36 +270,6 @@ describe('billing success page server load', () => {
 		);
 	});
 
-	it('recovers completed provider checkout while the organization is read-only', async () => {
-		const ctx = createTestContext({
-			auth: {
-				orgId: 'org-1'
-			},
-			readOnly: true
-		});
-		ctx.rawStore.seed(CHECKOUT_ATTEMPTS_TABLE, [attempt() as unknown as Record<string, unknown>]);
-		readCurrentBillingSnapshotMock
-			.mockResolvedValueOnce(
-				snapshot({ commercialPlan: 'free', subscriptionStatus: null, syncStatus: 'not_configured' })
-			)
-			.mockResolvedValueOnce(snapshot());
-		const recoverCheckoutSuccess = vi.fn().mockResolvedValue(true);
-
-		await expect(
-			_loadCheckoutSuccessPageData(ctx, {
-				checkoutAttemptId: 'attempt-success-return',
-				recoverCheckoutSuccess
-			})
-		).resolves.toEqual({
-			orgId: 'org-1',
-			checkoutStatus: expect.objectContaining({
-				state: 'active',
-				title: 'Plan Active'
-			})
-		});
-		expect(recoverCheckoutSuccess).toHaveBeenCalled();
-	});
-
 	it('does not swallow billing policy denials during checkout success recovery', async () => {
 		const ctx = createTestContext({
 			auth: {

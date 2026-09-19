@@ -35,8 +35,7 @@ describe('personnel counselings page server load', () => {
 			scope: {
 				requireGroupAccess: vi.fn(async () => {})
 			},
-			audit: { log: vi.fn() },
-			readOnlyGuard: { check: vi.fn(async () => false) }
+			audit: { log: vi.fn() }
 		};
 		const loadWithContext = vi.fn(async (_locals, _cookies, _orgId, config) => config.fn(ctx));
 		const load = _createPersonnelCounselingsPageLoad({ loadWithContext });

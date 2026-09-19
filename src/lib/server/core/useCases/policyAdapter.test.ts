@@ -1,12 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import type { CapabilityMap, ScopeSet } from '$lib/access/memberAccessShape';
-import type { ReadOnlyGuard } from '$lib/server/core/ports';
 import {
 	buildAuthoritativePolicyInput,
 	evaluateAuthoritativePolicyDecision,
-	NO_FEATURE_CAPABILITIES,
-	resolveAuthoritativePolicyOverlays
+	NO_FEATURE_CAPABILITIES
 } from './policyAdapter';
 
 const noCapabilities: CapabilityMap = {
@@ -29,8 +27,7 @@ describe('policy adapter', () => {
 					role: 'member',
 					capabilityMap: { ...noCapabilities, personnel: 'operate' },
 					scopeSet: { kind: 'groups', groupIds: ['group-alpha'] }
-				},
-				readOnlyGuard: readOnlyGuard(true)
+				}
 			},
 			POLICY_ACTION_CATALOG.personnel.manageRecords,
 			{ kind: 'group', groupId: 'group-alpha' }
@@ -45,8 +42,7 @@ describe('policy adapter', () => {
 			action: POLICY_ACTION_CATALOG.personnel.manageRecords,
 			capabilityMap: { personnel: 'operate' },
 			scopeSet: { kind: 'groups', groupIds: ['group-alpha'] },
-			resource: { kind: 'group', groupId: 'group-alpha' },
-			overlays: [{ id: 'read-only-mode', kind: 'read-only-mode', label: 'Organization is in read-only mode' }]
+			resource: { kind: 'group', groupId: 'group-alpha' }
 		});
 	});
 
@@ -70,35 +66,6 @@ describe('policy adapter', () => {
 			matchedCapability: { lane: 'calendar', actual: 'operate', required: 'operate' },
 			matchedScope: { kind: 'group', groupId: 'group-alpha' }
 		});
-	});
-
-	it('adds the read-only overlay for authoritative write decisions', async () => {
-		const decision = await evaluateAuthoritativePolicyDecision(
-			{
-				auth: {
-					role: 'member',
-					capabilityMap: { ...noCapabilities, calendar: 'operate' },
-					scopeSet: organizationScope
-				},
-				readOnlyGuard: readOnlyGuard(true)
-			},
-			POLICY_ACTION_CATALOG.calendar.manageAssignments,
-			{ kind: 'organization' }
-		);
-
-		expect(decision).toMatchObject({
-			allowed: false,
-			reasonCode: 'denied:read-only-overlay',
-			blockingOverlay: { kind: 'read-only-mode' }
-		});
-	});
-
-	it('can skip the read-only overlay when a caller intentionally opts out', async () => {
-		const overlays = await resolveAuthoritativePolicyOverlays(readOnlyGuard(true), {
-			enforceReadOnlyOverlay: false
-		});
-
-		expect(overlays).toEqual([]);
 	});
 
 	it('supports organization-governance evaluation without feature capabilities', async () => {
@@ -145,11 +112,3 @@ describe('policy adapter', () => {
 		});
 	});
 });
-
-function readOnlyGuard(readOnly: boolean): ReadOnlyGuard {
-	return {
-		async check() {
-			return readOnly;
-		}
-	};
-}

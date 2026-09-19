@@ -30,12 +30,12 @@ Blocked reasons:
 
 ## Preflight Evidence Summary
 
-| Command | Result | Pass | Warn | Fail | Follow-up owner | Notes |
-| --- | --- | ---: | ---: | ---: | --- | --- |
-| `npm run billing:launch-preflight -- --offline --json` | Passed | 10 | 0 | 0 | Agent | Confirmed required Stripe env names are present, billing is enabled locally, Stripe secret mode is test, webhook signing secret has the expected shape, automatic tax is disabled, and reconciliation authorization is present. |
-| `npm --silent run billing:launch-readiness -- --offline --json` | Blocked | n/a | n/a | n/a | Robert/Agent | Readiness gate is available. It stays blocked while scenario evidence and Robert-owned confirmation artifacts are incomplete. Use the silent form when automation parses stdout as JSON. |
-| `npm run billing:launch-preflight -- --json` | Failed | 26 | 1 | 2 | Robert | Confirmed Team and Unit prices are active monthly test-mode USD prices, but the configured Stripe amounts are still Team $5.00 and Unit $12.00 instead of Team $4.99 and Unit $10.99. Customer Portal is active, invoice history/payment updates/customer info/cancellation are enabled, cancellation is at period end, and the configured webhook endpoint includes all handled events. |
-| `npm run billing:lifecycle -- help` | Passed | n/a | n/a | n/a | Agent | Helper listed create fixture, advance clock, switch plan, set payment mode, deliver events, cancel at period end, cancel now, and finish clock commands. |
+| Command                                                         | Result  | Pass | Warn | Fail | Follow-up owner | Notes                                                                                                                                                                                                                                                                                                                                                                                    |
+| --------------------------------------------------------------- | ------- | ---: | ---: | ---: | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run billing:launch-preflight -- --offline --json`          | Passed  |   10 |    0 |    0 | Agent           | Confirmed required Stripe env names are present, billing is enabled locally, Stripe secret mode is test, webhook signing secret has the expected shape, automatic tax is disabled, and reconciliation authorization is present.                                                                                                                                                          |
+| `npm --silent run billing:launch-readiness -- --offline --json` | Blocked |  n/a |  n/a |  n/a | Robert/Agent    | Readiness gate is available. It stays blocked while scenario evidence and Robert-owned confirmation artifacts are incomplete. Use the silent form when automation parses stdout as JSON.                                                                                                                                                                                                 |
+| `npm run billing:launch-preflight -- --json`                    | Failed  |   26 |    1 |    2 | Robert          | Confirmed Team and Unit prices are active monthly test-mode USD prices, but the configured Stripe amounts are still Team $5.00 and Unit $12.00 instead of Team $4.99 and Unit $10.99. Customer Portal is active, invoice history/payment updates/customer info/cancellation are enabled, cancellation is at period end, and the configured webhook endpoint includes all handled events. |
+| `npm run billing:lifecycle -- help`                             | Passed  |  n/a |  n/a |  n/a | Agent           | Helper listed create fixture, advance clock, switch plan, set payment mode, deliver events, cancel at period end, cancel now, and finish clock commands.                                                                                                                                                                                                                                 |
 
 Online preflight warning:
 
@@ -48,12 +48,12 @@ Online preflight failures:
 
 Support-safe Stripe identifiers observed during preflight:
 
-| Item | Identifier |
-| --- | --- |
-| Team test price | `price_1TaqcDHNzRUzX2eIENKgAPJh` |
-| Unit test price | `price_1TaqcDHNzRUzX2eImLzDzHwo` |
-| Customer Portal configuration | `bpc_1T1FbFHNzRUzX2eIr52VJuUJ` |
-| Test webhook endpoint | `we_1T1FSEHNzRUzX2eIPPSlgPcZ` |
+| Item                          | Identifier                       |
+| ----------------------------- | -------------------------------- |
+| Team test price               | `price_1TaqcDHNzRUzX2eIENKgAPJh` |
+| Unit test price               | `price_1TaqcDHNzRUzX2eImLzDzHwo` |
+| Customer Portal configuration | `bpc_1T1FbFHNzRUzX2eIr52VJuUJ`   |
+| Test webhook endpoint         | `we_1T1FSEHNzRUzX2eIPPSlgPcZ`    |
 
 ## Scenario Evidence
 
@@ -64,30 +64,30 @@ The target surfaces for every scenario are:
 - Reconciliation result.
 - Owner and platform-admin UI state.
 
-| Scenario | Status | Evidence captured | Snapshot state | Webhook ledger state | Reconciliation result | Owner/admin UI state | Blocker or follow-up |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| Free-first checkout entry | Blocked | Free-first launch posture documented. | Not captured. | Not captured. | Not captured. | Not captured. | Requires owner entrypoint verification that self-service starts on Free before paid checkout. |
-| Billing-disabled fallback | Blocked | Billing-disabled fallback documented. | Not captured. | Not captured. | Not captured. | Not captured. | Requires local/test verification that checkout is unavailable when billing is disabled. |
-| Checkout activation | Blocked | Preflight confirmed test-mode prices and webhook endpoint readiness. | Not captured. | Not captured. | Not captured. | Not captured. | Requires a full owner checkout run against a local/test organization and UI evidence capture. |
-| Renewal success | Blocked | Lifecycle helper readiness confirmed. | Not captured. | Not captured. | Not captured. | Not captured. | Requires test-clock fixture execution plus webhook delivery and UI/admin verification. |
-| Failed renewal | Blocked | Lifecycle helper readiness confirmed. | Not captured. | Not captured. | Not captured. | Not captured. | Requires a failing renewal run, recovery state verification, and write-gate evidence. |
-| Portal period-end cancellation | Blocked | Preflight confirmed Customer Portal cancellation is enabled and set to period end. | Not captured. | Not captured. | Not captured. | Not captured. | Requires portal cancellation through the owner path or an approved test-mode Dashboard/API equivalent. |
-| Immediate cancellation | Blocked | Lifecycle helper readiness confirmed. | Not captured. | Not captured. | Not captured. | Not captured. | Requires the confirmed Cancel Now path or test-mode helper execution plus webhook/UI verification. |
-| End-of-period terminal cancellation | Blocked | Lifecycle helper readiness confirmed. | Not captured. | Not captured. | Not captured. | Not captured. | Requires period-end cancellation first, then clock advancement beyond paid-through. |
-| Payment recovery and reactivation | Blocked | Lifecycle helper readiness confirmed. | Not captured. | Not captured. | Not captured. | Not captured. | Requires failed renewal setup, successful payment recovery, webhook processing, and UI/admin verification. |
-| Plan change | Blocked | Preflight confirmed portal price changes are enabled, but product eligibility still needs Robert Dashboard confirmation. | Not captured. | Not captured. | Not captured. | Not captured. | Requires Team/Unit product eligibility confirmation and a portal/API plan switch rehearsal. |
-| Unsupported event | Blocked | Preflight found optional `customer.subscription.created` delivery, matching the ignored-event runbook. | Not captured. | Not captured. | Not captured. | Not captured. | Requires sending or replaying an unsupported test event and confirming ignored ledger diagnostics. |
+| Scenario                            | Status  | Evidence captured                                                                                                        | Snapshot state | Webhook ledger state | Reconciliation result | Owner/admin UI state | Blocker or follow-up                                                                                       |
+| ----------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------ | -------------- | -------------------- | --------------------- | -------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Free-first checkout entry           | Blocked | Free-first launch posture documented.                                                                                    | Not captured.  | Not captured.        | Not captured.         | Not captured.        | Requires owner entrypoint verification that self-service starts on Free before paid checkout.              |
+| Billing-disabled fallback           | Blocked | Billing-disabled fallback documented.                                                                                    | Not captured.  | Not captured.        | Not captured.         | Not captured.        | Requires local/test verification that checkout is unavailable when billing is disabled.                    |
+| Checkout activation                 | Blocked | Preflight confirmed test-mode prices and webhook endpoint readiness.                                                     | Not captured.  | Not captured.        | Not captured.         | Not captured.        | Requires a full owner checkout run against a local/test organization and UI evidence capture.              |
+| Renewal success                     | Blocked | Lifecycle helper readiness confirmed.                                                                                    | Not captured.  | Not captured.        | Not captured.         | Not captured.        | Requires test-clock fixture execution plus webhook delivery and UI/admin verification.                     |
+| Failed renewal                      | Blocked | Lifecycle helper readiness confirmed.                                                                                    | Not captured.  | Not captured.        | Not captured.         | Not captured.        | Requires a failing renewal run and recovery state verification.                                            |
+| Portal period-end cancellation      | Blocked | Preflight confirmed Customer Portal cancellation is enabled and set to period end.                                       | Not captured.  | Not captured.        | Not captured.         | Not captured.        | Requires portal cancellation through the owner path or an approved test-mode Dashboard/API equivalent.     |
+| Immediate cancellation              | Blocked | Lifecycle helper readiness confirmed.                                                                                    | Not captured.  | Not captured.        | Not captured.         | Not captured.        | Requires the confirmed Cancel Now path or test-mode helper execution plus webhook/UI verification.         |
+| End-of-period terminal cancellation | Blocked | Lifecycle helper readiness confirmed.                                                                                    | Not captured.  | Not captured.        | Not captured.         | Not captured.        | Requires period-end cancellation first, then clock advancement beyond paid-through.                        |
+| Payment recovery and reactivation   | Blocked | Lifecycle helper readiness confirmed.                                                                                    | Not captured.  | Not captured.        | Not captured.         | Not captured.        | Requires failed renewal setup, successful payment recovery, webhook processing, and UI/admin verification. |
+| Plan change                         | Blocked | Preflight confirmed portal price changes are enabled, but product eligibility still needs Robert Dashboard confirmation. | Not captured.  | Not captured.        | Not captured.         | Not captured.        | Requires Team/Unit product eligibility confirmation and a portal/API plan switch rehearsal.                |
+| Unsupported event                   | Blocked | Preflight found optional `customer.subscription.created` delivery, matching the ignored-event runbook.                   | Not captured.  | Not captured.        | Not captured.         | Not captured.        | Requires sending or replaying an unsupported test event and confirming ignored ledger diagnostics.         |
 
 ## Robert-Owned Confirmations
 
-| Confirmation | Status | Owner | Notes |
-| --- | --- | --- | --- |
-| Test Stripe Dashboard mode and product setup | Requires Robert confirmation | Robert | Preflight confirmed active test-mode prices, but visible Dashboard state and product eligibility remain Robert-owned. |
-| Live Stripe Dashboard setup | Requires Robert confirmation | Robert | Not inspected or modified by this plan. |
-| Final Team and Unit prices | Requires Robert/business-owner confirmation | Robert | Current test price IDs are evidence only, not final launch approval. |
-| Live deployment variables | Requires Robert confirmation | Robert | Not inspected or modified by this plan. |
-| Stripe Tax launch decision | Requires Robert confirmation | Robert | Local/test env has automatic tax disabled; final launch decision remains Robert-owned. |
-| Support owner/channel | Requires Robert/business-owner confirmation | Robert | Not confirmed during this plan. |
+| Confirmation                                 | Status                                      | Owner  | Notes                                                                                                                 |
+| -------------------------------------------- | ------------------------------------------- | ------ | --------------------------------------------------------------------------------------------------------------------- |
+| Test Stripe Dashboard mode and product setup | Requires Robert confirmation                | Robert | Preflight confirmed active test-mode prices, but visible Dashboard state and product eligibility remain Robert-owned. |
+| Live Stripe Dashboard setup                  | Requires Robert confirmation                | Robert | Not inspected or modified by this plan.                                                                               |
+| Final Team and Unit prices                   | Requires Robert/business-owner confirmation | Robert | Current test price IDs are evidence only, not final launch approval.                                                  |
+| Live deployment variables                    | Requires Robert confirmation                | Robert | Not inspected or modified by this plan.                                                                               |
+| Stripe Tax launch decision                   | Requires Robert confirmation                | Robert | Local/test env has automatic tax disabled; final launch decision remains Robert-owned.                                |
+| Support owner/channel                        | Requires Robert/business-owner confirmation | Robert | Not confirmed during this plan.                                                                                       |
 
 ## Go/No-Go Verdict
 

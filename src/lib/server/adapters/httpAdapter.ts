@@ -30,7 +30,6 @@ import { createSupabaseDataStore } from './supabaseDataStore';
 import { createSupabaseAuthContextAdapter } from './supabaseAuthContext';
 import { createSupabaseScopeEnforcementAdapter } from './supabaseScopeEnforcement';
 import { createSupabaseAuditAdapter } from './supabaseAudit';
-import { createSupabaseReadOnlyGuard } from './supabaseReadOnlyGuard';
 import { createSupabaseSubscriptionAdapter } from './supabaseSubscription';
 import { createScopedDataStore } from './scopedDataStore';
 import { defaultScopeRules } from './scopeRules';
@@ -64,10 +63,6 @@ function policyScopeGroupIds(auth: AuthContext): string[] | string | null {
 	return auth.scopeSet.kind === 'groups' ? auth.scopeSet.groupIds : null;
 }
 
-function createOrgWideReadOnlyGuard(orgId: string) {
-	return createSupabaseReadOnlyGuard(getAdminClient(), orgId);
-}
-
 async function createRequestAuthorizationPorts(config: {
 	locals: App.Locals;
 	supabase: ReturnType<typeof getApiContext>['supabase'];
@@ -97,7 +92,7 @@ async function buildContextInternal(event: RequestEvent): Promise<BuildContextRe
 	const requestInfo = getRequestInfo(event);
 
 	const store = createSupabaseDataStore(supabase);
-	const readOnlyGuard = createOrgWideReadOnlyGuard(orgId);
+
 	const audit = createSupabaseAuditAdapter(orgId, requestInfo);
 
 	const { auth, scope } = await createRequestAuthorizationPorts({
@@ -127,7 +122,7 @@ async function buildContextInternal(event: RequestEvent): Promise<BuildContextRe
 			auth,
 			scope,
 			audit,
-			readOnlyGuard,
+
 			subscription,
 			notifications,
 			billing,
@@ -168,7 +163,7 @@ export async function buildLayoutContext(locals: App.Locals, cookies: Cookies, o
 	const canonicalOrgId = validateUUID(orgId) ? orgId : await resolveOrganizationIdForRequest(supabase, orgId);
 
 	const store = createSupabaseDataStore(supabase);
-	const readOnlyGuard = createOrgWideReadOnlyGuard(canonicalOrgId);
+
 	const audit = { log() {} };
 
 	const { auth, scope } = await createRequestAuthorizationPorts({
@@ -198,7 +193,7 @@ export async function buildLayoutContext(locals: App.Locals, cookies: Cookies, o
 		auth,
 		scope,
 		audit,
-		readOnlyGuard,
+
 		subscription,
 		notifications,
 		billing,
@@ -229,7 +224,7 @@ export async function buildLayoutContextFromMembership(
 	const { supabase, userId } = getApiContext(locals, cookies, orgId);
 
 	const store = createSupabaseDataStore(supabase);
-	const readOnlyGuard = createOrgWideReadOnlyGuard(orgId);
+
 	const audit = { log() {} };
 
 	cacheRequestMembership(locals, userId, orgId, membership);
@@ -261,7 +256,7 @@ export async function buildLayoutContextFromMembership(
 		auth,
 		scope,
 		audit,
-		readOnlyGuard,
+
 		subscription,
 		notifications,
 		billing,
@@ -472,7 +467,7 @@ export async function loadWithContext<T>(
 }
 
 /**
- * Unified route handler — mandatory permission, auto read-only guard,
+ * Unified route handler — mandatory permission, policy authorization,
  * optional Zod validation, optional audit.
  */
 export function handle<TInput, TOutput>(config: RouteConfig<TInput, TOutput>): RequestHandler {

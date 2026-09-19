@@ -483,17 +483,37 @@ describe('Daily Assignment Slot writes', () => {
 	});
 
 	it('requires manage assignment policy for clear-only empty batch slots', async () => {
-		const ctx = buildContext({ readOnly: true });
+		const ctx = buildContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: {
+					calendar: 'view',
+					personnel: 'none',
+					training: 'none',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				}
+			}
+		});
+		const existing = {
+			id: 'existing-slot',
+			organization_id: 'test-org',
+			date: '2026-03-22',
+			assignment_type_id: 'type-a',
+			assignee_id: 'person-1'
+		};
+		ctx.store.seed('daily_assignments', [existing]);
 
 		await expect(
 			replaceDailyAssignmentSlotsBatch(ctx, {
 				records: [{ date: '2026-03-22', assignmentTypeId: 'type-a', assigneeId: '' }]
 			})
 		).rejects.toMatchObject({
-			status: 403,
-			message: 'Organization is in read-only mode'
+			status: 403
 		});
-		expect(await ctx.store.findMany('daily_assignments', 'test-org')).toEqual([]);
+		expect(await ctx.store.findMany('daily_assignments', 'test-org')).toEqual([existing]);
 	});
 
 	it('prefers generic Daily Assignment Source Lineage over legacy lineage fields', async () => {

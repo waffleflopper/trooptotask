@@ -1,5 +1,7 @@
 # Authorization And Provider Boundaries
 
+Stabilization D03 / 03-04a removes commercial read-only guards and recovery exceptions from authoritative server policy. Server decisions use identity, membership, capabilities and scope; suspension remains request admission and sensitive writes retain step-up. Existing client policy overlays and shell commercial state remain unfinished under 03-04b; descriptions of those overlays below apply only to that remaining client contract.
+
 This document separates what v1 authorization and provider ownership look like today from the system we actually want to move toward.
 
 ## Current-State Truth
@@ -36,7 +38,7 @@ This document separates what v1 authorization and provider ownership look like t
 
 - Organization membership is the current authorization anchor.
 - Persisted Calendar assignments enforce the Calendar capability and Organization/Group scope in both application policy and RLS. Person targets resolve to their same-Organization Personnel Group; Group targets must resolve to an existing same-Organization Group covered by the caller’s scope. Migration `20260918000100_enforce_calendar_assignment_group_scope.sql` closes the former SQL Group-target exemption without changing saved rows or the policy-helper interfaces. Remote application belongs to a separately authorized operator; stabilization verification is disposable and local.
-- After authentication and user-suspension admission, the request hook checks fresh Organization status through `supabaseOrganizationAdmission.ts` with the caller's RLS-scoped client. Every write under an Organization route and every Organization API request (including GET/HEAD exports and private reads) is denied when suspended, missing or unverifiable. Page GET/HEAD navigation retains the suspended shell. This gate grants no membership or capability and cannot be bypassed by billing read-only exceptions; existing route/use-case policies still apply. Platform administration and account/auth recovery keep their own admission boundaries.
+- After authentication and user-suspension admission, the request hook checks fresh Organization status through `supabaseOrganizationAdmission.ts` with the caller's RLS-scoped client. Every write under an Organization route and every Organization API request (including GET/HEAD exports and private reads) is denied when suspended, missing or unverifiable. Page GET/HEAD navigation retains the suspended shell. This gate grants no membership or capability and is independent of commercial state; existing route/use-case policies still apply. Platform administration and account/auth recovery keep their own admission boundaries.
 - The persisted membership role is one of:
   - `owner`
   - `admin`
@@ -45,7 +47,7 @@ This document separates what v1 authorization and provider ownership look like t
   - the membership role
   - the stored member preset and per-lane capability overrides
   - the stored shared scope set
-  - policy overlays such as read-only mode
+  - request admission for suspension and sensitive-action step-up
 - Platform admin uses a separate role system (`super_admin`, `support`, `billing`) and is not part of organization-membership authorization.
 - Authorization is enforced in more than one layer:
   - app-layer permission context and auth context
@@ -145,7 +147,7 @@ The approved v1 replacement direction keeps `Organization` and `Group` as canoni
 - Ordinary allowed reads should not be audited by default.
 - Policy enforcement must be server-authoritative. Client-side or preloaded decisions may improve UX by hiding buttons, disabling controls, or showing explanations, but writes and sensitive reads must still be checked server-side.
 - Hidden UI controls and client-side decisions are advisory only and must not be treated as security enforcement.
-- Cross-cutting rules such as read-only mode, delete-approval workflows, and owner-only danger operations should remain explicit policy overlays rather than being stuffed into the feature capability ladder.
+- Delete-approval workflows and owner-only danger operations remain explicit checks outside the feature capability ladder. Commercial read-only overlays are being removed under D03; do not add them to authoritative server policy.
 
 ### Feature-permission direction
 

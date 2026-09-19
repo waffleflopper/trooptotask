@@ -68,7 +68,7 @@ export const POST: RequestHandler = async (event) => {
 			{
 				policyAction: POLICY_ACTION_CATALOG.organization.manageBilling,
 				mutation: true,
-				readOnlyModeException: 'billing-recovery',
+
 				fn: async (c) => {
 					const org = await readBillingOrganization({ auth: c.auth, store: c.rawStore });
 					if (canManageBillingSubscription(org)) {

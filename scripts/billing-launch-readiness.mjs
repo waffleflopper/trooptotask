@@ -42,10 +42,6 @@ const DEFAULT_CONFIRMATIONS_PATH = 'docs/billing-launch-confirmations.md';
 const GO_NO_GO_PATH = 'docs/billing-launch-go-no-go.md';
 const OPERATIONS_CHECKLIST_PATH = 'docs/billing-operations-launch-checklist.md';
 const ACQUISITION_PATH = 'docs/launch-acquisition-path.md';
-const READ_ONLY_MODE_PATH = 'src/lib/server/core/useCases/readOnlyMode.ts';
-const ROUTE_AUTHORIZATION_PATH = 'src/lib/server/core/useCases/routeAuthorization.ts';
-const BILLING_CHECKOUT_ROUTE_PATH = 'src/routes/org/[orgId]/billing/checkout/+server.ts';
-const BILLING_PORTAL_ROUTE_PATH = 'src/routes/org/[orgId]/billing/portal/+server.ts';
 const SAFE_PREFLIGHT_PARSE_ERROR = 'Preflight did not emit parseable JSON. Re-run it directly to inspect raw output.';
 const SAFE_PREFLIGHT_EXECUTION_ERROR = 'Preflight could not be executed. Re-run it directly to inspect local setup.';
 const SAFE_PREFLIGHT_TIMEOUT_ERROR =
@@ -294,50 +290,6 @@ function evaluatePreflight(preflight) {
 	};
 }
 
-function evaluateReadOnlyGate(files) {
-	const readOnlyMode = files[READ_ONLY_MODE_PATH] ?? '';
-	const routeAuthorization = files[ROUTE_AUTHORIZATION_PATH] ?? '';
-	const checkoutRoute = files[BILLING_CHECKOUT_ROUTE_PATH] ?? '';
-	const portalRoute = files[BILLING_PORTAL_ROUTE_PATH] ?? '';
-	const hasReadOnlyPolicyMapper = readOnlyMode.includes('readOnlyModeStateForPlanPolicy');
-	const hasBillingRecoveryException =
-		routeAuthorization.includes("'billing-recovery'") &&
-		routeAuthorization.includes('organization.manageBilling') &&
-		routeAuthorization.includes('enforceReadOnlyOverlay: !allowsReadOnlyModeException(config)');
-	const hasCheckoutRecoveryRoute = hasBillingRecoveryRouteWiring(checkoutRoute, 'checkout');
-	const hasPortalRecoveryRoute = hasBillingRecoveryRouteWiring(portalRoute, 'portal');
-
-	if (hasReadOnlyPolicyMapper && hasBillingRecoveryException && hasCheckoutRecoveryRoute && hasPortalRecoveryRoute) {
-		return {
-			id: 'machine.billing_read_only_gate',
-			label: 'Billing read-only gate and recovery exception',
-			status: 'go',
-			owner: 'Agent',
-			evidenceSource: `${READ_ONLY_MODE_PATH}; ${ROUTE_AUTHORIZATION_PATH}; ${BILLING_CHECKOUT_ROUTE_PATH}; ${BILLING_PORTAL_ROUTE_PATH}`,
-			reason: 'Billing policy failures map into read-only mode while billing recovery remains available.'
-		};
-	}
-
-	return {
-		id: 'machine.billing_read_only_gate',
-		label: 'Billing read-only gate and recovery exception',
-		status: 'blocked',
-		owner: 'Agent',
-		evidenceSource: `${READ_ONLY_MODE_PATH}; ${ROUTE_AUTHORIZATION_PATH}; ${BILLING_CHECKOUT_ROUTE_PATH}; ${BILLING_PORTAL_ROUTE_PATH}`,
-		reason: 'Read-only billing policy evidence or billing recovery exception evidence is missing.'
-	};
-}
-
-function hasBillingRecoveryRouteWiring(source, useCaseName) {
-	return (
-		source.includes('handleUseCaseRequest') &&
-		/policyAction:\s*POLICY_ACTION_CATALOG\.organization\.manageBilling/.test(source) &&
-		/mutation:\s*true/.test(source) &&
-		/readOnlyModeException:\s*['"]billing-recovery['"]/.test(source) &&
-		new RegExp(`\\b${useCaseName}\\s*\\(`).test(source)
-	);
-}
-
 function evaluateSupportChannels(files) {
 	const operationsChecklist = files[OPERATIONS_CHECKLIST_PATH] ?? '';
 	const acquisitionPath = files[ACQUISITION_PATH] ?? '';
@@ -488,7 +440,6 @@ function overallStatus(checks) {
 function buildReadinessResult(input) {
 	const checks = [
 		evaluatePreflight(input.preflight),
-		evaluateReadOnlyGate(input.files),
 		evaluateSupportChannels(input.files),
 		evaluateScenarios(input.scenarios),
 		evaluateConfirmations(input.confirmationArtifacts, input.confirmationsPath)
@@ -535,11 +486,7 @@ async function main() {
 	const files = {
 		[GO_NO_GO_PATH]: safeRead(GO_NO_GO_PATH),
 		[OPERATIONS_CHECKLIST_PATH]: safeRead(OPERATIONS_CHECKLIST_PATH),
-		[ACQUISITION_PATH]: safeRead(ACQUISITION_PATH),
-		[READ_ONLY_MODE_PATH]: safeRead(READ_ONLY_MODE_PATH),
-		[ROUTE_AUTHORIZATION_PATH]: safeRead(ROUTE_AUTHORIZATION_PATH),
-		[BILLING_CHECKOUT_ROUTE_PATH]: safeRead(BILLING_CHECKOUT_ROUTE_PATH),
-		[BILLING_PORTAL_ROUTE_PATH]: safeRead(BILLING_PORTAL_ROUTE_PATH)
+		[ACQUISITION_PATH]: safeRead(ACQUISITION_PATH)
 	};
 	const confirmationMarkdown = safeRead(args.confirmationsPath);
 	const result = buildReadinessResult({

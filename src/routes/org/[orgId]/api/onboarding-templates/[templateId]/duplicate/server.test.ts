@@ -69,12 +69,4 @@ describe('POST /api/onboarding-templates/[templateId]/duplicate', () => {
 			status: 403
 		});
 	});
-
-	it('blocks duplication in read-only mode', async () => {
-		const ctx = createTestContext({ readOnly: true });
-
-		await expect(handleUseCaseRequest(_postConfig, ctx, { templateId: TEMPLATE_ID })).rejects.toMatchObject({
-			status: 403
-		});
-	});
 });

@@ -226,15 +226,13 @@ export function createPersonnelUseCases(): PersonnelUseCases {
 				POLICY_ACTION_CATALOG.personnel.manageRecords,
 				policyResourceForGroup(currentRecord?.group_id),
 				AUDIT_RESOURCE,
-				id,
-				{ enforceReadOnlyOverlay: false }
+				id
 			);
 
 			const directArchiveDecision = await evaluateFeaturePolicy(
 				ctx,
 				POLICY_ACTION_CATALOG.personnel.archiveRecords,
-				policyResourceForGroup(currentRecord?.group_id),
-				{ enforceReadOnlyOverlay: false }
+				policyResourceForGroup(currentRecord?.group_id)
 			);
 			if (!directArchiveDecision.allowed && directArchiveDecision.reasonCode === 'denied:missing-capability') {
 				return { requiresApproval: true };
@@ -244,8 +242,7 @@ export function createPersonnelUseCases(): PersonnelUseCases {
 				POLICY_ACTION_CATALOG.personnel.archiveRecords,
 				policyResourceForGroup(currentRecord?.group_id),
 				AUDIT_RESOURCE,
-				id,
-				{ enforceReadOnlyOverlay: false }
+				id
 			);
 
 			const archivedAt = new Date().toISOString();
@@ -297,15 +294,13 @@ export function createPersonnelUseCases(): PersonnelUseCases {
 					POLICY_ACTION_CATALOG.personnel.manageRecords,
 					policyResourceForGroup(person.group_id),
 					AUDIT_RESOURCE,
-					id,
-					{ enforceReadOnlyOverlay: false }
+					id
 				);
 
 				const directArchiveDecision = await evaluateFeaturePolicy(
 					ctx,
 					POLICY_ACTION_CATALOG.personnel.archiveRecords,
-					policyResourceForGroup(person.group_id),
-					{ enforceReadOnlyOverlay: false }
+					policyResourceForGroup(person.group_id)
 				);
 
 				if (!directArchiveDecision.allowed && directArchiveDecision.reasonCode === 'denied:missing-capability') {
@@ -336,8 +331,7 @@ export function createPersonnelUseCases(): PersonnelUseCases {
 					POLICY_ACTION_CATALOG.personnel.archiveRecords,
 					policyResourceForGroup(person.group_id),
 					AUDIT_RESOURCE,
-					id,
-					{ enforceReadOnlyOverlay: false }
+					id
 				);
 
 				await ctx.store.update(entity.table, ctx.auth.orgId, id, { archived_at: archivedAt });

@@ -1,4 +1,4 @@
-import { POLICY_ACTION_CATALOG, type PolicyReasonCode } from '$lib/access/policyEvaluator';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import {
 	memberAccessCommandToStorage,
 	type EditableMembershipRole,
@@ -7,7 +7,7 @@ import {
 } from '$lib/access/memberAccessCommands';
 import { type CapabilityOverrideMap, type StoredMemberPreset } from '$lib/access/memberAccessShape';
 import { fail } from '$lib/server/core/errors';
-import type { AuthContext, AuditPort, NotificationPort, ReadOnlyGuard } from '$lib/server/core/ports';
+import type { AuthContext, AuditPort, NotificationPort } from '$lib/server/core/ports';
 import {
 	createAccountSetupLinkIssuance,
 	redactProviderError,
@@ -146,7 +146,7 @@ interface OrganizationSettingsMemberManagementPorts {
 	auth: AuthContext;
 	audit: AuditPort;
 	notifications: NotificationPort;
-	readOnlyGuard?: ReadOnlyGuard;
+
 	settings: OrganizationSettingsMemberManagementPort;
 	invitationDelivery?: OrganizationInvitationDeliveryPort;
 	invitationRateLimiter?: OrganizationInvitationRateLimiter;
@@ -1048,16 +1048,8 @@ async function requireIdentityPolicy(
 		decision,
 		resourceType: 'organization',
 		details: policyDenialAuditDetails(decision),
-		message: identityPolicyDenialMessage(decision.reasonCode)
+		message: 'You can only leave organizations for your own account'
 	});
-}
-
-function identityPolicyDenialMessage(reasonCode: PolicyReasonCode): string {
-	if (reasonCode === 'denied:read-only-overlay') {
-		return 'Organization is in read-only mode';
-	}
-
-	return 'You can only leave organizations for your own account';
 }
 
 function normalizeEmail(email: string): string {

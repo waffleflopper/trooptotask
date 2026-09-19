@@ -9,7 +9,7 @@ import {
 	type RankState
 } from '$lib/domain/rankCatalog';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import type { AuditPort, AuthContext, DataStore, ReadOnlyGuard } from '$lib/server/core/ports';
+import type { AuditPort, AuthContext, DataStore } from '$lib/server/core/ports';
 import { fail } from '$lib/server/core/errors';
 import { sanitizeString } from '$lib/server/validation';
 import { requireFeaturePolicy } from './featurePolicy';
@@ -176,11 +176,11 @@ interface RankCatalogPorts {
 	store: DataStore;
 	rawStore?: DataStore;
 	audit: AuditPort;
-	readOnlyGuard?: ReadOnlyGuard;
+
 	rankCatalogAdministration?: RankCatalogAdministrationPort;
 }
 
-type RankCatalogReadPorts = Pick<RankCatalogPorts, 'auth' | 'store' | 'rawStore' | 'readOnlyGuard'> & {
+type RankCatalogReadPorts = Pick<RankCatalogPorts, 'auth' | 'store' | 'rawStore'> & {
 	audit?: AuditPort;
 };
 
@@ -200,11 +200,9 @@ async function requireRankCatalogReadPolicy(
 		await requireGovernancePolicy(
 			{
 				auth: ports.auth,
-				audit: ports.audit ?? NOOP_AUDIT_PORT,
-				readOnlyGuard: ports.readOnlyGuard
+				audit: ports.audit ?? NOOP_AUDIT_PORT
 			},
-			POLICY_ACTION_CATALOG.organization.accessGovernance,
-			{ enforceReadOnlyOverlay: false }
+			POLICY_ACTION_CATALOG.organization.accessGovernance
 		);
 		return;
 	}
@@ -213,9 +211,7 @@ async function requireRankCatalogReadPolicy(
 		authorization === 'training-view'
 			? POLICY_ACTION_CATALOG.training.viewMatrix
 			: POLICY_ACTION_CATALOG.personnel.viewRoster;
-	await requireFeaturePolicy(ports, action, { kind: 'unscoped' }, 'organization_rank_catalog', undefined, {
-		enforceReadOnlyOverlay: false
-	});
+	await requireFeaturePolicy(ports, action, { kind: 'unscoped' }, 'organization_rank_catalog', undefined);
 }
 
 export async function loadOrganizationRankCatalog(
@@ -457,7 +453,7 @@ export async function bulkSetOrganizationRankCatalogState(
 }
 
 export async function loadOrganizationRankCatalogReferenceSummaries(
-	ports: Pick<RankCatalogPorts, 'auth' | 'store' | 'rawStore' | 'audit' | 'readOnlyGuard'>,
+	ports: Pick<RankCatalogPorts, 'auth' | 'store' | 'rawStore' | 'audit'>,
 	input: { codes: readonly string[] },
 	options: RankCatalogReadOptions = {}
 ): Promise<OrganizationRankCatalogReferenceSummary[]> {

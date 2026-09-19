@@ -47,7 +47,7 @@ export const actions: Actions = {
 					auth: ctx.auth,
 					audit: ctx.audit,
 					notifications: ctx.notifications,
-					readOnlyGuard: ctx.readOnlyGuard,
+
 					administration: createSupabaseOrgSettingsAdministrationPort(locals)
 				},
 				{
@@ -74,7 +74,7 @@ export const actions: Actions = {
 					auth: ctx.auth,
 					audit: ctx.audit,
 					notifications: ctx.notifications,
-					readOnlyGuard: ctx.readOnlyGuard,
+
 					administration: createSupabaseOrgSettingsAdministrationPort(locals)
 				},
 				{
@@ -101,7 +101,7 @@ export const actions: Actions = {
 				auth: ctx.auth,
 				audit: ctx.audit,
 				notifications: ctx.notifications,
-				readOnlyGuard: ctx.readOnlyGuard,
+
 				administration: createSupabaseOrgSettingsAdministrationPort(locals)
 			});
 			orgId = ctx.auth.orgId;

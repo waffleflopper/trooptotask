@@ -12,8 +12,6 @@ describe('GET /api/getting-started', () => {
 		expect(_getConfig.policyAction).toBe(POLICY_ACTION_CATALOG.identity.viewDashboard);
 		expect(_postConfig.policyAction).toBe(POLICY_ACTION_CATALOG.identity.updateOwnPreferences);
 		expect(_deleteConfig.policyAction).toBe(POLICY_ACTION_CATALOG.identity.updateOwnPreferences);
-		expect(_postConfig.readOnlyModeException).toBe('identity-owned-preference');
-		expect(_deleteConfig.readOnlyModeException).toBe('identity-owned-preference');
 	});
 
 	it('returns workspace support metadata and logs timing', async () => {

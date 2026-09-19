@@ -1,12 +1,11 @@
 import type { IdentityOwnedPolicyAction, PolicyReasonCode } from '$lib/access/policyEvaluator';
-import type { AuditPort, AuthContext, ReadOnlyGuard } from '$lib/server/core/ports';
-import { evaluateAuthoritativePolicyDecision, type AuthoritativePolicyDecisionOptions } from './policyAdapter';
+import type { AuditPort, AuthContext } from '$lib/server/core/ports';
+import { evaluateAuthoritativePolicyDecision } from './policyAdapter';
 import { denyPolicyDecision, policyDenialAuditDetails } from './policyDenial';
 
 interface IdentityPolicyPorts {
 	auth: Pick<AuthContext, 'userId' | 'role' | 'capabilityMap' | 'scopeSet'>;
 	audit: AuditPort;
-	readOnlyGuard?: ReadOnlyGuard;
 }
 
 export async function requireIdentityOwnedPolicy(
@@ -14,14 +13,12 @@ export async function requireIdentityOwnedPolicy(
 	action: IdentityOwnedPolicyAction,
 	ownerUserId: string | null | undefined,
 	resourceType: string,
-	resourceId?: string,
-	options?: Pick<AuthoritativePolicyDecisionOptions, 'enforceReadOnlyOverlay'>
+	resourceId?: string
 ): Promise<void> {
 	const decision = await evaluateAuthoritativePolicyDecision(
 		ports,
 		action,
-		ownerUserId ? { kind: 'user', userId: ownerUserId } : { kind: 'unscoped' },
-		options
+		ownerUserId ? { kind: 'user', userId: ownerUserId } : { kind: 'unscoped' }
 	);
 
 	if (decision.allowed) {
@@ -46,10 +43,6 @@ function denialStatus(reasonCode: PolicyReasonCode): 401 | 403 {
 function identityPolicyDenialMessage(reasonCode: PolicyReasonCode): string {
 	if (reasonCode === 'denied:unauthenticated') {
 		return 'Unauthorized';
-	}
-
-	if (reasonCode === 'denied:read-only-overlay') {
-		return 'Organization is in read-only mode';
 	}
 
 	return 'You can only manage your own resources';

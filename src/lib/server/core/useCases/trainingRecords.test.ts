@@ -186,14 +186,6 @@ describe('createTrainingRecord', () => {
 		});
 	});
 
-	it('rejects when read-only', async () => {
-		const ctx = buildContext({ readOnly: true });
-		seedPersonnel(ctx);
-		seedTrainingType(ctx);
-
-		await expect(createTrainingRecord(ctx, validInput)).rejects.toMatchObject({ status: 403 });
-	});
-
 	it('enforces group scope on personnel', async () => {
 		const ctx = buildContext({
 			auth: {
@@ -451,16 +443,5 @@ describe('deleteTrainingRecord', () => {
 
 		const stored = await ctx.store.findMany('personnel_trainings', 'test-org');
 		expect(stored).toHaveLength(0);
-	});
-
-	it('blocks hard delete when organization is read-only', async () => {
-		const ctx = buildContext({ readOnly: true });
-		seedPersonnel(ctx);
-		seedRecord(ctx);
-
-		await expect(deleteTrainingRecord(ctx, 'tr-1')).rejects.toMatchObject({ status: 403 });
-
-		const stored = await ctx.store.findMany('personnel_trainings', 'test-org');
-		expect(stored).toHaveLength(1);
 	});
 });

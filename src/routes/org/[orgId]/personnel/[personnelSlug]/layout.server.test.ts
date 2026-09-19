@@ -63,8 +63,7 @@ describe('personnel detail layout server load', () => {
 			},
 			auth: makeAuth(),
 			scope: makeScope(),
-			audit: { log: vi.fn() },
-			readOnlyGuard: { check: vi.fn(async () => false) }
+			audit: { log: vi.fn() }
 		};
 		const depends = vi.fn();
 		const { load, loadWithContext } = makeLoad(ctx);
@@ -121,8 +120,7 @@ describe('personnel detail layout server load', () => {
 				}
 			}),
 			scope: makeScope(),
-			audit: { log: vi.fn() },
-			readOnlyGuard: { check: vi.fn(async () => false) }
+			audit: { log: vi.fn() }
 		};
 		const { load } = makeLoad(ctx);
 
@@ -148,8 +146,7 @@ describe('personnel detail layout server load', () => {
 				scopeSet: { kind: 'groups', groupIds: ['other-group'] }
 			}),
 			scope: makeScope(),
-			audit: { log: vi.fn() },
-			readOnlyGuard: { check: vi.fn(async () => false) }
+			audit: { log: vi.fn() }
 		};
 		const { load } = makeLoad(ctx);
 
@@ -173,8 +170,7 @@ describe('personnel detail layout server load', () => {
 			},
 			auth: makeAuth(),
 			scope: makeScope(),
-			audit: { log: vi.fn() },
-			readOnlyGuard: { check: vi.fn(async () => false) }
+			audit: { log: vi.fn() }
 		};
 		const { load } = makeLoad(ctx);
 

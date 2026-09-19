@@ -65,18 +65,8 @@ describe('createDeletionRequest', () => {
 		});
 	});
 
-	it('allows deletion requests when read-only so users can request data cleanup', async () => {
-		const ctx = buildContext({ readOnly: true });
-
-		await expect(createDeletionRequest(ctx, validInput)).resolves.toMatchObject({
-			resource_type: 'counseling_record',
-			resource_id: 'rec-1',
-			status: 'pending'
-		});
-	});
-
-	it('allows personnel archival requests when read-only so organizations can return below limits', async () => {
-		const ctx = buildContext({ readOnly: true });
+	it('creates a pending personnel archival request', async () => {
+		const ctx = buildContext();
 
 		const created = await createDeletionRequest(ctx, {
 			...validInput,
@@ -571,16 +561,6 @@ describe('cancelDeletionRequest', () => {
 		const request = await ctx.store.findOne<Record<string, unknown>>('deletion_requests', 'test-org', { id: 'dr-1' });
 		expect(request!.status).toBe('pending');
 	});
-
-	it('allows requester-owned cancellation when read-only', async () => {
-		const ctx = buildContext({ auth: { userId: 'requester-user' }, readOnly: true });
-		seedPendingRequest(ctx);
-
-		await cancelDeletionRequest(ctx, 'dr-1');
-
-		const request = await ctx.store.findOne<Record<string, unknown>>('deletion_requests', 'test-org', { id: 'dr-1' });
-		expect(request).toMatchObject({ status: 'cancelled' });
-	});
 });
 
 describe('governance policy guards', () => {
@@ -612,17 +592,6 @@ describe('governance policy guards', () => {
 describe('listDeletionRequests', () => {
 	it('returns all requests for privileged users', async () => {
 		const ctx = buildContext();
-		ctx.store.seed('deletion_requests', [
-			{ id: 'dr-1', organization_id: 'test-org', requested_by: 'user-a', status: 'pending' },
-			{ id: 'dr-2', organization_id: 'test-org', requested_by: 'user-b', status: 'approved' }
-		]);
-
-		const result = await listDeletionRequests(ctx);
-		expect(result).toHaveLength(2);
-	});
-
-	it('allows governance users to list requests while the organization is read-only', async () => {
-		const ctx = buildContext({ readOnly: true });
 		ctx.store.seed('deletion_requests', [
 			{ id: 'dr-1', organization_id: 'test-org', requested_by: 'user-a', status: 'pending' },
 			{ id: 'dr-2', organization_id: 'test-org', requested_by: 'user-b', status: 'approved' }

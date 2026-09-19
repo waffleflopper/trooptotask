@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { isHttpError } from '@sveltejs/kit';
 import { z } from 'zod';
 import {
@@ -6,33 +6,28 @@ import {
 	createInMemoryDataStore,
 	createTestAuthContext,
 	createTestScopeEnforcementPort,
-	createTestAuditPort,
-	createTestReadOnlyGuard
+	createTestAuditPort
 } from './inMemory';
 import type { UseCaseContext } from '$lib/server/core/ports';
 import { handleUseCaseRequest, rethrowOrWrap, type RouteConfig } from './httpAdapter';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+import { createPersonnelUseCases } from '$lib/server/core/useCases/personnel';
+
+vi.mock('$lib/config/billing', () => ({ isBillingEnabled: true }));
 
 type TestContext = {
 	store: ReturnType<typeof createInMemoryDataStore>;
 	auth: ReturnType<typeof createTestAuthContext>;
 	scope: ReturnType<typeof createTestScopeEnforcementPort>;
 	auditPort: ReturnType<typeof createTestAuditPort>;
-	readOnlyGuard: ReturnType<typeof createTestReadOnlyGuard>;
-	readOnly: boolean;
 };
 
-function buildTestCtx(overrides?: {
-	auth?: Parameters<typeof createTestAuthContext>[0];
-	readOnly?: boolean;
-}): TestContext {
+function buildTestCtx(overrides?: { auth?: Parameters<typeof createTestAuthContext>[0] }): TestContext {
 	const store = createInMemoryDataStore();
 	const auth = createTestAuthContext(overrides?.auth);
 	const scope = createTestScopeEnforcementPort();
 	const auditPort = createTestAuditPort();
-	const readOnly = overrides?.readOnly ?? false;
-	const readOnlyGuard = createTestReadOnlyGuard(readOnly);
-	return { store, auth, scope, auditPort, readOnlyGuard, readOnly };
+	return { store, auth, scope, auditPort };
 }
 
 function toUseCaseCtx(t: TestContext): UseCaseContext {
@@ -44,8 +39,7 @@ function toUseCaseCtx(t: TestContext): UseCaseContext {
 			isPrivileged: t.auth.isPrivileged,
 			capabilityMap: t.auth.capabilityMap,
 			scopeSet: t.auth.scopeSet
-		},
-		readOnly: t.readOnly
+		}
 	});
 	return {
 		...ctx,
@@ -53,8 +47,7 @@ function toUseCaseCtx(t: TestContext): UseCaseContext {
 		rawStore: t.store,
 		auth: t.auth,
 		scope: t.scope,
-		audit: t.auditPort,
-		readOnlyGuard: t.readOnlyGuard
+		audit: t.auditPort
 	};
 }
 
@@ -154,153 +147,6 @@ describe('handleUseCaseRequest', () => {
 					})
 				})
 			]);
-		});
-
-		it('uses policy read-only overlays for policy-backed mutations', async () => {
-			const t = buildTestCtx({
-				readOnly: true,
-				auth: {
-					role: 'member',
-					isPrivileged: false,
-					capabilityMap: {
-						calendar: 'none',
-						personnel: 'none',
-						training: 'none',
-						criticalTasks: 'operate',
-						onboarding: 'none',
-						ratingScheme: 'none'
-					},
-					scopeSet: { kind: 'organization' }
-				}
-			});
-
-			const config: RouteConfig<void, string> = {
-				mutation: true,
-				policyAction: POLICY_ACTION_CATALOG.criticalTasks.recordCompletion,
-				policyResource: { kind: 'organization' },
-				fn: async () => 'unreachable'
-			};
-
-			await expect(handleUseCaseRequest(config, toUseCaseCtx(t), undefined)).rejects.toMatchObject({
-				status: 403,
-				message: 'Organization is in read-only mode'
-			});
-			expect(t.auditPort.events).toEqual([
-				expect.objectContaining({
-					action: 'policy.denied',
-					resourceType: 'criticalTasks.recordCompletion',
-					details: expect.objectContaining({
-						policyAction: 'criticalTasks.recordCompletion',
-						reasonCode: 'denied:read-only-overlay',
-						blockingOverlay: 'read-only-mode'
-					})
-				})
-			]);
-		});
-
-		it('uses policy read-only state messages for pure policy-first mutations', async () => {
-			const t = buildTestCtx({
-				readOnly: true,
-				auth: {
-					role: 'member',
-					isPrivileged: false,
-					capabilityMap: {
-						calendar: 'none',
-						personnel: 'none',
-						training: 'none',
-						criticalTasks: 'operate',
-						onboarding: 'none',
-						ratingScheme: 'none'
-					},
-					scopeSet: { kind: 'organization' }
-				}
-			});
-			t.readOnlyGuard.checkState = async () => ({
-				isReadOnly: true,
-				reason: 'payment_failure',
-				message:
-					'Organization is in billing grace mode because a payment failed. Update the payment method to restore full access.'
-			});
-
-			const config: RouteConfig<void, string> = {
-				mutation: true,
-				policyAction: POLICY_ACTION_CATALOG.criticalTasks.recordCompletion,
-				policyResource: { kind: 'organization' },
-				fn: async () => 'unreachable'
-			};
-
-			await expect(handleUseCaseRequest(config, toUseCaseCtx(t), undefined)).rejects.toMatchObject({
-				status: 403,
-				message:
-					'Organization is in billing grace mode because a payment failed. Update the payment method to restore full access.'
-			});
-			expect(t.auditPort.events).toEqual([
-				expect.objectContaining({
-					action: 'policy.denied',
-					resourceType: 'criticalTasks.recordCompletion',
-					details: expect.objectContaining({
-						policyAction: 'criticalTasks.recordCompletion',
-						reasonCode: 'denied:read-only-overlay',
-						blockingOverlay: 'read-only-mode'
-					})
-				})
-			]);
-		});
-	});
-
-	describe('read-only guard', () => {
-		it('blocks mutations when org is read-only', async () => {
-			const t = buildTestCtx({
-				readOnly: true,
-				auth: {
-					role: 'member',
-					isPrivileged: false,
-					capabilityMap: {
-						calendar: 'none',
-						personnel: 'none',
-						training: 'none',
-						criticalTasks: 'operate',
-						onboarding: 'none',
-						ratingScheme: 'none'
-					}
-				}
-			});
-
-			const config: RouteConfig<void, string> = {
-				mutation: true,
-				policyAction: POLICY_ACTION_CATALOG.criticalTasks.recordCompletion,
-				policyResource: { kind: 'organization' },
-				fn: async () => 'ok'
-			};
-
-			await expect(handleUseCaseRequest(config, toUseCaseCtx(t), undefined)).rejects.toThrow(/read-only/i);
-		});
-
-		it('does not check read-only for non-mutation routes', async () => {
-			const t = buildTestCtx({ readOnly: true });
-
-			const config: RouteConfig<void, string> = {
-				policyAction: POLICY_ACTION_CATALOG.personnel.viewRoster,
-				policyResource: { kind: 'organization' },
-				fn: async () => 'ok'
-			};
-
-			const result = await handleUseCaseRequest(config, toUseCaseCtx(t), undefined);
-			expect(result).toBe('ok');
-		});
-
-		it('allows explicitly exempted recovery mutations when org is read-only', async () => {
-			const t = buildTestCtx({ readOnly: true });
-
-			const config: RouteConfig<void, string> = {
-				mutation: true,
-				policyAction: POLICY_ACTION_CATALOG.identity.updateOwnPreferences,
-				readOnlyModeException: 'identity-owned-preference',
-				fn: async () => 'ok'
-			};
-
-			const result = await handleUseCaseRequest(config, toUseCaseCtx(t), undefined);
-			expect(result).toBe('ok');
 		});
 	});
 
@@ -560,5 +406,91 @@ describe('policy dispatch write safety', () => {
 		f.config.policyAction = POLICY_ACTION_CATALOG.identity.updateOwnPreferences;
 		f.config.policyResource = { kind: 'user', userId: 'other-user' };
 		await expectDenied(f, 'denied:not-resource-owner');
+	});
+});
+
+// D03: retained writes are authorized by capability and scope, independent of
+// commercial state. Exercise dispatch and the real use case against stored rows.
+describe('Personnel writes without commercial enforcement', () => {
+	it('creates and archives beyond former Personnel limits without reading commercial tables', async () => {
+		const ctx = createTestContext();
+		ctx.rawStore.seed('organizations', [{ id: 'test-org', subscription_tier: 'free' }]);
+		ctx.rawStore.seed('organization_billing_snapshots', [
+			{
+				organization_id: 'test-org',
+				source: 'stripe',
+				commercial_plan: 'free',
+				subscription_status: 'unpaid',
+				collection_status: 'past_due'
+			}
+		]);
+		ctx.rawStore.seed('organization_rank_catalog', [
+			{
+				organization_id: 'test-org',
+				code: 'SGT',
+				label: 'Sergeant',
+				service: 'army',
+				category: 'enlisted',
+				pay_grade: 'E-5',
+				state: 'active',
+				source: 'built-in',
+				sort_order: 0
+			}
+		]);
+		ctx.rawStore.seed(
+			'personnel',
+			Array.from({ length: 1001 }, (_, i) => ({
+				id: `person-${i}`,
+				organization_id: 'test-org',
+				rank: 'SGT',
+				last_name: `Existing${i}`,
+				first_name: 'Alex',
+				slug: `existing-${i}`,
+				group_id: null,
+				archived_at: null
+			}))
+		);
+		const reads = [ctx.store, ctx.rawStore].flatMap((store) => [
+			vi.spyOn(store, 'findOne'),
+			vi.spyOn(store, 'findMany'),
+			vi.spyOn(store, 'findManyWithCount')
+		]);
+		const personnel = createPersonnelUseCases();
+		const created = (await handleUseCaseRequest(
+			{
+				mutation: true,
+				policyAction: POLICY_ACTION_CATALOG.personnel.createRecords,
+				policyResource: { kind: 'organization' },
+				fn: personnel.create
+			},
+			ctx,
+			{ rank: 'SGT', lastName: 'Smith', firstName: 'Jordan', clinicRole: 'Team Leader', groupId: null }
+		)) as { id: string };
+		await handleUseCaseRequest(
+			{
+				mutation: true,
+				policyAction: POLICY_ACTION_CATALOG.personnel.archiveRecords,
+				policyResource: { kind: 'organization' },
+				fn: personnel.archive
+			},
+			ctx,
+			created.id
+		);
+
+		expect(await ctx.rawStore.findOne('personnel', 'test-org', { id: created.id })).toMatchObject({
+			last_name: 'Smith',
+			first_name: 'Jordan',
+			archived_at: expect.any(String)
+		});
+		expect(await ctx.rawStore.findMany('personnel', 'test-org', { archived_at: null })).toHaveLength(1001);
+		expect(ctx.auditPort.events).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({ action: 'personnel.created', resourceId: created.id }),
+				expect.objectContaining({ action: 'personnel.archived', resourceId: created.id })
+			])
+		);
+		const queriedTables = reads.flatMap((read) => read.mock.calls.map(([table]) => table));
+		expect(queriedTables).not.toContain('organization_billing_snapshots');
+		expect(queriedTables).not.toContain('organization_plan_feature_overrides');
 	});
 });

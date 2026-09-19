@@ -1,20 +1,15 @@
 import type { PolicyAction, PolicyDecision, PolicyResource } from '$lib/access/policyEvaluator';
 import type { ScopeSet } from '$lib/access/memberAccessShape';
-import type { AuditPort, ReadOnlyGuard } from '$lib/server/core/ports';
+import type { AuditPort } from '$lib/server/core/ports';
 import { evaluateAuthoritativePolicyDecision, type PolicyAdapterPorts } from './policyAdapter';
 import { denyPolicyDecision, policyDenialAuditDetails, type PolicyDenialAuditDetailsOptions } from './policyDenial';
 
 interface PolicyPorts {
 	auth: PolicyAdapterPorts['auth'];
 	audit: AuditPort;
-	readOnlyGuard?: ReadOnlyGuard;
 }
 
 type ServerPolicyAction = PolicyAction;
-
-interface PolicyDecisionOptions {
-	enforceReadOnlyOverlay?: boolean;
-}
 
 const routePolicyAuditDetailShape = {
 	matchedCapability: { key: 'matchedCapability', value: 'object' },
@@ -24,10 +19,9 @@ const routePolicyAuditDetailShape = {
 export async function requirePolicyDecision(
 	ports: PolicyPorts,
 	action: ServerPolicyAction,
-	resource: PolicyResource,
-	options: PolicyDecisionOptions = {}
+	resource: PolicyResource
 ): Promise<void> {
-	const decision = await evaluateAuthoritativePolicyDecision(ports, action, resource, options);
+	const decision = await evaluateAuthoritativePolicyDecision(ports, action, resource);
 
 	if (decision.allowed) {
 		return;
@@ -64,10 +58,6 @@ function routePolicyDenialAuditDetails(
 }
 
 function routePolicyDenialMessage(decision: PolicyDecision, scopeSet?: ScopeSet): string {
-	if (decision.reasonCode === 'denied:read-only-overlay') {
-		return decision.blockingOverlay?.label ?? 'Organization is in read-only mode';
-	}
-
 	if (decision.reasonCode === 'denied:out-of-scope') {
 		return scopeSet?.kind === 'groups'
 			? 'This action is outside your assigned Group scope'

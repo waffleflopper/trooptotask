@@ -5,15 +5,13 @@ import type {
 	PolicyResource
 } from '$lib/access/policyEvaluator';
 import { scopeSetResourceForGroupId } from '$lib/access/scopeSetAccess';
-import type { AuditPort, AuthContext, DataStore, ReadOnlyGuard } from '$lib/server/core/ports';
+import type { AuditPort, AuthContext, DataStore } from '$lib/server/core/ports';
 import { evaluateAuthoritativePolicyDecision } from './policyAdapter';
 import { denyPolicyDecision, policyDenialAuditDetails } from './policyDenial';
-import type { AuthoritativePolicyDecisionOptions } from './policyAdapter';
 
 interface FeaturePolicyPorts {
 	auth: AuthContext;
 	audit?: AuditPort;
-	readOnlyGuard?: ReadOnlyGuard;
 }
 
 interface FeaturePolicyResourcePorts {
@@ -69,10 +67,9 @@ export async function requireFeaturePolicy(
 	action: FeatureLanePolicyAction,
 	resource: PolicyResource,
 	resourceType: string,
-	resourceId?: string,
-	options?: Pick<AuthoritativePolicyDecisionOptions, 'enforceReadOnlyOverlay'>
+	resourceId?: string
 ): Promise<void> {
-	const decision = await evaluateFeaturePolicy(ports, action, resource, options);
+	const decision = await evaluateFeaturePolicy(ports, action, resource);
 
 	if (decision.allowed) {
 		return;
@@ -95,16 +92,13 @@ export async function requireFeaturePolicy(
 export async function evaluateFeaturePolicy(
 	ports: FeaturePolicyPorts,
 	action: FeatureLanePolicyAction,
-	resource: PolicyResource,
-	options?: Pick<AuthoritativePolicyDecisionOptions, 'enforceReadOnlyOverlay'>
+	resource: PolicyResource
 ): Promise<PolicyDecision> {
-	return evaluateAuthoritativePolicyDecision(ports, action, resource, options);
+	return evaluateAuthoritativePolicyDecision(ports, action, resource);
 }
 
 function featurePolicyDenialMessage(reasonCode: PolicyReasonCode, lane: string): string {
 	switch (reasonCode) {
-		case 'denied:read-only-overlay':
-			return 'Organization is in read-only mode';
 		case 'denied:out-of-scope':
 			return 'You do not have access to records outside your assigned scope';
 		default:

@@ -18,8 +18,7 @@ function makePageData(overrides: Partial<PageData> = {}): PageData {
 		session: null,
 		emailConfirmed: true,
 		userEmail: 'owner@example.com',
-		canCreate: true,
-		canCreateMessage: undefined,
+		emailConfirmationMessage: undefined,
 		...overrides
 	} as PageData;
 }
@@ -47,8 +46,7 @@ describe('/org/new page', () => {
 				data: makePageData({
 					emailConfirmed: false,
 					userEmail: 'pending@example.com',
-					canCreate: false,
-					canCreateMessage: 'Confirm your email before creating an Organization.'
+					emailConfirmationMessage: 'Confirm your email before creating an Organization.'
 				}),
 				form: null
 			}
@@ -57,7 +55,7 @@ describe('/org/new page', () => {
 		expect(screen.getByRole('heading', { name: 'Confirm your email first' })).toBeTruthy();
 		expect(screen.getByText(/Open the newest confirmation email for pending@example.com/)).toBeTruthy();
 		expect(screen.getByTestId('org-new-status').textContent).toContain('Email confirmation required');
-		expect(screen.getByText(/Email confirmation must finish before Organization setup starts/)).toBeTruthy();
+		expect(screen.getByText(/Confirm your email before creating an Organization/)).toBeTruthy();
 		expect((screen.getByLabelText('Organization Name') as HTMLInputElement).disabled).toBe(true);
 		expect((screen.getByRole('button', { name: 'Create Organization' }) as HTMLButtonElement).disabled).toBe(true);
 	});

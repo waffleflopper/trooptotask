@@ -179,14 +179,9 @@ export interface ReadOnlyGuard {
 
 /** Subscription/billing cap checks and cache management */
 export interface SubscriptionPort {
-	canAddPersonnel(): Promise<{ allowed: boolean; message?: string }>;
-	/** Returns number of personnel slots available, or null if unlimited */
-	getAvailablePersonnelSlots(): Promise<number | null>;
 	invalidateTierCache(): void;
 	/** Get the effective tier for this org (considers gifts, subscriptions, billing-disabled) */
 	getEffectiveTier(): Promise<EffectiveTier>;
-	/** Count bulk data exports this month for this org */
-	getMonthlyExportCount(): Promise<number>;
 }
 
 /** Abstracts payment provider operations (Stripe, etc.) */
@@ -247,11 +242,6 @@ export interface WritePorts {
 /** Write + notifications (e.g., assignment type deletion, rating scheme approval) */
 export interface WriteWithNotificationsPorts extends WritePorts {
 	notifications: NotificationPort;
-}
-
-/** Write + subscription (e.g., personnel create with slot checks) */
-export interface WriteWithSubscriptionPorts extends WritePorts {
-	subscription: SubscriptionPort;
 }
 
 /** User-scoped operations that aren't org-level writes (e.g., pinned groups) */

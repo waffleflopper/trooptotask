@@ -30,7 +30,6 @@ import type {
 	UseCaseContext,
 	WritePorts,
 	WriteWithNotificationsPorts,
-	WriteWithSubscriptionPorts,
 	UserWritePorts,
 	QueryPorts,
 	QueryWithRawStorePorts
@@ -469,7 +468,6 @@ export function createTestContext(overrides?: {
 	auth?: Parameters<typeof createTestAuthContext>[0];
 	scope?: Partial<ScopeEnforcementPort>;
 	readOnly?: boolean;
-	subscriptionAllowed?: boolean;
 	sensitiveActionDecision?: Partial<SensitiveActionDecision>;
 }): UseCaseContext & {
 	store: ReturnType<typeof createInMemoryDataStore>;
@@ -485,7 +483,7 @@ export function createTestContext(overrides?: {
 	const scope = createTestScopeEnforcementPort(overrides?.scope);
 	const { store, rawStore } = createScopedTestStores(auth);
 	const auditPort = createTestAuditPort();
-	const subscription = createTestSubscriptionPort(overrides?.subscriptionAllowed ?? true);
+	const subscription = createTestSubscriptionPort();
 	const notificationPort = createTestNotificationPort();
 	const billingPort = createTestBillingPort();
 	const storagePort = createTestStoragePort();
@@ -536,22 +534,9 @@ export function createTestSensitiveActionAuthorizer(
 	};
 }
 
-export function createTestSubscriptionPort(
-	allowed = true,
-	message?: string,
-	availableSlots: number | null = null
-): SubscriptionPort & { tierCacheInvalidated: boolean } {
+export function createTestSubscriptionPort(): SubscriptionPort {
 	return {
-		tierCacheInvalidated: false,
-		async canAddPersonnel() {
-			return allowed ? { allowed: true } : { allowed: false, message: message ?? 'Personnel limit reached' };
-		},
-		async getAvailablePersonnelSlots() {
-			return availableSlots;
-		},
-		invalidateTierCache() {
-			this.tierCacheInvalidated = true;
-		},
+		invalidateTierCache() {},
 		async getEffectiveTier(): Promise<EffectiveTier> {
 			return {
 				tier: 'unit',
@@ -563,9 +548,6 @@ export function createTestSubscriptionPort(
 				giftExpiresAt: null,
 				giftTier: null
 			};
-		},
-		async getMonthlyExportCount() {
-			return 0;
 		}
 	};
 }
@@ -685,36 +667,6 @@ export function createWriteWithNotificationsPortsContext(options?: {
 		audit: createTestAuditPort(),
 		readOnlyGuard: createTestReadOnlyGuard(options?.readOnly ?? false),
 		notifications: createTestNotificationPort(),
-		criticalTasksReadModel
-	};
-}
-
-export function createWriteWithSubscriptionPortsContext(options?: {
-	auth?: Parameters<typeof createTestAuthContext>[0];
-	readOnly?: boolean;
-	subscriptionAllowed?: boolean;
-	subscriptionMessage?: string;
-	availableSlots?: number | null;
-}): WriteWithSubscriptionPorts & {
-	store: ReturnType<typeof createInMemoryDataStore>;
-	audit: ReturnType<typeof createTestAuditPort>;
-	subscription: ReturnType<typeof createTestSubscriptionPort>;
-	criticalTasksReadModel: CriticalTasksReadModelPort;
-} {
-	const auth = createTestAuthContext(options?.auth);
-	const { store, rawStore } = createScopedTestStores(auth);
-	const criticalTasksReadModel = createInMemoryCriticalTasksReadModelAdapter(rawStore);
-	return {
-		store,
-		rawStore,
-		auth,
-		audit: createTestAuditPort(),
-		readOnlyGuard: createTestReadOnlyGuard(options?.readOnly ?? false),
-		subscription: createTestSubscriptionPort(
-			options?.subscriptionAllowed ?? true,
-			options?.subscriptionMessage,
-			options?.availableSlots ?? null
-		),
 		criticalTasksReadModel
 	};
 }

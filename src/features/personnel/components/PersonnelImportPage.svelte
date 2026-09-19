@@ -62,14 +62,12 @@
 		savedCount: number;
 		errors: Array<{ index: number; message: string }>;
 		skipped?: Array<{ index: number; message: string }>;
-		capError?: string;
-		capReached?: boolean;
+		message?: string;
 	}
 
 	const TEMPLATE_HEADERS = 'Rank, Last Name, First Name, MOS, Duty Role, Group, ETS, PCS / DEROS';
 	const SAMPLE_ROW = 'SGT, Smith, John, 68W, Medic, Alpha Team, 2027-05-01, 2026-11-30';
 	const ISO_DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
-	const CAP_REACHED_MARKER = 'Personnel cap reached';
 
 	let importStep = $state<ImportState>('input');
 	let fileRows = $state<string[][]>([]);
@@ -253,10 +251,6 @@
 						: 'failed'
 			: 'failed'
 	);
-	const hasCapFailure = $derived(!!importResult?.capReached || !!importResult?.capError);
-	const hasReviewableErrors = $derived(
-		!!importResult?.errors.some((error) => !error.message.includes(CAP_REACHED_MARKER))
-	);
 
 	beforeNavigate(({ cancel }) => {
 		if (runningImport) cancel();
@@ -417,20 +411,13 @@
 					savedCount: 0,
 					errors: data.errors ?? [],
 					skipped: data.skipped ?? [],
-					capError: data.message ?? `Import failed with status ${response.status}`,
-					capReached: data.capReached ?? false
+					message: data.message ?? `Import failed with status ${response.status}`
 				};
 			} else {
-				const capError =
-					typeof data.capError === 'string'
-						? data.capError
-						: data.errors?.find((error: { message?: string }) => error.message?.includes(CAP_REACHED_MARKER))?.message;
 				importResult = {
 					savedCount: importMode === 'merge' ? (data.updated ?? []).length : (data.inserted ?? []).length,
 					errors: importMode === 'merge' ? [...(data.errors ?? []), ...(data.ambiguous ?? [])] : (data.errors ?? []),
-					skipped: importMode === 'merge' ? (data.skipped ?? []) : [],
-					capError,
-					capReached: data.capReached ?? !!capError
+					skipped: importMode === 'merge' ? (data.skipped ?? []) : []
 				};
 			}
 			importStep = 'results';
@@ -438,8 +425,7 @@
 			importResult = {
 				savedCount: 0,
 				errors: [{ index: -1, message: err instanceof Error ? err.message : 'Network error' }],
-				skipped: [],
-				capReached: false
+				skipped: []
 			};
 			importStep = 'results';
 		} finally {
@@ -456,7 +442,6 @@
 		importStep = 'preview';
 		const failedKeys = new Set(
 			importResult?.errors
-				.filter((error) => !error.message.includes(CAP_REACHED_MARKER))
 				.map((error) => (error.index >= 0 ? lastSubmittedEntries[error.index]?.sourceRowNumber : undefined))
 				.filter((rowNumber): rowNumber is number => rowNumber !== undefined)
 				.map((rowNumber) => `row-${rowNumber}`)
@@ -599,6 +584,7 @@
 									{#snippet child({ props })}
 										<Input
 											{...props}
+											type="text"
 											aria-label={`Row ${row.sourceRowNumber} ${column.header}`}
 											autocomplete="off"
 											spellcheck="false"
@@ -722,10 +708,10 @@
 			/>
 		{:else if importStep === 'results' && importResult}
 			{#snippet resultActions()}
-				{#if hasReviewableErrors}
+				{#if importResult?.errors.some((error) => error.index >= 0)}
 					<Button variant="outline" type="button" onclick={reviewFailedRows}>Review failed rows</Button>
 					<Button variant="outline" type="button" onclick={clearFile}>Upload another file</Button>
-				{:else if importResult?.errors.length}
+				{:else if importResult?.errors.length || importResult?.message}
 					<Button variant="outline" type="button" onclick={clearFile}>Upload another file</Button>
 				{/if}
 				<Button type="button" onclick={finishImport}>Return to Personnel</Button>
@@ -733,7 +719,7 @@
 
 			<BulkImportWorkspace.ResultSummary
 				status={resultStatus}
-				description={importResult.capError ?? 'Review the summary before returning to the roster.'}
+				description={importResult.message ?? 'Review the summary before returning to the roster.'}
 				items={[
 					{ label: 'Saved', value: importResult.savedCount, tone: 'success' },
 					...(importMode === 'merge'
@@ -747,11 +733,6 @@
 				]}
 				actions={resultActions}
 			>
-				{#if hasCapFailure}
-					<div class="rounded-md border border-warning/35 bg-warning-muted/70 p-3 text-sm text-warning-foreground">
-						Your personnel limit has been reached. Archive personnel or upgrade your plan before retrying.
-					</div>
-				{/if}
 				{#if importResult.errors.length > 0}
 					<ul class="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
 						{#each importResult.errors as err (`${err.index}-${err.message}`)}

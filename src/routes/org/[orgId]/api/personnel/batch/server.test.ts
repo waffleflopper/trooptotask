@@ -58,20 +58,17 @@ describe('POST /api/personnel/batch', () => {
 		});
 	});
 
-	it('returns HTTP-successful per-row errors when the personnel cap is reached', async () => {
+	it('imports valid personnel through the route without paid capacity checks', async () => {
 		const ctx = createTestContext();
 		seedRankCatalog(ctx);
-		ctx.subscription.getAvailablePersonnelSlots = async () => 0;
 
 		const result = await handleUseCaseRequest(_postConfig, ctx, {
 			records: [{ rank: 'SGT', lastName: 'Smith', firstName: 'Jordan' }]
 		});
 
 		expect(result).toMatchObject({
-			inserted: [],
-			errors: [{ index: 0, message: 'Personnel cap reached — upgrade or archive personnel before adding this record' }],
-			capReached: true,
-			capError: 'Personnel cap reached — upgrade or archive personnel before adding this record'
+			inserted: [expect.objectContaining({ rank: 'SGT', lastName: 'Smith', firstName: 'Jordan' })],
+			errors: []
 		});
 	});
 

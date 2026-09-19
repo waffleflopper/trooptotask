@@ -4,7 +4,6 @@ import type {
 	SettingsArchivedPersonnelRow,
 	SettingsArchivesSectionData,
 	SettingsDangerSectionData,
-	SettingsExportsSectionData,
 	SettingsOwnershipTransferCandidate,
 	SettingsPoliciesSectionData
 } from './settingsSectionTypes';
@@ -177,32 +176,10 @@ export class SettingsArchivedPersonnelState {
 }
 
 export class SettingsDataExportState {
-	readonly #getSection: () => SettingsExportsSectionData;
-
 	exportingOrgJson = $state(false);
 	exportingOrgExcel = $state(false);
 	exportError = $state('');
 	exportSuccess = $state(false);
-
-	constructor(section: SettingsExportsSectionData | (() => SettingsExportsSectionData)) {
-		this.#getSection = typeof section === 'function' ? section : () => section;
-	}
-
-	get section(): SettingsExportsSectionData {
-		return this.#getSection();
-	}
-
-	get exportInfo(): SettingsExportsSectionData['exportInfo'] {
-		return this.section.exportInfo;
-	}
-
-	get commands(): SettingsExportsSectionData['commands'] {
-		return this.section.commands;
-	}
-
-	get exportLimitReached(): boolean {
-		return this.exportInfo.limitReached;
-	}
 
 	get isExporting(): boolean {
 		return this.exportingOrgJson || this.exportingOrgExcel;
@@ -311,8 +288,6 @@ export function createSettingsArchivedPersonnelState(
 	return new SettingsArchivedPersonnelState(section);
 }
 
-export function createSettingsDataExportState(
-	section: SettingsExportsSectionData | (() => SettingsExportsSectionData)
-): SettingsDataExportState {
-	return new SettingsDataExportState(section);
+export function createSettingsDataExportState(): SettingsDataExportState {
+	return new SettingsDataExportState();
 }

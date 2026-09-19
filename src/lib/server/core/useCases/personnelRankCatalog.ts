@@ -1,9 +1,9 @@
 import { fail } from '$lib/server/core/errors';
-import type { WriteWithSubscriptionPorts } from '$lib/server/core/ports';
+import type { WritePorts } from '$lib/server/core/ports';
 import { sanitizeString } from '$lib/server/validation';
 import { loadOrganizationRankCatalog } from './rankCatalog';
 
-type RankCatalogPorts = Pick<WriteWithSubscriptionPorts, 'auth' | 'store' | 'rawStore' | 'audit' | 'readOnlyGuard'>;
+type RankCatalogPorts = Pick<WritePorts, 'auth' | 'store' | 'rawStore' | 'audit' | 'readOnlyGuard'>;
 
 export const UNKNOWN_PERSONNEL_RANK_MESSAGE =
 	'Unknown rank "{rank}". Update the Organization rank catalog in Organization Settings -> Ranks, then try again.';

@@ -3,26 +3,20 @@
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Separator } from '$lib/components/ui/separator/index.js';
 	import { Spinner } from '$lib/components/ui/spinner/index.js';
-	import type { SettingsExportsSectionData } from './settingsSectionTypes';
 
 	let {
-		section,
 		exportError,
 		exportSuccess,
 		exportingOrgJson,
 		exportingOrgExcel,
 		onExportOrganization
 	}: {
-		section: SettingsExportsSectionData;
 		exportError: string;
 		exportSuccess: boolean;
 		exportingOrgJson: boolean;
 		exportingOrgExcel: boolean;
 		onExportOrganization: (format: 'json' | 'excel') => void;
 	} = $props();
-
-	const exportInfo = $derived(section.exportInfo);
-	const exportLimitReached = $derived(exportInfo.limitReached);
 </script>
 
 <div class="grid gap-4">
@@ -34,7 +28,6 @@
 					Move data in and out of T2T. JSON for backups, Excel for human review.
 				</p>
 			</div>
-			<Badge variant="outline">{exportInfo.isLimited ? 'Plan limited' : 'Unlimited exports'}</Badge>
 		</div>
 		<Separator />
 
@@ -49,11 +42,7 @@
 				</p>
 			</div>
 			<div class="flex flex-wrap items-center gap-2">
-				<Button
-					size="sm"
-					onclick={() => onExportOrganization('json')}
-					disabled={exportingOrgJson || exportingOrgExcel || exportLimitReached || !section.commands.canExportJson}
-				>
+				<Button size="sm" onclick={() => onExportOrganization('json')} disabled={exportingOrgJson || exportingOrgExcel}>
 					{#if exportingOrgJson}<Spinner />{/if}
 					{exportingOrgJson ? 'Generating...' : 'Export JSON'}
 				</Button>
@@ -61,7 +50,7 @@
 					variant="outline"
 					size="sm"
 					onclick={() => onExportOrganization('excel')}
-					disabled={exportingOrgJson || exportingOrgExcel || exportLimitReached || !section.commands.canExportExcel}
+					disabled={exportingOrgJson || exportingOrgExcel}
 				>
 					{#if exportingOrgExcel}<Spinner />{/if}
 					{exportingOrgExcel ? 'Generating...' : 'Export Excel'}
@@ -69,23 +58,6 @@
 				<span class="basis-full text-sm text-muted-foreground">
 					Full organization exports include roster, training, onboarding, calendar, and duty data.
 				</span>
-			</div>
-		</div>
-
-		<div class="grid gap-4 rounded-md border p-3 md:grid-cols-[minmax(0,1fr)_auto]">
-			<div class="grid gap-1">
-				<p class="text-sm font-medium">Export allowance</p>
-				<p class="text-sm text-muted-foreground">Monthly export limits follow the active subscription tier.</p>
-			</div>
-			<div class="grid gap-1">
-				{#if exportInfo.isLimited}
-					<Badge variant="outline">{exportInfo.exportsUsed} / {exportInfo.exportsLimit} used</Badge>
-					{#if exportLimitReached}
-						<p class="text-sm text-destructive">{exportInfo.limitReachedRemediation}</p>
-					{/if}
-				{:else}
-					<Badge variant="outline">Unlimited exports</Badge>
-				{/if}
 			</div>
 		</div>
 

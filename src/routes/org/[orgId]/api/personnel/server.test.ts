@@ -242,13 +242,6 @@ describe('/api/personnel route authorization', () => {
 
 		expect(result).toEqual({ success: true });
 	});
-
-	it('formats restore cap rejections as validation responses', async () => {
-		const response = _patchConfig.formatOutput?.({ message: 'Personnel limit reached' });
-
-		expect(response?.status).toBe(422);
-		await expect(response?.json()).resolves.toEqual({ message: 'Personnel limit reached' });
-	});
 });
 
 describe('Personnel route denied-write safety', () => {

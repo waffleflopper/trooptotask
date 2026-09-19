@@ -1,9 +1,8 @@
 /**
  * Bulk personnel import — creates up to MAX_BATCH_SIZE personnel records from a CSV upload.
  *
- * Checks the org's subscription seat limit before inserting; excess rows are trimmed to
- * fit available seats (partial acceptance). Normalizes rank strings against the Organization
- * rank catalog and sanitizes all string fields.
+ * Validates each row against Group scope and the Organization rank catalog,
+ * sanitizes string fields, and reports invalid rows without discarding valid ones.
  *
  * For single-record personnel mutations, see `personnel.ts`.
  */
@@ -11,7 +10,7 @@ import { fail } from '$lib/server/core/errors';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { PersonnelEntity } from '$lib/server/entities/personnel';
 import { sanitizeString } from '$lib/server/validation';
-import type { WriteWithSubscriptionPorts } from '$lib/server/core/ports';
+import type { WritePorts } from '$lib/server/core/ports';
 import { requireFeaturePolicy } from './featurePolicy';
 import { buildAvailablePersonnelSlug, buildPersonnelSlugBase } from './personnelSlug';
 import { createActivePersonnelRankResolver } from './personnelRankCatalog';
@@ -45,11 +44,7 @@ interface BatchError {
 interface BatchResult {
 	inserted: unknown[];
 	errors: BatchError[];
-	capReached?: boolean;
-	capError?: string;
 }
-
-const PERSONNEL_CAP_REACHED_MESSAGE = 'Personnel cap reached — upgrade or archive personnel before adding this record';
 
 function isValidIsoDate(value: string): boolean {
 	if (!ISO_DATE_REGEX.test(value)) return false;
@@ -82,7 +77,7 @@ function validateBatchDateFields(ets: string | null | undefined, deros: string |
 	return `${invalidFields.join(' and ')} must be valid YYYY-MM-DD dates`;
 }
 
-export async function importPersonnelBatch(ctx: WriteWithSubscriptionPorts, input: BatchInput): Promise<BatchResult> {
+export async function importPersonnelBatch(ctx: WritePorts, input: BatchInput): Promise<BatchResult> {
 	await requireFeaturePolicy(ctx, POLICY_ACTION_CATALOG.personnel.importRecords, { kind: 'unscoped' }, AUDIT_RESOURCE);
 
 	const { records } = input;
@@ -174,34 +169,6 @@ export async function importPersonnelBatch(ctx: WriteWithSubscriptionPorts, inpu
 		return { inserted: [], errors };
 	}
 
-	// Enforce personnel cap against full batch size
-	const available = await ctx.subscription.getAvailablePersonnelSlots();
-	if (available !== null) {
-		if (available <= 0) {
-			for (const { index } of validRows) {
-				errors.push({
-					index,
-					message: PERSONNEL_CAP_REACHED_MESSAGE
-				});
-			}
-			ctx.audit.log({
-				action: 'personnel.bulk_import_blocked',
-				resourceType: AUDIT_RESOURCE,
-				details: { reason: 'cap_exhausted', attempted: validRows.length }
-			});
-			return { inserted: [], errors, capReached: true, capError: PERSONNEL_CAP_REACHED_MESSAGE };
-		}
-		if (validRows.length > available) {
-			const excess = validRows.splice(available);
-			for (const { index } of excess) {
-				errors.push({
-					index,
-					message: PERSONNEL_CAP_REACHED_MESSAGE
-				});
-			}
-		}
-	}
-
 	// Bulk insert
 	const insertedRows = await ctx.store.insertMany<Record<string, unknown>>(
 		entity.table,
@@ -209,8 +176,6 @@ export async function importPersonnelBatch(ctx: WriteWithSubscriptionPorts, inpu
 		validRows.map((v) => v.row),
 		entity.select
 	);
-
-	ctx.subscription.invalidateTierCache();
 
 	ctx.audit.log({
 		action: `${AUDIT_RESOURCE}.bulk_created`,
@@ -220,18 +185,11 @@ export async function importPersonnelBatch(ctx: WriteWithSubscriptionPorts, inpu
 
 	return {
 		inserted: insertedRows.map((row) => entity.fromDb(row)),
-		errors,
-		capReached: errors.some((error) => error.message === PERSONNEL_CAP_REACHED_MESSAGE) || undefined,
-		capError: errors.some((error) => error.message === PERSONNEL_CAP_REACHED_MESSAGE)
-			? PERSONNEL_CAP_REACHED_MESSAGE
-			: undefined
+		errors
 	};
 }
 
-function isGroupAllowedByScope(
-	scopeSet: WriteWithSubscriptionPorts['auth']['scopeSet'],
-	groupId: string | null
-): boolean {
+function isGroupAllowedByScope(scopeSet: WritePorts['auth']['scopeSet'], groupId: string | null): boolean {
 	if (scopeSet.kind === 'organization') {
 		return true;
 	}

@@ -2,20 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { executeOrganizationDataExport, type OrganizationDataExportArtifact } from './organizationDataExportExecution';
 
-const { billingEnabledMock } = vi.hoisted(() => ({
-	billingEnabledMock: vi.fn(() => true)
-}));
-
-vi.mock('$lib/config/billing', () => ({
-	get isBillingEnabled() {
-		return billingEnabledMock();
-	}
-}));
-
-afterEach(() => {
-	billingEnabledMock.mockReturnValue(true);
-	vi.restoreAllMocks();
-});
+afterEach(() => vi.restoreAllMocks());
 
 function jsonArtifact(overrides: Partial<Extract<OrganizationDataExportArtifact, { kind: 'json' }>> = {}) {
 	return {
@@ -51,89 +38,34 @@ function seedCompletedExports(ctx: ReturnType<typeof createTestContext>, count: 
 }
 
 describe('executeOrganizationDataExport', () => {
-	it('returns rate_limited without starting a lifecycle row when pre-start quota denies', async () => {
+	it('completes concurrent exports above former quotas without any plan or usage reads', async () => {
 		const ctx = createTestContext();
-		seedCompletedExports(ctx, 3);
-		const buildArtifact = vi.fn(async () => jsonArtifact());
-
-		const result = await executeOrganizationDataExport(ctx, {
-			requestedByEmail: 'leader@example.com',
-			auditAction: 'export.created',
-			buildArtifact
-		});
-
-		const rows = await ctx.rawStore.findMany<Record<string, unknown>>('data_exports', ctx.auth.orgId);
-		expect(result).toMatchObject({
-			status: 'rate_limited',
-			error: 'Export limit reached (3/month). Upgrade to Team for more monthly exports.'
-		});
-		expect(rows).toHaveLength(3);
-		expect(buildArtifact).not.toHaveBeenCalled();
-		expect(ctx.auditPort.events).toHaveLength(0);
-		expect(ctx.notificationPort.notifications).toHaveLength(0);
-	});
-
-	it('marks the started lifecycle row failed when post-start quota denies', async () => {
-		const ctx = createTestContext();
-		seedCompletedExports(ctx, 2);
-		const originalInsert = ctx.rawStore.insert.bind(ctx.rawStore);
-		let injectedConcurrentExport = false;
-		ctx.rawStore.insert = async (table, orgId, data, select) => {
-			if (table === 'data_exports' && !injectedConcurrentExport) {
-				injectedConcurrentExport = true;
-				await originalInsert(table, orgId, {
-					requested_by: 'other-user',
-					status: 'completed',
-					created_at: new Date().toISOString()
-				});
-			}
-			return originalInsert(table, orgId, data, select);
-		};
-		const buildArtifact = vi.fn(async () => jsonArtifact());
-
-		const result = await executeOrganizationDataExport(ctx, {
-			requestedByEmail: 'leader@example.com',
-			auditAction: 'export.created',
-			buildArtifact
-		});
-
-		const rows = await ctx.rawStore.findMany<Record<string, unknown>>('data_exports', ctx.auth.orgId);
-		expect(result).toMatchObject({
-			status: 'rate_limited',
-			error: 'Export limit reached (3/month). Upgrade to Team for more monthly exports.'
-		});
-		expect(rows).toEqual(
-			expect.arrayContaining([
-				expect.objectContaining({ requested_by: 'other-user', status: 'completed' }),
-				expect.objectContaining({ requested_by: ctx.auth.userId, status: 'failed' })
-			])
+		seedCompletedExports(ctx, 11);
+		const originalRows = await ctx.rawStore.findMany<Record<string, unknown>>('data_exports', ctx.auth.orgId);
+		const reads = ['findMany', 'findOne'] as const;
+		const spies = reads.map((method) =>
+			vi.spyOn(ctx.rawStore, method).mockRejectedValue(new Error('Export execution must not read plans or usage'))
 		);
-		expect(buildArtifact).not.toHaveBeenCalled();
-	});
-
-	it('allows exports above the base quota when support grants unlimited exports', async () => {
-		const ctx = createTestContext();
-		seedCompletedExports(ctx, 4);
-		ctx.rawStore.seed('organization_plan_feature_overrides', [
-			{
-				id: 'override-1',
-				organization_id: ctx.auth.orgId,
-				feature_key: 'bulk_export_unlimited',
-				override_state: 'granted',
-				expires_at: '2999-01-01T00:00:00.000Z',
-				revoked_at: null
-			}
+		const results = await Promise.all(
+			['first', 'second'].map((name) =>
+				executeOrganizationDataExport(ctx, {
+					requestedByEmail: 'leader@example.com',
+					auditAction: 'export.created',
+					buildArtifact: async () => jsonArtifact({ filename: `${name}.json` })
+				})
+			)
+		);
+		spies.forEach((spy) => spy.mockRestore());
+		expect(results.map((result) => result.artifact.filename)).toEqual(['first.json', 'second.json']);
+		const rows = await ctx.rawStore.findMany<Record<string, unknown>>('data_exports', ctx.auth.orgId);
+		expect(rows).toHaveLength(13);
+		expect(rows).toEqual(expect.arrayContaining(originalRows));
+		expect(rows.filter((row) => row.requested_by === ctx.auth.userId)).toEqual([
+			expect.objectContaining({ status: 'completed', file_size_bytes: 11 }),
+			expect.objectContaining({ status: 'completed', file_size_bytes: 11 })
 		]);
-		const buildArtifact = vi.fn(async () => jsonArtifact());
-
-		const result = await executeOrganizationDataExport(ctx, {
-			requestedByEmail: 'leader@example.com',
-			auditAction: 'export.created',
-			buildArtifact
-		});
-
-		expect(result).toEqual({ status: 'ready', artifact: jsonArtifact() });
-		expect(buildArtifact).toHaveBeenCalledOnce();
+		expect(ctx.auditPort.events).toHaveLength(2);
+		expect(ctx.notificationPort.notifications).toHaveLength(2);
 	});
 
 	it('completes, audits, and notifies for a JSON artifact', async () => {

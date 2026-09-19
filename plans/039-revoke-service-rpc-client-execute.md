@@ -1,5 +1,7 @@
 # Plan 039: Revoke client execute from service-role mutation RPCs
 
+**Stabilization update (03-02c):** The invitation capacity RPC has no runtime caller after paid-capacity removal. Its applied SQL and privilege protections remain until phase 04 schema retirement. The implementation references below describe the original security repair.
+
 > **Executor instructions**: Follow this plan step by step. Run every
 > verification command and confirm the expected result before moving to the
 > next step. If anything in the "STOP conditions" section occurs, stop and
@@ -55,7 +57,7 @@ GRANT EXECUTE ON FUNCTION "public"."reject_access_request_and_block_linked_invit
   shape for `block_invitation_if_member_cap_exceeded(uuid, uuid, uuid, integer, text)`.
 - The app calls `reject_access_request_and_block_linked_invitations` through the server helper in
   `src/lib/server/accessRequestInvitationBlocking.ts:33-43`.
-- The app calls `block_invitation_if_member_cap_exceeded` through the service-role member
+- Historical implementation: the app called `block_invitation_if_member_cap_exceeded` through the service-role member
   management adapter in `src/lib/server/adapters/supabaseOrgSettingsMemberManagement.ts:248-258`.
 - Existing static tests only assert there is no explicit authenticated grant in the original
   migration. They do not assert effective privileges:

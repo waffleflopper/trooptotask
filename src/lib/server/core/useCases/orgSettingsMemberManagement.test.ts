@@ -1,8 +1,16 @@
+import { createClient } from '@supabase/supabase-js';
+import {
+	createSupabaseOrganizationInvitationDeliveryPort,
+	sendOrganizationInvitationEmail
+} from '$lib/server/organizationInvitationDelivery';
+import { createAccessRequestSetupDeliveryService } from '$lib/server/accessRequestSetupDelivery';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createSupabaseSensitiveActionAuthorizer } from '$lib/server/sensitiveActionAuthorizer';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import {
 	accountSetupLinkFixture,
+	createAccessRequestSetupDeliveryStore,
+	AUTH_WORKFLOW_NOW,
 	authEmailOutboxRecordFixture,
 	createFakeOrganizationInvitationDeliveryPort as createInvitationDeliveryPort,
 	createFakeOrganizationInvitationRateLimiter as createInvitationRateLimiter,
@@ -1167,54 +1175,8 @@ describe('inviteOrganizationMember', () => {
 		expect(port.accessRequestBridges).toEqual([]);
 	});
 
-	it('skips Access Request bridging for billing-enabled non-user invitations', async () => {
-		billingEnabledMock.mockReturnValue(true);
-		const ctx = createTestContext();
-		const port = createOrganizationSettingsMemberManagementPort({
-			existingUserAccount: null,
-			orgName: 'Alpha Company'
-		});
-		const delivery = createInvitationDeliveryPort('sent');
-
-		const result = await inviteOrganizationMember(
-			{
-				auth: ctx.auth,
-				audit: ctx.audit,
-				notifications: ctx.notifications,
-				settings: port,
-				invitationDelivery: delivery
-			},
-			{
-				email: 'new.user@example.com',
-				membershipRole: 'member',
-				memberAccess: memberAccess({ memberPreset: 'viewer' }),
-				actorEmail: 'actor@example.com',
-				origin: 'https://trooptotask.test'
-			}
-		);
-
-		expect(result).toMatchObject({
-			inviteSuccess: true,
-			inviteEmail: 'new.user@example.com'
-		});
-		expect(port.createdInvitations).toHaveLength(1);
-		expect(port.accessRequestBridges).toEqual([]);
-		expect(port.blockedInvitations).toEqual([]);
-		expect(delivery.deliveries).toEqual([
-			expect.objectContaining({
-				email: 'new.user@example.com',
-				requiresAccountSetup: true,
-				selfServiceSignupEnabled: true
-			})
-		]);
-		expect(ctx.auditPort.events).not.toContainEqual(
-			expect.objectContaining({
-				action: expect.stringMatching(/^member\.invite_access_request_/)
-			})
-		);
-	});
-
-	it('keeps Access Request bridging for billing-disabled non-user invitations', async () => {
+	it.each([false, true])('bridges new invitees with billing=%s', async (billingEnabled) => {
+		billingEnabledMock.mockReturnValue(billingEnabled);
 		const ctx = createTestContext();
 		const port = createOrganizationSettingsMemberManagementPort({
 			existingUserAccount: null,
@@ -1251,8 +1213,7 @@ describe('inviteOrganizationMember', () => {
 		expect(delivery.deliveries).toEqual([
 			expect.objectContaining({
 				email: 'new.user@example.com',
-				requiresAccountSetup: true,
-				selfServiceSignupEnabled: false
+				requiresAccountSetup: true
 			})
 		]);
 		expect(ctx.auditPort.events).toContainEqual({
@@ -1596,7 +1557,7 @@ describe('inviteOrganizationMember', () => {
 		expect(issuance.setupDeliveries).toEqual([]);
 	});
 
-	it('does not issue a setup link when billing is enabled', async () => {
+	it('issues the separate setup credential even when billing is enabled', async () => {
 		billingEnabledMock.mockReturnValue(true);
 		const ctx = createTestContext();
 		const port = createOrganizationSettingsMemberManagementPort({ existingUserAccount: null });
@@ -1612,9 +1573,14 @@ describe('inviteOrganizationMember', () => {
 			}
 		);
 
-		expect(port.accessRequestBridges).toEqual([]);
-		expect(issuance.setupLinkRequests).toEqual([]);
-		expect(issuance.setupDeliveries).toEqual([]);
+		expect(port.accessRequestBridges).toHaveLength(1);
+		expect(issuance.setupLinkRequests).toEqual(['access-request-1']);
+		expect(issuance.setupDeliveries).toEqual([
+			expect.objectContaining({
+				email: 'new.user@example.com',
+				setupUrl: 'https://trooptotask.test/auth/setup-account?token=raw-setup-token'
+			})
+		]);
 	});
 
 	it('allows owners to create member-management invitations with an immutable access snapshot', async () => {
@@ -1716,8 +1682,7 @@ describe('inviteOrganizationMember', () => {
 				organizationName: 'Alpha Company',
 				invitedByEmail: 'actor@example.com',
 				origin: 'https://trooptotask.test',
-				requiresAccountSetup: false,
-				selfServiceSignupEnabled: false
+				requiresAccountSetup: false
 			}
 		]);
 		expect(rateLimiter.checks).toEqual([
@@ -1840,8 +1805,7 @@ describe('inviteOrganizationMember', () => {
 		expect(delivery.deliveries).toEqual([
 			expect.objectContaining({
 				email: 'new.user@example.com',
-				requiresAccountSetup: true,
-				selfServiceSignupEnabled: false
+				requiresAccountSetup: true
 			})
 		]);
 	});
@@ -1991,94 +1955,92 @@ describe('inviteOrganizationMember', () => {
 		});
 	});
 
-	it('resends billing-enabled non-user invitations without an Access Request link as account-setup deliveries', async () => {
-		billingEnabledMock.mockReturnValue(true);
-		const ctx = createTestContext();
-		const port = createOrganizationSettingsMemberManagementPort({
-			existingUserAccount: null,
-			pendingInvitationRequiresAccountSetup: false,
-			orgName: 'Alpha Company'
-		});
-		const delivery = createInvitationDeliveryPort('sent');
-
-		const result = await resendOrganizationInvitation(
-			{
-				auth: ctx.auth,
-				audit: ctx.audit,
-				notifications: ctx.notifications,
-				settings: port,
-				invitationDelivery: delivery
-			},
-			{
-				inviteId: '11111111-1111-4111-8111-111111111111',
-				actorEmail: 'actor@example.com',
-				origin: 'https://trooptotask.test'
+	it.each([false, true])(
+		'resends legacy invitations to a working reviewed-access destination with billing=%s',
+		async (billingEnabled) => {
+			billingEnabledMock.mockReturnValue(billingEnabled);
+			vi.stubEnv('RESEND_API_KEY', 'synthetic-capture-only');
+			vi.stubEnv('RESEND_FROM_EMAIL', 'noreply@example.test');
+			const ctx = createTestContext();
+			const port = createOrganizationSettingsMemberManagementPort({
+				existingUserAccount: null,
+				pendingInvitationRequiresAccountSetup: false,
+				orgName: 'Alpha Company'
+			});
+			const messages: { text: string; html: string }[] = [];
+			let outboxRow: Record<string, unknown> = {};
+			// Fake only persistence/transport; exercise the actual delivery adapter and renderer.
+			const client = createClient('http://127.0.0.1:9', 'synthetic-test-key', {
+				auth: { persistSession: false, autoRefreshToken: false },
+				global: {
+					fetch: async (url, init) => {
+						if (new URL(String(url)).pathname.endsWith('/organization_invitation_email_outbox')) {
+							outboxRow = { ...JSON.parse(init!.body as string), id: 'outbox-1', last_error: null, sent_at: null };
+						} else if (
+							new URL(String(url)).pathname.endsWith('/rpc/mark_organization_invitation_email_outbox_delivery')
+						) {
+							outboxRow = { ...outboxRow, status: 'sent', attempt_count: 1, sent_at: AUTH_WORKFLOW_NOW.toISOString() };
+						} else {
+							throw new Error('Unexpected persistence request');
+						}
+						return Response.json(outboxRow);
+					}
+				}
+			});
+			const delivery = createSupabaseOrganizationInvitationDeliveryPort(client, {
+				sendEmail: (input) =>
+					sendOrganizationInvitationEmail(input, async (_url, init) => {
+						messages.push(JSON.parse(init.body as string));
+						return { ok: true, status: 202, text: async () => '' };
+					})
+			});
+			const issuance = createAccountSetupIssuancePorts();
+			const result = await resendOrganizationInvitation(
+				{
+					auth: ctx.auth,
+					audit: ctx.audit,
+					notifications: ctx.notifications,
+					settings: port,
+					invitationDelivery: delivery,
+					...issuance
+				},
+				{ inviteId: '11111111-1111-4111-8111-111111111111', actorEmail: 'actor@example.com', origin: INVITE_ORIGIN }
+			);
+			expect(result.inviteDeliveryStatus).toBe('sent');
+			expect(outboxRow).toMatchObject({ recipient: 'invitee@example.com', status: 'sent' });
+			const destination = new URL(messages[0].html.match(/href="([^"]+)"/)![1]);
+			expect(destination.pathname).toBe('/auth/request-access');
+			for (const body of [messages[0].text, messages[0].html]) {
+				expect(body).toContain(destination.href);
+				expect(body).toMatch(/request access/i);
+				expect(body).toMatch(/approv/i);
+				expect(body).not.toMatch(/a separate email carries your account setup link/i);
 			}
-		);
+			expect(issuance.setupLinkRequests).toEqual([]);
+			expect(issuance.setupDeliveries).toEqual([]);
+			const requestStore = createAccessRequestSetupDeliveryStore();
+			const sendSetupEmail = vi.fn();
+			const service = createAccessRequestSetupDeliveryService(requestStore, sendSetupEmail, {
+				now: () => AUTH_WORKFLOW_NOW
+			});
+			expect(
+				await service.submitAccessRequest({
+					email: 'invitee@example.com',
+					firstName: 'Synthetic',
+					lastName: 'Invitee',
+					reason: null,
+					heardAbout: 'search_engine',
+					heardAboutDetails: null,
+					origin: destination.origin
+				})
+			).toEqual({ status: 'pending-created' });
+			expect(requestStore.insertedRequests).toEqual([expect.objectContaining({ email: 'invitee@example.com' })]);
+			expect(requestStore.setupLinks).toEqual([]);
+			expect(sendSetupEmail).not.toHaveBeenCalled();
+		}
+	);
 
-		expect(result).toMatchObject({
-			success: true,
-			inviteSuccess: true,
-			inviteDeliveryStatus: 'sent'
-		});
-		expect(port.userAccountLookups).toContain('invitee@example.com');
-		expect(delivery.deliveries).toEqual([
-			expect.objectContaining({
-				invitationId: '11111111-1111-4111-8111-111111111111',
-				email: 'invitee@example.com',
-				requiresAccountSetup: true,
-				selfServiceSignupEnabled: true
-			})
-		]);
-		expect(ctx.auditPort.events).toContainEqual({
-			action: 'member.invite_email_resent',
-			resourceType: 'organization',
-			details: {
-				email: 'invitee@example.com',
-				invitationId: '11111111-1111-4111-8111-111111111111',
-				outboxId: 'outbox-1',
-				deliveryMode: 'resend'
-			},
-			severity: 'info'
-		});
-	});
-
-	it('keeps self-service invitation resends stable when billing is later disabled', async () => {
-		billingEnabledMock.mockReturnValue(false);
-		const ctx = createTestContext();
-		const port = createOrganizationSettingsMemberManagementPort({
-			existingUserAccount: null,
-			pendingInvitationRequiresAccountSetup: false,
-			orgName: 'Alpha Company'
-		});
-		const delivery = createInvitationDeliveryPort('sent');
-
-		await resendOrganizationInvitation(
-			{
-				auth: ctx.auth,
-				audit: ctx.audit,
-				notifications: ctx.notifications,
-				settings: port,
-				invitationDelivery: delivery
-			},
-			{
-				inviteId: '11111111-1111-4111-8111-111111111111',
-				actorEmail: 'actor@example.com',
-				origin: 'https://trooptotask.test'
-			}
-		);
-
-		expect(delivery.deliveries).toEqual([
-			expect.objectContaining({
-				invitationId: '11111111-1111-4111-8111-111111111111',
-				email: 'invitee@example.com',
-				requiresAccountSetup: true,
-				selfServiceSignupEnabled: true
-			})
-		]);
-	});
-
-	it('keeps unconfirmed invitee signups on setup resend', async () => {
+	it('routes unlinked unconfirmed accounts to Request Access on resend', async () => {
 		const ctx = createTestContext();
 		const port = createOrganizationSettingsMemberManagementPort({
 			existingUserAccount: { id: 'existing-user-1', email: 'invitee@example.com', emailConfirmed: false },
@@ -2106,8 +2068,8 @@ describe('inviteOrganizationMember', () => {
 			expect.objectContaining({
 				invitationId: '11111111-1111-4111-8111-111111111111',
 				email: 'invitee@example.com',
-				requiresAccountSetup: true,
-				selfServiceSignupEnabled: true
+				requiresAccountSetup: false,
+				requiresAccessRequest: true
 			})
 		]);
 	});
@@ -2142,8 +2104,7 @@ describe('inviteOrganizationMember', () => {
 			expect.objectContaining({
 				invitationId: '11111111-1111-4111-8111-111111111111',
 				email: 'invitee@example.com',
-				requiresAccountSetup: true,
-				selfServiceSignupEnabled: false
+				requiresAccountSetup: true
 			})
 		]);
 		expect(ctx.auditPort.events).toContainEqual({
@@ -2189,8 +2150,7 @@ describe('inviteOrganizationMember', () => {
 			expect.objectContaining({
 				invitationId: '11111111-1111-4111-8111-111111111111',
 				email: 'invitee@example.com',
-				requiresAccountSetup: false,
-				selfServiceSignupEnabled: false
+				requiresAccountSetup: false
 			})
 		]);
 		expect(ctx.auditPort.events).toContainEqual({
@@ -3679,9 +3639,7 @@ describe('invitation credential and governance boundaries', () => {
 			expect(settings.accessRequestBridges).toEqual([]);
 			expect(settings.createdInvitations).toEqual([]);
 			expect(settings.updatedMemberships).toEqual([]);
-			expect(delivery.deliveries).toEqual([
-				expect.objectContaining({ requiresAccountSetup: true, selfServiceSignupEnabled: false })
-			]);
+			expect(delivery.deliveries).toEqual([expect.objectContaining({ requiresAccountSetup: true })]);
 		}
 	);
 

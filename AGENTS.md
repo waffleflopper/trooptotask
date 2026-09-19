@@ -12,7 +12,7 @@ Carry the requested task through its acceptance criteria, affected consumers and
 
 ## Stabilization
 
-For a stabilization task, read its entry in [TODO](docs/stabilization/TODO.md), relevant [baseline contracts](docs/stabilization/BASELINE.md#retained-contracts) and [evidence](docs/stabilization/EVIDENCE.md), and the [program decisions](docs/architecture/ARCHITECTURE.md#stabilization-decisions). Complete one ready task and its full consumer cutover; respect phase dependencies. Billing, Duty Roster, E2E and unfinished migration paths must be removed by their owning tasks. Preserve Organization/Group scope, reviewed acquisition and retained contracts R1–R7. A separately requested docs or tooling task does not activate the next stabilization task.
+For a stabilization task, read its entry in [TODO](docs/stabilization/TODO.md), relevant [baseline contracts](docs/stabilization/BASELINE.md#retained-contracts) and [evidence](docs/stabilization/EVIDENCE.md), and the [program decisions](docs/architecture/ARCHITECTURE.md#stabilization-decisions). For phase activation or the next-task driver, follow the [issue-aware checkpoints](docs/agents/operating-rules.md#stabilization-tasks). Complete one ready task within the active child and its full consumer cutover; stop at deliverable boundaries and respect phase dependencies. Billing, Duty Roster, E2E and unfinished migration paths must be removed by their owning tasks. Preserve Organization/Group scope, reviewed acquisition and retained contracts R1–R7. A separately requested docs or tooling task does not activate the next stabilization task.
 
 ## Task-specific guidance
 

@@ -3,9 +3,18 @@
 Status: Accepted
 Date: 2026-08-03
 
+Stabilization 03-01b supersedes this decision's billing-dependent lifetime. The
+reviewed invitation bridge and separate setup credential now apply to every new
+invitee, regardless of commercial settings. Resend/retry use reviewed recovery for linked incomplete accounts, sign-in for
+usable accounts, or Request Access for legacy unlinked recipients without a usable
+account, and never issue setup credentials. The original context below records
+why this boundary was introduced; it is not the current acquisition switch.
+The approval-rescind exposure remains a required repair under stabilization
+11-01/F01, not a permanent accepted exception.
+
 ## Context
 
-### Current-state truth
+### Original decision context (2026-08-03)
 
 - While `PUBLIC_BILLING_ENABLED=false`, `/auth/sign-up` redirects to `/auth/request-access`. An **Organization Invitation** sent to a person with no **User Account** therefore has nowhere to send them except the platform-admin **Access Request** queue.
 - `inviteOrganizationMember` already bridges such an invitation into an `access_requests` row (`shouldBridgeAccessRequest = !existingUserAccount && !isBillingEnabled`, `src/lib/server/core/useCases/orgSettingsMemberManagement.ts:287`).
@@ -26,7 +35,7 @@ Date: 2026-08-03
 
 ### Authorization
 
-- An **Access Request** bridged from an **Organization Invitation** is **auto-approved**. An organization owner's or admin's vouching is sufficient authorization for platform entry during the beta period; no platform-admin action appears anywhere in the invite path.
+- An **Access Request** bridged from an **Organization Invitation** is **auto-approved**. An organization owner's or admin's vouching is sufficient authorization for reviewed platform entry; no platform-admin action appears anywhere in the invite path.
 - The **Access Request** row and its machinery are kept. The request is born approved rather than bypassed, so account creation does not fork into two paths.
 - A pre-existing **pending** public request for the same email is reused and auto-approved on the same basis. `findReusableAccessRequestForInvitation` already reuses it.
 - `reviewed_by` records the **inviting organization owner or admin**, not a platform admin. It is a nullable FK to `auth.users`. It has exactly one reader: the reviewed-requests table compares it against the invitation origins' `invited_by` to tell an auto-approved row from a hand-vetted one.
@@ -68,7 +77,7 @@ Date: 2026-08-03
 
 ## Rejected Or Deferred Alternatives
 
-- **Enable billing so `/auth/sign-up` becomes public.** Deferred: a business decision, not an architecture one. It is nonetheless the event that retires this ADR.
+- **Enable billing so `/auth/sign-up` becomes public.** Rejected by stabilization: public acquisition remains reviewed and billing no longer retires this ADR.
 - **Bypass Access Requests entirely for invited people.** Rejected because it forks account creation into two paths that must both stay correct.
 - **Leave pre-existing pending public requests for a platform admin.** Rejected because it would leave the keenest invitees — the ones who already applied — waiting.
 - **One email carrying both the invitation and the setup link.** Rejected on a fact, not a preference: invitation-outbox retry re-renders the URL, which would rotate an unrecoverable credential on every retry.
@@ -100,7 +109,7 @@ Date: 2026-08-03
 
 Three, all deliberate:
 
-1. **Auto-approval transitively grants Organization creation.** `/org/new` is gated only on email confirmation, so an invited person can provision their own Organization. Consistent with the vouching basis, and moot once billing is enabled and `/auth/sign-up` is public.
+1. **Auto-approval transitively grants Organization creation.** `/org/new` is gated only on email confirmation, so an invited person can provision their own Organization. Consistent with the retained vouching basis; billing does not change reviewed acquisition.
 2. **No rescind lever between auto-approval and setup completion.** `reject` stays pending-only and `'manual'` setup-link revocation stays unimplemented, so an invite-origin request cannot have its platform access withdrawn once auto-approved. Noticing is the only tool, which is why the reviewed-requests table must mark these rows. Tracked as drift `D-10`.
 3. **Account existence is inferable from the members screen.** Invite an address; a _setup_ state means no account existed, `Waiting on them to accept` immediately means one did. Probing costs a real invitation email to the target — rate-limited, audited, `notifyAdmins` fires org-wide, and the person probed receives mail. That is a loud, slow, attributable way to learn one bit that leaks through the invitee's own behaviour anyway. Closing it would mean collapsing the screen's two most actionable labels into one.
 
@@ -132,7 +141,7 @@ Exposure 3 is a genuinely new disclosure, not a widening of an existing one: tod
 - Email copy for both messages is build work, constrained only by the fixed **"Didn't get your setup link?"** label.
 - Docs updated with this ADR: `docs/architecture/ADR_INDEX.md`, `docs/architecture/DRIFT_LEDGER.md` (new `D-10`, plus a `D-02` current-state bullet), `CONTEXT.md` (`## Language`), `docs/architecture/adrs/0009-beta-access-request-account-setup-links.md`, `docs/architecture/adrs/0011-platform-administration-boundary.md`.
 - `GOVERNANCE_BASELINE.json` requires no change, conditional on the port-wiring guardrail above.
-- When billing is enabled, mark this ADR `Superseded` and close `D-10`; both are dead by construction at that point.
+- Stabilization retains this ADR independently of billing. Close `D-10` only after the separately owned 11-01/F01 repair is verified.
 
 ## Links
 

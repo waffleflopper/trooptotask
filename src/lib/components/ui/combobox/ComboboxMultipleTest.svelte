@@ -26,4 +26,6 @@
 	</Combobox.Content>
 </Combobox.Root>
 
+<button type="button">Outside control</button>
+
 <output aria-label="Selected frameworks">{selected.join(',')}</output>

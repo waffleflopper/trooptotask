@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Command as CommandPrimitive } from 'bits-ui';
 	import { cn } from '$lib/utils.js';
-	import { getComboboxContext } from './context.js';
+	import { getComboboxContext, getComboboxCommandContext } from './context.js';
 
 	type Props = Omit<CommandPrimitive.InputProps, 'value' | 'child' | 'children'>;
 
@@ -16,6 +16,7 @@
 	}: Props = $props();
 
 	const context = getComboboxContext();
+	const command = getComboboxCommandContext();
 </script>
 
 <CommandPrimitive.Input
@@ -46,8 +47,18 @@
 			return;
 		}
 
+		if (!context.open && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) {
+			event.preventDefault();
+			context.setOpen(true);
+			return;
+		}
+
 		if (event.key === 'Backspace') {
 			context.clearLastValue();
+		}
+
+		if (context.open && !context.content?.contains(event.currentTarget)) {
+			command.handleKeydown(event);
 		}
 	}}
 	{...restProps}

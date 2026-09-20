@@ -26,6 +26,7 @@ export interface ComboboxContext {
 	loading: boolean;
 	loadingText: string;
 	open: boolean;
+	restoreFocus: boolean;
 	items: readonly ComboboxOption[];
 	search: string;
 	anchor: HTMLElement | null;
@@ -55,4 +56,21 @@ export function getComboboxContext() {
 	}
 
 	return context;
+}
+
+// The Command state stays above both the trigger and the portaled popup. Its
+// DOM props belong on the popup element that actually contains the options.
+const COMBOBOX_COMMAND_CONTEXT = Symbol('combobox-command');
+
+interface ComboboxCommandContext {
+	readonly props: Record<string, unknown>;
+	handleKeydown: (event: KeyboardEvent) => void;
+}
+
+export function setComboboxCommandContext(context: ComboboxCommandContext) {
+	setContext(COMBOBOX_COMMAND_CONTEXT, context);
+}
+
+export function getComboboxCommandContext() {
+	return getContext<ComboboxCommandContext>(COMBOBOX_COMMAND_CONTEXT);
 }

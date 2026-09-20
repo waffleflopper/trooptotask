@@ -1,84 +1,11 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type {
+	BillingReconciliationStore,
 	BillingReconciliationOrganizationRow,
 	BillingReconciliationSnapshotRow
 } from '$lib/server/core/useCases/billingReconciliation';
-import type { BillingReconciliationBatchStore } from '$lib/server/core/useCases/billingReconciliationBatch';
-
-function mergeBillingReconciliationCandidateIds(input: {
-	organizationIds: string[];
-	snapshotOrganizationIds: string[];
-	limit: number;
-}): { orgId: string }[] {
-	const seen = new Set<string>();
-	const merged = [...input.organizationIds, ...input.snapshotOrganizationIds]
-		.filter((orgId) => {
-			if (seen.has(orgId)) return false;
-			seen.add(orgId);
-			return true;
-		})
-		.sort((left, right) => left.localeCompare(right));
-
-	return merged.slice(0, input.limit).map((orgId) => ({ orgId }));
-}
-
-function billingReconciliationCandidateId(
-	row: Record<string, unknown>,
-	field: 'id' | 'organization_id'
-): string | null {
-	const value = row[field];
-	return typeof value === 'string' ? value : null;
-}
-
-export function createSupabaseBillingReconciliationStore(supabase: SupabaseClient): BillingReconciliationBatchStore {
+export function createSupabaseBillingReconciliationStore(supabase: SupabaseClient): BillingReconciliationStore {
 	return {
-		async listCandidates(input) {
-			let organizationQuery = supabase
-				.from('organizations')
-				.select('id')
-				.or(
-					'tier.in.(team,unit),stripe_subscription_id.not.is.null,subscription_status.in.(active,past_due,canceled,unpaid,paused)'
-				)
-				.order('id', { ascending: true })
-				.limit(input.limit);
-
-			if (input.cursor) {
-				organizationQuery = organizationQuery.gt('id', input.cursor);
-			}
-
-			let snapshotQuery = supabase
-				.from('organization_billing_snapshots')
-				.select('organization_id')
-				.eq('source', 'stripe')
-				.or(
-					'commercial_plan.in.(team,unit),stripe_subscription_id.not.is.null,subscription_status.in.(active,past_due,canceled,unpaid,paused),sync_status.eq.needs_reconciliation,drift_detected.eq.true'
-				)
-				.order('organization_id', { ascending: true })
-				.limit(input.limit);
-
-			if (input.cursor) {
-				snapshotQuery = snapshotQuery.gt('organization_id', input.cursor);
-			}
-
-			const [organizationResult, snapshotResult] = await Promise.all([organizationQuery, snapshotQuery]);
-			if (organizationResult.error) {
-				throw new Error(`Failed to list billing reconciliation candidates: ${organizationResult.error.message}`);
-			}
-			if (snapshotResult.error) {
-				throw new Error(`Failed to list billing snapshot reconciliation candidates: ${snapshotResult.error.message}`);
-			}
-
-			return mergeBillingReconciliationCandidateIds({
-				organizationIds: (organizationResult.data ?? []).flatMap(
-					(row) => billingReconciliationCandidateId(row, 'id') ?? []
-				),
-				snapshotOrganizationIds: (snapshotResult.data ?? []).flatMap(
-					(row) => billingReconciliationCandidateId(row, 'organization_id') ?? []
-				),
-				limit: input.limit
-			});
-		},
-
 		async readOrganization(orgId) {
 			const { data, error } = await supabase
 				.from('organizations')

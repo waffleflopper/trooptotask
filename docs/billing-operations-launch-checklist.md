@@ -80,7 +80,7 @@ Manual human-only dashboard steps are marked as Robert-owned confirmations. Agen
 | Billing retry behavior is configured                                                                                                  | Requires Robert confirmation | Robert                             | Dashboard retry schedule and terminal-payment outcome notes.                                                                                                            |
 | Customer emails for invoices, receipts, failed payments, and subscription changes are reviewed                                        | Requires Robert confirmation | Robert                             | Dashboard email settings and sample test emails when available.                                                                                                         |
 | Invoice and receipt settings show usable organization/customer billing details                                                        | Requires Robert confirmation | Robert                             | Test invoice/receipt evidence with no card details.                                                                                                                     |
-| Checkout activation scenario passes                                                                                                   | Requires Robert confirmation | Robert/Agent with test credentials | Billing snapshot, webhook ledger, owner billing UI, reconciliation result.                                                                                              |
+| Checkout activation scenario passes                                                                                                   | Requires Robert confirmation | Robert/Agent with test credentials | Billing snapshot, webhook ledger and owner billing UI; scheduled reconciliation is retired.                                                                             |
 | Renewal success scenario passes                                                                                                       | Requires Robert confirmation | Robert/Agent with test credentials | Test Clock evidence and updated paid-through date.                                                                                                                      |
 | Failed renewal and payment recovery scenario passes                                                                                   | Requires Robert confirmation | Robert/Agent with test credentials | `invoice.payment_failed` handling, owner recovery UI, successful payment reactivation.                                                                                  |
 | Portal period-end cancellation scenario passes                                                                                        | Requires Robert confirmation | Robert/Agent with test credentials | Scheduled cancellation fields, owner/admin copy, final terminal cancellation after period end.                                                                          |
@@ -110,17 +110,16 @@ Do not start these until test-mode verification is complete and Robert has made 
 
 ## Environment Variables
 
-| Variable                                         | Required for launch | Mode rule                                                                          |
-| ------------------------------------------------ | ------------------- | ---------------------------------------------------------------------------------- |
-| `PUBLIC_BILLING_ENABLED`                         | Yes                 | `true` only after Robert approves paid billing.                                    |
-| `APP_PUBLIC_ORIGIN`                              | Yes                 | Must be the official public app origin for Checkout and Portal redirects.          |
-| `STRIPE_SECRET_KEY`                              | Yes                 | Test deployments use `sk_test_`; live deployments use `sk_live_`. Never mix modes. |
-| `STRIPE_WEBHOOK_SECRET`                          | Yes                 | Must match the webhook endpoint mode. Never copy the value into notes.             |
-| `STRIPE_TEAM_PRICE_ID`                           | Yes                 | Must point to the Team price for the same Stripe mode.                             |
-| `STRIPE_UNIT_PRICE_ID`                           | Yes                 | Must point to the Unit price for the same Stripe mode.                             |
-| `STRIPE_AUTOMATIC_TAX_ENABLED`                   | Decision-dependent  | Launch with `false` unless Robert has completed and verified tax setup.            |
-| `STRIPE_TAX_DASHBOARD_VERIFIED`                  | Decision-dependent  | Set `true` only after Robert confirms Stripe Tax dashboard state for that mode.    |
-| `BILLING_RECONCILIATION_SECRET` or `CRON_SECRET` | Recommended         | Required to exercise the remaining scheduled reconciliation endpoint.              |
+| Variable                        | Required for launch | Mode rule                                                                          |
+| ------------------------------- | ------------------- | ---------------------------------------------------------------------------------- |
+| `PUBLIC_BILLING_ENABLED`        | Yes                 | `true` only after Robert approves paid billing.                                    |
+| `APP_PUBLIC_ORIGIN`             | Yes                 | Must be the official public app origin for Checkout and Portal redirects.          |
+| `STRIPE_SECRET_KEY`             | Yes                 | Test deployments use `sk_test_`; live deployments use `sk_live_`. Never mix modes. |
+| `STRIPE_WEBHOOK_SECRET`         | Yes                 | Must match the webhook endpoint mode. Never copy the value into notes.             |
+| `STRIPE_TEAM_PRICE_ID`          | Yes                 | Must point to the Team price for the same Stripe mode.                             |
+| `STRIPE_UNIT_PRICE_ID`          | Yes                 | Must point to the Unit price for the same Stripe mode.                             |
+| `STRIPE_AUTOMATIC_TAX_ENABLED`  | Decision-dependent  | Launch with `false` unless Robert has completed and verified tax setup.            |
+| `STRIPE_TAX_DASHBOARD_VERIFIED` | Decision-dependent  | Set `true` only after Robert confirms Stripe Tax dashboard state for that mode.    |
 
 ## Customer Portal Configuration
 

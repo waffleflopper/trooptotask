@@ -1,5 +1,7 @@
 # Plan 002: Reject unset cleanup bearer secrets
 
+> Historical exemplar note: phase 03 D05 / 03-05a deletes the billing reconciliation endpoint and its tests. References below describe the earlier implementation, not a current file to import or execute. Retained cleanup bearer-secret protections remain required.
+
 > **Executor instructions**: Follow this plan step by step. Run every verification command and confirm the expected result before moving to the next step. If anything in the "STOP conditions" section occurs, stop and report. Do not improvise.
 >
 > **Drift check (run first)**: `git diff --stat 679b6113..HEAD -- src/routes/api/cleanup-old-data/+server.ts src/routes/api/cleanup-expired-onboardings/+server.ts src/routes/api/cleanup-account-setup-links/+server.ts src/routes/api/billing-reconciliation/+server.ts src/lib/server`

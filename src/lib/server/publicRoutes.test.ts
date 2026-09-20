@@ -32,7 +32,8 @@ describe('isPublicRoute', () => {
 		expect(isPublicRoute('/org/test-org/settings')).toBe(false);
 	});
 
-	it('allows cron-authenticated billing reconciliation to reach its bearer-token guard', () => {
-		expect(isPublicRoute('/api/billing-reconciliation')).toBe(true);
+	it('does not grant anonymous access to retired scheduled billing paths', () => {
+		expect(isPublicRoute('/api/billing-reconciliation')).toBe(false);
+		expect(isPublicRoute('/api/billing-reconciliation/nested')).toBe(false);
 	});
 });

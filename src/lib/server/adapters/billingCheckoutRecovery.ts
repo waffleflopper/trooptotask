@@ -22,8 +22,7 @@ export function createSupabaseBillingCheckoutRecoveryPorts(orgId: string): Billi
 				store: createSupabaseBillingReconciliationStore(adminClient),
 				provider: createStripeBillingReconciliationProvider(),
 				subscription: createSupabaseSubscriptionAdapter(adminClient, targetOrgId),
-				priceCatalog: getConfiguredPriceCatalog(),
-				dryRun: false
+				priceCatalog: getConfiguredPriceCatalog()
 			});
 		}
 	});

@@ -22,7 +22,7 @@ Existing baseline entries use narrow classification labels to identify the route
 These labels are inventory, not permission to add exceptions:
 
 - `auth-edge` means a route still performs provider-specific auth/session/invite work at the boundary.
-- `billing-recovery-edge` means a billing reconciliation or checkout recovery route still wires privileged
+- `billing-recovery-edge` means a checkout recovery route still wires privileged
   billing stores, subscription adapters, or audit writes directly from the route. Remove these entries with
   their billing consumers; do not replace them with disabled or unlimited-plan infrastructure.
 - `cron-edge` means a scheduled maintenance route still builds service-role cleanup stores, storage adapters,

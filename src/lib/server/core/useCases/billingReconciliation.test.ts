@@ -111,8 +111,7 @@ describe('reconcileOrganizationBilling', () => {
 			ok: true,
 			status: 'matched',
 			driftDetected: false,
-			snapshotUpdated: false,
-			plannedWrites: []
+			snapshotUpdated: false
 		});
 		expect(store.upsertSnapshot).not.toHaveBeenCalled();
 		expect(store.updateOrganizationBillingMirror).not.toHaveBeenCalled();

@@ -93,16 +93,6 @@ function assertEnv(results, env) {
 				? result('warn', 'Stripe Tax dashboard verification flag', 'marked verified but automatic tax is disabled')
 				: result('pass', 'Stripe Tax dashboard verification flag', 'not required while automatic tax is disabled')
 	);
-
-	results.push(
-		env.BILLING_RECONCILIATION_SECRET || env.CRON_SECRET
-			? result('pass', 'Billing reconciliation authorization', 'BILLING_RECONCILIATION_SECRET or CRON_SECRET present')
-			: result(
-					'warn',
-					'Billing reconciliation authorization',
-					'scheduled reconciliation endpoint cannot be exercised locally'
-				)
-	);
 }
 
 async function retrievePrice(stripe, priceId, label) {

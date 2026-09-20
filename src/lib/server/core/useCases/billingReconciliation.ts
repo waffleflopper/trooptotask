@@ -85,8 +85,7 @@ export interface BillingReconciliationResult {
 	driftDetected: boolean;
 	diagnostics: string[];
 	snapshotUpdated: boolean;
-	plannedWrites: string[];
-	dryRun: boolean;
+
 	reconciledAt: string;
 }
 
@@ -344,12 +343,10 @@ async function markFailed(input: {
 	result: string;
 	diagnostics: string[];
 	writeDiagnostics?: boolean;
-	dryRun?: boolean;
 }): Promise<BillingReconciliationResult> {
-	const dryRun = input.dryRun ?? false;
 	const wouldWriteDiagnostics = input.writeDiagnostics ?? true;
 
-	if (wouldWriteDiagnostics && !dryRun) {
+	if (wouldWriteDiagnostics) {
 		await input.store.updateSnapshotDiagnostics(input.orgId, {
 			last_reconciled_at: input.reconciledAt,
 			reconciliation_result: input.result,
@@ -365,8 +362,7 @@ async function markFailed(input: {
 		driftDetected: true,
 		diagnostics: input.diagnostics,
 		snapshotUpdated: false,
-		plannedWrites: wouldWriteDiagnostics ? ['organization_billing_snapshots.diagnostics'] : [],
-		dryRun,
+
 		reconciledAt: input.reconciledAt
 	};
 }
@@ -378,10 +374,9 @@ export async function reconcileOrganizationBilling(input: {
 	subscription: BillingReconciliationSubscriptionPort;
 	priceCatalog: PriceCatalogEntry[];
 	now?: () => Date;
-	dryRun?: boolean;
 }): Promise<BillingReconciliationResult> {
 	const now = input.now ?? (() => new Date());
-	const dryRun = input.dryRun ?? false;
+
 	const reconciledAt = isoNow(now);
 	const org = await input.store.readOrganization(input.orgId);
 	if (!org) {
@@ -391,8 +386,7 @@ export async function reconcileOrganizationBilling(input: {
 			reconciledAt,
 			result: 'Organization not found.',
 			diagnostics: ['organization_not_found'],
-			writeDiagnostics: false,
-			dryRun
+			writeDiagnostics: false
 		});
 	}
 
@@ -410,8 +404,7 @@ export async function reconcileOrganizationBilling(input: {
 			orgId: input.orgId,
 			reconciledAt,
 			result: 'Stripe provider read failed.',
-			diagnostics: [err instanceof Error ? err.message : 'provider_error'],
-			dryRun
+			diagnostics: [err instanceof Error ? err.message : 'provider_error']
 		});
 	}
 
@@ -423,8 +416,7 @@ export async function reconcileOrganizationBilling(input: {
 				reconciledAt,
 				result: 'Legacy billing snapshot still needs Stripe review.',
 				diagnostics: ['missing_stripe_subscription', 'legacy_organization_snapshot_needs_review'],
-				writeDiagnostics: false,
-				dryRun
+				writeDiagnostics: false
 			});
 		}
 
@@ -436,17 +428,14 @@ export async function reconcileOrganizationBilling(input: {
 				driftDetected: false,
 				diagnostics: [],
 				snapshotUpdated: false,
-				plannedWrites: [],
-				dryRun,
+
 				reconciledAt
 			};
 		}
 
 		const values = legacySnapshotValues({ org, reconciledAt });
 		if (values) {
-			if (!dryRun) {
-				await input.store.upsertSnapshot(values);
-			}
+			await input.store.upsertSnapshot(values);
 
 			return {
 				ok: false,
@@ -454,9 +443,8 @@ export async function reconcileOrganizationBilling(input: {
 				result: 'legacy_snapshot_seeded_for_stripe_review',
 				driftDetected: true,
 				diagnostics: ['missing_stripe_subscription', 'legacy_organization_snapshot_seed'],
-				snapshotUpdated: !dryRun,
-				plannedWrites: ['organization_billing_snapshots.legacy_seed'],
-				dryRun,
+				snapshotUpdated: true,
+
 				reconciledAt
 			};
 		}
@@ -466,8 +454,7 @@ export async function reconcileOrganizationBilling(input: {
 			orgId: input.orgId,
 			reconciledAt,
 			result: 'No Stripe subscription was found for this organization.',
-			diagnostics: ['missing_subscription'],
-			dryRun
+			diagnostics: ['missing_subscription']
 		});
 	}
 
@@ -485,8 +472,7 @@ export async function reconcileOrganizationBilling(input: {
 				orgId: input.orgId,
 				reconciledAt,
 				result: err.message,
-				diagnostics: err.diagnostics,
-				dryRun
+				diagnostics: err.diagnostics
 			});
 		}
 		throw err;
@@ -512,11 +498,7 @@ export async function reconcileOrganizationBilling(input: {
 		result
 	});
 
-	const plannedWrites = driftDetected
-		? ['organization_billing_snapshots', 'organizations.billing_mirror', 'tier_cache_invalidation']
-		: [];
-
-	if (!dryRun && driftDetected) {
+	if (driftDetected) {
 		await input.store.upsertSnapshot(values);
 		await input.store.updateOrganizationBillingMirror(input.orgId, {
 			tier: commercialPlan,
@@ -535,8 +517,7 @@ export async function reconcileOrganizationBilling(input: {
 		driftDetected,
 		diagnostics: driftFields,
 		snapshotUpdated: driftDetected,
-		plannedWrites,
-		dryRun,
+
 		reconciledAt
 	};
 }

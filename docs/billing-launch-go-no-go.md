@@ -1,5 +1,7 @@
 # Billing Launch Go/No-Go Evidence Pack
 
+Historical launch evidence only. Phase 03 removes billing; this document does not authorize a paid launch. Scheduled reconciliation and its backfill/report path are retired by D05 / 03-05a. Reconciliation columns and recorded preflight results below describe the former launch checklist, not executable current requirements. Current operator retirement ordering is in [RELEASE](stabilization/RELEASE.md). This commercial evidence document is owned for deletion by 03-07b.
+
 ## Purpose
 
 This evidence pack records the billing launch rehearsal run on 2026-06-15 AKDT for the Plan 078 execution worktree. Its purpose is to collect support-safe proof for the paid-billing launch path without declaring live readiness before Robert-owned Stripe Dashboard and business confirmations are complete.
@@ -57,7 +59,7 @@ Support-safe Stripe identifiers observed during preflight:
 
 ## Scenario Evidence
 
-The target surfaces for every scenario are:
+The former target surfaces were:
 
 - Billing snapshot state.
 - Webhook ledger state.
@@ -89,7 +91,7 @@ The target surfaces for every scenario are:
 | Stripe Tax launch decision                   | Requires Robert confirmation                | Robert | Local/test env has automatic tax disabled; final launch decision remains Robert-owned.                                |
 | Support owner/channel                        | Requires Robert/business-owner confirmation | Robert | Not confirmed during this plan.                                                                                       |
 
-## Go/No-Go Verdict
+## Historical Go/No-Go Verdict
 
 Verdict: **blocked**
 

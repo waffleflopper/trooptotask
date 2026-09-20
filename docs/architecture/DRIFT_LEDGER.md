@@ -1,5 +1,7 @@
 # V1 Drift Ledger
 
+Phase 03 D05 task 03-05a removes the scheduled billing reconciliation route and its direct service-role store/audit wiring. Its governance baseline entry is deleted; single-Organization checkout recovery remains owned by 03-05b.
+
 This ledger records places where current v1 reality and intended v1 direction diverge.
 
 Each entry separates:

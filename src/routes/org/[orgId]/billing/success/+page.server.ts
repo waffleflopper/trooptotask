@@ -133,10 +133,7 @@ export async function _loadCheckoutSuccessPageData(
 			if (isHttpError(err)) {
 				throw err;
 			}
-			console.warn(
-				`[billing-success] Checkout success recovery for organization ${ctx.auth.orgId} will be retried by billing reconciliation.`,
-				err
-			);
+			console.warn(`[billing-success] Checkout success recovery for organization ${ctx.auth.orgId} failed.`, err);
 		}
 	}
 

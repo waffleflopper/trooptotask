@@ -144,8 +144,7 @@ function dummyCliEnv() {
 		STRIPE_SECRET_KEY: ['not', 'stripe', 'secret'].join('-'),
 		STRIPE_WEBHOOK_SECRET: ['not', 'webhook', 'secret'].join('-'),
 		STRIPE_TEAM_PRICE_ID: ['team', 'price', 'dummy'].join('-'),
-		STRIPE_UNIT_PRICE_ID: ['unit', 'price', 'dummy'].join('-'),
-		BILLING_RECONCILIATION_SECRET: ['reconciliation', 'dummy'].join('-')
+		STRIPE_UNIT_PRICE_ID: ['unit', 'price', 'dummy'].join('-')
 	};
 }
 

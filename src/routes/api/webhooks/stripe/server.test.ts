@@ -1,12 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { getAdminClientMock, invalidateTierCacheMock, updateSubscriptionPlanMetadataMock, verifyWebhookSignatureMock } =
-	vi.hoisted(() => ({
-		getAdminClientMock: vi.fn(),
-		invalidateTierCacheMock: vi.fn(),
-		updateSubscriptionPlanMetadataMock: vi.fn(),
-		verifyWebhookSignatureMock: vi.fn()
-	}));
+const { getAdminClientMock, updateSubscriptionPlanMetadataMock, verifyWebhookSignatureMock } = vi.hoisted(() => ({
+	getAdminClientMock: vi.fn(),
+	updateSubscriptionPlanMetadataMock: vi.fn(),
+	verifyWebhookSignatureMock: vi.fn()
+}));
 
 vi.mock('$lib/server/stripe', () => ({
 	verifyWebhookSignature: verifyWebhookSignatureMock,
@@ -19,21 +17,16 @@ vi.mock('$lib/server/supabase', () => ({
 	getAdminClient: getAdminClientMock
 }));
 
-vi.mock('$lib/server/subscription', () => ({
-	invalidateTierCache: invalidateTierCacheMock
-}));
-
 vi.mock('$lib/server/billing/priceCatalog', () => ({
 	getConfiguredPriceCatalog: () => [
-		{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: 'prod_team', activeForCheckout: true },
-		{ priceId: 'price_unit', commercialPlan: 'unit', stripeProductId: 'prod_unit', activeForCheckout: true }
+		{ priceId: 'price_team', commercialPlan: 'team', stripeProductId: 'prod_team' },
+		{ priceId: 'price_unit', commercialPlan: 'unit', stripeProductId: 'prod_unit' }
 	],
 	lookupPriceCatalogEntry: (
 		catalog: Array<{
 			priceId: string;
 			commercialPlan: string;
 			stripeProductId: string | null;
-			activeForCheckout: boolean;
 		}>,
 		priceId: string | null | undefined
 	) => {
@@ -368,7 +361,6 @@ describe('POST /api/webhooks/stripe', () => {
 				})
 			})
 		);
-		expect(invalidateTierCacheMock).toHaveBeenCalledWith('org-1');
 	});
 
 	it('records invoice failures with subscription link metadata for billing health support bundles', async () => {
@@ -445,7 +437,6 @@ describe('POST /api/webhooks/stripe', () => {
 				})
 			})
 		);
-		expect(invalidateTierCacheMock).not.toHaveBeenCalled();
 	});
 
 	it('marks checkout completions superseded when a concurrent newer snapshot wins the atomic upsert', async () => {
@@ -483,7 +474,6 @@ describe('POST /api/webhooks/stripe', () => {
 				})
 			})
 		);
-		expect(invalidateTierCacheMock).not.toHaveBeenCalled();
 	});
 
 	it('returns successfully for duplicate processed Stripe event IDs without reprocessing', async () => {
@@ -515,7 +505,6 @@ describe('POST /api/webhooks/stripe', () => {
 		expect(await response.text()).toBe('Already processed');
 		expect(supabase.webhookAttemptRecords).toEqual([]);
 		expect(supabase.orgUpdates).toEqual([]);
-		expect(invalidateTierCacheMock).not.toHaveBeenCalled();
 	});
 
 	it('returns successfully when the ledger attempt lost a race to a terminal event row', async () => {
@@ -541,7 +530,6 @@ describe('POST /api/webhooks/stripe', () => {
 		expect(supabase.webhookAttemptRecords).toHaveLength(1);
 		expect(supabase.billingSnapshotUpserts).toEqual([]);
 		expect(supabase.orgUpdates).toEqual([]);
-		expect(invalidateTierCacheMock).not.toHaveBeenCalled();
 	});
 
 	it('marks unsupported event types ignored instead of failed', async () => {
@@ -742,7 +730,6 @@ describe('POST /api/webhooks/stripe', () => {
 				})
 			})
 		);
-		expect(invalidateTierCacheMock).toHaveBeenCalledWith('org-1');
 	});
 
 	it('keeps period-end cancellation active through the paid-through period', async () => {
@@ -837,7 +824,6 @@ describe('POST /api/webhooks/stripe', () => {
 				})
 			})
 		);
-		expect(invalidateTierCacheMock).toHaveBeenCalledWith('org-1');
 	});
 
 	it('keeps trialing subscriptions on their paid billing snapshot', async () => {
@@ -962,7 +948,6 @@ describe('POST /api/webhooks/stripe', () => {
 				})
 			})
 		);
-		expect(invalidateTierCacheMock).toHaveBeenCalledWith('org-1');
 	});
 
 	it('does not grant paid access for incomplete_expired subscription updates', async () => {
@@ -1048,7 +1033,6 @@ describe('POST /api/webhooks/stripe', () => {
 				})
 			})
 		);
-		expect(invalidateTierCacheMock).toHaveBeenCalledWith('org-1');
 	});
 
 	it('fails closed when an active subscription uses an unknown Stripe price', async () => {
@@ -1084,7 +1068,6 @@ describe('POST /api/webhooks/stripe', () => {
 				})
 			})
 		);
-		expect(invalidateTierCacheMock).not.toHaveBeenCalled();
 	});
 
 	it('trusts the subscription price over stale tier metadata after portal plan changes', async () => {
@@ -1138,7 +1121,6 @@ describe('POST /api/webhooks/stripe', () => {
 				})
 			})
 		);
-		expect(invalidateTierCacheMock).toHaveBeenCalledWith('org-1');
 		expect(updateSubscriptionPlanMetadataMock).toHaveBeenCalledWith('sub_123', {
 			tier: 'unit',
 			priceId: 'price_unit'
@@ -1221,7 +1203,6 @@ describe('POST /api/webhooks/stripe', () => {
 				})
 			})
 		);
-		expect(invalidateTierCacheMock).not.toHaveBeenCalled();
 	});
 
 	it('invalidates the effective-tier cache after subscription deletion', async () => {
@@ -1287,7 +1268,6 @@ describe('POST /api/webhooks/stripe', () => {
 				})
 			})
 		);
-		expect(invalidateTierCacheMock).toHaveBeenCalledWith('org-1');
 	});
 
 	it('retains the snapshot paid-through date when subscription deletion payload omits current_period_end', async () => {
@@ -1376,7 +1356,6 @@ describe('POST /api/webhooks/stripe', () => {
 				})
 			})
 		);
-		expect(invalidateTierCacheMock).not.toHaveBeenCalled();
 	});
 
 	it('marks subscription deletion events without organization metadata permanently failed', async () => {
@@ -1407,7 +1386,6 @@ describe('POST /api/webhooks/stripe', () => {
 				})
 			})
 		);
-		expect(invalidateTierCacheMock).not.toHaveBeenCalled();
 	});
 
 	it('records payment failure grace from organization fields when no billing snapshot exists yet', async () => {
@@ -1442,7 +1420,6 @@ describe('POST /api/webhooks/stripe', () => {
 				last_stripe_event_id: 'evt_payment_failed_cold'
 			})
 		);
-		expect(invalidateTierCacheMock).toHaveBeenCalledWith('org-1');
 	});
 
 	it('records payment failure grace from legacy invoice subscription fields', async () => {
@@ -1473,7 +1450,6 @@ describe('POST /api/webhooks/stripe', () => {
 				last_stripe_event_id: 'evt_payment_failed_legacy_subscription'
 			})
 		);
-		expect(invalidateTierCacheMock).toHaveBeenCalledWith('org-1');
 	});
 
 	it('finds payment failures through billing snapshots when legacy organization mirrors drift', async () => {
@@ -1576,7 +1552,6 @@ describe('POST /api/webhooks/stripe', () => {
 				})
 			})
 		);
-		expect(invalidateTierCacheMock).toHaveBeenCalledWith('org-1');
 	});
 
 	it('keeps current billing fields stable when invoice paid arrives for an active subscription', async () => {
@@ -1641,7 +1616,6 @@ describe('POST /api/webhooks/stripe', () => {
 				})
 			})
 		);
-		expect(invalidateTierCacheMock).toHaveBeenCalledWith('org-1');
 	});
 
 	it('marks payment failures retryable when the subscription is not linked to an organization yet', async () => {
@@ -1675,7 +1649,6 @@ describe('POST /api/webhooks/stripe', () => {
 				})
 			})
 		);
-		expect(invalidateTierCacheMock).not.toHaveBeenCalled();
 	});
 
 	it('marks stale payment failure events superseded without overwriting newer billing state', async () => {
@@ -1722,7 +1695,6 @@ describe('POST /api/webhooks/stripe', () => {
 				})
 			})
 		);
-		expect(invalidateTierCacheMock).not.toHaveBeenCalled();
 	});
 
 	it('uses event ID as a deterministic tiebreaker when Stripe events share a timestamp', async () => {
@@ -1821,6 +1793,5 @@ describe('POST /api/webhooks/stripe', () => {
 				})
 			})
 		);
-		expect(invalidateTierCacheMock).toHaveBeenCalledWith('org-1');
 	});
 });

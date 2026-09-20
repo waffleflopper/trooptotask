@@ -491,11 +491,6 @@ describe('policy evaluator', () => {
 			accessMode: 'governance',
 			owner: { kind: 'organization-governance', access: 'owner-only' }
 		});
-		expect(POLICY_ACTION_CATALOG.organization.manageBilling).toMatchObject({
-			id: 'organization.manageBilling',
-			accessMode: 'governance',
-			owner: { kind: 'organization-governance', access: 'owner-only' }
-		});
 		expect(POLICY_ACTION_CATALOG.organization.exportData).toMatchObject({
 			id: 'organization.exportData',
 			accessMode: 'governance',
@@ -552,16 +547,16 @@ describe('policy evaluator', () => {
 	});
 
 	it('evaluates new organization governance actions with distinct role denial reasons', () => {
-		const manageBillingDecision = evaluatePolicyDecision({
+		const auditLogsDecision = evaluatePolicyDecision({
 			decisionKind: 'server-authoritative',
 			actor: { membershipRole: 'admin' },
-			action: POLICY_ACTION_CATALOG.organization.manageBilling,
+			action: POLICY_ACTION_CATALOG.organization.accessAuditLogs,
 			capabilityMap: baseCapabilityMap,
 			scopeSet: { kind: 'organization' },
 			resource: { kind: 'organization' }
 		});
 
-		expect(manageBillingDecision).toMatchObject({
+		expect(auditLogsDecision).toMatchObject({
 			allowed: false,
 			reasonCode: 'denied:owner-only',
 			action: { owner: { kind: 'organization-governance', access: 'owner-only' } }

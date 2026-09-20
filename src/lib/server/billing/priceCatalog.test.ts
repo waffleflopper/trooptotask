@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildPriceCatalog, lookupCheckoutPriceCatalogEntry, lookupPriceCatalogEntry } from './priceCatalog';
+import { buildPriceCatalog, lookupPriceCatalogEntry } from './priceCatalog';
 
 describe('billing price catalog', () => {
 	it('maps configured Stripe price IDs to internal commercial plans', () => {
@@ -14,8 +14,7 @@ describe('billing price catalog', () => {
 			entry: {
 				priceId: 'price_team',
 				commercialPlan: 'team',
-				stripeProductId: 'prod_team',
-				activeForCheckout: true
+				stripeProductId: 'prod_team'
 			}
 		});
 		expect(lookupPriceCatalogEntry(catalog, 'price_unit')).toEqual({
@@ -23,8 +22,7 @@ describe('billing price catalog', () => {
 			entry: {
 				priceId: 'price_unit',
 				commercialPlan: 'unit',
-				stripeProductId: null,
-				activeForCheckout: true
+				stripeProductId: null
 			}
 		});
 	});
@@ -58,14 +56,12 @@ describe('billing price catalog', () => {
 					{
 						priceId: 'price_shared',
 						commercialPlan: 'team',
-						stripeProductId: 'prod_team',
-						activeForCheckout: true
+						stripeProductId: 'prod_team'
 					},
 					{
 						priceId: 'price_shared',
 						commercialPlan: 'unit',
-						stripeProductId: 'prod_unit',
-						activeForCheckout: true
+						stripeProductId: 'prod_unit'
 					}
 				],
 				'price_shared'
@@ -73,7 +69,7 @@ describe('billing price catalog', () => {
 		).toEqual({ ok: false, reason: 'duplicate_price_id', priceId: 'price_shared' });
 	});
 
-	it('represents legacy prices without making them eligible for new checkout sessions', () => {
+	it('maps legacy prices to their commercial plans', () => {
 		const catalog = buildPriceCatalog({
 			teamPriceId: 'price_team_current',
 			teamLegacyPriceIds: ['price_team_legacy_1', 'price_team_legacy_2']
@@ -84,57 +80,8 @@ describe('billing price catalog', () => {
 			entry: {
 				priceId: 'price_team_legacy_1',
 				commercialPlan: 'team',
-				stripeProductId: null,
-				activeForCheckout: false
+				stripeProductId: null
 			}
 		});
-		expect(lookupCheckoutPriceCatalogEntry(catalog, 'team')).toEqual({
-			ok: true,
-			entry: {
-				priceId: 'price_team_current',
-				commercialPlan: 'team',
-				stripeProductId: null,
-				activeForCheckout: true
-			}
-		});
-	});
-
-	it('resolves checkout plans only to current configured prices', () => {
-		const catalog = buildPriceCatalog({
-			teamPriceId: 'price_team_current',
-			unitPriceId: 'price_unit_current'
-		});
-
-		expect(lookupCheckoutPriceCatalogEntry(catalog, 'team')).toEqual({
-			ok: true,
-			entry: {
-				priceId: 'price_team_current',
-				commercialPlan: 'team',
-				stripeProductId: null,
-				activeForCheckout: true
-			}
-		});
-		expect(lookupCheckoutPriceCatalogEntry(catalog, 'enterprise')).toEqual({
-			ok: false,
-			reason: 'unsupported_plan',
-			commercialPlan: 'enterprise'
-		});
-		expect(lookupCheckoutPriceCatalogEntry([], 'team')).toEqual({
-			ok: false,
-			reason: 'missing_price_id',
-			commercialPlan: 'team'
-		});
-	});
-
-	it('rejects duplicate current checkout prices for the same commercial plan', () => {
-		expect(
-			lookupCheckoutPriceCatalogEntry(
-				[
-					{ priceId: 'price_team_a', commercialPlan: 'team', stripeProductId: null, activeForCheckout: true },
-					{ priceId: 'price_team_b', commercialPlan: 'team', stripeProductId: null, activeForCheckout: true }
-				],
-				'team'
-			)
-		).toEqual({ ok: false, reason: 'duplicate_checkout_price', commercialPlan: 'team' });
 	});
 });

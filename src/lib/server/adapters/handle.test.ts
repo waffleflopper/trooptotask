@@ -13,8 +13,6 @@ import { handleUseCaseRequest, rethrowOrWrap, type RouteConfig } from './httpAda
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { createPersonnelUseCases } from '$lib/server/core/useCases/personnel';
 
-vi.mock('$lib/config/billing', () => ({ isBillingEnabled: true }));
-
 type TestContext = {
 	store: ReturnType<typeof createInMemoryDataStore>;
 	auth: ReturnType<typeof createTestAuthContext>;

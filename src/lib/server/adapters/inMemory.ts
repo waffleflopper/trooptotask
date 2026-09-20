@@ -21,10 +21,8 @@ import type {
 	AuthContext,
 	AuditPort,
 	ScopeEnforcementPort,
-	SubscriptionPort,
 	NotificationPort,
 	NotificationPayload,
-	BillingPort,
 	StoragePort,
 	UseCaseContext,
 	WritePorts,
@@ -38,7 +36,6 @@ import type {
 	SensitiveActionDecision,
 	SensitiveActionAuthorizer
 } from '$lib/server/sensitiveActionAuthorizer';
-import type { EffectiveTier } from '$lib/types/subscription';
 import type { CapabilityMap, ScopeSet } from '$lib/access/memberAccessShape';
 import { createScopedDataStore } from './scopedDataStore';
 import { defaultScopeRules } from './scopeRules';
@@ -464,9 +461,7 @@ export function createTestContext(overrides?: {
 	store: ReturnType<typeof createInMemoryDataStore>;
 	rawStore: ReturnType<typeof createInMemoryDataStore>;
 	auditPort: ReturnType<typeof createTestAuditPort>;
-	subscription: ReturnType<typeof createTestSubscriptionPort>;
 	notificationPort: ReturnType<typeof createTestNotificationPort>;
-	billingPort: ReturnType<typeof createTestBillingPort>;
 	storagePort: ReturnType<typeof createTestStoragePort>;
 	sensitiveActionAuthorizer: ReturnType<typeof createTestSensitiveActionAuthorizer>;
 } {
@@ -474,9 +469,7 @@ export function createTestContext(overrides?: {
 	const scope = createTestScopeEnforcementPort(overrides?.scope);
 	const { store, rawStore } = createScopedTestStores(auth);
 	const auditPort = createTestAuditPort();
-	const subscription = createTestSubscriptionPort();
 	const notificationPort = createTestNotificationPort();
-	const billingPort = createTestBillingPort();
 	const storagePort = createTestStoragePort();
 	const sensitiveActionAuthorizer = createTestSensitiveActionAuthorizer(overrides?.sensitiveActionDecision);
 	const criticalTasksReadModel = createInMemoryCriticalTasksReadModelAdapter(rawStore);
@@ -488,11 +481,8 @@ export function createTestContext(overrides?: {
 		audit: auditPort,
 		auditPort,
 
-		subscription,
 		notifications: notificationPort,
 		notificationPort,
-		billing: billingPort,
-		billingPort,
 		storage: storagePort,
 		storagePort,
 		sensitiveActionAuthorizer,
@@ -525,24 +515,6 @@ export function createTestSensitiveActionAuthorizer(
 	};
 }
 
-export function createTestSubscriptionPort(): SubscriptionPort {
-	return {
-		invalidateTierCache() {},
-		async getEffectiveTier(): Promise<EffectiveTier> {
-			return {
-				tier: 'unit',
-				source: 'default',
-				personnelCount: 0,
-				personnelCap: Infinity,
-				isReadOnly: false,
-				readOnlyReason: null,
-				giftExpiresAt: null,
-				giftTier: null
-			};
-		}
-	};
-}
-
 interface StoredFile {
 	bucket: string;
 	path: string;
@@ -569,47 +541,6 @@ export function createTestStoragePort(): StoragePort & { files: StoredFile[] } {
 			const exists = files.some((f) => f.bucket === bucket && f.path === path);
 			if (!exists) throw new Error(`File not found: ${bucket}/${path}`);
 			return `https://storage.test/${bucket}/${path}?expires=${expiresInSeconds}`;
-		}
-	};
-}
-
-interface RecordedBillingCall {
-	method: string;
-	args: unknown[];
-}
-
-export function createTestBillingPort(): BillingPort & { calls: RecordedBillingCall[] } {
-	const calls: RecordedBillingCall[] = [];
-	return {
-		calls,
-		async createCheckoutSession(options) {
-			calls.push({ method: 'createCheckoutSession', args: [options] });
-			const now = Date.now();
-			return {
-				url: 'https://checkout.test/session',
-				customerId: 'cus_test_123',
-				sessionId: `cs_test_${now}`,
-				expiresAt: new Date(now + 30 * 60 * 1000).toISOString()
-			};
-		},
-		async createPortalSession(customerId, returnUrl) {
-			calls.push({ method: 'createPortalSession', args: [customerId, returnUrl] });
-			return { url: 'https://portal.test/session' };
-		},
-		async expireCheckoutSession(sessionId) {
-			calls.push({ method: 'expireCheckoutSession', args: [sessionId] });
-		},
-		async cancelSubscription(subscriptionId, options) {
-			calls.push({
-				method: 'cancelSubscription',
-				args: options === undefined ? [subscriptionId] : [subscriptionId, options]
-			});
-		},
-		async pauseSubscription(subscriptionId) {
-			calls.push({ method: 'pauseSubscription', args: [subscriptionId] });
-		},
-		async resumeSubscription(subscriptionId) {
-			calls.push({ method: 'resumeSubscription', args: [subscriptionId] });
 		}
 	};
 }

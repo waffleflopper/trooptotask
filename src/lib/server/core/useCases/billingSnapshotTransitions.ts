@@ -1,9 +1,8 @@
-import { invalidateTierCache } from '$lib/server/subscription';
 import { lookupPriceCatalogEntry } from '$lib/server/billing/priceCatalog';
 import { legacyOrganizationSubscriptionId } from '$lib/server/billing/subscriptionRetentionPolicy';
 import type {
 	BillingCancellationFeedback,
-	BillingSnapshot,
+	BillingSnapshotSource,
 	BillingSyncStatus,
 	PriceCatalogEntry,
 	SubscriptionStatus,
@@ -33,7 +32,7 @@ export interface ExistingBillingSnapshot {
 
 export type BillingSnapshotUpsert = {
 	organization_id: string;
-	source: BillingSnapshot['source'];
+	source: BillingSnapshotSource;
 	commercial_plan: Tier;
 	stripe_customer_id: string | null;
 	stripe_subscription_id: string | null;
@@ -145,14 +144,6 @@ export type BillingSnapshotTransition =
 			fallbackStripeSubscriptionId?: string | null;
 			event: StripeEventFact;
 			processedAt?: string;
-	  }
-	| {
-			kind: 'immediate_cancellation_requested';
-			orgId: string;
-			stripeCustomerId: string | null;
-			cancellationFeedback: BillingCancellationFeedback | null;
-			eventPosition?: BillingEventPosition;
-			processedAt?: string;
 	  };
 
 export type BillingSnapshotTransitionResult =
@@ -164,10 +155,6 @@ export async function applyBillingSnapshotTransition(
 	store: BillingSnapshotTransitionStore,
 	transition: BillingSnapshotTransition
 ): Promise<BillingSnapshotTransitionResult> {
-	if (transition.kind === 'immediate_cancellation_requested') {
-		return applyImmediateCancellationTransition(store, transition);
-	}
-
 	const snapshot = await store.readSnapshot(transition.orgId);
 	if (isStaleBillingEvent(snapshot, transition.event.createdAt, transition.event.id)) {
 		return superseded(
@@ -192,8 +179,6 @@ export async function applyBillingSnapshotTransition(
 		);
 	}
 
-	invalidateTierCache(transition.orgId);
-
 	return {
 		state: 'processed',
 		result: planned.result,
@@ -202,72 +187,8 @@ export async function applyBillingSnapshotTransition(
 	};
 }
 
-async function applyImmediateCancellationTransition(
-	store: BillingSnapshotTransitionStore,
-	transition: Extract<BillingSnapshotTransition, { kind: 'immediate_cancellation_requested' }>
-): Promise<BillingSnapshotTransitionResult> {
-	const snapshot = await store.readSnapshot(transition.orgId);
-	const processedAt = transition.processedAt ?? new Date().toISOString();
-	return writeImmediateCancellation(store, transition, snapshot, processedAt);
-}
-
-async function writeImmediateCancellation(
-	store: BillingSnapshotTransitionStore,
-	transition: Extract<BillingSnapshotTransition, { kind: 'immediate_cancellation_requested' }>,
-	currentSnapshot: ExistingBillingSnapshot | null,
-	processedAt: string
-): Promise<BillingSnapshotTransitionResult> {
-	const stripeSubscriptionId = currentSnapshot?.stripe_subscription_id ?? null;
-	const snapshotUpdated = await store.writeSnapshotAndMirrorIfCurrent({
-		snapshot: {
-			organization_id: transition.orgId,
-			source: 'stripe',
-			commercial_plan: 'free',
-			stripe_customer_id: transition.stripeCustomerId,
-			stripe_subscription_id: stripeSubscriptionId,
-			stripe_product_id: null,
-			stripe_price_id: null,
-			subscription_status: 'canceled',
-			collection_status: 'canceled',
-			current_period_start: null,
-			current_period_end: null,
-			cancel_at_period_end: false,
-			canceled_at: processedAt,
-			cancellation_reason: 'cancellation_requested',
-			cancellation_feedback: transition.cancellationFeedback,
-			trial_end: null,
-			sync_status: 'pending',
-			last_stripe_event_id: currentSnapshot?.last_stripe_event_id ?? null,
-			last_stripe_event_type: currentSnapshot?.last_stripe_event_type ?? null,
-			last_stripe_event_created_at: currentSnapshot?.last_stripe_event_created_at ?? null,
-			last_processed_at: processedAt,
-			last_reconciled_at: null,
-			reconciliation_result: 'local_immediate_cancellation_pending_webhook',
-			drift_detected: false
-		},
-		mirror: {
-			tier: 'free',
-			subscription_status: null,
-			stripe_subscription_id: stripeSubscriptionId,
-			current_period_end: null
-		},
-		eventPosition: transition.eventPosition ?? snapshotEventPosition(currentSnapshot)
-	});
-	if (!snapshotUpdated) {
-		return superseded(transition.orgId, 'immediate cancellation', 'lost a concurrent billing snapshot update');
-	}
-
-	invalidateTierCache(transition.orgId);
-
-	return {
-		state: 'processed',
-		result: `immediate cancellation recorded for organization ${transition.orgId}`,
-		orgId: transition.orgId
-	};
-}
-
 function planEventTransition(
-	transition: Exclude<BillingSnapshotTransition, { kind: 'immediate_cancellation_requested' }>,
+	transition: BillingSnapshotTransition,
 	snapshot: ExistingBillingSnapshot | null
 ): { snapshot: BillingSnapshotUpsert; mirror: Record<string, unknown>; result: string; commercialPlan?: Tier } {
 	switch (transition.kind) {
@@ -467,7 +388,7 @@ function paymentSnapshot(
 }
 
 function eventSnapshotBase(
-	transition: Exclude<BillingSnapshotTransition, { kind: 'immediate_cancellation_requested' }>,
+	transition: BillingSnapshotTransition,
 	syncStatus: BillingSyncStatus
 ): Omit<
 	BillingSnapshotUpsert,
@@ -504,16 +425,6 @@ function eventPosition(event: StripeEventFact): BillingEventPosition {
 	};
 }
 
-function snapshotEventPosition(snapshot: ExistingBillingSnapshot | null): BillingEventPosition | undefined {
-	if (!snapshot?.last_stripe_event_created_at) return undefined;
-
-	return {
-		eventId: snapshot.last_stripe_event_id ?? '',
-		eventType: snapshot.last_stripe_event_type ?? '',
-		eventCreatedAt: snapshot.last_stripe_event_created_at
-	};
-}
-
 function superseded(orgId: string, subject: string, reason: string): BillingSnapshotTransitionResult {
 	return {
 		state: 'superseded',
@@ -522,9 +433,7 @@ function superseded(orgId: string, subject: string, reason: string): BillingSnap
 	};
 }
 
-function transitionSubject(
-	kind: Exclude<BillingSnapshotTransition['kind'], 'immediate_cancellation_requested'>
-): string {
+function transitionSubject(kind: BillingSnapshotTransition['kind']): string {
 	switch (kind) {
 		case 'checkout_completed':
 			return 'checkout completion';

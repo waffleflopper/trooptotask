@@ -1,18 +1,10 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import type {
 	BillingEventPosition,
 	BillingSnapshotTransitionStore,
 	BillingSnapshotUpsert
 } from './billingSnapshotTransitions';
 import { applyBillingSnapshotTransition } from './billingSnapshotTransitions';
-
-const { invalidateTierCacheMock } = vi.hoisted(() => ({
-	invalidateTierCacheMock: vi.fn()
-}));
-
-vi.mock('$lib/server/subscription', () => ({
-	invalidateTierCache: invalidateTierCacheMock
-}));
 
 function createStore(
 	input: {
@@ -60,10 +52,6 @@ function createStore(
 }
 
 describe('applyBillingSnapshotTransition', () => {
-	beforeEach(() => {
-		invalidateTierCacheMock.mockClear();
-	});
-
 	it('records checkout completion as a pending activation billing snapshot and legacy mirror', async () => {
 		const store = createStore();
 
@@ -134,7 +122,6 @@ describe('applyBillingSnapshotTransition', () => {
 				}
 			}
 		]);
-		expect(invalidateTierCacheMock).toHaveBeenCalledWith('org-1');
 	});
 
 	it('maps subscription updates through the price catalog to paid access and the legacy mirror', async () => {
@@ -160,8 +147,7 @@ describe('applyBillingSnapshotTransition', () => {
 				{
 					priceId: 'price_team',
 					commercialPlan: 'team',
-					stripeProductId: 'prod_team',
-					activeForCheckout: true
+					stripeProductId: 'prod_team'
 				}
 			],
 			event: {
@@ -218,7 +204,6 @@ describe('applyBillingSnapshotTransition', () => {
 				}
 			}
 		]);
-		expect(invalidateTierCacheMock).toHaveBeenCalledWith('org-1');
 	});
 
 	it('uses the updated subscription price when portal changes leave tier metadata stale', async () => {
@@ -244,14 +229,12 @@ describe('applyBillingSnapshotTransition', () => {
 				{
 					priceId: 'price_team',
 					commercialPlan: 'team',
-					stripeProductId: 'prod_team',
-					activeForCheckout: true
+					stripeProductId: 'prod_team'
 				},
 				{
 					priceId: 'price_unit',
 					commercialPlan: 'unit',
-					stripeProductId: 'prod_unit',
-					activeForCheckout: true
+					stripeProductId: 'prod_unit'
 				}
 			],
 			event: {
@@ -278,7 +261,6 @@ describe('applyBillingSnapshotTransition', () => {
 				subscription_status: 'active'
 			})
 		});
-		expect(invalidateTierCacheMock).toHaveBeenCalledWith('org-1');
 	});
 
 	it('records subscription deletion as free canceled state while preserving support timing in the snapshot', async () => {
@@ -471,7 +453,6 @@ describe('applyBillingSnapshotTransition', () => {
 		expect(store.snapshotWrites).toEqual([]);
 		expect(store.combinedWrites).toEqual([]);
 		expect(store.mirrorWrites).toEqual([]);
-		expect(invalidateTierCacheMock).not.toHaveBeenCalled();
 	});
 
 	it('returns superseded and skips the mirror when the combined write loses a race', async () => {
@@ -498,7 +479,6 @@ describe('applyBillingSnapshotTransition', () => {
 		expect(store.combinedWrites).toHaveLength(1);
 		expect(store.snapshotWrites).toEqual([]);
 		expect(store.mirrorWrites).toEqual([]);
-		expect(invalidateTierCacheMock).not.toHaveBeenCalled();
 	});
 
 	it('does not apply a stale mirror payload when the combined write is rejected', async () => {
@@ -523,8 +503,7 @@ describe('applyBillingSnapshotTransition', () => {
 				{
 					priceId: 'price_team',
 					commercialPlan: 'team',
-					stripeProductId: 'prod_team',
-					activeForCheckout: true
+					stripeProductId: 'prod_team'
 				}
 			],
 			event: {
@@ -552,84 +531,6 @@ describe('applyBillingSnapshotTransition', () => {
 		]);
 		expect(store.snapshotWrites).toEqual([]);
 		expect(store.mirrorWrites).toEqual([]);
-		expect(invalidateTierCacheMock).not.toHaveBeenCalled();
-	});
-
-	it('records immediate cancellation as a pending-webhook free canceled snapshot', async () => {
-		const store = createStore({
-			snapshot: {
-				stripe_subscription_id: 'sub_123',
-				last_stripe_event_id: 'evt_123',
-				last_stripe_event_type: 'customer.subscription.updated',
-				last_stripe_event_created_at: '2026-05-24T12:00:00.000Z'
-			}
-		});
-
-		await applyBillingSnapshotTransition(store, {
-			kind: 'immediate_cancellation_requested',
-			orgId: 'org-1',
-			stripeCustomerId: 'cus_123',
-			cancellationFeedback: 'unused',
-			processedAt: '2026-05-25T17:00:00.000Z'
-		});
-
-		expect(store.snapshotWrites).toEqual([
-			expect.objectContaining({
-				organization_id: 'org-1',
-				source: 'stripe',
-				commercial_plan: 'free',
-				stripe_customer_id: 'cus_123',
-				stripe_subscription_id: 'sub_123',
-				subscription_status: 'canceled',
-				collection_status: 'canceled',
-				canceled_at: '2026-05-25T17:00:00.000Z',
-				cancellation_reason: 'cancellation_requested',
-				cancellation_feedback: 'unused',
-				sync_status: 'pending',
-				last_stripe_event_id: 'evt_123',
-				last_stripe_event_type: 'customer.subscription.updated',
-				last_stripe_event_created_at: '2026-05-24T12:00:00.000Z',
-				reconciliation_result: 'local_immediate_cancellation_pending_webhook'
-			})
-		]);
-		expect(store.snapshotWriteEventPositions).toEqual([
-			{
-				eventId: 'evt_123',
-				eventType: 'customer.subscription.updated',
-				eventCreatedAt: '2026-05-24T12:00:00.000Z'
-			}
-		]);
-		expect(store.combinedWrites).toEqual([
-			{
-				snapshot: expect.objectContaining({
-					organization_id: 'org-1',
-					commercial_plan: 'free',
-					subscription_status: 'canceled'
-				}),
-				mirror: {
-					tier: 'free',
-					subscription_status: null,
-					stripe_subscription_id: 'sub_123',
-					current_period_end: null
-				},
-				eventPosition: {
-					eventId: 'evt_123',
-					eventType: 'customer.subscription.updated',
-					eventCreatedAt: '2026-05-24T12:00:00.000Z'
-				}
-			}
-		]);
-		expect(store.mirrorWrites).toEqual([
-			{
-				orgId: 'org-1',
-				values: {
-					tier: 'free',
-					subscription_status: null,
-					stripe_subscription_id: 'sub_123',
-					current_period_end: null
-				}
-			}
-		]);
 	});
 
 	it('throws when the combined snapshot and mirror write provider fails so callers can retry safely', async () => {
@@ -637,10 +538,12 @@ describe('applyBillingSnapshotTransition', () => {
 
 		await expect(
 			applyBillingSnapshotTransition(store, {
-				kind: 'immediate_cancellation_requested',
+				kind: 'checkout_completed',
 				orgId: 'org-1',
 				stripeCustomerId: 'cus_123',
-				cancellationFeedback: null,
+				commercialPlan: 'team',
+				stripeSubscriptionId: 'sub_123',
+				event: { id: 'evt_failure', type: 'checkout.session.completed', createdAt: '2026-05-25T17:00:00.000Z' },
 				processedAt: '2026-05-25T17:00:00.000Z'
 			})
 		).rejects.toThrow('mirror unavailable');
@@ -648,6 +551,5 @@ describe('applyBillingSnapshotTransition', () => {
 		expect(store.combinedWrites).toHaveLength(1);
 		expect(store.snapshotWrites).toEqual([]);
 		expect(store.mirrorWrites).toEqual([]);
-		expect(invalidateTierCacheMock).not.toHaveBeenCalled();
 	});
 });

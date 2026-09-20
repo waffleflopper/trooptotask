@@ -409,16 +409,6 @@ export const POLICY_ACTION_CATALOG = {
 			label: 'Access organization audit logs',
 			access: 'owner-only'
 		}),
-		accessBilling: governanceAction({
-			id: 'organization.accessBilling',
-			label: 'Access organization billing',
-			access: 'owner-only'
-		}),
-		manageBilling: governanceAction({
-			id: 'organization.manageBilling',
-			label: 'Manage organization billing',
-			access: 'owner-only'
-		}),
 		rename: governanceAction({
 			id: 'organization.rename',
 			label: 'Rename organization',

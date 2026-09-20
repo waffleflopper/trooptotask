@@ -23,20 +23,6 @@ export interface PriceCatalogLookupFailure {
 
 export type PriceCatalogLookup = PriceCatalogLookupResult | PriceCatalogLookupFailure;
 
-export interface CheckoutPriceCatalogLookupFailure {
-	ok: false;
-	reason: 'unsupported_plan' | 'missing_price_id' | 'duplicate_checkout_price';
-	commercialPlan: string | null;
-}
-
-export type CheckoutPriceCatalogLookup = PriceCatalogLookupResult | CheckoutPriceCatalogLookupFailure;
-
-const PLAN_ORDER: Tier[] = ['free', 'team', 'unit'];
-
-export function compareCommercialPlans(left: Tier, right: Tier): number {
-	return PLAN_ORDER.indexOf(left) - PLAN_ORDER.indexOf(right);
-}
-
 function normalizePriceIdList(value: string[] | string | null | undefined): string[] {
 	if (!value) return [];
 	if (Array.isArray(value)) return value.map((priceId) => priceId.trim()).filter(Boolean);
@@ -52,7 +38,6 @@ function addCatalogEntry(
 		priceId: string | null | undefined;
 		commercialPlan: Exclude<Tier, 'free'>;
 		stripeProductId?: string | null;
-		activeForCheckout: boolean;
 	}
 ) {
 	const priceId = input.priceId?.trim();
@@ -60,8 +45,7 @@ function addCatalogEntry(
 	entries.push({
 		priceId,
 		commercialPlan: input.commercialPlan,
-		stripeProductId: input.stripeProductId ?? null,
-		activeForCheckout: input.activeForCheckout
+		stripeProductId: input.stripeProductId ?? null
 	});
 }
 
@@ -71,30 +55,26 @@ export function buildPriceCatalog(config: PriceCatalogConfig): PriceCatalogEntry
 	addCatalogEntry(entries, {
 		priceId: config.teamPriceId,
 		commercialPlan: 'team',
-		stripeProductId: config.teamProductId,
-		activeForCheckout: true
+		stripeProductId: config.teamProductId
 	});
 	for (const priceId of normalizePriceIdList(config.teamLegacyPriceIds)) {
 		addCatalogEntry(entries, {
 			priceId,
 			commercialPlan: 'team',
-			stripeProductId: config.teamProductId,
-			activeForCheckout: false
+			stripeProductId: config.teamProductId
 		});
 	}
 
 	addCatalogEntry(entries, {
 		priceId: config.unitPriceId,
 		commercialPlan: 'unit',
-		stripeProductId: config.unitProductId,
-		activeForCheckout: true
+		stripeProductId: config.unitProductId
 	});
 	for (const priceId of normalizePriceIdList(config.unitLegacyPriceIds)) {
 		addCatalogEntry(entries, {
 			priceId,
 			commercialPlan: 'unit',
-			stripeProductId: config.unitProductId,
-			activeForCheckout: false
+			stripeProductId: config.unitProductId
 		});
 	}
 
@@ -126,27 +106,6 @@ export function lookupPriceCatalogEntry(
 	}
 
 	return { ok: true, entry };
-}
-
-export function lookupCheckoutPriceCatalogEntry(
-	catalog: PriceCatalogEntry[],
-	commercialPlan: string | null | undefined
-): CheckoutPriceCatalogLookup {
-	if (commercialPlan !== 'team' && commercialPlan !== 'unit') {
-		return { ok: false, reason: 'unsupported_plan', commercialPlan: commercialPlan ?? null };
-	}
-
-	const matches = catalog.filter(
-		(candidate) => candidate.commercialPlan === commercialPlan && candidate.activeForCheckout === true
-	);
-	if (matches.length === 0) {
-		return { ok: false, reason: 'missing_price_id', commercialPlan };
-	}
-	if (matches.length > 1) {
-		return { ok: false, reason: 'duplicate_checkout_price', commercialPlan };
-	}
-
-	return { ok: true, entry: matches[0] };
 }
 
 export function getConfiguredPriceCatalog(): PriceCatalogEntry[] {

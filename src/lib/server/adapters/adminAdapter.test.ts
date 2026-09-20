@@ -36,6 +36,21 @@ describe('buildAdminContextCore', () => {
 		).rejects.toThrow(/not authorized/i);
 	});
 
+	it.each(['super_admin', 'support', 'billing'] as const)(
+		'rejects the retired billing-event capability for %s',
+		async (role) => {
+			await expect(
+				buildAdminContextCore({
+					userId: 'user-1',
+					lookupRole: async () => role,
+					requestInfo: { userId: 'user-1', ip: '127.0.0.1', userAgent: '' },
+					requiredPage: 'billing-events',
+					adminClient: mockAdminClient
+				})
+			).rejects.toThrow(/not authorized/i);
+		}
+	);
+
 	it('returns AdminContext for valid admin with page access', async () => {
 		const ctx = await buildAdminContextCore({
 			userId: 'user-1',

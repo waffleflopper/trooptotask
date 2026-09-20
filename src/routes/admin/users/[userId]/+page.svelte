@@ -143,7 +143,7 @@
 		<Card.Root>
 			<Card.Header>
 				<Card.Title>Organizations</Card.Title>
-				<Card.Description>Memberships and plan context for this account.</Card.Description>
+				<Card.Description>Memberships and personnel counts for this account.</Card.Description>
 			</Card.Header>
 			<Card.Content class="overflow-x-auto">
 				<Table.Root>
@@ -152,7 +152,6 @@
 							<Table.Head>Name</Table.Head>
 							<Table.Head>Role</Table.Head>
 							<Table.Head>Personnel</Table.Head>
-							<Table.Head>Tier</Table.Head>
 						</Table.Row>
 					</Table.Header>
 					<Table.Body>
@@ -172,15 +171,10 @@
 									><Badge variant={adminBadgeVariant(org.role)}>{formatAdminLabel(org.role)}</Badge></Table.Cell
 								>
 								<Table.Cell>{org.personnelCount}</Table.Cell>
-								<Table.Cell>
-									<Badge variant={adminBadgeVariant(org.subscriptionTier)}
-										>{formatAdminLabel(org.subscriptionTier)}</Badge
-									>
-								</Table.Cell>
 							</Table.Row>
 						{:else}
 							<Table.Row>
-								<Table.Cell colspan={4}>
+								<Table.Cell colspan={3}>
 									<Empty.Root class="border-0">No organizations.</Empty.Root>
 								</Table.Cell>
 							</Table.Row>

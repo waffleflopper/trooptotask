@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { BillingSnapshot } from '$lib/types/subscription';
 import type { OrganizationPlanUsage } from './organizationPlanUsage';
-import { buildPlanAdminDiagnostics } from './planAdminDiagnostics';
 import { buildPlanDowngradePreview } from './planDowngradePreview';
 import { buildEffectivePlanPolicy, type PlanPolicySource } from './planPolicy';
 import { planPolicySourceLabel } from './planPolicySourceLabel';
@@ -118,16 +117,14 @@ describe('plan policy source labels', () => {
 		).toEqual(expectedLabels);
 	});
 
-	it('keeps diagnostics, usage summaries, and downgrade previews on the shared source label', () => {
+	it('keeps usage summaries and downgrade previews on the shared source label', () => {
 		for (const [source, expectedLabel] of Object.entries(expectedLabels) as [PlanPolicySource, string][]) {
 			const policy = buildEffectivePlanPolicy(snapshotForSource(source));
 			const planUsage = usage();
-			const diagnostics = buildPlanAdminDiagnostics(policy, planUsage);
 			const summary = buildPlanUsageSummary(policy, planUsage);
 			const preview = buildPlanDowngradePreview({ currentPolicy: policy, targetPolicy: policy, usage: planUsage });
 
 			expect(policy.source).toBe(source);
-			expect(diagnostics.effectivePlan.sourceLabel).toBe(expectedLabel);
 			expect(summary.plan.sourceLabel).toBe(expectedLabel);
 			expect(preview.currentPlan.sourceLabel).toBe(expectedLabel);
 			expect(preview.targetPlan.sourceLabel).toBe(expectedLabel);

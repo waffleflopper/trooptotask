@@ -6,13 +6,10 @@
 		Bell,
 		Building2,
 		ClipboardList,
-		CreditCard,
 		FileText,
 		Gauge,
-		Gift,
 		LogOut,
 		Moon,
-		RefreshCcw,
 		ShieldCheck,
 		Sun,
 		UsersRound
@@ -35,9 +32,6 @@
 		organizations: Building2,
 		'access-requests': ShieldCheck,
 		feedback: ClipboardList,
-		subscriptions: CreditCard,
-		'billing-events': RefreshCcw,
-		gifting: Gift,
 		audit: FileText,
 		announcements: Bell
 	};

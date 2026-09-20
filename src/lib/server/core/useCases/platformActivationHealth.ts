@@ -1,20 +1,11 @@
-import type { BillingSnapshotSource, BillingSyncStatus, SubscriptionStatus, Tier } from '$lib/types/subscription';
-
 export const MEANINGFUL_ROSTER_THRESHOLD = 5;
 
-export type PlatformActivationHealthState =
-	| 'activated'
-	| 'needs_attention'
-	| 'in_progress'
-	| 'no_candidates'
-	| 'diagnostics_unavailable';
+export type PlatformActivationHealthState = 'activated' | 'in_progress' | 'no_candidates' | 'diagnostics_unavailable';
 
 export type PlatformActivationMilestoneId =
 	| 'signup_submitted'
 	| 'email_confirmed'
 	| 'organization_created'
-	| 'checkout_started'
-	| 'checkout_completed'
 	| 'meaningful_roster'
 	| 'leader_accepted'
 	| 'defaults_present'
@@ -22,23 +13,6 @@ export type PlatformActivationMilestoneId =
 	| 'setup_started';
 
 export type PlatformActivationMilestoneState = 'complete' | 'incomplete' | 'deferred';
-
-export interface PlatformActivationBillingContext {
-	source: BillingSnapshotSource | null;
-	commercialPlan: Tier | null;
-	subscriptionStatus: SubscriptionStatus | null;
-	collectionStatus: string | null;
-	syncStatus: BillingSyncStatus | null;
-}
-
-export interface PlatformActivationCheckoutContext {
-	attemptCount: number;
-	completedCount: number;
-	interruptedCount: number;
-	inProgressCount: number;
-	latestStatus: string | null;
-	latestAt: string | null;
-}
 
 export interface PlatformActivationSetupCounts {
 	activePersonnel: number;
@@ -58,8 +32,6 @@ export interface PlatformActivationOrganizationFacts {
 	organizationId: string;
 	organizationName: string | null;
 	organizationCreatedAt: string | null;
-	billing: PlatformActivationBillingContext | null;
-	checkout: PlatformActivationCheckoutContext;
 	counts: PlatformActivationSetupCounts;
 }
 
@@ -75,11 +47,6 @@ export interface PlatformActivationSupportBundle {
 	organizationName: string | null;
 	acquisition: {
 		organizationCreatedAt: string | null;
-		checkoutStarted: boolean;
-		checkoutCompleted: boolean;
-		checkoutRecovered: boolean;
-		latestCheckoutStatus: string | null;
-		billingState: PlatformActivationBillingContext | null;
 	};
 	activation: PlatformActivationSetupCounts & {
 		meaningfulRosterThreshold: number;
@@ -104,14 +71,11 @@ export interface PlatformActivationHealthSummary {
 	counts: {
 		candidateOrganizations: number;
 		activatedOrganizations: number;
-		checkoutStarted: number;
-		checkoutCompleted: number;
 		meaningfulRosters: number;
 		acceptedLeaders: number;
 		dutyRosterStarted: number;
 		setupStarted: number;
-		paidBelowRosterThreshold: number;
-		supportAttentionItems: number;
+		inProgressOrganizations: number;
 	};
 	organizations: PlatformActivationOrganizationHealth[];
 	diagnosticsError: boolean;
@@ -132,63 +96,11 @@ export interface PlatformActivationHealthDependencies {
 
 const ACTIVATION_ORGANIZATION_LIMIT = 100;
 const VISIBLE_ORGANIZATION_LIMIT = 12;
-const PAID_PLANS = new Set<Tier>(['team', 'unit']);
-const ACTIVE_OR_RECOVERABLE_SUBSCRIPTION_STATUSES = new Set<SubscriptionStatus>([
-	'active',
-	'trialing',
-	'past_due',
-	'unpaid',
-	'incomplete',
-	'paused'
-]);
-const CHECKOUT_COMPLETED_SUBSCRIPTION_STATUSES = new Set<SubscriptionStatus>([
-	'active',
-	'trialing',
-	'past_due',
-	'unpaid',
-	'paused'
-]);
 const INFERRED_ACQUISITION_MILESTONES = new Set<PlatformActivationMilestoneId>([
 	'signup_submitted',
 	'email_confirmed',
 	'organization_created'
 ]);
-
-function isStripePaidBillingContext(context: PlatformActivationBillingContext | null): boolean {
-	return (
-		context?.source === 'stripe' &&
-		!!context.commercialPlan &&
-		PAID_PLANS.has(context.commercialPlan) &&
-		!!context.subscriptionStatus &&
-		ACTIVE_OR_RECOVERABLE_SUBSCRIPTION_STATUSES.has(context.subscriptionStatus)
-	);
-}
-
-function isStripeCheckoutCompletedBillingContext(context: PlatformActivationBillingContext | null): boolean {
-	return (
-		context?.source === 'stripe' &&
-		!!context.commercialPlan &&
-		PAID_PLANS.has(context.commercialPlan) &&
-		!!context.subscriptionStatus &&
-		CHECKOUT_COMPLETED_SUBSCRIPTION_STATUSES.has(context.subscriptionStatus)
-	);
-}
-
-function hasCheckoutStarted(facts: PlatformActivationOrganizationFacts): boolean {
-	return facts.checkout.attemptCount > 0 || isStripePaidBillingContext(facts.billing);
-}
-
-function hasCheckoutCompleted(facts: PlatformActivationOrganizationFacts): boolean {
-	return facts.checkout.completedCount > 0 || isStripeCheckoutCompletedBillingContext(facts.billing);
-}
-
-function hasPaidAcquisitionSignal(facts: PlatformActivationOrganizationFacts): boolean {
-	return facts.checkout.attemptCount > 0 || isStripePaidBillingContext(facts.billing);
-}
-
-function hasCheckoutRecovered(facts: PlatformActivationOrganizationFacts): boolean {
-	return facts.checkout.interruptedCount > 0 && hasCheckoutCompleted(facts);
-}
 
 function hasMeaningfulRoster(facts: PlatformActivationOrganizationFacts): boolean {
 	return facts.counts.activePersonnel >= MEANINGFUL_ROSTER_THRESHOLD;
@@ -235,46 +147,7 @@ function deferredMilestone(
 	};
 }
 
-function checkoutAttemptCountDetail(count: number): string {
-	return `${count} checkout attempt${count === 1 ? '' : 's'} recorded.`;
-}
-
-function billingStateDetail(context: PlatformActivationBillingContext): string {
-	return `${context.subscriptionStatus ?? 'unknown'} / ${context.collectionStatus ?? 'unknown'}`;
-}
-
-function checkoutStartedDetail(facts: PlatformActivationOrganizationFacts, checkoutStarted: boolean): string {
-	if (!checkoutStarted) return 'No checkout attempt or paid billing snapshot is visible.';
-	if (facts.checkout.attemptCount > 0) return checkoutAttemptCountDetail(facts.checkout.attemptCount);
-	if (facts.billing && isStripePaidBillingContext(facts.billing)) {
-		return `Paid billing snapshot is ${billingStateDetail(facts.billing)}; no checkout attempt rows were returned.`;
-	}
-	return 'Checkout start is visible from existing activation facts.';
-}
-
-function checkoutCompletedDetail(facts: PlatformActivationOrganizationFacts, checkoutCompleted: boolean): string {
-	if (checkoutCompleted) {
-		if (facts.checkout.completedCount > 0) {
-			return `${facts.checkout.completedCount} completed checkout attempt${facts.checkout.completedCount === 1 ? '' : 's'} recorded.`;
-		}
-		if (facts.billing && isStripeCheckoutCompletedBillingContext(facts.billing)) {
-			return `Paid billing snapshot is ${billingStateDetail(facts.billing)}.`;
-		}
-		return 'Checkout completion is visible from existing activation facts.';
-	}
-	if (facts.checkout.latestStatus) return `Latest checkout status is ${facts.checkout.latestStatus}.`;
-	if (facts.billing) {
-		return `Billing snapshot is ${billingStateDetail(facts.billing)}; checkout completion has not been confirmed.`;
-	}
-	return 'No completed checkout attempt or completed paid billing snapshot is visible.';
-}
-
 function milestonesFor(facts: PlatformActivationOrganizationFacts): PlatformActivationMilestone[] {
-	const paidAcquisitionSignal = hasPaidAcquisitionSignal(facts);
-	const checkoutStarted = hasCheckoutStarted(facts);
-	const checkoutCompleted = hasCheckoutCompleted(facts);
-	const checkoutRecovered = hasCheckoutRecovered(facts);
-
 	return [
 		milestone(
 			'signup_submitted',
@@ -296,30 +169,6 @@ function milestonesFor(facts: PlatformActivationOrganizationFacts): PlatformActi
 				? `Created ${facts.organizationCreatedAt}.`
 				: 'Organization creation timestamp was unavailable.'
 		),
-		paidAcquisitionSignal
-			? milestone(
-					'checkout_started',
-					'Checkout started',
-					checkoutStarted,
-					checkoutStartedDetail(facts, checkoutStarted)
-				)
-			: deferredMilestone(
-					'checkout_started',
-					'Checkout started',
-					'No paid checkout signal; free activation is scored from product-value milestones.'
-				),
-		paidAcquisitionSignal
-			? milestone(
-					'checkout_completed',
-					checkoutRecovered ? 'Checkout recovered' : 'Checkout completed',
-					checkoutCompleted,
-					checkoutCompletedDetail(facts, checkoutCompleted)
-				)
-			: deferredMilestone(
-					'checkout_completed',
-					'Checkout completed',
-					'No paid checkout signal; free activation is scored from product-value milestones.'
-				),
 		milestone(
 			'meaningful_roster',
 			'Meaningful roster',
@@ -354,12 +203,6 @@ function milestonesFor(facts: PlatformActivationOrganizationFacts): PlatformActi
 
 function nextStepsFor(facts: PlatformActivationOrganizationFacts): string[] {
 	const steps: string[] = [];
-	const paidAcquisitionSignal = hasPaidAcquisitionSignal(facts);
-	const checkoutStarted = hasCheckoutStarted(facts);
-	const checkoutCompleted = hasCheckoutCompleted(facts);
-
-	if (paidAcquisitionSignal && checkoutStarted && !checkoutCompleted)
-		steps.push('Follow up on checkout completion before evaluating activation.');
 	if (!hasMeaningfulRoster(facts)) {
 		steps.push(`Import or add at least ${MEANINGFUL_ROSTER_THRESHOLD} active personnel.`);
 	}
@@ -372,9 +215,8 @@ function nextStepsFor(facts: PlatformActivationOrganizationFacts): string[] {
 	return steps;
 }
 
-function stateFor(facts: PlatformActivationOrganizationFacts, nextSteps: string[]): PlatformActivationHealthState {
+function stateFor(nextSteps: string[]): PlatformActivationHealthState {
 	if (nextSteps.length === 0) return 'activated';
-	if (hasCheckoutCompleted(facts)) return 'needs_attention';
 	return 'in_progress';
 }
 
@@ -395,12 +237,7 @@ function supportBundleFor(
 		organizationId: facts.organizationId,
 		organizationName: facts.organizationName,
 		acquisition: {
-			organizationCreatedAt: facts.organizationCreatedAt,
-			checkoutStarted: hasCheckoutStarted(facts),
-			checkoutCompleted: hasCheckoutCompleted(facts),
-			checkoutRecovered: hasCheckoutRecovered(facts),
-			latestCheckoutStatus: facts.checkout.latestStatus,
-			billingState: facts.billing
+			organizationCreatedAt: facts.organizationCreatedAt
 		},
 		activation: {
 			...facts.counts,
@@ -417,7 +254,7 @@ function organizationHealthFor(facts: PlatformActivationOrganizationFacts): Plat
 	return {
 		id: facts.organizationId,
 		organization: { id: facts.organizationId, name: facts.organizationName },
-		state: stateFor(facts, nextSteps),
+		state: stateFor(nextSteps),
 		score: scoreFor(milestones),
 		milestones,
 		nextSteps,
@@ -426,7 +263,6 @@ function organizationHealthFor(facts: PlatformActivationOrganizationFacts): Plat
 }
 
 function organizationSortKey(health: PlatformActivationOrganizationHealth): number {
-	if (health.state === 'needs_attention') return 0;
 	if (health.state === 'in_progress') return 1;
 	return 2;
 }
@@ -445,14 +281,11 @@ function emptyCounts(): PlatformActivationHealthSummary['counts'] {
 	return {
 		candidateOrganizations: 0,
 		activatedOrganizations: 0,
-		checkoutStarted: 0,
-		checkoutCompleted: 0,
 		meaningfulRosters: 0,
 		acceptedLeaders: 0,
 		dutyRosterStarted: 0,
 		setupStarted: 0,
-		paidBelowRosterThreshold: 0,
-		supportAttentionItems: 0
+		inProgressOrganizations: 0
 	};
 }
 
@@ -476,28 +309,22 @@ export function mapActivationHealthSummary(input: {
 
 	const organizations = input.facts.map(organizationHealthFor);
 	const activatedOrganizations = organizations.filter((item) => item.state === 'activated').length;
-	const supportAttentionItems = organizations.filter((item) => item.state === 'needs_attention').length;
+	const inProgressOrganizations = organizations.filter((item) => item.state === 'in_progress').length;
 	const counts = {
 		candidateOrganizations: organizations.length,
 		activatedOrganizations,
-		checkoutStarted: input.facts.filter(hasCheckoutStarted).length,
-		checkoutCompleted: input.facts.filter(hasCheckoutCompleted).length,
 		meaningfulRosters: input.facts.filter(hasMeaningfulRoster).length,
 		acceptedLeaders: input.facts.filter(hasAcceptedLeader).length,
 		dutyRosterStarted: input.facts.filter(hasDutyRosterActivity).length,
 		setupStarted: input.facts.filter(hasSetupStarted).length,
-		paidBelowRosterThreshold: input.facts.filter((facts) => hasCheckoutCompleted(facts) && !hasMeaningfulRoster(facts))
-			.length,
-		supportAttentionItems
+		inProgressOrganizations
 	};
 	const overallState: PlatformActivationHealthState =
 		organizations.length === 0
 			? 'no_candidates'
-			: supportAttentionItems > 0
-				? 'needs_attention'
-				: activatedOrganizations === organizations.length
-					? 'activated'
-					: 'in_progress';
+			: activatedOrganizations === organizations.length
+				? 'activated'
+				: 'in_progress';
 
 	return {
 		generatedAt: input.now.toISOString(),

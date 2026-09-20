@@ -14,12 +14,6 @@ function makeStore(overrides: Partial<PlatformAdministrationStore> = {}): Platfo
 		countPlatformUsers: vi.fn().mockResolvedValue({ total: 12, last_30_days: 3 }),
 		listDailySignupsLast30Days: vi.fn().mockResolvedValue([{ date: '2026-06-01', count: 2 }]),
 		countOrganizations: vi.fn().mockResolvedValue(4),
-		listOrganizationTiers: vi.fn().mockResolvedValue([
-			{ tier: 'free', gift_tier: null, count: 2 },
-			{ tier: 'free', gift_tier: 'team', count: 3 },
-			{ tier: 'unit', gift_tier: null, count: 1 },
-			{ tier: null, gift_tier: null, count: 4 }
-		]),
 		countPendingAccessRequests: vi.fn().mockResolvedValue(5),
 		countPendingFeedback: vi.fn().mockResolvedValue(6),
 		listRecentActivity: vi
@@ -29,7 +23,7 @@ function makeStore(overrides: Partial<PlatformAdministrationStore> = {}): Platfo
 			]),
 		searchUsersByEmail: vi.fn().mockResolvedValue([{ id: VALID_USER_ID, email: 'leader@example.mil' }]),
 		countOrganizationsForUser: vi.fn().mockResolvedValue(2),
-		searchOrganizationsByName: vi.fn().mockResolvedValue([{ id: VALID_ORG_ID, name: 'Alpha Company', tier: null }]),
+		searchOrganizationsByName: vi.fn().mockResolvedValue([{ id: VALID_ORG_ID, name: 'Alpha Company' }]),
 		countActivePersonnelForOrganization: vi.fn().mockResolvedValue(42),
 		suspendUser: vi.fn().mockResolvedValue(undefined),
 		unsuspendUser: vi.fn().mockResolvedValue(undefined),
@@ -59,7 +53,7 @@ describe('Platform Administration', () => {
 		vi.clearAllMocks();
 	});
 
-	it('builds dashboard data and computes effective aggregate tier counts', async () => {
+	it('builds dashboard usage, review queues and audit activity', async () => {
 		const { admin, store } = makeDeps();
 
 		const dashboard = await admin.dashboard();
@@ -68,7 +62,6 @@ describe('Platform Administration', () => {
 			userStats: { total: 12, last_30_days: 3 },
 			signupTrend: [{ date: '2026-06-01', count: 2 }],
 			totalOrganizations: 4,
-			tierCounts: { free: 6, team: 3, unit: 1 },
 			pendingAccessRequests: 5,
 			pendingFeedback: 6,
 			recentActivity: [{ id: 'event-1' }]
@@ -84,7 +77,6 @@ describe('Platform Administration', () => {
 				countOrganizations: vi.fn().mockResolvedValue(null),
 				countPendingAccessRequests: vi.fn().mockResolvedValue(null),
 				countPendingFeedback: vi.fn().mockResolvedValue(null),
-				listOrganizationTiers: vi.fn().mockResolvedValue([]),
 				listRecentActivity: vi.fn().mockResolvedValue([])
 			})
 		});
@@ -93,7 +85,6 @@ describe('Platform Administration', () => {
 			userStats: { total: 0, last_30_days: 0 },
 			signupTrend: [],
 			totalOrganizations: 0,
-			tierCounts: { free: 0, team: 0, unit: 0 },
 			pendingAccessRequests: 0,
 			pendingFeedback: 0,
 			recentActivity: []
@@ -119,7 +110,7 @@ describe('Platform Administration', () => {
 		expect(store.searchOrganizationsByName).toHaveBeenCalledWith({ query: 'alpha company', maxResults: 5 });
 		expect(result).toEqual({
 			users: [{ id: VALID_USER_ID, email: 'leader@example.mil', orgCount: 2 }],
-			organizations: [{ id: VALID_ORG_ID, name: 'Alpha Company', tier: 'free', personnelCount: 42 }]
+			organizations: [{ id: VALID_ORG_ID, name: 'Alpha Company', personnelCount: 42 }]
 		});
 	});
 

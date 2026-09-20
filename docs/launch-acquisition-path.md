@@ -34,9 +34,9 @@ any pending legacy unlinked invitations. Resend does not retrospectively approve
 access: an invitee with no reviewed request must use Request Access or receive a
 new authorized invitation. No live invitation disposition is claimed here.
 
-The billing/support/activation sections below describe still-existing consumers
-owned by later Phase 03 deliverables; they do not authorize restoring public signup
-or activating billing. [The stabilization queue](stabilization/TODO.md) supersedes
+The billing sections below describe still-existing consumers owned by later
+Phase 03 deliverables. Activation health now uses noncommercial Organization
+facts. Neither surface authorizes restoring public signup or activating billing. [The stabilization queue](stabilization/TODO.md) supersedes
 the former self-service launch plans.
 
 ## Billing entry point
@@ -69,8 +69,6 @@ Support must be able to answer:
 - whether a self-service user confirmed email from Admin -> Users,
 - whether an Organization exists and who owns it from Admin -> Organizations
   and the user's Organization memberships,
-- whether checkout is active, failed, expired, canceled, or pending recovery
-  from Admin -> Subscriptions and Admin -> Billing Events,
 - which Stripe customer ID, subscription ID, invoice ID, and webhook event ID
   types are safe to use for support correlation.
 
@@ -82,8 +80,8 @@ repo docs and PR notes.
 
 ## Activation health
 
-Acquisition support answers whether a customer reached the app and checkout.
-Activation health answers whether a self-service or paid Organization has enough
+Acquisition support answers whether an approved user reached the app.
+Activation health answers whether an Organization has enough
 coarse setup to reach first product value. It is an Organization-level support
 view, not personal analytics, and must use existing operational records unless a
 separate privacy-reviewed persistence plan is approved.
@@ -93,13 +91,19 @@ separate privacy-reviewed persistence plan is approved.
 | Signup submitted                            | Admin -> Users account creation and signup support logs                                            | User-level support fact; not copied into activation health rows.                                                                                |
 | Email confirmed                             | Admin -> Users email confirmation state; Organization creation is already email-confirmation gated | Treat Organization creation as confirmation-gated; use Admin -> Users for exact user confirmation questions.                                    |
 | Organization created                        | `organizations.created_at`, owner membership, and Admin -> Organizations                           | Computed directly.                                                                                                                              |
-| Checkout started                            | `organization_checkout_attempts.status` and `created_at`                                           | Computed as a coarse checkout attempt count/status without checkout URLs or session IDs.                                                        |
-| Checkout completed or recovered             | `organization_checkout_attempts.completed_at/status` plus `organization_billing_snapshots` state   | Computed as completed/recovered at Organization level; detailed billing repair remains in Admin -> Subscriptions and Admin -> Billing Events.   |
 | Meaningful roster                           | active `personnel` count                                                                           | Computed as at least 5 active personnel. Exact roster import completion is deferred because no durable import milestone exists.                 |
 | Invited leader accepted                     | `organization_memberships` owner/admin count                                                       | Computed as more than one accepted owner/admin Organization Membership. Pending invite analysis stays in member-management/support views.       |
 | Seeded defaults reviewed                    | `status_types` and `assignment_types` counts only                                                  | Counts show defaults/configuration exist; they are not proof a leader reviewed them. Exact reviewed state requires a separate persistence plan. |
 | First Duty Roster activity                  | `duty_roster_templates`, `duty_roster_template_runs`, and legacy `duty_roster_history` counts      | Computed when templates or runs/history exist.                                                                                                  |
 | Onboarding, training, or eval setup started | `onboarding_template_steps`, `training_types`, and `rating_scheme_entries` counts                  | Computed as aggregate setup-started signals.                                                                                                    |
+
+The scan covers up to 100 newest Organizations, ordered by creation time and ID.
+It scores roster, accepted leader, Duty Roster activity and setup milestones;
+inferred acquisition and deferred defaults review do not affect the score.
+Incomplete Organizations are in progress; complete ones are activated. Counts
+cover the full scan, while the table shows up to 12 least-complete Organizations
+first. A failed query is reported as unavailable, never as an empty or healthy
+scan. Duty Roster metrics remain until their phase-05 retirement.
 
 Organization creation still seeds only the basic day-one defaults such as
 Groups, availability statuses, assignment types, and federal holidays. Starter

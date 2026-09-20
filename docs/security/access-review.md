@@ -15,7 +15,7 @@ Review these access groups:
 
 - **Platform admins:** users with TroopToTask platform-level administration or provider dashboard access.
 - **Organization owners/admins:** users who can manage Organization membership, billing, settings, or sensitive records.
-- **Support/billing admins:** users who can view Stripe Dashboard, run billing diagnostics, refresh billing state, or respond to payment incidents.
+- **Support/billing admins:** users who can view Stripe Dashboard or respond to payment incidents.
 - **Stale users:** users with no recent legitimate activity, departed personnel, inactive invited users, and accounts that no longer match the Organization's expected roster.
 
 ## Review Procedure

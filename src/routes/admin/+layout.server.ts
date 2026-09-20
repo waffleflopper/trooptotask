@@ -14,14 +14,6 @@ const NAV_GROUPS = [
 		]
 	},
 	{
-		label: 'BILLING',
-		items: [
-			{ label: 'Subscriptions', href: '/admin/subscriptions', page: 'subscriptions' },
-			{ label: 'Billing Events', href: '/admin/billing-events', page: 'billing-events' },
-			{ label: 'Gifting', href: '/admin/gifting', page: 'gifting' }
-		]
-	},
-	{
 		label: 'SYSTEM',
 		items: [
 			{ label: 'Audit Log', href: '/admin/audit', page: 'audit' },

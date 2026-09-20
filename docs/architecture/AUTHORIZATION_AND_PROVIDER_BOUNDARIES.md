@@ -48,7 +48,7 @@ This document separates what v1 authorization and provider ownership look like t
   - the stored member preset and per-lane capability overrides
   - the stored shared scope set
   - request admission for suspension and sensitive-action step-up
-- Platform admin uses a separate role system (`super_admin`, `support`, `billing`) and is not part of organization-membership authorization.
+- Platform admin uses a separate role system (`super_admin`, `support`, `billing`) and is not part of organization-membership authorization. Admin HTTP wrappers translate core access denials into SvelteKit HTTP 403 errors before protected work; page-level role denials follow the same boundary.
 - Authorization is enforced in more than one layer:
   - app-layer permission context and auth context
   - route wrappers and use cases
@@ -74,6 +74,7 @@ This document separates what v1 authorization and provider ownership look like t
 - The largest route-level drift clusters today are:
   - admin/platform operations
   - some critical-tasks and settings layout helpers
+- Platform Administration gifting, subscriptions and Billing Health diagnostics are removed. The Organization ledger reads only identity, suspension, membership/owner and personnel counts; tier, plan and billing queries and filters are gone. Activation health reads only Organization identity and aggregate roster, membership, defaults and setup facts. Organization detail retains its role-gated identity, membership, owner-transfer and suspension operations behind existing session/MFA admission; it no longer reads commercial state or offers gifting, billing reconciliation or plan feature overrides. Dashboard/search and user support retain only noncommercial projections. Organization JSON/Excel exports omit commercial sections and select retained Organization profile fields. Billing delivery/provider removal remains D05.
 - Service-role usage also exists in app-level utilities such as notifications, audit logging, cleanup, and webhooks.
 - One organization-scoped surface now reads platform-owned state through a sanctioned service-role port: the members settings screen reads **Account Setup Link** state for its own pending **Organization Invitations** via `OrganizationInvitationSetupStateLookupPort`, wired in `httpAdapter.ts` (ADR 0012). It returns invitation id to setup state and nothing else.
 

@@ -2,6 +2,9 @@
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SELECT no_plan();
+-- Preserve pre-existing disposable-stack facts in the full-table expectations.
+CREATE TEMP TABLE assignments_existing AS
+SELECT id,organization_id,date,assignment_type_id,assignee_id FROM public.daily_assignments;
 INSERT INTO auth.users(id,email) VALUES ('a3000000-0000-4000-8000-000000000001','calendar1@example.test');
 INSERT INTO auth.users(id,email) VALUES ('a3000000-0000-4000-8000-000000000002','calendar2@example.test');
 INSERT INTO auth.users(id,email) VALUES ('a3000000-0000-4000-8000-000000000003','calendar3@example.test');
@@ -37,7 +40,7 @@ INSERT INTO public.availability_entries(id,organization_id,personnel_id,status_t
 INSERT INTO public.special_days(id,organization_id,date,name,type) VALUES ('a3000000-0000-4000-8000-000000000703','a3000000-0000-4000-8000-000000000101','2030-03-04','Synthetic Holiday','federal-holiday');
 INSERT INTO public.organization_rank_catalog(id,organization_id,code,label,service,category,pay_grade) VALUES ('a3000000-0000-4000-8000-000000000704','a3000000-0000-4000-8000-000000000101','SGT','Sergeant','army','enlisted','E-5');
 INSERT INTO public.sign_in_rosters(id,organization_id,title,roster_date,personnel_snapshot,personnel_ids,scope_group_ids,signed_file_path,created_by) VALUES ('a3000000-0000-4000-8000-000000000705','a3000000-0000-4000-8000-000000000101','Independent Signed Roster','2030-03-01','[{"id":"a3000000-0000-4000-8000-000000000301","rank":"SGT","lastName":"Person301","groupId":"a3000000-0000-4000-8000-000000000201"}]',ARRAY['a3000000-0000-4000-8000-000000000301']::uuid[],ARRAY['a3000000-0000-4000-8000-000000000201']::uuid[],'a3000000-0000-4000-8000-000000000101/a3000000-0000-4000-8000-000000000705/signed.pdf','a3000000-0000-4000-8000-000000000001');
-SELECT results_eq($$ SELECT id,organization_id,date,assignment_type_id,assignee_id FROM public.daily_assignments ORDER BY id $$,$$ VALUES ('a3000000-0000-4000-8000-000000000601'::uuid,'a3000000-0000-4000-8000-000000000101'::uuid,'2030-03-01'::date,'a3000000-0000-4000-8000-000000000401'::uuid,'a3000000-0000-4000-8000-000000000301'::text),
+SELECT results_eq($$ SELECT id,organization_id,date,assignment_type_id,assignee_id FROM public.daily_assignments ORDER BY id $$,$$ SELECT * FROM (VALUES ('a3000000-0000-4000-8000-000000000601'::uuid,'a3000000-0000-4000-8000-000000000101'::uuid,'2030-03-01'::date,'a3000000-0000-4000-8000-000000000401'::uuid,'a3000000-0000-4000-8000-000000000301'::text),
 ('a3000000-0000-4000-8000-000000000602'::uuid,'a3000000-0000-4000-8000-000000000101'::uuid,'2030-03-01'::date,'a3000000-0000-4000-8000-000000000402'::uuid,'a3000000-0000-4000-8000-000000000202'::text),
 ('a3000000-0000-4000-8000-000000000603'::uuid,'a3000000-0000-4000-8000-000000000101'::uuid,'2030-03-15'::date,'a3000000-0000-4000-8000-000000000403'::uuid,'a3000000-0000-4000-8000-000000000301'::text),
 ('a3000000-0000-4000-8000-000000000604'::uuid,'a3000000-0000-4000-8000-000000000101'::uuid,'2030-03-31'::date,'a3000000-0000-4000-8000-000000000403'::uuid,'a3000000-0000-4000-8000-000000000302'::text),
@@ -45,7 +48,8 @@ SELECT results_eq($$ SELECT id,organization_id,date,assignment_type_id,assignee_
 ('a3000000-0000-4000-8000-000000000606'::uuid,'a3000000-0000-4000-8000-000000000101'::uuid,'2030-04-01'::date,'a3000000-0000-4000-8000-000000000401'::uuid,'a3000000-0000-4000-8000-000000000301'::text),
 ('a3000000-0000-4000-8000-000000000607'::uuid,'a3000000-0000-4000-8000-000000000101'::uuid,'2030-03-02'::date,'a3000000-0000-4000-8000-000000000401'::uuid,'a3000000-0000-4000-8000-000000000303'::text),
 ('a3000000-0000-4000-8000-000000000608'::uuid,'a3000000-0000-4000-8000-000000000101'::uuid,'2030-03-02'::date,'a3000000-0000-4000-8000-000000000402'::uuid,'a3000000-0000-4000-8000-000000000203'::text),
-('a3000000-0000-4000-8000-000000000609'::uuid,'a3000000-0000-4000-8000-000000000102'::uuid,'2030-03-01'::date,'a3000000-0000-4000-8000-000000000404'::uuid,'a3000000-0000-4000-8000-000000000304'::text) $$,'saved facts retain exact identities, dates, types and person/Group assignees');
+('a3000000-0000-4000-8000-000000000609'::uuid,'a3000000-0000-4000-8000-000000000102'::uuid,'2030-03-01'::date,'a3000000-0000-4000-8000-000000000404'::uuid,'a3000000-0000-4000-8000-000000000304'::text)) AS fixture(id,organization_id,date,assignment_type_id,assignee_id)
+UNION ALL SELECT id,organization_id,date,assignment_type_id,assignee_id FROM assignments_existing ORDER BY id $$,'saved facts retain exact identities, dates, types and person/Group assignees');
 CREATE TEMP TABLE assignments_before AS SELECT id,organization_id,date,assignment_type_id,assignee_id FROM public.daily_assignments ORDER BY id;
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub','a3000000-0000-4000-8000-000000000002',true);

@@ -98,7 +98,6 @@ describe('admin user auth email actions', () => {
 						id: 'org-1',
 						name: 'Able Company',
 						role: 'owner',
-						subscriptionTier: 'free',
 						personnelCount: 5
 					}
 				],
@@ -145,7 +144,6 @@ describe('admin user auth email actions', () => {
 					id: 'org-1',
 					name: 'Able Company',
 					role: 'owner',
-					subscriptionTier: 'free',
 					personnelCount: 5
 				}
 			],

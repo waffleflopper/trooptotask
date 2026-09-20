@@ -9,7 +9,6 @@
 		CreditCard,
 		FileText,
 		Gauge,
-		Gift,
 		LogOut,
 		Moon,
 		ShieldCheck,
@@ -35,7 +34,6 @@
 		'access-requests': ShieldCheck,
 		feedback: ClipboardList,
 		subscriptions: CreditCard,
-		gifting: Gift,
 		audit: FileText,
 		announcements: Bell
 	};

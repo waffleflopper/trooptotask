@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import { Copy, ExternalLink, TriangleAlert } from '@lucide/svelte';
+	import { Copy, TriangleAlert } from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { NativeSelect } from '$lib/components/ui/native-select';
@@ -21,7 +21,6 @@
 	const subscriptionsRouteRoot = resolve('/admin/subscriptions');
 	const tierFilter = $derived(data.pagination.tier ?? 'all');
 	const statusFilter = $derived(data.pagination.status ?? 'all');
-	const canAccessOrganizationDiagnostics = $derived(data.adminRole === 'super_admin' || data.adminRole === 'support');
 	type BillingHealthIssue = NonNullable<PageData['billingHealth']>['issues'][number];
 	const billingHealth = $derived(
 		data.billingHealth ?? {
@@ -71,24 +70,10 @@
 		return `Copy bundle for ${issue.organization?.name ? `${issue.title} (${issue.organization.name})` : issue.title}`;
 	}
 
-	function issueContextLabel(issue: BillingHealthIssue): string {
-		return issue.organization?.name ? `${issue.title} (${issue.organization.name})` : issue.title;
-	}
-
 	function issueNextSteps(issue: BillingHealthIssue): string {
 		return issue.supportBundle.nextSteps.length
 			? issue.supportBundle.nextSteps.join(' · ')
 			: 'Copy the support bundle and escalate with support-safe context.';
-	}
-
-	function organizationDiagnosticsHref(issue: BillingHealthIssue): string | null {
-		if (!canAccessOrganizationDiagnostics) return null;
-		if (!issue.organization?.id) return null;
-		return `${resolve(`/admin/organizations/${issue.organization.id}` as `/admin/organizations/${string}`)}#billing-diagnostics`;
-	}
-
-	function organizationDiagnosticsLabel(issue: BillingHealthIssue): string {
-		return `Open organization billing diagnostics for ${issueContextLabel(issue)}`;
 	}
 
 	async function copySupportBundle(bundle: unknown): Promise<void> {
@@ -193,7 +178,6 @@
 			{#if billingHealth.issues.length > 0}
 				<div class="grid gap-3 lg:grid-cols-2">
 					{#each billingHealth.issues as issue (issue.id)}
-						{@const diagnosticsHref = organizationDiagnosticsHref(issue)}
 						<div class="grid gap-2 rounded-md border p-3">
 							<div class="flex flex-wrap items-center justify-between gap-2">
 								<div>
@@ -207,17 +191,6 @@
 								<span class="text-muted-foreground">{issueNextSteps(issue)}</span>
 							</div>
 							<div class="flex flex-wrap justify-end gap-2">
-								{#if diagnosticsHref}
-									<Button
-										href={diagnosticsHref}
-										size="sm"
-										variant="outline"
-										aria-label={organizationDiagnosticsLabel(issue)}
-									>
-										<ExternalLink class="size-4" aria-hidden="true" />
-										Org diagnostics
-									</Button>
-								{/if}
 								<Button
 									type="button"
 									size="sm"

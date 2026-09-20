@@ -11,7 +11,6 @@ const PAGE_ACCESS: Record<string, AdminRole[]> = {
 	'access-requests': ['super_admin', 'support'],
 	feedback: ['super_admin', 'support'],
 	subscriptions: ['super_admin', 'support', 'billing'],
-	gifting: ['super_admin', 'billing'],
 	audit: ['super_admin'],
 	announcements: ['super_admin']
 };

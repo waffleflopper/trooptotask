@@ -129,11 +129,6 @@
 			"reason": "Platform Administration feedback moderation still builds a service-role feedback adapter from the admin context."
 		},
 		{
-			"path": "src/routes/admin/gifting/+page.server.ts",
-			"classification": "platform-admin-edge",
-			"reason": "Platform Administration gifting still builds service-role gifting and platform metrics adapters from the admin context."
-		},
-		{
 			"path": "src/routes/admin/organizations/+page.server.ts",
 			"classification": "platform-admin-edge",
 			"reason": "Platform Administration organization listing still builds a service-role organization ledger adapter from the admin context."

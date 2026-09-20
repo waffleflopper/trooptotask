@@ -51,7 +51,7 @@ function renderLayout(accessiblePages: string[]) {
 
 describe('admin layout', () => {
 	it('hides global admin search when the admin cannot access users or organizations', () => {
-		renderLayout(['dashboard', 'subscriptions', 'gifting']);
+		renderLayout(['dashboard', 'subscriptions']);
 
 		expect(screen.queryByTestId('visible-stub')).toBeNull();
 	});

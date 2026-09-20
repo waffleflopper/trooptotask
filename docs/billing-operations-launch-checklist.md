@@ -80,13 +80,12 @@ Manual human-only dashboard steps are marked as Robert-owned confirmations. Agen
 | Billing retry behavior is configured                                                                                                  | Requires Robert confirmation | Robert                             | Dashboard retry schedule and terminal-payment outcome notes.                                                                                                            |
 | Customer emails for invoices, receipts, failed payments, and subscription changes are reviewed                                        | Requires Robert confirmation | Robert                             | Dashboard email settings and sample test emails when available.                                                                                                         |
 | Invoice and receipt settings show usable organization/customer billing details                                                        | Requires Robert confirmation | Robert                             | Test invoice/receipt evidence with no card details.                                                                                                                     |
-| Checkout activation scenario passes                                                                                                   | Requires Robert confirmation | Robert/Agent with test credentials | Billing snapshot, webhook ledger, owner billing UI, admin diagnostics, reconciliation result.                                                                           |
+| Checkout activation scenario passes                                                                                                   | Requires Robert confirmation | Robert/Agent with test credentials | Billing snapshot, webhook ledger, owner billing UI, reconciliation result.                                                                                              |
 | Renewal success scenario passes                                                                                                       | Requires Robert confirmation | Robert/Agent with test credentials | Test Clock evidence and updated paid-through date.                                                                                                                      |
 | Failed renewal and payment recovery scenario passes                                                                                   | Requires Robert confirmation | Robert/Agent with test credentials | `invoice.payment_failed` handling, owner recovery UI, successful payment reactivation.                                                                                  |
 | Portal period-end cancellation scenario passes                                                                                        | Requires Robert confirmation | Robert/Agent with test credentials | Scheduled cancellation fields, owner/admin copy, final terminal cancellation after period end.                                                                          |
 | Immediate cancellation scenario passes                                                                                                | Requires Robert confirmation | Robert/Agent with test credentials | Explicit confirmation flow and `customer.subscription.deleted` handling.                                                                                                |
 | Reactivation after successful payment passes                                                                                          | Requires Robert confirmation | Robert/Agent with test credentials | `invoice.payment_succeeded` or `invoice.paid` restores current collection status where Stripe reports payment recovery.                                                 |
-| Admin billing refresh reconciles one organization and audits safe details                                                             | Complete                     | Agent                              | Covered by issue #1077 tests and Chrome verification.                                                                                                                   |
 
 ## Live-Mode Launch
 
@@ -121,7 +120,7 @@ Do not start these until test-mode verification is complete and Robert has made 
 | `STRIPE_UNIT_PRICE_ID`                           | Yes                 | Must point to the Unit price for the same Stripe mode.                             |
 | `STRIPE_AUTOMATIC_TAX_ENABLED`                   | Decision-dependent  | Launch with `false` unless Robert has completed and verified tax setup.            |
 | `STRIPE_TAX_DASHBOARD_VERIFIED`                  | Decision-dependent  | Set `true` only after Robert confirms Stripe Tax dashboard state for that mode.    |
-| `BILLING_RECONCILIATION_SECRET` or `CRON_SECRET` | Recommended         | Required to exercise scheduled reconciliation endpoints outside the admin UI.      |
+| `BILLING_RECONCILIATION_SECRET` or `CRON_SECRET` | Recommended         | Required to exercise the remaining scheduled reconciliation endpoint.              |
 
 ## Customer Portal Configuration
 
@@ -191,19 +190,17 @@ Billing health triage:
 - `needs_retry`: the in-app webhook retry tool has been retired. Escalate to Robert with support-safe context before any separately authorized provider action.
 - `permanent_failure`: do not retry blindly. Escalate with the support bundle and inspect the support-safe billing snapshot/reconciliation result.
 - `payment_recovery_attention`: confirm whether the Organization is in payment failed grace or terminal collection state. Ask the customer to update payment through the supported portal path; do not ask for card details or payment method screenshots.
-- `drift_detected`: use the Organization detail admin billing reconciliation action and record the support-safe reconciliation result.
-- `reconciliation_stale`: refresh reconciliation from the admin surface or scheduled reconciliation path before making customer-impacting statements.
+- `drift_detected` or `reconciliation_stale`: escalate to Robert with the support bundle before any separately authorized provider action. The Organization detail reconciliation action has been retired; stale observations do not establish current billing state.
 - `diagnostics_unavailable`: reload or investigate the admin health read before copying a bundle or communicating a billing conclusion.
 
 Before launch, Robert should still confirm:
 
 - Who can access Stripe Dashboard in test and live mode.
-- Who can run admin billing refresh from TroopToTask.
 - Where to record support notes without exposing secrets or payment details.
 - How to respond to payment failures, failed checkout, duplicate checkout attempts, portal access denials, cancellation questions, and over-limit billing locks.
-- How to correlate a ticket using Stripe customer ID, subscription ID, latest webhook event, billing snapshot, admin diagnostics, and reconciliation result.
+- How to correlate a ticket using Stripe customer ID, subscription ID, latest webhook event, billing snapshot, remaining Billing Health support bundle, and reconciliation result.
 
-Support should use the admin billing diagnostics and Stripe Dashboard IDs. Do not ask customers for card details, full payment method data, or screenshots to place in repo docs.
+Support should use the remaining Billing Health support bundle and Stripe Dashboard IDs. Do not ask customers for card details, full payment method data, or screenshots to place in repo docs.
 
 Self-service acquisition support should start in the app before Stripe:
 
@@ -212,7 +209,7 @@ Self-service acquisition support should start in the app before Stripe:
   suspension state, and Organization memberships for signup and first-run
   questions.
 - Admin -> Organizations shows whether the first Organization exists, who owns
-  it, and which plan or gift tier is active.
+  it, and its suspension state.
 - Admin -> Subscriptions show support-safe checkout,
   payment recovery, cancellation, and webhook state.
 

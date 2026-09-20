@@ -75,7 +75,7 @@ Start in Platform Administration before copying provider evidence:
 
 - Admin -> Subscriptions shows the Billing Health panel for retryable webhook failures, permanent failures, payment recovery attention, billing drift, stale reconciliation, and `diagnostics_unavailable` states across paid Organizations.
 - Use the copyable support bundle for triage notes when it contains only Organization ID/name, Stripe customer ID or subscription ID when the admin role is allowed to see them, webhook event IDs, billing state, reconciliation result, and next-step labels.
-- The in-app webhook retry tool has been retired. Escalate `needs_retry` events with support-safe context before any separately authorized provider action. Reconcile `drift_detected` or `reconciliation_stale` Organizations from the Organization detail admin reconciliation action. Escalate `permanent_failure`, repeated stale failures, or `diagnostics_unavailable` before making customer-impacting changes.
+- The in-app webhook retry tool has been retired. Escalate `needs_retry` events with support-safe context before any separately authorized provider action. The Organization detail billing reconciliation action has also been retired; escalate `drift_detected` or `reconciliation_stale` with the support bundle before any separately authorized provider action. Escalate `permanent_failure`, repeated stale failures, or `diagnostics_unavailable` before making customer-impacting changes.
 - For `payment_recovery_attention`, communicate service access and billing-state impact, and direct the customer to the supported payment method update path. Do not ask for card details or payment method screenshots.
 
 Preserve support-safe identifiers:

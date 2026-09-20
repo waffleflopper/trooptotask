@@ -168,45 +168,11 @@ describe('admin subscriptions page', () => {
 							driftDetected: true
 						},
 						reconciliationResult: 'repaired_drift:subscription_status',
-						nextSteps: ['Open org diagnostics and Refresh from Stripe']
+						nextSteps: []
 					}
 				}
 			],
 			diagnosticsError: false
-		};
-	}
-
-	function billingHealthDataWithRetryIssue() {
-		const billingHealth = billingHealthData();
-		const alphaIssue = billingHealth.issues[0]!;
-		return {
-			...billingHealth,
-			states: ['drift_detected', 'needs_retry', 'reconciliation_stale'],
-			counts: {
-				...billingHealth.counts,
-				retryableFailures: 1
-			},
-			issues: [
-				alphaIssue,
-				{
-					...alphaIssue,
-					id: 'event:org-2:invoice.payment_failed:retryable_failed:2026-06-24T12:00:00.000Z:3',
-					primaryState: 'needs_retry',
-					states: ['needs_retry'],
-					title: 'Retryable webhook failure',
-					detail: 'Bravo Company invoice.payment_failed is retryable_failed with 3 attempts.',
-					organization: { id: 'org-2', name: 'Bravo Company' },
-					latestEventIds: [],
-					supportBundle: {
-						...alphaIssue.supportBundle,
-						organizationId: 'org-2',
-						organizationName: 'Bravo Company',
-						stripeEventIds: [],
-						reconciliationResult: 'retryable processing failure',
-						nextSteps: []
-					}
-				}
-			]
 		};
 	}
 
@@ -241,68 +207,12 @@ describe('admin subscriptions page', () => {
 		expect(screen.getByText('Billing drift detected')).toBeTruthy();
 		expect(screen.getByText(/Use the action on each item/)).toBeTruthy();
 		expect(screen.getByText('Next action')).toBeTruthy();
-		expect(screen.getByText('Open org diagnostics and Refresh from Stripe')).toBeTruthy();
-		expect(
-			screen
-				.getByRole('link', {
-					name: 'Open organization billing diagnostics for Billing drift detected (Alpha Company)'
-				})
-				.getAttribute('href')
-		).toBe('/admin/organizations/org-1#billing-diagnostics');
 		expect(screen.getByText(/Alpha Company billing is needs_reconciliation/)).toBeTruthy();
 		expect(document.body.textContent).not.toContain('evt_');
 		expect(document.body.textContent).not.toContain('cus_secret');
 		expect(document.body.textContent).not.toContain('sub_secret');
 		expect(document.body.textContent).not.toContain('card');
 		expect(document.body.textContent).not.toContain('webhook secret');
-	});
-
-	it('keeps organization diagnostics and support bundles available to support admins', () => {
-		const billingHealth = billingHealthDataWithRetryIssue();
-		renderBillingHealthForRole('support', billingHealth);
-
-		expect(screen.getByRole('button', { name: 'Copy bundle for Billing drift detected (Alpha Company)' })).toBeTruthy();
-		expect(
-			screen.getByRole('button', { name: 'Copy bundle for Retryable webhook failure (Bravo Company)' })
-		).toBeTruthy();
-		expect(
-			screen
-				.getByRole('link', {
-					name: 'Open organization billing diagnostics for Retryable webhook failure (Bravo Company)'
-				})
-				.getAttribute('href')
-		).toBe('/admin/organizations/org-2#billing-diagnostics');
-		expect(screen.getAllByText('Copy bundle')).toHaveLength(2);
-	});
-
-	it('hides organization diagnostics from billing admins while keeping support bundles', () => {
-		const billingHealth = billingHealthDataWithRetryIssue();
-		renderBillingHealthForRole('billing', billingHealth);
-
-		expect(
-			screen.queryByRole('link', {
-				name: 'Open organization billing diagnostics for Retryable webhook failure (Bravo Company)'
-			})
-		).toBeNull();
-		expect(
-			screen.getByRole('button', { name: 'Copy bundle for Retryable webhook failure (Bravo Company)' })
-		).toBeTruthy();
-	});
-
-	it('shows organization diagnostics and support bundles to super admins', () => {
-		const billingHealth = billingHealthDataWithRetryIssue();
-		renderBillingHealthForRole('super_admin', billingHealth);
-
-		expect(
-			screen
-				.getByRole('link', {
-					name: 'Open organization billing diagnostics for Retryable webhook failure (Bravo Company)'
-				})
-				.getAttribute('href')
-		).toBe('/admin/organizations/org-2#billing-diagnostics');
-		expect(
-			screen.getByRole('button', { name: 'Copy bundle for Retryable webhook failure (Bravo Company)' })
-		).toBeTruthy();
 	});
 
 	it('copies the support-safe billing health bundle text', async () => {
@@ -323,7 +233,6 @@ describe('admin subscriptions page', () => {
 		expect(copiedText).toContain('"organizationId": "org-1"');
 		expect(copiedText).toContain('"organizationName": "Alpha Company"');
 		expect(copiedText).not.toContain('evt_');
-		expect(copiedText).toContain('"Open org diagnostics and Refresh from Stripe"');
 		expect(copiedText).not.toContain('raw_payload');
 		expect(copiedText).not.toContain('card');
 		expect(copiedText).not.toContain('sk_test_');

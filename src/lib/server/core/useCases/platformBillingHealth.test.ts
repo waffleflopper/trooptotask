@@ -222,10 +222,7 @@ describe('PlatformBillingHealth', () => {
 			title: 'Billing drift detected'
 		});
 		expect(summary.issues[0].supportBundle.nextSteps).toEqual(
-			expect.arrayContaining([
-				'Copy bundle and ask support to refresh billing diagnostics',
-				'Ask an owner to update payment in Billing Portal'
-			])
+			expect.arrayContaining(['Ask an owner to update payment in Billing Portal'])
 		);
 	});
 
@@ -435,52 +432,12 @@ describe('PlatformBillingHealth', () => {
 			stripeCustomerId: null,
 			stripeSubscriptionId: null,
 			stripeEventIds: [],
-			nextSteps: ['Open org diagnostics and Refresh from Stripe']
+			nextSteps: []
 		});
 		expect(summary.issues[0].latestEventIds).toEqual([]);
 		expect(JSON.stringify(summary)).not.toContain('evt_snapshot');
 		expect(JSON.stringify(summary)).not.toContain('cus_safe_identifier');
 		expect(JSON.stringify(summary)).not.toContain('sub_safe_identifier');
-	});
-
-	it('keeps org diagnostics reconciliation guidance for roles that can access org diagnostics', () => {
-		for (const adminRole of ['super_admin', 'support'] as const) {
-			const summary = mapBillingHealthSummary({
-				now: NOW,
-				adminRole,
-				events: [],
-				snapshots: [
-					snapshot({
-						organizationId: `org-stale-${adminRole}`,
-						lastReconciledAt: '2026-06-18T00:00:00.000Z'
-					})
-				]
-			});
-
-			expect(summary.issues[0].supportBundle.nextSteps).toEqual(['Refresh from Stripe in org diagnostics']);
-		}
-	});
-
-	it('uses billing-safe escalation guidance for drift and stale reconciliation', () => {
-		const summary = mapBillingHealthSummary({
-			now: NOW,
-			adminRole: 'billing',
-			events: [],
-			snapshots: [
-				snapshot({
-					organizationId: 'org-billing-diagnostics',
-					driftDetected: true,
-					syncStatus: 'needs_reconciliation',
-					lastReconciledAt: '2026-06-18T00:00:00.000Z'
-				})
-			]
-		});
-
-		expect(summary.issues[0].supportBundle.nextSteps).toEqual([
-			'Copy bundle and ask support to refresh billing diagnostics',
-			'Copy bundle and ask support to refresh reconciliation from Stripe'
-		]);
-		expect(summary.issues[0].supportBundle.nextSteps.join(' ')).not.toContain('org diagnostics');
 	});
 
 	it('keeps duplicate-ish support event issue IDs unique without exposing provider event IDs', () => {

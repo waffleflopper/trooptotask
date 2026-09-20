@@ -10,7 +10,6 @@ describe('canAccessPage', () => {
 			'access-requests',
 			'feedback',
 			'subscriptions',
-			'gifting',
 			'audit',
 			'announcements'
 		];
@@ -29,7 +28,6 @@ describe('canAccessPage', () => {
 	});
 
 	it('support cannot access billing operations or system pages', () => {
-		expect(canAccessPage('support', 'gifting')).toBe(false);
 		expect(canAccessPage('support', 'audit')).toBe(false);
 		expect(canAccessPage('support', 'announcements')).toBe(false);
 	});
@@ -37,7 +35,6 @@ describe('canAccessPage', () => {
 	it('billing can access billing pages and dashboard', () => {
 		expect(canAccessPage('billing', 'dashboard')).toBe(true);
 		expect(canAccessPage('billing', 'subscriptions')).toBe(true);
-		expect(canAccessPage('billing', 'gifting')).toBe(true);
 	});
 
 	it('billing cannot access support or system pages', () => {

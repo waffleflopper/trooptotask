@@ -74,6 +74,7 @@ This document separates what v1 authorization and provider ownership look like t
 - The largest route-level drift clusters today are:
   - admin/platform operations
   - some critical-tasks and settings layout helpers
+- Platform Administration gifting is removed. Organization detail retains its role-gated identity, membership, owner-transfer and suspension operations behind existing session/MFA admission; it no longer reads commercial state or offers gifting, billing reconciliation or plan feature overrides. Remaining admin commercial projections are phase 03 D04 work; billing delivery/provider removal is D05.
 - Service-role usage also exists in app-level utilities such as notifications, audit logging, cleanup, and webhooks.
 - One organization-scoped surface now reads platform-owned state through a sanctioned service-role port: the members settings screen reads **Account Setup Link** state for its own pending **Organization Invitations** via `OrganizationInvitationSetupStateLookupPort`, wired in `httpAdapter.ts` (ADR 0012). It returns invitation id to setup state and nothing else.
 

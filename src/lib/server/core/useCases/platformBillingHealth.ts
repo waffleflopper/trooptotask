@@ -163,28 +163,10 @@ function severityFor(states: BillingHealthState[]): PlatformBillingHealthIssue['
 	return 'info';
 }
 
-function canRefreshOrgDiagnostics(role: AdminRole): boolean {
-	return role === 'super_admin' || role === 'support';
-}
-
-function nextStepsFor(states: BillingHealthState[], adminRole: AdminRole): string[] {
+function nextStepsFor(states: BillingHealthState[]): string[] {
 	const steps: string[] = [];
 	if (states.includes('permanent_failure')) steps.push('Copy bundle and escalate permanent webhook failure');
 	if (states.includes('payment_recovery_attention')) steps.push('Ask an owner to update payment in Billing Portal');
-	if (states.includes('drift_detected')) {
-		steps.push(
-			canRefreshOrgDiagnostics(adminRole)
-				? 'Open org diagnostics and Refresh from Stripe'
-				: 'Copy bundle and ask support to refresh billing diagnostics'
-		);
-	}
-	if (states.includes('reconciliation_stale')) {
-		steps.push(
-			canRefreshOrgDiagnostics(adminRole)
-				? 'Refresh from Stripe in org diagnostics'
-				: 'Copy bundle and ask support to refresh reconciliation from Stripe'
-		);
-	}
 	if (states.includes('diagnostics_unavailable')) steps.push('Reload diagnostics before customer follow-up');
 	return steps;
 }
@@ -270,7 +252,7 @@ function buildEventIssue(
 	const isStaleFailure =
 		(event.processingState === 'retryable_failed' || event.processingState === 'permanently_failed') &&
 		isBeforeIso(eventTimestamp(event), staleCutoff);
-	const nextSteps = nextStepsFor(states, adminRole);
+	const nextSteps = nextStepsFor(states);
 	if (isStaleFailure) nextSteps.push('Copy bundle if retry does not clear stale failure');
 	const primaryState = states[0];
 	const linkedContext = event.linkedBillingContext ?? null;
@@ -364,7 +346,7 @@ function buildSnapshotIssue(
 				driftDetected: snapshot.driftDetected
 			},
 			reconciliationResult: snapshot.reconciliationResult,
-			nextSteps: nextStepsFor(states, adminRole)
+			nextSteps: nextStepsFor(states)
 		}
 	};
 }

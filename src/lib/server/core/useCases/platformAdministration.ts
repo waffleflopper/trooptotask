@@ -11,18 +11,6 @@ export interface PlatformAdministrationSignupTrendPoint {
 	count: number;
 }
 
-export interface PlatformAdministrationTierCounts {
-	free: number;
-	team: number;
-	unit: number;
-}
-
-export interface PlatformAdministrationOrganizationTierRow {
-	tier: string | null;
-	gift_tier: string | null;
-	count?: number;
-}
-
 export interface PlatformAdministrationRecentActivity {
 	id: string;
 	action: string;
@@ -35,7 +23,6 @@ export interface PlatformAdministrationDashboard {
 	userStats: PlatformAdministrationUserStats;
 	signupTrend: PlatformAdministrationSignupTrendPoint[];
 	totalOrganizations: number;
-	tierCounts: PlatformAdministrationTierCounts;
 	pendingAccessRequests: number;
 	pendingFeedback: number;
 	recentActivity: PlatformAdministrationRecentActivity[];
@@ -49,7 +36,6 @@ export interface PlatformAdministrationSearchUserRow {
 export interface PlatformAdministrationSearchOrganizationRow {
 	id: string;
 	name: string;
-	tier: string | null;
 }
 
 export interface PlatformAdministrationUserSearchResult {
@@ -61,7 +47,6 @@ export interface PlatformAdministrationUserSearchResult {
 export interface PlatformAdministrationOrganizationSearchResult {
 	id: string;
 	name: string;
-	tier: string;
 	personnelCount: number;
 }
 
@@ -90,7 +75,6 @@ export interface PlatformAdministrationStore {
 	countPlatformUsers(): Promise<PlatformAdministrationUserStats | null>;
 	listDailySignupsLast30Days(): Promise<PlatformAdministrationSignupTrendPoint[] | null>;
 	countOrganizations(): Promise<number | null>;
-	listOrganizationTiers(): Promise<PlatformAdministrationOrganizationTierRow[]>;
 	countPendingAccessRequests(): Promise<number | null>;
 	countPendingFeedback(): Promise<number | null>;
 	listRecentActivity(limit: number): Promise<PlatformAdministrationRecentActivity[]>;
@@ -130,17 +114,6 @@ function normalizePlatformAdministrationSearchQuery(query: string): string | nul
 	return sanitized;
 }
 
-function buildTierCounts(rows: PlatformAdministrationOrganizationTierRow[]): PlatformAdministrationTierCounts {
-	const tierCounts: PlatformAdministrationTierCounts = { free: 0, team: 0, unit: 0 };
-	for (const org of rows) {
-		const effectiveTier = org.gift_tier ?? org.tier ?? 'free';
-		if (effectiveTier in tierCounts) {
-			tierCounts[effectiveTier as keyof PlatformAdministrationTierCounts] += org.count ?? 1;
-		}
-	}
-	return tierCounts;
-}
-
 function parseSuspensionCommand(input: PlatformAdministrationSuspensionCommand): {
 	type: 'user' | 'org';
 	targetId: string;
@@ -170,29 +143,20 @@ export function createPlatformAdministration(deps: PlatformAdministrationDepende
 
 	return {
 		async dashboard() {
-			const [
-				userStats,
-				signupTrend,
-				totalOrganizations,
-				organizationTiers,
-				pendingAccessRequests,
-				pendingFeedback,
-				recentActivity
-			] = await Promise.all([
-				deps.store.countPlatformUsers(),
-				deps.store.listDailySignupsLast30Days(),
-				deps.store.countOrganizations(),
-				deps.store.listOrganizationTiers(),
-				deps.store.countPendingAccessRequests(),
-				deps.store.countPendingFeedback(),
-				deps.store.listRecentActivity(RECENT_ACTIVITY_LIMIT)
-			]);
+			const [userStats, signupTrend, totalOrganizations, pendingAccessRequests, pendingFeedback, recentActivity] =
+				await Promise.all([
+					deps.store.countPlatformUsers(),
+					deps.store.listDailySignupsLast30Days(),
+					deps.store.countOrganizations(),
+					deps.store.countPendingAccessRequests(),
+					deps.store.countPendingFeedback(),
+					deps.store.listRecentActivity(RECENT_ACTIVITY_LIMIT)
+				]);
 
 			return {
 				userStats: userStats ?? DEFAULT_USER_STATS,
 				signupTrend: signupTrend ?? [],
 				totalOrganizations: totalOrganizations ?? 0,
-				tierCounts: buildTierCounts(organizationTiers),
 				pendingAccessRequests: pendingAccessRequests ?? 0,
 				pendingFeedback: pendingFeedback ?? 0,
 				recentActivity
@@ -220,7 +184,6 @@ export function createPlatformAdministration(deps: PlatformAdministrationDepende
 					matchedOrganizations.map(async (organization) => ({
 						id: organization.id,
 						name: organization.name,
-						tier: organization.tier ?? 'free',
 						personnelCount: (await deps.store.countActivePersonnelForOrganization(organization.id)) ?? 0
 					}))
 				)

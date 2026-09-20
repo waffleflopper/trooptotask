@@ -1,6 +1,6 @@
 # V1 Drift Ledger
 
-Phase 03 D05 task 03-05a removes the scheduled billing reconciliation route and its direct service-role store/audit wiring. Its governance baseline entry is deleted. Task 03-05b also removes single-Organization checkout/portal/recovery and billing/subscription ports from shared request contexts; remaining webhook/provider retirement is 03-05c.
+Phase 03 D05 task 03-05a removes the scheduled billing reconciliation route and its direct service-role store/audit wiring. Its governance baseline entry is deleted. Task 03-05b also removes single-Organization checkout/portal/recovery and billing/subscription ports from shared request contexts; 03-05c removes the webhook/provider and its ledger-cleanup caller while preserving authorized audit cleanup.
 
 This ledger records places where current v1 reality and intended v1 direction diverge.
 
@@ -19,7 +19,7 @@ Apply the [stabilization decisions](ARCHITECTURE.md#stabilization-decisions) and
   - many server paths already use ports, adapters, entities, and use cases
   - invite acceptance page loading now uses hook-verified identity and pending-flow state; its redundant provider-session lookup and governance exception are removed
   - historical `#619` moved billing and export lifecycles behind store-backed helpers; D05 03-05b deletes the billing delivery helpers, retaining the export lifecycle
-  - historical `#637` handled partial billing cancellation; D05 03-05b removes cancellation/recovery entirely, with webhook retirement assigned to 03-05c
+  - historical `#637` handled partial billing cancellation; D05 03-05b removes cancellation/recovery entirely, and 03-05c removes the webhook/provider
     - Critical Tasks workspace settings now load through an app-owned use case instead of the route layout
     - the legacy platform invite-code runtime route has been removed
     - Platform Administration aggregate Organization metrics now route through the `PlatformMetrics` use case and Supabase adapter instead of the route-level helper

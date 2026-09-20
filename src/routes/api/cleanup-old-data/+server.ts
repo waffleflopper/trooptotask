@@ -18,7 +18,6 @@ interface CleanupOldDataEndpointCoreInput {
 	request: Request;
 	env: CleanupOldDataEndpointEnv;
 	runAuditCleanup: () => Promise<CleanupOldDataRpcResult>;
-	runWebhookCleanup: () => Promise<CleanupOldDataRpcResult>;
 }
 
 async function runCleanupOldDataEndpointCore(input: CleanupOldDataEndpointCoreInput): Promise<Response> {
@@ -27,19 +26,17 @@ async function runCleanupOldDataEndpointCore(input: CleanupOldDataEndpointCoreIn
 		input.env.CRON_SECRET
 	]);
 
-	const [auditResult, webhookResult] = await Promise.all([input.runAuditCleanup(), input.runWebhookCleanup()]);
+	const auditResult = await input.runAuditCleanup();
 
-	if (auditResult.error || webhookResult.error) {
+	if (auditResult.error) {
 		console.error('Cleanup old data RPC failure', {
-			auditError: auditResult.error ?? null,
-			webhookError: webhookResult.error ?? null
+			auditError: auditResult.error
 		});
 		throw error(500, 'Failed to cleanup old data');
 	}
 
 	return json({
-		auditLogsDeleted: auditResult.data ?? 0,
-		webhookEventsDeleted: webhookResult.data ?? 0
+		auditLogsDeleted: auditResult.data ?? 0
 	});
 }
 
@@ -52,7 +49,6 @@ export const GET: RequestHandler = async ({ request }) => {
 			CLEANUP_SECRET: env.CLEANUP_SECRET,
 			CRON_SECRET: env.CRON_SECRET
 		},
-		runAuditCleanup: async () => await admin.rpc('cleanup_old_audit_logs'),
-		runWebhookCleanup: async () => await admin.rpc('cleanup_old_webhook_events')
+		runAuditCleanup: async () => await admin.rpc('cleanup_old_audit_logs')
 	});
 };

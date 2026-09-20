@@ -36,4 +36,10 @@ describe('isPublicRoute', () => {
 		expect(isPublicRoute('/api/billing-reconciliation')).toBe(false);
 		expect(isPublicRoute('/api/billing-reconciliation/nested')).toBe(false);
 	});
+
+	it('does not grant anonymous access to retired webhook paths', () => {
+		expect(isPublicRoute('/api/webhooks')).toBe(false);
+		expect(isPublicRoute('/api/webhooks/stripe')).toBe(false);
+		expect(isPublicRoute('/api/webhooks/stripe/nested')).toBe(false);
+	});
 });

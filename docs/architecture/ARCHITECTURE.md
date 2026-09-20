@@ -31,7 +31,7 @@ Password completion uses a server-persisted attempt at the existing auth-provide
 
 Organization suspension is enforced before dispatch of Organization writes and API requests by the authenticated request hook and a user-scoped provider adapter. Page GET/HEAD requests retain the suspended shell; layouts alone are not an action/endpoint authorization boundary. Membership, Group scope and feature policy checks remain mandatory downstream.
 
-D03 removes commercial plans, read-only guards and overlays from server mutation policy, app-shell data and client affordances. Membership, capability, Group scope, identity ownership and sensitive-action step-up remain mandatory. The shell keeps explicit suspension and optional chrome failure states. D04 removes commercial admin surfaces. D05 03-05b removes Organization billing routes, checkout/portal/recovery, plan reads and billing/subscription wiring from shared request contexts. Webhook processing, public pricing and configuration remain assigned to the later D05 leaves.
+D03 removes commercial plans, read-only guards and overlays from server mutation policy, app-shell data and client affordances. Membership, capability, Group scope, identity ownership and sensitive-action step-up remain mandatory. The shell keeps explicit suspension and optional chrome failure states. D04 removes commercial admin surfaces. D05 03-05b removes Organization billing routes, checkout/portal/recovery, plan reads and billing/subscription wiring from shared request contexts. D05 03-05c removes webhook processing, the Stripe provider and webhook-ledger cleanup; public pricing, scripts and configuration remain assigned to later D05 leaves.
 
 ### Application shape
 
@@ -83,8 +83,8 @@ D03 removes commercial plans, read-only guards and overlays from server mutation
   - auth flows and MFA endpoints
   - admin/platform utilities
   - some org layout settings fetches
-  - auth, billing webhook, export, and organization-settings edges that have not yet been fully retired or are intentionally provider-adjacent
-- Service-role Supabase usage also exists for platform admin, audit writes, notifications, cleanup jobs, and webhook processing.
+  - auth, export, and organization-settings edges that have not yet been fully retired or are intentionally provider-adjacent
+- Service-role Supabase usage also exists for platform admin, audit writes, notifications, and retained cleanup jobs.
 
 ### Product surface reality
 

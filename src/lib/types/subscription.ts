@@ -1,31 +1,4 @@
 export type Tier = 'free' | 'team' | 'unit';
-export type SubscriptionStatus =
-	| 'active'
-	| 'trialing'
-	| 'canceled'
-	| 'past_due'
-	| 'unpaid'
-	| 'incomplete'
-	| 'incomplete_expired'
-	| 'paused';
-export type BillingSnapshotSource = 'stripe' | 'gift' | 'billing_disabled' | 'legacy_organization';
-export type BillingSyncStatus = 'not_configured' | 'synced' | 'pending' | 'needs_reconciliation' | 'billing_disabled';
-export type BillingCancellationFeedback =
-	| 'customer_service'
-	| 'low_quality'
-	| 'missing_features'
-	| 'other'
-	| 'switched_service'
-	| 'too_complex'
-	| 'too_expensive'
-	| 'unused';
-
-export interface PriceCatalogEntry {
-	priceId: string;
-	commercialPlan: Exclude<Tier, 'free'>;
-	stripeProductId: string | null;
-}
-
 export interface TierConfig {
 	name: string;
 	personnelCap: number;

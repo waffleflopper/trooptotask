@@ -43,6 +43,29 @@ interface TestServerClientOptions {
 }
 
 describe('server auth hook', () => {
+	it('keeps restrictive response security policy after payment-provider retirement', async () => {
+		const { handle, createEvent, resolve } = await createAuthenticatedHookHarness({ data: false, error: null });
+		const response = await handle({ event: createEvent('/auth/login', {}), resolve });
+		const directives = new Map(
+			(response.headers.get('Content-Security-Policy') ?? '').split(';').map((directive) => {
+				const [name, ...sources] = directive.trim().split(/\s+/);
+				return [name, sources];
+			})
+		);
+
+		expect(directives.get('default-src')).toEqual(["'self'"]);
+		expect(directives.get('frame-src')).toEqual(["'none'"]);
+		expect(directives.get('script-src')).toEqual(
+			expect.arrayContaining(["'self'", "'unsafe-inline'", 'https://va.vercel-scripts.com'])
+		);
+		expect(directives.get('script-src')).not.toEqual(expect.arrayContaining(['https://js.stripe.com']));
+		expect(directives.get('connect-src')).toEqual(
+			expect.arrayContaining(["'self'", 'https://*.supabase.co', 'https://vitals.vercel-insights.com'])
+		);
+		expect(response.headers.get('X-Frame-Options')).toBe('DENY');
+		expect(response.headers.get('X-Content-Type-Options')).toBe('nosniff');
+	});
+
 	beforeEach(() => {
 		vi.resetModules();
 		vi.restoreAllMocks();

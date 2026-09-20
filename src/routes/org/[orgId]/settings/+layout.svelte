@@ -15,7 +15,6 @@
 	const tabs = $derived(
 		[
 			{ label: 'General', href: `${baseHref}/general`, active: activePath.endsWith('/settings/general') },
-			{ label: 'Billing', href: `${baseHref}/billing`, active: activePath.endsWith('/settings/billing') },
 			{
 				label: 'Members',
 				href: `${baseHref}/members`,

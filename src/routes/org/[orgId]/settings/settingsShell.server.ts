@@ -23,7 +23,6 @@ export interface SettingsShell {
 	};
 	tabVisibility: {
 		general: true;
-		billing: true;
 		members: true;
 		policies: true;
 		ranks: true;
@@ -76,7 +75,6 @@ export async function loadSettingsShell(
 		},
 		tabVisibility: {
 			general: true,
-			billing: true,
 			members: true,
 			policies: true,
 			ranks: true,

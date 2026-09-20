@@ -15,3 +15,9 @@ Before publishing or merging a candidate that releases this removal, Robert must
 5. Remove deployment copies of `BILLING_RECONCILIATION_SECRET`, `BACKFILL_SECRET`, `BACKFILL_APP_URL` and the backfill-only `PUBLIC_APP_URL` only after confirming no other deployed consumer needs them. Preserve `CRON_SECRET`, cleanup secrets and canonical app-origin variables.
 
 Stripe webhook destinations, Stripe credentials, checkout configuration and other billing delivery cleanup remain pending later D05 leaves. Do not remove credentials needed by the still-deployed application. The final D05 handoff must complete their ordering and distinguish runtime retirement from phase-04 schema retirement. No external service or database was inspected or changed in 03-05a.
+
+## Settings billing surface retirement — 03-05b-01
+
+The Settings Billing tab, summary and its route actions are removed. General Settings and its authorized profile actions remain. This leaf does not retire the separate Organization checkout/portal/recovery routes or the webhook; their complete removal remains required by later D05 leaves. Stored commercial and retained records are unchanged; no migration is required for this leaf.
+
+Before a publication or merge that releases this removal, the owner must verify deployment triggers, arrange applicable notice/backups and confirm app/schema compatibility as above. Update any externally maintained bookmarks/help that point to `/org/<organization>/settings/billing`; that route no longer exists. Do not retire Stripe credentials, webhook destinations or checkout configuration while the still-deployed delivery paths need them. External settings remain **UNVERIFIED**; no provider or remote database operation is authorized by this record.

@@ -1,6 +1,6 @@
 # Stabilization release coordination
 
-This is an owner-operated release record, not authorization to operate hosted services. Phase 03 D05 is incomplete. Preserve the [phase-02 deployment runbook](../migrations/phase-0-2-deployment-prompt.md); local acceptance does not certify production.
+This is an owner-operated release record, not authorization to operate hosted services. Phase 03 D05 has passed local deliverable acceptance and is AWAITING_PR; it is not published, merged or released. See the [candidate evidence and PR handoff](EVIDENCE.md#task-03-07b-03--full-d05-acceptance-and-pr-handoff). Preserve the [phase-02 deployment runbook](../migrations/phase-0-2-deployment-prompt.md); local acceptance does not certify production.
 
 ## Scheduled reconciliation retirement — 03-05a
 
@@ -57,8 +57,9 @@ Vercel push/merge may deploy; external triggers, provider state and hosted confi
 This sequence supersedes the deleted paid-launch, portal, cancellation and
 billing-verification runbooks. Earlier sections record each leaf's removal;
 references there to later leaves describe that historical order. The current
-candidate has no billing delivery/provider/configuration, while mixed public
-and operator documentation and full D05 acceptance remain under 03-07b-02/03.
+candidate has no billing delivery/provider/configuration or current commercial
+product claims. Mixed documentation and full D05 acceptance passed in 03-07b-02/03;
+publication, review and verified merge remain the owner checkpoint.
 No hosted state has been inspected or changed.
 
 Before a publication that releases D05, Robert must complete these steps through

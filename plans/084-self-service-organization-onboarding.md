@@ -1,18 +1,6 @@
 # Plan 084: Add self-service organization creation and first-run onboarding
 
-> **Executor instructions**: Follow this plan step by step. Run every
-> verification command and confirm the expected result before moving to the
-> next step. This plan edits Svelte files, so follow `docs/agents/svelte.md`
-> before editing and run `svelte-autofixer` until clean. If anything in the
-> "STOP conditions" section occurs, stop and report. When done, update the
-> status row for this plan in `plans/README.md` unless a reviewer dispatched you
-> and told you they maintain the index.
->
-> **Drift check (run first)**:
-> `git diff --stat d485cdc5..HEAD -- docs/launch-acquisition-path.md src/routes/org/new src/lib/server/core/useCases/orgProvisioning.ts src/lib/server/adapters/supabaseOrgProvisioning.ts 'src/routes/org/[orgId]/api/getting-started' 'src/routes/org/[orgId]/(dashboard)' src/features/dashboard plans/081-surface-first-run-owner-checklist.md`
-> If any in-scope file changed since this plan was written, compare the
-> "Current state" excerpts against the live code before proceeding; on a
-> mismatch, treat it as a STOP condition.
+Historical implementation record. The [stabilization queue](../docs/stabilization/TODO.md) owns current work; the executor/drift instructions for this completed plan are retired. References below to deleted billing runbooks, plans or code identify historical inputs and do not authorize restoring them. Retained behavior and verification remain governed by the queue. Current acquisition/support guidance is in [Launch Acquisition Path](../docs/launch-acquisition-path.md); external commercial retirement follows [RELEASE](../docs/stabilization/RELEASE.md#commercial-operations-retirement--03-07b-01).
 
 ## Status
 

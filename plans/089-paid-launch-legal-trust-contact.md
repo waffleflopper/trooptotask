@@ -1,18 +1,6 @@
 # Plan 089: Align paid-launch legal, trust, and contact surfaces
 
-> **Executor instructions**: Follow this plan step by step. Run every
-> verification command and confirm the expected result before moving to the
-> next step. This plan edits public Svelte/legal surfaces, so follow
-> `docs/agents/svelte.md` before editing and run `svelte-autofixer` until
-> clean. If anything in the "STOP conditions" section occurs, stop and report.
-> When done, update the status row for this plan in `plans/README.md` unless a
-> reviewer dispatched you and told you they maintain the index.
->
-> **Drift check (run first)**:
-> `git diff --stat b550f840..HEAD -- src/routes/+page.svelte src/routes/privacy/+page.svelte src/routes/terms/+page.svelte src/routes/security/+page.svelte src/routes/about/+page.svelte src/lib/components/public docs/launch-acquisition-path.md docs/billing-operations-launch-checklist.md docs/billing-cancellation-policy.md docs/billing-customer-portal.md docs/security/operational-control-evidence.md docs/security/security-overview.md`
-> If any in-scope file changed since this plan was written, compare the
-> "Current state" excerpts against the live code before proceeding; on a
-> mismatch, treat it as a STOP condition.
+Historical implementation record. The [stabilization queue](../docs/stabilization/TODO.md) owns current work; the executor/drift instructions for this completed plan are retired. References below to deleted billing runbooks, plans or code identify historical inputs and do not authorize restoring them. Retained behavior and verification remain governed by the queue. Current acquisition/support guidance is in [Launch Acquisition Path](../docs/launch-acquisition-path.md); external commercial retirement follows [RELEASE](../docs/stabilization/RELEASE.md#commercial-operations-retirement--03-07b-01).
 
 ## Status
 
@@ -89,8 +77,8 @@ Current excerpts:
 
 ```svelte
 <!-- src/routes/terms/+page.svelte:35-37 -->
-TroopToTask is a web-based personnel management platform for military unit leaders...
-The service is provided "as is" during the beta period.
+TroopToTask is a web-based personnel management platform for military unit leaders... The service is provided "as is" during
+the beta period.
 ```
 
 ```svelte
@@ -105,18 +93,17 @@ Team and Unit prices are final for paid launch. Access remains reviewed until bi
 
 ```svelte
 <!-- src/routes/+page.svelte:41-43 -->
-TroopToTask aligns to NIST 800-171 with AES-256 encryption at rest...
-and a full audit log of every action...
+TroopToTask aligns to NIST 800-171 with AES-256 encryption at rest... and a full audit log of every action...
 ```
 
 ## Commands you will need
 
-| Purpose | Command | Expected on success |
-| --- | --- | --- |
-| Svelte docs | Svelte MCP `list-sections`, then `get-documentation` for relevant Svelte/SvelteKit component/page sections | docs read before Svelte edits |
-| Svelte autofix | `svelte-autofixer` on edited Svelte files | no issues or suggestions remain |
-| Copy grep | `rg -n "beta period|refund|Stripe|support@trooptotask|privacy@trooptotask|security@trooptotask|NIST|audit log" src/routes src/lib/components/public docs` | output matches the approved paid-launch copy |
-| Full repo gate | `npm run format && npm run lint && npm run governance:check && npm run check && npm run test` | all exit 0 |
+| Purpose        | Command                                                                                                                                                          | Expected on success                          |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| Svelte docs    | Svelte MCP `list-sections`, then `get-documentation` for relevant Svelte/SvelteKit component/page sections                                                       | docs read before Svelte edits                |
+| Svelte autofix | `svelte-autofixer` on edited Svelte files                                                                                                                        | no issues or suggestions remain              |
+| Copy grep      | `rg -n "beta period\|refund\|Stripe\|support@trooptotask\|privacy@trooptotask\|security@trooptotask\|NIST\|audit log" src/routes src/lib/components/public docs` | output matches the approved paid-launch copy |
+| Full repo gate | `npm run format && npm run lint && npm run governance:check && npm run check && npm run test`                                                                    | all exit 0                                   |
 
 ## Scope
 

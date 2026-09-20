@@ -1,18 +1,6 @@
 # Plan 087: Add E2E coverage for self-service acquisition
 
-> **Executor instructions**: Follow this plan step by step. Run every
-> verification command and confirm the expected result before moving to the
-> next step. This plan may edit Svelte tests and E2E fixtures; follow
-> `docs/agents/svelte.md` if Svelte files are edited. If anything in the "STOP
-> conditions" section occurs, stop and report. When done, update the status row
-> for this plan in `plans/README.md` unless a reviewer dispatched you and told
-> you they maintain the index.
->
-> **Drift check (run first)**:
-> `git diff --stat d485cdc5..HEAD -- docs/launch-acquisition-path.md e2e e2e/specs/auth-email-flows.spec.ts e2e/specs/access-request-auth.spec.ts e2e/specs/billing-webhook.spec.ts src/routes/auth src/routes/org/new 'src/routes/org/[orgId]/billing' package.json`
-> If any in-scope file changed since this plan was written, compare the
-> "Current state" excerpts against the live code before proceeding; on a
-> mismatch, treat it as a STOP condition.
+Historical implementation record. The [stabilization queue](../docs/stabilization/TODO.md) owns current work; the executor/drift instructions for this completed plan are retired. References below to deleted billing runbooks, plans or code identify historical inputs and do not authorize restoring them. Retained behavior and verification remain governed by the queue. Current acquisition/support guidance is in [Launch Acquisition Path](../docs/launch-acquisition-path.md); external commercial retirement follows [RELEASE](../docs/stabilization/RELEASE.md#commercial-operations-retirement--03-07b-01).
 
 ## Status
 
@@ -75,13 +63,13 @@ await expect.poll(() => pagePathAndSearch(acceptPage)).toMatch(/^\/(dashboard\?s
 
 ## Commands you will need
 
-| Purpose | Command | Expected on success |
-| --- | --- | --- |
-| Self-service E2E | `npm run test:e2e:self-service-acquisition` | all pass |
-| Auth E2E | `npm run test:e2e:auth` | all pass |
-| Access request regression E2E | `npm run test:e2e:access-requests` | all pass |
-| Billing E2E | `npm run test:e2e:billing` | all pass when Stripe test-mode/local E2E config is available |
-| Full repo gate | `npm run format && npm run lint && npm run governance:check && npm run check && npm run test` | all exit 0 |
+| Purpose                       | Command                                                                                       | Expected on success                                          |
+| ----------------------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| Self-service E2E              | `npm run test:e2e:self-service-acquisition`                                                   | all pass                                                     |
+| Auth E2E                      | `npm run test:e2e:auth`                                                                       | all pass                                                     |
+| Access request regression E2E | `npm run test:e2e:access-requests`                                                            | all pass                                                     |
+| Billing E2E                   | `npm run test:e2e:billing`                                                                    | all pass when Stripe test-mode/local E2E config is available |
+| Full repo gate                | `npm run format && npm run lint && npm run governance:check && npm run check && npm run test` | all exit 0                                                   |
 
 ## Scope
 

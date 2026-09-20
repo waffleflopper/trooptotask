@@ -21,11 +21,11 @@ Completed by PR #1230 on 2026-06-17: plans 083-087 now implement the self-servic
 Reconciled by the improve skill on 2026-06-28 at commit `88a2fbd5`: refreshed plan 092 after plan 091 merged runtime billing health/support visibility. Plan 092 remains the only TODO launch-runway plan and is executable on the current post-plan-091 baseline.
 Updated by the improve follow-up on 2026-06-28 at commit `2f3bc4d6` with plan 093 (Robert selected starter configuration packs from the post-launch `$improve next` shortlist).
 
-These plans record historical implementation work. The [stabilization queue](../docs/stabilization/TODO.md) now owns execution order and the [verification contract](../docs/architecture/DEFINITION_OF_DONE.md#verification-contract) owns current checks. Historical E2E commands and coverage claims below are obsolete: task 02-05 removed that harness. Historical artifact cleanup remains with stabilization task 13-02.
+These plans record historical implementation work. The [stabilization queue](../docs/stabilization/TODO.md) now owns execution order and the [verification contract](../docs/architecture/DEFINITION_OF_DONE.md#verification-contract) owns current checks. Historical E2E commands and coverage claims below are obsolete: task 02-05 removed that harness. Billing-only runbooks and plans 016, 045, 050, 062, 074, 078, 085, 090 and 091 are deleted by stabilization 03-07b-01. Their numeric references in the dated history below identify former work, not executable dependencies or missing prerequisites. Plans 079 and 089 retain mixed Beta-label and support/legal history. Remaining historical artifact cleanup belongs to stabilization 13-02; current acquisition and support guidance is in [Launch Acquisition Path](../docs/launch-acquisition-path.md), and external retirement ordering is in [RELEASE](../docs/stabilization/RELEASE.md#commercial-operations-retirement--03-07b-01).
 
 The operator explicitly excluded automatic CI trigger work from this batch. Do not add `pull_request` or `push` triggers while executing these plans unless Robert asks for that separately.
 
-## Execution Order And Status
+## Historical execution order and status
 
 | Plan | Title                                                | Priority | Effort | Depends on         | Status |
 | ---- | ---------------------------------------------------- | -------- | ------ | ------------------ | ------ |
@@ -44,7 +44,6 @@ The operator explicitly excluded automatic CI trigger work from this batch. Do n
 | 013  | Resolve critical vitest advisory, triage audit       | P1       | S      | -                  | DONE   |
 | 014  | Fix Excel serial date UTC shift in imports           | P1       | S      | -                  | DONE   |
 | 015  | pgTAP cross-org isolation contracts (5 tables)       | P2       | L      | -                  | DONE   |
-| 016  | Stripe webhook E2E coverage                          | P2       | M      | 013 (soft)         | DONE   |
 | 017  | Wire local verification gate (hook, gate, env)       | P2       | S      | -                  | DONE   |
 | 018  | Filter dashboard active onboardings at query time    | P1       | S      | -                  | DONE   |
 | 019  | Add Calendar date-window indexes                     | P1       | M      | -                  | DONE   |
@@ -73,12 +72,10 @@ The operator explicitly excluded automatic CI trigger work from this batch. Do n
 | 042  | Paginate platform admin org ledgers                  | P1       | M      | 041                | DONE   |
 | 043  | Filter onboarding workspace bootstrap                | P2       | M      | -                  | DONE   |
 | 044  | Add platform audit global timestamp index            | P2       | S-M    | -                  | DONE   |
-| 045  | Count plan usage without full row loads              | P1       | S-M    | -                  | DONE   |
 | 046  | Add lightweight Critical Tasks dashboard summary     | P1       | M      | -                  | DONE   |
 | 047  | Split Training report detail from aggregate work     | P1       | M      | -                  | DONE   |
 | 048  | Index long-range Calendar date cells                 | P2       | S      | -                  | DONE   |
 | 049  | Precompute DA6 matrix lookup maps                    | P2       | S      | -                  | DONE   |
-| 050  | Deepen billing-event retry seam                      | P1       | M      | -                  | DONE   |
 | 051  | Add platform organization detail seam                | P1       | M      | -                  | DONE   |
 | 052  | Move user identity commands behind seam              | P2       | S-M    | -                  | DONE   |
 | 053  | Drop legacy clinic owner RPC                         | P1       | S      | -                  | DONE   |
@@ -90,7 +87,6 @@ The operator explicitly excluded automatic CI trigger work from this batch. Do n
 | 059  | Expand governance for admin route seams              | P1       | M      | -                  | DONE   |
 | 060  | Move feedback submissions behind platform seam       | P2       | M      | -                  | DONE   |
 | 061  | Share retention cleanup support                      | P1       | M      | -                  | DONE   |
-| 062  | Move billing checkout recovery behind seam           | P1       | M      | -                  | DONE   |
 | 063  | Move Personnel restore/delete into use cases         | P1       | M      | -                  | DONE   |
 | 064  | Move Personnel export behind use case                | P2       | M      | -                  | DONE   |
 | 065  | Retire dormant Dashboard tab configuration           | P2       | M      | -                  | DONE   |
@@ -102,24 +98,19 @@ The operator explicitly excluded automatic CI trigger work from this batch. Do n
 | 071  | Activate feature permission-coupling governance      | P1       | S-M    | -                  | DONE   |
 | 072  | Sanitize provider errors returned from 500 paths     | P2       | S      | -                  | DONE   |
 | 073  | Use local date-only helpers in onboarding/imports    | P2       | S-M    | -                  | DONE   |
-| 074  | Guard billing mirror writes with event ordering      | P1       | M      | 069-073            | DONE   |
 | 075  | Harden account email change and login errors         | P1       | M      | -                  | DONE   |
 | 076  | Batch onboarding resync writes                       | P2       | S-M    | -                  | DONE   |
 | 077  | Remove legacy PKCE code-exchange paths               | P3       | S      | -                  | DONE   |
-| 078  | Billing launch rehearsal go/no-go pack               | P1       | M      | -                  | DONE   |
 | 079  | Reconcile paid-plan and beta-lane contract           | P1       | M      | 078                | DONE   |
 | 080  | Decide public acquisition path                       | P1       | M      | 079                | DONE   |
 | 081  | Surface first-run owner checklist                    | P2       | M      | 080                | DONE   |
 | 082  | Package operational security evidence                | P1       | M      | -                  | DONE   |
 | 083  | Public account creation and abuse controls           | P1       | L      | 080                | DONE   |
 | 084  | Self-service organization creation and onboarding    | P1       | M-L    | 083, 081           | DONE   |
-| 085  | Self-service checkout and billing recovery           | P1       | L      | 083, 084, 078      | DONE   |
 | 086  | Support/admin visibility for self-service            | P1       | M-L    | 083, 084, 085, 082 | DONE   |
 | 087  | Self-service acquisition E2E coverage                | P1       | L      | 083, 084, 085, 086 | DONE   |
 | 088  | Self-service Organization Invitation branch          | P1       | M      | 083                | DONE   |
 | 089  | Paid-launch legal/trust/contact surface              | P1       | M      | -                  | DONE   |
-| 090  | Billing launch readiness gate                        | P1       | M      | 083-087            | DONE   |
-| 091  | Billing health and support workflow                  | P1       | M-L    | 085, 086           | DONE   |
 | 092  | Acquisition and activation health visibility         | P2       | M-L    | 081, 083-087       | DONE   |
 | 093  | Starter configuration packs for first-week workflows | P2       | M-L    | 081, 084, 092      | DONE   |
 
@@ -144,7 +135,7 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJE
 - 2026-06-28: Plan 093 was added after Robert selected the top post-launch `$improve next` direction: opt-in starter configuration packs for first-week workflows. It builds on completed plans 081, 084, and 092 by composing existing Training Type, onboarding template, and Duty Roster template seams rather than adding more automatic Organization provisioning or activation analytics.
 - 2026-06-28: Plan 093 was completed on branch `codex/plan-93` after isolated `$improve execute` work in `.worktrees/093-starter-configuration-packs` was reviewed and brought onto the plan branch. The branch adds an opt-in **First Week Operations** starter pack using existing Training Type, onboarding template, and Duty Roster template write seams with no migrations or Organization-create auto-seeding. Local CodeRabbit findings were fixed through review follow-up commits until CodeRabbit returned zero findings; Claude's remaining duplicate Staff Duty assignment-type concern was declined as a product/seam decision outside this slice. Chrome QA covered dashboard apply/reload, training, onboarding template, duty-roster template, and mobile dashboard layout; the mobile artifact preview overflow found during QA was fixed before closeout.
 
-## Dependency Notes
+## Historical dependency notes
 
 - 006 can be implemented before 001 and 003 if the executor only wires the harness, but it becomes more valuable after 001 and 003 add pgTAP coverage for the sensitive RPC and org ownership findings.
 - 001 and 002 cover different layers of cleanup access. 001 closes direct database RPC access; 002 closes the app endpoint bearer-secret hole.

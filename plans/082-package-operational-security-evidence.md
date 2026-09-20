@@ -1,17 +1,6 @@
 # Plan 082: Package operational security evidence for launch readiness
 
-> **Executor instructions**: Follow this plan step by step. Run every
-> verification command and confirm the expected result before moving to the
-> next step. Do not invent compliance evidence. If Robert does not have an
-> operational control artifact yet, document it as missing or planned. When
-> done, update the status row for this plan in `plans/README.md` unless a
-> reviewer dispatched you and told you they maintain the index.
->
-> **Drift check (run first)**:
-> `git diff --stat 03af64cb..HEAD -- docs/security src/routes/security/+page.svelte src/tests/security-posture.test.ts docs/billing-operations-launch-checklist.md docs/architecture/ADR_INDEX.md`
-> If any in-scope file changed since this plan was written, compare the
-> "Current state" excerpts against the live code before proceeding; on a
-> mismatch, treat it as a STOP condition.
+Historical implementation record. The [stabilization queue](../docs/stabilization/TODO.md) owns current work; the executor/drift instructions for this completed plan are retired. References below to deleted billing runbooks, plans or code identify historical inputs and do not authorize restoring them. Retained behavior and verification remain governed by the queue. Current acquisition/support guidance is in [Launch Acquisition Path](../docs/launch-acquisition-path.md); external commercial retirement follows [RELEASE](../docs/stabilization/RELEASE.md#commercial-operations-retirement--03-07b-01).
 
 ## Status
 
@@ -51,6 +40,7 @@ Current excerpts:
 ```md
 docs/security/control-mapping.md
 Partial:
+
 - NIST 800-171 alignment evidence
   The codebase now supports the core technical claims much better, but formal
   evidence for operational controls still lives outside the repo and is not
@@ -60,6 +50,7 @@ Partial:
 ```md
 docs/security/control-mapping.md
 Planned:
+
 - Operational control evidence pack
   Add or link runbooks and review artifacts for incident response, access
   review, provisioning/deprovisioning, and backup/restore evidence.
@@ -67,17 +58,16 @@ Planned:
 
 ```svelte
 src/routes/security/+page.svelte
-<p>TroopToTask aligns with NIST SP 800-171 for the protection of Controlled
-Unclassified Information.</p>
+<p>TroopToTask aligns with NIST SP 800-171 for the protection of Controlled Unclassified Information.</p>
 ```
 
 ## Commands you will need
 
-| Purpose | Command | Expected on success |
-| --- | --- | --- |
-| Security posture test | `npx vitest run src/tests/security-posture.test.ts` | all pass |
-| Security page test | run any existing tests for `src/routes/security/+page.svelte` if present | all pass |
-| Full repo gate | `npm run format && npm run lint && npm run governance:check && npm run check && npm run test` | all exit 0 |
+| Purpose               | Command                                                                                       | Expected on success |
+| --------------------- | --------------------------------------------------------------------------------------------- | ------------------- |
+| Security posture test | `npx vitest run src/tests/security-posture.test.ts`                                           | all pass            |
+| Security page test    | run any existing tests for `src/routes/security/+page.svelte` if present                      | all pass            |
+| Full repo gate        | `npm run format && npm run lint && npm run governance:check && npm run check && npm run test` | all exit 0          |
 
 ## Scope
 

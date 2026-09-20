@@ -51,3 +51,47 @@ Before a releasing push or merge, complete the preceding notice/backups and app/
 Only after no deployed application, external operator or required rollback candidate needs them, remove hosted `PUBLIC_BILLING_ENABLED`, any legacy `BILLING_ENABLED`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_TEAM_PRICE_ID`, `STRIPE_UNIT_PRICE_ID`, `STRIPE_TEAM_LEGACY_PRICE_IDS`, `STRIPE_UNIT_LEGACY_PRICE_IDS`, `STRIPE_AUTOMATIC_TAX_ENABLED` and `STRIPE_TAX_DASHBOARD_VERIFIED`, plus the earlier scheduled-reconciliation variables. Preserve Supabase, auth/email, canonical origins, `CRON_SECRET` and cleanup secrets. Restoring an older application requires its corresponding provider configuration and delivery settings; do not assume code-only rollback is sufficient.
 
 Vercel push/merge may deploy; external triggers, provider state and hosted configuration remain **UNVERIFIED** owner prerequisites. Repository CI remains manual and no automatic remote migration is introduced. Stored commercial data and applied SQL remain for phase 04. This record does not perform or authorize provider, deployment or remote database operations. Current commercial documentation and the full D05 acceptance remain unfinished under 03-07b.
+
+## Commercial operations retirement — 03-07b-01
+
+This sequence supersedes the deleted paid-launch, portal, cancellation and
+billing-verification runbooks. Earlier sections record each leaf's removal;
+references there to later leaves describe that historical order. The current
+candidate has no billing delivery/provider/configuration, while mixed public
+and operator documentation and full D05 acceptance remain under 03-07b-02/03.
+No hosted state has been inspected or changed.
+
+Before a publication that releases D05, Robert must complete these steps through
+separately authorized owner actions:
+
+1. Verify the actual candidate and Vercel preview/production triggers, owner and
+   user notices, applicable backups, existing-schema compatibility and rollback
+   requirements. Preserve the phase-02 deployment runbook and D04 export-authority
+   migration. Repository CI is manual; no remote migration is automated here.
+2. Identify external reconciliation schedules, copied operator scripts, webhook
+   destinations/retries, billing notifications, checkout/portal links and open
+   checkout sessions. Disable or retire those callers before their application
+   endpoints disappear. The four retained cleanup crons and shared cleanup secrets
+   stay in use.
+3. Separately disposition provider subscriptions, charges, invoice/refund/tax
+   obligations and outstanding events. Removing application code or runbooks
+   does not cancel charges, erase records or alter existing commitments. Keep
+   support at `support@trooptotask.org`; record dates, owners and artifact types
+   externally without secrets, card data or raw provider payloads.
+4. Release the reviewed runtime only after D05 acceptance and separately authorized
+   publication/merge. Verify retained acquisition/authentication, Organization
+   access and scoped workflows without commercial environment values; confirm
+   retired endpoints cannot perform billing. Repository checks do not prove
+   hosted completion.
+5. Retire hosted flags, price/tax settings and credentials listed in the preceding
+   configuration section only after deployed applications, external operators and
+   the agreed rollback candidate no longer need them. Preserve auth/email,
+   canonical origins and cleanup credentials. Restoring older code requires a
+   compatible schema and its corresponding provider/delivery configuration.
+6. Leave stored commercial objects and applied SQL intact for phase 04's separate
+   schema acceptance and operator handoff. This sequence authorizes no remote
+   database, provider, financial or deployment action.
+
+External deployment settings, provider disposition, caller shutdown and hosted
+verification remain **UNVERIFIED** owner prerequisites. Deleting the empty
+launch-confirmation ledger creates no completion evidence.

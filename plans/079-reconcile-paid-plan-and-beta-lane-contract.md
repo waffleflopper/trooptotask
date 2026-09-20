@@ -1,18 +1,6 @@
 # Plan 079: Reconcile the paid-plan contract and beta-lane launch messaging
 
-> **Executor instructions**: Follow this plan step by step. Run every
-> verification command and confirm the expected result before moving to the
-> next step. This plan has Robert-owned decision gates in Step 0. If the
-> decisions are not available, stop and report; do not guess final pricing or
-> launch promises. When done, update the status row for this plan in
-> `plans/README.md` unless a reviewer dispatched you and told you they maintain
-> the index.
->
-> **Drift check (run first)**:
-> `git diff --stat 03af64cb..HEAD -- src/lib/types/subscription.ts src/lib/server/core/useCases/planPolicy.ts src/lib/components/orgNavigation.ts src/lib/components/orgNavigation.test.ts src/routes/+page.svelte src/lib/components/public/PublicCta.svelte src/lib/components/public/PublicSiteNav.svelte src/lib/components/public/PublicFooter.svelte docs/billing-operations-launch-checklist.md docs/billing-launch-verification.md`
-> If any in-scope file changed since this plan was written, compare the
-> "Current state" excerpts against the live code before proceeding; on a
-> mismatch, treat it as a STOP condition.
+Historical implementation record. The [stabilization queue](../docs/stabilization/TODO.md) owns current work; the executor/drift instructions for this completed plan are retired. References below to deleted billing runbooks, plans or code identify historical inputs and do not authorize restoring them. Retained behavior and verification remain governed by the queue. Current acquisition/support guidance is in [Launch Acquisition Path](../docs/launch-acquisition-path.md); external commercial retirement follows [RELEASE](../docs/stabilization/RELEASE.md#commercial-operations-retirement--03-07b-01).
 
 ## Status
 
@@ -60,9 +48,7 @@ const plans = [
 ```svelte
 src/routes/+page.svelte
 <span>Free during beta</span>
-...
-All plans are free during beta. Paid tiers later scale by personnel capacity
-...
+... All plans are free during beta. Paid tiers later scale by personnel capacity ...
 <div class="cta-final__meta">Free during beta / Paid plans later</div>
 ```
 
@@ -87,13 +73,13 @@ unit: {
 
 ## Commands you will need
 
-| Purpose | Command | Expected on success |
-| --- | --- | --- |
-| Svelte docs | Svelte MCP `list-sections`, then `get-documentation` for relevant Svelte/SvelteKit sections | docs read before editing `.svelte` files |
-| Svelte autofix | `svelte-autofixer` on edited Svelte files | no issues or suggestions remain |
-| Subscription/plan tests | `npx vitest run src/lib/server/core/useCases/planPolicy.test.ts src/lib/server/core/useCases/planPolicyGates.test.ts src/routes/org/[orgId]/billing/page.server.test.ts src/lib/components/orgNavigation.test.ts` | all pass |
-| Public route/component tests | run any existing tests touched by changed public components | all pass |
-| Full repo gate | `npm run format && npm run lint && npm run governance:check && npm run check && npm run test` | all exit 0 |
+| Purpose                      | Command                                                                                                                                                                                                           | Expected on success                      |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
+| Svelte docs                  | Svelte MCP `list-sections`, then `get-documentation` for relevant Svelte/SvelteKit sections                                                                                                                       | docs read before editing `.svelte` files |
+| Svelte autofix               | `svelte-autofixer` on edited Svelte files                                                                                                                                                                         | no issues or suggestions remain          |
+| Subscription/plan tests      | `npx vitest run src/lib/server/core/useCases/planPolicy.test.ts src/lib/server/core/useCases/planPolicyGates.test.ts src/routes/org/[orgId]/billing/page.server.test.ts src/lib/components/orgNavigation.test.ts` | all pass                                 |
+| Public route/component tests | run any existing tests touched by changed public components                                                                                                                                                       | all pass                                 |
+| Full repo gate               | `npm run format && npm run lint && npm run governance:check && npm run check && npm run test`                                                                                                                     | all exit 0                               |
 
 ## Scope
 

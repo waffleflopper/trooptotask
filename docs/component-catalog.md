@@ -679,7 +679,7 @@ Guidance:
 
 ### `public/PublicPageHeader.svelte`
 
-Shared inner-page hero/header for marketing, legal, pricing, and trust pages.
+Shared inner-page hero/header for marketing, legal, and trust pages.
 
 Props: `label: string`, `title: Snippet`, `children?: Snippet`
 

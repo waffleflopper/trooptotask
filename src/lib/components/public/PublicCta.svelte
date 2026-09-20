@@ -12,7 +12,7 @@
 		user,
 		titleBefore = 'Ready to streamline',
 		emphasis = 'your unit?',
-		subtitle = 'Request reviewed access and we will help configure the right plan for your formation.'
+		subtitle = 'Request reviewed access for your formation.'
 	}: Props = $props();
 </script>
 

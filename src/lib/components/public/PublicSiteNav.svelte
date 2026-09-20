@@ -34,7 +34,6 @@
 
 		<div class="nav-links">
 			<a href={resolve('/about')} class="nav-link" class:active={active === 'about'}>About</a>
-			<a href={resolve('/#pricing')} class="nav-link">Pricing</a>
 			<a href={resolve('/security')} class="nav-link" class:active={active === 'security'}>Security</a>
 			{#if showFaqLink}
 				<a href={resolve(faqHref)} class="nav-link">FAQ</a>

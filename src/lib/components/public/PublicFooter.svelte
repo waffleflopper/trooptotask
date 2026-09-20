@@ -14,7 +14,6 @@
 				<div class="footer__links-col">
 					<div class="footer__link-heading">Product</div>
 					<a href={resolve('/about')} class="footer__link">About</a>
-					<a href={resolve('/#pricing')} class="footer__link">Pricing</a>
 					<a href={resolve('/security')} class="footer__link">Security</a>
 					<a href={resolve('/#faq')} class="footer__link">FAQ</a>
 				</div>

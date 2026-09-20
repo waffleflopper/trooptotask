@@ -14,10 +14,6 @@ const NAV_GROUPS = [
 		]
 	},
 	{
-		label: 'BILLING',
-		items: [{ label: 'Subscriptions', href: '/admin/subscriptions', page: 'subscriptions' }]
-	},
-	{
 		label: 'SYSTEM',
 		items: [
 			{ label: 'Audit Log', href: '/admin/audit', page: 'audit' },

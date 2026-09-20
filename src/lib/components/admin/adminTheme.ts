@@ -40,7 +40,6 @@ export function adminBadgeVariant(value: string | null | undefined): BadgeVarian
 		case 'active':
 		case 'approved':
 		case 'resolved':
-		case 'healthy':
 		case 'activated':
 			return 'success';
 		case 'suspended':
@@ -48,43 +47,21 @@ export function adminBadgeVariant(value: string | null | undefined): BadgeVarian
 		case 'critical':
 		case 'bug':
 		case 'maintenance':
-		case 'permanent_failure':
 		case 'diagnostics_unavailable':
 			return 'danger';
 		case 'gifted':
-		case 'admin_gift':
-		case 'feature_override':
 		case 'new':
 		case 'unit':
 		case 'owner':
 		case 'warning':
-		case 'needs_retry':
-		case 'drift_detected':
-		case 'payment_recovery_attention':
-		case 'reconciliation_stale':
 		case 'needs_attention':
 			return 'warning';
-		case 'stripe_billing':
 		case 'team':
 		case 'admin':
 		case 'info':
 		case 'feature':
 		case 'in_progress':
 			return 'info';
-		default:
-			return 'secondary';
-	}
-}
-
-export function adminPlanStatusBadgeVariant(value: string | null | undefined): BadgeVariant {
-	switch (value) {
-		case 'over_limit':
-		case 'read_only':
-			return 'destructive';
-		case 'limit_reached':
-			return 'warning';
-		case 'within_limit':
-			return 'success';
 		default:
 			return 'secondary';
 	}

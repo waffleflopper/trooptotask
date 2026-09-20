@@ -213,7 +213,7 @@
 				<Card.Description>Fast paths into the highest-traffic admin workflows.</Card.Description>
 			</Card.Header>
 			<Card.Content class="grid gap-2">
-				{#each [{ href: '/admin/users', label: 'Search Users' }, { href: '/admin/organizations', label: 'Inspect Orgs' }, { href: '/admin/access-requests', label: 'Access Queue' }, { href: '/admin/feedback', label: 'Feedback Queue' }, { href: '/admin/subscriptions', label: 'Subscriptions' }] as link (link.href)}
+				{#each [{ href: '/admin/users', label: 'Search Users' }, { href: '/admin/organizations', label: 'Inspect Orgs' }, { href: '/admin/access-requests', label: 'Access Queue' }, { href: '/admin/feedback', label: 'Feedback Queue' }] as link (link.href)}
 					<Button href={link.href} variant="outline" class="justify-start">{link.label}</Button>
 				{/each}
 				<Separator class="my-1" />

@@ -16,7 +16,7 @@ function renderOrganizationsPage(data: Partial<PageProps['data']>) {
 		session: null,
 		adminUserId: 'admin-1',
 		adminEmail: 'admin@example.test',
-		adminRole: 'billing',
+		adminRole: 'support',
 		accessiblePages: ['dashboard', 'users', 'organizations'],
 		visibleNavGroups: [
 			{
@@ -31,7 +31,6 @@ function renderOrganizationsPage(data: Partial<PageProps['data']>) {
 			totalCount: 0,
 			totalPages: 1,
 			q: '',
-			tier: 'all',
 			status: 'all'
 		},
 		activationHealth: {
@@ -72,10 +71,6 @@ describe('admin organizations page', () => {
 				{
 					id: 'org-1',
 					name: 'Able Company',
-					tier: 'team',
-					gift_tier: null,
-					gift_expires_at: null,
-					effectiveTier: 'team',
 					memberCount: 1,
 					personnelCount: 2,
 					ownerEmail: 'owner@example.com',
@@ -90,7 +85,6 @@ describe('admin organizations page', () => {
 				totalCount: 1,
 				totalPages: 1,
 				q: '',
-				tier: 'all',
 				status: 'all'
 			},
 			activationHealth: {
@@ -175,6 +169,21 @@ describe('admin organizations page', () => {
 		expect(document.body.textContent).not.toContain('raw IP');
 		expect(document.body.textContent).not.toContain('analytics identifier');
 		expect(document.body.textContent).not.toContain('sk_test_');
+	});
+
+	it('keeps search, page size and suspension status when navigating the Organization index', () => {
+		renderOrganizationsPage({
+			pagination: { page: 2, pageSize: 25, totalCount: 60, totalPages: 3, q: 'Able & Baker', status: 'suspended' }
+		});
+		expect(screen.getByRole('searchbox', { name: 'Search' })).toHaveProperty('value', 'Able & Baker');
+		expect(screen.getByRole('combobox', { name: 'Status' })).toHaveProperty('value', 'suspended');
+		expect(screen.getByRole('combobox', { name: 'Rows' })).toHaveProperty('value', '25');
+		expect(screen.getByRole('link', { name: 'Previous' }).getAttribute('href')).toBe(
+			'/admin/organizations?page=1&pageSize=25&q=Able+%26+Baker&status=suspended'
+		);
+		expect(screen.getByRole('link', { name: 'Next' }).getAttribute('href')).toBe(
+			'/admin/organizations?page=3&pageSize=25&q=Able+%26+Baker&status=suspended'
+		);
 	});
 
 	it('warns when activation health diagnostics are unavailable', () => {

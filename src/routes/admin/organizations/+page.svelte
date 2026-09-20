@@ -19,7 +19,6 @@
 	let { data } = $props();
 
 	const organizationsRouteRoot = resolve('/admin/organizations');
-	const tierFilter = $derived(data.pagination.tier ?? 'all');
 	const statusFilter = $derived(data.pagination.status ?? 'all');
 	type ActivationOrganization = NonNullable<PageData['activationHealth']>['organizations'][number];
 	const activationHealth = $derived(
@@ -58,7 +57,6 @@
 		params.set('page', pageNumber.toString());
 		params.set('pageSize', data.pagination.pageSize.toString());
 		if (data.pagination.q) params.set('q', data.pagination.q);
-		if (tierFilter !== 'all') params.set('tier', tierFilter);
 		if (statusFilter !== 'all') params.set('status', statusFilter);
 		return `${organizationsRouteRoot}?${params.toString()}`;
 	}
@@ -85,7 +83,7 @@
 <PageShell.Root width="wide">
 	<PageShell.Header
 		title="Organizations"
-		subtitle="Review organization health, ownership, plan state, and suspension status from the central platform index."
+		subtitle="Review organization health, ownership, and suspension status from the central platform index."
 	/>
 
 	<PageShell.FactGrid layout="three">
@@ -214,7 +212,7 @@
 			<form
 				method="GET"
 				action={organizationsRouteRoot}
-				class="grid flex-1 gap-3 xl:grid-cols-[minmax(16rem,1fr)_9rem_minmax(10rem,1fr)_minmax(10rem,1fr)_auto] xl:items-end"
+				class="grid flex-1 gap-3 xl:grid-cols-[minmax(16rem,1fr)_9rem_minmax(10rem,1fr)_auto] xl:items-end"
 			>
 				<input type="hidden" name="page" value="1" />
 				<Field.Root>
@@ -233,15 +231,6 @@
 						<option value="25">25</option>
 						<option value="50">50</option>
 						<option value="100">100</option>
-					</NativeSelect>
-				</Field.Root>
-				<Field.Root>
-					<Field.Label for="tier-filter">Tier</Field.Label>
-					<NativeSelect id="tier-filter" name="tier" value={tierFilter}>
-						<option value="all">All tiers</option>
-						<option value="free">Free</option>
-						<option value="team">Team</option>
-						<option value="unit">Unit</option>
 					</NativeSelect>
 				</Field.Root>
 				<Field.Root>
@@ -264,7 +253,6 @@
 				<Table.Header>
 					<Table.Row>
 						<Table.Head>Name</Table.Head>
-						<Table.Head>Tier</Table.Head>
 						<Table.Head>Members</Table.Head>
 						<Table.Head>Personnel</Table.Head>
 						<Table.Head>Owner</Table.Head>
@@ -286,14 +274,6 @@
 									</code>
 								</div>
 							</Table.Cell>
-							<Table.Cell>
-								<div class="flex flex-wrap gap-2">
-									<Badge variant={adminBadgeVariant(org.effectiveTier)}>{formatAdminLabel(org.effectiveTier)}</Badge>
-									{#if org.gift_tier}
-										<Badge variant="warning">Gift</Badge>
-									{/if}
-								</div>
-							</Table.Cell>
 							<Table.Cell>{org.memberCount}</Table.Cell>
 							<Table.Cell>{org.personnelCount}</Table.Cell>
 							<Table.Cell class="max-w-60 break-words text-muted-foreground">{org.ownerEmail || '-'}</Table.Cell>
@@ -306,7 +286,7 @@
 						</Table.Row>
 					{:else}
 						<Table.Row>
-							<Table.Cell colspan={7}>
+							<Table.Cell colspan={6}>
 								<Empty.Root>
 									<Empty.Header>
 										<Empty.Title>No matching organizations.</Empty.Title>

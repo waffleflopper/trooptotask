@@ -179,28 +179,16 @@ Robert has confirmed the public support channels for paid launch:
 - Privacy: `privacy@trooptotask.org`.
 - Security: `security@trooptotask.org`.
 
-After launch, use the runtime billing health surfaces before opening Stripe:
-
-- Admin -> Subscriptions shows Billing Health across paid Organizations, including retryable webhook failures, permanent failures, payment recovery attention, billing drift, and stale reconciliation. The Billing Drift metric comes from the health scan rather than the current table page.
-- Each Billing Health item exposes a support bundle with Organization ID/name, safe Stripe customer ID or subscription ID when the admin role is allowed to see it, latest webhook event IDs, billing state, reconciliation result, and next-step labels.
-- Copy the support bundle into support notes only when it does not include secrets. It must not include card details, payment method data, raw webhook payloads, API keys, webhook secrets, session cookies, or Stripe signature values.
-
-Billing health triage:
-
-- `needs_retry`: the in-app webhook retry tool has been retired. Escalate to Robert with support-safe context before any separately authorized provider action.
-- `permanent_failure`: do not retry blindly. Escalate with the support bundle and inspect the support-safe billing snapshot/reconciliation result.
-- `payment_recovery_attention`: confirm whether the Organization is in payment failed grace or terminal collection state. Ask the customer to update payment through the supported portal path; do not ask for card details or payment method screenshots.
-- `drift_detected` or `reconciliation_stale`: escalate to Robert with the support bundle before any separately authorized provider action. The Organization detail reconciliation action has been retired; stale observations do not establish current billing state.
-- `diagnostics_unavailable`: reload or investigate the admin health read before copying a bundle or communicating a billing conclusion.
+The in-app subscription ledger, Billing Health bundles, gifting, webhook retry and Organization-detail reconciliation tools are retired. Payment/provider investigation requires separately authorized owner-operated evidence; the remaining Organization index supports identity, ownership and suspension. Billing delivery remains scheduled for removal in phase 03 D05.
 
 Before launch, Robert should still confirm:
 
 - Who can access Stripe Dashboard in test and live mode.
 - Where to record support notes without exposing secrets or payment details.
 - How to respond to payment failures, failed checkout, duplicate checkout attempts, portal access denials, cancellation questions, and over-limit billing locks.
-- How to correlate a ticket using Stripe customer ID, subscription ID, latest webhook event, billing snapshot, remaining Billing Health support bundle, and reconciliation result.
+- How to correlate a ticket using Stripe customer ID, subscription ID, latest webhook event, billing snapshot, and reconciliation result from separately authorized operator evidence.
 
-Support should use the remaining Billing Health support bundle and Stripe Dashboard IDs. Do not ask customers for card details, full payment method data, or screenshots to place in repo docs.
+Provider evidence requires separate owner authorization. Do not ask customers for card details, full payment method data, or screenshots to place in repo docs.
 
 Self-service acquisition support should start in the app before Stripe:
 
@@ -210,8 +198,6 @@ Self-service acquisition support should start in the app before Stripe:
   questions.
 - Admin -> Organizations shows whether the first Organization exists, who owns
   it, and its suspension state.
-- Admin -> Subscriptions show support-safe checkout,
-  payment recovery, cancellation, and webhook state.
 
 Safe correlation identifier types are Organization ID, user ID, Stripe customer
 ID, subscription ID, invoice ID, webhook event ID, and app audit-log ID. Do not

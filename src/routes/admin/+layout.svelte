@@ -6,7 +6,6 @@
 		Bell,
 		Building2,
 		ClipboardList,
-		CreditCard,
 		FileText,
 		Gauge,
 		LogOut,
@@ -33,7 +32,6 @@
 		organizations: Building2,
 		'access-requests': ShieldCheck,
 		feedback: ClipboardList,
-		subscriptions: CreditCard,
 		audit: FileText,
 		announcements: Bell
 	};

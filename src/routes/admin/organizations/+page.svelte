@@ -29,14 +29,11 @@
 			counts: {
 				candidateOrganizations: 0,
 				activatedOrganizations: 0,
-				checkoutStarted: 0,
-				checkoutCompleted: 0,
 				meaningfulRosters: 0,
 				acceptedLeaders: 0,
 				dutyRosterStarted: 0,
 				setupStarted: 0,
-				paidBelowRosterThreshold: 0,
-				supportAttentionItems: 0
+				inProgressOrganizations: 0
 			},
 			organizations: [],
 			diagnosticsError: true
@@ -98,11 +95,11 @@
 			detail={`Page ${data.pagination.page} of ${data.pagination.totalPages}.`}
 		/>
 		<PageShell.Metric
-			label="Activation Attention"
-			value={activationHealth.diagnosticsError ? 'Unavailable' : activationHealth.counts.supportAttentionItems}
+			label="Activation in Progress"
+			value={activationHealth.diagnosticsError ? 'Unavailable' : activationHealth.counts.inProgressOrganizations}
 			detail={activationHealth.diagnosticsError
 				? 'Activation health diagnostics could not be fully loaded.'
-				: `${activationHealth.counts.paidBelowRosterThreshold} paid Organizations below the 5-person roster threshold. Counts cover up to ${activationHealth.candidateLimit} launch candidates.`}
+				: `Organizations with incomplete activation milestones. Counts cover up to ${activationHealth.candidateLimit} newest Organizations.`}
 		/>
 	</PageShell.FactGrid>
 
@@ -111,7 +108,7 @@
 			<TriangleAlert />
 			<Alert.Title>Activation health diagnostics could not be fully loaded.</Alert.Title>
 			<Alert.Description>
-				Checkout, roster, member, Duty Roster, and setup counts may be incomplete until the health scan succeeds.
+				Roster, member, Duty Roster, and setup counts may be incomplete until the health scan succeeds.
 			</Alert.Description>
 		</Alert.Root>
 	{/if}
@@ -125,9 +122,8 @@
 						Activation health data is unavailable until diagnostics load successfully.
 					{:else}
 						{formatAdminLabel(activationHealth.overallState)} · {activationHealth.counts.candidateOrganizations}
-						self-service or paid candidates · {activationHealth.counts.activatedOrganizations} activated. Counts cover up
-						to
-						{activationHealth.candidateLimit} launch candidates.
+						Organizations · {activationHealth.counts.activatedOrganizations} activated. Counts cover up to
+						{activationHealth.candidateLimit} newest Organizations.
 					{/if}
 				</Card.Description>
 			</div>
@@ -136,7 +132,6 @@
 					{formatAdminLabel(activationHealth.overallState)}
 				</Badge>
 				{#if !activationHealth.diagnosticsError}
-					<Badge variant="secondary">{activationHealth.counts.checkoutCompleted} checkout complete</Badge>
 					<Badge variant="secondary">{activationHealth.counts.meaningfulRosters} meaningful rosters</Badge>
 				{/if}
 			</div>
@@ -202,7 +197,7 @@
 					</p>
 				{/if}
 			{:else}
-				<p class="text-sm text-muted-foreground">No self-service or paid activation health candidates found.</p>
+				<p class="text-sm text-muted-foreground">No Organizations found for activation health.</p>
 			{/if}
 		</Card.Content>
 	</Card.Root>

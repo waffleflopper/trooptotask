@@ -87,14 +87,11 @@ describe('admin organizations route load', () => {
 			counts: {
 				candidateOrganizations: 0,
 				activatedOrganizations: 0,
-				checkoutStarted: 0,
-				checkoutCompleted: 0,
 				meaningfulRosters: 0,
 				acceptedLeaders: 0,
 				dutyRosterStarted: 0,
 				setupStarted: 0,
-				paidBelowRosterThreshold: 0,
-				supportAttentionItems: 0
+				inProgressOrganizations: 0
 			},
 			organizations: [],
 			diagnosticsError: false
@@ -197,7 +194,7 @@ describe('admin organizations route load', () => {
 			diagnosticsError: true,
 			counts: {
 				candidateOrganizations: 0,
-				supportAttentionItems: 0
+				inProgressOrganizations: 0
 			},
 			organizations: []
 		});

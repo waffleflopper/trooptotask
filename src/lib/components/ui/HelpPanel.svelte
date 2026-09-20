@@ -83,7 +83,7 @@
 		{
 			id: 'settings',
 			title: 'Settings help',
-			description: 'Manage organization settings, access, policies, billing, and data exports.',
+			description: 'Manage organization settings, access, policies, and data exports.',
 			items: [
 				'Review access roles before changing members.',
 				'Keep policy settings explicit.',

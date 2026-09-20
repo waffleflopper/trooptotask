@@ -29,7 +29,7 @@ const devConnectSources = import.meta.env.DEV
 	: '';
 
 const securityHeaders: Record<string, string> = {
-	'Content-Security-Policy': `default-src 'self'; script-src 'self' 'unsafe-inline' https://js.stripe.com https://va.vercel-scripts.com${impeccableLiveDevSources}; style-src 'self' 'unsafe-inline'; frame-src https://js.stripe.com; connect-src 'self' https://*.supabase.co https://vitals.vercel-insights.com${devConnectSources}; img-src 'self' data: blob:; font-src 'self'`,
+	'Content-Security-Policy': `default-src 'self'; script-src 'self' 'unsafe-inline' https://va.vercel-scripts.com${impeccableLiveDevSources}; style-src 'self' 'unsafe-inline'; frame-src 'none'; connect-src 'self' https://*.supabase.co https://vitals.vercel-insights.com${devConnectSources}; img-src 'self' data: blob:; font-src 'self'`,
 	'X-Frame-Options': 'DENY',
 	'X-Content-Type-Options': 'nosniff',
 	'Referrer-Policy': 'strict-origin-when-cross-origin',

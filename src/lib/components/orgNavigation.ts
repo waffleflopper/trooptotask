@@ -53,13 +53,7 @@ const ORG_ROUTE_CHILD_BREADCRUMBS: Record<string, Record<string, string>> = {
 };
 
 const SUPPORT_ROUTE_BREADCRUMBS: Record<string, string> = {
-	settings: 'Settings',
-	billing: 'Billing'
-};
-
-const BILLING_CHILD_BREADCRUMBS: Record<string, string> = {
-	success: 'Success',
-	canceled: 'Canceled'
+	settings: 'Settings'
 };
 
 export function getOrgNavigation(orgId: string, access: CapabilityMap): OrgNavItem[] {
@@ -209,7 +203,7 @@ function getSupportRouteBreadcrumbs(pathname: string, orgCrumb: OrgBreadcrumb): 
 		.slice(orgBasePath.length + 1)
 		.split('/')
 		.filter(Boolean);
-	const [primarySegment, childSegment] = segments;
+	const [primarySegment] = segments;
 
 	const primaryLabel = SUPPORT_ROUTE_BREADCRUMBS[primarySegment];
 	if (!primaryLabel) {
@@ -217,12 +211,5 @@ function getSupportRouteBreadcrumbs(pathname: string, orgCrumb: OrgBreadcrumb): 
 	}
 
 	const breadcrumbs: OrgBreadcrumb[] = [orgCrumb, { label: primaryLabel }];
-	const childLabel = primarySegment === 'billing' ? BILLING_CHILD_BREADCRUMBS[childSegment] : undefined;
-
-	if (childLabel) {
-		breadcrumbs[1].href = `${orgBasePath}/${primarySegment}`;
-		breadcrumbs.push({ label: childLabel });
-	}
-
 	return breadcrumbs;
 }

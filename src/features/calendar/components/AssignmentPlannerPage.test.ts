@@ -184,11 +184,17 @@ describe('AssignmentPlannerPage', () => {
 	});
 });
 
-it('saves monthly Group choices and quick fills by ID while displaying current names', async () => {
+it('offers each Group and assignment type once and saves monthly and quick-fill choices by ID', async () => {
 	mockOrg = makeOrg();
 	const groupType = { ...modType, id: 'group-duty', name: 'Group Duty', shortName: 'GD', assignTo: 'group' as const };
-	dailyAssignmentsStore.load([groupType], [], 'org-1');
-	groupsStore.load([{ id: 'group-alpha', name: 'Alpha Renamed', sortOrder: 0 }], 'org-1');
+	dailyAssignmentsStore.load([groupType, modType], [], 'org-1');
+	groupsStore.load(
+		[
+			{ id: 'group-alpha', name: 'Alpha Renamed', sortOrder: 0 },
+			{ id: 'group-bravo', name: 'Bravo', sortOrder: 1 }
+		],
+		'org-1'
+	);
 	const saved: Record<string, unknown>[] = [];
 	vi.stubGlobal(
 		'fetch',
@@ -205,11 +211,14 @@ it('saves monthly Group choices and quick fills by ID while displaying current n
 	try {
 		renderPage();
 		await fireEvent.click(screen.getAllByRole('button', { name: /^Select Group Duty group for/ })[0]);
+		expect(screen.getByRole('option', { name: 'Bravo' })).toBeTruthy();
 		await fireEvent.click(screen.getByRole('option', { name: 'Alpha Renamed' }));
 		expect(saved[0]).toMatchObject({ assignmentTypeId: 'group-duty', assigneeId: 'group-alpha' });
 		await fireEvent.click(screen.getByRole('button', { name: 'Select assignment type' }));
+		expect(screen.getByRole('option', { name: 'MOD - Manager on Duty' })).toBeTruthy();
 		await fireEvent.click(screen.getByRole('option', { name: 'GD - Group Duty' }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Select quick-fill group' }));
+		expect(screen.getByRole('option', { name: 'Bravo' })).toBeTruthy();
 		await fireEvent.click(screen.getByRole('option', { name: 'Alpha Renamed' }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
 		const batch = saved.find((payload) => Array.isArray(payload.records));

@@ -1,16 +1,6 @@
 # Plan 086: Add support and admin visibility for self-service customers
 
-> **Executor instructions**: Follow this plan step by step. Run every
-> verification command and confirm the expected result before moving to the
-> next step. If anything in the "STOP conditions" section occurs, stop and
-> report. When done, update the status row for this plan in `plans/README.md`
-> unless a reviewer dispatched you and told you they maintain the index.
->
-> **Drift check (run first)**:
-> `git diff --stat d485cdc5..HEAD -- docs/launch-acquisition-path.md docs/security docs/billing-operations-launch-checklist.md src/routes/admin src/lib/server/admin.ts src/lib/server/platformAccessRequestRateLimit.ts src/lib/server/core/useCases/billingState.ts src/routes/admin/billing-events`
-> If any in-scope file changed since this plan was written, compare the
-> "Current state" excerpts against the live code before proceeding; on a
-> mismatch, treat it as a STOP condition.
+Historical implementation record. The [stabilization queue](../docs/stabilization/TODO.md) owns current work; the executor/drift instructions for this completed plan are retired. References below to deleted billing runbooks, plans or code identify historical inputs and do not authorize restoring them. Retained behavior and verification remain governed by the queue. Current acquisition/support guidance is in [Launch Acquisition Path](../docs/launch-acquisition-path.md); external commercial retirement follows [RELEASE](../docs/stabilization/RELEASE.md#commercial-operations-retirement--03-07b-01).
 
 ## Status
 
@@ -75,12 +65,12 @@ Treat Platform Administration as its own product boundary for TroopToTask-wide s
 
 ## Commands you will need
 
-| Purpose | Command | Expected on success |
-| --- | --- | --- |
-| Admin tests | `npx vitest run src/routes/admin/page.server.test.ts src/routes/admin/billing-events/page.server.test.ts src/routes/admin/billing-events/page.svelte.test.ts` | all pass when files exist |
-| Security posture tests | `npx vitest run src/tests/security-posture.test.ts` | all pass |
-| Governance | `npm run governance:check` | exit 0 |
-| Full repo gate | `npm run format && npm run lint && npm run governance:check && npm run check && npm run test` | all exit 0 |
+| Purpose                | Command                                                                                                                                                       | Expected on success       |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------- |
+| Admin tests            | `npx vitest run src/routes/admin/page.server.test.ts src/routes/admin/billing-events/page.server.test.ts src/routes/admin/billing-events/page.svelte.test.ts` | all pass when files exist |
+| Security posture tests | `npx vitest run src/tests/security-posture.test.ts`                                                                                                           | all pass                  |
+| Governance             | `npm run governance:check`                                                                                                                                    | exit 0                    |
+| Full repo gate         | `npm run format && npm run lint && npm run governance:check && npm run check && npm run test`                                                                 | all exit 0                |
 
 ## Scope
 

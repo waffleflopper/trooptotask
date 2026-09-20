@@ -30,11 +30,9 @@ import { createSupabaseDataStore } from './supabaseDataStore';
 import { createSupabaseAuthContextAdapter } from './supabaseAuthContext';
 import { createSupabaseScopeEnforcementAdapter } from './supabaseScopeEnforcement';
 import { createSupabaseAuditAdapter } from './supabaseAudit';
-import { createSupabaseSubscriptionAdapter } from './supabaseSubscription';
 import { createScopedDataStore } from './scopedDataStore';
 import { defaultScopeRules } from './scopeRules';
 import { createSupabaseNotificationAdapter } from './supabaseNotification';
-import { createStripeBillingAdapter } from './stripeBilling';
 import { createSupabaseStorageAdapter } from './supabaseStorage';
 import { createSupabaseCriticalTasksReadModelAdapter } from './criticalTasksReadModel';
 import { createSupabaseRatingSchemePersonnelLookupPort } from './supabaseRatingSchemePersonnelLookup';
@@ -102,9 +100,7 @@ async function buildContextInternal(event: RequestEvent): Promise<BuildContextRe
 		orgId
 	});
 
-	const subscription = createSupabaseSubscriptionAdapter(supabase, orgId);
 	const notifications = createSupabaseNotificationAdapter();
-	const billing = createStripeBillingAdapter();
 	const criticalTasksReadModel = createSupabaseCriticalTasksReadModelAdapter(supabase);
 	const ratingSchemePersonnelLookup = createSupabaseRatingSchemePersonnelLookupPort(supabase);
 	const signInRosterPersonnelLookup = createSupabaseSignInRosterPersonnelLookupPort(getAdminClient);
@@ -123,9 +119,8 @@ async function buildContextInternal(event: RequestEvent): Promise<BuildContextRe
 			scope,
 			audit,
 
-			subscription,
 			notifications,
-			billing,
+
 			storage: createSupabaseStorageAdapter(supabase),
 			sensitiveActionAuthorizer,
 			criticalTasksReadModel,
@@ -173,9 +168,7 @@ export async function buildLayoutContext(locals: App.Locals, cookies: Cookies, o
 		orgId: canonicalOrgId
 	});
 
-	const subscription = createSupabaseSubscriptionAdapter(supabase, canonicalOrgId);
 	const notifications = createSupabaseNotificationAdapter();
-	const billing = createStripeBillingAdapter();
 	const storage = createSupabaseStorageAdapter(supabase);
 	const criticalTasksReadModel = createSupabaseCriticalTasksReadModelAdapter(supabase);
 	const ratingSchemePersonnelLookup = createSupabaseRatingSchemePersonnelLookupPort(supabase);
@@ -194,9 +187,8 @@ export async function buildLayoutContext(locals: App.Locals, cookies: Cookies, o
 		scope,
 		audit,
 
-		subscription,
 		notifications,
-		billing,
+
 		storage,
 		sensitiveActionAuthorizer,
 		criticalTasksReadModel,
@@ -236,9 +228,7 @@ export async function buildLayoutContextFromMembership(
 		scopeSet: permCtx.scopeSet
 	});
 
-	const subscription = createSupabaseSubscriptionAdapter(supabase, orgId);
 	const notifications = createSupabaseNotificationAdapter();
-	const billing = createStripeBillingAdapter();
 	const storage = createSupabaseStorageAdapter(supabase);
 	const criticalTasksReadModel = createSupabaseCriticalTasksReadModelAdapter(supabase);
 	const ratingSchemePersonnelLookup = createSupabaseRatingSchemePersonnelLookupPort(supabase);
@@ -257,9 +247,8 @@ export async function buildLayoutContextFromMembership(
 		scope,
 		audit,
 
-		subscription,
 		notifications,
-		billing,
+
 		storage,
 		sensitiveActionAuthorizer,
 		criticalTasksReadModel,

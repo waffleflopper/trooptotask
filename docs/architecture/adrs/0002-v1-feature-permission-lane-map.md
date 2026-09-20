@@ -30,7 +30,6 @@ Date: 2026-04-21
 - Governance and policy concerns remain outside the feature-lane map, including:
   - member management
   - organization settings governance
-  - billing control
   - destructive organization-danger operations
   - platform-admin concerns
 - Temporary route, page, or screen placement does not define durable lane ownership.
@@ -47,7 +46,7 @@ Date: 2026-04-21
   - Rejected because route and screen nesting are implementation details and would freeze current drift into architecture.
 - Keep Rating Scheme under the Personnel lane because it currently renders inside the Personnel page.
   - Rejected because that would preserve the same piggybacking this ADR is meant to eliminate.
-- Model governance, billing, or member-management concerns as additional feature lanes.
+- Model governance or member-management concerns as additional feature lanes.
   - Rejected because those concerns belong to fixed governance roles and policy overlays, not the feature capability map.
 
 ## Guardrails And Exceptions

@@ -1,20 +1,6 @@
 # Plan 092: Add acquisition and activation health visibility
 
-> **Executor instructions**: Follow this plan step by step. Run every
-> verification command and confirm the expected result before moving to the
-> next step. This is a direction/design slice for support-safe acquisition and
-> first-week activation visibility. Follow `docs/agents/architecture-governance.md`
-> before adding admin/provider seams. If Svelte files are edited, follow
-> `docs/agents/svelte.md` and run `svelte-autofixer` until clean. If anything
-> in the "STOP conditions" section occurs, stop and report. When done, update
-> the status row for this plan in `plans/README.md` unless a reviewer
-> dispatched you and told you they maintain the index.
->
-> **Drift check (run first)**:
-> `git diff --stat 88a2fbd5..HEAD -- docs/launch-acquisition-path.md docs/billing-operations-launch-checklist.md docs/security/incident-response.md plans/081-surface-first-run-owner-checklist.md plans/086-support-admin-visibility-self-service.md plans/091-billing-health-support-workflow.md 'src/routes/org/[orgId]/api/getting-started' src/features/dashboard/read-model/dashboardScreenModel.svelte.ts src/features/dashboard/components src/routes/admin src/lib/server/adapters/supabasePlatformAdministration.ts src/lib/server/adapters/supabasePlatformBillingHealth.ts src/lib/server/core/useCases/platformAdministration.ts src/lib/server/core/useCases/platformBillingHealth.ts src/lib/server/core/useCases/platformBillingHealthFallback.ts src/features/personnel/components/PersonnelPageView.svelte src/features/personnel/components/PersonnelImportPage.svelte src/lib/server/core/useCases/orgProvisioning.ts supabase/migrations`
-> If any in-scope file changed since this plan was written, compare the
-> "Current state" excerpts against the live code before proceeding; on a
-> mismatch, treat it as a STOP condition.
+Historical implementation record. The [stabilization queue](../docs/stabilization/TODO.md) owns current work; the executor/drift instructions for this completed plan are retired. References below to deleted billing runbooks, plans or code identify historical inputs and do not authorize restoring them. Retained behavior and verification remain governed by the queue. Current acquisition/support guidance is in [Launch Acquisition Path](../docs/launch-acquisition-path.md); external commercial retirement follows [RELEASE](../docs/stabilization/RELEASE.md#commercial-operations-retirement--03-07b-01).
 
 ## Status
 
@@ -114,21 +100,21 @@ CREATE TABLE IF NOT EXISTS "public"."getting_started_progress" (
 
 ```ts
 // src/routes/org/[orgId]/api/getting-started/+server.ts:36-48
-policyAction: POLICY_ACTION_CATALOG.identity.viewDashboard
-readOnlyModeException: 'identity-owned-preference'
+policyAction: POLICY_ACTION_CATALOG.identity.viewDashboard;
+readOnlyModeException: 'identity-owned-preference';
 ```
 
 ## Commands you will need
 
-| Purpose | Command | Expected on success |
-| --- | --- | --- |
-| Architecture docs | Read `docs/agents/architecture-governance.md` before admin/provider seam changes | docs read |
-| Svelte docs | Svelte MCP docs flow if editing `.svelte` files | docs read |
-| Svelte autofix | `svelte-autofixer` on edited Svelte files | no issues or suggestions remain |
-| Dashboard tests | `npx vitest run src/features/dashboard/read-model/dashboardScreenModel.svelte.test.ts src/features/dashboard/components/DashboardPageView.svelte.test.ts 'src/routes/org/[orgId]/(dashboard)/page.svelte.test.ts'` | all pass when files exist |
-| Admin activation tests | `npx vitest run src/lib/server/core/useCases/platformActivationHealth.test.ts src/lib/server/adapters/supabasePlatformActivationHealth.test.ts src/routes/admin/organizations/page.server.test.ts src/routes/admin/organizations/page.svelte.test.ts` or the equivalent route-specific activation-health test files created by the implementation | all pass |
-| Governance | `npm run governance:check` | exits 0 |
-| Full repo gate | `npm run format && npm run lint && npm run governance:check && npm run check && npm run test` | all exit 0 |
+| Purpose                | Command                                                                                                                                                                                                                                                                                                                                           | Expected on success             |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- |
+| Architecture docs      | Read `docs/agents/architecture-governance.md` before admin/provider seam changes                                                                                                                                                                                                                                                                  | docs read                       |
+| Svelte docs            | Svelte MCP docs flow if editing `.svelte` files                                                                                                                                                                                                                                                                                                   | docs read                       |
+| Svelte autofix         | `svelte-autofixer` on edited Svelte files                                                                                                                                                                                                                                                                                                         | no issues or suggestions remain |
+| Dashboard tests        | `npx vitest run src/features/dashboard/read-model/dashboardScreenModel.svelte.test.ts src/features/dashboard/components/DashboardPageView.svelte.test.ts 'src/routes/org/[orgId]/(dashboard)/page.svelte.test.ts'`                                                                                                                                | all pass when files exist       |
+| Admin activation tests | `npx vitest run src/lib/server/core/useCases/platformActivationHealth.test.ts src/lib/server/adapters/supabasePlatformActivationHealth.test.ts src/routes/admin/organizations/page.server.test.ts src/routes/admin/organizations/page.svelte.test.ts` or the equivalent route-specific activation-health test files created by the implementation | all pass                        |
+| Governance             | `npm run governance:check`                                                                                                                                                                                                                                                                                                                        | exits 0                         |
+| Full repo gate         | `npm run format && npm run lint && npm run governance:check && npm run check && npm run test`                                                                                                                                                                                                                                                     | all exit 0                      |
 
 ## Scope
 

@@ -54,7 +54,7 @@ An available design/domain skill can help stress-test a tradeoff when that is th
   - use `Viewer`, `Operator`, and `Editor` as the starter member presets
   - use per-lane capability levels of `none`, `view`, `operate`, and `configure`
   - make shared member scope target `organization-wide` or `1..n` groups, without allowing per-feature scope matrices
-  - keep governance actions such as member management, org settings, and billing with `admin` / `owner`, while ownership transfer and destructive org-danger operations stay `owner`-only
+  - keep governance actions such as member management and org settings with `admin` / `owner`, while ownership transfer and destructive org-danger operations stay `owner`-only
 - Constraints to preserve:
   - v1 data model reality
   - existing organizations and memberships
@@ -70,8 +70,8 @@ An available design/domain skill can help stress-test a tradeoff when that is th
 - Current-state truth:
   - many business paths already use use cases and adapters, but route-level `locals.supabase` logic still exists in important seams
   - org settings rename, ownership transfer, and delete now run behind an app-owned use case and Supabase adapter
-  - billing organization-state reads and writes plus the shared export-record lifecycle now run through app-owned store-backed helpers in `#619`
-  - billing cancellation now documents the two-phase provider reality by treating post-Stripe local reset failures as deferred reconciliation through the Stripe deleted-subscription webhook in `#637`
+  - historical `#619` moved billing and export lifecycles behind store-backed helpers; D05 03-05b removes billing delivery helpers while retaining the export lifecycle
+  - historical `#637` handled partial billing cancellation; D05 03-05b removes that cancellation/recovery path, and 03-05c removes the webhook/provider and webhook-ledger cleanup
   - several admin/platform routes remain route-local drift
 - Why this is unsatisfying:
   - provider swap blast radius is still too large

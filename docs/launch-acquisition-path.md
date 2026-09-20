@@ -3,7 +3,7 @@
 ## Selected path
 
 Public acquisition uses reviewed Access Requests. Anonymous GET and POST to
-`/auth/sign-up` redirect to `/auth/request-access` regardless of billing settings;
+`/auth/sign-up` redirect to `/auth/request-access`;
 authenticated requests retain their authentication/MFA continuation. The public
 signup form, provider signup operation and signup-only limiter have been removed
 by stabilization task 03-01a.
@@ -17,8 +17,7 @@ Public CTAs say `Request Access` and link directly to `/auth/request-access`.
 5. Organization creation and Organization Membership remain separate workflows.
 
 New invitees receive an owner-authorized approved Access Request, an Account
-Setup Link email and a separate Organization Invitation email, independent of
-billing settings. Existing accounts keep invitation acceptance. Invitation resend
+Setup Link email and a separate Organization Invitation email. Existing accounts keep invitation acceptance. Invitation resend
 and outbox retry never mint a setup credential: linked incomplete accounts receive the
 setup-recovery destination; completed accounts receive sign-in. Legacy unlinked
 recipients without a usable account receive Request Access and must obtain approval
@@ -34,49 +33,23 @@ any pending legacy unlinked invitations. Resend does not retrospectively approve
 access: an invitee with no reviewed request must use Request Access or receive a
 new authorized invitation. No live invitation disposition is claimed here.
 
-The billing sections below describe still-existing consumers owned by later
-Phase 03 deliverables. Activation health now uses noncommercial Organization
-facts. Neither surface authorizes restoring public signup or activating billing. [The stabilization queue](stabilization/TODO.md) supersedes
-the former self-service launch plans.
-
-## Billing entry point
-
-The current billing entry point remains authenticated Organization billing:
-`/org/[orgId]/billing`. Checkout is gated by `PUBLIC_BILLING_ENABLED`, server
-catalog validation, and Organization billing authorization.
-
-Self-service billing must not start before email confirmation and Organization
-creation are settled. After Organization creation, the owner lands on the
-dashboard with Free active and can open Billing to choose Team or Unit checkout
-only when billing is enabled. Pending checkout, failed payment, duplicate
-checkout attempts, expired checkout, and cancellation recovery must use
-customer-safe copy before any platform approval step exists.
-
 ## Support
 
-Support owner: Robert.
+Support owner: Robert. Account and Organization support uses
+`support@trooptotask.org`. Privacy requests use `privacy@trooptotask.org`;
+security reports use `security@trooptotask.org`. Follow the
+[operational evidence rules](security/operational-control-evidence.md#evidence-handling-rules).
 
-Support channel: `support@trooptotask.org` for billing and account support.
-Privacy requests use `privacy@trooptotask.org`; security reports use
-`security@trooptotask.org`. Billing and account support notes must follow the
-no-secret evidence rules in
-`docs/security/operational-control-evidence.md` and
-`docs/billing-operations-launch-checklist.md`.
+Support can inspect reviewed access in Admin → Access Requests, account setup
+and email confirmation in Admin → Users, and Organization identity, ownership
+and membership in Admin → Organizations. These are separate facts; account
+setup does not establish membership or Organization creation.
 
-Support must be able to answer:
-
-- whether a user is still in reviewed access from Admin -> Access Requests,
-- whether a self-service user confirmed email from Admin -> Users,
-- whether an Organization exists and who owns it from Admin -> Organizations
-  and the user's Organization memberships,
-- which Stripe customer ID, subscription ID, invoice ID, and webhook event ID
-  types are safe to use for support correlation.
-
-Support must not ask customers for card details, raw payment method data,
-webhook secrets, API keys, session cookies, or screenshots that expose secret
-values. Use Organization ID, user ID, Stripe customer ID, subscription ID,
-invoice ID, webhook event ID, and app audit-log ID as identifier types only in
-repo docs and PR notes.
+Use Organization ID, user ID and app audit-log ID for support correlation.
+Never request card details, raw payment data, API keys, webhook secrets,
+session cookies or screenshots exposing secret values. Legacy external
+commercial obligations follow the owner-operated [retirement sequence](stabilization/RELEASE.md#commercial-operations-retirement--03-07b-01).
+The retired application checkout, portal and billing runbooks are unavailable.
 
 ## Activation health
 

@@ -185,11 +185,7 @@
 					<Combobox.Trigger placeholder="Select assignment type..." aria-label="Select assignment type" />
 					<Combobox.Content>
 						<Combobox.Empty>No assignment types found.</Combobox.Empty>
-						<Combobox.List>
-							{#each assignmentTypeOptions as option (option.value)}
-								<Combobox.Item value={option.value}>{option.label}</Combobox.Item>
-							{/each}
-						</Combobox.List>
+						<Combobox.List />
 					</Combobox.Content>
 				</Combobox.Root>
 			</div>
@@ -216,11 +212,7 @@
 						<Combobox.Trigger clearable placeholder="Select group..." aria-label="Select quick-fill group" />
 						<Combobox.Content>
 							<Combobox.Empty>No groups found.</Combobox.Empty>
-							<Combobox.List>
-								{#each groupOptions as option (option.value)}
-									<Combobox.Item value={option.value}>{option.label}</Combobox.Item>
-								{/each}
-							</Combobox.List>
+							<Combobox.List />
 						</Combobox.Content>
 					</Combobox.Root>
 				</div>
@@ -317,11 +309,7 @@
 										/>
 										<Combobox.Content>
 											<Combobox.Empty>No groups found.</Combobox.Empty>
-											<Combobox.List>
-												{#each groupOptions as option (option.value)}
-													<Combobox.Item value={option.value}>{option.label}</Combobox.Item>
-												{/each}
-											</Combobox.List>
+											<Combobox.List />
 										</Combobox.Content>
 									</Combobox.Root>
 								{/if}

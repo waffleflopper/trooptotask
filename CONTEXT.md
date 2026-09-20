@@ -7,7 +7,7 @@ TroopToTask v1 is a military unit management SaaS context for organization-scope
 ### Product Boundaries
 
 **Organization**:
-The v1 workspace and tenancy boundary that owns operational data, memberships, settings, and billing state.
+The v1 workspace and tenancy boundary that owns operational data, memberships, and settings.
 _Avoid_: Account, Unit, tenant, workspace
 
 **Group**:
@@ -35,7 +35,7 @@ The platform-admin workflow for reviewing **Access Requests**, issuing or resend
 _Avoid_: Invite-code admin, organization member approval, Supabase invite management
 
 **Platform Administration**:
-The platform-admin workflow for inspecting and operating TroopToTask-wide concerns across **User Accounts**, **Organizations**, beta queues, billing support, announcements, audit visibility, and suspension controls. It is separate from **Organization Governance Actions** and must keep provider-specific reads and commands behind app-owned modules. See [ADR 0011](docs/architecture/adrs/0011-platform-administration-boundary.md).
+The platform-admin workflow for inspecting and operating TroopToTask-wide concerns across **User Accounts**, **Organizations**, beta queues, announcements, audit visibility, and suspension controls. It is separate from **Organization Governance Actions** and must keep provider-specific reads and commands behind app-owned modules. See [ADR 0011](docs/architecture/adrs/0011-platform-administration-boundary.md).
 _Avoid_: Organization admin, route-owned admin query, raw platform Supabase access
 
 **User Profile**:
@@ -47,11 +47,11 @@ The fixed organization-governance role on an **Organization Member**: `owner`, `
 _Avoid_: Team leader, viewer, editor
 
 **Organization Governance Action**:
-An action that changes organization access, settings, billing, or destructive organization state.
+An action that changes organization access, settings, or destructive organization state.
 _Avoid_: Feature edit
 
 **Organization Settings Workspace**:
-The visible settings surface for one **Organization**, organized by user-facing sections such as organization profile, members, policies, archived personnel, data export, and owner danger actions. The workspace should consume a shaped settings model rather than raw membership, invitation, policy, audit, billing, or legacy access rows.
+The visible settings surface for one **Organization**, organized by user-facing sections such as organization profile, members, policies, archived personnel, data export, and owner danger actions. The workspace should consume a shaped settings model rather than raw membership, invitation, policy, audit, or legacy access rows.
 _Avoid_: Admin page, raw settings load, member-management route
 
 **Organization Data Export**:
@@ -59,7 +59,7 @@ An **Organization**-scoped export of operational data for leader review, backup,
 _Avoid_: Feature export, database dump, generic spreadsheet
 
 **Organization Data Export Execution**:
-The server-side workflow that enforces export quota, starts and completes the export lifecycle record, marks failed exports, records export audit events, notifies organization admins, and hands an export artifact back to the route for response formatting. It does not decide which tables, workbook sheets, or feature-specific rows belong in the **Organization Data Export**.
+The server-side workflow that starts and completes the export lifecycle record, marks failed exports, records export audit events, notifies organization admins, and hands an export artifact back to the route for response formatting. It does not decide which tables, workbook sheets, or feature-specific rows belong in the **Organization Data Export**.
 _Avoid_: Workbook builder, export manifest, route response formatting, feature export rules
 
 ### Product Shell And Navigation
@@ -69,7 +69,7 @@ The persistent authenticated product frame that carries primary navigation, orga
 _Avoid_: Page chrome, dashboard wrapper, feature owner
 
 **App Shell First Paint Data**:
-The minimal blocking data needed to render a usable **App Shell** without misleading access or layout shifts: current **Organization** identity, current **Organization Member** access, current user identity, suspended/read-only state, and layout-stable announcements. Announcement load failure should render like there are no announcements.
+The minimal blocking data needed to render a usable **App Shell** without misleading access or layout shifts: current **Organization** identity, current **Organization Member** access, current user identity, suspension state, and layout-stable announcements. Announcement load failure should render like there are no announcements.
 _Avoid_: Full shell payload, every badge, feature workspace data
 
 **App Shell Deferred Chrome Data**:
@@ -211,14 +211,6 @@ _Avoid_: Half-migrated authz layer
 **Policy Decision**:
 The structured effective outcome for a requested action after role, capability, scope, and policy overlays are evaluated. A **Policy Decision** should include the allow/deny result, a stable **Policy Reason Code**, and explanation metadata such as matched capability, matched scope, blocking overlay, action, lane, and resource so the app can explain and potentially audit attempted access.
 _Avoid_: Checkbox
-
-**Read-Only Mode**:
-A billing-driven state where writes are blocked even if a member would otherwise have edit access. Read-Only Mode includes billing-state locks and active Personnel over-limit locks. Only named exceptions for billing recovery, identity-owned preferences, and identity-owned data requests may bypass the write gate.
-_Avoid_: Broken permissions
-
-**Billing Snapshot Transition**:
-The app-owned billing lifecycle decision that turns provider facts, such as Stripe checkout, subscription, invoice, or cancellation events, into the current **Organization** billing snapshot, legacy Organization billing mirror, and related cache effects.
-_Avoid_: Webhook handler, raw Stripe update, table update
 
 ### Feature Surfaces
 
@@ -477,12 +469,12 @@ _Avoid_: Readiness calculation helper, compliance engine, per-feature readiness 
 - A **Scope Set** should move toward multiple whole-**Group** grants sooner than later and keep room for future **Personnel Scope** entries across Groups.
 - **Scope Set** grants are positive-only in the approved replacement model; do not introduce deny exceptions or "all except" scope semantics without a later explicit decision.
 - A **Personnel Record** without a **Group** is organization-scoped for **Scope Set** decisions; a whole-**Group** grant does not include ungrouped **Personnel Records**.
-- `operate` is for day-to-day feature work; `configure` is for feature-lane configuration; neither implies member management, billing, ownership transfer, or destructive organization-danger authority.
+- `operate` is for day-to-day feature work; `configure` is for feature-lane configuration; neither implies member management, ownership transfer, or destructive organization-danger authority.
 - A **Policy Decision** should be structured even when a call site initially only uses the final allow/deny result.
 - Structured **Policy Decisions** should support user-facing explanations and audit capture for denied or suspicious access attempts.
 - Every **Policy Decision** should include a stable **Policy Reason Code**; human-facing copy should be mapped from reason codes outside the evaluator.
 - **Policy Reason Codes** should be searchable and testable, while optional decision metadata carries matched action, lane, scope, overlay, and resource details.
-- Audit capture should be selective: denied writes, suspicious denied access patterns, **Organization Governance Actions**, owner-only actions, billing changes, and member-management changes are audit-worthy by default.
+- Audit capture should be selective: denied writes, suspicious denied access patterns, **Organization Governance Actions**, owner-only actions, and member-management changes are audit-worthy by default.
 - Do not audit every ordinary allowed read; **Audit Capture Rules** should decide when a **Policy Decision** becomes a **Policy Audit Event**.
 - Server-side **Authoritative Policy Decisions** enforce writes and sensitive reads; client-side **Advisory Policy Decisions** are UX hints only.
 - UI placement, hidden buttons, and disabled controls must not be treated as security enforcement.
@@ -505,7 +497,7 @@ _Avoid_: Readiness calculation helper, compliance engine, per-feature readiness 
 - **Counseling Records**, **Documents**, **Follow-Ups**, **Leader Notes**, and the **Soldier Data Sheet** are owned by the **Personnel** lane.
 - **Lane Ownership** does not change just because a feature is temporarily rendered inside another page or route shell.
 - **Organization Governance Actions** stay with `admin` and `owner`, while ownership transfer and destructive organization-danger actions stay `owner`-only.
-- Governance, billing, member management, and platform concerns stay outside the durable **Feature Lane** map.
+- Governance, member management, and platform concerns stay outside the durable **Feature Lane** map.
 - A **Personnel Record** may belong to one **Group**.
 - A **Roster** is composed of **Personnel Records** and may be narrowed by **Group**, **Personnel Record**, or typed search.
 - The **Roster Read Model** is shared infrastructure for reading roster data across feature surfaces.
@@ -646,7 +638,7 @@ _Avoid_: Readiness calculation helper, compliance engine, per-feature readiness 
 ## Flagged Ambiguities
 
 - **Organization** is the canonical v1 term. Do not use **Account** or **Unit** as if they already describe the current v1 model.
-- **User Account** is personal identity and sign-in settings. It does not own organization data, memberships, billing, or governance settings.
+- **User Account** is personal identity and sign-in settings. It does not own organization data, memberships, or governance settings.
 - **User Profile** is independent from **Personnel Record** data in the first account-settings slice. Keep future linking possible, but do not auto-link or auto-sync profile and roster records without a separate decision.
 - **Group** is the canonical v1 subdivision term. Do not silently replace it with **Element** in current-state v1 docs.
 - **Membership Role**, **Current Permission Preset**, and **Member Preset** are different concepts.

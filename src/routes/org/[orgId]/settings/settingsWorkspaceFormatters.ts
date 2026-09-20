@@ -89,16 +89,3 @@ export function formatCompactDate(date: Date): string {
 		})
 		.toUpperCase();
 }
-
-export function formatPrice(cents: number): string {
-	if (cents === 0) return 'Free';
-	return `$${(cents / 100).toFixed(2)}/mo`;
-}
-
-export function formatCap(cap: number): string {
-	return cap === Infinity ? 'Unlimited' : String(cap);
-}
-
-export function formatExportLimit(limit: number | null): string {
-	return limit === null || limit === Infinity ? 'exports' : `${limit} exports/mo`;
-}

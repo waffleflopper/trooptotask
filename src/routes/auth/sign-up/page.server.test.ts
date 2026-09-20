@@ -1,13 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { billingEnabled } = vi.hoisted(() => ({ billingEnabled: vi.fn() }));
-// The flag still exists for later commercial cutovers; neither value may reopen signup.
-vi.mock('$lib/config/billing', () => ({
-	get isBillingEnabled() {
-		return billingEnabled();
-	}
-}));
-
 import { actions, load } from './+page.server';
 import type { PendingAuthFlow } from '$lib/server/mfaGate';
 
@@ -35,10 +27,9 @@ async function expectRedirect(input: ReturnType<typeof event>, location: string)
 	expect(input.locals.supabase.auth.signUp).not.toHaveBeenCalled();
 }
 
-describe.each([false, true])('reviewed acquisition with billing=%s', (enabled) => {
+describe('reviewed acquisition', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
-		billingEnabled.mockReturnValue(enabled);
 	});
 
 	it('redirects anonymous GET and POST without accepting credentials or honoring an external next URL', async () => {

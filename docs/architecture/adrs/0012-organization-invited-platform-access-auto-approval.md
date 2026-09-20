@@ -25,7 +25,7 @@ The approval-rescind exposure remains a required repair under stabilization
 - `access_requests` and `access_request_organization_invitation_links` are readable only under `is_platform_admin()`. The organization store is built from the user's RLS client (`src/lib/server/adapters/httpAdapter.ts:98`), so organization-scoped surfaces cannot see either table.
 - The organization members settings screen already computes `deliveryStatus`, `deliveryStatusLabel`, and `deliveryLastError` for every pending invitation and renders none of them.
 
-### Decision pressure
+### Original decision pressure (2026-08-03)
 
 - An organization owner who invites a new person today gets a dead end: the invitee cannot create an account until a platform admin reviews a queue they never knowingly joined, and nobody in the organization can see that this is what happened.
 - The bridge is already gated on `!isBillingEnabled`, so this rule self-retires when billing is enabled. It needs to be documented as a beta-period rule with a known end, not absorbed silently into ADR 0009's permanent mechanism.
@@ -93,7 +93,7 @@ The approval-rescind exposure remains a required repair under stabilization
 
 ## Guardrails And Exceptions
 
-- **This is a beta-period rule with a defined end.** It applies only while `PUBLIC_BILLING_ENABLED=false`. When billing is enabled, `shouldBridgeAccessRequest` is already false, the bridge stops firing, and this ADR becomes historical without further work.
+- **The reviewed invitation bridge applies to every new invitee.** Stabilization 03-01b supersedes the original commercial-switch lifetime. Account setup and membership acceptance remain separate.
 - **`reviewed_by` on `access_requests` is no longer always a platform admin.** For invite-origin rows it is the inviting organization owner or admin. Do not read it as "a platform admin reviewed this", and do not build platform-admin-only inferences on it. Its one sanctioned read is the reverse test — reviewer equals inviter, therefore auto-approved — which is what marks the reviewed-requests rows. Mere presence of an invitation origin is **not** that test: a platform admin who approves an invite-origin request by hand stays its reviewer, and that row must keep reading as vetted.
 - **When more than one origin matches the reviewer, the row is credited to the newest origin that pre-dates `reviewed_at`.** One person can be owner or admin of two Organizations and invite the same address from both; the approving update is `WHERE status = 'pending'`, so only the invite that found the request pending approved it and the later ones leave `reviewed_by` and `reviewed_at` untouched. Crediting the newest matching origin outright would name whichever Organization invited last. `invited_at` and `reviewed_at` come from different clocks, so a lone matching origin is credited without comparing them at all, and an undecidable comparison falls back to the oldest match.
 - **The equality test has one known blind spot**, accepted rather than closed: when the same human is both a platform admin and the inviting organization owner, a request they approve by hand and then invite reads as auto-approved. `approveInvitedAccessRequest` is `WHERE status = 'pending'`, so reusing an already-approved row leaves the hand-approval's `reviewed_by` in place, and it equals the inviter. Distinguishing the two would need a persisted origin column on `access_requests`, which is more than a visibility aid warrants during the beta period. The misreading names the one person who did both things, so it misattributes nothing.
@@ -121,7 +121,7 @@ Exposure 3 is a genuinely new disclosure, not a widening of an existing one: tod
   - An organization owner invites someone and that person can start working immediately. No platform-admin action in the path.
   - Credential creation, delivery, and audit live in one module instead of four hand-rolled copies, and the raw token has one fewer place to leak from.
   - The members screen tells an organization admin which of the two emails failed, which is the difference between a useful Resend and a decorative one.
-  - The change self-retires on the billing switch rather than needing removal.
+  - Stabilization retains this reviewed-entry path; the original billing-switch retirement assumption no longer applies.
 - Tradeoffs:
   - Platform entry for invited people is now authorized by organization owners, whose incentives are not the platform's cost-control incentives.
   - `access_requests.reviewed_by` loses a uniform meaning.

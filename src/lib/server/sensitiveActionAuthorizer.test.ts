@@ -206,7 +206,7 @@ describe('checkSensitiveAction', () => {
 
 	it('assigns sensitive-action failure details onto an existing error', () => {
 		const decision = checkSensitiveAction({
-			action: 'billing.checkout',
+			action: 'organization.transferOwnership',
 			now,
 			actor: {
 				userId: 'owner-1',

@@ -15,9 +15,8 @@ TroopToTask relies on managed provider backups for hosted infrastructure:
 - Supabase-managed PostgreSQL backups for database recovery.
 - Supabase Storage provider durability and recovery controls for uploaded files.
 - Vercel deployment history and source-controlled application code for application rollback.
-- Stripe-hosted payment records for billing source-of-truth events and invoice history.
 
-Provider backup availability, retention, and restore behavior depend on the active plan and provider settings. Robert should confirm those settings outside the repo before paid launch and keep the evidence external.
+Provider backup availability, retention, and restore behavior depend on the active plan and provider settings. Robert should confirm those settings outside the repo before release and keep the evidence external.
 
 ## Restore Procedure
 
@@ -49,11 +48,11 @@ Before making stronger operational or formal compliance claims, Robert should sc
 
 The drill record should remain external evidence held by the security owner unless a sanitized summary is intentionally added later.
 
-## Billing And Payment Recovery Notes
+## Retired commercial records and rollback
 
-Stripe is the billing source of truth for payment events. If billing data appears modified or inconsistent:
-
-- preserve relevant Stripe event IDs, customer IDs, subscription IDs, invoice IDs, and TroopToTask billing snapshot IDs;
-- avoid copying raw webhook payloads, card details, API keys, or webhook secrets into notes;
-- use the incident response plan for webhook or payment incidents;
-- use the billing operations launch checklist for support-safe launch evidence.
+Stored commercial records remain until the separately reviewed phase-04 schema
+retirement. Preserve them with applicable backups; application removal is not
+permission to delete data. External provider records and outstanding obligations
+require owner disposition under [RELEASE](../stabilization/RELEASE.md#commercial-operations-retirement--03-07b-01).
+An older application may require its provider credentials and delivery settings
+as well as compatible schema, so code-only rollback must not be assumed safe.

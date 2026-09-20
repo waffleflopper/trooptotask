@@ -148,11 +148,7 @@
 			"classification": "platform-admin-edge",
 			"reason": "Platform Administration user detail and identity commands still build service-role user directory, audit, and identity command adapters from the admin context."
 		},
-		{
-			"path": "src/routes/api/billing-reconciliation/+server.ts",
-			"classification": "billing-recovery-edge",
-			"reason": "Cron-authorized billing reconciliation still wires a service-role client into reconciliation stores and audit logging."
-		},
+
 		{
 			"path": "src/routes/api/cleanup-account-setup-links/+server.ts",
 			"classification": "cron-edge",

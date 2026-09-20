@@ -2,14 +2,11 @@
 	import { onMount } from 'svelte';
 	import { resolve } from '$app/paths';
 	import PublicShell from '$lib/components/public/PublicShell.svelte';
-	import { PUBLIC_PLAN_PRESENTATION } from '$lib/types/subscription';
 
 	let { data } = $props();
 
 	let navScrolled = $state(false);
 	let openFaq = $state(-1);
-
-	const plans = PUBLIC_PLAN_PRESENTATION;
 
 	const faqs = [
 		{
@@ -126,7 +123,6 @@
 					{:else}
 						<a href={resolve('/auth/request-access')} class="btn-amber">Request Access</a>
 					{/if}
-					<a href="#pricing" class="btn-ghost">View Pricing</a>
 				</div>
 				<div class="hero__meta">
 					<span>Reviewed access</span>
@@ -351,59 +347,6 @@
 		</div>
 	</section>
 
-	<!-- ──────────────────── PRICING ──────────────────── -->
-	<section class="pricing" id="pricing">
-		<div class="pricing__container">
-			<div class="pricing__header reveal">
-				<span class="section-label">PRICING</span>
-				<h2 class="pricing__heading">
-					One platform,<br /><em>sized to the formation.</em>
-				</h2>
-				<p>
-					Team and Unit prices are final for paid launch. Access remains reviewed until billing is enabled; plans scale
-					by personnel capacity and export allowance, not by hiding core workflows from smaller units. Account user
-					limits are separate from personnel capacity.
-				</p>
-			</div>
-
-			<div class="pricing__grid">
-				{#each plans as plan (plan.name)}
-					<article class="pricing__tier reveal" class:pricing__tier--featured={plan.featured}>
-						<div class="pricing__tier-header">
-							<div>
-								<h3>{plan.name}</h3>
-								<p>{plan.personnelCapacity}</p>
-							</div>
-							{#if plan.featured}
-								<span>Most common</span>
-							{/if}
-						</div>
-						<div class="pricing__price">
-							<span class:pricing__price-text--contact={plan.priceMonthly === null} class="pricing__price-text"
-								>{plan.priceLabel}</span
-							>
-							{#if plan.priceSuffix}
-								<span class="pricing__price-suffix">{plan.priceSuffix}</span>
-							{/if}
-						</div>
-						<p class="pricing__account-users">{plan.accountUsers}</p>
-						<p class="pricing__supporting">{plan.exportAllowance}</p>
-						<p class="pricing__supporting">{plan.launchAvailability}</p>
-					</article>
-				{/each}
-			</div>
-
-			<div class="pricing__note reveal">
-				<strong>User seats are not personnel.</strong>
-				<span
-					>Account users are leaders or staff with login access to your organization. The Free tier includes up to 2
-					active account users; Team, Unit, and Enterprise include unlimited account users. Personnel limits refer only
-					to the Soldiers tracked in your roster.</span
-				>
-			</div>
-		</div>
-	</section>
-
 	<!-- ──────────────────── FAQ ──────────────────── -->
 	<section class="faq" id="faq">
 		<div class="faq__container">
@@ -463,9 +406,8 @@
 				{:else}
 					<a href={resolve('/auth/request-access')} class="btn-amber">Request Access</a>
 				{/if}
-				<a href="#pricing" class="btn-ghost">View Pricing</a>
 			</div>
-			<div class="cta-final__meta">Reviewed access now / Billing launch gated</div>
+			<div class="cta-final__meta">Reviewed access</div>
 		</div>
 	</section>
 </PublicShell>
@@ -549,34 +491,7 @@
 		transform: translateY(1px);
 	}
 
-	.btn-ghost {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		padding: 0.8rem 1.75rem;
-		border-radius: var(--radius-lg, 6px);
-		border: 1px solid var(--hero-border);
-		background: transparent;
-		color: var(--hero-text);
-		font-family: 'Barlow Condensed', sans-serif;
-		font-size: 1.0625rem;
-		font-weight: 600;
-		letter-spacing: 0.04em;
-		text-decoration: none;
-		text-transform: uppercase;
-		transition:
-			background-color 120ms cubic-bezier(0.2, 0, 0, 1),
-			border-color 120ms cubic-bezier(0.2, 0, 0, 1);
-	}
-
-	a.btn-ghost:hover {
-		background: var(--hero-hover);
-		color: var(--hero-text);
-		border-color: color-mix(in srgb, var(--hero-text) 30%, transparent);
-	}
-
-	.btn-amber:focus-visible,
-	.btn-ghost:focus-visible {
+	.btn-amber:focus-visible {
 		outline: var(--focus-outline);
 		outline-offset: 2px;
 	}
@@ -913,179 +828,6 @@
 		margin: 0;
 	}
 
-	/* ── Pricing ── */
-	.pricing {
-		padding: clamp(5rem, 10vh, 9rem) 0;
-		background: var(--background);
-		border-bottom: 1px solid var(--border);
-	}
-
-	.pricing__container {
-		max-width: 1120px;
-		margin: 0 auto;
-		padding: 0 2rem;
-	}
-
-	.pricing__header {
-		display: grid;
-		justify-items: center;
-		gap: 0;
-		text-align: center;
-		margin-bottom: clamp(2.5rem, 5vw, 4rem);
-	}
-
-	.pricing__heading {
-		font-family: 'Barlow Condensed', sans-serif;
-		font-size: clamp(2rem, 4vw + 0.5rem, 3.5rem);
-		font-weight: 800;
-		line-height: 0.98;
-		letter-spacing: 0.02em;
-		text-transform: uppercase;
-		margin: 0.75rem 0 0;
-		text-wrap: balance;
-	}
-
-	.pricing__heading em {
-		font-style: italic;
-		font-weight: 300;
-		color: var(--accent);
-	}
-
-	.pricing__header p {
-		margin: 1.25rem auto 0;
-		color: var(--muted-foreground);
-		line-height: 1.65;
-		max-width: 52ch;
-	}
-
-	.pricing__grid {
-		display: grid;
-		grid-template-columns: repeat(4, minmax(0, 1fr));
-		border: 1px solid var(--border);
-		border-radius: var(--radius-lg, 6px);
-		overflow: hidden;
-		background: var(--card);
-	}
-
-	.pricing__tier {
-		position: relative;
-		display: flex;
-		min-height: 260px;
-		flex-direction: column;
-		padding: 1.5rem;
-		border-right: 1px solid var(--border);
-		background: var(--card);
-	}
-
-	.pricing__tier:last-child {
-		border-right: none;
-	}
-
-	.pricing__tier--featured {
-		box-shadow: inset 0 0 0 2px var(--accent);
-	}
-
-	.pricing__tier-header {
-		display: flex;
-		align-items: flex-start;
-		justify-content: space-between;
-		gap: 1rem;
-	}
-
-	.pricing__tier h3 {
-		font-family: 'Barlow Condensed', sans-serif;
-		font-size: 1.25rem;
-		font-weight: 700;
-		letter-spacing: 0.03em;
-		margin: 0;
-		text-transform: uppercase;
-	}
-
-	.pricing__tier-header p,
-	.pricing__supporting {
-		margin: 0.5rem 0 0;
-		color: var(--muted-foreground);
-		font-size: 0.9375rem;
-		line-height: 1.5;
-	}
-
-	.pricing__account-users {
-		margin: 0.75rem 0 0;
-		color: var(--foreground);
-		font-size: 0.9375rem;
-		font-weight: 700;
-		line-height: 1.35;
-	}
-
-	.pricing__tier-header span {
-		display: inline-flex;
-		width: fit-content;
-		height: 1.25rem;
-		align-items: center;
-		justify-content: center;
-		gap: 0.25rem;
-		flex-shrink: 0;
-		overflow: hidden;
-		padding: 0.125rem 0.5rem;
-		border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
-		border-radius: var(--radius-md, 4px);
-		background: color-mix(in srgb, var(--accent) 12%, var(--card));
-		color: var(--accent);
-		font-size: 0.75rem;
-		font-weight: 500;
-		line-height: 1;
-		white-space: nowrap;
-	}
-
-	.pricing__price {
-		display: flex;
-		align-items: baseline;
-		gap: 0.35rem;
-		margin-top: auto;
-		padding-top: 2rem;
-		color: var(--foreground);
-	}
-
-	.pricing__price-text {
-		font-family: 'Barlow Condensed', sans-serif;
-		font-size: clamp(2.25rem, 4vw, 3.75rem);
-		font-weight: 800;
-		line-height: 0.95;
-		letter-spacing: 0.02em;
-		white-space: nowrap;
-	}
-
-	.pricing__price-text--contact {
-		font-size: clamp(2rem, 3vw, 2.75rem);
-	}
-
-	.pricing__price-suffix {
-		font-size: 1rem;
-		font-weight: 600;
-		color: var(--muted-foreground);
-	}
-
-	.pricing__note {
-		display: flex;
-		gap: 0.75rem;
-		align-items: baseline;
-		margin-top: 1.25rem;
-		padding-top: 1.25rem;
-		border-top: 1px solid var(--border);
-		color: var(--muted-foreground);
-		line-height: 1.6;
-	}
-
-	.pricing__note strong {
-		flex-shrink: 0;
-		font-family: 'Barlow Condensed', sans-serif;
-		font-size: 1.125rem;
-		font-weight: 700;
-		letter-spacing: 0.02em;
-		color: var(--foreground);
-		text-transform: uppercase;
-	}
-
 	/* ── FAQ ── */
 	.faq {
 		padding: clamp(5rem, 10vh, 9rem) 0;
@@ -1272,20 +1014,6 @@
 		.proof__grid {
 			grid-template-columns: repeat(2, 1fr);
 		}
-
-		.pricing__grid {
-			grid-template-columns: 1fr;
-		}
-
-		.pricing__tier {
-			min-height: auto;
-			border-right: none;
-			border-bottom: 1px solid var(--border);
-		}
-
-		.pricing__tier:last-child {
-			border-bottom: none;
-		}
 	}
 
 	@media (max-width: 640px) {
@@ -1298,7 +1026,6 @@
 		.showcase__container,
 		.features__container,
 		.proof__container,
-		.pricing__container,
 		.faq__container,
 		.cta-final__container {
 			padding-inline: 1.25rem;
@@ -1315,15 +1042,6 @@
 
 		.proof__grid {
 			grid-template-columns: 1fr;
-		}
-
-		.pricing__note {
-			display: block;
-		}
-
-		.pricing__note span {
-			display: block;
-			margin-top: 0.35rem;
 		}
 
 		.cta-final__actions {

@@ -1,11 +1,5 @@
 import type { BadgeVariant } from '$lib/components/ui/badge';
 
-export const ADMIN_TIER_COLORS: Record<string, string> = {
-	free: 'var(--muted-foreground)',
-	team: 'var(--chart-3)',
-	unit: 'var(--accent)'
-};
-
 export const ADMIN_ROLE_COLORS: Record<string, string> = {
 	owner: 'var(--accent)',
 	admin: 'var(--chart-3)',
@@ -15,7 +9,6 @@ export const ADMIN_ROLE_COLORS: Record<string, string> = {
 export const ADMIN_STATUS_COLORS: Record<string, string> = {
 	active: 'var(--chart-2)',
 	suspended: 'var(--destructive)',
-	gifted: 'var(--accent)',
 	approved: 'var(--chart-2)',
 	rejected: 'var(--destructive)',
 	reviewed: 'var(--muted-foreground)',
@@ -49,14 +42,11 @@ export function adminBadgeVariant(value: string | null | undefined): BadgeVarian
 		case 'maintenance':
 		case 'diagnostics_unavailable':
 			return 'danger';
-		case 'gifted':
 		case 'new':
-		case 'unit':
 		case 'owner':
 		case 'warning':
 		case 'needs_attention':
 			return 'warning';
-		case 'team':
 		case 'admin':
 		case 'info':
 		case 'feature':

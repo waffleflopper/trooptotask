@@ -365,24 +365,6 @@ describe('PlatformBillingHealth', () => {
 		expect(JSON.stringify(summary)).not.toContain('payment_recovery_attention');
 	});
 
-	it('keeps Billing Events retry guidance for roles that can access billing events', () => {
-		for (const adminRole of ['super_admin', 'billing'] as const) {
-			const summary = mapBillingHealthSummary({
-				now: NOW,
-				adminRole,
-				events: [
-					event({
-						id: `evt_retry_${adminRole}`,
-						processingState: 'retryable_failed'
-					})
-				],
-				snapshots: []
-			});
-
-			expect(summary.issues[0].supportBundle.nextSteps).toEqual(['Use Retry event on Billing Events']);
-		}
-	});
-
 	it('keeps retry attention without payment recovery attention when a failed invoice event has recovered billing state', () => {
 		const summary = mapBillingHealthSummary({
 			now: NOW,
@@ -420,11 +402,10 @@ describe('PlatformBillingHealth', () => {
 			states: ['needs_retry'],
 			organization: { id: 'org-recovered', name: 'Recovered Company' }
 		});
-		expect(summary.issues[0].supportBundle.nextSteps).toEqual(['Use Retry event on Billing Events']);
 		expect(JSON.stringify(summary)).not.toContain('payment_recovery_attention');
 	});
 
-	it('uses support-safe retry guidance without referencing Billing Events', () => {
+	it('keeps retry failure support bundles free of provider identifiers', () => {
 		const summary = mapBillingHealthSummary({
 			now: NOW,
 			adminRole: 'support',
@@ -437,8 +418,6 @@ describe('PlatformBillingHealth', () => {
 			snapshots: []
 		});
 
-		expect(summary.issues[0].supportBundle.nextSteps).toEqual(['Copy bundle and ask billing admin to retry the event']);
-		expect(summary.issues[0].supportBundle.nextSteps.join(' ')).not.toContain('Billing Events');
 		expect(JSON.stringify(summary)).not.toContain('evt_support_retry');
 	});
 
@@ -573,10 +552,7 @@ describe('PlatformBillingHealth', () => {
 			id: 'event:evt_retry_visible',
 			primaryState: 'needs_retry',
 			organization: { id: 'org-visible', name: 'Visible Company' },
-			latestEventIds: ['evt_retry_visible'],
-			supportBundle: {
-				nextSteps: ['Use Retry event on Billing Events']
-			}
+			latestEventIds: ['evt_retry_visible']
 		});
 		expect(consoleError).toHaveBeenCalledWith('Admin billing health snapshot query failed:', expect.any(Error));
 		consoleError.mockRestore();

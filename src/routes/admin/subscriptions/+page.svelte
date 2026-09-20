@@ -19,10 +19,8 @@
 	let { data } = $props();
 
 	const subscriptionsRouteRoot = resolve('/admin/subscriptions');
-	const billingEventsHref = resolve('/admin/billing-events');
 	const tierFilter = $derived(data.pagination.tier ?? 'all');
 	const statusFilter = $derived(data.pagination.status ?? 'all');
-	const canAccessBillingEvents = $derived(data.adminRole === 'super_admin' || data.adminRole === 'billing');
 	const canAccessOrganizationDiagnostics = $derived(data.adminRole === 'super_admin' || data.adminRole === 'support');
 	type BillingHealthIssue = NonNullable<PageData['billingHealth']>['issues'][number];
 	const billingHealth = $derived(
@@ -83,18 +81,10 @@
 			: 'Copy the support bundle and escalate with support-safe context.';
 	}
 
-	function needsBillingEvents(issue: BillingHealthIssue): boolean {
-		return canAccessBillingEvents && issue.states.includes('needs_retry');
-	}
-
 	function organizationDiagnosticsHref(issue: BillingHealthIssue): string | null {
 		if (!canAccessOrganizationDiagnostics) return null;
 		if (!issue.organization?.id) return null;
 		return `${resolve(`/admin/organizations/${issue.organization.id}` as `/admin/organizations/${string}`)}#billing-diagnostics`;
-	}
-
-	function billingEventsLabel(issue: BillingHealthIssue): string {
-		return `Open Billing Events for ${issueContextLabel(issue)}`;
 	}
 
 	function organizationDiagnosticsLabel(issue: BillingHealthIssue): string {
@@ -217,12 +207,6 @@
 								<span class="text-muted-foreground">{issueNextSteps(issue)}</span>
 							</div>
 							<div class="flex flex-wrap justify-end gap-2">
-								{#if needsBillingEvents(issue)}
-									<Button href={billingEventsHref} size="sm" variant="outline" aria-label={billingEventsLabel(issue)}>
-										<ExternalLink class="size-4" aria-hidden="true" />
-										Billing Events
-									</Button>
-								{/if}
 								{#if diagnosticsHref}
 									<Button
 										href={diagnosticsHref}

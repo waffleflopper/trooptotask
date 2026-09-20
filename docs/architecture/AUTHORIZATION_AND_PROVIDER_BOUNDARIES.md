@@ -48,7 +48,7 @@ This document separates what v1 authorization and provider ownership look like t
   - the stored member preset and per-lane capability overrides
   - the stored shared scope set
   - request admission for suspension and sensitive-action step-up
-- Platform admin uses a separate role system (`super_admin`, `support`, `billing`) and is not part of organization-membership authorization.
+- Platform admin uses a separate role system (`super_admin`, `support`, `billing`) and is not part of organization-membership authorization. Admin HTTP wrappers translate core access denials into SvelteKit HTTP 403 errors before protected work; page-level role denials follow the same boundary.
 - Authorization is enforced in more than one layer:
   - app-layer permission context and auth context
   - route wrappers and use cases

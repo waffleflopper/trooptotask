@@ -12,7 +12,6 @@
 		Gift,
 		LogOut,
 		Moon,
-		RefreshCcw,
 		ShieldCheck,
 		Sun,
 		UsersRound
@@ -36,7 +35,6 @@
 		'access-requests': ShieldCheck,
 		feedback: ClipboardList,
 		subscriptions: CreditCard,
-		'billing-events': RefreshCcw,
 		gifting: Gift,
 		audit: FileText,
 		announcements: Bell

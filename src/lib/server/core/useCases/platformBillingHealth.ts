@@ -163,23 +163,12 @@ function severityFor(states: BillingHealthState[]): PlatformBillingHealthIssue['
 	return 'info';
 }
 
-function canRetryBillingEvent(role: AdminRole): boolean {
-	return role === 'super_admin' || role === 'billing';
-}
-
 function canRefreshOrgDiagnostics(role: AdminRole): boolean {
 	return role === 'super_admin' || role === 'support';
 }
 
 function nextStepsFor(states: BillingHealthState[], adminRole: AdminRole): string[] {
 	const steps: string[] = [];
-	if (states.includes('needs_retry')) {
-		steps.push(
-			canRetryBillingEvent(adminRole)
-				? 'Use Retry event on Billing Events'
-				: 'Copy bundle and ask billing admin to retry the event'
-		);
-	}
 	if (states.includes('permanent_failure')) steps.push('Copy bundle and escalate permanent webhook failure');
 	if (states.includes('payment_recovery_attention')) steps.push('Ask an owner to update payment in Billing Portal');
 	if (states.includes('drift_detected')) {

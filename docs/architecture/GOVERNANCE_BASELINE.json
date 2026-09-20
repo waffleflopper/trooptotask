@@ -124,11 +124,6 @@
 			"reason": "Platform Administration audit log browsing still builds a service-role audit adapter from the admin context."
 		},
 		{
-			"path": "src/routes/admin/billing-events/+page.server.ts",
-			"classification": "platform-admin-edge",
-			"reason": "Platform Administration billing event diagnostics still builds a service-role billing events adapter from the admin context."
-		},
-		{
 			"path": "src/routes/admin/feedback/+page.server.ts",
 			"classification": "platform-admin-edge",
 			"reason": "Platform Administration feedback moderation still builds a service-role feedback adapter from the admin context."

@@ -203,7 +203,7 @@ describe('admin subscriptions page', () => {
 						organizationName: 'Bravo Company',
 						stripeEventIds: [],
 						reconciliationResult: 'retryable processing failure',
-						nextSteps: ['Use Retry event on Billing Events']
+						nextSteps: []
 					}
 				}
 			]
@@ -257,7 +257,7 @@ describe('admin subscriptions page', () => {
 		expect(document.body.textContent).not.toContain('webhook secret');
 	});
 
-	it('hides Billing Events from support admins while keeping support bundle copy actions', () => {
+	it('keeps organization diagnostics and support bundles available to support admins', () => {
 		const billingHealth = billingHealthDataWithRetryIssue();
 		renderBillingHealthForRole('support', billingHealth);
 
@@ -265,9 +265,6 @@ describe('admin subscriptions page', () => {
 		expect(
 			screen.getByRole('button', { name: 'Copy bundle for Retryable webhook failure (Bravo Company)' })
 		).toBeTruthy();
-		expect(
-			screen.queryByRole('link', { name: 'Open Billing Events for Retryable webhook failure (Bravo Company)' })
-		).toBeNull();
 		expect(
 			screen
 				.getByRole('link', {
@@ -278,17 +275,10 @@ describe('admin subscriptions page', () => {
 		expect(screen.getAllByText('Copy bundle')).toHaveLength(2);
 	});
 
-	it('hides organization diagnostics from billing admins while keeping Billing Events for retry issues', () => {
+	it('hides organization diagnostics from billing admins while keeping support bundles', () => {
 		const billingHealth = billingHealthDataWithRetryIssue();
 		renderBillingHealthForRole('billing', billingHealth);
 
-		expect(
-			screen
-				.getByRole('link', {
-					name: 'Open Billing Events for Retryable webhook failure (Bravo Company)'
-				})
-				.getAttribute('href')
-		).toBe('/admin/billing-events');
 		expect(
 			screen.queryByRole('link', {
 				name: 'Open organization billing diagnostics for Retryable webhook failure (Bravo Company)'
@@ -299,17 +289,10 @@ describe('admin subscriptions page', () => {
 		).toBeTruthy();
 	});
 
-	it('shows Billing Events and organization diagnostics to super admins when both apply', () => {
+	it('shows organization diagnostics and support bundles to super admins', () => {
 		const billingHealth = billingHealthDataWithRetryIssue();
 		renderBillingHealthForRole('super_admin', billingHealth);
 
-		expect(
-			screen
-				.getByRole('link', {
-					name: 'Open Billing Events for Retryable webhook failure (Bravo Company)'
-				})
-				.getAttribute('href')
-		).toBe('/admin/billing-events');
 		expect(
 			screen
 				.getByRole('link', {

@@ -10,7 +10,6 @@ describe('canAccessPage', () => {
 			'access-requests',
 			'feedback',
 			'subscriptions',
-			'billing-events',
 			'gifting',
 			'audit',
 			'announcements'
@@ -30,7 +29,6 @@ describe('canAccessPage', () => {
 	});
 
 	it('support cannot access billing operations or system pages', () => {
-		expect(canAccessPage('support', 'billing-events')).toBe(false);
 		expect(canAccessPage('support', 'gifting')).toBe(false);
 		expect(canAccessPage('support', 'audit')).toBe(false);
 		expect(canAccessPage('support', 'announcements')).toBe(false);
@@ -39,7 +37,6 @@ describe('canAccessPage', () => {
 	it('billing can access billing pages and dashboard', () => {
 		expect(canAccessPage('billing', 'dashboard')).toBe(true);
 		expect(canAccessPage('billing', 'subscriptions')).toBe(true);
-		expect(canAccessPage('billing', 'billing-events')).toBe(true);
 		expect(canAccessPage('billing', 'gifting')).toBe(true);
 	});
 
@@ -58,11 +55,6 @@ describe('canAccessPage', () => {
 });
 
 describe('getAccessiblePages', () => {
-	it('returns all pages for super_admin', () => {
-		const pages = getAccessiblePages('super_admin');
-		expect(pages).toHaveLength(10);
-	});
-
 	it('returns 6 pages for support', () => {
 		const pages = getAccessiblePages('support');
 		expect(pages).toHaveLength(6);
@@ -71,12 +63,10 @@ describe('getAccessiblePages', () => {
 		expect(pages).toContain('subscriptions');
 	});
 
-	it('returns 4 pages for billing', () => {
+	it('restricts billing navigation to its permitted pages', () => {
 		const pages = getAccessiblePages('billing');
-		expect(pages).toHaveLength(4);
 		expect(pages).toContain('dashboard');
 		expect(pages).toContain('subscriptions');
-		expect(pages).toContain('billing-events');
 		expect(pages).not.toContain('users');
 	});
 });

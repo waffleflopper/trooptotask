@@ -27,7 +27,7 @@ Apply the [stabilization decisions](ARCHITECTURE.md#stabilization-decisions) and
       - Platform Administration gifting list/grant/revoke/extend and organization-detail gift state now route through the `PlatformGifting` use case and Supabase adapter instead of route-level gift table calls
       - Platform Administration audit-log list/action/recent reads now route through the `PlatformAudit` use case and Supabase adapter instead of direct route-level audit table calls
         - Platform Administration organization-detail member reads, make-admin, and ownership transfer now route through the `PlatformMembershipAdministration` use case and Supabase adapter instead of route-level membership table calls
-        - Platform Administration billing-event diagnostics and retry commands now route through the `PlatformBillingEvents` use case and Supabase adapter instead of route-level billing table calls or webhook processor calls
+        - Platform Administration billing-event diagnostics and retry routes, use cases and adapters are removed; remaining billing-health/admin projections are still owned by phase 03 D04
         - Platform Administration user-directory list/detail shaping now routes auth users, memberships, suspensions, and active personnel counts through the `PlatformUserDirectory` use case and Supabase adapter instead of route-level row shaping
         - Platform Administration user identity email commands now route through the `PlatformUserIdentityCommands` use case and Supabase adapter instead of route-local Supabase Auth calls
         - Platform Administration organization-detail base reads and billing snapshot reads now route through the `PlatformOrganizationDetail` use case and Supabase adapter instead of route-level table calls

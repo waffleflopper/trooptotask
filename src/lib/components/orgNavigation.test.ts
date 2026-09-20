@@ -292,19 +292,4 @@ describe('getOrgBreadcrumbs', () => {
 			{ label: 'Settings' }
 		]);
 	});
-
-	it('uses linked Billing breadcrumbs for billing result routes outside primary navigation', () => {
-		const nav = getOrgNavigation('org-1', baseCapabilities);
-
-		expect(getOrgBreadcrumbs('/org/org-1/billing/success', 'Test Org', nav)).toEqual([
-			{ label: 'Test Org', href: '/org/org-1' },
-			{ label: 'Billing', href: '/org/org-1/billing' },
-			{ label: 'Success' }
-		]);
-		expect(getOrgBreadcrumbs('/org/org-1/billing/canceled', 'Test Org', nav)).toEqual([
-			{ label: 'Test Org', href: '/org/org-1' },
-			{ label: 'Billing', href: '/org/org-1/billing' },
-			{ label: 'Canceled' }
-		]);
-	});
 });

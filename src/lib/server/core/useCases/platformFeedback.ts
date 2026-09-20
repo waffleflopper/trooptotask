@@ -128,7 +128,6 @@ const SECTION_MAP: Record<string, string> = {
 	'settings/logs': 'Settings',
 	'settings/exports': 'Settings',
 	'settings/danger': 'Settings',
-	billing: 'Billing',
 	audit: 'Audit Log',
 	admin: 'Admin'
 };

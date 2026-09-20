@@ -101,10 +101,6 @@
 				<strong>Supabase</strong> — PostgreSQL database, authentication, and file storage. SOC 2 Type II certified. Hosted
 				on AWS with isolated tenancy.
 			</li>
-			<li>
-				<strong>Stripe</strong> — Payment processing. PCI DSS Level 1 certified. TroopToTask never stores credit card numbers
-				or payment credentials.
-			</li>
 		</ul>
 		<p>All infrastructure is hosted within the United States.</p>
 	</PublicContentSection>

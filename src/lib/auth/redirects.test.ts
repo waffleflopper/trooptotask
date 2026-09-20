@@ -5,8 +5,8 @@ describe('sanitizeAuthNextPath', () => {
 	it('keeps safe app-relative paths with query strings and hashes', () => {
 		expect(sanitizeAuthNextPath('/')).toBe('/');
 		expect(sanitizeAuthNextPath('/dashboard')).toBe('/dashboard');
-		expect(sanitizeAuthNextPath('/org/local-dev-test/billing?tab=plan#checkout')).toBe(
-			'/org/local-dev-test/billing?tab=plan#checkout'
+		expect(sanitizeAuthNextPath('/org/local-dev-test/settings?tab=members#invitation')).toBe(
+			'/org/local-dev-test/settings?tab=members#invitation'
 		);
 	});
 

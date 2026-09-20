@@ -26,11 +26,7 @@
 		"format": "prettier --write .",
 		"format:check": "prettier --check .",
 		"lint": "eslint .",
-		"lint:fix": "eslint --fix .",
-		"billing:launch-preflight": "node ./scripts/billing-launch-preflight.mjs",
-		"billing:launch-readiness": "node ./scripts/billing-launch-readiness.mjs",
-		"billing:snapshot-backfill": "node ./scripts/billing-snapshot-backfill.mjs",
-		"billing:lifecycle": "node ./scripts/billing-lifecycle-simulate.mjs"
+		"lint:fix": "eslint --fix ."
 	},
 	"devDependencies": {
 		"@eslint/js": "^9.39.4",
@@ -75,7 +71,6 @@
 		"jspdf-autotable": "^5.0.8",
 		"layerchart": "^1.0.13",
 		"mode-watcher": "^1.1.0",
-		"stripe": "^22.1.0",
 		"svelte-sonner": "^1.1.1",
 		"tailwind-merge": "^3.5.0",
 		"tailwind-variants": "^3.2.2",

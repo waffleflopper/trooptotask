@@ -37,7 +37,7 @@
 		showFooter = true,
 		ctaTitleBefore = 'Ready to streamline',
 		ctaEmphasis = 'your unit?',
-		ctaSubtitle = 'Request reviewed access and we will help configure the right plan for your formation.',
+		ctaSubtitle = 'Request reviewed access for your formation.',
 		navOverlay = false,
 		navScrolled = false,
 		children,

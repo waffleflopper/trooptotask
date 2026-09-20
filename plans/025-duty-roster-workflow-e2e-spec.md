@@ -1,17 +1,6 @@
 # Plan 025: Add an end-to-end Playwright spec for the duty-roster workflow
 
-> **Executor instructions**: Follow this plan step by step. Run every
-> verification command and confirm the expected result before moving to the
-> next step. If anything in the "STOP conditions" section occurs, stop and
-> report — do not improvise. When done, update the status row for this plan
-> in `plans/README.md` — unless a reviewer dispatched you and told you they
-> maintain the index.
->
-> **Drift check (run first)**: `git diff --stat 79cfef20..HEAD -- e2e "src/routes/org/[orgId]/duty-rosters" src/features/duty-roster`
-> If the duty-roster routes/components changed since this plan was written,
-> re-verify the flow described in "Current state" before proceeding; on a
-> structural mismatch (workspace removed, routes renamed), treat it as a STOP
-> condition.
+Historical implementation record. The [stabilization queue](../docs/stabilization/TODO.md) owns current work; the executor/drift instructions for this completed plan are retired. References below to deleted billing runbooks, plans or code identify historical inputs and do not authorize restoring them. Retained behavior and verification remain governed by the queue. Current acquisition/support guidance is in [Launch Acquisition Path](../docs/launch-acquisition-path.md); external commercial retirement follows [RELEASE](../docs/stabilization/RELEASE.md#commercial-operations-retirement--03-07b-01).
 
 ## Status
 

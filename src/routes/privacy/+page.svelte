@@ -33,9 +33,9 @@
 		{#snippet title()}Purpose-driven, nothing more.{/snippet}
 		<p>
 			We use your information to: provide and maintain the TroopToTask service; authenticate your identity and manage
-			access; generate security-relevant audit logs; process billing and support requests; send service-related
-			notifications; improve the service based on aggregate usage patterns. We do not use your data for advertising,
-			profiling, or any purpose unrelated to delivering the service.
+			access; generate security-relevant audit logs; respond to support requests; send service-related notifications;
+			improve the service based on aggregate usage patterns. We do not use your data for advertising, profiling, or any
+			purpose unrelated to delivering the service.
 		</p>
 	</PublicContentSection>
 
@@ -55,8 +55,7 @@
 			We do not sell or rent your personal information or personnel data. We may disclose information only when required
 			by law, to enforce our terms, or to protect rights and safety. Our service providers process data solely to
 			deliver the service under strict data processing agreements: Supabase for database, authentication, and file
-			storage; Vercel for application hosting, analytics, and performance signals; and Stripe for payment processing,
-			billing details, invoices, receipts, and tax-related billing information when provided.
+			storage; and Vercel for application hosting, analytics, and performance signals.
 		</p>
 	</PublicContentSection>
 

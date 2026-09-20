@@ -1,7 +1,5 @@
-import type { BillingCancellationFeedback, EffectiveTier } from '$lib/types/subscription';
 import type { CapabilityMap, ScopeSet } from '$lib/access/memberAccessShape';
 import type { AccessRequestSetupState } from '$lib/server/accessRequestSetupState';
-import type { CheckoutSessionConfiguration } from '$lib/server/billing/checkoutConfiguration';
 import type { SensitiveActionAuthorizer } from '$lib/server/sensitiveActionAuthorizer';
 import type { Personnel } from '$lib/types';
 
@@ -165,37 +163,6 @@ export interface AuditPort {
 	}): void;
 }
 
-/** Subscription/billing cap checks and cache management */
-export interface SubscriptionPort {
-	invalidateTierCache(): void;
-	/** Get the effective tier for this org (considers gifts, subscriptions, billing-disabled) */
-	getEffectiveTier(): Promise<EffectiveTier>;
-}
-
-/** Abstracts payment provider operations (Stripe, etc.) */
-export interface BillingPort {
-	createCheckoutSession(options: {
-		orgId: string;
-		orgName: string;
-		tier: 'team' | 'unit';
-		priceId: string;
-		checkoutAttemptId?: string;
-		customerEmail: string;
-		existingCustomerId?: string;
-		successUrl: string;
-		cancelUrl: string;
-		checkoutConfiguration: CheckoutSessionConfiguration;
-	}): Promise<{ url: string; customerId: string; sessionId?: string; expiresAt?: string | null }>;
-	createPortalSession(customerId: string, returnUrl: string): Promise<{ url: string }>;
-	expireCheckoutSession(sessionId: string): Promise<void>;
-	cancelSubscription(
-		subscriptionId: string,
-		options?: { cancellationFeedback?: BillingCancellationFeedback | null }
-	): Promise<void>;
-	pauseSubscription(subscriptionId: string): Promise<void>;
-	resumeSubscription(subscriptionId: string): Promise<void>;
-}
-
 /** Notification payload for user/admin notifications */
 export interface NotificationPayload {
 	type: string;
@@ -259,9 +226,7 @@ export interface UseCaseContext {
 	scope: ScopeEnforcementPort;
 	audit: AuditPort;
 
-	subscription: SubscriptionPort;
 	notifications: NotificationPort;
-	billing: BillingPort;
 	storage: StoragePort;
 	sensitiveActionAuthorizer: SensitiveActionAuthorizer;
 	criticalTasksReadModel: CriticalTasksReadModelPort;

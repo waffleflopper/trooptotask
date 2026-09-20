@@ -24,7 +24,7 @@ export const changelog: ChangelogEntry[] = [
 			'Organization invites can now start the platform access request for new users, so invitees do not have to figure out that step on their own',
 			'Invite emails now explain when an access request has already been submitted on the invitee’s behalf and what happens after approval',
 			'Platform admins can see clearer invitation context during access review, including who sent the organization invite',
-			'Account access, organization invites, billing, and owner/admin actions now have stronger protections against repeated attempts and may ask for extra identity confirmation when needed'
+			'Account access, organization invites, and owner/admin actions now have stronger protections against repeated attempts and may ask for extra identity confirmation when needed'
 		]
 	},
 	{

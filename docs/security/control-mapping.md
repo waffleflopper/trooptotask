@@ -26,7 +26,7 @@ This document is the repo-facing summary of where the current security remediati
 - **NIST 800-171 alignment evidence**
   The codebase now supports the core technical claims much better, and `docs/security/operational-control-evidence.md` indexes the launch operational runbooks. Recurring review artifacts, provider dashboard evidence, incident records, and restore-drill evidence still live outside the repo with Robert, so this remains partial.
 - **Operational control evidence pack**
-  `docs/security/operational-control-evidence.md` links the launch runbooks for incident response, access review, provisioning/deprovisioning, backup/restore, billing/support security, vulnerability disclosure, audit-log review, and environment/secrets review. Some rows remain partial or planned where evidence is external or not yet exercised.
+  `docs/security/operational-control-evidence.md` links the launch runbooks for incident response, access review, provisioning/deprovisioning, backup/restore, support security, vulnerability disclosure, audit-log review, and environment/secrets review. Some rows remain partial or planned where evidence is external or not yet exercised.
 
 ## Planned
 

@@ -30,9 +30,10 @@ verified both synthetic rosters and independent concurrent sessions with all
 external browser requests blocked. Reference source/overlay hashes, local Git
 guards, baseline bundle and independent Docker database volumes were checked.
 
-The unit-test environment uses an ignored `.env.test.local` with
-`PUBLIC_BILLING_ENABLED=true` to exercise existing v1 billing components; both
-manual preview launchers keep billing disabled and have no Stripe credentials.
+The app and retained tests no longer use commercial flags or payment-provider credentials.
+Ignored environment files and workstation launchers require the owner-operated cleanup
+in [the release runbook](stabilization/RELEASE.md#commercial-operations-retirement--03-07b-01);
+repository changes do not establish that those external settings have been retired.
 Preview origins and setup secrets belong to the isolated preview environment.
 App-owned email uses its real transport; no runtime test-email bypass remains.
 

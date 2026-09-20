@@ -31,18 +31,7 @@ import {
 	type OrganizationSettingsMemberManagementPort
 } from './orgSettingsMemberManagement';
 
-const { billingEnabledMock } = vi.hoisted(() => ({
-	billingEnabledMock: vi.fn(() => false)
-}));
-
-vi.mock('$lib/config/billing', () => ({
-	get isBillingEnabled() {
-		return billingEnabledMock();
-	}
-}));
-
 beforeEach(() => {
-	billingEnabledMock.mockReturnValue(false);
 	vi.stubEnv('APP_PUBLIC_ORIGIN', 'https://trooptotask.test');
 });
 
@@ -743,8 +732,7 @@ describe('inviteOrganizationMember', () => {
 		expect(port.accessRequestBridges).toEqual([]);
 	});
 
-	it.each([false, true])('bridges new invitees with billing=%s', async (billingEnabled) => {
-		billingEnabledMock.mockReturnValue(billingEnabled);
+	it('bridges new invitees into reviewed access', async () => {
 		const ctx = createTestContext();
 		const port = createOrganizationSettingsMemberManagementPort({
 			existingUserAccount: null,
@@ -1125,8 +1113,7 @@ describe('inviteOrganizationMember', () => {
 		expect(issuance.setupDeliveries).toEqual([]);
 	});
 
-	it('issues the separate setup credential even when billing is enabled', async () => {
-		billingEnabledMock.mockReturnValue(true);
+	it('issues the separate setup credential for a new invitee', async () => {
 		const ctx = createTestContext();
 		const port = createOrganizationSettingsMemberManagementPort({ existingUserAccount: null });
 		const issuance = createAccountSetupIssuancePorts();
@@ -1523,90 +1510,86 @@ describe('inviteOrganizationMember', () => {
 		});
 	});
 
-	it.each([false, true])(
-		'resends legacy invitations to a working reviewed-access destination with billing=%s',
-		async (billingEnabled) => {
-			billingEnabledMock.mockReturnValue(billingEnabled);
-			vi.stubEnv('RESEND_API_KEY', 'synthetic-capture-only');
-			vi.stubEnv('RESEND_FROM_EMAIL', 'noreply@example.test');
-			const ctx = createTestContext();
-			const port = createOrganizationSettingsMemberManagementPort({
-				existingUserAccount: null,
-				pendingInvitationRequiresAccountSetup: false,
-				orgName: 'Alpha Company'
-			});
-			const messages: { text: string; html: string }[] = [];
-			let outboxRow: Record<string, unknown> = {};
-			// Fake only persistence/transport; exercise the actual delivery adapter and renderer.
-			const client = createClient('http://127.0.0.1:9', 'synthetic-test-key', {
-				auth: { persistSession: false, autoRefreshToken: false },
-				global: {
-					fetch: async (url, init) => {
-						if (new URL(String(url)).pathname.endsWith('/organization_invitation_email_outbox')) {
-							outboxRow = { ...JSON.parse(init!.body as string), id: 'outbox-1', last_error: null, sent_at: null };
-						} else if (
-							new URL(String(url)).pathname.endsWith('/rpc/mark_organization_invitation_email_outbox_delivery')
-						) {
-							outboxRow = { ...outboxRow, status: 'sent', attempt_count: 1, sent_at: AUTH_WORKFLOW_NOW.toISOString() };
-						} else {
-							throw new Error('Unexpected persistence request');
-						}
-						return Response.json(outboxRow);
+	it('resends legacy invitations to a working reviewed-access destination', async () => {
+		vi.stubEnv('RESEND_API_KEY', 'synthetic-capture-only');
+		vi.stubEnv('RESEND_FROM_EMAIL', 'noreply@example.test');
+		const ctx = createTestContext();
+		const port = createOrganizationSettingsMemberManagementPort({
+			existingUserAccount: null,
+			pendingInvitationRequiresAccountSetup: false,
+			orgName: 'Alpha Company'
+		});
+		const messages: { text: string; html: string }[] = [];
+		let outboxRow: Record<string, unknown> = {};
+		// Fake only persistence/transport; exercise the actual delivery adapter and renderer.
+		const client = createClient('http://127.0.0.1:9', 'synthetic-test-key', {
+			auth: { persistSession: false, autoRefreshToken: false },
+			global: {
+				fetch: async (url, init) => {
+					if (new URL(String(url)).pathname.endsWith('/organization_invitation_email_outbox')) {
+						outboxRow = { ...JSON.parse(init!.body as string), id: 'outbox-1', last_error: null, sent_at: null };
+					} else if (
+						new URL(String(url)).pathname.endsWith('/rpc/mark_organization_invitation_email_outbox_delivery')
+					) {
+						outboxRow = { ...outboxRow, status: 'sent', attempt_count: 1, sent_at: AUTH_WORKFLOW_NOW.toISOString() };
+					} else {
+						throw new Error('Unexpected persistence request');
 					}
+					return Response.json(outboxRow);
 				}
-			});
-			const delivery = createSupabaseOrganizationInvitationDeliveryPort(client, {
-				sendEmail: (input) =>
-					sendOrganizationInvitationEmail(input, async (_url, init) => {
-						messages.push(JSON.parse(init.body as string));
-						return { ok: true, status: 202, text: async () => '' };
-					})
-			});
-			const issuance = createAccountSetupIssuancePorts();
-			const result = await resendOrganizationInvitation(
-				{
-					auth: ctx.auth,
-					audit: ctx.audit,
-					notifications: ctx.notifications,
-					settings: port,
-					invitationDelivery: delivery,
-					...issuance
-				},
-				{ inviteId: '11111111-1111-4111-8111-111111111111', actorEmail: 'actor@example.com', origin: INVITE_ORIGIN }
-			);
-			expect(result.inviteDeliveryStatus).toBe('sent');
-			expect(outboxRow).toMatchObject({ recipient: 'invitee@example.com', status: 'sent' });
-			const destination = new URL(messages[0].html.match(/href="([^"]+)"/)![1]);
-			expect(destination.pathname).toBe('/auth/request-access');
-			for (const body of [messages[0].text, messages[0].html]) {
-				expect(body).toContain(destination.href);
-				expect(body).toMatch(/request access/i);
-				expect(body).toMatch(/approv/i);
-				expect(body).not.toMatch(/a separate email carries your account setup link/i);
 			}
-			expect(issuance.setupLinkRequests).toEqual([]);
-			expect(issuance.setupDeliveries).toEqual([]);
-			const requestStore = createAccessRequestSetupDeliveryStore();
-			const sendSetupEmail = vi.fn();
-			const service = createAccessRequestSetupDeliveryService(requestStore, sendSetupEmail, {
-				now: () => AUTH_WORKFLOW_NOW
-			});
-			expect(
-				await service.submitAccessRequest({
-					email: 'invitee@example.com',
-					firstName: 'Synthetic',
-					lastName: 'Invitee',
-					reason: null,
-					heardAbout: 'search_engine',
-					heardAboutDetails: null,
-					origin: destination.origin
+		});
+		const delivery = createSupabaseOrganizationInvitationDeliveryPort(client, {
+			sendEmail: (input) =>
+				sendOrganizationInvitationEmail(input, async (_url, init) => {
+					messages.push(JSON.parse(init.body as string));
+					return { ok: true, status: 202, text: async () => '' };
 				})
-			).toEqual({ status: 'pending-created' });
-			expect(requestStore.insertedRequests).toEqual([expect.objectContaining({ email: 'invitee@example.com' })]);
-			expect(requestStore.setupLinks).toEqual([]);
-			expect(sendSetupEmail).not.toHaveBeenCalled();
+		});
+		const issuance = createAccountSetupIssuancePorts();
+		const result = await resendOrganizationInvitation(
+			{
+				auth: ctx.auth,
+				audit: ctx.audit,
+				notifications: ctx.notifications,
+				settings: port,
+				invitationDelivery: delivery,
+				...issuance
+			},
+			{ inviteId: '11111111-1111-4111-8111-111111111111', actorEmail: 'actor@example.com', origin: INVITE_ORIGIN }
+		);
+		expect(result.inviteDeliveryStatus).toBe('sent');
+		expect(outboxRow).toMatchObject({ recipient: 'invitee@example.com', status: 'sent' });
+		const destination = new URL(messages[0].html.match(/href="([^"]+)"/)![1]);
+		expect(destination.pathname).toBe('/auth/request-access');
+		for (const body of [messages[0].text, messages[0].html]) {
+			expect(body).toContain(destination.href);
+			expect(body).toMatch(/request access/i);
+			expect(body).toMatch(/approv/i);
+			expect(body).not.toMatch(/a separate email carries your account setup link/i);
 		}
-	);
+		expect(issuance.setupLinkRequests).toEqual([]);
+		expect(issuance.setupDeliveries).toEqual([]);
+		const requestStore = createAccessRequestSetupDeliveryStore();
+		const sendSetupEmail = vi.fn();
+		const service = createAccessRequestSetupDeliveryService(requestStore, sendSetupEmail, {
+			now: () => AUTH_WORKFLOW_NOW
+		});
+		expect(
+			await service.submitAccessRequest({
+				email: 'invitee@example.com',
+				firstName: 'Synthetic',
+				lastName: 'Invitee',
+				reason: null,
+				heardAbout: 'search_engine',
+				heardAboutDetails: null,
+				origin: destination.origin
+			})
+		).toEqual({ status: 'pending-created' });
+		expect(requestStore.insertedRequests).toEqual([expect.objectContaining({ email: 'invitee@example.com' })]);
+		expect(requestStore.setupLinks).toEqual([]);
+		expect(sendSetupEmail).not.toHaveBeenCalled();
+	});
 
 	it('routes unlinked unconfirmed accounts to Request Access on resend', async () => {
 		const ctx = createTestContext();
@@ -1643,7 +1626,6 @@ describe('inviteOrganizationMember', () => {
 	});
 
 	it('keeps linked reviewed-access invitation resends on reviewed setup until setup completes', async () => {
-		billingEnabledMock.mockReturnValue(true);
 		const ctx = createTestContext();
 		const port = createOrganizationSettingsMemberManagementPort({
 			existingUserAccount: { id: 'existing-user-1', email: 'invitee@example.com' },
@@ -1689,7 +1671,6 @@ describe('inviteOrganizationMember', () => {
 	});
 
 	it('resends linked reviewed-access invitations to sign-in once setup has completed', async () => {
-		billingEnabledMock.mockReturnValue(true);
 		const ctx = createTestContext();
 		const port = createOrganizationSettingsMemberManagementPort({
 			existingUserAccount: { id: 'existing-user-1', email: 'invitee@example.com' },

@@ -147,9 +147,9 @@ describe('createOrgContext', () => {
 		const admin = createOrgContext(makeInput({ userRole: 'admin', capabilityMap: owner.capabilityMap }));
 		const member = createOrgContext(makeInput({ userRole: 'member', capabilityMap: owner.capabilityMap }));
 
-		expect(owner.affordanceForGovernanceAction(POLICY_ACTION_CATALOG.organization.accessBilling).allowed).toBe(true);
+		expect(owner.affordanceForGovernanceAction(POLICY_ACTION_CATALOG.organization.accessAuditLogs).allowed).toBe(true);
 		expect(admin.affordanceForGovernanceAction(POLICY_ACTION_CATALOG.organization.accessGovernance).allowed).toBe(true);
-		expect(admin.affordanceForGovernanceAction(POLICY_ACTION_CATALOG.organization.accessBilling).reason).toBe(
+		expect(admin.affordanceForGovernanceAction(POLICY_ACTION_CATALOG.organization.accessAuditLogs).reason).toBe(
 			'denied:owner-only'
 		);
 		expect(member.affordanceForGovernanceAction(POLICY_ACTION_CATALOG.organization.accessGovernance).reason).toBe(

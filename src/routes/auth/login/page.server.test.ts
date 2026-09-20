@@ -40,12 +40,12 @@ describe('GET /auth/login', () => {
 				authFlow: null,
 				mfaPending: false
 			},
-			url: new URL('http://localhost/auth/login?reauth=1&next=/org/local-dev-test/billing')
+			url: new URL('http://localhost/auth/login?reauth=1&next=/org/local-dev-test/settings')
 		} as unknown as Parameters<typeof load>[0]);
 
 		expect(result).toEqual({
 			reauth: true,
-			nextPath: '/org/local-dev-test/billing'
+			nextPath: '/org/local-dev-test/settings'
 		});
 	});
 
@@ -95,7 +95,7 @@ describe('GET /auth/login', () => {
 		const formData = new FormData();
 		formData.set('email', 'owner@example.com');
 		formData.set('password', 'correct-password');
-		formData.set('next', '/org/local-dev-test/billing');
+		formData.set('next', '/org/local-dev-test/settings');
 
 		await expect(
 			actions.login({
@@ -114,7 +114,7 @@ describe('GET /auth/login', () => {
 			} as never)
 		).rejects.toMatchObject({
 			status: 303,
-			location: '/org/local-dev-test/billing'
+			location: '/org/local-dev-test/settings'
 		});
 
 		expect(signInWithPassword).toHaveBeenCalledWith({

@@ -95,3 +95,7 @@ separately authorized owner actions:
 External deployment settings, provider disposition, caller shutdown and hosted
 verification remain **UNVERIFIED** owner prerequisites. Deleting the empty
 launch-confirmation ledger creates no completion evidence.
+
+## Public privacy and security copy — 03-07b-02
+
+The candidate removes current payment-processing claims from Privacy and Security and the billing reference from the in-app changelog. Before releasing these pages, Robert must reconcile their effective/review dates and any required user notice with the actual release, confirm remaining provider disclosures, and account for historical payment records and outstanding obligations under the retirement sequence above. Local copy changes do not certify provider data deletion, terminate agreements, cancel charges or establish legal completion. Retained privacy, security and support contacts remain available.

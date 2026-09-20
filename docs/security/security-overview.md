@@ -45,7 +45,6 @@ Audit logs are append-only and retained for 1 year.
 
 - **Hosting:** Vercel (SOC 2 Type II certified)
 - **Database:** Supabase (SOC 2 Type II certified)
-- **Payments:** Stripe (PCI DSS Level 1 certified)
 
 ## Compliance Alignment
 

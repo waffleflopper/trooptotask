@@ -71,7 +71,6 @@ A military unit management platform for personnel tracking, calendar/availabilit
 - Light and dark mode
 - Mobile responsive with bottom tab navigation
 - Multi-organization support
-- Subscription tiers (Free, Team, Unit) with personnel-count gating
 - What's New changelog for users
 - Feedback submission system
 
@@ -82,7 +81,6 @@ A military unit management platform for personnel tracking, calendar/availabilit
 - **Database**: Supabase (PostgreSQL + Row Level Security)
 - **Authentication**: Supabase Auth
 - **Styling**: Pure CSS with custom properties (no Tailwind)
-- **Payments**: Stripe (subscription billing)
 - **Deployment**: Vercel
 - **Testing**: Vitest and isolated SQL contracts, with computer-use flow evidence; repository browser suites and runtime test bypasses have been removed.
 
@@ -192,7 +190,6 @@ src/
   routes/
     org/[orgId]/             # Main app (thin shells importing from features)
     auth/                    # Login, callback, registration
-    billing/                 # Subscription management
 ```
 
 Each feature module contains its own `components/`, `stores/`, `utils/`, and types. Features are imported via `$features/feature-name/...`.

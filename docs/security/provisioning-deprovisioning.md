@@ -1,6 +1,6 @@
 # Provisioning And Deprovisioning Runbook
 
-This runbook covers launch-safe access grants and removals for platform administration, support, billing, and Organization-level administration. It documents the process; it does not authorize production database changes or secret disclosure.
+This runbook covers launch-safe access grants and removals for platform administration, support, and Organization-level administration. It documents the process; it does not authorize production database changes or secret disclosure.
 
 ## Owner And Cadence
 
@@ -16,21 +16,20 @@ This runbook covers launch-safe access grants and removals for platform administ
 4. Record the approver, date, role, environment, and expected review date in external evidence.
 5. Do not copy invite links, recovery links, temporary passwords, API keys, webhook secrets, session cookies, or provider secrets into repo docs or issues.
 
-## Provisioning Support And Billing Access
+## Provisioning Support Access
 
-Support and billing access should be limited to the systems required for the support case:
+Support access should be limited to the systems required for the support case:
 
 - TroopToTask admin diagnostics for the affected Organization.
-- Stripe Dashboard access only when billing investigation requires it.
 - Provider logs or dashboard views only when necessary for incident response or launch verification.
 
-Support notes may include support-safe identifiers such as Organization ID, Stripe customer ID, subscription ID, invoice ID, or webhook event ID when those identifiers are needed to reproduce the support trail. Do not include card details, raw webhook payloads, API keys, webhook signatures, or secret values.
+Support notes may include support-safe identifiers such as Organization ID or a sanitized provider request ID when those identifiers are needed to reproduce the support trail. Do not include card details, raw webhook payloads, API keys, webhook signatures, or secret values.
 
 ## Deprovisioning Access
 
 Trigger deprovisioning when a person leaves, changes role, no longer needs access, fails access review, or is involved in a suspected compromise.
 
-1. Revoke app, provider, Stripe, and repository access that is no longer needed.
+1. Revoke app, provider, and repository access that is no longer needed.
 2. Remove or downgrade Organization owner/admin roles where appropriate.
 3. Revoke active sessions when compromise, departure, or role transition warrants it.
 4. Rotate shared or potentially exposed credentials after staff departure, incident, or accidental disclosure.
@@ -51,12 +50,12 @@ For departing personnel or stale users:
 
 - Disable or remove access according to Organization direction.
 - Confirm pending invites and dormant admin accounts are still needed.
-- Review whether the user owned billing, exports, integrations, or sensitive workflows.
+- Review whether the user owned exports, integrations, or sensitive workflows.
 - Keep evidence support-safe and external; do not paste raw roster exports into repo docs.
 
 ## Environment And Secrets Review
 
-Before paid launch and after any provider, staff, incident, or deployment-secret change:
+Before launch and after any provider, staff, incident, or deployment-secret change:
 
 - Confirm required deployment variables exist in the correct environment.
 - Confirm each secret has an owner and rotation path.

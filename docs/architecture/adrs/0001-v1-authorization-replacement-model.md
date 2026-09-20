@@ -3,6 +3,11 @@
 Status: Accepted
 Date: 2026-04-21
 
+Stabilization D03 supersedes the original commercial read-only overlay. Current
+authorization uses membership, capabilities and scope, with explicit suspension
+admission and sensitive-action step-up. The persisted platform `billing` role
+remains an identity/authorization value; it does not imply an active billing feature.
+
 ## Context
 
 ### Current-state truth
@@ -42,7 +47,7 @@ Date: 2026-04-21
 - The core policy evaluator should be pure TypeScript and provider-agnostic. Supabase-specific reads belong in an adapter that translates provider data into policy inputs.
 - Policy evaluation should return a structured decision result rather than a bare boolean, including explanation fields for UX and audit use.
 - Every policy decision should include a stable machine-readable reason code; human-facing copy should be mapped from reason codes outside the evaluator.
-- Audit capture should be selective. Policy decisions should carry enough fields for audit events, while an audit adapter or allowlist persists denied writes, organization-governance actions, owner-only actions, billing changes, member-management changes, and suspicious denied access patterns.
+- Audit capture should be selective. Policy decisions should carry enough fields for audit events, while an audit adapter or allowlist persists denied writes, organization-governance actions, owner-only actions, member-management changes, and suspicious denied access patterns.
 - Ordinary allowed reads should not be audited by default.
 - Policy enforcement must be server-authoritative. Client-side or preloaded decisions are advisory UX hints only; writes and sensitive reads must still be checked server-side.
 - Use `Viewer`, `Operator`, and `Editor` as the starter member presets.
@@ -58,7 +63,7 @@ Date: 2026-04-21
   - one or more `Group`s
 - Do not reserve personnel-specific member scope storage in the v1 replacement model. If personnel-scoped access becomes necessary later, introduce it through a new ADR or approved slice that defines its policy semantics, RLS behavior, UI affordances, and audit behavior together.
 - Do not introduce per-feature scope matrices in the replacement model.
-- Treat read-only billing locks, delete-approval workflows, and owner-only danger operations as explicit policy overlays rather than part of the feature capability ladder itself.
+- Treat delete-approval workflows and owner-only danger operations as explicit policy overlays rather than part of the feature capability ladder itself.
 - Name the intended first-class v1 feature lanes now:
   - `calendar`
   - `personnel`

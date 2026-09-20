@@ -3,7 +3,7 @@
 ## Selected path
 
 Public acquisition uses reviewed Access Requests. Anonymous GET and POST to
-`/auth/sign-up` redirect to `/auth/request-access` regardless of billing settings;
+`/auth/sign-up` redirect to `/auth/request-access`;
 authenticated requests retain their authentication/MFA continuation. The public
 signup form, provider signup operation and signup-only limiter have been removed
 by stabilization task 03-01a.
@@ -17,8 +17,7 @@ Public CTAs say `Request Access` and link directly to `/auth/request-access`.
 5. Organization creation and Organization Membership remain separate workflows.
 
 New invitees receive an owner-authorized approved Access Request, an Account
-Setup Link email and a separate Organization Invitation email, independent of
-billing settings. Existing accounts keep invitation acceptance. Invitation resend
+Setup Link email and a separate Organization Invitation email. Existing accounts keep invitation acceptance. Invitation resend
 and outbox retry never mint a setup credential: linked incomplete accounts receive the
 setup-recovery destination; completed accounts receive sign-in. Legacy unlinked
 recipients without a usable account receive Request Access and must obtain approval

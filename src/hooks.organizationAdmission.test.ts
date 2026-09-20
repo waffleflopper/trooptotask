@@ -12,8 +12,7 @@ const { serverClient, adminClient } = vi.hoisted(() => ({ serverClient: vi.fn(),
 vi.mock('@supabase/ssr', () => ({ createServerClient: serverClient }));
 vi.mock('$env/static/public', () => ({
 	PUBLIC_SUPABASE_URL: 'http://organization.invalid',
-	PUBLIC_SUPABASE_ANON_KEY: 'synthetic-key',
-	PUBLIC_BILLING_ENABLED: 'false'
+	PUBLIC_SUPABASE_ANON_KEY: 'synthetic-key'
 }));
 vi.mock('$lib/server/env', () => ({}));
 vi.mock('$lib/server/supabase', async (original) => ({

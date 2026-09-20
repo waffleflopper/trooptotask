@@ -93,103 +93,18 @@ describe('environment validation', () => {
 		expect(result.errors).toContain('APP_PUBLIC_ORIGIN must use HTTPS outside local development');
 	});
 
-	it('rejects Stripe secret modes that do not match the app runtime mode', () => {
-		expect(
-			validateEnvironmentConfig({
-				mode: 'production',
-				env: {
-					...baseEnv,
-					ACCOUNT_SETUP_SESSION_SECRET: 'setup-session-secret',
-					APP_PUBLIC_ORIGIN: 'https://app.trooptotask.org',
-					STRIPE_SECRET_KEY: 'sk_test_123'
-				}
-			}).errors
-		).toContain('STRIPE_SECRET_KEY must not use test mode in production');
-
-		expect(
-			validateEnvironmentConfig({
-				mode: 'development',
-				env: {
-					...baseEnv,
-					STRIPE_SECRET_KEY: 'sk_live_123'
-				}
-			}).errors
-		).toContain('STRIPE_SECRET_KEY must not use live mode outside production');
-	});
-
-	it('requires Stripe Tax dashboard verification when automatic tax is enabled', () => {
+	it('starts production with only retained service configuration and no optional-service warnings', () => {
 		const result = validateEnvironmentConfig({
 			mode: 'production',
 			env: {
 				...baseEnv,
 				ACCOUNT_SETUP_SESSION_SECRET: 'setup-session-secret',
 				APP_PUBLIC_ORIGIN: 'https://app.trooptotask.org',
-				STRIPE_SECRET_KEY: 'sk_live_123',
-				STRIPE_AUTOMATIC_TAX_ENABLED: 'true'
+				RESEND_API_KEY: 'synthetic-email-key',
+				RESEND_FROM_EMAIL: 'noreply@example.test'
 			}
 		});
 
-		expect(result.errors).toContain(
-			'STRIPE_TAX_DASHBOARD_VERIFIED must be true when STRIPE_AUTOMATIC_TAX_ENABLED is true'
-		);
-	});
-
-	it('rejects invalid boolean values for tax configuration flags', () => {
-		expect(
-			validateEnvironmentConfig({
-				mode: 'development',
-				env: {
-					...baseEnv,
-					STRIPE_AUTOMATIC_TAX_ENABLED: 'yes'
-				}
-			}).errors
-		).toContain('STRIPE_AUTOMATIC_TAX_ENABLED must be true or false');
-
-		expect(
-			validateEnvironmentConfig({
-				mode: 'development',
-				env: {
-					...baseEnv,
-					STRIPE_TAX_DASHBOARD_VERIFIED: '1'
-				}
-			}).errors
-		).toContain('STRIPE_TAX_DASHBOARD_VERIFIED must be true or false');
-	});
-
-	it('accepts tax disabled and verified tax-enabled configuration', () => {
-		expect(
-			validateEnvironmentConfig({
-				mode: 'development',
-				env: {
-					...baseEnv,
-					STRIPE_SECRET_KEY: 'sk_test_123',
-					STRIPE_AUTOMATIC_TAX_ENABLED: 'false'
-				}
-			}).errors
-		).toEqual([]);
-
-		expect(
-			validateEnvironmentConfig({
-				mode: 'production',
-				env: {
-					...baseEnv,
-					ACCOUNT_SETUP_SESSION_SECRET: 'setup-session-secret',
-					APP_PUBLIC_ORIGIN: 'https://app.trooptotask.org',
-					STRIPE_SECRET_KEY: 'sk_live_123',
-					STRIPE_AUTOMATIC_TAX_ENABLED: 'true',
-					STRIPE_TAX_DASHBOARD_VERIFIED: 'true'
-				}
-			}).errors
-		).toEqual([]);
-	});
-
-	it('surfaces missing legacy Stripe price catalog variables as optional warnings', () => {
-		const result = validateEnvironmentConfig({
-			mode: 'development',
-			env: baseEnv
-		});
-
-		expect(result.warnings).toContain('STRIPE_TEAM_LEGACY_PRICE_IDS is not configured; some features may not work');
-		expect(result.warnings).toContain('STRIPE_UNIT_LEGACY_PRICE_IDS is not configured; some features may not work');
+		expect(result).toEqual({ errors: [], warnings: [] });
 	});
 });

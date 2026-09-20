@@ -20,8 +20,7 @@ vi.mock('@supabase/ssr', () => ({
 }));
 vi.mock('$env/static/public', () => ({
 	PUBLIC_SUPABASE_URL: 'https://confirmation.invalid',
-	PUBLIC_SUPABASE_ANON_KEY: 'synthetic-key',
-	PUBLIC_BILLING_ENABLED: 'false'
+	PUBLIC_SUPABASE_ANON_KEY: 'synthetic-key'
 }));
 const validResult = () => ({
 	data: {

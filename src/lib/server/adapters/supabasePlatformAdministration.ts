@@ -3,7 +3,6 @@ import type { AdminContext } from './adminAdapter';
 import {
 	createPlatformAdministration,
 	type PlatformAdministration,
-	type PlatformAdministrationOrganizationTierRow,
 	type PlatformAdministrationRecentActivity,
 	type PlatformAdministrationSearchOrganizationRow,
 	type PlatformAdministrationSearchUserRow,
@@ -20,12 +19,6 @@ type SupabaseResponse<T> = {
 };
 
 type SupabaseQueryResult<T> = Promise<SupabaseResponse<T>>;
-
-interface PlatformAdministrationOrganizationTierAggregateRow {
-	tier: string | null;
-	gift_tier: string | null;
-	count: number | string | null;
-}
 
 function formatSupabaseError(error: unknown): string {
 	if (error instanceof Error) return error.message;
@@ -54,17 +47,6 @@ function assertSupabaseAffectedRow(operation: string, response: SupabaseResponse
 	}
 }
 
-function mapOrganizationTierAggregateRow(
-	row: PlatformAdministrationOrganizationTierAggregateRow
-): PlatformAdministrationOrganizationTierRow {
-	const count = Number(row.count ?? 0);
-	return {
-		tier: row.tier,
-		gift_tier: row.gift_tier,
-		count: Number.isFinite(count) && count > 0 ? count : 0
-	};
-}
-
 export function createSupabasePlatformAdministrationStore(supabase: SupabaseClient): PlatformAdministrationStore {
 	return {
 		async countPlatformUsers(): Promise<PlatformAdministrationUserStats | null> {
@@ -83,14 +65,6 @@ export function createSupabasePlatformAdministrationStore(supabase: SupabaseClie
 			const response = await supabase.from('organizations').select('*', { count: 'exact', head: true });
 			assertSupabaseSuccess('table organizations count', response);
 			return response.count ?? null;
-		},
-
-		async listOrganizationTiers(): Promise<PlatformAdministrationOrganizationTierRow[]> {
-			const response = await supabase.rpc('list_platform_organization_tier_counts');
-			assertSupabaseSuccess('rpc list_platform_organization_tier_counts', response);
-			return ((response.data as PlatformAdministrationOrganizationTierAggregateRow[] | null) ?? []).map(
-				mapOrganizationTierAggregateRow
-			);
 		},
 
 		async countPendingAccessRequests() {
@@ -142,7 +116,7 @@ export function createSupabasePlatformAdministrationStore(supabase: SupabaseClie
 		async searchOrganizationsByName(input): Promise<PlatformAdministrationSearchOrganizationRow[]> {
 			const response = (await supabase
 				.from('organizations')
-				.select('id, name, tier')
+				.select('id, name')
 				.ilike('name', `%${input.query}%`)
 				.limit(input.maxResults)) as Awaited<SupabaseQueryResult<PlatformAdministrationSearchOrganizationRow[]>>;
 			assertSupabaseSuccess('table organizations search', response);

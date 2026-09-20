@@ -134,6 +134,9 @@ export async function adminHandleCore<TInput, TOutput>(
 // ---------------------------------------------------------------------------
 
 function rethrowOrWrap(err: unknown): never {
+	if (err instanceof Error && 'status' in err && err.status === 403) {
+		error(403, err.message);
+	}
 	if (err && typeof err === 'object' && 'status' in err) {
 		throw err;
 	}
@@ -166,7 +169,7 @@ export function loadWithAdminContext<T>(config: AdminLoadConfig<T> & { page?: st
 	return async (event: RequestEvent) => {
 		try {
 			const ctx = await resolveAdminContext(event.locals, event, config.page);
-			return loadWithAdminContextCore(ctx, config, event);
+			return await loadWithAdminContextCore(ctx, config, event);
 		} catch (err) {
 			rethrowOrWrap(err);
 		}

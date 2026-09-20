@@ -3,7 +3,8 @@ import type {
 	DashboardWorkspaceData,
 	DashboardWorkspaceResult
 } from '$features/dashboard/server/dashboardWorkspaceBootstrap';
-import { createReadyAppShellRouteData } from '$lib/test-support/appShellRouteData';
+import { createReadyAppShellRouteData, createSuspendedAppShellRouteData } from '$lib/test-support/appShellRouteData';
+import { requireReadyAppShell } from '$lib/server/core/appShellRouteData';
 
 const {
 	buildLayoutContextMock,
@@ -167,6 +168,28 @@ describe('dashboard page server load', () => {
 		});
 		findManyWithCountMock.mockResolvedValue({ count: 3 });
 		findManyMock.mockResolvedValue([{ dismissed_at: null }]);
+	});
+
+	it('rejects suspended parent admission before creating context or streaming dashboard reads', async () => {
+		const result = await load({
+			params: { orgId: ORG_ID },
+			locals: {},
+			cookies: {},
+			depends: vi.fn(),
+			parent: async () => requireReadyAppShell(createSuspendedAppShellRouteData({ orgId: ORG_ID }))
+		} as never).then(
+			(data) => ({ data }),
+			(error: unknown) => ({ error })
+		);
+
+		// Drain a wrongly streamed denial so the regression reports the incorrect
+		// response boundary without leaving an unhandled rejection in the test run.
+		if ('data' in result) await result.data.summary.catch(() => undefined);
+
+		expect(result).toMatchObject({ error: { status: 403, body: { message: 'Organization is suspended' } } });
+		expect(buildLayoutContextMock).not.toHaveBeenCalled();
+		expect(fetchDashboardTrainingSummaryMock).not.toHaveBeenCalled();
+		expect(fetchCriticalTasksDashboardSummaryMock).not.toHaveBeenCalled();
 	});
 
 	it('streams dashboard summary without starting non-critical support queries in the page server load', async () => {

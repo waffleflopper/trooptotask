@@ -1,13 +1,11 @@
 <script lang="ts">
-	import { Badge } from '$lib/components/ui/badge';
 	import * as Command from '$lib/components/ui/command';
 	import { Spinner } from '$lib/components/ui/spinner';
-	import { adminBadgeVariant, formatAdminLabel } from '$lib/components/admin/adminTheme';
 
 	let query = $state('');
 	let results = $state<{
 		users: Array<{ id: string; email: string; orgCount: number }>;
-		organizations: Array<{ id: string; name: string; tier: string; personnelCount: number }>;
+		organizations: Array<{ id: string; name: string; personnelCount: number }>;
 	}>({ users: [], organizations: [] });
 	let isOpen = $state(false);
 	let loading = $state(false);
@@ -92,7 +90,6 @@
 									<span class="truncate font-medium">{org.name}</span>
 									<span class="truncate text-xs text-muted-foreground">{org.personnelCount} personnel</span>
 								</span>
-								<Badge variant={adminBadgeVariant(org.tier)}>{formatAdminLabel(org.tier)}</Badge>
 							</Command.LinkItem>
 						{/each}
 					</Command.Group>

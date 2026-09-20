@@ -11,7 +11,6 @@ import {
 	type PlatformUserDirectoryStore,
 	type PlatformUserDirectorySuspension
 } from '$lib/server/core/useCases/platformUserDirectory';
-import type { Tier } from '$lib/types/subscription';
 
 type SupabaseQueryResult<T> = Promise<{ data: T[] | null; error: unknown }>;
 type SupabaseResponse<T> = { data: T | null; error: unknown };
@@ -50,8 +49,6 @@ interface SuspensionRow {
 interface OrganizationRow {
 	id: string;
 	name: string;
-	tier: Tier | null;
-	gift_tier: Tier | null;
 }
 
 interface MembershipWithOrganizationRow {
@@ -109,9 +106,7 @@ function mapOrganization(row: OrganizationRow | null): PlatformUserDirectoryOrga
 	if (!row) return null;
 	return {
 		id: row.id,
-		name: row.name,
-		tier: row.tier ?? 'free',
-		giftTier: row.gift_tier
+		name: row.name
 	};
 }
 
@@ -200,7 +195,7 @@ export function createSupabasePlatformUserDirectoryStore(supabase: SupabaseClien
 				(from, to) =>
 					supabase
 						.from('organization_memberships')
-						.select('role, organizations(id, name, tier, gift_tier)')
+						.select('role, organizations(id, name)')
 						.eq('user_id', userId)
 						.range(from, to) as unknown as SupabaseQueryResult<MembershipWithOrganizationRow>
 			);

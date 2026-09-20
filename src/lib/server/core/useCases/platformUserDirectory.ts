@@ -1,4 +1,3 @@
-import type { Tier } from '$lib/types/subscription';
 import type { PlatformMetrics } from './platformMetrics';
 
 export interface PlatformDirectoryAuthUser {
@@ -23,8 +22,6 @@ export type PlatformDirectoryAuthUserResult =
 export interface PlatformUserDirectoryOrganization {
 	id: string;
 	name: string;
-	tier: Tier;
-	giftTier: Tier | null;
 }
 
 export interface PlatformUserDirectoryMembership {
@@ -63,7 +60,6 @@ export interface PlatformUserDirectoryDetailOrganization {
 	id: string | null;
 	name: string;
 	role: string;
-	subscriptionTier: string;
 	personnelCount: number;
 }
 
@@ -240,7 +236,6 @@ export function createPlatformUserDirectory(deps: PlatformUserDirectoryDependenc
 							id: org?.id ?? null,
 							name: org?.name ?? 'Unknown',
 							role: membership.role,
-							subscriptionTier: org?.giftTier ?? org?.tier ?? 'free',
 							personnelCount: org?.id ? (personnelCounts.get(org.id) ?? 0) : 0
 						};
 					}),

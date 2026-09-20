@@ -44,17 +44,17 @@ describe('PlatformUserDirectory', () => {
 				{
 					userId: 'user-new',
 					role: 'owner',
-					organization: { id: 'org-a', name: 'Able', tier: 'team', giftTier: null }
+					organization: { id: 'org-a', name: 'Able' }
 				},
 				{
 					userId: 'user-new',
 					role: 'member',
-					organization: { id: 'org-b', name: 'Bravo', tier: 'free', giftTier: null }
+					organization: { id: 'org-b', name: 'Bravo' }
 				},
 				{
 					userId: 'user-suspended',
 					role: 'admin',
-					organization: { id: 'org-c', name: 'Charlie', tier: 'unit', giftTier: null }
+					organization: { id: 'org-c', name: 'Charlie' }
 				}
 			],
 			suspensions: [
@@ -102,7 +102,7 @@ describe('PlatformUserDirectory', () => {
 		});
 	});
 
-	it('shapes user detail memberships with effective tier and personnel counts', async () => {
+	it('shapes user detail memberships with roles and personnel counts', async () => {
 		const directory = createSubject(
 			{
 				authUsers: [
@@ -118,12 +118,12 @@ describe('PlatformUserDirectory', () => {
 					{
 						userId: 'user-1',
 						role: 'owner',
-						organization: { id: 'org-a', name: 'Able Company', tier: 'team', giftTier: 'unit' }
+						organization: { id: 'org-a', name: 'Able Company' }
 					},
 					{
 						userId: 'user-1',
 						role: 'member',
-						organization: { id: 'org-b', name: 'Bravo Company', tier: 'free', giftTier: null }
+						organization: { id: 'org-b', name: 'Bravo Company' }
 					}
 				]
 			},
@@ -154,14 +154,12 @@ describe('PlatformUserDirectory', () => {
 						id: 'org-a',
 						name: 'Able Company',
 						role: 'owner',
-						subscriptionTier: 'unit',
 						personnelCount: 1
 					},
 					{
 						id: 'org-b',
 						name: 'Bravo Company',
 						role: 'member',
-						subscriptionTier: 'free',
 						personnelCount: 1
 					}
 				],

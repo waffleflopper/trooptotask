@@ -87,7 +87,7 @@ There is no blanket rollback command. If a mismatch is found:
 - stop execute batches
 - keep the dry-run and execute JSON reports
 - use Stripe as the source of truth for customer, subscription, price, period, cancellation, and status fields
-- repair a single organization through the admin billing reconciliation action or a reviewed service-role SQL update
+- escalate the mismatch to Robert for a separately authorized remediation decision; the Organization detail billing reconciliation action has been retired
 - rerun dry-run mode for that organization's page before continuing
 
 Do not reset the database. Do not delete local or remote database tables or billing rows.

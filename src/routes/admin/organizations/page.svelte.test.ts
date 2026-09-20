@@ -16,7 +16,7 @@ function renderOrganizationsPage(data: Partial<PageProps['data']>) {
 		session: null,
 		adminUserId: 'admin-1',
 		adminEmail: 'admin@example.test',
-		adminRole: 'billing',
+		adminRole: 'support',
 		accessiblePages: ['dashboard', 'users', 'organizations'],
 		visibleNavGroups: [
 			{
@@ -31,7 +31,6 @@ function renderOrganizationsPage(data: Partial<PageProps['data']>) {
 			totalCount: 0,
 			totalPages: 1,
 			q: '',
-			tier: 'all',
 			status: 'all'
 		},
 		activationHealth: {
@@ -41,14 +40,11 @@ function renderOrganizationsPage(data: Partial<PageProps['data']>) {
 			counts: {
 				candidateOrganizations: 0,
 				activatedOrganizations: 0,
-				checkoutStarted: 0,
-				checkoutCompleted: 0,
 				meaningfulRosters: 0,
 				acceptedLeaders: 0,
 				dutyRosterStarted: 0,
 				setupStarted: 0,
-				paidBelowRosterThreshold: 0,
-				supportAttentionItems: 0
+				inProgressOrganizations: 0
 			},
 			organizations: [],
 			diagnosticsError: false
@@ -66,16 +62,12 @@ function renderOrganizationsPage(data: Partial<PageProps['data']>) {
 }
 
 describe('admin organizations page', () => {
-	it('renders support-safe activation health without checkout URLs or personal analytics details', () => {
+	it('renders retained activation progress and Organization navigation', () => {
 		renderOrganizationsPage({
 			organizations: [
 				{
 					id: 'org-1',
 					name: 'Able Company',
-					tier: 'team',
-					gift_tier: null,
-					gift_expires_at: null,
-					effectiveTier: 'team',
 					memberCount: 1,
 					personnelCount: 2,
 					ownerEmail: 'owner@example.com',
@@ -90,30 +82,26 @@ describe('admin organizations page', () => {
 				totalCount: 1,
 				totalPages: 1,
 				q: '',
-				tier: 'all',
 				status: 'all'
 			},
 			activationHealth: {
 				generatedAt: '2026-06-28T12:00:00.000Z',
-				overallState: 'needs_attention',
+				overallState: 'in_progress',
 				candidateLimit: 100,
 				counts: {
 					candidateOrganizations: 3,
 					activatedOrganizations: 0,
-					checkoutStarted: 1,
-					checkoutCompleted: 1,
 					meaningfulRosters: 0,
 					acceptedLeaders: 0,
 					dutyRosterStarted: 1,
 					setupStarted: 1,
-					paidBelowRosterThreshold: 1,
-					supportAttentionItems: 1
+					inProgressOrganizations: 1
 				},
 				organizations: [
 					{
 						id: 'org-1',
 						organization: { id: 'org-1', name: 'Able Company' },
-						state: 'needs_attention',
+						state: 'in_progress',
 						score: 70,
 						milestones: [],
 						nextSteps: ['Import or add at least 5 active personnel.'],
@@ -121,18 +109,7 @@ describe('admin organizations page', () => {
 							organizationId: 'org-1',
 							organizationName: 'Able Company',
 							acquisition: {
-								organizationCreatedAt: '2026-06-01T00:00:00.000Z',
-								checkoutStarted: true,
-								checkoutCompleted: true,
-								checkoutRecovered: false,
-								latestCheckoutStatus: 'completed',
-								billingState: {
-									source: 'stripe',
-									commercialPlan: 'team',
-									subscriptionStatus: 'active',
-									collectionStatus: 'current',
-									syncStatus: 'synced'
-								}
+								organizationCreatedAt: '2026-06-01T00:00:00.000Z'
 							},
 							activation: {
 								activePersonnel: 2,
@@ -157,10 +134,8 @@ describe('admin organizations page', () => {
 		});
 
 		expect(screen.getByText('Acquisition and Activation Health')).toBeTruthy();
-		expect(screen.getAllByText('Needs Attention').length).toBeGreaterThan(0);
-		expect(document.body.textContent).toContain('self-service or paid candidates');
+		expect(screen.getAllByText('In Progress').length).toBeGreaterThan(0);
 		expect(document.body.textContent).toContain('0 activated');
-		expect(document.body.textContent).toContain('Counts cover up to 100 launch candidates.');
 		expect(screen.getByText('Showing top 1 of 3 candidates.')).toBeTruthy();
 		expect(screen.getByText('2 / 5')).toBeTruthy();
 		expect(screen.getByText('1 templates / 1 runs')).toBeTruthy();
@@ -170,11 +145,21 @@ describe('admin organizations page', () => {
 			'/admin/organizations/org-1',
 			'/admin/organizations/org-1'
 		]);
-		expect(document.body.textContent).not.toContain('checkout_url');
-		expect(document.body.textContent).not.toContain('stripe_checkout_session_id');
-		expect(document.body.textContent).not.toContain('raw IP');
-		expect(document.body.textContent).not.toContain('analytics identifier');
-		expect(document.body.textContent).not.toContain('sk_test_');
+	});
+
+	it('keeps search, page size and suspension status when navigating the Organization index', () => {
+		renderOrganizationsPage({
+			pagination: { page: 2, pageSize: 25, totalCount: 60, totalPages: 3, q: 'Able & Baker', status: 'suspended' }
+		});
+		expect(screen.getByRole('searchbox', { name: 'Search' })).toHaveProperty('value', 'Able & Baker');
+		expect(screen.getByRole('combobox', { name: 'Status' })).toHaveProperty('value', 'suspended');
+		expect(screen.getByRole('combobox', { name: 'Rows' })).toHaveProperty('value', '25');
+		expect(screen.getByRole('link', { name: 'Previous' }).getAttribute('href')).toBe(
+			'/admin/organizations?page=1&pageSize=25&q=Able+%26+Baker&status=suspended'
+		);
+		expect(screen.getByRole('link', { name: 'Next' }).getAttribute('href')).toBe(
+			'/admin/organizations?page=3&pageSize=25&q=Able+%26+Baker&status=suspended'
+		);
 	});
 
 	it('warns when activation health diagnostics are unavailable', () => {
@@ -186,14 +171,11 @@ describe('admin organizations page', () => {
 				counts: {
 					candidateOrganizations: 0,
 					activatedOrganizations: 0,
-					checkoutStarted: 0,
-					checkoutCompleted: 0,
 					meaningfulRosters: 0,
 					acceptedLeaders: 0,
 					dutyRosterStarted: 0,
 					setupStarted: 0,
-					paidBelowRosterThreshold: 0,
-					supportAttentionItems: 0
+					inProgressOrganizations: 0
 				},
 				organizations: [],
 				diagnosticsError: true
@@ -201,13 +183,13 @@ describe('admin organizations page', () => {
 		});
 
 		expect(screen.getAllByText('Activation health diagnostics could not be fully loaded.')).toHaveLength(2);
-		expect(screen.getByText(/Checkout, roster, member, Duty Roster, and setup counts may be incomplete/)).toBeTruthy();
+		expect(screen.getByText(/Roster, member, Duty Roster, and setup counts may be incomplete/)).toBeTruthy();
 		expect(screen.getByText('Unavailable')).toBeTruthy();
 		expect(screen.getByText('Activation health data is unavailable until diagnostics load successfully.')).toBeTruthy();
 		expect(
 			screen.getByText('Activation health diagnostics are unavailable. Retry after the health scan succeeds.')
 		).toBeTruthy();
-		expect(document.body.textContent).not.toContain('No self-service or paid activation health candidates found.');
-		expect(document.body.textContent).not.toContain('0 self-service or paid candidates');
+		expect(screen.queryByText('No Organizations found for activation health.')).toBeNull();
+		expect(screen.queryByText(/Organizations · \d+ activated/)).toBeNull();
 	});
 });

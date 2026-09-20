@@ -11,11 +11,11 @@ This runbook is launch posture, not a certification claim. Capture evidence with
 
 ## Severity
 
-| Severity | Examples | Target response |
-| --- | --- | --- |
-| Sev 1 | Confirmed unauthorized access to CUI-equivalent data, active compromise, destructive data modification, exposed production secret, or payment-impacting security incident | Immediate containment and Robert notification |
-| Sev 2 | Suspected unauthorized access, scoped provider compromise, webhook/payment incident with customer impact, repeated failed auth anomalies, or sensitive file access concern | Same business day triage and containment decision |
-| Sev 3 | Low-impact vulnerability report, suspicious but unconfirmed activity, support-safe billing issue, or documentation/process gap | Review within 2 business days |
+| Severity | Examples                                                                                                                                                                   | Target response                                   |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| Sev 1    | Confirmed unauthorized access to CUI-equivalent data, active compromise, destructive data modification, exposed production secret, or payment-impacting security incident  | Immediate containment and Robert notification     |
+| Sev 2    | Suspected unauthorized access, scoped provider compromise, webhook/payment incident with customer impact, repeated failed auth anomalies, or sensitive file access concern | Same business day triage and containment decision |
+| Sev 3    | Low-impact vulnerability report, suspicious but unconfirmed activity, support-safe billing issue, or documentation/process gap                                             | Review within 2 business days                     |
 
 ## 1. Identification
 
@@ -71,13 +71,7 @@ Never paste old or new secret values into notes, tickets, docs, pull requests, s
 
 Treat billing and payment incidents as security-relevant when they involve webhook authenticity, unauthorized Stripe Dashboard access, unexpected subscription state changes, invoice/payment manipulation, or customer-impacting access changes.
 
-Start in Platform Administration before copying provider evidence:
-
-- Admin -> Subscriptions shows the Billing Health panel for retryable webhook failures, permanent failures, payment recovery attention, billing drift, stale reconciliation, and `diagnostics_unavailable` states across paid Organizations.
-- Admin -> Billing Events shows the Billing Health panel next to the webhook ledger and Billing Events guarded retry action.
-- Use the copyable support bundle for triage notes when it contains only Organization ID/name, Stripe customer ID or subscription ID when the admin role is allowed to see them, webhook event IDs, billing state, reconciliation result, and next-step labels.
-- Retry only `needs_retry` events through the Billing Events guarded retry action. Reconcile `drift_detected` or `reconciliation_stale` Organizations from the Organization detail admin reconciliation action. Escalate `permanent_failure`, repeated stale failures, or `diagnostics_unavailable` before making customer-impacting changes.
-- For `payment_recovery_attention`, communicate service access and billing-state impact, and direct the customer to the supported payment method update path. Do not ask for card details or payment method screenshots.
+Platform Administration retains Organization identity, ownership and suspension support. Its subscription ledger, Billing Health bundles, webhook retry and billing reconciliation actions are retired. Escalate payment or webhook incidents to Robert with support-safe context before any separately authorized provider investigation or customer-impacting action. Stale observations do not establish current billing state. Do not ask for card details or payment method screenshots.
 
 Preserve support-safe identifiers:
 

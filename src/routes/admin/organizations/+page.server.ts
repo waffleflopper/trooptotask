@@ -16,7 +16,6 @@ export const load: PageServerLoad = loadWithAdminContext({
 				page: event.url.searchParams.get('page'),
 				pageSize: event.url.searchParams.get('pageSize'),
 				q: event.url.searchParams.get('q'),
-				tier: event.url.searchParams.get('tier'),
 				status: event.url.searchParams.get('status')
 			});
 			let activationHealth: PlatformActivationHealthSummary;

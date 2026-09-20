@@ -1,307 +1,142 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { createClient } from '@supabase/supabase-js';
 import { describe, expect, it } from 'vitest';
 import { createSupabasePlatformActivationHealthStore } from './supabasePlatformActivationHealth';
 
-type Row = Record<string, unknown>;
-type SupabaseCall = { table: string; method: string; args: unknown[] };
-type SupabaseResponse<T> = { data: T | null; error: unknown };
+type Row = Record<string, string | number | null>;
+const countTables = [
+	'organization_memberships',
+	'status_types',
+	'assignment_types',
+	'duty_roster_templates',
+	'duty_roster_template_runs',
+	'duty_roster_history',
+	'onboarding_template_steps',
+	'training_types',
+	'rating_scheme_entries'
+];
 
-const EXPECTED_ORGANIZATION_SELECT = 'id, name, created_at';
-const EXPECTED_CHECKOUT_SELECT =
-	'id, organization_id, status, commercial_plan, created_at, updated_at, completed_at, canceled_at, expires_at, organizations!inner(id, name, created_at)';
-const EXPECTED_BILLING_SELECT =
-	'organization_id, source, commercial_plan, subscription_status, collection_status, sync_status, organizations!inner(id, name, created_at)';
-const EXPECTED_COUNT_SELECT = 'id, organization_id';
-
-class FakeQuery implements PromiseLike<SupabaseResponse<Row[]>> {
-	private filters: Array<(row: Row) => boolean> = [];
-	private limitCount: number | null = null;
-	private orderSpecs: Array<{ column: string; ascending: boolean }> = [];
-	private rangeStart: number | null = null;
-	private rangeEnd: number | null = null;
-
-	constructor(
-		private table: string,
-		private rows: Row[],
-		private calls: SupabaseCall[]
-	) {}
-
-	select(...args: unknown[]): this {
-		this.calls.push({ table: this.table, method: 'select', args });
-		return this;
-	}
-
-	eq(column: string, value: unknown): this {
-		this.calls.push({ table: this.table, method: 'eq', args: [column, value] });
-		this.filters.push((row) => row[column] === value);
-		return this;
-	}
-
-	in(column: string, values: unknown[]): this {
-		this.calls.push({ table: this.table, method: 'in', args: [column, values] });
-		this.filters.push((row) => values.includes(row[column]));
-		return this;
-	}
-
-	is(column: string, value: unknown): this {
-		this.calls.push({ table: this.table, method: 'is', args: [column, value] });
-		this.filters.push((row) => row[column] === value);
-		return this;
-	}
-
-	order(column: string, options: { ascending?: boolean } = {}): this {
-		this.calls.push({ table: this.table, method: 'order', args: [column, options] });
-		this.orderSpecs.push({ column, ascending: options.ascending ?? true });
-		return this;
-	}
-
-	limit(count: number): this {
-		this.calls.push({ table: this.table, method: 'limit', args: [count] });
-		this.limitCount = count;
-		return this;
-	}
-
-	range(from: number, to: number): this {
-		this.calls.push({ table: this.table, method: 'range', args: [from, to] });
-		this.rangeStart = from;
-		this.rangeEnd = to;
-		return this;
-	}
-
-	then<TResult1 = SupabaseResponse<Row[]>, TResult2 = never>(
-		onfulfilled?: ((value: SupabaseResponse<Row[]>) => TResult1 | PromiseLike<TResult1>) | null,
-		onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null
-	): PromiseLike<TResult1 | TResult2> {
-		return Promise.resolve(this.execute()).then(onfulfilled, onrejected);
-	}
-
-	private execute(): SupabaseResponse<Row[]> {
-		let rows = this.rows.filter((row) => this.filters.every((filter) => filter(row)));
-		for (const spec of [...this.orderSpecs].reverse()) {
-			rows = [...rows].sort((left, right) => {
-				const leftValue = String(left[spec.column] ?? '');
-				const rightValue = String(right[spec.column] ?? '');
-				return spec.ascending ? leftValue.localeCompare(rightValue) : rightValue.localeCompare(leftValue);
-			});
-		}
-		if (this.rangeStart !== null && this.rangeEnd !== null) rows = rows.slice(this.rangeStart, this.rangeEnd + 1);
-		else if (this.limitCount !== null) rows = rows.slice(0, this.limitCount);
-		return { data: rows, error: null };
-	}
+function storeWithFetch(fetch: typeof globalThis.fetch) {
+	return createSupabasePlatformActivationHealthStore(
+		createClient('http://localhost:9', 'synthetic-service-key', {
+			auth: { persistSession: false, autoRefreshToken: false },
+			global: { fetch }
+		})
+	);
 }
 
-function createSupabaseStub(tables: Record<string, Row[]>): { supabase: SupabaseClient; calls: SupabaseCall[] } {
-	const calls: SupabaseCall[] = [];
-	function countRowsByOrganization(rows: Row[], organizationIds: unknown[], countField: string): Row[] {
-		const counts = new Map<unknown, number>();
-		for (const row of rows) {
-			if (!organizationIds.includes(row.organization_id)) continue;
-			if (countField === 'personnel_count' && row.archived_at != null) continue;
-			counts.set(row.organization_id, (counts.get(row.organization_id) ?? 0) + 1);
-		}
-		return [...counts].map(([organization_id, count]) => ({
-			organization_id,
-			[countField]: count
-		}));
-	}
-
-	const supabase = {
-		rpc(name: string, params?: unknown) {
-			calls.push({ table: 'rpc', method: name, args: [params] });
-			const organizationIds = Array.isArray((params as { p_org_ids?: unknown[] } | undefined)?.p_org_ids)
-				? ((params as { p_org_ids: unknown[] }).p_org_ids ?? [])
-				: [];
-			if (name === 'count_personnel_by_organization') {
-				return Promise.resolve({
-					data: countRowsByOrganization(tables.personnel ?? [], organizationIds, 'personnel_count'),
-					error: null
-				});
-			}
-			if (name === 'count_memberships_by_organization') {
-				return Promise.resolve({
-					data: countRowsByOrganization(tables.organization_memberships ?? [], organizationIds, 'membership_count'),
-					error: null
-				});
-			}
-			throw new Error(`Unexpected RPC ${name}`);
-		},
-		from(table: string) {
-			return new FakeQuery(table, tables[table] ?? [], calls);
-		}
-	} as unknown as SupabaseClient;
-
-	return { supabase, calls };
+function organization(id: string, created_at = '2026-09-01'): Row {
+	return { id, name: `${id} Company`, created_at };
 }
 
-describe('createSupabasePlatformActivationHealthStore', () => {
-	it('maps activation facts from safe aggregate fields without selecting checkout URLs or provider IDs', async () => {
-		const { supabase, calls } = createSupabaseStub({
-			organizations: [
-				{
-					id: 'org-1',
-					name: 'Able Company',
-					created_at: '2026-06-01T00:00:00.000Z',
-					created_by: 'user-secret-not-selected',
-					stripe_customer_id: 'cus_secret_not_selected',
-					stripe_subscription_id: 'sub_secret_not_selected'
-				},
-				{
-					id: 'org-free',
-					name: 'Free Company',
-					created_at: '2026-06-02T00:00:00.000Z'
-				},
-				{
-					id: 'org-2',
-					name: 'Bravo Company',
-					created_at: '2026-06-03T00:00:00.000Z'
-				}
-			],
-			organization_billing_snapshots: [
-				{
-					organization_id: 'org-1',
-					source: 'stripe',
-					commercial_plan: 'team',
-					subscription_status: 'active',
-					collection_status: 'current',
-					sync_status: 'synced',
-					last_processed_at: '2026-06-02T00:00:00.000Z',
-					updated_at: '2026-06-02T00:00:00.000Z',
-					organizations: {
-						id: 'org-1',
-						name: 'Able Company',
-						created_at: '2026-06-01T00:00:00.000Z'
-					}
-				},
-				{
-					organization_id: 'org-free',
-					source: 'stripe',
-					commercial_plan: 'free',
-					subscription_status: 'active',
-					collection_status: 'current',
-					sync_status: 'synced',
-					organizations: {
-						id: 'org-free',
-						name: 'Free Company',
-						created_at: '2026-06-01T00:00:00.000Z'
-					}
-				}
-			],
-			organization_checkout_attempts: [
-				{
-					organization_id: 'org-1',
-					commercial_plan: 'team',
-					status: 'completed',
-					created_at: '2026-06-01T00:05:00.000Z',
-					updated_at: '2026-06-01T00:10:00.000Z',
-					completed_at: '2026-06-01T00:10:00.000Z',
-					canceled_at: null,
-					expires_at: '2026-06-01T01:00:00.000Z',
-					stripe_checkout_session_id: 'cs_secret_not_selected',
-					checkout_url: 'https://checkout.test/secret',
-					organizations: {
-						id: 'org-1',
-						name: 'Able Company',
-						created_at: '2026-06-01T00:00:00.000Z'
-					}
-				},
-				{
-					organization_id: 'org-1',
-					commercial_plan: 'team',
-					status: 'expired',
-					created_at: '2026-06-01T00:03:00.000Z',
-					updated_at: null,
-					completed_at: null,
-					canceled_at: null,
-					expires_at: '2026-06-01T01:30:00.000Z',
-					organizations: {
-						id: 'org-1',
-						name: 'Able Company',
-						created_at: '2026-06-01T00:00:00.000Z'
-					}
-				},
-				{
-					organization_id: 'org-1',
-					commercial_plan: 'team',
-					status: 'failed',
-					created_at: '2026-06-01T00:01:00.000Z',
-					updated_at: '2026-06-01T00:02:00.000Z',
-					completed_at: null,
-					canceled_at: null,
-					expires_at: '2026-06-01T01:00:00.000Z',
-					organizations: {
-						id: 'org-1',
-						name: 'Able Company',
-						created_at: '2026-06-01T00:00:00.000Z'
-					}
-				},
-				{
-					organization_id: 'org-2',
-					commercial_plan: 'unit',
-					status: 'in_progress',
-					created_at: '2026-06-03T00:00:00.000Z',
-					updated_at: '2026-06-03T00:00:00.000Z',
-					completed_at: null,
-					canceled_at: null,
-					expires_at: '2026-06-03T01:00:00.000Z',
-					organizations: {
-						id: 'org-2',
-						name: 'Bravo Company',
-						created_at: '2026-06-03T00:00:00.000Z'
-					}
-				}
-			],
+// The provider exposes only retained tables/columns. The real Supabase client
+// performs request serialization; provider filtering, ordering and pagination
+// determine observable facts, instead of assertions on a query-builder mock.
+function providerStore(tables: Record<string, Row[]>, failedResource?: string) {
+	return storeWithFetch(async (input, init) => {
+		const request = new Request(input, init);
+		const url = new URL(request.url);
+		const resource = url.pathname.replace('/rest/v1/', '');
+		if (resource === failedResource) return Response.json({ message: 'Read denied', code: '42501' }, { status: 403 });
+		if (resource.startsWith('rpc/')) {
+			const rpc = resource.slice(4);
+			if (!['count_personnel_by_organization', 'count_memberships_by_organization'].includes(rpc)) {
+				return Response.json({ message: 'Unknown RPC' }, { status: 404 });
+			}
+			const { p_org_ids: ids } = (await request.json()) as { p_org_ids: string[] };
+			const personnel = rpc === 'count_personnel_by_organization';
+			const rows = tables[personnel ? 'personnel' : 'organization_memberships'] ?? [];
+			return Response.json(
+				ids.map((id) => ({
+					organization_id: id,
+					[personnel ? 'personnel_count' : 'membership_count']: String(
+						rows.filter((row) => row.organization_id === id && (!personnel || row.archived_at == null)).length
+					)
+				}))
+			);
+		}
+		const allowedColumns = resource === 'organizations' ? ['id', 'name', 'created_at'] : ['id', 'organization_id'];
+		const query = url.searchParams;
+		const columns = (query.get('select') ?? '').split(',').map((column) => column.trim());
+		if (
+			(resource !== 'organizations' && !countTables.includes(resource)) ||
+			columns.some((column) => !allowedColumns.includes(column)) ||
+			[...query.keys()].some(
+				(key) => !['select', 'order', 'offset', 'limit', 'organization_id', 'role', 'status'].includes(key)
+			)
+		) {
+			return Response.json({ message: 'Unknown retained resource or column' }, { status: 400 });
+		}
+		let rows = [...(tables[resource] ?? [])];
+		for (const field of ['organization_id', 'role', 'status']) {
+			const filter = query.get(field);
+			if (filter?.startsWith('in.(')) {
+				const accepted = filter
+					.slice(4, -1)
+					.split(',')
+					.map((value) => value.replaceAll('"', ''));
+				rows = rows.filter((row) => accepted.includes(String(row[field])));
+			} else if (filter?.startsWith('eq.')) rows = rows.filter((row) => row[field] === filter.slice(3));
+		}
+		const order = query.get('order')?.split(',') ?? [];
+		rows.sort((left, right) => {
+			for (const specification of order) {
+				const [column, direction] = specification.split('.');
+				const difference = String(left[column] ?? '').localeCompare(String(right[column] ?? ''));
+				if (difference) return direction === 'desc' ? -difference : difference;
+			}
+			return 0;
+		});
+		const offset = Number(query.get('offset') ?? 0);
+		const limit = Number(query.get('limit') ?? 1000);
+		return Response.json(
+			rows
+				.slice(offset, offset + limit)
+				.map((row) => Object.fromEntries(columns.map((column) => [column, row[column] ?? null])))
+		);
+	});
+}
+
+describe('noncommercial activation provider boundary', () => {
+	it('maps scoped aggregate facts with no commercial tables or columns available', async () => {
+		const store = providerStore({
+			organizations: [organization('able'), organization('empty')],
 			personnel: [
-				{ organization_id: 'org-1', archived_at: null },
-				{ organization_id: 'org-1', archived_at: null },
-				{ organization_id: 'org-1', archived_at: '2026-06-05T00:00:00.000Z' },
-				{ organization_id: 'org-2', archived_at: null }
+				{ organization_id: 'able', archived_at: null },
+				{ organization_id: 'able', archived_at: null },
+				{ organization_id: 'able', archived_at: '2026-09-01' },
+				{ organization_id: 'outside', archived_at: null }
 			],
 			organization_memberships: [
-				{ id: 'membership-1', organization_id: 'org-1', role: 'owner' },
-				{ id: 'membership-2', organization_id: 'org-1', role: 'admin' },
-				{ id: 'membership-3', organization_id: 'org-2', role: 'owner' }
+				{ id: '1', organization_id: 'able', role: 'owner' },
+				{ id: '2', organization_id: 'able', role: 'admin' },
+				{ id: '3', organization_id: 'able', role: 'member' },
+				{ id: '4', organization_id: 'outside', role: 'admin' }
 			],
-			status_types: [{ organization_id: 'org-1' }],
-			assignment_types: [{ organization_id: 'org-1' }],
+			status_types: [{ id: '1', organization_id: 'able' }],
+			assignment_types: [{ id: '1', organization_id: 'able' }],
 			duty_roster_templates: [
-				{ organization_id: 'org-1', status: 'active' },
-				{ organization_id: 'org-1', status: 'archived' }
+				{ id: '1', organization_id: 'able', status: 'active' },
+				{ id: '2', organization_id: 'able', status: 'archived' }
 			],
-			duty_roster_template_runs: [{ organization_id: 'org-1' }],
-			duty_roster_history: [{ organization_id: 'org-1' }],
-			onboarding_template_steps: [{ organization_id: 'org-1' }],
-			training_types: [{ organization_id: 'org-1' }, { organization_id: 'org-1' }],
-			rating_scheme_entries: [{ organization_id: 'org-1' }]
+			duty_roster_template_runs: [{ id: '1', organization_id: 'able' }],
+			duty_roster_history: [{ id: '1', organization_id: 'able' }],
+			onboarding_template_steps: [{ id: '1', organization_id: 'able' }],
+			training_types: [
+				{ id: '1', organization_id: 'able' },
+				{ id: '2', organization_id: 'able' },
+				{ id: '3', organization_id: 'outside' }
+			],
+			rating_scheme_entries: [{ id: '1', organization_id: 'able' }]
 		});
-
-		const facts = await createSupabasePlatformActivationHealthStore(supabase).listActivationOrganizationFacts({
-			limit: 10
-		});
-		const factsByOrgId = new Map(facts.map((item) => [item.organizationId, item]));
-
-		expect(facts).toHaveLength(3);
-		expect(factsByOrgId.get('org-1')).toMatchObject({
-			organizationId: 'org-1',
-			organizationName: 'Able Company',
-			organizationCreatedAt: '2026-06-01T00:00:00.000Z',
-			billing: {
-				source: 'stripe',
-				commercialPlan: 'team',
-				subscriptionStatus: 'active',
-				collectionStatus: 'current',
-				syncStatus: 'synced'
-			},
-			checkout: {
-				attemptCount: 3,
-				completedCount: 1,
-				interruptedCount: 2,
-				inProgressCount: 0,
-				latestStatus: 'completed',
-				latestAt: '2026-06-01T00:10:00.000Z'
-			},
+		const facts = await store.listActivationOrganizationFacts({ limit: 10 });
+		expect(facts).toHaveLength(2);
+		expect(facts.find((row) => row.organizationId === 'able')).toEqual({
+			organizationId: 'able',
+			organizationName: 'able Company',
+			organizationCreatedAt: '2026-09-01',
 			counts: {
 				activePersonnel: 2,
-				members: 2,
+				members: 3,
 				leaderMembers: 2,
 				statusTypes: 1,
 				assignmentTypes: 1,
@@ -313,318 +148,57 @@ describe('createSupabasePlatformActivationHealthStore', () => {
 				ratingSchemeEntries: 1
 			}
 		});
-		expect(factsByOrgId.get('org-2')).toMatchObject({
-			organizationId: 'org-2',
-			organizationName: 'Bravo Company',
-			billing: null,
-			checkout: {
-				attemptCount: 1,
-				completedCount: 0,
-				inProgressCount: 1,
-				latestStatus: 'in_progress'
-			}
+		expect(facts.find((row) => row.organizationId === 'empty')?.counts).toEqual({
+			activePersonnel: 0,
+			members: 0,
+			leaderMembers: 0,
+			statusTypes: 0,
+			assignmentTypes: 0,
+			dutyRosterTemplates: 0,
+			dutyRosterRuns: 0,
+			dutyRosterHistory: 0,
+			onboardingTemplateSteps: 0,
+			trainingTypes: 0,
+			ratingSchemeEntries: 0
 		});
-		expect(factsByOrgId.get('org-free')).toMatchObject({
-			organizationId: 'org-free',
-			organizationName: 'Free Company',
-			billing: null,
-			checkout: {
-				attemptCount: 0,
-				completedCount: 0,
-				interruptedCount: 0,
-				inProgressCount: 0,
-				latestStatus: null,
-				latestAt: null
-			}
-		});
+	});
 
-		const organizationSelects = calls.filter((call) => call.table === 'organizations' && call.method === 'select');
-		expect(organizationSelects.length).toBeGreaterThan(0);
-		expect([...new Set(organizationSelects.map((call) => String(call.args[0])))]).toEqual([
-			EXPECTED_ORGANIZATION_SELECT
+	it('selects the newest Organizations with a deterministic tie-break at the candidate limit', async () => {
+		const store = providerStore({
+			organizations: [organization('old', '2026-01-01'), organization('new-a'), organization('new-z')]
+		});
+		expect((await store.listActivationOrganizationFacts({ limit: 2 })).map((row) => row.organizationId)).toEqual([
+			'new-z',
+			'new-a'
 		]);
-
-		const checkoutSelects = calls.filter(
-			(call) => call.table === 'organization_checkout_attempts' && call.method === 'select'
-		);
-		expect(checkoutSelects.length).toBeGreaterThan(0);
-		expect([...new Set(checkoutSelects.map((call) => String(call.args[0])))]).toEqual([EXPECTED_CHECKOUT_SELECT]);
-
-		const billingSelects = calls.filter(
-			(call) => call.table === 'organization_billing_snapshots' && call.method === 'select'
-		);
-		expect(billingSelects.length).toBeGreaterThan(0);
-		expect([...new Set(billingSelects.map((call) => String(call.args[0])))]).toEqual([EXPECTED_BILLING_SELECT]);
-
-		const membershipSelects = calls.filter(
-			(call) => call.table === 'organization_memberships' && call.method === 'select'
-		);
-		expect(membershipSelects.length).toBeGreaterThan(0);
-		expect([...new Set(membershipSelects.map((call) => String(call.args[0])))]).toEqual([EXPECTED_COUNT_SELECT]);
-		expect(
-			calls.some(
-				(call) =>
-					call.table === 'organization_memberships' &&
-					call.method === 'in' &&
-					call.args[0] === 'role' &&
-					JSON.stringify(call.args[1]) === JSON.stringify(['owner', 'admin'])
-			)
-		).toBe(true);
 	});
 
-	it('requeries selected organizations so checkout counts are complete beyond the discovery sample', async () => {
-		const organization = {
-			id: 'org-1',
-			name: 'Able Company',
-			created_at: '2026-06-01T00:00:00.000Z'
-		};
-		const checkoutRows = Array.from({ length: 6 }, (_, index) => ({
-			organization_id: 'org-1',
-			commercial_plan: 'team',
-			status:
-				index === 0
-					? 'completed'
-					: index === 1
-						? 'failed'
-						: index === 2
-							? 'in_progress'
-							: index === 3
-								? 'canceled'
-								: 'expired',
-			created_at: `2026-06-01T00:0${index}:00.000Z`,
-			updated_at: `2026-06-01T00:0${index}:30.000Z`,
-			completed_at: index === 0 ? '2026-06-01T00:00:45.000Z' : null,
-			canceled_at: index === 3 ? '2026-06-01T00:03:45.000Z' : null,
-			expires_at: `2026-06-01T01:0${index}:00.000Z`,
-			organizations: organization
-		}));
-		const { supabase, calls } = createSupabaseStub({
-			organization_billing_snapshots: [
-				{
-					organization_id: 'org-1',
-					source: 'stripe',
-					commercial_plan: 'team',
-					subscription_status: 'active',
-					collection_status: 'current',
-					sync_status: 'synced',
-					last_processed_at: '2026-06-02T00:00:00.000Z',
-					updated_at: '2026-06-02T00:00:00.000Z',
-					organizations: organization
-				}
-			],
-			organization_checkout_attempts: checkoutRows
+	it('counts setup rows beyond the provider page cap without counting another Organization', async () => {
+		const store = providerStore({
+			organizations: [organization('large')],
+			training_types: [
+				...Array.from({ length: 1005 }, (_, index) => ({
+					id: `training-${String(index).padStart(4, '0')}`,
+					organization_id: 'large'
+				})),
+				{ id: 'outside', organization_id: 'outside' }
+			].reverse()
 		});
-
-		const facts = await createSupabasePlatformActivationHealthStore(supabase).listActivationOrganizationFacts({
-			limit: 1
-		});
-
-		expect(facts).toHaveLength(1);
-		expect(facts[0]?.checkout).toMatchObject({
-			attemptCount: 6,
-			completedCount: 1,
-			interruptedCount: 4,
-			inProgressCount: 1,
-			latestStatus: 'expired',
-			latestAt: '2026-06-01T00:05:30.000Z'
-		});
-		expect(
-			calls.some(
-				(call) =>
-					call.table === 'organization_checkout_attempts' &&
-					call.method === 'in' &&
-					call.args[0] === 'organization_id' &&
-					JSON.stringify(call.args[1]) === JSON.stringify(['org-1'])
-			)
-		).toBe(true);
+		expect((await store.listActivationOrganizationFacts({ limit: 1 }))[0].counts.trainingTypes).toBe(1005);
 	});
 
-	it('paginates checkout requery rows so selected organizations do not undercount attempts', async () => {
-		const organization = {
-			id: 'org-many-checkouts',
-			name: 'Many Checkouts Company',
-			created_at: '2026-06-01T00:00:00.000Z'
-		};
-		const checkoutRows = Array.from({ length: 1005 }, (_, index) => ({
-			id: `checkout-${String(index).padStart(4, '0')}`,
-			organization_id: organization.id,
-			commercial_plan: 'team',
-			status: 'failed',
-			created_at: new Date(Date.UTC(2026, 5, 1, 0, 0, index)).toISOString(),
-			updated_at: new Date(Date.UTC(2026, 5, 1, 0, 0, index, 500)).toISOString(),
-			completed_at: null,
-			canceled_at: null,
-			expires_at: new Date(Date.UTC(2026, 5, 1, 1, 0, index)).toISOString(),
-			organizations: organization
-		}));
-		const { supabase, calls } = createSupabaseStub({
-			organization_billing_snapshots: [
-				{
-					organization_id: organization.id,
-					source: 'stripe',
-					commercial_plan: 'team',
-					subscription_status: 'incomplete',
-					collection_status: 'incomplete',
-					sync_status: 'pending',
-					last_processed_at: '2026-06-28T00:00:00.000Z',
-					updated_at: '2026-06-28T00:00:00.000Z',
-					organizations: organization
-				}
-			],
-			organization_checkout_attempts: checkoutRows
-		});
-
-		const facts = await createSupabasePlatformActivationHealthStore(supabase).listActivationOrganizationFacts({
-			limit: 1
-		});
-
-		expect(facts[0]?.checkout).toMatchObject({
-			attemptCount: 1005,
-			interruptedCount: 1005,
-			latestStatus: 'failed'
-		});
-		expect(
-			calls.filter(
-				(call) =>
-					call.table === 'organization_checkout_attempts' &&
-					call.method === 'range' &&
-					JSON.stringify(call.args) === '[0,999]'
-			)
-		).toHaveLength(1);
-		expect(
-			calls.filter(
-				(call) =>
-					call.table === 'organization_checkout_attempts' &&
-					call.method === 'range' &&
-					JSON.stringify(call.args) === '[1000,1999]'
-			)
-		).toHaveLength(1);
+	it('returns an empty scan without attempting aggregate reads when no Organizations exist', async () => {
+		const store = providerStore({}, 'rpc/count_personnel_by_organization');
+		await expect(store.listActivationOrganizationFacts({ limit: 100 })).resolves.toEqual([]);
 	});
 
-	it('surfaces paid checkout candidates that have no billing snapshot or organization sample row', async () => {
-		const organization = {
-			id: 'org-checkout-only',
-			name: 'Checkout Only Company',
-			created_at: '2026-06-01T00:00:00.000Z'
-		};
-		const { supabase } = createSupabaseStub({
-			organizations: [],
-			organization_billing_snapshots: [],
-			organization_checkout_attempts: [
-				{
-					organization_id: organization.id,
-					commercial_plan: 'team',
-					status: 'in_progress',
-					created_at: '2026-06-02T00:00:00.000Z',
-					updated_at: '2026-06-02T00:05:00.000Z',
-					completed_at: null,
-					canceled_at: null,
-					expires_at: '2026-06-02T01:00:00.000Z',
-					organizations: organization
-				}
-			]
-		});
-
-		const facts = await createSupabasePlatformActivationHealthStore(supabase).listActivationOrganizationFacts({
-			limit: 1
-		});
-
-		expect(facts).toHaveLength(1);
-		expect(facts[0]).toMatchObject({
-			organizationId: organization.id,
-			organizationName: organization.name,
-			organizationCreatedAt: organization.created_at,
-			billing: null,
-			checkout: {
-				attemptCount: 1,
-				inProgressCount: 1,
-				latestStatus: 'in_progress',
-				latestAt: '2026-06-02T00:05:00.000Z'
-			}
-		});
-	});
-
-	it('paginates setup count reads with a stable order so large organizations do not undercount', async () => {
-		const organization = {
-			id: 'org-large',
-			name: 'Large Company',
-			created_at: '2026-06-01T00:00:00.000Z'
-		};
-		const { supabase, calls } = createSupabaseStub({
-			organization_billing_snapshots: [
-				{
-					organization_id: organization.id,
-					source: 'stripe',
-					commercial_plan: 'team',
-					subscription_status: 'active',
-					collection_status: 'current',
-					sync_status: 'synced',
-					last_processed_at: '2026-06-28T00:00:00.000Z',
-					updated_at: '2026-06-28T00:00:00.000Z',
-					organizations: organization
-				}
-			],
-			training_types: Array.from({ length: 1005 }, (_, index) => ({
-				id: `training-type-${String(index).padStart(4, '0')}`,
-				organization_id: organization.id,
-				name: `Training ${index}`
-			}))
-		});
-
-		const facts = await createSupabasePlatformActivationHealthStore(supabase).listActivationOrganizationFacts({
-			limit: 1
-		});
-
-		expect(facts[0]?.counts.trainingTypes).toBe(1005);
-		expect(
-			calls.filter(
-				(call) => call.table === 'training_types' && call.method === 'range' && JSON.stringify(call.args) === '[0,999]'
-			)
-		).toHaveLength(1);
-		expect(
-			calls.filter(
-				(call) =>
-					call.table === 'training_types' && call.method === 'range' && JSON.stringify(call.args) === '[1000,1999]'
-			)
-		).toHaveLength(1);
-		expect(
-			calls.filter((call) => call.table === 'training_types' && call.method === 'order').map((call) => call.args[0])
-		).toEqual(['organization_id', 'id', 'organization_id', 'id']);
-	});
-
-	it('prioritizes paid candidates over newer free organizations when the candidate set is capped', async () => {
-		const paidOrganization = {
-			id: 'org-paid-old',
-			name: 'Paid Older Company',
-			created_at: '2026-06-01T00:00:00.000Z'
-		};
-		const { supabase } = createSupabaseStub({
-			organizations: [
-				{
-					id: 'org-free-new',
-					name: 'Newest Free Company',
-					created_at: '2026-06-28T00:00:00.000Z'
-				}
-			],
-			organization_billing_snapshots: [
-				{
-					organization_id: paidOrganization.id,
-					source: 'stripe',
-					commercial_plan: 'team',
-					subscription_status: 'active',
-					collection_status: 'current',
-					sync_status: 'synced',
-					last_processed_at: '2026-06-28T00:00:00.000Z',
-					updated_at: '2026-06-28T00:00:00.000Z',
-					organizations: paidOrganization
-				}
-			]
-		});
-
-		const facts = await createSupabasePlatformActivationHealthStore(supabase).listActivationOrganizationFacts({
-			limit: 1
-		});
-
-		expect(facts.map((item) => item.organizationId)).toEqual(['org-paid-old']);
+	it.each([
+		'organizations',
+		'training_types',
+		'rpc/count_personnel_by_organization',
+		'rpc/count_memberships_by_organization'
+	])('propagates a failed %s read instead of returning misleading health', async (resource) => {
+		const store = providerStore({ organizations: [organization('able')] }, resource);
+		await expect(store.listActivationOrganizationFacts({ limit: 1 })).rejects.toMatchObject({ code: '42501' });
 	});
 });

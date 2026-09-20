@@ -1,29 +1,23 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
-	DEFAULT_PLATFORM_LEDGER_PAGE_SIZE,
-	MAX_PLATFORM_LEDGER_PAGE_SIZE,
 	createPlatformOrganizationLedger,
 	normalizePlatformOrganizationLedgerQuery,
 	type PlatformOrganizationLedgerBaseRow,
 	type PlatformOrganizationLedgerStore
 } from './platformOrganizationLedger';
-import type { PlanAdminDiagnostics } from './planAdminDiagnostics';
-import type { PlatformMetrics } from './platformMetrics';
+import type { PlatformMetrics, PlatformOrganizationMetrics } from './platformMetrics';
 
 function organization(overrides: Partial<PlatformOrganizationLedgerBaseRow> = {}): PlatformOrganizationLedgerBaseRow {
 	return {
 		id: 'org-1',
 		name: 'Able Company',
-		tier: 'team',
-		gift_tier: null,
-		gift_expires_at: null,
 		suspended_at: null,
 		created_at: '2026-06-01T00:00:00.000Z',
 		...overrides
 	};
 }
 
-function metrics(): PlatformMetrics {
+function metrics(values: Partial<PlatformOrganizationMetrics> = {}): PlatformMetrics {
 	return {
 		countMembershipsByOrganization: vi.fn(async () => new Map()),
 		countActivePersonnelByOrganization: vi.fn(async () => new Map()),
@@ -32,7 +26,8 @@ function metrics(): PlatformMetrics {
 		getOrganizationMetrics: vi.fn(async () => ({
 			memberCounts: new Map(),
 			activePersonnelCounts: new Map(),
-			ownerMemberships: new Map()
+			ownerMemberships: new Map(),
+			...values
 		}))
 	};
 }
@@ -41,26 +36,22 @@ describe('normalizePlatformOrganizationLedgerQuery', () => {
 	it('clamps invalid pages to page 1 with the default page size', () => {
 		expect(normalizePlatformOrganizationLedgerQuery({ page: '0', pageSize: 'not-a-number' })).toEqual({
 			page: 1,
-			pageSize: DEFAULT_PLATFORM_LEDGER_PAGE_SIZE,
+			pageSize: 25,
 			q: '',
-			tier: 'all',
 			status: 'all',
-			statusScope: 'organizations',
 			from: 0,
-			to: DEFAULT_PLATFORM_LEDGER_PAGE_SIZE - 1
+			to: 24
 		});
 	});
 
 	it('caps requested page sizes at the platform maximum', () => {
 		expect(normalizePlatformOrganizationLedgerQuery({ page: '2', pageSize: '999' })).toEqual({
 			page: 2,
-			pageSize: MAX_PLATFORM_LEDGER_PAGE_SIZE,
+			pageSize: 100,
 			q: '',
-			tier: 'all',
 			status: 'all',
-			statusScope: 'organizations',
-			from: MAX_PLATFORM_LEDGER_PAGE_SIZE,
-			to: MAX_PLATFORM_LEDGER_PAGE_SIZE * 2 - 1
+			from: 100,
+			to: 199
 		});
 	});
 
@@ -69,115 +60,85 @@ describe('normalizePlatformOrganizationLedgerQuery', () => {
 			page: 3,
 			pageSize: 25,
 			q: 'able',
-			tier: 'all',
 			status: 'all',
-			statusScope: 'organizations',
 			from: 50,
 			to: 74
 		});
 	});
 
-	it('normalizes tier and status filters into the bounded query', () => {
-		expect(
-			normalizePlatformOrganizationLedgerQuery(
-				{ tier: ' TEAM ', status: ' suspended ' },
-				new Set(['active', 'suspended'])
-			)
-		).toMatchObject({
-			tier: 'team',
-			status: 'suspended'
-		});
-		expect(normalizePlatformOrganizationLedgerQuery({ tier: 'enterprise', status: 'gifted' })).toMatchObject({
-			tier: 'all',
-			status: 'all'
-		});
+	it.each([
+		[' ACTIVE ', 'active'],
+		[' suspended ', 'suspended'],
+		['unknown', 'all']
+	])('normalizes status %s to %s', (status, expected) => {
+		expect(normalizePlatformOrganizationLedgerQuery({ status }).status).toBe(expected);
 	});
 });
 
 describe('createPlatformOrganizationLedger', () => {
-	it('returns page metadata from the bounded organization page', async () => {
+	it('retains organization identity, suspension, owner, and separate member/personnel counts on a page', async () => {
 		const store: PlatformOrganizationLedgerStore = {
-			listOrganizationsPage: vi.fn(async () => ({
-				organizations: [organization({ id: 'org-1' }), organization({ id: 'org-2' })],
+			listOrganizationsPage: async () => ({
+				organizations: [organization(), organization({ id: 'org-2', suspended_at: '2026-09-19T00:00:00.000Z' })],
 				totalCount: 12
-			})),
-			listBillingSnapshotsByOrganization: vi.fn(async () => new Map())
+			})
 		};
-
 		const ledger = createPlatformOrganizationLedger({
 			store,
-			metrics: metrics(),
-			adminRole: 'super_admin'
+			metrics: metrics({
+				memberCounts: new Map([['org-1', 3]]),
+				activePersonnelCounts: new Map([['org-1', 42]]),
+				ownerMemberships: new Map([
+					[
+						'org-1',
+						{ kind: 'single', membership: { organizationId: 'org-1', userId: 'owner-1', email: 'owner@example.mil' } }
+					]
+				])
+			})
 		});
 
 		const result = await ledger.listOrganizations({ page: 2, pageSize: 5, q: ' Able ' });
 
-		expect(store.listOrganizationsPage).toHaveBeenCalledWith({
-			page: 2,
-			pageSize: 5,
-			q: 'Able',
-			tier: 'all',
-			status: 'all',
-			statusScope: 'organizations',
-			from: 5,
-			to: 9
-		});
 		expect(result.pagination).toEqual({
 			page: 2,
 			pageSize: 5,
 			totalCount: 12,
 			totalPages: 3,
 			q: 'Able',
-			tier: 'all',
 			status: 'all'
 		});
-		expect(result.organizations).toHaveLength(2);
+		expect(result.organizations).toEqual([
+			{
+				id: 'org-1',
+				name: 'Able Company',
+				suspended_at: null,
+				created_at: '2026-06-01T00:00:00.000Z',
+				memberCount: 3,
+				personnelCount: 42,
+				ownerEmail: 'owner@example.mil',
+				isSuspended: false
+			},
+			{
+				id: 'org-2',
+				name: 'Able Company',
+				suspended_at: '2026-09-19T00:00:00.000Z',
+				created_at: '2026-06-01T00:00:00.000Z',
+				memberCount: 0,
+				personnelCount: 0,
+				ownerEmail: 'No owner',
+				isSuspended: true
+			}
+		]);
 	});
 
-	it('runs subscription diagnostics only for organizations on the returned page', async () => {
-		const readPlanDiagnostics = vi.fn(
-			async (): Promise<PlanAdminDiagnostics> => ({
-				effectivePlan: {
-					commercialPlan: 'team',
-					tier: 'team',
-					source: 'billing_snapshot',
-					sourceLabel: 'Local billing snapshot',
-					billingSource: 'stripe',
-					giftTier: null,
-					giftExpiresAt: null
-				},
-				grace: { mode: 'none', message: null },
-				readOnly: { enabled: false, reasons: [] },
-				usageRows: [],
-				overLimitReasons: [],
-				entitlements: []
-			})
-		);
-		const store: PlatformOrganizationLedgerStore = {
-			listOrganizationsPage: vi.fn(async () => ({
-				organizations: [organization({ id: 'org-1' }), organization({ id: 'org-2' })],
-				totalCount: 100
-			})),
-			listBillingSnapshotsByOrganization: vi.fn(async () => new Map())
-		};
-
+	it('keeps one empty page when no organizations match', async () => {
 		const ledger = createPlatformOrganizationLedger({
-			store,
-			metrics: metrics(),
-			adminRole: 'super_admin',
-			readPlanDiagnostics
+			store: { listOrganizationsPage: async () => ({ organizations: [], totalCount: 0 }) },
+			metrics: metrics()
 		});
-
-		await ledger.listSubscriptions({ page: 1, pageSize: 2 });
-
-		expect(store.listOrganizationsPage).toHaveBeenCalledWith(
-			expect.objectContaining({
-				statusScope: 'subscriptions'
-			})
-		);
-		expect(readPlanDiagnostics).toHaveBeenCalledTimes(2);
-		expect(readPlanDiagnostics).toHaveBeenCalledWith('org-1');
-		expect(readPlanDiagnostics).toHaveBeenCalledWith('org-2');
-		expect(readPlanDiagnostics).not.toHaveBeenCalledWith('org-99');
+		expect(await ledger.listOrganizations({ q: 'missing', status: 'active' })).toEqual({
+			organizations: [],
+			pagination: { page: 1, pageSize: 25, totalCount: 0, totalPages: 1, q: 'missing', status: 'active' }
+		});
 	});
 });

@@ -1,23 +1,30 @@
-import { isHttpError } from '@sveltejs/kit';
+import { isHttpError, isRedirect } from '@sveltejs/kit';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PageData } from './$types';
 
-const { organizationLedgerMock, createOrganizationLedgerMock, activationHealthMock, createActivationHealthMock } =
-	vi.hoisted(() => ({
-		organizationLedgerMock: {
-			listOrganizations: vi.fn()
-		},
-		createOrganizationLedgerMock: vi.fn(),
-		activationHealthMock: {
-			summarize: vi.fn()
-		},
-		createActivationHealthMock: vi.fn()
-	}));
-
-vi.mock('$lib/server/adapters/adminAdapter', () => ({
-	loadWithAdminContext: (config: { fn: (ctx: unknown, event: unknown) => unknown }) => (event: { __ctx: unknown }) =>
-		config.fn(event.__ctx, event)
+const {
+	organizationLedgerMock,
+	createOrganizationLedgerMock,
+	activationHealthMock,
+	createActivationHealthMock,
+	lookupRole
+} = vi.hoisted(() => ({
+	organizationLedgerMock: {
+		listOrganizations: vi.fn()
+	},
+	createOrganizationLedgerMock: vi.fn(),
+	activationHealthMock: {
+		summarize: vi.fn()
+	},
+	createActivationHealthMock: vi.fn(),
+	lookupRole: vi.fn()
 }));
+
+vi.mock('$lib/server/admin', async (importOriginal) => ({
+	...(await importOriginal<typeof import('$lib/server/admin')>()),
+	getAdminRole: lookupRole
+}));
+vi.mock('$lib/server/supabase', () => ({ getAdminClient: () => ({}) }));
 
 vi.mock('$lib/server/adapters/supabasePlatformOrganizationLedger', () => ({
 	createSupabasePlatformOrganizationLedger: createOrganizationLedgerMock
@@ -29,14 +36,14 @@ vi.mock('$lib/server/adapters/supabasePlatformActivationHealth', () => ({
 
 import { load } from './+page.server';
 
-function makeContext() {
+function event(path = '/admin/organizations', authenticated = true) {
+	const url = new URL(path, 'http://localhost');
 	return {
-		adminUser: { id: 'admin-1', role: 'super_admin' },
-		adminClient: {},
-		sessionClient: {},
-		session: null,
-		audit: vi.fn()
-	};
+		locals: { user: authenticated ? { id: 'admin-1' } : null, supabase: {}, session: null },
+		url,
+		request: new Request(url),
+		getClientAddress: () => '127.0.0.1'
+	} as unknown as Parameters<typeof load>[0];
 }
 
 async function expectSanitizedServerError(loadResult: unknown, message: string) {
@@ -59,6 +66,7 @@ async function expectSanitizedServerError(loadResult: unknown, message: string) 
 describe('admin organizations route load', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		lookupRole.mockResolvedValue('super_admin');
 		vi.spyOn(console, 'error').mockImplementation(() => undefined);
 		createOrganizationLedgerMock.mockReturnValue(organizationLedgerMock);
 		createActivationHealthMock.mockReturnValue(activationHealthMock);
@@ -79,14 +87,11 @@ describe('admin organizations route load', () => {
 			counts: {
 				candidateOrganizations: 0,
 				activatedOrganizations: 0,
-				checkoutStarted: 0,
-				checkoutCompleted: 0,
 				meaningfulRosters: 0,
 				acceptedLeaders: 0,
 				dutyRosterStarted: 0,
 				setupStarted: 0,
-				paidBelowRosterThreshold: 0,
-				supportAttentionItems: 0
+				inProgressOrganizations: 0
 			},
 			organizations: [],
 			diagnosticsError: false
@@ -106,15 +111,13 @@ describe('admin organizations route load', () => {
 				totalCount: 101,
 				totalPages: 3,
 				q: 'Able',
-				tier: 'team',
 				status: 'active'
 			}
 		});
 
-		const result = (await load({
-			__ctx: makeContext(),
-			url: new URL('http://localhost/admin/organizations?page=3&pageSize=50&q=Able&tier=team&status=active')
-		} as unknown as Parameters<typeof load>[0])) as PageData;
+		const result = (await load(
+			event('/admin/organizations?page=3&pageSize=50&q=Able&tier=team&status=active')
+		)) as PageData;
 
 		expect(createOrganizationLedgerMock).toHaveBeenCalledWith(
 			expect.objectContaining({ adminUser: { id: 'admin-1', role: 'super_admin' } })
@@ -126,7 +129,6 @@ describe('admin organizations route load', () => {
 			page: '3',
 			pageSize: '50',
 			q: 'Able',
-			tier: 'team',
 			status: 'active'
 		});
 		expect(activationHealthMock.summarize).toHaveBeenCalledWith();
@@ -135,22 +137,40 @@ describe('admin organizations route load', () => {
 			pageSize: 50,
 			totalCount: 101,
 			q: 'Able',
-			tier: 'team',
 			status: 'active'
 		});
 		expect(result.activationHealth).toMatchObject({ overallState: 'no_candidates' });
 	});
 
+	it.each([null, 'billing'])('denies Organization listing for role %s before any protected read', async (role) => {
+		lookupRole.mockResolvedValue(role);
+		const caught = await Promise.resolve(load(event())).catch((error: unknown) => error);
+		expect(isHttpError(caught, 403)).toBe(true);
+		expect(createOrganizationLedgerMock).not.toHaveBeenCalled();
+		expect(createActivationHealthMock).not.toHaveBeenCalled();
+	});
+
+	it('redirects an anonymous request before any protected read', async () => {
+		const caught = await Promise.resolve(load(event('/admin/organizations', false))).catch((error: unknown) => error);
+		expect(isRedirect(caught)).toBe(true);
+		expect(caught).toMatchObject({ status: 303, location: '/auth/login' });
+		expect(createOrganizationLedgerMock).not.toHaveBeenCalled();
+		expect(createActivationHealthMock).not.toHaveBeenCalled();
+	});
+
+	it('allows support to read the Organization index', async () => {
+		lookupRole.mockResolvedValue('support');
+		const result = await load(event());
+		expect(result).toMatchObject({ organizations: [], pagination: { totalCount: 0 } });
+		expect(createOrganizationLedgerMock).toHaveBeenCalledWith(
+			expect.objectContaining({ adminUser: { id: 'admin-1', role: 'support' } })
+		);
+	});
+
 	it('throws a sanitized load error when the primary organization ledger cannot load', async () => {
 		organizationLedgerMock.listOrganizations.mockRejectedValueOnce(new Error('database offline'));
 
-		await expectSanitizedServerError(
-			load({
-				__ctx: makeContext(),
-				url: new URL('http://localhost/admin/organizations')
-			} as unknown as Parameters<typeof load>[0]),
-			'Unable to load platform organizations.'
-		);
+		await expectSanitizedServerError(load(event()), 'Unable to load platform organizations.');
 	});
 
 	it('keeps the organization ledger available when activation health unexpectedly fails', async () => {
@@ -166,10 +186,7 @@ describe('admin organizations route load', () => {
 		});
 		activationHealthMock.summarize.mockRejectedValueOnce(new Error('activation diagnostics offline'));
 
-		const result = (await load({
-			__ctx: makeContext(),
-			url: new URL('http://localhost/admin/organizations')
-		} as unknown as Parameters<typeof load>[0])) as PageData;
+		const result = (await load(event())) as PageData;
 
 		expect(result.organizations).toEqual([{ id: 'org-1', name: 'Able Company' }]);
 		expect(result.activationHealth).toMatchObject({
@@ -177,7 +194,7 @@ describe('admin organizations route load', () => {
 			diagnosticsError: true,
 			counts: {
 				candidateOrganizations: 0,
-				supportAttentionItems: 0
+				inProgressOrganizations: 0
 			},
 			organizations: []
 		});

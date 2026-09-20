@@ -78,21 +78,6 @@ export const ORGANIZATION_DATA_EXPORT_SECTIONS = [
 		'settings',
 		'Settings'
 	),
-	section('billingSnapshot', 'Organization Billing Snapshot', 'organization_billing_snapshots', 'settings', 'Settings'),
-	section(
-		'billingCheckoutAttempts',
-		'Billing Checkout Attempts',
-		'organization_checkout_attempts',
-		'settings',
-		'Settings'
-	),
-	section(
-		'planFeatureOverrides',
-		'Plan Feature Overrides',
-		'organization_plan_feature_overrides',
-		'settings',
-		'Settings'
-	),
 	section('organizationRankCatalog', 'Organization Rank Catalog', 'organization_rank_catalog', 'settings', 'Settings'),
 	section('dashboardConfigs', 'Dashboard Configs', 'dashboard_configs', 'settings', 'Settings'),
 	section('deletionRequests', 'Deletion Requests', 'deletion_requests', 'settings', 'Settings'),

@@ -68,25 +68,6 @@ function createStoreWithFromResult(result: SupabaseResult): {
 }
 
 describe('createSupabasePlatformAdministrationStore', () => {
-	it('loads Organization tier counts through the aggregate RPC', async () => {
-		const { store, rpc, from } = createStoreWithRpcResult({
-			data: [
-				{ tier: 'free', gift_tier: null, count: 2 },
-				{ tier: 'free', gift_tier: 'team', count: '3' }
-			],
-			error: null
-		});
-
-		const result = await store.listOrganizationTiers();
-
-		expect(result).toEqual([
-			{ tier: 'free', gift_tier: null, count: 2 },
-			{ tier: 'free', gift_tier: 'team', count: 3 }
-		]);
-		expect(rpc).toHaveBeenCalledWith('list_platform_organization_tier_counts');
-		expect(from).not.toHaveBeenCalled();
-	});
-
 	it.each([
 		{
 			name: 'countPlatformUsers',
@@ -99,12 +80,6 @@ describe('createSupabasePlatformAdministrationStore', () => {
 			create: () => createStoreWithRpcResult({ data: null, error: PROVIDER_ERROR }),
 			run: (store: PlatformAdministrationStore) => store.listDailySignupsLast30Days(),
 			message: 'rpc daily_signups_last_30_days failed: database offline (XX000)'
-		},
-		{
-			name: 'listOrganizationTiers',
-			create: () => createStoreWithRpcResult({ data: null, error: PROVIDER_ERROR }),
-			run: (store: PlatformAdministrationStore) => store.listOrganizationTiers(),
-			message: 'rpc list_platform_organization_tier_counts failed: database offline (XX000)'
 		},
 		{
 			name: 'searchUsersByEmail',

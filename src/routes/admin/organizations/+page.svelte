@@ -19,7 +19,6 @@
 	let { data } = $props();
 
 	const organizationsRouteRoot = resolve('/admin/organizations');
-	const tierFilter = $derived(data.pagination.tier ?? 'all');
 	const statusFilter = $derived(data.pagination.status ?? 'all');
 	type ActivationOrganization = NonNullable<PageData['activationHealth']>['organizations'][number];
 	const activationHealth = $derived(
@@ -30,14 +29,11 @@
 			counts: {
 				candidateOrganizations: 0,
 				activatedOrganizations: 0,
-				checkoutStarted: 0,
-				checkoutCompleted: 0,
 				meaningfulRosters: 0,
 				acceptedLeaders: 0,
 				dutyRosterStarted: 0,
 				setupStarted: 0,
-				paidBelowRosterThreshold: 0,
-				supportAttentionItems: 0
+				inProgressOrganizations: 0
 			},
 			organizations: [],
 			diagnosticsError: true
@@ -58,7 +54,6 @@
 		params.set('page', pageNumber.toString());
 		params.set('pageSize', data.pagination.pageSize.toString());
 		if (data.pagination.q) params.set('q', data.pagination.q);
-		if (tierFilter !== 'all') params.set('tier', tierFilter);
 		if (statusFilter !== 'all') params.set('status', statusFilter);
 		return `${organizationsRouteRoot}?${params.toString()}`;
 	}
@@ -85,7 +80,7 @@
 <PageShell.Root width="wide">
 	<PageShell.Header
 		title="Organizations"
-		subtitle="Review organization health, ownership, plan state, and suspension status from the central platform index."
+		subtitle="Review organization health, ownership, and suspension status from the central platform index."
 	/>
 
 	<PageShell.FactGrid layout="three">
@@ -100,11 +95,11 @@
 			detail={`Page ${data.pagination.page} of ${data.pagination.totalPages}.`}
 		/>
 		<PageShell.Metric
-			label="Activation Attention"
-			value={activationHealth.diagnosticsError ? 'Unavailable' : activationHealth.counts.supportAttentionItems}
+			label="Activation in Progress"
+			value={activationHealth.diagnosticsError ? 'Unavailable' : activationHealth.counts.inProgressOrganizations}
 			detail={activationHealth.diagnosticsError
 				? 'Activation health diagnostics could not be fully loaded.'
-				: `${activationHealth.counts.paidBelowRosterThreshold} paid Organizations below the 5-person roster threshold. Counts cover up to ${activationHealth.candidateLimit} launch candidates.`}
+				: `Organizations with incomplete activation milestones. Counts cover up to ${activationHealth.candidateLimit} newest Organizations.`}
 		/>
 	</PageShell.FactGrid>
 
@@ -113,7 +108,7 @@
 			<TriangleAlert />
 			<Alert.Title>Activation health diagnostics could not be fully loaded.</Alert.Title>
 			<Alert.Description>
-				Checkout, roster, member, Duty Roster, and setup counts may be incomplete until the health scan succeeds.
+				Roster, member, Duty Roster, and setup counts may be incomplete until the health scan succeeds.
 			</Alert.Description>
 		</Alert.Root>
 	{/if}
@@ -127,9 +122,8 @@
 						Activation health data is unavailable until diagnostics load successfully.
 					{:else}
 						{formatAdminLabel(activationHealth.overallState)} · {activationHealth.counts.candidateOrganizations}
-						self-service or paid candidates · {activationHealth.counts.activatedOrganizations} activated. Counts cover up
-						to
-						{activationHealth.candidateLimit} launch candidates.
+						Organizations · {activationHealth.counts.activatedOrganizations} activated. Counts cover up to
+						{activationHealth.candidateLimit} newest Organizations.
 					{/if}
 				</Card.Description>
 			</div>
@@ -138,7 +132,6 @@
 					{formatAdminLabel(activationHealth.overallState)}
 				</Badge>
 				{#if !activationHealth.diagnosticsError}
-					<Badge variant="secondary">{activationHealth.counts.checkoutCompleted} checkout complete</Badge>
 					<Badge variant="secondary">{activationHealth.counts.meaningfulRosters} meaningful rosters</Badge>
 				{/if}
 			</div>
@@ -204,7 +197,7 @@
 					</p>
 				{/if}
 			{:else}
-				<p class="text-sm text-muted-foreground">No self-service or paid activation health candidates found.</p>
+				<p class="text-sm text-muted-foreground">No Organizations found for activation health.</p>
 			{/if}
 		</Card.Content>
 	</Card.Root>
@@ -214,7 +207,7 @@
 			<form
 				method="GET"
 				action={organizationsRouteRoot}
-				class="grid flex-1 gap-3 xl:grid-cols-[minmax(16rem,1fr)_9rem_minmax(10rem,1fr)_minmax(10rem,1fr)_auto] xl:items-end"
+				class="grid flex-1 gap-3 xl:grid-cols-[minmax(16rem,1fr)_9rem_minmax(10rem,1fr)_auto] xl:items-end"
 			>
 				<input type="hidden" name="page" value="1" />
 				<Field.Root>
@@ -233,15 +226,6 @@
 						<option value="25">25</option>
 						<option value="50">50</option>
 						<option value="100">100</option>
-					</NativeSelect>
-				</Field.Root>
-				<Field.Root>
-					<Field.Label for="tier-filter">Tier</Field.Label>
-					<NativeSelect id="tier-filter" name="tier" value={tierFilter}>
-						<option value="all">All tiers</option>
-						<option value="free">Free</option>
-						<option value="team">Team</option>
-						<option value="unit">Unit</option>
 					</NativeSelect>
 				</Field.Root>
 				<Field.Root>
@@ -264,7 +248,6 @@
 				<Table.Header>
 					<Table.Row>
 						<Table.Head>Name</Table.Head>
-						<Table.Head>Tier</Table.Head>
 						<Table.Head>Members</Table.Head>
 						<Table.Head>Personnel</Table.Head>
 						<Table.Head>Owner</Table.Head>
@@ -286,14 +269,6 @@
 									</code>
 								</div>
 							</Table.Cell>
-							<Table.Cell>
-								<div class="flex flex-wrap gap-2">
-									<Badge variant={adminBadgeVariant(org.effectiveTier)}>{formatAdminLabel(org.effectiveTier)}</Badge>
-									{#if org.gift_tier}
-										<Badge variant="warning">Gift</Badge>
-									{/if}
-								</div>
-							</Table.Cell>
 							<Table.Cell>{org.memberCount}</Table.Cell>
 							<Table.Cell>{org.personnelCount}</Table.Cell>
 							<Table.Cell class="max-w-60 break-words text-muted-foreground">{org.ownerEmail || '-'}</Table.Cell>
@@ -306,7 +281,7 @@
 						</Table.Row>
 					{:else}
 						<Table.Row>
-							<Table.Cell colspan={7}>
+							<Table.Cell colspan={6}>
 								<Empty.Root>
 									<Empty.Header>
 										<Empty.Title>No matching organizations.</Empty.Title>

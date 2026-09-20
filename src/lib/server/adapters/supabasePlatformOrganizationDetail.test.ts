@@ -1,111 +1,83 @@
 import { describe, expect, it, vi } from 'vitest';
-import {
-	createSupabasePlatformOrganizationDetailStore,
-	mapAdminOrganizationBillingSnapshot,
-	type AdminOrganizationBillingSnapshotRow
-} from './supabasePlatformOrganizationDetail';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { createSupabasePlatformOrganizationDetailStore } from './supabasePlatformOrganizationDetail';
 
-type QueryStub = {
-	select: ReturnType<typeof vi.fn>;
-	eq: ReturnType<typeof vi.fn>;
-	maybeSingle: ReturnType<typeof vi.fn>;
-};
+const ORGANIZATIONS = [
+	{
+		id: '11111111-1111-4111-8111-111111111111',
+		name: 'Able Company',
+		suspended_at: null,
+		created_at: '2026-06-01T00:00:00.000Z'
+	},
+	{
+		id: '22222222-2222-4222-8222-222222222222',
+		name: 'Baker Company',
+		suspended_at: '2026-06-08T16:00:00.000Z',
+		created_at: '2026-05-01T00:00:00.000Z'
+	}
+];
 
-function createQueryStub(response: unknown): QueryStub {
-	const query = {
-		select: vi.fn(),
-		eq: vi.fn(),
-		maybeSingle: vi.fn(async () => response)
-	};
-	query.select.mockReturnValue(query);
-	query.eq.mockReturnValue(query);
-	return query;
-}
-
-function billingSnapshotRow(
-	overrides: Partial<AdminOrganizationBillingSnapshotRow> = {}
-): AdminOrganizationBillingSnapshotRow {
+// This provider has only retained organization columns. Commercial reads fail,
+// and filtering is evaluated against distinct rows rather than a canned result.
+function retainedOrganizationClient(): SupabaseClient {
 	return {
-		organization_id: '11111111-1111-4111-8111-111111111111',
-		source: 'stripe',
-		commercial_plan: 'team',
-		stripe_customer_id: 'cus_123',
-		stripe_subscription_id: 'sub_123',
-		stripe_product_id: 'prod_123',
-		stripe_price_id: 'price_123',
-		subscription_status: 'active',
-		collection_status: null,
-		current_period_start: '2026-06-01T00:00:00.000Z',
-		current_period_end: '2026-07-01T00:00:00.000Z',
-		cancel_at_period_end: false,
-		canceled_at: null,
-		cancellation_reason: null,
-		cancellation_feedback: null,
-		trial_end: null,
-		sync_status: 'synced',
-		last_stripe_event_id: 'evt_123',
-		last_stripe_event_type: 'customer.subscription.updated',
-		last_stripe_event_created_at: '2026-06-01T00:01:00.000Z',
-		last_processed_at: '2026-06-01T00:02:00.000Z',
-		last_reconciled_at: '2026-06-01T00:03:00.000Z',
-		reconciliation_result: 'matched',
-		drift_detected: false,
-		...overrides
-	};
+		from(table: string) {
+			if (table !== 'organizations') throw new Error(`Unavailable table: ${table}`);
+			let columns: string[] = [];
+			let rows = [...ORGANIZATIONS];
+			const query = {
+				select(selection: string) {
+					columns = selection.split(',').map((column) => column.trim());
+					for (const column of columns) {
+						if (!(column in ORGANIZATIONS[0])) throw new Error(`Unavailable column: ${column}`);
+					}
+					return query;
+				},
+				eq(column: keyof (typeof ORGANIZATIONS)[number], value: string) {
+					rows = rows.filter((row) => row[column] === value);
+					return query;
+				},
+				async maybeSingle() {
+					if (rows.length > 1) return { data: null, error: new Error('Multiple rows returned') };
+					const row = rows[0];
+					return {
+						data: row ? Object.fromEntries(columns.map((column) => [column, row[column as keyof typeof row]])) : null,
+						error: null
+					};
+				}
+			};
+			return query;
+		}
+	} as unknown as SupabaseClient;
 }
 
 describe('createSupabasePlatformOrganizationDetailStore', () => {
-	it('maps billing cancellation and drift fields from the provider row', () => {
-		const snapshot = mapAdminOrganizationBillingSnapshot(
-			billingSnapshotRow({
-				subscription_status: 'canceled',
-				cancel_at_period_end: true,
-				canceled_at: '2026-06-15T00:00:00.000Z',
-				cancellation_reason: 'customer request',
-				cancellation_feedback: 'unused',
-				drift_detected: true
-			})
-		);
+	it('loads the selected organization using only retained data, without crossing organization IDs', async () => {
+		const store = createSupabasePlatformOrganizationDetailStore(retainedOrganizationClient());
 
-		expect(snapshot).toMatchObject({
-			subscriptionStatus: 'canceled',
-			cancelAtPeriodEnd: true,
-			canceledAt: '2026-06-15T00:00:00.000Z',
-			cancellationReason: 'customer request',
-			cancellationFeedback: 'unused',
-			driftDetected: true,
-			giftTier: null,
-			giftExpiresAt: null
+		await expect(store.getOrganizationById('22222222-2222-4222-8222-222222222222')).resolves.toEqual({
+			id: '22222222-2222-4222-8222-222222222222',
+			name: 'Baker Company',
+			suspended_at: '2026-06-08T16:00:00.000Z',
+			created_at: '2026-05-01T00:00:00.000Z'
 		});
+		await expect(store.getOrganizationById('missing-organization')).resolves.toBeNull();
 	});
 
-	it('does not silently convert provider errors into null organization details', async () => {
+	it('does not silently convert provider errors into missing organizations', async () => {
 		const providerError = { message: 'database offline', code: 'XX000' };
-		const organizationQuery = createQueryStub({
-			data: null,
-			error: providerError
-		});
-		const from = vi.fn(() => organizationQuery);
+		const query = {
+			select: vi.fn(),
+			eq: vi.fn(),
+			maybeSingle: vi.fn(async () => ({ data: null, error: providerError }))
+		};
+		query.select.mockReturnValue(query);
+		query.eq.mockReturnValue(query);
 
 		await expect(
-			createSupabasePlatformOrganizationDetailStore({ from } as never).getOrganizationById(
-				'11111111-1111-4111-8111-111111111111'
-			)
-		).rejects.toBe(providerError);
-	});
-
-	it('does not silently convert billing snapshot provider errors into null snapshots', async () => {
-		const providerError = { message: 'database offline', code: 'XX000' };
-		const billingQuery = createQueryStub({
-			data: null,
-			error: providerError
-		});
-		const from = vi.fn(() => billingQuery);
-
-		await expect(
-			createSupabasePlatformOrganizationDetailStore({ from } as never).getBillingSnapshotByOrganization(
-				'11111111-1111-4111-8111-111111111111'
-			)
+			createSupabasePlatformOrganizationDetailStore({
+				from: () => query
+			} as unknown as SupabaseClient).getOrganizationById('11111111-1111-4111-8111-111111111111')
 		).rejects.toBe(providerError);
 	});
 });

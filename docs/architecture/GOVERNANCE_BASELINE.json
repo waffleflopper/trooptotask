@@ -124,19 +124,9 @@
 			"reason": "Platform Administration audit log browsing still builds a service-role audit adapter from the admin context."
 		},
 		{
-			"path": "src/routes/admin/billing-events/+page.server.ts",
-			"classification": "platform-admin-edge",
-			"reason": "Platform Administration billing event diagnostics still builds a service-role billing events adapter from the admin context."
-		},
-		{
 			"path": "src/routes/admin/feedback/+page.server.ts",
 			"classification": "platform-admin-edge",
 			"reason": "Platform Administration feedback moderation still builds a service-role feedback adapter from the admin context."
-		},
-		{
-			"path": "src/routes/admin/gifting/+page.server.ts",
-			"classification": "platform-admin-edge",
-			"reason": "Platform Administration gifting still builds service-role gifting and platform metrics adapters from the admin context."
 		},
 		{
 			"path": "src/routes/admin/organizations/+page.server.ts",
@@ -147,11 +137,6 @@
 			"path": "src/routes/admin/organizations/[orgId]/+page.server.ts",
 			"classification": "platform-admin-edge",
 			"reason": "Platform Administration organization detail actions still build service-role Supabase adapters and stores from the admin context client."
-		},
-		{
-			"path": "src/routes/admin/subscriptions/+page.server.ts",
-			"classification": "platform-admin-edge",
-			"reason": "Platform Administration subscription browsing still builds a service-role organization ledger adapter from the admin context."
 		},
 		{
 			"path": "src/routes/admin/users/+page.server.ts",

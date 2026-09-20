@@ -12,7 +12,6 @@
 	let { data } = $props();
 
 	const totalPending = $derived(data.pendingAccessRequests + data.pendingFeedback);
-	const paidCount = $derived(data.tierCounts.team + data.tierCounts.unit);
 	const recentPct = $derived(
 		data.userStats.total > 0 ? Math.round((data.userStats.last_30_days / data.userStats.total) * 100) : 0
 	);
@@ -33,7 +32,6 @@
 			color: REPORT_CHART_SERIES[1].color
 		}
 	];
-	const totalTierOrgs = $derived(data.tierCounts.free + data.tierCounts.team + data.tierCounts.unit);
 </script>
 
 <svelte:head>
@@ -41,10 +39,7 @@
 </svelte:head>
 
 <PageShell.Root width="wide">
-	<PageShell.Header
-		title="Admin Dashboard"
-		subtitle="Track platform growth, subscription mix, and the trust queue from one place."
-	>
+	<PageShell.Header title="Admin Dashboard" subtitle="Track platform growth and the trust queue from one place.">
 		{#snippet actions()}
 			<Button href="/admin/audit" variant="outline">Audit Log</Button>
 			<Button href="/admin/users">Inspect Users</Button>
@@ -76,22 +71,13 @@
 		</div>
 	{/if}
 
-	<PageShell.FactGrid layout="two" class="lg:grid-cols-4">
+	<PageShell.FactGrid layout="three">
 		<PageShell.Metric
 			label="Total Users"
 			value={data.userStats.total.toLocaleString()}
 			detail={`+${data.userStats.last_30_days} in 30 days (${recentPct}% of all accounts)`}
 		/>
-		<PageShell.Metric
-			label="Organizations"
-			value={data.totalOrganizations.toLocaleString()}
-			detail={`${data.tierCounts.free} free / ${data.tierCounts.team} team / ${data.tierCounts.unit} unit`}
-		/>
-		<PageShell.Metric
-			label="Paid Subscriptions"
-			value={paidCount.toLocaleString()}
-			detail={`${data.tierCounts.team} team plans and ${data.tierCounts.unit} unit plans active`}
-		/>
+		<PageShell.Metric label="Organizations" value={data.totalOrganizations.toLocaleString()} />
 		<PageShell.Metric
 			label="Pending Items"
 			value={totalPending.toLocaleString()}
@@ -100,74 +86,49 @@
 		/>
 	</PageShell.FactGrid>
 
-	<div class="grid gap-4 xl:grid-cols-[minmax(0,1.8fr)_minmax(18rem,1fr)]">
-		<Card.Root>
-			<Card.Header>
-				<Card.Title>Signups</Card.Title>
-				<Card.Description>Last 30 days of account creation activity.</Card.Description>
-			</Card.Header>
-			<Card.Content>
-				{#if data.signupTrend.length > 0}
-					<ReportBarChart
-						data={signupChartData}
-						series={signupSeries}
-						ariaLabel="Admin signup trend by day"
-						yDomain={[0, maxSignups]}
-						yTicks={signupTicks}
-						layout="group"
-						heightClass="h-[190px]"
-					/>
-					<div class="sr-only">
-						<table aria-label="Admin signup trend data">
-							<thead>
+	<Card.Root>
+		<Card.Header>
+			<Card.Title>Signups</Card.Title>
+			<Card.Description>Last 30 days of account creation activity.</Card.Description>
+		</Card.Header>
+		<Card.Content>
+			{#if data.signupTrend.length > 0}
+				<ReportBarChart
+					data={signupChartData}
+					series={signupSeries}
+					ariaLabel="Admin signup trend by day"
+					yDomain={[0, maxSignups]}
+					yTicks={signupTicks}
+					layout="group"
+					heightClass="h-[190px]"
+				/>
+				<div class="sr-only">
+					<table aria-label="Admin signup trend data">
+						<thead>
+							<tr>
+								<th scope="col">Date</th>
+								<th scope="col">New accounts</th>
+							</tr>
+						</thead>
+						<tbody>
+							{#each data.signupTrend as day (day.date)}
 								<tr>
-									<th scope="col">Date</th>
-									<th scope="col">New accounts</th>
+									<td>{day.date}</td>
+									<td>{day.count}</td>
 								</tr>
-							</thead>
-							<tbody>
-								{#each data.signupTrend as day (day.date)}
-									<tr>
-										<td>{day.date}</td>
-										<td>{day.count}</td>
-									</tr>
-								{/each}
-							</tbody>
-						</table>
-					</div>
-				{:else}
-					<Empty.Root>
-						<Empty.Header>
-							<Empty.Title>No signup data available.</Empty.Title>
-						</Empty.Header>
-					</Empty.Root>
-				{/if}
-			</Card.Content>
-		</Card.Root>
-
-		<Card.Root>
-			<Card.Header>
-				<Card.Title>Subscription Mix</Card.Title>
-				<Card.Description>Current organization distribution by plan.</Card.Description>
-			</Card.Header>
-			<Card.Content class="grid gap-4">
-				{#each [{ label: 'Free', value: data.tierCounts.free }, { label: 'Team', value: data.tierCounts.team }, { label: 'Unit', value: data.tierCounts.unit }] as tier (tier.label)}
-					<div class="grid gap-1.5">
-						<div class="flex items-center justify-between gap-3 text-sm">
-							<span>{tier.label}</span>
-							<strong>{tier.value}</strong>
-						</div>
-						<div class="h-2 overflow-hidden rounded-full bg-muted">
-							<div
-								class="h-full rounded-full bg-primary"
-								style="width: {totalTierOrgs > 0 ? Math.round((tier.value / totalTierOrgs) * 100) : 0}%"
-							></div>
-						</div>
-					</div>
-				{/each}
-			</Card.Content>
-		</Card.Root>
-	</div>
+							{/each}
+						</tbody>
+					</table>
+				</div>
+			{:else}
+				<Empty.Root>
+					<Empty.Header>
+						<Empty.Title>No signup data available.</Empty.Title>
+					</Empty.Header>
+				</Empty.Root>
+			{/if}
+		</Card.Content>
+	</Card.Root>
 
 	<div class="grid gap-4 xl:grid-cols-[minmax(0,1.8fr)_minmax(18rem,1fr)]">
 		<Card.Root>
@@ -213,7 +174,7 @@
 				<Card.Description>Fast paths into the highest-traffic admin workflows.</Card.Description>
 			</Card.Header>
 			<Card.Content class="grid gap-2">
-				{#each [{ href: '/admin/users', label: 'Search Users' }, { href: '/admin/organizations', label: 'Inspect Orgs' }, { href: '/admin/access-requests', label: 'Access Queue' }, { href: '/admin/feedback', label: 'Feedback Queue' }, { href: '/admin/subscriptions', label: 'Subscriptions' }, { href: '/admin/gifting', label: 'Gifting' }] as link (link.href)}
+				{#each [{ href: '/admin/users', label: 'Search Users' }, { href: '/admin/organizations', label: 'Inspect Orgs' }, { href: '/admin/access-requests', label: 'Access Queue' }, { href: '/admin/feedback', label: 'Feedback Queue' }] as link (link.href)}
 					<Button href={link.href} variant="outline" class="justify-start">{link.label}</Button>
 				{/each}
 				<Separator class="my-1" />

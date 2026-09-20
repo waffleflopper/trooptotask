@@ -79,14 +79,13 @@ export const load = async ({ params, locals, cookies, depends, parent }: PageSer
 	depends('app:org-core');
 	depends('app:dashboard-data');
 	const { orgId } = params;
-	const parentDataPromise = parent();
+	const parentData = await parent();
 	const ctx = await buildLayoutContext(locals, cookies, orgId);
 	const { data: summary } = loadWithContextCore(ctx, {
 		policyAction: POLICY_ACTION_CATALOG.identity.viewDashboard,
 		defer: true,
 		fn: async () =>
 			withDashboardTiming(orgId, 'summary', async () => {
-				const parentData = await parentDataPromise;
 				const workspaceBootstrap = parentData.dashboard.data as Promise<DashboardWorkspaceResult>;
 				const workspaceData = (await workspaceBootstrap).data;
 				const canViewCriticalTasks =

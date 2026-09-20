@@ -107,7 +107,7 @@ describe('createSupabasePlatformUserDirectoryStore', () => {
 			data: [
 				{
 					role: 'owner',
-					organizations: { id: 'org-1', name: 'Able Company', tier: 'team', gift_tier: 'unit' }
+					organizations: { id: 'org-1', name: 'Able Company' }
 				},
 				{
 					role: 'member',
@@ -155,7 +155,7 @@ describe('createSupabasePlatformUserDirectoryStore', () => {
 			{
 				userId: 'user-1',
 				role: 'owner',
-				organization: { id: 'org-1', name: 'Able Company', tier: 'team', giftTier: 'unit' }
+				organization: { id: 'org-1', name: 'Able Company' }
 			},
 			{
 				userId: 'user-1',

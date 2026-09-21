@@ -1,0 +1,141 @@
+{
+	"task": "04-01b-01",
+	"state": "PASS for catalog discovery only; D01 remains IMPLEMENTING",
+	"candidate_head": "976c307a137c3770b9de186fd5771c609c21c937",
+	"base": "f1ab97a29da954cb71e6bfcd5989944aa012a6c8",
+	"branch": "stabilization/04-d01-schema-inventory",
+	"pr": null,
+	"allocation": {
+		"project": "t3-phase04-01b-01",
+		"workdir": "/tmp/t3-phase04-01b-01/isolated",
+		"ports": [60420, 60421, 60422, 60423, 60424, 60425, 60426, 60427, 60429, 24483],
+		"postgres_image": "17.6.1.155"
+	},
+	"versions": {
+		"node": "v24.18.0",
+		"supabase": "2.101.0",
+		"docker": "Docker version 29.7.2, build a7dcaa6fdb",
+		"python": "Python 3.14.7",
+		"npm": "11.12.1",
+		"postgres": "17.6",
+		"psql": "psql (PostgreSQL) 17.6"
+	},
+	"migration_count": 133,
+	"migration_range": ["20260413001158", "20260920000100"],
+	"input_hashes_match": 154,
+	"catalog_capture_command": "docker exec -i supabase_db_t3-phase04-01b-01 psql -X -qAt -U postgres -d postgres -v ON_ERROR_STOP=1 < docs/stabilization/phase-04/catalog.sql",
+	"catalog_sections": {
+		"types": 144,
+		"columns": 799,
+		"indexes": 241,
+		"policies": 175,
+		"triggers": 575,
+		"functions": 103,
+		"relations": 309,
+		"extensions": 7,
+		"constraints": 384,
+		"schema_acls": 12,
+		"default_acls": 30,
+		"dependencies": 3674,
+		"publications": 1,
+		"event_triggers": 8,
+		"function_execute": 309,
+		"role_dependencies": 614,
+		"nonpublic_function_bodies": 48,
+		"cron_jobs": 0,
+		"migration_versions": 133
+	},
+	"db_checks": {
+		"command": "npm run db:test",
+		"cwd": "/tmp/t3-phase04-01b-01/isolated",
+		"exit": 0,
+		"seconds": 26.8,
+		"suites": 19,
+		"assertions": 367,
+		"pass_results": 19
+	},
+	"unchanged_table_digests": 69,
+	"public_execute_probe": {
+		"role": "anon",
+		"first_attempt": 1,
+		"retry_attempt": 2,
+		"matching_rows_after_rollback": 0,
+		"classification": "Confirmed pre-existing exposure; mandatory D02 removal; remote state unverified"
+	},
+	"dependency_probe": {
+		"exit": 0,
+		"cross_schema_dependency_detected": [
+			{
+				"kind": "n",
+				"dependent": "rule _RETURN on view synthetic_catalog_probe.retained_view",
+				"referenced": "column gift_tier of table public.organizations"
+			}
+		],
+		"nonpublic_string_body_detected": true,
+		"probe_schemas_after_rollback": 0
+	},
+	"catalog_equal_after_probes": true,
+	"canonical_checks": [
+		{
+			"command": "npm run format",
+			"exit": 0,
+			"seconds": 10.9
+		},
+		{
+			"command": "npm run format:check",
+			"exit": 0,
+			"seconds": 11.0
+		},
+		{
+			"command": "npm run lint",
+			"exit": 0,
+			"seconds": 12.3
+		},
+		{
+			"command": "npm run governance:check",
+			"exit": 0,
+			"seconds": 0.2
+		},
+		{
+			"command": "npm run check",
+			"exit": 0,
+			"seconds": 18.1
+		},
+		{
+			"command": "npm run test",
+			"exit": 0,
+			"seconds": 40.0
+		},
+		{
+			"command": "npm run build",
+			"exit": 0,
+			"seconds": 14.9
+		}
+	],
+	"retained_test_files": 566,
+	"retained_tests": 5181,
+	"svelte_errors": 0,
+	"svelte_warnings": 0,
+	"cleanup": {
+		"cleanup_exit": 0,
+		"owned_resources_remaining": 0,
+		"preexisting_containers_unchanged": 36
+	},
+	"artifact_sha256": {
+		"catalog.sql": "dda6421aff26e35f521cf798490d4ddc351a9108dfec5b1ce0f420c8a3871489",
+		"catalog-baseline.json": "cf1a089cb85615b7bbd6f1a5da33f881a143aee0a3726063d038ddf9e40956ed",
+		"replay-inputs.sha256": "d30c87bd962d25406a9c944b366f0b9d2eecda92898d603e0e5bd7f2b1c4f96d"
+	},
+	"warnings": [
+		"Existing unused waitFor lint warning",
+		"Existing chunk/plugin build diagnostics and optional @opentelemetry/api notice"
+	],
+	"not_run": [
+		"Schema/TypeScript generation (04-01b-02)",
+		"Populated upgrade baseline/preflight (04-01c)",
+		"Destructive cutover and target verification (D02)",
+		"Remote database/production verification",
+		"Browser/E2E (no changed user journey)"
+	],
+	"raw_receipts": "/tmp/t3-phase04-01b-01"
+}

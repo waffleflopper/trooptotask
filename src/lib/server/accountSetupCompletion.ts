@@ -1,4 +1,5 @@
 import { createAccountSetupLinkService, type AccountSetupLinkStore } from './accountSetupLinks';
+import { mapProviderPasswordError } from './validation';
 
 export type AccountSetupCompletionInvalidStatus =
 	| 'missing'
@@ -123,7 +124,9 @@ export function createAccountSetupCompletionService(store: AccountSetupCompletio
 			await markClaimFailedSafely(setupLinks, input.claim.link.id, 'account-create-failed');
 			return {
 				status: 'account-create-failed',
-				message: errorMessage(error, 'Could not create your User Account. Please try again.')
+				message:
+					mapProviderPasswordError(error) ??
+					errorMessage(error, 'Could not create your User Account. Please try again.')
 			};
 		}
 

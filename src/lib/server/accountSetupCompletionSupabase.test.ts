@@ -129,13 +129,20 @@ describe('Supabase Account Setup auth adapter', () => {
 		expect(adminClient.auth.admin.updateUserById).not.toHaveBeenCalled();
 	});
 
-	it('activates an existing User Account by indexed identity lookup', async () => {
+	it.each([
+		{ code: 'user_already_exists', status: 422, message: 'User already exists' },
+		{ code: 'email_exists', status: 422, message: 'Email already exists' },
+		{ status: 422, message: 'A user with this email address has already been registered' }
+	])('activates an existing User Account by indexed identity lookup for %j', async (providerError) => {
 		const { builder: lookupBuilder, calls: lookupCalls } = createIdentityLookupBuilder({
 			data: { user_id: 'existing-user-2', normalized_email: 'soldier@example.mil' },
 			error: null
 		});
 		const { builder: upsertBuilder, calls: upsertCalls } = createIdentityUpsertBuilder();
-		const adminClient = makeAdminClient({ tableBuilders: [lookupBuilder, upsertBuilder] });
+		const adminClient = makeAdminClient({
+			createUserResult: { data: { user: null }, error: providerError },
+			tableBuilders: [lookupBuilder, upsertBuilder]
+		});
 		const adapter = createSupabaseAccountSetupAuthAdapter(adminClient as never, makeSessionClient() as never);
 
 		const result = await adapter.createOrActivateConfirmedUser({
@@ -155,6 +162,25 @@ describe('Supabase Account Setup auth adapter', () => {
 			method: 'upsert',
 			args: [{ user_id: 'existing-user-2', normalized_email: 'soldier@example.mil' }, { onConflict: 'user_id' }]
 		});
+	});
+
+	it.each([
+		{ code: 'weak_password', status: 422, message: 'Password is known to be weak and easy to guess' },
+		{ code: 'weak_password', status: 422, message: 'Password already exists in a leaked password database' },
+		{ status: 422, message: 'Unable to validate email address' }
+	])('preserves a non-duplicate provider rejection without activating an account for %j', async (providerError) => {
+		const { builder: lookupBuilder } = createIdentityLookupBuilder({ data: null, error: null });
+		const adminClient = makeAdminClient({
+			createUserResult: { data: { user: null }, error: providerError },
+			tableBuilders: [lookupBuilder]
+		});
+		const adapter = createSupabaseAccountSetupAuthAdapter(adminClient as never, makeSessionClient() as never);
+
+		await expect(
+			adapter.createOrActivateConfirmedUser({ email: 'soldier@example.mil', password: 'ValidPassword123!' })
+		).rejects.toBe(providerError);
+		expect(adminClient.from).not.toHaveBeenCalled();
+		expect(adminClient.auth.admin.updateUserById).not.toHaveBeenCalled();
 	});
 
 	it('fails clearly when an existing-user error has no indexed identity', async () => {

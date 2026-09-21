@@ -449,7 +449,7 @@ describe('POST /api/auth/update-password', () => {
 		expect(response.status).toBe(409);
 		expect(await response.json()).toMatchObject({
 			error:
-				'That password was rejected by account security rules. Use at least 12 characters with uppercase, lowercase, and a number.'
+				'That password was rejected by account security rules. Choose a different, unique password with at least 12 characters, including uppercase, lowercase, and a number.'
 		});
 		expect(cookies.delete).not.toHaveBeenCalled();
 	});

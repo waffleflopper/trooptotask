@@ -1,0 +1,1043 @@
+{
+	"auth.users": [
+		{
+			"id": "c4010000-0000-4000-8000-000000000001",
+			"aud": null,
+			"role": null,
+			"email": "phase04-owner@example.test",
+			"phone": null,
+			"created_at": null,
+			"deleted_at": null,
+			"invited_at": null,
+			"updated_at": null,
+			"instance_id": null,
+			"is_sso_user": false,
+			"banned_until": null,
+			"confirmed_at": "2035-01-01T00:00:00+00:00",
+			"email_change": null,
+			"is_anonymous": false,
+			"phone_change": "",
+			"is_super_admin": null,
+			"recovery_token": null,
+			"last_sign_in_at": null,
+			"recovery_sent_at": null,
+			"raw_app_meta_data": {
+				"provider": "email"
+			},
+			"confirmation_token": null,
+			"email_confirmed_at": "2035-01-01T00:00:00+00:00",
+			"encrypted_password": null,
+			"phone_change_token": "",
+			"phone_confirmed_at": null,
+			"raw_user_meta_data": {
+				"billing": "retained metadata",
+				"profile": {
+					"source": "synthetic"
+				}
+			},
+			"confirmation_sent_at": null,
+			"email_change_sent_at": null,
+			"phone_change_sent_at": null,
+			"email_change_token_new": null,
+			"reauthentication_token": "",
+			"reauthentication_sent_at": null,
+			"email_change_token_current": "",
+			"email_change_confirm_status": 0
+		},
+		{
+			"id": "c4010000-0000-4000-8000-000000000002",
+			"aud": null,
+			"role": null,
+			"email": "phase04-operator@example.test",
+			"phone": null,
+			"created_at": null,
+			"deleted_at": null,
+			"invited_at": null,
+			"updated_at": null,
+			"instance_id": null,
+			"is_sso_user": false,
+			"banned_until": null,
+			"confirmed_at": "2035-01-01T00:00:00+00:00",
+			"email_change": null,
+			"is_anonymous": false,
+			"phone_change": "",
+			"is_super_admin": null,
+			"recovery_token": null,
+			"last_sign_in_at": null,
+			"recovery_sent_at": null,
+			"raw_app_meta_data": {},
+			"confirmation_token": null,
+			"email_confirmed_at": "2035-01-01T00:00:00+00:00",
+			"encrypted_password": null,
+			"phone_change_token": "",
+			"phone_confirmed_at": null,
+			"raw_user_meta_data": {},
+			"confirmation_sent_at": null,
+			"email_change_sent_at": null,
+			"phone_change_sent_at": null,
+			"email_change_token_new": null,
+			"reauthentication_token": "",
+			"reauthentication_sent_at": null,
+			"email_change_token_current": "",
+			"email_change_confirm_status": 0
+		},
+		{
+			"id": "c4010000-0000-4000-8000-000000000003",
+			"aud": null,
+			"role": null,
+			"email": "phase04-foreign@example.test",
+			"phone": null,
+			"created_at": null,
+			"deleted_at": null,
+			"invited_at": null,
+			"updated_at": null,
+			"instance_id": null,
+			"is_sso_user": false,
+			"banned_until": null,
+			"confirmed_at": "2035-01-01T00:00:00+00:00",
+			"email_change": null,
+			"is_anonymous": false,
+			"phone_change": "",
+			"is_super_admin": null,
+			"recovery_token": null,
+			"last_sign_in_at": null,
+			"recovery_sent_at": null,
+			"raw_app_meta_data": {},
+			"confirmation_token": null,
+			"email_confirmed_at": "2035-01-01T00:00:00+00:00",
+			"encrypted_password": null,
+			"phone_change_token": "",
+			"phone_confirmed_at": null,
+			"raw_user_meta_data": {},
+			"confirmation_sent_at": null,
+			"email_change_sent_at": null,
+			"phone_change_sent_at": null,
+			"email_change_token_new": null,
+			"reauthentication_token": "",
+			"reauthentication_sent_at": null,
+			"email_change_token_current": "",
+			"email_change_confirm_status": 0
+		},
+		{
+			"id": "c4010000-0000-4000-8000-000000000004",
+			"aud": null,
+			"role": null,
+			"email": "phase04-billing@example.test",
+			"phone": null,
+			"created_at": null,
+			"deleted_at": null,
+			"invited_at": null,
+			"updated_at": null,
+			"instance_id": null,
+			"is_sso_user": false,
+			"banned_until": null,
+			"confirmed_at": "2035-01-01T00:00:00+00:00",
+			"email_change": null,
+			"is_anonymous": false,
+			"phone_change": "",
+			"is_super_admin": null,
+			"recovery_token": null,
+			"last_sign_in_at": null,
+			"recovery_sent_at": null,
+			"raw_app_meta_data": {},
+			"confirmation_token": null,
+			"email_confirmed_at": "2035-01-01T00:00:00+00:00",
+			"encrypted_password": null,
+			"phone_change_token": "",
+			"phone_confirmed_at": null,
+			"raw_user_meta_data": {},
+			"confirmation_sent_at": null,
+			"email_change_sent_at": null,
+			"phone_change_sent_at": null,
+			"email_change_token_new": null,
+			"reauthentication_token": "",
+			"reauthentication_sent_at": null,
+			"email_change_token_current": "",
+			"email_change_confirm_status": 0
+		},
+		{
+			"id": "c4010000-0000-4000-8000-000000000005",
+			"aud": null,
+			"role": null,
+			"email": "phase04-suspended@example.test",
+			"phone": null,
+			"created_at": null,
+			"deleted_at": null,
+			"invited_at": null,
+			"updated_at": null,
+			"instance_id": null,
+			"is_sso_user": false,
+			"banned_until": null,
+			"confirmed_at": "2035-01-01T00:00:00+00:00",
+			"email_change": null,
+			"is_anonymous": false,
+			"phone_change": "",
+			"is_super_admin": null,
+			"recovery_token": null,
+			"last_sign_in_at": null,
+			"recovery_sent_at": null,
+			"raw_app_meta_data": {},
+			"confirmation_token": null,
+			"email_confirmed_at": "2035-01-01T00:00:00+00:00",
+			"encrypted_password": null,
+			"phone_change_token": "",
+			"phone_confirmed_at": null,
+			"raw_user_meta_data": {},
+			"confirmation_sent_at": null,
+			"email_change_sent_at": null,
+			"phone_change_sent_at": null,
+			"email_change_token_new": null,
+			"reauthentication_token": "",
+			"reauthentication_sent_at": null,
+			"email_change_token_current": "",
+			"email_change_confirm_status": 0
+		},
+		{
+			"id": "c4010000-0000-4000-8000-000000000006",
+			"aud": null,
+			"role": null,
+			"email": "phase04-admin@example.test",
+			"phone": null,
+			"created_at": null,
+			"deleted_at": null,
+			"invited_at": null,
+			"updated_at": null,
+			"instance_id": null,
+			"is_sso_user": false,
+			"banned_until": null,
+			"confirmed_at": "2035-01-01T00:00:00+00:00",
+			"email_change": null,
+			"is_anonymous": false,
+			"phone_change": "",
+			"is_super_admin": null,
+			"recovery_token": null,
+			"last_sign_in_at": null,
+			"recovery_sent_at": null,
+			"raw_app_meta_data": {},
+			"confirmation_token": null,
+			"email_confirmed_at": "2035-01-01T00:00:00+00:00",
+			"encrypted_password": null,
+			"phone_change_token": "",
+			"phone_confirmed_at": null,
+			"raw_user_meta_data": {},
+			"confirmation_sent_at": null,
+			"email_change_sent_at": null,
+			"phone_change_sent_at": null,
+			"email_change_token_new": null,
+			"reauthentication_token": "",
+			"reauthentication_sent_at": null,
+			"email_change_token_current": "",
+			"email_change_confirm_status": 0
+		},
+		{
+			"id": "c4010000-0000-4000-8000-000000000007",
+			"aud": null,
+			"role": null,
+			"email": "phase04-invitee@example.test",
+			"phone": null,
+			"created_at": null,
+			"deleted_at": null,
+			"invited_at": null,
+			"updated_at": null,
+			"instance_id": null,
+			"is_sso_user": false,
+			"banned_until": null,
+			"confirmed_at": "2035-01-01T00:00:00+00:00",
+			"email_change": null,
+			"is_anonymous": false,
+			"phone_change": "",
+			"is_super_admin": null,
+			"recovery_token": null,
+			"last_sign_in_at": null,
+			"recovery_sent_at": null,
+			"raw_app_meta_data": {},
+			"confirmation_token": null,
+			"email_confirmed_at": "2035-01-01T00:00:00+00:00",
+			"encrypted_password": null,
+			"phone_change_token": "",
+			"phone_confirmed_at": null,
+			"raw_user_meta_data": {},
+			"confirmation_sent_at": null,
+			"email_change_sent_at": null,
+			"phone_change_sent_at": null,
+			"email_change_token_new": null,
+			"reauthentication_token": "",
+			"reauthentication_sent_at": null,
+			"email_change_token_current": "",
+			"email_change_confirm_status": 0
+		}
+	],
+	"public.groups": [
+		{
+			"id": "c4010000-0000-4000-8000-000000000011",
+			"name": "Alpha",
+			"created_at": "2026-09-21T14:30:42.207018+00:00",
+			"sort_order": 0,
+			"organization_id": "c4010000-0000-4000-8000-000000000008"
+		},
+		{
+			"id": "c4010000-0000-4000-8000-000000000012",
+			"name": "Bravo",
+			"created_at": "2026-09-21T14:30:42.207018+00:00",
+			"sort_order": 0,
+			"organization_id": "c4010000-0000-4000-8000-000000000008"
+		},
+		{
+			"id": "c4010000-0000-4000-8000-000000000013",
+			"name": "Foreign",
+			"created_at": "2026-09-21T14:30:42.207018+00:00",
+			"sort_order": 0,
+			"organization_id": "c4010000-0000-4000-8000-000000000009"
+		}
+	],
+	"public.ict_tasks": [],
+	"public.personnel": [
+		{
+			"id": "c4010000-0000-4000-8000-000000000014",
+			"ets": null,
+			"mos": "68V",
+			"rank": "SGT",
+			"slug": "phase04-alpha",
+			"deros": null,
+			"group_id": "c4010000-0000-4000-8000-000000000011",
+			"last_name": "Alpha",
+			"created_at": "2026-09-21T14:30:42.207018+00:00",
+			"first_name": "Synthetic",
+			"archived_at": null,
+			"clinic_role": "Respiratory Therapist",
+			"organization_id": "c4010000-0000-4000-8000-000000000008"
+		},
+		{
+			"id": "c4010000-0000-4000-8000-000000000015",
+			"ets": null,
+			"mos": "68W",
+			"rank": "SGT",
+			"slug": "phase04-bravo",
+			"deros": null,
+			"group_id": "c4010000-0000-4000-8000-000000000012",
+			"last_name": "Bravo",
+			"created_at": "2026-09-21T14:30:42.207018+00:00",
+			"first_name": "Synthetic",
+			"archived_at": null,
+			"clinic_role": "Medic",
+			"organization_id": "c4010000-0000-4000-8000-000000000008"
+		},
+		{
+			"id": "c4010000-0000-4000-8000-000000000016",
+			"ets": null,
+			"mos": "68W",
+			"rank": "SGT",
+			"slug": "phase04-foreign",
+			"deros": null,
+			"group_id": "c4010000-0000-4000-8000-000000000013",
+			"last_name": "Foreign",
+			"created_at": "2026-09-21T14:30:42.207018+00:00",
+			"first_name": "Synthetic",
+			"archived_at": null,
+			"clinic_role": "Medic",
+			"organization_id": "c4010000-0000-4000-8000-000000000009"
+		}
+	],
+	"public.audit_logs": [
+		{
+			"id": "c4010000-0000-4000-8000-000000000030",
+			"action": "data_export.completed",
+			"org_id": "c4010000-0000-4000-8000-000000000008",
+			"details": {
+				"billing": {
+					"historical": true
+				},
+				"retained": {
+					"fileSizeBytes": 4096
+				}
+			},
+			"user_id": "c4010000-0000-4000-8000-000000000001",
+			"severity": "info",
+			"timestamp": "2035-01-10T00:00:00+00:00",
+			"ip_address": null,
+			"user_agent": null,
+			"resource_id": "c4010000-0000-4000-8000-000000000029",
+			"resource_type": "data_export"
+		}
+	],
+	"public.duty_events": [],
+	"public.data_exports": [
+		{
+			"id": "c4010000-0000-4000-8000-000000000029",
+			"org_id": "c4010000-0000-4000-8000-000000000008",
+			"status": "completed",
+			"file_path": "synthetic/phase04/export.zip",
+			"created_at": "2026-09-21T14:30:42.207018+00:00",
+			"completed_at": "2035-01-10T00:00:00+00:00",
+			"requested_by": "c4010000-0000-4000-8000-000000000001",
+			"file_size_bytes": 4096
+		}
+	],
+	"public.leader_notes": [],
+	"public.special_days": [
+		{
+			"id": "c4010000-0000-4000-8000-000000000025",
+			"date": "2035-01-14",
+			"name": "Synthetic Holiday",
+			"type": "federal-holiday",
+			"created_at": "2026-09-21T14:30:42.207018+00:00",
+			"organization_id": "c4010000-0000-4000-8000-000000000008"
+		}
+	],
+	"public.status_types": [
+		{
+			"id": "c4010000-0000-4000-8000-000000000023",
+			"name": "Leave",
+			"color": "#ffffff",
+			"created_at": "2026-09-21T14:30:42.207018+00:00",
+			"sort_order": 0,
+			"text_color": "#000000",
+			"organization_id": "c4010000-0000-4000-8000-000000000008",
+			"da6_treatment_reviewed": false,
+			"da6_availability_treatment": null
+		}
+	],
+	"public.beta_feedback": [],
+	"public.notifications": [],
+	"public.organizations": [
+		{
+			"id": "c4010000-0000-4000-8000-000000000008",
+			"name": "Phase 04 Alpha",
+			"tier": "team",
+			"url_slug": "phase04-alpha",
+			"gift_tier": "unit",
+			"gifted_by": "c4010000-0000-4000-8000-000000000001",
+			"created_at": "2026-09-21T14:30:42.207018+00:00",
+			"created_by": "c4010000-0000-4000-8000-000000000001",
+			"suspended_at": null,
+			"gift_expires_at": "2035-03-01T00:00:00+00:00",
+			"current_period_end": "2035-02-01T00:00:00+00:00",
+			"stripe_customer_id": "cus_synthetic_phase04",
+			"subscription_status": "past_due",
+			"stripe_subscription_id": "sub_synthetic_phase04",
+			"archive_retention_months": 24,
+			"loss_warning_window_days": 180,
+			"personnel_document_storage_cap_bytes": 52428800,
+			"critical_tasks_default_expiration_months": null,
+			"critical_tasks_expiring_soon_warning_days": null
+		},
+		{
+			"id": "c4010000-0000-4000-8000-000000000009",
+			"name": "Phase 04 Foreign",
+			"tier": "free",
+			"url_slug": "phase04-foreign",
+			"gift_tier": null,
+			"gifted_by": null,
+			"created_at": "2026-09-21T14:30:42.207018+00:00",
+			"created_by": "c4010000-0000-4000-8000-000000000003",
+			"suspended_at": null,
+			"gift_expires_at": null,
+			"current_period_end": null,
+			"stripe_customer_id": null,
+			"subscription_status": "active",
+			"stripe_subscription_id": null,
+			"archive_retention_months": 36,
+			"loss_warning_window_days": 180,
+			"personnel_document_storage_cap_bytes": 104857600,
+			"critical_tasks_default_expiration_months": null,
+			"critical_tasks_expiring_soon_warning_days": null
+		},
+		{
+			"id": "c4010000-0000-4000-8000-000000000010",
+			"name": "Phase 04 Suspended",
+			"tier": "free",
+			"url_slug": "phase04-suspended",
+			"gift_tier": null,
+			"gifted_by": null,
+			"created_at": "2026-09-21T14:30:42.207018+00:00",
+			"created_by": "c4010000-0000-4000-8000-000000000001",
+			"suspended_at": "2035-01-01T00:00:00+00:00",
+			"gift_expires_at": null,
+			"current_period_end": null,
+			"stripe_customer_id": null,
+			"subscription_status": "active",
+			"stripe_subscription_id": null,
+			"archive_retention_months": 36,
+			"loss_warning_window_days": 180,
+			"personnel_document_storage_cap_bytes": 104857600,
+			"critical_tasks_default_expiration_months": null,
+			"critical_tasks_expiring_soon_warning_days": null
+		}
+	],
+	"public.user_profiles": [],
+	"public.duty_templates": [],
+	"public.training_types": [],
+	"public.training_views": [],
+	"public.access_requests": [
+		{
+			"id": "c4010000-0000-4000-8000-000000000035",
+			"name": "Synthetic Invitee",
+			"email": "phase04-invitee@example.test",
+			"reason": null,
+			"status": "approved",
+			"last_name": null,
+			"created_at": "2026-09-21T14:30:42.207018+00:00",
+			"first_name": null,
+			"heard_about": null,
+			"reviewed_at": "2035-01-01T00:00:00+00:00",
+			"reviewed_by": "c4010000-0000-4000-8000-000000000001",
+			"setup_user_id": "c4010000-0000-4000-8000-000000000007",
+			"setup_completed_at": "2035-01-10T00:00:00+00:00",
+			"heard_about_details": null
+		}
+	],
+	"public.duty_event_runs": [],
+	"public.platform_admins": [
+		{
+			"id": "c4010000-0000-4000-8000-000000000037",
+			"role": "billing",
+			"user_id": "c4010000-0000-4000-8000-000000000004",
+			"is_active": true,
+			"created_at": "2026-09-21T14:30:42.207018+00:00"
+		}
+	],
+	"public.sign_in_rosters": [
+		{
+			"id": "c4010000-0000-4000-8000-000000000027",
+			"title": "Independent Alpha Roster",
+			"sort_by": "alphabetical",
+			"blank_date": false,
+			"created_at": "2026-09-21T14:30:42.207018+00:00",
+			"created_by": "c4010000-0000-4000-8000-000000000001",
+			"roster_date": "2035-01-10",
+			"filter_config": null,
+			"personnel_ids": ["c4010000-0000-4000-8000-000000000014"],
+			"organization_id": "c4010000-0000-4000-8000-000000000008",
+			"scope_group_ids": ["c4010000-0000-4000-8000-000000000011"],
+			"signed_file_path": "synthetic/phase04/alpha-signed.pdf",
+			"separate_by_group": false,
+			"personnel_snapshot": [
+				{
+					"id": "c4010000-0000-4000-8000-000000000014",
+					"groupId": "c4010000-0000-4000-8000-000000000011",
+					"clinicRole": "Respiratory Therapist"
+				}
+			]
+		},
+		{
+			"id": "c4010000-0000-4000-8000-000000000028",
+			"title": "Independent Bravo Roster",
+			"sort_by": "alphabetical",
+			"blank_date": false,
+			"created_at": "2026-09-21T14:30:42.207018+00:00",
+			"created_by": "c4010000-0000-4000-8000-000000000001",
+			"roster_date": "2035-01-10",
+			"filter_config": null,
+			"personnel_ids": ["c4010000-0000-4000-8000-000000000015"],
+			"organization_id": "c4010000-0000-4000-8000-000000000008",
+			"scope_group_ids": ["c4010000-0000-4000-8000-000000000012"],
+			"signed_file_path": "synthetic/phase04/bravo-signed.pdf",
+			"separate_by_group": false,
+			"personnel_snapshot": [
+				{
+					"id": "c4010000-0000-4000-8000-000000000015",
+					"groupId": "c4010000-0000-4000-8000-000000000012"
+				}
+			]
+		}
+	],
+	"public.assignment_types": [
+		{
+			"id": "c4010000-0000-4000-8000-000000000017",
+			"name": "Clinic coverage",
+			"color": "#6b7280",
+			"assign_to": "personnel",
+			"created_at": "2026-09-21T14:30:42.207018+00:00",
+			"short_name": "CLIN",
+			"sort_order": 0,
+			"archived_at": null,
+			"organization_id": "c4010000-0000-4000-8000-000000000008",
+			"show_in_date_header": false,
+			"exempt_personnel_ids": []
+		},
+		{
+			"id": "c4010000-0000-4000-8000-000000000018",
+			"name": "Group coverage",
+			"color": "#6b7280",
+			"assign_to": "group",
+			"created_at": "2026-09-21T14:30:42.207018+00:00",
+			"short_name": "GRP",
+			"sort_order": 0,
+			"archived_at": null,
+			"organization_id": "c4010000-0000-4000-8000-000000000008",
+			"show_in_date_header": false,
+			"exempt_personnel_ids": []
+		}
+	],
+	"public.duty_event_slots": [],
+	"public.user_suspensions": [
+		{
+			"reason": "Synthetic suspension",
+			"user_id": "c4010000-0000-4000-8000-000000000005",
+			"suspended_at": "2035-01-01T00:00:00+00:00",
+			"suspended_by": "c4010000-0000-4000-8000-000000000001"
+		}
+	],
+	"public.auth_email_outbox": [],
+	"public.daily_assignments": [
+		{
+			"id": "c4010000-0000-4000-8000-000000000019",
+			"date": "2035-01-10",
+			"created_at": "2026-09-21T14:30:42.207018+00:00",
+			"assignee_id": "c4010000-0000-4000-8000-000000000014",
+			"organization_id": "c4010000-0000-4000-8000-000000000008",
+			"assignment_type_id": "c4010000-0000-4000-8000-000000000017",
+			"duty_roster_template_run_id": null,
+			"duty_roster_template_run_row_date": null
+		},
+		{
+			"id": "c4010000-0000-4000-8000-000000000020",
+			"date": "2035-01-10",
+			"created_at": "2026-09-21T14:30:42.207018+00:00",
+			"assignee_id": "c4010000-0000-4000-8000-000000000011",
+			"organization_id": "c4010000-0000-4000-8000-000000000008",
+			"assignment_type_id": "c4010000-0000-4000-8000-000000000018",
+			"duty_roster_template_run_id": null,
+			"duty_roster_template_run_row_date": null
+		},
+		{
+			"id": "c4010000-0000-4000-8000-000000000021",
+			"date": "2035-01-11",
+			"created_at": "2026-09-21T14:30:42.207018+00:00",
+			"assignee_id": "c4010000-0000-4000-8000-000000000015",
+			"organization_id": "c4010000-0000-4000-8000-000000000008",
+			"assignment_type_id": "c4010000-0000-4000-8000-000000000017",
+			"duty_roster_template_run_id": null,
+			"duty_roster_template_run_row_date": null
+		},
+		{
+			"id": "c4010000-0000-4000-8000-000000000053",
+			"date": "2035-01-20",
+			"created_at": "2026-09-21T14:30:42.207018+00:00",
+			"assignee_id": "c4010000-0000-4000-8000-000000000015",
+			"organization_id": "c4010000-0000-4000-8000-000000000008",
+			"assignment_type_id": "c4010000-0000-4000-8000-000000000017",
+			"duty_roster_template_run_id": "c4010000-0000-4000-8000-000000000052",
+			"duty_roster_template_run_row_date": "2035-01-20"
+		}
+	],
+	"public.dashboard_configs": [],
+	"public.deletion_requests": [],
+	"public.counseling_records": [],
+	"public.user_pinned_groups": [],
+	"public.account_setup_links": [],
+	"public.durable_rate_limits": [],
+	"public.duty_roster_history": [],
+	"public.duty_template_slots": [],
+	"public.personnel_documents": [],
+	"public.personnel_trainings": [],
+	"public.availability_entries": [
+		{
+			"id": "c4010000-0000-4000-8000-000000000024",
+			"note": null,
+			"end_date": "2035-01-13",
+			"created_at": "2026-09-21T14:30:42.207018+00:00",
+			"start_date": "2035-01-12",
+			"personnel_id": "c4010000-0000-4000-8000-000000000014",
+			"status_type_id": "c4010000-0000-4000-8000-000000000023",
+			"organization_id": "c4010000-0000-4000-8000-000000000008"
+		}
+	],
+	"public.onboarding_templates": [],
+	"public.personnel_follow_ups": [],
+	"public.user_org_preferences": [],
+	"public.duty_roster_templates": [
+		{
+			"id": "c4010000-0000-4000-8000-000000000051",
+			"name": "Synthetic saved duty origin",
+			"slug": "phase04-duty",
+			"status": "active",
+			"created_at": "2026-09-21T14:30:42.207018+00:00",
+			"short_code": null,
+			"updated_at": "2026-09-21T14:30:42.207018+00:00",
+			"archived_at": null,
+			"pool_criteria": {
+				"groupIds": [],
+				"mosValues": [],
+				"rankValues": [],
+				"dutyRoleValues": []
+			},
+			"organization_id": "c4010000-0000-4000-8000-000000000008",
+			"assignment_type_id": "c4010000-0000-4000-8000-000000000017",
+			"created_by_user_id": null,
+			"exempt_personnel_ids": [],
+			"manual_baseline_counts": {}
+		}
+	],
+	"public.personnel_onboardings": [],
+	"public.rating_scheme_entries": [],
+	"public.stripe_webhook_events": [
+		{
+			"id": "evt_synthetic_phase04",
+			"data": {
+				"object": {
+					"id": "sub_synthetic_phase04"
+				},
+				"synthetic": true
+			},
+			"type": "customer.subscription.updated",
+			"error": null,
+			"object_id": null,
+			"processed": true,
+			"created_at": "2026-09-21T14:30:42.207018+00:00",
+			"last_error": null,
+			"updated_at": "2026-09-21T14:30:42.207018+00:00",
+			"processed_at": null,
+			"attempt_count": 1,
+			"event_created_at": null,
+			"processing_state": "processed",
+			"processing_result": null,
+			"secondary_dedupe_key": null
+		}
+	],
+	"public.user_email_identities": [
+		{
+			"user_id": "c4010000-0000-4000-8000-000000000001",
+			"created_at": "2026-09-21T14:30:42.207018+00:00",
+			"updated_at": "2026-09-21T14:30:42.207018+00:00",
+			"normalized_email": "phase04-owner@example.test"
+		},
+		{
+			"user_id": "c4010000-0000-4000-8000-000000000002",
+			"created_at": "2026-09-21T14:30:42.207018+00:00",
+			"updated_at": "2026-09-21T14:30:42.207018+00:00",
+			"normalized_email": "phase04-operator@example.test"
+		},
+		{
+			"user_id": "c4010000-0000-4000-8000-000000000003",
+			"created_at": "2026-09-21T14:30:42.207018+00:00",
+			"updated_at": "2026-09-21T14:30:42.207018+00:00",
+			"normalized_email": "phase04-foreign@example.test"
+		},
+		{
+			"user_id": "c4010000-0000-4000-8000-000000000004",
+			"created_at": "2026-09-21T14:30:42.207018+00:00",
+			"updated_at": "2026-09-21T14:30:42.207018+00:00",
+			"normalized_email": "phase04-billing@example.test"
+		},
+		{
+			"user_id": "c4010000-0000-4000-8000-000000000005",
+			"created_at": "2026-09-21T14:30:42.207018+00:00",
+			"updated_at": "2026-09-21T14:30:42.207018+00:00",
+			"normalized_email": "phase04-suspended@example.test"
+		},
+		{
+			"user_id": "c4010000-0000-4000-8000-000000000006",
+			"created_at": "2026-09-21T14:30:42.207018+00:00",
+			"updated_at": "2026-09-21T14:30:42.207018+00:00",
+			"normalized_email": "phase04-admin@example.test"
+		},
+		{
+			"user_id": "c4010000-0000-4000-8000-000000000007",
+			"created_at": "2026-09-21T14:30:42.207018+00:00",
+			"updated_at": "2026-09-21T14:30:42.207018+00:00",
+			"normalized_email": "phase04-invitee@example.test"
+		}
+	],
+	"public.platform_announcements": [],
+	"public.announcement_dismissals": [],
+	"public.personnel_extended_info": [],
+	"public.getting_started_progress": [],
+	"public.onboarding_step_progress": [],
+	"public.organization_invitations": [
+		{
+			"id": "c4010000-0000-4000-8000-000000000031",
+			"role": "member",
+			"email": " Phase04-Pending@example.test ",
+			"status": "pending",
+			"blocked_at": null,
+			"blocked_by": null,
+			"created_at": "2026-09-21T14:30:42.207018+00:00",
+			"expired_at": null,
+			"expires_at": "2099-01-01T00:00:00+00:00",
+			"invited_by": "c4010000-0000-4000-8000-000000000001",
+			"revoked_at": null,
+			"revoked_by": null,
+			"accepted_at": null,
+			"accepted_by": null,
+			"declined_at": null,
+			"declined_by": null,
+			"member_preset": "operator",
+			"organization_id": "c4010000-0000-4000-8000-000000000008",
+			"normalized_email": "phase04-pending@example.test",
+			"access_scope_kind": "groups",
+			"capability_overrides": {
+				"calendar": "operate"
+			},
+			"access_scope_group_ids": ["c4010000-0000-4000-8000-000000000011"]
+		},
+		{
+			"id": "c4010000-0000-4000-8000-000000000032",
+			"role": "member",
+			"email": "phase04-blocked@example.test",
+			"status": "blocked",
+			"blocked_at": "2035-01-10T00:00:00+00:00",
+			"blocked_by": "c4010000-0000-4000-8000-000000000001",
+			"created_at": "2026-09-21T14:30:42.207018+00:00",
+			"expired_at": null,
+			"expires_at": "2035-01-15T00:00:00+00:00",
+			"invited_by": "c4010000-0000-4000-8000-000000000001",
+			"revoked_at": null,
+			"revoked_by": null,
+			"accepted_at": null,
+			"accepted_by": null,
+			"declined_at": null,
+			"declined_by": null,
+			"member_preset": "viewer",
+			"organization_id": "c4010000-0000-4000-8000-000000000008",
+			"normalized_email": "phase04-blocked@example.test",
+			"access_scope_kind": "organization",
+			"capability_overrides": {},
+			"access_scope_group_ids": []
+		},
+		{
+			"id": "c4010000-0000-4000-8000-000000000033",
+			"role": "member",
+			"email": "phase04-invitee@example.test",
+			"status": "accepted",
+			"blocked_at": null,
+			"blocked_by": null,
+			"created_at": "2026-09-21T14:30:42.207018+00:00",
+			"expired_at": null,
+			"expires_at": "2035-01-15T00:00:00+00:00",
+			"invited_by": "c4010000-0000-4000-8000-000000000001",
+			"revoked_at": null,
+			"revoked_by": null,
+			"accepted_at": "2035-01-10T00:00:00+00:00",
+			"accepted_by": "c4010000-0000-4000-8000-000000000007",
+			"declined_at": null,
+			"declined_by": null,
+			"member_preset": "viewer",
+			"organization_id": "c4010000-0000-4000-8000-000000000008",
+			"normalized_email": "phase04-invitee@example.test",
+			"access_scope_kind": "organization",
+			"capability_overrides": {},
+			"access_scope_group_ids": []
+		}
+	],
+	"public.organization_memberships": [
+		{
+			"id": "c4010000-0000-4000-8000-000000000041",
+			"role": "owner",
+			"email": null,
+			"user_id": "c4010000-0000-4000-8000-000000000001",
+			"created_at": "2026-09-21T14:30:42.207018+00:00",
+			"invited_by": null,
+			"member_preset": "editor",
+			"organization_id": "c4010000-0000-4000-8000-000000000008",
+			"access_scope_kind": "organization",
+			"capability_overrides": {},
+			"access_scope_group_ids": []
+		},
+		{
+			"id": "c4010000-0000-4000-8000-000000000042",
+			"role": "member",
+			"email": null,
+			"user_id": "c4010000-0000-4000-8000-000000000002",
+			"created_at": "2026-09-21T14:30:42.207018+00:00",
+			"invited_by": null,
+			"member_preset": "operator",
+			"organization_id": "c4010000-0000-4000-8000-000000000008",
+			"access_scope_kind": "groups",
+			"capability_overrides": {
+				"calendar": "operate",
+				"training": "operate",
+				"personnel": "operate"
+			},
+			"access_scope_group_ids": ["c4010000-0000-4000-8000-000000000011"]
+		},
+		{
+			"id": "c4010000-0000-4000-8000-000000000043",
+			"role": "owner",
+			"email": null,
+			"user_id": "c4010000-0000-4000-8000-000000000003",
+			"created_at": "2026-09-21T14:30:42.207018+00:00",
+			"invited_by": null,
+			"member_preset": "editor",
+			"organization_id": "c4010000-0000-4000-8000-000000000009",
+			"access_scope_kind": "organization",
+			"capability_overrides": {},
+			"access_scope_group_ids": []
+		},
+		{
+			"id": "c4010000-0000-4000-8000-000000000044",
+			"role": "admin",
+			"email": null,
+			"user_id": "c4010000-0000-4000-8000-000000000006",
+			"created_at": "2026-09-21T14:30:42.207018+00:00",
+			"invited_by": null,
+			"member_preset": "editor",
+			"organization_id": "c4010000-0000-4000-8000-000000000008",
+			"access_scope_kind": "organization",
+			"capability_overrides": {},
+			"access_scope_group_ids": []
+		},
+		{
+			"id": "c4010000-0000-4000-8000-000000000050",
+			"role": "member",
+			"email": null,
+			"user_id": "c4010000-0000-4000-8000-000000000007",
+			"created_at": "2026-09-21T14:30:42.207018+00:00",
+			"invited_by": null,
+			"member_preset": "viewer",
+			"organization_id": "c4010000-0000-4000-8000-000000000008",
+			"access_scope_kind": "organization",
+			"capability_overrides": {},
+			"access_scope_group_ids": []
+		}
+	],
+	"public.password_change_attempts": [],
+	"public.account_setup_rate_limits": [],
+	"public.duty_roster_template_runs": [
+		{
+			"id": "c4010000-0000-4000-8000-000000000052",
+			"status": "accepted",
+			"end_date": "2035-01-31",
+			"applied_at": null,
+			"created_at": "2026-09-21T14:30:42.207018+00:00",
+			"start_date": "2035-01-01",
+			"updated_at": "2026-09-21T14:30:42.207018+00:00",
+			"accepted_at": "2026-09-21T14:30:42.207018+00:00",
+			"template_id": "c4010000-0000-4000-8000-000000000051",
+			"template_name": "Synthetic saved duty origin",
+			"invalidated_at": null,
+			"organization_id": "c4010000-0000-4000-8000-000000000008",
+			"snapshot_payload": {
+				"assignments": [
+					{
+						"date": "2035-01-20",
+						"personnelId": "c4010000-0000-4000-8000-000000000014"
+					}
+				]
+			},
+			"applied_by_user_id": null,
+			"accepted_by_user_id": null,
+			"invalidated_by_user_id": null
+		}
+	],
+	"public.onboarding_template_steps": [],
+	"public.organization_rank_catalog": [
+		{
+			"id": "c4010000-0000-4000-8000-000000000026",
+			"code": "SGT",
+			"label": "Sergeant",
+			"state": "active",
+			"source": "custom",
+			"service": "army",
+			"category": "enlisted",
+			"pay_grade": "E-5",
+			"created_at": "2026-09-21T14:30:42.207018+00:00",
+			"sort_order": 0,
+			"updated_at": "2026-09-21T14:30:42.207018+00:00",
+			"organization_id": "c4010000-0000-4000-8000-000000000008"
+		}
+	],
+	"public.personnel_ict_completions": [],
+	"public.advanced_duty_run_snapshots": [],
+	"public.advanced_duty_revision_drafts": [],
+	"public.organization_billing_snapshots": [
+		{
+			"id": "c4010000-0000-4000-8000-000000000038",
+			"source": "stripe",
+			"trial_end": null,
+			"created_at": "2026-09-21T14:30:42.207018+00:00",
+			"updated_at": "2026-09-21T14:30:42.207018+00:00",
+			"canceled_at": null,
+			"sync_status": "synced",
+			"drift_detected": false,
+			"commercial_plan": "team",
+			"organization_id": "c4010000-0000-4000-8000-000000000008",
+			"stripe_price_id": null,
+			"collection_status": null,
+			"last_processed_at": null,
+			"stripe_product_id": null,
+			"current_period_end": null,
+			"last_reconciled_at": null,
+			"stripe_customer_id": "cus_synthetic_phase04",
+			"cancellation_reason": null,
+			"subscription_status": "past_due",
+			"cancel_at_period_end": false,
+			"current_period_start": null,
+			"last_stripe_event_id": "evt_synthetic_phase04",
+			"cancellation_feedback": null,
+			"reconciliation_result": null,
+			"last_stripe_event_type": null,
+			"stripe_subscription_id": "sub_synthetic_phase04",
+			"last_stripe_event_created_at": null
+		}
+	],
+	"public.organization_checkout_attempts": [
+		{
+			"id": "c4010000-0000-4000-8000-000000000039",
+			"status": "completed",
+			"created_at": "2026-09-21T14:30:42.207018+00:00",
+			"expires_at": null,
+			"updated_at": "2026-09-21T14:30:42.207018+00:00",
+			"canceled_at": null,
+			"checkout_url": null,
+			"completed_at": null,
+			"commercial_plan": "team",
+			"organization_id": "c4010000-0000-4000-8000-000000000008",
+			"stripe_price_id": "price_synthetic_phase04",
+			"stripe_customer_id": null,
+			"stripe_checkout_session_id": "cs_synthetic_phase04"
+		}
+	],
+	"public.duty_template_rotation_baselines": [],
+	"public.advanced_duty_revision_change_sets": [],
+	"public.advanced_duty_revision_slot_changes": [],
+	"public.organization_plan_feature_overrides": [
+		{
+			"id": "c4010000-0000-4000-8000-000000000040",
+			"reason": "Synthetic historical override",
+			"created_at": "2026-09-21T14:30:42.207018+00:00",
+			"created_by": "c4010000-0000-4000-8000-000000000001",
+			"expires_at": null,
+			"revoked_at": null,
+			"revoked_by": null,
+			"feature_key": "synthetic-feature",
+			"override_state": "granted",
+			"organization_id": "c4010000-0000-4000-8000-000000000008"
+		}
+	],
+	"public.duty_roster_template_run_corrections": [],
+	"public.organization_invitation_email_outbox": [
+		{
+			"id": "c4010000-0000-4000-8000-000000000034",
+			"status": "sent",
+			"purpose": "organization_invitation",
+			"sent_at": "2035-01-10T00:00:00+00:00",
+			"recipient": "phase04-pending@example.test",
+			"created_at": "2026-09-21T14:30:42.207018+00:00",
+			"last_error": null,
+			"updated_at": "2026-09-21T14:30:42.207018+00:00",
+			"attempt_count": 1,
+			"invitation_id": "c4010000-0000-4000-8000-000000000031",
+			"organization_id": "c4010000-0000-4000-8000-000000000008"
+		}
+	],
+	"public.access_request_organization_invitation_links": [
+		{
+			"id": "c4010000-0000-4000-8000-000000000036",
+			"created_at": "2026-09-21T14:30:42.207018+00:00",
+			"invited_at": "2035-01-01T00:00:00+00:00",
+			"invited_by": "c4010000-0000-4000-8000-000000000001",
+			"organization_id": "c4010000-0000-4000-8000-000000000008",
+			"access_request_id": "c4010000-0000-4000-8000-000000000035",
+			"intended_permissions": {
+				"billing": "historical shared JSON must survive"
+			},
+			"intended_member_preset": null,
+			"intended_membership_role": "member",
+			"intended_access_scope_kind": "organization",
+			"organization_invitation_id": "c4010000-0000-4000-8000-000000000033",
+			"intended_capability_overrides": {},
+			"intended_access_scope_group_ids": []
+		}
+	]
+}

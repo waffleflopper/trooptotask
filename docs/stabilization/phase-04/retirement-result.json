@@ -1,0 +1,350 @@
+{
+	"candidate_base": "584af3797dae92c42968d69ab8e6ad279f955836",
+	"branch": "stabilization/04-d02-schema-retirement",
+	"leaf": "04-02a",
+	"migration": "20260921000100_retire_commercial_schema.sql",
+	"migration_sha256": "b99723191da90b7276e79b8a40a1d14ac447710d9d7522e2b886a9e6e1f80646",
+	"sql": {
+		"baseline": {
+			"suites": 20,
+			"assertions": 399,
+			"passes": 20
+		},
+		"upgrade": {
+			"suites": 20,
+			"assertions": 388,
+			"passes": 20
+		},
+		"fresh": {
+			"suites": 19,
+			"assertions": 356,
+			"passes": 19
+		}
+	},
+	"pre_retirement_absence_assertions_failed": 3,
+	"migration_probes": {
+		"workdir": "/tmp/t3-phase04-02a-upgrade/isolated",
+		"project": "t3-phase04-02a-upgrade",
+		"database_port": 61222,
+		"accepted_rollback": true,
+		"rejections": [
+			{
+				"case": "extra overload",
+				"exit": 3,
+				"expected_rejection": true
+			},
+			{
+				"case": "cross-schema view",
+				"exit": 3,
+				"expected_rejection": true
+			},
+			{
+				"case": "body-only caller",
+				"exit": 3,
+				"expected_rejection": true
+			},
+			{
+				"case": "external FK",
+				"exit": 3,
+				"expected_rejection": true
+			},
+			{
+				"case": "table row-type caller",
+				"exit": 3,
+				"expected_rejection": true
+			},
+			{
+				"case": "target column drift",
+				"exit": 3,
+				"expected_rejection": true
+			},
+			{
+				"case": "RPC definition drift",
+				"exit": 3,
+				"expected_rejection": true
+			},
+			{
+				"case": "shared Organization constraint",
+				"exit": 3,
+				"expected_rejection": true
+			},
+			{
+				"case": "Organization expression index",
+				"exit": 3,
+				"expected_rejection": true
+			},
+			{
+				"case": "RLS drift",
+				"exit": 3,
+				"expected_rejection": true
+			},
+			{
+				"case": "scheduled caller",
+				"exit": 3,
+				"expected_rejection": true
+			},
+			{
+				"case": "unreviewed owned sequence",
+				"exit": 3,
+				"expected_rejection": true
+			},
+			{
+				"case": "unreviewed owned rule",
+				"exit": 3,
+				"expected_rejection": true
+			},
+			{
+				"case": "unreviewed extended statistics",
+				"exit": 3,
+				"expected_rejection": true
+			},
+			{
+				"case": "replication consumer",
+				"exit": 3,
+				"expected_rejection": true
+			}
+		],
+		"late_failure_rolled_back": true,
+		"all_rows_unchanged": true
+	},
+	"retained_relations_compared": 65,
+	"retained_values_exact": true,
+	"fresh_upgrade_schema_types_bytes_equal": true,
+	"fresh_upgrade_complete_catalog_equal_without_normalization": true,
+	"retained_function_definitions_acls_columns_policies_indexes_constraints_unchanged": true,
+	"target_public_tables": 64,
+	"target_public_columns": 726,
+	"target_public_functions": 95,
+	"retained_shared_timestamp_triggers": 15,
+	"target_function_body_commercial_references": 0,
+	"ledger_versions": [
+		"20260413001158",
+		"20260414000000",
+		"20260414000100",
+		"20260414000200",
+		"20260414000300",
+		"20260414000400",
+		"20260414160000",
+		"20260414160500",
+		"20260414200500",
+		"20260416000100",
+		"20260417000100",
+		"20260421000100",
+		"20260423000100",
+		"20260423000200",
+		"20260423000300",
+		"20260428000100",
+		"20260428000200",
+		"20260429000100",
+		"20260429000200",
+		"20260430000100",
+		"20260501000100",
+		"20260502000100",
+		"20260503000100",
+		"20260503000200",
+		"20260503000300",
+		"20260504000100",
+		"20260504000200",
+		"20260504000300",
+		"20260504000400",
+		"20260504000500",
+		"20260504000600",
+		"20260514000100",
+		"20260514000200",
+		"20260514000300",
+		"20260515000100",
+		"20260515000200",
+		"20260515000300",
+		"20260515000400",
+		"20260515000500",
+		"20260515000600",
+		"20260515000700",
+		"20260515000800",
+		"20260515000900",
+		"20260515001000",
+		"20260515001100",
+		"20260515001200",
+		"20260515001300",
+		"20260515001400",
+		"20260517000100",
+		"20260517000200",
+		"20260518000100",
+		"20260518000200",
+		"20260518000300",
+		"20260518000400",
+		"20260519000100",
+		"20260519000200",
+		"20260522000100",
+		"20260522000200",
+		"20260522000300",
+		"20260522000400",
+		"20260522000500",
+		"20260522000600",
+		"20260522000700",
+		"20260522000800",
+		"20260522000900",
+		"20260522001000",
+		"20260522001100",
+		"20260522001200",
+		"20260523000100",
+		"20260523000200",
+		"20260523000300",
+		"20260523000400",
+		"20260523000500",
+		"20260523000600",
+		"20260523000700",
+		"20260524000100",
+		"20260524000200",
+		"20260524000300",
+		"20260524000400",
+		"20260524000500",
+		"20260524000600",
+		"20260524000700",
+		"20260525000100",
+		"20260526000100",
+		"20260526000200",
+		"20260526000250",
+		"20260526000300",
+		"20260529000100",
+		"20260601000100",
+		"20260601000200",
+		"20260606000100",
+		"20260609000100",
+		"20260610000100",
+		"20260610000200",
+		"20260610000300",
+		"20260611184105",
+		"20260612000100",
+		"20260613000100",
+		"20260613000200",
+		"20260613000300",
+		"20260614000100",
+		"20260614000200",
+		"20260614000300",
+		"20260614000400",
+		"20260614000410",
+		"20260614000500",
+		"20260615000100",
+		"20260615000200",
+		"20260615000300",
+		"20260615000400",
+		"20260615000500",
+		"20260615000600",
+		"20260615000700",
+		"20260629000100",
+		"20260630000100",
+		"20260630000200",
+		"20260630000300",
+		"20260630000400",
+		"20260630000500",
+		"20260630000600",
+		"20260630000700",
+		"20260630000800",
+		"20260630000900",
+		"20260630001000",
+		"20260630001100",
+		"20260630001200",
+		"20260630001300",
+		"20260630001400",
+		"20260630001500",
+		"20260918000100",
+		"20260918000200",
+		"20260918000300",
+		"20260920000100",
+		"20260921000100"
+	],
+	"generation": {
+		"upgrade": {
+			"workdir": "/tmp/t3-phase04-02a-upgrade/isolated",
+			"project": "t3-phase04-02a-upgrade",
+			"database_port": 61222,
+			"supabase": "2.101.0",
+			"postgres": "17.6",
+			"pg_dump": "pg_dump (PostgreSQL) 17.6",
+			"artifact_sha256": {
+				"database-baseline.types.ts": "cc12faab6ebb04a203155550c762b54a9f216f996f407203e6621b2a01d65eb4",
+				"schema-baseline.sql": "ce95bb12801cfdfa03c3e6f50d5276b54314cd16a98a7701b55d3cb5c5e04351",
+				"catalog.json": "2a8946ea6c27cc6c5c37d7c8c043694d64a9f1e30264b2c661ee99f5356b4fd5"
+			}
+		},
+		"fresh": {
+			"workdir": "/tmp/t3-phase04-02a-fresh/isolated",
+			"project": "t3-phase04-02a-fresh",
+			"database_port": 61322,
+			"supabase": "2.101.0",
+			"postgres": "17.6",
+			"pg_dump": "pg_dump (PostgreSQL) 17.6",
+			"artifact_sha256": {
+				"database-baseline.types.ts": "cc12faab6ebb04a203155550c762b54a9f216f996f407203e6621b2a01d65eb4",
+				"schema-baseline.sql": "ce95bb12801cfdfa03c3e6f50d5276b54314cd16a98a7701b55d3cb5c5e04351",
+				"catalog.json": "2a8946ea6c27cc6c5c37d7c8c043694d64a9f1e30264b2c661ee99f5356b4fd5"
+			}
+		}
+	},
+	"canonical_checks": [
+		{
+			"command": "npm run format",
+			"exit": 0,
+			"seconds": 10.9
+		},
+		{
+			"command": "npm run format:check",
+			"exit": 0,
+			"seconds": 10.8
+		},
+		{
+			"command": "npm run lint",
+			"exit": 0,
+			"seconds": 12.4
+		},
+		{
+			"command": "npm run governance:check",
+			"exit": 0,
+			"seconds": 0.1
+		},
+		{
+			"command": "npm run check",
+			"exit": 0,
+			"seconds": 18.2
+		},
+		{
+			"command": "npm run test",
+			"exit": 0,
+			"seconds": 37.2
+		},
+		{
+			"command": "npm run build",
+			"exit": 0,
+			"seconds": 15.0
+		}
+	],
+	"cleanup": {
+		"owned_projects_removed": ["t3-phase04-02a-upgrade", "t3-phase04-02a-fresh"],
+		"remaining_owned_containers_volumes_networks": 0,
+		"preexisting_container_ids_states_unchanged": 36
+	},
+	"production_cleanup": "PENDING OWNER EXECUTION",
+	"final_artifact_lint": {
+		"command": "npm run lint",
+		"exit": 0,
+		"seconds": 12.2,
+		"reason": "Generated target TypeScript was added while initial lint was running; repeat after final artifacts."
+	},
+	"tools": {
+		"node": "v24.18.0",
+		"npm": "11.12.1",
+		"supabase": "2.101.0",
+		"python": "Python 3.14.7",
+		"docker": "Docker version 29.7.2, build a7dcaa6fdb",
+		"postgres": "17.6 (image 17.6.1.155)"
+	},
+	"artifact_sha256": {
+		"database-target.types.ts": "f5206d979e61f67ac8f1bf460e23264f846c87d9681b838777015ae3987ce4e9",
+		"schema-target.sql": "ce02058ff471610ab6d4105c370686b7a48313b2d2e07af15808e2963634d41e",
+		"catalog-target.json": "2a8946ea6c27cc6c5c37d7c8c043694d64a9f1e30264b2c661ee99f5356b4fd5",
+		"retirement-inputs.sha256": "b4648588b48501ddb249f5233816dcee3904188be01fad1407796a847dffa7f0",
+		"retirement.test.py": "69e35cc33f5c8d22984309b0954bfe43cf6759f61d35a40c48df94c4a323e84f"
+	},
+	"independent_review": "PASS: migration/consumer safety and raw verification evidence, no actionable findings",
+	"browser": "Not run in this leaf: no app/user-journey implementation change; final affected-journey assessment remains 04-02b before D02 acceptance."
+}

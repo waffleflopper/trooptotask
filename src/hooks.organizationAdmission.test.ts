@@ -49,7 +49,6 @@ function fixture() {
 		],
 		groups: [],
 		audit_logs: [],
-		organization_plan_feature_overrides: [],
 		platform_announcements: [],
 		announcement_dismissals: [],
 		user_org_preferences: []

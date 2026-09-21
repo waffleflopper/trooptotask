@@ -4,9 +4,11 @@ Owned by [D01 #1309](https://github.com/waffleflopper/trooptotask/issues/1309), 
 
 ## Inputs and isolation
 
-Run from the repository root with Python 3.11+, Docker, Supabase CLI 2.101.0 and npm 11.12.1 available. The replay uses the installed `public.ecr.aws/supabase/postgres:17.6.1.155` image. [Input hashes](replay-inputs.sha256) cover all 133 migrations, 19 SQL tests and two auth templates; verify with `sha256sum --check docs/stabilization/phase-04/replay-inputs.sha256`. Do not read or copy `supabase/seed.sql`, repository `.env*`, remote links or existing local database state.
+Run from the repository root with Python 3.11+, Docker, Supabase CLI 2.101.0 and npm 11.12.1 available. The replay uses the installed `public.ecr.aws/supabase/postgres:17.6.1.155` image. The 156 [input hashes](replay-inputs.sha256) cover all 133 migrations, 19 SQL tests, two auth templates, `package.json` and source `supabase/config.toml`; verify with `sha256sum --check docs/stabilization/phase-04/replay-inputs.sha256`. Do not read or copy `supabase/seed.sql`, repository `.env*`, remote links or existing local database state.
 
-The setup refuses an existing workspace/project and occupied IPv4/IPv6 ports. It copies only the audited inputs plus package metadata, changes the project and all service ports, disables seeds with an empty path list, and pins the local image. Run the following once in a new receipt directory. For another run, change the receipt path/project/port allocation together after checking availability; never reuse/reset an existing stack. The recorded run uses `/tmp/t3-phase04-01a-final/isolated`, project `t3-phase04-01a-final`, ports 60320–60327 and 60329 plus 24383. Existing 543xx/553xx/563xx stacks are excluded.
+The original execution receipts covered 154 inputs. PR review added the two unchanged configuration/package inputs to close that provenance gap; those historical receipts remain unchanged. Setup now rejects input drift before allocating a workspace and records both source hashes and exact copied hashes, including the intentionally transformed disposable configuration. Do not refresh expected hashes merely to pass a changed input; review a changed replay candidate and its commands first.
+
+The setup refuses an existing workspace/project and occupied IPv4/IPv6 ports. It copies only the audited inputs, changes the project and all service ports, disables seeds with an empty path list, and pins the local image. Run the following once in a new receipt directory. For another run, change the receipt path/project/port allocation together after checking availability; never reuse/reset an existing stack. The recorded run uses `/tmp/t3-phase04-01a-final/isolated`, project `t3-phase04-01a-final`, ports 60320–60327 and 60329 plus 24383. Existing 543xx/553xx/563xx stacks are excluded.
 
 ```bash
 mkdir -p /tmp/t3-phase04-01a-final
@@ -19,6 +21,15 @@ receipt = Path('/tmp/t3-phase04-01a-final')
 work = receipt / 'isolated'
 project = 't3-phase04-01a-final'
 ports = [60320, 60321, 60322, 60323, 60324, 60325, 60326, 60327, 60329, 24383]
+inputs = [repo / 'package.json', repo / 'supabase/config.toml']
+for directory in ['migrations', 'tests', 'templates']:
+    inputs.extend(file for file in sorted((repo / 'supabase' / directory).glob('*')) if file.is_file())
+manifest = {str(file.relative_to(repo)): hashlib.sha256(file.read_bytes()).hexdigest() for file in inputs}
+expected = {}
+for line in (repo / 'docs/stabilization/phase-04/replay-inputs.sha256').read_text().splitlines():
+    digest, relative = line.split('  ', 1)
+    expected[relative] = digest
+assert manifest == expected, 'Replay inputs differ from the reviewed manifest; stop for review'
 assert not work.exists(), 'Refusing to reuse an existing database workspace'
 for resource in ['container', 'volume', 'network']:
     result = subprocess.run(['docker', resource, 'ls', '-a'] if resource == 'container' else ['docker', resource, 'ls'], capture_output=True, text=True, check=True)
@@ -44,18 +55,19 @@ for directory in ['migrations', 'templates', 'tests']:
 shutil.copyfile(repo / 'package.json', work / 'package.json')
 (work / 'supabase/.temp').mkdir()
 (work / 'supabase/.temp/postgres-version').write_text('17.6.1.155')
-manifest = {}
-for directory in ['migrations', 'tests', 'templates']:
-    for file in sorted((repo / 'supabase' / directory).glob('*')):
-        if file.is_file():
-            relative = file.relative_to(repo)
-            digest = hashlib.sha256(file.read_bytes()).hexdigest()
-            assert hashlib.sha256((work / relative).read_bytes()).hexdigest() == digest
-            manifest[str(relative)] = digest
+copied = {}
+for relative, digest in manifest.items():
+    data = (work / relative).read_bytes()
+    copied[relative] = hashlib.sha256(data).hexdigest()
+    if relative == 'supabase/config.toml':
+        assert data == config.encode(), 'Disposable configuration copy changed'
+    else:
+        assert copied[relative] == digest, 'Copied input changed: ' + relative
 (receipt / 'source-sha256.json').write_text(json.dumps(manifest, indent=2) + '\n')
+(receipt / 'copied-sha256.json').write_text(json.dumps(copied, indent=2) + '\n')
 (receipt / 'allocation.json').write_text(json.dumps({'project': project, 'workdir': str(work), 'ports': ports, 'postgres_image': '17.6.1.155'}, indent=2) + '\n')
 print('Prepared new seed-disabled workspace:', work)
-print('Copied migrations/tests/templates:', len(manifest))
+print('Verified source and copied inputs:', len(manifest))
 PY
 ```
 

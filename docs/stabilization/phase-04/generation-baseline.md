@@ -18,7 +18,7 @@ The generator's types are not an authorization contract. It omits nine `RETURNS 
 
 Inspect current lifecycle and seed configuration. Follow the [replay baseline](replay-baseline.md) to create a **new** disposable project with unused ports and disabled seeds. This run substitutes `t3-phase04-01b-02` for `t3-phase04-01a-final`, ports 60520–60527/60529 for 60320–60327/60329, inspector 24583 for 24383, and `old + 4200` for `old + 4000` in setup. Workdir: `/tmp/t3-phase04-01b-02/isolated`. Never reuse this stopped project; change all allocations together for another run.
 
-Use Supabase CLI **2.101.0**, pinned PostgreSQL image **17.6.1.155** (server/pg_dump **17.6**), Node **24.18.0**, npm **11.12.1**, Python **3.14.7** and Docker **29.7.2**. Verify all 154 [input hashes](replay-inputs.sha256). Start using the replay guide's minimal environment; no seed, `.env`, linked project or provider credential is copied. The immutable chain contains 133 versions from `20260413001158` through `20260920000100`.
+Use Supabase CLI **2.101.0**, pinned PostgreSQL image **17.6.1.155** (server/pg_dump **17.6**), Node **24.18.0**, npm **11.12.1**, Python **3.14.7** and Docker **29.7.2**. Verify all 156 [input hashes](replay-inputs.sha256). Start using the replay guide's minimal environment; no seed, `.env`, linked project or provider credential is copied. The immutable chain contains 133 versions from `20260413001158` through `20260920000100`.
 
 Run `npm run db:test` **from the isolated workdir**, using the replay guide. Verify the exact ledger, suite results and retained row digests. Then run from the repository root:
 

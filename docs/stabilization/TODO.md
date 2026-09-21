@@ -346,6 +346,6 @@ Measurements unavailable now are listed in EVIDENCE. Later isolated synthetic wo
 
 ## Next executable task
 
-**AWAITING_PR — D08 [#1302](https://github.com/waffleflopper/trooptotask/issues/1302), task 03-R02.** Admin Search keyboard/accessibility repair, 5,180 tests/build and isolated browser keyboard/mouse/role-denial verification pass. D07 #1306 is verified merged; D06 audit remains preserved. See [the D08 work record](EVIDENCE.md#task-03-r02--admin-search-keyboard-repair).
+**AWAITING_PR — D08 [#1302](https://github.com/waffleflopper/trooptotask/issues/1302), task 03-R02.** Admin Search keyboard/accessibility repair, 5,181 tests/build and isolated browser keyboard/mouse/role-denial verification pass. D07 #1306 is verified merged; D06 audit remains preserved. See [the D08 work record](EVIDENCE.md#task-03-r02--admin-search-keyboard-repair).
 
 **Authorized next action:** Complete D08, publish its reviewed PR, observe current-head checks/reviews and perform a normal head-conditional merge closing #1302 only. Then stop; D06 integrated acceptance is a separate next task. Keep parent #1276/milestone 1 open and phase 04 inactive.

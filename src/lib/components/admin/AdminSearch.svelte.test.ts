@@ -93,3 +93,43 @@ it('dismisses on blur, reopens on focus and preserves mouse navigation', async (
 	expect(screen.queryByRole('listbox')).toBeNull();
 	expect(input.getAttribute('aria-expanded')).toBe('false');
 });
+
+it('opens each Organization by keyboard when result labels are identical', async () => {
+	vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+	vi.stubGlobal(
+		'fetch',
+		vi.fn().mockResolvedValue(
+			Response.json({
+				users: [],
+				organizations: [
+					{ id: 'org-first', name: 'Duplicate Clinic', personnelCount: 0 },
+					{ id: 'org-second', name: 'Duplicate Clinic', personnelCount: 0 }
+				]
+			})
+		)
+	);
+	const { container } = render(AdminSearch);
+	const input = screen.getByRole('combobox', { name: 'Search platform admin records' });
+	input.focus();
+	await fireEvent.input(input, { target: { value: 'Duplicate' } });
+	await vi.advanceTimersByTimeAsync(250);
+	vi.useRealTimers();
+	await screen.findAllByRole('option', { name: /Duplicate Clinic/ });
+	const destinations: string[] = [];
+	container.addEventListener('click', (event) => {
+		const link = (event.target as Element).closest('a');
+		if (link) {
+			event.preventDefault();
+			destinations.push(link.getAttribute('href')!);
+		}
+	});
+	await fireEvent.keyDown(input, { key: 'Home' });
+	await fireEvent.keyDown(input, { key: 'Enter' });
+	await fireEvent.keyDown(input, { key: 'ArrowDown' });
+	await fireEvent.keyDown(input, { key: 'Enter' });
+	await waitFor(() =>
+		expect(destinations).toEqual(['/admin/organizations/org-first', '/admin/organizations/org-second'])
+	);
+	const selected = screen.getByRole('option', { selected: true });
+	expect(input.getAttribute('aria-activedescendant')).toBe(selected.id);
+});

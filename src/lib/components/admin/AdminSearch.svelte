@@ -77,7 +77,7 @@
 							{#if results.users.length > 0}
 								<Command.Group heading="Users">
 									{#each results.users as user (user.id)}
-										<Command.LinkItem href="/admin/users/{user.id}">
+										<Command.LinkItem value="user:{user.id}" href="/admin/users/{user.id}">
 											<span class="grid min-w-0 flex-1">
 												<span class="truncate font-medium">{user.email}</span>
 												<span class="truncate text-xs text-muted-foreground">
@@ -92,7 +92,7 @@
 							{#if results.organizations.length > 0}
 								<Command.Group heading="Organizations">
 									{#each results.organizations as org (org.id)}
-										<Command.LinkItem href="/admin/organizations/{org.id}">
+										<Command.LinkItem value="organization:{org.id}" href="/admin/organizations/{org.id}">
 											<span class="grid min-w-0 flex-1">
 												<span class="truncate font-medium">{org.name}</span>
 												<span class="truncate text-xs text-muted-foreground">{org.personnelCount} personnel</span>

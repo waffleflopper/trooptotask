@@ -8,6 +8,8 @@ Public marketing primitives live in `src/lib/components/public/`. Import via `$l
 
 ## UI Foundation
 
+Command input and result items must share one `Command.Root`. For server-filtered search, set `shouldFilter={false}` and supply the root `label` for the input name. `Command.Viewport` exposes the Bits viewport without a second state owner; compose it through `Command.List`'s `child` snippet with the supplied props when list and viewport share one element, so `aria-controls` targets the listbox and `aria-activedescendant` identifies its selected option. `Command.Input` preserves an explicit `aria-expanded` value for conditional popups; always-open menus retain the primitive default.
+
 This catalog is the active reference for TroopToTask's shadcn-svelte + Tailwind v4 UI foundation. It records the selected shared primitives, compound project wrappers, expected usage, and replacement decisions for older local wrappers.
 
 Use it as the current component reference for button, button group, input, input group, sidebar, navigation menu, label, textarea, select, checkbox, switch, radio group, badge, alert, dialog, sheet, popover, dropdown menu, tooltip, command, combobox, tabs, table, pagination, calendar/date picker, chart, skeleton, progress, spinner, empty, and separator.
@@ -989,7 +991,8 @@ Props: `Root` accepts `items: readonly (string | { value: string; label?: string
 - Pass string items for simple lists. Pass object options when routes need stable ids, display labels, descriptions, group headings, or disabled options.
 - When `name` is provided, `Combobox.Root` renders hidden inputs for native form submission. Single-select renders one hidden input; multi-select renders one hidden input per selected value using the same name.
 - Use `loading` and `loadingText` for async option fetches. Keep the loading copy generic and route-owned; the visual loading state stays in the shared component.
-- `Combobox.Trigger` is the single-select trigger. `Combobox.Chips`, `Combobox.ChipsInput`, and `Combobox.Chip` support chip-style multi-selection.
+- `Combobox.Trigger` opens by ArrowDown, Enter or Space. Popup search (or the option container when search is omitted) receives focus; Arrow keys navigate enabled options, Enter commits the option's value and closes single selection, and Escape dismisses without a value change and returns focus to the trigger. The popup is nonmodal by default: outside interaction dismisses without stealing focus; an explicit Content `trapFocus` override remains available.
+- `Combobox.Chips`, `Combobox.ChipsInput`, and `Combobox.Chip` support chip-style multi-selection. The inline input keeps focus for search and keyboard selection; selected options toggle while the popup stays open, and Escape closes it. One Command context owns both inline input and popup; its DOM element is rendered inside the portal around its options. Do not move the context into Content or add a second Command root.
 - Large lists, async/loading option states, empty states, and keyboard paths must be proven in `docs/component-catalog.md` before route usage.
 - Visual changes belong in shared combobox source only.
 

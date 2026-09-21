@@ -2,6 +2,7 @@
 	import type { Snippet } from 'svelte';
 	import type { Attachment } from 'svelte/attachments';
 	import type { ClassValue } from 'clsx';
+	import ComboboxCommand from './combobox-command.svelte';
 	import * as Command from '$lib/components/ui/command/index.js';
 	import * as Popover from '$lib/components/ui/popover/index.js';
 	import { cn } from '$lib/utils.js';
@@ -43,6 +44,7 @@
 		children
 	}: Props = $props();
 
+	let restoreFocus = true;
 	let search = $state('');
 	let commandValue = $state('');
 	let anchor = $state<HTMLElement | null>(null);
@@ -98,6 +100,12 @@
 		},
 		get open() {
 			return open;
+		},
+		get restoreFocus() {
+			return restoreFocus;
+		},
+		set restoreFocus(next: boolean) {
+			restoreFocus = next;
 		},
 		get items() {
 			return normalizedItems;
@@ -189,6 +197,7 @@
 				return;
 			}
 
+			restoreFocus = false;
 			open = false;
 		}
 
@@ -212,7 +221,9 @@
 	{/if}
 	<Popover.Root bind:open>
 		<Command.Root bind:value={commandValue} {label} loop disableInitialScroll={!autoHighlight}>
-			{@render children?.()}
+			{#snippet child({ props })}
+				<ComboboxCommand {props} {children} />
+			{/snippet}
 		</Command.Root>
 	</Popover.Root>
 </div>

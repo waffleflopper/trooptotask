@@ -63,7 +63,7 @@ The reviewed file is `supabase/migrations/20260921000100_retire_commercial_schem
 sha256sum supabase/migrations/20260921000100_retire_commercial_schema.sql
 ```
 
-The D02 PR head is still uncommitted; the base is `main` at `584af3797dae92c42968d69ab8e6ad279f955836`. Record the final published and integrated SHAs before execution; a branch name is not a release identity. Use the platform's approved migration runner to apply this exact file and record its ledger entry, after separately authorizing the target and reviewing its pending-migration list. Do not use a blanket remote migration command that could apply other pending files. The driver runs no remote command.
+The D02 implementation is committed as `1e24c9e90e8baf984e5636e2130411e0bc14a4f6`, based on `main` at `584af3797dae92c42968d69ab8e6ad279f955836`; subsequent commits carry review records and handoff documentation. Resolve the actual PR head and merged default-branch commit before execution; a branch name is not a release identity. Use the platform's approved migration runner to apply this exact file and record its ledger entry, after separately authorizing the target and reviewing its pending-migration list. Do not use a blanket remote migration command that could apply other pending files. The driver runs no remote command.
 
 Keep [owner-preflight.sql](owner-preflight.sql) as the pre-retirement check. Its count report supports explicit record disposition and its read-only rollback leaves data unchanged. It is expected to refuse the already retired schema; do not rerun it as a post-migration health check or edit it to match the target. After migration, use the [target absence contract](../../../supabase/tests/commercial_schema_retirement.sql) as a review specification, plus owner-approved retained-flow/data checks. The SQL test suite itself uses fixture/extension setup and is authorized only in disposable local projects, not as a production command. Generated schema snapshots are review artifacts, never executable migrations.
 
@@ -85,3 +85,86 @@ The D01 read-only preflight and D02 embedded assertions remain byte-equivalent a
 **After destructive commit:** reversing DDL or redeploying an older binary cannot recreate deleted records. Stop affected traffic/writes and choose a reviewed compatible roll-forward, or restore the verified pre-change backup/PITR into the owner-approved recovery target with its compatible app/config. Account for every write since the restore point (reconciliation/replay, accepted data loss, duplicate side effects and authentication/storage consistency). Unknown recovery compatibility, unverified restore or undispositioned writes block recovery claims and the destructive release. Do not overwrite the live database based on this plan.
 
 D03 verifies integrated repository readiness; phase acceptance never means production cleanup occurred. Actual hosted operations remain **PENDING OWNER EXECUTION** until separately authorized evidence exists.
+
+## Owner command sequence after verified merge
+
+These are **owner-run remote operations**, not commands executed by the agent. Complete the ordered release/recovery prerequisites above first. This sequence was checked against installed Supabase CLI **2.101.0** and its [official CLI reference](https://supabase.com/docs/reference/cli/supabase-db-push). The remote catalog and migration history have not been inspected here.
+
+1. **Use the merged revision in a new worktree.** Replace `MERGED_D02_SHA` with the verified merge commit from the finished PR; choose another unused directory if this one exists. Run subsequent commands from that worktree. No dependency installation, seed loading or local database startup is needed for these operator commands.
+
+   ```bash
+   git fetch origin
+   git worktree add --detach ../trooptotask-d02-migration MERGED_D02_SHA
+   cd ../trooptotask-d02-migration
+   supabase --version
+   sha256sum supabase/migrations/20260921000100_retire_commercial_schema.sql
+   ```
+
+   Require the migration hash `b99723191da90b7276e79b8a40a1d14ac447710d9d7522e2b886a9e6e1f80646`. Confirm the compatible application is deployed and the agreed backup/restore, record disposition and caller/write shutdown are complete.
+
+2. **Select the intended Supabase project.** Replace `YOUR_PROJECT_REF` with its Dashboard project reference, and use interactive authentication/password prompts. Keep secrets out of command arguments and shared logs.
+
+   ```bash
+   supabase login
+   supabase link --project-ref YOUR_PROJECT_REF
+   supabase migration list --linked
+   supabase db push --linked --dry-run
+   ```
+
+   Every earlier local/remote migration version must match, and the **only pending file** must be `20260921000100_retire_commercial_schema.sql`. Otherwise stop and review the discrepancy; do not reset, repair history, remove migration files or add include flags to force progress. If D02 is already recorded as applied, skip execution and investigate its existing result. The CLI has no single-target-version flag here; this pending-list check is essential.
+
+3. **Run the read-only preflight on the same project.** Obtain the host and database username from Dashboard **Connect**, using a direct connection or session pooler on port 5432, not the transaction pooler. Replace `YOUR_HOST`/`YOUR_DB_USER` below; for session pooling the username includes the project reference. Verify it agrees with the project linked above. The database password is entered at the prompt.
+
+   ```bash
+   psql 'host=YOUR_HOST port=5432 dbname=postgres user=YOUR_DB_USER sslmode=require' \
+     -W -X -v ON_ERROR_STOP=1 \
+     -f docs/stabilization/phase-04/owner-preflight.sql
+   ```
+
+   Alternatively use the verified libpq service described above. Require exit zero and review the reported counts against the approved data disposition. The file includes a psql backslash command; do not paste it unchanged into SQL Editor. Keep the controlled maintenance window active. See [Supabase connection guidance](https://supabase.com/docs/guides/database/connecting-to-postgres).
+
+4. **Apply the one reviewed migration.** Recheck that the CLI confirmation lists only the D02 file, then confirm interactively:
+
+   ```bash
+   supabase db push --linked
+   ```
+
+   Do not use `--yes`, `--include-all`, `--include-seed` or `--include-roles`. Use the CLI rather than running the DDL directly in SQL Editor so successful application is recorded in migration history. On any error or interrupted connection, stop and establish actual schema/ledger state before retrying; do not assume commit did or did not happen. See [Supabase migration guidance](https://supabase.com/docs/guides/deployment/database-migrations).
+
+5. **Verify the ledger and target absence.** Both local/remote lists must now include `20260921000100`, and the dry run must report no pending migrations:
+
+   ```bash
+   supabase migration list --linked
+   supabase db push --linked --dry-run
+   ```
+
+   Run the following read-only SQL on that same project using psql or SQL Editor. Expect three zero counts and one ledger row:
+
+   ```sql
+   SELECT 'retired_tables' AS check_name, count(*) AS remaining
+   FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+   WHERE n.nspname = 'public' AND c.relname IN (
+     'organization_billing_snapshots', 'stripe_webhook_events',
+     'organization_checkout_attempts', 'organization_plan_feature_overrides'
+   )
+   UNION ALL
+   SELECT 'retired_columns', count(*) FROM pg_attribute
+   WHERE attrelid = 'public.organizations'::regclass AND NOT attisdropped
+     AND attname IN ('tier', 'stripe_customer_id', 'stripe_subscription_id',
+       'subscription_status', 'current_period_end', 'gift_tier', 'gift_expires_at', 'gifted_by')
+   UNION ALL
+   SELECT 'retired_functions', count(*) FROM pg_proc
+   WHERE pronamespace = 'public'::regnamespace AND proname IN (
+     'cleanup_old_webhook_events', 'get_effective_tier',
+     'record_stripe_webhook_event_attempt', 'record_retryable_stripe_webhook_event_attempt',
+     'upsert_organization_billing_snapshot_if_current',
+     'upsert_organization_billing_snapshot_and_mirror_if_current',
+     'block_invitation_if_member_cap_exceeded', 'list_platform_organization_tier_counts'
+   );
+   SELECT version FROM supabase_migrations.schema_migrations
+   WHERE version = '20260921000100';
+   ```
+
+   These queries check target absence and ledger state, not retained data/behavior by themselves. Do not rerun the old-schema preflight as a health check or run fixture-based SQL tests against the real project.
+
+6. **Verify retained data and flows before resuming traffic.** Compare the privately recorded retained data/identities/relationships, then exercise the Organization/Group, Personnel, Calendar person/Group assignment and edit, invitation/provisioning, auth/MFA/suspension, export/audit checks in the ordered plan. Keep the commands, outputs, migration/app revision and migration hash in private operator evidence. Use the recovery plan above if validation fails; recreating empty tables or reverting the app cannot recover deleted records.

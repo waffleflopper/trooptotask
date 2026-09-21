@@ -1,0 +1,147 @@
+{
+	"candidate": "83af59af36e733352852cd73ddeea85d96b5df8f",
+	"default_branch": "f1ab97a29da954cb71e6bfcd5989944aa012a6c8",
+	"versions": {
+		"node": "v24.18.0",
+		"supabase": "2.101.0",
+		"docker": "Docker version 29.7.2, build a7dcaa6fdb",
+		"python": "Python 3.14.7",
+		"npm": "11.12.1",
+		"postgres": "17.6",
+		"psql": "psql (PostgreSQL) 17.6"
+	},
+	"allocation": {
+		"project": "t3-phase04-01a-final",
+		"workdir": "/tmp/t3-phase04-01a-final/isolated",
+		"ports": [60320, 60321, 60322, 60323, 60324, 60325, 60326, 60327, 60329, 24383],
+		"postgres_image": "17.6.1.155"
+	},
+	"migration_count": 133,
+	"migration_ledger_matches_all_filename_versions": true,
+	"seed_enabled": false,
+	"seed_paths": [],
+	"input_hashes": "replay-inputs.sha256",
+	"sql": {
+		"command": "npm run db:test",
+		"cwd": "/tmp/t3-phase04-01a-final/isolated",
+		"exit": 0,
+		"seconds": 27.0,
+		"suites": 19,
+		"assertions": 367,
+		"pass_results": 19
+	},
+	"sql_suites": [
+		{
+			"file": "supabase/tests/account_setup_claim.sql",
+			"assertions": 24,
+			"result": "PASS"
+		},
+		{
+			"file": "supabase/tests/auth_claim_concurrency.sql",
+			"assertions": 8,
+			"result": "PASS"
+		},
+		{
+			"file": "supabase/tests/auth_workflow_authorization.sql",
+			"assertions": 17,
+			"result": "PASS"
+		},
+		{
+			"file": "supabase/tests/calendar_date_window_indexes.sql",
+			"assertions": 4,
+			"result": "PASS"
+		},
+		{
+			"file": "supabase/tests/calendar_persistence_isolation.sql",
+			"assertions": 36,
+			"result": "PASS"
+		},
+		{
+			"file": "supabase/tests/core_table_rls_isolation.sql",
+			"assertions": 27,
+			"result": "PASS"
+		},
+		{
+			"file": "supabase/tests/critical_tasks_rls_isolation.sql",
+			"assertions": 14,
+			"result": "PASS"
+		},
+		{
+			"file": "supabase/tests/data_export_lifecycle_rls.sql",
+			"assertions": 20,
+			"result": "PASS"
+		},
+		{
+			"file": "supabase/tests/org_ownership_rpc_contract.sql",
+			"assertions": 12,
+			"result": "PASS"
+		},
+		{
+			"file": "supabase/tests/organization_billing_snapshots_rls.sql",
+			"assertions": 8,
+			"result": "PASS"
+		},
+		{
+			"file": "supabase/tests/organization_invitation_acceptance.sql",
+			"assertions": 5,
+			"result": "PASS"
+		},
+		{
+			"file": "supabase/tests/organization_invitation_transitions.sql",
+			"assertions": 32,
+			"result": "PASS"
+		},
+		{
+			"file": "supabase/tests/organization_rank_catalog_rls.sql",
+			"assertions": 22,
+			"result": "PASS"
+		},
+		{
+			"file": "supabase/tests/password_attempt_reconciliation.sql",
+			"assertions": 39,
+			"result": "PASS"
+		},
+		{
+			"file": "supabase/tests/personnel_artifact_rls_group_scope.sql",
+			"assertions": 27,
+			"result": "PASS"
+		},
+		{
+			"file": "supabase/tests/platform_audit_timestamp_index.sql",
+			"assertions": 1,
+			"result": "PASS"
+		},
+		{
+			"file": "supabase/tests/sensitive_rpc_privileges.sql",
+			"assertions": 37,
+			"result": "PASS"
+		},
+		{
+			"file": "supabase/tests/session_timeout_provenance.sql",
+			"assertions": 16,
+			"result": "PASS"
+		},
+		{
+			"file": "supabase/tests/sign_in_rosters_rls_scope.sql",
+			"assertions": 18,
+			"result": "PASS"
+		}
+	],
+	"row_comparison": {
+		"relations": 69,
+		"scope": "all 68 public tables plus auth.users",
+		"before_and_after": "all empty; exact row counts and ordered JSON MD5 digests match",
+		"limitation": "not the populated retained/commercial upgrade baseline owned by 04-01c"
+	},
+	"catalog_classification": "NOT RUN; 04-01b",
+	"type_schema_generation": "NOT RUN; 04-01b",
+	"populated_upgrade": "NOT RUN; 04-01c / D02",
+	"remote_database_access": "NOT RUN; unauthorized",
+	"cleanup": {
+		"command": "supabase stop --workdir /tmp/t3-phase04-01a-final/isolated --project-id t3-phase04-01a-final --no-backup",
+		"exit": 0,
+		"remaining_project_resources": 0,
+		"preexisting_container_identities_and_states_preserved": 36,
+		"readback_note": "Initial checker incorrectly required even previously exited containers to be running; corrected to compare recorded initial state, all pass."
+	}
+}

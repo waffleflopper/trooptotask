@@ -1,0 +1,205 @@
+{
+	"phase": "04",
+	"child": 1309,
+	"task": "04-01c-02",
+	"starting_head": "a0ea0a342a0f01ea8cc284e6bf9afe5da8534e68",
+	"base": "f1ab97a29da954cb71e6bfcd5989944aa012a6c8",
+	"allocation": {
+		"project": "t3-phase04-01c-02",
+		"workdir": "/tmp/t3-phase04-01c-02/isolated",
+		"ports": [60720, 60721, 60722, 60723, 60724, 60725, 60726, 60727, 60729, 24783],
+		"postgres_image": "17.6.1.155"
+	},
+	"versions": {
+		"node": "24.18.0",
+		"npm": "11.12.1",
+		"supabase": "2.101.0",
+		"postgres": "17.6",
+		"image": "17.6.1.155",
+		"docker": "29.7.2",
+		"python": "3.14.7"
+	},
+	"startup": {
+		"exit": 0,
+		"seconds": 29.1
+	},
+	"migration_count": 133,
+	"migration_range": ["20260413001158", "20260920000100"],
+	"immutable_input_hashes_verified": 154,
+	"sql": {
+		"command": "npm run db:test",
+		"cwd": "/tmp/t3-phase04-01c-02/isolated",
+		"exit": 0,
+		"seconds": 28.3,
+		"suites": 20,
+		"assertions": 399,
+		"pass_results": 20
+	},
+	"preflight": {
+		"workdir": "/tmp/t3-phase04-01c-02/isolated",
+		"project": "t3-phase04-01c-02",
+		"database_port": 60722,
+		"populated_preflight": {
+			"status": "CATALOG MATCH ONLY; owner disposition/backup/caller shutdown/recovery still required",
+			"stripe_webhook_events": 1,
+			"organization_billing_snapshots": 1,
+			"organization_checkout_attempts": 1,
+			"organization_commercial_nonnull": {
+				"tier": 3,
+				"gift_tier": 1,
+				"gifted_by": 1,
+				"gift_expires_at": 1,
+				"current_period_end": 1,
+				"stripe_customer_id": 1,
+				"subscription_status": 3,
+				"stripe_subscription_id": 1
+			},
+			"organization_plan_feature_overrides": 1
+		},
+		"rejections": [
+			{
+				"case": "extra overload",
+				"exit": 3,
+				"expected_rejection": true
+			},
+			{
+				"case": "cross-schema view",
+				"exit": 3,
+				"expected_rejection": true
+			},
+			{
+				"case": "body-only caller",
+				"exit": 3,
+				"expected_rejection": true
+			},
+			{
+				"case": "external FK",
+				"exit": 3,
+				"expected_rejection": true
+			},
+			{
+				"case": "table row-type caller",
+				"exit": 3,
+				"expected_rejection": true
+			},
+			{
+				"case": "target column drift",
+				"exit": 3,
+				"expected_rejection": true
+			},
+			{
+				"case": "RPC definition drift",
+				"exit": 3,
+				"expected_rejection": true
+			},
+			{
+				"case": "shared Organization constraint",
+				"exit": 3,
+				"expected_rejection": true
+			},
+			{
+				"case": "Organization expression index",
+				"exit": 3,
+				"expected_rejection": true
+			},
+			{
+				"case": "RLS drift",
+				"exit": 3,
+				"expected_rejection": true
+			},
+			{
+				"case": "scheduled caller",
+				"exit": 3,
+				"expected_rejection": true
+			},
+			{
+				"case": "unreviewed owned sequence",
+				"exit": 3,
+				"expected_rejection": true
+			},
+			{
+				"case": "unreviewed owned rule",
+				"exit": 3,
+				"expected_rejection": true
+			},
+			{
+				"case": "unreviewed extended statistics",
+				"exit": 3,
+				"expected_rejection": true
+			},
+			{
+				"case": "replication consumer",
+				"exit": 3,
+				"expected_rejection": true
+			}
+		],
+		"all_rows_unchanged": true
+	},
+	"complete_catalog_before_after_equal": true,
+	"all_69_relations_before_after_equal": true,
+	"canonical": [
+		{
+			"command": "npm run format",
+			"exit": 0,
+			"seconds": 10.8
+		},
+		{
+			"command": "npm run format:check",
+			"exit": 0,
+			"seconds": 11.3
+		},
+		{
+			"command": "npm run lint",
+			"exit": 0,
+			"seconds": 12.5
+		},
+		{
+			"command": "npm run governance:check",
+			"exit": 0,
+			"seconds": 0.1
+		},
+		{
+			"command": "npm run check",
+			"exit": 0,
+			"seconds": 18.5
+		},
+		{
+			"command": "npm run test",
+			"exit": 0,
+			"seconds": 40.4
+		},
+		{
+			"command": "npm run build",
+			"exit": 0,
+			"seconds": 14.9
+		}
+	],
+	"cleanup": {
+		"command": "supabase stop --workdir /tmp/t3-phase04-01c-02/isolated --project-id t3-phase04-01c-02 --no-backup",
+		"exit": 0,
+		"seconds": 12.3,
+		"owned_remaining": {
+			"container": [],
+			"volume": [],
+			"network": []
+		},
+		"preexisting_containers_unchanged": 36
+	},
+	"artifact_sha256": {
+		"owner-preflight.sql": "e60051859193b7d4d5d97f4bc3f0dc91a48451732da395fb4ed6d58584943807",
+		"owner-preflight.test.py": "064df132fb148c3422a1e8b602f3b0c28e662895ed6b7a30325d888f8281ef62"
+	},
+	"review": "Independent full baseline and preflight/recovery review; automatic-dependent finding fixed and reviewed; no remaining actionable findings.",
+	"limits": [
+		"No retirement migration or post-retirement proof; D02 owns these.",
+		"No remote/existing-local database access.",
+		"No production data disposition, backup/restore, external caller or deployment verification.",
+		"No changed application journey; browser checks not applicable.",
+		"No E2E, runtime bypass, skipped check, source/test/migration deletion or Git publication."
+	],
+	"warnings": [
+		"Existing unused waitFor ESLint warning (zero errors).",
+		"Existing Vite chunk/plugin advisories and optional OpenTelemetry dependency notice."
+	],
+	"raw_receipts": "/tmp/t3-phase04-01c-02"
+}

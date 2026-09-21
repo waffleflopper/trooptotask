@@ -1,0 +1,156 @@
+{
+	"leaf": "04-01c-01",
+	"parent_issue": 1277,
+	"child_issue": 1309,
+	"candidate_head": "68579f22719795ea46ed1fe46cdab6f35592a548",
+	"candidate_scope": "Uncommitted populated baseline artifacts and TODO/EVIDENCE on preserved D01 head",
+	"default_base": "f1ab97a29da954cb71e6bfcd5989944aa012a6c8",
+	"allocation": {
+		"project": "t3-phase04-01c-01",
+		"workdir": "/tmp/t3-phase04-01c-01/isolated",
+		"ports": [60620, 60621, 60622, 60623, 60624, 60625, 60626, 60627, 60629, 24683],
+		"postgres_image": "17.6.1.155"
+	},
+	"versions": {
+		"node": "v24.18.0",
+		"supabase": "2.101.0",
+		"docker": "Docker version 29.7.2, build a7dcaa6fdb",
+		"python": "Python 3.14.7",
+		"npm": "11.12.1",
+		"postgres": "17.6"
+	},
+	"startup": {
+		"exit": 0,
+		"seconds": 31.5
+	},
+	"fixture_load": {
+		"exit": 0,
+		"transaction_committed": true
+	},
+	"migration_chain": {
+		"count": 133,
+		"first": "20260413001158",
+		"last": "20260920000100",
+		"original_input_hashes": "replay-inputs.sha256",
+		"verified_unchanged_inputs": 154
+	},
+	"sql_checks": {
+		"command": "npm run db:test",
+		"cwd": "/tmp/t3-phase04-01c-01/isolated",
+		"exit": 0,
+		"seconds": 27.5,
+		"suites": 20,
+		"assertions": 399,
+		"pass_results": 20
+	},
+	"snapshot": {
+		"relations": 69,
+		"populated_relations": 27,
+		"rows": 56,
+		"all_fields_before_after_equal": true,
+		"existing_suites": 19,
+		"existing_assertions": 367,
+		"new_assertions": 32,
+		"actual_retirement_upgrade": "NOT RUN; D02 owns migration and fresh/upgrade proof"
+	},
+	"controlled_fault": {
+		"command": "supabase test db fault-probe.sql",
+		"exit": 1,
+		"expected_failure": "Personnel Duty Role survives",
+		"rollback_rows_unchanged": true
+	},
+	"cleanup": {
+		"stop_exit": 0,
+		"remaining_owned_resources": {
+			"container": [],
+			"volume": [],
+			"network": []
+		},
+		"preexisting_container_ids_states_unchanged": true,
+		"preexisting_containers": 36,
+		"original_input_hashes_unchanged": 154,
+		"ledger_versions_unchanged": 133
+	},
+	"raw_receipt_directory": "/tmp/t3-phase04-01c-01",
+	"artifact_sha256": {
+		"upgrade-fixture.sql": "3fa9d14b9829a365293c2d6417354d1962645925e4d775c1f61c6d6c2c5617a6",
+		"upgrade-baseline.test.sql": "be35fe23e06a20ce2c5d54abe3cf9cc6186c9e5e3aee7c912eb1606b36d99a24",
+		"upgrade-snapshot.sql": "caff14138b5742c29ed4e55570a824bdf904419aac85357b6681c3ff57824504",
+		"upgrade-baseline.json": "1e3337d59be013938924a3cdb48518a719fd07058dfabafa9ee9f58a519fd04f"
+	},
+	"limitations": [
+		"No owner preflight/recovery or full-child acceptance; 04-01c-02 remains pending",
+		"No production/remote/existing-local-database access",
+		"No runtime behavior change or browser journey run",
+		"No commit/push/PR/merge/deployment",
+		"Stored billing identity retained; existing application tests own page denial"
+	],
+	"canonical_checks": [
+		{
+			"command": "npm run format",
+			"exit": 0,
+			"seconds": 10.8
+		},
+		{
+			"command": "npm run format:check",
+			"exit": 0,
+			"seconds": 10.8
+		},
+		{
+			"command": "npm run lint",
+			"exit": 0,
+			"seconds": 12.1
+		},
+		{
+			"command": "npm run governance:check",
+			"exit": 0,
+			"seconds": 0.1
+		},
+		{
+			"command": "npm run check",
+			"exit": 0,
+			"seconds": 18.2
+		},
+		{
+			"command": "npm run test",
+			"exit": 0,
+			"seconds": 39.3
+		},
+		{
+			"command": "npm run build",
+			"exit": 0,
+			"seconds": 14.9
+		}
+	],
+	"retained_vitest": {
+		"files": 566,
+		"tests": 5181,
+		"exit": 0
+	},
+	"svelte_types": {
+		"errors": 0,
+		"warnings": 0
+	},
+	"offline_overrides": {
+		"PUBLIC_SUPABASE_URL": "http://127.0.0.1:9",
+		"PUBLIC_SUPABASE_ANON_KEY": "synthetic-test-key",
+		"SUPABASE_SERVICE_ROLE_KEY": "synthetic-test-service-key",
+		"build_APP_PUBLIC_ORIGIN": "http://127.0.0.1:19008",
+		"build_ACCOUNT_SETUP_SESSION_SECRET": "synthetic-build-only-session-secret",
+		"environment_handling": "File-defined environment values blanked; no billing/Stripe settings; inherited provider/test-bypass values removed or blanked"
+	},
+	"document_validation": {
+		"relative_links_anchors": 111,
+		"artifact_hashes": true,
+		"raw_snapshot_equivalent": true,
+		"probe_matches_tested_copy": true,
+		"all_whitespace": true,
+		"original_source_preserved": true
+	},
+	"warnings": [
+		"Existing lint unused waitFor warning",
+		"Existing Vite large-chunk advisory",
+		"Vercel adapter unresolved optional @opentelemetry/api dependency advisory",
+		"CLI newer-version notice; pinned 2.101.0 retained"
+	]
+}

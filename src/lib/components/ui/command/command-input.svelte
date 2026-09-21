@@ -23,7 +23,12 @@
 			{...restProps}
 		>
 			{#snippet child({ props })}
-				<InputGroup.Input {...props} bind:value bind:ref />
+				<InputGroup.Input
+					{...props}
+					{...restProps['aria-expanded'] === undefined ? {} : { 'aria-expanded': restProps['aria-expanded'] }}
+					bind:value
+					bind:ref
+				/>
 			{/snippet}
 		</CommandPrimitive.Input>
 		<InputGroup.Addon>

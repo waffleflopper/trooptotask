@@ -1,0 +1,248 @@
+{
+	"task": "04-01b-02",
+	"state": "PASS; aggregate 04-01b complete; D01 IMPLEMENTING",
+	"candidate_head": "5f7e9131558cc10176e7f015d90bc8dded4c675f",
+	"base": "f1ab97a29da954cb71e6bfcd5989944aa012a6c8",
+	"branch": "stabilization/04-d01-schema-inventory",
+	"pr": null,
+	"allocation": {
+		"project": "t3-phase04-01b-02",
+		"workdir": "/tmp/t3-phase04-01b-02/isolated",
+		"ports": [60520, 60521, 60522, 60523, 60524, 60525, 60526, 60527, 60529, 24583],
+		"postgres_image": "17.6.1.155"
+	},
+	"versions": {
+		"node": "v24.18.0",
+		"supabase": "2.101.0",
+		"docker": "Docker version 29.7.2, build a7dcaa6fdb",
+		"python": "Python 3.14.7",
+		"npm": "11.12.1",
+		"postgres": "17.6",
+		"psql": "psql (PostgreSQL) 17.6"
+	},
+	"pg_dump": "pg_dump (PostgreSQL) 17.6",
+	"migration_count": 133,
+	"migration_range": ["20260413001158", "20260920000100"],
+	"inputs_match": 154,
+	"generation_commands": [
+		{
+			"command": [
+				"supabase",
+				"gen",
+				"types",
+				"--local",
+				"--lang",
+				"typescript",
+				"--schema",
+				"public",
+				"--workdir",
+				"/tmp/t3-phase04-01b-02/isolated"
+			],
+			"exit": 0
+		},
+		{
+			"command": [
+				"supabase",
+				"db",
+				"dump",
+				"--local",
+				"--schema",
+				"public",
+				"--workdir",
+				"/tmp/t3-phase04-01b-02/isolated"
+			],
+			"exit": 0
+		},
+		{
+			"command": [
+				"docker",
+				"exec",
+				"-i",
+				"supabase_db_t3-phase04-01b-02",
+				"psql",
+				"-X",
+				"-qAt",
+				"-U",
+				"postgres",
+				"-d",
+				"postgres",
+				"-v",
+				"ON_ERROR_STOP=1"
+			],
+			"exit": 0
+		}
+	],
+	"generation_repeat_commands": [
+		{
+			"command": [
+				"supabase",
+				"gen",
+				"types",
+				"--local",
+				"--lang",
+				"typescript",
+				"--schema",
+				"public",
+				"--workdir",
+				"/tmp/t3-phase04-01b-02/isolated"
+			],
+			"exit": 0
+		},
+		{
+			"command": [
+				"supabase",
+				"db",
+				"dump",
+				"--local",
+				"--schema",
+				"public",
+				"--workdir",
+				"/tmp/t3-phase04-01b-02/isolated"
+			],
+			"exit": 0
+		},
+		{
+			"command": [
+				"docker",
+				"exec",
+				"-i",
+				"supabase_db_t3-phase04-01b-02",
+				"psql",
+				"-X",
+				"-qAt",
+				"-U",
+				"postgres",
+				"-d",
+				"postgres",
+				"-v",
+				"ON_ERROR_STOP=1"
+			],
+			"exit": 0
+		}
+	],
+	"reconciliation": {
+		"schema_function_signatures": 103,
+		"schema_tables": 68,
+		"repeated_artifacts_byte_identical": 3,
+		"all_catalog_sections_equal_prior_baseline": true,
+		"normalization": "Raw comparison: none. Tracked packaging: remove extra EOF linefeeds only.",
+		"tracked_types_and_schema_equal_raw": false,
+		"tracked_types_and_schema_equal_raw_after_eof_packaging": true
+	},
+	"type_reconciliation": {
+		"tables": 68,
+		"columns": 799,
+		"known_type_nullability_matches": true,
+		"unknown_columns": [
+			{
+				"column": "audit_logs.ip_address",
+				"postgres_type": "inet",
+				"not_null": false
+			}
+		],
+		"enums": 4,
+		"enum_values_match": true,
+		"generated_rpc_names": 92,
+		"generated_rpc_signatures": 94,
+		"trigger_functions_omitted_by_generator": [
+			"public.enforce_personnel_document_storage_cap()",
+			"public.sync_user_email_identity_from_auth_user()",
+			"public.prevent_organization_rank_catalog_org_move()",
+			"public.touch_dashboard_config_updated_at()",
+			"public.training_views_set_updated_at()",
+			"public.update_updated_at_column()",
+			"public.update_updated_at()",
+			"public.user_org_preferences_set_updated_at()",
+			"public.confirm_password_change_attempt()"
+		],
+		"views": 0
+	},
+	"db_checks": {
+		"command": "npm run db:test",
+		"cwd": "/tmp/t3-phase04-01b-02/isolated",
+		"exit": 0,
+		"seconds": 26.8,
+		"suites": 19,
+		"assertions": 367,
+		"pass_results": 19
+	},
+	"post_generation_preservation": {
+		"unchanged_table_digests": 69,
+		"unchanged_input_hashes": 154
+	},
+	"canonical_checks": [
+		{
+			"command": "npm run format",
+			"exit": 0,
+			"seconds": 11.2
+		},
+		{
+			"command": "npm run format:check",
+			"exit": 0,
+			"seconds": 10.8
+		},
+		{
+			"command": "npm run lint",
+			"exit": 0,
+			"seconds": 12.6
+		},
+		{
+			"command": "npm run governance:check",
+			"exit": 0,
+			"seconds": 0.1
+		},
+		{
+			"command": "npm run check",
+			"exit": 0,
+			"seconds": 18.5
+		},
+		{
+			"command": "npm run test",
+			"exit": 0,
+			"seconds": 41.3
+		},
+		{
+			"command": "npm run build",
+			"exit": 0,
+			"seconds": 15.9
+		}
+	],
+	"standalone_types_check": {
+		"command": "./node_modules/.bin/tsc --noEmit --strict --target ES2022 --module NodeNext --moduleResolution NodeNext --types node docs/stabilization/phase-04/database-baseline.types.ts",
+		"exit": 0
+	},
+	"retained_test_files": 566,
+	"retained_tests": 5181,
+	"svelte_errors": 0,
+	"svelte_warnings": 0,
+	"cleanup": {
+		"cleanup_exit": 0,
+		"owned_resources_remaining": 0,
+		"preexisting_containers_unchanged": 36
+	},
+	"artifact_sha256": {
+		"generate-artifacts.py": "a6ae964c56f4130f8a0164b9ed04a480366dee7b3e4860bf821b2eb2158b9e01",
+		"database-baseline.types.ts": "4c8412c8827bc5d4eb97bbd09823c3f4463cf94250fd117e1217a8c65a55643b",
+		"schema-baseline.sql": "77252046088db69d48497efc8ce181f57b90fdccf012466d276774fea9b74b20",
+		"catalog.sql": "dda6421aff26e35f521cf798490d4ddc351a9108dfec5b1ce0f420c8a3871489",
+		"catalog-baseline.json": "cf1a089cb85615b7bbd6f1a5da33f881a143aee0a3726063d038ddf9e40956ed",
+		"replay-inputs.sha256": "d30c87bd962d25406a9c944b366f0b9d2eecda92898d603e0e5bd7f2b1c4f96d"
+	},
+	"warnings": [
+		"Existing unused waitFor lint warning",
+		"Existing chunk/plugin and optional @opentelemetry/api build diagnostics",
+		"Supabase newer-version notice; CLI remains pinned at 2.101.0"
+	],
+	"not_run": [
+		"Populated upgrade baseline/preflight/full-child acceptance (04-01c)",
+		"Schema retirement/fresh and upgraded target generation (D02)",
+		"Remote or existing local database access",
+		"Browser/E2E (no changed user journey)"
+	],
+	"raw_receipts": "/tmp/t3-phase04-01b-02",
+	"raw_artifact_sha256": {
+		"database-baseline.types.ts": "1df8b07417866b9a0dc8d9285cafba1ecbd06191c29255965371ec0e8aeaab90",
+		"schema-baseline.sql": "e62acc045939e1254662f282bdd2c75656fcb69b3ab408e02e01a773970fd4d3",
+		"catalog.json": "3cc75a54b753c02ef31842c44e693e1d2fa6b61ea00f784a0b78ed8e83cf1be9"
+	}
+}

@@ -42,10 +42,14 @@
 </script>
 
 <div class="relative w-full max-w-lg">
-	<Command.Root class="h-auto bg-transparent p-0 shadow-none">
+	<Command.Root
+		label="Search platform admin records"
+		shouldFilter={false}
+		class="h-auto overflow-visible bg-transparent p-0 shadow-none"
+	>
 		<Command.Input
 			id="platform-admin-search"
-			aria-label="Search platform admin records"
+			aria-expanded={isOpen}
 			placeholder="Search users or organizations..."
 			bind:value={query}
 			oninput={handleInput}
@@ -54,51 +58,57 @@
 			}}
 			onblur={close}
 		/>
+
+		{#if isOpen}
+			<div
+				class="absolute top-[calc(100%+0.375rem)] right-0 left-0 z-50 max-h-[22rem] min-h-48 overflow-hidden rounded-xl border bg-popover p-1 text-popover-foreground shadow-lg"
+			>
+				<Command.List class="max-h-[21.5rem]">
+					{#snippet child({ props })}
+						<Command.Viewport {...props}>
+							{#if loading}
+								<Command.Loading>
+									<span class="flex items-center gap-2 px-2 py-2 text-sm text-muted-foreground"
+										><Spinner /> Searching</span
+									>
+								</Command.Loading>
+							{/if}
+
+							{#if results.users.length > 0}
+								<Command.Group heading="Users">
+									{#each results.users as user (user.id)}
+										<Command.LinkItem href="/admin/users/{user.id}">
+											<span class="grid min-w-0 flex-1">
+												<span class="truncate font-medium">{user.email}</span>
+												<span class="truncate text-xs text-muted-foreground">
+													{user.orgCount} org{user.orgCount === 1 ? '' : 's'}
+												</span>
+											</span>
+										</Command.LinkItem>
+									{/each}
+								</Command.Group>
+							{/if}
+
+							{#if results.organizations.length > 0}
+								<Command.Group heading="Organizations">
+									{#each results.organizations as org (org.id)}
+										<Command.LinkItem href="/admin/organizations/{org.id}">
+											<span class="grid min-w-0 flex-1">
+												<span class="truncate font-medium">{org.name}</span>
+												<span class="truncate text-xs text-muted-foreground">{org.personnelCount} personnel</span>
+											</span>
+										</Command.LinkItem>
+									{/each}
+								</Command.Group>
+							{/if}
+
+							{#if !loading && !hasResults}
+								<Command.Empty>No admin records found.</Command.Empty>
+							{/if}
+						</Command.Viewport>
+					{/snippet}
+				</Command.List>
+			</div>
+		{/if}
 	</Command.Root>
-
-	{#if isOpen}
-		<Command.Root
-			class="absolute top-[calc(100%+0.375rem)] right-0 left-0 z-50 max-h-[22rem] min-h-48 border shadow-lg"
-		>
-			<Command.List class="max-h-[21.5rem]">
-				{#if loading}
-					<Command.Loading>
-						<span class="flex items-center gap-2 px-2 py-2 text-sm text-muted-foreground"><Spinner /> Searching</span>
-					</Command.Loading>
-				{/if}
-
-				{#if results.users.length > 0}
-					<Command.Group heading="Users">
-						{#each results.users as user (user.id)}
-							<Command.LinkItem href="/admin/users/{user.id}">
-								<span class="grid min-w-0 flex-1">
-									<span class="truncate font-medium">{user.email}</span>
-									<span class="truncate text-xs text-muted-foreground">
-										{user.orgCount} org{user.orgCount === 1 ? '' : 's'}
-									</span>
-								</span>
-							</Command.LinkItem>
-						{/each}
-					</Command.Group>
-				{/if}
-
-				{#if results.organizations.length > 0}
-					<Command.Group heading="Organizations">
-						{#each results.organizations as org (org.id)}
-							<Command.LinkItem href="/admin/organizations/{org.id}">
-								<span class="grid min-w-0 flex-1">
-									<span class="truncate font-medium">{org.name}</span>
-									<span class="truncate text-xs text-muted-foreground">{org.personnelCount} personnel</span>
-								</span>
-							</Command.LinkItem>
-						{/each}
-					</Command.Group>
-				{/if}
-
-				{#if !loading && !hasResults}
-					<Command.Empty>No admin records found.</Command.Empty>
-				{/if}
-			</Command.List>
-		</Command.Root>
-	{/if}
 </div>

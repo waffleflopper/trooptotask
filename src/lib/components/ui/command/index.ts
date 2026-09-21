@@ -1,3 +1,4 @@
+import { Command as CommandPrimitive } from 'bits-ui';
 import Root from './command.svelte';
 import Loading from './command-loading.svelte';
 import Dialog from './command-dialog.svelte';
@@ -10,6 +11,8 @@ import Separator from './command-separator.svelte';
 import Shortcut from './command-shortcut.svelte';
 import LinkItem from './command-link-item.svelte';
 
+const Viewport = CommandPrimitive.Viewport;
+
 export {
 	Root,
 	Dialog,
@@ -19,6 +22,7 @@ export {
 	LinkItem,
 	Input,
 	List,
+	Viewport,
 	Separator,
 	Shortcut,
 	Loading,
@@ -31,6 +35,7 @@ export {
 	LinkItem as CommandLinkItem,
 	Input as CommandInput,
 	List as CommandList,
+	Viewport as CommandViewport,
 	Separator as CommandSeparator,
 	Shortcut as CommandShortcut,
 	Loading as CommandLoading

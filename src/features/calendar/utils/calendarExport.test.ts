@@ -83,15 +83,13 @@ function makeOverlappingExportOptions() {
 			id: 'leave',
 			name: 'Leave',
 			color: '#fde68a',
-			textColor: '#111827',
-			da6TreatmentReviewed: true
+			textColor: '#111827'
 		},
 		{
 			id: 'school',
 			name: 'School',
 			color: '#16a34a',
-			textColor: '#ffffff',
-			da6TreatmentReviewed: true
+			textColor: '#ffffff'
 		}
 	];
 	const availabilityEntries: AvailabilityEntry[] = [

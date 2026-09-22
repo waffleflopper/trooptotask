@@ -1,7 +1,6 @@
 import { getDefaultFederalHolidays } from '$features/calendar/utils/federalHolidays';
 import { fail } from '$lib/server/core/errors';
 import { sanitizeString } from '$lib/server/validation';
-import type { Da6AvailabilityTreatment } from '$lib/types';
 import { buildDefaultRankCatalogSeeds } from './rankCatalog';
 import type { OrganizationRankCatalogSource, OrganizationRankCatalogEntry } from './rankCatalog';
 
@@ -20,8 +19,6 @@ export interface OrgProvisioningStatusTypeSeed {
 	color: string;
 	textColor: string;
 	sortOrder: number;
-	da6AvailabilityTreatment?: Da6AvailabilityTreatment | null;
-	da6TreatmentReviewed?: boolean;
 }
 
 export interface OrgProvisioningAssignmentTypeSeed {
@@ -73,57 +70,43 @@ const DEFAULT_STATUS_TYPES: OrgProvisioningStatusTypeSeed[] = [
 		name: 'Leave',
 		color: '#48bb78',
 		textColor: '#ffffff',
-		sortOrder: 0,
-		da6AvailabilityTreatment: 'authorized-absence',
-		da6TreatmentReviewed: true
+		sortOrder: 0
 	},
 	{
 		name: 'School',
 		color: '#4299e1',
 		textColor: '#ffffff',
-		sortOrder: 1,
-		da6AvailabilityTreatment: 'authorized-absence',
-		da6TreatmentReviewed: true
+		sortOrder: 1
 	},
 	{
 		name: 'Training / TDY',
 		color: '#9f7aea',
 		textColor: '#ffffff',
-		sortOrder: 2,
-		da6AvailabilityTreatment: 'authorized-absence',
-		da6TreatmentReviewed: true
+		sortOrder: 2
 	},
 	{
 		name: 'Appointment',
 		color: '#ed8936',
 		textColor: '#ffffff',
-		sortOrder: 3,
-		da6AvailabilityTreatment: null,
-		da6TreatmentReviewed: true
+		sortOrder: 3
 	},
 	{
 		name: 'Sick',
 		color: '#e53e3e',
 		textColor: '#ffffff',
-		sortOrder: 4,
-		da6AvailabilityTreatment: 'authorized-absence',
-		da6TreatmentReviewed: true
+		sortOrder: 4
 	},
 	{
 		name: 'Other Duty / Detail',
 		color: '#a0522d',
 		textColor: '#ffffff',
-		sortOrder: 5,
-		da6AvailabilityTreatment: 'other-duty',
-		da6TreatmentReviewed: true
+		sortOrder: 5
 	},
 	{
 		name: 'CQ/SD',
 		color: '#dc2626',
 		textColor: '#ffffff',
-		sortOrder: 6,
-		da6AvailabilityTreatment: 'other-duty',
-		da6TreatmentReviewed: true
+		sortOrder: 6
 	}
 ];
 

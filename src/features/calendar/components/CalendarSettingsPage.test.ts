@@ -69,8 +69,7 @@ describe('CalendarSettingsPage', () => {
 			id: 'created-status',
 			name: 'Created status',
 			color: '#4a4a47',
-			textColor: '#f8f7f4',
-			da6TreatmentReviewed: true
+			textColor: '#f8f7f4'
 		});
 		statusTypesStoreMock.update.mockResolvedValue(true);
 		statusTypesStoreMock.remove.mockResolvedValue(true);
@@ -129,40 +128,18 @@ describe('CalendarSettingsPage', () => {
 		expect(screen.queryByText('Access restricted.')).toBeNull();
 	});
 
-	it('surfaces DA6 duty roster treatment controls for status types', async () => {
-		statusTypesStoreMock.items = [
-			{
-				id: 'leave',
-				name: 'Leave',
-				color: '#48bb78',
-				textColor: '#ffffff',
-				da6AvailabilityTreatment: 'authorized-absence',
-				da6TreatmentReviewed: true
-			}
-		];
-
+	it('creates an ordinary Calendar status and closes the successful form', async () => {
 		render(CalendarSettingsPage);
-
-		expect(screen.getByText('Authorized absence (unavailable, nonchargeable)')).toBeTruthy();
-
 		await fireEvent.click(screen.getByRole('button', { name: 'Add new' }));
-
-		const dialog = screen.getByRole('dialog');
-		const nameInput = within(dialog).getByLabelText('Status name');
-		await fireEvent.input(nameInput, { target: { value: 'Detail' } });
-
-		const treatmentSelect = within(dialog).getByLabelText('Duty roster treatment');
-		(treatmentSelect as HTMLSelectElement).value = 'other-duty';
-		await fireEvent.change(treatmentSelect);
-
+		const dialog = screen.getByRole('dialog', { name: 'Add Status Type' });
+		await fireEvent.input(within(dialog).getByLabelText('Status name'), { target: { value: ' Detail ' } });
 		await fireEvent.click(within(dialog).getByRole('button', { name: 'Add Status Type' }));
-
-		expect(statusTypesStoreMock.add).toHaveBeenCalledWith(
-			expect.objectContaining({
-				name: 'Detail',
-				da6AvailabilityTreatment: 'other-duty'
-			})
-		);
+		expect(statusTypesStoreMock.add).toHaveBeenCalledWith({
+			name: 'Detail',
+			color: '#4a4a47',
+			textColor: '#f8f7f4'
+		});
+		expect(screen.queryByRole('dialog', { name: 'Add Status Type' })).toBeNull();
 	});
 
 	it('blocks accidental close affordances once an add-status form is dirty but keeps Cancel explicit', async () => {
@@ -188,81 +165,6 @@ describe('CalendarSettingsPage', () => {
 		expect(reopenedName.value).toBe('');
 	});
 
-	it('guides admins to review existing status types without a DA6 treatment', () => {
-		statusTypesStoreMock.items = [
-			{
-				id: 'annual-leave',
-				name: 'Annual Leave',
-				color: '#48bb78',
-				textColor: '#ffffff',
-				da6AvailabilityTreatment: null,
-				da6TreatmentReviewed: false
-			},
-			{
-				id: 'detail',
-				name: 'Detail',
-				color: '#c47f00',
-				textColor: '#0e0e0d',
-				da6AvailabilityTreatment: null,
-				da6TreatmentReviewed: false
-			},
-			{
-				id: 'tdy',
-				name: 'TDY',
-				color: '#2f5d75',
-				textColor: '#ffffff',
-				da6AvailabilityTreatment: 'other-duty',
-				da6TreatmentReviewed: true
-			},
-			{
-				id: 'appointment',
-				name: 'Appointment',
-				color: '#ed8936',
-				textColor: '#ffffff',
-				da6AvailabilityTreatment: null,
-				da6TreatmentReviewed: true
-			}
-		];
-
-		render(CalendarSettingsPage);
-
-		const review = screen.getByRole('region', { name: 'DA6 treatment review' });
-		expect(within(review).getByText('Confirm statuses with no DA6 effect')).toBeTruthy();
-		expect(
-			within(review).getByText(
-				'These status types are excluded from DA Form 6 rosters unless you edit them and assign a duty roster treatment.'
-			)
-		).toBeTruthy();
-		expect(within(review).getByText('2 need review')).toBeTruthy();
-		expect(within(review).getByText('Annual Leave')).toBeTruthy();
-		expect(within(review).getByText('Detail')).toBeTruthy();
-		expect(within(review).queryByText('TDY')).toBeNull();
-		expect(within(review).queryByText('Appointment')).toBeNull();
-		expect(statusTypesStoreMock.update).not.toHaveBeenCalled();
-	});
-
-	it('lets admins mark no-effect DA6 status types as reviewed without assigning a treatment', async () => {
-		statusTypesStoreMock.items = [
-			{
-				id: 'appointment',
-				name: 'Appointment',
-				color: '#ed8936',
-				textColor: '#ffffff',
-				da6AvailabilityTreatment: null,
-				da6TreatmentReviewed: false
-			}
-		];
-
-		render(CalendarSettingsPage);
-
-		await fireEvent.click(screen.getByRole('button', { name: 'Confirm Appointment has no DA6 effect' }));
-
-		expect(statusTypesStoreMock.update).toHaveBeenCalledWith('appointment', {
-			da6AvailabilityTreatment: null,
-			da6TreatmentReviewed: true
-		});
-	});
-
 	it('keeps the add-status dialog open when creation fails', async () => {
 		statusTypesStoreMock.add.mockResolvedValueOnce(null);
 		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
@@ -284,9 +186,7 @@ describe('CalendarSettingsPage', () => {
 				id: 'leave',
 				name: 'Leave',
 				color: '#48bb78',
-				textColor: '#ffffff',
-				da6AvailabilityTreatment: null,
-				da6TreatmentReviewed: true
+				textColor: '#ffffff'
 			}
 		];
 		statusTypesStoreMock.update.mockResolvedValueOnce(false);
@@ -309,9 +209,7 @@ describe('CalendarSettingsPage', () => {
 				id: 'leave',
 				name: 'Leave',
 				color: '#48bb78',
-				textColor: '#ffffff',
-				da6AvailabilityTreatment: null,
-				da6TreatmentReviewed: true
+				textColor: '#ffffff'
 			}
 		];
 		statusTypesStoreMock.remove.mockResolvedValueOnce(false);

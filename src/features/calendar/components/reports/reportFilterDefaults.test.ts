@@ -22,8 +22,8 @@ const personnel: Personnel[] = [
 ];
 
 const statusTypes: StatusType[] = [
-	{ id: 'leave', name: 'Leave', color: '#48bb78', textColor: '#ffffff', da6TreatmentReviewed: true },
-	{ id: 'tdy', name: 'TDY', color: '#9f7aea', textColor: '#ffffff', da6TreatmentReviewed: true }
+	{ id: 'leave', name: 'Leave', color: '#48bb78', textColor: '#ffffff' },
+	{ id: 'tdy', name: 'TDY', color: '#9f7aea', textColor: '#ffffff' }
 ];
 
 const groups = [

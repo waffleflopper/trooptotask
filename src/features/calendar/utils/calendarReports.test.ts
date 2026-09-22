@@ -29,8 +29,8 @@ function availability(overrides: Partial<AvailabilityEntry>): AvailabilityEntry 
 }
 
 const statusTypes: StatusType[] = [
-	{ id: 'leave', name: 'Leave', color: '#2563eb', textColor: '#ffffff', da6TreatmentReviewed: true },
-	{ id: 'school', name: 'School', color: '#16a34a', textColor: '#ffffff', da6TreatmentReviewed: true }
+	{ id: 'leave', name: 'Leave', color: '#2563eb', textColor: '#ffffff' },
+	{ id: 'school', name: 'School', color: '#16a34a', textColor: '#ffffff' }
 ];
 
 describe('computeAvailabilityForecast', () => {

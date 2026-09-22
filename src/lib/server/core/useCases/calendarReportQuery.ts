@@ -28,6 +28,7 @@ export async function fetchCalendarReportData(ctx: QueryWithRawStorePorts): Prom
 			}
 		),
 		ctx.store.findMany<Record<string, unknown>>('status_types', orgId, undefined, {
+			select: StatusTypeEntity.select,
 			orderBy: [{ column: 'sort_order', ascending: true }]
 		}),
 		ctx.rawStore.findMany<Record<string, unknown>>('groups', orgId, undefined, {

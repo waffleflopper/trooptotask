@@ -87,8 +87,10 @@
 		<Button href={`/org/${orgUrlSegment}/calendar`} size="sm">View calendar</Button>
 	</div>
 {:else}
-	<div class="flex min-h-[600px] overflow-hidden rounded-md border border-border bg-background">
-		<aside class="flex w-[260px] shrink-0 flex-col border-r border-border bg-muted/30">
+	<div class="flex min-h-[600px] flex-col overflow-hidden rounded-md border border-border bg-background lg:flex-row">
+		<aside
+			class="flex w-full shrink-0 flex-col border-b border-border bg-muted/30 lg:w-[260px] lg:border-r lg:border-b-0"
+		>
 			<div class="flex items-center gap-2 border-b border-border px-5 py-4">
 				<Settings class="size-4 text-muted-foreground" />
 				<h2 class="text-sm font-semibold tracking-tight">Calendar Settings</h2>
@@ -131,16 +133,21 @@
 			</div>
 		</aside>
 
-		<main class="flex flex-1 flex-col overflow-hidden">
-			<div class="flex items-center justify-between border-b border-border px-6 py-4">
+		<main class="flex min-w-0 flex-1 flex-col overflow-hidden">
+			<div class="flex flex-wrap items-center justify-between gap-4 border-b border-border px-6 py-4">
 				<div>
 					<h3 class="text-base font-semibold">{activeSectionDef.label}</h3>
 					<p class="text-sm text-muted-foreground">{activeSectionDef.description}</p>
 				</div>
-				<div class="flex items-center gap-2">
-					<div class="relative">
+				<div class="flex min-w-0 flex-wrap items-center gap-2">
+					<div class="relative min-w-0">
 						<Search class="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-						<Input type="text" placeholder="Filter..." class="h-8 w-48 pl-8 text-sm" bind:value={searchQuery} />
+						<Input
+							type="text"
+							placeholder="Filter..."
+							class="h-8 w-48 max-w-full pl-8 text-sm"
+							bind:value={searchQuery}
+						/>
 					</div>
 					{#if canMutate}
 						<Button size="sm" class="gap-1.5" onclick={openAddForActiveSection}>
